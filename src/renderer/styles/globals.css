@@ -5,6 +5,15 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@custom-variant motion-reduce {
+  @media (prefers-reduced-motion: reduce) {
+    @slot;
+  }
+  &:where([data-reduced-motion="true"] *) {
+    @slot;
+  }
+}
+
 /*
  * Compact-header state: viewport below md OR sidebar collapsed
  * (sidebar-wrapper reports data-state="collapsed"; mobile is folded into
@@ -210,6 +219,21 @@
   --window-chrome-safe-area-trailing: 112px;
 }
 
+/* Fullscreen hides desktop caption controls but retains the Motrix menu and app
+   actions. Release only the trailing safe area; the leading 160px still keeps
+   compact PanelShell content clear of menu/sidebar/add-task controls. The
+   macOS desktop-controls mode previews the same behavior. */
+.platform-linux.window-main
+.electron-window-chrome:has(.window-chrome[data-fullscreen="true"]),
+.platform-darwin.window-main
+  .electron-window-chrome.preview-desktop-window-controls:has(
+    .window-chrome[data-fullscreen="true"]
+  ),
+.platform-win32.window-main
+  .electron-window-chrome:has(.window-chrome[data-fullscreen="true"]) {
+  --window-chrome-safe-area-trailing: 24px;
+}
+
 @media (width >= 48rem) {
   .electron-window-chrome.group\/sidebar-wrapper[data-state="expanded"]
     .panel-action-align-visual-end {
@@ -279,17 +303,29 @@
   }
 }
 
-/*
- * The native Liquid Glass view sits behind the onboarding renderer. Keep the
- * legal card opaque for contrast and use one quiet tint across the window.
- */
+[data-slot="onboarding-surface"] {
+  --onboarding-highlight-color: #171717;
+  --onboarding-highlight-text-color: #fff;
+}
+
+.dark [data-slot="onboarding-surface"] {
+  --onboarding-highlight-color: var(--primary);
+  --onboarding-highlight-text-color: var(--primary-foreground);
+}
+
+/* Keep the light onboarding surface opaque so Liquid Glass and the desktop
+   behind it cannot introduce a wallpaper-dependent gray cast. */
 .platform-darwin.window-onboarding [data-slot="onboarding-surface"] {
-  background-color: rgb(247 247 248 / 72%);
+  background-color: #f7f7f8;
+}
+
+.dark.platform-darwin.window-onboarding [data-slot="onboarding-surface"] {
+  background-color: rgb(22 22 23 / 76%);
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .platform-darwin.window-onboarding [data-slot="onboarding-surface"] {
-    background-color: #f7f7f8;
+  .dark.platform-darwin.window-onboarding [data-slot="onboarding-surface"] {
+    background-color: #161617;
   }
 }
 
@@ -318,6 +354,29 @@
 }
 .dark.platform-darwin.window-main [data-slot="sidebar-wrapper"] {
   background-color: oklch(0.205 0 0 / 0.55);
+}
+
+/* A shallow etched groove stays quiet over both glass and vibrancy. */
+.platform-darwin.window-main
+  [data-slot="sidebar-inner"]
+  [data-sidebar="separator"] {
+  background-color: rgb(0 0 0 / 9%);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 14%);
+}
+.platform-darwin.window-main:where(.dark)
+  [data-slot="sidebar-inner"]
+  [data-sidebar="separator"] {
+  background-color: rgb(0 0 0 / 16%);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 4%);
+}
+
+@media (prefers-contrast: more), (forced-colors: active) {
+  .platform-darwin.window-main
+    [data-slot="sidebar-inner"]
+    [data-sidebar="separator"] {
+    background-color: var(--sidebar-border);
+    box-shadow: none;
+  }
 }
 .platform-darwin.window-main [data-slot="sidebar-inner"] {
   background-color: transparent;
@@ -384,6 +443,11 @@
   100% {
     opacity: 0;
   }
+}
+
+html[data-reduced-motion="true"] .status-dot[data-pulse="true"]::after {
+  animation: none;
+  opacity: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -505,7 +569,11 @@ body.is-dashboard-resizing * {
 
 .blur-highlight[data-highlight-direction="left"] .blur-highlight-bit {
   background-image:
-    linear-gradient(to right, white 0 50%, currentColor 50% 100%),
+    linear-gradient(
+      to right,
+      var(--blur-highlight-text-color) 0 50%,
+      currentColor 50% 100%
+    ),
     linear-gradient(var(--blur-highlight-color), var(--blur-highlight-color));
   background-position:
     100% center,
@@ -527,7 +595,11 @@ body.is-dashboard-resizing * {
 
 .blur-highlight[data-highlight-direction="right"] .blur-highlight-bit {
   background-image:
-    linear-gradient(to right, currentColor 0 50%, white 50% 100%),
+    linear-gradient(
+      to right,
+      currentColor 0 50%,
+      var(--blur-highlight-text-color) 50% 100%
+    ),
     linear-gradient(var(--blur-highlight-color), var(--blur-highlight-color));
   background-position:
     0% center,
@@ -549,7 +621,11 @@ body.is-dashboard-resizing * {
 
 .blur-highlight[data-highlight-direction="top"] .blur-highlight-bit {
   background-image:
-    linear-gradient(to bottom, white 0 50%, currentColor 50% 100%),
+    linear-gradient(
+      to bottom,
+      var(--blur-highlight-text-color) 0 50%,
+      currentColor 50% 100%
+    ),
     linear-gradient(var(--blur-highlight-color), var(--blur-highlight-color));
   background-position:
     center 100%,
@@ -571,7 +647,11 @@ body.is-dashboard-resizing * {
 
 .blur-highlight[data-highlight-direction="bottom"] .blur-highlight-bit {
   background-image:
-    linear-gradient(to bottom, currentColor 0 50%, white 50% 100%),
+    linear-gradient(
+      to bottom,
+      currentColor 0 50%,
+      var(--blur-highlight-text-color) 50% 100%
+    ),
     linear-gradient(var(--blur-highlight-color), var(--blur-highlight-color));
   background-position:
     center 0%,
@@ -600,5 +680,42 @@ body.is-dashboard-resizing * {
 
   .blur-highlight-bit {
     transition: none;
+  }
+}
+
+/* Keep animation completion events while removing visible motion. */
+/* biome-ignore-start lint/complexity/noImportantStyles: The accessibility preference overrides inline timings and animation utilities. */
+html[data-reduced-motion="true"],
+html[data-reduced-motion="true"] *,
+html[data-reduced-motion="true"] *::before,
+html[data-reduced-motion="true"] *::after {
+  animation-delay: 0s !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-delay: 0s !important;
+  transition-duration: 0s !important;
+  scroll-behavior: auto !important;
+}
+/* biome-ignore-end lint/complexity/noImportantStyles: The accessibility preference overrides inline timings and animation utilities. */
+
+/* Browser chrome includes the same Logo and primary controls as desktop. */
+.web-window-chrome {
+  --window-chrome-safe-area-leading: 160px;
+  --window-chrome-safe-area-trailing: 24px;
+}
+
+@media (width < 640px) {
+  .web-window-chrome [data-slot="panel-shell-header"],
+  .electron-window-chrome [data-slot="panel-shell-header"] {
+    padding-block-start: 44px;
+    padding-inline: 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+@media (pointer: coarse) and (width < 640px) {
+  .web-window-chrome [data-slot="panel-shell-header"],
+  .electron-window-chrome [data-slot="panel-shell-header"] {
+    padding-block-start: 56px;
   }
 }

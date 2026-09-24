@@ -80,7 +80,7 @@ export function ActivityTile({
             className="flex shrink-0 items-center justify-between gap-2 pt-1 text-[9px] leading-3 text-muted-foreground"
           >
             <span className="min-w-0 truncate">
-              {statusMessages.join(' · ')}
+              {statusMessages.join('; ')}
             </span>
             {activity.status === 'stale' ? (
               <Button

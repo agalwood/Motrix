@@ -1,14 +1,10 @@
 // src/renderer/routes/dashboard/tiles/speed-tile.tsx
-import { type ChartConfig, ChartContainer } from '@renderer/components/ui/chart'
-import {
-  chartCeiling,
-  formatSpeed,
-  normalizeSpeedHistory,
-} from '@renderer/lib/speed-chart'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
+import { chartCeiling, SPEED_CHART_MIN_POINTS } from '@renderer/lib/speed-chart'
 import { cn } from '@renderer/lib/utils'
 import type { SpeedPoint } from '@shared/types/stats'
 import { useTranslation } from 'react-i18next'
-import { Area, AreaChart, YAxis } from 'recharts'
+import { SpeedSparkline } from '../components/speed-sparkline'
 import { TileShell } from '../components/tile-shell'
 import { TileTitle } from '../components/tile-title'
 import type { DashboardTileViewport } from '../layout/dashboard-registry'
@@ -20,17 +16,14 @@ export interface SpeedTileProps {
   className?: string
 }
 
-const CHART_CONFIG: ChartConfig = {
-  up: { label: 'Up', color: 'hsl(var(--chart-2))' },
-  down: { label: 'Down', color: 'hsl(var(--chart-1))' },
-}
-
 export function SpeedTile({
   kind,
   history,
   viewport,
   className,
 }: SpeedTileProps) {
+  const { formatSpeed } = useByteFormat()
+
   const { t } = useTranslation()
   const dataKey = kind
   const current = history.at(-1)?.[dataKey] ?? 0
@@ -39,10 +32,9 @@ export function SpeedTile({
   const showPeak =
     viewport.contentLevel === 'detailed' || viewport.contentLevel === 'focus'
   const focus = viewport.contentLevel === 'focus'
-  const chartData = normalizeSpeedHistory(history)
+  // Keep the scale anchored to retained history while recent samples roll by.
   const visibleMax = Math.max(peak, current)
   const chartMax = chartCeiling(visibleMax)
-  const chartMin = -chartMax / 7
   const scaleMax = visibleMax > 0 ? chartMax : 0
   const scaleValues = focus
     ? [
@@ -73,7 +65,7 @@ export function SpeedTile({
         <div
           data-testid="speed-scale"
           className={cn(
-            'pointer-events-none absolute top-0 right-0 z-10 flex flex-col items-end justify-between text-right text-[11px] leading-none text-muted-foreground/45 tabular-nums',
+            'pointer-events-none absolute top-0 right-0 z-10 flex flex-col items-end justify-between text-right text-[11px] leading-none text-muted-foreground/45',
             showPeak ? 'bottom-10' : 'bottom-4'
           )}
         >
@@ -83,7 +75,7 @@ export function SpeedTile({
         </div>
       )}
       {showPeak ? (
-        <span className="pointer-events-none absolute right-0 bottom-3 z-10 text-[11px] leading-none text-muted-foreground/55 tabular-nums">
+        <span className="pointer-events-none absolute right-0 bottom-3 z-10 text-[11px] leading-none text-muted-foreground/55">
           {t('panel.dashboard.speed.peak', { value: formatSpeed(peak) })}
         </span>
       ) : null}
@@ -100,31 +92,12 @@ export function SpeedTile({
               : '-top-10'
         )}
       >
-        <ChartContainer
-          config={CHART_CONFIG}
-          className="aspect-auto h-full w-full"
-          initialDimension={{ width: 240, height: 112 }}
-        >
-          <AreaChart
-            data={chartData}
-            margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
-          >
-            <YAxis dataKey={dataKey} domain={[chartMin, chartMax]} hide />
-            <Area
-              type="linear"
-              dataKey={dataKey}
-              stroke={`var(--color-${kind})`}
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              baseValue={chartMin}
-              fill={`var(--color-${kind})`}
-              fillOpacity={0.12}
-              isAnimationActive={false}
-              dot={false}
-            />
-          </AreaChart>
-        </ChartContainer>
+        <SpeedSparkline
+          history={history}
+          kind={kind}
+          ceiling={chartMax}
+          pointCount={Math.max(SPEED_CHART_MIN_POINTS, viewport.span.w * 16)}
+        />
       </div>
     </TileShell>
   )

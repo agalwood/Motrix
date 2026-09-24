@@ -231,13 +231,19 @@ async function createFixture(
       ? 'motrix-native-host.exe'
       : 'motrix-native-host'
   const engineName = target.platform === 'win32' ? 'aria2c.exe' : 'aria2c'
+  const finalizeName =
+    target.platform === 'win32'
+      ? 'motrix-finalize-fs.exe'
+      : 'motrix-finalize-fs'
   const host = await write(resources, `bin/${hostName}`, executable)
+  const finalize = await write(resources, `bin/${finalizeName}`, executable)
   const engine = await write(
     resources,
     `extra/${target.platform}/${target.arch}/${engineName}`,
     executable
   )
   await chmod(host, 0o755)
+  await chmod(finalize, 0o755)
   await chmod(engine, 0o755)
   for (const relativePath of LEGAL)
     await write(resources, relativePath, relativePath)
@@ -505,6 +511,7 @@ describe('post-package Electron verification', () => {
   it.each([
     'extra/darwin/arm64/aria2c',
     'bin/motrix-native-host',
+    'bin/motrix-finalize-fs',
     'builtin-plugins/motrix.fixture/motrix-plugin.json',
     'THIRD_PARTY_NOTICES.md',
   ])('rejects a missing external resource %s', async (relativePath) => {

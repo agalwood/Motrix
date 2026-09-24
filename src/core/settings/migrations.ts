@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto'
+import {
+  ANIME_TRACKER_BLACKLIST_SOURCE,
+  ANIME_TRACKER_DIRECT_SOURCE,
+  ANIME_TRACKER_SOURCE,
+} from '@shared/schemas/tracker-settings'
+import type { TrackerSource } from '@shared/types/tracker'
 
-export const CURRENT_SETTINGS_VERSION = 11
+export const CURRENT_SETTINGS_VERSION = 14
 
 interface Migration {
   version: number
@@ -234,6 +240,48 @@ function migrateV9ToV10(
   }
 }
 
+function migrateV10ToV11(
+  data: Record<string, unknown>
+): Record<string, unknown> {
+  const engine = (data.engine ?? {}) as Record<string, unknown>
+  return {
+    ...data,
+    version: 11,
+    // Persisted settings do not distinguish the former default from an
+    // explicit 120-second choice. Upgrade that value once; all other values
+    // remain user-controlled, including 120 selected again after migration.
+    ...(engine.magnetResolveTimeout === 120
+      ? { engine: { ...engine, magnetResolveTimeout: 600 } }
+      : {}),
+  }
+}
+
+function migrateV11ToV12(
+  data: Record<string, unknown>
+): Record<string, unknown> {
+  const tracker = (data.tracker ?? {}) as Record<string, unknown>
+  const sources = tracker.sources
+  // Missing/invalid arrays receive the full defaults during validation.
+  if (!Array.isArray(sources)) return { ...data, version: 12 }
+
+  const alreadyPresent = sources.some(
+    (source) =>
+      source &&
+      (source.id === ANIME_TRACKER_SOURCE.id ||
+        source.url === ANIME_TRACKER_SOURCE.url)
+  )
+  return {
+    ...data,
+    version: 12,
+    tracker: {
+      ...tracker,
+      sources: alreadyPresent
+        ? sources
+        : [...sources, { ...ANIME_TRACKER_SOURCE }],
+    },
+  }
+}
+
 // Inlined to avoid migrations.ts depending on @shared/schemas. Values must
 // match DEFAULT_AUTOPARSER_FILE_EXTENSION_WHITELIST in app-settings.ts.
 const DEFAULT_AUTOPARSER_WHITELIST_PLAIN = [
@@ -247,15 +295,21 @@ const DEFAULT_AUTOPARSER_WHITELIST_PLAIN = [
 
 /**
  * Seeds autoparser.fileExtensionWhitelist and skipExistingFilesOnCreate.
+ *
+ * Numbered v14 rather than v11: the trunk shipped its own v11–v13 (magnet
+ * resolve timeout, anime tracker, direct/blacklist tracker) while this
+ * branch was in flight, so the autoparser migration is renumbered behind
+ * the trunk's chain. Users coming from the trunk land here directly; users
+ * on this branch's v11 re-run the trunk migrations first and reach it last.
  */
-function migrateV10ToV11(
+function migrateV13ToV14(
   data: Record<string, unknown>
 ): Record<string, unknown> {
   const app = (data.app ?? {}) as Record<string, unknown>
   const autoparser = (app.autoparser ?? {}) as Record<string, unknown>
   return {
     ...data,
-    version: 11,
+    version: 14,
     app: {
       ...app,
       skipExistingFilesOnCreate:
@@ -271,6 +325,48 @@ function migrateV10ToV11(
   }
 }
 
+function appendMissingTrackerSource(
+  sources: unknown[],
+  addition: TrackerSource
+) {
+  const alreadyPresent = sources.some(
+    (source) =>
+      source !== null &&
+      typeof source === 'object' &&
+      (('id' in source && source.id === addition.id) ||
+        ('url' in source && source.url === addition.url))
+  )
+  return alreadyPresent ? sources : [...sources, { ...addition }]
+}
+
+function migrateV12ToV13(
+  data: Record<string, unknown>
+): Record<string, unknown> {
+  const tracker = (data.tracker ?? {}) as Record<string, unknown>
+  const updates: Record<string, unknown> = {}
+  // Leave missing/invalid arrays to schema defaults, and preserve every
+  // existing source (including custom URLs and explicit enabled choices).
+  if (Array.isArray(tracker.sources)) {
+    updates.sources = appendMissingTrackerSource(
+      tracker.sources,
+      ANIME_TRACKER_DIRECT_SOURCE
+    )
+  }
+  if (Array.isArray(tracker.blacklistSources)) {
+    updates.blacklistSources = appendMissingTrackerSource(
+      tracker.blacklistSources,
+      ANIME_TRACKER_BLACKLIST_SOURCE
+    )
+  }
+  return {
+    ...data,
+    version: 13,
+    ...(Object.keys(updates).length > 0
+      ? { tracker: { ...tracker, ...updates } }
+      : {}),
+  }
+}
+
 const migrations: Migration[] = [
   { version: 1, migrate: migrateV0ToV1 },
   { version: 2, migrate: migrateV1ToV2 },
@@ -283,6 +379,9 @@ const migrations: Migration[] = [
   { version: 9, migrate: migrateV8ToV9 },
   { version: 10, migrate: migrateV9ToV10 },
   { version: 11, migrate: migrateV10ToV11 },
+  { version: 12, migrate: migrateV11ToV12 },
+  { version: 13, migrate: migrateV12ToV13 },
+  { version: 14, migrate: migrateV13ToV14 },
 ]
 
 export function migrate(

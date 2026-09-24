@@ -1,4 +1,9 @@
+import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
 import { SettingsSelectTrigger } from '@renderer/components/settings-kit/settings-select-trigger'
+import {
+  useSettingsForm,
+  useSettingsSubmit,
+} from '@renderer/components/settings-kit/use-settings-form'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -13,9 +18,14 @@ import {
   FormControl,
   FormDescription,
   FormField,
-  FormItem,
   FormLabel,
 } from '@renderer/components/ui/form'
+import {
+  ScrollArea,
+  ScrollAreaContent,
+  ScrollAreaViewport,
+  ScrollBar,
+} from '@renderer/components/ui/scroll-area'
 import {
   Select,
   SelectContent,
@@ -31,18 +41,22 @@ import { isSupportedLocale, SUPPORTED_LOCALES } from '@shared/constants/locales'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { DEFAULT_APP_SETTINGS } from '@shared/schemas'
+import { resolveByteUnitSystem } from '@shared/schemas/byte-unit-system'
 import type { AppSettings, MotrixAppSettings } from '@shared/types/settings'
 import { useTheme } from 'next-themes'
 import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import type { SettingsCardDialogProps } from './card-types'
+import { appearanceFormSchema } from './settings-form-schemas'
 
 type AppearanceFields = Pick<
   MotrixAppSettings,
   | 'theme'
+  | 'reduceMotion'
   | 'language'
+  | 'byteUnitSystem'
   | 'traySpeedometer'
+  | 'trayIconColor'
   | 'runMode'
   | 'liquidGlassEffect'
   | 'lightweightMode'
@@ -53,8 +67,11 @@ type AppearanceFields = Pick<
 // fields it edits. Keep this Pick<> in sync if the schema fields change.
 const DEFAULTS: AppearanceFields = {
   theme: DEFAULT_APP_SETTINGS.theme,
+  reduceMotion: DEFAULT_APP_SETTINGS.reduceMotion,
   language: DEFAULT_APP_SETTINGS.language,
+  byteUnitSystem: DEFAULT_APP_SETTINGS.byteUnitSystem,
   traySpeedometer: DEFAULT_APP_SETTINGS.traySpeedometer,
+  trayIconColor: DEFAULT_APP_SETTINGS.trayIconColor,
   runMode: DEFAULT_APP_SETTINGS.runMode,
   liquidGlassEffect: DEFAULT_APP_SETTINGS.liquidGlassEffect,
   lightweightMode: DEFAULT_APP_SETTINGS.lightweightMode,
@@ -76,7 +93,7 @@ export function AppearanceDialog({
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
   const { setTheme } = useTheme()
-  const form = useForm<AppearanceFields>({ defaultValues: DEFAULTS })
+  const form = useSettingsForm<AppearanceFields>(appearanceFormSchema, DEFAULTS)
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: form is stable across renders; this is a mount-only fetch
   useEffect(() => {
@@ -89,8 +106,11 @@ export function AppearanceDialog({
         if (all?.app) {
           form.reset({
             theme: all.app.theme,
+            reduceMotion: all.app.reduceMotion ?? DEFAULTS.reduceMotion,
             language: all.app.language,
+            byteUnitSystem: all.app.byteUnitSystem ?? DEFAULTS.byteUnitSystem,
             traySpeedometer: all.app.traySpeedometer,
+            trayIconColor: all.app.trayIconColor ?? DEFAULTS.trayIconColor,
             runMode:
               transport.platform !== 'darwin' &&
               all.app.runMode === RunMode.HideTray
@@ -109,7 +129,7 @@ export function AppearanceDialog({
     }
   }, [])
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  const onSubmit = useSettingsSubmit(form, async (values) => {
     const dirty = pickDirty(values, form.formState.dirtyFields)
     if (!dirty) {
       onClose()
@@ -119,6 +139,24 @@ export function AppearanceDialog({
     if (dirty.theme !== undefined) setTheme(dirty.theme)
     onClose()
   })
+
+  const systemUnits = resolveByteUnitSystem(
+    'system',
+    transport.platform === 'web' ? navigator.platform : transport.platform
+  )
+  const byteUnitOptions = [
+    {
+      value: 'system',
+      label: t('settings.appearance.byteUnitSystemDefault', {
+        units: systemUnits === 'binary' ? 'MiB, GiB' : 'MB, GB',
+      }),
+    },
+    { value: 'decimal', label: t('settings.appearance.byteUnitDecimal') },
+    { value: 'binary', label: t('settings.appearance.byteUnitBinary') },
+  ] satisfies Array<{
+    value: AppearanceFields['byteUnitSystem']
+    label: string
+  }>
 
   const themeOptions = [
     {
@@ -139,6 +177,11 @@ export function AppearanceDialog({
   }>
   const isMac = transport.platform === 'darwin'
   const isLinux = transport.platform === 'linux'
+  const trayIconColorOptions = [
+    { value: 'auto', label: t('settings.appearance.trayIconColorAuto') },
+    { value: 'light', label: t('settings.appearance.trayIconColorLight') },
+    { value: 'dark', label: t('settings.appearance.trayIconColorDark') },
+  ] satisfies Array<{ value: AppearanceFields['trayIconColor']; label: string }>
   const showRunMode = transport.platform !== 'web'
   const runModeOptions = isMac
     ? [
@@ -177,210 +220,338 @@ export function AppearanceDialog({
           <DialogDescription>{t(descKey)}</DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-          <Form {...form}>
-            <form className="space-y-4">
-              <FormField
-                control={form.control}
-                name="theme"
-                render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
-                    <FormLabel>{t('settings.appearance.theme')}</FormLabel>
-                    <FormControl>
-                      <Select
-                        items={themeOptions}
-                        value={field.value}
-                        onValueChange={(value) => {
-                          if (value !== null) field.onChange(value)
-                        }}
-                      >
-                        <SettingsSelectTrigger>
-                          <SelectValue />
-                        </SettingsSelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            {themeOptions.map((option) => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
-                              >
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+        <ScrollArea className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <ScrollAreaViewport
+            tabIndex={-1}
+            className="min-h-0 flex-1 overscroll-contain"
+          >
+            <ScrollAreaContent
+              className="px-6 py-4"
+              style={{ minWidth: '100%' }}
+            >
+              <Form {...form}>
+                <form className="space-y-4" noValidate onSubmit={onSubmit}>
+                  <FormField
+                    control={form.control}
+                    name="theme"
+                    render={({ field }) => (
+                      <SettingsFormRow>
+                        <FormLabel>{t('settings.appearance.theme')}</FormLabel>
+                        <FormControl>
+                          <Select
+                            items={themeOptions}
+                            value={field.value}
+                            onValueChange={(value) => {
+                              if (value !== null) field.onChange(value)
+                            }}
+                          >
+                            <SettingsSelectTrigger>
+                              <SelectValue />
+                            </SettingsSelectTrigger>
+                            <SelectContent>
+                              <SelectGroup>
+                                {themeOptions.map((option) => (
+                                  <SelectItem
+                                    key={option.value}
+                                    value={option.value}
+                                  >
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                      </SettingsFormRow>
+                    )}
+                  />
 
-              <FormField
-                control={form.control}
-                name="language"
-                render={({ field }) => (
-                  <FormItem className="flex items-start justify-between gap-4">
-                    <FormLabel>{t('settings.appearance.language')}</FormLabel>
-                    <FormControl>
-                      <Select
-                        items={LANGUAGE_OPTIONS}
-                        value={field.value}
-                        onValueChange={(value) => {
-                          if (isSupportedLocale(value)) field.onChange(value)
-                        }}
-                      >
-                        <SettingsSelectTrigger>
-                          <SelectValue />
-                        </SettingsSelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            {LANGUAGE_OPTIONS.map((option) => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
-                              >
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              {isMac && (
-                <FormField
-                  control={form.control}
-                  name="traySpeedometer"
-                  render={({ field }) => (
-                    <FormItem className="flex items-start justify-between gap-4">
-                      <div className="space-y-1">
+                  <FormField
+                    control={form.control}
+                    name="language"
+                    render={({ field }) => (
+                      <SettingsFormRow>
                         <FormLabel>
-                          {t('settings.appearance.traySpeedometer')}
+                          {t('settings.appearance.language')}
                         </FormLabel>
-                        <FormDescription className="text-xs">
-                          {t('settings.appearance.traySpeedometerDesc')}
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              )}
+                        <FormControl>
+                          <Select
+                            items={LANGUAGE_OPTIONS}
+                            value={field.value}
+                            onValueChange={(value) => {
+                              if (isSupportedLocale(value))
+                                field.onChange(value)
+                            }}
+                          >
+                            <SettingsSelectTrigger>
+                              <SelectValue />
+                            </SettingsSelectTrigger>
+                            <SelectContent>
+                              <SelectGroup>
+                                {LANGUAGE_OPTIONS.map((option) => (
+                                  <SelectItem
+                                    key={option.value}
+                                    value={option.value}
+                                  >
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                      </SettingsFormRow>
+                    )}
+                  />
 
-              {isMac && (
-                <FormField
-                  control={form.control}
-                  name="liquidGlassEffect"
-                  render={({ field }) => (
-                    <FormItem className="flex items-start justify-between gap-4">
-                      <div className="space-y-1">
-                        <FormLabel>
-                          {t('settings.appearance.liquidGlassEffect')}
-                        </FormLabel>
-                        <FormDescription className="text-xs">
-                          {t('settings.appearance.liquidGlassEffectDesc')}
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              )}
-
-              {showRunMode && (
-                <FormField
-                  control={form.control}
-                  name="runMode"
-                  render={({ field }) => (
-                    <FormItem className="flex items-start justify-between gap-4">
-                      <div className="space-y-1">
-                        <FormLabel>
-                          {t(
-                            isMac
-                              ? 'settings.appearance.runMode'
-                              : 'settings.appearance.runModeLaunch'
-                          )}
-                        </FormLabel>
-                        {isLinux && (
+                  <FormField
+                    control={form.control}
+                    name="byteUnitSystem"
+                    render={({ field }) => (
+                      <SettingsFormRow>
+                        <div className="space-y-1">
+                          <FormLabel>
+                            {t('settings.appearance.byteUnitSystem')}
+                          </FormLabel>
                           <FormDescription className="text-xs">
-                            {t('settings.appearance.runModeLinuxDesc')}
+                            {t('settings.appearance.byteUnitSystemDesc')}
                           </FormDescription>
-                        )}
-                      </div>
-                      <FormControl>
-                        <Select
-                          items={runModeOptions}
-                          value={String(field.value)}
-                          onValueChange={(value) => {
-                            if (value !== null) {
-                              field.onChange(Number(value))
-                            }
-                          }}
-                        >
-                          <SettingsSelectTrigger className="min-w-48">
-                            <SelectValue />
-                          </SettingsSelectTrigger>
-                          <SelectContent>
-                            <SelectGroup>
-                              {runModeOptions.map((option) => (
-                                <SelectItem
-                                  key={option.value}
-                                  value={option.value}
-                                >
-                                  {option.label}
-                                </SelectItem>
-                              ))}
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              )}
+                        </div>
+                        <FormControl>
+                          <Select
+                            items={byteUnitOptions}
+                            value={field.value}
+                            onValueChange={(value) => {
+                              if (value !== null) field.onChange(value)
+                            }}
+                          >
+                            <SettingsSelectTrigger>
+                              <SelectValue />
+                            </SettingsSelectTrigger>
+                            <SelectContent>
+                              <SelectGroup>
+                                {byteUnitOptions.map((option) => (
+                                  <SelectItem
+                                    key={option.value}
+                                    value={option.value}
+                                  >
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                      </SettingsFormRow>
+                    )}
+                  />
 
-              {transport.platform !== 'web' && (
-                <FormField
-                  control={form.control}
-                  name="lightweightMode"
-                  render={({ field }) => (
-                    <FormItem className="flex items-start justify-between gap-4">
-                      <div className="space-y-1">
-                        <FormLabel>
-                          {t('settings.appearance.lightweightMode')}
-                        </FormLabel>
-                        <FormDescription className="text-xs">
-                          {t('settings.appearance.lightweightModeDesc')}
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
+                  <FormField
+                    control={form.control}
+                    name="reduceMotion"
+                    render={({ field }) => (
+                      <SettingsFormRow>
+                        <div className="space-y-1">
+                          <FormLabel>
+                            {t('settings.appearance.reduceMotion')}
+                          </FormLabel>
+                          <FormDescription className="text-xs">
+                            {t('settings.appearance.reduceMotionDesc')}
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </SettingsFormRow>
+                    )}
+                  />
+
+                  {isLinux && (
+                    <FormField
+                      control={form.control}
+                      name="trayIconColor"
+                      render={({ field }) => (
+                        <SettingsFormRow>
+                          <div className="space-y-1">
+                            <FormLabel>
+                              {t('settings.appearance.trayIconColor')}
+                            </FormLabel>
+                            <FormDescription className="text-xs">
+                              {t('settings.appearance.trayIconColorDesc')}
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Select
+                              items={trayIconColorOptions}
+                              value={field.value}
+                              onValueChange={(value) => {
+                                if (value !== null) field.onChange(value)
+                              }}
+                            >
+                              <SettingsSelectTrigger>
+                                <SelectValue />
+                              </SettingsSelectTrigger>
+                              <SelectContent>
+                                <SelectGroup>
+                                  {trayIconColorOptions.map((option) => (
+                                    <SelectItem
+                                      key={option.value}
+                                      value={option.value}
+                                    >
+                                      {option.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                        </SettingsFormRow>
+                      )}
+                    />
                   )}
-                />
-              )}
-            </form>
-          </Form>
-        </div>
+
+                  {isMac && (
+                    <FormField
+                      control={form.control}
+                      name="traySpeedometer"
+                      render={({ field }) => (
+                        <SettingsFormRow>
+                          <div className="space-y-1">
+                            <FormLabel>
+                              {t('settings.appearance.traySpeedometer')}
+                            </FormLabel>
+                            <FormDescription className="text-xs">
+                              {t('settings.appearance.traySpeedometerDesc')}
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </SettingsFormRow>
+                      )}
+                    />
+                  )}
+
+                  <FormField
+                    control={form.control}
+                    name="liquidGlassEffect"
+                    render={({ field }) => (
+                      <SettingsFormRow>
+                        <div className="space-y-1">
+                          <FormLabel>
+                            {t('settings.appearance.liquidGlassEffect')}
+                          </FormLabel>
+                          <FormDescription className="text-xs">
+                            {t('settings.appearance.liquidGlassEffectDesc')}
+                            {isMac &&
+                              ` ${t('settings.appearance.liquidGlassEffectMacDesc')}`}
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </SettingsFormRow>
+                    )}
+                  />
+
+                  {showRunMode && (
+                    <FormField
+                      control={form.control}
+                      name="runMode"
+                      render={({ field }) => (
+                        <SettingsFormRow>
+                          <div className="space-y-1">
+                            <FormLabel>
+                              {t(
+                                isMac
+                                  ? 'settings.appearance.runMode'
+                                  : 'settings.appearance.runModeLaunch'
+                              )}
+                            </FormLabel>
+                            {isLinux && (
+                              <FormDescription className="text-xs">
+                                {t('settings.appearance.runModeLinuxDesc')}
+                              </FormDescription>
+                            )}
+                          </div>
+                          <FormControl>
+                            <Select
+                              items={runModeOptions}
+                              value={String(field.value)}
+                              onValueChange={(value) => {
+                                if (value !== null) {
+                                  field.onChange(Number(value))
+                                }
+                              }}
+                            >
+                              <SettingsSelectTrigger className="min-w-48">
+                                <SelectValue />
+                              </SettingsSelectTrigger>
+                              <SelectContent>
+                                <SelectGroup>
+                                  {runModeOptions.map((option) => (
+                                    <SelectItem
+                                      key={option.value}
+                                      value={option.value}
+                                    >
+                                      {option.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                        </SettingsFormRow>
+                      )}
+                    />
+                  )}
+
+                  {transport.platform !== 'web' && (
+                    <FormField
+                      control={form.control}
+                      name="lightweightMode"
+                      render={({ field }) => (
+                        <SettingsFormRow>
+                          <div className="space-y-1">
+                            <FormLabel>
+                              {t('settings.appearance.lightweightMode')}
+                            </FormLabel>
+                            <FormDescription className="text-xs">
+                              {t('settings.appearance.lightweightModeDesc')}
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </SettingsFormRow>
+                      )}
+                    />
+                  )}
+                </form>
+              </Form>
+            </ScrollAreaContent>
+          </ScrollAreaViewport>
+          <ScrollBar />
+        </ScrollArea>
 
         <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
+          {form.formState.errors.root?.save && (
+            <p role="alert" className="mr-auto text-xs text-destructive">
+              {form.formState.errors.root.save.message}
+            </p>
+          )}
           <Button type="button" variant="outline" size="sm" onClick={onClose}>
             {t('common.cancel')}
           </Button>

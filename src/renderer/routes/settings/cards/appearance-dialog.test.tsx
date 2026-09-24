@@ -1,3 +1,4 @@
+import '@test-utils/dom-animations'
 import '@testing-library/jest-dom/vitest'
 import { i18n } from '@renderer/lib/i18n'
 import { Commands } from '@shared/protocol/commands'
@@ -68,6 +69,124 @@ beforeEach(async () => {
 })
 
 describe('<AppearanceDialog>', () => {
+  it.each(['darwin', 'win32', 'web'])(
+    'hides the Linux tray color selector on %s',
+    async (platform) => {
+      Object.defineProperty(transport, 'platform', {
+        configurable: true,
+        value: platform,
+      })
+      render(
+        <AppearanceDialog
+          open
+          onClose={vi.fn()}
+          labelKey="settings.cards.appearance.title"
+          descKey="settings.cards.appearance.desc"
+        />
+      )
+      await screen.findByRole('combobox', { name: 'Theme' })
+      expect(
+        screen.queryByRole('combobox', { name: 'Tray icon color' })
+      ).toBeNull()
+    }
+  )
+
+  it('lets Linux users save only the tray color without changing the application theme', async () => {
+    Object.defineProperty(transport, 'platform', {
+      configurable: true,
+      value: 'linux',
+    })
+    render(
+      <AppearanceDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+    const select = await screen.findByRole('combobox', {
+      name: 'Tray icon color',
+    })
+    expect(select).toHaveTextContent('Follow app theme')
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    await user.click(select)
+    await user.click(
+      await screen.findByRole('option', { name: 'Light icon (dark panel)' })
+    )
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      app: { trayIconColor: 'light' },
+    })
+  })
+
+  it('hydrates the saved Linux tray color and discards edits on cancel', async () => {
+    Object.defineProperty(transport, 'platform', {
+      configurable: true,
+      value: 'linux',
+    })
+    vi.mocked(transport.invoke).mockResolvedValue({
+      app: { ...FIXTURE.app, trayIconColor: 'dark' },
+    })
+    render(
+      <AppearanceDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+    const select = await screen.findByRole('combobox', {
+      name: 'Tray icon color',
+    })
+    await waitFor(() =>
+      expect(select).toHaveTextContent('Dark icon (light panel)')
+    )
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    await user.click(select)
+    await user.click(
+      await screen.findByRole('option', { name: 'Follow app theme' })
+    )
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
+  })
+  it.each(['darwin', 'win32', 'linux', 'web'])(
+    'uses the existing glass switch and saves only that preference on %s',
+    async (platform) => {
+      Object.defineProperty(transport, 'platform', {
+        configurable: true,
+        value: platform,
+      })
+      render(
+        <AppearanceDialog
+          open
+          onClose={vi.fn()}
+          labelKey="settings.cards.appearance.title"
+          descKey="settings.cards.appearance.desc"
+        />
+      )
+      const toggle = await screen.findByRole('switch', {
+        name: 'Enable Liquid Glass effect',
+      })
+      const user = userEvent.setup()
+      await user.click(toggle)
+      expect(transport.invoke).not.toHaveBeenCalledWith(
+        Commands.UpdateSettings,
+        expect.anything()
+      )
+      await user.click(screen.getByRole('button', { name: /save/i }))
+      expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+        app: { liquidGlassEffect: true },
+      })
+    }
+  )
+
   it('renders hydrated select labels instead of raw values', async () => {
     render(
       <AppearanceDialog
@@ -79,7 +198,7 @@ describe('<AppearanceDialog>', () => {
     )
 
     await waitFor(() => {
-      const [themeTrigger, languageTrigger, runModeTrigger] =
+      const [themeTrigger, languageTrigger, byteUnitTrigger, runModeTrigger] =
         screen.getAllByRole('combobox')
 
       expect(themeTrigger).toHaveTextContent(/^System$/)
@@ -88,6 +207,7 @@ describe('<AppearanceDialog>', () => {
       expect(languageTrigger).not.toHaveTextContent(/^en-US$/)
       expect(languageTrigger).toHaveClass('min-w-30', 'max-w-64')
       expect(languageTrigger).not.toHaveClass('w-32')
+      expect(byteUnitTrigger).toHaveTextContent('Follow system (MB, GB)')
       expect(runModeTrigger).toHaveTextContent(/^Dock & Menu Bar$/)
       expect(runModeTrigger).not.toHaveTextContent(/^1$/)
     })
@@ -222,6 +342,65 @@ describe('<AppearanceDialog>', () => {
     })
   })
 
+  it.each(['darwin', 'win32', 'linux', 'web'])(
+    'defaults reduce motion to off and saves only its dirty field on %s',
+    async (platform) => {
+      Object.defineProperty(transport, 'platform', {
+        configurable: true,
+        value: platform,
+      })
+      render(
+        <AppearanceDialog
+          open
+          onClose={vi.fn()}
+          labelKey="settings.cards.appearance.title"
+          descKey="settings.cards.appearance.desc"
+        />
+      )
+      const reduceMotion = await screen.findByRole('switch', {
+        name: 'Reduce motion',
+      })
+      const user = userEvent.setup()
+      expect(reduceMotion).not.toBeChecked()
+      await user.click(reduceMotion)
+      expect(transport.invoke).not.toHaveBeenCalledWith(
+        Commands.UpdateSettings,
+        expect.anything()
+      )
+      await user.click(screen.getByRole('button', { name: 'Save' }))
+      expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+        app: { reduceMotion: true },
+      })
+    }
+  )
+
+  it('hydrates reduce motion and discards unsaved changes on cancel', async () => {
+    vi.mocked(transport.invoke).mockResolvedValue({
+      app: { ...FIXTURE.app, reduceMotion: true },
+    })
+    const onClose = vi.fn()
+    render(
+      <AppearanceDialog
+        open
+        onClose={onClose}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+    const reduceMotion = await screen.findByRole('switch', {
+      name: 'Reduce motion',
+    })
+    await waitFor(() => expect(reduceMotion).toBeChecked())
+    const user = userEvent.setup()
+    await user.click(reduceMotion)
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(onClose).toHaveBeenCalled()
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
+  })
+
   it('waits for the host locale event after persisting a language change', async () => {
     render(
       <AppearanceDialog
@@ -243,5 +422,32 @@ describe('<AppearanceDialog>', () => {
       app: { language: 'zh-CN' },
     })
     expect(i18n.resolvedLanguage).toBe('en-US')
+  })
+})
+
+it('saves only the chosen unit system when Apply is clicked', async () => {
+  const user = userEvent.setup({ pointerEventsCheck: 0 })
+  render(
+    <AppearanceDialog
+      open
+      onClose={vi.fn()}
+      labelKey="settings.cards.appearance.title"
+      descKey="settings.cards.appearance.desc"
+    />
+  )
+  const select = await screen.findByRole('combobox', {
+    name: 'Size and speed units',
+  })
+  await user.click(select)
+  await user.click(
+    await screen.findByRole('option', { name: 'Binary (MiB, GiB · 1024)' })
+  )
+  expect(transport.invoke).not.toHaveBeenCalledWith(
+    Commands.UpdateSettings,
+    expect.anything()
+  )
+  await user.click(screen.getByRole('button', { name: /apply|save/i }))
+  expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+    app: { byteUnitSystem: 'binary' },
   })
 })

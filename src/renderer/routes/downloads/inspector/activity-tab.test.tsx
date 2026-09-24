@@ -337,8 +337,8 @@ describe('ActivityTab', () => {
         screen.getByTestId('task-inspector-activity-summary-card')
       ).getAllByText('0 B/s')
     ).toHaveLength(2)
-    expect(screen.getByText('3.0 KB/s')).toBeInTheDocument()
-    expect(screen.getByText('4.0 KB/s')).toBeInTheDocument()
+    expect(screen.getByText('3.1 KB/s')).toBeInTheDocument()
+    expect(screen.getByText('4.1 KB/s')).toBeInTheDocument()
   })
 
   it('does not render Failed timeline details while Task history is hidden', () => {

@@ -27,9 +27,17 @@ describe('OnboardingWindow', () => {
     expect(transport.invoke).not.toHaveBeenCalled()
     expect(screen.getByTestId('disclaimer-panel')).toBeVisible()
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
-    expect(screen.getByTestId('onboarding-language').parentElement).toHaveClass(
-      'pt-3.5'
-    )
+    expect(screen.getByRole('combobox', { name: '语言' })).toBeVisible()
     expect(screen.getByRole('heading', { name: '使用声明' })).toBeVisible()
+    const surface = document.querySelector(
+      '[data-slot="onboarding-surface"]'
+    ) as HTMLElement
+    expect(surface).toHaveClass(
+      'bg-[#f7f7f8]',
+      'dark:bg-[#161617]',
+      'text-[#1d1d1f]',
+      'dark:text-foreground'
+    )
+    expect(surface.style.colorScheme).toBe('')
   })
 })

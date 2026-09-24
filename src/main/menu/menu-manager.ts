@@ -193,7 +193,10 @@ export class MenuManager {
     }
     if (
       definition.contextBinding === 'selectedTask' &&
-      request.selectedTaskId !== this.deps.contextStore.get().selectedTaskId
+      (request.selectedTaskId !== this.deps.contextStore.get().selectedTaskId ||
+        (request.selectedTaskGeneration !== undefined &&
+          request.selectedTaskGeneration !==
+            this.deps.contextStore.get().selectedTaskGeneration))
     ) {
       throw new Error('Application menu command context is stale')
     }
@@ -267,10 +270,11 @@ export class MenuManager {
     platform: MenuPlatform
   ): MenuItemConstructorOptions {
     const state = this.evaluateItem(item, this.deps.contextStore.get())
+    const label = this.resolveLabel(item)
     const base: MenuItemConstructorOptions = {
       id: item.id,
       type: item.type,
-      label: this.resolveLabel(item),
+      ...(label ? { label } : {}),
       enabled: state.enabled,
       visible: state.visible,
       checked: state.checked,
@@ -334,13 +338,15 @@ export class MenuManager {
     }
   }
 
-  private resolveLabel(item: MenuItem): string {
+  private resolveLabel(item: MenuItem): string | undefined {
     if (item.titleOverride) return i18n.t(item.titleOverride)
     if (item.commandId) {
       const command = this.deps.commandRegistry.get(item.commandId)
       return command ? i18n.t(command.title) : item.commandId
     }
-    return ''
+    // Role labels are intentionally omitted so Electron/AppKit can supply the
+    // platform-native label. Passing an empty string suppresses that default.
+    return undefined
   }
 
   private reevaluate(): void {

@@ -18,9 +18,8 @@ import { z } from 'zod'
 // unit-testable without touching the real filesystem or spawning `xdg-*`.
 //
 // Scope boundary: this is desktop integration only. Native-messaging host
-// installation (Layer 3a) is intentionally NOT performed here — the `nmConsent`
-// sub-consent is threaded through the record and the transaction leaves marked
-// TODO seams where the NM copy/sync steps will slot in.
+// installation and consent are owned independently by the browser bridge.
+// The legacy nmConsent field is retained for persisted-record compatibility.
 
 // ── Persisted record ────────────────────────────────────
 
@@ -36,9 +35,7 @@ export interface IntegrationRecord {
   owner: IntegrationOwner
   desktopId: string | null
   status: IntegrationStatus
-  // Dependent sub-consent for native-messaging host installation (Layer 3a).
-  // Only meaningful once `decision === 'accepted'`; `declined` means no NM
-  // writes ever happen.
+  // Legacy value only. Desktop consent never authorizes browser launch.
   nmConsent: NmConsent
   // The scheme/mime default handlers recorded before we overrode them, so a
   // later removal can restore what the user had.
@@ -748,8 +745,7 @@ async function readIconState(
 
 // Write the desktop file + icon and commit the URL-scheme defaults. Returns the
 // next record. On any failure the record is marked `failed` so the next launch
-// retries. Ordering is transactional per the design: (native-messaging host —
-// Layer 3a TODO) → desktop file + icon → default commit.
+// retries. Desktop files and icons are installed before changing defaults.
 async function installSelfIntegration(
   deps: AppImageIntegrationDeps,
   record: IntegrationRecord
@@ -878,10 +874,6 @@ async function installSelfIntegration(
 
   let iconSha256: string | null = record.iconSha256
   try {
-    // TODO(Layer 3a): when `record.nmConsent === 'accepted'`, copy the native
-    // host to a stable path and sync its NM manifests here, before the desktop
-    // file, so the transaction unwinds NM last. Not implemented in Layer 2.
-
     await deps.fs.mkdirp(applicationsDir(dataHome))
     await deps.fs.writeText(
       desktopPath,
@@ -1105,8 +1097,8 @@ export async function inspectSystemIntegration(
     : { ...record, status: 'failed' }
 }
 
-// Reverse-order teardown driven from the settings page. NM removal is a Layer 3a
-// TODO. Restores the recorded defaults FIRST and only deletes our files if the
+// Desktop teardown driven from settings. Restores the recorded defaults
+// FIRST and only deletes our files if the
 // restore succeeded — otherwise a deleted desktop would leave a dangling
 // default handler behind.
 export async function removeSystemIntegration(
@@ -1126,9 +1118,6 @@ export async function removeSystemIntegration(
   const dataHome = resolveXdgDataHome(deps.env, deps.homedir)
   const desktopPath = desktopEntryFilePath(dataHome)
   const icon = iconFilePath(dataHome)
-
-  // TODO(Layer 3a): unregister native-messaging manifests / remove the stable
-  // host copy first, mirroring the install order in reverse.
 
   const schemeRestored = await restoreDefault(
     deps,

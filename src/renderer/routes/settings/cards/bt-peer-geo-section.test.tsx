@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import { Commands } from '@shared/protocol/commands'
+import { DEFAULT_GEOIP_SETTINGS } from '@shared/schemas/geoip-settings'
 import type { GeoIPStatus } from '@shared/types/geoip'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -150,5 +151,104 @@ describe('BtPeerGeoSection', () => {
     const channels = mockOn.mock.calls.map((call) => call[0])
     expect(channels).toContain('event:geoipUpdateProgress')
     expect(channels).toContain('event:geoipStatusChanged')
+  })
+
+  async function selectCustomSource() {
+    const original = mockInvoke.getMockImplementation()
+    mockInvoke.mockImplementation(async (channel: string) => {
+      if (channel === 'query:getSettings')
+        return { geoip: { ...DEFAULT_GEOIP_SETTINGS, enabled: true } }
+      return original?.(channel)
+    })
+    render(<BtPeerGeoSection />)
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    await user.click(await screen.findByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: /Custom URL/i }))
+    return {
+      user,
+      input: await screen.findByRole('textbox', { name: /custom.*url/i }),
+    }
+  }
+
+  it('blocks invalid custom URLs and saves the corrected source and address together before updating', async () => {
+    const { user, input } = await selectCustomSource()
+    fireEvent.change(input, { target: { value: 'example.com/country.mmdb' } })
+    await user.click(screen.getByRole('button', { name: /Update now/i }))
+    expect(
+      await screen.findByText(
+        'Enter a full address starting with http:// or https://.'
+      )
+    ).toBeVisible()
+    expect(mockInvoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
+    expect(mockInvoke).not.toHaveBeenCalledWith(Commands.UpdateGeoIPDatabase)
+    fireEvent.change(input, {
+      target: { value: 'https://example.com/country.mmdb' },
+    })
+    await user.click(screen.getByRole('button', { name: /Update now/i }))
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith(Commands.UpdateGeoIPDatabase)
+    )
+    const saveIndex = mockInvoke.mock.calls.findIndex(
+      ([command]) => command === Commands.UpdateSettings
+    )
+    const updateIndex = mockInvoke.mock.calls.findIndex(
+      ([command]) => command === Commands.UpdateGeoIPDatabase
+    )
+    expect(mockInvoke.mock.calls[saveIndex]).toEqual([
+      Commands.UpdateSettings,
+      {
+        geoip: {
+          source: 'custom',
+          customUrl: 'https://example.com/country.mmdb',
+        },
+      },
+    ])
+    expect(saveIndex).toBeLessThan(updateIndex)
+  })
+
+  it('allows disabling GeoIP with an invalid custom URL without saving that draft', async () => {
+    const { user, input } = await selectCustomSource()
+    fireEvent.change(input, { target: { value: 'broken address' } })
+    await user.click(
+      screen.getByRole('switch', { name: /Enable IP-to-country lookup/i })
+    )
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+        geoip: { enabled: false },
+      })
+    )
+    const writes = mockInvoke.mock.calls.filter(
+      ([command]) => command === Commands.UpdateSettings
+    )
+    expect(writes).toEqual([
+      [Commands.UpdateSettings, { geoip: { enabled: false } }],
+    ])
+  })
+
+  it('does not update the database after a save failure and retries the same draft', async () => {
+    const { user, input } = await selectCustomSource()
+    const original = mockInvoke.getMockImplementation()
+    let fail = true
+    mockInvoke.mockImplementation(async (channel: string) => {
+      if (channel === Commands.UpdateSettings && fail)
+        throw new Error('internal transport error')
+      return original?.(channel)
+    })
+    fireEvent.change(input, {
+      target: { value: 'https://example.com/country.mmdb' },
+    })
+    await user.click(screen.getByRole('button', { name: /Update now/i }))
+    expect(
+      await screen.findByText('Couldn’t save your changes. Try again.')
+    ).toBeVisible()
+    expect(mockInvoke).not.toHaveBeenCalledWith(Commands.UpdateGeoIPDatabase)
+    fail = false
+    await user.click(screen.getByRole('button', { name: /Update now/i }))
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith(Commands.UpdateGeoIPDatabase)
+    )
   })
 })

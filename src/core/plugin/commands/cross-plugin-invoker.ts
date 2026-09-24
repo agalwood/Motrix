@@ -11,6 +11,10 @@
 
 import { AppError, ErrorCode } from '@shared/errors'
 import type { CrossPluginInvoker } from '../capabilities/commands'
+import {
+  currentPluginCallChain,
+  type PluginCallChain,
+} from '../host/plugin-lane'
 import type { PluginRegistry } from '../plugin-registry'
 import type { CallerThrottle } from './caller-throttle'
 import type { ChainDepth } from './chain-depth'
@@ -25,7 +29,8 @@ export interface InvokerHost {
   invokeCommand(
     pluginId: string,
     commandId: string,
-    args: unknown
+    args: unknown,
+    options?: { callChain?: PluginCallChain }
   ): Promise<unknown>
 }
 
@@ -108,7 +113,8 @@ export class FullCrossPluginInvoker implements CrossPluginInvoker {
   async execute(
     callerId: string,
     commandId: string,
-    args: unknown
+    args: unknown,
+    explicitCallChain?: PluginCallChain
   ): Promise<unknown> {
     const startTs = Date.now()
     const taskId = this.taskIdProvider() ?? `_no_task_${callerId}_${startTs}`
@@ -136,6 +142,27 @@ export class FullCrossPluginInvoker implements CrossPluginInvoker {
     }
     const calleePluginId = parsed.pluginId
 
+    const inheritedChain = explicitCallChain ?? currentPluginCallChain()
+    const callChain: PluginCallChain = inheritedChain ?? {
+      id: taskId,
+      plugins: [callerId],
+    }
+    if (callChain.plugins.includes(calleePluginId)) {
+      this.audit.log({
+        caller: callerId,
+        callee: calleePluginId,
+        commandId,
+        argsSize,
+        durMs: Date.now() - startTs,
+        depth: this.depth.current(taskId),
+        ok: false,
+        errorCode: 'plugin.runtime.reentrant_call',
+      })
+      throw new AppError(
+        ErrorCode.PluginRuntimeFault,
+        'plugin.runtime.reentrant_call'
+      )
+    }
     const depthValue = this.depth.enter(taskId)
     const auditFail = (errorCode: string): never => {
       this.audit.log({
@@ -227,8 +254,21 @@ export class FullCrossPluginInvoker implements CrossPluginInvoker {
       // 7. Invoke the handler. Never propagate the callee's message/stack.
       let result: unknown
       try {
-        result = await this.host.invokeCommand(calleePluginId, commandId, args)
-      } catch {
+        result = await this.host.invokeCommand(
+          calleePluginId,
+          commandId,
+          args,
+          {
+            callChain,
+          }
+        )
+      } catch (error) {
+        if (
+          error instanceof AppError &&
+          error.message === 'plugin.runtime.reentrant_call'
+        ) {
+          throw error
+        }
         this.audit.log({
           caller: callerId,
           callee: calleePluginId,

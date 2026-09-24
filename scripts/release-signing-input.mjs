@@ -20,7 +20,7 @@ const REPOSITORY_ROOT = path.resolve(
 )
 const SCHEMA_VERSION = 2
 const ELECTRON_BUILDER_VERSION = '26.15.7'
-const ELECTRON_VERSION = '43.4.0'
+const ELECTRON_VERSION = '44.4.3'
 const PLATFORMS = new Set(['darwin', 'win32'])
 const ARCHES = new Set(['arm64', 'x64'])
 
@@ -35,7 +35,7 @@ export const SIGNING_ARCHIVE_LIMITS = Object.freeze({
 
 const TRUSTED_INPUT_SHA256 = Object.freeze({
   'electron-builder.signing.json':
-    '2950c8fb4ebe86a46d384efc373c3fb2b7d08389699fe1ab4ecb54e319dd5cd0',
+    '2722cb4f6f925478e238f0e4dc7a9bd14d8371e644ffb7bbd3c4655257dcd762',
   'signing-build-resources/256x256.png':
     '044d3b64a14aa512ca41469372d1ad630557daaeb2cb4e709d34f2d3c57d4c3b',
   'signing-build-resources/background.tiff':
@@ -46,6 +46,10 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
     'f9ff86f32c2110b21d71a49a346f4186c4ef2cf1aed3884eca9704cb77fb4ed7',
   'signing-build-resources/icon.ico':
     'a71d20d0ca732e27b445e3f09a0cd22cb356620929416e790d005dfff9c4e5a7',
+  'signing-build-resources/installerHeader.bmp':
+    '1fec8201191e832831f93c5dbaca1a1941b17c72d29ede4ddbba0a721b58d3a5',
+  'signing-build-resources/installerSidebar.bmp':
+    '510391ad03a2df0a83d2daaeacfc4d2a25b85166f701843d44d85b221df14ec0',
   'signing-build-resources/torrent.icns':
     '1c8e042a7d4391fa241b4411badbe4a7393a8ad8429679838bf43b25ab29425f',
   'signing-build-resources/torrent.ico':
@@ -55,9 +59,9 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
   'signing-tool/package.json':
     'b8ddd0e1bb90198d99628eb8b5b8c3c2b8cbda4a3aee48f118a36244467fac51',
   'signing-tool/package-lock.json':
-    'd19faa86a197df62719776877d600b2345670a81d58b1939949681aee8b225bf',
+    '54d575e0b5d9ec9ebfdc4703cdcbd5c3a91dd51f0580df918875d7f3c4af8887',
   'scripts/electron-package-size-budgets.json':
-    'f37ffcdb32967077cf66711526de91201d1bb976f3e48687cbc89fba89b94696',
+    'cd2c132dcf527eb15b4a4ecea110d5a9f0d32c3fa6faa58de67fb9cae1fa0596',
   'scripts/electron-package-utils.mjs':
     '9d408f9edc91182be5d5aed39f2c5a5d20f5523e08d9c08e630c23c66302daa8',
   'scripts/before-build-use-staged-dependencies.mjs':
@@ -65,7 +69,14 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
   'scripts/native-binary-target.mjs':
     '6f0a42eecf729eb6de2df28b5d7449993590e494deb4e309b99c367094045797',
   'scripts/verify-electron-package.mjs':
-    'fc8a3eb35684e2b21c46b6677a2568aeffbd4a7a6befae09fc57c9068b05c680',
+    'ec160ddfa929242155e38d3e0cfdd752ca748a16a84c71eefd39d5b0cbfb9e8a',
+})
+
+// Use electron-builder's default resource names so the restricted config can
+// discover each bitmap when present and retain NSIS defaults when absent.
+const OPTIONAL_NSIS_ARTWORK = Object.freeze({
+  'signing-build-resources/installerHeader.bmp': 'build/installerHeader.bmp',
+  'signing-build-resources/installerSidebar.bmp': 'build/installerSidebar.bmp',
 })
 
 const SOURCE_MAPPINGS = [
@@ -81,6 +92,10 @@ const SOURCE_MAPPINGS = [
   ],
   ['build/icon.icns', 'signing-build-resources/icon.icns'],
   ['build/icon.ico', 'signing-build-resources/icon.ico'],
+  ...Object.entries(OPTIONAL_NSIS_ARTWORK).map(([destination, source]) => [
+    source,
+    destination,
+  ]),
   ['build/torrent.icns', 'signing-build-resources/torrent.icns'],
   ['build/torrent.ico', 'signing-build-resources/torrent.ico'],
   ['build/installer.nsh', 'signing-policy/installer.nsh'],
@@ -159,6 +174,7 @@ function isAllowedSigningDataPath(relativePath) {
       'dist/builtin-plugins/',
       'dist/electron-app/',
       'extra/',
+      'packages/finalize-fs/dist/',
       'packages/native-host/dist/',
       'signing-build-resources/',
       'size-reports/',
@@ -200,6 +216,7 @@ function isAllowedSigningDirectory(relativePath) {
     'dist/builtin-plugins',
     'dist/electron-app',
     'extra',
+    'packages/finalize-fs/dist',
     'packages/native-host/dist',
   ]
   const flatRoots = [
@@ -223,6 +240,7 @@ function isAllowedSigningDirectory(relativePath) {
 }
 
 function isAllowedSigningBuildResource(relativePath) {
+  if (Object.hasOwn(OPTIONAL_NSIS_ARTWORK, relativePath)) return true
   return new Set([
     'signing-build-resources/256x256.png',
     'signing-build-resources/background.tiff',
@@ -334,10 +352,17 @@ function nativeHostResource(platform, arch) {
   return `packages/native-host/dist/${platform}-${arch}/${executable}`
 }
 
+function finalizeFsResource(platform, arch) {
+  const executable =
+    platform === 'win32' ? 'motrix-finalize-fs.exe' : 'motrix-finalize-fs'
+  return `packages/finalize-fs/dist/${platform}-${arch}/${executable}`
+}
+
 function normalizedMode(relativePath, info, options) {
   if (
     relativePath === targetResource(options.platform, options.arch) ||
-    relativePath === nativeHostResource(options.platform, options.arch)
+    relativePath === nativeHostResource(options.platform, options.arch) ||
+    relativePath === finalizeFsResource(options.platform, options.arch)
   ) {
     return 0o755
   }
@@ -518,7 +543,11 @@ export async function createSigningArchive(directory, archive, options) {
 
 async function copySource(sourcePath, destinationPath, output) {
   const source = path.join(REPOSITORY_ROOT, sourcePath)
-  const info = await lstat(source).catch(() => null)
+  const info = await lstat(source).catch((error) => {
+    if (error.code === 'ENOENT') return null
+    throw error
+  })
+  if (!info && Object.hasOwn(OPTIONAL_NSIS_ARTWORK, destinationPath)) return
   if (!info) throw new Error(`missing signing input source: ${sourcePath}`)
   if (info.isSymbolicLink()) {
     throw new Error(`signing input source must not be a symlink: ${sourcePath}`)
@@ -531,7 +560,11 @@ async function copySource(sourcePath, destinationPath, output) {
 async function verifyTrustedInputDigests(root) {
   for (const [relativePath, expected] of Object.entries(TRUSTED_INPUT_SHA256)) {
     const absolute = path.join(root, relativePath)
-    const info = await lstat(absolute).catch(() => null)
+    const info = await lstat(absolute).catch((error) => {
+      if (error.code === 'ENOENT') return null
+      throw error
+    })
+    if (!info && Object.hasOwn(OPTIONAL_NSIS_ARTWORK, relativePath)) continue
     if (
       !info?.isFile() ||
       info.size > SIGNING_ARCHIVE_LIMITS.fileBytes ||
@@ -557,6 +590,10 @@ export async function createSigningInput(options) {
     [
       nativeHostResource(options.platform, options.arch),
       nativeHostResource(options.platform, options.arch),
+    ],
+    [
+      finalizeFsResource(options.platform, options.arch),
+      finalizeFsResource(options.platform, options.arch),
     ],
     [
       `release/size-reports/${targetKey}.json`,

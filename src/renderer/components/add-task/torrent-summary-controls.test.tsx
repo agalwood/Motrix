@@ -52,7 +52,7 @@ describe('torrent summary controls', () => {
     render(<TorrentControls onClear={onClear} />)
 
     expect(screen.getByTitle('Example bundle')).toBeInTheDocument()
-    expect(screen.getByText('1.5 KB')).toBeInTheDocument()
+    expect(screen.getByText('1.54 KB')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Clear selection' }))
     expect(onClear).toHaveBeenCalledOnce()
   })

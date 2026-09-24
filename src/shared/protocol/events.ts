@@ -6,6 +6,7 @@ export interface LocaleChangedPayload {
 
 export interface WindowMaximizedChangedPayload {
   maximized: boolean
+  fullscreen: boolean
 }
 
 export const Events = {
@@ -33,11 +34,19 @@ export const Events = {
   TorrentQueueSizeChanged: 'event:torrentQueueSizeChanged',
   AppCrash: 'event:appCrash',
   AppError: 'event:appError',
+  DirectoryPreferencesChanged: 'event:directoryPreferencesChanged',
   SettingsChanged: 'event:settingsChanged',
+  // Payload: { reduceMotion: boolean }. Full settings remain host-internal.
+  ReducedMotionChanged: 'event:reducedMotionChanged',
+  // Payload: { liquidGlassEffect: boolean }.
+  LiquidGlassChanged: 'event:liquidGlassChanged',
+  // Payload: { byteUnitSystem: ByteUnitPreference }.
+  ByteUnitSystemChanged: 'event:byteUnitSystemChanged',
   LocaleChanged: 'event:localeChanged',
   SpeedLimitChanged: 'event:speedLimitChanged',
   // Torrent
   MagnetFileSelection: 'event:magnetFileSelection',
+  MagnetFileSelectionSettled: 'event:magnetFileSelectionSettled',
   // SetAddTaskMode payload is now `AddTaskUrlParams` — see
   // @shared/schemas/add-task.ts setAddTaskModeEventPayloadSchema.
   // The legacy `{ mode: 'links' | 'torrent' }` shape is a valid subset.
@@ -52,6 +61,8 @@ export const Events = {
   TuningUpdated: 'event:tuningUpdated',
   // Tracker
   TrackerListUpdated: 'event:trackerListUpdated',
+  // No payload; refetch GetTrackerSyncStatus, including after reconnect.
+  TrackerSyncStatusChanged: 'event:trackerSyncStatusChanged',
   TrackerSyncFailed: 'event:trackerSyncFailed',
   // Navigation
   NavigateTo: 'event:navigateTo',
@@ -103,7 +114,11 @@ export const Events = {
   // Payload: EngineCompatibilityWarningPayload. Internal shell signal; the
   // resulting durable NotificationAdded event is what reaches renderers.
   EngineCompatibilityWarning: 'event:engineCompatibilityWarning',
+  RendererTaskMenuRequested: 'event:rendererTaskMenuRequested',
   ApplicationMenuChanged: 'event:applicationMenuChanged',
+  // No payload; only the main window's current Downloads list handles this.
+  // Sent directly by the desktop shell, never through the core event bus.
+  TaskSelectAll: 'event:taskSelectAll',
   // Renderer-local shell state. Electron sends this directly to the owning
   // BrowserWindow instead of broadcasting it through the core event bus.
   WindowMaximizedChanged: 'event:windowMaximizedChanged',

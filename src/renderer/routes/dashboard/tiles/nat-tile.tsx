@@ -1,52 +1,23 @@
-// src/renderer/routes/dashboard/tiles/nat-tile.tsx
-
 import { Button } from '@renderer/components/ui/button'
-import { toast } from '@renderer/components/ui/toast'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@renderer/components/ui/tooltip'
+import { DropdownMenuTrigger } from '@renderer/components/ui/dropdown-menu'
+import { NatStatusMenu } from '@renderer/features/nat/nat-status-menu'
+import { useMinuteClock } from '@renderer/hooks/use-minute-clock'
 import { useNatStatus } from '@renderer/hooks/use-nat-status'
-import {
-  isNatRetrying,
-  isNatRunning,
-  type NatBucket,
-  natBucket,
-} from '@renderer/lib/nat-status'
-import { transport } from '@renderer/lib/transport'
+import { NAT_STATUS_TEXT_KEY, natBucket } from '@renderer/lib/nat-status'
+import { formatRelativeTime } from '@renderer/lib/relative-time'
 import { cn } from '@renderer/lib/utils'
-import { usePlatformServices } from '@renderer/platform/services'
-import { ErrorCode } from '@shared/errors'
-import { getNatTroubleshootingUrl } from '@shared/external-urls'
-import { type CommandChannel, Commands } from '@shared/protocol/commands'
-import { Activity, BookOpen, Power, RefreshCw, Settings2 } from 'lucide-react'
-import type { ComponentType } from 'react'
-import { useCallback } from 'react'
+import { type NatMapping, NatProtocol } from '@shared/types/nat'
+import { ArrowRight, Ellipsis, Router } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
 import { StatusDot } from '../components/status-dot'
 import { TileShell } from '../components/tile-shell'
 import { TileTitle } from '../components/tile-title'
 import type { DashboardTileViewport } from '../layout/dashboard-registry'
 
-const STATE_TEXT_KEY: Record<NatBucket, string> = {
-  active: 'panel.dashboard.nat.state.active',
-  settingUp: 'panel.dashboard.nat.state.settingUp',
-  failed: 'panel.dashboard.nat.state.failed',
-  off: 'panel.dashboard.nat.state.off',
-}
-
-function formatRelative(ms: number, lang: string): string {
-  const rtf = new Intl.RelativeTimeFormat(lang, { numeric: 'auto' })
-  const deltaMs = ms - Date.now()
-  const absSec = Math.abs(deltaMs) / 1000
-  if (absSec < 60) return rtf.format(Math.round(deltaMs / 1000), 'seconds')
-  if (absSec < 3600) return rtf.format(Math.round(deltaMs / 60_000), 'minutes')
-  if (absSec < 86_400)
-    return rtf.format(Math.round(deltaMs / 3_600_000), 'hours')
-  return rtf.format(Math.round(deltaMs / 86_400_000), 'days')
+const MAPPING_METHOD_LABELS: Record<NatProtocol, string> = {
+  [NatProtocol.Pcp]: 'PCP',
+  [NatProtocol.NatPmp]: 'NAT-PMP',
+  [NatProtocol.Upnp]: 'UPnP',
 }
 
 export interface NatTileProps {
@@ -54,245 +25,216 @@ export interface NatTileProps {
   className?: string
 }
 
-interface NatAction {
-  key: string
-  Icon: ComponentType<{ className?: string }>
-  label: string
-  shortLabel: string
-  run: () => void
+export function NatTile({ viewport, className }: NatTileProps) {
+  return __MOTRIX_TARGET__ === 'electron' ? (
+    <ElectronNatTile viewport={viewport} className={className} />
+  ) : null
 }
 
-export function NatTile({ viewport, className }: NatTileProps) {
+function ElectronNatTile({ viewport, className }: NatTileProps) {
   const { t, i18n } = useTranslation()
-  const services = usePlatformServices()
   const status = useNatStatus()
+  const now = useMinuteClock()
   const compact = viewport.contentLevel === 'compact'
   const summary = viewport.contentLevel === 'summary'
-  const showDetails =
-    viewport.contentLevel === 'detailed' || viewport.contentLevel === 'focus'
+  const narrow = viewport.span.w === 1
   const focus = viewport.contentLevel === 'focus'
-
-  const { bucket, color } = natBucket(status)
-  const failed = bucket === 'failed'
-  const stateLabel =
-    status && isNatRetrying(status)
-      ? t('panel.dashboard.nat.retrying', {
-          attempt: status.retryAttempt,
-          max: status.maxRetries,
-        })
-      : t(STATE_TEXT_KEY[bucket])
-  const running = isNatRunning(status)
-
-  const runCommand = useCallback(
-    async (channel: CommandChannel) => {
-      const res = (await transport.invoke(channel)) as
-        | { ok?: boolean; error?: string }
-        | undefined
-      if (res && res.ok === false && res.error === ErrorCode.IpcRateLimited) {
-        toast.add({
-          title: t('panel.dashboard.nat.rateLimited'),
-          type: 'error',
-        })
-      }
-    },
-    [t]
+  const detailed = !compact && !summary
+  const { bucket } = natBucket(status)
+  const stateLabel = t(
+    narrow
+      ? `panel.dashboard.nat.compact.state.${bucket}`
+      : NAT_STATUS_TEXT_KEY[bucket]
   )
-
+  const diagnostic = status?.lastDiagnostic
+  const gateway = status?.gatewayInfo ?? diagnostic?.gatewayInfo
+  const mappings = status?.activeMappings ?? []
+  const hasDetails =
+    bucket !== 'off' &&
+    (bucket === 'active' || gateway || diagnostic || mappings.length > 0)
   const none = t('panel.dashboard.nat.none')
-  const natType = status?.lastDiagnostic?.natType
-  const typeLabel = natType ? t(`panel.dashboard.nat.natType.${natType}`) : none
-  const externalIp = status?.gatewayInfo?.externalIp ?? none
-  const mappingsCount = status?.activeMappings.length ?? 0
-  const health = status?.lastDiagnostic?.healthScore
+  const typeLabel = diagnostic?.natType
+    ? t(`panel.dashboard.nat.natType.${diagnostic.natType}`)
+    : none
   const healthLabel = t(
-    `panel.dashboard.nat.healthScore.${health ?? 'unknown'}`
+    `panel.dashboard.nat.healthScore.${diagnostic?.healthScore ?? 'unknown'}`
   )
-  const lastCheck = status?.lastDiagnostic?.runAt
-    ? formatRelative(status.lastDiagnostic.runAt, i18n.language)
+  const lastCheck = diagnostic?.runAt
+    ? formatRelativeTime(diagnostic.runAt, now, i18n.language)
     : t('panel.dashboard.nat.lastCheckNever')
-
-  const toggleLabel = running
-    ? t('panel.dashboard.nat.actions.disable')
-    : t('panel.dashboard.nat.actions.enable')
-  const toggleShortLabel = running
-    ? t('panel.dashboard.nat.actions.short.disable')
-    : t('panel.dashboard.nat.actions.short.enable')
-  const actions: NatAction[] = [
-    {
-      key: 'toggle',
-      Icon: Power,
-      label: toggleLabel,
-      shortLabel: toggleShortLabel,
-      run: () =>
-        void runCommand(running ? Commands.DisableNat : Commands.EnableNat),
-    },
-    {
-      key: 'remap',
-      Icon: RefreshCw,
-      label: t('panel.dashboard.nat.actions.remap'),
-      shortLabel: t('panel.dashboard.nat.actions.short.remap'),
-      run: () => void runCommand(Commands.ForceRemapNat),
-    },
-    {
-      key: 'diagnose',
-      Icon: Activity,
-      label: t('panel.dashboard.nat.actions.diagnose'),
-      shortLabel: t('panel.dashboard.nat.actions.short.diagnose'),
-      run: () => void runCommand(Commands.RunNatDiagnostic),
-    },
-  ]
-  if (failed) {
-    actions.push({
-      key: 'help',
-      Icon: BookOpen,
-      label: t('panel.dashboard.nat.actions.troubleshoot'),
-      shortLabel: t('panel.dashboard.nat.actions.short.help'),
-      run: () =>
-        services.openExternal(
-          getNatTroubleshootingUrl(i18n.resolvedLanguage ?? i18n.language)
-        ),
-    })
-  }
+  const caption = compact
+    ? t(`panel.dashboard.nat.compact.caption.${status ? bucket : 'waiting'}`, {
+        count: mappings.length,
+      })
+    : status
+      ? bucket === 'active'
+        ? t('panel.dashboard.nat.mappingsValue', { count: mappings.length })
+        : t(`panel.dashboard.nat.caption.${bucket}`)
+      : t('panel.dashboard.nat.caption.waiting')
+  const statusDot = (
+    <StatusDot
+      data-bucket={bucket}
+      pulse={bucket === 'active' || bucket === 'settingUp'}
+      className={cn(
+        bucket === 'active'
+          ? 'bg-emerald-500'
+          : bucket === 'settingUp'
+            ? 'bg-amber-500'
+            : 'bg-muted-foreground/40'
+      )}
+    />
+  )
 
   return (
     <TileShell
       label={t('panel.dashboard.nat.title')}
       className={className}
+      bodyClassName="@container/nat"
       action={
-        compact ? (
-          <Button
-            type="button"
-            size="icon-xs"
-            variant="ghost"
-            className="cursor-default"
-            aria-label={toggleLabel}
-            onClick={actions[0]?.run}
-          >
-            <Power className="size-3.5" aria-hidden />
-          </Button>
-        ) : (
-          <Button
-            size="icon-xs"
-            variant="ghost"
-            className="cursor-default"
+        <NatStatusMenu status={status}>
+          <DropdownMenuTrigger
             render={
-              <Link
-                to="/settings/network"
-                role="link"
-                aria-label={t('panel.dashboard.nat.actions.settings')}
+              <Button
+                type="button"
+                size="icon-xs"
+                variant="ghost"
+                aria-label={t('panel.dashboard.nat.actions.group')}
               />
             }
-            nativeButton={false}
           >
-            <Settings2 className="size-3.5 text-muted-foreground" aria-hidden />
-          </Button>
-        )
+            <Ellipsis className="size-3.5 text-muted-foreground" aria-hidden />
+          </DropdownMenuTrigger>
+        </NatStatusMenu>
       }
     >
       <div
         data-testid="nat-hero"
-        className={cn(
-          'flex min-w-0 items-center gap-2.5 pt-0.5',
-          compact && 'mt-auto',
-          summary && 'justify-between'
-        )}
+        className="flex min-h-8 shrink-0 items-center"
       >
-        <div className="flex min-w-0 flex-1 items-center gap-2.5">
-          <StatusDot
-            data-bucket={bucket}
-            pulse={bucket === 'settingUp'}
-            className={cn(color, compact && 'size-3')}
-          />
-          <div className="min-w-0 flex-1">
-            <TileTitle variant="text" title={stateLabel}>
-              {stateLabel}
-            </TileTitle>
-          </div>
-        </div>
-        {summary ? (
-          <NatActions
-            actions={actions}
-            label={t('panel.dashboard.nat.actions.group')}
-            summary
-          />
-        ) : null}
+        <TileTitle variant="text" title={stateLabel}>
+          {stateLabel}
+        </TileTitle>
       </div>
 
-      {summary ? (
-        <dl
-          data-testid="nat-summary"
-          className="mt-auto grid min-w-0 grid-cols-3 pt-3 tabular-nums"
-        >
-          <Metric
-            label={t('panel.dashboard.nat.health')}
-            value={healthLabel}
-            compact
-          />
-          <Metric
-            label={t('panel.dashboard.nat.type')}
-            value={typeLabel}
-            compact
-            divided
-          />
-          <Metric
-            label={t('panel.dashboard.nat.mappings')}
-            value={t('panel.dashboard.nat.mappingsValue', {
-              count: mappingsCount,
-            })}
-            compact
-            divided
-          />
-        </dl>
-      ) : null}
-
-      {showDetails ? (
-        <dl
-          data-testid="nat-details"
-          data-content-level={viewport.contentLevel}
-          data-orientation={viewport.orientation}
+      {compact ? (
+        <div className="mt-auto flex items-end justify-between gap-3 pt-2">
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            {caption}
+          </p>
+          {statusDot}
+        </div>
+      ) : !hasDetails ? (
+        <div
+          data-testid="nat-empty"
           className={cn(
-            'mt-4 grid min-h-0 flex-1 grid-cols-2 grid-rows-[auto_minmax(0,1fr)_minmax(0,1fr)] gap-x-5 gap-y-3',
-            focus && 'gap-x-8 gap-y-4'
+            'flex min-h-0 flex-1 text-muted-foreground',
+            summary
+              ? 'items-end justify-between gap-3 pt-2'
+              : 'flex-col items-center justify-center gap-3'
           )}
         >
-          <Metric
-            testId="nat-metric-external-ip"
-            label={t('panel.dashboard.nat.externalIp')}
-            value={externalIp}
-            featured
-            focus={focus}
-          />
-          <Metric
-            label={t('panel.dashboard.nat.health')}
-            value={healthLabel}
-            focus={focus}
-          />
-          <Metric
-            label={t('panel.dashboard.nat.type')}
-            value={typeLabel}
-            focus={focus}
-            divided
-          />
-          <Metric
-            label={t('panel.dashboard.nat.mappings')}
-            value={String(mappingsCount)}
-            focus={focus}
-          />
-          <Metric
-            label={t('panel.dashboard.nat.lastCheck')}
-            value={lastCheck}
-            focus={focus}
-            divided
-          />
-        </dl>
-      ) : null}
-
-      {showDetails ? (
-        <NatActions
-          actions={actions}
-          label={t('panel.dashboard.nat.actions.group')}
-          focus={focus}
-        />
+          {detailed ? (
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-muted/50">
+              <Router className="size-6 stroke-[1.5]" aria-hidden />
+            </div>
+          ) : null}
+          <p
+            className={cn(
+              'max-w-60 text-xs leading-relaxed',
+              detailed && 'text-center'
+            )}
+          >
+            {caption}
+          </p>
+          {summary ? statusDot : null}
+        </div>
+      ) : summary ? (
+        <div className="mt-auto flex items-end gap-3 pt-2">
+          <dl
+            data-testid="nat-summary"
+            className="grid min-w-0 flex-1 grid-cols-3 gap-3"
+          >
+            <Metric
+              label={t('panel.dashboard.nat.health')}
+              value={healthLabel}
+              dense
+            />
+            <Metric
+              label={t('panel.dashboard.nat.type')}
+              value={typeLabel}
+              dense
+            />
+            <Metric
+              label={t('panel.dashboard.nat.mappings')}
+              value={t('panel.dashboard.nat.mappingsValue', {
+                count: mappings.length,
+              })}
+              dense
+            />
+          </dl>
+          {statusDot}
+        </div>
+      ) : (
+        <div className="mt-3 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+          <dl
+            data-testid="nat-details"
+            data-content-level={viewport.contentLevel}
+            data-orientation={viewport.orientation}
+            className={cn(
+              'grid min-w-0',
+              narrow
+                ? 'shrink-0 grid-cols-1 gap-0'
+                : 'grid-cols-2 gap-x-5 gap-y-4',
+              !narrow && (focus ? 'shrink-0' : 'flex-1 content-between')
+            )}
+          >
+            <Metric
+              testId="nat-metric-external-ip"
+              label={t('panel.dashboard.nat.externalIp')}
+              value={gateway?.externalIp ?? none}
+              featured
+              className={cn('col-span-full', narrow && 'mb-3')}
+            />
+            {focus ? (
+              <>
+                <Metric
+                  label={t('panel.dashboard.nat.internalIp')}
+                  value={gateway?.internalIp ?? none}
+                />
+                <Metric
+                  label={t('panel.dashboard.nat.gatewayIp')}
+                  value={gateway?.gatewayIp ?? none}
+                />
+              </>
+            ) : null}
+            <Metric
+              label={t('panel.dashboard.nat.health')}
+              value={healthLabel}
+              inline={narrow}
+            />
+            <Metric
+              label={t('panel.dashboard.nat.type')}
+              value={typeLabel}
+              inline={narrow}
+            />
+            <Metric
+              label={t('panel.dashboard.nat.mappings')}
+              value={t('panel.dashboard.nat.mappingsValue', {
+                count: mappings.length,
+              })}
+              inline={narrow}
+            />
+            <Metric
+              label={t('panel.dashboard.nat.lastCheck')}
+              value={lastCheck}
+              inline={narrow}
+            />
+          </dl>
+          {focus ? <MappingList mappings={mappings} /> : null}
+        </div>
+      )}
+      {detailed ? (
+        <div className="flex shrink-0 justify-end pt-3">{statusDot}</div>
       ) : null}
     </TileShell>
   )
@@ -302,48 +244,49 @@ function Metric({
   label,
   value,
   testId,
-  compact = false,
   featured = false,
-  focus = false,
-  divided = false,
+  inline = false,
+  dense = false,
+  className,
 }: {
   label: string
   value: string
   testId?: string
-  compact?: boolean
   featured?: boolean
-  focus?: boolean
-  divided?: boolean
+  inline?: boolean
+  dense?: boolean
+  className?: string
 }) {
   return (
     <div
       data-testid={testId}
       className={cn(
         'min-w-0',
-        featured
-          ? 'col-span-2 rounded-xl bg-muted/40 px-3.5 py-3 ring-1 ring-inset ring-foreground/5'
-          : 'flex flex-col justify-center py-2',
-        featured && focus && 'px-4 py-4',
-        divided && !featured && 'border-l border-border/70 pl-4'
+        featured && 'rounded-xl bg-muted/40 px-3 py-2.5',
+        inline &&
+          'grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] items-baseline gap-2 border-b border-border/50 py-2.5 last:border-0',
+        className
       )}
     >
-      <dt className="whitespace-nowrap text-[10px] leading-none font-medium tracking-[0.04em] text-muted-foreground uppercase">
+      <dt
+        className={cn(
+          'text-[10px] font-medium tracking-[0.04em] text-muted-foreground uppercase',
+          dense ? 'leading-3' : 'leading-4'
+        )}
+      >
         {label}
       </dt>
       <dd
         title={value}
         className={cn(
-          'mt-1.5 block min-w-0 font-medium tracking-[-0.01em] text-foreground tabular-nums',
-          featured ? 'break-all' : 'break-words',
-          compact
-            ? 'text-[14px]'
-            : featured
-              ? focus
-                ? 'text-[22px]'
-                : 'text-[18px]'
-              : focus
-                ? 'text-[17px]'
-                : 'text-[15px]'
+          'min-w-0 font-medium text-foreground',
+          featured
+            ? 'mt-1 break-all font-mono text-[clamp(0.75rem,8cqi,1rem)] leading-5'
+            : inline
+              ? 'break-words text-right text-xs leading-4'
+              : dense
+                ? 'mt-1 break-words text-xs leading-4'
+                : 'mt-1 break-words text-sm leading-5'
         )}
       >
         {value}
@@ -352,60 +295,54 @@ function Metric({
   )
 }
 
-function NatActions({
-  actions,
-  label,
-  summary = false,
-  focus = false,
-}: {
-  actions: NatAction[]
-  label: string
-  summary?: boolean
-  focus?: boolean
-}) {
+function MappingList({ mappings }: { mappings: readonly NatMapping[] }) {
+  const { t } = useTranslation()
   return (
-    <TooltipProvider delay={300}>
-      <fieldset
-        data-testid="nat-actions"
-        aria-label={label}
-        className={cn(
-          'grid min-w-0 shrink-0 gap-0.5 rounded-lg border-0 bg-muted/45 p-1 ring-1 ring-inset ring-foreground/5',
-          actions.length === 4 ? 'grid-cols-4' : 'grid-cols-3',
-          summary ? 'w-fit' : 'mt-3 w-full'
-        )}
-      >
-        {actions.map((action, index) => (
-          <Tooltip key={action.key}>
-            <TooltipTrigger
-              render={
-                <Button
-                  type="button"
-                  size={summary ? 'icon-xs' : focus ? 'sm' : 'icon-sm'}
-                  variant="ghost"
-                  aria-label={action.label}
-                  onClick={action.run}
-                  className={cn(
-                    'min-w-0 cursor-default rounded-md text-muted-foreground transition-[background-color,color,transform] duration-100 ease-out hover:bg-background/80 hover:text-foreground active:scale-[0.97] motion-reduce:transform-none motion-reduce:transition-none dark:hover:bg-background/35',
-                    summary && 'size-7',
-                    !summary && 'w-full',
-                    focus && 'h-9 gap-1.5 px-2',
-                    index === 0 &&
-                      'bg-background/75 text-foreground shadow-xs dark:bg-background/30'
-                  )}
-                />
-              }
+    <section
+      data-testid="nat-mapping-list"
+      aria-label={t('panel.dashboard.nat.mappingDetails')}
+      className="min-w-0 border-t border-border/60 pt-3"
+    >
+      <h3 className="text-[10px] font-medium uppercase tracking-[0.04em] text-muted-foreground">
+        {t('panel.dashboard.nat.mappingDetails')}
+      </h3>
+      {mappings.length > 0 ? (
+        <ul className="mt-2 space-y-2">
+          {mappings.map((mapping) => (
+            <li
+              key={`${mapping.purpose}:${mapping.protocol}:${mapping.internalPort}:${mapping.externalPort}`}
+              className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg bg-muted/35 px-3 py-2"
             >
-              <action.Icon className="size-4" aria-hidden />
-              {focus ? (
-                <span className="whitespace-nowrap text-xs">
-                  {action.shortLabel}
+              <div className="min-w-0">
+                <p className="text-xs font-medium">
+                  {t(`panel.dashboard.nat.mappingPurpose.${mapping.purpose}`)}
+                </p>
+                <p className="mt-0.5 text-[10px] text-muted-foreground">
+                  {mapping.protocol} / {MAPPING_METHOD_LABELS[mapping.method]}
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 font-mono text-xs tabular-nums">
+                <span className="sr-only">
+                  {t('panel.dashboard.nat.portMapping', {
+                    internal: mapping.internalPort,
+                    external: mapping.externalPort,
+                  })}
                 </span>
-              ) : null}
-            </TooltipTrigger>
-            <TooltipContent>{action.label}</TooltipContent>
-          </Tooltip>
-        ))}
-      </fieldset>
-    </TooltipProvider>
+                <span aria-hidden>{mapping.internalPort}</span>
+                <ArrowRight
+                  className="size-3 text-muted-foreground"
+                  aria-hidden
+                />
+                <span aria-hidden>{mapping.externalPort}</span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {t('panel.dashboard.nat.noMappings')}
+        </p>
+      )}
+    </section>
   )
 }

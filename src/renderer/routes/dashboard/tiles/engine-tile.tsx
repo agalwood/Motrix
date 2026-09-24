@@ -1,29 +1,22 @@
 // src/renderer/routes/dashboard/tiles/engine-tile.tsx
 import { Button } from '@renderer/components/ui/button'
+import type {
+  EngineDisplayState,
+  EngineDisplayStatus,
+} from '@renderer/hooks/use-engine-display-status'
 import { cn } from '@renderer/lib/utils'
-import type { EngineFailureReason } from '@shared/types/engine'
+
+export type {
+  EngineDisplayState,
+  EngineDisplayStatus,
+} from '@renderer/hooks/use-engine-display-status'
+
 import { Bug } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { StatusDot } from '../components/status-dot'
 import { TileShell } from '../components/tile-shell'
 import { TileTitle } from '../components/tile-title'
 import type { DashboardTileViewport } from '../layout/dashboard-registry'
-
-export type EngineDisplayState =
-  | 'ready'
-  | 'starting'
-  | 'reconnecting'
-  | 'failed'
-  | 'disconnected'
-  | 'stopped'
-
-export interface EngineDisplayStatus {
-  state: EngineDisplayState
-  version: string
-  rpcPort: number
-  listenPort: number
-  failureReason: EngineFailureReason | null
-}
 
 export interface EngineTileProps {
   status: EngineDisplayStatus
@@ -49,14 +42,22 @@ export function EngineTile({
 }: EngineTileProps) {
   const { t } = useTranslation()
   const compact = viewport.contentLevel === 'compact'
-  const detailed =
-    viewport.contentLevel === 'detailed' || viewport.contentLevel === 'focus'
   const tall = viewport.orientation === 'tall'
   const pulse =
     status.state === 'ready' ||
     status.state === 'starting' ||
     status.state === 'reconnecting'
-  const stateLabel = t(`panel.dashboard.engine.state.${status.state}`)
+  const connectionLabel = status.connection
+    ? t(`panel.connection.${status.connection}`)
+    : null
+  const stateLabel =
+    status.state === 'ready' && connectionLabel
+      ? connectionLabel
+      : t(`panel.dashboard.engine.state.${status.state}`)
+  const dot =
+    status.connection && status.state !== 'failed'
+      ? 'bg-amber-500'
+      : DOT[status.state]
 
   // 'aria2c 1.37.0-motrix.1' only show '1.37.0'
   const shortVersion = String(status.version).split('-')[0]
@@ -102,15 +103,14 @@ export function EngineTile({
       <TileTitle variant="text" title={stateLabel}>
         {stateLabel}
       </TileTitle>
-      {detailed && status.state === 'failed' && (
-        <div
-          data-testid="engine-failure"
-          className="mt-1 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive"
+      {connectionLabel && status.state !== 'ready' && !compact && (
+        <p
+          role="status"
+          title={connectionLabel}
+          className="mt-1 shrink-0 truncate text-xs text-muted-foreground"
         >
-          {t(
-            `panel.dashboard.engine.diagnostics.reason.${status.failureReason ?? 'unknown'}`
-          )}
-        </div>
+          {connectionLabel}
+        </p>
       )}
       {!compact ? (
         <div
@@ -139,8 +139,8 @@ export function EngineTile({
             ))}
           </div>
           <StatusDot
-            pulse={pulse}
-            className={cn(DOT[status.state], tall && 'self-end')}
+            pulse={pulse && !status.connection}
+            className={cn(dot, tall && 'self-end')}
           />
         </div>
       ) : (
@@ -148,10 +148,10 @@ export function EngineTile({
           data-testid="engine-footer"
           className="mt-auto flex items-center justify-between"
         >
-          <div className="flex shrink-0 items-center gap-3 text-muted-foreground tabular-nums text-[11px]">
+          <div className="flex shrink-0 items-center gap-3 text-muted-foreground text-[11px]">
             {`aria2 v${shortVersion}`}
           </div>
-          <StatusDot pulse={pulse} className={cn(DOT[status.state])} />
+          <StatusDot pulse={pulse && !status.connection} className={cn(dot)} />
         </div>
       )}
     </TileShell>
@@ -181,7 +181,7 @@ function Sub({
       </span>
       <span
         title={value}
-        className="mt-1 block truncate text-[15px] font-medium text-foreground tabular-nums"
+        className="mt-1 block truncate text-[15px] font-medium text-foreground"
       >
         {value}
       </span>

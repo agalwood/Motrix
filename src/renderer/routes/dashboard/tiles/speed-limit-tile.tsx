@@ -1,5 +1,7 @@
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
 // src/renderer/routes/dashboard/tiles/speed-limit-tile.tsx
 
+import { SPEED_LIMIT_MODES } from '@renderer/components/speed-limit-modes'
 import { Button } from '@renderer/components/ui/button'
 import {
   Tooltip,
@@ -8,29 +10,16 @@ import {
   TooltipTrigger,
 } from '@renderer/components/ui/tooltip'
 import type { SpeedLimitStateView } from '@renderer/hooks/use-speed-limit-state'
-import { formatBytes } from '@renderer/lib/format'
+
 import { cn } from '@renderer/lib/utils'
-import { Bolt, InfinityIcon, Rabbit, Squirrel, Turtle } from 'lucide-react'
-import type { ComponentType, ReactElement } from 'react'
+import { Bolt, InfinityIcon } from 'lucide-react'
+import type { ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { TileShell } from '../components/tile-shell'
 import type { DashboardTileViewport } from '../layout/dashboard-registry'
 
 type TurtleState = SpeedLimitStateView['turtle']
-
-const TURTLES: {
-  id: TurtleState
-  Icon: ComponentType<{ className?: string }>
-}[] = [
-  { id: 'off', Icon: Rabbit },
-  { id: 'on', Icon: Turtle },
-  { id: 'auto', Icon: Squirrel },
-]
-
-function fmt(v: number): string | ReactElement {
-  return v <= 0 ? <InfinityIcon className="size-4" /> : `${formatBytes(v)}/s`
-}
 
 export interface SpeedLimitTileProps {
   state: SpeedLimitStateView
@@ -45,6 +34,11 @@ export function SpeedLimitTile({
   onSelectTurtle,
   className,
 }: SpeedLimitTileProps) {
+  const { formatSpeedLimit } = useByteFormat()
+
+  function fmt(v: number): string | ReactElement {
+    return v <= 0 ? <InfinityIcon className="size-4" /> : formatSpeedLimit(v)
+  }
   const { t } = useTranslation()
   const compact = viewport.contentLevel === 'compact'
   const detailed =
@@ -82,7 +76,7 @@ export function SpeedLimitTile({
             tall ? 'grid-cols-1' : 'grid-cols-3'
           )}
         >
-          {TURTLES.map(({ id, Icon }) => {
+          {SPEED_LIMIT_MODES.map(({ id, Icon }) => {
             const active = state.turtle === id
             return (
               <Tooltip key={id}>
@@ -133,7 +127,7 @@ export function SpeedLimitTile({
         {!compact ? (
           <div
             data-testid="speed-limit-rates"
-            className="flex shrink-0 items-center gap-3 text-[12px] text-muted-foreground tabular-nums"
+            className="flex shrink-0 items-center gap-3 text-[12px] text-muted-foreground"
           >
             <span className="flex gap-0.5 items-center">
               <span className="mr-0.5 text-xs">↓</span>

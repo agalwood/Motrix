@@ -234,3 +234,27 @@ it('normalizes base32 BTIH values to the canonical hexadecimal identity', () => 
     INFO_HASH
   )
 })
+
+it('reserves all failed magnet targets even outside the original save root', () => {
+  const task = btTask({
+    id: 'partial',
+    status: TaskStatus.MetadataReady,
+    type: TaskType.Magnet,
+  })
+  task.instances[0].payload = {
+    btOutputReservation: { finalPath: '/new/current', infoHash: INFO_HASH },
+    btOutputReservations: [
+      { finalPath: '/old/earlier', infoHash: INFO_HASH, multiFile: true },
+      { finalPath: '/new/current', infoHash: INFO_HASH, multiFile: false },
+    ],
+  }
+  expect(reservedBtFinalNames([task], '/new')).toEqual([
+    'current',
+    'current.aria2',
+  ])
+  expect(reservedBtFinalNames([task], '/old')).toEqual([
+    'earlier',
+    'earlier.aria2',
+  ])
+  expect(reservedBtFinalNames([task], '/new', task.id)).toEqual([])
+})

@@ -1,3 +1,4 @@
+import { onOperatorSessionLost } from '@renderer/lib/operator-auth'
 import { transport } from '@renderer/lib/transport'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
@@ -26,6 +27,7 @@ export interface TaskListAggregates {
   status: TaskListStatus
   hasReadySnapshot: boolean
   revision: number
+  realtimeConnected: boolean
   retry(): Promise<void>
   hasAnyActive: boolean
   hasAnyPaused: boolean
@@ -36,6 +38,7 @@ interface PublishOptions {
   tasks?: readonly DownloadTask[]
   status?: TaskListStatus
   hasReadySnapshot?: boolean
+  realtimeConnected?: boolean
 }
 
 interface PendingRequest {
@@ -62,6 +65,58 @@ let dataGeneration = 0
 let pendingRequest: PendingRequest | null = null
 let legacyRefreshRequested = false
 let teardownTimer: ReturnType<typeof setTimeout> | null = null
+let webRefreshTimer: ReturnType<typeof setTimeout> | null = null
+let lastSnapshotAt = 0
+
+export const TASK_LIST_WEB_FALLBACK_MS = 5_000
+export const TASK_LIST_WEB_RECONCILE_MS = 30_000
+
+function clearWebRefresh(): void {
+  if (webRefreshTimer !== null) clearTimeout(webRefreshTimer)
+  webRefreshTimer = null
+}
+
+function isWebVisible(): boolean {
+  return transport.platform === 'web' && document.visibilityState !== 'hidden'
+}
+
+function scheduleWebRefresh(): void {
+  clearWebRefresh()
+  if (
+    !listenersAttached ||
+    !isWebVisible() ||
+    pendingRequest ||
+    resyncRetryTimer
+  )
+    return
+  const interval = snapshot.realtimeConnected
+    ? TASK_LIST_WEB_RECONCILE_MS
+    : TASK_LIST_WEB_FALLBACK_MS
+  webRefreshTimer = setTimeout(
+    () => {
+      webRefreshTimer = null
+      void requestTasks(false)
+    },
+    Math.max(0, interval - (Date.now() - lastSnapshotAt))
+  )
+}
+
+function onForeground(): void {
+  if (!isWebVisible()) return
+  if (Date.now() - lastSnapshotAt < 1_000) {
+    scheduleWebRefresh()
+    return
+  }
+  refreshTaskList()
+}
+
+function onVisibilityChange(): void {
+  if (isWebVisible()) onForeground()
+  else {
+    clearWebRefresh()
+    cancelResyncRetry()
+  }
+}
 
 // A failed re-snapshot while a ready snapshot is on screen is nearly
 // invisible (downloads-page only shows a slim stale banner) and the
@@ -73,8 +128,7 @@ let teardownTimer: ReturnType<typeof setTimeout> | null = null
 // the stale list with no future edge to rescue it.
 const RESYNC_RETRY_BASE_DELAY_MS = 1_000
 const RESYNC_RETRY_MAX_DELAY_MS = 30_000
-// A transport request has no deadline of its own; a hung fetch must not pin
-// pendingRequest forever and wedge the coalescer.
+// Keep the store's coalescer bounded even if a transport fails to settle.
 const SNAPSHOT_DEADLINE_MS = 15_000
 let resyncRetryTimer: ReturnType<typeof setTimeout> | null = null
 let resyncRetryAttempt = 0
@@ -93,7 +147,12 @@ function resetResyncRetry(): void {
 }
 
 function scheduleResyncRetry(): void {
-  if (resyncRetryTimer !== null) return
+  if (
+    resyncRetryTimer !== null ||
+    (transport.platform === 'web' && !isWebVisible())
+  )
+    return
+  clearWebRefresh()
   const base = Math.min(
     RESYNC_RETRY_BASE_DELAY_MS * 2 ** Math.min(resyncRetryAttempt, 5),
     RESYNC_RETRY_MAX_DELAY_MS
@@ -117,13 +176,16 @@ function createSnapshot(
   tasks: readonly DownloadTask[],
   status: TaskListStatus,
   hasReadySnapshot: boolean,
-  revision: number
+  revision: number,
+  realtimeConnected = transport.platform !== 'web' ||
+    transport.getConnectionState?.() === 'connected'
 ): TaskListAggregates {
   return Object.freeze({
     tasks,
     status,
     hasReadySnapshot,
     revision,
+    realtimeConnected,
     retry,
     hasAnyActive: tasks.some((task) => ACTIVE_STATUSES.includes(task.status)),
     hasAnyPaused: tasks.some((task) => task.status === TaskStatus.Paused),
@@ -157,11 +219,14 @@ function publish(options: PublishOptions): void {
     options.tasks === undefined ? snapshot.tasks : immutableTasks(options.tasks)
   const status = options.status ?? snapshot.status
   const hasReadySnapshot = options.hasReadySnapshot ?? snapshot.hasReadySnapshot
+  const realtimeConnected =
+    options.realtimeConnected ?? snapshot.realtimeConnected
 
   if (
     tasks === snapshot.tasks &&
     status === snapshot.status &&
-    hasReadySnapshot === snapshot.hasReadySnapshot
+    hasReadySnapshot === snapshot.hasReadySnapshot &&
+    realtimeConnected === snapshot.realtimeConnected
   ) {
     return
   }
@@ -170,7 +235,8 @@ function publish(options: PublishOptions): void {
     tasks,
     status,
     hasReadySnapshot,
-    snapshot.revision + 1
+    snapshot.revision + 1,
+    realtimeConnected
   )
   notify()
 }
@@ -199,21 +265,20 @@ function drainLegacyRefresh(): void {
 function requestTasks(markLoading: boolean): Promise<void> {
   if (!listenersAttached) return Promise.resolve()
 
-  if (markLoading) publish({ status: 'loading' })
+  if (markLoading && !snapshot.hasReadySnapshot) publish({ status: 'loading' })
 
   const epoch = lifecycleEpoch
   const generation = dataGeneration
-  if (
-    pendingRequest?.epoch === epoch &&
-    pendingRequest.generation === generation
-  ) {
+  if (pendingRequest?.epoch === epoch) {
     return pendingRequest.promise
   }
+  clearWebRefresh()
   const request = transport
     .invoke(Queries.ListTasks)
     .then((data) => {
       if (!canPublish(epoch, generation)) return
       resetResyncRetry()
+      lastSnapshotAt = Date.now()
       dataGeneration += 1
       publish({
         tasks: data as readonly DownloadTask[],
@@ -224,9 +289,10 @@ function requestTasks(markLoading: boolean): Promise<void> {
     .catch(() => {
       if (!canPublish(epoch, generation)) return
       publish({ status: 'error' })
-      // Only the silent case needs self-healing: without a ready snapshot
-      // the error is visible and owns a manual retry affordance.
-      if (snapshot.hasReadySnapshot) scheduleResyncRetry()
+      // Web clients also recover an initial failure without requiring a
+      // successful event connection or a manual reload.
+      if (snapshot.hasReadySnapshot || transport.platform === 'web')
+        scheduleResyncRetry()
     })
 
   // A request that never settles must not stay the pendingRequest forever:
@@ -244,15 +310,18 @@ function requestTasks(markLoading: boolean): Promise<void> {
       // stranding an older list with no further retry.
       dataGeneration += 1
       publish({ status: 'error' })
-      if (snapshot.hasReadySnapshot) scheduleResyncRetry()
+      if (snapshot.hasReadySnapshot || transport.platform === 'web')
+        scheduleResyncRetry()
     }
     drainLegacyRefresh()
+    scheduleWebRefresh()
   }, SNAPSHOT_DEADLINE_MS)
   const promise = request.finally(() => {
     clearTimeout(watchdog)
     if (pendingRequest?.promise !== promise) return
     pendingRequest = null
     drainLegacyRefresh()
+    scheduleWebRefresh()
   })
   pendingRequest = { epoch, generation, promise }
   return promise
@@ -265,14 +334,15 @@ function retry(): Promise<void> {
 function onTaskEvent(...args: unknown[]): void {
   const payload = args[0]
   if (Array.isArray(payload)) {
-    legacyRefreshRequested = false
     resetResyncRetry()
+    lastSnapshotAt = Date.now()
     dataGeneration += 1
     publish({
       tasks: payload as readonly DownloadTask[],
       status: 'ready',
       hasReadySnapshot: true,
     })
+    scheduleWebRefresh()
     return
   }
 
@@ -284,28 +354,44 @@ function onTaskEvent(...args: unknown[]): void {
   drainLegacyRefresh()
 }
 
+/** Acknowledged mutations need a query issued after the write, even when
+ * an older snapshot request is still in flight. Never retry the mutation. */
+export function invalidateTaskList(): void {
+  if (!listenersAttached) return
+  dataGeneration += 1
+  refreshTaskList()
+}
+
+/** A connection/focus edge requests fresh data, but is not evidence that an
+ * in-flight HTTP snapshot is stale. Keep it usable while queuing one refresh. */
+function refreshTaskList(): void {
+  if (!listenersAttached) return
+  resetResyncRetry()
+  legacyRefreshRequested = true
+  drainLegacyRefresh()
+}
+
 function attachListeners(): void {
   if (listenersAttached) return
   listenersAttached = true
-  transport.on(Events.TaskUpdated, onTaskEvent)
-  // Web transport only (Electron IPC has no renderer-owned connection
-  // lifecycle, so onConnectionChange is absent there): a disconnect window
-  // can swallow removal/terminal frames, and the delta-gated poll tick
-  // never re-broadcasts an unchanged engine — this re-snapshot is the only
-  // recovery path. requestTasks' epoch/generation guard already discards
-  // stale responses racing a concurrent push. The generation bump plus the
-  // legacy-refresh coalescer bound a reconnect STORM to one in-flight
-  // request and one trailing request that necessarily starts after the
-  // latest edge — firing one request per edge would let the generation
-  // guard discard every response except the last one's, which may fail.
+  // Register lifecycle observation before on() can create a web socket.
   detachConnectionListener =
     transport.onConnectionChange?.((event) => {
-      if (event.state !== 'connected') return
-      resetResyncRetry()
-      dataGeneration += 1
-      legacyRefreshRequested = true
-      drainLegacyRefresh()
+      publish({ realtimeConnected: event.state === 'connected' })
+      if (event.state === 'connected') refreshTaskList()
+      else scheduleWebRefresh()
     }) ?? null
+  transport.on(Events.TaskUpdated, onTaskEvent)
+  publish({
+    realtimeConnected:
+      transport.platform !== 'web' ||
+      transport.getConnectionState?.() === 'connected',
+  })
+  if (transport.platform === 'web') {
+    window.addEventListener('focus', onForeground)
+    window.addEventListener('online', onForeground)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+  }
   void requestTasks(false)
 }
 
@@ -315,6 +401,10 @@ function detachListeners(): void {
   detachConnectionListener?.()
   detachConnectionListener = null
   listenersAttached = false
+  clearWebRefresh()
+  window.removeEventListener('focus', onForeground)
+  window.removeEventListener('online', onForeground)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
   lifecycleEpoch += 1
   pendingRequest = null
   legacyRefreshRequested = false
@@ -335,7 +425,7 @@ function scheduleDeferredTeardown(): void {
   }, 0)
 }
 
-function subscribe(listener: StoreListener): () => void {
+export function subscribeTaskList(listener: StoreListener): () => void {
   cancelDeferredTeardown()
   subscribers.add(listener)
   attachListeners()
@@ -346,14 +436,18 @@ function subscribe(listener: StoreListener): () => void {
   }
 }
 
-function getSnapshot(): TaskListAggregates {
+export function getTaskListSnapshot(): TaskListAggregates {
   return snapshot
 }
 
-const getServerSnapshot = getSnapshot
+const getServerSnapshot = getTaskListSnapshot
 
 export function useTaskList(): TaskListAggregates {
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+  return useSyncExternalStore(
+    subscribeTaskList,
+    getTaskListSnapshot,
+    getServerSnapshot
+  )
 }
 
 /** Internal: tests only. Resets the module-level external store. */
@@ -365,8 +459,18 @@ export function __resetTaskListStoreForTests(): void {
   // cannot become valid again after the reset.
   lifecycleEpoch += 1
   dataGeneration = 0
+  lastSnapshotAt = 0
   pendingRequest = null
   legacyRefreshRequested = false
   resetResyncRetry()
   snapshot = createSnapshot(EMPTY_TASKS, 'loading', false, 0)
 }
+
+/** Clear privileged cached data when the operator session is confirmed lost. */
+export function clearTaskListSession(): void {
+  cancelDeferredTeardown()
+  detachListeners()
+  dataGeneration += 1
+  publish({ tasks: EMPTY_TASKS, status: 'loading', hasReadySnapshot: false })
+}
+onOperatorSessionLost(clearTaskListSession)

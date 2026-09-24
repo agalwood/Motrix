@@ -1,27 +1,17 @@
 import { Button } from '@renderer/components/ui/button'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import type { AddTaskFormValues } from '@shared/schemas/add-task'
 import { X } from 'lucide-react'
 import { useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`
-  const k = 1024
-  const units = ['KB', 'MB', 'GB', 'TB']
-  let i = -1
-  let v = n
-  do {
-    v /= k
-    i++
-  } while (v >= k && i < units.length - 1)
-  return `${v.toFixed(1)} ${units[i]}`
-}
 
 interface TorrentInfoHeaderProps {
   onClear: () => void
 }
 
 export function TorrentInfoHeader({ onClear }: TorrentInfoHeaderProps) {
+  const { formatBytes } = useByteFormat()
+
   const { t } = useTranslation()
   const meta = useWatch<AddTaskFormValues, 'torrentMeta'>({
     name: 'torrentMeta',

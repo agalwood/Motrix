@@ -49,3 +49,20 @@ describe('resolveMainWindowStartupPlan', () => {
     ).toEqual({ create: false, show: false })
   })
 })
+
+it.each([RunMode.Standard, RunMode.HideTray, RunMode.TrayOnly])(
+  'honors the login window preference in %s mode',
+  (runMode) => {
+    expect(
+      resolveMainWindowStartupPlan({
+        openedAtLogin: true,
+        showMainWindowAtLogin: true,
+        runMode,
+        releaseWhenHidden: true,
+      })
+    ).toEqual({
+      create: runMode !== RunMode.TrayOnly,
+      show: runMode !== RunMode.TrayOnly,
+    })
+  }
+)

@@ -5,6 +5,8 @@ import type { SessionManager } from '@core/session/session-manager'
 import type { DownloadTask } from '@shared/types/task'
 import { isStoppedTaskStatus } from '@shared/types/task-actions'
 import type { Logger } from '../../logger'
+import type { MediaMetaStore } from '../media-meta-store'
+import { getMediaMetaPath } from '../media-task-files'
 import { collectTaskGids } from '../task-instance'
 import type { TaskManager } from '../task-manager'
 
@@ -14,6 +16,7 @@ interface Candidate {
 }
 
 export interface ClearStoppedTasksDeps {
+  mediaMetaStore?: Pick<MediaMetaStore, 'remove'>
   taskManager: Pick<TaskManager, 'getAll' | 'getById' | 'remove'>
   adapter: Pick<EngineAdapter, 'removeDownloadResults'>
   db: Pick<MotrixDatabase, 'deleteTasks'>
@@ -54,9 +57,17 @@ function snapshotCandidates(tasks: readonly DownloadTask[]): Candidate[] {
 }
 
 export async function clearStoppedTasks(
-  deps: ClearStoppedTasksDeps
-): Promise<void> {
-  const candidates = snapshotCandidates(deps.taskManager.getAll())
+  deps: ClearStoppedTasksDeps,
+  taskIds?: readonly string[]
+): Promise<{
+  succeeded: string[]
+  failed: { taskId: string; reason: string }[]
+}> {
+  const allowed = taskIds ? new Set(taskIds) : null
+  const candidates = snapshotCandidates(
+    deps.taskManager.getAll().filter((task) => !allowed || allowed.has(task.id))
+  )
+  const succeeded: string[] = []
   const cleaned: Candidate[] = []
 
   // One engine round-trip for every gid of every candidate, flattened in
@@ -132,6 +143,12 @@ export async function clearStoppedTasks(
 
       if (ids.length === 0) return 0
 
+      const mediaPaths = ids.flatMap((id) => {
+        const task = deps.taskManager.getById(id)
+        const metaPath = task && getMediaMetaPath(task)
+        return metaPath ? [metaPath] : []
+      })
+
       const deleteParents = (): void => {
         deps.db.deleteTasks(ids)
         for (const id of ids) deps.taskManager.remove(id)
@@ -140,6 +157,12 @@ export async function clearStoppedTasks(
         await deps.deleteParentTasks(ids, deleteParents)
       } else {
         deleteParents()
+      }
+      succeeded.push(...ids)
+      for (const metaPath of mediaPaths) {
+        await deps.mediaMetaStore?.remove(metaPath).catch((err) => {
+          deps.log.warn({ err, metaPath }, 'Failed to remove media metadata')
+        })
       }
       deps.publishTaskUpdateNow()
       return ids.length
@@ -153,4 +176,14 @@ export async function clearStoppedTasks(
     { candidateCount: candidates.length, count },
     'clearStoppedTasks removed terminal tasks'
   )
+  const removed = new Set(succeeded)
+  return {
+    succeeded,
+    failed: candidates
+      .filter((c) => !removed.has(c.id))
+      .map((c) => ({
+        taskId: c.id,
+        reason: 'Task changed or engine cleanup failed',
+      })),
+  }
 }

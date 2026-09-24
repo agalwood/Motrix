@@ -1,3 +1,4 @@
+import '@test-utils/dom-animations'
 import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -521,8 +522,10 @@ describe('PluginCallGraphInspector', () => {
       name: strings.inspectorLabel,
     })
 
-    expect(inspector).toHaveClass('min-h-0', 'overflow-auto')
-    expect(container.querySelectorAll('.overflow-auto')).toHaveLength(1)
+    expect(inspector).toHaveClass('min-h-0')
+    expect(
+      container.querySelectorAll('[data-slot="scroll-area-viewport"]')
+    ).toHaveLength(1)
     expect(inspector.className).not.toContain('360')
   })
 })

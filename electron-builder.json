@@ -92,7 +92,7 @@
     "artifactName": "${productName}-${version}-${arch}.${ext}",
     "bundleShortVersion": "2.0.0",
     "bundleVersion": "2.0.1",
-    "minimumSystemVersion": "12.0",
+    "minimumSystemVersion": "13.0",
     "hardenedRuntime": true,
     "gatekeeperAssess": false,
     "entitlements": "build/entitlements.mac.plist",
@@ -117,6 +117,10 @@
       {
         "from": "./packages/native-host/dist/darwin-${arch}/motrix-native-host",
         "to": "bin/motrix-native-host"
+      },
+      {
+        "from": "./packages/finalize-fs/dist/darwin-${arch}/motrix-finalize-fs",
+        "to": "bin/motrix-finalize-fs"
       },
       {
         "from": "./extra/tray/",
@@ -150,6 +154,10 @@
       {
         "from": "./packages/native-host/dist/win32-${arch}/motrix-native-host.exe",
         "to": "bin/motrix-native-host.exe"
+      },
+      {
+        "from": "./packages/finalize-fs/dist/win32-${arch}/motrix-finalize-fs.exe",
+        "to": "bin/motrix-finalize-fs.exe"
       },
       {
         "from": "./extra/tray/",
@@ -197,7 +205,8 @@
     "target": [
       { "target": "AppImage", "arch": ["x64", "arm64"] },
       { "target": "deb", "arch": ["x64", "arm64"] },
-      { "target": "rpm", "arch": ["x64", "arm64"] }
+      { "target": "rpm", "arch": ["x64", "arm64"] },
+      { "target": "pacman", "arch": ["x64", "arm64"] }
     ],
     "extraResources": [
       { "from": "./extra/aria2.conf", "to": "./extra/aria2.conf" },
@@ -210,6 +219,10 @@
       {
         "from": "./packages/native-host/dist/linux-${arch}/motrix-native-host",
         "to": "bin/motrix-native-host"
+      },
+      {
+        "from": "./packages/finalize-fs/dist/linux-${arch}/motrix-finalize-fs",
+        "to": "bin/motrix-finalize-fs"
       },
       {
         "from": "./extra/tray/",
@@ -235,6 +248,54 @@
   },
   "rpm": {
     "artifactName": "${productName}-${version}.${arch}.${ext}"
+  },
+  "pacman": {
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "packageName": "motrix",
+    "compression": "zstd",
+    "depends": [
+      "alsa-lib",
+      "at-spi2-core",
+      "cairo",
+      "expat",
+      "gcc-libs",
+      "glib2",
+      "glibc",
+      "gtk3",
+      "libcups",
+      "libdrm",
+      "libnotify",
+      "libsecret",
+      "libx11",
+      "libxcb",
+      "libxcomposite",
+      "libxdamage",
+      "libxext",
+      "libxfixes",
+      "libxkbcommon",
+      "libxrandr",
+      "mesa",
+      "nspr",
+      "nss",
+      "pango",
+      "xdg-utils"
+    ],
+    "fpm": [
+      "--description",
+      "Full-featured download manager",
+      "--iteration",
+      "1",
+      "--provides",
+      "motrix",
+      "--conflicts",
+      "motrix-bin",
+      "--conflicts",
+      "motrix-git",
+      "--conflicts",
+      "motrix-beta-bin",
+      "--pacman-optional-depends",
+      "libayatana-appindicator: system tray integration"
+    ]
   },
   "beforePack": "./scripts/before-pack-verify.mjs",
   "beforeBuild": "./scripts/before-build-use-staged-dependencies.mjs",

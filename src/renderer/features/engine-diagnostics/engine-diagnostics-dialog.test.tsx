@@ -1,3 +1,4 @@
+import '@test-utils/dom-animations'
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import { Commands } from '@shared/protocol/commands'
@@ -10,7 +11,7 @@ import {
 } from '@shared/types/engine'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { requestEngineDiagnostics } from './controller'
 
 if (typeof globalThis.ResizeObserver === 'undefined') {
@@ -31,7 +32,7 @@ vi.mock('@renderer/lib/transport', () => ({
 const REPORT = {
   state: EngineState.Failed,
   featureReport: {
-    version: '1.37.0',
+    version: '1.37.0-motrix.14',
     features: ['Async DNS', 'BitTorrent', 'SQLite3-Persistence'],
     hasBtSeedUnverified: false,
     hasBtSaveMetadata: false,
@@ -45,8 +46,13 @@ const REPORT = {
   },
   managedPid: null,
   generatedAt: 1,
-  binary: { name: 'aria2c', available: true, version: '1.37.0' },
-  rpc: { port: 16800, available: false, expectedListener: false },
+  binary: { name: 'aria2c', available: true, version: '1.37.0-motrix.14' },
+  rpc: {
+    port: 16800,
+    available: false,
+    expectedListener: false,
+    connection: { transport: 'websocket', connected: false },
+  },
   process: {
     pid: 4321,
     name: 'aria2c',
@@ -73,7 +79,24 @@ const { EngineDiagnosticsDialogHost } = await import(
   './engine-diagnostics-dialog'
 )
 
+function holdClosingAnimation() {
+  const animation = Promise.withResolvers<void>()
+  const observed = vi.fn()
+  vi.spyOn(Element.prototype, 'getAnimations').mockImplementation(function (
+    this: Element
+  ) {
+    if (this.matches('[data-slot="dialog-content"][data-closed]')) {
+      observed()
+      return [{ finished: animation.promise }] as unknown as Animation[]
+    }
+    return []
+  })
+  return { finish: animation.resolve, observed }
+}
+
 describe('EngineDiagnosticsDialogHost', () => {
+  afterEach(() => vi.restoreAllMocks())
+
   beforeEach(() => {
     invoke.mockReset()
     invoke.mockImplementation((channel: string) => {
@@ -92,35 +115,38 @@ describe('EngineDiagnosticsDialogHost', () => {
     })
   })
 
-  it('explains verified ownership before offering force recovery', async () => {
+  it('keeps the full engine build visible and normal checks collapsed', async () => {
+    const user = userEvent.setup()
     render(<EngineDiagnosticsDialogHost />)
     act(() => requestEngineDiagnostics())
 
     expect(await screen.findByText('Engine diagnostics')).toBeVisible()
     expect(
-      await screen.findByText(/matches Motrix's bundled binary/i)
+      await screen.findByRole('heading', {
+        name: 'The engine’s control port is occupied',
+      })
     ).toBeVisible()
+    expect(
+      await screen.findByTestId('engine-version-summary')
+    ).toHaveTextContent('aria2 Motrix 1.37.0-motrix.14')
     expect(
       screen.getByRole('button', { name: 'Force stop & recover' })
     ).toBeVisible()
     expect(
+      screen.queryByText('Async DNS, BitTorrent, SQLite3-Persistence')
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /Diagnostic details/ })
+    ).toHaveAttribute('aria-expanded', 'false')
+
+    await user.click(screen.getByRole('button', { name: /Diagnostic details/ }))
+    expect(
       screen.getByText('Async DNS, BitTorrent, SQLite3-Persistence')
     ).toBeVisible()
-    const recommendation = screen.getByText('Recommended recovery')
-    const binaryCheck = screen.getByText('Bundled aria2')
     expect(
-      recommendation.compareDocumentPosition(binaryCheck) &
-        Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy()
-    expect(screen.getByRole('dialog')).toHaveClass(
-      'h-[min(84vh,760px)]',
-      'grid-rows-[auto_minmax(0,1fr)_auto]',
-      'overflow-hidden'
-    )
-    expect(screen.getByTestId('engine-diagnostics-scroll')).toHaveClass(
-      'min-h-0',
-      'overflow-y-auto'
-    )
+      screen.getByText(/Verified Motrix leftover; safe to stop/)
+    ).toBeVisible()
+    expect(screen.getByRole('dialog')).not.toHaveClass('h-[min(84vh,760px)]')
     expect(
       screen.queryByRole('button', {
         name: 'Restore Motrix default port 16800',
@@ -132,13 +158,274 @@ describe('EngineDiagnosticsDialogHost', () => {
     const user = userEvent.setup()
     render(<EngineDiagnosticsDialogHost />)
     act(() => requestEngineDiagnostics())
-
-    await user.click(await screen.findByText('Technical details'))
-
+    await user.click(
+      await screen.findByRole('button', { name: /Diagnostic details/ })
+    )
     expect(screen.getByText('RPC port 16800 is already in use')).toBeVisible()
     expect(screen.getByTestId('engine-diagnostics-scroll')).toContainElement(
-      screen.getByText('RPC port 16800 is already in use').closest('details')
+      screen.getByText('RPC port 16800 is already in use')
     )
+  })
+
+  it.each([false, true])(
+    'preserves closing content until the exit animation finishes (expanded: %s)',
+    async (expanded) => {
+      const user = userEvent.setup()
+      render(<EngineDiagnosticsDialogHost />)
+      act(() => requestEngineDiagnostics())
+      await screen.findByTestId('engine-version-summary')
+      if (expanded) {
+        await user.click(
+          screen.getByRole('button', { name: /Diagnostic details/ })
+        )
+      }
+      const dialog = screen.getByRole('dialog')
+      const content = dialog.textContent
+      const animation = holdClosingAnimation()
+
+      await user.click(screen.getByRole('button', { name: 'Close' }))
+      await waitFor(() => expect(animation.observed).toHaveBeenCalled())
+      expect(dialog).toBeInTheDocument()
+      expect(dialog.textContent).toBe(content)
+      expect(
+        screen.queryByText('Running engine checks…')
+      ).not.toBeInTheDocument()
+
+      await act(async () => animation.finish())
+      await waitFor(() => expect(dialog).not.toBeInTheDocument())
+      const nextReport = Promise.withResolvers<typeof REPORT>()
+      invoke.mockReturnValueOnce(nextReport.promise)
+      act(() => requestEngineDiagnostics())
+      expect(await screen.findByText('Running engine checks…')).toBeVisible()
+      await act(async () => nextReport.resolve(REPORT))
+      expect(
+        screen.getByRole('button', { name: /Diagnostic details/ })
+      ).toHaveAttribute('aria-expanded', 'false')
+    }
+  )
+
+  it('ignores late requests while closing and keeps a rapid reopen intact', async () => {
+    const user = userEvent.setup()
+    render(<EngineDiagnosticsDialogHost />)
+    act(() => requestEngineDiagnostics())
+    await screen.findByTestId('engine-version-summary')
+    const refresh = Promise.withResolvers<typeof REPORT>()
+    invoke.mockReturnValueOnce(refresh.promise)
+    await user.click(screen.getByRole('button', { name: 'Run again' }))
+    const dialog = screen.getByRole('dialog')
+    const content = dialog.textContent
+    const animation = holdClosingAnimation()
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+    await waitFor(() => expect(animation.observed).toHaveBeenCalled())
+
+    await act(async () =>
+      refresh.resolve({
+        ...REPORT,
+        binary: { ...REPORT.binary, version: 'late-result' },
+      })
+    )
+    expect(dialog.textContent).toBe(content)
+
+    invoke.mockResolvedValueOnce({
+      ...REPORT,
+      binary: { ...REPORT.binary, version: '1.37.0-motrix.15' },
+    })
+    act(() => requestEngineDiagnostics())
+    await waitFor(() =>
+      expect(screen.getByTestId('engine-version-summary')).toHaveTextContent(
+        '1.37.0-motrix.15'
+      )
+    )
+    await act(async () => animation.finish())
+    expect(screen.getByTestId('engine-version-summary')).toHaveTextContent(
+      '1.37.0-motrix.15'
+    )
+    expect(screen.getByRole('dialog')).toBeVisible()
+  })
+
+  it('copies the complete report while details are collapsed', async () => {
+    const user = userEvent.setup()
+    const writeText = vi
+      .spyOn(navigator.clipboard, 'writeText')
+      .mockResolvedValue()
+    render(<EngineDiagnosticsDialogHost />)
+    act(() => requestEngineDiagnostics())
+    await screen.findByTestId('engine-version-summary')
+    const copy = screen.getByRole('button', { name: 'Copy diagnostics' })
+    await waitFor(() => expect(copy).toBeEnabled())
+    await user.click(copy)
+    expect(await screen.findByRole('button', { name: 'Copied' })).toBeVisible()
+    const copied = JSON.parse(writeText.mock.calls[0][0])
+    expect(copied.binary.version).toBe('1.37.0-motrix.14')
+    expect(copied.featureReport.features).toContain('SQLite3-Persistence')
+    expect(copied.process.pid).toBe(4321)
+    expect(copied.rpc.connection).toEqual({
+      transport: 'websocket',
+      connected: false,
+    })
+    expect(copied.defaultRpc.port).toBe(16800)
+    expect(copied.failure.technicalMessage).toBe(
+      'RPC port 16800 is already in use'
+    )
+    expect(
+      screen.getByRole('button', { name: /Diagnostic details/ })
+    ).toHaveAttribute('aria-expanded', 'false')
+    writeText.mockRestore()
+  })
+
+  it('does not show copied feedback when the clipboard fails', async () => {
+    const user = userEvent.setup()
+    const writeText = vi
+      .spyOn(navigator.clipboard, 'writeText')
+      .mockRejectedValue(new Error('Denied'))
+    const { toast } = await import('@renderer/components/ui/toast')
+    const addToast = vi.spyOn(toast, 'add')
+    render(<EngineDiagnosticsDialogHost />)
+    act(() => requestEngineDiagnostics())
+    await screen.findByTestId('engine-version-summary')
+    const copy = screen.getByRole('button', { name: 'Copy diagnostics' })
+    await waitFor(() => expect(copy).toBeEnabled())
+    await user.click(copy)
+    await waitFor(() =>
+      expect(addToast).toHaveBeenCalledWith({
+        title: 'Could not copy diagnostics. Please try again.',
+        type: 'error',
+      })
+    )
+    expect(
+      screen.queryByRole('button', { name: 'Copied' })
+    ).not.toBeInTheDocument()
+    writeText.mockRestore()
+    addToast.mockRestore()
+  })
+
+  it('does not substitute a cached or pinned version when the binary probe fails', async () => {
+    invoke.mockResolvedValue({
+      ...REPORT,
+      binary: { name: 'aria2c', available: false, version: null },
+    })
+    render(<EngineDiagnosticsDialogHost />)
+    act(() => requestEngineDiagnostics())
+    expect(
+      await screen.findByTestId('engine-version-summary')
+    ).toHaveTextContent('aria2c Version unavailable')
+    expect(screen.getByTestId('engine-version-summary')).not.toHaveTextContent(
+      '1.37.0'
+    )
+  })
+
+  it.each([
+    EngineState.Starting,
+    EngineState.Restarting,
+    EngineState.Stopped,
+    EngineState.Ready,
+  ])('uses the current %s state instead of a stale failure', async (state) => {
+    invoke.mockResolvedValue({
+      ...REPORT,
+      state,
+      rpc: {
+        ...REPORT.rpc,
+        connection: {
+          transport: 'websocket',
+          connected: state === EngineState.Ready,
+        },
+      },
+      canForceTerminate: false,
+      canRetry: false,
+      recommendation: EngineRecoveryRecommendation.None,
+    })
+    render(<EngineDiagnosticsDialogHost />)
+    act(() => requestEngineDiagnostics())
+    await screen.findByTestId('engine-version-summary')
+    expect(
+      screen.queryByText('The engine’s control port is occupied')
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(
+        'Download controls are unavailable. Task status may be out of date.'
+      )
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Force stop & recover' })
+    ).not.toBeInTheDocument()
+  })
+
+  it.each([
+    [true, 'WebSocket (Connected)'],
+    [false, 'WebSocket (Not connected)'],
+  ])(
+    'shows the actual transport when connected is %s',
+    async (connected, label) => {
+      const user = userEvent.setup()
+      invoke.mockResolvedValue({
+        ...REPORT,
+        state: EngineState.Ready,
+        failure: null,
+        rpc: {
+          ...REPORT.rpc,
+          expectedListener: true,
+          connection: { transport: 'websocket', connected },
+        },
+        recommendation: EngineRecoveryRecommendation.None,
+        canForceTerminate: false,
+      })
+      render(<EngineDiagnosticsDialogHost />)
+      act(() => requestEngineDiagnostics())
+      expect(await screen.findByText(label)).toBeVisible()
+      await user.click(
+        screen.getByRole('button', { name: /Diagnostic details/ })
+      )
+      expect(screen.getAllByText(label)).toHaveLength(2)
+      if (!connected) {
+        expect(
+          screen.queryByText('The download engine is running normally')
+        ).not.toBeInTheDocument()
+        expect(
+          screen.getByText('The engine’s control connection is unavailable')
+        ).toBeVisible()
+      }
+    }
+  )
+
+  it('does not guess a transport for reports from an older backend', async () => {
+    invoke.mockResolvedValue({
+      ...REPORT,
+      state: EngineState.Ready,
+      rpc: { ...REPORT.rpc, connection: undefined },
+    })
+    render(<EngineDiagnosticsDialogHost />)
+    act(() => requestEngineDiagnostics())
+    expect(await screen.findByText('Connected')).toBeVisible()
+    expect(screen.queryByText(/WebSocket/)).not.toBeInTheDocument()
+  })
+
+  it('keeps an initial load failure actionable without an empty diagnostics screen', async () => {
+    invoke.mockRejectedValue(new Error('Offline'))
+    render(<EngineDiagnosticsDialogHost />)
+    act(() => requestEngineDiagnostics())
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Could not run engine diagnostics.'
+    )
+    expect(
+      screen.getByRole('button', { name: 'Copy diagnostics' })
+    ).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Run again' })).toBeEnabled()
+  })
+
+  it('marks the retained report stale and disables recovery after a refresh failure', async () => {
+    const user = userEvent.setup()
+    render(<EngineDiagnosticsDialogHost />)
+    act(() => requestEngineDiagnostics())
+    await screen.findByTestId('engine-version-summary')
+    invoke.mockRejectedValueOnce(new Error('Offline'))
+    await user.click(screen.getByRole('button', { name: 'Run again' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The last successful report is shown below.'
+    )
+    expect(
+      screen.getByRole('button', { name: 'Force stop & recover' })
+    ).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Run again' })).toBeEnabled()
   })
 
   it('revalidates and submits the displayed pid after confirmation', async () => {
@@ -152,6 +439,7 @@ describe('EngineDiagnosticsDialogHost', () => {
     expect(
       await screen.findByText('Force stop the leftover aria2 process?')
     ).toBeVisible()
+    expect(screen.getByText(/matches Motrix’s bundled binary/i)).toBeVisible()
     const actions = screen.getAllByRole('button', {
       name: 'Force stop & recover',
     })

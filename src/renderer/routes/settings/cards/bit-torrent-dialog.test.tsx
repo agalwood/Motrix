@@ -1,3 +1,4 @@
+import '@test-utils/dom-animations'
 // src/renderer/routes/settings/cards/bit-torrent-dialog.test.tsx
 
 import '@testing-library/jest-dom/vitest'
@@ -35,7 +36,11 @@ const FIXTURE = {
     seedRatio: 1,
     seedTime: 60,
   },
-  app: { magnetFileSelection: true },
+  app: {
+    magnetFileSelection: true,
+    magnetFileSelectionAutoDownload: false,
+    magnetFileSelectionTimeoutSeconds: 60,
+  },
   tracker: {
     autoSync: true,
     syncIntervalHours: 24,
@@ -65,6 +70,96 @@ describe('<BitTorrentDialog>', () => {
       if (channel === Queries.GetSettings) return FIXTURE
       return { saved: true, requiresRestart: false, changedRestartKeys: [] }
     })
+  })
+
+  it('saves the opt-in and waiting time together using only dirty fields', async () => {
+    render(
+      <BitTorrentDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.bittorrent.title"
+        descKey="settings.cards.bittorrent.desc"
+      />
+    )
+    await waitFor(() => screen.getByDisplayValue('128'))
+    expect(
+      screen.queryByRole('spinbutton', {
+        name: 'File selection timeout (seconds)',
+      })
+    ).toBeNull()
+    const user = userEvent.setup()
+    const toggle = screen.getByRole('switch', {
+      name: 'Download all files when selection times out',
+    })
+    expect(toggle).not.toBeChecked()
+    await user.click(toggle)
+    const timeout = screen.getByRole('spinbutton', {
+      name: 'File selection timeout (seconds)',
+    })
+    expect(timeout).toHaveValue(60)
+    fireEvent.change(timeout, { target: { value: '120' } })
+    await user.click(screen.getByRole('button', { name: /save/i }))
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      app: {
+        magnetFileSelectionAutoDownload: true,
+        magnetFileSelectionTimeoutSeconds: 120,
+      },
+    })
+  })
+
+  it('rejects out-of-range waiting times before saving', async () => {
+    render(
+      <BitTorrentDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.bittorrent.title"
+        descKey="settings.cards.bittorrent.desc"
+      />
+    )
+    await waitFor(() => screen.getByDisplayValue('128'))
+    const user = userEvent.setup()
+    await user.click(
+      screen.getByRole('switch', {
+        name: 'Download all files when selection times out',
+      })
+    )
+    fireEvent.change(
+      screen.getByRole('spinbutton', {
+        name: 'File selection timeout (seconds)',
+      }),
+      { target: { value: '0' } }
+    )
+    await user.click(screen.getByRole('button', { name: /save/i }))
+    expect(
+      screen.getByText('Enter a whole number from 10 to 3600.')
+    ).toBeInTheDocument()
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
+  })
+
+  it('disables automatic selection when magnet file selection is off', async () => {
+    render(
+      <BitTorrentDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.bittorrent.title"
+        descKey="settings.cards.bittorrent.desc"
+      />
+    )
+    await waitFor(() => screen.getByDisplayValue('128'))
+    const user = userEvent.setup()
+    await user.click(
+      screen.getByRole('switch', {
+        name: 'Open file selection after magnet metadata loads',
+      })
+    )
+    expect(
+      screen.getByRole('switch', {
+        name: 'Download all files when selection times out',
+      })
+    ).toHaveAttribute('aria-disabled', 'true')
   })
 
   it('hydrates engine + app + tracker fields', async () => {
@@ -114,5 +209,36 @@ describe('<BitTorrentDialog>', () => {
     expect(
       screen.getByText(/managed in the sidebar Trackers page/i)
     ).toBeInTheDocument()
+  })
+
+  it('keeps the dialog open when the GeoIP subform is invalid', async () => {
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.GetSettings)
+        return {
+          ...FIXTURE,
+          geoip: {
+            ...FIXTURE.geoip,
+            enabled: true,
+            source: 'custom',
+            customUrl: 'invalid address',
+          },
+        }
+      return { saved: true }
+    })
+    const onClose = vi.fn()
+    render(<BitTorrentDialog open onClose={onClose} labelKey="" descKey="" />)
+    await screen.findByDisplayValue('invalid address')
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(
+      await screen.findByText(
+        'Enter a full address starting with http:// or https://.'
+      )
+    ).toBeVisible()
+    expect(onClose).not.toHaveBeenCalled()
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
   })
 })

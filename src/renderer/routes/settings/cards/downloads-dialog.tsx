@@ -1,3 +1,5 @@
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useSettingsSubmit } from '@renderer/components/settings-kit/use-settings-form'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -8,12 +10,19 @@ import {
   DialogTitle,
 } from '@renderer/components/ui/dialog'
 import { Form } from '@renderer/components/ui/form'
+import {
+  ScrollArea,
+  ScrollAreaContent,
+  ScrollAreaViewport,
+  ScrollBar,
+} from '@renderer/components/ui/scroll-area'
 import { Separator } from '@renderer/components/ui/separator'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { pickDirty } from '@renderer/lib/form-utils'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
-import { DEFAULT_SPEED_LIMIT_SETTINGS } from '@shared/schemas/speed-limit'
+import { createDefaultSpeedLimitSettings } from '@shared/schemas/speed-limit'
 import type { AppSettings } from '@shared/types/settings'
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
@@ -23,6 +32,8 @@ import { AutoparserSection } from './autoparser-section'
 import {
   DOWNLOADS_DEFAULTS,
   type DownloadsFields,
+  downloadsFormSchema,
+  downloadsValidationError,
   ENGINE_DEFAULTS,
 } from './downloads-form'
 import { EngineTuningSection } from './engine-tuning-section'
@@ -40,7 +51,17 @@ export function DownloadsDialog({
   descKey,
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
-  const form = useForm<DownloadsFields>({ defaultValues: DOWNLOADS_DEFAULTS })
+  const { unitSystem } = useByteFormat()
+  const form = useForm<DownloadsFields>({
+    defaultValues: {
+      ...DOWNLOADS_DEFAULTS,
+      speedLimit: createDefaultSpeedLimitSettings(unitSystem),
+    },
+    resolver: zodResolver(downloadsFormSchema, {
+      error: downloadsValidationError(t, unitSystem === 'binary' ? 1024 : 1000),
+    }),
+    mode: 'onBlur',
+  })
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: form is stable across renders; this is a mount-only fetch
   useEffect(() => {
@@ -51,13 +72,10 @@ export function DownloadsDialog({
         if (cancelled) return
         const all = data as AppSettings
         form.reset({
-          engine: all?.engine
-            ? { ...ENGINE_DEFAULTS, ...all.engine }
-            : ENGINE_DEFAULTS,
-          speedLimit: all?.speedLimit
-            ? { ...DEFAULT_SPEED_LIMIT_SETTINGS, ...all.speedLimit }
-            : DEFAULT_SPEED_LIMIT_SETTINGS,
           app: {
+            fileDeletionMode:
+              all?.app?.fileDeletionMode ??
+              DOWNLOADS_DEFAULTS.app.fileDeletionMode,
             skipExistingFilesOnCreate:
               all?.app?.skipExistingFilesOnCreate ??
               DOWNLOADS_DEFAULTS.app.skipExistingFilesOnCreate,
@@ -69,6 +87,15 @@ export function DownloadsDialog({
                 }
               : DOWNLOADS_DEFAULTS.app.autoparser,
           },
+          engine: all?.engine
+            ? { ...ENGINE_DEFAULTS, ...all.engine }
+            : ENGINE_DEFAULTS,
+          speedLimit: all?.speedLimit
+            ? {
+                ...createDefaultSpeedLimitSettings(unitSystem),
+                ...all.speedLimit,
+              }
+            : createDefaultSpeedLimitSettings(unitSystem),
         })
       })
       .catch(() => {})
@@ -77,13 +104,11 @@ export function DownloadsDialog({
     }
   }, [])
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  const onSubmit = useSettingsSubmit(form, async (values) => {
     // pickDirty recurses the dirty-fields tree: if speedLimit.base.download
     // is dirty, it returns { speedLimit: { base: { download: <new> } } }.
-    // We then spread the engine dirty patch back into { engine: ... } and pass
-    // the whole thing to UpdateSettings. SettingsManager deep-merges each
-    // top-level namespace, so partial patches for both engine and speedLimit
-    // are safe.
+    // SettingsManager deep-merges each top-level namespace, so partial
+    // patches for app, engine, and speedLimit are safe.
     // biome-ignore lint/suspicious/noExplicitAny: dirtyFields shape doesn't fit DirtyTree; cast is safe
     const dirty = pickDirty(values, form.formState.dirtyFields as any)
     if (!dirty) {
@@ -105,21 +130,37 @@ export function DownloadsDialog({
           <DialogDescription>{t(descKey)}</DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-          <Form {...form}>
-            <form className="space-y-4">
-              <PerformanceSection form={form} />
-              <Separator className="my-4" />
-              <SpeedLimitSection form={form} />
-              <Separator className="my-4" />
-              <EngineTuningSection form={form} />
-              <Separator className="my-4" />
-              <AutoparserSection form={form} />
-            </form>
-          </Form>
-        </div>
+        <ScrollArea className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <ScrollAreaViewport
+            tabIndex={-1}
+            className="min-h-0 flex-1 overscroll-contain"
+          >
+            <ScrollAreaContent
+              className="px-6 py-4"
+              style={{ minWidth: '100%' }}
+            >
+              <Form {...form}>
+                <form className="space-y-4" noValidate onSubmit={onSubmit}>
+                  <PerformanceSection form={form} />
+                  <Separator className="my-4" />
+                  <SpeedLimitSection form={form} />
+                  <Separator className="my-4" />
+                  <EngineTuningSection form={form} />
+                  <Separator className="my-4" />
+                  <AutoparserSection form={form} />
+                </form>
+              </Form>
+            </ScrollAreaContent>
+          </ScrollAreaViewport>
+          <ScrollBar />
+        </ScrollArea>
 
         <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
+          {form.formState.errors.root?.save && (
+            <p role="alert" className="mr-auto text-xs text-destructive">
+              {form.formState.errors.root.save.message}
+            </p>
+          )}
           <Button type="button" variant="outline" size="sm" onClick={onClose}>
             {t('common.cancel')}
           </Button>

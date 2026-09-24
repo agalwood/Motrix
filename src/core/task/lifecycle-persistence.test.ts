@@ -16,6 +16,7 @@ import {
 import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { type FinalizeTaskDeps, finalizeTask } from './actions/finalize-task'
+import { commitPolledTerminalTransition } from './actions/shared'
 import { TaskManager } from './task-manager'
 import {
   type RecoveryDeps,
@@ -159,12 +160,10 @@ async function restoreFromDatabase(
     tellWaiting: vi.fn(async () => []),
     tellStopped: vi.fn(async () => []),
   } as unknown as Aria2RpcClient
-  const session = new SessionManager(
-    restoredTasks,
-    rpc,
-    db,
-    {} as EngineAdapter
-  )
+  const session = new SessionManager(restoredTasks, rpc, db, {
+    forceRemoveTask: vi.fn(async () => {}),
+    removeDownloadResult: vi.fn(async () => {}),
+  } as unknown as EngineAdapter)
   await session.restore()
   return restoredTasks
 }
@@ -264,6 +263,137 @@ function makeFinalizeDeps(
     createEngineTaskId: () => '0123456789abcdef',
   }
 }
+
+describe('polled terminal instance persistence', () => {
+  it.each(
+    [TaskStatus.Error, TaskStatus.Completed].flatMap((status) =>
+      [1, 2].flatMap((count) =>
+        [false, true].map((enginePresent) => ({ status, count, enginePresent }))
+      )
+    )
+  )(
+    'keeps $count instances in $status across restore (engine present: $enginePresent)',
+    async ({ status, count, enginePresent }) => {
+      const task = makeSingleInstanceTask({
+        diskPath: '/downloads/output',
+        instances: Array.from({ length: count }, (_, index) =>
+          makeInstance('lifecycle-task', TaskInstancePhase.HttpDownload, {
+            instanceId: `instance-${index}`,
+            gid: index === 0 ? 'gid-old' : null,
+            diskPath: '/downloads/output',
+          })
+        ),
+      })
+      const harness = makePersistenceHarness(task)
+      await harness.persist(task)
+      const candidate = mergeEngineTask(
+        task,
+        makeSingleInstanceTask({ status }),
+        1_700_000_010_000
+      )
+      const dispatch = vi.fn(async () => {})
+      const outcome = await commitPolledTerminalTransition(
+        task.status,
+        candidate,
+        {
+          persistTaskWithOccurrence: (next, occurrence) =>
+            harness.sessionManager.persistTaskWithOccurrence(next, occurrence),
+          publish: (next) => {
+            expect(
+              harness.db
+                .getTask(task.id)
+                ?.instances.map((entry) => entry.status)
+            ).toEqual(Array(count).fill(status))
+            harness.taskManager.set(next.id, next)
+          },
+          occurrenceDispatcher: { dispatch },
+          log: { warn: vi.fn() },
+        }
+      )
+      expect(outcome).toBe('published')
+      expect(dispatch).toHaveBeenCalledOnce()
+      const saved = harness.db.getTask(task.id)
+      expect(saved?.task.aggStatus).toBe(status)
+      expect(saved?.instances).toEqual(
+        task.instances.map((entry) => ({ ...entry, status }))
+      )
+
+      const restored = await restoreFromDatabase(
+        harness.db,
+        enginePresent ? [makeRawStatus('gid-old')] : []
+      )
+      expect(restored.getById(task.id)).toMatchObject({
+        status,
+        saveDir: '/downloads',
+        finishedAt: candidate.finishedAt,
+      })
+      expect(
+        restored.getById(task.id)?.instances.map((entry) => entry.status)
+      ).toEqual(Array(count).fill(status))
+      expect(harness.db.getTask(task.id)).toEqual(saved)
+      expect(
+        harness.db.database
+          .prepare('SELECT COUNT(*) AS count FROM task_occurrences')
+          .get()
+      ).toEqual({ count: 1 })
+    }
+  )
+
+  it('rolls back the whole terminal graph on an occurrence write failure and retries without mutating live instances', async () => {
+    const task = makeSingleInstanceTask()
+    const harness = makePersistenceHarness(task)
+    await harness.persist(task)
+    const before = structuredClone(task)
+    const saved = harness.db.getTask(task.id)
+    harness.db.database.exec(`CREATE TRIGGER fail_terminal_occurrence
+      BEFORE INSERT ON task_occurrences BEGIN
+        SELECT RAISE(ABORT, 'simulated occurrence write failure');
+      END`)
+    const publish = vi.fn((next: DownloadTask) =>
+      harness.taskManager.set(next.id, next)
+    )
+    const dispatch = vi.fn(async () => {})
+    const deps = {
+      persistTaskWithOccurrence:
+        harness.sessionManager.persistTaskWithOccurrence.bind(
+          harness.sessionManager
+        ),
+      publish,
+      occurrenceDispatcher: { dispatch },
+      log: { warn: vi.fn() },
+    }
+    const observeError = () =>
+      mergeEngineTask(
+        task,
+        makeSingleInstanceTask({ status: TaskStatus.Error }),
+        1_700_000_010_000
+      )
+
+    expect(
+      await commitPolledTerminalTransition(task.status, observeError(), deps)
+    ).toBe('persist-failed')
+    expect(harness.taskManager.getById(task.id)).toEqual(before)
+    expect(harness.db.getTask(task.id)).toEqual(saved)
+    expect(publish).not.toHaveBeenCalled()
+    expect(dispatch).not.toHaveBeenCalled()
+    expect(
+      harness.db.database
+        .prepare('SELECT COUNT(*) AS count FROM task_occurrences')
+        .get()
+    ).toEqual({ count: 0 })
+
+    harness.db.database.exec('DROP TRIGGER fail_terminal_occurrence')
+    expect(
+      await commitPolledTerminalTransition(task.status, observeError(), deps)
+    ).toBe('published')
+    expect(harness.db.getTask(task.id)?.instances[0].status).toBe(
+      TaskStatus.Error
+    )
+    expect(publish).toHaveBeenCalledOnce()
+    expect(dispatch).toHaveBeenCalledOnce()
+    expect(task).toEqual(before)
+  })
+})
 
 describe('lifecycle canonical persistence round trips', () => {
   it('restores the HTTP pre-rename intent persisted before a simulated crash', async () => {

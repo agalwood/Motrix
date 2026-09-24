@@ -1,6 +1,10 @@
 import { getStatusTone } from '@renderer/lib/task-status-ui'
 import { cn } from '@renderer/lib/utils'
-import { TaskStatus } from '@shared/types/task'
+import { type DownloadTask, TaskStatus } from '@shared/types/task'
+import {
+  getMediaPhaseLabel,
+  isMediaProcessing,
+} from '@shared/utils/media-progress'
 import { useTranslation } from 'react-i18next'
 
 const LABEL_KEY: Record<TaskStatus, string> = {
@@ -16,19 +20,36 @@ const LABEL_KEY: Record<TaskStatus, string> = {
   [TaskStatus.Removed]: 'panel.downloads.status.error',
 }
 
-export function StatusPill({ status }: { status: TaskStatus }) {
+export function StatusPill({
+  status,
+  compact = false,
+  task,
+  className,
+}: {
+  status: TaskStatus
+  task?: DownloadTask
+  compact?: boolean
+  className?: string
+}) {
   const { t } = useTranslation()
-  const tone = getStatusTone(status)
+  const tone = getStatusTone(
+    task && isMediaProcessing(task) ? TaskStatus.Finalizing : status
+  )
+  const label = (task && getMediaPhaseLabel(task)) || LABEL_KEY[status]
   return (
     <span
       data-testid="task-status-pill"
+      title={t(label)}
       className={cn(
-        'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
+        compact
+          ? 'inline-flex w-fit max-w-full items-center rounded px-1.5 py-0.5 text-[11px] leading-4'
+          : 'inline-flex w-fit max-w-full shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
         tone.bg,
-        tone.text
+        tone.text,
+        className
       )}
     >
-      {t(LABEL_KEY[status])}
+      <span className="truncate">{t(label)}</span>
     </span>
   )
 }

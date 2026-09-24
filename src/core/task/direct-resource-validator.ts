@@ -3,6 +3,7 @@ import {
   INCOMPLETE_SUFFIX,
   MAX_DEDUP_ATTEMPTS,
 } from '@shared/constants/incomplete'
+import { analyzeDownloadSource } from '@shared/lib/download-source'
 import type { DirectResourceValidator } from '@shared/schemas/direct-replay-recipe'
 import type { EngineFeatureReport } from '@shared/types/engine'
 import type { Dispatcher } from 'undici'
@@ -596,10 +597,11 @@ export function hasLikelyFileExtension(filename: string | null): boolean {
 
 function parseHttpUrl(uri: string): URL | null {
   try {
-    const url = new URL(uri)
+    const source = analyzeDownloadSource(uri, ['http', 'https'])
+    if (source.status !== 'accepted') return null
+    const url = new URL(source.requestUrl)
     if (
       hasC0SpaceOrDel(uri) ||
-      uri.includes('\\') ||
       decideAria2ProxyRoute(uri) === 'unsupported' ||
       requestUrlPreservingAuthority(uri, url) === null
     ) {
@@ -624,7 +626,11 @@ function requestUrlPreservingAuthority(
   if (!authority || suffix === null) return null
   const requestSuffix =
     suffix === '' || suffix.startsWith('?') ? `/${suffix}` : suffix
-  if (requestSuffix !== `${normalized.pathname}${normalized.search}`) {
+  const normalizedSuffix = `${normalized.pathname}${normalized.search}`
+  if (
+    requestSuffix !== normalizedSuffix &&
+    !(normalized.search === '' && requestSuffix === `${normalizedSuffix}?`)
+  ) {
     return null
   }
   return `${normalized.protocol}//${authority}${requestSuffix}`
@@ -791,8 +797,8 @@ function filenameFromMetadata(
   const disposition = contentDispositionFilename(
     metadata.headers.get('content-disposition')
   )
-  const finalUrlName = urlFilename(metadata.finalUrl)
-  const initialUrlName = urlFilename(initialUrl.toString())
+  const finalUrlName = filenameFromResourceUrl(metadata.finalUrl)
+  const initialUrlName = filenameFromResourceUrl(initialUrl.toString())
   let filename =
     sanitizeRemoteFilename(disposition ?? '') ?? finalUrlName ?? initialUrlName
   if (!filename) filename = 'download'
@@ -821,7 +827,7 @@ function filenameFromMetadata(
   return sanitizeRemoteFilename(filename)
 }
 
-function urlFilename(uri: string): string | null {
+export function filenameFromResourceUrl(uri: string): string | null {
   try {
     const url = new URL(uri)
     const encoded = url.pathname.split('/').filter(Boolean).pop()

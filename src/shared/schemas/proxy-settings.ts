@@ -1,5 +1,6 @@
 import type { ProxySettings } from '@shared/types/settings'
 import { z } from 'zod'
+import { settingsInputObject } from './settings-input'
 
 const withoutControlCharacters = (max: number) =>
   z
@@ -35,3 +36,34 @@ export const proxySettingsSchema = z.object({
 export const DEFAULT_PROXY_SETTINGS: ProxySettings = proxySettingsSchema.parse(
   {}
 )
+
+function isProxyHost(host: string): boolean {
+  if (
+    !host ||
+    /[\s\\/?#@]/.test(host) ||
+    (host.startsWith('[') && !host.endsWith(']'))
+  )
+    return false
+  try {
+    const authority =
+      host.includes(':') && !host.startsWith('[') ? `[${host}]` : host
+    const url = new URL(`http://${authority}`)
+    return url.hostname.length > 0 && !url.port && url.pathname === '/'
+  } catch {
+    return false
+  }
+}
+
+export const proxySettingsInputSchema = settingsInputObject(proxySettingsSchema)
+  .extend({
+    scopes: settingsInputObject(proxySettingsSchema.shape.scopes.removeCatch()),
+  })
+  .superRefine((value, ctx) => {
+    if (value.enabled && !isProxyHost(value.host)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['host'],
+        params: { settingIssue: 'proxyHost' },
+      })
+    }
+  })

@@ -33,9 +33,11 @@ import type { Aria2Adapter } from './aria2/aria2-adapter'
 import type { Aria2ConfigBuilder } from './aria2/aria2-config-builder'
 import type { Aria2ProcessManager } from './aria2/aria2-process-manager'
 import type { Aria2RpcClient } from './aria2/aria2-rpc-client'
+import { recoverAria2SessionIdentity } from './aria2/aria2-session-identity-recovery'
 import { isSqliteCorruptionDiagnostic } from './aria2/aria2-sqlite-recovery'
 import type { Aria2TrustStore } from './aria2/aria2-trust-store'
 import { recommend } from './aria2/aria2-tuning'
+import type { EngineStartupGuard } from './aria2/completed-task-startup-guard'
 import {
   isMotrixFork,
   STANDARD_ARIA2_CONNECTION_LIMIT,
@@ -78,7 +80,6 @@ const HOT_ENGINE_OPTIONS = {
   btMaxPeers: 'bt-max-peers',
   btEnableLpd: 'bt-enable-lpd',
   seedRatio: 'seed-ratio',
-  seedTime: 'seed-time',
   remoteTime: 'remote-time',
 } as const satisfies Partial<Record<keyof EngineSettings, string>>
 
@@ -109,6 +110,8 @@ export class EngineSupervisor {
   private sqliteFallbackActive = false
   private sqliteFallbackAttempted = false
   private restartPromise: Promise<void> | null = null
+  private preReadyMaintenance: (() => Promise<void>) | null = null
+  private startupGuard: EngineStartupGuard | null = null
 
   constructor(
     private eventBus: EventBus,
@@ -192,6 +195,16 @@ export class EngineSupervisor {
     fn: () => { download: number; upload: number }
   ): void {
     this.getEffectiveLimits = fn
+  }
+
+  /** Required reconciliation runs under a paused startup, before Ready. */
+  setStartupGuard(guard: EngineStartupGuard): void {
+    this.startupGuard = guard
+  }
+
+  /** Register best-effort engine maintenance that runs after RPC connects but before Ready. */
+  setPreReadyMaintenance(maintenance: () => Promise<void>): void {
+    this.preReadyMaintenance = maintenance
   }
 
   /**
@@ -513,10 +526,25 @@ export class EngineSupervisor {
         return
       }
 
+      // Repair known fork session identities only after the RPC ownership
+      // check, and before the completed-task guard reads persisted run intent.
+      if (sqliteActive) {
+        const recovery = await recoverAria2SessionIdentity(
+          this.configBuilder.resolveSqliteDbPath(engineSettings),
+          () => !this.stopping && !this.processManager.isRunning()
+        )
+        if (recovery)
+          log.warn(recovery, 'repaired aria2 metadata task identities')
+      }
+
       // Step 4: Spawn process (abort if stop() was called during earlier awaits)
       if (this.stopping) return
       phase = 'spawn'
-      await this.processManager.spawn(this.binaryPath, args, processEnv)
+      const guardedStartup = await this.startupGuard?.prepare(args)
+      if (this.stopping) return
+      const startArgs = guardedStartup?.args ?? args
+      this.lastStartArgs = startArgs
+      await this.processManager.spawn(this.binaryPath, startArgs, processEnv)
 
       // Step 5: Connect RPC
       if (this.stopping) {
@@ -529,6 +557,28 @@ export class EngineSupervisor {
         this.rpcClient.disconnect()
         await this.processManager.gracefulStop()
         return
+      }
+      // Unlike best-effort maintenance, failure here must stop the paused
+      // process. Otherwise a known completed GID can recreate deleted files.
+      await guardedStartup?.reconcile(() => this.stopping)
+      if (this.stopping) {
+        this.rpcClient.disconnect()
+        await this.processManager.gracefulStop()
+        return
+      }
+      if (this.preReadyMaintenance) {
+        try {
+          await this.preReadyMaintenance()
+        } catch (error) {
+          // Startup reconciliation also runs after Ready. Maintenance narrows
+          // the visibility/resume window but must not make aria2 unavailable.
+          log.warn({ err: error }, 'pre-ready engine maintenance failed')
+        }
+        if (this.stopping) {
+          this.rpcClient.disconnect()
+          await this.processManager.gracefulStop()
+          return
+        }
       }
       // Raw JSON-RPC clients commonly omit per-task options. Seed the global
       // template so their new HTTP/FTP tasks retain aria2's historical Motrix
@@ -595,6 +645,12 @@ export class EngineSupervisor {
     } catch (err) {
       this.lastError = err instanceof Error ? err.message : String(err)
       const stderr = this.processManager.getRecentStderr?.() ?? ''
+      // Preserve the startup identity failure instead of its later connection
+      // refusal. Only capture the fixed diagnostic, never raw task options.
+      const gidConflict = stderr.match(
+        /\bGID [0-9a-f]{16} is not unique\./i
+      )?.[0]
+      if (phase === 'rpc' && gidConflict) this.lastError = gidConflict
 
       // A process can be alive even though RPC connection failed. Always
       // tear down a process spawned by this supervisor before entering Failed;
@@ -871,6 +927,7 @@ export class EngineSupervisor {
         port: engineSettings.rpcPort,
         available: portAvailable,
         expectedListener,
+        connection: this.rpcClient.getConnectionStatus(),
       },
       process: processInfo,
       defaultRpc: {

@@ -1,5 +1,4 @@
 export const Commands = {
-  CreateDownload: 'command:createDownload',
   PauseTask: 'command:pauseTask',
   ResumeTask: 'command:resumeTask',
   RemoveTask: 'command:removeTask',
@@ -9,8 +8,12 @@ export const Commands = {
   // renderer request per multi-select action instead of one per task.
   // Renderer-IPC only — deliberately NOT MDXP methods; extensions and the
   // CLI keep driving the singular task/* wire methods.
+  PauseAllTasks: 'command:pauseAllTasks',
+  ResumeAllTasks: 'command:resumeAllTasks',
+  ClearStoppedTasks: 'command:clearStoppedTasks',
   PauseTasks: 'command:pauseTasks',
   ResumeTasks: 'command:resumeTasks',
+  MoveTasks: 'command:moveTasks',
   RemoveTasks: 'command:removeTasks',
   ReAddTasks: 'command:reAddTasks',
   // Generic user Retry. Shell handlers route sidecar-backed torrents to
@@ -18,6 +21,8 @@ export const Commands = {
   RetryTasks: 'command:retryTasks',
   StopSeedingTasks: 'command:stopSeedingTasks',
   SetSelectedFiles: 'command:setSelectedFiles',
+  MutateDirectoryPreferences: 'command:mutateDirectoryPreferences',
+  SaveGeneralSettings: 'command:saveGeneralSettings',
   UpdateSettings: 'command:updateSettings',
   AcceptDisclaimer: 'command:acceptDisclaimer',
   DeclineDisclaimer: 'command:declineDisclaimer',
@@ -82,14 +87,17 @@ export const Commands = {
   SetTaskBtTracker: 'command:setTaskBtTracker',
   // Window
   PickSaveDir: 'command:pickSaveDir',
+  CreateServerDirectory: 'command:createServerDirectory',
   ResizeWindow: 'command:resizeWindow',
   OpenExternal: 'command:openExternal',
   RequestDefaultTorrentHandler: 'command:requestDefaultTorrentHandler',
   // Linux AppImage desktop integration (settings-driven enable/remove).
   // Both return the refreshed `AppImageIntegrationView`.
   EnableAppImageIntegration: 'command:enableAppImageIntegration',
+  ConfigureAppImageNativeHost: 'command:configureAppImageNativeHost',
   RemoveAppImageIntegration: 'command:removeAppImageIntegration',
   RevealInFolder: 'command:revealInFolder',
+  OpenTaskFile: 'command:openTaskFile',
   // Menu
   UpdateMenuContext: 'command:updateMenuContext',
   ExecuteApplicationMenuItem: 'command:executeApplicationMenuItem',

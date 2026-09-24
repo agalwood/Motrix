@@ -11,7 +11,15 @@ function buildAdapted(): AdaptedDirect {
     kind: 'direct',
     primaryUrl: 'http://example.com/x.mp4',
     sanitizedHeaders: { 'X-Custom': 'v' },
-    jarPath: '/tmp/jar.txt',
+    cookies: [
+      {
+        name: 'session',
+        value: 'synthetic-cookie',
+        domain: 'example.com',
+        path: '/',
+        secure: false,
+      },
+    ],
     pageUrl: 'http://example.com/page',
     sourceMeta: {
       kind: 'direct',
@@ -56,10 +64,15 @@ describe('DirectPipeline.dispatch', () => {
       uris: ['http://example.com/x.mp4'],
       saveDir: '/tmp/save',
       filename: 'x.mp4',
-      connections: 1,
-      headers: [{ name: 'X-Custom', value: 'v' }],
+      headers: [
+        { name: 'X-Custom', value: 'v' },
+        { name: 'Referer', value: 'http://example.com/page' },
+      ],
     })
     expect(req).not.toHaveProperty('payload')
+    // Match the manual Add Task path: omitting a per-task override lets aria2
+    // inherit the application's configured split/connection values.
+    expect(req).not.toHaveProperty('connections')
     const opts = (createTask.mock.calls[0]?.[2] ?? {}) as Record<
       string,
       unknown
@@ -67,16 +80,34 @@ describe('DirectPipeline.dispatch', () => {
     expect(opts).toMatchObject({
       source: 'bridge',
       sourceMeta: { kind: 'direct', sessionKey: 'chromium:e' },
+      cookies: buildAdapted().cookies,
     })
-    // extraEngineOptions carries only cookies + referer. It must NOT
-    // re-specify header: Aria2Adapter applies extraEngineOptions last, so a
-    // header here would clobber (and discard) any plugin rewrite of
-    // params.headers.
-    expect(opts.extraEngineOptions).toMatchObject({
-      'load-cookies': '/tmp/jar.txt',
-      referer: 'http://example.com/page',
+    // Metadata discovery and plugins see the same headers as the engine.
+    expect(opts).not.toHaveProperty('extraEngineOptions')
+  })
+
+  it('leaves filename discovery enabled while preserving an isolated empty cookie jar', async () => {
+    const createTask = vi.fn(
+      async (_req: unknown, _deps: unknown, _opts: unknown) => ({
+        gid: 'gid',
+        taskId: 'task',
+      })
+    )
+    const pipeline = new DirectPipeline({ createTask, removeTask: vi.fn() })
+    await pipeline.dispatch({
+      ...buildAdapted(),
+      discoverFilename: true,
+      cookies: [],
+      sanitizedHeaders: { referer: 'https://original.example/page' },
     })
-    expect(opts.extraEngineOptions).not.toHaveProperty('header')
+    const [request, , options] = createTask.mock.calls[0]!
+    expect(taskCreateRequestSchema.safeParse(request).success).toBe(true)
+    expect(request).not.toHaveProperty('filename')
+    expect(request).toMatchObject({
+      headers: [{ name: 'referer', value: 'https://original.example/page' }],
+    })
+    expect(options).toHaveProperty('cookies', [])
+    expect(options).not.toHaveProperty('extraEngineOptions')
   })
 })
 

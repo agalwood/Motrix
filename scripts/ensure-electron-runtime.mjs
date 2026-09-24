@@ -191,7 +191,7 @@ export function ensureElectronRuntime(options = {}) {
   let pathBackup = null
 
   try {
-    // Electron 43's installer returns early when dist/version + the binary
+    // Electron's installer returns early when dist/version + the binary
     // look valid, even if runtime license files are missing. Move the entire
     // generated payload aside so every incomplete state gets a clean repair.
     distBackup = moveAside(distPath, fs)

@@ -90,7 +90,7 @@ describe('ElectronNotifyHost', () => {
   })
 
   // Constructing the host must not initialize Electron's native notification
-  // presenter. Electron 43 performs Windows shortcut registration as a side
+  // presenter. Electron performs Windows shortcut registration as a side
   // effect of Notification.isSupported().
   it('does not query notification support during construction', () => {
     new ElectronNotifyHost()

@@ -16,7 +16,11 @@ import type { CubicGlassEffects } from './types'
 
 export interface CubicGlassMotionLabProps {
   effects: CubicGlassEffects
-  onEffectsChange: (effects: CubicGlassEffects) => void
+  onEffectsChange: (effects: Omit<CubicGlassEffects, 'enabled'>) => void
+  onEnabledChange: (enabled: boolean) => void
+  saving: boolean
+  saveError: boolean
+  systemReducedMotion: boolean
 }
 
 interface EffectSwitchProps {
@@ -28,7 +32,7 @@ interface EffectSwitchProps {
 
 type BooleanCubicGlassEffect = Exclude<
   keyof CubicGlassEffects,
-  'horizontalSpeed'
+  'horizontalSpeed' | 'enabled'
 >
 
 function EffectSwitch({
@@ -54,6 +58,10 @@ function EffectSwitch({
 export function CubicGlassMotionLab({
   effects,
   onEffectsChange,
+  onEnabledChange,
+  saving,
+  saveError,
+  systemReducedMotion,
 }: CubicGlassMotionLabProps) {
   const { t } = useTranslation()
   const horizontalSpeedId = useId()
@@ -62,16 +70,16 @@ export function CubicGlassMotionLab({
   }
 
   return (
-    <div className="app-no-drag absolute right-3 top-3 z-20">
+    <div className="app-no-drag absolute right-0 top-3 z-20">
       <Popover>
         <PopoverTrigger
           render={
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               size="icon-sm"
               aria-label={t('panel.downloads.empty.motion.open')}
-              className="rounded-full bg-background/70 shadow-sm backdrop-blur-md"
+              className="hover:bg-transparent"
             />
           }
         >
@@ -107,9 +115,22 @@ export function CubicGlassMotionLab({
 
           <EffectSwitch
             checked={effects.enabled}
+            disabled={saving || systemReducedMotion}
             label={t('panel.downloads.empty.motion.enabled')}
-            onCheckedChange={(checked) => updateEffect('enabled', checked)}
+            onCheckedChange={onEnabledChange}
           />
+          <p className="text-xs text-muted-foreground">
+            {t(
+              systemReducedMotion
+                ? 'panel.downloads.empty.motion.systemReducedMotion'
+                : 'panel.downloads.empty.motion.enabledDesc'
+            )}
+          </p>
+          {saveError && (
+            <p role="alert" className="text-xs text-destructive">
+              {t('panel.downloads.empty.motion.saveFailed')}
+            </p>
+          )}
           <Separator />
           <div className="flex flex-col gap-1">
             <EffectSwitch

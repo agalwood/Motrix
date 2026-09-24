@@ -11,6 +11,7 @@ import {
   TaskKind,
   TaskStatus,
   TaskType,
+  TransitionPhase,
 } from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
 import { directTaskUpdatePublication } from '@test-utils/task-update'
@@ -120,6 +121,37 @@ function makeDeps(task: DownloadTask | undefined) {
 }
 
 describe('reAddTask (BT path)', () => {
+  it.each([TaskStatus.Error, TaskStatus.Completed])(
+    're-adds a direct single-file BT task at the same final path from %s',
+    async (status) => {
+      const task = withPrimaryInstance(
+        makeBtTask({
+          status,
+          diskPath: '/tmp/chosen.iso',
+          finalPath: '/tmp/chosen.iso',
+        })
+      )
+      task.instances[0].payload.btStorageLayout = {
+        version: 2,
+        strategy: 'direct',
+        torrentRootName: 'original.iso',
+        multiFile: false,
+        finalized: status === TaskStatus.Completed,
+      }
+      const deps = makeDeps(task)
+      vi.mocked(deps.torrentMetaStore.read).mockResolvedValue(
+        buildSingleFileTorrent('original.iso')
+      )
+      await reAddTask('t1', deps)
+      expect(deps.adapter.addTorrent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          saveDir: '/tmp',
+          outputFilePaths: [{ fileIndex: 0, relativePath: 'chosen.iso' }],
+          checkIntegrity: true,
+        })
+      )
+    }
+  )
   it('reads torrent metadata and calls addTorrent with checkIntegrity', async () => {
     const task = makeBtTask({ status: TaskStatus.Completed })
     const deps = makeDeps(task)
@@ -417,6 +449,65 @@ describe('reAddTask (HTTP path)', () => {
         status: TaskStatus.Downloading,
       })
     )
+  })
+
+  it('resumes from a checkpoint the engine reports without any .aria2 file', async () => {
+    // sqlite3 persistence keeps the checkpoint in aria2.db, so there is no
+    // <file>.aria2 on disk. The engine answers where it keeps it; the retry
+    // after a network drop must resume, not fail checkpoint-missing (#2187).
+    const tempDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'motrix-direct-readd-')
+    )
+    const diskPath = path.join(tempDir, 'file.zip.motrix')
+    try {
+      fs.writeFileSync(diskPath, Buffer.alloc(32, 0x61))
+      const task = makeHttpTask({
+        diskPath,
+        finalPath: path.join(tempDir, 'file.zip'),
+      })
+      task.instances[0].diskPath = diskPath
+      task.instances[0].payload = {
+        directReplay: {
+          version: 1,
+          requestModifiers: [],
+          replayability: 'uri-only',
+          resourceValidator: {
+            kind: 'strong-etag',
+            value: '"release-v1"',
+            contentLength: 4096,
+            capturedAt: 7,
+          },
+        },
+      }
+      const deps = makeDeps(task)
+      const getCheckpointStatus = vi.fn(async () => 'present' as const)
+      deps.adapter.getCheckpointStatus = getCheckpointStatus
+
+      await reAddTask('t2', {
+        ...deps,
+        directResourceValidator: {
+          verify: vi.fn(async () => ({
+            outcome: 'unchanged' as const,
+            ifRange: '"release-v1"',
+          })),
+        },
+        getDirectResourceProxyOptions: () => ({
+          proxy: '',
+          noProxy: '',
+          userAgent: 'Motrix/Verified',
+        }),
+      })
+
+      expect(getCheckpointStatus).toHaveBeenCalledWith(diskPath)
+      expect(deps.adapter.createDownload).toHaveBeenCalledWith(
+        expect.objectContaining({
+          filename: 'file.zip.motrix',
+          resumePolicy: 'checkpoint',
+        })
+      )
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true })
+    }
   })
 
   it('uses checkpoint resume for a non-empty HTTP partial with .aria2 state', async () => {
@@ -1230,4 +1321,38 @@ describe('characterization: reAddTask adapter call params', () => {
       expect.objectContaining({ prioritizePreviewPieces: true })
     )
   })
+})
+
+it('retries an interrupted finalize without re-adding its torrent', async () => {
+  const task = makeBtTask({
+    status: TaskStatus.Error,
+    transitionPhase: TransitionPhase.Renaming,
+    diskPath: '/tmp/sample.motrix',
+  })
+  const deps = makeDeps(task)
+  const recoverFinalization = vi.fn(async () => {})
+  await reAddTask(task.id, { ...deps, recoverFinalization })
+  expect(recoverFinalization).toHaveBeenCalledExactlyOnceWith(task.id)
+  expect(deps.adapter.addTorrent).not.toHaveBeenCalled()
+  expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
+})
+
+it('settles retired BT upload and re-seeds with current defaults instead of stale engine limits', async () => {
+  const task = makeBtTask({ uploadedBytesBaseline: 100, uploadedBytes: 250 })
+  const deps = makeDeps(task)
+  vi.mocked(deps.adapter.getEngineTaskOptions).mockResolvedValue({
+    'seed-time': '0',
+    'seed-ratio': '0.5',
+  })
+  await reAddTask(task.id, deps)
+  expect(deps.adapter.getEngineTaskOptions).not.toHaveBeenCalled()
+  const params = vi.mocked(deps.adapter.addTorrent).mock.calls[0]?.[0]
+  expect(params).not.toHaveProperty('seedTime')
+  expect(params).not.toHaveProperty('seedRatio')
+  expect(deps.taskManager.getById(task.id)).toMatchObject({
+    uploadedBytes: 250,
+    uploadedBytesBaseline: 250,
+    bt: { ratio: 250 / 1024 },
+  })
+  expect(task.uploadedBytesBaseline).toBe(100)
 })

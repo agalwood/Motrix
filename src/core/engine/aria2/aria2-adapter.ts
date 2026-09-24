@@ -1,11 +1,13 @@
-import { access } from 'node:fs/promises'
+import { access, mkdir } from 'node:fs/promises'
 import path from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 import { getLogger } from '@core/logger'
 import {
   extractAria2ProxyCredentials,
   normalizeAria2TaskProxyUrl,
   stripAria2ProxyCredentials,
 } from '@core/proxy/aria2-proxy-routing'
+import { admitDownloadSources } from '@core/task/source-admission'
 import { AppError, ErrorCode } from '@shared/errors'
 import type {
   EngineCapability,
@@ -19,6 +21,7 @@ import type {
 } from '@shared/types/history'
 import type { TaskPeer } from '@shared/types/peer'
 import type { TaskPiecesResult } from '@shared/types/pieces'
+import type { EngineSettings } from '@shared/types/settings'
 import type { GlobalStats } from '@shared/types/stats'
 import type { DownloadTask, TaskFile } from '@shared/types/task'
 import type { TuningContext } from '@shared/types/tuning'
@@ -27,6 +30,7 @@ import type {
   AddTorrentParams,
   CreateDownloadParams,
   DirectResourceMetadataProfile,
+  DownloadCookie,
   EngineAdapter,
 } from '../engine-adapter'
 import { DIRECT_RESOURCE_METADATA_PROFILE } from '../engine-adapter'
@@ -154,7 +158,10 @@ export class Aria2Adapter implements EngineAdapter {
 
   constructor(
     private rpc: Aria2RpcClient,
-    private readonly accessFile: FileAccess = access
+    private readonly accessFile: FileAccess = access,
+    private readonly getSeedingDefaults: () =>
+      | Pick<EngineSettings, 'seedTime' | 'seedRatio'>
+      | undefined = () => undefined
   ) {
     const unsubscribers = [
       this.rpc.onBtDownloadComplete((event) => {
@@ -171,6 +178,20 @@ export class Aria2Adapter implements EngineAdapter {
       if (typeof unsubscribe === 'function') {
         this.rpcUnsubscribers.push(unsubscribe)
       }
+    }
+  }
+
+  private seedingOptions(
+    overrides: Pick<AddTorrentParams, 'seedTime' | 'seedRatio'> = {}
+  ): Record<string, string> {
+    const defaults = this.getSeedingDefaults()
+    const time = overrides.seedTime ?? defaults?.seedTime
+    const ratio = overrides.seedRatio ?? defaults?.seedRatio
+    // Keep time task-local: aria2 cannot unset an inherited global seed-time
+    // through RPC, and both "0" and "" terminate seeding immediately.
+    return {
+      ...(time !== undefined && time > 0 ? { 'seed-time': String(time) } : {}),
+      ...(ratio !== undefined ? { 'seed-ratio': String(ratio) } : {}),
     }
   }
 
@@ -299,15 +320,36 @@ export class Aria2Adapter implements EngineAdapter {
 
   private async addUriWithConnectionFallback(
     uris: string[],
-    options: Record<string, string | string[]>
+    options: Record<string, string | string[]>,
+    cookies?: readonly DownloadCookie[]
   ): Promise<string> {
+    const submit = (requestOptions: Record<string, string | string[]>) => {
+      if (cookies === undefined) return this.rpc.addUri(uris, requestOptions)
+      return this.rpc
+        .addUriWithCookies(uris, cookies, requestOptions)
+        .catch((error: unknown) => {
+          if (
+            error instanceof Error &&
+            /(?:no such method|method not found).*addUriWithCookies/i.test(
+              error.message
+            )
+          ) {
+            throw new AppError(
+              ErrorCode.EngineFeatureUnavailable,
+              'Task cookies require aria2 1.37.0-motrix.13 or a compatible engine. Update the download engine.',
+              error
+            )
+          }
+          throw error
+        })
+    }
     const firstOptions =
       this.connectionOptionLimit === null
         ? options
         : this.capConnectionOptions(options, this.connectionOptionLimit)
 
     try {
-      return await this.rpc.addUri(uris, firstOptions)
+      return await submit(firstOptions)
     } catch (error) {
       const fallbackOptions = this.capConnectionOptions(
         firstOptions,
@@ -323,11 +365,17 @@ export class Aria2Adapter implements EngineAdapter {
         { err: error },
         'aria2 rejected connection options; retrying with compatibility limit'
       )
-      return this.rpc.addUri(uris, fallbackOptions)
+      return submit(fallbackOptions)
     }
   }
 
   async createDownload(params: CreateDownloadParams): Promise<string> {
+    params = {
+      ...params,
+      uris: admitDownloadSources(params.uris, 'engine').map(
+        (source) => source.requestUrl
+      ),
+    }
     const extraGid = params.extraEngineOptions?.gid
     if (extraGid !== undefined && typeof extraGid !== 'string') {
       throw new TypeError(
@@ -344,13 +392,17 @@ export class Aria2Adapter implements EngineAdapter {
     const metadataProfile = params.directResourceMetadataProfile
     if (
       metadataProfile !== undefined &&
-      this.getDirectResourceMetadataProfile() !== metadataProfile
+      ((params.cookies?.length ?? 0) > 0 ||
+        this.getDirectResourceMetadataProfile() !== metadataProfile)
     ) {
       throw new Error(
         'aria2 HTTP request profile changed before download dispatch'
       )
     }
     const options: Record<string, string | string[]> = {
+      ...(params.uris.some((uri) => /^magnet:/i.test(uri))
+        ? this.seedingOptions()
+        : {}),
       dir: params.saveDir,
     }
     if (params.filename) options.out = params.filename
@@ -494,9 +546,16 @@ export class Aria2Adapter implements EngineAdapter {
     }
     options.continue = resumePolicy === 'sequential-prefix' ? 'true' : 'false'
 
+    // A magnet can spawn a BT payload with HTTP Web Seeds. Their 404s must
+    // not halt the entire torrent before a healthy source sends any data.
+    if (params.uris.some((uri) => /^magnet:/i.test(uri))) {
+      options['max-file-not-found'] = '0'
+    }
+
     const actualGid = await this.addUriWithConnectionFallback(
       params.uris,
-      options
+      options,
+      params.cookies
     )
     if (
       requestedGid !== undefined &&
@@ -569,8 +628,13 @@ export class Aria2Adapter implements EngineAdapter {
   }
 
   async getTaskStatus(engineTaskId: string): Promise<DownloadTask | null> {
-    const raw = await this.rpc.tellStatus(engineTaskId)
-    return translateRawToTask(raw)
+    try {
+      const raw = await this.rpc.tellStatus(engineTaskId)
+      return translateRawToTask(raw)
+    } catch (error) {
+      if (isNotFoundError(error)) return null
+      throw error
+    }
   }
 
   async getTaskFiles(engineTaskId: string): Promise<TaskFile[]> {
@@ -669,6 +733,8 @@ export class Aria2Adapter implements EngineAdapter {
     if (params.selectedFiles?.length) {
       opts['select-file'] = params.selectedFiles.join(',')
     }
+    if (params.outputRoot !== undefined && !path.isAbsolute(params.outputRoot))
+      throw new TypeError('Torrent output root must be absolute')
     if (params.outputFilePaths?.length) {
       const seen = new Set<number>()
       opts['index-out'] = params.outputFilePaths.map(
@@ -692,16 +758,14 @@ export class Aria2Adapter implements EngineAdapter {
             throw new TypeError('Invalid torrent output file mapping')
           }
           seen.add(fileIndex)
-          return `${fileIndex + 1}=${relativePath}`
+          const outputPath = params.outputRoot
+            ? path.join(params.outputRoot, relativePath)
+            : relativePath
+          return `${fileIndex + 1}=${outputPath}`
         }
       )
     }
-    if (params.seedTime !== undefined) {
-      opts['seed-time'] = String(params.seedTime)
-    }
-    if (params.seedRatio !== undefined) {
-      opts['seed-ratio'] = String(params.seedRatio)
-    }
+    Object.assign(opts, this.seedingOptions(params))
     if (params.btSeedUnverified) {
       opts['bt-seed-unverified'] = 'true'
     }
@@ -717,10 +781,10 @@ export class Aria2Adapter implements EngineAdapter {
       opts['bt-prioritize-piece'] = 'head=10M,tail=10M'
     }
     if (params.dlLimit !== undefined) {
-      opts['max-download-limit'] = `${params.dlLimit}K`
+      opts['max-download-limit'] = String(params.dlLimit)
     }
     if (params.ulLimit !== undefined) {
-      opts['max-upload-limit'] = `${params.ulLimit}K`
+      opts['max-upload-limit'] = String(params.ulLimit)
     }
     if (params.extraEngineOptions) {
       for (const [k, v] of Object.entries(params.extraEngineOptions)) {
@@ -733,6 +797,11 @@ export class Aria2Adapter implements EngineAdapter {
     if (requestedGid !== undefined) {
       opts.gid = requestedGid
     }
+    // aria2 applies this HTTP/FTP threshold to the whole BT RequestGroup.
+    // Override both user configuration and stale task options so a failed
+    // Web Seed cannot abort peers or other Web Seeds before their first byte.
+    opts['max-file-not-found'] = '0'
+    if (params.outputRoot) await mkdir(params.saveDir, { recursive: true })
     const b64 = Buffer.from(params.metadata).toString('base64')
     const actualGid = await this.rpc.addTorrent(b64, [], opts)
     if (
@@ -762,16 +831,45 @@ export class Aria2Adapter implements EngineAdapter {
     )
   }
 
-  async removeDownloadResult(engineTaskId: string): Promise<void> {
+  async getCheckpointStatus(
+    outputPath: string
+  ): Promise<'present' | 'absent' | null> {
     try {
-      await this.rpc.removeDownloadResult(engineTaskId)
-    } catch (err) {
-      // Idempotent only when aria2 explicitly says the GID is gone AND this
-      // engine's not-found is trustworthy. Transport, other RPC failures, and
-      // untrusted not-found (pre-.3 persistent fork) must remain observable so
-      // callers do not erase local history while the engine row survives.
-      if (isNotFoundError(err) && this.trustsNotFound()) return
-      throw err
+      const status = await this.rpc.getCheckpointStatus(outputPath)
+      return status.exists === 'true' ? 'present' : 'absent'
+    } catch (error) {
+      // Official aria2 and fork builds before 1.37.0-motrix.15 lack the
+      // method. The caller's control-file probe then matches what they can
+      // resume: official aria2 only writes control files, and older fork
+      // sqlite checkpoints are keyed by gid, which a retry never matches.
+      if (
+        error instanceof Error &&
+        /(?:no such method|method not found).*getCheckpointStatus/i.test(
+          error.message
+        )
+      ) {
+        return null
+      }
+      throw error
+    }
+  }
+
+  async removeDownloadResult(engineTaskId: string): Promise<void> {
+    // forceRemove acknowledges a halt request before aria2 creates its stopped
+    // result. Retry only that precise transition race; successful cleanups add
+    // no delay, and transport/persistent-delete failures remain observable.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await this.rpc.removeDownloadResult(engineTaskId)
+        return
+      } catch (err) {
+        if (isNotFoundError(err) && this.trustsNotFound()) return
+        const message = err instanceof Error ? err.message : String(err)
+        const pendingStop =
+          message === `Could not remove download result of GID#${engineTaskId}`
+        if (!pendingStop || attempt >= 6) throw err
+        await delay(Math.min(100 * 2 ** attempt, 1000))
+      }
     }
   }
 
@@ -849,6 +947,16 @@ export class Aria2Adapter implements EngineAdapter {
       return Number.parseInt(status.uploadLength ?? '0', 10)
     } catch {
       return 0
+    }
+  }
+
+  async listWaitingTaskIds(): Promise<string[]> {
+    const ids: string[] = []
+    const pageSize = 1000
+    for (let offset = 0; ; offset += pageSize) {
+      const page = await this.rpc.tellWaiting(offset, pageSize, ['gid'])
+      ids.push(...page.map((task) => task.gid))
+      if (page.length < pageSize) return [...new Set(ids)]
     }
   }
 

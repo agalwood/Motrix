@@ -111,58 +111,28 @@ describe('FfmpegStaging.ensureDir', () => {
 })
 
 // ---------------------------------------------------------------------------
-// promote
+// mappedArtifact
 // ---------------------------------------------------------------------------
 
-describe('FfmpegStaging.promote', () => {
-  it('moves the staged file to saveDir and removes the staging dir', async () => {
+describe('FfmpegStaging.mappedArtifact', () => {
+  it('records the logical output mapping without promoting bytes', async () => {
     const pluginsDir = await makeTmpDir()
     const saveDir = await makeTmpDir()
     const staging = makeStaging(pluginsDir, saveDir)
-
-    // Prepare the staged file
-    await staging.ensureDir()
-    const stagedContent = 'video-data'
-    const stagedFile = path.join(staging.dir, 'out.mp4')
-    await writeFile(stagedFile, stagedContent)
-
     const finalPath = path.join(saveDir, 'out.mp4')
-    const promoted = await staging.promote(finalPath)
-
-    expect(promoted).toBe(finalPath)
-
-    // File is at the destination
-    const destStat = await stat(finalPath)
-    expect(destStat.isFile()).toBe(true)
-
-    // Staging dir is gone
-    await expect(stat(staging.dir)).rejects.toThrow()
+    const stagedPath = staging.redirectOutput(finalPath)
+    expect(staging.mappedArtifact(finalPath)).toBe(stagedPath)
+    await expect(stat(finalPath)).rejects.toThrow()
   })
 
-  it('throws ENOENT when the staged file does not exist', async () => {
+  it('does not infer ownership by scanning a staging directory', async () => {
     const pluginsDir = await makeTmpDir()
     const saveDir = await makeTmpDir()
     const staging = makeStaging(pluginsDir, saveDir)
-
     await staging.ensureDir()
-    // Do NOT create the file
-
-    const finalPath = path.join(saveDir, 'missing.mp4')
-    await expect(staging.promote(finalPath)).rejects.toThrow(/ENOENT/)
-  })
-
-  it('removes staging dir even when there are no leftover files', async () => {
-    const pluginsDir = await makeTmpDir()
-    const saveDir = await makeTmpDir()
-    const staging = makeStaging(pluginsDir, saveDir)
-
-    await staging.ensureDir()
-    const stagedFile = path.join(staging.dir, 'single.mp4')
-    await writeFile(stagedFile, 'x')
-
-    await staging.promote(path.join(saveDir, 'single.mp4'))
-    // Staging root for this task is cleaned up
-    await expect(stat(staging.dir)).rejects.toThrow()
+    const finalPath = path.join(saveDir, 'unmapped.mp4')
+    await writeFile(path.join(staging.dir, 'unmapped.mp4'), 'bytes')
+    expect(staging.mappedArtifact(finalPath)).toBeUndefined()
   })
 })
 
@@ -199,7 +169,7 @@ describe('FfmpegStaging.discard', () => {
 // ---------------------------------------------------------------------------
 
 describe('FfmpegStaging.cleanupOrphans', () => {
-  it('removes staging/ subdirs across multiple plugin ids', async () => {
+  it('preserves staging that may be referenced by a finalize journal', async () => {
     const pluginsDir = await makeTmpDir()
 
     // Create two plugin staging dirs with files
@@ -213,7 +183,7 @@ describe('FfmpegStaging.cleanupOrphans', () => {
 
     for (const pluginId of ['plugin.a', 'plugin.b']) {
       const stagingRoot = path.join(pluginsDir, pluginId, 'staging')
-      await expect(stat(stagingRoot)).rejects.toThrow()
+      expect((await stat(stagingRoot)).isDirectory()).toBe(true)
     }
 
     // Plugin dirs themselves should still be present

@@ -376,6 +376,7 @@ export function TrackersTab({ task }: TrackersTabProps) {
       ) : (
         <div className="flex min-h-0 flex-1 flex-col rounded-lg border border-border">
           <VirtualList<TrackerRowData>
+            scrollbar="custom"
             items={rows}
             getId={(r) => r.url}
             rowHeight={ROW_HEIGHT}

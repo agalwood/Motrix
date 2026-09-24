@@ -354,6 +354,33 @@ describe('server lifecycle production wiring', () => {
     expect(samples).toBeGreaterThan(publish)
   })
 
+  it('shares one live ffmpeg detector across the Server plugin Host and Installer', () => {
+    const source = readFileSync(
+      path.resolve(process.cwd(), 'src/server/index.ts'),
+      'utf8'
+    )
+    const detector = source.indexOf('const detectPluginFfmpeg = async () =>')
+    const host = source.indexOf('const pluginHost = new PluginHost({', detector)
+    const hostDetector = source.indexOf(
+      'ffmpegDetect: detectPluginFfmpeg',
+      host
+    )
+    const installer = source.indexOf(
+      'const pluginInstaller = new PluginInstaller({',
+      hostDetector
+    )
+    const installerDetector = source.indexOf(
+      'ffmpegDetect: detectPluginFfmpeg',
+      installer
+    )
+
+    expect(detector).toBeGreaterThan(-1)
+    expect(host).toBeGreaterThan(detector)
+    expect(hostDetector).toBeGreaterThan(host)
+    expect(installer).toBeGreaterThan(hostDetector)
+    expect(installerDetector).toBeGreaterThan(installer)
+  })
+
   it('constructs shutdown before early acquisitions, producers, or HTTP ingress', () => {
     const source = readFileSync(
       path.resolve(process.cwd(), 'src/server/index.ts'),
@@ -400,25 +427,20 @@ describe('server lifecycle production wiring', () => {
       'utf8'
     )
     const runtimeAccepted = source.indexOf(
-      'bridgeRuntime = candidateBridgeRuntime'
+      'const candidateBridgeRuntime = await bootstrapBridgeForServer('
     )
-    const commandHandlersPublished = source.indexOf(
-      'Object.assign(bridgeCommandHandlers, bridgeRuntime.bridgeCommandHandlers)',
+    const bridgeListeningLog = source.indexOf(
+      "log.info({ port: candidateBridgeRuntime.port }, 'MDXP bridge listening')",
       runtimeAccepted
-    )
-    const queryHandlersPublished = source.indexOf(
-      'Object.assign(bridgeQueryHandlers, bridgeRuntime.bridgeQueryHandlers)',
-      commandHandlersPublished
     )
     const pairingAddressLog = source.indexOf(
       'logRemoteExtensionPairingReady(log, remoteExtensionConfig)',
-      queryHandlersPublished
+      bridgeListeningLog
     )
 
     expect(runtimeAccepted).toBeGreaterThan(-1)
-    expect(commandHandlersPublished).toBeGreaterThan(runtimeAccepted)
-    expect(queryHandlersPublished).toBeGreaterThan(commandHandlersPublished)
-    expect(pairingAddressLog).toBeGreaterThan(queryHandlersPublished)
+    expect(bridgeListeningLog).toBeGreaterThan(runtimeAccepted)
+    expect(pairingAddressLog).toBeGreaterThan(bridgeListeningLog)
   })
 
   it('wires TrackerManager stopAndDrain into production shutdown', () => {

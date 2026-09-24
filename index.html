@@ -2,6 +2,24 @@
 <html lang="en-US">
   <head>
     <meta charset="UTF-8" />
+    <meta name="color-scheme" content="light dark" />
+    <style id="motrix-theme-bootstrap">
+      html,
+      body {
+        background: #ffffff;
+        color: #18181b;
+        color-scheme: light;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        html,
+        body {
+          background: #09090b;
+          color: #fafafa;
+          color-scheme: dark;
+        }
+      }
+    </style>
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>Motrix</title>

@@ -22,8 +22,8 @@ The same core powers two ways to run Motrix:
 ## 🧪 Beta testing
 
 Motrix Turbo v2 is currently in beta. After its remaining release gates pass,
-download [v2.0.0-beta.28 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.28)
-and read the [full release notes](./docs/release-notes/2.0.0-beta.28.md) before
+download [v2.0.0-beta.40 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.40)
+and read the [full release notes](./docs/release-notes/2.0.0-beta.40.md) before
 installing it.
 
 Back up your existing Motrix data and downloads before testing. Migration from
@@ -36,25 +36,25 @@ account, machine, or Docker data directory.
 ### Dashboard
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-dashboard-dark.webp">
-  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-dashboard.webp">
-  <img alt="Motrix Dashboard" src="./screenshots/motrix-dashboard.webp">
+  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-dashboard-en-dark.webp">
+  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-dashboard-en-light.webp">
+  <img alt="Motrix Dashboard" src="./screenshots/motrix-dashboard-en-light.webp">
 </picture>
 
 ### Downloads
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-downloads-dark.webp">
-  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-downloads.webp">
-  <img alt="Motrix Downloads" src="./screenshots/motrix-downloads.webp">
+  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-downloads-en-dark.webp">
+  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-downloads-en-light.webp">
+  <img alt="Motrix Downloads" src="./screenshots/motrix-downloads-en-light.webp">
 </picture>
 
 ### Settings
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-settings-dark.webp">
-  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-settings.webp">
-  <img alt="Motrix Settings" src="./screenshots/motrix-settings.webp">
+  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-settings-en-dark.webp">
+  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-settings-en-light.webp">
+  <img alt="Motrix Settings" src="./screenshots/motrix-settings-en-light.webp">
 </picture>
 
 ## ✨ Features
@@ -68,7 +68,7 @@ account, machine, or Docker data directory.
 -  📊  Customizable Dashboard with transfer stats, live activity, and task tiles
 - 🔔 System notifications when downloads finish, plus an in-app notification center
 - 🧩 QuickJS-based plugin sandboxing, fine-grained permissions, and an in-app marketplace
--  🌐  Chrome and Firefox extensions that hand browser downloads off to Motrix in one click
+-  🌐  [Motrix Extension](https://github.com/motrixapp/motrix-extension) for Chrome, Edge, and Firefox hands browser downloads off to Motrix in one click
 - ⌨️  Official `@motrix/cli` client for everyday shell use and AI agents
 -  🐳  Docker-ready headless server with secure device-code pairing for remote CLI and agent clients
 -  🎬  Extensible URL Resolver plugins for extracting media from supported sites
@@ -84,7 +84,7 @@ Motrix extends beyond the desktop app with a shared protocol library, command-li
 |---------|--------------|--------------|
 | [`@motrix/mdxp`](https://github.com/motrixapp/mdxp) | npm package | Defines the shared JSON-RPC 2.0 wire schemas and Zod types for MDXP, with helpers for bidirectional connections |
 | [`@motrix/cli`](https://github.com/motrixapp/cli) | npm package | Provides the `motrix` command, automatically discovers a local desktop app, and pairs with remote instances |
-| Motrix Browser Extension | Browser extension | Intercepts downloads in Chrome and Firefox (Manifest V3), hands them off to Motrix, and pairs securely with the desktop app over native messaging |
+| [Motrix Extension](https://github.com/motrixapp/motrix-extension) | Browser extension | Intercepts downloads in Chrome, Edge, and Firefox (Manifest V3), hands them off to Motrix, and pairs securely with the desktop app over native messaging |
 | [Motrix Plugin SDK](https://github.com/motrixapp/plugin-sdk) | Four npm packages | Includes `@motrix/plugin-manifest-schema`, `@motrix/plugin-api`, `@motrix/plugin-cli`, and `create-motrix-plugin` for developing, testing, and packaging plugins |
 | [Builtin Plugins](https://github.com/motrixapp/builtin-plugins) | Signed `.moext` packages | Includes three official plugins: **Filename Template** for renaming files from a template before they are saved, **Page Scraper** for extracting direct file links from HTML pages, and **URL Resolver** as the foundation for site-specific media resolution |
 | Plugin Registry | Public JSON feed | Publishes plugin listings and install metadata at `dl.motrix.app/registry/plugins.json` for both the website and the in-app marketplace |
@@ -117,6 +117,16 @@ The default scaffold starts with a `beforeCreate` URL resolver. Pass `post-actio
 
 Plugins are bundled as a single ES2020 module and run inside a QuickJS sandbox without Node.js APIs or direct file and network access. Declare activation events, required capabilities, and URL-scoped host permissions in `motrix-plugin.json`; Motrix shows those requests to the user before granting access. See the [Plugin SDK documentation](https://github.com/motrixapp/plugin-sdk) for templates, the manifest and runtime API references, localization, sandbox constraints, packaging, and distribution.
 
+## Browser extension
+
+Motrix Extension is available from the official browser stores for use with Motrix 2:
+
+- [Chrome Web Store](https://chromewebstore.google.com/detail/motrix-extension/lggbokfckofcgjndaboioakcmincinpo)
+- [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/motrix-extension/efcflljngohddnmfmebiamigoikmdfbf)
+- [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/motrix-extension/)
+
+For installation and pairing, see the [browser extension guide](https://motrix.app/manual/browser-extension/). Development builds remain available from the [extension repository](https://github.com/motrixapp/motrix-extension#manual-browser-workflow-development).
+
 ##  📦  Installation
 
 ### Desktop app
@@ -130,10 +140,12 @@ package that matches your operating system and architecture:
 
 | Platform | Architectures | Packages / channel | Recommendation |
 |----------|---------------|--------------------|----------------|
-| macOS 12+ | `arm64` (Apple Silicon), `x64` (Intel) | `.dmg` / `.zip` | Use the `.dmg` matching your Mac; choose `x64` only for an Intel-based Mac |
+| macOS 13+ | `arm64` (Apple Silicon), `x64` (Intel) | `.dmg` / `.zip` | Use the `.dmg` matching your Mac; choose `x64` only for an Intel-based Mac |
 | Windows | `x64` | `.exe` (NSIS installer) / `.zip` | Use the `.exe` installer for a normal installation or `.zip` for a manually extracted copy |
 | Linux | `x64`, `arm64` | `.AppImage` / `.deb` / `.rpm` | Use the portable `.AppImage` on any distribution, `.deb` on Debian or Ubuntu, or `.rpm` on Fedora or openSUSE |
 | Linux (Snap Store) | `amd64`, `arm64` | `latest/edge` | Install the strictly confined beta with `sudo snap install motrix --edge` |
+| Linux (Flatpak) | `x86_64`, `aarch64` | `.flatpak` | Install a versioned bundle from a release that includes it; see the [Flatpak guide](docs/flatpak.md) |
+| Arch Linux / Omarchy | `x64`, `arm64` | `.pacman` | Install the native Arch package with `sudo pacman -U ./Motrix-<version>-<arch>.pacman`; see the [Arch installation guide](docs/arch-linux.md) |
 
 The `.AppImage` asks on first launch whether to register its desktop entry and
 URL-scheme handlers under your user data directory; declining leaves your system
@@ -142,8 +154,11 @@ Settings → Integration.
 The Snap Store package is strictly confined. Its approved `personal-files`
 interface permits Motrix to register Native Messaging hosts for supported
 browsers; it does not grant general access to files outside the normal Snap
-interfaces. Flatpak is validated separately and is not published by the
-release tag. Windows `arm64` and all 32-bit packages are not available.
+interfaces. Release tags build and validate Flatpak application bundles for
+both architectures before publication. Older releases, including beta.39,
+contain only the Flatpak Native Host companion. These single-file bundles
+require manual upgrades; they do not configure a Motrix update repository.
+Windows `arm64` and all 32-bit packages are not available.
 Windows `x64` packages are unsigned and may trigger a Windows SmartScreen
 warning.
 
@@ -165,7 +180,7 @@ downloaded resources:
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.28'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.40'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait
@@ -245,7 +260,7 @@ See the scripts in `package.json` for the available packaging commands. Platform
 
 | Area | Stack |
 |------|-------|
-| Desktop shell | Electron 43 |
+| Desktop shell | Electron 44 |
 | UI | React 19 + Tailwind CSS 4 + shadcn/ui |
 | Language | TypeScript in strict mode |
 | Build system | Vite 8 with separate main, preload, worker, and renderer targets |

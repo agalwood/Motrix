@@ -5,6 +5,7 @@ import {
   TaskKind,
   TaskStatus,
   TaskType,
+  TransitionPhase,
 } from './task'
 
 /** Coordinator-managed media task (Mux/Hls) — has no single aria2 handle. */
@@ -54,6 +55,7 @@ export function canPause(t: DownloadTask): boolean {
   // mux instance instead of status alone (status alone would leave the Pause
   // button enabled during mux, where every click would fail with no gids).
   if (isMediaKind(t.kind)) {
+    if (t.mediaProgress && t.mediaProgress.phase !== 'downloading') return false
     const muxStarted = t.instances.some(
       (i) =>
         i.phase === TaskInstancePhase.FfmpegMux &&
@@ -71,6 +73,37 @@ export function canPause(t: DownloadTask): boolean {
 
 export function canResume(t: DownloadTask): boolean {
   return t.status === TaskStatus.Paused
+}
+
+/** A completed task whose published output is a single file. */
+export function canOpenTaskFile(t: DownloadTask): boolean {
+  return (
+    t.status === TaskStatus.Completed &&
+    t.fileCount === 1 &&
+    Boolean(t.finalPath || t.diskPath)
+  )
+}
+
+/** Live multi-file downloads that accept a changed file selection. */
+export function canSelectTaskFiles(t: DownloadTask): boolean {
+  return (
+    Boolean(t.engineTaskId) &&
+    t.fileCount > 1 &&
+    (isTorrentLike(t) || t.type === TaskType.Metalink) &&
+    (t.status === TaskStatus.Queued ||
+      t.status === TaskStatus.Downloading ||
+      t.status === TaskStatus.Paused ||
+      t.status === TaskStatus.Seeding)
+  )
+}
+
+/** Waiting queue only; coordinator-managed tasks have no single queue slot. */
+export function canMoveInQueue(t: DownloadTask): boolean {
+  return (
+    Boolean(t.engineTaskId) &&
+    !isMediaKind(t.kind) &&
+    (t.status === TaskStatus.Queued || t.status === TaskStatus.Paused)
+  )
 }
 
 export function canStopSeeding(t: DownloadTask): boolean {
@@ -156,7 +189,11 @@ export function canRetryMagnetMetadata(t: DownloadTask): boolean {
   )
 }
 
-export type TaskRetryKind = 'torrent-readd' | 'direct-readd' | 'magnet-metadata'
+export type TaskRetryKind =
+  | 'torrent-readd'
+  | 'direct-readd'
+  | 'magnet-metadata'
+  | 'finalize-recovery'
 
 // Recovery errors that need new credentials or an explicit safe restart are
 // also excluded from the generic direct retry surface. `resumeCheckpointMissing`
@@ -174,6 +211,14 @@ const NON_RETRYABLE_DIRECT_RECOVERY_ERRORS = new Set([
 /** Resolve the concrete replay operation behind the generic Retry UI. */
 export function getTaskRetryKind(t: DownloadTask): TaskRetryKind | null {
   if (!canRetry(t)) return null
+  // Completed bytes need a filesystem recovery, so original download
+  // credentials or torrent metadata are not prerequisites for Retry.
+  if (
+    t.status === TaskStatus.Error &&
+    (t.transitionPhase === TransitionPhase.Renaming ||
+      t.transitionPhase === TransitionPhase.Reseeding)
+  )
+    return 'finalize-recovery'
   if (canRebuildTaskInputs(t)) {
     if (isTorrentLike(t)) return 'torrent-readd'
     // Removed direct tasks are user-retired occurrences. Only an Error is an
@@ -197,9 +242,8 @@ export function getTaskRetryKind(t: DownloadTask): TaskRetryKind | null {
   return null
 }
 
-/** A retry the UI should actually offer: the task is in a retryable status
- *  AND its engine dispatch can be rebuilt from the persisted record. This
- *  includes pre-sidecar magnet metadata retries as a distinct operation. */
+/** A retry the UI should offer: its finalization can be recovered or its
+ *  engine dispatch can be rebuilt from the persisted record. */
 export function canAttemptRetry(t: DownloadTask): boolean {
   return getTaskRetryKind(t) !== null
 }

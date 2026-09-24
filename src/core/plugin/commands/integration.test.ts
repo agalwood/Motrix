@@ -15,6 +15,7 @@ import type {
   PluginStateRecord,
 } from '@shared/types/plugin'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import type { PluginCallChain } from '../host/plugin-lane'
 import type { IndexedPlugin, PluginRegistry } from '../plugin-registry'
 import { CallerThrottle } from './caller-throttle'
 import { ChainDepth } from './chain-depth'
@@ -91,7 +92,8 @@ interface HostStubOpts {
   invokeCommand?: (
     pluginId: string,
     commandId: string,
-    args: unknown
+    args: unknown,
+    options?: { callChain?: PluginCallChain }
   ) => Promise<unknown>
   activate?: (pluginId: string) => Promise<void>
 }
@@ -232,6 +234,182 @@ describe('FullCrossPluginInvoker', () => {
 
   afterEach(async () => {
     await rm(tmp, { recursive: true, force: true })
+  })
+
+  it('rejects an A -> B -> A call cycle before the second enqueue', async () => {
+    const registry = makeRegistry([
+      {
+        id: 'test.a',
+        invokesCommands: ['test.b.run'],
+        publicCommands: [
+          {
+            id: 'test.a.run',
+            argsSchema: ARGS_SCHEMA,
+            resultSchema: RESULT_SCHEMA,
+          },
+        ],
+      },
+      {
+        id: 'test.b',
+        invokesCommands: ['test.a.run'],
+        publicCommands: [
+          {
+            id: 'test.b.run',
+            argsSchema: ARGS_SCHEMA,
+            resultSchema: RESULT_SCHEMA,
+          },
+        ],
+      },
+    ])
+    let invoker!: FullCrossPluginInvoker
+    const host = makeHost({
+      active: new Set(['test.a', 'test.b']),
+      invokeCommand: async (pluginId, _commandId, args, options) => {
+        if (pluginId === 'test.b') {
+          const inherited = options?.callChain
+          return invoker.execute('test.b', 'test.a.run', args, {
+            id: inherited?.id ?? 'test-cycle',
+            plugins: [...(inherited?.plugins ?? ['test.a']), 'test.b'],
+          })
+        }
+        return { greeting: 'unreachable' }
+      },
+    })
+    const commands = new Map([
+      [
+        'test.a',
+        [
+          {
+            id: 'test.a.run',
+            argsSchema: ARGS_SCHEMA,
+            resultSchema: RESULT_SCHEMA,
+            public: true,
+          },
+        ],
+      ],
+      [
+        'test.b',
+        [
+          {
+            id: 'test.b.run',
+            argsSchema: ARGS_SCHEMA,
+            resultSchema: RESULT_SCHEMA,
+            public: true,
+          },
+        ],
+      ],
+    ])
+    const harness = buildHarness({
+      registry,
+      host,
+      auditFile,
+      taskId: () => 'task-cycle',
+      publicCmds: commands,
+    })
+    invoker = harness.invoker
+
+    await expect(
+      invoker.execute('test.a', 'test.b.run', { name: 'cycle' })
+    ).rejects.toMatchObject({ message: 'plugin.runtime.reentrant_call' })
+    expect(harness.depth.current('task-cycle')).toBe(0)
+  })
+
+  it('keeps concurrent call chains to one callee bound to their lane entries', async () => {
+    const registry = makeRegistry([
+      {
+        id: 'test.a',
+        invokesCommands: ['test.b.run'],
+        publicCommands: [
+          {
+            id: 'test.a.run',
+            argsSchema: ARGS_SCHEMA,
+            resultSchema: RESULT_SCHEMA,
+          },
+        ],
+      },
+      {
+        id: 'test.c',
+        invokesCommands: ['test.b.run'],
+        publicCommands: [
+          {
+            id: 'test.c.run',
+            argsSchema: ARGS_SCHEMA,
+            resultSchema: RESULT_SCHEMA,
+          },
+        ],
+      },
+      {
+        id: 'test.b',
+        invokesCommands: ['test.a.run', 'test.c.run'],
+        publicCommands: [
+          {
+            id: 'test.b.run',
+            argsSchema: ARGS_SCHEMA,
+            resultSchema: RESULT_SCHEMA,
+          },
+        ],
+      },
+    ])
+    let invoker!: FullCrossPluginInvoker
+    let entered = 0
+    let releaseBoth!: () => void
+    const bothEntered = new Promise<void>((resolve) => {
+      releaseBoth = resolve
+    })
+    const host = makeHost({
+      active: new Set(['test.a', 'test.b', 'test.c']),
+      invokeCommand: async (pluginId, _commandId, args, options) => {
+        if (pluginId !== 'test.b') return { greeting: 'unreachable' }
+        entered += 1
+        if (entered === 2) releaseBoth()
+        await bothEntered
+        const caller = (args as { name: string }).name
+        const inherited = options?.callChain
+        const boundChain: PluginCallChain = {
+          id: inherited?.id ?? `chain-${caller}`,
+          plugins: [...(inherited?.plugins ?? [`test.${caller}`]), 'test.b'],
+        }
+        return invoker.execute('test.b', `test.${caller}.run`, args, boundChain)
+      },
+    })
+    const publicCmds = new Map(
+      ['a', 'b', 'c'].map((name) => [
+        `test.${name}`,
+        [
+          {
+            id: `test.${name}.run`,
+            argsSchema: ARGS_SCHEMA,
+            resultSchema: RESULT_SCHEMA,
+            public: true,
+          },
+        ],
+      ])
+    )
+    const harness = buildHarness({
+      registry,
+      host,
+      auditFile,
+      taskId: () => 'task-concurrent-cycle',
+      publicCmds,
+    })
+    invoker = harness.invoker
+
+    const results = await Promise.allSettled([
+      invoker.execute('test.a', 'test.b.run', { name: 'a' }),
+      invoker.execute('test.c', 'test.b.run', { name: 'c' }),
+    ])
+
+    expect(results).toHaveLength(2)
+    for (const result of results) {
+      expect(result.status).toBe('rejected')
+      if (result.status === 'rejected') {
+        expect(result.reason).toMatchObject({
+          message: 'plugin.runtime.reentrant_call',
+        })
+      }
+    }
+    expect(harness.depth.current('task-concurrent-cycle')).toBe(0)
+    await harness.audit.drain()
   })
 
   it('returns the callee result on the happy path', async () => {

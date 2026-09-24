@@ -3,11 +3,16 @@ import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
+import noticeTestConfig from '../vitest.notices.config'
 
 const ROOT = process.cwd()
 const NATIVE_HOST_CARGO_LOCK = path.join(
   ROOT,
   'packages/native-host/Cargo.lock'
+)
+const FINALIZE_FS_CARGO_LOCK = path.join(
+  ROOT,
+  'packages/finalize-fs/Cargo.lock'
 )
 const NOTICE_GATE_COMMAND = 'pnpm run check:third-party-notices'
 const FLATPAK_NOTICE_GATE_COMMAND =
@@ -204,7 +209,64 @@ const RUST_NATIVE_HOST_CRATES: RustCrateNotice[] = [
   },
 ]
 
+const RUST_FINALIZE_ADDITIONAL_CRATES: RustCrateNotice[] = [
+  {
+    name: 'bitflags',
+    version: '2.13.1',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/bitflags/bitflags',
+  },
+  {
+    name: 'errno',
+    version: '0.3.14',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/lambda-fairy/rust-errno',
+  },
+  {
+    name: 'linux-raw-sys',
+    version: '0.12.1',
+    license: 'Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT',
+    repository: 'https://github.com/sunfishcode/linux-raw-sys',
+  },
+  {
+    name: 'rustix',
+    version: '1.1.4',
+    license: 'Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT',
+    repository: 'https://github.com/bytecodealliance/rustix',
+  },
+]
+
+const RUST_NATIVE_CRATES = [
+  ...RUST_NATIVE_HOST_CRATES,
+  ...RUST_FINALIZE_ADDITIONAL_CRATES,
+]
+
 const RUST_LICENSE_FILES = [
+  {
+    file: 'rust-rustix-COPYRIGHT',
+    sha256: '377c2e7c53250cc5905c0b0532d35973392af16ffb9596a41d99d202cf3617c9',
+  },
+  {
+    file: 'rust-linux-raw-sys-COPYRIGHT',
+    sha256: '3290ae0fbc9ddb77d2239121d710f0bb9d31b3b4744e6d97fe01e652b4c1870b',
+  },
+  {
+    file: 'rust-bitflags-LICENSE-MIT',
+    sha256: '6485b8ed310d3f0340bf1ad1f47645069ce4069dcc6bb46c7d5c6faf41de1fdb',
+  },
+  {
+    file: 'rust-errno-LICENSE-MIT',
+    sha256: '8764a597675778ddfd4e25f81b08a05dbcf089ac05662df7613fe67f150e3aa2',
+  },
+  {
+    file: 'rust-linux-raw-sys-LICENSE-MIT',
+    sha256: '23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3',
+  },
+  {
+    file: 'rust-rustix-LICENSE-MIT',
+    sha256: '23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3',
+  },
+
   {
     file: 'rust-base64-LICENSE-APACHE',
     sha256: 'a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2',
@@ -408,9 +470,9 @@ describe('third-party graph dependency notices', () => {
 
       expect(notice).toContain('SFNS-Regular.ttf')
       expect(notice).toContain('https://developer.apple.com/fonts/')
-      expect(notice).toContain('1.37.0-motrix.11')
+      expect(notice).toContain('1.37.0-motrix.16')
       expect(notice).toContain(
-        'https://github.com/motrixapp/aria2/tree/v1.37.0-motrix.11'
+        'https://github.com/motrixapp/aria2/tree/v1.37.0-motrix.16'
       )
       expect(notice).toContain('GPL-2.0-or-later')
       expect(notice).toContain('THIRD_PARTY_LICENSES/aria2-COPYING')
@@ -428,12 +490,25 @@ describe('third-party graph dependency notices', () => {
     expect(registryPackagesFromCargoLock(cargoLock)).toEqual(expected)
   })
 
+  it('keeps every finalize filesystem crate inside the reviewed Rust inventory', async () => {
+    const cargoLock = await readFile(FINALIZE_FS_CARGO_LOCK, 'utf8')
+    const reviewed = new Set(
+      RUST_NATIVE_CRATES.map(({ name, version }) => `${name}@${version}`)
+    )
+
+    expect(
+      registryPackagesFromCargoLock(cargoLock).filter(
+        ({ name, version }) => !reviewed.has(`${name}@${version}`)
+      )
+    ).toEqual([])
+  })
+
   it.each(['THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_NOTICES.zh-CN.md'])(
-    '%s records every locked native-host crate and SPDX expression',
+    '%s records every reviewed native crate and SPDX expression',
     async (noticeFile) => {
       const notice = await readFile(path.join(ROOT, noticeFile), 'utf8')
 
-      for (const crate of RUST_NATIVE_HOST_CRATES) {
+      for (const crate of RUST_NATIVE_CRATES) {
         expect(notice).toContain(
           `| ${crate.name} | ${crate.version} | \`${crate.license}\` | <${crate.repository}> |`
         )
@@ -645,6 +720,12 @@ describe('third-party graph dependency notices', () => {
     expect(scripts['check:third-party-notices']).toContain(
       'vitest run tests/check-third-party-notices.test.ts tests/generate-third-party-notices.test.ts'
     )
+    expect(scripts['check:third-party-notices']).toContain(
+      '--config vitest.notices.config.ts'
+    )
+    expect(noticeTestConfig.test?.environment).toBe('node')
+    expect(noticeTestConfig.test?.globalSetup).toEqual([])
+    expect(noticeTestConfig.test?.setupFiles).toEqual([])
     expect(scripts['check:third-party-notices']).not.toContain(
       NOTICE_GATE_COMMAND
     )

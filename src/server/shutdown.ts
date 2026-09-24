@@ -17,6 +17,7 @@ export interface ServerShutdownActions {
   drainMagnet: ShutdownAction
   stopGeoIP: ShutdownAction
   drainSession: ShutdownAction
+  disposeFinalizeFs?: ShutdownAction
   disposeActivity: ShutdownAction
   disposeTransferStats: ShutdownAction
   disposeTracker: ShutdownAction
@@ -86,6 +87,9 @@ export function createServerShutdown(
         safely('session', actions.drainSession),
         safely('engine', actions.stopEngine),
       ])
+      if (actions.disposeFinalizeFs) {
+        await safely('finalize-filesystem', actions.disposeFinalizeFs)
+      }
       await safely('shell-async-work', () => shellDrain)
       await safely('task-inspector-activity', actions.disposeActivity)
       await safely('transfer-stats', actions.disposeTransferStats)

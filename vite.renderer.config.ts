@@ -28,6 +28,10 @@ export default defineConfig(({ command }) => ({
     alias: {
       '@shared': path.resolve(import.meta.dirname, 'src/shared'),
       '@renderer': path.resolve(import.meta.dirname, 'src/renderer'),
+      path: path.resolve(
+        import.meta.dirname,
+        'src/renderer/lib/path-browser-shim.ts'
+      ),
     },
   },
 }))

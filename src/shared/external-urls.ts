@@ -5,6 +5,14 @@
  * locale-specific redirects) only touch one file.
  */
 export const EXTERNAL_URLS = {
+  browserExtension: {
+    chrome:
+      'https://chromewebstore.google.com/detail/motrix-extension/lggbokfckofcgjndaboioakcmincinpo',
+    edge: 'https://microsoftedge.microsoft.com/addons/detail/motrix-extension/efcflljngohddnmfmebiamigoikmdfbf',
+    firefox: 'https://addons.mozilla.org/en-US/firefox/addon/motrix-extension/',
+    development:
+      'https://github.com/motrixapp/motrix-extension#manual-browser-workflow-development',
+  },
   github: {
     repository: 'https://github.com/agalwood/Motrix/',
     author: 'https://github.com/agalwood/',
@@ -20,6 +28,10 @@ export const EXTERNAL_URLS = {
     releaseNotes: 'https://motrix.app/release-notes/',
     manual: {
       home: 'https://motrix.app/manual/',
+      downloadPerformance: {
+        en: 'https://motrix.app/manual/download-performance/',
+        zh: 'https://motrix.app/zh/manual/download-performance/',
+      },
       natTroubleshooting: {
         en: 'https://motrix.app/manual/port-mapping/',
         zh: 'https://motrix.app/zh/manual/port-mapping/',
@@ -33,4 +45,9 @@ export const EXTERNAL_URLS = {
 export function getNatTroubleshootingUrl(language: string): string {
   const locale = language.toLowerCase().startsWith('zh') ? 'zh' : 'en'
   return EXTERNAL_URLS.motrix.manual.natTroubleshooting[locale]
+}
+
+export function getDownloadPerformanceUrl(language: string): string {
+  const locale = language.toLowerCase().startsWith('zh') ? 'zh' : 'en'
+  return EXTERNAL_URLS.motrix.manual.downloadPerformance[locale]
 }

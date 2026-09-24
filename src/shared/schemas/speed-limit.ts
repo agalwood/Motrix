@@ -3,10 +3,14 @@ import type {
   SpeedTestProvider,
 } from '@shared/types/settings'
 import { z } from 'zod'
+import type { ByteUnitSystem } from './byte-unit-system'
+import { settingsInputObject } from './settings-input'
+
+const byteRateSchema = z.number().min(0).max(Number.MAX_SAFE_INTEGER)
 
 const profileSchema = z.object({
-  download: z.number().min(0).catch(0),
-  upload: z.number().min(0).catch(0),
+  download: byteRateSchema.catch(0),
+  upload: byteRateSchema.catch(0),
 })
 
 const scheduleSchema = z.object({
@@ -64,8 +68,8 @@ const speedTestSchema = z.object({
 
 const adaptiveSchema = z.object({
   enabled: z.boolean().catch(false),
-  linkDown: z.number().min(0).catch(0),
-  linkUp: z.number().min(0).catch(0),
+  linkDown: byteRateSchema.catch(0),
+  linkUp: byteRateSchema.catch(0),
   headroomPercent: z.number().int().min(1).max(100).catch(80),
   speedTest: speedTestSchema.catch(speedTestSchema.parse({})),
 })
@@ -83,5 +87,31 @@ export const speedLimitSettingsSchema = z.object({
   auto: autoSchema.catch(autoSchema.parse({})),
 })
 
+export const speedLimitSettingsInputSchema = settingsInputObject(
+  speedLimitSettingsSchema
+).extend({
+  base: settingsInputObject(profileSchema),
+  alt: settingsInputObject(profileSchema),
+  auto: settingsInputObject(autoSchema).extend({
+    schedule: settingsInputObject(scheduleSchema),
+    videoApp: settingsInputObject(videoAppSchema),
+    adaptive: settingsInputObject(adaptiveSchema).extend({
+      speedTest: settingsInputObject(speedTestSchema),
+    }),
+  }),
+})
+
 export const DEFAULT_SPEED_LIMIT_SETTINGS: SpeedLimitSettings =
   speedLimitSettingsSchema.parse({})
+
+/** First-run presets follow display units; persisted values retain their bytes. */
+export function createDefaultSpeedLimitSettings(
+  unitSystem: ByteUnitSystem
+): SpeedLimitSettings {
+  const kiloByte = unitSystem === 'binary' ? 1024 : 1000
+  return structuredClone(
+    speedLimitSettingsSchema.parse({
+      alt: { upload: 64 * kiloByte, download: 512 * kiloByte },
+    })
+  )
+}

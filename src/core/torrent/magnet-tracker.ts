@@ -35,10 +35,12 @@ import {
 } from '@core/task/bt-duplicate-policy'
 import { btWorkspacePath } from '@core/task/bt-storage-layout'
 import type { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
+import { admitDownloadSources } from '@core/task/source-admission'
 import type { TaskManager } from '@core/task/task-manager'
 import { taskRowToDownloadTask } from '@core/task/task-row-to-download-task'
 import { AppError, DownloadErrorCode, ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
+import type { MagnetFileSelectionPayload } from '@shared/schemas/add-task'
 import type { DownloadTask, SourceMeta, TaskSource } from '@shared/types/task'
 import {
   TaskInstancePhase,
@@ -287,7 +289,9 @@ export class MagnetTracker {
         torrentMetaPath: cleanupTorrentMetaPath,
         torrentMetaDir: this.lifecycle.torrentMetaDir ?? null,
         cleanupArtifactPaths,
-        failedSwapCleanup: isHiddenTombstone && cleanupArtifactPaths.length > 0,
+        failedSwapCleanup:
+          isHiddenTombstone &&
+          (cleanupArtifactPaths.length > 0 || Boolean(restoreGraph)),
         hiddenTombstone: isHiddenTombstone,
         restoreGraph: restoreGraph ?? undefined,
         timeoutMultiplier: metadataTimeoutMultiplier(metaInst.payload),
@@ -413,6 +417,7 @@ export class MagnetTracker {
     saveDir: string,
     provenance?: { source?: TaskSource; sourceMeta?: SourceMeta }
   ): Promise<string> {
+    uri = admitDownloadSources([uri], 'input', ['magnet'])[0].sourceUrl
     const requestedInfoHash = extractInfoHash(uri)
     if (requestedInfoHash === UNKNOWN_INFO_HASH) {
       return this.submitUnderAdmission(uri, saveDir, provenance)
@@ -437,9 +442,13 @@ export class MagnetTracker {
     const { magnetFileSelection } = this.settingsManager.getApp()
 
     if (!magnetFileSelection) {
-      const gid = await this.rpcClient.addUri([uri], { dir: saveDir })
+      const gid = await this.rpcClient.addUri([uri], {
+        dir: saveDir,
+        // The automatically followed BT payload inherits these options.
+        'max-file-not-found': '0',
+      })
       if (this.stopped) return ''
-      log.info({ gid, uri }, 'magnet added (file selection disabled)')
+      log.info({ gid }, 'magnet added (file selection disabled)')
       return ''
     }
 
@@ -505,6 +514,7 @@ export class MagnetTracker {
       tags: null,
       createdAt: now,
       updatedAt: now,
+      saveDir,
       finalPath: saveDir,
       finalName: '',
       torrentMetaPath: null,
@@ -629,6 +639,7 @@ export class MagnetTracker {
 
           engineDispatchStarted = true
           const returnedGid = await this.rpcClient.addUri([uri], {
+            'max-file-not-found': '0',
             'bt-load-saved-metadata': 'false',
             'bt-metadata-only': 'true',
             dir: metadataDir,
@@ -748,6 +759,7 @@ export class MagnetTracker {
     // click can arrive while the old GID is still shielded. Serialize behind
     // that cleanup and require authoritative absence before creating a new
     // sibling GID.
+    admitDownloadSources([magnetUri], 'recovery', ['magnet'])
     const previousEntry = this.findCacheEntryByTaskId(taskId)
     if (previousEntry) {
       previousEntry.cleanupAttempts = 0
@@ -853,6 +865,7 @@ export class MagnetTracker {
 
       engineDispatchStarted = true
       const returnedGid = await this.rpcClient.addUri([magnetUri], {
+        'max-file-not-found': '0',
         'bt-load-saved-metadata': 'false',
         'bt-metadata-only': 'true',
         dir: metadataDir,
@@ -1018,6 +1031,17 @@ export class MagnetTracker {
    *  Routing/window handling is identical to the first emit: the bootstrap
    *  forwards MagnetFileSelection to the add-task window. */
   async reopenFileSelection(taskId: string): Promise<void> {
+    const selection = await this.getFileSelection(taskId)
+    if (!selection) return
+    this.eventBus.emit(Events.MagnetFileSelection, selection)
+    log.info({ taskId }, 'magnet file selection reopened')
+  }
+
+  /** Read the selection for one caller without broadcasting a dialog to
+   *  every connected WebUI. HTTP callers can recover missed WS events. */
+  async getFileSelection(
+    taskId: string
+  ): Promise<MagnetFileSelectionPayload | undefined> {
     const pair = this.db.getTask(taskId)
     if (!pair) {
       throw new AppError(ErrorCode.TaskNotFound, `task ${taskId} not found`)
@@ -1071,14 +1095,17 @@ export class MagnetTracker {
 
     const meta = await this.torrentParser.parse(torrentBase64)
     if (this.stopped) return
-    this.eventBus.emit(Events.MagnetFileSelection, {
+    // A different client may have confirmed or removed the task during IO.
+    if (this.db.getTask(taskId)?.task.aggStatus !== TaskStatus.MetadataReady) {
+      return
+    }
+    return {
       taskId,
       meta,
       magnetUri,
       torrentBase64,
       saveDir,
-    })
-    log.info({ taskId }, 'magnet file selection reopened')
+    }
   }
 
   /** Cancel all in-flight cleanup retry timers. Called on app shutdown
@@ -1484,6 +1511,7 @@ export class MagnetTracker {
         ? {
             ...i,
             status: TaskStatus.MetadataReady,
+            payload: { ...i.payload, fileSelectionReadyAt: now },
             updatedAt: now,
           }
         : i
@@ -1751,7 +1779,7 @@ export class MagnetTracker {
         this.lifecycle.publishTaskUpdate()
       }
     }
-    if (entry.cleanupArtifactPaths.length === 0) {
+    if (!entry.failedSwapCleanup && entry.cleanupArtifactPaths.length === 0) {
       await this.cleanupMetadataDir(entry.metadataDir)
     }
   }

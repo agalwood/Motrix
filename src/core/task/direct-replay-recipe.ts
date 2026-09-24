@@ -14,13 +14,14 @@ export type { DirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
 export function buildDirectReplayRecipe(
   params: Pick<
     CreateDownloadParams,
-    'connections' | 'headers' | 'proxy' | 'extraEngineOptions'
+    'connections' | 'headers' | 'cookies' | 'proxy' | 'extraEngineOptions'
   >,
   ambientEngineRequestOptions = false
 ): DirectReplayRecipe {
   const requestModifiers: DirectReplayRequestModifier[] = []
 
   if (hasEntries(params.headers)) requestModifiers.push('headers')
+  if (params.cookies !== undefined) requestModifiers.push('cookies')
   if (hasText(params.proxy)) requestModifiers.push('proxy')
   if (hasEntries(params.extraEngineOptions)) {
     requestModifiers.push('extraEngineOptions')

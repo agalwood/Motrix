@@ -29,6 +29,7 @@ import { SegmentDownloader } from '../download/segment-downloader'
 import { FfmpegService } from '../ffmpeg/ffmpeg-service'
 import { assembleSegments } from '../media/segment-assembler'
 import { SegmentDecryptor } from '../media/segment-decryptor'
+import { MediaMetaStoreImpl } from './media-meta-store'
 import { type MediaJob, MediaTaskCoordinator } from './media-task-coordinator'
 import { TaskManager } from './task-manager'
 
@@ -64,6 +65,7 @@ describe.skipIf(
   let baseUrl: string
   let handle: Aria2Handle
   let rpc: import('../engine/aria2/aria2-rpc-client').Aria2RpcClient
+  let adapter: import('../engine/aria2/aria2-adapter').Aria2Adapter
   let disconnect: () => void
 
   beforeAll(async () => {
@@ -113,6 +115,7 @@ describe.skipIf(
     handle = await spawnAria2ForTest({ baseDir: aria2BaseDir })
     const wired = await connectAdapter(handle)
     rpc = wired.rpc
+    adapter = wired.adapter
     disconnect = wired.disconnect
   }, 60_000)
 
@@ -130,9 +133,10 @@ describe.skipIf(
   })
 
   it('downloads video+audio over aria2 and muxes to a playable mp4 (saveDir auto-created)', async () => {
-    const segmentClient = new Aria2SegmentClient(rpc)
+    const segmentClient = new Aria2SegmentClient(rpc, adapter)
     const taskManager = new TaskManager()
     const coordinator = new MediaTaskCoordinator({
+      mediaMetaStore: new MediaMetaStoreImpl(path.join(outRoot, 'metadata')),
       taskManager,
       activityRecorder: NOOP_TASK_ACTIVITY_RECORDER,
       eventBus: { emit() {} },

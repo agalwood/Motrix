@@ -27,8 +27,13 @@ import { DIRECT_RESOURCE_METADATA_PROFILE } from './engine-adapter'
 import { EngineSupervisor } from './engine-supervisor'
 import { checkPort } from './port-check'
 
-const { probePreciseMock } = vi.hoisted(() => ({
+const { probePreciseMock, recoverSessionMock } = vi.hoisted(() => ({
   probePreciseMock: vi.fn(),
+  recoverSessionMock: vi.fn().mockResolvedValue(null),
+}))
+
+vi.mock('./aria2/aria2-session-identity-recovery', () => ({
+  recoverAria2SessionIdentity: recoverSessionMock,
 }))
 
 vi.mock('../probe/disk-probe', () => ({
@@ -112,6 +117,7 @@ function createMockConfigBuilder(): Aria2ConfigBuilder {
   return {
     ensureUserConfig: vi.fn().mockResolvedValue('/tmp/aria2.conf'),
     hasSavedSession: vi.fn().mockResolvedValue(false),
+    resolveSqliteDbPath: vi.fn().mockReturnValue('/tmp/aria2.db'),
     quarantineSqliteDatabase: vi.fn().mockResolvedValue({
       databasePath: '/tmp/aria2.db',
       quarantineBasePath: '/tmp/aria2.db.corrupt-test',
@@ -127,6 +133,10 @@ function createMockRpcClient(): Aria2RpcClient {
     connect: vi.fn().mockResolvedValue(undefined),
     disconnect: vi.fn(),
     isConnected: vi.fn(() => true),
+    getConnectionStatus: vi.fn(() => ({
+      transport: 'websocket',
+      connected: true,
+    })),
     getVersion: vi.fn().mockResolvedValue({
       version: '1.37.0',
       enabledFeatures: ['SQLite3-Persistence'],
@@ -219,6 +229,65 @@ describe('EngineSupervisor', () => {
   })
 
   describe('start — happy path', () => {
+    it('prepares the startup guard before spawning and reconciles before Ready', async () => {
+      const reconcile = vi.fn(async () => {
+        expect(rpcClient.connect).toHaveBeenCalledOnce()
+        expect(supervisor.getState()).not.toBe(EngineState.Ready)
+      })
+      const prepare = vi.fn(async () => {
+        expect(processManager.spawn).not.toHaveBeenCalled()
+        return { args: ['--pause=true'], reconcile }
+      })
+      supervisor.setStartupGuard({ prepare })
+      await supervisor.start('/usr/bin/aria2c')
+      expect(processManager.spawn).toHaveBeenCalledWith(
+        '/usr/bin/aria2c',
+        ['--pause=true'],
+        undefined
+      )
+      expect(reconcile).toHaveBeenCalledOnce()
+      expect(supervisor.getState()).toBe(EngineState.Ready)
+    })
+
+    it('does not publish Ready when mandatory completed-task cleanup fails', async () => {
+      const ready = vi.fn()
+      eventBus.on(Events.EngineStateChanged, (state) => {
+        if (state === EngineState.Ready) ready()
+      })
+      supervisor.setStartupGuard({
+        prepare: async () => ({
+          args: ['--pause=true'],
+          reconcile: async () => {
+            throw new Error('completed task purge failed')
+          },
+        }),
+      })
+      await supervisor.start('/usr/bin/aria2c')
+      expect(ready).not.toHaveBeenCalled()
+      expect(supervisor.getState()).toBe(EngineState.Failed)
+      expect(supervisor.getLastError()).toContain('completed task purge failed')
+    })
+
+    it('runs startup maintenance after RPC connect and before publishing Ready', async () => {
+      const readyObserved = vi.fn()
+      eventBus.on(Events.EngineStateChanged, (state) => {
+        if (state === EngineState.Ready) readyObserved()
+      })
+      const maintenance = vi.fn(async () => {
+        expect(rpcClient.connect).toHaveBeenCalledOnce()
+        expect(readyObserved).not.toHaveBeenCalled()
+      })
+      supervisor.setPreReadyMaintenance(maintenance)
+
+      await supervisor.start('/usr/bin/aria2c')
+
+      expect(maintenance).toHaveBeenCalledOnce()
+      expect(readyObserved).toHaveBeenCalledOnce()
+      expect(maintenance.mock.invocationCallOrder[0]).toBeLessThan(
+        readyObserved.mock.invocationCallOrder[0] ?? Number.MAX_SAFE_INTEGER
+      )
+    })
+
     it('resolves the download proxy before building aria2 arguments', async () => {
       const resolved = {
         allProxy: 'http://127.0.0.1:43123',
@@ -780,6 +849,54 @@ describe('EngineSupervisor', () => {
     })
   })
 
+  it('repairs persisted identities before the completed-task guard and spawn', async () => {
+    const prepare = vi.fn().mockResolvedValue(null)
+    supervisor.setStartupGuard({ prepare })
+    await supervisor.start('/usr/bin/aria2c')
+    expect(recoverSessionMock).toHaveBeenCalledWith(
+      '/tmp/aria2.db',
+      expect.any(Function)
+    )
+    expect(recoverSessionMock.mock.invocationCallOrder.at(-1)).toBeLessThan(
+      prepare.mock.invocationCallOrder[0]!
+    )
+    expect(prepare.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(processManager.spawn).mock.invocationCallOrder[0]!
+    )
+  })
+
+  it('does not repair or spawn when the RPC port is occupied', async () => {
+    vi.mocked(checkPort).mockResolvedValueOnce(false)
+    const calls = recoverSessionMock.mock.calls.length
+    await supervisor.start('/usr/bin/aria2c')
+    expect(recoverSessionMock).toHaveBeenCalledTimes(calls)
+    expect(processManager.spawn).not.toHaveBeenCalled()
+  })
+
+  it('does not spawn when identity recovery fails', async () => {
+    recoverSessionMock.mockRejectedValueOnce(
+      new Error('saved metadata unavailable')
+    )
+    await supervisor.start('/usr/bin/aria2c')
+    expect(supervisor.getState()).toBe(EngineState.Failed)
+    expect(processManager.spawn).not.toHaveBeenCalled()
+    expect(supervisor.getLastError()).toBe('saved metadata unavailable')
+  })
+
+  it('preserves only the GID conflict diagnostic when RPC fails', async () => {
+    vi.mocked(rpcClient.connect).mockRejectedValueOnce(
+      new Error('ECONNREFUSED')
+    )
+    vi.mocked(processManager.getRecentStderr).mockReturnValue(
+      'private-url\nGID 283f007637e2399d is not unique.\nCookie: private'
+    )
+    await supervisor.start('/usr/bin/aria2c')
+    expect(supervisor.getLastError()).toBe(
+      'GID 283f007637e2399d is not unique.'
+    )
+    expect(configBuilder.quarantineSqliteDatabase).not.toHaveBeenCalled()
+  })
+
   describe('start — probe failure', () => {
     it('transitions to Failed when probe rejects', async () => {
       vi.mocked(processManager.probe).mockRejectedValue(
@@ -1257,6 +1374,22 @@ describe('EngineSupervisor', () => {
   })
 
   describe('manual recovery', () => {
+    it('includes the current transport state even before lifecycle health checks catch up', async () => {
+      await supervisor.start('/usr/bin/aria2c')
+      vi.mocked(rpcClient.getConnectionStatus).mockReturnValue({
+        transport: 'websocket',
+        connected: false,
+      })
+
+      const report = await supervisor.diagnose()
+
+      expect(report.state).toBe(EngineState.Ready)
+      expect(report.rpc.connection).toEqual({
+        transport: 'websocket',
+        connected: false,
+      })
+    })
+
     function useFallbackPort(): { rpcPort: number } {
       const engineSettings = {
         ...settings.getEngine(),
@@ -1477,6 +1610,21 @@ describe('EngineSupervisor', () => {
   })
 
   describe('applyEngineSettings', () => {
+    it('never installs a global seeding timer during hot updates', async () => {
+      await supervisor.start('/usr/bin/aria2c')
+      vi.mocked(rpcClient.changeGlobalOption).mockClear()
+      const previous = settings.getEngine()
+      await supervisor.applyEngineSettings(previous, {
+        ...previous,
+        seedTime: 0,
+      })
+      await supervisor.applyEngineSettings(
+        { ...previous, seedTime: 0 },
+        { ...previous, seedTime: 90 }
+      )
+      expect(rpcClient.changeGlobalOption).not.toHaveBeenCalled()
+    })
+
     it('is a no-op unless Ready', async () => {
       const previous = settings.getEngine()
       await supervisor.applyEngineSettings(previous, {

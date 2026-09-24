@@ -1,11 +1,14 @@
+import { ByteUnitSync } from '@renderer/components/byte-unit-sync'
 import { LanguageSync } from '@renderer/components/language-sync'
 import { LocaleDirectionProvider } from '@renderer/components/locale-direction-provider'
 import { OperatorUnlockGate } from '@renderer/components/operator-unlock-gate'
+import { ReducedMotionSync } from '@renderer/components/reduced-motion-sync'
 import { ThemeSync } from '@renderer/components/theme-sync'
 import {
   bootstrapRendererLocale,
   type RendererWindowId,
 } from '@renderer/lib/bootstrap-locale'
+import { applyInitialRendererTheme } from '@renderer/lib/initial-theme'
 import { transport } from '@renderer/lib/transport'
 import { ThemeProvider } from 'next-themes'
 import { lazy, type ReactNode, Suspense } from 'react'
@@ -43,14 +46,16 @@ const windowId: RendererWindowId =
 
 document.documentElement.classList.add(`platform-${transport.platform}`)
 document.documentElement.classList.add(`window-${windowId}`)
+// Apply the resolved class before the locale IPC and React mount. The native
+// BrowserWindow background uses the same Electron nativeTheme value, so the
+// compositor and renderer agree from the first visible frame.
+applyInitialRendererTheme()
 
 function Root({
   children,
-  forcedTheme,
   syncSettings = true,
 }: {
   children: ReactNode
-  forcedTheme?: string
   syncSettings?: boolean
 }) {
   return (
@@ -58,11 +63,12 @@ function Root({
       attribute="class"
       defaultTheme="system"
       enableSystem
-      forcedTheme={forcedTheme}
       disableTransitionOnChange
     >
       <LocaleDirectionProvider>
         {syncSettings && <ThemeSync />}
+        {syncSettings && <ByteUnitSync />}
+        <ReducedMotionSync syncSettings={syncSettings} />
         <LanguageSync windowId={windowId} />
         {children}
       </LocaleDirectionProvider>
@@ -71,7 +77,7 @@ function Root({
 }
 
 async function startRenderer(rootContainer: HTMLElement): Promise<void> {
-  await bootstrapRendererLocale(windowId)
+  if (transport.platform !== 'web') await bootstrapRendererLocale(windowId)
   const root = createRoot(rootContainer)
 
   if (windowId === 'add-task') {
@@ -84,7 +90,7 @@ async function startRenderer(rootContainer: HTMLElement): Promise<void> {
     )
   } else if (windowId === 'onboarding') {
     root.render(
-      <Root syncSettings={false} forcedTheme="light">
+      <Root syncSettings={false}>
         <Suspense>
           <OnboardingWindow />
         </Suspense>
@@ -92,11 +98,11 @@ async function startRenderer(rootContainer: HTMLElement): Promise<void> {
     )
   } else {
     root.render(
-      <Root>
-        <OperatorUnlockGate>
+      <OperatorUnlockGate>
+        <Root>
           <RouterProvider router={router} />
-        </OperatorUnlockGate>
-      </Root>
+        </Root>
+      </OperatorUnlockGate>
     )
   }
 }

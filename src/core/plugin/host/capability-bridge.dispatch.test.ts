@@ -344,7 +344,10 @@ describe('CapabilityBridge dispatch table', () => {
     await bridge.dispatchCall(makeCall('http', 'get', ['https://example.com']))
     const resp = lastPosted(posted) as { ok: boolean; result: unknown }
     expect(resp.ok).toBe(true)
-    expect(getStub).toHaveBeenCalledWith('https://example.com', undefined)
+    expect(getStub).toHaveBeenCalledWith(
+      'https://example.com',
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    )
   })
 
   // 6b. http requests are confined to the manifest's hostPermissions
@@ -420,6 +423,57 @@ describe('CapabilityBridge dispatch table', () => {
     }
     expect(resp.ok).toBe(true)
     expect(resp.result).toEqual({ echoed: { value: 42 } })
+  })
+
+  it('binds nested commands to the exact executeCommand lane entry', async () => {
+    const execute = vi.fn(async () => ({ ok: true }))
+    commands.bindCrossPluginInvoker({ execute })
+    const pending = bridge.callPlugin(`${PLUGIN_ID}.entry`, {}, 100)
+    const event = lastPosted(posted) as {
+      event: string
+      commandScope: {
+        commandInvocationId: number
+        callChain: { id: string; plugins: string[] }
+      }
+    }
+    expect(event.event).toBe('executeCommand')
+    expect(event.commandScope.callChain.plugins).toEqual([PLUGIN_ID])
+
+    await bridge.dispatchCall({
+      type: 'call',
+      id: 77,
+      capability: 'commands',
+      method: 'execute',
+      args: ['other.plugin.run', {}],
+      commandScope: event.commandScope,
+    })
+
+    expect(execute).toHaveBeenCalledWith(
+      PLUGIN_ID,
+      'other.plugin.run',
+      {},
+      event.commandScope.callChain
+    )
+    await expect(pending).rejects.toThrow('timed out')
+  })
+
+  it('rejects a command scope that does not match a pending lane entry', async () => {
+    await bridge.dispatchCall({
+      type: 'call',
+      id: 78,
+      capability: 'commands',
+      method: 'execute',
+      args: ['other.plugin.run', {}],
+      commandScope: {
+        commandInvocationId: 999,
+        callChain: { id: 'forged-chain', plugins: [PLUGIN_ID] },
+      },
+    })
+
+    expect(lastPosted(posted)).toMatchObject({
+      ok: false,
+      error: { code: 'plugin.command.protocol_violation' },
+    })
   })
 
   // 12. ffmpeg.transcode returns { opId }; op.result.await rejects (unavailable ffmpeg)

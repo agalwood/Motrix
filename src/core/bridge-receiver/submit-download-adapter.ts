@@ -1,17 +1,22 @@
-import { join } from 'node:path'
+import type { DownloadCookie } from '@core/engine/engine-adapter'
+import type { CreateRequestReceipt } from '@core/task/create-request-id'
+import {
+  filenameFromResourceUrl,
+  sanitizeRemoteFilename,
+} from '@core/task/direct-resource-validator'
+import {
+  admitDownloadSources,
+  admitHttpSource,
+} from '@core/task/source-admission'
 import type { DownloadSubmitParams } from '@motrix/mdxp'
 import { type Browser, makeSessionKey } from '@shared/protocol/bridge'
 import type { BridgeSourceMeta, SourceMeta } from '@shared/types/task'
-import { writeCookieJar } from './cookie-jar'
-import { BridgeReceiverError } from './errors'
 import { stripHopByHopHeaders } from './header-replay'
 import { ensureMediaExtension } from './pipelines/media-final-name'
 
 export interface AdapterDeps {
-  /** Root for cookie jars: <userData>/bridge-receiver. */
-  dataDir: string
-  /** appSettings.defaultSaveDir; used when client did not specify saveDir. */
-  defaultSaveDir: string
+  /** Read the current receiver-side default directory for each submission. */
+  getDefaultSaveDir: () => string
   /** FinalNamePicker shim — wraps existing picker so tests can stub. */
   pickName: (saveDir: string, desired: string) => Promise<string>
   /** newTaskId injection — defaults to a uuid mint in production wiring. */
@@ -22,10 +27,12 @@ export interface AdaptedDirect {
   taskId: string
   saveDir: string
   finalName: string
+  /** The client supplied no usable filename; discover it during creation. */
+  discoverFilename?: true
   kind: 'direct'
   primaryUrl: string
   sanitizedHeaders: Record<string, string>
-  jarPath: string
+  cookies: readonly DownloadCookie[]
   sourceMeta: BridgeSourceMeta
   pageUrl: string
 }
@@ -55,6 +62,7 @@ export interface AdaptedDash extends Omit<AdaptedHls, 'kind' | 'container'> {
 }
 
 export interface AdaptedMux {
+  receipt?: CreateRequestReceipt
   kind: 'mux'
   taskId: string
   saveDir: string
@@ -86,40 +94,42 @@ export class SubmitDownloadAdapter {
   ): Promise<
     AdaptedDirect | AdaptedMagnet | AdaptedHls | AdaptedDash | AdaptedMux
   > {
-    // Bootstrap already ran DownloadSubmitParamsSchema.safeParse() and threw
-    // InvalidParams on failure. We have typed data here, but MDXP's
-    // Resource.url is plain z.string() (not http-only), so we still need to
-    // reject non-http(s) schemes as a business rule.
-    if (
-      params.selection.kind === 'direct' ||
-      params.selection.kind === 'hls' ||
-      params.selection.kind === 'dash'
-    ) {
-      const url = params.selection.primary.url
-      if (!/^https?:\/\//i.test(url)) {
-        throw new BridgeReceiverError(
-          'invalid-url-scheme',
-          'URL must be http: or https:'
-        )
-      }
-    }
+    params = structuredClone(params)
     if (params.selection.kind === 'mux') {
-      for (const r of [params.selection.video, params.selection.audio]) {
-        if (!/^https?:\/\//i.test(r.url)) {
-          throw new BridgeReceiverError(
-            'invalid-url-scheme',
-            'URL must be http: or https:'
-          )
-        }
-      }
+      params.selection.video.url = admitHttpSource(
+        params.selection.video.url,
+        'input'
+      )
+      params.selection.audio.url = admitHttpSource(
+        params.selection.audio.url,
+        'input'
+      )
+    } else if (params.selection.kind === 'magnet') {
+      params.selection.uri = admitDownloadSources(
+        [params.selection.uri],
+        'input',
+        ['magnet']
+      )[0].sourceUrl
+    } else {
+      const source = admitDownloadSources(
+        [params.selection.primary.url],
+        'input',
+        ['http', 'https']
+      )[0]
+      params.selection.primary.url =
+        params.selection.kind === 'direct'
+          ? source.sourceUrl
+          : source.requestUrl
     }
 
     const { selection, source, meta } = params
+    // Keep name selection and every async pipeline step in the same directory.
+    const saveDir = this.deps.getDefaultSaveDir()
 
     if (selection.kind === 'magnet') {
       return {
         kind: 'magnet',
-        saveDir: this.deps.defaultSaveDir,
+        saveDir,
         uri: selection.uri,
         sourceMeta: this.makeSourceMeta('magnet', input, source, meta),
       }
@@ -131,18 +141,16 @@ export class SubmitDownloadAdapter {
       // name must be the name that lands on disk, or the collision counter
       // is computed against a string that never exists.
       const finalName = await this.deps.pickName(
-        this.deps.defaultSaveDir,
+        saveDir,
         ensureMediaExtension(
           sanitizeFilename(meta.suggestedFilename),
           selection.container
         )
       )
-      const jarPath = join(this.deps.dataDir, 'cookies', `${taskId}.txt`)
-      await writeCookieJar(jarPath, selection.primary.cookies)
       const sanitizedHeaders = stripHopByHopHeaders(selection.primary.headers)
       const base = {
         taskId,
-        saveDir: this.deps.defaultSaveDir,
+        saveDir,
         finalName,
         manifestUrl: selection.primary.url,
         sanitizedHeaders,
@@ -167,21 +175,16 @@ export class SubmitDownloadAdapter {
       const taskId = this.deps.mintTaskId()
       // Same as hls/dash: extension first, then the dedup pick.
       const finalName = await this.deps.pickName(
-        this.deps.defaultSaveDir,
+        saveDir,
         ensureMediaExtension(
           sanitizeFilename(meta.suggestedFilename),
           selection.container
         )
       )
-      const jarPath = join(this.deps.dataDir, 'cookies', `${taskId}.txt`)
-      await writeCookieJar(jarPath, [
-        ...selection.video.cookies,
-        ...selection.audio.cookies,
-      ])
       return {
         kind: 'mux',
         taskId,
-        saveDir: this.deps.defaultSaveDir,
+        saveDir,
         finalName,
         videoUrl: selection.video.url,
         audioUrl: selection.audio.url,
@@ -194,23 +197,36 @@ export class SubmitDownloadAdapter {
 
     // selection.kind === 'direct'
     const primaryUrl = selection.primary.url
-    const sanitized = sanitizeFilename(meta.suggestedFilename)
+    const sanitized = sanitizeRemoteFilename(meta.suggestedFilename)
     const taskId = this.deps.mintTaskId()
-    const saveDir = this.deps.defaultSaveDir
-    const finalName = await this.deps.pickName(saveDir, sanitized)
+    const finalName = await this.deps.pickName(
+      saveDir,
+      sanitized ?? filenameFromResourceUrl(primaryUrl) ?? 'download'
+    )
     const sanitizedHeaders = stripHopByHopHeaders(selection.primary.headers)
-
-    const jarPath = join(this.deps.dataDir, 'cookies', `${taskId}.txt`)
-    await writeCookieJar(jarPath, selection.primary.cookies)
 
     return {
       taskId,
       saveDir,
       finalName,
       kind: 'direct',
+      ...(sanitized ? {} : { discoverFilename: true as const }),
       primaryUrl,
       sanitizedHeaders,
-      jarPath,
+      // Export only the engine-neutral fields. SameSite describes browser
+      // navigation context and is not part of the engine's cookie contract.
+      cookies: selection.primary.cookies.map((cookie) => ({
+        name: cookie.name,
+        value: cookie.value,
+        domain: cookie.domain,
+        path: cookie.path,
+        hostOnly: !cookie.domain.startsWith('.'),
+        secure: cookie.secure,
+        httpOnly: cookie.httpOnly,
+        ...(cookie.expiresAt === undefined
+          ? {}
+          : { expiresAt: Math.max(0, Math.floor(cookie.expiresAt)) }),
+      })),
       sourceMeta: this.makeSourceMeta('direct', input, source, meta),
       pageUrl: source.pageUrl,
     }

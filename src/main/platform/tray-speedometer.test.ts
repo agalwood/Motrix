@@ -14,11 +14,23 @@ import { buildSpeedometerSvg } from './tray-speedometer'
 const MOCK_ICON_SVG = '<rect width="32" height="32" fill="black"/>'
 
 describe('buildSpeedometerSvg', () => {
+  it('keeps the 144px canvas when speeds need compact precision', () => {
+    const svg = buildSpeedometerSvg(
+      MOCK_ICON_SVG,
+      Math.round(1000.23 * 1_048_576),
+      Math.round(1023.99 * 1_048_576),
+      'binary'
+    )
+    expect(svg).toContain('width="144" height="44"')
+    expect(svg).toContain('1000 MiB/s')
+    expect(svg).toContain('1.00 GiB/s')
+  })
+
   it('produces valid SVG with speed text', () => {
     const svg = buildSpeedometerSvg(MOCK_ICON_SVG, 1024, 1048576)
     expect(svg).toContain('<svg')
     expect(svg).toContain('1 KB/s')
-    expect(svg).toContain('1.0 MB/s')
+    expect(svg).toContain('1.05 MB/s')
   })
 
   it('shows zero speeds', () => {
@@ -30,4 +42,15 @@ describe('buildSpeedometerSvg', () => {
     const svg = buildSpeedometerSvg(MOCK_ICON_SVG, 0, 0)
     expect(svg).toContain(MOCK_ICON_SVG)
   })
+})
+
+it('uses IEC units in the speedometer when selected', () => {
+  const svg = buildSpeedometerSvg(
+    MOCK_ICON_SVG,
+    1_048_576,
+    1_073_741_824,
+    'binary'
+  )
+  expect(svg).toContain('1.00 MiB/s')
+  expect(svg).toContain('1.00 GiB/s')
 })

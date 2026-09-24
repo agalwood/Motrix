@@ -7,10 +7,12 @@ import {
   DropdownMenuTrigger,
 } from '@renderer/components/ui/dropdown-menu'
 import { Skeleton } from '@renderer/components/ui/skeleton'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import type { TransferStatsState } from '@renderer/hooks/use-transfer-stats'
-import { formatBytes } from '@renderer/lib/format'
+
 import { cn } from '@renderer/lib/utils'
 import type { TransferRangeStats } from '@shared/types/stats'
+import { formatBytes as formatByteCount } from '@shared/utils/format-bytes'
 import { ChevronDown } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -132,6 +134,8 @@ function DirectionMetric({
   align?: 'left' | 'right'
   inline?: boolean
 }) {
+  const { formatBytes } = useByteFormat()
+
   return (
     <div
       className={cn(
@@ -160,6 +164,8 @@ function DirectionBreakdown({
   range: TransferRangeStats
   viewport: DashboardTileViewport
 }) {
+  const { formatBytes } = useByteFormat()
+
   const { t } = useTranslation()
   const tall = viewport.span.w === 1
 
@@ -198,10 +204,10 @@ function DirectionBreakdown({
         data-testid="transfer-direction-values"
         className="flex w-full justify-between"
       >
-        <div className="text-left font-medium tabular-nums text-foreground text-sm">
+        <div className="text-left font-medium text-foreground text-sm">
           <KpiNumber value={formatBytes(range.uploadBytes)} variant="compact" />
         </div>
-        <div className="text-right font-medium tabular-nums text-foreground text-sm">
+        <div className="text-right font-medium text-foreground text-sm">
           <KpiNumber
             value={formatBytes(range.downloadBytes)}
             variant="compact"
@@ -277,6 +283,8 @@ export function TransferTile({
   viewport,
   className,
 }: TransferTileProps) {
+  const { unitSystem } = useByteFormat()
+
   const { t, i18n } = useTranslation()
   const [scope, setScope] = useState<TransferScope>('today')
   const widthOne = viewport.span.w === 1
@@ -286,7 +294,12 @@ export function TransferTile({
   const snapshot = 'snapshot' in state ? state.snapshot : null
   const range = snapshot?.[scope]
   const totalIsZero = range ? parseByteCount(range.totalBytes) === 0n : false
-  const formattedTotal = range ? formatBytes(range.totalBytes) : null
+  const formattedTotal = range
+    ? formatByteCount(range.totalBytes, {
+        unitSystem,
+        decimals: compact ? 1 : 2,
+      })
+    : null
   const scopeLabel = t(`panel.dashboard.transfer.scope.${scope}`)
 
   let statusCaption: string | null = null

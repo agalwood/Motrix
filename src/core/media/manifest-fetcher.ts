@@ -1,12 +1,6 @@
-const DEFAULT_MAX = 5 * 1024 * 1024
+import { cancelResponseBody, fetchSource } from './fetch-source'
 
-async function cancelResponseBody(response: Response): Promise<void> {
-  try {
-    await response.body?.cancel()
-  } catch {
-    // Preserve the HTTP error when body cancellation also fails.
-  }
-}
+const DEFAULT_MAX = 5 * 1024 * 1024
 
 export async function fetchManifest(
   url: string,
@@ -16,20 +10,28 @@ export async function fetchManifest(
     maxBytes?: number
   } = {}
 ): Promise<string> {
-  const doFetch = opts.fetchImpl ?? fetch
-  const res = await doFetch(url, {
-    method: 'GET',
-    headers: opts.headers ?? {},
-    redirect: 'follow',
-  })
+  const res = await fetchSource(url, opts)
   if (!res.ok) {
     await cancelResponseBody(res)
     throw new Error(`manifest fetch failed: HTTP ${res.status}`)
   }
-  const text = await res.text()
   const max = opts.maxBytes ?? DEFAULT_MAX
-  if (text.length > max) {
-    throw new Error(`manifest too large: ${text.length} > ${max}`)
+  const reader = res.body?.getReader()
+  if (!reader) return ''
+  const decoder = new TextDecoder()
+  let size = 0
+  let text = ''
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      size += value.byteLength
+      if (size > max) throw new Error('manifest too large')
+      text += decoder.decode(value, { stream: true })
+    }
+    return text + decoder.decode()
+  } finally {
+    await reader.cancel().catch(() => undefined)
+    reader.releaseLock()
   }
-  return text
 }

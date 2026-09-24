@@ -7,7 +7,7 @@
 #
 # Release-enabled targets are the current intersection of:
 #   - a locked scripts/engine.lock.json aria2 asset;
-#   - an Electron 43 / electron-builder package target;
+#   - an Electron 44 / electron-builder package target;
 #   - a native GitHub-hosted runner;
 #   - a packages/native-host/build.mjs Rust target.
 #
@@ -15,7 +15,9 @@
 # runtime and per-architecture native zsync metadata. It self-integrates its
 # desktop entry and URL-scheme handlers at runtime under the user's XDG data
 # tree (src/main/platform/appimage-integration.ts). Snap has its own
-# strict-confinement build and Store promotion workflows. 32-bit targets remain
+# strict-confinement build and Store promotion workflows. Flatpak reuses its
+# native build and installed-payload checks and joins both Linux release sets.
+# 32-bit targets remain
 # unsupported. Windows arm64 remains reserved until the aria2 lock supplies that
 # architecture.
 
@@ -142,7 +144,7 @@ jobs:
             platform: linux
             arch: x64
             rust_target: x86_64-unknown-linux-musl
-            electron_builder_args: --linux deb rpm AppImage --x64
+            electron_builder_args: --linux deb rpm pacman AppImage --x64
             resources_dir: release/linux-unpacked/resources
             app_path: release/linux-unpacked
           - target: linux-arm64
@@ -150,7 +152,7 @@ jobs:
             platform: linux
             arch: arm64
             rust_target: aarch64-unknown-linux-musl
-            electron_builder_args: --linux deb rpm AppImage --arm64
+            electron_builder_args: --linux deb rpm pacman AppImage --arm64
             resources_dir: release/linux-arm64-unpacked/resources
             app_path: release/linux-arm64-unpacked
           - target: win32-x64
@@ -166,18 +168,18 @@ jobs:
     # musl-gcc mixes CRTs and produces binaries that SIGSEGV at load (see
     # ci.yml package-targets).
     env:
-      # Electron 43 requires macOS 12 even though the locked aria2 binaries
+      # Electron 44 requires macOS 13 even though the locked aria2 binaries
       # themselves are built with an 11.0 deployment target.
-      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.platform == 'darwin' && '12.0' || '' }}
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.platform == 'darwin' && '13.0' || '' }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 11.22.0
+          version: 12.5.1
           run_install: false
 
       - name: Setup Node.js
@@ -193,7 +195,7 @@ jobs:
           # squashfs-tools provides `unsquashfs`, used by
           # verify-appimage-artifact.mjs to read the AppImage's embedded
           # desktop entry. zsync provides the canonical `zsyncmake` generator.
-          sudo apt-get install --yes rpm squashfs-tools zsync
+          sudo apt-get install --yes rpm squashfs-tools zsync zstd libarchive-tools
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
@@ -208,13 +210,21 @@ jobs:
           --locked
           --target ${{ matrix.rust_target }}
 
+      - name: Test finalize filesystem target
+        run: >-
+          cargo test
+          --manifest-path packages/finalize-fs/Cargo.toml
+          --locked
+          --target ${{ matrix.rust_target }}
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
         env:
           # Fetching the package target is explicit in the next step.
           MOTRIX_SKIP_ENGINE_FETCH: '1'
+          MOTRIX_SKIP_ELECTRON_REBUILD: '1'
 
-      # Electron 43 does not declare a postinstall script, so pnpm install
+      # Electron does not declare a postinstall script, so pnpm install
       # does not hydrate dist/ with the runtime and license payload.
       - name: Ensure Electron runtime payload
         run: node node_modules/electron/install.js
@@ -229,11 +239,26 @@ jobs:
         run: pnpm run check:third-party-notices
 
       # Build each target on a runner with the same native CPU architecture.
-      # This also ensures better-sqlite3 is rebuilt for the packaged Electron.
       - name: Build
         run: |
           pnpm run build:builtin
           pnpm run build:native-host -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
+          pnpm run build:finalize-fs -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
+
+      - name: Finalize filesystem runtime integration
+        env:
+          MOTRIX_FINALIZE_FS_TEST_BIN: packages/finalize-fs/dist/${{ matrix.platform }}-${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'motrix-finalize-fs.exe' || 'motrix-finalize-fs' }}
+        run: >-
+          pnpm exec vitest run
+          src/core/plugin/finalize/native-artifact-operations.integration.test.ts
+          src/core/plugin/finalize/finalize-adversarial.integration.test.ts
+          src/core/plugin/finalize/finalize-smb-recovery.integration.test.ts
+          --reporter=verbose
+
+      # SQLite integration tests above use Node. Rebuild for Electron before
+      # staging, so the packaged native dependency retains the correct ABI.
+      - name: Build Electron application
+        run: |
           pnpm run build:electron
           pnpm run stage:electron -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
 
@@ -299,6 +324,10 @@ jobs:
               : 'motrix-native-host'
           const engine =
             process.env.TARGET_PLATFORM === 'win32' ? 'aria2c.exe' : 'aria2c'
+          const finalize =
+            process.env.TARGET_PLATFORM === 'win32'
+              ? 'motrix-finalize-fs.exe'
+              : 'motrix-finalize-fs'
           const resources = process.env.PACKAGED_RESOURCES
           const required = [
             'app.asar',
@@ -309,6 +338,7 @@ jobs:
             path.join('legal', 'THIRD_PARTY_LICENSES.txt'),
             path.join('legal', 'sbom.spdx.json'),
             path.join('bin', host),
+            path.join('bin', finalize),
             path.join(
               'extra',
               process.env.TARGET_PLATFORM,
@@ -373,13 +403,26 @@ jobs:
           shopt -s nullglob
           debs=(release/*.deb)
           rpms=(release/*.rpm)
+          pacmans=(release/*.pacman)
           appimages=(release/*.AppImage)
-          if (( ${#debs[@]} != 1 || ${#rpms[@]} != 1 || ${#appimages[@]} != 1 )); then
-            echo "Expected one deb, rpm, and AppImage for ${{ matrix.target }}" >&2
+          if (( ${#debs[@]} != 1 || ${#rpms[@]} != 1 || ${#pacmans[@]} != 1 || ${#appimages[@]} != 1 )); then
+            echo "Expected one deb, rpm, pacman, and AppImage for ${{ matrix.target }}" >&2
             exit 1
           fi
           dpkg-deb --info "${debs[0]}"
           rpm -qip "${rpms[0]}"
+
+      - name: Verify Arch Linux package
+        if: matrix.platform == 'linux'
+        run: >-
+          node scripts/verify-pacman-artifact.mjs
+          --dir release
+          --version "${{ needs.preflight.outputs.version }}"
+          --arch ${{ matrix.arch }}
+
+      - name: Smoke test Arch Linux installation
+        if: matrix.target == 'linux-x64'
+        run: bash scripts/smoke-pacman-package.sh release
 
       - name: Verify AppImage artifact
         if: matrix.platform == 'linux'
@@ -471,22 +514,26 @@ jobs:
             "${root}/THIRD_PARTY_NOTICES.md"
             "${root}/THIRD_PARTY_NOTICES.zh-CN.md"
             "${root}/THIRD_PARTY_LICENSES/"
-            "${root}/THIRD_PARTY_LICENSES/MPL-2.0"
-            "${root}/THIRD_PARTY_LICENSES/aria2-COPYING"
-            "${root}/THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL"
-            "${root}/THIRD_PARTY_LICENSES/rust-common-LICENSE-APACHE"
-            "${root}/THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"
-            "${root}/THIRD_PARTY_LICENSES/rust-humantime-LICENSE-MIT"
-            "${root}/THIRD_PARTY_LICENSES/rust-memchr-COPYING"
-            "${root}/THIRD_PARTY_LICENSES/rust-memchr-LICENSE-MIT"
-            "${root}/THIRD_PARTY_LICENSES/rust-memchr-UNLICENSE"
-            "${root}/THIRD_PARTY_LICENSES/rust-unicode-ident-LICENSE-UNICODE"
-            "${root}/THIRD_PARTY_LICENSES/rust-windows-rs-LICENSE-MIT"
+          )
+          while IFS= read -r -d '' source_license; do
+            relative="${source_license#THIRD_PARTY_LICENSES/}"
+            if [[ -d "$source_license" ]]; then
+              expected+=("${root}/THIRD_PARTY_LICENSES/${relative}/")
+            elif [[ -f "$source_license" ]]; then
+              expected+=("${root}/THIRD_PARTY_LICENSES/${relative}")
+            else
+              echo "Unexpected third-party license entry: $source_license" >&2
+              exit 1
+            fi
+          done < <(
+            find THIRD_PARTY_LICENSES -mindepth 1 -print0 |
+              LC_ALL=C sort -z
           )
           mapfile -t actual < <(tar -tzf "$archive")
-          if [[ "${actual[*]}" != "${expected[*]}" ]]; then
+          if ! diff -u \
+            <(printf '%s\n' "${expected[@]}" | LC_ALL=C sort) \
+            <(printf '%s\n' "${actual[@]}" | LC_ALL=C sort); then
             echo "Unexpected Flatpak companion archive contents" >&2
-            printf '  %s\n' "${actual[@]}" >&2
             exit 1
           fi
 
@@ -506,6 +553,7 @@ jobs:
             release/*.dmg
             release/*.exe
             release/*.rpm
+            release/*.pacman
             release/*.tar.gz
             release/latest*.yml
             release/size-reports/${{ matrix.target }}.json
@@ -548,7 +596,7 @@ jobs:
             electron_builder_args: --mac --arm64
             resources_dir: release/mac-arm64/Motrix.app/Contents/Resources
             app_path: release/mac-arm64/Motrix.app
-            electron_sha256: 827f9f182566f46846377575b51c547b9926b111637313a373b6f717462aebac
+            electron_sha256: 6b728f5dcfae74f3f936f2bca5b3cd9b9659ffea464f67939f004acb55425a85
           - target: darwin-x64
             os: macos-26-intel
             platform: darwin
@@ -557,7 +605,7 @@ jobs:
             electron_builder_args: --mac --x64
             resources_dir: release/mac/Motrix.app/Contents/Resources
             app_path: release/mac/Motrix.app
-            electron_sha256: 7ab39ec1b0bcf5463f2dc0040142fbc1c30cd7bc3f99086066f588c717b11e24
+            electron_sha256: 015b52631d92187b552ff4e047255f596a7af4707e388a5890951f0b2645764e
           - target: win32-x64
             os: windows-2025
             platform: win32
@@ -566,7 +614,7 @@ jobs:
             electron_builder_args: --win --x64
             resources_dir: release/win-unpacked/resources
             app_path: release/win-unpacked
-            electron_sha256: ef0709cfa719739acce73de6f9b684304baf38c6454376638a70d34a7cecffe0
+            electron_sha256: 790a355b684d5c7cc8dc3cdd8c4cca7c4b2d054685427c7554a956879a82e70b
     env:
       CUSTOM_DMGBUILD_PATH: ''
       ELECTRON_BUILDER_7ZIP_PATH: ''
@@ -579,7 +627,7 @@ jobs:
       ELECTRON_BUILDER_OSSL_SIGNCODE_PATH: ''
       ELECTRON_BUILDER_RCEDIT_PATH: ''
       ELECTRON_BUILDER_WINDOWS_KITS_PATH: ''
-      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.platform == 'darwin' && '12.0' || '' }}
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.platform == 'darwin' && '13.0' || '' }}
       NPM_CONFIG_ELECTRON_BUILDER_BINARIES_CUSTOM_DIR: ''
       NPM_CONFIG_ELECTRON_BUILDER_BINARIES_MIRROR: ''
       SIGNTOOL_PATH: ''
@@ -843,7 +891,7 @@ jobs:
           EXPECTED_COMMIT: ${{ github.sha }}
           EXPECTED_PLATFORM: ${{ matrix.platform }}
           # Updated only after reviewing the verifier source itself.
-          VERIFIER_SHA256: b985196378d8c6331ca8ab7f1950bbd70f45c2bf8aa5211d7008e6bed6af3805
+          VERIFIER_SHA256: 3615d1b55d77deed60f0315e75d39cd2c9b9e2a9d1bab09cac88c61ee8374715
         run: |
           const crypto = require('node:crypto')
           const fs = require('node:fs')
@@ -1001,7 +1049,7 @@ jobs:
           cp \
             signing-input/signing-policy/installer.nsh \
             signing-input/trusted/installer.nsh
-          url="https://github.com/electron/electron/releases/download/v43.4.0/electron-v43.4.0-${{ matrix.platform }}-${{ matrix.arch }}.zip"
+          url="https://github.com/electron/electron/releases/download/v44.4.3/electron-v44.4.3-${{ matrix.platform }}-${{ matrix.arch }}.zip"
           curl --fail --location --proto '=https' --tlsv1.2 \
             "$url" --output signing-input/trusted/electron.zip
           node - <<'NODE'
@@ -1484,13 +1532,21 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  flatpak:
+    name: Build and validate Flatpak
+    needs: preflight
+    uses: ./.github/workflows/flatpak.yml
+    with:
+      release-version: ${{ needs.preflight.outputs.version }}
+
   assemble:
     name: Assemble and validate release
-    needs: [preflight, build, sign]
+    needs: [preflight, build, sign, flatpak]
     if: >-
       always() &&
       needs.preflight.result == 'success' &&
       needs.build.result == 'success' &&
+      needs.flatpak.result == 'success' &&
       (
         (github.event_name == 'push' && needs.sign.result == 'success') ||
         (github.event_name == 'workflow_dispatch' && needs.sign.result == 'skipped')
@@ -1505,9 +1561,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 11.22.0
+          version: 12.5.1
           run_install: false
 
       - name: Setup Node.js
@@ -1524,6 +1580,18 @@ jobs:
         with:
           pattern: release-input-*
           path: release-input
+
+      - name: Download verified x86_64 Flatpak
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: flatpak-release-x64
+          path: release-input/release-input-linux-x64/flatpak
+
+      - name: Download verified aarch64 Flatpak
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: flatpak-release-arm64
+          path: release-input/release-input-linux-arm64/flatpak
 
       - name: Assemble release artifacts
         run: >-

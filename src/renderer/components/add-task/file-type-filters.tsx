@@ -76,10 +76,9 @@ export function FileTypeFilters() {
                   <Button
                     type="button"
                     variant="outline"
-                    size="icon-sm"
+                    size="icon-xs"
                     onClick={() => addByExts(exts)}
                     aria-label={label}
-                    className="h-7 gap-0.5 px-2 text-muted-foreground hover:text-foreground"
                   />
                 }
               >

@@ -1,0 +1,359 @@
+//! Handle registry and request dispatch, independent of platform syscalls.
+
+use crate::platform::{
+    ArtifactHandle, RootHandle, copy_opened, open_artifact, open_artifact_for_rename, open_root,
+    remove_opened, rename_no_replace, rename_opened_no_replace, sync_root_mode,
+};
+use crate::protocol::{Request, Response};
+use std::collections::HashMap;
+
+pub(crate) struct State {
+    next_handle: u64,
+    roots: HashMap<u64, RootHandle>,
+    artifacts: HashMap<u64, Option<ArtifactHandle>>,
+}
+
+impl State {
+    pub(crate) fn new() -> Self {
+        Self {
+            next_handle: 1,
+            roots: HashMap::new(),
+            artifacts: HashMap::new(),
+        }
+    }
+
+    pub(crate) fn handle(&mut self, request: Request) -> Response<'static> {
+        let operation = request.operation();
+        let mut response = self.dispatch(request);
+        response.operation = Some(operation);
+        response
+    }
+
+    fn dispatch(&mut self, request: Request) -> Response<'static> {
+        match request {
+            Request::Capabilities => self.capabilities(),
+            Request::SanitizeName { request_id, name } => {
+                let mut response = Response::ok(Some(request_id));
+                response.sanitized_name = Some(crate::sanitize::sanitize_filename(&name));
+                response
+            }
+            Request::OpenRoot {
+                request_id,
+                path,
+                expected_identity,
+            } => match open_root(&path) {
+                Ok(root) => {
+                    if let Some(expected) = expected_identity
+                        && let Err(error) =
+                            crate::platform::validate_root_identity(&root, &expected)
+                    {
+                        return Response::filesystem_error(request_id, error);
+                    }
+                    let handle = self.insert_root(root);
+                    let mut response = Response::ok(Some(request_id));
+                    response.handle = Some(handle);
+                    response
+                }
+                Err(error) => Response::filesystem_error(request_id, error),
+            },
+            Request::OpenArtifact {
+                request_id,
+                root,
+                relative,
+                rename_only,
+            } => {
+                let Some(root) = self.roots.get(&root) else {
+                    return Response::error(Some(request_id), "invalid_handle", "unknown root");
+                };
+                let open = if rename_only {
+                    open_artifact_for_rename
+                } else {
+                    open_artifact
+                };
+                match open(root, &relative) {
+                    Ok(artifact) => {
+                        let handle = self.insert_artifact(artifact);
+                        let mut response = Response::ok(Some(request_id));
+                        response.handle = Some(handle);
+                        response
+                    }
+                    Err(error) => Response::filesystem_error(request_id, error),
+                }
+            }
+            Request::RenameOpenedNoReplace {
+                request_id,
+                artifact,
+                target_root,
+                target_relative,
+            } => {
+                let Some(artifact) = self.artifacts.get(&artifact).and_then(Option::as_ref) else {
+                    return Response::error(Some(request_id), "invalid_handle", "unknown artifact");
+                };
+                let Some(target) = self.roots.get(&target_root) else {
+                    return Response::error(
+                        Some(request_id),
+                        "invalid_handle",
+                        "unknown target root",
+                    );
+                };
+                operation_response(
+                    request_id,
+                    rename_opened_no_replace(artifact, target, &target_relative),
+                )
+            }
+            Request::LinkOpenedNoReplace {
+                request_id,
+                artifact,
+                target_root,
+                target_relative,
+            } => self.publish(
+                request_id,
+                artifact,
+                target_root,
+                &target_relative,
+                crate::platform::link_opened_no_replace,
+            ),
+            Request::IsolateOpened {
+                request_id,
+                artifact,
+                target_root,
+                target_relative,
+                expected_root_identity,
+            } => self.publish(
+                request_id,
+                artifact,
+                target_root,
+                &target_relative,
+                |artifact, root, relative| {
+                    crate::platform::isolate_opened(
+                        artifact,
+                        root,
+                        relative,
+                        &expected_root_identity,
+                    )
+                },
+            ),
+            Request::CopyOpened {
+                request_id,
+                artifact,
+                target_root,
+                target_relative,
+            } => {
+                let Some(artifact) = self.artifacts.get(&artifact).and_then(Option::as_ref) else {
+                    return Response::error(Some(request_id), "invalid_handle", "unknown artifact");
+                };
+                let Some(target) = self.roots.get(&target_root) else {
+                    return Response::error(
+                        Some(request_id),
+                        "invalid_handle",
+                        "unknown target root",
+                    );
+                };
+                operation_response(request_id, copy_opened(artifact, target, &target_relative))
+            }
+            Request::RenameNoReplace {
+                request_id,
+                source_root,
+                source_relative,
+                target_root,
+                target_relative,
+            } => {
+                let Some(source) = self.roots.get(&source_root) else {
+                    return Response::error(
+                        Some(request_id),
+                        "invalid_handle",
+                        "unknown source root",
+                    );
+                };
+                let Some(target) = self.roots.get(&target_root) else {
+                    return Response::error(
+                        Some(request_id),
+                        "invalid_handle",
+                        "unknown target root",
+                    );
+                };
+                operation_response(
+                    request_id,
+                    rename_no_replace(source, &source_relative, target, &target_relative),
+                )
+            }
+            Request::RemoveOpened {
+                request_id,
+                artifact,
+                quarantine_relative,
+                resume_isolated,
+            } => self.remove(
+                request_id,
+                artifact,
+                &quarantine_relative,
+                resume_isolated,
+                None,
+            ),
+            Request::RemoveOpenedPreserving {
+                request_id,
+                artifact,
+                quarantine_relative,
+                resume_isolated,
+                survivor,
+            } => self.remove(
+                request_id,
+                artifact,
+                &quarantine_relative,
+                resume_isolated,
+                Some(survivor),
+            ),
+
+            Request::SyncRoot { request_id, root } => {
+                let Some(root) = self.roots.get(&root) else {
+                    return Response::error(Some(request_id), "invalid_handle", "unknown root");
+                };
+                match sync_root_mode(root) {
+                    Ok(mode) => {
+                        let mut response = Response::ok(Some(request_id));
+                        response.directory_sync_mode = Some(mode);
+                        response
+                    }
+                    Err(error) => Response::filesystem_error(request_id, error),
+                }
+            }
+            Request::Close { request_id, handle } => {
+                if self.roots.remove(&handle).is_some() || self.artifacts.remove(&handle).is_some()
+                {
+                    Response::ok(Some(request_id))
+                } else {
+                    Response::error(Some(request_id), "invalid_handle", "unknown handle")
+                }
+            }
+        }
+    }
+
+    fn remove(
+        &mut self,
+        request_id: u64,
+        artifact_id: u64,
+        quarantine_relative: &str,
+        resume_isolated: bool,
+        survivor: Option<u64>,
+    ) -> Response<'static> {
+        // Removal consumes the held handle so classic SMB delete-on-close
+        // can finish. Keep its empty registry slot until the caller closes it.
+        let Some(artifact) = self.artifacts.get_mut(&artifact_id).and_then(Option::take) else {
+            return Response::error(Some(request_id), "invalid_handle", "unknown artifact");
+        };
+        if let Some(survivor_id) = survivor {
+            #[cfg(unix)]
+            {
+                let Some(survivor) = self.artifacts.get(&survivor_id).and_then(Option::as_ref)
+                else {
+                    return Response::error(Some(request_id), "invalid_handle", "unknown survivor");
+                };
+                return operation_response(
+                    request_id,
+                    crate::platform::remove_opened_preserving(
+                        &artifact,
+                        quarantine_relative,
+                        resume_isolated,
+                        survivor,
+                    ),
+                );
+            }
+            #[cfg(not(unix))]
+            {
+                let _ = survivor_id;
+                return Response::error(
+                    Some(request_id),
+                    "unsupported",
+                    "held survivor removal is unsupported",
+                );
+            }
+        }
+        #[cfg(windows)]
+        let result = remove_opened(artifact, quarantine_relative, resume_isolated);
+        #[cfg(not(windows))]
+        let result = remove_opened(&artifact, quarantine_relative, resume_isolated);
+        operation_response(request_id, result)
+    }
+
+    fn publish(
+        &self,
+        request_id: u64,
+        artifact: u64,
+        target_root: u64,
+        relative: &str,
+        operation: impl FnOnce(&ArtifactHandle, &RootHandle, &str) -> std::io::Result<()>,
+    ) -> Response<'static> {
+        let Some(artifact) = self.artifacts.get(&artifact).and_then(Option::as_ref) else {
+            return Response::error(Some(request_id), "invalid_handle", "unknown artifact");
+        };
+        let Some(root) = self.roots.get(&target_root) else {
+            return Response::error(Some(request_id), "invalid_handle", "unknown target root");
+        };
+        operation_response(request_id, operation(artifact, root, relative))
+    }
+
+    fn capabilities(&self) -> Response<'static> {
+        let mut response = Response::ok(None);
+        response.platform = Some(std::env::consts::OS);
+        response.rename_no_replace =
+            Some(cfg!(any(target_os = "macos", target_os = "linux", windows)));
+        response.held_roots = Some(cfg!(any(unix, windows)));
+        response.directory_sync = Some(cfg!(any(unix, windows)));
+        response.held_artifacts = Some(cfg!(any(unix, windows)));
+        response
+    }
+
+    fn next_handle(&mut self) -> u64 {
+        let handle = self.next_handle;
+        self.next_handle = self.next_handle.saturating_add(1);
+        handle
+    }
+
+    fn insert_root(&mut self, root: RootHandle) -> u64 {
+        let handle = self.next_handle();
+        self.roots.insert(handle, root);
+        handle
+    }
+
+    fn insert_artifact(&mut self, artifact: ArtifactHandle) -> u64 {
+        let handle = self.next_handle();
+        self.artifacts.insert(handle, Some(artifact));
+        handle
+    }
+}
+
+fn operation_response(request_id: u64, result: std::io::Result<()>) -> Response<'static> {
+    match result {
+        Ok(()) => Response::ok(Some(request_id)),
+        Err(error) => Response::filesystem_error(request_id, error),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::State;
+    use crate::protocol::Request;
+
+    #[test]
+    fn capabilities_claim_only_the_implemented_native_boundaries() {
+        let response = State::new().handle(Request::Capabilities);
+        #[cfg(unix)]
+        {
+            assert_eq!(response.held_roots, Some(true));
+            assert_eq!(response.directory_sync, Some(true));
+        }
+        #[cfg(windows)]
+        {
+            assert_eq!(response.held_roots, Some(true));
+            assert_eq!(response.directory_sync, Some(true));
+        }
+    }
+
+    #[test]
+    fn sanitize_name_maps_any_candidate_onto_the_shared_domain() {
+        let response = State::new().handle(Request::SanitizeName {
+            request_id: 3,
+            name: "CON.txt ".to_string(),
+        });
+        assert_eq!(response.sanitized_name.as_deref(), Some("CON_.txt"));
+    }
+}

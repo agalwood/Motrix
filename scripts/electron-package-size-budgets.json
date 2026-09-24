@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "payloadBytes": 67108864,
+  "payloadBytes": 25165824,
   "betterSqlite3Bytes": 4194304,
   "unexpectedPackageNames": 0,
   "foreignBetterSqlite3Prebuilds": 0,

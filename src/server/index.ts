@@ -3,6 +3,14 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { TaskActivityService, TaskActivityStore } from '@core/activity'
+import {
+  acquireBridgeDataDirLock,
+  type BridgeDataDirLockHandle,
+  type BridgeDataDirLockRecoveryAuthority,
+} from '@core/bridge/bridge-data-dir-lock'
+import { createExtensionIdentityResolver } from '@core/bridge/extension-identity-resolver'
+import { FileRegistryStoreAdapter } from '@core/bridge/registry-store-adapter'
+import { TrustedExtensionRegistry } from '@core/bridge/trusted-extension-registry'
 import { BridgeReceiver } from '@core/bridge-receiver/bridge-receiver'
 import { Aria2SegmentClient } from '@core/download/aria2-segment-client'
 import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
@@ -10,6 +18,7 @@ import { Aria2ConfigBuilder } from '@core/engine/aria2/aria2-config-builder'
 import { Aria2ProcessManager } from '@core/engine/aria2/aria2-process-manager'
 import { Aria2RpcClient } from '@core/engine/aria2/aria2-rpc-client'
 import { Aria2TrustStore } from '@core/engine/aria2/aria2-trust-store'
+import { CompletedTaskStartupGuard } from '@core/engine/aria2/completed-task-startup-guard'
 import { createDnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
 import { JsonRpcProtocol } from '@core/engine/aria2/json-rpc-protocol'
 import {
@@ -45,6 +54,7 @@ import { createNotificationOccurrenceConsumer } from '@core/notifications/occurr
 import { projectActiveToLegacy } from '@core/plugin/capabilities/ffmpeg-detect'
 import { wireCommandSystem } from '@core/plugin/commands/wire'
 import { pluginSecretFields } from '@core/plugin/configuration-schema'
+import { resolveFinalizeSidecarPath } from '@core/plugin/finalize/sidecar-path'
 import { GrantsManager } from '@core/plugin/grants/grants-manager'
 import { ActivationDispatcher } from '@core/plugin/host/activation-dispatcher'
 import {
@@ -54,6 +64,9 @@ import {
 import { PluginInstaller } from '@core/plugin/install/plugin-installer'
 import { PluginRegistry } from '@core/plugin/plugin-registry'
 import { RegistryClient } from '@core/plugin/registry/registry-client'
+import type { PluginHookRuntime } from '@core/plugin/runtime/plugin-hook-runtime'
+import { createPluginRuntime } from '@core/plugin/runtime/runtime-factory'
+import { PluginRuntimeStartupCoordinator } from '@core/plugin/runtime/startup-coordinator'
 import { PluginStateStore } from '@core/plugin/state/plugin-state-store'
 import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { ProxyBridgeManager } from '@core/proxy/proxy-bridge-manager'
@@ -72,9 +85,13 @@ import {
   reAddTask as reAddTaskAction,
   resumeTask as resumeTaskAction,
 } from '@core/task/actions'
-import { finalizeTask } from '@core/task/actions/finalize-task'
+import {
+  type FinalizeArtifactCommitRequest,
+  finalizeTask,
+} from '@core/task/actions/finalize-task'
 import { removeTask } from '@core/task/actions/remove-task'
 import { commitPolledTerminalTransition } from '@core/task/actions/shared'
+import { CompletedEngineTaskCleanup } from '@core/task/completed-engine-task-cleanup'
 import { handleCreateTask } from '@core/task/create-task-handler'
 import {
   FsCreateCollisionGuard,
@@ -83,6 +100,7 @@ import {
 import { DirectResourceValidatorService } from '@core/task/direct-resource-validator'
 import { FileCleanupServiceImpl } from '@core/task/file-cleanup-service'
 import { FinalNamePickerImpl } from '@core/task/final-name-picker'
+import { MediaMetaStoreImpl } from '@core/task/media-meta-store'
 import {
   hasEngineTaskDelta,
   mergeEngineTask,
@@ -98,6 +116,7 @@ import {
 } from '@core/task/task-recovery-service'
 import { TaskUpdatePublisher } from '@core/task/task-update-publisher'
 import { TorrentMetaStoreImpl } from '@core/task/torrent-meta-store'
+import { MagnetSelectionTimeout } from '@core/torrent/magnet-selection-timeout'
 import { MagnetTracker } from '@core/torrent/magnet-tracker'
 import { shouldSkipForPendingMagnetMetadata } from '@core/torrent/metadata-task-filter'
 import { TorrentParser } from '@core/torrent/torrent-parser'
@@ -108,9 +127,11 @@ import {
   TrackerSyncer,
 } from '@core/tracker'
 import { resolveSupportedLocale } from '@shared/constants/locales'
+import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
-import type { Handler } from '@shared/protocol/handler-types'
+import type { TaskCreateCommandResult } from '@shared/schemas/add-task'
 import { REGISTRY_CACHE_FILENAME } from '@shared/schemas/registry'
+import { EngineState } from '@shared/types/engine'
 import type { AppSettings } from '@shared/types/settings'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskType } from '@shared/types/task'
@@ -120,15 +141,26 @@ import {
   bootstrapBridgeForServer,
   type ServerBridgeRuntime,
 } from './bridge/bootstrap'
+import {
+  ServerBridgeManager,
+  type ServerBridgeRuntimeFactory,
+} from './bridge/manager'
 import { diagnoseMdxpPublicUrl } from './bridge/public-url-diagnostic'
 import { parseRemoteExtensionConfig } from './bridge/remote-extension-config'
 import { logRemoteExtensionPairingReady } from './bridge/remote-extension-startup-log'
-import { establishServerProcessOwnershipAuthority } from './bridge/server-process-ownership-authority'
+import {
+  establishServerProcessOwnershipAuthority,
+  ServerProcessOwnershipError,
+} from './bridge/server-process-ownership-authority'
 import {
   createServerDownloadPathPolicy,
   resolveServerDefaultSaveDir,
 } from './download-path-policy'
-import { parseServerBoolean, parseServerPort } from './environment'
+import {
+  parseServerBoolean,
+  parseServerPort,
+  parseTorrentBodyLimit,
+} from './environment'
 import { createApp } from './http/app'
 import { buildServerCommandHandlers } from './ipc/commands'
 import { buildServerQueryHandlers } from './ipc/queries'
@@ -151,16 +183,15 @@ import { registerPluginUploadRoute } from './routes/plugin-uploads'
 import { registerTasksBulkRoutes } from './routes/tasks-bulk'
 import { prepareServerRuntimeDirectories } from './runtime-directories'
 import { serverHealthSnapshot } from './runtime-health'
+import { ServerDirectoryService } from './server-directory-service'
 import {
   createServerExitCoordinator,
   createServerShutdown,
   runServerStartup,
   type ServerShutdownActions,
 } from './shutdown'
-import {
-  createServerPersistTask,
-  createServerPersistTaskWithOccurrence,
-} from './task-persistence'
+import { startServerEngine } from './start-engine'
+import { createServerPersistTask } from './task-persistence'
 
 let requestActiveServerExit: ((code: number) => Promise<void>) | null = null
 
@@ -168,6 +199,9 @@ async function main() {
   // ─── Logger ───────────────────────────────────────────────────
   initLogger(pino({ level: process.env.LOG_LEVEL ?? 'info' }))
   const log = getLogger('server')
+  const torrentBodyLimitBytes = parseTorrentBodyLimit(
+    process.env.MOTRIX_TORRENT_BODY_LIMIT_MIB
+  )
 
   // ─── Platform ─────────────────────────────────────────────────
   const platform = createNodePlatformServices()
@@ -292,6 +326,30 @@ async function main() {
       defaultSaveDir: configuredDefaultSaveDir,
       onChange: (old, updated) => {
         eventBus.emit(Events.SettingsChanged, { old, updated })
+        if (old.app.liquidGlassEffect !== updated.app.liquidGlassEffect) {
+          eventBus.emit(Events.LiquidGlassChanged, {
+            liquidGlassEffect: updated.app.liquidGlassEffect,
+          })
+        }
+        if (old.app.byteUnitSystem !== updated.app.byteUnitSystem) {
+          eventBus.emit(Events.ByteUnitSystemChanged, {
+            byteUnitSystem: updated.app.byteUnitSystem,
+          })
+        }
+        if (
+          JSON.stringify(old.app.directoryPreferences) !==
+          JSON.stringify(updated.app.directoryPreferences)
+        ) {
+          eventBus.emit(
+            Events.DirectoryPreferencesChanged,
+            structuredClone(updated.app.directoryPreferences)
+          )
+        }
+        if (old.app.reduceMotion !== updated.app.reduceMotion) {
+          eventBus.emit(Events.ReducedMotionChanged, {
+            reduceMotion: updated.app.reduceMotion,
+          })
+        }
         if (
           speedLimitController &&
           JSON.stringify(old.speedLimit) !== JSON.stringify(updated.speedLimit)
@@ -411,6 +469,7 @@ async function main() {
         process.env.MOTRIX_ARIA2_RPC_LISTEN_ALL,
         'MOTRIX_ARIA2_RPC_LISTEN_ALL'
       ),
+      rpcMaxRequestSizeBytes: torrentBodyLimitBytes,
     }
   )
   const trustStore = new Aria2TrustStore(platform.userDataDir)
@@ -517,6 +576,12 @@ async function main() {
   await localeCoordinator.reconcile()
   if (!shellAsyncWork.isAccepting()) return
   const serverDir = path.dirname(fileURLToPath(import.meta.url))
+  const detectServerFfmpeg = makeServerFfmpegDetect({
+    settingsManager,
+    userDataDir: platform.userDataDir,
+  })
+  const detectPluginFfmpeg = async () =>
+    projectActiveToLegacy(await detectServerFfmpeg())
   const pluginHost = new PluginHost({
     registry: pluginRegistry,
     stateStore: pluginStateStore,
@@ -529,17 +594,15 @@ async function main() {
     runtime: 'server',
     hostLanguage,
     pluginGrants,
+    ffmpegDetect: detectPluginFfmpeg,
     idleDisposeMs: parsePluginIdleDisposeMs(
       process.env.MOTRIX_PLUGIN_IDLE_DISPOSE_MS
     ),
   })
   shutdownActions.drainPluginHost = () => pluginHost.shutdown()
-  eventBus.on(Events.PluginGrantsChanged, (...args: unknown[]) => {
-    const payload = args[0] as { pluginId?: string } | undefined
-    if (payload?.pluginId && pluginHost.isActive(payload.pluginId)) {
-      void pluginHost.deactivate(payload.pluginId)
-    }
-  })
+  pluginGrants.bindPolicyBarrier(
+    pluginHost.applyPolicyMutation.bind(pluginHost)
+  )
   // Wire Plan D: cross-plugin command safeguards (schema cache + rate limit
   // + caller throttle + chain depth + audit) and bind the invoker to the
   // capability host. Must run AFTER registry.discover() so manifest schemas
@@ -562,13 +625,7 @@ async function main() {
     capabilityHost: pluginCapHost,
     hostVersion,
     schemaCache: commandSystem.schemas,
-    ffmpegDetect: async () =>
-      projectActiveToLegacy(
-        await makeServerFfmpegDetect({
-          settingsManager,
-          userDataDir: platform.userDataDir,
-        })()
-      ),
+    ffmpegDetect: detectPluginFfmpeg,
   })
   const pluginUploadStore = new PluginUploadStore(
     path.join(pluginsDir, '_uploads')
@@ -615,7 +672,9 @@ async function main() {
     protocol,
     engineSettings.rpcSecret
   )
-  const adapter = new Aria2Adapter(rpcClient)
+  const adapter = new Aria2Adapter(rpcClient, undefined, () =>
+    settingsManager.getEngine()
+  )
   shutdownActions.unsubscribeProducers = () => {
     let firstError: unknown
     for (const unsubscribe of pollingNotificationUnsubscribers.splice(0)) {
@@ -669,10 +728,77 @@ async function main() {
         : null
     }
   )
+  supervisor.setStartupGuard(
+    new CompletedTaskStartupGuard({
+      completedGids: () => sessionManager.getCompletedDirectEngineTaskIds(),
+      rpc: rpcClient,
+      removeResult: (gid) => adapter.removeDownloadResult(gid),
+    })
+  )
   shutdownActions.drainSession = () => sessionManager.stopAndDrain()
   const persistTask = createServerPersistTask(taskManager, sessionManager)
-  const persistTaskWithOccurrence =
-    createServerPersistTaskWithOccurrence(sessionManager)
+  let pluginHookRuntime: PluginHookRuntime | undefined
+  const persistTaskWithOccurrence = (
+    task: DownloadTask,
+    occurrence: Parameters<SessionManager['persistTaskWithOccurrence']>[1]
+  ) =>
+    occurrence && pluginHookRuntime
+      ? pluginHookRuntime.persistTerminal(task, occurrence)
+      : sessionManager.persistTaskWithOccurrence(task, occurrence)
+  const pluginRuntime = await createPluginRuntime({
+    activation: pluginActivation,
+    registry: pluginRegistry,
+    grants: pluginGrants,
+    host: pluginHost,
+    installer: pluginInstaller,
+    capabilityHost: pluginCapHost,
+    repository: db.durablePostDeliveries,
+    persistTerminal: (task, occurrence, input) =>
+      sessionManager.persistTerminalHookBoundary(task, occurrence, input),
+    database: db.database,
+    session: sessionManager,
+    pluginsDir,
+    auditLogPath: path.join(
+      platform.userDataDir,
+      'plugin-audit',
+      'hooks.ndjson'
+    ),
+    finalizeSidecarPath: resolveFinalizeSidecarPath({
+      extraResourceDir: platform.extraResourceDir,
+      isDev: platform.isDev,
+      platform: process.platform,
+      arch: process.arch,
+      runtimeRoot: path.resolve(serverDir, '..', '..'),
+    }),
+    acquireTaskMutationLease: (taskId) =>
+      taskInspectorActivityRuntime.acquireTaskMutationLease(taskId),
+    assertEngineQuiesced: async (taskId) => {
+      if (supervisor.getState() !== EngineState.Ready) return
+      const task = taskManager.getById(taskId)
+      if (!task) return
+      const active = await adapter.listActiveAndWaiting()
+      if (active.some((entry) => entry.gid === task.engineTaskId)) {
+        throw new Error(`engine writer is still active for task ${taskId}`)
+      }
+    },
+  })
+  pluginHookRuntime = pluginRuntime.hooks
+  const hookAuditLog = pluginRuntime.auditLog
+  const hookOrchestrator = pluginRuntime.orchestrator
+  const postDeliveryAbortController = new AbortController()
+  let postDeliveryLoop: Promise<void> | undefined
+  const finalizeFilesystemAdapter = pluginRuntime.finalizeFilesystem
+  const durableFinalizeRuntime = pluginRuntime.finalize
+  shutdownActions.drainPluginHost = async () => {
+    postDeliveryAbortController.abort()
+    await postDeliveryLoop
+    try {
+      await hookAuditLog.drain()
+    } finally {
+      await pluginHost.shutdown()
+    }
+  }
+  shutdownActions.disposeFinalizeFs = () => finalizeFilesystemAdapter.dispose()
 
   // ─── Speed Limit Controller ───────────────────────────────────
   // Constructed immediately after supervisor so setEffectiveLimitsProvider
@@ -759,11 +885,26 @@ async function main() {
     proxyBridge
   )
 
+  const completedEngineTaskCleanup = new CompletedEngineTaskCleanup({
+    taskManager,
+    adapter,
+    mintTaskId: newTaskId,
+    persist: persistTaskWithOccurrence,
+    adopt: (task, persist) =>
+      taskInspectorActivityRuntime.parentTaskCreated(task, persist),
+    publish: publishTaskUpdateNow,
+    dispatch: (occurrence) => occurrenceDispatcher.dispatch(occurrence),
+    runTaskMutation: (ids, operation) =>
+      taskInspectorActivityRuntime.runTaskMutation(ids, operation),
+    log,
+  })
+
   // ─── Polling ──────────────────────────────────────────────────
   async function handlePolledTasks(
     rawTasks: Aria2RawStatus[],
     source: PollingTaskUpdateSource
   ): Promise<void> {
+    if (supervisor.getState() !== EngineState.Ready) return
     let dirty = false
     for (const raw of rawTasks) {
       if (shouldSkipForPendingMagnetMetadata(raw, magnetTracker)) {
@@ -777,6 +918,10 @@ async function main() {
       }
 
       const translated = translateRawToTask(raw)
+      if (await completedEngineTaskCleanup.observe(translated)) {
+        dirty = true
+        continue
+      }
       const existing = taskManager.getByEngineTaskId(raw.gid)
       if (existing) {
         const merged = mergeEngineTask(existing, translated)
@@ -865,7 +1010,12 @@ async function main() {
     },
     handlePolledTasks
   )
-  shutdownActions.stopPolling = () => pollingScheduler.stopAndDrain()
+  shutdownActions.stopPolling = async () => {
+    await Promise.all([
+      pollingScheduler.stopAndDrain(),
+      completedEngineTaskCleanup.stopAndDrain(),
+    ])
+  }
 
   // ─── Task lifecycle helpers ───────────────────────────────────
   const finalNamePicker = new FinalNamePickerImpl({
@@ -874,6 +1024,12 @@ async function main() {
   const torrentMetaStore = new TorrentMetaStoreImpl(
     runtimeDirectories.torrentsDir
   )
+  const mediaMetaStore = new MediaMetaStoreImpl(
+    path.join(platform.userDataDir, 'media')
+  )
+  await mediaMetaStore
+    .pruneOrphans(db.getAllTasks().map(({ task }) => task.motrixId))
+    .catch((err) => log.warn({ err }, 'Media metadata recovery failed'))
   const fileCleanupService = new FileCleanupServiceImpl({
     async removePathRecursive(absPath: string): Promise<void> {
       await fs.rm(absPath, { recursive: true, force: true })
@@ -923,6 +1079,7 @@ async function main() {
   // its latch; registered on the occurrence dispatcher further down with
   // the other consumers. The retry fn is late-bound by
   // buildServerCommandHandlers to the ReAddTasks deps bundle.
+  let recoveryService: TaskRecoveryServiceImpl | undefined
   let dnsFallbackRetry: ((taskId: string) => Promise<unknown>) | undefined
   const dnsFallbackConsumer = createDnsFallbackConsumer({
     getDnsMode: () => settingsManager.get().engine.dnsMode,
@@ -937,8 +1094,37 @@ async function main() {
     log: getLogger('dns-fallback'),
   })
 
+  const bridgeDataDir = path.join(platform.userDataDir, 'bridge')
+  const bridgeIdentityResolver = createExtensionIdentityResolver({
+    environment: 'production',
+    developmentEntries: [],
+  })
+  const trustedExtensionRegistry = new TrustedExtensionRegistry(
+    new FileRegistryStoreAdapter(path.join(bridgeDataDir, 'registry.json')),
+    [...bridgeIdentityResolver.officialEntries]
+  )
+  let bridgeRegistryReady = false
+  let bridgeProcessDataDirLock: BridgeDataDirLockHandle | null = null
+  let bridgeDataDirLockRecoveryAuthority: BridgeDataDirLockRecoveryAuthority | null =
+    null
+  let bridgeOwnershipSetup: Promise<void> = Promise.resolve()
+  let bridgeRuntimeFactory: ServerBridgeRuntimeFactory | null = null
+  const bridgeManager = new ServerBridgeManager(
+    trustedExtensionRegistry,
+    async () => {
+      if (bridgeRuntimeFactory === null) {
+        throw new Error('Bridge runtime factory is not ready')
+      }
+      return bridgeRuntimeFactory()
+    },
+    () => bridgeRegistryReady
+  )
+
   // ─── HTTP App ─────────────────────────────────────────────────
+  const serverDirectoryService = new ServerDirectoryService(downloadPathPolicy)
   const commandHandlers = buildServerCommandHandlers({
+    mediaMetaStore,
+    serverDirectoryService,
     supervisor,
     settingsManager,
     geoipManager: activeGeoipManager,
@@ -946,9 +1132,19 @@ async function main() {
     bindTaskRetry: (fn) => {
       dnsFallbackRetry = fn
     },
+    recoverFinalization: async (taskId) => {
+      if (!recoveryService) throw new Error('Task recovery is not ready')
+      try {
+        const report = await recoveryService.recoverTaskById(taskId)
+        if (report.errors.length > 0) throw new Error(report.errors[0].issue)
+      } finally {
+        publishTaskUpdateNow()
+      }
+    },
     rpcClient,
     adapter,
     trackerManager,
+    bridgeControl: bridgeManager,
     aria2BinaryPath: platform.aria2BinaryPath,
     finalNamePicker,
     torrentMetaStore,
@@ -961,18 +1157,21 @@ async function main() {
     notificationCenter,
     taskPersistence: sessionManager,
     pluginRegistry,
+    registryClient,
+    hostVersion,
     pluginStateStore,
     pluginHost,
     pluginInstaller,
     pluginInstallService,
     pluginGrants,
     capabilityHost: pluginCapHost,
-    userDataDir: platform.userDataDir,
-    pluginsDir,
     pluginActivation,
+    hookAuditLog,
+    hookOrchestrator,
     magnetTracker,
     activityRecorder: taskActivityService,
     persistTask,
+    persistTaskWithPluginMetadata: pluginRuntime.persistTaskWithPluginMetadata,
     persistTaskWithOccurrence,
     occurrenceDispatcher,
     recordTransition: (input) =>
@@ -987,7 +1186,28 @@ async function main() {
     publishTaskUpdateNow,
     downloadPathPolicy,
   })
+  const createTask = commandHandlers[Commands.CreateTask]
+  if (!createTask) throw new Error('CreateTask handler is not registered')
+  const selectionTimeout = new MagnetSelectionTimeout({
+    eventBus,
+    getSettings: () => settingsManager.getApp(),
+    getTasks: () => taskManager.getAll(),
+    isEngineReady: () => supervisor.getState() === EngineState.Ready,
+    getSelection: (taskId) => magnetTracker.getFileSelection(taskId),
+    createTask: async (request) =>
+      (await createTask(request)) as TaskCreateCommandResult,
+    notify: (input) => notificationCenter.notify(input),
+    log: getLogger('magnet-selection-timeout'),
+  })
+  shutdownActions.drainMagnet = async () => {
+    await Promise.all([
+      selectionTimeout.stopAndDrain(),
+      magnetTracker.stopAndDrain(),
+    ])
+  }
   const queryHandlers = buildServerQueryHandlers({
+    mediaMetaStore,
+    serverDirectoryService,
     taskManager,
     statsAggregator,
     speedHistoryStore,
@@ -1000,8 +1220,10 @@ async function main() {
     geoipManager: activeGeoipManager,
     trackerManager,
     engineAdapter: adapter,
+    motrixDatabase: db,
     notificationCenter,
     pluginRegistry,
+    capabilityHost: pluginCapHost,
     pluginGrants,
     registryClient,
     pluginsDir,
@@ -1009,17 +1231,12 @@ async function main() {
     userDataDir: platform.userDataDir,
     speedLimitController,
     downloadPathPolicy,
+    environment: process.env,
   })
 
   const rendererDir =
     process.env.MOTRIX_RENDERER_DIR ??
     path.resolve(serverDir, '..', 'renderer-web')
-
-  // bridge:* RPC handlers are populated AFTER the (non-fatal, later) bridge
-  // bootstrap; createApp captures these by reference, so a post-hoc Object.assign
-  // makes the routes see them.
-  const bridgeCommandHandlers: Record<string, Handler> = {}
-  const bridgeQueryHandlers: Record<string, Handler> = {}
 
   // Operator (control-plane) secret — provisioned INDEPENDENTLY of the
   // (non-fatal) MDXP bridge so a bridge bootstrap failure can never lock the web
@@ -1035,15 +1252,19 @@ async function main() {
   )
 
   const app = await createApp({
+    torrentBodyLimitBytes,
     commandHandlers,
     queryHandlers,
-    bridgeCommandHandlers,
-    bridgeQueryHandlers,
+    bridgeCommandHandlers: bridgeManager.bridgeCommandHandlers,
+    bridgeQueryHandlers: bridgeManager.bridgeQueryHandlers,
     eventBus,
+    pluginLogSource: pluginCapHost,
     rendererDir,
     operatorAuth: {
       operatorToken: operator.token,
       publicUrl: process.env.MOTRIX_PUBLIC_URL,
+      onEventSocketRejected: (detail) =>
+        log.warn(detail, 'operator event connection rejected'),
     },
     healthCheck: () =>
       serverHealthSnapshot({
@@ -1119,8 +1340,14 @@ async function main() {
 
   // Startup itself is tracked below so a signal cannot race past cleanup and
   // publish a resource after its corresponding shutdown step has already run.
-  let bridgeRuntime: ServerBridgeRuntime | null = null
-  shutdownActions.closeBridge = () => bridgeRuntime?.shutdown()
+  shutdownActions.closeBridge = async () => {
+    await bridgeOwnershipSetup
+    await bridgeManager.shutdown()
+    bridgeRegistryReady = false
+    const dataDirLock = bridgeProcessDataDirLock
+    bridgeProcessDataDirLock = null
+    await dataDirLock?.release()
+  }
 
   const startServer = async (): Promise<void> => {
     await activeGeoipManager.start()
@@ -1210,13 +1437,6 @@ async function main() {
       log,
     })
 
-    try {
-      await supervisor.start(platform.aria2BinaryPath)
-    } catch (err) {
-      log.error({ err }, 'engine start failed')
-    }
-    if (!shellAsyncWork.isAccepting()) return
-
     // Discrete lifecycle transitions (including terminal media states) must be
     // durable before their coordinator resolves. save() is a serialized,
     // rejecting hard barrier, matching the Electron shell contract.
@@ -1266,6 +1486,8 @@ async function main() {
       },
       eventBus,
       activityRecorder: taskActivityService,
+      orchestrator: hookOrchestrator,
+      auditLog: hookAuditLog,
       recordTransition: (input: RuntimeTransitionInput) =>
         taskInspectorActivityRuntime.recordTransition(input),
       runTaskMutation: <T>(
@@ -1273,8 +1495,24 @@ async function main() {
         operation: () => Promise<T>
       ) => taskInspectorActivityRuntime.runTaskMutation(taskIds, operation),
       log,
+      finalNamePicker,
+      commitFinalizedArtifact: async (input: FinalizeArtifactCommitRequest) => {
+        const post =
+          input.occurrence?.type === 'terminal'
+            ? await pluginHookRuntime.prepareTerminal(
+                input.task,
+                input.occurrence
+              )
+            : { postDeliveries: [], beforeCommit: () => undefined }
+        await durableFinalizeRuntime.commit({
+          ...input,
+          postDeliveries: post.postDeliveries,
+          beforeCommit: post.beforeCommit,
+        })
+      },
     })
 
+    const pluginStartup = new PluginRuntimeStartupCoordinator()
     try {
       // ─── occurrence consumer registration ─────────────────
       // Runs BEFORE restore()/recoverOnStartup(): both of those commit
@@ -1303,9 +1541,20 @@ async function main() {
         dnsFallbackConsumer.consume
       )
 
+      await pluginStartup.recoverFinalize(() =>
+        durableFinalizeRuntime.recoverAll()
+      )
+
+      await pluginStartup.startEngine(() =>
+        startServerEngine(supervisor, platform.aria2BinaryPath)
+      )
+      if (!shellAsyncWork.isAccepting()) return
+
       await appliedDownloadProxyPolicy.runWithSnapshot(
         async (_snapshot, lease) => {
-          await sessionManager.restore(lease.assertCurrent)
+          await sessionManager.restore(lease.assertCurrent, (snapshot) =>
+            completedEngineTaskCleanup.observe(snapshot)
+          )
           await sessionManager.recoverLegacyTaskLost(lease.assertCurrent)
         }
       )
@@ -1319,7 +1568,7 @@ async function main() {
       // Startup recovery: replay intent markers before polling/events
       // open so the renderer observes a self-healed state. See design
       // spec §6.6.
-      const recoveryService = new TaskRecoveryServiceImpl({
+      recoveryService = new TaskRecoveryServiceImpl({
         taskManager: {
           getAll: () => taskManager.getAll(),
           set: (id: string, task: DownloadTask) => taskManager.set(id, task),
@@ -1368,67 +1617,82 @@ async function main() {
         })
       }
 
-      adapter.onBtDownloadComplete((engineTaskId) => {
-        runShellAsyncWork('BT finalize', async () => {
-          const task = taskManager.getByEngineTaskId(engineTaskId)
-          if (!task) return
-          if (shouldSkipEngineCompletionFinalize(task)) return
-          try {
-            await finalizeTask(task.id, buildFinalizeDeps())
-          } catch (err) {
-            log.error({ err, taskId: task.id }, 'finalizeTask failed (BT)')
-          }
-        })
+      pluginStartup.markTasksRecovered()
+      await pluginStartup.drainBeforeProducers({
+        drainOccurrences: () => occurrenceDispatcher.drainAtStartup(),
+        recoverAndDrainPostDeliveries: () =>
+          pluginHookRuntime.recoverAndDrain(),
       })
-
-      adapter.onDownloadComplete((engineTaskId) => {
-        runShellAsyncWork('HTTP finalize', async () => {
-          const task = taskManager.getByEngineTaskId(engineTaskId)
-          if (!task) return
-          if (task.type !== TaskType.Http && task.type !== TaskType.Ftp) {
-            return
-          }
-          if (shouldSkipEngineCompletionFinalize(task)) return
-          try {
-            await finalizeTask(task.id, buildFinalizeDeps())
-          } catch (err) {
-            log.error({ err, taskId: task.id }, 'finalizeTask failed (HTTP)')
+      postDeliveryLoop = pluginHookRuntime.scheduler
+        .start(postDeliveryAbortController.signal)
+        .catch((err) => {
+          if (!postDeliveryAbortController.signal.aborted) {
+            log.error({ err }, 'plugin post-delivery scheduler stopped')
           }
         })
+
+      pluginStartup.openProducers(() => {
+        selectionTimeout.start()
+        adapter.onBtDownloadComplete((engineTaskId) => {
+          runShellAsyncWork('BT finalize', async () => {
+            const task = taskManager.getByEngineTaskId(engineTaskId)
+            if (!task) return
+            if (shouldSkipEngineCompletionFinalize(task)) return
+            try {
+              await finalizeTask(task.id, buildFinalizeDeps())
+            } catch (err) {
+              log.error({ err, taskId: task.id }, 'finalizeTask failed (BT)')
+            }
+          })
+        })
+
+        adapter.onDownloadComplete((engineTaskId) => {
+          runShellAsyncWork('HTTP finalize', async () => {
+            const task = taskManager.getByEngineTaskId(engineTaskId)
+            if (!task) return
+            if (task.type !== TaskType.Http && task.type !== TaskType.Ftp) {
+              return
+            }
+            if (shouldSkipEngineCompletionFinalize(task)) return
+            try {
+              await finalizeTask(task.id, buildFinalizeDeps())
+            } catch (err) {
+              log.error({ err, taskId: task.id }, 'finalizeTask failed (HTTP)')
+            }
+          })
+        })
+
+        sessionManager.startAutoSave(engineSettings.sessionSaveInterval * 1000)
+
+        pollingNotificationUnsubscribers.push(
+          rpcClient.onDownloadStart((event) => {
+            pollingScheduler.handleNotification('aria2.onDownloadStart', event)
+          }),
+          rpcClient.onDownloadPause((event) => {
+            pollingScheduler.handleNotification('aria2.onDownloadPause', event)
+          }),
+          rpcClient.onDownloadComplete((event) => {
+            pollingScheduler.handleNotification(
+              'aria2.onDownloadComplete',
+              event
+            )
+          }),
+          rpcClient.onDownloadStop((event) => {
+            pollingScheduler.handleNotification('aria2.onDownloadStop', event)
+          }),
+          rpcClient.onDownloadError((event) => {
+            pollingScheduler.handleNotification('aria2.onDownloadError', event)
+          }),
+          rpcClient.onBtDownloadComplete((event) => {
+            pollingScheduler.handleNotification(
+              'aria2.onBtDownloadComplete',
+              event
+            )
+          })
+        )
+
+        pollingScheduler.start()
       })
-
-      sessionManager.startAutoSave(engineSettings.sessionSaveInterval * 1000)
-
-      pollingNotificationUnsubscribers.push(
-        rpcClient.onDownloadStart((event) => {
-          pollingScheduler.handleNotification('aria2.onDownloadStart', event)
-        }),
-        rpcClient.onDownloadPause((event) => {
-          pollingScheduler.handleNotification('aria2.onDownloadPause', event)
-        }),
-        rpcClient.onDownloadComplete((event) => {
-          pollingScheduler.handleNotification('aria2.onDownloadComplete', event)
-        }),
-        rpcClient.onDownloadStop((event) => {
-          pollingScheduler.handleNotification('aria2.onDownloadStop', event)
-        }),
-        rpcClient.onDownloadError((event) => {
-          pollingScheduler.handleNotification('aria2.onDownloadError', event)
-        }),
-        rpcClient.onBtDownloadComplete((event) => {
-          pollingScheduler.handleNotification(
-            'aria2.onBtDownloadComplete',
-            event
-          )
-        })
-      )
-
-      // Deliver anything the outbox still holds: rows a prior run persisted
-      // but never dispatched, plus everything restore()/recovery just wrote
-      // through SessionManager (which has no dispatcher of its own).
-      await occurrenceDispatcher.drainAtStartup()
-
-      pollingScheduler.start()
     } catch (err) {
       if (!shellAsyncWork.isAccepting()) return
       log.error({ err }, 'post-engine setup failed')
@@ -1456,16 +1720,75 @@ async function main() {
     const serverUrl = `http://localhost:${port}`
     log.info({ port, url: serverUrl }, `server listening at ${serverUrl}`)
 
+    let bridgeSetupStage:
+      | 'process-ownership'
+      | 'bridge-data-lock'
+      | 'trusted-extension-registry' = 'process-ownership'
+    bridgeOwnershipSetup = (async () => {
+      bridgeDataDirLockRecoveryAuthority =
+        await establishServerProcessOwnershipAuthority({
+          userDataDir: platform.userDataDir,
+          port,
+          assertControlPlaneOwnership: () => {
+            if (!app.server.listening) return false
+            const address = app.server.address()
+            return (
+              typeof address === 'object' &&
+              address !== null &&
+              address.port === port
+            )
+          },
+        })
+      bridgeSetupStage = 'bridge-data-lock'
+      const dataDirLock = await acquireBridgeDataDirLock(bridgeDataDir, {
+        recoverExisting: bridgeDataDirLockRecoveryAuthority,
+      })
+      if (!shellAsyncWork.isAccepting()) {
+        await dataDirLock.release()
+        return
+      }
+      bridgeProcessDataDirLock = dataDirLock
+      bridgeSetupStage = 'trusted-extension-registry'
+      try {
+        await trustedExtensionRegistry.load()
+      } catch (error) {
+        bridgeProcessDataDirLock = null
+        await dataDirLock.release()
+        throw error
+      }
+      if (!shellAsyncWork.isAccepting()) {
+        bridgeProcessDataDirLock = null
+        await dataDirLock.release()
+        return
+      }
+      bridgeRegistryReady = true
+    })().catch((err) => {
+      log.error(
+        {
+          err,
+          stage: bridgeSetupStage,
+          reason:
+            err instanceof ServerProcessOwnershipError ? err.reason : undefined,
+        },
+        'bridge data ownership unavailable — trusted registry and MDXP bridge disabled'
+      )
+    })
+    await bridgeOwnershipSetup
+    if (!shellAsyncWork.isAccepting()) return
+
     // ─── MDXP bridge (Spec 6) ─────────────────────────────────────
     // Agent-facing unary POST /mdxp + SSE GET /mdxp/events, on its OWN port
     // (default loopback:16801), separate from the Fastify web/RPC server above.
     // Non-fatal: a bind failure (e.g. port in use) must not take down the web UI.
-    try {
+    // The manager keeps every bridge:* RPC registered while this factory owns
+    // only the optional listener/runtime portion.
+    bridgeRuntimeFactory = async (): Promise<ServerBridgeRuntime> => {
       const removeTaskDeps = {
         taskManager,
         adapter,
         log,
         fileCleanupService,
+        mediaMetaStore,
         torrentMetaStore,
         eventBus,
         db,
@@ -1498,6 +1821,8 @@ async function main() {
         publishTaskUpdate,
         activityRecorder: taskActivityService,
         persistTask,
+        persistTaskWithPluginMetadata:
+          pluginRuntime.persistTaskWithPluginMetadata,
         parentTaskCreated: (
           task: DownloadTask,
           persistParent: () => void | Promise<void>
@@ -1566,12 +1891,15 @@ async function main() {
         },
         directResourceProxyPolicy: appliedDownloadProxyPolicy,
       }
-      const mdxpPort = parseServerPort(
-        process.env.MOTRIX_MDXP_PORT,
-        'MOTRIX_MDXP_PORT',
-        16801,
-        { allowZero: true }
-      )
+      const configuredMdxpPort = process.env.MOTRIX_MDXP_PORT?.trim()
+      const fixedPort = settingsManager.get().bridge.fixedPort
+      const mdxpPort = configuredMdxpPort
+        ? parseServerPort(configuredMdxpPort, 'MOTRIX_MDXP_PORT', 16801, {
+            allowZero: true,
+          })
+        : fixedPort === 'auto'
+          ? 16801
+          : fixedPort
       const mdxpHost = process.env.MOTRIX_MDXP_HOST ?? '127.0.0.1'
       const remoteExtensionConfig = parseRemoteExtensionConfig(process.env)
       if (remoteExtensionConfig.status === 'invalid') {
@@ -1596,32 +1924,29 @@ async function main() {
           'non-loopback MDXP bind has no usable MOTRIX_PUBLIC_URL; remote clients may not receive a usable approval URL'
         )
       }
-      const bridgeDataDirLockRecoveryAuthority =
-        await establishServerProcessOwnershipAuthority({
-          userDataDir: platform.userDataDir,
-          port,
-          assertControlPlaneOwnership: () => {
-            if (!app.server.listening) return false
-            const address = app.server.address()
-            return (
-              typeof address === 'object' &&
-              address !== null &&
-              address.port === port
-            )
-          },
-        })
+      const dataDirLock = bridgeProcessDataDirLock
+      if (
+        dataDirLock === null ||
+        bridgeDataDirLockRecoveryAuthority === null ||
+        !bridgeRegistryReady
+      ) {
+        throw new Error('Bridge data ownership is unavailable')
+      }
       const candidateBridgeRuntime = await bootstrapBridgeForServer({
         userDataDir: platform.userDataDir,
         host: mdxpHost,
         port: mdxpPort,
+        fixedPort,
         motrixVersion: appVersion,
         eventBus,
         bridgeDataDirLockRecoveryAuthority,
+        bridgeDataDirLock: dataDirLock,
         remoteExtensionConfig,
-        createExtensionReceiver: ({ dataDir, bridgeBus }) =>
+        trustedExtensionRegistry,
+        createExtensionReceiver: ({ bridgeBus }) =>
           new BridgeReceiver({
-            dataDir,
-            defaultSaveDir: settingsManager.getApp().defaultSaveDir,
+            mediaMetaStore,
+            getDefaultSaveDir: () => settingsManager.getApp().defaultSaveDir,
             pickName: (saveDir, desired) =>
               finalNamePicker.pick(saveDir, desired),
             createTask: (request, _deps, options) =>
@@ -1653,7 +1978,7 @@ async function main() {
             publishTaskUpdateNow,
             taskManager,
             activityRecorder: taskActivityService,
-            segmentAria2: new Aria2SegmentClient(rpcClient),
+            segmentAria2: new Aria2SegmentClient(rpcClient, adapter),
             tmpRoot: runtimeDirectories.tempDir,
             persistTask,
             persistTaskWithOccurrence,
@@ -1691,15 +2016,17 @@ async function main() {
       })
       if (!shellAsyncWork.isAccepting()) {
         await candidateBridgeRuntime.shutdown()
-        return
+        throw new Error('Bridge startup cancelled during Server shutdown')
       }
-      bridgeRuntime = candidateBridgeRuntime
-      // Make the bridge:* RPC handlers reachable through the already-listening
-      // Fastify routes (createApp captured the maps by reference).
-      Object.assign(bridgeCommandHandlers, bridgeRuntime.bridgeCommandHandlers)
-      Object.assign(bridgeQueryHandlers, bridgeRuntime.bridgeQueryHandlers)
-      log.info({ port: bridgeRuntime.port }, 'MDXP bridge listening')
+      log.info({ port: candidateBridgeRuntime.port }, 'MDXP bridge listening')
       logRemoteExtensionPairingReady(log, remoteExtensionConfig)
+      return candidateBridgeRuntime
+    }
+
+    try {
+      await bridgeManager.setEnabled(
+        settingsManager.getApp().browserBridgeEnabled
+      )
     } catch (err) {
       log.error({ err }, 'MDXP bridge bootstrap failed — continuing without it')
     }

@@ -1,10 +1,9 @@
 import { useCompactHeader } from '@renderer/components/desktop-kit/hooks/use-compact-header'
-import {
-  COMPACT_ACTION_CLASS,
-  HeaderActionButton,
-} from '@renderer/components/desktop-kit/panel/header-action-button'
+import { COMPACT_ACTION_CLASS } from '@renderer/components/desktop-kit/panel/header-action-button'
+import { Toolbar } from '@renderer/components/desktop-kit/toolbar/toolbar'
+import { ToolbarButton } from '@renderer/components/desktop-kit/toolbar/toolbar-button'
+import { ToolbarGroup } from '@renderer/components/desktop-kit/toolbar/toolbar-group'
 import { Button } from '@renderer/components/ui/button'
-import { ButtonGroup } from '@renderer/components/ui/button-group'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +17,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@renderer/components/ui/tooltip'
+import { getReducedMotion } from '@renderer/lib/reduced-motion'
 import { cn } from '@renderer/lib/utils'
 import {
   DASHBOARD_COLUMNS,
@@ -41,7 +41,7 @@ import {
   X,
 } from 'lucide-react'
 import type React from 'react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -61,12 +61,18 @@ import {
 } from '../layout/dashboard-presets'
 import {
   type DashboardTileViewport,
-  dashboardTileSizeLabel,
   dashboardTileSpanKey,
   dashboardTileViewport,
   getDashboardTileDefinition,
   nearestDashboardTilePresentation,
 } from '../layout/dashboard-registry'
+import {
+  DASHBOARD_LAYOUT_MENU_CLASS,
+  DASHBOARD_LAYOUT_OPTION_CLASS,
+  DashboardLayoutHint,
+  DashboardLayoutPreview,
+  DashboardPresetPreview,
+} from './dashboard-layout-menu'
 import {
   DashboardResizeGhost,
   type DashboardResizeGhostViewportRect,
@@ -133,7 +139,6 @@ interface DashboardResizeSession extends DashboardInteractionSessionBase {
   previewSpan: DashboardTileSpan
   valid: boolean
   failureReason?: DashboardLayoutFailureReason
-  reducedMotion: boolean
 }
 
 type DashboardInteractionSession = DashboardMoveSession | DashboardResizeSession
@@ -668,7 +673,7 @@ function toLayout(
 
 /**
  * Header action that adds removed tiles back to the board. Lives in the
- * editing ButtonGroup so the picker never takes vertical space away from the
+ * editing toolbar so the picker never takes vertical space away from the
  * 1fr grid rows; the menu stays open across selections so several tiles can
  * be re-added in one pass, and the last pick falls through to the default
  * close so an empty menu never shows.
@@ -687,41 +692,84 @@ function AddTileMenu({
   onAdd: (id: DashboardTileId) => void
 }) {
   const { t } = useTranslation()
+  const hintId = useId()
+  const [hintReason, setHintReason] =
+    useState<DashboardLayoutFailureReason | null>(null)
+  const unavailableReason = tiles.find(
+    (option) => !option.available
+  )?.failureReason
   const availableCount = tiles.filter((option) => option.available).length
   return (
-    <DropdownMenu>
-      <HeaderActionButton
+    <DropdownMenu onOpenChange={() => setHintReason(null)}>
+      <ToolbarButton
         label={label}
-        variant="outline"
         disabled={disabled}
-        wrapTrigger={(button) => <DropdownMenuTrigger render={button} />}
+        render={<DropdownMenuTrigger />}
       >
         <Plus aria-hidden />
-      </HeaderActionButton>
-      <DropdownMenuContent align="end">
-        {tiles.map(({ tile, available, failureReason }) => {
-          const title = t(getDashboardTileDefinition(tile.id).titleKey)
-          const reason = failureReason ? unavailable(failureReason) : undefined
-          return (
-            <DropdownMenuItem
-              key={tile.id}
-              disabled={!available}
-              closeOnClick={availableCount <= 1}
-              aria-label={reason ? `${title} ${reason}` : title}
-              onClick={() => {
-                if (!available) return
-                onAdd(tile.id)
-              }}
-            >
-              <span className="min-w-0 flex-1 truncate">{title}</span>
-              {reason ? (
-                <span className="ml-4 text-[10px] text-muted-foreground">
-                  {reason}
+      </ToolbarButton>
+      <DropdownMenuContent
+        align="end"
+        sideOffset={8}
+        className={DASHBOARD_LAYOUT_MENU_CLASS}
+      >
+        <div className="shrink-0 px-2 pt-1 pb-1.5 text-[11px] font-medium">
+          {t('panel.dashboard.configure.addTitle')}
+        </div>
+        <div className="min-h-0 overflow-y-auto overscroll-contain">
+          {tiles.map(({ tile, available, failureReason }) => {
+            const title = t(getDashboardTileDefinition(tile.id).titleKey)
+            const reason = failureReason
+              ? unavailable(failureReason)
+              : undefined
+            return (
+              <DropdownMenuItem
+                key={tile.id}
+                disabled={!available}
+                closeOnClick={availableCount <= 1}
+                aria-label={reason ? `${title} ${reason}` : title}
+                aria-describedby={!available ? hintId : undefined}
+                onMouseEnter={() => setHintReason(failureReason ?? null)}
+                onFocus={() => setHintReason(failureReason ?? null)}
+                className={DASHBOARD_LAYOUT_OPTION_CLASS}
+                onClick={() => {
+                  if (!available) return
+                  onAdd(tile.id)
+                }}
+              >
+                <DashboardLayoutPreview
+                  span={tile}
+                  className={cn('text-foreground', !available && 'opacity-35')}
+                />
+                <span
+                  className={cn('min-w-0 flex-1', !available && 'opacity-60')}
+                >
+                  <span className="block truncate text-xs leading-4 font-medium">
+                    {title}
+                  </span>
+                  <span className="block text-[10px] leading-3.5 tabular-nums text-muted-foreground">
+                    {t('panel.dashboard.configure.size', {
+                      width: tile.w,
+                      height: tile.h,
+                    })}
+                  </span>
                 </span>
-              ) : null}
-            </DropdownMenuItem>
-          )
-        })}
+                {available ? (
+                  <Plus
+                    aria-hidden
+                    className="size-3.5 text-muted-foreground opacity-0 group-data-highlighted/layout-option:opacity-100"
+                  />
+                ) : null}
+              </DropdownMenuItem>
+            )
+          })}
+        </div>
+        {unavailableReason ? (
+          <DashboardLayoutHint
+            id={hintId}
+            reason={hintReason ?? unavailableReason}
+          />
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -754,37 +802,40 @@ function PresetMenu({
 
   return (
     <DropdownMenu>
-      <HeaderActionButton
+      <ToolbarButton
         label={`${label}: ${currentLabel}`}
-        visibleLabel={currentLabel}
-        variant="outline"
         disabled={disabled}
-        wrapTrigger={(button) => <DropdownMenuTrigger render={button} />}
+        className="w-auto gap-1.5 px-2.5 compact-header:size-6 compact-header:p-0"
+        render={<DropdownMenuTrigger />}
       >
         <LayoutTemplate aria-hidden />
-      </HeaderActionButton>
-      <DropdownMenuContent align="end" className="w-64">
+        <span className="max-w-32 truncate compact-header:hidden">
+          {currentLabel}
+        </span>
+      </ToolbarButton>
+      <DropdownMenuContent align="end" className={DASHBOARD_LAYOUT_MENU_CLASS}>
         {DASHBOARD_LAYOUT_PRESETS.map((preset) => (
           <DropdownMenuItem
             key={preset.id}
-            className="items-start gap-2"
+            className={cn(
+              DASHBOARD_LAYOUT_OPTION_CLASS,
+              currentPresetId === preset.id && 'bg-muted/60'
+            )}
             onClick={() => onSelect(preset.id)}
           >
-            <div className="min-w-0 flex-1">
-              <div className="text-sm">{t(preset.titleKey)}</div>
-              <div className="text-[11px] text-muted-foreground">
-                {t(preset.descriptionKey)}
-              </div>
-            </div>
+            <DashboardPresetPreview tiles={preset.layout.tiles} />
+            <span className="min-w-0 flex-1 truncate text-sm">
+              {t(preset.titleKey)}
+            </span>
             {currentPresetId === preset.id ? (
-              <Check className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <Check className="size-3.5 shrink-0" aria-hidden />
             ) : null}
           </DropdownMenuItem>
         ))}
         {canUndo ? (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onUndo}>
+            <DropdownMenuItem className="rounded-lg text-xs" onClick={onUndo}>
               <Undo2 aria-hidden />
               {undoLabel}
             </DropdownMenuItem>
@@ -1030,6 +1081,7 @@ export function DashboardGrid({
     }
 
     let settled = true
+    const reducedMotion = getReducedMotion()
     const previewById = new Map(
       session.previewTiles.map((tile) => [tile.id, tile])
     )
@@ -1041,7 +1093,7 @@ export function DashboardGrid({
       const targetOffset = tileCellOffset(metrics, tile)
       visual.targetX = targetOffset.left - visual.rect.left
       visual.targetY = targetOffset.top - visual.rect.top
-      if (session.kind === 'resize' && session.reducedMotion) {
+      if (reducedMotion) {
         visual.currentX = visual.targetX
         visual.currentY = visual.targetY
       } else {
@@ -1220,9 +1272,6 @@ export function DashboardGrid({
         gridPreviousTouchAction: interaction.gridPreviousTouchAction,
         bodyClassName: interaction.bodyClassName,
         releasePointerCapture: interaction.releasePointerCapture,
-        reducedMotion:
-          typeof window.matchMedia === 'function' &&
-          window.matchMedia('(prefers-reduced-motion: reduce)').matches,
       }
 
       interactionSessionRef.current = session
@@ -1358,33 +1407,33 @@ export function DashboardGrid({
   const actions = useMemo(
     () =>
       editing ? (
-        <ButtonGroup>
-          <ButtonGroup>
-            <HeaderActionButton
+        <Toolbar label={label.action} data-slot="dashboard-configure-toolbar">
+          <ToolbarGroup>
+            <ToolbarButton
               label={label.cancel}
-              variant="outline"
               onClick={cancelEditing}
               disabled={saving}
             >
               <X aria-hidden />
-            </HeaderActionButton>
-            <HeaderActionButton
+            </ToolbarButton>
+            <ToolbarButton
               label={label.reset}
-              variant="outline"
               onClick={resetDraft}
               disabled={saving}
             >
               <RotateCcw aria-hidden />
-            </HeaderActionButton>
-            <HeaderActionButton
+            </ToolbarButton>
+            <ToolbarButton
               label={label.apply}
+              className="w-auto gap-1.5 bg-primary! px-2.5 text-primary-foreground! enabled:hover:bg-primary/90! enabled:active:bg-primary/80! compact-header:size-6 compact-header:p-0"
               onClick={() => void applyDraft()}
               disabled={saving}
             >
               <Check aria-hidden />
-            </HeaderActionButton>
-          </ButtonGroup>
-          <ButtonGroup>
+              <span className="compact-header:hidden">{label.apply}</span>
+            </ToolbarButton>
+          </ToolbarGroup>
+          <ToolbarGroup>
             <PresetMenu
               disabled={saving}
               label={label.presets}
@@ -1402,8 +1451,8 @@ export function DashboardGrid({
               unavailable={(reason) => label.unavailable[reason]}
               onAdd={addTile}
             />
-          </ButtonGroup>
-        </ButtonGroup>
+          </ToolbarGroup>
+        </Toolbar>
       ) : (
         <Tooltip>
           <TooltipTrigger
@@ -1529,17 +1578,6 @@ export function DashboardGrid({
                   resize: label.resize,
                   remove: label.remove,
                   sizeGroup: label.sizeGroup,
-                  size: (_size, presentation) => {
-                    const sizeLabel = t(
-                      `panel.dashboard.configure.sizeLabels.${dashboardTileSizeLabel(presentation)}`
-                    )
-                    const dimensions = t('panel.dashboard.configure.size', {
-                      width: presentation.span.w,
-                      height: presentation.span.h,
-                      defaultValue: `${presentation.span.w} × ${presentation.span.h}`,
-                    })
-                    return `${sizeLabel} · ${dimensions}`
-                  },
                   unavailable: (reason) => label.unavailable[reason],
                 }}
                 onResize={(id, span) => {

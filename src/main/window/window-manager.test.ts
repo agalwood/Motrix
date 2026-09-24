@@ -37,9 +37,11 @@ vi.mock('electron', () => {
     loadFile = vi.fn().mockResolvedValue(undefined)
     show = vi.fn(() => {
       this._visible = true
+      this.fireOnce('show')
     })
     showInactive = vi.fn(() => {
       this._visible = true
+      this.fireOnce('show')
     })
     hide = vi.fn(() => {
       this._visible = false
@@ -53,9 +55,13 @@ vi.mock('electron', () => {
     isVisible = vi.fn(() => this._visible)
     isFocused = vi.fn(() => true)
     isMaximized = vi.fn(() => false)
+    isFullScreen = vi.fn(() => false)
     getBounds = vi.fn(() => ({ ...this._bounds }))
     getNormalBounds = vi.fn(() => ({ ...this._bounds }))
-    maximize = vi.fn()
+    maximize = vi.fn(() => {
+      // Electron also reveals a hidden window when maximizing it.
+      if (!this._visible) this.showInactive()
+    })
     setBounds = vi.fn(
       (b: { x: number; y: number; width: number; height: number }) => {
         this._bounds = b
@@ -77,10 +83,14 @@ vi.mock('electron', () => {
     })
     removeAllListeners = vi.fn().mockReturnThis()
 
-    fireReadyToShow() {
-      const listeners = this.onceListeners['ready-to-show'] ?? []
-      this.onceListeners['ready-to-show'] = []
+    fireOnce(event: string) {
+      const listeners = this.onceListeners[event] ?? []
+      this.onceListeners[event] = []
       for (const fn of listeners) fn()
+    }
+
+    fireReadyToShow() {
+      this.fireOnce('ready-to-show')
     }
 
     static instances = instances
@@ -97,13 +107,14 @@ vi.mock('electron', () => {
 
   return {
     BrowserWindow: MockBrowserWindow,
+    nativeTheme: { shouldUseDarkColors: false },
     screen: mockScreen,
     shell: { openExternal: vi.fn() },
   }
 })
 
 import type { SettingsManager } from '@core/settings/settings-manager'
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, nativeTheme } from 'electron'
 import type { LiquidGlassController } from './liquid-glass'
 import { initializeRendererUrlPolicy } from './renderer-url-policy'
 import { WINDOW_CONFIGS } from './window-configs'
@@ -127,6 +138,9 @@ function createMockSettingsManager(
 describe('WindowManager', () => {
   beforeEach(() => {
     ;(BrowserWindow as unknown as { instances: unknown[] }).instances.length = 0
+    ;(
+      nativeTheme as unknown as { shouldUseDarkColors: boolean }
+    ).shouldUseDarkColors = false
     vi.clearAllMocks()
   })
 
@@ -158,6 +172,23 @@ describe('WindowManager', () => {
     expect(options.titleBarOverlay).toBeUndefined()
   })
 
+  it('matches the first-paint window background to the resolved native theme', () => {
+    ;(
+      nativeTheme as unknown as { shouldUseDarkColors: boolean }
+    ).shouldUseDarkColors = true
+    const wm = new WindowManager({
+      settingsManager: createMockSettingsManager(),
+      preloadPath: '/fake/preload.cjs',
+      loadUrl: vi.fn(),
+      platform: 'win32',
+    })
+
+    const win = wm.open('main')
+    const options = (win as unknown as { options: Record<string, unknown> })
+      .options
+    expect(options.backgroundColor).toBe('#09090b')
+  })
+
   it('publishes the owning window maximize state after load and on changes', () => {
     const wm = new WindowManager({
       settingsManager: createMockSettingsManager(),
@@ -181,6 +212,12 @@ describe('WindowManager', () => {
     const unmaximize = windowListeners.find(
       ([event]) => event === 'unmaximize'
     )?.[1] as (() => void) | undefined
+    const enterFullScreen = windowListeners.find(
+      ([event]) => event === 'enter-full-screen'
+    )?.[1] as (() => void) | undefined
+    const leaveFullScreen = windowListeners.find(
+      ([event]) => event === 'leave-full-screen'
+    )?.[1] as (() => void) | undefined
     const resized = windowListeners.find(
       ([event]) => event === 'resized'
     )?.[1] as (() => void) | undefined
@@ -188,23 +225,46 @@ describe('WindowManager', () => {
     didFinishLoad?.()
     expect(win.webContents.send).toHaveBeenLastCalledWith(
       Events.WindowMaximizedChanged,
-      { maximized: false }
+      { maximized: false, fullscreen: false }
     )
 
     vi.mocked(win.isMaximized).mockReturnValue(true)
     maximize?.()
     expect(win.webContents.send).toHaveBeenLastCalledWith(
       Events.WindowMaximizedChanged,
-      { maximized: true }
+      { maximized: true, fullscreen: false }
+    )
+
+    vi.mocked(win.isMaximized).mockReturnValue(false)
+    // Electron can still report the pre-transition value from inside the
+    // Windows fullscreen event. The event itself must remain authoritative.
+    vi.mocked(win.isFullScreen).mockReturnValue(false)
+    enterFullScreen?.()
+    expect(win.webContents.send).toHaveBeenLastCalledWith(
+      Events.WindowMaximizedChanged,
+      { maximized: false, fullscreen: true }
+    )
+    resized?.()
+    expect(win.webContents.send).toHaveBeenLastCalledWith(
+      Events.WindowMaximizedChanged,
+      { maximized: false, fullscreen: true }
+    )
+
+    vi.mocked(win.isFullScreen).mockReturnValue(true)
+    leaveFullScreen?.()
+    expect(win.webContents.send).toHaveBeenLastCalledWith(
+      Events.WindowMaximizedChanged,
+      { maximized: false, fullscreen: false }
     )
 
     // macOS can finish a manual resize without sending unmaximize. The final
     // geometry event must still reconcile the renderer caption state.
     vi.mocked(win.isMaximized).mockReturnValue(false)
+    vi.mocked(win.isFullScreen).mockReturnValue(false)
     resized?.()
     expect(win.webContents.send).toHaveBeenLastCalledWith(
       Events.WindowMaximizedChanged,
-      { maximized: false }
+      { maximized: false, fullscreen: false }
     )
 
     vi.mocked(win.isMaximized).mockReturnValue(true)
@@ -213,7 +273,7 @@ describe('WindowManager', () => {
     unmaximize?.()
     expect(win.webContents.send).toHaveBeenLastCalledWith(
       Events.WindowMaximizedChanged,
-      { maximized: false }
+      { maximized: false, fullscreen: false }
     )
   })
 
@@ -749,8 +809,49 @@ describe('WindowManager', () => {
       width: 1024,
       height: 768,
     })
+    expect(win.maximize).not.toHaveBeenCalled()
+    ;(win as unknown as { fireReadyToShow(): void }).fireReadyToShow()
     expect(win.maximize).toHaveBeenCalledOnce()
   })
+
+  it.each(['show', 'toggle', 'open'] as const)(
+    'keeps a maximized background window hidden until %s is requested',
+    (action) => {
+      const saved = {
+        x: 100,
+        y: 100,
+        width: 1024,
+        height: 768,
+        maximized: true,
+      }
+      const sm = createMockSettingsManager({ main: saved })
+      const wm = new WindowManager({
+        settingsManager: sm,
+        platform: 'win32',
+        preloadPath: '/fake/preload.cjs',
+        loadUrl: vi.fn(),
+      })
+      const win = wm.open('main', { show: false })
+      ;(win as unknown as { fireReadyToShow(): void }).fireReadyToShow()
+      expect(win.isVisible()).toBe(false)
+      expect(win.maximize).not.toHaveBeenCalled()
+      wm.saveBounds('main')
+      expect(sm.update).toHaveBeenCalledWith({ windowState: { main: saved } })
+
+      wm[action]('main')
+      expect(win.isVisible()).toBe(true)
+      expect(win.maximize).toHaveBeenCalledOnce()
+      wm.hide('main')
+      wm.show('main')
+      expect(win.maximize).toHaveBeenCalledOnce()
+      // After first reveal, the live window state takes precedence again.
+      vi.mocked(win.isMaximized).mockReturnValue(false)
+      wm.saveBounds('main')
+      expect(sm.update).toHaveBeenLastCalledWith({
+        windowState: { main: { ...saved, maximized: false } },
+      })
+    }
+  )
 
   it('ignores saved bounds if outside all screens', () => {
     const savedBounds = { x: 5000, y: 5000, width: 1024, height: 768 }

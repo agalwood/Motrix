@@ -12,6 +12,7 @@ import {
   EngineRecoveryRecommendation,
   EngineState,
 } from '@shared/types/engine'
+import { generalSettingsSnapshot } from '@test-utils/general-settings'
 import { makeTaskInspectorActivitySnapshot } from '@test-utils/task-inspector-activity'
 import { ipcMain } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -145,6 +146,47 @@ function serializeCommandGraphRecords(): string {
 }
 
 describe('buildQueryHandlers', () => {
+  it('returns one General draft snapshot and validates before reading it', async () => {
+    const snapshot = generalSettingsSnapshot({
+      favorites: ['/saved'],
+      recent: [],
+    })
+    const getGeneralSettingsSnapshot = vi.fn(() => snapshot)
+    const handlers = buildQueryHandlers({
+      settingsManager: { getGeneralSettingsSnapshot },
+    } as unknown as QueryContext)
+    expect(
+      await handlers[Queries.GetGeneralSettingsDraft]?.({ extra: true })
+    ).toEqual({
+      ok: false,
+      error: { code: 'invalidPath' },
+    })
+    expect(getGeneralSettingsSnapshot).not.toHaveBeenCalled()
+    expect(await handlers[Queries.GetGeneralSettingsDraft]?.({})).toEqual({
+      ok: true,
+      value: snapshot,
+    })
+    expect(getGeneralSettingsSnapshot).toHaveBeenCalledOnce()
+  })
+
+  it('returns only raw directory preferences and rejects invalid requests before reading settings', async () => {
+    const preferences = { favorites: ['/saved/missing'], recent: ['/previous'] }
+    const getApp = vi.fn(() => ({
+      directoryPreferences: preferences,
+      private: 'not forwarded',
+    }))
+    const handlers = buildQueryHandlers({
+      settingsManager: { getApp },
+    } as unknown as QueryContext)
+    expect(
+      await handlers[Queries.GetDirectoryPreferences]?.({ extra: true })
+    ).toEqual({ ok: false, error: { code: 'invalidPath' } })
+    expect(getApp).not.toHaveBeenCalled()
+    const result = await handlers[Queries.GetDirectoryPreferences]?.({})
+    expect(result).toEqual({ ok: true, value: preferences })
+    expect(handlers[Queries.ListServerDirectoryLocations]).toBeUndefined()
+  })
+
   it('reads the OS proxy through an isolated system-mode session', async () => {
     ipcMocks.systemProxySession.setProxy.mockResolvedValue(undefined)
     ipcMocks.systemProxySession.forceReloadProxyConfig.mockResolvedValue(
@@ -236,6 +278,17 @@ describe('buildQueryHandlers', () => {
     release()
     await expect(list).resolves.toEqual([task])
     await expect(detail).resolves.toBe(task)
+  })
+
+  it('exposes the current tracker sync status to newly opened windows', async () => {
+    const getSyncStatus = vi.fn(() => 'probing')
+    const handlers = buildQueryHandlers({
+      trackerManager: { getSyncStatus },
+    } as unknown as QueryContext)
+    await expect(handlers[Queries.GetTrackerSyncStatus]?.()).resolves.toBe(
+      'probing'
+    )
+    expect(getSyncStatus).toHaveBeenCalledOnce()
   })
 
   it('returns a map with all query channels', () => {
@@ -652,7 +705,12 @@ describe('GetEngineDiagnostics handler', () => {
       managedPid: null,
       featureReport: null,
       binary: { name: 'aria2c', available: true, version: '1.37.0' },
-      rpc: { port: 16800, available: false, expectedListener: false },
+      rpc: {
+        port: 16800,
+        available: false,
+        expectedListener: false,
+        connection: { transport: 'websocket', connected: false },
+      },
       process: null,
       defaultRpc: {
         port: 16800,

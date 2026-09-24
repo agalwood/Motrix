@@ -9,7 +9,7 @@ import {
 } from './extension-identity-resolver'
 import { TrustedExtensionRegistry } from './trusted-extension-registry'
 
-const BUILTIN_CHROMIUM_ID = 'ibpkjhgpbidfmbmomagmldcdlpbmchgi'
+const BUILTIN_CHROMIUM_ID = 'lggbokfckofcgjndaboioakcmincinpo'
 const BUILTIN_FIREFOX_ID = 'motrix-extension@motrix.app'
 const OTHER_CHROMIUM_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 const DEV_CHROMIUM_ID = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'

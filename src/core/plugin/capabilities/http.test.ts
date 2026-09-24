@@ -7,6 +7,8 @@ import * as http from 'node:http'
 import type { AddressInfo } from 'node:net'
 import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { urlMatchesHostPermissions } from '../hooks/eligibility'
+import { HOST_PATTERN_CONFORMANCE_CASES } from '../permissions/host-pattern.corpus'
 import { HttpCapabilityHost } from './http'
 import { CookieJar, ensureCookieJarSchema } from './http-cookies'
 
@@ -62,6 +64,22 @@ function createTestServer(): Promise<{
 
       if (url === '/redirect-external') {
         res.writeHead(302, { Location: 'https://elsewhere.example/file' })
+        res.end()
+        return
+      }
+
+      if (url === '/redirect-empty-userinfo') {
+        res.writeHead(302, {
+          Location: `${baseUrl.replace('://', '://@')}/text`,
+        })
+        res.end()
+        return
+      }
+
+      if (url === '/redirect-empty-userinfo-relative') {
+        res.writeHead(302, {
+          Location: `//@${new URL(baseUrl).host}/text`,
+        })
         res.end()
         return
       }
@@ -139,6 +157,15 @@ function createTestServer(): Promise<{
 // ---------------------------------------------------------------------------
 // Test suite
 // ---------------------------------------------------------------------------
+
+describe('HttpCapabilityHost shared host-permission corpus', () => {
+  it.each(HOST_PATTERN_CONFORMANCE_CASES)(
+    '$name',
+    ({ pattern, url, expected }) => {
+      expect(urlMatchesHostPermissions([pattern], url)).toBe(expected)
+    }
+  )
+})
 
 describe('HttpCapabilityHost', () => {
   let server: http.Server
@@ -340,7 +367,7 @@ describe('HttpCapabilityHost host permissions', () => {
 
   it('allows a URL matching the declared hostPermissions', async () => {
     const host = new HttpCapabilityHost({
-      hostPermissions: ['http://127.0.0.1:*/*'],
+      hostPermissions: ['http://127.0.0.1/*'],
     })
     const resp = await host.get(`${baseUrl}/text`)
     expect(resp.body).toBe('hello')
@@ -355,10 +382,44 @@ describe('HttpCapabilityHost host permissions', () => {
 
   it('re-checks hostPermissions on every redirect hop', async () => {
     const host = new HttpCapabilityHost({
-      hostPermissions: ['http://127.0.0.1:*/*'],
+      hostPermissions: ['http://127.0.0.1/*'],
     })
     await expect(
       host.get(`${baseUrl}/redirect-external`)
+    ).rejects.toMatchObject({ code: 'plugin.http.host_not_permitted' })
+  })
+
+  it('rejects empty userinfo before the initial URL is canonicalized', async () => {
+    const host = new HttpCapabilityHost({
+      hostPermissions: ['http://127.0.0.1/*'],
+    })
+    await expect(
+      host.get(baseUrl.replace('://', '://@'))
+    ).rejects.toMatchObject({ code: 'plugin.http.host_not_permitted' })
+  })
+
+  it('rejects empty userinfo in an absolute redirect Location', async () => {
+    const host = new HttpCapabilityHost({
+      hostPermissions: ['http://127.0.0.1/*'],
+    })
+    await expect(
+      host.get(`${baseUrl}/redirect-empty-userinfo`)
+    ).rejects.toMatchObject({ code: 'plugin.http.host_not_permitted' })
+  })
+
+  it('rejects empty userinfo in a scheme-relative redirect Location', async () => {
+    const host = new HttpCapabilityHost({
+      hostPermissions: ['http://127.0.0.1/*'],
+    })
+    await expect(
+      host.get(`${baseUrl}/redirect-empty-userinfo-relative`)
+    ).rejects.toMatchObject({ code: 'plugin.http.host_not_permitted' })
+  })
+
+  it('rejects credential syntax even when hostPermissions is unrestricted', async () => {
+    const host = new HttpCapabilityHost()
+    await expect(
+      host.get(baseUrl.replace('://', '://@'))
     ).rejects.toMatchObject({ code: 'plugin.http.host_not_permitted' })
   })
 

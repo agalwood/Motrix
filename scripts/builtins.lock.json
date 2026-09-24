@@ -8,13 +8,6 @@
       "sha256": "3b88e4b79ae3a019f1efec08ccd69bf6f83088887f7c13205f1d58ea22bfc4da",
       "size": 5673
     },
-    "motrix.scraper-hook": {
-      "tag": "motrix.scraper-hook@1.0.0",
-      "version": "1.0.0",
-      "file": "motrix.scraper-hook-1.0.0.moext",
-      "sha256": "2b6d1771fa0ccbd21e3a3da1284a589bd8f93d3a2ad6c6813fba6f21d2cfcb25",
-      "size": 2218
-    },
     "motrix.url-resolver": {
       "tag": "motrix.url-resolver@1.0.0",
       "version": "1.0.0",

@@ -3,6 +3,7 @@ import {
   applyTerminalTransition,
   terminalFieldsFromRow,
 } from '@core/task/apply-terminal-transition'
+import { exceedsPathLimit, extractAria2FilePath } from '@core/task/path-length'
 import { toFinalPath } from '@core/task/paths'
 import { DownloadErrorCode } from '@shared/errors'
 import type { TaskPeer } from '@shared/types/peer'
@@ -20,6 +21,7 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
+import { shareRatio } from '@shared/utils/share-ratio'
 import peerid from 'bittorrent-peerid'
 import type {
   Aria2RawFile,
@@ -120,6 +122,55 @@ export function translateErrorCode(
   }
 }
 
+/** aria2 exit codes whose cause can be an over-long destination path. */
+const FILE_ACCESS_ERROR_CODES = new Set([13, 14, 15, 16, 17, 18])
+
+export interface TerminalErrorClassification {
+  errorCode: DownloadErrorCode | null
+  errorDetailKey: string | null
+  errorDetailParams: Record<string, string> | null
+}
+
+/**
+ * Refine `translateErrorCode` with what the engine's message reveals.
+ *
+ * aria2 reports a Windows destination past the extended-length path limit as
+ * a plain file-open failure, which the code-only mapping flattens into
+ * `FileWriteError` — surfaced to the user as "check folder permissions and
+ * disk space", advice that cannot resolve it. Measuring the path aria2 names
+ * separates the two causes. Paths merely past MAX_PATH are not flagged: the
+ * engine opens those (agalwood/Motrix#2183), so a failure there is a genuine
+ * write error.
+ */
+export function classifyTerminalError(
+  rawErrorCode: string | null | undefined,
+  rawErrorMessage: string | null | undefined,
+  platform: NodeJS.Platform | string = process.platform
+): TerminalErrorClassification {
+  const errorCode = translateErrorCode(rawErrorCode)
+  const none = { errorDetailKey: null, errorDetailParams: null }
+  if (errorCode === null) return { errorCode, ...none }
+
+  const numeric = Number.parseInt(String(rawErrorCode).trim(), 10)
+  if (!FILE_ACCESS_ERROR_CODES.has(numeric)) return { errorCode, ...none }
+
+  const filePath = extractAria2FilePath(rawErrorMessage)
+  if (filePath === null) return { errorCode, ...none }
+
+  const overrun = exceedsPathLimit(filePath, platform)
+  if (overrun === null) return { errorCode, ...none }
+
+  return {
+    errorCode: DownloadErrorCode.PathTooLong,
+    errorDetailKey: 'task.error.detail.pathTooLong',
+    errorDetailParams: {
+      length: String(overrun.length),
+      limit: String(overrun.limit),
+      path: filePath,
+    },
+  }
+}
+
 // ─── Task Type Detection ──────────────────────────────────────
 
 export function detectTaskType(raw: Aria2RawStatus): TaskType {
@@ -211,10 +262,7 @@ export function translateBtExtension(
   return {
     peers: Number(raw.connections) || 0,
     seeds: Number(raw.numSeeders) || 0,
-    ratio:
-      Number(raw.completedLength) > 0
-        ? Number(raw.uploadLength) / Number(raw.completedLength)
-        : 0,
+    ratio: shareRatio(Number(raw.uploadLength), Number(raw.totalLength)),
     trackers: (raw.bittorrent.announceList ?? []).flat(),
     selectedFiles: (raw.files ?? [])
       .filter((f) => f.selected === 'true')
@@ -339,7 +387,7 @@ export function translateRawToTask(raw: Aria2RawStatus): DownloadTask {
     {
       finishedAt: raw.status === 'complete' ? now : null,
       errorMessage: raw.errorMessage ?? null,
-      errorCode: translateErrorCode(raw.errorCode),
+      ...classifyTerminalError(raw.errorCode, raw.errorMessage),
     },
     now
   )

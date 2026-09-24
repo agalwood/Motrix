@@ -158,7 +158,7 @@ describe('validateFinalizePatch', () => {
       { filePath: 'subdir/x.mp4' },
       makeOpts({ saveDir: '/downloads' })
     )
-    expect(result.filePath).toBe('subdir/x.mp4')
+    expect(result.filePath).toBe('/downloads/subdir/x.mp4')
   })
 
   it('accepts filePath when saveDir has a trailing slash', () => {
@@ -166,7 +166,7 @@ describe('validateFinalizePatch', () => {
       { filePath: 'x.mp4' },
       makeOpts({ saveDir: '/tmp/save/' })
     )
-    expect(result.filePath).toBe('x.mp4')
+    expect(result.filePath).toBe('/tmp/save/x.mp4')
   })
 
   it('rejects filePath that escapes saveDir via ../', () => {
@@ -232,4 +232,10 @@ describe('validateFinalizePatch', () => {
       expect((e as AppError).code).toBe(ErrorCode.PluginRuntimeFault)
     }
   })
+})
+
+it('rejects a plugin target equal to the save directory before committing it', () => {
+  expect(() => validateFinalizePatch({ filePath: '.' }, makeOpts())).toThrow(
+    'descendant'
+  )
 })

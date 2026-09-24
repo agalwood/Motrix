@@ -1,3 +1,4 @@
+import { makeMediaProgress } from '@test-utils/media-progress'
 import '@testing-library/jest-dom/vitest'
 
 import { vi } from 'vitest'
@@ -20,6 +21,7 @@ import { TaskKind, TaskStatus, TaskType } from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { formatTaskTimestamp } from './format-task-timestamp'
 import { TaskRow } from './task-row'
 
 function fake(overrides: Partial<DownloadTask> = {}): DownloadTask {
@@ -54,17 +56,85 @@ const rowProps = {
 
 function getEtaCell(container: HTMLElement): Element {
   const row = container.firstElementChild
-  const etaCell = row?.children.item(row.children.length - 2)
+  const etaCell = row?.children.item(row.children.length - 4)
   if (!etaCell) throw new Error('TaskRow ETA cell not found')
   return etaCell
 }
 
 describe('TaskRow', () => {
+  it('shows media stages even with the status column hidden and exposes indeterminate progress', () => {
+    const task = fake({
+      kind: TaskKind.Hls,
+      progress: 1,
+      mediaProgress: makeMediaProgress(),
+    })
+    const { rerender } = render(
+      <TaskRow
+        task={task}
+        rowProps={rowProps}
+        columns={[
+          { id: 'name', width: 240, visible: true },
+          { id: 'progress', width: 160, visible: true },
+        ]}
+      />
+    )
+    expect(screen.getByText('Downloading 0.1%')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute(
+      'aria-valuenow',
+      '0.1'
+    )
+    rerender(
+      <TaskRow
+        task={{
+          ...task,
+          mediaProgress: makeMediaProgress({ phase: 'assembling' }),
+        }}
+        rowProps={rowProps}
+        columns={[{ id: 'progress', width: 160, visible: true }]}
+      />
+    )
+    expect(screen.getByText('Assembling —')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).not.toHaveAttribute('aria-valuenow')
+    rerender(
+      <TaskRow
+        task={{
+          ...task,
+          mediaProgress: makeMediaProgress({
+            phase: 'muxing',
+            muxProgress: 0.42,
+          }),
+        }}
+        rowProps={rowProps}
+        columns={[{ id: 'progress', width: 160, visible: true }]}
+      />
+    )
+    expect(screen.getByText('Merging 42%')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute(
+      'aria-valuenow',
+      '42'
+    )
+  })
+
+  it('keeps a slow unfinished tail below 100% until bytes finish', () => {
+    const task = fake({ progress: 0.995, downloadSpeed: 102400 })
+    const { rerender } = render(<TaskRow task={task} rowProps={rowProps} />)
+    expect(screen.getByText('99%')).toBeInTheDocument()
+    expect(screen.queryByText('100%')).not.toBeInTheDocument()
+    rerender(
+      <TaskRow
+        task={{ ...task, progress: 1, status: TaskStatus.Finalizing }}
+        rowProps={rowProps}
+      />
+    )
+    expect(screen.getByText('100%')).toBeInTheDocument()
+    expect(screen.getByText('Finalizing')).toBeInTheDocument()
+    expect(screen.queryByText('100 KB/s')).not.toBeInTheDocument()
+  })
+
   it('renders task name and formatted size', () => {
     render(<TaskRow task={fake()} rowProps={rowProps} />)
-    expect(screen.getByText('ubuntu.iso')).toBeInTheDocument()
-    // formatBytes(4_700_000_000) = "4.4 GB" (1024-base, value.toFixed(1))
-    expect(screen.getByText(/4\.4 GB/)).toBeInTheDocument()
+    expect(screen.getByTitle('ubuntu.iso')).toBeInTheDocument()
+    expect(screen.getByText(/4\.70 GB/)).toBeInTheDocument()
   })
 
   it('renders a dash for speeds when paused', () => {
@@ -77,7 +147,7 @@ describe('TaskRow', () => {
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
   })
 
-  it.each([TaskStatus.Paused, TaskStatus.Completed])(
+  it.each([TaskStatus.Paused, TaskStatus.Completed, TaskStatus.Finalizing])(
     'renders a dash for stale ETA when a memoized task becomes %s',
     (status) => {
       const downloading = fake({
@@ -102,13 +172,71 @@ describe('TaskRow', () => {
     const { container } = render(
       <TaskRow task={fake()} rowProps={{ ...rowProps, selected: true }} />
     )
-    expect(container.firstChild).toHaveClass('bg-accent/40')
+    expect(container.firstChild).toHaveAttribute('aria-selected', 'true')
   })
 
   it('uses the same minimum width as the scrollable column header', () => {
     const { container } = render(<TaskRow task={fake()} rowProps={rowProps} />)
 
-    expect(container.firstChild).toHaveStyle({ minWidth: '960px' })
+    expect(container.firstChild).toHaveStyle({ minWidth: '1362px' })
+  })
+
+  it('renders localized creation and completion timestamps and refreshes on completion', () => {
+    const createdAt = Date.parse('2020-09-13T01:02:08Z')
+    const finishedAt = Date.parse('2020-09-13T03:04:19Z')
+    const task = fake({ createdAt })
+    const { container, rerender } = render(
+      <TaskRow task={task} rowProps={rowProps} />
+    )
+    const row = container.firstElementChild!
+    expect(row.children.item(row.children.length - 2)).toHaveTextContent(
+      formatTaskTimestamp(createdAt, 'en-US', Date.now())!.compact
+    )
+    expect(
+      row.children.item(row.children.length - 2)?.querySelector('time')
+    ).toHaveAttribute('datetime', '2020-09-13T01:02:08.000Z')
+    expect(row.lastElementChild).toHaveTextContent('—')
+    rerender(
+      <TaskRow
+        task={{ ...task, status: TaskStatus.Completed, finishedAt }}
+        rowProps={rowProps}
+      />
+    )
+    expect(row.lastElementChild).toHaveTextContent(
+      formatTaskTimestamp(finishedAt, 'en-US', Date.now())!.compact
+    )
+    expect(row.lastElementChild?.querySelector('time')).toHaveAttribute(
+      'datetime',
+      '2020-09-13T03:04:19.000Z'
+    )
+  })
+
+  it('does not present failure timestamps as completion or render invalid dates', () => {
+    const { container, rerender } = render(
+      <TaskRow
+        task={fake({
+          status: TaskStatus.Error,
+          createdAt: 0,
+          finishedAt: Date.now(),
+        })}
+        rowProps={rowProps}
+      />
+    )
+    const row = container.firstElementChild!
+    expect(row.children.item(row.children.length - 2)).toHaveTextContent('—')
+    expect(row.lastElementChild).toHaveTextContent('—')
+    rerender(
+      <TaskRow
+        task={fake({
+          status: TaskStatus.Completed,
+          createdAt: Number.NaN,
+          finishedAt: 1e20,
+        })}
+        rowProps={rowProps}
+      />
+    )
+    expect(row.children.item(row.children.length - 2)).toHaveTextContent('—')
+    expect(row.lastElementChild).toHaveTextContent('—')
   })
 
   it('renders gracefully for magnet metadata pending (Plan B)', () => {
@@ -146,7 +274,10 @@ describe('TaskRow', () => {
           rowProps={rowProps}
         />
       )
-      expect(screen.getByText('Disk is full')).toBeInTheDocument()
+      expect(container.firstChild).toHaveAttribute(
+        'aria-description',
+        'Disk is full'
+      )
       expect(container.firstChild).toHaveAttribute(
         'title',
         'ENOSPC: no space left on device'

@@ -1,3 +1,4 @@
+import '@test-utils/dom-animations'
 import '@testing-library/jest-dom/vitest'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
 import { i18n } from '@renderer/lib/i18n'
@@ -8,7 +9,8 @@ import {
 import { Queries } from '@shared/protocol/queries'
 import type { RegistryPluginDTO } from '@shared/schemas/registry'
 import type { PluginListDTO } from '@shared/types/plugin'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -19,6 +21,8 @@ vi.mock('@renderer/lib/transport', () => ({
   transport: { invoke: mockInvoke, on: vi.fn(), off: vi.fn() },
 }))
 
+const mockRefresh = vi.fn()
+let mockRefreshing = false
 let mockList: PluginListDTO[] = []
 let mockRegistry: RegistryPluginDTO[] = []
 vi.mock('./hooks/use-plugins', () => ({
@@ -26,7 +30,10 @@ vi.mock('./hooks/use-plugins', () => ({
 }))
 vi.mock('./hooks/use-registry', () => ({
   useRegistryPlugins: () => mockRegistry,
-  useRegistryUpdates: () => ({ refreshing: false, refresh: vi.fn() }),
+  useRegistryUpdates: () => ({
+    refreshing: mockRefreshing,
+    refresh: mockRefresh,
+  }),
 }))
 
 import { PluginsPage } from './plugins-page'
@@ -53,6 +60,13 @@ function renderPage(kind: 'electron' | 'web' = 'electron') {
       </TooltipProvider>
     </PlatformServicesProvider>
   )
+}
+
+function expandSearch() {
+  if (!screen.queryByRole('textbox', { name: 'Find a plugin' })) {
+    fireEvent.click(screen.getByRole('button', { name: 'Find a plugin' }))
+  }
+  return screen.getByRole('textbox', { name: 'Find a plugin' })
 }
 
 function plugin(over: Partial<PluginListDTO> = {}): PluginListDTO {
@@ -109,6 +123,8 @@ function registryPlugin(
 
 describe('PluginsPage', () => {
   beforeEach(async () => {
+    mockRefreshing = false
+    mockRefresh.mockClear()
     mockList = []
     mockRegistry = []
     mockInvoke.mockClear()
@@ -121,7 +137,7 @@ describe('PluginsPage', () => {
     renderPage()
 
     const scrollRegion = screen.getByTestId('plugins-scroll-region')
-    const search = screen.getByPlaceholderText('Find a plugin')
+    const search = screen.getByRole('button', { name: 'Find a plugin' })
     const diagnostics = screen.getByRole('link', {
       name: 'Diagnostics',
     })
@@ -192,12 +208,12 @@ describe('PluginsPage', () => {
     renderPage()
 
     const scrollRegion = screen.getByTestId('plugins-scroll-region')
-    const search = screen.getByPlaceholderText('Find a plugin')
+    const search = screen.getByRole('button', { name: 'Find a plugin' })
     const diagnostics = screen.getByRole('link', {
       name: 'Diagnostics',
     })
 
-    expect(scrollRegion).toHaveClass('overflow-y-auto')
+    expect(screen.getByRole('region', { name: 'Plugins' })).toBe(scrollRegion)
     expect(scrollRegion).not.toContainElement(search)
     expect(scrollRegion).not.toContainElement(diagnostics)
     expect(scrollRegion).toContainElement(screen.getByText('Test Plugin'))
@@ -214,14 +230,42 @@ describe('PluginsPage', () => {
     )
   })
 
-  it('inherits the shared Input focus ring', () => {
+  it('expands and focuses search from the shared header toolbar', async () => {
+    const user = userEvent.setup()
     renderPage()
-    const input = screen.getByPlaceholderText('Find a plugin')
+    const toolbar = screen.getByRole('toolbar', { name: 'Plugins' })
+    expect(within(toolbar).queryByRole('textbox')).toBeNull()
+    await user.click(
+      within(toolbar).getByRole('button', { name: 'Find a plugin' })
+    )
+    expect(
+      within(toolbar).getByRole('textbox', { name: 'Find a plugin' })
+    ).toHaveFocus()
+    await user.keyboard('{Escape}')
+    expect(
+      within(toolbar).getByRole('button', { name: 'Find a plugin' })
+    ).toHaveFocus()
+  })
 
-    expect(input).toHaveClass('focus-visible:border-ring')
-    expect(input).toHaveClass('focus-visible:ring-[3px]')
-    expect(input).toHaveClass('focus-visible:ring-ring/50')
-    expect(input).not.toHaveClass('focus-visible:ring-0')
+  it('runs update checks from the toolbar and disables the busy action', () => {
+    const { rerender } = renderPage()
+    fireEvent.click(screen.getByTestId('registry-refresh-btn'))
+    expect(mockRefresh).toHaveBeenCalledOnce()
+    mockRefreshing = true
+    rerender(
+      <PlatformServicesProvider services={services('electron')}>
+        <TooltipProvider>
+          <MemoryRouter>
+            <PluginsPage />
+          </MemoryRouter>
+        </TooltipProvider>
+      </PlatformServicesProvider>
+    )
+    expect(screen.getByTestId('registry-refresh-btn')).toBeDisabled()
+    expect(screen.getByTestId('registry-refresh-btn')).toHaveAttribute(
+      'aria-busy',
+      'true'
+    )
   })
 
   it('filters cards by search query', () => {
@@ -231,7 +275,7 @@ describe('PluginsPage', () => {
     ]
     renderPage()
 
-    fireEvent.change(screen.getByPlaceholderText('Find a plugin'), {
+    fireEvent.change(expandSearch(), {
       target: { value: 'beta' },
     })
 
@@ -243,12 +287,16 @@ describe('PluginsPage', () => {
     mockList = [plugin()]
     renderPage()
 
-    fireEvent.change(screen.getByPlaceholderText('Find a plugin'), {
+    fireEvent.change(expandSearch(), {
       target: { value: 'zzz' },
     })
     expect(screen.getByText(/No plugins match “zzz”/)).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+    fireEvent.click(
+      within(screen.getByTestId('plugins-scroll-region')).getByRole('button', {
+        name: 'Clear search',
+      })
+    )
     expect(screen.getByText('Test Plugin')).toBeInTheDocument()
   })
 
@@ -257,9 +305,9 @@ describe('PluginsPage', () => {
     expect(screen.getByTestId('registry-refresh-btn')).toBeInTheDocument()
   })
 
-  it('hides the registry refresh button on web', () => {
+  it('shows the community registry refresh button on web', () => {
     renderPage('web')
-    expect(screen.queryByTestId('registry-refresh-btn')).toBeNull()
+    expect(screen.getByTestId('registry-refresh-btn')).toBeInTheDocument()
   })
 
   it('marks an installed plugin that has a registry update', () => {
@@ -277,14 +325,14 @@ describe('PluginsPage', () => {
     mockRegistry = [registryPlugin()]
     renderPage()
 
-    fireEvent.change(screen.getByPlaceholderText('Find a plugin'), {
+    fireEvent.change(expandSearch(), {
       target: { value: 'archive' },
     })
     expect(
       screen.getByTestId('registry-card-example.archive-unpacker')
     ).toBeInTheDocument()
 
-    fireEvent.change(screen.getByPlaceholderText('Find a plugin'), {
+    fireEvent.change(expandSearch(), {
       target: { value: 'アーカイブ' },
     })
     expect(
@@ -295,7 +343,7 @@ describe('PluginsPage', () => {
   it('recomputes a non-empty registry search on live language change without refetch', async () => {
     mockRegistry = [registryPlugin()]
     renderPage()
-    fireEvent.change(screen.getByPlaceholderText('Find a plugin'), {
+    fireEvent.change(expandSearch(), {
       target: { value: '压缩包' },
     })
     expect(

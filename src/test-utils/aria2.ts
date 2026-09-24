@@ -24,6 +24,10 @@ export interface Aria2Handle {
 
 export interface SpawnAria2Options {
   baseDir: string
+  /** Optional explicit binary for compatibility tests against older engines. */
+  binaryPath?: string
+  /** Additional engine flags for focused integration scenarios. */
+  extraArgs?: readonly string[]
   port?: number
   secret?: string
   waitForHttpRpc?: boolean
@@ -92,11 +96,13 @@ export async function spawnAria2ForTest(
 ): Promise<Aria2Handle> {
   const port = opts.port ?? 16800 + Math.floor(Math.random() * 2000)
   const secret = opts.secret ?? 'test_secret'
-  const bin = resolveBundledAria2()
+  const bin = opts.binaryPath ?? resolveBundledAria2()
 
   const proc = spawn(
     bin,
     [
+      '--no-conf=true',
+      '--no-netrc=true',
       '--enable-rpc=true',
       `--rpc-listen-port=${port}`,
       `--rpc-secret=${secret}`,
@@ -110,6 +116,7 @@ export async function spawnAria2ForTest(
       '--rpc-save-upload-metadata=true',
       '--console-log-level=warn',
       `--dir=${opts.baseDir}`,
+      ...(opts.extraArgs ?? []),
     ],
     { stdio: ['ignore', 'pipe', 'pipe'] }
   )

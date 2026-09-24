@@ -2,9 +2,12 @@ import path from 'node:path'
 import type { TaskActivityService } from '@core/activity'
 import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EngineSupervisor } from '@core/engine/engine-supervisor'
+import { createGetEngineTaskOptionsHandler } from '@core/engine/get-engine-task-options'
+import { getTuningRecommendation } from '@core/engine/get-tuning-recommendation'
 import type { GeoIPManager } from '@core/geoip/geo-ip-manager'
 import { createGetGeoIPStatusHandler } from '@core/geoip/get-geo-ip-status'
 import type { NotificationCenter } from '@core/notifications/notification-center'
+import type { CapabilityHost } from '@core/plugin/capabilities/interface'
 import { readCommandGraph } from '@core/plugin/commands/command-graph'
 import type { GrantsManager } from '@core/plugin/grants/grants-manager'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
@@ -15,6 +18,10 @@ import {
   readPluginConfig,
 } from '@core/plugin/queries'
 import type { RegistryClient } from '@core/plugin/registry/registry-client'
+import { parseProxyEnvironment } from '@core/proxy/system-proxy'
+import type { MotrixDatabase } from '@core/session/motrix-database'
+import { createDirectoryPreferencesHandlers } from '@core/settings/directory-preferences'
+import { createGetGeneralSettingsDraftHandler } from '@core/settings/general-settings'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import type { SpeedLimitController } from '@core/speed-limit/speed-limit-controller'
 import type {
@@ -23,13 +30,18 @@ import type {
   TaskSpeedHistoryStore,
   TransferStatsRuntime,
 } from '@core/stats'
+import { createGetTaskFilesHandler } from '@core/task/get-task-files'
 import { createGetTaskPeersHandler } from '@core/task/get-task-peers'
 import { createGetTaskPiecesHandler } from '@core/task/get-task-pieces'
+import type { MediaMetaStore } from '@core/task/media-meta-store'
 import { slimTasksForBroadcast } from '@core/task/slim-task-for-broadcast'
 import type { TaskManager } from '@core/task/task-manager'
 import type { TrackerManager } from '@core/tracker'
 import type { QueryHandlerMap } from '@shared/protocol/handler-types'
 import { Queries } from '@shared/protocol/queries'
+import { ListServerDirectoryLocationsRequestSchema } from '@shared/schemas/server-directory'
+import type { AppUpdateState } from '@shared/types/app-update'
+import type { AppImageIntegrationView } from '@shared/types/appimage-integration'
 import {
   CliInstallCapability,
   CliPackageManager,
@@ -41,6 +53,7 @@ import type { GetTransferStatsParams } from '@shared/types/stats'
 import type { GetTaskActivityParams } from '@shared/types/task-activity'
 import type { ServerDownloadPathPolicy } from '../download-path-policy'
 import { makeServerFfmpegDetect } from '../plugin/ffmpeg-detect-server'
+import type { ServerDirectoryService } from '../server-directory-service'
 
 const UNSUPPORTED_WEB_CLI_STATUS: CliToolStatus = {
   phase: CliToolPhase.ManualOnly,
@@ -81,6 +94,10 @@ const UNSUPPORTED_WEB_CLI_STATUS: CliToolStatus = {
   detail: null,
 }
 
+const UNSUPPORTED_APPIMAGE_INTEGRATION: AppImageIntegrationView = {
+  supported: false,
+}
+
 export interface ServerQueryContext {
   taskManager: TaskManager
   statsAggregator: StatsAggregator
@@ -95,9 +112,12 @@ export interface ServerQueryContext {
   settingsManager: SettingsManager
   trackerManager: TrackerManager
   engineAdapter: EngineAdapter
+  mediaMetaStore: MediaMetaStore
+  motrixDatabase: MotrixDatabase
   geoipManager: Pick<GeoIPManager, 'getStatus' | 'isEnabled' | 'lookupCountry'>
   notificationCenter: NotificationCenter
   pluginRegistry: PluginRegistry
+  capabilityHost: CapabilityHost
   pluginGrants: GrantsManager
   registryClient: RegistryClient
   pluginsDir: string
@@ -105,6 +125,11 @@ export interface ServerQueryContext {
   userDataDir: string
   speedLimitController: SpeedLimitController
   downloadPathPolicy: ServerDownloadPathPolicy
+  serverDirectoryService: Pick<
+    ServerDirectoryService,
+    'list' | 'validate' | 'locations'
+  >
+  environment: NodeJS.ProcessEnv
 }
 
 export function buildServerQueryHandlers(
@@ -122,9 +147,11 @@ export function buildServerQueryHandlers(
     settingsManager,
     trackerManager,
     engineAdapter,
+    motrixDatabase,
     geoipManager,
     notificationCenter,
     pluginRegistry,
+    capabilityHost,
     pluginGrants,
     registryClient,
     pluginsDir,
@@ -132,6 +159,7 @@ export function buildServerQueryHandlers(
     userDataDir,
     speedLimitController,
     downloadPathPolicy,
+    environment,
   } = ctx
 
   const detectFfmpeg = makeServerFfmpegDetect({
@@ -140,6 +168,25 @@ export function buildServerQueryHandlers(
   })
 
   return {
+    [Queries.ListServerDirectoryLocations]: async (request: unknown) => {
+      if (
+        !ListServerDirectoryLocationsRequestSchema.safeParse(request).success
+      ) {
+        return { ok: false, error: { code: 'invalidPath' } }
+      }
+      return ctx.serverDirectoryService.locations(
+        request,
+        settingsManager.getApp()
+      )
+    },
+    [Queries.ListServerDirectories]: async (request: unknown) =>
+      ctx.serverDirectoryService.list(request),
+    [Queries.ValidateServerDirectory]: async (request: unknown) =>
+      ctx.serverDirectoryService.validate(request),
+    [Queries.GetDisclaimerState]: async () => ({
+      language: settingsManager.getApp().language,
+    }),
+
     [Queries.GetCliToolStatus]: async () => UNSUPPORTED_WEB_CLI_STATUS,
 
     // Same slim projection as the TaskUpdated broadcast so hydration and
@@ -151,6 +198,17 @@ export function buildServerQueryHandlers(
     // read keyed by public id, null when absent (never undefined).
     [Queries.GetTaskDetail]: async (taskId: string) =>
       taskManager.getById(taskId) ?? null,
+
+    [Queries.GetTaskFiles]: createGetTaskFilesHandler({
+      mediaMetaStore: ctx.mediaMetaStore,
+      db: motrixDatabase,
+      taskManager,
+      engine: engineAdapter,
+    }),
+
+    [Queries.GetEngineTaskOptions]: createGetEngineTaskOptionsHandler({
+      engine: engineAdapter,
+    }),
 
     [Queries.GetTaskPieces]: createGetTaskPiecesHandler({
       engineAdapter,
@@ -186,11 +244,30 @@ export function buildServerQueryHandlers(
 
     [Queries.GetEngineDiagnostics]: async () => supervisor.diagnose(),
 
+    [Queries.GetTuningRecommendation]: getTuningRecommendation,
+
+    [Queries.GetNatStatus]: async () => null,
+
+    [Queries.GetNatDiagnostic]: async () => null,
+
+    [Queries.GetGeneralSettingsDraft]:
+      createGetGeneralSettingsDraftHandler(settingsManager),
+    [Queries.GetDirectoryPreferences]:
+      createDirectoryPreferencesHandlers(settingsManager).get,
+
     [Queries.GetSettings]: async () => settingsManager.get(),
 
     [Queries.GetGeoIPStatus]: createGetGeoIPStatusHandler({ geoipManager }),
 
-    [Queries.GetSystemProxy]: async () => null,
+    [Queries.GetSystemProxy]: async () => parseProxyEnvironment(environment),
+
+    [Queries.GetUpdateState]: async (): Promise<AppUpdateState> => ({
+      phase: 'unsupported',
+      currentVersion: hostVersion,
+    }),
+
+    [Queries.GetAppImageIntegrationStatus]: async () =>
+      UNSUPPORTED_APPIMAGE_INTEGRATION,
 
     [Queries.GetLinuxDefaultAssociations]: async () => ({
       supported: false,
@@ -210,6 +287,8 @@ export function buildServerQueryHandlers(
     }),
 
     [Queries.GetTrackerList]: async () => trackerManager.getCuratedList(),
+
+    [Queries.GetTrackerSyncStatus]: async () => trackerManager.getSyncStatus(),
 
     [Queries.GetTrackerSources]: async () =>
       settingsManager.get().tracker.sources,
@@ -243,6 +322,11 @@ export function buildServerQueryHandlers(
       readCommandGraph(
         path.join(pluginsDir, '_audit', 'command-invokes.ndjson')
       ),
+
+    [Queries.GetPluginLogs]: async (params: {
+      pluginId: string
+      limit?: number
+    }) => capabilityHost.getTail(params.pluginId, params.limit ?? 100),
 
     [Queries.GetPluginConfig]: async (pluginId: string) =>
       readPluginConfig(settingsManager.get(), pluginId),

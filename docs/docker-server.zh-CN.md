@@ -181,6 +181,36 @@ docker compose -f compose.yaml -f compose.aria2-rpc.yaml up -d --wait
 切勿直接发布到公网；优先使用私有 Docker network、宿主 loopback、VPN 或其他带
 鉴权的加密 tunnel。
 
+### 种子上传大小
+
+种子创建请求默认允许 **8 MiB**。需要上传更大的种子元数据时，可将
+`MOTRIX_TORRENT_BODY_LIMIT_MIB` 设为 **2 到 64** 之间的整数，然后重启服务。
+仓库提供的两份 Compose 文件都支持此参数，例如：
+
+```bash
+export MOTRIX_TORRENT_BODY_LIMIT_MIB=16
+docker compose -f compose.yaml up -d --wait
+```
+
+此限制计算完整 UTF-8 JSON 请求的大小，包含 Base64 和选项；8 MiB 请求能容纳的原始
+`.torrent` 文件略小于 6 MiB。放宽后的限制仅适用于
+`/rpc/command/command:createTask` 和 `/rpc/command/command:addTorrentTask`
+中的种子载荷，其他 RPC 请求仍限 2 MiB。超限请求返回 HTTP 413。
+服务最多同时接收两个大请求或长度未知的种子请求，额外请求返回 HTTP 429。
+请求接收超时为 120 秒。
+
+Motrix 启动受管 aria2 时会设置相同的 `--rpc-max-request-size` 上限。
+独立管理的引擎或反向代理也需要配置匹配的限制；使用上面的配置时，在 Nginx 代理 Web API 的
+`server` 或 `location` 块中设置
+[`client_max_body_size 16m;`](https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size)。
+MDXP 与插件包上传限制不受此参数影响。
+
+这些数值是产品的资源限制，不是种子格式要求：
+[BEP 3](https://www.bittorrent.org/beps/bep_0003.html) 和
+[BEP 52](https://www.bittorrent.org/beps/bep_0052.html) 没有规定统一的种子元数据文件
+大小上限。即使请求上限设为 64 MiB，现有解析器仍将 Base64 限制在 50 MiB
+（对应 37.5 MiB 原始文件）。
+
 ### 运行在 Docker 宿主上的反向代理
 
 仓库提供的 [`compose.reverse-proxy.env`](../compose.reverse-proxy.env) 会把两个已发布的
@@ -300,6 +330,18 @@ Docker 宿主。
 URL**。它没有 localhost 默认值：远程客户端需要配对时必须显式设置，不要向另一台机器上的
 客户端发布 `localhost`、`127.0.0.1` 或 `0.0.0.0`。应使用 Web 端口或它的反向代理 URL，
 而不是 MDXP 端口。留空不会禁用配对，但客户端无法从服务器获得有效的审批 URL。
+
+`MOTRIX_PUBLIC_URL` 也决定浏览器事件连接 `/rpc/events` 接受的来源。浏览器
+地址栏中的协议、主机名和端口需要与它一致；配置了 HTTPS 域名后改用内网 IP
+访问，可能出现 HTTP 操作成功但实时事件连接被拒绝的情况。反向代理应转发
+WebSocket Upgrade，并保留正确的 Host 和协议信息。
+
+事件连接不可用时，WebUI 保留任务列表，并在页面可见时每 5 秒通过 HTTP 更新。
+Dashboard 的引擎卡片与下载页的引擎徽标会显示定时更新或连接异常状态；
+这不代表下载引擎已经停止。若显示“访问地址不匹配”，请使用配置的访问地址，
+或修正 `MOTRIX_PUBLIC_URL` 后重启容器。浏览器控制台中的 WebSocket 错误和
+容器日志中的 `operator event connection rejected` 可用于进一步排查。
+
 首次启动时，Motrix 会以 `0600` 权限生成 `/data/operator-token`。使用 bind mount 时可这样读取：
 
 ```bash
@@ -348,6 +390,28 @@ origin，并保留 cookie、Authorization header 和流式响应。MDXP 是独�
 MDXP，只转发 16801 也不会提供审批界面。不应通过禁用配对来实现这些保护；远程
 CLI/agent 与浏览器扩展配对都仍然需要 operator 审批。
 
+## Web 界面的 Logo 菜单
+
+点击左上角的 **Motrix** Logo，可打开关于、设置、任务、帮助和**退出登录**。
+窄屏一次显示一级菜单；点击**返回**、按左方向键或 Escape 可返回上一级。
+
+- **新建任务**打开链接表单，**新建 BT 任务**打开种子表单。
+  **打开种子文件**读取浏览器所在设备上的 `.torrent` 文件，支持多选，
+  提交前可逐个检查。下载保存路径属于 Server。请求体大小可配置，
+  详见本文的种子上传大小说明。
+- 暂停、继续、移除和队列调整作用于当前筛选列表中已确认的选择。
+  **全选任务**包含视口外的行；选择或筛选变化会取消尚未执行的选择操作。
+- **全部暂停**和**全部继续**作用于整个实例。**清理已停止任务记录**会确认
+  当前已完成、出错和已移除的记录，并保留下载文件。随后才停止的任务留待下次清理。
+- 关闭已编辑的任务表单前会确认是否丢弃草稿；提交过程中表单保持打开。
+  暂时断线会保留草稿，远程任务操作在连接恢复并取得新快照后重新可用。
+- 浏览器使用 Cookie 会话时显示**退出登录**。确认后，共享该 Cookie 的标签页
+  会一起退出并清除私有界面状态。Server 上的下载继续运行，独立浏览器会话和
+  Bearer 客户端不受影响。单纯的网络故障不会导致退出登录。
+
+Ctrl/Cmd+N、L、O、B 等浏览器快捷键保持原有用途。任务全选和移除快捷键
+仅在下载列表获得焦点时生效，文本输入框保留正常的编辑快捷键。
+
 ## 下载路径与插件
 
 镜像默认值如下：
@@ -380,6 +444,76 @@ services:
       - ./downloads:/downloads
       - /srv/archive:/archive
 ```
+
+### 在 Web 界面中选择文件夹
+
+新建链接任务、种子任务和通用设置中的目录控件都会打开服务器文件夹选择器。
+这里的路径属于服务器：使用示例挂载时，`/downloads/Movies` 对应 Docker 宿主上的
+`./downloads/Movies`。从另一台电脑打开浏览器，也不会浏览该电脑的本地文件夹。
+
+单击文件夹进行选择，双击进入。列表只显示当前目录的直接子文件夹。可通过后退、前进、
+上一级或路径面包屑切换位置，也可通过“前往文件夹”输入完整绝对路径。左侧“位置”栏按
+可访问的常用位置、允许根、常用目录和最近使用分组。常用位置包括默认目录、服务器用户
+主目录、已有的 Desktop/Documents/Downloads 目录，以及权限允许时的文件系统根目录。
+窄屏上改为分组位置菜单。到达当前允许根目录后不能继续向上。通过工具栏中的
+**视图选项 → 显示隐藏文件夹** 可显示名称以点开头的文件夹。
+
+同一**视图选项**菜单支持按**名称**或**修改时间**升序、降序排列。名称采用自然排序，
+例如folder2在folder10之前。浏览器会记住选择。排序保留选中目录，仅重排已加载列表，
+不会重新请求服务端。未知修改时间的目录始终放在末尾；列表不完整时，排序仅作用于
+当前显示的目录。
+
+点击“选择文件夹”会选择高亮的子文件夹；未选择子文件夹时，选择当前文件夹。取消会保留
+表单原来的值。确认选择时，服务器会再次检查目录；提交下载任务或应用设置仍是独立操作。
+浏览和选择不会创建文件夹。
+
+新建链接任务和种子任务的 Browse 旁也提供“目录历史”按钮，可直接选常用或最近目录
+填入表单，不会开始下载。App 端提供相同的历史菜单，浏览目录时仍打开系统原生窗口。
+
+通过 **设置 → 常规** 中默认保存目录下方的紧凑表单，可添加或移除常用目录、将最近目录
+加入常用、逐条删除或清空当前显示的最近记录。“保存”会将目录编辑与常规设置一起应用，
+“取消”会放弃草稿。历史菜单中的“管理目录”提供相同的目录控件及保存、取消操作。
+移除记录不会删除文件夹或下载任务，保存时也会保留其他客户端在此期间新增的记录。
+保存失败后，表单会保留编辑内容。可以重试，也可以修改后再次保存；上一笔保存的迟到响应
+不会覆盖后续选择。响应失败时，服务端可能已经保存成功，因此“取消”不会撤销已经提交的保存。
+常用目录最多20个，最近目录最多10个，最近使用的排在前面。
+AddTask目录确认选择、成功提交时使用的目录会更新最近记录；常规设置里的目录选择
+保留为草稿，本身不会加入最近记录。取消选择器不
+新增记录；随后取消AddTask，不撤销已确认的目录选择。管理窗口添加常用本身不新增最近
+记录。此UI历史不会自动导入headless/CLI下载。
+
+常用和最近记录属于当前Motrix实例：App保存在本机应用设置，Web保存在服务端。已连接
+客户端会收到更新，重新连接后重新加载。Web历史菜单和侧栏只提供服务端当前仍允许且
+可访问的目录；管理窗口保留已保存的记录，便于移除不可用路径。Web选择器的星按钮会
+立即将当前正在浏览的目录加入常用或移除，并保持列表、当前位置稳定。上述目录记录操作
+都不改变默认保存目录。
+
+快捷键按浏览器所在电脑的操作系统适配，与服务器系统无关。焦点位于列表时：
+
+| 操作 | macOS | Windows / Linux |
+| --- | --- | --- |
+| 选择文件夹 | Up / Down | Up / Down |
+| 首个／末个文件夹 | Home / End | Home / End |
+| 按可见区域翻页 | Page Up / Page Down | Page Up / Page Down |
+| 进入所选文件夹 | Command + Down | Enter |
+| 上一级 | Command + Up | Alt + Up，或 Backspace |
+| 确认选择 | Return | Tab 到“选择文件夹”后按 Enter |
+| 编辑当前路径 | `/`，或浏览器允许传递时使用 Command + Shift + G | `/` |
+| 前往主目录／桌面／文稿（位置可用时） | Command + Shift + H / D / O | 使用位置菜单 |
+
+直接输入文件夹名称前缀可选中匹配项。Tab 和 Shift + Tab 在控件之间移动。在路径编辑框中，
+Enter 前往输入的位置，Escape 取消编辑；未编辑时，Escape 关闭选择器。浏览器保留的
+快捷键继续执行浏览器行为。
+
+点击左下方的“新建文件夹”可在当前位置创建一个文件夹。输入名称后按 Enter 或点击“创建”；Escape
+取消名称编辑。创建成功后，新文件夹会被选中，可以直接确认。**之后即使取消目录选择，
+已创建的文件夹仍会保留在服务器上。** 重名或权限错误会保留名称，便于修改。如果服务器
+响应丢失，请先刷新并检查列表，再尝试创建。
+
+目录过大时，界面会提示仅显示部分文件夹。可输入完整路径前往未显示的目录。权限检查使用
+服务器进程的运行用户；只读挂载或 NAS ACL 都可能导致操作失败。允许根目录会拒绝路径穿越
+和静态符号链接越界。与保存下载时相同，基于路径的跨平台检查无法防止恶意本地进程同时替换
+上级目录；应相应限制对挂载目录层级的写入权限。
 
 内置插件以只读方式存放在 `/app/builtin-plugins`。用户安装的包、来源记录、
 授权、配置、日志、加密 secret 和启用状态都持久化在 `/data`；通过 Web 上传
@@ -450,11 +584,41 @@ secret-store 状态和 FFmpeg 探测结果。
 | `no matching manifest` | 用 `docker info` 确认 NAS 是 64 位 `amd64` 或 `arm64`；不支持 32 位 ARM。 |
 | 启动报告 `EACCES`、只读或路径失败 | 对比 `docker inspect ... .Config.User` 与两个挂载的数字 owner。修正 owner/ACL；不要改用 privileged 或 root。 |
 | 端口已分配 | 修改 `MOTRIX_HTTP_PORT` 或 `MOTRIX_MDXP_PUBLIC_PORT`；Web 端口变化时同步更新 `MOTRIX_PUBLIC_URL`。 |
+| Web 界面健康但连接 16801 被拒绝 | 查找 `bridge data ownership unavailable`，检查日志中的 `stage` 和 `reason` 字段。ownership 就绪时，再核对 MDXP 发布地址和四个远程 Extension 变量。 |
 | 外部 aria2 RPC 客户端无法连接 | 确认 `MOTRIX_ARIA2_RPC_LISTEN_ALL=true`、RPC secret 非空且匹配、16800（或自定义 RPC 端口）映射正确，并检查宿主 firewall。标准 Compose 文件不会发布该端口。 |
 | Web 能打开但无法解锁 | 读取当前持久化 `/data/operator-token`，不要使用另一套部署的 token。确认它是普通文件、内容为 base64url 文本且权限为 `0600`。 |
 | 下载目录被拒绝或 NAS 共享目录中没有文件 | 使用 `MOTRIX_ALLOWED_SAVE_DIRS` 下的绝对容器路径；确认目标宿主目录正好挂载到该路径，并允许 runtime UID/GID 写入。 |
 | 插件安装失败 | 检查 `/api/diagnostics` 与日志，保留 `/data`，核实包/来源可信且网络/TLS 可达；显式挂载所有 `MOTRIX_PLUGIN_IMPORT_DIRS`。正常 `.moext`、URL 或 registry 安装不要开启 unmanaged plugins。 |
 | 升级后容器 unhealthy | 检查日志、诊断和两个挂载，然后回滚到已记录的不可变镜像及其配套 `/data` 备份。 |
+
+### 恢复无效的 bridge ownership 记录
+
+当 `/data/.motrix-server-bridge-owner.json` 无法建立进程 ownership 时，Server
+会在日志中输出固定的 `reason`。不同 reason 可区分元数据不可访问、文件不是普通文件或有
+多个硬链接、owner/写权限不安全、内容损坏或非规范，以及端口或 bridge 目录记录过期。
+该文件不含凭据，但其完整性用于授权安全恢复遗留的 bridge lock，因此 Motrix 不会静默覆盖
+存在冲突的记录。
+
+首先停止所有使用同一 `/data` 挂载的容器：
+
+```bash
+docker compose down
+```
+
+然后在 Docker 宿主上检查该文件。它必须属于配置的 runtime UID，group 和 other 不得有
+写权限，通常应为 `0600`。NAS ACL 继承的 group/other 只读权限可以保留。若 reason 是
+`binding-owner-mismatch` 或 `binding-insecure-mode`，应修正宿主 owner 或去掉 group/other
+写权限。若记录过期或损坏，重启前先将其保留为备份：
+
+```bash
+mv ./motrix-data/.motrix-server-bridge-owner.json \
+  ./motrix-data/.motrix-server-bridge-owner.json.bak
+docker compose up -d --wait
+```
+
+Motrix 在持有 Web 控制面端口后会创建新的 `0600` 记录。在 `/healthz` 和 MDXP
+`/discovery` endpoint 都正常前请保留备份。不要手动删除 `/data/bridge/` 下的文件；遗留
+bridge lock 的恢复会把该 ownership 记录与已绑定的 Web listener 共同作为证明。
 
 ## 环境变量参考
 
@@ -473,6 +637,7 @@ secret-store 状态和 FFmpeg 探测结果。
 | `MOTRIX_OPERATOR_TOKEN` | 自动生成文件 | operator 控制面凭据 |
 | `MOTRIX_SECRETS_SEED` | 自动生成 lockbox | 64 位十六进制插件 secret 密钥 |
 | `MOTRIX_ARIA2_RPC_LISTEN_ALL` | `false` | 显式开启带鉴权、面向所有接口的 aria2 RPC listener；Docker 端口发布仍需单独配置 |
+| `MOTRIX_TORRENT_BODY_LIMIT_MIB` | `8` | 种子 JSON 请求上限，单位 MiB，取值为 2–64 的整数；同步用于受管 aria2 RPC，重启后生效 |
 | `MOTRIX_WEB_BIND_IP` | Compose：`0.0.0.0` | 发布 Web 8080 端口的宿主地址；通过 `MOTRIX_BIND_IP` fallback |
 | `MOTRIX_MDXP_BIND_IP` | Compose：`0.0.0.0` | 发布 MDXP 16801 端口的宿主地址；通过 `MOTRIX_BIND_IP` fallback |
 | `MOTRIX_BIND_IP` | Compose：`0.0.0.0` | 向后兼容的共享宿主发布 fallback |

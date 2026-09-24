@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import { TaskStatus } from '@shared/types/task'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { dashboardTileViewport } from '../layout/dashboard-registry'
 
@@ -45,10 +45,23 @@ describe('ActiveTile', () => {
     )
   })
 
-  it('renders only the primary count in compact content', () => {
+  it('adds a concise status breakdown below the primary count in compact content', () => {
     render(<ActiveTile activeCount={4} viewport={compactViewport} />)
     expect(screen.getByText('4')).toBeInTheDocument()
-    expect(screen.queryByText(/Downloading|下载中/i)).not.toBeInTheDocument()
+    const breakdown = screen.getByTestId('active-compact-breakdown')
+    expect(
+      within(breakdown)
+        .getAllByRole('term')
+        .map((term) => term.textContent)
+    ).toEqual(['Downloading', 'Waiting', 'Seeding'])
+    expect(
+      within(breakdown)
+        .getAllByRole('definition')
+        .map((definition) => definition.textContent)
+    ).toEqual(['2', '2', '1'])
+    expect(screen.getByTestId('active-content').lastElementChild).toBe(
+      breakdown
+    )
     expect(screen.queryByTestId('active-breakdown')).not.toBeInTheDocument()
   })
 

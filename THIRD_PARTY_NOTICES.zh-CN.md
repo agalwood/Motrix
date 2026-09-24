@@ -51,6 +51,23 @@ src/renderer/routes/settings/icons/icon-network@2x.png
 
 ---
 
+## 浏览器扩展安装图标
+
+安装入口使用从各品牌官方网站下载的原始图标，保留原始形状与配色；SVG 仅补充无障碍标题。GitHub 按界面主题使用官方提供的黑、白两版。这些品牌素材的权利仍归各自所有者，并未重新授权为 Motrix 的 MIT 许可。
+
+文件位于 `src/renderer/routes/settings/icons/`。
+
+| 品牌 | 官方来源 | 本地文件 |
+| --- | --- | --- |
+| Google Chrome | [Download](https://www.google.com/chrome/static/images/chrome-logo-m100.svg) | `browser-chrome.svg` |
+| Microsoft Edge | [Download](https://edgecdn-embza6g8cacagcbn.z01.azurefd.net/welcome/static/favicon.png) | `browser-edge.png` |
+| Firefox | [Download](https://www.firefox.com/media/img/favicons/firefox/browser/favicon-196x196.59e3822720be.png) | `browser-firefox.png` |
+| GitHub | [Download](https://brand.github.com/GitHub_Logos.zip) | `browser-github.svg / browser-github-white.svg` |
+
+品牌资料：[Google](https://about.google/brand-resource-center/)、[Microsoft](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks)、[Mozilla](https://www.mozilla.org/foundation/trademarks/policy/)、[GitHub](https://brand.github.com/foundations/logo)。
+
+---
+
 ## Apple San Francisco 托盘字体（macOS）
 
 - **文件：** `extra/tray/SFNS-Regular.ttf`
@@ -71,8 +88,8 @@ src/renderer/routes/settings/icons/icon-network@2x.png
 
 桌面版随应用打包 `aria2c` 可执行文件，版本由 `scripts/engine.lock.json` 固定：
 
-- **版本：** 1.37.0-motrix.11
-- **对应源码：** <https://github.com/motrixapp/aria2/tree/v1.37.0-motrix.11>
+- **版本：** 1.37.0-motrix.16
+- **对应源码：** <https://github.com/motrixapp/aria2/tree/v1.37.0-motrix.16>
 - **许可证：** GNU General Public License v2.0 or later（`GPL-2.0-or-later`）
 - **完整许可证文本：** `THIRD_PARTY_LICENSES/aria2-COPYING`
 - **OpenSSL 例外条款 / 声明：**
@@ -146,21 +163,25 @@ npm 依赖清单根据根目录声明的运行时依赖，以及 `pnpm-lock.yaml
 
 ---
 
-## Rust native messaging 可执行文件依赖
+## Rust 原生可执行文件依赖
 
 `motrix-native-host`、宿主机侧 `motrix-flatpak-native-host` 与沙箱内
-`motrix-native-host-broker` 可执行文件使用以下 crate 构建，具体版本由
-`packages/native-host/Cargo.lock` 锁定。Windows-only crate 也列在表中，因为
-Windows native-host 构建会包含它们。
+`motrix-native-host-broker` 可执行文件，以及 `motrix-finalize-fs` 文件系统 sidecar，
+均使用以下经过审阅的 crate 清单构建。具体版本由
+`packages/native-host/Cargo.lock` 与 `packages/finalize-fs/Cargo.lock` 锁定；sidecar
+锁文件必须始终是这份清单的子集。Windows-only crate 也列在表中，因为 Windows
+原生可执行文件构建会包含它们。
 
 | Crate | 版本 | SPDX 许可证表达式 | 源码仓库 |
 | --- | --- | --- | --- |
 | base64 | 0.22.1 | `MIT OR Apache-2.0` | <https://github.com/marshallpierce/rust-base64> |
+| bitflags | 2.13.1 | `MIT OR Apache-2.0` | <https://github.com/bitflags/bitflags> |
 | block-buffer | 0.10.4 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/utils> |
 | cfg-if | 1.0.4 | `MIT OR Apache-2.0` | <https://github.com/rust-lang/cfg-if> |
 | cpufeatures | 0.2.17 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/utils> |
 | crypto-common | 0.1.7 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/traits> |
 | digest | 0.10.7 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/traits> |
+| errno | 0.3.14 | `MIT OR Apache-2.0` | <https://github.com/lambda-fairy/rust-errno> |
 | generic-array | 0.14.7 | `MIT` | <https://github.com/fizyk20/generic-array> |
 | hkdf | 0.12.4 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/KDFs> |
 | hmac | 0.12.1 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/MACs> |
@@ -168,9 +189,11 @@ Windows native-host 构建会包含它们。
 | humantime | 2.4.0 | `MIT OR Apache-2.0` | <https://github.com/chronotope/humantime> |
 | itoa | 1.0.18 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/itoa> |
 | libc | 0.2.189 | `MIT OR Apache-2.0` | <https://github.com/rust-lang/libc> |
+| linux-raw-sys | 0.12.1 | `Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT` | <https://github.com/sunfishcode/linux-raw-sys> |
 | memchr | 2.8.3 | `Unlicense OR MIT` | <https://github.com/BurntSushi/memchr> |
 | proc-macro2 | 1.0.107 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/proc-macro2> |
 | quote | 1.0.47 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/quote> |
+| rustix | 1.1.4 | `Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT` | <https://github.com/bytecodealliance/rustix> |
 | serde | 1.0.229 | `MIT OR Apache-2.0` | <https://github.com/serde-rs/serde> |
 | serde_core | 1.0.229 | `MIT OR Apache-2.0` | <https://github.com/serde-rs/serde> |
 | serde_derive | 1.0.229 | `MIT OR Apache-2.0` | <https://github.com/serde-rs/serde> |
@@ -193,6 +216,12 @@ Windows native-host 构建会包含它们。
 - `THIRD_PARTY_LICENSES/rust-block-buffer-LICENSE-APACHE`
 - `THIRD_PARTY_LICENSES/rust-block-buffer-LICENSE-MIT`
 - `THIRD_PARTY_LICENSES/rust-cfg-if-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-bitflags-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-errno-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-linux-raw-sys-COPYRIGHT`
+- `THIRD_PARTY_LICENSES/rust-linux-raw-sys-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-rustix-COPYRIGHT`
+- `THIRD_PARTY_LICENSES/rust-rustix-LICENSE-MIT`
 - `THIRD_PARTY_LICENSES/rust-common-LICENSE-APACHE`
 - `THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT`
 - `THIRD_PARTY_LICENSES/rust-cpufeatures-LICENSE-MIT`

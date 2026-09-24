@@ -1,7 +1,11 @@
+import type { FileDeletionMode } from '@shared/schemas/app-settings'
+import type { ByteUnitPreference } from '@shared/schemas/byte-unit-system'
+import type { TrayIconColor } from '@shared/schemas/tray-icon-color'
 import type { RunMode } from '../constants'
 import type { EnginePerformanceProfile } from '../constants/engine-performance-profiles'
 import type { SupportedLocale } from '../constants/locales'
 import type { BridgeSettings } from '../schemas/bridge-settings'
+import type { DirectoryPreferences } from '../schemas/directory-preferences'
 import type { GeoIPSettings } from './geoip'
 import type { PluginSettings } from './plugin'
 import type { TrackerSource } from './tracker'
@@ -214,9 +218,15 @@ export interface EngineSettings {
 
 export interface MotrixAppSettings {
   launchAtStartup: boolean
+  showMainWindowAtLogin: boolean
   theme: 'system' | 'light' | 'dark'
+  reduceMotion: boolean
+  byteUnitSystem: ByteUnitPreference
   language: SupportedLocale
+  directoryPreferences: DirectoryPreferences
   defaultSaveDir: string
+  /** Desktop task file deletion only; the server always deletes directly. */
+  fileDeletionMode: FileDeletionMode
   notifyOnComplete: boolean
   notifyOnError: boolean
   /** When true, opening the New Task dialog reads the clipboard once and
@@ -231,7 +241,11 @@ export interface MotrixAppSettings {
    *  services such as downloads, notifications, and the tray keep running. */
   lightweightMode: boolean
   traySpeedometer: boolean
+  /** Linux tray artwork color; auto follows the resolved application theme. */
+  trayIconColor: TrayIconColor
   magnetFileSelection: boolean
+  magnetFileSelectionAutoDownload: boolean
+  magnetFileSelectionTimeoutSeconds: number
   /** Master switch for the WebSocket bridge that lets browser extensions
    *  hand downloads to Motrix. Default true. Changing requires app restart. */
   browserBridgeEnabled: boolean

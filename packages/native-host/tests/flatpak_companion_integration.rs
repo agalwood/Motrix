@@ -11,7 +11,8 @@ use motrix_native_host::protocol::{read_message, write_message};
 use motrix_native_host::resolve::{ResolveError, ResolveResult};
 use serde_json::{Value, json};
 
-const CHROMIUM_ID: &str = "ibpkjhgpbidfmbmomagmldcdlpbmchgi";
+const CHROMIUM_ID: &str = "lggbokfckofcgjndaboioakcmincinpo";
+const EDGE_ID: &str = "efcflljngohddnmfmebiamigoikmdfbf";
 
 struct TempDir {
     path: PathBuf,
@@ -257,6 +258,23 @@ fn installed_companion_validates_caller_and_reencodes_broker_output() {
     );
     assert_eq!(fs::read(&invoked).expect("invocation marker"), b"x");
 
+    let edge_output = run_browser(
+        &installed,
+        &temp,
+        &format!("chrome-extension://{EDGE_ID}/"),
+        &browser_wire(false),
+    );
+    assert!(
+        edge_output.status.success(),
+        "Edge browser mode failed: {}",
+        String::from_utf8_lossy(&edge_output.stderr)
+    );
+    assert_eq!(
+        decode_only_browser_frame(&edge_output.stdout),
+        json!({ "error": "motrix-not-running" })
+    );
+    assert_eq!(fs::read(&invoked).expect("invocation marker"), b"xx");
+
     let rejected = run_browser(
         &installed,
         &temp,
@@ -267,7 +285,7 @@ fn installed_companion_validates_caller_and_reencodes_broker_output() {
     assert!(rejected.stdout.is_empty());
     assert_eq!(
         fs::read(&invoked).expect("unchanged invocation marker"),
-        b"x",
+        b"xx",
         "untrusted caller reached Flatpak"
     );
 

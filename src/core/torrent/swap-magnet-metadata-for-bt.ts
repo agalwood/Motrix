@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { mkdir, rm } from 'node:fs/promises'
+import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import type { EngineAdapter } from '@core/engine/engine-adapter'
 import { getLogger } from '@core/logger'
@@ -13,20 +13,25 @@ import type { TaskTransitionRecordInput } from '@core/task/actions/shared'
 import {
   existingFilesConflict,
   reservedBtFinalNames,
+  withBtOutputAdmission,
 } from '@core/task/bt-duplicate-policy'
+import { getBtOutputReservations } from '@core/task/bt-output-reservation'
 import {
-  type BtStoragePlan,
   btStoragePayload,
-  createBtStoragePlan,
+  createBtDirectStoragePlan,
   type ParsedBtFileLayout,
   parseBtFileLayout,
   shouldPrioritizeBtPreviewPieces,
   UnsafeTorrentPathError,
 } from '@core/task/bt-storage-layout'
 import type { FinalNamePicker } from '@core/task/final-name-picker'
-import { toTempPath } from '@core/task/paths'
+import {
+  outputNameIdentity,
+  outputPathIdentity,
+} from '@core/task/output-path-identity'
 import type { TaskManager } from '@core/task/task-manager'
 import { taskRowToDownloadTask } from '@core/task/task-row-to-download-task'
+import { restoreTaskSaveDirectory } from '@core/task/task-save-directory'
 import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
 import { AppError, ErrorCode } from '@shared/errors'
 import type { TaskCreateSuccessResult } from '@shared/schemas/add-task'
@@ -106,8 +111,10 @@ export async function swapMagnetMetadataForBt(
   input: SwapMagnetMetadataInput,
   deps: SwapMagnetMetadataDeps
 ): Promise<TaskCreateSuccessResult> {
-  return deps.runTaskMutation([input.taskId], () =>
-    swapMagnetMetadataForBtUnderMutation(input, deps)
+  return withBtOutputAdmission(input.saveDir, () =>
+    deps.runTaskMutation([input.taskId], () =>
+      swapMagnetMetadataForBtUnderMutation(input, deps)
+    )
   )
 }
 
@@ -191,9 +198,8 @@ async function swapMagnetMetadataForBtUnderMutation(
   // cancelling the metadata fetch. If picker/mkdir/persist rejects, the
   // original cache + metadataDir remain usable and the selection can retry.
   //
-  // Mirror createTaskHandler's BT branch: collision-safe final name, a short
-  // indexed workspace when metadata is valid, and durable `.torrent` bytes.
-  let btStoragePlan: BtStoragePlan | null = null
+  // Mirror createTaskHandler's BT branch: collision-safe final output,
+  // indexed paths when metadata is valid, and durable `.torrent` bytes.
   let parsedBtLayout: ParsedBtFileLayout | null = null
   try {
     parsedBtLayout = await parseBtFileLayout(torrentBytes)
@@ -207,54 +213,82 @@ async function swapMagnetMetadataForBtUnderMutation(
     }
     log.warn(
       { err, taskId },
-      'failed to parse resolved magnet metadata for indexed staging; using legacy layout'
+      'failed to parse resolved magnet paths; using engine paths inside the final directory'
     )
   }
   const desiredName = (name ?? existing.task.name).replace(
     METADATA_NAME_PREFIX,
     ''
   )
+  const reservedNames = reservedBtFinalNames(
+    taskManager.getAll(),
+    saveDir,
+    taskId
+  )
+  const previousReservations = getBtOutputReservations(originalDownloadTask)
+  const reservation = previousReservations.find(
+    (entry) =>
+      outputPathIdentity(entry.finalPath) ===
+      outputPathIdentity(path.join(saveDir, desiredName))
+  )
+  const reuseOutput =
+    duplicatePolicy === 'reuse' &&
+    parsedBtLayout !== null &&
+    reservation?.infoHash === parsedBtLayout.infoHash &&
+    reservation !== undefined &&
+    !reservedNames.some(
+      (reserved) =>
+        outputNameIdentity(reserved) === outputNameIdentity(desiredName) ||
+        (parsedBtLayout.multiFile === false &&
+          outputNameIdentity(reserved) ===
+            outputNameIdentity(`${desiredName}.aria2`))
+    )
   if (
     parsedBtLayout &&
     duplicatePolicy === 'reuse' &&
+    !reuseOutput &&
     finalNamePicker.isTaken &&
-    (await finalNamePicker.isTaken(saveDir, desiredName))
+    (await finalNamePicker.isTaken(
+      saveDir,
+      desiredName,
+      parsedBtLayout.multiFile === false
+    ))
   ) {
     throw existingFilesConflict(parsedBtLayout.infoHash, saveDir)
   }
-  const finalName = await finalNamePicker.pick(
-    saveDir,
-    desiredName,
-    reservedBtFinalNames(taskManager.getAll(), saveDir, taskId)
-  )
-  const finalPath = path.join(saveDir, finalName)
-  if (parsedBtLayout) {
-    btStoragePlan = createBtStoragePlan(taskId, saveDir, parsedBtLayout)
-  }
-  const diskPath = btStoragePlan?.layout.workspacePath ?? toTempPath(finalPath)
-  let torrentMetaPath: string
-  try {
-    await mkdir(diskPath, { recursive: true })
-
-    // Persist the .torrent bytes so finalize's reseed + reAddTask can recover
-    // them (both read torrentMetaPath); the pre-fix swap left it null and
-    // threw TaskFinalizeMetaMissing on completion.
-    torrentMetaPath = await torrentMetaStore.persist(taskId, torrentBytes)
-  } catch (cause) {
-    // Preparation precedes the durable GID reservation, so there is no
-    // tombstone/retry owner yet. Remove a directory that mkdir may have
-    // created before rejecting (or that was left after metadata persistence
-    // failed) so a retry does not acquire a collision-suffixed final name.
-    try {
-      await rm(diskPath, { recursive: true, force: true })
-    } catch (cleanupError) {
-      log.error(
-        { err: cleanupError, diskPath, taskId },
-        'failed to remove prepared download directory after preparation failure'
+  const finalName = reuseOutput
+    ? desiredName
+    : await finalNamePicker.pick(
+        saveDir,
+        desiredName,
+        reservedNames,
+        parsedBtLayout?.multiFile === false
       )
-    }
-    throw cause
-  }
+  const finalPath = path.join(saveDir, finalName)
+  const diskPath = finalPath
+  const outputReservations = [
+    ...previousReservations.filter(
+      (entry) =>
+        outputPathIdentity(entry.finalPath) !== outputPathIdentity(finalPath)
+    ),
+    ...(parsedBtLayout
+      ? [
+          {
+            finalPath,
+            infoHash: parsedBtLayout.infoHash,
+            multiFile: parsedBtLayout.multiFile,
+          },
+        ]
+      : []),
+  ]
+  // Persist metadata before creating any output or stopping metadata resolution.
+  const torrentMetaPath = await torrentMetaStore.persist(taskId, torrentBytes)
+  const btStoragePlan = createBtDirectStoragePlan(
+    finalPath,
+    parsedBtLayout,
+    torrentMetaPath
+  )
+  await mkdir(btStoragePlan.saveDir, { recursive: true })
 
   // Make the durable `.torrent` a part of the MetadataReady rollback graph
   // before cancelling the old metadata GID. cancel() removes metadataDir; a
@@ -265,9 +299,25 @@ async function swapMagnetMetadataForBtUnderMutation(
   const previousGraph = {
     task: {
       ...existing.task,
+      saveDir: restoreTaskSaveDirectory(existing.task, existing.instances),
       torrentMetaPath,
     },
-    instances: existing.instances,
+    instances: existing.instances.map((instance) => ({
+      ...instance,
+      payload: {
+        ...instance.payload,
+        ...(parsedBtLayout
+          ? {
+              btOutputReservation: {
+                finalPath,
+                infoHash: parsedBtLayout.infoHash,
+                multiFile: parsedBtLayout.multiFile,
+              },
+              btOutputReservations: outputReservations,
+            }
+          : {}),
+      },
+    })),
     files: existingFiles,
   }
   const previousDownloadTask = taskRowToDownloadTask(
@@ -342,9 +392,9 @@ async function swapMagnetMetadataForBtUnderMutation(
   }
 
   // The fallback torrent belongs to previousGraph now. Failed-swap cleanup
-  // removes only the new `.motrix` container; deleting torrentMetaPath would
+  // preserves output files; deleting torrentMetaPath would
   // restore a MetadataReady row whose only readable selection source is gone.
-  const artifactPaths = [diskPath]
+  const artifactPaths: string[] = []
   const newGid = randomBytes(8).toString('hex')
   const now = Date.now()
   // The confirmation dialog lets the user change saveDir after metadata
@@ -354,6 +404,7 @@ async function swapMagnetMetadataForBtUnderMutation(
   // previousGraph (including the original finalPath) when it completes.
   const reservationTask: TaskRow = {
     ...previousGraph.task,
+    saveDir,
     finalPath: saveDir,
     updatedAt: now,
   }
@@ -376,8 +427,8 @@ async function swapMagnetMetadataForBtUnderMutation(
         withMagnetCleanupTombstoneHidden(
           withMagnetCleanupQuarantined(
             {
-              ...previousMetadataInstance.payload,
-              ...(btStoragePlan ? btStoragePayload(btStoragePlan.layout) : {}),
+              ...previousGraph.instances[0].payload,
+              ...btStoragePayload(btStoragePlan.layout),
               metadataDir: diskPath,
             },
             true
@@ -482,7 +533,12 @@ async function swapMagnetMetadataForBtUnderMutation(
     transitionPhase: TransitionPhase.Idle,
     uris: [],
     uriHash: null,
-    payload: btStoragePlan ? btStoragePayload(btStoragePlan.layout) : {},
+    payload: {
+      ...btStoragePayload(btStoragePlan.layout),
+      btOutputReservations: outputReservations.filter(
+        (entry) => entry.finalPath !== finalPath
+      ),
+    },
     createdAt: now,
     updatedAt: now,
   }
@@ -491,6 +547,7 @@ async function swapMagnetMetadataForBtUnderMutation(
     ...existing.task,
     name: finalName,
     taskType: TaskType.Bt,
+    saveDir,
     finalPath,
     finalName,
     torrentMetaPath,
@@ -528,12 +585,14 @@ async function swapMagnetMetadataForBtUnderMutation(
   try {
     const addedGid = await adapter.addTorrent({
       metadata: torrentBytes,
-      saveDir: diskPath,
+      saveDir: btStoragePlan.saveDir,
       gid: newGid,
       // TorrentParser emits 0-based indices, but aria2's --select-file uses
       // 1-based indices; passing `0` makes aria2 reject the option.
       selectedFiles: selectedFiles.map((i) => i + 1),
-      outputFilePaths: btStoragePlan?.outputFilePaths,
+      outputFilePaths: btStoragePlan.outputFilePaths,
+      outputRoot: btStoragePlan.outputRoot,
+      checkIntegrity: reuseOutput,
       pause: false,
       isPrivate: parsedBtLayout?.isPrivate ?? false,
       ...(parsedBtLayout && shouldPrioritizeBtPreviewPieces(parsedBtLayout)
@@ -835,13 +894,8 @@ async function rollbackPreparedSwapBeforeMetadataCancel(
 async function cleanupPreparedSwapArtifacts(
   artifacts: Omit<FailedSwapArtifacts, 'adapter' | 'gid'>
 ): Promise<void> {
-  const {
-    diskPath,
-    torrentMetaStore,
-    torrentMetaPath,
-    previousTorrentMetaPath,
-    taskId,
-  } = artifacts
+  const { torrentMetaStore, torrentMetaPath, previousTorrentMetaPath, taskId } =
+    artifacts
 
   if (torrentMetaPath !== previousTorrentMetaPath) {
     try {
@@ -853,14 +907,6 @@ async function cleanupPreparedSwapArtifacts(
       )
     }
   }
-  try {
-    await rm(diskPath, { recursive: true, force: true })
-  } catch (err) {
-    log.error(
-      { err, diskPath, taskId },
-      'failed to remove prepared download directory after reservation rejection'
-    )
-  }
 }
 
 async function compensateFailedSwap(
@@ -869,7 +915,6 @@ async function compensateFailedSwap(
   const {
     adapter,
     gid,
-    diskPath,
     torrentMetaStore,
     torrentMetaPath,
     previousTorrentMetaPath,
@@ -910,16 +955,6 @@ async function compensateFailedSwap(
         'failed magnet swap could not remove its torrent metadata artifact'
       )
     }
-  }
-
-  try {
-    await rm(diskPath, { recursive: true, force: true })
-  } catch (err) {
-    artifactCleanupComplete = false
-    log.error(
-      { err, diskPath, taskId },
-      'failed magnet swap could not remove its download artifact'
-    )
   }
 
   return { complete: artifactCleanupComplete }

@@ -214,6 +214,146 @@ describe('BuiltinUpdater', () => {
     expect(names.some((n) => n.includes('.bak-'))).toBe(false)
   })
 
+  it('publishes a builtin update under the lifecycle barrier before superseding the old identity', async () => {
+    const k = keypair()
+    const v1Bytes = moextOf('1.1.0')
+    const updater1 = makeUpdater(k, fetchImplOf(v1Bytes))
+    const staged1 = await updater1.stage(
+      entryOf(v1Bytes, k, '1.1.0'),
+      EFFECTIVE_V1
+    )
+    await updater1.commit(staged1.stagingId)
+
+    const v2Bytes = moextOf('1.2.0')
+    const updater2 = makeUpdater(k, fetchImplOf(v2Bytes))
+    const staged2 = await updater2.stage(entryOf(v2Bytes, k, '1.2.0'), {
+      ...EFFECTIVE_V1,
+      version: '1.1.0',
+    })
+    const order: string[] = []
+    updater2.bindLifecycleSink({
+      applyPolicyMutation: async (_pluginId, publish) => {
+        order.push('closed')
+        const result = await publish()
+        order.push('published')
+        return result
+      },
+      currentExecutable: () => ({
+        pluginId: 'motrix.url-resolver',
+        version: '1.1.0',
+        digest: 'a'.repeat(64),
+      }),
+      refreshRegistry: async () => {
+        order.push('refreshed')
+      },
+      supersede: async (identity) => {
+        order.push('superseded')
+        expect(identity.version).toBe('1.1.0')
+        const current = await readFile(
+          path.join(overlayDir, identity.pluginId, 'bundle.moext')
+        )
+        expect(current.equals(v2Bytes)).toBe(true)
+        return 1
+      },
+    })
+
+    await updater2.commit(staged2.stagingId)
+
+    expect(order).toEqual(['closed', 'refreshed', 'superseded', 'published'])
+  })
+
+  it('restores the prior overlay and preserves staging when supersession fails', async () => {
+    const k = keypair()
+    const v1Bytes = moextOf('1.1.0')
+    const updater1 = makeUpdater(k, fetchImplOf(v1Bytes))
+    const staged1 = await updater1.stage(
+      entryOf(v1Bytes, k, '1.1.0'),
+      EFFECTIVE_V1
+    )
+    await updater1.commit(staged1.stagingId)
+
+    const v2Bytes = moextOf('1.2.0')
+    const updater2 = makeUpdater(k, fetchImplOf(v2Bytes))
+    const staged2 = await updater2.stage(entryOf(v2Bytes, k, '1.2.0'), {
+      ...EFFECTIVE_V1,
+      version: '1.1.0',
+    })
+    const retentionError = new Error('retention unavailable')
+    let fail = true
+    updater2.bindLifecycleSink({
+      applyPolicyMutation: async (_pluginId, publish) => publish(),
+      currentExecutable: () => ({
+        pluginId: 'motrix.url-resolver',
+        version: '1.1.0',
+        digest: 'a'.repeat(64),
+      }),
+      refreshRegistry: async () => undefined,
+      supersede: async () => {
+        if (fail) throw retentionError
+        return 1
+      },
+    })
+
+    await expect(updater2.commit(staged2.stagingId)).rejects.toBe(
+      retentionError
+    )
+    expect(updater2.pluginIdForStaging(staged2.stagingId)).toBe(
+      'motrix.url-resolver'
+    )
+    expect(
+      (
+        await readFile(
+          path.join(overlayDir, 'motrix.url-resolver', 'bundle.moext')
+        )
+      ).equals(v1Bytes)
+    ).toBe(true)
+
+    fail = false
+    await updater2.commit(staged2.stagingId)
+    expect(
+      (
+        await readFile(
+          path.join(overlayDir, 'motrix.url-resolver', 'bundle.moext')
+        )
+      ).equals(v2Bytes)
+    ).toBe(true)
+  })
+
+  it('restores an overlay when revert supersession fails', async () => {
+    const k = keypair()
+    const bytes = moextOf('1.1.0')
+    const updater = makeUpdater(k, fetchImplOf(bytes))
+    const staged = await updater.stage(entryOf(bytes, k, '1.1.0'), EFFECTIVE_V1)
+    await updater.commit(staged.stagingId)
+    const retentionError = new Error('retention unavailable')
+    let fail = true
+    updater.bindLifecycleSink({
+      applyPolicyMutation: async (_pluginId, publish) => publish(),
+      currentExecutable: () => ({
+        pluginId: 'motrix.url-resolver',
+        version: '1.1.0',
+        digest: 'a'.repeat(64),
+      }),
+      refreshRegistry: async () => undefined,
+      supersede: async () => {
+        if (fail) throw retentionError
+        return 1
+      },
+    })
+
+    await expect(updater.revert('motrix.url-resolver')).rejects.toBe(
+      retentionError
+    )
+    expect(existsSync(path.join(overlayDir, 'motrix.url-resolver'))).toBe(true)
+
+    fail = false
+    await expect(updater.revert('motrix.url-resolver')).resolves.toEqual({
+      pluginId: 'motrix.url-resolver',
+      changed: true,
+    })
+    expect(existsSync(path.join(overlayDir, 'motrix.url-resolver'))).toBe(false)
+  })
+
   it('cleanupOrphans removes .tmp-* dirs and leaves real entries alone', async () => {
     const k = keypair()
     const bytes = moextOf('1.1.0')

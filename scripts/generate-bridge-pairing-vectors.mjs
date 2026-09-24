@@ -255,8 +255,8 @@ const codeDisplayed = 'MTX7-K2Q9'
 const codeNormalized = 'MTX7K2Q9'
 const pairNonce = 'vec-nonce-8f3a1c5e7b2d4a90'
 const browser = 'chromium'
-const verifiedOrigin = 'chrome-extension://ibpkjhgpbidfmbmomagmldcdlpbmchgi'
-const claimedExtensionId = 'ibpkjhgpbidfmbmomagmldcdlpbmchgi'
+const verifiedOrigin = 'chrome-extension://lggbokfckofcgjndaboioakcmincinpo'
+const claimedExtensionId = 'lggbokfckofcgjndaboioakcmincinpo'
 const clientInstallationId = '5f0b6f9e-8a3d-4c5e-9b2a-7d1e4f6a8c0b'
 const instanceId = '0d9c2b7a-4e6f-4a1b-8c3d-2e5f7a9b1c4d'
 const xSeed = unhex(
@@ -656,7 +656,7 @@ const out = {
     'are lowercase hex.',
   generator: {
     library:
-      '@noble/curves 2.0.1, @noble/hashes 2.0.1, node:crypto AES-256-GCM',
+      '@noble/curves 2.4.0, @noble/hashes 2.4.0, node:crypto AES-256-GCM',
     coreValidation:
       'RFC 9382 Appendix B vectors #1-#4 (P-256) reproduced exactly',
   },

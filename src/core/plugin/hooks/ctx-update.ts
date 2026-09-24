@@ -1,4 +1,4 @@
-import path from 'node:path'
+import { resolveFinalizeTarget } from '@core/fs/finalize-path'
 import {
   extractAria2ProxyCredentials,
   normalizeAria2TaskProxyUrl,
@@ -87,14 +87,16 @@ export function validateFinalizePatch(
       ErrorCode.PluginRuntimeFault,
       `CtxUpdateInvalid: ${parsed.error.issues[0]?.message ?? 'invalid patch'}`
     )
-  // Normalize trailing separators so /downloads/ does not produce /downloads//
-  const base = opts.saveDir.replace(/[/\\]+$/, '')
-  const resolved = path.resolve(base, parsed.data.filePath)
-  // Invariant I31: filePath must not escape the saveDir sandbox
-  if (!resolved.startsWith(base + path.sep) && resolved !== base)
+  try {
+    return {
+      ...parsed.data,
+      filePath: resolveFinalizeTarget(opts.saveDir, parsed.data.filePath),
+    }
+  } catch (cause) {
     throw new AppError(
       ErrorCode.PluginRuntimeFault,
-      'CtxUpdateInvalid: filePath escapes saveDir'
+      `CtxUpdateInvalid: ${(cause as Error).message}`,
+      cause
     )
-  return parsed.data
+  }
 }

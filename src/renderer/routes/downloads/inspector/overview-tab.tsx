@@ -11,13 +11,26 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@renderer/components/ui/tooltip'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
+import type { TaskInspectorActivitySnapshotCache } from '@renderer/hooks/use-task-inspector-activity'
 import { resolveFailureReason } from '@renderer/lib/failure-reason'
-import { formatBytes, formatDurationHMS } from '@renderer/lib/format'
+import { formatDurationHMS, formatProgressPercent } from '@renderer/lib/format'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, TaskType } from '@shared/types/task'
 import { canAttemptRetry } from '@shared/types/task-actions'
+import {
+  getDownloadProgress,
+  getOutputSize,
+  getTransferMetrics,
+  isMediaTask,
+  mediaProgressPercent,
+} from '@shared/utils/media-progress'
 import { AlertCircleIcon, RotateCcw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { StatusPill } from '../status-pill'
+import { getTaskEta, getTaskSpeed } from '../task-column-values'
+import { TaskTimestamp } from '../task-timestamp'
+import { SeedingDuration } from './seeding-duration'
 import { useTaskActions } from './use-task-actions'
 
 function Card({
@@ -47,7 +60,7 @@ function Row({
   value: string | number | React.ReactNode
 }) {
   return (
-    <div className="flex justify-between">
+    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
       <span className="text-muted-foreground">{label}</span>
       {typeof value === 'string' || typeof value === 'number' ? (
         <span className="tabular-nums">{value}</span>
@@ -105,8 +118,23 @@ function ErrorPanel({ task }: { task: DownloadTask }) {
   )
 }
 
-export function OverviewTab({ task }: { task: DownloadTask }) {
-  const { t } = useTranslation()
+export function OverviewTab({
+  task,
+  snapshotCache,
+}: {
+  task: DownloadTask
+  snapshotCache?: TaskInspectorActivitySnapshotCache
+}) {
+  const { formatSpeed, formatBytes } = useByteFormat()
+
+  const { t, i18n } = useTranslation()
+  const media = isMediaTask(task)
+  const progress = getDownloadProgress(task)
+  const outputSize = getOutputSize(task)
+  const transfer = getTransferMetrics(task)
+  const eta = getTaskEta(task)
+  const muxProgress = task.mediaProgress?.muxProgress ?? null
+  const downSpeed = getTaskSpeed(task, 'downloadSpeed')
   const isBt = task.type === TaskType.Bt || task.type === TaskType.Magnet
   return (
     <div className="flex flex-col gap-3">
@@ -114,31 +142,105 @@ export function OverviewTab({ task }: { task: DownloadTask }) {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card title={t('panel.downloads.inspector.overview.transfer')}>
           <Row
-            label={t('panel.downloads.inspector.overview.downSpeed')}
-            value={`${formatBytes(task.downloadSpeed)}/s`}
-          />
-          <Row
             label={t('panel.downloads.inspector.overview.upSpeed')}
-            value={`${formatBytes(task.uploadSpeed)}/s`}
+            value={media ? '—' : formatSpeed(task.uploadSpeed)}
           />
           <Row
-            label={t('panel.downloads.inspector.overview.eta')}
-            value={formatDurationHMS(task.etaSeconds)}
+            label={t('panel.downloads.inspector.overview.downSpeed')}
+            value={
+              media && downSpeed === null
+                ? '—'
+                : formatSpeed(task.downloadSpeed)
+            }
           />
-        </Card>
-        <Card title={t('panel.downloads.inspector.overview.progress')}>
+          {isBt && (
+            <Row
+              label={t('panel.downloads.inspector.overview.uploaded')}
+              value={formatBytes(task.uploadedBytes)}
+            />
+          )}
           <Row
             label={t('panel.downloads.inspector.overview.downloaded')}
             value={formatBytes(task.downloadedBytes)}
           />
+        </Card>
+        <Card title={t('panel.downloads.inspector.overview.progress')}>
+          {media && (
+            <>
+              <Row
+                label={t('panel.downloads.media.stage')}
+                value={<StatusPill status={task.status} task={task} />}
+              />
+              {task.mediaProgress?.phase === 'muxing' && (
+                <Row
+                  label={t('panel.downloads.media.muxProgress')}
+                  value={
+                    muxProgress === null
+                      ? '—'
+                      : `${mediaProgressPercent(muxProgress)}%`
+                  }
+                />
+              )}
+              <Row
+                label={t('panel.downloads.media.parts')}
+                value={
+                  task.mediaProgress
+                    ? t('panel.downloads.media.partsFormat', {
+                        completed: task.mediaProgress.download.completedParts,
+                        total: task.mediaProgress.download.totalParts,
+                      })
+                    : '—'
+                }
+              />
+              <Row
+                label={t('panel.downloads.media.downloadSize')}
+                value={
+                  transfer.bytesTotal === null
+                    ? '—'
+                    : formatBytes(transfer.bytesTotal)
+                }
+              />
+            </>
+          )}
           <Row
-            label={t('panel.downloads.inspector.overview.totalSize')}
-            value={formatBytes(task.sizeWhenDone)}
+            label={t(
+              media
+                ? 'panel.downloads.media.outputSize'
+                : 'panel.downloads.inspector.overview.totalSize'
+            )}
+            value={outputSize === null ? '—' : formatBytes(outputSize)}
           />
           <Row
-            label={t('panel.downloads.inspector.overview.percent')}
-            value={`${Math.round(task.progress * 100)}%`}
+            label={t(
+              media
+                ? 'panel.downloads.media.downloadProgress'
+                : 'panel.downloads.inspector.overview.percent'
+            )}
+            value={
+              progress === null
+                ? '—'
+                : `${media ? mediaProgressPercent(progress) : formatProgressPercent(progress)}%`
+            }
           />
+          <Row
+            label={t(
+              media
+                ? 'panel.downloads.media.downloadEta'
+                : 'panel.downloads.inspector.overview.eta'
+            )}
+            value={eta === null ? '—' : formatDurationHMS(eta)}
+          />
+          {isBt && (
+            <Row
+              label={t('panel.downloads.inspector.overview.seedingTime')}
+              value={
+                <SeedingDuration
+                  taskId={task.id}
+                  snapshotCache={snapshotCache}
+                />
+              }
+            />
+          )}
         </Card>
         <Card title={t('panel.downloads.inspector.overview.network')}>
           {isBt && task.bt ? (
@@ -153,7 +255,14 @@ export function OverviewTab({ task }: { task: DownloadTask }) {
               />
               <Row
                 label={t('panel.downloads.inspector.overview.ratio')}
-                value={task.bt.ratio.toFixed(2)}
+                value={new Intl.NumberFormat(i18n.language, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                }).format(task.bt.ratio)}
+              />
+              <Row
+                label={t('panel.downloads.inspector.overview.private')}
+                value={task.bt.isPrivate ? '✓' : '—'}
               />
             </>
           ) : (
@@ -163,7 +272,7 @@ export function OverviewTab({ task }: { task: DownloadTask }) {
             />
           )}
         </Card>
-        <Card title={t('panel.downloads.inspector.overview.metadata')}>
+        <Card title={t('panel.downloads.inspector.overview.general')}>
           <Row
             label={t('panel.downloads.inspector.overview.type')}
             value={task.type.toUpperCase()}
@@ -175,7 +284,7 @@ export function OverviewTab({ task }: { task: DownloadTask }) {
                 <div className="flex items-center gap-2">
                   <Tooltip>
                     <TooltipTrigger render={<span className="tabular-nums" />}>
-                      {`${task.infoHash.slice(0, 4)}…${task.infoHash.slice(-4)}`}
+                      {`${task.infoHash.slice(0, 6)}...${task.infoHash.slice(-6)}`}
                     </TooltipTrigger>
                     <TooltipContent side="left">{task.infoHash}</TooltipContent>
                   </Tooltip>
@@ -189,10 +298,21 @@ export function OverviewTab({ task }: { task: DownloadTask }) {
               }
             />
           )}
-          {isBt && task.bt && (
+          <Row
+            label={t('panel.downloads.inspector.overview.createdAt')}
+            value={
+              <TaskTimestamp timestamp={task.createdAt} variant="inspector" />
+            }
+          />
+          {task.status === TaskStatus.Completed && (
             <Row
-              label={t('panel.downloads.inspector.overview.private')}
-              value={task.bt.isPrivate ? '✓' : '—'}
+              label={t('panel.downloads.inspector.overview.finishedAt')}
+              value={
+                <TaskTimestamp
+                  timestamp={task.finishedAt}
+                  variant="inspector"
+                />
+              }
             />
           )}
         </Card>

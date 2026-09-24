@@ -24,6 +24,7 @@ import {
   validateRuntimeDependencyContract,
 } from './electron-package-utils.mjs'
 import { assertNativeBinaryTarget } from './native-binary-target.mjs'
+import { pruneBuildOnly } from './staged-package-pruning.mjs'
 
 const BUILD_OUTPUTS = [
   { directory: 'dist/core/plugin/host', entry: 'quick-js-worker.cjs' },
@@ -280,8 +281,7 @@ async function copyTree(source, destination, canonicalRepoRoot, options = {}) {
 function packageCopyFilter(name, target) {
   if (name === 'better-sqlite3') {
     const selected = path.join('prebuilds', `${target.key}.node`)
-    return (relative) => {
-      if (relative.length === 0) return true
+    return pruneBuildOnly((relative) => {
       const portable = relative.replaceAll(path.sep, '/')
       return (
         portable === 'package.json' ||
@@ -291,13 +291,15 @@ function packageCopyFilter(name, target) {
         portable === 'prebuilds' ||
         relative === selected
       )
-    }
+    })
   }
   if (name === '@resvg/resvg-wasm') {
-    return (relative) => relative.replaceAll(path.sep, '/') !== 'index_bg.wasm'
+    return pruneBuildOnly(
+      (relative) => relative.replaceAll(path.sep, '/') !== 'index_bg.wasm'
+    )
   }
   if (name === 'electron-liquid-glass') {
-    return (relative) => {
+    return pruneBuildOnly((relative) => {
       const portable = relative.replaceAll(path.sep, '/')
       if (portable === 'prebuilds' || !portable.startsWith('prebuilds/')) {
         return true
@@ -306,9 +308,9 @@ function packageCopyFilter(name, target) {
         portable === `prebuilds/${target.key}` ||
         portable.startsWith(`prebuilds/${target.key}/`)
       )
-    }
+    })
   }
-  return undefined
+  return pruneBuildOnly()
 }
 
 async function collectNativeModules(directory) {

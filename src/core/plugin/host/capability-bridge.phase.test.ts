@@ -648,6 +648,8 @@ describe('CapabilityBridge phase matrix gate', () => {
     expect(callArg.outputPath).toBe(path.join(staging.dir, 'out.mp4'))
     // The redirected path starts with staging.dir, not saveDir
     expect(callArg.outputPath).not.toContain(saveDir)
+    expect(bridge.operationState().ffmpegOperations).toBe(1)
+    expect(bridge.hasInFlightOperations()).toBe(true)
 
     bridge.clearHookContext()
     await bridge.dispose()

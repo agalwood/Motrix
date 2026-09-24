@@ -1,66 +1,159 @@
-import { Button } from '@renderer/components/ui/button'
+import { ToolbarSearch } from '@renderer/components/desktop-kit/toolbar/toolbar-search'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@renderer/components/ui/popover'
-import { Search } from 'lucide-react'
-import { useState } from 'react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@renderer/components/ui/tooltip'
+import { TASK_TYPE_META, TASK_TYPE_ORDER } from '@renderer/lib/task-type-meta'
+import { cn } from '@renderer/lib/utils'
+import { ListFilter } from 'lucide-react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { DownloadsToolbarButton } from './downloads-toolbar-button'
 import {
   FilterSearchPanel,
   type FilterSearchPanelProps,
 } from './filter-search-panel'
 
-export type FilterSearchCommandProps = FilterSearchPanelProps
+export interface FilterSearchCommandProps extends FilterSearchPanelProps {
+  query: string
+  onQueryChange: (query: string) => void
+  expanded: boolean
+  onExpandedChange: (expanded: boolean) => void
+  width: number
+}
 
 export function FilterSearchCommand({
-  tasks,
+  query,
+  onQueryChange,
   types,
   onTypesChange,
   typeCounts,
-  onOpenTask,
+  expanded,
+  onExpandedChange,
+  width,
 }: FilterSearchCommandProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [open, setOpen] = useState(false)
-  const active = types.length > 0
+  const [popupPresent, setPopupPresent] = useState(false)
+  const popupRef = useRef<HTMLDivElement>(null)
+  const filterRef = useRef<HTMLButtonElement>(null)
+  const active = Boolean(query.trim()) || types.length > 0
+  const descriptions = [
+    query.trim()
+      ? t('panel.downloads.search.activeQuery', { query: query.trim() })
+      : null,
+    types.length > 0
+      ? t('panel.downloads.search.activeTypeFilters', {
+          types: new Intl.ListFormat(i18n.language, {
+            style: 'long',
+            type: 'conjunction',
+          }).format(
+            TASK_TYPE_ORDER.filter((type) => types.includes(type)).map((type) =>
+              t(TASK_TYPE_META[type].labelKey)
+            )
+          ),
+        })
+      : null,
+  ].filter(Boolean)
+  const filterLabel = [
+    t('panel.downloads.search.filters'),
+    ...descriptions,
+  ].join(' · ')
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={t('panel.downloads.search.placeholder')}
-            // Match the 28px window-chrome targets so compact panel actions
-            // stay on the Toggle Sidebar and Add Task centerline.
-            className="panel-action-align-visual-end app-no-drag relative size-7 rounded-full bg-transparent hover:bg-transparent dark:hover:bg-transparent [&>svg]:opacity-50 hover:[&>svg]:opacity-75 focus-visible:[&>svg]:opacity-75"
-          />
-        }
-      >
-        <Search className="size-4" />
-        {active && (
-          <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-primary ring-2 ring-background" />
-        )}
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        sideOffset={8}
-        className="app-no-drag z-[60] w-[340px] p-0"
-        initialFocus={false}
-      >
-        <FilterSearchPanel
-          tasks={tasks}
-          types={types}
-          onTypesChange={onTypesChange}
-          typeCounts={typeCounts}
-          onOpenTask={(task) => {
-            onOpenTask(task)
-            setOpen(false)
+    <ToolbarSearch
+      data-slot="downloads-search"
+      data-filter-active={active}
+      value={query}
+      onValueChange={onQueryChange}
+      label={t('panel.downloads.search.placeholder')}
+      clearLabel={t('common.clearSearch')}
+      expanded={expanded}
+      onExpandedChange={onExpandedChange}
+      keepExpanded={types.length > 0 || open}
+      onEmptyEscape={() => filterRef.current?.focus()}
+      width={width}
+      leading={({ anchorRef, collapseIfIdle }) => (
+        <Popover
+          open={open}
+          onOpenChange={(next, details) => {
+            setOpen(next)
+            if (next) {
+              setPopupPresent(true)
+              onExpandedChange(true)
+            }
+            if (
+              !next &&
+              (details.reason === 'outside-press' ||
+                details.reason === 'focus-out')
+            )
+              collapseIfIdle()
           }}
-        />
-      </PopoverContent>
-    </Popover>
+          onOpenChangeComplete={(next) => {
+            if (!next) setPopupPresent(false)
+          }}
+        >
+          <Tooltip disabled={open}>
+            <TooltipTrigger
+              delay={400}
+              render={
+                <PopoverTrigger
+                  render={
+                    <DownloadsToolbarButton
+                      ref={filterRef}
+                      aria-label={filterLabel}
+                      className={
+                        active
+                          ? 'text-[#006bd6] dark:text-[#69aeff] [&>svg]:opacity-100 hover:text-[#006bd6] dark:hover:text-[#69aeff]'
+                          : undefined
+                      }
+                    />
+                  }
+                />
+              }
+            >
+              <ListFilter className="size-4" />
+            </TooltipTrigger>
+            <TooltipContent
+              anchor={anchorRef}
+              side="bottom"
+              align="start"
+              sideOffset={8}
+              className={cn(
+                'block max-w-(--anchor-width) [overflow-wrap:anywhere]',
+                popupPresent && 'invisible'
+              )}
+            >
+              <p>{t('panel.downloads.search.filters')}</p>
+              {descriptions.map((description) => (
+                <p key={description} className="mt-1 opacity-80">
+                  {description}
+                </p>
+              ))}
+            </TooltipContent>
+          </Tooltip>
+          <PopoverContent
+            ref={popupRef}
+            anchor={anchorRef}
+            aria-label={t('panel.downloads.search.filters')}
+            align="start"
+            sideOffset={8}
+            className="app-no-drag w-(--anchor-width) max-w-[calc(100vw-24px)] p-0"
+          >
+            <FilterSearchPanel
+              types={types}
+              onTypesChange={onTypesChange}
+              typeCounts={typeCounts}
+            />
+          </PopoverContent>
+        </Popover>
+      )}
+    />
   )
 }

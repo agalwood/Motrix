@@ -141,7 +141,7 @@ describe('resolveNativeHostBinaryPath', () => {
       })
 
       await installer.syncManifests({
-        chromium: ['ibpkjhgpbidfmbmomagmldcdlpbmchgi'],
+        chromium: ['lggbokfckofcgjndaboioakcmincinpo'],
         firefox: ['motrix-extension@motrix.app'],
       })
 
@@ -191,7 +191,7 @@ describe('resolveNativeHostBinaryPath', () => {
         })
 
         await installer.syncManifests({
-          chromium: ['ibpkjhgpbidfmbmomagmldcdlpbmchgi'],
+          chromium: ['lggbokfckofcgjndaboioakcmincinpo'],
           firefox: ['motrix-extension@motrix.app'],
         })
 

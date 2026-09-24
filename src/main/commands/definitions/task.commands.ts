@@ -1,17 +1,9 @@
-import {
-  clearStoppedTasks,
-  moveTask,
-  pauseAllTasks,
-  pauseTask,
-  removeTask,
-  resumeAllTasks,
-  resumeTask,
-} from '@core/task/actions'
+import { pauseAllTasks, resumeAllTasks } from '@core/task/actions'
 import { CommandIds } from '@shared/commands-catalog'
-import { TaskStatus } from '@shared/types/task'
+import { Events } from '@shared/protocol/events'
 import type { CommandRegistry } from '../command-registry'
 import type { CommandDeps } from '../types'
-import { and, ctxEq, ctxIn, ctxTrue, not } from '../when'
+import { ctxTrue } from '../when'
 
 export function registerTaskCommands(
   registry: CommandRegistry,
@@ -48,82 +40,29 @@ export function registerTaskCommands(
     },
   })
 
-  registry.register({
-    id: CommandIds.TaskPause,
-    title: 'menu.task.pauseTask',
-    precondition: and(
-      ctxTrue('taskSelected'),
-      ctxIn('selectedTaskStatus', [
-        TaskStatus.Downloading,
-        TaskStatus.FetchingMetadata,
-      ])
-    ),
-    run: async ({ deps, menuContext }) => {
-      const id = menuContext.selectedTaskId
-      if (!id) return
-      await pauseTask(id, deps)
-    },
-  })
-
-  registry.register({
-    id: CommandIds.TaskResume,
-    title: 'menu.task.resumeTask',
-    precondition: and(
-      ctxTrue('taskSelected'),
-      ctxEq('selectedTaskStatus', TaskStatus.Paused)
-    ),
-    run: async ({ deps, menuContext }) => {
-      const id = menuContext.selectedTaskId
-      if (!id) return
-      await resumeTask(id, deps)
-    },
-  })
-
-  registry.register({
-    id: CommandIds.TaskDelete,
-    title: 'menu.task.deleteTask',
-    precondition: ctxTrue('taskSelected'),
-    run: async ({ deps, menuContext }) => {
-      const id = menuContext.selectedTaskId
-      if (!id) return
-      // Menu/palette delete defaults to keeping files on disk; the
-      // renderer-side delete dialog (Task 19) will surface the
-      // `deleteWithFiles=true` path when the user explicitly opts in.
-      await removeTask(
-        id,
-        { deleteWithFiles: false },
-        { ...deps, db: deps.motrixDatabase }
-      )
-    },
-  })
-
-  registry.register({
-    id: CommandIds.TaskMoveUp,
-    title: 'menu.task.moveTaskUp',
-    precondition: and(
-      ctxTrue('taskSelected'),
-      not(ctxTrue('selectedTaskAtTop'))
-    ),
-    run: async ({ deps, menuContext }) => {
-      const id = menuContext.selectedTaskId
-      if (!id) return
-      await moveTask(id, 'up', deps)
-    },
-  })
-
-  registry.register({
-    id: CommandIds.TaskMoveDown,
-    title: 'menu.task.moveTaskDown',
-    precondition: and(
-      ctxTrue('taskSelected'),
-      not(ctxTrue('selectedTaskAtBottom'))
-    ),
-    run: async ({ deps, menuContext }) => {
-      const id = menuContext.selectedTaskId
-      if (!id) return
-      await moveTask(id, 'down', deps)
-    },
-  })
+  const selectionCommands = [
+    [CommandIds.TaskPause, 'menu.task.pauseTask', 'selectedCanPause'],
+    [CommandIds.TaskResume, 'menu.task.resumeTask', 'selectedCanResume'],
+    [CommandIds.TaskDelete, 'menu.task.deleteTask', 'selectedCanRemove'],
+    [CommandIds.TaskMoveUp, 'menu.task.moveTaskUp', 'selectedCanMove'],
+    [CommandIds.TaskMoveDown, 'menu.task.moveTaskDown', 'selectedCanMove'],
+  ] as const
+  for (const [id, title, predicate] of selectionCommands) {
+    registry.register({
+      id,
+      title,
+      precondition: (context) => context[predicate] === true,
+      run: ({ deps, menuContext }) => {
+        deps.windowManager
+          .get('main')
+          ?.webContents.send(Events.RendererTaskMenuRequested, {
+            commandId: id,
+            taskIds: menuContext.selectedTaskIds ?? [],
+            generation: menuContext.selectedTaskGeneration ?? 0,
+          })
+      },
+    })
+  }
 
   registry.register({
     id: CommandIds.TaskPauseAll,
@@ -144,21 +83,27 @@ export function registerTaskCommands(
   })
 
   registry.register({
+    id: CommandIds.TaskSelectAll,
+    title: 'menu.task.selectAllTask',
+    precondition: ({ currentRoute }) =>
+      currentRoute === '/downloads' || currentRoute.startsWith('/downloads/'),
+    run: ({ deps }) => {
+      deps.windowManager.get('main')?.webContents.send(Events.TaskSelectAll)
+    },
+  })
+
+  registry.register({
     id: CommandIds.TaskClearStopped,
     title: 'menu.task.clearRecentTasks',
     precondition: ctxTrue('hasStoppedTasks'),
-    run: async ({ deps }) => {
-      await clearStoppedTasks({
-        taskManager: deps.taskManager,
-        adapter: deps.adapter,
-        db: deps.motrixDatabase,
-        taskPersistence: deps.taskPersistence,
-        eventBus: deps.eventBus,
-        log: deps.log,
-        deleteParentTasks: deps.deleteParentTasks,
-        runTaskMutation: deps.runTaskMutation,
-        publishTaskUpdateNow: deps.publishTaskUpdateNow,
-      })
+    run: ({ deps, menuContext }) => {
+      deps.windowManager
+        .get('main')
+        ?.webContents.send(Events.RendererTaskMenuRequested, {
+          commandId: CommandIds.TaskClearStopped,
+          taskIds: [],
+          generation: menuContext.selectedTaskGeneration ?? 0,
+        })
     },
   })
 }

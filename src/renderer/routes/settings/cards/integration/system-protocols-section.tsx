@@ -1,9 +1,9 @@
+import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
 import { Button } from '@renderer/components/ui/button'
 import {
   FormControl,
   FormDescription,
   FormField,
-  FormItem,
   FormLabel,
 } from '@renderer/components/ui/form'
 import { Switch } from '@renderer/components/ui/switch'
@@ -201,7 +201,7 @@ export function SystemProtocolsSection({
           control={form.control}
           name="app.protocols.magnet"
           render={({ field }) => (
-            <FormItem className="flex items-start justify-between gap-4">
+            <SettingsFormRow>
               <div className="space-y-1">
                 <FormLabel>
                   {t('settings.integration.system.protocolMagnet')}
@@ -224,7 +224,7 @@ export function SystemProtocolsSection({
                   onCheckedChange={field.onChange}
                 />
               </FormControl>
-            </FormItem>
+            </SettingsFormRow>
           )}
         />
       )}

@@ -45,6 +45,19 @@ describe('before-pack-verify', () => {
     )
   }
 
+  function finalizePath(platform = 'darwin', arch = 'x64') {
+    const binaryName =
+      platform === 'win32' ? 'motrix-finalize-fs.exe' : 'motrix-finalize-fs'
+    return join(
+      projectDir,
+      'packages',
+      'finalize-fs',
+      'dist',
+      `${platform}-${arch}`,
+      binaryName
+    )
+  }
+
   async function writeStage(
     platform = 'darwin',
     arch = 'x64',
@@ -206,6 +219,7 @@ describe('before-pack-verify', () => {
   it('accepts concrete executable Unix binaries', async () => {
     await writeBinary(enginePath())
     await writeBinary(hostPath())
+    await writeBinary(finalizePath())
 
     await expect(beforePack(context())).resolves.toBeUndefined()
   })
@@ -214,6 +228,7 @@ describe('before-pack-verify', () => {
     await writeStage('win32')
     await writeBinary(enginePath('win32'), 0o644, 'win32')
     await writeBinary(hostPath('win32'), 0o644, 'win32')
+    await writeBinary(finalizePath('win32'), 0o644, 'win32')
 
     await expect(beforePack(context('win32'))).resolves.toBeUndefined()
   })
@@ -222,6 +237,7 @@ describe('before-pack-verify', () => {
     await writeStage('win32', 'arm64')
     await writeBinary(enginePath('win32', 'arm64'), 0o644, 'win32', 'arm64')
     await writeBinary(hostPath('win32', 'arm64'), 0o644, 'win32', 'arm64')
+    await writeBinary(finalizePath('win32', 'arm64'), 0o644, 'win32', 'arm64')
 
     await expect(beforePack(context('win32', 3))).resolves.toBeUndefined()
   })
@@ -241,6 +257,7 @@ describe('before-pack-verify', () => {
     await writeStage('linux')
     await writeBinary(enginePath('linux'), 0o755, 'linux')
     await writeBinary(hostPath('linux'), 0o755, 'linux')
+    await writeBinary(finalizePath('linux'), 0o755, 'linux')
 
     await expect(beforePack(context('linux'))).resolves.toBeUndefined()
   })
@@ -249,6 +266,7 @@ describe('before-pack-verify', () => {
     await writeStage('linux', 'arm64')
     await writeBinary(enginePath('linux', 'arm64'), 0o755, 'linux', 'arm64')
     await writeBinary(hostPath('linux', 'arm64'), 0o755, 'linux', 'arm64')
+    await writeBinary(finalizePath('linux', 'arm64'), 0o755, 'linux', 'arm64')
 
     await expect(beforePack(context('linux', 3))).resolves.toBeUndefined()
   })
@@ -260,6 +278,7 @@ describe('before-pack-verify', () => {
       'x64',
       'arm64',
     ])
+    await writeBinary(finalizePath('darwin', 'arm64'), 0o755, 'darwin', 'arm64')
 
     await expect(beforePack(context('darwin', 3))).resolves.toBeUndefined()
   })

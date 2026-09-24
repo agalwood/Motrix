@@ -13,12 +13,23 @@
 //   - ffmpeg ops map: tracks running FfmpegOpHandle instances by opId so the
 //     worker can poll progress, await result, or abort.
 
+import { randomUUID } from 'node:crypto'
 import { Worker } from 'node:worker_threads'
 import type { SupportedLocale } from '@shared/constants/locales'
+import {
+  CapabilityCallMessageSchema,
+  type CommandInvocationScopeV1,
+  HOOK_SCHEMA_VERSION,
+  type HookEffectsV1,
+  HookEffectsV1Schema,
+  HookEnterMessageSchema,
+  HookExitMessageSchema,
+  type HookInvocationScopeV1,
+} from '@shared/schemas/plugin-hooks'
 import type { PluginManifest } from '@shared/types/plugin'
 import { z } from 'zod'
 import type { FfmpegOpHandle, FfmpegProgress } from '../capabilities/ffmpeg'
-import { HttpCapabilityHost } from '../capabilities/http'
+import type { HttpCapabilityHost } from '../capabilities/http'
 import type { CapabilityHost } from '../capabilities/interface'
 import { validateFinalizePatch, validateHttpPatch } from '../hooks/ctx-update'
 import { classifyFfmpegOutput } from '../hooks/ffmpeg-path-classify'
@@ -30,11 +41,14 @@ import type { FfmpegStaging } from '../hooks/staging-dir'
 import type {
   BridgeCallMessage,
   BridgeDeactivate,
+  BridgeExecuteCommandResult,
   BridgeInitMessage,
   HookName,
   HostToWorker,
   WorkerToHost,
 } from './bridge-protocol'
+import { BridgeExecuteCommandResultSchema } from './bridge-protocol'
+import { currentPluginCallChain, type PluginCallChain } from './plugin-lane'
 
 export interface CapabilityBridgeOptions {
   pluginId: string
@@ -46,6 +60,8 @@ export interface CapabilityBridgeOptions {
   appVersion: string
   runtime: 'electron' | 'server'
   hostLanguage: SupportedLocale
+  /** Generation of the executable and effective policy bound to this worker. */
+  permissionGeneration?: number
   /**
    * Spec §I30 — runtime permission gate. `required ∪ (optional ∩ granted)`.
    * Methods whose permission isn't in this set throw
@@ -65,6 +81,46 @@ export interface CapabilityBridgeOptions {
  * method-level check is left to the capability host (spec §I30 is
  * capability-scope, not method-scope, in Phase 1A).
  */
+/**
+ * How a hook invocation was cancelled. `HookAbortBudget` (see
+ * `@core/plugin/hooks/abort`) aborts its signal with the literal reason
+ * `'timeout'` when the chain deadline elapses; anything else — policy change,
+ * admission close, caller cancellation — is a plain abort.
+ */
+type HookAbortKind = 'timeout' | 'aborted'
+
+/**
+ * Reason strings posted into the plugin VM's `onabort` event. Deliberately a
+ * closed set: an arbitrary host-side `signal.reason` must never cross the
+ * sandbox boundary.
+ */
+const HOOK_ABORT_REASON: Record<HookAbortKind, string> = {
+  timeout: 'plugin hook timed out',
+  aborted: 'plugin hook aborted',
+}
+
+/**
+ * Margin between the caller's deadline and this bridge's defensive timer, so
+ * the two never race for the same tick. See `callHook`.
+ */
+const HOOK_DEFENSIVE_TIMEOUT_GRACE_MS = 500
+
+function abortKindOf(signal: AbortSignal): HookAbortKind {
+  return signal.reason === 'timeout' ? 'timeout' : 'aborted'
+}
+
+function hookAbortError(
+  kind: HookAbortKind,
+  timeoutMs: number
+): Error & { code?: string } {
+  const e: Error & { code?: string } =
+    kind === 'timeout'
+      ? new Error(`plugin hook timed out after ${timeoutMs}ms`)
+      : new Error(HOOK_ABORT_REASON.aborted)
+  e.code = kind === 'timeout' ? 'plugin.hook.timeout' : 'plugin.hook.aborted'
+  return e
+}
+
 const CAPABILITY_PERMISSIONS: Record<string, ReadonlyArray<string>> = {
   http: ['http'],
   notify: ['notify'],
@@ -94,6 +150,7 @@ export type HookContextArgs =
   | {
       fsTaskHost: ReturnType<CapabilityHost['fsTaskFor']>
       taskId: string
+      effectivePermissions?: ReadonlySet<string>
     }
   | {
       fsTaskHost: ReturnType<CapabilityHost['fsTaskFor']>
@@ -104,6 +161,7 @@ export type HookContextArgs =
       saveDir: string
       pluginStorageRoot: string // required in Plan C — ffmpeg gate uses it for path-escape validation
       staging?: FfmpegStaging // optional — only beforeFinalize ffmpeg paths need it
+      effectivePermissions?: ReadonlySet<string>
     }
 
 /**
@@ -279,10 +337,28 @@ const commandsExecuteSchema = z.tuple([z.string(), z.unknown()])
 
 interface FfmpegOpEntry {
   handle: FfmpegOpHandle<{ outputPath: string }>
+  taskId: string | null
   lastProgress: FfmpegProgress | null
   lastEmitTs: number
   // Drive the progress iterable so lastProgress stays current.
   // The pump loop runs asynchronously and self-terminates when the iterator ends.
+}
+
+interface HttpCallEntry {
+  controller: AbortController
+  hookScope: HookInvocationScopeV1 | null
+  commandScope: CommandInvocationScopeV1 | null
+  settled: Promise<void>
+  markSettled: () => void
+}
+
+export interface CapabilityBridgeOperationState {
+  capabilityCalls: number
+  httpOperations: number
+  commandCalls: number
+  hookCalls: number
+  deactivationCalls: number
+  ffmpegOperations: number
 }
 
 // ---------------------------------------------------------------------------
@@ -305,6 +381,8 @@ export class CapabilityBridge {
   private currentFsTaskHost: ReturnType<CapabilityHost['fsTaskFor']> | null =
     null
   private currentTaskId: string | null = null
+  private currentEffectivePermissions: ReadonlySet<string> | null = null
+  private currentInvocationScope: HookInvocationScopeV1 | null = null
   // Phase × Capability matrix fields (Task 8 / Plan C).
   private currentPhase: Phase | 'idle' = 'idle'
   private staged: StagedEffectStore | null = null
@@ -323,11 +401,17 @@ export class CapabilityBridge {
 
   // ffmpeg running op registry
   private readonly ffmpegOps = new Map<string, FfmpegOpEntry>()
+  private readonly httpCalls = new Map<number, HttpCallEntry>()
+  private inFlightCapabilityCalls = 0
 
   // Pending callPlugin() promises: correlation id → {resolve, reject}
   private readonly pendingCommandCalls = new Map<
     number,
-    { resolve: (v: unknown) => void; reject: (e: Error) => void }
+    {
+      commandScope: CommandInvocationScopeV1
+      resolve: (v: unknown) => void
+      reject: (e: Error) => void
+    }
   >()
   private nextCommandCallId = 1
 
@@ -340,7 +424,8 @@ export class CapabilityBridge {
   // Pending callHook() resolve/reject — at most one in-flight at a time. Plan C
   // serializes hook calls per plugin, so a single slot is sufficient.
   private pendingHook: {
-    resolve: () => void
+    scope: HookInvocationScopeV1
+    resolve: (effects: HookEffectsV1) => void
     reject: (e: Error) => void
     detach: () => void
   } | null = null
@@ -358,6 +443,10 @@ export class CapabilityBridge {
     })
     this.worker.on('message', (msg: WorkerToHost) => this.onMessage(msg))
     this.worker.on('error', (e) => {
+      this.failPendingHook(
+        'plugin.hook.worker_crashed',
+        'plugin worker crashed during Hook invocation'
+      )
       this.events.onFatal?.(
         'plugin.runtime.worker_crashed',
         (e as Error).message
@@ -365,6 +454,10 @@ export class CapabilityBridge {
     })
     this.worker.on('exit', (code) => {
       if (!this.disposed && code !== 0) {
+        this.failPendingHook(
+          'plugin.hook.worker_crashed',
+          `plugin worker exited with code ${code}`
+        )
         this.events.onFatal?.(
           'plugin.runtime.worker_exited',
           `worker exited with code ${code}`
@@ -401,37 +494,77 @@ export class CapabilityBridge {
       return
     }
     if (msg.type === 'event' && msg.event === 'hookExit') {
-      // Plan C: settle the pending callHook promise (if any) and clear the
-      // hook context slot. The pending promise is created by callHook() —
-      // Plan B callers that simply set hook context manually have no pending
-      // promise, in which case we just clear the slot.
-      this.clearHookContext()
+      const parsed = HookExitMessageSchema.safeParse(msg)
+      if (!parsed.success) {
+        this.failPendingHook(
+          'plugin.hook.output_invalid',
+          'worker returned an invalid Hook exit message'
+        )
+        return
+      }
       const pending = this.pendingHook
+      if (!pending || !sameHookScope(parsed.data, pending.scope)) {
+        this.events.onFatal?.(
+          'plugin.hook.concurrent_protocol_violation',
+          'stale or mismatched Hook exit ignored'
+        )
+        return
+      }
+
       this.pendingHook = null
-      if (pending) {
-        pending.detach()
-        if (msg.ok) {
-          pending.resolve()
+      pending.detach()
+      try {
+        if (parsed.data.ok) {
+          this.applyHookEffects(parsed.data.effects)
+          pending.resolve(parsed.data.effects)
         } else {
-          const code = msg.errorCode ?? 'plugin.runtime.fault'
-          const e: Error & { code?: string } = new Error(
-            `plugin hook failed: ${code}`
+          const e = new PluginCodedError(
+            parsed.data.error.code,
+            parsed.data.error.message
           )
-          e.code = code
           pending.reject(e)
         }
+      } catch (error) {
+        const code =
+          (error as { code?: string }).code ?? 'plugin.hook.output_invalid'
+        pending.reject(
+          new PluginCodedError(code, (error as Error).message ?? String(error))
+        )
+      } finally {
+        this.clearHookContext()
       }
       return
     }
     if (msg.type === 'event' && msg.event === 'executeCommandResult') {
-      const pending = this.pendingCommandCalls.get(msg.id)
+      const parsed = BridgeExecuteCommandResultSchema.safeParse(msg)
+      if (!parsed.success) {
+        this.events.onFatal?.(
+          'plugin.command.protocol_violation',
+          'worker returned an invalid command result message'
+        )
+        return
+      }
+      const result: BridgeExecuteCommandResult = parsed.data
+      const pending = this.pendingCommandCalls.get(result.id)
       if (pending) {
-        this.pendingCommandCalls.delete(msg.id)
-        if (msg.ok) {
-          pending.resolve(msg.result)
+        if (!sameCommandScope(result.commandScope, pending.commandScope)) {
+          this.events.onFatal?.(
+            'plugin.command.protocol_violation',
+            'worker returned a command result for another lane entry'
+          )
+          return
+        }
+        this.pendingCommandCalls.delete(result.id)
+        this.abortHttpCalls(
+          (entry) =>
+            entry.commandScope !== null &&
+            sameCommandScope(entry.commandScope, result.commandScope)
+        )
+        if (result.ok) {
+          pending.resolve(result.result)
         } else {
-          const e: Error & { code?: string } = new Error(msg.errorMessage)
-          e.code = msg.errorCode
+          const e: Error & { code?: string } = new Error(result.errorMessage)
+          e.code = result.errorCode
           pending.reject(e)
         }
       }
@@ -454,7 +587,12 @@ export class CapabilityBridge {
       return
     }
     if (msg.type === 'call') {
-      await this.dispatchCall(msg)
+      this.inFlightCapabilityCalls += 1
+      try {
+        await this.dispatchCall(msg)
+      } finally {
+        this.inFlightCapabilityCalls -= 1
+      }
       return
     }
   }
@@ -464,12 +602,79 @@ export class CapabilityBridge {
   // -------------------------------------------------------------------------
 
   async dispatchCall(msg: BridgeCallMessage): Promise<void> {
+    const parsedMessage = CapabilityCallMessageSchema.safeParse(msg)
+    if (!parsedMessage.success) {
+      if (Number.isSafeInteger(msg.id) && msg.id > 0) {
+        this.sendError(
+          msg.id,
+          'plugin.hook.input_invalid',
+          'invalid capability call message'
+        )
+      }
+      return
+    }
+    msg = parsedMessage.data
+
+    const messageScope = hookScopeFromMessage(msg)
+    if (this.currentInvocationScope) {
+      if (
+        !messageScope ||
+        !sameHookScope(messageScope, this.currentInvocationScope)
+      ) {
+        this.sendError(
+          msg,
+          'plugin.hook.concurrent_protocol_violation',
+          'capability call does not belong to the active Hook invocation'
+        )
+        return
+      }
+    } else if (messageScope) {
+      this.sendError(
+        msg,
+        'plugin.hook.concurrent_protocol_violation',
+        'stale invocation-scoped capability call'
+      )
+      return
+    }
+
+    const commandScope = commandScopeFromMessage(msg)
+    if (commandScope) {
+      const pending = this.pendingCommandCalls.get(
+        commandScope.commandInvocationId
+      )
+      if (
+        !pending ||
+        !sameCommandScope(commandScope, pending.commandScope) ||
+        commandScope.callChain.plugins.at(-1) !== this.opts.pluginId
+      ) {
+        this.sendError(
+          msg,
+          'plugin.command.protocol_violation',
+          'capability call does not belong to the active command lane entry'
+        )
+        return
+      }
+    }
+
+    if (
+      messageScope &&
+      this.opts.permissionGeneration !== undefined &&
+      messageScope.permissionGeneration !== this.opts.permissionGeneration
+    ) {
+      this.sendError(
+        msg,
+        'plugin.runtime.permission_generation_stale',
+        'capability call uses a stale permission generation'
+      )
+      return
+    }
+
     // Spec §I30 — runtime permission gate. Rejects capability calls whose
     // permission isn't in `effectivePermissions`. Auto-injected capabilities
     // (log/app/i18n/crypto/lifecycle/commands/config/ctx) bypass.
     if (!this.permitted(msg.capability)) {
       this.sendError(
-        msg.id,
+        msg,
         'plugin.capability.unavailable',
         `${msg.capability}.${msg.method} denied: optional permission not granted`
       )
@@ -483,7 +688,7 @@ export class CapabilityBridge {
       const verdict = phaseMatrix(msg.capability, msg.method, this.currentPhase)
       if (verdict === 'disallowed') {
         this.sendError(
-          msg.id,
+          msg,
           'plugin.capability.disallowed_in_phase',
           `${msg.capability}.${msg.method} not allowed in ${this.currentPhase}`
         )
@@ -541,16 +746,16 @@ export class CapabilityBridge {
           break
         default:
           return this.sendError(
-            msg.id,
+            msg,
             'plugin.capability.unknown',
             `unknown capability: ${msg.capability}`
           )
       }
-      this.sendResponse(msg.id, result)
+      this.sendResponse(msg, result)
     } catch (e: unknown) {
       const code = (e as { code?: string }).code ?? 'plugin.runtime.fault'
       const message = (e as Error).message ?? String(e)
-      this.sendError(msg.id, code, message)
+      this.sendError(msg, code, message)
     }
   }
 
@@ -558,18 +763,49 @@ export class CapabilityBridge {
   // Response helpers
   // -------------------------------------------------------------------------
 
-  private sendResponse(id: number, result: unknown): void {
-    const resp: HostToWorker = { type: 'response', id, ok: true, result }
+  private sendResponse(
+    source: number | BridgeCallMessage,
+    result: unknown
+  ): void {
+    const id = typeof source === 'number' ? source : source.id
+    const hookScope =
+      typeof source === 'number' ? null : hookScopeFromMessage(source)
+    const commandScope =
+      typeof source === 'number' ? null : commandScopeFromMessage(source)
+    const base = { type: 'response' as const, id, ok: true as const, result }
+    const resp: HostToWorker = hookScope
+      ? commandScope
+        ? { ...base, ...hookScope, commandScope }
+        : { ...base, ...hookScope }
+      : commandScope
+        ? { ...base, commandScope }
+        : base
     this.worker.postMessage(resp)
   }
 
-  private sendError(id: number, code: string, message: string): void {
-    const resp: HostToWorker = {
-      type: 'response',
+  private sendError(
+    source: number | BridgeCallMessage,
+    code: string,
+    message: string
+  ): void {
+    const id = typeof source === 'number' ? source : source.id
+    const hookScope =
+      typeof source === 'number' ? null : hookScopeFromMessage(source)
+    const commandScope =
+      typeof source === 'number' ? null : commandScopeFromMessage(source)
+    const base = {
+      type: 'response' as const,
       id,
-      ok: false,
+      ok: false as const,
       error: { code, message },
     }
+    const resp: HostToWorker = hookScope
+      ? commandScope
+        ? { ...base, ...hookScope, commandScope }
+        : { ...base, ...hookScope }
+      : commandScope
+        ? { ...base, commandScope }
+        : base
     this.worker.postMessage(resp)
   }
 
@@ -582,7 +818,8 @@ export class CapabilityBridge {
   private permitted(capability: string): boolean {
     const required = CAPABILITY_PERMISSIONS[capability]
     if (!required) return true
-    const eff = this.opts.effectivePermissions
+    const eff =
+      this.currentEffectivePermissions ?? this.opts.effectivePermissions
     if (!eff) return true
     return required.some((p) => eff.has(p))
   }
@@ -659,7 +896,7 @@ export class CapabilityBridge {
   private getPluginHttpHost(): HttpCapabilityHost {
     if (!this.pluginHttpHost) {
       const jar = this.opts.capabilityHost.cookieJarFor(this.opts.pluginId)
-      this.pluginHttpHost = new HttpCapabilityHost({
+      this.pluginHttpHost = this.opts.capabilityHost.http.scoped({
         cookieJar: jar,
         // Confine outbound requests to the manifest's declared hosts — the
         // consent screen presents hostPermissions as the plugin's reach, so
@@ -672,42 +909,76 @@ export class CapabilityBridge {
 
   private async dispatchHttp(msg: BridgeCallMessage): Promise<unknown> {
     const host = this.getPluginHttpHost()
-    if (msg.method === 'request') {
-      const [opts] = msg.args
-      const parsed = httpRequestSchema.parse(opts)
-      // Normalize legacy Record-shaped headers to the spec-aligned array form
-      // expected by HttpCapabilityHost.request().
-      const headers = parsed.headers
-      const normalizedHeaders = Array.isArray(headers)
-        ? headers
-        : headers !== undefined
-          ? Object.entries(headers).map(([name, value]) => ({ name, value }))
-          : undefined
-      const forHost = { ...parsed, headers: normalizedHeaders }
-      // Cast body.data to the expected union — Zod z.unknown() is wider than
-      // HttpRequestBody.data which is string | object | Uint8Array.
-      return host.request(forHost as Parameters<typeof host.request>[0])
+    const entry = this.beginHttpCall(msg)
+    try {
+      if (msg.method === 'request') {
+        const [opts] = msg.args
+        const parsed = httpRequestSchema.parse(opts)
+        // Normalize legacy Record-shaped headers to the spec-aligned array form
+        // expected by HttpCapabilityHost.request().
+        const headers = parsed.headers
+        const normalizedHeaders = Array.isArray(headers)
+          ? headers
+          : headers !== undefined
+            ? Object.entries(headers).map(([name, value]) => ({ name, value }))
+            : undefined
+        const forHost = {
+          ...parsed,
+          headers: normalizedHeaders,
+          signal: entry.controller.signal,
+        }
+        // Cast body.data to the expected union — Zod z.unknown() is wider than
+        // HttpRequestBody.data which is string | object | Uint8Array.
+        return await host.request(forHost as Parameters<typeof host.request>[0])
+      }
+      if (msg.method === 'get') {
+        const [url, opts] = msg.args as [string, object?]
+        return await host.get(url, {
+          ...(opts ?? {}),
+          signal: entry.controller.signal,
+        } as Parameters<HttpCapabilityHost['get']>[1])
+      }
+      if (msg.method === 'post') {
+        const [url, body, opts] = msg.args as [
+          string,
+          Parameters<HttpCapabilityHost['post']>[1],
+          object?,
+        ]
+        return await host.post(url, body, {
+          ...(opts ?? {}),
+          signal: entry.controller.signal,
+        } as Parameters<HttpCapabilityHost['post']>[2])
+      }
+      throw new PluginCodedError(
+        'plugin.capability.unavailable',
+        `unknown http method: ${msg.method}`
+      )
+    } finally {
+      this.httpCalls.delete(msg.id)
+      entry.markSettled()
     }
-    if (msg.method === 'get') {
-      const [url, opts] = msg.args as [string, object?]
-      return host.get(url, opts as Parameters<HttpCapabilityHost['get']>[1])
-    }
-    if (msg.method === 'post') {
-      const [url, body, opts] = msg.args as [
-        string,
-        Parameters<HttpCapabilityHost['post']>[1],
-        object?,
-      ]
-      return host.post(
-        url,
-        body,
-        opts as Parameters<HttpCapabilityHost['post']>[2]
+  }
+
+  private beginHttpCall(msg: BridgeCallMessage): HttpCallEntry {
+    if (this.httpCalls.has(msg.id)) {
+      throw new PluginCodedError(
+        'plugin.command.protocol_violation',
+        `duplicate capability call id: ${msg.id}`
       )
     }
-    throw new PluginCodedError(
-      'plugin.capability.unavailable',
-      `unknown http method: ${msg.method}`
-    )
+    let markSettled: () => void = () => undefined
+    const settled = new Promise<void>((resolve) => {
+      markSettled = resolve
+    })
+    const entry: HttpCallEntry = {
+      controller: new AbortController(),
+      hookScope: hookScopeFromMessage(msg),
+      commandScope: commandScopeFromMessage(msg),
+      settled,
+      markSettled,
+    }
+    this.httpCalls.set(msg.id, entry)
+    return entry
   }
 
   // -------------------------------------------------------------------------
@@ -983,7 +1254,8 @@ export class CapabilityBridge {
       return this.opts.capabilityHost.commands.execute(
         this.opts.pluginId,
         commandId,
-        args
+        args,
+        commandScopeFromMessage(msg)?.callChain
       )
     }
     // 'register' is handled worker-side (the worker sends a 'register' event).
@@ -1033,6 +1305,7 @@ export class CapabilityBridge {
     const opId = handle.id
     const entry: FfmpegOpEntry = {
       handle,
+      taskId: this.currentTaskId,
       lastProgress: null,
       lastEmitTs: 0,
     }
@@ -1250,6 +1523,7 @@ export class CapabilityBridge {
   setHookContext(args: HookContextArgs): void {
     this.currentFsTaskHost = args.fsTaskHost
     this.currentTaskId = args.taskId
+    this.currentEffectivePermissions = args.effectivePermissions ?? null
     if ('phase' in args) {
       this.currentPhase = args.phase
       this.staged = args.staged
@@ -1286,29 +1560,149 @@ export class CapabilityBridge {
     })
   }
 
-  /**
-   * Called by abort.ts when the host-owned AbortController fires. Posts an
-   * 'abort' event to the worker so the plugin runtime can cancel in-flight ops.
-   *
-   * TODO(T16): also cancel any tracked ffmpeg/http handles held by this bridge.
-   */
-  notifyAbort(): void {
-    if (this.disposed) return
-    this.worker.postMessage({ type: 'event', event: 'abort' })
+  /** Cancel only the invocation captured by callHook's signal/deadline. */
+  private notifyAbort(scope: HookInvocationScopeV1, kind: HookAbortKind): void {
+    if (
+      this.disposed ||
+      !this.currentInvocationScope ||
+      !sameHookScope(this.currentInvocationScope, scope)
+    ) {
+      return
+    }
+    this.worker.postMessage({
+      type: 'event',
+      event: 'abort',
+      ...scope,
+      reason: HOOK_ABORT_REASON[kind],
+    })
+    this.abortHttpCalls(
+      (entry) =>
+        entry.hookScope !== null && sameHookScope(entry.hookScope, scope)
+    )
   }
 
   /**
    * Called by Plan C (or by the hookExit event handler) to clear hook context.
    */
   clearHookContext(): void {
+    const scope = this.currentInvocationScope
+    if (scope) {
+      this.abortHttpCalls(
+        (entry) =>
+          entry.hookScope !== null && sameHookScope(entry.hookScope, scope)
+      )
+    }
     this.currentFsTaskHost = null
     this.currentTaskId = null
+    this.currentEffectivePermissions = null
+    this.currentInvocationScope = null
     this.currentPhase = 'idle'
     this.staged = null
     this.hookRole = null
     this.hookSaveDir = null
     this.hookPluginStorageRoot = null
     this.hookStaging = null
+  }
+
+  private failPendingHook(code: string, message: string): void {
+    const pending = this.pendingHook
+    this.pendingHook = null
+    if (pending) {
+      pending.detach()
+      pending.reject(new PluginCodedError(code, message))
+    }
+    this.clearHookContext()
+  }
+
+  private createCompatibilityHookScope(): HookInvocationScopeV1 {
+    const invocationId = randomUUID()
+    return {
+      invocationId,
+      callChainId: invocationId,
+      permissionGeneration: this.opts.permissionGeneration ?? 0,
+    }
+  }
+
+  /**
+   * Applies a validated Hook exit as one Host-side unit. The Worker never
+   * sends ctx.update or Hook metadata writes as asynchronous capability calls;
+   * therefore no effect can be overtaken by hookExit.
+   */
+  private applyHookEffects(raw: HookEffectsV1): void {
+    const effects = HookEffectsV1Schema.parse(raw)
+    const phase = this.currentPhase
+
+    if (phase !== 'beforeCreate' && phase !== 'beforeFinalize') {
+      if (
+        effects.contextPatches.length > 0 ||
+        effects.metadataOperations.length > 0
+      ) {
+        throw new PluginCodedError(
+          'plugin.hook.output_invalid',
+          `mutating effects are not allowed in ${phase}`
+        )
+      }
+      return
+    }
+
+    if (!this.staged || !this.hookRole || this.hookSaveDir === null) {
+      throw new PluginCodedError(
+        'plugin.hook.output_invalid',
+        'pre-Hook effects require a complete staged Host context'
+      )
+    }
+    if (
+      this.hookRole === 'audit' &&
+      (effects.contextPatches.length > 0 ||
+        effects.metadataOperations.length > 0)
+    ) {
+      throw new PluginCodedError(
+        'plugin.hook.permission_denied',
+        'audit Hooks cannot mutate context or metadata'
+      )
+    }
+    if (effects.metadataOperations.length > 0 && !this.permitted('metadata')) {
+      throw new PluginCodedError(
+        'plugin.hook.permission_denied',
+        'Hook metadata writes require the metadata permission'
+      )
+    }
+
+    const validationOptions = {
+      permissions: new Set(
+        this.opts.effectivePermissions ?? this.opts.manifest.permissions ?? []
+      ) as ReadonlySet<string>,
+      role: this.hookRole,
+      hook: phase,
+      saveDir: this.hookSaveDir,
+    }
+    const patches = effects.contextPatches.map((patch) =>
+      phase === 'beforeCreate'
+        ? validateHttpPatch(patch, validationOptions)
+        : validateFinalizePatch(patch, validationOptions)
+    )
+
+    for (const patch of patches) {
+      if (phase === 'beforeCreate') {
+        this.staged.appendHttp(
+          this.opts.pluginId,
+          this.hookRole,
+          patch as Parameters<typeof this.staged.appendHttp>[2]
+        )
+      } else {
+        this.staged.setFinalizePath((patch as { filePath: string }).filePath)
+      }
+    }
+    for (const operation of effects.metadataOperations) {
+      this.staged.appendMeta({
+        pluginId: this.opts.pluginId,
+        ...operation,
+        size:
+          operation.op === 'set'
+            ? Buffer.byteLength(JSON.stringify(operation.value))
+            : undefined,
+      })
+    }
   }
 
   /**
@@ -1318,7 +1712,7 @@ export class CapabilityBridge {
    */
   private async handleStaged(msg: BridgeCallMessage): Promise<void> {
     if (!this.staged || !this.hookRole || this.hookSaveDir === null) {
-      this.sendError(msg.id, 'plugin.runtime.fault', 'staged store missing')
+      this.sendError(msg, 'plugin.runtime.fault', 'staged store missing')
       return
     }
     const perms = new Set(this.opts.manifest.permissions ?? [])
@@ -1348,11 +1742,11 @@ export class CapabilityBridge {
             (validated as { filePath: string }).filePath
           )
         }
-        this.sendResponse(msg.id, undefined)
+        this.sendResponse(msg, undefined)
       } catch (e: unknown) {
         const code = (e as { code?: string }).code ?? 'plugin.runtime.fault'
         const message = (e as Error).message ?? String(e)
-        this.sendError(msg.id, code, message)
+        this.sendError(msg, code, message)
       }
       return
     }
@@ -1364,7 +1758,7 @@ export class CapabilityBridge {
           key: msg.args[0] as string,
           value: msg.args[1],
         })
-        this.sendResponse(msg.id, undefined)
+        this.sendResponse(msg, undefined)
         return
       }
       if (msg.method === 'delete') {
@@ -1373,13 +1767,13 @@ export class CapabilityBridge {
           op: 'delete',
           key: msg.args[0] as string,
         })
-        this.sendResponse(msg.id, undefined)
+        this.sendResponse(msg, undefined)
         return
       }
     }
     // Unrecognized staged dispatch — should not happen if matrix is correct.
     this.sendError(
-      msg.id,
+      msg,
       'plugin.runtime.fault',
       `staged dispatch not implemented for ${msg.capability}.${msg.method}`
     )
@@ -1397,13 +1791,26 @@ export class CapabilityBridge {
   callPlugin(
     commandId: string,
     args: unknown,
-    timeoutMs = 10_000
+    timeoutMs = 10_000,
+    callChain?: PluginCallChain
   ): Promise<unknown> {
     const id = this.nextCommandCallId++
+    const laneCallChain = callChain ?? currentPluginCallChain()
+    const commandScope: CommandInvocationScopeV1 = {
+      commandInvocationId: id,
+      callChain: laneCallChain
+        ? { id: laneCallChain.id, plugins: [...laneCallChain.plugins] }
+        : { id: randomUUID(), plugins: [this.opts.pluginId] },
+    }
     return new Promise<unknown>((resolve, reject) => {
       const timer = setTimeout(() => {
         if (this.pendingCommandCalls.has(id)) {
           this.pendingCommandCalls.delete(id)
+          this.abortHttpCalls(
+            (entry) =>
+              entry.commandScope !== null &&
+              sameCommandScope(entry.commandScope, commandScope)
+          )
           reject(
             new Error(
               `callPlugin('${commandId}') timed out after ${timeoutMs}ms`
@@ -1413,6 +1820,7 @@ export class CapabilityBridge {
       }, timeoutMs)
 
       this.pendingCommandCalls.set(id, {
+        commandScope,
         resolve: (v) => {
           clearTimeout(timer)
           resolve(v)
@@ -1429,6 +1837,7 @@ export class CapabilityBridge {
         id,
         commandId,
         args,
+        commandScope,
       }
       this.worker.postMessage(msg)
     })
@@ -1486,12 +1895,13 @@ export class CapabilityBridge {
    *
    * @param hook        Hook name as registered by the plugin.
    * @param taskId      Stable task id to send in `hookEnter`.
-   * @param signal      AbortSignal from the host-owned HookAbortBudget; if it
-   *                    fires (timeout or external abort), this rejects with
+   * @param signal      AbortSignal from the host-owned HookAbortBudget. A
+   *                    deadline overrun (reason `'timeout'`) rejects with
+   *                    `plugin.hook.timeout`; any other abort rejects with
    *                    `plugin.hook.aborted`.
    * @param timeoutMs   Defensive timeout in case the worker never replies
-   *                    (e.g. crash). Generally the AbortBudget's deadline is
-   *                    shorter; this is the upper bound.
+   *                    (e.g. crash). Armed at `timeoutMs` plus a grace margin
+   *                    so it never races the caller's own deadline.
    */
   callHook(
     hook: HookName,
@@ -1499,8 +1909,9 @@ export class CapabilityBridge {
     signal: AbortSignal,
     timeoutMs: number,
     ctxPayload?: Record<string, unknown>,
-    metadataSnapshot?: Record<string, unknown>
-  ): Promise<void> {
+    metadataSnapshot?: Record<string, unknown>,
+    requestedScope?: HookInvocationScopeV1
+  ): Promise<HookEffectsV1> {
     if (this.disposed) {
       return Promise.reject(
         new PluginCodedError(
@@ -1518,39 +1929,82 @@ export class CapabilityBridge {
       )
     }
 
-    return new Promise<void>((resolve, reject) => {
-      const onAbort = () => {
-        if (this.pendingHook) {
-          this.pendingHook.detach()
-          this.pendingHook = null
-          const e: Error & { code?: string } = new Error('plugin hook aborted')
-          e.code = 'plugin.hook.aborted'
-          reject(e)
+    const scope = requestedScope ?? this.createCompatibilityHookScope()
+    if (
+      this.opts.permissionGeneration !== undefined &&
+      scope.permissionGeneration !== this.opts.permissionGeneration
+    ) {
+      this.clearHookContext()
+      return Promise.reject(
+        new PluginCodedError(
+          'plugin.runtime.permission_generation_stale',
+          'Hook invocation uses a stale permission generation'
+        )
+      )
+    }
+    const payload = normalizeBeforeFinalizeBtSource(hook, {
+      ...(ctxPayload ?? {}),
+      schemaVersion: HOOK_SCHEMA_VERSION,
+      invocationId: scope.invocationId,
+      taskId,
+    })
+    const enter = HookEnterMessageSchema.safeParse({
+      type: 'event',
+      event: 'hookEnter',
+      hook,
+      ...scope,
+      taskId,
+      ctxPayload: payload,
+      metadataSnapshot: metadataSnapshot ?? {},
+    })
+    if (!enter.success) {
+      this.clearHookContext()
+      return Promise.reject(
+        new PluginCodedError(
+          'plugin.hook.input_invalid',
+          `invalid ${hook} context: ${enter.error.issues[0]?.message ?? 'schema mismatch'}`
+        )
+      )
+    }
+
+    return new Promise<HookEffectsV1>((resolve, reject) => {
+      const settleAborted = (kind: HookAbortKind): void => {
+        if (
+          !this.pendingHook ||
+          !sameHookScope(this.pendingHook.scope, scope)
+        ) {
+          return
         }
+        this.notifyAbort(scope, kind)
+        this.pendingHook.detach()
+        this.pendingHook = null
+        this.clearHookContext()
+        reject(hookAbortError(kind, timeoutMs))
       }
-      const timer = setTimeout(() => {
-        if (this.pendingHook) {
-          this.pendingHook.detach()
-          this.pendingHook = null
-          const e: Error & { code?: string } = new Error(
-            `plugin hook timed out after ${timeoutMs}ms`
-          )
-          e.code = 'plugin.hook.timeout'
-          reject(e)
-        }
-      }, timeoutMs)
+      // The caller's budget and this defensive timer watch the same deadline.
+      // Without the grace margin the two fire in the same tick and whichever
+      // wins decides the message, so a plain deadline overrun could surface as
+      // the uninformative 'plugin hook aborted'. The caller's signal is the
+      // authority; this timer only covers callers that pass none.
+      const onAbort = () => settleAborted(abortKindOf(signal))
+      const timer = setTimeout(
+        () => settleAborted('timeout'),
+        timeoutMs + HOOK_DEFENSIVE_TIMEOUT_GRACE_MS
+      )
 
       if (signal.aborted) {
         clearTimeout(timer)
-        const e: Error & { code?: string } = new Error('plugin hook aborted')
-        e.code = 'plugin.hook.aborted'
-        reject(e)
+        this.clearHookContext()
+        reject(hookAbortError(abortKindOf(signal), timeoutMs))
         return
       }
 
       signal.addEventListener('abort', onAbort, { once: true })
 
+      this.currentInvocationScope = scope
+      if (this.currentPhase === 'idle') this.currentPhase = hook
       this.pendingHook = {
+        scope,
         resolve,
         reject,
         detach: () => {
@@ -1559,36 +2013,94 @@ export class CapabilityBridge {
         },
       }
 
-      this.worker.postMessage({
-        type: 'event',
-        event: 'hookEnter',
-        hook,
-        taskId,
-        ctxPayload,
-        metadataSnapshot,
-      })
+      this.worker.postMessage(enter.data)
     })
   }
 
-  /**
-   * Plan C — public accessor for the underlying Worker. Required by
-   * `newHookAbort(bridge, worker, timeoutMs)` so the abort budget can
-   * `worker.terminate()` as a backstop for hung workers.
-   */
+  /** Worker access for host lifecycle management and diagnostics. */
   getWorker(): Worker {
     return this.worker
+  }
+
+  /** Snapshot used by idle recycling and diagnostics; no mutable state leaks. */
+  operationState(): CapabilityBridgeOperationState {
+    return {
+      capabilityCalls: this.inFlightCapabilityCalls,
+      httpOperations: this.httpCalls.size,
+      commandCalls: this.pendingCommandCalls.size,
+      hookCalls: this.pendingHook ? 1 : 0,
+      deactivationCalls: this.pendingDeactivate ? 1 : 0,
+      ffmpegOperations: this.ffmpegOps.size,
+    }
+  }
+
+  /** True while the bridge owns any guest entry, capability lease, or op. */
+  hasInFlightOperations(): boolean {
+    const state = this.operationState()
+    return Object.values(state).some((count) => count > 0)
+  }
+
+  /** Abort and drain every Host-owned writer bound to one task artifact. */
+  async quiesceTaskWriters(taskId: string): Promise<void> {
+    const matches = [...this.ffmpegOps.entries()].filter(
+      ([, entry]) => entry.taskId === taskId
+    )
+    for (const [, entry] of matches) entry.handle.abort()
+    await Promise.allSettled(matches.map(([, entry]) => entry.handle.result))
+    for (const [opId] of matches) this.ffmpegOps.delete(opId)
   }
 
   async dispose(): Promise<void> {
     if (this.disposed) return
     this.disposed = true
+    this.failPendingHook('plugin.runtime.bridge_disposed', 'bridge disposed')
+    const httpCalls = this.abortHttpCalls(() => true)
     // Abort any running ffmpeg ops
     for (const entry of this.ffmpegOps.values()) {
       entry.handle.abort()
     }
     this.ffmpegOps.clear()
+    await Promise.allSettled(httpCalls.map((entry) => entry.settled))
     this.worker.postMessage({ type: 'event', event: 'shutdown' })
     await this.worker.terminate()
+  }
+
+  private abortHttpCalls(
+    predicate: (entry: HttpCallEntry) => boolean
+  ): HttpCallEntry[] {
+    const matches = [...this.httpCalls.values()].filter(predicate)
+    for (const entry of matches) entry.controller.abort('host_scope_closed')
+    return matches
+  }
+}
+
+function normalizeBeforeFinalizeBtSource(
+  hook: HookName,
+  payload: Record<string, unknown>
+): Record<string, unknown> {
+  if (hook !== 'beforeFinalize') return payload
+  const task = payload.task
+  if (!task || typeof task !== 'object' || Array.isArray(task)) return payload
+  const taskRecord = task as Record<string, unknown>
+  if (taskRecord.type !== 'bt' && taskRecord.type !== 'magnet') return payload
+
+  const infoHash =
+    typeof taskRecord.infoHash === 'string' ? taskRecord.infoHash.trim() : ''
+  const canonicalInfoHash = /^(?:[0-9a-f]{40}|[a-z2-7]{32})$/i.test(infoHash)
+    ? infoHash.toLowerCase()
+    : null
+  const stableTaskId =
+    typeof taskRecord.id === 'string' && taskRecord.id.length > 0
+      ? taskRecord.id
+      : typeof payload.taskId === 'string'
+        ? payload.taskId
+        : ''
+
+  return {
+    ...payload,
+    sourceUrl: canonicalInfoHash
+      ? `urn:btih:${canonicalInfoHash}`
+      : `urn:motrix:bt:${Buffer.from(stableTaskId, 'utf8').toString('base64url')}`,
   }
 }
 
@@ -1619,5 +2131,47 @@ export function prepareBundle(source: string): string {
         })
       return `const { ${names.join(', ')} } = globalThis.__motrix_plugin_api__;`
     }
+  )
+}
+
+function hookScopeFromMessage(
+  message: BridgeCallMessage
+): HookInvocationScopeV1 | null {
+  if (!('invocationId' in message)) return null
+  return {
+    invocationId: message.invocationId,
+    callChainId: message.callChainId,
+    permissionGeneration: message.permissionGeneration,
+  }
+}
+
+function commandScopeFromMessage(
+  message: BridgeCallMessage
+): CommandInvocationScopeV1 | null {
+  return 'commandScope' in message ? message.commandScope : null
+}
+
+function sameCommandScope(
+  left: CommandInvocationScopeV1,
+  right: CommandInvocationScopeV1
+): boolean {
+  return (
+    left.commandInvocationId === right.commandInvocationId &&
+    left.callChain.id === right.callChain.id &&
+    left.callChain.plugins.length === right.callChain.plugins.length &&
+    left.callChain.plugins.every(
+      (pluginId, index) => pluginId === right.callChain.plugins[index]
+    )
+  )
+}
+
+function sameHookScope(
+  left: HookInvocationScopeV1,
+  right: HookInvocationScopeV1
+): boolean {
+  return (
+    left.invocationId === right.invocationId &&
+    left.callChainId === right.callChainId &&
+    left.permissionGeneration === right.permissionGeneration
   )
 }

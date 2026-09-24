@@ -11,7 +11,7 @@ import {
   stat,
   writeFile,
 } from 'node:fs/promises'
-import { createServer } from 'node:http'
+import { createServer, request as httpRequest } from 'node:http'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -102,15 +102,17 @@ async function pathExists(target) {
   }
 }
 
-async function containerPort(name, timeoutMs) {
+async function containerPort(name, internalPort, label, timeoutMs) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
-    const output = await docker(['port', name, '8080/tcp']).catch(() => '')
+    const output = await docker(['port', name, `${internalPort}/tcp`]).catch(
+      () => ''
+    )
     const match = /^127\.0\.0\.1:(\d+)$/m.exec(output)
     if (match) return Number(match[1])
     await delay(100)
   }
-  throw new Error('Docker did not publish the Server HTTP port')
+  throw new Error(`Docker did not publish the Server ${label} port`)
 }
 
 async function containerExited(name) {
@@ -269,6 +271,90 @@ async function requestJson(url, options = {}, expectedStatus) {
     )
   }
   return body
+}
+
+function requestPublishedBridge({ port, path, method = 'GET', host }) {
+  return new Promise((resolve, reject) => {
+    const request = httpRequest(
+      {
+        host: '127.0.0.1',
+        port,
+        path,
+        method,
+        headers: {
+          host,
+          connection: 'close',
+          ...(method === 'POST'
+            ? {
+                'content-length': '0',
+                'x-motrix-bridge': '1',
+              }
+            : {}),
+        },
+      },
+      (response) => {
+        let body = ''
+        response.setEncoding('utf8')
+        response.on('data', (chunk) => {
+          body += chunk
+        })
+        response.once('end', () => {
+          let parsed = null
+          try {
+            parsed = body === '' ? null : JSON.parse(body)
+          } catch {
+            parsed = body
+          }
+          resolve({ status: response.statusCode ?? 0, body: parsed })
+        })
+      }
+    )
+    request.once('error', reject)
+    request.end()
+  })
+}
+
+async function assertRemoteExtensionSurface(name, timeoutMs) {
+  const port = await containerPort(name, 16801, 'MDXP', timeoutMs)
+  const publicAuthority = `${name}:16801`
+  const deadline = Date.now() + timeoutMs
+  let lastResult = 'not ready'
+  while (Date.now() < deadline) {
+    try {
+      const discovery = await requestPublishedBridge({
+        port,
+        path: '/discovery',
+        host: publicAuthority,
+      })
+      lastResult = JSON.stringify(discovery)
+      if (
+        discovery.status === 200 &&
+        discovery.body?.runtime === 'server' &&
+        discovery.body?.extensionPairing?.protocol === 'mbp1'
+      ) {
+        const nonce = await requestPublishedBridge({
+          port,
+          path: '/nonce',
+          method: 'POST',
+          host: publicAuthority,
+        })
+        if (
+          nonce.status === 200 &&
+          typeof nonce.body?.nonce === 'string' &&
+          /^[A-Za-z0-9_-]+$/.test(nonce.body.nonce)
+        ) {
+          return port
+        }
+        lastResult = JSON.stringify(nonce)
+      }
+    } catch (error) {
+      lastResult = error instanceof Error ? error.message : String(error)
+    }
+    await delay(150)
+  }
+  throw new Error(
+    `remote Extension routes did not become ready through the published MDXP port: ${lastResult}`
+  )
 }
 
 async function rpc(url, token, kind, channel, ...args) {
@@ -525,16 +611,28 @@ async function startServerContainer(options) {
     '--env',
     `MOTRIX_OPERATOR_TOKEN=${operatorToken}`,
     '--env',
-    'MOTRIX_MDXP_PORT=0',
+    'MOTRIX_MDXP_HOST=0.0.0.0',
+    '--env',
+    'MOTRIX_MDXP_PORT=16801',
+    '--env',
+    `MOTRIX_PUBLIC_URL=http://${name}:8080`,
+    '--env',
+    'MOTRIX_REMOTE_EXTENSION_ENABLED=true',
+    '--env',
+    `MOTRIX_REMOTE_EXTENSION_PUBLIC_URL=ws://${name}:16801`,
+    '--env',
+    'MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP=true',
     '--mount',
     `type=bind,source=${dataDir},target=/data`,
     '--mount',
     `type=bind,source=${downloadsDir},target=/downloads`,
     '--publish',
     '127.0.0.1::8080',
+    '--publish',
+    '127.0.0.1::16801',
     image,
   ])
-  const port = await containerPort(name, options.timeoutMs)
+  const port = await containerPort(name, 8080, 'HTTP', options.timeoutMs)
   const url = `http://127.0.0.1:${port}`
   await waitForHealth(name, url, options.timeoutMs)
   return url
@@ -821,6 +919,7 @@ function imageSmokeSummary(metadata, diagnostics, identity, startedAt) {
     sqlite: true,
     motrixAria2Fork: true,
     defaultSaveDir: '/downloads',
+    remoteExtensionDirectLan: true,
     shutdown: 'SIGTERM',
     durationMs: Date.now() - startedAt,
   }
@@ -863,6 +962,9 @@ export async function smokeServerImage(options) {
     }
     if (!metadata.Config.Healthcheck) {
       throw new Error('Server image has no Docker HEALTHCHECK')
+    }
+    if (!metadata.Config.ExposedPorts?.['16801/tcp']) {
+      throw new Error('Server image does not expose the MDXP port')
     }
     if (platform && metadata.Architecture !== platform.split('/')[1]) {
       throw new Error(
@@ -941,6 +1043,7 @@ export async function smokeServerImage(options) {
       timeoutMs,
     })
     appCreated = true
+    await assertRemoteExtensionSurface(appName, timeoutMs)
     const diagnostics = await assertRuntimeContract(
       appName,
       url,
@@ -1116,6 +1219,7 @@ export async function smokeServerImage(options) {
       timeoutMs,
     })
     appCreated = true
+    await assertRemoteExtensionSurface(appName, timeoutMs)
     const restoredTasks = await rpc(
       url,
       operatorToken,

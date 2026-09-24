@@ -11,7 +11,8 @@ const NO_FOLLOW = constants.O_NOFOLLOW ?? 0
 const LOCK_MODE = 0o600
 
 export const BRIDGE_DATA_DIR_LOCK_FILE_NAME = '.motrix-bridge.lock'
-const RECOVERY_GUARD_FILE_NAME = '.motrix-bridge.lock.recovery'
+export const BRIDGE_DATA_DIR_LOCK_RECOVERY_GUARD_FILE_NAME =
+  '.motrix-bridge.lock.recovery'
 
 export const BRIDGE_DATA_DIR_LOCK_UNAVAILABLE =
   'bridge data directory lock unavailable'
@@ -250,7 +251,7 @@ export async function acquireBridgeDataDirLock(
     lockPath = path.join(canonicalDirectory, BRIDGE_DATA_DIR_LOCK_FILE_NAME)
     const recoveryGuardPath = path.join(
       canonicalDirectory,
-      RECOVERY_GUARD_FILE_NAME
+      BRIDGE_DATA_DIR_LOCK_RECOVERY_GUARD_FILE_NAME
     )
 
     if (claims.has(lockPath)) throw new ExistingLockError()

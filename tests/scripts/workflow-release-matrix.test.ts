@@ -43,9 +43,9 @@ const ROOT = process.cwd()
 const WORKFLOW_DIRECTORY = path.join(ROOT, '.github/workflows')
 const require = createRequire(import.meta.url)
 const parseYaml = require('js-yaml').load as (source: string) => unknown
-const PNPM_VERSION = '11.22.0'
+const PNPM_VERSION = '12.5.1'
 const PNPM_PACKAGE_MANAGER =
-  'pnpm@11.22.0+sha512.1ff870c4c6133dfd88fb2afc46dd13d47f09c9794b438c6fdb47ca98caf3bc16381ee0be93a091b8e3824cf01f889f46d7d9e20910fb0be1ab0fb5baa80dd621'
+  'pnpm@12.5.1+sha512.e3f305bc784a2bc89f5ad3b6138889470fae8d2af5f36b61216ec91c2c3d64089775f9de38aac331044ea40f245cb0d5666392dfdf65824e1907ef6a2c62de5f'
 const ELECTRON_BUILDER_CUSTOM_DIR_ENVIRONMENT_VARIABLES = [
   'NPM_CONFIG_ELECTRON_BUILDER_BINARIES_CUSTOM_DIR',
   'npm_config_electron_builder_binaries_custom_dir',
@@ -84,8 +84,8 @@ const EXPECTED_ACTION_PINS = new Map([
   [
     'pnpm/action-setup',
     {
-      sha: '0ebf47130e4866e96fce0953f49152a61190b271',
-      comment: 'v6.0.9',
+      sha: 'ea17c68df8912ef543352723c149a84f56e3d413',
+      comment: 'v6.1.0',
     },
   ],
   [
@@ -1331,7 +1331,7 @@ describe('release workflow publication contract', () => {
     expect(paths).not.toContain('alpha')
   })
 
-  it('builds AppImage, deb, and rpm Linux release assets', () => {
+  it('builds AppImage, deb, rpm, and pacman Linux release assets', () => {
     const linuxTargets = targetMatrix(releaseWorkflow).entries.filter(
       (entry) => entry.platform === 'linux'
     )
@@ -1342,6 +1342,7 @@ describe('release workflow publication contract', () => {
       expect(args).toMatch(/\bAppImage\b/)
       expect(args).toMatch(/\bdeb\b/)
       expect(args).toMatch(/\brpm\b/)
+      expect(args).toMatch(/\bpacman\b/)
       expect(args).not.toMatch(/\bsnap\b/i)
     }
     expect(releaseSource).toContain(`\${{ matrix.electron_builder_args }}`)
@@ -1398,7 +1399,41 @@ describe('release workflow publication contract', () => {
       'path'
     )
     expect(uploadPaths).toContain('release/*.AppImage.zsync')
+    expect(uploadPaths).toContain('release/*.pacman')
   })
+
+  it.each([
+    ['CI', ciWorkflow],
+    ['release', releaseWorkflow],
+  ] as const)(
+    '%s verifies Arch archives and tests installation before upload',
+    (_, workflow) => {
+      const steps = jobSteps(targetMatrix(workflow).job)
+      const verifyIndex = steps.findIndex(
+        (step) => step.name === 'Verify Arch Linux package'
+      )
+      const smokeIndex = steps.findIndex(
+        (step) => step.name === 'Smoke test Arch Linux installation'
+      )
+      expect(verifyIndex).toBeGreaterThan(0)
+      expect(smokeIndex).toBeGreaterThan(verifyIndex)
+      expect(stringField(steps[verifyIndex] as LooseRecord, 'run')).toContain(
+        'scripts/verify-pacman-artifact.mjs'
+      )
+      expect(stringField(steps[smokeIndex] as LooseRecord, 'if')).toBe(
+        "matrix.target == 'linux-x64'"
+      )
+      expect(stringField(steps[smokeIndex] as LooseRecord, 'run')).toBe(
+        'bash scripts/smoke-pacman-package.sh release'
+      )
+      const uploadIndex = steps.findIndex((step) =>
+        workflow === releaseWorkflow
+          ? step.name === 'Upload target release input'
+          : String(step.uses ?? '').startsWith('actions/upload-artifact')
+      )
+      expect(uploadIndex).toBeGreaterThan(smokeIndex)
+    }
+  )
 
   it('pins the modern AppImage toolset and finalization hook', () => {
     const builderConfig = asRecord(
@@ -1458,6 +1493,14 @@ describe('release workflow publication contract', () => {
     expect(verificationCommand).toContain('tar -tzf "$archive"')
     expect(verificationCommand).toContain('motrix-flatpak-native-host')
     expect(verificationCommand).toContain('README.zh-CN.md')
+    expect(verificationCommand).toContain(
+      'find THIRD_PARTY_LICENSES -mindepth 1 -print0'
+    )
+    expect(verificationCommand).toContain('LC_ALL=C sort -z')
+    expect(verificationCommand).toContain('diff -u')
+    expect(verificationCommand).not.toContain(
+      'THIRD_PARTY_LICENSES/rust-common-LICENSE-APACHE'
+    )
 
     const uploadInputs = asRecord(upload?.with, 'release input upload')
     expect(stringField(uploadInputs, 'path')).toContain('release/*.tar.gz')
@@ -2628,7 +2671,7 @@ describe('release workflow publication contract', () => {
       stringField(asRecord(config.directories, 'signing directories'), 'app')
     ).toBe('dist/electron-app')
     expect(stringField(config, 'electronDist')).toBe('trusted/electron.zip')
-    expect(stringField(config, 'electronVersion')).toBe('43.4.0')
+    expect(stringField(config, 'electronVersion')).toBe('44.4.3')
     expect(signingInputSource).toContain(
       "config.directories?.app !== 'dist/electron-app'"
     )
@@ -2694,7 +2737,7 @@ describe('release workflow publication contract', () => {
       asRecord(metadata.devDependencies, 'dev dependencies'),
       'electron'
     )
-    expect(version).toBe('43.4.0')
+    expect(version).toBe('44.4.3')
     expect(
       stringField(
         asRecord(
@@ -2712,25 +2755,21 @@ describe('release workflow publication contract', () => {
 
   it('keeps inline Node workflow steps syntactically executable', () => {
     let checked = 0
-    for (const [jobName, value] of Object.entries(
-      workflowJobs(releaseWorkflow)
-    )) {
-      for (const step of jobSteps(asRecord(value, `${jobName} job`))) {
-        if (step.shell !== 'node {0}') continue
-        const source = stringField(step, 'run').replace(
-          /\$\{\{[\s\S]*?\}\}/gu,
-          'github_expression'
-        )
-        expect(
-          () => new Script(source, { filename: `${jobName}.js` })
-        ).not.toThrow()
-        checked += 1
-      }
+    for (const { jobName, step } of allSteps(releaseWorkflow)) {
+      if (step.shell !== 'node {0}') continue
+      const source = stringField(step, 'run').replace(
+        /\$\{\{[\s\S]*?\}\}/gu,
+        'github_expression'
+      )
+      expect(
+        () => new Script(source, { filename: `${jobName}.js` })
+      ).not.toThrow()
+      checked += 1
     }
     expect(checked).toBeGreaterThan(0)
   })
 
-  it('pins the packaged macOS baseline to Electron 43 support', () => {
+  it('pins the packaged macOS baseline to Electron 44 support', () => {
     const builderConfig = asRecord(
       JSON.parse(
         readFileSync(path.join(ROOT, 'electron-builder.json'), 'utf8')
@@ -2739,12 +2778,12 @@ describe('release workflow publication contract', () => {
     )
     const macConfig = asRecord(builderConfig.mac, 'electron-builder mac config')
 
-    expect(stringField(macConfig, 'minimumSystemVersion')).toBe('12.0')
+    expect(stringField(macConfig, 'minimumSystemVersion')).toBe('13.0')
     expect(stringField(macConfig, 'artifactName')).toMatch(/\$\{arch\}/)
     for (const workflow of [ciWorkflow, releaseWorkflow]) {
       const { job } = targetMatrix(workflow)
       const env = asRecord(job.env, 'target job environment')
-      expect(stringField(env, 'MACOSX_DEPLOYMENT_TARGET')).toContain('12.0')
+      expect(stringField(env, 'MACOSX_DEPLOYMENT_TARGET')).toContain('13.0')
     }
   })
 
@@ -2892,7 +2931,7 @@ describe('workflow action supply-chain contract', () => {
     }
   })
 
-  it('pins pnpm v11 consistently across local and CI toolchains', () => {
+  it('pins pnpm v12 consistently across local and CI toolchains', () => {
     const packageMetadata = asRecord(
       JSON.parse(
         readFileSync(path.join(ROOT, 'package.json'), 'utf8')

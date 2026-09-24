@@ -199,6 +199,38 @@ engine. It is also not TLS-protected, so never publish it directly to the
 public Internet. Prefer a private Docker network, host loopback, VPN, or
 another authenticated encrypted tunnel.
 
+### Torrent upload size
+
+Torrent creation requests accept **8 MiB** by default. Set
+`MOTRIX_TORRENT_BODY_LIMIT_MIB` to an integer from **2 to 64** and restart the
+server when larger metainfo files are needed. For example, with either supplied
+Compose file:
+
+```bash
+export MOTRIX_TORRENT_BODY_LIMIT_MIB=16
+docker compose -f compose.yaml up -d --wait
+```
+
+This counts the complete UTF-8 JSON request, including Base64 and options;
+an 8 MiB request holds slightly less than 6 MiB of original `.torrent` bytes.
+The larger budget applies only to torrent payloads sent to
+`/rpc/command/command:createTask` and `/rpc/command/command:addTorrentTask`.
+Other RPC requests retain their 2 MiB limit. Oversized requests return HTTP 413.
+At most two large or unknown-length torrent requests are admitted concurrently;
+additional requests return HTTP 429. Request reception has a 120-second timeout.
+
+Motrix starts its managed aria2 with the same `--rpc-max-request-size` budget.
+An independently managed engine or reverse proxy needs a matching limit; for
+Nginx, set [`client_max_body_size 16m;`](https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size)
+in the `server` or `location` block serving the Web API when using the example
+above. MDXP and plugin package upload limits are independent of this setting.
+
+These are product resource limits, not torrent format requirements:
+[BEP 3](https://www.bittorrent.org/beps/bep_0003.html) and
+[BEP 52](https://www.bittorrent.org/beps/bep_0052.html) do not specify a universal
+metainfo file size ceiling. The existing parser still caps Base64 at 50 MiB
+(37.5 MiB of original bytes), even with the 64 MiB request setting.
+
 ### Reverse proxy on the Docker host
 
 The included [`compose.reverse-proxy.env`](../compose.reverse-proxy.env) binds
@@ -336,7 +368,23 @@ device-code clients. It has no localhost default: set it explicitly whenever a
 remote client must pair, and do not advertise `localhost`, `127.0.0.1`, or
 `0.0.0.0` to a client on another machine. Use the Web port or its reverse-proxy
 URL, not the MDXP port. Leaving it unset does not disable pairing, but the
-client cannot receive a useful approval URL from the server. On first start,
+client cannot receive a useful approval URL from the server.
+
+`MOTRIX_PUBLIC_URL` also determines the accepted browser origin for the
+`/rpc/events` event connection. The browser URL must match its scheme, hostname,
+and port. Accessing a LAN IP after configuring an HTTPS hostname can allow HTTP
+operations while rejecting live events. A reverse proxy must forward WebSocket
+Upgrade requests and preserve the correct Host and protocol information.
+
+When the event connection is unavailable, WebUI retains the task list and updates
+it over HTTP every 5 seconds while the page is visible. The dashboard engine tile
+and downloads engine badge show periodic updates or a connection problem; this
+does not mean the download engine has stopped. For an access-address mismatch,
+use the configured URL or correct `MOTRIX_PUBLIC_URL` and restart the container.
+Browser WebSocket errors and `operator event connection rejected` in container
+logs provide additional diagnostics.
+
+On first start,
 Motrix generates `/data/operator-token` at mode `0600`. With bind mounts, read
 it with:
 
@@ -394,6 +442,36 @@ not publish MDXP, and forwarding only 16801 does not serve the approval UI.
 These protections must not be implemented by disabling pairing; remote
 CLI/agent and browser-Extension pairing remain operator-approved workflows.
 
+## Logo menu in the Web UI
+
+Open the **Motrix** logo at the upper left for About, Settings, Task, Help,
+and **Sign out**. Narrow screens show one menu level at a time; use **Back**,
+Left Arrow, or Escape to return to the parent level.
+
+- **New Task** opens links; **New BitTorrent Task** opens the torrent form.
+  **Open Torrent File** reads `.torrent` files from the device running your
+  browser, supports multiple files, and lets you review each before submitting.
+  The download destination is a path on the Server. See [torrent upload
+  size](#torrent-upload-size) for the configurable request limit.
+- Pause, resume, remove, and queue commands apply to the committed selection
+  in the current filtered downloads list. **Select all tasks** includes rows
+  outside the visible viewport. Changing the selection or filter cancels a
+  pending selection command.
+- **Pause All** and **Resume All** affect the whole instance. **Clear stopped
+  task records** confirms the current completed, error, and removed records
+  and keeps downloaded files. Newly stopped tasks are left for a later clear.
+- Closing an edited task form asks before discarding the draft. A submission
+  in progress keeps its form open. Temporary disconnections preserve drafts
+  and disable remote task commands until a fresh connection and snapshot return.
+- **Sign out** is shown for browser cookie sessions. Confirmation ends that
+  session in all tabs sharing its cookie and clears their private UI state.
+  Server downloads continue; independent browser sessions and Bearer clients
+  stay connected. Network failures alone do not sign you out.
+
+Browser shortcuts such as Ctrl/Cmd+N, L, O, and B keep their browser behavior.
+Task selection and removal shortcuts operate only within the focused downloads
+list, and text inputs retain their editing shortcuts.
+
 ## Download paths and plugins
 
 The image defaults are:
@@ -428,6 +506,105 @@ services:
       - ./downloads:/downloads
       - /srv/archive:/archive
 ```
+
+### Choosing a folder in the Web UI
+
+The folder controls in Add links, Add torrent, and General settings open a
+server folder picker. Its paths belong to the server: with the example mounts,
+`/downloads/Movies` maps to `./downloads/Movies` on the Docker host. A browser
+on another computer does not browse that computer’s local folders.
+
+Single-click a folder to select it, or double-click to enter it. The list shows
+only immediate child folders. Use Back, Forward, Up one level, or a breadcrumb
+to navigate; use Go to folder to enter an exact absolute path. The Location sidebar
+groups accessible common places, allowed roots, favorite folders and recent
+folders. Common places include the default directory, the server user’s home,
+existing Desktop/Documents/Downloads directories, and the filesystem root when
+allowed. On narrow screens, Location becomes a grouped menu. Up stops at the
+current allowed root. Open **View options → Show hidden folders** in the toolbar
+to include names beginning with a dot.
+
+The same **View options** menu sorts folders by **Name** or **Date modified**,
+in ascending or descending order. Name sorting treats numbers naturally, such
+as folder2 before folder10. Your browser remembers the choice. Sorting keeps
+the selected folder and changes only the loaded list, without another server
+request. Unknown modification times stay last; if the list is incomplete,
+sorting applies to the folders currently shown.
+
+Select folder chooses the highlighted child, or the current folder when no
+child is selected. Cancelling leaves the original form value unchanged. The
+selection is checked again by the server; submitting a download or applying
+settings remains a separate action. Browsing and selecting do not create
+folders.
+
+Add links and Add torrent also have a Directory history button beside Browse.
+Choose a favorite or recent path there to fill the form directly. This does not
+start a download. The desktop App offers the same history menu and keeps its
+system-native Browse dialog.
+
+Open **Settings → General** to manage folders below the default save directory.
+The compact form can add or remove favorites, promote a recent folder, delete
+one recent record, or clear the displayed recent records. Save applies these
+edits together with General settings; Cancel discards them. The history menu’s
+Manage directories entry opens the same folder controls with Save and Cancel.
+Removing records never deletes folders or downloads. Concurrently added records
+are preserved when saving your edits.
+If a save fails, the form keeps your edits. You can retry or change the values
+and save again; a delayed response from the earlier save will not overwrite the
+later choice. A failed response can follow a saved update, so Cancel does not
+undo a save that the server already committed.
+Favorite folders are limited to 20; the 10 most recent folders appear newest
+first. AddTask folder confirmations and directories used by successful
+AddTask submissions update recent history. General folder choices remain drafts
+and do not themselves enter recent history. Cancelling the folder picker does
+not add a record; cancelling AddTask afterward does not undo an already
+confirmed folder choice. Adding a favorite in the manager does not itself add
+a recent record. Headless/CLI downloads are not automatically imported into
+this UI history.
+
+Favorite and recent records belong to the Motrix instance: they persist in
+app settings on Desktop and on the server for Web clients. Connected clients
+receive updates, and reconnecting reloads the current records. The Web history
+menu and folder sidebar only offer paths still permitted and accessible on the
+server. The manager retains saved records so unavailable paths can be removed.
+The star in the Web picker immediately adds or removes the folder currently being
+browsed, while keeping the directory list and current position stable.
+These operations do not change the default save directory.
+
+The keyboard follows the browser computer’s operating system, independently of
+the server. With focus in the list:
+
+| Action | macOS | Windows / Linux |
+| --- | --- | --- |
+| Select a folder | Up / Down | Up / Down |
+| First / last folder | Home / End | Home / End |
+| Move by a visible page | Page Up / Page Down | Page Up / Page Down |
+| Enter the selected folder | Command + Down | Enter |
+| Up one level | Command + Up | Alt + Up, or Backspace |
+| Confirm selection | Return | Tab to Select folder, then Enter |
+| Edit the current path | `/`, or Command + Shift + G if the browser delivers it | `/` |
+| Go to Home / Desktop / Documents, when available | Command + Shift + H / D / O | Use Location |
+
+Type a folder-name prefix to select a match. Tab and Shift + Tab move between
+controls. In the path editor, Enter navigates and Escape cancels editing; Escape
+outside an editor closes the picker. Browser-reserved shortcuts keep their
+browser behavior.
+
+Use New folder at the bottom-left to create one folder inside the current
+location. Enter a name
+and press Enter or Create; Escape cancels the name editor. After creation, the
+new folder is selected so it can be confirmed immediately. **A created folder
+remains on the server even if you later cancel selection.** A conflict or
+permission error keeps the name available for correction. If the server’s
+response is lost, refresh and check the list before trying to create again.
+
+Very large folders may show an incomplete-list notice. Enter the exact path to
+reach a folder omitted from the list. Permission checks use the server process
+user and may fail on a read-only mount or a NAS ACL. The allowlist rejects path
+traversal and static symlink escape. As with saving downloads, portable path
+checks do not protect against a hostile local process replacing directory
+ancestors at the same time; restrict write access to the mounted directory
+hierarchy accordingly.
 
 Built-in plugins are read-only under `/app/builtin-plugins`. User-installed
 packages, provenance, grants, configuration, logs, encrypted secrets, and
@@ -506,11 +683,46 @@ detection.
 | `no matching manifest` | Confirm the NAS is 64-bit `amd64` or `arm64` with `docker info`; 32-bit ARM is unsupported. |
 | Startup reports `EACCES`, read-only, or a path failure | Compare `docker inspect ... .Config.User` with numeric ownership of both mounts. Correct ownership/ACLs; do not run privileged or as root. |
 | Port is already allocated | Change `MOTRIX_HTTP_PORT` or `MOTRIX_MDXP_PUBLIC_PORT`, and update `MOTRIX_PUBLIC_URL` if the Web port changes. |
+| Web UI is healthy but port 16801 refuses connections | Look for `bridge data ownership unavailable` and inspect its `stage` and `reason` fields. If ownership is ready, verify the MDXP publish address and all four remote Extension variables. |
 | External aria2 RPC client cannot connect | Confirm `MOTRIX_ARIA2_RPC_LISTEN_ALL=true`, a non-empty matching RPC secret, the correct 16800 mapping (or configured RPC port), and the host firewall. The standard Compose files do not publish this port. |
 | Web UI opens but unlock fails | Read the current persistent `/data/operator-token`; do not use a token copied from another deployment. Verify the file is regular, base64url text, and mode `0600`. |
 | Download directory is rejected or files are missing from the NAS share | Use an absolute container path below `MOTRIX_ALLOWED_SAVE_DIRS`; verify the intended host directory is mounted at that exact path and writable by the runtime UID/GID. |
 | Plugin install fails | Inspect `/api/diagnostics` and logs, retain `/data`, confirm package/source trust and network/TLS access, and mount any `MOTRIX_PLUGIN_IMPORT_DIRS` explicitly. Do not enable unmanaged plugins for a normal `.moext`, URL, or registry install. |
 | Container is unhealthy after an upgrade | Inspect logs and diagnostics, verify both mounts, then roll back to the recorded immutable image and matching `/data` backup. |
+
+### Recover an invalid bridge ownership record
+
+The Server logs a fixed `reason` when
+`/data/.motrix-server-bridge-owner.json` cannot establish process ownership.
+Reasons distinguish inaccessible metadata, a non-regular or multiply linked
+file, owner or write-permission problems, malformed/non-canonical content, and
+stale port or bridge-directory values. The record contains no credential, but
+its integrity authorizes safe recovery of a stale bridge lock, so Motrix never
+silently replaces a conflicting record.
+
+First stop every container that uses the same `/data` mount:
+
+```bash
+docker compose down
+```
+
+Inspect the record on the Docker host. It must be owned by the configured
+runtime UID, must not be writable by group or other users, and normally has
+mode `0600`. Read-only group/other access inherited from a NAS ACL is accepted.
+For `binding-owner-mismatch` or `binding-insecure-mode`, correct the host
+ownership or remove group/other write access. For a stale or malformed record,
+retain it as a backup before restarting:
+
+```bash
+mv ./motrix-data/.motrix-server-bridge-owner.json \
+  ./motrix-data/.motrix-server-bridge-owner.json.bak
+docker compose up -d --wait
+```
+
+Motrix creates a new `0600` record after it owns the Web control-plane port.
+Keep the backup until both `/healthz` and the MDXP `/discovery` endpoint work.
+Do not manually remove files below `/data/bridge/`; stale bridge-lock recovery
+uses this ownership record and the already-bound Web listener as one proof.
 
 ## Environment reference
 
@@ -529,6 +741,7 @@ detection.
 | `MOTRIX_OPERATOR_TOKEN` | generated file | Operator control-plane credential |
 | `MOTRIX_SECRETS_SEED` | generated lockbox | 64-hex-character plugin secret key |
 | `MOTRIX_ARIA2_RPC_LISTEN_ALL` | `false` | Opt in to an authenticated all-interface aria2 RPC listener; Docker port publication is still separate |
+| `MOTRIX_TORRENT_BODY_LIMIT_MIB` | `8` | Torrent JSON request limit in MiB; integer 2–64, also applied to managed aria2 RPC; restart required |
 | `MOTRIX_WEB_BIND_IP` | Compose: `0.0.0.0` | Host address publishing Web port 8080; falls back through `MOTRIX_BIND_IP` |
 | `MOTRIX_MDXP_BIND_IP` | Compose: `0.0.0.0` | Host address publishing MDXP port 16801; falls back through `MOTRIX_BIND_IP` |
 | `MOTRIX_BIND_IP` | Compose: `0.0.0.0` | Backward-compatible shared host-publish fallback |

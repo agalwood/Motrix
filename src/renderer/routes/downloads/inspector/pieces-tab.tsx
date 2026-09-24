@@ -1,5 +1,6 @@
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { useTaskPieces } from '@renderer/hooks/use-task-pieces'
-import { formatBytes } from '@renderer/lib/format'
+
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
 import { useLayoutEffect, useMemo, useRef } from 'react'
@@ -116,6 +117,8 @@ function drawPieces(
 }
 
 export function PiecesTab({ task }: { task: DownloadTask }) {
+  const { formatBytes } = useByteFormat()
+
   const { t } = useTranslation()
   const { pieces } = useTaskPieces(
     task.id,

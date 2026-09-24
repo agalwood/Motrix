@@ -44,13 +44,10 @@
 
   <launchable type="desktop-id">app.motrix.native.desktop</launchable>
 
-  <!-- TODO(maintainer): replace placeholder URLs once the public repo and
-       site for motrix-turbo are finalized. The bugtracker URL must be
-       reachable for Flathub review. -->
   <url type="homepage">https://motrix.app/</url>
-  <url type="bugtracker">https://github.com/TODO-ORG/motrix-turbo/issues</url>
+  <url type="bugtracker">https://github.com/agalwood/Motrix/issues</url>
   <url type="help">https://motrix.app/manual/</url>
-  <url type="vcs-browser">https://github.com/TODO-ORG/motrix-turbo</url>
+  <url type="vcs-browser">https://github.com/agalwood/Motrix</url>
 
   <content_rating type="oars-1.1"/>
 
@@ -59,23 +56,126 @@
     <color type="primary" scheme_preference="dark">#1f6f3a</color>
   </branding>
 
-  <!-- TODO(maintainer): replace screenshot URLs once motrix-turbo ships its
-       own screenshots. Flathub requires at least one screenshot at 1248x720
-       or larger; PNG is preferred over JPEG. -->
   <screenshots>
     <screenshot type="default">
       <caption>Active downloads view</caption>
-      <image>https://raw.githubusercontent.com/TODO-ORG/motrix-turbo/main/docs/screenshots/downloads-light.png</image>
+      <image>https://raw.githubusercontent.com/agalwood/Motrix/main/screenshots/motrix-downloads-en-light.webp</image>
     </screenshot>
     <screenshot>
       <caption>Active downloads view (dark theme)</caption>
-      <image>https://raw.githubusercontent.com/TODO-ORG/motrix-turbo/main/docs/screenshots/downloads-dark.png</image>
+      <image>https://raw.githubusercontent.com/agalwood/Motrix/main/screenshots/motrix-downloads-en-dark.webp</image>
     </screenshot>
   </screenshots>
 
   <releases>
+    <release version="2.0.0-beta.40" date="2026-09-21">
+      <description>
+        <p>
+          Improves Dashboard charts and task controls, defaults desktop file
+          removal to Trash, publishes verified Flatpak bundles, and fixes media
+          progress, Server task updates, browser filenames, and NAT lifecycle errors.
+        </p>
+      </description>
+    </release>
+    <release version="2.0.0-beta.39" date="2026-09-15">
+      <description>
+        <p>
+          Adds a Server directory picker and application menu, improves download
+          controls and BitTorrent seeding, recovers conflicting magnet session
+          identities, fixes macOS Menu Bar Only mode, and refreshes dependencies.
+        </p>
+      </description>
+    </release>
+    <release version="2.0.0-beta.38" date="2026-09-13">
+      <description>
+        <p>
+          Preserves macOS menu-bar icon position, supports Windows SMB download
+          finalization and recovery, refreshes dependencies, and includes clearer
+          settings validation, tracker synchronization, and connection feedback.
+        </p>
+      </description>
+    </release>
+    <release version="2.0.0-beta.36" date="2026-09-11">
+      <description>
+        <p>
+          Improves interrupted download finalization recovery, adds opt-in
+          AppImage browser launch integration and system-aware size and speed
+          units, isolates browser registration failures, and improves browser
+          save-directory updates, Linux tray themes, and login startup window
+          preferences.
+        </p>
+      </description>
+    </release>
+    <release version="2.0.0-beta.35" date="2026-09-08">
+      <description>
+        <p>
+          Improves download task controls, completion progress, and inspector
+          visibility, adds native Arch Linux packages, and links the published
+          Firefox extension.
+        </p>
+      </description>
+    </release>
+    <release version="2.0.0-beta.34" date="2026-09-08">
+      <description>
+        <p>
+          Improves BitTorrent resilience when HTTP Web Seeds fail, gives slow
+          magnet metadata discovery more time, restores missed file-selection
+          prompts, and adds an optional automatic download fallback for
+          unconfirmed magnet selections.
+        </p>
+      </description>
+    </release>
+    <release version="2.0.0-beta.33" date="2026-09-07">
+      <description>
+        <p>
+          Settings links to the published Chrome and Edge extensions, Firefox
+          development builds, and trusted extension store pages. This release
+          adds a reduced-motion preference, updates aria2 to 1.37.0-motrix.14
+          for durable task cookies, and improves completed-task recovery,
+          save-directory restoration, and large-file finalization.
+        </p>
+      </description>
+    </release>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
+    <release version="2.0.0-beta.32" date="2026-09-05">
+      <description>
+        <p>
+          Restores Windows desktop and browser-extension startup after an
+          unclean shutdown, and preserves optional branded artwork in the
+          isolated Windows release installer build.
+        </p>
+      </description>
+    </release>
+    <release version="2.0.0-beta.31" date="2026-09-04">
+      <description>
+        <p>
+          Improves durable download finalization, Docker Extension startup,
+          startup theme and fullscreen behavior, browser hand-off connection
+          settings, first-run styling, and Windows installer branding.
+        </p>
+      </description>
+    </release>
+    <release version="2.0.0-beta.30" date="2026-09-03">
+      <description>
+        <p>
+          Closes five security advisories across Fastify and development
+          tooling, upgrades the desktop runtime to Electron 44, and refreshes
+          the application, test, and build dependencies. macOS 13 or later is
+          now required.
+        </p>
+      </description>
+    </release>
+    <release version="2.0.0-beta.29" date="2026-09-02">
+      <description>
+        <p>
+          Adds secure local and remote Motrix Extension pairing, completes
+          Desktop and Server RPC parity, and introduces durable plugin hook
+          execution and crash-safe finalization. This release also updates the
+          bundled aria2 engine and hardens Native Messaging integration.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.28" date="2026-08-28">
       <description>
         <p>

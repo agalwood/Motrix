@@ -1,4 +1,3 @@
-import path from 'node:path'
 import type { Aria2RpcClient } from '@core/engine/aria2/aria2-rpc-client'
 import type { DnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
 import { dnsModeToAsyncDns } from '@core/engine/aria2/dns-fallback'
@@ -14,12 +13,14 @@ import type { NotificationCenter } from '@core/notifications/notification-center
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
 import { pluginSecretFields } from '@core/plugin/configuration-schema'
 import type { GrantsManager } from '@core/plugin/grants/grants-manager'
-import { HookAuditLog } from '@core/plugin/hooks/audit-log'
-import { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
+import type { HookAuditLog } from '@core/plugin/hooks/audit-log'
+import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
 import type { ActivationDispatcher } from '@core/plugin/host/activation-dispatcher'
 import type { PluginHost } from '@core/plugin/host/plugin-host'
 import type { PluginInstaller } from '@core/plugin/install/plugin-installer'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
+import type { RegistryClient } from '@core/plugin/registry/registry-client'
+import { scanForUpdates } from '@core/plugin/registry/update-scan'
 import type { PluginStateStore } from '@core/plugin/state/plugin-state-store'
 import {
   type AppliedDownloadProxyPolicy,
@@ -27,18 +28,24 @@ import {
 } from '@core/proxy/applied-download-proxy-policy'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
+import { createDirectoryPreferencesHandlers } from '@core/settings/directory-preferences'
+import { createSaveGeneralSettingsHandler } from '@core/settings/general-settings'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import { resolveAutoparserExtensionWhitelist } from '@core/parser/autoparser-whitelist'
 import { PageLinkParser } from '@core/parser/page-link-parser'
 import {
+  clearStoppedTasks,
+  pauseAllTasks,
   pauseTask,
   reAddTask,
   removeTask,
+  resumeAllTasks,
   resumeTask,
   runBulkTaskAction,
   stopSeedingTask,
   toBulkTaskCommandResult,
 } from '@core/task/actions'
+import { moveTasks } from '@core/task/actions/move-tasks'
 import type {
   TaskActionDeps,
   TaskTransitionRecordInput,
@@ -57,7 +64,14 @@ import {
 import { DirectResourceValidatorService } from '@core/task/direct-resource-validator'
 import type { FileCleanupService } from '@core/task/file-cleanup-service'
 import type { FinalNamePicker } from '@core/task/final-name-picker'
+import type { MediaMetaStore } from '@core/task/media-meta-store'
 import type { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
+import { createSetSelectedFilesHandler } from '@core/task/set-selected-files'
+import {
+  admitTaskCreateRequest,
+  taskCreateSourceFailure,
+} from '@core/task/source-admission'
+import { createTaskDirectoryHistory } from '@core/task/task-directory-history'
 import type { TaskManager } from '@core/task/task-manager'
 import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
 import type { MagnetTracker } from '@core/torrent/magnet-tracker'
@@ -72,6 +86,9 @@ import {
   removeTasksPayloadSchema,
   taskIdsPayloadSchema,
 } from '@shared/schemas/bulk-task-command'
+import { supportedLocaleSchema } from '@shared/schemas/locale'
+import { moveTasksPayloadSchema } from '@shared/schemas/move-tasks'
+import { checkPluginUpdatesPayloadSchema } from '@shared/schemas/plugin-update'
 import { removeTaskPayloadSchema } from '@shared/schemas/remove-task'
 import { EngineRecoveryAction } from '@shared/types/engine'
 import type { ProxySettings } from '@shared/types/settings'
@@ -84,6 +101,7 @@ import { z } from 'zod'
 import type { ServerDownloadPathPolicy } from '../download-path-policy'
 import type { ServerPluginInstallService } from '../plugin/install-service'
 import type { createServerProxyApplier } from '../proxy/wiring'
+import type { ServerDirectoryService } from '../server-directory-service'
 
 export interface ServerCommandContext {
   supervisor: EngineSupervisor
@@ -97,11 +115,17 @@ export interface ServerCommandContext {
    * paths cannot drift. Called synchronously during handler construction.
    */
   bindTaskRetry?: (fn: (taskId: string) => Promise<unknown>) => void
+  recoverFinalization?: (taskId: string) => Promise<void>
   rpcClient: Aria2RpcClient
   adapter: EngineAdapter
   trackerManager: TrackerManager
+  bridgeControl?: {
+    setEnabled(enabled: boolean): Promise<void>
+    restart(): Promise<void>
+  }
   aria2BinaryPath: string
   finalNamePicker: FinalNamePicker
+  mediaMetaStore: MediaMetaStore
   torrentMetaStore: TorrentMetaStore
   taskManager: TaskManager
   fileCleanupService: FileCleanupService
@@ -112,18 +136,23 @@ export interface ServerCommandContext {
   notificationCenter: NotificationCenter
   taskPersistence: Pick<SessionManager, 'runExclusivePersistence'>
   pluginRegistry: PluginRegistry
+  registryClient: RegistryClient
+  hostVersion: string
   pluginStateStore: PluginStateStore
   pluginHost: PluginHost
   pluginInstaller: PluginInstaller
   pluginInstallService: ServerPluginInstallService
   pluginGrants: GrantsManager
   capabilityHost: CapabilityHost
-  userDataDir: string
-  pluginsDir: string
   pluginActivation: ActivationDispatcher
+  hookAuditLog?: HookAuditLog
+  hookOrchestrator?: HookOrchestrator
   magnetTracker: MagnetTracker
   activityRecorder: TaskActivityRecorder
   persistTask?: NonNullable<TaskActionDeps['persistTask']>
+  persistTaskWithPluginMetadata?: NonNullable<
+    CreateTaskDeps['persistTaskWithPluginMetadata']
+  >
   /**
    * Persist a task and (when non-null) its terminal occurrence in a single
    * durable transaction — used INSTEAD OF `persistTask` whenever a status
@@ -147,6 +176,10 @@ export interface ServerCommandContext {
   publishTaskUpdate: TaskActionDeps['publishTaskUpdate']
   publishTaskUpdateNow: TaskActionDeps['publishTaskUpdateNow']
   downloadPathPolicy: ServerDownloadPathPolicy
+  serverDirectoryService: Pick<
+    ServerDirectoryService,
+    'create' | 'resolvePreferenceDirectory'
+  >
 }
 
 export function buildServerCommandHandlers(
@@ -160,7 +193,9 @@ export function buildServerCommandHandlers(
     bindTaskRetry,
     adapter,
     trackerManager,
+    bridgeControl,
     finalNamePicker,
+    mediaMetaStore,
     torrentMetaStore,
     taskManager,
     fileCleanupService,
@@ -171,18 +206,21 @@ export function buildServerCommandHandlers(
     notificationCenter,
     taskPersistence,
     pluginRegistry,
+    registryClient,
+    hostVersion,
     pluginStateStore,
     pluginHost,
     pluginInstaller,
     pluginInstallService,
     pluginGrants,
     capabilityHost,
-    userDataDir,
-    pluginsDir,
     pluginActivation,
+    hookAuditLog,
+    hookOrchestrator,
     magnetTracker,
     activityRecorder,
     persistTask: injectedPersistTask,
+    persistTaskWithPluginMetadata,
     persistTaskWithOccurrence,
     occurrenceDispatcher,
     recordTransition,
@@ -210,22 +248,6 @@ export function buildServerCommandHandlers(
       await persistParent()
     })
 
-  // Plan C plugin-hook plumbing: instantiate the orchestrator + audit log
-  // once and feed them into createDeps so handleCreateTask's beforeCreate
-  // chain fires. Without this, every plugin's beforeCreate hook is silently
-  // skipped and the user-supplied URL is dispatched to aria2 unchanged.
-  const hookAuditLog = new HookAuditLog(
-    path.join(userDataDir, 'plugin-audit', 'hooks.ndjson')
-  )
-  const hookOrchestrator = new HookOrchestrator({
-    host: pluginHost,
-    hookTimeoutMs: { series: 10_000, parallel: 30_000 },
-    pluginsDir,
-    pluginStorageRootFor: (pluginId) =>
-      path.join(pluginsDir, pluginId, 'storage'),
-    auditLog: hookAuditLog,
-  })
-
   const createDeps: CreateTaskDeps = {
     adapter,
     directResourceValidator: new DirectResourceValidatorService(),
@@ -242,6 +264,7 @@ export function buildServerCommandHandlers(
     auditLog: hookAuditLog,
     db: motrixDatabase.database,
     persistTask,
+    persistTaskWithPluginMetadata,
     parentTaskCreated,
     rollbackTaskCreation: (taskId: string) =>
       taskPersistence.runExclusivePersistence(() =>
@@ -288,6 +311,7 @@ export function buildServerCommandHandlers(
     publishTaskUpdateNow,
   }
   const reAddDeps = {
+    recoverFinalization: ctx.recoverFinalization,
     taskManager,
     adapter,
     eventBus,
@@ -319,6 +343,7 @@ export function buildServerCommandHandlers(
     adapter,
     log,
     fileCleanupService,
+    mediaMetaStore,
     torrentMetaStore,
     eventBus,
     db: motrixDatabase,
@@ -355,8 +380,30 @@ export function buildServerCommandHandlers(
     action: z.enum(EngineRecoveryAction),
     expectedPid: z.number().int().positive().optional(),
   })
+  const directoryPreferences = createDirectoryPreferencesHandlers(
+    settingsManager,
+    (value) => ctx.serverDirectoryService.resolvePreferenceDirectory(value)
+  )
+  const directoryHistory = createTaskDirectoryHistory({
+    recordRecent: (path) =>
+      directoryPreferences.mutate({ action: 'recordRecent', path }),
+  })
 
   return {
+    [Commands.CreateServerDirectory]: async (request: unknown) =>
+      ctx.serverDirectoryService.create(request),
+    [Commands.SetDisclaimerLanguage]: async (payload: unknown) => {
+      const language = supportedLocaleSchema.parse(payload)
+      await settingsManager.setDisclaimerLanguage(language)
+      return { ok: true }
+    },
+
+    [Commands.AcceptDisclaimer]: async () => {
+      await settingsManager.acceptDisclaimer()
+      trackerManager.applySyncScheduleChange()
+      return { ok: true }
+    },
+
     [Commands.AddMagnetTask]: async (params: {
       uri: string
       selectedFiles: number[]
@@ -392,8 +439,8 @@ export function buildServerCommandHandlers(
     },
 
     [Commands.ReopenMagnetFileSelection]: async (taskId: string) => {
-      await magnetTracker.reopenFileSelection(taskId)
-      return { ok: true }
+      const selection = await magnetTracker.getFileSelection(taskId)
+      return { ok: true, selection: selection ?? null }
     },
 
     [Commands.ParsePageLinks]: async (request: unknown) => {
@@ -402,12 +449,20 @@ export function buildServerCommandHandlers(
       }).parse(request)
     },
 
-    [Commands.CreateTask]: async (request: unknown) => {
+    [Commands.CreateTask]: directoryHistory.wrap(async (request: unknown) => {
+      try {
+        request = admitTaskCreateRequest(request)
+      } catch (error) {
+        const failure = taskCreateSourceFailure(error)
+        if (failure) return failure
+        throw error
+      }
       const parsed = taskCreateRequestSchema.safeParse(request)
       if (parsed.success) {
         const req = parsed.data
         if (req.type === 'http') {
-          await activatePluginsForTask('http', req.uris[0] ?? '')
+          if (!req.uris[0].startsWith('ftp:'))
+            await activatePluginsForTask('http', req.uris[0] ?? '')
         } else if (req.payload.kind === 'magnet') {
           await activatePluginsForTask('magnet', req.payload.uri)
           if (
@@ -421,7 +476,9 @@ export function buildServerCommandHandlers(
             try {
               taskId = await magnetTracker.submit(req.payload.uri, saveDir)
             } catch (error) {
-              const conflict = taskCreateConflictResult(error)
+              const conflict =
+                taskCreateSourceFailure(error) ??
+                taskCreateConflictResult(error)
               if (conflict) return conflict
               throw error
             }
@@ -519,7 +576,9 @@ export function buildServerCommandHandlers(
                   }
                 )
               } catch (error) {
-                const conflict = taskCreateConflictResult(error)
+                const conflict =
+                  taskCreateSourceFailure(error) ??
+                  taskCreateConflictResult(error)
                 if (conflict) return conflict
                 throw error
               }
@@ -538,11 +597,12 @@ export function buildServerCommandHandlers(
         if (error instanceof TaskCreateSkippedError) {
           return { outcome: 'skipped', ...error.info }
         }
-        const conflict = taskCreateConflictResult(error)
+        const conflict =
+          taskCreateSourceFailure(error) ?? taskCreateConflictResult(error)
         if (conflict) return conflict
         throw error
       }
-    },
+    }),
 
     [Commands.PauseTask]: async (taskId: string) => {
       await pauseTask(taskId, pauseResumeDeps)
@@ -556,6 +616,16 @@ export function buildServerCommandHandlers(
 
     // Plural task commands (option C): one IPC request per multi-select
     // action from the web renderer. Same handlers as desktop.
+    [Commands.MoveTasks]: async (rawPayload: unknown) =>
+      moveTasks(moveTasksPayloadSchema.parse(rawPayload), pauseResumeDeps),
+
+    [Commands.PauseAllTasks]: async () =>
+      toBulkTaskCommandResult(await pauseAllTasks(pauseResumeDeps)),
+    [Commands.ResumeAllTasks]: async () =>
+      toBulkTaskCommandResult(await resumeAllTasks(pauseResumeDeps)),
+    [Commands.ClearStoppedTasks]: async (rawPayload: unknown) =>
+      clearStoppedTasks(removeDeps, taskIdsPayloadSchema.parse(rawPayload)),
+
     [Commands.PauseTasks]: async (rawPayload: unknown) => {
       const taskIds = taskIdsPayloadSchema.parse(rawPayload)
       return toBulkTaskCommandResult(
@@ -629,6 +699,14 @@ export function buildServerCommandHandlers(
       return { ok: true }
     },
 
+    [Commands.SetSelectedFiles]: createSetSelectedFilesHandler({
+      taskManager,
+      engine: adapter,
+      db: motrixDatabase,
+      eventBus,
+      runTaskMutation,
+    }),
+
     [Commands.RestartEngine]: async () => {
       await supervisor.restart()
       return { ok: true }
@@ -637,6 +715,28 @@ export function buildServerCommandHandlers(
     [Commands.RecoverEngine]: async (payload: unknown) => {
       return supervisor.recover(engineRecoverySchema.parse(payload))
     },
+
+    [Commands.MutateDirectoryPreferences]: directoryPreferences.mutate,
+
+    [Commands.SaveGeneralSettings]: createSaveGeneralSettingsHandler(
+      settingsManager,
+      {
+        resolveFavorite: (value) =>
+          ctx.serverDirectoryService.resolvePreferenceDirectory(value),
+        resolveDefaultDirectory: async (value) => {
+          const existing =
+            await ctx.serverDirectoryService.resolvePreferenceDirectory(value)
+          return downloadPathPolicy.prepareSaveDir(existing)
+        },
+        applySavedApp: async (patch) => {
+          if (patch.defaultSaveDir !== undefined) {
+            await supervisor.applyDefaultSaveDir(
+              settingsManager.getApp().defaultSaveDir
+            )
+          }
+        },
+      }
+    ),
 
     [Commands.UpdateSettings]: async (partial: unknown) => {
       const saveDirPatch = z
@@ -692,6 +792,15 @@ export function buildServerCommandHandlers(
         await supervisor.applyDefaultSaveDir(newFull.app.defaultSaveDir)
       }
 
+      if (
+        oldFull.app.browserBridgeEnabled !== newFull.app.browserBridgeEnabled
+      ) {
+        await bridgeControl?.setEnabled(newFull.app.browserBridgeEnabled)
+      }
+      if (oldFull.bridge.fixedPort !== newFull.bridge.fixedPort) {
+        await bridgeControl?.restart()
+      }
+
       if (oldFull.tracker.sourcesEnabled !== newFull.tracker.sourcesEnabled) {
         await trackerManager.applySourcesChange(newFull.tracker.sourcesEnabled)
       }
@@ -702,6 +811,13 @@ export function buildServerCommandHandlers(
         await trackerManager.applyBlacklistChange(
           newFull.tracker.blacklistEnabled
         )
+      }
+
+      if (
+        oldFull.tracker.autoSync !== newFull.tracker.autoSync ||
+        oldFull.tracker.syncIntervalHours !== newFull.tracker.syncIntervalHours
+      ) {
+        trackerManager.applySyncScheduleChange()
       }
 
       await supervisor.applyEngineSettings(oldFull.engine, newFull.engine)
@@ -774,9 +890,9 @@ export function buildServerCommandHandlers(
     },
 
     [Commands.DisablePlugin]: async (id: string) => {
-      await pluginHost.deactivate(id)
-      pluginStateStore.setEnabled(id, false)
-      pluginRegistry.refreshState(id)
+      await pluginHost.disable(id, 'plugin.user_disabled', 'disabled', {
+        recordError: false,
+      })
       const state = pluginStateStore.get(id)
       eventBus.emit(Events.PluginStatusChanged, {
         id,
@@ -832,6 +948,15 @@ export function buildServerCommandHandlers(
       capabilityHost.configFor(parsed.pluginId).applyExternalChange(changes)
 
       return { ok: true }
+    },
+
+    [Commands.CheckPluginUpdates]: async (payload: unknown) => {
+      const parsed = checkPluginUpdatesPayloadSchema.parse(payload)
+      if (parsed?.force) await registryClient.refresh()
+      const entries = await registryClient.list(hostVersion)
+      return scanForUpdates(pluginRegistry.list(), entries).filter(
+        (update) => update.channel === 'community'
+      )
     },
 
     [Commands.InstallPlugin]: async (payload: unknown) => {

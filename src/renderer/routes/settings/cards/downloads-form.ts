@@ -1,51 +1,53 @@
+import { settingsValidationError } from '@renderer/lib/settings-validation'
 import { DEFAULT_ENGINE_SETTINGS } from '@shared/schemas'
-import { DEFAULT_APP_SETTINGS } from '@shared/schemas/app-settings'
-import { DEFAULT_SPEED_LIMIT_SETTINGS } from '@shared/schemas/speed-limit'
-import type {
-  EngineSettings,
-  SpeedLimitSettings,
-} from '@shared/types/settings'
+import {
+  appSettingsInputSchema,
+  DEFAULT_APP_SETTINGS,
+} from '@shared/schemas/app-settings'
+import { engineSettingsInputSchema } from '@shared/schemas/engine-settings'
+import {
+  DEFAULT_SPEED_LIMIT_SETTINGS,
+  speedLimitSettingsInputSchema,
+} from '@shared/schemas/speed-limit'
+import type { TFunction } from 'i18next'
+import { z } from 'zod'
 
 // ─── Form shape ────────────────────────────────────────────────────────────────
-// The form combines the engine settings subset with the full speedLimit
-// namespace. On submit, pickDirty recurses the dirty-fields tree and returns
-// only changed keys at every level, so { engine: {...}, speedLimit: {...} } is
-// built correctly. UpdateSettings deep-merges each top-level namespace, so a
-// partial speedLimit patch (only the changed sub-fields) is safe.
+// On submit, pickDirty returns only changed keys across app, engine, and
+// speedLimit. UpdateSettings deep-merges each top-level namespace.
 
-export type EngineFields = Pick<
-  EngineSettings,
-  | 'performanceProfile'
-  | 'maxConcurrentDownloads'
-  | 'maxConnectionPerServer'
-  | 'split'
-  | 'minSplitSize'
-  | 'userAgent'
-  | 'connectTimeout'
-  | 'socketTimeout'
-  | 'maxTries'
-  | 'retryWait'
-  | 'lowestSpeedLimit'
-  | 'fileAllocation'
-  | 'remoteTime'
-  | 'diskCache'
-  | 'sessionSaveInterval'
-  | 'magnetResolveTimeout'
->
+export const downloadsFormSchema = z.object({
+  app: appSettingsInputSchema.pick({
+    fileDeletionMode: true,
+    skipExistingFilesOnCreate: true,
+    autoparser: true,
+  }),
+  engine: engineSettingsInputSchema.pick({
+    performanceProfile: true,
+    maxConcurrentDownloads: true,
+    maxConnectionPerServer: true,
+    split: true,
+    minSplitSize: true,
+    userAgent: true,
+    connectTimeout: true,
+    socketTimeout: true,
+    maxTries: true,
+    retryWait: true,
+    lowestSpeedLimit: true,
+    fileAllocation: true,
+    remoteTime: true,
+    diskCache: true,
+    sessionSaveInterval: true,
+    magnetResolveTimeout: true,
+  }),
+  speedLimit: speedLimitSettingsInputSchema,
+})
 
-export interface DownloadsFields {
-  engine: EngineFields
-  speedLimit: SpeedLimitSettings
-  // app.autoparser and app.skipExistingFilesOnCreate live under the app
-  // namespace; submitting the dirty patch as { app: {...} } deep-merges into
-  // settings.app. Keep this Pick<> in sync with MotrixAppSettings.
-  app: {
-    skipExistingFilesOnCreate: boolean
-    autoparser: {
-      fileExtensionWhitelist: string[]
-    }
-  }
-}
+export type DownloadsFields = z.infer<typeof downloadsFormSchema>
+export type EngineFields = DownloadsFields['engine']
+export type EngineNumberField = {
+  [Key in keyof EngineFields]: EngineFields[Key] extends number ? Key : never
+}[keyof EngineFields]
 
 export const KB = 1024
 export const MB = 1024 * 1024
@@ -55,7 +57,7 @@ export const MBPS = 125_000
 
 // Source of truth: src/shared/schemas/engine-settings.ts (DEFAULT_ENGINE_SETTINGS).
 // Defaults are sourced from the schema; the renderer mirrors the subset of
-// fields it edits. Keep this Pick<> in sync if the schema fields change.
+// fields it edits, validated with the same constraints and no fallback values.
 export const ENGINE_DEFAULTS: EngineFields = {
   performanceProfile: DEFAULT_ENGINE_SETTINGS.performanceProfile,
   maxConcurrentDownloads: DEFAULT_ENGINE_SETTINGS.maxConcurrentDownloads,
@@ -76,16 +78,65 @@ export const ENGINE_DEFAULTS: EngineFields = {
 }
 
 export const DOWNLOADS_DEFAULTS: DownloadsFields = {
-  engine: ENGINE_DEFAULTS,
-  // Source of truth: src/shared/schemas/speed-limit.ts (DEFAULT_SPEED_LIMIT_SETTINGS).
-  speedLimit: DEFAULT_SPEED_LIMIT_SETTINGS,
-  // Source of truth: src/shared/schemas/app-settings.ts (DEFAULT_APP_SETTINGS).
   app: {
-    skipExistingFilesOnCreate: DEFAULT_APP_SETTINGS.skipExistingFilesOnCreate,
+    fileDeletionMode: DEFAULT_APP_SETTINGS.fileDeletionMode,
+    // Source of truth: src/shared/schemas/app-settings.ts (DEFAULT_APP_SETTINGS).
+    skipExistingFilesOnCreate:
+      DEFAULT_APP_SETTINGS.skipExistingFilesOnCreate,
     autoparser: {
       fileExtensionWhitelist: [
         ...DEFAULT_APP_SETTINGS.autoparser.fileExtensionWhitelist,
       ],
     },
   },
+  engine: ENGINE_DEFAULTS,
+  // Source of truth: src/shared/schemas/speed-limit.ts (DEFAULT_SPEED_LIMIT_SETTINGS).
+  speedLimit: DEFAULT_SPEED_LIMIT_SETTINGS,
+}
+
+export function getEngineNumberRules(name: EngineNumberField) {
+  const schema = downloadsFormSchema.shape.engine.shape[name]
+  const scale =
+    name === 'minSplitSize' || name === 'diskCache'
+      ? MB
+      : name === 'lowestSpeedLimit'
+        ? KB
+        : 1
+  return {
+    min: (schema.minValue ?? 0) / scale,
+    max: (schema.maxValue ?? Number.MAX_SAFE_INTEGER) / scale,
+    hasUpperBound: schema.maxValue !== Number.MAX_SAFE_INTEGER,
+    scale,
+  }
+}
+
+export function downloadsValidationError(
+  t: TFunction,
+  kiloByte: number
+): z.core.$ZodErrorMap {
+  const scales: Record<string, number> = {}
+  for (const [name, schema] of Object.entries(
+    downloadsFormSchema.shape.engine.shape
+  )) {
+    if (schema instanceof z.ZodNumber)
+      scales[`engine.${name}`] = getEngineNumberRules(
+        name as EngineNumberField
+      ).scale
+  }
+  for (const profile of ['base', 'alt']) {
+    for (const direction of ['download', 'upload'])
+      scales[`speedLimit.${profile}.${direction}`] = kiloByte
+  }
+  scales['speedLimit.auto.adaptive.linkDown'] = MBPS
+  scales['speedLimit.auto.adaptive.linkUp'] = MBPS
+  return settingsValidationError(t, downloadsFormSchema, {
+    scales,
+    displayRanges: {
+      'speedLimit.auto.adaptive.headroomPercent': {
+        min: 0,
+        max: 99,
+        integer: true,
+      },
+    },
+  })
 }

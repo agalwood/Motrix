@@ -9,10 +9,71 @@
 //   subprocess. No e2e helper exists for this. This test is skipped.
 //   Both are documented below with test.skip.
 import { expect, test } from './fixtures/electron-app'
+import { setTaskInspectorContentSize } from './fixtures/task-inspector-activity'
 
 test.describe('Dashboard v1', () => {
-  test('cold launch renders seven default tile labels within 800ms', async ({
+  test('keeps the compact header aligned with Downloads while configuring tiles', async ({
     mainWindow,
+    electronApp,
+  }) => {
+    await expect(mainWindow.locator('html')).toHaveClass(/window-main/)
+    await setTaskInspectorContentSize(electronApp, mainWindow, 1100, 780)
+    const toggleSidebar = mainWindow.getByRole('button', {
+      name: 'Toggle sidebar',
+      exact: true,
+    })
+    const header = mainWindow.locator('[data-slot="panel-shell-header"]')
+    const headerHeight = () =>
+      header.evaluate((element) => element.getBoundingClientRect().height)
+
+    await mainWindow
+      .getByRole('link', { name: 'Downloads', exact: true })
+      .click()
+    await toggleSidebar.click()
+    await expect(
+      mainWindow.getByRole('toolbar', { name: 'Downloads' })
+    ).toHaveAttribute('data-density', 'compact')
+    await expect.poll(headerHeight).toBe(38)
+    const downloadsHeight = await headerHeight()
+
+    await toggleSidebar.click()
+    await mainWindow
+      .getByRole('link', { name: 'Dashboard', exact: true })
+      .click()
+    await toggleSidebar.click()
+    await expect.poll(headerHeight).toBe(downloadsHeight)
+    const engine = mainWindow.getByTestId('dashboard-tile-engine')
+    const tileTop = await engine.evaluate(
+      (element) => element.getBoundingClientRect().top
+    )
+
+    await mainWindow
+      .getByRole('button', { name: 'Configure', exact: true })
+      .click()
+    const toolbar = mainWindow.getByRole('toolbar', {
+      name: 'Configure',
+      exact: true,
+    })
+    await expect(toolbar).toHaveAttribute('data-density', 'compact')
+    await expect.poll(headerHeight).toBe(downloadsHeight)
+    await expect
+      .poll(() =>
+        engine.evaluate((element) => element.getBoundingClientRect().top)
+      )
+      .toBe(tileTop)
+    await toolbar.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(toolbar).toHaveCount(0)
+    await expect.poll(headerHeight).toBe(downloadsHeight)
+    await expect
+      .poll(() =>
+        engine.evaluate((element) => element.getBoundingClientRect().top)
+      )
+      .toBe(tileTop)
+  })
+
+  test('renders 160px square tiles at minimum window size, including configure mode', async ({
+    mainWindow,
+    electronApp,
   }) => {
     // Navigate to dashboard (hash router — '#/' is the dashboard route)
     await mainWindow.waitForLoadState('domcontentloaded')
@@ -21,6 +82,7 @@ test.describe('Dashboard v1', () => {
     await expect(mainWindow.locator('html')).toHaveClass(/window-main/, {
       timeout: 15_000,
     })
+    await setTaskInspectorContentSize(electronApp, mainWindow, 914, 672)
 
     // Click the Dashboard nav link to ensure we're on the dashboard route
     await mainWindow.getByRole('link', { name: 'Dashboard' }).click()
@@ -64,6 +126,25 @@ test.describe('Dashboard v1', () => {
           .getByText('Transfer', { exact: true })
       ).toBeVisible({ timeout: 800 }),
     ])
+
+    const engine = mainWindow.getByTestId('dashboard-tile-engine')
+    const expectSquareTile = () =>
+      expect
+        .poll(() => engine.boundingBox())
+        .toMatchObject({
+          width: 160,
+          height: 160,
+        })
+    await expectSquareTile()
+    await mainWindow
+      .getByRole('button', { name: 'Configure', exact: true })
+      .click()
+    await expectSquareTile()
+    await mainWindow
+      .getByRole('toolbar', { name: 'Configure', exact: true })
+      .getByRole('button', { name: 'Cancel', exact: true })
+      .click()
+    await expectSquareTile()
   })
 
   test.skip('window narrows below 904px → Tasks falls beneath grid', async () => {

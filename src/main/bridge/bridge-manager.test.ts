@@ -24,6 +24,38 @@ function makeRuntime(): BridgeRuntime {
 }
 
 describe('BridgeManager', () => {
+  it('preserves an established AppImage installation when runtime startup fails', async () => {
+    const unregister = vi.fn().mockResolvedValue(undefined)
+    const manager = new BridgeManager(
+      async () => {
+        throw new Error('listener unavailable')
+      },
+      unregister,
+      false
+    )
+    await expect(manager.start()).rejects.toThrow('listener unavailable')
+    expect(unregister).not.toHaveBeenCalled()
+    await manager.setEnabled(false)
+    expect(unregister).toHaveBeenCalledOnce()
+  })
+
+  it('disables native launch before stopping the running listener', async () => {
+    const runtime = makeRuntime()
+    const order: string[] = []
+    const manager = new BridgeManager(
+      async () => runtime,
+      async () => {
+        order.push('unregister')
+      }
+    )
+    vi.mocked(runtime.shutdown).mockImplementation(async () => {
+      order.push('shutdown')
+    })
+    await manager.start()
+    await manager.setEnabled(false)
+    expect(order).toEqual(['unregister', 'shutdown'])
+  })
+
   it('start() calls factory and stores runtime', async () => {
     const runtime = makeRuntime()
     const factory = vi.fn().mockResolvedValue(runtime)

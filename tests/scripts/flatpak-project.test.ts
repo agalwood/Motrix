@@ -1,14 +1,30 @@
-import { readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { createRequire } from 'node:module'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 // @ts-expect-error -- JavaScript packaging script intentionally has no declarations
 import {
   parseArgs,
+  prepareFlatpakProject,
   replaceApplicationSource,
 } from '../../scripts/prepare-flatpak-project.mjs'
 
 const require = createRequire(import.meta.url)
+const tempDirs: string[] = []
+afterEach(() => {
+  for (const directory of tempDirs.splice(0)) {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
 const parseYaml = require('js-yaml').load as (source: string) => unknown
 const manifest = parseYaml(
   readFileSync(
@@ -24,6 +40,62 @@ const manifest = parseYaml(
 }
 
 describe('prepare-flatpak-project', () => {
+  it.each(['2.0.0', '2.0.0-beta.40'])(
+    'pins the archived commit, version and branch for %s',
+    async (version) => {
+      const { root, git, options } = createSourceFixture(version)
+      const result = await prepareFlatpakProject(options, root)
+      const prepared = parseYaml(readFileSync(result.manifestPath, 'utf8')) as {
+        branch: string
+        modules: Array<{ sources: Array<{ sha256: string }> }>
+      }
+      expect(prepared.branch).toBe(version.includes('-') ? 'beta' : 'stable')
+      expect(prepared.modules[0]?.sources[0]?.sha256).toBe(
+        createHash('sha256')
+          .update(readFileSync(result.archivePath))
+          .digest('hex')
+      )
+      const archivedPackage = execFileSync(
+        'tar',
+        ['-xOf', result.archivePath, 'package.json'],
+        {
+          encoding: 'utf8',
+        }
+      )
+      expect(JSON.parse(archivedPackage).version).toBe(version)
+      expect(readFileSync(options['github-output'], 'utf8')).toContain(
+        `revision=${git('rev-parse', 'HEAD')}`
+      )
+      expect(result.version).toBe(version)
+    }
+  )
+
+  it('rejects a release version that differs from the archived source', async () => {
+    const { root, options } = createSourceFixture('2.0.0-beta.40')
+    await expect(
+      prepareFlatpakProject({ ...options, version: '2.0.0-beta.39' }, root)
+    ).rejects.toThrow('does not match release version')
+  })
+
+  it('rejects archiving a different commit than the dependency checkout', async () => {
+    const { root, git, options } = createSourceFixture('2.0.0')
+    git('commit', '--allow-empty', '-m', 'next source')
+    await expect(
+      prepareFlatpakProject({ ...options, ref: 'HEAD~1' }, root)
+    ).rejects.toThrow('must match the checked-out commit')
+  })
+
+  it('rejects stale AppStream metadata before producing a release bundle', async () => {
+    const { root, options } = createSourceFixture('2.0.0')
+    writeFileSync(
+      path.join(root, 'flatpak/app.motrix.native.metainfo.xml'),
+      '<component><releases><release version="1.0.0"/></releases></component>'
+    )
+    await expect(prepareFlatpakProject(options, root)).rejects.toThrow(
+      'AppStream version must match'
+    )
+  })
+
   it('replaces only the application git source with the CI archive', () => {
     const prepared = replaceApplicationSource(
       manifest,
@@ -103,7 +175,39 @@ describe('prepare-flatpak-project', () => {
       output: 'flatpak/ci.yml',
       archive: 'flatpak/source.tar.gz',
       ref: 'abc123',
+      version: '',
+      'github-output': '',
     })
     expect(() => parseArgs(['--surprise', 'value'])).toThrow('unknown flag')
   })
 })
+
+function createSourceFixture(version: string) {
+  const root = mkdtempSync(path.join(tmpdir(), 'motrix-flatpak-source-'))
+  tempDirs.push(root)
+  mkdirSync(path.join(root, 'flatpak'))
+  writeFileSync(path.join(root, 'package.json'), JSON.stringify({ version }))
+  writeFileSync(
+    path.join(root, 'flatpak/app.motrix.native.yml'),
+    'modules:\n  - name: motrix\n    sources:\n      - type: git\n        url: https://example.test/motrix.git\n'
+  )
+  writeFileSync(
+    path.join(root, 'flatpak/app.motrix.native.metainfo.xml'),
+    `<component><releases><release version="${version}"/></releases></component>`
+  )
+  const git = (...args: string[]) =>
+    execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim()
+  git('init', '--quiet')
+  git('config', 'user.email', 'flatpak-test@example.test')
+  git('config', 'user.name', 'Flatpak test')
+  git('config', 'commit.gpgsign', 'false')
+  git('add', '.')
+  git('commit', '--quiet', '-m', 'source')
+  const options = parseArgs([
+    '--version',
+    version,
+    '--github-output',
+    path.join(root, 'github-output'),
+  ])
+  return { root, git, options }
+}

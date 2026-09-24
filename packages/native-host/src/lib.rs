@@ -1,3 +1,5 @@
+#[cfg(target_os = "linux")]
+pub mod appimage_config;
 pub mod broker_protocol;
 pub mod caller;
 pub mod canonical;
@@ -47,6 +49,21 @@ pub enum HostRequest {
         binding_pub: [u8; 32],
         allow_launch: bool,
     },
+}
+
+impl HostRequest {
+    pub fn allow_launch(&self) -> bool {
+        match self {
+            Self::Legacy { allow_launch } | Self::Bootstrap { allow_launch, .. } => *allow_launch,
+        }
+    }
+
+    pub fn bootstrap_binding_pub(&self) -> Option<&[u8; 32]> {
+        match self {
+            Self::Bootstrap { binding_pub, .. } => Some(binding_pub),
+            Self::Legacy { .. } => None,
+        }
+    }
 }
 
 /// Parses `{ action: "bootstrap", protocolVersion: 1, bindingPub, allowLaunch?

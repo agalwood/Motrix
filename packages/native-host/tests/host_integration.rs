@@ -343,7 +343,7 @@ fn subprocess_rejects_primitive_malformed_truncated_and_oversized_input() {
 
 // binding pub = 32 bytes of 0x07, base64url no-pad (spec §9.1/§9.2).
 const BOOTSTRAP_BINDING_PUB: &str = "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc";
-const BOOTSTRAP_CALLER_ARGV: &str = "chrome-extension://ibpkjhgpbidfmbmomagmldcdlpbmchgi/";
+const BOOTSTRAP_CALLER_ARGV: &str = "chrome-extension://lggbokfckofcgjndaboioakcmincinpo/";
 
 fn bootstrap_wire(allow_launch: bool) -> Vec<u8> {
     encode(&json!({
@@ -389,7 +389,7 @@ fn bootstrap_request_returns_ticketed_pair_frame_and_never_leaks_secrets() {
     let ticket = &frame["nmTicket"];
     assert_eq!(ticket["v"], 1);
     assert_eq!(ticket["purpose"], "mbp1-attestation");
-    assert_eq!(ticket["callerId"], "ibpkjhgpbidfmbmomagmldcdlpbmchgi");
+    assert_eq!(ticket["callerId"], "lggbokfckofcgjndaboioakcmincinpo");
     assert_eq!(ticket["browser"], "chromium");
     assert_eq!(ticket["bindingPub"], BOOTSTRAP_BINDING_PUB);
     let exp = ticket["exp"].as_u64().expect("exp");

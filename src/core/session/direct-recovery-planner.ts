@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import type { EngineAdapter } from '@core/engine/engine-adapter'
 import { INCOMPLETE_SUFFIX } from '@shared/constants/incomplete'
 
 export type DirectRecoveryKind =
@@ -56,6 +57,17 @@ export interface DirectRecoveryFileSystem {
   stat(filePath: string): Promise<DirectRecoveryFileStat | null>
 }
 
+/**
+ * Whether the engine holds a resumable checkpoint for an output file. Where
+ * it lives depends on the engine's persistence mode: a `<file>.aria2` control
+ * file, or a `task_progress` row in aria2.db under sqlite3 persistence. The
+ * planner must ask the store the running engine actually reads.
+ */
+export type DirectCheckpointState = 'present' | 'absent' | 'not-file'
+export type DirectCheckpointProbe = (
+  diskPath: string
+) => Promise<DirectCheckpointState>
+
 export interface DirectRecoveryPath {
   isAbsolute(filePath: string): boolean
   dirname(filePath: string): string
@@ -81,6 +93,30 @@ const nodeFileSystem: DirectRecoveryFileSystem = {
   },
 }
 
+/** Checkpoint probe for the classic `<file>.aria2` control file. */
+export async function controlFileCheckpoint(
+  fileSystem: DirectRecoveryFileSystem,
+  diskPath: string
+): Promise<DirectCheckpointState> {
+  const stat = await fileSystem.stat(`${diskPath}.aria2`)
+  if (!stat) return 'absent'
+  return stat.isFile ? 'present' : 'not-file'
+}
+
+/**
+ * Probe that asks the engine, which alone knows whether it keeps checkpoints
+ * in control files or in aria2.db (issue #2187). Engines that cannot answer
+ * fall back to the control file — the only store they can resume from.
+ */
+export function createEngineCheckpointProbe(
+  engine: Pick<EngineAdapter, 'getCheckpointStatus'>,
+  fileSystem: DirectRecoveryFileSystem = nodeFileSystem
+): DirectCheckpointProbe {
+  return async (diskPath) =>
+    (await engine.getCheckpointStatus?.(diskPath)) ??
+    controlFileCheckpoint(fileSystem, diskPath)
+}
+
 interface ResolvedOutput {
   diskPath: string
   saveDir: string
@@ -92,7 +128,15 @@ interface ResolvedOutput {
 export class DirectRecoveryPlanner {
   constructor(
     private readonly fileSystem: DirectRecoveryFileSystem = nodeFileSystem,
-    private readonly pathApi: DirectRecoveryPath = path
+    private readonly pathApi: DirectRecoveryPath = path,
+    /**
+     * Resolved per plan: the persistence mode is fixed only once the engine
+     * has started, and can change across engine restarts. The default reads
+     * the `.aria2` control file through `fileSystem`.
+     */
+    private readonly checkpointProbe: () => DirectCheckpointProbe = () =>
+      (diskPath) =>
+        controlFileCheckpoint(this.fileSystem, diskPath)
   ) {}
 
   async plan(input: DirectRecoveryInput): Promise<DirectRecoveryPlan> {
@@ -142,8 +186,8 @@ export class DirectRecoveryPlanner {
         return this.result(resolved, 'fresh', 'temp-file-empty', 0)
       }
 
-      const checkpointStat = await this.fileSystem.stat(resolved.checkpointPath)
-      if (checkpointStat && !checkpointStat.isFile) {
+      const checkpoint = await this.checkpointProbe()(resolved.diskPath)
+      if (checkpoint === 'not-file') {
         return this.result(
           resolved,
           'invalid',
@@ -151,7 +195,7 @@ export class DirectRecoveryPlanner {
           tempStat.size
         )
       }
-      if (checkpointStat) {
+      if (checkpoint === 'present') {
         return this.result(
           resolved,
           'checkpoint',

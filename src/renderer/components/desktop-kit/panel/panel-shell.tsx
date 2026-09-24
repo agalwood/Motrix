@@ -19,6 +19,9 @@ export interface PanelShellProps {
   footer?: React.ReactNode
   children: React.ReactNode
   headerClassName?: string
+  actionsClassName?: string
+  /** Let a toolbar with its own no-drag controls expose draggable blank space. */
+  actionsDraggable?: boolean
   contentClassName?: string
 }
 
@@ -30,14 +33,19 @@ export function PanelShell({
   footer,
   children,
   headerClassName,
+  actionsClassName,
+  actionsDraggable = false,
   contentClassName,
 }: PanelShellProps) {
   return (
     <div className="relative flex h-full flex-col">
       {/* PanelShell header */}
       <header
+        data-slot="panel-shell-header"
         className={cn(
-          'flex shrink-0 items-start justify-between gap-4 px-6 pt-9 pb-4 transition-[padding] duration-200',
+          // Standard headers keep 32px above the title and 12px below it.
+          // Together with the 36px action row, the header remains 80px tall.
+          'flex shrink-0 items-center justify-between gap-4 px-6 pt-8 pb-3 transition-[padding] duration-200 motion-reduce:transition-none',
           // Compact rows center on the window-chrome icon line: the overlay
           // strip renders its 28px buttons at window y 13..41 (pt-[14px]
           // wrapper in AppLayout), i.e. centerline y=27. The inset sits 8px
@@ -59,7 +67,11 @@ export function PanelShell({
           data-slot="panel-shell-actions"
           // Keep actions above the z-30 WindowChrome drag strip but below the
           // z-50 modal layer so dialogs always cover background controls.
-          className="app-no-drag relative z-40 flex shrink-0 items-center gap-2"
+          className={cn(
+            'relative z-40 flex min-h-9 shrink-0 items-center gap-2 compact-header:min-h-7',
+            actionsDraggable ? 'app-drag' : 'app-no-drag',
+            actionsClassName
+          )}
         >
           {actionsPosition === 'start' && actions}
           {search && (
@@ -67,7 +79,7 @@ export function PanelShell({
               value={search.value}
               onChange={(e) => search.onChange(e.target.value)}
               placeholder={search.placeholder}
-              className="h-8 w-56 text-sm placeholder:text-xs compact-header:h-7 compact-header:w-40"
+              className="app-no-drag h-9 w-56 text-sm placeholder:text-xs compact-header:h-7 compact-header:w-40"
             />
           )}
           {actionsPosition === 'end' && actions}

@@ -18,10 +18,35 @@ import { PairingService } from '@core/bridge/pairing-service'
 import { WebSocketBridgeServer } from '@core/bridge/web-socket-bridge-server'
 import { BridgeReceiver } from '@core/bridge-receiver/bridge-receiver'
 import { BridgeStreamSource } from '@core/bridge-receiver/bridge-stream-source'
-import type { BridgeStatusInfo } from '@shared/protocol/bridge'
+import * as taskCreation from '@core/task/create-task-handler'
+import {
+  BridgeCommands,
+  BridgeQueries,
+  type BridgeStatusInfo,
+} from '@shared/protocol/bridge'
 import { EngineState } from '@shared/types/engine'
+import {
+  makeDirectSubmit,
+  makeExtensionContext,
+} from '@test-utils/bridge-receiver'
+import { makeMediaMetaStoreStub } from '@test-utils/media-meta-store'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { NativeMessagingInstaller } from './native-messaging-installer'
+import {
+  computeManifestPaths,
+  NativeMessagingInstaller,
+} from './native-messaging-installer'
+
+const registrationLog = vi.hoisted(() => ({ warn: vi.fn() }))
+vi.mock('@core/logger', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@core/logger')>()
+  return {
+    ...actual,
+    getLogger: (module: string) =>
+      module === 'native-messaging'
+        ? registrationLog
+        : actual.getLogger(module),
+  }
+})
 
 const electron = vi.hoisted(() => ({
   userDataDir: '',
@@ -93,7 +118,7 @@ function args(): Parameters<typeof bootstrapBridge>[0] {
     submitMagnetForFileSelection: vi.fn(async () => 'magnet'),
     isMagnetFileSelectionEnabled: vi.fn(() => false),
     finalNamePicker: { pick: vi.fn(async (_dir, desired) => desired) },
-    defaultSaveDir: '/downloads',
+    getDefaultSaveDir: () => '/downloads',
     readHandlerDeps: {
       taskManager: { getAll: () => [], getById: () => undefined },
       statsAggregator: {
@@ -120,6 +145,7 @@ function args(): Parameters<typeof bootstrapBridge>[0] {
     },
     ffmpegBinaryPath: null,
     taskManager: {} as never,
+    mediaMetaStore: makeMediaMetaStoreStub(),
     segmentAria2: {} as never,
     tmpRoot: '/tmp/media',
     persistTask: vi.fn(async () => {}),
@@ -132,6 +158,8 @@ function args(): Parameters<typeof bootstrapBridge>[0] {
   }
 }
 
+const realManifestSync = NativeMessagingInstaller.prototype.syncManifests
+
 describe('desktop bridge bootstrap ownership', () => {
   let userDataDir: string
   const activeChannels = new Set<string>()
@@ -143,6 +171,7 @@ describe('desktop bridge bootstrap ownership', () => {
     snapRuntime.enabled = false
     snapRuntime.instanceName = 'motrix_work'
     activeChannels.clear()
+    registrationLog.warn.mockReset()
     electron.handle.mockReset()
     electron.removeHandler.mockReset()
     electron.handle.mockImplementation((channel: string) => {
@@ -172,7 +201,7 @@ describe('desktop bridge bootstrap ownership', () => {
     vi.spyOn(
       NativeMessagingInstaller.prototype,
       'syncManifests'
-    ).mockResolvedValue()
+    ).mockResolvedValue({ failures: [] })
     vi.spyOn(
       NativeMessagingInstaller.prototype,
       'unregister'
@@ -184,6 +213,41 @@ describe('desktop bridge bootstrap ownership', () => {
   afterEach(async () => {
     vi.restoreAllMocks()
     await rm(userDataDir, { recursive: true, force: true })
+  })
+
+  it('uses the current directory through the registered submit handler without restarting', async () => {
+    let directory = '/downloads/old'
+    const getDefaultSaveDir = vi.fn(() => directory)
+    const createTask = vi
+      .spyOn(taskCreation, 'handleCreateTask')
+      .mockResolvedValue({ outcome: 'created', gid: 'gid', taskId: 'task' })
+    const registration = vi.spyOn(
+      WebSocketBridgeServer.prototype,
+      'setHandlers'
+    )
+    const runtime = await bootstrapBridge({ ...args(), getDefaultSaveDir })
+    if (!runtime) throw new Error('bridge did not start')
+    try {
+      const submit = registration.mock.calls[0]?.[0].submitDownload
+      if (!submit) throw new Error('submit handler missing')
+      expect(getDefaultSaveDir).not.toHaveBeenCalled()
+      await submit(makeDirectSubmit('before-change'), makeExtensionContext())
+      directory = '/downloads/new'
+      await submit(makeDirectSubmit('after-change'), makeExtensionContext())
+      expect(createTask.mock.calls[0]?.[0]).toMatchObject({
+        saveDir: '/downloads/old',
+      })
+      expect(createTask.mock.calls[1]?.[0]).toMatchObject({
+        saveDir: '/downloads/new',
+      })
+      expect(getDefaultSaveDir).toHaveBeenCalledTimes(2)
+      expect(
+        WebSocketBridgeServer.prototype.startOnFirstFree
+      ).toHaveBeenCalledOnce()
+      expect(WebSocketBridgeServer.prototype.stop).not.toHaveBeenCalled()
+    } finally {
+      await runtime.shutdown()
+    }
   })
 
   it('acquires the data-root lock before the first bridge store load', async () => {
@@ -218,6 +282,49 @@ describe('desktop bridge bootstrap ownership', () => {
     await runtime?.shutdown()
 
     await expect(lstat(lockPath)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('starts on Windows after cleaning default desktop crash residue', async () => {
+    const originalPlatform = process.platform
+    const originalOverride = process.env.MOTRIX_BRIDGE_DATA_DIR
+    const bridgeDirectory = join(userDataDir, 'bridge')
+    const localToken = 'L'.repeat(43)
+    let runtime: Awaited<ReturnType<typeof bootstrapBridge>> = null
+
+    Object.defineProperty(process, 'platform', { value: 'win32' })
+    delete process.env.MOTRIX_BRIDGE_DATA_DIR
+    try {
+      await mkdir(bridgeDirectory, { recursive: true })
+      await writeFile(
+        join(bridgeDirectory, BRIDGE_DATA_DIR_LOCK_FILE_NAME),
+        'crashed desktop lock'
+      )
+      await writeFile(
+        join(bridgeDirectory, 'extension-pairings.json.lock'),
+        'crashed projection writer'
+      )
+      await writeFile(join(bridgeDirectory, 'endpoint.json'), 'stale endpoint')
+      await writeFile(join(bridgeDirectory, 'local-token'), localToken)
+
+      runtime = await bootstrapBridge(args())
+
+      expect(runtime).not.toBeNull()
+      expect(EndpointFileWriter.prototype.write).toHaveBeenCalledOnce()
+      await expect(
+        readFile(join(bridgeDirectory, 'local-token'), 'utf8')
+      ).resolves.toBe(localToken)
+      await expect(
+        lstat(join(bridgeDirectory, 'extension-pairings.json.lock'))
+      ).rejects.toMatchObject({ code: 'ENOENT' })
+    } finally {
+      await runtime?.shutdown()
+      Object.defineProperty(process, 'platform', { value: originalPlatform })
+      if (originalOverride === undefined) {
+        delete process.env.MOTRIX_BRIDGE_DATA_DIR
+      } else {
+        process.env.MOTRIX_BRIDGE_DATA_DIR = originalOverride
+      }
+    }
   })
 
   it('releases the data-root lock when the first store load fails', async () => {
@@ -418,8 +525,17 @@ describe('desktop bridge bootstrap ownership', () => {
       })
       vi.mocked(
         NativeMessagingInstaller.prototype.syncManifests
-      ).mockRejectedValueOnce(permissionError)
-      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      ).mockResolvedValueOnce({
+        failures: [
+          {
+            browser: 'chrome',
+            path: '/test/chrome',
+            operation: 'manifest',
+            error: permissionError,
+          },
+        ],
+      })
+      const warn = registrationLog.warn
 
       const runtime = await bootstrapBridge(args())
 
@@ -440,7 +556,198 @@ describe('desktop bridge bootstrap ownership', () => {
     }
   )
 
-  it('rolls back EACCES outside a packaged Linux Snap', async () => {
+  it.each(['EPERM', 'EACCES'] as const)(
+    'keeps Chrome, Firefox, endpoint and IPC live after Edge fails with %s',
+    async (code) => {
+      const installer = new NativeMessagingInstaller({
+        platform: 'darwin',
+        manifestRoot: userDataDir,
+        hostBinaryPath: '/test/native-host',
+      })
+      const paths = computeManifestPaths('darwin', userDataDir)
+      const manifestIO = installer as unknown as {
+        writeJson(path: string, object: object): Promise<void>
+      }
+      const writeJson = manifestIO.writeJson.bind(installer)
+      let denied = true
+      vi.spyOn(manifestIO, 'writeJson').mockImplementation(
+        async (path, object) => {
+          if (denied && path === paths.edge)
+            throw Object.assign(new Error('permission denied'), { code })
+          return writeJson(path, object)
+        }
+      )
+      vi.mocked(
+        NativeMessagingInstaller.prototype.syncManifests
+      ).mockImplementation((ids) => realManifestSync.call(installer, ids))
+      const warn = registrationLog.warn
+      const runtime = await bootstrapBridge(args())
+      try {
+        expect(runtime).not.toBeNull()
+        for (const path of [paths.chrome, paths.firefox]) {
+          expect(JSON.parse(await readFile(path, 'utf-8')).name).toBe(
+            'app.motrix.bridge'
+          )
+        }
+        expect(EndpointFileWriter.prototype.write).toHaveBeenCalledOnce()
+        expect(WebSocketBridgeServer.prototype.stop).not.toHaveBeenCalled()
+        expect(
+          NativeMessagingInstaller.prototype.unregister
+        ).not.toHaveBeenCalled()
+        expect(activeChannels).toContain(BridgeQueries.ListPaired)
+        expect(activeChannels).toContain(BridgeQueries.ListTrusted)
+        const status = electron.handle.mock.calls.find(
+          ([channel]) => channel === BridgeQueries.GetStatus
+        )?.[1]
+        await expect(status?.()).resolves.toMatchObject({
+          degraded: false,
+        })
+        expect(warn).toHaveBeenCalledWith(
+          expect.stringContaining(`"code":"${code}"`)
+        )
+        expect(warn).toHaveBeenCalledWith(
+          expect.stringContaining('"browser":"edge"')
+        )
+      } finally {
+        await runtime?.shutdown()
+      }
+      denied = false
+      const recovered = await bootstrapBridge(args())
+      try {
+        expect(JSON.parse(await readFile(paths.edge!, 'utf-8')).name).toBe(
+          'app.motrix.bridge'
+        )
+        const status = electron.handle.mock.calls.findLast(
+          ([channel]) => channel === BridgeQueries.GetStatus
+        )?.[1]
+        await expect(status?.()).resolves.toMatchObject({
+          degraded: false,
+        })
+      } finally {
+        await recovered?.shutdown()
+      }
+    }
+  )
+
+  it('keeps the bridge discoverable when every browser registration fails', async () => {
+    vi.mocked(
+      NativeMessagingInstaller.prototype.syncManifests
+    ).mockResolvedValueOnce({
+      failures: (['chrome', 'edge', 'firefox'] as const).map((browser) => ({
+        browser,
+        path: `/test/${browser}`,
+        operation: 'manifest',
+        error: Object.assign(new Error('denied'), { code: 'EPERM' }),
+      })),
+    })
+    const runtime = await bootstrapBridge(args())
+    try {
+      expect(runtime).not.toBeNull()
+      expect(EndpointFileWriter.prototype.write).toHaveBeenCalledOnce()
+      expect(WebSocketBridgeServer.prototype.stop).not.toHaveBeenCalled()
+      const status = electron.handle.mock.calls.find(
+        ([channel]) => channel === BridgeQueries.GetStatus
+      )?.[1]
+      await expect(status?.()).resolves.toMatchObject({
+        degraded: false,
+      })
+    } finally {
+      await runtime?.shutdown()
+    }
+  })
+
+  it('logs a failed trust sync and accepts a successful later edit', async () => {
+    const runtime = await bootstrapBridge(args())
+    const handler = (key: string) =>
+      electron.handle.mock.calls.find(([channel]) => channel === key)?.[1]
+    try {
+      vi.mocked(
+        NativeMessagingInstaller.prototype.syncManifests
+      ).mockResolvedValueOnce({
+        failures: [
+          {
+            browser: 'edge',
+            path: '/test/edge',
+            operation: 'manifest',
+            error: new Error('denied'),
+          },
+        ],
+      })
+      const id = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+      await handler(BridgeCommands.AddTrusted)?.(
+        {},
+        { id, browser: 'chromium' }
+      )
+      expect(runtime?.registry.list().some((entry) => entry.id === id)).toBe(
+        true
+      )
+      expect(registrationLog.warn).toHaveBeenCalledOnce()
+      expect(registrationLog.warn).toHaveBeenCalledWith(
+        expect.stringContaining('"browser":"edge"')
+      )
+      await handler(BridgeCommands.RemoveTrusted)?.(
+        {},
+        { id, browser: 'chromium' }
+      )
+      expect(runtime?.registry.list().some((entry) => entry.id === id)).toBe(
+        false
+      )
+      expect(registrationLog.warn).toHaveBeenCalledOnce()
+    } finally {
+      await runtime?.shutdown()
+    }
+  })
+
+  it('serializes trust snapshots and drains queued updates before shutdown', async () => {
+    const runtime = await bootstrapBridge(args())
+    const handler = (key: string) =>
+      electron.handle.mock.calls.find(([channel]) => channel === key)?.[1]
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    vi.mocked(
+      NativeMessagingInstaller.prototype.syncManifests
+    ).mockImplementationOnce(async () => {
+      await gate
+      return { failures: [] }
+    })
+    const id = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    const added = handler(BridgeCommands.AddTrusted)?.(
+      {},
+      { id, browser: 'chromium' }
+    )
+    await vi.waitFor(() =>
+      expect(
+        NativeMessagingInstaller.prototype.syncManifests
+      ).toHaveBeenCalledTimes(2)
+    )
+    const removed = handler(BridgeCommands.RemoveTrusted)?.(
+      {},
+      { id, browser: 'chromium' }
+    )
+    let stopped = false
+    const shutdown = runtime?.shutdown().then(() => {
+      stopped = true
+    })
+    await Promise.resolve()
+    expect(stopped).toBe(false)
+    expect(
+      NativeMessagingInstaller.prototype.syncManifests
+    ).toHaveBeenCalledTimes(2)
+    expect(runtime?.registry.list().some((entry) => entry.id === id)).toBe(true)
+    release()
+    await Promise.all([added, removed, shutdown])
+    expect(stopped).toBe(true)
+    const snapshots = vi.mocked(
+      NativeMessagingInstaller.prototype.syncManifests
+    ).mock.calls
+    expect(snapshots[1]?.[0].chromium).toContain(id)
+    expect(snapshots[2]?.[0].chromium).not.toContain(id)
+    expect(WebSocketBridgeServer.prototype.stop).toHaveBeenCalledOnce()
+  })
+
+  it('rolls back shared host preparation errors outside a packaged Linux Snap', async () => {
     const permissionError = Object.assign(new Error('permission denied'), {
       code: 'EACCES',
     })

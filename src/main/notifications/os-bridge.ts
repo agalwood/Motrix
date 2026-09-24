@@ -1,17 +1,17 @@
 import type { Logger } from '@core/logger'
+import { isTaskAvailable } from '@shared/lib/task-navigation'
 import type { EventChannel } from '@shared/protocol/events'
 import { Events } from '@shared/protocol/events'
 import type { AppNotification } from '@shared/types/notification'
 import { NotificationKinds } from '@shared/types/notification'
 import type { MotrixAppSettings } from '@shared/types/settings'
+import type { TaskStatus } from '@shared/types/task'
 import { Notification } from 'electron'
 
 /** Structural subset of Electron's `BrowserWindow` this bridge needs. */
 export interface OsNotificationMainWindow {
   isVisible(): boolean
   isFocused(): boolean
-  show(): void
-  focus(): void
 }
 
 /** Structural subset of Electron's `Notification` this bridge needs. */
@@ -27,11 +27,18 @@ export interface OsNotificationBridgeDeps {
     listener: (payload: AppNotification) => void
   ) => void
   getMainWindow: () => OsNotificationMainWindow | null
+  /** Show the main window, recreating it if it was released in the background. */
+  showMainWindow: () => void
   getAppSettings: () => MotrixAppSettings
   /** `i18n.t.bind(i18n)` — follows `LocaleCoordinator` language switches. */
   translate: (key: string, params?: Record<string, string>) => string
-  /** `(taskId) => eventBus.emit(Events.NavigateTo, '/downloads/all?task=' + taskId)` */
+  /** Read current state: an OS notification may outlive its task. */
+  getTaskStatus: (taskId: string) => TaskStatus | null
+  /** Navigate once the main window's renderer is ready. */
   navigateToTask: (taskId: string) => void
+  navigateToDownloads: () => void
+  /** Reveal the task's current output, or its containing directory if missing. */
+  revealTaskInFolder: (taskId: string) => Promise<void>
   isSupported?: () => boolean
   createNotification?: (opts: {
     title: string
@@ -74,6 +81,44 @@ export function createOsNotificationBridge(deps: OsNotificationBridgeDeps): {
 
   let disposed = false
 
+  async function handleClick(payload: AppNotification): Promise<void> {
+    if (disposed) return
+    // Native clicks fire after handle() returns, so isolate both asynchronous
+    // file-manager failures and errors while showing or navigating the window.
+    try {
+      if (
+        payload.kind === NotificationKinds.TaskComplete &&
+        payload.taskId != null &&
+        isTaskAvailable(deps.getTaskStatus(payload.taskId))
+      ) {
+        try {
+          await deps.revealTaskInFolder(payload.taskId)
+          return
+        } catch (err) {
+          if (disposed) return
+          if (isTaskAvailable(deps.getTaskStatus(payload.taskId))) {
+            deps.log.warn(
+              { err, taskId: payload.taskId },
+              'os-notification-bridge: reveal failed; opening task'
+            )
+          }
+        }
+      }
+
+      if (disposed) return
+      deps.showMainWindow()
+      if (payload.taskId != null) {
+        if (isTaskAvailable(deps.getTaskStatus(payload.taskId))) {
+          deps.navigateToTask(payload.taskId)
+        } else {
+          deps.navigateToDownloads()
+        }
+      }
+    } catch (err) {
+      deps.log.warn({ err }, 'os-notification-bridge: click handler threw')
+    }
+  }
+
   function handle(payload: AppNotification): void {
     const win = deps.getMainWindow()
     const foreground = win == null ? false : win.isVisible() && win.isFocused()
@@ -95,23 +140,7 @@ export function createOsNotificationBridge(deps: OsNotificationBridgeDeps): {
     const notification = createNotification(
       body === undefined ? { title } : { title, body }
     )
-    notification.on('click', () => {
-      // Runs outside handle()'s own try/catch (it fires later, from
-      // Electron's Notification emitter, after handle() has already
-      // returned) — navigateToTask fans out through EventBus.emit, which
-      // has no per-listener isolation, so a throwing downstream listener
-      // must be caught here rather than crash the click callback.
-      try {
-        const clicked = deps.getMainWindow()
-        clicked?.show()
-        clicked?.focus()
-        if (payload.taskId != null) {
-          deps.navigateToTask(payload.taskId)
-        }
-      } catch (err) {
-        deps.log.warn({ err }, 'os-notification-bridge: click handler threw')
-      }
-    })
+    notification.on('click', () => handleClick(payload))
     notification.show()
   }
 

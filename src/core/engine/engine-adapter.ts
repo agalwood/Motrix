@@ -53,9 +53,12 @@ export interface AddTorrentParams {
    *  these are 1-based (matching aria2's `select-file`). The create path is
    *  responsible for converting its 0-based request indices before calling. */
   selectedFiles?: number[]
-  /** Optional per-file output mapping. The adapter translates indices and
-   * option syntax to the target engine. */
+  /** Optional per-file mapping relative to outputRoot, or saveDir when absent.
+   * The adapter translates indices and option syntax to the target engine. */
   outputFilePaths?: OutputFilePath[]
+  /** Trusted absolute payload root, independent of the engine metadata directory. */
+  outputRoot?: string
+  /** Seeding minutes; zero disables the time limit. Omitted uses current defaults. */
   seedTime?: number
   seedRatio?: number
   btSeedUnverified?: boolean
@@ -70,11 +73,25 @@ export interface AddTorrentParams {
    * torrent. Concrete adapters translate this product policy. */
   prioritizePreviewPieces?: boolean
   // ── create-path additions ──
+  /** Per-task limits in bytes per second; zero means unlimited. */
   dlLimit?: number
   ulLimit?: number
   /** Engine-agnostic passthrough for shell-supplied options. The adapter
    *  honors keys it understands. */
   extraEngineOptions?: Record<string, string | string[]>
+}
+
+/** An in-memory HTTP cookie, scoped by the engine on every request. */
+export interface DownloadCookie {
+  name: string
+  value: string
+  domain: string
+  path?: string
+  hostOnly?: boolean
+  secure?: boolean
+  httpOnly?: boolean
+  /** Unix milliseconds; omitted for a session cookie. */
+  expiresAt?: number
 }
 
 export interface CreateDownloadParams {
@@ -86,6 +103,8 @@ export interface CreateDownloadParams {
   gid?: string
   filename?: string
   headers?: Record<string, string>
+  /** An explicit task context, including an empty isolated store. Never persist. */
+  cookies?: readonly DownloadCookie[]
   /** Effective engine User-Agent pinned for this request lifecycle. */
   userAgent?: string
   /**
@@ -99,11 +118,12 @@ export interface CreateDownloadParams {
    *  max-connection-per-server. Caller is responsible for clamping. */
   connections?: number
   proxy?: string
-  /** Engine-agnostic passthrough for shell-supplied options (bridge cookie
-   *  jar / referer). The adapter honors keys it understands. */
+  /** Engine-agnostic passthrough for shell-supplied options, such as a
+   *  referer. The adapter honors keys it understands. */
   extraEngineOptions?: Record<string, string | string[]>
   priority?: number
   category?: string
+  /** Per-task limits in bytes per second; zero means unlimited. */
   dlLimit?: number
   ulLimit?: number
   pause?: boolean
@@ -236,6 +256,14 @@ export interface EngineAdapter {
   removeDownloadResult(engineTaskId: string): Promise<void>
 
   /**
+   * Whether the engine holds a resumable checkpoint for the download written
+   * to `outputPath`, answered from the store it actually reads (a control
+   * file, or aria2.db under sqlite3 persistence). Null when the engine
+   * cannot answer; callers then fall back to the `.aria2` control file.
+   */
+  getCheckpointStatus?(outputPath: string): Promise<'present' | 'absent' | null>
+
+  /**
    * Batch variant of {@link removeDownloadResult}, executed in bounded
    * chunks. Entries are attempted in array order and each outcome is
    * reported independently, `Promise.allSettled`-shaped — an already-gone
@@ -259,6 +287,8 @@ export interface EngineAdapter {
    * Used by TaskRecoveryService to match persisted tasks to aria2 state.
    */
   listActiveAndWaiting(): Promise<Array<{ gid: string; infoHash?: string }>>
+  /** Engine task IDs in scheduling order, including paused waiting tasks. */
+  listWaitingTaskIds(): Promise<string[]>
 
   /**
    * List all stopped (completed/errored/removed) tasks.

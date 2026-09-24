@@ -27,7 +27,10 @@ describe('native messaging extension allowlist', () => {
   // repository; changing either side requires changing both.
   it('allowlists the store-signed extension identities', () => {
     expect(nativeMessagingExtensions.chromium).toContain(
-      'ibpkjhgpbidfmbmomagmldcdlpbmchgi'
+      'lggbokfckofcgjndaboioakcmincinpo'
+    )
+    expect(nativeMessagingExtensions.chromium).toContain(
+      'efcflljngohddnmfmebiamigoikmdfbf'
     )
     expect(nativeMessagingExtensions.firefox).toContain(
       'motrix-extension@motrix.app'

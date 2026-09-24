@@ -1,0 +1,66 @@
+name: Finalize SMB
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/finalize-fs/**'
+      - 'src/core/plugin/finalize/**'
+      - 'src/core/session/*finalize*'
+      - '.github/workflows/finalize-smb.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/finalize-fs/**'
+      - 'src/core/plugin/finalize/**'
+      - 'src/core/session/*finalize*'
+      - '.github/workflows/finalize-smb.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: finalize-smb-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-smb:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: 1.94.1
+      - name: Native Windows contract and compatibility tests
+        run: cargo test --manifest-path packages/finalize-fs/Cargo.toml --locked --all-targets
+      - name: Exercise UNC and mapped SMB roots
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $shareName = "MotrixFinalize-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          $shareRoot = Join-Path $env:RUNNER_TEMP $shareName
+          New-Item -ItemType Directory -Path $shareRoot | Out-Null
+          $account = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+          $unc = "\\$env:COMPUTERNAME\$shareName"
+          $created = $false
+          $mapped = $false
+          try {
+            Start-Service LanmanServer
+            New-SmbShare -Name $shareName -Path $shareRoot -FullAccess $account | Out-Null
+            $created = $true
+            $env:MOTRIX_FINALIZE_SMB_ROOT = $unc
+            cargo test --manifest-path packages/finalize-fs/Cargo.toml --locked -- --ignored --exact platform::windows::tests::smb_share_supports_held_rename_copy_and_removal
+            if ($LASTEXITCODE -ne 0) { throw 'UNC finalize contract failed' }
+            New-PSDrive -Name M -PSProvider FileSystem -Root $unc -Persist -Scope Global | Out-Null
+            $mapped = $true
+            $env:MOTRIX_FINALIZE_SMB_ROOT = 'M:\'
+            cargo test --manifest-path packages/finalize-fs/Cargo.toml --locked -- --ignored --exact platform::windows::tests::smb_share_supports_held_rename_copy_and_removal
+            if ($LASTEXITCODE -ne 0) { throw 'Mapped-drive finalize contract failed' }
+          } finally {
+            Remove-Item Env:MOTRIX_FINALIZE_SMB_ROOT -ErrorAction SilentlyContinue
+            if ($mapped) { Remove-PSDrive -Name M -Force }
+            if ($created) { Remove-SmbShare -Name $shareName -Force }
+            Remove-Item -LiteralPath $shareRoot -Recurse -Force
+          }

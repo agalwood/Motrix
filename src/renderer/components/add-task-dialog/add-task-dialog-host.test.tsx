@@ -3,13 +3,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import { transport } from '@renderer/lib/transport'
+import { ADD_TASK_COLLAPSED_HEIGHT } from '@shared/constants/add-task'
 import { Events } from '@shared/protocol/events'
+import type { AddTaskFormValues } from '@shared/schemas/add-task'
+import { useState } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { AddTaskDialogHost } from './add-task-dialog-host'
 import { useAddTaskDialogStore } from './use-add-task-dialog-store'
 
 vi.mock('@renderer/lib/transport', () => ({
   transport: { invoke: vi.fn(), on: vi.fn(), off: vi.fn() },
+}))
+
+vi.mock('@renderer/hooks/use-task-list', () => ({
+  useTaskList: () => ({ tasks: [] }),
+  getTaskListSnapshot: () => ({ tasks: [] }),
+  invalidateTaskList: vi.fn(),
 }))
 
 // Stub AddTaskForm so tests can drive onSubmitSuccess / onCancel directly
@@ -30,17 +39,32 @@ vi.mock('@renderer/components/add-task/add-task-form', () => ({
     onCancel,
     onAdvancedOpenChange: _onAdvancedOpenChange,
     presentation,
+    defaultValues,
+    onDraftStateChange,
   }: {
     onSubmitSuccess?: (gid: string) => void
     onCancel: () => void
     onAdvancedOpenChange?: (expanded: boolean) => void
     presentation?: 'dialog' | 'window'
+    defaultValues?: Partial<AddTaskFormValues>
+    onDraftStateChange?: (dirty: boolean, busy: boolean) => void
   }) => {
+    // Like react-hook-form, defaults are read on mount, not on every render.
+    const [initialValues] = useState(defaultValues)
     submitSuccessRef.current = onSubmitSuccess
     return (
       <div data-testid="add-task-form-stub" data-presentation={presentation}>
+        <span data-testid="initial-values">
+          {JSON.stringify(initialValues)}
+        </span>
         <button type="button" onClick={() => onSubmitSuccess?.('gid-1')}>
           stub-submit
+        </button>
+        <button type="button" onClick={() => onDraftStateChange?.(true, false)}>
+          stub-edit
+        </button>
+        <button type="button" onClick={() => onDraftStateChange?.(true, true)}>
+          stub-busy
         </button>
         <button type="button" onClick={onCancel}>
           stub-cancel
@@ -70,6 +94,83 @@ function renderWithRouter() {
 }
 
 describe('AddTaskDialogHost', () => {
+  it('preserves edited drafts until discard is confirmed', () => {
+    useAddTaskDialogStore.getState().openWith({ tab: 'links' })
+    renderWithRouter()
+    fireEvent.click(screen.getByText('stub-edit'))
+    fireEvent.click(screen.getByText('stub-cancel'))
+    expect(useAddTaskDialogStore.getState().open).toBe(true)
+    expect(
+      screen.getByRole('dialog', { name: 'Discard this task draft?' })
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }))
+    expect(useAddTaskDialogStore.getState().open).toBe(false)
+  })
+  it('keeps an in-flight form open and rejects replacement requests', () => {
+    useAddTaskDialogStore.getState().openWith({ tab: 'links', urls: 'draft' })
+    renderWithRouter()
+    fireEvent.click(screen.getByText('stub-busy'))
+    fireEvent.click(screen.getByText('stub-cancel'))
+    act(() => useAddTaskDialogStore.getState().openWith({ tab: 'torrent' }))
+    expect(useAddTaskDialogStore.getState().prefill?.tab).toBe('links')
+    expect(useAddTaskDialogStore.getState().open).toBe(true)
+    expect(
+      screen.queryByRole('dialog', { name: 'Discard this task draft?' })
+    ).toBeNull()
+  })
+  it('closes only the matching picker when the background service accepts it', () => {
+    useAddTaskDialogStore
+      .getState()
+      .openWith({ tab: 'torrent', existingTaskId: 'ready-1' })
+    renderWithRouter()
+    const listener = vi
+      .mocked(transport.on)
+      .mock.calls.find(
+        ([channel]) => channel === Events.MagnetFileSelectionSettled
+      )?.[1]
+    expect(listener).toBeDefined()
+    act(() => listener?.({ taskId: 'ready-2', downloadTaskId: 'ready-2' }))
+    expect(useAddTaskDialogStore.getState().open).toBe(true)
+    act(() => listener?.({ taskId: 'ready-1', downloadTaskId: 'ready-1' }))
+    expect(useAddTaskDialogStore.getState().open).toBe(false)
+  })
+
+  it('preserves the current draft when another open request arrives', () => {
+    useAddTaskDialogStore
+      .getState()
+      .openWith({ tab: 'links', urls: 'https://example.com/a' })
+    renderWithRouter()
+    act(() => {
+      useAddTaskDialogStore
+        .getState()
+        .openWith({ tab: 'torrent', existingTaskId: 'ready-2' })
+    })
+    expect(screen.getByTestId('initial-values')).not.toHaveTextContent(
+      'ready-2'
+    )
+    expect(screen.getByTestId('initial-values')).toHaveTextContent(
+      'https://example.com/a'
+    )
+  })
+
+  it('does not let an old submission close a replacement file selection', () => {
+    useAddTaskDialogStore.getState().openWith({ tab: 'links' })
+    renderWithRouter()
+    const oldSubmission = submitSuccessRef.current
+    act(() => useAddTaskDialogStore.getState().close())
+    act(() => {
+      useAddTaskDialogStore
+        .getState()
+        .openWith({ tab: 'torrent', existingTaskId: 'ready-2' })
+    })
+    act(() => oldSubmission?.('old-task'))
+    expect(useAddTaskDialogStore.getState()).toMatchObject({
+      open: true,
+      prefill: { existingTaskId: 'ready-2' },
+    })
+    expect(screen.queryByTestId('downloads-route')).toBeNull()
+  })
+
   beforeEach(() => {
     useAddTaskDialogStore.setState({ open: false, prefill: undefined })
     vi.mocked(transport.on).mockClear()
@@ -100,7 +201,7 @@ describe('AddTaskDialogHost', () => {
       'motion-reduce:transition-none',
       'sm:max-w-[640px]'
     )
-    expect(dialog.style.height).toBe('374px')
+    expect(dialog.style.height).toBe(`${ADD_TASK_COLLAPSED_HEIGHT}px`)
     expect(dialog.style.maxHeight).toContain('760px')
     expect(dialog.style.maxHeight).toContain('100vh')
     expect(screen.getByTestId('add-task-form-stub')).toHaveAttribute(

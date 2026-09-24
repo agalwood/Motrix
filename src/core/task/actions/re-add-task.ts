@@ -1,11 +1,15 @@
 import path from 'node:path'
 import { newEngineTaskId } from '@core/lib/ids'
 import type { AppliedDownloadProxyPolicyReader } from '@core/proxy/applied-download-proxy-policy'
+import { admitDownloadSources } from '@core/task/source-admission'
 import { AppError, ErrorCode } from '@shared/errors'
 import { parseDirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
-import type { EngineTaskOptions } from '@shared/types/engine-task-options'
 import type { DownloadTask } from '@shared/types/task'
-import { TaskInstancePhase, TaskStatus } from '@shared/types/task'
+import {
+  TaskInstancePhase,
+  TaskStatus,
+  TransitionPhase,
+} from '@shared/types/task'
 import {
   canRebuildTaskInputs,
   canReseed,
@@ -18,16 +22,22 @@ import type {
   EngineAdapter,
 } from '../../engine/engine-adapter'
 import type { Logger } from '../../logger'
-import { DirectRecoveryPlanner } from '../../session/direct-recovery-planner'
+import {
+  createEngineCheckpointProbe,
+  DirectRecoveryPlanner,
+} from '../../session/direct-recovery-planner'
 import { applyTerminalTransition } from '../apply-terminal-transition'
 import {
+  buildBtDirectOutputPaths,
   buildFinalOutputFilePaths,
   buildStagingOutputFilePaths,
+  getBtDirectStorageLayout,
   getBtStorageLayout,
   parseBtFileLayout,
   shouldPrioritizeBtPreviewPieces,
   shouldPrioritizeBtPreviewPiecesFromMetadata,
 } from '../bt-storage-layout'
+import { settleBtUpload } from '../bt-upload-settlement'
 import {
   canMirrorAria2MetadataHeaders,
   type DirectResourceProxyOptionsProvider,
@@ -38,6 +48,7 @@ import type { TorrentMetaStore } from '../torrent-meta-store'
 import { commitTaskUpdate, getTaskOrWarn, type TaskActionDeps } from './shared'
 
 export interface ReAddTaskDeps extends TaskActionDeps {
+  recoverFinalization?: (taskId: string) => Promise<void>
   runTaskMutation: NonNullable<TaskActionDeps['runTaskMutation']>
   persistTask: NonNullable<TaskActionDeps['persistTask']>
   torrentMetaStore: TorrentMetaStore
@@ -134,13 +145,16 @@ function reAddSaveDir(task: DownloadTask): string {
 
 async function reAddBt(
   task: DownloadTask,
-  opts: EngineTaskOptions | null,
   deps: ReAddTaskDeps,
   reservedGid: string,
   metadata: Uint8Array
 ): Promise<string> {
   const storageLayout = getBtStorageLayout(task)
-  const parsedLayout = storageLayout ? await parseBtFileLayout(metadata) : null
+  const directLayout = getBtDirectStorageLayout(task)
+  const parsedLayout =
+    storageLayout || directLayout?.torrentRootName
+      ? await parseBtFileLayout(metadata)
+      : null
   const completed = task.status === TaskStatus.Completed
   const prioritizePreviewPieces =
     !completed &&
@@ -150,21 +164,40 @@ async function reAddBt(
   const selectedFiles = task.bt?.selectedFiles
   return deps.adapter.addTorrent({
     metadata,
-    saveDir: storageLayout
-      ? completed
-        ? path.dirname(task.finalPath)
-        : storageLayout.workspacePath
-      : reAddSaveDir(task),
-    outputFilePaths:
-      storageLayout && parsedLayout
+    saveDir: directLayout
+      ? buildBtDirectOutputPaths(
+          task.diskPath,
+          parsedLayout,
+          task.torrentMetaPath
+        ).saveDir
+      : storageLayout
         ? completed
-          ? buildFinalOutputFilePaths(
-              parsedLayout,
-              task.finalPath,
-              storageLayout
-            )
-          : buildStagingOutputFilePaths(parsedLayout, storageLayout)
-        : undefined,
+          ? path.dirname(task.finalPath)
+          : storageLayout.workspacePath
+        : reAddSaveDir(task),
+    outputFilePaths:
+      directLayout && parsedLayout
+        ? buildBtDirectOutputPaths(
+            task.diskPath,
+            parsedLayout,
+            task.torrentMetaPath
+          ).outputFilePaths
+        : storageLayout && parsedLayout
+          ? completed
+            ? buildFinalOutputFilePaths(
+                parsedLayout,
+                task.finalPath,
+                storageLayout
+              )
+            : buildStagingOutputFilePaths(parsedLayout, storageLayout)
+          : undefined,
+    outputRoot: directLayout
+      ? buildBtDirectOutputPaths(
+          task.diskPath,
+          parsedLayout,
+          task.torrentMetaPath
+        ).outputRoot
+      : undefined,
     gid: reservedGid,
     // AddTorrentParams is engine-native; the task aggregate stays 0-based.
     selectedFiles: selectedFiles?.map((index) => index + 1),
@@ -172,16 +205,11 @@ async function reAddBt(
     pause: false,
     isPrivate: task.bt?.isPrivate ?? false,
     ...(prioritizePreviewPieces ? { prioritizePreviewPieces: true } : {}),
-    seedTime: opts?.['seed-time']
-      ? Number.parseInt(opts['seed-time'], 10)
-      : undefined,
-    seedRatio: opts?.['seed-ratio']
-      ? Number.parseFloat(opts['seed-ratio'])
-      : undefined,
+    // Explicit re-seeding starts a new session using the current defaults.
+    // Never replay a retired GID's seed-time=0 or spent ratio allowance.
   })
 }
 
-const directRecoveryPlanner = new DirectRecoveryPlanner()
 const directResourceValidator = new DirectResourceValidatorService()
 
 async function buildDirectReAddParams(
@@ -206,9 +234,18 @@ async function buildDirectReAddParams(
       `Task ${task.id} cannot be retried: its direct replay recipe is unavailable`
     )
   }
+  const sources = admitDownloadSources(primary.uris, 'recovery', [
+    'http',
+    'https',
+    'ftp',
+  ])
   const requestOptions = getProxyOptions()
 
-  const plan = await directRecoveryPlanner.plan({
+  // Ask the engine: only it knows whether the checkpoint lives in a control
+  // file or in aria2.db (issue #2187).
+  const plan = await new DirectRecoveryPlanner(undefined, undefined, () =>
+    createEngineCheckpointProbe(adapter)
+  ).plan({
     primary,
     finalPath: task.finalPath,
   })
@@ -273,7 +310,7 @@ async function buildDirectReAddParams(
       )
     }
     const validation = await resourceValidator.verify(
-      primary.uris[0] as string,
+      sources[0].requestUrl,
       recipe.resourceValidator,
       requestOptions
     )
@@ -289,7 +326,7 @@ async function buildDirectReAddParams(
 
   return {
     params: {
-      uris: primary.uris,
+      uris: sources.map((source) => source.requestUrl),
       saveDir: plan.saveDir,
       filename: plan.filename,
       connections: recipe.connections,
@@ -351,6 +388,7 @@ function withReservedGid(
         ? {
             ...instance,
             gid: engineTaskId,
+            uploadedBytes: 0,
             ...(status ? { status } : {}),
             updatedAt: now,
           }
@@ -457,9 +495,8 @@ async function handleFailedEngineAdd(
 
 /**
  * Re-add a task to the engine — used for both Retry (Error/Removed)
- * and Re-seed (Completed BT). Pulls live options from aria2 if the
- * stopped-result is still resident (Tier 1) and falls back to
- * task-record fields when not (Tier 2).
+ * and Re-seed (Completed BT). Reconstructs inputs from the durable task
+ * record; torrent sessions use the adapter's current seeding defaults.
  *
  * No `terminalCause` is threaded through this file's `commitTaskUpdate`
  * calls: every candidate this function ever publishes lands in `Seeding` or
@@ -472,6 +509,21 @@ export async function reAddTask(
   taskId: string,
   deps: ReAddTaskDeps
 ): Promise<void> {
+  const task = deps.taskManager.getById(taskId)
+  if (
+    task &&
+    (task.transitionPhase === TransitionPhase.Renaming ||
+      task.transitionPhase === TransitionPhase.Reseeding)
+  ) {
+    if (!deps.recoverFinalization) {
+      throw new AppError(
+        ErrorCode.TaskNotRetryable,
+        'Finalize recovery is unavailable'
+      )
+    }
+    await deps.recoverFinalization(taskId)
+    return
+  }
   const run = (
     getProxyOptions: DirectResourceProxyOptionsProvider,
     assertProxyCurrent?: () => void
@@ -550,15 +602,6 @@ async function reAddTaskUnderMutation(
         assertProxyCurrent,
         canMirrorAria2MetadataHeaders(deps.adapter.getFeatureReport?.())
       )
-  let opts: EngineTaskOptions | null = null
-  try {
-    opts = await deps.adapter.getEngineTaskOptions(task.engineTaskId)
-  } catch (err) {
-    deps.log.debug(
-      { err: String(err), taskId },
-      'reAddTask: getEngineTaskOptions failed; falling back to task fields'
-    )
-  }
   // Discarding an unverifiable partial is only possible when a cleanup
   // service is wired. Refuse before the durable barrier rather than tripping
   // over the stale file at engine dispatch.
@@ -569,12 +612,22 @@ async function reAddTaskUnderMutation(
     )
   }
   await bestEffortRemove(deps.adapter, task.engineTaskId, deps.log)
+  const retired = structuredClone(task)
+  if (torrentLike) {
+    let upload = 0
+    try {
+      upload = await deps.adapter.getUploadLength(task.engineTaskId)
+    } catch {
+      /* Keep the last observed total. */
+    }
+    settleBtUpload(retired, upload, false)
+  }
 
   const now = Date.now()
   const status = torrentLike ? TaskStatus.Seeding : TaskStatus.Downloading
   const reservedGid = newEngineTaskId(deps.createEngineTaskId, 'reAddTask')
-  const reservedOwner = withReservedGid(task, reservedGid, now)
-  const candidate = withReservedGid(task, reservedGid, now, status)
+  const reservedOwner = withReservedGid(retired, reservedGid, now)
+  const candidate = withReservedGid(retired, reservedGid, now, status)
 
   deps.taskManager.reserveEngineTaskId(reservedGid)
   try {
@@ -599,7 +652,7 @@ async function reAddTaskUnderMutation(
 
   try {
     if (torrentLike && torrentMetadata) {
-      await reAddBt(task, opts, deps, reservedGid, torrentMetadata)
+      await reAddBt(task, deps, reservedGid, torrentMetadata)
     } else if (directParams) {
       assertProxyCurrent?.()
       if (directParams.restartRequired && deps.fileCleanupService) {

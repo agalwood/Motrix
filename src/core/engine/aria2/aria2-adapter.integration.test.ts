@@ -210,6 +210,38 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
       }
     }, 15_000)
 
+    it('retires active seeders and immediately releases their output for finalize', async () => {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const staging = path.join(baseDir, `finalize-${attempt}.part`)
+        const output = path.join(baseDir, `finalize-${attempt}`)
+        await fs.mkdir(staging, { recursive: true })
+        await fs.cp(SAMPLE_DATA_DIR, path.join(staging, 'sample-data'), {
+          recursive: true,
+        })
+        const gid = await adapter.addTorrent({
+          metadata: new Uint8Array(readFileSync(SAMPLE_TORRENT)),
+          saveDir: staging,
+          btSeedUnverified: true,
+          seedTime: 60,
+          pause: false,
+        })
+        try {
+          await waitFor(async () => {
+            const state = await adapter.getTaskStatus(gid)
+            return state?.status === TaskStatus.Seeding ? state : null
+          }, 5000)
+          await adapter.forceRemoveTask(gid)
+          // No test-side wait for the result: this is the failing sequence in #2084.
+          await adapter.removeDownloadResult(gid)
+          await fs.rename(staging, output)
+          expect(await fs.readdir(output)).toContain('sample-data')
+          await expect(rpc.tellStatus(gid)).rejects.toThrow(/not found/i)
+        } finally {
+          await discardTask(adapter, gid)
+        }
+      }
+    }, 30_000)
+
     it('removeDownloadResult succeeds after aria2.remove on a stopped task', async () => {
       const stagingDir = path.join(baseDir, 'removeresult-staging')
       await fs.mkdir(stagingDir, { recursive: true })

@@ -104,6 +104,47 @@ beforeEach(() => {
 })
 
 describe('FilesTab', () => {
+  it.each([TaskStatus.Downloading, TaskStatus.Completed, TaskStatus.Error])(
+    'shows media segment progress independently of mux progress while %s',
+    (status) => {
+      vi.mocked(useTaskFiles).mockReturnValue({
+        files: [
+          {
+            index: 0,
+            path: 'video/000001-first.ts',
+            size: 0,
+            completedBytes: 0,
+            selected: true,
+            progress: 1,
+          },
+        ],
+        loading: false,
+        refetch: vi.fn(),
+      })
+      render(
+        <FilesTab
+          task={mockTask({
+            kind: TaskKind.Hls,
+            type: TaskType.Http,
+            status,
+            progress: 0.25,
+          })}
+        />
+      )
+      expect(screen.getByText('video/000001-first.ts')).toBeInTheDocument()
+      expect(screen.getByText('100%')).toBeInTheDocument()
+      expect(screen.queryByText('25%')).not.toBeInTheDocument()
+      expect(screen.getByText('—')).toBeInTheDocument()
+      expect(screen.getByRole('checkbox')).toHaveAttribute(
+        'aria-disabled',
+        'true'
+      )
+      expect(
+        screen.queryByRole('button', { name: /save/i })
+      ).not.toBeInTheDocument()
+    }
+  )
+
   it('shows readOnly mode for completed tasks (no save button)', () => {
     render(<FilesTab task={mockTask({ status: TaskStatus.Completed })} />)
     for (const cb of screen.getAllByRole('checkbox')) {
@@ -199,7 +240,7 @@ describe('FilesTab', () => {
     expect(useTaskFiles).toHaveBeenCalledWith('t1', true)
   })
 
-  it('treats HTTP task as read-only regardless of file count', () => {
+  it('shows every HTTP file as selected and read-only', () => {
     ;(useTaskFiles as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       files: [
         {
@@ -226,5 +267,11 @@ describe('FilesTab', () => {
     expect(
       screen.queryByRole('button', { name: /save/i })
     ).not.toBeInTheDocument()
+    const checkbox = screen.getByRole('checkbox', { name: 'release.zip' })
+    expect(checkbox).toBeChecked()
+    expect(checkbox).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByText(/1 file selected/)).toBeInTheDocument()
+    expect(screen.queryByText('File type')).not.toBeInTheDocument()
+    expect(screen.getByText('zip')).toBeInTheDocument()
   })
 })

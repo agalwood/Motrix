@@ -1,3 +1,4 @@
+import '@test-utils/dom-animations'
 import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
 import { i18n } from '@renderer/lib/i18n'
@@ -69,7 +70,7 @@ describe('DisclaimerStep', () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledTimes(2))
   })
 
-  it('renders professional copy through black Blur Highlights', () => {
+  it('renders professional copy through theme-aware Blur Highlights', () => {
     render(<DisclaimerStep />)
 
     expect(screen.getByRole('heading', { name: 'Usage Notice' })).toBeVisible()
@@ -81,7 +82,23 @@ describe('DisclaimerStep', () => {
     ]
     expect(highlightRoot.textContent).toBe(i18n.t('onboarding.disclaimer.body'))
     expect(highlightRoot.style.getPropertyValue('--blur-highlight-color')).toBe(
-      '#171717'
+      'var(--onboarding-highlight-color)'
+    )
+    expect(
+      highlightRoot.style.getPropertyValue('--blur-highlight-text-color')
+    ).toBe('var(--onboarding-highlight-text-color)')
+    expect(screen.getByTestId('disclaimer-panel')).toHaveClass(
+      'bg-white',
+      'border-black/14',
+      'shadow-[0_1px_2px_rgba(0,0,0,0.02)]',
+      'dark:bg-card',
+      'dark:text-card-foreground',
+      'dark:border-border'
+    )
+    expect(screen.getByTestId('disclaimer-panel')).not.toHaveClass('shadow-sm')
+    expect(highlightRoot).toHaveClass(
+      'text-[#1d1d1f]',
+      'dark:text-card-foreground'
     )
     expect(highlightedBits.map((bit) => bit.textContent)).toEqual([
       'provides download management only',

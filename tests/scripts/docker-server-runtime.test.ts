@@ -10,6 +10,7 @@ import {
 
 const ROOT = process.cwd()
 const NODE_IMAGE_REFERENCE = '$' + '{NODE_IMAGE}'
+const RUST_IMAGE_REFERENCE = '$' + '{RUST_IMAGE}'
 const PATH_REFERENCE = '$' + '{PATH}'
 const ENGINE_ARCH_REFERENCE = '$' + '{engine_arch}'
 
@@ -58,6 +59,16 @@ describe('Docker Server runtime staging contract', () => {
     expect(dockerfile).toMatch(
       /^ARG NODE_IMAGE=node:24-alpine@sha256:[0-9a-f]{64}$/m
     )
+    expect(dockerfile).toMatch(
+      /^ARG RUST_IMAGE=rust:1\.94\.1-alpine@sha256:[0-9a-f]{64}$/m
+    )
+    expect(dockerfile).toContain(
+      `FROM ${RUST_IMAGE_REFERENCE} AS finalize-fs-build`
+    )
+    expect(dockerfile).toContain('cargo build --release --locked')
+    expect(dockerfile).toContain(
+      'native-artifact-operations.integration.test.ts'
+    )
     expect(runtime).toContain(
       'COPY --from=build --chown=node:node /app/dist/server-app/ ./'
     )
@@ -70,6 +81,7 @@ describe('Docker Server runtime staging contract', () => {
     expect(runtime).not.toContain('apk add --no-cache aria2')
     expect(runtime).toContain(`PATH=/app/bin:${PATH_REFERENCE}`)
     expect(runtime).toContain('MOTRIX_ARIA2_BIN=/app/bin/aria2c')
+    expect(runtime).toContain('motrix-finalize-fs')
     expect(runtime).toContain(
       'SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt'
     )
@@ -84,6 +96,7 @@ describe('Docker Server runtime staging contract', () => {
     expect(runtime).toContain('TMPDIR=/data/tmp')
     expect(runtime).toContain('HOME=/data/home')
     expect(runtime).toContain('USER node')
+    expect(runtime).toContain('EXPOSE 8080 16801')
     expect(runtime).toContain('STOPSIGNAL SIGTERM')
     expect(runtime).toContain('HEALTHCHECK --interval=30s')
     expect(runtime).toContain('CMD ["node", "dist/server/index.mjs"]')
@@ -184,6 +197,16 @@ describe('Docker Server runtime staging contract', () => {
     expect(imageSmoke).toContain('totalBytes: lastTask.totalBytes')
     expect(imageSmoke).toContain('Fixture tracker: announces=')
     expect(imageSmoke).toContain('identity.user')
+    expect(imageSmoke).toContain("'MOTRIX_MDXP_HOST=0.0.0.0'")
+    expect(imageSmoke).toContain("'MOTRIX_REMOTE_EXTENSION_ENABLED=true'")
+    expect(imageSmoke).toContain("'127.0.0.1::16801'")
+    expect(imageSmoke).toContain("metadata.Config.ExposedPorts?.['16801/tcp']")
+    expect(
+      imageSmoke.match(
+        /await assertRemoteExtensionSurface\(appName, timeoutMs\)/g
+      )
+    ).toHaveLength(2)
+    expect(imageSmoke).toContain('remoteExtensionDirectLan: true')
     expect(imageSmoke).toContain("'command:createTask'")
     expect(imageSmoke).toContain("'command:setTaskBtTracker'")
     expect(imageSmoke).toContain("'command:installPlugin'")

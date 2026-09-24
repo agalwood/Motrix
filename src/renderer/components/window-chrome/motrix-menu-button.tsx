@@ -13,6 +13,8 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@renderer/components/ui/dropdown-menu'
+import { captureTaskMenuIntent } from '@renderer/features/application-menu/task-context'
+import { WebMenuButton } from '@renderer/features/application-menu/web-menu-button'
 import { useApplicationMenu } from '@renderer/hooks/use-application-menu'
 import { useSelectedTask } from '@renderer/hooks/use-selected-task'
 import { transport } from '@renderer/lib/transport'
@@ -20,13 +22,16 @@ import type {
   ApplicationMenuNode,
   ExecuteApplicationMenuItemRequest,
 } from '@shared/schemas/application-menu'
-import { ChevronDown } from 'lucide-react'
+import { ArrowLeft, ChevronRight } from 'lucide-react'
 import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
+  useEffect,
   useRef,
+  useState,
 } from 'react'
 import { useTranslation } from 'react-i18next'
+import { MotrixLogo } from './motrix-logo'
 
 type RendererMenuPlatform = 'darwin' | 'win32' | 'linux'
 
@@ -52,8 +57,6 @@ const ACCELERATOR_LABELS: Readonly<Record<string, string>> = {
   shift: 'Shift',
 }
 
-const MOTRIX_LOGO_MASK = 'url("./mo-logo.svg")'
-
 export function formatMenuAccelerator(accelerator: string): string {
   return accelerator
     .split('+')
@@ -77,6 +80,7 @@ function modifiersFromEvent(
 }
 
 interface MenuTreeProps {
+  enterSubmenu?: (item: ApplicationMenuNode) => void
   items: ApplicationMenuNode[]
   queueExecution: (
     item: ApplicationMenuNode,
@@ -122,7 +126,7 @@ function RadioItems({
   )
 }
 
-function MenuTree({ items, queueExecution }: MenuTreeProps) {
+function MenuTree({ items, queueExecution, enterSubmenu }: MenuTreeProps) {
   const visibleItems = items.filter((item) => item.visible)
   const rendered: ReactNode[] = []
 
@@ -157,6 +161,20 @@ function MenuTree({ items, queueExecution }: MenuTreeProps) {
       continue
     }
 
+    if (item.type === 'submenu' && enterSubmenu) {
+      rendered.push(
+        <DropdownMenuItem
+          key={item.id}
+          closeOnClick={false}
+          disabled={!item.enabled}
+          onClick={() => enterSubmenu(item)}
+        >
+          <ItemLabel item={item} />
+          <ChevronRight className="ms-auto size-3" />
+        </DropdownMenuItem>
+      )
+      continue
+    }
     if (item.type === 'submenu') {
       const hasVisibleChildren = item.children?.some((child) => child.visible)
       rendered.push(
@@ -166,7 +184,10 @@ function MenuTree({ items, queueExecution }: MenuTreeProps) {
           >
             <ItemLabel item={item} />
           </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="app-no-drag">
+          <DropdownMenuSubContent
+            data-menu-density="compact"
+            className="application-menu app-no-drag"
+          >
             <MenuTree
               items={item.children ?? []}
               queueExecution={queueExecution}
@@ -209,7 +230,24 @@ function MenuTree({ items, queueExecution }: MenuTreeProps) {
 function ElectronMotrixMenuButton() {
   const { t } = useTranslation()
   const { snapshot, refresh, executeItem } = useApplicationMenu()
+  const [open, setOpen] = useState(false)
+  const [narrow, setNarrow] = useState(
+    () => window.matchMedia?.('(width < 640px)').matches ?? false
+  )
+  const [stack, setStack] = useState<ApplicationMenuNode[]>([])
+  const contentRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open || !narrow || !stack.length) return
+    const frame = requestAnimationFrame(() =>
+      contentRef.current
+        ?.querySelector<HTMLElement>('[role="menuitem"]')
+        ?.focus()
+    )
+    return () => cancelAnimationFrame(frame)
+  }, [open, narrow, stack])
   const selectedTaskId = useSelectedTask().task?.id ?? null
+  const selectionAtOpen = useRef(captureTaskMenuIntent())
+  const actionGeneration = useRef(0)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const previousFocusRef = useRef<HTMLElement | null>(null)
   const focusCapturedForOpenRef = useRef(false)
@@ -218,12 +256,43 @@ function ElectronMotrixMenuButton() {
     null
   )
 
+  useEffect(() => {
+    if (!window.matchMedia) return
+    const small = window.matchMedia('(width < 640px)')
+    const mobile = window.matchMedia('(width < 768px)')
+    const cancel = () => {
+      actionGeneration.current++
+      pendingExecution.current = null
+      restoreFocusRef.current = false
+      setOpen(false)
+      setStack([])
+      setNarrow(small.matches)
+    }
+    const hide = () => {
+      if (document.visibilityState === 'hidden') cancel()
+    }
+    small.addEventListener('change', cancel)
+    mobile.addEventListener('change', cancel)
+    const blur = (event: FocusEvent) => {
+      if (event.target === window) cancel()
+    }
+    window.addEventListener('blur', blur)
+    document.addEventListener('visibilitychange', hide)
+    return () => {
+      small.removeEventListener('change', cancel)
+      mobile.removeEventListener('change', cancel)
+      window.removeEventListener('blur', blur)
+      document.removeEventListener('visibilitychange', hide)
+    }
+  }, [])
+
   const queueExecution: MenuTreeProps['queueExecution'] = (item, event) => {
     if (!snapshot) return
     pendingExecution.current = {
       itemId: item.id,
       revision: snapshot.revision,
       trigger: 'menu',
+      selectedTaskGeneration: selectionAtOpen.current.generation,
       selectedTaskId,
       modifiers: modifiersFromEvent(event),
     }
@@ -236,18 +305,40 @@ function ElectronMotrixMenuButton() {
     // Keep the Escape decision available until FloatingFocusManager unmounts;
     // its return-focus cleanup runs after this completion callback.
     if (!request) return
-    const previousFocus = previousFocusRef.current
-    const focusTarget = previousFocus?.isConnected
-      ? previousFocus
-      : triggerRef.current
-    focusTarget?.focus({ preventScroll: true })
+    const current = actionGeneration.current
     restoreFocusRef.current = false
-    void executeItem(request)
+    requestAnimationFrame(() => {
+      if (current !== actionGeneration.current) return
+      const previousFocus = previousFocusRef.current
+      const focusTarget =
+        previousFocus?.isConnected &&
+        !previousFocus.closest('[inert], [aria-hidden="true"]')
+          ? previousFocus
+          : triggerRef.current
+      focusTarget?.focus({ preventScroll: true })
+      void executeItem(request)
+    })
   }
 
   return (
     <DropdownMenu
+      open={open}
       onOpenChange={(open, eventDetails) => {
+        if (
+          !open &&
+          eventDetails.reason === 'escape-key' &&
+          narrow &&
+          stack.length
+        ) {
+          eventDetails.cancel()
+          setStack((items) => items.slice(0, -1))
+          return
+        }
+        setOpen(open)
+        if (open) {
+          actionGeneration.current++
+          setStack([])
+        }
         if (!open) {
           restoreFocusRef.current = shouldRestoreMenuFocus(eventDetails.reason)
           return
@@ -262,6 +353,7 @@ function ElectronMotrixMenuButton() {
               : null
         }
         focusCapturedForOpenRef.current = false
+        selectionAtOpen.current = captureTaskMenuIntent()
         void refresh()
       }}
       onOpenChangeComplete={executeAfterFocusRestore}
@@ -300,26 +392,20 @@ function ElectronMotrixMenuButton() {
           />
         }
       >
-        <span
-          aria-hidden="true"
-          data-slot="motrix-menu-logo"
-          className="h-2.5 w-11 shrink-0 bg-foreground"
-          style={{
-            maskImage: MOTRIX_LOGO_MASK,
-            maskPosition: 'center',
-            maskRepeat: 'no-repeat',
-            maskSize: 'contain',
-            WebkitMaskImage: MOTRIX_LOGO_MASK,
-            WebkitMaskPosition: 'center',
-            WebkitMaskRepeat: 'no-repeat',
-            WebkitMaskSize: 'contain',
-          }}
-        />
-        <ChevronDown aria-hidden="true" className="size-3 shrink-0" />
+        <MotrixLogo />
       </DropdownMenuTrigger>
       <DropdownMenuContent
+        ref={contentRef}
         align="start"
-        className="app-no-drag min-w-56"
+        onKeyDownCapture={(event) => {
+          if (narrow && stack.length && event.key === 'ArrowLeft') {
+            event.preventDefault()
+            event.stopPropagation()
+            setStack((items) => items.slice(0, -1))
+          }
+        }}
+        data-menu-density="compact"
+        className="application-menu app-no-drag"
         finalFocus={() => {
           if (!restoreFocusRef.current) return false
           return previousFocusRef.current?.isConnected
@@ -327,8 +413,27 @@ function ElectronMotrixMenuButton() {
             : true
         }}
       >
+        {narrow && stack.length > 0 && (
+          <>
+            <DropdownMenuItem
+              closeOnClick={false}
+              onClick={() => setStack((items) => items.slice(0, -1))}
+            >
+              <ArrowLeft className="size-3" />
+              {t('applicationMenu.back')}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <MenuTree
-          items={snapshot?.items ?? []}
+          enterSubmenu={
+            narrow ? (item) => setStack((items) => [...items, item]) : undefined
+          }
+          items={
+            narrow && stack.length
+              ? (stack.at(-1)?.children ?? [])
+              : (snapshot?.items ?? [])
+          }
           queueExecution={queueExecution}
         />
       </DropdownMenuContent>
@@ -337,10 +442,10 @@ function ElectronMotrixMenuButton() {
 }
 
 /**
- * Platform gate deliberately lives outside the hook-owning component: web and
- * macOS use their native menus and never subscribe to the renderer menu IPC.
+ * Browser product actions and Electron native-menu IPC have separate adapters.
  */
 export function MotrixMenuButton() {
+  if (__MOTRIX_TARGET__ === 'web') return <WebMenuButton />
   const platform = rendererMenuPlatform()
   if (!platform) return null
   return <ElectronMotrixMenuButton />

@@ -137,6 +137,10 @@ fn configure_detached(command: &mut Command) {
 fn spawn_detached(spec: LaunchCommand) -> bool {
     let mut command = Command::new(spec.program);
     command.args(spec.args);
+    spawn_configured(command)
+}
+
+pub(crate) fn spawn_configured(mut command: Command) -> bool {
     configure_detached(&mut command);
     match command.spawn() {
         Ok(mut child) => {

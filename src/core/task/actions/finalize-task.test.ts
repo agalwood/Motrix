@@ -112,6 +112,81 @@ function buildSingleFileTorrent(name: string): Uint8Array {
 }
 
 describe('finalizeTask HTTP/FTP branch', () => {
+  it.each([TaskType.Http, TaskType.Ftp])(
+    'publishes %s Finalizing with idle transfer metrics before a slow artifact commit',
+    async (type) => {
+      const entered = Promise.withResolvers<void>()
+      const release = Promise.withResolvers<void>()
+      const snapshots: DownloadTask[] = []
+      const task = makeTask({
+        type,
+        totalBytes: 1000,
+        downloadedBytes: 998,
+        progress: 0.998,
+        downloadSpeed: 64000,
+        uploadSpeed: 1000,
+        etaSeconds: 200,
+        connections: 1,
+        instances: [makePrimaryInstance()],
+      })
+      const deps = makeDeps({
+        publishTaskUpdateNow: () => snapshots.push(structuredClone(task)),
+        commitFinalizedArtifact: async () => {
+          entered.resolve()
+          await release.promise
+        },
+      })
+      vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+      const finishing = finalizeTask(task.id, deps)
+      await entered.promise
+      try {
+        expect(snapshots).toHaveLength(1)
+        expect(snapshots[0]).toMatchObject({
+          status: TaskStatus.Finalizing,
+          transitionPhase: TransitionPhase.Renaming,
+          downloadSpeed: 0,
+          uploadSpeed: 0,
+          etaSeconds: 0,
+          connections: 0,
+          progress: 1,
+          downloadedBytes: 1000,
+          finishedAt: null,
+          diskPath: '/d/foo.mp4.motrix',
+        })
+        expect(snapshots[0].instances[0].status).toBe(TaskStatus.Finalizing)
+        expect(
+          deps.activityRecorder.recordDownloadCompleted
+        ).not.toHaveBeenCalled()
+      } finally {
+        release.resolve()
+        await finishing
+      }
+      expect(snapshots.map((value) => value.status)).toEqual([
+        TaskStatus.Finalizing,
+        TaskStatus.Completed,
+      ])
+      expect(task.diskPath).toBe('/d/foo.mp4')
+      expect(
+        deps.activityRecorder.recordDownloadCompleted
+      ).toHaveBeenCalledOnce()
+    }
+  )
+
+  it('does not publish Finalizing or touch files before its state is durable', async () => {
+    const deps = makeDeps()
+    const task = makeTask()
+    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+    vi.mocked(deps.taskManager.persist).mockRejectedValue(
+      new Error('database busy')
+    )
+    await expect(finalizeTask(task.id, deps)).rejects.toThrow('database busy')
+    expect(task.status).toBe(TaskStatus.Downloading)
+    expect(task.transitionPhase).toBe(TransitionPhase.Idle)
+    expect(deps.eventBus.emit).not.toHaveBeenCalled()
+    expect(deps.adapter.removeDownloadResult).not.toHaveBeenCalled()
+    expect(deps.fs.renameAtomic).not.toHaveBeenCalled()
+  })
+
   it('performs removeDownloadResult → rename → status=Completed', async () => {
     const deps = makeDeps()
     const task = makeTask()
@@ -180,7 +255,7 @@ describe('finalizeTask HTTP/FTP branch', () => {
 
     await finalizeTask('t1', deps)
 
-    expect(publishTaskUpdateNow).toHaveBeenCalledTimes(1)
+    expect(publishTaskUpdateNow).toHaveBeenCalledTimes(2)
     expect(publishTaskUpdate).not.toHaveBeenCalled()
     expect(deps.eventBus.emit).not.toHaveBeenCalledWith(
       Events.TaskUpdated,
@@ -207,7 +282,7 @@ describe('finalizeTask HTTP/FTP branch', () => {
       expect.objectContaining({
         type: 'terminal',
         taskId: 't1',
-        fromStatus: TaskStatus.Downloading,
+        fromStatus: TaskStatus.Finalizing,
         toStatus: TaskStatus.Completed,
         cause: 'finalize',
       })
@@ -232,17 +307,18 @@ describe('finalizeTask HTTP/FTP branch', () => {
     expect(recordTransition).toHaveBeenCalledWith(
       expect.objectContaining({
         taskId: 't1',
-        previousStatus: TaskStatus.Downloading,
+        previousStatus: TaskStatus.Finalizing,
         nextStatus: TaskStatus.Completed,
         accuracy: 'exact',
       })
     )
     const completedPersistOrder = persist.mock.invocationCallOrder.at(-1)
     expect(completedPersistOrder).toBeLessThan(
-      recordTransition.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
+      recordTransition.mock.invocationCallOrder.at(-1) ??
+        Number.POSITIVE_INFINITY
     )
-    expect(recordTransition.mock.invocationCallOrder[0]).toBeLessThan(
-      emit.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
+    expect(recordTransition.mock.invocationCallOrder.at(-1)).toBeLessThan(
+      emit.mock.invocationCallOrder.at(-1) ?? Number.POSITIVE_INFINITY
     )
   })
 
@@ -262,9 +338,21 @@ describe('finalizeTask HTTP/FTP branch', () => {
 
     await expect(finalizeTask('t1', deps)).rejects.toThrow('database busy')
 
-    expect(deps.recordTransition).not.toHaveBeenCalled()
-    expect(deps.eventBus.emit).not.toHaveBeenCalled()
-    expect(task.status).toBe(TaskStatus.Downloading)
+    expect(deps.recordTransition).toHaveBeenCalledTimes(2)
+    expect(deps.recordTransition).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ nextStatus: TaskStatus.Finalizing })
+    )
+    expect(deps.recordTransition).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ nextStatus: TaskStatus.Error })
+    )
+    expect(deps.eventBus.emit).toHaveBeenCalledTimes(2)
+    expect(deps.eventBus.emit).toHaveBeenCalledWith(
+      Events.TaskUpdated,
+      expect.any(Array)
+    )
+    expect(task.status).toBe(TaskStatus.Error)
     expect(task.transitionPhase).toBe(TransitionPhase.Renaming)
     expect(task.diskPath).toBe('/d/foo.mp4.motrix')
   })
@@ -313,7 +401,7 @@ describe('finalizeTask HTTP/FTP branch', () => {
         Number.POSITIVE_INFINITY
     )
     expect(recordDownloadCompleted.mock.invocationCallOrder[0]).toBeLessThan(
-      emit.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
+      emit.mock.invocationCallOrder.at(-1) ?? Number.POSITIVE_INFINITY
     )
   })
 
@@ -401,7 +489,7 @@ describe('finalizeTask failure-path publication routing', () => {
     await expect(finalizeTask('t1', deps)).rejects.toThrow()
 
     expect(task.status).toBe(TaskStatus.Error)
-    expect(publishTaskUpdateNow).toHaveBeenCalledTimes(1)
+    expect(publishTaskUpdateNow).toHaveBeenCalledTimes(2)
     expect(publishTaskUpdate).not.toHaveBeenCalled()
   })
 })
@@ -594,6 +682,96 @@ describe('finalizeTask BT branch', () => {
       ...overrides,
     } as Partial<DownloadTask>)
   }
+
+  it('recovers a missing engine identity without abandoning seeding', async () => {
+    const task = makeBtTask({
+      status: TaskStatus.Finalizing,
+      transitionPhase: TransitionPhase.Renaming,
+      diskPath: '/d/movie.iso',
+      finalPath: '/d/movie.iso',
+      instances: [
+        makePrimaryInstance({
+          phase: TaskInstancePhase.BtDownload,
+          diskPath: '/d/movie.iso',
+          transitionPhase: TransitionPhase.Renaming,
+          payload: {
+            btStorageLayout: {
+              version: 2,
+              strategy: 'direct',
+              torrentRootName: 'original.iso',
+              multiFile: false,
+              finalized: false,
+            },
+          },
+        }),
+      ],
+    })
+    const deps = makeDeps()
+    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+    vi.mocked(deps.adapter.getTaskStatus).mockResolvedValue(null)
+    vi.mocked(deps.torrentMetaStore.read).mockResolvedValue(
+      buildSingleFileTorrent('original.iso')
+    )
+    await expect(finalizeTask('t1', deps)).resolves.toBeUndefined()
+    expect(deps.adapter.addTorrent).toHaveBeenCalled()
+    expect(task.status).toBe(TaskStatus.Seeding)
+    expect(deps.fs.renameAtomic).not.toHaveBeenCalled()
+    expect(task.transitionPhase).toBe(TransitionPhase.Idle)
+  })
+
+  it.each([TaskStatus.Seeding, TaskStatus.Completed])(
+    'finalizes direct BT in place with engine status %s and retains its GID',
+    async (engineStatus) => {
+      const task = makeBtTask({
+        diskPath: '/d/movie.iso',
+        finalPath: '/d/movie.iso',
+        uploadedBytesBaseline: 20,
+        instances: [
+          makePrimaryInstance({
+            phase: TaskInstancePhase.BtDownload,
+            diskPath: '/d/movie.iso',
+            payload: {
+              btStorageLayout: {
+                version: 2,
+                strategy: 'direct',
+                torrentRootName: 'original.iso',
+                multiFile: false,
+                finalized: false,
+              },
+            },
+          }),
+        ],
+      })
+      const deps = makeDeps()
+      vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+      vi.mocked(deps.adapter.getTaskStatus).mockResolvedValue(
+        makeBtTask({
+          status: engineStatus,
+          totalBytes: 1024,
+          downloadedBytes: 1024,
+          uploadedBytes: 10,
+        })
+      )
+      const gid = task.engineTaskId
+      await finalizeTask('t1', deps)
+      expect(task.status).toBe(engineStatus)
+      expect(task.engineTaskId).toBe(gid)
+      expect(task.uploadedBytesBaseline).toBe(20)
+      expect(task.uploadedBytes).toBe(30)
+      expect(task.progress).toBe(1)
+      expect(task.instances[0].payload.btStorageLayout).toMatchObject({
+        finalized: true,
+      })
+      expect(deps.fs.renameAtomic).not.toHaveBeenCalled()
+      expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
+      expect(deps.adapter.addTorrent).not.toHaveBeenCalled()
+      expect(deps.adapter.removeDownloadResult).toHaveBeenCalledTimes(
+        engineStatus === TaskStatus.Completed ? 1 : 0
+      )
+      await finalizeTask('t1', deps)
+      expect(deps.adapter.getTaskStatus).toHaveBeenCalledTimes(1)
+    }
+  )
 
   it('renames only the indexed payload and reseeds through the restored final name', async () => {
     const workspacePath = '/d/.motrix/0123456789abcdefabcd'
@@ -1120,7 +1298,7 @@ describe('finalizeTask BT branch', () => {
     expect(task.status).toBe(TaskStatus.Seeding)
   })
 
-  it('status=Completed when both seedTime and seedRatio are 0', async () => {
+  it('seeds without either limit when both seedTime and seedRatio are 0', async () => {
     const deps = makeDeps()
     ;(deps.settings.get as ReturnType<typeof vi.fn>).mockReturnValue({
       bt: { seedTime: 0, seedRatio: 0 },
@@ -1132,7 +1310,10 @@ describe('finalizeTask BT branch', () => {
 
     await finalizeTask('t1', deps)
 
-    expect(task.status).toBe(TaskStatus.Completed)
+    expect(task.status).toBe(TaskStatus.Seeding)
+    expect(deps.adapter.addTorrent).toHaveBeenCalledWith(
+      expect.objectContaining({ seedTime: 0, seedRatio: 0 })
+    )
   })
 
   it('addTorrent failure → status=Completed + soft warning', async () => {
@@ -1222,7 +1403,7 @@ describe('finalizeTask BT branch', () => {
     expect(task.engineTaskId).toBe('gid-1')
   })
 
-  it('still reseeds when ratio is met but seedTime is requested (passes seedRatio=0 to ignore ratio)', async () => {
+  it('stops when the ratio is met even with a positive time limit', async () => {
     const deps = makeDeps()
     ;(deps.settings.get as ReturnType<typeof vi.fn>).mockReturnValue({
       bt: { seedTime: 30, seedRatio: 1 },
@@ -1237,11 +1418,8 @@ describe('finalizeTask BT branch', () => {
 
     await finalizeTask('t1', deps)
 
-    const call = (deps.adapter.addTorrent as ReturnType<typeof vi.fn>).mock
-      .calls[0][0]
-    expect(call.seedRatio).toBe(0)
-    expect(call.seedTime).toBe(30)
-    expect(task.status).toBe(TaskStatus.Seeding)
+    expect(deps.adapter.addTorrent).not.toHaveBeenCalled()
+    expect(task.status).toBe(TaskStatus.Completed)
   })
 
   it('does not subtract when totalBytes is 0 (degenerate metadata)', async () => {
@@ -1587,13 +1765,14 @@ describe('finalizeTask completion-metrics sync', () => {
     expect(task.progress).toBe(0)
   })
 
-  it('BT skip-reseed (ratio=0, time=0): progress reaches 1 at Completed', async () => {
+  it('BT skip-reseed (ratio reached): progress reaches 1 at Completed', async () => {
     const deps = makeDeps()
     ;(deps.settings.get as ReturnType<typeof vi.fn>).mockReturnValue({
-      bt: { seedTime: 0, seedRatio: 0 },
+      bt: { seedTime: 0, seedRatio: 1 },
     })
     const task = makeBtTask({
       totalBytes: 1_000_000_000,
+      uploadedBytesBaseline: 1_000_000_000,
       downloadedBytes: 999_998_976,
       progress: 0.999998976,
     })
@@ -1792,7 +1971,7 @@ describe('finalizeTask plugin-hook chain (Plan C / T15)', () => {
     } as unknown as FinalizeTaskDeps['auditLog']
   }
 
-  it('HTTP: chain commit + afterComplete fires on success', async () => {
+  it('HTTP: chain commit leaves afterComplete to durable delivery', async () => {
     const orchestrator = makeOrchestrator(makeBeforeFinalizeCommit())
     const auditLog = makeAuditLog()
     const deps: FinalizeTaskDeps = {
@@ -1816,14 +1995,169 @@ describe('finalizeTask plugin-hook chain (Plan C / T15)', () => {
       })
     )
     expect(task.status).toBe(TaskStatus.Completed)
-    expect(orchestrator?.runParallel).toHaveBeenCalledWith(
-      'afterComplete',
-      expect.objectContaining({ filePath: '/d/foo.mp4' }),
-      't1'
+    expect(orchestrator?.runParallel).not.toHaveBeenCalled()
+  })
+
+  it('HTTP: production finalize seam owns FS publication and terminal occurrence', async () => {
+    const commitFinalizedArtifact = vi.fn(async () => {})
+    const occurrenceDispatcher = { dispatch: vi.fn(async () => {}) }
+    const deps: FinalizeTaskDeps = {
+      ...makeDeps(),
+      orchestrator: makeOrchestrator(makeBeforeFinalizeCommit()),
+      auditLog: makeAuditLog(),
+      commitFinalizedArtifact,
+      occurrenceDispatcher,
+    }
+    const task = makeTask()
+    ;(deps.taskManager.getById as ReturnType<typeof vi.fn>).mockReturnValue(
+      task
+    )
+
+    await finalizeTask('t1', deps)
+
+    expect(deps.fs.renameAtomic).not.toHaveBeenCalled()
+    expect(commitFinalizedArtifact).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourcePath: '/d/foo.mp4.motrix',
+        targetPath: '/d/foo.mp4',
+        occurrence: expect.objectContaining({
+          type: 'terminal',
+          toStatus: TaskStatus.Completed,
+        }),
+      })
+    )
+    expect(occurrenceDispatcher.dispatch).toHaveBeenCalledOnce()
+    expect(task.status).toBe(TaskStatus.Completed)
+  })
+
+  it('HTTP: a sanitized final name is deduplicated before publication', async () => {
+    // `a:b.txt` sanitizes to `a_b.txt`. That name was never reserved at create
+    // time, so an existing `a_b.txt` must yield `a_b (1).txt` instead of a
+    // no-replace rename failure.
+    const commitFinalizedArtifact = vi.fn(async () => {})
+    const finalNamePicker = { pick: vi.fn(async () => 'a_b (1).txt') }
+    const deps: FinalizeTaskDeps = {
+      ...makeDeps(),
+      orchestrator: makeOrchestrator(makeBeforeFinalizeCommit()),
+      auditLog: makeAuditLog(),
+      commitFinalizedArtifact,
+      finalNamePicker,
+    }
+    const task = makeTask({
+      diskPath: '/d/a:b.txt.motrix',
+      finalPath: '/d/a:b.txt',
+      finalName: 'a:b.txt',
+    })
+    ;(deps.taskManager.getById as ReturnType<typeof vi.fn>).mockReturnValue(
+      task
+    )
+
+    await finalizeTask('t1', deps)
+
+    expect(finalNamePicker.pick).toHaveBeenCalledWith('/d', 'a_b.txt')
+    expect(commitFinalizedArtifact).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourcePath: '/d/a:b.txt.motrix',
+        targetPath: '/d/a_b (1).txt',
+        task: expect.objectContaining({ finalPath: '/d/a_b (1).txt' }),
+      })
     )
   })
 
-  it('HTTP: chain abort leaves task Error + fires onError; rename skipped', async () => {
+  it('HTTP: durable commit failure preserves the recoverable rename intent', async () => {
+    const deps: FinalizeTaskDeps = {
+      ...makeDeps(),
+      orchestrator: makeOrchestrator(makeBeforeFinalizeCommit()),
+      auditLog: makeAuditLog(),
+      commitFinalizedArtifact: vi.fn(async () => {
+        throw new Error('database unavailable')
+      }),
+    }
+    const task = makeTask({ instances: [makePrimaryInstance()] })
+    ;(deps.taskManager.getById as ReturnType<typeof vi.fn>).mockReturnValue(
+      task
+    )
+
+    await expect(finalizeTask('t1', deps)).rejects.toThrow(
+      'Failed to commit finalized file: database unavailable'
+    )
+
+    expect(task).toMatchObject({
+      status: TaskStatus.Error,
+      diskPath: '/d/foo.mp4.motrix',
+      finalPath: '/d/foo.mp4',
+      transitionPhase: TransitionPhase.Renaming,
+    })
+    expect(task.instances[0]).toMatchObject({
+      diskPath: '/d/foo.mp4.motrix',
+      transitionPhase: TransitionPhase.Renaming,
+    })
+    expect(deps.activityRecorder.recordDownloadCompleted).not.toHaveBeenCalled()
+  })
+
+  it('BT: durable commit failure preserves the recoverable rename intent', async () => {
+    const deps: FinalizeTaskDeps = {
+      ...makeDeps(),
+      orchestrator: makeOrchestrator(makeBeforeFinalizeCommit()),
+      auditLog: makeAuditLog(),
+      commitFinalizedArtifact: vi.fn(async () => {
+        throw new Error('database unavailable')
+      }),
+    }
+    const task = makeBtTask()
+    ;(deps.taskManager.getById as ReturnType<typeof vi.fn>).mockReturnValue(
+      task
+    )
+
+    await expect(finalizeTask('t1', deps)).rejects.toThrow(
+      'Failed to commit finalized directory: database unavailable'
+    )
+
+    expect(task).toMatchObject({
+      status: TaskStatus.Error,
+      diskPath: '/d/torrent.motrix',
+      finalPath: '/d/torrent',
+      transitionPhase: TransitionPhase.Renaming,
+    })
+  })
+
+  it('HTTP: beforeFinalize can route a GitHub ZIP into Compressed through the durable seam', async () => {
+    const commitFinalizedArtifact = vi.fn(async () => {})
+    const deps: FinalizeTaskDeps = {
+      ...makeDeps(),
+      orchestrator: makeOrchestrator(
+        makeBeforeFinalizeCommit({
+          finalFilePath: '/d/Compressed/Motrix-main.zip',
+        })
+      ),
+      auditLog: makeAuditLog(),
+      commitFinalizedArtifact,
+    }
+    const task = makeTask({
+      diskPath: '/d/Motrix-main.zip.motrix',
+      finalPath: '/d/Motrix-main.zip',
+      finalName: 'Motrix-main.zip',
+      filename: 'Motrix-main.zip',
+      name: 'Motrix-main.zip',
+      uris: ['https://github.com/agalwood/Motrix/archive/refs/heads/main.zip'],
+    })
+    ;(deps.taskManager.getById as ReturnType<typeof vi.fn>).mockReturnValue(
+      task
+    )
+
+    await finalizeTask('t1', deps)
+
+    expect(commitFinalizedArtifact).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourcePath: '/d/Motrix-main.zip.motrix',
+        targetPath: '/d/Compressed/Motrix-main.zip',
+      })
+    )
+    expect(task.finalPath).toBe('/d/Compressed/Motrix-main.zip')
+    expect(task.status).toBe(TaskStatus.Completed)
+  })
+
+  it('HTTP: chain abort leaves task Error for durable onError delivery', async () => {
     const orchestrator = makeOrchestrator({
       aborted: true,
       reason: 'plugin sad',
@@ -1855,13 +2189,7 @@ describe('finalizeTask plugin-hook chain (Plan C / T15)', () => {
         reason: 'plugin sad',
       })
     )
-    expect(orchestrator?.runParallel).toHaveBeenCalledWith(
-      'onError',
-      expect.objectContaining({
-        error: expect.objectContaining({ code: 'PLUGIN_RUNTIME_FAULT' }),
-      }),
-      't1'
-    )
+    expect(orchestrator?.runParallel).not.toHaveBeenCalled()
     // Polling never observes stopped rows, so the renderer learns about
     // this Error only through the finalize-side TaskUpdated broadcast.
     expect(deps.eventBus.emit).toHaveBeenCalledWith(
@@ -1979,7 +2307,7 @@ describe('finalizeTask plugin-hook chain (Plan C / T15)', () => {
     )
   })
 
-  it('BT skip-reseed: afterComplete fires on Completed transition', async () => {
+  it('BT skip-reseed leaves afterComplete to durable delivery', async () => {
     const orchestrator = makeOrchestrator(makeBeforeFinalizeCommit())
     const deps: FinalizeTaskDeps = {
       ...makeDeps(),
@@ -1987,9 +2315,9 @@ describe('finalizeTask plugin-hook chain (Plan C / T15)', () => {
       auditLog: makeAuditLog(),
     }
     ;(deps.settings.get as ReturnType<typeof vi.fn>).mockReturnValue({
-      bt: { seedTime: 0, seedRatio: 0 },
+      bt: { seedTime: 0, seedRatio: 1 },
     })
-    const task = makeBtTask()
+    const task = makeBtTask({ totalBytes: 1000, uploadedBytesBaseline: 1000 })
     ;(deps.taskManager.getById as ReturnType<typeof vi.fn>).mockReturnValue(
       task
     )
@@ -1997,14 +2325,10 @@ describe('finalizeTask plugin-hook chain (Plan C / T15)', () => {
     await finalizeTask('t1', deps)
 
     expect(task.status).toBe(TaskStatus.Completed)
-    expect(orchestrator?.runParallel).toHaveBeenCalledWith(
-      'afterComplete',
-      expect.objectContaining({ task: expect.any(Object) }),
-      't1'
-    )
+    expect(orchestrator?.runParallel).not.toHaveBeenCalled()
   })
 
-  it('BT seeding-fail path: afterComplete still fires (task ends Completed)', async () => {
+  it('BT seeding-fail path leaves afterComplete to durable delivery', async () => {
     const orchestrator = makeOrchestrator(makeBeforeFinalizeCommit())
     const deps: FinalizeTaskDeps = {
       ...makeDeps({
@@ -2029,11 +2353,7 @@ describe('finalizeTask plugin-hook chain (Plan C / T15)', () => {
     await finalizeTask('t1', deps)
 
     expect(task.status).toBe(TaskStatus.Completed)
-    expect(orchestrator?.runParallel).toHaveBeenCalledWith(
-      'afterComplete',
-      expect.any(Object),
-      't1'
-    )
+    expect(orchestrator?.runParallel).not.toHaveBeenCalled()
   })
 
   it('BT normal Seeding hand-off does NOT fire afterComplete', async () => {
@@ -2200,4 +2520,62 @@ describe('finalizeTask instance diskPath sync', () => {
     expect(task.diskPath).toBe('/d/renamed.mp4')
     expect(task.instances[0].diskPath).toBe('/d/renamed.mp4')
   })
+})
+
+describe('finalize pre-commit failure recovery', () => {
+  it.each([TaskType.Bt, TaskType.Http])(
+    'publishes an error when engine cleanup fails (%s)',
+    async (type) => {
+      const deps = makeDeps()
+      const task = makeTask({ type, instances: [makePrimaryInstance()] })
+      vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+      const error = new Error('Could not remove download result of GID#gid-1')
+      vi.mocked(deps.adapter.removeDownloadResult).mockRejectedValue(error)
+      await expect(finalizeTask(task.id, deps)).rejects.toBe(error)
+      expect(task).toMatchObject({
+        status: TaskStatus.Error,
+        transitionPhase: TransitionPhase.Renaming,
+        errorCode: 'DL_UNKNOWN',
+        errorDetailKey: 'task.error.detail.finalizeFailed',
+      })
+      expect(deps.fs.renameAtomic).not.toHaveBeenCalled()
+      expect(deps.adapter.addTorrent).not.toHaveBeenCalled()
+      expect(deps.eventBus.emit).toHaveBeenCalledWith(
+        Events.TaskUpdated,
+        expect.any(Array)
+      )
+    }
+  )
+
+  it.each([25, 35])(
+    'settles only new upload when retrying finalize (%s)',
+    async (retryUpload) => {
+      const deps = makeDeps()
+      const task = makeTask({
+        type: TaskType.Bt,
+        torrentMetaPath: '/meta',
+        uploadedBytesBaseline: 100,
+        instances: [
+          makePrimaryInstance({
+            phase: TaskInstancePhase.BtDownload,
+            uploadedBytes: 25,
+          }),
+        ],
+      })
+      vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+      vi.mocked(deps.adapter.getUploadLength).mockResolvedValue(25)
+      vi.mocked(deps.adapter.removeDownloadResult).mockRejectedValueOnce(
+        new Error('engine disconnected')
+      )
+      await expect(finalizeTask(task.id, deps)).rejects.toThrow(
+        'engine disconnected'
+      )
+      expect(task.uploadedBytesBaseline).toBe(125)
+      vi.mocked(deps.adapter.getUploadLength).mockResolvedValue(retryUpload)
+      await finalizeTask(task.id, deps)
+      expect(task.uploadedBytesBaseline).toBe(100 + retryUpload)
+      expect(task.instances[0].uploadedBytes).toBe(0)
+      expect(deps.fs.renameAtomic).toHaveBeenCalledTimes(1)
+    }
+  )
 })

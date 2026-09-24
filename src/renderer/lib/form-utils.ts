@@ -8,6 +8,14 @@ export function pickDirty<T>(
   if (dirty === true) return values as Partial<T>
   if (typeof dirty !== 'object' || values == null) return undefined
 
+  // Settings patches replace arrays as a whole; numeric object keys are not a valid list.
+  if (Array.isArray(values)) {
+    const hasDirty = (node: DirtyTree | undefined): boolean =>
+      node === true ||
+      (typeof node === 'object' && Object.values(node).some(hasDirty))
+    return hasDirty(dirty) ? (values as Partial<T>) : undefined
+  }
+
   const out: Record<string, unknown> = {}
   let hasAny = false
   for (const key of Object.keys(dirty)) {

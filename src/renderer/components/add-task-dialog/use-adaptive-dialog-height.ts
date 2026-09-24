@@ -57,17 +57,15 @@ export function useAdaptiveDialogHeight(
     const header = dialog.querySelector<HTMLElement>(
       '[data-slot="dialog-header"]'
     )
-    const body = dialog.querySelector<HTMLElement>(
-      '[data-slot="add-task-form-body"]'
-    )
+    const content = dialog.querySelector<HTMLElement>('[data-adaptive-content]')
     const footer = dialog.querySelector<HTMLElement>(
       '[data-slot="add-task-form-footer"]'
     )
-    if (!header || !body || !footer) return
+    if (!header || !content || !footer) return
 
     const naturalHeight =
       header.getBoundingClientRect().height +
-      body.scrollHeight +
+      content.scrollHeight +
       footer.getBoundingClientRect().height
     const nextHeight = clampDialogHeight({
       collapsedHeight,

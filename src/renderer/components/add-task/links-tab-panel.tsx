@@ -11,6 +11,7 @@ export function LinksTabPanel() {
       <DirectoryPicker
         name="saveDir"
         variant="compact"
+        showHistory
         prefixLabel={t('task.add.saveTo')}
         placeholder={t('task.add.saveDirEmpty')}
       />

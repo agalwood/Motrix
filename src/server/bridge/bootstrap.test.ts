@@ -6,23 +6,33 @@ import {
   exchangeCredential,
   initializeParams,
   mdxpOverChannel,
+  reconnect,
   runPake,
   startPair,
 } from '@core/bridge/__tests__/mbp1-client'
-import { BRIDGE_DATA_DIR_LOCK_FILE_NAME } from '@core/bridge/bridge-data-dir-lock'
+import {
+  acquireBridgeDataDirLock,
+  BRIDGE_DATA_DIR_LOCK_FILE_NAME,
+} from '@core/bridge/bridge-data-dir-lock'
 import type { BridgeEventBus } from '@core/bridge/bridge-event-bus'
 import { EndpointFileWriter } from '@core/bridge/endpoint-file-writer'
 import type { ReadHandlerDeps } from '@core/bridge/handlers/read-handlers'
 import type { WriteHandlerDeps } from '@core/bridge/handlers/write-handlers'
 import { PairingService } from '@core/bridge/pairing-service'
 import { WebSocketBridgeServer } from '@core/bridge/web-socket-bridge-server'
+import { BridgeReceiver } from '@core/bridge-receiver/bridge-receiver'
 import { BridgeStreamSource } from '@core/bridge-receiver/bridge-stream-source'
 import { EventBus } from '@core/events/event-bus'
-import { Notifications } from '@motrix/mdxp'
-import { BridgeEvents } from '@shared/protocol/bridge'
+import { SettingsManager } from '@core/settings/settings-manager'
+import { Methods, Notifications } from '@motrix/mdxp'
+import { BridgeEvents, BridgeQueries } from '@shared/protocol/bridge'
 import { Events } from '@shared/protocol/events'
 import { EngineState } from '@shared/types/engine'
 import { TaskStatus } from '@shared/types/task'
+import {
+  makeBridgeReceiverDeps,
+  makeDirectSubmit,
+} from '@test-utils/bridge-receiver'
 import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -260,7 +270,129 @@ describe('bootstrapBridgeForServer', () => {
     expect(res.status).toBe(401)
   })
 
-  it('opens an explicit WS public route bundle with stable Server identity', async () => {
+  it('reports the persisted fixed-port policy separately from the bound port', async () => {
+    runtime = await bootstrapBridgeForServer({
+      userDataDir,
+      host: '127.0.0.1',
+      port: 0,
+      fixedPort: 'auto',
+      motrixVersion: '2.0',
+      eventBus: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
+      readHandlerDeps: readDeps(),
+      writeHandlerDeps: writeDeps(),
+    })
+
+    await expect(
+      runtime.bridgeQueryHandlers[BridgeQueries.GetStatus]?.()
+    ).resolves.toEqual(
+      expect.objectContaining({
+        port: runtime.port,
+        fixedPort: 'auto',
+      })
+    )
+  })
+
+  it('borrows a process-lifetime data-directory lock across runtime shutdown', async () => {
+    const bridgeDir = join(userDataDir, 'bridge')
+    await mkdir(bridgeDir, { recursive: true })
+    const processLock = await acquireBridgeDataDirLock(bridgeDir)
+    runtime = await bootstrapBridgeForServer({
+      userDataDir,
+      host: '127.0.0.1',
+      port: 0,
+      motrixVersion: '2.0',
+      eventBus: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
+      readHandlerDeps: readDeps(),
+      writeHandlerDeps: writeDeps(),
+      bridgeDataDirLock: processLock,
+    })
+
+    await runtime.shutdown()
+    runtime = null
+    await expect(acquireBridgeDataDirLock(bridgeDir)).rejects.toThrow(
+      'bridge data directory lock unavailable'
+    )
+
+    await processLock.release()
+    const reacquired = await acquireBridgeDataDirLock(bridgeDir)
+    await reacquired.release()
+  })
+
+  it('applies changed settings through the same authenticated extension connection', async () => {
+    const oldDir = join(userDataDir, 'old')
+    const newDir = join(userDataDir, 'new')
+    const settings = new SettingsManager(join(userDataDir, 'settings.json'))
+    await settings.update({ app: { defaultSaveDir: oldDir } })
+    const eventBus = new EventBus()
+    const deps = makeBridgeReceiverDeps({
+      eventBus,
+      getDefaultSaveDir: () => settings.getApp().defaultSaveDir,
+    })
+    const createTask = vi.spyOn(deps, 'createTask')
+    const createExtensionReceiver = vi.fn(
+      ({ bridgeBus }: { bridgeBus: BridgeEventBus }) =>
+        new BridgeReceiver({ ...deps, bridgeBus })
+    )
+    runtime = await bootstrapBridgeForServer({
+      userDataDir,
+      host: '0.0.0.0',
+      port: 0,
+      motrixVersion: '2.0',
+      eventBus,
+      readHandlerDeps: readDeps(),
+      writeHandlerDeps: writeDeps(),
+      remoteExtensionConfig: parseRemoteExtensionConfig({
+        MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
+        MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'ws://motrix.example/bridge',
+        MOTRIX_PUBLIC_URL: 'https://motrix.example',
+      }),
+      createExtensionReceiver,
+    })
+    const extensionId = 'a'.repeat(32)
+    const handshake = await startPair({
+      port: runtime.port,
+      origin: `chrome-extension://${extensionId}`,
+      browser: 'chromium',
+      claimedExtensionId: extensionId,
+      routePrefix: '/bridge',
+      hostHeader: 'motrix.example',
+    })
+    const pending = (await runtime.bridgeQueryHandlers[
+      BridgeQueries.ListPendingPairRequests
+    ]()) as Array<{ code?: string }>
+    const code = pending[0]?.code
+    if (!code) throw new Error('pairing code missing')
+    const { channel } = await runPake(handshake, code)
+    await exchangeCredential(handshake, channel)
+    const connection = mdxpOverChannel(handshake.wire, channel)
+    try {
+      await connection.sendRequest(
+        Methods.MotrixInitialize,
+        initializeParams(extensionId)
+      )
+      await connection.sendNotification(
+        Notifications.MotrixInitialized,
+        undefined
+      )
+      await connection.sendRequest(
+        Methods.DownloadSubmit,
+        makeDirectSubmit('before-change')
+      )
+      await settings.update({ app: { defaultSaveDir: newDir } })
+      await connection.sendRequest(
+        Methods.DownloadSubmit,
+        makeDirectSubmit('after-change')
+      )
+      expect(createTask.mock.calls[0]?.[0]).toMatchObject({ saveDir: oldDir })
+      expect(createTask.mock.calls[1]?.[0]).toMatchObject({ saveDir: newDir })
+      expect(createExtensionReceiver).toHaveBeenCalledOnce()
+    } finally {
+      connection.dispose()
+      handshake.wire.ws.close()
+    }
+  })
+
+  it('serves the direct-LAN Extension routes across a persistent restart', async () => {
     const remoteExtensionConfig = parseRemoteExtensionConfig({
       MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
       MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'ws://motrix.example/bridge',
@@ -269,7 +401,7 @@ describe('bootstrapBridgeForServer', () => {
     const firstReceiver = extensionReceiver()
     runtime = await bootstrapBridgeForServer({
       userDataDir,
-      host: '127.0.0.1',
+      host: '0.0.0.0',
       port: 0,
       motrixVersion: '2.0',
       eventBus: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
@@ -318,7 +450,7 @@ describe('bootstrapBridgeForServer', () => {
 
     // The public bundle is not merely connectable: a real first-pair channel
     // reaches the shell receiver's validated download/submit handler.
-    const extensionId = 'ibpkjhgpbidfmbmomagmldcdlpbmchgi'
+    const extensionId = 'lggbokfckofcgjndaboioakcmincinpo'
     const handshake = await startPair({
       port: runtime.port,
       origin: `chrome-extension://${extensionId}`,
@@ -349,7 +481,7 @@ describe('bootstrapBridgeForServer', () => {
     const code = pending[0]?.code
     if (code === undefined) throw new Error('extension pairing code missing')
     const { channel } = await runPake(handshake, code)
-    await exchangeCredential(handshake, channel)
+    const credential = await exchangeCredential(handshake, channel)
     const connection = mdxpOverChannel(handshake.wire, channel)
     await connection.sendRequest(
       'motrix/initialize',
@@ -393,7 +525,7 @@ describe('bootstrapBridgeForServer', () => {
     const secondReceiver = extensionReceiver()
     runtime = await bootstrapBridgeForServer({
       userDataDir,
-      host: '127.0.0.1',
+      host: '0.0.0.0',
       port: 0,
       motrixVersion: '2.0',
       eventBus: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
@@ -405,6 +537,26 @@ describe('bootstrapBridgeForServer', () => {
     await expect(
       readFile(join(userDataDir, 'bridge', 'server-instance-id'), 'utf8')
     ).resolves.toBe(firstInstanceId)
+
+    const reconnected = await reconnect({
+      port: runtime.port,
+      origin: `chrome-extension://${extensionId}`,
+      instanceId: firstInstanceId.trim(),
+      credential,
+      routePrefix: '/bridge',
+      hostHeader: 'motrix.example',
+    })
+    const reconnectedMdxp = mdxpOverChannel(
+      reconnected.wire,
+      reconnected.channel
+    )
+    await expect(
+      reconnectedMdxp.sendRequest(
+        'motrix/initialize',
+        initializeParams(extensionId)
+      )
+    ).resolves.toMatchObject({ protocolVersion: '1.0' })
+    reconnectedMdxp.dispose()
   })
 
   it('quarantines a committed Extension when projection persistence fails and repairs it on restart', async () => {
@@ -449,7 +601,7 @@ describe('bootstrapBridgeForServer', () => {
     if (cliToken === undefined) throw new Error('CLI pairing token missing')
     emit.mockClear()
 
-    const extensionId = 'ibpkjhgpbidfmbmomagmldcdlpbmchgi'
+    const extensionId = 'lggbokfckofcgjndaboioakcmincinpo'
     const handshake = await startPair({
       port: runtime.port,
       origin: `chrome-extension://${extensionId}`,

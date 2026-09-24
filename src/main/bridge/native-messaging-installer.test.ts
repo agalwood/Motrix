@@ -1,10 +1,11 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   computeManifestPaths,
   computeRegistryEntries,
+  DEVELOPMENT_HOST_CONFIG_NAME,
   NativeMessagingInstaller,
   type RegistryEntry,
   type RegistryView,
@@ -53,7 +54,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
       platform: 'darwin',
     })
     await installer.syncManifests({
-      chromium: ['ibpkjhgpbidfmbmomagmldcdlpbmchgi'],
+      chromium: ['lggbokfckofcgjndaboioakcmincinpo'],
       firefox: ['motrix-extension@motrix.app'],
     })
     const chromeContent = JSON.parse(
@@ -68,8 +69,40 @@ describe('NativeMessagingInstaller.syncManifests', () => {
     expect(chromeContent.name).toBe('app.motrix.bridge')
     expect(chromeContent.path).toBe('/path/to/motrix-bridge-host')
     expect(chromeContent.allowed_origins).toContain(
-      'chrome-extension://ibpkjhgpbidfmbmomagmldcdlpbmchgi/'
+      'chrome-extension://lggbokfckofcgjndaboioakcmincinpo/'
     )
+  })
+
+  it("binds a development host to Electron's selected bridge directory", async () => {
+    const hostBinaryPath = join(dir, 'native-host', 'motrix-native-host')
+    const developmentBridgeDataDir = join(dir, 'Motrix-dev', 'bridge')
+    const installer = new NativeMessagingInstaller({
+      hostBinaryPath,
+      manifestRoot: dir,
+      platform: 'darwin',
+      developmentBridgeDataDir,
+    })
+
+    await installer.syncManifests({
+      chromium: ['lggbokfckofcgjndaboioakcmincinpo'],
+      firefox: ['motrix-extension@motrix.app'],
+    })
+
+    const configPath = join(
+      dirname(hostBinaryPath),
+      DEVELOPMENT_HOST_CONFIG_NAME
+    )
+    expect(JSON.parse(await readFile(configPath, 'utf-8'))).toEqual({
+      bridgeDataDir: developmentBridgeDataDir,
+    })
+    if (process.platform !== 'win32') {
+      expect((await stat(configPath)).mode & 0o777).toBe(0o600)
+    }
+
+    await installer.unregister()
+    await expect(readFile(configPath, 'utf-8')).rejects.toMatchObject({
+      code: 'ENOENT',
+    })
   })
 
   it('writes the chromium-family manifest to the Debian Chromium path on Linux', async () => {
@@ -80,7 +113,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
       platform: 'linux',
     })
     await installer.syncManifests({
-      chromium: ['ibpkjhgpbidfmbmomagmldcdlpbmchgi'],
+      chromium: ['lggbokfckofcgjndaboioakcmincinpo'],
       firefox: ['motrix-extension@motrix.app'],
     })
     const chromium = JSON.parse(
@@ -95,7 +128,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
     expect(chromium.name).toBe('app.motrix.bridge')
     expect(chromium.path).toBe(hostBinaryPath)
     expect(chromium.allowed_origins).toEqual([
-      'chrome-extension://ibpkjhgpbidfmbmomagmldcdlpbmchgi/',
+      'chrome-extension://lggbokfckofcgjndaboioakcmincinpo/',
     ])
   })
 
@@ -137,7 +170,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
     await writeFile(paths.firefox, firefoxSentinel)
 
     await installer.syncManifests({
-      chromium: ['ibpkjhgpbidfmbmomagmldcdlpbmchgi'],
+      chromium: ['lggbokfckofcgjndaboioakcmincinpo'],
       firefox: ['motrix-extension@motrix.app'],
     })
     await installer.unregister()
@@ -153,7 +186,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
       description: 'Motrix browser download bridge',
       path: `${dir}/.local/share/motrix/native-messaging/motrix-flatpak-native-host`,
       type: 'stdio',
-      allowed_origins: ['chrome-extension://ibpkjhgpbidfmbmomagmldcdlpbmchgi/'],
+      allowed_origins: ['chrome-extension://lggbokfckofcgjndaboioakcmincinpo/'],
     }
     await mkdir(dirname(paths.chrome), { recursive: true })
     await writeFile(paths.chrome, JSON.stringify(flatpakManifest))
@@ -177,7 +210,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
     )
   })
 
-  it('repairs a stale file that only resembles a companion manifest', async () => {
+  it('preserves an unowned file that only resembles a companion manifest', async () => {
     const paths = computeManifestPaths('linux', dir)
     await mkdir(dirname(paths.chrome), { recursive: true })
     await writeFile(
@@ -194,13 +227,27 @@ describe('NativeMessagingInstaller.syncManifests', () => {
       manifestRoot: dir,
       platform: 'linux',
     })
-    await installer.syncManifests({
-      chromium: ['ibpkjhgpbidfmbmomagmldcdlpbmchgi'],
+    const result = await installer.syncManifests({
+      chromium: ['lggbokfckofcgjndaboioakcmincinpo'],
       firefox: ['motrix-extension@motrix.app'],
     })
+    expect(result.failures).toEqual([
+      {
+        browser: 'chrome',
+        path: paths.chrome,
+        operation: 'manifest',
+        error: expect.any(Error),
+      },
+    ])
+    expect(result.failures[0]?.error).toMatchObject({
+      message: 'Native Messaging manifest conflict',
+    })
+    expect(JSON.parse(await readFile(paths.firefox, 'utf-8')).path).toBe(
+      hostBinaryPath
+    )
 
     expect(JSON.parse(await readFile(paths.chrome, 'utf-8')).path).toBe(
-      hostBinaryPath
+      '/tmp/motrix-flatpak-native-host'
     )
   })
 
@@ -213,7 +260,7 @@ describe('NativeMessagingInstaller.syncManifests', () => {
       platform: 'linux',
     })
     await installer.syncManifests({
-      chromium: ['ibpkjhgpbidfmbmomagmldcdlpbmchgi'],
+      chromium: ['lggbokfckofcgjndaboioakcmincinpo'],
       firefox: ['motrix-extension@motrix.app'],
     })
 
@@ -233,6 +280,88 @@ describe('NativeMessagingInstaller.syncManifests', () => {
     await expect(readFile(paths.firefox, 'utf-8')).rejects.toMatchObject({
       code: 'ENOENT',
     })
+  })
+
+  it.each(['chrome', 'edge', 'firefox'] as const)(
+    'continues after a blocked %s directory and repairs it on retry',
+    async (browser) => {
+      const paths = computeManifestPaths('darwin', dir)
+      const blocked = dirname(paths[browser]!)
+      await mkdir(dirname(blocked), { recursive: true })
+      await writeFile(blocked, 'not a directory')
+      const installer = new NativeMessagingInstaller({
+        hostBinaryPath: '/path/to/native-host',
+        manifestRoot: dir,
+        platform: 'darwin',
+      })
+      const ids = {
+        chromium: ['lggbokfckofcgjndaboioakcmincinpo'],
+        firefox: ['motrix-extension@motrix.app'],
+      }
+      const result = await installer.syncManifests(ids)
+      expect(result.failures).toEqual([
+        {
+          browser,
+          path: paths[browser],
+          operation: 'manifest',
+          error: expect.any(Error),
+        },
+      ])
+      for (const [other, path] of Object.entries(paths)) {
+        if (other !== browser)
+          expect(JSON.parse(await readFile(path, 'utf-8')).name).toBe(
+            'app.motrix.bridge'
+          )
+      }
+      expect(await readFile(blocked, 'utf-8')).toBe('not a directory')
+      await rm(blocked)
+      expect(await installer.syncManifests(ids)).toEqual({ failures: [] })
+      expect(JSON.parse(await readFile(paths[browser]!, 'utf-8')).name).toBe(
+        'app.motrix.bridge'
+      )
+    }
+  )
+
+  it('reports every blocked browser when all target directories fail', async () => {
+    const paths = computeManifestPaths('darwin', dir)
+    for (const path of Object.values(paths)) {
+      await mkdir(dirname(dirname(path)), { recursive: true })
+      await writeFile(dirname(path), 'blocked')
+    }
+    const installer = new NativeMessagingInstaller({
+      hostBinaryPath: '/path/to/native-host',
+      manifestRoot: dir,
+      platform: 'darwin',
+    })
+    const result = await installer.syncManifests({ chromium: [], firefox: [] })
+    expect(result.failures.map((failure) => failure.browser)).toEqual([
+      'chrome',
+      'edge',
+      'firefox',
+    ])
+  })
+
+  it('continues after an atomic manifest write fails', async () => {
+    const paths = computeManifestPaths('darwin', dir)
+    await mkdir(paths.edge!, { recursive: true })
+    const installer = new NativeMessagingInstaller({
+      hostBinaryPath: '/path/to/native-host',
+      manifestRoot: dir,
+      platform: 'darwin',
+    })
+    const result = await installer.syncManifests({ chromium: [], firefox: [] })
+    expect(result.failures).toEqual([
+      {
+        browser: 'edge',
+        path: paths.edge,
+        operation: 'manifest',
+        error: expect.any(Error),
+      },
+    ])
+    expect((await stat(paths.edge!)).isDirectory()).toBe(true)
+    expect(JSON.parse(await readFile(paths.firefox, 'utf-8')).name).toBe(
+      'app.motrix.bridge'
+    )
   })
 })
 
@@ -390,10 +519,79 @@ describe('NativeMessagingInstaller.syncManifests (win32)', () => {
       },
     })
     await installer.syncManifests({
-      chromium: ['ibpkjhgpbidfmbmomagmldcdlpbmchgi'],
+      chromium: ['lggbokfckofcgjndaboioakcmincinpo'],
       firefox: ['motrix-extension@motrix.app'],
     })
     expect(written).toEqual([])
+  })
+
+  it('isolates a denied registry view and still registers every other target', async () => {
+    const error = Object.assign(new Error('denied'), { code: 'EPERM' })
+    const registryWriter = vi.fn(
+      async (entry: RegistryEntry, view: RegistryView) => {
+        if (entry.keyPath.includes('Google') && view === '32') throw error
+      }
+    )
+    const installer = new NativeMessagingInstaller({
+      hostBinaryPath: '/native-host.exe',
+      manifestRoot: dir,
+      platform: 'win32',
+      registryWriter,
+    })
+    const result = await installer.syncManifests({ chromium: [], firefox: [] })
+    expect(registryWriter).toHaveBeenCalledTimes(6)
+    expect(result.failures).toEqual([
+      {
+        browser: 'chrome',
+        path: 'HKCU\\SOFTWARE\\Google\\Chrome\\NativeMessagingHosts\\app.motrix.bridge',
+        operation: 'registry',
+        registryView: '32',
+        error,
+      },
+    ])
+  })
+
+  it('does not register a failed manifest but still registers later browsers', async () => {
+    const paths = computeManifestPaths('win32', dir)
+    await mkdir(paths.edge!, { recursive: true })
+    const registryWriter = vi.fn(async () => {})
+    const installer = new NativeMessagingInstaller({
+      hostBinaryPath: '/native-host.exe',
+      manifestRoot: dir,
+      platform: 'win32',
+      registryWriter,
+    })
+    const result = await installer.syncManifests({ chromium: [], firefox: [] })
+    expect(result.failures.map((failure) => failure.browser)).toEqual(['edge'])
+    expect(registryWriter).toHaveBeenCalledTimes(4)
+    expect(registryWriter).not.toHaveBeenCalledWith(
+      expect.objectContaining({ value: paths.edge }),
+      expect.anything()
+    )
+  })
+
+  it('cleans other registry entries and manifests even when one removal fails', async () => {
+    const error = new Error('registry denied')
+    const registryDeleter = vi.fn(
+      async (entry: RegistryEntry, view: RegistryView) => {
+        if (entry.keyPath.includes('Google') && view === '32') throw error
+      }
+    )
+    const installer = new NativeMessagingInstaller({
+      hostBinaryPath: '/native-host.exe',
+      manifestRoot: dir,
+      platform: 'win32',
+      registryWriter: async () => {},
+      registryDeleter,
+    })
+    await installer.syncManifests({ chromium: [], firefox: [] })
+    await expect(installer.unregister()).rejects.toMatchObject({
+      errors: [error],
+    })
+    expect(registryDeleter).toHaveBeenCalledTimes(6)
+    for (const path of Object.values(computeManifestPaths('win32', dir))) {
+      await expect(stat(path)).rejects.toMatchObject({ code: 'ENOENT' })
+    }
   })
 
   it('unregisters all Windows hosts and removes their manifests', async () => {

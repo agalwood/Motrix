@@ -1,21 +1,30 @@
 // src/core/plugin/host/bridge-protocol.ts
 // Bidirectional message protocol between QuickJSWorker (worker thread)
-// and CapabilityBridge (main thread). Every message carries an `id`
-// for request/response correlation; events use `id = 0`.
+// and CapabilityBridge (main thread). Calls and responses carry a numeric
+// correlation id. Hook-scoped traffic also carries the immutable invocation,
+// call-chain, and permission-generation tuple.
 
+/* Keep command provenance on the same strict schema as call/response DTOs. */
+import {
+  type CapabilityCallMessageV1,
+  type CapabilityResponseMessageV1,
+  CommandInvocationScopeV1Schema,
+  type HookAbortMessageV1,
+  type HookEnterMessageV1,
+  type HookExitMessageV1,
+  type HookInvocationScopeV1,
+  type HookNameV1,
+} from '@shared/schemas/plugin-hooks'
 import type { PluginManifest } from '@shared/types/plugin'
+import { z } from 'zod'
 import type { ManifestLocaleDict } from '../manifest/i18n-resolve'
 
-export type BridgeMessageId = number // > 0 for calls; 0 for one-way events
+export type BridgeMessageId = number
 
 // The four task-lifecycle hook names plugins can tap. Defined once here so the
 // host, worker, and bridge share a single source of truth instead of
 // re-spelling the union at each annotation site.
-export type HookName =
-  | 'beforeCreate'
-  | 'beforeFinalize'
-  | 'afterComplete'
-  | 'onError'
+export type HookName = HookNameV1
 
 // Runtime ordering of HookName — used by the worker to register hook handlers.
 export const HOOK_NAMES: readonly HookName[] = [
@@ -51,23 +60,10 @@ export interface BridgeInitMessage {
 }
 
 // Worker → host.
-export interface BridgeCallMessage {
-  type: 'call'
-  id: BridgeMessageId
-  capability: string // 'log' | 'app' | 'i18n' | ...
-  method: string
-  args: unknown[]
-}
+export type BridgeCallMessage = CapabilityCallMessageV1
 
 // Host → worker.
-export type BridgeResponseMessage =
-  | { type: 'response'; id: BridgeMessageId; ok: true; result: unknown }
-  | {
-      type: 'response'
-      id: BridgeMessageId
-      ok: false
-      error: { code: string; message: string }
-    }
+export type BridgeResponseMessage = CapabilityResponseMessageV1
 
 // Host → worker (one-way events).
 // BridgeHookEnter: sent by host to worker when entering a hook invocation.
@@ -76,28 +72,25 @@ export type BridgeResponseMessage =
 // AfterCompleteContextDTO / OnErrorContextDTO depending on `hook`. The
 // worker copies these onto the `ctx` object handed to the registered
 // handler. `metadataSnapshot` is the read-side of ctx.metadata (key→value
-// pairs already committed by previous hooks); writes go through the
-// staged-effect store via callHost('metadata', ...).
-export interface BridgeHookEnter {
-  type: 'event'
-  event: 'hookEnter'
-  hook: HookName
-  taskId: string
-  ctxPayload?: Record<string, unknown>
-  metadataSnapshot?: Record<string, unknown>
-}
+// pairs already committed by previous hooks). Pre-Hook writes are recorded
+// synchronously in the Worker and returned as validated Hook-exit effects.
+export type BridgeHookEnter = HookEnterMessageV1
+export type BridgeHookScope = HookInvocationScopeV1
+export type BridgeAbort = HookAbortMessageV1
 
 // Host → worker: invoke a registered command by id.
 // Used by test harness (test-helpers.ts callPlugin) and future Plan C invocations.
 // The worker dispatches to the locally registered handler and replies with
 // BridgeExecuteCommandResult.
-export interface BridgeExecuteCommand {
-  type: 'event'
-  event: 'executeCommand'
-  id: BridgeMessageId // correlation id for the response
-  commandId: string
-  args: unknown
-}
+export const BridgeExecuteCommandSchema = z.strictObject({
+  type: z.literal('event'),
+  event: z.literal('executeCommand'),
+  id: z.number().int().positive().safe(),
+  commandId: z.string().min(1).max(256),
+  args: z.unknown(),
+  commandScope: CommandInvocationScopeV1Schema,
+})
+export type BridgeExecuteCommand = z.infer<typeof BridgeExecuteCommandSchema>
 
 // Host → worker: signal the worker to run its registered onDeactivate handlers.
 export interface BridgeDeactivate {
@@ -123,38 +116,39 @@ export type BridgeEventMessage =
       dict: ManifestLocaleDict
     }
   | { type: 'event'; event: 'shutdown' }
-  | { type: 'event'; event: 'abort' }
+  | BridgeAbort
   | BridgeHookEnter
   | BridgeExecuteCommand
   | BridgeDeactivate
 
-// Worker → host: sent after worker finishes handling a hook.
-// Plan B: host receives this and clears currentFsTaskHost slot.
-// Plan C: carries error context for chain-abort decisions.
-export interface BridgeHookExit {
-  type: 'event'
-  event: 'hookExit'
-  ok: boolean
-  errorCode?: string
-}
+// Worker → host: sent after the Worker finishes handling a Hook. The Host
+// accepts it only for the currently admitted invocation and validates effects
+// before adding them to the staged chain.
+export type BridgeHookExit = HookExitMessageV1
 
 // Worker → host: result of a BridgeExecuteCommand invocation.
-export type BridgeExecuteCommandResult =
-  | {
-      type: 'event'
-      event: 'executeCommandResult'
-      id: BridgeMessageId
-      ok: true
-      result: unknown
-    }
-  | {
-      type: 'event'
-      event: 'executeCommandResult'
-      id: BridgeMessageId
-      ok: false
-      errorCode: string
-      errorMessage: string
-    }
+export const BridgeExecuteCommandResultSchema = z.discriminatedUnion('ok', [
+  z.strictObject({
+    type: z.literal('event'),
+    event: z.literal('executeCommandResult'),
+    id: z.number().int().positive().safe(),
+    commandScope: BridgeExecuteCommandSchema.shape.commandScope,
+    ok: z.literal(true),
+    result: z.unknown(),
+  }),
+  z.strictObject({
+    type: z.literal('event'),
+    event: z.literal('executeCommandResult'),
+    id: z.number().int().positive().safe(),
+    commandScope: BridgeExecuteCommandSchema.shape.commandScope,
+    ok: z.literal(false),
+    errorCode: z.string().min(1).max(128),
+    errorMessage: z.string().max(16 * 1024),
+  }),
+])
+export type BridgeExecuteCommandResult = z.infer<
+  typeof BridgeExecuteCommandResultSchema
+>
 
 // Worker → host (one-way events).
 export type BridgeWorkerEvent =

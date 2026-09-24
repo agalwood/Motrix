@@ -1,7 +1,16 @@
-import { formatBytes, formatDurationHMS } from '@renderer/lib/format'
-import type { DownloadTask, TaskStatus } from '@shared/types/task'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
+import { formatDurationHMS, formatProgressPercent } from '@renderer/lib/format'
+import { type DownloadTask, TaskStatus } from '@shared/types/task'
+import {
+  getDownloadProgress,
+  getOutputSize,
+  isMediaProcessing,
+  isMediaTask,
+  mediaProgressPercent,
+} from '@shared/utils/media-progress'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { getTaskEta, getTaskSpeed } from '../task-column-values'
 
 function Card({
   title,
@@ -36,19 +45,47 @@ export function MultiSelectionSummary({
 }: {
   tasks: readonly DownloadTask[]
 }) {
+  const { formatBytes, formatSpeed } = useByteFormat()
+
   const { t } = useTranslation()
   const agg = useMemo(() => {
-    const totalSize = tasks.reduce((s, x) => s + x.sizeWhenDone, 0)
+    const sizes = tasks.map(getOutputSize)
+    const totalSize = sizes.includes(null)
+      ? null
+      : sizes.reduce<number>((s, x) => s + (x ?? 0), 0)
+    const hasMedia = tasks.some(isMediaTask)
+    const processing = tasks.filter(isMediaProcessing).length
+    const progress = tasks.map(getDownloadProgress)
     const downloaded = tasks.reduce((s, x) => s + x.downloadedBytes, 0)
-    const avgProgress =
-      tasks.reduce((s, x) => s + x.progress, 0) / Math.max(1, tasks.length)
-    const combinedDown = tasks.reduce((s, x) => s + x.downloadSpeed, 0)
-    const combinedUp = tasks.reduce((s, x) => s + x.uploadSpeed, 0)
-    const longestEta = tasks.reduce((m, x) => Math.max(m, x.etaSeconds), 0)
+    const avgProgress = progress.includes(null)
+      ? null
+      : progress.reduce<number>((s, x) => s + (x ?? 0), 0) /
+        Math.max(1, tasks.length)
+    const combinedDown = tasks.reduce(
+      (s, x) => s + (getTaskSpeed(x, 'downloadSpeed') ?? 0),
+      0
+    )
+    const combinedUp = tasks.reduce(
+      (s, x) => s + (getTaskSpeed(x, 'uploadSpeed') ?? 0),
+      0
+    )
+    const etas = tasks
+      .filter(
+        (task) =>
+          task.status !== TaskStatus.Completed &&
+          task.status !== TaskStatus.Seeding
+      )
+      .map(getTaskEta)
+    const longestEta =
+      hasMedia && etas.includes(null)
+        ? null
+        : etas.reduce<number>((longest, eta) => Math.max(longest, eta ?? 0), 0)
     const counts: Record<string, number> = {}
     for (const x of tasks) counts[x.status] = (counts[x.status] ?? 0) + 1
     return {
       totalSize,
+      hasMedia,
+      processing,
       downloaded,
       avgProgress,
       combinedDown,
@@ -63,32 +100,48 @@ export function MultiSelectionSummary({
       <Card title={t('panel.downloads.inspector.multi.totals')}>
         <Row
           label={t('panel.downloads.inspector.multi.totalSize')}
-          value={formatBytes(agg.totalSize)}
+          value={agg.totalSize === null ? '—' : formatBytes(agg.totalSize)}
         />
         <Row
           label={t('panel.downloads.inspector.multi.downloaded')}
           value={formatBytes(agg.downloaded)}
         />
         <Row
-          label={t('panel.downloads.inspector.multi.avgProgress')}
-          value={`${Math.round(agg.avgProgress * 100)}%`}
+          label={t(
+            agg.hasMedia
+              ? 'panel.downloads.media.avgDownloadProgress'
+              : 'panel.downloads.inspector.multi.avgProgress'
+          )}
+          value={
+            agg.avgProgress === null
+              ? '—'
+              : `${agg.hasMedia ? mediaProgressPercent(agg.avgProgress) : formatProgressPercent(agg.avgProgress)}%`
+          }
         />
       </Card>
       <Card title={t('panel.downloads.inspector.multi.liveSpeed')}>
         <Row
           label={t('panel.downloads.inspector.multi.combinedDown')}
-          value={`${formatBytes(agg.combinedDown)}/s`}
+          value={formatSpeed(agg.combinedDown)}
         />
         <Row
           label={t('panel.downloads.inspector.multi.combinedUp')}
-          value={`${formatBytes(agg.combinedUp)}/s`}
+          value={formatSpeed(agg.combinedUp)}
         />
         <Row
           label={t('panel.downloads.inspector.multi.longestEta')}
-          value={formatDurationHMS(agg.longestEta)}
+          value={
+            agg.longestEta === null ? '—' : formatDurationHMS(agg.longestEta)
+          }
         />
       </Card>
       <Card title={t('panel.downloads.inspector.multi.statusDist')}>
+        {agg.hasMedia && (
+          <Row
+            label={t('panel.downloads.media.processingTasks')}
+            value={String(agg.processing)}
+          />
+        )}
         {(Object.entries(agg.counts) as [TaskStatus, number][])
           .sort((a, b) => b[1] - a[1])
           .map(([status, n]) => (

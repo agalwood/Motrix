@@ -1,4 +1,6 @@
 import { createDecipheriv } from 'node:crypto'
+import { admitHttpSource } from '@core/task/source-admission'
+import { cancelResponseBody, fetchSource } from './fetch-source'
 
 export class SegmentDecryptor {
   private keyCache: Map<string, Promise<Uint8Array>>
@@ -12,13 +14,30 @@ export class SegmentDecryptor {
       this.defaultFetchKey = fetchKey
     } else {
       this.defaultFetchKey = async (uri: string) => {
-        const response = await fetch(uri)
-        const buffer = await response.arrayBuffer()
-        const key = new Uint8Array(buffer)
-        if (key.length !== 16) {
-          throw new Error(`Key must be 16 bytes, got ${key.length} from ${uri}`)
+        const response = await fetchSource(uri)
+        if (!response.ok) {
+          await cancelResponseBody(response)
+          throw new Error(`Key request failed: HTTP ${response.status}`)
         }
-        return key
+        const reader = response.body?.getReader()
+        if (!reader) throw new Error('Key must be 16 bytes')
+        const key = new Uint8Array(16)
+        let size = 0
+        try {
+          for (;;) {
+            const { done, value } = await reader.read()
+            if (done) break
+            if (size + value.byteLength > key.length)
+              throw new Error('Key must be 16 bytes')
+            key.set(value, size)
+            size += value.byteLength
+          }
+          if (size !== key.length) throw new Error('Key must be 16 bytes')
+          return key
+        } finally {
+          await reader.cancel().catch(() => undefined)
+          reader.releaseLock()
+        }
       }
     }
   }
@@ -66,6 +85,7 @@ export class SegmentDecryptor {
   }
 
   async getKey(uri: string): Promise<Uint8Array> {
+    uri = admitHttpSource(uri)
     // Return cached promise if available (concurrent-safe)
     const cached = this.keyCache.get(uri)
     if (cached) {

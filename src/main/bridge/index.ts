@@ -42,6 +42,7 @@ import {
 import type { BridgeReceiverDeps } from '@core/bridge-receiver/bridge-receiver'
 import { BridgeReceiver } from '@core/bridge-receiver/bridge-receiver'
 import { BridgeStreamSource } from '@core/bridge-receiver/bridge-stream-source'
+import { getLogger } from '@core/logger'
 import { urlMatchesHostPermissions } from '@core/plugin/hooks/eligibility'
 import type { PluginHost } from '@core/plugin/host/plugin-host'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
@@ -65,10 +66,12 @@ import { app, ipcMain } from 'electron'
 import { CancellationTokenSource } from 'vscode-jsonrpc'
 import { registerTrustedIpcHandler } from '../ipc/trusted-ipc'
 import { i18n } from '../lib/i18n'
+import { getAppImageNativeHost } from './appimage-native-host-electron'
 import { isPackagedLinuxFlatpak } from './flatpak-environment'
 import { resolveNativeHostBinaryPath } from './native-host-path'
 import {
   NativeMessagingInstaller,
+  type NativeMessagingSyncResult,
   type Platform,
   type SyncArgs,
 } from './native-messaging-installer'
@@ -79,6 +82,9 @@ import {
   resolveBridgeDataDir,
   resolvePackagedLinuxSnapEnvironment,
 } from './snap-environment'
+import { recoverDefaultWindowsDesktopBridgeResidue } from './windows-desktop-startup-recovery'
+
+const nativeMessagingLog = getLogger('native-messaging')
 
 /**
  * A plugin contributes to the mux pre-resolve seam when it is an enabled
@@ -86,11 +92,13 @@ import {
  * `${manifest.id}.resolve` — the resolve-command marker.
  *
  * Keying off this marker (not the `site-resolver` category alone) is the
- * load-bearing distinction learned in A1: motrix.scraper-hook is also a
- * `site-resolver` whose hostPermissions match all URLs, yet it has NO resolve
- * command (it works via the `beforeCreate` hook, not the mux command seam).
- * Deriving seam membership from the category alone would let it collapse
- * routing to match-everything and send every download through a resolver VM.
+ * load-bearing distinction learned in A1: a plugin can be a `site-resolver`
+ * whose hostPermissions match all URLs and still have NO resolve command —
+ * motrix.scraper-hook (since retired from the built-in set) was exactly that,
+ * working through the `beforeCreate` hook rather than the mux command seam.
+ * Deriving seam membership from the category alone would let such a plugin
+ * collapse routing to match-everything and send every download through a
+ * resolver VM.
  */
 function contributesResolveCommand(manifest: PluginManifest): boolean {
   const commands = manifest.contributes?.commands ?? []
@@ -234,7 +242,7 @@ export interface BridgeRuntime {
    * The shared MuxPipeline used by BridgeReceiver. Exposed read-only so the
    * desktop Add-Task path can reuse the SAME coordinator instance — never
    * construct a second one (that would reintroduce the SP-1 phantom-task bug).
-   * Undefined when ffmpeg is unavailable.
+   * Undefined when this runtime has no media pipeline.
    */
   muxPipeline:
     | import('@core/bridge-receiver/pipelines/mux-pipeline').MuxPipeline
@@ -301,12 +309,21 @@ function createNativeMessagingInstallation(): NativeMessagingInstallation {
     devOverride: process.env.MOTRIX_BRIDGE_HOST_BIN,
     ...(snap ? { snapInstanceName: snap.instanceName } : {}),
   })
+  const developmentBridgeDataDir = app.isPackaged
+    ? undefined
+    : resolveBridgeDataDir(
+        app.getPath('userData'),
+        process.env.MOTRIX_BRIDGE_DATA_DIR
+      )
 
   return {
     installer: new NativeMessagingInstaller({
+      appImage: getAppImageNativeHost(),
+      env: process.env,
       hostBinaryPath,
       manifestRoot: snap?.realHome ?? home,
       platform: installationPlatform,
+      ...(developmentBridgeDataDir ? { developmentBridgeDataDir } : {}),
       ...(installationPlatform === 'win32'
         ? { windowsRoamingAppData: app.getPath('appData') }
         : {}),
@@ -326,9 +343,16 @@ export async function syncNativeMessagingManifests(args: {
   snap: PackagedLinuxSnapEnvironment | null
   warn?: (message: string) => void
 }): Promise<void> {
+  const warn =
+    args.warn ?? ((message: string) => nativeMessagingLog.warn(message))
+  let result: NativeMessagingSyncResult
   try {
-    await args.installer.syncManifests(args.manifests)
+    result = await args.installer.syncManifests(args.manifests)
   } catch (error) {
+    if (args.installer.preserveOnStartupFailure) {
+      warn('AppImage browser launch needs repair in settings')
+      return
+    }
     const code =
       typeof error === 'object' && error !== null && 'code' in error
         ? (error as { code?: unknown }).code
@@ -341,7 +365,35 @@ export async function syncNativeMessagingManifests(args: {
       throw error
     }
 
-    const warn = args.warn ?? console.warn
+    warn(
+      `Browser Native Messaging registration is blocked by Snap confinement. Run "sudo snap connect ${args.snap.instanceName}:browser-native-messaging", then restart Motrix.`
+    )
+    return
+  }
+  let permissionDenied = false
+  for (const failure of result.failures) {
+    const error = failure.error
+    const code =
+      typeof error === 'object' && error !== null && 'code' in error
+        ? error.code
+        : undefined
+    permissionDenied ||= code === 'EACCES' || code === 'EPERM'
+    warn(
+      `Native Messaging registration failed: ${JSON.stringify({
+        browser: failure.browser,
+        path: failure.path,
+        operation: failure.operation,
+        registryView: failure.registryView,
+        code,
+        message: error instanceof Error ? error.message : String(error),
+      })}`
+    )
+  }
+  if (
+    permissionDenied &&
+    args.snap &&
+    isValidSnapInstanceName(args.snap.instanceName)
+  ) {
     warn(
       `Browser Native Messaging registration is blocked by Snap confinement. Run "sudo snap connect ${args.snap.instanceName}:browser-native-messaging", then restart Motrix.`
     )
@@ -351,7 +403,7 @@ export async function syncNativeMessagingManifests(args: {
 export async function bootstrapBridge(args: {
   getMainWindow: () => Electron.BrowserWindow | null
   motrixVersion: string
-  ffmpegAvailable: boolean
+  ffmpegAvailable: boolean | (() => Promise<boolean>)
   enabled: boolean
   // new — required for ③. `off` is needed so the SSE stream source can
   // unsubscribe on shutdown (else listeners leak dead server instances across
@@ -375,13 +427,13 @@ export async function bootstrapBridge(args: {
     typeof BridgeReceiver
   >[0]['isMagnetFileSelectionEnabled']
   finalNamePicker: { pick(saveDir: string, desired: string): Promise<string> }
-  defaultSaveDir: string
+  getDefaultSaveDir: BridgeReceiverDeps['getDefaultSaveDir']
   // Spec 3 — v1 READ methods over the unary POST /mdxp transport.
   readHandlerDeps: ReadHandlerDeps
   // Spec 4 — v1 WRITE methods (pause/resume/remove/add).
   writeHandlerDeps: WriteHandlerDeps
-  // T14/T15 media pipeline deps. Threaded here so T15 can inject real values.
-  // Until T15 wires them, ffmpegBinaryPath=null disables the media pipeline.
+  // A live resolver keeps the media pipeline available when FFmpeg is
+  // configured after startup. Shells without media support omit it.
   ffmpegBinaryPath: string | null
   /** Re-resolves the current executable immediately before each mux. */
   resolveFfmpegBinaryPath?: BridgeReceiverDeps['resolveFfmpegBinaryPath']
@@ -389,6 +441,7 @@ export async function bootstrapBridge(args: {
    *  threaded through BridgeReceiver into the MediaTaskCoordinator. */
   publishTaskUpdate: () => void
   publishTaskUpdateNow: () => void
+  mediaMetaStore: BridgeReceiverDeps['mediaMetaStore']
   taskManager: BridgeReceiverDeps['taskManager']
   segmentAria2: BridgeReceiverDeps['segmentAria2']
   tmpRoot: string
@@ -425,6 +478,12 @@ export async function bootstrapBridge(args: {
     process.env.MOTRIX_BRIDGE_DATA_DIR
   )
   await mkdir(dataDir, { recursive: true })
+  await recoverDefaultWindowsDesktopBridgeResidue({
+    platform: process.platform,
+    dataDirectory: dataDir,
+    bridgeDataDirectoryOverride: process.env.MOTRIX_BRIDGE_DATA_DIR,
+    authority: args.bridgeDataDirLockRecoveryAuthority,
+  })
   const ownership = new BridgeOwnership()
   try {
     // This is the first bridge-state acquisition. No store is loaded and no
@@ -524,7 +583,6 @@ export async function bootstrapBridge(args: {
     // Constructed BEFORE WebSocketBridgeServer so that setHandlers() can
     // reference receiver before server.start() is called — eliminating the
     // race window where the server is listening but handlers aren't registered.
-    const receiverDataDir = join(dataDir, 'receiver')
     const t = i18n.t.bind(i18n)
     const localize = (code: string) =>
       t(`bridge.receiver.error.${camelize(code)}`)
@@ -537,8 +595,8 @@ export async function bootstrapBridge(args: {
       args.pluginHost
     )
     const receiver = new BridgeReceiver({
-      dataDir: receiverDataDir,
-      defaultSaveDir: args.defaultSaveDir,
+      mediaMetaStore: args.mediaMetaStore,
+      getDefaultSaveDir: args.getDefaultSaveDir,
       pickName: (saveDir, desired) =>
         args.finalNamePicker.pick(saveDir, desired),
       createTask: (req, _deps, options) =>
@@ -771,7 +829,10 @@ export async function bootstrapBridge(args: {
     const { installer, snap } = createNativeMessagingInstallation()
     let preserveNativeMessagingRegistration = false
     ownership.own('native-messaging-manifests', async () => {
-      if (!preserveNativeMessagingRegistration) {
+      if (
+        !preserveNativeMessagingRegistration &&
+        !installer.preserveOnStartupFailure
+      ) {
         await installer.unregister()
       }
     })
@@ -795,6 +856,27 @@ export async function bootstrapBridge(args: {
       bridgeIdentity.localToken,
       bridgeIdentity.serverGeneration
     )
+
+    // Serialize registry edits with their manifest snapshots. A later edit
+    // must not be overwritten by a slower earlier sync, and shutdown drains
+    // these writes before disposing registration ownership.
+    let nativeMessagingSync = Promise.resolve()
+    ownership.own('native-messaging-sync', () => nativeMessagingSync)
+    const updateTrustedExtensions = (update: () => Promise<void>) => {
+      const next = nativeMessagingSync.then(async () => {
+        await update()
+        await syncNativeMessagingManifests({
+          installer,
+          snap,
+          manifests: {
+            chromium: registry.listManifestIds('chromium'),
+            firefox: registry.listManifestIds('firefox'),
+          },
+        })
+      })
+      nativeMessagingSync = next.catch(() => {})
+      return next
+    }
 
     // Renderer IPC. Track exact channels as each registration succeeds; a
     // later duplicate/fault removes the earlier subset during rollback.
@@ -900,34 +982,17 @@ export async function bootstrapBridge(args: {
           label?: string
         }
       ) => {
-        await registry.add(
-          params.id,
-          params.browser,
-          'user-added',
-          params.label
+        await updateTrustedExtensions(() =>
+          registry.add(params.id, params.browser, 'user-added', params.label)
         )
-        await syncNativeMessagingManifests({
-          installer,
-          snap,
-          manifests: {
-            chromium: registry.listManifestIds('chromium'),
-            firefox: registry.listManifestIds('firefox'),
-          },
-        })
       }
     )
     installIpcHandler(
       BridgeCommands.RemoveTrusted,
       async (_e, params: { id: string; browser: 'chromium' | 'firefox' }) => {
-        await registry.remove(params.id, params.browser)
-        await syncNativeMessagingManifests({
-          installer,
-          snap,
-          manifests: {
-            chromium: registry.listManifestIds('chromium'),
-            firefox: registry.listManifestIds('firefox'),
-          },
-        })
+        await updateTrustedExtensions(() =>
+          registry.remove(params.id, params.browser)
+        )
       }
     )
 

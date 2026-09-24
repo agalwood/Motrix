@@ -1,6 +1,18 @@
 import fs from 'node:fs'
+import path from 'node:path'
 import { newEngineTaskId, newTaskId } from '@core/lib/ids'
 import { getLogger } from '@core/logger'
+import type { StagedMetadataOp } from '@core/plugin/hooks/staged-effects'
+import {
+  NOOP_POST_DELIVERY_OBSERVABILITY,
+  type PostDeliveryObservability,
+  safeObserve,
+} from '@core/plugin/post/delivery-observability'
+import type { PostDeliveryAdmissionSummary } from '@core/plugin/post/delivery-retention'
+import {
+  admitDownloadSources,
+  DownloadSourceError,
+} from '@core/task/source-admission'
 import { parseDirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
 import type { DownloadTask } from '@shared/types/task'
 import {
@@ -18,11 +30,11 @@ import {
 import type { TaskOccurrence } from '@shared/types/task-occurrence'
 import type { Aria2RpcClient } from '../engine/aria2/aria2-rpc-client'
 import {
+  classifyTerminalError,
   computeEta,
   derivePathsFromRaw,
   extractUris,
   translateBtExtension,
-  translateErrorCode,
   translateRawToTask,
   translateStatus,
 } from '../engine/aria2/translate'
@@ -39,24 +51,40 @@ import {
   applyTerminalTransition,
   terminalFieldsFromRow,
 } from '../task/apply-terminal-transition'
-import { shouldPrioritizeBtPreviewPiecesFromMetadata } from '../task/bt-storage-layout'
+import {
+  buildBtDirectOutputPaths,
+  buildFinalOutputFilePaths,
+  buildStagingOutputFilePaths,
+  getBtDirectStorageLayout,
+  getBtStorageLayout,
+  parseBtFileLayout,
+  shouldPrioritizeBtPreviewPiecesFromMetadata,
+} from '../task/bt-storage-layout'
+import { unsettledBtUpload } from '../task/bt-upload-settlement'
+import { isCompletedDirectOutput } from '../task/completed-direct-task-policy'
 import {
   canMirrorAria2MetadataHeaders,
   type DirectResourceProxyOptionsProvider,
   DirectResourceValidatorService,
 } from '../task/direct-resource-validator'
+import { restoreMediaProgress } from '../task/media-task-progress'
 import { isTempPath } from '../task/paths'
 import { setTaskTransitionPhase } from '../task/task-instance'
 import type { TaskManager } from '../task/task-manager'
 import { taskRowToDownloadTask } from '../task/task-row-to-download-task'
+import { restoreTaskSaveDirectory } from '../task/task-save-directory'
 import { isMagnetCleanupTombstoneHidden } from '../torrent/magnet-cleanup-quarantine'
 import { computeUriHash, deriveInfoHash } from './content-key'
-import { DirectRecoveryPlanner } from './direct-recovery-planner'
+import {
+  createEngineCheckpointProbe,
+  DirectRecoveryPlanner,
+} from './direct-recovery-planner'
 import type {
   MotrixDatabase,
   TaskInstanceRow,
   TaskRow,
   TaskWithInstances,
+  TerminalHookCommitInput,
 } from './motrix-database'
 
 const log = getLogger('SessionManager')
@@ -224,6 +252,12 @@ export class SessionManager {
   private resolveRequestedSave: (() => void) | null = null
   private stopping = false
   private stopPromise: Promise<void> | null = null
+  private terminalOccurrencePersistence?: (
+    task: DownloadTask,
+    occurrence: TaskOccurrence
+  ) => Promise<void>
+  private postDeliveryObservability: PostDeliveryObservability =
+    NOOP_POST_DELIVERY_OBSERVABILITY
 
   constructor(
     private taskManager: TaskManager,
@@ -238,10 +272,14 @@ export class SessionManager {
      * and non-media callers can omit it.
      */
     private mediaTmpRoot?: string,
+    // Checkpoints are probed through the engine, which alone knows whether it
+    // keeps them in control files or in aria2.db (issue #2187).
     private directRecoveryPlanner: Pick<
       DirectRecoveryPlanner,
       'plan'
-    > = new DirectRecoveryPlanner(),
+    > = new DirectRecoveryPlanner(undefined, undefined, () =>
+      createEngineCheckpointProbe(adapter)
+    ),
     private directResourceValidator: Pick<
       DirectResourceValidatorService,
       'verify'
@@ -249,6 +287,78 @@ export class SessionManager {
     private getDirectResourceProxyOptions: DirectResourceProxyOptionsProvider = () =>
       null
   ) {}
+
+  /**
+   * Binds the shared plugin terminal boundary after the Hook runtime is built.
+   * Session restore owns a few terminal transitions internally; routing those
+   * through this callback prevents them from bypassing candidate admission.
+   */
+  bindTerminalOccurrencePersistence(
+    persist: (task: DownloadTask, occurrence: TaskOccurrence) => Promise<void>
+  ): void {
+    if (
+      this.terminalOccurrencePersistence &&
+      this.terminalOccurrencePersistence !== persist
+    ) {
+      throw new Error('terminal occurrence persistence is already bound')
+    }
+    this.terminalOccurrencePersistence = persist
+  }
+
+  bindPostDeliveryObservability(
+    observability: PostDeliveryObservability
+  ): void {
+    if (
+      this.postDeliveryObservability !== NOOP_POST_DELIVERY_OBSERVABILITY &&
+      this.postDeliveryObservability !== observability
+    ) {
+      throw new Error('post delivery observability is already bound')
+    }
+    this.postDeliveryObservability = observability
+  }
+
+  /**
+   * Remove media-segment rows left by older versions before the engine is
+   * published as Ready. Segment downloads are implementation details of a
+   * parent media task, live only in the app temp tree, and must never survive
+   * an aria2 restart as standalone work.
+   */
+  async purgeEphemeralMediaRows(): Promise<void> {
+    if (!this.mediaTmpRoot) return
+
+    try {
+      const [activeTasks, waitingTasks, stoppedTasks] = await Promise.all([
+        this.rpc.tellActive(),
+        fetchAll((offset, num) => this.rpc.tellWaiting(offset, num)),
+        fetchAll((offset, num) => this.rpc.tellStopped(offset, num)),
+      ])
+      const { tasks } = await resolveCurrentAria2Rows(
+        this.rpc,
+        activeTasks,
+        waitingTasks,
+        stoppedTasks
+      )
+      const mediaRows = tasks.filter((row) => this.isMediaSegmentRow(row))
+      await Promise.all(
+        mediaRows.map((row) =>
+          this.evictEngineRow(
+            row,
+            'startup: failed to evict persisted media segment'
+          )
+        )
+      )
+      if (mediaRows.length > 0) {
+        log.info(
+          { count: mediaRows.length },
+          'startup: evicted persisted media segments'
+        )
+      }
+    } catch (err) {
+      // Full restore repeats the row-level cleanup. A transient list failure
+      // must not make the whole download engine unavailable.
+      log.warn({ err }, 'startup: media segment sweep failed')
+    }
+  }
 
   runExclusivePersistence<T>(operation: () => T | Promise<T>): Promise<T> {
     if (this.stopping) {
@@ -310,6 +420,27 @@ export class SessionManager {
   }
 
   /**
+   * Rejecting create barrier for a candidate that is not published yet. The
+   * parent graph and all beforeCreate metadata mutations cross one SQLite
+   * transaction, so a rejected metadata mutation cannot leave a bare task.
+   */
+  persistTaskWithPluginMetadata(
+    task: DownloadTask,
+    operations: readonly StagedMetadataOp[]
+  ): Promise<void> {
+    if (this.stopping) {
+      return Promise.reject(new Error('SessionManager is stopping'))
+    }
+    return this.runExclusivePersistence(async () => {
+      if (task.status === TaskStatus.Removed) return
+      this.db.persistTaskWithPluginMetadata(
+        await this.buildTaskPayload(task, Date.now()),
+        operations
+      )
+    })
+  }
+
+  /**
    * Same durable barrier as `persistTask`, but additionally appends the
    * task's terminal occurrence (when non-null) to the outbox in the SAME
    * SQLite transaction — `MotrixDatabase.persistTaskWithOccurrence` is
@@ -331,6 +462,92 @@ export class SessionManager {
         occurrence
       )
     })
+  }
+
+  /**
+   * Serialized async-to-sync adapter for the complete terminal Hook boundary.
+   * Payload construction may inspect torrent metadata, so it happens before
+   * entering MotrixDatabase's synchronous SQLite transaction.
+   */
+  persistTerminalHookBoundary(
+    task: DownloadTask,
+    occurrence: TaskOccurrence,
+    input: Omit<TerminalHookCommitInput, 'payload' | 'occurrence'>
+  ): Promise<void> {
+    if (this.stopping) {
+      return Promise.reject(new Error('SessionManager is stopping'))
+    }
+    return this.runExclusivePersistence(async () => {
+      if (task.status === TaskStatus.Removed) return
+      const summary = this.db.commitTerminalHookBoundary({
+        ...input,
+        payload: await this.buildTaskPayload(task, Date.now()),
+        occurrence,
+      })
+      this.observeAdmissionResults(input.postDeliveries ?? [], summary)
+    })
+  }
+
+  /**
+   * Holds the Session persistence lane across filesystem publication and lets
+   * the finalize journal call the synchronous database boundary exactly once
+   * after the target is durable.
+   */
+  persistFinalizedArtifact<T>(
+    task: DownloadTask,
+    occurrence: TaskOccurrence | null,
+    input: Omit<
+      TerminalHookCommitInput,
+      'payload' | 'occurrence' | 'finalizeJournal'
+    >,
+    install: (
+      commitDatabase: (
+        journal: NonNullable<TerminalHookCommitInput['finalizeJournal']>
+      ) => void
+    ) => Promise<T>
+  ): Promise<T> {
+    if (this.stopping) {
+      return Promise.reject(new Error('SessionManager is stopping'))
+    }
+    return this.runExclusivePersistence(async () => {
+      if (task.status === TaskStatus.Removed) {
+        throw new Error('cannot finalize a removed task')
+      }
+      const payload = await this.buildTaskPayload(task, Date.now())
+      return install((finalizeJournal) => {
+        const summary = this.db.commitTerminalHookBoundary({
+          ...input,
+          payload,
+          occurrence,
+          finalizeJournal,
+        })
+        this.observeAdmissionResults(input.postDeliveries ?? [], summary)
+      })
+    })
+  }
+
+  private observeAdmissionResults(
+    deliveries: NonNullable<TerminalHookCommitInput['postDeliveries']>,
+    summary: PostDeliveryAdmissionSummary
+  ): void {
+    if (summary.rejected === 0) return
+    const byId = new Map(
+      deliveries.map((delivery) => [delivery.deliveryId, delivery] as const)
+    )
+    for (const result of summary.results) {
+      if (result.kind !== 'rejected') continue
+      const delivery = byId.get(result.deliveryId)
+      if (!delivery) continue
+      safeObserve(this.postDeliveryObservability, {
+        type: 'plugin.post.admission_rejected',
+        at: delivery.createdAt,
+        pluginId: delivery.executable.pluginId,
+        hook: delivery.hook,
+        deliveryId: delivery.deliveryId,
+        reason: result.reason,
+        occurrenceId: delivery.occurrenceId,
+      })
+    }
   }
 
   private async saveNow(): Promise<void> {
@@ -363,6 +580,7 @@ export class SessionManager {
       tags: null,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
+      saveDir: task.saveDir,
       finalPath: task.finalPath,
       finalName: task.finalName,
       torrentMetaPath: task.torrentMetaPath,
@@ -404,7 +622,21 @@ export class SessionManager {
     return { task: taskRow, instances }
   }
 
-  async restore(assertProxyCurrent?: () => void): Promise<void> {
+  getCompletedDirectEngineTaskIds(): ReadonlySet<string> {
+    const result = new Set<string>()
+    for (const pair of this.db.getAllTasks()) {
+      if (pair.task.aggStatus !== TaskStatus.Completed) continue
+      const task = taskRowToDownloadTask(pair.task, pair.instances)
+      if (isCompletedDirectOutput(task) && task.engineTaskId)
+        result.add(task.engineTaskId)
+    }
+    return result
+  }
+
+  async restore(
+    assertProxyCurrent?: () => void,
+    observeCompletedTask?: (snapshot: DownloadTask) => Promise<unknown>
+  ): Promise<void> {
     // aria2 is the source of truth for engine lifecycle. motrix.db is a
     // metadata sidecar tracking task identity and the relationship between
     // a task and its instances. The loop is driven by aria2: every live
@@ -488,15 +720,26 @@ export class SessionManager {
     // lets N evictions overlap each other and the later passes instead of
     // serializing 2×N RPC round-trips inline.
     const evictions: Promise<void>[] = []
+    const retireCompleted = (raw: Aria2RawStatus): Promise<void> =>
+      observeCompletedTask
+        ? observeCompletedTask(translateRawToTask(raw)).then(() => {})
+        : this.evictEngineRow(
+            raw,
+            'restore: failed to evict completed direct task'
+          )
 
     // Pass 1 — drive from aria2 rows.
     for (const aria2 of aria2Tasks) {
-      // Skip media segment downloads. They run on the shared aria2 daemon for
-      // an hls/dash/mux task and get persisted in aria2's session; on restart
-      // aria2 restores them, and adopting them here surfaces phantom
-      // "000000.seg" tasks. They always write under mediaTmpRoot. The owning
-      // MediaTaskCoordinator task is restored from motrix.db separately.
-      if (this.mediaTmpRoot && aria2.dir.startsWith(this.mediaTmpRoot)) {
+      // Media segments are ephemeral children of a coordinator task. Older
+      // versions left them in aria2's durable store, so hide AND evict them;
+      // skipping adoption alone made the restarted downloads invisible.
+      if (this.isMediaSegmentRow(aria2)) {
+        evictions.push(
+          this.evictEngineRow(
+            aria2,
+            'restore: failed to evict persisted media segment'
+          )
+        )
         continue
       }
 
@@ -545,7 +788,17 @@ export class SessionManager {
               hit.instance.gid !== null &&
               hit.instance.gid !== aria2.gid &&
               aria2GidSet.has(hit.instance.gid)
-            if (!consumedMotrixIds.has(hit.motrixId) && !hasDifferentLiveGid) {
+            const candidate = byMotrixId.get(hit.motrixId)
+            const completedDirect =
+              candidate &&
+              isCompletedDirectOutput(
+                taskRowToDownloadTask(candidate.task, candidate.instances)
+              )
+            if (
+              !completedDirect &&
+              !consumedMotrixIds.has(hit.motrixId) &&
+              !hasDifferentLiveGid
+            ) {
               parent = byMotrixId.get(hit.motrixId)
               matchedInstance = hit.instance
             }
@@ -583,6 +836,17 @@ export class SessionManager {
           }
           continue
         }
+        // Completed direct output is durable history. Only exact GID ownership
+        // authorizes retiring an engine row; URI matches can be a new download.
+        if (direct) {
+          const completed = taskRowToDownloadTask(parent.task, parent.instances)
+          if (isCompletedDirectOutput(completed)) {
+            this.taskManager.set(completed.id, completed)
+            consumedMotrixIds.add(parent.task.motrixId)
+            evictions.push(retireCompleted(aria2))
+            continue
+          }
+        }
         const task = this.mergeTaskFromPair(parent, matchedInstance, aria2)
         // Merging a persisted non-terminal task with aria2's stopped row can
         // settle it into Completed/Error. That is a real terminal transition
@@ -597,13 +861,32 @@ export class SessionManager {
           'engine'
         )
         if (occurrence) {
-          await this.persistTaskWithOccurrence(task, occurrence)
+          await this.persistRecoveredTerminalOccurrence(task, occurrence)
         }
         this.taskManager.set(task.id, task)
         consumedMotrixIds.add(parent.task.motrixId)
+        if (isCompletedDirectOutput(task)) {
+          evictions.push(retireCompleted(aria2))
+        }
       } else {
         const task = this.adoptTask(aria2)
+        // A tiny engine-only download can finish before Ready and before the
+        // notification listeners attach. Commit its history/outbox now; a
+        // stopped GID will not appear in subsequent active/waiting polls.
+        if (isCompletedDirectOutput(task)) {
+          await this.persistRecoveredTerminalOccurrence(
+            task,
+            buildTerminalOccurrence(
+              terminalSnapshotFromTask(task),
+              TaskStatus.Queued,
+              'engine'
+            )
+          )
+        }
         this.taskManager.set(task.id, task)
+        if (isCompletedDirectOutput(task)) {
+          evictions.push(retireCompleted(aria2))
+        }
       }
     }
 
@@ -675,7 +958,6 @@ export class SessionManager {
           task.finalPath
         ) {
           task.diskPath = task.finalPath
-          task.saveDir = task.finalPath
           for (const inst of task.instances) {
             inst.diskPath = task.finalPath
           }
@@ -743,9 +1025,9 @@ export class SessionManager {
 
     // Recovery-created terminal state is already durable at this point: every
     // path that lands a task in Error during this pass goes through
-    // `markRecoverErrorFromPair`, which persists via the occurrence-aware
-    // `persistTaskWithOccurrence` before returning (directly for the media
-    // and Pass-2 default cases, or nested inside `recoverMagnetMetadata` /
+    // `markRecoverErrorFromPair`, which persists via the shared recovered
+    // terminal boundary before returning (directly for the media and Pass-2
+    // default cases, or nested inside `recoverMagnetMetadata` /
     // `reAddOrMarkErrorFromPair` for their failure branches). No separate
     // end-of-restore batch save is needed to make that state crash-safe.
 
@@ -774,7 +1056,7 @@ export class SessionManager {
         assertProxyCurrent
       )
       // reAddOrMarkErrorFromPair's Error outcome already persisted itself via
-      // markRecoverErrorFromPair's persistTaskWithOccurrence; only its
+      // markRecoverErrorFromPair's shared terminal boundary; only its
       // successful-re-add outcome (adoptByPair alone, which never returns
       // Error) still needs this write.
       if (fresh.status !== TaskStatus.Error) {
@@ -902,22 +1184,53 @@ export class SessionManager {
    * Failures are logged and swallowed — restore must finish, and a row
    * that survives here is retried by the same shield on the next launch.
    */
-  private async evictResurrectedErrorRow(aria2: Aria2RawStatus): Promise<void> {
+  private isMediaSegmentRow(aria2: Aria2RawStatus): boolean {
+    if (!this.mediaTmpRoot || !aria2.dir) return false
+    const relative = path.relative(
+      path.resolve(this.mediaTmpRoot),
+      path.resolve(aria2.dir)
+    )
+    return (
+      relative === '' ||
+      (relative !== '..' &&
+        !relative.startsWith(`..${path.sep}`) &&
+        !path.isAbsolute(relative))
+    )
+  }
+
+  private async evictEngineRow(
+    aria2: Aria2RawStatus,
+    failureMessage: string
+  ): Promise<void> {
     const stopped =
       aria2.status === 'error' ||
       aria2.status === 'complete' ||
       aria2.status === 'removed'
-    try {
-      if (!stopped) {
+    let stopError: unknown
+    if (!stopped) {
+      try {
         await this.adapter.forceRemoveTask(aria2.gid)
+      } catch (err) {
+        stopError = err
       }
+    }
+    try {
+      // Always attempt the durable purge even if force-remove failed. The row
+      // may have become terminal between the list snapshot and this call.
       await this.adapter.removeDownloadResult(aria2.gid)
     } catch (err) {
       log.warn(
-        { err, gid: aria2.gid, engineStatus: aria2.status },
-        'restore: failed to evict resurrected errored engine row'
+        { err, stopError, gid: aria2.gid, engineStatus: aria2.status },
+        failureMessage
       )
     }
+  }
+
+  private evictResurrectedErrorRow(aria2: Aria2RawStatus): Promise<void> {
+    return this.evictEngineRow(
+      aria2,
+      'restore: failed to evict resurrected errored engine row'
+    )
   }
 
   private mergeTaskFromPair(
@@ -939,7 +1252,12 @@ export class SessionManager {
     const sizeWhenDone = Number(aria2.totalLength) || taskPart.sizeWhenDone
     const uploadedBytesBaseline = taskPart.uploadedBytesBaseline
     const uploadedBytes =
-      uploadedBytesBaseline + Number(aria2.uploadLength || 0)
+      uploadedBytesBaseline +
+      unsettledBtUpload(
+        pair.instances,
+        aria2.gid,
+        Number(aria2.uploadLength || 0)
+      )
     const fileCount = aria2.files?.length || taskPart.fileCount
 
     let bt = translateBtExtension(aria2)
@@ -964,7 +1282,7 @@ export class SessionManager {
       {
         finishedAt: aria2.status === 'complete' ? now : null,
         errorMessage: aria2.errorMessage ?? null,
-        errorCode: translateErrorCode(aria2.errorCode),
+        ...classifyTerminalError(aria2.errorCode, aria2.errorMessage),
       },
       now
     )
@@ -1010,7 +1328,7 @@ export class SessionManager {
         String(downloadedBytes),
         aria2.downloadSpeed
       ),
-      saveDir: aria2.dir,
+      saveDir: restoreTaskSaveDirectory(taskPart, pair.instances, aria2.dir),
       createdAt: taskPart.createdAt,
       updatedAt: now,
       uris: extractUris(aria2),
@@ -1075,7 +1393,7 @@ export class SessionManager {
     )
     const retainedIdentity = newGid === primary?.gid
 
-    return {
+    return restoreMediaProgress({
       id: taskPart.motrixId,
       engineTaskId: newGid,
       name: taskPart.name,
@@ -1097,7 +1415,7 @@ export class SessionManager {
       downloadSpeed: 0,
       uploadSpeed: 0,
       etaSeconds: 0,
-      saveDir: primary?.diskPath || taskPart.finalPath || '',
+      saveDir: restoreTaskSaveDirectory(taskPart, pair.instances),
       createdAt: taskPart.createdAt,
       updatedAt: retainedIdentity ? taskPart.updatedAt : now,
       uris: primary?.uris ?? [],
@@ -1135,7 +1453,7 @@ export class SessionManager {
             }
           : inst
       ),
-    }
+    })
   }
 
   private async reAddOrMarkErrorFromPair(
@@ -1159,11 +1477,55 @@ export class SessionManager {
         const bytes = fs.readFileSync(taskPart.torrentMetaPath)
         const prioritizePreviewPieces =
           await shouldPrioritizeBtPreviewPiecesFromMetadata(bytes)
+        const restored = taskRowToDownloadTask(taskPart, pair.instances)
+        const layout = getBtStorageLayout(restored)
+        const directLayout = getBtDirectStorageLayout(restored)
+        const parsed =
+          layout || directLayout?.torrentRootName
+            ? await parseBtFileLayout(bytes)
+            : null
+        const alreadyRenamed = restored.diskPath === restored.finalPath
         return this.dispatchRecoveryCandidate(pair, (gid) =>
           this.adapter.addTorrent({
             metadata: bytes,
             gid,
-            saveDir: primary?.diskPath || taskPart.finalPath || '/',
+            saveDir: directLayout
+              ? buildBtDirectOutputPaths(
+                  restored.diskPath,
+                  parsed,
+                  restored.torrentMetaPath
+                ).saveDir
+              : layout
+                ? alreadyRenamed
+                  ? path.dirname(restored.finalPath)
+                  : layout.workspacePath
+                : primary?.diskPath || restored.saveDir || '/',
+            ...(directLayout && parsed
+              ? {
+                  outputFilePaths: buildBtDirectOutputPaths(
+                    restored.diskPath,
+                    parsed,
+                    restored.torrentMetaPath
+                  ).outputFilePaths,
+                }
+              : layout && parsed
+                ? {
+                    outputFilePaths: alreadyRenamed
+                      ? buildFinalOutputFilePaths(
+                          parsed,
+                          restored.finalPath,
+                          layout
+                        )
+                      : buildStagingOutputFilePaths(parsed, layout),
+                  }
+                : {}),
+            outputRoot: directLayout
+              ? buildBtDirectOutputPaths(
+                  restored.diskPath,
+                  parsed,
+                  restored.torrentMetaPath
+                ).outputRoot
+              : undefined,
             pause: taskPart.aggStatus === TaskStatus.Paused,
             checkIntegrity: true,
             ...(prioritizePreviewPieces
@@ -1184,6 +1546,17 @@ export class SessionManager {
     }
 
     if (primary && primary.uris.length > 0) {
+      let admittedUris: string[]
+      try {
+        admittedUris = admitDownloadSources(primary.uris, 'recovery', [
+          'http',
+          'https',
+          'ftp',
+        ]).map((source) => source.requestUrl)
+      } catch (error) {
+        if (!(error instanceof DownloadSourceError)) throw error
+        return this.markRecoverErrorFromPair(pair, error.message)
+      }
       const recipe = parseDirectReplayRecipe(primary.payload)
       if (recipe?.replayability === 'requires-credentials') {
         return this.markRecoverErrorFromPair(
@@ -1268,7 +1641,7 @@ export class SessionManager {
           requestOptions &&
           canMirrorAria2MetadataHeaders(this.adapter.getFeatureReport?.())
             ? await this.directResourceValidator.verify(
-                primary.uris[0] as string,
+                admittedUris[0],
                 recipe.resourceValidator,
                 requestOptions
               )
@@ -1288,7 +1661,7 @@ export class SessionManager {
       return this.dispatchRecoveryCandidate(pair, (gid) => {
         assertProxyCurrent?.()
         return this.adapter.createDownload({
-          uris: primary.uris,
+          uris: admittedUris,
           gid,
           saveDir: plan.saveDir as string,
           filename: plan.filename as string,
@@ -1446,9 +1819,19 @@ export class SessionManager {
       previousStatus,
       'recovery'
     )
-    await this.persistTaskWithOccurrence(errored, occurrence)
+    await this.persistRecoveredTerminalOccurrence(errored, occurrence)
 
     return errored
+  }
+
+  private persistRecoveredTerminalOccurrence(
+    task: DownloadTask,
+    occurrence: TaskOccurrence | null
+  ): Promise<void> {
+    if (occurrence && this.terminalOccurrencePersistence) {
+      return this.terminalOccurrencePersistence(task, occurrence)
+    }
+    return this.persistTaskWithOccurrence(task, occurrence)
   }
 
   private statusAfterSuccessfulReAdd(pair: TaskWithInstances): TaskStatus {
@@ -1492,7 +1875,11 @@ export class SessionManager {
     }
 
     try {
-      const newGid = await this.rpc.addUri([magnetUri], {
+      const uris = admitDownloadSources([magnetUri], 'recovery', [
+        'magnet',
+      ]).map((source) => source.requestUrl)
+      const newGid = await this.rpc.addUri(uris, {
+        'max-file-not-found': '0',
         'bt-load-saved-metadata': 'false',
         'bt-metadata-only': 'true',
         dir: metadataDir,

@@ -1,8 +1,9 @@
 import { VirtualList } from '@renderer/components/desktop-kit/virtual-list/virtual-list'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { useGeoIPStatus } from '@renderer/hooks/use-geoip-status'
 import { useTaskPeers } from '@renderer/hooks/use-task-peers'
 import { countryCodeToFlag, countryName } from '@renderer/lib/country-flag'
-import { formatBytes } from '@renderer/lib/format'
+
 import { cn } from '@renderer/lib/utils'
 import type { TaskPeer } from '@shared/types/peer'
 import type { DownloadTask } from '@shared/types/task'
@@ -26,9 +27,9 @@ const ROW_HEIGHT = 28
 // one is chosen at render time by PeersTab so disabled GeoIP doesn't
 // burn 64px of layout for empty cells.
 const GRID_COLS_WITH_GEO =
-  'grid-cols-[28px_36px_minmax(0,2fr)_minmax(0,3fr)_72px_72px_64px_56px]'
+  'grid-cols-[28px_36px_minmax(0,2.5fr)_minmax(0,3fr)_72px_72px_64px_56px]'
 const GRID_COLS_BASE =
-  'grid-cols-[minmax(0,2fr)_minmax(0,3fr)_72px_72px_64px_56px]'
+  'grid-cols-[minmax(0,2.5fr)_minmax(0,3fr)_72px_72px_64px_56px]'
 
 /**
  * Compose the BT peer flags column. Mirrors the convention used by
@@ -59,6 +60,8 @@ interface PeerRowProps {
 }
 
 export function PeerRow({ peer, locale, showCountry }: PeerRowProps) {
+  const { formatSpeed } = useByteFormat()
+
   const progressPct = Math.round(peer.progress * 100)
   const flag = peer.country ? countryCodeToFlag(peer.country.code) : ''
   const code = peer.country?.code ?? ''
@@ -98,10 +101,10 @@ export function PeerRow({ peer, locale, showCountry }: PeerRowProps) {
         {clientLabel(peer)}
       </span>
       <span className="text-right text-muted-foreground">
-        {peer.downSpeed > 0 ? `${formatBytes(peer.downSpeed)}/s` : '—'}
+        {peer.downSpeed > 0 ? formatSpeed(peer.downSpeed) : '—'}
       </span>
       <span className="text-right text-muted-foreground">
-        {peer.upSpeed > 0 ? `${formatBytes(peer.upSpeed)}/s` : '—'}
+        {peer.upSpeed > 0 ? formatSpeed(peer.upSpeed) : '—'}
       </span>
       <span className="text-right text-muted-foreground">{progressPct}%</span>
       <span className="text-right text-[11px] text-muted-foreground">
@@ -112,6 +115,8 @@ export function PeerRow({ peer, locale, showCountry }: PeerRowProps) {
 }
 
 export function PeersTab({ task }: { task: DownloadTask }) {
+  const { formatSpeed } = useByteFormat()
+
   const { t, i18n } = useTranslation()
   const { peers } = useTaskPeers(task.id, PEER_LIVE_STATUSES.has(task.status))
   const { status: geoStatus } = useGeoIPStatus()
@@ -144,9 +149,8 @@ export function PeersTab({ task }: { task: DownloadTask }) {
             seeders: summary.seeders,
           })}
         </span>
-        <span className="font-mono tabular-nums">
-          ↓ {formatBytes(summary.totalDown)}/s · ↑{' '}
-          {formatBytes(summary.totalUp)}/s
+        <span className="tabular-nums">
+          ↑ {formatSpeed(summary.totalUp)} · ↓ {formatSpeed(summary.totalDown)}
         </span>
       </div>
 
@@ -189,6 +193,7 @@ export function PeersTab({ task }: { task: DownloadTask }) {
           </p>
         ) : (
           <VirtualList<TaskPeer>
+            scrollbar="custom"
             items={sorted}
             getId={(p) => p.id}
             rowHeight={ROW_HEIGHT}

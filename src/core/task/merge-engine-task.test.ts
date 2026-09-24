@@ -1,6 +1,11 @@
 import { DownloadErrorCode } from '@shared/errors'
-import type { DownloadTask } from '@shared/types/task'
-import { TaskStatus, TransitionPhase } from '@shared/types/task'
+import type { DownloadTask, TaskInstance } from '@shared/types/task'
+import {
+  makeDefaultBtExtension,
+  TaskInstancePhase,
+  TaskStatus,
+  TransitionPhase,
+} from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
 import { describe, expect, it } from 'vitest'
 import { mergeEngineTask } from './merge-engine-task'
@@ -8,7 +13,110 @@ import { mergeEngineTask } from './merge-engine-task'
 const baseTask = (over: Partial<DownloadTask> = {}): DownloadTask =>
   makeDownloadTask({ id: 't1', engineTaskId: 'gid1', name: 'a', ...over })
 
+function instance(status: TaskStatus, index = 0): TaskInstance {
+  return {
+    instanceId: `instance-${index}`,
+    motrixId: 't1',
+    gid: index === 0 ? 'gid1' : null,
+    phase: TaskInstancePhase.HttpDownload,
+    status,
+    progress: 25,
+    totalBytes: 100,
+    downloadedBytes: 25,
+    uploadedBytes: 0,
+    diskPath: '/downloads/a.motrix',
+    transitionPhase: TransitionPhase.Idle,
+    uris: ['https://example.com/a'],
+    uriHash: null,
+    payload: { fileIndex: index },
+    createdAt: 1000,
+    updatedAt: 2000,
+  }
+}
+
 describe('mergeEngineTask', () => {
+  it.each([
+    ['gid1', 25, 125],
+    ['gid1', 30, 130],
+    ['reseed-gid', 10, 135],
+  ])(
+    'merges settled upload for %s without double counting',
+    (gid, upload, expected) => {
+      const primary = instance(TaskStatus.Error)
+      primary.payload.btFinalizeUpload = { gid: 'gid1', bytes: 25 }
+      const existing = baseTask({
+        uploadedBytesBaseline: 125,
+        transitionPhase: TransitionPhase.Renaming,
+        instances: [primary],
+      })
+      const merged = mergeEngineTask(
+        existing,
+        baseTask({ engineTaskId: gid, uploadedBytes: upload })
+      )
+      expect(merged.uploadedBytes).toBe(expected)
+    }
+  )
+
+  it.each(
+    [TaskStatus.Queued, TaskStatus.Downloading].flatMap((from) =>
+      [TaskStatus.Error, TaskStatus.Completed].flatMap((to) =>
+        [1, 2].map((count) => ({ from, to, count }))
+      )
+    )
+  )(
+    'synchronizes $count instances for $from → $to without changing the input',
+    ({ from, to, count }) => {
+      const existing = baseTask({
+        status: from,
+        instances: Array.from({ length: count }, (_, i) => instance(from, i)),
+      })
+      const before = structuredClone(existing)
+      for (const entry of existing.instances) Object.freeze(entry)
+      Object.freeze(existing.instances)
+      Object.freeze(existing)
+
+      const merged = mergeEngineTask(existing, baseTask({ status: to }), 5000)
+
+      expect(merged.status).toBe(to)
+      expect(merged.instances).toEqual(
+        before.instances.map((entry) => ({ ...entry, status: to }))
+      )
+      expect(existing).toEqual(before)
+      expect(merged.instances).not.toBe(existing.instances)
+    }
+  )
+
+  it.each([TransitionPhase.Renaming, TransitionPhase.Reseeding])(
+    'keeps instance states while %s owns the terminal transition',
+    (phase) => {
+      const existing = baseTask({
+        status: TaskStatus.Finalizing,
+        transitionPhase: phase,
+        instances: [
+          { ...instance(TaskStatus.Finalizing), transitionPhase: phase },
+        ],
+      })
+      const merged = mergeEngineTask(
+        existing,
+        baseTask({ status: TaskStatus.Completed })
+      )
+      expect(merged.status).toBe(TaskStatus.Finalizing)
+      expect(merged.instances).toEqual(existing.instances)
+    }
+  )
+
+  it.each([TaskStatus.Paused, TaskStatus.Seeding])(
+    'leaves per-instance state intact for a nonterminal %s snapshot',
+    (status) => {
+      const existing = baseTask({
+        instances: [instance(TaskStatus.Downloading)],
+      })
+      expect(mergeEngineTask(existing, baseTask({ status })).instances).toEqual(
+        existing.instances
+      )
+    }
+  )
+
   it('preserves existing totalBytes when engine reports zero', () => {
     const existing = baseTask({
       totalBytes: 1_000_000,
@@ -194,4 +302,23 @@ describe('mergeEngineTask', () => {
       finishedAt: null,
     })
   })
+})
+
+it('keeps share ratio cumulative when a new GID starts from zero upload', () => {
+  const existing = baseTask({
+    totalBytes: 1000,
+    uploadedBytesBaseline: 1500,
+    bt: makeDefaultBtExtension({ ratio: 1.5 }),
+  })
+  const incoming = baseTask({
+    totalBytes: 1000,
+    uploadedBytes: 200,
+    bt: makeDefaultBtExtension({ ratio: 0.2 }),
+  })
+  expect(mergeEngineTask(existing, incoming)).toMatchObject({
+    uploadedBytes: 1700,
+    bt: { ratio: 1.7 },
+  })
+  expect(existing.bt?.ratio).toBe(1.5)
+  expect(incoming.bt?.ratio).toBe(0.2)
 })

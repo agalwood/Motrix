@@ -1,6 +1,7 @@
 import path from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
+  createEngineCheckpointProbe,
   type DirectRecoveryFileStat,
   DirectRecoveryPlanner,
 } from './direct-recovery-planner'
@@ -261,5 +262,102 @@ describe('DirectRecoveryPlanner', () => {
       kind: 'invalid',
       reason: 'file-probe-failed',
     })
+  })
+})
+
+describe('DirectRecoveryPlanner checkpoint probe', () => {
+  const diskPath = '/downloads/linux.iso.motrix'
+  const fileSystem = makeFileSystem({ [diskPath]: file(8192) })
+
+  it('asks the injected probe instead of looking for a .aria2 file', async () => {
+    // With sqlite3 persistence aria2 never writes <file>.aria2; the
+    // checkpoint lives in aria2.db. Probing the disk alone made every
+    // interrupted download look unresumable (issue #2187).
+    const probed: string[] = []
+    const planner = new DirectRecoveryPlanner(fileSystem, path.posix, () => {
+      return async (target) => {
+        probed.push(target)
+        return 'present'
+      }
+    })
+    await expect(
+      planner.plan({ primary: { diskPath }, finalPath: '/downloads/linux.iso' })
+    ).resolves.toMatchObject({
+      kind: 'checkpoint',
+      reason: 'checkpoint-present',
+    })
+    expect(probed).toEqual([diskPath])
+  })
+
+  it('still blocks a partial file whose checkpoint the probe cannot find', async () => {
+    const planner = new DirectRecoveryPlanner(
+      fileSystem,
+      path.posix,
+      () => async () => 'absent'
+    )
+    await expect(
+      planner.plan({ primary: { diskPath }, finalPath: '/downloads/linux.iso' })
+    ).resolves.toMatchObject({ kind: 'blocked', reason: 'checkpoint-missing' })
+  })
+
+  it('reports a checkpoint that is not a regular file as invalid', async () => {
+    const planner = new DirectRecoveryPlanner(
+      fileSystem,
+      path.posix,
+      () => async () => 'not-file'
+    )
+    await expect(
+      planner.plan({ primary: { diskPath }, finalPath: '/downloads/linux.iso' })
+    ).resolves.toMatchObject({
+      kind: 'invalid',
+      reason: 'checkpoint-path-not-file',
+    })
+  })
+
+  it('treats a failing probe as a failed probe, not as a missing checkpoint', async () => {
+    const planner = new DirectRecoveryPlanner(fileSystem, path.posix, () => {
+      return async () => {
+        throw new Error('database is locked')
+      }
+    })
+    await expect(
+      planner.plan({ primary: { diskPath }, finalPath: '/downloads/linux.iso' })
+    ).resolves.toMatchObject({ kind: 'invalid', reason: 'file-probe-failed' })
+  })
+})
+
+describe('createEngineCheckpointProbe', () => {
+  const diskPath = '/downloads/linux.iso.motrix'
+
+  it('asks the engine, which knows which checkpoint store it reads', async () => {
+    const engine = {
+      getCheckpointStatus: vi.fn(async () => 'present' as const),
+    }
+    const probe = createEngineCheckpointProbe(engine, makeFileSystem({}))
+    await expect(probe(diskPath)).resolves.toBe('present')
+    expect(engine.getCheckpointStatus).toHaveBeenCalledWith(diskPath)
+  })
+
+  it('does not second-guess an engine that says absent', async () => {
+    // A stray .aria2 file is not what a sqlite3-persisting engine would read.
+    const engine = { getCheckpointStatus: async () => 'absent' as const }
+    const probe = createEngineCheckpointProbe(
+      engine,
+      makeFileSystem({ [`${diskPath}.aria2`]: file(16) })
+    )
+    await expect(probe(diskPath)).resolves.toBe('absent')
+  })
+
+  it('falls back to the control file when the engine cannot answer', async () => {
+    const fileSystem = makeFileSystem({ [`${diskPath}.aria2`]: file(16) })
+    await expect(
+      createEngineCheckpointProbe(
+        { getCheckpointStatus: async () => null },
+        fileSystem
+      )(diskPath)
+    ).resolves.toBe('present')
+    await expect(
+      createEngineCheckpointProbe({}, fileSystem)(diskPath)
+    ).resolves.toBe('present')
   })
 })

@@ -1,15 +1,23 @@
-import { access, mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, realpath, rm, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { NOOP_TASK_ACTIVITY_RECORDER } from '@core/activity'
 import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
 import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
+import { SettingsManager } from '@core/settings/settings-manager'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import type { AppImageIntegrationView } from '@shared/types/appimage-integration'
 import { CliPackageManager } from '@shared/types/cli-tool'
-import { TaskInstancePhase, TaskStatus, TaskType } from '@shared/types/task'
+import {
+  TaskInstancePhase,
+  TaskStatus,
+  TaskType,
+  TransitionPhase,
+} from '@shared/types/task'
+import { makeMediaMetaStoreStub } from '@test-utils/media-meta-store'
+import { makeDownloadTask } from '@test-utils/task'
 import { directTaskUpdatePublication } from '@test-utils/task-update'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MainProcessWorkCoordinator } from '../main-process-work-coordinator'
@@ -28,6 +36,11 @@ const { reconcileAppImageIntegrationFromSettingsMock } = vi.hoisted(() => ({
       getMagnetEnabled: () => boolean
     }): Promise<AppImageIntegrationView> => ({ supported: false })
   ),
+}))
+
+const syncAutoLaunchMock = vi.hoisted(() => vi.fn())
+vi.mock('../platform/auto-launch', () => ({
+  syncAutoLaunch: syncAutoLaunchMock,
 }))
 
 vi.mock('../platform/appimage-integration-host', async (importOriginal) => ({
@@ -129,6 +142,10 @@ function fakeCtx() {
       ),
     },
     settingsManager: {
+      mutateDirectoryPreferences: vi.fn().mockResolvedValue({
+        ok: true,
+        value: { favorites: [], recent: [] },
+      }),
       getApp: () => ({ defaultSaveDir: '/tmp', magnetFileSelection: true }),
       getEngine: () => ({ maxConnectionPerServer: 5 }),
       removePluginConfig: vi.fn().mockResolvedValue(undefined),
@@ -142,7 +159,7 @@ function fakeCtx() {
       resetDialogState: vi.fn(),
       register: vi.fn(),
       nextTorrent: vi.fn(),
-      downloadAllTorrents: vi.fn(),
+      downloadAllTorrents: vi.fn(() => []),
     },
     windowManager: {
       open: vi.fn(),
@@ -194,6 +211,7 @@ function fakeCtx() {
     finalNamePicker: {
       pick: vi.fn(async (_dir: string, name: string) => name),
     },
+    mediaMetaStore: makeMediaMetaStoreStub(),
     torrentMetaStore: {
       persist: vi.fn(async () => '/tmp/x.torrent'),
       read: vi.fn(),
@@ -389,6 +407,42 @@ describe('buildCommandHandlers', () => {
     expect(ctx.sessionManager.runExclusivePersistence).toHaveBeenCalledOnce()
   })
 
+  it('MoveTasks validates the payload and changes the actual engine queue', async () => {
+    const ctx = fakeCtx()
+    const queue = ['first', 'second']
+    vi.mocked(ctx.taskManager.getById).mockReturnValue({
+      id: 'task-second',
+      engineTaskId: 'second',
+      status: TaskStatus.Paused,
+    } as never)
+    Object.assign(ctx.adapter, {
+      listWaitingTaskIds: vi.fn(async () => [...queue]),
+      changePosition: vi.fn(async () => {
+        queue.reverse()
+        return 0
+      }),
+    })
+    const handlers = buildCommandHandlers(
+      ctx as unknown as Parameters<typeof buildCommandHandlers>[0]
+    )
+    await expect(
+      handlers[Commands.MoveTasks]?.({
+        taskIds: ['task-second'],
+        direction: 'up',
+      })
+    ).resolves.toEqual({ moved: ['task-second'], unchanged: [], failed: [] })
+    expect(queue).toEqual(['second', 'first'])
+    await expect(
+      handlers[Commands.MoveTasks]?.({ taskIds: [], direction: 'up' })
+    ).rejects.toThrow()
+    await expect(
+      handlers[Commands.MoveTasks]?.({
+        taskIds: ['task-second'],
+        direction: 'sideways',
+      })
+    ).rejects.toThrow()
+  })
+
   it('PauseTasks fans out per id and returns the IPC-safe bulk result', async () => {
     const ctx = fakeCtx()
     const tasks = new Map([
@@ -502,7 +556,7 @@ describe('buildCommandHandlers', () => {
     // @ts-expect-error — partial ctx
     const handlers = buildCommandHandlers(ctx)
     const result = (await handlers[Commands.AddMagnetTask]?.({
-      uri: 'magnet:?xt=x',
+      uri: 'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
       selectedFiles: [0],
       saveDir: '',
     })) as { gid: string; taskId?: string } | undefined
@@ -512,13 +566,14 @@ describe('buildCommandHandlers', () => {
     expect(result).toMatchObject({
       gid: expect.stringMatching(/^[0-9a-f]{16}$/),
     })
-    // createTaskHandler writes BT tasks to <saveDir>/<finalName>.motrix as
-    // the container dir (incomplete-suffix). Assert the dir is rooted at
-    // the fallback /tmp path.
+    // Unresolved BT writes directly inside its final container under the
+    // fallback save root.
     expect(ctx.rpcClient.addUri).toHaveBeenCalledWith(
-      ['magnet:?xt=x'],
+      ['magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc'],
       expect.objectContaining({
-        dir: expect.stringMatching(/^\/tmp\/.+\.motrix$/) as unknown as string,
+        dir: expect.stringMatching(
+          /^\/tmp\/(?!.*\.motrix$).+$/
+        ) as unknown as string,
         gid: result?.gid,
       })
     )
@@ -555,14 +610,17 @@ describe('buildCommandHandlers', () => {
 
     const result = await handlers[Commands.CreateTask]?.({
       type: 'bt',
-      payload: { kind: 'magnet', uri: 'magnet:?xt=urn:btih:abc' },
+      payload: {
+        kind: 'magnet',
+        uri: 'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
+      },
       selectedFiles: [],
       saveDir: '/downloads',
     })
 
     expect(result).toEqual({ ok: true })
     expect(ctx.magnetTracker.submit).toHaveBeenCalledWith(
-      'magnet:?xt=urn:btih:abc',
+      'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
       '/downloads'
     )
     expect(ctx.rpcClient.addUri).not.toHaveBeenCalled()
@@ -749,6 +807,7 @@ describe('buildCommandHandlers', () => {
     fromWebContentsMock
       .mockReturnValueOnce({
         isDestroyed: vi.fn(() => false),
+        isFullScreen: vi.fn(() => false),
         isMaximizable: vi.fn(() => true),
         isMaximized: vi.fn(() => false),
         maximize,
@@ -756,6 +815,7 @@ describe('buildCommandHandlers', () => {
       })
       .mockReturnValueOnce({
         isDestroyed: vi.fn(() => false),
+        isFullScreen: vi.fn(() => false),
         isMaximizable: vi.fn(() => true),
         isMaximized: vi.fn(() => true),
         maximize,
@@ -778,6 +838,32 @@ describe('buildCommandHandlers', () => {
     expect(unmaximize).toHaveBeenCalledOnce()
   })
 
+  it('ignores maximize requests while the sender window is full-screen', async () => {
+    const maximize = vi.fn()
+    const unmaximize = vi.fn()
+    const isMaximizable = vi.fn(() => true)
+    const fakeSender = {} as never
+    fromWebContentsMock.mockReturnValueOnce({
+      isDestroyed: vi.fn(() => false),
+      isFullScreen: vi.fn(() => true),
+      isMaximizable,
+      isMaximized: vi.fn(() => false),
+      maximize,
+      unmaximize,
+    })
+    const ctx = fakeCtx()
+    // @ts-expect-error partial ctx
+    const handlers = buildCommandHandlers(ctx)
+
+    await expect(
+      handlers[Commands.ToggleMaximizeCurrentWindow]?.(fakeSender)
+    ).resolves.toEqual({ ok: true })
+
+    expect(isMaximizable).not.toHaveBeenCalled()
+    expect(maximize).not.toHaveBeenCalled()
+    expect(unmaximize).not.toHaveBeenCalled()
+  })
+
   it('routes direct shell commands to their owning collaborators', async () => {
     const ctx = fakeCtx()
     // @ts-expect-error partial ctx
@@ -790,7 +876,13 @@ describe('buildCommandHandlers', () => {
       handlers[Commands.ConfirmPortSwitch]?.(16801)
     ).resolves.toEqual({ ok: true })
     await handlers[Commands.NextTorrent]?.()
-    await handlers[Commands.DownloadAllTorrents]?.()
+    await handlers[Commands.DownloadAllTorrents]?.({
+      selectedFiles: [0],
+      saveDir: '/tmp',
+      dlLimit: 1024,
+      ulLimit: 512,
+      seedRatio: 1.5,
+    })
     await handlers[Commands.ShowMainWindow]?.()
     await handlers[Commands.CheckForUpdates]?.()
     await handlers[Commands.DownloadUpdate]?.()
@@ -816,6 +908,94 @@ describe('buildCommandHandlers', () => {
     })
   })
 
+  it.each([0, 1, 2])(
+    'applies App batch options and records history only for accepted tasks (%s failures)',
+    async (failures) => {
+      const ctx = fakeCtx()
+      for (let index = 0; index < failures; index++) {
+        ctx.rpcClient.addTorrent.mockRejectedValueOnce(
+          new Error('engine rejected torrent')
+        )
+      }
+      ctx.protocolManager.downloadAllTorrents.mockResolvedValueOnce([
+        {
+          payload: { name: 'first.torrent', dataBase64: 'Zmlyc3Q=' },
+          meta: {
+            name: 'first.bin',
+            files: [
+              { index: 0, path: 'skip.bin' },
+              { index: 1, path: 'keep.bin' },
+            ],
+          },
+        },
+        {
+          payload: { name: 'second.torrent', dataBase64: 'c2Vjb25k' },
+          meta: {
+            name: 'second.bin',
+            files: [
+              { index: 0, path: 'one.bin' },
+              { index: 1, path: 'two.bin' },
+            ],
+          },
+        },
+      ] as never)
+      // @ts-expect-error partial ctx
+      const handlers = buildCommandHandlers(ctx)
+
+      await expect(
+        handlers[Commands.DownloadAllTorrents]?.({
+          selectedFiles: [1],
+          saveDir: '/tmp',
+          dlLimit: 2048,
+          ulLimit: 1024,
+          seedRatio: 1.5,
+        })
+      ).resolves.toEqual({
+        total: 2,
+        succeeded: 2 - failures,
+        failed: failures,
+        firstTaskId: failures === 2 ? null : expect.any(String),
+      })
+      expect(ctx.rpcClient.addTorrent).toHaveBeenNthCalledWith(
+        1,
+        'Zmlyc3Q=',
+        [],
+        expect.objectContaining({
+          'select-file': '2',
+          'max-download-limit': '2048',
+          'max-upload-limit': '1024',
+          'seed-ratio': '1.5',
+        })
+      )
+      expect(ctx.rpcClient.addTorrent).toHaveBeenNthCalledWith(
+        2,
+        'c2Vjb25k',
+        [],
+        expect.objectContaining({
+          'select-file': '1,2',
+          'max-download-limit': '2048',
+          'max-upload-limit': '1024',
+          'seed-ratio': '1.5',
+        })
+      )
+      if (failures < 2) {
+        const canonical = await realpath('/tmp')
+        await vi.waitFor(() =>
+          expect(
+            ctx.settingsManager.mutateDirectoryPreferences
+          ).toHaveBeenCalledExactlyOnceWith({
+            action: 'recordRecent',
+            path: canonical,
+          })
+        )
+      } else {
+        expect(
+          ctx.settingsManager.mutateDirectoryPreferences
+        ).not.toHaveBeenCalled()
+      }
+    }
+  )
+
   it('rejects menu-context updates from auxiliary windows', async () => {
     const ctx = fakeCtx()
     ctx.windowManager.getWindowIdBySender.mockReturnValue('add-task')
@@ -838,7 +1018,7 @@ describe('buildCommandHandlers', () => {
     fromWebContentsMock.mockReturnValue(parent)
     showOpenDialogMock
       .mockResolvedValueOnce({ canceled: true, filePaths: [] })
-      .mockResolvedValueOnce({ canceled: false, filePaths: ['/downloads'] })
+      .mockResolvedValueOnce({ canceled: false, filePaths: [tmpdir()] })
     // @ts-expect-error partial ctx
     const handlers = buildCommandHandlers(fakeCtx())
 
@@ -847,7 +1027,7 @@ describe('buildCommandHandlers', () => {
     ).resolves.toBeNull()
     await expect(
       handlers[Commands.PickSaveDir]?.(sender, { defaultPath: '/tmp' })
-    ).resolves.toEqual({ path: '/downloads' })
+    ).resolves.toEqual({ path: await realpath(tmpdir()) })
     expect(showOpenDialogMock).toHaveBeenCalledWith(parent, {
       properties: ['openDirectory'],
       defaultPath: '/tmp',
@@ -881,8 +1061,8 @@ describe('buildCommandHandlers', () => {
     ).resolves.toBeNull()
     expect(showOpenDialogMock).toHaveBeenCalledOnce()
 
-    resolvePick({ canceled: false, filePaths: ['/picked'] })
-    await expect(first).resolves.toEqual({ path: '/picked' })
+    resolvePick({ canceled: false, filePaths: [tmpdir()] })
+    await expect(first).resolves.toEqual({ path: await realpath(tmpdir()) })
 
     showOpenDialogMock.mockResolvedValueOnce({ canceled: true, filePaths: [] })
     await expect(
@@ -1036,6 +1216,7 @@ describe('buildCommandHandlers', () => {
     await minimizeRegistration?.[1]({ sender })
     fromWebContentsMock.mockReturnValueOnce({
       isDestroyed: () => false,
+      isFullScreen: () => false,
       isMaximizable: () => true,
       isMaximized: () => false,
       maximize: vi.fn(),
@@ -1155,6 +1336,160 @@ describe('SetTaskBtTracker handler', () => {
 })
 
 describe('Commands.UpdateSettings', () => {
+  it('returns the canonical native directory identity for General favorite drafts', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'motrix-native-directory-'))
+    try {
+      const target = path.join(root, 'target')
+      const alias = path.join(root, 'alias')
+      await mkdir(target)
+      await symlink(target, alias)
+      fromWebContentsMock.mockReturnValue(null)
+      showOpenDialogMock.mockResolvedValueOnce({
+        canceled: false,
+        filePaths: [alias],
+      })
+      const pick = buildCommandHandlers(fakeCtx() as unknown as CommandContext)[
+        Commands.PickSaveDir
+      ]
+      expect(await pick?.({ id: 423 }, {})).toEqual({
+        path: await realpath(target),
+      })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('atomically saves General fields and directories and applies the submitted Desktop runtime fields', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'motrix-app-general-'))
+    try {
+      const manager = new SettingsManager(path.join(root, 'settings.json'))
+      await manager.load()
+      const ctx = { ...fakeCtx(), settingsManager: manager }
+      const save = buildCommandHandlers(ctx as unknown as CommandContext)[
+        Commands.SaveGeneralSettings
+      ]
+      const canonical = await realpath(root)
+      expect(
+        await save?.({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
+          app: {
+            defaultSaveDir: root,
+            launchAtStartup: true,
+            notifyOnComplete: false,
+          },
+          directories: {
+            addFavorites: [canonical],
+            removeFavorites: [],
+            removeRecent: [],
+          },
+        })
+      ).toMatchObject({
+        ok: true,
+        value: { directoryPreferences: { favorites: [canonical], recent: [] } },
+      })
+      expect(manager.getApp()).toMatchObject({
+        defaultSaveDir: canonical,
+        launchAtStartup: true,
+        notifyOnComplete: false,
+      })
+      expect(syncAutoLaunchMock).toHaveBeenCalledWith(true)
+      expect(
+        ctx.supervisor.applyDefaultSaveDir
+      ).toHaveBeenCalledExactlyOnceWith(canonical)
+      ctx.supervisor.applyDefaultSaveDir.mockClear()
+      syncAutoLaunchMock.mockClear()
+      const previousRevision = manager.getGeneralSettingsSnapshot().revision
+      expect(
+        await save?.({
+          expectedRevision: previousRevision,
+          app: { showMainWindowAtLogin: true },
+          directories: {
+            addFavorites: [],
+            removeFavorites: [],
+            removeRecent: [],
+          },
+        })
+      ).toMatchObject({
+        ok: true,
+        value: { app: { showMainWindowAtLogin: true } },
+      })
+      expect(manager.getApp().showMainWindowAtLogin).toBe(true)
+      expect(syncAutoLaunchMock).toHaveBeenCalledExactlyOnceWith(true)
+      expect(ctx.supervisor.applyDefaultSaveDir).not.toHaveBeenCalled()
+      syncAutoLaunchMock.mockClear()
+      expect(
+        await save?.({
+          expectedRevision: previousRevision,
+          app: { showMainWindowAtLogin: false },
+          directories: {
+            addFavorites: [],
+            removeFavorites: [],
+            removeRecent: [],
+          },
+        })
+      ).toMatchObject({
+        ok: false,
+        error: { code: 'conflict' },
+        snapshot: { app: { showMainWindowAtLogin: true } },
+      })
+      expect(syncAutoLaunchMock).not.toHaveBeenCalled()
+      const before = structuredClone(manager.getApp())
+      expect(
+        await save?.({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
+          app: {
+            defaultSaveDir: path.join(root, 'missing'),
+            launchAtStartup: false,
+            notifyOnComplete: true,
+          },
+          directories: {
+            addFavorites: [],
+            removeFavorites: [canonical],
+            removeRecent: [],
+          },
+        })
+      ).toEqual({ ok: false, error: { code: 'notFound' } })
+      expect(manager.getApp()).toEqual(before)
+      expect(ctx.supervisor.applyDefaultSaveDir).not.toHaveBeenCalled()
+      expect(syncAutoLaunchMock).not.toHaveBeenCalled()
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('keeps queued preferences through stale and malformed App updates using the real Desktop handler', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'motrix-app-preferences-'))
+    try {
+      const manager = new SettingsManager(path.join(root, 'settings.json'))
+      await manager.load()
+      const staleApp = manager.getApp()
+      const handlers = buildCommandHandlers({
+        ...fakeCtx(),
+        settingsManager: manager,
+      } as unknown as CommandContext)
+      expect(
+        await handlers[Commands.MutateDirectoryPreferences]?.({
+          action: 'addFavorite',
+          path: root,
+        })
+      ).toMatchObject({ ok: true })
+      const stored = manager.getApp().directoryPreferences
+      await handlers[Commands.UpdateSettings]?.({
+        app: { ...staleApp, theme: 'dark' },
+      })
+      await handlers[Commands.UpdateSettings]?.({
+        app: { directoryPreferences: 'invalid', notifyOnComplete: false },
+      })
+      expect(manager.getApp()).toMatchObject({
+        theme: 'dark',
+        notifyOnComplete: false,
+        directoryPreferences: stored,
+      })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
   // Namespaces come in as one named object, not as trailing positional
   // parameters: five defaulted `object` slots in a row means a call site can
   // silently put its override in the wrong namespace and still type-check.
@@ -1605,6 +1940,8 @@ describe('Commands.UpdateSettings', () => {
     expect(ctx.supervisor.applyDefaultSaveDir).toHaveBeenCalledExactlyOnceWith(
       '/downloads/new'
     )
+    expect(ctx.bridgeManager.restart).not.toHaveBeenCalled()
+    expect(ctx.bridgeManager.setEnabled).not.toHaveBeenCalled()
   })
 
   it('saves restart-required settings and publishes a reminder without restarting', async () => {
@@ -2065,17 +2402,23 @@ describe('Commands.UpdatePluginConfig', () => {
 
 describe('plugin enable/disable commands', () => {
   function makePluginLifecycleCtx() {
+    const setEnabled = vi.fn()
+    const refreshState = vi.fn()
     return {
       ...fakeCtx(),
       pluginStateStore: {
-        setEnabled: vi.fn(),
+        setEnabled,
         get: vi.fn().mockReturnValue(undefined),
       },
       pluginRegistry: {
-        refreshState: vi.fn(),
+        refreshState,
       },
       pluginHost: {
         deactivate: vi.fn().mockResolvedValue(undefined),
+        disable: vi.fn(async (id: string) => {
+          setEnabled(id, false)
+          refreshState(id)
+        }),
       },
       eventBus: {
         emit: vi.fn(),
@@ -2120,7 +2463,12 @@ describe('plugin enable/disable commands', () => {
 
     await handlers[Commands.DisablePlugin]?.('test-plugin')
 
-    expect(ctx.pluginHost.deactivate).toHaveBeenCalledWith('test-plugin')
+    expect(ctx.pluginHost.disable).toHaveBeenCalledWith(
+      'test-plugin',
+      'plugin.user_disabled',
+      'disabled',
+      { recordError: false }
+    )
     expect(ctx.eventBus.emit).toHaveBeenCalledWith(
       Events.PluginStatusChanged,
       expect.objectContaining({ id: 'test-plugin', enabled: false })
@@ -2175,11 +2523,23 @@ describe('Commands.RevertBuiltinToBundled', () => {
       discover: vi.fn().mockResolvedValue(undefined),
     }
     const pluginHost = {
+      isActive: vi.fn(() => status === 'active'),
       deactivate: vi.fn().mockImplementation(async () => {
         status = 'inactive'
       }),
       activate: vi.fn().mockImplementation(async () => {
         status = 'active'
+      }),
+    }
+    const builtinUpdater = {
+      revert: vi.fn().mockImplementation(async () => {
+        status = 'inactive'
+        await rm(path.join(overlayDir, pluginId), {
+          recursive: true,
+          force: true,
+        })
+        await pluginRegistry.discover()
+        return { pluginId, changed: true }
       }),
     }
     const eventBus = {
@@ -2192,10 +2552,18 @@ describe('Commands.RevertBuiltinToBundled', () => {
       ...fakeCtx(),
       pluginRegistry,
       pluginHost,
+      builtinUpdater,
       eventBus,
       overlayDir,
     }
-    return { ctx, pluginRegistry, pluginHost, eventBus, overlayDir }
+    return {
+      ctx,
+      pluginRegistry,
+      pluginHost,
+      builtinUpdater,
+      eventBus,
+      overlayDir,
+    }
   }
 
   it('reactivates a builtin that was active before the revert', async () => {
@@ -2215,12 +2583,12 @@ describe('Commands.RevertBuiltinToBundled', () => {
     expect(pluginHost.activate).toHaveBeenCalledWith(pluginId)
     expect(result).toMatchObject({ ok: true, restartRequired: false })
 
-    // Ordering must still hold: deactivate (so the worker releases overlay
-    // files) strictly before the rescan/reactivate.
-    const deactivateOrder = pluginHost.deactivate.mock.invocationCallOrder[0]
+    // BuiltinUpdater owns the admission/deactivate/rescan boundary; the
+    // command must await that complete lifecycle before reactivation.
+    const revertOrder = ctx.builtinUpdater.revert.mock.invocationCallOrder[0]
     const discoverOrder = pluginRegistry.discover.mock.invocationCallOrder[0]
     const activateOrder = pluginHost.activate.mock.invocationCallOrder[0]
-    expect(deactivateOrder).toBeLessThan(discoverOrder)
+    expect(revertOrder).toBeLessThan(discoverOrder)
     expect(discoverOrder).toBeLessThan(activateOrder)
 
     // The overlay directory itself is gone.
@@ -2247,6 +2615,7 @@ describe('Commands.RevertBuiltinToBundled', () => {
     const pluginId = 'motrix.filename-template'
     const { ctx, pluginRegistry, pluginHost } = await makeRevertCtx(pluginId)
     pluginRegistry.list.mockReturnValue([{ id: pluginId, status: 'inactive' }])
+    pluginHost.isActive.mockReturnValue(false)
     const handlers = buildCommandHandlers(ctx as unknown as CommandContext)
 
     const result = await handlers[Commands.RevertBuiltinToBundled]?.({
@@ -2255,5 +2624,64 @@ describe('Commands.RevertBuiltinToBundled', () => {
 
     expect(pluginHost.activate).not.toHaveBeenCalled()
     expect(result).toMatchObject({ ok: true, restartRequired: false })
+  })
+})
+
+describe('main finalize retry wiring', () => {
+  it.each([Commands.ReAddTask, Commands.RetryTasks])(
+    'routes %s to recovery for an interrupted finalize',
+    async (command) => {
+      const ctx = fakeCtx() as unknown as CommandContext
+      const task = makeDownloadTask({
+        id: 'interrupted-finalize',
+        type: TaskType.Bt,
+        status: TaskStatus.Error,
+        transitionPhase: TransitionPhase.Renaming,
+      })
+      vi.spyOn(ctx.taskManager, 'getById').mockReturnValue(task)
+      const recoverFinalization = vi.fn().mockResolvedValue(undefined)
+      const handlers = buildCommandHandlers({ ...ctx, recoverFinalization })
+      await handlers[command]?.(
+        command === Commands.ReAddTask ? task.id : [task.id]
+      )
+      expect(recoverFinalization).toHaveBeenCalledExactlyOnceWith(task.id)
+    }
+  )
+})
+
+describe('host-owned task directory history', () => {
+  it('returns an accepted magnet while the directory write is pending', async () => {
+    const ctx = fakeCtx()
+    let finish!: (value: unknown) => void
+    const record = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    ctx.settingsManager.mutateDirectoryPreferences = record as never
+    const handlers = buildCommandHandlers(
+      ctx as unknown as Parameters<typeof buildCommandHandlers>[0]
+    )
+    const request = {
+      type: 'bt',
+      payload: {
+        kind: 'magnet',
+        uri: 'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
+      },
+      selectedFiles: [],
+      saveDir: '/tmp',
+    }
+    await expect(handlers[Commands.CreateTask]?.(request)).resolves.toEqual({
+      ok: true,
+    })
+    const canonical = await realpath('/tmp')
+    await vi.waitFor(() =>
+      expect(record).toHaveBeenCalledExactlyOnceWith({
+        action: 'recordRecent',
+        path: canonical,
+      })
+    )
+    finish({ ok: true, value: { favorites: [], recent: [] } })
   })
 })

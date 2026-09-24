@@ -84,6 +84,26 @@ describe('WindowChrome', () => {
     expect((container.firstChild as HTMLElement).style.paddingLeft).toBe('94px')
   })
 
+  it('removes the macOS traffic-light inset while full-screen', () => {
+    const { container } = render(
+      <WindowChrome variant="overlay">
+        <button type="button">App action</button>
+      </WindowChrome>
+    )
+
+    act(() => {
+      emit(Events.WindowMaximizedChanged, {
+        maximized: false,
+        fullscreen: true,
+      })
+    })
+
+    const chrome = container.firstChild as HTMLElement
+    expect(chrome.style.paddingLeft).toBe('')
+    expect(chrome.style.paddingInlineStart).toBe('12px')
+    expect(screen.getByRole('button', { name: 'App action' })).toBeVisible()
+  })
+
   it('renders the title text in titled variant', () => {
     render(<WindowChrome variant="titled" title="My Window" />)
     expect(screen.getByText('My Window')).toBeInTheDocument()
@@ -273,7 +293,10 @@ describe('WindowChrome', () => {
     )
 
     act(() => {
-      emit(Events.WindowMaximizedChanged, { maximized: true })
+      emit(Events.WindowMaximizedChanged, {
+        maximized: true,
+        fullscreen: false,
+      })
     })
 
     const restore = screen.getByRole('button', { name: 'Restore' })
@@ -282,6 +305,88 @@ describe('WindowChrome', () => {
       'data-caption-icon',
       'restore'
     )
+  })
+
+  it.each(['win32', 'linux'] as const)(
+    'keeps %s app actions but hides caption controls while full-screen',
+    (platform) => {
+      setPlatform(platform)
+      const { container } = render(
+        <WindowChrome
+          variant="overlay"
+          leading={<button type="button">Motrix menu</button>}
+        >
+          <button type="button">App action</button>
+        </WindowChrome>
+      )
+
+      act(() => {
+        emit(Events.WindowMaximizedChanged, {
+          maximized: false,
+          fullscreen: true,
+        })
+      })
+
+      const chrome = container.querySelector('.window-chrome')
+      expect(chrome).toBeVisible()
+      expect(chrome).toHaveAttribute('data-fullscreen', 'true')
+      expect(chrome).not.toHaveClass('app-drag')
+      expect(screen.getByRole('button', { name: 'Motrix menu' })).toBeVisible()
+      expect(screen.getByRole('button', { name: 'App action' })).toBeVisible()
+      expect(screen.queryByRole('button', { name: 'Minimize' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Maximize' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
+
+      act(() => {
+        emit(Events.WindowMaximizedChanged, {
+          maximized: false,
+          fullscreen: false,
+        })
+      })
+      expect(container.querySelector('.window-chrome')).toHaveAttribute(
+        'data-fullscreen',
+        'false'
+      )
+      expect(container.querySelector('.window-chrome')).toHaveClass('app-drag')
+      expect(screen.getByRole('button', { name: 'Maximize' })).toBeVisible()
+    }
+  )
+
+  it('uses the same full-screen chrome behavior in the macOS desktop-controls preview', () => {
+    setPlatform('darwin')
+    const { container } = render(
+      <WindowChrome
+        variant="overlay"
+        previewDesktopControls
+        leading={<button type="button">Motrix menu</button>}
+      >
+        <button type="button">App action</button>
+      </WindowChrome>
+    )
+
+    act(() => {
+      emit(Events.WindowMaximizedChanged, {
+        maximized: false,
+        fullscreen: true,
+      })
+    })
+
+    const chrome = container.querySelector('.window-chrome')
+    expect(chrome).toBeVisible()
+    expect(chrome).toHaveAttribute('data-fullscreen', 'true')
+    expect(screen.getByRole('button', { name: 'Motrix menu' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'App action' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Minimize' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Maximize' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
+
+    act(() => {
+      emit(Events.WindowMaximizedChanged, {
+        maximized: false,
+        fullscreen: false,
+      })
+    })
+    expect(screen.getByRole('button', { name: 'Maximize' })).toBeVisible()
   })
 
   it('uses theme-aware caption colors with a readable destructive hover', () => {

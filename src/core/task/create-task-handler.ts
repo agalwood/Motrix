@@ -17,6 +17,7 @@ import { newEngineTaskId, newTaskId } from '@core/lib/ids'
 import { getLogger } from '@core/logger'
 import type { HookAuditLog } from '@core/plugin/hooks/audit-log'
 import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
+import type { StagedMetadataOp } from '@core/plugin/hooks/staged-effects'
 import type {
   AppliedDownloadProxyPolicyReader,
   AppliedDownloadProxySnapshot,
@@ -60,16 +61,21 @@ import {
   inspectBtDuplicate,
   reservedBtFinalNames,
   TorrentDuplicateConflictError,
+  withBtOutputAdmission,
 } from './bt-duplicate-policy'
 import {
-  type BtStoragePlan,
   btStoragePayload,
-  createBtStoragePlan,
+  createBtDirectStoragePlan,
   type ParsedBtFileLayout,
   parseBtFileLayout,
   shouldPrioritizeBtPreviewPieces,
   UnsafeTorrentPathError,
 } from './bt-storage-layout'
+import {
+  type CreateRequestReceipt,
+  createRequestFingerprint,
+  runCreateRequest,
+} from './create-request-id'
 import {
   buildDirectReplayRecipe,
   type DirectReplayRecipe,
@@ -88,7 +94,14 @@ import {
   type TaskCreateSkippedInfo,
 } from './create-collision-policy'
 import type { FinalNamePicker } from './final-name-picker'
+import { findPathOverrun } from './path-length'
 import { toTempPath } from './paths'
+import {
+  admitDownloadSources,
+  admitHttpSource,
+  admitTaskCreateRequest,
+  DownloadSourceError,
+} from './source-admission'
 import type { TaskManager } from './task-manager'
 import type { TorrentMetaStore } from './torrent-meta-store'
 
@@ -125,6 +138,15 @@ export interface CreateTaskDeps {
   // for the chain to fire; absence is a clean no-op for backward compat.
   orchestrator?: HookOrchestrator
   auditLog?: HookAuditLog
+  /**
+   * Persists the new task graph and pre-Hook metadata in one SQLite
+   * transaction. Required whenever beforeCreate stages metadata operations.
+   */
+  persistTaskWithPluginMetadata?: (
+    task: DownloadTask,
+    operations: readonly StagedMetadataOp[]
+  ) => Promise<void>
+  /** @deprecated Retained for legacy composition; never used for Hook commit. */
   db?: Database.Database
   /** Optional engine-readiness gate. Awaited immediately before each engine
    *  adapter call so a cold-start request waits for aria2 instead of hitting
@@ -206,11 +228,17 @@ export interface CreateTaskDeps {
 export interface CreateTaskOptions {
   source?: TaskSource // default 'user'
   sourceMeta?: SourceMeta // default null
+  /** Ephemeral credentials; kept out of persisted task records and plugins. */
+  cookies?: CreateDownloadParams['cookies']
   /** Engine option dictionary merged into the engine call: header
-   *  (repeated), load-cookies, referer. createTaskHandler forwards these
+   *  (repeated), referer. createTaskHandler forwards these
    *  via CreateDownloadParams.extraEngineOptions; the adapter honors the
    *  keys it understands. */
   extraEngineOptions?: Record<string, string | string[]>
+}
+
+type AdmittedCreateOptions = CreateTaskOptions & {
+  receipt?: CreateRequestReceipt
 }
 
 /**
@@ -238,7 +266,35 @@ export async function handleCreateTask(
   opts: CreateTaskOptions = {}
 ): Promise<TaskCreateSuccessResult> {
   try {
-    return await handleCreateTaskWithBtAdmission(rawRequest, deps, opts)
+    const request = admitTaskCreateRequest(rawRequest)
+    if (request.type === 'http' && request.uris[0].startsWith('ftp:')) {
+      const reason = !deps.adapter.getCapabilities().ftp
+        ? 'unsupportedProtocol'
+        : opts.cookies?.length ||
+            Object.keys(opts.extraEngineOptions ?? {}).length
+          ? 'unsupportedRequestOptions'
+          : null
+      if (reason)
+        throw new DownloadSourceError({
+          stage: 'input',
+          index: 0,
+          diagnostic: { reason, start: 0, end: 0 },
+        })
+    }
+    const fingerprint = createRequestFingerprint({ request, opts })
+    const receipt =
+      request.type === 'http' && request.requestId
+        ? {
+            createRequestId: request.requestId,
+            createRequestFingerprint: fingerprint,
+          }
+        : undefined
+    return runCreateRequest(
+      deps.taskManager,
+      request.type === 'http' ? request.requestId : undefined,
+      fingerprint,
+      () => createAdmittedTask(request, deps, { ...opts, receipt })
+    )
   } catch (err) {
     if (err instanceof TaskCreateSkippedError) {
       // The destination-collision policy rejected the create before any
@@ -253,10 +309,10 @@ export async function handleCreateTask(
   }
 }
 
-async function handleCreateTaskWithBtAdmission(
+async function createAdmittedTask(
   rawRequest: unknown,
   deps: CreateTaskDeps,
-  opts: CreateTaskOptions = {}
+  opts: AdmittedCreateOptions
 ): Promise<TaskCreateSuccessResult> {
   const parsed = taskCreateRequestSchema.safeParse(rawRequest)
   if (parsed.success && parsed.data.type === 'http') {
@@ -270,23 +326,54 @@ async function handleCreateTaskWithBtAdmission(
     // Keep a runtime guard for untyped composition code: missing policy
     // injection must disable metadata I/O instead of consulting newer,
     // potentially unapplied SettingsManager values.
-    return policy
-      ? policy.runWithSnapshot((snapshot, lease) =>
-          handleCreateTaskUnderAdmission(
+    const requestedDir =
+      parsed.data.saveDir || deps.settingsManager.getApp().defaultSaveDir
+    const preparedDir = deps.prepareSaveDir
+      ? await deps.prepareSaveDir(requestedDir)
+      : requestedDir
+    return withBtOutputAdmission(preparedDir, () =>
+      policy
+        ? policy.runWithSnapshot((snapshot, lease) =>
+            handleCreateTaskUnderAdmission(
+              rawRequest,
+              deps,
+              opts,
+              snapshot,
+              lease.assertCurrent,
+              preparedDir
+            )
+          )
+        : handleCreateTaskUnderAdmission(
             rawRequest,
             deps,
             opts,
-            snapshot,
-            lease.assertCurrent
+            null,
+            undefined,
+            preparedDir
           )
-        )
-      : handleCreateTaskUnderAdmission(rawRequest, deps, opts, null)
+    )
   }
   if (!parsed.success || parsed.data.type !== 'bt') {
     return handleCreateTaskUnderAdmission(rawRequest, deps, opts)
   }
 
   const req = parsed.data
+  const requestedSaveDir =
+    req.saveDir || deps.settingsManager.getApp().defaultSaveDir
+  const preparedSaveDir = deps.prepareSaveDir
+    ? await deps.prepareSaveDir(requestedSaveDir)
+    : requestedSaveDir
+  const createBtTask = () =>
+    withBtOutputAdmission(preparedSaveDir, () =>
+      handleCreateTaskUnderAdmission(
+        rawRequest,
+        deps,
+        opts,
+        undefined,
+        undefined,
+        preparedSaveDir
+      )
+    )
   let infoHash =
     req.payload.kind === 'magnet'
       ? extractMagnetInfoHash(req.payload.uri)
@@ -299,11 +386,11 @@ async function handleCreateTaskWithBtAdmission(
       // The canonical create path below owns parse-error handling and logging.
     }
   }
-  if (!infoHash) return handleCreateTaskUnderAdmission(rawRequest, deps, opts)
+  if (!infoHash) return createBtTask()
 
   const release = await acquireBtInfoHashAdmission(infoHash)
   try {
-    return await handleCreateTaskUnderAdmission(rawRequest, deps, opts)
+    return await createBtTask()
   } finally {
     release()
   }
@@ -312,9 +399,10 @@ async function handleCreateTaskWithBtAdmission(
 async function handleCreateTaskUnderAdmission(
   rawRequest: unknown,
   deps: CreateTaskDeps,
-  opts: CreateTaskOptions = {},
+  opts: AdmittedCreateOptions = {},
   appliedProxySnapshot?: AppliedDownloadProxySnapshot,
-  assertAppliedProxyCurrent?: () => void
+  assertAppliedProxyCurrent?: () => void,
+  preparedSaveDir?: string
 ): Promise<TaskCreateSuccessResult> {
   const parsed = taskCreateRequestSchema.safeParse(rawRequest)
   if (!parsed.success) {
@@ -328,10 +416,19 @@ async function handleCreateTaskUnderAdmission(
   const appSettings = deps.settingsManager.getApp()
   const engineSettings = deps.settingsManager.getEngine()
 
+  if (req.type === 'http')
+    req.uris = admitDownloadSources(req.uris, 'input', [
+      'http',
+      'https',
+      'ftp',
+    ]).map((source) => source.sourceUrl)
+
   const requestedSaveDir = req.saveDir || appSettings.defaultSaveDir
-  const effectiveSaveDir = deps.prepareSaveDir
-    ? await deps.prepareSaveDir(requestedSaveDir)
-    : requestedSaveDir
+  const effectiveSaveDir =
+    preparedSaveDir ??
+    (deps.prepareSaveDir
+      ? await deps.prepareSaveDir(requestedSaveDir)
+      : requestedSaveDir)
   const taskId = newTaskId()
 
   log.info(
@@ -368,7 +465,7 @@ async function handleCreateTaskUnderAdmission(
       }
       log.warn(
         { err },
-        'failed to parse torrent for indexed staging; falling back to legacy layout'
+        'failed to parse torrent paths; using engine paths inside the final directory'
       )
     }
   }
@@ -435,7 +532,9 @@ async function handleCreateTaskUnderAdmission(
         })
       }
     }
-    return deps.finalNamePicker.pick(effectiveSaveDir, name)
+    // Delegate to the reserved-name-aware pick so an HTTP create also avoids
+    // names BT outputs are about to claim.
+    return pickHttpFinalName(name)
   }
 
   if (
@@ -443,33 +542,36 @@ async function handleCreateTaskUnderAdmission(
     btInfoHash &&
     req.duplicatePolicy === 'reuse' &&
     deps.finalNamePicker.isTaken &&
-    (await deps.finalNamePicker.isTaken(effectiveSaveDir, desiredName))
+    (await deps.finalNamePicker.isTaken(
+      effectiveSaveDir,
+      desiredName,
+      parsedBtLayout?.multiFile === false
+    ))
   ) {
     throw existingFilesConflict(btInfoHash, effectiveSaveDir)
   }
-  const reservedNames =
-    req.type === 'bt'
-      ? reservedBtFinalNames(
-          deps.taskManager.getAll(),
-          effectiveSaveDir,
-          req.existingTaskId
-        )
-      : undefined
+  const reservedNames = reservedBtFinalNames(
+    deps.taskManager.getAll(),
+    effectiveSaveDir,
+    req.type === 'bt' ? req.existingTaskId : undefined
+  )
+  const pickHttpFinalName = (desired: string) =>
+    reservedNames.length > 0
+      ? deps.finalNamePicker.pick(effectiveSaveDir, desired, reservedNames)
+      : deps.finalNamePicker.pick(effectiveSaveDir, desired)
   let finalName =
     req.type === 'bt'
       ? await deps.finalNamePicker.pick(
           effectiveSaveDir,
           desiredName,
-          reservedNames
+          reservedNames,
+          parsedBtLayout?.multiFile === false
         )
       : await resolveHttpFinalName(desiredName)
 
   const taskType = deriveTaskType(req)
   let finalPath = path.join(effectiveSaveDir, finalName)
-  const btStoragePlan: BtStoragePlan | null = parsedBtLayout
-    ? createBtStoragePlan(taskId, effectiveSaveDir, parsedBtLayout)
-    : null
-  let diskPath = btStoragePlan?.layout.workspacePath ?? toTempPath(finalPath)
+  let diskPath = isTorrentLikeType(taskType) ? finalPath : toTempPath(finalPath)
   // Anchor "now" early so the hook DTO's requestedAt and the persisted
   // task row share a clock — they are written in the same SQLite
   // transaction when plugin metadata is staged.
@@ -492,28 +594,37 @@ async function handleCreateTaskUnderAdmission(
     }
   }
 
-  // 2.5. Pre-create the on-disk slot before handing off to aria2.
-  // `diskPath` means different things by task family:
-  //   - Parsed .torrent: `diskPath` is a short task workspace and index-out
-  //     maps payload files below `<diskPath>/p`.
-  //   - Unresolved magnet / legacy BT: `diskPath` is the traditional
-  //     `<finalName>.motrix` container.
-  //     For both BT layouts, pre-creating the engine `dir` also
-  //     guarantees `aria2.addTorrent`'s metadata write
-  //     (`<diskPath>/<sha1>.torrent`) succeeds at add time. Without
-  //     this dir, the save fails silently; the resulting task gets a
-  //     data-only `MetadataInfo` and the sqlite3 `task` row is never
-  //     written, so the next pause hits a FOREIGN KEY violation when
-  //     `task_progress` is upserted.
-  //   - HTTP/FTP: `diskPath` IS the file aria2 will create
-  //     (`dir = saveDir`, `out = <finalName>.motrix`). mkdir'ing it
-  //     would race with aria2's open(2) for write — the path becomes
-  //     a directory and aria2 fails the task with EISDIR. Pre-create
-  //     `saveDir` instead so aria2's `dir` option is reachable.
-  // aria2_motrix has the matching mkdirs on its side, so an mkdir
-  // error here is logged but not fatal — defence-in-depth, not
-  // single point of failure.
-  const ensureDir = isTorrentLikeType(taskType) ? diskPath : effectiveSaveDir
+  const btStoragePlan = isTorrentLikeType(taskType)
+    ? createBtDirectStoragePlan(finalPath, parsedBtLayout, torrentMetaPath)
+    : null
+
+  // Fail before a single byte moves when a destination cannot be opened at
+  // all. The engine opens Windows paths past MAX_PATH (agalwood/Motrix#2183),
+  // but not past the extended-length limit (see path-length); without this
+  // the user would pay for the transfer before a generic write error. A
+  // .torrent declares its internal paths up front, so its deepest one is
+  // checkable here; a magnet's is not, and falls back to the terminal-error
+  // classifier.
+  const plannedPaths = [diskPath, finalPath]
+  for (const file of parsedBtLayout?.files ?? []) {
+    if (file.pathInsideRoot) {
+      plannedPaths.push(path.join(finalPath, file.pathInsideRoot))
+    }
+  }
+  const overrun = findPathOverrun(plannedPaths, process.platform)
+  if (overrun) {
+    throw new AppError(
+      ErrorCode.TaskPathTooLong,
+      `task path too long: ${overrun.length}/${overrun.limit}: ${overrun.path}`
+    )
+  }
+
+  // Create the engine's directory before admission so aria2 can persist its
+  // torrent metadata. Multi-file BT uses its private metadata directory and
+  // maps every payload into the final output root. Single-file BT uses the
+  // destination parent; unresolved BT uses the final container. HTTP keeps
+  // its incomplete suffix inside the chosen save root.
+  const ensureDir = btStoragePlan?.saveDir ?? effectiveSaveDir
   try {
     await mkdir(ensureDir, { recursive: true })
   } catch (cause) {
@@ -525,10 +636,10 @@ async function handleCreateTaskUnderAdmission(
 
   // 3. Build engine-agnostic create params per task family and dispatch
   // through the EngineAdapter. For HTTP, dir=saveDir and out uses the
-  // incomplete suffix. For BT/magnet, dir=diskPath and `out` is absent;
+  // incomplete suffix. BT uses its final output directory and no `out`;
   // parsed torrents additionally carry per-file output mappings. The adapter
   // is responsible for the aria2 wire shape.
-  let pluginStaged: { commit: (cb: () => void) => void } | undefined
+  let pluginMetadataOps: readonly StagedMetadataOp[] = []
   let dispatchEngine: (reservedGid: string) => Promise<string>
   let directReplay: DirectReplayRecipe | null = null
   let canonicalUris = deriveUris(req)
@@ -557,7 +668,23 @@ async function handleCreateTaskUnderAdmission(
       return deps.adapter.createDownload(params)
     }
 
-  if (req.type === 'http') {
+  if (req.type === 'http' && req.uris[0].startsWith('ftp:')) {
+    directReplay = buildDirectReplayRecipe({
+      connections: req.connections,
+      proxy: req.proxy,
+    })
+    canonicalUris = admitDownloadSources(req.uris, 'input', ['ftp']).map(
+      (source) => source.requestUrl
+    )
+    dispatchEngine = dispatchCreateDownload({
+      uris: canonicalUris,
+      saveDir: effectiveSaveDir,
+      filename: `${finalName}${INCOMPLETE_SUFFIX}`,
+      performanceProfile: engineSettings.performanceProfile,
+      connections: req.connections,
+      proxy: req.proxy,
+    })
+  } else if (req.type === 'http') {
     const clampedConnections =
       req.connections !== undefined
         ? Math.min(req.connections, engineSettings.maxConnectionPerServer)
@@ -576,8 +703,9 @@ async function handleCreateTaskUnderAdmission(
       userAgent: engineSettings.userAgent,
       connections: clampedConnections,
       headers: headersRecord,
+      cookies: opts.cookies,
       proxy: req.proxy,
-      // Bridge cookie jar / referer; createDownload merges these raw AFTER
+      // Bridge referer; createDownload merges these raw AFTER
       // dir/out so a shell-supplied option can override (matches old order).
       extraEngineOptions: opts.extraEngineOptions,
     }
@@ -643,13 +771,14 @@ async function handleCreateTaskUnderAdmission(
             taskId,
             saveDir: effectiveSaveDir,
             finalName: muxFinalName,
-            videoUrl: muxResult.videoUrl,
-            audioUrl: muxResult.audioUrl,
+            videoUrl: admitHttpSource(muxResult.videoUrl),
+            audioUrl: admitHttpSource(muxResult.audioUrl),
             sanitizedHeaders,
             container: muxResult.container,
             // Desktop path: no extension session context; sourceMeta is null.
             // MediaTaskCoordinator accepts SourceMeta (= BridgeSourceMeta | null).
             sourceMeta: null,
+            receipt: opts.receipt,
           }
           const muxDispatchResult = await deps.dispatchMux(adaptedMux)
           return {
@@ -673,12 +802,15 @@ async function handleCreateTaskUnderAdmission(
         taskId,
         hasOrchestrator: Boolean(deps.orchestrator),
         reqType: req.type,
-        uris: req.uris,
+        uriCount: req.uris.length,
       },
       'beforeCreate hook chain pre-check'
     )
     if (deps.orchestrator) {
       const ctxDto: BeforeCreateHttpContextDTO = {
+        schemaVersion: 1,
+        invocationId: `before-create:${taskId}`,
+        taskId,
         type: 'http',
         sourceUrl: params.uris[0] ?? '',
         uris: [...params.uris],
@@ -695,7 +827,9 @@ async function handleCreateTaskUnderAdmission(
         {
           taskId,
           aborted: result.aborted === true,
-          rewrittenUris: result.aborted ? undefined : result.final.uris,
+          rewrittenUriCount: result.aborted
+            ? undefined
+            : result.final.uris.length,
           contributors: result.aborted ? undefined : result.contributors,
         },
         'beforeCreate hook chain result'
@@ -719,6 +853,13 @@ async function handleCreateTaskUnderAdmission(
       //   - headers: only when the chain produced headers (else keep req)
       //   - proxy: TRUTHY check (an empty-string proxy must NOT overwrite)
       params.uris = [...result.final.uris]
+      // Hook outputs are task sources, not plugin HTTP requests. Re-run the
+      // same source policy as user input; hostPermissions never authorize an
+      // otherwise invalid or credential-bearing download target.
+      params.uris = admitDownloadSources(params.uris, 'plugin', [
+        'http',
+        'https',
+      ]).map((source) => source.requestUrl)
       if (result.final.headers.length > 0) {
         params.headers = Object.fromEntries(
           result.final.headers.map((h) => [h.name, h.value])
@@ -739,12 +880,15 @@ async function handleCreateTaskUnderAdmission(
         uriContributor: result.contributors.uris,
         finalHeaderCount: result.final.headers.length,
       })
-      if (deps.db) {
-        const db = deps.db
-        pluginStaged = {
-          commit: (cb: () => void) =>
-            result.staged.commitMetadata(db, taskId, cb),
-        }
+      pluginMetadataOps =
+        typeof result.staged.allMetadataOps === 'function'
+          ? result.staged.allMetadataOps()
+          : []
+      if (pluginMetadataOps.length > 0 && !deps.persistTaskWithPluginMetadata) {
+        throw new AppError(
+          ErrorCode.PluginRuntimeFault,
+          'beforeCreate metadata requires an atomic task persistence boundary'
+        )
       }
     }
 
@@ -753,6 +897,10 @@ async function handleCreateTaskUnderAdmission(
     const ambientMetadataProfile = metadataHeadersSupported
       ? resolveDirectResourceMetadataProfile(deps.adapter)
       : null
+    params.uris = admitDownloadSources(params.uris, 'plugin', [
+      'http',
+      'https',
+    ]).map((source) => source.requestUrl)
     const metadataRequestProfile = canApplyDirectResourceMetadataProfile(
       params,
       ambientMetadataProfile
@@ -848,12 +996,12 @@ async function handleCreateTaskUnderAdmission(
     // are always present on the torrent-base64 path.
     const params: AddTorrentParams = {
       metadata: torrentBytes ?? decodeBase64ToBytes(req.payload.base64),
-      // applyPathOverrides BT equivalent: dir = diskPath, out dropped.
-      saveDir: diskPath,
+      saveDir: btStoragePlan?.saveDir ?? diskPath,
       // CREATE-PATH +1: req indices are 0-based; aria2 select-file is
       // 1-based, and addTorrent serializes selectedFiles with a raw join.
       selectedFiles: req.selectedFiles.map((i) => i + 1),
       outputFilePaths: btStoragePlan?.outputFilePaths,
+      outputRoot: btStoragePlan?.outputRoot,
       dlLimit: req.dlLimit,
       ulLimit: req.ulLimit,
       seedRatio: req.seedRatio,
@@ -889,10 +1037,10 @@ async function handleCreateTaskUnderAdmission(
         .join(',')
     }
     if (req.dlLimit !== undefined) {
-      magnetEngineOpts['max-download-limit'] = `${req.dlLimit}K`
+      magnetEngineOpts['max-download-limit'] = String(req.dlLimit)
     }
     if (req.ulLimit !== undefined) {
-      magnetEngineOpts['max-upload-limit'] = `${req.ulLimit}K`
+      magnetEngineOpts['max-upload-limit'] = String(req.ulLimit)
     }
     if (req.seedRatio !== undefined) {
       magnetEngineOpts['seed-ratio'] = String(req.seedRatio)
@@ -905,7 +1053,7 @@ async function handleCreateTaskUnderAdmission(
       // merged LAST in the old code and could override). createDownload then
       // merges extraEngineOptions after `dir`, so the final aria2 map is
       // { dir: diskPath, ...magnetEngineOpts, ...opts.extraEngineOptions } —
-      // byte-identical to the old toBt + applyPathOverrides + opts merge.
+      // explicit shell overrides keep their existing precedence.
       extraEngineOptions: {
         ...magnetEngineOpts,
         ...(opts.extraEngineOptions ?? {}),
@@ -953,6 +1101,13 @@ async function handleCreateTaskUnderAdmission(
     updatedAt: now,
   }
 
+  if (opts.receipt) {
+    primaryInstance.payload = {
+      ...primaryInstance.payload,
+      ...opts.receipt,
+    }
+  }
+
   const task: DownloadTask = makeDownloadTask({
     id: taskId,
     engineTaskId: gid,
@@ -991,10 +1146,16 @@ async function handleCreateTaskUnderAdmission(
     deps.taskManager.reserveEngineTaskId(gid)
 
     const persistParent = async (): Promise<void> => {
+      if (pluginMetadataOps.length > 0) {
+        await deps.persistTaskWithPluginMetadata?.(task, pluginMetadataOps)
+        return
+      }
       await deps.persistTask?.(task)
     }
     const hasDurableIntent = Boolean(
-      deps.persistTask || deps.parentTaskCreated || pluginStaged
+      deps.persistTask ||
+        deps.parentTaskCreated ||
+        (pluginMetadataOps.length > 0 && deps.persistTaskWithPluginMetadata)
     )
     const rollbackDurableIntent = async (): Promise<boolean> => {
       if (!hasDurableIntent) return true
@@ -1024,10 +1185,6 @@ async function handleCreateTaskUnderAdmission(
       } else {
         await persistParent()
       }
-      // Plugin metadata must be durable before engine dispatch too. The parent
-      // row already crossed its rejecting barrier above; this synchronous
-      // transaction flushes only the staged hook metadata.
-      pluginStaged?.commit(() => {})
     } catch (cause) {
       const rolledBack = await rollbackDurableIntent()
       if (rolledBack) {
@@ -1123,7 +1280,8 @@ async function handleCreateTaskUnderAdmission(
 // ─── Helpers ──────────────────────────────────────────────────
 
 function deriveTaskType(req: TaskCreateRequest): TaskType {
-  if (req.type === 'http') return TaskType.Http
+  if (req.type === 'http')
+    return req.uris[0]?.startsWith('ftp:') ? TaskType.Ftp : TaskType.Http
   return req.payload.kind === 'magnet' ? TaskType.Magnet : TaskType.Bt
 }
 
@@ -1161,6 +1319,7 @@ function directResourceRequestContext(
   params: Pick<
     CreateDownloadParams,
     | 'headers'
+    | 'cookies'
     | 'proxy'
     | 'extraEngineOptions'
     | 'userAgent'
@@ -1170,7 +1329,10 @@ function directResourceRequestContext(
 ): DirectResourceRequestOptions | null {
   // Passthrough engine options can add cookies, a referer, headers, or other
   // request semantics the metadata client cannot reconstruct safely.
+  // An explicitly empty task jar is representable; keep it isolated when
+  // dispatching to the engine, while refusing probes for populated jars.
   if (
+    (params.cookies?.length ?? 0) > 0 ||
     (params.extraEngineOptions &&
       Object.keys(params.extraEngineOptions).length > 0) ||
     params.directResourceMetadataProfile !== DIRECT_RESOURCE_METADATA_PROFILE ||
@@ -1220,11 +1382,12 @@ function resolveDirectResourceMetadataProfile(
 }
 
 function canApplyDirectResourceMetadataProfile(
-  params: Pick<CreateDownloadParams, 'uris' | 'extraEngineOptions'>,
+  params: Pick<CreateDownloadParams, 'uris' | 'cookies' | 'extraEngineOptions'>,
   profile: DirectResourceMetadataProfile | null
 ): DirectResourceMetadataProfile | null {
   if (
     profile === null ||
+    (params.cookies?.length ?? 0) > 0 ||
     (params.extraEngineOptions &&
       Object.keys(params.extraEngineOptions).length > 0) ||
     !params.uris.every(isCredentialFreeHttpUri)

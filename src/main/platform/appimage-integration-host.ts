@@ -246,7 +246,4 @@ export async function reconcileAppImageIntegrationFromSettings(
   }
 }
 
-// TODO(Layer 3a): the browser bridge unconditionally syncs native-messaging
-// manifests on startup (src/main/bridge/index.ts:648). That sync must become
-// gated on this module's `nmConsent` once Layer 3a lands, so an AppImage that
-// declined desktop integration never writes NM manifests. Not changed here.
+// Browser launch consent and installation live independently in bridge/appimage-native-host.ts.

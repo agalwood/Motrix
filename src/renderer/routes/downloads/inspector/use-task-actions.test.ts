@@ -169,6 +169,25 @@ describe('useTaskActions', () => {
     expect(openAddTaskDialog).toHaveBeenCalled()
   })
 
+  it.each([false, true])(
+    'retries finalization directly with alt=%s',
+    async (alt) => {
+      const task = makeTask({
+        id: 'finalize-failed',
+        status: TaskStatus.Error,
+        transitionPhase: TransitionPhase.Renaming,
+      })
+      const { result } = renderHook(() => useTaskActions([task]))
+      expect(result.current.retryCount).toBe(1)
+      await result.current.onRetry({ alt })
+      expect(transport.invoke).toHaveBeenCalledExactlyOnceWith(
+        Commands.RetryTasks,
+        [task.id]
+      )
+      expect(openAddTaskDialog).not.toHaveBeenCalled()
+    }
+  )
+
   it('onRetry({ alt: true }) on multi falls back to generic RetryTasks', async () => {
     const tasks = [
       makeRetryableErrorTask({ id: 'a' }),

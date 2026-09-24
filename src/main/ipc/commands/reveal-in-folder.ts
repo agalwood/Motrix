@@ -1,9 +1,13 @@
+import { stat } from 'node:fs/promises'
 import path from 'node:path'
 import { AppError, ErrorCode } from '@shared/errors'
 import type { DownloadTask } from '@shared/types/task'
 
 export interface RevealInFolderDeps {
-  shell: { showItemInFolder: (path: string) => void }
+  shell: {
+    showItemInFolder: (path: string) => void
+    openPath: (path: string) => Promise<string>
+  }
   getTask: (
     taskId: string
   ) => Pick<DownloadTask, 'diskPath' | 'finalPath'> | undefined
@@ -57,6 +61,34 @@ export function createRevealInFolderHandler(deps: RevealInFolderDeps) {
       )
     }
 
-    deps.shell.showItemInFolder(taskPath)
+    try {
+      const output = await stat(taskPath).catch(
+        (error: NodeJS.ErrnoException) => {
+          if (error.code === 'ENOENT') return null
+          throw error
+        }
+      )
+      if (output !== null) {
+        deps.shell.showItemInFolder(taskPath)
+        return
+      }
+
+      // Incomplete outputs can still have a .motrix suffix or live in a BT
+      // workspace. showItemInFolder silently fails for their absent final
+      // path, so open its containing directory until the output is published.
+      const pathApi = path.posix.isAbsolute(taskPath) ? path.posix : path.win32
+      const directory = pathApi.dirname(taskPath)
+      if (!(await stat(directory)).isDirectory()) {
+        throw new Error('task parent is not a directory')
+      }
+      const error = await deps.shell.openPath(directory)
+      if (error) throw new Error(error)
+    } catch (cause) {
+      throw new AppError(
+        ErrorCode.TaskRevealFailed,
+        'revealInFolder: task output cannot be revealed',
+        cause
+      )
+    }
   }
 }

@@ -1,10 +1,10 @@
 # Flathub manifest for Motrix Turbo.
 #
-# The canonical application source remains a placeholder until motrix-turbo
-# has a public, tagged release. PR CI derives a temporary manifest from this
-# file and replaces only that source with a git archive of the checked-out
-# commit. Every dependency used after flatpak-builder enters its offline build
-# phase is declared below or in the two committed generated source manifests.
+# PR CI and release builds derive a manifest from this template, replacing the
+# application source with a checksum-pinned archive of the checked-out commit.
+# Direct Flathub submission still requires a public source tag and commit here.
+# Every dependency used during the offline build is declared below or in the
+# two committed generated source manifests.
 
 app-id: app.motrix.native
 runtime: org.freedesktop.Platform
@@ -101,7 +101,7 @@ modules:
         set -e
         output="$(src/aria2c --version)"
         printf '%s\n' "$output"
-        printf '%s\n' "$output" | grep -qF 'aria2 version 1.37.0-motrix.11'
+        printf '%s\n' "$output" | grep -qF 'aria2 version 1.37.0-motrix.16'
         for feature in \
           'Async DNS' \
           'BitTorrent' \
@@ -123,8 +123,8 @@ modules:
     sources:
       - type: git
         url: https://github.com/motrixapp/aria2.git
-        tag: v1.37.0-motrix.11
-        commit: ab003d49360bac776ada3e967821410f527c00a6
+        tag: v1.37.0-motrix.16
+        commit: e093973f113f0a880f9757a2ad0258cb2356295e
         x-checker-data:
           type: git
           tag-pattern: ^v([\d.]+-motrix\.\d+)$
@@ -136,9 +136,9 @@ modules:
         commands:
           - |
             sed -i -E \
-              's/AC_INIT\(\[aria2\],\[[^]]+\]/AC_INIT([aria2],[1.37.0-motrix.11]/' \
+              's/AC_INIT\(\[aria2\],\[[^]]+\]/AC_INIT([aria2],[1.37.0-motrix.16]/' \
               configure.ac
-            grep -qF 'AC_INIT([aria2],[1.37.0-motrix.11]' configure.ac
+            grep -qF 'AC_INIT([aria2],[1.37.0-motrix.16]' configure.ac
       - type: script
         dest-filename: autogen.sh
         commands:
@@ -161,7 +161,7 @@ modules:
         # Must track the electron version in package.json — generated-sources
         # unpacks that release's headers here, and electron-rebuild's gyp run
         # fails on a dangling path.
-        npm_config_nodedir: /run/build/motrix/flatpak-node/cache/node-gyp/43.4.0
+        npm_config_nodedir: /run/build/motrix/flatpak-node/cache/node-gyp/44.4.3
         npm_config_offline: 'true'
         CARGO_HOME: /run/build/motrix/cargo
         CARGO_NET_OFFLINE: 'true'
@@ -192,10 +192,21 @@ modules:
         --without=rust-docs-json-preview
         --disable-ldconfig
         --verbose
-      - npm install -g
-        --prefix=/run/build/motrix/flatpak-node/pnpm-cli
-        ./flatpak-node/pnpm/pnpm-11.22.0.tgz
-        --offline
+      # pnpm 12's wrapper requires a platform package. npm cannot resolve that
+      # optional dependency from an empty offline registry cache. Both archives
+      # below are already integrity-pinned Flatpak inputs, so unpack them into
+      # the normal dependency layout and run the wrapper's native-bin setup.
+      - |
+        pnpm_root=/run/build/motrix/flatpak-node/pnpm-cli/lib/node_modules/pnpm
+        pnpm_native="$pnpm_root/node_modules/@pnpm/exe.linux-${npm_config_target_arch}"
+        mkdir -p "$pnpm_native" flatpak-node/pnpm-cli/bin
+        tar -xzf flatpak-node/pnpm/pnpm-12.5.1.tgz \
+          --strip-components=1 -C "$pnpm_root"
+        tar -xzf "flatpak-node/pnpm-tarballs/@pnpm__exe.linux-${npm_config_target_arch}-12.5.1.tgz" \
+          --strip-components=1 -C "$pnpm_native"
+        node "$pnpm_root/install.js"
+        ln -s ../lib/node_modules/pnpm/pnpm flatpak-node/pnpm-cli/bin/pnpm
+        test "$(pnpm --version)" = '12.5.1'
       # pnpm's supply-chain cooldown check fetches per-package publish times
       # from the registry even under --offline, and the sandbox has no
       # network. pnpm treats the setting as workspace-file-only (a
@@ -214,7 +225,7 @@ modules:
       # locked Electron runtime from generated-sources.
       - node node_modules/electron/install.js
 
-      # pnpm 11 otherwise repairs an --ignore-scripts install before run/exec,
+      # pnpm 12 otherwise repairs an --ignore-scripts install before run/exec,
       # changing the audited build graph. All later invocations disable it.
       - pnpm --config.verify-deps-before-run=false
         run check:third-party-notices
@@ -243,6 +254,16 @@ modules:
       - install -Dm755
         /run/build/motrix/native-target/$MOTRIX_RUST_TARGET/release/motrix-native-host
         packages/native-host/dist/linux-$npm_config_target_arch/motrix-native-host
+      - cargo build
+        --manifest-path packages/finalize-fs/Cargo.toml
+        --release
+        --locked
+        --offline
+        --target=$MOTRIX_RUST_TARGET
+        --target-dir=/run/build/motrix/finalize-target
+      - install -Dm755
+        /run/build/motrix/finalize-target/$MOTRIX_RUST_TARGET/release/motrix-finalize-fs
+        packages/finalize-fs/dist/linux-$npm_config_target_arch/motrix-finalize-fs
 
       - pnpm --config.verify-deps-before-run=false run build:builtin
       - pnpm --config.verify-deps-before-run=false run build:electron
@@ -272,6 +293,7 @@ modules:
           --report "release/size-reports/linux-$npm_config_target_arch.json"
         test -x "$unpacked/resources/extra/linux/$npm_config_target_arch/aria2c"
         test -x "$unpacked/resources/bin/motrix-native-host"
+        test -x "$unpacked/resources/bin/motrix-finalize-fs"
         rm "$unpacked/resources/bin/motrix-native-host"
         test ! -e "$unpacked/resources/bin/motrix-native-host"
         rm "$unpacked/chrome-sandbox"
@@ -328,8 +350,8 @@ modules:
 
       # The Node generator prepares a pnpm store but not the pnpm CLI.
       - type: file
-        url: https://registry.npmjs.org/pnpm/-/pnpm-11.22.0.tgz
-        sha256: 57a97e6f23a3faffc03153a4ef8c770a0552612b8640aebe39bfdd5754d0ebdc
+        url: https://registry.npmjs.org/pnpm/-/pnpm-12.5.1.tgz
+        sha256: 3c1439171c1396d7f30892d2444135c9f11de739175058a1503cdf53788f2099
         dest: flatpak-node/pnpm
 
       # Signed builtin plugins. fetch-builtins.mjs rechecks every locked

@@ -88,17 +88,26 @@ describe('preload latest-value replay buffers', () => {
     expect(callback).toHaveBeenCalledTimes(1)
   })
 
-  it('replays only the latest maximize state before chrome subscribes', async () => {
+  it('replays only the latest window state before chrome subscribes', async () => {
     await import('./preload')
-    emit(Events.WindowMaximizedChanged, { maximized: false })
-    emit(Events.WindowMaximizedChanged, { maximized: true })
+    emit(Events.WindowMaximizedChanged, {
+      maximized: false,
+      fullscreen: false,
+    })
+    emit(Events.WindowMaximizedChanged, {
+      maximized: false,
+      fullscreen: true,
+    })
 
     const callback = vi.fn()
     mocks.exposed?.on(Events.WindowMaximizedChanged, callback)
     await Promise.resolve()
 
     expect(callback).toHaveBeenCalledOnce()
-    expect(callback).toHaveBeenCalledWith({ maximized: true })
+    expect(callback).toHaveBeenCalledWith({
+      maximized: false,
+      fullscreen: true,
+    })
   })
 })
 

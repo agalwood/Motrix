@@ -17,10 +17,105 @@ export interface BtStorageLayoutV1 {
   multiFile: boolean
 }
 
+export interface BtDirectStorageLayout {
+  version: 2
+  strategy: 'direct'
+  /** Null means the engine owns the paths inside the final container. */
+  torrentRootName: string | null
+  multiFile: boolean | null
+  finalized: boolean
+}
+
+export function createBtDirectStoragePlan(
+  finalPath: string,
+  parsed: ParsedBtFileLayout | null,
+  torrentMetaPath?: string | null
+) {
+  const layout: BtDirectStorageLayout = {
+    version: 2,
+    strategy: 'direct',
+    torrentRootName: parsed?.torrentRootName ?? null,
+    multiFile: parsed?.multiFile ?? null,
+    finalized: false,
+  }
+  return {
+    layout,
+    ...buildBtDirectOutputPaths(finalPath, parsed, torrentMetaPath),
+  }
+}
+
+/** Keep engine metadata separate while payloads go directly to final paths. */
+export function buildBtDirectOutputPaths(
+  finalPath: string,
+  parsed: ParsedBtFileLayout | null,
+  torrentMetaPath?: string | null
+): {
+  saveDir: string
+  outputRoot?: string
+  outputFilePaths?: BtOutputFilePath[]
+} {
+  if (!parsed) return { saveDir: finalPath }
+  if (!parsed.multiFile)
+    return {
+      saveDir: path.dirname(finalPath),
+      outputFilePaths: buildFinalOutputFilePaths(parsed, finalPath),
+    }
+  if (!torrentMetaPath)
+    throw new Error('Multi-file BT requires a durable torrent metadata path')
+  return {
+    saveDir: `${torrentMetaPath}.state`,
+    outputRoot: finalPath,
+    outputFilePaths: parsed.files.map((file) => {
+      if (!file.pathInsideRoot)
+        throw new UnsafeTorrentPathError('Multi-file torrent has an empty path')
+      return { fileIndex: file.fileIndex, relativePath: file.pathInsideRoot }
+    }),
+  }
+}
+
+export function getBtDirectStorageLayout(
+  task: Pick<DownloadTask, 'instances'>
+): BtDirectStorageLayout | null {
+  for (const instance of task.instances ?? []) {
+    const value = instance.payload?.[LAYOUT_KEY] as
+      | Partial<BtDirectStorageLayout>
+      | undefined
+    if (
+      value?.version === 2 &&
+      value.strategy === 'direct' &&
+      typeof value.finalized === 'boolean' &&
+      ((value.torrentRootName === null && value.multiFile === null) ||
+        (typeof value.torrentRootName === 'string' &&
+          isSafePathComponent(value.torrentRootName) &&
+          typeof value.multiFile === 'boolean'))
+    )
+      return value as BtDirectStorageLayout
+  }
+  return null
+}
+
+export function markBtDirectOutputFinalized(task: DownloadTask): void {
+  if (!getBtDirectStorageLayout(task)) return
+  for (const instance of task.instances) {
+    const layout = instance.payload[LAYOUT_KEY]
+    if (
+      layout &&
+      typeof layout === 'object' &&
+      'version' in layout &&
+      layout.version === 2
+    ) {
+      instance.payload = {
+        ...instance.payload,
+        [LAYOUT_KEY]: { ...layout, finalized: true },
+      }
+    }
+  }
+}
+
 export interface BtOutputFilePath {
   /** Domain-native, zero-based torrent file index. */
   fileIndex: number
-  /** Path relative to the engine add operation's saveDir. */
+  /** Path relative to outputRoot, or the engine saveDir when absent. */
   relativePath: string
 }
 
@@ -33,11 +128,6 @@ export interface ParsedBtFileLayout {
   files: Array<{ fileIndex: number; pathInsideRoot: string | null }>
 }
 
-export interface BtStoragePlan {
-  layout: BtStorageLayoutV1
-  outputFilePaths: BtOutputFilePath[]
-}
-
 export class UnsafeTorrentPathError extends Error {
   constructor(message: string) {
     super(message)
@@ -47,8 +137,8 @@ export class UnsafeTorrentPathError extends Error {
 
 /**
  * Parse and validate the paths declared by untrusted torrent metadata.
- * parse-torrent returns root-inclusive paths; Motrix strips that root before
- * mapping every file below its own short staging entry.
+ * parse-torrent returns root-inclusive paths; validated relative paths are
+ * mapped into the selected output directory.
  */
 export async function parseBtFileLayout(
   metadata: Uint8Array
@@ -126,25 +216,6 @@ export async function shouldPrioritizeBtPreviewPiecesFromMetadata(
   }
 }
 
-export function createBtStoragePlan(
-  taskId: string,
-  saveDir: string,
-  parsed: ParsedBtFileLayout
-): BtStoragePlan {
-  const layout: BtStorageLayoutV1 = {
-    version: 1,
-    strategy: 'indexed-staging',
-    workspacePath: btWorkspacePath(taskId, saveDir),
-    payloadEntry: PAYLOAD_ENTRY,
-    torrentRootName: parsed.torrentRootName,
-    multiFile: parsed.multiFile,
-  }
-  return {
-    layout,
-    outputFilePaths: buildStagingOutputFilePaths(parsed, layout),
-  }
-}
-
 export function btWorkspacePath(taskId: string, saveDir: string): string {
   const workspaceId = createHash('sha256')
     .update(taskId)
@@ -187,7 +258,7 @@ export function buildFinalOutputFilePaths(
 }
 
 export function btStoragePayload(
-  layout: BtStorageLayoutV1
+  layout: BtStorageLayoutV1 | BtDirectStorageLayout
 ): Record<string, unknown> {
   return { [LAYOUT_KEY]: layout }
 }

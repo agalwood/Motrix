@@ -99,19 +99,18 @@ describe('PluginRegistry', () => {
     )
   })
 
-  it('discover() removes orphan ffmpeg staging dirs before scanning plugins', async () => {
-    // Seed an orphan staging dir from a previous (crashed) run.
+  it('discover() preserves staging that durable finalize recovery may own', async () => {
+    // Seed staging from a previous interrupted run. Registry discovery cannot
+    // know whether a finalize journal still references these bytes.
     const orphanRoot = path.join(dir, 'community', 'alice', 'staging', 't-old')
     mkdirSync(orphanRoot, { recursive: true })
     writeFileSync(path.join(orphanRoot, 'leftover.mp4'), 'crashed bytes')
 
-    // Verify the orphan exists before discover
     expect(existsSync(orphanRoot)).toBe(true)
 
     await reg.discover()
 
-    // After discover, the staging tree under <pluginId>/staging is gone
-    expect(existsSync(orphanRoot)).toBe(false)
+    expect(existsSync(orphanRoot)).toBe(true)
   })
 
   it('discovers built-in and community in the same index', async () => {
@@ -166,6 +165,42 @@ describe('PluginRegistry', () => {
     expect(dto?.enabled).toBe(false)
     expect(dto?.status).toBe('disabled')
     expect(reg.get('alice.one')?.state.enabled).toBe(false)
+  })
+
+  it('advances policy generation only for policy changes, not runtime status', async () => {
+    plant(path.join(dir, 'community'), 'alice.one')
+    await reg.discover()
+    const initial = reg.policyGenerationFor('alice.one')
+    expect(initial).toBeGreaterThan(0)
+
+    store.setStatus('alice.one', 'active')
+    reg.refreshState('alice.one')
+    expect(reg.policyGenerationFor('alice.one')).toBe(initial)
+
+    store.setEnabled('alice.one', false)
+    reg.refreshState('alice.one')
+    expect(reg.policyGenerationFor('alice.one')).toBe(initial + 1)
+    expect(reg.policySnapshot('alice.one')).toMatchObject({
+      pluginId: 'alice.one',
+      enabled: false,
+      generation: initial + 1,
+    })
+  })
+
+  it('advances policy generation when the exact executable bytes change', async () => {
+    plant(path.join(dir, 'community'), 'alice.one')
+    await reg.discover()
+    const initial = reg.policySnapshot('alice.one')
+
+    writeFileSync(
+      path.join(dir, 'community', 'alice.one', 'dist', 'plugin.js'),
+      'export default { changed: true }'
+    )
+    await reg.discover()
+
+    const changed = reg.policySnapshot('alice.one')
+    expect(changed?.generation).toBe((initial?.generation ?? 0) + 1)
+    expect(changed?.executableDigest).not.toBe(initial?.executableDigest)
   })
 
   it('refreshState is a no-op for unknown plugin ids', async () => {
@@ -375,6 +410,10 @@ describe('PluginRegistry', () => {
           description: '%desc%',
           l10n: 'l10n',
         })
+      )
+      writeFileSync(
+        path.join(dirPath, 'dist', 'plugin.js'),
+        'export default {}'
       )
       writeFileSync(
         path.join(dirPath, 'l10n', 'en-US.json'),

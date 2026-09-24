@@ -58,6 +58,7 @@
     }
   },
   "common": {
+    "clearSearch": "Clear search",
     "download": "Download",
     "cancel": "Cancel",
     "save": "Save",
@@ -109,10 +110,16 @@
     "showMotrix": "Show Motrix",
     "manual": "Manual",
     "checkUpdates": "Check for Updates",
-    "preferences": "Preferences",
+    "preferences": "Settings",
     "quit": "Quit"
   },
   "panel": {
+    "connection": {
+      "polling": "Periodic updates",
+      "reconnecting": "Reconnecting to server…",
+      "unavailable": "Server unreachable",
+      "originMismatch": "Access address mismatch"
+    },
     "dashboard": {
       "title": "Dashboard",
       "engine": {
@@ -141,33 +148,33 @@
           "currentStatus": "Current status",
           "lastChecked": "Checked at {{time}}",
           "checks": {
-            "binary": "Bundled aria2",
-            "features": "Engine Features",
-            "rpc": "Motrix RPC port",
-            "process": "Process ownership",
-            "communication": "Engine communication"
+            "binary": "Engine",
+            "features": "Features",
+            "rpc": "RPC port",
+            "process": "Process",
+            "communication": "Connection"
           },
           "binary": {
-            "available": "{{name}} {{version}} is available.",
+            "available": "{{name}} {{version}}",
             "unavailable": "{{name}} is missing or cannot be started."
           },
           "features": {
-            "none": "aria2 did not report any engine features.",
-            "unavailable": "Engine feature information is unavailable."
+            "none": "Not reported",
+            "unavailable": "Unavailable"
           },
           "rpc": {
-            "listening": "Motrix aria2 is listening normally on port {{port}}.",
-            "available": "Port {{port}} is free and ready for Motrix aria2.",
-            "occupied": "Port {{port}} is already being used."
+            "listening": "{{port}} (Listening)",
+            "available": "{{port}} (Available)",
+            "occupied": "{{port}} (In use)"
           },
           "process": {
-            "none": "No process is blocking the RPC port.",
-            "unidentified": "The process using this port could not be identified. Motrix will not terminate it.",
-            "current_app": "PID {{pid}} ({{name}}) is managed by this Motrix session.",
-            "verified_orphan": "PID {{pid}} ({{name}}) matches Motrix’s bundled binary and private launch parameters, so it is safe to terminate.",
-            "external_aria2": "PID {{pid}} ({{name}}) is aria2, but Motrix cannot verify ownership. It will not be terminated automatically.",
-            "other": "PID {{pid}} ({{name}}) is not a verified Motrix aria2 process and is protected.",
-            "unknown": "PID {{pid}} could not be identified and is protected."
+            "none": "No port conflict",
+            "unidentified": "Unidentified, Will not be stopped",
+            "current_app": "PID {{pid}} ({{name}}), Managed by Motrix",
+            "verified_orphan": "PID {{pid}} ({{name}}), Verified Motrix leftover; safe to stop",
+            "external_aria2": "PID {{pid}} ({{name}}), Unverified ownership; will not be stopped",
+            "other": "PID {{pid}} ({{name}}), Unverified ownership; will not be stopped",
+            "unknown": "PID {{pid}}, Unidentified; will not be stopped"
           },
           "communication": {
             "ready": "Motrix can communicate with aria2."
@@ -213,6 +220,50 @@
             "title": "Force stop the leftover aria2 process?",
             "description": "PID {{pid}} matches Motrix’s bundled binary, private RPC secret, and data paths. It will be terminated immediately, then aria2 will restart on the Motrix RPC port.",
             "action": "Force stop & recover"
+          },
+          "details": "Diagnostic details",
+          "versionUnknown": "Version unavailable",
+          "copy": "Copy diagnostics",
+          "copied": "Copied",
+          "copyFailed": "Could not copy diagnostics. Please try again.",
+          "refreshFailed": "Could not refresh diagnostics. The last successful report is shown below.",
+          "summary": {
+            "ready": "The download engine is running normally",
+            "starting": "The download engine is starting",
+            "restarting": "The download engine is recovering",
+            "stopped": "The download engine is stopped",
+            "port_in_use": "The engine’s control port is occupied",
+            "binary_unavailable": "The download engine is unavailable",
+            "spawn_failed": "The download engine could not start",
+            "rpc_unavailable": "The engine’s control connection is unavailable",
+            "unexpected_exit": "The download engine exited unexpectedly",
+            "health_check_failed": "The download engine stopped responding",
+            "unknown": "The download engine is unavailable"
+          },
+          "impact": {
+            "failed": "Download controls are unavailable. Task status may be out of date.",
+            "connecting": "Download controls will be available when the engine is ready.",
+            "stopped": "Start the engine to begin or manage downloads."
+          },
+          "runtime": {
+            "process": "Process",
+            "running": "Running",
+            "notRunning": "Not running",
+            "connection": "Connection",
+            "connected": "Connected",
+            "connecting": "Connecting…",
+            "disconnected": "Not connected",
+            "unavailable": "Unavailable",
+            "connectionStatus": "{{transport}} ({{status}})"
+          },
+          "port": {
+            "available": "{{port}} (Available)",
+            "listening": "{{port}} (Listening)",
+            "occupied": "{{port}} (In use)"
+          },
+          "motrixEngine": "aria2 Motrix",
+          "transport": {
+            "websocket": "WebSocket"
           }
         }
       },
@@ -322,13 +373,13 @@
         },
         "secondary": {
           "metadata": "Fetching metadata",
-          "chooseFiles": "Choose files",
+          "chooseFiles": "Awaiting file selection",
           "finalizing": "Finishing download",
           "waiting": "Waiting to start",
           "eta": "ETA {{time}}",
           "ratio": "Ratio {{ratio}}",
           "saved": "{{percent}}% saved",
-          "offline": "Offline · last known progress",
+          "offline": "Offline (last known progress)",
           "completed": "Completed {{time}}",
           "failed": "Failed: {{reason}}",
           "technicalDetail": "Technical detail: {{detail}}"
@@ -338,6 +389,7 @@
       "configure": {
         "action": "Configure",
         "addTile": "Add",
+        "addTitle": "Add a tile",
         "apply": "Apply",
         "cancel": "Cancel",
         "reset": "Reset",
@@ -348,6 +400,11 @@
         "size": "{{width}} × {{height}}",
         "currentSize": "Current size: {{width}} × {{height}}",
         "invalidCapacity": "Not enough space for this size",
+        "availabilityHints": {
+          "space": "Shrink or remove another tile.",
+          "bounds": "Move the tile inward first.",
+          "unsupported": "Choose a supported size."
+        },
         "sizeLabels": {
           "compact": "Compact",
           "wide": "Wide",
@@ -366,20 +423,16 @@
           "custom": "Custom",
           "undo": "Undo last preset",
           "balanced": {
-            "title": "Balanced",
-            "description": "A balanced overview of status, speed, activity, and tasks."
+            "title": "Balanced"
           },
           "taskFocus": {
-            "title": "Task Focus",
-            "description": "Give Tasks the most space while keeping key status visible."
+            "title": "Task Focus"
           },
           "speedFocus": {
-            "title": "Speed Focus",
-            "description": "Emphasize upload and download trends alongside active tasks."
+            "title": "Speed Focus"
           },
           "compact": {
-            "title": "Compact",
-            "description": "Fit every Dashboard tile into the fixed 4 × 3 canvas."
+            "title": "Compact"
           }
         },
         "saveFailed": "Could not save layout. Try again.",
@@ -414,6 +467,37 @@
       },
       "nat": {
         "title": "NAT",
+        "compact": {
+          "state": {
+            "active": "Mapped",
+            "settingUp": "Mapping",
+            "failed": "Mapping",
+            "off": "Off"
+          },
+          "caption": {
+            "active_one": "{{count}} port",
+            "active_other": "{{count}} ports",
+            "settingUp": "Connecting…",
+            "failed": "Unavailable",
+            "off": "BT / DHT",
+            "waiting": "Loading…"
+          }
+        },
+        "internalIp": "Local IP",
+        "gatewayIp": "Router",
+        "caption": {
+          "off": "BT port mapping is off.",
+          "settingUp": "Connecting to your router…",
+          "failed": "Automatic mapping unavailable.",
+          "waiting": "Waiting for network status…"
+        },
+        "mappingDetails": "Mapped ports",
+        "mappingPurpose": {
+          "bt-listen": "BitTorrent",
+          "dht-listen": "DHT"
+        },
+        "portMapping": "Internal {{internal}} to external {{external}}",
+        "noMappings": "No active port mappings.",
         "state": {
           "active": "Active",
           "settingUp": "Initializing",
@@ -483,7 +567,7 @@
       "status": {
         "queued": "Queued",
         "fetchingMetadata": "Fetching",
-        "metadataReady": "Ready",
+        "metadataReady": "Awaiting file selection",
         "downloading": "Downloading",
         "finalizing": "Finalizing",
         "seeding": "Seeding",
@@ -495,11 +579,31 @@
         "name": "Name",
         "size": "Size",
         "progress": "Progress",
-        "down": "↓",
-        "up": "↑",
+        "down": "Download speed",
+        "up": "Upload speed",
         "eta": "ETA",
         "connections": "Peers",
-        "status": "Status"
+        "status": "Status",
+        "createdAt": "Date created",
+        "finishedAt": "Date completed"
+      },
+      "columnHeader": {
+        "down": "Download",
+        "up": "Upload"
+      },
+      "timestamp": {
+        "notRecorded": "Not recorded",
+        "notCompleted": "Not completed yet",
+        "relativeDateTime": "{{date}}, {{time}}"
+      },
+      "sort": {
+        "down": "Download speed",
+        "up": "Upload speed",
+        "asc": "{{column}}: ascending",
+        "desc": "{{column}}: descending",
+        "sortAscending": "Sort {{column}} ascending",
+        "sortDescending": "Sort {{column}} descending",
+        "reset": "Restore default order"
       },
       "empty": {
         "noTasks": "No downloads yet",
@@ -513,6 +617,9 @@
           "title": "Glass motion",
           "description": "Development preview",
           "enabled": "Motion effects",
+          "enabledDesc": "Synced with Appearance → Reduce motion. Changes save immediately.",
+          "systemReducedMotion": "Motion is disabled by your system’s Reduce Motion preference.",
+          "saveFailed": "Couldn’t save the motion setting. Try again.",
           "loadFade": "Load fade",
           "breathing": "Breathing light",
           "pointerFollow": "Follow pointer",
@@ -521,20 +628,22 @@
         }
       },
       "stats": {
-        "downSpeed": "↓",
-        "upSpeed": "↑",
-        "counts": "Active {{active}} · Completed {{completed}} · Error {{error}}",
+        "downSpeed": "Download speed",
+        "upSpeed": "Upload speed",
         "engineOk": "Engine ready",
         "engineStarting": "Engine starting",
         "engineOffline": "Engine offline",
-        "natActive": "NAT active",
-        "natSettingUp": "NAT initializing",
-        "natRetrying": "NAT retrying ({{attempt}}/{{max}})",
-        "natFailed": "NAT failed",
-        "natOff": "NAT off",
-        "natEnable": "Enable NAT",
-        "natDisable": "Disable NAT",
-        "natHelp": "Troubleshoot NAT"
+        "natActive": "NAT mapped",
+        "natActiveDesc": "Helps other BT peers connect to you.",
+        "natSettingUp": "NAT mapping",
+        "natRetrying": "Automatic retries ({{attempt}}/{{max}})",
+        "natMapping": "NAT mapping",
+        "natUnavailable": "Automatic mapping unavailable",
+        "natUnavailableDesc": "Doesn’t affect link downloads. BT connections may be limited.",
+        "natRetry": "Retry",
+        "natDisable": "Turn off NAT mapping",
+        "natSettings": "Network settings",
+        "natHelp": "Network guide"
       },
       "tab": {
         "all": "All",
@@ -547,9 +656,11 @@
           "transfer": "Transfer",
           "progress": "Progress",
           "network": "Network",
-          "metadata": "Metadata",
-          "downSpeed": "↓ speed",
-          "upSpeed": "↑ speed",
+          "general": "General",
+          "createdAt": "Created",
+          "finishedAt": "Completed",
+          "downSpeed": "Download speed",
+          "upSpeed": "Upload speed",
           "eta": "ETA",
           "downloaded": "Downloaded",
           "totalSize": "Total size",
@@ -560,7 +671,11 @@
           "type": "Type",
           "infoHash": "Info hash",
           "private": "Private",
-          "connections": "Connections"
+          "connections": "Connections",
+          "uploaded": "Uploaded",
+          "seedingTime": "Seeding time",
+          "seedingRecordedSince": "Recorded since {{date}}. Paused and offline time is excluded; earlier seeding history is unavailable.",
+          "seedingUnavailable": "Seeding time has not been recorded for this task."
         },
         "activity": {
           "transferTitle": {
@@ -723,10 +838,22 @@
       },
       "action": {
         "pause": "Pause",
+        "queueMoveFailed": "Could not update the waiting queue.",
+        "queueTaskStarted": "The task is no longer in the waiting queue.",
+        "queueMoveHint": "Queue position determines which waiting download starts next. Column sorting is saved separately.",
+        "queueBoundary": "Selection is already at the queue boundary",
+        "queueMoved": "Waiting queue updated",
+        "moveQueueDown": "Move Down in Queue",
+        "moveQueueUp": "Move Up in Queue",
         "resume": "Resume",
         "retry": "Retry",
         "openFolder": "Open folder",
         "copyUrl": "Copy URL",
+        "copyUrls": "Copy URLs",
+        "copyPath": "Copy file path",
+        "copied": "Copied to clipboard",
+        "copyFailed": "Could not copy to clipboard. Try again.",
+        "selectFilesFailed": "Could not open file selection.",
         "copyUrlFailed": "Copy failed: could not load the task’s link details. Try again.",
         "selectFiles": "Select files",
         "remove": "Remove",
@@ -752,7 +879,15 @@
         "removeAll_completed_Title": "Remove {{count}} completed tasks?",
         "removeAll_error_Title": "Remove {{count}} failed tasks?",
         "removeAll_downloading_Title": "Remove {{count}} active tasks?",
-        "removeMixedTitle": "Remove {{count}} tasks?"
+        "removeMixedTitle": "Remove {{count}} tasks?",
+        "openFile": "Open file",
+        "openFileFailed": "Could not open file",
+        "chooseFiles": "Choose files…",
+        "queueOrder": "Download order",
+        "moveQueueTop": "Move to Front",
+        "moveQueueBottom": "Move to Back",
+        "copyError": "Copy error information",
+        "errorReport": "{{name}}\nTask ID: {{id}}\n{{details}}"
       },
       "titleCount": "{{shown}} shown · {{total}} total",
       "type": {
@@ -764,6 +899,11 @@
       },
       "search": {
         "placeholder": "Search downloads",
+        "activeTypeFilters": "Type filter: {{types}}",
+        "filters": "Filters",
+        "resetFilters": "Reset filters",
+        "clearQuery": "Clear search",
+        "activeQuery": "Search: {{query}}",
         "scopeLabel": "Type",
         "clear": "Clear",
         "empty": "No matching tasks",
@@ -771,6 +911,45 @@
       },
       "stale": {
         "banner": "Task list may be out of date — reconnecting…"
+      },
+      "view": {
+        "title": "List View",
+        "columns": "Columns",
+        "resetColumns": "Restore Default Columns",
+        "sortBy": "Sort By",
+        "ascending": "Ascending",
+        "descending": "Descending",
+        "showInspector": "Show Inspector",
+        "hideInspector": "Hide Inspector",
+        "inspector": "Task Inspector",
+        "resizeInspector": "Resize Inspector",
+        "selectToInspect": "Select a task to view its details.",
+        "resizeColumn": "Resize {{column}} column",
+        "taskActions": "More"
+      },
+      "speedLimit": {
+        "title": "Speed mode",
+        "currentMode": "Speed mode: {{mode}}",
+        "uploadLimit": "Upload limit: {{speed}}",
+        "downloadLimit": "Download limit: {{speed}}",
+        "saveFailed": "Couldn’t change the speed mode. Try again."
+      },
+      "media": {
+        "preparing": "Preparing",
+        "decrypting": "Decrypting",
+        "assembling": "Assembling",
+        "muxing": "Merging",
+        "renaming": "Saving",
+        "stage": "Stage",
+        "downloadProgress": "Download progress",
+        "muxProgress": "Merge progress",
+        "parts": "Segments",
+        "partsFormat": "{{completed}} / {{total}} segments",
+        "downloadSize": "Download size",
+        "outputSize": "Output size",
+        "downloadEta": "Download ETA",
+        "avgDownloadProgress": "Average download progress",
+        "processingTasks": "Processing"
       }
     }
   },
@@ -779,15 +958,19 @@
       "title": "New Task",
       "links": "Links",
       "torrent": "Torrent",
-      "urlPlaceholder": "Enter URL, magnet link...",
+      "urlPlaceholder": "Enter a URL, magnet link, or BT info hash…",
       "dropTorrent": "Drop .torrent file here or click to select",
       "clearSelection": "Clear selection",
       "createFailed": "Failed to create download task.",
       "createFailedWithReason": "Failed to create download task: {{reason}}",
+      "createFailedByPlugin": "Couldn’t create the task: the plugin “{{pluginId}}” stopped it ({{detail}}). Disable that plugin under Settings → Plugins, then try again.",
+      "createFailedPathTooLong": "Couldn’t create the task: the destination path is {{length}} characters, over the Windows limit of {{limit}}. Choose a shorter save folder or file name.",
       "parseFailed": "Failed to parse torrent file.",
       "urlsCount_one": "{{count}} URL",
       "urlsCount_other": "{{count}} URLs",
       "urlsWithInvalid": "{{valid}} valid, {{invalid}} invalid",
+      "validUrlCount": "{{count}} valid",
+      "invalidUrlCount": "{{count}} invalid",
       "urlsLabel": "URLs",
       "advanced": "Advanced",
       "filename": "Filename",
@@ -809,8 +992,14 @@
       "saveDirEmpty": "Choose a folder…",
       "changeSaveDir": "Change save directory",
       "created": "Task added",
+      "batchCreated": "{{count}} tasks added",
       "createdCopy": "Separate copy added",
       "createdPartial": "{{ok}} added · {{failed}} failed",
+      "torrentQueueProgress": "Torrent {{current}} of {{total}}",
+      "downloadAndContinue": "Download & Continue",
+      "downloadAllTorrents": "Download All ({{count}})",
+      "skipTorrent": "Skip",
+      "queueAdvanceFailed": "Could not open the next torrent.",
       "duplicate": {
         "title": "This torrent already exists",
         "active-info-hash": "{{name}} is already active. aria2 cannot run the same torrent content twice at the same time.",
@@ -822,6 +1011,35 @@
       },
       "adding": "Adding…",
       "interpretedMagnet": "Magnet link detected",
+      "interpretedInfoHash": "BT info hash converted to a magnet link",
+      "unsupportedCurl": "This cURL command cannot be imported faithfully. Copy the URL or a Bash GET command with supported options.",
+      "invalidJson": "Expected a JSON URL string or an array of URL strings.",
+      "interpretedJson": "URLs imported from JSON",
+      "sourceLine": "Line {{line}}",
+      "sourceCorrections": {
+        "useCanonicalUrl": "Use this expanded URL",
+        "usePathSeparators": "Treat backslashes as path separators",
+        "encodeLiteralCharacters": "Encode as literal characters"
+      },
+      "sourceErrors": {
+        "missingScheme": "Include the URL scheme, such as https://.",
+        "invalidHost": "The URL host is missing or invalid.",
+        "invalidPort": "The URL port is invalid.",
+        "controlCharacter": "Remove control characters from the URL.",
+        "invalidUnicode": "The URL contains invalid Unicode.",
+        "ambiguousBackslash": "A backslash makes the host or path ambiguous. Choose how to interpret it.",
+        "invalidPercentEncoding": "A percent sign must be followed by two hexadecimal digits.",
+        "credentialsInUrl": "Use the authentication fields instead of credentials in the URL.",
+        "unsupportedProtocol": "This URL protocol is not supported for this download.",
+        "urlTooLong": "The URL exceeds the 16 KiB limit.",
+        "tooManySources": "Input exceeds the allowed number or size of links.",
+        "ambiguousStructure": "The URL parser would change this address. Review the expanded URL.",
+        "unescapedCharacter": "Encode spaces and reserved characters explicitly.",
+        "invalidMagnet": "The magnet link needs a supported BT info hash in its xt parameter.",
+        "mixedProtocols": "Mirrors of one download must use the same protocol family.",
+        "unsupportedInput": "This input container was not imported. Paste a URL or a supported JSON or Bash cURL input.",
+        "unsupportedRequestOptions": "HTTP headers cannot be applied to an FTP download."
+      },
       "interpretedCurl": "cURL command parsed",
       "filterBy": {
         "video": "Video",
@@ -843,13 +1061,24 @@
         "noFilesSelected": "Select at least one file",
         "missingSource": "Torrent file or magnet link is required",
         "pageUrlRequired": "A page URL is required"
-      }
+      },
+      "selectionTimeout": {
+        "started": "File selection timed out: downloading all files in {{name}}",
+        "failed": "Could not start {{name}} automatically. Open task details to select files and retry."
+      },
+      "undoCorrection": "Undo URL correction",
+      "submissionUnconfirmed": "The result is unconfirmed. Retry will check the original request before creating another task."
     },
     "detail": {
       "peers": "Peers: {{count}}",
       "seeds": "Seeds: {{count}}"
     },
     "torrent": {
+      "column": {
+        "name": "File name",
+        "type": "File type",
+        "size": "Size"
+      },
       "fileSelected_one": "{{count}} file selected",
       "fileSelected_other": "{{count}} files selected",
       "selectAll": "Select all",
@@ -887,13 +1116,16 @@
     },
     "error": {
       "detail": {
+        "finalizeFailed": "Could not finish the download: {{cause}}",
+        "recoveryFailed": "Could not recover the download: {{cause}}",
         "recoveryOutputConflict": "Both the temporary and final files exist; both were preserved for manual review",
         "filesMissing": "Files are missing after the app restarted",
         "renameFileFailed": "Failed to rename the file: {{cause}}",
         "renameDirFailed": "Failed to rename the directory: {{cause}}",
         "pluginChainAborted": "Plugin chain aborted: {{cause}}",
         "magnetCleanupQuarantined": "Magnet metadata cleanup is quarantined",
-        "muxFailed": "Failed to mux the downloaded media"
+        "muxFailed": "Failed to mux the downloaded media",
+        "pathTooLong": "The path is {{length}} characters; Windows allows {{limit}}"
       },
       "reason": {
         "unknown": "Download failed",
@@ -903,6 +1135,7 @@
         "timeout": "Download timed out",
         "diskFull": "Disk is full",
         "fileWriteError": "Could not write the file",
+        "pathTooLong": "File path is too long for Windows",
         "checksumMismatch": "File checksum did not match",
         "tooManyRedirects": "Too many redirects",
         "serverError": "Server returned an error",
@@ -916,6 +1149,7 @@
         "networkError": "Check your network connection, then retry",
         "timeout": "Check your connection speed and stability, then retry",
         "fileWriteError": "Check folder permissions and available disk space, then retry",
+        "pathTooLong": "Shorten the save folder or the file name, then retry",
         "checksumMismatch": "The downloaded file may be corrupted; re-download to verify it",
         "tooManyRedirects": "The source link may be broken; try a different link",
         "btMetadataFailed": "Check the magnet link or add more trackers, then retry"
@@ -962,6 +1196,8 @@
     "general": {
       "launchAtStartup": "Open at login",
       "launchAtStartupDesc": "Start Motrix automatically when you log in.",
+      "showMainWindowAtLogin": "Show window at login",
+      "showMainWindowAtLoginDesc": "Hidden with “{{mode}}”.",
       "defaultSaveDir": "Default download folder",
       "defaultSaveDirDesc": "New downloads land here unless overridden per-task.",
       "notifyOnComplete": "Notify when download completes",
@@ -981,8 +1217,16 @@
       "language": "Language",
       "traySpeedometer": "Show real-time speed in tray",
       "traySpeedometerDesc": "macOS only — display the current speed next to the tray icon.",
+      "trayIconColor": "Tray icon color",
+      "trayIconColorDesc": "Your panel may use a different theme from Motrix. Choose a light icon for a dark panel, or a dark icon for a light panel.",
+      "trayIconColorAuto": "Follow app theme",
+      "trayIconColorLight": "Light icon (dark panel)",
+      "trayIconColorDark": "Dark icon (light panel)",
+      "reduceMotion": "Reduce motion",
+      "reduceMotionDesc": "Reduce interface animations, including the glass motion effects on the Downloads page.",
       "liquidGlassEffect": "Enable Liquid Glass effect",
-      "liquidGlassEffectDesc": "macOS 26 App only — recreates the main window when changed.",
+      "liquidGlassEffectDesc": "Use translucent glass for the Downloads toolbar.",
+      "liquidGlassEffectMacDesc": "Also uses native window glass on macOS 26+. Changing this recreates the main window.",
       "runMode": "Show app in",
       "runModeStandard": "Dock & Menu Bar",
       "runModeTray": "Menu Bar Only",
@@ -992,7 +1236,12 @@
       "runModeTrayDesktop": "Start in System Tray",
       "runModeLinuxDesc": "System tray availability and activation behavior depend on your desktop environment.",
       "lightweightMode": "Lightweight mode",
-      "lightweightModeDesc": "Release interface memory after the main window closes. Background downloads continue; Windows and Linux keep a tray entry for reopening. Reopening takes a little longer and unsaved interface state is discarded."
+      "lightweightModeDesc": "Save memory when the window is closed. Downloads continue, but reopening takes longer and clears unsaved input.",
+      "byteUnitSystem": "Size and speed units",
+      "byteUnitSystemDesc": "Applies to file sizes and transfer speeds.",
+      "byteUnitDecimal": "Decimal (MB, GB · 1000)",
+      "byteUnitBinary": "Binary (MiB, GiB · 1024)",
+      "byteUnitSystemDefault": "Follow system ({{units}})"
     },
     "advanced": {
       "rpc": {
@@ -1139,14 +1388,19 @@
         "btEnableLpd": "Local peer discovery",
         "btEnableLpdDesc": "Find peers on the local network.",
         "magnetFileSelection": "Open file selection after magnet metadata loads",
-        "magnetFileSelectionDesc": "Show a file picker once magnet metadata arrives."
+        "magnetFileSelectionDesc": "Show a file picker once magnet metadata arrives.",
+        "magnetFileSelectionAutoDownload": "Download all files when selection times out",
+        "magnetFileSelectionAutoDownloadDesc": "If file selection is not confirmed in time, download all files to the task’s save folder, even when the window or WebUI is closed.",
+        "magnetFileSelectionTimeoutSeconds": "File selection timeout (seconds)",
+        "magnetFileSelectionTimeoutSecondsDesc": "Count from when metadata is ready. Changing the timeout also applies to tasks already waiting for file selection.",
+        "magnetFileSelectionTimeoutInvalid": "Enter a whole number from {{min}} to {{max}} seconds."
       },
       "seeding": {
         "title": "Seeding",
         "seedRatio": "Seed ratio limit",
         "seedRatioDesc": "Stop seeding above this ratio. 0 = unlimited.",
         "seedTime": "Seed time limit (minutes)",
-        "seedTimeDesc": "Stop seeding after this many minutes. 0 = unlimited."
+        "seedTimeDesc": "Stop seeding after this many minutes. 0 = unlimited. Applies to new and re-seeded tasks."
       }
     },
     "downloads": {
@@ -1154,18 +1408,18 @@
         "title": "Performance",
         "profile": "Performance profile",
         "profileDesc": "Choose how aggressively Motrix downloads.",
-        "baseline": "Baseline",
+        "learnMore": "Learn more",
         "metrics": {
-          "segments": "Segments",
-          "perServer": "Per server",
-          "minimum": "Minimum",
-          "cache": "Cache"
+          "connections": "Max connections",
+          "perServer": "Per-server cap",
+          "minimum": "Min segment",
+          "cache": "Disk cache"
         },
         "customParameters": "Custom performance parameters",
         "profiles": {
           "auto": {
             "label": "Automatic",
-            "desc": "Adjusts performance to your download drive."
+            "desc": "Defaults shown; tuned to your drive and file size."
           },
           "balanced": {
             "label": "Balanced",
@@ -1181,17 +1435,17 @@
           },
           "custom": {
             "label": "Custom",
-            "desc": "Set connections, segments, and cache manually."
+            "desc": "Set connections, segment size, and cache."
           }
         },
         "maxConcurrentDownloads": "Max concurrent downloads",
         "maxConcurrentDownloadsDesc": "Number of tasks downloading in parallel.",
         "maxConnectionPerServer": "Max connections per server",
-        "maxConnectionPerServerDesc": "How many parallel HTTP requests per origin.",
-        "split": "Split connections per file",
-        "splitDesc": "Number of segments to fetch a single file with.",
-        "minSplitSize": "Minimum segment size (MB)",
-        "minSplitSizeDesc": "Don’t split a file smaller than this."
+        "maxConnectionPerServerDesc": "Per-file connection limit for one server.",
+        "split": "Max connections per file",
+        "splitDesc": "Actual connections may be fewer.",
+        "minSplitSize": "Min segment size (MiB)",
+        "minSplitSizeDesc": "Segments below 2× this size won’t split."
       },
       "reliability": {
         "title": "Network reliability",
@@ -1205,11 +1459,16 @@
         "maxTriesDesc": "0 = no retry.",
         "retryWait": "Retry wait (s)",
         "retryWaitDesc": "Pause between retries.",
-        "lowestSpeedLimit": "Slow connection threshold (KB/s)",
+        "lowestSpeedLimit": "Slow connection threshold (KiB/s)",
         "lowestSpeedLimitDesc": "Drop connections below this speed. 0 = disabled."
       },
       "disk": {
         "title": "Disk and session",
+        "fileDeletionMode": "When deleting task files",
+        "fileDeletionTrash": "Move to trash",
+        "fileDeletionPermanent": "Delete permanently",
+        "fileDeletionTrashDesc": "Applies when removing tasks with their files. Files stay in the trash until it is emptied.",
+        "fileDeletionPermanentDesc": "Files are deleted directly and cannot be restored from the trash.",
         "fileAllocation": "File allocation",
         "fileAllocationDesc": "How aria2 reserves disk space for new files.",
         "fileAllocationNone": "None",
@@ -1220,7 +1479,7 @@
         "modifiedTimeDesc": "Choose which modification time completed HTTP and FTP downloads use.",
         "modifiedTimeLocal": "Local",
         "modifiedTimeServer": "Server",
-        "diskCache": "Disk cache (MB)",
+        "diskCache": "Disk cache (MiB)",
         "diskCacheDesc": "In-memory write cache.",
         "sessionSaveInterval": "Session save interval (s)",
         "sessionSaveIntervalDesc": "How often aria2 persists download state."
@@ -1468,6 +1727,14 @@
         "title": "Browser extensions",
         "masterSwitch": "Send downloads from browser extensions",
         "masterSwitchDesc": "After installing the Motrix browser extension, you can send downloads from any webpage with one click.",
+        "install": {
+          "chrome": "Chrome",
+          "edge": "Microsoft Edge",
+          "firefox": "Firefox",
+          "github": "GitHub",
+          "store": "Install",
+          "development": "Development"
+        },
         "pairedTitle": "Connected extensions",
         "pairedEmpty": "No extensions connected yet.",
         "lastActive": "Last active",
@@ -1486,7 +1753,7 @@
         "pairToast": {
           "title": "A {{browser}} extension wants to connect to Motrix",
           "extensionId": "ID: {{id}}",
-          "deny": "Don't allow",
+          "deny": "Don’t allow",
           "pairCode": "Pairing code",
           "copyCode": "Copy pairing code",
           "pairCodeHint": "Type this code in the extension",
@@ -1495,7 +1762,7 @@
             "attested": "Verified extension",
             "unverified": "Unverified extension"
           },
-          "identityUnverifiedWarning": "This extension's identity could not be verified. Only continue if you trust it."
+          "identityUnverifiedWarning": "This extension’s identity could not be verified. Only continue if you trust it."
         },
         "pairUnavailable": "This pairing request is no longer pending — retry pairing from the browser extension.",
         "trustedExtensions": "Trusted extensions",
@@ -1513,7 +1780,7 @@
         },
         "degradedPort": {
           "title": "Bridge running on a fallback port",
-          "description": "Ports 16802–16806 were unavailable, so the bridge bound port {{port}} instead. Browser extensions won't find it by probing the standard range — pair using native messaging, or set a fixed port. The Motrix CLI and native host are unaffected."
+          "description": "Ports 16802–16806 were unavailable, so the bridge bound port {{port}} instead. Browser extensions won’t find it by probing the standard range — pair using native messaging, or set a fixed port. The Motrix CLI and native host are unaffected."
         },
         "pairingStateDegraded": {
           "title": "Extension access is temporarily closed",
@@ -1654,7 +1921,12 @@
         "restartNow": "Restart now",
         "validation": {
           "fileMissing": "File does not exist at this path."
-        }
+        },
+        "applyHint": "Save to apply the custom path. Media downloads use the current FFmpeg path without restarting Motrix; rescan in the browser extension to refresh support.",
+        "savedTitle": "FFmpeg settings saved",
+        "desktopSavedHint": "New media downloads read the saved path. Restart Motrix for active plugins to detect the change.",
+        "pipelineUnavailable": "Media download support is unavailable.",
+        "ffmpegRequired": "This download requires FFmpeg. Configure it in Settings → Integration → Media tools, save, then retry."
       },
       "pairResolveFailed": "Couldn’t submit your decision — try again.",
       "appimage": {
@@ -1678,7 +1950,51 @@
           "externalManaged": "Desktop integration is provided by another Motrix install."
         },
         "movedHint": "If you move the AppImage while Motrix is closed, links may fail to launch until you start Motrix once from its new location."
+      },
+      "appimageHost": {
+        "title": "AppImage browser launch",
+        "desc": "Allow an extension to open this AppImage when you click Connect. Enable browser integration to use it.",
+        "enable": "Enable browser launch",
+        "repair": "Repair",
+        "useCurrent": "Use this AppImage",
+        "remove": "Remove browser launch",
+        "copyDiagnostics": "Copy diagnostics",
+        "status": {
+          "ready": "Local installation checks passed. Connect from your browser to verify it.",
+          "disabled": "Browser launch is disabled.",
+          "conflict": "Another installation owns these files. Remove its browser integration first.",
+          "permissions": "Check that the files are executable and writable only by your account.",
+          "invalid": "The installation record or executable is invalid.",
+          "sourceChanged": "The AppImage changed. Run the intended version and repair the installation.",
+          "missing": "A required file is missing. Run the AppImage from its current location and repair.",
+          "io": "The operation failed. Check disk access and try Repair."
+        }
       }
+    },
+    "validation": {
+      "rangeHint": "Range: {{min}}–{{max}}.",
+      "range": "Enter a number from {{min}} to {{max}}.",
+      "integerRange": "Enter a whole number from {{min}} to {{max}}.",
+      "minimum": "Enter {{min}} or more.",
+      "maximum": "Enter {{max}} or less.",
+      "integer": "Enter a whole number.",
+      "wholeBytes": "Use fewer decimal places.",
+      "number": "Enter a valid number.",
+      "invalid": "Enter a valid value.",
+      "selection": "Choose an available option.",
+      "textLength": "Use {{max}} characters or fewer.",
+      "itemCount": "Keep {{max}} addresses or fewer.",
+      "text": "Remove line breaks or hidden control characters.",
+      "directory": "Choose a download folder.",
+      "proxyHost": "Enter a server name or IP address, without http:// or a port.",
+      "stunServer": "Use host:port, such as stun.example.com:3478. The port must be 1–65535.",
+      "httpsUrl": "Enter a full address starting with https://.",
+      "httpUrl": "Enter a full address starting with http:// or https://.",
+      "saveFailed": "Couldn’t save your changes. Try again.",
+      "address": "Address {{number}}",
+      "addressDraft": "New address",
+      "required": "Enter an address first.",
+      "time": "Use a 24-hour time, such as 23:00."
     }
   },
   "errors": {
@@ -1693,8 +2009,8 @@
     "app": {
       "title": "Motrix",
       "about": "About Motrix",
-      "preferences": "Preferences…",
-      "checkForUpdates": "Check for Updates…",
+      "preferences": "Settings…",
+      "checkForUpdates": "Check for Updates",
       "show": "Show Motrix",
       "hide": "Hide Motrix",
       "hideOthers": "Hide Others",
@@ -1712,13 +2028,13 @@
       "taskList": "Task List",
       "pauseTask": "Pause",
       "resumeTask": "Resume",
-      "deleteTask": "Delete",
-      "moveTaskUp": "Move Up",
-      "moveTaskDown": "Move Down",
+      "deleteTask": "Remove Tasks…",
+      "moveTaskUp": "Move Up in Queue",
+      "moveTaskDown": "Move Down in Queue",
       "pauseAllTask": "Pause All",
       "resumeAllTask": "Resume All",
-      "selectAllTask": "Select All",
-      "clearRecentTasks": "Clear Recent"
+      "selectAllTask": "Select All Tasks",
+      "clearRecentTasks": "Clear Stopped Task Records…"
     },
     "edit": {
       "title": "Edit",
@@ -1736,15 +2052,15 @@
       "close": "Close",
       "minimize": "Minimize",
       "zoom": "Zoom",
-      "toggleFullscreen": "Toggle Fullscreen",
+      "toggleFullscreen": "Toggle Full Screen",
       "front": "Bring All to Front"
     },
     "help": {
       "title": "Help",
-      "officialWebsite": "Official Website",
-      "manual": "Manual",
-      "changelog": "Changelog",
-      "reportProblem": "Report an Issue",
+      "officialWebsite": "Motrix Website",
+      "manual": "Motrix Help",
+      "changelog": "Release Notes",
+      "reportProblem": "Report a Problem",
       "toggleDevTools": "Toggle Developer Tools"
     }
   },
@@ -1780,10 +2096,16 @@
       "removeSource": "Remove source",
       "empty": "No sources match.",
       "builtinBadge": "builtin",
-      "cdnBadge": "cdn"
+      "cdnBadge": "CDN",
+      "directBadge": "Direct"
     },
     "sync": {
-      "syncing": "Syncing..."
+      "syncing": "Syncing...",
+      "fetching": "Fetching tracker lists…",
+      "probing": "Checking tracker availability…",
+      "applying": "Applying tracker lists…",
+      "failed": "Sync incomplete. Check your network or sources and try again.",
+      "unavailable": "Can’t read sync status. Check your connection and try again."
     }
   },
   "plugins": {
@@ -1936,7 +2258,6 @@
       "notInstalled": "Not installed",
       "notFound": "Plugin “{{id}}” was not found in the registry",
       "viewOnWebsite": "View on motrix.app",
-      "installPending": "Installing straight from the registry is coming soon. Until then you can review the plugin here and on the website.",
       "updated": "updated {{date}}",
       "featuresTitle": "What it does",
       "permissionsTitle": "Permissions",
@@ -2267,7 +2588,122 @@
       "unreadBadgeAria_one": "{{count}} unread notification",
       "unreadBadgeAria_other": "{{count}} unread notifications",
       "rowUnreadAria": "{{title}} (unread)",
-      "toastRegionAria": "Notifications"
+      "toastRegionAria": "Notifications",
+      "removeAria": "Remove {{title}}",
+      "actionFailed": "Couldn’t update notifications. Try again.",
+      "markRead": "Mark as read",
+      "viewTask": "View task",
+      "taskRemoved": "Task removed",
+      "openTaskFailed": "Couldn’t open the task. Try again."
     }
+  },
+  "applicationMenu": {
+    "signOut": "Sign Out…",
+    "back": "Back",
+    "serverUnavailable": "The server is unavailable. Your session has not been signed out.",
+    "retry": "Retry",
+    "actionFailed": "The action could not be completed. Check the connection and try again.",
+    "clearTitle": "Clear stopped task records?",
+    "clearDescription": "Remove completed, failed, and removed task records captured when this dialog opened. Downloaded files stay on disk.",
+    "clearConfirm": "Clear records",
+    "logoutTitle": "Sign out of this server?",
+    "logoutDescription": "This signs out other tabs using the same browser session. Downloads continue on the server. Unsaved input in those tabs will be discarded.",
+    "logoutConfirm": "Sign out",
+    "discardTitle": "Discard this task draft?",
+    "discardDescription": "Your unsaved links, torrent selection, and settings will be discarded.",
+    "discardConfirm": "Discard"
+  },
+  "directoryPicker": {
+    "title": "Select server folder",
+    "description": "Paths are on the server (inside the container when using Docker).",
+    "back": "Back",
+    "forward": "Forward",
+    "up": "Up one level",
+    "refresh": "Refresh",
+    "goToFolder": "Go to folder",
+    "location": "Location",
+    "viewOptions": "View options",
+    "sortBy": "Sort by",
+    "sortName": "Name",
+    "sortModified": "Date modified",
+    "sortOrder": "Order",
+    "sortAscending": "Ascending",
+    "sortDescending": "Descending",
+    "showHidden": "Show hidden folders",
+    "folders": "Folders",
+    "loading": "Loading folders…",
+    "empty": "No subfolders",
+    "incomplete": "Only part of this folder is shown. Enter an exact path to reach another folder.",
+    "selectFolder": "Select folder",
+    "selectedPath": "Selected folder",
+    "path": "Folder path",
+    "go": "Go",
+    "newFolder": "New folder",
+    "folderName": "Folder name",
+    "create": "Create",
+    "createHelp": "Created folders remain on the server if you cancel selection.",
+    "fallback": "The requested folder is unavailable. Showing {{path}}.",
+    "refreshAfterCreateFailed": "The folder was created, but the list could not be refreshed.",
+    "unknownOutcome": "Creation could not be confirmed. Refresh to check before creating another folder here.",
+    "retry": "Retry",
+    "errors": {
+      "invalidPath": "Enter a valid absolute folder path.",
+      "outsideRoots": "This folder is outside the allowed locations.",
+      "notFound": "This folder no longer exists.",
+      "notDirectory": "This path is not a folder.",
+      "permissionDenied": "You do not have permission to use this folder.",
+      "alreadyExists": "A file or folder with this name already exists.",
+      "invalidName": "Enter a valid folder name.",
+      "tooLarge": "This path or folder name is too long.",
+      "unavailable": "The server could not complete this request. Try again.",
+      "creationOutcomeUnknown": "Creation could not be confirmed. Refresh to check before creating another folder here."
+    },
+    "places": {
+      "common": "Common places",
+      "allowed": "Allowed locations",
+      "default": "Default folder",
+      "home": "Home",
+      "desktop": "Desktop",
+      "documents": "Documents",
+      "downloads": "Downloads",
+      "root": "File system",
+      "loadFailed": "Some folder locations couldn’t be loaded."
+    }
+  },
+  "directoryPreferences": {
+    "sectionDescription": "Choose favorite folders and manage recent download locations.",
+    "manage": "Manage directories",
+    "manageDescription": "Choose favorite folders and manage recent folders.",
+    "title": "Manage directories",
+    "description": "Changes apply when you save. Removing a record does not delete folders or downloads.",
+    "favorites": "Favorite folders",
+    "recent": "Recent folders",
+    "addFavorite": "Add favorite",
+    "removeFavorite": "Remove favorite",
+    "favoriteRecent": "Add to favorites",
+    "removeRecent": "Remove recent folder",
+    "clearRecent": "Clear recent folders",
+    "emptyFavorites": "No favorite folders",
+    "emptyRecent": "No recent folders",
+    "loading": "Loading directories…",
+    "retry": "Retry",
+    "limitHint": "You can save up to {{count}} favorite folders.",
+    "pickerFailed": "The folder picker could not be opened. Try again.",
+    "close": "Close",
+    "history": "Directory history",
+    "emptyHistory": "No favorite or recent folders yet",
+    "errors": {
+      "conflict": "Settings changed in another window. Review your changes and save again.",
+      "invalidPath": "Enter a valid absolute folder path.",
+      "outsideRoots": "This folder is outside the allowed locations.",
+      "notFound": "This folder no longer exists.",
+      "notDirectory": "This path is not a folder.",
+      "permissionDenied": "You do not have permission to use this folder.",
+      "tooLarge": "This folder path is too long.",
+      "unavailable": "Directory records could not be updated. Refresh to check their current state.",
+      "limitReached": "The favorite folder limit has been reached. Remove a favorite before adding another."
+    },
+    "manageAction": "Manage",
+    "alreadyFavorite": "Already in favorites"
   }
 }

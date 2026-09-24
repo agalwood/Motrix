@@ -1,3 +1,4 @@
+import { resolveByteUnitSystem } from '@shared/schemas/byte-unit-system'
 import type { AppSettings, DashboardTileLayout } from '@shared/types/settings'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CURRENT_SETTINGS_VERSION } from './migrations'
@@ -8,6 +9,7 @@ import {
   DEFAULT_DASHBOARD_LAYOUT,
   DEFAULT_ENGINE_SETTINGS,
   DEFAULT_ONBOARDING_STATE,
+  DEFAULT_SPEED_LIMIT_SETTINGS,
   dashboardLayoutSettingsSchema,
 } from './validators'
 
@@ -65,7 +67,433 @@ describe('SettingsManager', () => {
     manager = new SettingsManager(TEST_PATH, { onChange })
   })
 
+  describe('directory preferences', () => {
+    beforeEach(() => {
+      mockWriteFileAtomic.mockResolvedValue(undefined)
+    })
+
+    it('loads old and corrupt preference values with safe empty defaults', async () => {
+      for (const value of [
+        undefined,
+        { favorites: [''], recent: [] },
+        'broken',
+      ]) {
+        mockReadFile.mockResolvedValue(
+          JSON.stringify({ app: { directoryPreferences: value } })
+        )
+        await manager.load()
+        expect(manager.getApp().directoryPreferences).toEqual({
+          favorites: [],
+          recent: [],
+        })
+      }
+    })
+
+    it('serializes concurrent favorites and maintains bounded true MRU without trimming', async () => {
+      await Promise.all(
+        Array.from({ length: 20 }, (_, index) =>
+          manager.mutateDirectoryPreferences({
+            action: 'addFavorite',
+            path: `/saved/${index}`,
+          })
+        )
+      )
+      expect(manager.getApp().directoryPreferences.favorites).toHaveLength(20)
+      expect(
+        await manager.mutateDirectoryPreferences({
+          action: 'addFavorite',
+          path: '/extra',
+        })
+      ).toEqual({ ok: false, error: { code: 'limitReached' } })
+      const writes = mockWriteFileAtomic.mock.calls.length
+      await manager.mutateDirectoryPreferences({
+        action: 'addFavorite',
+        path: '/saved/0',
+      })
+      expect(mockWriteFileAtomic).toHaveBeenCalledTimes(writes)
+      await Promise.all(
+        Array.from({ length: 12 }, (_, index) =>
+          manager.mutateDirectoryPreferences({
+            action: 'recordRecent',
+            path: `/recent/${index}`,
+          })
+        )
+      )
+      await manager.mutateDirectoryPreferences({
+        action: 'recordRecent',
+        path: '/recent/5',
+      })
+      expect(manager.getApp().directoryPreferences.recent).toEqual([
+        '/recent/5',
+        '/recent/11',
+        '/recent/10',
+        '/recent/9',
+        '/recent/8',
+        '/recent/7',
+        '/recent/6',
+        '/recent/4',
+        '/recent/3',
+        '/recent/2',
+      ])
+      await manager.mutateDirectoryPreferences({
+        action: 'recordRecent',
+        path: '/literal/ ',
+      })
+      expect(manager.getApp().directoryPreferences.recent[0]).toBe('/literal/ ')
+    })
+
+    it('preserves the latest queued preferences against stale and malformed ordinary app patches', async () => {
+      const gate = deferred()
+      mockWriteFileAtomic.mockImplementationOnce(() => gate.promise)
+      const addition = manager.mutateDirectoryPreferences({
+        action: 'addFavorite',
+        path: '/new',
+      })
+      const stale = manager.update({
+        app: { ...manager.getApp(), theme: 'dark' },
+      })
+      const corrupt = manager.update({
+        app: { directoryPreferences: 'bad' as never, notifyOnComplete: false },
+      })
+      gate.resolve()
+      await Promise.all([addition, stale, corrupt])
+      expect(manager.getApp()).toMatchObject({
+        theme: 'dark',
+        notifyOnComplete: false,
+        directoryPreferences: { favorites: ['/new'], recent: [] },
+      })
+      expect(
+        onChange.mock.calls.filter(
+          ([old, next]) =>
+            JSON.stringify(old.app.directoryPreferences) !==
+            JSON.stringify(next.app.directoryPreferences)
+        )
+      ).toHaveLength(1)
+    })
+
+    it('removes exact identities independently and treats missing removals as no-ops', async () => {
+      await manager.mutateDirectoryPreferences({
+        action: 'addFavorite',
+        path: '/stale',
+      })
+      await manager.mutateDirectoryPreferences({
+        action: 'recordRecent',
+        path: '/stale',
+      })
+      await manager.mutateDirectoryPreferences({
+        action: 'removeFavorite',
+        paths: ['/stale', '/missing'],
+      })
+      expect(manager.getApp().directoryPreferences).toEqual({
+        favorites: [],
+        recent: ['/stale'],
+      })
+      await manager.mutateDirectoryPreferences({
+        action: 'addFavorite',
+        path: '/kept',
+      })
+      await manager.mutateDirectoryPreferences({ action: 'clearRecent' })
+      expect(manager.getApp().directoryPreferences).toEqual({
+        favorites: ['/kept'],
+        recent: [],
+      })
+      const writes = mockWriteFileAtomic.mock.calls.length
+      await manager.mutateDirectoryPreferences({
+        action: 'removeRecent',
+        paths: ['/missing'],
+      })
+      expect(mockWriteFileAtomic).toHaveBeenCalledTimes(writes)
+    })
+
+    it('keeps committed memory and events unchanged on atomic failure, and recovers its queue', async () => {
+      await manager.mutateDirectoryPreferences({
+        action: 'addFavorite',
+        path: '/kept',
+      })
+      onChange.mockClear()
+      mockWriteFileAtomic.mockRejectedValueOnce(new Error('disk full'))
+      await expect(
+        manager.mutateDirectoryPreferences({
+          action: 'removeFavorite',
+          paths: ['/kept'],
+        })
+      ).rejects.toThrow('disk full')
+      expect(manager.getApp().directoryPreferences.favorites).toEqual(['/kept'])
+      expect(onChange).not.toHaveBeenCalled()
+      await manager.mutateDirectoryPreferences({
+        action: 'recordRecent',
+        path: '/later',
+      })
+      expect(manager.getApp().directoryPreferences).toEqual({
+        favorites: ['/kept'],
+        recent: ['/later'],
+      })
+    })
+  })
+
+  describe('atomic General settings', () => {
+    const empty = { addFavorites: [], removeFavorites: [], removeRecent: [] }
+    beforeEach(() => mockWriteFileAtomic.mockResolvedValue(undefined))
+
+    it('applies baseline-relative deletes against latest queued preferences while committing General fields once', async () => {
+      await manager.mutateDirectoryPreferences({
+        action: 'addFavorite',
+        path: '/baseline',
+      })
+      await manager.mutateDirectoryPreferences({
+        action: 'recordRecent',
+        path: '/seen',
+      })
+      const gate = deferred()
+      mockWriteFileAtomic.mockImplementationOnce(() => gate.promise)
+      const add = manager.mutateDirectoryPreferences({
+        action: 'addFavorite',
+        path: '/other-client',
+      })
+      const recent = manager.mutateDirectoryPreferences({
+        action: 'recordRecent',
+        path: '/new-recent',
+      })
+      const save = manager.saveGeneralSettings({
+        expectedRevision: manager.getGeneralSettingsSnapshot().revision,
+        app: { notifyOnComplete: false },
+        directories: {
+          addFavorites: ['/new-favorite '],
+          removeFavorites: ['/baseline'],
+          removeRecent: ['/seen'],
+        },
+      })
+      gate.resolve()
+      await Promise.all([add, recent, save])
+      expect(await save).toMatchObject({
+        ok: false,
+        error: { code: 'conflict' },
+      })
+      expect(manager.getApp().notifyOnComplete).toBe(true)
+      expect(
+        await manager.saveGeneralSettings({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
+          app: { notifyOnComplete: false },
+          directories: {
+            addFavorites: ['/new-favorite '],
+            removeFavorites: ['/baseline'],
+            removeRecent: ['/seen'],
+          },
+        })
+      ).toMatchObject({
+        ok: true,
+        value: {
+          directoryPreferences: {
+            favorites: ['/other-client', '/new-favorite '],
+            recent: ['/new-recent'],
+          },
+        },
+      })
+      expect(manager.getApp().notifyOnComplete).toBe(false)
+      expect(mockWriteFileAtomic).toHaveBeenCalledTimes(5)
+      const saved = JSON.parse(mockWriteFileAtomic.mock.calls.at(-1)?.[1])
+      expect(saved.app).toMatchObject({
+        notifyOnComplete: false,
+        directoryPreferences: {
+          favorites: ['/other-client', '/new-favorite '],
+          recent: ['/new-recent'],
+        },
+      })
+    })
+
+    it('checks the latest resulting cap before applying any General field, and permits replacement at the cap', async () => {
+      await Promise.all(
+        Array.from({ length: 20 }, (_, index) =>
+          manager.mutateDirectoryPreferences({
+            action: 'addFavorite',
+            path: `/favorite/${index}`,
+          })
+        )
+      )
+      const before = structuredClone(manager.getApp())
+      mockWriteFileAtomic.mockClear()
+      onChange.mockClear()
+      expect(
+        await manager.saveGeneralSettings({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
+          app: { notifyOnError: false },
+          directories: { ...empty, addFavorites: ['/extra'] },
+        })
+      ).toEqual({ ok: false, error: { code: 'limitReached' } })
+      expect(manager.getApp()).toEqual(before)
+      expect(mockWriteFileAtomic).not.toHaveBeenCalled()
+      expect(onChange).not.toHaveBeenCalled()
+      expect(
+        await manager.saveGeneralSettings({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
+          app: { notifyOnError: false },
+          directories: {
+            ...empty,
+            addFavorites: ['/extra', '/extra'],
+            removeFavorites: ['/favorite/0'],
+          },
+        })
+      ).toMatchObject({ ok: true })
+      expect(manager.getApp().directoryPreferences.favorites).toHaveLength(20)
+      expect(manager.getApp().directoryPreferences.favorites).toContain(
+        '/extra'
+      )
+      expect(manager.getApp().notifyOnError).toBe(false)
+      expect(mockWriteFileAtomic).toHaveBeenCalledOnce()
+      expect(onChange).toHaveBeenCalledOnce()
+    })
+
+    it('publishes neither aggregate on writer failure and recovers without letting generic settings overwrite preferences', async () => {
+      await manager.mutateDirectoryPreferences({
+        action: 'addFavorite',
+        path: '/keep',
+      })
+      const before = structuredClone(manager.getApp())
+      onChange.mockClear()
+      mockWriteFileAtomic.mockRejectedValueOnce(new Error('disk full'))
+      await expect(
+        manager.saveGeneralSettings({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
+          app: { notifyOnError: false },
+          directories: { ...empty, removeFavorites: ['/keep'] },
+        })
+      ).rejects.toThrow('disk full')
+      expect(manager.getApp()).toEqual(before)
+      expect(onChange).not.toHaveBeenCalled()
+      await manager.saveGeneralSettings({
+        expectedRevision: manager.getGeneralSettingsSnapshot().revision,
+        app: { notifyOnError: false },
+        directories: { ...empty, addFavorites: ['/new'] },
+      })
+      await manager.update({
+        app: { directoryPreferences: 'malformed' as never, theme: 'dark' },
+      })
+      expect(manager.getApp()).toMatchObject({
+        notifyOnError: false,
+        theme: 'dark',
+        directoryPreferences: { favorites: ['/keep', '/new'], recent: [] },
+      })
+    })
+
+    it('fences earlier requests without writing or publishing an empty General transaction', async () => {
+      const revision = manager.getGeneralSettingsSnapshot().revision
+      expect(
+        await manager.saveGeneralSettings({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
+          app: {},
+          directories: empty,
+        })
+      ).toMatchObject({
+        ok: true,
+        value: { directoryPreferences: { favorites: [], recent: [] } },
+      })
+      expect(manager.getGeneralSettingsSnapshot().revision).not.toBe(revision)
+      expect(
+        await manager.saveGeneralSettings({
+          expectedRevision: revision,
+          app: { notifyOnError: false },
+          directories: empty,
+        })
+      ).toMatchObject({ ok: false, error: { code: 'conflict' } })
+      expect(manager.getApp().notifyOnError).toBe(true)
+      expect(mockWriteFileAtomic).not.toHaveBeenCalled()
+      expect(onChange).not.toHaveBeenCalled()
+    })
+  })
+
   describe('load', () => {
+    it.each([
+      ['darwin', 64_000, 512_000],
+      ['win32', 65_536, 524_288],
+      ['linux', 65_536, 524_288],
+    ])(
+      'persists first-run speed presets for %s only once',
+      async (platform, upload, download) => {
+        const unitSystem = resolveByteUnitSystem('system', platform as string)
+        manager = new SettingsManager(TEST_PATH, {
+          defaultByteUnitSystem: unitSystem,
+        })
+        mockedFs.readFile.mockRejectedValue(new Error('ENOENT'))
+        mockedFs.writeFile.mockResolvedValue(undefined)
+        await manager.load()
+        expect(manager.get().speedLimit).toMatchObject({
+          turtle: 'off',
+          base: { upload: 0, download: 0 },
+          alt: { upload, download },
+        })
+        const saved = JSON.parse(
+          mockedFs.writeFile.mock.calls.at(-1)![1] as string
+        )
+        expect(saved.speedLimit.alt).toEqual({ upload, download })
+        mockedFs.readFile.mockResolvedValue(JSON.stringify(saved))
+        const reloaded = new SettingsManager(TEST_PATH, {
+          defaultByteUnitSystem:
+            unitSystem === 'decimal' ? 'binary' : 'decimal',
+        })
+        await reloaded.load()
+        expect(reloaded.get().speedLimit.alt).toEqual({ upload, download })
+        await reloaded.update({
+          app: {
+            byteUnitSystem: unitSystem === 'decimal' ? 'binary' : 'decimal',
+          },
+        })
+        expect(reloaded.get().speedLimit.alt).toEqual({ upload, download })
+      }
+    )
+
+    it.each(['decimal', 'binary'] as const)(
+      'uses an explicit %s preference when the speed profile is missing',
+      async (units) => {
+        manager = new SettingsManager(TEST_PATH, {
+          defaultByteUnitSystem: units === 'decimal' ? 'binary' : 'decimal',
+        })
+        mockedFs.readFile.mockResolvedValue(
+          JSON.stringify({
+            version: CURRENT_SETTINGS_VERSION,
+            app: { byteUnitSystem: units, defaultSaveDir: '/tmp/downloads' },
+            engine: { rpcSecret: 'kept' },
+          })
+        )
+        await manager.load()
+        expect(manager.get().speedLimit.alt).toEqual(
+          units === 'decimal'
+            ? { upload: 64_000, download: 512_000 }
+            : { upload: 65_536, download: 524_288 }
+        )
+        expect(mockedFs.writeFile).toHaveBeenCalledOnce()
+      }
+    )
+
+    it.each([
+      { upload: 65_536, download: 524_288 },
+      { upload: 123_456, download: 987_654 },
+      { upload: 0, download: 0 },
+    ])(
+      'preserves stored limits $upload/$download in decimal mode',
+      async (alt) => {
+        manager = new SettingsManager(TEST_PATH, {
+          defaultByteUnitSystem: 'decimal',
+        })
+        mockedFs.readFile.mockResolvedValue(
+          JSON.stringify({
+            version: CURRENT_SETTINGS_VERSION,
+            app: { byteUnitSystem: 'decimal' },
+            speedLimit: {
+              turtle: 'on',
+              base: { upload: 10, download: 20 },
+              alt,
+            },
+          })
+        )
+        await manager.load()
+        expect(manager.get().speedLimit).toMatchObject({
+          turtle: 'on',
+          base: { upload: 10, download: 20 },
+          alt,
+        })
+      }
+    )
+
     it('uses defaults when file does not exist', async () => {
       mockedFs.readFile.mockRejectedValue(
         Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
@@ -129,6 +557,7 @@ describe('SettingsManager', () => {
       mockedFs.readFile.mockResolvedValue(
         JSON.stringify({
           version: CURRENT_SETTINGS_VERSION,
+          speedLimit: DEFAULT_SPEED_LIMIT_SETTINGS,
           engine: { ...DEFAULT_ENGINE_SETTINGS, rpcSecret: 'saved-secret' },
           app,
           plugins: {},
@@ -167,6 +596,7 @@ describe('SettingsManager', () => {
         mockedFs.readFile.mockResolvedValue(
           JSON.stringify({
             version: CURRENT_SETTINGS_VERSION,
+            speedLimit: DEFAULT_SPEED_LIMIT_SETTINGS,
             engine: { ...DEFAULT_ENGINE_SETTINGS, rpcSecret: 'saved-secret' },
             app: {
               ...DEFAULT_APP_SETTINGS,
@@ -307,6 +737,35 @@ describe('SettingsManager', () => {
       expect(manager.getApp().defaultSaveDir).toBe('/home/user/dl')
       expect(manager.getEngine().maxConcurrentDownloads).toBe(10)
       expect(manager.get().dashboard).toEqual(DEFAULT_DASHBOARD_LAYOUT)
+    })
+
+    it('persists the longer legacy magnet timeout and preserves later edits', async () => {
+      mockedFs.readFile.mockResolvedValue(
+        JSON.stringify({
+          version: 10,
+          engine: { magnetResolveTimeout: 120 },
+        })
+      )
+      mockedFs.mkdir.mockResolvedValue(undefined)
+      mockedFs.writeFile.mockResolvedValue(undefined)
+
+      await manager.load()
+
+      expect(manager.getEngine().magnetResolveTimeout).toBe(600)
+      expect(JSON.parse(mockedFs.writeFile.mock.lastCall?.[1])).toMatchObject({
+        version: CURRENT_SETTINGS_VERSION,
+        engine: { magnetResolveTimeout: 600 },
+      })
+
+      await manager.update({ engine: { magnetResolveTimeout: 120 } })
+      mockedFs.readFile.mockResolvedValue(mockedFs.writeFile.mock.lastCall?.[1])
+      await manager.load()
+      expect(manager.getEngine().magnetResolveTimeout).toBe(120)
+
+      await manager.update({ engine: { magnetResolveTimeout: 900 } })
+      mockedFs.readFile.mockResolvedValue(mockedFs.writeFile.mock.lastCall?.[1])
+      await manager.load()
+      expect(manager.getEngine().magnetResolveTimeout).toBe(900)
     })
 
     it('falls back to defaults on corrupted JSON', async () => {
@@ -1073,13 +1532,32 @@ describe('SettingsManager', () => {
       const app = manager.getApp()
       expect(app.runMode).toBe(1) // RunMode.Standard
       expect(app.traySpeedometer).toBe(true)
+      expect(app.trayIconColor).toBe('auto')
     })
+
+    it.each(['light', 'dark', 'auto'] as const)(
+      'persists tray color %s without changing the app theme or requiring restart',
+      async (trayIconColor) => {
+        const theme = manager.getApp().theme
+        const result = await manager.update({ app: { trayIconColor } })
+        expect(result.requiresRestart).toBe(false)
+        expect(manager.getApp().theme).toBe(theme)
+        const saved = mockedFs.writeFile.mock.calls.at(-1)?.[1] as string
+        expect(JSON.parse(saved).app.trayIconColor).toBe(trayIconColor)
+        mockedFs.readFile.mockResolvedValue(saved)
+        const reloaded = new SettingsManager(TEST_PATH)
+        await reloaded.load()
+        expect(reloaded.getApp().trayIconColor).toBe(trayIconColor)
+        expect(reloaded.getApp().theme).toBe(theme)
+      }
+    )
   })
 
   describe('rpcSecret seeding', () => {
     it('preserves an explicitly persisted empty rpcSecret after load', async () => {
       const fileContent = JSON.stringify({
         version: CURRENT_SETTINGS_VERSION,
+        speedLimit: DEFAULT_SPEED_LIMIT_SETTINGS,
         engine: { rpcSecret: '' },
         app: { defaultSaveDir: '/downloads' },
       })

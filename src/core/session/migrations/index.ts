@@ -7,6 +7,9 @@ import {
 } from './v1'
 import { V2_TASK_SCHEMA_OBJECTS, v2 } from './v2'
 import { V3_SCHEMA_OBJECTS, v3 } from './v3'
+import { V4_SCHEMA_OBJECTS, v4 } from './v4'
+import { V5_TASK_SCHEMA_OBJECTS, v5 } from './v5'
+import { V6_SCHEMA_OBJECTS, v6 } from './v6'
 
 interface Migration {
   version: number
@@ -18,8 +21,12 @@ interface Migration {
 // as a Plan B follow-up (magnet metadata resolved + awaiting user
 // file selection — distinct from "still fetching metadata" so the
 // Downloads pill can say "Ready" instead of the misleading
-// "Fetching"). v3 adds task-owned Inspector Activity persistence.
-const MIGRATIONS: Migration[] = [v1, v2, v3]
+// "Fetching"). v3 adds task-owned Inspector Activity persistence. v4 adds
+// durable plugin finalize journals plus post-delivery and quota state. v5
+// persists the user-selected save directory independently of engine paths and
+// repairs stale instance statuses beneath terminal tasks. v6 adds independent
+// seeding-time counters without inventing pre-upgrade history.
+const MIGRATIONS: Migration[] = [v1, v2, v3, v4, v5, v6]
 
 const HIGHEST_KNOWN_VERSION = MIGRATIONS.reduce(
   (max, m) => (m.version > max ? m.version : max),
@@ -58,6 +65,7 @@ export class StaleSchemaError extends Error {
       | 'canonical_task_columns_missing'
       | 'activity_schema_missing'
       | 'inspector_activity_schema_missing'
+      | 'plugin_hook_schema_missing'
       | 'foreign_key_violation',
     public readonly dbPath: string
   ) {
@@ -83,7 +91,9 @@ export class StaleSchemaError extends Error {
                     ? 'expected canonical schema objects (task inspector ' +
                       'activity and notification tables, constraints, or ' +
                       'indexes) are invalid'
-                    : 'the canonical schema contains foreign-key violations'
+                    : reason === 'plugin_hook_schema_missing'
+                      ? 'expected plugin finalize, post-delivery, or quota tables, constraints, and indexes are invalid'
+                      : 'the canonical schema contains foreign-key violations'
     super(
       `The versioned database schema is incompatible with this build: ` +
         `${detail}. ` +
@@ -229,10 +239,10 @@ function assertCanonicalTaskSchema(
   }
 }
 
-function validateCanonicalV3(db: Database.Database): void {
+function validateCanonicalTaskAndActivitySchema(db: Database.Database): void {
   const dbPath = (db as unknown as { name: string }).name
   assertCanonicalInheritedSchema(db)
-  assertCanonicalTaskSchema(db, V2_TASK_SCHEMA_OBJECTS)
+  assertCanonicalTaskSchema(db, V5_TASK_SCHEMA_OBJECTS)
 
   if (!hasExactSchemaObjects(db, V3_SCHEMA_OBJECTS)) {
     throw new StaleSchemaError('inspector_activity_schema_missing', dbPath)
@@ -267,6 +277,25 @@ function validateCanonicalV3(db: Database.Database): void {
 
   if ((db.pragma('foreign_key_check') as unknown[]).length > 0) {
     throw new StaleSchemaError('foreign_key_violation', dbPath)
+  }
+}
+
+function validateCanonicalSchema(db: Database.Database): void {
+  if (
+    !hasExactSchemaObjects(db, V6_SCHEMA_OBJECTS) ||
+    !hasNoExplicitIndexesOrTriggers(db, ['task_seeding_activity'])
+  ) {
+    throw new StaleSchemaError(
+      'inspector_activity_schema_missing',
+      (db as unknown as { name: string }).name
+    )
+  }
+  validateCanonicalTaskAndActivitySchema(db)
+  if (!hasExactSchemaObjects(db, V4_SCHEMA_OBJECTS)) {
+    throw new StaleSchemaError(
+      'plugin_hook_schema_missing',
+      (db as unknown as { name: string }).name
+    )
   }
 }
 
@@ -383,7 +412,11 @@ export function migrate(db: Database.Database): void {
     }
     assertCanonicalTaskSchema(
       db,
-      current === 1 ? V1_TASK_SCHEMA_OBJECTS : V2_TASK_SCHEMA_OBJECTS
+      current === 1
+        ? V1_TASK_SCHEMA_OBJECTS
+        : current >= 5
+          ? V5_TASK_SCHEMA_OBJECTS
+          : V2_TASK_SCHEMA_OBJECTS
     )
     assertCanonicalInheritedSchema(db)
 
@@ -474,5 +507,5 @@ export function migrate(db: Database.Database): void {
     }
   }
 
-  validateCanonicalV3(db)
+  validateCanonicalSchema(db)
 }

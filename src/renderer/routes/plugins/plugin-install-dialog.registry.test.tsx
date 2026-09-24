@@ -1,3 +1,4 @@
+import '@test-utils/dom-animations'
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import { Commands } from '@shared/protocol/commands'

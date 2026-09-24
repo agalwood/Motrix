@@ -1,5 +1,6 @@
-import { rm } from 'node:fs/promises'
+import { realpath } from 'node:fs/promises'
 import path from 'node:path'
+import { BridgeReceiverError } from '@core/bridge-receiver/errors'
 import type { AdaptedMux } from '@core/bridge-receiver/submit-download-adapter'
 import type { DnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
 import { dnsModeToAsyncDns } from '@core/engine/aria2/dns-fallback'
@@ -15,8 +16,8 @@ import type { NotificationCenter } from '@core/notifications/notification-center
 import { NotificationKinds } from '@shared/types/notification'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
 import type { GrantsManager } from '@core/plugin/grants/grants-manager'
-import { HookAuditLog } from '@core/plugin/hooks/audit-log'
-import { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
+import type { HookAuditLog } from '@core/plugin/hooks/audit-log'
+import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
 import type { ActivationDispatcher } from '@core/plugin/host/activation-dispatcher'
 import type { PluginHost } from '@core/plugin/host/plugin-host'
 import {
@@ -42,18 +43,24 @@ import {
 } from '@core/proxy/applied-download-proxy-policy'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
+import { createDirectoryPreferencesHandlers } from '@core/settings/directory-preferences'
+import { createSaveGeneralSettingsHandler } from '@core/settings/general-settings'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import { resolveAutoparserExtensionWhitelist } from '@core/parser/autoparser-whitelist'
 import { PageLinkParser } from '@core/parser/page-link-parser'
 import {
+  clearStoppedTasks,
+  pauseAllTasks,
   pauseTask,
   reAddTask,
   removeTask,
+  resumeAllTasks,
   resumeTask,
   runBulkTaskAction,
   stopSeedingTask,
   toBulkTaskCommandResult,
 } from '@core/task/actions'
+import { moveTasks } from '@core/task/actions/move-tasks'
 import type {
   TaskActionDeps,
   TaskTransitionRecordInput,
@@ -75,30 +82,44 @@ import {
 import { DirectResourceValidatorService } from '@core/task/direct-resource-validator'
 import type { FileCleanupService } from '@core/task/file-cleanup-service'
 import type { FinalNamePicker } from '@core/task/final-name-picker'
+import type { MediaMetaStore } from '@core/task/media-meta-store'
 import type { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
+import {
+  admitTaskCreateRequest,
+  taskCreateSourceFailure,
+} from '@core/task/source-admission'
+import { createTaskDirectoryHistory } from '@core/task/task-directory-history'
 import type { TaskManager } from '@core/task/task-manager'
 import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
+import { MagnetSelectionTimeout } from '@core/torrent/magnet-selection-timeout'
 import type { MagnetTracker } from '@core/torrent/magnet-tracker'
 import { swapMagnetMetadataForBt } from '@core/torrent/swap-magnet-metadata-for-bt'
 import type { TorrentParser } from '@core/torrent/torrent-parser'
 import type { TrackerManager } from '@core/tracker'
 import type { NatManager } from '@motrix/nat'
+import nativeMessagingExtensions from '@shared/config/native-messaging-extensions.json'
 import { AppError, ErrorCode } from '@shared/errors'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import type { CommandHandlerMap } from '@shared/protocol/handler-types'
-import type { TaskCreateCommandResult } from '@shared/schemas/add-task'
-import { taskCreateRequestSchema } from '@shared/schemas/add-task'
+import {
+  type TaskCreateCommandResult,
+  taskCreateRequestSchema,
+  torrentBatchCreateOptionsSchema,
+} from '@shared/schemas/add-task'
+import { appImageNativeHostActionSchema } from '@shared/schemas/appimage-native-host'
 import {
   removeTasksPayloadSchema,
   taskIdsPayloadSchema,
 } from '@shared/schemas/bulk-task-command'
 import { closeCurrentWindowSchema } from '@shared/schemas/close-current-window'
+import { moveTasksPayloadSchema } from '@shared/schemas/move-tasks'
 import {
   type ParsePageLinksResult,
   parsePageLinksRequestSchema,
 } from '@shared/schemas/page-parse'
+import { checkPluginUpdatesPayloadSchema } from '@shared/schemas/plugin-update'
 import { REGISTRY_PLUGIN_ID_RE } from '@shared/schemas/registry'
 import { removeTaskPayloadSchema } from '@shared/schemas/remove-task'
 import { showAddTaskWindowSchema } from '@shared/schemas/show-add-task-window'
@@ -106,7 +127,7 @@ import {
   CLI_INSTALL_PACKAGE_MANAGERS,
   type CliInstallRequest,
 } from '@shared/types/cli-tool'
-import { EngineRecoveryAction } from '@shared/types/engine'
+import { EngineRecoveryAction, EngineState } from '@shared/types/engine'
 import type { ProxySettings } from '@shared/types/settings'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
@@ -121,11 +142,13 @@ import {
   shell,
 } from 'electron'
 import { z } from 'zod'
+import { getAppImageNativeHost } from '../bridge/appimage-native-host-electron'
 import type { BridgeManager } from '../bridge/bridge-manager'
 import type { CliToolService } from '../cli/cli-tool-service'
 import { MenuContextPatchSchema } from '../commands/context-schema'
 import type { ContextStore } from '../commands/context-store'
 import type { UpdateManager } from '../core/update-manager'
+import { i18n } from '../lib/i18n'
 import {
   enableAppImageIntegrationFromSettings,
   reconcileAppImageIntegrationFromSettings,
@@ -138,6 +161,7 @@ import { resolveWindowsDefaultAppsSettingsUrl } from '../platform/windows-defaul
 import type { createMainProxyApplier } from '../proxy/wiring'
 import type { WindowManager } from '../window/window-manager'
 import { RenderedPageLinkParser } from '../parser/rendered-page-link-parser'
+import { createOpenTaskFileHandler } from './commands/open-task-file'
 import { createRevealInFolderHandler } from './commands/reveal-in-folder'
 import { createSetSelectedFilesHandler } from './commands/set-selected-files'
 import { NatCommandHandlers } from './nat-commands'
@@ -159,6 +183,7 @@ export interface CommandContext {
    * paths cannot drift. Called synchronously during handler construction.
    */
   bindTaskRetry?: (fn: (taskId: string) => Promise<unknown>) => void
+  recoverFinalization?: (taskId: string) => Promise<void>
   sessionManager: SessionManager
   settingsManager: SettingsManager
   protocolManager: ReturnType<typeof createProtocolManager>
@@ -179,6 +204,7 @@ export interface CommandContext {
   trackerManager: TrackerManager
   contextStore: ContextStore
   finalNamePicker: FinalNamePicker
+  mediaMetaStore: MediaMetaStore
   torrentMetaStore: TorrentMetaStore
   fileCleanupService: FileCleanupService
   eventBus: EventBus
@@ -198,12 +224,16 @@ export interface CommandContext {
   pluginGrants: GrantsManager
   capabilityHost: CapabilityHost
   userDataDir: string
-  pluginsDir: string
   pluginActivation: ActivationDispatcher
+  hookAuditLog?: HookAuditLog
+  hookOrchestrator?: HookOrchestrator
   bridgeManager: BridgeManager
   magnetTracker: MagnetTracker
   activityRecorder: TaskActivityRecorder
   persistTask: NonNullable<TaskActionDeps['persistTask']>
+  persistTaskWithPluginMetadata?: NonNullable<
+    CreateTaskDeps['persistTaskWithPluginMetadata']
+  >
   /**
    * Persist a task and (when non-null) its terminal occurrence in a single
    * durable transaction — used INSTEAD OF `persistTask` whenever a status
@@ -299,6 +329,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     trackerManager,
     contextStore,
     finalNamePicker,
+    mediaMetaStore,
     torrentMetaStore,
     fileCleanupService,
     eventBus,
@@ -314,15 +345,16 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     registryClient,
     hostVersion,
     builtinUpdater,
-    overlayDir,
     pluginGrants,
     capabilityHost,
     userDataDir,
-    pluginsDir,
     pluginActivation,
+    hookAuditLog,
+    hookOrchestrator,
     bridgeManager,
     activityRecorder,
     persistTask,
+    persistTaskWithPluginMetadata,
     persistTaskWithOccurrence,
     occurrenceDispatcher,
     recordTransition,
@@ -332,22 +364,6 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     publishTaskUpdate,
     publishTaskUpdateNow,
   } = ctx
-
-  // Plan C plugin-hook plumbing: instantiate the orchestrator + audit log
-  // once and feed them into createDeps so handleCreateTask's beforeCreate
-  // chain fires. Without this, every plugin's beforeCreate hook is silently
-  // skipped and the user-supplied URL is dispatched to aria2 unchanged.
-  const hookAuditLog = new HookAuditLog(
-    path.join(userDataDir, 'plugin-audit', 'hooks.ndjson')
-  )
-  const hookOrchestrator = new HookOrchestrator({
-    host: pluginHost,
-    hookTimeoutMs: { series: 10_000, parallel: 30_000 },
-    pluginsDir,
-    pluginStorageRootFor: (pluginId) =>
-      path.join(pluginsDir, pluginId, 'storage'),
-    auditLog: hookAuditLog,
-  })
 
   const createDeps: CreateTaskDeps = {
     adapter,
@@ -365,6 +381,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     auditLog: hookAuditLog,
     db: motrixDatabase.database,
     persistTask,
+    persistTaskWithPluginMetadata,
     parentTaskCreated,
     rollbackTaskCreation: (taskId: string) =>
       sessionManager.runExclusivePersistence(() =>
@@ -390,20 +407,29 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     // Bilibili HD comes via the extension submit path, which carries cookies.
     resolveToMux: (url: string) =>
       bridgeManager.current?.resolveToMux(url) ?? Promise.resolve(null),
-    // A resolver can produce a mux pair WITHOUT ffmpeg (it only queries APIs),
-    // but actually downloading it needs the MuxPipeline, which exists only when
-    // ffmpeg is available. Throw a clear, actionable error instead of a
-    // TypeError when the pipeline is absent (bridge disabled / no ffmpeg) —
-    // mirrors the extension path's "ffmpeg unavailable" guard in BridgeReceiver.
-    dispatchMux: (adapted: AdaptedMux) => {
+    // Share the receiver's live FFmpeg check with desktop submissions.
+    dispatchMux: async (adapted: AdaptedMux) => {
       const mux = bridgeManager.current?.muxPipeline
       if (!mux) {
         throw new AppError(
           ErrorCode.EngineFeatureUnavailable,
-          'ffmpeg is required to download this video: its video and audio are separate streams that must be muxed. Install ffmpeg (or set MOTRIX_FFMPEG_BIN) and restart Motrix.'
+          i18n.t('settings.integration.media.pipelineUnavailable')
         )
       }
-      return mux.dispatch(adapted)
+      try {
+        return await mux.dispatch(adapted)
+      } catch (error) {
+        if (
+          error instanceof BridgeReceiverError &&
+          error.code === 'unsupported-kind'
+        ) {
+          throw new AppError(
+            ErrorCode.EngineFeatureUnavailable,
+            i18n.t('settings.integration.media.ffmpegRequired')
+          )
+        }
+        throw error
+      }
     },
     // Destination-collision policy: skip (notify) when the final file exists
     // or an active task owns the staging file; delete stale staging leftovers.
@@ -463,6 +489,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     publishTaskUpdateNow,
   }
   const reAddDeps = {
+    recoverFinalization: ctx.recoverFinalization,
     taskManager,
     adapter,
     eventBus,
@@ -494,6 +521,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     adapter,
     log,
     fileCleanupService,
+    mediaMetaStore,
     torrentMetaStore,
     eventBus,
     db: motrixDatabase,
@@ -537,10 +565,6 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     { sourceType: 'registry' }
   >
 
-  const checkPluginUpdatesPayloadSchema = z
-    .object({ force: z.boolean().optional() })
-    .optional()
-
   const confirmPluginInstallPayloadSchema = z.object({
     stagingId: z.string().min(1),
     grants: z.record(z.string(), z.enum(['granted', 'denied'])),
@@ -553,25 +577,13 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     stagingId: z.string().min(1),
   })
 
-  // deactivate → rescan → reactivate; a failed reactivation is NOT an
-  // install failure — the overlay is on disk and effective next launch.
-  //
-  // knownWasActive lets a caller that must deactivate BEFORE calling this
-  // function (RevertBuiltinToBundled — deactivate has to happen before the
-  // overlay `rm` so the running worker isn't holding overlay files open)
-  // pass in the pre-deactivate activity state. Sampling pluginRegistry.list()
-  // in here would otherwise always see the caller's own deactivate and treat
-  // the plugin as never having been active. `??` is deliberate: a real
-  // `false` override is honored as-is, only `undefined` falls through to
-  // sampling the registry.
-  async function hotSwapBuiltin(
+  // BuiltinUpdater owns deactivate + policy refresh + durable supersession
+  // under PluginHost's admission barrier. Only best-effort reactivation is
+  // left here; a committed overlay remains effective after restart.
+  async function reactivateBuiltin(
     pluginId: string,
-    knownWasActive?: boolean
+    wasActive: boolean
   ): Promise<boolean> {
-    const wasActive =
-      knownWasActive ?? pluginRegistry.get(pluginId)?.state.status === 'active'
-    await pluginHost.deactivate(pluginId).catch(() => {})
-    await pluginRegistry.discover()
     if (!wasActive) return false
     try {
       await pluginHost.activate(pluginId)
@@ -639,7 +651,8 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       if (error instanceof TaskCreateSkippedError) {
         return { outcome: 'skipped', ...error.info }
       }
-      const conflict = taskCreateConflictResult(error)
+      const conflict =
+        taskCreateSourceFailure(error) ?? taskCreateConflictResult(error)
       if (conflict) return conflict
       throw error
     }
@@ -687,32 +700,19 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
   })
   const saveDirPickersInFlight = new WeakSet<WebContents>()
 
+  const directoryPreferences =
+    createDirectoryPreferencesHandlers(settingsManager)
+  const directoryHistory = createTaskDirectoryHistory({
+    recordRecent: (path) =>
+      directoryPreferences.mutate({ action: 'recordRecent', path }),
+    runWork: ctx.trackAsyncWork,
+  })
+
   return {
     [Commands.InstallCliTool]: async (payload: unknown) =>
       cliToolService.install(
         cliInstallRequestSchema.parse(payload) as CliInstallRequest
       ),
-
-    [Commands.CreateDownload]: async (params: {
-      uris: string[] | string
-      saveDir?: string
-    }) => {
-      const uris = Array.isArray(params.uris) ? params.uris : [params.uris]
-      log.info(
-        {
-          uris,
-          activePluginIds: pluginHost.allActive().map((p) => p.id),
-        },
-        'Commands.CreateDownload received'
-      )
-      await activatePluginsForTask('http', uris[0] ?? '')
-      return createAndPersist({
-        type: 'http',
-        uris,
-        saveDir: params.saveDir || settingsManager.getApp().defaultSaveDir,
-        headers: [],
-      })
-    },
 
     [Commands.ParseTorrent]: async ({ base64 }: { base64: string }) => {
       return torrentParser.parse(base64)
@@ -781,6 +781,16 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     // Plural task commands (option C): one IPC request per multi-select
     // action. Per-task outcomes come back IPC-safe; the bulk close inside
     // runBulkTaskAction forces one immediate snapshot flush.
+    [Commands.MoveTasks]: async (rawPayload: unknown) =>
+      moveTasks(moveTasksPayloadSchema.parse(rawPayload), pauseResumeDeps),
+
+    [Commands.PauseAllTasks]: async () =>
+      toBulkTaskCommandResult(await pauseAllTasks(pauseResumeDeps)),
+    [Commands.ResumeAllTasks]: async () =>
+      toBulkTaskCommandResult(await resumeAllTasks(pauseResumeDeps)),
+    [Commands.ClearStoppedTasks]: async (rawPayload: unknown) =>
+      clearStoppedTasks(removeDeps, taskIdsPayloadSchema.parse(rawPayload)),
+
     [Commands.PauseTasks]: async (rawPayload: unknown) => {
       const taskIds = taskIdsPayloadSchema.parse(rawPayload)
       return toBulkTaskCommandResult(
@@ -859,6 +869,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       engine: adapter,
       db: motrixDatabase,
       eventBus,
+      runTaskMutation,
     }),
 
     [Commands.ReopenMagnetFileSelection]: async (taskId: string) => {
@@ -866,16 +877,23 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       return { ok: true }
     },
 
-    [Commands.CreateTask]: async (request: unknown) => {
-      // Schema validation happens inside handleCreateTask; createAndPersist
-      // forwards the raw request unchanged. Activate plugins JIT first so
-      // beforeCreate hooks see the request (Plan C: onTaskType/onProtocol
+    [Commands.CreateTask]: directoryHistory.wrap(async (request: unknown) => {
+      try {
+        request = admitTaskCreateRequest(request)
+      } catch (error) {
+        const failure = taskCreateSourceFailure(error)
+        if (failure) return failure
+        throw error
+      }
+      // Activate plugins only after source admission, before task creation,
+      // so beforeCreate hooks see the validated request (onTaskType/onProtocol
       // resolvers don't activate at startup).
       const parsed = taskCreateRequestSchema.safeParse(request)
       if (parsed.success) {
         const req = parsed.data
         if (req.type === 'http') {
-          await activatePluginsForTask('http', req.uris[0] ?? '')
+          if (!req.uris[0].startsWith('ftp:'))
+            await activatePluginsForTask('http', req.uris[0] ?? '')
         } else if (req.payload.kind === 'magnet') {
           await activatePluginsForTask('magnet', req.payload.uri)
           if (
@@ -889,7 +907,9 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
                 req.saveDir || settingsManager.getApp().defaultSaveDir
               )
             } catch (error) {
-              const conflict = taskCreateConflictResult(error)
+              const conflict =
+                taskCreateSourceFailure(error) ??
+                taskCreateConflictResult(error)
               if (conflict) return conflict
               throw error
             }
@@ -986,7 +1006,9 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
                   }
                 )
               } catch (error) {
-                const conflict = taskCreateConflictResult(error)
+                const conflict =
+                  taskCreateSourceFailure(error) ??
+                  taskCreateConflictResult(error)
                 if (conflict) return conflict
                 throw error
               }
@@ -997,7 +1019,28 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         }
       }
       return createAndPersist(request as Parameters<typeof handleCreateTask>[0])
-    },
+    }),
+
+    [Commands.MutateDirectoryPreferences]: directoryPreferences.mutate,
+
+    [Commands.SaveGeneralSettings]: createSaveGeneralSettingsHandler(
+      settingsManager,
+      {
+        applySavedApp: async (patch) => {
+          if (
+            patch.launchAtStartup !== undefined ||
+            patch.showMainWindowAtLogin !== undefined
+          ) {
+            syncAutoLaunch(settingsManager.getApp().launchAtStartup)
+          }
+          if (patch.defaultSaveDir !== undefined) {
+            await supervisor.applyDefaultSaveDir(
+              settingsManager.getApp().defaultSaveDir
+            )
+          }
+        },
+      }
+    ),
 
     [Commands.UpdateSettings]: async (partial: unknown) => {
       const oldFull = settingsManager.get()
@@ -1163,13 +1206,63 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     },
 
     [Commands.NextTorrent]: async () => {
-      protocolManager.nextTorrent()
-      return { ok: true }
+      const advanced = await protocolManager.nextTorrent()
+      return { advanced }
     },
 
-    [Commands.DownloadAllTorrents]: async () => {
-      protocolManager.downloadAllTorrents()
-      return { ok: true }
+    [Commands.DownloadAllTorrents]: async (rawOptions: unknown) => {
+      const options = torrentBatchCreateOptionsSchema.parse(rawOptions)
+      const torrents = await protocolManager.downloadAllTorrents()
+      let succeeded = 0
+      let failed = 0
+      let firstTaskId: string | null = null
+
+      for (const [index, torrent] of torrents.entries()) {
+        try {
+          await activatePluginsForTask('bt', '')
+          const result = await createAndPersist({
+            type: 'bt',
+            payload: {
+              kind: 'torrent-base64',
+              base64: torrent.payload.dataBase64,
+            },
+            selectedFiles:
+              index === 0
+                ? options.selectedFiles
+                : torrent.meta.files.map((file) => file.index),
+            saveDir: options.saveDir,
+            dlLimit: options.dlLimit,
+            ulLimit: options.ulLimit,
+            seedRatio: options.seedRatio,
+            displayName: torrent.meta.name,
+          })
+          if (
+            result.outcome === 'conflict' ||
+            result.outcome === 'invalid-source' ||
+            result.outcome === 'skipped'
+          ) {
+            failed += 1
+            continue
+          }
+          succeeded += 1
+          firstTaskId ??= result.taskId
+        } catch (err) {
+          failed += 1
+          log.warn(
+            { err, torrent: torrent.payload.name },
+            'batch torrent creation failed'
+          )
+        }
+      }
+
+      if (succeeded > 0) directoryHistory.record(options.saveDir)
+
+      return {
+        total: torrents.length,
+        succeeded,
+        failed,
+        firstTaskId,
+      }
     },
 
     // CloseCurrentWindow needs event.sender — the wrapper in registerCommandHandlers
@@ -1211,7 +1304,12 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
     [Commands.ToggleMaximizeCurrentWindow]: async (sender: WebContents) => {
       const win = BrowserWindow.fromWebContents(sender)
-      if (win && !win.isDestroyed() && win.isMaximizable()) {
+      if (
+        win &&
+        !win.isDestroyed() &&
+        !win.isFullScreen() &&
+        win.isMaximizable()
+      ) {
         if (win.isMaximized()) {
           win.unmaximize()
         } else {
@@ -1241,7 +1339,8 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         if (result.canceled || result.filePaths.length === 0) {
           return null
         }
-        return { path: result.filePaths[0] }
+        const selected = await realpath(result.filePaths[0]).catch(() => null)
+        return selected ? { path: selected } : null
       } finally {
         saveDirPickersInFlight.delete(sender)
       }
@@ -1299,6 +1398,23 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         getMagnetEnabled: () => settingsManager.getApp().protocols.magnet,
       }),
 
+    [Commands.ConfigureAppImageNativeHost]: async (raw: unknown) => {
+      const action = appImageNativeHostActionSchema.parse(raw)
+      const registry = bridgeManager.current?.registry
+      return (
+        (await getAppImageNativeHost()?.configure(
+          action,
+          registry
+            ? {
+                chromium: registry.listManifestIds('chromium'),
+                firefox: registry.listManifestIds('firefox'),
+              }
+            : nativeMessagingExtensions,
+          settingsManager.getApp().browserBridgeEnabled
+        )) ?? { supported: false }
+      )
+    },
+
     [Commands.RemoveAppImageIntegration]: async () =>
       removeAppImageIntegrationFromSettings({
         getMagnetEnabled: () => settingsManager.getApp().protocols.magnet,
@@ -1337,6 +1453,10 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     },
 
     [Commands.RevealInFolder]: createRevealInFolderHandler({
+      shell,
+      getTask: (taskId) => taskManager.getById(taskId),
+    }),
+    [Commands.OpenTaskFile]: createOpenTaskFileHandler({
       shell,
       getTask: (taskId) => taskManager.getById(taskId),
     }),
@@ -1433,9 +1553,9 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     },
 
     [Commands.DisablePlugin]: async (id: string) => {
-      await pluginHost.deactivate(id)
-      pluginStateStore.setEnabled(id, false)
-      pluginRegistry.refreshState(id)
+      await pluginHost.disable(id, 'plugin.user_disabled', 'disabled', {
+        recordError: false,
+      })
       const state = pluginStateStore.get(id)
       eventBus.emit(Events.PluginStatusChanged, {
         id,
@@ -1590,8 +1710,12 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       if (staged.trustChanged) {
         return { needsConsent: true, ...staged }
       }
+      const wasActive = pluginHost.isActive(parsed.pluginId)
       await builtinUpdater.commit(staged.stagingId)
-      const restartRequired = await hotSwapBuiltin(parsed.pluginId)
+      const restartRequired = await reactivateBuiltin(
+        parsed.pluginId,
+        wasActive
+      )
       // Same event ConfirmPluginInstall emits after a community install
       // commits: usePlugins.onLifecycle refetches ListPlugins so the
       // plugin's version/status/source.type (builtin -> builtin-update)
@@ -1603,8 +1727,16 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
     [Commands.ConfirmBuiltinUpdate]: async (payload: unknown) => {
       const parsed = builtinStagingPayloadSchema.parse(payload)
+      const stagedPluginId = builtinUpdater.pluginIdForStaging(parsed.stagingId)
+      if (!stagedPluginId) {
+        throw new AppError(
+          ErrorCode.PluginManifestInvalid,
+          'plugin.update.builtin_staging_not_found'
+        )
+      }
+      const wasActive = pluginHost.isActive(stagedPluginId)
       const { pluginId } = await builtinUpdater.commit(parsed.stagingId)
-      const restartRequired = await hotSwapBuiltin(pluginId)
+      const restartRequired = await reactivateBuiltin(pluginId, wasActive)
       eventBus.emit(Events.PluginInstalled, { pluginId })
       return { ok: true, restartRequired }
     },
@@ -1617,18 +1749,12 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
     [Commands.RevertBuiltinToBundled]: async (payload: unknown) => {
       const parsed = builtinUpdatePayloadSchema.parse(payload)
-      // Sample activity BEFORE deactivating — hotSwapBuiltin's own sampling
-      // would otherwise always see this handler's deactivate and think the
-      // plugin was never active, so revert never reactivates it.
-      const wasActive =
-        pluginRegistry.list().find((p) => p.id === parsed.pluginId)?.status ===
-        'active'
-      await pluginHost.deactivate(parsed.pluginId).catch(() => {})
-      await rm(path.join(overlayDir, parsed.pluginId), {
-        recursive: true,
-        force: true,
-      })
-      const restartRequired = await hotSwapBuiltin(parsed.pluginId, wasActive)
+      const wasActive = pluginHost.isActive(parsed.pluginId)
+      await builtinUpdater.revert(parsed.pluginId)
+      const restartRequired = await reactivateBuiltin(
+        parsed.pluginId,
+        wasActive
+      )
       eventBus.emit(Events.PluginInstalled, { pluginId: parsed.pluginId })
       return { ok: true, restartRequired }
     },
@@ -1697,6 +1823,33 @@ export function registerCommandHandlers(ctx: CommandContext): () => void {
       ? ctx.trackAsyncWork(async () => operation())
       : Promise.resolve().then(operation)
 
+  const createTask = handlers[Commands.CreateTask]
+  if (!createTask) throw new Error('CreateTask handler is not registered')
+  const selectionTimeout = new MagnetSelectionTimeout({
+    eventBus: ctx.eventBus,
+    getSettings: () => ctx.settingsManager.getApp(),
+    getTasks: () => ctx.taskManager.getAll(),
+    isEngineReady: () => ctx.supervisor.getState() === EngineState.Ready,
+    getSelection: (taskId) => ctx.magnetTracker.getFileSelection(taskId),
+    createTask: async (request) =>
+      (await createTask(request)) as TaskCreateCommandResult,
+    notify: (input) => ctx.notificationCenter.notify(input),
+    log: getLogger('magnet-selection-timeout'),
+    runWork: ctx.trackAsyncWork,
+  })
+  if (ctx.waitForTasksReady) {
+    void ctx.waitForTasksReady().then(
+      () => selectionTimeout.start(),
+      (error: unknown) =>
+        getLogger('magnet-selection-timeout').warn(
+          { error },
+          'Task restore failed'
+        )
+    )
+  } else {
+    selectionTimeout.start()
+  }
+
   for (const [channel, handler] of Object.entries(handlers)) {
     // Window-bound commands need event.sender — pass it as the first arg.
     if (
@@ -1720,6 +1873,7 @@ export function registerCommandHandlers(ctx: CommandContext): () => void {
     }
   }
   return () => {
+    void selectionTimeout.stopAndDrain()
     for (const channel of channels) {
       ipcMain.removeHandler(channel)
     }

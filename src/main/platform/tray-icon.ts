@@ -1,24 +1,47 @@
 import path from 'node:path'
+import {
+  type ByteUnitSystem,
+  DEFAULT_BYTE_UNIT_SYSTEM,
+} from '@shared/schemas/byte-unit-system'
+import {
+  DEFAULT_TRAY_ICON_COLOR,
+  type TrayIconColor,
+} from '@shared/schemas/tray-icon-color'
 import type { NativeImage } from 'electron'
 import { nativeImage, nativeTheme } from 'electron'
 
 // ─── formatSpeed (exported for testing) ─────────────────────
 
-const UNITS = ['KB/s', 'MB/s', 'GB/s', 'TB/s']
+const UNITS = {
+  decimal: ['KB/s', 'MB/s', 'GB/s', 'TB/s'],
+  binary: ['KiB/s', 'MiB/s', 'GiB/s', 'TiB/s'],
+} as const
 
-export function formatSpeed(bytes: number): string {
-  // Always show at least KB/s (minimum unit)
-  let value = bytes / 1024
+function formatSpeedNumber(value: number): string {
+  const twoDecimals = value.toFixed(2)
+  // Include rounding across 999.99 so four-digit values never keep decimals.
+  return Number(twoDecimals) >= 1000 ? value.toFixed(0) : twoDecimals
+}
+
+export function formatSpeed(
+  bytes: number,
+  unitSystem: ByteUnitSystem = DEFAULT_BYTE_UNIT_SYSTEM
+): string {
+  const base = unitSystem === 'binary' ? 1024 : 1000
+  const units = UNITS[unitSystem]
+  if (bytes === 0) return `0 ${units[0]}`
+  // The tray keeps its compact presentation: minimum KB/s or KiB/s.
+  let value = bytes / base
   let unitIndex = 0
+  let number = value.toFixed(0)
 
-  while (value >= 1024 && unitIndex < UNITS.length - 1) {
-    value /= 1024
+  while (Number(number) >= base && unitIndex < units.length - 1) {
+    value /= base
     unitIndex++
+    number = formatSpeedNumber(value)
   }
 
-  // KB/s: no decimal; MB/s and above: one decimal
-  if (unitIndex === 0) return `${Math.round(value)} ${UNITS[unitIndex]}`
-  return `${value.toFixed(1)} ${UNITS[unitIndex]}`
+  return `${number} ${units[unitIndex]}`
 }
 
 // ─── TrayIconProvider interface ─────────────────────────────
@@ -31,8 +54,8 @@ export interface TrayIconProvider {
 
 // ─── macOS: static PNG template icon ────────────────────────
 // Uses a pre-rendered PNG instead of runtime SVG→WASM→PNG rendering.
-// The dark variant (black on transparent) works as a macOS template image —
-// the system tints it automatically for light/dark mode.
+// The dark-background variant's alpha mask works as a macOS template image —
+// the system supplies the tint automatically for light/dark mode.
 // WASM is only loaded later if the speedometer is enabled.
 
 export function createMacOSIconProvider(
@@ -97,13 +120,17 @@ export function createWindowsIconProvider(
 // ─── Linux: themed PNG icons ────────────────────────────────
 
 export function createLinuxIconProvider(
-  trayAssetDir: string
+  trayAssetDir: string,
+  getColor: () => TrayIconColor = () => DEFAULT_TRAY_ICON_COLOR
 ): TrayIconProvider {
   let normalIcon: NativeImage | null = null
   let activeIcon: NativeImage | null = null
 
   function getThemePrefix(): string {
-    return nativeTheme.shouldUseDarkColors ? 'light' : 'dark'
+    // Asset names describe the background: dark uses white artwork and vice versa.
+    const color = getColor()
+    if (color !== 'auto') return color === 'light' ? 'dark' : 'light'
+    return nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
   }
 
   return {
@@ -134,7 +161,8 @@ export function createLinuxIconProvider(
 
 export function createIconProvider(
   svgPath: string,
-  trayAssetDir: string
+  trayAssetDir: string,
+  getColor?: () => TrayIconColor
 ): TrayIconProvider {
   switch (process.platform) {
     case 'darwin':
@@ -142,6 +170,6 @@ export function createIconProvider(
     case 'win32':
       return createWindowsIconProvider(trayAssetDir)
     default:
-      return createLinuxIconProvider(trayAssetDir)
+      return createLinuxIconProvider(trayAssetDir, getColor)
   }
 }

@@ -1,5 +1,6 @@
 import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
+import { DEFAULT_TRACKER_SETTINGS } from '@shared/schemas/tracker-settings'
 import type { TrackerSource } from '@shared/types/tracker'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -145,16 +146,32 @@ describe('<TrackerSourceCombobox>', () => {
     expect(next.find((s) => s.id === 'b')?.enabled).toBe(true)
   })
 
-  it('renders builtin and cdn badges', async () => {
+  it('distinguishes direct and CDN builtins while preserving independent selections', async () => {
+    const onChange = vi.fn()
     const { user } = setup(
       <TrackerSourceCombobox
-        sources={SAMPLES}
-        onChange={vi.fn()}
+        sources={DEFAULT_TRACKER_SETTINGS.sources}
+        onChange={onChange}
         testId="cbx"
       />
     )
     await user.click(screen.getByTestId('cbx'))
-    expect(screen.getAllByText(/builtin/i).length).toBeGreaterThan(0)
+    const direct = screen.getByRole('option', { name: /DeSireFire.*Direct/ })
+    const cdn = screen.getByRole('option', { name: /DeSireFire.*CDN/ })
+    expect(within(direct).getByText('Direct')).toBeVisible()
+    expect(within(cdn).getByText('CDN')).toBeVisible()
+    expect(within(direct).queryByText('CDN')).not.toBeInTheDocument()
+    await user.click(direct)
+    const sources = onChange.mock.calls[0][0] as TrackerSource[]
+    expect(sources.find((source) => source.id === 'anime-best')?.enabled).toBe(
+      true
+    )
+    expect(
+      sources.find((source) => source.id === 'anime-best-cdn')?.enabled
+    ).toBe(false)
+    expect(
+      sources.find((source) => source.id === 'ngosang-best')?.enabled
+    ).toBe(true)
   })
 
   it('filters list by chip-input value (label or URL substring, case-insensitive)', async () => {

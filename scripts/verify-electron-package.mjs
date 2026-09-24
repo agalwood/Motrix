@@ -304,6 +304,7 @@ export async function verifyElectronPackage(options) {
     aria2: [],
     builtins: [],
     legal: [],
+    finalizeFs: [],
     nativeHost: [],
     resvg: [],
     updateMetadata: [],
@@ -549,6 +550,10 @@ export async function verifyElectronPackage(options) {
         ? 'motrix-native-host.exe'
         : 'motrix-native-host'
     const engineName = target.platform === 'win32' ? 'aria2c.exe' : 'aria2c'
+    const finalizeName =
+      target.platform === 'win32'
+        ? 'motrix-finalize-fs.exe'
+        : 'motrix-finalize-fs'
     const required = [
       {
         category: 'aria2',
@@ -556,6 +561,11 @@ export async function verifyElectronPackage(options) {
         executable: true,
       },
       { category: 'nativeHost', path: `bin/${hostName}`, executable: true },
+      {
+        category: 'finalizeFs',
+        path: `bin/${finalizeName}`,
+        executable: true,
+      },
       ...LEGAL_RESOURCES.map((relativePath) => ({
         category: 'legal',
         path: relativePath,

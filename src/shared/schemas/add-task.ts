@@ -1,6 +1,10 @@
-import { DEFAULT_ENGINE_SETTINGS } from './engine-settings'
-import { parsePageLinksResultSchema } from './page-parse'
+import { analyzeDownloadInput } from '@shared/lib/download-source-input'
+import { MAX_TORRENT_BASE64_SIZE } from '@shared/lib/torrent-meta'
 import { z } from 'zod'
+import { MAX_MIRROR_URIS, type SourceFailure } from './download-source'
+import { DEFAULT_ENGINE_SETTINGS } from './engine-settings'
+import { infoHashToMagnetUri } from './magnet-input'
+import { parsePageLinksResultSchema } from './page-parse'
 
 const torrentFileSchema = z.object({
   index: z.number().int().nonnegative(),
@@ -18,11 +22,17 @@ const torrentMetaSchema = z.object({
 
 export { torrentMetaSchema }
 
+const httpHeaderSchema = z.object({
+  name: z.string().min(1),
+  value: z.string(),
+})
+
 const linksTabSchema = z.object({
   tab: z.literal('links'),
   urls: z.string().min(1, { message: 'task.add.errors.urlsRequired' }),
   saveDir: z.string().min(1, { message: 'task.add.errors.saveDirRequired' }),
   filename: z.string().optional(),
+  extraHeaders: z.array(httpHeaderSchema).optional(),
   split: z.number().int().min(1).max(128).optional(),
   userAgent: z.string().optional(),
   referer: z.string().optional(),
@@ -68,6 +78,7 @@ const torrentTabSchema = z
       .array(z.number().int().nonnegative())
       .min(1, { message: 'task.add.errors.noFilesSelected' }),
     saveDir: z.string().min(1, { message: 'task.add.errors.saveDirRequired' }),
+    // Transfer limits are bytes per second, independent of display units.
     dlLimit: z.number().int().nonnegative().optional(),
     ulLimit: z.number().int().nonnegative().optional(),
     seedRatio: z.number().nonnegative().optional(),
@@ -94,14 +105,10 @@ export type AddTaskFormValues = z.infer<typeof addTaskFormSchema>
 
 // ── Engine-agnostic request ─────────────────────────────────
 
-const httpHeaderSchema = z.object({
-  name: z.string().min(1),
-  value: z.string(),
-})
-
 const httpTaskRequestSchema = z.object({
   type: z.literal('http'),
-  uris: z.array(z.url()).min(1),
+  requestId: z.uuid().optional(),
+  uris: z.array(z.string()).min(1).max(MAX_MIRROR_URIS),
   saveDir: z.string().min(1),
   filename: z.string().optional(),
   connections: z.number().int().min(1).max(128).optional(),
@@ -113,7 +120,10 @@ const btTaskRequestSchema = z
   .object({
     type: z.literal('bt'),
     payload: z.discriminatedUnion('kind', [
-      z.object({ kind: z.literal('torrent-base64'), base64: z.string() }),
+      z.object({
+        kind: z.literal('torrent-base64'),
+        base64: z.string().max(MAX_TORRENT_BASE64_SIZE),
+      }),
       z.object({
         kind: z.literal('magnet'),
         uri: z.string().startsWith('magnet:?'),
@@ -121,6 +131,7 @@ const btTaskRequestSchema = z
     ]),
     selectedFiles: z.array(z.number().int().nonnegative()).default([]),
     saveDir: z.string().min(1),
+    // Transfer limits are bytes per second, independent of display units.
     dlLimit: z.number().int().nonnegative().optional(),
     ulLimit: z.number().int().nonnegative().optional(),
     seedRatio: z.number().nonnegative().optional(),
@@ -195,10 +206,37 @@ export type TaskCreateSuccessResult = {
 export type TaskCreateCommandResult =
   | TaskCreateSuccessResult
   | TaskCreateSkippedResult
+  | { outcome: 'invalid-source'; failure: SourceFailure }
   | {
       outcome: 'conflict'
       conflict: TorrentDuplicateConflict
     }
+
+export interface TorrentBatchCreateResult {
+  total: number
+  succeeded: number
+  failed: number
+  firstTaskId: string | null
+}
+
+export const torrentBatchCreateOptionsSchema = z.object({
+  selectedFiles: z
+    .array(z.number().int().nonnegative())
+    .min(1, { message: 'task.add.errors.noFilesSelected' }),
+  saveDir: z.string().min(1, { message: 'task.add.errors.saveDirRequired' }),
+  // Transfer limits are bytes per second, independent of display units.
+  dlLimit: z.number().int().nonnegative().optional(),
+  ulLimit: z.number().int().nonnegative().optional(),
+  seedRatio: z.number().nonnegative().optional(),
+})
+
+export type TorrentBatchCreateOptions = z.infer<
+  typeof torrentBatchCreateOptionsSchema
+>
+
+export interface TorrentQueueAdvanceResult {
+  advanced: boolean
+}
 
 // ── URL params ──────────────────────────────────────────────
 
@@ -231,9 +269,24 @@ export const magnetFileSelectionPayloadSchema = z.object({
   saveDir: z.string(),
 })
 
+export type MagnetFileSelectionPayload = z.infer<
+  typeof magnetFileSelectionPayloadSchema
+>
+
+export const reopenMagnetFileSelectionResultSchema = z.object({
+  ok: z.literal(true),
+  selection: magnetFileSelectionPayloadSchema.nullable(),
+})
+
 export const protocolTorrentFilePayloadSchema = z.object({
   payload: z.object({ name: z.string(), dataBase64: z.string() }),
   meta: torrentMetaSchema,
+  queuePosition: z.number().int().positive().default(1),
+  queueTotal: z.number().int().positive().default(1),
+})
+
+export const torrentQueueSizeChangedPayloadSchema = z.object({
+  queueTotal: z.number().int().positive(),
 })
 
 // ── Pure helpers ────────────────────────────────────────────
@@ -256,7 +309,7 @@ function compactHeader(name: string, value?: string) {
 function splitUrlLines(raw: string): string[] {
   return raw
     .split('\n')
-    .map((l) => l.trim())
+    .map((l) => infoHashToMagnetUri(l) ?? l.trim())
     .filter((l) => l.length > 0)
 }
 
@@ -272,7 +325,9 @@ export function formValuesToTaskCreateRequests(
   v: AddTaskFormValues
 ): TaskCreateRequest[] {
   if (v.tab === 'links') {
-    const lines = splitUrlLines(v.urls)
+    const lines = analyzeDownloadInput(v.urls)
+      .filter((line) => line.valid)
+      .map((line) => line.url)
     const filename = lines.length === 1 ? v.filename : undefined
     return lines.map((line) =>
       formValuesToTaskCreateRequest({ ...v, urls: line, filename })
@@ -334,6 +389,7 @@ export function formValuesToTaskCreateRequest(
       }
     }
     const headers = [
+      ...(v.extraHeaders ?? []),
       ...compactHeader('User-Agent', v.userAgent),
       ...compactHeader('Referer', v.referer),
       ...compactHeader('Cookie', v.cookie),
@@ -406,3 +462,9 @@ export function encodeUrlParams(p: AddTaskUrlParams): Record<string, string> {
   }
   return out
 }
+
+/** The pending selection was accepted by the background timeout service. */
+export const magnetFileSelectionSettledPayloadSchema = z.object({
+  taskId: z.string().min(1),
+  downloadTaskId: z.string().min(1),
+})

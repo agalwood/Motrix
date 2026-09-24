@@ -1,0 +1,19 @@
+{
+  "manifestVersion": 1,
+  "id": "test.timer-activity",
+  "name": "Timer Activity Test",
+  "version": "1.0.0",
+  "description": "Exercises worker timer lifecycle reporting",
+  "categories": ["integration"],
+  "engines": { "motrix": ">=2.0.0" },
+  "main": "dist/plugin.js",
+  "permissions": [],
+  "activationEvents": ["onStartup"],
+  "contributes": {
+    "commands": [
+      { "id": "test.timer-activity.timeout" },
+      { "id": "test.timer-activity.interval" },
+      { "id": "test.timer-activity.clear" }
+    ]
+  }
+}

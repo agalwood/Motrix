@@ -9,7 +9,7 @@ import { I18nCapabilityHost } from '../capabilities/i18n'
 import type { CapabilityHost } from '../capabilities/interface'
 import { LogCapabilityHost } from '../capabilities/log'
 import { StagedEffectStore } from '../hooks/staged-effects'
-import { CapabilityBridge } from './capability-bridge'
+import { type BridgeEvents, CapabilityBridge } from './capability-bridge'
 
 // Stub worker that posts `ready` and nothing else — lets us call setHookContext
 // synchronously without waiting for a call dispatch cycle.
@@ -29,7 +29,11 @@ parentPort.on('message', (msg) => {
   return file
 }
 
-function makeBridge(opts?: { workerPath?: string }): {
+function makeBridge(opts?: {
+  workerPath?: string
+  events?: BridgeEvents
+  permissionGeneration?: number
+}): {
   bridge: CapabilityBridge
   dir: string
 } {
@@ -60,17 +64,21 @@ function makeBridge(opts?: { workerPath?: string }): {
     flush: () => log.flush(),
   } as unknown as CapabilityHost
   const manifest = { id: 'a.b' } as PluginManifest
-  const bridge = new CapabilityBridge({
-    pluginId: 'a.b',
-    manifest,
-    bundleSource: '',
-    capabilityHost: capHost,
-    workerScriptPath: workerPath,
-    heapMB: 32,
-    appVersion: '2.5.0',
-    runtime: 'server',
-    hostLanguage: 'en-US',
-  })
+  const bridge = new CapabilityBridge(
+    {
+      pluginId: 'a.b',
+      manifest,
+      bundleSource: '',
+      capabilityHost: capHost,
+      workerScriptPath: workerPath,
+      heapMB: 32,
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+      permissionGeneration: opts?.permissionGeneration,
+    },
+    opts?.events
+  )
   return { bridge, dir }
 }
 
@@ -93,6 +101,91 @@ parentPort.on('message', (msg) => {
 `
   )
   return file
+}
+
+function writeStaleExitStubWorker(dir: string): string {
+  const file = path.join(dir, 'stale-exit-worker.cjs')
+  writeFileSync(
+    file,
+    `
+const { parentPort } = require('worker_threads')
+parentPort.on('message', (msg) => {
+  if (msg.type === 'init') parentPort.postMessage({ type: 'ready' })
+  if (msg.type === 'event' && msg.event === 'hookEnter') {
+    const effects = { schemaVersion: 1, contextPatches: [], metadataOperations: [] }
+    parentPort.postMessage({
+      type: 'event', event: 'hookExit', ok: true, effects,
+      invocationId: 'stale', callChainId: msg.callChainId,
+      permissionGeneration: msg.permissionGeneration,
+    })
+    parentPort.postMessage({
+      type: 'event', event: 'hookExit', ok: true, effects,
+      invocationId: msg.invocationId, callChainId: msg.callChainId,
+      permissionGeneration: msg.permissionGeneration,
+    })
+  }
+})
+`
+  )
+  return file
+}
+
+function writeMismatchedCallStubWorker(dir: string): string {
+  const file = path.join(dir, 'mismatched-call-worker.cjs')
+  writeFileSync(
+    file,
+    `
+const { parentPort } = require('worker_threads')
+let active
+parentPort.on('message', (msg) => {
+  if (msg.type === 'init') parentPort.postMessage({ type: 'ready' })
+  if (msg.type === 'event' && msg.event === 'hookEnter') {
+    active = msg
+    parentPort.postMessage({
+      type: 'call', id: 1, capability: 'log', method: 'info', args: ['forged'],
+      invocationId: 'wrong', callChainId: msg.callChainId,
+      permissionGeneration: msg.permissionGeneration,
+    })
+  }
+  if (msg.type === 'response' && msg.id === 1) {
+    parentPort.postMessage({
+      type: 'event', event: 'hookExit', ok: false,
+      invocationId: active.invocationId, callChainId: active.callChainId,
+      permissionGeneration: active.permissionGeneration,
+      error: msg.error,
+    })
+  }
+})
+`
+  )
+  return file
+}
+
+function writeCrashingHookStubWorker(dir: string): string {
+  const file = path.join(dir, 'crashing-hook-worker.cjs')
+  writeFileSync(
+    file,
+    `
+const { parentPort } = require('worker_threads')
+parentPort.on('message', (msg) => {
+  if (msg.type === 'init') parentPort.postMessage({ type: 'ready' })
+  if (msg.type === 'event' && msg.event === 'hookEnter') process.exit(7)
+})
+`
+  )
+  return file
+}
+
+function validBeforeCreatePayload() {
+  return {
+    type: 'http',
+    sourceUrl: 'https://example.test/file',
+    createdBy: 'user',
+    requestedAt: 1,
+    uris: ['https://example.test/file'],
+    saveDir: '/downloads',
+    headers: [],
+  }
 }
 
 describe('CapabilityBridge', () => {
@@ -202,5 +295,142 @@ describe('CapabilityBridge', () => {
       `import { log, hooks as h } from 'motrix:plugin-api';\nlog.info('x')`
     )
     expect(out).toContain('{ log, hooks: h }')
+  })
+
+  it('ignores a stale Hook exit and settles only the matching invocation', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'mbr-'))
+    const onFatal = vi.fn()
+    const { bridge } = makeBridge({
+      workerPath: writeStaleExitStubWorker(dir),
+      events: { onFatal },
+    })
+    bridge.setHookContext({
+      fsTaskHost: STUB_FS_TASK_HOST,
+      taskId: 'task-1',
+      phase: 'beforeCreate',
+      staged: new StagedEffectStore(),
+      role: 'enrich',
+      saveDir: '/downloads',
+      pluginStorageRoot: '/plugins/a.b',
+    })
+
+    await expect(
+      bridge.callHook(
+        'beforeCreate',
+        'task-1',
+        new AbortController().signal,
+        1_000,
+        validBeforeCreatePayload(),
+        {},
+        {
+          invocationId: 'current',
+          callChainId: 'chain-current',
+          permissionGeneration: 1,
+        }
+      )
+    ).resolves.toEqual({
+      schemaVersion: 1,
+      contextPatches: [],
+      metadataOperations: [],
+    })
+    expect(onFatal).toHaveBeenCalledWith(
+      'plugin.hook.concurrent_protocol_violation',
+      'stale or mismatched Hook exit ignored'
+    )
+    await bridge.dispose()
+  })
+
+  it('rejects a capability call forged for another Hook invocation', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'mbr-'))
+    const { bridge } = makeBridge({
+      workerPath: writeMismatchedCallStubWorker(dir),
+    })
+    bridge.setHookContext({
+      fsTaskHost: STUB_FS_TASK_HOST,
+      taskId: 'task-1',
+      phase: 'beforeCreate',
+      staged: new StagedEffectStore(),
+      role: 'enrich',
+      saveDir: '/downloads',
+      pluginStorageRoot: '/plugins/a.b',
+    })
+
+    await expect(
+      bridge.callHook(
+        'beforeCreate',
+        'task-1',
+        new AbortController().signal,
+        1_000,
+        validBeforeCreatePayload(),
+        {},
+        {
+          invocationId: 'current',
+          callChainId: 'chain-current',
+          permissionGeneration: 1,
+        }
+      )
+    ).rejects.toMatchObject({
+      code: 'plugin.hook.concurrent_protocol_violation',
+    })
+    await bridge.dispose()
+  })
+
+  it('rejects a stale permission generation before posting a Hook', async () => {
+    const { bridge } = makeBridge({ permissionGeneration: 2 })
+    bridge.setHookContext({
+      fsTaskHost: STUB_FS_TASK_HOST,
+      taskId: 'task-1',
+      phase: 'beforeCreate',
+      staged: new StagedEffectStore(),
+      role: 'enrich',
+      saveDir: '/downloads',
+      pluginStorageRoot: '/plugins/a.b',
+    })
+
+    await expect(
+      bridge.callHook(
+        'beforeCreate',
+        'task-1',
+        new AbortController().signal,
+        1_000,
+        validBeforeCreatePayload(),
+        {},
+        {
+          invocationId: 'current',
+          callChainId: 'chain-current',
+          permissionGeneration: 1,
+        }
+      )
+    ).rejects.toMatchObject({
+      code: 'plugin.runtime.permission_generation_stale',
+    })
+    await bridge.dispose()
+  })
+
+  it('rejects an active Hook promptly when its Worker crashes', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'mbr-'))
+    const { bridge } = makeBridge({
+      workerPath: writeCrashingHookStubWorker(dir),
+    })
+    bridge.setHookContext({
+      fsTaskHost: STUB_FS_TASK_HOST,
+      taskId: 'task-1',
+      phase: 'beforeCreate',
+      staged: new StagedEffectStore(),
+      role: 'enrich',
+      saveDir: '/downloads',
+      pluginStorageRoot: '/plugins/a.b',
+    })
+
+    await expect(
+      bridge.callHook(
+        'beforeCreate',
+        'task-1',
+        new AbortController().signal,
+        10_000,
+        validBeforeCreatePayload()
+      )
+    ).rejects.toMatchObject({ code: 'plugin.hook.worker_crashed' })
+    await bridge.dispose()
   })
 })

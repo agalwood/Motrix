@@ -14,6 +14,8 @@
 //   plugin.commands.not_found                  — no handler registered for commandId
 //   plugin.commands.access_denied              — cross-plugin call with no invoker bound
 
+import type { PluginCallChain } from '../host/plugin-lane'
+
 // ---------------------------------------------------------------------------
 // Error class
 // ---------------------------------------------------------------------------
@@ -35,7 +37,12 @@ export class CommandsError extends Error {
 export type CommandHandler = (args: unknown) => unknown | Promise<unknown>
 
 export interface CrossPluginInvoker {
-  execute(callerId: string, commandId: string, args: unknown): Promise<unknown>
+  execute(
+    callerId: string,
+    commandId: string,
+    args: unknown,
+    callChain?: PluginCallChain
+  ): Promise<unknown>
 }
 
 export interface CommandsRegistration {
@@ -154,7 +161,8 @@ export class CommandsCapabilityHost {
   async execute(
     callerId: string,
     commandId: string,
-    args: unknown
+    args: unknown,
+    callChain?: PluginCallChain
   ): Promise<unknown> {
     if (commandId.startsWith(`${callerId}.`)) {
       const handler = this.handlers.get(commandId)
@@ -193,7 +201,9 @@ export class CommandsCapabilityHost {
         `cross-plugin command "${commandId}" requires a bound invoker (Plan D)`
       )
     }
-    return this.invoker.execute(callerId, commandId, args)
+    return callChain
+      ? this.invoker.execute(callerId, commandId, args, callChain)
+      : this.invoker.execute(callerId, commandId, args)
   }
 
   /**

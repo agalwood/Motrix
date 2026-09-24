@@ -1,5 +1,4 @@
 import { AddTaskForm } from '@renderer/components/add-task/add-task-form'
-import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
   DialogClose,
@@ -7,13 +6,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@renderer/components/ui/dialog'
-import { Input } from '@renderer/components/ui/input'
 import { WindowChromeCaptionIcon } from '@renderer/components/window-chrome/window-chrome'
+import { MenuConfirmation } from '@renderer/features/application-menu/menu-confirmation'
+import { WebDirectoryPickerDialog } from '@renderer/features/web-directory-picker/web-directory-picker-dialog'
+import { showMagnetFileSelection } from '@renderer/lib/open-magnet-file-selection'
 import { transport } from '@renderer/lib/transport'
 import { PlatformServicesProvider } from '@renderer/platform/services'
 import {
   __setWebCloseHandler,
-  __webPathPickerBus,
   webServices,
 } from '@renderer/platform/web-services'
 import {
@@ -21,25 +21,45 @@ import {
   ADD_TASK_MAX_HEIGHT,
 } from '@shared/constants/add-task'
 import { Events } from '@shared/protocol/events'
-import { Queries } from '@shared/protocol/queries'
 import {
   magnetFileSelectionPayloadSchema,
+  magnetFileSelectionSettledPayloadSchema,
   protocolTorrentFilePayloadSchema,
   setAddTaskModeEventPayloadSchema,
   urlParamsToFormDefaults,
 } from '@shared/schemas/add-task'
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { useAdaptiveDialogHeight } from './use-adaptive-dialog-height'
 import { useAddTaskDialogStore } from './use-add-task-dialog-store'
+import { usePendingMagnetSelection } from './use-pending-magnet-selection'
 
 export function AddTaskDialogHost() {
   const { t } = useTranslation()
   const open = useAddTaskDialogStore((s) => s.open)
+  const revision = useAddTaskDialogStore((s) => s.revision)
+  const torrentFiles = useAddTaskDialogStore((s) => s.torrentFiles)
+  const [draft, setDraft] = useState({ dirty: false, busy: false })
+  const [discard, setDiscard] = useState(false)
+  const onDraftStateChange = useCallback(
+    (dirty: boolean, busy: boolean) => setDraft({ dirty, busy }),
+    []
+  )
   const prefill = useAddTaskDialogStore((s) => s.prefill)
   const openWith = useAddTaskDialogStore((s) => s.openWith)
   const close = useAddTaskDialogStore((s) => s.close)
+  const requestClose = useCallback(() => {
+    if (draft.busy) return
+    if (draft.dirty) setDiscard(true)
+    else close()
+  }, [draft, close])
+  useEffect(() => {
+    if (!open) {
+      setDraft({ dirty: false, busy: false })
+      setDiscard(false)
+    }
+  }, [open])
   const navigate = useNavigate()
   const dialogRef = useRef<HTMLDivElement>(null)
   const {
@@ -69,37 +89,43 @@ export function AddTaskDialogHost() {
   // navigating would yank them off whatever route they switched to.
   const onSubmitSuccess = useCallback(
     (taskId: string) => {
-      if (!useAddTaskDialogStore.getState().open) return
+      const current = useAddTaskDialogStore.getState()
+      if (!current.open || current.revision !== revision) return
       close()
       navigate(`/downloads/all?task=${encodeURIComponent(taskId)}`)
     },
-    [close, navigate]
+    [close, navigate, revision]
   )
+
+  usePendingMagnetSelection(onSubmitSuccess)
 
   // Register the web close handler so webServices.closeHost() works.
   useEffect(() => {
-    __setWebCloseHandler(() => useAddTaskDialogStore.getState().close())
+    __setWebCloseHandler(requestClose)
     return () => __setWebCloseHandler(null)
-  }, [])
+  }, [requestClose])
 
   // Global event subscription — even when Dialog is closed.
   useEffect(() => {
     const onMagnet = (...args: unknown[]) => {
       const p = magnetFileSelectionPayloadSchema.safeParse(args[0])
       if (!p.success) return
-      openWith({
-        tab: 'torrent',
-        source: 'magnet',
-        magnetUri: p.data.magnetUri,
-        base64: p.data.torrentBase64,
-        torrentMeta: p.data.meta,
-        selectedFiles: p.data.meta.files.map((f) => f.index),
-        saveDir: p.data.saveDir,
-        // Plan B: forward the metadata pending task's motrixId so the
-        // CreateTask handler can swap the instance in place rather
-        // than creating a duplicate row in Downloads.
-        existingTaskId: p.data.taskId,
-      })
+      // The snapshot recovery hook offers this task after the current form
+      // closes. Never overwrite user input or an in-flight submission.
+      if (useAddTaskDialogStore.getState().open) return
+      showMagnetFileSelection(p.data)
+    }
+    const onSelectionSettled = (...args: unknown[]) => {
+      const parsed = magnetFileSelectionSettledPayloadSchema.safeParse(args[0])
+      const current = useAddTaskDialogStore.getState()
+      if (
+        !parsed.success ||
+        !current.open ||
+        current.prefill?.tab !== 'torrent' ||
+        current.prefill.existingTaskId !== parsed.data.taskId
+      )
+        return
+      current.close()
     }
     const onProtocol = (...args: unknown[]) => {
       const p = protocolTorrentFilePayloadSchema.safeParse(args[0])
@@ -119,10 +145,12 @@ export function AddTaskDialogHost() {
     }
 
     transport.on(Events.MagnetFileSelection, onMagnet)
+    transport.on(Events.MagnetFileSelectionSettled, onSelectionSettled)
     transport.on(Events.ProtocolTorrentFile, onProtocol)
     transport.on(Events.SetAddTaskMode, onSetMode)
     return () => {
       transport.off(Events.MagnetFileSelection, onMagnet)
+      transport.off(Events.MagnetFileSelectionSettled, onSelectionSettled)
       transport.off(Events.ProtocolTorrentFile, onProtocol)
       transport.off(Events.SetAddTaskMode, onSetMode)
     }
@@ -130,7 +158,7 @@ export function AddTaskDialogHost() {
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(v) => !v && close()}>
+      <Dialog open={open} onOpenChange={(v) => !v && requestClose()}>
         <DialogContent
           ref={dialogRef}
           showCloseButton={false}
@@ -148,16 +176,19 @@ export function AddTaskDialogHost() {
           </DialogHeader>
           <PlatformServicesProvider services={webServices}>
             <AddTaskForm
-              key={open ? 'open' : 'closed'}
+              key={revision}
               defaultValues={prefill}
+              initialTorrentFiles={torrentFiles}
+              onDraftStateChange={onDraftStateChange}
               onSubmitSuccess={onSubmitSuccess}
-              onCancel={close}
+              onCancel={requestClose}
               onAdvancedOpenChange={onAdvancedOpenChange}
               presentation="dialog"
               subscribeEvents={false}
             />
           </PlatformServicesProvider>
           <DialogClose
+            disabled={draft.busy}
             aria-label={t('chrome.close')}
             className="app-no-drag absolute top-3.5 right-3.5 flex size-7 shrink-0 items-center justify-center rounded-md border-0 bg-transparent text-foreground outline-none transition-colors [&>svg]:opacity-65 hover:bg-accent hover:text-accent-foreground hover:[&>svg]:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:[&>svg]:opacity-90 dark:hover:bg-accent/50"
           >
@@ -165,103 +196,21 @@ export function AddTaskDialogHost() {
           </DialogClose>
         </DialogContent>
       </Dialog>
-      <WebPathPickerDialog />
-    </>
-  )
-}
-
-function WebPathPickerDialog() {
-  const { t } = useTranslation()
-  const customInputId = useId()
-  const [open, setOpen] = useState(false)
-  const [defaultPath, setDefaultPath] = useState<string | undefined>()
-  const [allowed, setAllowed] = useState<{ path: string; label?: string }[]>([])
-  const [allowCustom, setAllowCustom] = useState(true)
-  const [custom, setCustom] = useState('')
-  const [selected, setSelected] = useState('')
-
-  useEffect(() => {
-    const unsubscribe = __webPathPickerBus.subscribe(async (req) => {
-      setDefaultPath(req.defaultPath)
-      setCustom('')
-      try {
-        const res = (await transport.invoke(Queries.ListAllowedSaveDirs)) as {
-          paths: { path: string; label?: string }[]
-          defaultPath: string
-          allowCustom: boolean
+      <MenuConfirmation
+        request={
+          discard
+            ? {
+                kind: 'discard',
+                run: async () => {
+                  setDiscard(false)
+                  close()
+                },
+              }
+            : null
         }
-        setAllowed(res.paths)
-        setAllowCustom(res.allowCustom)
-        setSelected(req.defaultPath ?? res.defaultPath ?? '')
-      } catch {
-        setAllowed([])
-        setAllowCustom(true)
-        setSelected(req.defaultPath ?? '')
-      }
-      setOpen(true)
-    })
-    return () => unsubscribe()
-  }, [])
-
-  const confirm = (path: string | null) => {
-    setOpen(false)
-    __webPathPickerBus.resolve(path)
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && confirm(null)}>
-      <DialogContent className="max-w-[400px]">
-        <DialogHeader>
-          <DialogTitle>{t('task.add.pickPathTitle')}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          {allowed.length > 0 && (
-            <div className="space-y-1">
-              {allowed.map((p) => (
-                <label key={p.path} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    checked={selected === p.path}
-                    onChange={() => setSelected(p.path)}
-                  />
-                  <span dir="ltr">{p.label ?? p.path}</span>
-                </label>
-              ))}
-            </div>
-          )}
-          {allowCustom && (
-            <div className="space-y-1">
-              <label
-                htmlFor={customInputId}
-                className="text-xs text-muted-foreground"
-              >
-                {t('task.add.pickPathCustom')}
-              </label>
-              <Input
-                id={customInputId}
-                value={custom}
-                onChange={(e) => {
-                  setCustom(e.target.value)
-                  setSelected(e.target.value)
-                }}
-                placeholder={defaultPath ?? '/downloads'}
-                dir="ltr"
-              />
-            </div>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => confirm(null)}>
-              {t('common.cancel')}
-            </Button>
-            <Button
-              onClick={() => confirm(selected || null)}
-              disabled={!selected}
-            >
-              {t('common.confirm')}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        close={() => setDiscard(false)}
+      />
+      <WebDirectoryPickerDialog />
+    </>
   )
 }

@@ -1,12 +1,13 @@
 import { getLogger } from '@core/logger'
 import type { SettingsManager } from '@core/settings/settings-manager'
+import { RunMode } from '@shared/constants'
 import {
   Events,
   type WindowMaximizedChangedPayload,
 } from '@shared/protocol/events'
 import type { AddTaskUrlParams } from '@shared/schemas/add-task'
 import type { WindowBounds, WindowState } from '@shared/types/settings'
-import { BrowserWindow, screen, shell } from 'electron'
+import { app, BrowserWindow, nativeTheme, screen, shell } from 'electron'
 import type { LiquidGlassController } from './liquid-glass'
 import { buildPlatformOptions } from './platform-options'
 import {
@@ -50,6 +51,7 @@ export class WindowManager {
   private windows = new Map<WindowId, BrowserWindow | null>()
   private deps: WindowManagerDeps
   private willQuit = false
+  private pendingMaximize = new WeakSet<BrowserWindow>()
   private boundsTimers = new Map<WindowId, ReturnType<typeof setTimeout>>()
   private rendererUrlPolicy: RendererUrlPolicy
   // The window the user most recently asked to be brought to the
@@ -157,6 +159,7 @@ export class WindowManager {
     const win = this.windows.get(id)
     if (!win || win.isDestroyed()) return
     win.hide()
+    this.restoreDockAfterDismiss(id)
   }
 
   close(id: WindowId): void {
@@ -171,6 +174,7 @@ export class WindowManager {
     } else {
       this.release(id)
     }
+    this.restoreDockAfterDismiss(id)
   }
 
   release(id: WindowId): void {
@@ -293,7 +297,7 @@ export class WindowManager {
 
     const state: WindowState = {
       ...win.getNormalBounds(),
-      maximized: win.isMaximized(),
+      maximized: this.pendingMaximize.has(win) || win.isMaximized(),
     }
     this.deps.settingsManager
       .update({ windowState: { [id]: state } })
@@ -357,6 +361,20 @@ export class WindowManager {
     return this.deps.retentionPolicy?.prewarmAddTask() ?? true
   }
 
+  private restoreDockAfterDismiss(id: WindowId): void {
+    if (
+      id !== 'main' ||
+      (this.deps.platform ?? process.platform) !== 'darwin' ||
+      this.deps.settingsManager.get().app?.runMode !== RunMode.TrayOnly
+    ) {
+      return
+    }
+
+    // Showing a BrowserWindow can make macOS expose the Dock even while the
+    // app is configured for Menu Bar Only. Re-apply the mode after dismissal.
+    app.dock?.hide()
+  }
+
   private createBrowserWindow(
     config: (typeof WINDOW_CONFIGS)[WindowId],
     show: boolean
@@ -368,6 +386,7 @@ export class WindowManager {
     const platformOpts = buildPlatformOptions(platform, {
       vibrancy: config.vibrancy && !liquidGlass,
       liquidGlass,
+      shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
     })
 
     const win = new BrowserWindow({
@@ -496,9 +515,13 @@ export class WindowManager {
     win.on('close', (event) => {
       if (config.closeBehavior === 'hide' && !this.willQuit) {
         this.saveBounds(id)
-        if (this.shouldReleaseOnDismiss(id)) return
+        if (this.shouldReleaseOnDismiss(id)) {
+          this.restoreDockAfterDismiss(id)
+          return
+        }
         event.preventDefault()
         win.hide()
+        this.restoreDockAfterDismiss(id)
       }
     })
 
@@ -509,21 +532,35 @@ export class WindowManager {
   }
 
   private setupWindowStateTracking(win: BrowserWindow): void {
+    let fullscreen = win.isFullScreen()
     const publish = () => {
       if (win.isDestroyed()) return
       const payload: WindowMaximizedChangedPayload = {
         maximized: win.isMaximized(),
+        fullscreen,
       }
       win.webContents.send(Events.WindowMaximizedChanged, payload)
     }
 
-    // did-finish-load supplies the initial snapshot; maximize/unmaximize keep
-    // it correct for caption clicks, title-bar double-clicks, and OS actions.
+    // did-finish-load supplies the initial snapshot; native state events keep
+    // custom caption controls correct for title-bar, OS, and fullscreen actions.
+    // Fullscreen events can precede Electron updating isFullScreen() on Windows,
+    // so their event names update the authoritative transition state. Keeping
+    // that state locally also prevents a neighboring resize event from
+    // publishing the same stale native value over the transition.
     // Cocoa can leave the maximized state via a manual resize without emitting
     // unmaximize, so reconcile once the resize gesture finishes as well.
     win.webContents.on('did-finish-load', publish)
     win.on('maximize', publish)
     win.on('unmaximize', publish)
+    win.on('enter-full-screen', () => {
+      fullscreen = true
+      publish()
+    })
+    win.on('leave-full-screen', () => {
+      fullscreen = false
+      publish()
+    })
     win.on('resized', publish)
   }
 
@@ -563,7 +600,17 @@ export class WindowManager {
     }
 
     if (maximized && config.maximizable) {
-      win.maximize()
+      // maximize() also shows hidden windows. Restore it only after an
+      // intentional show, keeping login/tray launches in the background.
+      if (win.isVisible()) {
+        win.maximize()
+      } else {
+        this.pendingMaximize.add(win)
+        win.once('show', () => {
+          this.pendingMaximize.delete(win)
+          if (!win.isDestroyed()) win.maximize()
+        })
+      }
     }
   }
 

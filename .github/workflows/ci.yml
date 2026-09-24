@@ -30,9 +30,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 11.22.0
+          version: 12.5.1
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -45,7 +45,7 @@ jobs:
           MOTRIX_SKIP_ELECTRON_REBUILD: '1'
           MOTRIX_SKIP_ENGINE_FETCH: '1'
 
-      # Electron 43 has no package postinstall, so pnpm install does not
+      # Electron has no package postinstall, so pnpm install does not
       # hydrate dist/. The notice contract needs the runtime license payload;
       # the package installer is idempotent when dist/ already matches.
       - name: Ensure Electron runtime payload
@@ -202,10 +202,12 @@ jobs:
           tests/scripts/stage-server-app.test.ts
           tests/scripts/verify-electron-package.test.ts
           tests/scripts/verify-appimage-artifact.test.ts
+          tests/scripts/verify-pacman-artifact.test.ts
           tests/scripts/verify-container-publication.test.ts
           tests/scripts/verify-server-package.test.ts
           tests/scripts/verify-update-artifacts.test.ts
           tests/scripts/workflow-release-matrix.test.ts
+          tests/scripts/workflow-flatpak-release.test.ts
           tests/scripts/workflow-snap.test.ts
 
       - name: Type-check (root)
@@ -284,22 +286,19 @@ jobs:
           components: rustfmt, clippy
 
       - name: Format
-        run: >-
-          cargo fmt
-          --manifest-path packages/native-host/Cargo.toml
-          --all -- --check
+        run: |
+          cargo fmt --manifest-path packages/native-host/Cargo.toml --all -- --check
+          cargo fmt --manifest-path packages/finalize-fs/Cargo.toml --all -- --check
 
       - name: Clippy
-        run: >-
-          cargo clippy
-          --manifest-path packages/native-host/Cargo.toml
-          --all-targets --locked -- -D warnings
+        run: |
+          cargo clippy --manifest-path packages/native-host/Cargo.toml --all-targets --locked -- -D warnings
+          cargo clippy --manifest-path packages/finalize-fs/Cargo.toml --all-targets --locked -- -D warnings
 
       - name: Tests
-        run: >-
-          cargo test
-          --manifest-path packages/native-host/Cargo.toml
-          --locked --all-targets
+        run: |
+          cargo test --manifest-path packages/native-host/Cargo.toml --locked --all-targets
+          cargo test --manifest-path packages/finalize-fs/Cargo.toml --locked --all-targets
 
   package-targets:
     name: Package smoke / ${{ matrix.target }}
@@ -312,7 +311,7 @@ jobs:
     # musl binary segfaulted at load (runs 31322798699 / 31324102504 /
     # 31349513764).
     env:
-      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.platform == 'darwin' && '12.0' || '' }}
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.platform == 'darwin' && '13.0' || '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -360,9 +359,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 11.22.0
+          version: 12.5.1
           run_install: false
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -389,12 +388,23 @@ jobs:
           --all-targets
           --target ${{ matrix.rust_target }}
 
+      - name: Tests (finalize filesystem target)
+        env:
+          RUST_BACKTRACE: full
+        run: >-
+          cargo test
+          --manifest-path packages/finalize-fs/Cargo.toml
+          --locked
+          --all-targets
+          --target ${{ matrix.rust_target }}
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
         env:
+          MOTRIX_SKIP_ELECTRON_REBUILD: '1'
           MOTRIX_SKIP_ENGINE_FETCH: '1'
 
-      # Electron 43 does not hydrate dist/ during pnpm install. build:legal
+      # Electron does not hydrate dist/ during pnpm install. build:legal
       # and the electron-builder smoke both require that runtime payload.
       - name: Ensure Electron runtime payload
         run: node node_modules/electron/install.js
@@ -409,7 +419,23 @@ jobs:
         run: |
           pnpm run build:builtin
           pnpm run build:native-host -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
-          pnpm run build:electron
+          pnpm run build:finalize-fs -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
+
+      - name: Finalize filesystem runtime integration
+        env:
+          MOTRIX_FINALIZE_FS_TEST_BIN: packages/finalize-fs/dist/${{ matrix.platform }}-${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'motrix-finalize-fs.exe' || 'motrix-finalize-fs' }}
+        run: >-
+          pnpm exec vitest run
+          src/core/plugin/finalize/native-artifact-operations.integration.test.ts
+          src/core/plugin/finalize/finalize-adversarial.integration.test.ts
+          src/core/plugin/finalize/finalize-smb-recovery.integration.test.ts
+          src/core/plugin/finalize/finalize-nfs-recovery.integration.test.ts
+          --reporter=verbose
+
+      # SQLite integration tests above use Node. Switch native modules to the
+      # packaged Electron ABI only after those tests have finished.
+      - name: Build Electron application
+        run: pnpm run build:electron
 
       - name: Stage Electron application
         run: >-
@@ -446,6 +472,20 @@ jobs:
           --dir
           --publish never
 
+      - name: Install Arch packaging tools
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes zstd libarchive-tools
+
+      - name: Build Arch package smoke
+        if: matrix.platform == 'linux'
+        run: >-
+          pnpm exec electron-builder
+          --linux pacman --${{ matrix.arch }}
+          --prepackaged "${{ matrix.app_path }}"
+          --publish never
+
       - name: Verify Electron package
         run: >-
           node scripts/verify-electron-package.mjs
@@ -453,6 +493,18 @@ jobs:
           --platform ${{ matrix.platform }}
           --arch ${{ matrix.arch }}
           --report "release/size-reports/${{ matrix.target }}.json"
+
+      - name: Verify Arch Linux package
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          node scripts/verify-pacman-artifact.mjs \
+            --dir release --version "$version" --arch ${{ matrix.arch }}
+
+      - name: Smoke test Arch Linux installation
+        if: matrix.target == 'linux-x64'
+        run: bash scripts/smoke-pacman-package.sh release
 
       - name: Verify Windows native host runtime imports
         if: matrix.platform == 'win32'
@@ -477,6 +529,10 @@ jobs:
               : 'motrix-native-host'
           const engine =
             process.env.TARGET_PLATFORM === 'win32' ? 'aria2c.exe' : 'aria2c'
+          const finalize =
+            process.env.TARGET_PLATFORM === 'win32'
+              ? 'motrix-finalize-fs.exe'
+              : 'motrix-finalize-fs'
           const resources = process.env.PACKAGED_RESOURCES
           const required = [
             'app.asar',
@@ -487,6 +543,7 @@ jobs:
             path.join('legal', 'THIRD_PARTY_LICENSES.txt'),
             path.join('legal', 'sbom.spdx.json'),
             path.join('bin', host),
+            path.join('bin', finalize),
             path.join(
               'extra',
               process.env.TARGET_PLATFORM,
@@ -527,6 +584,7 @@ jobs:
         run: >-
           pnpm exec vitest run
           src/core/engine/aria2/engine-websocket-contract.integration.test.ts
+          src/core/bridge-receiver/task-cookies.integration.test.ts
           --reporter=verbose
 
       - name: Upload Electron size report

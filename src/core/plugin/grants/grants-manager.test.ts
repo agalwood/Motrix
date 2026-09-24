@@ -71,6 +71,9 @@ function makeRegistry(
       id === 'test.demo' ? indexed : undefined
     ) as unknown as PluginRegistry['get'],
     entries: vi.fn(() => [indexed]) as unknown as PluginRegistry['entries'],
+    bumpPolicyGeneration: vi.fn(
+      () => 2
+    ) as unknown as PluginRegistry['bumpPolicyGeneration'],
   } as unknown as PluginRegistry
 }
 
@@ -129,6 +132,146 @@ describe('GrantsManager', () => {
     expect(emit).toHaveBeenCalledWith('event:pluginGrantsChanged', {
       pluginId: 'test.demo',
     })
+  })
+
+  it('publishes grant changes inside the bound policy barrier', async () => {
+    await writeFile(
+      path.join(dir, '_install.json'),
+      JSON.stringify(makeRecord({ notify: 'denied' }))
+    )
+    const order: string[] = []
+    const registry = makeRegistry(dir)
+    const gm = new GrantsManager({ registry })
+    gm.bindPolicyBarrier(async (pluginId, publish) => {
+      order.push(`barrier:${pluginId}:closed`)
+      const result = await publish()
+      order.push(`barrier:${pluginId}:published`)
+      return result
+    })
+
+    await gm.updateGrants('test.demo', { notify: 'granted' })
+
+    expect(order).toEqual([
+      'barrier:test.demo:closed',
+      'barrier:test.demo:published',
+    ])
+    expect(registry.bumpPolicyGeneration).not.toHaveBeenCalled()
+  })
+
+  it('re-reads an upgraded install record only after entering the policy barrier', async () => {
+    await writeFile(
+      path.join(dir, '_install.json'),
+      JSON.stringify(makeRecord({ notify: 'denied' }))
+    )
+    const upgraded = makeRecord({ ffmpeg: 'granted' })
+    upgraded.source = {
+      ...upgraded.source,
+      bundleSha256: 'b'.repeat(64),
+    }
+    const gm = new GrantsManager({ registry: makeRegistry(dir) })
+    gm.bindPolicyBarrier(async (_pluginId, publish) => {
+      await writeFile(path.join(dir, '_install.json'), JSON.stringify(upgraded))
+      return publish()
+    })
+
+    await gm.updateGrants('test.demo', { notify: 'granted' })
+
+    const written = JSON.parse(
+      await readFile(path.join(dir, '_install.json'), 'utf8')
+    ) as InstallRecord
+    expect(written.source.bundleSha256).toBe('b'.repeat(64))
+    expect(written.grants).toEqual({
+      ffmpeg: 'granted',
+      notify: 'granted',
+    })
+  })
+
+  it('serializes concurrent patches against the latest record inside the barrier', async () => {
+    await writeFile(
+      path.join(dir, '_install.json'),
+      JSON.stringify(makeRecord({ notify: 'denied', ffmpeg: 'denied' }))
+    )
+    const gm = new GrantsManager({ registry: makeRegistry(dir) })
+    let arrivals = 0
+    let open!: () => void
+    const bothArrived = new Promise<void>((resolve) => {
+      open = resolve
+    })
+    let tail = Promise.resolve()
+    gm.bindPolicyBarrier(async (_pluginId, publish) => {
+      arrivals += 1
+      if (arrivals === 2) open()
+      await bothArrived
+      const previous = tail
+      let release!: () => void
+      const current = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      tail = previous.then(() => current)
+      await previous
+      try {
+        return await publish()
+      } finally {
+        release()
+      }
+    })
+
+    await Promise.all([
+      gm.updateGrants('test.demo', { notify: 'granted' }),
+      gm.updateGrants('test.demo', { ffmpeg: 'granted' }),
+    ])
+
+    const written = JSON.parse(
+      await readFile(path.join(dir, '_install.json'), 'utf8')
+    ) as InstallRecord
+    expect(written.grants).toEqual({
+      notify: 'granted',
+      ffmpeg: 'granted',
+    })
+  })
+
+  it('terminalizes only actual revocations after publishing reversible grants', async () => {
+    await writeFile(
+      path.join(dir, '_install.json'),
+      JSON.stringify(makeRecord({ notify: 'granted' }))
+    )
+    const registry = makeRegistry(dir)
+    const gm = new GrantsManager({ registry })
+    const order: string[] = []
+    gm.bindPolicyBarrier(async (_pluginId, publish) => {
+      order.push('barrier')
+      return publish()
+    })
+    gm.bindPermissionRevoked(async (pluginId, permissions) => {
+      order.push('retention')
+      expect(pluginId).toBe('test.demo')
+      expect(permissions).toEqual(['notify'])
+      expect(await gm.getGrants(pluginId)).toEqual({ notify: 'denied' })
+      return 1
+    })
+
+    await gm.updateGrants('test.demo', { notify: 'denied' })
+
+    order.push('published')
+    expect(order).toEqual(['barrier', 'retention', 'published'])
+    expect(await gm.getGrants('test.demo')).toEqual({ notify: 'denied' })
+  })
+
+  it('restores the prior grant record when revocation retention fails', async () => {
+    await writeFile(
+      path.join(dir, '_install.json'),
+      JSON.stringify(makeRecord({ notify: 'granted' }))
+    )
+    const gm = new GrantsManager({ registry: makeRegistry(dir) })
+    gm.bindPolicyBarrier(async (_pluginId, publish) => publish())
+    const failure = new Error('retention unavailable')
+    gm.bindPermissionRevoked(async () => Promise.reject(failure))
+
+    await expect(
+      gm.updateGrants('test.demo', { notify: 'denied' })
+    ).rejects.toBe(failure)
+
+    expect(await gm.getGrants('test.demo')).toEqual({ notify: 'granted' })
   })
 
   it('updateGrants rejects unknown permission key', async () => {

@@ -1,4 +1,7 @@
-import { ensureMetadataSchema } from '@core/plugin/capabilities/metadata'
+import {
+  DEFAULT_METADATA_QUOTA_BYTES,
+  ensureMetadataSchema,
+} from '@core/plugin/capabilities/metadata'
 import Database from 'better-sqlite3'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { StagedEffectStore, type StagedHttpPatch } from './staged-effects'
@@ -92,6 +95,99 @@ describe('StagedEffectStore', () => {
       key: 'score',
       value: '42',
     })
+  })
+
+  it('accepts an ordered staged metadata projection exactly at 64 KiB', () => {
+    const db = makeDb()
+    store.appendMeta({
+      pluginId: 'plugin-a',
+      op: 'set',
+      key: 'exact',
+      value: 'x'.repeat(DEFAULT_METADATA_QUOTA_BYTES - 2),
+    })
+
+    store.commitMetadata(db, 'task-1', () => {})
+
+    expect(
+      db
+        .prepare(
+          'SELECT size FROM plugin_task_metadata WHERE task_id=? AND plugin_id=? AND key=?'
+        )
+        .get('task-1', 'plugin-a', 'exact')
+    ).toEqual({ size: DEFAULT_METADATA_QUOTA_BYTES })
+  })
+
+  it('rejects cumulative staged metadata over 64 KiB and rolls back the caller transaction', () => {
+    const db = makeDb()
+    db.prepare(
+      `INSERT INTO plugin_task_metadata (task_id, plugin_id, key, value, size, updated_at)
+       VALUES (?, ?, ?, ?, ?, 0)`
+    ).run('task-1', 'plugin-a', 'existing', '"12345678"', 10)
+    store.appendMeta({
+      pluginId: 'plugin-a',
+      op: 'set',
+      key: 'overflow',
+      value: 'x'.repeat(DEFAULT_METADATA_QUOTA_BYTES - 11),
+      // A caller-supplied size cannot under-report the serialized value.
+      size: 1,
+    })
+
+    expect(() =>
+      store.commitMetadata(db, 'task-1', () => {
+        db.prepare(
+          `INSERT INTO plugin_task_metadata (task_id, plugin_id, key, value, size, updated_at)
+           VALUES ('task-1', 'tx-marker', 'marker', 'true', 4, 0)`
+        ).run()
+      })
+    ).toThrow(
+      expect.objectContaining({ code: 'plugin.metadata.quota_exceeded' })
+    )
+
+    expect(
+      db
+        .prepare(
+          "SELECT COUNT(*) AS count FROM plugin_task_metadata WHERE plugin_id='tx-marker'"
+        )
+        .get()
+    ).toEqual({ count: 0 })
+    expect(allRows(db, 'task-1')).toEqual([
+      { plugin_id: 'plugin-a', key: 'existing', value: '"12345678"' },
+    ])
+  })
+
+  it('applies delete then set ordering when projecting the quota', () => {
+    const db = makeDb()
+    const oldValue = 'x'.repeat(DEFAULT_METADATA_QUOTA_BYTES - 2)
+    db.prepare(
+      `INSERT INTO plugin_task_metadata (task_id, plugin_id, key, value, size, updated_at)
+       VALUES (?, ?, ?, ?, ?, 0)`
+    ).run(
+      'task-1',
+      'plugin-a',
+      'old',
+      JSON.stringify(oldValue),
+      DEFAULT_METADATA_QUOTA_BYTES
+    )
+    store.appendMeta({
+      pluginId: 'plugin-a',
+      op: 'delete',
+      key: 'old',
+    })
+    store.appendMeta({
+      pluginId: 'plugin-a',
+      op: 'set',
+      key: 'replacement',
+      value: oldValue,
+    })
+
+    expect(() => store.commitMetadata(db, 'task-1', () => {})).not.toThrow()
+    expect(allRows(db, 'task-1')).toEqual([
+      {
+        plugin_id: 'plugin-a',
+        key: 'replacement',
+        value: JSON.stringify(oldValue),
+      },
+    ])
   })
 
   // ── 4. appendMeta delete removes rows ────────────────────────────────────────
