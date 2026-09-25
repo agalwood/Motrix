@@ -1,18 +1,22 @@
 import { useTransportMirror } from '@renderer/hooks/use-transport-mirror'
+import type { SettingsReader } from '@renderer/lib/settings-refresh'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
+import {
+  type NotificationBadgeStyle,
+  notificationBadgeStyleSchema,
+} from '@shared/schemas/app-settings'
 import type { AppNotification } from '@shared/types/notification'
+import type { AppSettings } from '@shared/types/settings'
 import { useCallback, useState } from 'react'
 
 export interface UseNotificationsOptions {
   /**
    * Skip `Queries.ListNotifications` entirely and leave `items` at `[]`.
-   * For a consumer that only ever reads `unreadCount` (the sidebar badge,
-   * always mounted) this halves the per-refresh IPC cost — one query
-   * instead of two, and the list query alone reads up to 100 rows and runs
-   * two `JSON.parse` calls per row for `titleParams`/`bodyParams`.
+   * The always-mounted sidebar reads the count and, on desktop, its badge
+   * preference. It never needs the list's up to 100 rows and their params.
    *
    * Mount-constant: the mirror captures wiring at mount; flipping this
    * later does not trigger a refetch.
@@ -23,6 +27,7 @@ export interface UseNotificationsOptions {
 export interface UseNotificationsResult {
   items: AppNotification[]
   unreadCount: number
+  badgeStyle: NotificationBadgeStyle
   markRead: (id: string) => Promise<void>
   markAllRead: () => Promise<void>
   remove: (id: string) => Promise<void>
@@ -47,7 +52,8 @@ export interface UseNotificationsResult {
  * `{ countOnly: true }` (e.g. `NotificationsNavItem`, the always-mounted
  * sidebar badge) skips the `ListNotifications` invoke and leaves `items`
  * at `[]` — the return shape is unchanged so callers that only destructure
- * `unreadCount` need no other change.
+ * `unreadCount` need no other change. The desktop badge preference is loaded
+ * before publishing the count so a hidden badge never flashes at startup.
  *
  * Mutations (`markRead`/`markAllRead`/`remove`/`clear`) only invoke the
  * matching `Commands` and rely on the `NotificationsChanged` broadcast the
@@ -66,27 +72,36 @@ export function useNotifications(
   const { countOnly = false } = options
   const [items, setItems] = useState<AppNotification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
+  const [badgeStyle, setBadgeStyle] = useState<NotificationBadgeStyle>('count')
 
   const load = useCallback(
-    async (stale: () => boolean) => {
+    async (stale: () => boolean, read: SettingsReader) => {
+      let style: NotificationBadgeStyle = 'count'
+      if (countOnly && transport.platform !== 'web') {
+        const settings = (await read(Queries.GetSettings)) as
+          | AppSettings
+          | undefined
+        if (stale()) return
+        style = notificationBadgeStyleSchema
+          .catch('count')
+          .parse(settings?.app?.notificationBadgeStyle)
+      }
       const list = countOnly
         ? []
-        : ((await transport.invoke(
-            Queries.ListNotifications
-          )) as AppNotification[])
+        : ((await read(Queries.ListNotifications)) as AppNotification[])
       if (stale()) return
-      const count = (await transport.invoke(
-        Queries.GetUnreadNotificationCount
-      )) as number
+      const count = (await read(Queries.GetUnreadNotificationCount)) as number
       if (stale()) return
       setItems(list)
       setUnreadCount(count)
+      setBadgeStyle(style)
     },
     [countOnly]
   )
 
   const { refresh } = useTransportMirror({
     events: [Events.NotificationsChanged],
+    refreshOnSettingsSave: transport.platform !== 'web',
     load,
   })
 
@@ -106,5 +121,14 @@ export function useNotifications(
     await transport.invoke(Commands.ClearNotifications)
   }, [])
 
-  return { items, unreadCount, markRead, markAllRead, remove, clear, refresh }
+  return {
+    items,
+    unreadCount,
+    badgeStyle,
+    markRead,
+    markAllRead,
+    remove,
+    clear,
+    refresh,
+  }
 }

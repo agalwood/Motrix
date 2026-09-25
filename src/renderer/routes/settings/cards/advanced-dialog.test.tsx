@@ -176,4 +176,102 @@ describe('<AdvancedDialog>', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce())
   })
+  it.each(['0', '-1'])(
+    'does not interpret typed %s as another history mode',
+    async (value) => {
+      const close = vi.fn()
+      render(<AdvancedDialog open onClose={close} labelKey="" descKey="" />)
+      await screen.findByDisplayValue('16800')
+      const user = userEvent.setup()
+      await user.click(
+        screen.getByRole('combobox', { name: 'Completed recovery records' })
+      )
+      await user.click(
+        await screen.findByRole('option', { name: 'Latest records…' })
+      )
+      const count = screen.getByRole('spinbutton', { name: 'Records to keep' })
+      fireEvent.change(count, { target: { value } })
+      await user.click(screen.getByRole('button', { name: 'Save' }))
+      expect(
+        await screen.findByText('Enter a number greater than 0.')
+      ).toBeVisible()
+      expect(count).toHaveValue(Number(value))
+      expect(close).not.toHaveBeenCalled()
+      expect(transport.invoke).not.toHaveBeenCalledWith(
+        Commands.UpdateSettings,
+        expect.anything()
+      )
+    }
+  )
+  it('restores a custom history count across policy and persistence toggles', async () => {
+    vi.mocked(transport.invoke).mockImplementation(async (channel) =>
+      channel === Queries.GetSettings
+        ? { engine: { ...SETTINGS_FIXTURE.engine, sqlite3HistoryLimit: 731 } }
+        : { saved: true }
+    )
+    render(<AdvancedDialog open onClose={vi.fn()} labelKey="" descKey="" />)
+    const count = await screen.findByRole('spinbutton', {
+      name: 'Records to keep',
+    })
+    expect(count).toHaveValue(731)
+    const user = userEvent.setup()
+    const mode = screen.getByRole('combobox', {
+      name: 'Completed recovery records',
+    })
+    await user.click(mode)
+    await user.click(
+      await screen.findByRole('option', { name: 'Do not retain' })
+    )
+    expect(
+      screen.queryByRole('spinbutton', { name: 'Records to keep' })
+    ).toBeNull()
+    await user.click(mode)
+    await user.click(
+      await screen.findByRole('option', { name: 'Latest records…' })
+    )
+    expect(
+      screen.getByRole('spinbutton', { name: 'Records to keep' })
+    ).toHaveValue(731)
+    await user.click(screen.getByRole('switch', { name: 'Save recovery data' }))
+    expect(
+      screen.getByRole('spinbutton', { name: 'Records to keep' })
+    ).toBeDisabled()
+    await user.click(screen.getByRole('switch', { name: 'Save recovery data' }))
+    expect(
+      screen.getByRole('spinbutton', { name: 'Records to keep' })
+    ).toHaveValue(731)
+  })
+  it.each([
+    ['All records', -1],
+    ['Do not retain', 0],
+  ] as const)('saves the %s retention policy', async (label, limit) => {
+    vi.mocked(transport.invoke).mockImplementation(async (channel) =>
+      channel === Queries.GetSettings
+        ? { engine: { ...SETTINGS_FIXTURE.engine, sqlite3HistoryLimit: 731 } }
+        : { saved: true }
+    )
+    render(<AdvancedDialog open onClose={vi.fn()} labelKey="" descKey="" />)
+    await screen.findByDisplayValue('16800')
+    const user = userEvent.setup()
+    await user.click(
+      screen.getByRole('combobox', { name: 'Completed recovery records' })
+    )
+    await user.click(await screen.findByRole('option', { name: label }))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      engine: { sqlite3HistoryLimit: limit },
+    })
+  })
+  it('validates the progress save interval moved from Downloads', async () => {
+    render(<AdvancedDialog open onClose={vi.fn()} labelKey="" descKey="" />)
+    await screen.findByDisplayValue('16800')
+    const input = screen.getByRole('spinbutton', {
+      name: 'Progress save interval (s)',
+    })
+    fireEvent.change(input, { target: { value: '3601' } })
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Save' }))
+    expect(
+      await screen.findByText('Enter a whole number from 10 to 3600.')
+    ).toBeVisible()
+  })
 })

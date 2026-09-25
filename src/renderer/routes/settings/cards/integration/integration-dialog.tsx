@@ -3,6 +3,10 @@ import {
   useSettingsForm,
   useSettingsSubmit,
 } from '@renderer/components/settings-kit/use-settings-form'
+import {
+  SettingsLoadStatus,
+  useSettingsLoad,
+} from '@renderer/components/settings-kit/use-settings-load'
 import { Alert, AlertDescription } from '@renderer/components/ui/alert'
 import { Button } from '@renderer/components/ui/button'
 import {
@@ -24,10 +28,9 @@ import { toast } from '@renderer/components/ui/toast'
 import { pickDirty } from '@renderer/lib/form-utils'
 import { saveSettings } from '@renderer/lib/settings-save'
 import { transport } from '@renderer/lib/transport'
-import { Queries } from '@shared/protocol/queries'
 import { DEFAULT_APP_SETTINGS, DEFAULT_MEDIA_SETTINGS } from '@shared/schemas'
 import type { AppSettings } from '@shared/types/settings'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { FormProvider } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import type { z } from 'zod'
@@ -56,7 +59,6 @@ export function IntegrationDialog({
   open,
   onClose,
   labelKey,
-  descKey,
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
   const isWeb = transport.platform === 'web'
@@ -67,32 +69,21 @@ export function IntegrationDialog({
     DEFAULTS
   )
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only fetch
-  useEffect(() => {
-    if (!open) return
-    let cancelled = false
-    transport
-      .invoke(Queries.GetSettings)
-      .then((data) => {
-        if (cancelled) return
-        const all = data as AppSettings
-        if (all?.app && all?.media) {
-          form.reset({
-            app: {
-              browserBridgeEnabled: all.app.browserBridgeEnabled,
-              protocols: all.app.protocols,
-            },
-            media: { ...all.media },
-          })
-        }
+  const load = useSettingsLoad((all) => {
+    if (!all?.app || !all.media) throw new Error('Missing settings baseline')
+    if (all?.app && all?.media) {
+      form.reset({
+        app: {
+          browserBridgeEnabled: all.app.browserBridgeEnabled,
+          protocols: all.app.protocols,
+        },
+        media: { ...all.media },
       })
-      .catch(() => {})
-    return () => {
-      cancelled = true
     }
-  }, [open])
+  })
 
   const onSubmit = useSettingsSubmit(form, async (values) => {
+    if (!load.ready) return
     setSaveError(null)
     const dirty = pickDirty(values, form.formState.dirtyFields) as
       | Partial<{
@@ -128,14 +119,24 @@ export function IntegrationDialog({
   })
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+    <Dialog
+      open={open}
+      onOpenChange={(v, details) => {
+        if (!v) {
+          if (form.formState.isSubmitting) details.cancel()
+          else onClose()
+        }
+      }}
+    >
       <DialogContent
         className="flex max-h-[85vh] flex-col gap-0 p-0 sm:max-w-[700px]"
         initialFocus={false}
       >
         <DialogHeader className="shrink-0 px-6 pt-6">
           <DialogTitle>{t(labelKey)}</DialogTitle>
-          <DialogDescription>{t(descKey)}</DialogDescription>
+          <DialogDescription>
+            {t('settings.integration.description')}
+          </DialogDescription>
         </DialogHeader>
 
         <ScrollArea className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -147,8 +148,29 @@ export function IntegrationDialog({
               className="px-6 py-4"
               style={{ minWidth: '100%' }}
             >
+              <SettingsLoadStatus {...load} />
               <FormProvider {...form}>
-                <div className="flex flex-col gap-6">
+                <fieldset
+                  inert={!load.ready || form.formState.isSubmitting}
+                  disabled={!load.ready || form.formState.isSubmitting}
+                  className="min-w-0 flex flex-col gap-6"
+                >
+                  <section
+                    aria-labelledby="integration-browser"
+                    className="flex flex-col gap-3"
+                  >
+                    <h3
+                      id="integration-browser"
+                      className="text-sm font-semibold text-foreground"
+                    >
+                      {t('settings.integration.browser.title')}
+                    </h3>
+                    <BrowserExtensionsSection />
+                    {!isWeb && <AppImageNativeHostSection />}
+                  </section>
+
+                  <Separator />
+
                   {!isWeb && (
                     <>
                       <section
@@ -174,22 +196,6 @@ export function IntegrationDialog({
                       <Separator />
                     </>
                   )}
-
-                  <section
-                    aria-labelledby="integration-browser"
-                    className="flex flex-col gap-3"
-                  >
-                    <h3
-                      id="integration-browser"
-                      className="text-sm font-semibold text-foreground"
-                    >
-                      {t('settings.integration.browser.title')}
-                    </h3>
-                    <BrowserExtensionsSection />
-                    {!isWeb && <AppImageNativeHostSection />}
-                  </section>
-
-                  <Separator />
 
                   <section
                     aria-labelledby="integration-cli"
@@ -221,7 +227,7 @@ export function IntegrationDialog({
                     </h3>
                     <MediaToolsSection />
                   </section>
-                </div>
+                </fieldset>
               </FormProvider>
             </ScrollAreaContent>
           </ScrollAreaViewport>
@@ -240,14 +246,20 @@ export function IntegrationDialog({
               <AlertDescription>{saveError}</AlertDescription>
             </Alert>
           )}
-          <Button type="button" variant="outline" size="sm" onClick={onClose}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={form.formState.isSubmitting}
+            onClick={onClose}
+          >
             {t('common.cancel')}
           </Button>
           <Button
             type="button"
             size="sm"
             onClick={onSubmit}
-            disabled={form.formState.isSubmitting}
+            disabled={!load.ready || form.formState.isSubmitting}
           >
             {t('common.save')}
           </Button>

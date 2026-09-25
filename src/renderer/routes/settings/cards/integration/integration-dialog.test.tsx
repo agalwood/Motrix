@@ -1,3 +1,4 @@
+import { DEFAULT_APP_SETTINGS, DEFAULT_MEDIA_SETTINGS } from '@shared/schemas'
 import '@test-utils/dom-animations'
 import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
@@ -41,6 +42,11 @@ vi.mock('@renderer/lib/transport', () => ({
       if (channel === 'bridge:getStatus') {
         return Promise.resolve(bridgeStatus.current)
       }
+      if (channel === 'query:getSettings')
+        return Promise.resolve({
+          app: DEFAULT_APP_SETTINGS,
+          media: DEFAULT_MEDIA_SETTINGS,
+        })
       if (channel === 'query:getFfmpegDetection') {
         return Promise.resolve({ active: null, candidates: [] })
       }
@@ -126,7 +132,7 @@ describe('IntegrationDialog scaffold', () => {
       />
     )
     expect(
-      await screen.findByRole('heading', { name: /system protocols/i })
+      await screen.findByRole('heading', { name: /default app/i })
     ).toBeTruthy()
     expect(
       screen.getByRole('heading', { name: /browser extensions/i })
@@ -149,7 +155,7 @@ describe('IntegrationDialog scaffold', () => {
     )
 
     expect(
-      screen.queryByRole('heading', { name: /system protocols/i })
+      screen.queryByRole('heading', { name: /default app/i })
     ).not.toBeInTheDocument()
     expect(
       await screen.findByRole('heading', { name: /browser extensions/i })
@@ -173,7 +179,9 @@ describe('IntegrationDialog scaffold', () => {
     expect(
       local.compareDocumentPosition(remote) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
-    expect(screen.getByText(/local CLI connects automatically/i)).toBeTruthy()
+    expect(
+      screen.getByText(/Run motrix in a terminal to control this app/i)
+    ).toBeTruthy()
   })
 
   it('renders the complete manual-only unsupported CLI recovery state', async () => {
@@ -291,6 +299,11 @@ describe('IntegrationDialog scaffold', () => {
       if (channel === 'bridge:getStatus') {
         return bridgeStatus.current
       }
+      if (channel === 'query:getSettings')
+        return Promise.resolve({
+          app: DEFAULT_APP_SETTINGS,
+          media: DEFAULT_MEDIA_SETTINGS,
+        })
       if (channel === 'query:getFfmpegDetection') {
         return { active: null, candidates: [] }
       }

@@ -154,7 +154,7 @@ describe('<NetworkDialog>', () => {
     const dnsMode = await screen.findByRole('combobox', {
       name: 'DNS 解析方式',
     })
-    expect(dnsMode).toHaveTextContent('引擎内置解析器')
+    expect(dnsMode).toHaveTextContent('内置 DNS')
     expect(dnsMode).toHaveClass('min-w-30', 'max-w-64')
     expect(dnsMode).not.toHaveClass('w-35')
   })
@@ -263,21 +263,16 @@ describe('<NetworkDialog>', () => {
       await screen.findByRole('button', { name: /import from system/i })
     )
 
-    await waitFor(() => {
-      expect(
-        screen.getByText(
-          /BT proxy covers HTTP\(S\) only; peers, DHT, and UDP trackers stay direct/i
-        )
-      ).toBeInTheDocument()
-      expect(screen.getAllByRole('switch')[2]).not.toHaveAttribute(
-        'aria-disabled',
-        'true'
-      )
-      expect(screen.getAllByRole('switch')[2]).toHaveAttribute(
-        'aria-checked',
-        'true'
-      )
-    })
+    await waitFor(() =>
+      expect(screen.getByDisplayValue('127.0.0.1')).toBeInTheDocument()
+    )
+    await user.click(screen.getByRole('button', { name: 'Use proxy for' }))
+    expect(
+      await screen.findByRole('menuitemcheckbox', { name: 'File downloads' })
+    ).toHaveAttribute('aria-checked', 'true')
+    expect(
+      screen.getByText('BT peers, DHT and UDP trackers connect directly.')
+    ).toBeVisible()
   })
 
   it('shows an actionable error for an enabled proxy without a server', async () => {

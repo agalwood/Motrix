@@ -1,12 +1,20 @@
 import type { ElectronApplication, Page } from '@playwright/test'
 import {
   expect,
+  findAddTaskWindow,
   launchMotrix,
   test,
   waitForEngineReady,
 } from './fixtures/electron-app'
 
-const SWITCH_LABEL = 'Notify when download completes'
+const NOTIFICATION_LABEL = 'Download completed'
+
+async function chooseNotification(page: Page, label: string, option: string) {
+  await page.getByRole('combobox', { name: label }).click()
+  await page.getByRole('option', { name: option, exact: true }).click()
+  await expect(page.getByRole('combobox', { name: label })).toHaveText(option)
+  await expect(page.getByRole('option')).toHaveCount(0)
+}
 
 async function openGeneralSettings(page: Page): Promise<void> {
   await page.getByRole('link', { name: 'Settings', exact: true }).click()
@@ -14,8 +22,13 @@ async function openGeneralSettings(page: Page): Promise<void> {
   // from settings.cards.general.title. Match the text that's also the
   // accessible heading inside the card.
   await page.getByText('General', { exact: true }).first().click()
-  // Dialog opens — wait for the switch to be present before interacting.
-  await expect(page.getByRole('switch', { name: SWITCH_LABEL })).toBeVisible()
+  // Wait for the authoritative settings baseline before editing.
+  await expect(
+    page.getByRole('combobox', { name: NOTIFICATION_LABEL })
+  ).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Save', exact: true })
+  ).toBeEnabled()
 }
 
 async function openMain(app: ElectronApplication): Promise<Page> {
@@ -25,6 +38,118 @@ async function openMain(app: ElectronApplication): Promise<Page> {
 }
 
 test.describe('settings persistence', () => {
+  test('desktop notification choices filter existing history, refresh badges, and survive restart', async ({
+    userDataDir,
+    rpcPort,
+    httpFixture,
+  }, testInfo) => {
+    let app = await launchMotrix({ userDataDir, rpcPort })
+    try {
+      let main = await openMain(app)
+      await waitForEngineReady(main)
+      await main.getByRole('button', { name: 'New task' }).click()
+      const addTask = await findAddTaskWindow(app)
+      await addTask
+        .getByRole('textbox', { name: 'URLs' })
+        .fill(httpFixture.fileUrl)
+      await addTask.getByRole('button', { name: 'Download' }).click()
+      const badge = main.getByTestId('notification-badge')
+      await expect(badge).toHaveText('1', { timeout: 20_000 })
+      // Task creation also queues navigation to its inspector. Let that
+      // navigation settle before opening a settings dialog on another route.
+      await expect(
+        main.getByRole('dialog', { name: 'Task Inspector' })
+      ).toBeVisible()
+
+      await openGeneralSettings(main)
+      await chooseNotification(
+        main,
+        'Download completed',
+        'System notifications'
+      )
+      await main.getByRole('button', { name: 'Cancel', exact: true }).click()
+      await expect(badge).toHaveText('1')
+      await openGeneralSettings(main)
+      await expect(
+        main.getByRole('combobox', { name: 'Download completed' })
+      ).toHaveText('Both')
+      await chooseNotification(
+        main,
+        'Download completed',
+        'System notifications'
+      )
+      await chooseNotification(main, 'Download failed', 'System notifications')
+      await main.getByRole('combobox', { name: 'Unread badge' }).click()
+      await main.getByRole('option', { name: 'Dot', exact: true }).click()
+      await main.screenshot({
+        path: testInfo.outputPath('notification-preferences.png'),
+      })
+      await main.getByRole('button', { name: 'Save', exact: true }).click()
+      await expect(badge).toHaveCount(0)
+      await expect(main.getByTestId('notification-badge-dot')).toHaveCount(0)
+      await main
+        .getByRole('link', { name: 'Notifications', exact: true })
+        .click()
+      await expect(
+        main.getByText('No notifications', { exact: true })
+      ).toBeVisible()
+
+      await openGeneralSettings(main)
+      await chooseNotification(main, 'Download completed', 'Both')
+      await main.getByRole('button', { name: 'Save', exact: true }).click()
+      await expect(main.getByTestId('notification-badge-dot')).toBeVisible()
+      await expect(main.getByTestId('notification-badge-dot')).toHaveAttribute(
+        'aria-label',
+        'Unread notifications'
+      )
+      await expect(badge).toHaveCount(0)
+      await main.screenshot({
+        path: testInfo.outputPath('notification-dot.png'),
+      })
+      await main.getByRole('button', { name: 'Toggle sidebar' }).click()
+      // The desktop sidebar slides off-canvas rather than becoming an icon rail.
+      await expect(
+        main.getByTestId('notification-badge-dot')
+      ).not.toBeInViewport()
+      await main.screenshot({
+        path: testInfo.outputPath('notification-dot-collapsed.png'),
+      })
+      await main.getByRole('button', { name: 'Toggle sidebar' }).click()
+      await expect(main.getByTestId('notification-badge-dot')).toBeInViewport()
+
+      await openGeneralSettings(main)
+      await main.getByRole('combobox', { name: 'Unread badge' }).click()
+      await main.getByRole('option', { name: 'Hidden', exact: true }).click()
+      await main.getByRole('button', { name: 'Save', exact: true }).click()
+      await expect(main.getByTestId('notification-badge-dot')).toHaveCount(0)
+      await app.close()
+
+      app = await launchMotrix({ userDataDir, rpcPort })
+      main = await openMain(app)
+      await openGeneralSettings(main)
+      await expect(
+        main.getByRole('combobox', { name: 'Download completed' })
+      ).toHaveText('Both')
+      await expect(
+        main.getByRole('combobox', { name: 'Download failed' })
+      ).toHaveText('System notifications')
+      await expect(
+        main.getByRole('combobox', { name: 'Unread badge' })
+      ).toHaveText('Hidden')
+      await main.getByRole('button', { name: 'Cancel', exact: true }).click()
+      await expect(main.getByTestId('notification-badge')).toHaveCount(0)
+      await expect(main.getByTestId('notification-badge-dot')).toHaveCount(0)
+      await main
+        .getByRole('link', { name: 'Notifications', exact: true })
+        .click()
+      await expect(
+        main.getByText('test.bin finished downloading', { exact: true })
+      ).toBeVisible()
+    } finally {
+      await app.close().catch(() => {})
+    }
+  })
+
   test('task file deletion defaults to trash and persists an explicit permanent choice', async ({
     userDataDir,
     rpcPort,
@@ -50,9 +175,7 @@ test.describe('settings persistence', () => {
       await deletion.click()
       await main.getByRole('option', { name: 'Delete permanently' }).click()
       await expect(
-        main.getByText(
-          'Files are deleted directly and cannot be restored from the trash.'
-        )
+        main.getByText('Deleted files cannot be restored from the trash.')
       ).toBeVisible()
       await main.screenshot({
         path: testInfo.outputPath('file-deletion-settings.png'),
@@ -86,17 +209,20 @@ test.describe('settings persistence', () => {
       await expect(() => waitForEngineReady(main)).toPass({ timeout: 15000 })
       await main.getByRole('link', { name: 'Settings', exact: true }).click()
       await main.getByText('BitTorrent', { exact: true }).first().click()
+      await expect(
+        main.getByRole('button', { name: 'Save', exact: true })
+      ).toBeEnabled()
       return main
     }
     try {
       let main = await openBitTorrentSettings()
       const toggle = main.getByRole('switch', {
-        name: 'Download all files when selection times out',
+        name: 'Download all if no selection is made',
       })
       await expect(toggle).not.toBeChecked()
       await toggle.click()
       const timeout = main.getByRole('spinbutton', {
-        name: 'File selection timeout (seconds)',
+        name: 'Time to choose files (s)',
       })
       await expect(timeout).toHaveValue('60')
       await timeout.fill('120')
@@ -107,12 +233,12 @@ test.describe('settings persistence', () => {
       main = await openBitTorrentSettings()
       await expect(
         main.getByRole('switch', {
-          name: 'Download all files when selection times out',
+          name: 'Download all if no selection is made',
         })
       ).toBeChecked()
       await expect(
         main.getByRole('spinbutton', {
-          name: 'File selection timeout (seconds)',
+          name: 'Time to choose files (s)',
         })
       ).toHaveValue('120')
     } finally {
@@ -178,43 +304,29 @@ test.describe('settings persistence', () => {
     }
   })
 
-  test('notifyOnComplete switch survives an app restart', async ({
+  test('notification channel selection survives an app restart', async ({
     userDataDir,
     rpcPort,
   }) => {
-    // ─── Run 1: toggle the switch and Apply ──────────────────────
     let app = await launchMotrix({ userDataDir, rpcPort })
-    let main = await openMain(app)
-    await openGeneralSettings(main)
-
-    const switch1 = main.getByRole('switch', { name: SWITCH_LABEL })
-    const before = await switch1.getAttribute('aria-checked')
-    expect(before).not.toBeNull()
-
-    await switch1.click()
-    // Toggle is local to react-hook-form until Apply commits.
-    // Waiting on aria-checked flipping confirms the click registered
-    // before we click Apply.
-    const expectedAfter = before === 'true' ? 'false' : 'true'
-    await expect(switch1).toHaveAttribute('aria-checked', expectedAfter)
-
-    // Apply: handler awaits transport.invoke(UpdateSettings),
-    // which awaits SettingsManager.update -> writeFile.
-    // Dialog closes after success → switch leaves the DOM.
-    await main.getByRole('button', { name: 'Save' }).click()
-    await expect(switch1).toBeHidden()
-
-    await app.close()
-
-    // ─── Run 2: reopen, navigate back, assert persisted state ────
-    app = await launchMotrix({ userDataDir, rpcPort })
-    main = await openMain(app)
-    await openGeneralSettings(main)
-
-    const switch2 = main.getByRole('switch', { name: SWITCH_LABEL })
-    await expect(switch2).toHaveAttribute('aria-checked', expectedAfter)
-
-    await app.close()
+    try {
+      let main = await openMain(app)
+      await openGeneralSettings(main)
+      await chooseNotification(main, NOTIFICATION_LABEL, 'Off')
+      await main.getByRole('button', { name: 'Save', exact: true }).click()
+      await expect(
+        main.getByRole('combobox', { name: NOTIFICATION_LABEL })
+      ).toBeHidden()
+      await app.close()
+      app = await launchMotrix({ userDataDir, rpcPort })
+      main = await openMain(app)
+      await openGeneralSettings(main)
+      await expect(
+        main.getByRole('combobox', { name: NOTIFICATION_LABEL })
+      ).toHaveText('Off')
+    } finally {
+      await app.close().catch(() => {})
+    }
   })
 })
 

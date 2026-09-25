@@ -24,7 +24,7 @@ const UNREAD_DISPLAY_CAP = 99
  */
 export function NotificationsNavItem() {
   const { t } = useTranslation()
-  const { unreadCount } = useNotifications({ countOnly: true })
+  const { unreadCount, badgeStyle } = useNotifications({ countOnly: true })
   const badgeLabel =
     unreadCount > UNREAD_DISPLAY_CAP
       ? `${UNREAD_DISPLAY_CAP}+`
@@ -42,7 +42,15 @@ export function NotificationsNavItem() {
           >
             <NotificationsIcon />
             <span className="select-none">{t('nav.notifications')}</span>
-            {unreadCount > 0 && (
+            {unreadCount > 0 && badgeStyle === 'dot' && (
+              <span
+                data-testid="notification-badge-dot"
+                role="status"
+                aria-label={t('notification.center.unreadDotAria')}
+                className="ml-auto size-1.5 shrink-0 rounded-full bg-[#007aff] group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-1 group-data-[collapsible=icon]:right-1"
+              />
+            )}
+            {unreadCount > 0 && badgeStyle === 'count' && (
               <>
                 <span
                   data-testid="notification-badge"

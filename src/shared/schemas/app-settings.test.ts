@@ -6,6 +6,41 @@ import {
 } from './app-settings'
 
 describe('appSettingsSchema', () => {
+  it('preserves existing notification defaults, loads desktop choices, and rejects malformed writes', () => {
+    const defaults = {
+      notifyInAppOnComplete: true,
+      notifyInAppOnError: true,
+      notificationBadgeStyle: 'count',
+    }
+    expect(appSettingsSchema.parse({})).toMatchObject(defaults)
+    expect(
+      appSettingsSchema.parse({
+        notifyInAppOnComplete: 'false',
+        notifyInAppOnError: null,
+        notificationBadgeStyle: 'off',
+      })
+    ).toMatchObject(defaults)
+    for (const notificationBadgeStyle of ['count', 'dot', 'hidden']) {
+      const choices = {
+        notifyInAppOnComplete: false,
+        notifyInAppOnError: false,
+        notificationBadgeStyle,
+      }
+      expect(appSettingsSchema.parse(choices)).toMatchObject(choices)
+      expect(appSettingsInputSchema.partial().safeParse(choices).success).toBe(
+        true
+      )
+    }
+    for (const invalid of [
+      { notifyInAppOnComplete: 'false' },
+      { notifyInAppOnError: null },
+      { notificationBadgeStyle: 'off' },
+    ]) {
+      expect(appSettingsInputSchema.partial().safeParse(invalid).success).toBe(
+        false
+      )
+    }
+  })
   it('defaults existing and invalid file deletion preferences to trash', () => {
     expect(DEFAULT_APP_SETTINGS.fileDeletionMode).toBe('trash')
     for (const fileDeletionMode of [undefined, null, 'delete', false]) {

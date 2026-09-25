@@ -84,17 +84,17 @@ describe('<BitTorrentDialog>', () => {
     await waitFor(() => screen.getByDisplayValue('128'))
     expect(
       screen.queryByRole('spinbutton', {
-        name: 'File selection timeout (seconds)',
+        name: 'Time to choose files (s)',
       })
     ).toBeNull()
     const user = userEvent.setup()
     const toggle = screen.getByRole('switch', {
-      name: 'Download all files when selection times out',
+      name: 'Download all if no selection is made',
     })
     expect(toggle).not.toBeChecked()
     await user.click(toggle)
     const timeout = screen.getByRole('spinbutton', {
-      name: 'File selection timeout (seconds)',
+      name: 'Time to choose files (s)',
     })
     expect(timeout).toHaveValue(60)
     fireEvent.change(timeout, { target: { value: '120' } })
@@ -120,12 +120,12 @@ describe('<BitTorrentDialog>', () => {
     const user = userEvent.setup()
     await user.click(
       screen.getByRole('switch', {
-        name: 'Download all files when selection times out',
+        name: 'Download all if no selection is made',
       })
     )
     fireEvent.change(
       screen.getByRole('spinbutton', {
-        name: 'File selection timeout (seconds)',
+        name: 'Time to choose files (s)',
       }),
       { target: { value: '0' } }
     )
@@ -152,12 +152,12 @@ describe('<BitTorrentDialog>', () => {
     const user = userEvent.setup()
     await user.click(
       screen.getByRole('switch', {
-        name: 'Open file selection after magnet metadata loads',
+        name: 'Choose files before downloading',
       })
     )
     expect(
       screen.getByRole('switch', {
-        name: 'Download all files when selection times out',
+        name: 'Download all if no selection is made',
       })
     ).toHaveAttribute('aria-disabled', 'true')
   })
@@ -207,7 +207,7 @@ describe('<BitTorrentDialog>', () => {
     )
     await waitFor(() => screen.getByText(/blacklist/i))
     expect(
-      screen.getByText(/managed in the sidebar Trackers page/i)
+      screen.getByText(/Manage blocked trackers in Trackers/i)
     ).toBeInTheDocument()
   })
 
@@ -240,5 +240,23 @@ describe('<BitTorrentDialog>', () => {
       Commands.UpdateSettings,
       expect.anything()
     )
+  })
+  it('accepts a 900-second magnet timeout after moving it from Downloads', async () => {
+    render(<BitTorrentDialog open onClose={vi.fn()} labelKey="" descKey="" />)
+    const input = await screen.findByRole('spinbutton', {
+      name: 'Magnet loading timeout (s)',
+    })
+    await waitFor(() => expect(input).toBeEnabled())
+    fireEvent.change(input, { target: { value: '901' } })
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(
+      await screen.findByText('Enter a whole number from 30 to 900.')
+    ).toBeVisible()
+    fireEvent.change(input, { target: { value: '900' } })
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      engine: { magnetResolveTimeout: 900 },
+    })
   })
 })

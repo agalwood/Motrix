@@ -1,4 +1,5 @@
 export const Queries = {
+  GetDownloadsSettingsDraft: 'query:getDownloadsSettingsDraft',
   GetDisclaimerState: 'query:getDisclaimerState',
   ListTasks: 'query:listTasks',
   GetTaskDetail: 'query:getTaskDetail',

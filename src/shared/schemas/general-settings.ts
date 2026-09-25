@@ -1,5 +1,9 @@
 import { z } from 'zod'
 import {
+  appSettingsInputSchema,
+  notificationBadgeStyleSchema,
+} from './app-settings'
+import {
   DIRECTORY_FAVORITES_LIMIT,
   DIRECTORY_PREFERENCES_PATH_LIMIT,
   DIRECTORY_RECENT_LIMIT,
@@ -10,11 +14,16 @@ import {
 const directoryPath = z.string().min(1).max(DIRECTORY_PREFERENCES_PATH_LIMIT)
 
 export const GeneralSettingsAppSchema = z.object({
+  runMode: appSettingsInputSchema.shape.runMode,
+  lightweightMode: appSettingsInputSchema.shape.lightweightMode,
   launchAtStartup: z.boolean(),
   showMainWindowAtLogin: z.boolean(),
   defaultSaveDir: z.string(),
   notifyOnComplete: z.boolean(),
   notifyOnError: z.boolean(),
+  notifyInAppOnComplete: z.boolean(),
+  notifyInAppOnError: z.boolean(),
+  notificationBadgeStyle: notificationBadgeStyleSchema,
   autofillClipboardLinks: z.boolean(),
   warnBeforeQuit: z.boolean(),
 })

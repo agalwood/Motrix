@@ -144,6 +144,8 @@ describe('createNatManager', () => {
     expect(result).toEqual({
       manager: state.managerInstance,
       networkMonitor: state.networkMonitorInstance,
+      startDiagnostics: expect.any(Function),
+      stopDiagnostics: expect.any(Function),
     })
     expect(state.getLogger).toHaveBeenCalledWith('nat')
     expect(state.setNatLogger).toHaveBeenCalledWith(state.appLogger)

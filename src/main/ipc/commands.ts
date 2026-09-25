@@ -44,6 +44,7 @@ import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
 import { applySavedSettings } from '@core/settings/apply-saved-settings'
 import { createDirectoryPreferencesHandlers } from '@core/settings/directory-preferences'
+import { createSaveDownloadsSettingsHandler } from '@core/settings/downloads-settings'
 import { createSaveGeneralSettingsHandler } from '@core/settings/general-settings'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import {
@@ -950,6 +951,26 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
     [Commands.MutateDirectoryPreferences]: directoryPreferences.mutate,
 
+    [Commands.SaveDownloadsSettings]: createSaveDownloadsSettingsHandler(
+      settingsManager,
+      {
+        apply: async (oldEngine, result) => {
+          await supervisor.applyDefaultSaveDir(
+            settingsManager.getApp().defaultSaveDir
+          )
+          await supervisor.applyEngineSettings(
+            oldEngine,
+            settingsManager.getEngine()
+          )
+          if (result.requiresRestart)
+            publishEngineRestartRequired(
+              { eventBus, notificationCenter, log },
+              result.changedRestartKeys ?? []
+            )
+        },
+      }
+    ),
+
     [Commands.SaveGeneralSettings]: createSaveGeneralSettingsHandler(
       settingsManager,
       {
@@ -1002,13 +1023,34 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         | undefined
       const magnetPreferenceSubmitted =
         typeof appPartial?.protocols?.magnet === 'boolean'
+      const natPartial = partialObj?.nat as
+        | Record<string, unknown>
+        | null
+        | undefined
       const patched = {
         ...partialObj,
-        nat: {
-          ...((partialObj?.nat as object | undefined) ?? {}),
-          natTypeDetectionEnabled: gated.nat.natTypeDetectionEnabled,
-          portReachabilityCheckEnabled: gated.nat.portReachabilityCheckEnabled,
-        },
+        // The confirmation snapshot can be stale by the time this write is
+        // queued. Only replace submitted toggles; copying untouched flags can
+        // re-enable external checks disabled by another window in the meantime.
+        ...(natPartial && typeof natPartial === 'object'
+          ? {
+              nat: {
+                ...natPartial,
+                ...(Object.hasOwn(natPartial, 'natTypeDetectionEnabled')
+                  ? {
+                      natTypeDetectionEnabled:
+                        gated.nat.natTypeDetectionEnabled,
+                    }
+                  : {}),
+                ...(Object.hasOwn(natPartial, 'portReachabilityCheckEnabled')
+                  ? {
+                      portReachabilityCheckEnabled:
+                        gated.nat.portReachabilityCheckEnabled,
+                    }
+                  : {}),
+              },
+            }
+          : {}),
       }
 
       const result = await settingsManager.update(patched)

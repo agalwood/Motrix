@@ -11,6 +11,18 @@ export const NotificationKinds = {
 } as const
 export type NotificationKind = string
 
+/** Only routine task outcomes can be hidden; application faults always pass. */
+export function getHiddenNotificationKinds(preferences: {
+  notifyInAppOnComplete: boolean
+  notifyInAppOnError: boolean
+}): string[] {
+  const kinds: string[] = []
+  if (!preferences.notifyInAppOnComplete)
+    kinds.push(NotificationKinds.TaskComplete)
+  if (!preferences.notifyInAppOnError) kinds.push(NotificationKinds.TaskError)
+  return kinds
+}
+
 export interface AppNotification {
   id: string
   sourceKey: string | null

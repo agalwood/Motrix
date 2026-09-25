@@ -1,3 +1,7 @@
+import {
+  downloadsSettingsResult,
+  TEST_DOWNLOADS_REVISION,
+} from '@test-utils/downloads-settings'
 import '@test-utils/dom-animations'
 import { setByteUnitSystem } from '@renderer/hooks/use-byte-format'
 import '@testing-library/jest-dom/vitest'
@@ -30,10 +34,19 @@ const { toastAddMock, runtime } = vi.hoisted(() => ({
 vi.mock('@renderer/lib/transport', () => ({
   transport: {
     invoke: vi.fn(),
+    on: vi.fn(),
+    off: vi.fn(),
     get platform() {
       return runtime.platform
     },
   },
+}))
+
+vi.mock('@renderer/platform/services', () => ({
+  usePlatformServices: () => ({
+    kind: 'electron',
+    pickSaveDir: vi.fn(async () => null),
+  }),
 }))
 
 vi.mock('@renderer/components/ui/toast', () => ({
@@ -98,8 +111,9 @@ describe('<DownloadsDialog>', () => {
     vi.mocked(transport.invoke).mockReset()
     toastAddMock.mockReset()
     vi.mocked(transport.invoke).mockImplementation(async (channel) => {
-      if (channel === Queries.GetSettings) return FIXTURE
-      return { saved: true, requiresRestart: false, changedRestartKeys: [] }
+      if (channel === Queries.GetDownloadsSettingsDraft)
+        return downloadsSettingsResult(FIXTURE)
+      return downloadsSettingsResult(FIXTURE)
     })
   })
 
@@ -116,7 +130,9 @@ describe('<DownloadsDialog>', () => {
       name: 'When deleting task files',
     })
     await waitFor(() =>
-      expect(screen.getByLabelText(/magnet resolve timeout/i)).toHaveValue(120)
+      expect(screen.getByLabelText(/default download folder/i)).toHaveValue(
+        '/downloads'
+      )
     )
     expect(deletion).toHaveTextContent('Move to trash')
     const user = userEvent.setup()
@@ -125,21 +141,33 @@ describe('<DownloadsDialog>', () => {
       await screen.findByRole('option', { name: 'Delete permanently' })
     )
     expect(
-      screen.getByText(
-        'Files are deleted directly and cannot be restored from the trash.'
-      )
+      screen.getByText('Deleted files cannot be restored from the trash.')
     ).toBeVisible()
     await user.click(screen.getByRole('button', { name: /save/i }))
-    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
-      app: { fileDeletionMode: 'permanent' },
-    })
+    expect(transport.invoke).toHaveBeenCalledWith(
+      Commands.SaveDownloadsSettings,
+      {
+        expectedRevision: TEST_DOWNLOADS_REVISION,
+        settings: {
+          app: { fileDeletionMode: 'permanent' },
+        },
+        directories: {
+          addFavorites: [],
+          removeFavorites: [],
+          removeRecent: [],
+        },
+      }
+    )
   })
 
   it('hydrates a saved deletion mode and can switch back to trash', async () => {
     vi.mocked(transport.invoke).mockImplementation(async (channel) => {
-      if (channel === Queries.GetSettings)
-        return { ...FIXTURE, app: { fileDeletionMode: 'permanent' } }
-      return { saved: true, requiresRestart: false, changedRestartKeys: [] }
+      if (channel === Queries.GetDownloadsSettingsDraft)
+        return downloadsSettingsResult({
+          ...FIXTURE,
+          app: { fileDeletionMode: 'permanent' },
+        })
+      return downloadsSettingsResult(FIXTURE)
     })
     render(
       <DownloadsDialog
@@ -161,9 +189,20 @@ describe('<DownloadsDialog>', () => {
       await screen.findByRole('option', { name: 'Move to trash' })
     )
     await user.click(screen.getByRole('button', { name: /save/i }))
-    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
-      app: { fileDeletionMode: 'trash' },
-    })
+    expect(transport.invoke).toHaveBeenCalledWith(
+      Commands.SaveDownloadsSettings,
+      {
+        expectedRevision: TEST_DOWNLOADS_REVISION,
+        settings: {
+          app: { fileDeletionMode: 'trash' },
+        },
+        directories: {
+          addFavorites: [],
+          removeFavorites: [],
+          removeRecent: [],
+        },
+      }
+    )
   })
 
   it('hides the desktop deletion preference in the web client', async () => {
@@ -177,7 +216,9 @@ describe('<DownloadsDialog>', () => {
       />
     )
     await waitFor(() =>
-      expect(screen.getByLabelText(/magnet resolve timeout/i)).toHaveValue(120)
+      expect(screen.getByLabelText(/default download folder/i)).toHaveValue(
+        '/downloads'
+      )
     )
     expect(
       screen.queryByRole('combobox', { name: 'When deleting task files' })
@@ -208,32 +249,21 @@ describe('<DownloadsDialog>', () => {
     fireEvent.change(concurrent, { target: { value: '10' } })
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /save/i }))
-    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
-      engine: { maxConcurrentDownloads: 10 },
-    })
-    expect(onClose).toHaveBeenCalled()
-  })
-
-  it('allows saving a 900-second magnet metadata timeout', async () => {
-    render(
-      <DownloadsDialog
-        open
-        onClose={vi.fn()}
-        labelKey="settings.cards.downloads.title"
-        descKey="settings.cards.downloads.desc"
-      />
+    expect(transport.invoke).toHaveBeenCalledWith(
+      Commands.SaveDownloadsSettings,
+      {
+        expectedRevision: TEST_DOWNLOADS_REVISION,
+        settings: {
+          engine: { maxConcurrentDownloads: 10 },
+        },
+        directories: {
+          addFavorites: [],
+          removeFavorites: [],
+          removeRecent: [],
+        },
+      }
     )
-
-    const input = await screen.findByLabelText(/magnet resolve timeout/i)
-    await waitFor(() => expect(input).toHaveValue(120))
-    expect(input).toHaveAttribute('max', '900')
-    fireEvent.change(input, { target: { value: '900' } })
-
-    const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /save/i }))
-    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
-      engine: { magnetResolveTimeout: 900 },
-    })
+    expect(onClose).toHaveBeenCalled()
   })
 
   it.each([
@@ -249,11 +279,9 @@ describe('<DownloadsDialog>', () => {
     ['min segment size', '1025', 'Enter a number from 1 to 1024.'],
     ['min segment size', '0.5', 'Enter a number from 1 to 1024.'],
     ['disk cache', '129', 'Enter a number from 0 to 128.'],
-    ['max concurrent downloads', '101', 'Enter a whole number from 1 to 100.'],
-    ['connect timeout', '601', 'Enter a whole number from 1 to 600.'],
-    ['max retries', '-1', 'Enter a whole number from 0 to 100.'],
-    ['session save interval', '3601', 'Enter a whole number from 10 to 3600.'],
-    ['magnet resolve timeout', '901', 'Enter a whole number from 30 to 900.'],
+    ['simultaneous downloads', '101', 'Enter a whole number from 1 to 100.'],
+    ['connection timeout', '601', 'Enter a whole number from 1 to 600.'],
+    ['maximum attempts', '-1', 'Enter a whole number from 0 to 100.'],
   ])(
     'blocks saving %s = %s with an inline error',
     async (label, value, message) => {
@@ -268,7 +296,7 @@ describe('<DownloadsDialog>', () => {
       )
       const user = userEvent.setup()
       await user.click(
-        await screen.findByRole('combobox', { name: /performance profile/i })
+        await screen.findByRole('combobox', { name: /download performance/i })
       )
       await user.click(await screen.findByRole('option', { name: /^custom$/i }))
       const input = screen.getByLabelText(new RegExp(label, 'i'))
@@ -279,8 +307,8 @@ describe('<DownloadsDialog>', () => {
       expect(input).toHaveAttribute('aria-invalid', 'true')
       await waitFor(() => expect(input).toHaveFocus())
       expect(transport.invoke).not.toHaveBeenCalledWith(
-        Commands.UpdateSettings,
-        expect.anything()
+        Commands.SaveDownloadsSettings,
+        expect.objectContaining({ settings: expect.anything() })
       )
       expect(onClose).not.toHaveBeenCalled()
     }
@@ -296,7 +324,7 @@ describe('<DownloadsDialog>', () => {
       />
     )
     const user = userEvent.setup()
-    const input = await screen.findByLabelText(/max concurrent downloads/i)
+    const input = await screen.findByLabelText(/simultaneous downloads/i)
     fireEvent.change(input, { target: { value: '1000' } })
     await user.click(screen.getByRole('button', { name: /save/i }))
     expect(
@@ -308,9 +336,20 @@ describe('<DownloadsDialog>', () => {
     await user.click(within(row).getByRole('button', { name: '30' }))
     await waitFor(() => expect(input).toHaveAttribute('aria-invalid', 'false'))
     await user.click(screen.getByRole('button', { name: /save/i }))
-    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
-      engine: { maxConcurrentDownloads: 30 },
-    })
+    expect(transport.invoke).toHaveBeenCalledWith(
+      Commands.SaveDownloadsSettings,
+      {
+        expectedRevision: TEST_DOWNLOADS_REVISION,
+        settings: {
+          engine: { maxConcurrentDownloads: 30 },
+        },
+        directories: {
+          addFavorites: [],
+          removeFavorites: [],
+          removeRecent: [],
+        },
+      }
+    )
   })
 
   it('rejects a negative speed limit instead of silently making it unlimited', async () => {
@@ -322,14 +361,14 @@ describe('<DownloadsDialog>', () => {
         descKey="settings.cards.downloads.desc"
       />
     )
-    const input = await screen.findByLabelText(/standard download limit/i)
+    const input = await screen.findByLabelText(/download — standard limits/i)
     fireEvent.change(input, { target: { value: '-1' } })
     await userEvent.setup().click(screen.getByRole('button', { name: /save/i }))
     expect(await screen.findByText('Enter 0 or more.')).toBeVisible()
     expect(input).toHaveAttribute('aria-invalid', 'true')
     expect(transport.invoke).not.toHaveBeenCalledWith(
-      Commands.UpdateSettings,
-      expect.anything()
+      Commands.SaveDownloadsSettings,
+      expect.objectContaining({ settings: expect.anything() })
     )
   })
 
@@ -345,7 +384,7 @@ describe('<DownloadsDialog>', () => {
 
     const user = userEvent.setup()
     await user.click(
-      await screen.findByRole('combobox', { name: /performance profile/i })
+      await screen.findByRole('combobox', { name: /download performance/i })
     )
     await user.click(await screen.findByRole('option', { name: /^custom$/i }))
 
@@ -371,7 +410,7 @@ describe('<DownloadsDialog>', () => {
 
     const user = userEvent.setup()
     await user.click(
-      await screen.findByRole('combobox', { name: /performance profile/i })
+      await screen.findByRole('combobox', { name: /download performance/i })
     )
     await user.click(
       await screen.findByRole('option', { name: /^high speed$/i })
@@ -384,15 +423,26 @@ describe('<DownloadsDialog>', () => {
     )
 
     await user.click(screen.getByRole('button', { name: /save/i }))
-    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
-      engine: {
-        performanceProfile: 'high',
-        maxConnectionPerServer:
-          ENGINE_PERFORMANCE_PROFILES.high.maxConnectionPerServer,
-        split: ENGINE_PERFORMANCE_PROFILES.high.split,
-        diskCache: ENGINE_PERFORMANCE_PROFILES.high.diskCache,
-      },
-    })
+    expect(transport.invoke).toHaveBeenCalledWith(
+      Commands.SaveDownloadsSettings,
+      {
+        expectedRevision: TEST_DOWNLOADS_REVISION,
+        settings: {
+          engine: {
+            performanceProfile: 'high',
+            maxConnectionPerServer:
+              ENGINE_PERFORMANCE_PROFILES.high.maxConnectionPerServer,
+            split: ENGINE_PERFORMANCE_PROFILES.high.split,
+            diskCache: ENGINE_PERFORMANCE_PROFILES.high.diskCache,
+          },
+        },
+        directories: {
+          addFavorites: [],
+          removeFavorites: [],
+          removeRecent: [],
+        },
+      }
+    )
   })
 
   it('places custom performance parameters before concurrent downloads', async () => {
@@ -407,12 +457,12 @@ describe('<DownloadsDialog>', () => {
 
     const user = userEvent.setup()
     await user.click(
-      await screen.findByRole('combobox', { name: /performance profile/i })
+      await screen.findByRole('combobox', { name: /download performance/i })
     )
     await user.click(await screen.findByRole('option', { name: /^custom$/i }))
 
     const customParameters = screen.getByText(/custom performance parameters/i)
-    const concurrentDownloads = screen.getByText(/max concurrent downloads/i)
+    const concurrentDownloads = screen.getByText(/simultaneous downloads/i)
     expect(
       customParameters.compareDocumentPosition(concurrentDownloads) &
         Node.DOCUMENT_POSITION_FOLLOWING
@@ -430,7 +480,7 @@ describe('<DownloadsDialog>', () => {
     )
     const user = userEvent.setup()
     await user.click(
-      await screen.findByRole('combobox', { name: /performance profile/i })
+      await screen.findByRole('combobox', { name: /download performance/i })
     )
     await user.click(await screen.findByRole('option', { name: /^custom$/i }))
 
@@ -442,18 +492,33 @@ describe('<DownloadsDialog>', () => {
     fireEvent.change(screen.getByLabelText(/disk cache/i), {
       target: { value: '64' },
     })
-    await user.click(screen.getByRole('combobox', { name: /file allocation/i }))
-    await user.click(await screen.findByRole('option', { name: /^prealloc$/i }))
+    await user.click(
+      screen.getByRole('combobox', { name: /reserve disk space/i })
+    )
+    await user.click(
+      await screen.findByRole('option', { name: /^preallocate$/i })
+    )
     await user.click(screen.getByRole('button', { name: /save/i }))
 
-    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
-      engine: {
-        performanceProfile: 'custom',
-        split: 32,
-        fileAllocation: 'prealloc',
-        diskCache: 64 * 1024 * 1024,
-      },
-    })
+    expect(transport.invoke).toHaveBeenCalledWith(
+      Commands.SaveDownloadsSettings,
+      {
+        expectedRevision: TEST_DOWNLOADS_REVISION,
+        settings: {
+          engine: {
+            performanceProfile: 'custom',
+            split: 32,
+            fileAllocation: 'prealloc',
+            diskCache: 64 * 1024 * 1024,
+          },
+        },
+        directories: {
+          addFavorites: [],
+          removeFavorites: [],
+          removeRecent: [],
+        },
+      }
+    )
     expect(screen.queryByText(/restart to apply changes/i)).toBeNull()
   })
 
@@ -471,17 +536,30 @@ describe('<DownloadsDialog>', () => {
     const modifiedTime = await screen.findByRole('combobox', {
       name: /file modification time/i,
     })
-    expect(modifiedTime).toHaveTextContent(/^local$/i)
+    expect(modifiedTime).toHaveTextContent(/^download time$/i)
     expect(modifiedTime).toHaveClass('min-w-30', 'max-w-64')
     expect(modifiedTime).not.toHaveClass('w-30')
 
     await user.click(modifiedTime)
-    await user.click(await screen.findByRole('option', { name: /^server$/i }))
+    await user.click(
+      await screen.findByRole('option', { name: /^time from server$/i })
+    )
     await user.click(screen.getByRole('button', { name: /save/i }))
 
-    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
-      engine: { remoteTime: true },
-    })
+    expect(transport.invoke).toHaveBeenCalledWith(
+      Commands.SaveDownloadsSettings,
+      {
+        expectedRevision: TEST_DOWNLOADS_REVISION,
+        settings: {
+          engine: { remoteTime: true },
+        },
+        directories: {
+          addFavorites: [],
+          removeFavorites: [],
+          removeRecent: [],
+        },
+      }
+    )
   })
 
   it('allows the localized file modification value to size intrinsically', async () => {
@@ -498,7 +576,7 @@ describe('<DownloadsDialog>', () => {
     const modifiedTime = await screen.findByRole('combobox', {
       name: '文件修改时间',
     })
-    expect(modifiedTime).toHaveTextContent('本地修改时间')
+    expect(modifiedTime).toHaveTextContent('下载时间')
     expect(screen.getByRole('link', { name: '了解更多' })).toHaveAttribute(
       'href',
       EXTERNAL_URLS.motrix.manual.downloadPerformance.zh
@@ -547,7 +625,7 @@ describe('<DownloadsDialog>', () => {
     const performance = screen.getByRole('heading', { name: 'Performance' })
     const speedLimits = screen.getByRole('heading', { name: 'Speed limits' })
     const reliability = screen.getByRole('heading', {
-      name: 'Network reliability',
+      name: 'Connections and retries',
     })
     const follows = (first: Element, second: Element) =>
       Boolean(
@@ -557,7 +635,7 @@ describe('<DownloadsDialog>', () => {
     expect(follows(performance, speedLimits)).toBe(true)
     expect(follows(speedLimits, reliability)).toBe(true)
 
-    const modeGroup = screen.getByRole('group', { name: 'Current mode' })
+    const modeGroup = screen.getByRole('group', { name: 'Speed mode' })
     expect(modeGroup).toHaveClass(
       'gap-0',
       'rounded-lg',
@@ -587,28 +665,39 @@ describe('<DownloadsDialog>', () => {
     })
     const user = userEvent.setup()
     const baseDown = screen.getByLabelText(
-      /standard download limit/i
+      /download — standard limits/i
     ) as HTMLInputElement
     // Decimal KB/s → bytes/sec: 1024 * 1000 = 1_024_000.
     fireEvent.change(baseDown, { target: { value: '1024' } })
     await user.click(screen.getByRole('button', { name: /save/i }))
-    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
-      speedLimit: { base: { download: 1024 * 1000 } },
-    })
+    expect(transport.invoke).toHaveBeenCalledWith(
+      Commands.SaveDownloadsSettings,
+      {
+        expectedRevision: TEST_DOWNLOADS_REVISION,
+        settings: {
+          speedLimit: { base: { download: 1024 * 1000 } },
+        },
+        directories: {
+          addFavorites: [],
+          removeFavorites: [],
+          removeRecent: [],
+        },
+      }
+    )
     expect(onClose).toHaveBeenCalled()
   })
 
   it('converts an existing limit on unit changes without marking it dirty', async () => {
     vi.mocked(transport.invoke).mockImplementation(async (channel) => {
-      if (channel === Queries.GetSettings)
-        return {
+      if (channel === Queries.GetDownloadsSettingsDraft)
+        return downloadsSettingsResult({
           ...FIXTURE,
           speedLimit: {
             ...DEFAULT_SPEED_LIMIT_SETTINGS,
             base: { download: 1_048_576, upload: 0 },
           },
-        }
-      return { saved: true, requiresRestart: false, changedRestartKeys: [] }
+        })
+      return downloadsSettingsResult(FIXTURE)
     })
     render(
       <DownloadsDialog
@@ -618,15 +707,15 @@ describe('<DownloadsDialog>', () => {
         descKey="settings.cards.downloads.desc"
       />
     )
-    const input = screen.getByLabelText(/standard download limit/i)
+    const input = screen.getByLabelText(/download — standard limits/i)
     await waitFor(() => expect(input).toHaveValue(1048.576))
     act(() => setByteUnitSystem('binary'))
     expect(input).toHaveValue(1024)
     expect(input).toHaveAttribute('aria-valuetext', '1024 KiB/s')
     await userEvent.setup().click(screen.getByRole('button', { name: /save/i }))
-    expect(transport.invoke).not.toHaveBeenCalledWith(
-      Commands.UpdateSettings,
-      expect.anything()
+    expect(transport.invoke).toHaveBeenCalledWith(
+      Commands.SaveDownloadsSettings,
+      expect.objectContaining({ settings: {} })
     )
   })
 
@@ -641,15 +730,26 @@ describe('<DownloadsDialog>', () => {
       />
     )
     await waitFor(() =>
-      expect(screen.getByLabelText(/standard download limit/i)).toBeEnabled()
+      expect(screen.getByLabelText(/download — standard limits/i)).toBeEnabled()
     )
-    fireEvent.change(screen.getByLabelText(/standard download limit/i), {
+    fireEvent.change(screen.getByLabelText(/download — standard limits/i), {
       target: { value: '1024' },
     })
     await userEvent.setup().click(screen.getByRole('button', { name: /save/i }))
-    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
-      speedLimit: { base: { download: 1_048_576 } },
-    })
+    expect(transport.invoke).toHaveBeenCalledWith(
+      Commands.SaveDownloadsSettings,
+      {
+        expectedRevision: TEST_DOWNLOADS_REVISION,
+        settings: {
+          speedLimit: { base: { download: 1_048_576 } },
+        },
+        directories: {
+          addFavorites: [],
+          removeFavorites: [],
+          removeRecent: [],
+        },
+      }
+    )
   })
 
   it.each(['decimal', 'binary'] as const)(
@@ -664,25 +764,36 @@ describe('<DownloadsDialog>', () => {
           descKey="settings.cards.downloads.desc"
         />
       )
-      const input = screen.getByLabelText(/standard download limit/i)
+      const input = screen.getByLabelText(/download — standard limits/i)
       await waitFor(() => expect(input).toBeEnabled())
       const user = userEvent.setup()
       await user.clear(input)
       await user.type(input, '1.1')
       expect(input).toHaveValue(1.1)
       await user.click(screen.getByRole('button', { name: /save/i }))
-      expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
-        speedLimit: {
-          base: { download: unitSystem === 'binary' ? 1126 : 1100 },
-        },
-      })
+      expect(transport.invoke).toHaveBeenCalledWith(
+        Commands.SaveDownloadsSettings,
+        {
+          expectedRevision: TEST_DOWNLOADS_REVISION,
+          settings: {
+            speedLimit: {
+              base: { download: unitSystem === 'binary' ? 1126 : 1100 },
+            },
+          },
+          directories: {
+            addFavorites: [],
+            removeFavorites: [],
+            removeRecent: [],
+          },
+        }
+      )
     }
   )
 
   it('groups compact reset actions with their speed limit inputs', async () => {
     vi.mocked(transport.invoke).mockImplementation(async (channel) => {
-      if (channel === Queries.GetSettings) {
-        return {
+      if (channel === Queries.GetDownloadsSettingsDraft) {
+        return downloadsSettingsResult({
           ...FIXTURE,
           speedLimit: {
             ...DEFAULT_SPEED_LIMIT_SETTINGS,
@@ -691,9 +802,9 @@ describe('<DownloadsDialog>', () => {
               download: 1024 * 1024,
             },
           },
-        }
+        })
       }
-      return { saved: true, requiresRestart: false, changedRestartKeys: [] }
+      return downloadsSettingsResult(FIXTURE)
     })
 
     render(
@@ -707,10 +818,10 @@ describe('<DownloadsDialog>', () => {
 
     const user = userEvent.setup()
     const baseDown = (await screen.findByLabelText(
-      /standard download limit/i
+      /download — standard limits/i
     )) as HTMLInputElement
     const altDown = screen.getByLabelText(
-      /low-speed download limit/i
+      /download — low speed limits/i
     ) as HTMLInputElement
     const setUnlimited = screen.getByRole('button', {
       name: /set unlimited/i,
@@ -732,15 +843,26 @@ describe('<DownloadsDialog>', () => {
     expect(baseDown).toHaveValue(null)
     expect(baseDown).toHaveAttribute('placeholder', 'Unlimited')
     expect(altDown).toHaveValue(null)
-    expect(altDown).toHaveAttribute('placeholder', 'Standard limit')
+    expect(altDown).toHaveAttribute('placeholder', 'Use standard')
 
     await user.click(screen.getByRole('button', { name: /save/i }))
-    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
-      speedLimit: {
-        base: { download: 0 },
-        alt: { download: 0 },
-      },
-    })
+    expect(transport.invoke).toHaveBeenCalledWith(
+      Commands.SaveDownloadsSettings,
+      {
+        expectedRevision: TEST_DOWNLOADS_REVISION,
+        settings: {
+          speedLimit: {
+            base: { download: 0 },
+            alt: { download: 0 },
+          },
+        },
+        directories: {
+          addFavorites: [],
+          removeFavorites: [],
+          removeRecent: [],
+        },
+      }
+    )
   })
 
   it('switching the turtle state to auto submits a turtle patch', async () => {
@@ -762,13 +884,24 @@ describe('<DownloadsDialog>', () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /^automatic$/i }))
     await user.click(screen.getByRole('button', { name: /save/i }))
-    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
-      speedLimit: { turtle: 'auto' },
-    })
+    expect(transport.invoke).toHaveBeenCalledWith(
+      Commands.SaveDownloadsSettings,
+      {
+        expectedRevision: TEST_DOWNLOADS_REVISION,
+        settings: {
+          speedLimit: { turtle: 'auto' },
+        },
+        directories: {
+          addFavorites: [],
+          removeFavorites: [],
+          removeRecent: [],
+        },
+      }
+    )
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('explains an automatic mode with no rules and localizes weekdays', async () => {
+  it('localizes weekdays and validates 24-hour schedule input', async () => {
     render(
       <DownloadsDialog
         open
@@ -785,13 +918,10 @@ describe('<DownloadsDialog>', () => {
 
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /^automatic$/i }))
-    expect(
-      screen.getByText(/no automatic rules are enabled/i)
-    ).toBeInTheDocument()
 
     await user.click(
       screen.getByRole('switch', {
-        name: /use low-speed limits on a schedule/i,
+        name: /schedule low speed/i,
       })
     )
     expect(screen.getByRole('button', { name: 'Sunday' })).toHaveTextContent(
@@ -806,7 +936,6 @@ describe('<DownloadsDialog>', () => {
       'aria-pressed',
       'true'
     )
-    expect(screen.getByText(/24-hour format \(HH:mm\)/i)).toBeInTheDocument()
 
     const startTime = screen.getByLabelText(/^start$/i)
     const endTime = screen.getByLabelText(/^end$/i)
@@ -823,14 +952,11 @@ describe('<DownloadsDialog>', () => {
     ).toBeVisible()
     expect(startTime).toHaveValue('99:99')
     expect(transport.invoke).not.toHaveBeenCalledWith(
-      Commands.UpdateSettings,
-      expect.anything()
+      Commands.SaveDownloadsSettings,
+      expect.objectContaining({ settings: expect.anything() })
     )
     fireEvent.change(startTime, { target: { value: '2130' } })
     expect(startTime).toHaveValue('21:30')
-    expect(
-      screen.getByText(/use low-speed limits from 21:30 to 07:00/i)
-    ).toBeInTheDocument()
   })
 
   it('shows reserved bandwidth while storing Motrix usage percent', async () => {
@@ -853,13 +979,11 @@ describe('<DownloadsDialog>', () => {
     await user.click(screen.getByRole('button', { name: /^automatic$/i }))
     await user.click(
       screen.getByRole('switch', {
-        name: /avoid using the entire connection/i,
+        name: /reserve bandwidth for other apps/i,
       })
     )
     expect(
-      screen.getByText(
-        /reserve 20% of bandwidth for other apps after connection bandwidth is entered/i
-      )
+      screen.getByText(/enter both connection speeds to apply this limit/i)
     ).toBeInTheDocument()
 
     const reserved = screen.getByLabelText(
@@ -877,33 +1001,45 @@ describe('<DownloadsDialog>', () => {
         )
       ).toBeVisible()
       expect(transport.invoke).not.toHaveBeenCalledWith(
-        Commands.UpdateSettings,
-        expect.anything()
+        Commands.SaveDownloadsSettings,
+        expect.objectContaining({ settings: expect.anything() })
       )
       expect(onClose).not.toHaveBeenCalled()
     }
     fireEvent.change(reserved, { target: { value: '30' } })
 
     await user.click(screen.getByRole('button', { name: /save/i }))
-    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
-      speedLimit: {
-        turtle: 'auto',
-        auto: {
-          adaptive: {
-            enabled: true,
-            headroomPercent: 70,
+    expect(transport.invoke).toHaveBeenCalledWith(
+      Commands.SaveDownloadsSettings,
+      {
+        expectedRevision: TEST_DOWNLOADS_REVISION,
+        settings: {
+          speedLimit: {
+            turtle: 'auto',
+            auto: {
+              adaptive: {
+                enabled: true,
+                headroomPercent: 70,
+              },
+            },
           },
         },
-      },
-    })
+        directories: {
+          addFavorites: [],
+          removeFavorites: [],
+          removeRecent: [],
+        },
+      }
+    )
     expect(onClose).toHaveBeenCalled()
   })
 
   it('reports when recent speed estimation has no data', async () => {
     vi.mocked(transport.invoke).mockImplementation(async (channel) => {
-      if (channel === Queries.GetSettings) return FIXTURE
+      if (channel === Queries.GetDownloadsSettingsDraft)
+        return downloadsSettingsResult(FIXTURE)
       if (channel === Queries.GetSpeedHistory) return []
-      return { saved: true, requiresRestart: false, changedRestartKeys: [] }
+      return downloadsSettingsResult(FIXTURE)
     })
     render(
       <DownloadsDialog
@@ -923,11 +1059,11 @@ describe('<DownloadsDialog>', () => {
     await user.click(screen.getByRole('button', { name: /^automatic$/i }))
     await user.click(
       screen.getByRole('switch', {
-        name: /avoid using the entire connection/i,
+        name: /reserve bandwidth for other apps/i,
       })
     )
     await user.click(
-      screen.getByRole('button', { name: /estimate from recent speeds/i })
+      screen.getByRole('button', { name: /estimate connection speed/i })
     )
 
     await waitFor(() => {
