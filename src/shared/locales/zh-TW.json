@@ -1178,7 +1178,7 @@
       "defaultSaveDir": "預設下載資料夾",
       "defaultSaveDirDesc": "除非個別任務另有指定，新的下載會儲存在這裡。",
       "inAppNotifications": "應用程式內通知",
-      "inAppNotificationsDesc": "選擇哪些下載結果顯示在通知中心並計入未讀標記。關閉失敗通知也會關閉對應的應用程式內彈出提示。隱藏的記錄會保留在近期歷史中，重新開啟後可見。應用程式故障提醒一律顯示。",
+      "inAppNotificationsDesc": "選擇要顯示的下載通知。應用程式故障提醒一律開啟。",
       "notifyInAppOnComplete": "顯示下載完成通知",
       "notifyInAppOnError": "顯示下載失敗通知",
       "notificationBadgeStyle": "通知標記",

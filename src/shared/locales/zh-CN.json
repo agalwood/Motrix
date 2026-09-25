@@ -1178,7 +1178,7 @@
       "defaultSaveDir": "默认下载目录",
       "defaultSaveDirDesc": "新建下载默认保存到此目录，可按任务覆盖。",
       "inAppNotifications": "应用内通知",
-      "inAppNotificationsDesc": "选择哪些下载结果显示在通知中心并计入未读角标。关闭失败通知也会关闭相应的应用内弹窗。隐藏的记录会保留在近期历史中，重新开启后可见。应用故障提醒始终显示。",
+      "inAppNotificationsDesc": "选择要显示的下载通知。应用故障提醒始终开启。",
       "notifyInAppOnComplete": "显示下载完成通知",
       "notifyInAppOnError": "显示下载失败通知",
       "notificationBadgeStyle": "通知角标",

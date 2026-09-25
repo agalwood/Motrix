@@ -1192,7 +1192,7 @@
       "defaultSaveDir": "Default download folder",
       "defaultSaveDirDesc": "New downloads land here unless overridden per-task.",
       "inAppNotifications": "In-app notifications",
-      "inAppNotificationsDesc": "Choose which downloads appear in the notification center and its unread badge. Turning off failed downloads also silences their in-app alerts. Hidden records remain in recent history and reappear when enabled. Application alerts are always shown.",
+      "inAppNotificationsDesc": "Choose which download notifications to show. App alerts stay on.",
       "notifyInAppOnComplete": "Show completed downloads",
       "notifyInAppOnError": "Show failed downloads",
       "notificationBadgeStyle": "Notification badge",
