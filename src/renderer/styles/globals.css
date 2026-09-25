@@ -89,6 +89,7 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
   --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-active: var(--sidebar-active);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -155,7 +156,9 @@
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
+  /* Neutral overlays keep navigation states legible across the sidebar gradient. */
+  --sidebar-accent: rgb(0 0 0 / 4%);
+  --sidebar-active: rgb(0 0 0 / 9%);
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
@@ -276,7 +279,8 @@
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent: rgb(255 255 255 / 6%);
+  --sidebar-active: rgb(255 255 255 / 14%);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
@@ -462,45 +466,6 @@ body.is-dashboard-resizing * {
   cursor: nwse-resize;
   user-select: none;
 }
-
-/*
- * macOS main window: sidebar menu item hover/active color.
- * Overrides --sidebar-accent, which is referenced by BOTH hover
- * (sidebar.tsx:485) and data-[active=true] (sidebar.tsx:489) in
- * the menu button. Scoping to .platform-darwin.window-main means
- * non-darwin platforms keep their solid #ebebf2 / #3d4056 fallback.
- *
- * Custom-property overrides aren't subject to the @layer ordering
- * trap that bit us earlier — properties are resolved at use site,
- * so utility classes like bg-sidebar-accent pick up our value
- * regardless of where this block lives.
- *
- * Estimated to match macOS 26 Finder focused-selection tint.
- * Verify with Digital Color Meter (⇧⌘C) and tune alpha if needed.
- */
-
-/* Pair A: macOS 26 Finder style — neutral grey fill + system-blue label.
-   The label (text + icon) shifts to accent blue, while the fill stays
-   neutral. This is the Liquid Glass design language: fill carries the
-   "selected" signal, accent color carries the "emphasized" signal. */
-.platform-darwin.window-main {
-  --sidebar-accent: oklch(0 0 0 / 0.06);
-}
-.dark.platform-darwin.window-main {
-  --sidebar-accent: oklch(1 0 0 / 0.1);
-}
-
-/* Pair B: neutral fill only — keeps default foreground (near-black /
-   near-white). Use if the blue label feels too loud, or if you've
-   customized the system accent color away from blue.
-   Comment out Pair A above and uncomment this block to switch.
-.platform-darwin.window-main {
-  --sidebar-accent: oklch(0 0 0 / 0.06);
-}
-.dark.platform-darwin.window-main {
-  --sidebar-accent: oklch(1 0 0 / 0.1);
-}
-*/
 
 @keyframes drawer-slide-in-from-bottom {
   from {
