@@ -49,6 +49,15 @@
   --sidebar-glass-top: 24%;
 }
 
+/* Keep native macOS glass and vibrancy visible beneath the color wash. */
+:root.platform-darwin.window-main[data-sidebar-color] {
+  --sidebar-glass-alpha: 0.3;
+}
+
+:root.dark.platform-darwin.window-main[data-sidebar-color] {
+  --sidebar-glass-alpha: 0.4;
+}
+
 :root[data-sidebar-color="gray"],
 :root.dark[data-sidebar-color="gray"] {
   --sidebar-hue: 220;
