@@ -1,3 +1,4 @@
+import { RefreshIcon } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import { Skeleton } from '@renderer/components/ui/skeleton'
 import {
@@ -7,7 +8,6 @@ import {
 import { useTaskSpeedHistory } from '@renderer/hooks/use-task-speed-history'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
-import { RefreshCw } from 'lucide-react'
 import {
   type RefObject,
   useLayoutEffect,
@@ -114,7 +114,7 @@ function StateNotice({
         className="motion-reduce:transition-none"
         onClick={onRetry}
       >
-        <RefreshCw aria-hidden="true" />
+        <RefreshIcon aria-hidden="true" />
         {t('panel.downloads.inspector.activity.retry')}
       </Button>
     </div>

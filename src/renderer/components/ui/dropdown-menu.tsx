@@ -1,7 +1,11 @@
 import './menu-density.css'
 import { Menu as DropdownMenuPrimitive } from '@base-ui/react/menu'
+import {
+  CheckIcon,
+  ChevronRightIcon,
+  StatusDotIcon,
+} from '@renderer/components/icons'
 import { cn } from '@renderer/lib/utils'
-import { CheckIcon, ChevronRightIcon, CircleIcon } from 'lucide-react'
 import type * as React from 'react'
 
 function DropdownMenu({
@@ -153,7 +157,7 @@ function DropdownMenuRadioItem({
       {showIndicator && (
         <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
           <DropdownMenuPrimitive.RadioItemIndicator>
-            <CircleIcon className="size-2 fill-current" />
+            <StatusDotIcon className="size-2 fill-current" />
           </DropdownMenuPrimitive.RadioItemIndicator>
         </span>
       )}

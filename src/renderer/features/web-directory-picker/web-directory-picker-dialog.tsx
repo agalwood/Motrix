@@ -1,5 +1,16 @@
 import type { VirtualListHandle } from '@renderer/components/desktop-kit/virtual-list/types'
 import { VirtualList } from '@renderer/components/desktop-kit/virtual-list/virtual-list'
+import {
+  AdjustIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CloseIcon,
+  EditIcon,
+  FavoriteIcon,
+  FolderIcon,
+  ParentFolderIcon,
+  RefreshIcon,
+} from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -33,17 +44,6 @@ import {
   __webPathPickerBus,
   type PickRequest,
 } from '@renderer/platform/web-services'
-import {
-  ArrowUp,
-  ChevronLeft,
-  ChevronRight,
-  Folder,
-  Pencil,
-  RefreshCw,
-  SlidersHorizontal,
-  Star,
-  X,
-} from 'lucide-react'
 import {
   type KeyboardEvent,
   memo,
@@ -516,9 +516,9 @@ function PickerSession({ request, controller }: Session) {
                           }
                         >
                           {group.id === 'favorites' ? (
-                            <Star className="size-4 shrink-0 text-muted-foreground" />
+                            <FavoriteIcon className="size-4 shrink-0 text-muted-foreground" />
                           ) : (
-                            <Folder className="size-4 shrink-0 text-muted-foreground" />
+                            <FolderIcon className="size-4 shrink-0 text-muted-foreground" />
                           )}
                           <span dir="ltr" className="truncate whitespace-pre">
                             {entry.name}
@@ -555,7 +555,7 @@ function PickerSession({ request, controller }: Session) {
                 />
               }
             >
-              <X />
+              <CloseIcon />
             </DialogClose>
           </div>
           <div
@@ -571,7 +571,7 @@ function PickerSession({ request, controller }: Session) {
               disabled={locked || state.historyIndex <= 0}
               onClick={() => controller.history(-1)}
             >
-              <ChevronLeft />
+              <ChevronLeftIcon />
             </Button>
             <Button
               variant="ghost"
@@ -584,7 +584,7 @@ function PickerSession({ request, controller }: Session) {
               }
               onClick={() => controller.history(1)}
             >
-              <ChevronRight />
+              <ChevronRightIcon />
             </Button>
             <Button
               variant="ghost"
@@ -595,7 +595,7 @@ function PickerSession({ request, controller }: Session) {
               disabled={locked || !state.listing?.parentPath}
               onClick={() => controller.up()}
             >
-              <ArrowUp />
+              <ParentFolderIcon />
             </Button>
             <div className="flex min-w-0 flex-1 items-center gap-1">
               {editor?.kind === 'path' ? (
@@ -702,7 +702,7 @@ function PickerSession({ request, controller }: Session) {
                     className="size-6 shrink-0"
                     onClick={() => controller.editPath()}
                   >
-                    <Pencil />
+                    <EditIcon />
                   </Button>
                 </InputGroup>
               )}
@@ -735,7 +735,9 @@ function PickerSession({ request, controller }: Session) {
                 aria-busy={state.favoriteBusy}
                 onClick={() => void controller.toggleFavorite()}
               >
-                <Star className={favorite ? 'fill-current' : undefined} />
+                <FavoriteIcon
+                  className={favorite ? 'fill-current' : undefined}
+                />
               </Button>
             )}
             <Button
@@ -747,7 +749,7 @@ function PickerSession({ request, controller }: Session) {
               disabled={locked}
               onClick={() => controller.refresh()}
             >
-              <RefreshCw
+              <RefreshIcon
                 className={
                   state.busy === 'navigate'
                     ? 'animate-spin motion-reduce:animate-none'
@@ -780,7 +782,7 @@ function PickerSession({ request, controller }: Session) {
                 aria-label={t('directoryPicker.viewOptions')}
                 title={t('directoryPicker.viewOptions')}
               >
-                <SlidersHorizontal />
+                <AdjustIcon />
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
@@ -959,7 +961,7 @@ function PickerSession({ request, controller }: Session) {
                 {editor?.kind === 'name' && (
                   <div className="shrink-0 space-y-2 border-b px-3 py-2">
                     <div className="flex items-center gap-2">
-                      <Folder className="size-4 shrink-0 text-muted-foreground" />
+                      <FolderIcon className="size-4 shrink-0 text-muted-foreground" />
                       <Input
                         ref={editorRef}
                         aria-label={t('directoryPicker.folderName')}
@@ -1198,7 +1200,7 @@ const DirectoryEntries = memo(function DirectoryEntries({
           onClick={() => controller.select(item.path)}
           onDoubleClick={() => controller.navigate(item.path)}
         >
-          <Folder
+          <FolderIcon
             aria-hidden
             className="size-4 shrink-0 text-muted-foreground"
           />

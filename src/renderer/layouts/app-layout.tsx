@@ -15,6 +15,7 @@ import { useEngineRestartRequiredToast } from '@renderer/hooks/use-engine-restar
 import { useIpcEvent } from '@renderer/hooks/use-ipc-event'
 import { useMenuContextSync } from '@renderer/hooks/use-menu-context-sync'
 import { useNotificationToasts } from '@renderer/hooks/use-notification-toasts'
+import { useSidebarColor } from '@renderer/hooks/use-sidebar-color'
 import { useToastEvents } from '@renderer/hooks/use-toast-events'
 import { cn } from '@renderer/lib/utils'
 import { electronServices } from '@renderer/platform/electron-services'
@@ -38,6 +39,7 @@ function DesktopMenuContext() {
 }
 
 export function AppLayout() {
+  useSidebarColor()
   useToastEvents()
   usePairRequestPrompts()
   useEngineRestartRequiredToast()

@@ -1,3 +1,4 @@
+import { InfoIcon } from '@renderer/components/icons'
 import { cn } from '@renderer/lib/utils'
 import {
   DASHBOARD_COLUMNS,
@@ -7,7 +8,6 @@ import type {
   DashboardTileLayout,
   DashboardTileSpan,
 } from '@shared/types/settings'
-import { Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { DashboardLayoutFailureReason } from '../layout/dashboard-layout'
 
@@ -114,7 +114,7 @@ export function DashboardLayoutHint({
   const { t } = useTranslation()
   return (
     <div className="mt-1 flex shrink-0 items-start gap-1.5 border-t border-border/60 px-2 pt-2 pb-1.5 text-muted-foreground">
-      <Info aria-hidden className="mt-0.5 size-3 shrink-0" />
+      <InfoIcon aria-hidden className="mt-0.5 size-3 shrink-0" />
       <p id={id} className="text-[11px] leading-4">
         {t(HINT_KEYS[reason])}
       </p>

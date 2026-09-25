@@ -1,3 +1,4 @@
+import { StatusErrorIcon } from '@renderer/components/icons'
 import {
   useSettingsForm,
   useSettingsSubmit,
@@ -26,7 +27,6 @@ import { transport } from '@renderer/lib/transport'
 import { Queries } from '@shared/protocol/queries'
 import { DEFAULT_APP_SETTINGS, DEFAULT_MEDIA_SETTINGS } from '@shared/schemas'
 import type { AppSettings } from '@shared/types/settings'
-import { CircleAlert } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { FormProvider } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -236,7 +236,7 @@ export function IntegrationDialog({
           )}
           {saveError && (
             <Alert variant="destructive" className="mr-auto">
-              <CircleAlert aria-hidden="true" />
+              <StatusErrorIcon aria-hidden="true" />
               <AlertDescription>{saveError}</AlertDescription>
             </Alert>
           )}

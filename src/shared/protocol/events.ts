@@ -40,6 +40,10 @@ export const Events = {
   ReducedMotionChanged: 'event:reducedMotionChanged',
   // Payload: { liquidGlassEffect: boolean }.
   LiquidGlassChanged: 'event:liquidGlassChanged',
+  // Payload: { sidebarColor: SidebarColor }.
+  SidebarColorChanged: 'event:sidebarColorChanged',
+  // Payload: { color: string | null }, an RGB hex color from the desktop host.
+  SystemAccentColorChanged: 'event:systemAccentColorChanged',
   // Payload: { byteUnitSystem: ByteUnitPreference }.
   ByteUnitSystemChanged: 'event:byteUnitSystemChanged',
   LocaleChanged: 'event:localeChanged',

@@ -106,7 +106,10 @@ describe('MediaToolsSection', () => {
       managedPath
     )
     expect(managedPathButton).toHaveAttribute('data-size', 'icon-xs')
-    expect(managedPathButton.lastElementChild).toHaveClass('lucide-copy')
+    expect(managedPathButton.lastElementChild).toHaveAttribute(
+      'data-icon',
+      'copy'
+    )
 
     fireEvent.click(managedPathButton)
 

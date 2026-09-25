@@ -1,8 +1,8 @@
+import { SelectFilesIcon } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import { toast } from '@renderer/components/ui/toast'
 import { openMagnetFileSelection } from '@renderer/lib/open-magnet-file-selection'
 import type { DownloadTask } from '@shared/types/task'
-import { ListChecks } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -42,7 +42,7 @@ export function MagnetFileSelectionButton({ task }: { task: DownloadTask }) {
         void openSelection()
       }}
     >
-      <ListChecks />
+      <SelectFilesIcon />
       <span className="truncate">
         {t('panel.downloads.action.selectFiles')}
       </span>

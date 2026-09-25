@@ -1,5 +1,6 @@
 import type { FileDeletionMode } from '@shared/schemas/app-settings'
 import type { ByteUnitPreference } from '@shared/schemas/byte-unit-system'
+import type { SidebarColor } from '@shared/schemas/sidebar-color'
 import type { TrayIconColor } from '@shared/schemas/tray-icon-color'
 import type { RunMode } from '../constants'
 import type { EnginePerformanceProfile } from '../constants/engine-performance-profiles'
@@ -220,6 +221,7 @@ export interface MotrixAppSettings {
   launchAtStartup: boolean
   showMainWindowAtLogin: boolean
   theme: 'system' | 'light' | 'dark'
+  sidebarColor: SidebarColor
   reduceMotion: boolean
   byteUnitSystem: ByteUnitPreference
   language: SupportedLocale

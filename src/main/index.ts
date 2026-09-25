@@ -195,6 +195,7 @@ import { setupNativeThemeSync } from './platform/native-theme-sync'
 import { setupPowerManager } from './platform/power-manager'
 import { createProtocolManager } from './platform/protocol-manager'
 import { createElectronPlatformServices } from './platform/services'
+import { setupSystemAccentColorSync } from './platform/system-accent-color'
 import { removeTaskPath } from './platform/task-file-remover'
 import { setupTray } from './platform/tray'
 import { createElectronCapabilityHost } from './plugin/capability-host'
@@ -344,6 +345,11 @@ const settingsManager = new SettingsManager(settingsPath, {
   ...defaultSaveDirOptions,
   onChange: (old, updated) => {
     eventBus.emit(Events.SettingsChanged, { old, updated })
+    if (old.app.sidebarColor !== updated.app.sidebarColor) {
+      eventBus.emit(Events.SidebarColorChanged, {
+        sidebarColor: updated.app.sidebarColor,
+      })
+    }
     if (old.app.liquidGlassEffect !== updated.app.liquidGlassEffect) {
       eventBus.emit(Events.LiquidGlassChanged, {
         liquidGlassEffect: updated.app.liquidGlassEffect,
@@ -1650,6 +1656,8 @@ async function initializeMainProcess(): Promise<void> {
   // Apply the persisted theme before opening windows. Renderer-drawn Windows
   // controls inherit the same theme through CSS without native overlay sync.
   setupNativeThemeSync(eventBus, settingsManager)
+  const systemAccentSync = setupSystemAccentColorSync(eventBus)
+  app.once('will-quit', () => systemAccentSync.destroy())
   // Install forwarding before the onboarding window becomes interactive.
   // SetDisclaimerLanguage persists before its asynchronous locale transaction
   // completes; an immediate AcceptDisclaimer can open the main window in that

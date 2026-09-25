@@ -1,7 +1,7 @@
+import { CloseIcon } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import type { AddTaskFormValues } from '@shared/schemas/add-task'
-import { X } from 'lucide-react'
 import { useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
@@ -40,7 +40,7 @@ export function TorrentInfoHeader({ onClear }: TorrentInfoHeaderProps) {
         aria-label={t('task.add.clearSelection')}
         className="h-6 w-6"
       >
-        <X className="h-3.5 w-3.5" aria-hidden="true" />
+        <CloseIcon className="h-3.5 w-3.5" aria-hidden="true" />
       </Button>
     </div>
   )

@@ -1,3 +1,4 @@
+import { HelpIcon } from '@renderer/components/icons'
 import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
 import { Button } from '@renderer/components/ui/button'
 import {
@@ -14,7 +15,6 @@ import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import type { LinuxDefaultAssociations } from '@shared/types/linux-default-apps'
 import type { WindowsDefaultAssociations } from '@shared/types/windows-default-apps'
-import { CircleQuestionMark } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useFormContext } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -240,7 +240,7 @@ export function SystemProtocolsSection({
               aria-label={t('settings.common.openHelp')}
               className="text-muted-foreground hover:text-foreground"
             >
-              <CircleQuestionMark className="size-4" />
+              <HelpIcon className="size-4" />
             </a>
           </span>
           <p className="text-xs text-muted-foreground">

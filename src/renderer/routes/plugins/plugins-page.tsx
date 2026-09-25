@@ -6,6 +6,7 @@ import {
 } from '@renderer/components/desktop-kit/toolbar/toolbar-button'
 import { ToolbarGroup } from '@renderer/components/desktop-kit/toolbar/toolbar-group'
 import { ToolbarSearch } from '@renderer/components/desktop-kit/toolbar/toolbar-search'
+import { AddIcon, CallGraphIcon, RefreshIcon } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import {
   ScrollArea,
@@ -14,7 +15,6 @@ import {
   ScrollBar,
 } from '@renderer/components/ui/scroll-area'
 import { Skeleton } from '@renderer/components/ui/skeleton'
-import { Plus, RefreshCw, Workflow } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
@@ -75,13 +75,13 @@ export function PluginsPage() {
               label={t('plugins.install.title')}
               onClick={() => setInstallOpen(true)}
             >
-              <Plus aria-hidden="true" />
+              <AddIcon aria-hidden="true" />
             </ToolbarButton>
             <ToolbarLink
               label={diagnosticsLabel}
               render={<Link to="/plugins/diagnostics" />}
             >
-              <Workflow aria-hidden="true" />
+              <CallGraphIcon aria-hidden="true" />
             </ToolbarLink>
             <ToolbarButton
               label={refreshLabel}
@@ -90,7 +90,7 @@ export function PluginsPage() {
               aria-busy={refreshing}
               data-testid="registry-refresh-btn"
             >
-              <RefreshCw
+              <RefreshIcon
                 aria-hidden="true"
                 className={
                   refreshing

@@ -1,4 +1,15 @@
 import { CopyButton } from '@renderer/components/desktop-kit/copy-button'
+import {
+  ChevronDownIcon,
+  OpenFileIcon,
+  PauseIcon,
+  RemoveIcon,
+  ResumeIcon,
+  RetryIcon,
+  RevealFolderIcon,
+  SeedStartIcon,
+  StopIcon,
+} from '@renderer/components/icons'
 import { MagnetFileSelectionButton } from '@renderer/components/task/magnet-file-selection-button'
 import { Button } from '@renderer/components/ui/button'
 import { toast } from '@renderer/components/ui/toast'
@@ -10,17 +21,6 @@ import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
 import { canOpenTaskFile } from '@shared/types/task-actions'
-import {
-  ChevronDown,
-  File,
-  FolderOpen,
-  Pause,
-  Play,
-  Repeat2,
-  Sprout,
-  Square,
-  Trash2,
-} from 'lucide-react'
 import type React from 'react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -120,7 +120,7 @@ function OpenTaskFileButton({ task }: { task: DownloadTask }) {
       disabled={opening}
       onClick={() => void open()}
     >
-      <File />
+      <OpenFileIcon />
       {t('panel.downloads.action.openFile')}
     </Button>
   )
@@ -140,7 +140,7 @@ function FinalizingActionBar({
   return (
     <div className="flex shrink-0 items-center gap-2 border-b border-border/50 px-4 py-2">
       <Button size="xs" variant="outline" disabled title={reason}>
-        <Pause />
+        <PauseIcon />
         {t('panel.downloads.action.pause')}
       </Button>
       {__MOTRIX_TARGET__ === 'electron' && canRevealTaskFolder(task) && (
@@ -151,7 +151,7 @@ function FinalizingActionBar({
             transport.invoke(Commands.RevealInFolder, { taskId: task.id })
           }
         >
-          <FolderOpen />
+          <RevealFolderIcon />
           {t('panel.downloads.action.openFolder')}
         </Button>
       )}
@@ -177,7 +177,7 @@ function FinalizingActionBar({
         disabled
         title={reason}
       >
-        <Trash2 />
+        <RemoveIcon />
         {t('panel.downloads.action.remove')}
       </Button>
       <Button
@@ -186,7 +186,7 @@ function FinalizingActionBar({
         aria-label={t('common.close')}
         onClick={onClose}
       >
-        <ChevronDown />
+        <ChevronDownIcon />
       </Button>
     </div>
   )
@@ -224,7 +224,7 @@ export function TaskInspectorActionBar({
             n: actions.pauseCount,
             total: actions.total,
           })}
-          icon={<Pause />}
+          icon={<PauseIcon />}
           onClick={() => void actions.onPause()}
         />
       )}
@@ -238,7 +238,7 @@ export function TaskInspectorActionBar({
             n: actions.resumeCount,
             total: actions.total,
           })}
-          icon={<Play className={rtlMirror} />}
+          icon={<ResumeIcon className={rtlMirror} />}
           onClick={() => void actions.onResume()}
         />
       )}
@@ -256,7 +256,7 @@ export function TaskInspectorActionBar({
             n: actions.retryCount,
             total: actions.total,
           })}
-          icon={<Repeat2 />}
+          icon={<RetryIcon />}
           onClick={(e) => void actions.onRetry({ alt: e.altKey })}
         />
       )}
@@ -274,7 +274,7 @@ export function TaskInspectorActionBar({
             n: actions.reseedCount,
             total: actions.total,
           })}
-          icon={<Sprout />}
+          icon={<SeedStartIcon />}
           onClick={(e) => void actions.onReseed({ alt: e.altKey })}
         />
       )}
@@ -288,7 +288,7 @@ export function TaskInspectorActionBar({
             n: actions.stopSeedingCount,
             total: actions.total,
           })}
-          icon={<Square />}
+          icon={<StopIcon />}
           onClick={() => void actions.onStopSeeding()}
         />
       )}
@@ -312,7 +312,7 @@ export function TaskInspectorActionBar({
               })
             }
           >
-            <FolderOpen />
+            <RevealFolderIcon />
             {t('panel.downloads.action.openFolder')}
           </Button>
         )}
@@ -346,7 +346,7 @@ export function TaskInspectorActionBar({
           n: actions.removeCount,
           total: actions.total,
         })}
-        icon={<Trash2 />}
+        icon={<RemoveIcon />}
         destructive
         onClick={(e) => actions.onRemove({ shift: e.shiftKey })}
       />
@@ -359,7 +359,7 @@ export function TaskInspectorActionBar({
         aria-label={t('common.close')}
         onClick={onClose}
       >
-        <ChevronDown />
+        <ChevronDownIcon />
       </Button>
     </div>
   )

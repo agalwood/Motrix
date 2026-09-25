@@ -1,4 +1,4 @@
-import { ChevronDown } from 'lucide-react'
+import { ChevronDownIcon } from '@renderer/components/icons'
 
 export function MotrixLogo() {
   return (
@@ -18,7 +18,7 @@ export function MotrixLogo() {
           WebkitMaskSize: 'contain',
         }}
       />
-      <ChevronDown aria-hidden="true" className="size-3 shrink-0" />
+      <ChevronDownIcon aria-hidden="true" className="size-3 shrink-0" />
     </>
   )
 }

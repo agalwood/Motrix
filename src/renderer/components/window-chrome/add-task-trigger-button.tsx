@@ -1,3 +1,4 @@
+import { AddIcon } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import {
   Tooltip,
@@ -6,7 +7,6 @@ import {
 } from '@renderer/components/ui/tooltip'
 import { openAddTaskDialog } from '@renderer/lib/open-add-task-dialog'
 import { cn } from '@renderer/lib/utils'
-import { Plus } from 'lucide-react'
 import type React from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -33,7 +33,7 @@ export function AddTaskTriggerButton({
           />
         }
       >
-        <Plus className="size-4" />
+        <AddIcon className="size-4" />
       </TooltipTrigger>
       <TooltipContent>{t('chrome.newTask')}</TooltipContent>
     </Tooltip>

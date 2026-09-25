@@ -321,6 +321,11 @@ async function main() {
       defaultSaveDir: configuredDefaultSaveDir,
       onChange: (old, updated) => {
         eventBus.emit(Events.SettingsChanged, { old, updated })
+        if (old.app.sidebarColor !== updated.app.sidebarColor) {
+          eventBus.emit(Events.SidebarColorChanged, {
+            sidebarColor: updated.app.sidebarColor,
+          })
+        }
         if (old.app.liquidGlassEffect !== updated.app.liquidGlassEffect) {
           eventBus.emit(Events.LiquidGlassChanged, {
             liquidGlassEffect: updated.app.liquidGlassEffect,

@@ -51,6 +51,7 @@ import type { CliToolService } from '../cli/cli-tool-service'
 import type { UpdateManager } from '../core/update-manager'
 import { getAppImageIntegrationView } from '../platform/appimage-integration-host'
 import { getLinuxDefaultAssociations } from '../platform/linux-default-apps'
+import { getSystemAccentColor } from '../platform/system-accent-color'
 import { getWindowsDefaultAssociations } from '../platform/windows-default-apps'
 import { makeElectronFfmpegDetect } from '../plugin/ffmpeg-detect-electron'
 import { createGetEngineTaskOptionsHandler } from './queries/get-engine-task-options'
@@ -170,6 +171,7 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
     [Queries.GetDirectoryPreferences]:
       createDirectoryPreferencesHandlers(settingsManager).get,
 
+    [Queries.GetSystemAccentColor]: async () => getSystemAccentColor(),
     [Queries.GetSettings]: async () => {
       return settingsManager.get()
     },

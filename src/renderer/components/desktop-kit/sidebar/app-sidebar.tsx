@@ -1,3 +1,11 @@
+import type { MotrixIcon } from '@renderer/components/icons'
+import {
+  DashboardIcon,
+  DownloadLibraryIcon,
+  PluginIcon,
+  SettingsIcon,
+  TrackerIcon,
+} from '@renderer/components/icons'
 import { NotificationsNavItem } from '@renderer/components/notification-center/notifications-nav-item'
 import {
   Sidebar,
@@ -11,33 +19,25 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from '@renderer/components/ui/sidebar'
-import type { LucideIcon } from 'lucide-react'
-import {
-  Download,
-  LayoutDashboard,
-  RadioTower,
-  Settings,
-  ToyBrick,
-} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router'
 
 interface NavItem {
   to: string
-  icon: LucideIcon
+  icon: MotrixIcon
   labelKey: string
   end?: boolean
 }
 
 const NAV_ITEMS: readonly NavItem[] = [
-  { to: '/', icon: LayoutDashboard, labelKey: 'nav.dashboard', end: true },
-  { to: '/downloads', icon: Download, labelKey: 'nav.downloads' },
-  { to: '/trackers', icon: RadioTower, labelKey: 'nav.trackers' },
-  { to: '/plugins', icon: ToyBrick, labelKey: 'nav.plugins' },
+  { to: '/', icon: DashboardIcon, labelKey: 'nav.dashboard', end: true },
+  { to: '/downloads', icon: DownloadLibraryIcon, labelKey: 'nav.downloads' },
+  { to: '/trackers', icon: TrackerIcon, labelKey: 'nav.trackers' },
+  { to: '/plugins', icon: PluginIcon, labelKey: 'nav.plugins' },
 ] as const
 
 const FOOTER_NAV_ITEMS: readonly NavItem[] = [
-  { to: '/settings', icon: Settings, labelKey: 'nav.settings' },
+  { to: '/settings', icon: SettingsIcon, labelKey: 'nav.settings' },
 ] as const
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {

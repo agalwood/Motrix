@@ -12,50 +12,35 @@ distribute.
 
 ---
 
-## Settings page icons (Iconly Pro — UI8)
+## Glassmorphism settings icons
 
-- **Author / Designer:** Iconly Pro
-- **Source:** UI8 marketplace — <https://ui8.net>
-- **License:** Proprietary. Licensed per the UI8 Standard License
-  (<https://ui8.net/licensing>). **Not MIT.** Not covered by the project's
-  LICENSE / `package.json` license field.
-- **Usage in this project:** Used as settings navigation icons, rendered by
-  `src/renderer/routes/settings/cards` and related components.
+The settings cards use Home, Setting and Star from the supplied Glassmorphism
+collection, recolored Download and Transfer derivatives, and newly modeled
+color-wheel, globe and puzzle derivatives using the collection's glass
+materials and studio lighting. The eight icons are rendered at 52px and 104px
+and encoded as lossless WebP in
+`src/renderer/routes/settings/icons/icon-*@1x.webp` and `icon-*@2x.webp`.
 
-### Affected files
+The supplied collection does not include an author attribution or license
+statement. Its license is recorded as `NOASSERTION`; these assets are not
+relicensed under Motrix’s MIT license.
 
-```
-src/renderer/routes/settings/icons/icon-about@1x.png
-src/renderer/routes/settings/icons/icon-about@2x.png
-src/renderer/routes/settings/icons/icon-advanced@1x.png
-src/renderer/routes/settings/icons/icon-advanced@2x.png
-src/renderer/routes/settings/icons/icon-appearance@1x.png
-src/renderer/routes/settings/icons/icon-appearance@2x.png
-src/renderer/routes/settings/icons/icon-bittorrent@1x.png
-src/renderer/routes/settings/icons/icon-bittorrent@2x.png
-src/renderer/routes/settings/icons/icon-download@1x.png
-src/renderer/routes/settings/icons/icon-download@2x.png
-src/renderer/routes/settings/icons/icon-general@1x.png
-src/renderer/routes/settings/icons/icon-general@2x.png
-src/renderer/routes/settings/icons/icon-integration@1x.png
-src/renderer/routes/settings/icons/icon-integration@2x.png
-src/renderer/routes/settings/icons/icon-network@1x.png
-src/renderer/routes/settings/icons/icon-network@2x.png
-```
+## Glassmorphism speed mode icons
 
-### What this means for downstream users
+The Dashboard speed mode tile uses newly modeled rabbit, turtle and squirrel
+geometry rendered with glass/satin materials and studio lighting derived from
+the supplied Glassmorphism collection's `Add File.blend`. The six lossless WebP
+assets are stored in `src/renderer/routes/dashboard/icons/speed-*@1x.webp` and
+`speed-*@2x.webp` at 52px and 104px. The supplied source has no verified author
+or license declaration; inherited materials and lighting remain `NOASSERTION`
+and are not relicensed under Motrix’s MIT license.
 
-- The MIT license on the Motrix source code **does not** grant you the
-  right to redistribute these PNG files.
-- If you build and ship a derivative (a fork, a private build, a
-  repackaging), you must either:
-  1. Hold your own valid UI8 / Iconly Pro license that covers the
-     redistribution, **or**
-  2. Replace these files with icons you are licensed to distribute (for
-     example, a set under an SPDX-compatible open-source license such as
-     `CC-BY-4.0` or `Apache-2.0`).
-- Embedding them inside an Electron `asar` bundle still counts as
-  redistribution.
+The round curled-tail squirrel silhouette follows a user-supplied reference
+image whose external author and license have not been verified.
+
+The previous Iconly Pro settings PNG assets have been removed from this
+version. Earlier versions containing those assets remain subject to their
+original UI8 license terms.
 
 ---
 

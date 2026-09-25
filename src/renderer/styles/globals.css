@@ -1,3 +1,4 @@
+@import "./sidebar-color.css";
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -340,19 +341,12 @@
  * is required because it slides in as a dialog over content.
  */
 
-/* Variant A: fully transparent — pure vibrancy, no tint. */
-/* .platform-darwin.window-main [data-slot="sidebar-wrapper"],
-.platform-darwin.window-main [data-slot="sidebar-inner"] {
-  background-color: transparent;
-} */
-
-/* Variant B: low-alpha tint — closer to native Finder/Music feel.
-   Uncomment to A/B test, and comment out Variant A above.
-   */
-.platform-darwin.window-main [data-slot="sidebar-wrapper"] {
+/* Neutral fallback before the appearance color is resolved. Keep specificity
+   low so the selected glass material also takes precedence in dark mode. */
+:where(.platform-darwin.window-main) [data-slot="sidebar-wrapper"] {
   background-color: oklch(1 0 0 / 0.55);
 }
-.dark.platform-darwin.window-main [data-slot="sidebar-wrapper"] {
+:where(.dark.platform-darwin.window-main) [data-slot="sidebar-wrapper"] {
   background-color: oklch(0.205 0 0 / 0.55);
 }
 

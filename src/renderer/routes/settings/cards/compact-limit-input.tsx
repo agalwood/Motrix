@@ -1,3 +1,4 @@
+import { ResetIcon, UnlimitedIcon } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import { ButtonGroup } from '@renderer/components/ui/button-group'
 import {
@@ -12,7 +13,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@renderer/components/ui/tooltip'
-import { Infinity as InfinityIcon, RotateCcw } from 'lucide-react'
 import { type ComponentProps, forwardRef, useState } from 'react'
 
 type ZeroAction = 'unlimited' | 'inherit'
@@ -51,7 +51,7 @@ export const CompactLimitInput = forwardRef<
     null
   )
   const zero = value === 0
-  const ResetIcon = zeroAction === 'inherit' ? RotateCcw : InfinityIcon
+  const ZeroActionIcon = zeroAction === 'inherit' ? ResetIcon : UnlimitedIcon
 
   return (
     <ButtonGroup className="w-40 shrink-0">
@@ -70,7 +70,7 @@ export const CompactLimitInput = forwardRef<
                     onValueChange(0)
                   }}
                 >
-                  <ResetIcon aria-hidden />
+                  <ZeroActionIcon aria-hidden />
                 </Button>
               }
             />

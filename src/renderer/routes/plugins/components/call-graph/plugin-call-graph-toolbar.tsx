@@ -1,3 +1,8 @@
+import {
+  CallGraphIcon,
+  RefreshIcon,
+  TableIcon,
+} from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
 import {
@@ -6,7 +11,6 @@ import {
   TooltipTrigger,
 } from '@renderer/components/ui/tooltip'
 import type { PluginCommandGraphEdge } from '@shared/types/plugin-command-graph'
-import { RefreshCwIcon, Table2Icon, WorkflowIcon } from 'lucide-react'
 import type {
   CallGraphDensity,
   CallGraphNodeModel,
@@ -109,7 +113,7 @@ export function PluginCallGraphToolbar({
                       aria-label={strings.graphMode}
                       className="size-8 flex-none p-0"
                     >
-                      <WorkflowIcon aria-hidden="true" />
+                      <CallGraphIcon aria-hidden="true" />
                     </TabsTrigger>
                   </span>
                 }
@@ -131,7 +135,7 @@ export function PluginCallGraphToolbar({
                       aria-label={strings.tableMode}
                       className="size-8 flex-none p-0"
                     >
-                      <Table2Icon aria-hidden="true" />
+                      <TableIcon aria-hidden="true" />
                     </TabsTrigger>
                   </span>
                 }
@@ -156,7 +160,7 @@ export function PluginCallGraphToolbar({
                   disabled={isRefreshing}
                   onClick={onRefresh}
                 >
-                  <RefreshCwIcon
+                  <RefreshIcon
                     aria-hidden="true"
                     className={
                       isRefreshing

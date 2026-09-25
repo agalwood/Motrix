@@ -1232,7 +1232,19 @@
       "byteUnitSystemDesc": "Applies to file sizes and transfer speeds.",
       "byteUnitDecimal": "Decimal (MB, GB · 1000)",
       "byteUnitBinary": "Binary (MiB, GiB · 1024)",
-      "byteUnitSystemDefault": "Follow system ({{units}})"
+      "byteUnitSystemDefault": "Follow system ({{units}})",
+      "sidebarColor": "Color",
+      "sidebarColors": {
+        "blue": "Blue",
+        "violet": "Violet",
+        "pink": "Pink",
+        "orange": "Orange",
+        "gold": "Gold",
+        "green": "Green",
+        "cyan": "Cyan",
+        "gray": "Gray",
+        "auto": "Auto"
+      }
     },
     "advanced": {
       "rpc": {

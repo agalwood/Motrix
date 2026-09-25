@@ -1,3 +1,4 @@
+import { RandomizeIcon } from '@renderer/components/icons'
 import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
 import {
   useSettingsForm,
@@ -38,7 +39,6 @@ import { Queries } from '@shared/protocol/queries'
 import { DEFAULT_ENGINE_SETTINGS } from '@shared/schemas'
 import type { AppSettings, EngineSettings } from '@shared/types/settings'
 import { generateRpcSecret } from '@shared/utils/rpc-secret'
-import { Dices } from 'lucide-react'
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SettingsCardDialogProps } from './card-types'
@@ -203,7 +203,7 @@ export function AdvancedDialog({
                             aria-label={t('settings.common.generate')}
                             onClick={() => field.onChange(generateRpcSecret())}
                           >
-                            <Dices className="h-3 w-3" />
+                            <RandomizeIcon className="h-3 w-3" />
                           </Button>
                         </div>
                         <FormMessage className="basis-full text-xs" />

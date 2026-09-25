@@ -1,3 +1,8 @@
+import {
+  ChevronRightIcon,
+  ExternalLinkIcon,
+  RemoveIcon,
+} from '@renderer/components/icons'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import {
@@ -18,7 +23,6 @@ import { browserDisplayName } from '@renderer/lib/browser-name'
 import { cn } from '@renderer/lib/utils'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import type { TrustedExtensionInfo } from '@shared/protocol/bridge'
-import { ChevronRight, ExternalLink, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useTrustedExtensions } from './use-bridge'
@@ -61,7 +65,7 @@ function ExtensionId({
       className="inline-flex max-w-full items-center gap-1 rounded-sm font-mono text-primary underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <span className="truncate">{id}</span>
-      <ExternalLink className="size-3 shrink-0" aria-hidden="true" />
+      <ExternalLinkIcon className="size-3 shrink-0" aria-hidden="true" />
     </a>
   ) : (
     <div className="truncate font-mono">{id}</div>
@@ -145,7 +149,7 @@ export function TrustedExtensionsSection({ disabled }: { disabled: boolean }) {
           }
         >
           <span className="flex items-center gap-1.5">
-            <ChevronRight
+            <ChevronRightIcon
               className={cn(
                 'size-3.5 transition-transform duration-150',
                 open && 'rotate-90'
@@ -212,7 +216,7 @@ export function TrustedExtensionsSection({ disabled }: { disabled: boolean }) {
                         'settings.integration.browser.removeTrusted'
                       )}
                     >
-                      <Trash2 />
+                      <RemoveIcon />
                     </Button>
                   ) : (
                     <span />

@@ -1,10 +1,9 @@
+import { TransferDownIcon, TransferUpIcon } from '@renderer/components/icons'
 import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { formatDurationHMS } from '@renderer/lib/format'
-
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
 import type { TaskInspectorActivitySnapshot } from '@shared/types/task-inspector-activity'
-import { ArrowDown, ArrowUp } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 export interface CurrentSummaryCardProps {
@@ -35,7 +34,7 @@ function LiveMetric({
 }) {
   const { formatSpeed } = useByteFormat()
 
-  const Icon = direction === 'download' ? ArrowDown : ArrowUp
+  const Icon = direction === 'download' ? TransferDownIcon : TransferUpIcon
   const color =
     direction === 'download'
       ? 'text-[hsl(var(--chart-1))]'

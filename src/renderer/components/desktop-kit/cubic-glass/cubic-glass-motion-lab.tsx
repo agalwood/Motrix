@@ -1,3 +1,4 @@
+import { AdjustIcon, ResetIcon } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import { Label } from '@renderer/components/ui/label'
 import {
@@ -8,7 +9,6 @@ import {
 import { Separator } from '@renderer/components/ui/separator'
 import { Slider } from '@renderer/components/ui/slider'
 import { Switch } from '@renderer/components/ui/switch'
-import { RotateCcw, SlidersHorizontal } from 'lucide-react'
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DEFAULT_CUBIC_GLASS_EFFECTS } from './config'
@@ -83,7 +83,7 @@ export function CubicGlassMotionLab({
             />
           }
         >
-          <SlidersHorizontal aria-hidden className="size-3.5" />
+          <AdjustIcon aria-hidden className="size-3.5" />
         </PopoverTrigger>
         <PopoverContent
           align="end"
@@ -109,7 +109,7 @@ export function CubicGlassMotionLab({
                 onEffectsChange({ ...DEFAULT_CUBIC_GLASS_EFFECTS })
               }
             >
-              <RotateCcw aria-hidden />
+              <ResetIcon aria-hidden />
             </Button>
           </div>
 

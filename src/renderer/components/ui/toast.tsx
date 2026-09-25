@@ -1,5 +1,6 @@
 import { Toast } from '@base-ui/react/toast'
 import { CopyButton } from '@renderer/components/desktop-kit/copy-button'
+import { CloseIcon } from '@renderer/components/icons'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { SEVERITY_ICONS } from '@renderer/components/ui/severity-icons'
@@ -14,7 +15,6 @@ import type {
   IdentityTriState,
   PairRequestPayload,
 } from '@shared/protocol/bridge'
-import { XIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 export type AppToastType = 'success' | 'info' | 'warning' | 'error'
@@ -146,7 +146,7 @@ function ToastList() {
           aria-label={t('common.close')}
           className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
         >
-          <XIcon className="size-3.5" />
+          <CloseIcon className="size-3.5" />
         </Toast.Close>
       )
 
@@ -281,7 +281,7 @@ function ToastList() {
           aria-label={t('common.close')}
           className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
         >
-          <XIcon className="size-3.5" />
+          <CloseIcon className="size-3.5" />
         </Toast.Close>
       </Toast.Root>
     )

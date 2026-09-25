@@ -377,7 +377,7 @@ describe('TaskInspectorActionBar', () => {
         />
       )
       const copyButton = screen.getByRole('button', { name: /Copy URL/ })
-      expect(copyButton.querySelector('.lucide-copy')).not.toBeNull()
+      expect(copyButton.querySelector('[data-icon="copy"]')).not.toBeNull()
 
       fireEvent.click(copyButton)
       await waitFor(() =>
@@ -385,7 +385,7 @@ describe('TaskInspectorActionBar', () => {
           'https://example.com/file.zip'
         )
       )
-      expect(copyButton.querySelector('.lucide-check')).not.toBeNull()
+      expect(copyButton.querySelector('[data-icon="check"]')).not.toBeNull()
     })
 
     it('BT task with infoHash copies a magnet URI carrying name + trackers', async () => {
@@ -501,8 +501,8 @@ describe('TaskInspectorActionBar', () => {
 
       await waitFor(() => expect(toastAddMock).toHaveBeenCalledTimes(1))
       expect(navigator.clipboard.writeText).not.toHaveBeenCalled()
-      expect(copyButton.querySelector('.lucide-copy')).not.toBeNull()
-      expect(copyButton.querySelector('.lucide-check')).toBeNull()
+      expect(copyButton.querySelector('[data-icon="copy"]')).not.toBeNull()
+      expect(copyButton.querySelector('[data-icon="check"]')).toBeNull()
     })
   })
 })

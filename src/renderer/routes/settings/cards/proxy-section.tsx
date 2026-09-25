@@ -1,3 +1,8 @@
+import {
+  ChevronDownIcon,
+  ConcealIcon,
+  RevealIcon,
+} from '@renderer/components/icons'
 import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
 import { Button } from '@renderer/components/ui/button'
 import {
@@ -30,7 +35,6 @@ import { transport } from '@renderer/lib/transport'
 import { Queries } from '@shared/protocol/queries'
 import type { ProxySettings } from '@shared/types/settings'
 import type { SystemProxyResult } from '@shared/types/system-proxy'
-import { ChevronDown, Eye, EyeOff } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -202,7 +206,7 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
                                 }
                               >
                                 {protoField.value}
-                                <ChevronDown />
+                                <ChevronDownIcon />
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="start">
                                 <DropdownMenuRadioGroup
@@ -345,7 +349,7 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
                             )}
                             onClick={() => setRevealPassword((v) => !v)}
                           >
-                            {revealPassword ? <EyeOff /> : <Eye />}
+                            {revealPassword ? <ConcealIcon /> : <RevealIcon />}
                           </InputGroupButton>
                         </InputGroupAddon>
                       </InputGroup>

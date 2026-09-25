@@ -1,3 +1,15 @@
+import {
+  CheckIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  HistoryIcon,
+  MoreIcon,
+  PauseIcon,
+  RefreshIcon,
+  ResumeIcon,
+  StatusDotIcon,
+  WarningIcon,
+} from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import {
   Popover,
@@ -18,18 +30,6 @@ import {
   type TaskHistoryEvent,
   TaskHistoryEventKind,
 } from '@shared/types/task-inspector-activity'
-import {
-  AlertTriangle,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  Circle,
-  Ellipsis,
-  History,
-  Pause,
-  Play,
-  RefreshCw,
-} from 'lucide-react'
 import { type CSSProperties, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type {
@@ -44,26 +44,26 @@ export interface ActivityTimelineProps {
 }
 
 function nodeIcon(node: ActivityTimelineNode) {
-  if (node.presentation === 'truncated') return History
+  if (node.presentation === 'truncated') return HistoryIcon
   if (node.presentation === 'cluster' || node.presentation === 'repeated') {
-    return Ellipsis
+    return MoreIcon
   }
   switch (node.kind) {
     case TaskHistoryEventKind.Added:
     case TaskHistoryEventKind.Completed:
-      return Check
+      return CheckIcon
     case TaskHistoryEventKind.Started:
     case TaskHistoryEventKind.Resumed:
-      return Play
+      return ResumeIcon
     case TaskHistoryEventKind.Paused:
-      return Pause
+      return PauseIcon
     case TaskHistoryEventKind.Failed:
-      return AlertTriangle
+      return WarningIcon
     case TaskHistoryEventKind.StageChanged:
     case TaskHistoryEventKind.ObservedState:
-      return RefreshCw
+      return RefreshIcon
     default:
-      return Circle
+      return StatusDotIcon
   }
 }
 
@@ -375,7 +375,7 @@ export function ActivityTimeline({
               )}
               onClick={() => scrollTimeline(-1)}
             >
-              <ChevronLeft aria-hidden="true" />
+              <ChevronLeftIcon aria-hidden="true" />
             </Button>
             <Button
               type="button"
@@ -385,7 +385,7 @@ export function ActivityTimeline({
               aria-label={t('panel.downloads.inspector.activity.timeline.next')}
               onClick={() => scrollTimeline(1)}
             >
-              <ChevronRight aria-hidden="true" />
+              <ChevronRightIcon aria-hidden="true" />
             </Button>
           </>
         )}

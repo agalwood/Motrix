@@ -1,3 +1,11 @@
+import {
+  ArrowUpRightIcon,
+  ConnectionsIcon,
+  DiskCacheIcon,
+  type MotrixIcon,
+  PieceSizeIcon,
+  ServerConnectionsIcon,
+} from '@renderer/components/icons'
 import { SettingsSelectTrigger } from '@renderer/components/settings-kit/settings-select-trigger'
 import {
   FormControl,
@@ -21,21 +29,13 @@ import {
 } from '@shared/constants/engine-performance-profiles'
 import { getDownloadPerformanceUrl } from '@shared/external-urls'
 import { MAX_CONNECTIONS_PER_SERVER } from '@shared/schemas/engine-settings'
-import {
-  ArrowUpRightIcon,
-  DatabaseIcon,
-  type LucideIcon,
-  RulerIcon,
-  ServerIcon,
-  SplitIcon,
-} from 'lucide-react'
 import { type UseFormReturn, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { type DownloadsFields, MB } from './downloads-form'
 import { EngineNumberSettingRow } from './engine-number-setting-row'
 
 type PerformanceMetric = {
-  icon: LucideIcon
+  icon: MotrixIcon
   label: string
   value: number | string
 }
@@ -62,22 +62,22 @@ export function PerformanceSection({
     selectedPerformanceValues
       ? [
           {
-            icon: SplitIcon,
+            icon: ConnectionsIcon,
             label: t('settings.downloads.performance.metrics.connections'),
             value: selectedPerformanceValues.split,
           },
           {
-            icon: ServerIcon,
+            icon: ServerConnectionsIcon,
             label: t('settings.downloads.performance.metrics.perServer'),
             value: selectedPerformanceValues.maxConnectionPerServer,
           },
           {
-            icon: RulerIcon,
+            icon: PieceSizeIcon,
             label: t('settings.downloads.performance.metrics.minimum'),
             value: `${Math.round(selectedPerformanceValues.minSplitSize / MB)} MiB`,
           },
           {
-            icon: DatabaseIcon,
+            icon: DiskCacheIcon,
             label: t('settings.downloads.performance.metrics.cache'),
             value: `${Math.round(selectedPerformanceValues.diskCache / MB)} MiB`,
           },

@@ -1,3 +1,8 @@
+import {
+  CheckIcon,
+  DirectoryPreferencesIcon,
+  HistoryIcon,
+} from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import {
   DropdownMenu,
@@ -14,7 +19,6 @@ import {
   useServerDirectoryLocations,
 } from '@renderer/lib/directory-preferences'
 import { usePlatformServices } from '@renderer/platform/services'
-import { Check, History, Settings2 } from 'lucide-react'
 import {
   type KeyboardEvent,
   type RefObject,
@@ -81,7 +85,7 @@ export function DirectoryHistoryMenu({
           title={t('directoryPreferences.history')}
           className="h-auto min-h-8 shrink-0"
         >
-          <History aria-hidden="true" className="size-4" />
+          <HistoryIcon aria-hidden="true" className="size-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent
           ref={popup}
@@ -109,7 +113,7 @@ export function DirectoryHistoryMenu({
               )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={openManager}>
-                <Settings2 aria-hidden="true" />
+                <DirectoryPreferencesIcon aria-hidden="true" />
                 {t('directoryPreferences.manage')}
               </DropdownMenuItem>
             </>
@@ -203,7 +207,7 @@ function HistoryItems({
                 className="items-start text-xs"
               >
                 <span className="size-4 shrink-0">
-                  {path === currentPath && <Check aria-hidden="true" />}
+                  {path === currentPath && <CheckIcon aria-hidden="true" />}
                 </span>
                 <span className="min-w-0 whitespace-pre-wrap break-all">
                   {path}

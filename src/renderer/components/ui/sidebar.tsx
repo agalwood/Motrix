@@ -1,5 +1,6 @@
 import { mergeProps } from '@base-ui/react/merge-props'
 import { useRender } from '@base-ui/react/use-render'
+import { SidebarIcon } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { Separator } from '@renderer/components/ui/separator'
@@ -19,7 +20,6 @@ import {
 import { useIsMobile } from '@renderer/hooks/use-mobile'
 import { cn } from '@renderer/lib/utils'
 import { cva, type VariantProps } from 'class-variance-authority'
-import { PanelLeftIcon } from 'lucide-react'
 import * as React from 'react'
 
 const SIDEBAR_STATE_KEY = 'sidebar_state'
@@ -294,7 +294,7 @@ function SidebarTrigger({
       }}
       {...props}
     >
-      <PanelLeftIcon className="transition-opacity" />
+      <SidebarIcon className="transition-opacity" />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   )

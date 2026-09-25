@@ -1,3 +1,4 @@
+import { RemoveIcon } from '@renderer/components/icons'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,7 +20,6 @@ import {
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
 import { Commands } from '@shared/protocol/commands'
-import { Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 interface Props {
@@ -47,7 +47,7 @@ export function UninstallSection({ pluginId, pluginName, hidden }: Props) {
                   />
                 }
               >
-                <Trash2 className="size-4" />
+                <RemoveIcon className="size-4" />
               </AlertDialogTrigger>
             }
           />

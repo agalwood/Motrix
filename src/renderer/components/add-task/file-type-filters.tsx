@@ -1,3 +1,9 @@
+import {
+  AudioIcon,
+  DocumentIcon,
+  ImageIcon,
+  VideoIcon,
+} from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import {
   Tooltip,
@@ -7,7 +13,6 @@ import {
 } from '@renderer/components/ui/tooltip'
 import { VIDEO_FILE_EXTENSIONS } from '@shared/constants/file-types'
 import type { AddTaskFormValues } from '@shared/schemas/add-task'
-import { FileText, Film, Image, Music } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useFormContext, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -19,22 +24,22 @@ const FILTERS: Array<{
 }> = [
   {
     id: 'video',
-    icon: <Film className="h-3.5 w-3.5" />,
+    icon: <VideoIcon className="h-3.5 w-3.5" />,
     exts: [...VIDEO_FILE_EXTENSIONS],
   },
   {
     id: 'audio',
-    icon: <Music className="h-3.5 w-3.5" />,
+    icon: <AudioIcon className="h-3.5 w-3.5" />,
     exts: ['.mp3', '.flac', '.aac', '.ogg', '.wav', '.wma', '.m4a', '.opus'],
   },
   {
     id: 'image',
-    icon: <Image className="h-3.5 w-3.5" />,
+    icon: <ImageIcon className="h-3.5 w-3.5" />,
     exts: ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.ico'],
   },
   {
     id: 'doc',
-    icon: <FileText className="h-3.5 w-3.5" />,
+    icon: <DocumentIcon className="h-3.5 w-3.5" />,
     exts: ['.pdf', '.doc', '.docx', '.txt', '.epub', '.mobi', '.rtf', '.md'],
   },
 ]

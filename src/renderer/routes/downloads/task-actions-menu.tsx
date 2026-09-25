@@ -1,4 +1,5 @@
 import type { SelectionStore } from '@renderer/components/desktop-kit/selection/types'
+import { MoreIcon } from '@renderer/components/icons'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -33,7 +34,6 @@ import {
   canOpenTaskFile,
   canSelectTaskFiles,
 } from '@shared/types/task-actions'
-import { Ellipsis } from 'lucide-react'
 import {
   type ClipboardEvent,
   Fragment,
@@ -544,7 +544,7 @@ export function TaskActionsMenu({
           />
         }
       >
-        <Ellipsis className="size-4" />
+        <MoreIcon className="size-4" />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         onKeyDownCapture={handleShortcut}

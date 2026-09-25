@@ -1,4 +1,11 @@
 // src/renderer/routes/dashboard/tiles/active-tile.tsx
+
+import {
+  DurationIcon,
+  type MotrixIcon,
+  TransferDownIcon,
+  TransferUpIcon,
+} from '@renderer/components/icons'
 import {
   Tooltip,
   TooltipContent,
@@ -7,7 +14,6 @@ import {
 import { useTaskList } from '@renderer/hooks/use-task-list'
 import { cn } from '@renderer/lib/utils'
 import { TaskStatus } from '@shared/types/task'
-import { ArrowDown, ArrowUp, Clock3, type LucideIcon } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { StatusDot } from '../components/status-dot'
@@ -95,17 +101,17 @@ export function ActiveTile({
             className="mt-auto flex min-w-0 items-center justify-between gap-2 text-muted-foreground"
           >
             <CompactStatus
-              icon={ArrowDown}
+              icon={TransferDownIcon}
               label={t('panel.dashboard.active.downloading')}
               count={counts.downloading}
             />
             <CompactStatus
-              icon={Clock3}
+              icon={DurationIcon}
               label={t('panel.dashboard.active.waiting')}
               count={counts.waiting}
             />
             <CompactStatus
-              icon={ArrowUp}
+              icon={TransferUpIcon}
               label={t('panel.dashboard.active.seeding')}
               count={counts.seeding}
             />
@@ -147,7 +153,7 @@ function CompactStatus({
   label,
   count,
 }: {
-  icon: LucideIcon
+  icon: MotrixIcon
   label: string
   count: number
 }) {

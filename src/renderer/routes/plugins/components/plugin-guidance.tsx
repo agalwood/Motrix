@@ -1,3 +1,4 @@
+import { PluginStoreIcon, VerifiedIcon } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
 import {
@@ -7,7 +8,6 @@ import {
 } from '@renderer/components/ui/tooltip'
 import { usePlatformServices } from '@renderer/platform/services'
 import { EXTERNAL_URLS } from '@shared/external-urls'
-import { ShieldCheck, Store } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 interface PluginGuidanceProps {
@@ -24,7 +24,7 @@ export function PluginGuidance({ hasUserManagedPlugin }: PluginGuidanceProps) {
         data-testid="plugin-safety-reminder"
         className="flex items-start gap-2 rounded-lg bg-muted/40 px-3 py-2.5"
       >
-        <ShieldCheck
+        <VerifiedIcon
           aria-hidden
           className="mt-0.5 size-4 shrink-0 text-muted-foreground"
         />
@@ -45,7 +45,7 @@ export function PluginGuidance({ hasUserManagedPlugin }: PluginGuidanceProps) {
       <div className="min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2">
-            <ShieldCheck
+            <VerifiedIcon
               aria-hidden
               className="size-4 shrink-0 text-muted-foreground"
             />
@@ -70,7 +70,7 @@ export function PluginGuidance({ hasUserManagedPlugin }: PluginGuidanceProps) {
                   aria-label={t('plugins.help.guidance.firstUse.browse')}
                   data-testid="plugin-guide-browse-link"
                 >
-                  <Store aria-hidden className="size-4" />
+                  <PluginStoreIcon aria-hidden className="size-4" />
                 </Button>
               }
             />

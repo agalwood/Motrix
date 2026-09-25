@@ -1,3 +1,4 @@
+import { AddIcon, RemoveIcon } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import {
   Combobox,
@@ -14,7 +15,6 @@ import {
 } from '@renderer/components/ui/combobox'
 import { Input } from '@renderer/components/ui/input'
 import type { TrackerSource } from '@shared/types/tracker'
-import { Plus, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
@@ -147,7 +147,7 @@ export function TrackerSourceCombobox({
                   }}
                   onMouseDown={(e) => e.stopPropagation()}
                 >
-                  <Trash2 className="text-destructive" />
+                  <RemoveIcon className="text-destructive" />
                 </Button>
               )}
             </ComboboxItem>
@@ -175,7 +175,7 @@ export function TrackerSourceCombobox({
             onClick={handleAdd}
             disabled={!isValidNewUrl || isDuplicateNewUrl}
           >
-            <Plus className="size-4" />
+            <AddIcon className="size-4" />
           </Button>
         </div>
       </ComboboxContent>

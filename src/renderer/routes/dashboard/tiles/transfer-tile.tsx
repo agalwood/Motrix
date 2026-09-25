@@ -1,3 +1,4 @@
+import { ChevronDownIcon } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import {
   DropdownMenu,
@@ -9,11 +10,9 @@ import {
 import { Skeleton } from '@renderer/components/ui/skeleton'
 import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import type { TransferStatsState } from '@renderer/hooks/use-transfer-stats'
-
 import { cn } from '@renderer/lib/utils'
 import type { TransferRangeStats } from '@shared/types/stats'
 import { formatBytes as formatByteCount } from '@shared/utils/format-bytes'
-import { ChevronDown } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { KpiNumber } from '../components/kpi-number'
@@ -56,7 +55,7 @@ function RangeDropdown({ scope, disabled, onScopeChange }: RangeControlProps) {
         }
       >
         <span>{selectedLabel}</span>
-        <ChevronDown aria-hidden className="size-3" />
+        <ChevronDownIcon aria-hidden className="size-3" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-32">
         <DropdownMenuRadioGroup

@@ -1,6 +1,8 @@
 import { useByteFormat } from '@renderer/hooks/use-byte-format'
+
 // src/renderer/routes/dashboard/tiles/speed-limit-tile.tsx
 
+import { SpeedControlIcon, UnlimitedIcon } from '@renderer/components/icons'
 import { SPEED_LIMIT_MODES } from '@renderer/components/speed-limit-modes'
 import { Button } from '@renderer/components/ui/button'
 import {
@@ -10,9 +12,7 @@ import {
   TooltipTrigger,
 } from '@renderer/components/ui/tooltip'
 import type { SpeedLimitStateView } from '@renderer/hooks/use-speed-limit-state'
-
 import { cn } from '@renderer/lib/utils'
-import { Bolt, InfinityIcon } from 'lucide-react'
 import type { ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
@@ -20,6 +20,21 @@ import { TileShell } from '../components/tile-shell'
 import type { DashboardTileViewport } from '../layout/dashboard-registry'
 
 type TurtleState = SpeedLimitStateView['turtle']
+
+const SPEED_MODE_IMAGES = {
+  off: {
+    src: new URL('../icons/speed-standard@1x.webp', import.meta.url).href,
+    src2x: new URL('../icons/speed-standard@2x.webp', import.meta.url).href,
+  },
+  on: {
+    src: new URL('../icons/speed-limited@1x.webp', import.meta.url).href,
+    src2x: new URL('../icons/speed-limited@2x.webp', import.meta.url).href,
+  },
+  auto: {
+    src: new URL('../icons/speed-auto@1x.webp', import.meta.url).href,
+    src2x: new URL('../icons/speed-auto@2x.webp', import.meta.url).href,
+  },
+} satisfies Record<TurtleState, { src: string; src2x: string }>
 
 export interface SpeedLimitTileProps {
   state: SpeedLimitStateView
@@ -37,7 +52,7 @@ export function SpeedLimitTile({
   const { formatSpeedLimit } = useByteFormat()
 
   function fmt(v: number): string | ReactElement {
-    return v <= 0 ? <InfinityIcon className="size-4" /> : formatSpeedLimit(v)
+    return v <= 0 ? <UnlimitedIcon className="size-4" /> : formatSpeedLimit(v)
   }
   const { t } = useTranslation()
   const compact = viewport.contentLevel === 'compact'
@@ -63,7 +78,10 @@ export function SpeedLimitTile({
           }
           nativeButton={false}
         >
-          <Bolt className="size-3.5 text-muted-foreground" aria-hidden />
+          <SpeedControlIcon
+            className="size-3.5 text-muted-foreground"
+            aria-hidden
+          />
         </Button>
       }
     >
@@ -72,12 +90,17 @@ export function SpeedLimitTile({
         <div
           data-testid="speed-limit-selector"
           className={cn(
-            'grid shrink-0 gap-2 pt-2',
-            tall ? 'grid-cols-1' : 'grid-cols-3'
+            'grid shrink-0 pt-2',
+            compact
+              ? 'grid-cols-[repeat(3,36px)] justify-between gap-2.5'
+              : tall
+                ? 'grid-cols-1 gap-2'
+                : 'grid-cols-3 gap-2'
           )}
         >
-          {SPEED_LIMIT_MODES.map(({ id, Icon }) => {
+          {SPEED_LIMIT_MODES.map(({ id }) => {
             const active = state.turtle === id
+            const image = SPEED_MODE_IMAGES[id]
             return (
               <Tooltip key={id}>
                 <TooltipTrigger
@@ -88,16 +111,29 @@ export function SpeedLimitTile({
                       aria-pressed={active}
                       onClick={() => onSelectTurtle(id)}
                       className={cn(
-                        'flex items-center justify-center rounded-md transition-colors',
-                        tall ? 'h-9 w-full' : 'aspect-square max-h-10 w-full',
+                        'flex items-center justify-center rounded-lg transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+                        compact ? 'size-9' : 'h-12 w-full',
                         active
-                          ? 'bg-blue-500 text-primary-foreground dark:text-primary'
-                          : 'text-muted-foreground hover:bg-muted'
+                          ? 'bg-black/80 ring-1 ring-inset ring-black/80 dark:bg-white/10 dark:ring-white/35'
+                          : 'hover:bg-muted'
                       )}
                     />
                   }
                 >
-                  <Icon className="size-4 lg:size-5 xl:size-6" />
+                  <img
+                    src={image.src}
+                    srcSet={`${image.src} 1x, ${image.src2x} 2x`}
+                    width={52}
+                    height={52}
+                    alt=""
+                    aria-hidden
+                    draggable={false}
+                    className={cn(
+                      'pointer-events-none max-w-full select-none object-contain dark:filter-none',
+                      !active && 'brightness-90 contrast-[1.12] saturate-[1.2]',
+                      compact ? 'size-7' : 'size-9'
+                    )}
+                  />
                 </TooltipTrigger>
                 <TooltipContent>
                   {t(`panel.dashboard.speedLimit.tooltip.${id}`)}

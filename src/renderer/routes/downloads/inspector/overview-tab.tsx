@@ -1,4 +1,5 @@
 import { CopyButton } from '@renderer/components/desktop-kit/copy-button'
+import { ResetIcon, StatusErrorIcon } from '@renderer/components/icons'
 import {
   Alert,
   AlertAction,
@@ -25,7 +26,6 @@ import {
   isMediaTask,
   mediaProgressPercent,
 } from '@shared/utils/media-progress'
-import { AlertCircleIcon, RotateCcw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { StatusPill } from '../status-pill'
 import { getTaskEta, getTaskSpeed } from '../task-column-values'
@@ -88,7 +88,7 @@ function ErrorPanel({ task }: { task: DownloadTask }) {
   return (
     <div className="flex flex-col gap-2">
       <Alert variant="destructive" className="items-start">
-        <AlertCircleIcon />
+        <StatusErrorIcon />
         <AlertTitle>{failure.reason}</AlertTitle>
         {(failure.hint || failure.technicalDetail) && (
           <AlertDescription className="min-w-0">
@@ -108,7 +108,7 @@ function ErrorPanel({ task }: { task: DownloadTask }) {
               className="self-start"
               onClick={() => void onRetry()}
             >
-              <RotateCcw data-icon="inline-start" />
+              <ResetIcon data-icon="inline-start" />
               {t('panel.downloads.action.retry')}
             </Button>
           </AlertAction>

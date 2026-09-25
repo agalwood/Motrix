@@ -1,4 +1,5 @@
 import { ToolbarSearch } from '@renderer/components/desktop-kit/toolbar/toolbar-search'
+import { FilterIcon } from '@renderer/components/icons'
 import {
   Popover,
   PopoverContent,
@@ -11,7 +12,6 @@ import {
 } from '@renderer/components/ui/tooltip'
 import { TASK_TYPE_META, TASK_TYPE_ORDER } from '@renderer/lib/task-type-meta'
 import { cn } from '@renderer/lib/utils'
-import { ListFilter } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DownloadsToolbarButton } from './downloads-toolbar-button'
@@ -118,7 +118,7 @@ export function FilterSearchCommand({
                 />
               }
             >
-              <ListFilter className="size-4" />
+              <FilterIcon className="size-4" />
             </TooltipTrigger>
             <TooltipContent
               anchor={anchorRef}

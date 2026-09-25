@@ -217,3 +217,70 @@ test.describe('settings persistence', () => {
     await app.close()
   })
 })
+
+test('sidebar glass color previews, cancels, and survives restart after save', async ({
+  userDataDir,
+  rpcPort,
+}, testInfo) => {
+  let app = await launchMotrix({ userDataDir, rpcPort })
+  const openAppearance = async (main: Page) => {
+    await main.getByRole('link', { name: 'Settings', exact: true }).click()
+    await main.getByText('Appearance', { exact: true }).first().click()
+    await expect(main.getByRole('radio', { name: 'Gray' })).toBeVisible()
+  }
+  try {
+    let main = await openMain(app)
+    await openAppearance(main)
+    await main.getByRole('radio', { name: 'Cyan' }).check()
+    await expect(main.locator('html')).toHaveAttribute(
+      'data-sidebar-color',
+      'cyan'
+    )
+    await main.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(main.locator('html')).toHaveAttribute(
+      'data-sidebar-color',
+      'gray'
+    )
+    await openAppearance(main)
+    await main.getByRole('radio', { name: 'Violet' }).check()
+    const swatch = main.locator('.sidebar-color-swatch[data-color="violet"]')
+    await expect(swatch).toHaveCSS('width', '24px')
+    await expect(swatch).toHaveCSS('height', '24px')
+    await main.getByRole('radio', { name: 'Violet' }).hover()
+    await expect(
+      main
+        .locator('.sidebar-color-picker label')
+        .filter({ has: main.getByRole('radio', { name: 'Violet' }) })
+        .locator('span')
+        .last()
+    ).toHaveCSS('opacity', '1')
+    await main.screenshot({
+      path: testInfo.outputPath('sidebar-color-selected.png'),
+    })
+    await main.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(main.getByRole('radio', { name: 'Violet' })).toBeHidden()
+    await expect(main.locator('html')).toHaveAttribute(
+      'data-sidebar-color',
+      'violet'
+    )
+    await app.close()
+    app = await launchMotrix({ userDataDir, rpcPort })
+    main = await openMain(app)
+    await expect(main.locator('html')).toHaveAttribute(
+      'data-sidebar-color',
+      'violet'
+    )
+    await openAppearance(main)
+    await expect(main.getByRole('radio', { name: 'Violet' })).toBeChecked()
+    await main.getByRole('radio', { name: 'Auto' }).check()
+    await main.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(main.getByRole('radio', { name: 'Auto' })).toBeHidden()
+    await app.close()
+    app = await launchMotrix({ userDataDir, rpcPort })
+    main = await openMain(app)
+    await openAppearance(main)
+    await expect(main.getByRole('radio', { name: 'Auto' })).toBeChecked()
+  } finally {
+    await app.close().catch(() => {})
+  }
+})

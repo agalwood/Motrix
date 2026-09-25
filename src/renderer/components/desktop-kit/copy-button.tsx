@@ -1,5 +1,5 @@
+import { CheckIcon, CopyIcon } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
-import { Check, Copy } from 'lucide-react'
 import {
   type ComponentProps,
   type ReactNode,
@@ -63,7 +63,7 @@ export function CopyButton({
     }, resetMs)
   }, [content, onClick, onCopyError, resetMs])
 
-  const Icon = copied ? Check : Copy
+  const Icon = copied ? CheckIcon : CopyIcon
 
   return (
     <Button type="button" onClick={handleClick} {...rest}>

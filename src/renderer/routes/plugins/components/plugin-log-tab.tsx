@@ -1,4 +1,10 @@
 import { CopyButton } from '@renderer/components/desktop-kit/copy-button'
+import {
+  FilterIcon,
+  RemoveIcon,
+  TerminalIcon,
+  WarningIcon,
+} from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import {
   ScrollArea,
@@ -18,7 +24,6 @@ import { Separator } from '@renderer/components/ui/separator'
 import { Switch } from '@renderer/components/ui/switch'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
-import { ListFilter, TerminalSquare, Trash2, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { usePluginLogStream } from '../hooks/use-plugin-log-stream'
@@ -75,7 +80,7 @@ export function PluginLogTab({ pluginId }: { pluginId: string }) {
             aria-label={t('plugins.logs.filterLabel')}
             className="h-7 w-32 rounded-md bg-background px-2.5 text-xs shadow-none"
           >
-            <ListFilter className="size-3.5" />
+            <FilterIcon className="size-3.5" />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -122,7 +127,7 @@ export function PluginLogTab({ pluginId }: { pluginId: string }) {
             onClick={onClear}
             className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive active:scale-[0.97] motion-reduce:transform-none dark:hover:bg-destructive/15"
           >
-            <Trash2 className="size-3" />
+            <RemoveIcon className="size-3" />
             {t('plugins.logs.clear')}
           </Button>
         </div>
@@ -133,7 +138,7 @@ export function PluginLogTab({ pluginId }: { pluginId: string }) {
           role="status"
           className="flex shrink-0 items-start gap-2 rounded-md bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-800 dark:text-amber-300"
         >
-          <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
+          <WarningIcon className="mt-0.5 size-3.5 shrink-0" />
           <span>{t('plugins.logs.verboseWarning')}</span>
         </div>
       )}
@@ -141,7 +146,7 @@ export function PluginLogTab({ pluginId }: { pluginId: string }) {
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
         <div className="flex h-9 shrink-0 items-center justify-between border-b border-border/60 bg-muted/30 px-3">
           <div className="flex items-center gap-2 text-xs font-medium text-foreground">
-            <TerminalSquare className="size-3.5 text-muted-foreground" />
+            <TerminalIcon className="size-3.5 text-muted-foreground" />
             <span>{t('plugins.logs.output')}</span>
           </div>
           <span
@@ -161,7 +166,7 @@ export function PluginLogTab({ pluginId }: { pluginId: string }) {
               {filtered.length === 0 ? (
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-12 text-center">
                   <div className="mb-1 flex size-10 items-center justify-center rounded-xl border border-border/60 bg-background/80 shadow-xs">
-                    <TerminalSquare className="size-4.5 text-muted-foreground" />
+                    <TerminalIcon className="size-4.5 text-muted-foreground" />
                   </div>
                   <p className="text-sm font-medium tracking-tight text-foreground">
                     {entries.length === 0

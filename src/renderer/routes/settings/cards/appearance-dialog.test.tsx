@@ -451,3 +451,81 @@ it('saves only the chosen unit system when Apply is clicked', async () => {
     app: { byteUnitSystem: 'binary' },
   })
 })
+
+describe('sidebar color', () => {
+  it('previews a color and saves only its dirty preference', async () => {
+    const { useSidebarColorState } = await import('@renderer/lib/sidebar-color')
+    useSidebarColorState.setState({ saved: 'gray', preview: null, revision: 0 })
+    const close = vi.fn()
+    render(
+      <AppearanceDialog
+        open
+        onClose={close}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('radio', { name: 'Cyan' }))
+    expect(useSidebarColorState.getState().preview).toBe('cyan')
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      app: { sidebarColor: 'cyan' },
+    })
+    expect(useSidebarColorState.getState().saved).toBe('cyan')
+    expect(close).toHaveBeenCalledOnce()
+  })
+  it('hydrates a saved color and discards the preview when closed', async () => {
+    const { useSidebarColorState } = await import('@renderer/lib/sidebar-color')
+    vi.mocked(transport.invoke).mockResolvedValue({
+      app: { ...FIXTURE.app, sidebarColor: 'pink' },
+    })
+    const props = {
+      onClose: vi.fn(),
+      labelKey: 'settings.cards.appearance.title',
+      descKey: 'settings.cards.appearance.desc',
+    }
+    const { rerender } = render(<AppearanceDialog {...props} open />)
+    await waitFor(() =>
+      expect(screen.getByRole('radio', { name: 'Pink' })).toBeChecked()
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('radio', { name: 'Blue' }))
+    expect(useSidebarColorState.getState().preview).toBe('blue')
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    rerender(<AppearanceDialog {...props} open={false} />)
+    expect(useSidebarColorState.getState().preview).toBeNull()
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
+  })
+  it('keeps a failed save editable and supports keyboard selection', async () => {
+    const close = vi.fn()
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.GetSettings) return FIXTURE
+      throw new Error('save failed')
+    })
+    render(
+      <AppearanceDialog
+        open
+        onClose={close}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+    const user = userEvent.setup()
+    const gray = await screen.findByRole('radio', { name: 'Gray' })
+    gray.focus()
+    await user.keyboard('{ArrowLeft}')
+    expect(screen.getByRole('radio', { name: 'Cyan' })).toBeChecked()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByRole('alert')).toBeVisible()
+    expect(close).not.toHaveBeenCalled()
+    expect(screen.getByRole('radio', { name: 'Cyan' })).toBeEnabled()
+  })
+})

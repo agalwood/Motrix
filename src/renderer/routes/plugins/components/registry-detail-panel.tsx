@@ -2,6 +2,7 @@ import {
   PANEL_TITLE_CLASS,
   PanelShell,
 } from '@renderer/components/desktop-kit/panel/panel-shell'
+import { ExternalLinkIcon, InstallIcon } from '@renderer/components/icons'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
@@ -14,7 +15,6 @@ import {
 import { usePlatformServices } from '@renderer/platform/services'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import type { RegistryPluginDTO } from '@shared/schemas/registry'
-import { Download, ExternalLink } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { registryListing } from '../lib/registry-text'
@@ -100,7 +100,7 @@ export function RegistryDetailPanel({ entry }: Props) {
                     onClick={() => setInstallOpen(true)}
                     data-testid="registry-install-btn"
                   >
-                    <Download className="size-3.5" />
+                    <InstallIcon className="size-3.5" />
                     {t('plugins.registry.install')}
                   </Button>
                   <Button
@@ -112,7 +112,7 @@ export function RegistryDetailPanel({ entry }: Props) {
                       )
                     }
                   >
-                    <ExternalLink className="size-3.5" />
+                    <ExternalLinkIcon className="size-3.5" />
                     {t('plugins.registry.viewOnWebsite')}
                   </Button>
                 </div>

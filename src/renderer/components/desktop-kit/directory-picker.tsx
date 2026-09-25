@@ -1,8 +1,8 @@
+import { FolderIcon } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { recordRecentDirectory } from '@renderer/lib/directory-preferences'
 import { usePlatformServices } from '@renderer/platform/services'
-import { Folder } from 'lucide-react'
 import { type ComponentProps, useEffect, useRef, useState } from 'react'
 import {
   type FieldPath,
@@ -123,7 +123,7 @@ export function DirectoryPicker<TFields extends FieldValues>({
               {placeholder ?? t('settings.common.directoryEmpty')}
             </span>
           )}
-          <Folder
+          <FolderIcon
             className="h-4 w-4 shrink-0 text-muted-foreground"
             aria-hidden="true"
           />
@@ -153,7 +153,7 @@ export function DirectoryPicker<TFields extends FieldValues>({
         onClick={handlePick}
         disabled={pickerDisabled}
       >
-        <Folder className="mr-1 h-3 w-3" />
+        <FolderIcon className="mr-1 h-3 w-3" />
         {t('settings.common.browse')}
       </Button>
       {history}

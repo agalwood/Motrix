@@ -30,7 +30,7 @@ export function SettingsCard({
       <div className="flex max-h-18 flex-1 items-center justify-center transition-[filter] group-active:grayscale-50 min-[914px]:max-h-none [&_img]:max-h-16 [&_img]:w-auto min-[914px]:[&_img]:max-h-none">
         {Icon}
       </div>
-      <div className="min-h-14 pt-3 min-[914px]:min-h-[90px] min-[914px]:pt-6">
+      <div className="min-h-14 pt-3 pl-1 min-[914px]:min-h-22.5 min-[914px]:pt-6">
         <div className="text-sm font-semibold text-foreground">
           {t(labelKey)}
         </div>

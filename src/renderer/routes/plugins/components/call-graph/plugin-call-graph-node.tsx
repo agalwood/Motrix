@@ -1,8 +1,12 @@
+import {
+  ArrowDownLeftIcon,
+  ArrowUpRightIcon,
+  PluginUnavailableIcon,
+} from '@renderer/components/icons'
 import { PluginAvatar } from '@renderer/routes/plugins/components/plugin-avatar'
 import { PluginStatusDot } from '@renderer/routes/plugins/components/plugin-status-dot'
 import type { PluginStatus } from '@shared/types/plugin'
 import { Handle, type Node, type NodeProps, Position } from '@xyflow/react'
-import { ArrowDownLeft, ArrowUpRight, PackageX } from 'lucide-react'
 import type {
   CallGraphNodeModel,
   CallGraphNodeStatus,
@@ -74,7 +78,7 @@ export function PluginCallGraphNode({
                 enabled={model.status !== 'disabled'}
               />
             ) : (
-              <PackageX
+              <PluginUnavailableIcon
                 data-missing-status-icon="true"
                 aria-hidden="true"
                 className="size-3.5 shrink-0 text-muted-foreground"
@@ -93,14 +97,14 @@ export function PluginCallGraphNode({
                 <span className="sr-only">
                   {strings.incoming}: {model.incomingCalls}
                 </span>
-                <ArrowDownLeft aria-hidden="true" className="size-3" />
+                <ArrowDownLeftIcon aria-hidden="true" className="size-3" />
                 <span aria-hidden="true">{model.incomingCalls}</span>
               </span>
               <span className="inline-flex items-center gap-0.5">
                 <span className="sr-only">
                   {strings.outgoing}: {model.outgoingCalls}
                 </span>
-                <ArrowUpRight aria-hidden="true" className="size-3" />
+                <ArrowUpRightIcon aria-hidden="true" className="size-3" />
                 <span aria-hidden="true">{model.outgoingCalls}</span>
               </span>
             </span>
