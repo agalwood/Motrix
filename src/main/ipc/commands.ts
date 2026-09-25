@@ -1023,13 +1023,34 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         | undefined
       const magnetPreferenceSubmitted =
         typeof appPartial?.protocols?.magnet === 'boolean'
+      const natPartial = partialObj?.nat as
+        | Record<string, unknown>
+        | null
+        | undefined
       const patched = {
         ...partialObj,
-        nat: {
-          ...((partialObj?.nat as object | undefined) ?? {}),
-          natTypeDetectionEnabled: gated.nat.natTypeDetectionEnabled,
-          portReachabilityCheckEnabled: gated.nat.portReachabilityCheckEnabled,
-        },
+        // The confirmation snapshot can be stale by the time this write is
+        // queued. Only replace submitted toggles; copying untouched flags can
+        // re-enable external checks disabled by another window in the meantime.
+        ...(natPartial && typeof natPartial === 'object'
+          ? {
+              nat: {
+                ...natPartial,
+                ...(Object.hasOwn(natPartial, 'natTypeDetectionEnabled')
+                  ? {
+                      natTypeDetectionEnabled:
+                        gated.nat.natTypeDetectionEnabled,
+                    }
+                  : {}),
+                ...(Object.hasOwn(natPartial, 'portReachabilityCheckEnabled')
+                  ? {
+                      portReachabilityCheckEnabled:
+                        gated.nat.portReachabilityCheckEnabled,
+                    }
+                  : {}),
+              },
+            }
+          : {}),
       }
 
       const result = await settingsManager.update(patched)

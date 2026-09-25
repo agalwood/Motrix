@@ -1336,6 +1336,51 @@ describe('SetTaskBtTracker handler', () => {
 })
 
 describe('Commands.UpdateSettings', () => {
+  it.each([
+    { app: { theme: 'dark' } },
+    { nat: { diagnosticIntervalSec: 600 } },
+  ])(
+    'does not re-enable external checks from a stale patch: %j',
+    async (patch) => {
+      const root = await mkdtemp(path.join(tmpdir(), 'motrix-settings-race-'))
+      try {
+        const manager = new SettingsManager(path.join(root, 'settings.json'))
+        await manager.load()
+        await manager.update({
+          nat: {
+            natTypeDetectionEnabled: true,
+            portReachabilityCheckEnabled: true,
+            autoDiagnostic: true,
+          },
+        })
+        const update = buildCommandHandlers({
+          ...fakeCtx(),
+          settingsManager: manager,
+        } as unknown as CommandContext)[Commands.UpdateSettings]!
+
+        // Both requests read the enabled baseline before either queued write
+        // commits. Unrelated fields must not carry those old NAT flags.
+        await Promise.all([
+          update({
+            nat: {
+              natTypeDetectionEnabled: false,
+              portReachabilityCheckEnabled: false,
+            },
+          }),
+          update(patch),
+        ])
+
+        expect(manager.get().nat).toMatchObject({
+          natTypeDetectionEnabled: false,
+          portReachabilityCheckEnabled: false,
+        })
+        expect(manager.get()).toMatchObject(patch)
+      } finally {
+        await rm(root, { recursive: true, force: true })
+      }
+    }
+  )
+
   it('awaits locale application and permits retrying an already saved language', async () => {
     const base = makeSettingsLike(PROXY_OFF)
     const current = { ...base, app: { ...base.app, language: 'zh-CN' } }
