@@ -44,11 +44,11 @@ beyond the forbidden set, so non-Latin names survive untouched. Only the final
 component is sanitized: directory components are user-created through native
 dialogs and are validated, not rewritten, by the platform open path.
 
-## Linux and NFS
+## Linux, NFS and mounted NTFS
 
-Linux NFS mounts can reject `renameat2(RENAME_NOREPLACE)` with `EINVAL` even
-when ordinary rename works. For a regular file only, the native rename call
-reports `rename_unsupported` for `EINVAL`, `EOPNOTSUPP`, or `ENOSYS`. The host
+Linux NFS and NTFS-3G mounts can reject `renameat2(RENAME_NOREPLACE)` with
+`EINVAL` even when ordinary rename works. For a regular file only, the native
+rename call reports `rename_unsupported` for `EINVAL`, `EOPNOTSUPP`, or `ENOSYS`. The host
 then journals a hard-link publication intent before installing the target
 name exclusively through the held source descriptor. The source name stays
 available until the target is durable and the task database commits. Copy
@@ -62,9 +62,15 @@ both files and quarantine the journal for reconciliation. Confirmed publication
 can roll forward or roll back before DB commit; committed publication retries
 cleanup.
 
-Each file removal first journals a new mode-0700 sibling directory and its
-device/inode identity. Ordinary rename is confined to that empty private
-directory, then a newly opened, identity-checked handle removes the isolated
+Each file removal first journals a new sibling directory requested with mode
+0700 and its device/inode identity. NTFS mount masks can synthesize 0755 even
+when 0700 is requested. Isolation accepts owner read/write/execute with no
+group/other write access; read/execute access does not permit changing names.
+Both the native isolation operation and host recovery check this condition.
+Mounts exposing group/other write access (such as 0777) retain the source and
+cleanup journal after publication instead of weakening the removal checks.
+Ordinary rename is confined to that empty directory owned by the artifact
+owner, then a newly opened, identity-checked handle removes the isolated
 file. Every removal, including replay of a pending intent, requires a durable,
 identity-verified survivor: the source/rollback before commit, or the final
 target after commit. Unix removal also revalidates its held survivor name after
@@ -183,3 +189,24 @@ same-inode link, a lost rollback source, a changed survivor at native deletion,
 and sidecar termination. It uses the same real mount when configured.
 Without the NFS variable it uses a local scratch directory and injects only
 the unsupported rename response; all subsequent file operations remain real.
+
+The ignored native test `ntfs_supports_link_publication_and_private_removal`
+requires `MOTRIX_FINALIZE_NTFS_ROOT` on a scratch NTFS-3G mount with `umask=022`
+and POSIX permissions disabled. It checks the real `EINVAL` rename response,
+exclusive hard-link publication, synthesized 0755 isolation permissions, and
+removal with a verified surviving target. For example, after mounting a test
+image at `/mnt/ntfs-test`:
+
+```sh
+MOTRIX_FINALIZE_NTFS_ROOT=/mnt/ntfs-test cargo test \
+  --manifest-path packages/finalize-fs/Cargo.toml --locked \
+  ntfs_supports_link_publication_and_private_removal -- --ignored
+```
+
+The application recovery suite accepts the same `MOTRIX_FINALIZE_NTFS_ROOT`
+instead of `MOTRIX_FINALIZE_NFS_ROOT`, keeping SQLite on the local filesystem.
+The ordinary native and application tests model mount masks without requiring
+NTFS. The Linux recovery suite also covers a lost isolation response followed
+by restart with 0755 permissions, and preservation of both hard links when
+0777 permissions make cleanup unsafe. Windows uses its existing handle-based
+removal and SMB flush policy; these Unix permission checks do not apply there.

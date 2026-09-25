@@ -1,5 +1,7 @@
 import { existsSync } from 'node:fs'
 import {
+  chmod,
+  link,
   mkdir,
   mkdtemp,
   readFile,
@@ -243,6 +245,50 @@ describe.runIf(existsSync(binary))(
       expect(existsSync(tree)).toBe(false)
       await adapter.dispose()
     })
+
+    it.runIf(process.platform !== 'win32').each([0o700, 0o755, 0o770, 0o777])(
+      'checks exclusive directory write access during isolated cleanup (mode %s)',
+      async (mode) => {
+        const { root, adapter, operations } = await setup()
+        const source = path.join(root, 'download.motrix')
+        const target = path.join(root, 'download')
+        try {
+          await writeFile(source, 'complete download')
+          await link(source, target)
+          const identity = await readArtifactIdentity(source)
+          const intent = await operations.prepareRemoval(
+            source,
+            identity,
+            removalQuarantinePath('ntfs-mode', source)
+          )
+          if (!intent.isolation) throw new Error('missing isolation directory')
+          // Model NTFS mount masks overriding mkdir(0700), including on replay
+          // through a new operations instance with no in-memory state.
+          await chmod(intent.isolation.directory, mode)
+          const replay = new NativeFinalizeArtifactOperations(adapter)
+          const removal = replay.removeKnown(
+            source,
+            identity,
+            intent.quarantinePath,
+            intent.isolation,
+            { path: target, identity }
+          )
+          if (mode & 0o022) {
+            await expect(removal).rejects.toThrow(
+              'private isolation directory changed'
+            )
+            expect(await readFile(source, 'utf8')).toBe('complete download')
+          } else {
+            await removal
+            expect(existsSync(source)).toBe(false)
+            expect(existsSync(intent.isolation.directory)).toBe(false)
+          }
+          expect(await readFile(target, 'utf8')).toBe('complete download')
+        } finally {
+          await adapter.dispose()
+        }
+      }
+    )
 
     it('resumes the exact journal quarantine left by a removal crash', async () => {
       const { root, adapter, operations } = await setup()

@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs'
 import {
+  chmod,
   mkdtemp,
   readdir,
   readFile,
@@ -26,12 +27,18 @@ const binary = path.resolve(
     'packages/finalize-fs/target/debug/motrix-finalize-fs'
 )
 const nfsRoot = process.env.MOTRIX_FINALIZE_NFS_ROOT
-if (nfsRoot && (process.platform !== 'linux' || !existsSync(binary))) {
-  throw new Error('NFS contract requires Linux and a built native sidecar')
+const ntfsRoot = process.env.MOTRIX_FINALIZE_NTFS_ROOT
+if (nfsRoot && ntfsRoot)
+  throw new Error('select one mounted filesystem per run')
+const mountedRoot = nfsRoot ?? ntfsRoot
+if (mountedRoot && (process.platform !== 'linux' || !existsSync(binary))) {
+  throw new Error(
+    'mounted filesystem contract requires Linux and a built native sidecar'
+  )
 }
 
 describe.runIf(process.platform === 'linux' && existsSync(binary))(
-  'NFS finalize publication and recovery',
+  'NFS and NTFS finalize publication and recovery',
   { timeout: 30_000 },
   () => {
     const cleanup: (() => Promise<void>)[] = []
@@ -40,13 +47,16 @@ describe.runIf(process.platform === 'linux' && existsSync(binary))(
       for (const dispose of cleanup.splice(0)) await dispose()
     }, 30_000)
 
-    async function setup(crossDevice = false) {
-      if (nfsRoot) expect((await statfs(nfsRoot)).type).toBe(0x6969)
+    async function setup(crossDevice = false, isolationMode?: number) {
+      if (mountedRoot)
+        expect((await statfs(mountedRoot)).type).toBe(
+          ntfsRoot ? 0x65735546 : 0x6969
+        )
       const local = await realpath(
         await mkdtemp(path.join(os.tmpdir(), 'motrix-nfs-db-'))
       )
       const root = await realpath(
-        await mkdtemp(path.join(nfsRoot ?? local, 'motrix-nfs-'))
+        await mkdtemp(path.join(mountedRoot ?? local, 'motrix-nfs-'))
       )
       const dbPath = path.join(local, 'journal.sqlite')
       let db = new Database(dbPath)
@@ -57,11 +67,22 @@ describe.runIf(process.platform === 'linux' && existsSync(binary))(
         adapter = new NativeFinalizeFilesystemAdapter(binary)
         // On local filesystems inject only the missing rename primitive. The
         // link, isolation, removal, identity checks and SQLite are all real.
-        if (!nfsRoot)
+        if (!mountedRoot)
           vi.spyOn(adapter, 'renameOpenedNoReplace').mockRejectedValue(
             new FinalizeFsError('rename_unsupported', 'NOREPLACE unsupported')
           )
         fs = new NativeFinalizeArtifactOperations(adapter)
+        if (isolationMode !== undefined) {
+          const prepareRemoval = fs.prepareRemoval.bind(fs)
+          vi.spyOn(fs, 'prepareRemoval').mockImplementation(async (...args) => {
+            const intent = await prepareRemoval(...args)
+            if (!intent.isolation)
+              throw new Error('missing isolation directory')
+            // Model an NTFS mount mask overriding the requested mkdir mode.
+            await chmod(intent.isolation.directory, isolationMode)
+            return intent
+          })
+        }
         return new DurableFinalizeRuntime({
           db,
           fs,
@@ -143,6 +164,52 @@ describe.runIf(process.platform === 'linux' && existsSync(binary))(
       }
     }
 
+    it('recovers linked NTFS publication with owner-only writable mount permissions', async () => {
+      const s = await setup(false, 0o755)
+      const isolate = s.adapter.isolateOpened.bind(s.adapter)
+      vi.spyOn(s.adapter, 'isolateOpened').mockImplementationOnce(
+        async (...args) => {
+          await isolate(...args)
+          throw new Error('lost NTFS isolation response')
+        }
+      )
+      await s.runtime.commit(s.input)
+      expect(s.row().phase).toBe('db_committed')
+      expect(existsSync(s.input.sourcePath)).toBe(false)
+      await s.restart()
+      await s.runtime.recoverAll()
+      expect(s.row().phase).toBe('cleaned')
+      expect(await readdir(s.root)).toEqual(['download.bin'])
+      expect(await readFile(s.input.targetPath, 'utf8')).toBe(
+        'complete download'
+      )
+    })
+
+    // The real NTFS fixture fixes permissions at 0755, so chmod cannot model 0777 there.
+    it.skipIf(ntfsRoot !== undefined)(
+      'preserves a linked NTFS source when mount permissions allow other writers',
+      async () => {
+        const s = await setup(false, 0o777)
+        await s.runtime.commit(s.input)
+        expect(s.row().phase).toBe('db_committed')
+        await s.restart()
+        await expect(s.runtime.recoverAll()).rejects.toMatchObject({
+          errors: [
+            expect.objectContaining({
+              message: 'private isolation directory changed',
+            }),
+          ],
+        })
+        expect(s.row().phase).toBe('db_committed')
+        expect(await readFile(s.input.sourcePath, 'utf8')).toBe(
+          'complete download'
+        )
+        expect(await readFile(s.input.targetPath, 'utf8')).toBe(
+          'complete download'
+        )
+      }
+    )
+
     it.each([false, true])(
       'publishes and cleans up (cross-device: %s)',
       async (crossDevice) => {
@@ -151,7 +218,7 @@ describe.runIf(process.platform === 'linux' && existsSync(binary))(
         const copy = vi.spyOn(s.adapter, 'copyOpened')
         await s.runtime.commit(s.input)
         expect(link).toHaveBeenCalledOnce()
-        if (crossDevice && nfsRoot) expect(copy).toHaveBeenCalledOnce()
+        if (crossDevice && mountedRoot) expect(copy).toHaveBeenCalledOnce()
         else expect(copy).not.toHaveBeenCalled()
         expect(s.row().phase).toBe('cleaned')
         expect(await readdir(s.root)).toEqual(['download.bin'])
