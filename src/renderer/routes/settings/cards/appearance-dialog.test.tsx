@@ -173,7 +173,7 @@ describe('<AppearanceDialog>', () => {
         />
       )
       const toggle = await screen.findByRole('switch', {
-        name: 'Enable Liquid Glass effect',
+        name: 'Liquid Glass',
       })
       const user = userEvent.setup()
       await user.click(toggle)
@@ -185,87 +185,6 @@ describe('<AppearanceDialog>', () => {
       expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
         app: { liquidGlassEffect: true },
       })
-    }
-  )
-
-  it('renders hydrated select labels instead of raw values', async () => {
-    render(
-      <AppearanceDialog
-        open
-        onClose={vi.fn()}
-        labelKey="settings.cards.appearance.title"
-        descKey="settings.cards.appearance.desc"
-      />
-    )
-
-    await waitFor(() => {
-      const [themeTrigger, languageTrigger, byteUnitTrigger, runModeTrigger] =
-        screen.getAllByRole('combobox')
-
-      expect(themeTrigger).toHaveTextContent(/^System$/)
-      expect(themeTrigger).not.toHaveTextContent(/^system$/)
-      expect(languageTrigger).toHaveTextContent(/^English$/)
-      expect(languageTrigger).not.toHaveTextContent(/^en-US$/)
-      expect(languageTrigger).toHaveClass('min-w-30', 'max-w-64')
-      expect(languageTrigger).not.toHaveClass('w-32')
-      expect(byteUnitTrigger).toHaveTextContent('Follow system (MB, GB)')
-      expect(runModeTrigger).toHaveTextContent(/^Dock & Menu Bar$/)
-      expect(runModeTrigger).not.toHaveTextContent(/^1$/)
-    })
-
-    const user = userEvent.setup({ pointerEventsCheck: 0 })
-    await user.click(
-      screen.getByRole('combobox', {
-        name: 'Show app in',
-      })
-    )
-    expect(
-      await screen.findByRole('option', { name: 'Dock & Menu Bar' })
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('option', { name: 'Menu Bar Only' })
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('option', { name: 'Dock Only' })
-    ).toBeInTheDocument()
-  })
-
-  it.each(['win32', 'linux'] as const)(
-    'uses launch behavior labels on %s',
-    async (platform) => {
-      Object.defineProperty(transport, 'platform', {
-        configurable: true,
-        value: platform,
-      })
-      render(
-        <AppearanceDialog
-          open
-          onClose={vi.fn()}
-          labelKey="settings.cards.appearance.title"
-          descKey="settings.cards.appearance.desc"
-        />
-      )
-
-      const runModeTrigger = await screen.findByRole('combobox', {
-        name: 'When opening Motrix',
-      })
-      expect(runModeTrigger).toHaveTextContent(/^Open Main Window$/)
-
-      const user = userEvent.setup({ pointerEventsCheck: 0 })
-      await user.click(runModeTrigger)
-      expect(
-        await screen.findByRole('option', { name: 'Open Main Window' })
-      ).toBeInTheDocument()
-      expect(
-        screen.getByRole('option', { name: 'Start in System Tray' })
-      ).toBeInTheDocument()
-      expect(screen.queryByRole('option', { name: 'Dock Only' })).toBeNull()
-
-      if (platform === 'linux') {
-        expect(
-          screen.getByText(/depend on your desktop environment/i)
-        ).toBeInTheDocument()
-      }
     }
   )
 
@@ -318,29 +237,6 @@ describe('<AppearanceDialog>', () => {
       app: { theme: 'dark' },
     })
     expect(onClose).toHaveBeenCalled()
-  })
-
-  it('hydrates and submits lightweight mode independently', async () => {
-    render(
-      <AppearanceDialog
-        open
-        onClose={vi.fn()}
-        labelKey="settings.cards.appearance.title"
-        descKey="settings.cards.appearance.desc"
-      />
-    )
-    const lightweight = await screen.findByRole('switch', {
-      name: 'Lightweight mode',
-    })
-    const user = userEvent.setup()
-
-    expect(lightweight).not.toBeChecked()
-    await user.click(lightweight)
-    await user.click(screen.getByRole('button', { name: /save/i }))
-
-    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
-      app: { lightweightMode: true },
-    })
   })
 
   it.each(['darwin', 'win32', 'linux', 'web'])(

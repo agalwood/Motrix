@@ -1,4 +1,7 @@
-type DirtyTree = boolean | { [key: string]: DirtyTree | undefined }
+type DirtyTree =
+  | boolean
+  | { [key: string]: DirtyTree | undefined }
+  | readonly (DirtyTree | undefined)[]
 
 export function pickDirty<T>(
   values: T,

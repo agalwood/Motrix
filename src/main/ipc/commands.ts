@@ -44,6 +44,7 @@ import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
 import { applySavedSettings } from '@core/settings/apply-saved-settings'
 import { createDirectoryPreferencesHandlers } from '@core/settings/directory-preferences'
+import { createSaveDownloadsSettingsHandler } from '@core/settings/downloads-settings'
 import { createSaveGeneralSettingsHandler } from '@core/settings/general-settings'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import {
@@ -949,6 +950,26 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     }),
 
     [Commands.MutateDirectoryPreferences]: directoryPreferences.mutate,
+
+    [Commands.SaveDownloadsSettings]: createSaveDownloadsSettingsHandler(
+      settingsManager,
+      {
+        apply: async (oldEngine, result) => {
+          await supervisor.applyDefaultSaveDir(
+            settingsManager.getApp().defaultSaveDir
+          )
+          await supervisor.applyEngineSettings(
+            oldEngine,
+            settingsManager.getEngine()
+          )
+          if (result.requiresRestart)
+            publishEngineRestartRequired(
+              { eventBus, notificationCenter, log },
+              result.changedRestartKeys ?? []
+            )
+        },
+      }
+    ),
 
     [Commands.SaveGeneralSettings]: createSaveGeneralSettingsHandler(
       settingsManager,

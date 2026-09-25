@@ -490,6 +490,7 @@ let recoveryService: TaskRecoveryServiceImpl | undefined
 let dnsFallbackRetry: ((taskId: string) => Promise<unknown>) | undefined
 let trayHandle: ReturnType<typeof setupTray> | null = null
 let natManager: NatManager | null = null
+let stopNatDiagnostics: (() => Promise<void>) | null = null
 let trackerManager: TrackerManager | null = null
 let menuManager: MenuManager | null = null
 let osNotificationBridge: { dispose(): void } | null = null
@@ -599,7 +600,10 @@ function performCleanup(): Promise<void> {
       safely('magnet', () => magnetTracker?.stopAndDrain()),
       safely('speed-limit', () => speedLimitController?.stop()),
       safely('geoip', () => geoipManager?.stop()),
-      safely('nat', () => natManager?.stop()),
+      safely('nat', async () => {
+        await stopNatDiagnostics?.()
+        await natManager?.stop()
+      }),
     ])
     // Tracker edits pause active tasks while changing bt-tracker. Drain their
     // unconditional resume compensation while both Session persistence and
@@ -2092,6 +2096,8 @@ async function initializeMainProcess(): Promise<void> {
     isEngineReady: () => supervisor.getState() === EngineState.Ready,
   })
   natManager = natStack.manager
+  stopNatDiagnostics = natStack.stopDiagnostics
+  natStack.startDiagnostics()
   log.info('NatManager constructed')
 
   const startupGeoipManager = new GeoIPManager({

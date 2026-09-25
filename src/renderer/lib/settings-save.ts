@@ -50,6 +50,13 @@ export async function saveSettings(
 ): Promise<SettingsUpdateResult> {
   const response = await transport.invoke(Commands.UpdateSettings, patch)
   const result = settingsUpdateResultSchema.parse(response)
+  await notifySettingsSaved(result)
+  return result
+}
+
+export async function notifySettingsSaved(
+  result: SettingsUpdateResult
+): Promise<void> {
   await synchronizeSavedSettings()
   for (const listener of listeners) listener(result)
   if (result.applicationFailed) {
@@ -68,5 +75,4 @@ export async function saveSettings(
       timeout: 0,
     })
   }
-  return result
 }

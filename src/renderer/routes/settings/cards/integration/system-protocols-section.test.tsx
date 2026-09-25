@@ -96,9 +96,7 @@ describe('<SystemProtocolsSection>', () => {
       screen.getByText('Default app for torrents and magnet links')
     ).toBeInTheDocument()
     expect(
-      screen.getByText(
-        /Motrix appears there after installation with Motrix Setup/u
-      )
+      screen.getByText(/Requires an installed copy of Motrix/u)
     ).toBeInTheDocument()
     expect(await screen.findByText('Default')).toBeInTheDocument()
     expect(screen.getByText('Not default')).toBeInTheDocument()

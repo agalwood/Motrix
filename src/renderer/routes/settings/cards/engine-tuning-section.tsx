@@ -88,32 +88,7 @@ export function EngineTuningSection({
       <h3 className="text-sm font-semibold text-foreground">
         {t('settings.downloads.reliability.title')}
       </h3>
-      <FormField
-        control={form.control}
-        name="engine.userAgent"
-        render={({ field }) => (
-          <FormItem className="space-y-2">
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-1">
-                <FormLabel>
-                  {t('settings.downloads.reliability.userAgent')}
-                </FormLabel>
-                <FormDescription className="text-xs">
-                  {t('settings.downloads.reliability.userAgentDesc')}
-                </FormDescription>
-              </div>
-              <FormControl>
-                <Input {...field} className="w-64 h-8" />
-              </FormControl>
-            </div>
-            <FormMessage className="text-xs" />
-            <PresetChips
-              name="engine.userAgent"
-              options={BUILTIN_USER_AGENTS as never}
-            />
-          </FormItem>
-        )}
-      />
+
       {numericRow(
         'connectTimeout',
         'settings.downloads.reliability.connectTimeout',
@@ -278,22 +253,42 @@ export function EngineTuningSection({
           </SettingsFormRow>
         )}
       />
-      {numericRow(
-        'sessionSaveInterval',
-        'settings.downloads.disk.sessionSaveInterval',
-        'settings.downloads.disk.sessionSaveIntervalDesc'
-      )}
-
-      <Separator className="my-4" />
-
-      <h3 className="text-sm font-semibold text-foreground">
-        {t('settings.downloads.magnet.title')}
-      </h3>
-      {numericRow(
-        'magnetResolveTimeout',
-        'settings.downloads.magnet.magnetResolveTimeout',
-        'settings.downloads.magnet.magnetResolveTimeoutDesc'
-      )}
     </>
+  )
+}
+
+export function UserAgentSection({
+  form,
+}: {
+  form: UseFormReturn<DownloadsFields>
+}) {
+  const { t } = useTranslation()
+  return (
+    <FormField
+      control={form.control}
+      name="engine.userAgent"
+      render={({ field }) => (
+        <FormItem className="space-y-2">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <FormLabel>
+                {t('settings.downloads.reliability.userAgent')}
+              </FormLabel>
+              <FormDescription className="text-xs">
+                {t('settings.downloads.reliability.userAgentDesc')}
+              </FormDescription>
+            </div>
+            <FormControl>
+              <Input {...field} className="w-64 h-8" />
+            </FormControl>
+          </div>
+          <FormMessage className="text-xs" />
+          <PresetChips
+            name="engine.userAgent"
+            options={BUILTIN_USER_AGENTS as never}
+          />
+        </FormItem>
+      )}
+    />
   )
 }

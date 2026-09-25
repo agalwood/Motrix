@@ -7,9 +7,11 @@ import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form
 import { Button } from '@renderer/components/ui/button'
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@renderer/components/ui/dropdown-menu'
 import {
@@ -40,8 +42,17 @@ import type { UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import type { NetworkFields } from './network-dialog'
 
+type ProxyScope = keyof ProxySettings['scopes']
+const PROXY_SCOPES: ProxyScope[] = ['download', 'updateApp', 'updateTrackers']
+
 export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
   const { t } = useTranslation()
+  const scopes = form.watch('proxy.scopes')
+  const scopeLabels: Record<ProxyScope, string> = {
+    download: t('settings.network.proxy.scopeDownload'),
+    updateApp: t('settings.network.proxy.scopeUpdateApp'),
+    updateTrackers: t('settings.network.proxy.scopeUpdateTrackers'),
+  }
 
   // UI-only state. `showAuth` collapses the user/password rows when the
   // proxy doesn't need a login (the common case). `revealPassword`
@@ -164,9 +175,6 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
           <SettingsFormRow>
             <div className="space-y-1">
               <FormLabel>{t('settings.network.proxy.enable')}</FormLabel>
-              <FormDescription className="text-xs">
-                {t('settings.network.proxy.enableDesc')}
-              </FormDescription>
             </div>
             <FormControl>
               <Switch checked={field.value} onCheckedChange={field.onChange} />
@@ -295,7 +303,11 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
                   {t('settings.network.proxy.authDesc')}
                 </p>
               </div>
-              <Switch checked={showAuth} onCheckedChange={handleAuthToggle} />
+              <Switch
+                aria-label={t('settings.network.proxy.auth')}
+                checked={showAuth}
+                onCheckedChange={handleAuthToggle}
+              />
             </div>
             {(showAuth ||
               form.formState.errors.proxy?.user ||
@@ -360,87 +372,75 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
             )}
           </div>
 
-          {/* Scopes — bg-muted/20 grouped card; each row carries
-              a description so users understand what the toggle
-              actually does. */}
-          <div className="space-y-2">
-            <div className="space-y-1">
-              <p className="text-sm font-medium leading-none">
-                {t('settings.network.proxy.scopes')}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {t('settings.network.proxy.scopesDesc')}
-              </p>
-            </div>
-            <div className="divide-y divide-border rounded-md border border-border bg-muted/20">
-              <FormField
-                control={form.control}
-                name="proxy.scopes.download"
-                render={({ field }) => (
-                  <SettingsFormRow className="flex items-center justify-between gap-4 space-y-0 px-3 py-2.5">
-                    <div className="space-y-0.5">
-                      <FormLabel className="font-normal">
-                        {t('settings.network.proxy.scopeDownload')}
-                      </FormLabel>
-                      <FormDescription className="text-xs">
-                        {t('settings.network.proxy.scopeDownloadDesc')}
-                      </FormDescription>
-                    </div>
+          {/* Keep the selected uses visible; edit them in a persistent checkbox menu. */}
+          <FormField
+            control={form.control}
+            name="proxy.scopes"
+            render={({ field }) => {
+              const selected = PROXY_SCOPES.filter((scope) => scopes[scope])
+              const summary =
+                selected.length === 0
+                  ? t('settings.network.proxy.scopeNone')
+                  : selected
+                      .map((scope) => scopeLabels[scope])
+                      .join(t('settings.network.proxy.scopeSeparator'))
+              return (
+                <SettingsFormRow>
+                  <div className="min-w-0 space-y-1">
+                    <FormLabel>{t('settings.network.proxy.scopes')}</FormLabel>
+                    <FormDescription className="text-xs">
+                      {summary}
+                    </FormDescription>
+                  </div>
+                  <DropdownMenu>
                     <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
+                      <DropdownMenuTrigger
+                        aria-label={t('settings.network.proxy.scopes')}
+                        ref={field.ref}
+                        onBlur={field.onBlur}
+                        render={
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="min-w-30 shrink-0 justify-between gap-2 font-normal"
+                          />
+                        }
+                      >
+                        {t('settings.network.proxy.scopeChoose')}
+                        <ChevronDownIcon className="size-4 text-muted-foreground" />
+                      </DropdownMenuTrigger>
                     </FormControl>
-                  </SettingsFormRow>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="proxy.scopes.updateApp"
-                render={({ field }) => (
-                  <SettingsFormRow className="flex items-center justify-between gap-4 space-y-0 px-3 py-2.5">
-                    <div className="space-y-0.5">
-                      <FormLabel className="font-normal">
-                        {t('settings.network.proxy.scopeUpdateApp')}
-                      </FormLabel>
-                      <FormDescription className="text-xs">
-                        {t('settings.network.proxy.scopeUpdateAppDesc')}
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </SettingsFormRow>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="proxy.scopes.updateTrackers"
-                render={({ field }) => (
-                  <SettingsFormRow className="flex items-center justify-between gap-4 space-y-0 px-3 py-2.5">
-                    <div className="space-y-0.5">
-                      <FormLabel className="font-normal">
-                        {t('settings.network.proxy.scopeUpdateTrackers')}
-                      </FormLabel>
-                      <FormDescription className="text-xs">
-                        {t('settings.network.proxy.scopeUpdateTrackersDesc')}
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </SettingsFormRow>
-                )}
-              />
-            </div>
-          </div>
+                    <DropdownMenuContent
+                      align="end"
+                      className="w-64 max-w-[calc(100vw-2rem)]"
+                    >
+                      {PROXY_SCOPES.map((scope) => (
+                        <DropdownMenuCheckboxItem
+                          key={scope}
+                          checked={scopes[scope]}
+                          closeOnClick={false}
+                          onCheckedChange={(checked) =>
+                            form.setValue(`proxy.scopes.${scope}`, checked, {
+                              shouldDirty: true,
+                              shouldValidate: true,
+                            })
+                          }
+                          className="[&>span]:size-4 [&>span]:rounded-[4px] [&>span]:border [&>span]:border-input data-checked:[&>span]:border-primary data-checked:[&>span]:bg-primary data-checked:[&>span]:text-primary-foreground"
+                        >
+                          {scopeLabels[scope]}
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                      <DropdownMenuSeparator />
+                      <p className="px-2 py-1.5 text-xs leading-relaxed text-muted-foreground">
+                        {t('settings.network.proxy.scopeHint')}
+                      </p>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </SettingsFormRow>
+              )
+            }}
+          />
 
           {/* Bypass — scope effect inlined in the title row */}
           <FormField
@@ -460,7 +460,7 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
                     name={field.name}
                     onBlur={field.onBlur}
                     className="min-h-20 text-xs"
-                    placeholder={'localhost\n127.0.0.1\n*.local'}
+                    placeholder={t('settings.network.proxy.bypassPlaceholder')}
                     value={(field.value ?? []).join('\n')}
                     onChange={(e) => {
                       const lines = e.target.value

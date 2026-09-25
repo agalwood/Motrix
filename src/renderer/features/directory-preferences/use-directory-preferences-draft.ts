@@ -6,16 +6,16 @@ import {
   type GeneralSettingsApp,
   type GeneralSettingsErrorCode,
   GeneralSettingsResultSchema,
-  type GeneralSettingsSnapshot,
   type SaveGeneralSettingsRequest,
 } from '@shared/schemas/general-settings'
+import type { SettingsUpdateResult } from '@shared/schemas/settings-update'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { z } from 'zod'
 
 export const DIRECTORY_DRAFT_TIMEOUT = 20_000
 export const GENERAL_SETTINGS_SAVE_ATTEMPTS = 3
 
 type AppPatch = SaveGeneralSettingsRequest['app']
-type AppKey = keyof GeneralSettingsApp
 interface AppDraft {
   values: GeneralSettingsApp
   dirty: AppPatch
@@ -42,12 +42,15 @@ export function directoryPreferenceEdits(
   }
 }
 
-async function request(
+export async function requestDirectoryDraft<T>(
   channel:
     | typeof Queries.GetGeneralSettingsDraft
-    | typeof Commands.SaveGeneralSettings,
-  args: unknown
-) {
+    | typeof Commands.SaveGeneralSettings
+    | typeof Queries.GetDownloadsSettingsDraft
+    | typeof Commands.SaveDownloadsSettings,
+  args: unknown,
+  schema: z.ZodType<T>
+): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined
   try {
     const value = await Promise.race([
@@ -59,28 +62,53 @@ async function request(
         )
       }),
     ])
-    return GeneralSettingsResultSchema.parse(value)
+    return schema.parse(value)
   } finally {
     clearTimeout(timer)
   }
 }
 
-type State = {
-  baseline: GeneralSettingsSnapshot | null
+interface DraftSnapshot<Values> {
+  revision: string
+  app: Values
+  directoryPreferences: DirectoryPreferences
+}
+type DraftResult<Values> =
+  | { ok: true; value: DraftSnapshot<Values>; update?: SettingsUpdateResult }
+  | {
+      ok: false
+      error: { code: GeneralSettingsErrorCode }
+      snapshot?: DraftSnapshot<Values>
+    }
+interface RevisionedOptions<Values extends object> {
+  getAppDraft?: () => { values: Values; dirty: Partial<Values> }
+  onAppRebase?: (baseline: Values, intent: Partial<Values>) => void
+  request: (
+    channel: 'load' | 'save',
+    args: {
+      expectedRevision?: string
+      app?: Partial<Values>
+      directories?: SaveGeneralSettingsRequest['directories']
+    }
+  ) => Promise<DraftResult<Values>>
+  onSaved?: (update: SettingsUpdateResult) => Promise<void>
+}
+type State<Values> = {
+  baseline: DraftSnapshot<Values> | null
   preferences: DirectoryPreferences
   loading: boolean
   saving: boolean
   error: GeneralSettingsErrorCode | null
 }
-type Intent = {
+type Intent<Values> = {
   favorites: Map<string, boolean>
   removeRecent: Set<string>
-  app: AppPatch
+  app: Partial<Values>
 }
 
-function applyDirectoryIntent(
+function applyDirectoryIntent<Values>(
   authority: DirectoryPreferences,
-  intent: Intent
+  intent: Intent<Values>
 ): DirectoryPreferences {
   return {
     favorites: [
@@ -98,8 +126,10 @@ function applyDirectoryIntent(
 }
 
 /** A draft owns explicit intent; a queue-checked revision fences uncertain writes. */
-export function useDirectoryPreferencesDraft(options: Options = {}) {
-  const [state, setState] = useState<State>({
+export function useRevisionedDirectoryDraft<Values extends object>(
+  options: RevisionedOptions<Values>
+) {
+  const [state, setState] = useState<State<Values>>({
     baseline: null,
     preferences: { favorites: [], recent: [] },
     loading: true,
@@ -117,13 +147,13 @@ export function useDirectoryPreferencesDraft(options: Options = {}) {
   const submitted = useRef({
     favorites: new Set<string>(),
     recent: new Set<string>(),
-    app: new Set<AppKey>(),
+    app: new Set<keyof Values>(),
   })
-  const update = useCallback((patch: Partial<State>) => {
+  const update = useCallback((patch: Partial<State<Values>>) => {
     latest.current = { ...latest.current, ...patch }
     setState(latest.current)
   }, [])
-  const captureIntent = useCallback((): Intent => {
+  const captureIntent = useCallback((): Intent<Values> => {
     const current = latest.current
     const baseline = current.baseline?.directoryPreferences ?? {
       favorites: [],
@@ -136,7 +166,7 @@ export function useDirectoryPreferencesDraft(options: Options = {}) {
       ...edits.removeFavorites,
     ])
     const appDraft = callbacks.current.getAppDraft?.()
-    const app: AppPatch = { ...appDraft?.dirty }
+    const app: Partial<Values> = { ...appDraft?.dirty }
     if (appDraft) {
       for (const key of submitted.current.app)
         Object.assign(app, { [key]: appDraft.values[key] })
@@ -156,7 +186,7 @@ export function useDirectoryPreferencesDraft(options: Options = {}) {
     }
   }, [])
   const rebase = useCallback(
-    (authority: GeneralSettingsSnapshot, intent: Intent) => {
+    (authority: DraftSnapshot<Values>, intent: Intent<Values>) => {
       update({
         baseline: authority,
         preferences: applyDirectoryIntent(
@@ -175,7 +205,7 @@ export function useDirectoryPreferencesDraft(options: Options = {}) {
     const intent = captureIntent()
     update({ loading: true, error: null })
     try {
-      const result = await request(Queries.GetGeneralSettingsDraft, {})
+      const result = await callbacks.current.request('load', {})
       if (!mounted.current || current !== generation.current) return
       if (result.ok) rebase(result.value, intent)
       else update({ error: result.error.code })
@@ -211,7 +241,7 @@ export function useDirectoryPreferencesDraft(options: Options = {}) {
     for (const path of intent.favorites.keys())
       submitted.current.favorites.add(path)
     for (const path of intent.removeRecent) submitted.current.recent.add(path)
-    for (const key of Object.keys(intent.app) as AppKey[])
+    for (const key of Object.keys(intent.app) as (keyof Values)[])
       submitted.current.app.add(key)
     const current = ++generation.current
     saving.current = true
@@ -224,7 +254,7 @@ export function useDirectoryPreferencesDraft(options: Options = {}) {
       ) {
         // Never short-circuit an empty delta: it must advance the host revision
         // before a previously timed-out request is allowed to finish validation.
-        const result = await request(Commands.SaveGeneralSettings, {
+        const result = await callbacks.current.request('save', {
           expectedRevision: authority.revision,
           app: intent.app,
           directories: directoryPreferenceEdits(
@@ -244,6 +274,7 @@ export function useDirectoryPreferencesDraft(options: Options = {}) {
             removeRecent: new Set(),
             app: {},
           })
+          if (result.update) await callbacks.current.onSaved?.(result.update)
           return true
         }
         if (result.snapshot) {
@@ -278,4 +309,19 @@ export function useDirectoryPreferencesDraft(options: Options = {}) {
     refresh,
     save,
   }
+}
+
+/** Legacy directory-only consumers keep their existing wire contract. */
+export function useDirectoryPreferencesDraft(options: Options = {}) {
+  return useRevisionedDirectoryDraft<GeneralSettingsApp>({
+    ...options,
+    request: (channel, args) =>
+      requestDirectoryDraft(
+        channel === 'load'
+          ? Queries.GetGeneralSettingsDraft
+          : Commands.SaveGeneralSettings,
+        args,
+        GeneralSettingsResultSchema
+      ),
+  })
 }

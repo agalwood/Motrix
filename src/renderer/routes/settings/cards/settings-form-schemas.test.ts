@@ -12,8 +12,10 @@ import {
   DEFAULT_GEOIP_SETTINGS,
   geoIpSettingsInputSchema,
 } from '@shared/schemas/geoip-settings'
+import { DEFAULT_SPEED_LIMIT_SETTINGS } from '@shared/schemas/speed-limit'
 import { describe, expect, it } from 'vitest'
 import type { z } from 'zod'
+import { downloadsFormSchema } from './downloads-form'
 import {
   advancedFormSchema,
   appearanceFormSchema,
@@ -24,6 +26,14 @@ import {
 } from './settings-form-schemas'
 
 const forms: Record<string, { schema: z.ZodType; values: object }> = {
+  downloads: {
+    schema: downloadsFormSchema,
+    values: {
+      app: { ...DEFAULT_APP_SETTINGS, defaultSaveDir: '/downloads' },
+      engine: DEFAULT_ENGINE_SETTINGS,
+      speedLimit: DEFAULT_SPEED_LIMIT_SETTINGS,
+    },
+  },
   general: {
     schema: generalFormSchema,
     values: { ...DEFAULT_APP_SETTINGS, defaultSaveDir: '/Downloads' },
@@ -44,6 +54,7 @@ const forms: Record<string, { schema: z.ZodType; values: object }> = {
       engine: DEFAULT_ENGINE_SETTINGS,
       app: DEFAULT_APP_SETTINGS,
       tracker: DEFAULT_TRACKER_SETTINGS,
+      geoip: DEFAULT_GEOIP_SETTINGS,
     },
   },
   integration: {
@@ -72,11 +83,11 @@ describe('Settings form schemas', () => {
   )
 
   it.each([
-    ['general', 'defaultSaveDir', '  '],
+    ['downloads', 'app.defaultSaveDir', '  '],
     ['general', 'notifyOnComplete', 'yes'],
     ['appearance', 'theme', 'unknown'],
     ['appearance', 'trayIconColor', 'white'],
-    ['appearance', 'runMode', 999],
+    ['general', 'runMode', 999],
     ['advanced', 'rpcPort', 65536],
     ['advanced', 'rpcPort', NaN],
     ['advanced', 'rpcPort', 1234.5],

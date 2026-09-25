@@ -370,7 +370,7 @@ describe('<AboutDialog>', () => {
     ).toBeInTheDocument()
     expect(
       screen.getByText(
-        'This build of Motrix doesn’t support automatic updates. Download the latest release from the official website.'
+        'This version cannot update automatically. Download the latest version from the official website.'
       )
     ).toBeInTheDocument()
     const checkButton = screen.getByRole('button', {
@@ -412,10 +412,8 @@ describe('<AboutDialog>', () => {
       app: { updateChannel: 'beta' },
     })
     expect(channel).toHaveTextContent('Beta')
-    expect(
-      screen.getByText(/Beta releases may be less reliable/)
-    ).toHaveTextContent(
-      'Switching back to Stable stops future betas but never installs an older version automatically.'
+    expect(screen.getByText(/Beta may be less stable/)).toHaveTextContent(
+      'Switching back stops beta updates without downgrading.'
     )
   })
 
