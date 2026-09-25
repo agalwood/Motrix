@@ -1,3 +1,12 @@
+import {
+  CheckIcon,
+  DragIcon,
+  PanelCompactIcon,
+  PanelHeaderIcon,
+  PanelWideIcon,
+  RemoveIcon,
+  ResizeIcon,
+} from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import {
   DropdownMenu,
@@ -17,15 +26,6 @@ import type {
   DashboardTileLayout,
   DashboardTileSpan,
 } from '@shared/types/settings'
-import {
-  Check,
-  GripVertical,
-  MoveDiagonal2,
-  PanelTop,
-  Square,
-  StretchHorizontal,
-  Trash2,
-} from 'lucide-react'
 import type React from 'react'
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -159,7 +159,7 @@ export function DashboardTileFrame({
                   onDragHandlePointerDown?.(tile.id, event)
                 }
               >
-                <GripVertical aria-hidden />
+                <DragIcon aria-hidden />
               </Button>
             </ControlTooltip>
             <ControlTooltip label={labels.remove}>
@@ -170,7 +170,7 @@ export function DashboardTileFrame({
                 aria-label={labels.remove}
                 onClick={() => onRemove?.(tile.id)}
               >
-                <Trash2 aria-hidden />
+                <RemoveIcon aria-hidden />
               </Button>
             </ControlTooltip>
             <DropdownMenu onOpenChange={() => setHintReason(null)}>
@@ -264,7 +264,7 @@ export function DashboardTileFrame({
                             </span>
                           </span>
                           {selected ? (
-                            <Check
+                            <CheckIcon
                               aria-hidden
                               className="size-3.5 text-foreground"
                             />
@@ -293,7 +293,7 @@ export function DashboardTileFrame({
               onResizeHandlePointerDown?.(tile.id, event)
             }
           >
-            <MoveDiagonal2 aria-hidden className="size-3" />
+            <ResizeIcon aria-hidden className="size-3" />
           </Button>
         </>
       ) : null}
@@ -304,14 +304,14 @@ export function DashboardTileFrame({
 function SizeIcon({ span }: { span: DashboardTileSpan }) {
   switch (dashboardTileOrientation(span)) {
     case 'wide':
-      return <StretchHorizontal aria-hidden />
+      return <PanelWideIcon aria-hidden />
     case 'tall':
-      return <PanelTop aria-hidden className="rotate-90" />
+      return <PanelHeaderIcon aria-hidden className="rotate-90" />
     case 'square':
       return span.w === 1 ? (
-        <Square aria-hidden />
+        <PanelCompactIcon aria-hidden />
       ) : (
-        <PanelTop aria-hidden className="rotate-180" />
+        <PanelHeaderIcon aria-hidden className="rotate-180" />
       )
   }
 }

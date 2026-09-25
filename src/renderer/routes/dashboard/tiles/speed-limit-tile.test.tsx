@@ -71,7 +71,7 @@ describe('SpeedLimitTile', () => {
     expect(
       screen
         .getByTestId('speed-limit-rates')
-        .querySelectorAll('.lucide-infinity')
+        .querySelectorAll('[data-icon="unlimited"]')
     ).toHaveLength(2)
     expect(container.querySelector('[data-slot="status-dot"]')).toBeNull()
   })
@@ -94,7 +94,7 @@ describe('SpeedLimitTile', () => {
     )
     expect(screen.queryByTestId('speed-limit-rates')).not.toBeInTheDocument()
     expect(screen.getByTestId('speed-limit-selector')).toHaveClass(
-      'grid-cols-3',
+      'grid-cols-[repeat(3,36px)]',
       'pt-2'
     )
     expect(

@@ -1,3 +1,4 @@
+import { CloseIcon } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import {
   FormControl,
@@ -7,7 +8,6 @@ import {
 } from '@renderer/components/ui/form'
 import { Input } from '@renderer/components/ui/input'
 import { settingsValidationError } from '@renderer/lib/settings-validation'
-import { X } from 'lucide-react'
 import { useId, useState } from 'react'
 import { useController, useFormContext } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -92,7 +92,7 @@ export function EndpointList({
                   update(entries.filter((_, position) => position !== index))
                 }
               >
-                <X className="h-3 w-3" />
+                <CloseIcon className="h-3 w-3" />
               </Button>
               <FormMessage className="basis-full text-xs" />
             </FormItem>

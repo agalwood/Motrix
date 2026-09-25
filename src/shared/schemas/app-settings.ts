@@ -9,6 +9,7 @@ import {
 import { DirectoryPreferencesSchema } from './directory-preferences'
 import { supportedLocaleSchema } from './locale'
 import { settingsInputObject } from './settings-input'
+import { sidebarColorSchema } from './sidebar-color'
 import { DEFAULT_TRAY_ICON_COLOR, trayIconColorSchema } from './tray-icon-color'
 
 export const appUpdateChannelSchema = z.enum(['stable', 'beta'])
@@ -27,6 +28,7 @@ export const appSettingsSchema = z.object({
   launchAtStartup: z.boolean().catch(false),
   showMainWindowAtLogin: z.boolean().catch(false),
   theme: z.enum(['system', 'light', 'dark']).catch('system'),
+  sidebarColor: sidebarColorSchema.catch('gray'),
   reduceMotion: z.boolean().catch(false),
   language: supportedLocaleSchema.catch(DEFAULT_LOCALE),
   byteUnitSystem: byteUnitSystemSchema.catch(DEFAULT_BYTE_UNIT_PREFERENCE),

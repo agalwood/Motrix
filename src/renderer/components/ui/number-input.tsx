@@ -1,8 +1,8 @@
+import { AddIcon, SubtractIcon } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import { ButtonGroup } from '@renderer/components/ui/button-group'
 import { Input } from '@renderer/components/ui/input'
 import { cn } from '@renderer/lib/utils'
-import { Minus, Plus } from 'lucide-react'
 
 export interface NumberInputProps {
   value: number | undefined
@@ -98,7 +98,7 @@ export function NumberInput({
         onClick={() => adjust(-step)}
         disabled={disabled || atMin}
       >
-        <Minus />
+        <SubtractIcon />
       </Button>
       <Button
         variant="outline"
@@ -108,7 +108,7 @@ export function NumberInput({
         onClick={() => adjust(step)}
         disabled={disabled || atMax}
       >
-        <Plus />
+        <AddIcon />
       </Button>
     </ButtonGroup>
   )

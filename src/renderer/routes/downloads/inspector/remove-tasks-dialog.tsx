@@ -1,3 +1,4 @@
+import { WarningIcon } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import { Checkbox } from '@renderer/components/ui/checkbox'
 import {
@@ -8,10 +9,8 @@ import {
   DialogTitle,
 } from '@renderer/components/ui/dialog'
 import { useByteFormat } from '@renderer/hooks/use-byte-format'
-
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
-import { AlertTriangle } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -131,7 +130,7 @@ export function RemoveTasksDialog({
         </div>
         {showEstimate && (
           <div className="flex items-center gap-2 rounded-md bg-yellow-100 px-3 py-2 text-xs text-yellow-900 dark:bg-yellow-900/30 dark:text-yellow-200">
-            <AlertTriangle className="size-3.5" />
+            <WarningIcon className="size-3.5" />
             <span>
               {t('panel.downloads.action.removeFilesEstimate', {
                 bytes: formatBytes(estimateDiskUsage(selected)),

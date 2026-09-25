@@ -36,6 +36,7 @@ import {
 import { Switch } from '@renderer/components/ui/switch'
 import { pickDirty } from '@renderer/lib/form-utils'
 import { saveSettings } from '@renderer/lib/settings-save'
+import { useSidebarColorState } from '@renderer/lib/sidebar-color'
 import { transport } from '@renderer/lib/transport'
 import { RunMode } from '@shared/constants'
 import { isSupportedLocale, SUPPORTED_LOCALES } from '@shared/constants/locales'
@@ -47,10 +48,12 @@ import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SettingsCardDialogProps } from './card-types'
 import { appearanceFormSchema } from './settings-form-schemas'
+import { SidebarColorPicker } from './sidebar-color-picker'
 
 type AppearanceFields = Pick<
   MotrixAppSettings,
   | 'theme'
+  | 'sidebarColor'
   | 'reduceMotion'
   | 'language'
   | 'byteUnitSystem'
@@ -66,6 +69,7 @@ type AppearanceFields = Pick<
 // fields it edits. Keep this Pick<> in sync if the schema fields change.
 const DEFAULTS: AppearanceFields = {
   theme: DEFAULT_APP_SETTINGS.theme,
+  sidebarColor: DEFAULT_APP_SETTINGS.sidebarColor,
   reduceMotion: DEFAULT_APP_SETTINGS.reduceMotion,
   language: DEFAULT_APP_SETTINGS.language,
   byteUnitSystem: DEFAULT_APP_SETTINGS.byteUnitSystem,
@@ -104,6 +108,7 @@ export function AppearanceDialog({
         if (all?.app) {
           form.reset({
             theme: all.app.theme,
+            sidebarColor: all.app.sidebarColor ?? DEFAULTS.sidebarColor,
             reduceMotion: all.app.reduceMotion ?? DEFAULTS.reduceMotion,
             language: all.app.language,
             byteUnitSystem: all.app.byteUnitSystem ?? DEFAULTS.byteUnitSystem,
@@ -127,6 +132,15 @@ export function AppearanceDialog({
     }
   }, [])
 
+  const sidebarColor = form.watch('sidebarColor')
+  const colorIsDirty = !!form.formState.dirtyFields.sidebarColor
+  useEffect(() => {
+    useSidebarColorState.setState({
+      preview: open && colorIsDirty ? sidebarColor : null,
+    })
+    return () => useSidebarColorState.setState({ preview: null })
+  }, [open, colorIsDirty, sidebarColor])
+
   const onSubmit = useSettingsSubmit(form, async (values) => {
     const dirty = pickDirty(values, form.formState.dirtyFields)
     if (!dirty) {
@@ -134,6 +148,12 @@ export function AppearanceDialog({
       return
     }
     await saveSettings({ app: dirty })
+    if (dirty.sidebarColor !== undefined) {
+      useSidebarColorState.setState((state) => ({
+        saved: dirty.sidebarColor,
+        revision: state.revision + 1,
+      }))
+    }
     onClose()
   })
 
@@ -258,6 +278,26 @@ export function AppearanceDialog({
                               </SelectGroup>
                             </SelectContent>
                           </Select>
+                        </FormControl>
+                      </SettingsFormRow>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="sidebarColor"
+                    render={({ field }) => (
+                      <SettingsFormRow className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                        <FormLabel className="sm:pt-2">
+                          {t('settings.appearance.sidebarColor')}
+                        </FormLabel>
+                        <FormControl>
+                          <SidebarColorPicker
+                            value={field.value}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            disabled={form.formState.isSubmitting}
+                          />
                         </FormControl>
                       </SettingsFormRow>
                     )}

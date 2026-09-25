@@ -1,10 +1,14 @@
+import {
+  InstallIcon,
+  RefreshIcon,
+  RestartIcon,
+} from '@renderer/components/icons'
 import { Alert } from '@renderer/components/ui/alert'
 import { Button } from '@renderer/components/ui/button'
 import { Spinner } from '@renderer/components/ui/spinner'
 import { cn } from '@renderer/lib/utils'
 import type { AppUpdateState } from '@shared/types/app-update'
 import type { AppUpdateChannel } from '@shared/types/settings'
-import { DownloadIcon, RefreshCwIcon, RotateCwIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -153,7 +157,7 @@ function updateAction(
       return {
         label: t('settings.about.update.checkAction'),
         accessibleLabel: t('settings.about.update.check'),
-        icon: <RefreshCwIcon data-icon="inline-start" aria-hidden="true" />,
+        icon: <RefreshIcon data-icon="inline-start" aria-hidden="true" />,
         disabled: true,
         variant: 'default',
       }
@@ -167,7 +171,7 @@ function updateAction(
     case 'available':
       return {
         label: t('settings.about.update.download'),
-        icon: <DownloadIcon data-icon="inline-start" aria-hidden="true" />,
+        icon: <InstallIcon data-icon="inline-start" aria-hidden="true" />,
         variant: 'default',
         run: actions.download,
       }
@@ -175,14 +179,14 @@ function updateAction(
       return {
         label: <span className="tabular-nums">{progress}%</span>,
         accessibleLabel: `${t('settings.about.update.downloading')} ${progress}%`,
-        icon: <DownloadIcon data-icon="inline-start" aria-hidden="true" />,
+        icon: <InstallIcon data-icon="inline-start" aria-hidden="true" />,
         disabled: true,
         variant: 'default',
       }
     case 'downloaded':
       return {
         label: t('settings.about.update.restart'),
-        icon: <RotateCwIcon data-icon="inline-start" aria-hidden="true" />,
+        icon: <RestartIcon data-icon="inline-start" aria-hidden="true" />,
         variant: 'default',
         run: actions.install,
       }
@@ -190,7 +194,7 @@ function updateAction(
     case 'error':
       return {
         label: t('settings.about.update.retry'),
-        icon: <RefreshCwIcon data-icon="inline-start" aria-hidden="true" />,
+        icon: <RefreshIcon data-icon="inline-start" aria-hidden="true" />,
         variant: 'default',
         run: state.availableVersion ? actions.download : actions.check,
       }
@@ -198,7 +202,7 @@ function updateAction(
       return {
         label: t('settings.about.update.checkAction'),
         accessibleLabel: t('settings.about.update.check'),
-        icon: <RefreshCwIcon data-icon="inline-start" aria-hidden="true" />,
+        icon: <RefreshIcon data-icon="inline-start" aria-hidden="true" />,
         variant: 'default',
         run: actions.check,
       }

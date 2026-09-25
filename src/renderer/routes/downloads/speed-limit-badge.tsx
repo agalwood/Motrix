@@ -1,3 +1,4 @@
+import { ChevronDownIcon } from '@renderer/components/icons'
 import { SPEED_LIMIT_MODES } from '@renderer/components/speed-limit-modes'
 import { Badge } from '@renderer/components/ui/badge'
 import {
@@ -20,7 +21,6 @@ import { useSpeedLimitState } from '@renderer/hooks/use-speed-limit-state'
 import { saveSettings } from '@renderer/lib/settings-save'
 import { cn } from '@renderer/lib/utils'
 import type { TurtleState } from '@shared/types/settings'
-import { ChevronDown } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
@@ -94,7 +94,7 @@ export function SpeedLimitBadge() {
         >
           <Icon aria-hidden="true" />
           {mode}
-          <ChevronDown aria-hidden="true" className="opacity-55" />
+          <ChevronDownIcon aria-hidden="true" className="opacity-55" />
         </TooltipTrigger>
         <TooltipContent side="top" align="start" sideOffset={8}>
           <div className="space-y-1">

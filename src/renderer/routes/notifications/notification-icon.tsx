@@ -1,18 +1,23 @@
+import {
+  InfoIcon,
+  StatusCompleteIcon,
+  StatusFailedIcon,
+  WarningIcon,
+} from '@renderer/components/icons'
 import { cn } from '@renderer/lib/utils'
 import {
   type AppNotification,
   NotificationKinds,
 } from '@shared/types/notification'
-import { CircleCheck, CircleX, Info, TriangleAlert } from 'lucide-react'
 
 const severityIcons = {
-  info: { icon: Info, className: 'text-muted-foreground' },
+  info: { icon: InfoIcon, className: 'text-muted-foreground' },
   warning: {
-    icon: TriangleAlert,
+    icon: WarningIcon,
     className: 'text-[#8b784d] dark:text-[#baa574]',
   },
   error: {
-    icon: CircleX,
+    icon: StatusFailedIcon,
     className: 'text-[#a96360] dark:text-[#c98f89]',
   },
 }
@@ -20,7 +25,7 @@ const severityIcons = {
 export function NotificationIcon({ item }: { item: AppNotification }) {
   const complete = item.kind === NotificationKinds.TaskComplete
   const severity = severityIcons[item.severity] ?? severityIcons.info
-  const Icon = complete ? CircleCheck : severity.icon
+  const Icon = complete ? StatusCompleteIcon : severity.icon
 
   return (
     <span

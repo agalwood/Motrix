@@ -2,6 +2,12 @@ import {
   PANEL_TITLE_CLASS,
   PanelShell,
 } from '@renderer/components/desktop-kit/panel/panel-shell'
+import {
+  ChangelogIcon,
+  PluginUpdateIcon,
+  RefreshIcon,
+  UndoIcon,
+} from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import {
   ScrollArea,
@@ -28,7 +34,6 @@ import { cn } from '@renderer/lib/utils'
 import { usePlatformServices } from '@renderer/platform/services'
 import { Commands } from '@shared/protocol/commands'
 import type { JsonSchemaNode, PluginManifestDTO } from '@shared/types/plugin'
-import { CircleFadingArrowUp, RefreshCw, ScrollText, Undo2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
@@ -203,7 +208,7 @@ export function PluginDetailPage() {
                         onClick={() => setTab('logs')}
                         aria-label={t('plugins.detail.logs')}
                       >
-                        <ScrollText className="size-4 text-foreground" />
+                        <ChangelogIcon className="size-4 text-foreground" />
                       </Button>
                     }
                   />
@@ -229,7 +234,7 @@ export function PluginDetailPage() {
                           })}
                           data-testid="plugin-update-btn"
                         >
-                          <CircleFadingArrowUp className="size-4 text-foreground" />
+                          <PluginUpdateIcon className="size-4 text-foreground" />
                         </Button>
                       ) : (
                         <Button
@@ -240,7 +245,7 @@ export function PluginDetailPage() {
                           aria-label={t('plugins.registry.refresh')}
                           data-testid="plugin-detail-refresh-btn"
                         >
-                          <RefreshCw
+                          <RefreshIcon
                             className={cn(
                               'size-4 text-foreground',
                               refreshing && 'animate-spin'
@@ -292,7 +297,7 @@ export function PluginDetailPage() {
                             }
                           }}
                         >
-                          <Undo2 className="size-4 text-foreground" />
+                          <UndoIcon className="size-4 text-foreground" />
                         </Button>
                       }
                     />

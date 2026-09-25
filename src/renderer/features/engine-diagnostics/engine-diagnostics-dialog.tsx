@@ -1,5 +1,14 @@
 import { CopyButton } from '@renderer/components/desktop-kit/copy-button'
 import {
+  ChevronRightIcon,
+  CloseIcon,
+  DiagnosticReportIcon,
+  LoadingIcon,
+  ResetIcon,
+  StatusCompleteIcon,
+  StatusFailedIcon,
+} from '@renderer/components/icons'
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -50,15 +59,6 @@ import {
   type EngineRecoveryResult,
   EngineState,
 } from '@shared/types/engine'
-import {
-  CheckCircle2,
-  ChevronRight,
-  CircleX,
-  FileText,
-  LoaderCircle,
-  RotateCcw,
-  X,
-} from 'lucide-react'
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -253,10 +253,10 @@ export function EngineDiagnosticsDialogHost() {
       })
     : t(`${key}.runtime.${connection}`)
   const StatusIcon = healthy
-    ? CheckCircle2
+    ? StatusCompleteIcon
     : transitioning
-      ? LoaderCircle
-      : CircleX
+      ? LoadingIcon
+      : StatusFailedIcon
   const version = report?.binary.version
   const engineName = version?.includes('-motrix.')
     ? t(`${key}.motrixEngine`)
@@ -314,7 +314,7 @@ export function EngineDiagnosticsDialogHost() {
                       : void recover(EngineRecoveryAction.RestoreDefaultPort)
                   }
                 >
-                  <RotateCcw aria-hidden="true" />
+                  <ResetIcon aria-hidden="true" />
                 </Button>
               </span>
             }
@@ -373,7 +373,7 @@ export function EngineDiagnosticsDialogHost() {
                   />
                 }
               >
-                <X aria-hidden="true" />
+                <CloseIcon aria-hidden="true" />
               </DialogClose>
             </div>
           </DialogHeader>
@@ -397,7 +397,7 @@ export function EngineDiagnosticsDialogHost() {
                     role="status"
                     className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground"
                   >
-                    <LoaderCircle
+                    <LoadingIcon
                       aria-hidden="true"
                       className="size-4 animate-spin"
                     />
@@ -492,7 +492,7 @@ export function EngineDiagnosticsDialogHost() {
                       className="mt-3 mb-2"
                     >
                       <CollapsibleTrigger className="group -mx-3 flex min-h-12 w-[calc(100%+1.5rem)] items-center gap-3 rounded-lg px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                        <FileText
+                        <DiagnosticReportIcon
                           aria-hidden="true"
                           className="size-4 shrink-0 text-muted-foreground"
                         />
@@ -505,7 +505,7 @@ export function EngineDiagnosticsDialogHost() {
                             {engineName} {version ?? t(`${key}.versionUnknown`)}
                           </span>
                         </span>
-                        <ChevronRight
+                        <ChevronRightIcon
                           aria-hidden="true"
                           className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-150 group-data-panel-open:rotate-90 motion-reduce:transition-none"
                         />
@@ -619,7 +619,7 @@ export function EngineDiagnosticsDialogHost() {
                 onClick={load}
               >
                 {loading && (
-                  <LoaderCircle aria-hidden="true" className="animate-spin" />
+                  <LoadingIcon aria-hidden="true" className="animate-spin" />
                 )}
                 {t(`${key}.runAgain`)}
               </Button>
@@ -642,7 +642,7 @@ export function EngineDiagnosticsDialogHost() {
                   }
                 >
                   {recovering && (
-                    <LoaderCircle aria-hidden="true" className="animate-spin" />
+                    <LoadingIcon aria-hidden="true" className="animate-spin" />
                   )}
                   {actionLabel}
                 </Button>

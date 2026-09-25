@@ -256,6 +256,8 @@ export function buildServerQueryHandlers(
       createDirectoryPreferencesHandlers(settingsManager).get,
 
     [Queries.GetSettings]: async () => settingsManager.get(),
+    // A remote server cannot read the browser user's operating-system accent.
+    [Queries.GetSystemAccentColor]: async () => null,
 
     [Queries.GetGeoIPStatus]: createGetGeoIPStatusHandler({ geoipManager }),
 

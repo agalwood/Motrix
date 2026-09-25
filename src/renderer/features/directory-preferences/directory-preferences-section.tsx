@@ -1,3 +1,10 @@
+import {
+  ChevronRightIcon,
+  FavoriteIcon,
+  FolderAddIcon,
+  FolderIcon,
+  RemoveIcon,
+} from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import {
   Collapsible,
@@ -11,7 +18,6 @@ import {
   type DirectoryPreferences,
 } from '@shared/schemas/directory-preferences'
 import type { GeneralSettingsErrorCode } from '@shared/schemas/general-settings'
-import { ChevronRight, Folder, FolderPlus, Star, Trash2 } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -154,7 +160,7 @@ export function DirectoryPreferencesSection({
           const favorite = preferences.favorites.includes(path)
           return (
             <li key={path} className="flex items-center gap-2 px-2 py-1">
-              <Folder className="size-4 shrink-0 text-muted-foreground" />
+              <FolderIcon className="size-4 shrink-0 text-muted-foreground" />
               <span
                 dir="ltr"
                 title={path}
@@ -181,7 +187,9 @@ export function DirectoryPreferencesSection({
                     })
                   }
                 >
-                  <Star className={favorite ? 'fill-current' : undefined} />
+                  <FavoriteIcon
+                    className={favorite ? 'fill-current' : undefined}
+                  />
                 </Button>
               )}
               <Button
@@ -213,7 +221,7 @@ export function DirectoryPreferencesSection({
                   )
                 }
               >
-                <Trash2 />
+                <RemoveIcon />
               </Button>
             </li>
           )
@@ -239,7 +247,7 @@ export function DirectoryPreferencesSection({
             disabled={busy}
             className="flex min-w-0 items-center gap-1 text-xs font-medium"
           >
-            <ChevronRight
+            <ChevronRightIcon
               className={`size-3.5 shrink-0 ${favoritesOpen ? 'rotate-90' : ''}`}
             />
             {t('directoryPreferences.favorites')}
@@ -255,7 +263,7 @@ export function DirectoryPreferencesSection({
             disabled={busy || full}
             onClick={() => void addFavorite()}
           >
-            <FolderPlus />
+            <FolderAddIcon />
             {t('directoryPreferences.addFavorite')}
           </Button>
         </div>
@@ -276,7 +284,7 @@ export function DirectoryPreferencesSection({
             disabled={busy}
             className="flex min-w-0 items-center gap-1 text-xs font-medium"
           >
-            <ChevronRight
+            <ChevronRightIcon
               className={`size-3.5 shrink-0 ${recentOpen ? 'rotate-90' : ''}`}
             />
             {t('directoryPreferences.recent')}

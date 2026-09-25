@@ -1218,7 +1218,19 @@
       "byteUnitSystemDesc": "用于文件大小与传输速度的显示。",
       "byteUnitDecimal": "十进制（MB、GB · 1000）",
       "byteUnitBinary": "二进制（MiB、GiB · 1024）",
-      "byteUnitSystemDefault": "跟随系统（{{units}}）"
+      "byteUnitSystemDefault": "跟随系统（{{units}}）",
+      "sidebarColor": "颜色",
+      "sidebarColors": {
+        "blue": "冰蓝",
+        "violet": "鸢紫",
+        "pink": "玫粉",
+        "orange": "琥橙",
+        "gold": "香槟",
+        "green": "薄荷",
+        "cyan": "湖青",
+        "gray": "淡灰",
+        "auto": "自动"
+      }
     },
     "about": {
       "appIconAlt": "Motrix 应用图标",

@@ -1218,7 +1218,19 @@
       "byteUnitSystemDesc": "用於檔案大小與傳輸速度的顯示。",
       "byteUnitDecimal": "十進位（MB、GB · 1000）",
       "byteUnitBinary": "二進位（MiB、GiB · 1024）",
-      "byteUnitSystemDefault": "跟隨系統（{{units}}）"
+      "byteUnitSystemDefault": "跟隨系統（{{units}}）",
+      "sidebarColor": "顏色",
+      "sidebarColors": {
+        "blue": "冰藍",
+        "violet": "鳶紫",
+        "pink": "玫粉",
+        "orange": "琥橙",
+        "gold": "香檳",
+        "green": "薄荷",
+        "cyan": "湖青",
+        "gray": "淡灰",
+        "auto": "自動"
+      }
     },
     "advanced": {
       "rpc": {

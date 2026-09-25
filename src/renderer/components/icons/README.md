@@ -1,0 +1,11 @@
+# Motrix icons
+
+Import semantic components and the `MotrixIcon` / `MotrixIconProps` types from this directory. Use those names directly in consumers, such as `SpeedUnlimitedIcon`, instead of aliases tied to a particular glyph or library. Domain roles may share a drawing while remaining independently replaceable: download navigation, active downloads and installation all currently use Lucide's Download.
+
+`MotrixIconProps` belongs to Motrix: standard SVG attributes plus `size` and an accessible `title`. `create-icon.tsx` has no icon-library dependency. It accepts a ref-capable glyph component and its set identifier. The glyph handles `size` and retains its own viewBox, geometry, color and stroke defaults. Library-specific options belong inside its adapter, not in the shared public type. Lucide mappings currently preserve native defaults and provider settings; speed modes use Rabbit, Turtle and Squirrel.
+
+To replace an icon, change its semantic module to import the new glyph and pass it to `createIcon`. For a raw SVG, provide a component that forwards its SVG ref/props/children, maps `size` to width and height, and preserves its native viewBox. A different library may need a small adapter to match that contract. Business components and tests continue to use the semantic name. There is no runtime registry or size observer.
+
+Every module uses a static import and marks the `createIcon(...)` call with `/* @__PURE__ */`. Keep the factory free of external side effects and retain that annotation so bundlers can remove unused mappings and glyphs from the barrel. `tests/scripts/icon-tree-shaking.test.ts` uses the renderer's Vite configuration to verify that importing DownloadIcon includes only its Lucide glyph.
+
+Icons are decorative by default. Supply a translated `title`, `aria-label` or `aria-labelledby` for a standalone meaningful image. SVG props, classes, children and refs are forwarded. `data-icon` identifies the semantic role; callers may override it for existing slot styling. `data-icon-set` identifies the implementation. The SVG keeps the `motrix-icon` class and the underlying library's classes, but consumers should not depend on library-specific classes or SVG paths.

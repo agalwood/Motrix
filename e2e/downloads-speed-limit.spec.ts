@@ -84,7 +84,7 @@ test('Downloads speed badge changes the existing mode and preserves its limits',
   const badge = mainWindow.locator('[data-slot="downloads-speed-limit"]')
   const rates = mainWindow.locator('[data-slot="downloads-transfer-rates"]')
   await expect(badge).toHaveAccessibleName('Speed mode: Standard')
-  await expect(badge.locator('.lucide-rabbit')).toHaveCount(1)
+  await expect(badge.locator('[data-icon="speed-unlimited"]')).toHaveCount(1)
   await expect(badge).toHaveCSS('height', '20px')
   await expect(rates.getByRole('term')).toHaveText([
     'Upload speed',
@@ -115,7 +115,7 @@ test('Downloads speed badge changes the existing mode and preserves its limits',
   await menu.getByRole('menuitemradio', { name: 'Low-speed mode' }).click()
   await expect(menu).toHaveCount(0)
   await expect(badge).toHaveAccessibleName('Speed mode: Low speed')
-  await expect(badge.locator('.lucide-turtle')).toHaveCount(1)
+  await expect(badge.locator('[data-icon="speed-limited"]')).toHaveCount(1)
   await expect(badge).toHaveAttribute('data-reduced', 'true')
   const readSettings = () =>
     mainWindow.evaluate(async (channel) => {
@@ -144,7 +144,7 @@ test('Downloads speed badge changes the existing mode and preserves its limits',
   await badge.click()
   await menu.getByRole('menuitemradio', { name: 'Automatic mode' }).click()
   await expect(badge).toHaveAccessibleName('Speed mode: Automatic')
-  await expect(badge.locator('.lucide-squirrel')).toHaveCount(1)
+  await expect(badge.locator('[data-icon="speed-auto"]')).toHaveCount(1)
   await expect(badge).toHaveAttribute('data-reduced', 'false')
   await expect.poll(readSettings).toMatchObject({ turtle: 'auto' })
 

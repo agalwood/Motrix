@@ -3,6 +3,15 @@ import { COMPACT_ACTION_CLASS } from '@renderer/components/desktop-kit/panel/hea
 import { Toolbar } from '@renderer/components/desktop-kit/toolbar/toolbar'
 import { ToolbarButton } from '@renderer/components/desktop-kit/toolbar/toolbar-button'
 import { ToolbarGroup } from '@renderer/components/desktop-kit/toolbar/toolbar-group'
+import {
+  AddIcon,
+  AdjustIcon,
+  CheckIcon,
+  CloseIcon,
+  LayoutTemplateIcon,
+  ResetIcon,
+  UndoIcon,
+} from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import {
   DropdownMenu,
@@ -31,15 +40,6 @@ import type {
   DashboardTileSpan,
   DashboardTileWidth,
 } from '@shared/types/settings'
-import {
-  Check,
-  LayoutTemplate,
-  Plus,
-  RotateCcw,
-  SlidersHorizontal,
-  Undo2,
-  X,
-} from 'lucide-react'
 import type React from 'react'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
@@ -706,7 +706,7 @@ function AddTileMenu({
         disabled={disabled}
         render={<DropdownMenuTrigger />}
       >
-        <Plus aria-hidden />
+        <AddIcon aria-hidden />
       </ToolbarButton>
       <DropdownMenuContent
         align="end"
@@ -755,7 +755,7 @@ function AddTileMenu({
                   </span>
                 </span>
                 {available ? (
-                  <Plus
+                  <AddIcon
                     aria-hidden
                     className="size-3.5 text-muted-foreground opacity-0 group-data-highlighted/layout-option:opacity-100"
                   />
@@ -808,7 +808,7 @@ function PresetMenu({
         className="w-auto gap-1.5 px-2.5 compact-header:size-6 compact-header:p-0"
         render={<DropdownMenuTrigger />}
       >
-        <LayoutTemplate aria-hidden />
+        <LayoutTemplateIcon aria-hidden />
         <span className="max-w-32 truncate compact-header:hidden">
           {currentLabel}
         </span>
@@ -828,7 +828,7 @@ function PresetMenu({
               {t(preset.titleKey)}
             </span>
             {currentPresetId === preset.id ? (
-              <Check className="size-3.5 shrink-0" aria-hidden />
+              <CheckIcon className="size-3.5 shrink-0" aria-hidden />
             ) : null}
           </DropdownMenuItem>
         ))}
@@ -836,7 +836,7 @@ function PresetMenu({
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="rounded-lg text-xs" onClick={onUndo}>
-              <Undo2 aria-hidden />
+              <UndoIcon aria-hidden />
               {undoLabel}
             </DropdownMenuItem>
           </>
@@ -1414,14 +1414,14 @@ export function DashboardGrid({
               onClick={cancelEditing}
               disabled={saving}
             >
-              <X aria-hidden />
+              <CloseIcon aria-hidden />
             </ToolbarButton>
             <ToolbarButton
               label={label.reset}
               onClick={resetDraft}
               disabled={saving}
             >
-              <RotateCcw aria-hidden />
+              <ResetIcon aria-hidden />
             </ToolbarButton>
             <ToolbarButton
               label={label.apply}
@@ -1429,7 +1429,7 @@ export function DashboardGrid({
               onClick={() => void applyDraft()}
               disabled={saving}
             >
-              <Check aria-hidden />
+              <CheckIcon aria-hidden />
               <span className="compact-header:hidden">{label.apply}</span>
             </ToolbarButton>
           </ToolbarGroup>
@@ -1471,7 +1471,7 @@ export function DashboardGrid({
               />
             }
           >
-            <SlidersHorizontal aria-hidden className="size-4" />
+            <AdjustIcon aria-hidden className="size-4" />
           </TooltipTrigger>
           {configurationUnavailable ? (
             <TooltipContent>{label.expandHint}</TooltipContent>

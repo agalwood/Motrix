@@ -9,6 +9,11 @@ import { PanelShell } from '@renderer/components/desktop-kit/panel/panel-shell'
 import { Toolbar } from '@renderer/components/desktop-kit/toolbar/toolbar'
 import { ToolbarButton } from '@renderer/components/desktop-kit/toolbar/toolbar-button'
 import { ToolbarGroup } from '@renderer/components/desktop-kit/toolbar/toolbar-group'
+import {
+  MarkAllReadIcon,
+  NotificationsIcon,
+  RemoveIcon,
+} from '@renderer/components/icons'
 import { useNotifications } from '@renderer/components/notification-center/use-notifications'
 import {
   Empty,
@@ -27,7 +32,6 @@ import { isTaskAvailable, resolveTaskRoute } from '@shared/lib/task-navigation'
 import { Queries } from '@shared/protocol/queries'
 import type { AppNotification } from '@shared/types/notification'
 import type { DownloadTask } from '@shared/types/task'
-import { Bell, CheckCheck, Trash2 } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
@@ -149,7 +153,7 @@ function NotificationRow({
           onClick={onDelete}
           className="notification-row-remove relative z-10 flex size-7 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none hover:bg-accent hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
         >
-          <Trash2 aria-hidden="true" className="size-3.5" />
+          <RemoveIcon aria-hidden="true" className="size-3.5" />
         </button>
       </div>
     </li>
@@ -245,14 +249,14 @@ export function NotificationsPage() {
               disabled={unreadCount === 0 || busy}
               onClick={() => void runAction(markAllRead)}
             >
-              <CheckCheck aria-hidden="true" />
+              <MarkAllReadIcon aria-hidden="true" />
             </ToolbarButton>
             <ToolbarButton
               label={t('notification.center.clearAll')}
               disabled={!hasItems || busy}
               onClick={() => void runAction(clear)}
             >
-              <Trash2 aria-hidden="true" />
+              <RemoveIcon aria-hidden="true" />
             </ToolbarButton>
           </ToolbarGroup>
         </Toolbar>
@@ -302,7 +306,7 @@ export function NotificationsPage() {
               <Empty className="flex-1 gap-1 px-4 py-8">
                 <EmptyHeader className="gap-1">
                   <EmptyMedia className="mb-2 size-12 rounded-2xl bg-black/5 text-muted-foreground dark:bg-white/8 [&_svg]:size-6">
-                    <Bell strokeWidth={1.5} />
+                    <NotificationsIcon strokeWidth={1.5} />
                   </EmptyMedia>
                   <EmptyTitle className="font-sans text-sm font-medium tracking-normal">
                     {t('notification.center.empty')}

@@ -1,8 +1,8 @@
+import { NotificationsIcon } from '@renderer/components/icons'
 import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@renderer/components/ui/sidebar'
-import { Bell } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router'
 import { useNotifications } from './use-notifications'
@@ -40,7 +40,7 @@ export function NotificationsNavItem() {
             tooltip={t('nav.notifications')}
             className="relative cursor-default"
           >
-            <Bell />
+            <NotificationsIcon />
             <span className="select-none">{t('nav.notifications')}</span>
             {unreadCount > 0 && (
               <>

@@ -1,3 +1,4 @@
+import { ChevronRightIcon, type MotrixIcon } from '@renderer/components/icons'
 import {
   Collapsible,
   CollapsibleContent,
@@ -14,7 +15,6 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from '@renderer/components/ui/sidebar'
-import { ChevronRight, type LucideIcon } from 'lucide-react'
 
 export function NavMain({
   items,
@@ -22,7 +22,7 @@ export function NavMain({
   items: {
     title: string
     url: string
-    icon: LucideIcon
+    icon: MotrixIcon
     isActive?: boolean
     items?: {
       title: string
@@ -54,7 +54,7 @@ export function NavMain({
                     <SidebarMenuAction className="data-panel-open:rotate-90" />
                   }
                 >
-                  <ChevronRight />
+                  <ChevronRightIcon />
                   <span className="sr-only">Toggle</span>
                 </CollapsibleTrigger>
                 <CollapsibleContent>

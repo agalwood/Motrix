@@ -1,3 +1,4 @@
+import { StatusErrorIcon } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import {
   Popover,
@@ -11,7 +12,6 @@ import {
 } from '@renderer/components/ui/tooltip'
 import type { DownloadInputLine } from '@shared/lib/download-source-input'
 import type { SourceCorrection } from '@shared/schemas/download-source'
-import { CircleAlert } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -63,7 +63,7 @@ export function UrlDiagnostic({
           }
           onClick={corrections.length ? undefined : () => onEdit(line)}
         >
-          <CircleAlert className="size-3.5" aria-hidden="true" />
+          <StatusErrorIcon className="size-3.5" aria-hidden="true" />
         </TooltipTrigger>
         <TooltipContent
           side={wrapped ? 'bottom' : 'top'}

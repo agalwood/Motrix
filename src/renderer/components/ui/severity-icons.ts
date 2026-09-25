@@ -1,10 +1,10 @@
-import type { LucideIcon } from 'lucide-react'
+import type { MotrixIcon } from '@renderer/components/icons'
 import {
-  CircleCheckIcon,
   InfoIcon,
-  OctagonXIcon,
-  TriangleAlertIcon,
-} from 'lucide-react'
+  StatusBlockedIcon,
+  StatusCompleteIcon,
+  WarningIcon,
+} from '@renderer/components/icons'
 
 /**
  * Severity icons and accents for toast feedback. The notification center
@@ -15,10 +15,10 @@ export type SeverityIconKind = 'success' | 'info' | 'warning' | 'error'
 
 export const SEVERITY_ICONS: Record<
   SeverityIconKind,
-  { icon: LucideIcon; iconClassName: string }
+  { icon: MotrixIcon; iconClassName: string }
 > = {
-  success: { icon: CircleCheckIcon, iconClassName: 'text-emerald-500' },
+  success: { icon: StatusCompleteIcon, iconClassName: 'text-emerald-500' },
   info: { icon: InfoIcon, iconClassName: 'text-sky-500' },
-  warning: { icon: TriangleAlertIcon, iconClassName: 'text-amber-500' },
-  error: { icon: OctagonXIcon, iconClassName: 'text-destructive' },
+  warning: { icon: WarningIcon, iconClassName: 'text-amber-500' },
+  error: { icon: StatusBlockedIcon, iconClassName: 'text-destructive' },
 }

@@ -1,3 +1,4 @@
+import { ColumnsIcon, InfoIcon } from '@renderer/components/icons'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -14,7 +15,6 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@renderer/components/ui/dropdown-menu'
-import { Columns3, Info } from 'lucide-react'
 import type { Ref } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DownloadsToolbarButton } from './downloads-toolbar-button'
@@ -145,7 +145,7 @@ export function ListViewMenu({
           />
         }
       >
-        <Columns3 className="size-4" />
+        <ColumnsIcon className="size-4" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" data-menu-density="compact">
         <ListViewMenuItems />
@@ -218,7 +218,7 @@ export function InspectorToggle({
         setVisible(!visible)
       }}
     >
-      <Info className="size-4" />
+      <InfoIcon className="size-4" />
     </DownloadsToolbarButton>
   )
 }

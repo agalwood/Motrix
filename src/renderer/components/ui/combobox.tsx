@@ -1,6 +1,11 @@
 'use client'
 
 import { Combobox as ComboboxPrimitive } from '@base-ui/react'
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  CloseIcon,
+} from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import {
   InputGroup,
@@ -8,9 +13,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from '@renderer/components/ui/input-group'
-
 import { cn } from '@renderer/lib/utils'
-import { CheckIcon, ChevronDownIcon, XIcon } from 'lucide-react'
 import * as React from 'react'
 
 const Combobox = ComboboxPrimitive.Root
@@ -47,7 +50,7 @@ function ComboboxClear({ className, ...props }: ComboboxPrimitive.Clear.Props) {
       className={cn(className)}
       {...props}
     >
-      <XIcon className="pointer-events-none" />
+      <CloseIcon className="pointer-events-none" />
     </ComboboxPrimitive.Clear>
   )
 }
@@ -263,7 +266,7 @@ function ComboboxChip({
           className="-ml-1 opacity-50 hover:opacity-100"
           data-slot="combobox-chip-remove"
         >
-          <XIcon className="pointer-events-none" />
+          <CloseIcon className="pointer-events-none" />
         </ComboboxPrimitive.ChipRemove>
       )}
     </ComboboxPrimitive.Chip>

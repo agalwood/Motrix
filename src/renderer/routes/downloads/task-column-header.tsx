@@ -1,11 +1,11 @@
 import { ResizeHandle } from '@renderer/components/desktop-kit/resize-handle'
+import { ChevronDownIcon, ChevronUpIcon } from '@renderer/components/icons'
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuTrigger,
 } from '@renderer/components/ui/context-menu'
 import { cn } from '@renderer/lib/utils'
-import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -67,7 +67,7 @@ export function TaskColumnHeader({
             : label
           const next = nextTaskSort(effectiveSort, id)
           const SortIcon =
-            effectiveSort.direction === 'asc' ? ChevronUp : ChevronDown
+            effectiveSort.direction === 'asc' ? ChevronUpIcon : ChevronDownIcon
           return (
             // biome-ignore lint/a11y/useSemanticElements: Column headers belong to the virtual ARIA grid.
             <div

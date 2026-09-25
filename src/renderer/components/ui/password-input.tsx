@@ -1,3 +1,4 @@
+import { ConcealIcon, RevealIcon } from '@renderer/components/icons'
 import {
   InputGroup,
   InputGroupAddon,
@@ -5,7 +6,6 @@ import {
   InputGroupInput,
 } from '@renderer/components/ui/input-group'
 import { cn } from '@renderer/lib/utils'
-import { Eye, EyeOff } from 'lucide-react'
 import { useState } from 'react'
 
 export interface PasswordInputProps {
@@ -64,7 +64,7 @@ export function PasswordInput({
           aria-pressed={revealed}
           onClick={() => setRevealed((v) => !v)}
         >
-          {revealed ? <EyeOff /> : <Eye />}
+          {revealed ? <ConcealIcon /> : <RevealIcon />}
         </InputGroupButton>
       </InputGroupAddon>
     </InputGroup>

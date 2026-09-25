@@ -1,6 +1,7 @@
 'use client'
 
 import { Autocomplete as AutocompletePrimitive } from '@base-ui/react'
+import { CloseIcon } from '@renderer/components/icons'
 import {
   InputGroup,
   InputGroupAddon,
@@ -8,7 +9,6 @@ import {
   InputGroupInput,
 } from '@renderer/components/ui/input-group'
 import { cn } from '@renderer/lib/utils'
-import { XIcon } from 'lucide-react'
 
 const Autocomplete = AutocompletePrimitive.Root
 
@@ -28,7 +28,7 @@ function AutocompleteClear({
       {...props}
       tabIndex={0}
     >
-      <XIcon aria-hidden="true" className="pointer-events-none" />
+      <CloseIcon aria-hidden="true" className="pointer-events-none" />
     </AutocompletePrimitive.Clear>
   )
 }

@@ -11,7 +11,7 @@ export type {
   EngineDisplayStatus,
 } from '@renderer/hooks/use-engine-display-status'
 
-import { Bug } from 'lucide-react'
+import { DiagnosticsIcon } from '@renderer/components/icons'
 import { useTranslation } from 'react-i18next'
 import { StatusDot } from '../components/status-dot'
 import { TileShell } from '../components/tile-shell'
@@ -88,7 +88,7 @@ export function EngineTile({
           onClick={onManage}
         >
           {compact ? (
-            <Bug
+            <DiagnosticsIcon
               className={cn(
                 'size-3.5 text-muted-foreground',
                 status.state === 'failed' ? 'text-destructive' : null

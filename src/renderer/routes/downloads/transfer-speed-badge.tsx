@@ -1,3 +1,4 @@
+import { TransferDownIcon, TransferUpIcon } from '@renderer/components/icons'
 import { Badge } from '@renderer/components/ui/badge'
 import {
   Tooltip,
@@ -7,7 +8,6 @@ import {
 import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { useGlobalStats } from '@renderer/hooks/use-global-stats'
 import { cn } from '@renderer/lib/utils'
-import { ArrowDown, ArrowUp } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 export function TransferSpeedBadge() {
@@ -17,12 +17,12 @@ export function TransferSpeedBadge() {
   const rates = [
     {
       key: 'upSpeed',
-      icon: ArrowUp,
+      icon: TransferUpIcon,
       speed: stats?.totalUploadSpeed,
     },
     {
       key: 'downSpeed',
-      icon: ArrowDown,
+      icon: TransferDownIcon,
       speed: stats?.totalDownloadSpeed,
     },
   ] as const

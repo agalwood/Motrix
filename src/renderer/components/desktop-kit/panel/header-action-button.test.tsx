@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
+import { AddIcon } from '@renderer/components/icons'
 import { SidebarProvider } from '@renderer/components/ui/sidebar'
 import { fireEvent, render, screen } from '@testing-library/react'
-import { Plus } from 'lucide-react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { HeaderActionButton } from './header-action-button'
 
@@ -36,7 +36,7 @@ describe('HeaderActionButton', () => {
     const onClick = vi.fn()
     render(
       <HeaderActionButton label="Install" onClick={onClick}>
-        <Plus aria-hidden />
+        <AddIcon aria-hidden />
       </HeaderActionButton>
     )
 
@@ -54,7 +54,7 @@ describe('HeaderActionButton', () => {
         visibleLabel="Custom"
         onClick={() => {}}
       >
-        <Plus aria-hidden />
+        <AddIcon aria-hidden />
       </HeaderActionButton>
     )
 
@@ -69,7 +69,7 @@ describe('HeaderActionButton', () => {
         label="Add"
         wrapTrigger={(button) => <div data-testid="trigger-slot">{button}</div>}
       >
-        <Plus aria-hidden />
+        <AddIcon aria-hidden />
       </HeaderActionButton>
     )
 
@@ -83,7 +83,7 @@ describe('HeaderActionButton', () => {
     render(
       <SidebarProvider defaultOpen={false}>
         <HeaderActionButton label="Install" onClick={() => {}}>
-          <Plus aria-hidden />
+          <AddIcon aria-hidden />
         </HeaderActionButton>
       </SidebarProvider>
     )

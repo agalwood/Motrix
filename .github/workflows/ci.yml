@@ -146,6 +146,9 @@ jobs:
       - name: File naming conventions
         run: pnpm run check:file-names
 
+      - name: Architecture and icon import boundaries
+        run: pnpm run check:boundaries
+
       # Fingerprint the resolved Biome first: lint verdicts have disagreed
       # between runs with identical inputs before, and the version line is
       # the fastest way to tell a toolchain drift from a real finding.

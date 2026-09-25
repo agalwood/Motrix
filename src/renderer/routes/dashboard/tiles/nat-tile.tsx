@@ -1,3 +1,8 @@
+import {
+  ArrowRightIcon,
+  MoreIcon,
+  RouterIcon,
+} from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import { DropdownMenuTrigger } from '@renderer/components/ui/dropdown-menu'
 import { NatStatusMenu } from '@renderer/features/nat/nat-status-menu'
@@ -7,7 +12,6 @@ import { NAT_STATUS_TEXT_KEY, natBucket } from '@renderer/lib/nat-status'
 import { formatRelativeTime } from '@renderer/lib/relative-time'
 import { cn } from '@renderer/lib/utils'
 import { type NatMapping, NatProtocol } from '@shared/types/nat'
-import { ArrowRight, Ellipsis, Router } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { StatusDot } from '../components/status-dot'
 import { TileShell } from '../components/tile-shell'
@@ -102,7 +106,7 @@ function ElectronNatTile({ viewport, className }: NatTileProps) {
               />
             }
           >
-            <Ellipsis className="size-3.5 text-muted-foreground" aria-hidden />
+            <MoreIcon className="size-3.5 text-muted-foreground" aria-hidden />
           </DropdownMenuTrigger>
         </NatStatusMenu>
       }
@@ -135,7 +139,7 @@ function ElectronNatTile({ viewport, className }: NatTileProps) {
         >
           {detailed ? (
             <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-muted/50">
-              <Router className="size-6 stroke-[1.5]" aria-hidden />
+              <RouterIcon className="size-6 stroke-[1.5]" aria-hidden />
             </div>
           ) : null}
           <p
@@ -329,7 +333,7 @@ function MappingList({ mappings }: { mappings: readonly NatMapping[] }) {
                   })}
                 </span>
                 <span aria-hidden>{mapping.internalPort}</span>
-                <ArrowRight
+                <ArrowRightIcon
                   className="size-3 text-muted-foreground"
                   aria-hidden
                 />

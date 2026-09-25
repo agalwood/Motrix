@@ -47,9 +47,9 @@ beforeEach(() => {
 
 describe('SpeedLimitBadge', () => {
   it.each([
-    ['off', 'Standard', 'rabbit'],
-    ['on', 'Low speed', 'turtle'],
-    ['auto', 'Automatic', 'squirrel'],
+    ['off', 'Standard', 'speed-unlimited'],
+    ['on', 'Low speed', 'speed-limited'],
+    ['auto', 'Automatic', 'speed-auto'],
   ] as const)(
     'shows the %s mode with its existing dashboard glyph',
     async (mode, label, icon) => {
@@ -58,7 +58,7 @@ describe('SpeedLimitBadge', () => {
       const button = screen.getByRole('button', {
         name: `Speed mode: ${label}`,
       })
-      expect(button.querySelector(`.lucide-${icon}`)).toBeInTheDocument()
+      expect(button.querySelector(`[data-icon="${icon}"]`)).toBeInTheDocument()
       await user.click(button)
       const radios = await screen.findAllByRole('menuitemradio')
       expect(radios).toHaveLength(3)

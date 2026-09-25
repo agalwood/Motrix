@@ -1,6 +1,15 @@
 import { CopyButton } from '@renderer/components/desktop-kit/copy-button'
 import { InspectorDrawer } from '@renderer/components/desktop-kit/inspector-drawer'
 import type { SelectionStore } from '@renderer/components/desktop-kit/selection/types'
+import {
+  ActivityIcon,
+  DiskIcon,
+  FilesIcon,
+  InfoIcon,
+  PeersIcon,
+  PiecesIcon,
+  TrackerIcon,
+} from '@renderer/components/icons'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import {
@@ -21,15 +30,6 @@ import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskType } from '@shared/types/task'
 import { canInspectPieces } from '@shared/types/task-actions'
-import {
-  Files,
-  Grid3x3,
-  HardDrive,
-  Info,
-  RadioTower,
-  SquareActivity,
-  UsersRound,
-} from 'lucide-react'
 import { useCallback, useLayoutEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ActivityTab } from './inspector/activity-tab'
@@ -148,7 +148,7 @@ export function TaskInspectorDrawer({
                               })
                             }
                           >
-                            <HardDrive className="mr-1 size-3.5 shrink-0 text-muted-foreground" />
+                            <DiskIcon className="mr-1 size-3.5 shrink-0 text-muted-foreground" />
                             <span className="truncate">
                               {single.finalPath || single.diskPath}
                             </span>
@@ -174,7 +174,7 @@ export function TaskInspectorDrawer({
                       aria-label={t('panel.downloads.inspector.tab.overview')}
                       title={t('panel.downloads.inspector.tab.overview')}
                     >
-                      <Info className="size-3.5" />
+                      <InfoIcon className="size-3.5" />
                     </TabsTrigger>
                     <TabsTrigger
                       value="files"
@@ -182,7 +182,7 @@ export function TaskInspectorDrawer({
                       aria-label={t('panel.downloads.inspector.tab.files')}
                       title={t('panel.downloads.inspector.tab.files')}
                     >
-                      <Files className="size-3.5" />
+                      <FilesIcon className="size-3.5" />
                     </TabsTrigger>
                     {showPieces && (
                       <TabsTrigger
@@ -191,7 +191,7 @@ export function TaskInspectorDrawer({
                         aria-label={t('panel.downloads.inspector.tab.pieces')}
                         title={t('panel.downloads.inspector.tab.pieces')}
                       >
-                        <Grid3x3 className="size-3.5" />
+                        <PiecesIcon className="size-3.5" />
                       </TabsTrigger>
                     )}
                     {isBt && (
@@ -201,7 +201,7 @@ export function TaskInspectorDrawer({
                         aria-label={t('panel.downloads.inspector.tab.peers')}
                         title={t('panel.downloads.inspector.tab.peers')}
                       >
-                        <UsersRound className="size-3.5" />
+                        <PeersIcon className="size-3.5" />
                       </TabsTrigger>
                     )}
                     {isBt && (
@@ -211,7 +211,7 @@ export function TaskInspectorDrawer({
                         aria-label={t('panel.downloads.inspector.tab.trackers')}
                         title={t('panel.downloads.inspector.tab.trackers')}
                       >
-                        <RadioTower className="size-3.5" />
+                        <TrackerIcon className="size-3.5" />
                       </TabsTrigger>
                     )}
                     <TabsTrigger
@@ -220,7 +220,7 @@ export function TaskInspectorDrawer({
                       aria-label={t('panel.downloads.inspector.tab.activity')}
                       title={t('panel.downloads.inspector.tab.activity')}
                     >
-                      <SquareActivity className="size-3.5" />
+                      <ActivityIcon className="size-3.5" />
                     </TabsTrigger>
                   </TabsList>
                   <TabsContent value="overview" className="min-h-0">

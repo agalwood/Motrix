@@ -1,6 +1,6 @@
 import { Toolbar as ToolbarPrimitive } from '@base-ui/react/toolbar'
+import { SearchIcon, StatusFailedIcon } from '@renderer/components/icons'
 import { cn } from '@renderer/lib/utils'
-import { CircleX, Search } from 'lucide-react'
 import {
   type ReactNode,
   type RefObject,
@@ -116,7 +116,7 @@ export function ToolbarSearch({
           {leading ? (
             leading({ anchorRef: rootRef, collapseIfIdle })
           ) : (
-            <Search
+            <SearchIcon
               aria-hidden="true"
               className="mx-2 size-4 shrink-0 text-muted-foreground"
             />
@@ -154,7 +154,7 @@ export function ToolbarSearch({
                 inputRef.current?.focus()
               }}
             >
-              <CircleX aria-hidden="true" />
+              <StatusFailedIcon aria-hidden="true" />
             </ToolbarButton>
           )}
         </>
@@ -168,7 +168,7 @@ export function ToolbarSearch({
             requestExpanded(true)
           }}
         >
-          <Search aria-hidden="true" />
+          <SearchIcon aria-hidden="true" />
         </ToolbarButton>
       )}
     </ToolbarGroup>

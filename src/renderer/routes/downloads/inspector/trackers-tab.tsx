@@ -1,4 +1,5 @@
 import { VirtualList } from '@renderer/components/desktop-kit/virtual-list/virtual-list'
+import { LockedIcon, RemoveIcon } from '@renderer/components/icons'
 import { Alert } from '@renderer/components/ui/alert'
 import { Button } from '@renderer/components/ui/button'
 import { Spinner } from '@renderer/components/ui/spinner'
@@ -13,7 +14,6 @@ import { cn } from '@renderer/lib/utils'
 import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
-import { Lock, Trash2 } from 'lucide-react'
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -275,7 +275,7 @@ export function TrackersTab({ task }: TrackersTabProps) {
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       {isPrivate && (
         <Alert className="shrink-0 flex items-center gap-2">
-          <Lock className="size-3.5 shrink-0" />
+          <LockedIcon className="size-3.5 shrink-0" />
           <span className="text-xs">
             {t('panel.downloads.inspector.trackers.privateBanner')}
           </span>
@@ -417,7 +417,7 @@ function TrackerRow({ row, onDelete, t }: TrackerRowProps) {
           className="opacity-0 transition-opacity duration-100 group-hover:opacity-100 group-focus-within:opacity-100"
           onClick={() => onDelete(row.url)}
         >
-          <Trash2 className="size-3.5" />
+          <RemoveIcon className="size-3.5" />
         </Button>
       ) : (
         <span className="size-6 shrink-0" aria-hidden="true" />

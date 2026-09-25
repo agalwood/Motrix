@@ -1530,7 +1530,7 @@ test('compact search filters the table and explains active query and type filter
   await expect(input).toBeFocused()
   await expect(root).toHaveAttribute('data-filter-active', 'false')
   const filter = mainWindow.getByRole('button', { name: /^Filters/ })
-  await expect(filter.locator('svg')).toHaveClass(/lucide-list-filter/)
+  await expect(filter.locator('svg')).toHaveAttribute('data-icon', 'filter')
   await input.fill('alpha')
   await expect(mainWindow.locator('[data-task-id]')).toHaveCount(2)
   await expect(root).toHaveAttribute('data-filter-active', 'true')

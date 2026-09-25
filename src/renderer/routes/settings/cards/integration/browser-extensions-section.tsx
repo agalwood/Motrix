@@ -1,3 +1,4 @@
+import { WarningIcon } from '@renderer/components/icons'
 import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
 import {
   Alert,
@@ -15,7 +16,6 @@ import { Switch } from '@renderer/components/ui/switch'
 import { browserDisplayName } from '@renderer/lib/browser-name'
 import { cn } from '@renderer/lib/utils'
 import type { PairedClientInfo } from '@shared/protocol/bridge'
-import { TriangleAlertIcon } from 'lucide-react'
 import { useFormContext } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { BrowserExtensionInstalls } from './browser-extension-installs'
@@ -69,7 +69,7 @@ export function BrowserExtensionsSection() {
 
       {status?.degraded && (
         <Alert className="border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-4 text-amber-900 dark:text-amber-200">
-          <TriangleAlertIcon />
+          <WarningIcon />
           <AlertTitle>
             {t('settings.integration.browser.degradedPort.title')}
           </AlertTitle>
@@ -83,7 +83,7 @@ export function BrowserExtensionsSection() {
 
       {status?.extensionPairingHealth === 'degraded' && (
         <Alert className="border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] leading-4 text-destructive">
-          <TriangleAlertIcon />
+          <WarningIcon />
           <AlertTitle>
             {t('settings.integration.browser.pairingStateDegraded.title')}
           </AlertTitle>

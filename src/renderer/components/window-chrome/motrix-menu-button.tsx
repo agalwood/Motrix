@@ -1,3 +1,4 @@
+import { ArrowLeftIcon, ChevronRightIcon } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import {
   DropdownMenu,
@@ -22,7 +23,6 @@ import type {
   ApplicationMenuNode,
   ExecuteApplicationMenuItemRequest,
 } from '@shared/schemas/application-menu'
-import { ArrowLeft, ChevronRight } from 'lucide-react'
 import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
@@ -170,7 +170,7 @@ function MenuTree({ items, queueExecution, enterSubmenu }: MenuTreeProps) {
           onClick={() => enterSubmenu(item)}
         >
           <ItemLabel item={item} />
-          <ChevronRight className="ms-auto size-3" />
+          <ChevronRightIcon className="ms-auto size-3" />
         </DropdownMenuItem>
       )
       continue
@@ -419,7 +419,7 @@ function ElectronMotrixMenuButton() {
               closeOnClick={false}
               onClick={() => setStack((items) => items.slice(0, -1))}
             >
-              <ArrowLeft className="size-3" />
+              <ArrowLeftIcon className="size-3" />
               {t('applicationMenu.back')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />

@@ -51,6 +51,7 @@ their patterns match the files under inspection or modification.
 | `electron-vite.md` | Build, packaging, native ABI, and pnpm |
 | `code-style.md` | TypeScript, React, CSS, and file naming |
 | `renderer.md` | Renderer state, components, forms, and transport |
+| `icons.md` | Semantic icon imports, library isolation, and tree shaking |
 | `panel-layout.md` | Viewport height and scrolling layout |
 | `i18n.md` | Locale catalogs and user-visible strings |
 | `domain-model.md` | Shared domain types, validation, and errors |

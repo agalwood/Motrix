@@ -43,6 +43,8 @@ export const ForwardableEvents = [
   Events.LocaleChanged,
   Events.ReducedMotionChanged,
   Events.LiquidGlassChanged,
+  Events.SidebarColorChanged,
+  Events.SystemAccentColorChanged,
   Events.ByteUnitSystemChanged,
   Events.DirectoryPreferencesChanged,
   Events.PluginConfigChanged,
