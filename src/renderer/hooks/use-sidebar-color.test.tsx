@@ -2,6 +2,7 @@ import { refreshRendererSettings } from '@renderer/lib/settings-refresh'
 import { useSidebarColorState } from '@renderer/lib/sidebar-color'
 import { transport } from '@renderer/lib/transport'
 import { Events } from '@shared/protocol/events'
+import { DEFAULT_APP_SETTINGS } from '@shared/schemas/app-settings'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { useSidebarColor } from './use-sidebar-color'
@@ -16,7 +17,11 @@ vi.mock('@renderer/lib/transport', () => ({
 }))
 beforeEach(() => {
   vi.clearAllMocks()
-  useSidebarColorState.setState({ saved: 'gray', preview: null, revision: 0 })
+  useSidebarColorState.setState({
+    saved: DEFAULT_APP_SETTINGS.sidebarColor,
+    preview: null,
+    revision: 0,
+  })
 })
 it('hydrates, previews, restores, and refreshes the saved tint after reconnect', async () => {
   vi.mocked(transport.invoke).mockResolvedValue({
@@ -116,3 +121,14 @@ it('follows system accent changes in Auto and leaves manual choices independent'
   await act(async () => refresh())
   expect(document.documentElement.dataset.sidebarColor).toBe('gray')
 })
+
+it.each([undefined, 'unknown'])(
+  'uses the cyan default for missing or invalid saved color %s',
+  async (sidebarColor) => {
+    vi.mocked(transport.invoke).mockResolvedValue({ app: { sidebarColor } })
+    renderHook(useSidebarColor)
+    await waitFor(() =>
+      expect(document.documentElement.dataset.sidebarColor).toBe('cyan')
+    )
+  }
+)

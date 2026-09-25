@@ -3,6 +3,7 @@ import { systemAccentHue } from '@renderer/lib/system-accent-color'
 import { transport } from '@renderer/lib/transport'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
+import { DEFAULT_APP_SETTINGS } from '@shared/schemas/app-settings'
 import { sidebarColorSchema } from '@shared/schemas/sidebar-color'
 import type { AppSettings } from '@shared/types/settings'
 import { useEffect, useState } from 'react'
@@ -36,7 +37,7 @@ export function useSidebarColor() {
         return
       useSidebarColorState.setState({
         saved: sidebarColorSchema
-          .catch('gray')
+          .catch(DEFAULT_APP_SETTINGS.sidebarColor)
           .parse(settings?.app?.sidebarColor),
       })
     },

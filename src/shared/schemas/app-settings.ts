@@ -28,7 +28,7 @@ export const appSettingsSchema = z.object({
   launchAtStartup: z.boolean().catch(false),
   showMainWindowAtLogin: z.boolean().catch(false),
   theme: z.enum(['system', 'light', 'dark']).catch('system'),
-  sidebarColor: sidebarColorSchema.catch('gray'),
+  sidebarColor: sidebarColorSchema.catch('cyan'),
   reduceMotion: z.boolean().catch(false),
   language: supportedLocaleSchema.catch(DEFAULT_LOCALE),
   byteUnitSystem: byteUnitSystemSchema.catch(DEFAULT_BYTE_UNIT_PREFERENCE),
