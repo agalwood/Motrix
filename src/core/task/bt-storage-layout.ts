@@ -55,15 +55,17 @@ export function buildBtDirectOutputPaths(
   outputFilePaths?: BtOutputFilePath[]
 } {
   if (!parsed) return { saveDir: finalPath }
+  if (!torrentMetaPath)
+    throw new Error('BT requires a durable torrent metadata path')
+  const saveDir = `${torrentMetaPath}.state`
   if (!parsed.multiFile)
     return {
-      saveDir: path.dirname(finalPath),
+      saveDir,
+      outputRoot: path.dirname(finalPath),
       outputFilePaths: buildFinalOutputFilePaths(parsed, finalPath),
     }
-  if (!torrentMetaPath)
-    throw new Error('Multi-file BT requires a durable torrent metadata path')
   return {
-    saveDir: `${torrentMetaPath}.state`,
+    saveDir,
     outputRoot: finalPath,
     outputFilePaths: parsed.files.map((file) => {
       if (!file.pathInsideRoot)

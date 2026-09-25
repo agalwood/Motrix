@@ -713,7 +713,13 @@ describe('finalizeTask BT branch', () => {
       buildSingleFileTorrent('original.iso')
     )
     await expect(finalizeTask('t1', deps)).resolves.toBeUndefined()
-    expect(deps.adapter.addTorrent).toHaveBeenCalled()
+    expect(deps.adapter.addTorrent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        saveDir: `${task.torrentMetaPath}.state`,
+        outputRoot: '/d',
+        outputFilePaths: [{ fileIndex: 0, relativePath: 'movie.iso' }],
+      })
+    )
     expect(task.status).toBe(TaskStatus.Seeding)
     expect(deps.fs.renameAtomic).not.toHaveBeenCalled()
     expect(task.transitionPhase).toBe(TransitionPhase.Idle)

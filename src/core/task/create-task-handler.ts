@@ -561,10 +561,9 @@ async function handleCreateTaskUnderAdmission(
   }
 
   // Create the engine's directory before admission so aria2 can persist its
-  // torrent metadata. Multi-file BT uses its private metadata directory and
-  // maps every payload into the final output root. Single-file BT uses the
-  // destination parent; unresolved BT uses the final container. HTTP keeps
-  // its incomplete suffix inside the chosen save root.
+  // torrent metadata. Parsed BT maps payloads from its private metadata
+  // directory into their final locations; unresolved BT uses the final
+  // container. HTTP keeps its incomplete suffix inside the chosen save root.
   const ensureDir = btStoragePlan?.saveDir ?? effectiveSaveDir
   try {
     await mkdir(ensureDir, { recursive: true })

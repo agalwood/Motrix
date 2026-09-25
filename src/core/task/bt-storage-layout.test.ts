@@ -115,9 +115,13 @@ describe('legacy BT indexed storage layout', () => {
 })
 
 describe('direct BT storage layout', () => {
-  it('writes a single file at its chosen final name from the start', async () => {
+  it('separates single-file payloads from engine metadata at their chosen final name', async () => {
     const parsed = await parseBtFileLayout(singleFileTorrent('original.iso'))
-    const plan = createBtDirectStoragePlan('/downloads/chosen.iso', parsed)
+    const plan = createBtDirectStoragePlan(
+      '/downloads/chosen.iso',
+      parsed,
+      '/metadata/task.torrent'
+    )
     expect(plan).toEqual({
       layout: {
         version: 2,
@@ -126,9 +130,17 @@ describe('direct BT storage layout', () => {
         multiFile: false,
         finalized: false,
       },
-      saveDir: '/downloads',
+      saveDir: '/metadata/task.torrent.state',
+      outputRoot: '/downloads',
       outputFilePaths: [{ fileIndex: 0, relativePath: 'chosen.iso' }],
     })
+  })
+
+  it('requires durable metadata before placing a single-file engine task', async () => {
+    const parsed = await parseBtFileLayout(singleFileTorrent('original.iso'))
+    expect(() =>
+      createBtDirectStoragePlan('/downloads/chosen.iso', parsed)
+    ).toThrow('BT requires a durable torrent metadata path')
   })
 
   it('separates multi-file payloads from engine control files', async () => {

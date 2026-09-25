@@ -4445,7 +4445,7 @@ it('re-adds an interrupted indexed BT download with its original payload mapping
   }
 })
 
-it('restores a paused direct BT download at its exact final filename', async () => {
+it('restores an existing paused direct BT download with internal engine metadata and the same final filename', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'motrix-readd-layout-'))
   try {
     const bytes = buildSingleFileTorrent('movie.mkv')
@@ -4454,7 +4454,8 @@ it('restores a paused direct BT download at its exact final filename', async () 
     const parsed = await parseBtFileLayout(bytes)
     const plan = createBtDirectStoragePlan(
       path.join(root, 'chosen.mkv'),
-      parsed
+      parsed,
+      metadata
     )
     const tm = new TaskManager()
     const db = createMockDb()
@@ -4473,7 +4474,8 @@ it('restores a paused direct BT download at its exact final filename', async () 
     await new SessionManager(tm, createMockRpc(), db, adapter).restore()
     expect(adapter.addTorrent).toHaveBeenCalledWith(
       expect.objectContaining({
-        saveDir: root,
+        saveDir: `${metadata}.state`,
+        outputRoot: root,
         outputFilePaths: [{ fileIndex: 0, relativePath: 'chosen.mkv' }],
         pause: true,
         checkIntegrity: true,
