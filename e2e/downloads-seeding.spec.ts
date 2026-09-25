@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { Page } from '@playwright/test'
 import { Commands } from '@shared/protocol/commands'
@@ -62,6 +63,26 @@ test('unlimited BT seeding, inspector metrics and re-seeding survive engine rest
     })
     const readTask = async (page = mainWindow) =>
       ((await invoke(page, Queries.ListTasks)) as DownloadTask[])[0]
+    const expectInternalTorrentStorage = async (task: DownloadTask) => {
+      expect(task.saveDir).toBe(path.join(userDataDir, 'downloads'))
+      const metadataPath = path.join(
+        userDataDir,
+        'torrents',
+        `${task.id}.torrent`
+      )
+      expect(task.torrentMetaPath).toBe(metadataPath)
+      const bytes = Buffer.from(torrent, 'base64')
+      expect(await readFile(metadataPath)).toEqual(bytes)
+      const rpcMetadataName = `${createHash('sha1').update(bytes).digest('hex')}.torrent`
+      expect(
+        await readFile(path.join(`${metadataPath}.state`, rpcMetadataName))
+      ).toEqual(bytes)
+      expect(
+        (await readdir(task.saveDir)).filter((name) =>
+          name.endsWith('.torrent')
+        )
+      ).toEqual([])
+    }
     const readActivity = async (page = mainWindow) => {
       const result = (await invoke(page, Queries.GetTaskInspectorActivity, {
         taskId: (await readTask(page)).id,
@@ -82,6 +103,7 @@ test('unlimited BT seeding, inspector metrics and re-seeding survive engine rest
     const first = await readTask()
     expect(first.progress).toBe(1)
     expect(await fixture.verifyFile(first.finalPath)).toBe(true)
+    await expectInternalTorrentStorage(first)
     // Inspector Activity publishes durable checkpoints every 30 seconds.
     await expect.poll(() => seedingMs(), { timeout: 40_000 }).toBeGreaterThan(0)
     await mainWindow
@@ -115,6 +137,7 @@ test('unlimited BT seeding, inspector metrics and re-seeding survive engine rest
     await invoke(mainWindow, Commands.ReAddTask, first.id)
     await expect.poll(async () => (await readTask()).status).toBe('seeding')
     expect((await readTask()).engineTaskId).not.toBe(first.engineTaskId)
+    await expectInternalTorrentStorage(await readTask())
     await mainWindow.waitForTimeout(2500)
     const beforeRestart = await seedingMs()
     await electronApp.close()
@@ -126,6 +149,7 @@ test('unlimited BT seeding, inspector metrics and re-seeding survive engine rest
         timeout: 15_000,
       })
       .toBe('seeding')
+    await expectInternalTorrentStorage(await readTask(nextWindow))
     const afterRestart = await seedingMs(nextWindow)
     expect(afterRestart).toBeGreaterThanOrEqual(beforeRestart)
     expect(afterRestart).toBeGreaterThan(stoppedMs)

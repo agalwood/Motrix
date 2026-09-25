@@ -1268,7 +1268,8 @@ describe('swapMagnetMetadataForBt', () => {
     )
 
     const params = adapter.addTorrent.mock.calls[0][0]
-    expect(params.saveDir).toBe('/Selected')
+    expect(params.saveDir).toBe('/u/torrents/m-mag.torrent.state')
+    expect(params.outputRoot).toBe('/Selected')
     expect(db.getTask('m-mag')?.instances[0].diskPath).toBe(
       '/Selected/User friendly name.iso'
     )

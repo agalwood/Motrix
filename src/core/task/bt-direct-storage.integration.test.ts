@@ -9,6 +9,7 @@ import {
   rm,
   writeFile,
 } from 'node:fs/promises'
+import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { TaskStatus } from '@shared/types/task'
@@ -24,6 +25,7 @@ import {
   createBtDirectStoragePlan,
   parseBtFileLayout,
 } from './bt-storage-layout'
+import { TorrentMetaStoreImpl } from './torrent-meta-store'
 
 type BencodeValue =
   | string
@@ -128,6 +130,13 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
           })
           .toBe(TaskStatus.Seeding)
         const files = await wired.adapter.getTaskFiles(gid)
+        const metadataName = `${createHash('sha1').update(metadata).digest('hex')}.torrent`
+        expect(await readFile(path.join(plan.saveDir, metadataName))).toEqual(
+          metadata
+        )
+        expect(
+          (await readdir(root)).filter((name) => name.endsWith('.torrent'))
+        ).toEqual([])
         expect(files.map((file) => file.path)).toEqual(
           multiFile
             ? [
@@ -160,6 +169,161 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
       25000
     )
   }
+)
+
+it.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp()).each([false, true])(
+  'downloads and restores a single file without exposing torrent metadata (sqlite=%s)',
+  async (sqlite) => {
+    const root = await mkdtemp(path.join(tmpdir(), 'motrix-bt-metadata-'))
+    let handle: Aria2Handle | undefined
+    let disconnect: (() => void) | undefined
+    const payload = Buffer.alloc(128 * 1024, 42)
+    let requests = 0
+    const server = createServer((request, response) => {
+      const range = /^bytes=(\d+)-(\d*)$/.exec(request.headers.range ?? '')
+      if (request.url !== '/original.bin' || !range) {
+        response.writeHead(400).end()
+        return
+      }
+      requests++
+      const start = Number(range[1])
+      const end = Math.min(
+        Number(range[2] || payload.length - 1),
+        payload.length - 1
+      )
+      response.writeHead(206, {
+        'content-length': end - start + 1,
+        'content-range': `bytes ${start}-${end}/${payload.length}`,
+      })
+      response.end(payload.subarray(start, end + 1))
+    })
+    try {
+      await new Promise<void>((resolve, reject) => {
+        server.once('error', reject)
+        server.listen(0, '127.0.0.1', resolve)
+      })
+      const address = server.address()
+      if (!address || typeof address === 'string')
+        throw new Error('Missing server address')
+      const metadata = encode({
+        info: {
+          name: 'original.bin',
+          length: payload.length,
+          'piece length': 16384,
+          pieces: Buffer.concat(
+            Array.from({ length: payload.length / 16384 }, () =>
+              createHash('sha1').update(payload.subarray(0, 16384)).digest()
+            )
+          ),
+        },
+        'url-list': [`http://127.0.0.1:${address.port}/original.bin`],
+      })
+      const downloads = path.join(root, 'downloads')
+      await mkdir(downloads)
+      const finalPath = path.join(downloads, 'Chosen 文件.bin')
+      const store = new TorrentMetaStoreImpl(
+        path.join(root, 'app-data', 'torrents')
+      )
+      const metadataPath = await store.persist('task', metadata)
+      const plan = createBtDirectStoragePlan(
+        finalPath,
+        await parseBtFileLayout(metadata),
+        metadataPath
+      )
+      const sessionPath = path.join(root, 'aria2.session')
+      const startEngine = async (restart = false) => {
+        handle = await spawnAria2ForTest({
+          baseDir: root,
+          extraArgs: [
+            '--enable-dht6=false',
+            '--bt-enable-lpd=false',
+            '--bt-tracker=',
+            '--all-proxy=',
+            '--http-proxy=',
+            '--https-proxy=',
+            '--no-proxy=*',
+            '--force-save=true',
+            '--auto-save-interval=1',
+            `--enable-sqlite3-persistence=${sqlite}`,
+            `--sqlite3-db-path=${path.join(root, 'aria2.db')}`,
+            `--save-session=${sessionPath}`,
+            ...(!sqlite && restart ? [`--input-file=${sessionPath}`] : []),
+          ],
+        })
+        const wired = await connectAdapter(handle)
+        disconnect = wired.disconnect
+        return wired
+      }
+      let wired = await startEngine()
+      const params = { metadata, ...plan, seedTime: 60, seedRatio: 0 }
+      const gid = await wired.adapter.addTorrent(params)
+      await expect
+        .poll(async () => (await wired.adapter.getTaskStatus(gid))?.status, {
+          timeout: 10000,
+        })
+        .toBe(TaskStatus.Seeding)
+      expect(requests).toBeGreaterThan(0)
+      expect(await readFile(finalPath)).toEqual(payload)
+      expect(
+        (await readdir(downloads)).filter((name) => name.endsWith('.torrent'))
+      ).toEqual([])
+      const metadataName = `${createHash('sha1').update(metadata).digest('hex')}.torrent`
+      expect(await readFile(path.join(plan.saveDir, metadataName))).toEqual(
+        metadata
+      )
+      await wired.adapter.pauseTask(gid)
+      await expect
+        .poll(async () => (await wired.adapter.getTaskStatus(gid))?.status)
+        .toBe(TaskStatus.Paused)
+      disconnect?.()
+      if (sqlite && handle) {
+        // SQLite must recover the paused owner without a shutdown flush.
+        const proc = handle.proc
+        await new Promise<void>((resolve) => {
+          proc.once('exit', () => resolve())
+          proc.kill('SIGKILL')
+        })
+      } else await handle?.kill()
+      wired = await startEngine(true)
+      await expect
+        .poll(async () => (await wired.adapter.getTaskStatus(gid))?.status)
+        .toBe(TaskStatus.Paused)
+      expect(
+        (await wired.adapter.getTaskFiles(gid)).map((file) => file.path)
+      ).toEqual([finalPath])
+      await wired.adapter.resumeTask(gid)
+      await expect
+        .poll(async () => (await wired.adapter.getTaskStatus(gid))?.status, {
+          timeout: 10000,
+        })
+        .toBe(TaskStatus.Seeding)
+      await wired.adapter.forceRemoveTask(gid)
+      await wired.adapter.removeDownloadResult(gid)
+      const reseedGid = await wired.adapter.addTorrent({
+        ...params,
+        metadata: await store.read(metadataPath),
+        checkIntegrity: true,
+      })
+      await expect
+        .poll(
+          async () => (await wired.adapter.getTaskStatus(reseedGid))?.status,
+          { timeout: 10000 }
+        )
+        .toBe(TaskStatus.Seeding)
+      expect(await readFile(finalPath)).toEqual(payload)
+      expect(
+        (await readdir(downloads)).filter((name) => name.endsWith('.torrent'))
+      ).toEqual([])
+      expect(await store.read(metadataPath)).toEqual(new Uint8Array(metadata))
+    } finally {
+      disconnect?.()
+      await handle?.kill()
+      server.closeAllConnections()
+      await new Promise<void>((resolve) => server.close(() => resolve()))
+      await rm(root, { recursive: true, force: true })
+    }
+  },
+  30000
 )
 
 it.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(

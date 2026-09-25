@@ -137,7 +137,8 @@ describe('reAddTask (BT path)', () => {
       await reAddTask('t1', deps)
       expect(deps.adapter.addTorrent).toHaveBeenCalledWith(
         expect.objectContaining({
-          saveDir: '/tmp',
+          saveDir: '/sidecar/sample.torrent.state',
+          outputRoot: '/tmp',
           outputFilePaths: [{ fileIndex: 0, relativePath: 'chosen.iso' }],
           checkIntegrity: true,
         })

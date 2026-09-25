@@ -1156,8 +1156,8 @@ describe('handleCreateTask', () => {
     })
     const [, , options] = deps.addTorrent.mock.calls[0]
     expect(options).toMatchObject({
-      dir: '/d',
-      'index-out': ['1=ubuntu-25.10-desktop-amd64.iso'],
+      dir: `${task.torrentMetaPath}.state`,
+      'index-out': ['1=/d/ubuntu-25.10-desktop-amd64.iso'],
     })
     expect(options).not.toHaveProperty('bt-prioritize-piece')
   })
