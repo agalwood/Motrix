@@ -74,6 +74,82 @@ beforeEach(() => {
 })
 
 describe('<GeneralDialog>', () => {
+  it.each(['Cancel', 'Save'])(
+    'keeps desktop notification choices local until %s without changing native settings',
+    async (action) => {
+      const close = vi.fn()
+      render(
+        <GeneralDialog
+          open
+          onClose={close}
+          labelKey="settings.cards.general.title"
+          descKey="settings.cards.general.desc"
+        />
+      )
+      await screen.findByDisplayValue('/Users/me/Downloads')
+      const user = userEvent.setup()
+      await user.click(
+        screen.getByRole('switch', { name: 'Show completed downloads' })
+      )
+      await user.click(
+        screen.getByRole('switch', { name: 'Show failed downloads' })
+      )
+      screen.getByRole('combobox', { name: 'Notification badge' }).focus()
+      await user.keyboard('[ArrowDown]')
+      await user.click(await screen.findByRole('option', { name: 'Dot' }))
+      expect(
+        screen.getByRole('switch', { name: 'Notify when download completes' })
+      ).toBeChecked()
+      expect(
+        screen.getByRole('switch', { name: 'Notify on failure' })
+      ).toBeChecked()
+      expect(transport.invoke).not.toHaveBeenCalledWith(
+        Commands.SaveGeneralSettings,
+        expect.anything()
+      )
+      await user.click(screen.getByRole('button', { name: action }))
+      await waitFor(() => expect(close).toHaveBeenCalledOnce())
+      if (action === 'Save') {
+        expect(transport.invoke).toHaveBeenCalledWith(
+          Commands.SaveGeneralSettings,
+          {
+            expectedRevision: TEST_GENERAL_REVISION,
+            app: {
+              notifyInAppOnComplete: false,
+              notifyInAppOnError: false,
+              notificationBadgeStyle: 'dot',
+            },
+            directories: {
+              addFavorites: [],
+              removeFavorites: [],
+              removeRecent: [],
+            },
+          }
+        )
+      } else {
+        expect(transport.invoke).not.toHaveBeenCalledWith(
+          Commands.SaveGeneralSettings,
+          expect.anything()
+        )
+      }
+    }
+  )
+
+  it('does not expose desktop notification controls in Web settings', async () => {
+    transportMock.platform = 'web'
+    render(<GeneralDialog open onClose={vi.fn()} labelKey="" descKey="" />)
+    await screen.findByDisplayValue('/Users/me/Downloads')
+    expect(
+      screen.queryByRole('switch', { name: 'Show completed downloads' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('switch', { name: 'Show failed downloads' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('combobox', { name: 'Notification badge' })
+    ).not.toBeInTheDocument()
+  })
+
   it('keeps failed initial settings controls disabled and focuses a stable element before Retry', async () => {
     let attempts = 0
     let release!: (value: unknown) => void

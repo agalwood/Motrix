@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { notificationBadgeStyleSchema } from './app-settings'
 import {
   DIRECTORY_FAVORITES_LIMIT,
   DIRECTORY_PREFERENCES_PATH_LIMIT,
@@ -15,6 +16,9 @@ export const GeneralSettingsAppSchema = z.object({
   defaultSaveDir: z.string(),
   notifyOnComplete: z.boolean(),
   notifyOnError: z.boolean(),
+  notifyInAppOnComplete: z.boolean(),
+  notifyInAppOnError: z.boolean(),
+  notificationBadgeStyle: notificationBadgeStyleSchema,
   autofillClipboardLinks: z.boolean(),
   warnBeforeQuit: z.boolean(),
 })

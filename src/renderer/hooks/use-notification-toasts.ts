@@ -48,8 +48,9 @@ const FOCUSED_ERROR_TOAST_ID = 'notification-error'
  *    foreground (`!(win.isVisible() && win.isFocused())`); this hook toasts
  *    in-app only when the document IS foreground
  *    (`visibilityState === 'visible' && document.hasFocus()`) — the exact
- *    complement, so a given error surfaces exactly once across the two
- *    tracks, never zero times or twice.
+ *    complement when both notification channels are enabled. Desktop event
+ *    forwarding filters muted task outcomes before they reach this hook;
+ *    native notification settings remain independent.
  *
  * 2. `kind === NotificationKinds.EngineFailure` rows toast through the
  *    STICKY `ENGINE_FAILURE_TOAST_ID` instead (`timeout: 0`, with an action
@@ -77,7 +78,7 @@ const FOCUSED_ERROR_TOAST_ID = 'notification-error'
  *
  * Only `severity === 'error'` rows and the engine-compatibility warning toast
  * at all — `task-complete`/info rows stay silent (they still land in the bell
- * badge / `/notifications` page via `useNotifications()`).
+ * badge / `/notifications` page via `useNotifications()` when enabled).
  *
  * Mount exactly once at the top of the app tree (AppLayout), mirroring
  * `useToastEvents`/`usePairRequestPrompts`: `t` and `i18n` are threaded

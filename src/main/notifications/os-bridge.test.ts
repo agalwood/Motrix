@@ -196,6 +196,26 @@ function baseDeps(overrides: {
 // Full gating matrix: (window state) x (kind) x (toggle on/off)
 // ---------------------------------------------------------------------------
 
+it.each([NotificationKinds.TaskComplete, NotificationKinds.TaskError])(
+  'still delivers native %s notifications when desktop in-app surfaces are hidden',
+  (kind) => {
+    const factory = makeNotificationFactory()
+    const { deps, deliver } = baseDeps({
+      window: makeWindow(false, false),
+      settings: makeSettings({
+        notifyInAppOnComplete: false,
+        notifyInAppOnError: false,
+        notificationBadgeStyle: 'hidden',
+      }),
+      createNotification: factory.createNotification,
+    })
+    createOsNotificationBridge(deps)
+    deliver(makeNotification({ kind }))
+    expect(factory.instances).toHaveLength(1)
+    expect(factory.instances[0].show).toHaveBeenCalledOnce()
+  }
+)
+
 const WINDOW_STATES: Array<{
   label: string
   isVisible: boolean

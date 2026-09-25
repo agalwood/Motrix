@@ -41,6 +41,27 @@ async function fixture() {
 }
 
 describe('General settings save handler', () => {
+  it('persists desktop notification preferences independently of native settings', async () => {
+    const { manager, file } = await fixture()
+    const preferences = {
+      notifyInAppOnComplete: false,
+      notifyInAppOnError: false,
+      notificationBadgeStyle: 'hidden',
+    }
+    const save = createCurrentSave(manager)
+    expect(await save({ app: preferences, directories: empty })).toMatchObject({
+      ok: true,
+      value: { app: preferences },
+    })
+    const restored = new SettingsManager(file)
+    await restored.load()
+    expect(restored.getApp()).toMatchObject({
+      ...preferences,
+      notifyOnComplete: true,
+      notifyOnError: true,
+    })
+  })
+
   it('validates every addition then atomically persists General fields and exact directory deltas', async () => {
     const { root, file, manager, change } = await fixture()
     const destination = path.join(root, 'destination ')

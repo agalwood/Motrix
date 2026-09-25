@@ -8,7 +8,13 @@ describe('SaveGeneralSettingsRequestSchema', () => {
   it('accepts dirty General fields and exact literal directory deltas', () => {
     const request = {
       expectedRevision: TEST_GENERAL_REVISION,
-      app: { defaultSaveDir: '/saved ', notifyOnError: false },
+      app: {
+        defaultSaveDir: '/saved ',
+        notifyOnError: false,
+        notifyInAppOnComplete: false,
+        notifyInAppOnError: false,
+        notificationBadgeStyle: 'dot',
+      },
       directories: {
         ...directories,
         addFavorites: ['/favorite '],
@@ -36,6 +42,9 @@ describe('SaveGeneralSettingsRequestSchema', () => {
       directories,
     },
     { app: { notifyOnError: 'false' }, directories },
+    { app: { notifyInAppOnComplete: 'false' }, directories },
+    { app: { notifyInAppOnError: undefined }, directories },
+    { app: { notificationBadgeStyle: 'off' }, directories },
     { app: { notifyOnError: undefined }, directories },
     { app: { defaultSaveDir: '' }, directories },
     { app: {}, directories: { ...directories, clearRecent: true } },

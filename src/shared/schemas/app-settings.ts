@@ -15,6 +15,10 @@ import { DEFAULT_TRAY_ICON_COLOR, trayIconColorSchema } from './tray-icon-color'
 export const appUpdateChannelSchema = z.enum(['stable', 'beta'])
 export const fileDeletionModeSchema = z.enum(['trash', 'permanent'])
 export type FileDeletionMode = z.infer<typeof fileDeletionModeSchema>
+export const notificationBadgeStyleSchema = z.enum(['count', 'dot', 'hidden'])
+export type NotificationBadgeStyle = z.infer<
+  typeof notificationBadgeStyleSchema
+>
 
 export const MAGNET_FILE_SELECTION_TIMEOUT_MIN_SECONDS = 10
 export const MAGNET_FILE_SELECTION_TIMEOUT_MAX_SECONDS = 3600
@@ -43,6 +47,9 @@ export const appSettingsSchema = z.object({
   }),
   notifyOnComplete: z.boolean().catch(true),
   notifyOnError: z.boolean().catch(true),
+  notifyInAppOnComplete: z.boolean().catch(true),
+  notifyInAppOnError: z.boolean().catch(true),
+  notificationBadgeStyle: notificationBadgeStyleSchema.catch('count'),
   autofillClipboardLinks: z.boolean().catch(true),
   protocols: z
     .object({

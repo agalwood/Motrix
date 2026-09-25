@@ -1,6 +1,7 @@
 import type { ElectronApplication, Page } from '@playwright/test'
 import {
   expect,
+  findAddTaskWindow,
   launchMotrix,
   test,
   waitForEngineReady,
@@ -25,6 +26,122 @@ async function openMain(app: ElectronApplication): Promise<Page> {
 }
 
 test.describe('settings persistence', () => {
+  test('desktop notification choices filter existing history, refresh badges, and survive restart', async ({
+    userDataDir,
+    rpcPort,
+    httpFixture,
+  }, testInfo) => {
+    let app = await launchMotrix({ userDataDir, rpcPort })
+    try {
+      let main = await openMain(app)
+      await waitForEngineReady(main)
+      await main.getByRole('button', { name: 'New task' }).click()
+      const addTask = await findAddTaskWindow(app)
+      await addTask
+        .getByRole('textbox', { name: 'URLs' })
+        .fill(httpFixture.fileUrl)
+      await addTask.getByRole('button', { name: 'Download' }).click()
+      const badge = main.getByTestId('notification-badge')
+      await expect(badge).toHaveText('1', { timeout: 20_000 })
+      // Task creation also queues navigation to its inspector. Let that
+      // navigation settle before opening a settings dialog on another route.
+      await expect(
+        main.getByRole('dialog', { name: 'Task Inspector' })
+      ).toBeVisible()
+
+      await openGeneralSettings(main)
+      await main
+        .getByRole('switch', { name: 'Show completed downloads' })
+        .click()
+      await main.getByRole('button', { name: 'Cancel', exact: true }).click()
+      await expect(badge).toHaveText('1')
+      await openGeneralSettings(main)
+      await expect(
+        main.getByRole('switch', { name: 'Show completed downloads' })
+      ).toBeChecked()
+      await main
+        .getByRole('switch', { name: 'Show completed downloads' })
+        .click()
+      await main.getByRole('switch', { name: 'Show failed downloads' }).click()
+      await main.getByRole('combobox', { name: 'Notification badge' }).click()
+      await main.getByRole('option', { name: 'Dot', exact: true }).click()
+      await main.screenshot({
+        path: testInfo.outputPath('notification-preferences.png'),
+      })
+      await main.getByRole('button', { name: 'Save', exact: true }).click()
+      await expect(badge).toHaveCount(0)
+      await expect(main.getByTestId('notification-badge-dot')).toHaveCount(0)
+      await main
+        .getByRole('link', { name: 'Notifications', exact: true })
+        .click()
+      await expect(
+        main.getByText('No notifications', { exact: true })
+      ).toBeVisible()
+
+      await openGeneralSettings(main)
+      await main
+        .getByRole('switch', { name: 'Show completed downloads' })
+        .click()
+      await main.getByRole('button', { name: 'Save', exact: true }).click()
+      await expect(main.getByTestId('notification-badge-dot')).toBeVisible()
+      await expect(main.getByTestId('notification-badge-dot')).toHaveAttribute(
+        'aria-label',
+        'Unread notifications'
+      )
+      await expect(badge).toHaveCount(0)
+      await main.screenshot({
+        path: testInfo.outputPath('notification-dot.png'),
+      })
+      await main.getByRole('button', { name: 'Toggle sidebar' }).click()
+      // The desktop sidebar slides off-canvas rather than becoming an icon rail.
+      await expect(
+        main.getByTestId('notification-badge-dot')
+      ).not.toBeInViewport()
+      await main.screenshot({
+        path: testInfo.outputPath('notification-dot-collapsed.png'),
+      })
+      await main.getByRole('button', { name: 'Toggle sidebar' }).click()
+      await expect(main.getByTestId('notification-badge-dot')).toBeInViewport()
+
+      await openGeneralSettings(main)
+      await main.getByRole('combobox', { name: 'Notification badge' }).click()
+      await main.getByRole('option', { name: 'Hidden', exact: true }).click()
+      await main.getByRole('button', { name: 'Save', exact: true }).click()
+      await expect(main.getByTestId('notification-badge-dot')).toHaveCount(0)
+      await app.close()
+
+      app = await launchMotrix({ userDataDir, rpcPort })
+      main = await openMain(app)
+      await openGeneralSettings(main)
+      await expect(
+        main.getByRole('switch', { name: 'Show completed downloads' })
+      ).toBeChecked()
+      await expect(
+        main.getByRole('switch', { name: 'Show failed downloads' })
+      ).not.toBeChecked()
+      await expect(
+        main.getByRole('combobox', { name: 'Notification badge' })
+      ).toHaveText('Hidden')
+      await expect(
+        main.getByRole('switch', { name: SWITCH_LABEL })
+      ).toBeChecked()
+      await expect(
+        main.getByRole('switch', { name: 'Notify on failure' })
+      ).toBeChecked()
+      await main.getByRole('button', { name: 'Cancel', exact: true }).click()
+      await expect(main.getByTestId('notification-badge')).toHaveCount(0)
+      await expect(main.getByTestId('notification-badge-dot')).toHaveCount(0)
+      await main
+        .getByRole('link', { name: 'Notifications', exact: true })
+        .click()
+      await expect(
+        main.getByText('test.bin finished downloading', { exact: true })
+      ).toBeVisible()
+    } finally {
+      await app.close().catch(() => {})
+    }
+  })
+
   test('task file deletion defaults to trash and persists an explicit permanent choice', async ({
     userDataDir,
     rpcPort,

@@ -133,6 +133,7 @@ import {
 import { REGISTRY_CACHE_FILENAME } from '@shared/schemas/registry'
 import { EngineState } from '@shared/types/engine'
 import type { AppNotification } from '@shared/types/notification'
+import { getHiddenNotificationKinds } from '@shared/types/notification'
 import type { AppSettings } from '@shared/types/settings'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskType } from '@shared/types/task'
@@ -345,6 +346,13 @@ const settingsManager = new SettingsManager(settingsPath, {
   ...defaultSaveDirOptions,
   onChange: (old, updated) => {
     eventBus.emit(Events.SettingsChanged, { old, updated })
+    if (
+      old.app.notifyInAppOnComplete !== updated.app.notifyInAppOnComplete ||
+      old.app.notifyInAppOnError !== updated.app.notifyInAppOnError ||
+      old.app.notificationBadgeStyle !== updated.app.notificationBadgeStyle
+    ) {
+      eventBus.emit(Events.NotificationsChanged)
+    }
     if (old.app.sidebarColor !== updated.app.sidebarColor) {
       eventBus.emit(Events.SidebarColorChanged, {
         sidebarColor: updated.app.sidebarColor,
@@ -1664,7 +1672,9 @@ async function initializeMainProcess(): Promise<void> {
   // interval. Early forwarding guarantees the eventual LocaleChanged reaches
   // either the onboarding window or the newly-opened main window (whose
   // preload buffers it until React subscribes).
-  setupEventForwarding(eventBus, windowManager)
+  setupEventForwarding(eventBus, windowManager, () =>
+    getHiddenNotificationKinds(settingsManager.getApp())
+  )
 
   // Subscribe before notification-center replay. Resolve task paths on click
   // so notifications follow any output moves made after download completion.
@@ -2619,6 +2629,7 @@ async function initializeMainProcess(): Promise<void> {
   notificationCenter = new NotificationCenter({
     store: motrixDb,
     emit: eventBus.emit.bind(eventBus),
+    getHiddenKinds: () => getHiddenNotificationKinds(settingsManager.getApp()),
     log,
   })
   const disposeNotificationIpc = registerNotificationIpc({

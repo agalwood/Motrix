@@ -1,5 +1,6 @@
 import { DirectoryPicker } from '@renderer/components/desktop-kit/directory-picker'
 import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
+import { SettingsSelectTrigger } from '@renderer/components/settings-kit/settings-select-trigger'
 import {
   useSettingsForm,
   useSettingsSubmit,
@@ -29,6 +30,13 @@ import {
   ScrollAreaViewport,
   ScrollBar,
 } from '@renderer/components/ui/scroll-area'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectValue,
+} from '@renderer/components/ui/select'
 import { Switch } from '@renderer/components/ui/switch'
 import {
   DirectoryPreferencesSection,
@@ -55,6 +63,9 @@ const DEFAULTS: GeneralFields = {
   defaultSaveDir: DEFAULT_APP_SETTINGS.defaultSaveDir,
   notifyOnComplete: DEFAULT_APP_SETTINGS.notifyOnComplete,
   notifyOnError: DEFAULT_APP_SETTINGS.notifyOnError,
+  notifyInAppOnComplete: DEFAULT_APP_SETTINGS.notifyInAppOnComplete,
+  notifyInAppOnError: DEFAULT_APP_SETTINGS.notifyInAppOnError,
+  notificationBadgeStyle: DEFAULT_APP_SETTINGS.notificationBadgeStyle,
   autofillClipboardLinks: DEFAULT_APP_SETTINGS.autofillClipboardLinks,
   warnBeforeQuit: DEFAULT_APP_SETTINGS.warnBeforeQuit,
 }
@@ -67,6 +78,11 @@ export function GeneralDialog({
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
   const isWeb = transport.platform === 'web'
+  const badgeOptions = [
+    { value: 'count', label: t('settings.general.notificationBadgeCount') },
+    { value: 'dot', label: t('settings.general.notificationBadgeDot') },
+    { value: 'hidden', label: t('settings.general.notificationBadgeHidden') },
+  ]
   const form = useSettingsForm<GeneralFields>(generalFormSchema, DEFAULTS)
   const directories = useDirectoryPreferencesDraft({
     getAppDraft: () => ({
@@ -272,6 +288,83 @@ export function GeneralDialog({
                       )}
                     />
 
+                    {!isWeb && (
+                      <fieldset className="min-w-0 space-y-4 border-t pt-4">
+                        <legend className="text-sm font-medium">
+                          {t('settings.general.inAppNotifications')}
+                        </legend>
+                        <p className="text-xs text-muted-foreground">
+                          {t('settings.general.inAppNotificationsDesc')}
+                        </p>
+                        {(
+                          [
+                            'notifyInAppOnComplete',
+                            'notifyInAppOnError',
+                          ] as const
+                        ).map((name) => (
+                          <FormField
+                            key={name}
+                            control={form.control}
+                            name={name}
+                            render={({ field }) => (
+                              <SettingsFormRow>
+                                <FormLabel>
+                                  {t(`settings.general.${name}`)}
+                                </FormLabel>
+                                <FormControl>
+                                  <Switch
+                                    disabled={fieldsDisabled}
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                  />
+                                </FormControl>
+                              </SettingsFormRow>
+                            )}
+                          />
+                        ))}
+                        <FormField
+                          control={form.control}
+                          name="notificationBadgeStyle"
+                          render={({ field }) => (
+                            <SettingsFormRow>
+                              <FormLabel>
+                                {t('settings.general.notificationBadgeStyle')}
+                              </FormLabel>
+                              <FormControl>
+                                <Select
+                                  items={badgeOptions}
+                                  value={field.value}
+                                  disabled={fieldsDisabled}
+                                  onValueChange={(value) => {
+                                    if (value !== null) field.onChange(value)
+                                  }}
+                                >
+                                  <SettingsSelectTrigger>
+                                    <SelectValue />
+                                  </SettingsSelectTrigger>
+                                  <SelectContent>
+                                    <SelectGroup>
+                                      {badgeOptions.map((option) => (
+                                        <SelectItem
+                                          key={option.value}
+                                          value={option.value}
+                                        >
+                                          {option.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectGroup>
+                                  </SelectContent>
+                                </Select>
+                              </FormControl>
+                            </SettingsFormRow>
+                          )}
+                        />
+                      </fieldset>
+                    )}
+
+                    <p className="border-t pt-4 text-sm font-medium">
+                      {t('settings.general.systemNotifications')}
+                    </p>
                     <FormField
                       control={form.control}
                       name="notifyOnComplete"

@@ -12,6 +12,9 @@ export const generalFormSchema = appSettingsInputSchema.pick({
   defaultSaveDir: true,
   notifyOnComplete: true,
   notifyOnError: true,
+  notifyInAppOnComplete: true,
+  notifyInAppOnError: true,
+  notificationBadgeStyle: true,
   autofillClipboardLinks: true,
   warnBeforeQuit: true,
 })

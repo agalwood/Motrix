@@ -1,4 +1,7 @@
-import type { FileDeletionMode } from '@shared/schemas/app-settings'
+import type {
+  FileDeletionMode,
+  NotificationBadgeStyle,
+} from '@shared/schemas/app-settings'
 import type { ByteUnitPreference } from '@shared/schemas/byte-unit-system'
 import type { SidebarColor } from '@shared/schemas/sidebar-color'
 import type { TrayIconColor } from '@shared/schemas/tray-icon-color'
@@ -231,6 +234,10 @@ export interface MotrixAppSettings {
   fileDeletionMode: FileDeletionMode
   notifyOnComplete: boolean
   notifyOnError: boolean
+  /** Desktop in-app surfaces only; independent of native OS notifications. */
+  notifyInAppOnComplete: boolean
+  notifyInAppOnError: boolean
+  notificationBadgeStyle: NotificationBadgeStyle
   /** When true, opening the New Task dialog reads the clipboard once and
    *  fills the URL field with any link(s) found — only when the field is
    *  empty. One-shot on open; never a background clipboard watcher. */
