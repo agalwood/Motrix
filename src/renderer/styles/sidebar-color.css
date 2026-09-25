@@ -51,11 +51,11 @@
 
 /* Keep native macOS glass and vibrancy visible beneath the color wash. */
 :root.platform-darwin.window-main[data-sidebar-color] {
-  --sidebar-glass-alpha: 0.3;
+  --sidebar-glass-alpha: 0.4;
 }
 
 :root.dark.platform-darwin.window-main[data-sidebar-color] {
-  --sidebar-glass-alpha: 0.4;
+  --sidebar-glass-alpha: 0.5;
 }
 
 :root[data-sidebar-color="gray"],
