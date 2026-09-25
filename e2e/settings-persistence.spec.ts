@@ -231,15 +231,16 @@ test('sidebar glass color previews, cancels, and survives restart after save', a
   try {
     let main = await openMain(app)
     await openAppearance(main)
-    await main.getByRole('radio', { name: 'Cyan' }).check()
+    await expect(main.getByRole('radio', { name: 'Cyan' })).toBeChecked()
+    await main.getByRole('radio', { name: 'Gray' }).check()
     await expect(main.locator('html')).toHaveAttribute(
       'data-sidebar-color',
-      'cyan'
+      'gray'
     )
     await main.getByRole('button', { name: 'Cancel', exact: true }).click()
     await expect(main.locator('html')).toHaveAttribute(
       'data-sidebar-color',
-      'gray'
+      'cyan'
     )
     await openAppearance(main)
     await main.getByRole('radio', { name: 'Violet' }).check()

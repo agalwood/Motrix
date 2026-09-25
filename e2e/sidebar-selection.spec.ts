@@ -16,13 +16,13 @@ for (const platform of ['win32', 'linux', 'darwin']) {
     test.setTimeout(120_000)
     await expect(mainWindow.locator('html')).toHaveAttribute(
       'data-sidebar-color',
-      'gray'
+      'cyan'
     )
 
     // Exercise platform CSS in the real renderer, without pretending to test
     // native Windows/Linux window materials on a macOS test host.
     for (const theme of ['light', 'dark']) {
-      for (const color of ['gray', 'blue']) {
+      for (const color of ['gray', 'blue', 'cyan']) {
         await mainWindow.evaluate(
           ({ platform, theme, color }) => {
             const root = document.documentElement

@@ -28,6 +28,7 @@ class MockResizeObserver {
 const FIXTURE = {
   app: {
     theme: 'system',
+    sidebarColor: 'gray',
     language: 'en-US',
     traySpeedometer: false,
     runMode: 1, // RunMode.Standard — numeric enum

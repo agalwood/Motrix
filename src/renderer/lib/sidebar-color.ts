@@ -1,3 +1,4 @@
+import { DEFAULT_APP_SETTINGS } from '@shared/schemas/app-settings'
 import type { SidebarColor } from '@shared/schemas/sidebar-color'
 import { create } from 'zustand'
 
@@ -6,4 +7,8 @@ export const useSidebarColorState = create<{
   saved: SidebarColor
   preview: SidebarColor | null
   revision: number
-}>(() => ({ saved: 'gray', preview: null, revision: 0 }))
+}>(() => ({
+  saved: DEFAULT_APP_SETTINGS.sidebarColor,
+  preview: null,
+  revision: 0,
+}))
