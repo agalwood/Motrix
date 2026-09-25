@@ -253,7 +253,10 @@ export class NativeFinalizeArtifactOperations
         !stat.isDirectory() ||
         stat.isSymbolicLink() ||
         `${stat.dev}:${stat.ino}` !== isolation.platformFileId ||
-        (stat.mode & 0o777n) !== 0o700n
+        // NTFS mount masks may expose read/execute bits despite mkdir(0700).
+        // Match the native isolation check: only the owner may mutate names.
+        (stat.mode & 0o700n) !== 0o700n ||
+        (stat.mode & 0o022n) !== 0n
       ) {
         throw new ArtifactIdentityError(
           'artifact_mutated',

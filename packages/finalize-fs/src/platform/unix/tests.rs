@@ -254,9 +254,16 @@ fn private_isolation_checks_identity_permissions_and_resumes_removal() {
         b"unrelated"
     );
     std::fs::remove_file(base.join("private/payload")).unwrap();
+    for mode in [0o770, 0o707, 0o777, 0o500] {
+        std::fs::set_permissions(base.join("private"), std::fs::Permissions::from_mode(mode))
+            .unwrap();
+        assert!(super::isolate_opened(&artifact, &private, "payload", &id).is_err());
+        assert_eq!(std::fs::read(base.join("source")).unwrap(), b"complete");
+        assert!(!base.join("private/payload").exists());
+    }
+    // NTFS-3G without POSIX permissions synthesizes this mode on a umask=022
+    // mount, even when mkdir requests 0700. Only the owner can mutate names.
     std::fs::set_permissions(base.join("private"), std::fs::Permissions::from_mode(0o755)).unwrap();
-    assert!(super::isolate_opened(&artifact, &private, "payload", &id).is_err());
-    std::fs::set_permissions(base.join("private"), std::fs::Permissions::from_mode(0o700)).unwrap();
     super::isolate_opened(&artifact, &private, "payload", &id).unwrap();
     assert!(!base.join("source").exists());
     drop(artifact);
@@ -308,20 +315,33 @@ fn held_link_is_exclusive_and_preserves_the_source() {
 #[test]
 #[ignore = "requires MOTRIX_FINALIZE_NFS_ROOT pointing at a writable NFS mount"]
 fn nfs_supports_link_publication_and_private_removal() {
-    use std::os::unix::fs::{MetadataExt, PermissionsExt};
     let parent = std::env::var("MOTRIX_FINALIZE_NFS_ROOT").expect("NFS test root");
+    check_mounted_link_publication(&parent, 0x6969, 0o700);
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+#[ignore = "requires MOTRIX_FINALIZE_NTFS_ROOT on NTFS-3G with umask=022 and no POSIX permissions"]
+fn ntfs_supports_link_publication_and_private_removal() {
+    let parent = std::env::var("MOTRIX_FINALIZE_NTFS_ROOT").expect("NTFS test root");
+    check_mounted_link_publication(&parent, 0x65735546, 0o755);
+}
+
+#[cfg(target_os = "linux")]
+fn check_mounted_link_publication(parent: &str, filesystem_type: u64, isolation_mode: u32) {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
     let nonce = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_nanos();
     let base =
-        std::path::Path::new(&parent).join(format!("motrix-nfs-{}-{nonce}", std::process::id()));
+        std::path::Path::new(parent).join(format!("motrix-mounted-{}-{nonce}", std::process::id()));
     std::fs::create_dir(&base).unwrap();
     let root = open_root(base.to_str().unwrap()).unwrap();
     assert_eq!(
         rustix::fs::fstatfs(&root.0).unwrap().f_type as u64,
-        0x6969,
-        "test root must really be NFS"
+        filesystem_type,
+        "test root must use the requested filesystem"
     );
     std::fs::write(base.join("source.motrix"), b"complete download").unwrap();
     let artifact = super::open_artifact_for_rename(&root, "source.motrix").unwrap();
@@ -345,6 +365,7 @@ fn nfs_supports_link_publication_and_private_removal() {
     std::fs::set_permissions(base.join("private"), std::fs::Permissions::from_mode(0o700)).unwrap();
     let private = open_root(base.join("private").to_str().unwrap()).unwrap();
     let metadata = std::fs::metadata(base.join("private")).unwrap();
+    assert_eq!(metadata.mode() & 0o777, isolation_mode);
     super::isolate_opened(
         &source,
         &private,
@@ -354,12 +375,14 @@ fn nfs_supports_link_publication_and_private_removal() {
     .unwrap();
     drop(source);
     let isolated = open_artifact(&private, "payload").unwrap();
-    remove_opened(&isolated, "payload", true).unwrap();
+    let survivor = super::open_artifact_for_rename(&root, "target").unwrap();
+    super::remove_opened_preserving(&isolated, "payload", true, &survivor).unwrap();
     drop(isolated);
     assert!(!base.join("source.motrix").exists());
     assert_eq!(
         std::fs::read(base.join("target")).unwrap(),
         b"complete download"
     );
+    drop(survivor);
     std::fs::remove_dir_all(base).unwrap();
 }

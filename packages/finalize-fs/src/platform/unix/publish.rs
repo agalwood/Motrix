@@ -83,8 +83,11 @@ pub(crate) fn isolate_opened(
     let name = checked_name(relative)?;
     let source = unchanged_file(artifact)?;
     let directory = stat_opened(target.0.as_raw_fd())?;
+    // NTFS mount masks can report 0755 even for mkdir(0700). Isolation needs
+    // exclusive namespace mutation, not exclusive directory read access.
     if format!("{}:{}", directory.st_dev, directory.st_ino) != expected_root_identity
-        || directory.st_mode & 0o777 != 0o700
+        || directory.st_mode & 0o700 != 0o700
+        || directory.st_mode & 0o022 != 0
         || directory.st_uid != source.st_uid
         || !directory_entries(target.0.as_raw_fd())?.is_empty()
     {
