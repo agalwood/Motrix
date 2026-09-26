@@ -210,7 +210,7 @@ export function PluginCallGraphInspector({
                           </span>
                           <Identifier value={connection.id} />
                         </span>
-                        <span className="shrink-0 text-right tabular-nums text-muted-foreground">
+                        <span className="shrink-0 text-end tabular-nums text-muted-foreground">
                           {strings.callsLabel(connection.calls)}
                         </span>
                       </li>
@@ -263,7 +263,7 @@ export function PluginCallGraphInspector({
                   <dt className="text-xs text-muted-foreground">
                     {strings.lastCall}
                   </dt>
-                  <dd className="text-right text-xs">
+                  <dd className="text-end text-xs">
                     <time
                       dateTime={new Date(
                         currentSelection.edge.lastCalledAt
@@ -288,7 +288,7 @@ export function PluginCallGraphInspector({
                       className="flex items-start justify-between gap-3 text-xs"
                     >
                       <Identifier value={command.commandId} />
-                      <span className="shrink-0 text-right tabular-nums text-muted-foreground">
+                      <span className="shrink-0 text-end tabular-nums text-muted-foreground">
                         {strings.callsLabel(command.calls)}
                       </span>
                     </li>

@@ -98,7 +98,7 @@ function NotificationRow({
         }
         disabled={busy || (!canOpen && !unread)}
         onClick={canOpen ? onOpen : onRead}
-        className="notification-row-button notification-row-content min-w-0 flex-1 text-left outline-none"
+        className="notification-row-button notification-row-content min-w-0 flex-1 text-start outline-none"
       >
         <span
           aria-hidden="true"

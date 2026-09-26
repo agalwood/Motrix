@@ -139,7 +139,7 @@ function DirectionMetric({
     <div
       className={cn(
         'min-w-0',
-        align === 'right' && 'text-right',
+        align === 'right' && 'text-end',
         inline && 'flex items-baseline justify-between gap-2'
       )}
     >
@@ -203,10 +203,10 @@ function DirectionBreakdown({
         data-testid="transfer-direction-values"
         className="flex w-full justify-between"
       >
-        <div className="text-left font-medium text-foreground text-sm">
+        <div className="text-start font-medium text-foreground text-sm">
           <KpiNumber value={formatBytes(range.uploadBytes)} variant="compact" />
         </div>
-        <div className="text-right font-medium text-foreground text-sm">
+        <div className="text-end font-medium text-foreground text-sm">
           <KpiNumber
             value={formatBytes(range.downloadBytes)}
             variant="compact"

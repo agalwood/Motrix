@@ -96,8 +96,8 @@ export function AppLayout() {
               // Keep the inset card look below the md breakpoint too —
               // upstream gates these behind md:peer-data-[variant=inset]:,
               // which stops matching once the sidebar renders as a Sheet.
-              // At md+ the built-in ml-0 / collapsed ml-2 still win over
-              // m-2 (Tailwind orders ml-* after m-*).
+              // At md+ the built-in ms-0 / collapsed ms-2 still win over
+              // m-2 (Tailwind orders ms-* after m-*).
               'm-2 rounded-xl shadow-sm',
               // Suppress BOTH shadow forms: tailwind-merge only collapses
               // identical-modifier classes, so a bare shadow-none would

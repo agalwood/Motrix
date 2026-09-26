@@ -42,7 +42,7 @@ export function EngineBadge() {
     >
       <span
         aria-hidden="true"
-        className={cn('flex size-2 rounded-full mr-2', dot)}
+        className={cn('flex size-2 rounded-full me-2', dot)}
       />
       <span role="status">{text}</span>
     </Badge>

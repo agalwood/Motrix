@@ -34,7 +34,7 @@ function ElectronNatBadge() {
       >
         <NatStatusIndicator
           status={status}
-          className={bucket === 'settingUp' ? 'mr-1.5' : 'mr-2'}
+          className={bucket === 'settingUp' ? 'me-1.5' : 'me-2'}
         />
         {badgeText}
       </DropdownMenuTrigger>

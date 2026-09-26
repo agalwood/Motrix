@@ -1,0 +1,2876 @@
+{
+  "applicationMenu": {
+    "actionFailed": "تعذّر إكمال الإجراء. تحقق من الاتصال وحاول مجددًا.",
+    "back": "رجوع",
+    "clearConfirm": "مسح السجلات",
+    "clearDescription": "ستُزال سجلات المهام المكتملة والفاشلة والمزالة التي كانت موجودة عند فتح هذا الحوار. ستبقى الملفات المنزّلة على القرص.",
+    "clearTitle": "مسح سجلات المهام المتوقفة؟",
+    "discardConfirm": "تجاهل",
+    "discardDescription": "ستُفقد الروابط واختيار التورنت والإعدادات غير المحفوظة.",
+    "discardTitle": "تجاهل مسودة هذه المهمة؟",
+    "logoutConfirm": "تسجيل الخروج",
+    "logoutDescription": "سيؤدي ذلك إلى تسجيل الخروج من علامات التبويب الأخرى التي تستخدم جلسة المتصفح نفسها. ستستمر التنزيلات على الخادم. وستُفقد المدخلات غير المحفوظة في تلك العلامات.",
+    "logoutTitle": "تسجيل الخروج من هذا الخادم؟",
+    "retry": "إعادة المحاولة",
+    "serverUnavailable": "الخادم غير متاح. لم يتم تسجيل خروجك من الجلسة.",
+    "signOut": "تسجيل الخروج…"
+  },
+  "bridge": {
+    "receiver": {
+      "error": {
+        "authExpired": "انتهت صلاحية الجلسة — حدّث الصفحة في المتصفح وحاول مجددًا",
+        "cancelled": "أُلغي",
+        "diskFull": "القرص ممتلئ",
+        "diskWriteFailed": "تعذّرت الكتابة إلى القرص: {{detail}}",
+        "internalError": "خطأ داخلي: {{detail}}",
+        "invalidPayload": "طلب غير صالح من الامتداد",
+        "invalidUrlScheme": "يجب أن يبدأ عنوان URL بـ http: أو https:",
+        "muxAborted": "أُلغي الدمج",
+        "muxFailed": "فشل ffmpeg أثناء دمج الصوت والفيديو",
+        "notFound": "المورد غير موجود (404)",
+        "rangeNotSatisfiable": "فشل الاستئناف؛ ابدأ التنزيل من جديد",
+        "transientFailure": "فشل التنزيل بعد محاولات متكررة: {{detail}}",
+        "unsupportedEncryption": "لا يمكن تنزيل المحتوى المحمي بتقنية DRM",
+        "unsupportedKind": "تنزيلات {{kind}} غير مدعومة في هذا الإصدار من Motrix",
+        "unsupportedLive": "لا يمكن تنزيل البث المباشر",
+        "unsupportedMaster": "أرسل الامتداد قائمة تشغيل رئيسية؛ المطلوب قائمة تشغيل لأحد البدائل"
+      }
+    }
+  },
+  "chrome": {
+    "close": "إغلاق",
+    "maximize": "تكبير",
+    "minimize": "تصغير",
+    "newTask": "مهمة جديدة",
+    "restore": "استعادة الحجم",
+    "sidebarDescription": "التنقل في التطبيق.",
+    "sidebarTitle": "الشريط الجانبي",
+    "toggleSidebar": "إظهار الشريط الجانبي أو إخفاؤه"
+  },
+  "common": {
+    "apply": "تطبيق",
+    "cancel": "إلغاء",
+    "clearSearch": "مسح البحث",
+    "close": "إغلاق",
+    "collapse": "طي",
+    "confirm": "تأكيد",
+    "download": "تنزيل",
+    "error": "خطأ",
+    "hidePassword": "إخفاء كلمة المرور",
+    "loading": "جارٍ التحميل…",
+    "name": "الاسم:",
+    "remove": "إزالة",
+    "reset": "إعادة تعيين",
+    "retry": "إعادة المحاولة",
+    "save": "حفظ",
+    "showPassword": "إظهار كلمة المرور",
+    "status": {
+      "finalizing": "جارٍ الإنهاء…"
+    }
+  },
+  "directoryPicker": {
+    "back": "رجوع",
+    "create": "إنشاء",
+    "createHelp": "تبقى المجلدات المنشأة على الخادم إذا ألغيت الاختيار.",
+    "description": "تقع المسارات على الخادم (داخل الحاوية عند استخدام Docker).",
+    "empty": "لا توجد مجلدات فرعية",
+    "errors": {
+      "alreadyExists": "يوجد ملف أو مجلد بهذا الاسم بالفعل.",
+      "creationOutcomeUnknown": "تعذّر تأكيد الإنشاء. حدّث للتحقق قبل إنشاء مجلد آخر هنا.",
+      "invalidName": "أدخل اسم مجلد صالحًا.",
+      "invalidPath": "أدخل مسار مجلد مطلقًا صالحًا.",
+      "notDirectory": "هذا المسار ليس مجلدًا.",
+      "notFound": "لم يعد هذا المجلد موجودًا.",
+      "outsideRoots": "هذا المجلد خارج المواقع المسموح بها.",
+      "permissionDenied": "ليس لديك إذن لاستخدام هذا المجلد.",
+      "tooLarge": "هذا المسار أو اسم المجلد أطول من الحد المسموح.",
+      "unavailable": "تعذّر على الخادم إكمال هذا الطلب. حاول مجددًا."
+    },
+    "fallback": "المجلد المطلوب غير متاح. جارٍ عرض {{path}}.",
+    "folderName": "اسم المجلد",
+    "folders": "المجلدات",
+    "forward": "تقدم",
+    "go": "انتقال",
+    "goToFolder": "الانتقال إلى مجلد",
+    "incomplete": "يُعرض جزء من هذا المجلد فقط. أدخل مسارًا دقيقًا للوصول إلى مجلد آخر.",
+    "loading": "جارٍ تحميل المجلدات…",
+    "location": "الموقع",
+    "newFolder": "مجلد جديد",
+    "path": "مسار المجلد",
+    "places": {
+      "allowed": "المواقع المسموح بها",
+      "common": "المواقع الشائعة",
+      "default": "المجلد الافتراضي",
+      "desktop": "سطح المكتب",
+      "documents": "المستندات",
+      "downloads": "التنزيلات",
+      "home": "المجلد الرئيسي",
+      "loadFailed": "تعذّر تحميل بعض مواقع المجلدات.",
+      "root": "نظام الملفات"
+    },
+    "refresh": "تحديث",
+    "refreshAfterCreateFailed": "أُنشئ المجلد، لكن تعذّر تحديث القائمة.",
+    "retry": "إعادة المحاولة",
+    "selectFolder": "اختيار المجلد",
+    "selectedPath": "المجلد المحدد",
+    "showHidden": "إظهار المجلدات المخفية",
+    "sortAscending": "تصاعدي",
+    "sortBy": "ترتيب حسب",
+    "sortDescending": "تنازلي",
+    "sortModified": "تاريخ التعديل",
+    "sortName": "الاسم",
+    "sortOrder": "الترتيب",
+    "title": "اختيار مجلد على الخادم",
+    "unknownOutcome": "تعذّر تأكيد الإنشاء. حدّث للتحقق قبل إنشاء مجلد آخر هنا.",
+    "up": "مستوى واحد للأعلى",
+    "viewOptions": "خيارات العرض"
+  },
+  "directoryPreferences": {
+    "addFavorite": "إضافة مجلد مفضل",
+    "alreadyFavorite": "موجود في المفضلة بالفعل",
+    "clearRecent": "مسح قائمة المجلدات الأخيرة",
+    "close": "إغلاق",
+    "description": "إزالة مجلد من هذه القائمة لا تحذفه ولا تحذف ملفاته.",
+    "emptyFavorites": "لا توجد مجلدات مفضلة",
+    "emptyHistory": "لا توجد مجلدات مفضلة أو أخيرة بعد",
+    "emptyRecent": "لا توجد مجلدات أخيرة",
+    "errors": {
+      "conflict": "تغيّرت الإعدادات في نافذة أخرى. راجع تغييراتك واحفظ مجددًا.",
+      "invalidPath": "أدخل مسار مجلد مطلقًا صالحًا.",
+      "limitReached": "بلغت الحد الأقصى للمجلدات المفضلة. أزل مجلدًا مفضلًا قبل إضافة آخر.",
+      "notDirectory": "هذا المسار ليس مجلدًا.",
+      "notFound": "لم يعد هذا المجلد موجودًا.",
+      "outsideRoots": "هذا المجلد خارج المواقع المسموح بها.",
+      "permissionDenied": "ليس لديك إذن لاستخدام هذا المجلد.",
+      "tooLarge": "مسار هذا المجلد أطول من الحد المسموح.",
+      "unavailable": "تعذّر تحديث سجلات المجلدات. حدّث للتحقق من حالتها الحالية."
+    },
+    "favoriteRecent": "إضافة إلى المفضلة",
+    "favorites": "المجلدات المفضلة",
+    "history": "سجل المجلدات",
+    "limitHint": "الحد الأقصى للمجلدات المفضلة: {{count}}.",
+    "loading": "جارٍ تحميل المجلدات…",
+    "manage": "إدارة المجلدات",
+    "manageAction": "إدارة",
+    "manageDescription": "اختر المجلدات المفضلة وأدر المجلدات الأخيرة.",
+    "pickerFailed": "تعذّر فتح منتقي المجلدات. حاول مجددًا.",
+    "recent": "المجلدات الأخيرة",
+    "removeFavorite": "إزالة من المفضلة",
+    "removeRecent": "إزالة مجلد من الأخيرة",
+    "retry": "إعادة المحاولة",
+    "sectionDescription": "احتفظ بالمجلدات المستخدمة بكثرة في متناولك.",
+    "title": "إدارة المجلدات"
+  },
+  "errors": {
+    "task": {
+      "create": {
+        "dedupExhausted": "يوجد بالفعل عدد كبير جدًا من الملفات بهذا الاسم (>9999).",
+        "torrentMetaFailed": "تعذّر حفظ بيانات التورنت الوصفية."
+      }
+    }
+  },
+  "menu": {
+    "app": {
+      "about": "حول Motrix",
+      "checkForUpdates": "التحقق من وجود تحديثات",
+      "hide": "إخفاء Motrix",
+      "hideOthers": "إخفاء التطبيقات الأخرى",
+      "preferences": "الإعدادات…",
+      "quit": "إنهاء Motrix",
+      "show": "إظهار Motrix",
+      "title": "Motrix",
+      "unhide": "إظهار الكل"
+    },
+    "edit": {
+      "copy": "نسخ",
+      "cut": "قص",
+      "delete": "حذف",
+      "paste": "لصق",
+      "redo": "إعادة",
+      "selectAll": "تحديد الكل",
+      "title": "تحرير",
+      "undo": "تراجع"
+    },
+    "file": {
+      "title": "ملف"
+    },
+    "help": {
+      "changelog": "ملاحظات الإصدار",
+      "manual": "مساعدة Motrix",
+      "officialWebsite": "موقع Motrix",
+      "reportProblem": "الإبلاغ عن مشكلة",
+      "title": "مساعدة",
+      "toggleDevTools": "إظهار أدوات المطوّر أو إخفاؤها"
+    },
+    "task": {
+      "clearRecentTasks": "مسح سجلات المهام المتوقفة…",
+      "deleteTask": "إزالة المهام…",
+      "moveTaskDown": "نقل لأسفل في قائمة الانتظار",
+      "moveTaskUp": "نقل لأعلى في قائمة الانتظار",
+      "newBtTask": "مهمة BitTorrent جديدة…",
+      "newTask": "مهمة جديدة…",
+      "openFile": "فتح ملف تورنت…",
+      "pauseAllTask": "إيقاف الكل مؤقتًا",
+      "pauseTask": "إيقاف مؤقت",
+      "resumeAllTask": "استئناف الكل",
+      "resumeTask": "استئناف",
+      "selectAllTask": "تحديد كل المهام",
+      "taskList": "قائمة المهام",
+      "title": "مهمة"
+    },
+    "window": {
+      "close": "إغلاق",
+      "front": "إحضار الكل إلى المقدمة",
+      "minimize": "تصغير",
+      "reload": "إعادة تحميل",
+      "title": "نافذة",
+      "toggleFullscreen": "تبديل وضع ملء الشاشة",
+      "zoom": "تكبير/تصغير"
+    }
+  },
+  "nav": {
+    "completed": "المكتملة",
+    "dashboard": "لوحة المعلومات",
+    "downloads": "التنزيلات",
+    "notifications": "الإشعارات",
+    "plugins": "الإضافات",
+    "settings": "الإعدادات",
+    "trackers": "المتعقّبات"
+  },
+  "notification": {
+    "center": {
+      "actionFailed": "تعذّر تحديث الإشعارات. حاول مجددًا.",
+      "clearAll": "مسح",
+      "empty": "لا توجد إشعارات",
+      "emptyDesc": "سيظهر هنا نشاط التنزيل وإشعارات التطبيق المهمة",
+      "markAllRead": "تعليم الكل كمقروء",
+      "markRead": "تعليم كمقروء",
+      "openTaskFailed": "تعذّر فتح المهمة. حاول مجددًا.",
+      "removeAria": "إزالة {{title}}",
+      "rowUnreadAria": "{{title}} (غير مقروء)",
+      "taskRemoved": "أُزيلت المهمة",
+      "title": "الإشعارات",
+      "toastRegionAria": "الإشعارات",
+      "unreadBadgeAria_few": "الإشعارات غير المقروءة: {{count}}",
+      "unreadBadgeAria_many": "الإشعارات غير المقروءة: {{count}}",
+      "unreadBadgeAria_one": "الإشعارات غير المقروءة: {{count}}",
+      "unreadBadgeAria_other": "الإشعارات غير المقروءة: {{count}}",
+      "unreadBadgeAria_two": "الإشعارات غير المقروءة: {{count}}",
+      "unreadBadgeAria_zero": "الإشعارات غير المقروءة: {{count}}",
+      "unreadDotAria": "إشعارات غير مقروءة",
+      "viewTask": "عرض المهمة"
+    },
+    "dnsFallback": {
+      "body": "تعذّر على Motrix الوصول إلى خادم DNS، فانتقل إلى DNS النظام لهذه الجلسة.",
+      "title": "أُعيدت محاولة {{name}} باستخدام DNS النظام"
+    },
+    "engineCompatibility": {
+      "body": "aria2 {{version}} ليس نسخة Motrix المعدّلة. تقتصر إعدادات الاتصالات على {{limit}} كحد أقصى، ولا يتوفر حفظ السجل في SQLite. استعد محرّك aria2_motrix المرفق للحصول على الدعم الكامل.",
+      "title": "تم اكتشاف aria2 غير تابع لـ Motrix"
+    },
+    "engineFailure": {
+      "title": "فشل محرّك التنزيل"
+    },
+    "engineRestartRequired": {
+      "body": "حُفظت إعداداتك. أعد تشغيل محرّك التنزيل عندما يناسبك.",
+      "restartNow": "إعادة التشغيل الآن",
+      "title": "أعد تشغيل محرّك التنزيل لتطبيق الإعدادات"
+    },
+    "taskComplete": {
+      "title": "اكتمل تنزيل {{name}}"
+    },
+    "taskError": {
+      "title": "فشلت المهمة {{name}}"
+    }
+  },
+  "onboarding": {
+    "disclaimer": {
+      "agree": "الموافقة والمتابعة",
+      "body": "يوفّر Motrix إدارة التنزيلات فقط. ولا يوفّر محتوى قابلًا للتنزيل أو يخزّنه أو يستضيفه أو يوصي به. يجب التأكد من أن الوصول إلى أي محتوى أو استخدامه أو مشاركته عبر Motrix مصرح به قانونًا ومتوافق مع قوانين حقوق النشر وغيرها من القوانين المعمول بها. أنت مسؤول عن أي عواقب تنشأ عن تنزيل المحتوى أو استخدامه أو مشاركته. باختيار «الموافقة والمتابعة»، تؤكد أنك قرأت هذا الإشعار وفهمته.",
+      "highlights": {
+        "authorized": "مصرح به قانونًا",
+        "downloadManagement": "يوفّر Motrix إدارة التنزيلات فقط",
+        "responsibility": "أنت مسؤول"
+      },
+      "language": "اللغة",
+      "languages": {
+        "chinese": "简体中文",
+        "english": "English"
+      },
+      "localConsent": "سيُحفظ اختيارك على هذا الجهاز.",
+      "quit": "خروج",
+      "retry": "إعادة المحاولة",
+      "saveFailed": "تعذّر حفظ موافقتك. تحقق من مساحة القرص وحاول مجددًا.",
+      "summary": "يرجى قراءة ما يلي قبل المتابعة.",
+      "title": "إشعار الاستخدام"
+    }
+  },
+  "operatorAdmin": {
+    "decision": {
+      "approve": "تمت الموافقة على {{userCode}} لـ {{clientName}} ({{clientVersion}}).",
+      "deny": "رُفض {{userCode}} لـ {{clientName}} ({{clientVersion}})."
+    },
+    "errorPrefix": "motrix-admin: {{message}}",
+    "errors": {
+      "credential": {
+        "dataDirNotAbsolute": "يجب أن يكون MOTRIX_DATA_DIR مسارًا مطلقًا.",
+        "invalid": "ملف بيانات اعتماد المشغّل غير صالح.",
+        "notFile": "مسار بيانات اعتماد المشغّل لا يشير إلى ملف عادي.",
+        "rejected": "رفض Motrix بيانات اعتماد المشغّل.",
+        "tokenHeaderInvalid": "لا يمكن استخدام MOTRIX_OPERATOR_TOKEN في ترويسة HTTP.",
+        "unavailable": "بيانات اعتماد المشغّل غير متاحة. اضبط MOTRIX_OPERATOR_TOKEN أو تأكد من وجود operator-token في مجلد البيانات.",
+        "unreadable": "تعذّرت قراءة بيانات اعتماد المشغّل."
+      },
+      "server": {
+        "ambiguousRequest": "يطابق {{userCode}} أكثر من طلب اقتران معلّق؛ لم يُطبّق أي قرار.",
+        "approvalUnavailable": "الموافقة على الاقتران غير متاحة في خادم Motrix الجاري.",
+        "decisionOutcomeUnknown": "نتيجة قرار الاقتران غير معروفة. شغّل pairing pending قبل المحاولة مجددًا.",
+        "decisionResponseInvalid": "أعاد Motrix استجابة غير صالحة لقرار الاقتران.",
+        "noMatchingRequest": "لا يوجد طلب اقتران معلّق يطابق {{userCode}}.",
+        "pendingResponseInvalid": "أعاد Motrix استجابة غير صالحة لطلبات الاقتران المعلّقة.",
+        "requestNoLongerPending": "لم يعد طلب الاقتران معلّقًا.",
+        "responseInvalidJson": "أعاد Motrix استجابة JSON غير صالحة.",
+        "responseOversized": "أعاد Motrix استجابة أكبر من الحد المسموح.",
+        "responseUnreadable": "أعاد Motrix استجابة غير قابلة للقراءة.",
+        "rpcHttp": "فشل RPC الاقتران في Motrix بحالة HTTP {{status}}.",
+        "unexpected": "فشل غير متوقع في motrix-admin."
+      },
+      "unavailable": {
+        "approvalNotReady": "الموافقة على الاقتران ليست جاهزة في خادم Motrix الجاري.",
+        "loopback": "خادم Motrix الجاري غير متاح عبر واجهة الاسترجاع داخل الحاوية."
+      },
+      "usage": {
+        "jsonRepeated": "لا يمكن تحديد --json إلا مرة واحدة.",
+        "pairingCodeInvalid": "يجب أن يتكون رمز الاقتران من ثمانية محارف ASCII، وألا يحتوي على I أو O أو 0 أو 1.",
+        "pairingCommandRequired": "المطلوب هو الأمر pairing.",
+        "pairingOperationRequired": "المطلوب pairing pending أو pairing approve CODE أو pairing deny CODE.",
+        "portInvalid": "يجب أن يكون PORT عددًا صحيحًا بين 1 و65535.",
+        "unknownOption": "خيار سطر أوامر غير معروف."
+      }
+    },
+    "help": "الاستخدام:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nيتصل الأمر بخادم Motrix الجاري فقط عبر واجهة الاسترجاع داخل الحاوية.",
+    "pending": {
+      "none": "لا توجد طلبات اقتران معلّقة.",
+      "row": "{{userCode}}  {{clientName}}  {{clientVersion}}  تنتهي الصلاحية خلال {{ttl}}",
+      "ttl": "{{minutes}} د {{seconds}} ث"
+    },
+    "usageHint": "شغّل `motrix-admin --help` لعرض طريقة الاستخدام."
+  },
+  "operatorUnlock": {
+    "error": "رمز المشغّل غير صالح. تحقق من MOTRIX_OPERATOR_TOKEN أو <dataDir>/operator-token على المضيف وحاول مجددًا.",
+    "help": "يتطلب هذا الخادم رمز المشغّل. اضبط MOTRIX_OPERATOR_TOKEN على المضيف، أو اقرأ الرمز من <dataDir>/operator-token، ثم الصقه أدناه.",
+    "placeholder": "رمز المشغّل",
+    "submit": "فتح القفل",
+    "title": "فتح قفل Motrix"
+  },
+  "panel": {
+    "completed": {
+      "desc": "مهام التنزيل المكتملة",
+      "title": "المكتملة"
+    },
+    "connection": {
+      "originMismatch": "عدم تطابق عنوان الوصول",
+      "polling": "تحديثات دورية",
+      "reconnecting": "جارٍ إعادة الاتصال بالخادم…",
+      "unavailable": "يتعذّر الوصول إلى الخادم"
+    },
+    "dashboard": {
+      "active": {
+        "downloading": "جارٍ التنزيل",
+        "engineOffline": "المحرّك غير متصل",
+        "error": "خطأ",
+        "seeding": "التوزيع",
+        "title": "المهام النشطة",
+        "waiting": "انتظار"
+      },
+      "activity": {
+        "completedIntensity": "تشير كثافة اللون إلى عدد التنزيلات المكتملة",
+        "coverageDegraded": "قد تكون بيانات النشاط غير مكتملة منذ {{time}}",
+        "less": "أقل",
+        "loading": "جارٍ تحميل النشاط",
+        "more": "أكثر",
+        "rangeSummary": "نشاط التنزيل من {{start}} إلى {{end}}؛ عدد الأسابيع: {{weeks}}",
+        "retry": "إعادة المحاولة",
+        "stale": "قد تكون بيانات النشاط قديمة",
+        "title": "النشاط",
+        "tooltip": {
+          "completed": "المكتمل: {{count}}",
+          "completedOnDate": "المكتمل في {{date}}: {{count}}",
+          "coverage": "قد تكون التغطية غير مكتملة منذ {{time}}",
+          "coverageShort": "قد تكون البيانات غير مكتملة",
+          "noData": "لا توجد بيانات نشاط",
+          "noDataOnDate": "لا توجد بيانات نشاط في {{date}}",
+          "partial": "بدأ التتبع في {{time}}",
+          "partialShort": "يوم جزئي",
+          "recovered": "يتضمن تنزيلًا اكتُشف اكتماله أثناء الاستعادة",
+          "recoveredCount": "المستعاد: {{count}}",
+          "submitted": "المضاف: {{count}}",
+          "today": "اليوم، لا يزال التحديث جاريًا",
+          "untracked": "لم يبدأ التتبع بعد"
+        },
+        "unavailable": "النشاط غير متاح",
+        "weekday": {
+          "fri": "جمعة",
+          "mon": "اثنين",
+          "sat": "سبت",
+          "sun": "أحد",
+          "thu": "خميس",
+          "tue": "ثلاثاء",
+          "wed": "أربعاء"
+        }
+      },
+      "configure": {
+        "action": "ضبط",
+        "addTile": "إضافة",
+        "addTitle": "إضافة لوحة",
+        "apply": "تطبيق",
+        "availabilityHints": {
+          "bounds": "انقل اللوحة إلى الداخل أولًا.",
+          "space": "صغّر لوحة أخرى أو أزلها.",
+          "unsupported": "اختر حجمًا مدعومًا."
+        },
+        "cancel": "إلغاء",
+        "currentSize": "الحجم الحالي: {{width}} × {{height}}",
+        "drag": "سحب اللوحة",
+        "expandHint": "وسّع النافذة لضبط تخطيط لوحة المعلومات.",
+        "invalidCapacity": "لا توجد مساحة كافية لهذا الحجم",
+        "presets": {
+          "action": "تخطيطات جاهزة",
+          "balanced": {
+            "title": "متوازن"
+          },
+          "compact": {
+            "title": "صغير"
+          },
+          "custom": "مخصص",
+          "speedFocus": {
+            "title": "التركيز على السرعة"
+          },
+          "taskFocus": {
+            "title": "التركيز على المهام"
+          },
+          "undo": "التراجع عن تطبيق آخر تخطيط جاهز"
+        },
+        "removeTile": "إزالة اللوحة",
+        "reset": "إعادة تعيين",
+        "resizeTile": "تغيير حجم اللوحة",
+        "saveFailed": "تعذّر حفظ التخطيط. حاول مجددًا.",
+        "size": "{{width}} × {{height}}",
+        "sizeGroup": "حجم اللوحة",
+        "sizeLabels": {
+          "compact": "صغير",
+          "fullHeight": "الارتفاع الكامل",
+          "fullWidth": "العرض الكامل",
+          "large": "كبير",
+          "tall": "طويل",
+          "wide": "عريض"
+        },
+        "sizeUnavailable": {
+          "insufficientSpace": "المساحة غير كافية",
+          "outOfBounds": "لا يتسع",
+          "unsupported": "غير مدعوم"
+        }
+      },
+      "engine": {
+        "diagnostics": {
+          "binary": {
+            "available": "{{name}} {{version}}",
+            "unavailable": "{{name}} مفقود أو يتعذّر تشغيله."
+          },
+          "checking": "جارٍ إجراء فحوصات المحرّك…",
+          "checks": {
+            "binary": "المحرّك",
+            "communication": "الاتصال",
+            "features": "الميزات",
+            "process": "العملية",
+            "rpc": "منفذ RPC"
+          },
+          "communication": {
+            "ready": "يمكن لـ Motrix التواصل مع aria2."
+          },
+          "confirmForce": {
+            "action": "الإيقاف بالقوة والاستعادة",
+            "description": "تطابق العملية PID {{pid}} الملف التنفيذي المرفق مع Motrix ورمز RPC السري الخاص ومسارات البيانات. ستُنهى فورًا، ثم يُعاد تشغيل aria2 على منفذ RPC الخاص بـ Motrix.",
+            "title": "إيقاف عملية aria2 المتبقية بالقوة؟"
+          },
+          "copied": "نُسخ",
+          "copy": "نسخ التشخيص",
+          "copyFailed": "تعذّر نسخ التشخيص. حاول مجددًا.",
+          "currentStatus": "الحالة الحالية",
+          "description": "افحص المحرّك، وحدد العملية التي تستخدم منفذ RPC الخاص بـ Motrix، واستعد التشغيل بأمان.",
+          "details": "تفاصيل التشخيص",
+          "fallback": {
+            "available": "منفذ Motrix الافتراضي {{port}} متاح ويمكن استعادته الآن.",
+            "blocked": "تستخدم العملية PID {{pid}} ({{name}}) المنفذ الافتراضي {{port}}، لكن Motrix لا يستطيع التحقق من ملكيتها. لن تُنهى العملية.",
+            "confirm": {
+              "action": "الإيقاف واستعادة المنفذ {{port}}",
+              "description": "تم التحقق من أن PID {{pid}} عملية aria2 متبقية تابعة لـ Motrix. ستُوقَف، وسيُحفظ المنفذ الافتراضي {{port}}، ثم يُعاد تشغيل aria2.",
+              "title": "إيقاف العملية المتبقية واستعادة المنفذ {{port}}؟"
+            },
+            "restore": "استعادة منفذ Motrix الافتراضي {{port}}",
+            "restoredDefault": "استُعيد منفذ RPC الافتراضي لـ Motrix {{port}}.",
+            "restoring": "جارٍ استعادة منفذ Motrix الافتراضي {{port}}…",
+            "unidentified": "تعذّر تحديد العملية التي تستخدم المنفذ الافتراضي {{port}}. سيستمر Motrix في استخدام المنفذ الحالي.",
+            "verifiedOrphan": "تستخدم عملية aria2 متبقية مؤكدة تابعة لـ Motrix (PID {{pid}}) المنفذ الافتراضي {{port}}. يمكن لـ Motrix إيقافها بأمان قبل استعادة المنفذ."
+          },
+          "features": {
+            "none": "لم يُبلّغ عنها",
+            "unavailable": "غير متاح"
+          },
+          "forceRecover": "الإيقاف بالقوة والاستعادة",
+          "impact": {
+            "connecting": "ستتوفر أدوات التحكم بالتنزيلات عندما يصبح المحرّك جاهزًا.",
+            "failed": "أدوات التحكم بالتنزيلات غير متاحة. قد تكون حالة المهام قديمة.",
+            "stopped": "شغّل المحرّك لبدء التنزيلات أو إدارتها."
+          },
+          "lastChecked": "تم الفحص في {{time}}",
+          "loadFailed": "تعذّر إجراء تشخيص المحرّك.",
+          "motrixEngine": "aria2 Motrix",
+          "open": "تشخيص",
+          "port": {
+            "available": "{{port}} (متاح)",
+            "listening": "{{port}} (يستمع)",
+            "occupied": "{{port}} (مستخدم)"
+          },
+          "process": {
+            "current_app": "PID {{pid}} ({{name}})، يديرها Motrix",
+            "external_aria2": "PID {{pid}} ({{name}})، لم يتم التحقق من ملكيتها؛ لن تُوقَف",
+            "none": "لا يوجد تعارض في المنفذ",
+            "other": "PID {{pid}} ({{name}})، لم يتم التحقق من ملكيتها؛ لن تُوقَف",
+            "unidentified": "غير محددة، ولن تُوقَف",
+            "unknown": "PID {{pid}}، غير محددة؛ لن تُوقَف",
+            "verified_orphan": "PID {{pid}} ({{name}})، عملية متبقية مؤكدة تابعة لـ Motrix؛ يمكن إيقافها بأمان"
+          },
+          "reason": {
+            "binary_unavailable": "ملف aria2 التنفيذي المرفق مفقود أو غير متاح.",
+            "health_check_failed": "توقف aria2 عن الاستجابة لـ Motrix.",
+            "port_in_use": "منفذ RPC الخاص بـ Motrix مشغول، لذلك تعذّر بدء محرّك aria2.",
+            "rpc_unavailable": "بدأ محرّك aria2، لكنه لم يقبل اتصالات RPC من Motrix.",
+            "spawn_failed": "تعذّر إنشاء عملية aria2.",
+            "unexpected_exit": "توقف محرّك aria2 على نحو غير متوقع.",
+            "unknown": "تعذّر بدء محرّك aria2 لسبب غير معروف."
+          },
+          "recommendation": {
+            "force_terminate": "تم التحقق من أن هذه العملية تابعة لـ Motrix. أوقف PID {{pid}} بالقوة، ثم أعد تشغيل aria2 على منفذ RPC الخاص بـ Motrix {{rpcPort}}.",
+            "retry": "المنفذ متاح. أعد محاولة تشغيل aria2 دون تغيير إعداداتك.",
+            "switch_port": "لا يمكن إنهاء العملية بأمان. استخدم المنفذ {{port}} كبديل احتياطي فقط، أو أغلق العملية المتعارضة بنفسك.",
+            "title": "الاستعادة الموصى بها"
+          },
+          "recovered": "أصبح محرّك aria2 متاحًا مجددًا.",
+          "recoveredOnPort": "استُعيد محرّك aria2 على منفذ RPC {{port}}.",
+          "recoveryFailed": "فشلت استعادة المحرّك. أجرِ التشخيص مجددًا لمعرفة أحدث حالة.",
+          "refreshFailed": "تعذّر تحديث التشخيص. يظهر أدناه آخر تقرير ناجح.",
+          "restart": "إعادة تشغيل المحرّك",
+          "retry": "إعادة المحاولة",
+          "rpc": {
+            "available": "{{port}} (متاح)",
+            "listening": "{{port}} (يستمع)",
+            "occupied": "{{port}} (مستخدم)"
+          },
+          "runAgain": "تشغيل مجددًا",
+          "runtime": {
+            "connected": "متصل",
+            "connecting": "جارٍ الاتصال…",
+            "connection": "الاتصال",
+            "connectionStatus": "{{transport}} ({{status}})",
+            "disconnected": "غير متصل",
+            "notRunning": "لا يعمل",
+            "process": "العملية",
+            "running": "يعمل",
+            "unavailable": "غير متاح"
+          },
+          "summary": {
+            "binary_unavailable": "محرّك التنزيل غير متاح",
+            "health_check_failed": "توقف محرّك التنزيل عن الاستجابة",
+            "port_in_use": "منفذ التحكم بالمحرّك مشغول",
+            "ready": "محرّك التنزيل يعمل بصورة طبيعية",
+            "restarting": "جارٍ استعادة محرّك التنزيل",
+            "rpc_unavailable": "اتصال التحكم بالمحرّك غير متاح",
+            "spawn_failed": "تعذّر بدء محرّك التنزيل",
+            "starting": "محرّك التنزيل قيد البدء",
+            "stopped": "محرّك التنزيل متوقف",
+            "unexpected_exit": "توقف محرّك التنزيل على نحو غير متوقع",
+            "unknown": "محرّك التنزيل غير متاح"
+          },
+          "switchPort": "استخدام المنفذ {{port}}",
+          "technicalDetails": "التفاصيل التقنية",
+          "title": "تشخيص المحرّك",
+          "transport": {
+            "websocket": "WebSocket"
+          },
+          "versionUnknown": "الإصدار غير متاح"
+        },
+        "features": "الميزات",
+        "listenPort": "منفذ الاستماع",
+        "name": "Aria2",
+        "rpcPort": "منفذ RPC",
+        "startFailed": "تعذّر بدء محرّك aria2",
+        "state": {
+          "disconnected": "غير متصل",
+          "failed": "فشل",
+          "ready": "جاهز",
+          "reconnecting": "جارٍ إعادة الاتصال…",
+          "starting": "جارٍ البدء…",
+          "stopped": "متوقف"
+        },
+        "title": "المحرّك",
+        "version": "الإصدار"
+      },
+      "errors": {
+        "retry": "إعادة المحاولة",
+        "tileFailed": "{{tile}}: فشل العرض"
+      },
+      "nat": {
+        "actions": {
+          "diagnose": "إجراء التشخيص",
+          "disable": "تعطيل NAT",
+          "enable": "تفعيل NAT",
+          "group": "أدوات التحكم في NAT",
+          "remap": "فرض إعادة التعيين",
+          "settings": "إعدادات NAT",
+          "short": {
+            "diagnose": "تشخيص",
+            "disable": "تعطيل",
+            "enable": "تفعيل",
+            "help": "مساعدة",
+            "remap": "إعادة التعيين"
+          },
+          "troubleshoot": "دليل استكشاف مشكلات NAT وإصلاحها"
+        },
+        "caption": {
+          "failed": "التعيين التلقائي غير متاح.",
+          "off": "تعيين منافذ BT متوقف.",
+          "settingUp": "جارٍ الاتصال بالموجّه…",
+          "waiting": "بانتظار حالة الشبكة…"
+        },
+        "compact": {
+          "caption": {
+            "active_few": "المنافذ: {{count}}",
+            "active_many": "المنافذ: {{count}}",
+            "active_one": "المنافذ: {{count}}",
+            "active_other": "المنافذ: {{count}}",
+            "active_two": "المنافذ: {{count}}",
+            "active_zero": "المنافذ: {{count}}",
+            "failed": "غير متاح",
+            "off": "BT / DHT",
+            "settingUp": "جارٍ الاتصال…",
+            "waiting": "جارٍ التحميل…"
+          },
+          "state": {
+            "active": "تم التعيين",
+            "failed": "تعيين المنافذ",
+            "off": "إيقاف",
+            "settingUp": "تعيين المنافذ"
+          }
+        },
+        "externalIp": "عنوان IP الخارجي",
+        "gatewayIp": "الموجّه",
+        "health": "الحالة",
+        "healthScore": {
+          "fair": "متوسطة",
+          "good": "جيدة",
+          "poor": "ضعيفة",
+          "unknown": "—"
+        },
+        "internalIp": "عنوان IP المحلي",
+        "lastCheck": "آخر فحص",
+        "lastCheckNever": "لم يُفحص",
+        "mappingDetails": "المنافذ المعيّنة",
+        "mappingPurpose": {
+          "bt-listen": "BitTorrent",
+          "dht-listen": "DHT"
+        },
+        "mappings": "التعيينات",
+        "mappingsValue_few": "النشط: {{count}}",
+        "mappingsValue_many": "النشط: {{count}}",
+        "mappingsValue_one": "النشط: {{count}}",
+        "mappingsValue_other": "النشط: {{count}}",
+        "mappingsValue_two": "النشط: {{count}}",
+        "mappingsValue_zero": "النشط: {{count}}",
+        "natType": {
+          "blocked": "محظور",
+          "fullcone": "مخروطي كامل",
+          "open": "مفتوح",
+          "port-restricted": "مقيّد بالمنفذ",
+          "restricted": "مقيّد",
+          "symmetric": "متماثل",
+          "unknown": "غير معروف"
+        },
+        "noMappings": "لا توجد تعيينات منافذ نشطة.",
+        "none": "—",
+        "portMapping": "الداخلي {{internal}} إلى الخارجي {{external}}",
+        "rateLimited": "طلبات متكررة جدًا — حاول بعد قليل",
+        "retrying": "إعادة المحاولة {{attempt}}/{{max}}",
+        "state": {
+          "active": "نشط",
+          "failed": "فشل",
+          "off": "إيقاف",
+          "settingUp": "جارٍ التهيئة"
+        },
+        "title": "NAT",
+        "type": "النوع"
+      },
+      "speed": {
+        "down": "التنزيل",
+        "offline": "غير متصل",
+        "peak": "الذروة {{value}}",
+        "up": "الرفع"
+      },
+      "speedDown": {
+        "title": "سرعة التنزيل"
+      },
+      "speedLimit": {
+        "reason": {
+          "adaptive": "النطاق الترددي المحجوز",
+          "base": "الحد القياسي",
+          "schedule": "الجدول",
+          "turtle": "وضع السرعة المنخفضة",
+          "videoApp": "تطبيق فيديو"
+        },
+        "settings": "إعدادات حدود السرعة",
+        "smart": "تلقائي",
+        "title": "حد السرعة",
+        "tooltip": {
+          "auto": "ضبط السرعة تلقائيًا حسب الجدول والنطاق الترددي",
+          "off": "استخدام حدود السرعة القياسية",
+          "on": "استخدام حدود السرعة المنخفضة الآن"
+        },
+        "turtle": {
+          "auto": "الوضع التلقائي",
+          "off": "الوضع القياسي",
+          "on": "وضع السرعة المنخفضة"
+        },
+        "unlimited": "غير محدود"
+      },
+      "speedUp": {
+        "title": "سرعة الرفع"
+      },
+      "tasks": {
+        "empty": {
+          "active": "لا توجد مهام نشطة",
+          "failed": "لا توجد مهام فاشلة",
+          "recent": "لم يكتمل شيء بعد"
+        },
+        "loading": "جارٍ تحميل المهام",
+        "metric": {
+          "fetching": "جارٍ الجلب",
+          "finalizing": "جارٍ الإنهاء",
+          "paused": "متوقفة مؤقتًا",
+          "queued": "في قائمة الانتظار",
+          "ready": "جاهزة"
+        },
+        "more": "+{{count}} أخرى",
+        "newTask": "مهمة جديدة",
+        "offline": "المحرّك غير متصل",
+        "progressLabel": "تقدم {{name}}",
+        "retry": "إعادة المحاولة",
+        "secondary": {
+          "chooseFiles": "بانتظار اختيار الملفات",
+          "completed": "اكتمل في {{time}}",
+          "eta": "الوقت المتبقي {{time}}",
+          "failed": "فشل: {{reason}}",
+          "finalizing": "جارٍ إكمال التنزيل",
+          "metadata": "جارٍ جلب البيانات الوصفية",
+          "offline": "غير متصل (آخر تقدم معروف)",
+          "ratio": "النسبة {{ratio}}",
+          "saved": "حُفظ {{percent}}%",
+          "technicalDetail": "تفاصيل تقنية: {{detail}}",
+          "waiting": "بانتظار البدء"
+        },
+        "title": "المهام",
+        "unavailable": "المهام غير متاحة",
+        "view": {
+          "active": "نشطة",
+          "failed": "فاشلة",
+          "recent": "الأخيرة"
+        },
+        "viewLabel": "عرض المهام"
+      },
+      "title": "لوحة المعلومات",
+      "transfer": {
+        "download": "تنزيل",
+        "empty": {
+          "allTime": "لم يُسجّل نقل بيانات بعد.",
+          "today": "لم يُسجّل نقل بيانات اليوم."
+        },
+        "loading": "جارٍ تحميل بيانات النقل",
+        "outOfDate": "قد تكون البيانات قديمة",
+        "rangeLabel": "فترة نقل البيانات",
+        "retry": "إعادة المحاولة",
+        "scope": {
+          "allTime": "كل الوقت",
+          "today": "اليوم"
+        },
+        "sinceDate": "منذ {{date}}",
+        "sinceTime": "منذ {{time}}",
+        "title": "نقل البيانات",
+        "totalLabel": "إجمالي النقل ({{scope}}): {{value}}",
+        "unavailable": "بيانات النقل غير متاحة",
+        "updated": "حُدّث في {{time}}",
+        "upload": "رفع"
+      }
+    },
+    "downloads": {
+      "action": {
+        "batchPartial": "نجح: {{ok}}، فشل: {{failed}}",
+        "cancel": "إلغاء",
+        "chooseFiles": "اختيار الملفات…",
+        "copied": "نُسخ إلى الحافظة",
+        "copyError": "نسخ معلومات الخطأ",
+        "copyFailed": "تعذّر النسخ إلى الحافظة. حاول مجددًا.",
+        "copyPath": "نسخ مسار الملف",
+        "copyUrl": "نسخ عنوان URL",
+        "copyUrlFailed": "فشل النسخ: تعذّر تحميل تفاصيل رابط المهمة. حاول مجددًا.",
+        "copyUrls": "نسخ عناوين URL",
+        "errorReport": "{{name}}\nمعرّف المهمة: {{id}}\n{{details}}",
+        "finalizingTooltip": "المهمة قيد الإنهاء، يرجى الانتظار",
+        "moveQueueBottom": "نقل إلى النهاية",
+        "moveQueueDown": "نقل لأسفل في قائمة الانتظار",
+        "moveQueueTop": "نقل إلى البداية",
+        "moveQueueUp": "نقل لأعلى في قائمة الانتظار",
+        "openFile": "فتح الملف",
+        "openFileFailed": "تعذّر فتح الملف",
+        "openFolder": "فتح المجلد",
+        "pause": "إيقاف مؤقت",
+        "pauseTooltipBatch": "إيقاف مؤقت: {{n}} من المهام المحددة ({{total}})",
+        "queueBoundary": "التحديد موجود بالفعل عند طرف قائمة الانتظار",
+        "queueMoveFailed": "تعذّر تحديث قائمة الانتظار.",
+        "queueMoveHint": "يحدد موضع المهمة في قائمة الانتظار التنزيل الذي سيبدأ تاليًا. يُحفظ ترتيب الأعمدة بصورة مستقلة.",
+        "queueMoved": "حُدّثت قائمة الانتظار",
+        "queueOrder": "ترتيب التنزيل",
+        "queueTaskStarted": "لم تعد المهمة في قائمة الانتظار.",
+        "remove": "إزالة",
+        "removeAll_completed_Title": "إزالة المهام المكتملة ({{count}})؟",
+        "removeAll_downloading_Title": "إزالة المهام النشطة ({{count}})؟",
+        "removeAll_error_Title": "إزالة المهام الفاشلة ({{count}})؟",
+        "removeAll_paused_Title": "إزالة المهام المتوقفة مؤقتًا ({{count}})؟",
+        "removeAll_seeding_Title": "إزالة مهام التوزيع ({{count}})؟",
+        "removeConfirmWithFiles": "حذف الملفات المنزّلة من القرص أيضًا",
+        "removeFilesEstimate": "سيُحذف {{bytes}} من القرص",
+        "removeMixedTitle": "إزالة المهام ({{count}})؟",
+        "removeSingleTitle": "إزالة «{{name}}»؟",
+        "removeTooltipBatch": "إزالة: {{n}} من المهام المحددة ({{total}})",
+        "removeWithFilesShift": "اضغط مطولًا على Shift لحذف الملفات أيضًا",
+        "reseed": "إعادة التوزيع",
+        "reseedTooltipBatch": "إعادة التوزيع: {{n}} من المهام المحددة ({{total}})",
+        "resume": "استئناف",
+        "resumeTooltipBatch": "استئناف: {{n}} من المهام المحددة ({{total}})",
+        "retry": "إعادة المحاولة",
+        "retryTooltipBatch": "إعادة المحاولة: {{n}} من المهام المحددة ({{total}})",
+        "retryWithDialog": "إعادة المحاولة مع خيارات… (Alt+نقر)",
+        "selectFiles": "تحديد الملفات",
+        "selectFilesFailed": "تعذّر فتح اختيار الملفات.",
+        "singleTaskFailed": "{{name}}: {{reason}}",
+        "stopSeeding": "إيقاف التوزيع",
+        "stopSeedingTooltipBatch": "إيقاف التوزيع: {{n}} من المهام المحددة ({{total}})"
+      },
+      "column": {
+        "connections": "الأقران",
+        "createdAt": "تاريخ الإنشاء",
+        "down": "سرعة التنزيل",
+        "eta": "الوقت المتبقي",
+        "finishedAt": "تاريخ الاكتمال",
+        "name": "الاسم",
+        "progress": "التقدم",
+        "size": "الحجم",
+        "status": "الحالة",
+        "up": "سرعة الرفع"
+      },
+      "columnHeader": {
+        "down": "تنزيل",
+        "up": "الرفع"
+      },
+      "empty": {
+        "clearSearch": "مسح البحث",
+        "motion": {
+          "breathing": "ضوء نابض",
+          "description": "معاينة للتطوير",
+          "enabled": "تأثيرات الحركة",
+          "enabledDesc": "متزامن مع المظهر ← تقليل الحركة. تُحفظ التغييرات فورًا.",
+          "horizontalSpeed": "السرعة الأفقية",
+          "loadFade": "ظهور تدريجي عند التحميل",
+          "open": "ضبط حركة الزجاج",
+          "pointerFollow": "اتباع المؤشر",
+          "positionConstraint": "حد الإزاحة بالجاذبية",
+          "saveFailed": "تعذّر حفظ إعداد الحركة. حاول مجددًا.",
+          "systemReducedMotion": "عُطّلت الحركة بسبب تفضيل تقليل الحركة في النظام.",
+          "title": "حركة الزجاج"
+        },
+        "noMatchFilter": "لا توجد مهام تطابق هذه التصفية",
+        "noMatchSearch": "لا توجد مهام تطابق «{{query}}»",
+        "noTasks": "لا توجد تنزيلات بعد",
+        "noTasksCta": "اضغط + لإضافة تنزيل",
+        "unavailable": "المهام غير متاحة"
+      },
+      "heading": {
+        "active": "التنزيلات النشطة",
+        "all": "كل التنزيلات",
+        "completed": "التنزيلات المكتملة",
+        "error": "التنزيلات الفاشلة"
+      },
+      "inspector": {
+        "activity": {
+          "chart": {
+            "accessibleSummary": "{{range}} من {{start}} إلى {{end}}. آخر سرعة تنزيل {{download}} ورفع {{upload}}. طوال المدة: متوسط التنزيل {{average}}، وذروة التنزيل {{peak}}، والمدة النشطة {{activeDuration}}. {{sampleLabel}}. {{state}}",
+            "activeSeconds_few": "{{count}} ث",
+            "activeSeconds_many": "{{count}} ث",
+            "activeSeconds_one": "{{count}} ث",
+            "activeSeconds_other": "{{count}} ث",
+            "activeSeconds_two": "{{count}} ث",
+            "activeSeconds_zero": "{{count}} ث",
+            "noDataQualityIssues": "لا توجد تحذيرات تتبع.",
+            "sampleCount_few": "العينات: {{count}}",
+            "sampleCount_many": "العينات: {{count}}",
+            "sampleCount_one": "العينات: {{count}}",
+            "sampleCount_other": "العينات: {{count}}",
+            "sampleCount_two": "العينات: {{count}}",
+            "sampleCount_zero": "العينات: {{count}}"
+          },
+          "collecting": "جارٍ جمع بيانات النقل…",
+          "coverageGap": "انقطع التتبع.",
+          "download": "تنزيل",
+          "lifetimeEmpty": "سجل المدة الكاملة غير متاح بعد.",
+          "loading": "جارٍ تحميل النشاط…",
+          "noSessionHistory": "لم يُسجّل نقل بيانات في جلسة التطبيق هذه.",
+          "noTraffic": "لا توجد حركة بيانات عبر الشبكة حاليًا.",
+          "notAvailable": "غير متاح",
+          "range": {
+            "adaptive_few": "دقة تكيّفية · العينات: {{count}}",
+            "adaptive_many": "دقة تكيّفية · العينات: {{count}}",
+            "adaptive_one": "دقة تكيّفية · العينات: {{count}}",
+            "adaptive_other": "دقة تكيّفية · العينات: {{count}}",
+            "adaptive_two": "دقة تكيّفية · العينات: {{count}}",
+            "adaptive_zero": "دقة تكيّفية · العينات: {{count}}",
+            "label": "الفترة الزمنية للنقل",
+            "latest": "آخر 60 ثانية",
+            "lifetime": "المدة الكاملة",
+            "session": "الجلسة (60 ث)"
+          },
+          "retry": "إعادة المحاولة",
+          "stale": {
+            "message": "قد تكون البيانات قديمة. آخر تحديث في {{time}}.",
+            "short": "بيانات قديمة."
+          },
+          "summary": {
+            "active": "مدة النشاط",
+            "activeExpanded": "مدة النقل النشط",
+            "average": "المتوسط",
+            "averageExpanded": "متوسط سرعة التنزيل",
+            "peak": "الذروة",
+            "peakExpanded": "ذروة سرعة التنزيل",
+            "title": "الملخص الحالي"
+          },
+          "timeline": {
+            "cluster_few": "أحداث إضافية: {{count}}",
+            "cluster_many": "أحداث إضافية: {{count}}",
+            "cluster_one": "أحداث إضافية: {{count}}",
+            "cluster_other": "أحداث إضافية: {{count}}",
+            "cluster_two": "أحداث إضافية: {{count}}",
+            "cluster_zero": "أحداث إضافية: {{count}}",
+            "current": "الآن: {{status}}",
+            "destination": "{{event}} {{status}}",
+            "detailTitle": "تفاصيل {{label}}",
+            "event": {
+              "added": "أُضيفت",
+              "completed": "اكتملت",
+              "failed": "فشلت",
+              "observed_state": "استُعيدت الحالة",
+              "paused": "أُوقفت مؤقتًا",
+              "resumed": "استُؤنفت",
+              "stage_changed": "تغيّرت المرحلة",
+              "started": "بدأت"
+            },
+            "next": "إظهار الأحداث التالية في المخطط الزمني",
+            "previous": "إظهار الأحداث السابقة في المخطط الزمني",
+            "repeated": "{{label}} ×{{count}}",
+            "status": {
+              "completed": "مكتملة",
+              "downloading": "جارٍ التنزيل",
+              "error": "فاشلة",
+              "fetching_metadata": "جارٍ جلب البيانات الوصفية",
+              "finalizing": "جارٍ الإنهاء",
+              "metadata_ready": "البيانات الوصفية جاهزة",
+              "paused": "متوقفة مؤقتًا",
+              "queued": "في قائمة الانتظار",
+              "removed": "أُزيلت",
+              "seeding": "التوزيع"
+            },
+            "timeRange": "{{start}}–{{end}}",
+            "title": "سجل المهمة",
+            "truncatedAt": "أقدم اقتطاع: {{time}}",
+            "truncated_few": "الأحداث المحذوفة من السجل الأقدم: {{count}}",
+            "truncated_many": "الأحداث المحذوفة من السجل الأقدم: {{count}}",
+            "truncated_one": "الأحداث المحذوفة من السجل الأقدم: {{count}}",
+            "truncated_other": "الأحداث المحذوفة من السجل الأقدم: {{count}}",
+            "truncated_two": "الأحداث المحذوفة من السجل الأقدم: {{count}}",
+            "truncated_zero": "الأحداث المحذوفة من السجل الأقدم: {{count}}"
+          },
+          "transferTitle": {
+            "lifetime": "النقل طوال المدة",
+            "session": "النقل خلال الجلسة"
+          },
+          "unavailable": "نشاط المدة الكاملة غير متاح.",
+          "upload": "الرفع"
+        },
+        "multi": {
+          "avgProgress": "متوسط التقدم",
+          "combinedDown": "الإجمالي ↓",
+          "combinedUp": "الإجمالي ↑",
+          "downloaded": "المنزّل",
+          "liveSpeed": "السرعة الحالية",
+          "longestEta": "أطول وقت متبقٍ",
+          "statusDist": "توزيع الحالات",
+          "totalSize": "الحجم الإجمالي",
+          "totals": "الإجماليات"
+        },
+        "overview": {
+          "connections": "الاتصالات",
+          "createdAt": "أُنشئ",
+          "downSpeed": "سرعة التنزيل",
+          "downloaded": "المنزّل",
+          "eta": "الوقت المتبقي",
+          "finishedAt": "وقت الاكتمال",
+          "general": "عام",
+          "infoHash": "بصمة المعلومات",
+          "network": "الشبكة",
+          "peers": "الأقران",
+          "percent": "النسبة المئوية",
+          "private": "خاص",
+          "progress": "التقدم",
+          "ratio": "النسبة",
+          "seedingRecordedSince": "مسجّلة منذ {{date}}. لا يُحتسب وقت الإيقاف المؤقت أو عدم الاتصال؛ سجل التوزيع الأقدم غير متاح.",
+          "seedingTime": "مدة التوزيع",
+          "seedingUnavailable": "لم تُسجّل مدة التوزيع لهذه المهمة.",
+          "seeds": "الموزّعون",
+          "totalSize": "الحجم الإجمالي",
+          "transfer": "نقل البيانات",
+          "type": "النوع",
+          "upSpeed": "سرعة الرفع",
+          "uploaded": "المرفوع"
+        },
+        "peers": {
+          "col": {
+            "client": "العميل",
+            "country": "الموقع",
+            "down": "↓",
+            "endpoint": "IP : المنفذ",
+            "flags": "العلامات",
+            "flagsHint": "D = القرين يرسل إلينا، U = نرسل إلى القرين، S = القرين موزّع. تعني الشرطة السفلية عدم النشاط.",
+            "progress": "%",
+            "up": "↑"
+          },
+          "empty": "لا يوجد أقران متصلون",
+          "summary_few": "الأقران: {{count}} (الموزّعون: {{seeders}})",
+          "summary_many": "الأقران: {{count}} (الموزّعون: {{seeders}})",
+          "summary_one": "الأقران: {{count}} (الموزّعون: {{seeders}})",
+          "summary_other": "الأقران: {{count}} (الموزّعون: {{seeders}})",
+          "summary_two": "الأقران: {{count}} (الموزّعون: {{seeders}})",
+          "summary_zero": "الأقران: {{count}} (الموزّعون: {{seeders}})"
+        },
+        "pieces": {
+          "empty": "لا توجد بيانات للأجزاء",
+          "legend": {
+            "active": "جارٍ التنزيل",
+            "done": "المكتملة",
+            "endgame": "المرحلة النهائية",
+            "pending": "معلّق"
+          },
+          "mapLabel": "خريطة أجزاء التنزيل",
+          "pieceLength": "طول الجزء",
+          "totalPieces": "إجمالي الأجزاء"
+        },
+        "placeholder": {
+          "files": "قائمة الملفات.",
+          "peers": "قائمة الأقران.",
+          "trackers": "قائمة المتعقّبات."
+        },
+        "tab": {
+          "activity": "النشاط",
+          "files": "الملفات",
+          "overview": "نظرة عامة",
+          "peers": "الأقران",
+          "pieces": "الأجزاء",
+          "trackers": "المتعقّبات"
+        },
+        "trackers": {
+          "action": {
+            "cancel": "إلغاء",
+            "delete": "حذف المتعقّب",
+            "edit": "تحرير",
+            "save": "حفظ",
+            "sync": "مزامنة"
+          },
+          "deleteFailed": "تعذّرت إزالة المتعقّب: {{reason}}",
+          "driftSuffix_few": "غير الموجودة في القائمة العامة: {{count}}",
+          "driftSuffix_many": "غير الموجودة في القائمة العامة: {{count}}",
+          "driftSuffix_one": "غير الموجودة في القائمة العامة: {{count}}",
+          "driftSuffix_other": "غير الموجودة في القائمة العامة: {{count}}",
+          "driftSuffix_two": "غير الموجودة في القائمة العامة: {{count}}",
+          "driftSuffix_zero": "غير الموجودة في القائمة العامة: {{count}}",
+          "editHint": "تحل هذه المتعقّبات محل قائمة bt-tracker الفعّالة للمهمة. لا تتأثر إدخالات announce-list في ملف .torrent.",
+          "editPlaceholder": "عنوان URL واحد لمتعقّب في كل سطر. http(s)/udp/ws(s) فقط.",
+          "empty": "لا توجد متعقّبات",
+          "invalidLines_few": "الأسطر غير الصالحة التي تم تخطيها: {{count}}",
+          "invalidLines_many": "الأسطر غير الصالحة التي تم تخطيها: {{count}}",
+          "invalidLines_one": "الأسطر غير الصالحة التي تم تخطيها: {{count}}",
+          "invalidLines_other": "الأسطر غير الصالحة التي تم تخطيها: {{count}}",
+          "invalidLines_two": "الأسطر غير الصالحة التي تم تخطيها: {{count}}",
+          "invalidLines_zero": "الأسطر غير الصالحة التي تم تخطيها: {{count}}",
+          "loadFailed": "تعذّر تحميل المتعقّبات: {{reason}}",
+          "privateBanner": "تورنت خاص — لن تُدمج المتعقّبات العامة.",
+          "saveFailed": "تعذّر تحديث المتعقّبات: {{reason}}",
+          "summary_few": "المتعقّبات: {{count}}",
+          "summary_many": "المتعقّبات: {{count}}",
+          "summary_one": "المتعقّبات: {{count}}",
+          "summary_other": "المتعقّبات: {{count}}",
+          "summary_two": "المتعقّبات: {{count}}",
+          "summary_zero": "المتعقّبات: {{count}}",
+          "syncFailed": "تعذّرت مزامنة المتعقّبات: {{reason}}",
+          "syncPrivateDisabled": "المزامنة غير متاحة للتورنت الخاص."
+        }
+      },
+      "media": {
+        "assembling": "جارٍ التجميع",
+        "avgDownloadProgress": "متوسط تقدم التنزيل",
+        "decrypting": "جارٍ فك التشفير",
+        "downloadEta": "الوقت المتبقي للتنزيل",
+        "downloadProgress": "تقدم التنزيل",
+        "downloadSize": "حجم التنزيل",
+        "muxProgress": "تقدم الدمج",
+        "muxing": "جارٍ الدمج",
+        "outputSize": "حجم الإخراج",
+        "parts": "المقاطع",
+        "partsFormat": "المقاطع: {{completed}} / {{total}}",
+        "preparing": "جارٍ التحضير",
+        "processingTasks": "جارٍ المعالجة",
+        "renaming": "جارٍ الحفظ",
+        "stage": "المرحلة"
+      },
+      "search": {
+        "activeQuery": "البحث: {{query}}",
+        "activeTypeFilters": "تصفية النوع: {{types}}",
+        "clear": "مسح",
+        "clearQuery": "مسح البحث",
+        "empty": "لا توجد مهام مطابقة",
+        "emptyHint": "جرّب مسح تصفية النوع أو استخدام كلمة أخرى",
+        "filters": "عوامل التصفية",
+        "placeholder": "البحث في التنزيلات",
+        "resetFilters": "إعادة تعيين التصفية",
+        "scopeLabel": "النوع"
+      },
+      "sort": {
+        "asc": "{{column}}: تصاعدي",
+        "desc": "{{column}}: تنازلي",
+        "down": "سرعة التنزيل",
+        "reset": "استعادة الترتيب الافتراضي",
+        "sortAscending": "ترتيب {{column}} تصاعديًا",
+        "sortDescending": "ترتيب {{column}} تنازليًا",
+        "up": "سرعة الرفع"
+      },
+      "speedLimit": {
+        "currentMode": "وضع السرعة: {{mode}}",
+        "downloadLimit": "حد سرعة التنزيل: {{speed}}",
+        "saveFailed": "تعذّر تغيير وضع السرعة. حاول مجددًا.",
+        "title": "وضع السرعة",
+        "uploadLimit": "حد سرعة الرفع: {{speed}}"
+      },
+      "stale": {
+        "banner": "قد تكون قائمة المهام قديمة — جارٍ إعادة الاتصال…"
+      },
+      "stats": {
+        "downSpeed": "سرعة التنزيل",
+        "engineOffline": "المحرّك غير متصل",
+        "engineOk": "المحرّك جاهز",
+        "engineStarting": "المحرّك قيد البدء",
+        "natActive": "تم تعيين NAT",
+        "natActiveDesc": "يساعد أقران BT الآخرين على الاتصال بك.",
+        "natDisable": "إيقاف تعيين NAT",
+        "natHelp": "دليل الشبكة",
+        "natMapping": "تعيين NAT",
+        "natRetry": "إعادة المحاولة",
+        "natRetrying": "محاولات تلقائية ({{attempt}}/{{max}})",
+        "natSettingUp": "تعيين NAT",
+        "natSettings": "إعدادات الشبكة",
+        "natUnavailable": "التعيين التلقائي غير متاح",
+        "natUnavailableDesc": "لا يؤثر على تنزيل الروابط. قد تكون اتصالات BT محدودة.",
+        "upSpeed": "سرعة الرفع"
+      },
+      "status": {
+        "completed": "مكتملة",
+        "downloading": "جارٍ التنزيل",
+        "error": "خطأ",
+        "fetchingMetadata": "جارٍ الجلب",
+        "finalizing": "جارٍ الإنهاء",
+        "metadataReady": "بانتظار اختيار الملفات",
+        "paused": "متوقفة مؤقتًا",
+        "queued": "في قائمة الانتظار",
+        "seeding": "التوزيع"
+      },
+      "tab": {
+        "active": "نشطة",
+        "all": "الكل",
+        "completed": "المكتملة",
+        "error": "خطأ"
+      },
+      "timestamp": {
+        "notCompleted": "لم يكتمل بعد",
+        "notRecorded": "غير مسجّل",
+        "relativeDateTime": "{{date}}، {{time}}"
+      },
+      "title": "التنزيلات",
+      "titleCount": "المعروض: {{shown}} · الإجمالي: {{total}}",
+      "type": {
+        "bt": "BitTorrent",
+        "ftp": "FTP",
+        "http": "HTTP",
+        "magnet": "Magnet",
+        "metalink": "Metalink"
+      },
+      "view": {
+        "ascending": "تصاعدي",
+        "columns": "الأعمدة",
+        "descending": "تنازلي",
+        "hideInspector": "إخفاء لوحة التفاصيل",
+        "inspector": "تفاصيل المهمة",
+        "resetColumns": "استعادة الأعمدة الافتراضية",
+        "resizeColumn": "تغيير حجم عمود {{column}}",
+        "resizeInspector": "تغيير حجم لوحة التفاصيل",
+        "selectToInspect": "حدد مهمة لعرض تفاصيلها.",
+        "showInspector": "إظهار لوحة التفاصيل",
+        "sortBy": "ترتيب حسب",
+        "taskActions": "إجراءات أخرى",
+        "title": "عرض القائمة"
+      }
+    },
+    "trackers": {
+      "desc": "إدارة حالة المتعقّبات والاشتراكات",
+      "searchPlaceholder": "تصفية حسب URL…",
+      "syncNow": "المزامنة الآن",
+      "tab": {
+        "blacklist": "قائمة الحظر",
+        "effective": "الفعّالة"
+      },
+      "title": "المتعقّبات"
+    }
+  },
+  "plugin": {
+    "ffmpeg": {
+      "destination_phase_disallowed": "لا يستطيع ffmpeg الكتابة إلى {{kind}} في المعالج {{phase}}. جرّب الكتابة إلى مساحة تخزين الإضافة، أو انقل هذا الاستدعاء إلى beforeFinalize.",
+      "staging_quota_exceeded": "تجاوز ffmpeg حصة المساحة المؤقتة لهذه المهمة. قلّل حجم الإخراج أو ارفع الحد في إعدادات الوسائط."
+    },
+    "install": {
+      "ffmpeg": {
+        "notInstalled": "FFmpeg غير مثبّت على هذا النظام.",
+        "optionalDegraded": "لن تتوفر ميزات الوسائط في هذه الإضافة حتى تثبيت ffmpeg.",
+        "requiredByPlugin": "تتطلب هذه الإضافة ffmpeg. ثبّته وحاول مجددًا.",
+        "title": "متطلبات FFmpeg",
+        "versionMismatch": "FFmpeg {{version}} مثبّت."
+      }
+    }
+  },
+  "plugins": {
+    "card": {
+      "advancedDetails": "تفاصيل متقدمة",
+      "commandsInvoked": "الأوامر المستدعاة: {{count}}",
+      "commandsServing": "الأوامر المقدّمة: {{count}}",
+      "plain": {
+        "off": "هذه الإضافة متوقفة.",
+        "optional": "تعمل هذه الإضافة دون وصول إضافي. يمكنك منحها وصولًا إضافيًا لاحقًا.",
+        "reviewBroadHost": "يمكن لهذه الإضافة قراءة {{hostSummary}}. أبقها مفعّلة فقط إذا كنت تثق بها.",
+        "reviewError": "أبلغت هذه الإضافة عن مشكلة.",
+        "safe": "هذه الإضافة مفعّلة وجاهزة. تحفظ إعداداتها الخاصة فقط ولا تقرأ أي مواقع."
+      },
+      "primaryAction": {
+        "grantAccess": "منح الوصول",
+        "open": "فتح",
+        "reviewAccess": "مراجعة الوصول",
+        "settings": "الإعدادات",
+        "turnOn": "تشغيل",
+        "viewIssue": "عرض المشكلة"
+      }
+    },
+    "clearSearch": "مسح البحث",
+    "consent": {
+      "broadAccess": {
+        "body": "يمكن لهذه الإضافة قراءة التنزيلات وتعديلها من أي عنوان URL. ثبّتها فقط إذا كنت تثق بالمصدر.",
+        "tag": "واسع",
+        "title": "وصول واسع إلى المضيفين"
+      },
+      "calleeMissing": "غير مثبّتة",
+      "confirm": "السماح والتثبيت",
+      "diff": {
+        "engines": "إصدار محرّك Motrix",
+        "heap": "طلب الذاكرة",
+        "hostPermissions": "صلاحيات الوصول إلى المضيفين المضافة",
+        "invokesCommands": "استدعاءات جديدة لأوامر بين الإضافات",
+        "optionalPermissions": "الأذونات الاختيارية المضافة",
+        "permissions": "الأذونات المضافة",
+        "publicCommands": "أوامر عامة جديدة",
+        "publicCommandsSchema": "تغيّرت مخططات الأوامر العامة",
+        "source": "مصدر الحزمة",
+        "title": "التغييرات منذ آخر موافقة"
+      },
+      "hostPermissions": "الوصول إلى المضيفين",
+      "installTitle": "تثبيت {{name}} {{version}}؟",
+      "invokesCommands": "استدعاء أوامر في إضافات أخرى",
+      "notVerified": "لم يتم التحقق من هذه الإضافة. ثبّت الإضافات من مصادر موثوقة فقط.",
+      "optionalPermissions": "الأذونات الاختيارية",
+      "permissions": "الأذونات المطلوبة",
+      "source": "المصدر: {{type}} · {{url}}",
+      "upgradeTitle": "تحديث {{name}} إلى {{version}}؟"
+    },
+    "detail": {
+      "about": "حول",
+      "access": "الوصول",
+      "accessBroad": "يمكنها قراءة أي موقع",
+      "accessGranted": "ما تستطيع هذه الإضافة فعله بالفعل",
+      "accessHosts_few": "المواقع التي يمكنها قراءتها: {{count}}",
+      "accessHosts_many": "المواقع التي يمكنها قراءتها: {{count}}",
+      "accessHosts_one": "المواقع التي يمكنها قراءتها: {{count}}",
+      "accessHosts_other": "المواقع التي يمكنها قراءتها: {{count}}",
+      "accessHosts_two": "المواقع التي يمكنها قراءتها: {{count}}",
+      "accessHosts_zero": "المواقع التي يمكنها قراءتها: {{count}}",
+      "accessNone": "إعداداتها الخاصة فقط",
+      "accessOptional": "وصول اختياري",
+      "advanced": "متقدم",
+      "attentionGeneric": "راجع السجلات للتفاصيل.",
+      "attentionTitle": "أبلغت هذه الإضافة عن مشكلة",
+      "author": "المؤلف",
+      "back": "كل الإضافات",
+      "disabled": "معطّلة",
+      "enabled": "مفعّلة",
+      "healthIssues_few": "المشكلات المبلّغ عنها خلال اليوم الأخير: {{count}}",
+      "healthIssues_many": "المشكلات المبلّغ عنها خلال اليوم الأخير: {{count}}",
+      "healthIssues_one": "المشكلات المبلّغ عنها خلال اليوم الأخير: {{count}}",
+      "healthIssues_other": "المشكلات المبلّغ عنها خلال اليوم الأخير: {{count}}",
+      "healthIssues_two": "المشكلات المبلّغ عنها خلال اليوم الأخير: {{count}}",
+      "healthIssues_zero": "المشكلات المبلّغ عنها خلال اليوم الأخير: {{count}}",
+      "healthOk": "كل شيء سليم",
+      "hero": {
+        "attention": "تحتاج إلى انتباه",
+        "off": "متوقفة",
+        "optional": "يمكنها طلب وصول إضافي",
+        "ready": "جاهزة",
+        "review": "مراجعة الوصول"
+      },
+      "homepage": "الصفحة الرئيسية",
+      "loading": "جارٍ التحميل…",
+      "logs": "السجلات",
+      "mini": {
+        "access": "الوصول",
+        "health": "الحالة",
+        "purpose": "الغرض"
+      },
+      "overview": "نظرة عامة",
+      "removeDesc": "تؤدي إزالة هذه الإضافة أيضًا إلى حذف بياناتها المخزّنة في Motrix.",
+      "removeTitle": "إزالة الإضافة",
+      "settings": "الإعدادات",
+      "uninstall": "إلغاء التثبيت",
+      "uninstallConfirm": "إلغاء تثبيت هذه الإضافة؟ ستُحذف بياناتها.",
+      "uninstallConfirmDesc": "ستُزال الإضافة وإعداداتها المخزّنة من Motrix.",
+      "uninstallConfirmTitle": "إلغاء تثبيت {{name}}؟",
+      "viewIssue": "عرض المشكلة"
+    },
+    "diagnostics": {
+      "callGraph": {
+        "aria": {
+          "controls": "أدوات التحكم في عرض مخطط الإضافات",
+          "directions": {
+            "down": "إلى الأسفل",
+            "left": "إلى اليسار",
+            "right": "إلى اليمين",
+            "up": "إلى الأعلى"
+          },
+          "edgeDescription": "اختر وصلة استدعاء لفحصها.",
+          "edgeLabel": "استدعى {{source}} الإضافة {{target}}؛ عدد الاستدعاءات {{calls}} عبر {{commands}} من الأوامر",
+          "fitView": "ملاءمة مخطط الإضافات لمساحة العرض",
+          "graphDescription": "خلال آخر 24 ساعة: الإضافات {{nodeCount}}، والعلاقات {{pairCount}}.",
+          "graphLabel": "علاقات أوامر الإضافات",
+          "handle": "نقطة نهاية استدعاء للقراءة فقط",
+          "interactive": "تبديل وضع التفاعل مع المخطط",
+          "minimap": "نظرة عامة على مخطط الإضافات",
+          "nodeDescription": "اختر عقدة إضافة لفحصها.",
+          "nodeKeyboardInstruction": "استخدم مفاتيح الأسهم لتحريك عقدة الإضافة هذه.",
+          "nodeLabel": "{{name}}، الإضافة {{id}}، {{status}}، الاستدعاءات الواردة {{incoming}}، والصادرة {{outgoing}}",
+          "nodeMoved": "نُقلت عقدة الإضافة {{direction}} إلى {{x}}، {{y}}.",
+          "zoomIn": "زيادة مقياس المخطط",
+          "zoomOut": "تقليل مقياس المخطط"
+        },
+        "columns": {
+          "callee": "المستدعى",
+          "caller": "المستدعي",
+          "calls": "الاستدعاءات",
+          "command": "الأمر",
+          "lastCall": "آخر استدعاء"
+        },
+        "counts": {
+          "calls_few": "الاستدعاءات الناجحة: {{count}}",
+          "calls_many": "الاستدعاءات الناجحة: {{count}}",
+          "calls_one": "الاستدعاءات الناجحة: {{count}}",
+          "calls_other": "الاستدعاءات الناجحة: {{count}}",
+          "calls_two": "الاستدعاءات الناجحة: {{count}}",
+          "calls_zero": "الاستدعاءات الناجحة: {{count}}",
+          "commands_few": "الأوامر: {{count}}",
+          "commands_many": "الأوامر: {{count}}",
+          "commands_one": "الأوامر: {{count}}",
+          "commands_other": "الأوامر: {{count}}",
+          "commands_two": "الأوامر: {{count}}",
+          "commands_zero": "الأوامر: {{count}}"
+        },
+        "errors": {
+          "canvasDescription": "يمكنك إعادة محاولة عرض المخطط أو استخدام عرض الجدول الكامل.",
+          "canvasRetry": "إعادة محاولة عرض المخطط",
+          "canvasTable": "استخدام الجدول بدلًا منه",
+          "canvasTitle": "تعذّر عرض مساحة المخطط",
+          "graphDescription": "حاول تحميل سجل الاستدعاءات الناجحة مجددًا.",
+          "graphRetry": "إعادة تحميل سجل الاستدعاءات",
+          "graphTitle": "تعذّر تحميل سجل الاستدعاءات",
+          "layout": "تعذّر ترتيب خريطة العلاقات.",
+          "layoutRetry": "ترتيب الخريطة مجددًا",
+          "metadataDescription": "تلزم تفاصيل الإضافات لتحديد الإضافات غير المتاحة.",
+          "metadataRetry": "إعادة تحميل تفاصيل الإضافات",
+          "metadataTitle": "تعذّر تحميل تفاصيل الإضافات"
+        },
+        "filteredEmpty": "لا توجد استدعاءات ناجحة تطابق هذا البحث.",
+        "filters": {
+          "clearSearch": "مسح البحث",
+          "commandsGroup": "الأوامر",
+          "noSuggestions": "لا توجد اقتراحات لإضافات أو أوامر",
+          "pluginsGroup": "الإضافات",
+          "searchLabel": "البحث في العلاقات",
+          "searchPlaceholder": "البحث عن إضافة أو أمر"
+        },
+        "globalEmpty": {
+          "description": "قد لا تنشئ الإضافات المدمجة استدعاءات بين الإضافات افتراضيًا.",
+          "title": "لا توجد استدعاءات ناجحة بين الإضافات بعد"
+        },
+        "inspector": {
+          "commands": "الأوامر",
+          "connections": "الإضافات المتصلة",
+          "edgeTitle": "تفاصيل الاتصال",
+          "incomingCalls": "الاستدعاءات الواردة",
+          "label": "تفاصيل التحديد في مخطط الاستدعاءات",
+          "neutralScope": "حدد إضافة أو اتصالًا لفحص الاستدعاءات الناجحة خلال آخر 24 ساعة.",
+          "noConnections": "لا توجد إضافات متصلة",
+          "openPlugin": "فتح الإضافة",
+          "outgoingCalls": "الاستدعاءات الصادرة",
+          "pluginId": "معرّف الإضافة",
+          "scopeTitle": "الاستدعاءات الناجحة",
+          "status": "الحالة",
+          "totalCalls": "إجمالي الاستدعاءات"
+        },
+        "legend": {
+          "fewerCalls": "استدعاءات أقل",
+          "label": "دليل حجم الاستدعاءات",
+          "moreCalls": "استدعاءات أكثر"
+        },
+        "loading": {
+          "graph": "جارٍ تحميل سجل الاستدعاءات…",
+          "metadata": "جارٍ تحميل تفاصيل الإضافات…"
+        },
+        "modeLabel": "عرض العلاقات",
+        "modes": {
+          "graph": "مخطط",
+          "table": "جدول"
+        },
+        "refresh": "تحديث",
+        "refreshTooltip": "تحميل أحدث الاستدعاءات الناجحة",
+        "refreshing": "جارٍ التحديث…",
+        "renderGraphTooltip": "عرض هذه النتيجة الكبيرة كمخطط",
+        "statuses": {
+          "active": "تعمل",
+          "disabled": "معطّلة",
+          "error": "تحتاج إلى انتباه",
+          "inactive": "جاهزة لكنها خاملة",
+          "missing": "غير مثبّتة"
+        },
+        "tableLabel": "علاقات أوامر الإضافات",
+        "tableRegionLabel": "علاقات الأوامر القابلة للتمرير",
+        "toolbarLabel": "أدوات التحكم في مخطط الاستدعاءات",
+        "truncated": "قد يكون سجل الاستدعاءات غير مكتمل لأن حد القراءة أو مدة الاحتفاظ أو تدوير الملفات قيّدت هذه النتيجة."
+      },
+      "intro": "افحص الاستدعاءات الناجحة بين الإضافات خلال آخر 24 ساعة.",
+      "title": "التشخيص"
+    },
+    "empty": "لا توجد إضافات مثبّتة بعد.",
+    "errors_few": "الأخطاء: {{count}}",
+    "errors_many": "الأخطاء: {{count}}",
+    "errors_one": "الأخطاء: {{count}}",
+    "errors_other": "الأخطاء: {{count}}",
+    "errors_two": "الأخطاء: {{count}}",
+    "errors_zero": "الأخطاء: {{count}}",
+    "help": {
+      "guidance": {
+        "firstUse": {
+          "body": "ثبّت من مصدر موثوق، وراجع صلاحيات الوصول المطلوبة، ثم فعّل الإضافة.",
+          "browse": "اكتشف الإضافات في متجر إضافات Motrix الرسمي",
+          "safety": "امنح الوصول فقط إلى المواقع التي تتوقع أن تتعامل معها الإضافة.",
+          "title": "أضف الإضافات التي تثق بها"
+        },
+        "ongoing": "راجع صلاحيات الوصول قبل تفعيل الإضافة. امنح الوصول فقط إلى المواقع التي تتوقع أن تتعامل معها."
+      }
+    },
+    "install": {
+      "checkAriaLabel": "فحص هذه الإضافة",
+      "detected": {
+        "auto": "تلقائي",
+        "github": "GitHub",
+        "local": "ملف",
+        "url": "URL"
+      },
+      "detectedRow": {
+        "localSupported": "ملفات .moext المحلية مدعومة",
+        "ok": "اكتُشف كـ {{type}}"
+      },
+      "dragDisabledHint": "السحب والإفلات غير مدعومين في هذه البيئة. استخدم عنوان GitHub أو URL.",
+      "dropHint": "أفلت ملف .moext هنا لفحص هذه الإضافة",
+      "github": "GitHub",
+      "github.spec": "مستودع GitHub (owner/repo[@tag])",
+      "install": "تثبيت الإضافة",
+      "lead": "الصق عنوان إضافة، أو اختر ملف .moext، أو أفلت ملفًا في حقل الإدخال.",
+      "local": "ملف محلي",
+      "local.pick": "اختيار ملف .moext",
+      "localPrepareFailed": "تعذّر تحضير ملف الإضافة هذا: {{detail}}",
+      "localUnavailable": "التثبيت من ملف محلي غير متاح في هذا المضيف.",
+      "pickLocal": "اختيار ملف .moext محلي",
+      "placeholder": "الصق عنوان GitHub أو URL، أو اختر ملف .moext محليًا",
+      "title": "إضافة مكوّن إضافي",
+      "url": "URL",
+      "url.spec": "عنوان الحزمة (.moext)",
+      "warning": "قبل التثبيت: تابع فقط إذا كنت تثق بالمؤلف وتتوقع استخدام الإضافة لصلاحيات الوصول المذكورة أعلاه."
+    },
+    "lead": "أضف ميزات صغيرة إلى Motrix. احتفظ بالإضافات التي تثق بها، وعطّل الباقي.",
+    "logs": {
+      "clear": "مسح",
+      "copy": "نسخ",
+      "empty": "لا توجد إدخالات في السجل بعد",
+      "emptyFiltered": "لا توجد إدخالات تطابق هذا المستوى.",
+      "emptyHint": "سيظهر نشاط الإضافة الجديد هنا تلقائيًا.",
+      "entryCount_few": "الإدخالات: {{count}}",
+      "entryCount_many": "الإدخالات: {{count}}",
+      "entryCount_one": "الإدخالات: {{count}}",
+      "entryCount_other": "الإدخالات: {{count}}",
+      "entryCount_two": "الإدخالات: {{count}}",
+      "entryCount_zero": "الإدخالات: {{count}}",
+      "filterLabel": "مستوى السجل",
+      "levels": {
+        "all": "كل المستويات",
+        "debug": "تنقيح",
+        "error": "خطأ",
+        "fatal": "خطأ فادح",
+        "info": "معلومات",
+        "trace": "تتبّع",
+        "warn": "تحذير"
+      },
+      "output": "الإخراج المباشر",
+      "verbose": "الوضع المفصّل",
+      "verboseWarning": "يسجّل عناوين URL والترويسات كاملة لمدة ساعة واحدة. استخدمه بحذر."
+    },
+    "permission": {
+      "accessTone": {
+        "allowed": "مسموح",
+        "grant": "السماح",
+        "noAccess": "إيقاف",
+        "offByDefault": "اختياري",
+        "required": "مطلوب",
+        "websiteAccess": "الوصول إلى الويب"
+      },
+      "ffmpeg": {
+        "plain": "تعالج الصوت أو الفيديو.",
+        "strong": "استخدام FFmpeg"
+      },
+      "fs": {
+        "storage": {
+          "plain": "تحتفظ بملفات لهذه الإضافة.",
+          "strong": "حفظ ملفات الإضافة"
+        },
+        "task": {
+          "read": {
+            "plain": "تطّلع على ملفات المهمة.",
+            "strong": "قراءة ملفات التنزيل"
+          },
+          "write": {
+            "plain": "يمكنها إضافة ملفات المهام أو تحديثها.",
+            "strong": "تغيير ملفات التنزيل"
+          }
+        }
+      },
+      "http": {
+        "cookies": {
+          "plain": "تصل إلى المواقع التي سجّلت الدخول إليها.",
+          "strong": "استخدام ملفات تعريف ارتباط المواقع"
+        },
+        "plain": "تفتح الصفحات التي تدعمها هذه الإضافة.",
+        "strong": "قراءة المواقع"
+      },
+      "network": {
+        "plain": "تجلب الصفحات المدعومة.",
+        "strong": "قراءة المواقع"
+      },
+      "notifications": {
+        "plain": "تُظهر تنبيهات الإضافة.",
+        "strong": "إرسال الإشعارات"
+      },
+      "notify": {
+        "plain": "تُظهر تنبيهات الاكتمال.",
+        "strong": "إرسال الإشعارات"
+      },
+      "storage": {
+        "plain": "تتذكر خيارات الإضافة.",
+        "strong": "حفظ الإعدادات"
+      },
+      "tasks:read": {
+        "plain": "تطّلع على قائمة تنزيلاتك.",
+        "strong": "قراءة التنزيلات"
+      },
+      "tasks:write": {
+        "plain": "يمكنها إيقاف المهام مؤقتًا أو استئنافها أو إزالتها.",
+        "strong": "إدارة تنزيلاتك"
+      },
+      "unknown": {
+        "plain": "إذن غير معروف."
+      }
+    },
+    "permissions": {
+      "denied": "مرفوض",
+      "empty": "لا تطلب هذه الإضافة أي أذونات.",
+      "granted": "ممنوح"
+    },
+    "registry": {
+      "actionFailed": "تعذّر إكمال الإجراء.",
+      "availableTitle": "الإضافات المتاحة",
+      "builtinConsentLead": "يطلب هذا التحديث صلاحيات وصول جديدة:",
+      "builtinUpdateTitle": "تحديث الإضافة المدمجة",
+      "byAuthor": "من {{name}}",
+      "featured": "مميزة",
+      "featuresTitle": "وظائفها",
+      "install": "تثبيت",
+      "notFound": "لم يُعثر على الإضافة «{{id}}» في السجل",
+      "notInstalled": "غير مثبّتة",
+      "optionalTag": "اختياري",
+      "permissionsPreviewNote": "معاينة من إدخال السجل. يستند طلب الموافقة الفعلي دائمًا إلى ملف البيان داخل حزمة الإضافة.",
+      "permissionsTitle": "الأذونات",
+      "refresh": "التحقق من وجود تحديثات",
+      "requires": "تتطلب Motrix {{range}}",
+      "restartRequired": "ثُبّت التحديث. أعد تشغيل Motrix لإكمال تطبيقه.",
+      "revertToBundled": "العودة إلى الإصدار المرفق",
+      "updateAvailable": "يتوفر تحديث",
+      "updateInstalled": "ثُبّت التحديث.",
+      "updateTo": "التحديث إلى v{{version}}",
+      "updated": "حُدّثت في {{date}}",
+      "viewOnWebsite": "العرض على motrix.app"
+    },
+    "search": "البحث عن إضافة",
+    "searchNoMatch": "لا توجد إضافات تطابق «{{query}}»",
+    "status": {
+      "active": "نشطة",
+      "disabled": "معطّلة",
+      "error": "خطأ",
+      "inactive": "خاملة"
+    },
+    "title": "الإضافات",
+    "tone": {
+      "off": "إيقاف",
+      "optional": "وصول اختياري",
+      "review": "تحتاج إلى مراجعة",
+      "safe": "تبدو آمنة"
+    }
+  },
+  "quit": {
+    "confirm": {
+      "detail": "سيؤدي الخروج الآن إلى إيقاف التنزيل مؤقتًا. هل تريد الخروج؟",
+      "dontAskAgain": "عدم السؤال مجددًا",
+      "message_few": "عمليات التنزيل التي لا تزال نشطة: {{count}}.",
+      "message_many": "عمليات التنزيل التي لا تزال نشطة: {{count}}.",
+      "message_one": "عمليات التنزيل التي لا تزال نشطة: {{count}}.",
+      "message_other": "عمليات التنزيل التي لا تزال نشطة: {{count}}.",
+      "message_two": "عمليات التنزيل التي لا تزال نشطة: {{count}}.",
+      "message_zero": "عمليات التنزيل التي لا تزال نشطة: {{count}}.",
+      "quitButton": "خروج"
+    }
+  },
+  "settings": {
+    "about": {
+      "appIconAlt": "أيقونة تطبيق Motrix",
+      "details": {
+        "author": "المؤلف",
+        "createdBy": "تطوير",
+        "license": "الترخيص",
+        "licenseValue": "ترخيص {{license}}"
+      },
+      "resources": {
+        "acknowledgments": "شكر وتقدير",
+        "acknowledgmentsDescription": "عرض المساهمين في المشروع على motrix.app",
+        "changelog": "سجل التغييرات",
+        "manual": "دليل المستخدم",
+        "manualDescription": "قراءة دليل المستخدم",
+        "plugins": "الإضافات",
+        "repository": "مستودع الشيفرة المصدرية",
+        "repositoryDescription": "استعراض الشيفرة على GitHub",
+        "title": "الموارد",
+        "website": "الموقع الرسمي",
+        "websiteDescription": "زيارة motrix.app"
+      },
+      "tagline": "احفظ ما يهمك حقًا قبل أن يختفي المحتوى، واجعل للجمال مكانًا في مجموعتك.",
+      "update": {
+        "automaticChecks": "التحقق تلقائيًا",
+        "automaticChecksDescription": "عند فتح Motrix",
+        "automaticChecksError": "تعذّر حفظ هذا الإعداد",
+        "available": "يتوفر Motrix {{version}}.",
+        "availableDescription": "نزّله الآن واختر وقت إعادة التشغيل والتثبيت.",
+        "availableTitle": "يتوفر Motrix {{version}}",
+        "cancelled": "أُلغي تنزيل التحديث.",
+        "cancelledDescription": "أعد محاولة التنزيل عندما تكون مستعدًا.",
+        "cancelledTitle": "أُلغي التنزيل",
+        "channelBeta": "تجريبي",
+        "channelBetaWarning": "قد تكون الإصدارات التجريبية أقل استقرارًا. ستتلقى أيضًا الإصدارات المستقرة الأحدث. تؤدي العودة إلى القناة المستقرة إلى إيقاف التحديثات التجريبية دون الرجوع إلى إصدار أقدم.",
+        "channelDescription": "اختر الإصدارات المستقرة أو جرّب الميزات الجديدة في الإصدارات التجريبية.",
+        "channelLabel": "قناة التحديث",
+        "channelSaveError": "تعذّر حفظ قناة التحديث. حاول مجددًا.",
+        "channelStable": "مستقر",
+        "check": "التحقق من وجود تحديثات",
+        "checkAction": "تحقق",
+        "checking": "جارٍ التحقق…",
+        "checkingDescription": "جارٍ الاتصال بخدمة تحديث Motrix…",
+        "checkingTitle": "جارٍ التحقق من وجود تحديثات…",
+        "currentVersion": "الإصدار الحالي {{version}}",
+        "download": "تنزيل التحديث",
+        "downloaded": "Motrix {{version}} جاهز للتثبيت.",
+        "downloadedTitle": "التحديث جاهز للتثبيت",
+        "downloading": "جارٍ التنزيل…",
+        "downloadingDescription": "يمكنك إغلاق هذه النافذة. سيستمر التنزيل في الخلفية.",
+        "downloadingTitle": "جارٍ تنزيل Motrix {{version}}",
+        "error": "فشل التحديث: {{message}}",
+        "errorDescription": "تحقق من الاتصال وحاول مجددًا.",
+        "errorTitle": "تعذّر تحديث Motrix",
+        "idle": "الإصدار {{version}} مثبّت. تحقق الآن، أو دع Motrix يتحقق عند فتحه.",
+        "idleTitle": "حافظ على تحديث Motrix",
+        "restart": "إعادة التشغيل والتثبيت",
+        "retry": "إعادة المحاولة",
+        "title": "تحديثات التطبيق",
+        "unsupported": "لا يمكن تحديث هذا الإصدار تلقائيًا. نزّل أحدث إصدار من الموقع الرسمي.",
+        "unsupportedTitle": "التحديثات التلقائية غير متاحة",
+        "upToDate": "الإصدار {{version}} هو أحدث إصدار متاح.",
+        "upToDateTitle": "لديك أحدث إصدار من Motrix"
+      },
+      "version": "الإصدار {{version}}",
+      "webVersionNote": "يحدّث مسؤول النشر إصدار الويب هذا."
+    },
+    "advanced": {
+      "description": "RPC والتقدم والاستعادة",
+      "persistence": {
+        "dbPath": "ملف بيانات الاستعادة",
+        "dbPathDesc": "اتركه فارغًا لاستخدام الموقع الافتراضي.",
+        "dbPathPlaceholder": "الموقع الافتراضي",
+        "enable": "حفظ بيانات الاستعادة",
+        "enableDesc": "الاحتفاظ بالبيانات المستخدمة لاستئناف التنزيلات بعد إعادة التشغيل.",
+        "historyCount": "عدد السجلات المحتفظ بها",
+        "historyCountHint": "تُزال سجلات الاستعادة الأقدم.",
+        "historyCountPositive": "أدخل عددًا أكبر من 0.",
+        "historyKeepAll": "كل السجلات",
+        "historyKeepRecent": "أحدث السجلات…",
+        "historyLimit": "سجلات استعادة المهام المكتملة",
+        "historyLimitDesc": "لا تتأثر قائمة التنزيلات ولا الملفات المنزّلة.",
+        "historySessionOnly": "عدم الاحتفاظ",
+        "title": "التقدم والاستعادة"
+      },
+      "rpc": {
+        "port": "منفذ RPC",
+        "portDesc": "تلزم إعادة التشغيل بعد تغيير هذا الإعداد.",
+        "secret": "رمز RPC السري",
+        "secretDesc": "مطلوب لاتصالات RPC.",
+        "title": "RPC"
+      }
+    },
+    "appearance": {
+      "byteUnitBinary": "ثنائية (MiB، GiB · 1024)",
+      "byteUnitDecimal": "عشرية (MB، GB · 1000)",
+      "byteUnitSystem": "وحدات الحجم والسرعة",
+      "byteUnitSystemDefault": "اتباع النظام ({{units}})",
+      "byteUnitSystemDesc": "اختر كيفية عرض أحجام الملفات والسرعات.",
+      "description": "السمة واللغة والعرض",
+      "followSystem": "اتباع النظام",
+      "language": "اللغة",
+      "languageAndDisplay": "اللغة والعرض",
+      "lightweightMode": "وضع توفير الذاكرة",
+      "lightweightModeDesc": "توفير الذاكرة عند إغلاق النافذة. تستمر التنزيلات، لكن إعادة الفتح تستغرق وقتًا أطول وتمسح المدخلات غير المحفوظة.",
+      "liquidGlassEffect": "Liquid Glass",
+      "liquidGlassEffectDesc": "إضافة تأثير زجاجي شبه شفاف إلى شريط أدوات التنزيل.",
+      "liquidGlassEffectMacDesc": "ينطبق أيضًا على النافذة في macOS 26 أو أحدث. تُفتح النافذة مجددًا عند التغيير.",
+      "menuBar": "شريط القوائم",
+      "reduceMotion": "تقليل الحركة",
+      "reduceMotionDesc": "استخدام رسوم متحركة أقل في التطبيق.",
+      "runMode": "إظهار التطبيق في",
+      "runModeHideTray": "Dock فقط",
+      "runModeLaunch": "عند فتح Motrix",
+      "runModeLinuxDesc": "يعتمد توفر علبة النظام وسلوك تنشيطها على بيئة سطح المكتب.",
+      "runModeStandard": "Dock وشريط القوائم",
+      "runModeStandardDesktop": "فتح النافذة الرئيسية",
+      "runModeTray": "شريط القوائم فقط",
+      "runModeTrayDesktop": "البدء في علبة النظام",
+      "sidebarColor": "لون التمييز",
+      "sidebarColors": {
+        "auto": "تلقائي",
+        "blue": "أزرق",
+        "cyan": "سماوي",
+        "gold": "ذهبي",
+        "gray": "رمادي",
+        "green": "أخضر",
+        "orange": "برتقالي",
+        "pink": "وردي",
+        "violet": "بنفسجي"
+      },
+      "systemTray": "علبة النظام",
+      "theme": "السمة",
+      "themeAndEffects": "السمة والتأثيرات",
+      "themeAuto": "النظام",
+      "themeDark": "داكنة",
+      "themeLight": "فاتحة",
+      "trayIconColor": "لون أيقونة علبة النظام",
+      "trayIconColorAuto": "اتباع سمة التطبيق",
+      "trayIconColorDark": "أيقونة داكنة (لوحة فاتحة)",
+      "trayIconColorDesc": "اختر لونًا واضحًا على لوحة النظام.",
+      "trayIconColorLight": "أيقونة فاتحة (لوحة داكنة)",
+      "traySpeedometer": "إظهار السرعة في شريط القوائم",
+      "traySpeedometerDesc": "عرض سرعتي التنزيل والرفع بجانب أيقونة التطبيق."
+    },
+    "bittorrent": {
+      "description": "روابط magnet والتوزيع والمتعقّبات",
+      "geoip": {
+        "autoUpdate": "التحديث تلقائيًا",
+        "autoUpdateDesc": "التحقق من وجود بيانات مواقع جديدة مرة أسبوعيًا تقريبًا.",
+        "customUrl": "عنوان تنزيل مخصص",
+        "customUrlDesc": "رابط إلى قاعدة بيانات بلدان بصيغة .mmdb.",
+        "customUrlPlaceholder": "https://example.com/GeoLite2-Country.mmdb",
+        "enable": "إظهار البلد أو المنطقة",
+        "enableDesc": "إظهار المواقع في قائمة الأقران. تُنزّل بيانات المواقع عند الحاجة.",
+        "lastUpdated": "آخر تحديث",
+        "maxmindUnsupported": "غير مدعوم بعد",
+        "neverUpdated": "لم تُحدّث بعد",
+        "saveBeforeUpdate": "احفظ التغييرات قبل تحديث بيانات المواقع.",
+        "source": "مصدر بيانات المواقع",
+        "source.custom": "عنوان URL مخصص",
+        "source.loyalsoldier": "Loyalsoldier (مجتمعي)",
+        "source.maxmind": "MaxMind (رسمي)",
+        "source.p3terx": "P3TERX (مرآة مجتمعية)",
+        "sourceDesc": "اختر مصدر تنزيل بيانات المواقع.",
+        "status.downloading": "جارٍ التنزيل…",
+        "status.error": "فشل التحديث",
+        "status.loaded": "جاهزة",
+        "status.notDownloaded": "لم تُنزّل بيانات المواقع",
+        "title": "مواقع الأقران",
+        "updateFailed": "تعذّر تحديث بيانات المواقع. حاول مجددًا.",
+        "updateNow": "التحديث الآن",
+        "updating": "جارٍ التحديث…"
+      },
+      "listen": {
+        "dhtEnabled": "تفعيل DHT",
+        "dhtEnabledDesc": "العثور على أقران دون الاعتماد على متعقّب.",
+        "dhtListenPort": "منفذ استماع DHT",
+        "dhtListenPortDesc": "العثور على أقران عبر DHT على هذا المنفذ.",
+        "listenPort": "منفذ استماع BT",
+        "listenPortDesc": "قبول اتصالات الأقران الواردة على هذا المنفذ.",
+        "title": "الاتصالات الواردة"
+      },
+      "newMagnetTasks": "مهام magnet الجديدة",
+      "peers": {
+        "btEnableLpd": "اكتشاف الأقران المحليين",
+        "btEnableLpdDesc": "العثور على أقران يشاركون الملفات على شبكتك المحلية.",
+        "btMaxPeers": "أقصى عدد أقران لكل تورنت",
+        "btMaxPeersDesc": "أكبر عدد من الأقران يمكن أن تتصل بهم مهمة واحدة في الوقت نفسه.",
+        "magnetFileSelection": "اختيار الملفات قبل التنزيل",
+        "magnetFileSelectionAutoDownload": "تنزيل الكل إذا لم تُحدد ملفات",
+        "magnetFileSelectionAutoDownloadDesc": "يبدأ بعد المدة أدناه، حتى لو أُغلقت نافذة التطبيق أو المتصفح.",
+        "magnetFileSelectionDesc": "إظهار اختيار الملفات بعد تحميل بيانات رابط magnet.",
+        "magnetFileSelectionTimeoutInvalid": "أدخل عددًا صحيحًا من {{min}} إلى {{max}} ثانية.",
+        "magnetFileSelectionTimeoutSeconds": "مهلة اختيار الملفات (ث)",
+        "magnetFileSelectionTimeoutSecondsDesc": "تبدأ عند جاهزية قائمة الملفات. تنطبق التغييرات أيضًا على المهام المنتظرة بالفعل.",
+        "title": "الأقران"
+      },
+      "seeding": {
+        "seedRatio": "حد نسبة المشاركة",
+        "seedRatioDesc": "الرفع ÷ التنزيل. يتوقف التوزيع عند هذه النسبة. 0 = غير محدود.",
+        "seedTime": "حد مدة التوزيع (دقائق)",
+        "seedTimeDesc": "0 = غير محدود. ينطبق على المهام الجديدة وعند إعادة بدء التوزيع.",
+        "title": "التوزيع"
+      },
+      "trackers": {
+        "autoSync": "تحديث قائمة المتعقّبات تلقائيًا",
+        "autoSyncDesc": "الحفاظ على تحديث القائمة باستخدام مصادرك.",
+        "blacklistMovedInfo": "أدر المتعقّبات المحظورة من المتعقّبات ← قائمة الحظر.",
+        "enableProbe": "التحقق من توفر المتعقّبات",
+        "enableProbeDesc": "اختبار المتعقّبات قبل استخدامها في التنزيلات.",
+        "healthyThreshold": "عتبة الاستجابة البطيئة (ملّي ثانية)",
+        "healthyThresholdDesc": "تُعدّ الاستجابات الأطول بطيئة. 500–10,000 ملّي ثانية.",
+        "manageSourcesHint": "أدر المصادر من صفحة المتعقّبات.",
+        "maxTrackerCount": "المتعقّبات لكل مهمة",
+        "maxTrackerCountDesc": "استخدام هذا العدد كحد أقصى للمتعقّبات. 5–200.",
+        "minSuccessRate": "أدنى نسبة نجاح",
+        "minSuccessRateDesc": "استخدام المتعقّبات التي تبلغ نسبة نجاحها هذه القيمة على الأقل. 0.5 = 50%.",
+        "probeTimeout": "مهلة الفحص (ملّي ثانية)",
+        "probeTimeoutDesc": "أقصى مدة لانتظار الاستجابة. 1,000–30,000 ملّي ثانية.",
+        "syncInterval": "الفاصل بين التحديثات (ساعات)",
+        "syncIntervalDesc": "من 1 إلى 168 ساعة.",
+        "title": "المتعقّبات"
+      }
+    },
+    "cards": {
+      "about": {
+        "desc": "الإصدار والتحديثات والشيفرة المصدرية ودليل المستخدم",
+        "title": "حول"
+      },
+      "advanced": {
+        "desc": "RPC وحفظ البيانات في SQLite",
+        "title": "متقدم"
+      },
+      "appearance": {
+        "desc": "السمة واللغة وأيقونة علبة النظام",
+        "title": "المظهر"
+      },
+      "bittorrent": {
+        "desc": "DHT ومنافذ الاستماع والمتعقّبات ومواقع الأقران",
+        "title": "BitTorrent"
+      },
+      "downloads": {
+        "desc": "التنزيلات المتزامنة وحدود النطاق الترددي وموثوقية الشبكة",
+        "title": "التنزيلات"
+      },
+      "general": {
+        "desc": "بدء التشغيل ومجلد الحفظ الافتراضي والتكامل مع النظام",
+        "title": "عام"
+      },
+      "integration": {
+        "desc": "امتدادات المتصفح وسطر الأوامر والتكامل مع النظام",
+        "title": "التكامل"
+      },
+      "network": {
+        "desc": "الوكيل وDNS وNAT/UPnP",
+        "title": "الشبكة"
+      }
+    },
+    "common": {
+      "add": "إضافة",
+      "browse": "استعراض…",
+      "changeDirectory": "تغيير المجلد",
+      "directoryEmpty": "(لم يُحدد مجلد)",
+      "generate": "توليد",
+      "hideSecret": "إخفاء الرمز السري",
+      "noChange": "لا توجد تغييرات لحفظها",
+      "openHelp": "فتح المساعدة",
+      "preset": "سريع:",
+      "remove": "إزالة",
+      "setAsDefault": "تعيين كافتراضي",
+      "showSecret": "إظهار الرمز السري"
+    },
+    "connection": {
+      "disconnectedBody": "قد تتأخر بعض المعلومات. إذا استمر ذلك، فتحقق من اتصال الخادم وإعدادات الوكيل.",
+      "disconnectedTitle": "انقطع اتصال التحديثات الفورية.",
+      "originMismatchBody": "التحديثات الفورية غير متاحة. استخدم عنوان الخادم المضبوط أو اطلب من المسؤول تصحيحه.",
+      "originMismatchTitle": "عنوان الوصول إلى الخادم غير متطابق."
+    },
+    "desc": "ضبط Motrix",
+    "downloads": {
+      "autofillFromClipboard": "ملء الروابط تلقائيًا من الحافظة",
+      "defaultDownloadFolder": "مجلد التنزيل الافتراضي",
+      "description": "الملفات وسرعة التنزيل والاتصالات",
+      "disk": {
+        "diskCache": "ذاكرة التخزين المؤقت للقرص (MiB)",
+        "diskCacheDesc": "ذاكرة لتخزين الملفات مؤقتًا قبل كتابتها إلى القرص.",
+        "fileAllocation": "حجز مساحة على القرص",
+        "fileAllocationDesc": "حجز المساحة قبل تنزيل الملف.",
+        "fileAllocationFalloc": "تخصيص النظام",
+        "fileAllocationNone": "عدم الحجز",
+        "fileAllocationPrealloc": "تخصيص مسبق",
+        "fileAllocationTrunc": "تعيين حجم الملف",
+        "fileDeletionMode": "عند حذف ملفات المهام",
+        "fileDeletionPermanent": "الحذف نهائيًا",
+        "fileDeletionPermanentDesc": "لا يمكن استعادة الملفات المحذوفة من سلة المهملات.",
+        "fileDeletionTrash": "النقل إلى سلة المهملات",
+        "fileDeletionTrashDesc": "تُحرّر المساحة عند إفراغ سلة المهملات.",
+        "modifiedTime": "وقت تعديل الملف",
+        "modifiedTimeDesc": "لتنزيلات HTTP وFTP المكتملة.",
+        "modifiedTimeLocal": "وقت التنزيل",
+        "modifiedTimeServer": "الوقت من الخادم",
+        "sessionSaveInterval": "الفاصل بين مرات حفظ التقدم (ث)",
+        "sessionSaveIntervalDesc": "احفظ بوتيرة أعلى لتقليل التقدم المفقود بعد التعطل.",
+        "title": "القرص والملفات"
+      },
+      "fillInLinksWhenOpeningNewTask": "لصق الروابط المنسوخة عند فتح مهمة جديدة.",
+      "magnet": {
+        "magnetResolveTimeout": "مهلة تحميل magnet (ث)",
+        "magnetResolveTimeoutDesc": "مدة انتظار قائمة الملفات.",
+        "title": "Magnet"
+      },
+      "newTasks": "المهام الجديدة",
+      "performance": {
+        "customParameters": "معاملات أداء مخصصة",
+        "learnMore": "معرفة المزيد",
+        "maxConcurrentDownloads": "التنزيلات المتزامنة",
+        "maxConcurrentDownloadsDesc": "تنتظر المهام الإضافية في قائمة الانتظار.",
+        "maxConnectionPerServer": "أقصى عدد اتصالات لكل خادم",
+        "maxConnectionPerServerDesc": "حد اتصالات الملف الواحد بخادم واحد.",
+        "metrics": {
+          "cache": "ذاكرة التخزين المؤقت للقرص",
+          "connections": "أقصى عدد اتصالات",
+          "minimum": "أدنى حجم مقطع",
+          "perServer": "الحد لكل خادم"
+        },
+        "minSplitSize": "أدنى حجم مقطع (MiB)",
+        "minSplitSizeDesc": "لا تُقسّم المقاطع الأصغر من ضعفي هذا الحجم.",
+        "profile": "أداء التنزيل",
+        "profileDesc": "وازن بين سرعة التنزيل واستخدام الموارد.",
+        "profiles": {
+          "auto": {
+            "desc": "يتكيّف مع القرص وحجم الملف. القيم أدناه هي الافتراضية.",
+            "label": "تلقائي"
+          },
+          "balanced": {
+            "desc": "يستخدم موارد أقل للتنزيلات اليومية.",
+            "label": "متوازن"
+          },
+          "custom": {
+            "desc": "اضبط الاتصالات وحجم المقاطع وذاكرة التخزين المؤقت.",
+            "label": "مخصص"
+          },
+          "high": {
+            "desc": "يستخدم اتصالات أكثر لتسريع التنزيل.",
+            "label": "سرعة عالية"
+          },
+          "maximum": {
+            "desc": "يستخدم اتصالات أكثر. قد تقيّدها بعض الخوادم.",
+            "label": "الحد الأقصى"
+          }
+        },
+        "split": "أقصى عدد اتصالات لكل ملف",
+        "splitDesc": "الاتصالات المستخدمة لتنزيل ملف واحد.",
+        "title": "الأداء"
+      },
+      "reliability": {
+        "connectTimeout": "مهلة الاتصال (ث)",
+        "connectTimeoutDesc": "مدة انتظار إنشاء الاتصال.",
+        "lowestSpeedLimit": "أدنى سرعة اتصال (KiB/s)",
+        "lowestSpeedLimitDesc": "قطع الاتصال إذا انخفضت السرعة عن هذه القيمة. 0 = معطّل.",
+        "maxTries": "أقصى عدد محاولات",
+        "maxTriesDesc": "يشمل المحاولة الأولى. 0 = غير محدود.",
+        "retryWait": "تأخير إعادة المحاولة (ث)",
+        "retryWaitDesc": "مدة الانتظار قبل المحاولة مجددًا.",
+        "socketTimeout": "مهلة غياب البيانات (ث)",
+        "socketTimeoutDesc": "مدة الانتظار عندما لا تصل بيانات.",
+        "title": "الاتصالات وإعادة المحاولة",
+        "userAgent": "User-Agent",
+        "userAgentDesc": "يعرّف التطبيق للمواقع. غيّره إذا تطلب موقع قيمة مختلفة."
+      },
+      "saveFolders": "مجلدات الحفظ",
+      "speedLimit": {
+        "adaptiveEnabled": "حجز نطاق ترددي للتطبيقات الأخرى",
+        "adaptiveEnabledDesc": "أدخل سرعتي الاتصال أدناه لحساب الحد.",
+        "altDownload": "تنزيل",
+        "altDownloadDesc": "أقصى سرعة تنزيل أثناء تفعيل وضع السرعة المنخفضة.",
+        "altSection": "حدود السرعة المنخفضة",
+        "altSectionDesc": "تُستخدم في وضع السرعة المنخفضة أو وفق القواعد المجدولة. يمكنها فقط خفض الحدود القياسية.",
+        "altUpload": "الرفع",
+        "altUploadDesc": "أقصى سرعة رفع أثناء تفعيل وضع السرعة المنخفضة.",
+        "autoAdaptive": "ترك نطاق ترددي للتطبيقات الأخرى",
+        "autoSchedule": "إبطاء مجدول",
+        "autoSection": "القواعد التلقائية",
+        "autoSectionDesc": "تنطبق هذه القواعد في الوضع التلقائي فقط.",
+        "bandwidthPending": "أدخل سرعتي الاتصال لتطبيق هذا الحد.",
+        "bandwidthUsed": "يمكن لـ Motrix استخدام {{motrix}}% كحد أقصى.",
+        "baseDownload": "تنزيل",
+        "baseDownloadDesc": "أقصى سرعة تنزيل للاستخدام اليومي.",
+        "baseSection": "الحدود القياسية",
+        "baseSectionDesc": "تُستخدم للتنزيلات اليومية وتبقى سارية في كل الأوضاع.",
+        "baseUpload": "الرفع",
+        "baseUploadDesc": "أقصى سرعة رفع للاستخدام اليومي.",
+        "effect": {
+          "adaptiveRule": "حجز {{reserved}}% من النطاق الترددي للتطبيقات الأخرى",
+          "adaptiveRulePending": "حجز {{reserved}}% من النطاق الترددي للتطبيقات الأخرى بعد إدخال سعة الاتصال",
+          "autoRules": "سيقوم Motrix ب{{rules}}.",
+          "lowSpeed": "تُستخدم حدود السرعة المنخفضة الآن: التنزيل {{download}}، والرفع {{upload}}.",
+          "lowerWins": "يُطبّق أدنى حد نشط.",
+          "nextDay": " من اليوم التالي",
+          "noAutoRules": "لا توجد قواعد تلقائية مفعّلة. يعمل هذا حاليًا مثل الوضع القياسي.",
+          "ruleSeparator": " و",
+          "scheduleRule": "استخدام حدود السرعة المنخفضة من {{from}} إلى {{to}}{{nextDay}}",
+          "standard": "تُستخدم الحدود القياسية: التنزيل {{download}}، والرفع {{upload}}.",
+          "standardValues": "الحدود القياسية: التنزيل {{download}}، والرفع {{upload}}.",
+          "title": "التأثير الحالي"
+        },
+        "estimateEmpty": "لا يوجد سجل للسرعة بعد. أكمل تنزيلًا بلا حد للسرعة أو أدخل النطاق الترددي يدويًا.",
+        "estimateError": "تعذّرت قراءة سجل السرعة الأخير. أدخل النطاق الترددي يدويًا.",
+        "estimateSuccess": "مُلئت سعة الاتصال بناءً على السرعات الأخيرة.",
+        "fillFromPeak": "تقدير سرعة الاتصال",
+        "fillFromPeakHint": "بناءً على أسرع التنزيلات وعمليات الرفع الأخيرة.",
+        "headroomPercent": "الحجز للتطبيقات الأخرى",
+        "headroomPercentDesc": "يُحجز حاليًا {{reserved}}%؛ ويمكن لـ Motrix استخدام {{motrix}}% كحد أقصى.",
+        "linkDown": "سرعة تنزيل الاتصال",
+        "linkDownDesc": "سرعة التنزيل التي يمكن لاتصال الإنترنت الوصول إليها.",
+        "linkUp": "سرعة رفع الاتصال",
+        "linkUpDesc": "سرعة الرفع التي يمكن لاتصال الإنترنت الوصول إليها.",
+        "modeSection": "وضع السرعة",
+        "modeSectionDesc": "اختر كيفية استخدام Motrix لاتصالك.",
+        "scheduleDays": "الأيام",
+        "scheduleDaysHint": "إذا كان وقت النهاية يسبق البداية، تستمر الفترة إلى اليوم التالي.",
+        "scheduleEnabled": "جدولة السرعة المنخفضة",
+        "scheduleEnabledDesc": "الانتقال إلى حدود السرعة المنخفضة في الأيام والأوقات المحددة.",
+        "scheduleFrom": "البداية",
+        "scheduleTimeFormat": "تنسيق 24 ساعة (HH:mm)",
+        "scheduleTo": "النهاية",
+        "setUnlimited": "تعيين بلا حدود",
+        "standardLimit": "استخدام القياسي",
+        "title": "حدود السرعة",
+        "titleDesc": "اختر كيفية استخدام Motrix للاتصال في الوضع القياسي ووضع السرعة المنخفضة والوضع التلقائي.",
+        "turtle": "وضع السرعة",
+        "turtleDesc_auto": "ضبط السرعة تلقائيًا حسب الوقت والنطاق الترددي للاتصال.",
+        "turtleDesc_off": "استخدام حدود السرعة القياسية.",
+        "turtleDesc_on": "استخدام حدود السرعة المنخفضة الآن لترك سعة للتطبيقات الأخرى.",
+        "turtle_auto": "تلقائي",
+        "turtle_off": "قياسي",
+        "turtle_on": "سرعة منخفضة",
+        "unlimited": "غير محدود",
+        "useStandardLimit": "استخدام الحد القياسي",
+        "weekdays": {
+          "fri": {
+            "long": "الجمعة",
+            "short": "جمعة"
+          },
+          "mon": {
+            "long": "الاثنين",
+            "short": "اثنين"
+          },
+          "sat": {
+            "long": "السبت",
+            "short": "سبت"
+          },
+          "sun": {
+            "long": "الأحد",
+            "short": "أحد"
+          },
+          "thu": {
+            "long": "الخميس",
+            "short": "خميس"
+          },
+          "tue": {
+            "long": "الثلاثاء",
+            "short": "ثلاثاء"
+          },
+          "wed": {
+            "long": "الأربعاء",
+            "short": "أربعاء"
+          }
+        }
+      }
+    },
+    "feedback": {
+      "appRestartBody": "حُفظت إعداداتك. أعد تشغيل Motrix عندما يناسبك.",
+      "appRestartTitle": "أعد تشغيل Motrix لتطبيق الإعدادات",
+      "applyFailedBody": "لم تُفقد الإعدادات المحفوظة. تحقق من سجلات التطبيق وأعد تشغيل الخدمة المتأثرة بعد حل المشكلة.",
+      "applyFailedTitle": "حُفظت الإعدادات؛ تعذّر تطبيق بعض التغييرات",
+      "retrySync": "إعادة محاولة المزامنة",
+      "syncFailedBody": "حُفظت إعداداتك. أعد محاولة المزامنة لتحديث هذه الصفحة دون الحفظ مجددًا.",
+      "syncFailedTitle": "حُفظت الإعدادات؛ تعذّر تحديث الواجهة"
+    },
+    "general": {
+      "autofillClipboardLinks": "ملء الرابط تلقائيًا من الحافظة",
+      "autofillClipboardLinksDesc": "عند فتح مهمة جديدة، يُلصق الرابط الموجود في الحافظة في حقل URL الفارغ.",
+      "defaultSaveDir": "مجلد التنزيل الافتراضي",
+      "defaultSaveDirDesc": "تُحفظ التنزيلات الجديدة هنا ما لم تختر مجلدًا آخر للمهمة.",
+      "description": "بدء التشغيل والخروج والإشعارات",
+      "desktopOnly": "تتوفر تفضيلات بدء التشغيل والإشعارات في تطبيق سطح المكتب.",
+      "downloadCompleted": "اكتمل التنزيل",
+      "downloadFailed": "فشل التنزيل",
+      "inAppNotifications": "إشعارات داخل التطبيق",
+      "inAppNotificationsDesc": "اختر إشعارات التنزيل التي تريد إظهارها. تبقى تنبيهات التطبيق مفعّلة.",
+      "launchAtStartup": "الفتح عند تسجيل الدخول",
+      "launchAtStartupDesc": "تشغيل Motrix تلقائيًا عند تسجيل الدخول.",
+      "lightweightMode": "توفير الذاكرة عند إغلاق النافذة",
+      "lightweightModeDesc": "تستمر التنزيلات. تصبح إعادة الفتح أبطأ وتُمسح المدخلات غير المحفوظة.",
+      "notificationBadgeCount": "عدد",
+      "notificationBadgeDesc": "تظهر على أيقونة مركز الإشعارات.",
+      "notificationBadgeDot": "نقطة",
+      "notificationBadgeHidden": "مخفية",
+      "notificationBadgeStyle": "شارة غير المقروء",
+      "notificationBoth": "كلاهما",
+      "notificationInApp": "إشعارات داخل التطبيق",
+      "notificationOff": "إيقاف",
+      "notificationSystem": "إشعارات النظام",
+      "notifications": "الإشعارات",
+      "notificationsDesc": "تبقى تنبيهات أخطاء التطبيق مفعّلة.",
+      "notifyInAppOnComplete": "إظهار التنزيلات المكتملة",
+      "notifyInAppOnError": "إظهار التنزيلات الفاشلة",
+      "notifyOnComplete": "الإشعار عند اكتمال التنزيل",
+      "notifyOnCompleteDesc": "إظهار إشعار نظام عند اكتمال المهمة.",
+      "notifyOnError": "الإشعار عند الفشل",
+      "notifyOnErrorDesc": "إظهار إشعار نظام عند فشل التنزيل إذا كانت النافذة في الخلفية.",
+      "runMode": "إظهار التطبيق في",
+      "runModeHideTray": "Dock فقط",
+      "runModeStandard": "Dock وشريط القوائم",
+      "runModeTray": "شريط القوائم فقط",
+      "showMainWindowAtLogin": "إظهار النافذة عند تسجيل الدخول",
+      "showMainWindowAtLoginDesc": "تُخفى مع «{{mode}}».",
+      "startupAndQuitting": "بدء التشغيل والخروج",
+      "systemNotifications": "إشعارات النظام",
+      "warnBeforeQuit": "التأكيد قبل الخروج",
+      "warnBeforeQuitDesc": "السؤال قبل الخروج إذا كانت التنزيلات لا تزال جارية."
+    },
+    "integration": {
+      "appimage": {
+        "desc": "سجّل AppImage Motrix هذا في سطح المكتب لتتمكن المتصفحات وروابط magnet من تمرير التنزيلات إليه.",
+        "enable": "تفعيل التكامل مع سطح المكتب",
+        "movedHint": "إذا نقلت AppImage أثناء إغلاق Motrix، فقد تتوقف الروابط عن تشغيله حتى تشغّل Motrix مرة واحدة من موقعه الجديد.",
+        "prompt": {
+          "accept": "دمج",
+          "decline": "ليس الآن",
+          "detail": "سيضيف Motrix إدخال سطح مكتب وأيقونة داخل مجلد بيانات المستخدم، وسيسجّل نفسه لمعالجة روابط motrix: وروابط magnet وملفات .torrent. يتيح ذلك للمتصفح وامتداد Motrix تشغيل Motrix وتمرير التنزيلات إليه. لن تُكتب أي بيانات خارج مجلدك الرئيسي، ويمكنك التراجع عن ذلك من الإعدادات.",
+          "message": "السماح لـ AppImage Motrix هذا بالتسجيل في بيئة سطح المكتب؟",
+          "title": "دمج Motrix مع سطح المكتب؟"
+        },
+        "remove": "إزالة التكامل مع سطح المكتب",
+        "status": {
+          "externalManaged": "توفر نسخة أخرى مثبّتة من Motrix التكامل مع سطح المكتب.",
+          "failedDetail": "تعذّر على Motrix تسجيل نفسه لمعالجة روابطه. قد لا يعمل تمرير التنزيلات من المتصفح حتى تعيد تفعيل التكامل مع سطح المكتب.",
+          "failedTitle": "التكامل مع سطح المكتب غير مكتمل",
+          "healthy": "مدمج مع سطح المكتب هذا.",
+          "notIntegrated": "غير مدمج مع سطح المكتب هذا.",
+          "removeBlockedDetail": "تعذّر على Motrix استعادة الارتباط بتطبيق المعالجة السابق المتحقق منه بأمان، فأبقى إدخاله في سطح المكتب لتجنب ترك ارتباط افتراضي معطّل. اختر تطبيقًا افتراضيًا آخر في إعدادات سطح المكتب، ثم حاول إزالة التكامل مجددًا."
+        },
+        "title": "التكامل مع سطح المكتب"
+      },
+      "appimageHost": {
+        "copyDiagnostics": "نسخ التشخيص",
+        "desc": "السماح لامتداد بفتح AppImage هذا عند النقر على «اتصال». فعّل التكامل مع المتصفح لاستخدامه.",
+        "enable": "تفعيل التشغيل من المتصفح",
+        "remove": "إزالة التشغيل من المتصفح",
+        "repair": "إصلاح",
+        "status": {
+          "conflict": "هذه الملفات تابعة لتثبيت آخر. أزل تكامله مع المتصفح أولًا.",
+          "disabled": "التشغيل من المتصفح معطّل.",
+          "invalid": "سجل التثبيت أو الملف التنفيذي غير صالح.",
+          "io": "فشلت العملية. تحقق من الوصول إلى القرص وجرّب «إصلاح».",
+          "missing": "ملف مطلوب مفقود. شغّل AppImage من موقعه الحالي وأجرِ الإصلاح.",
+          "permissions": "تأكد من أن الملفات قابلة للتنفيذ وأن حسابك وحده يملك إذن الكتابة إليها.",
+          "ready": "نجحت فحوصات التثبيت المحلية. اتصل من المتصفح للتحقق من عمله.",
+          "sourceChanged": "تغيّر AppImage. شغّل الإصدار المقصود وأصلح التثبيت."
+        },
+        "title": "تشغيل AppImage من المتصفح",
+        "useCurrent": "استخدام AppImage هذا"
+      },
+      "browser": {
+        "addTrusted": {
+          "add": "إضافة امتداد",
+          "addAction": "إضافة",
+          "browserLabel": "المتصفح",
+          "cancel": "إلغاء",
+          "chromiumEdge": "Chrome / Edge",
+          "firefox": "Firefox",
+          "idPlaceholder": "معرّف الامتداد",
+          "labelPlaceholder": "تسمية (اختيارية)"
+        },
+        "degradedPort": {
+          "description": "لم تتوفر المنافذ 16802–16806، فاستخدم الجسر المنفذ {{port}} بدلًا منها. لن تعثر عليه امتدادات المتصفح بفحص النطاق القياسي — اقترن باستخدام native messaging، أو عيّن منفذًا ثابتًا. لا تتأثر أداة Motrix لسطر الأوامر ولا المضيف الأصلي.",
+          "title": "الجسر يعمل على منفذ احتياطي"
+        },
+        "disconnecting": "جارٍ قطع الاتصال…",
+        "headerBrowser": "المتصفح",
+        "headerId": "معرّف الامتداد",
+        "headerSource": "المصدر",
+        "install": {
+          "chrome": "Chrome",
+          "development": "تطوير",
+          "edge": "Microsoft Edge",
+          "firefox": "Firefox",
+          "github": "GitHub",
+          "store": "تثبيت"
+        },
+        "lastActive": "آخر نشاط",
+        "masterSwitch": "ربط امتدادات المتصفح",
+        "masterSwitchDesc": "أرسل تنزيلات صفحات الويب إلى Motrix باستخدام امتداد المتصفح.",
+        "pairToast": {
+          "copyCode": "نسخ رمز الاقتران",
+          "deny": "عدم السماح",
+          "extensionId": "المعرّف: {{id}}",
+          "identityLabel": {
+            "attested": "امتداد تم التحقق منه",
+            "official": "امتداد Motrix الرسمي",
+            "unverified": "امتداد لم يُتحقق منه"
+          },
+          "identityUnverifiedWarning": "تعذّر التحقق من هوية هذا الامتداد. تابع فقط إذا كنت تثق به.",
+          "pairCode": "رمز الاقتران",
+          "pairCodeHint": "أدخل هذا الرمز في الامتداد",
+          "title": "يريد امتداد {{browser}} الاتصال بـ Motrix"
+        },
+        "pairUnavailable": "لم يعد طلب الاقتران هذا معلّقًا — أعد محاولة الاقتران من امتداد المتصفح.",
+        "pairedEmpty": "لا توجد امتدادات متصلة بعد.",
+        "pairedTitle": "الامتدادات المتصلة",
+        "pairingStateDegraded": {
+          "description": "تعذّر على Motrix تحديث سجلات الامتدادات المقترنة بأمان. أُغلقت جلسات الامتدادات الحالية وحُظر الوصول الجديد خلال هذا التشغيل. أعد تشغيل Motrix لإعادة محاولة الإصلاح؛ لا تعتمد على القائمة أدناه حتى تختفي هذه الرسالة.",
+          "title": "وصول الامتدادات مغلق مؤقتًا"
+        },
+        "removeTrusted": "إزالة",
+        "revoke": "قطع الاتصال",
+        "sourceLabel": {
+          "builtin": "مدمج",
+          "imported": "مستورد",
+          "userAdded": "مضاف"
+        },
+        "title": "امتدادات المتصفح",
+        "trustedEmpty": "لا يوجد شيء هنا بعد.",
+        "trustedExtensions": "الامتدادات الموثوقة",
+        "trustedGuidance": "للامتدادات الموثوقة الأخرى، أضف المعرّف الذي يقدمه المطوّر.",
+        "trustedSummary": "الإجمالي: {{count}}"
+      },
+      "cli": {
+        "inbox": {
+          "approve": "موافقة",
+          "deny": "رفض",
+          "empty": "لا توجد طلبات اقتران بعيد معلّقة.",
+          "expiresIn": "تنتهي الصلاحية خلال {{time}}",
+          "title": "موافقات معلّقة"
+        },
+        "pairToast": {
+          "allow": "السماح",
+          "code": "رمز التحقق: {{code}}",
+          "deny": "عدم السماح",
+          "title": "يريد {{name}} الاقتران بـ Motrix"
+        },
+        "pairUnavailable": "لم يعد طلب الاقتران هذا معلّقًا — شغّل motrix pair مجددًا.",
+        "remote": {
+          "description": "تتصل الأدوات المحلية تلقائيًا. شغّل motrix pair للاتصال بحاسوب أو خادم آخر.",
+          "empty": "لا توجد أدوات بعيدة مقترنة.",
+          "lastActive": "آخر نشاط",
+          "neverActive": "لم تُستخدم",
+          "revoke": "إلغاء التفويض",
+          "title": "الأدوات البعيدة المقترنة"
+        },
+        "title": "أدوات سطر الأوامر",
+        "tool": {
+          "action": {
+            "checkAgain": "التحقق مجددًا",
+            "checking": "جارٍ التحقق…",
+            "install": "تثبيت",
+            "installing": "جارٍ التثبيت…"
+          },
+          "attentionTitle": "أداة سطر الأوامر تحتاج إلى انتباه",
+          "commandLabel": "أمر التثبيت",
+          "copyCommand": "نسخ أمر التثبيت",
+          "description": "شغّل motrix في الطرفية للتحكم بهذا التطبيق.",
+          "diagnostics": {
+            "hide": "إخفاء التفاصيل",
+            "show": "إظهار التفاصيل"
+          },
+          "manager": {
+            "bun": "Bun",
+            "npm": "npm",
+            "pnpm": "pnpm",
+            "volta": "Volta",
+            "yarn": "Yarn Classic"
+          },
+          "managerLabel": "مدير الحزم",
+          "metadata": {
+            "manager": "ثُبّت باستخدام",
+            "path": "الملف التنفيذي",
+            "unknown": "غير معروف",
+            "version": "الإصدار"
+          },
+          "reason": {
+            "installFailed": "تعذّر على مدير الحزم تثبيت @motrix/cli. راجع التفاصيل، ثم حاول مجددًا أو شغّل الأمر يدويًا.",
+            "managerMissing": "لم يُعثر على مدير حزم مدعوم. ثبّت npm أو pnpm أو Yarn Classic أو Bun أو Volta، ثم تحقق مجددًا.",
+            "network": "تعذّر على مدير الحزم الوصول إلى السجل. تحقق من الشبكة أو إعدادات السجل، ثم حاول مجددًا.",
+            "nodeMissing": "لم يُعثر على Node.js 22 أو أحدث. ثبّت Node.js، ثم تحقق مجددًا.",
+            "nodeTooOld": "يلزم Node.js 22 أو أحدث. الإصدار المكتشف: {{version}}.",
+            "pathMissing": "ثُبّتت الحزمة، لكن motrix غير موجود في PATH. افتح طرفية جديدة أو أضف مجلد التثبيت المذكور إلى PATH.",
+            "pathShadowed": "يوجد ملف motrix تنفيذي آخر في موضع أسبق ضمن PATH. أزل الإدخال الأقدم أو صحح PATH، ثم تحقق مجددًا.",
+            "permission": "لا يستطيع مدير الحزم الكتابة إلى موقع التثبيت العام. استخدم مدير إصدارات Node.js أو بادئة تثبيت قابلة للكتابة للمستخدم؛ لا تستخدم sudo.",
+            "sandboxed": "التثبيت بنقرة واحدة غير متاح في هذه الحزمة المعزولة. انسخ الأمر وشغّله في الطرفية.",
+            "timeout": "استغرق التثبيت وقتًا طويلًا وأُوقف. تحقق من الشبكة، ثم حاول مجددًا.",
+            "unknown": "تعذّر على Motrix فحص أداة سطر الأوامر. حاول مجددًا أو شغّل الأمر المنسوخ يدويًا.",
+            "unsupportedWeb": "التثبيت بنقرة واحدة متاح في تطبيق سطح المكتب فقط. انسخ الأمر وشغّله على مضيف Motrix.",
+            "verifyFailed": "اكتمل برنامج التثبيت، لكن Motrix لم يتمكن من التحقق من ملف motrix التنفيذي الفعّال."
+          },
+          "status": {
+            "checking": "جارٍ التحقق",
+            "error": "فشل",
+            "installed": "مثبّتة",
+            "installing": "جارٍ التثبيت",
+            "manualOnly": "تثبيت يدوي",
+            "needsAttention": "تحتاج إلى انتباه",
+            "ready": "جاهزة للتثبيت"
+          },
+          "successGuidance": "افتح طرفية جديدة، ثم شغّل motrix --help.",
+          "title": "أداة Motrix لسطر الأوامر"
+        }
+      },
+      "description": "المتصفحات والتطبيقات الافتراضية والأدوات",
+      "media": {
+        "applyHint": "احفظ لاستخدام هذا المسار لتنزيلات الوسائط الجديدة. أعد الفحص في امتداد المتصفح لتحديث الدعم.",
+        "binaryPath": "مسار FFmpeg مخصص",
+        "browse": "استعراض…",
+        "candidateKind": {
+          "env": "MOTRIX_FFMPEG_BIN",
+          "manual": "مسار مخصص",
+          "path": "PATH النظام",
+          "userData": "مجلد بيانات Motrix"
+        },
+        "cleanupConfirm": "حذف جميع مجلدات FFmpeg المؤقتة؟",
+        "cleanupStaging": "تنظيف الملفات المؤقتة",
+        "desc": "دمج الوسائط أو تحويلها باستخدام FFmpeg.",
+        "desktopSavedHint": "تستخدم تنزيلات الوسائط الجديدة المسار المحفوظ. أعد تشغيل Motrix لتكتشف الإضافات النشطة التغيير.",
+        "detection": {
+          "copyManagedPath": "نسخ مسار FFmpeg الخاص بـ Motrix",
+          "editCustomPath": "تعديل مسار FFmpeg المخصص",
+          "finishEditingCustomPath": "إنهاء تعديل مسار FFmpeg المخصص",
+          "hideDetails": "إخفاء تفاصيل الاكتشاف",
+          "location": "الموقع المفحوص",
+          "notConfigured": "غير معيّن",
+          "readyTitle": "FFmpeg {{version}}",
+          "result": "النتيجة",
+          "showDetails": "إظهار تفاصيل الاكتشاف",
+          "source": "المصدر",
+          "sourcesChecked_few": "المصادر المفحوصة: {{count}}",
+          "sourcesChecked_many": "المصادر المفحوصة: {{count}}",
+          "sourcesChecked_one": "المصادر المفحوصة: {{count}}",
+          "sourcesChecked_other": "المصادر المفحوصة: {{count}}",
+          "sourcesChecked_two": "المصادر المفحوصة: {{count}}",
+          "sourcesChecked_zero": "المصادر المفحوصة: {{count}}",
+          "unavailableDesc": "عيّن مسارًا مخصصًا، أو ثبّت FFmpeg، أو أضفه إلى PATH، ثم حدّث.",
+          "unavailableTitle": "FFmpeg غير متاح",
+          "untrustedDesc": "الملف موجود لكنه لم يجتز فحص أمان macOS. ثبّت نسخة موثوقة أو اسمح بها في «الخصوصية والأمن»، ثم حدّث.",
+          "untrustedTitle": "حظر macOS برنامج FFmpeg",
+          "usingSource": "يُستخدم {{source}}"
+        },
+        "download": {
+          "action": "تنزيل FFmpeg"
+        },
+        "ffmpegRequired": "يتطلب هذا التنزيل FFmpeg. اضبطه في الإعدادات ← التكامل ← أدوات الوسائط، واحفظ، ثم حاول مجددًا.",
+        "notDetected": "لم يُكتشف FFmpeg",
+        "opTimeoutSec": "مهلة FFmpeg (ثوانٍ)",
+        "opTimeoutSecDesc": "أقصى مدة لعملية وسائط واحدة، حتى 3,600 ثانية.",
+        "pipelineUnavailable": "دعم تنزيل الوسائط غير متاح.",
+        "refresh": "تحديث",
+        "restartHint": "حُفظت الإعدادات. أعد تشغيل Motrix لتكتشف الإضافات النشطة التغييرات.",
+        "restartNow": "إعادة التشغيل الآن",
+        "savedTitle": "حُفظت إعدادات FFmpeg",
+        "stagingMB": "حد الملفات المؤقتة (MB)",
+        "stagingMBDesc": "مساحة للملفات الوسيطة لكل إضافة ومهمة.",
+        "state": {
+          "active": "مستخدم",
+          "available": "موجود",
+          "missing": "غير موجود",
+          "unconfigured": "غير معيّن",
+          "untrusted": "محظور بواسطة macOS",
+          "version_mismatch": "غير مدعوم"
+        },
+        "title": "أدوات الوسائط",
+        "validation": {
+          "fileMissing": "لا يوجد ملف في هذا المسار."
+        }
+      },
+      "pairResolveFailed": "تعذّر إرسال قرارك — حاول مجددًا.",
+      "system": {
+        "associationChecking": "جارٍ التحقق…",
+        "associationDefault": "افتراضي",
+        "associationNotDefault": "غير افتراضي",
+        "associationNotRegistered": "غير مسجّل",
+        "associationSetupRequired": "يلزم الإعداد",
+        "associationStatusLabel": "الحالة الحالية للتطبيق الافتراضي في Windows",
+        "associationStatusLabelLinux": "الحالة الحالية لارتباطات الملفات والروابط في Linux",
+        "associationUnavailable": "تعذّر التحقق",
+        "defaultAssociationsLinux": "ارتباطات الملفات والروابط في Linux",
+        "defaultAssociationsLinuxAppImageDesc": "استخدم «التكامل مع سطح المكتب» أدناه لتسجيل AppImage هذا أو إزالة تسجيله بأمان. يستعيد Motrix الارتباطات بالتطبيقات السابقة التي تم التحقق منها قبل حذف إدخاله في سطح المكتب.",
+        "defaultAssociationsLinuxCheckingDesc": "جارٍ فحص حزمة Linux هذه وارتباطاتها الحالية بسطح المكتب…",
+        "defaultAssociationsLinuxDesc": "يمكن لـ Motrix تعيين نفسه تطبيقًا افتراضيًا لملفات .torrent عند تثبيت حزمة deb أو rpm. تسري تغييرات magnet عند تطبيق هذا الحوار.",
+        "defaultAssociationsLinuxSandboxDesc": "تسجّل هذه الحزمة Motrix كتطبيق لمعالجة الملفات والروابط، لكن بيئة سطح المكتب تختار التطبيق الافتراضي. قد لا تؤدي إزالة الحزمة إلى استعادة التطبيق الافتراضي السابق تلقائيًا.",
+        "defaultAssociationsLinuxUnavailableDesc": "حالة ارتباطات سطح المكتب غير متاحة من بيئة التطبيق هذه.",
+        "defaultAssociationsWindows": "التطبيق الافتراضي للتورنت وروابط magnet",
+        "defaultAssociationsWindowsDesc": "اختر Motrix لملفات .torrent وروابط magnet في إعدادات Windows. يتطلب ذلك نسخة مثبّتة من Motrix.",
+        "linuxActionFailed": "تعذّر تحديث التطبيق الافتراضي في Linux. تحقق من إعدادات بيئة سطح المكتب.",
+        "linuxActionFallback": "الإعداد التلقائي غير متاح لهذه الحزمة. فُتحت تعليمات الإعداد بدلًا منه.",
+        "linuxActionSet": "أصبح Motrix التطبيق الافتراضي لملفات .torrent.",
+        "linuxPackage": {
+          "appimage": "AppImage",
+          "flatpak": "Flatpak",
+          "native": "deb / rpm",
+          "snap": "Snap",
+          "unknown": "حزمة غير معروفة"
+        },
+        "linuxPackageDetected": "الحزمة: {{package}}",
+        "magnetLinks": "روابط magnet",
+        "openWindowsSettings": "فتح إعدادات Windows",
+        "protocolMagnet": "فتح روابط magnet باستخدام Motrix",
+        "protocolMagnetAppImageDesc": "يُطبّق فور الحفظ عند تفعيل التكامل مع سطح المكتب.",
+        "protocolMagnetApplyFailed": "حُفظ التفضيل، لكن تعذّر تغيير ارتباط سطح المكتب. اختر التطبيق الافتراضي في إعدادات النظام.",
+        "protocolMagnetDesc": "فتح روابط magnet من المتصفح في Motrix.",
+        "protocolMagnetSandboxDesc": "سيطلب Motrix التغيير عند الحفظ، لكن بيئة العزل أو سطح المكتب قد تتطلب اختيار التطبيق الافتراضي يدويًا.",
+        "repairLinuxAssociations": "إصلاح الارتباطات",
+        "setTorrentDefaultLinux": "تعيين الافتراضي لملفات .torrent",
+        "title": "التطبيق الافتراضي",
+        "torrentAssociation": "فتح ملفات .torrent باستخدام Motrix",
+        "torrentAssociationDesc": "انقر نقرًا مزدوجًا على ملف .torrent لفتحه في Motrix.",
+        "torrentAssociationMacDesc": "في Finder، انقر بزر الفأرة الأيمن على أي ملف .torrent ← إحضار المعلومات ← فتح بواسطة ← اختر Motrix ← تغيير الكل…",
+        "torrentFiles": "ملفات .torrent",
+        "viewLinuxInstructions": "عرض خطوات الإعداد"
+      }
+    },
+    "network": {
+      "description": "الوكيل وDNS وفحوصات الاتصال",
+      "diagnostic": {
+        "enable": "الفحوصات التلقائية",
+        "enableDesc": "تكرار الفحوصات المفعّلة أعلاه.",
+        "interval": "الفاصل بين الفحوصات (ث)",
+        "title": "فحوصات الشبكة التلقائية"
+      },
+      "diagnostics": "تشخيص الشبكة",
+      "dns": {
+        "mode": "البحث عبر DNS",
+        "modeAuto": "تلقائي",
+        "modeDesc": "كيفية البحث عن عناوين الخوادم للتنزيلات.",
+        "modeEngine": "DNS المدمج",
+        "modeSystem": "DNS النظام",
+        "title": "DNS"
+      },
+      "nat": {
+        "automatic": "تلقائي",
+        "btPortHint": "ينطبق التعيين على منافذ BT/DHT المضبوطة في BitTorrent.",
+        "enable": "تفعيل تعيين المنافذ",
+        "enableDesc": "طلب فتح المنافذ المحددة في إعدادات BitTorrent من الموجّه.",
+        "mappingTtl": "مدة التعيين (ث)",
+        "preferredProtocol": "البروتوكول المفضّل",
+        "title": "تعيين المنافذ (NAT)"
+      },
+      "proxy": {
+        "auth": "تسجيل الدخول إلى الوكيل",
+        "authDesc": "فعّله إذا كان الوكيل يتطلب اسم مستخدم وكلمة مرور.",
+        "bypass": "الاتصال مباشرةً بـ",
+        "bypassDesc": "نطاق أو عنوان IP أو CIDR واحد في كل سطر. ابدأ بنقطة لمطابقة النطاقات الفرعية فقط. لا تدعم تنزيلات الملفات محرف البدل *.",
+        "bypassPlaceholder": "localhost\n127.0.0.1\n.local",
+        "bypassScopeNote": "تنزيلات الملفات وتحديثات التطبيق فقط",
+        "enable": "تفعيل الوكيل",
+        "enableDesc": "استخدام وكيل للاتصالات المحددة أدناه.",
+        "hidePassword": "إخفاء كلمة المرور",
+        "host": "عنوان الخادم",
+        "hostPlaceholder": "proxy.example.com",
+        "importFromSystem": "الاستيراد من النظام",
+        "importedToast": "استُورد وكيل النظام: {{host}}:{{port}}",
+        "noSystemProxy": "لا يوجد وكيل نظام مضبوط.",
+        "password": "كلمة المرور",
+        "port": "المنفذ",
+        "protocol": "البروتوكول",
+        "scopeChoose": "اختيار…",
+        "scopeDownload": "تنزيلات الملفات",
+        "scopeDownloadDesc": "في BT، يستخدم HTTP(S) فقط الوكيل. يتصل الأقران وDHT ومتعقّبات UDP مباشرةً.",
+        "scopeHint": "يتصل أقران BT وDHT ومتعقّبات UDP مباشرةً.",
+        "scopeNone": "لم يُحدد شيء",
+        "scopeSeparator": "، ",
+        "scopeUpdateApp": "تحديثات التطبيق",
+        "scopeUpdateAppDesc": "التحقق من تحديثات Motrix عبر الوكيل.",
+        "scopeUpdateTrackers": "تحديثات قوائم المتعقّبات",
+        "scopeUpdateTrackersDesc": "تنزيل قوائم المتعقّبات عبر الوكيل؛ لا تتأثر حركة بيانات BT.",
+        "scopes": "استخدام الوكيل لـ",
+        "scopesDesc": "اختر أنواع حركة البيانات التي تمر عبر الوكيل.",
+        "server": "الخادم",
+        "showPassword": "إظهار كلمة المرور",
+        "title": "الوكيل",
+        "user": "اسم المستخدم"
+      },
+      "reachability": {
+        "addEndpoint": "إضافة خدمة فحص",
+        "empty": "أضف خدمة فحص واحدة على الأقل.",
+        "enable": "فحص المنافذ الواردة",
+        "endpoints": "خدمات الفحص (HTTPS)",
+        "privacyHint": "يستخدم خدمة خارجية لفحص إمكانية الوصول من الإنترنت.",
+        "title": "فحص المنافذ الواردة"
+      },
+      "stun": {
+        "addServer": "إضافة خادم STUN",
+        "empty": "أضف خادم STUN واحدًا على الأقل.",
+        "enable": "اكتشاف نوع NAT",
+        "privacyHint": "يستخدم خوادم STUN تابعة لجهات خارجية.",
+        "servers": "خوادم STUN",
+        "title": "اكتشاف نوع NAT"
+      }
+    },
+    "title": "الإعدادات",
+    "validation": {
+      "address": "العنوان {{number}}",
+      "addressDraft": "عنوان جديد",
+      "directory": "اختر مجلد تنزيل.",
+      "httpUrl": "أدخل عنوانًا كاملًا يبدأ بـ http:// أو https://.",
+      "httpsUrl": "أدخل عنوانًا كاملًا يبدأ بـ https://.",
+      "integer": "أدخل عددًا صحيحًا.",
+      "integerRange": "أدخل عددًا صحيحًا من {{min}} إلى {{max}}.",
+      "invalid": "أدخل قيمة صالحة.",
+      "itemCount": "احتفظ بعدد من العناوين لا يتجاوز {{max}}.",
+      "loadFailed": "تعذّر تحميل الإعدادات. حاول مجددًا.",
+      "maximum": "أدخل {{max}} أو أقل.",
+      "minimum": "أدخل {{min}} أو أكثر.",
+      "number": "أدخل عددًا صالحًا.",
+      "proxyHost": "أدخل اسم خادم أو عنوان IP، دون http:// أو منفذ.",
+      "range": "أدخل عددًا من {{min}} إلى {{max}}.",
+      "rangeHint": "النطاق: {{min}}–{{max}}.",
+      "required": "أدخل عنوانًا أولًا.",
+      "saveFailed": "تعذّر حفظ تغييراتك. حاول مجددًا.",
+      "selection": "اختر خيارًا متاحًا.",
+      "stunServer": "استخدم host:port، مثل stun.example.com:3478. يجب أن يكون المنفذ بين 1 و65535.",
+      "text": "أزل فواصل الأسطر أو محارف التحكم المخفية.",
+      "textLength": "استخدم عددًا من المحارف لا يتجاوز {{max}}.",
+      "time": "استخدم تنسيق 24 ساعة، مثل 23:00.",
+      "wholeBytes": "استخدم منازل عشرية أقل."
+    }
+  },
+  "task": {
+    "add": {
+      "adding": "جارٍ الإضافة…",
+      "advanced": "متقدم",
+      "allProxy": "الوكيل",
+      "authorization": "Authorization",
+      "batchCreated": "المهام المضافة: {{count}}",
+      "browse": "استعراض",
+      "changeSaveDir": "تغيير مجلد الحفظ",
+      "clearSelection": "إلغاء التحديد",
+      "cookie": "Cookie",
+      "createFailed": "تعذّر إنشاء مهمة تنزيل.",
+      "createFailedByPlugin": "تعذّر إنشاء المهمة: أوقفتها الإضافة «{{pluginId}}» ({{detail}}). عطّل تلك الإضافة من الإعدادات ← الإضافات، ثم حاول مجددًا.",
+      "createFailedPathTooLong": "تعذّر إنشاء المهمة: طول مسار الوجهة {{length}} حرفًا، ويتجاوز حد Windows البالغ {{limit}}. اختر مسار مجلد حفظ أو اسم ملف أقصر.",
+      "createFailedWithReason": "تعذّر إنشاء مهمة تنزيل: {{reason}}",
+      "created": "أُضيفت المهمة",
+      "createdCopy": "أُضيفت نسخة منفصلة",
+      "createdPartial": "أُضيف: {{ok}} · فشل: {{failed}}",
+      "dlLimit": "حد سرعة التنزيل",
+      "downloadAllTorrents": "تنزيل الكل ({{count}})",
+      "downloadAndContinue": "التنزيل والمتابعة",
+      "dropTorrent": "أفلت ملف .torrent هنا أو انقر لاختياره",
+      "duplicate": {
+        "active-info-hash": "المهمة {{name}} نشطة بالفعل. لا يمكن لـ aria2 تشغيل محتوى التورنت نفسه مرتين في الوقت نفسه.",
+        "createCopy": "إنشاء نسخة منفصلة",
+        "existing-files": "يوجد {{name}} بالفعل في هذه الوجهة، لكن سجل المهمة غير متاح. لن يستبدله Motrix.",
+        "filesOnDisk": "ملفات التورنت",
+        "selection-mismatch": "تستخدم المهمة {{name}} الوجهة نفسها مع مجموعة ملفات مختلفة. لن يستبدلها Motrix أو ينشئ نسخة باسم آخر دون تنبيه.",
+        "showExisting": "إظهار المهمة الموجودة",
+        "title": "هذا التورنت موجود بالفعل"
+      },
+      "errors": {
+        "missingSource": "يلزم ملف تورنت أو رابط magnet",
+        "noFilesSelected": "حدد ملفًا واحدًا على الأقل",
+        "saveDirRequired": "يلزم تحديد مجلد الحفظ",
+        "urlsRequired": "يلزم عنوان URL واحد على الأقل"
+      },
+      "filename": "اسم الملف",
+      "filenameAuto": "تلقائي",
+      "filterBy": {
+        "audio": "صوت",
+        "doc": "مستند",
+        "image": "صورة",
+        "video": "فيديو"
+      },
+      "interpretedCurl": "حُلّل أمر cURL",
+      "interpretedInfoHash": "حُوّلت بصمة معلومات BT إلى رابط magnet",
+      "interpretedJson": "استُوردت عناوين URL من JSON",
+      "interpretedMagnet": "تم اكتشاف رابط magnet",
+      "invalidJson": "المطلوب سلسلة URL أو مصفوفة من سلاسل URL بصيغة JSON.",
+      "invalidUrlCount": "غير الصالح: {{count}}",
+      "links": "الروابط",
+      "parseFailed": "تعذّر تحليل ملف التورنت.",
+      "pickPathCustom": "مسار مخصص",
+      "pickPathTitle": "اختيار مجلد الحفظ",
+      "queueAdvanceFailed": "تعذّر فتح التورنت التالي.",
+      "referer": "Referer",
+      "saveDirEmpty": "اختر مجلدًا…",
+      "saveTo": "الحفظ في",
+      "seedRatio": "نسبة المشاركة",
+      "selectionTimeout": {
+        "failed": "تعذّر بدء {{name}} تلقائيًا. افتح تفاصيل المهمة لاختيار الملفات وإعادة المحاولة.",
+        "started": "انتهت مهلة اختيار الملفات: جارٍ تنزيل جميع ملفات {{name}}"
+      },
+      "skipTorrent": "تخطي",
+      "sourceCorrections": {
+        "encodeLiteralCharacters": "ترميزها كمحارف حرفية",
+        "useCanonicalUrl": "استخدام عنوان URL الموسّع هذا",
+        "usePathSeparators": "اعتبار الشرطات المائلة العكسية فواصل للمسار"
+      },
+      "sourceErrors": {
+        "ambiguousBackslash": "تجعل الشرطة المائلة العكسية المضيف أو المسار ملتبسًا. اختر كيفية تفسيرها.",
+        "ambiguousStructure": "سيغيّر محلّل عناوين URL هذا العنوان. راجع العنوان الموسّع.",
+        "controlCharacter": "أزل محارف التحكم من عنوان URL.",
+        "credentialsInUrl": "استخدم حقول المصادقة بدلًا من وضع بيانات الاعتماد في عنوان URL.",
+        "invalidHost": "مضيف عنوان URL مفقود أو غير صالح.",
+        "invalidMagnet": "يحتاج رابط magnet إلى بصمة معلومات BT مدعومة في المعامل xt.",
+        "invalidPercentEncoding": "يجب أن تلي علامة النسبة المئوية خانتان بالنظام السداسي عشر.",
+        "invalidPort": "منفذ عنوان URL غير صالح.",
+        "invalidUnicode": "يحتوي عنوان URL على Unicode غير صالح.",
+        "missingScheme": "أضف مخطط عنوان URL، مثل https://.",
+        "mixedProtocols": "يجب أن تستخدم مرايا التنزيل الواحد عائلة البروتوكولات نفسها.",
+        "tooManySources": "تتجاوز المدخلات العدد أو الحجم المسموح به للروابط.",
+        "unescapedCharacter": "رمّز المسافات والمحارف المحجوزة صراحةً.",
+        "unsupportedInput": "لم تُستورد صيغة المدخلات هذه. الصق عنوان URL أو استخدم صيغة مدعومة من JSON أو من أوامر cURL في Bash.",
+        "unsupportedProtocol": "بروتوكول عنوان URL هذا غير مدعوم لهذا التنزيل.",
+        "unsupportedRequestOptions": "لا يمكن تطبيق ترويسات HTTP على تنزيل FTP.",
+        "urlTooLong": "يتجاوز عنوان URL حد 16 KiB."
+      },
+      "sourceLine": "السطر {{line}}",
+      "split": "الاتصالات",
+      "submissionUnconfirmed": "النتيجة غير مؤكدة. ستتحقق إعادة المحاولة من الطلب الأصلي قبل إنشاء مهمة أخرى.",
+      "title": "مهمة جديدة",
+      "torrent": "تورنت",
+      "torrentQueueProgress": "تورنت {{current}} من {{total}}",
+      "ulLimit": "حد سرعة الرفع",
+      "undoCorrection": "التراجع عن تصحيح عنوان URL",
+      "unlimited": "غير محدود",
+      "unsupportedCurl": "لا يمكن استيراد أمر cURL هذا مع الحفاظ على سلوكه. انسخ عنوان URL أو أمر GET بصيغة Bash مع خيارات مدعومة.",
+      "urlPlaceholder": "أدخل عنوان URL أو رابط magnet أو بصمة معلومات BT…",
+      "urlsCount_few": "عناوين URL: {{count}}",
+      "urlsCount_many": "عناوين URL: {{count}}",
+      "urlsCount_one": "عناوين URL: {{count}}",
+      "urlsCount_other": "عناوين URL: {{count}}",
+      "urlsCount_two": "عناوين URL: {{count}}",
+      "urlsCount_zero": "عناوين URL: {{count}}",
+      "urlsLabel": "عناوين URL",
+      "urlsWithInvalid": "الصالح: {{valid}}، غير الصالح: {{invalid}}",
+      "userAgent": "User-Agent",
+      "validUrlCount": "الصالح: {{count}}"
+    },
+    "detail": {
+      "peers": "الأقران: {{count}}",
+      "seeds": "الموزّعون: {{count}}"
+    },
+    "error": {
+      "detail": {
+        "filesMissing": "الملفات مفقودة بعد إعادة تشغيل التطبيق",
+        "finalizeFailed": "تعذّر إكمال التنزيل: {{cause}}",
+        "magnetCleanupQuarantined": "تنظيف بيانات magnet الوصفية موقوف بسبب العزل",
+        "muxFailed": "تعذّر دمج الوسائط المنزّلة",
+        "pathTooLong": "طول المسار {{length}} حرفًا؛ يسمح Windows بـ {{limit}}",
+        "pluginChainAborted": "أُوقفت سلسلة الإضافات: {{cause}}",
+        "recoveryFailed": "تعذّرت استعادة التنزيل: {{cause}}",
+        "recoveryOutputConflict": "يوجد الملف المؤقت والنهائي معًا؛ حُفظ كلاهما للمراجعة اليدوية",
+        "renameDirFailed": "تعذّرت إعادة تسمية المجلد: {{cause}}",
+        "renameFileFailed": "تعذّرت إعادة تسمية الملف: {{cause}}"
+      },
+      "hint": {
+        "btMetadataFailed": "تحقق من رابط magnet أو أضف المزيد من المتعقّبات، ثم حاول مجددًا",
+        "checksumMismatch": "قد يكون الملف المنزّل تالفًا؛ أعد تنزيله للتحقق منه",
+        "diskFull": "أفرغ مساحة على القرص أو غيّر مجلد الحفظ، ثم حاول مجددًا",
+        "fileWriteError": "تحقق من أذونات المجلد والمساحة المتاحة على القرص، ثم حاول مجددًا",
+        "networkError": "تحقق من اتصال الشبكة، ثم حاول مجددًا",
+        "pathTooLong": "استخدم مسار مجلد حفظ أو اسم ملف أقصر، ثم حاول مجددًا",
+        "timeout": "تحقق من سرعة الاتصال واستقراره، ثم حاول مجددًا",
+        "tooManyRedirects": "قد يكون رابط المصدر معطّلًا؛ جرّب رابطًا آخر",
+        "unauthorized": "تحقق من بيانات الاعتماد أو أذونات الوصول، ثم حاول مجددًا"
+      },
+      "reason": {
+        "btMetadataFailed": "تعذّر جلب بيانات التورنت الوصفية",
+        "btTrackerError": "فشل الاتصال بالمتعقّب",
+        "checksumMismatch": "لم تتطابق قيمة التحقق للملف",
+        "diskFull": "القرص ممتلئ",
+        "fileWriteError": "تعذّرت كتابة الملف",
+        "generic": "فشل التنزيل",
+        "networkError": "فشل اتصال الشبكة",
+        "notFound": "الملف غير موجود",
+        "pathTooLong": "مسار الملف أطول مما يسمح به Windows",
+        "serverError": "أعاد الخادم خطأً",
+        "timeout": "انتهت مهلة التنزيل",
+        "tooManyRedirects": "عمليات إعادة توجيه كثيرة جدًا",
+        "unauthorized": "يلزم تفويض",
+        "unknown": "فشل التنزيل"
+      }
+    },
+    "recovery": {
+      "finalizeRenameFailed": "تعذّرت إعادة تسمية الملف. بقي ملف التنزيل بلاحقة .motrix.",
+      "metaMissing": "بيانات التورنت الوصفية مفقودة. لا يمكن بدء التوزيع.",
+      "reseedFailed": "اكتمل التنزيل، لكن تعذّر بدء التوزيع.",
+      "startup": {
+        "dirtyMetadata": "تعذّرت استعادة هذه المهمة: معلومات التعريف اللازمة للاستئناف مفقودة.",
+        "mediaInterrupted": "انقطع تنزيل الوسائط هذا بسبب إعادة تشغيل التطبيق ولا يمكن استئنافه. أعد إضافته للمحاولة مجددًا.",
+        "reAddFailed": "تعذّرت استعادة هذه المهمة: رفض المحرّك طلب إعادة الإضافة. أزلها وأضفها يدويًا من جديد.",
+        "resumeCheckpointMissing": "حُفظ الملف الجزئي، لكن نقطة استئنافه مفقودة. ابدأ من جديد بأمان أو أعد إضافة المهمة.",
+        "resumeCredentialsRequired": "حُفظ الملف الجزئي، لكن هذا التنزيل يحتاج إلى بيانات اعتماد للطلب لا يمكن إرسالها تلقائيًا من جديد.",
+        "resumePathInvalid": "حُفظ الملف الجزئي لأن مسار الإخراج المخزّن غير صالح.",
+        "resumeRangeUnsupported": "حُفظ الملف الجزئي لأن الخادم لا يدعم الاستئناف الآمن باستخدام نطاقات البايتات.",
+        "resumeSourceChanged": "حُفظ الملف الجزئي لأن الملف البعيد تغيّر منذ بدء التنزيل.",
+        "resumeValidationFailed": "حُفظ الملف الجزئي لأن Motrix لم يتمكن من التحقق من أن الملف البعيد لم يتغيّر.",
+        "torrentMetaMissing": "تعذّرت استعادة مهمة BitTorrent هذه: ملف البيانات الوصفية .torrent مفقود. أزل المهمة وأضفها من جديد."
+      },
+      "toast": "المهام التي انقطعت ثم استُعيدت: {{count}}. انقر للمراجعة."
+    },
+    "remove": {
+      "cancel": "إلغاء",
+      "confirm": "إزالة",
+      "deleteFilesLabel": "حذف الملفات المنزّلة",
+      "description": "ستُزال «{{name}}» من قائمة التنزيلات.",
+      "notAvailableDuringFinalize": "يرجى الانتظار حتى تنتهي معالجة المهمة النهائية.",
+      "orphanToast": "أُزيلت المهمة. حُفظت الملفات في {{path}}.",
+      "title": "إزالة المهمة؟"
+    },
+    "torrent": {
+      "audio": "صوت",
+      "column": {
+        "name": "اسم الملف",
+        "size": "الحجم",
+        "type": "نوع الملف"
+      },
+      "doc": "مستند",
+      "fileSelected_few": "الملفات المحددة: {{count}}",
+      "fileSelected_many": "الملفات المحددة: {{count}}",
+      "fileSelected_one": "الملفات المحددة: {{count}}",
+      "fileSelected_other": "الملفات المحددة: {{count}}",
+      "fileSelected_two": "الملفات المحددة: {{count}}",
+      "fileSelected_zero": "الملفات المحددة: {{count}}",
+      "image": "صورة",
+      "selectAll": "تحديد الكل",
+      "video": "فيديو"
+    }
+  },
+  "trackers": {
+    "blacklist": {
+      "column": {
+        "source": "المصدر",
+        "url": "URL"
+      },
+      "disabled": "معطّل — فعّله لعرض قائمة الحظر.",
+      "empty": "قائمة الحظر فارغة.",
+      "enabled": "تطبيق تصفية قائمة الحظر",
+      "enabledDesc": "حظر الاتصالات بخوادم المتعقّبات المشبوهة أو التي بها أخطاء.",
+      "summary": "عناوين URL السارية: {{count}}"
+    },
+    "combobox": {
+      "addSource": "إضافة",
+      "addSourcePlaceholder": "https://example.com/list.txt",
+      "builtinBadge": "مدمج",
+      "cdnBadge": "CDN",
+      "directBadge": "مباشر",
+      "empty": "لا توجد مصادر مطابقة.",
+      "placeholder": "اختيار المصادر",
+      "removeSource": "إزالة المصدر"
+    },
+    "effective": {
+      "column": {
+        "health": "الحالة",
+        "lastProbedAt": "آخر اختبار",
+        "responseTimeMs": "الاستجابة (ملّي ثانية)",
+        "source": "المصدر",
+        "url": "URL"
+      },
+      "disabled": "معطّل — فعّله لعرض قائمة المتعقّبات الفعّالة.",
+      "empty": "لا توجد متعقّبات فعّالة بعد. شغّل المزامنة لملء القائمة.",
+      "enabled": "إضافة المتعقّبات المنتقاة",
+      "enabledDesc": "إلحاق قائمة المتعقّبات المنتقاة بكل مهام BitTorrent."
+    },
+    "sync": {
+      "applying": "جارٍ تطبيق قوائم المتعقّبات…",
+      "failed": "المزامنة غير مكتملة. تحقق من الشبكة أو المصادر وحاول مجددًا.",
+      "fetching": "جارٍ جلب قوائم المتعقّبات…",
+      "probing": "جارٍ التحقق من توفر المتعقّبات…",
+      "syncing": "جارٍ المزامنة…",
+      "unavailable": "تعذّرت قراءة حالة المزامنة. تحقق من الاتصال وحاول مجددًا."
+    }
+  },
+  "tray": {
+    "checkUpdates": "التحقق من وجود تحديثات",
+    "manual": "دليل المستخدم",
+    "newTask": "مهمة جديدة",
+    "newTorrentTask": "مهمة تورنت جديدة",
+    "openTorrentFile": "فتح ملف تورنت",
+    "preferences": "الإعدادات",
+    "quit": "خروج",
+    "showMotrix": "إظهار Motrix"
+  }
+}

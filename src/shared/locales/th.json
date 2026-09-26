@@ -1,0 +1,2766 @@
+{
+  "applicationMenu": {
+    "actionFailed": "ดำเนินการไม่สำเร็จ ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง",
+    "back": "ย้อนกลับ",
+    "clearConfirm": "ล้างประวัติ",
+    "clearDescription": "ล้างประวัติงานที่เสร็จสิ้น ล้มเหลว หรือถูกนำออก เฉพาะรายการที่มีอยู่เมื่อเปิดกล่องโต้ตอบนี้ ไฟล์ที่ดาวน์โหลดจะยังอยู่บนดิสก์",
+    "clearTitle": "ล้างประวัติงานที่หยุดแล้วหรือไม่",
+    "discardConfirm": "ทิ้ง",
+    "discardDescription": "ลิงก์ การเลือกไฟล์ทอร์เรนต์ และการตั้งค่าที่ยังไม่ได้บันทึกจะถูกทิ้ง",
+    "discardTitle": "ทิ้งแบบร่างงานนี้หรือไม่",
+    "logoutConfirm": "ออกจากระบบ",
+    "logoutDescription": "แท็บอื่นที่ใช้เซสชันเบราว์เซอร์เดียวกันจะออกจากระบบด้วย การดาวน์โหลดบนเซิร์ฟเวอร์จะดำเนินต่อ ข้อมูลที่ยังไม่ได้บันทึกในแท็บเหล่านั้นจะถูกทิ้ง",
+    "logoutTitle": "ออกจากระบบเซิร์ฟเวอร์นี้หรือไม่",
+    "retry": "ลองอีกครั้ง",
+    "serverUnavailable": "เซิร์ฟเวอร์ไม่พร้อมใช้งาน เซสชันของคุณยังไม่ได้ออกจากระบบ",
+    "signOut": "ออกจากระบบ…"
+  },
+  "bridge": {
+    "receiver": {
+      "error": {
+        "authExpired": "เซสชันหมดอายุ — รีเฟรชหน้าในเบราว์เซอร์แล้วลองอีกครั้ง",
+        "cancelled": "ยกเลิกแล้ว",
+        "diskFull": "ดิสก์เต็ม",
+        "diskWriteFailed": "เขียนลงดิสก์ไม่ได้: {{detail}}",
+        "internalError": "ข้อผิดพลาดภายใน: {{detail}}",
+        "invalidPayload": "คำขอจากส่วนขยายไม่ถูกต้อง",
+        "invalidUrlScheme": "URL ต้องเป็น http: หรือ https:",
+        "muxAborted": "ยกเลิกการรวมแล้ว",
+        "muxFailed": "ffmpeg ทำงานล้มเหลวขณะรวมเสียงและวิดีโอ",
+        "notFound": "ไม่พบทรัพยากร (404)",
+        "rangeNotSatisfiable": "ดาวน์โหลดต่อไม่สำเร็จ โปรดเริ่มดาวน์โหลดใหม่",
+        "transientFailure": "ดาวน์โหลดไม่สำเร็จหลังจากลองใหม่: {{detail}}",
+        "unsupportedEncryption": "ดาวน์โหลดเนื้อหาที่ป้องกันด้วย DRM ไม่ได้",
+        "unsupportedKind": "Motrix รุ่นนี้ไม่รองรับการดาวน์โหลด {{kind}}",
+        "unsupportedLive": "ดาวน์โหลดสตรีมสดไม่ได้",
+        "unsupportedMaster": "ส่วนขยายส่งเพลย์ลิสต์หลักมา แต่ต้องใช้เพลย์ลิสต์ของรูปแบบย่อย"
+      }
+    }
+  },
+  "chrome": {
+    "close": "ปิด",
+    "maximize": "ขยายหน้าต่าง",
+    "minimize": "ย่อหน้าต่าง",
+    "newTask": "งานใหม่",
+    "restore": "คืนขนาดหน้าต่าง",
+    "sidebarDescription": "การนำทางในแอป",
+    "sidebarTitle": "แถบด้านข้าง",
+    "toggleSidebar": "แสดงหรือซ่อนแถบด้านข้าง"
+  },
+  "common": {
+    "apply": "นำไปใช้",
+    "cancel": "ยกเลิก",
+    "clearSearch": "ล้างการค้นหา",
+    "close": "ปิด",
+    "collapse": "ยุบ",
+    "confirm": "ยืนยัน",
+    "download": "ดาวน์โหลด",
+    "error": "ข้อผิดพลาด",
+    "hidePassword": "ซ่อนรหัสผ่าน",
+    "loading": "กำลังโหลด…",
+    "name": "ชื่อ:",
+    "remove": "นำออก",
+    "reset": "รีเซ็ต",
+    "retry": "ลองอีกครั้ง",
+    "save": "บันทึก",
+    "showPassword": "แสดงรหัสผ่าน",
+    "status": {
+      "finalizing": "กำลังดำเนินการขั้นสุดท้าย…"
+    }
+  },
+  "directoryPicker": {
+    "back": "ย้อนกลับ",
+    "create": "สร้าง",
+    "createHelp": "โฟลเดอร์ที่สร้างจะยังอยู่บนเซิร์ฟเวอร์แม้ยกเลิกการเลือก",
+    "description": "เส้นทางอยู่บนเซิร์ฟเวอร์ (อยู่ภายในคอนเทนเนอร์เมื่อใช้ Docker)",
+    "empty": "ไม่มีโฟลเดอร์ย่อย",
+    "errors": {
+      "alreadyExists": "มีไฟล์หรือโฟลเดอร์ชื่อนี้อยู่แล้ว",
+      "creationOutcomeUnknown": "ยืนยันการสร้างไม่ได้ รีเฟรชเพื่อตรวจสอบก่อนสร้างโฟลเดอร์อื่นที่นี่",
+      "invalidName": "ป้อนชื่อโฟลเดอร์ที่ถูกต้อง",
+      "invalidPath": "ป้อนเส้นทางโฟลเดอร์แบบสัมบูรณ์ที่ถูกต้อง",
+      "notDirectory": "เส้นทางนี้ไม่ใช่โฟลเดอร์",
+      "notFound": "ไม่มีโฟลเดอร์นี้แล้ว",
+      "outsideRoots": "โฟลเดอร์นี้อยู่นอกตำแหน่งที่อนุญาต",
+      "permissionDenied": "คุณไม่มีสิทธิ์ใช้โฟลเดอร์นี้",
+      "tooLarge": "เส้นทางหรือชื่อโฟลเดอร์นี้ยาวเกินไป",
+      "unavailable": "เซิร์ฟเวอร์ดำเนินการตามคำขอนี้ไม่ได้ ลองอีกครั้ง"
+    },
+    "fallback": "โฟลเดอร์ที่ขอไม่พร้อมใช้งาน กำลังแสดง {{path}}",
+    "folderName": "ชื่อโฟลเดอร์",
+    "folders": "โฟลเดอร์",
+    "forward": "ไปข้างหน้า",
+    "go": "ไป",
+    "goToFolder": "ไปยังโฟลเดอร์",
+    "incomplete": "แสดงเพียงบางส่วนของโฟลเดอร์นี้ ป้อนเส้นทางที่แน่นอนเพื่อไปยังโฟลเดอร์อื่น",
+    "loading": "กำลังโหลดโฟลเดอร์…",
+    "location": "ตำแหน่ง",
+    "newFolder": "โฟลเดอร์ใหม่",
+    "path": "เส้นทางโฟลเดอร์",
+    "places": {
+      "allowed": "ตำแหน่งที่อนุญาต",
+      "common": "ตำแหน่งทั่วไป",
+      "default": "โฟลเดอร์เริ่มต้น",
+      "desktop": "เดสก์ท็อป",
+      "documents": "เอกสาร",
+      "downloads": "ดาวน์โหลด",
+      "home": "โฟลเดอร์ส่วนตัว",
+      "loadFailed": "โหลดตำแหน่งโฟลเดอร์บางรายการไม่ได้",
+      "root": "ระบบไฟล์"
+    },
+    "refresh": "รีเฟรช",
+    "refreshAfterCreateFailed": "สร้างโฟลเดอร์แล้ว แต่รีเฟรชรายการไม่ได้",
+    "retry": "ลองอีกครั้ง",
+    "selectFolder": "เลือกโฟลเดอร์",
+    "selectedPath": "โฟลเดอร์ที่เลือก",
+    "showHidden": "แสดงโฟลเดอร์ที่ซ่อนอยู่",
+    "sortAscending": "จากน้อยไปมาก",
+    "sortBy": "เรียงตาม",
+    "sortDescending": "จากมากไปน้อย",
+    "sortModified": "วันที่แก้ไข",
+    "sortName": "ชื่อ",
+    "sortOrder": "ลำดับ",
+    "title": "เลือกโฟลเดอร์บนเซิร์ฟเวอร์",
+    "unknownOutcome": "ยืนยันการสร้างไม่ได้ รีเฟรชเพื่อตรวจสอบก่อนสร้างโฟลเดอร์อื่นที่นี่",
+    "up": "ขึ้นหนึ่งระดับ",
+    "viewOptions": "ตัวเลือกมุมมอง"
+  },
+  "directoryPreferences": {
+    "addFavorite": "เพิ่มโฟลเดอร์โปรด",
+    "alreadyFavorite": "อยู่ในรายการโปรดแล้ว",
+    "clearRecent": "ล้างรายการโฟลเดอร์ล่าสุด",
+    "close": "ปิด",
+    "description": "การนำโฟลเดอร์ออกจากรายการนี้จะไม่ลบโฟลเดอร์หรือไฟล์ภายใน",
+    "emptyFavorites": "ไม่มีโฟลเดอร์โปรด",
+    "emptyHistory": "ยังไม่มีโฟลเดอร์โปรดหรือโฟลเดอร์ล่าสุด",
+    "emptyRecent": "ไม่มีโฟลเดอร์ล่าสุด",
+    "errors": {
+      "conflict": "การตั้งค่าถูกเปลี่ยนในหน้าต่างอื่น ตรวจสอบการเปลี่ยนแปลงแล้วบันทึกอีกครั้ง",
+      "invalidPath": "ป้อนเส้นทางโฟลเดอร์แบบสัมบูรณ์ที่ถูกต้อง",
+      "limitReached": "ถึงขีดจำกัดโฟลเดอร์โปรดแล้ว นำรายการโปรดออกก่อนเพิ่มรายการใหม่",
+      "notDirectory": "เส้นทางนี้ไม่ใช่โฟลเดอร์",
+      "notFound": "ไม่มีโฟลเดอร์นี้แล้ว",
+      "outsideRoots": "โฟลเดอร์นี้อยู่นอกตำแหน่งที่อนุญาต",
+      "permissionDenied": "คุณไม่มีสิทธิ์ใช้โฟลเดอร์นี้",
+      "tooLarge": "เส้นทางโฟลเดอร์นี้ยาวเกินไป",
+      "unavailable": "อัปเดตประวัติโฟลเดอร์ไม่ได้ รีเฟรชเพื่อตรวจสอบสถานะปัจจุบัน"
+    },
+    "favoriteRecent": "เพิ่มในรายการโปรด",
+    "favorites": "โฟลเดอร์โปรด",
+    "history": "ประวัติโฟลเดอร์",
+    "limitHint": "บันทึกโฟลเดอร์โปรดได้สูงสุด {{count}} โฟลเดอร์",
+    "loading": "กำลังโหลดโฟลเดอร์…",
+    "manage": "จัดการโฟลเดอร์",
+    "manageAction": "จัดการ",
+    "manageDescription": "เลือกโฟลเดอร์โปรดและจัดการโฟลเดอร์ล่าสุด",
+    "pickerFailed": "เปิดตัวเลือกโฟลเดอร์ไม่ได้ ลองอีกครั้ง",
+    "recent": "โฟลเดอร์ล่าสุด",
+    "removeFavorite": "นำออกจากโฟลเดอร์โปรด",
+    "removeRecent": "นำออกจากโฟลเดอร์ล่าสุด",
+    "retry": "ลองอีกครั้ง",
+    "sectionDescription": "เก็บโฟลเดอร์ที่ใช้บ่อยไว้ให้เข้าถึงได้สะดวก",
+    "title": "จัดการโฟลเดอร์"
+  },
+  "errors": {
+    "task": {
+      "create": {
+        "dedupExhausted": "มีไฟล์ชื่อนี้อยู่แล้วมากเกินไป (>9999)",
+        "torrentMetaFailed": "บันทึกข้อมูลเมตาของทอร์เรนต์ไม่ได้"
+      }
+    }
+  },
+  "menu": {
+    "app": {
+      "about": "เกี่ยวกับ Motrix",
+      "checkForUpdates": "ตรวจหาการอัปเดต",
+      "hide": "ซ่อน Motrix",
+      "hideOthers": "ซ่อนแอปอื่น",
+      "preferences": "การตั้งค่า…",
+      "quit": "ออกจาก Motrix",
+      "show": "แสดง Motrix",
+      "title": "Motrix",
+      "unhide": "แสดงทั้งหมด"
+    },
+    "edit": {
+      "copy": "คัดลอก",
+      "cut": "ตัด",
+      "delete": "ลบ",
+      "paste": "วาง",
+      "redo": "ทำซ้ำ",
+      "selectAll": "เลือกทั้งหมด",
+      "title": "แก้ไข",
+      "undo": "เลิกทำ"
+    },
+    "file": {
+      "title": "ไฟล์"
+    },
+    "help": {
+      "changelog": "บันทึกประจำรุ่น",
+      "manual": "วิธีใช้ Motrix",
+      "officialWebsite": "เว็บไซต์ Motrix",
+      "reportProblem": "รายงานปัญหา",
+      "title": "วิธีใช้",
+      "toggleDevTools": "เปิดหรือปิดเครื่องมือสำหรับนักพัฒนา"
+    },
+    "task": {
+      "clearRecentTasks": "ล้างประวัติงานที่หยุดแล้ว…",
+      "deleteTask": "นำงานออก…",
+      "moveTaskDown": "เลื่อนลงในคิว",
+      "moveTaskUp": "เลื่อนขึ้นในคิว",
+      "newBtTask": "งาน BitTorrent ใหม่…",
+      "newTask": "งานใหม่…",
+      "openFile": "เปิดไฟล์ทอร์เรนต์…",
+      "pauseAllTask": "พักทั้งหมด",
+      "pauseTask": "พัก",
+      "resumeAllTask": "ดำเนินการต่อทั้งหมด",
+      "resumeTask": "ดำเนินการต่อ",
+      "selectAllTask": "เลือกงานทั้งหมด",
+      "taskList": "รายการงาน",
+      "title": "งาน"
+    },
+    "window": {
+      "close": "ปิด",
+      "front": "นำหน้าต่างทั้งหมดมาไว้ด้านหน้า",
+      "minimize": "ย่อหน้าต่าง",
+      "reload": "โหลดใหม่",
+      "title": "หน้าต่าง",
+      "toggleFullscreen": "สลับโหมดเต็มหน้าจอ",
+      "zoom": "ซูม"
+    }
+  },
+  "nav": {
+    "completed": "เสร็จสิ้น",
+    "dashboard": "แดชบอร์ด",
+    "downloads": "ดาวน์โหลด",
+    "notifications": "การแจ้งเตือน",
+    "plugins": "ปลั๊กอิน",
+    "settings": "การตั้งค่า",
+    "trackers": "แทร็กเกอร์"
+  },
+  "notification": {
+    "center": {
+      "actionFailed": "อัปเดตการแจ้งเตือนไม่ได้ ลองอีกครั้ง",
+      "clearAll": "ล้าง",
+      "empty": "ไม่มีการแจ้งเตือน",
+      "emptyDesc": "กิจกรรมการดาวน์โหลดและประกาศสำคัญของแอปจะแสดงที่นี่",
+      "markAllRead": "ทำเครื่องหมายว่าอ่านแล้วทั้งหมด",
+      "markRead": "ทำเครื่องหมายว่าอ่านแล้ว",
+      "openTaskFailed": "เปิดงานไม่ได้ ลองอีกครั้ง",
+      "removeAria": "นำ {{title}} ออก",
+      "rowUnreadAria": "{{title}} (ยังไม่ได้อ่าน)",
+      "taskRemoved": "นำงานออกแล้ว",
+      "title": "การแจ้งเตือน",
+      "toastRegionAria": "การแจ้งเตือน",
+      "unreadBadgeAria_other": "การแจ้งเตือนที่ยังไม่ได้อ่าน {{count}} รายการ",
+      "unreadDotAria": "การแจ้งเตือนที่ยังไม่ได้อ่าน",
+      "viewTask": "ดูงาน"
+    },
+    "dnsFallback": {
+      "body": "Motrix ติดต่อเซิร์ฟเวอร์ DNS ไม่ได้ จึงเปลี่ยนไปใช้ DNS ของระบบสำหรับเซสชันนี้",
+      "title": "ลอง {{name}} อีกครั้งด้วย DNS ของระบบแล้ว"
+    },
+    "engineCompatibility": {
+      "body": "aria2 {{version}} ไม่ใช่รุ่นที่พัฒนาต่อโดย Motrix การตั้งค่าการเชื่อมต่อถูกจำกัดไว้ไม่เกิน {{limit}} และไม่สามารถบันทึกประวัติลง SQLite ได้ กลับมาใช้เอนจิน aria2_motrix ที่ให้มากับแอปเพื่อใช้ความสามารถทั้งหมด",
+      "title": "ตรวจพบ aria2 ที่ไม่ใช่รุ่นของ Motrix"
+    },
+    "engineFailure": {
+      "title": "เอนจินดาวน์โหลดล้มเหลว"
+    },
+    "engineRestartRequired": {
+      "body": "บันทึกการตั้งค่าแล้ว เริ่มเอนจินดาวน์โหลดใหม่เมื่อสะดวก",
+      "restartNow": "เริ่มใหม่ตอนนี้",
+      "title": "เริ่มเอนจินดาวน์โหลดใหม่เพื่อใช้การตั้งค่า"
+    },
+    "taskComplete": {
+      "title": "ดาวน์โหลด {{name}} เสร็จแล้ว"
+    },
+    "taskError": {
+      "title": "{{name}} ล้มเหลว"
+    }
+  },
+  "onboarding": {
+    "disclaimer": {
+      "agree": "ยอมรับและดำเนินการต่อ",
+      "body": "Motrix ให้บริการจัดการการดาวน์โหลดเท่านั้น ไม่ได้จัดหา จัดเก็บ โฮสต์ หรือแนะนำเนื้อหาสำหรับดาวน์โหลด คุณต้องตรวจสอบว่าเนื้อหาที่คุณเข้าถึง ใช้ หรือแชร์ผ่าน Motrix ได้รับอนุญาตตามกฎหมาย และเป็นไปตามกฎหมายลิขสิทธิ์และกฎหมายอื่นที่เกี่ยวข้อง คุณรับผิดชอบต่อผลที่เกิดจากการดาวน์โหลด ใช้ หรือแชร์เนื้อหา การเลือก “ยอมรับและดำเนินการต่อ” เป็นการยืนยันว่าคุณได้อ่านและเข้าใจข้อควรทราบนี้แล้ว",
+      "highlights": {
+        "authorized": "ได้รับอนุญาตตามกฎหมาย",
+        "downloadManagement": "ให้บริการจัดการการดาวน์โหลดเท่านั้น",
+        "responsibility": "คุณรับผิดชอบ"
+      },
+      "language": "ภาษา",
+      "languages": {
+        "chinese": "简体中文",
+        "english": "English"
+      },
+      "localConsent": "ตัวเลือกของคุณจะถูกบันทึกไว้ในอุปกรณ์นี้",
+      "quit": "ออก",
+      "retry": "ลองอีกครั้ง",
+      "saveFailed": "บันทึกการยอมรับไม่ได้ ตรวจสอบพื้นที่ดิสก์แล้วลองอีกครั้ง",
+      "summary": "โปรดอ่านข้อความต่อไปนี้ก่อนดำเนินการต่อ",
+      "title": "ข้อควรทราบในการใช้งาน"
+    }
+  },
+  "operatorAdmin": {
+    "decision": {
+      "approve": "อนุมัติ {{userCode}} สำหรับ {{clientName}} ({{clientVersion}}) แล้ว",
+      "deny": "ปฏิเสธ {{userCode}} สำหรับ {{clientName}} ({{clientVersion}}) แล้ว"
+    },
+    "errorPrefix": "motrix-admin: {{message}}",
+    "errors": {
+      "credential": {
+        "dataDirNotAbsolute": "MOTRIX_DATA_DIR ต้องเป็นเส้นทางสัมบูรณ์",
+        "invalid": "ไฟล์ข้อมูลรับรองผู้ดูแลไม่ถูกต้อง",
+        "notFile": "เส้นทางข้อมูลรับรองผู้ดูแลไม่ใช่ไฟล์ปกติ",
+        "rejected": "Motrix ปฏิเสธข้อมูลรับรองผู้ดูแล",
+        "tokenHeaderInvalid": "ไม่สามารถใช้ MOTRIX_OPERATOR_TOKEN ในส่วนหัว HTTP ได้",
+        "unavailable": "ไม่มีข้อมูลรับรองผู้ดูแล ตั้งค่า MOTRIX_OPERATOR_TOKEN หรือตรวจสอบว่ามีไฟล์ operator-token ในโฟลเดอร์ข้อมูล",
+        "unreadable": "อ่านข้อมูลรับรองผู้ดูแลไม่ได้"
+      },
+      "server": {
+        "ambiguousRequest": "มีคำขอจับคู่ที่รออยู่ตรงกับ {{userCode}} มากกว่าหนึ่งรายการ ยังไม่ได้ดำเนินการตามการตัดสินใจ",
+        "approvalUnavailable": "เซิร์ฟเวอร์ Motrix ที่กำลังทำงานอยู่ไม่รองรับการอนุมัติการจับคู่",
+        "decisionOutcomeUnknown": "ไม่ทราบผลการตัดสินใจจับคู่ เรียกใช้ pairing pending ก่อนลองอีกครั้ง",
+        "decisionResponseInvalid": "Motrix ส่งคำตอบผลการตัดสินใจจับคู่ไม่ถูกต้อง",
+        "noMatchingRequest": "ไม่มีคำขอจับคู่ที่รออยู่ตรงกับ {{userCode}}",
+        "pendingResponseInvalid": "Motrix ส่งคำตอบรายการจับคู่ที่รออยู่ไม่ถูกต้อง",
+        "requestNoLongerPending": "คำขอจับคู่ไม่ได้อยู่ระหว่างรอแล้ว",
+        "responseInvalidJson": "Motrix ส่งคำตอบ JSON ที่ไม่ถูกต้องกลับมา",
+        "responseOversized": "Motrix ส่งคำตอบที่ใหญ่เกินไปกลับมา",
+        "responseUnreadable": "Motrix ส่งคำตอบที่อ่านไม่ได้กลับมา",
+        "rpcHttp": "RPC สำหรับจับคู่ของ Motrix ล้มเหลวด้วย HTTP {{status}}",
+        "unexpected": "motrix-admin ล้มเหลวโดยไม่คาดคิด"
+      },
+      "unavailable": {
+        "approvalNotReady": "เซิร์ฟเวอร์ Motrix ที่กำลังทำงานอยู่ยังไม่พร้อมอนุมัติการจับคู่",
+        "loopback": "ติดต่อเซิร์ฟเวอร์ Motrix ที่กำลังทำงานอยู่ผ่านลูปแบ็กของคอนเทนเนอร์ไม่ได้"
+      },
+      "usage": {
+        "jsonRepeated": "ระบุ --json ได้เพียงครั้งเดียว",
+        "pairingCodeInvalid": "รหัสจับคู่ต้องมีอักขระ ASCII แปดตัว และห้ามใช้ I, O, 0 หรือ 1",
+        "pairingCommandRequired": "ต้องใช้คำสั่ง pairing",
+        "pairingOperationRequired": "ต้องใช้ pairing pending, pairing approve CODE หรือ pairing deny CODE",
+        "portInvalid": "PORT ต้องเป็นจำนวนเต็มระหว่าง 1 ถึง 65535",
+        "unknownOption": "ไม่รู้จักตัวเลือกบรรทัดคำสั่งนี้"
+      }
+    },
+    "help": "วิธีใช้:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nคำสั่งนี้สื่อสารกับเซิร์ฟเวอร์ Motrix ที่กำลังทำงานอยู่ผ่านลูปแบ็กของคอนเทนเนอร์เท่านั้น",
+    "pending": {
+      "none": "ไม่มีคำขอจับคู่ที่รออยู่",
+      "row": "{{userCode}}  {{clientName}}  {{clientVersion}}  หมดอายุใน {{ttl}}",
+      "ttl": "{{minutes}} นาที {{seconds}} วินาที"
+    },
+    "usageHint": "เรียกใช้ `motrix-admin --help` เพื่อดูวิธีใช้"
+  },
+  "operatorUnlock": {
+    "error": "โทเค็นผู้ดูแลไม่ถูกต้อง ตรวจสอบ MOTRIX_OPERATOR_TOKEN หรือ <dataDir>/operator-token บนโฮสต์แล้วลองอีกครั้ง",
+    "help": "เซิร์ฟเวอร์นี้ต้องใช้โทเค็นผู้ดูแล ตั้งค่า MOTRIX_OPERATOR_TOKEN บนโฮสต์ หรืออ่านโทเค็นจาก <dataDir>/operator-token แล้ววางด้านล่าง",
+    "placeholder": "โทเค็นผู้ดูแล",
+    "submit": "ปลดล็อก",
+    "title": "ปลดล็อก Motrix"
+  },
+  "panel": {
+    "completed": {
+      "desc": "งานดาวน์โหลดที่เสร็จสิ้น",
+      "title": "เสร็จสิ้น"
+    },
+    "connection": {
+      "originMismatch": "ที่อยู่สำหรับเข้าถึงไม่ตรงกัน",
+      "polling": "อัปเดตเป็นระยะ",
+      "reconnecting": "กำลังเชื่อมต่อเซิร์ฟเวอร์ใหม่…",
+      "unavailable": "ติดต่อเซิร์ฟเวอร์ไม่ได้"
+    },
+    "dashboard": {
+      "active": {
+        "downloading": "กำลังดาวน์โหลด",
+        "engineOffline": "เอนจินออฟไลน์",
+        "error": "ข้อผิดพลาด",
+        "seeding": "กำลังปล่อยไฟล์",
+        "title": "งานที่กำลังทำงาน",
+        "waiting": "กำลังรอ"
+      },
+      "activity": {
+        "completedIntensity": "ความเข้มของสีแสดงจำนวนการดาวน์โหลดที่เสร็จสิ้น",
+        "coverageDegraded": "กิจกรรมอาจไม่ครบถ้วนตั้งแต่ {{time}}",
+        "less": "น้อย",
+        "loading": "กำลังโหลดกิจกรรม",
+        "more": "มาก",
+        "rangeSummary": "กิจกรรมการดาวน์โหลด {{weeks}} สัปดาห์ ตั้งแต่ {{start}} ถึง {{end}}",
+        "retry": "ลองอีกครั้ง",
+        "stale": "กิจกรรมอาจไม่เป็นปัจจุบัน",
+        "title": "กิจกรรม",
+        "tooltip": {
+          "completed": "เสร็จสิ้น {{count}} รายการ",
+          "completedOnDate": "เสร็จสิ้น {{count}} รายการในวันที่ {{date}}",
+          "coverage": "ข้อมูลที่บันทึกอาจไม่ครบถ้วนตั้งแต่ {{time}}",
+          "coverageShort": "ข้อมูลอาจไม่ครบถ้วน",
+          "noData": "ไม่มีข้อมูลกิจกรรม",
+          "noDataOnDate": "ไม่มีข้อมูลกิจกรรมในวันที่ {{date}}",
+          "partial": "เริ่มติดตามเมื่อ {{time}}",
+          "partialShort": "ข้อมูลบางส่วนของวัน",
+          "recovered": "รวมการเสร็จสิ้นที่ตรวจพบระหว่างการกู้คืน",
+          "recoveredCount": "กู้คืน {{count}} รายการ",
+          "submitted": "ส่งแล้ว {{count}} รายการ",
+          "today": "วันนี้ ยังอัปเดตอยู่",
+          "untracked": "ยังไม่ได้ติดตาม"
+        },
+        "unavailable": "กิจกรรมไม่พร้อมใช้งาน",
+        "weekday": {
+          "fri": "ศ.",
+          "mon": "จ.",
+          "sat": "ส.",
+          "sun": "อา.",
+          "thu": "พฤ.",
+          "tue": "อ.",
+          "wed": "พ."
+        }
+      },
+      "configure": {
+        "action": "ตั้งค่า",
+        "addTile": "เพิ่ม",
+        "addTitle": "เพิ่มการ์ด",
+        "apply": "นำไปใช้",
+        "availabilityHints": {
+          "bounds": "ย้ายการ์ดเข้าด้านในก่อน",
+          "space": "ย่อหรือนำการ์ดอื่นออก",
+          "unsupported": "เลือกขนาดที่รองรับ"
+        },
+        "cancel": "ยกเลิก",
+        "currentSize": "ขนาดปัจจุบัน: {{width}} × {{height}}",
+        "drag": "ลากการ์ด",
+        "expandHint": "ขยายหน้าต่างเพื่อตั้งค่าเค้าโครงแดชบอร์ด",
+        "invalidCapacity": "พื้นที่ไม่พอสำหรับขนาดนี้",
+        "presets": {
+          "action": "รูปแบบสำเร็จ",
+          "balanced": {
+            "title": "สมดุล"
+          },
+          "compact": {
+            "title": "กะทัดรัด"
+          },
+          "custom": "กำหนดเอง",
+          "speedFocus": {
+            "title": "เน้นความเร็ว"
+          },
+          "taskFocus": {
+            "title": "เน้นงาน"
+          },
+          "undo": "เลิกทำการใช้รูปแบบล่าสุด"
+        },
+        "removeTile": "นำการ์ดออก",
+        "reset": "รีเซ็ต",
+        "resizeTile": "ปรับขนาดการ์ด",
+        "saveFailed": "บันทึกเค้าโครงไม่ได้ ลองอีกครั้ง",
+        "size": "{{width}} × {{height}}",
+        "sizeGroup": "ขนาดการ์ด",
+        "sizeLabels": {
+          "compact": "กะทัดรัด",
+          "fullHeight": "เต็มความสูง",
+          "fullWidth": "เต็มความกว้าง",
+          "large": "ใหญ่",
+          "tall": "สูง",
+          "wide": "กว้าง"
+        },
+        "sizeUnavailable": {
+          "insufficientSpace": "พื้นที่ไม่พอ",
+          "outOfBounds": "วางไม่พอดี",
+          "unsupported": "ไม่รองรับ"
+        }
+      },
+      "engine": {
+        "diagnostics": {
+          "binary": {
+            "available": "{{name}} {{version}}",
+            "unavailable": "{{name}} หายไปหรือเริ่มทำงานไม่ได้"
+          },
+          "checking": "กำลังตรวจสอบเอนจิน…",
+          "checks": {
+            "binary": "เอนจิน",
+            "communication": "การเชื่อมต่อ",
+            "features": "ความสามารถ",
+            "process": "โปรเซส",
+            "rpc": "พอร์ต RPC"
+          },
+          "communication": {
+            "ready": "Motrix สื่อสารกับ aria2 ได้"
+          },
+          "confirmForce": {
+            "action": "บังคับหยุดและกู้คืน",
+            "description": "PID {{pid}} ตรงกับไฟล์ปฏิบัติการที่มากับ Motrix ข้อมูลลับ RPC ส่วนตัว และเส้นทางข้อมูล ระบบจะหยุดโปรเซสทันที แล้วเริ่ม aria2 ใหม่บนพอร์ต RPC ของ Motrix",
+            "title": "บังคับหยุดโปรเซส aria2 ที่ตกค้างหรือไม่"
+          },
+          "copied": "คัดลอกแล้ว",
+          "copy": "คัดลอกผลวินิจฉัย",
+          "copyFailed": "คัดลอกผลวินิจฉัยไม่ได้ ลองอีกครั้ง",
+          "currentStatus": "สถานะปัจจุบัน",
+          "description": "ตรวจสอบเอนจิน ระบุโปรเซสที่ใช้พอร์ต RPC ของ Motrix และกู้คืนอย่างปลอดภัย",
+          "details": "รายละเอียดการวินิจฉัย",
+          "fallback": {
+            "available": "พอร์ตเริ่มต้น {{port}} ของ Motrix ว่างและกลับมาใช้ได้แล้ว",
+            "blocked": "PID {{pid}} ({{name}}) กำลังใช้พอร์ตเริ่มต้น {{port}} แต่ Motrix ยืนยันเจ้าของไม่ได้ จึงจะไม่หยุดโปรเซสนี้",
+            "confirm": {
+              "action": "หยุดและกลับมาใช้พอร์ต {{port}}",
+              "description": "ยืนยันแล้วว่า PID {{pid}} เป็นโปรเซส aria2 ตกค้างของ Motrix ระบบจะหยุดโปรเซสนี้ บันทึกพอร์ตเริ่มต้น {{port}} และเริ่ม aria2 ใหม่",
+              "title": "หยุดโปรเซสตกค้างและกลับมาใช้พอร์ต {{port}} หรือไม่"
+            },
+            "restore": "กลับมาใช้พอร์ตเริ่มต้น {{port}} ของ Motrix",
+            "restoredDefault": "กลับมาใช้พอร์ต RPC เริ่มต้น {{port}} ของ Motrix แล้ว",
+            "restoring": "กำลังกลับมาใช้พอร์ตเริ่มต้น {{port}} ของ Motrix…",
+            "unidentified": "ระบุโปรเซสที่ใช้พอร์ตเริ่มต้น {{port}} ไม่ได้ Motrix จะใช้พอร์ตปัจจุบันต่อไป",
+            "verifiedOrphan": "โปรเซส aria2 ตกค้างที่ยืนยันแล้วว่าเป็นของ Motrix (PID {{pid}}) กำลังใช้พอร์ตเริ่มต้น {{port}} Motrix สามารถหยุดได้อย่างปลอดภัยก่อนกลับมาใช้พอร์ตนี้"
+          },
+          "features": {
+            "none": "ไม่มีรายงาน",
+            "unavailable": "ไม่พร้อมใช้งาน"
+          },
+          "forceRecover": "บังคับหยุดและกู้คืน",
+          "impact": {
+            "connecting": "จะควบคุมการดาวน์โหลดได้เมื่อเอนจินพร้อม",
+            "failed": "ควบคุมการดาวน์โหลดไม่ได้ สถานะงานอาจไม่เป็นปัจจุบัน",
+            "stopped": "เริ่มเอนจินเพื่อเริ่มหรือจัดการการดาวน์โหลด"
+          },
+          "lastChecked": "ตรวจสอบเมื่อ {{time}}",
+          "loadFailed": "เรียกใช้การวินิจฉัยเอนจินไม่ได้",
+          "motrixEngine": "aria2 Motrix",
+          "open": "วินิจฉัย",
+          "port": {
+            "available": "{{port}} (ว่าง)",
+            "listening": "{{port}} (กำลังรับการเชื่อมต่อ)",
+            "occupied": "{{port}} (มีผู้ใช้งาน)"
+          },
+          "process": {
+            "current_app": "PID {{pid}} ({{name}}) จัดการโดย Motrix",
+            "external_aria2": "PID {{pid}} ({{name}}) ยังยืนยันเจ้าของไม่ได้ จะไม่หยุดโปรเซส",
+            "none": "ไม่มีพอร์ตขัดแย้ง",
+            "other": "PID {{pid}} ({{name}}) ยังยืนยันเจ้าของไม่ได้ จะไม่หยุดโปรเซส",
+            "unidentified": "ระบุไม่ได้ จะไม่หยุดโปรเซส",
+            "unknown": "PID {{pid}} ระบุไม่ได้ จะไม่หยุดโปรเซส",
+            "verified_orphan": "PID {{pid}} ({{name}}) ยืนยันแล้วว่าเป็นโปรเซสตกค้างของ Motrix หยุดได้อย่างปลอดภัย"
+          },
+          "reason": {
+            "binary_unavailable": "ไฟล์ปฏิบัติการ aria2 ที่มาพร้อมแอปหายไปหรือไม่พร้อมใช้งาน",
+            "health_check_failed": "aria2 หยุดตอบสนองต่อ Motrix",
+            "port_in_use": "พอร์ต RPC ของ Motrix มีผู้ใช้งานอยู่ จึงเริ่มเอนจิน aria2 ไม่ได้",
+            "rpc_unavailable": "เอนจิน aria2 เริ่มแล้ว แต่ไม่ยอมรับการเชื่อมต่อ RPC จาก Motrix",
+            "spawn_failed": "สร้างโปรเซส aria2 ไม่ได้",
+            "unexpected_exit": "เอนจิน aria2 ปิดตัวลงโดยไม่คาดคิด",
+            "unknown": "เริ่มเอนจิน aria2 ไม่ได้โดยไม่ทราบสาเหตุ"
+          },
+          "recommendation": {
+            "force_terminate": "ยืนยันแล้วว่าโปรเซสนี้เป็นของ Motrix บังคับหยุด PID {{pid}} แล้วเริ่ม aria2 ใหม่บนพอร์ต RPC {{rpcPort}} ของ Motrix",
+            "retry": "พอร์ตว่างอยู่ ลองเริ่ม aria2 อีกครั้งโดยไม่เปลี่ยนการตั้งค่า",
+            "switch_port": "ไม่สามารถหยุดโปรเซสได้อย่างปลอดภัย ใช้พอร์ต {{port}} เป็นทางเลือกสำรองเท่านั้น หรือปิดโปรเซสที่ขัดแย้งด้วยตนเอง",
+            "title": "วิธีกู้คืนที่แนะนำ"
+          },
+          "recovered": "เอนจิน aria2 พร้อมใช้งานอีกครั้งแล้ว",
+          "recoveredOnPort": "กู้คืนเอนจิน aria2 บนพอร์ต RPC {{port}} แล้ว",
+          "recoveryFailed": "กู้คืนเอนจินไม่สำเร็จ เรียกใช้การวินิจฉัยอีกครั้งเพื่อดูสถานะล่าสุด",
+          "refreshFailed": "รีเฟรชผลวินิจฉัยไม่ได้ ด้านล่างแสดงรายงานล่าสุดที่สำเร็จ",
+          "restart": "เริ่มเอนจินใหม่",
+          "retry": "ลองอีกครั้ง",
+          "rpc": {
+            "available": "{{port}} (ว่าง)",
+            "listening": "{{port}} (กำลังรับการเชื่อมต่อ)",
+            "occupied": "{{port}} (มีผู้ใช้งาน)"
+          },
+          "runAgain": "เรียกใช้อีกครั้ง",
+          "runtime": {
+            "connected": "เชื่อมต่อแล้ว",
+            "connecting": "กำลังเชื่อมต่อ…",
+            "connection": "การเชื่อมต่อ",
+            "connectionStatus": "{{transport}} ({{status}})",
+            "disconnected": "ยังไม่ได้เชื่อมต่อ",
+            "notRunning": "ไม่ได้ทำงาน",
+            "process": "โปรเซส",
+            "running": "กำลังทำงาน",
+            "unavailable": "ไม่พร้อมใช้งาน"
+          },
+          "summary": {
+            "binary_unavailable": "เอนจินดาวน์โหลดไม่พร้อมใช้งาน",
+            "health_check_failed": "เอนจินดาวน์โหลดหยุดตอบสนอง",
+            "port_in_use": "พอร์ตควบคุมของเอนจินมีผู้ใช้งานอยู่",
+            "ready": "เอนจินดาวน์โหลดทำงานตามปกติ",
+            "restarting": "เอนจินดาวน์โหลดกำลังกู้คืน",
+            "rpc_unavailable": "การเชื่อมต่อควบคุมเอนจินไม่พร้อมใช้งาน",
+            "spawn_failed": "เริ่มเอนจินดาวน์โหลดไม่ได้",
+            "starting": "เอนจินดาวน์โหลดกำลังเริ่ม",
+            "stopped": "เอนจินดาวน์โหลดหยุดแล้ว",
+            "unexpected_exit": "เอนจินดาวน์โหลดปิดตัวลงโดยไม่คาดคิด",
+            "unknown": "เอนจินดาวน์โหลดไม่พร้อมใช้งาน"
+          },
+          "switchPort": "ใช้พอร์ต {{port}}",
+          "technicalDetails": "รายละเอียดทางเทคนิค",
+          "title": "วินิจฉัยเอนจิน",
+          "transport": {
+            "websocket": "WebSocket"
+          },
+          "versionUnknown": "ไม่มีข้อมูลเวอร์ชัน"
+        },
+        "features": "ความสามารถ",
+        "listenPort": "พอร์ตรับการเชื่อมต่อ",
+        "name": "Aria2",
+        "rpcPort": "พอร์ต RPC",
+        "startFailed": "เริ่มเอนจิน aria2 ไม่ได้",
+        "state": {
+          "disconnected": "ตัดการเชื่อมต่อแล้ว",
+          "failed": "ล้มเหลว",
+          "ready": "พร้อม",
+          "reconnecting": "กำลังเชื่อมต่อใหม่…",
+          "starting": "กำลังเริ่ม…",
+          "stopped": "หยุดแล้ว"
+        },
+        "title": "เอนจิน",
+        "version": "เวอร์ชัน"
+      },
+      "errors": {
+        "retry": "ลองอีกครั้ง",
+        "tileFailed": "{{tile}}: แสดงผลไม่ได้"
+      },
+      "nat": {
+        "actions": {
+          "diagnose": "เรียกใช้การวินิจฉัย",
+          "disable": "ปิดใช้ NAT",
+          "enable": "เปิดใช้ NAT",
+          "group": "การควบคุม NAT",
+          "remap": "บังคับแมปใหม่",
+          "settings": "การตั้งค่า NAT",
+          "short": {
+            "diagnose": "วินิจฉัย",
+            "disable": "ปิดใช้",
+            "enable": "เปิดใช้",
+            "help": "วิธีใช้",
+            "remap": "แมปใหม่"
+          },
+          "troubleshoot": "คู่มือแก้ปัญหา NAT"
+        },
+        "caption": {
+          "failed": "การแมปอัตโนมัติไม่พร้อมใช้งาน",
+          "off": "ปิดการแมปพอร์ต BT อยู่",
+          "settingUp": "กำลังเชื่อมต่อกับเราเตอร์…",
+          "waiting": "กำลังรอสถานะเครือข่าย…"
+        },
+        "compact": {
+          "caption": {
+            "active_other": "{{count}} พอร์ต",
+            "failed": "ไม่พร้อมใช้งาน",
+            "off": "BT / DHT",
+            "settingUp": "กำลังเชื่อมต่อ…",
+            "waiting": "กำลังโหลด…"
+          },
+          "state": {
+            "active": "แมปแล้ว",
+            "failed": "การแมป",
+            "off": "ปิด",
+            "settingUp": "การแมป"
+          }
+        },
+        "externalIp": "IP ภายนอก",
+        "gatewayIp": "เราเตอร์",
+        "health": "คุณภาพการเชื่อมต่อ",
+        "healthScore": {
+          "fair": "พอใช้",
+          "good": "ดี",
+          "poor": "ไม่ดี",
+          "unknown": "—"
+        },
+        "internalIp": "IP ภายใน",
+        "lastCheck": "ตรวจสอบล่าสุด",
+        "lastCheckNever": "ยังไม่เคย",
+        "mappingDetails": "พอร์ตที่แมป",
+        "mappingPurpose": {
+          "bt-listen": "BitTorrent",
+          "dht-listen": "DHT"
+        },
+        "mappings": "การแมป",
+        "mappingsValue_other": "ใช้งานอยู่ {{count}} รายการ",
+        "natType": {
+          "blocked": "ถูกบล็อก",
+          "fullcone": "Full cone",
+          "open": "เปิด",
+          "port-restricted": "จำกัดตามพอร์ต",
+          "restricted": "จำกัด",
+          "symmetric": "สมมาตร",
+          "unknown": "ไม่ทราบ"
+        },
+        "noMappings": "ไม่มีการแมปพอร์ตที่กำลังใช้งาน",
+        "none": "—",
+        "portMapping": "ภายใน {{internal}} ไปยังภายนอก {{external}}",
+        "rateLimited": "ถี่เกินไป — รอสักครู่แล้วลองอีกครั้ง",
+        "retrying": "กำลังลองใหม่ {{attempt}}/{{max}}",
+        "state": {
+          "active": "กำลังใช้งาน",
+          "failed": "ล้มเหลว",
+          "off": "ปิด",
+          "settingUp": "กำลังเริ่มต้น"
+        },
+        "title": "NAT",
+        "type": "ประเภท"
+      },
+      "speed": {
+        "down": "ดาวน์โหลด",
+        "offline": "ออฟไลน์",
+        "peak": "สูงสุด {{value}}",
+        "up": "อัปโหลด"
+      },
+      "speedDown": {
+        "title": "ความเร็วดาวน์โหลด"
+      },
+      "speedLimit": {
+        "reason": {
+          "adaptive": "สำรองแบนด์วิดท์",
+          "base": "ขีดจำกัดมาตรฐาน",
+          "schedule": "ตารางเวลา",
+          "turtle": "โหมดความเร็วต่ำ",
+          "videoApp": "แอปวิดีโอ"
+        },
+        "settings": "การตั้งค่าจำกัดความเร็ว",
+        "smart": "อัตโนมัติ",
+        "title": "จำกัดความเร็ว",
+        "tooltip": {
+          "auto": "ปรับความเร็วอัตโนมัติตามตารางเวลาและแบนด์วิดท์",
+          "off": "ใช้ขีดจำกัดความเร็วมาตรฐาน",
+          "on": "ใช้ขีดจำกัดความเร็วต่ำตอนนี้"
+        },
+        "turtle": {
+          "auto": "โหมดอัตโนมัติ",
+          "off": "โหมดมาตรฐาน",
+          "on": "โหมดความเร็วต่ำ"
+        },
+        "unlimited": "ไม่จำกัด"
+      },
+      "speedUp": {
+        "title": "ความเร็วอัปโหลด"
+      },
+      "tasks": {
+        "empty": {
+          "active": "ไม่มีงานที่กำลังทำงาน",
+          "failed": "ไม่มีงานที่ล้มเหลว",
+          "recent": "ยังไม่มีงานเสร็จสิ้น"
+        },
+        "loading": "กำลังโหลดงาน",
+        "metric": {
+          "fetching": "กำลังดึงข้อมูล",
+          "finalizing": "กำลังดำเนินการขั้นสุดท้าย",
+          "paused": "พักอยู่",
+          "queued": "อยู่ในคิว",
+          "ready": "พร้อม"
+        },
+        "more": "อีก {{count}} รายการ",
+        "newTask": "งานใหม่",
+        "offline": "เอนจินออฟไลน์",
+        "progressLabel": "ความคืบหน้าของ {{name}}",
+        "retry": "ลองอีกครั้ง",
+        "secondary": {
+          "chooseFiles": "รอเลือกไฟล์",
+          "completed": "เสร็จสิ้น {{time}}",
+          "eta": "เวลาที่เหลือ {{time}}",
+          "failed": "ล้มเหลว: {{reason}}",
+          "finalizing": "กำลังดำเนินการดาวน์โหลดขั้นสุดท้าย",
+          "metadata": "กำลังดึงข้อมูลเมตา",
+          "offline": "ออฟไลน์ (ความคืบหน้าล่าสุดที่ทราบ)",
+          "ratio": "อัตราส่วน {{ratio}}",
+          "saved": "บันทึกแล้ว {{percent}}%",
+          "technicalDetail": "รายละเอียดทางเทคนิค: {{detail}}",
+          "waiting": "รอเริ่ม"
+        },
+        "title": "งาน",
+        "unavailable": "งานไม่พร้อมใช้งาน",
+        "view": {
+          "active": "กำลังทำงาน",
+          "failed": "ล้มเหลว",
+          "recent": "ล่าสุด"
+        },
+        "viewLabel": "มุมมองงาน"
+      },
+      "title": "แดชบอร์ด",
+      "transfer": {
+        "download": "ดาวน์โหลด",
+        "empty": {
+          "allTime": "ยังไม่มีการรับส่งข้อมูลที่บันทึกไว้",
+          "today": "ยังไม่มีการรับส่งข้อมูลที่บันทึกไว้วันนี้"
+        },
+        "loading": "กำลังโหลดข้อมูลการรับส่ง",
+        "outOfDate": "ข้อมูลอาจไม่เป็นปัจจุบัน",
+        "rangeLabel": "ช่วงเวลาการรับส่งข้อมูล",
+        "retry": "ลองอีกครั้ง",
+        "scope": {
+          "allTime": "ทุกช่วงเวลา",
+          "today": "วันนี้"
+        },
+        "sinceDate": "ตั้งแต่ {{date}}",
+        "sinceTime": "ตั้งแต่ {{time}}",
+        "title": "การรับส่งข้อมูล",
+        "totalLabel": "การรับส่งข้อมูลรวม ({{scope}}): {{value}}",
+        "unavailable": "ข้อมูลการรับส่งไม่พร้อมใช้งาน",
+        "updated": "อัปเดต {{time}}",
+        "upload": "อัปโหลด"
+      }
+    },
+    "downloads": {
+      "action": {
+        "batchPartial": "สำเร็จ {{ok}} รายการ ล้มเหลว {{failed}} รายการ",
+        "cancel": "ยกเลิก",
+        "chooseFiles": "เลือกไฟล์…",
+        "copied": "คัดลอกไปยังคลิปบอร์ดแล้ว",
+        "copyError": "คัดลอกข้อมูลข้อผิดพลาด",
+        "copyFailed": "คัดลอกไปยังคลิปบอร์ดไม่ได้ ลองอีกครั้ง",
+        "copyPath": "คัดลอกเส้นทางไฟล์",
+        "copyUrl": "คัดลอก URL",
+        "copyUrlFailed": "คัดลอกไม่ได้: โหลดรายละเอียดลิงก์ของงานไม่ได้ ลองอีกครั้ง",
+        "copyUrls": "คัดลอก URL",
+        "errorReport": "{{name}}\nID งาน: {{id}}\n{{details}}",
+        "finalizingTooltip": "งานกำลังดำเนินการขั้นสุดท้าย โปรดรอ",
+        "moveQueueBottom": "ย้ายไปท้ายคิว",
+        "moveQueueDown": "เลื่อนลงในคิว",
+        "moveQueueTop": "ย้ายไปต้นคิว",
+        "moveQueueUp": "เลื่อนขึ้นในคิว",
+        "openFile": "เปิดไฟล์",
+        "openFileFailed": "เปิดไฟล์ไม่ได้",
+        "openFolder": "เปิดโฟลเดอร์",
+        "pause": "พัก",
+        "pauseTooltipBatch": "พัก {{n}} จาก {{total}} งานที่เลือก",
+        "queueBoundary": "รายการที่เลือกอยู่ต้นหรือท้ายคิวแล้ว",
+        "queueMoveFailed": "อัปเดตคิวรอไม่ได้",
+        "queueMoveHint": "ตำแหน่งในคิวกำหนดว่าการดาวน์โหลดที่รออยู่รายการใดจะเริ่มถัดไป การเรียงคอลัมน์บันทึกแยกต่างหาก",
+        "queueMoved": "อัปเดตคิวรอแล้ว",
+        "queueOrder": "ลำดับการดาวน์โหลด",
+        "queueTaskStarted": "งานไม่ได้อยู่ในคิวรอแล้ว",
+        "remove": "นำออก",
+        "removeAll_completed_Title": "นำงานที่เสร็จสิ้น {{count}} งานออกหรือไม่",
+        "removeAll_downloading_Title": "นำงานที่กำลังทำงาน {{count}} งานออกหรือไม่",
+        "removeAll_error_Title": "นำงานที่ล้มเหลว {{count}} งานออกหรือไม่",
+        "removeAll_paused_Title": "นำงานที่พักอยู่ {{count}} งานออกหรือไม่",
+        "removeAll_seeding_Title": "นำงานที่กำลังปล่อยไฟล์ {{count}} งานออกหรือไม่",
+        "removeConfirmWithFiles": "ลบไฟล์ที่ดาวน์โหลดออกจากดิสก์ด้วย",
+        "removeFilesEstimate": "จะลบข้อมูล {{bytes}} จากดิสก์",
+        "removeMixedTitle": "นำ {{count}} งานออกหรือไม่",
+        "removeSingleTitle": "นำ “{{name}}” ออกหรือไม่",
+        "removeTooltipBatch": "นำออก {{n}} จาก {{total}} งานที่เลือก",
+        "removeWithFilesShift": "กด Shift ค้างเพื่อลบไฟล์ด้วย",
+        "reseed": "ปล่อยไฟล์อีกครั้ง",
+        "reseedTooltipBatch": "ปล่อยไฟล์อีกครั้ง {{n}} จาก {{total}} งานที่เลือก",
+        "resume": "ดำเนินการต่อ",
+        "resumeTooltipBatch": "ดำเนินการต่อ {{n}} จาก {{total}} งานที่เลือก",
+        "retry": "ลองอีกครั้ง",
+        "retryTooltipBatch": "ลองอีกครั้ง {{n}} จาก {{total}} งานที่เลือก",
+        "retryWithDialog": "ลองอีกครั้งพร้อมตัวเลือก… (Alt+คลิก)",
+        "selectFiles": "เลือกไฟล์",
+        "selectFilesFailed": "เปิดหน้าต่างเลือกไฟล์ไม่ได้",
+        "singleTaskFailed": "{{name}}: {{reason}}",
+        "stopSeeding": "หยุดปล่อยไฟล์",
+        "stopSeedingTooltipBatch": "หยุดปล่อยไฟล์ {{n}} จาก {{total}} งานที่เลือก"
+      },
+      "column": {
+        "connections": "เพียร์",
+        "createdAt": "วันที่สร้าง",
+        "down": "ความเร็วดาวน์โหลด",
+        "eta": "เวลาที่เหลือ",
+        "finishedAt": "วันที่เสร็จสิ้น",
+        "name": "ชื่อ",
+        "progress": "ความคืบหน้า",
+        "size": "ขนาด",
+        "status": "สถานะ",
+        "up": "ความเร็วอัปโหลด"
+      },
+      "columnHeader": {
+        "down": "ดาวน์โหลด",
+        "up": "อัปโหลด"
+      },
+      "empty": {
+        "clearSearch": "ล้างการค้นหา",
+        "motion": {
+          "breathing": "แสงสว่างเป็นจังหวะ",
+          "description": "ตัวอย่างสำหรับการพัฒนา",
+          "enabled": "เอฟเฟ็กต์การเคลื่อนไหว",
+          "enabledDesc": "ซิงค์กับ รูปลักษณ์ → ลดการเคลื่อนไหว บันทึกการเปลี่ยนแปลงทันที",
+          "horizontalSpeed": "ความเร็วแนวนอน",
+          "loadFade": "เฟดเมื่อโหลด",
+          "open": "ปรับการเคลื่อนไหวของกระจก",
+          "pointerFollow": "ตามตัวชี้",
+          "positionConstraint": "ขีดจำกัดตำแหน่งแรงโน้มถ่วง",
+          "saveFailed": "บันทึกการตั้งค่าการเคลื่อนไหวไม่ได้ ลองอีกครั้ง",
+          "systemReducedMotion": "การเคลื่อนไหวถูกปิดตามการตั้งค่าลดการเคลื่อนไหวของระบบ",
+          "title": "การเคลื่อนไหวของกระจก"
+        },
+        "noMatchFilter": "ไม่มีงานตรงกับตัวกรองนี้",
+        "noMatchSearch": "ไม่มีงานตรงกับ “{{query}}”",
+        "noTasks": "ยังไม่มีการดาวน์โหลด",
+        "noTasksCta": "กด + เพื่อเพิ่ม",
+        "unavailable": "งานไม่พร้อมใช้งาน"
+      },
+      "heading": {
+        "active": "การดาวน์โหลดที่กำลังทำงาน",
+        "all": "การดาวน์โหลดทั้งหมด",
+        "completed": "การดาวน์โหลดที่เสร็จสิ้น",
+        "error": "การดาวน์โหลดที่ล้มเหลว"
+      },
+      "inspector": {
+        "activity": {
+          "chart": {
+            "accessibleSummary": "{{range}} ตั้งแต่ {{start}} ถึง {{end}} ความเร็วล่าสุด: ดาวน์โหลด {{download}} อัปโหลด {{upload}} ตลอดอายุงาน: ดาวน์โหลดเฉลี่ย {{average}} สูงสุด {{peak}} เวลาทำงาน {{activeDuration}} {{sampleLabel}} {{state}}",
+            "activeSeconds_other": "{{count}} วินาที",
+            "noDataQualityIssues": "ไม่มีคำเตือนเกี่ยวกับการติดตาม",
+            "sampleCount_other": "{{count}} ตัวอย่าง"
+          },
+          "collecting": "กำลังรวบรวมข้อมูลการรับส่ง…",
+          "coverageGap": "การติดตามถูกขัดจังหวะ",
+          "download": "ดาวน์โหลด",
+          "lifetimeEmpty": "ยังไม่มีประวัติตลอดอายุงาน",
+          "loading": "กำลังโหลดกิจกรรม…",
+          "noSessionHistory": "ไม่มีการรับส่งข้อมูลที่บันทึกไว้ในเซสชันแอปนี้",
+          "noTraffic": "ขณะนี้ไม่มีการรับส่งข้อมูลเครือข่าย",
+          "notAvailable": "ไม่พร้อมใช้งาน",
+          "range": {
+            "adaptive_other": "ปรับความละเอียดอัตโนมัติ · {{count}} ตัวอย่าง",
+            "label": "ช่วงเวลาการรับส่งข้อมูล",
+            "latest": "60 วินาทีล่าสุด",
+            "lifetime": "ตลอดอายุงาน",
+            "session": "เซสชัน (60 วินาที)"
+          },
+          "retry": "ลองอีกครั้ง",
+          "stale": {
+            "message": "ข้อมูลอาจไม่เป็นปัจจุบัน อัปเดตล่าสุด {{time}}",
+            "short": "ข้อมูลไม่เป็นปัจจุบัน"
+          },
+          "summary": {
+            "active": "เวลาทำงาน",
+            "activeExpanded": "เวลาที่รับส่งข้อมูล",
+            "average": "เฉลี่ย",
+            "averageExpanded": "ความเร็วดาวน์โหลดเฉลี่ย",
+            "peak": "สูงสุด",
+            "peakExpanded": "ความเร็วดาวน์โหลดสูงสุด",
+            "title": "สรุปปัจจุบัน"
+          },
+          "timeline": {
+            "cluster_other": "อีก {{count}} เหตุการณ์",
+            "current": "ขณะนี้ {{status}}",
+            "destination": "{{event}} {{status}}",
+            "detailTitle": "รายละเอียด {{label}}",
+            "event": {
+              "added": "เพิ่มแล้ว",
+              "completed": "เสร็จสิ้น",
+              "failed": "ล้มเหลว",
+              "observed_state": "กู้คืนสถานะแล้ว",
+              "paused": "พักแล้ว",
+              "resumed": "ดำเนินการต่อแล้ว",
+              "stage_changed": "เปลี่ยนขั้นตอนแล้ว",
+              "started": "เริ่มแล้ว"
+            },
+            "next": "แสดงเหตุการณ์ถัดไปในเส้นเวลา",
+            "previous": "แสดงเหตุการณ์ก่อนหน้าในเส้นเวลา",
+            "repeated": "{{label}} ×{{count}}",
+            "status": {
+              "completed": "เสร็จสิ้น",
+              "downloading": "กำลังดาวน์โหลด",
+              "error": "ล้มเหลว",
+              "fetching_metadata": "กำลังดึงข้อมูลเมตา",
+              "finalizing": "กำลังดำเนินการขั้นสุดท้าย",
+              "metadata_ready": "ข้อมูลเมตาพร้อม",
+              "paused": "พักอยู่",
+              "queued": "อยู่ในคิว",
+              "removed": "นำออกแล้ว",
+              "seeding": "กำลังปล่อยไฟล์"
+            },
+            "timeRange": "{{start}}–{{end}}",
+            "title": "ประวัติงาน",
+            "truncatedAt": "การตัดข้อมูลครั้งแรก: {{time}}",
+            "truncated_other": "ตัดเหตุการณ์เก่าออก {{count}} เหตุการณ์"
+          },
+          "transferTitle": {
+            "lifetime": "การรับส่งตลอดอายุงาน",
+            "session": "การรับส่งในเซสชัน"
+          },
+          "unavailable": "กิจกรรมตลอดอายุงานไม่พร้อมใช้งาน",
+          "upload": "อัปโหลด"
+        },
+        "multi": {
+          "avgProgress": "ความคืบหน้าเฉลี่ย",
+          "combinedDown": "รวม ↓",
+          "combinedUp": "รวม ↑",
+          "downloaded": "ดาวน์โหลดแล้ว",
+          "liveSpeed": "ความเร็วปัจจุบัน",
+          "longestEta": "เวลาที่เหลือมากที่สุด",
+          "statusDist": "จำนวนตามสถานะ",
+          "totalSize": "ขนาดรวม",
+          "totals": "ยอดรวม"
+        },
+        "overview": {
+          "connections": "การเชื่อมต่อ",
+          "createdAt": "สร้างเมื่อ",
+          "downSpeed": "ความเร็วดาวน์โหลด",
+          "downloaded": "ดาวน์โหลดแล้ว",
+          "eta": "เวลาที่เหลือ",
+          "finishedAt": "เสร็จสิ้นเมื่อ",
+          "general": "ทั่วไป",
+          "infoHash": "แฮชข้อมูล",
+          "network": "เครือข่าย",
+          "peers": "เพียร์",
+          "percent": "เปอร์เซ็นต์",
+          "private": "ส่วนตัว",
+          "progress": "ความคืบหน้า",
+          "ratio": "อัตราส่วน",
+          "seedingRecordedSince": "บันทึกตั้งแต่ {{date}} ไม่รวมเวลาที่พักและออฟไลน์ ไม่มีประวัติการปล่อยไฟล์ก่อนหน้านั้น",
+          "seedingTime": "เวลาปล่อยไฟล์",
+          "seedingUnavailable": "ยังไม่ได้บันทึกเวลาปล่อยไฟล์สำหรับงานนี้",
+          "seeds": "ผู้ปล่อยไฟล์",
+          "totalSize": "ขนาดรวม",
+          "transfer": "การรับส่งข้อมูล",
+          "type": "ประเภท",
+          "upSpeed": "ความเร็วอัปโหลด",
+          "uploaded": "อัปโหลดแล้ว"
+        },
+        "peers": {
+          "col": {
+            "client": "ไคลเอนต์",
+            "country": "ตำแหน่ง",
+            "down": "↓",
+            "endpoint": "IP : พอร์ต",
+            "flags": "ตัวบ่งชี้",
+            "flagsHint": "D = เพียร์กำลังส่งข้อมูลให้เรา U = เรากำลังส่งข้อมูลให้เพียร์ S = เพียร์เป็นผู้ปล่อยไฟล์ ขีดล่างหมายถึงไม่ทำงาน",
+            "progress": "%",
+            "up": "↑"
+          },
+          "empty": "ไม่มีเพียร์เชื่อมต่ออยู่",
+          "summary_other": "{{count}} เพียร์ (ผู้ปล่อยไฟล์ {{seeders}} ราย)"
+        },
+        "pieces": {
+          "empty": "ไม่มีข้อมูลชิ้นส่วน",
+          "legend": {
+            "active": "กำลังดาวน์โหลด",
+            "done": "เสร็จสิ้น",
+            "endgame": "ช่วงท้าย",
+            "pending": "กำลังรอ"
+          },
+          "mapLabel": "แผนผังชิ้นส่วนการดาวน์โหลด",
+          "pieceLength": "ขนาดชิ้นส่วน",
+          "totalPieces": "จำนวนชิ้นส่วนทั้งหมด"
+        },
+        "placeholder": {
+          "files": "รายการไฟล์",
+          "peers": "รายการเพียร์",
+          "trackers": "รายการแทร็กเกอร์"
+        },
+        "tab": {
+          "activity": "กิจกรรม",
+          "files": "ไฟล์",
+          "overview": "ภาพรวม",
+          "peers": "เพียร์",
+          "pieces": "ชิ้นส่วน",
+          "trackers": "แทร็กเกอร์"
+        },
+        "trackers": {
+          "action": {
+            "cancel": "ยกเลิก",
+            "delete": "ลบแทร็กเกอร์",
+            "edit": "แก้ไข",
+            "save": "บันทึก",
+            "sync": "ซิงค์"
+          },
+          "deleteFailed": "นำแทร็กเกอร์ออกไม่ได้: {{reason}}",
+          "driftSuffix_other": "{{count}} รายการไม่อยู่ในรายการส่วนกลาง",
+          "editHint": "แทร็กเกอร์เหล่านี้จะแทนที่รายการ bt-tracker ที่งานใช้อยู่ รายการ announce-list จากไฟล์ .torrent จะไม่เปลี่ยนแปลง",
+          "editPlaceholder": "หนึ่ง URL แทร็กเกอร์ต่อบรรทัด ใช้ได้เฉพาะ http(s)/udp/ws(s)",
+          "empty": "ไม่มีแทร็กเกอร์",
+          "invalidLines_other": "ข้ามบรรทัดที่ไม่ถูกต้อง {{count}} บรรทัด",
+          "loadFailed": "โหลดแทร็กเกอร์ไม่ได้: {{reason}}",
+          "privateBanner": "ทอร์เรนต์ส่วนตัว — จะไม่รวมแทร็กเกอร์ส่วนกลาง",
+          "saveFailed": "อัปเดตแทร็กเกอร์ไม่ได้: {{reason}}",
+          "summary_other": "{{count}} แทร็กเกอร์",
+          "syncFailed": "ซิงค์แทร็กเกอร์ไม่ได้: {{reason}}",
+          "syncPrivateDisabled": "ซิงค์ทอร์เรนต์ส่วนตัวไม่ได้"
+        }
+      },
+      "media": {
+        "assembling": "กำลังประกอบ",
+        "avgDownloadProgress": "ความคืบหน้าการดาวน์โหลดเฉลี่ย",
+        "decrypting": "กำลังถอดรหัส",
+        "downloadEta": "เวลาที่เหลือในการดาวน์โหลด",
+        "downloadProgress": "ความคืบหน้าการดาวน์โหลด",
+        "downloadSize": "ขนาดดาวน์โหลด",
+        "muxProgress": "ความคืบหน้าการรวม",
+        "muxing": "กำลังรวม",
+        "outputSize": "ขนาดผลลัพธ์",
+        "parts": "ส่วนย่อย",
+        "partsFormat": "{{completed}} / {{total}} ส่วน",
+        "preparing": "กำลังเตรียม",
+        "processingTasks": "กำลังประมวลผล",
+        "renaming": "กำลังบันทึก",
+        "stage": "ขั้นตอน"
+      },
+      "search": {
+        "activeQuery": "ค้นหา: {{query}}",
+        "activeTypeFilters": "ตัวกรองประเภท: {{types}}",
+        "clear": "ล้าง",
+        "clearQuery": "ล้างการค้นหา",
+        "empty": "ไม่มีงานที่ตรงกัน",
+        "emptyHint": "ลองล้างตัวกรองประเภทหรือใช้คำค้นอื่น",
+        "filters": "ตัวกรอง",
+        "placeholder": "ค้นหาการดาวน์โหลด",
+        "resetFilters": "รีเซ็ตตัวกรอง",
+        "scopeLabel": "ประเภท"
+      },
+      "sort": {
+        "asc": "{{column}}: จากน้อยไปมาก",
+        "desc": "{{column}}: จากมากไปน้อย",
+        "down": "ความเร็วดาวน์โหลด",
+        "reset": "คืนลำดับเริ่มต้น",
+        "sortAscending": "เรียง {{column}} จากน้อยไปมาก",
+        "sortDescending": "เรียง {{column}} จากมากไปน้อย",
+        "up": "ความเร็วอัปโหลด"
+      },
+      "speedLimit": {
+        "currentMode": "โหมดความเร็ว: {{mode}}",
+        "downloadLimit": "จำกัดความเร็วดาวน์โหลด: {{speed}}",
+        "saveFailed": "เปลี่ยนโหมดความเร็วไม่ได้ ลองอีกครั้ง",
+        "title": "โหมดความเร็ว",
+        "uploadLimit": "จำกัดความเร็วอัปโหลด: {{speed}}"
+      },
+      "stale": {
+        "banner": "รายการงานอาจไม่เป็นปัจจุบัน — กำลังเชื่อมต่อใหม่…"
+      },
+      "stats": {
+        "downSpeed": "ความเร็วดาวน์โหลด",
+        "engineOffline": "เอนจินออฟไลน์",
+        "engineOk": "เอนจินพร้อม",
+        "engineStarting": "เอนจินกำลังเริ่ม",
+        "natActive": "แมป NAT แล้ว",
+        "natActiveDesc": "ช่วยให้เพียร์ BT อื่นเชื่อมต่อกับคุณ",
+        "natDisable": "ปิดการแมป NAT",
+        "natHelp": "คู่มือเครือข่าย",
+        "natMapping": "การแมป NAT",
+        "natRetry": "ลองอีกครั้ง",
+        "natRetrying": "ลองใหม่อัตโนมัติ ({{attempt}}/{{max}})",
+        "natSettingUp": "การแมป NAT",
+        "natSettings": "การตั้งค่าเครือข่าย",
+        "natUnavailable": "การแมปอัตโนมัติไม่พร้อมใช้งาน",
+        "natUnavailableDesc": "ไม่กระทบการดาวน์โหลดจากลิงก์ การเชื่อมต่อ BT อาจถูกจำกัด",
+        "upSpeed": "ความเร็วอัปโหลด"
+      },
+      "status": {
+        "completed": "เสร็จสิ้น",
+        "downloading": "กำลังดาวน์โหลด",
+        "error": "ข้อผิดพลาด",
+        "fetchingMetadata": "กำลังดึงข้อมูล",
+        "finalizing": "กำลังดำเนินการขั้นสุดท้าย",
+        "metadataReady": "รอเลือกไฟล์",
+        "paused": "พักอยู่",
+        "queued": "อยู่ในคิว",
+        "seeding": "กำลังปล่อยไฟล์"
+      },
+      "tab": {
+        "active": "กำลังทำงาน",
+        "all": "ทั้งหมด",
+        "completed": "เสร็จสิ้น",
+        "error": "ข้อผิดพลาด"
+      },
+      "timestamp": {
+        "notCompleted": "ยังไม่เสร็จสิ้น",
+        "notRecorded": "ไม่ได้บันทึก",
+        "relativeDateTime": "{{date}}, {{time}}"
+      },
+      "title": "ดาวน์โหลด",
+      "titleCount": "แสดง {{shown}} · ทั้งหมด {{total}}",
+      "type": {
+        "bt": "BitTorrent",
+        "ftp": "FTP",
+        "http": "HTTP",
+        "magnet": "แมกเน็ต",
+        "metalink": "Metalink"
+      },
+      "view": {
+        "ascending": "จากน้อยไปมาก",
+        "columns": "คอลัมน์",
+        "descending": "จากมากไปน้อย",
+        "hideInspector": "ซ่อนรายละเอียด",
+        "inspector": "รายละเอียดงาน",
+        "resetColumns": "คืนคอลัมน์เริ่มต้น",
+        "resizeColumn": "ปรับขนาดคอลัมน์ {{column}}",
+        "resizeInspector": "ปรับขนาดแผงรายละเอียด",
+        "selectToInspect": "เลือกงานเพื่อดูรายละเอียด",
+        "showInspector": "แสดงรายละเอียด",
+        "sortBy": "เรียงตาม",
+        "taskActions": "เพิ่มเติม",
+        "title": "มุมมองรายการ"
+      }
+    },
+    "trackers": {
+      "desc": "จัดการสถานะแทร็กเกอร์และแหล่งรายการที่ติดตาม",
+      "searchPlaceholder": "กรองตาม URL…",
+      "syncNow": "ซิงค์ตอนนี้",
+      "tab": {
+        "blacklist": "รายการบล็อก",
+        "effective": "ที่ใช้งาน"
+      },
+      "title": "แทร็กเกอร์"
+    }
+  },
+  "plugin": {
+    "ffmpeg": {
+      "destination_phase_disallowed": "ffmpeg เขียนไปยัง {{kind}} ในฮุก {{phase}} ไม่ได้ ลองเขียนไปยังพื้นที่เก็บข้อมูลปลั๊กอิน หรือย้ายการเรียกนี้ไปยัง beforeFinalize",
+      "staging_quota_exceeded": "เกินโควตาพื้นที่ชั่วคราว ffmpeg สำหรับงานนี้ ลดขนาดผลลัพธ์หรือเพิ่มขีดจำกัดในการตั้งค่าสื่อ"
+    },
+    "install": {
+      "ffmpeg": {
+        "notInstalled": "ระบบนี้ยังไม่ได้ติดตั้ง FFmpeg",
+        "optionalDegraded": "ความสามารถด้านสื่อของปลั๊กอินนี้จะใช้ไม่ได้จนกว่าจะติดตั้ง ffmpeg",
+        "requiredByPlugin": "ปลั๊กอินนี้ต้องใช้ ffmpeg ติดตั้งแล้วลองอีกครั้ง",
+        "title": "ข้อกำหนด FFmpeg",
+        "versionMismatch": "ติดตั้ง FFmpeg {{version}} แล้ว"
+      }
+    }
+  },
+  "plugins": {
+    "card": {
+      "advancedDetails": "รายละเอียดขั้นสูง",
+      "commandsInvoked": "คำสั่งที่เรียกใช้: {{count}}",
+      "commandsServing": "คำสั่งที่ให้บริการ: {{count}}",
+      "plain": {
+        "off": "ปลั๊กอินนี้ปิดอยู่",
+        "optional": "ปลั๊กอินนี้ทำงานได้โดยไม่ต้องมีสิทธิ์เพิ่มเติม คุณให้สิทธิ์เพิ่มภายหลังได้",
+        "reviewBroadHost": "ปลั๊กอินนี้อ่าน {{hostSummary}} ได้ เปิดไว้เฉพาะเมื่อคุณเชื่อถือเท่านั้น",
+        "reviewError": "ปลั๊กอินนี้รายงานปัญหา",
+        "safe": "ปลั๊กอินนี้เปิดใช้และพร้อมทำงาน บันทึกเฉพาะการตั้งค่าของตัวเองและไม่อ่านเว็บไซต์ใดๆ"
+      },
+      "primaryAction": {
+        "grantAccess": "ให้สิทธิ์เข้าถึง",
+        "open": "เปิด",
+        "reviewAccess": "ตรวจสอบการเข้าถึง",
+        "settings": "การตั้งค่า",
+        "turnOn": "เปิดใช้",
+        "viewIssue": "ดูปัญหา"
+      }
+    },
+    "clearSearch": "ล้างการค้นหา",
+    "consent": {
+      "broadAccess": {
+        "body": "ปลั๊กอินนี้อ่านและแก้ไขการดาวน์โหลดจากทุก URL ได้ ติดตั้งเฉพาะเมื่อเชื่อถือแหล่งที่มา",
+        "tag": "กว้างขวาง",
+        "title": "การเข้าถึงเว็บไซต์อย่างกว้างขวาง"
+      },
+      "calleeMissing": "ยังไม่ได้ติดตั้ง",
+      "confirm": "อนุญาตและติดตั้ง",
+      "diff": {
+        "engines": "เวอร์ชันเอนจิน Motrix",
+        "heap": "หน่วยความจำที่ขอ",
+        "hostPermissions": "การเข้าถึงเว็บไซต์ที่เพิ่ม",
+        "invokesCommands": "การเรียกคำสั่งข้ามปลั๊กอินที่เพิ่มใหม่",
+        "optionalPermissions": "สิทธิ์ทางเลือกที่เพิ่ม",
+        "permissions": "สิทธิ์ที่เพิ่ม",
+        "publicCommands": "คำสั่งสาธารณะใหม่",
+        "publicCommandsSchema": "โครงสร้างคำสั่งสาธารณะเปลี่ยนไป",
+        "source": "แหล่งแพ็กเกจ",
+        "title": "การเปลี่ยนแปลงตั้งแต่การยินยอมครั้งล่าสุด"
+      },
+      "hostPermissions": "การเข้าถึงเว็บไซต์",
+      "installTitle": "ติดตั้ง {{name}} {{version}} หรือไม่",
+      "invokesCommands": "เรียกคำสั่งในปลั๊กอินอื่น",
+      "notVerified": "ปลั๊กอินนี้ยังไม่ได้รับการยืนยัน ติดตั้งปลั๊กอินจากแหล่งที่เชื่อถือเท่านั้น",
+      "optionalPermissions": "สิทธิ์ที่เลือกให้ได้",
+      "permissions": "สิทธิ์ที่จำเป็น",
+      "source": "แหล่งที่มา: {{type}} · {{url}}",
+      "upgradeTitle": "อัปเดต {{name}} เป็น {{version}} หรือไม่"
+    },
+    "detail": {
+      "about": "เกี่ยวกับ",
+      "access": "การเข้าถึง",
+      "accessBroad": "อ่านเว็บไซต์ใดก็ได้",
+      "accessGranted": "สิ่งที่ปลั๊กอินนี้ทำได้แล้ว",
+      "accessHosts_other": "อ่านได้ {{count}} เว็บไซต์",
+      "accessNone": "เฉพาะการตั้งค่าของตัวเอง",
+      "accessOptional": "การเข้าถึงที่เลือกให้ได้",
+      "advanced": "ขั้นสูง",
+      "attentionGeneric": "ดูรายละเอียดในบันทึก",
+      "attentionTitle": "ปลั๊กอินนี้รายงานปัญหา",
+      "author": "ผู้เขียน",
+      "back": "ปลั๊กอินทั้งหมด",
+      "disabled": "ปิดใช้",
+      "enabled": "เปิดใช้",
+      "healthIssues_other": "มีรายงานปัญหา {{count}} รายการในหนึ่งวันที่ผ่านมา",
+      "healthOk": "ทุกอย่างปกติ",
+      "hero": {
+        "attention": "ต้องตรวจสอบ",
+        "off": "ปิดอยู่",
+        "optional": "ขอสิทธิ์เข้าถึงเพิ่มเติมได้",
+        "ready": "พร้อม",
+        "review": "ตรวจสอบการเข้าถึง"
+      },
+      "homepage": "หน้าแรก",
+      "loading": "กำลังโหลด…",
+      "logs": "บันทึก",
+      "mini": {
+        "access": "การเข้าถึง",
+        "health": "สถานะ",
+        "purpose": "วัตถุประสงค์"
+      },
+      "overview": "ภาพรวม",
+      "removeDesc": "การนำปลั๊กอินนี้ออกจะลบข้อมูลของปลั๊กอินที่เก็บไว้ใน Motrix ด้วย",
+      "removeTitle": "นำปลั๊กอินออก",
+      "settings": "การตั้งค่า",
+      "uninstall": "ถอนการติดตั้ง",
+      "uninstallConfirm": "ถอนการติดตั้งปลั๊กอินนี้หรือไม่ ข้อมูลของปลั๊กอินจะถูกลบ",
+      "uninstallConfirmDesc": "จะนำปลั๊กอินและการตั้งค่าที่บันทึกไว้ออกจาก Motrix",
+      "uninstallConfirmTitle": "ถอนการติดตั้ง {{name}} หรือไม่",
+      "viewIssue": "ดูปัญหา"
+    },
+    "diagnostics": {
+      "callGraph": {
+        "aria": {
+          "controls": "การควบคุมมุมมองกราฟปลั๊กอิน",
+          "directions": {
+            "down": "ลง",
+            "left": "ไปทางซ้าย",
+            "right": "ไปทางขวา",
+            "up": "ขึ้น"
+          },
+          "edgeDescription": "เลือกเส้นเชื่อมการเรียกเพื่อตรวจสอบ",
+          "edgeLabel": "{{source}} เรียก {{target}} {{calls}} ครั้งผ่าน {{commands}} คำสั่ง",
+          "fitView": "ปรับกราฟปลั๊กอินให้พอดีกับมุมมอง",
+          "graphDescription": "{{nodeCount}} ปลั๊กอินและ {{pairCount}} ความสัมพันธ์จาก 24 ชั่วโมงที่ผ่านมา",
+          "graphLabel": "ความสัมพันธ์ของคำสั่งปลั๊กอิน",
+          "handle": "จุดปลายการเรียกแบบอ่านอย่างเดียว",
+          "interactive": "สลับโหมดโต้ตอบกับกราฟ",
+          "minimap": "ภาพรวมกราฟปลั๊กอิน",
+          "nodeDescription": "เลือกโหนดปลั๊กอินเพื่อตรวจสอบ",
+          "nodeKeyboardInstruction": "ใช้ปุ่มลูกศรเพื่อย้ายโหนดปลั๊กอินนี้",
+          "nodeLabel": "{{name}} ปลั๊กอิน {{id}} {{status}} การเรียกขาเข้า {{incoming}} ครั้งและขาออก {{outgoing}} ครั้ง",
+          "nodeMoved": "ย้ายโหนดปลั๊กอิน{{direction}}ไปยัง {{x}}, {{y}} แล้ว",
+          "zoomIn": "ขยายกราฟ",
+          "zoomOut": "ย่อกราฟ"
+        },
+        "columns": {
+          "callee": "ผู้ถูกเรียก",
+          "caller": "ผู้เรียก",
+          "calls": "การเรียก",
+          "command": "คำสั่ง",
+          "lastCall": "เรียกล่าสุด"
+        },
+        "counts": {
+          "calls_other": "เรียกสำเร็จ {{count}} ครั้ง",
+          "commands_other": "{{count}} คำสั่ง"
+        },
+        "errors": {
+          "canvasDescription": "ลองแสดงกราฟอีกครั้งหรือใช้มุมมองตารางที่แสดงข้อมูลครบถ้วน",
+          "canvasRetry": "แสดงกราฟอีกครั้ง",
+          "canvasTable": "ใช้ตารางแทน",
+          "canvasTitle": "แสดงกราฟไม่ได้",
+          "graphDescription": "ลองโหลดประวัติการเรียกที่สำเร็จอีกครั้ง",
+          "graphRetry": "โหลดประวัติการเรียกอีกครั้ง",
+          "graphTitle": "โหลดประวัติการเรียกไม่ได้",
+          "layout": "จัดเค้าโครงแผนผังความสัมพันธ์ไม่ได้",
+          "layoutRetry": "จัดแผนผังอีกครั้ง",
+          "metadataDescription": "ต้องมีรายละเอียดปลั๊กอินก่อนจึงจะระบุปลั๊กอินที่ไม่พร้อมใช้งานได้",
+          "metadataRetry": "โหลดรายละเอียดปลั๊กอินอีกครั้ง",
+          "metadataTitle": "โหลดรายละเอียดปลั๊กอินไม่ได้"
+        },
+        "filteredEmpty": "ไม่มีการเรียกที่สำเร็จตรงกับการค้นหานี้",
+        "filters": {
+          "clearSearch": "ล้างการค้นหา",
+          "commandsGroup": "คำสั่ง",
+          "noSuggestions": "ไม่มีปลั๊กอินหรือคำสั่งที่แนะนำ",
+          "pluginsGroup": "ปลั๊กอิน",
+          "searchLabel": "ค้นหาความสัมพันธ์",
+          "searchPlaceholder": "ค้นหาปลั๊กอินหรือคำสั่ง"
+        },
+        "globalEmpty": {
+          "description": "ปลั๊กอินในตัวอาจไม่มีการสื่อสารข้ามปลั๊กอินตามค่าเริ่มต้น",
+          "title": "ยังไม่มีการเรียกข้ามปลั๊กอินที่สำเร็จ"
+        },
+        "inspector": {
+          "commands": "คำสั่ง",
+          "connections": "ปลั๊กอินที่เชื่อมต่อ",
+          "edgeTitle": "รายละเอียดการเชื่อมต่อ",
+          "incomingCalls": "การเรียกขาเข้า",
+          "label": "รายละเอียดรายการที่เลือกในกราฟการเรียก",
+          "neutralScope": "เลือกปลั๊กอินหรือการเชื่อมต่อเพื่อตรวจสอบการเรียกที่สำเร็จใน 24 ชั่วโมงที่ผ่านมา",
+          "noConnections": "ไม่มีปลั๊กอินที่เชื่อมต่อ",
+          "openPlugin": "เปิดปลั๊กอิน",
+          "outgoingCalls": "การเรียกขาออก",
+          "pluginId": "ID ปลั๊กอิน",
+          "scopeTitle": "การเรียกที่สำเร็จ",
+          "status": "สถานะ",
+          "totalCalls": "การเรียกทั้งหมด"
+        },
+        "legend": {
+          "fewerCalls": "เรียกน้อย",
+          "label": "คำอธิบายปริมาณการเรียก",
+          "moreCalls": "เรียกมาก"
+        },
+        "loading": {
+          "graph": "กำลังโหลดประวัติการเรียก…",
+          "metadata": "กำลังโหลดรายละเอียดปลั๊กอิน…"
+        },
+        "modeLabel": "มุมมองความสัมพันธ์",
+        "modes": {
+          "graph": "กราฟ",
+          "table": "ตาราง"
+        },
+        "refresh": "รีเฟรช",
+        "refreshTooltip": "โหลดการเรียกที่สำเร็จล่าสุด",
+        "refreshing": "กำลังรีเฟรช…",
+        "renderGraphTooltip": "แสดงผลลัพธ์ขนาดใหญ่นี้เป็นกราฟ",
+        "statuses": {
+          "active": "กำลังทำงาน",
+          "disabled": "ปิดใช้",
+          "error": "ต้องตรวจสอบ",
+          "inactive": "พร้อมแต่ยังไม่ทำงาน",
+          "missing": "ยังไม่ได้ติดตั้ง"
+        },
+        "tableLabel": "ความสัมพันธ์ของคำสั่งปลั๊กอิน",
+        "tableRegionLabel": "ความสัมพันธ์ของคำสั่งที่เลื่อนได้",
+        "toolbarLabel": "การควบคุมกราฟการเรียก",
+        "truncated": "ประวัติการเรียกอาจไม่ครบถ้วน เนื่องจากขีดจำกัดการอ่าน ระยะเวลาเก็บข้อมูล หรือการหมุนเวียนไฟล์จำกัดผลลัพธ์นี้"
+      },
+      "intro": "ตรวจสอบการเรียกที่สำเร็จระหว่างปลั๊กอินใน 24 ชั่วโมงที่ผ่านมา",
+      "title": "การวินิจฉัย"
+    },
+    "empty": "ยังไม่ได้ติดตั้งปลั๊กอิน",
+    "errors_other": "ข้อผิดพลาด {{count}} รายการ",
+    "help": {
+      "guidance": {
+        "firstUse": {
+          "body": "ติดตั้งจากแหล่งที่เชื่อถือ ตรวจสอบสิทธิ์ที่ขอ แล้วเปิดใช้ปลั๊กอิน",
+          "browse": "ค้นหาปลั๊กอินในตลาดปลั๊กอินทางการของ Motrix",
+          "safety": "ให้สิทธิ์เข้าถึงเฉพาะเว็บไซต์ที่คุณคาดหมายให้ปลั๊กอินจัดการ",
+          "title": "เพิ่มปลั๊กอินที่เชื่อถือ"
+        },
+        "ongoing": "ตรวจสอบสิทธิ์ก่อนเปิดใช้ปลั๊กอิน ให้สิทธิ์เข้าถึงเฉพาะเว็บไซต์ที่คุณคาดหมายให้ปลั๊กอินจัดการ"
+      }
+    },
+    "install": {
+      "checkAriaLabel": "ตรวจสอบปลั๊กอินนี้",
+      "detected": {
+        "auto": "อัตโนมัติ",
+        "github": "GitHub",
+        "local": "ไฟล์",
+        "url": "URL"
+      },
+      "detectedRow": {
+        "localSupported": "รองรับ .moext ในเครื่อง",
+        "ok": "ตรวจพบเป็น {{type}}"
+      },
+      "dragDisabledHint": "สภาพแวดล้อมนี้ไม่รองรับการลากแล้ววาง ใช้ที่อยู่ GitHub หรือ URL",
+      "dropHint": "วางไฟล์ .moext ที่นี่เพื่อตรวจสอบปลั๊กอินนี้",
+      "github": "GitHub",
+      "github.spec": "คลัง GitHub (owner/repo[@tag])",
+      "install": "ติดตั้งปลั๊กอิน",
+      "lead": "วางที่อยู่ปลั๊กอิน เลือกไฟล์ .moext หรือลากไฟล์ลงในช่องป้อนข้อมูล",
+      "local": "ไฟล์ในเครื่อง",
+      "local.pick": "เลือกไฟล์ .moext",
+      "localPrepareFailed": "เตรียมไฟล์ปลั๊กอินนี้ไม่ได้: {{detail}}",
+      "localUnavailable": "โฮสต์นี้ไม่รองรับการติดตั้งจากไฟล์ในเครื่อง",
+      "pickLocal": "เลือกไฟล์ .moext ในเครื่อง",
+      "placeholder": "วางที่อยู่ GitHub หรือ URL หรือเลือกไฟล์ .moext ในเครื่อง",
+      "title": "เพิ่มปลั๊กอิน",
+      "url": "URL",
+      "url.spec": "URL แพ็กเกจ (.moext)",
+      "warning": "ก่อนติดตั้ง: ดำเนินการต่อเฉพาะเมื่อเชื่อถือผู้เขียนและคาดหมายให้ปลั๊กอินใช้สิทธิ์ที่แสดงไว้ข้างต้น"
+    },
+    "lead": "เพิ่มความสามารถเล็กๆ ให้ Motrix เปิดใช้เฉพาะปลั๊กอินที่เชื่อถือและปิดที่เหลือ",
+    "logs": {
+      "clear": "ล้าง",
+      "copy": "คัดลอก",
+      "empty": "ยังไม่มีรายการบันทึก",
+      "emptyFiltered": "ไม่มีรายการตรงกับระดับนี้",
+      "emptyHint": "กิจกรรมใหม่ของปลั๊กอินจะแสดงที่นี่โดยอัตโนมัติ",
+      "entryCount_other": "{{count}} รายการ",
+      "filterLabel": "ระดับบันทึก",
+      "levels": {
+        "all": "ทุกระดับ",
+        "debug": "ดีบัก",
+        "error": "ข้อผิดพลาด",
+        "fatal": "ข้อผิดพลาดร้ายแรง",
+        "info": "ข้อมูล",
+        "trace": "ติดตาม",
+        "warn": "คำเตือน"
+      },
+      "output": "ผลลัพธ์แบบเรียลไทม์",
+      "verbose": "โหมดบันทึกละเอียด",
+      "verboseWarning": "บันทึก URL และส่วนหัวทั้งหมดเป็นเวลา 1 ชั่วโมง ใช้อย่างระมัดระวัง"
+    },
+    "permission": {
+      "accessTone": {
+        "allowed": "อนุญาตแล้ว",
+        "grant": "อนุญาต",
+        "noAccess": "ปิด",
+        "offByDefault": "ไม่บังคับ",
+        "required": "จำเป็น",
+        "websiteAccess": "การเข้าถึงเว็บ"
+      },
+      "ffmpeg": {
+        "plain": "ประมวลผลเสียงหรือวิดีโอ",
+        "strong": "ใช้ FFmpeg"
+      },
+      "fs": {
+        "storage": {
+          "plain": "เก็บไฟล์สำหรับปลั๊กอินนี้",
+          "strong": "บันทึกไฟล์ปลั๊กอิน"
+        },
+        "task": {
+          "read": {
+            "plain": "ดูไฟล์ในงาน",
+            "strong": "อ่านไฟล์ดาวน์โหลด"
+          },
+          "write": {
+            "plain": "เพิ่มหรืออัปเดตไฟล์ของงานได้",
+            "strong": "แก้ไขไฟล์ดาวน์โหลด"
+          }
+        }
+      },
+      "http": {
+        "cookies": {
+          "plain": "เข้าถึงเว็บไซต์ที่คุณเข้าสู่ระบบไว้",
+          "strong": "ใช้คุกกี้เว็บไซต์"
+        },
+        "plain": "เปิดหน้าที่ปลั๊กอินนี้รองรับ",
+        "strong": "อ่านเว็บไซต์"
+      },
+      "network": {
+        "plain": "ดึงหน้าที่รองรับ",
+        "strong": "อ่านเว็บไซต์"
+      },
+      "notifications": {
+        "plain": "แสดงการแจ้งเตือนของปลั๊กอิน",
+        "strong": "ส่งการแจ้งเตือน"
+      },
+      "notify": {
+        "plain": "แสดงการแจ้งเตือนเมื่อเสร็จสิ้น",
+        "strong": "ส่งการแจ้งเตือน"
+      },
+      "storage": {
+        "plain": "จดจำตัวเลือกของปลั๊กอิน",
+        "strong": "บันทึกการตั้งค่า"
+      },
+      "tasks:read": {
+        "plain": "ดูรายการดาวน์โหลดของคุณ",
+        "strong": "อ่านรายการดาวน์โหลด"
+      },
+      "tasks:write": {
+        "plain": "พัก ดำเนินการต่อ หรือนำงานออกได้",
+        "strong": "จัดการการดาวน์โหลดของคุณ"
+      },
+      "unknown": {
+        "plain": "สิทธิ์ที่ไม่รู้จัก"
+      }
+    },
+    "permissions": {
+      "denied": "ปฏิเสธแล้ว",
+      "empty": "ปลั๊กอินนี้ไม่ขอสิทธิ์ใดๆ",
+      "granted": "อนุญาตแล้ว"
+    },
+    "registry": {
+      "actionFailed": "ดำเนินการไม่สำเร็จ",
+      "availableTitle": "ปลั๊กอินที่มีให้ใช้",
+      "builtinConsentLead": "การอัปเดตนี้ขอสิทธิ์เข้าถึงใหม่:",
+      "builtinUpdateTitle": "อัปเดตปลั๊กอินในตัว",
+      "byAuthor": "โดย {{name}}",
+      "featured": "แนะนำ",
+      "featuresTitle": "ความสามารถ",
+      "install": "ติดตั้ง",
+      "notFound": "ไม่พบปลั๊กอิน “{{id}}” ในรีจิสทรี",
+      "notInstalled": "ยังไม่ได้ติดตั้ง",
+      "optionalTag": "ไม่บังคับ",
+      "permissionsPreviewNote": "ตัวอย่างจากรายการในรีจิสทรี คำขอความยินยอมจริงอ้างอิงแมนิเฟสต์ในแพ็กเกจปลั๊กอินเสมอ",
+      "permissionsTitle": "สิทธิ์",
+      "refresh": "ตรวจหาการอัปเดต",
+      "requires": "ต้องใช้ Motrix {{range}}",
+      "restartRequired": "ติดตั้งการอัปเดตแล้ว เริ่ม Motrix ใหม่เพื่อใช้งาน",
+      "revertToBundled": "กลับไปใช้รุ่นที่มาพร้อมแอป",
+      "updateAvailable": "มีการอัปเดต",
+      "updateInstalled": "ติดตั้งการอัปเดตแล้ว",
+      "updateTo": "อัปเดตเป็น v{{version}}",
+      "updated": "อัปเดต {{date}}",
+      "viewOnWebsite": "ดูที่ motrix.app"
+    },
+    "search": "ค้นหาปลั๊กอิน",
+    "searchNoMatch": "ไม่มีปลั๊กอินตรงกับ “{{query}}”",
+    "status": {
+      "active": "กำลังทำงาน",
+      "disabled": "ปิดใช้",
+      "error": "ข้อผิดพลาด",
+      "inactive": "ว่าง"
+    },
+    "title": "ปลั๊กอิน",
+    "tone": {
+      "off": "ปิด",
+      "optional": "การเข้าถึงที่เลือกให้ได้",
+      "review": "ต้องตรวจสอบ",
+      "safe": "ดูปลอดภัย"
+    }
+  },
+  "quit": {
+    "confirm": {
+      "detail": "การออกตอนนี้จะพักการดาวน์โหลด ยืนยันว่าจะออกหรือไม่",
+      "dontAskAgain": "ไม่ต้องถามอีก",
+      "message_other": "ยังมีการดาวน์โหลด {{count}} รายการที่กำลังทำงานอยู่",
+      "quitButton": "ออก"
+    }
+  },
+  "settings": {
+    "about": {
+      "appIconAlt": "ไอคอนแอป Motrix",
+      "details": {
+        "author": "ผู้เขียน",
+        "createdBy": "สร้างโดย",
+        "license": "สัญญาอนุญาต",
+        "licenseValue": "สัญญาอนุญาต {{license}}"
+      },
+      "resources": {
+        "acknowledgments": "ขอขอบคุณ",
+        "acknowledgmentsDescription": "ดูรายชื่อผู้มีส่วนร่วมในโครงการที่ motrix.app",
+        "changelog": "ประวัติการเปลี่ยนแปลง",
+        "manual": "คู่มือ",
+        "manualDescription": "อ่านคู่มือผู้ใช้",
+        "plugins": "ปลั๊กอิน",
+        "repository": "คลังซอร์สโค้ด",
+        "repositoryDescription": "ดูโค้ดบน GitHub",
+        "title": "แหล่งข้อมูล",
+        "website": "เว็บไซต์ทางการ",
+        "websiteDescription": "ไปที่ motrix.app"
+      },
+      "tagline": "ก่อนเนื้อหาจะเลือนหาย เก็บสิ่งที่มีความหมายอย่างแท้จริง และให้ความงามเป็นส่วนหนึ่งของสิ่งที่คุณรักษาไว้",
+      "update": {
+        "automaticChecks": "ตรวจสอบอัตโนมัติ",
+        "automaticChecksDescription": "เมื่อเปิด Motrix",
+        "automaticChecksError": "บันทึกการตั้งค่านี้ไม่ได้",
+        "available": "มี Motrix {{version}} ให้ใช้งานแล้ว",
+        "availableDescription": "ดาวน์โหลดตอนนี้ แล้วเลือกเวลาเริ่มใหม่และติดตั้ง",
+        "availableTitle": "มี Motrix {{version}} ให้ใช้งานแล้ว",
+        "cancelled": "ยกเลิกการดาวน์โหลดการอัปเดตแล้ว",
+        "cancelledDescription": "ลองดาวน์โหลดอีกครั้งเมื่อพร้อม",
+        "cancelledTitle": "ยกเลิกการดาวน์โหลดแล้ว",
+        "channelBeta": "เบต้า",
+        "channelBetaWarning": "รุ่นเบต้าอาจเสถียรน้อยกว่า คุณจะได้รับรุ่นเสถียรที่ใหม่กว่าด้วย การเปลี่ยนกลับจะหยุดอัปเดตเบต้าโดยไม่ย้อนกลับไปใช้รุ่นเก่า",
+        "channelDescription": "เลือกรุ่นเสถียรหรือลองความสามารถใหม่ในรุ่นเบต้า",
+        "channelLabel": "ช่องทางอัปเดต",
+        "channelSaveError": "บันทึกช่องทางอัปเดตไม่ได้ ลองอีกครั้ง",
+        "channelStable": "เสถียร",
+        "check": "ตรวจหาการอัปเดต",
+        "checkAction": "ตรวจสอบ",
+        "checking": "กำลังตรวจสอบ…",
+        "checkingDescription": "กำลังติดต่อบริการอัปเดต Motrix…",
+        "checkingTitle": "กำลังตรวจหาการอัปเดต…",
+        "currentVersion": "เวอร์ชันปัจจุบัน {{version}}",
+        "download": "ดาวน์โหลดการอัปเดต",
+        "downloaded": "Motrix {{version}} พร้อมติดตั้งแล้ว",
+        "downloadedTitle": "การอัปเดตพร้อมติดตั้ง",
+        "downloading": "กำลังดาวน์โหลด…",
+        "downloadingDescription": "ปิดหน้าต่างนี้ได้ การดาวน์โหลดจะดำเนินต่อในเบื้องหลัง",
+        "downloadingTitle": "กำลังดาวน์โหลด Motrix {{version}}",
+        "error": "อัปเดตไม่สำเร็จ: {{message}}",
+        "errorDescription": "ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง",
+        "errorTitle": "อัปเดต Motrix ไม่ได้",
+        "idle": "ติดตั้งเวอร์ชัน {{version}} แล้ว ตรวจสอบตอนนี้หรือให้ Motrix ตรวจสอบเมื่อเปิดแอป",
+        "idleTitle": "อัปเดต Motrix ให้เป็นปัจจุบัน",
+        "restart": "เริ่มใหม่และติดตั้ง",
+        "retry": "ลองอีกครั้ง",
+        "title": "การอัปเดตแอป",
+        "unsupported": "รุ่นนี้อัปเดตอัตโนมัติไม่ได้ ดาวน์โหลดรุ่นล่าสุดจากเว็บไซต์ทางการ",
+        "unsupportedTitle": "การอัปเดตอัตโนมัติไม่พร้อมใช้งาน",
+        "upToDate": "เวอร์ชัน {{version}} เป็นรุ่นล่าสุดที่มีให้ใช้งาน",
+        "upToDateTitle": "Motrix เป็นรุ่นล่าสุดแล้ว"
+      },
+      "version": "เวอร์ชัน {{version}}",
+      "webVersionNote": "รุ่นเว็บนี้อัปเดตโดยผู้ดูแลการติดตั้ง"
+    },
+    "advanced": {
+      "description": "RPC ความคืบหน้าและการกู้คืน",
+      "persistence": {
+        "dbPath": "ไฟล์ข้อมูลกู้คืน",
+        "dbPathDesc": "เว้นว่างเพื่อใช้ตำแหน่งเริ่มต้น",
+        "dbPathPlaceholder": "ตำแหน่งเริ่มต้น",
+        "enable": "บันทึกข้อมูลกู้คืน",
+        "enableDesc": "เก็บข้อมูลที่ใช้ดาวน์โหลดต่อหลังเริ่มใหม่",
+        "historyCount": "จำนวนระเบียนที่เก็บ",
+        "historyCountHint": "ระเบียนกู้คืนที่เก่ากว่าจะถูกนำออก",
+        "historyCountPositive": "ป้อนตัวเลขที่มากกว่า 0",
+        "historyKeepAll": "ทุกระเบียน",
+        "historyKeepRecent": "ระเบียนล่าสุด…",
+        "historyLimit": "ประวัติกู้คืนของงานที่เสร็จสิ้น",
+        "historyLimitDesc": "ไม่กระทบรายการดาวน์โหลดและไฟล์ที่ดาวน์โหลด",
+        "historySessionOnly": "ไม่เก็บ",
+        "title": "ความคืบหน้าและการกู้คืน"
+      },
+      "rpc": {
+        "port": "พอร์ต RPC",
+        "portDesc": "ต้องเริ่มใหม่หลังเปลี่ยนค่า",
+        "secret": "ข้อมูลลับ RPC",
+        "secretDesc": "จำเป็นสำหรับการเชื่อมต่อ RPC",
+        "title": "RPC"
+      }
+    },
+    "appearance": {
+      "byteUnitBinary": "ฐานสอง (MiB, GiB · 1024)",
+      "byteUnitDecimal": "ฐานสิบ (MB, GB · 1000)",
+      "byteUnitSystem": "หน่วยขนาดและความเร็ว",
+      "byteUnitSystemDefault": "ตามระบบ ({{units}})",
+      "byteUnitSystemDesc": "เลือกรูปแบบหน่วยที่ใช้แสดงขนาดไฟล์และความเร็ว",
+      "description": "ธีม ภาษา และการแสดงผล",
+      "followSystem": "ตามระบบ",
+      "language": "ภาษา",
+      "languageAndDisplay": "ภาษาและการแสดงผล",
+      "lightweightMode": "โหมดประหยัดหน่วยความจำ",
+      "lightweightModeDesc": "ประหยัดหน่วยความจำเมื่อปิดหน้าต่าง การดาวน์โหลดจะดำเนินต่อ แต่การเปิดใหม่จะใช้เวลานานขึ้นและล้างข้อมูลที่ยังไม่ได้บันทึก",
+      "liquidGlassEffect": "Liquid Glass",
+      "liquidGlassEffectDesc": "ใช้เอฟเฟ็กต์กระจกโปร่งแสงกับแถบเครื่องมือดาวน์โหลด",
+      "liquidGlassEffectMacDesc": "ใช้กับหน้าต่างด้วยบน macOS 26 ขึ้นไป หน้าต่างจะเปิดใหม่เมื่อเปลี่ยนค่า",
+      "menuBar": "แถบเมนู",
+      "reduceMotion": "ลดการเคลื่อนไหว",
+      "reduceMotionDesc": "ลดภาพเคลื่อนไหวทั่วทั้งแอป",
+      "runMode": "แสดงแอปใน",
+      "runModeHideTray": "Dock เท่านั้น",
+      "runModeLaunch": "เมื่อเปิด Motrix",
+      "runModeLinuxDesc": "การรองรับถาดระบบและพฤติกรรมการเรียกใช้งานขึ้นอยู่กับสภาพแวดล้อมเดสก์ท็อป",
+      "runModeStandard": "Dock และแถบเมนู",
+      "runModeStandardDesktop": "เปิดหน้าต่างหลัก",
+      "runModeTray": "แถบเมนูเท่านั้น",
+      "runModeTrayDesktop": "เริ่มในถาดระบบ",
+      "sidebarColor": "สีเน้น",
+      "sidebarColors": {
+        "auto": "อัตโนมัติ",
+        "blue": "น้ำเงิน",
+        "cyan": "ฟ้าอมเขียว",
+        "gold": "ทอง",
+        "gray": "เทา",
+        "green": "เขียว",
+        "orange": "ส้ม",
+        "pink": "ชมพู",
+        "violet": "ม่วง"
+      },
+      "systemTray": "ถาดระบบ",
+      "theme": "ธีม",
+      "themeAndEffects": "ธีมและเอฟเฟ็กต์",
+      "themeAuto": "ระบบ",
+      "themeDark": "มืด",
+      "themeLight": "สว่าง",
+      "trayIconColor": "สีไอคอนถาดระบบ",
+      "trayIconColorAuto": "ตามธีมแอป",
+      "trayIconColorDark": "ไอคอนสีเข้ม (แผงสีอ่อน)",
+      "trayIconColorDesc": "เลือกสีที่มองเห็นได้ชัดบนแผงระบบ",
+      "trayIconColorLight": "ไอคอนสีอ่อน (แผงสีเข้ม)",
+      "traySpeedometer": "แสดงความเร็วในแถบเมนู",
+      "traySpeedometerDesc": "ดูความเร็วดาวน์โหลดและอัปโหลดข้างไอคอนแอป"
+    },
+    "bittorrent": {
+      "description": "แมกเน็ต การปล่อยไฟล์ และแทร็กเกอร์",
+      "geoip": {
+        "autoUpdate": "อัปเดตอัตโนมัติ",
+        "autoUpdateDesc": "ตรวจหาข้อมูลตำแหน่งใหม่ประมาณสัปดาห์ละครั้ง",
+        "customUrl": "URL ดาวน์โหลดที่กำหนดเอง",
+        "customUrlDesc": "ลิงก์ฐานข้อมูลประเทศในรูปแบบ .mmdb",
+        "customUrlPlaceholder": "https://example.com/GeoLite2-Country.mmdb",
+        "enable": "แสดงประเทศหรือภูมิภาค",
+        "enableDesc": "แสดงตำแหน่งในรายการเพียร์ ดาวน์โหลดข้อมูลตำแหน่งเมื่อจำเป็น",
+        "lastUpdated": "อัปเดตล่าสุด",
+        "maxmindUnsupported": "ยังไม่รองรับ",
+        "neverUpdated": "ยังไม่เคย",
+        "saveBeforeUpdate": "บันทึกการเปลี่ยนแปลงก่อนอัปเดตข้อมูลตำแหน่ง",
+        "source": "แหล่งข้อมูลตำแหน่ง",
+        "source.custom": "URL ที่กำหนดเอง",
+        "source.loyalsoldier": "Loyalsoldier (ชุมชน)",
+        "source.maxmind": "MaxMind (ทางการ)",
+        "source.p3terx": "P3TERX (แหล่งสำรองของชุมชน)",
+        "sourceDesc": "เลือกแหล่งดาวน์โหลดข้อมูลตำแหน่ง",
+        "status.downloading": "กำลังดาวน์โหลด…",
+        "status.error": "อัปเดตล้มเหลว",
+        "status.loaded": "พร้อม",
+        "status.notDownloaded": "ยังไม่ได้ดาวน์โหลดข้อมูลตำแหน่ง",
+        "title": "ตำแหน่งเพียร์",
+        "updateFailed": "อัปเดตข้อมูลตำแหน่งไม่ได้ ลองอีกครั้ง",
+        "updateNow": "อัปเดตตอนนี้",
+        "updating": "กำลังอัปเดต…"
+      },
+      "listen": {
+        "dhtEnabled": "เปิดใช้ DHT",
+        "dhtEnabledDesc": "ค้นหาเพียร์โดยไม่ต้องพึ่งแทร็กเกอร์",
+        "dhtListenPort": "พอร์ตรับการเชื่อมต่อ DHT",
+        "dhtListenPortDesc": "ค้นหาเพียร์ผ่าน DHT บนพอร์ตนี้",
+        "listenPort": "พอร์ตรับการเชื่อมต่อ BT",
+        "listenPortDesc": "รับการเชื่อมต่อขาเข้าจากเพียร์บนพอร์ตนี้",
+        "title": "การเชื่อมต่อขาเข้า"
+      },
+      "newMagnetTasks": "งานแมกเน็ตใหม่",
+      "peers": {
+        "btEnableLpd": "ค้นหาเพียร์ในเครือข่ายท้องถิ่น",
+        "btEnableLpdDesc": "ค้นหาเพียร์ที่แชร์ไฟล์ในเครือข่ายท้องถิ่น",
+        "btMaxPeers": "เพียร์สูงสุดต่อทอร์เรนต์",
+        "btMaxPeersDesc": "จำนวนเพียร์สูงสุดที่หนึ่งงานเชื่อมต่อได้พร้อมกัน",
+        "magnetFileSelection": "เลือกไฟล์ก่อนดาวน์โหลด",
+        "magnetFileSelectionAutoDownload": "ดาวน์โหลดทั้งหมดหากไม่ได้เลือกไฟล์",
+        "magnetFileSelectionAutoDownloadDesc": "เริ่มเมื่อครบเวลาที่กำหนดด้านล่าง แม้จะปิดหน้าต่างแอปหรือเบราว์เซอร์แล้ว",
+        "magnetFileSelectionDesc": "แสดงหน้าเลือกไฟล์หลังโหลดลิงก์แมกเน็ต",
+        "magnetFileSelectionTimeoutInvalid": "ป้อนจำนวนเต็มตั้งแต่ {{min}} ถึง {{max}} วินาที",
+        "magnetFileSelectionTimeoutSeconds": "เวลาเลือกไฟล์ (วินาที)",
+        "magnetFileSelectionTimeoutSecondsDesc": "เริ่มนับเมื่อรายการไฟล์พร้อม การเปลี่ยนแปลงมีผลกับงานที่รออยู่ด้วย",
+        "title": "เพียร์"
+      },
+      "seeding": {
+        "seedRatio": "ขีดจำกัดอัตราส่วนการแชร์",
+        "seedRatioDesc": "อัปโหลด ÷ ดาวน์โหลด หยุดปล่อยไฟล์เมื่อถึงอัตราส่วนนี้ 0 = ไม่จำกัด",
+        "seedTime": "จำกัดเวลาปล่อยไฟล์ (นาที)",
+        "seedTimeDesc": "0 = ไม่จำกัด ใช้กับงานใหม่และเมื่อเริ่มปล่อยไฟล์อีกครั้ง",
+        "title": "การปล่อยไฟล์"
+      },
+      "trackers": {
+        "autoSync": "อัปเดตรายการแทร็กเกอร์อัตโนมัติ",
+        "autoSyncDesc": "อัปเดตรายการจากแหล่งข้อมูลของคุณให้เป็นปัจจุบัน",
+        "blacklistMovedInfo": "จัดการแทร็กเกอร์ที่ถูกบล็อกใน แทร็กเกอร์ → รายการบล็อก",
+        "enableProbe": "ตรวจสอบความพร้อมของแทร็กเกอร์",
+        "enableProbeDesc": "ทดสอบแทร็กเกอร์ก่อนใช้ดาวน์โหลด",
+        "healthyThreshold": "เกณฑ์ตอบสนองช้า (ms)",
+        "healthyThresholdDesc": "การตอบสนองที่นานกว่านี้จะถูกระบุว่าช้า 500–10,000 ms",
+        "manageSourcesHint": "จัดการแหล่งข้อมูลในหน้าแทร็กเกอร์",
+        "maxTrackerCount": "แทร็กเกอร์ต่องาน",
+        "maxTrackerCountDesc": "ใช้แทร็กเกอร์ไม่เกินจำนวนนี้ 5–200",
+        "minSuccessRate": "อัตราความสำเร็จขั้นต่ำ",
+        "minSuccessRateDesc": "ใช้แทร็กเกอร์ที่มีอัตราความสำเร็จไม่น้อยกว่าค่านี้ 0.5 = 50%",
+        "probeTimeout": "เวลารอการตรวจสอบ (ms)",
+        "probeTimeoutDesc": "รอคำตอบไม่เกินเวลานี้ 1,000–30,000 ms",
+        "syncInterval": "ช่วงเวลาอัปเดต (ชั่วโมง)",
+        "syncIntervalDesc": "ตั้งแต่ 1 ถึง 168 ชั่วโมง",
+        "title": "แทร็กเกอร์"
+      }
+    },
+    "cards": {
+      "about": {
+        "desc": "เวอร์ชัน การอัปเดต ซอร์สโค้ด และคู่มือ",
+        "title": "เกี่ยวกับ"
+      },
+      "advanced": {
+        "desc": "RPC การจัดเก็บข้อมูลถาวรด้วย SQLite",
+        "title": "ขั้นสูง"
+      },
+      "appearance": {
+        "desc": "ธีม ภาษา ไอคอนถาดระบบ",
+        "title": "รูปลักษณ์"
+      },
+      "bittorrent": {
+        "desc": "DHT พอร์ตรับการเชื่อมต่อ แทร็กเกอร์ ตำแหน่งเพียร์",
+        "title": "BitTorrent"
+      },
+      "downloads": {
+        "desc": "งานพร้อมกัน ขีดจำกัดแบนด์วิดท์ ความเสถียรของเครือข่าย",
+        "title": "ดาวน์โหลด"
+      },
+      "general": {
+        "desc": "การเริ่มต้น โฟลเดอร์บันทึกเริ่มต้น การผสานกับระบบ",
+        "title": "ทั่วไป"
+      },
+      "integration": {
+        "desc": "ส่วนขยายเบราว์เซอร์ CLI การผสานกับระบบ",
+        "title": "การผสานการทำงาน"
+      },
+      "network": {
+        "desc": "พร็อกซี DNS และ NAT/UPnP",
+        "title": "เครือข่าย"
+      }
+    },
+    "common": {
+      "add": "เพิ่ม",
+      "browse": "เรียกดู…",
+      "changeDirectory": "เปลี่ยนโฟลเดอร์",
+      "directoryEmpty": "(ยังไม่ได้เลือกโฟลเดอร์)",
+      "generate": "สร้าง",
+      "hideSecret": "ซ่อนข้อมูลลับ",
+      "noChange": "ไม่มีการเปลี่ยนแปลงให้บันทึก",
+      "openHelp": "เปิดวิธีใช้",
+      "preset": "ตั้งค่าด่วน:",
+      "remove": "นำออก",
+      "setAsDefault": "ตั้งเป็นค่าเริ่มต้น",
+      "showSecret": "แสดงข้อมูลลับ"
+    },
+    "connection": {
+      "disconnectedBody": "ข้อมูลบางอย่างอาจล่าช้า หากยังเกิดปัญหานี้ ให้ตรวจสอบการเชื่อมต่อเซิร์ฟเวอร์และการตั้งค่าพร็อกซี",
+      "disconnectedTitle": "การเชื่อมต่อสำหรับอัปเดตแบบเรียลไทม์ถูกตัด",
+      "originMismatchBody": "การอัปเดตแบบเรียลไทม์ไม่พร้อมใช้งาน ใช้ที่อยู่เซิร์ฟเวอร์ที่ตั้งไว้หรือขอให้ผู้ดูแลระบบแก้ไข",
+      "originMismatchTitle": "ที่อยู่สำหรับเข้าถึงเซิร์ฟเวอร์ไม่ตรงกัน"
+    },
+    "desc": "ตั้งค่า Motrix",
+    "downloads": {
+      "autofillFromClipboard": "กรอกลิงก์จากคลิปบอร์ดอัตโนมัติ",
+      "defaultDownloadFolder": "โฟลเดอร์ดาวน์โหลดเริ่มต้น",
+      "description": "ไฟล์ ความเร็วดาวน์โหลด และการเชื่อมต่อ",
+      "disk": {
+        "diskCache": "แคชดิสก์ (MiB)",
+        "diskCacheDesc": "หน่วยความจำสำหรับพักข้อมูลไฟล์ก่อนเขียนลงดิสก์",
+        "fileAllocation": "จองพื้นที่ดิสก์",
+        "fileAllocationDesc": "จองพื้นที่ก่อนดาวน์โหลดไฟล์",
+        "fileAllocationFalloc": "ให้ระบบจัดสรร",
+        "fileAllocationNone": "ไม่จอง",
+        "fileAllocationPrealloc": "จัดสรรล่วงหน้า",
+        "fileAllocationTrunc": "กำหนดขนาดไฟล์",
+        "fileDeletionMode": "เมื่อลบไฟล์ของงาน",
+        "fileDeletionPermanent": "ลบถาวร",
+        "fileDeletionPermanentDesc": "ไฟล์ที่ลบจะกู้คืนจากถังขยะไม่ได้",
+        "fileDeletionTrash": "ย้ายไปถังขยะ",
+        "fileDeletionTrashDesc": "พื้นที่จะว่างเมื่อล้างถังขยะ",
+        "modifiedTime": "เวลาแก้ไขไฟล์",
+        "modifiedTimeDesc": "สำหรับการดาวน์โหลด HTTP และ FTP ที่เสร็จสิ้น",
+        "modifiedTimeLocal": "เวลาดาวน์โหลด",
+        "modifiedTimeServer": "เวลาจากเซิร์ฟเวอร์",
+        "sessionSaveInterval": "ช่วงเวลาบันทึกความคืบหน้า (วินาที)",
+        "sessionSaveIntervalDesc": "บันทึกถี่ขึ้นเพื่อลดความคืบหน้าที่สูญหายหากแอปขัดข้อง",
+        "title": "ดิสก์และไฟล์"
+      },
+      "fillInLinksWhenOpeningNewTask": "วางลิงก์ที่คัดลอกไว้เมื่อเปิดงานใหม่",
+      "magnet": {
+        "magnetResolveTimeout": "เวลารอโหลดแมกเน็ต (วินาที)",
+        "magnetResolveTimeoutDesc": "ระยะเวลาที่รอรายการไฟล์",
+        "title": "แมกเน็ต"
+      },
+      "newTasks": "งานใหม่",
+      "performance": {
+        "customParameters": "พารามิเตอร์ประสิทธิภาพที่กำหนดเอง",
+        "learnMore": "เรียนรู้เพิ่มเติม",
+        "maxConcurrentDownloads": "ดาวน์โหลดพร้อมกัน",
+        "maxConcurrentDownloadsDesc": "งานที่เกินจำนวนนี้จะรอในคิว",
+        "maxConnectionPerServer": "การเชื่อมต่อสูงสุดต่อเซิร์ฟเวอร์",
+        "maxConnectionPerServerDesc": "จำกัดจำนวนการเชื่อมต่อของแต่ละไฟล์ไปยังเซิร์ฟเวอร์เดียวกัน",
+        "metrics": {
+          "cache": "แคชดิสก์",
+          "connections": "การเชื่อมต่อสูงสุด",
+          "minimum": "ส่วนย่อยขั้นต่ำ",
+          "perServer": "ขีดจำกัดต่อเซิร์ฟเวอร์"
+        },
+        "minSplitSize": "ขนาดส่วนย่อยขั้นต่ำ (MiB)",
+        "minSplitSizeDesc": "ส่วนย่อยที่เล็กกว่าสองเท่าของขนาดนี้จะไม่ถูกแบ่ง",
+        "profile": "ประสิทธิภาพการดาวน์โหลด",
+        "profileDesc": "ปรับสมดุลระหว่างความเร็วดาวน์โหลดกับการใช้ทรัพยากร",
+        "profiles": {
+          "auto": {
+            "desc": "ปรับตามไดรฟ์และขนาดไฟล์ ค่าด้านล่างเป็นค่าเริ่มต้น",
+            "label": "อัตโนมัติ"
+          },
+          "balanced": {
+            "desc": "ใช้ทรัพยากรน้อยลงสำหรับการดาวน์โหลดทั่วไป",
+            "label": "สมดุล"
+          },
+          "custom": {
+            "desc": "ตั้งค่าการเชื่อมต่อ ขนาดส่วนย่อย และแคช",
+            "label": "กำหนดเอง"
+          },
+          "high": {
+            "desc": "ใช้การเชื่อมต่อมากขึ้นเพื่อดาวน์โหลดได้เร็วขึ้น",
+            "label": "ความเร็วสูง"
+          },
+          "maximum": {
+            "desc": "ใช้การเชื่อมต่อมากขึ้น เซิร์ฟเวอร์บางแห่งอาจจำกัดการเชื่อมต่อ",
+            "label": "สูงสุด"
+          }
+        },
+        "split": "การเชื่อมต่อสูงสุดต่อไฟล์",
+        "splitDesc": "จำนวนการเชื่อมต่อที่ใช้ดาวน์โหลดหนึ่งไฟล์",
+        "title": "ประสิทธิภาพ"
+      },
+      "reliability": {
+        "connectTimeout": "เวลารอการเชื่อมต่อ (วินาที)",
+        "connectTimeoutDesc": "ระยะเวลาที่รอให้เชื่อมต่อสำเร็จ",
+        "lowestSpeedLimit": "ความเร็วการเชื่อมต่อขั้นต่ำ (KiB/s)",
+        "lowestSpeedLimitDesc": "ตัดการเชื่อมต่อหากต่ำกว่าความเร็วนี้ 0 = ปิดใช้",
+        "maxTries": "จำนวนครั้งที่ลองสูงสุด",
+        "maxTriesDesc": "รวมครั้งแรก 0 = ไม่จำกัด",
+        "retryWait": "เวลารอก่อนลองใหม่ (วินาที)",
+        "retryWaitDesc": "รอนานเท่านี้ก่อนลองอีกครั้ง",
+        "socketTimeout": "เวลารอเมื่อไม่มีข้อมูล (วินาที)",
+        "socketTimeoutDesc": "ระยะเวลาที่รอเมื่อไม่มีข้อมูลเข้ามา",
+        "title": "การเชื่อมต่อและการลองใหม่",
+        "userAgent": "User-Agent",
+        "userAgentDesc": "ระบุแอปต่อเว็บไซต์ เปลี่ยนหากเว็บไซต์ต้องการค่าอื่น"
+      },
+      "saveFolders": "โฟลเดอร์บันทึก",
+      "speedLimit": {
+        "adaptiveEnabled": "สำรองแบนด์วิดท์ให้แอปอื่น",
+        "adaptiveEnabledDesc": "ป้อนความเร็วการเชื่อมต่อด้านล่างเพื่อคำนวณขีดจำกัด",
+        "altDownload": "ดาวน์โหลด",
+        "altDownloadDesc": "ความเร็วดาวน์โหลดสูงสุดเมื่อใช้โหมดความเร็วต่ำ",
+        "altSection": "ขีดจำกัดความเร็วต่ำ",
+        "altSectionDesc": "ใช้ในโหมดความเร็วต่ำหรือตามตารางเวลา ขีดจำกัดเหล่านี้ใช้ลดความเร็วจากขีดจำกัดมาตรฐานได้เท่านั้น",
+        "altUpload": "อัปโหลด",
+        "altUploadDesc": "ความเร็วอัปโหลดสูงสุดเมื่อใช้โหมดความเร็วต่ำ",
+        "autoAdaptive": "เหลือแบนด์วิดท์ให้แอปอื่น",
+        "autoSchedule": "ลดความเร็วตามตาราง",
+        "autoSection": "กฎอัตโนมัติ",
+        "autoSectionDesc": "กฎเหล่านี้ใช้เฉพาะในโหมดอัตโนมัติ",
+        "bandwidthPending": "ป้อนความเร็วการเชื่อมต่อทั้งสองค่าจึงจะใช้ขีดจำกัดนี้ได้",
+        "bandwidthUsed": "Motrix ใช้ได้สูงสุด {{motrix}}%",
+        "baseDownload": "ดาวน์โหลด",
+        "baseDownloadDesc": "ความเร็วดาวน์โหลดสูงสุดสำหรับการใช้งานทั่วไป",
+        "baseSection": "ขีดจำกัดมาตรฐาน",
+        "baseSectionDesc": "ใช้สำหรับการดาวน์โหลดทั่วไปและมีผลในทุกโหมด",
+        "baseUpload": "อัปโหลด",
+        "baseUploadDesc": "ความเร็วอัปโหลดสูงสุดสำหรับการใช้งานทั่วไป",
+        "effect": {
+          "adaptiveRule": "สำรองแบนด์วิดท์ {{reserved}}% ให้แอปอื่น",
+          "adaptiveRulePending": "สำรองแบนด์วิดท์ {{reserved}}% ให้แอปอื่นหลังจากป้อนแบนด์วิดท์การเชื่อมต่อ",
+          "autoRules": "Motrix จะ{{rules}}",
+          "lowSpeed": "ใช้ขีดจำกัดความเร็วต่ำตอนนี้: ดาวน์โหลด {{download}} อัปโหลด {{upload}}",
+          "lowerWins": "ใช้ขีดจำกัดที่ต่ำที่สุดที่กำลังมีผล",
+          "nextDay": " ในวันถัดไป",
+          "noAutoRules": "ยังไม่ได้เปิดกฎอัตโนมัติ ขณะนี้จึงทำงานเหมือนโหมดมาตรฐาน",
+          "ruleSeparator": " และ",
+          "scheduleRule": "ใช้ขีดจำกัดความเร็วต่ำตั้งแต่ {{from}} ถึง {{to}}{{nextDay}}",
+          "standard": "ใช้ขีดจำกัดมาตรฐาน: ดาวน์โหลด {{download}} อัปโหลด {{upload}}",
+          "standardValues": "ขีดจำกัดมาตรฐาน: ดาวน์โหลด {{download}} อัปโหลด {{upload}}",
+          "title": "ผลที่ใช้อยู่"
+        },
+        "estimateEmpty": "ยังไม่มีประวัติความเร็ว ดาวน์โหลดให้เสร็จหนึ่งงานโดยไม่จำกัดความเร็ว หรือป้อนแบนด์วิดท์ด้วยตนเอง",
+        "estimateError": "อ่านประวัติความเร็วล่าสุดไม่ได้ ป้อนแบนด์วิดท์ด้วยตนเอง",
+        "estimateSuccess": "กรอกแบนด์วิดท์การเชื่อมต่อจากความเร็วล่าสุดแล้ว",
+        "fillFromPeak": "ประมาณความเร็วการเชื่อมต่อ",
+        "fillFromPeakHint": "อ้างอิงจากความเร็วดาวน์โหลดและอัปโหลดสูงสุดล่าสุด",
+        "headroomPercent": "สำรองให้แอปอื่น",
+        "headroomPercentDesc": "ขณะนี้สำรอง {{reserved}}% Motrix ใช้ได้สูงสุด {{motrix}}%",
+        "linkDown": "ความเร็วดาวน์โหลดของการเชื่อมต่อ",
+        "linkDownDesc": "ความเร็วดาวน์โหลดที่การเชื่อมต่ออินเทอร์เน็ตของคุณทำได้",
+        "linkUp": "ความเร็วอัปโหลดของการเชื่อมต่อ",
+        "linkUpDesc": "ความเร็วอัปโหลดที่การเชื่อมต่ออินเทอร์เน็ตของคุณทำได้",
+        "modeSection": "โหมดความเร็ว",
+        "modeSectionDesc": "เลือกวิธีที่ Motrix ใช้การเชื่อมต่อ",
+        "scheduleDays": "วัน",
+        "scheduleDaysHint": "หากเวลาสิ้นสุดอยู่ก่อนเวลาเริ่ม ช่วงเวลาจะต่อไปถึงวันถัดไป",
+        "scheduleEnabled": "ตั้งเวลาความเร็วต่ำ",
+        "scheduleEnabledDesc": "เปลี่ยนเป็นขีดจำกัดความเร็วต่ำในวันและเวลาที่เลือก",
+        "scheduleFrom": "เริ่ม",
+        "scheduleTimeFormat": "รูปแบบ 24 ชั่วโมง (HH:mm)",
+        "scheduleTo": "สิ้นสุด",
+        "setUnlimited": "ตั้งเป็นไม่จำกัด",
+        "standardLimit": "ใช้ค่ามาตรฐาน",
+        "title": "ขีดจำกัดความเร็ว",
+        "titleDesc": "เลือกวิธีใช้การเชื่อมต่อของ Motrix ในโหมดมาตรฐาน ความเร็วต่ำ และอัตโนมัติ",
+        "turtle": "โหมดความเร็ว",
+        "turtleDesc_auto": "ปรับความเร็วอัตโนมัติตามเวลาและแบนด์วิดท์การเชื่อมต่อ",
+        "turtleDesc_off": "ใช้ขีดจำกัดความเร็วมาตรฐาน",
+        "turtleDesc_on": "ใช้ขีดจำกัดความเร็วต่ำตอนนี้ เพื่อเหลือแบนด์วิดท์ให้แอปอื่น",
+        "turtle_auto": "อัตโนมัติ",
+        "turtle_off": "มาตรฐาน",
+        "turtle_on": "ความเร็วต่ำ",
+        "unlimited": "ไม่จำกัด",
+        "useStandardLimit": "ใช้ขีดจำกัดมาตรฐาน",
+        "weekdays": {
+          "fri": {
+            "long": "วันศุกร์",
+            "short": "ศ."
+          },
+          "mon": {
+            "long": "วันจันทร์",
+            "short": "จ."
+          },
+          "sat": {
+            "long": "วันเสาร์",
+            "short": "ส."
+          },
+          "sun": {
+            "long": "วันอาทิตย์",
+            "short": "อา."
+          },
+          "thu": {
+            "long": "วันพฤหัสบดี",
+            "short": "พฤ."
+          },
+          "tue": {
+            "long": "วันอังคาร",
+            "short": "อ."
+          },
+          "wed": {
+            "long": "วันพุธ",
+            "short": "พ."
+          }
+        }
+      }
+    },
+    "feedback": {
+      "appRestartBody": "บันทึกการตั้งค่าแล้ว เริ่ม Motrix ใหม่เมื่อสะดวก",
+      "appRestartTitle": "เริ่ม Motrix ใหม่เพื่อใช้การตั้งค่า",
+      "applyFailedBody": "เก็บการตั้งค่าที่บันทึกไว้แล้ว ตรวจสอบบันทึกของแอปและเริ่มบริการที่ได้รับผลกระทบใหม่หลังแก้ปัญหา",
+      "applyFailedTitle": "บันทึกการตั้งค่าแล้ว แต่ใช้การเปลี่ยนแปลงบางอย่างไม่ได้",
+      "retrySync": "ลองซิงค์อีกครั้ง",
+      "syncFailedBody": "บันทึกการตั้งค่าแล้ว ลองซิงค์อีกครั้งเพื่ออัปเดตหน้านี้โดยไม่ต้องบันทึกซ้ำ",
+      "syncFailedTitle": "บันทึกการตั้งค่าแล้ว แต่อัปเดตส่วนติดต่อไม่ได้"
+    },
+    "general": {
+      "autofillClipboardLinks": "กรอกลิงก์จากคลิปบอร์ดอัตโนมัติ",
+      "autofillClipboardLinksDesc": "เมื่อเปิดงานใหม่ วางลิงก์จากคลิปบอร์ดลงในช่อง URL ที่ว่างอยู่",
+      "defaultSaveDir": "โฟลเดอร์ดาวน์โหลดเริ่มต้น",
+      "defaultSaveDirDesc": "บันทึกการดาวน์โหลดใหม่ที่นี่ เว้นแต่จะกำหนดที่อื่นสำหรับแต่ละงาน",
+      "description": "การเริ่มต้น การออก และการแจ้งเตือน",
+      "desktopOnly": "ตั้งค่าการเริ่มต้นและการแจ้งเตือนได้ในแอปเดสก์ท็อป",
+      "downloadCompleted": "ดาวน์โหลดเสร็จสิ้น",
+      "downloadFailed": "ดาวน์โหลดล้มเหลว",
+      "inAppNotifications": "การแจ้งเตือนในแอป",
+      "inAppNotificationsDesc": "เลือกการแจ้งเตือนการดาวน์โหลดที่จะแสดง การแจ้งเตือนของแอปยังคงเปิดอยู่",
+      "launchAtStartup": "เปิดเมื่อเข้าสู่ระบบ",
+      "launchAtStartupDesc": "เริ่ม Motrix โดยอัตโนมัติเมื่อคุณเข้าสู่ระบบ",
+      "lightweightMode": "ประหยัดหน่วยความจำเมื่อปิดหน้าต่าง",
+      "lightweightModeDesc": "การดาวน์โหลดจะดำเนินต่อ การเปิดใหม่จะช้าลงและข้อมูลที่ยังไม่ได้บันทึกจะถูกล้าง",
+      "notificationBadgeCount": "จำนวน",
+      "notificationBadgeDesc": "แสดงบนไอคอนศูนย์การแจ้งเตือน",
+      "notificationBadgeDot": "จุด",
+      "notificationBadgeHidden": "ซ่อน",
+      "notificationBadgeStyle": "ป้ายยังไม่ได้อ่าน",
+      "notificationBoth": "ทั้งสองแบบ",
+      "notificationInApp": "การแจ้งเตือนในแอป",
+      "notificationOff": "ปิด",
+      "notificationSystem": "การแจ้งเตือนของระบบ",
+      "notifications": "การแจ้งเตือน",
+      "notificationsDesc": "การแจ้งข้อผิดพลาดของแอปยังคงเปิดอยู่",
+      "notifyInAppOnComplete": "แสดงการดาวน์โหลดที่เสร็จสิ้น",
+      "notifyInAppOnError": "แสดงการดาวน์โหลดที่ล้มเหลว",
+      "notifyOnComplete": "แจ้งเมื่อดาวน์โหลดเสร็จ",
+      "notifyOnCompleteDesc": "แสดงการแจ้งเตือนของระบบเมื่องานเสร็จสิ้น",
+      "notifyOnError": "แจ้งเมื่อล้มเหลว",
+      "notifyOnErrorDesc": "แสดงการแจ้งเตือนของระบบเมื่อดาวน์โหลดล้มเหลวขณะที่หน้าต่างอยู่เบื้องหลัง",
+      "runMode": "แสดงแอปใน",
+      "runModeHideTray": "Dock เท่านั้น",
+      "runModeStandard": "Dock และแถบเมนู",
+      "runModeTray": "แถบเมนูเท่านั้น",
+      "showMainWindowAtLogin": "แสดงหน้าต่างเมื่อเข้าสู่ระบบ",
+      "showMainWindowAtLoginDesc": "ซ่อนเมื่อใช้ “{{mode}}”",
+      "startupAndQuitting": "การเริ่มต้นและการออก",
+      "systemNotifications": "การแจ้งเตือนของระบบ",
+      "warnBeforeQuit": "ยืนยันก่อนออก",
+      "warnBeforeQuitDesc": "ถามก่อนออกหากยังมีการดาวน์โหลดทำงานอยู่"
+    },
+    "integration": {
+      "appimage": {
+        "desc": "ลงทะเบียน Motrix AppImage นี้กับเดสก์ท็อปเพื่อให้เบราว์เซอร์และลิงก์แมกเน็ตส่งการดาวน์โหลดมาได้",
+        "enable": "เปิดการผสานกับเดสก์ท็อป",
+        "movedHint": "หากย้าย AppImage ขณะปิด Motrix ลิงก์อาจเปิดแอปไม่ได้จนกว่าคุณจะเปิด Motrix จากตำแหน่งใหม่หนึ่งครั้ง",
+        "prompt": {
+          "accept": "ผสานการทำงาน",
+          "decline": "ไว้ภายหลัง",
+          "detail": "Motrix จะเพิ่มรายการเดสก์ท็อปและไอคอนในโฟลเดอร์ข้อมูลผู้ใช้ และลงทะเบียนเป็นแอปสำหรับลิงก์ motrix: ลิงก์แมกเน็ต และไฟล์ .torrent ทำให้เบราว์เซอร์และส่วนขยาย Motrix เปิด Motrix และส่งการดาวน์โหลดมาได้ ไม่มีการเขียนข้อมูลนอกโฟลเดอร์ส่วนตัว และคุณเลิกทำได้จากการตั้งค่า",
+          "message": "อนุญาตให้ Motrix AppImage นี้ลงทะเบียนกับสภาพแวดล้อมเดสก์ท็อปหรือไม่",
+          "title": "ผสาน Motrix กับเดสก์ท็อปหรือไม่"
+        },
+        "remove": "นำการผสานกับเดสก์ท็อปออก",
+        "status": {
+          "externalManaged": "Motrix ที่ติดตั้งไว้อีกชุดเป็นผู้จัดการการผสานกับเดสก์ท็อป",
+          "failedDetail": "Motrix ลงทะเบียนเป็นแอปสำหรับลิงก์ของตัวเองไม่ได้ การส่งงานจากเบราว์เซอร์อาจใช้ไม่ได้จนกว่าจะเปิดการผสานกับเดสก์ท็อปอีกครั้ง",
+          "failedTitle": "การผสานกับเดสก์ท็อปไม่สมบูรณ์",
+          "healthy": "ผสานกับเดสก์ท็อปนี้แล้ว",
+          "notIntegrated": "ยังไม่ได้ผสานกับเดสก์ท็อปนี้",
+          "removeBlockedDetail": "Motrix ไม่สามารถคืนการเชื่อมโยงไปยังแอปเดิมที่ตรวจสอบแล้วได้อย่างปลอดภัย จึงเก็บรายการเดสก์ท็อปไว้เพื่อไม่ให้การเชื่อมโยงเริ่มต้นเสีย เลือกแอปเริ่มต้นอื่นในการตั้งค่าเดสก์ท็อป แล้วลองนำการผสานออกอีกครั้ง"
+        },
+        "title": "การผสานกับเดสก์ท็อป"
+      },
+      "appimageHost": {
+        "copyDiagnostics": "คัดลอกผลวินิจฉัย",
+        "desc": "อนุญาตให้ส่วนขยายเปิด AppImage นี้เมื่อคลิกเชื่อมต่อ เปิดการผสานกับเบราว์เซอร์เพื่อใช้ความสามารถนี้",
+        "enable": "เปิดใช้การเปิดจากเบราว์เซอร์",
+        "remove": "นำการเปิดจากเบราว์เซอร์ออก",
+        "repair": "ซ่อมแซม",
+        "status": {
+          "conflict": "ไฟล์เหล่านี้เป็นของการติดตั้งอีกชุด นำการผสานกับเบราว์เซอร์ของชุดนั้นออกก่อน",
+          "disabled": "ปิดการเปิดจากเบราว์เซอร์อยู่",
+          "invalid": "ระเบียนการติดตั้งหรือไฟล์ปฏิบัติการไม่ถูกต้อง",
+          "io": "ดำเนินการไม่สำเร็จ ตรวจสอบการเข้าถึงดิสก์แล้วลองซ่อมแซม",
+          "missing": "ไฟล์ที่จำเป็นหายไป เรียกใช้ AppImage จากตำแหน่งปัจจุบันแล้วซ่อมแซม",
+          "permissions": "ตรวจสอบว่าไฟล์เรียกใช้ได้ และมีเพียงบัญชีของคุณที่เขียนไฟล์ได้",
+          "ready": "ผ่านการตรวจสอบการติดตั้งในเครื่องแล้ว เชื่อมต่อจากเบราว์เซอร์เพื่อตรวจสอบการทำงาน",
+          "sourceChanged": "AppImage เปลี่ยนไป เรียกใช้รุ่นที่ต้องการแล้วซ่อมแซมการติดตั้ง"
+        },
+        "title": "เปิด AppImage จากเบราว์เซอร์",
+        "useCurrent": "ใช้ AppImage นี้"
+      },
+      "browser": {
+        "addTrusted": {
+          "add": "เพิ่มส่วนขยาย",
+          "addAction": "เพิ่ม",
+          "browserLabel": "เบราว์เซอร์",
+          "cancel": "ยกเลิก",
+          "chromiumEdge": "Chrome / Edge",
+          "firefox": "Firefox",
+          "idPlaceholder": "ID ส่วนขยาย",
+          "labelPlaceholder": "ป้ายกำกับ (ไม่บังคับ)"
+        },
+        "degradedPort": {
+          "description": "พอร์ต 16802–16806 ไม่ว่าง บริดจ์จึงใช้พอร์ต {{port}} แทน ส่วนขยายเบราว์เซอร์จะหาไม่พบด้วยการตรวจช่วงพอร์ตมาตรฐาน — จับคู่ผ่าน native messaging หรือตั้งพอร์ตคงที่ CLI และโฮสต์ native messaging ของ Motrix ไม่ได้รับผลกระทบ",
+          "title": "บริดจ์กำลังใช้พอร์ตสำรอง"
+        },
+        "disconnecting": "กำลังตัดการเชื่อมต่อ…",
+        "headerBrowser": "เบราว์เซอร์",
+        "headerId": "ID ส่วนขยาย",
+        "headerSource": "แหล่งที่มา",
+        "install": {
+          "chrome": "Chrome",
+          "development": "การพัฒนา",
+          "edge": "Microsoft Edge",
+          "firefox": "Firefox",
+          "github": "GitHub",
+          "store": "ติดตั้ง"
+        },
+        "lastActive": "ใช้งานล่าสุด",
+        "masterSwitch": "เชื่อมต่อส่วนขยายเบราว์เซอร์",
+        "masterSwitchDesc": "ส่งการดาวน์โหลดจากหน้าเว็บไปยัง Motrix ด้วยส่วนขยายเบราว์เซอร์",
+        "pairToast": {
+          "copyCode": "คัดลอกรหัสจับคู่",
+          "deny": "ไม่อนุญาต",
+          "extensionId": "ID: {{id}}",
+          "identityLabel": {
+            "attested": "ส่วนขยายที่ยืนยันแล้ว",
+            "official": "ส่วนขยายทางการของ Motrix",
+            "unverified": "ส่วนขยายที่ยังไม่ได้ยืนยัน"
+          },
+          "identityUnverifiedWarning": "ยืนยันตัวตนของส่วนขยายนี้ไม่ได้ ดำเนินการต่อเฉพาะเมื่อคุณเชื่อถือเท่านั้น",
+          "pairCode": "รหัสจับคู่",
+          "pairCodeHint": "ป้อนรหัสนี้ในส่วนขยาย",
+          "title": "ส่วนขยาย {{browser}} ต้องการเชื่อมต่อกับ Motrix"
+        },
+        "pairUnavailable": "คำขอจับคู่นี้ไม่ได้อยู่ระหว่างรอแล้ว — ลองจับคู่จากส่วนขยายเบราว์เซอร์อีกครั้ง",
+        "pairedEmpty": "ยังไม่มีส่วนขยายเชื่อมต่อ",
+        "pairedTitle": "ส่วนขยายที่เชื่อมต่อ",
+        "pairingStateDegraded": {
+          "description": "Motrix ไม่สามารถอัปเดตระเบียนส่วนขยายที่จับคู่แล้วได้อย่างปลอดภัย เซสชันส่วนขยายที่มีอยู่ถูกปิด และการเข้าถึงใหม่ถูกบล็อกสำหรับการเปิดแอปครั้งนี้ เริ่ม Motrix ใหม่เพื่อลองซ่อมอีกครั้ง อย่าอ้างอิงรายการด้านล่างจนกว่าข้อความนี้จะหายไป",
+          "title": "ปิดการเข้าถึงของส่วนขยายชั่วคราว"
+        },
+        "removeTrusted": "นำออก",
+        "revoke": "ตัดการเชื่อมต่อ",
+        "sourceLabel": {
+          "builtin": "ในตัว",
+          "imported": "นำเข้าแล้ว",
+          "userAdded": "เพิ่มแล้ว"
+        },
+        "title": "ส่วนขยายเบราว์เซอร์",
+        "trustedEmpty": "ยังไม่มีรายการ",
+        "trustedExtensions": "ส่วนขยายที่เชื่อถือ",
+        "trustedGuidance": "สำหรับส่วนขยายอื่นที่เชื่อถือ ให้เพิ่ม ID ที่ผู้พัฒนาให้มา",
+        "trustedSummary": "ทั้งหมด {{count}} รายการ"
+      },
+      "cli": {
+        "inbox": {
+          "approve": "อนุมัติ",
+          "deny": "ปฏิเสธ",
+          "empty": "ไม่มีคำขอจับคู่ระยะไกลที่รออยู่",
+          "expiresIn": "หมดอายุใน {{time}}",
+          "title": "รออนุมัติ"
+        },
+        "pairToast": {
+          "allow": "อนุญาต",
+          "code": "รหัสยืนยัน: {{code}}",
+          "deny": "ไม่อนุญาต",
+          "title": "{{name}} ต้องการจับคู่กับ Motrix"
+        },
+        "pairUnavailable": "คำขอจับคู่นี้ไม่ได้อยู่ระหว่างรอแล้ว — เรียกใช้ motrix pair อีกครั้ง",
+        "remote": {
+          "description": "เครื่องมือในเครื่องเชื่อมต่อโดยอัตโนมัติ เรียกใช้ motrix pair เพื่อเชื่อมต่อกับคอมพิวเตอร์หรือเซิร์ฟเวอร์อื่น",
+          "empty": "ยังไม่มีเครื่องมือระยะไกลที่จับคู่",
+          "lastActive": "ใช้งานล่าสุด",
+          "neverActive": "ยังไม่เคยใช้",
+          "revoke": "เพิกถอน",
+          "title": "เครื่องมือระยะไกลที่จับคู่แล้ว"
+        },
+        "title": "เครื่องมือบรรทัดคำสั่ง",
+        "tool": {
+          "action": {
+            "checkAgain": "ตรวจสอบอีกครั้ง",
+            "checking": "กำลังตรวจสอบ…",
+            "install": "ติดตั้ง",
+            "installing": "กำลังติดตั้ง…"
+          },
+          "attentionTitle": "เครื่องมือบรรทัดคำสั่งต้องได้รับการตรวจสอบ",
+          "commandLabel": "คำสั่งติดตั้ง",
+          "copyCommand": "คัดลอกคำสั่งติดตั้ง",
+          "description": "เรียกใช้ motrix ในเทอร์มินัลเพื่อควบคุมแอปนี้",
+          "diagnostics": {
+            "hide": "ซ่อนรายละเอียด",
+            "show": "แสดงรายละเอียด"
+          },
+          "manager": {
+            "bun": "Bun",
+            "npm": "npm",
+            "pnpm": "pnpm",
+            "volta": "Volta",
+            "yarn": "Yarn Classic"
+          },
+          "managerLabel": "ตัวจัดการแพ็กเกจ",
+          "metadata": {
+            "manager": "ติดตั้งด้วย",
+            "path": "ไฟล์ปฏิบัติการ",
+            "unknown": "ไม่ทราบ",
+            "version": "เวอร์ชัน"
+          },
+          "reason": {
+            "installFailed": "ตัวจัดการแพ็กเกจติดตั้ง @motrix/cli ไม่ได้ ตรวจสอบรายละเอียดแล้วลองอีกครั้ง หรือเรียกใช้คำสั่งด้วยตนเอง",
+            "managerMissing": "ไม่พบตัวจัดการแพ็กเกจที่รองรับ ติดตั้ง npm, pnpm, Yarn Classic, Bun หรือ Volta แล้วตรวจสอบอีกครั้ง",
+            "network": "ตัวจัดการแพ็กเกจติดต่อรีจิสทรีไม่ได้ ตรวจสอบเครือข่ายหรือการตั้งค่ารีจิสทรีแล้วลองอีกครั้ง",
+            "nodeMissing": "ไม่พบ Node.js 22 หรือใหม่กว่า ติดตั้ง Node.js แล้วตรวจสอบอีกครั้ง",
+            "nodeTooOld": "ต้องใช้ Node.js 22 หรือใหม่กว่า ตรวจพบ {{version}}",
+            "pathMissing": "ติดตั้งแพ็กเกจแล้ว แต่ motrix ไม่อยู่ใน PATH เปิดเทอร์มินัลใหม่หรือเพิ่มโฟลเดอร์ติดตั้งที่แสดงไว้ใน PATH",
+            "pathShadowed": "มีไฟล์ปฏิบัติการ motrix อีกตัวอยู่ก่อนใน PATH นำรายการเก่าออกหรือแก้ไข PATH แล้วตรวจสอบอีกครั้ง",
+            "permission": "ตัวจัดการแพ็กเกจเขียนลงตำแหน่งติดตั้งส่วนกลางไม่ได้ ใช้ตัวจัดการเวอร์ชัน Node.js หรือตำแหน่งติดตั้งที่ผู้ใช้เขียนได้ อย่าใช้ sudo",
+            "sandboxed": "แพ็กเกจแซนด์บ็อกซ์นี้ไม่รองรับการติดตั้งด้วยคลิกเดียว คัดลอกคำสั่งไปเรียกใช้ในเทอร์มินัล",
+            "timeout": "การติดตั้งใช้เวลานานเกินไปและถูกหยุด ตรวจสอบเครือข่ายแล้วลองอีกครั้ง",
+            "unknown": "Motrix ตรวจสอบเครื่องมือบรรทัดคำสั่งไม่ได้ ลองอีกครั้งหรือเรียกใช้คำสั่งที่คัดลอกไว้ด้วยตนเอง",
+            "unsupportedWeb": "การติดตั้งด้วยคลิกเดียวใช้ได้เฉพาะในแอปเดสก์ท็อป คัดลอกคำสั่งไปเรียกใช้บนโฮสต์ Motrix",
+            "verifyFailed": "การติดตั้งเสร็จแล้ว แต่ Motrix ตรวจสอบไฟล์ปฏิบัติการ motrix ที่ใช้อยู่ไม่ได้"
+          },
+          "status": {
+            "checking": "กำลังตรวจสอบ",
+            "error": "ล้มเหลว",
+            "installed": "ติดตั้งแล้ว",
+            "installing": "กำลังติดตั้ง",
+            "manualOnly": "ติดตั้งด้วยตนเอง",
+            "needsAttention": "ต้องตรวจสอบ",
+            "ready": "พร้อมติดตั้ง"
+          },
+          "successGuidance": "เปิดเทอร์มินัลใหม่ แล้วเรียกใช้ motrix --help",
+          "title": "เครื่องมือบรรทัดคำสั่ง Motrix"
+        }
+      },
+      "description": "เบราว์เซอร์ แอปเริ่มต้น และเครื่องมือ",
+      "media": {
+        "applyHint": "บันทึกเพื่อใช้เส้นทางนี้กับการดาวน์โหลดสื่อใหม่ สแกนอีกครั้งในส่วนขยายเบราว์เซอร์เพื่ออัปเดตความสามารถที่รองรับ",
+        "binaryPath": "เส้นทาง FFmpeg ที่กำหนดเอง",
+        "browse": "เรียกดู…",
+        "candidateKind": {
+          "env": "MOTRIX_FFMPEG_BIN",
+          "manual": "เส้นทางที่กำหนดเอง",
+          "path": "PATH ของระบบ",
+          "userData": "โฟลเดอร์ข้อมูล Motrix"
+        },
+        "cleanupConfirm": "ลบโฟลเดอร์ชั่วคราว FFmpeg ทั้งหมดหรือไม่",
+        "cleanupStaging": "ล้างไฟล์ชั่วคราว",
+        "desc": "รวมหรือแปลงสื่อด้วย FFmpeg",
+        "desktopSavedHint": "การดาวน์โหลดสื่อใหม่ใช้เส้นทางที่บันทึกไว้ เริ่ม Motrix ใหม่เพื่อให้ปลั๊กอินที่กำลังทำงานตรวจพบการเปลี่ยนแปลง",
+        "detection": {
+          "copyManagedPath": "คัดลอกเส้นทาง FFmpeg ของ Motrix",
+          "editCustomPath": "แก้ไขเส้นทาง FFmpeg ที่กำหนดเอง",
+          "finishEditingCustomPath": "เสร็จสิ้นการแก้ไขเส้นทาง FFmpeg ที่กำหนดเอง",
+          "hideDetails": "ซ่อนรายละเอียดการตรวจพบ",
+          "location": "ตำแหน่งที่ตรวจสอบ",
+          "notConfigured": "ยังไม่ได้ตั้งค่า",
+          "readyTitle": "FFmpeg {{version}}",
+          "result": "ผลลัพธ์",
+          "showDetails": "แสดงรายละเอียดการตรวจพบ",
+          "source": "แหล่งที่มา",
+          "sourcesChecked_other": "ตรวจสอบแล้ว {{count}} แหล่ง",
+          "unavailableDesc": "กำหนดเส้นทางเอง ติดตั้ง FFmpeg หรือเพิ่มใน PATH แล้วรีเฟรช",
+          "unavailableTitle": "FFmpeg ไม่พร้อมใช้งาน",
+          "untrustedDesc": "มีไฟล์อยู่แต่ไม่ผ่านการตรวจสอบความปลอดภัยของ macOS ติดตั้งรุ่นที่เชื่อถือได้หรืออนุมัติใน ความเป็นส่วนตัวและความปลอดภัย แล้วรีเฟรช",
+          "untrustedTitle": "macOS บล็อก FFmpeg",
+          "usingSource": "กำลังใช้ {{source}}"
+        },
+        "download": {
+          "action": "ดาวน์โหลด FFmpeg"
+        },
+        "ffmpegRequired": "การดาวน์โหลดนี้ต้องใช้ FFmpeg ตั้งค่าใน การตั้งค่า → การผสานการทำงาน → เครื่องมือสื่อ บันทึก แล้วลองอีกครั้ง",
+        "notDetected": "ตรวจไม่พบ FFmpeg",
+        "opTimeoutSec": "เวลารอ FFmpeg (วินาที)",
+        "opTimeoutSecDesc": "เวลาสูงสุดสำหรับการประมวลผลสื่อหนึ่งครั้ง ไม่เกิน 3,600 วินาที",
+        "pipelineUnavailable": "การดาวน์โหลดสื่อไม่พร้อมใช้งาน",
+        "refresh": "รีเฟรช",
+        "restartHint": "บันทึกแล้ว เริ่ม Motrix ใหม่เพื่อให้ปลั๊กอินที่กำลังทำงานตรวจพบการเปลี่ยนแปลง",
+        "restartNow": "เริ่มใหม่ตอนนี้",
+        "savedTitle": "บันทึกการตั้งค่า FFmpeg แล้ว",
+        "stagingMB": "ขีดจำกัดไฟล์ชั่วคราว (MB)",
+        "stagingMBDesc": "พื้นที่สำหรับไฟล์ระหว่างประมวลผล ต่อปลั๊กอินและงาน",
+        "state": {
+          "active": "ใช้งานอยู่",
+          "available": "พบ",
+          "missing": "ไม่พบ",
+          "unconfigured": "ยังไม่ได้ตั้งค่า",
+          "untrusted": "ถูก macOS บล็อก",
+          "version_mismatch": "ไม่รองรับ"
+        },
+        "title": "เครื่องมือสื่อ",
+        "validation": {
+          "fileMissing": "ไม่มีไฟล์ที่เส้นทางนี้"
+        }
+      },
+      "pairResolveFailed": "ส่งการตัดสินใจไม่ได้ — ลองอีกครั้ง",
+      "system": {
+        "associationChecking": "กำลังตรวจสอบ…",
+        "associationDefault": "เป็นค่าเริ่มต้น",
+        "associationNotDefault": "ไม่ใช่ค่าเริ่มต้น",
+        "associationNotRegistered": "ยังไม่ได้ลงทะเบียน",
+        "associationSetupRequired": "ต้องตั้งค่า",
+        "associationStatusLabel": "สถานะแอปเริ่มต้นปัจจุบันใน Windows",
+        "associationStatusLabelLinux": "สถานะการเชื่อมโยงไฟล์และลิงก์ปัจจุบันใน Linux",
+        "associationUnavailable": "ตรวจสอบไม่ได้",
+        "defaultAssociationsLinux": "การเชื่อมโยงไฟล์และลิงก์ใน Linux",
+        "defaultAssociationsLinuxAppImageDesc": "ใช้การผสานกับเดสก์ท็อปด้านล่างเพื่อลงทะเบียนหรือนำ AppImage นี้ออกอย่างปลอดภัย Motrix จะคืนการเชื่อมโยงไปยังแอปเดิมที่ตรวจสอบแล้วก่อนลบรายการเดสก์ท็อปของตัวเอง",
+        "defaultAssociationsLinuxCheckingDesc": "กำลังตรวจสอบแพ็กเกจ Linux นี้และการเชื่อมโยงกับเดสก์ท็อปปัจจุบัน…",
+        "defaultAssociationsLinuxDesc": "Motrix ตั้งตัวเองเป็นแอปเริ่มต้นสำหรับ .torrent ได้เมื่อติดตั้งด้วยแพ็กเกจ deb หรือ rpm การเปลี่ยนแปลงแมกเน็ตมีผลเมื่อใช้การตั้งค่าจากกล่องโต้ตอบนี้",
+        "defaultAssociationsLinuxSandboxDesc": "แพ็กเกจนี้ลงทะเบียน Motrix เป็นแอปสำหรับเปิดไฟล์และลิงก์ แต่สภาพแวดล้อมเดสก์ท็อปเป็นผู้เลือกแอปเริ่มต้น การนำแพ็กเกจออกอาจไม่คืนแอปเริ่มต้นเดิมโดยอัตโนมัติ",
+        "defaultAssociationsLinuxUnavailableDesc": "ตรวจสอบสถานะการเชื่อมโยงกับเดสก์ท็อปจากสภาพแวดล้อมแอปนี้ไม่ได้",
+        "defaultAssociationsWindows": "แอปเริ่มต้นสำหรับทอร์เรนต์และลิงก์แมกเน็ต",
+        "defaultAssociationsWindowsDesc": "เลือก Motrix สำหรับไฟล์ .torrent และลิงก์แมกเน็ตในการตั้งค่า Windows ต้องติดตั้ง Motrix ก่อน",
+        "linuxActionFailed": "อัปเดตแอปเริ่มต้นใน Linux ไม่ได้ ตรวจสอบการตั้งค่าสภาพแวดล้อมเดสก์ท็อป",
+        "linuxActionFallback": "แพ็กเกจนี้ไม่รองรับการตั้งค่าอัตโนมัติ จึงเปิดคำแนะนำการตั้งค่าให้แทน",
+        "linuxActionSet": "Motrix เป็นแอปเริ่มต้นสำหรับไฟล์ .torrent แล้ว",
+        "linuxPackage": {
+          "appimage": "AppImage",
+          "flatpak": "Flatpak",
+          "native": "deb / rpm",
+          "snap": "Snap",
+          "unknown": "แพ็กเกจที่ไม่รู้จัก"
+        },
+        "linuxPackageDetected": "แพ็กเกจ: {{package}}",
+        "magnetLinks": "ลิงก์แมกเน็ต",
+        "openWindowsSettings": "เปิดการตั้งค่า Windows",
+        "protocolMagnet": "เปิดลิงก์แมกเน็ตด้วย Motrix",
+        "protocolMagnetAppImageDesc": "มีผลทันทีหลังบันทึกเมื่อเปิดการผสานกับเดสก์ท็อป",
+        "protocolMagnetApplyFailed": "บันทึกค่าแล้ว แต่เปลี่ยนการเชื่อมโยงกับเดสก์ท็อปไม่ได้ เลือกแอปเริ่มต้นในการตั้งค่าระบบ",
+        "protocolMagnetDesc": "เปิดลิงก์แมกเน็ตจากเบราว์เซอร์ใน Motrix",
+        "protocolMagnetSandboxDesc": "Motrix จะขอเปลี่ยนแปลงเมื่อบันทึก แต่แซนด์บ็อกซ์หรือสภาพแวดล้อมเดสก์ท็อปอาจให้คุณเลือกแอปเริ่มต้นด้วยตนเอง",
+        "repairLinuxAssociations": "ซ่อมการเชื่อมโยง",
+        "setTorrentDefaultLinux": "ตั้งเป็นแอปเริ่มต้นสำหรับ .torrent",
+        "title": "แอปเริ่มต้น",
+        "torrentAssociation": "เปิดไฟล์ .torrent ด้วย Motrix",
+        "torrentAssociationDesc": "ดับเบิลคลิกไฟล์ .torrent เพื่อเปิดใน Motrix",
+        "torrentAssociationMacDesc": "ใน Finder คลิกขวาที่ไฟล์ .torrent → ขอรายละเอียด → เปิดด้วย → เลือก Motrix → เปลี่ยนทั้งหมด…",
+        "torrentFiles": "ไฟล์ .torrent",
+        "viewLinuxInstructions": "ดูขั้นตอนการตั้งค่า"
+      }
+    },
+    "network": {
+      "description": "พร็อกซี DNS และการตรวจสอบการเชื่อมต่อ",
+      "diagnostic": {
+        "enable": "ตรวจสอบอัตโนมัติ",
+        "enableDesc": "ทำการตรวจสอบที่เปิดไว้ข้างต้นซ้ำเป็นระยะ",
+        "interval": "ช่วงเวลาตรวจสอบ (วินาที)",
+        "title": "การตรวจสอบเครือข่ายอัตโนมัติ"
+      },
+      "diagnostics": "วินิจฉัยเครือข่าย",
+      "dns": {
+        "mode": "การค้นหา DNS",
+        "modeAuto": "อัตโนมัติ",
+        "modeDesc": "วิธีค้นหาที่อยู่เซิร์ฟเวอร์สำหรับการดาวน์โหลด",
+        "modeEngine": "DNS ในตัว",
+        "modeSystem": "DNS ของระบบ",
+        "title": "DNS"
+      },
+      "nat": {
+        "automatic": "อัตโนมัติ",
+        "btPortHint": "แมปพอร์ต BT/DHT ที่กำหนดใน BitTorrent",
+        "enable": "เปิดใช้การแมปพอร์ต",
+        "enableDesc": "ขอให้เราเตอร์เปิดพอร์ตที่กำหนดในการตั้งค่า BitTorrent",
+        "mappingTtl": "ระยะเวลาการแมป (วินาที)",
+        "preferredProtocol": "โพรโทคอลที่ต้องการ",
+        "title": "การแมปพอร์ต (NAT)"
+      },
+      "proxy": {
+        "auth": "การเข้าสู่ระบบพร็อกซี",
+        "authDesc": "เปิดหากพร็อกซีต้องใช้ชื่อผู้ใช้และรหัสผ่าน",
+        "bypass": "เชื่อมต่อโดยตรงไปยัง",
+        "bypassDesc": "หนึ่งโดเมน IP หรือ CIDR ต่อบรรทัด เริ่มด้วย . เพื่อจับคู่เฉพาะโดเมนย่อย การดาวน์โหลดไฟล์ไม่รองรับอักขระตัวแทน *",
+        "bypassPlaceholder": "localhost\n127.0.0.1\n.local",
+        "bypassScopeNote": "เฉพาะการดาวน์โหลดไฟล์และการอัปเดตแอป",
+        "enable": "เปิดใช้พร็อกซี",
+        "enableDesc": "ใช้พร็อกซีสำหรับการเชื่อมต่อที่เลือกด้านล่าง",
+        "hidePassword": "ซ่อนรหัสผ่าน",
+        "host": "ที่อยู่เซิร์ฟเวอร์",
+        "hostPlaceholder": "proxy.example.com",
+        "importFromSystem": "นำเข้าจากระบบ",
+        "importedToast": "นำเข้าพร็อกซีระบบแล้ว: {{host}}:{{port}}",
+        "noSystemProxy": "ไม่ได้ตั้งค่าพร็อกซีระบบ",
+        "password": "รหัสผ่าน",
+        "port": "พอร์ต",
+        "protocol": "โพรโทคอล",
+        "scopeChoose": "เลือก…",
+        "scopeDownload": "การดาวน์โหลดไฟล์",
+        "scopeDownloadDesc": "สำหรับ BT มีเฉพาะ HTTP(S) ที่ใช้พร็อกซี เพียร์ DHT และแทร็กเกอร์ UDP เชื่อมต่อโดยตรง",
+        "scopeHint": "เพียร์ BT, DHT และแทร็กเกอร์ UDP เชื่อมต่อโดยตรง",
+        "scopeNone": "ไม่ได้เลือก",
+        "scopeSeparator": ", ",
+        "scopeUpdateApp": "การอัปเดตแอป",
+        "scopeUpdateAppDesc": "ตรวจหาการอัปเดต Motrix ผ่านพร็อกซี",
+        "scopeUpdateTrackers": "การอัปเดตรายการแทร็กเกอร์",
+        "scopeUpdateTrackersDesc": "ดาวน์โหลดรายการแทร็กเกอร์ผ่านพร็อกซี ไม่กระทบการรับส่งข้อมูล BT",
+        "scopes": "ใช้พร็อกซีสำหรับ",
+        "scopesDesc": "เลือกประเภทการรับส่งข้อมูลที่จะผ่านพร็อกซี",
+        "server": "เซิร์ฟเวอร์",
+        "showPassword": "แสดงรหัสผ่าน",
+        "title": "พร็อกซี",
+        "user": "ชื่อผู้ใช้"
+      },
+      "reachability": {
+        "addEndpoint": "เพิ่มบริการตรวจสอบ",
+        "empty": "เพิ่มบริการตรวจสอบอย่างน้อยหนึ่งแห่ง",
+        "enable": "ตรวจสอบพอร์ตขาเข้า",
+        "endpoints": "บริการตรวจสอบ (HTTPS)",
+        "privacyHint": "ใช้บริการของบุคคลที่สามเพื่อตรวจสอบการเข้าถึงจากอินเทอร์เน็ต",
+        "title": "การตรวจสอบพอร์ตขาเข้า"
+      },
+      "stun": {
+        "addServer": "เพิ่มเซิร์ฟเวอร์ STUN",
+        "empty": "เพิ่มเซิร์ฟเวอร์ STUN อย่างน้อยหนึ่งแห่ง",
+        "enable": "ตรวจจับประเภท NAT",
+        "privacyHint": "ใช้เซิร์ฟเวอร์ STUN ของบุคคลที่สาม",
+        "servers": "เซิร์ฟเวอร์ STUN",
+        "title": "การตรวจจับประเภท NAT"
+      }
+    },
+    "title": "การตั้งค่า",
+    "validation": {
+      "address": "ที่อยู่ {{number}}",
+      "addressDraft": "ที่อยู่ใหม่",
+      "directory": "เลือกโฟลเดอร์ดาวน์โหลด",
+      "httpUrl": "ป้อนที่อยู่เต็มที่ขึ้นต้นด้วย http:// หรือ https://",
+      "httpsUrl": "ป้อนที่อยู่เต็มที่ขึ้นต้นด้วย https://",
+      "integer": "ป้อนจำนวนเต็ม",
+      "integerRange": "ป้อนจำนวนเต็มตั้งแต่ {{min}} ถึง {{max}}",
+      "invalid": "ป้อนค่าที่ถูกต้อง",
+      "itemCount": "ใช้ที่อยู่ไม่เกิน {{max}} รายการ",
+      "loadFailed": "โหลดการตั้งค่าไม่ได้ ลองอีกครั้ง",
+      "maximum": "ป้อน {{max}} หรือน้อยกว่า",
+      "minimum": "ป้อน {{min}} ขึ้นไป",
+      "number": "ป้อนตัวเลขที่ถูกต้อง",
+      "proxyHost": "ป้อนชื่อเซิร์ฟเวอร์หรือที่อยู่ IP โดยไม่ใส่ http:// หรือพอร์ต",
+      "range": "ป้อนตัวเลขตั้งแต่ {{min}} ถึง {{max}}",
+      "rangeHint": "ช่วง: {{min}}–{{max}}",
+      "required": "ป้อนที่อยู่ก่อน",
+      "saveFailed": "บันทึกการเปลี่ยนแปลงไม่ได้ ลองอีกครั้ง",
+      "selection": "เลือกตัวเลือกที่พร้อมใช้งาน",
+      "stunServer": "ใช้ host:port เช่น stun.example.com:3478 พอร์ตต้องอยู่ระหว่าง 1–65535",
+      "text": "นำการขึ้นบรรทัดใหม่หรืออักขระควบคุมที่ซ่อนอยู่ออก",
+      "textLength": "ใช้อักขระไม่เกิน {{max}} ตัว",
+      "time": "ใช้เวลาแบบ 24 ชั่วโมง เช่น 23:00",
+      "wholeBytes": "ลดจำนวนตำแหน่งทศนิยม"
+    }
+  },
+  "task": {
+    "add": {
+      "adding": "กำลังเพิ่ม…",
+      "advanced": "ขั้นสูง",
+      "allProxy": "พร็อกซี",
+      "authorization": "Authorization",
+      "batchCreated": "เพิ่ม {{count}} งานแล้ว",
+      "browse": "เรียกดู",
+      "changeSaveDir": "เปลี่ยนโฟลเดอร์บันทึก",
+      "clearSelection": "ล้างการเลือก",
+      "cookie": "Cookie",
+      "createFailed": "สร้างงานดาวน์โหลดไม่ได้",
+      "createFailedByPlugin": "สร้างงานไม่ได้: ปลั๊กอิน “{{pluginId}}” หยุดการสร้างงาน ({{detail}}) ปิดใช้งานปลั๊กอินนั้นใน การตั้งค่า → ปลั๊กอิน แล้วลองอีกครั้ง",
+      "createFailedPathTooLong": "สร้างงานไม่ได้: เส้นทางปลายทางมี {{length}} อักขระ เกินขีดจำกัด {{limit}} อักขระของ Windows เลือกโฟลเดอร์บันทึกหรือชื่อไฟล์ที่สั้นลง",
+      "createFailedWithReason": "สร้างงานดาวน์โหลดไม่ได้: {{reason}}",
+      "created": "เพิ่มงานแล้ว",
+      "createdCopy": "เพิ่มสำเนาแยกแล้ว",
+      "createdPartial": "เพิ่มแล้ว {{ok}} งาน · ล้มเหลว {{failed}} งาน",
+      "dlLimit": "จำกัดความเร็วดาวน์โหลด",
+      "downloadAllTorrents": "ดาวน์โหลดทั้งหมด ({{count}})",
+      "downloadAndContinue": "ดาวน์โหลดและดำเนินการต่อ",
+      "dropTorrent": "วางไฟล์ .torrent ที่นี่หรือคลิกเพื่อเลือก",
+      "duplicate": {
+        "active-info-hash": "{{name}} กำลังทำงานอยู่แล้ว aria2 ไม่สามารถเรียกใช้งานทอร์เรนต์ที่มีเนื้อหาเดียวกันสองงานพร้อมกันได้",
+        "createCopy": "สร้างสำเนาแยก",
+        "existing-files": "มี {{name}} อยู่ในปลายทางนี้แล้ว แต่ไม่มีประวัติงาน Motrix จะไม่เขียนทับ",
+        "filesOnDisk": "ไฟล์ทอร์เรนต์",
+        "selection-mismatch": "{{name}} ใช้ปลายทางเดียวกันแต่เลือกไฟล์ต่างกัน Motrix จะไม่เขียนทับหรือสร้างสำเนาที่เปลี่ยนชื่อโดยไม่แจ้งให้ทราบ",
+        "showExisting": "แสดงงานที่มีอยู่",
+        "title": "มีทอร์เรนต์นี้อยู่แล้ว"
+      },
+      "errors": {
+        "missingSource": "ต้องมีไฟล์ทอร์เรนต์หรือลิงก์แมกเน็ต",
+        "noFilesSelected": "เลือกอย่างน้อยหนึ่งไฟล์",
+        "saveDirRequired": "ต้องระบุโฟลเดอร์บันทึก",
+        "urlsRequired": "ต้องมี URL อย่างน้อยหนึ่งรายการ"
+      },
+      "filename": "ชื่อไฟล์",
+      "filenameAuto": "อัตโนมัติ",
+      "filterBy": {
+        "audio": "เสียง",
+        "doc": "เอกสาร",
+        "image": "รูปภาพ",
+        "video": "วิดีโอ"
+      },
+      "interpretedCurl": "แยกวิเคราะห์คำสั่ง cURL แล้ว",
+      "interpretedInfoHash": "แปลงแฮชข้อมูล BT เป็นลิงก์แมกเน็ตแล้ว",
+      "interpretedJson": "นำเข้า URL จาก JSON แล้ว",
+      "interpretedMagnet": "ตรวจพบลิงก์แมกเน็ต",
+      "invalidJson": "ต้องเป็นสตริง URL หรืออาร์เรย์ของสตริง URL ในรูปแบบ JSON",
+      "invalidUrlCount": "ใช้ไม่ได้ {{count}} รายการ",
+      "links": "ลิงก์",
+      "parseFailed": "อ่านข้อมูลไฟล์ทอร์เรนต์ไม่ได้",
+      "pickPathCustom": "เส้นทางที่กำหนดเอง",
+      "pickPathTitle": "เลือกโฟลเดอร์บันทึก",
+      "queueAdvanceFailed": "เปิดทอร์เรนต์ถัดไปไม่ได้",
+      "referer": "Referer",
+      "saveDirEmpty": "เลือกโฟลเดอร์…",
+      "saveTo": "บันทึกไปยัง",
+      "seedRatio": "อัตราส่วนการปล่อยไฟล์",
+      "selectionTimeout": {
+        "failed": "เริ่ม {{name}} โดยอัตโนมัติไม่ได้ เปิดรายละเอียดงานเพื่อเลือกไฟล์แล้วลองอีกครั้ง",
+        "started": "หมดเวลาเลือกไฟล์: กำลังดาวน์โหลดทุกไฟล์ใน {{name}}"
+      },
+      "skipTorrent": "ข้าม",
+      "sourceCorrections": {
+        "encodeLiteralCharacters": "เข้ารหัสเป็นอักขระตามตัวอักษร",
+        "useCanonicalUrl": "ใช้ URL ที่ขยายแล้วนี้",
+        "usePathSeparators": "ใช้แบ็กสแลชเป็นตัวคั่นเส้นทาง"
+      },
+      "sourceErrors": {
+        "ambiguousBackslash": "แบ็กสแลชทำให้โฮสต์หรือเส้นทางกำกวม เลือกวิธีตีความ",
+        "ambiguousStructure": "ตัวแยกวิเคราะห์ URL จะเปลี่ยนที่อยู่นี้ ตรวจสอบ URL ที่ขยายแล้ว",
+        "controlCharacter": "นำอักขระควบคุมออกจาก URL",
+        "credentialsInUrl": "ใช้ช่องข้อมูลการยืนยันตัวตนแทนการใส่ข้อมูลรับรองใน URL",
+        "invalidHost": "โฮสต์ของ URL หายไปหรือไม่ถูกต้อง",
+        "invalidMagnet": "ลิงก์แมกเน็ตต้องมีแฮชข้อมูล BT ที่รองรับในพารามิเตอร์ xt",
+        "invalidPercentEncoding": "เครื่องหมายเปอร์เซ็นต์ต้องตามด้วยเลขฐานสิบหกสองหลัก",
+        "invalidPort": "พอร์ตของ URL ไม่ถูกต้อง",
+        "invalidUnicode": "URL มี Unicode ที่ไม่ถูกต้อง",
+        "missingScheme": "ระบุสคีมของ URL เช่น https://",
+        "mixedProtocols": "แหล่งสำรองของการดาวน์โหลดเดียวกันต้องใช้โพรโทคอลในกลุ่มเดียวกัน",
+        "tooManySources": "ข้อมูลที่ป้อนมีจำนวนหรือขนาดของลิงก์เกินขีดจำกัด",
+        "unescapedCharacter": "เข้ารหัสช่องว่างและอักขระสงวนอย่างชัดเจน",
+        "unsupportedInput": "ไม่ได้นำเข้าข้อมูลรูปแบบนี้ วาง URL หรือข้อมูล JSON หรือ Bash cURL ที่รองรับ",
+        "unsupportedProtocol": "การดาวน์โหลดนี้ไม่รองรับโพรโทคอลของ URL นี้",
+        "unsupportedRequestOptions": "ใช้ส่วนหัว HTTP กับการดาวน์โหลด FTP ไม่ได้",
+        "urlTooLong": "URL เกินขีดจำกัด 16 KiB"
+      },
+      "sourceLine": "บรรทัด {{line}}",
+      "split": "การเชื่อมต่อ",
+      "submissionUnconfirmed": "ยังยืนยันผลไม่ได้ การลองอีกครั้งจะตรวจสอบคำขอเดิมก่อนสร้างงานใหม่",
+      "title": "งานใหม่",
+      "torrent": "ทอร์เรนต์",
+      "torrentQueueProgress": "ทอร์เรนต์ {{current}} จาก {{total}}",
+      "ulLimit": "จำกัดความเร็วอัปโหลด",
+      "undoCorrection": "เลิกทำการแก้ไข URL",
+      "unlimited": "ไม่จำกัด",
+      "unsupportedCurl": "ไม่สามารถนำเข้าคำสั่ง cURL นี้โดยคงพฤติกรรมเดิมได้ คัดลอก URL หรือคำสั่ง GET ของ Bash ที่ใช้ตัวเลือกที่รองรับ",
+      "urlPlaceholder": "ป้อน URL ลิงก์แมกเน็ต หรือแฮชข้อมูล BT…",
+      "urlsCount_other": "{{count}} URL",
+      "urlsLabel": "URL",
+      "urlsWithInvalid": "ใช้ได้ {{valid}} รายการ ใช้ไม่ได้ {{invalid}} รายการ",
+      "userAgent": "User-Agent",
+      "validUrlCount": "ใช้ได้ {{count}} รายการ"
+    },
+    "detail": {
+      "peers": "เพียร์: {{count}}",
+      "seeds": "ผู้ปล่อยไฟล์: {{count}}"
+    },
+    "error": {
+      "detail": {
+        "filesMissing": "ไฟล์หายไปหลังจากเริ่มแอปใหม่",
+        "finalizeFailed": "ดำเนินการดาวน์โหลดให้เสร็จไม่ได้: {{cause}}",
+        "magnetCleanupQuarantined": "การล้างข้อมูลเมตาของแมกเน็ตถูกกักกันไว้",
+        "muxFailed": "รวมสื่อที่ดาวน์โหลดไม่ได้",
+        "pathTooLong": "เส้นทางมี {{length}} อักขระ แต่ Windows อนุญาต {{limit}} อักขระ",
+        "pluginChainAborted": "หยุดลำดับการทำงานของปลั๊กอินแล้ว: {{cause}}",
+        "recoveryFailed": "กู้คืนการดาวน์โหลดไม่ได้: {{cause}}",
+        "recoveryOutputConflict": "มีทั้งไฟล์ชั่วคราวและไฟล์สุดท้าย เก็บทั้งสองไฟล์ไว้เพื่อตรวจสอบด้วยตนเอง",
+        "renameDirFailed": "เปลี่ยนชื่อโฟลเดอร์ไม่ได้: {{cause}}",
+        "renameFileFailed": "เปลี่ยนชื่อไฟล์ไม่ได้: {{cause}}"
+      },
+      "hint": {
+        "btMetadataFailed": "ตรวจสอบลิงก์แมกเน็ตหรือเพิ่มแทร็กเกอร์ แล้วลองอีกครั้ง",
+        "checksumMismatch": "ไฟล์ที่ดาวน์โหลดอาจเสียหาย ดาวน์โหลดใหม่เพื่อตรวจสอบ",
+        "diskFull": "เพิ่มพื้นที่ว่างในดิสก์หรือเปลี่ยนโฟลเดอร์บันทึก แล้วลองอีกครั้ง",
+        "fileWriteError": "ตรวจสอบสิทธิ์ของโฟลเดอร์และพื้นที่ดิสก์ที่ว่าง แล้วลองอีกครั้ง",
+        "networkError": "ตรวจสอบการเชื่อมต่อเครือข่าย แล้วลองอีกครั้ง",
+        "pathTooLong": "ใช้เส้นทางโฟลเดอร์บันทึกหรือชื่อไฟล์ที่สั้นลง แล้วลองอีกครั้ง",
+        "timeout": "ตรวจสอบความเร็วและความเสถียรของการเชื่อมต่อ แล้วลองอีกครั้ง",
+        "tooManyRedirects": "ลิงก์ต้นทางอาจใช้ไม่ได้ ลองใช้ลิงก์อื่น",
+        "unauthorized": "ตรวจสอบข้อมูลรับรองหรือสิทธิ์เข้าถึง แล้วลองอีกครั้ง"
+      },
+      "reason": {
+        "btMetadataFailed": "ดึงข้อมูลเมตาของทอร์เรนต์ไม่ได้",
+        "btTrackerError": "เชื่อมต่อแทร็กเกอร์ไม่ได้",
+        "checksumMismatch": "ค่าตรวจสอบไฟล์ไม่ตรงกัน",
+        "diskFull": "ดิสก์เต็ม",
+        "fileWriteError": "เขียนไฟล์ไม่ได้",
+        "generic": "ดาวน์โหลดล้มเหลว",
+        "networkError": "เชื่อมต่อเครือข่ายไม่ได้",
+        "notFound": "ไม่พบไฟล์",
+        "pathTooLong": "เส้นทางไฟล์ยาวเกินไปสำหรับ Windows",
+        "serverError": "เซิร์ฟเวอร์ส่งข้อผิดพลาดกลับมา",
+        "timeout": "หมดเวลาดาวน์โหลด",
+        "tooManyRedirects": "เปลี่ยนเส้นทางมากเกินไป",
+        "unauthorized": "ต้องได้รับสิทธิ์เข้าถึง",
+        "unknown": "ดาวน์โหลดล้มเหลว"
+      }
+    },
+    "recovery": {
+      "finalizeRenameFailed": "เปลี่ยนชื่อไฟล์ไม่ได้ ไฟล์ดาวน์โหลดยังคงมีส่วนต่อท้าย .motrix",
+      "metaMissing": "ข้อมูลเมตาของทอร์เรนต์หายไป เริ่มปล่อยไฟล์ไม่ได้",
+      "reseedFailed": "ดาวน์โหลดเสร็จแล้ว แต่เริ่มปล่อยไฟล์ไม่ได้",
+      "startup": {
+        "dirtyMetadata": "กู้คืนงานนี้ไม่ได้: ไม่มีข้อมูลระบุไฟล์ที่จำเป็นสำหรับการดาวน์โหลดต่อ",
+        "mediaInterrupted": "การดาวน์โหลดสื่อนี้ถูกขัดจังหวะจากการเริ่มแอปใหม่และไม่สามารถดาวน์โหลดต่อได้ เพิ่มงานใหม่เพื่อลองอีกครั้ง",
+        "reAddFailed": "กู้คืนงานนี้ไม่ได้: เอนจินปฏิเสธคำขอเพิ่มงานใหม่ โปรดนำงานออกแล้วเพิ่มใหม่ด้วยตนเอง",
+        "resumeCheckpointMissing": "เก็บไฟล์ที่ดาวน์โหลดบางส่วนไว้แล้ว แต่ข้อมูลจุดดาวน์โหลดต่อหายไป เริ่มใหม่อย่างปลอดภัยหรือเพิ่มงานใหม่",
+        "resumeCredentialsRequired": "เก็บไฟล์ที่ดาวน์โหลดบางส่วนไว้แล้ว แต่การดาวน์โหลดนี้ต้องใช้ข้อมูลรับรองคำขอที่ไม่สามารถส่งซ้ำโดยอัตโนมัติได้",
+        "resumePathInvalid": "เก็บไฟล์ที่ดาวน์โหลดบางส่วนไว้ เนื่องจากเส้นทางบันทึกที่จัดเก็บไว้ไม่ถูกต้อง",
+        "resumeRangeUnsupported": "เก็บไฟล์ที่ดาวน์โหลดบางส่วนไว้ เนื่องจากเซิร์ฟเวอร์ไม่รองรับการดาวน์โหลดต่อตามช่วงข้อมูลอย่างปลอดภัย",
+        "resumeSourceChanged": "เก็บไฟล์ที่ดาวน์โหลดบางส่วนไว้ เนื่องจากไฟล์บนเซิร์ฟเวอร์เปลี่ยนไปหลังจากเริ่มดาวน์โหลด",
+        "resumeValidationFailed": "เก็บไฟล์ที่ดาวน์โหลดบางส่วนไว้ เนื่องจาก Motrix ยืนยันไม่ได้ว่าไฟล์บนเซิร์ฟเวอร์ยังไม่เปลี่ยนแปลง",
+        "torrentMetaMissing": "กู้คืนงาน BitTorrent นี้ไม่ได้: ไฟล์ข้อมูลเมตา .torrent หายไป โปรดนำงานออกแล้วเพิ่มใหม่"
+      },
+      "toast": "กู้คืนงานที่ถูกขัดจังหวะ {{count}} งานแล้ว คลิกเพื่อตรวจสอบ"
+    },
+    "remove": {
+      "cancel": "ยกเลิก",
+      "confirm": "นำออก",
+      "deleteFilesLabel": "ลบไฟล์ที่ดาวน์โหลด",
+      "description": "“{{name}}” จะถูกนำออกจากรายการดาวน์โหลด",
+      "notAvailableDuringFinalize": "โปรดรอให้งานดำเนินการขั้นสุดท้ายเสร็จ",
+      "orphanToast": "นำงานออกแล้ว ไฟล์ยังอยู่ที่ {{path}}",
+      "title": "นำงานออกหรือไม่"
+    },
+    "torrent": {
+      "audio": "เสียง",
+      "column": {
+        "name": "ชื่อไฟล์",
+        "size": "ขนาด",
+        "type": "ประเภทไฟล์"
+      },
+      "doc": "เอกสาร",
+      "fileSelected_other": "เลือก {{count}} ไฟล์แล้ว",
+      "image": "รูปภาพ",
+      "selectAll": "เลือกทั้งหมด",
+      "video": "วิดีโอ"
+    }
+  },
+  "trackers": {
+    "blacklist": {
+      "column": {
+        "source": "แหล่งที่มา",
+        "url": "URL"
+      },
+      "disabled": "ปิดอยู่ — เปิดเพื่อดูรายการบล็อก",
+      "empty": "รายการบล็อกว่างอยู่",
+      "enabled": "ใช้ตัวกรองรายการบล็อก",
+      "enabledDesc": "บล็อกการเชื่อมต่อกับเซิร์ฟเวอร์แทร็กเกอร์ที่น่าสงสัยหรือมีข้อผิดพลาด",
+      "summary": "มีผลกับ {{count}} URL"
+    },
+    "combobox": {
+      "addSource": "เพิ่ม",
+      "addSourcePlaceholder": "https://example.com/list.txt",
+      "builtinBadge": "ในตัว",
+      "cdnBadge": "CDN",
+      "directBadge": "โดยตรง",
+      "empty": "ไม่มีแหล่งข้อมูลที่ตรงกัน",
+      "placeholder": "เลือกแหล่งข้อมูล",
+      "removeSource": "นำแหล่งข้อมูลออก"
+    },
+    "effective": {
+      "column": {
+        "health": "สถานะ",
+        "lastProbedAt": "ตรวจสอบล่าสุด",
+        "responseTimeMs": "การตอบสนอง (ms)",
+        "source": "แหล่งที่มา",
+        "url": "URL"
+      },
+      "disabled": "ปิดอยู่ — เปิดเพื่อดูรายการแทร็กเกอร์ที่ใช้งาน",
+      "empty": "ยังไม่มีแทร็กเกอร์ที่ใช้งาน ซิงค์เพื่อเติมรายการ",
+      "enabled": "เพิ่มแทร็กเกอร์ที่คัดเลือกแล้ว",
+      "enabledDesc": "เพิ่มรายการแทร็กเกอร์ที่คัดเลือกแล้วให้ทุกงาน BitTorrent"
+    },
+    "sync": {
+      "applying": "กำลังใช้รายการแทร็กเกอร์…",
+      "failed": "ซิงค์ไม่สมบูรณ์ ตรวจสอบเครือข่ายหรือแหล่งข้อมูลแล้วลองอีกครั้ง",
+      "fetching": "กำลังดึงรายการแทร็กเกอร์…",
+      "probing": "กำลังตรวจสอบความพร้อมของแทร็กเกอร์…",
+      "syncing": "กำลังซิงค์…",
+      "unavailable": "อ่านสถานะการซิงค์ไม่ได้ ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง"
+    }
+  },
+  "tray": {
+    "checkUpdates": "ตรวจหาการอัปเดต",
+    "manual": "คู่มือ",
+    "newTask": "งานใหม่",
+    "newTorrentTask": "งานทอร์เรนต์ใหม่",
+    "openTorrentFile": "เปิดไฟล์ทอร์เรนต์",
+    "preferences": "การตั้งค่า",
+    "quit": "ออก",
+    "showMotrix": "แสดง Motrix"
+  }
+}

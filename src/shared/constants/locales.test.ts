@@ -3,6 +3,7 @@ import {
   canonicalizeLocale,
   DEFAULT_LOCALE,
   getLocaleDefinition,
+  getLocaleDirection,
   isSupportedLocale,
   resolveSupportedLocale,
   SUPPORTED_LOCALE_CODES,
@@ -10,6 +11,14 @@ import {
 } from './locales'
 
 describe('locale catalog', () => {
+  it('marks Arabic and Persian as RTL and all other bundled locales as LTR', () => {
+    for (const locale of SUPPORTED_LOCALE_CODES) {
+      expect(getLocaleDirection(locale)).toBe(
+        ['ar', 'fa'].includes(locale) ? 'rtl' : 'ltr'
+      )
+    }
+  })
+
   it('keeps locale codes unique and default registered', () => {
     expect(new Set(SUPPORTED_LOCALE_CODES).size).toBe(
       SUPPORTED_LOCALE_CODES.length
@@ -46,6 +55,29 @@ describe('canonicalizeLocale', () => {
 })
 
 describe('resolveSupportedLocale', () => {
+  it.each([
+    ['ar-SA', 'ar'],
+    ['bg-BG', 'bg'],
+    ['ca-ES', 'ca'],
+    ['el-GR', 'el'],
+    ['fa-IR', 'fa'],
+    ['nb-NO', 'nb'],
+    ['nl-NL', 'nl'],
+    ['ro-RO', 'ro'],
+    ['th-TH', 'th'],
+    ['uk-UA', 'uk'],
+  ])(
+    'resolves %s to %s without accepting regional preferences',
+    (candidate, locale) => {
+      expect(resolveSupportedLocale(candidate)).toBe(locale)
+      expect(
+        resolveSupportedLocale(`${candidate.replace('-', '_')}.UTF-8`)
+      ).toBe(locale)
+      expect(isSupportedLocale(locale)).toBe(true)
+      expect(isSupportedLocale(candidate)).toBe(false)
+    }
+  )
+
   it('returns exact and normalized supported matches', () => {
     expect(resolveSupportedLocale('zh-CN')).toBe('zh-CN')
     expect(resolveSupportedLocale('zh_cn')).toBe('zh-CN')

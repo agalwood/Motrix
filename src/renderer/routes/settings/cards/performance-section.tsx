@@ -180,7 +180,7 @@ export function PerformanceSection({
                   <div className="grid grid-cols-4 overflow-hidden rounded-md border border-border bg-background/70">
                     {performanceMetrics.map(({ icon: Icon, label, value }) => (
                       <div
-                        className="flex min-w-0 items-center gap-2 px-2.5 py-2 [&:not(:first-child)]:border-l [&:not(:first-child)]:border-border"
+                        className="flex min-w-0 items-center gap-2 px-2.5 py-2 [&:not(:first-child)]:border-s [&:not(:first-child)]:border-border"
                         key={label}
                       >
                         <Icon
