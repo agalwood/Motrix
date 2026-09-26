@@ -24,6 +24,7 @@ export const SUPPORTED_LOCALES = [
   { code: 'ko', nativeName: '한국어', dir: 'ltr' },
   { code: 'pl', nativeName: 'Polski', dir: 'ltr' },
   { code: 'pt-BR', nativeName: 'Português (Brasil)', dir: 'ltr' },
+  { code: 'ru', nativeName: 'Русский', dir: 'ltr' },
   { code: 'zh-CN', nativeName: '简体中文', dir: 'ltr' },
   { code: 'zh-TW', nativeName: '繁體中文', dir: 'ltr' },
 ] as const satisfies readonly LocaleDefinition[]

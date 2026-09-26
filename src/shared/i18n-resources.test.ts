@@ -393,3 +393,58 @@ describe('bundled Polish translations', () => {
     expect(disclaimer.body).toContain(disclaimer.agree)
   })
 })
+
+describe('bundled Russian translations', () => {
+  it('resolves actions and Russian singular, few, many and fractional forms without English fallback', async () => {
+    const i18n = createInstance()
+    await i18n.init({
+      lng: 'ru',
+      fallbackLng: false,
+      resources: I18N_RESOURCES,
+      interpolation: { escapeValue: false },
+    })
+
+    expect(i18n.t('common.retry')).toBe('Повторить')
+    expect(i18n.t('settings.appearance.followSystem')).toBe('Как в системе')
+    expect(i18n.t('panel.downloads.heading.all')).toBe('Все загрузки')
+    expect(i18n.t('task.remove.description', { name: 'example.zip' })).toBe(
+      'Задача «example.zip» будет удалена из списка загрузок.'
+    )
+    expect(i18n.t('task.remove.deleteFilesLabel')).toBe(
+      'Удалить скачанные файлы'
+    )
+    for (const [count, category, text] of [
+      [0, 'many', 'Выбрано 0 файлов'],
+      [1, 'one', 'Выбран 1 файл'],
+      [2, 'few', 'Выбрано 2 файла'],
+      [4, 'few', 'Выбрано 4 файла'],
+      [5, 'many', 'Выбрано 5 файлов'],
+      [11, 'many', 'Выбрано 11 файлов'],
+      [12, 'many', 'Выбрано 12 файлов'],
+      [14, 'many', 'Выбрано 14 файлов'],
+      [21, 'one', 'Выбран 21 файл'],
+      [22, 'few', 'Выбрано 22 файла'],
+      [25, 'many', 'Выбрано 25 файлов'],
+      [101, 'one', 'Выбран 101 файл'],
+      [111, 'many', 'Выбрано 111 файлов'],
+      [1.5, 'other', 'Выбрано 1.5 файла'],
+      [1000000, 'many', 'Выбрано 1000000 файлов'],
+    ] as const) {
+      const result = i18n.t('task.torrent.fileSelected', {
+        count,
+        returnDetails: true,
+      })
+      expect(result.exactUsedKey).toBe(`task.torrent.fileSelected_${category}`)
+      expect(result.res).toBe(text)
+      expect(result.usedLng).toBe('ru')
+    }
+  })
+
+  it('preserves the usage-notice highlights inside the Russian message', () => {
+    const { disclaimer } = I18N_RESOURCES.ru.translation.onboarding
+    for (const highlight of Object.values(disclaimer.highlights)) {
+      expect(disclaimer.body).toContain(highlight)
+    }
+    expect(disclaimer.body).toContain(disclaimer.agree)
+  })
+})

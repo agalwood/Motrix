@@ -122,6 +122,13 @@ describe('resolveSupportedLocale', () => {
     }
   )
 
+  it.each(['ru', 'ru-RU', 'ru-BY', 'ru_RU.UTF-8'])(
+    'resolves Russian locale %s to the bundled resource',
+    (locale) => {
+      expect(resolveSupportedLocale(locale, 'en-US')).toBe('ru')
+    }
+  )
+
   it.each(['es', 'es-ES', 'es-MX', 'es-419', 'es_ES.UTF-8'])(
     'resolves Spanish locale %s to the bundled resource',
     (locale) => {
@@ -152,6 +159,8 @@ describe('isSupportedLocale', () => {
     expect(isSupportedLocale('pt-BR')).toBe(true)
     expect(isSupportedLocale('pt')).toBe(false)
     expect(isSupportedLocale('pt-PT')).toBe(false)
+    expect(isSupportedLocale('ru')).toBe(true)
+    expect(isSupportedLocale('ru-RU')).toBe(false)
     expect(isSupportedLocale('zh-CN')).toBe(true)
     expect(isSupportedLocale('zh-TW')).toBe(true)
     expect(isSupportedLocale('zh_cn')).toBe(false)
