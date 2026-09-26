@@ -42,22 +42,28 @@ describe('OnboardingLanguageSelect', () => {
     await i18n.changeLanguage('en-US')
   })
 
-  it('switches language immediately and persists only that preference', async () => {
-    const user = userEvent.setup({ pointerEventsCheck: 0 })
-    render(<OnboardingLanguageSelect />)
+  it.each([
+    ['简体中文', 'zh-CN'],
+    ['Français', 'fr'],
+  ])(
+    'switches to %s immediately and persists only that preference',
+    async (name, locale) => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+      render(<OnboardingLanguageSelect />)
 
-    const trigger = screen.getByTestId('onboarding-language')
-    expect(trigger).toHaveClass('min-w-28', 'max-w-64')
-    expect(trigger).not.toHaveClass('w-28')
+      const trigger = screen.getByTestId('onboarding-language')
+      expect(trigger).toHaveClass('min-w-28', 'max-w-64')
+      expect(trigger).not.toHaveClass('w-28')
 
-    await user.click(trigger)
-    await user.click(await screen.findByRole('option', { name: '简体中文' }))
+      await user.click(trigger)
+      await user.click(await screen.findByRole('option', { name }))
 
-    await waitFor(() => expect(i18n.resolvedLanguage).toBe('zh-CN'))
-    expect(document.documentElement).toHaveAttribute('lang', 'zh-CN')
-    expect(transport.invoke).toHaveBeenCalledWith(
-      Commands.SetDisclaimerLanguage,
-      'zh-CN'
-    )
-  })
+      await waitFor(() => expect(i18n.resolvedLanguage).toBe(locale))
+      expect(document.documentElement).toHaveAttribute('lang', locale)
+      expect(transport.invoke).toHaveBeenCalledWith(
+        Commands.SetDisclaimerLanguage,
+        locale
+      )
+    }
+  )
 })

@@ -58,6 +58,7 @@ jobs:
         run: >-
           pnpm exec vitest run
           src/shared/constants/locales.test.ts
+          src/shared/i18n-resources.test.ts
           src/shared/schemas/locale.test.ts
           src/shared/protocol/forwardable-events.test.ts
           src/core/i18n/locale-coordinator.test.ts
