@@ -1,0 +1,2766 @@
+{
+  "operatorUnlock": {
+    "title": "Buka akses Motrix",
+    "help": "Server ini memerlukan token operator. Pada host, atur MOTRIX_OPERATOR_TOKEN atau baca token dari <dataDir>/operator-token, lalu tempelkan di bawah ini.",
+    "placeholder": "Token operator",
+    "error": "Token operator tidak valid. Periksa MOTRIX_OPERATOR_TOKEN atau <dataDir>/operator-token pada host dan coba lagi.",
+    "submit": "Buka akses"
+  },
+  "operatorAdmin": {
+    "help": "Penggunaan:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nPerintah ini hanya berkomunikasi dengan server Motrix yang berjalan melalui loopback kontainer.",
+    "errorPrefix": "motrix-admin: {{message}}",
+    "usageHint": "Jalankan `motrix-admin --help` untuk petunjuk penggunaan.",
+    "pending": {
+      "none": "Tidak ada permintaan pemasangan yang tertunda.",
+      "row": "{{userCode}}  {{clientName}}  {{clientVersion}}  kedaluwarsa dalam {{ttl}}",
+      "ttl": "{{minutes}} mnt {{seconds}} dtk"
+    },
+    "decision": {
+      "approve": "{{userCode}} disetujui untuk {{clientName}} ({{clientVersion}}).",
+      "deny": "{{userCode}} ditolak untuk {{clientName}} ({{clientVersion}})."
+    },
+    "errors": {
+      "usage": {
+        "jsonRepeated": "--json hanya boleh ditentukan satu kali.",
+        "unknownOption": "Opsi baris perintah tidak dikenal.",
+        "pairingCommandRequired": "Perintah pairing diperlukan.",
+        "pairingOperationRequired": "Gunakan pairing pending, pairing approve CODE, atau pairing deny CODE.",
+        "pairingCodeInvalid": "Kode pemasangan harus terdiri dari delapan karakter ASCII dan tidak boleh menggunakan I, O, 0, atau 1.",
+        "portInvalid": "PORT harus berupa bilangan bulat antara 1 dan 65535."
+      },
+      "credential": {
+        "tokenHeaderInvalid": "MOTRIX_OPERATOR_TOKEN tidak dapat digunakan dalam header HTTP.",
+        "dataDirNotAbsolute": "MOTRIX_DATA_DIR harus berupa jalur absolut.",
+        "unavailable": "Kredensial operator tidak tersedia. Atur MOTRIX_OPERATOR_TOKEN atau pastikan operator-token ada di direktori data.",
+        "notFile": "Jalur kredensial operator bukan berkas biasa.",
+        "unreadable": "Kredensial operator tidak dapat dibaca.",
+        "invalid": "Berkas kredensial operator tidak valid.",
+        "rejected": "Kredensial operator ditolak oleh Motrix."
+      },
+      "server": {
+        "responseUnreadable": "Motrix mengembalikan respons yang tidak dapat dibaca.",
+        "responseOversized": "Motrix mengembalikan respons yang terlalu besar.",
+        "responseInvalidJson": "Motrix mengembalikan respons JSON yang tidak valid.",
+        "rpcHttp": "RPC pemasangan Motrix gagal dengan HTTP {{status}}.",
+        "approvalUnavailable": "Persetujuan pemasangan tidak tersedia pada server Motrix yang berjalan.",
+        "pendingResponseInvalid": "Motrix mengembalikan respons permintaan pemasangan tertunda yang tidak valid.",
+        "decisionOutcomeUnknown": "Hasil keputusan pemasangan tidak diketahui. Jalankan pairing pending sebelum mencoba lagi.",
+        "decisionResponseInvalid": "Motrix mengembalikan respons keputusan pemasangan yang tidak valid.",
+        "requestNoLongerPending": "Permintaan pemasangan tidak lagi tertunda.",
+        "noMatchingRequest": "Tidak ada permintaan pemasangan tertunda yang cocok dengan {{userCode}}.",
+        "ambiguousRequest": "Lebih dari satu permintaan pemasangan tertunda cocok dengan {{userCode}}; tidak ada keputusan yang diterapkan.",
+        "unexpected": "Kegagalan motrix-admin yang tidak terduga."
+      },
+      "unavailable": {
+        "loopback": "Server Motrix yang berjalan tidak tersedia melalui loopback kontainer.",
+        "approvalNotReady": "Persetujuan pemasangan belum siap pada server Motrix yang berjalan."
+      }
+    }
+  },
+  "common": {
+    "clearSearch": "Hapus pencarian",
+    "download": "Unduh",
+    "cancel": "Batal",
+    "save": "Simpan",
+    "close": "Tutup",
+    "loading": "Memuat...",
+    "name": "Nama:",
+    "error": "Kesalahan",
+    "remove": "Hapus",
+    "collapse": "Ciutkan",
+    "apply": "Terapkan",
+    "confirm": "Konfirmasi",
+    "status": {
+      "finalizing": "Menyelesaikan…"
+    },
+    "reset": "Atur ulang",
+    "retry": "Coba lagi",
+    "showPassword": "Tampilkan kata sandi",
+    "hidePassword": "Sembunyikan kata sandi"
+  },
+  "quit": {
+    "confirm": {
+      "message_other": "{{count}} unduhan masih aktif.",
+      "detail": "Keluar sekarang akan menjeda unduhan. Yakin ingin keluar?",
+      "quitButton": "Keluar",
+      "dontAskAgain": "Jangan tanyakan lagi"
+    }
+  },
+  "nav": {
+    "dashboard": "Dasbor",
+    "downloads": "Unduhan",
+    "completed": "Selesai",
+    "trackers": "Pelacak",
+    "plugins": "Plugin",
+    "notifications": "Notifikasi",
+    "settings": "Pengaturan"
+  },
+  "chrome": {
+    "minimize": "Minimalkan",
+    "maximize": "Maksimalkan",
+    "restore": "Pulihkan ukuran",
+    "close": "Tutup",
+    "toggleSidebar": "Tampilkan atau sembunyikan bilah samping",
+    "newTask": "Tugas baru",
+    "sidebarTitle": "Bilah samping",
+    "sidebarDescription": "Navigasi aplikasi."
+  },
+  "tray": {
+    "newTask": "Tugas baru",
+    "newTorrentTask": "Tugas torrent baru",
+    "openTorrentFile": "Buka berkas torrent",
+    "showMotrix": "Tampilkan Motrix",
+    "manual": "Panduan",
+    "checkUpdates": "Periksa pembaruan",
+    "preferences": "Pengaturan",
+    "quit": "Keluar"
+  },
+  "panel": {
+    "connection": {
+      "polling": "Pembaruan berkala",
+      "reconnecting": "Menghubungkan kembali ke server…",
+      "unavailable": "Server tidak dapat dijangkau",
+      "originMismatch": "Alamat akses tidak cocok"
+    },
+    "dashboard": {
+      "title": "Dasbor",
+      "engine": {
+        "title": "Mesin",
+        "features": "Fitur",
+        "startFailed": "Mesin aria2 tidak dapat dimulai",
+        "state": {
+          "ready": "Siap",
+          "starting": "Memulai…",
+          "reconnecting": "Menghubungkan kembali…",
+          "failed": "Gagal",
+          "disconnected": "Terputus",
+          "stopped": "Berhenti"
+        },
+        "name": "Aria2",
+        "version": "Versi",
+        "rpcPort": "Port RPC",
+        "listenPort": "Port penerima",
+        "diagnostics": {
+          "title": "Diagnostik mesin",
+          "description": "Periksa mesin, identifikasi proses yang menggunakan port RPC Motrix, dan pulihkan dengan aman.",
+          "open": "Diagnosis",
+          "checking": "Memeriksa mesin…",
+          "runAgain": "Jalankan lagi",
+          "loadFailed": "Diagnostik mesin tidak dapat dijalankan.",
+          "currentStatus": "Status saat ini",
+          "lastChecked": "Diperiksa pada {{time}}",
+          "checks": {
+            "binary": "Mesin",
+            "features": "Fitur",
+            "rpc": "Port RPC",
+            "process": "Proses",
+            "communication": "Koneksi"
+          },
+          "binary": {
+            "available": "{{name}} {{version}}",
+            "unavailable": "{{name}} tidak ditemukan atau tidak dapat dimulai."
+          },
+          "features": {
+            "none": "Tidak dilaporkan",
+            "unavailable": "Tidak tersedia"
+          },
+          "rpc": {
+            "listening": "{{port}} (Menerima koneksi)",
+            "available": "{{port}} (Tersedia)",
+            "occupied": "{{port}} (Sedang digunakan)"
+          },
+          "process": {
+            "none": "Tidak ada konflik port",
+            "unidentified": "Tidak teridentifikasi, tidak akan dihentikan",
+            "current_app": "PID {{pid}} ({{name}}), dikelola oleh Motrix",
+            "verified_orphan": "PID {{pid}} ({{name}}), terverifikasi sebagai proses sisa Motrix; aman untuk dihentikan",
+            "external_aria2": "PID {{pid}} ({{name}}), kepemilikan belum terverifikasi; tidak akan dihentikan",
+            "other": "PID {{pid}} ({{name}}), kepemilikan belum terverifikasi; tidak akan dihentikan",
+            "unknown": "PID {{pid}}, tidak teridentifikasi; tidak akan dihentikan"
+          },
+          "communication": {
+            "ready": "Motrix dapat berkomunikasi dengan aria2."
+          },
+          "reason": {
+            "port_in_use": "Port RPC Motrix sedang digunakan, sehingga mesin aria2 tidak dapat dimulai.",
+            "binary_unavailable": "Berkas eksekusi aria2 bawaan tidak ditemukan atau tidak tersedia.",
+            "spawn_failed": "Proses aria2 tidak dapat dibuat.",
+            "rpc_unavailable": "Mesin aria2 telah dimulai, tetapi tidak menerima koneksi RPC Motrix.",
+            "unexpected_exit": "Mesin aria2 berhenti secara tak terduga.",
+            "health_check_failed": "aria2 berhenti merespons Motrix.",
+            "unknown": "Mesin aria2 tidak dapat dimulai karena alasan yang tidak diketahui."
+          },
+          "recommendation": {
+            "title": "Pemulihan yang disarankan",
+            "retry": "Port tersedia. Coba jalankan aria2 lagi tanpa mengubah pengaturan.",
+            "force_terminate": "Proses ini terverifikasi sebagai milik Motrix. Hentikan paksa proses dengan PID {{pid}}, lalu mulai ulang aria2 pada port RPC Motrix {{rpcPort}}.",
+            "switch_port": "Proses tidak dapat dihentikan dengan aman. Gunakan port {{port}} hanya sebagai alternatif, atau tutup sendiri proses yang berkonflik."
+          },
+          "technicalDetails": "Detail teknis",
+          "retry": "Coba lagi",
+          "restart": "Mulai ulang mesin",
+          "switchPort": "Gunakan port {{port}}",
+          "forceRecover": "Hentikan paksa dan pulihkan",
+          "recovered": "Mesin aria2 tersedia kembali.",
+          "recoveredOnPort": "Mesin aria2 dipulihkan pada port RPC {{port}}.",
+          "recoveryFailed": "Pemulihan mesin gagal. Jalankan diagnostik lagi untuk melihat status terbaru.",
+          "fallback": {
+            "available": "Port bawaan Motrix {{port}} tersedia dan dapat dipulihkan sekarang.",
+            "verifiedOrphan": "Proses sisa aria2 Motrix yang terverifikasi (PID {{pid}}) menggunakan port bawaan {{port}}. Motrix dapat menghentikannya dengan aman sebelum memulihkan port.",
+            "blocked": "Port bawaan {{port}} digunakan oleh PID {{pid}} ({{name}}), tetapi Motrix tidak dapat memverifikasi kepemilikannya. Proses tidak akan dihentikan.",
+            "unidentified": "Proses yang menggunakan port bawaan {{port}} tidak dapat diidentifikasi. Motrix akan tetap menggunakan port saat ini.",
+            "restore": "Pulihkan port bawaan Motrix {{port}}",
+            "restoring": "Memulihkan port bawaan Motrix {{port}}…",
+            "restoredDefault": "Port RPC bawaan Motrix {{port}} telah dipulihkan.",
+            "confirm": {
+              "title": "Hentikan proses sisa dan pulihkan port {{port}}?",
+              "description": "Proses dengan PID {{pid}} terverifikasi sebagai proses sisa aria2 Motrix. Proses akan dihentikan, port bawaan {{port}} akan disimpan, lalu aria2 akan dimulai ulang.",
+              "action": "Hentikan dan pulihkan port {{port}}"
+            }
+          },
+          "confirmForce": {
+            "title": "Hentikan paksa proses sisa aria2?",
+            "description": "Proses dengan PID {{pid}} cocok dengan berkas eksekusi bawaan, rahasia RPC privat, dan jalur data Motrix. Proses akan segera dihentikan, lalu aria2 dimulai ulang pada port RPC Motrix.",
+            "action": "Hentikan paksa dan pulihkan"
+          },
+          "details": "Detail diagnostik",
+          "versionUnknown": "Versi tidak tersedia",
+          "copy": "Salin diagnostik",
+          "copied": "Disalin",
+          "copyFailed": "Diagnostik tidak dapat disalin. Coba lagi.",
+          "refreshFailed": "Diagnostik tidak dapat dimuat ulang. Laporan terakhir yang berhasil ditampilkan di bawah ini.",
+          "summary": {
+            "ready": "Mesin unduhan berjalan normal",
+            "starting": "Mesin unduhan sedang dimulai",
+            "restarting": "Mesin unduhan sedang dipulihkan",
+            "stopped": "Mesin unduhan berhenti",
+            "port_in_use": "Port kontrol mesin sedang digunakan",
+            "binary_unavailable": "Mesin unduhan tidak tersedia",
+            "spawn_failed": "Mesin unduhan tidak dapat dimulai",
+            "rpc_unavailable": "Koneksi kontrol mesin tidak tersedia",
+            "unexpected_exit": "Mesin unduhan berhenti secara tak terduga",
+            "health_check_failed": "Mesin unduhan berhenti merespons",
+            "unknown": "Mesin unduhan tidak tersedia"
+          },
+          "impact": {
+            "failed": "Kontrol unduhan tidak tersedia. Status tugas mungkin belum diperbarui.",
+            "connecting": "Kontrol unduhan akan tersedia setelah mesin siap.",
+            "stopped": "Mulai mesin untuk memulai atau mengelola unduhan."
+          },
+          "runtime": {
+            "process": "Proses",
+            "running": "Berjalan",
+            "notRunning": "Tidak berjalan",
+            "connection": "Koneksi",
+            "connected": "Terhubung",
+            "connecting": "Menghubungkan…",
+            "disconnected": "Tidak terhubung",
+            "unavailable": "Tidak tersedia",
+            "connectionStatus": "{{transport}} ({{status}})"
+          },
+          "port": {
+            "available": "{{port}} (Tersedia)",
+            "listening": "{{port}} (Menerima koneksi)",
+            "occupied": "{{port}} (Sedang digunakan)"
+          },
+          "motrixEngine": "aria2 Motrix",
+          "transport": {
+            "websocket": "WebSocket"
+          }
+        }
+      },
+      "speed": {
+        "up": "UNGGAH",
+        "down": "UNDUH",
+        "peak": "Puncak {{value}}",
+        "offline": "luring"
+      },
+      "speedUp": {
+        "title": "Kecepatan unggah"
+      },
+      "speedDown": {
+        "title": "Kecepatan unduh"
+      },
+      "active": {
+        "title": "Tugas aktif",
+        "downloading": "Mengunduh",
+        "seeding": "Seeding",
+        "waiting": "Menunggu",
+        "error": "Kesalahan",
+        "engineOffline": "mesin luring"
+      },
+      "transfer": {
+        "title": "Transfer",
+        "rangeLabel": "Periode transfer",
+        "scope": {
+          "today": "Hari ini",
+          "allTime": "Sepanjang waktu"
+        },
+        "download": "Unduh",
+        "upload": "Unggah",
+        "sinceTime": "Sejak {{time}}",
+        "sinceDate": "Sejak {{date}}",
+        "empty": {
+          "today": "Belum ada transfer yang tercatat hari ini.",
+          "allTime": "Belum ada transfer yang tercatat."
+        },
+        "loading": "Memuat data transfer",
+        "unavailable": "Data transfer tidak tersedia",
+        "retry": "Coba lagi",
+        "updated": "Diperbarui {{time}}",
+        "outOfDate": "Data mungkin belum diperbarui",
+        "totalLabel": "Total transfer {{scope}}: {{value}}"
+      },
+      "activity": {
+        "title": "Aktivitas",
+        "loading": "Memuat aktivitas",
+        "unavailable": "Aktivitas tidak tersedia",
+        "retry": "Coba lagi",
+        "stale": "Aktivitas mungkin belum diperbarui",
+        "coverageDegraded": "Data aktivitas mungkin tidak lengkap sejak {{time}}",
+        "rangeSummary": "{{weeks}} minggu aktivitas unduhan, {{start}} hingga {{end}}",
+        "completedIntensity": "Intensitas warna menunjukkan unduhan selesai",
+        "less": "Lebih sedikit",
+        "more": "Lebih banyak",
+        "weekday": {
+          "sun": "Min",
+          "mon": "Sen",
+          "tue": "Sel",
+          "wed": "Rab",
+          "thu": "Kam",
+          "fri": "Jum",
+          "sat": "Sab"
+        },
+        "tooltip": {
+          "completed": "{{count}} selesai",
+          "submitted": "{{count}} ditambahkan",
+          "recovered": "Termasuk unduhan selesai yang terdeteksi saat pemulihan",
+          "recoveredCount": "{{count}} dipulihkan",
+          "untracked": "Belum dilacak",
+          "noData": "Tidak ada data aktivitas",
+          "noDataOnDate": "Tidak ada data aktivitas pada {{date}}",
+          "completedOnDate": "{{count}} selesai pada {{date}}",
+          "partial": "Pelacakan dimulai pada {{time}}",
+          "partialShort": "Sebagian hari",
+          "coverage": "Cakupan mungkin tidak lengkap sejak {{time}}",
+          "coverageShort": "Data mungkin tidak lengkap",
+          "today": "Hari ini, masih diperbarui"
+        }
+      },
+      "tasks": {
+        "title": "Tugas",
+        "viewLabel": "Tampilan tugas",
+        "view": {
+          "active": "Aktif",
+          "failed": "Gagal",
+          "recent": "Terbaru"
+        },
+        "newTask": "Tugas baru",
+        "more": "+{{count}} lainnya",
+        "loading": "Memuat tugas",
+        "unavailable": "Tugas tidak tersedia",
+        "retry": "Coba lagi",
+        "empty": {
+          "active": "Tidak ada tugas aktif",
+          "failed": "Tidak ada tugas gagal",
+          "recent": "Belum ada yang selesai"
+        },
+        "offline": "Mesin luring",
+        "metric": {
+          "fetching": "Mengambil",
+          "ready": "Siap",
+          "finalizing": "Menyelesaikan",
+          "queued": "Dalam antrean",
+          "paused": "Dijeda"
+        },
+        "secondary": {
+          "metadata": "Mengambil metadata",
+          "chooseFiles": "Menunggu pemilihan berkas",
+          "finalizing": "Menyelesaikan unduhan",
+          "waiting": "Menunggu dimulai",
+          "eta": "Perkiraan sisa {{time}}",
+          "ratio": "Rasio {{ratio}}",
+          "saved": "{{percent}}% tersimpan",
+          "offline": "Luring (progres terakhir yang diketahui)",
+          "completed": "Selesai {{time}}",
+          "failed": "Gagal: {{reason}}",
+          "technicalDetail": "Detail teknis: {{detail}}"
+        },
+        "progressLabel": "Progres {{name}}"
+      },
+      "configure": {
+        "action": "Atur",
+        "addTile": "Tambahkan",
+        "addTitle": "Tambahkan kartu",
+        "apply": "Terapkan",
+        "cancel": "Batal",
+        "reset": "Atur ulang",
+        "drag": "Seret kartu",
+        "removeTile": "Hapus kartu",
+        "resizeTile": "Ubah ukuran kartu",
+        "sizeGroup": "Ukuran kartu",
+        "size": "{{width}} × {{height}}",
+        "currentSize": "Ukuran saat ini: {{width}} × {{height}}",
+        "invalidCapacity": "Ruang tidak cukup untuk ukuran ini",
+        "availabilityHints": {
+          "space": "Perkecil atau hapus kartu lain.",
+          "bounds": "Pindahkan kartu ke dalam terlebih dahulu.",
+          "unsupported": "Pilih ukuran yang didukung."
+        },
+        "sizeLabels": {
+          "compact": "Ringkas",
+          "wide": "Lebar",
+          "tall": "Tinggi",
+          "large": "Besar",
+          "fullWidth": "Lebar penuh",
+          "fullHeight": "Tinggi penuh"
+        },
+        "sizeUnavailable": {
+          "unsupported": "Tidak didukung",
+          "outOfBounds": "Tidak muat",
+          "insufficientSpace": "Ruang tidak cukup"
+        },
+        "presets": {
+          "action": "Prasetel",
+          "custom": "Khusus",
+          "undo": "Urungkan prasetel terakhir",
+          "balanced": {
+            "title": "Seimbang"
+          },
+          "taskFocus": {
+            "title": "Fokus tugas"
+          },
+          "speedFocus": {
+            "title": "Fokus kecepatan"
+          },
+          "compact": {
+            "title": "Ringkas"
+          }
+        },
+        "saveFailed": "Tata letak tidak dapat disimpan. Coba lagi.",
+        "expandHint": "Perbesar jendela untuk mengatur tata letak Dasbor."
+      },
+      "errors": {
+        "tileFailed": "{{tile}}: gagal ditampilkan",
+        "retry": "Coba lagi"
+      },
+      "speedLimit": {
+        "title": "Batas kecepatan",
+        "unlimited": "Tanpa batas",
+        "smart": "Otomatis",
+        "settings": "Pengaturan batas kecepatan",
+        "turtle": {
+          "off": "Mode standar",
+          "on": "Mode kecepatan rendah",
+          "auto": "Mode otomatis"
+        },
+        "tooltip": {
+          "off": "Gunakan batas kecepatan standar",
+          "on": "Gunakan batas kecepatan rendah sekarang",
+          "auto": "Sesuaikan kecepatan secara otomatis berdasarkan jadwal dan bandwidth"
+        },
+        "reason": {
+          "base": "Batas standar",
+          "turtle": "Mode kecepatan rendah",
+          "schedule": "Jadwal",
+          "videoApp": "Aplikasi video",
+          "adaptive": "Cadangan bandwidth"
+        }
+      },
+      "nat": {
+        "title": "NAT",
+        "compact": {
+          "state": {
+            "active": "Dipetakan",
+            "settingUp": "Memetakan",
+            "failed": "Pemetaan",
+            "off": "Nonaktif"
+          },
+          "caption": {
+            "active_other": "{{count}} port",
+            "settingUp": "Menghubungkan…",
+            "failed": "Tidak tersedia",
+            "off": "BT / DHT",
+            "waiting": "Memuat…"
+          }
+        },
+        "internalIp": "IP lokal",
+        "gatewayIp": "Router",
+        "caption": {
+          "off": "Pemetaan port BT dinonaktifkan.",
+          "settingUp": "Menghubungkan ke router…",
+          "failed": "Pemetaan otomatis tidak tersedia.",
+          "waiting": "Menunggu status jaringan…"
+        },
+        "mappingDetails": "Port yang dipetakan",
+        "mappingPurpose": {
+          "bt-listen": "BitTorrent",
+          "dht-listen": "DHT"
+        },
+        "portMapping": "Internal {{internal}} ke eksternal {{external}}",
+        "noMappings": "Tidak ada pemetaan port aktif.",
+        "state": {
+          "active": "Aktif",
+          "settingUp": "Menginisialisasi",
+          "failed": "Gagal",
+          "off": "Nonaktif"
+        },
+        "retrying": "Mencoba lagi {{attempt}}/{{max}}",
+        "type": "Jenis",
+        "externalIp": "IP eksternal",
+        "mappings": "Pemetaan",
+        "mappingsValue_other": "{{count}} aktif",
+        "health": "Kondisi",
+        "healthScore": {
+          "good": "Baik",
+          "fair": "Cukup",
+          "poor": "Buruk",
+          "unknown": "—"
+        },
+        "natType": {
+          "open": "Terbuka",
+          "fullcone": "Full cone",
+          "restricted": "Terbatas",
+          "port-restricted": "Terbatas berdasarkan port",
+          "symmetric": "Simetris",
+          "blocked": "Diblokir",
+          "unknown": "Tidak diketahui"
+        },
+        "lastCheck": "Pemeriksaan terakhir",
+        "lastCheckNever": "Belum pernah",
+        "actions": {
+          "group": "Kontrol NAT",
+          "enable": "Aktifkan NAT",
+          "disable": "Nonaktifkan NAT",
+          "remap": "Paksa pemetaan ulang",
+          "diagnose": "Jalankan diagnostik",
+          "troubleshoot": "Panduan pemecahan masalah NAT",
+          "short": {
+            "enable": "Aktifkan",
+            "disable": "Nonaktifkan",
+            "remap": "Petakan ulang",
+            "diagnose": "Diagnosis",
+            "help": "Bantuan"
+          },
+          "settings": "Pengaturan NAT"
+        },
+        "rateLimited": "Terlalu sering — tunggu sebentar, lalu coba lagi",
+        "none": "—"
+      }
+    },
+    "completed": {
+      "title": "Selesai",
+      "desc": "Tugas unduhan yang selesai"
+    },
+    "trackers": {
+      "title": "Pelacak",
+      "desc": "Kelola kondisi dan langganan pelacak",
+      "tab": {
+        "effective": "Digunakan",
+        "blacklist": "Daftar blokir"
+      },
+      "searchPlaceholder": "Filter berdasarkan URL…",
+      "syncNow": "Sinkronkan sekarang"
+    },
+    "downloads": {
+      "title": "Unduhan",
+      "heading": {
+        "all": "Semua unduhan",
+        "active": "Unduhan aktif",
+        "completed": "Unduhan selesai",
+        "error": "Unduhan gagal"
+      },
+      "status": {
+        "queued": "Dalam antrean",
+        "fetchingMetadata": "Mengambil",
+        "metadataReady": "Menunggu pemilihan berkas",
+        "downloading": "Mengunduh",
+        "finalizing": "Menyelesaikan",
+        "seeding": "Seeding",
+        "paused": "Dijeda",
+        "completed": "Selesai",
+        "error": "Kesalahan"
+      },
+      "column": {
+        "name": "Nama",
+        "size": "Ukuran",
+        "progress": "Progres",
+        "down": "Kecepatan unduh",
+        "up": "Kecepatan unggah",
+        "eta": "Perkiraan sisa",
+        "connections": "Peer",
+        "status": "Status",
+        "createdAt": "Tanggal dibuat",
+        "finishedAt": "Tanggal selesai"
+      },
+      "columnHeader": {
+        "down": "Unduh",
+        "up": "Unggah"
+      },
+      "timestamp": {
+        "notRecorded": "Tidak tercatat",
+        "notCompleted": "Belum selesai",
+        "relativeDateTime": "{{date}}, {{time}}"
+      },
+      "sort": {
+        "down": "Kecepatan unduh",
+        "up": "Kecepatan unggah",
+        "asc": "{{column}}: menaik",
+        "desc": "{{column}}: menurun",
+        "sortAscending": "Urutkan {{column}} secara menaik",
+        "sortDescending": "Urutkan {{column}} secara menurun",
+        "reset": "Pulihkan urutan bawaan"
+      },
+      "empty": {
+        "noTasks": "Belum ada unduhan",
+        "noTasksCta": "Tekan + untuk menambahkan unduhan",
+        "noMatchFilter": "Tidak ada tugas yang cocok dengan filter ini",
+        "noMatchSearch": "Tidak ada tugas yang cocok dengan “{{query}}”",
+        "clearSearch": "Hapus pencarian",
+        "unavailable": "Tugas tidak tersedia",
+        "motion": {
+          "open": "Atur gerakan kaca",
+          "title": "Gerakan kaca",
+          "description": "Pratinjau pengembangan",
+          "enabled": "Efek gerakan",
+          "enabledDesc": "Disinkronkan dengan Tampilan → Kurangi gerakan. Perubahan langsung disimpan.",
+          "systemReducedMotion": "Gerakan dinonaktifkan oleh preferensi Kurangi gerakan pada sistem.",
+          "saveFailed": "Pengaturan gerakan tidak dapat disimpan. Coba lagi.",
+          "loadFade": "Efek muncul perlahan saat dimuat",
+          "breathing": "Cahaya berdenyut",
+          "pointerFollow": "Ikuti penunjuk",
+          "positionConstraint": "Batas posisi gravitasi",
+          "horizontalSpeed": "Kecepatan horizontal"
+        }
+      },
+      "stats": {
+        "downSpeed": "Kecepatan unduh",
+        "upSpeed": "Kecepatan unggah",
+        "engineOk": "Mesin siap",
+        "engineStarting": "Mesin sedang dimulai",
+        "engineOffline": "Mesin luring",
+        "natActive": "NAT dipetakan",
+        "natActiveDesc": "Membantu peer BT lain terhubung dengan Anda.",
+        "natSettingUp": "Pemetaan NAT",
+        "natRetrying": "Percobaan ulang otomatis ({{attempt}}/{{max}})",
+        "natMapping": "Pemetaan NAT",
+        "natUnavailable": "Pemetaan otomatis tidak tersedia",
+        "natUnavailableDesc": "Tidak memengaruhi unduhan tautan. Koneksi BT mungkin terbatas.",
+        "natRetry": "Coba lagi",
+        "natDisable": "Nonaktifkan pemetaan NAT",
+        "natSettings": "Pengaturan jaringan",
+        "natHelp": "Panduan jaringan"
+      },
+      "tab": {
+        "all": "Semua",
+        "active": "Aktif",
+        "completed": "Selesai",
+        "error": "Kesalahan"
+      },
+      "inspector": {
+        "overview": {
+          "transfer": "Transfer",
+          "progress": "Progres",
+          "network": "Jaringan",
+          "general": "Umum",
+          "createdAt": "Dibuat",
+          "finishedAt": "Selesai",
+          "downSpeed": "Kecepatan unduh",
+          "upSpeed": "Kecepatan unggah",
+          "eta": "Perkiraan sisa",
+          "downloaded": "Diunduh",
+          "totalSize": "Ukuran total",
+          "percent": "Persentase",
+          "peers": "Peer",
+          "seeds": "Seeder",
+          "ratio": "Rasio",
+          "type": "Jenis",
+          "infoHash": "Info hash",
+          "private": "Privat",
+          "connections": "Koneksi",
+          "uploaded": "Diunggah",
+          "seedingTime": "Waktu seeding",
+          "seedingRecordedSince": "Dicatat sejak {{date}}. Waktu dijeda dan luring tidak dihitung; riwayat seeding sebelumnya tidak tersedia.",
+          "seedingUnavailable": "Waktu seeding belum dicatat untuk tugas ini."
+        },
+        "activity": {
+          "transferTitle": {
+            "session": "Transfer sesi",
+            "lifetime": "Transfer sepanjang waktu"
+          },
+          "download": "Unduh",
+          "upload": "Unggah",
+          "loading": "Memuat aktivitas…",
+          "collecting": "Mengumpulkan data transfer…",
+          "noSessionHistory": "Belum ada transfer yang tercatat dalam sesi aplikasi ini.",
+          "lifetimeEmpty": "Riwayat sepanjang waktu belum tersedia.",
+          "noTraffic": "Tidak ada lalu lintas jaringan saat ini.",
+          "unavailable": "Aktivitas sepanjang waktu tidak tersedia.",
+          "coverageGap": "Pelacakan terputus.",
+          "retry": "Coba lagi",
+          "notAvailable": "Tidak tersedia",
+          "stale": {
+            "short": "Data belum diperbarui.",
+            "message": "Data mungkin belum diperbarui. Terakhir diperbarui {{time}}."
+          },
+          "range": {
+            "label": "Rentang waktu transfer",
+            "session": "Sesi (60 dtk)",
+            "lifetime": "Sepanjang waktu",
+            "latest": "60 detik terakhir",
+            "adaptive_other": "Resolusi adaptif · {{count}} sampel"
+          },
+          "timeline": {
+            "title": "Riwayat tugas",
+            "current": "Saat ini {{status}}",
+            "cluster_other": "+{{count}} peristiwa",
+            "repeated": "{{label}} ×{{count}}",
+            "truncated_other": "{{count}} peristiwa dari riwayat terdahulu dipangkas",
+            "truncatedAt": "Pemangkasan paling awal: {{time}}",
+            "timeRange": "{{start}}–{{end}}",
+            "detailTitle": "Detail {{label}}",
+            "destination": "{{event}} {{status}}",
+            "previous": "Tampilkan peristiwa linimasa sebelumnya",
+            "next": "Tampilkan peristiwa linimasa berikutnya",
+            "event": {
+              "added": "Ditambahkan",
+              "started": "Dimulai",
+              "paused": "Dijeda",
+              "resumed": "Dilanjutkan",
+              "stage_changed": "Tahap berubah",
+              "completed": "Selesai",
+              "failed": "Gagal",
+              "observed_state": "Status dipulihkan"
+            },
+            "status": {
+              "queued": "Dalam antrean",
+              "fetching_metadata": "Mengambil metadata",
+              "metadata_ready": "Metadata siap",
+              "downloading": "Mengunduh",
+              "finalizing": "Menyelesaikan",
+              "seeding": "Seeding",
+              "paused": "Dijeda",
+              "completed": "Selesai",
+              "error": "Gagal",
+              "removed": "Dihapus dari daftar"
+            }
+          },
+          "summary": {
+            "title": "Ringkasan saat ini",
+            "average": "Rata-rata",
+            "averageExpanded": "Kecepatan unduh rata-rata",
+            "peak": "Puncak",
+            "peakExpanded": "Kecepatan unduh puncak",
+            "active": "Aktif",
+            "activeExpanded": "Waktu transfer aktif"
+          },
+          "chart": {
+            "accessibleSummary": "{{range}} dari {{start}} hingga {{end}}. Kecepatan terbaru: unduh {{download}}, unggah {{upload}}. Sepanjang waktu: unduh rata-rata {{average}}, unduh puncak {{peak}}, aktif {{activeDuration}}. {{sampleLabel}}. {{state}}",
+            "activeSeconds_other": "{{count}} detik",
+            "sampleCount_other": "{{count}} sampel",
+            "noDataQualityIssues": "Tidak ada peringatan pelacakan."
+          }
+        },
+        "pieces": {
+          "mapLabel": "Peta potongan unduhan",
+          "legend": {
+            "done": "Selesai",
+            "active": "Mengunduh",
+            "endgame": "Tahap akhir",
+            "pending": "Menunggu"
+          },
+          "empty": "Tidak ada data potongan",
+          "pieceLength": "Ukuran potongan",
+          "totalPieces": "Jumlah potongan"
+        },
+        "peers": {
+          "summary_other": "{{count}} peer ({{seeders}} seeder)",
+          "empty": "Tidak ada peer yang terhubung",
+          "col": {
+            "country": "Lokasi",
+            "endpoint": "IP : Port",
+            "client": "Klien",
+            "down": "↓",
+            "up": "↑",
+            "progress": "%",
+            "flags": "Penanda",
+            "flagsHint": "D = peer mengirim kepada kita, U = kita mengirim kepada peer, S = peer adalah seeder. Garis bawah berarti tidak aktif."
+          }
+        },
+        "trackers": {
+          "summary_other": "{{count}} pelacak",
+          "driftSuffix_other": "{{count}} tidak ada dalam daftar global",
+          "privateBanner": "Torrent privat — pelacak global tidak akan digabungkan.",
+          "empty": "Tidak ada pelacak",
+          "loadFailed": "Gagal memuat pelacak: {{reason}}",
+          "action": {
+            "edit": "Edit",
+            "save": "Simpan",
+            "cancel": "Batal",
+            "sync": "Sinkronkan",
+            "delete": "Hapus pelacak"
+          },
+          "syncPrivateDisabled": "Sinkronisasi tidak tersedia untuk torrent privat.",
+          "saveFailed": "Gagal memperbarui pelacak: {{reason}}",
+          "syncFailed": "Gagal menyinkronkan pelacak: {{reason}}",
+          "deleteFailed": "Gagal menghapus pelacak: {{reason}}",
+          "invalidLines_other": "{{count}} baris tidak valid dilewati",
+          "editPlaceholder": "Satu URL pelacak per baris. Hanya http(s)/udp/ws(s).",
+          "editHint": "Pelacak ini menggantikan daftar bt-tracker yang digunakan oleh tugas. Entri announce-list dari .torrent tidak terpengaruh."
+        },
+        "multi": {
+          "totals": "Total",
+          "liveSpeed": "Kecepatan saat ini",
+          "statusDist": "Distribusi status",
+          "totalSize": "Ukuran total",
+          "downloaded": "Diunduh",
+          "avgProgress": "Progres rata-rata",
+          "combinedDown": "Gabungan ↓",
+          "combinedUp": "Gabungan ↑",
+          "longestEta": "Perkiraan sisa terlama"
+        },
+        "tab": {
+          "overview": "Ringkasan",
+          "files": "Berkas",
+          "pieces": "Potongan",
+          "peers": "Peer",
+          "trackers": "Pelacak",
+          "activity": "Aktivitas"
+        },
+        "placeholder": {
+          "files": "Daftar berkas.",
+          "peers": "Daftar peer.",
+          "trackers": "Daftar pelacak."
+        }
+      },
+      "action": {
+        "pause": "Jeda",
+        "queueMoveFailed": "Antrean tunggu tidak dapat diperbarui.",
+        "queueTaskStarted": "Tugas sudah tidak ada dalam antrean tunggu.",
+        "queueMoveHint": "Posisi dalam antrean menentukan unduhan mana yang dimulai berikutnya. Pengurutan kolom disimpan secara terpisah.",
+        "queueBoundary": "Pilihan sudah berada di batas antrean",
+        "queueMoved": "Antrean tunggu diperbarui",
+        "moveQueueDown": "Turunkan dalam antrean",
+        "moveQueueUp": "Naikkan dalam antrean",
+        "resume": "Lanjutkan",
+        "retry": "Coba lagi",
+        "openFolder": "Buka folder",
+        "copyUrl": "Salin URL",
+        "copyUrls": "Salin URL",
+        "copyPath": "Salin jalur berkas",
+        "copied": "Disalin ke papan klip",
+        "copyFailed": "Tidak dapat menyalin ke papan klip. Coba lagi.",
+        "selectFilesFailed": "Pemilihan berkas tidak dapat dibuka.",
+        "copyUrlFailed": "Gagal menyalin: detail tautan tugas tidak dapat dimuat. Coba lagi.",
+        "selectFiles": "Pilih berkas",
+        "remove": "Hapus",
+        "removeConfirmWithFiles": "Hapus juga berkas unduhan dari disk",
+        "cancel": "Batal",
+        "batchPartial": "{{ok}} berhasil, {{failed}} gagal",
+        "singleTaskFailed": "{{name}}: {{reason}}",
+        "stopSeeding": "Hentikan seeding",
+        "reseed": "Mulai seeding lagi",
+        "retryWithDialog": "Coba lagi dengan opsi... (Alt+Klik)",
+        "finalizingTooltip": "Tugas sedang diselesaikan, harap tunggu",
+        "pauseTooltipBatch": "Jeda {{n}} dari {{total}} tugas yang dipilih",
+        "resumeTooltipBatch": "Lanjutkan {{n}} dari {{total}} tugas yang dipilih",
+        "retryTooltipBatch": "Coba lagi {{n}} dari {{total}} tugas yang dipilih",
+        "reseedTooltipBatch": "Mulai seeding lagi untuk {{n}} dari {{total}} tugas yang dipilih",
+        "stopSeedingTooltipBatch": "Hentikan seeding untuk {{n}} dari {{total}} tugas yang dipilih",
+        "removeTooltipBatch": "Hapus {{n}} dari {{total}} tugas yang dipilih",
+        "removeWithFilesShift": "Tahan Shift untuk turut menghapus berkas",
+        "removeFilesEstimate": "Akan menghapus {{bytes}} dari disk",
+        "removeSingleTitle": "Hapus “{{name}}” dari daftar?",
+        "removeAll_paused_Title": "Hapus {{count}} tugas yang dijeda dari daftar?",
+        "removeAll_seeding_Title": "Hapus {{count}} tugas yang sedang seeding dari daftar?",
+        "removeAll_completed_Title": "Hapus {{count}} tugas selesai dari daftar?",
+        "removeAll_error_Title": "Hapus {{count}} tugas gagal dari daftar?",
+        "removeAll_downloading_Title": "Hapus {{count}} tugas aktif dari daftar?",
+        "removeMixedTitle": "Hapus {{count}} tugas dari daftar?",
+        "openFile": "Buka berkas",
+        "openFileFailed": "Berkas tidak dapat dibuka",
+        "chooseFiles": "Pilih berkas…",
+        "queueOrder": "Urutan unduhan",
+        "moveQueueTop": "Pindahkan ke depan",
+        "moveQueueBottom": "Pindahkan ke belakang",
+        "copyError": "Salin informasi kesalahan",
+        "errorReport": "{{name}}\nID tugas: {{id}}\n{{details}}"
+      },
+      "titleCount": "{{shown}} ditampilkan · {{total}} total",
+      "type": {
+        "http": "HTTP",
+        "magnet": "Magnet",
+        "bt": "BitTorrent",
+        "ftp": "FTP",
+        "metalink": "Metalink"
+      },
+      "search": {
+        "placeholder": "Cari unduhan",
+        "activeTypeFilters": "Filter jenis: {{types}}",
+        "filters": "Filter",
+        "resetFilters": "Atur ulang filter",
+        "clearQuery": "Hapus pencarian",
+        "activeQuery": "Pencarian: {{query}}",
+        "scopeLabel": "Jenis",
+        "clear": "Hapus",
+        "empty": "Tidak ada tugas yang cocok",
+        "emptyHint": "Coba hapus filter jenis atau gunakan kata kunci lain"
+      },
+      "stale": {
+        "banner": "Daftar tugas mungkin belum diperbarui — menghubungkan kembali…"
+      },
+      "view": {
+        "title": "Tampilan daftar",
+        "columns": "Kolom",
+        "resetColumns": "Pulihkan kolom bawaan",
+        "sortBy": "Urutkan menurut",
+        "ascending": "Menaik",
+        "descending": "Menurun",
+        "showInspector": "Tampilkan detail tugas",
+        "hideInspector": "Sembunyikan detail tugas",
+        "inspector": "Detail tugas",
+        "resizeInspector": "Ubah ukuran panel detail",
+        "selectToInspect": "Pilih tugas untuk melihat detailnya.",
+        "resizeColumn": "Ubah ukuran kolom {{column}}",
+        "taskActions": "Lainnya"
+      },
+      "speedLimit": {
+        "title": "Mode kecepatan",
+        "currentMode": "Mode kecepatan: {{mode}}",
+        "uploadLimit": "Batas unggah: {{speed}}",
+        "downloadLimit": "Batas unduh: {{speed}}",
+        "saveFailed": "Mode kecepatan tidak dapat diubah. Coba lagi."
+      },
+      "media": {
+        "preparing": "Menyiapkan",
+        "decrypting": "Mendekripsi",
+        "assembling": "Menyatukan segmen",
+        "muxing": "Menggabungkan",
+        "renaming": "Menyimpan",
+        "stage": "Tahap",
+        "downloadProgress": "Progres unduhan",
+        "muxProgress": "Progres penggabungan",
+        "parts": "Segmen",
+        "partsFormat": "{{completed}} / {{total}} segmen",
+        "downloadSize": "Ukuran unduhan",
+        "outputSize": "Ukuran keluaran",
+        "downloadEta": "Perkiraan sisa unduhan",
+        "avgDownloadProgress": "Progres unduhan rata-rata",
+        "processingTasks": "Memproses"
+      }
+    }
+  },
+  "task": {
+    "add": {
+      "title": "Tugas baru",
+      "links": "Tautan",
+      "torrent": "Torrent",
+      "urlPlaceholder": "Masukkan URL, tautan magnet, atau info hash BT…",
+      "dropTorrent": "Letakkan berkas .torrent di sini atau klik untuk memilih",
+      "clearSelection": "Batalkan pilihan",
+      "createFailed": "Gagal membuat tugas unduhan.",
+      "createFailedWithReason": "Gagal membuat tugas unduhan: {{reason}}",
+      "createFailedByPlugin": "Tugas tidak dapat dibuat: plugin “{{pluginId}}” menghentikannya ({{detail}}). Nonaktifkan plugin tersebut di Pengaturan → Plugin, lalu coba lagi.",
+      "createFailedPathTooLong": "Tugas tidak dapat dibuat: panjang jalur tujuan adalah {{length}} karakter, melebihi batas Windows yaitu {{limit}}. Pilih jalur folder penyimpanan atau nama berkas yang lebih pendek.",
+      "parseFailed": "Gagal mengurai berkas torrent.",
+      "urlsCount_other": "{{count}} URL",
+      "urlsWithInvalid": "{{valid}} valid, {{invalid}} tidak valid",
+      "validUrlCount": "{{count}} valid",
+      "invalidUrlCount": "{{count}} tidak valid",
+      "urlsLabel": "URL",
+      "advanced": "Lanjutan",
+      "filename": "Nama berkas",
+      "filenameAuto": "Otomatis",
+      "split": "Koneksi",
+      "userAgent": "User-Agent",
+      "referer": "Referer",
+      "cookie": "Cookie",
+      "authorization": "Authorization",
+      "allProxy": "Proxy",
+      "dlLimit": "Batas unduh",
+      "ulLimit": "Batas unggah",
+      "seedRatio": "Rasio berbagi",
+      "unlimited": "Tanpa batas",
+      "browse": "telusuri",
+      "pickPathTitle": "Pilih folder penyimpanan",
+      "pickPathCustom": "Jalur khusus",
+      "saveTo": "Simpan ke",
+      "saveDirEmpty": "Pilih folder…",
+      "changeSaveDir": "Ubah folder penyimpanan",
+      "created": "Tugas ditambahkan",
+      "batchCreated": "{{count}} tugas ditambahkan",
+      "createdCopy": "Salinan terpisah ditambahkan",
+      "createdPartial": "{{ok}} ditambahkan · {{failed}} gagal",
+      "torrentQueueProgress": "Torrent {{current}} dari {{total}}",
+      "downloadAndContinue": "Unduh dan lanjutkan",
+      "downloadAllTorrents": "Unduh semua ({{count}})",
+      "skipTorrent": "Lewati",
+      "queueAdvanceFailed": "Torrent berikutnya tidak dapat dibuka.",
+      "duplicate": {
+        "title": "Torrent ini sudah ada",
+        "active-info-hash": "{{name}} sudah aktif. aria2 tidak dapat menjalankan konten torrent yang sama dua kali secara bersamaan.",
+        "selection-mismatch": "{{name}} menggunakan tujuan yang sama dengan pilihan berkas yang berbeda. Motrix tidak akan menimpanya atau membuat salinan dengan nama lain tanpa pemberitahuan.",
+        "existing-files": "{{name}} sudah ada di tujuan ini, tetapi catatan tugasnya tidak tersedia. Motrix tidak akan menimpanya.",
+        "filesOnDisk": "Berkas torrent",
+        "showExisting": "Tampilkan tugas yang sudah ada",
+        "createCopy": "Buat salinan terpisah"
+      },
+      "adding": "Menambahkan…",
+      "interpretedMagnet": "Tautan magnet terdeteksi",
+      "interpretedInfoHash": "Info hash BT diubah menjadi tautan magnet",
+      "unsupportedCurl": "Perintah cURL ini tidak dapat diimpor tanpa mengubah maknanya. Salin URL atau perintah GET Bash dengan opsi yang didukung.",
+      "invalidJson": "Masukkan string URL JSON atau array string URL.",
+      "interpretedJson": "URL diimpor dari JSON",
+      "sourceLine": "Baris {{line}}",
+      "sourceCorrections": {
+        "useCanonicalUrl": "Gunakan URL yang telah diperluas ini",
+        "usePathSeparators": "Perlakukan garis miring terbalik sebagai pemisah jalur",
+        "encodeLiteralCharacters": "Enkode sebagai karakter literal"
+      },
+      "sourceErrors": {
+        "missingScheme": "Sertakan skema URL, misalnya https://.",
+        "invalidHost": "Host URL tidak ada atau tidak valid.",
+        "invalidPort": "Port URL tidak valid.",
+        "controlCharacter": "Hapus karakter kontrol dari URL.",
+        "invalidUnicode": "URL berisi Unicode yang tidak valid.",
+        "ambiguousBackslash": "Garis miring terbalik membuat host atau jalur menjadi ambigu. Pilih cara menafsirkannya.",
+        "invalidPercentEncoding": "Tanda persen harus diikuti dua digit heksadesimal.",
+        "credentialsInUrl": "Gunakan kolom autentikasi alih-alih memasukkan kredensial ke dalam URL.",
+        "unsupportedProtocol": "Protokol URL ini tidak didukung untuk unduhan ini.",
+        "urlTooLong": "URL melebihi batas 16 KiB.",
+        "tooManySources": "Isian melebihi jumlah atau ukuran tautan yang diizinkan.",
+        "ambiguousStructure": "Pengurai URL akan mengubah alamat ini. Periksa URL yang telah diperluas.",
+        "unescapedCharacter": "Enkode spasi dan karakter yang dicadangkan secara eksplisit.",
+        "invalidMagnet": "Tautan magnet memerlukan info hash BT yang didukung pada parameter xt.",
+        "mixedProtocols": "Mirror untuk satu unduhan harus menggunakan keluarga protokol yang sama.",
+        "unsupportedInput": "Format masukan ini tidak diimpor. Tempelkan URL atau masukan JSON atau cURL Bash yang didukung.",
+        "unsupportedRequestOptions": "Header HTTP tidak dapat diterapkan pada unduhan FTP."
+      },
+      "interpretedCurl": "Perintah cURL diurai",
+      "filterBy": {
+        "video": "Video",
+        "audio": "Audio",
+        "image": "Gambar",
+        "doc": "Dokumen"
+      },
+      "errors": {
+        "urlsRequired": "Setidaknya satu URL diperlukan",
+        "saveDirRequired": "Folder penyimpanan diperlukan",
+        "noFilesSelected": "Pilih setidaknya satu berkas",
+        "missingSource": "Berkas torrent atau tautan magnet diperlukan"
+      },
+      "selectionTimeout": {
+        "started": "Waktu pemilihan berkas habis: mengunduh semua berkas dalam {{name}}",
+        "failed": "{{name}} tidak dapat dimulai secara otomatis. Buka detail tugas untuk memilih berkas dan mencoba lagi."
+      },
+      "undoCorrection": "Urungkan koreksi URL",
+      "submissionUnconfirmed": "Hasilnya belum terkonfirmasi. Saat dicoba lagi, permintaan awal akan diperiksa sebelum membuat tugas lain."
+    },
+    "detail": {
+      "peers": "Peer: {{count}}",
+      "seeds": "Seeder: {{count}}"
+    },
+    "torrent": {
+      "column": {
+        "name": "Nama berkas",
+        "type": "Jenis berkas",
+        "size": "Ukuran"
+      },
+      "fileSelected_other": "{{count}} berkas dipilih",
+      "selectAll": "Pilih semua",
+      "video": "Video",
+      "audio": "Audio",
+      "image": "Gambar",
+      "doc": "Dokumen"
+    },
+    "remove": {
+      "title": "Hapus tugas dari daftar?",
+      "description": "“{{name}}” akan dihapus dari daftar unduhan.",
+      "deleteFilesLabel": "Hapus berkas yang telah diunduh",
+      "confirm": "Hapus",
+      "cancel": "Batal",
+      "orphanToast": "Tugas dihapus dari daftar. Berkas tetap disimpan di {{path}}.",
+      "notAvailableDuringFinalize": "Tugas sedang diselesaikan. Harap tunggu."
+    },
+    "recovery": {
+      "toast": "{{count}} tugas yang terputus dipulihkan. Klik untuk meninjau.",
+      "finalizeRenameFailed": "Gagal mengganti nama berkas. Berkas unduhan tetap memiliki akhiran .motrix.",
+      "reseedFailed": "Unduhan selesai, tetapi seeding gagal dimulai.",
+      "metaMissing": "Metadata torrent tidak ada. Seeding tidak dapat dimulai.",
+      "startup": {
+        "torrentMetaMissing": "Tugas BitTorrent ini tidak dapat dipulihkan: berkas metadata .torrent tidak ada. Hapus tugas dari daftar, lalu tambahkan kembali.",
+        "reAddFailed": "Tugas ini tidak dapat dipulihkan: mesin menolak permintaan penambahan ulang. Hapus tugas dari daftar dan tambahkan kembali secara manual.",
+        "dirtyMetadata": "Tugas ini tidak dapat dipulihkan: informasi identitas yang diperlukan untuk melanjutkan unduhan tidak ada.",
+        "resumeCheckpointMissing": "Berkas parsial tetap disimpan, tetapi data untuk melanjutkan unduhan tidak ada. Mulai ulang unduhan dengan aman atau tambahkan kembali tugasnya.",
+        "resumeCredentialsRequired": "Berkas parsial tetap disimpan, tetapi unduhan ini memerlukan kredensial permintaan yang tidak dapat digunakan ulang secara otomatis.",
+        "resumePathInvalid": "Berkas parsial tetap disimpan karena jalur keluaran yang tersimpan tidak valid.",
+        "resumeSourceChanged": "Berkas parsial tetap disimpan karena berkas di server telah berubah sejak unduhan dimulai.",
+        "resumeRangeUnsupported": "Berkas parsial tetap disimpan karena server tidak mendukung pelanjutan unduhan berdasarkan rentang byte secara aman.",
+        "resumeValidationFailed": "Berkas parsial tetap disimpan karena Motrix tidak dapat memastikan bahwa berkas di server belum berubah.",
+        "mediaInterrupted": "Unduhan media ini terputus saat aplikasi dimulai ulang dan tidak dapat dilanjutkan. Tambahkan kembali untuk mencoba lagi."
+      }
+    },
+    "error": {
+      "detail": {
+        "finalizeFailed": "Unduhan tidak dapat diselesaikan: {{cause}}",
+        "recoveryFailed": "Unduhan tidak dapat dipulihkan: {{cause}}",
+        "recoveryOutputConflict": "Berkas sementara dan berkas akhir sama-sama ada; keduanya tetap disimpan untuk diperiksa secara manual",
+        "filesMissing": "Berkas tidak ditemukan setelah aplikasi dimulai ulang",
+        "renameFileFailed": "Gagal mengganti nama berkas: {{cause}}",
+        "renameDirFailed": "Gagal mengganti nama direktori: {{cause}}",
+        "pluginChainAborted": "Rangkaian plugin dihentikan: {{cause}}",
+        "magnetCleanupQuarantined": "Pembersihan metadata magnet dikarantina",
+        "muxFailed": "Gagal menggabungkan media yang telah diunduh",
+        "pathTooLong": "Panjang jalur {{length}} karakter; Windows mengizinkan {{limit}}"
+      },
+      "reason": {
+        "unknown": "Unduhan gagal",
+        "notFound": "Berkas tidak ditemukan",
+        "unauthorized": "Otorisasi diperlukan",
+        "networkError": "Koneksi jaringan gagal",
+        "timeout": "Unduhan melewati batas waktu",
+        "diskFull": "Disk penuh",
+        "fileWriteError": "Tidak dapat menulis berkas",
+        "pathTooLong": "Jalur berkas terlalu panjang untuk Windows",
+        "checksumMismatch": "Checksum berkas tidak cocok",
+        "tooManyRedirects": "Terlalu banyak pengalihan",
+        "serverError": "Server mengembalikan kesalahan",
+        "btMetadataFailed": "Metadata torrent tidak dapat diambil",
+        "btTrackerError": "Koneksi ke pelacak gagal",
+        "generic": "Unduhan gagal"
+      },
+      "hint": {
+        "diskFull": "Kosongkan ruang disk atau ubah folder penyimpanan, lalu coba lagi",
+        "unauthorized": "Periksa kredensial atau izin akses, lalu coba lagi",
+        "networkError": "Periksa koneksi jaringan, lalu coba lagi",
+        "timeout": "Periksa kecepatan dan kestabilan koneksi, lalu coba lagi",
+        "fileWriteError": "Periksa izin folder dan ruang disk yang tersedia, lalu coba lagi",
+        "pathTooLong": "Perpendek jalur folder penyimpanan atau nama berkas, lalu coba lagi",
+        "checksumMismatch": "Berkas unduhan mungkin rusak; unduh ulang untuk memverifikasinya",
+        "tooManyRedirects": "Tautan sumber mungkin rusak; coba tautan lain",
+        "btMetadataFailed": "Periksa tautan magnet atau tambahkan pelacak, lalu coba lagi"
+      }
+    }
+  },
+  "settings": {
+    "title": "Pengaturan",
+    "desc": "Atur Motrix",
+    "cards": {
+      "general": {
+        "title": "Umum",
+        "desc": "Startup, folder penyimpanan bawaan, integrasi sistem"
+      },
+      "bittorrent": {
+        "title": "BitTorrent",
+        "desc": "DHT, port penerima, pelacak, lokasi peer"
+      },
+      "appearance": {
+        "title": "Tampilan",
+        "desc": "Tema, bahasa, ikon baki"
+      },
+      "advanced": {
+        "title": "Lanjutan",
+        "desc": "RPC, penyimpanan SQLite"
+      },
+      "about": {
+        "title": "Tentang",
+        "desc": "Versi, pembaruan, kode sumber, dan panduan"
+      },
+      "downloads": {
+        "title": "Unduhan",
+        "desc": "Unduhan bersamaan, batas bandwidth, keandalan jaringan"
+      },
+      "network": {
+        "title": "Jaringan",
+        "desc": "Proxy, DNS, dan NAT/UPnP"
+      },
+      "integration": {
+        "title": "Integrasi",
+        "desc": "Ekstensi browser, CLI, integrasi sistem"
+      }
+    },
+    "general": {
+      "launchAtStartup": "Buka saat login",
+      "launchAtStartupDesc": "Jalankan Motrix secara otomatis saat Anda login.",
+      "showMainWindowAtLogin": "Tampilkan jendela saat login",
+      "showMainWindowAtLoginDesc": "Disembunyikan dalam mode “{{mode}}”.",
+      "defaultSaveDir": "Folder unduhan bawaan",
+      "defaultSaveDirDesc": "Unduhan baru disimpan di sini kecuali lokasi lain ditentukan untuk tugas tersebut.",
+      "inAppNotifications": "Notifikasi dalam aplikasi",
+      "inAppNotificationsDesc": "Pilih notifikasi unduhan yang ditampilkan. Peringatan aplikasi tetap aktif.",
+      "notifyInAppOnComplete": "Tampilkan unduhan selesai",
+      "notifyInAppOnError": "Tampilkan unduhan gagal",
+      "notificationBadgeStyle": "Penanda belum dibaca",
+      "notificationBadgeCount": "Jumlah",
+      "notificationBadgeDot": "Titik",
+      "notificationBadgeHidden": "Tersembunyi",
+      "systemNotifications": "Notifikasi sistem",
+      "notifyOnComplete": "Beri tahu saat unduhan selesai",
+      "notifyOnCompleteDesc": "Tampilkan notifikasi sistem saat tugas selesai.",
+      "autofillClipboardLinks": "Isi tautan dari papan klip secara otomatis",
+      "autofillClipboardLinksDesc": "Menempelkan tautan dari papan klip ke kolom URL yang kosong saat Tugas baru dibuka.",
+      "notifyOnError": "Beri tahu saat gagal",
+      "notifyOnErrorDesc": "Tampilkan notifikasi sistem jika unduhan gagal saat jendela berada di latar belakang.",
+      "warnBeforeQuit": "Konfirmasi sebelum keluar",
+      "warnBeforeQuitDesc": "Minta konfirmasi sebelum keluar jika unduhan masih berjalan.",
+      "notificationBadgeDesc": "Ditampilkan pada ikon pusat notifikasi.",
+      "notificationOff": "Nonaktif",
+      "notificationSystem": "Notifikasi sistem",
+      "notificationInApp": "Notifikasi dalam aplikasi",
+      "notificationBoth": "Keduanya",
+      "startupAndQuitting": "Startup dan keluar",
+      "runMode": "Tampilkan aplikasi di",
+      "runModeStandard": "Dock dan bar menu",
+      "runModeTray": "Hanya bar menu",
+      "runModeHideTray": "Hanya Dock",
+      "lightweightMode": "Hemat memori saat jendela ditutup",
+      "lightweightModeDesc": "Unduhan tetap berjalan. Jendela lebih lambat dibuka kembali dan isian yang belum disimpan akan dihapus.",
+      "notifications": "Notifikasi",
+      "notificationsDesc": "Peringatan kesalahan aplikasi tetap aktif.",
+      "downloadCompleted": "Unduhan selesai",
+      "downloadFailed": "Unduhan gagal",
+      "description": "Startup, keluar, dan notifikasi",
+      "desktopOnly": "Preferensi startup dan notifikasi tersedia di aplikasi desktop."
+    },
+    "appearance": {
+      "theme": "Tema",
+      "themeAuto": "Sistem",
+      "themeLight": "Terang",
+      "themeDark": "Gelap",
+      "language": "Bahasa",
+      "traySpeedometer": "Tampilkan kecepatan di bar menu",
+      "traySpeedometerDesc": "Lihat kecepatan unduh dan unggah di samping ikon aplikasi.",
+      "trayIconColor": "Warna ikon baki",
+      "trayIconColorDesc": "Pilih warna yang terlihat jelas pada panel sistem.",
+      "trayIconColorAuto": "Ikuti tema aplikasi",
+      "trayIconColorLight": "Ikon terang (panel gelap)",
+      "trayIconColorDark": "Ikon gelap (panel terang)",
+      "reduceMotion": "Kurangi gerakan",
+      "reduceMotionDesc": "Gunakan lebih sedikit animasi dalam aplikasi.",
+      "liquidGlassEffect": "Liquid Glass",
+      "liquidGlassEffectDesc": "Terapkan efek kaca semitransparan pada bilah alat unduhan.",
+      "liquidGlassEffectMacDesc": "Juga diterapkan pada jendela di macOS 26 ke atas. Jendela akan dibuka ulang saat opsi ini diubah.",
+      "runMode": "Tampilkan aplikasi di",
+      "runModeStandard": "Dock dan bar menu",
+      "runModeTray": "Hanya bar menu",
+      "runModeHideTray": "Hanya Dock",
+      "runModeLaunch": "Saat membuka Motrix",
+      "runModeStandardDesktop": "Buka jendela utama",
+      "runModeTrayDesktop": "Mulai di baki sistem",
+      "runModeLinuxDesc": "Ketersediaan baki sistem dan perilaku aktivasinya bergantung pada lingkungan desktop.",
+      "lightweightMode": "Mode ringan",
+      "lightweightModeDesc": "Hemat memori saat jendela ditutup. Unduhan tetap berjalan, tetapi jendela lebih lama dibuka kembali dan isian yang belum disimpan akan dihapus.",
+      "byteUnitSystem": "Satuan ukuran dan kecepatan",
+      "byteUnitSystemDesc": "Pilih cara menampilkan ukuran berkas dan kecepatan.",
+      "byteUnitDecimal": "Desimal (MB, GB · 1000)",
+      "byteUnitBinary": "Biner (MiB, GiB · 1024)",
+      "byteUnitSystemDefault": "Ikuti sistem ({{units}})",
+      "sidebarColor": "Warna aksen",
+      "sidebarColors": {
+        "blue": "Biru",
+        "violet": "Ungu",
+        "pink": "Merah muda",
+        "orange": "Oranye",
+        "gold": "Emas",
+        "green": "Hijau",
+        "cyan": "Sian",
+        "gray": "Abu-abu",
+        "auto": "Otomatis"
+      },
+      "themeAndEffects": "Tema dan efek",
+      "languageAndDisplay": "Bahasa dan tampilan",
+      "menuBar": "Bar menu",
+      "description": "Tema, bahasa, dan tampilan",
+      "systemTray": "Baki sistem",
+      "followSystem": "Ikuti sistem"
+    },
+    "advanced": {
+      "rpc": {
+        "title": "RPC",
+        "port": "Port RPC",
+        "portDesc": "Perlu dimulai ulang setelah pengaturan ini diubah.",
+        "secret": "Rahasia RPC",
+        "secretDesc": "Diperlukan untuk koneksi RPC."
+      },
+      "persistence": {
+        "title": "Progres dan pemulihan",
+        "enable": "Simpan data pemulihan",
+        "enableDesc": "Simpan data untuk melanjutkan unduhan setelah mulai ulang.",
+        "dbPath": "Berkas data pemulihan",
+        "dbPathDesc": "Biarkan kosong untuk menggunakan lokasi bawaan.",
+        "dbPathPlaceholder": "Lokasi bawaan",
+        "historyLimit": "Catatan pemulihan tugas selesai",
+        "historyLimitDesc": "Daftar unduhan dan berkas yang telah diunduh tidak terpengaruh.",
+        "historyKeepAll": "Semua catatan",
+        "historyKeepRecent": "Catatan terbaru…",
+        "historySessionOnly": "Jangan simpan",
+        "historyCount": "Jumlah catatan yang disimpan",
+        "historyCountHint": "Catatan pemulihan yang lebih lama akan dihapus.",
+        "historyCountPositive": "Masukkan angka yang lebih besar dari 0."
+      },
+      "description": "RPC, progres, dan pemulihan"
+    },
+    "about": {
+      "appIconAlt": "Ikon aplikasi Motrix",
+      "version": "Versi {{version}}",
+      "tagline": "Sebelum konten lenyap, simpan yang benar-benar berarti dan hadirkan keindahan dalam koleksi Anda.",
+      "webVersionNote": "Edisi web ini diperbarui oleh administrator yang mengelolanya.",
+      "update": {
+        "title": "Pembaruan aplikasi",
+        "currentVersion": "Versi saat ini {{version}}",
+        "idleTitle": "Pastikan Motrix selalu terbaru",
+        "idle": "Versi {{version}} terpasang. Periksa sekarang atau izinkan Motrix memeriksa saat dibuka.",
+        "unsupportedTitle": "Pembaruan otomatis tidak tersedia",
+        "unsupported": "Versi ini tidak dapat diperbarui secara otomatis. Unduh versi terbaru dari situs resmi.",
+        "check": "Periksa pembaruan",
+        "checkAction": "Periksa",
+        "checking": "Memeriksa…",
+        "checkingTitle": "Memeriksa pembaruan…",
+        "checkingDescription": "Menghubungi layanan pembaruan Motrix…",
+        "upToDateTitle": "Motrix sudah terbaru",
+        "upToDate": "Versi {{version}} adalah rilis terbaru yang tersedia.",
+        "available": "Motrix {{version}} tersedia.",
+        "availableTitle": "Motrix {{version}} tersedia",
+        "availableDescription": "Unduh sekarang dan pilih kapan memulai ulang untuk memasangnya.",
+        "download": "Unduh pembaruan",
+        "downloading": "Mengunduh…",
+        "downloadingTitle": "Mengunduh Motrix {{version}}",
+        "downloadingDescription": "Anda dapat menutup jendela ini. Unduhan akan berlanjut di latar belakang.",
+        "downloadedTitle": "Pembaruan siap dipasang",
+        "downloaded": "Motrix {{version}} siap dipasang.",
+        "restart": "Mulai ulang dan pasang",
+        "cancelledTitle": "Unduhan dibatalkan",
+        "cancelled": "Unduhan pembaruan dibatalkan.",
+        "cancelledDescription": "Coba unduh lagi saat Anda siap.",
+        "errorTitle": "Motrix tidak dapat diperbarui",
+        "errorDescription": "Periksa koneksi dan coba lagi.",
+        "error": "Pembaruan gagal: {{message}}",
+        "retry": "Coba lagi",
+        "automaticChecks": "Periksa secara otomatis",
+        "automaticChecksDescription": "Saat Motrix dibuka",
+        "automaticChecksError": "Pengaturan ini tidak dapat disimpan",
+        "channelLabel": "Saluran pembaruan",
+        "channelDescription": "Pilih rilis stabil atau coba fitur baru dalam versi beta.",
+        "channelStable": "Stabil",
+        "channelBeta": "Beta",
+        "channelBetaWarning": "Versi beta mungkin kurang stabil. Anda juga akan menerima rilis stabil yang lebih baru. Beralih kembali menghentikan pembaruan beta tanpa menurunkan versi.",
+        "channelSaveError": "Saluran pembaruan tidak dapat disimpan. Coba lagi."
+      },
+      "details": {
+        "author": "Pembuat",
+        "createdBy": "Dibuat oleh",
+        "license": "Lisensi",
+        "licenseValue": "Lisensi {{license}}"
+      },
+      "resources": {
+        "title": "Sumber daya",
+        "repository": "Repositori sumber",
+        "repositoryDescription": "Lihat kode di GitHub",
+        "manual": "Panduan",
+        "manualDescription": "Baca panduan pengguna",
+        "plugins": "Plugin",
+        "changelog": "Riwayat perubahan",
+        "website": "Situs resmi",
+        "websiteDescription": "Kunjungi motrix.app",
+        "acknowledgments": "Ucapan terima kasih",
+        "acknowledgmentsDescription": "Lihat kontributor dan pendukung proyek di motrix.app"
+      }
+    },
+    "bittorrent": {
+      "trackers": {
+        "autoSync": "Perbarui daftar pelacak secara otomatis",
+        "autoSyncDesc": "Perbarui daftar menggunakan sumber Anda.",
+        "syncInterval": "Interval pembaruan (jam)",
+        "syncIntervalDesc": "Dari 1 hingga 168 jam.",
+        "enableProbe": "Periksa ketersediaan pelacak",
+        "enableProbeDesc": "Uji pelacak sebelum menggunakannya untuk unduhan.",
+        "probeTimeout": "Batas waktu pemeriksaan (ms)",
+        "probeTimeoutDesc": "Waktu tunggu maksimum untuk respons. 1.000–30.000 ms.",
+        "healthyThreshold": "Ambang respons lambat (ms)",
+        "healthyThresholdDesc": "Respons yang lebih lama ditandai lambat. 500–10.000 ms.",
+        "minSuccessRate": "Tingkat keberhasilan minimum",
+        "minSuccessRateDesc": "Gunakan pelacak dengan setidaknya tingkat keberhasilan ini. 0,5 = 50%.",
+        "maxTrackerCount": "Pelacak per tugas",
+        "maxTrackerCountDesc": "Jumlah maksimum pelacak yang digunakan. 5–200.",
+        "title": "Pelacak",
+        "manageSourcesHint": "Kelola sumber di halaman Pelacak.",
+        "blacklistMovedInfo": "Kelola pelacak yang diblokir di Pelacak → Daftar blokir."
+      },
+      "geoip": {
+        "title": "Lokasi peer",
+        "enable": "Tampilkan negara atau wilayah",
+        "enableDesc": "Tampilkan lokasi dalam daftar peer. Data lokasi akan diunduh saat diperlukan.",
+        "lastUpdated": "Terakhir diperbarui",
+        "neverUpdated": "Belum pernah",
+        "updateNow": "Perbarui sekarang",
+        "updating": "Memperbarui…",
+        "source": "Sumber data lokasi",
+        "sourceDesc": "Pilih sumber unduhan data lokasi.",
+        "source.loyalsoldier": "Loyalsoldier (komunitas)",
+        "source.p3terx": "P3TERX (mirror komunitas)",
+        "source.maxmind": "MaxMind (resmi)",
+        "source.custom": "URL khusus",
+        "maxmindUnsupported": "Belum didukung",
+        "customUrl": "URL unduhan khusus",
+        "customUrlPlaceholder": "https://example.com/GeoLite2-Country.mmdb",
+        "autoUpdate": "Perbarui secara otomatis",
+        "autoUpdateDesc": "Periksa data lokasi baru sekitar seminggu sekali.",
+        "status.loaded": "Siap",
+        "status.notDownloaded": "Data lokasi belum diunduh",
+        "status.downloading": "Mengunduh…",
+        "status.error": "Pembaruan gagal",
+        "customUrlDesc": "Tautan ke basis data negara dalam format .mmdb.",
+        "saveBeforeUpdate": "Simpan perubahan sebelum memperbarui data lokasi.",
+        "updateFailed": "Data lokasi tidak dapat diperbarui. Coba lagi."
+      },
+      "listen": {
+        "title": "Koneksi masuk",
+        "listenPort": "Port penerima BT",
+        "listenPortDesc": "Terima koneksi peer masuk pada port ini.",
+        "dhtListenPort": "Port penerima DHT",
+        "dhtListenPortDesc": "Cari peer melalui DHT pada port ini.",
+        "dhtEnabled": "Aktifkan DHT",
+        "dhtEnabledDesc": "Cari peer tanpa bergantung pada pelacak."
+      },
+      "peers": {
+        "title": "Peer",
+        "btMaxPeers": "Peer maksimum per torrent",
+        "btMaxPeersDesc": "Jumlah maksimum peer yang dapat terhubung dengan satu tugas secara bersamaan.",
+        "btEnableLpd": "Penemuan peer lokal",
+        "btEnableLpdDesc": "Cari peer yang berbagi berkas di jaringan lokal.",
+        "magnetFileSelection": "Pilih berkas sebelum mengunduh",
+        "magnetFileSelectionDesc": "Tampilkan pemilihan berkas setelah tautan magnet dimuat.",
+        "magnetFileSelectionAutoDownload": "Unduh semua jika tidak ada pilihan",
+        "magnetFileSelectionAutoDownloadDesc": "Dimulai setelah waktu di bawah ini berlalu, meskipun jendela aplikasi atau browser ditutup.",
+        "magnetFileSelectionTimeoutSeconds": "Waktu untuk memilih berkas (dtk)",
+        "magnetFileSelectionTimeoutSecondsDesc": "Dimulai saat daftar berkas siap. Perubahan juga berlaku untuk tugas yang sudah menunggu.",
+        "magnetFileSelectionTimeoutInvalid": "Masukkan bilangan bulat antara {{min}} dan {{max}} detik."
+      },
+      "seeding": {
+        "title": "Seeding",
+        "seedRatio": "Batas rasio berbagi",
+        "seedRatioDesc": "Unggah ÷ unduh. Seeding berhenti pada rasio ini. 0 = tanpa batas.",
+        "seedTime": "Batas waktu seeding (menit)",
+        "seedTimeDesc": "0 = tanpa batas. Berlaku untuk tugas baru dan saat seeding dimulai ulang."
+      },
+      "newMagnetTasks": "Tugas magnet baru",
+      "description": "Magnet, seeding, dan pelacak"
+    },
+    "downloads": {
+      "performance": {
+        "title": "Kinerja",
+        "profile": "Kinerja unduhan",
+        "profileDesc": "Seimbangkan kecepatan unduh dan penggunaan sumber daya.",
+        "learnMore": "Pelajari lebih lanjut",
+        "metrics": {
+          "connections": "Koneksi maksimum",
+          "perServer": "Batas per server",
+          "minimum": "Segmen minimum",
+          "cache": "Cache disk"
+        },
+        "customParameters": "Parameter kinerja khusus",
+        "profiles": {
+          "auto": {
+            "label": "Otomatis",
+            "desc": "Menyesuaikan dengan drive dan ukuran berkas. Nilai di bawah adalah nilai bawaan."
+          },
+          "balanced": {
+            "label": "Seimbang",
+            "desc": "Menggunakan lebih sedikit sumber daya untuk unduhan sehari-hari."
+          },
+          "high": {
+            "label": "Kecepatan tinggi",
+            "desc": "Menggunakan lebih banyak koneksi untuk mempercepat unduhan."
+          },
+          "maximum": {
+            "label": "Maksimum",
+            "desc": "Menggunakan lebih banyak koneksi. Beberapa server mungkin membatasinya."
+          },
+          "custom": {
+            "label": "Khusus",
+            "desc": "Atur koneksi, ukuran segmen, dan cache."
+          }
+        },
+        "maxConcurrentDownloads": "Unduhan bersamaan",
+        "maxConcurrentDownloadsDesc": "Tugas tambahan menunggu dalam antrean.",
+        "maxConnectionPerServer": "Koneksi maksimum per server",
+        "maxConnectionPerServerDesc": "Batas koneksi per berkas untuk satu server.",
+        "split": "Koneksi maksimum per berkas",
+        "splitDesc": "Koneksi yang digunakan untuk mengunduh satu berkas.",
+        "minSplitSize": "Ukuran segmen minimum (MiB)",
+        "minSplitSizeDesc": "Segmen di bawah 2× ukuran ini tidak akan dibagi."
+      },
+      "reliability": {
+        "title": "Koneksi dan percobaan ulang",
+        "userAgent": "User-Agent",
+        "userAgentDesc": "Mengidentifikasi aplikasi kepada situs web. Ubah jika situs memerlukan nilai lain.",
+        "connectTimeout": "Batas waktu koneksi (dtk)",
+        "connectTimeoutDesc": "Lama waktu menunggu koneksi.",
+        "socketTimeout": "Batas waktu tanpa data (dtk)",
+        "socketTimeoutDesc": "Lama waktu menunggu saat tidak ada data yang masuk.",
+        "maxTries": "Percobaan maksimum",
+        "maxTriesDesc": "Termasuk percobaan pertama. 0 = tanpa batas.",
+        "retryWait": "Jeda percobaan ulang (dtk)",
+        "retryWaitDesc": "Tunggu selama ini sebelum mencoba lagi.",
+        "lowestSpeedLimit": "Kecepatan koneksi minimum (KiB/dtk)",
+        "lowestSpeedLimitDesc": "Putuskan koneksi di bawah kecepatan ini. 0 = nonaktif."
+      },
+      "disk": {
+        "title": "Disk dan berkas",
+        "fileDeletionMode": "Saat menghapus berkas tugas",
+        "fileDeletionTrash": "Pindahkan ke tempat sampah",
+        "fileDeletionPermanent": "Hapus permanen",
+        "fileDeletionTrashDesc": "Ruang dibebaskan saat tempat sampah dikosongkan.",
+        "fileDeletionPermanentDesc": "Berkas yang dihapus tidak dapat dipulihkan dari tempat sampah.",
+        "fileAllocation": "Alokasikan ruang disk",
+        "fileAllocationDesc": "Alokasikan ruang sebelum mengunduh berkas.",
+        "fileAllocationNone": "Jangan alokasikan",
+        "fileAllocationPrealloc": "Praalokasi",
+        "fileAllocationTrunc": "Atur ukuran berkas",
+        "fileAllocationFalloc": "Alokasi sistem",
+        "modifiedTime": "Waktu modifikasi berkas",
+        "modifiedTimeDesc": "Untuk unduhan HTTP dan FTP yang selesai.",
+        "modifiedTimeLocal": "Waktu unduhan",
+        "modifiedTimeServer": "Waktu dari server",
+        "diskCache": "Cache disk (MiB)",
+        "diskCacheDesc": "Memori untuk menampung sementara data berkas sebelum ditulis ke disk.",
+        "sessionSaveInterval": "Interval penyimpanan progres (dtk)",
+        "sessionSaveIntervalDesc": "Simpan lebih sering untuk mengurangi progres yang hilang setelah aplikasi berhenti mendadak."
+      },
+      "magnet": {
+        "title": "Magnet",
+        "magnetResolveTimeout": "Batas waktu pemuatan magnet (dtk)",
+        "magnetResolveTimeoutDesc": "Lama waktu menunggu daftar berkas."
+      },
+      "speedLimit": {
+        "title": "Batas kecepatan",
+        "titleDesc": "Pilih cara Motrix menggunakan koneksi Anda dalam mode Standar, Kecepatan rendah, dan Otomatis.",
+        "modeSection": "Mode kecepatan",
+        "modeSectionDesc": "Pilih cara Motrix menggunakan koneksi Anda.",
+        "turtle": "Mode kecepatan",
+        "turtleDesc_off": "Gunakan batas kecepatan standar.",
+        "turtleDesc_on": "Gunakan batas kecepatan rendah sekarang untuk menyisakan kapasitas bagi aplikasi lain.",
+        "turtleDesc_auto": "Sesuaikan kecepatan secara otomatis berdasarkan waktu dan bandwidth koneksi.",
+        "turtle_off": "Standar",
+        "turtle_on": "Kecepatan rendah",
+        "turtle_auto": "Otomatis",
+        "baseSection": "Batas standar",
+        "baseSectionDesc": "Digunakan untuk unduhan sehari-hari dan dipatuhi dalam semua mode.",
+        "baseDownload": "Unduh",
+        "baseDownloadDesc": "Kecepatan unduh maksimum untuk penggunaan sehari-hari.",
+        "baseUpload": "Unggah",
+        "baseUploadDesc": "Kecepatan unggah maksimum untuk penggunaan sehari-hari.",
+        "unlimited": "Tanpa batas",
+        "setUnlimited": "Atur tanpa batas",
+        "standardLimit": "Gunakan standar",
+        "useStandardLimit": "Gunakan batas standar",
+        "altSection": "Batas kecepatan rendah",
+        "altSectionDesc": "Digunakan dalam mode Kecepatan rendah atau oleh aturan terjadwal. Batas ini hanya dapat mengurangi batas standar.",
+        "altDownload": "Unduh",
+        "altDownloadDesc": "Kecepatan unduh maksimum saat mode Kecepatan rendah aktif.",
+        "altUpload": "Unggah",
+        "altUploadDesc": "Kecepatan unggah maksimum saat mode Kecepatan rendah aktif.",
+        "autoSection": "Aturan otomatis",
+        "autoSectionDesc": "Aturan ini hanya berlaku dalam mode Otomatis.",
+        "autoSchedule": "Perlambatan terjadwal",
+        "scheduleEnabled": "Jadwalkan kecepatan rendah",
+        "scheduleEnabledDesc": "Beralih ke batas kecepatan rendah pada hari dan waktu yang dipilih.",
+        "scheduleFrom": "Mulai",
+        "scheduleTo": "Selesai",
+        "scheduleTimeFormat": "Format 24 jam (HH:mm)",
+        "scheduleDays": "Hari",
+        "scheduleDaysHint": "Waktu selesai sebelum waktu mulai berarti jadwal berlanjut hingga hari berikutnya.",
+        "weekdays": {
+          "sun": {
+            "short": "Min",
+            "long": "Minggu"
+          },
+          "mon": {
+            "short": "Sen",
+            "long": "Senin"
+          },
+          "tue": {
+            "short": "Sel",
+            "long": "Selasa"
+          },
+          "wed": {
+            "short": "Rab",
+            "long": "Rabu"
+          },
+          "thu": {
+            "short": "Kam",
+            "long": "Kamis"
+          },
+          "fri": {
+            "short": "Jum",
+            "long": "Jumat"
+          },
+          "sat": {
+            "short": "Sab",
+            "long": "Sabtu"
+          }
+        },
+        "autoAdaptive": "Sisakan bandwidth untuk aplikasi lain",
+        "adaptiveEnabled": "Cadangkan bandwidth untuk aplikasi lain",
+        "adaptiveEnabledDesc": "Masukkan kecepatan koneksi di bawah untuk menghitung batasnya.",
+        "linkDown": "Kecepatan unduh koneksi",
+        "linkDownDesc": "Kecepatan unduh yang dapat dicapai oleh koneksi internet Anda.",
+        "linkUp": "Kecepatan unggah koneksi",
+        "linkUpDesc": "Kecepatan unggah yang dapat dicapai oleh koneksi internet Anda.",
+        "fillFromPeak": "Perkirakan kecepatan koneksi",
+        "fillFromPeakHint": "Berdasarkan kecepatan unduh dan unggah tertinggi baru-baru ini.",
+        "estimateEmpty": "Riwayat kecepatan belum tersedia. Selesaikan unduhan tanpa batas kecepatan atau masukkan bandwidth secara manual.",
+        "estimateSuccess": "Bandwidth koneksi diisi berdasarkan kecepatan terbaru.",
+        "estimateError": "Riwayat kecepatan terbaru tidak dapat dibaca. Masukkan bandwidth secara manual.",
+        "headroomPercent": "Cadangan untuk aplikasi lain",
+        "headroomPercentDesc": "Saat ini dicadangkan {{reserved}}%; Motrix dapat menggunakan hingga {{motrix}}%.",
+        "effect": {
+          "title": "Efek saat ini",
+          "standard": "Menggunakan batas standar: unduh {{download}}, unggah {{upload}}.",
+          "lowSpeed": "Sedang menggunakan batas kecepatan rendah: unduh {{download}}, unggah {{upload}}.",
+          "noAutoRules": "Tidak ada aturan otomatis yang aktif. Saat ini perilakunya sama dengan mode Standar.",
+          "standardValues": "Batas standar: unduh {{download}}, unggah {{upload}}.",
+          "scheduleRule": "menggunakan batas kecepatan rendah dari {{from}} hingga {{to}}{{nextDay}}",
+          "nextDay": " pada hari berikutnya",
+          "adaptiveRule": "mencadangkan {{reserved}}% bandwidth untuk aplikasi lain",
+          "adaptiveRulePending": "mencadangkan {{reserved}}% bandwidth untuk aplikasi lain setelah bandwidth koneksi dimasukkan",
+          "ruleSeparator": " dan ",
+          "autoRules": "Motrix akan {{rules}}.",
+          "lowerWins": "Batas aktif terendah yang berlaku."
+        },
+        "bandwidthUsed": "Motrix dapat menggunakan hingga {{motrix}}%.",
+        "bandwidthPending": "Masukkan kedua kecepatan koneksi untuk menerapkan batas ini."
+      },
+      "newTasks": "Tugas baru",
+      "defaultDownloadFolder": "Folder unduhan bawaan",
+      "autofillFromClipboard": "Isi tautan dari papan klip secara otomatis",
+      "fillInLinksWhenOpeningNewTask": "Tautan yang disalin akan diisi secara otomatis saat membuka tugas baru.",
+      "saveFolders": "Folder penyimpanan",
+      "description": "Berkas, kecepatan unduh, dan koneksi"
+    },
+    "network": {
+      "dns": {
+        "title": "DNS",
+        "mode": "Pencarian DNS",
+        "modeDesc": "Cara unduhan mencari alamat server.",
+        "modeAuto": "Otomatis",
+        "modeSystem": "DNS sistem",
+        "modeEngine": "DNS bawaan"
+      },
+      "proxy": {
+        "title": "Proxy",
+        "enable": "Aktifkan proxy",
+        "enableDesc": "Gunakan proxy untuk koneksi yang dipilih di bawah.",
+        "server": "Server",
+        "protocol": "Protokol",
+        "host": "Alamat server",
+        "hostPlaceholder": "proxy.example.com",
+        "port": "Port",
+        "auth": "Login proxy",
+        "authDesc": "Aktifkan jika proxy memerlukan nama pengguna dan kata sandi.",
+        "user": "Nama pengguna",
+        "password": "Kata sandi",
+        "showPassword": "Tampilkan kata sandi",
+        "hidePassword": "Sembunyikan kata sandi",
+        "bypass": "Hubungkan langsung ke",
+        "bypassDesc": "Satu domain, IP, atau CIDR per baris. Awali dengan . untuk mencocokkan subdomain saja. Unduhan berkas tidak mendukung karakter pengganti *.",
+        "bypassScopeNote": "Hanya unduhan berkas dan pembaruan aplikasi",
+        "scopes": "Gunakan proxy untuk",
+        "scopesDesc": "Pilih jenis lalu lintas yang melalui proxy.",
+        "scopeDownload": "Unduhan berkas",
+        "scopeDownloadDesc": "Untuk BT, hanya HTTP(S) yang menggunakan proxy. Peer, DHT, dan pelacak UDP terhubung langsung.",
+        "scopeUpdateApp": "Pembaruan aplikasi",
+        "scopeUpdateAppDesc": "Periksa pembaruan Motrix melalui proxy.",
+        "scopeUpdateTrackers": "Pembaruan daftar pelacak",
+        "scopeUpdateTrackersDesc": "Unduh daftar pelacak melalui proxy; lalu lintas BT tidak terpengaruh.",
+        "importFromSystem": "Impor dari sistem",
+        "importedToast": "Proxy sistem diimpor: {{host}}:{{port}}",
+        "noSystemProxy": "Tidak ada proxy sistem yang dikonfigurasi.",
+        "bypassPlaceholder": "localhost\n127.0.0.1\n.local",
+        "scopeHint": "Peer BT, DHT, dan pelacak UDP terhubung langsung.",
+        "scopeNone": "Belum ada yang dipilih",
+        "scopeChoose": "Pilih…",
+        "scopeSeparator": ", "
+      },
+      "nat": {
+        "title": "Pemetaan port (NAT)",
+        "enable": "Aktifkan pemetaan port",
+        "enableDesc": "Minta router membuka port yang ditentukan dalam pengaturan BitTorrent.",
+        "preferredProtocol": "Protokol pilihan",
+        "mappingTtl": "Durasi pemetaan (dtk)",
+        "btPortHint": "Pemetaan berlaku untuk port BT/DHT yang dikonfigurasi di BitTorrent.",
+        "automatic": "Otomatis"
+      },
+      "stun": {
+        "title": "Deteksi jenis NAT",
+        "privacyHint": "Menggunakan server STUN pihak ketiga.",
+        "enable": "Deteksi jenis NAT",
+        "servers": "Server STUN",
+        "empty": "Tambahkan setidaknya satu server STUN.",
+        "addServer": "Tambahkan server STUN"
+      },
+      "reachability": {
+        "title": "Pemeriksaan port masuk",
+        "privacyHint": "Menggunakan layanan pihak ketiga untuk memeriksa akses dari internet.",
+        "enable": "Periksa port masuk",
+        "endpoints": "Layanan pemeriksaan (HTTPS)",
+        "empty": "Tambahkan setidaknya satu layanan pemeriksaan.",
+        "addEndpoint": "Tambahkan layanan pemeriksaan"
+      },
+      "diagnostic": {
+        "title": "Pemeriksaan jaringan otomatis",
+        "enable": "Pemeriksaan otomatis",
+        "interval": "Interval pemeriksaan (dtk)",
+        "enableDesc": "Ulangi pemeriksaan yang diaktifkan di atas."
+      },
+      "description": "Proxy, DNS, dan pemeriksaan koneksi",
+      "diagnostics": "Diagnostik jaringan"
+    },
+    "common": {
+      "browse": "Telusuri…",
+      "add": "Tambahkan",
+      "remove": "Hapus",
+      "preset": "Pilihan cepat:",
+      "noChange": "Tidak ada perubahan untuk disimpan",
+      "setAsDefault": "Jadikan bawaan",
+      "openHelp": "Buka bantuan",
+      "generate": "Buat",
+      "changeDirectory": "Ubah direktori",
+      "directoryEmpty": "(belum ada direktori yang dipilih)",
+      "showSecret": "Tampilkan rahasia",
+      "hideSecret": "Sembunyikan rahasia"
+    },
+    "integration": {
+      "system": {
+        "title": "Aplikasi bawaan",
+        "protocolMagnet": "Buka tautan magnet dengan Motrix",
+        "protocolMagnetDesc": "Buka tautan magnet dari browser di Motrix.",
+        "torrentAssociation": "Buka berkas .torrent dengan Motrix",
+        "torrentAssociationDesc": "Klik dua kali berkas .torrent untuk membukanya di Motrix.",
+        "torrentAssociationMacDesc": "Di Finder, klik kanan berkas .torrent → Dapatkan Info → Buka Dengan → pilih Motrix → Ubah Semua…",
+        "defaultAssociationsWindows": "Aplikasi bawaan untuk torrent dan tautan magnet",
+        "defaultAssociationsWindowsDesc": "Pilih Motrix untuk berkas .torrent dan tautan magnet di pengaturan Windows. Motrix harus sudah terpasang.",
+        "torrentFiles": "Berkas .torrent",
+        "magnetLinks": "Tautan magnet",
+        "associationStatusLabel": "Status aplikasi bawaan Windows saat ini",
+        "associationChecking": "Memeriksa…",
+        "associationSetupRequired": "Perlu disiapkan",
+        "associationDefault": "Bawaan",
+        "associationNotDefault": "Bukan bawaan",
+        "associationUnavailable": "Tidak dapat diverifikasi",
+        "associationNotRegistered": "Belum terdaftar",
+        "openWindowsSettings": "Buka pengaturan Windows",
+        "defaultAssociationsLinux": "Asosiasi berkas dan tautan Linux",
+        "defaultAssociationsLinuxCheckingDesc": "Memeriksa paket Linux ini dan asosiasinya pada desktop…",
+        "defaultAssociationsLinuxUnavailableDesc": "Status asosiasi desktop tidak tersedia dari lingkungan aplikasi ini.",
+        "defaultAssociationsLinuxDesc": "Motrix dapat menjadikan dirinya aplikasi bawaan untuk .torrent jika dipasang melalui paket deb atau rpm. Perubahan magnet berlaku saat Anda menerapkan perubahan dalam dialog ini.",
+        "defaultAssociationsLinuxAppImageDesc": "Gunakan Integrasi desktop di bawah untuk mendaftarkan atau menghapus pendaftaran AppImage ini dengan aman. Motrix memulihkan asosiasi aplikasi sebelumnya yang telah diverifikasi sebelum menghapus entri desktopnya.",
+        "defaultAssociationsLinuxSandboxDesc": "Paket ini mendaftarkan Motrix sebagai aplikasi pembuka, tetapi lingkungan desktop Anda yang menentukan aplikasi bawaan. Menghapus paket mungkin tidak memulihkan aplikasi bawaan sebelumnya secara otomatis.",
+        "associationStatusLabelLinux": "Status asosiasi berkas dan tautan Linux saat ini",
+        "linuxPackageDetected": "Paket: {{package}}",
+        "linuxPackage": {
+          "appimage": "AppImage",
+          "native": "deb / rpm",
+          "flatpak": "Flatpak",
+          "snap": "Snap",
+          "unknown": "Paket tidak dikenal"
+        },
+        "protocolMagnetAppImageDesc": "Langsung diterapkan setelah disimpan jika Integrasi desktop aktif.",
+        "protocolMagnetSandboxDesc": "Motrix akan meminta perubahan saat Anda menyimpan, tetapi sandbox atau lingkungan desktop mungkin mengharuskan Anda memilih aplikasi bawaan secara manual.",
+        "protocolMagnetApplyFailed": "Preferensi disimpan, tetapi asosiasi desktop tidak dapat diubah. Pilih aplikasi bawaan dalam pengaturan sistem.",
+        "setTorrentDefaultLinux": "Jadikan bawaan untuk .torrent",
+        "repairLinuxAssociations": "Perbaiki asosiasi",
+        "viewLinuxInstructions": "Lihat langkah penyiapan",
+        "linuxActionSet": "Motrix kini menjadi aplikasi bawaan untuk berkas .torrent.",
+        "linuxActionFallback": "Penyiapan otomatis tidak tersedia untuk paket ini. Petunjuk penyiapan telah dibuka.",
+        "linuxActionFailed": "Aplikasi bawaan Linux tidak dapat diperbarui. Periksa pengaturan lingkungan desktop Anda."
+      },
+      "browser": {
+        "title": "Ekstensi browser",
+        "masterSwitch": "Hubungkan ekstensi browser",
+        "masterSwitchDesc": "Kirim unduhan halaman web ke Motrix dengan ekstensi browser.",
+        "install": {
+          "chrome": "Chrome",
+          "edge": "Microsoft Edge",
+          "firefox": "Firefox",
+          "github": "GitHub",
+          "store": "Pasang",
+          "development": "Pengembangan"
+        },
+        "pairedTitle": "Ekstensi terhubung",
+        "pairedEmpty": "Belum ada ekstensi yang terhubung.",
+        "lastActive": "Terakhir aktif",
+        "revoke": "Putuskan koneksi",
+        "disconnecting": "Memutuskan koneksi…",
+        "addTrusted": {
+          "add": "Tambahkan ekstensi",
+          "idPlaceholder": "ID ekstensi",
+          "labelPlaceholder": "Label (opsional)",
+          "browserLabel": "Browser",
+          "chromiumEdge": "Chrome / Edge",
+          "firefox": "Firefox",
+          "cancel": "Batal",
+          "addAction": "Tambahkan"
+        },
+        "pairToast": {
+          "title": "Ekstensi {{browser}} ingin terhubung ke Motrix",
+          "extensionId": "ID: {{id}}",
+          "deny": "Jangan izinkan",
+          "pairCode": "Kode pemasangan",
+          "copyCode": "Salin kode pemasangan",
+          "pairCodeHint": "Ketik kode ini di ekstensi",
+          "identityLabel": {
+            "official": "Ekstensi resmi Motrix",
+            "attested": "Ekstensi terverifikasi",
+            "unverified": "Ekstensi belum terverifikasi"
+          },
+          "identityUnverifiedWarning": "Identitas ekstensi ini tidak dapat diverifikasi. Lanjutkan hanya jika Anda memercayainya."
+        },
+        "pairUnavailable": "Permintaan pemasangan ini tidak lagi tertunda — coba pasangkan lagi dari ekstensi browser.",
+        "trustedExtensions": "Ekstensi tepercaya",
+        "trustedSummary": "{{count}} total",
+        "trustedGuidance": "Untuk ekstensi tepercaya lainnya, tambahkan ID yang disediakan pengembang.",
+        "trustedEmpty": "Belum ada apa pun di sini.",
+        "headerId": "ID ekstensi",
+        "headerBrowser": "Browser",
+        "headerSource": "Sumber",
+        "removeTrusted": "Hapus",
+        "sourceLabel": {
+          "builtin": "Bawaan",
+          "userAdded": "Ditambahkan",
+          "imported": "Diimpor"
+        },
+        "degradedPort": {
+          "title": "Jembatan koneksi berjalan pada port alternatif",
+          "description": "Port 16802–16806 tidak tersedia, sehingga jembatan koneksi menggunakan port {{port}}. Ekstensi browser tidak akan menemukannya dengan memeriksa rentang standar — pasangkan melalui native messaging atau tentukan port tetap. CLI dan host native Motrix tidak terpengaruh."
+        },
+        "pairingStateDegraded": {
+          "title": "Akses ekstensi ditutup sementara",
+          "description": "Motrix tidak dapat memperbarui catatan ekstensi yang dipasangkan dengan aman. Sesi ekstensi yang ada ditutup dan akses baru diblokir selama aplikasi berjalan kali ini. Mulai ulang Motrix untuk mencoba perbaikan lagi; jangan mengandalkan daftar di bawah hingga pesan ini hilang."
+        }
+      },
+      "cli": {
+        "title": "Alat baris perintah",
+        "tool": {
+          "title": "Alat baris perintah Motrix",
+          "description": "Jalankan motrix di terminal untuk mengontrol aplikasi ini.",
+          "managerLabel": "Pengelola paket",
+          "commandLabel": "Perintah pemasangan",
+          "copyCommand": "Salin perintah pemasangan",
+          "manager": {
+            "npm": "npm",
+            "pnpm": "pnpm",
+            "yarn": "Yarn Classic",
+            "bun": "Bun",
+            "volta": "Volta"
+          },
+          "attentionTitle": "Alat baris perintah perlu diperiksa",
+          "status": {
+            "checking": "Memeriksa",
+            "ready": "Siap dipasang",
+            "installing": "Memasang",
+            "installed": "Terpasang",
+            "needsAttention": "Perlu diperiksa",
+            "manualOnly": "Pemasangan manual",
+            "error": "Gagal"
+          },
+          "action": {
+            "checking": "Memeriksa…",
+            "install": "Pasang",
+            "installing": "Memasang…",
+            "checkAgain": "Periksa lagi"
+          },
+          "metadata": {
+            "version": "Versi",
+            "path": "Berkas eksekusi",
+            "manager": "Dipasang dengan",
+            "unknown": "tidak diketahui"
+          },
+          "successGuidance": "Buka terminal baru, lalu jalankan motrix --help.",
+          "diagnostics": {
+            "show": "Tampilkan detail",
+            "hide": "Sembunyikan detail"
+          },
+          "reason": {
+            "nodeMissing": "Node.js 22 atau yang lebih baru tidak ditemukan. Pasang Node.js, lalu periksa lagi.",
+            "nodeTooOld": "Diperlukan Node.js 22 atau yang lebih baru. Versi terdeteksi: {{version}}.",
+            "managerMissing": "Tidak ditemukan pengelola paket yang didukung. Pasang npm, pnpm, Yarn Classic, Bun, atau Volta, lalu periksa lagi.",
+            "sandboxed": "Pemasangan sekali klik tidak tersedia dalam paket sandbox ini. Salin perintah dan jalankan di terminal.",
+            "unsupportedWeb": "Pemasangan sekali klik hanya tersedia di aplikasi desktop. Salin perintah dan jalankan pada host Motrix.",
+            "permission": "Pengelola paket tidak dapat menulis ke lokasi pemasangan globalnya. Gunakan pengelola versi Node.js atau prefiks yang dapat ditulis oleh akun Anda; jangan gunakan sudo.",
+            "network": "Pengelola paket tidak dapat menjangkau registri. Periksa jaringan atau konfigurasi registri, lalu coba lagi.",
+            "timeout": "Pemasangan terlalu lama dan telah dihentikan. Periksa jaringan, lalu coba lagi.",
+            "pathMissing": "Paket telah dipasang, tetapi motrix tidak ada dalam PATH. Buka terminal baru atau tambahkan direktori pemasangan yang dilaporkan ke PATH.",
+            "pathShadowed": "Berkas eksekusi motrix lain ditemukan lebih awal dalam PATH. Hapus entri lama atau perbaiki PATH, lalu periksa lagi.",
+            "verifyFailed": "Pemasang selesai, tetapi Motrix tidak dapat memverifikasi berkas eksekusi motrix yang aktif.",
+            "installFailed": "Pengelola paket tidak dapat memasang @motrix/cli. Periksa detailnya, lalu coba lagi atau jalankan perintah secara manual.",
+            "unknown": "Motrix tidak dapat memeriksa alat baris perintah. Coba lagi atau jalankan perintah yang disalin secara manual."
+          }
+        },
+        "remote": {
+          "title": "Alat jarak jauh yang dipasangkan",
+          "description": "Alat lokal terhubung secara otomatis. Jalankan motrix pair untuk terhubung ke komputer atau server lain.",
+          "empty": "Belum ada alat jarak jauh yang dipasangkan.",
+          "lastActive": "Terakhir aktif",
+          "neverActive": "Belum pernah digunakan",
+          "revoke": "Cabut akses"
+        },
+        "pairToast": {
+          "title": "{{name}} ingin dipasangkan dengan Motrix",
+          "code": "Kode verifikasi: {{code}}",
+          "allow": "Izinkan",
+          "deny": "Jangan izinkan"
+        },
+        "inbox": {
+          "title": "Persetujuan tertunda",
+          "empty": "Tidak ada permintaan pemasangan jarak jauh yang tertunda.",
+          "approve": "Setujui",
+          "deny": "Tolak",
+          "expiresIn": "Kedaluwarsa dalam {{time}}"
+        },
+        "pairUnavailable": "Permintaan pemasangan ini tidak lagi tertunda — jalankan motrix pair lagi."
+      },
+      "media": {
+        "title": "Alat media",
+        "desc": "Gabungkan atau konversi media dengan FFmpeg.",
+        "notDetected": "FFmpeg tidak terdeteksi",
+        "refresh": "Muat ulang",
+        "binaryPath": "Jalur FFmpeg khusus",
+        "browse": "Telusuri…",
+        "download": {
+          "action": "Unduh FFmpeg"
+        },
+        "detection": {
+          "readyTitle": "FFmpeg {{version}}",
+          "unavailableTitle": "FFmpeg tidak tersedia",
+          "untrustedTitle": "FFmpeg diblokir oleh macOS",
+          "usingSource": "Menggunakan {{source}}",
+          "unavailableDesc": "Tentukan jalur khusus, pasang FFmpeg, atau tambahkan ke PATH, lalu muat ulang.",
+          "untrustedDesc": "Berkas ada, tetapi tidak lolos verifikasi keamanan macOS. Pasang versi tepercaya atau izinkan melalui Privasi & Keamanan, lalu muat ulang.",
+          "showDetails": "Tampilkan detail deteksi",
+          "hideDetails": "Sembunyikan detail deteksi",
+          "sourcesChecked_other": "{{count}} sumber diperiksa",
+          "source": "Sumber",
+          "location": "Lokasi yang diperiksa",
+          "result": "Hasil",
+          "copyManagedPath": "Salin jalur FFmpeg Motrix",
+          "editCustomPath": "Edit jalur FFmpeg khusus",
+          "finishEditingCustomPath": "Selesai mengedit jalur FFmpeg khusus",
+          "notConfigured": "Belum diatur"
+        },
+        "candidateKind": {
+          "manual": "Jalur khusus",
+          "userData": "Direktori data Motrix",
+          "env": "MOTRIX_FFMPEG_BIN",
+          "path": "PATH sistem"
+        },
+        "state": {
+          "active": "Sedang digunakan",
+          "available": "Ditemukan",
+          "missing": "Tidak ditemukan",
+          "untrusted": "Diblokir oleh macOS",
+          "unconfigured": "Belum diatur",
+          "version_mismatch": "Tidak didukung"
+        },
+        "stagingMB": "Batas berkas sementara (MB)",
+        "stagingMBDesc": "Ruang untuk berkas perantara, per plugin dan tugas.",
+        "opTimeoutSec": "Batas waktu FFmpeg (detik)",
+        "opTimeoutSecDesc": "Waktu maksimum untuk satu operasi media, hingga 3.600 detik.",
+        "cleanupStaging": "Bersihkan berkas sementara",
+        "cleanupConfirm": "Hapus semua direktori sementara FFmpeg?",
+        "restartHint": "Disimpan. Mulai ulang Motrix agar plugin aktif mendeteksi perubahan.",
+        "restartNow": "Mulai ulang sekarang",
+        "validation": {
+          "fileMissing": "Berkas tidak ada pada jalur ini."
+        },
+        "applyHint": "Simpan untuk menggunakan jalur ini pada unduhan media baru. Pindai ulang di ekstensi browser untuk memperbarui dukungan.",
+        "savedTitle": "Pengaturan FFmpeg disimpan",
+        "desktopSavedHint": "Unduhan media baru menggunakan jalur yang disimpan. Mulai ulang Motrix agar plugin aktif mendeteksi perubahan.",
+        "pipelineUnavailable": "Dukungan unduhan media tidak tersedia.",
+        "ffmpegRequired": "Unduhan ini memerlukan FFmpeg. Atur di Pengaturan → Integrasi → Alat media, simpan, lalu coba lagi."
+      },
+      "pairResolveFailed": "Keputusan Anda tidak dapat dikirim — coba lagi.",
+      "appimage": {
+        "title": "Integrasi desktop",
+        "desc": "Daftarkan AppImage Motrix ini pada desktop agar browser dan tautan magnet dapat meneruskan unduhan kepadanya.",
+        "enable": "Aktifkan integrasi desktop",
+        "remove": "Hapus integrasi desktop",
+        "prompt": {
+          "title": "Integrasikan Motrix dengan desktop?",
+          "message": "Izinkan AppImage Motrix ini mendaftar pada lingkungan desktop Anda?",
+          "detail": "Motrix akan menambahkan entri desktop dan ikon dalam direktori data pengguna, lalu mendaftarkan dirinya untuk membuka tautan motrix:, tautan magnet, dan berkas .torrent. Dengan demikian, browser dan ekstensi Motrix dapat menjalankan Motrix dan meneruskan unduhan kepadanya. Tidak ada yang ditulis di luar direktori home Anda, dan tindakan ini dapat dibatalkan dari Pengaturan.",
+          "accept": "Integrasikan",
+          "decline": "Nanti saja"
+        },
+        "status": {
+          "healthy": "Terintegrasi dengan desktop ini.",
+          "notIntegrated": "Belum terintegrasi dengan desktop ini.",
+          "failedTitle": "Integrasi desktop belum lengkap",
+          "failedDetail": "Motrix tidak dapat mendaftarkan dirinya sebagai pembuka tautannya. Penerusan unduhan dari browser mungkin tidak berfungsi hingga Anda mengaktifkan kembali integrasi desktop.",
+          "removeBlockedDetail": "Motrix tidak dapat memulihkan asosiasi aplikasi sebelumnya yang terverifikasi dengan aman, sehingga entri desktopnya dipertahankan agar tidak meninggalkan asosiasi bawaan yang rusak. Pilih aplikasi bawaan lain di pengaturan desktop, lalu coba hapus integrasi lagi.",
+          "externalManaged": "Integrasi desktop disediakan oleh instalasi Motrix lain."
+        },
+        "movedHint": "Jika Anda memindahkan AppImage saat Motrix ditutup, tautan mungkin gagal menjalankannya hingga Anda membuka Motrix sekali dari lokasi barunya."
+      },
+      "appimageHost": {
+        "title": "Jalankan AppImage dari browser",
+        "desc": "Izinkan ekstensi membuka AppImage ini saat Anda mengeklik Hubungkan. Aktifkan integrasi browser untuk menggunakannya.",
+        "enable": "Aktifkan pembukaan dari browser",
+        "repair": "Perbaiki",
+        "useCurrent": "Gunakan AppImage ini",
+        "remove": "Hapus pembukaan dari browser",
+        "copyDiagnostics": "Salin diagnostik",
+        "status": {
+          "ready": "Pemeriksaan instalasi lokal lolos. Hubungkan dari browser untuk memastikan fungsinya.",
+          "disabled": "Pembukaan dari browser dinonaktifkan.",
+          "conflict": "Berkas ini dimiliki oleh instalasi lain. Hapus integrasi browser instalasi tersebut terlebih dahulu.",
+          "permissions": "Pastikan berkas dapat dieksekusi dan hanya akun Anda yang dapat menulisnya.",
+          "invalid": "Catatan instalasi atau berkas eksekusi tidak valid.",
+          "sourceChanged": "AppImage berubah. Jalankan versi yang diinginkan dan perbaiki instalasi.",
+          "missing": "Berkas yang diperlukan tidak ditemukan. Jalankan AppImage dari lokasinya saat ini dan lakukan perbaikan.",
+          "io": "Operasi gagal. Periksa akses disk dan coba Perbaiki."
+        }
+      },
+      "description": "Browser, aplikasi bawaan, dan alat"
+    },
+    "validation": {
+      "rangeHint": "Rentang: {{min}}–{{max}}.",
+      "range": "Masukkan angka antara {{min}} dan {{max}}.",
+      "integerRange": "Masukkan bilangan bulat antara {{min}} dan {{max}}.",
+      "minimum": "Masukkan {{min}} atau lebih.",
+      "maximum": "Masukkan {{max}} atau kurang.",
+      "integer": "Masukkan bilangan bulat.",
+      "wholeBytes": "Gunakan lebih sedikit angka di belakang koma.",
+      "number": "Masukkan angka yang valid.",
+      "invalid": "Masukkan nilai yang valid.",
+      "selection": "Pilih opsi yang tersedia.",
+      "textLength": "Gunakan paling banyak {{max}} karakter.",
+      "itemCount": "Gunakan paling banyak {{max}} alamat.",
+      "text": "Hapus pemisah baris atau karakter kontrol tersembunyi.",
+      "directory": "Pilih folder unduhan.",
+      "proxyHost": "Masukkan nama server atau alamat IP, tanpa http:// atau port.",
+      "stunServer": "Gunakan host:port, misalnya stun.example.com:3478. Port harus dalam rentang 1–65535.",
+      "httpsUrl": "Masukkan alamat lengkap yang diawali https://.",
+      "httpUrl": "Masukkan alamat lengkap yang diawali http:// atau https://.",
+      "saveFailed": "Perubahan Anda tidak dapat disimpan. Coba lagi.",
+      "address": "Alamat {{number}}",
+      "addressDraft": "Alamat baru",
+      "required": "Masukkan alamat terlebih dahulu.",
+      "time": "Gunakan format waktu 24 jam, misalnya 23:00.",
+      "loadFailed": "Pengaturan tidak dapat dimuat. Coba lagi."
+    },
+    "feedback": {
+      "syncFailedTitle": "Pengaturan disimpan; pembaruan antarmuka gagal",
+      "syncFailedBody": "Pengaturan Anda telah disimpan. Coba sinkronkan lagi untuk memperbarui halaman ini tanpa menyimpan ulang.",
+      "retrySync": "Coba sinkronkan lagi",
+      "applyFailedTitle": "Pengaturan disimpan; beberapa perubahan tidak dapat diterapkan",
+      "applyFailedBody": "Konfigurasi yang disimpan tetap dipertahankan. Periksa log aplikasi dan mulai ulang layanan yang terdampak setelah menyelesaikan masalahnya.",
+      "appRestartTitle": "Mulai ulang Motrix untuk menerapkan pengaturan",
+      "appRestartBody": "Pengaturan Anda telah disimpan. Mulai ulang Motrix saat Anda siap."
+    },
+    "connection": {
+      "originMismatchTitle": "Alamat akses server tidak cocok.",
+      "originMismatchBody": "Pembaruan waktu nyata tidak tersedia. Gunakan alamat server yang dikonfigurasi atau minta administrator memperbaikinya.",
+      "disconnectedTitle": "Koneksi pembaruan waktu nyata terputus.",
+      "disconnectedBody": "Beberapa informasi mungkin terlambat diperbarui. Jika masalah berlanjut, periksa koneksi server dan konfigurasi proxy."
+    }
+  },
+  "errors": {
+    "task": {
+      "create": {
+        "dedupExhausted": "Sudah ada terlalu banyak berkas dengan nama ini (>9999).",
+        "torrentMetaFailed": "Metadata torrent gagal disimpan."
+      }
+    }
+  },
+  "menu": {
+    "app": {
+      "title": "Motrix",
+      "about": "Tentang Motrix",
+      "preferences": "Pengaturan…",
+      "checkForUpdates": "Periksa pembaruan",
+      "show": "Tampilkan Motrix",
+      "hide": "Sembunyikan Motrix",
+      "hideOthers": "Sembunyikan lainnya",
+      "unhide": "Tampilkan semua",
+      "quit": "Keluar dari Motrix"
+    },
+    "file": {
+      "title": "Berkas"
+    },
+    "task": {
+      "title": "Tugas",
+      "newTask": "Tugas baru…",
+      "newBtTask": "Tugas BitTorrent baru…",
+      "openFile": "Buka berkas torrent…",
+      "taskList": "Daftar tugas",
+      "pauseTask": "Jeda",
+      "resumeTask": "Lanjutkan",
+      "deleteTask": "Hapus tugas dari daftar…",
+      "moveTaskUp": "Naikkan dalam antrean",
+      "moveTaskDown": "Turunkan dalam antrean",
+      "pauseAllTask": "Jeda semua",
+      "resumeAllTask": "Lanjutkan semua",
+      "selectAllTask": "Pilih semua tugas",
+      "clearRecentTasks": "Hapus catatan tugas yang sudah berhenti…"
+    },
+    "edit": {
+      "title": "Edit",
+      "undo": "Urungkan",
+      "redo": "Ulangi",
+      "cut": "Potong",
+      "copy": "Salin",
+      "paste": "Tempel",
+      "delete": "Hapus",
+      "selectAll": "Pilih semua"
+    },
+    "window": {
+      "title": "Jendela",
+      "reload": "Muat ulang",
+      "close": "Tutup",
+      "minimize": "Minimalkan",
+      "zoom": "Zoom",
+      "toggleFullscreen": "Aktifkan atau nonaktifkan layar penuh",
+      "front": "Bawa semua ke depan"
+    },
+    "help": {
+      "title": "Bantuan",
+      "officialWebsite": "Situs Motrix",
+      "manual": "Bantuan Motrix",
+      "changelog": "Catatan rilis",
+      "reportProblem": "Laporkan masalah",
+      "toggleDevTools": "Tampilkan atau sembunyikan alat pengembang"
+    }
+  },
+  "trackers": {
+    "effective": {
+      "enabled": "Tambahkan pelacak terpilih",
+      "enabledDesc": "Tambahkan daftar pelacak terpilih ke semua tugas BitTorrent.",
+      "disabled": "Nonaktif — aktifkan untuk melihat daftar pelacak yang digunakan.",
+      "empty": "Belum ada pelacak yang digunakan. Sinkronkan untuk mengisi daftar.",
+      "column": {
+        "url": "URL",
+        "health": "Kondisi",
+        "responseTimeMs": "Respons (ms)",
+        "lastProbedAt": "Terakhir diperiksa",
+        "source": "Sumber"
+      }
+    },
+    "blacklist": {
+      "enabled": "Terapkan daftar blokir",
+      "enabledDesc": "Blokir koneksi ke server pelacak yang mencurigakan atau mengalami kesalahan.",
+      "disabled": "Nonaktif — aktifkan untuk melihat daftar blokir.",
+      "empty": "Daftar blokir kosong.",
+      "summary": "{{count}} URL berlaku",
+      "column": {
+        "url": "URL",
+        "source": "Sumber"
+      }
+    },
+    "combobox": {
+      "placeholder": "Pilih sumber",
+      "addSourcePlaceholder": "https://example.com/list.txt",
+      "addSource": "Tambahkan",
+      "removeSource": "Hapus sumber",
+      "empty": "Tidak ada sumber yang cocok.",
+      "builtinBadge": "bawaan",
+      "cdnBadge": "CDN",
+      "directBadge": "Langsung"
+    },
+    "sync": {
+      "syncing": "Menyinkronkan...",
+      "fetching": "Mengambil daftar pelacak…",
+      "probing": "Memeriksa ketersediaan pelacak…",
+      "applying": "Menerapkan daftar pelacak…",
+      "failed": "Sinkronisasi belum selesai. Periksa jaringan atau sumber, lalu coba lagi.",
+      "unavailable": "Status sinkronisasi tidak dapat dibaca. Periksa koneksi dan coba lagi."
+    }
+  },
+  "plugins": {
+    "title": "Plugin",
+    "empty": "Belum ada plugin yang terpasang.",
+    "errors_other": "{{count}} kesalahan",
+    "status": {
+      "active": "Aktif",
+      "inactive": "Siaga",
+      "disabled": "Nonaktif",
+      "error": "Kesalahan"
+    },
+    "install": {
+      "title": "Tambahkan plugin",
+      "github": "GitHub",
+      "github.spec": "Repositori GitHub (owner/repo[@tag])",
+      "url": "URL",
+      "url.spec": "URL paket (.moext)",
+      "local": "Berkas lokal",
+      "local.pick": "Pilih berkas .moext",
+      "lead": "Tempelkan alamat plugin, pilih berkas .moext, atau letakkan berkas pada kolom isian.",
+      "placeholder": "Tempelkan alamat GitHub, URL, atau pilih berkas .moext lokal",
+      "detected": {
+        "auto": "Otomatis",
+        "github": "GitHub",
+        "url": "URL",
+        "local": "Berkas"
+      },
+      "detectedRow": {
+        "ok": "Terdeteksi sebagai {{type}}",
+        "localSupported": "Berkas .moext lokal didukung"
+      },
+      "checkAriaLabel": "Periksa plugin ini",
+      "install": "Pasang plugin",
+      "pickLocal": "Pilih berkas .moext lokal",
+      "localUnavailable": "Pemasangan dari berkas lokal tidak tersedia pada host ini.",
+      "localPrepareFailed": "Berkas plugin ini tidak dapat disiapkan: {{detail}}",
+      "dropHint": "Letakkan berkas .moext di sini untuk memeriksa plugin",
+      "dragDisabledHint": "Seret dan lepas tidak didukung dalam lingkungan ini. Gunakan alamat GitHub atau URL.",
+      "warning": "Sebelum memasang: lanjutkan hanya jika Anda memercayai pembuatnya dan penggunaan akses yang tercantum di atas sesuai dengan yang Anda harapkan."
+    },
+    "consent": {
+      "installTitle": "Pasang {{name}} {{version}}?",
+      "upgradeTitle": "Perbarui {{name}} ke {{version}}?",
+      "notVerified": "Plugin ini belum terverifikasi. Pasang hanya plugin dari sumber tepercaya.",
+      "confirm": "Izinkan dan pasang",
+      "permissions": "Izin yang diperlukan",
+      "optionalPermissions": "Izin opsional",
+      "hostPermissions": "Akses host",
+      "invokesCommands": "Memanggil perintah di plugin lain",
+      "calleeMissing": "Belum terpasang",
+      "source": "Sumber: {{type}} · {{url}}",
+      "broadAccess": {
+        "title": "Akses host luas",
+        "body": "Plugin ini dapat membaca dan mengubah unduhan dari URL mana pun. Pasang hanya jika Anda memercayai sumbernya.",
+        "tag": "Luas"
+      },
+      "diff": {
+        "title": "Perubahan sejak persetujuan terakhir",
+        "permissions": "Izin tambahan",
+        "optionalPermissions": "Izin opsional tambahan",
+        "hostPermissions": "Akses host tambahan",
+        "invokesCommands": "Panggilan perintah lintas plugin baru",
+        "publicCommands": "Perintah publik baru",
+        "publicCommandsSchema": "Skema perintah publik berubah",
+        "heap": "Memori yang diminta",
+        "engines": "Versi mesin Motrix",
+        "source": "Sumber paket"
+      }
+    },
+    "detail": {
+      "overview": "Ringkasan",
+      "settings": "Pengaturan",
+      "logs": "Log",
+      "about": "Tentang",
+      "loading": "Memuat…",
+      "back": "Semua plugin",
+      "author": "Pembuat",
+      "homepage": "Halaman utama",
+      "uninstall": "Copot pemasangan",
+      "uninstallConfirm": "Copot plugin ini? Datanya akan dihapus.",
+      "enabled": "Aktif",
+      "disabled": "Nonaktif",
+      "access": "Akses",
+      "advanced": "Lanjutan",
+      "accessGranted": "Yang sudah dapat dilakukan plugin ini",
+      "accessOptional": "Akses opsional",
+      "hero": {
+        "ready": "Siap",
+        "review": "Tinjau akses",
+        "attention": "Perlu diperiksa",
+        "off": "Dinonaktifkan",
+        "optional": "Dapat meminta akses tambahan"
+      },
+      "mini": {
+        "purpose": "Tujuan",
+        "access": "Akses",
+        "health": "Kondisi"
+      },
+      "healthOk": "Semua baik",
+      "healthIssues_other": "{{count}} masalah dilaporkan dalam sehari terakhir",
+      "accessNone": "Hanya pengaturannya sendiri",
+      "accessHosts_other": "Dapat membaca {{count}} situs web",
+      "accessBroad": "Dapat membaca situs web mana pun",
+      "attentionTitle": "Plugin ini melaporkan masalah",
+      "attentionGeneric": "Lihat log untuk detailnya.",
+      "viewIssue": "Lihat masalah",
+      "removeTitle": "Hapus plugin",
+      "removeDesc": "Menghapus plugin ini juga menghapus datanya yang tersimpan di Motrix.",
+      "uninstallConfirmTitle": "Copot {{name}}?",
+      "uninstallConfirmDesc": "Plugin dan pengaturannya yang tersimpan akan dihapus dari Motrix."
+    },
+    "permissions": {
+      "empty": "Plugin ini tidak meminta izin apa pun.",
+      "granted": "Diberikan",
+      "denied": "Ditolak"
+    },
+    "logs": {
+      "verbose": "Mode terperinci",
+      "verboseWarning": "Mencatat URL dan header lengkap selama 1 jam. Gunakan dengan hati-hati.",
+      "filterLabel": "Tingkat log",
+      "levels": {
+        "all": "Semua tingkat",
+        "trace": "Pelacakan",
+        "debug": "Debug",
+        "info": "Info",
+        "warn": "Peringatan",
+        "error": "Kesalahan",
+        "fatal": "Fatal"
+      },
+      "copy": "Salin",
+      "clear": "Hapus",
+      "output": "Keluaran langsung",
+      "entryCount_other": "{{count}} entri",
+      "empty": "Belum ada entri log",
+      "emptyHint": "Aktivitas terbaru plugin akan muncul di sini secara otomatis.",
+      "emptyFiltered": "Tidak ada entri yang cocok dengan tingkat ini."
+    },
+    "lead": "Tambahkan fitur kecil ke Motrix. Pertahankan plugin yang Anda percaya dan nonaktifkan sisanya.",
+    "search": "Cari plugin",
+    "registry": {
+      "availableTitle": "Plugin tersedia",
+      "featured": "Unggulan",
+      "byAuthor": "oleh {{name}}",
+      "requires": "Memerlukan Motrix {{range}}",
+      "notInstalled": "Belum terpasang",
+      "notFound": "Plugin “{{id}}” tidak ditemukan di registri",
+      "viewOnWebsite": "Lihat di motrix.app",
+      "updated": "diperbarui {{date}}",
+      "featuresTitle": "Fungsinya",
+      "permissionsTitle": "Izin",
+      "permissionsPreviewNote": "Pratinjau dari entri registri. Permintaan persetujuan sebenarnya selalu berdasarkan manifes dalam paket plugin.",
+      "optionalTag": "opsional",
+      "install": "Pasang",
+      "updateAvailable": "Pembaruan tersedia",
+      "updateTo": "Perbarui ke v{{version}}",
+      "refresh": "Periksa pembaruan",
+      "builtinUpdateTitle": "Perbarui plugin bawaan",
+      "builtinConsentLead": "Pembaruan ini meminta akses baru:",
+      "revertToBundled": "Kembalikan ke versi bawaan",
+      "restartRequired": "Pembaruan terpasang. Mulai ulang Motrix untuk menyelesaikan penerapannya.",
+      "updateInstalled": "Pembaruan terpasang.",
+      "actionFailed": "Tindakan tidak dapat diselesaikan."
+    },
+    "searchNoMatch": "Tidak ada plugin yang cocok dengan “{{query}}”",
+    "clearSearch": "Hapus pencarian",
+    "tone": {
+      "safe": "Tampak aman",
+      "review": "Perlu ditinjau",
+      "optional": "Akses opsional",
+      "off": "Nonaktif"
+    },
+    "card": {
+      "advancedDetails": "Detail lanjutan",
+      "commandsInvoked": "Perintah yang dipanggil: {{count}}",
+      "commandsServing": "Perintah yang disediakan: {{count}}",
+      "primaryAction": {
+        "settings": "Pengaturan",
+        "open": "Buka",
+        "reviewAccess": "Tinjau akses",
+        "viewIssue": "Lihat masalah",
+        "grantAccess": "Berikan akses",
+        "turnOn": "Aktifkan"
+      },
+      "plain": {
+        "safe": "Plugin ini aktif dan siap. Plugin hanya menyimpan pengaturannya sendiri dan tidak membaca situs web apa pun.",
+        "reviewBroadHost": "Plugin ini dapat membaca {{hostSummary}}. Biarkan aktif hanya jika Anda memercayainya.",
+        "reviewError": "Plugin ini melaporkan masalah.",
+        "optional": "Plugin ini berfungsi tanpa akses tambahan. Anda dapat memberikan akses tambahan nanti.",
+        "off": "Plugin ini dinonaktifkan."
+      }
+    },
+    "help": {
+      "guidance": {
+        "firstUse": {
+          "title": "Tambahkan plugin tepercaya",
+          "body": "Pasang dari sumber tepercaya, tinjau akses yang diminta, lalu aktifkan plugin.",
+          "safety": "Berikan akses hanya ke situs yang Anda harapkan untuk ditangani plugin.",
+          "browse": "Temukan plugin di katalog plugin resmi Motrix"
+        },
+        "ongoing": "Tinjau akses sebelum mengaktifkan plugin. Berikan akses hanya ke situs yang Anda harapkan untuk ditangani plugin."
+      }
+    },
+    "diagnostics": {
+      "title": "Diagnostik",
+      "intro": "Periksa panggilan antarplugin yang berhasil dalam 24 jam terakhir.",
+      "callGraph": {
+        "toolbarLabel": "Kontrol graf panggilan",
+        "modeLabel": "Tampilan hubungan",
+        "modes": {
+          "graph": "Graf",
+          "table": "Tabel"
+        },
+        "filters": {
+          "searchLabel": "Cari hubungan",
+          "searchPlaceholder": "Cari plugin atau perintah",
+          "clearSearch": "Hapus pencarian",
+          "pluginsGroup": "Plugin",
+          "commandsGroup": "Perintah",
+          "noSuggestions": "Tidak ada saran plugin atau perintah"
+        },
+        "refresh": "Muat ulang",
+        "refreshing": "Memuat ulang…",
+        "refreshTooltip": "Muat panggilan berhasil terbaru",
+        "renderGraphTooltip": "Tampilkan hasil yang besar ini sebagai graf",
+        "columns": {
+          "caller": "Pemanggil",
+          "command": "Perintah",
+          "callee": "Penerima",
+          "calls": "Panggilan",
+          "lastCall": "Panggilan terakhir"
+        },
+        "legend": {
+          "label": "Legenda jumlah panggilan",
+          "fewerCalls": "Lebih sedikit panggilan",
+          "moreCalls": "Lebih banyak panggilan"
+        },
+        "loading": {
+          "graph": "Memuat riwayat panggilan…",
+          "metadata": "Memuat detail plugin…"
+        },
+        "globalEmpty": {
+          "title": "Belum ada panggilan lintas plugin yang berhasil",
+          "description": "Plugin bawaan mungkin tidak menghasilkan panggilan lintas plugin secara bawaan."
+        },
+        "filteredEmpty": "Tidak ada panggilan berhasil yang cocok dengan pencarian ini.",
+        "errors": {
+          "graphTitle": "Riwayat panggilan tidak dapat dimuat",
+          "graphDescription": "Coba muat riwayat panggilan berhasil lagi.",
+          "graphRetry": "Coba muat riwayat lagi",
+          "metadataTitle": "Detail plugin tidak dapat dimuat",
+          "metadataDescription": "Detail plugin diperlukan untuk mengidentifikasi plugin yang tidak tersedia.",
+          "metadataRetry": "Coba muat detail plugin lagi",
+          "layout": "Peta hubungan tidak dapat ditata.",
+          "layoutRetry": "Tata peta lagi",
+          "canvasTitle": "Kanvas graf tidak dapat ditampilkan",
+          "canvasDescription": "Anda dapat mencoba menampilkan kanvas lagi atau menggunakan tampilan Tabel yang lengkap.",
+          "canvasRetry": "Coba tampilkan kanvas lagi",
+          "canvasTable": "Gunakan tabel"
+        },
+        "truncated": "Riwayat panggilan mungkin tidak lengkap karena hasil ini dibatasi oleh batas pembacaan, retensi, atau rotasi berkas.",
+        "statuses": {
+          "active": "Berjalan",
+          "inactive": "Siap, tanpa aktivitas",
+          "disabled": "Nonaktif",
+          "error": "Perlu diperiksa",
+          "missing": "Belum terpasang"
+        },
+        "inspector": {
+          "label": "Detail pilihan pada graf panggilan",
+          "scopeTitle": "Panggilan berhasil",
+          "neutralScope": "Pilih plugin atau koneksi untuk memeriksa panggilan berhasil dalam 24 jam terakhir.",
+          "pluginId": "ID plugin",
+          "status": "Status",
+          "incomingCalls": "Panggilan masuk",
+          "outgoingCalls": "Panggilan keluar",
+          "connections": "Plugin terhubung",
+          "noConnections": "Tidak ada plugin yang terhubung",
+          "openPlugin": "Buka plugin",
+          "edgeTitle": "Detail koneksi",
+          "totalCalls": "Jumlah panggilan",
+          "commands": "Perintah"
+        },
+        "tableRegionLabel": "Hubungan perintah yang dapat digulir",
+        "tableLabel": "Hubungan perintah plugin",
+        "counts": {
+          "calls_other": "{{count}} panggilan berhasil",
+          "commands_other": "{{count}} perintah"
+        },
+        "aria": {
+          "graphLabel": "Hubungan perintah plugin",
+          "graphDescription": "{{nodeCount}} plugin dan {{pairCount}} hubungan dalam 24 jam terakhir.",
+          "nodeLabel": "{{name}}, plugin {{id}}, {{status}}, {{incoming}} panggilan masuk dan {{outgoing}} panggilan keluar",
+          "edgeLabel": "{{source}} memanggil {{target}} {{calls}} kali melalui {{commands}} perintah",
+          "nodeDescription": "Pilih simpul plugin untuk memeriksanya.",
+          "nodeKeyboardInstruction": "Gunakan tombol panah untuk memindahkan simpul plugin ini.",
+          "nodeMoved": "Simpul plugin dipindahkan {{direction}} ke {{x}}, {{y}}.",
+          "directions": {
+            "left": "ke kiri",
+            "right": "ke kanan",
+            "up": "ke atas",
+            "down": "ke bawah"
+          },
+          "edgeDescription": "Pilih garis panggilan untuk memeriksanya.",
+          "controls": "Kontrol tampilan graf plugin",
+          "zoomIn": "Perbesar skala graf",
+          "zoomOut": "Perkecil skala graf",
+          "fitView": "Sesuaikan graf plugin dengan area tampilan",
+          "interactive": "Aktifkan atau nonaktifkan mode interaksi graf",
+          "minimap": "Ringkasan graf plugin",
+          "handle": "Titik panggilan hanya-baca"
+        }
+      }
+    },
+    "permission": {
+      "http": {
+        "strong": "Baca situs web",
+        "plain": "Membuka halaman yang didukung plugin ini.",
+        "cookies": {
+          "strong": "Gunakan cookie situs web",
+          "plain": "Mengakses situs tempat Anda sudah login."
+        }
+      },
+      "ffmpeg": {
+        "strong": "Gunakan FFmpeg",
+        "plain": "Memproses audio atau video."
+      },
+      "notify": {
+        "strong": "Kirim notifikasi",
+        "plain": "Menampilkan pemberitahuan selesai."
+      },
+      "fs": {
+        "task": {
+          "read": {
+            "strong": "Baca berkas unduhan",
+            "plain": "Melihat berkas dalam tugas."
+          },
+          "write": {
+            "strong": "Ubah berkas unduhan",
+            "plain": "Dapat menambahkan atau memperbarui berkas tugas."
+          }
+        },
+        "storage": {
+          "strong": "Simpan berkas plugin",
+          "plain": "Menyimpan berkas untuk plugin ini."
+        }
+      },
+      "storage": {
+        "strong": "Simpan pengaturan",
+        "plain": "Mengingat opsi plugin."
+      },
+      "notifications": {
+        "strong": "Kirim notifikasi",
+        "plain": "Menampilkan pemberitahuan plugin."
+      },
+      "network": {
+        "strong": "Baca situs web",
+        "plain": "Mengambil halaman yang didukung."
+      },
+      "tasks:read": {
+        "strong": "Baca unduhan",
+        "plain": "Melihat daftar unduhan Anda."
+      },
+      "tasks:write": {
+        "strong": "Kelola unduhan Anda",
+        "plain": "Dapat menjeda, melanjutkan, atau menghapus tugas dari daftar."
+      },
+      "unknown": {
+        "plain": "Izin tidak dikenal."
+      },
+      "accessTone": {
+        "required": "Diperlukan",
+        "websiteAccess": "Akses web",
+        "offByDefault": "Opsional",
+        "allowed": "Diizinkan",
+        "noAccess": "Nonaktif",
+        "grant": "Izinkan"
+      }
+    }
+  },
+  "plugin": {
+    "ffmpeg": {
+      "destination_phase_disallowed": "ffmpeg tidak dapat menulis ke {{kind}} dalam hook {{phase}}. Coba tulis ke penyimpanan plugin atau pindahkan panggilan ini ke beforeFinalize.",
+      "staging_quota_exceeded": "Kuota ruang sementara ffmpeg untuk tugas ini terlampaui. Kurangi ukuran keluaran atau tingkatkan batasnya di pengaturan Media."
+    },
+    "install": {
+      "ffmpeg": {
+        "title": "Kebutuhan FFmpeg",
+        "notInstalled": "FFmpeg belum terpasang pada sistem ini.",
+        "versionMismatch": "FFmpeg {{version}} terpasang.",
+        "requiredByPlugin": "Plugin ini memerlukan ffmpeg. Pasang dan coba lagi.",
+        "optionalDegraded": "Fitur media plugin ini tidak tersedia hingga ffmpeg dipasang."
+      }
+    }
+  },
+  "bridge": {
+    "receiver": {
+      "error": {
+        "invalidPayload": "Permintaan dari ekstensi tidak valid",
+        "invalidUrlScheme": "URL harus menggunakan http: atau https:",
+        "unsupportedKind": "Unduhan {{kind}} tidak didukung di versi Motrix ini",
+        "unsupportedLive": "Siaran langsung tidak dapat diunduh",
+        "unsupportedMaster": "Ekstensi mengirim daftar putar master; yang diperlukan adalah daftar putar varian",
+        "unsupportedEncryption": "Konten yang dilindungi DRM tidak dapat diunduh",
+        "authExpired": "Sesi kedaluwarsa — muat ulang halaman di browser dan coba lagi",
+        "notFound": "Sumber daya tidak ditemukan (404)",
+        "transientFailure": "Unduhan gagal setelah dicoba ulang: {{detail}}",
+        "rangeNotSatisfiable": "Unduhan gagal dilanjutkan; unduh ulang dari awal",
+        "diskFull": "Disk penuh",
+        "diskWriteFailed": "Tidak dapat menulis ke disk: {{detail}}",
+        "muxFailed": "ffmpeg gagal saat menggabungkan audio dan video",
+        "muxAborted": "Penggabungan dibatalkan",
+        "cancelled": "Dibatalkan",
+        "internalError": "Kesalahan internal: {{detail}}"
+      }
+    }
+  },
+  "onboarding": {
+    "disclaimer": {
+      "title": "Pemberitahuan penggunaan",
+      "language": "Bahasa",
+      "languages": {
+        "english": "English",
+        "chinese": "简体中文"
+      },
+      "summary": "Baca informasi berikut sebelum melanjutkan.",
+      "body": "Motrix hanya menyediakan pengelolaan unduhan. Motrix tidak menyediakan, menyimpan, menghosting, atau merekomendasikan konten untuk diunduh. Anda harus memastikan bahwa setiap tindakan mengakses, menggunakan, atau membagikan konten melalui Motrix memiliki izin yang sah dan mematuhi hukum hak cipta serta hukum lain yang berlaku. Anda bertanggung jawab atas segala konsekuensi dari mengunduh, menggunakan, atau membagikan konten. Dengan memilih “Setuju dan lanjutkan”, Anda menyatakan telah membaca dan memahami pemberitahuan ini.",
+      "highlights": {
+        "downloadManagement": "hanya menyediakan pengelolaan unduhan",
+        "authorized": "memiliki izin yang sah",
+        "responsibility": "Anda bertanggung jawab"
+      },
+      "localConsent": "Pilihan Anda akan disimpan di perangkat ini.",
+      "agree": "Setuju dan lanjutkan",
+      "quit": "Keluar",
+      "retry": "Coba lagi",
+      "saveFailed": "Persetujuan Anda tidak dapat disimpan. Periksa ruang penyimpanan dan coba lagi."
+    }
+  },
+  "notification": {
+    "taskError": {
+      "title": "{{name}} gagal"
+    },
+    "taskComplete": {
+      "title": "{{name}} selesai diunduh"
+    },
+    "engineFailure": {
+      "title": "Mesin unduhan gagal"
+    },
+    "engineCompatibility": {
+      "title": "Terdeteksi aria2 selain versi Motrix",
+      "body": "aria2 {{version}} bukan fork Motrix. Pengaturan koneksi dibatasi hingga {{limit}}, dan penyimpanan riwayat SQLite tidak tersedia. Pulihkan mesin aria2_motrix bawaan untuk mendapatkan dukungan penuh."
+    },
+    "engineRestartRequired": {
+      "title": "Mulai ulang mesin unduhan untuk menerapkan pengaturan",
+      "body": "Pengaturan Anda telah disimpan. Mulai ulang mesin unduhan saat Anda siap.",
+      "restartNow": "Mulai ulang sekarang"
+    },
+    "dnsFallback": {
+      "title": "{{name}} dicoba ulang dengan DNS sistem",
+      "body": "Motrix tidak dapat menjangkau server DNS, sehingga beralih ke DNS sistem untuk sesi ini."
+    },
+    "center": {
+      "title": "Notifikasi",
+      "markAllRead": "Tandai semua sudah dibaca",
+      "clearAll": "Hapus",
+      "empty": "Tidak ada notifikasi",
+      "emptyDesc": "Aktivitas unduhan dan pemberitahuan penting aplikasi akan muncul di sini",
+      "unreadDotAria": "Notifikasi belum dibaca",
+      "unreadBadgeAria_other": "{{count}} notifikasi belum dibaca",
+      "rowUnreadAria": "{{title}} (belum dibaca)",
+      "toastRegionAria": "Notifikasi",
+      "removeAria": "Hapus {{title}}",
+      "actionFailed": "Notifikasi tidak dapat diperbarui. Coba lagi.",
+      "markRead": "Tandai sudah dibaca",
+      "viewTask": "Lihat tugas",
+      "taskRemoved": "Tugas dihapus dari daftar",
+      "openTaskFailed": "Tugas tidak dapat dibuka. Coba lagi."
+    }
+  },
+  "applicationMenu": {
+    "signOut": "Keluar dari sesi…",
+    "back": "Kembali",
+    "serverUnavailable": "Server tidak tersedia. Sesi Anda belum diakhiri.",
+    "retry": "Coba lagi",
+    "actionFailed": "Tindakan tidak dapat diselesaikan. Periksa koneksi dan coba lagi.",
+    "clearTitle": "Hapus catatan tugas yang sudah berhenti?",
+    "clearDescription": "Hapus catatan tugas selesai, gagal, dan dihapus yang tercatat saat dialog ini dibuka. Berkas yang telah diunduh tetap tersimpan di disk.",
+    "clearConfirm": "Hapus catatan",
+    "logoutTitle": "Keluar dari sesi server ini?",
+    "logoutDescription": "Tindakan ini juga mengakhiri sesi pada tab lain yang menggunakan sesi browser yang sama. Unduhan tetap berjalan di server. Isian yang belum disimpan di tab tersebut akan dibuang.",
+    "logoutConfirm": "Keluar dari sesi",
+    "discardTitle": "Buang draf tugas ini?",
+    "discardDescription": "Tautan, pilihan torrent, dan pengaturan yang belum disimpan akan dibuang.",
+    "discardConfirm": "Buang"
+  },
+  "directoryPicker": {
+    "title": "Pilih folder server",
+    "description": "Jalur berada di server (di dalam kontainer jika menggunakan Docker).",
+    "back": "Kembali",
+    "forward": "Maju",
+    "up": "Naik satu tingkat",
+    "refresh": "Muat ulang",
+    "goToFolder": "Buka folder",
+    "location": "Lokasi",
+    "viewOptions": "Opsi tampilan",
+    "sortBy": "Urutkan menurut",
+    "sortName": "Nama",
+    "sortModified": "Tanggal diubah",
+    "sortOrder": "Urutan",
+    "sortAscending": "Menaik",
+    "sortDescending": "Menurun",
+    "showHidden": "Tampilkan folder tersembunyi",
+    "folders": "Folder",
+    "loading": "Memuat folder…",
+    "empty": "Tidak ada subfolder",
+    "incomplete": "Hanya sebagian isi folder ini yang ditampilkan. Masukkan jalur yang tepat untuk membuka folder lain.",
+    "selectFolder": "Pilih folder",
+    "selectedPath": "Folder yang dipilih",
+    "path": "Jalur folder",
+    "go": "Buka",
+    "newFolder": "Folder baru",
+    "folderName": "Nama folder",
+    "create": "Buat",
+    "createHelp": "Folder yang dibuat tetap ada di server jika Anda membatalkan pemilihan.",
+    "fallback": "Folder yang diminta tidak tersedia. Menampilkan {{path}}.",
+    "refreshAfterCreateFailed": "Folder telah dibuat, tetapi daftar tidak dapat dimuat ulang.",
+    "unknownOutcome": "Pembuatan folder belum dapat dikonfirmasi. Muat ulang untuk memeriksa sebelum membuat folder lain di sini.",
+    "retry": "Coba lagi",
+    "errors": {
+      "invalidPath": "Masukkan jalur folder absolut yang valid.",
+      "outsideRoots": "Folder ini berada di luar lokasi yang diizinkan.",
+      "notFound": "Folder ini sudah tidak ada.",
+      "notDirectory": "Jalur ini bukan folder.",
+      "permissionDenied": "Anda tidak memiliki izin untuk menggunakan folder ini.",
+      "alreadyExists": "Berkas atau folder dengan nama ini sudah ada.",
+      "invalidName": "Masukkan nama folder yang valid.",
+      "tooLarge": "Jalur atau nama folder ini terlalu panjang.",
+      "unavailable": "Server tidak dapat menyelesaikan permintaan ini. Coba lagi.",
+      "creationOutcomeUnknown": "Pembuatan folder belum dapat dikonfirmasi. Muat ulang untuk memeriksa sebelum membuat folder lain di sini."
+    },
+    "places": {
+      "common": "Lokasi umum",
+      "allowed": "Lokasi yang diizinkan",
+      "default": "Folder bawaan",
+      "home": "Folder pengguna",
+      "desktop": "Desktop",
+      "documents": "Dokumen",
+      "downloads": "Unduhan",
+      "root": "Sistem berkas",
+      "loadFailed": "Beberapa lokasi folder tidak dapat dimuat."
+    }
+  },
+  "directoryPreferences": {
+    "sectionDescription": "Akses dengan mudah folder yang sering digunakan.",
+    "manage": "Kelola direktori",
+    "manageDescription": "Pilih folder favorit dan kelola folder terbaru.",
+    "title": "Kelola direktori",
+    "description": "Menghapus folder dari daftar ini tidak akan menghapus folder atau berkas di dalamnya.",
+    "favorites": "Folder favorit",
+    "recent": "Folder terbaru",
+    "addFavorite": "Tambahkan favorit",
+    "removeFavorite": "Hapus dari favorit",
+    "favoriteRecent": "Tambahkan ke favorit",
+    "removeRecent": "Hapus folder dari daftar terbaru",
+    "clearRecent": "Kosongkan daftar folder terbaru",
+    "emptyFavorites": "Tidak ada folder favorit",
+    "emptyRecent": "Tidak ada folder terbaru",
+    "loading": "Memuat direktori…",
+    "retry": "Coba lagi",
+    "limitHint": "Anda dapat menyimpan hingga {{count}} folder favorit.",
+    "pickerFailed": "Pemilih folder tidak dapat dibuka. Coba lagi.",
+    "close": "Tutup",
+    "history": "Riwayat direktori",
+    "emptyHistory": "Belum ada folder favorit atau terbaru",
+    "errors": {
+      "conflict": "Pengaturan berubah di jendela lain. Periksa perubahan Anda dan simpan lagi.",
+      "invalidPath": "Masukkan jalur folder absolut yang valid.",
+      "outsideRoots": "Folder ini berada di luar lokasi yang diizinkan.",
+      "notFound": "Folder ini sudah tidak ada.",
+      "notDirectory": "Jalur ini bukan folder.",
+      "permissionDenied": "Anda tidak memiliki izin untuk menggunakan folder ini.",
+      "tooLarge": "Jalur folder ini terlalu panjang.",
+      "unavailable": "Catatan direktori tidak dapat diperbarui. Muat ulang untuk memeriksa keadaan terkininya.",
+      "limitReached": "Batas jumlah folder favorit telah tercapai. Hapus satu favorit sebelum menambahkan yang lain."
+    },
+    "manageAction": "Kelola",
+    "alreadyFavorite": "Sudah ada di favorit"
+  }
+}

@@ -72,4 +72,11 @@ describe('resolvePluginHostLanguage', () => {
     expect(resolvePluginHostLanguage('system')).toBe('pt-BR')
     expect(resolvePluginHostLanguage('en-US')).toBe('en-US')
   })
+
+  it('uses Indonesian for the system while honoring explicit English', () => {
+    getLocale.mockReturnValue('id-ID')
+
+    expect(resolvePluginHostLanguage('system')).toBe('id')
+    expect(resolvePluginHostLanguage('en-US')).toBe('en-US')
+  })
 })
