@@ -340,3 +340,56 @@ describe('bundled Italian translations', () => {
     expect(disclaimer.body).toContain(disclaimer.agree)
   })
 })
+
+describe('bundled Polish translations', () => {
+  it('resolves actions and Polish singular, few, many and fractional forms without English fallback', async () => {
+    const i18n = createInstance()
+    await i18n.init({
+      lng: 'pl',
+      fallbackLng: false,
+      resources: I18N_RESOURCES,
+      interpolation: { escapeValue: false },
+    })
+
+    expect(i18n.t('common.retry')).toBe('Spróbuj ponownie')
+    expect(i18n.t('settings.appearance.followSystem')).toBe(
+      'Zgodnie z systemem'
+    )
+    expect(i18n.t('panel.downloads.heading.all')).toBe('Wszystkie pobrania')
+    expect(i18n.t('task.remove.description', { name: 'example.zip' })).toBe(
+      'Zadanie „example.zip” zostanie usunięte z listy pobierania.'
+    )
+    expect(i18n.t('task.remove.deleteFilesLabel')).toBe('Usuń pobrane pliki')
+    for (const [count, category, text] of [
+      [0, 'many', 'Wybrano 0 plików'],
+      [1, 'one', 'Wybrano 1 plik'],
+      [2, 'few', 'Wybrano 2 pliki'],
+      [4, 'few', 'Wybrano 4 pliki'],
+      [5, 'many', 'Wybrano 5 plików'],
+      [11, 'many', 'Wybrano 11 plików'],
+      [12, 'many', 'Wybrano 12 plików'],
+      [14, 'many', 'Wybrano 14 plików'],
+      [21, 'many', 'Wybrano 21 plików'],
+      [22, 'few', 'Wybrano 22 pliki'],
+      [25, 'many', 'Wybrano 25 plików'],
+      [1.5, 'other', 'Wybrano 1.5 pliku'],
+      [1000000, 'many', 'Wybrano 1000000 plików'],
+    ] as const) {
+      const result = i18n.t('task.torrent.fileSelected', {
+        count,
+        returnDetails: true,
+      })
+      expect(result.exactUsedKey).toBe(`task.torrent.fileSelected_${category}`)
+      expect(result.res).toBe(text)
+      expect(result.usedLng).toBe('pl')
+    }
+  })
+
+  it('preserves the usage-notice highlights inside the Polish message', () => {
+    const { disclaimer } = I18N_RESOURCES.pl.translation.onboarding
+    for (const highlight of Object.values(disclaimer.highlights)) {
+      expect(disclaimer.body).toContain(highlight)
+    }
+    expect(disclaimer.body).toContain(disclaimer.agree)
+  })
+})
