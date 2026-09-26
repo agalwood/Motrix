@@ -83,6 +83,13 @@ describe('resolveSupportedLocale', () => {
     }
   )
 
+  it.each(['it', 'it-IT', 'it-CH', 'it_IT.UTF-8'])(
+    'resolves Italian locale %s to the bundled resource',
+    (locale) => {
+      expect(resolveSupportedLocale(locale, 'en-US')).toBe('it')
+    }
+  )
+
   it.each(['ja', 'ja-JP', 'ja-Jpan-JP', 'ja_JP.UTF-8'])(
     'resolves Japanese locale %s to the bundled resource',
     (locale) => {
@@ -127,6 +134,8 @@ describe('isSupportedLocale', () => {
     expect(isSupportedLocale('id')).toBe(true)
     expect(isSupportedLocale('id-ID')).toBe(false)
     expect(isSupportedLocale('in')).toBe(false)
+    expect(isSupportedLocale('it')).toBe(true)
+    expect(isSupportedLocale('it-IT')).toBe(false)
     expect(isSupportedLocale('ja')).toBe(true)
     expect(isSupportedLocale('ja-JP')).toBe(false)
     expect(isSupportedLocale('ko')).toBe(true)

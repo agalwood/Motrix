@@ -79,4 +79,11 @@ describe('resolvePluginHostLanguage', () => {
     expect(resolvePluginHostLanguage('system')).toBe('id')
     expect(resolvePluginHostLanguage('en-US')).toBe('en-US')
   })
+
+  it('uses Italian for the system while honoring explicit English', () => {
+    getLocale.mockReturnValue('it-IT')
+
+    expect(resolvePluginHostLanguage('system')).toBe('it')
+    expect(resolvePluginHostLanguage('en-US')).toBe('en-US')
+  })
 })

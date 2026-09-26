@@ -4,6 +4,7 @@ import enUS from '@shared/locales/en-US.json'
 import es from '@shared/locales/es.json'
 import fr from '@shared/locales/fr.json'
 import id from '@shared/locales/id.json'
+import it from '@shared/locales/it.json'
 import ja from '@shared/locales/ja.json'
 import ko from '@shared/locales/ko.json'
 import ptBR from '@shared/locales/pt-BR.json'
@@ -16,6 +17,7 @@ export const I18N_RESOURCES = {
   es: { translation: es },
   fr: { translation: fr },
   id: { translation: id },
+  it: { translation: it },
   ja: { translation: ja },
   ko: { translation: ko },
   'pt-BR': { translation: ptBR },
