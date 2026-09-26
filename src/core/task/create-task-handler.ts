@@ -1,4 +1,3 @@
-import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { stripHopByHopHeaders } from '@core/bridge-receiver/header-replay'
 import { ensureMediaExtension } from '@core/bridge-receiver/pipelines/media-final-name'
@@ -13,6 +12,7 @@ import type {
   EngineAdapter,
 } from '@core/engine/engine-adapter'
 import { DIRECT_RESOURCE_METADATA_PROFILE } from '@core/engine/engine-adapter'
+import { ensureDirectory } from '@core/fs/ensure-directory'
 import { newEngineTaskId, newTaskId } from '@core/lib/ids'
 import { getLogger } from '@core/logger'
 import type { HookAuditLog } from '@core/plugin/hooks/audit-log'
@@ -566,7 +566,7 @@ async function handleCreateTaskUnderAdmission(
   // container. HTTP keeps its incomplete suffix inside the chosen save root.
   const ensureDir = btStoragePlan?.saveDir ?? effectiveSaveDir
   try {
-    await mkdir(ensureDir, { recursive: true })
+    await ensureDirectory(ensureDir)
   } catch (cause) {
     log.warn(
       { err: cause, ensureDir, taskType },

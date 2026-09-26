@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { DirectPipeline } from '@core/bridge-receiver/pipelines/direct-pipeline'
 import { SubmitDownloadAdapter } from '@core/bridge-receiver/submit-download-adapter'
 import { initLogger } from '@core/logger'
@@ -32,10 +33,10 @@ import {
 } from './direct-resource-validator'
 import { FinalNamePickerImpl } from './final-name-picker'
 
-// Stub `mkdir` (and the other `fs.*` calls inadvertently dragged
+// Stub directory preparation (and the other `fs.*` calls inadvertently dragged
 // in via TorrentMetaStore) so unit tests don't touch the real
 // filesystem. The production code calls
-//   `mkdir(<saveDir-or-diskPath>, { recursive: true })`
+//   `ensureDirectory(<saveDir-or-diskPath>)`
 // with paths like '/d/foo.bin.motrix' which would either fail with
 // EACCES or — worse — actually mutate the runner's filesystem. The
 // mock also lets us assert WHICH path the production code chose,
@@ -46,12 +47,15 @@ import { FinalNamePickerImpl } from './final-name-picker'
 // module scope would be `undefined` when the mock factory runs.
 //
 // Both `default` and named exports are provided so that TorrentMetaStore's
-// `import fs from 'node:fs/promises'` (default) and createTaskHandler's
-// `import { mkdir } from 'node:fs/promises'` (named) both resolve.
+// `import fs from 'node:fs/promises'` (default) and the directory helper's
+// named imports both resolve.
 const { mkdirMock, fsStub } = vi.hoisted(() => {
   const mkdirMock = vi.fn(async () => undefined)
   const fsStub = {
     mkdir: mkdirMock,
+    stat: vi.fn(async (): Promise<{ isDirectory(): boolean }> => {
+      throw Object.assign(new Error('missing directory'), { code: 'ENOENT' })
+    }),
     writeFile: vi.fn(async () => undefined),
     readFile: vi.fn(async () => Buffer.alloc(0)),
     unlink: vi.fn(async () => undefined),
@@ -69,7 +73,8 @@ const logError = vi.fn()
 const logDebug = vi.fn()
 
 beforeEach(() => {
-  mkdirMock.mockClear()
+  mkdirMock.mockReset()
+  fsStub.stat.mockReset()
   logInfo.mockClear()
   logWarn.mockClear()
   logError.mockClear()
@@ -1956,6 +1961,27 @@ describe('handleCreateTask download paths', () => {
 })
 
 describe('handleCreateTask mkdir target by task type', () => {
+  it('dispatches a download in an existing volume root without trying to create it', async () => {
+    const saveDir = path.parse(path.resolve('/')).root
+    fsStub.stat.mockResolvedValue({ isDirectory: () => true })
+    // Model Windows mkdir on a drive root, even on a POSIX test host.
+    mkdirMock.mockRejectedValueOnce(
+      Object.assign(new Error(`EPERM: mkdir '${saveDir}'`), { code: 'EPERM' })
+    )
+    const deps = makeDeps()
+    await handleCreateTask(
+      { ...httpRequest(), saveDir, filename: 'archive.zip' },
+      deps
+    )
+    expect(deps.addUri).toHaveBeenCalledWith(
+      ['https://a/b'],
+      expect.objectContaining({ dir: saveDir, out: 'archive.zip.motrix' })
+    )
+    expect(deps.add).toHaveBeenCalledOnce()
+    expect(logWarn).not.toHaveBeenCalled()
+    expect(mkdirMock).not.toHaveBeenCalled()
+  })
+
   // BT/Magnet: `diskPath` is the container directory aria2 populates,
   // and aria2.addTorrent writes `<sha1>.torrent` inside it at add time
   // — pre-creating the dir is required to keep that write from
