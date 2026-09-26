@@ -69,7 +69,7 @@ export function UrlDiagnostic({
           side={wrapped ? 'bottom' : 'top'}
           align="end"
           sideOffset={6}
-          className="max-w-[min(20rem,calc(100vw-2rem))] text-left leading-relaxed"
+          className="max-w-[min(20rem,calc(100vw-2rem))] text-start leading-relaxed"
         >
           {label}
         </TooltipContent>

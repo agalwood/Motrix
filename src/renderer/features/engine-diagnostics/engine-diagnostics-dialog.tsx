@@ -491,7 +491,7 @@ export function EngineDiagnosticsDialogHost() {
                       onOpenChange={setDetailsOpen}
                       className="mt-3 mb-2"
                     >
-                      <CollapsibleTrigger className="group -mx-3 flex min-h-12 w-[calc(100%+1.5rem)] items-center gap-3 rounded-lg px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                      <CollapsibleTrigger className="group -mx-3 flex min-h-12 w-[calc(100%+1.5rem)] items-center gap-3 rounded-lg px-3 py-2.5 text-start outline-none focus-visible:ring-2 focus-visible:ring-ring">
                         <DiagnosticReportIcon
                           aria-hidden="true"
                           className="size-4 shrink-0 text-muted-foreground"
@@ -600,7 +600,7 @@ export function EngineDiagnosticsDialogHost() {
               key={report?.generatedAt ?? 'empty'}
               variant="ghost"
               size="sm"
-              className="-ml-2 text-xs text-muted-foreground"
+              className="-ms-2 text-xs text-muted-foreground"
               disabled={!report || busy}
               content={report ? formatEngineDiagnostics(report) : ''}
               copiedLabel={t(`${key}.copied`)}
@@ -610,7 +610,7 @@ export function EngineDiagnosticsDialogHost() {
             >
               {t(`${key}.copy`)}
             </CopyButton>
-            <div className="ml-auto flex flex-wrap justify-end gap-2">
+            <div className="ms-auto flex flex-wrap justify-end gap-2">
               <Button
                 variant="outline"
                 size="sm"

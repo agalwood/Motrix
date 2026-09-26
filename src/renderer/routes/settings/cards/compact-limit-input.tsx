@@ -91,7 +91,7 @@ export const CompactLimitInput = forwardRef<
           aria-valuemin={0}
           aria-valuenow={Number.isFinite(value) ? value : undefined}
           aria-valuetext={zero ? zeroLabel : `${value} ${unit}`}
-          className="h-8 min-w-0 px-2 text-right tabular-nums placeholder:text-right placeholder:text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          className="h-8 min-w-0 px-2 text-end tabular-nums placeholder:text-end placeholder:text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           value={
             draft?.unit === unit
               ? draft.text
@@ -125,7 +125,7 @@ export const CompactLimitInput = forwardRef<
           }}
         />
         {!zero && (
-          <InputGroupAddon align="inline-end" className="pr-2">
+          <InputGroupAddon align="inline-end" className="pe-2">
             <InputGroupText className="text-[11px]">{unit}</InputGroupText>
           </InputGroupAddon>
         )}

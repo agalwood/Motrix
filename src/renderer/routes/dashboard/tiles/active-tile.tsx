@@ -131,7 +131,7 @@ export function ActiveTile({
             {visibleSubItems.map(([key, count]) => (
               <div
                 key={key}
-                className="min-w-0 border-border/70 border-l px-3 first:border-l-0 first:pl-0 last:pr-0"
+                className="min-w-0 border-border/70 border-s px-3 first:border-s-0 first:ps-0 last:pe-0"
               >
                 <span className="mb-1 block text-[20px] leading-none text-foreground font-semibold">
                   {count}

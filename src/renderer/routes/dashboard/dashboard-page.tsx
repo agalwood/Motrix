@@ -181,7 +181,7 @@ export function DashboardPage() {
       actions={dashboardActions}
       headerClassName="px-2 compact-header:py-1"
       actionsClassName="compact-header:min-h-[30px]"
-      contentClassName="pl-2.5 pr-2 pt-4 pb-12"
+      contentClassName="ps-2.5 pe-2 pt-4 pb-12"
     >
       <DashboardGrid
         layout={layout}

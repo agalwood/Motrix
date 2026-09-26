@@ -203,7 +203,7 @@ export function MediaToolsSection() {
                       ? 'settings.integration.media.detection.hideDetails'
                       : 'settings.integration.media.detection.showDetails'
                   )}
-                  className="flex items-center justify-between flex-1 -ml-2 h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:bg-transparent dark:hover:bg-transparent hover:text-foreground"
+                  className="flex items-center justify-between flex-1 -ms-2 h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:bg-transparent dark:hover:bg-transparent hover:text-foreground"
                 />
               }
             >
@@ -228,7 +228,7 @@ export function MediaToolsSection() {
                 <span>
                   {t('settings.integration.media.detection.location')}
                 </span>
-                <span className="text-right">
+                <span className="text-end">
                   {t('settings.integration.media.detection.result')}
                 </span>
               </div>

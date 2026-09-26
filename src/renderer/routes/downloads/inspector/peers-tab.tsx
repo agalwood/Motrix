@@ -100,14 +100,14 @@ export function PeerRow({ peer, locale, showCountry }: PeerRowProps) {
       >
         {clientLabel(peer)}
       </span>
-      <span className="text-right text-muted-foreground">
+      <span className="text-end text-muted-foreground">
         {peer.downSpeed > 0 ? formatSpeed(peer.downSpeed) : '—'}
       </span>
-      <span className="text-right text-muted-foreground">
+      <span className="text-end text-muted-foreground">
         {peer.upSpeed > 0 ? formatSpeed(peer.upSpeed) : '—'}
       </span>
-      <span className="text-right text-muted-foreground">{progressPct}%</span>
-      <span className="text-right text-[11px] text-muted-foreground">
+      <span className="text-end text-muted-foreground">{progressPct}%</span>
+      <span className="text-end text-[11px] text-muted-foreground">
         {flagsString(peer)}
       </span>
     </div>
@@ -171,17 +171,17 @@ export function PeersTab({ task }: { task: DownloadTask }) {
           )}
           <span>{t('panel.downloads.inspector.peers.col.endpoint')}</span>
           <span>{t('panel.downloads.inspector.peers.col.client')}</span>
-          <span className="text-right">
+          <span className="text-end">
             {t('panel.downloads.inspector.peers.col.down')}
           </span>
-          <span className="text-right">
+          <span className="text-end">
             {t('panel.downloads.inspector.peers.col.up')}
           </span>
-          <span className="text-right">
+          <span className="text-end">
             {t('panel.downloads.inspector.peers.col.progress')}
           </span>
           <span
-            className="text-right"
+            className="text-end"
             title={t('panel.downloads.inspector.peers.col.flagsHint')}
           >
             {t('panel.downloads.inspector.peers.col.flags')}

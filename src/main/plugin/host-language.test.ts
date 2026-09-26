@@ -11,6 +11,26 @@ vi.mock('electron', () => ({
 import { resolvePluginHostLanguage } from './host-language'
 
 describe('resolvePluginHostLanguage', () => {
+  it.each([
+    ['ar-SA', 'ar'],
+    ['bg-BG', 'bg'],
+    ['ca-ES', 'ca'],
+    ['el-GR', 'el'],
+    ['fa-IR', 'fa'],
+    ['nb-NO', 'nb'],
+    ['nl-NL', 'nl'],
+    ['ro-RO', 'ro'],
+    ['th-TH', 'th'],
+    ['uk-UA', 'uk'],
+  ])(
+    'uses bundled %s while honoring explicit English',
+    (systemLocale, locale) => {
+      getLocale.mockReturnValue(systemLocale)
+      expect(resolvePluginHostLanguage('system')).toBe(locale)
+      expect(resolvePluginHostLanguage('en-US')).toBe('en-US')
+    }
+  )
+
   beforeEach(() => {
     getLocale.mockReset()
     getLocale.mockReturnValue('en-US')

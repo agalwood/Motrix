@@ -212,7 +212,7 @@ describe('AddTaskDialogHost', () => {
       'pt-[14px]'
     )
     const close = screen.getByRole('button', { name: 'Close' })
-    expect(close).toHaveClass('top-3.5', 'right-3.5', 'size-7')
+    expect(close).toHaveClass('top-3.5', 'end-3.5', 'size-7')
     expect(close.querySelector('[data-caption-icon="close"]')).not.toBeNull()
     expect(document.querySelector('[data-slot="dialog-overlay"]')).toHaveClass(
       'transition-opacity',

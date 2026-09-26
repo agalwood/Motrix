@@ -1,0 +1,2788 @@
+{
+  "applicationMenu": {
+    "actionFailed": "انجام این کار ممکن نشد. اتصال را بررسی کنید و دوباره تلاش کنید.",
+    "back": "بازگشت",
+    "clearConfirm": "پاک کردن سوابق",
+    "clearDescription": "سوابق کارهای تکمیل‌شده، ناموفق و حذف‌شده‌ای که هنگام باز شدن این پنجره ثبت شده‌اند، حذف می‌شوند. فایل‌های دانلودشده روی دیسک باقی می‌مانند.",
+    "clearTitle": "سوابق کارهای متوقف‌شده پاک شوند؟",
+    "discardConfirm": "کنار گذاشتن",
+    "discardDescription": "پیوندها، تورنت‌های انتخاب‌شده و تنظیمات ذخیره‌نشده کنار گذاشته می‌شوند.",
+    "discardTitle": "پیش‌نویس این کار کنار گذاشته شود؟",
+    "logoutConfirm": "خروج از حساب",
+    "logoutDescription": "زبانه‌های دیگری که از همین نشست مرورگر استفاده می‌کنند نیز از حساب خارج می‌شوند. دانلودها روی سرور ادامه می‌یابند. ورودی‌های ذخیره‌نشده در آن زبانه‌ها از دست می‌روند.",
+    "logoutTitle": "از حساب این سرور خارج می‌شوید؟",
+    "retry": "تلاش دوباره",
+    "serverUnavailable": "سرور در دسترس نیست. هنوز از نشست خود خارج نشده‌اید.",
+    "signOut": "خروج از حساب…"
+  },
+  "bridge": {
+    "receiver": {
+      "error": {
+        "authExpired": "نشست منقضی شده است؛ صفحه را در مرورگر تازه‌سازی کنید و دوباره تلاش کنید",
+        "cancelled": "لغوشده",
+        "diskFull": "دیسک پر است",
+        "diskWriteFailed": "نوشتن روی دیسک ممکن نیست: {{detail}}",
+        "internalError": "خطای داخلی: {{detail}}",
+        "invalidPayload": "درخواست افزونه نامعتبر است",
+        "invalidUrlScheme": "نشانی باید با http: یا https: آغاز شود",
+        "muxAborted": "ترکیب لغو شد",
+        "muxFailed": "ffmpeg هنگام ترکیب صدا و تصویر ناموفق بود",
+        "notFound": "منبع پیدا نشد (404)",
+        "rangeNotSatisfiable": "ادامهٔ دانلود ناموفق بود؛ دانلود را از ابتدا شروع کنید",
+        "transientFailure": "دانلود پس از چند تلاش ناموفق بود: {{detail}}",
+        "unsupportedEncryption": "محتوای محافظت‌شده با DRM قابل دانلود نیست",
+        "unsupportedKind": "دانلودهای {{kind}} در این نسخهٔ Motrix پشتیبانی نمی‌شوند",
+        "unsupportedLive": "پخش زنده قابل دانلود نیست",
+        "unsupportedMaster": "افزونه فهرست پخش اصلی را فرستاد؛ فهرست یک کیفیت مشخص لازم است"
+      }
+    }
+  },
+  "chrome": {
+    "close": "بستن",
+    "maximize": "بیشینه کردن",
+    "minimize": "کمینه کردن",
+    "newTask": "کار جدید",
+    "restore": "بازگردانی",
+    "sidebarDescription": "ناوبری برنامه.",
+    "sidebarTitle": "نوار کناری",
+    "toggleSidebar": "نمایش یا پنهان کردن نوار کناری"
+  },
+  "common": {
+    "apply": "اعمال",
+    "cancel": "لغو",
+    "clearSearch": "پاک کردن جستجو",
+    "close": "بستن",
+    "collapse": "جمع کردن",
+    "confirm": "تأیید",
+    "download": "دانلود",
+    "error": "خطا",
+    "hidePassword": "پنهان کردن گذرواژه",
+    "loading": "در حال بارگیری…",
+    "name": "نام:",
+    "remove": "حذف",
+    "reset": "بازنشانی",
+    "retry": "تلاش دوباره",
+    "save": "ذخیره",
+    "showPassword": "نمایش گذرواژه",
+    "status": {
+      "finalizing": "در حال نهایی‌سازی…"
+    }
+  },
+  "directoryPicker": {
+    "back": "بازگشت",
+    "create": "ساخت",
+    "createHelp": "اگر انتخاب را لغو کنید، پوشه‌های ساخته‌شده روی سرور باقی می‌مانند.",
+    "description": "مسیرها روی سرور هستند (هنگام استفاده از Docker، داخل کانتینر).",
+    "empty": "زیرپوشه‌ای وجود ندارد",
+    "errors": {
+      "alreadyExists": "فایل یا پوشه‌ای با این نام از قبل وجود دارد.",
+      "creationOutcomeUnknown": "ساخته شدن پوشه تأیید نشد. پیش از ساخت پوشه‌ای دیگر در اینجا، فهرست را تازه‌سازی و بررسی کنید.",
+      "invalidName": "نام معتبری برای پوشه وارد کنید.",
+      "invalidPath": "مسیر مطلق و معتبری برای پوشه وارد کنید.",
+      "notDirectory": "این مسیر یک پوشه نیست.",
+      "notFound": "این پوشه دیگر وجود ندارد.",
+      "outsideRoots": "این پوشه خارج از مکان‌های مجاز است.",
+      "permissionDenied": "مجوز استفاده از این پوشه را ندارید.",
+      "tooLarge": "مسیر یا نام این پوشه بیش از حد طولانی است.",
+      "unavailable": "سرور نتوانست این درخواست را تکمیل کند. دوباره تلاش کنید."
+    },
+    "fallback": "پوشهٔ درخواستی در دسترس نیست. {{path}} نمایش داده می‌شود.",
+    "folderName": "نام پوشه",
+    "folders": "پوشه‌ها",
+    "forward": "جلو",
+    "go": "رفتن",
+    "goToFolder": "رفتن به پوشه",
+    "incomplete": "فقط بخشی از این پوشه نمایش داده می‌شود. برای دسترسی به پوشه‌ای دیگر، مسیر دقیق آن را وارد کنید.",
+    "loading": "در حال بارگیری پوشه‌ها…",
+    "location": "مکان",
+    "newFolder": "پوشهٔ جدید",
+    "path": "مسیر پوشه",
+    "places": {
+      "allowed": "مکان‌های مجاز",
+      "common": "مکان‌های رایج",
+      "default": "پوشهٔ پیش‌فرض",
+      "desktop": "دسکتاپ",
+      "documents": "اسناد",
+      "downloads": "دانلودها",
+      "home": "خانه",
+      "loadFailed": "بارگیری برخی مکان‌های پوشه‌ها ممکن نشد.",
+      "root": "سیستم فایل"
+    },
+    "refresh": "تازه‌سازی",
+    "refreshAfterCreateFailed": "پوشه ساخته شد، اما تازه‌سازی فهرست ممکن نشد.",
+    "retry": "تلاش دوباره",
+    "selectFolder": "انتخاب پوشه",
+    "selectedPath": "پوشهٔ انتخاب‌شده",
+    "showHidden": "نمایش پوشه‌های پنهان",
+    "sortAscending": "صعودی",
+    "sortBy": "مرتب‌سازی بر اساس",
+    "sortDescending": "نزولی",
+    "sortModified": "تاریخ تغییر",
+    "sortName": "نام",
+    "sortOrder": "ترتیب",
+    "title": "انتخاب پوشهٔ سرور",
+    "unknownOutcome": "ساخته شدن پوشه تأیید نشد. پیش از ساخت پوشه‌ای دیگر در اینجا، فهرست را تازه‌سازی و بررسی کنید.",
+    "up": "یک سطح بالاتر",
+    "viewOptions": "گزینه‌های نمایش"
+  },
+  "directoryPreferences": {
+    "addFavorite": "افزودن به دلخواه‌ها",
+    "alreadyFavorite": "از قبل در دلخواه‌هاست",
+    "clearRecent": "پاک کردن پوشه‌های اخیر",
+    "close": "بستن",
+    "description": "حذف پوشه از این فهرست، خود پوشه یا فایل‌های آن را حذف نمی‌کند.",
+    "emptyFavorites": "پوشهٔ دلخواهی وجود ندارد",
+    "emptyHistory": "هنوز پوشهٔ دلخواه یا اخیری وجود ندارد",
+    "emptyRecent": "پوشهٔ اخیری وجود ندارد",
+    "errors": {
+      "conflict": "تنظیمات در پنجره‌ای دیگر تغییر کرده است. تغییرات خود را بررسی و دوباره ذخیره کنید.",
+      "invalidPath": "مسیر مطلق و معتبری برای پوشه وارد کنید.",
+      "limitReached": "تعداد پوشه‌های دلخواه به حد مجاز رسیده است. پیش از افزودن مورد جدید، یکی را حذف کنید.",
+      "notDirectory": "این مسیر یک پوشه نیست.",
+      "notFound": "این پوشه دیگر وجود ندارد.",
+      "outsideRoots": "این پوشه خارج از مکان‌های مجاز است.",
+      "permissionDenied": "مجوز استفاده از این پوشه را ندارید.",
+      "tooLarge": "مسیر این پوشه بیش از حد طولانی است.",
+      "unavailable": "به‌روزرسانی سوابق پوشه‌ها ممکن نشد. برای بررسی وضعیت فعلی، تازه‌سازی کنید."
+    },
+    "favoriteRecent": "افزودن به دلخواه‌ها",
+    "favorites": "پوشه‌های دلخواه",
+    "history": "سابقهٔ پوشه‌ها",
+    "limitHint": "می‌توانید حداکثر {{count}} پوشهٔ دلخواه ذخیره کنید.",
+    "loading": "در حال بارگیری پوشه‌ها…",
+    "manage": "مدیریت پوشه‌ها",
+    "manageAction": "مدیریت",
+    "manageDescription": "پوشه‌های دلخواه را انتخاب و پوشه‌های اخیر را مدیریت کنید.",
+    "pickerFailed": "باز کردن انتخابگر پوشه ممکن نشد. دوباره تلاش کنید.",
+    "recent": "پوشه‌های اخیر",
+    "removeFavorite": "حذف از دلخواه‌ها",
+    "removeRecent": "حذف پوشه از موارد اخیر",
+    "retry": "تلاش دوباره",
+    "sectionDescription": "پوشه‌های پرکاربرد را در دسترس نگه دارید.",
+    "title": "مدیریت پوشه‌ها"
+  },
+  "errors": {
+    "task": {
+      "create": {
+        "dedupExhausted": "تعداد فایل‌های موجود با این نام بیش از حد مجاز است (بیش از 9999).",
+        "torrentMetaFailed": "ذخیرهٔ پایدار فرادادهٔ تورنت ناموفق بود."
+      }
+    }
+  },
+  "menu": {
+    "app": {
+      "about": "دربارهٔ Motrix",
+      "checkForUpdates": "بررسی به‌روزرسانی‌ها",
+      "hide": "پنهان کردن Motrix",
+      "hideOthers": "پنهان کردن سایر برنامه‌ها",
+      "preferences": "تنظیمات…",
+      "quit": "خروج از Motrix",
+      "show": "نمایش Motrix",
+      "title": "Motrix",
+      "unhide": "نمایش همه"
+    },
+    "edit": {
+      "copy": "کپی",
+      "cut": "برش",
+      "delete": "حذف",
+      "paste": "جای‌گذاری",
+      "redo": "انجام دوباره",
+      "selectAll": "انتخاب همه",
+      "title": "ویرایش",
+      "undo": "واگرد"
+    },
+    "file": {
+      "title": "فایل"
+    },
+    "help": {
+      "changelog": "یادداشت‌های انتشار",
+      "manual": "راهنمای Motrix",
+      "officialWebsite": "وب‌سایت Motrix",
+      "reportProblem": "گزارش مشکل",
+      "title": "راهنما",
+      "toggleDevTools": "نمایش یا پنهان کردن ابزارهای توسعه‌دهنده"
+    },
+    "task": {
+      "clearRecentTasks": "پاک کردن سوابق کارهای متوقف‌شده…",
+      "deleteTask": "حذف کارها…",
+      "moveTaskDown": "پایین‌تر بردن در صف",
+      "moveTaskUp": "بالاتر بردن در صف",
+      "newBtTask": "کار BitTorrent جدید…",
+      "newTask": "کار جدید…",
+      "openFile": "باز کردن فایل تورنت…",
+      "pauseAllTask": "مکث همه",
+      "pauseTask": "مکث",
+      "resumeAllTask": "ادامهٔ همه",
+      "resumeTask": "ادامه",
+      "selectAllTask": "انتخاب همهٔ کارها",
+      "taskList": "فهرست کارها",
+      "title": "کار"
+    },
+    "window": {
+      "close": "بستن",
+      "front": "آوردن همه به جلو",
+      "minimize": "کمینه کردن",
+      "reload": "بارگیری دوباره",
+      "title": "پنجره",
+      "toggleFullscreen": "ورود یا خروج از حالت تمام‌صفحه",
+      "zoom": "تغییر اندازهٔ پنجره"
+    }
+  },
+  "nav": {
+    "completed": "تکمیل‌شده",
+    "dashboard": "داشبورد",
+    "downloads": "دانلودها",
+    "notifications": "اعلان‌ها",
+    "plugins": "افزونه‌ها",
+    "settings": "تنظیمات",
+    "trackers": "ردیاب‌ها"
+  },
+  "notification": {
+    "center": {
+      "actionFailed": "به‌روزرسانی اعلان‌ها ممکن نشد. دوباره تلاش کنید.",
+      "clearAll": "پاک کردن",
+      "empty": "اعلانی وجود ندارد",
+      "emptyDesc": "فعالیت دانلودها و اطلاعیه‌های مهم برنامه اینجا نمایش داده می‌شوند",
+      "markAllRead": "علامت‌گذاری همه به‌عنوان خوانده‌شده",
+      "markRead": "علامت‌گذاری به‌عنوان خوانده‌شده",
+      "openTaskFailed": "باز کردن کار ممکن نشد. دوباره تلاش کنید.",
+      "removeAria": "حذف {{title}}",
+      "rowUnreadAria": "{{title}} (خوانده‌نشده)",
+      "taskRemoved": "کار حذف شد",
+      "title": "اعلان‌ها",
+      "toastRegionAria": "اعلان‌ها",
+      "unreadBadgeAria_one": "{{count}} اعلان خوانده‌نشده",
+      "unreadBadgeAria_other": "{{count}} اعلان خوانده‌نشده",
+      "unreadDotAria": "اعلان‌های خوانده‌نشده",
+      "viewTask": "مشاهدهٔ کار"
+    },
+    "dnsFallback": {
+      "body": "Motrix نتوانست به سرور DNS دسترسی پیدا کند، بنابراین برای این نشست از DNS سیستم استفاده می‌کند.",
+      "title": "{{name}} با DNS سیستم دوباره امتحان شد"
+    },
+    "engineCompatibility": {
+      "body": "aria2 {{version}} نسخهٔ اختصاصی Motrix نیست. تنظیمات اتصال به حداکثر {{limit}} محدود است و ذخیرهٔ پایدار سابقه در SQLite در دسترس نیست. برای پشتیبانی کامل، موتور همراه برنامه، aria2_motrix، را بازگردانید.",
+      "title": "نسخه‌ای غیر از aria2 مخصوص Motrix شناسایی شد"
+    },
+    "engineFailure": {
+      "title": "موتور دانلود از کار افتاد"
+    },
+    "engineRestartRequired": {
+      "body": "تنظیمات شما ذخیره شد. در زمان مناسب موتور دانلود را دوباره راه‌اندازی کنید.",
+      "restartNow": "راه‌اندازی دوباره اکنون",
+      "title": "برای اعمال تنظیمات، موتور دانلود را دوباره راه‌اندازی کنید"
+    },
+    "taskComplete": {
+      "title": "دانلود {{name}} تمام شد"
+    },
+    "taskError": {
+      "title": "{{name}} ناموفق بود"
+    }
+  },
+  "onboarding": {
+    "disclaimer": {
+      "agree": "موافقت و ادامه",
+      "body": "Motrix فقط مدیریت دانلود را فراهم می‌کند. این برنامه محتوای قابل دانلود را ارائه، ذخیره، میزبانی یا پیشنهاد نمی‌کند. باید مطمئن شوید هر محتوایی که از طریق Motrix به آن دسترسی دارید، استفاده می‌کنید یا به اشتراک می‌گذارید، مجوز قانونی دارد و با قوانین حق نشر و سایر قوانین مربوط سازگار است. مسئولیت هر پیامد ناشی از دانلود، استفاده یا اشتراک‌گذاری محتوا با شماست. با انتخاب «موافقت و ادامه»، تأیید می‌کنید که این اطلاعیه را خوانده‌اید و متوجه شده‌اید.",
+      "highlights": {
+        "authorized": "مجوز قانونی دارد",
+        "downloadManagement": "فقط مدیریت دانلود را فراهم می‌کند",
+        "responsibility": "مسئولیت هر پیامد"
+      },
+      "language": "زبان",
+      "languages": {
+        "chinese": "简体中文",
+        "english": "English"
+      },
+      "localConsent": "انتخاب شما در این دستگاه ذخیره می‌شود.",
+      "quit": "خروج",
+      "retry": "تلاش دوباره",
+      "saveFailed": "موافقت شما ذخیره نشد. فضای دیسک را بررسی کنید و دوباره تلاش کنید.",
+      "summary": "پیش از ادامه، متن زیر را بخوانید.",
+      "title": "اطلاعیهٔ استفاده"
+    }
+  },
+  "operatorAdmin": {
+    "decision": {
+      "approve": "{{userCode}} برای {{clientName}} ({{clientVersion}}) تأیید شد.",
+      "deny": "{{userCode}} برای {{clientName}} ({{clientVersion}}) رد شد."
+    },
+    "errorPrefix": "motrix-admin: {{message}}",
+    "errors": {
+      "credential": {
+        "dataDirNotAbsolute": "MOTRIX_DATA_DIR باید مسیر مطلق باشد.",
+        "invalid": "فایل اطلاعات احراز هویت اپراتور نامعتبر است.",
+        "notFile": "مسیر اطلاعات احراز هویت اپراتور به فایل عادی اشاره نمی‌کند.",
+        "rejected": "Motrix اطلاعات احراز هویت اپراتور را رد کرد.",
+        "tokenHeaderInvalid": "MOTRIX_OPERATOR_TOKEN قابل استفاده در سرآیند HTTP نیست.",
+        "unavailable": "اطلاعات احراز هویت اپراتور در دسترس نیست. MOTRIX_OPERATOR_TOKEN را تنظیم کنید یا از وجود operator-token در پوشهٔ داده مطمئن شوید.",
+        "unreadable": "خواندن اطلاعات احراز هویت اپراتور ممکن نشد."
+      },
+      "server": {
+        "ambiguousRequest": "بیش از یک درخواست جفت‌سازی در انتظار با {{userCode}} مطابقت دارد؛ هیچ تصمیمی اعمال نشد.",
+        "approvalUnavailable": "تأیید جفت‌سازی در سرور در حال اجرای Motrix در دسترس نیست.",
+        "decisionOutcomeUnknown": "نتیجهٔ تصمیم جفت‌سازی مشخص نیست. پیش از تلاش دوباره، pairing pending را اجرا کنید.",
+        "decisionResponseInvalid": "پاسخ Motrix برای تصمیم جفت‌سازی نامعتبر بود.",
+        "noMatchingRequest": "هیچ درخواست جفت‌سازی در انتظاری با {{userCode}} مطابقت ندارد.",
+        "pendingResponseInvalid": "پاسخ Motrix برای جفت‌سازی‌های در انتظار نامعتبر بود.",
+        "requestNoLongerPending": "درخواست جفت‌سازی دیگر در انتظار نیست.",
+        "responseInvalidJson": "پاسخ JSON دریافتی از Motrix نامعتبر بود.",
+        "responseOversized": "اندازهٔ پاسخ Motrix بیش از حد مجاز بود.",
+        "responseUnreadable": "Motrix پاسخی ناخوانا برگرداند.",
+        "rpcHttp": "RPC جفت‌سازی Motrix با وضعیت HTTP {{status}} ناموفق بود.",
+        "unexpected": "خطای غیرمنتظره در motrix-admin."
+      },
+      "unavailable": {
+        "approvalNotReady": "تأیید جفت‌سازی در سرور در حال اجرای Motrix آماده نیست.",
+        "loopback": "سرور در حال اجرای Motrix از طریق loopback کانتینر در دسترس نیست."
+      },
+      "usage": {
+        "jsonRepeated": "گزینهٔ --json فقط یک بار قابل استفاده است.",
+        "pairingCodeInvalid": "کد جفت‌سازی باید هشت نویسهٔ ASCII داشته باشد و نباید شامل I، O، 0 یا 1 باشد.",
+        "pairingCommandRequired": "فرمان pairing لازم است.",
+        "pairingOperationRequired": "یکی از فرمان‌های pairing pending، pairing approve CODE یا pairing deny CODE لازم است.",
+        "portInvalid": "PORT باید عدد صحیحی بین 1 و 65535 باشد.",
+        "unknownOption": "گزینهٔ خط فرمان ناشناخته است."
+      }
+    },
+    "help": "نحوهٔ استفاده:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nاین فرمان فقط از طریق رابط loopback کانتینر با سرور در حال اجرای Motrix ارتباط برقرار می‌کند.",
+    "pending": {
+      "none": "درخواست جفت‌سازی در انتظاری وجود ندارد.",
+      "row": "{{userCode}}  {{clientName}}  {{clientVersion}}  انقضا در {{ttl}}",
+      "ttl": "{{minutes}} دقیقه {{seconds}} ثانیه"
+    },
+    "usageHint": "برای راهنما، `motrix-admin --help` را اجرا کنید."
+  },
+  "operatorUnlock": {
+    "error": "توکن اپراتور نامعتبر است. MOTRIX_OPERATOR_TOKEN یا <dataDir>/operator-token را روی میزبان بررسی کنید و دوباره تلاش کنید.",
+    "help": "این سرور به توکن اپراتور نیاز دارد. روی میزبان، MOTRIX_OPERATOR_TOKEN را تنظیم کنید یا توکن را از <dataDir>/operator-token بخوانید، سپس آن را در زیر جای‌گذاری کنید.",
+    "placeholder": "توکن اپراتور",
+    "submit": "باز کردن قفل",
+    "title": "باز کردن قفل Motrix"
+  },
+  "panel": {
+    "completed": {
+      "desc": "کارهای دانلود تکمیل‌شده",
+      "title": "تکمیل‌شده"
+    },
+    "connection": {
+      "originMismatch": "نشانی دسترسی مطابقت ندارد",
+      "polling": "به‌روزرسانی‌های دوره‌ای",
+      "reconnecting": "در حال اتصال دوباره به سرور…",
+      "unavailable": "سرور در دسترس نیست"
+    },
+    "dashboard": {
+      "active": {
+        "downloading": "در حال دانلود",
+        "engineOffline": "موتور آفلاین است",
+        "error": "خطا",
+        "seeding": "توزیع",
+        "title": "کارهای فعال",
+        "waiting": "در انتظار"
+      },
+      "activity": {
+        "completedIntensity": "شدت رنگ نشان‌دهندهٔ دانلودهای تکمیل‌شده است",
+        "coverageDegraded": "ممکن است فعالیت از {{time}} ناقص باشد",
+        "less": "کمتر",
+        "loading": "در حال بارگیری فعالیت",
+        "more": "بیشتر",
+        "rangeSummary": "{{weeks}} هفته فعالیت دانلود، از {{start}} تا {{end}}",
+        "retry": "تلاش دوباره",
+        "stale": "ممکن است فعالیت به‌روز نباشد",
+        "title": "فعالیت",
+        "tooltip": {
+          "completed": "{{count}} تکمیل‌شده",
+          "completedOnDate": "{{count}} تکمیل‌شده در {{date}}",
+          "coverage": "ممکن است پوشش داده از {{time}} ناقص باشد",
+          "coverageShort": "ممکن است داده‌ها ناقص باشند",
+          "noData": "دادهٔ فعالیتی وجود ندارد",
+          "noDataOnDate": "دادهٔ فعالیتی در {{date}} وجود ندارد",
+          "partial": "ردیابی در {{time}} شروع شد",
+          "partialShort": "بخشی از روز",
+          "recovered": "شامل دانلودی است که تکمیل آن هنگام بازیابی شناسایی شد",
+          "recoveredCount": "{{count}} بازیابی‌شده",
+          "submitted": "{{count}} ثبت‌شده",
+          "today": "امروز، همچنان در حال به‌روزرسانی",
+          "untracked": "هنوز ردیابی نشده"
+        },
+        "unavailable": "فعالیت در دسترس نیست",
+        "weekday": {
+          "fri": "جمعه",
+          "mon": "دوشنبه",
+          "sat": "شنبه",
+          "sun": "یکشنبه",
+          "thu": "پنجشنبه",
+          "tue": "سه‌شنبه",
+          "wed": "چهارشنبه"
+        }
+      },
+      "configure": {
+        "action": "پیکربندی",
+        "addTile": "افزودن",
+        "addTitle": "افزودن کاشی",
+        "apply": "اعمال",
+        "availabilityHints": {
+          "bounds": "ابتدا کاشی را به داخل جابه‌جا کنید.",
+          "space": "کاشی دیگری را کوچک یا حذف کنید.",
+          "unsupported": "اندازه‌ای پشتیبانی‌شده انتخاب کنید."
+        },
+        "cancel": "لغو",
+        "currentSize": "اندازهٔ فعلی: {{width}} × {{height}}",
+        "drag": "کشیدن کاشی",
+        "expandHint": "برای تنظیم چیدمان داشبورد، پنجره را بزرگ‌تر کنید.",
+        "invalidCapacity": "فضای کافی برای این اندازه وجود ندارد",
+        "presets": {
+          "action": "چیدمان‌های آماده",
+          "balanced": {
+            "title": "متعادل"
+          },
+          "compact": {
+            "title": "فشرده"
+          },
+          "custom": "سفارشی",
+          "speedFocus": {
+            "title": "تمرکز بر سرعت"
+          },
+          "taskFocus": {
+            "title": "تمرکز بر کارها"
+          },
+          "undo": "واگرد آخرین چیدمان آماده"
+        },
+        "removeTile": "حذف کاشی",
+        "reset": "بازنشانی",
+        "resizeTile": "تغییر اندازهٔ کاشی",
+        "saveFailed": "ذخیرهٔ چیدمان ممکن نشد. دوباره تلاش کنید.",
+        "size": "{{width}} × {{height}}",
+        "sizeGroup": "اندازهٔ کاشی",
+        "sizeLabels": {
+          "compact": "فشرده",
+          "fullHeight": "تمام‌ارتفاع",
+          "fullWidth": "تمام‌عرض",
+          "large": "بزرگ",
+          "tall": "بلند",
+          "wide": "عریض"
+        },
+        "sizeUnavailable": {
+          "insufficientSpace": "فضای کافی نیست",
+          "outOfBounds": "جا نمی‌شود",
+          "unsupported": "پشتیبانی نمی‌شود"
+        }
+      },
+      "engine": {
+        "diagnostics": {
+          "binary": {
+            "available": "{{name}} {{version}}",
+            "unavailable": "{{name}} موجود نیست یا راه‌اندازی آن ممکن نیست."
+          },
+          "checking": "در حال بررسی موتور…",
+          "checks": {
+            "binary": "موتور",
+            "communication": "اتصال",
+            "features": "قابلیت‌ها",
+            "process": "فرایند",
+            "rpc": "درگاه RPC"
+          },
+          "communication": {
+            "ready": "Motrix می‌تواند با aria2 ارتباط برقرار کند."
+          },
+          "confirmForce": {
+            "action": "توقف اجباری و بازیابی",
+            "description": "PID {{pid}} با فایل اجرایی همراه Motrix، رمز محرمانهٔ خصوصی RPC و مسیرهای داده مطابقت دارد. فوراً متوقف می‌شود، سپس aria2 روی درگاه RPC متعلق به Motrix دوباره راه‌اندازی می‌شود.",
+            "title": "فرایند باقی‌ماندهٔ aria2 به‌اجبار متوقف شود؟"
+          },
+          "copied": "کپی شد",
+          "copy": "کپی اطلاعات عیب‌یابی",
+          "copyFailed": "کپی اطلاعات عیب‌یابی ممکن نشد. دوباره تلاش کنید.",
+          "currentStatus": "وضعیت فعلی",
+          "description": "موتور را بررسی کنید، فرایندی را که از درگاه RPC متعلق به Motrix استفاده می‌کند شناسایی کنید و با روش ایمن بازیابی کنید.",
+          "details": "جزئیات عیب‌یابی",
+          "fallback": {
+            "available": "درگاه پیش‌فرض Motrix، {{port}}، آزاد است و اکنون می‌توان آن را بازگرداند.",
+            "blocked": "فرایند PID {{pid}} ({{name}}) از درگاه پیش‌فرض {{port}} استفاده می‌کند، اما Motrix نمی‌تواند مالکیت آن را تأیید کند. فرایند متوقف نخواهد شد.",
+            "confirm": {
+              "action": "توقف و بازگرداندن درگاه {{port}}",
+              "description": "PID {{pid}} به‌عنوان فرایند باقی‌ماندهٔ aria2 متعلق به Motrix تأیید شده است. متوقف می‌شود، درگاه پیش‌فرض {{port}} ذخیره می‌شود و aria2 دوباره راه‌اندازی می‌شود.",
+              "title": "فرایند باقی‌مانده متوقف و درگاه {{port}} بازگردانده شود؟"
+            },
+            "restore": "بازگرداندن درگاه پیش‌فرض Motrix، {{port}}",
+            "restoredDefault": "درگاه RPC پیش‌فرض Motrix، {{port}}، بازگردانده شد.",
+            "restoring": "در حال بازگرداندن درگاه پیش‌فرض Motrix، {{port}}…",
+            "unidentified": "شناسایی فرایندی که از درگاه پیش‌فرض {{port}} استفاده می‌کند ممکن نشد. Motrix همچنان از درگاه فعلی استفاده خواهد کرد.",
+            "verifiedOrphan": "فرایند باقی‌مانده و تأییدشدهٔ aria2 متعلق به Motrix (PID {{pid}}) از درگاه پیش‌فرض {{port}} استفاده می‌کند. Motrix می‌تواند پیش از بازگرداندن درگاه، آن را به‌طور ایمن متوقف کند."
+          },
+          "features": {
+            "none": "گزارش نشده",
+            "unavailable": "در دسترس نیست"
+          },
+          "forceRecover": "توقف اجباری و بازیابی",
+          "impact": {
+            "connecting": "پس از آماده شدن موتور، کنترل دانلودها در دسترس خواهد بود.",
+            "failed": "کنترل دانلودها در دسترس نیست. وضعیت کارها ممکن است قدیمی باشد.",
+            "stopped": "برای شروع یا مدیریت دانلودها، موتور را راه‌اندازی کنید."
+          },
+          "lastChecked": "بررسی در {{time}}",
+          "loadFailed": "اجرای عیب‌یابی موتور ممکن نشد.",
+          "motrixEngine": "aria2 Motrix",
+          "open": "عیب‌یابی",
+          "port": {
+            "available": "{{port}} (آزاد)",
+            "listening": "{{port}} (در حال گوش دادن)",
+            "occupied": "{{port}} (در حال استفاده)"
+          },
+          "process": {
+            "current_app": "PID {{pid}} ({{name}})، تحت مدیریت Motrix",
+            "external_aria2": "PID {{pid}} ({{name}})، مالکیت تأیید نشده؛ متوقف نخواهد شد",
+            "none": "تداخلی در درگاه وجود ندارد",
+            "other": "PID {{pid}} ({{name}})، مالکیت تأیید نشده؛ متوقف نخواهد شد",
+            "unidentified": "شناسایی نشده؛ متوقف نخواهد شد",
+            "unknown": "PID {{pid}}، شناسایی نشده؛ متوقف نخواهد شد",
+            "verified_orphan": "PID {{pid}} ({{name}})، فرایند باقی‌ماندهٔ Motrix تأیید شده؛ توقف آن ایمن است"
+          },
+          "reason": {
+            "binary_unavailable": "فایل اجرایی aria2 همراه برنامه موجود نیست یا در دسترس نیست.",
+            "health_check_failed": "aria2 دیگر به Motrix پاسخ نمی‌دهد.",
+            "port_in_use": "درگاه RPC متعلق به Motrix اشغال است، بنابراین موتور aria2 راه‌اندازی نشد.",
+            "rpc_unavailable": "موتور aria2 شروع شد، اما اتصال‌های RPC متعلق به Motrix را نپذیرفت.",
+            "spawn_failed": "ساخت فرایند aria2 ممکن نشد.",
+            "unexpected_exit": "موتور aria2 به‌طور غیرمنتظره متوقف شد.",
+            "unknown": "راه‌اندازی موتور aria2 به دلیلی نامشخص ممکن نشد."
+          },
+          "recommendation": {
+            "force_terminate": "تأیید شده است که این فرایند متعلق به Motrix است. PID {{pid}} را به‌اجبار متوقف کنید، سپس aria2 را روی درگاه RPC متعلق به Motrix، {{rpcPort}}، دوباره راه‌اندازی کنید.",
+            "retry": "درگاه آزاد است. بدون تغییر تنظیمات، اجرای aria2 را دوباره امتحان کنید.",
+            "switch_port": "پایان دادن ایمن به فرایند ممکن نیست. فقط به‌عنوان راه جایگزین از درگاه {{port}} استفاده کنید، یا خودتان فرایند متداخل را ببندید.",
+            "title": "روش بازیابی پیشنهادی"
+          },
+          "recovered": "موتور aria2 دوباره در دسترس است.",
+          "recoveredOnPort": "موتور aria2 روی درگاه RPC {{port}} بازیابی شد.",
+          "recoveryFailed": "بازیابی موتور ناموفق بود. برای دیدن وضعیت جدید، عیب‌یابی را دوباره اجرا کنید.",
+          "refreshFailed": "تازه‌سازی اطلاعات عیب‌یابی ممکن نشد. آخرین گزارش موفق در زیر نمایش داده می‌شود.",
+          "restart": "راه‌اندازی دوبارهٔ موتور",
+          "retry": "تلاش دوباره",
+          "rpc": {
+            "available": "{{port}} (آزاد)",
+            "listening": "{{port}} (در حال گوش دادن)",
+            "occupied": "{{port}} (در حال استفاده)"
+          },
+          "runAgain": "اجرای دوباره",
+          "runtime": {
+            "connected": "متصل",
+            "connecting": "در حال اتصال…",
+            "connection": "اتصال",
+            "connectionStatus": "{{transport}} ({{status}})",
+            "disconnected": "متصل نیست",
+            "notRunning": "اجرا نمی‌شود",
+            "process": "فرایند",
+            "running": "در حال اجرا",
+            "unavailable": "در دسترس نیست"
+          },
+          "summary": {
+            "binary_unavailable": "موتور دانلود در دسترس نیست",
+            "health_check_failed": "موتور دانلود دیگر پاسخ نمی‌دهد",
+            "port_in_use": "درگاه کنترل موتور اشغال است",
+            "ready": "موتور دانلود به‌طور عادی کار می‌کند",
+            "restarting": "موتور دانلود در حال بازیابی است",
+            "rpc_unavailable": "اتصال کنترل موتور در دسترس نیست",
+            "spawn_failed": "راه‌اندازی موتور دانلود ممکن نشد",
+            "starting": "موتور دانلود در حال شروع است",
+            "stopped": "موتور دانلود متوقف است",
+            "unexpected_exit": "موتور دانلود به‌طور غیرمنتظره متوقف شد",
+            "unknown": "موتور دانلود در دسترس نیست"
+          },
+          "switchPort": "استفاده از درگاه {{port}}",
+          "technicalDetails": "جزئیات فنی",
+          "title": "عیب‌یابی موتور",
+          "transport": {
+            "websocket": "WebSocket"
+          },
+          "versionUnknown": "نسخه در دسترس نیست"
+        },
+        "features": "قابلیت‌ها",
+        "listenPort": "درگاه ورودی",
+        "name": "Aria2",
+        "rpcPort": "درگاه RPC",
+        "startFailed": "راه‌اندازی موتور aria2 ممکن نشد",
+        "state": {
+          "disconnected": "قطع‌شده",
+          "failed": "ناموفق",
+          "ready": "آماده",
+          "reconnecting": "در حال اتصال دوباره…",
+          "starting": "در حال شروع…",
+          "stopped": "متوقف"
+        },
+        "title": "موتور",
+        "version": "نسخه"
+      },
+      "errors": {
+        "retry": "تلاش دوباره",
+        "tileFailed": "{{tile}}: نمایش ناموفق بود"
+      },
+      "nat": {
+        "actions": {
+          "diagnose": "اجرای عیب‌یابی",
+          "disable": "غیرفعال کردن NAT",
+          "enable": "فعال کردن NAT",
+          "group": "کنترل‌های NAT",
+          "remap": "نگاشت دوبارهٔ اجباری",
+          "settings": "تنظیمات NAT",
+          "short": {
+            "diagnose": "عیب‌یابی",
+            "disable": "غیرفعال کردن",
+            "enable": "فعال کردن",
+            "help": "راهنما",
+            "remap": "نگاشت دوباره"
+          },
+          "troubleshoot": "راهنمای رفع مشکلات NAT"
+        },
+        "caption": {
+          "failed": "نگاشت خودکار در دسترس نیست.",
+          "off": "نگاشت درگاه BT خاموش است.",
+          "settingUp": "در حال اتصال به روتر…",
+          "waiting": "در انتظار وضعیت شبکه…"
+        },
+        "compact": {
+          "caption": {
+            "active_one": "{{count}} درگاه",
+            "active_other": "{{count}} درگاه",
+            "failed": "در دسترس نیست",
+            "off": "BT / DHT",
+            "settingUp": "در حال اتصال…",
+            "waiting": "در حال بارگیری…"
+          },
+          "state": {
+            "active": "نگاشت‌شده",
+            "failed": "نگاشت",
+            "off": "خاموش",
+            "settingUp": "نگاشت"
+          }
+        },
+        "externalIp": "IP خارجی",
+        "gatewayIp": "روتر",
+        "health": "وضعیت سلامت",
+        "healthScore": {
+          "fair": "متوسط",
+          "good": "خوب",
+          "poor": "ضعیف",
+          "unknown": "—"
+        },
+        "internalIp": "IP محلی",
+        "lastCheck": "آخرین بررسی",
+        "lastCheckNever": "هرگز",
+        "mappingDetails": "درگاه‌های نگاشت‌شده",
+        "mappingPurpose": {
+          "bt-listen": "BitTorrent",
+          "dht-listen": "DHT"
+        },
+        "mappings": "نگاشت‌ها",
+        "mappingsValue_one": "{{count}} فعال",
+        "mappingsValue_other": "{{count}} فعال",
+        "natType": {
+          "blocked": "مسدود",
+          "fullcone": "مخروطی کامل",
+          "open": "باز",
+          "port-restricted": "محدود به درگاه",
+          "restricted": "محدود",
+          "symmetric": "متقارن",
+          "unknown": "نامشخص"
+        },
+        "noMappings": "نگاشت درگاه فعالی وجود ندارد.",
+        "none": "—",
+        "portMapping": "داخلی {{internal}} به خارجی {{external}}",
+        "rateLimited": "درخواست‌ها بیش از حد پی‌درپی هستند؛ کمی بعد دوباره تلاش کنید",
+        "retrying": "تلاش دوباره {{attempt}}/{{max}}",
+        "state": {
+          "active": "فعال",
+          "failed": "ناموفق",
+          "off": "خاموش",
+          "settingUp": "در حال آماده‌سازی"
+        },
+        "title": "NAT",
+        "type": "نوع"
+      },
+      "speed": {
+        "down": "دانلود",
+        "offline": "آفلاین",
+        "peak": "اوج {{value}}",
+        "up": "بارگذاری"
+      },
+      "speedDown": {
+        "title": "سرعت دانلود"
+      },
+      "speedLimit": {
+        "reason": {
+          "adaptive": "پهنای باند رزروشده",
+          "base": "محدودیت استاندارد",
+          "schedule": "زمان‌بندی",
+          "turtle": "حالت کم‌سرعت",
+          "videoApp": "برنامهٔ ویدیویی"
+        },
+        "settings": "تنظیمات محدودیت سرعت",
+        "smart": "خودکار",
+        "title": "حد سرعت",
+        "tooltip": {
+          "auto": "تنظیم خودکار سرعت بر اساس زمان‌بندی و پهنای باند",
+          "off": "استفاده از محدودیت‌های سرعت استاندارد",
+          "on": "استفاده از محدودیت‌های کم‌سرعت اکنون"
+        },
+        "turtle": {
+          "auto": "حالت خودکار",
+          "off": "حالت استاندارد",
+          "on": "حالت کم‌سرعت"
+        },
+        "unlimited": "نامحدود"
+      },
+      "speedUp": {
+        "title": "سرعت بارگذاری"
+      },
+      "tasks": {
+        "empty": {
+          "active": "کار فعالی وجود ندارد",
+          "failed": "کار ناموفقی وجود ندارد",
+          "recent": "هنوز چیزی تکمیل نشده است"
+        },
+        "loading": "در حال بارگیری کارها",
+        "metric": {
+          "fetching": "در حال دریافت",
+          "finalizing": "در حال نهایی‌سازی",
+          "paused": "مکث‌شده",
+          "queued": "در صف",
+          "ready": "آماده"
+        },
+        "more": "+{{count}} مورد دیگر",
+        "newTask": "کار جدید",
+        "offline": "موتور آفلاین است",
+        "progressLabel": "پیشرفت {{name}}",
+        "retry": "تلاش دوباره",
+        "secondary": {
+          "chooseFiles": "در انتظار انتخاب فایل",
+          "completed": "تکمیل‌شده در {{time}}",
+          "eta": "زمان باقی‌مانده {{time}}",
+          "failed": "ناموفق: {{reason}}",
+          "finalizing": "در حال تکمیل دانلود",
+          "metadata": "در حال دریافت فراداده",
+          "offline": "آفلاین (آخرین پیشرفت ثبت‌شده)",
+          "ratio": "نسبت {{ratio}}",
+          "saved": "{{percent}}٪ ذخیره‌شده",
+          "technicalDetail": "جزئیات فنی: {{detail}}",
+          "waiting": "در انتظار شروع"
+        },
+        "title": "کارها",
+        "unavailable": "کارها در دسترس نیستند",
+        "view": {
+          "active": "فعال",
+          "failed": "ناموفق",
+          "recent": "اخیر"
+        },
+        "viewLabel": "نمای کارها"
+      },
+      "title": "داشبورد",
+      "transfer": {
+        "download": "دانلود",
+        "empty": {
+          "allTime": "هنوز انتقالی ثبت نشده است.",
+          "today": "امروز انتقالی ثبت نشده است."
+        },
+        "loading": "در حال بارگیری داده‌های انتقال",
+        "outOfDate": "ممکن است داده‌ها قدیمی باشند",
+        "rangeLabel": "بازهٔ انتقال",
+        "retry": "تلاش دوباره",
+        "scope": {
+          "allTime": "کل دوره",
+          "today": "امروز"
+        },
+        "sinceDate": "از {{date}}",
+        "sinceTime": "از {{time}}",
+        "title": "انتقال",
+        "totalLabel": "مجموع انتقال در {{scope}}: {{value}}",
+        "unavailable": "داده‌های انتقال در دسترس نیست",
+        "updated": "به‌روز شده در {{time}}",
+        "upload": "بارگذاری"
+      }
+    },
+    "downloads": {
+      "action": {
+        "batchPartial": "{{ok}} موفق، {{failed}} ناموفق",
+        "cancel": "لغو",
+        "chooseFiles": "انتخاب فایل‌ها…",
+        "copied": "در کلیپ‌بورد کپی شد",
+        "copyError": "کپی اطلاعات خطا",
+        "copyFailed": "کپی در کلیپ‌بورد ممکن نشد. دوباره تلاش کنید.",
+        "copyPath": "کپی مسیر فایل",
+        "copyUrl": "کپی نشانی",
+        "copyUrlFailed": "کپی ناموفق بود: بارگیری جزئیات پیوند کار ممکن نشد. دوباره تلاش کنید.",
+        "copyUrls": "کپی نشانی‌ها",
+        "errorReport": "{{name}}\nشناسهٔ کار: {{id}}\n{{details}}",
+        "finalizingTooltip": "کار در حال نهایی‌سازی است، لطفاً منتظر بمانید",
+        "moveQueueBottom": "انتقال به انتهای صف",
+        "moveQueueDown": "پایین‌تر بردن در صف",
+        "moveQueueTop": "انتقال به ابتدای صف",
+        "moveQueueUp": "بالاتر بردن در صف",
+        "openFile": "باز کردن فایل",
+        "openFileFailed": "باز کردن فایل ممکن نشد",
+        "openFolder": "باز کردن پوشه",
+        "pause": "مکث",
+        "pauseTooltipBatch": "مکث {{n}} مورد از {{total}} مورد انتخاب‌شده",
+        "queueBoundary": "انتخاب از قبل در مرز صف است",
+        "queueMoveFailed": "به‌روزرسانی صف انتظار ممکن نشد.",
+        "queueMoveHint": "جایگاه در صف تعیین می‌کند کدام دانلود منتظر، در مرحلهٔ بعد شروع شود. مرتب‌سازی ستون‌ها جداگانه ذخیره می‌شود.",
+        "queueMoved": "صف انتظار به‌روز شد",
+        "queueOrder": "ترتیب دانلود",
+        "queueTaskStarted": "این کار دیگر در صف انتظار نیست.",
+        "remove": "حذف",
+        "removeAll_completed_Title": "{{count}} کار تکمیل‌شده حذف شود؟",
+        "removeAll_downloading_Title": "{{count}} کار فعال حذف شود؟",
+        "removeAll_error_Title": "{{count}} کار ناموفق حذف شود؟",
+        "removeAll_paused_Title": "{{count}} کار مکث‌شده حذف شود؟",
+        "removeAll_seeding_Title": "{{count}} کار در حال توزیع حذف شود؟",
+        "removeConfirmWithFiles": "فایل‌های دانلودشده نیز از دیسک حذف شوند",
+        "removeFilesEstimate": "{{bytes}} از دیسک حذف می‌شود",
+        "removeMixedTitle": "{{count}} کار حذف شود؟",
+        "removeSingleTitle": "«{{name}}» حذف شود؟",
+        "removeTooltipBatch": "حذف {{n}} مورد از {{total}} مورد انتخاب‌شده",
+        "removeWithFilesShift": "برای حذف فایل‌ها نیز Shift را نگه دارید",
+        "reseed": "توزیع دوباره",
+        "reseedTooltipBatch": "توزیع دوبارهٔ {{n}} مورد از {{total}} مورد انتخاب‌شده",
+        "resume": "ادامه",
+        "resumeTooltipBatch": "ادامهٔ {{n}} مورد از {{total}} مورد انتخاب‌شده",
+        "retry": "تلاش دوباره",
+        "retryTooltipBatch": "تلاش دوباره برای {{n}} مورد از {{total}} مورد انتخاب‌شده",
+        "retryWithDialog": "تلاش دوباره با گزینه‌ها… (Alt+کلیک)",
+        "selectFiles": "انتخاب فایل‌ها",
+        "selectFilesFailed": "باز کردن انتخاب فایل ممکن نشد.",
+        "singleTaskFailed": "{{name}}: {{reason}}",
+        "stopSeeding": "توقف توزیع",
+        "stopSeedingTooltipBatch": "توقف توزیع {{n}} مورد از {{total}} مورد انتخاب‌شده"
+      },
+      "column": {
+        "connections": "همتاها",
+        "createdAt": "تاریخ ایجاد",
+        "down": "سرعت دانلود",
+        "eta": "زمان باقی‌مانده",
+        "finishedAt": "تاریخ تکمیل",
+        "name": "نام",
+        "progress": "پیشرفت",
+        "size": "اندازه",
+        "status": "وضعیت",
+        "up": "سرعت بارگذاری"
+      },
+      "columnHeader": {
+        "down": "دانلود",
+        "up": "بارگذاری"
+      },
+      "empty": {
+        "clearSearch": "پاک کردن جستجو",
+        "motion": {
+          "breathing": "نور تپنده",
+          "description": "پیش‌نمایش توسعه",
+          "enabled": "جلوه‌های حرکتی",
+          "enabledDesc": "با ظاهر ← کاهش حرکت همگام است. تغییرات فوراً ذخیره می‌شوند.",
+          "horizontalSpeed": "سرعت افقی",
+          "loadFade": "ظهور تدریجی هنگام بارگیری",
+          "open": "تنظیم حرکت شیشه",
+          "pointerFollow": "دنبال کردن نشانگر",
+          "positionConstraint": "محدودیت جابه‌جایی با جاذبه",
+          "saveFailed": "ذخیرهٔ تنظیم حرکت ممکن نشد. دوباره تلاش کنید.",
+          "systemReducedMotion": "حرکت به‌دلیل تنظیم کاهش حرکت سیستم غیرفعال است.",
+          "title": "حرکت شیشه"
+        },
+        "noMatchFilter": "کاری با این فیلتر مطابقت ندارد",
+        "noMatchSearch": "کاری با «{{query}}» مطابقت ندارد",
+        "noTasks": "هنوز دانلودی وجود ندارد",
+        "noTasksCta": "برای افزودن، + را فشار دهید",
+        "unavailable": "کارها در دسترس نیستند"
+      },
+      "heading": {
+        "active": "دانلودهای فعال",
+        "all": "همهٔ دانلودها",
+        "completed": "دانلودهای تکمیل‌شده",
+        "error": "دانلودهای ناموفق"
+      },
+      "inspector": {
+        "activity": {
+          "chart": {
+            "accessibleSummary": "{{range}} از {{start}} تا {{end}}. آخرین سرعت دانلود {{download}} و بارگذاری {{upload}}. در کل دوره: میانگین دانلود {{average}}، اوج دانلود {{peak}} و مدت فعالیت {{activeDuration}}. {{sampleLabel}}. {{state}}",
+            "activeSeconds_one": "{{count}} ثانیه",
+            "activeSeconds_other": "{{count}} ثانیه",
+            "noDataQualityIssues": "هشداری دربارهٔ ردیابی وجود ندارد.",
+            "sampleCount_one": "{{count}} نمونه",
+            "sampleCount_other": "{{count}} نمونه"
+          },
+          "collecting": "در حال جمع‌آوری داده‌های انتقال…",
+          "coverageGap": "ردیابی قطع شد.",
+          "download": "دانلود",
+          "lifetimeEmpty": "سابقهٔ کل دوره هنوز در دسترس نیست.",
+          "loading": "در حال بارگیری فعالیت…",
+          "noSessionHistory": "در این نشست برنامه انتقالی ثبت نشده است.",
+          "noTraffic": "اکنون ترافیکی در شبکه وجود ندارد.",
+          "notAvailable": "در دسترس نیست",
+          "range": {
+            "adaptive_one": "تفکیک‌پذیری تطبیقی · {{count}} نمونه",
+            "adaptive_other": "تفکیک‌پذیری تطبیقی · {{count}} نمونه",
+            "label": "بازهٔ زمانی انتقال",
+            "latest": "60 ثانیهٔ اخیر",
+            "lifetime": "کل دوره",
+            "session": "نشست (60 ثانیه)"
+          },
+          "retry": "تلاش دوباره",
+          "stale": {
+            "message": "ممکن است داده‌ها قدیمی باشند. آخرین به‌روزرسانی در {{time}}.",
+            "short": "داده‌های قدیمی."
+          },
+          "summary": {
+            "active": "مدت فعالیت",
+            "activeExpanded": "مدت انتقال فعال",
+            "average": "میانگین",
+            "averageExpanded": "میانگین سرعت دانلود",
+            "peak": "اوج",
+            "peakExpanded": "اوج سرعت دانلود",
+            "title": "خلاصهٔ فعلی"
+          },
+          "timeline": {
+            "cluster_one": "+{{count}} رویداد",
+            "cluster_other": "+{{count}} رویداد",
+            "current": "اکنون {{status}}",
+            "destination": "{{event}} {{status}}",
+            "detailTitle": "جزئیات {{label}}",
+            "event": {
+              "added": "اضافه شد",
+              "completed": "تکمیل شد",
+              "failed": "ناموفق بود",
+              "observed_state": "وضعیت بازیابی شد",
+              "paused": "مکث شد",
+              "resumed": "ادامه یافت",
+              "stage_changed": "مرحله تغییر کرد",
+              "started": "شروع شد"
+            },
+            "next": "نمایش رویدادهای بعدی خط زمانی",
+            "previous": "نمایش رویدادهای قبلی خط زمانی",
+            "repeated": "{{label}} ×{{count}}",
+            "status": {
+              "completed": "تکمیل‌شده",
+              "downloading": "در حال دانلود",
+              "error": "ناموفق",
+              "fetching_metadata": "در حال دریافت فراداده",
+              "finalizing": "در حال نهایی‌سازی",
+              "metadata_ready": "فراداده آماده است",
+              "paused": "مکث‌شده",
+              "queued": "در صف",
+              "removed": "حذف‌شده",
+              "seeding": "توزیع"
+            },
+            "timeRange": "{{start}}–{{end}}",
+            "title": "سابقهٔ کار",
+            "truncatedAt": "قدیمی‌ترین حذف از سابقه: {{time}}",
+            "truncated_one": "{{count}} رویداد از سابقهٔ قدیمی‌تر حذف شده است",
+            "truncated_other": "{{count}} رویداد از سابقهٔ قدیمی‌تر حذف شده است"
+          },
+          "transferTitle": {
+            "lifetime": "انتقال در کل دوره",
+            "session": "انتقال در این نشست"
+          },
+          "unavailable": "فعالیت کل دوره در دسترس نیست.",
+          "upload": "بارگذاری"
+        },
+        "multi": {
+          "avgProgress": "میانگین پیشرفت",
+          "combinedDown": "مجموع ↓",
+          "combinedUp": "مجموع ↑",
+          "downloaded": "دانلودشده",
+          "liveSpeed": "سرعت زنده",
+          "longestEta": "بیشترین زمان باقی‌مانده",
+          "statusDist": "توزیع وضعیت‌ها",
+          "totalSize": "اندازهٔ کل",
+          "totals": "مجموع‌ها"
+        },
+        "overview": {
+          "connections": "اتصال‌ها",
+          "createdAt": "زمان ایجاد",
+          "downSpeed": "سرعت دانلود",
+          "downloaded": "دانلودشده",
+          "eta": "زمان باقی‌مانده",
+          "finishedAt": "زمان تکمیل",
+          "general": "عمومی",
+          "infoHash": "هش اطلاعات",
+          "network": "شبکه",
+          "peers": "همتاها",
+          "percent": "درصد",
+          "private": "خصوصی",
+          "progress": "پیشرفت",
+          "ratio": "نسبت",
+          "seedingRecordedSince": "از {{date}} ثبت شده است. زمان مکث و آفلاین بودن محاسبه نمی‌شود؛ سابقهٔ توزیع پیش از آن در دسترس نیست.",
+          "seedingTime": "مدت توزیع",
+          "seedingUnavailable": "مدت توزیع برای این کار ثبت نشده است.",
+          "seeds": "توزیع‌کنندگان",
+          "totalSize": "اندازهٔ کل",
+          "transfer": "انتقال",
+          "type": "نوع",
+          "upSpeed": "سرعت بارگذاری",
+          "uploaded": "بارگذاری‌شده"
+        },
+        "peers": {
+          "col": {
+            "client": "کلاینت",
+            "country": "موقعیت",
+            "down": "↓",
+            "endpoint": "IP : درگاه",
+            "flags": "نشانگرها",
+            "flagsHint": "D = همتا به ما ارسال می‌کند، U = ما به همتا ارسال می‌کنیم، S = همتا توزیع‌کننده است. زیرخط یعنی غیرفعال.",
+            "progress": "٪",
+            "up": "↑"
+          },
+          "empty": "همتایی متصل نیست",
+          "summary_one": "{{count}} همتا ({{seeders}} توزیع‌کننده)",
+          "summary_other": "{{count}} همتا ({{seeders}} توزیع‌کننده)"
+        },
+        "pieces": {
+          "empty": "داده‌ای برای قطعه‌ها وجود ندارد",
+          "legend": {
+            "active": "در حال دانلود",
+            "done": "تکمیل‌شده",
+            "endgame": "مرحلهٔ پایانی",
+            "pending": "در انتظار"
+          },
+          "mapLabel": "نقشهٔ قطعه‌های دانلود",
+          "pieceLength": "اندازهٔ قطعه",
+          "totalPieces": "تعداد کل قطعه‌ها"
+        },
+        "placeholder": {
+          "files": "فهرست فایل‌ها.",
+          "peers": "فهرست همتاها.",
+          "trackers": "فهرست ردیاب‌ها."
+        },
+        "tab": {
+          "activity": "فعالیت",
+          "files": "فایل‌ها",
+          "overview": "نمای کلی",
+          "peers": "همتاها",
+          "pieces": "قطعه‌ها",
+          "trackers": "ردیاب‌ها"
+        },
+        "trackers": {
+          "action": {
+            "cancel": "لغو",
+            "delete": "حذف ردیاب",
+            "edit": "ویرایش",
+            "save": "ذخیره",
+            "sync": "همگام‌سازی"
+          },
+          "deleteFailed": "حذف ردیاب ناموفق بود: {{reason}}",
+          "driftSuffix_one": "{{count}} مورد خارج از فهرست سراسری",
+          "driftSuffix_other": "{{count}} مورد خارج از فهرست سراسری",
+          "editHint": "این ردیاب‌ها جایگزین فهرست مؤثر bt-tracker کار می‌شوند. موارد announce-list در فایل .torrent تغییر نمی‌کنند.",
+          "editPlaceholder": "در هر خط یک نشانی ردیاب. فقط http(s)/udp/ws(s).",
+          "empty": "ردیابی وجود ندارد",
+          "invalidLines_one": "{{count}} خط نامعتبر نادیده گرفته شد",
+          "invalidLines_other": "{{count}} خط نامعتبر نادیده گرفته شد",
+          "loadFailed": "بارگیری ردیاب‌ها ناموفق بود: {{reason}}",
+          "privateBanner": "تورنت خصوصی است؛ ردیاب‌های سراسری با آن ادغام نمی‌شوند.",
+          "saveFailed": "به‌روزرسانی ردیاب‌ها ناموفق بود: {{reason}}",
+          "summary_one": "{{count}} ردیاب",
+          "summary_other": "{{count}} ردیاب",
+          "syncFailed": "همگام‌سازی ردیاب‌ها ناموفق بود: {{reason}}",
+          "syncPrivateDisabled": "همگام‌سازی برای تورنت‌های خصوصی در دسترس نیست."
+        }
+      },
+      "media": {
+        "assembling": "در حال سرهم‌کردن",
+        "avgDownloadProgress": "میانگین پیشرفت دانلود",
+        "decrypting": "در حال رمزگشایی",
+        "downloadEta": "زمان باقی‌ماندهٔ دانلود",
+        "downloadProgress": "پیشرفت دانلود",
+        "downloadSize": "حجم دانلود",
+        "muxProgress": "پیشرفت ادغام",
+        "muxing": "در حال ادغام",
+        "outputSize": "حجم خروجی",
+        "parts": "بخش‌ها",
+        "partsFormat": "{{completed}} / {{total}} بخش",
+        "preparing": "در حال آماده‌سازی",
+        "processingTasks": "در حال پردازش",
+        "renaming": "در حال ذخیره",
+        "stage": "مرحله"
+      },
+      "search": {
+        "activeQuery": "جستجو: {{query}}",
+        "activeTypeFilters": "فیلتر نوع: {{types}}",
+        "clear": "پاک کردن",
+        "clearQuery": "پاک کردن جستجو",
+        "empty": "کار مطابقی پیدا نشد",
+        "emptyHint": "فیلتر نوع را پاک کنید یا واژهٔ دیگری را امتحان کنید",
+        "filters": "فیلترها",
+        "placeholder": "جستجوی دانلودها",
+        "resetFilters": "بازنشانی فیلترها",
+        "scopeLabel": "نوع"
+      },
+      "sort": {
+        "asc": "{{column}}: صعودی",
+        "desc": "{{column}}: نزولی",
+        "down": "سرعت دانلود",
+        "reset": "بازگرداندن ترتیب پیش‌فرض",
+        "sortAscending": "مرتب‌سازی صعودی {{column}}",
+        "sortDescending": "مرتب‌سازی نزولی {{column}}",
+        "up": "سرعت بارگذاری"
+      },
+      "speedLimit": {
+        "currentMode": "حالت سرعت: {{mode}}",
+        "downloadLimit": "حد سرعت دانلود: {{speed}}",
+        "saveFailed": "تغییر حالت سرعت ممکن نشد. دوباره تلاش کنید.",
+        "title": "حالت سرعت",
+        "uploadLimit": "حد سرعت بارگذاری: {{speed}}"
+      },
+      "stale": {
+        "banner": "ممکن است فهرست کارها قدیمی باشد؛ در حال اتصال دوباره…"
+      },
+      "stats": {
+        "downSpeed": "سرعت دانلود",
+        "engineOffline": "موتور آفلاین است",
+        "engineOk": "موتور آماده است",
+        "engineStarting": "موتور در حال شروع است",
+        "natActive": "NAT نگاشت شده",
+        "natActiveDesc": "به اتصال سایر همتاهای BT به شما کمک می‌کند.",
+        "natDisable": "خاموش کردن نگاشت NAT",
+        "natHelp": "راهنمای شبکه",
+        "natMapping": "نگاشت NAT",
+        "natRetry": "تلاش دوباره",
+        "natRetrying": "تلاش‌های دوبارهٔ خودکار ({{attempt}}/{{max}})",
+        "natSettingUp": "نگاشت NAT",
+        "natSettings": "تنظیمات شبکه",
+        "natUnavailable": "نگاشت خودکار در دسترس نیست",
+        "natUnavailableDesc": "روی دانلود پیوندها اثری ندارد. اتصال‌های BT ممکن است محدود شوند.",
+        "upSpeed": "سرعت بارگذاری"
+      },
+      "status": {
+        "completed": "تکمیل‌شده",
+        "downloading": "در حال دانلود",
+        "error": "خطا",
+        "fetchingMetadata": "در حال دریافت",
+        "finalizing": "در حال نهایی‌سازی",
+        "metadataReady": "در انتظار انتخاب فایل",
+        "paused": "مکث‌شده",
+        "queued": "در صف",
+        "seeding": "توزیع"
+      },
+      "tab": {
+        "active": "فعال",
+        "all": "همه",
+        "completed": "تکمیل‌شده",
+        "error": "خطا"
+      },
+      "timestamp": {
+        "notCompleted": "هنوز تکمیل نشده",
+        "notRecorded": "ثبت نشده",
+        "relativeDateTime": "{{date}}، {{time}}"
+      },
+      "title": "دانلودها",
+      "titleCount": "{{shown}} نمایش‌داده‌شده · {{total}} در مجموع",
+      "type": {
+        "bt": "BitTorrent",
+        "ftp": "FTP",
+        "http": "HTTP",
+        "magnet": "Magnet",
+        "metalink": "Metalink"
+      },
+      "view": {
+        "ascending": "صعودی",
+        "columns": "ستون‌ها",
+        "descending": "نزولی",
+        "hideInspector": "پنهان کردن پنل جزئیات",
+        "inspector": "جزئیات کار",
+        "resetColumns": "بازگرداندن ستون‌های پیش‌فرض",
+        "resizeColumn": "تغییر اندازهٔ ستون {{column}}",
+        "resizeInspector": "تغییر اندازهٔ پنل جزئیات",
+        "selectToInspect": "برای دیدن جزئیات، کاری را انتخاب کنید.",
+        "showInspector": "نمایش پنل جزئیات",
+        "sortBy": "مرتب‌سازی بر اساس",
+        "taskActions": "عملیات بیشتر",
+        "title": "نمای فهرست"
+      }
+    },
+    "trackers": {
+      "desc": "مدیریت سلامت ردیاب‌ها و اشتراک‌ها",
+      "searchPlaceholder": "فیلتر بر اساس نشانی…",
+      "syncNow": "همگام‌سازی اکنون",
+      "tab": {
+        "blacklist": "فهرست مسدود",
+        "effective": "مؤثر"
+      },
+      "title": "ردیاب‌ها"
+    }
+  },
+  "plugin": {
+    "ffmpeg": {
+      "destination_phase_disallowed": "ffmpeg نمی‌تواند در هوک {{phase}} روی {{kind}} بنویسد. نوشتن در فضای ذخیرهٔ افزونه را امتحان کنید یا این فراخوانی را به beforeFinalize منتقل کنید.",
+      "staging_quota_exceeded": "ffmpeg از سهمیهٔ فضای موقت این کار فراتر رفت. حجم خروجی را کم کنید یا محدودیت را در تنظیمات رسانه افزایش دهید."
+    },
+    "install": {
+      "ffmpeg": {
+        "notInstalled": "FFmpeg روی این سیستم نصب نیست.",
+        "optionalDegraded": "تا نصب ffmpeg، قابلیت‌های رسانهٔ این افزونه در دسترس نخواهند بود.",
+        "requiredByPlugin": "این افزونه به ffmpeg نیاز دارد. آن را نصب کنید و دوباره تلاش کنید.",
+        "title": "نیازمندی FFmpeg",
+        "versionMismatch": "FFmpeg {{version}} نصب شده است."
+      }
+    }
+  },
+  "plugins": {
+    "card": {
+      "advancedDetails": "جزئیات پیشرفته",
+      "commandsInvoked": "فرمان‌های فراخوانی‌شده: {{count}}",
+      "commandsServing": "فرمان‌های ارائه‌شده: {{count}}",
+      "plain": {
+        "off": "این افزونه خاموش است.",
+        "optional": "این افزونه بدون دسترسی اضافی کار می‌کند. می‌توانید بعداً دسترسی بیشتری بدهید.",
+        "reviewBroadHost": "این افزونه می‌تواند {{hostSummary}} را بخواند. فقط اگر به آن اعتماد دارید روشن نگه دارید.",
+        "reviewError": "این افزونه مشکلی گزارش کرده است.",
+        "safe": "این افزونه فعال و آماده است. فقط تنظیمات خودش را ذخیره می‌کند و هیچ وب‌سایتی را نمی‌خواند."
+      },
+      "primaryAction": {
+        "grantAccess": "اعطای دسترسی",
+        "open": "باز کردن",
+        "reviewAccess": "بررسی دسترسی",
+        "settings": "تنظیمات",
+        "turnOn": "روشن کردن",
+        "viewIssue": "مشاهدهٔ مشکل"
+      }
+    },
+    "clearSearch": "پاک کردن جستجو",
+    "consent": {
+      "broadAccess": {
+        "body": "این افزونه می‌تواند دانلودهای هر نشانی را بخواند و تغییر دهد. فقط اگر به منبع اعتماد دارید نصب کنید.",
+        "tag": "گسترده",
+        "title": "دسترسی گسترده به میزبان‌ها"
+      },
+      "calleeMissing": "نصب نشده",
+      "confirm": "اجازه و نصب",
+      "diff": {
+        "engines": "نسخهٔ موتور Motrix",
+        "heap": "درخواست حافظه",
+        "hostPermissions": "دسترسی‌های اضافه‌شده به میزبان‌ها",
+        "invokesCommands": "فراخوانی‌های جدید فرمان بین افزونه‌ها",
+        "optionalPermissions": "مجوزهای اختیاری اضافه‌شده",
+        "permissions": "مجوزهای اضافه‌شده",
+        "publicCommands": "فرمان‌های عمومی جدید",
+        "publicCommandsSchema": "ساختار فرمان‌های عمومی تغییر کرده است",
+        "source": "منبع بسته",
+        "title": "تغییرات از آخرین موافقت"
+      },
+      "hostPermissions": "دسترسی به میزبان‌ها",
+      "installTitle": "{{name}} {{version}} نصب شود؟",
+      "invokesCommands": "فراخوانی فرمان‌های افزونه‌های دیگر",
+      "notVerified": "این افزونه تأیید نشده است. فقط از منابع مورد اعتماد افزونه نصب کنید.",
+      "optionalPermissions": "مجوزهای اختیاری",
+      "permissions": "مجوزهای لازم",
+      "source": "منبع: {{type}} · {{url}}",
+      "upgradeTitle": "{{name}} به {{version}} به‌روز شود؟"
+    },
+    "detail": {
+      "about": "درباره",
+      "access": "دسترسی",
+      "accessBroad": "می‌تواند هر وب‌سایتی را بخواند",
+      "accessGranted": "کارهایی که این افزونه از قبل اجازهٔ انجامشان را دارد",
+      "accessHosts_one": "می‌تواند {{count}} وب‌سایت را بخواند",
+      "accessHosts_other": "می‌تواند {{count}} وب‌سایت را بخواند",
+      "accessNone": "فقط تنظیمات خودش",
+      "accessOptional": "دسترسی اختیاری",
+      "advanced": "پیشرفته",
+      "attentionGeneric": "برای جزئیات، گزارش‌ها را ببینید.",
+      "attentionTitle": "این افزونه مشکلی گزارش کرده است",
+      "author": "نویسنده",
+      "back": "همهٔ افزونه‌ها",
+      "disabled": "غیرفعال",
+      "enabled": "فعال",
+      "healthIssues_one": "{{count}} مشکل در روز گذشته گزارش شده است",
+      "healthIssues_other": "{{count}} مشکل در روز گذشته گزارش شده است",
+      "healthOk": "همه‌چیز درست است",
+      "hero": {
+        "attention": "نیاز به رسیدگی",
+        "off": "خاموش",
+        "optional": "می‌تواند دسترسی بیشتری درخواست کند",
+        "ready": "آماده",
+        "review": "بررسی دسترسی"
+      },
+      "homepage": "صفحهٔ اصلی",
+      "loading": "در حال بارگیری…",
+      "logs": "گزارش‌ها",
+      "mini": {
+        "access": "دسترسی",
+        "health": "وضعیت سلامت",
+        "purpose": "کاربرد"
+      },
+      "overview": "نمای کلی",
+      "removeDesc": "حذف این افزونه، داده‌های ذخیره‌شدهٔ آن در Motrix را نیز حذف می‌کند.",
+      "removeTitle": "حذف افزونه",
+      "settings": "تنظیمات",
+      "uninstall": "حذف نصب",
+      "uninstallConfirm": "این افزونه حذف نصب شود؟ داده‌های آن حذف خواهند شد.",
+      "uninstallConfirmDesc": "افزونه و تنظیمات ذخیره‌شدهٔ آن از Motrix حذف می‌شوند.",
+      "uninstallConfirmTitle": "{{name}} حذف نصب شود؟",
+      "viewIssue": "مشاهدهٔ مشکل"
+    },
+    "diagnostics": {
+      "callGraph": {
+        "aria": {
+          "controls": "کنترل‌های نمای نمودار افزونه‌ها",
+          "directions": {
+            "down": "پایین",
+            "left": "چپ",
+            "right": "راست",
+            "up": "بالا"
+          },
+          "edgeDescription": "برای بررسی، یک یال فراخوانی انتخاب کنید.",
+          "edgeLabel": "{{source}} از طریق {{commands}} فرمان، {{target}} را {{calls}} بار فراخوانی کرد",
+          "fitView": "جا دادن نمودار افزونه‌ها در نما",
+          "graphDescription": "{{nodeCount}} افزونه و {{pairCount}} رابطه از 24 ساعت گذشته.",
+          "graphLabel": "روابط فرمان‌های افزونه‌ها",
+          "handle": "نقطهٔ پایانی فراخوانی فقط‌خواندنی",
+          "interactive": "تغییر حالت تعامل با نمودار",
+          "minimap": "نمای کلی نمودار افزونه‌ها",
+          "nodeDescription": "برای بررسی، یک گرهٔ افزونه انتخاب کنید.",
+          "nodeKeyboardInstruction": "برای جابه‌جایی این گرهٔ افزونه از کلیدهای جهت‌نما استفاده کنید.",
+          "nodeLabel": "{{name}}، افزونهٔ {{id}}، {{status}}، {{incoming}} فراخوانی ورودی و {{outgoing}} فراخوانی خروجی",
+          "nodeMoved": "گرهٔ افزونه به سمت {{direction}} و به مختصات {{x}}، {{y}} جابه‌جا شد.",
+          "zoomIn": "افزایش مقیاس نمودار",
+          "zoomOut": "کاهش مقیاس نمودار"
+        },
+        "columns": {
+          "callee": "فراخوانده",
+          "caller": "فراخواننده",
+          "calls": "فراخوانی‌ها",
+          "command": "فرمان",
+          "lastCall": "آخرین فراخوانی"
+        },
+        "counts": {
+          "calls_one": "{{count}} فراخوانی موفق",
+          "calls_other": "{{count}} فراخوانی موفق",
+          "commands_one": "{{count}} فرمان",
+          "commands_other": "{{count}} فرمان"
+        },
+        "errors": {
+          "canvasDescription": "می‌توانید نمایش بوم را دوباره امتحان کنید یا از نمای کامل جدول استفاده کنید.",
+          "canvasRetry": "تلاش دوباره برای نمایش بوم",
+          "canvasTable": "استفاده از جدول",
+          "canvasTitle": "نمایش بوم نمودار ممکن نشد",
+          "graphDescription": "بارگیری سابقهٔ فراخوانی‌های موفق را دوباره امتحان کنید.",
+          "graphRetry": "تلاش دوباره برای سابقهٔ فراخوانی",
+          "graphTitle": "بارگیری سابقهٔ فراخوانی ممکن نشد",
+          "layout": "چیدمان نقشهٔ روابط ممکن نشد.",
+          "layoutRetry": "چیدمان دوبارهٔ نقشه",
+          "metadataDescription": "برای شناسایی افزونه‌هایی که در دسترس نیستند، جزئیات افزونه‌ها لازم است.",
+          "metadataRetry": "تلاش دوباره برای جزئیات افزونه‌ها",
+          "metadataTitle": "بارگیری جزئیات افزونه‌ها ممکن نشد"
+        },
+        "filteredEmpty": "فراخوانی موفقی با این جستجو مطابقت ندارد.",
+        "filters": {
+          "clearSearch": "پاک کردن جستجو",
+          "commandsGroup": "فرمان‌ها",
+          "noSuggestions": "پیشنهادی برای افزونه یا فرمان وجود ندارد",
+          "pluginsGroup": "افزونه‌ها",
+          "searchLabel": "جستجوی روابط",
+          "searchPlaceholder": "جستجوی افزونه یا فرمان"
+        },
+        "globalEmpty": {
+          "description": "افزونه‌های داخلی ممکن است به‌طور پیش‌فرض با افزونه‌های دیگر ارتباطی ایجاد نکنند.",
+          "title": "هنوز فراخوانی موفقی بین افزونه‌ها وجود ندارد"
+        },
+        "inspector": {
+          "commands": "فرمان‌ها",
+          "connections": "افزونه‌های متصل",
+          "edgeTitle": "جزئیات اتصال",
+          "incomingCalls": "فراخوانی‌های ورودی",
+          "label": "جزئیات انتخاب در نمودار فراخوانی",
+          "neutralScope": "افزونه یا اتصالی انتخاب کنید تا فراخوانی‌های موفق 24 ساعت گذشته را بررسی کنید.",
+          "noConnections": "افزونهٔ متصلی وجود ندارد",
+          "openPlugin": "باز کردن افزونه",
+          "outgoingCalls": "فراخوانی‌های خروجی",
+          "pluginId": "شناسهٔ افزونه",
+          "scopeTitle": "فراخوانی‌های موفق",
+          "status": "وضعیت",
+          "totalCalls": "کل فراخوانی‌ها"
+        },
+        "legend": {
+          "fewerCalls": "فراخوانی کمتر",
+          "label": "راهنمای تعداد فراخوانی‌ها",
+          "moreCalls": "فراخوانی بیشتر"
+        },
+        "loading": {
+          "graph": "در حال بارگیری سابقهٔ فراخوانی…",
+          "metadata": "در حال بارگیری جزئیات افزونه‌ها…"
+        },
+        "modeLabel": "نمای روابط",
+        "modes": {
+          "graph": "نمودار",
+          "table": "جدول"
+        },
+        "refresh": "تازه‌سازی",
+        "refreshTooltip": "بارگیری آخرین فراخوانی‌های موفق",
+        "refreshing": "در حال تازه‌سازی…",
+        "renderGraphTooltip": "نمایش این نتیجهٔ بزرگ به‌صورت نمودار",
+        "statuses": {
+          "active": "در حال اجرا",
+          "disabled": "غیرفعال",
+          "error": "نیاز به رسیدگی",
+          "inactive": "آماده اما بیکار",
+          "missing": "نصب نشده"
+        },
+        "tableLabel": "روابط فرمان‌های افزونه‌ها",
+        "tableRegionLabel": "روابط فرمان‌ها با امکان پیمایش",
+        "toolbarLabel": "کنترل‌های نمودار فراخوانی",
+        "truncated": "سابقهٔ فراخوانی ممکن است ناقص باشد، زیرا سقف خواندن، نگه‌داری یا چرخش فایل‌ها این نتیجه را محدود کرده است."
+      },
+      "intro": "فراخوانی‌های موفق بین افزونه‌ها در 24 ساعت گذشته را بررسی کنید.",
+      "title": "عیب‌یابی"
+    },
+    "empty": "هنوز افزونه‌ای نصب نشده است.",
+    "errors_one": "{{count}} خطا",
+    "errors_other": "{{count}} خطا",
+    "help": {
+      "guidance": {
+        "firstUse": {
+          "body": "از منبع مورد اعتماد نصب کنید، دسترسی‌های درخواستی را بررسی کنید، سپس افزونه را فعال کنید.",
+          "browse": "افزونه‌ها را در فروشگاه رسمی افزونه‌های Motrix پیدا کنید",
+          "safety": "فقط به وب‌سایت‌هایی دسترسی بدهید که انتظار دارید افزونه با آن‌ها کار کند.",
+          "title": "افزونه‌های مورد اعتماد را اضافه کنید"
+        },
+        "ongoing": "پیش از فعال کردن افزونه، دسترسی‌ها را بررسی کنید. فقط به وب‌سایت‌هایی دسترسی بدهید که انتظار دارید افزونه با آن‌ها کار کند."
+      }
+    },
+    "install": {
+      "checkAriaLabel": "بررسی این افزونه",
+      "detected": {
+        "auto": "خودکار",
+        "github": "GitHub",
+        "local": "فایل",
+        "url": "نشانی"
+      },
+      "detectedRow": {
+        "localSupported": "فایل محلی .moext پشتیبانی می‌شود",
+        "ok": "به‌عنوان {{type}} شناسایی شد"
+      },
+      "dragDisabledHint": "کشیدن و رها کردن در این محیط پشتیبانی نمی‌شود. از نشانی GitHub یا نشانی وب استفاده کنید.",
+      "dropHint": "برای بررسی افزونه، فایل .moext را اینجا رها کنید",
+      "github": "GitHub",
+      "github.spec": "مخزن GitHub (owner/repo[@tag])",
+      "install": "نصب افزونه",
+      "lead": "نشانی افزونه را جای‌گذاری کنید، فایل .moext انتخاب کنید یا فایل را در ورودی رها کنید.",
+      "local": "فایل محلی",
+      "local.pick": "انتخاب فایل .moext",
+      "localPrepareFailed": "آماده‌سازی این فایل افزونه ممکن نشد: {{detail}}",
+      "localUnavailable": "نصب از فایل محلی در این میزبان در دسترس نیست.",
+      "pickLocal": "انتخاب فایل محلی .moext",
+      "placeholder": "نشانی GitHub یا نشانی وب را جای‌گذاری کنید، یا فایل محلی .moext انتخاب کنید",
+      "title": "افزودن افزونه",
+      "url": "نشانی",
+      "url.spec": "نشانی بسته (.moext)",
+      "warning": "پیش از نصب: فقط اگر به نویسنده اعتماد دارید و انتظار دارید افزونه از دسترسی‌های بالا استفاده کند، ادامه دهید."
+    },
+    "lead": "قابلیت‌های کوچکی به Motrix اضافه کنید. افزونه‌های مورد اعتماد را نگه دارید و بقیه را خاموش کنید.",
+    "logs": {
+      "clear": "پاک کردن",
+      "copy": "کپی",
+      "empty": "هنوز گزارشی ثبت نشده",
+      "emptyFiltered": "موردی با این سطح مطابقت ندارد.",
+      "emptyHint": "فعالیت جدید افزونه خودکار اینجا نمایش داده می‌شود.",
+      "entryCount_one": "{{count}} مورد",
+      "entryCount_other": "{{count}} مورد",
+      "filterLabel": "سطح گزارش",
+      "levels": {
+        "all": "همهٔ سطح‌ها",
+        "debug": "اشکال‌زدایی",
+        "error": "خطا",
+        "fatal": "خطای بحرانی",
+        "info": "اطلاعات",
+        "trace": "ردیابی",
+        "warn": "هشدار"
+      },
+      "output": "خروجی زنده",
+      "verbose": "حالت گزارش مفصل",
+      "verboseWarning": "نشانی‌ها و سرآیندها را به‌طور کامل برای 1 ساعت ثبت می‌کند. با دقت استفاده کنید."
+    },
+    "permission": {
+      "accessTone": {
+        "allowed": "مجاز",
+        "grant": "اجازه دادن",
+        "noAccess": "خاموش",
+        "offByDefault": "اختیاری",
+        "required": "لازم",
+        "websiteAccess": "دسترسی به وب"
+      },
+      "ffmpeg": {
+        "plain": "صدا یا ویدیو را پردازش می‌کند.",
+        "strong": "استفاده از FFmpeg"
+      },
+      "fs": {
+        "storage": {
+          "plain": "فایل‌هایی برای این افزونه نگه می‌دارد.",
+          "strong": "ذخیرهٔ فایل‌های افزونه"
+        },
+        "task": {
+          "read": {
+            "plain": "فایل‌های یک کار را می‌بیند.",
+            "strong": "خواندن فایل‌های دانلود"
+          },
+          "write": {
+            "plain": "می‌تواند فایل‌های کار را اضافه یا به‌روز کند.",
+            "strong": "تغییر فایل‌های دانلود"
+          }
+        }
+      },
+      "http": {
+        "cookies": {
+          "plain": "به سایت‌هایی دسترسی دارد که در آن‌ها وارد حساب شده‌اید.",
+          "strong": "استفاده از کوکی‌های وب‌سایت‌ها"
+        },
+        "plain": "صفحه‌های پشتیبانی‌شده توسط این افزونه را باز می‌کند.",
+        "strong": "خواندن وب‌سایت‌ها"
+      },
+      "network": {
+        "plain": "صفحه‌های پشتیبانی‌شده را دریافت می‌کند.",
+        "strong": "خواندن وب‌سایت‌ها"
+      },
+      "notifications": {
+        "plain": "هشدارهای افزونه را نمایش می‌دهد.",
+        "strong": "ارسال اعلان"
+      },
+      "notify": {
+        "plain": "هشدارهای تکمیل را نمایش می‌دهد.",
+        "strong": "ارسال اعلان"
+      },
+      "storage": {
+        "plain": "گزینه‌های افزونه را به خاطر می‌سپارد.",
+        "strong": "ذخیرهٔ تنظیمات"
+      },
+      "tasks:read": {
+        "plain": "فهرست دانلودهای شما را می‌بیند.",
+        "strong": "خواندن دانلودها"
+      },
+      "tasks:write": {
+        "plain": "می‌تواند کارها را موقتاً متوقف کند، ادامه دهد یا حذف کند.",
+        "strong": "مدیریت دانلودهای شما"
+      },
+      "unknown": {
+        "plain": "مجوز ناشناخته."
+      }
+    },
+    "permissions": {
+      "denied": "ردشده",
+      "empty": "این افزونه هیچ مجوزی درخواست نمی‌کند.",
+      "granted": "اعطاشده"
+    },
+    "registry": {
+      "actionFailed": "انجام این کار ممکن نشد.",
+      "availableTitle": "افزونه‌های موجود",
+      "builtinConsentLead": "این به‌روزرسانی دسترسی جدیدی درخواست می‌کند:",
+      "builtinUpdateTitle": "به‌روزرسانی افزونهٔ داخلی",
+      "byAuthor": "از {{name}}",
+      "featured": "برگزیده",
+      "featuresTitle": "کارهایی که انجام می‌دهد",
+      "install": "نصب",
+      "notFound": "افزونهٔ «{{id}}» در رجیستری پیدا نشد",
+      "notInstalled": "نصب نشده",
+      "optionalTag": "اختیاری",
+      "permissionsPreviewNote": "پیش‌نمایش از اطلاعات رجیستری است. درخواست واقعی موافقت همیشه بر اساس فایل manifest داخل بستهٔ افزونه است.",
+      "permissionsTitle": "مجوزها",
+      "refresh": "بررسی به‌روزرسانی‌ها",
+      "requires": "نیازمند Motrix {{range}}",
+      "restartRequired": "به‌روزرسانی نصب شد. برای تکمیل اعمال آن، Motrix را دوباره راه‌اندازی کنید.",
+      "revertToBundled": "بازگشت به نسخهٔ همراه برنامه",
+      "updateAvailable": "به‌روزرسانی موجود است",
+      "updateInstalled": "به‌روزرسانی نصب شد.",
+      "updateTo": "به‌روزرسانی به v{{version}}",
+      "updated": "به‌روز شده در {{date}}",
+      "viewOnWebsite": "مشاهده در motrix.app"
+    },
+    "search": "جستجوی افزونه",
+    "searchNoMatch": "افزونه‌ای با «{{query}}» مطابقت ندارد",
+    "status": {
+      "active": "فعال",
+      "disabled": "غیرفعال",
+      "error": "خطا",
+      "inactive": "بیکار"
+    },
+    "title": "افزونه‌ها",
+    "tone": {
+      "off": "خاموش",
+      "optional": "دسترسی اختیاری",
+      "review": "نیاز به بررسی",
+      "safe": "ایمن به نظر می‌رسد"
+    }
+  },
+  "quit": {
+    "confirm": {
+      "detail": "با خروج، دانلودها مکث می‌کنند. می‌خواهید خارج شوید؟",
+      "dontAskAgain": "دوباره نپرس",
+      "message_one": "هنوز {{count}} دانلود فعال است.",
+      "message_other": "هنوز {{count}} دانلود فعال است.",
+      "quitButton": "خروج"
+    }
+  },
+  "settings": {
+    "about": {
+      "appIconAlt": "آیکون برنامهٔ Motrix",
+      "details": {
+        "author": "نویسنده",
+        "createdBy": "ساخته‌شده توسط",
+        "license": "مجوز",
+        "licenseValue": "مجوز {{license}}"
+      },
+      "resources": {
+        "acknowledgments": "سپاسگزاری",
+        "acknowledgmentsDescription": "مشاهدهٔ دست‌اندرکاران پروژه در motrix.app",
+        "changelog": "فهرست تغییرات",
+        "manual": "راهنما",
+        "manualDescription": "خواندن راهنمای کاربر",
+        "plugins": "افزونه‌ها",
+        "repository": "مخزن کد منبع",
+        "repositoryDescription": "مرور کد در GitHub",
+        "title": "منابع",
+        "website": "وب‌سایت رسمی",
+        "websiteDescription": "بازدید از motrix.app"
+      },
+      "tagline": "پیش از آنکه محتوا ناپدید شود، آنچه واقعاً مهم است حفظ کنید و برای زیبایی در مجموعهٔ خود جایی بسازید.",
+      "update": {
+        "automaticChecks": "بررسی خودکار",
+        "automaticChecksDescription": "هنگام باز شدن Motrix",
+        "automaticChecksError": "ذخیرهٔ این تنظیم ممکن نشد",
+        "available": "Motrix {{version}} در دسترس است.",
+        "availableDescription": "اکنون دانلود کنید و زمان راه‌اندازی دوباره و نصب را انتخاب کنید.",
+        "availableTitle": "Motrix {{version}} در دسترس است",
+        "cancelled": "دانلود به‌روزرسانی لغو شد.",
+        "cancelledDescription": "هر وقت آماده بودید، دانلود را دوباره امتحان کنید.",
+        "cancelledTitle": "دانلود لغو شد",
+        "channelBeta": "آزمایشی",
+        "channelBetaWarning": "نسخهٔ آزمایشی ممکن است پایداری کمتری داشته باشد. نسخه‌های پایدار جدیدتر را نیز دریافت می‌کنید. بازگشت به کانال پایدار، به‌روزرسانی‌های آزمایشی را بدون نصب نسخهٔ قدیمی‌تر متوقف می‌کند.",
+        "channelDescription": "نسخه‌های پایدار را انتخاب کنید یا قابلیت‌های جدید را در نسخهٔ آزمایشی امتحان کنید.",
+        "channelLabel": "کانال به‌روزرسانی",
+        "channelSaveError": "ذخیرهٔ کانال به‌روزرسانی ممکن نشد. دوباره تلاش کنید.",
+        "channelStable": "پایدار",
+        "check": "بررسی به‌روزرسانی‌ها",
+        "checkAction": "بررسی",
+        "checking": "در حال بررسی…",
+        "checkingDescription": "در حال اتصال به سرویس به‌روزرسانی Motrix…",
+        "checkingTitle": "در حال بررسی به‌روزرسانی‌ها…",
+        "currentVersion": "نسخهٔ فعلی {{version}}",
+        "download": "دانلود به‌روزرسانی",
+        "downloaded": "Motrix {{version}} آمادهٔ نصب است.",
+        "downloadedTitle": "به‌روزرسانی آمادهٔ نصب است",
+        "downloading": "در حال دانلود…",
+        "downloadingDescription": "می‌توانید این پنجره را ببندید. دانلود در پس‌زمینه ادامه می‌یابد.",
+        "downloadingTitle": "در حال دانلود Motrix {{version}}",
+        "error": "به‌روزرسانی ناموفق بود: {{message}}",
+        "errorDescription": "اتصال را بررسی کنید و دوباره تلاش کنید.",
+        "errorTitle": "به‌روزرسانی Motrix ممکن نشد",
+        "idle": "نسخهٔ {{version}} نصب شده است. اکنون بررسی کنید یا اجازه دهید Motrix هنگام باز شدن بررسی کند.",
+        "idleTitle": "Motrix را به‌روز نگه دارید",
+        "restart": "راه‌اندازی دوباره و نصب",
+        "retry": "تلاش دوباره",
+        "title": "به‌روزرسانی‌های برنامه",
+        "unsupported": "این نسخه خودکار به‌روز نمی‌شود. آخرین نسخه را از وب‌سایت رسمی دانلود کنید.",
+        "unsupportedTitle": "به‌روزرسانی خودکار در دسترس نیست",
+        "upToDate": "نسخهٔ {{version}} آخرین نسخهٔ موجود است.",
+        "upToDateTitle": "Motrix به‌روز است"
+      },
+      "version": "نسخهٔ {{version}}",
+      "webVersionNote": "این نسخهٔ وب را مدیر استقرار آن به‌روز می‌کند."
+    },
+    "advanced": {
+      "description": "RPC، پیشرفت و بازیابی",
+      "persistence": {
+        "dbPath": "فایل داده‌های بازیابی",
+        "dbPathDesc": "برای استفاده از مکان پیش‌فرض، خالی بگذارید.",
+        "dbPathPlaceholder": "مکان پیش‌فرض",
+        "enable": "ذخیرهٔ داده‌های بازیابی",
+        "enableDesc": "داده‌های لازم برای ادامهٔ دانلودها پس از راه‌اندازی دوباره نگه داشته شوند.",
+        "historyCount": "تعداد سوابق نگه‌داری‌شده",
+        "historyCountHint": "سوابق بازیابی قدیمی‌تر حذف می‌شوند.",
+        "historyCountPositive": "عددی بزرگ‌تر از 0 وارد کنید.",
+        "historyKeepAll": "همهٔ سوابق",
+        "historyKeepRecent": "آخرین سوابق…",
+        "historyLimit": "سوابق بازیابی کارهای تکمیل‌شده",
+        "historyLimitDesc": "فهرست دانلودها و فایل‌های دانلودشده تغییر نمی‌کنند.",
+        "historySessionOnly": "نگه‌داری نشود",
+        "title": "پیشرفت و بازیابی"
+      },
+      "rpc": {
+        "port": "درگاه RPC",
+        "portDesc": "پس از تغییر، راه‌اندازی دوباره لازم است.",
+        "secret": "رمز محرمانهٔ RPC",
+        "secretDesc": "برای اتصال‌های RPC لازم است.",
+        "title": "RPC"
+      }
+    },
+    "appearance": {
+      "byteUnitBinary": "دودویی (MiB، GiB · 1024)",
+      "byteUnitDecimal": "ده‌دهی (MB، GB · 1000)",
+      "byteUnitSystem": "واحدهای اندازه و سرعت",
+      "byteUnitSystemDefault": "پیروی از سیستم ({{units}})",
+      "byteUnitSystemDesc": "نحوهٔ نمایش اندازهٔ فایل‌ها و سرعت‌ها را انتخاب کنید.",
+      "description": "پوسته، زبان و نمایش",
+      "followSystem": "پیروی از سیستم",
+      "language": "زبان",
+      "languageAndDisplay": "زبان و نمایش",
+      "lightweightMode": "حالت کم‌مصرف",
+      "lightweightModeDesc": "هنگام بسته بودن پنجره، مصرف حافظه کم می‌شود. دانلودها ادامه می‌یابند، اما باز شدن دوباره بیشتر طول می‌کشد و ورودی‌های ذخیره‌نشده پاک می‌شوند.",
+      "liquidGlassEffect": "Liquid Glass",
+      "liquidGlassEffectDesc": "جلوهٔ شیشهٔ نیمه‌شفاف به نوار ابزار دانلود بدهید.",
+      "liquidGlassEffectMacDesc": "در macOS 26 و بالاتر روی پنجره نیز اعمال می‌شود. با تغییر این گزینه، پنجره دوباره باز می‌شود.",
+      "menuBar": "نوار منو",
+      "reduceMotion": "کاهش حرکت",
+      "reduceMotionDesc": "از پویانمایی‌های کمتری در برنامه استفاده شود.",
+      "runMode": "نمایش برنامه در",
+      "runModeHideTray": "فقط Dock",
+      "runModeLaunch": "هنگام باز کردن Motrix",
+      "runModeLinuxDesc": "دسترسی به سینی سیستم و نحوهٔ فعال شدن آن به محیط دسکتاپ شما بستگی دارد.",
+      "runModeStandard": "Dock و نوار منو",
+      "runModeStandardDesktop": "باز کردن پنجرهٔ اصلی",
+      "runModeTray": "فقط نوار منو",
+      "runModeTrayDesktop": "شروع در سینی سیستم",
+      "sidebarColor": "رنگ تأکیدی",
+      "sidebarColors": {
+        "auto": "خودکار",
+        "blue": "آبی",
+        "cyan": "فیروزه‌ای",
+        "gold": "طلایی",
+        "gray": "خاکستری",
+        "green": "سبز",
+        "orange": "نارنجی",
+        "pink": "صورتی",
+        "violet": "بنفش"
+      },
+      "systemTray": "سینی سیستم",
+      "theme": "پوسته",
+      "themeAndEffects": "پوسته و جلوه‌ها",
+      "themeAuto": "سیستم",
+      "themeDark": "تیره",
+      "themeLight": "روشن",
+      "trayIconColor": "رنگ آیکون سینی سیستم",
+      "trayIconColorAuto": "پیروی از پوستهٔ برنامه",
+      "trayIconColorDark": "آیکون تیره (پنل روشن)",
+      "trayIconColorDesc": "رنگی انتخاب کنید که روی پنل سیستم به‌خوبی دیده شود.",
+      "trayIconColorLight": "آیکون روشن (پنل تیره)",
+      "traySpeedometer": "نمایش سرعت در نوار منو",
+      "traySpeedometerDesc": "سرعت دانلود و بارگذاری کنار آیکون برنامه نمایش داده شود."
+    },
+    "bittorrent": {
+      "description": "پیوندهای magnet، توزیع و ردیاب‌ها",
+      "geoip": {
+        "autoUpdate": "به‌روزرسانی خودکار",
+        "autoUpdateDesc": "حدود هفته‌ای یک بار، وجود داده‌های موقعیت جدید بررسی شود.",
+        "customUrl": "نشانی دانلود سفارشی",
+        "customUrlDesc": "پیوند پایگاه دادهٔ کشورها با قالب .mmdb.",
+        "customUrlPlaceholder": "https://example.com/GeoLite2-Country.mmdb",
+        "enable": "نمایش کشور یا منطقه",
+        "enableDesc": "موقعیت‌ها در فهرست همتاها نمایش داده شوند. داده‌های موقعیت در صورت نیاز دانلود می‌شوند.",
+        "lastUpdated": "آخرین به‌روزرسانی",
+        "maxmindUnsupported": "هنوز پشتیبانی نمی‌شود",
+        "neverUpdated": "هرگز",
+        "saveBeforeUpdate": "پیش از به‌روزرسانی داده‌های موقعیت، تغییرات را ذخیره کنید.",
+        "source": "منبع داده‌های موقعیت",
+        "source.custom": "نشانی سفارشی",
+        "source.loyalsoldier": "Loyalsoldier (جامعهٔ کاربران)",
+        "source.maxmind": "MaxMind (رسمی)",
+        "source.p3terx": "P3TERX (آینهٔ جامعهٔ کاربران)",
+        "sourceDesc": "منبع دانلود داده‌های موقعیت را انتخاب کنید.",
+        "status.downloading": "در حال دانلود…",
+        "status.error": "به‌روزرسانی ناموفق بود",
+        "status.loaded": "آماده",
+        "status.notDownloaded": "داده‌های موقعیت دانلود نشده‌اند",
+        "title": "موقعیت همتاها",
+        "updateFailed": "به‌روزرسانی داده‌های موقعیت ممکن نشد. دوباره تلاش کنید.",
+        "updateNow": "به‌روزرسانی اکنون",
+        "updating": "در حال به‌روزرسانی…"
+      },
+      "listen": {
+        "dhtEnabled": "فعال کردن DHT",
+        "dhtEnabledDesc": "همتاها بدون تکیه بر ردیاب پیدا شوند.",
+        "dhtListenPort": "درگاه ورودی DHT",
+        "dhtListenPortDesc": "همتاها از طریق DHT روی این درگاه پیدا شوند.",
+        "listenPort": "درگاه ورودی BT",
+        "listenPortDesc": "اتصال‌های ورودی همتاها روی این درگاه پذیرفته شوند.",
+        "title": "اتصال‌های ورودی"
+      },
+      "newMagnetTasks": "کارهای magnet جدید",
+      "peers": {
+        "btEnableLpd": "کشف همتاهای محلی",
+        "btEnableLpdDesc": "همتاهایی که در شبکهٔ محلی شما فایل به اشتراک می‌گذارند پیدا شوند.",
+        "btMaxPeers": "حداکثر همتا برای هر تورنت",
+        "btMaxPeersDesc": "بیشترین تعداد همتاهایی که یک کار می‌تواند هم‌زمان به آن‌ها متصل شود.",
+        "magnetFileSelection": "انتخاب فایل‌ها پیش از دانلود",
+        "magnetFileSelectionAutoDownload": "دانلود همه در صورت انتخاب نکردن فایل",
+        "magnetFileSelectionAutoDownloadDesc": "پس از زمان زیر شروع می‌شود، حتی اگر پنجرهٔ برنامه یا مرورگر بسته باشد.",
+        "magnetFileSelectionDesc": "پس از بارگیری پیوند magnet، انتخاب فایل نمایش داده شود.",
+        "magnetFileSelectionTimeoutInvalid": "عدد صحیحی از {{min}} تا {{max}} ثانیه وارد کنید.",
+        "magnetFileSelectionTimeoutSeconds": "مهلت انتخاب فایل‌ها (ثانیه)",
+        "magnetFileSelectionTimeoutSecondsDesc": "از آماده شدن فهرست فایل‌ها شروع می‌شود. تغییرات بر کارهایی که از قبل منتظرند نیز اعمال می‌شوند.",
+        "title": "همتاها"
+      },
+      "seeding": {
+        "seedRatio": "حد نسبت اشتراک‌گذاری",
+        "seedRatioDesc": "بارگذاری ÷ دانلود. توزیع در این نسبت متوقف می‌شود. 0 = نامحدود.",
+        "seedTime": "حد مدت توزیع (دقیقه)",
+        "seedTimeDesc": "0 = نامحدود. بر کارهای جدید و هنگام شروع دوبارهٔ توزیع اعمال می‌شود.",
+        "title": "توزیع"
+      },
+      "trackers": {
+        "autoSync": "به‌روزرسانی خودکار فهرست ردیاب‌ها",
+        "autoSyncDesc": "فهرست با استفاده از منابع شما به‌روز نگه داشته شود.",
+        "blacklistMovedInfo": "ردیاب‌های مسدود را در ردیاب‌ها ← فهرست مسدود مدیریت کنید.",
+        "enableProbe": "بررسی دسترسی به ردیاب‌ها",
+        "enableProbeDesc": "پیش از استفاده از ردیاب‌ها برای دانلود، آن‌ها آزمایش شوند.",
+        "healthyThreshold": "آستانهٔ پاسخ کند (میلی‌ثانیه)",
+        "healthyThresholdDesc": "پاسخ‌های طولانی‌تر کند علامت‌گذاری می‌شوند. 500 تا 10,000 میلی‌ثانیه.",
+        "manageSourcesHint": "منابع را در صفحهٔ ردیاب‌ها مدیریت کنید.",
+        "maxTrackerCount": "تعداد ردیاب برای هر کار",
+        "maxTrackerCountDesc": "حداکثر این تعداد ردیاب استفاده شود. 5 تا 200.",
+        "minSuccessRate": "حداقل نرخ موفقیت",
+        "minSuccessRateDesc": "ردیاب‌هایی با حداقل این نرخ موفقیت استفاده شوند. 0.5 = 50٪.",
+        "probeTimeout": "مهلت بررسی (میلی‌ثانیه)",
+        "probeTimeoutDesc": "حداکثر زمان انتظار برای پاسخ. 1,000 تا 30,000 میلی‌ثانیه.",
+        "syncInterval": "فاصلهٔ به‌روزرسانی (ساعت)",
+        "syncIntervalDesc": "از 1 تا 168 ساعت.",
+        "title": "ردیاب‌ها"
+      }
+    },
+    "cards": {
+      "about": {
+        "desc": "نسخه، به‌روزرسانی‌ها، کد منبع و راهنما",
+        "title": "درباره"
+      },
+      "advanced": {
+        "desc": "RPC، ذخیرهٔ پایدار در SQLite",
+        "title": "پیشرفته"
+      },
+      "appearance": {
+        "desc": "پوسته، زبان، آیکون سینی سیستم",
+        "title": "ظاهر"
+      },
+      "bittorrent": {
+        "desc": "DHT، درگاه‌های ورودی، ردیاب‌ها، موقعیت همتاها",
+        "title": "BitTorrent"
+      },
+      "downloads": {
+        "desc": "دانلود هم‌زمان، محدودیت پهنای باند، پایداری شبکه",
+        "title": "دانلودها"
+      },
+      "general": {
+        "desc": "راه‌اندازی، پوشهٔ ذخیرهٔ پیش‌فرض، یکپارچگی با سیستم",
+        "title": "عمومی"
+      },
+      "integration": {
+        "desc": "افزونه‌های مرورگر، خط فرمان، یکپارچگی با سیستم",
+        "title": "یکپارچگی"
+      },
+      "network": {
+        "desc": "پروکسی، DNS و NAT/UPnP",
+        "title": "شبکه"
+      }
+    },
+    "common": {
+      "add": "افزودن",
+      "browse": "مرور…",
+      "changeDirectory": "تغییر پوشه",
+      "directoryEmpty": "(پوشه‌ای انتخاب نشده)",
+      "generate": "تولید",
+      "hideSecret": "پنهان کردن رمز محرمانه",
+      "noChange": "تغییری برای ذخیره وجود ندارد",
+      "openHelp": "باز کردن راهنما",
+      "preset": "انتخاب سریع:",
+      "remove": "حذف",
+      "setAsDefault": "تنظیم به‌عنوان پیش‌فرض",
+      "showSecret": "نمایش رمز محرمانه"
+    },
+    "connection": {
+      "disconnectedBody": "ممکن است برخی اطلاعات با تأخیر نمایش داده شوند. اگر مشکل ادامه داشت، اتصال سرور و تنظیمات پروکسی را بررسی کنید.",
+      "disconnectedTitle": "اتصال به‌روزرسانی‌های زنده قطع شده است.",
+      "originMismatchBody": "به‌روزرسانی‌های زنده در دسترس نیستند. از نشانی تنظیم‌شدهٔ سرور استفاده کنید یا از مدیر بخواهید آن را اصلاح کند.",
+      "originMismatchTitle": "نشانی دسترسی به سرور مطابقت ندارد."
+    },
+    "desc": "پیکربندی Motrix",
+    "downloads": {
+      "autofillFromClipboard": "پر کردن خودکار پیوندها از کلیپ‌بورد",
+      "defaultDownloadFolder": "پوشهٔ دانلود پیش‌فرض",
+      "description": "فایل‌ها، سرعت دانلود و اتصال‌ها",
+      "disk": {
+        "diskCache": "حافظهٔ نهان دیسک (MiB)",
+        "diskCacheDesc": "حافظهٔ مورد استفاده برای نگه‌داری موقت فایل‌ها پیش از نوشتن روی دیسک.",
+        "fileAllocation": "رزرو فضای دیسک",
+        "fileAllocationDesc": "پیش از دانلود فایل، فضا رزرو شود.",
+        "fileAllocationFalloc": "تخصیص توسط سیستم",
+        "fileAllocationNone": "رزرو نشود",
+        "fileAllocationPrealloc": "پیش‌تخصیص",
+        "fileAllocationTrunc": "تنظیم اندازهٔ فایل",
+        "fileDeletionMode": "هنگام حذف فایل‌های کار",
+        "fileDeletionPermanent": "حذف دائمی",
+        "fileDeletionPermanentDesc": "نمی‌توان فایل‌های حذف‌شده را از سطل زباله بازیابی کرد.",
+        "fileDeletionTrash": "انتقال به سطل زباله",
+        "fileDeletionTrashDesc": "با خالی کردن سطل زباله، فضا آزاد می‌شود.",
+        "modifiedTime": "زمان تغییر فایل",
+        "modifiedTimeDesc": "برای دانلودهای تکمیل‌شدهٔ HTTP و FTP.",
+        "modifiedTimeLocal": "زمان دانلود",
+        "modifiedTimeServer": "زمان دریافتی از سرور",
+        "sessionSaveInterval": "فاصلهٔ ذخیرهٔ پیشرفت (ثانیه)",
+        "sessionSaveIntervalDesc": "با ذخیرهٔ مکررتر، پیشرفت کمتری پس از خرابی برنامه از دست می‌رود.",
+        "title": "دیسک و فایل‌ها"
+      },
+      "fillInLinksWhenOpeningNewTask": "هنگام باز کردن کار جدید، پیوندهای کپی‌شده جای‌گذاری شوند.",
+      "magnet": {
+        "magnetResolveTimeout": "مهلت بارگیری magnet (ثانیه)",
+        "magnetResolveTimeoutDesc": "مدت انتظار برای فهرست فایل‌ها.",
+        "title": "Magnet"
+      },
+      "newTasks": "کارهای جدید",
+      "performance": {
+        "customParameters": "پارامترهای سفارشی کارایی",
+        "learnMore": "اطلاعات بیشتر",
+        "maxConcurrentDownloads": "دانلودهای هم‌زمان",
+        "maxConcurrentDownloadsDesc": "کارهای بیشتر در صف منتظر می‌مانند.",
+        "maxConnectionPerServer": "حداکثر اتصال به هر سرور",
+        "maxConnectionPerServerDesc": "حد اتصال‌های هر فایل به یک سرور.",
+        "metrics": {
+          "cache": "حافظهٔ نهان دیسک",
+          "connections": "حداکثر اتصال‌ها",
+          "minimum": "حداقل اندازهٔ بخش",
+          "perServer": "حد هر سرور"
+        },
+        "minSplitSize": "حداقل اندازهٔ بخش (MiB)",
+        "minSplitSizeDesc": "بخش‌های کوچک‌تر از دو برابر این اندازه تقسیم نمی‌شوند.",
+        "profile": "کارایی دانلود",
+        "profileDesc": "میان سرعت دانلود و مصرف منابع تعادل برقرار کنید.",
+        "profiles": {
+          "auto": {
+            "desc": "با درایو و اندازهٔ فایل شما سازگار می‌شود. مقادیر زیر پیش‌فرض هستند.",
+            "label": "خودکار"
+          },
+          "balanced": {
+            "desc": "برای دانلودهای روزمره منابع کمتری مصرف می‌کند.",
+            "label": "متعادل"
+          },
+          "custom": {
+            "desc": "اتصال‌ها، اندازهٔ بخش و حافظهٔ نهان را تنظیم کنید.",
+            "label": "سفارشی"
+          },
+          "high": {
+            "desc": "برای دانلود سریع‌تر از اتصال‌های بیشتری استفاده می‌کند.",
+            "label": "سرعت بالا"
+          },
+          "maximum": {
+            "desc": "از اتصال‌های بیشتری استفاده می‌کند. برخی سرورها ممکن است آن‌ها را محدود کنند.",
+            "label": "حداکثر"
+          }
+        },
+        "split": "حداکثر اتصال برای هر فایل",
+        "splitDesc": "اتصال‌های مورد استفاده برای دانلود یک فایل.",
+        "title": "کارایی"
+      },
+      "reliability": {
+        "connectTimeout": "مهلت اتصال (ثانیه)",
+        "connectTimeoutDesc": "مدت انتظار برای برقراری اتصال.",
+        "lowestSpeedLimit": "حداقل سرعت اتصال (KiB/s)",
+        "lowestSpeedLimitDesc": "زیر این سرعت، اتصال قطع شود. 0 = غیرفعال.",
+        "maxTries": "حداکثر تلاش‌ها",
+        "maxTriesDesc": "شامل تلاش اول است. 0 = نامحدود.",
+        "retryWait": "تأخیر تلاش دوباره (ثانیه)",
+        "retryWaitDesc": "زمان انتظار پیش از تلاش دوباره.",
+        "socketTimeout": "مهلت نبود داده (ثانیه)",
+        "socketTimeoutDesc": "مدت انتظار زمانی که داده‌ای نمی‌رسد.",
+        "title": "اتصال‌ها و تلاش‌های دوباره",
+        "userAgent": "User-Agent",
+        "userAgentDesc": "برنامه را به وب‌سایت‌ها معرفی می‌کند. اگر سایتی مقدار دیگری لازم دارد، آن را تغییر دهید."
+      },
+      "saveFolders": "پوشه‌های ذخیره",
+      "speedLimit": {
+        "adaptiveEnabled": "رزرو پهنای باند برای برنامه‌های دیگر",
+        "adaptiveEnabledDesc": "برای محاسبهٔ محدودیت، سرعت‌های اتصال را در زیر وارد کنید.",
+        "altDownload": "دانلود",
+        "altDownloadDesc": "حداکثر سرعت دانلود هنگام فعال بودن حالت کم‌سرعت.",
+        "altSection": "محدودیت‌های کم‌سرعت",
+        "altSectionDesc": "در حالت کم‌سرعت یا با قواعد زمان‌بندی‌شده استفاده می‌شوند. این محدودیت‌ها فقط می‌توانند محدودیت‌های استاندارد را کاهش دهند.",
+        "altUpload": "بارگذاری",
+        "altUploadDesc": "حداکثر سرعت بارگذاری هنگام فعال بودن حالت کم‌سرعت.",
+        "autoAdaptive": "کنار گذاشتن پهنای باند برای برنامه‌های دیگر",
+        "autoSchedule": "کاهش سرعت زمان‌بندی‌شده",
+        "autoSection": "قواعد خودکار",
+        "autoSectionDesc": "این قواعد فقط در حالت خودکار اعمال می‌شوند.",
+        "bandwidthPending": "برای اعمال این محدودیت، هر دو سرعت اتصال را وارد کنید.",
+        "bandwidthUsed": "Motrix می‌تواند حداکثر از {{motrix}}٪ استفاده کند.",
+        "baseDownload": "دانلود",
+        "baseDownloadDesc": "حداکثر سرعت دانلود روزمره.",
+        "baseSection": "محدودیت‌های استاندارد",
+        "baseSectionDesc": "برای دانلودهای روزمره استفاده می‌شوند و در همهٔ حالت‌ها رعایت می‌شوند.",
+        "baseUpload": "بارگذاری",
+        "baseUploadDesc": "حداکثر سرعت بارگذاری روزمره.",
+        "effect": {
+          "adaptiveRule": "رزرو {{reserved}}٪ از پهنای باند برای برنامه‌های دیگر",
+          "adaptiveRulePending": "رزرو {{reserved}}٪ از پهنای باند برای برنامه‌های دیگر پس از وارد کردن پهنای باند اتصال",
+          "autoRules": "Motrix این قواعد را اعمال می‌کند: {{rules}}.",
+          "lowSpeed": "اکنون محدودیت‌های کم‌سرعت اعمال می‌شوند: دانلود {{download}}، بارگذاری {{upload}}.",
+          "lowerWins": "کمترین محدودیت فعال اعمال می‌شود.",
+          "nextDay": " روز بعد",
+          "noAutoRules": "هیچ قاعدهٔ خودکاری فعال نیست. رفتار فعلی مانند حالت استاندارد است.",
+          "ruleSeparator": " و ",
+          "scheduleRule": "استفاده از محدودیت‌های کم‌سرعت از {{from}} تا {{to}}{{nextDay}}",
+          "standard": "محدودیت‌های استاندارد اعمال می‌شوند: دانلود {{download}}، بارگذاری {{upload}}.",
+          "standardValues": "محدودیت‌های استاندارد: دانلود {{download}}، بارگذاری {{upload}}.",
+          "title": "اثر فعلی"
+        },
+        "estimateEmpty": "هنوز سابقهٔ سرعتی در دسترس نیست. یک دانلود بدون محدودیت سرعت را تکمیل کنید یا پهنای باند را دستی وارد کنید.",
+        "estimateError": "خواندن سابقهٔ سرعت اخیر ممکن نشد. پهنای باند را دستی وارد کنید.",
+        "estimateSuccess": "پهنای باند اتصال بر اساس سرعت‌های اخیر پر شد.",
+        "fillFromPeak": "برآورد سرعت اتصال",
+        "fillFromPeakHint": "بر اساس سریع‌ترین دانلودها و بارگذاری‌های اخیر.",
+        "headroomPercent": "سهم رزروشده برای برنامه‌های دیگر",
+        "headroomPercentDesc": "اکنون {{reserved}}٪ رزرو می‌شود؛ Motrix می‌تواند حداکثر از {{motrix}}٪ استفاده کند.",
+        "linkDown": "سرعت دانلود اتصال",
+        "linkDownDesc": "سرعت دانلودی که اتصال اینترنت شما می‌تواند به آن برسد.",
+        "linkUp": "سرعت بارگذاری اتصال",
+        "linkUpDesc": "سرعت بارگذاری‌ای که اتصال اینترنت شما می‌تواند به آن برسد.",
+        "modeSection": "حالت سرعت",
+        "modeSectionDesc": "نحوهٔ استفادهٔ Motrix از اتصال شما را انتخاب کنید.",
+        "scheduleDays": "روزها",
+        "scheduleDaysHint": "اگر زمان پایان پیش از شروع باشد، بازه تا روز بعد ادامه می‌یابد.",
+        "scheduleEnabled": "زمان‌بندی سرعت کم",
+        "scheduleEnabledDesc": "در روزها و زمان‌های انتخاب‌شده، محدودیت‌های کم‌سرعت اعمال شوند.",
+        "scheduleFrom": "شروع",
+        "scheduleTimeFormat": "قالب 24 ساعته (HH:mm)",
+        "scheduleTo": "پایان",
+        "setUnlimited": "تنظیم روی نامحدود",
+        "standardLimit": "استفاده از استاندارد",
+        "title": "محدودیت‌های سرعت",
+        "titleDesc": "نحوهٔ استفادهٔ Motrix از اتصال را در حالت‌های استاندارد، کم‌سرعت و خودکار انتخاب کنید.",
+        "turtle": "حالت سرعت",
+        "turtleDesc_auto": "سرعت بر اساس زمان و پهنای باند اتصال خودکار تنظیم شود.",
+        "turtleDesc_off": "از محدودیت‌های سرعت استاندارد استفاده شود.",
+        "turtleDesc_on": "اکنون از محدودیت‌های کم‌سرعت استفاده شود تا برای برنامه‌های دیگر ظرفیت باقی بماند.",
+        "turtle_auto": "خودکار",
+        "turtle_off": "استاندارد",
+        "turtle_on": "کم‌سرعت",
+        "unlimited": "نامحدود",
+        "useStandardLimit": "استفاده از محدودیت استاندارد",
+        "weekdays": {
+          "fri": {
+            "long": "جمعه",
+            "short": "جمعه"
+          },
+          "mon": {
+            "long": "دوشنبه",
+            "short": "دوشنبه"
+          },
+          "sat": {
+            "long": "شنبه",
+            "short": "شنبه"
+          },
+          "sun": {
+            "long": "یکشنبه",
+            "short": "یکشنبه"
+          },
+          "thu": {
+            "long": "پنجشنبه",
+            "short": "پنجشنبه"
+          },
+          "tue": {
+            "long": "سه‌شنبه",
+            "short": "سه‌شنبه"
+          },
+          "wed": {
+            "long": "چهارشنبه",
+            "short": "چهارشنبه"
+          }
+        }
+      }
+    },
+    "feedback": {
+      "appRestartBody": "تنظیمات شما ذخیره شد. در زمان مناسب Motrix را دوباره راه‌اندازی کنید.",
+      "appRestartTitle": "برای اعمال تنظیمات، Motrix را دوباره راه‌اندازی کنید",
+      "applyFailedBody": "پیکربندی ذخیره‌شده حفظ شده است. گزارش‌های برنامه را بررسی کنید و پس از رفع مشکل، سرویس مربوط را دوباره راه‌اندازی کنید.",
+      "applyFailedTitle": "تنظیمات ذخیره شد؛ برخی تغییرات اعمال نشدند",
+      "retrySync": "تلاش دوباره برای همگام‌سازی",
+      "syncFailedBody": "تنظیمات شما ذخیره شده است. همگام‌سازی را دوباره امتحان کنید تا این صفحه بدون ذخیرهٔ دوباره به‌روز شود.",
+      "syncFailedTitle": "تنظیمات ذخیره شد؛ به‌روزرسانی رابط ناموفق بود"
+    },
+    "general": {
+      "autofillClipboardLinks": "پر کردن خودکار پیوند از کلیپ‌بورد",
+      "autofillClipboardLinksDesc": "هنگام باز شدن «کار جدید»، پیوند موجود در کلیپ‌بورد در فیلد خالی نشانی جای‌گذاری شود.",
+      "defaultSaveDir": "پوشهٔ دانلود پیش‌فرض",
+      "defaultSaveDirDesc": "دانلودهای جدید اینجا ذخیره می‌شوند، مگر اینکه برای کار پوشهٔ دیگری انتخاب شود.",
+      "description": "راه‌اندازی، خروج و اعلان‌ها",
+      "desktopOnly": "تنظیمات راه‌اندازی و اعلان‌ها در برنامهٔ دسکتاپ در دسترس است.",
+      "downloadCompleted": "دانلود تکمیل شد",
+      "downloadFailed": "دانلود ناموفق بود",
+      "inAppNotifications": "اعلان‌های درون برنامه",
+      "inAppNotificationsDesc": "انتخاب کنید کدام اعلان‌های دانلود نمایش داده شوند. هشدارهای برنامه فعال می‌مانند.",
+      "launchAtStartup": "باز شدن هنگام ورود به سیستم",
+      "launchAtStartupDesc": "هنگام ورود به سیستم، Motrix خودکار اجرا شود.",
+      "lightweightMode": "کاهش مصرف حافظه هنگام بسته بودن پنجره",
+      "lightweightModeDesc": "دانلودها ادامه می‌یابند. باز شدن دوباره کندتر است و ورودی‌های ذخیره‌نشده پاک می‌شوند.",
+      "notificationBadgeCount": "تعداد",
+      "notificationBadgeDesc": "روی آیکون مرکز اعلان‌ها نمایش داده می‌شود.",
+      "notificationBadgeDot": "نقطه",
+      "notificationBadgeHidden": "پنهان",
+      "notificationBadgeStyle": "نشان خوانده‌نشده",
+      "notificationBoth": "هر دو",
+      "notificationInApp": "اعلان‌های درون برنامه",
+      "notificationOff": "خاموش",
+      "notificationSystem": "اعلان‌های سیستم",
+      "notifications": "اعلان‌ها",
+      "notificationsDesc": "هشدارهای خطای برنامه فعال می‌مانند.",
+      "notifyInAppOnComplete": "نمایش دانلودهای تکمیل‌شده",
+      "notifyInAppOnError": "نمایش دانلودهای ناموفق",
+      "notifyOnComplete": "اعلان پس از تکمیل دانلود",
+      "notifyOnCompleteDesc": "پس از پایان کار، اعلان سیستم نمایش داده شود.",
+      "notifyOnError": "اعلان در صورت شکست دانلود",
+      "notifyOnErrorDesc": "اگر دانلود ناموفق باشد و پنجره در پس‌زمینه قرار داشته باشد، اعلان سیستم نمایش داده شود.",
+      "runMode": "نمایش برنامه در",
+      "runModeHideTray": "فقط Dock",
+      "runModeStandard": "Dock و نوار منو",
+      "runModeTray": "فقط نوار منو",
+      "showMainWindowAtLogin": "نمایش پنجره هنگام ورود به سیستم",
+      "showMainWindowAtLoginDesc": "در حالت «{{mode}}» پنهان است.",
+      "startupAndQuitting": "راه‌اندازی و خروج",
+      "systemNotifications": "اعلان‌های سیستم",
+      "warnBeforeQuit": "تأیید پیش از خروج",
+      "warnBeforeQuitDesc": "اگر دانلودها هنوز در حال اجرا هستند، پیش از خروج پرسیده شود."
+    },
+    "integration": {
+      "appimage": {
+        "desc": "این AppImage مربوط به Motrix را در دسکتاپ ثبت کنید تا مرورگرها و پیوندهای magnet بتوانند دانلودها را به آن بسپارند.",
+        "enable": "فعال کردن یکپارچگی با دسکتاپ",
+        "movedHint": "اگر AppImage را هنگام بسته بودن Motrix جابه‌جا کنید، ممکن است پیوندها نتوانند آن را اجرا کنند تا یک بار Motrix را از مکان جدید اجرا کنید.",
+        "prompt": {
+          "accept": "یکپارچه‌سازی",
+          "decline": "فعلاً نه",
+          "detail": "Motrix ورودی دسکتاپ و آیکونی در پوشهٔ دادهٔ کاربر اضافه می‌کند و خود را برای باز کردن پیوندهای motrix:، پیوندهای magnet و فایل‌های .torrent ثبت می‌کند. این کار به مرورگر و افزونهٔ Motrix اجازه می‌دهد Motrix را اجرا کنند و دانلودها را به آن بسپارند. چیزی خارج از پوشهٔ خانهٔ شما نوشته نمی‌شود و می‌توانید از تنظیمات این کار را برگردانید.",
+          "message": "اجازه می‌دهید این AppImage مربوط به Motrix در محیط دسکتاپ ثبت شود؟",
+          "title": "Motrix با دسکتاپ یکپارچه شود؟"
+        },
+        "remove": "حذف یکپارچگی با دسکتاپ",
+        "status": {
+          "externalManaged": "یکپارچگی با دسکتاپ توسط نصب دیگری از Motrix فراهم شده است.",
+          "failedDetail": "Motrix نتوانست خود را برای باز کردن پیوندهایش ثبت کند. تا فعال‌سازی دوبارهٔ یکپارچگی با دسکتاپ، سپردن دانلود از مرورگر ممکن است کار نکند.",
+          "failedTitle": "یکپارچگی با دسکتاپ کامل نیست",
+          "healthy": "با این دسکتاپ یکپارچه شده است.",
+          "notIntegrated": "با این دسکتاپ یکپارچه نشده است.",
+          "removeBlockedDetail": "Motrix نتوانست ارتباط با برنامهٔ بازکنندهٔ قبلی و تأییدشده را ایمن بازگرداند، بنابراین ورودی دسکتاپ خود را نگه داشت تا پیش‌فرض خراب باقی نماند. برنامهٔ پیش‌فرض دیگری در تنظیمات دسکتاپ انتخاب کنید، سپس حذف یکپارچگی را دوباره امتحان کنید."
+        },
+        "title": "یکپارچگی با دسکتاپ"
+      },
+      "appimageHost": {
+        "copyDiagnostics": "کپی اطلاعات عیب‌یابی",
+        "desc": "به افزونه اجازه دهید با کلیک روی «اتصال»، این AppImage را باز کند. برای استفاده، یکپارچگی با مرورگر را فعال کنید.",
+        "enable": "فعال کردن اجرا از مرورگر",
+        "remove": "حذف اجرا از مرورگر",
+        "repair": "ترمیم",
+        "status": {
+          "conflict": "این فایل‌ها متعلق به نصب دیگری هستند. ابتدا یکپارچگی آن با مرورگر را حذف کنید.",
+          "disabled": "اجرا از مرورگر غیرفعال است.",
+          "invalid": "سابقهٔ نصب یا فایل اجرایی نامعتبر است.",
+          "io": "عملیات ناموفق بود. دسترسی به دیسک را بررسی کنید و «ترمیم» را امتحان کنید.",
+          "missing": "فایل لازم موجود نیست. AppImage را از مکان فعلی اجرا و ترمیم کنید.",
+          "permissions": "بررسی کنید فایل‌ها قابل اجرا باشند و فقط حساب شما اجازهٔ نوشتن در آن‌ها را داشته باشد.",
+          "ready": "بررسی‌های نصب محلی موفق بودند. برای تأیید عملکرد، از مرورگر متصل شوید.",
+          "sourceChanged": "AppImage تغییر کرده است. نسخهٔ مورد نظر را اجرا و نصب را ترمیم کنید."
+        },
+        "title": "اجرای AppImage از مرورگر",
+        "useCurrent": "استفاده از این AppImage"
+      },
+      "browser": {
+        "addTrusted": {
+          "add": "افزودن افزونهٔ مرورگر",
+          "addAction": "افزودن",
+          "browserLabel": "مرورگر",
+          "cancel": "لغو",
+          "chromiumEdge": "Chrome / Edge",
+          "firefox": "Firefox",
+          "idPlaceholder": "شناسهٔ افزونهٔ مرورگر",
+          "labelPlaceholder": "برچسب (اختیاری)"
+        },
+        "degradedPort": {
+          "description": "درگاه‌های 16802 تا 16806 در دسترس نبودند، بنابراین پل ارتباطی از درگاه {{port}} استفاده کرد. افزونه‌های مرورگر با جستجوی محدودهٔ استاندارد آن را پیدا نمی‌کنند؛ از طریق native messaging جفت‌سازی کنید یا درگاه ثابتی تنظیم کنید. ابزار خط فرمان Motrix و میزبان بومی تغییری نمی‌کنند.",
+          "title": "پل ارتباطی روی درگاه جایگزین اجرا می‌شود"
+        },
+        "disconnecting": "در حال قطع اتصال…",
+        "headerBrowser": "مرورگر",
+        "headerId": "شناسهٔ افزونهٔ مرورگر",
+        "headerSource": "منبع",
+        "install": {
+          "chrome": "Chrome",
+          "development": "توسعه",
+          "edge": "Microsoft Edge",
+          "firefox": "Firefox",
+          "github": "GitHub",
+          "store": "نصب"
+        },
+        "lastActive": "آخرین فعالیت",
+        "masterSwitch": "اتصال افزونه‌های مرورگر",
+        "masterSwitchDesc": "با افزونهٔ مرورگر، دانلودهای صفحات وب را به Motrix بفرستید.",
+        "pairToast": {
+          "copyCode": "کپی کد جفت‌سازی",
+          "deny": "اجازه ندادن",
+          "extensionId": "شناسه: {{id}}",
+          "identityLabel": {
+            "attested": "افزونهٔ تأییدشده",
+            "official": "افزونهٔ رسمی مرورگر Motrix",
+            "unverified": "افزونهٔ تأییدنشده"
+          },
+          "identityUnverifiedWarning": "هویت این افزونه تأیید نشد. فقط اگر به آن اعتماد دارید ادامه دهید.",
+          "pairCode": "کد جفت‌سازی",
+          "pairCodeHint": "این کد را در افزونه وارد کنید",
+          "title": "یک افزونهٔ {{browser}} می‌خواهد به Motrix متصل شود"
+        },
+        "pairUnavailable": "این درخواست جفت‌سازی دیگر در انتظار نیست؛ جفت‌سازی را از افزونهٔ مرورگر دوباره امتحان کنید.",
+        "pairedEmpty": "هنوز افزونه‌ای متصل نشده است.",
+        "pairedTitle": "افزونه‌های متصل",
+        "pairingStateDegraded": {
+          "description": "Motrix نتوانست سوابق افزونه‌های جفت‌شده را ایمن به‌روز کند. نشست‌های فعلی افزونه‌ها بسته شده‌اند و دسترسی جدید در این اجرای برنامه مسدود است. برای تلاش دوباره جهت ترمیم، Motrix را دوباره راه‌اندازی کنید؛ تا رفع این پیام به فهرست زیر اتکا نکنید.",
+          "title": "دسترسی افزونه‌های مرورگر موقتاً بسته است"
+        },
+        "removeTrusted": "حذف",
+        "revoke": "قطع اتصال",
+        "sourceLabel": {
+          "builtin": "داخلی",
+          "imported": "واردشده",
+          "userAdded": "اضافه‌شده"
+        },
+        "title": "افزونه‌های مرورگر",
+        "trustedEmpty": "هنوز چیزی اینجا نیست.",
+        "trustedExtensions": "افزونه‌های مورد اعتماد",
+        "trustedGuidance": "برای سایر افزونه‌های مورد اعتماد، شناسه‌ای را که توسعه‌دهنده داده است اضافه کنید.",
+        "trustedSummary": "{{count}} در مجموع"
+      },
+      "cli": {
+        "inbox": {
+          "approve": "تأیید",
+          "deny": "رد",
+          "empty": "درخواست جفت‌سازی راه دور در انتظاری وجود ندارد.",
+          "expiresIn": "انقضا در {{time}}",
+          "title": "تأییدهای در انتظار"
+        },
+        "pairToast": {
+          "allow": "اجازه دادن",
+          "code": "کد تأیید: {{code}}",
+          "deny": "اجازه ندادن",
+          "title": "{{name}} می‌خواهد با Motrix جفت شود"
+        },
+        "pairUnavailable": "این درخواست جفت‌سازی دیگر در انتظار نیست؛ motrix pair را دوباره اجرا کنید.",
+        "remote": {
+          "description": "ابزارهای محلی خودکار متصل می‌شوند. برای اتصال به رایانه یا سرور دیگر، motrix pair را اجرا کنید.",
+          "empty": "ابزار راه دوری جفت نشده است.",
+          "lastActive": "آخرین فعالیت",
+          "neverActive": "هرگز استفاده نشده",
+          "revoke": "لغو دسترسی",
+          "title": "ابزارهای راه دور جفت‌شده"
+        },
+        "title": "ابزارهای خط فرمان",
+        "tool": {
+          "action": {
+            "checkAgain": "بررسی دوباره",
+            "checking": "در حال بررسی…",
+            "install": "نصب",
+            "installing": "در حال نصب…"
+          },
+          "attentionTitle": "ابزار خط فرمان نیاز به رسیدگی دارد",
+          "commandLabel": "فرمان نصب",
+          "copyCommand": "کپی فرمان نصب",
+          "description": "برای کنترل این برنامه، motrix را در پایانه اجرا کنید.",
+          "diagnostics": {
+            "hide": "پنهان کردن جزئیات",
+            "show": "نمایش جزئیات"
+          },
+          "manager": {
+            "bun": "Bun",
+            "npm": "npm",
+            "pnpm": "pnpm",
+            "volta": "Volta",
+            "yarn": "Yarn Classic"
+          },
+          "managerLabel": "مدیر بسته",
+          "metadata": {
+            "manager": "نصب‌شده با",
+            "path": "فایل اجرایی",
+            "unknown": "نامشخص",
+            "version": "نسخه"
+          },
+          "reason": {
+            "installFailed": "مدیر بسته نتوانست @motrix/cli را نصب کند. جزئیات را بررسی کنید، سپس دوباره تلاش کنید یا فرمان را دستی اجرا کنید.",
+            "managerMissing": "مدیر بستهٔ پشتیبانی‌شده‌ای پیدا نشد. npm، pnpm، Yarn Classic، Bun یا Volta را نصب کنید، سپس دوباره بررسی کنید.",
+            "network": "مدیر بسته نتوانست به رجیستری دسترسی پیدا کند. شبکه یا تنظیمات رجیستری را بررسی کنید، سپس دوباره تلاش کنید.",
+            "nodeMissing": "Node.js 22 یا جدیدتر پیدا نشد. Node.js را نصب کنید، سپس دوباره بررسی کنید.",
+            "nodeTooOld": "Node.js 22 یا جدیدتر لازم است. نسخهٔ شناسایی‌شده: {{version}}.",
+            "pathMissing": "بسته نصب شد، اما motrix در PATH نیست. پایانهٔ جدیدی باز کنید یا پوشهٔ نصب گزارش‌شده را به PATH اضافه کنید.",
+            "pathShadowed": "فایل اجرایی دیگری به نام motrix زودتر در PATH قرار دارد. مورد قدیمی‌تر را حذف یا PATH را اصلاح کنید، سپس دوباره بررسی کنید.",
+            "permission": "مدیر بسته نمی‌تواند در محل نصب سراسری خود بنویسد. از مدیر نسخهٔ Node.js یا پیشوند نصب قابل نوشتن برای کاربر استفاده کنید؛ از sudo استفاده نکنید.",
+            "sandboxed": "نصب با یک کلیک در این بستهٔ ایزوله در دسترس نیست. فرمان را کپی کنید و در پایانه اجرا کنید.",
+            "timeout": "نصب بیش از حد طول کشید و متوقف شد. شبکه را بررسی کنید، سپس دوباره تلاش کنید.",
+            "unknown": "Motrix نتوانست ابزار خط فرمان را بررسی کند. دوباره تلاش کنید یا فرمان کپی‌شده را دستی اجرا کنید.",
+            "unsupportedWeb": "نصب با یک کلیک فقط در برنامهٔ دسکتاپ در دسترس است. فرمان را کپی کنید و روی میزبان Motrix اجرا کنید.",
+            "verifyFailed": "نصب‌کننده تمام شد، اما Motrix نتوانست فایل اجرایی فعال motrix را تأیید کند."
+          },
+          "status": {
+            "checking": "در حال بررسی",
+            "error": "ناموفق",
+            "installed": "نصب‌شده",
+            "installing": "در حال نصب",
+            "manualOnly": "نصب دستی",
+            "needsAttention": "نیاز به رسیدگی",
+            "ready": "آمادهٔ نصب"
+          },
+          "successGuidance": "پایانهٔ جدیدی باز کنید، سپس motrix --help را اجرا کنید.",
+          "title": "ابزار خط فرمان Motrix"
+        }
+      },
+      "description": "مرورگرها، برنامه‌های پیش‌فرض و ابزارها",
+      "media": {
+        "applyHint": "برای استفاده از این مسیر در دانلودهای رسانهٔ جدید، ذخیره کنید. برای تازه‌سازی پشتیبانی، در افزونهٔ مرورگر دوباره اسکن کنید.",
+        "binaryPath": "مسیر سفارشی FFmpeg",
+        "browse": "مرور…",
+        "candidateKind": {
+          "env": "MOTRIX_FFMPEG_BIN",
+          "manual": "مسیر سفارشی",
+          "path": "PATH سیستم",
+          "userData": "پوشهٔ دادهٔ Motrix"
+        },
+        "cleanupConfirm": "همهٔ پوشه‌های موقت FFmpeg حذف شوند؟",
+        "cleanupStaging": "پاک‌سازی فایل‌های موقت",
+        "desc": "ادغام یا تبدیل رسانه با FFmpeg.",
+        "desktopSavedHint": "دانلودهای رسانهٔ جدید از مسیر ذخیره‌شده استفاده می‌کنند. برای شناسایی تغییر توسط افزونه‌های فعال، Motrix را دوباره راه‌اندازی کنید.",
+        "detection": {
+          "copyManagedPath": "کپی مسیر FFmpeg متعلق به Motrix",
+          "editCustomPath": "ویرایش مسیر سفارشی FFmpeg",
+          "finishEditingCustomPath": "پایان ویرایش مسیر سفارشی FFmpeg",
+          "hideDetails": "پنهان کردن جزئیات شناسایی",
+          "location": "مکان بررسی‌شده",
+          "notConfigured": "تنظیم نشده",
+          "readyTitle": "FFmpeg {{version}}",
+          "result": "نتیجه",
+          "showDetails": "نمایش جزئیات شناسایی",
+          "source": "منبع",
+          "sourcesChecked_one": "{{count}} منبع بررسی شد",
+          "sourcesChecked_other": "{{count}} منبع بررسی شد",
+          "unavailableDesc": "مسیر سفارشی تعیین کنید، FFmpeg را نصب کنید یا آن را به PATH اضافه کنید، سپس تازه‌سازی کنید.",
+          "unavailableTitle": "FFmpeg در دسترس نیست",
+          "untrustedDesc": "فایل وجود دارد، اما تأیید امنیتی macOS را نگذرانده است. نسخه‌ای مورد اعتماد نصب کنید یا در Privacy & Security (حریم خصوصی و امنیت) به آن اجازه دهید، سپس تازه‌سازی کنید.",
+          "untrustedTitle": "macOS اجرای FFmpeg را مسدود کرد",
+          "usingSource": "در حال استفاده از {{source}}"
+        },
+        "download": {
+          "action": "دانلود FFmpeg"
+        },
+        "ffmpegRequired": "این دانلود به FFmpeg نیاز دارد. آن را در تنظیمات ← یکپارچگی ← ابزارهای رسانه تنظیم و ذخیره کنید، سپس دوباره تلاش کنید.",
+        "notDetected": "FFmpeg شناسایی نشد",
+        "opTimeoutSec": "مهلت FFmpeg (ثانیه)",
+        "opTimeoutSecDesc": "حداکثر زمان یک عملیات رسانه، تا 3,600 ثانیه.",
+        "pipelineUnavailable": "پشتیبانی دانلود رسانه در دسترس نیست.",
+        "refresh": "تازه‌سازی",
+        "restartHint": "ذخیره شد. برای شناسایی تغییرات توسط افزونه‌های فعال، Motrix را دوباره راه‌اندازی کنید.",
+        "restartNow": "راه‌اندازی دوباره اکنون",
+        "savedTitle": "تنظیمات FFmpeg ذخیره شد",
+        "stagingMB": "حد فضای فایل‌های موقت (MB)",
+        "stagingMBDesc": "فضای فایل‌های میانی برای هر افزونه و کار.",
+        "state": {
+          "active": "در حال استفاده",
+          "available": "پیدا شد",
+          "missing": "پیدا نشد",
+          "unconfigured": "تنظیم نشده",
+          "untrusted": "مسدودشده توسط macOS",
+          "version_mismatch": "پشتیبانی نمی‌شود"
+        },
+        "title": "ابزارهای رسانه",
+        "validation": {
+          "fileMissing": "فایلی در این مسیر وجود ندارد."
+        }
+      },
+      "pairResolveFailed": "ارسال تصمیم شما ممکن نشد؛ دوباره تلاش کنید.",
+      "system": {
+        "associationChecking": "در حال بررسی…",
+        "associationDefault": "پیش‌فرض",
+        "associationNotDefault": "پیش‌فرض نیست",
+        "associationNotRegistered": "ثبت نشده",
+        "associationSetupRequired": "نیاز به راه‌اندازی",
+        "associationStatusLabel": "وضعیت فعلی برنامهٔ پیش‌فرض Windows",
+        "associationStatusLabelLinux": "وضعیت فعلی ارتباط فایل‌ها و پیوندها در Linux",
+        "associationUnavailable": "تأیید ممکن نشد",
+        "defaultAssociationsLinux": "ارتباط فایل‌ها و پیوندها با برنامه‌ها در Linux",
+        "defaultAssociationsLinuxAppImageDesc": "برای ثبت یا لغو ثبت ایمن این AppImage، از «یکپارچگی با دسکتاپ» در زیر استفاده کنید. Motrix پیش از حذف ورودی دسکتاپ خود، ارتباط با برنامه‌های قبلی تأییدشده را بازمی‌گرداند.",
+        "defaultAssociationsLinuxCheckingDesc": "در حال بررسی این بستهٔ Linux و ارتباط‌های فعلی آن در دسکتاپ…",
+        "defaultAssociationsLinuxDesc": "Motrix در نسخهٔ نصب‌شده از بستهٔ deb یا rpm می‌تواند خود را پیش‌فرض فایل‌های .torrent قرار دهد. تغییرات magnet هنگام اعمال تنظیمات این پنجره اجرا می‌شوند.",
+        "defaultAssociationsLinuxSandboxDesc": "این بسته Motrix را به‌عنوان برنامهٔ بازکننده معرفی می‌کند، اما محیط دسکتاپ شما برنامهٔ پیش‌فرض را انتخاب می‌کند. حذف بسته ممکن است پیش‌فرض قبلی را خودکار بازنگرداند.",
+        "defaultAssociationsLinuxUnavailableDesc": "وضعیت ارتباط‌های دسکتاپ از این محیط برنامه در دسترس نیست.",
+        "defaultAssociationsWindows": "برنامهٔ پیش‌فرض برای تورنت و پیوندهای magnet",
+        "defaultAssociationsWindowsDesc": "در تنظیمات Windows، Motrix را برای فایل‌های .torrent و پیوندهای magnet انتخاب کنید. به نسخهٔ نصب‌شدهٔ Motrix نیاز دارد.",
+        "linuxActionFailed": "به‌روزرسانی پیش‌فرض Linux ممکن نشد. تنظیمات محیط دسکتاپ را بررسی کنید.",
+        "linuxActionFallback": "راه‌اندازی خودکار برای این بسته در دسترس نیست. به‌جای آن، راهنمای راه‌اندازی باز شد.",
+        "linuxActionSet": "اکنون Motrix برنامهٔ پیش‌فرض فایل‌های .torrent است.",
+        "linuxPackage": {
+          "appimage": "AppImage",
+          "flatpak": "Flatpak",
+          "native": "deb / rpm",
+          "snap": "Snap",
+          "unknown": "بستهٔ ناشناخته"
+        },
+        "linuxPackageDetected": "بسته: {{package}}",
+        "magnetLinks": "پیوندهای magnet",
+        "openWindowsSettings": "باز کردن تنظیمات Windows",
+        "protocolMagnet": "باز کردن پیوندهای magnet با Motrix",
+        "protocolMagnetAppImageDesc": "وقتی یکپارچگی با دسکتاپ فعال باشد، بلافاصله پس از ذخیره اعمال می‌شود.",
+        "protocolMagnetApplyFailed": "تنظیم ذخیره شد، اما تغییر ارتباط دسکتاپ ممکن نشد. برنامهٔ پیش‌فرض را در تنظیمات سیستم انتخاب کنید.",
+        "protocolMagnetDesc": "پیوندهای magnet مرورگر در Motrix باز شوند.",
+        "protocolMagnetSandboxDesc": "Motrix هنگام ذخیره درخواست تغییر می‌دهد، اما محیط ایزوله یا دسکتاپ ممکن است انتخاب دستی برنامهٔ پیش‌فرض را لازم بداند.",
+        "repairLinuxAssociations": "ترمیم ارتباط‌ها",
+        "setTorrentDefaultLinux": "تنظیم پیش‌فرض .torrent",
+        "title": "برنامهٔ پیش‌فرض",
+        "torrentAssociation": "باز کردن فایل‌های .torrent با Motrix",
+        "torrentAssociationDesc": "برای باز کردن فایل .torrent در Motrix، روی آن دوبار کلیک کنید.",
+        "torrentAssociationMacDesc": "در Finder، روی هر فایل .torrent راست‌کلیک کنید ← Get Info (دریافت اطلاعات) ← Open with (باز کردن با) ← Motrix را انتخاب کنید ← Change All… (تغییر همه).",
+        "torrentFiles": "فایل‌های .torrent",
+        "viewLinuxInstructions": "مشاهدهٔ مراحل راه‌اندازی"
+      }
+    },
+    "network": {
+      "description": "پروکسی، DNS و بررسی اتصال‌ها",
+      "diagnostic": {
+        "enable": "بررسی‌های خودکار",
+        "enableDesc": "بررسی‌های فعال‌شده در بالا تکرار شوند.",
+        "interval": "فاصلهٔ بررسی (ثانیه)",
+        "title": "بررسی‌های خودکار شبکه"
+      },
+      "diagnostics": "عیب‌یابی شبکه",
+      "dns": {
+        "mode": "جستجوی DNS",
+        "modeAuto": "خودکار",
+        "modeDesc": "نحوهٔ پیدا کردن نشانی سرورها برای دانلود.",
+        "modeEngine": "DNS داخلی",
+        "modeSystem": "DNS سیستم",
+        "title": "DNS"
+      },
+      "nat": {
+        "automatic": "خودکار",
+        "btPortHint": "نگاشت روی درگاه‌های BT/DHT تعیین‌شده در BitTorrent اعمال می‌شود.",
+        "enable": "فعال کردن نگاشت درگاه",
+        "enableDesc": "از روتر درخواست شود درگاه‌های تعیین‌شده در تنظیمات BitTorrent را باز کند.",
+        "mappingTtl": "مدت نگاشت (ثانیه)",
+        "preferredProtocol": "پروتکل ترجیحی",
+        "title": "نگاشت درگاه (NAT)"
+      },
+      "proxy": {
+        "auth": "ورود به پروکسی",
+        "authDesc": "اگر پروکسی به نام کاربری و گذرواژه نیاز دارد، فعال کنید.",
+        "bypass": "اتصال مستقیم به",
+        "bypassDesc": "در هر خط یک دامنه، IP یا CIDR. برای تطبیق فقط با زیردامنه‌ها، با . شروع کنید. دانلود فایل از نویسهٔ عام * پشتیبانی نمی‌کند.",
+        "bypassPlaceholder": "localhost\n127.0.0.1\n.local",
+        "bypassScopeNote": "فقط دانلود فایل‌ها و به‌روزرسانی‌های برنامه",
+        "enable": "فعال کردن پروکسی",
+        "enableDesc": "برای اتصال‌های انتخاب‌شده در زیر از پروکسی استفاده شود.",
+        "hidePassword": "پنهان کردن گذرواژه",
+        "host": "نشانی سرور",
+        "hostPlaceholder": "proxy.example.com",
+        "importFromSystem": "وارد کردن از سیستم",
+        "importedToast": "پروکسی سیستم وارد شد: {{host}}:{{port}}",
+        "noSystemProxy": "پروکسی سیستم تنظیم نشده است.",
+        "password": "گذرواژه",
+        "port": "درگاه",
+        "protocol": "پروتکل",
+        "scopeChoose": "انتخاب…",
+        "scopeDownload": "دانلود فایل‌ها",
+        "scopeDownloadDesc": "در BT، فقط HTTP(S) از پروکسی استفاده می‌کند. همتاها، DHT و ردیاب‌های UDP مستقیم متصل می‌شوند.",
+        "scopeHint": "همتاهای BT، DHT و ردیاب‌های UDP مستقیم متصل می‌شوند.",
+        "scopeNone": "موردی انتخاب نشده",
+        "scopeSeparator": "، ",
+        "scopeUpdateApp": "به‌روزرسانی‌های برنامه",
+        "scopeUpdateAppDesc": "به‌روزرسانی‌های Motrix از طریق پروکسی بررسی شوند.",
+        "scopeUpdateTrackers": "به‌روزرسانی فهرست ردیاب‌ها",
+        "scopeUpdateTrackersDesc": "فهرست ردیاب‌ها از طریق پروکسی دانلود شود؛ ترافیک BT تغییری نمی‌کند.",
+        "scopes": "استفاده از پروکسی برای",
+        "scopesDesc": "انتخاب کنید کدام نوع ترافیک از پروکسی عبور کند.",
+        "server": "سرور",
+        "showPassword": "نمایش گذرواژه",
+        "title": "پروکسی",
+        "user": "نام کاربری"
+      },
+      "reachability": {
+        "addEndpoint": "افزودن سرویس بررسی",
+        "empty": "حداقل یک سرویس بررسی اضافه کنید.",
+        "enable": "بررسی درگاه‌های ورودی",
+        "endpoints": "سرویس‌های بررسی (HTTPS)",
+        "privacyHint": "برای بررسی دسترسی از اینترنت، از سرویس شخص ثالث استفاده می‌کند.",
+        "title": "بررسی درگاه ورودی"
+      },
+      "stun": {
+        "addServer": "افزودن سرور STUN",
+        "empty": "حداقل یک سرور STUN اضافه کنید.",
+        "enable": "تشخیص نوع NAT",
+        "privacyHint": "از سرورهای STUN شخص ثالث استفاده می‌کند.",
+        "servers": "سرورهای STUN",
+        "title": "تشخیص نوع NAT"
+      }
+    },
+    "title": "تنظیمات",
+    "validation": {
+      "address": "نشانی {{number}}",
+      "addressDraft": "نشانی جدید",
+      "directory": "پوشهٔ دانلود را انتخاب کنید.",
+      "httpUrl": "نشانی کامل با آغاز http:// یا https:// وارد کنید.",
+      "httpsUrl": "نشانی کامل با آغاز https:// وارد کنید.",
+      "integer": "عدد صحیح وارد کنید.",
+      "integerRange": "عدد صحیحی از {{min}} تا {{max}} وارد کنید.",
+      "invalid": "مقدار معتبری وارد کنید.",
+      "itemCount": "حداکثر {{max}} نشانی نگه دارید.",
+      "loadFailed": "بارگیری تنظیمات ممکن نشد. دوباره تلاش کنید.",
+      "maximum": "{{max}} یا کمتر وارد کنید.",
+      "minimum": "{{min}} یا بیشتر وارد کنید.",
+      "number": "عدد معتبری وارد کنید.",
+      "proxyHost": "نام سرور یا نشانی IP را بدون http:// یا درگاه وارد کنید.",
+      "range": "عددی از {{min}} تا {{max}} وارد کنید.",
+      "rangeHint": "محدوده: {{min}}–{{max}}.",
+      "required": "ابتدا یک نشانی وارد کنید.",
+      "saveFailed": "ذخیرهٔ تغییرات ممکن نشد. دوباره تلاش کنید.",
+      "selection": "یکی از گزینه‌های موجود را انتخاب کنید.",
+      "stunServer": "از قالب host:port، مانند stun.example.com:3478، استفاده کنید. درگاه باید بین 1 و 65535 باشد.",
+      "text": "شکست خط یا نویسه‌های کنترلی پنهان را حذف کنید.",
+      "textLength": "حداکثر {{max}} نویسه استفاده کنید.",
+      "time": "از قالب 24 ساعته، مانند 23:00، استفاده کنید.",
+      "wholeBytes": "از رقم‌های اعشاری کمتری استفاده کنید."
+    }
+  },
+  "task": {
+    "add": {
+      "adding": "در حال افزودن…",
+      "advanced": "پیشرفته",
+      "allProxy": "پروکسی",
+      "authorization": "Authorization",
+      "batchCreated": "{{count}} کار اضافه شد",
+      "browse": "مرور",
+      "changeSaveDir": "تغییر پوشهٔ ذخیره",
+      "clearSelection": "پاک کردن انتخاب",
+      "cookie": "Cookie",
+      "createFailed": "ساخت کار دانلود ناموفق بود.",
+      "createFailedByPlugin": "ساخت کار ممکن نشد: افزونهٔ «{{pluginId}}» آن را متوقف کرد ({{detail}}). آن افزونه را در تنظیمات ← افزونه‌ها غیرفعال کنید و دوباره تلاش کنید.",
+      "createFailedPathTooLong": "ساخت کار ممکن نشد: مسیر مقصد {{length}} نویسه دارد که از محدودیت {{limit}} نویسه‌ای Windows بیشتر است. پوشهٔ ذخیره یا نام فایل کوتاه‌تری انتخاب کنید.",
+      "createFailedWithReason": "ساخت کار دانلود ناموفق بود: {{reason}}",
+      "created": "کار اضافه شد",
+      "createdCopy": "نسخه‌ای جداگانه اضافه شد",
+      "createdPartial": "{{ok}} اضافه شد · {{failed}} ناموفق",
+      "dlLimit": "حد سرعت دانلود",
+      "downloadAllTorrents": "دانلود همه ({{count}})",
+      "downloadAndContinue": "دانلود و ادامه",
+      "dropTorrent": "فایل .torrent را اینجا رها کنید یا برای انتخاب کلیک کنید",
+      "duplicate": {
+        "active-info-hash": "{{name}} از قبل فعال است. aria2 نمی‌تواند محتوای یک تورنت را هم‌زمان دو بار اجرا کند.",
+        "createCopy": "ساخت نسخهٔ جداگانه",
+        "existing-files": "{{name}} از قبل در این مقصد وجود دارد، اما سابقهٔ کار آن در دسترس نیست. Motrix روی آن نمی‌نویسد.",
+        "filesOnDisk": "فایل‌های تورنت",
+        "selection-mismatch": "{{name}} با انتخاب فایل‌های متفاوتی از همین مقصد استفاده می‌کند. Motrix روی آن نمی‌نویسد و بدون اطلاع، نسخه‌ای با نام دیگر نمی‌سازد.",
+        "showExisting": "نمایش کار موجود",
+        "title": "این تورنت از قبل وجود دارد"
+      },
+      "errors": {
+        "missingSource": "فایل تورنت یا پیوند magnet لازم است",
+        "noFilesSelected": "حداقل یک فایل انتخاب کنید",
+        "saveDirRequired": "پوشهٔ ذخیره لازم است",
+        "urlsRequired": "حداقل یک نشانی لازم است"
+      },
+      "filename": "نام فایل",
+      "filenameAuto": "خودکار",
+      "filterBy": {
+        "audio": "صدا",
+        "doc": "سند",
+        "image": "تصویر",
+        "video": "ویدیو"
+      },
+      "interpretedCurl": "فرمان cURL تجزیه شد",
+      "interpretedInfoHash": "هش اطلاعات BT به پیوند magnet تبدیل شد",
+      "interpretedJson": "نشانی‌ها از JSON وارد شدند",
+      "interpretedMagnet": "پیوند magnet شناسایی شد",
+      "invalidJson": "یک رشتهٔ نشانی در JSON یا آرایه‌ای از رشته‌های نشانی لازم است.",
+      "invalidUrlCount": "{{count}} نامعتبر",
+      "links": "پیوندها",
+      "parseFailed": "خواندن ساختار فایل تورنت ناموفق بود.",
+      "pickPathCustom": "مسیر سفارشی",
+      "pickPathTitle": "انتخاب پوشهٔ ذخیره",
+      "queueAdvanceFailed": "باز کردن تورنت بعدی ممکن نشد.",
+      "referer": "Referer",
+      "saveDirEmpty": "پوشه‌ای انتخاب کنید…",
+      "saveTo": "ذخیره در",
+      "seedRatio": "نسبت اشتراک‌گذاری",
+      "selectionTimeout": {
+        "failed": "شروع خودکار {{name}} ممکن نشد. جزئیات کار را باز کنید، فایل‌ها را انتخاب کنید و دوباره تلاش کنید.",
+        "started": "مهلت انتخاب فایل تمام شد: همهٔ فایل‌های {{name}} دانلود می‌شوند"
+      },
+      "skipTorrent": "رد کردن",
+      "sourceCorrections": {
+        "encodeLiteralCharacters": "کدگذاری به‌عنوان نویسه‌های عادی",
+        "useCanonicalUrl": "استفاده از این نشانی کامل‌شده",
+        "usePathSeparators": "در نظر گرفتن بک‌اسلش‌ها به‌عنوان جداکنندهٔ مسیر"
+      },
+      "sourceErrors": {
+        "ambiguousBackslash": "بک‌اسلش، میزبان یا مسیر را مبهم کرده است. نحوهٔ تفسیر آن را انتخاب کنید.",
+        "ambiguousStructure": "تجزیه‌گر نشانی این آدرس را تغییر می‌دهد. نشانی کامل‌شده را بررسی کنید.",
+        "controlCharacter": "نویسه‌های کنترلی را از نشانی حذف کنید.",
+        "credentialsInUrl": "به‌جای درج اطلاعات ورود در نشانی، از فیلدهای احراز هویت استفاده کنید.",
+        "invalidHost": "میزبان نشانی مشخص نشده یا نامعتبر است.",
+        "invalidMagnet": "پیوند magnet باید در پارامتر xt دارای هش اطلاعات BT پشتیبانی‌شده باشد.",
+        "invalidPercentEncoding": "پس از علامت درصد باید دو رقم در مبنای شانزده بیاید.",
+        "invalidPort": "درگاه نشانی نامعتبر است.",
+        "invalidUnicode": "نشانی شامل یونیکد نامعتبر است.",
+        "missingScheme": "طرح نشانی، مانند https://، را وارد کنید.",
+        "mixedProtocols": "نشانی‌های جایگزین یک دانلود باید از یک خانوادهٔ پروتکل استفاده کنند.",
+        "tooManySources": "تعداد یا حجم پیوندهای ورودی از حد مجاز بیشتر است.",
+        "unescapedCharacter": "فاصله‌ها و نویسه‌های رزروشده را صریحاً کدگذاری کنید.",
+        "unsupportedInput": "این قالب ورودی وارد نشد. یک نشانی یا ورودی پشتیبانی‌شدهٔ JSON یا cURL مخصوص Bash جای‌گذاری کنید.",
+        "unsupportedProtocol": "پروتکل این نشانی برای این دانلود پشتیبانی نمی‌شود.",
+        "unsupportedRequestOptions": "سرآیندهای HTTP را نمی‌توان روی دانلود FTP اعمال کرد.",
+        "urlTooLong": "نشانی از محدودیت 16 KiB بیشتر است."
+      },
+      "sourceLine": "خط {{line}}",
+      "split": "اتصال‌ها",
+      "submissionUnconfirmed": "نتیجه تأیید نشده است. تلاش دوباره، پیش از ساخت کار دیگر، درخواست اولیه را بررسی می‌کند.",
+      "title": "کار جدید",
+      "torrent": "تورنت",
+      "torrentQueueProgress": "تورنت {{current}} از {{total}}",
+      "ulLimit": "حد سرعت بارگذاری",
+      "undoCorrection": "واگرد اصلاح نشانی",
+      "unlimited": "نامحدود",
+      "unsupportedCurl": "وارد کردن این فرمان cURL با حفظ دقیق رفتار آن ممکن نیست. نشانی یا فرمان GET مخصوص Bash با گزینه‌های پشتیبانی‌شده را کپی کنید.",
+      "urlPlaceholder": "نشانی، پیوند magnet یا هش اطلاعات BT را وارد کنید…",
+      "urlsCount_one": "{{count}} نشانی",
+      "urlsCount_other": "{{count}} نشانی",
+      "urlsLabel": "نشانی‌ها",
+      "urlsWithInvalid": "{{valid}} معتبر، {{invalid}} نامعتبر",
+      "userAgent": "User-Agent",
+      "validUrlCount": "{{count}} معتبر"
+    },
+    "detail": {
+      "peers": "همتاها: {{count}}",
+      "seeds": "توزیع‌کنندگان: {{count}}"
+    },
+    "error": {
+      "detail": {
+        "filesMissing": "پس از راه‌اندازی دوبارهٔ برنامه، فایل‌ها پیدا نشدند",
+        "finalizeFailed": "تکمیل دانلود ممکن نشد: {{cause}}",
+        "magnetCleanupQuarantined": "پاک‌سازی فرادادهٔ magnet به‌دلیل قرنطینه متوقف شده است",
+        "muxFailed": "ترکیب جریان‌های رسانهٔ دانلودشده ناموفق بود",
+        "pathTooLong": "مسیر {{length}} نویسه دارد؛ حد مجاز Windows برابر {{limit}} است",
+        "pluginChainAborted": "زنجیرهٔ افزونه‌ها متوقف شد: {{cause}}",
+        "recoveryFailed": "بازیابی دانلود ممکن نشد: {{cause}}",
+        "recoveryOutputConflict": "هم فایل موقت و هم فایل نهایی وجود دارند؛ هر دو برای بررسی دستی حفظ شدند",
+        "renameDirFailed": "تغییر نام پوشه ناموفق بود: {{cause}}",
+        "renameFileFailed": "تغییر نام فایل ناموفق بود: {{cause}}"
+      },
+      "hint": {
+        "btMetadataFailed": "پیوند magnet را بررسی کنید یا ردیاب‌های بیشتری اضافه کنید، سپس دوباره تلاش کنید",
+        "checksumMismatch": "ممکن است فایل دانلودشده خراب باشد؛ برای بررسی، آن را دوباره دانلود کنید",
+        "diskFull": "فضای دیسک را آزاد کنید یا پوشهٔ ذخیره را تغییر دهید، سپس دوباره تلاش کنید",
+        "fileWriteError": "مجوزهای پوشه و فضای آزاد دیسک را بررسی کنید، سپس دوباره تلاش کنید",
+        "networkError": "اتصال شبکه را بررسی کنید، سپس دوباره تلاش کنید",
+        "pathTooLong": "مسیر پوشهٔ ذخیره یا نام فایل را کوتاه‌تر کنید، سپس دوباره تلاش کنید",
+        "timeout": "سرعت و پایداری اتصال را بررسی کنید، سپس دوباره تلاش کنید",
+        "tooManyRedirects": "ممکن است پیوند منبع خراب باشد؛ پیوند دیگری را امتحان کنید",
+        "unauthorized": "اطلاعات ورود یا مجوزهای دسترسی را بررسی کنید، سپس دوباره تلاش کنید"
+      },
+      "reason": {
+        "btMetadataFailed": "دریافت فرادادهٔ تورنت ممکن نشد",
+        "btTrackerError": "اتصال به ردیاب ناموفق بود",
+        "checksumMismatch": "مجموع مقابله‌ای فایل مطابقت نداشت",
+        "diskFull": "دیسک پر است",
+        "fileWriteError": "نوشتن فایل ممکن نشد",
+        "generic": "دانلود ناموفق بود",
+        "networkError": "اتصال شبکه ناموفق بود",
+        "notFound": "فایل پیدا نشد",
+        "pathTooLong": "مسیر فایل برای Windows بیش از حد طولانی است",
+        "serverError": "سرور خطا برگرداند",
+        "timeout": "مهلت دانلود تمام شد",
+        "tooManyRedirects": "تعداد تغییرمسیرها بیش از حد است",
+        "unauthorized": "احراز هویت لازم است",
+        "unknown": "دانلود ناموفق بود"
+      }
+    },
+    "recovery": {
+      "finalizeRenameFailed": "تغییر نام فایل ناموفق بود. فایل دانلودشده با پسوند .motrix باقی می‌ماند.",
+      "metaMissing": "فرادادهٔ تورنت موجود نیست. شروع توزیع ممکن نیست.",
+      "reseedFailed": "دانلود کامل شد، اما شروع توزیع ناموفق بود.",
+      "startup": {
+        "dirtyMetadata": "بازیابی این کار ممکن نیست: اطلاعات شناسایی لازم برای ادامه موجود نیست.",
+        "mediaInterrupted": "این دانلود رسانه با راه‌اندازی دوبارهٔ برنامه قطع شد و قابل ادامه نیست. برای تلاش دوباره، آن را دوباره اضافه کنید.",
+        "reAddFailed": "بازیابی این کار ممکن نیست: موتور، درخواست افزودن دوباره را رد کرد. کار را حذف و دستی دوباره اضافه کنید.",
+        "resumeCheckpointMissing": "فایل ناقص حفظ شد، اما اطلاعات نقطهٔ ادامهٔ آن موجود نیست. با روش ایمن از ابتدا شروع کنید یا کار را دوباره اضافه کنید.",
+        "resumeCredentialsRequired": "فایل ناقص حفظ شد، اما این دانلود به اطلاعات احراز هویت درخواستی نیاز دارد که ارسال دوبارهٔ خودکار آن ممکن نیست.",
+        "resumePathInvalid": "فایل ناقص حفظ شد، زیرا مسیر خروجی ذخیره‌شدهٔ آن نامعتبر است.",
+        "resumeRangeUnsupported": "فایل ناقص حفظ شد، زیرا سرور از ادامهٔ ایمن دانلود با درخواست محدوده پشتیبانی نمی‌کند.",
+        "resumeSourceChanged": "فایل ناقص حفظ شد، زیرا فایل روی سرور از زمان شروع دانلود تغییر کرده است.",
+        "resumeValidationFailed": "فایل ناقص حفظ شد، زیرا Motrix نتوانست تأیید کند فایل روی سرور تغییر نکرده است.",
+        "torrentMetaMissing": "بازیابی این کار BitTorrent ممکن نیست: فایل فرادادهٔ .torrent موجود نیست. کار را حذف و دوباره اضافه کنید."
+      },
+      "toast": "{{count}} کار قطع‌شده بازیابی شد. برای بررسی کلیک کنید."
+    },
+    "remove": {
+      "cancel": "لغو",
+      "confirm": "حذف",
+      "deleteFilesLabel": "حذف فایل‌های دانلودشده",
+      "description": "«{{name}}» از فهرست دانلودها حذف می‌شود.",
+      "notAvailableDuringFinalize": "منتظر بمانید تا نهایی‌سازی کار تمام شود.",
+      "orphanToast": "کار حذف شد. فایل‌ها در {{path}} باقی ماندند.",
+      "title": "کار حذف شود؟"
+    },
+    "torrent": {
+      "audio": "صدا",
+      "column": {
+        "name": "نام فایل",
+        "size": "اندازه",
+        "type": "نوع فایل"
+      },
+      "doc": "سند",
+      "fileSelected_one": "{{count}} فایل انتخاب شده",
+      "fileSelected_other": "{{count}} فایل انتخاب شده",
+      "image": "تصویر",
+      "selectAll": "انتخاب همه",
+      "video": "ویدیو"
+    }
+  },
+  "trackers": {
+    "blacklist": {
+      "column": {
+        "source": "منبع",
+        "url": "نشانی"
+      },
+      "disabled": "غیرفعال است؛ برای دیدن فهرست مسدود، فعال کنید.",
+      "empty": "فهرست مسدود خالی است.",
+      "enabled": "اعمال فیلتر فهرست مسدود",
+      "enabledDesc": "اتصال به سرورهای ردیاب مشکوک و دارای خطا مسدود شود.",
+      "summary": "{{count}} نشانی مؤثر"
+    },
+    "combobox": {
+      "addSource": "افزودن",
+      "addSourcePlaceholder": "https://example.com/list.txt",
+      "builtinBadge": "داخلی",
+      "cdnBadge": "CDN",
+      "directBadge": "مستقیم",
+      "empty": "منبع مطابقی پیدا نشد.",
+      "placeholder": "انتخاب منابع",
+      "removeSource": "حذف منبع"
+    },
+    "effective": {
+      "column": {
+        "health": "وضعیت سلامت",
+        "lastProbedAt": "آخرین آزمایش",
+        "responseTimeMs": "پاسخ (میلی‌ثانیه)",
+        "source": "منبع",
+        "url": "نشانی"
+      },
+      "disabled": "غیرفعال است؛ برای دیدن فهرست ردیاب‌های مؤثر، فعال کنید.",
+      "empty": "هنوز ردیاب مؤثری وجود ندارد. برای پر کردن فهرست، همگام‌سازی را اجرا کنید.",
+      "enabled": "افزودن ردیاب‌های گزینش‌شده",
+      "enabledDesc": "فهرست ردیاب‌های گزینش‌شده به همهٔ کارهای BitTorrent افزوده شود."
+    },
+    "sync": {
+      "applying": "در حال اعمال فهرست ردیاب‌ها…",
+      "failed": "همگام‌سازی کامل نشد. شبکه یا منابع را بررسی کنید و دوباره تلاش کنید.",
+      "fetching": "در حال دریافت فهرست ردیاب‌ها…",
+      "probing": "در حال بررسی دسترسی به ردیاب‌ها…",
+      "syncing": "در حال همگام‌سازی…",
+      "unavailable": "خواندن وضعیت همگام‌سازی ممکن نیست. اتصال را بررسی کنید و دوباره تلاش کنید."
+    }
+  },
+  "tray": {
+    "checkUpdates": "بررسی به‌روزرسانی‌ها",
+    "manual": "راهنما",
+    "newTask": "کار جدید",
+    "newTorrentTask": "کار تورنت جدید",
+    "openTorrentFile": "باز کردن فایل تورنت",
+    "preferences": "تنظیمات",
+    "quit": "خروج",
+    "showMotrix": "نمایش Motrix"
+  }
+}

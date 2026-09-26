@@ -126,7 +126,7 @@ export function BuiltinUpdateDialog({ pluginId, open, onOpenChange }: Props) {
           </Alert>
         )}
         {phase.kind === 'consent' && (
-          <ul className="list-disc pl-5 font-mono text-xs">
+          <ul className="list-disc ps-5 font-mono text-xs">
             {phase.added.map((a) => (
               <li key={a}>{a}</li>
             ))}

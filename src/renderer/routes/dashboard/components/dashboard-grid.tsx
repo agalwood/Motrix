@@ -1534,6 +1534,8 @@ export function DashboardGrid({
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto @[560px]:overflow-visible">
           <div
             data-testid="dashboard-grid"
+            // Saved tile positions and pointer hit testing use physical x/y coordinates.
+            dir="ltr"
             className={cn(
               'relative grid grid-cols-1 gap-4 pt-3 auto-rows-[minmax(8rem,auto)] @[560px]:pt-0',
               '@[560px]:min-h-0 @[560px]:flex-1 @[560px]:grid-cols-4 @[560px]:grid-rows-[repeat(3,minmax(8rem,1fr))] @[560px]:auto-rows-[minmax(8rem,1fr)]',

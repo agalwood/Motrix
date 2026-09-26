@@ -1,0 +1,2788 @@
+{
+  "applicationMenu": {
+    "actionFailed": "De actie kon niet worden voltooid. Controleer de verbinding en probeer het opnieuw.",
+    "back": "Terug",
+    "clearConfirm": "Registraties wissen",
+    "clearDescription": "Verwijdert registraties van voltooide, mislukte en verwijderde taken die aanwezig waren toen dit venster werd geopend. Gedownloade bestanden blijven op de schijf staan.",
+    "clearTitle": "Registraties van gestopte taken wissen?",
+    "discardConfirm": "Verwerpen",
+    "discardDescription": "Je niet-opgeslagen links, torrentselectie en instellingen gaan verloren.",
+    "discardTitle": "Dit taakconcept verwerpen?",
+    "logoutConfirm": "Afmelden",
+    "logoutDescription": "Hiermee meld je ook andere tabbladen af die dezelfde browsersessie gebruiken. Downloads gaan door op de server. Niet-opgeslagen invoer in die tabbladen gaat verloren.",
+    "logoutTitle": "Afmelden bij deze server?",
+    "retry": "Opnieuw proberen",
+    "serverUnavailable": "De server is niet beschikbaar. Je bent niet afgemeld bij je sessie.",
+    "signOut": "Afmelden…"
+  },
+  "bridge": {
+    "receiver": {
+      "error": {
+        "authExpired": "De sessie is verlopen — vernieuw de pagina in je browser en probeer het opnieuw",
+        "cancelled": "Geannuleerd",
+        "diskFull": "De schijf is vol",
+        "diskWriteFailed": "Kan niet naar de schijf schrijven: {{detail}}",
+        "internalError": "Interne fout: {{detail}}",
+        "invalidPayload": "Ongeldig verzoek van de extensie",
+        "invalidUrlScheme": "De URL moet http: of https: gebruiken",
+        "muxAborted": "Samenvoegen geannuleerd",
+        "muxFailed": "ffmpeg is mislukt bij het samenvoegen van audio en video",
+        "notFound": "Bron niet gevonden (404)",
+        "rangeNotSatisfiable": "Hervatten is mislukt; start de download opnieuw",
+        "transientFailure": "De download is na meerdere pogingen mislukt: {{detail}}",
+        "unsupportedEncryption": "Inhoud met DRM-beveiliging kan niet worden gedownload",
+        "unsupportedKind": "Downloads van het type {{kind}} worden niet ondersteund in deze Motrix-versie",
+        "unsupportedLive": "Livestreams kunnen niet worden gedownload",
+        "unsupportedMaster": "De extensie heeft een hoofdafspeellijst verzonden; er werd een variant verwacht"
+      }
+    }
+  },
+  "chrome": {
+    "close": "Sluiten",
+    "maximize": "Maximaliseren",
+    "minimize": "Minimaliseren",
+    "newTask": "Nieuwe taak",
+    "restore": "Herstellen",
+    "sidebarDescription": "Appnavigatie.",
+    "sidebarTitle": "Zijbalk",
+    "toggleSidebar": "Zijbalk tonen of verbergen"
+  },
+  "common": {
+    "apply": "Toepassen",
+    "cancel": "Annuleren",
+    "clearSearch": "Zoekopdracht wissen",
+    "close": "Sluiten",
+    "collapse": "Inklappen",
+    "confirm": "Bevestigen",
+    "download": "Downloaden",
+    "error": "Fout",
+    "hidePassword": "Wachtwoord verbergen",
+    "loading": "Laden…",
+    "name": "Naam:",
+    "remove": "Verwijderen",
+    "reset": "Herstellen",
+    "retry": "Opnieuw proberen",
+    "save": "Opslaan",
+    "showPassword": "Wachtwoord tonen",
+    "status": {
+      "finalizing": "Afronden…"
+    }
+  },
+  "directoryPicker": {
+    "back": "Terug",
+    "create": "Aanmaken",
+    "createHelp": "Aangemaakte mappen blijven op de server staan als je de selectie annuleert.",
+    "description": "De paden bevinden zich op de server (binnen de container bij gebruik van Docker).",
+    "empty": "Geen submappen",
+    "errors": {
+      "alreadyExists": "Er bestaat al een bestand of map met deze naam.",
+      "creationOutcomeUnknown": "Het aanmaken kon niet worden bevestigd. Vernieuw om dit te controleren voordat je hier nog een map aanmaakt.",
+      "invalidName": "Voer een geldige mapnaam in.",
+      "invalidPath": "Voer een geldig absoluut mappad in.",
+      "notDirectory": "Dit pad is geen map.",
+      "notFound": "Deze map bestaat niet meer.",
+      "outsideRoots": "Deze map bevindt zich buiten de toegestane locaties.",
+      "permissionDenied": "Je hebt geen toestemming om deze map te gebruiken.",
+      "tooLarge": "Het pad of de mapnaam is te lang.",
+      "unavailable": "De server kon dit verzoek niet voltooien. Probeer het opnieuw."
+    },
+    "fallback": "De opgevraagde map is niet beschikbaar. {{path}} wordt getoond.",
+    "folderName": "Mapnaam",
+    "folders": "Mappen",
+    "forward": "Vooruit",
+    "go": "Ga",
+    "goToFolder": "Ga naar map",
+    "incomplete": "Slechts een deel van deze map wordt getoond. Voer een exact pad in om een andere map te bereiken.",
+    "loading": "Mappen laden…",
+    "location": "Locatie",
+    "newFolder": "Nieuwe map",
+    "path": "Mappad",
+    "places": {
+      "allowed": "Toegestane locaties",
+      "common": "Veelgebruikte locaties",
+      "default": "Standaardmap",
+      "desktop": "Bureaublad",
+      "documents": "Documenten",
+      "downloads": "Downloads",
+      "home": "Persoonlijke map",
+      "loadFailed": "Sommige maplocaties konden niet worden geladen.",
+      "root": "Bestandssysteem"
+    },
+    "refresh": "Vernieuwen",
+    "refreshAfterCreateFailed": "De map is aangemaakt, maar de lijst kon niet worden vernieuwd.",
+    "retry": "Opnieuw proberen",
+    "selectFolder": "Map kiezen",
+    "selectedPath": "Geselecteerde map",
+    "showHidden": "Verborgen mappen tonen",
+    "sortAscending": "Oplopend",
+    "sortBy": "Sorteren op",
+    "sortDescending": "Aflopend",
+    "sortModified": "Wijzigingsdatum",
+    "sortName": "Naam",
+    "sortOrder": "Volgorde",
+    "title": "Servermap kiezen",
+    "unknownOutcome": "Het aanmaken kon niet worden bevestigd. Vernieuw om dit te controleren voordat je hier nog een map aanmaakt.",
+    "up": "Eén niveau omhoog",
+    "viewOptions": "Weergaveopties"
+  },
+  "directoryPreferences": {
+    "addFavorite": "Favoriet toevoegen",
+    "alreadyFavorite": "Staat al in favorieten",
+    "clearRecent": "Lijst met recente mappen wissen",
+    "close": "Sluiten",
+    "description": "Als je een map uit deze lijst verwijdert, blijven de map en de bestanden erin behouden.",
+    "emptyFavorites": "Geen favoriete mappen",
+    "emptyHistory": "Nog geen favoriete of recente mappen",
+    "emptyRecent": "Geen recente mappen",
+    "errors": {
+      "conflict": "De instellingen zijn in een ander venster gewijzigd. Controleer je wijzigingen en sla ze opnieuw op.",
+      "invalidPath": "Voer een geldig absoluut mappad in.",
+      "limitReached": "Het maximumaantal favoriete mappen is bereikt. Verwijder een favoriet voordat je een nieuwe toevoegt.",
+      "notDirectory": "Dit pad is geen map.",
+      "notFound": "Deze map bestaat niet meer.",
+      "outsideRoots": "Deze map bevindt zich buiten de toegestane locaties.",
+      "permissionDenied": "Je hebt geen toestemming om deze map te gebruiken.",
+      "tooLarge": "Dit mappad is te lang.",
+      "unavailable": "De mapgegevens konden niet worden bijgewerkt. Vernieuw om de huidige status te controleren."
+    },
+    "favoriteRecent": "Toevoegen aan favorieten",
+    "favorites": "Favoriete mappen",
+    "history": "Mapgeschiedenis",
+    "limitHint": "Je kunt maximaal {{count}} favoriete mappen opslaan.",
+    "loading": "Mappen laden…",
+    "manage": "Mappen beheren",
+    "manageAction": "Beheren",
+    "manageDescription": "Kies favoriete mappen en beheer recente mappen.",
+    "pickerFailed": "De mapkiezer kon niet worden geopend. Probeer het opnieuw.",
+    "recent": "Recente mappen",
+    "removeFavorite": "Favoriet verwijderen",
+    "removeRecent": "Recente map uit lijst verwijderen",
+    "retry": "Opnieuw proberen",
+    "sectionDescription": "Houd veelgebruikte mappen bij de hand.",
+    "title": "Mappen beheren"
+  },
+  "errors": {
+    "task": {
+      "create": {
+        "dedupExhausted": "Er bestaan al te veel bestanden met deze naam (>9999).",
+        "torrentMetaFailed": "De torrentmetadata konden niet worden opgeslagen."
+      }
+    }
+  },
+  "menu": {
+    "app": {
+      "about": "Over Motrix",
+      "checkForUpdates": "Zoeken naar updates",
+      "hide": "Motrix verbergen",
+      "hideOthers": "Andere verbergen",
+      "preferences": "Instellingen…",
+      "quit": "Motrix afsluiten",
+      "show": "Motrix tonen",
+      "title": "Motrix",
+      "unhide": "Alles tonen"
+    },
+    "edit": {
+      "copy": "Kopiëren",
+      "cut": "Knippen",
+      "delete": "Verwijderen",
+      "paste": "Plakken",
+      "redo": "Opnieuw uitvoeren",
+      "selectAll": "Alles selecteren",
+      "title": "Bewerken",
+      "undo": "Ongedaan maken"
+    },
+    "file": {
+      "title": "Bestand"
+    },
+    "help": {
+      "changelog": "Uitgavenotities",
+      "manual": "Motrix-help",
+      "officialWebsite": "Motrix-website",
+      "reportProblem": "Een probleem melden",
+      "title": "Help",
+      "toggleDevTools": "Ontwikkelaarstools tonen of verbergen"
+    },
+    "task": {
+      "clearRecentTasks": "Registraties van gestopte taken wissen…",
+      "deleteTask": "Taken verwijderen…",
+      "moveTaskDown": "Omlaag in wachtrij",
+      "moveTaskUp": "Omhoog in wachtrij",
+      "newBtTask": "Nieuwe BitTorrent-taak…",
+      "newTask": "Nieuwe taak…",
+      "openFile": "Torrentbestand openen…",
+      "pauseAllTask": "Alles pauzeren",
+      "pauseTask": "Pauzeren",
+      "resumeAllTask": "Alles hervatten",
+      "resumeTask": "Hervatten",
+      "selectAllTask": "Alle taken selecteren",
+      "taskList": "Takenlijst",
+      "title": "Taak"
+    },
+    "window": {
+      "close": "Sluiten",
+      "front": "Alles naar voren brengen",
+      "minimize": "Minimaliseren",
+      "reload": "Opnieuw laden",
+      "title": "Venster",
+      "toggleFullscreen": "Schermvullende weergave in- of uitschakelen",
+      "zoom": "Zoomen"
+    }
+  },
+  "nav": {
+    "completed": "Voltooid",
+    "dashboard": "Dashboard",
+    "downloads": "Downloads",
+    "notifications": "Meldingen",
+    "plugins": "Plug-ins",
+    "settings": "Instellingen",
+    "trackers": "Trackers"
+  },
+  "notification": {
+    "center": {
+      "actionFailed": "De meldingen konden niet worden bijgewerkt. Probeer het opnieuw.",
+      "clearAll": "Wissen",
+      "empty": "Geen meldingen",
+      "emptyDesc": "Downloadactiviteit en belangrijke appmeldingen worden hier weergegeven",
+      "markAllRead": "Alles markeren als gelezen",
+      "markRead": "Markeren als gelezen",
+      "openTaskFailed": "De taak kon niet worden geopend. Probeer het opnieuw.",
+      "removeAria": "{{title}} verwijderen",
+      "rowUnreadAria": "{{title}} (ongelezen)",
+      "taskRemoved": "Taak verwijderd",
+      "title": "Meldingen",
+      "toastRegionAria": "Meldingen",
+      "unreadBadgeAria_one": "{{count}} ongelezen melding",
+      "unreadBadgeAria_other": "{{count}} ongelezen meldingen",
+      "unreadDotAria": "Ongelezen meldingen",
+      "viewTask": "Taak bekijken"
+    },
+    "dnsFallback": {
+      "body": "Motrix kon geen DNS-server bereiken en is daarom voor deze sessie overgeschakeld op de systeem-DNS.",
+      "title": "{{name}} is opnieuw geprobeerd met de systeem-DNS"
+    },
+    "engineCompatibility": {
+      "body": "aria2 {{version}} is niet de Motrix-variant. Verbindingsinstellingen zijn beperkt tot maximaal {{limit}} en het opslaan van geschiedenis in SQLite is niet beschikbaar. Herstel de meegeleverde aria2_motrix-engine voor volledige ondersteuning.",
+      "title": "Er is een aria2-versie gedetecteerd die niet van Motrix is"
+    },
+    "engineFailure": {
+      "title": "De downloadengine is uitgevallen"
+    },
+    "engineRestartRequired": {
+      "body": "Je instellingen zijn opgeslagen. Herstart de downloadengine wanneer het uitkomt.",
+      "restartNow": "Nu herstarten",
+      "title": "Herstart de downloadengine om de instellingen toe te passen"
+    },
+    "taskComplete": {
+      "title": "{{name}} is gedownload"
+    },
+    "taskError": {
+      "title": "{{name}} is mislukt"
+    }
+  },
+  "onboarding": {
+    "disclaimer": {
+      "agree": "Akkoord en doorgaan",
+      "body": "Motrix biedt alleen downloadbeheer. Het biedt, bewaart, host of beveelt geen downloadbare inhoud aan. Je moet ervoor zorgen dat je wettelijk gerechtigd bent om inhoud via Motrix te openen, te gebruiken of te delen en dat je daarbij voldoet aan het toepasselijke auteursrecht en andere wetgeving. Je bent verantwoordelijk voor eventuele gevolgen van het downloaden, gebruiken of delen van inhoud. Door ‘Akkoord en doorgaan’ te kiezen, bevestig je dat je deze informatie hebt gelezen en begrepen.",
+      "highlights": {
+        "authorized": "wettelijk gerechtigd",
+        "downloadManagement": "biedt alleen downloadbeheer",
+        "responsibility": "Je bent verantwoordelijk"
+      },
+      "language": "Taal",
+      "languages": {
+        "chinese": "简体中文",
+        "english": "English"
+      },
+      "localConsent": "Je keuze wordt op dit apparaat opgeslagen.",
+      "quit": "Afsluiten",
+      "retry": "Opnieuw proberen",
+      "saveFailed": "Je toestemming kon niet worden opgeslagen. Controleer de schijfruimte en probeer het opnieuw.",
+      "summary": "Lees het volgende voordat je doorgaat.",
+      "title": "Gebruiksinformatie"
+    }
+  },
+  "operatorAdmin": {
+    "decision": {
+      "approve": "{{userCode}} goedgekeurd voor {{clientName}} ({{clientVersion}}).",
+      "deny": "{{userCode}} geweigerd voor {{clientName}} ({{clientVersion}})."
+    },
+    "errorPrefix": "motrix-admin: {{message}}",
+    "errors": {
+      "credential": {
+        "dataDirNotAbsolute": "MOTRIX_DATA_DIR moet een absoluut pad zijn.",
+        "invalid": "Het bestand met operatorinloggegevens is ongeldig.",
+        "notFile": "Het pad naar de operatorinloggegevens verwijst niet naar een gewoon bestand.",
+        "rejected": "De operatorinloggegevens zijn door Motrix geweigerd.",
+        "tokenHeaderInvalid": "MOTRIX_OPERATOR_TOKEN kan niet in een HTTP-header worden gebruikt.",
+        "unavailable": "De operatorinloggegevens zijn niet beschikbaar. Stel MOTRIX_OPERATOR_TOKEN in of zorg dat operator-token in de gegevensmap staat.",
+        "unreadable": "De operatorinloggegevens konden niet worden gelezen."
+      },
+      "server": {
+        "ambiguousRequest": "Meer dan één koppelingsverzoek in behandeling komt overeen met {{userCode}}; er is geen beslissing toegepast.",
+        "approvalUnavailable": "Koppelingsgoedkeuring is niet beschikbaar op de actieve Motrix-server.",
+        "decisionOutcomeUnknown": "Het resultaat van de koppelingsbeslissing is onbekend. Voer pairing pending uit voordat je het opnieuw probeert.",
+        "decisionResponseInvalid": "Motrix heeft een ongeldig antwoord op de koppelingsbeslissing geretourneerd.",
+        "noMatchingRequest": "Geen koppelingsverzoek in behandeling komt overeen met {{userCode}}.",
+        "pendingResponseInvalid": "Motrix heeft een ongeldig antwoord voor koppelingsverzoeken in behandeling geretourneerd.",
+        "requestNoLongerPending": "Het koppelingsverzoek is niet meer in behandeling.",
+        "responseInvalidJson": "Motrix heeft een ongeldig JSON-antwoord geretourneerd.",
+        "responseOversized": "Motrix heeft een te groot antwoord geretourneerd.",
+        "responseUnreadable": "Motrix heeft een onleesbaar antwoord geretourneerd.",
+        "rpcHttp": "De koppelings-RPC van Motrix is mislukt met HTTP {{status}}.",
+        "unexpected": "Onverwachte fout in motrix-admin."
+      },
+      "unavailable": {
+        "approvalNotReady": "Koppelingsgoedkeuring is nog niet gereed op de actieve Motrix-server.",
+        "loopback": "De actieve Motrix-server is niet bereikbaar via de loopbackinterface van de container."
+      },
+      "usage": {
+        "jsonRepeated": "--json mag slechts één keer worden opgegeven.",
+        "pairingCodeInvalid": "De koppelingscode moet acht ASCII-tekens bevatten en mag geen I, O, 0 of 1 bevatten.",
+        "pairingCommandRequired": "De opdracht pairing wordt verwacht.",
+        "pairingOperationRequired": "Er wordt pairing pending, pairing approve CODE of pairing deny CODE verwacht.",
+        "portInvalid": "PORT moet een geheel getal tussen 1 en 65535 zijn.",
+        "unknownOption": "Onbekende opdrachtregeloptie."
+      }
+    },
+    "help": "Gebruik:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nDe opdracht communiceert alleen met de actieve Motrix-server via de loopbackinterface van de container.",
+    "pending": {
+      "none": "Geen koppelingsverzoeken in behandeling.",
+      "row": "{{userCode}}  {{clientName}}  {{clientVersion}}  verloopt over {{ttl}}",
+      "ttl": "{{minutes}}m {{seconds}}s"
+    },
+    "usageHint": "Voer `motrix-admin --help` uit voor gebruiksinstructies."
+  },
+  "operatorUnlock": {
+    "error": "Ongeldig operatortoken. Controleer MOTRIX_OPERATOR_TOKEN of <dataDir>/operator-token op de host en probeer het opnieuw.",
+    "help": "Deze server vereist het operatortoken. Stel op de host MOTRIX_OPERATOR_TOKEN in of lees het token uit <dataDir>/operator-token en plak het hieronder.",
+    "placeholder": "Operatortoken",
+    "submit": "Ontgrendelen",
+    "title": "Motrix ontgrendelen"
+  },
+  "panel": {
+    "completed": {
+      "desc": "Voltooide downloadtaken",
+      "title": "Voltooid"
+    },
+    "connection": {
+      "originMismatch": "Toegangsadres komt niet overeen",
+      "polling": "Periodieke updates",
+      "reconnecting": "Opnieuw verbinden met server…",
+      "unavailable": "Server onbereikbaar"
+    },
+    "dashboard": {
+      "active": {
+        "downloading": "Downloaden",
+        "engineOffline": "engine offline",
+        "error": "Fout",
+        "seeding": "Seeden",
+        "title": "Actieve taken",
+        "waiting": "Wachten"
+      },
+      "activity": {
+        "completedIntensity": "De kleurintensiteit geeft voltooide downloads aan",
+        "coverageDegraded": "Activiteit is mogelijk onvolledig sinds {{time}}",
+        "less": "Minder",
+        "loading": "Activiteit laden",
+        "more": "Meer",
+        "rangeSummary": "{{weeks}} weken downloadactiviteit, van {{start}} tot {{end}}",
+        "retry": "Opnieuw proberen",
+        "stale": "Activiteit is mogelijk verouderd",
+        "title": "Activiteit",
+        "tooltip": {
+          "completed": "{{count}} voltooid",
+          "completedOnDate": "{{count}} voltooid op {{date}}",
+          "coverage": "De registratie is mogelijk onvolledig sinds {{time}}",
+          "coverageShort": "Gegevens zijn mogelijk onvolledig",
+          "noData": "Geen activiteitsgegevens",
+          "noDataOnDate": "Geen activiteitsgegevens op {{date}}",
+          "partial": "Registratie begonnen om {{time}}",
+          "partialShort": "Gedeeltelijke dag",
+          "recovered": "Inclusief een voltooiing die tijdens herstel is gedetecteerd",
+          "recoveredCount": "{{count}} hersteld",
+          "submitted": "{{count}} ingediend",
+          "today": "Vandaag, wordt nog bijgewerkt",
+          "untracked": "Nog niet bijgehouden"
+        },
+        "unavailable": "Activiteit niet beschikbaar",
+        "weekday": {
+          "fri": "Vr",
+          "mon": "Ma",
+          "sat": "Za",
+          "sun": "Zo",
+          "thu": "Do",
+          "tue": "Di",
+          "wed": "Wo"
+        }
+      },
+      "configure": {
+        "action": "Configureren",
+        "addTile": "Toevoegen",
+        "addTitle": "Tegel toevoegen",
+        "apply": "Toepassen",
+        "availabilityHints": {
+          "bounds": "Verplaats de tegel eerst naar binnen.",
+          "space": "Verklein of verwijder een andere tegel.",
+          "unsupported": "Kies een ondersteunde grootte."
+        },
+        "cancel": "Annuleren",
+        "currentSize": "Huidige grootte: {{width}} × {{height}}",
+        "drag": "Tegel slepen",
+        "expandHint": "Vergroot het venster om de dashboardindeling te configureren.",
+        "invalidCapacity": "Onvoldoende ruimte voor deze grootte",
+        "presets": {
+          "action": "Voorinstellingen",
+          "balanced": {
+            "title": "Gebalanceerd"
+          },
+          "compact": {
+            "title": "Compact"
+          },
+          "custom": "Aangepast",
+          "speedFocus": {
+            "title": "Nadruk op snelheid"
+          },
+          "taskFocus": {
+            "title": "Nadruk op taken"
+          },
+          "undo": "Laatste voorinstelling ongedaan maken"
+        },
+        "removeTile": "Tegel verwijderen",
+        "reset": "Herstellen",
+        "resizeTile": "Tegelgrootte wijzigen",
+        "saveFailed": "De indeling kon niet worden opgeslagen. Probeer het opnieuw.",
+        "size": "{{width}} × {{height}}",
+        "sizeGroup": "Tegelgrootte",
+        "sizeLabels": {
+          "compact": "Compact",
+          "fullHeight": "Volledige hoogte",
+          "fullWidth": "Volledige breedte",
+          "large": "Groot",
+          "tall": "Hoog",
+          "wide": "Breed"
+        },
+        "sizeUnavailable": {
+          "insufficientSpace": "Onvoldoende ruimte",
+          "outOfBounds": "Past niet",
+          "unsupported": "Niet ondersteund"
+        }
+      },
+      "engine": {
+        "diagnostics": {
+          "binary": {
+            "available": "{{name}} {{version}}",
+            "unavailable": "{{name}} ontbreekt of kan niet worden gestart."
+          },
+          "checking": "Enginecontroles uitvoeren…",
+          "checks": {
+            "binary": "Engine",
+            "communication": "Verbinding",
+            "features": "Functies",
+            "process": "Proces",
+            "rpc": "RPC-poort"
+          },
+          "communication": {
+            "ready": "Motrix kan communiceren met aria2."
+          },
+          "confirmForce": {
+            "action": "Geforceerd stoppen en herstellen",
+            "description": "PID {{pid}} komt overeen met het meegeleverde uitvoerbare bestand, het privé-RPC-geheim en de gegevenspaden van Motrix. Het wordt onmiddellijk beëindigd, waarna aria2 op de RPC-poort van Motrix wordt herstart.",
+            "title": "Het achtergebleven aria2-proces geforceerd stoppen?"
+          },
+          "copied": "Gekopieerd",
+          "copy": "Diagnose kopiëren",
+          "copyFailed": "De diagnose kon niet worden gekopieerd. Probeer het opnieuw.",
+          "currentStatus": "Huidige status",
+          "description": "Controleer de engine, identificeer het proces dat de RPC-poort van Motrix gebruikt en herstel veilig.",
+          "details": "Diagnostische details",
+          "fallback": {
+            "available": "De standaardpoort {{port}} van Motrix is beschikbaar en kan nu worden hersteld.",
+            "blocked": "De standaardpoort {{port}} wordt gebruikt door PID {{pid}} ({{name}}), maar Motrix kan niet bevestigen van wie het proces is. Het proces wordt niet beëindigd.",
+            "confirm": {
+              "action": "Stoppen en poort {{port}} herstellen",
+              "description": "PID {{pid}} is bevestigd als een achtergebleven aria2-proces van Motrix. Het wordt gestopt, de standaardpoort {{port}} wordt opgeslagen en aria2 wordt herstart.",
+              "title": "Het achtergebleven proces stoppen en poort {{port}} herstellen?"
+            },
+            "restore": "Standaardpoort {{port}} van Motrix herstellen",
+            "restoredDefault": "De standaard-RPC-poort {{port}} van Motrix is hersteld.",
+            "restoring": "Standaardpoort {{port}} van Motrix herstellen…",
+            "unidentified": "Het proces dat de standaardpoort {{port}} gebruikt kon niet worden geïdentificeerd. Motrix blijft de huidige poort gebruiken.",
+            "verifiedOrphan": "Een bevestigd achtergebleven aria2-proces van Motrix (PID {{pid}}) gebruikt de standaardpoort {{port}}. Motrix kan het veilig stoppen voordat de poort wordt hersteld."
+          },
+          "features": {
+            "none": "Niet gerapporteerd",
+            "unavailable": "Niet beschikbaar"
+          },
+          "forceRecover": "Geforceerd stoppen en herstellen",
+          "impact": {
+            "connecting": "Downloadbediening is beschikbaar zodra de engine gereed is.",
+            "failed": "Downloadbediening is niet beschikbaar. De taakstatus is mogelijk verouderd.",
+            "stopped": "Start de engine om downloads te beginnen of te beheren."
+          },
+          "lastChecked": "Gecontroleerd om {{time}}",
+          "loadFailed": "De enginediagnostiek kon niet worden uitgevoerd.",
+          "motrixEngine": "aria2 Motrix",
+          "open": "Diagnose uitvoeren",
+          "port": {
+            "available": "{{port}} (beschikbaar)",
+            "listening": "{{port}} (luistert)",
+            "occupied": "{{port}} (in gebruik)"
+          },
+          "process": {
+            "current_app": "PID {{pid}} ({{name}}), beheerd door Motrix",
+            "external_aria2": "PID {{pid}} ({{name}}), eigendom niet bevestigd; wordt niet gestopt",
+            "none": "Geen poortconflict",
+            "other": "PID {{pid}} ({{name}}), eigendom niet bevestigd; wordt niet gestopt",
+            "unidentified": "Niet geïdentificeerd; wordt niet gestopt",
+            "unknown": "PID {{pid}}, niet geïdentificeerd; wordt niet gestopt",
+            "verified_orphan": "PID {{pid}} ({{name}}), bevestigd achtergebleven Motrix-proces; kan veilig worden gestopt"
+          },
+          "reason": {
+            "binary_unavailable": "Het meegeleverde uitvoerbare aria2-bestand ontbreekt of is niet beschikbaar.",
+            "health_check_failed": "aria2 reageert niet meer op Motrix.",
+            "port_in_use": "De RPC-poort van Motrix is bezet, waardoor de aria2-engine niet kon starten.",
+            "rpc_unavailable": "De aria2-engine is gestart, maar accepteerde geen RPC-verbindingen van Motrix.",
+            "spawn_failed": "Het aria2-proces kon niet worden aangemaakt.",
+            "unexpected_exit": "De aria2-engine is onverwacht afgesloten.",
+            "unknown": "De aria2-engine kon om een onbekende reden niet starten."
+          },
+          "recommendation": {
+            "force_terminate": "Dit proces behoort aantoonbaar tot Motrix. Stop PID {{pid}} geforceerd en herstart aria2 op de RPC-poort {{rpcPort}} van Motrix.",
+            "retry": "De poort is vrij. Probeer aria2 opnieuw te starten zonder je instellingen te wijzigen.",
+            "switch_port": "Het proces kan niet veilig worden beëindigd. Gebruik poort {{port}} alleen als uitwijkmogelijkheid of sluit het conflicterende proces zelf af.",
+            "title": "Aanbevolen herstel"
+          },
+          "recovered": "De aria2-engine is weer beschikbaar.",
+          "recoveredOnPort": "De aria2-engine is hersteld op RPC-poort {{port}}.",
+          "recoveryFailed": "Engineherstel mislukt. Voer de diagnose opnieuw uit voor de actuele status.",
+          "refreshFailed": "De diagnose kon niet worden vernieuwd. Het laatste geslaagde rapport wordt hieronder getoond.",
+          "restart": "Engine herstarten",
+          "retry": "Opnieuw proberen",
+          "rpc": {
+            "available": "{{port}} (beschikbaar)",
+            "listening": "{{port}} (luistert)",
+            "occupied": "{{port}} (in gebruik)"
+          },
+          "runAgain": "Opnieuw uitvoeren",
+          "runtime": {
+            "connected": "Verbonden",
+            "connecting": "Verbinden…",
+            "connection": "Verbinding",
+            "connectionStatus": "{{transport}} ({{status}})",
+            "disconnected": "Niet verbonden",
+            "notRunning": "Niet actief",
+            "process": "Proces",
+            "running": "Actief",
+            "unavailable": "Niet beschikbaar"
+          },
+          "summary": {
+            "binary_unavailable": "De downloadengine is niet beschikbaar",
+            "health_check_failed": "De downloadengine reageert niet meer",
+            "port_in_use": "De besturingspoort van de engine is bezet",
+            "ready": "De downloadengine werkt normaal",
+            "restarting": "De downloadengine wordt hersteld",
+            "rpc_unavailable": "De besturingsverbinding met de engine is niet beschikbaar",
+            "spawn_failed": "De downloadengine kon niet starten",
+            "starting": "De downloadengine wordt gestart",
+            "stopped": "De downloadengine is gestopt",
+            "unexpected_exit": "De downloadengine is onverwacht afgesloten",
+            "unknown": "De downloadengine is niet beschikbaar"
+          },
+          "switchPort": "Poort {{port}} gebruiken",
+          "technicalDetails": "Technische details",
+          "title": "Enginediagnostiek",
+          "transport": {
+            "websocket": "WebSocket"
+          },
+          "versionUnknown": "Versie niet beschikbaar"
+        },
+        "features": "Functies",
+        "listenPort": "Luisterpoort",
+        "name": "Aria2",
+        "rpcPort": "RPC-poort",
+        "startFailed": "De aria2-engine kon niet starten",
+        "state": {
+          "disconnected": "Verbinding verbroken",
+          "failed": "Mislukt",
+          "ready": "Gereed",
+          "reconnecting": "Opnieuw verbinden…",
+          "starting": "Starten…",
+          "stopped": "Gestopt"
+        },
+        "title": "Engine",
+        "version": "Versie"
+      },
+      "errors": {
+        "retry": "Opnieuw proberen",
+        "tileFailed": "{{tile}}: weergave mislukt"
+      },
+      "nat": {
+        "actions": {
+          "diagnose": "Diagnose uitvoeren",
+          "disable": "NAT uitschakelen",
+          "enable": "NAT inschakelen",
+          "group": "NAT-bediening",
+          "remap": "Nieuwe poortdoorsturing afdwingen",
+          "settings": "NAT-instellingen",
+          "short": {
+            "diagnose": "Diagnose",
+            "disable": "Uitschakelen",
+            "enable": "Inschakelen",
+            "help": "Help",
+            "remap": "Opnieuw doorsturen"
+          },
+          "troubleshoot": "Handleiding voor NAT-problemen"
+        },
+        "caption": {
+          "failed": "Automatische poortdoorsturing niet beschikbaar.",
+          "off": "BT-poortdoorsturing is uitgeschakeld.",
+          "settingUp": "Verbinden met je router…",
+          "waiting": "Wachten op netwerkstatus…"
+        },
+        "compact": {
+          "caption": {
+            "active_one": "{{count}} poort",
+            "active_other": "{{count}} poorten",
+            "failed": "Niet beschikbaar",
+            "off": "BT / DHT",
+            "settingUp": "Verbinden…",
+            "waiting": "Laden…"
+          },
+          "state": {
+            "active": "Doorgestuurd",
+            "failed": "Poortdoorsturing",
+            "off": "Uit",
+            "settingUp": "Poortdoorsturing"
+          }
+        },
+        "externalIp": "Extern IP-adres",
+        "gatewayIp": "Router",
+        "health": "Verbindingskwaliteit",
+        "healthScore": {
+          "fair": "Redelijk",
+          "good": "Goed",
+          "poor": "Slecht",
+          "unknown": "—"
+        },
+        "internalIp": "Lokaal IP-adres",
+        "lastCheck": "Laatste controle",
+        "lastCheckNever": "Nooit",
+        "mappingDetails": "Doorgestuurde poorten",
+        "mappingPurpose": {
+          "bt-listen": "BitTorrent",
+          "dht-listen": "DHT"
+        },
+        "mappings": "Poortdoorsturingen",
+        "mappingsValue_one": "{{count}} actief",
+        "mappingsValue_other": "{{count}} actief",
+        "natType": {
+          "blocked": "Geblokkeerd",
+          "fullcone": "Full cone",
+          "open": "Open",
+          "port-restricted": "Poortbeperkt",
+          "restricted": "Beperkt",
+          "symmetric": "Symmetrisch",
+          "unknown": "Onbekend"
+        },
+        "noMappings": "Geen actieve poortdoorsturingen.",
+        "none": "—",
+        "portMapping": "Intern {{internal}} naar extern {{external}}",
+        "rateLimited": "Te vaak — probeer het zo weer",
+        "retrying": "Nieuwe poging {{attempt}}/{{max}}",
+        "state": {
+          "active": "Actief",
+          "failed": "Mislukt",
+          "off": "Uit",
+          "settingUp": "Initialiseren"
+        },
+        "title": "NAT",
+        "type": "Type"
+      },
+      "speed": {
+        "down": "DOWNLOAD",
+        "offline": "offline",
+        "peak": "Piek {{value}}",
+        "up": "UPLOAD"
+      },
+      "speedDown": {
+        "title": "Downloadsnelheid"
+      },
+      "speedLimit": {
+        "reason": {
+          "adaptive": "Bandbreedtereserve",
+          "base": "Standaardlimiet",
+          "schedule": "Schema",
+          "turtle": "Lagesnelheidsmodus",
+          "videoApp": "Videoapp"
+        },
+        "settings": "Instellingen voor snelheidslimieten",
+        "smart": "Automatisch",
+        "title": "Snelheidslimiet",
+        "tooltip": {
+          "auto": "De snelheid automatisch aanpassen op basis van het schema en de bandbreedte",
+          "off": "De standaardsnelheidslimieten gebruiken",
+          "on": "Nu de lage snelheidslimieten gebruiken"
+        },
+        "turtle": {
+          "auto": "Automatische modus",
+          "off": "Standaardmodus",
+          "on": "Lagesnelheidsmodus"
+        },
+        "unlimited": "Onbeperkt"
+      },
+      "speedUp": {
+        "title": "Uploadsnelheid"
+      },
+      "tasks": {
+        "empty": {
+          "active": "Geen actieve taken",
+          "failed": "Geen mislukte taken",
+          "recent": "Nog niets voltooid"
+        },
+        "loading": "Taken laden",
+        "metric": {
+          "fetching": "Ophalen",
+          "finalizing": "Afronden",
+          "paused": "Gepauzeerd",
+          "queued": "In wachtrij",
+          "ready": "Gereed"
+        },
+        "more": "+{{count}} meer",
+        "newTask": "Nieuwe taak",
+        "offline": "Engine offline",
+        "progressLabel": "Voortgang van {{name}}",
+        "retry": "Opnieuw proberen",
+        "secondary": {
+          "chooseFiles": "Wachten op bestandsselectie",
+          "completed": "Voltooid {{time}}",
+          "eta": "Resterend {{time}}",
+          "failed": "Mislukt: {{reason}}",
+          "finalizing": "Download afronden",
+          "metadata": "Metadata ophalen",
+          "offline": "Offline (laatst bekende voortgang)",
+          "ratio": "Verhouding {{ratio}}",
+          "saved": "{{percent}}% opgeslagen",
+          "technicalDetail": "Technisch detail: {{detail}}",
+          "waiting": "Wachten om te starten"
+        },
+        "title": "Taken",
+        "unavailable": "Taken niet beschikbaar",
+        "view": {
+          "active": "Actief",
+          "failed": "Mislukt",
+          "recent": "Recent"
+        },
+        "viewLabel": "Taakweergave"
+      },
+      "title": "Dashboard",
+      "transfer": {
+        "download": "Download",
+        "empty": {
+          "allTime": "Nog geen gegevensoverdracht geregistreerd.",
+          "today": "Vandaag geen gegevensoverdracht geregistreerd."
+        },
+        "loading": "Overdrachtsgegevens laden",
+        "outOfDate": "Gegevens zijn mogelijk verouderd",
+        "rangeLabel": "Overdrachtsperiode",
+        "retry": "Opnieuw proberen",
+        "scope": {
+          "allTime": "Gehele periode",
+          "today": "Vandaag"
+        },
+        "sinceDate": "Sinds {{date}}",
+        "sinceTime": "Sinds {{time}}",
+        "title": "Gegevensoverdracht",
+        "totalLabel": "Totale overdracht ({{scope}}): {{value}}",
+        "unavailable": "Overdrachtsgegevens niet beschikbaar",
+        "updated": "Bijgewerkt {{time}}",
+        "upload": "Upload"
+      }
+    },
+    "downloads": {
+      "action": {
+        "batchPartial": "{{ok}} geslaagd, {{failed}} mislukt",
+        "cancel": "Annuleren",
+        "chooseFiles": "Bestanden kiezen…",
+        "copied": "Gekopieerd naar klembord",
+        "copyError": "Foutinformatie kopiëren",
+        "copyFailed": "Kopiëren naar klembord is mislukt. Probeer het opnieuw.",
+        "copyPath": "Bestandspad kopiëren",
+        "copyUrl": "URL kopiëren",
+        "copyUrlFailed": "Kopiëren mislukt: de linkgegevens van de taak konden niet worden geladen. Probeer het opnieuw.",
+        "copyUrls": "URL's kopiëren",
+        "errorReport": "{{name}}\nTaak-ID: {{id}}\n{{details}}",
+        "finalizingTooltip": "De taak wordt afgerond, even geduld",
+        "moveQueueBottom": "Naar het einde verplaatsen",
+        "moveQueueDown": "Omlaag in wachtrij",
+        "moveQueueTop": "Naar het begin verplaatsen",
+        "moveQueueUp": "Omhoog in wachtrij",
+        "openFile": "Bestand openen",
+        "openFileFailed": "Het bestand kon niet worden geopend",
+        "openFolder": "Map openen",
+        "pause": "Pauzeren",
+        "pauseTooltipBatch": "{{n}} van de {{total}} geselecteerde taken pauzeren",
+        "queueBoundary": "De selectie staat al aan het begin of einde van de wachtrij",
+        "queueMoveFailed": "De wachtrij kon niet worden bijgewerkt.",
+        "queueMoveHint": "De positie in de wachtrij bepaalt welke wachtende download als volgende start. Kolomsortering wordt apart opgeslagen.",
+        "queueMoved": "Wachtrij bijgewerkt",
+        "queueOrder": "Downloadvolgorde",
+        "queueTaskStarted": "De taak staat niet meer in de wachtrij.",
+        "remove": "Verwijderen",
+        "removeAll_completed_Title": "{{count}} voltooide taken verwijderen?",
+        "removeAll_downloading_Title": "{{count}} actieve taken verwijderen?",
+        "removeAll_error_Title": "{{count}} mislukte taken verwijderen?",
+        "removeAll_paused_Title": "{{count}} gepauzeerde taken verwijderen?",
+        "removeAll_seeding_Title": "{{count}} seedende taken verwijderen?",
+        "removeConfirmWithFiles": "Ook de gedownloade bestanden van de schijf verwijderen",
+        "removeFilesEstimate": "Er wordt {{bytes}} van de schijf verwijderd",
+        "removeMixedTitle": "{{count}} taken verwijderen?",
+        "removeSingleTitle": "‘{{name}}’ verwijderen?",
+        "removeTooltipBatch": "{{n}} van de {{total}} geselecteerde taken verwijderen",
+        "removeWithFilesShift": "Houd Shift ingedrukt om ook bestanden te verwijderen",
+        "reseed": "Opnieuw seeden",
+        "reseedTooltipBatch": "{{n}} van de {{total}} geselecteerde taken opnieuw seeden",
+        "resume": "Hervatten",
+        "resumeTooltipBatch": "{{n}} van de {{total}} geselecteerde taken hervatten",
+        "retry": "Opnieuw proberen",
+        "retryTooltipBatch": "{{n}} van de {{total}} geselecteerde taken opnieuw proberen",
+        "retryWithDialog": "Opnieuw proberen met opties… (Alt+klik)",
+        "selectFiles": "Bestanden selecteren",
+        "selectFilesFailed": "De bestandsselectie kon niet worden geopend.",
+        "singleTaskFailed": "{{name}}: {{reason}}",
+        "stopSeeding": "Seeden stoppen",
+        "stopSeedingTooltipBatch": "Seeden stoppen voor {{n}} van de {{total}} geselecteerde taken"
+      },
+      "column": {
+        "connections": "Peers",
+        "createdAt": "Aanmaakdatum",
+        "down": "Downloadsnelheid",
+        "eta": "Resterende tijd",
+        "finishedAt": "Voltooiingsdatum",
+        "name": "Naam",
+        "progress": "Voortgang",
+        "size": "Grootte",
+        "status": "Status",
+        "up": "Uploadsnelheid"
+      },
+      "columnHeader": {
+        "down": "Download",
+        "up": "Upload"
+      },
+      "empty": {
+        "clearSearch": "Zoekopdracht wissen",
+        "motion": {
+          "breathing": "Pulserend licht",
+          "description": "Ontwikkelingsvoorbeeld",
+          "enabled": "Bewegingseffecten",
+          "enabledDesc": "Gesynchroniseerd met Weergave → Beweging verminderen. Wijzigingen worden direct opgeslagen.",
+          "horizontalSpeed": "Horizontale snelheid",
+          "loadFade": "Vervagen bij laden",
+          "open": "Glasanimatie aanpassen",
+          "pointerFollow": "Aanwijzer volgen",
+          "positionConstraint": "Positielimiet bij zwaartekracht",
+          "saveFailed": "De bewegingsinstelling kon niet worden opgeslagen. Probeer het opnieuw.",
+          "systemReducedMotion": "Beweging is uitgeschakeld door de systeemvoorkeur voor het verminderen van beweging.",
+          "title": "Glasanimatie"
+        },
+        "noMatchFilter": "Geen taken voldoen aan dit filter",
+        "noMatchSearch": "Geen taken komen overeen met ‘{{query}}’",
+        "noTasks": "Nog geen downloads",
+        "noTasksCta": "Druk op + om er een toe te voegen",
+        "unavailable": "Taken niet beschikbaar"
+      },
+      "heading": {
+        "active": "Actieve downloads",
+        "all": "Alle downloads",
+        "completed": "Voltooide downloads",
+        "error": "Mislukte downloads"
+      },
+      "inspector": {
+        "activity": {
+          "chart": {
+            "accessibleSummary": "{{range}} van {{start}} tot {{end}}. Laatste downloadsnelheid {{download}}, uploadsnelheid {{upload}}. Gemiddelde downloadsnelheid over de gehele looptijd {{average}}, piek {{peak}}, actief {{activeDuration}}. {{sampleLabel}}. {{state}}",
+            "activeSeconds_one": "{{count}} seconde",
+            "activeSeconds_other": "{{count}} seconden",
+            "noDataQualityIssues": "Geen registratiewaarschuwingen.",
+            "sampleCount_one": "{{count}} meetpunt",
+            "sampleCount_other": "{{count}} meetpunten"
+          },
+          "collecting": "Overdrachtsgegevens verzamelen…",
+          "coverageGap": "De registratie is onderbroken.",
+          "download": "Download",
+          "lifetimeEmpty": "De geschiedenis over de gehele looptijd is nog niet beschikbaar.",
+          "loading": "Activiteit laden…",
+          "noSessionHistory": "Geen gegevensoverdracht geregistreerd in deze appsessie.",
+          "noTraffic": "Momenteel geen netwerkverkeer.",
+          "notAvailable": "Niet beschikbaar",
+          "range": {
+            "adaptive_one": "Adaptieve resolutie · {{count}} meetpunt",
+            "adaptive_other": "Adaptieve resolutie · {{count}} meetpunten",
+            "label": "Tijdsbereik van gegevensoverdracht",
+            "latest": "Laatste 60 seconden",
+            "lifetime": "Gehele looptijd",
+            "session": "Sessie (60 s)"
+          },
+          "retry": "Opnieuw proberen",
+          "stale": {
+            "message": "De gegevens zijn mogelijk verouderd. Laatst bijgewerkt {{time}}.",
+            "short": "Verouderde gegevens."
+          },
+          "summary": {
+            "active": "Actief",
+            "activeExpanded": "Actieve overdrachtstijd",
+            "average": "Gemiddeld",
+            "averageExpanded": "Gemiddelde downloadsnelheid",
+            "peak": "Piek",
+            "peakExpanded": "Hoogste downloadsnelheid",
+            "title": "Huidige samenvatting"
+          },
+          "timeline": {
+            "cluster_one": "+{{count}} gebeurtenis",
+            "cluster_other": "+{{count}} gebeurtenissen",
+            "current": "Nu {{status}}",
+            "destination": "{{event}} {{status}}",
+            "detailTitle": "Details van {{label}}",
+            "event": {
+              "added": "Toegevoegd",
+              "completed": "Voltooid",
+              "failed": "Mislukt",
+              "observed_state": "Status hersteld",
+              "paused": "Gepauzeerd",
+              "resumed": "Hervat",
+              "stage_changed": "Fase gewijzigd",
+              "started": "Gestart"
+            },
+            "next": "Volgende gebeurtenissen op de tijdlijn tonen",
+            "previous": "Vorige gebeurtenissen op de tijdlijn tonen",
+            "repeated": "{{label}} ×{{count}}",
+            "status": {
+              "completed": "Voltooid",
+              "downloading": "Downloaden",
+              "error": "Mislukt",
+              "fetching_metadata": "Metadata ophalen",
+              "finalizing": "Afronden",
+              "metadata_ready": "Metadata gereed",
+              "paused": "Gepauzeerd",
+              "queued": "In wachtrij",
+              "removed": "Verwijderd",
+              "seeding": "Seeden"
+            },
+            "timeRange": "{{start}}–{{end}}",
+            "title": "Taakgeschiedenis",
+            "truncatedAt": "Eerste weglating: {{time}}",
+            "truncated_one": "{{count}} gebeurtenis uit de eerdere geschiedenis weggelaten",
+            "truncated_other": "{{count}} gebeurtenissen uit de eerdere geschiedenis weggelaten"
+          },
+          "transferTitle": {
+            "lifetime": "Overdracht over de gehele looptijd",
+            "session": "Overdracht in deze sessie"
+          },
+          "unavailable": "Activiteit over de gehele looptijd is niet beschikbaar.",
+          "upload": "Upload"
+        },
+        "multi": {
+          "avgProgress": "Gemiddelde voortgang",
+          "combinedDown": "Gecombineerd ↓",
+          "combinedUp": "Gecombineerd ↑",
+          "downloaded": "Gedownload",
+          "liveSpeed": "Actuele snelheid",
+          "longestEta": "Langste resterende tijd",
+          "statusDist": "Statusverdeling",
+          "totalSize": "Totale grootte",
+          "totals": "Totalen"
+        },
+        "overview": {
+          "connections": "Verbindingen",
+          "createdAt": "Aangemaakt",
+          "downSpeed": "Downloadsnelheid",
+          "downloaded": "Gedownload",
+          "eta": "Resterende tijd",
+          "finishedAt": "Voltooid",
+          "general": "Algemeen",
+          "infoHash": "Infohash",
+          "network": "Netwerk",
+          "peers": "Peers",
+          "percent": "Percentage",
+          "private": "Privé",
+          "progress": "Voortgang",
+          "ratio": "Verhouding",
+          "seedingRecordedSince": "Geregistreerd sinds {{date}}. Gepauzeerde en offline tijd telt niet mee; eerdere seedgeschiedenis is niet beschikbaar.",
+          "seedingTime": "Seedtijd",
+          "seedingUnavailable": "Voor deze taak is geen seedtijd geregistreerd.",
+          "seeds": "Seeders",
+          "totalSize": "Totale grootte",
+          "transfer": "Gegevensoverdracht",
+          "type": "Type",
+          "upSpeed": "Uploadsnelheid",
+          "uploaded": "Geüpload"
+        },
+        "peers": {
+          "col": {
+            "client": "Client",
+            "country": "Locatie",
+            "down": "↓",
+            "endpoint": "IP : poort",
+            "flags": "Vlaggen",
+            "flagsHint": "D = de peer stuurt gegevens naar ons, U = wij sturen gegevens naar de peer, S = de peer is een seeder. Een onderstrepingsteken betekent inactief.",
+            "progress": "%",
+            "up": "↑"
+          },
+          "empty": "Geen peers verbonden",
+          "summary_one": "{{count}} peer (seeders: {{seeders}})",
+          "summary_other": "{{count}} peers (seeders: {{seeders}})"
+        },
+        "pieces": {
+          "empty": "Geen gegevens over stukken",
+          "legend": {
+            "active": "Downloaden",
+            "done": "Voltooid",
+            "endgame": "Eindfase",
+            "pending": "In afwachting"
+          },
+          "mapLabel": "Overzicht van downloadstukken",
+          "pieceLength": "Stukgrootte",
+          "totalPieces": "Totaal aantal stukken"
+        },
+        "placeholder": {
+          "files": "Bestandslijst.",
+          "peers": "Peerlijst.",
+          "trackers": "Trackerlijst."
+        },
+        "tab": {
+          "activity": "Activiteit",
+          "files": "Bestanden",
+          "overview": "Overzicht",
+          "peers": "Peers",
+          "pieces": "Stukken",
+          "trackers": "Trackers"
+        },
+        "trackers": {
+          "action": {
+            "cancel": "Annuleren",
+            "delete": "Tracker verwijderen",
+            "edit": "Bewerken",
+            "save": "Opslaan",
+            "sync": "Synchroniseren"
+          },
+          "deleteFailed": "Tracker kon niet worden verwijderd: {{reason}}",
+          "driftSuffix_one": "{{count}} ontbreekt in de globale lijst",
+          "driftSuffix_other": "{{count}} ontbreken in de globale lijst",
+          "editHint": "Deze trackers vervangen de bt-tracker-lijst die voor de taak wordt gebruikt. Vermeldingen in de announce-list van het .torrent-bestand blijven ongewijzigd.",
+          "editPlaceholder": "Eén tracker-URL per regel. Alleen http(s)/udp/ws(s).",
+          "empty": "Geen trackers",
+          "invalidLines_one": "{{count}} ongeldige regel overgeslagen",
+          "invalidLines_other": "{{count}} ongeldige regels overgeslagen",
+          "loadFailed": "Trackers konden niet worden geladen: {{reason}}",
+          "privateBanner": "Privétorrent — globale trackers worden niet toegevoegd.",
+          "saveFailed": "Trackers konden niet worden bijgewerkt: {{reason}}",
+          "summary_one": "{{count}} tracker",
+          "summary_other": "{{count}} trackers",
+          "syncFailed": "Trackers konden niet worden gesynchroniseerd: {{reason}}",
+          "syncPrivateDisabled": "Synchronisatie is niet beschikbaar voor privétorrents."
+        }
+      },
+      "media": {
+        "assembling": "Samenstellen",
+        "avgDownloadProgress": "Gemiddelde downloadvoortgang",
+        "decrypting": "Ontsleutelen",
+        "downloadEta": "Resterende downloadtijd",
+        "downloadProgress": "Downloadvoortgang",
+        "downloadSize": "Downloadgrootte",
+        "muxProgress": "Voortgang van samenvoegen",
+        "muxing": "Samenvoegen",
+        "outputSize": "Uitvoergrootte",
+        "parts": "Segmenten",
+        "partsFormat": "{{completed}} / {{total}} segmenten",
+        "preparing": "Voorbereiden",
+        "processingTasks": "Verwerken",
+        "renaming": "Opslaan",
+        "stage": "Fase"
+      },
+      "search": {
+        "activeQuery": "Zoekopdracht: {{query}}",
+        "activeTypeFilters": "Typefilter: {{types}}",
+        "clear": "Wissen",
+        "clearQuery": "Zoekopdracht wissen",
+        "empty": "Geen overeenkomende taken",
+        "emptyHint": "Wis het typefilter of probeer een ander zoekwoord",
+        "filters": "Filters",
+        "placeholder": "Downloads zoeken",
+        "resetFilters": "Filters herstellen",
+        "scopeLabel": "Type"
+      },
+      "sort": {
+        "asc": "{{column}}: oplopend",
+        "desc": "{{column}}: aflopend",
+        "down": "Downloadsnelheid",
+        "reset": "Standaardvolgorde herstellen",
+        "sortAscending": "{{column}} oplopend sorteren",
+        "sortDescending": "{{column}} aflopend sorteren",
+        "up": "Uploadsnelheid"
+      },
+      "speedLimit": {
+        "currentMode": "Snelheidsmodus: {{mode}}",
+        "downloadLimit": "Downloadlimiet: {{speed}}",
+        "saveFailed": "De snelheidsmodus kon niet worden gewijzigd. Probeer het opnieuw.",
+        "title": "Snelheidsmodus",
+        "uploadLimit": "Uploadlimiet: {{speed}}"
+      },
+      "stale": {
+        "banner": "De taaklijst is mogelijk verouderd — opnieuw verbinden…"
+      },
+      "stats": {
+        "downSpeed": "Downloadsnelheid",
+        "engineOffline": "Engine offline",
+        "engineOk": "Engine gereed",
+        "engineStarting": "Engine wordt gestart",
+        "natActive": "NAT-poorten doorgestuurd",
+        "natActiveDesc": "Helpt andere BT-peers verbinding met je te maken.",
+        "natDisable": "NAT-poortdoorsturing uitschakelen",
+        "natHelp": "Netwerkhandleiding",
+        "natMapping": "NAT-poortdoorsturing",
+        "natRetry": "Opnieuw proberen",
+        "natRetrying": "Automatische nieuwe pogingen ({{attempt}}/{{max}})",
+        "natSettingUp": "NAT-poortdoorsturing",
+        "natSettings": "Netwerkinstellingen",
+        "natUnavailable": "Automatische poortdoorsturing niet beschikbaar",
+        "natUnavailableDesc": "Heeft geen invloed op linkdownloads. BT-verbindingen kunnen beperkt zijn.",
+        "upSpeed": "Uploadsnelheid"
+      },
+      "status": {
+        "completed": "Voltooid",
+        "downloading": "Downloaden",
+        "error": "Fout",
+        "fetchingMetadata": "Ophalen",
+        "finalizing": "Afronden",
+        "metadataReady": "Wachten op bestandsselectie",
+        "paused": "Gepauzeerd",
+        "queued": "In wachtrij",
+        "seeding": "Seeden"
+      },
+      "tab": {
+        "active": "Actief",
+        "all": "Alle",
+        "completed": "Voltooid",
+        "error": "Fout"
+      },
+      "timestamp": {
+        "notCompleted": "Nog niet voltooid",
+        "notRecorded": "Niet geregistreerd",
+        "relativeDateTime": "{{date}}, {{time}}"
+      },
+      "title": "Downloads",
+      "titleCount": "{{shown}} getoond · {{total}} totaal",
+      "type": {
+        "bt": "BitTorrent",
+        "ftp": "FTP",
+        "http": "HTTP",
+        "magnet": "Magnet",
+        "metalink": "Metalink"
+      },
+      "view": {
+        "ascending": "Oplopend",
+        "columns": "Kolommen",
+        "descending": "Aflopend",
+        "hideInspector": "Detailpaneel verbergen",
+        "inspector": "Taakdetails",
+        "resetColumns": "Standaardkolommen herstellen",
+        "resizeColumn": "Breedte van kolom {{column}} wijzigen",
+        "resizeInspector": "Detailpaneel vergroten of verkleinen",
+        "selectToInspect": "Selecteer een taak om de details te bekijken.",
+        "showInspector": "Detailpaneel tonen",
+        "sortBy": "Sorteren op",
+        "taskActions": "Meer",
+        "title": "Lijstweergave"
+      }
+    },
+    "trackers": {
+      "desc": "Beheer trackerkwaliteit en abonnementen",
+      "searchPlaceholder": "Filteren op URL…",
+      "syncNow": "Nu synchroniseren",
+      "tab": {
+        "blacklist": "Blokkeerlijst",
+        "effective": "In gebruik"
+      },
+      "title": "Trackers"
+    }
+  },
+  "plugin": {
+    "ffmpeg": {
+      "destination_phase_disallowed": "ffmpeg kan niet naar {{kind}} schrijven in de {{phase}}-hook. Probeer naar de plug-inopslag te schrijven of verplaats deze aanroep naar beforeFinalize.",
+      "staging_quota_exceeded": "De limiet voor tijdelijke ffmpeg-opslag voor deze taak is overschreden. Verklein de uitvoergrootte of verhoog de limiet in de media-instellingen."
+    },
+    "install": {
+      "ffmpeg": {
+        "notInstalled": "FFmpeg is niet geïnstalleerd op dit systeem.",
+        "optionalDegraded": "De mediafuncties van deze plug-in zijn niet beschikbaar totdat ffmpeg is geïnstalleerd.",
+        "requiredByPlugin": "Deze plug-in vereist ffmpeg. Installeer het en probeer het opnieuw.",
+        "title": "FFmpeg-vereiste",
+        "versionMismatch": "FFmpeg {{version}} is geïnstalleerd."
+      }
+    }
+  },
+  "plugins": {
+    "card": {
+      "advancedDetails": "Geavanceerde details",
+      "commandsInvoked": "Aangeroepen opdrachten: {{count}}",
+      "commandsServing": "Aangeboden opdrachten: {{count}}",
+      "plain": {
+        "off": "Deze plug-in is uitgeschakeld.",
+        "optional": "Deze plug-in werkt zonder extra toegang. Je kunt later meer toegang verlenen.",
+        "reviewBroadHost": "Deze plug-in kan {{hostSummary}} lezen. Laat deze alleen ingeschakeld als je deze vertrouwt.",
+        "reviewError": "Deze plug-in heeft een probleem gemeld.",
+        "safe": "Deze plug-in is ingeschakeld en gereed. Deze slaat alleen eigen instellingen op en leest geen websites."
+      },
+      "primaryAction": {
+        "grantAccess": "Toegang verlenen",
+        "open": "Openen",
+        "reviewAccess": "Toegang controleren",
+        "settings": "Instellingen",
+        "turnOn": "Inschakelen",
+        "viewIssue": "Probleem bekijken"
+      }
+    },
+    "clearSearch": "Zoekopdracht wissen",
+    "consent": {
+      "broadAccess": {
+        "body": "Deze plug-in kan downloads van elke URL lezen en wijzigen. Installeer deze alleen als je de bron vertrouwt.",
+        "tag": "Breed",
+        "title": "Brede toegang tot websites"
+      },
+      "calleeMissing": "Niet geïnstalleerd",
+      "confirm": "Toestaan en installeren",
+      "diff": {
+        "engines": "Motrix-engineversie",
+        "heap": "Aangevraagd geheugen",
+        "hostPermissions": "Toegevoegde toegang tot websites",
+        "invokesCommands": "Nieuwe opdrachtaanroepen tussen plug-ins",
+        "optionalPermissions": "Toegevoegde optionele machtigingen",
+        "permissions": "Toegevoegde machtigingen",
+        "publicCommands": "Nieuwe openbare opdrachten",
+        "publicCommandsSchema": "Schema's van openbare opdrachten gewijzigd",
+        "source": "Bundelbron",
+        "title": "Wijzigingen sinds de laatste toestemming"
+      },
+      "hostPermissions": "Toegang tot websites",
+      "installTitle": "{{name}} {{version}} installeren?",
+      "invokesCommands": "Roept opdrachten in andere plug-ins aan",
+      "notVerified": "Deze plug-in is niet geverifieerd. Installeer alleen plug-ins uit bronnen die je vertrouwt.",
+      "optionalPermissions": "Optionele machtigingen",
+      "permissions": "Vereiste machtigingen",
+      "source": "Bron: {{type}} · {{url}}",
+      "upgradeTitle": "{{name}} bijwerken naar {{version}}?"
+    },
+    "detail": {
+      "about": "Over",
+      "access": "Toegang",
+      "accessBroad": "Kan elke website lezen",
+      "accessGranted": "Wat deze plug-in al kan doen",
+      "accessHosts_one": "Kan {{count}} website lezen",
+      "accessHosts_other": "Kan {{count}} websites lezen",
+      "accessNone": "Alleen eigen instellingen",
+      "accessOptional": "Optionele toegang",
+      "advanced": "Geavanceerd",
+      "attentionGeneric": "Bekijk de logboeken voor details.",
+      "attentionTitle": "Deze plug-in heeft een probleem gemeld",
+      "author": "Auteur",
+      "back": "Alle plug-ins",
+      "disabled": "Uitgeschakeld",
+      "enabled": "Ingeschakeld",
+      "healthIssues_one": "{{count}} probleem gemeld in de afgelopen dag",
+      "healthIssues_other": "{{count}} problemen gemeld in de afgelopen dag",
+      "healthOk": "Alles in orde",
+      "hero": {
+        "attention": "Aandacht vereist",
+        "off": "Uitgeschakeld",
+        "optional": "Kan meer toegang aanvragen",
+        "ready": "Gereed",
+        "review": "Toegang controleren"
+      },
+      "homepage": "Startpagina",
+      "loading": "Laden…",
+      "logs": "Logboeken",
+      "mini": {
+        "access": "Toegang",
+        "health": "Status",
+        "purpose": "Doel"
+      },
+      "overview": "Overzicht",
+      "removeDesc": "Bij het verwijderen van deze plug-in worden ook de bijbehorende gegevens in Motrix verwijderd.",
+      "removeTitle": "Plug-in verwijderen",
+      "settings": "Instellingen",
+      "uninstall": "De-installeren",
+      "uninstallConfirm": "Deze plug-in de-installeren? De bijbehorende gegevens worden verwijderd.",
+      "uninstallConfirmDesc": "Hiermee worden de plug-in en de opgeslagen instellingen uit Motrix verwijderd.",
+      "uninstallConfirmTitle": "{{name}} de-installeren?",
+      "viewIssue": "Probleem bekijken"
+    },
+    "diagnostics": {
+      "callGraph": {
+        "aria": {
+          "controls": "Weergavebediening van plug-indiagram",
+          "directions": {
+            "down": "beneden",
+            "left": "links",
+            "right": "rechts",
+            "up": "boven"
+          },
+          "edgeDescription": "Kies een aanroepverbinding om deze te bekijken.",
+          "edgeLabel": "{{source}} heeft {{target}} {{calls}} keer aangeroepen via {{commands}} opdrachten",
+          "fitView": "Plug-indiagram passend weergeven",
+          "graphDescription": "{{nodeCount}} plug-ins en {{pairCount}} relaties uit de afgelopen 24 uur.",
+          "graphLabel": "Relaties tussen plug-inopdrachten",
+          "handle": "Alleen-lezen aanroepeindpunt",
+          "interactive": "Interactiemodus van diagram omschakelen",
+          "minimap": "Overzicht van plug-indiagram",
+          "nodeDescription": "Kies een plug-inknooppunt om het te bekijken.",
+          "nodeKeyboardInstruction": "Gebruik de pijltoetsen om dit plug-inknooppunt te verplaatsen.",
+          "nodeLabel": "{{name}}, plug-in {{id}}, {{status}}, {{incoming}} inkomende aanroepen en {{outgoing}} uitgaande aanroepen",
+          "nodeMoved": "Plug-inknooppunt naar {{direction}} verplaatst naar {{x}}, {{y}}.",
+          "zoomIn": "Diagram vergroten",
+          "zoomOut": "Diagram verkleinen"
+        },
+        "columns": {
+          "callee": "Aangeroepene",
+          "caller": "Aanroeper",
+          "calls": "Aanroepen",
+          "command": "Opdracht",
+          "lastCall": "Laatste aanroep"
+        },
+        "counts": {
+          "calls_one": "{{count}} geslaagde aanroep",
+          "calls_other": "{{count}} geslaagde aanroepen",
+          "commands_one": "{{count}} opdracht",
+          "commands_other": "{{count}} opdrachten"
+        },
+        "errors": {
+          "canvasDescription": "Je kunt proberen het diagram opnieuw weer te geven of de volledige tabelweergave gebruiken.",
+          "canvasRetry": "Diagram opnieuw weergeven",
+          "canvasTable": "Tabel gebruiken",
+          "canvasTitle": "Het diagram kon niet worden weergegeven",
+          "graphDescription": "Probeer de geschiedenis van geslaagde aanroepen opnieuw te laden.",
+          "graphRetry": "Aanroepgeschiedenis opnieuw laden",
+          "graphTitle": "De aanroepgeschiedenis kon niet worden geladen",
+          "layout": "Het relatiediagram kon niet worden ingedeeld.",
+          "layoutRetry": "Diagram opnieuw indelen",
+          "metadataDescription": "Plug-indetails zijn nodig om niet-beschikbare plug-ins te identificeren.",
+          "metadataRetry": "Plug-indetails opnieuw laden",
+          "metadataTitle": "De plug-indetails konden niet worden geladen"
+        },
+        "filteredEmpty": "Geen geslaagde aanroepen komen overeen met deze zoekopdracht.",
+        "filters": {
+          "clearSearch": "Zoekopdracht wissen",
+          "commandsGroup": "Opdrachten",
+          "noSuggestions": "Geen suggesties voor plug-ins of opdrachten",
+          "pluginsGroup": "Plug-ins",
+          "searchLabel": "Relaties zoeken",
+          "searchPlaceholder": "Plug-in of opdracht zoeken"
+        },
+        "globalEmpty": {
+          "description": "Ingebouwde plug-ins genereren mogelijk standaard geen verkeer tussen plug-ins.",
+          "title": "Nog geen geslaagde aanroepen tussen plug-ins"
+        },
+        "inspector": {
+          "commands": "Opdrachten",
+          "connections": "Verbonden plug-ins",
+          "edgeTitle": "Verbindingsdetails",
+          "incomingCalls": "Inkomende aanroepen",
+          "label": "Details van selectie in aanroepdiagram",
+          "neutralScope": "Selecteer een plug-in of verbinding om geslaagde aanroepen van de afgelopen 24 uur te bekijken.",
+          "noConnections": "Geen verbonden plug-ins",
+          "openPlugin": "Plug-in openen",
+          "outgoingCalls": "Uitgaande aanroepen",
+          "pluginId": "Plug-in-ID",
+          "scopeTitle": "Geslaagde aanroepen",
+          "status": "Status",
+          "totalCalls": "Totaal aantal aanroepen"
+        },
+        "legend": {
+          "fewerCalls": "Minder aanroepen",
+          "label": "Legenda van aantal aanroepen",
+          "moreCalls": "Meer aanroepen"
+        },
+        "loading": {
+          "graph": "Aanroepgeschiedenis laden…",
+          "metadata": "Plug-indetails laden…"
+        },
+        "modeLabel": "Relatieweergave",
+        "modes": {
+          "graph": "Diagram",
+          "table": "Tabel"
+        },
+        "refresh": "Vernieuwen",
+        "refreshTooltip": "De recentste geslaagde aanroepen laden",
+        "refreshing": "Vernieuwen…",
+        "renderGraphTooltip": "Dit grote resultaat als diagram weergeven",
+        "statuses": {
+          "active": "Actief",
+          "disabled": "Uitgeschakeld",
+          "error": "Aandacht vereist",
+          "inactive": "Gereed maar inactief",
+          "missing": "Niet geïnstalleerd"
+        },
+        "tableLabel": "Relaties tussen plug-inopdrachten",
+        "tableRegionLabel": "Scrolbare opdrachtrelaties",
+        "toolbarLabel": "Bediening van aanroepdiagram",
+        "truncated": "De aanroepgeschiedenis is mogelijk onvolledig door leeslimieten, bewaartermijnen of bestandsrotatie."
+      },
+      "intro": "Bekijk geslaagde aanroepen tussen plug-ins van de afgelopen 24 uur.",
+      "title": "Diagnostiek"
+    },
+    "empty": "Nog geen plug-ins geïnstalleerd.",
+    "errors_one": "{{count}} fout",
+    "errors_other": "{{count}} fouten",
+    "help": {
+      "guidance": {
+        "firstUse": {
+          "body": "Installeer vanuit een vertrouwde bron, controleer de gevraagde toegang en schakel daarna de plug-in in.",
+          "browse": "Ontdek plug-ins op de officiële Motrix-plug-inmarktplaats",
+          "safety": "Verleen alleen toegang tot websites waarvan je verwacht dat de plug-in ze gebruikt.",
+          "title": "Voeg plug-ins toe die je vertrouwt"
+        },
+        "ongoing": "Controleer de toegang voordat je een plug-in inschakelt. Verleen alleen toegang tot websites waarvan je verwacht dat deze ze gebruikt."
+      }
+    },
+    "install": {
+      "checkAriaLabel": "Deze plug-in controleren",
+      "detected": {
+        "auto": "Automatisch",
+        "github": "GitHub",
+        "local": "Bestand",
+        "url": "URL"
+      },
+      "detectedRow": {
+        "localSupported": "Lokale .moext-bestanden ondersteund",
+        "ok": "Herkend als {{type}}"
+      },
+      "dragDisabledHint": "Slepen en neerzetten wordt niet ondersteund in deze omgeving. Gebruik een GitHub-adres of URL.",
+      "dropHint": "Sleep hier een .moext-bestand naartoe om deze plug-in te controleren",
+      "github": "GitHub",
+      "github.spec": "GitHub-repository (owner/repo[@tag])",
+      "install": "Plug-in installeren",
+      "lead": "Plak een plug-inadres, kies een .moext-bestand of sleep een bestand naar het invoerveld.",
+      "local": "Lokaal bestand",
+      "local.pick": "Kies een .moext-bestand",
+      "localPrepareFailed": "Dit plug-inbestand kon niet worden voorbereid: {{detail}}",
+      "localUnavailable": "Installatie vanuit een lokaal bestand is niet beschikbaar op deze host.",
+      "pickLocal": "Een lokaal .moext-bestand kiezen",
+      "placeholder": "Plak een GitHub-adres of URL, of kies een lokaal .moext-bestand",
+      "title": "Plug-in toevoegen",
+      "url": "URL",
+      "url.spec": "Bundel-URL (.moext)",
+      "warning": "Vóór installatie: ga alleen door als je de auteur vertrouwt en verwacht dat de plug-in de hierboven vermelde toegang gebruikt."
+    },
+    "lead": "Voeg kleine functies toe aan Motrix. Laat de plug-ins die je vertrouwt ingeschakeld en schakel de rest uit.",
+    "logs": {
+      "clear": "Wissen",
+      "copy": "Kopiëren",
+      "empty": "Nog geen logboekvermeldingen",
+      "emptyFiltered": "Geen vermeldingen op dit niveau.",
+      "emptyHint": "Nieuwe plug-inactiviteit verschijnt hier automatisch.",
+      "entryCount_one": "{{count}} vermelding",
+      "entryCount_other": "{{count}} vermeldingen",
+      "filterLabel": "Logboekniveau",
+      "levels": {
+        "all": "Alle niveaus",
+        "debug": "Debug",
+        "error": "Fout",
+        "fatal": "Fataal",
+        "info": "Info",
+        "trace": "Trace",
+        "warn": "Waarschuwing"
+      },
+      "output": "Live-uitvoer",
+      "verbose": "Uitgebreide logboekmodus",
+      "verboseWarning": "Registreert volledige URL's en headers gedurende 1 uur. Gebruik dit voorzichtig."
+    },
+    "permission": {
+      "accessTone": {
+        "allowed": "Toegestaan",
+        "grant": "Toestaan",
+        "noAccess": "Uit",
+        "offByDefault": "Optioneel",
+        "required": "Vereist",
+        "websiteAccess": "Webtoegang"
+      },
+      "ffmpeg": {
+        "plain": "Verwerkt audio of video.",
+        "strong": "FFmpeg gebruiken"
+      },
+      "fs": {
+        "storage": {
+          "plain": "Bewaart bestanden voor deze plug-in.",
+          "strong": "Plug-inbestanden opslaan"
+        },
+        "task": {
+          "read": {
+            "plain": "Kan bestanden in een taak bekijken.",
+            "strong": "Downloadbestanden lezen"
+          },
+          "write": {
+            "plain": "Kan taakbestanden toevoegen of bijwerken.",
+            "strong": "Downloadbestanden wijzigen"
+          }
+        }
+      },
+      "http": {
+        "cookies": {
+          "plain": "Krijgt toegang tot websites waarop je bent ingelogd.",
+          "strong": "Websitecookies gebruiken"
+        },
+        "plain": "Opent pagina's die deze plug-in ondersteunt.",
+        "strong": "Websites lezen"
+      },
+      "network": {
+        "plain": "Haalt ondersteunde pagina's op.",
+        "strong": "Websites lezen"
+      },
+      "notifications": {
+        "plain": "Toont plug-inmeldingen.",
+        "strong": "Meldingen versturen"
+      },
+      "notify": {
+        "plain": "Toont voltooiingsmeldingen.",
+        "strong": "Meldingen versturen"
+      },
+      "storage": {
+        "plain": "Onthoudt plug-inopties.",
+        "strong": "Instellingen opslaan"
+      },
+      "tasks:read": {
+        "plain": "Kan je downloadlijst bekijken.",
+        "strong": "Downloads lezen"
+      },
+      "tasks:write": {
+        "plain": "Kan taken pauzeren, hervatten of verwijderen.",
+        "strong": "Je downloads beheren"
+      },
+      "unknown": {
+        "plain": "Onbekende machtiging."
+      }
+    },
+    "permissions": {
+      "denied": "Geweigerd",
+      "empty": "Deze plug-in vraagt geen machtigingen.",
+      "granted": "Toegestaan"
+    },
+    "registry": {
+      "actionFailed": "De actie kon niet worden voltooid.",
+      "availableTitle": "Beschikbare plug-ins",
+      "builtinConsentLead": "Deze update vraagt nieuwe toegang:",
+      "builtinUpdateTitle": "Ingebouwde plug-in bijwerken",
+      "byAuthor": "van {{name}}",
+      "featured": "Uitgelicht",
+      "featuresTitle": "Wat deze doet",
+      "install": "Installeren",
+      "notFound": "Plug-in ‘{{id}}’ is niet gevonden in het register",
+      "notInstalled": "Niet geïnstalleerd",
+      "optionalTag": "optioneel",
+      "permissionsPreviewNote": "Voorbeeld uit de registervermelding. Het daadwerkelijke toestemmingsverzoek is altijd gebaseerd op het manifest in het plug-inpakket.",
+      "permissionsTitle": "Machtigingen",
+      "refresh": "Zoeken naar updates",
+      "requires": "Vereist Motrix {{range}}",
+      "restartRequired": "Update geïnstalleerd. Herstart Motrix om deze volledig toe te passen.",
+      "revertToBundled": "Terugzetten naar meegeleverde versie",
+      "updateAvailable": "Update beschikbaar",
+      "updateInstalled": "Update geïnstalleerd.",
+      "updateTo": "Bijwerken naar v{{version}}",
+      "updated": "bijgewerkt {{date}}",
+      "viewOnWebsite": "Bekijken op motrix.app"
+    },
+    "search": "Een plug-in zoeken",
+    "searchNoMatch": "Geen plug-ins komen overeen met ‘{{query}}’",
+    "status": {
+      "active": "Actief",
+      "disabled": "Uitgeschakeld",
+      "error": "Fout",
+      "inactive": "Inactief"
+    },
+    "title": "Plug-ins",
+    "tone": {
+      "off": "Uit",
+      "optional": "Optionele toegang",
+      "review": "Controle vereist",
+      "safe": "Lijkt veilig"
+    }
+  },
+  "quit": {
+    "confirm": {
+      "detail": "Als je nu afsluit, worden actieve downloads gepauzeerd. Weet je zeker dat je wilt afsluiten?",
+      "dontAskAgain": "Niet opnieuw vragen",
+      "message_one": "Er is nog {{count}} download actief.",
+      "message_other": "Er zijn nog {{count}} downloads actief.",
+      "quitButton": "Afsluiten"
+    }
+  },
+  "settings": {
+    "about": {
+      "appIconAlt": "Motrix-apppictogram",
+      "details": {
+        "author": "Auteur",
+        "createdBy": "Gemaakt door",
+        "license": "Licentie",
+        "licenseValue": "{{license}}-licentie"
+      },
+      "resources": {
+        "acknowledgments": "Dankbetuigingen",
+        "acknowledgmentsDescription": "Bekijk op motrix.app wie aan het project heeft bijgedragen.",
+        "changelog": "Wijzigingslogboek",
+        "manual": "Handleiding",
+        "manualDescription": "Lees de gebruikershandleiding",
+        "plugins": "Plug-ins",
+        "repository": "Broncoderepository",
+        "repositoryDescription": "Bekijk de code op GitHub",
+        "title": "Bronnen",
+        "website": "Officiële website",
+        "websiteDescription": "Bezoek motrix.app"
+      },
+      "tagline": "Bewaar wat echt telt voordat inhoud verdwijnt en geef schoonheid een plek in je verzameling.",
+      "update": {
+        "automaticChecks": "Automatisch controleren",
+        "automaticChecksDescription": "Bij het openen van Motrix",
+        "automaticChecksError": "Deze instelling kon niet worden opgeslagen",
+        "available": "Motrix {{version}} is beschikbaar.",
+        "availableDescription": "Download de update nu en kies wanneer je wilt herstarten en installeren.",
+        "availableTitle": "Motrix {{version}} is beschikbaar",
+        "cancelled": "Het downloaden van de update is geannuleerd.",
+        "cancelledDescription": "Probeer de download opnieuw wanneer het uitkomt.",
+        "cancelledTitle": "Download geannuleerd",
+        "channelBeta": "Bèta",
+        "channelBetaWarning": "De bèta kan minder stabiel zijn. Je ontvangt ook nieuwere stabiele versies. Terugschakelen stopt bèta-updates zonder de geïnstalleerde versie te downgraden.",
+        "channelDescription": "Kies stabiele versies of probeer nieuwe functies in de bèta.",
+        "channelLabel": "Updatekanaal",
+        "channelSaveError": "Het updatekanaal kon niet worden opgeslagen. Probeer het opnieuw.",
+        "channelStable": "Stabiel",
+        "check": "Zoeken naar updates",
+        "checkAction": "Controleren",
+        "checking": "Controleren…",
+        "checkingDescription": "Verbinding maken met de Motrix-updatedienst…",
+        "checkingTitle": "Zoeken naar updates…",
+        "currentVersion": "Huidige versie {{version}}",
+        "download": "Update downloaden",
+        "downloaded": "Motrix {{version}} is klaar voor installatie.",
+        "downloadedTitle": "Update klaar voor installatie",
+        "downloading": "Downloaden…",
+        "downloadingDescription": "Je kunt dit venster sluiten. De download gaat op de achtergrond door.",
+        "downloadingTitle": "Motrix {{version}} downloaden",
+        "error": "Update mislukt: {{message}}",
+        "errorDescription": "Controleer je verbinding en probeer het opnieuw.",
+        "errorTitle": "Motrix kon niet worden bijgewerkt",
+        "idle": "Versie {{version}} is geïnstalleerd. Controleer nu of laat Motrix bij het openen controleren.",
+        "idleTitle": "Houd Motrix up-to-date",
+        "restart": "Herstarten en installeren",
+        "retry": "Opnieuw proberen",
+        "title": "Appupdates",
+        "unsupported": "Deze versie kan niet automatisch worden bijgewerkt. Download de nieuwste versie van de officiële website.",
+        "unsupportedTitle": "Automatische updates niet beschikbaar",
+        "upToDate": "Versie {{version}} is de nieuwste beschikbare versie.",
+        "upToDateTitle": "Motrix is up-to-date"
+      },
+      "version": "Versie {{version}}",
+      "webVersionNote": "Deze webversie wordt bijgewerkt door de beheerder van de installatie."
+    },
+    "advanced": {
+      "description": "RPC, voortgang en herstel",
+      "persistence": {
+        "dbPath": "Herstelgegevensbestand",
+        "dbPathDesc": "Laat leeg om de standaardlocatie te gebruiken.",
+        "dbPathPlaceholder": "Standaardlocatie",
+        "enable": "Herstelgegevens opslaan",
+        "enableDesc": "Gegevens bewaren om downloads na een herstart te hervatten.",
+        "historyCount": "Aantal te bewaren vermeldingen",
+        "historyCountHint": "Oudere herstelgegevens worden verwijderd.",
+        "historyCountPositive": "Voer een getal groter dan 0 in.",
+        "historyKeepAll": "Alle gegevens",
+        "historyKeepRecent": "Recentste gegevens…",
+        "historyLimit": "Herstelgegevens van voltooide taken",
+        "historyLimitDesc": "De downloadlijst en gedownloade bestanden blijven ongewijzigd.",
+        "historySessionOnly": "Niet bewaren",
+        "title": "Voortgang en herstel"
+      },
+      "rpc": {
+        "port": "RPC-poort",
+        "portDesc": "Herstart vereist na wijziging.",
+        "secret": "RPC-geheim",
+        "secretDesc": "Vereist voor RPC-verbindingen.",
+        "title": "RPC"
+      }
+    },
+    "appearance": {
+      "byteUnitBinary": "Binair (MiB, GiB · 1024)",
+      "byteUnitDecimal": "Decimaal (MB, GB · 1000)",
+      "byteUnitSystem": "Eenheden voor grootte en snelheid",
+      "byteUnitSystemDefault": "Systeem volgen ({{units}})",
+      "byteUnitSystemDesc": "Kies hoe bestandsgroottes en snelheden worden weergegeven.",
+      "description": "Thema, taal en weergave",
+      "followSystem": "Systeem volgen",
+      "language": "Taal",
+      "languageAndDisplay": "Taal en weergave",
+      "lightweightMode": "Geheugenbesparende modus",
+      "lightweightModeDesc": "Geheugen besparen wanneer het venster gesloten is. Downloads gaan door, maar opnieuw openen duurt langer en wist niet-opgeslagen invoer.",
+      "liquidGlassEffect": "Liquid Glass",
+      "liquidGlassEffectDesc": "De downloadwerkbalk een doorschijnend glaseffect geven.",
+      "liquidGlassEffectMacDesc": "Geldt ook voor het venster op macOS 26 en nieuwer. Het venster wordt opnieuw geopend bij een wijziging.",
+      "menuBar": "Menubalk",
+      "reduceMotion": "Beweging verminderen",
+      "reduceMotionDesc": "Minder animaties in de hele app gebruiken.",
+      "runMode": "App tonen in",
+      "runModeHideTray": "Alleen Dock",
+      "runModeLaunch": "Bij het openen van Motrix",
+      "runModeLinuxDesc": "De beschikbaarheid en het activeringsgedrag van het systeemvak hangen af van je desktopomgeving.",
+      "runModeStandard": "Dock en menubalk",
+      "runModeStandardDesktop": "Hoofdvenster openen",
+      "runModeTray": "Alleen menubalk",
+      "runModeTrayDesktop": "Starten in systeemvak",
+      "sidebarColor": "Accentkleur",
+      "sidebarColors": {
+        "auto": "Automatisch",
+        "blue": "Blauw",
+        "cyan": "Cyaan",
+        "gold": "Goud",
+        "gray": "Grijs",
+        "green": "Groen",
+        "orange": "Oranje",
+        "pink": "Roze",
+        "violet": "Violet"
+      },
+      "systemTray": "Systeemvak",
+      "theme": "Thema",
+      "themeAndEffects": "Thema en effecten",
+      "themeAuto": "Systeem",
+      "themeDark": "Donker",
+      "themeLight": "Licht",
+      "trayIconColor": "Kleur van systeemvakpictogram",
+      "trayIconColorAuto": "Appthema volgen",
+      "trayIconColorDark": "Donker pictogram (licht paneel)",
+      "trayIconColorDesc": "Kies een kleur die opvalt op je systeempaneel.",
+      "trayIconColorLight": "Licht pictogram (donker paneel)",
+      "traySpeedometer": "Snelheid tonen in menubalk",
+      "traySpeedometerDesc": "Download- en uploadsnelheden naast het apppictogram tonen."
+    },
+    "bittorrent": {
+      "description": "Magnetlinks, seeden en trackers",
+      "geoip": {
+        "autoUpdate": "Automatisch bijwerken",
+        "autoUpdateDesc": "Ongeveer wekelijks controleren op nieuwe locatiegegevens.",
+        "customUrl": "Aangepaste download-URL",
+        "customUrlDesc": "Link naar een landendatabase in .mmdb-formaat.",
+        "customUrlPlaceholder": "https://example.com/GeoLite2-Country.mmdb",
+        "enable": "Land of regio tonen",
+        "enableDesc": "Locaties in de peerlijst tonen. Locatiegegevens worden indien nodig gedownload.",
+        "lastUpdated": "Laatst bijgewerkt",
+        "maxmindUnsupported": "Nog niet ondersteund",
+        "neverUpdated": "Nooit",
+        "saveBeforeUpdate": "Sla de wijzigingen op voordat je de locatiegegevens bijwerkt.",
+        "source": "Bron van locatiegegevens",
+        "source.custom": "Aangepaste URL",
+        "source.loyalsoldier": "Loyalsoldier (gemeenschap)",
+        "source.maxmind": "MaxMind (officieel)",
+        "source.p3terx": "P3TERX (spiegel van de gemeenschap)",
+        "sourceDesc": "Kies de bron voor het downloaden van locatiegegevens.",
+        "status.downloading": "Downloaden…",
+        "status.error": "Update mislukt",
+        "status.loaded": "Gereed",
+        "status.notDownloaded": "Locatiegegevens niet gedownload",
+        "title": "Peerlocaties",
+        "updateFailed": "De locatiegegevens konden niet worden bijgewerkt. Probeer het opnieuw.",
+        "updateNow": "Nu bijwerken",
+        "updating": "Bijwerken…"
+      },
+      "listen": {
+        "dhtEnabled": "DHT inschakelen",
+        "dhtEnabledDesc": "Peers vinden zonder afhankelijk te zijn van een tracker.",
+        "dhtListenPort": "DHT-luisterpoort",
+        "dhtListenPortDesc": "Peers via DHT op deze poort vinden.",
+        "listenPort": "BT-luisterpoort",
+        "listenPortDesc": "Inkomende peerverbindingen op deze poort accepteren.",
+        "title": "Inkomende verbindingen"
+      },
+      "newMagnetTasks": "Nieuwe magnettaken",
+      "peers": {
+        "btEnableLpd": "Lokale peers ontdekken",
+        "btEnableLpdDesc": "Peers vinden die bestanden delen op je lokale netwerk.",
+        "btMaxPeers": "Maximaal aantal peers per torrent",
+        "btMaxPeersDesc": "Het hoogste aantal peers waarmee één taak tegelijk verbinding kan maken.",
+        "magnetFileSelection": "Bestanden kiezen vóór het downloaden",
+        "magnetFileSelectionAutoDownload": "Alles downloaden als er niets is geselecteerd",
+        "magnetFileSelectionAutoDownloadDesc": "Start na de onderstaande tijd, ook als het appvenster of de browser gesloten is.",
+        "magnetFileSelectionDesc": "Bestandsselectie tonen nadat een magnetlink is geladen.",
+        "magnetFileSelectionTimeoutInvalid": "Voer een geheel getal van {{min}} tot {{max}} seconden in.",
+        "magnetFileSelectionTimeoutSeconds": "Tijd om bestanden te kiezen (s)",
+        "magnetFileSelectionTimeoutSecondsDesc": "Begint zodra de bestandslijst gereed is. Wijzigingen gelden ook voor taken die al wachten.",
+        "title": "Peers"
+      },
+      "seeding": {
+        "seedRatio": "Limiet voor deelverhouding",
+        "seedRatioDesc": "Upload ÷ download. Seeden stopt bij deze verhouding. 0 = onbeperkt.",
+        "seedTime": "Seedtijdlimiet (minuten)",
+        "seedTimeDesc": "0 = onbeperkt. Geldt voor nieuwe taken en wanneer het seeden opnieuw wordt gestart.",
+        "title": "Seeden"
+      },
+      "trackers": {
+        "autoSync": "Trackerlijst automatisch bijwerken",
+        "autoSyncDesc": "Houd de lijst actueel via je bronnen.",
+        "blacklistMovedInfo": "Beheer geblokkeerde trackers via Trackers → Blokkeerlijst.",
+        "enableProbe": "Beschikbaarheid van trackers controleren",
+        "enableProbeDesc": "Test trackers voordat ze voor downloads worden gebruikt.",
+        "healthyThreshold": "Drempel voor trage antwoorden (ms)",
+        "healthyThresholdDesc": "Antwoorden die langer duren worden als traag gemarkeerd. 500–10.000 ms.",
+        "manageSourcesHint": "Beheer bronnen op de pagina Trackers.",
+        "maxTrackerCount": "Trackers per taak",
+        "maxTrackerCountDesc": "Gebruik maximaal zoveel trackers. 5–200.",
+        "minSuccessRate": "Minimaal slagingspercentage",
+        "minSuccessRateDesc": "Gebruik trackers met minstens dit slagingspercentage. 0,5 = 50%.",
+        "probeTimeout": "Time-out voor controle (ms)",
+        "probeTimeoutDesc": "Wacht maximaal zo lang op een antwoord. 1.000–30.000 ms.",
+        "syncInterval": "Update-interval (uren)",
+        "syncIntervalDesc": "Van 1 tot 168 uur.",
+        "title": "Trackers"
+      }
+    },
+    "cards": {
+      "about": {
+        "desc": "Versie, updates, broncode en handleiding",
+        "title": "Over"
+      },
+      "advanced": {
+        "desc": "RPC, SQLite-opslag",
+        "title": "Geavanceerd"
+      },
+      "appearance": {
+        "desc": "Thema, taal, systeemvakpictogram",
+        "title": "Weergave"
+      },
+      "bittorrent": {
+        "desc": "DHT, luisterpoorten, trackers, locatie van peers",
+        "title": "BitTorrent"
+      },
+      "downloads": {
+        "desc": "Gelijktijdige downloads, bandbreedtelimieten, netwerkbetrouwbaarheid",
+        "title": "Downloads"
+      },
+      "general": {
+        "desc": "Opstarten, standaardopslagmap, systeemintegratie",
+        "title": "Algemeen"
+      },
+      "integration": {
+        "desc": "Browserextensies, CLI, systeemintegraties",
+        "title": "Integratie"
+      },
+      "network": {
+        "desc": "Proxy, DNS en NAT/UPnP",
+        "title": "Netwerk"
+      }
+    },
+    "common": {
+      "add": "Toevoegen",
+      "browse": "Bladeren…",
+      "changeDirectory": "Map wijzigen",
+      "directoryEmpty": "(geen map geselecteerd)",
+      "generate": "Genereren",
+      "hideSecret": "Geheim verbergen",
+      "noChange": "Geen wijzigingen om op te slaan",
+      "openHelp": "Help openen",
+      "preset": "Snelkeuze:",
+      "remove": "Verwijderen",
+      "setAsDefault": "Als standaard instellen",
+      "showSecret": "Geheim tonen"
+    },
+    "connection": {
+      "disconnectedBody": "Sommige informatie kan vertraagd zijn. Controleer de serververbinding en proxyconfiguratie als dit aanhoudt.",
+      "disconnectedTitle": "De verbinding voor realtime updates is verbroken.",
+      "originMismatchBody": "Realtime updates zijn niet beschikbaar. Gebruik het ingestelde serveradres of vraag de beheerder dit te corrigeren.",
+      "originMismatchTitle": "Het toegangsadres van de server komt niet overeen."
+    },
+    "desc": "Motrix configureren",
+    "downloads": {
+      "autofillFromClipboard": "Links automatisch invullen vanuit klembord",
+      "defaultDownloadFolder": "Standaarddownloadmap",
+      "description": "Bestanden, downloadsnelheid en verbindingen",
+      "disk": {
+        "diskCache": "Schijfcache (MiB)",
+        "diskCacheDesc": "Geheugen voor het bufferen van bestanden voordat ze naar schijf worden geschreven.",
+        "fileAllocation": "Schijfruimte reserveren",
+        "fileAllocationDesc": "Ruimte reserveren voordat een bestand wordt gedownload.",
+        "fileAllocationFalloc": "Systeemtoewijzing",
+        "fileAllocationNone": "Niet reserveren",
+        "fileAllocationPrealloc": "Vooraf toewijzen",
+        "fileAllocationTrunc": "Bestandsgrootte instellen",
+        "fileDeletionMode": "Bij het verwijderen van taakbestanden",
+        "fileDeletionPermanent": "Permanent verwijderen",
+        "fileDeletionPermanentDesc": "Verwijderde bestanden kunnen niet uit de prullenmand worden teruggezet.",
+        "fileDeletionTrash": "Naar prullenmand verplaatsen",
+        "fileDeletionTrashDesc": "Er komt ruimte vrij wanneer je de prullenmand leegt.",
+        "modifiedTime": "Wijzigingstijd van bestand",
+        "modifiedTimeDesc": "Voor voltooide HTTP- en FTP-downloads.",
+        "modifiedTimeLocal": "Downloadtijd",
+        "modifiedTimeServer": "Tijd van server",
+        "sessionSaveInterval": "Interval voor opslaan van voortgang (s)",
+        "sessionSaveIntervalDesc": "Sla vaker op om bij een crash minder voortgang te verliezen.",
+        "title": "Schijf en bestanden"
+      },
+      "fillInLinksWhenOpeningNewTask": "Gekopieerde links plakken bij het openen van een nieuwe taak.",
+      "magnet": {
+        "magnetResolveTimeout": "Time-out voor laden van magnetlinks (s)",
+        "magnetResolveTimeoutDesc": "Hoelang op de bestandslijst wordt gewacht.",
+        "title": "Magnet"
+      },
+      "newTasks": "Nieuwe taken",
+      "performance": {
+        "customParameters": "Aangepaste prestatieparameters",
+        "learnMore": "Meer informatie",
+        "maxConcurrentDownloads": "Gelijktijdige downloads",
+        "maxConcurrentDownloadsDesc": "Extra taken wachten in de wachtrij.",
+        "maxConnectionPerServer": "Maximaal aantal verbindingen per server",
+        "maxConnectionPerServerDesc": "Verbindingslimiet per bestand voor één server.",
+        "metrics": {
+          "cache": "Schijfcache",
+          "connections": "Max. verbindingen",
+          "minimum": "Min. segmentgrootte",
+          "perServer": "Limiet per server"
+        },
+        "minSplitSize": "Minimale segmentgrootte (MiB)",
+        "minSplitSizeDesc": "Segmenten kleiner dan 2× deze grootte worden niet gesplitst.",
+        "profile": "Downloadprestaties",
+        "profileDesc": "Vind een balans tussen downloadsnelheid en het gebruik van systeembronnen.",
+        "profiles": {
+          "auto": {
+            "desc": "Past zich aan je schijf en bestandsgrootte aan. De onderstaande waarden zijn standaardwaarden.",
+            "label": "Automatisch"
+          },
+          "balanced": {
+            "desc": "Gebruikt minder systeembronnen voor dagelijkse downloads.",
+            "label": "Gebalanceerd"
+          },
+          "custom": {
+            "desc": "Stel verbindingen, segmentgrootte en cache in.",
+            "label": "Aangepast"
+          },
+          "high": {
+            "desc": "Gebruikt meer verbindingen voor snellere downloads.",
+            "label": "Hoge snelheid"
+          },
+          "maximum": {
+            "desc": "Gebruikt meer verbindingen. Sommige servers kunnen deze beperken.",
+            "label": "Maximaal"
+          }
+        },
+        "split": "Maximaal aantal verbindingen per bestand",
+        "splitDesc": "Verbindingen die worden gebruikt om één bestand te downloaden.",
+        "title": "Prestaties"
+      },
+      "reliability": {
+        "connectTimeout": "Verbindingstime-out (s)",
+        "connectTimeoutDesc": "Hoelang op een verbinding wordt gewacht.",
+        "lowestSpeedLimit": "Minimale verbindingssnelheid (KiB/s)",
+        "lowestSpeedLimitDesc": "Verbreek de verbinding onder deze snelheid. 0 = uitgeschakeld.",
+        "maxTries": "Maximaal aantal pogingen",
+        "maxTriesDesc": "Inclusief de eerste poging. 0 = onbeperkt.",
+        "retryWait": "Wachttijd voor nieuwe poging (s)",
+        "retryWaitDesc": "Wacht zo lang voordat opnieuw wordt geprobeerd.",
+        "socketTimeout": "Time-out zonder gegevens (s)",
+        "socketTimeoutDesc": "Hoelang wordt gewacht als er geen gegevens binnenkomen.",
+        "title": "Verbindingen en nieuwe pogingen",
+        "userAgent": "User-Agent",
+        "userAgentDesc": "Identificeert de app bij websites. Wijzig deze als een website een andere vereist."
+      },
+      "saveFolders": "Opslagmappen",
+      "speedLimit": {
+        "adaptiveEnabled": "Bandbreedte reserveren voor andere apps",
+        "adaptiveEnabledDesc": "Voer hieronder je verbindingssnelheden in om de limiet te berekenen.",
+        "altDownload": "Download",
+        "altDownloadDesc": "De maximale downloadsnelheid in de lagesnelheidsmodus.",
+        "altSection": "Lage snelheidslimieten",
+        "altSectionDesc": "Gebruikt in de lagesnelheidsmodus of door geplande regels. Deze limieten kunnen de standaardlimieten alleen verlagen.",
+        "altUpload": "Upload",
+        "altUploadDesc": "De maximale uploadsnelheid in de lagesnelheidsmodus.",
+        "autoAdaptive": "Bandbreedte vrijhouden voor andere apps",
+        "autoSchedule": "Geplande snelheidsverlaging",
+        "autoSection": "Automatische regels",
+        "autoSectionDesc": "Deze regels gelden alleen in de automatische modus.",
+        "bandwidthPending": "Voer beide verbindingssnelheden in om deze limiet toe te passen.",
+        "bandwidthUsed": "Motrix kan maximaal {{motrix}}% gebruiken.",
+        "baseDownload": "Download",
+        "baseDownloadDesc": "De maximale downloadsnelheid voor dagelijks gebruik.",
+        "baseSection": "Standaardlimieten",
+        "baseSectionDesc": "Voor dagelijkse downloads; worden in elke modus gerespecteerd.",
+        "baseUpload": "Upload",
+        "baseUploadDesc": "De maximale uploadsnelheid voor dagelijks gebruik.",
+        "effect": {
+          "adaptiveRule": "{{reserved}}% van de bandbreedte voor andere apps reserveren",
+          "adaptiveRulePending": "{{reserved}}% van de bandbreedte voor andere apps reserveren nadat de verbindingsbandbreedte is ingevoerd",
+          "autoRules": "Motrix zal {{rules}}.",
+          "lowSpeed": "Lage snelheidslimieten nu actief: download {{download}}, upload {{upload}}.",
+          "lowerWins": "De laagste actieve limiet geldt.",
+          "nextDay": " op de volgende dag",
+          "noAutoRules": "Er zijn geen automatische regels ingeschakeld. Dit werkt momenteel als de standaardmodus.",
+          "ruleSeparator": " en ",
+          "scheduleRule": "van {{from}} tot {{to}}{{nextDay}} de lage snelheidslimieten gebruiken",
+          "standard": "Standaardlimieten actief: download {{download}}, upload {{upload}}.",
+          "standardValues": "Standaardlimieten: download {{download}}, upload {{upload}}.",
+          "title": "Huidig effect"
+        },
+        "estimateEmpty": "Er is nog geen snelheidsgeschiedenis beschikbaar. Voltooi een download zonder snelheidslimiet of voer de bandbreedte handmatig in.",
+        "estimateError": "De recente snelheidsgeschiedenis kon niet worden gelezen. Voer de bandbreedte handmatig in.",
+        "estimateSuccess": "Verbindingsbandbreedte ingevuld op basis van recente snelheden.",
+        "fillFromPeak": "Verbindingssnelheid schatten",
+        "fillFromPeakHint": "Gebaseerd op de snelste recente downloads en uploads.",
+        "headroomPercent": "Reserveren voor andere apps",
+        "headroomPercentDesc": "Er wordt {{reserved}}% gereserveerd; Motrix kan maximaal {{motrix}}% gebruiken.",
+        "linkDown": "Downloadsnelheid van verbinding",
+        "linkDownDesc": "De downloadsnelheid die je internetverbinding kan bereiken.",
+        "linkUp": "Uploadsnelheid van verbinding",
+        "linkUpDesc": "De uploadsnelheid die je internetverbinding kan bereiken.",
+        "modeSection": "Snelheidsmodus",
+        "modeSectionDesc": "Kies hoe Motrix je verbinding moet gebruiken.",
+        "scheduleDays": "Dagen",
+        "scheduleDaysHint": "Als de eindtijd vóór de begintijd ligt, eindigt het tijdvak op de volgende dag.",
+        "scheduleEnabled": "Lage snelheid plannen",
+        "scheduleEnabledDesc": "Op geselecteerde dagen en tijden overschakelen naar de lage snelheidslimieten.",
+        "scheduleFrom": "Begin",
+        "scheduleTimeFormat": "24-uursnotatie (HH:mm)",
+        "scheduleTo": "Einde",
+        "setUnlimited": "Onbeperkt instellen",
+        "standardLimit": "Standaard gebruiken",
+        "title": "Snelheidslimieten",
+        "titleDesc": "Kies hoe Motrix je verbinding gebruikt in de standaardmodus, lagesnelheidsmodus en automatische modus.",
+        "turtle": "Snelheidsmodus",
+        "turtleDesc_auto": "De snelheid automatisch aanpassen op basis van de tijd en verbindingsbandbreedte.",
+        "turtleDesc_off": "De standaardsnelheidslimieten gebruiken.",
+        "turtleDesc_on": "Nu de lage snelheidslimieten gebruiken om ruimte voor andere apps vrij te houden.",
+        "turtle_auto": "Automatisch",
+        "turtle_off": "Standaard",
+        "turtle_on": "Lage snelheid",
+        "unlimited": "Onbeperkt",
+        "useStandardLimit": "Standaardlimiet gebruiken",
+        "weekdays": {
+          "fri": {
+            "long": "Vrijdag",
+            "short": "Vr"
+          },
+          "mon": {
+            "long": "Maandag",
+            "short": "Ma"
+          },
+          "sat": {
+            "long": "Zaterdag",
+            "short": "Za"
+          },
+          "sun": {
+            "long": "Zondag",
+            "short": "Zo"
+          },
+          "thu": {
+            "long": "Donderdag",
+            "short": "Do"
+          },
+          "tue": {
+            "long": "Dinsdag",
+            "short": "Di"
+          },
+          "wed": {
+            "long": "Woensdag",
+            "short": "Wo"
+          }
+        }
+      }
+    },
+    "feedback": {
+      "appRestartBody": "Je instellingen zijn opgeslagen. Herstart Motrix wanneer het uitkomt.",
+      "appRestartTitle": "Herstart Motrix om de instellingen toe te passen",
+      "applyFailedBody": "De opgeslagen configuratie blijft behouden. Controleer de applogboeken en herstart de betreffende dienst nadat je het probleem hebt opgelost.",
+      "applyFailedTitle": "Instellingen opgeslagen; sommige wijzigingen konden niet worden toegepast",
+      "retrySync": "Synchronisatie opnieuw proberen",
+      "syncFailedBody": "Je instellingen zijn opgeslagen. Probeer opnieuw te synchroniseren om deze pagina bij te werken zonder opnieuw op te slaan.",
+      "syncFailedTitle": "Instellingen opgeslagen; bijwerken van interface mislukt"
+    },
+    "general": {
+      "autofillClipboardLinks": "Link automatisch invullen vanuit klembord",
+      "autofillClipboardLinksDesc": "Bij het openen van Nieuwe taak wordt een link van het klembord in het lege URL-veld geplakt.",
+      "defaultSaveDir": "Standaarddownloadmap",
+      "defaultSaveDirDesc": "Nieuwe downloads worden hier opgeslagen, tenzij je per taak een andere map kiest.",
+      "description": "Opstarten, afsluiten en meldingen",
+      "desktopOnly": "Opstart- en meldingsvoorkeuren zijn beschikbaar in de desktopapp.",
+      "downloadCompleted": "Download voltooid",
+      "downloadFailed": "Download mislukt",
+      "inAppNotifications": "Meldingen in de app",
+      "inAppNotificationsDesc": "Kies welke downloadmeldingen je wilt zien. Appwaarschuwingen blijven ingeschakeld.",
+      "launchAtStartup": "Openen bij inloggen",
+      "launchAtStartupDesc": "Motrix automatisch starten wanneer je inlogt.",
+      "lightweightMode": "Geheugen besparen wanneer het venster gesloten is",
+      "lightweightModeDesc": "Downloads gaan door. Opnieuw openen duurt langer en niet-opgeslagen invoer wordt gewist.",
+      "notificationBadgeCount": "Aantal",
+      "notificationBadgeDesc": "Weergegeven op het pictogram van het meldingencentrum.",
+      "notificationBadgeDot": "Stip",
+      "notificationBadgeHidden": "Verborgen",
+      "notificationBadgeStyle": "Badge voor ongelezen meldingen",
+      "notificationBoth": "Beide",
+      "notificationInApp": "Meldingen in de app",
+      "notificationOff": "Uit",
+      "notificationSystem": "Systeemmeldingen",
+      "notifications": "Meldingen",
+      "notificationsDesc": "Appfoutmeldingen blijven ingeschakeld.",
+      "notifyInAppOnComplete": "Voltooide downloads tonen",
+      "notifyInAppOnError": "Mislukte downloads tonen",
+      "notifyOnComplete": "Melden wanneer een download voltooid is",
+      "notifyOnCompleteDesc": "Een systeemmelding tonen wanneer een taak is voltooid.",
+      "notifyOnError": "Melden bij mislukken",
+      "notifyOnErrorDesc": "Een systeemmelding tonen wanneer een download mislukt terwijl het venster op de achtergrond staat.",
+      "runMode": "App tonen in",
+      "runModeHideTray": "Alleen Dock",
+      "runModeStandard": "Dock en menubalk",
+      "runModeTray": "Alleen menubalk",
+      "showMainWindowAtLogin": "Venster tonen bij inloggen",
+      "showMainWindowAtLoginDesc": "Verborgen bij ‘{{mode}}’.",
+      "startupAndQuitting": "Opstarten en afsluiten",
+      "systemNotifications": "Systeemmeldingen",
+      "warnBeforeQuit": "Bevestigen voor afsluiten",
+      "warnBeforeQuitDesc": "Om bevestiging vragen bij het afsluiten als er nog downloads actief zijn."
+    },
+    "integration": {
+      "appimage": {
+        "desc": "Registreer deze Motrix-AppImage bij je desktop zodat browsers en magnetlinks downloads kunnen doorgeven.",
+        "enable": "Desktopintegratie inschakelen",
+        "movedHint": "Als je de AppImage verplaatst terwijl Motrix gesloten is, kunnen links mogelijk niet starten totdat je Motrix eenmaal vanaf de nieuwe locatie opent.",
+        "prompt": {
+          "accept": "Integreren",
+          "decline": "Niet nu",
+          "detail": "Motrix voegt een desktopvermelding en pictogram toe in je gebruikersgegevensmap en registreert zich als app voor motrix:-links, magnetlinks en .torrent-bestanden. Zo kunnen je browser en de Motrix-extensie Motrix starten en downloads doorgeven. Er wordt niets buiten je persoonlijke map geschreven en je kunt dit ongedaan maken via Instellingen.",
+          "message": "Toestaan dat deze Motrix-AppImage zich registreert bij je desktopomgeving?",
+          "title": "Motrix integreren met je desktop?"
+        },
+        "remove": "Desktopintegratie verwijderen",
+        "status": {
+          "externalManaged": "De desktopintegratie wordt verzorgd door een andere Motrix-installatie.",
+          "failedDetail": "Motrix kon zich niet registreren als app voor zijn links. Het doorgeven vanuit de browser werkt mogelijk pas nadat je desktopintegratie opnieuw inschakelt.",
+          "failedTitle": "Desktopintegratie onvolledig",
+          "healthy": "Geïntegreerd met deze desktop.",
+          "notIntegrated": "Niet geïntegreerd met deze desktop.",
+          "removeBlockedDetail": "Motrix kon een bevestigde eerdere standaardapp niet veilig herstellen en heeft daarom zijn desktopvermelding behouden om een onbruikbare standaardkoppeling te voorkomen. Kies een andere standaardapp in je desktopinstellingen en probeer de integratie opnieuw te verwijderen."
+        },
+        "title": "Desktopintegratie"
+      },
+      "appimageHost": {
+        "copyDiagnostics": "Diagnose kopiëren",
+        "desc": "Sta toe dat een extensie deze AppImage opent wanneer je op Verbinden klikt. Schakel browserintegratie in om dit te gebruiken.",
+        "enable": "Starten vanuit browser inschakelen",
+        "remove": "Starten vanuit browser verwijderen",
+        "repair": "Herstellen",
+        "status": {
+          "conflict": "Deze bestanden behoren tot een andere installatie. Verwijder eerst de browserintegratie daarvan.",
+          "disabled": "Starten vanuit de browser is uitgeschakeld.",
+          "invalid": "De installatiegegevens of het uitvoerbare bestand zijn ongeldig.",
+          "io": "De bewerking is mislukt. Controleer de schijftoegang en probeer Herstellen.",
+          "missing": "Een vereist bestand ontbreekt. Start de AppImage vanaf de huidige locatie en voer herstel uit.",
+          "permissions": "Controleer of de bestanden uitvoerbaar zijn en alleen jouw account er schrijfrechten voor heeft.",
+          "ready": "De lokale installatiecontroles zijn geslaagd. Verbind vanuit je browser om de werking te controleren.",
+          "sourceChanged": "De AppImage is gewijzigd. Voer de gewenste versie uit en herstel de installatie."
+        },
+        "title": "AppImage starten vanuit browser",
+        "useCurrent": "Deze AppImage gebruiken"
+      },
+      "browser": {
+        "addTrusted": {
+          "add": "Extensie toevoegen",
+          "addAction": "Toevoegen",
+          "browserLabel": "Browser",
+          "cancel": "Annuleren",
+          "chromiumEdge": "Chrome / Edge",
+          "firefox": "Firefox",
+          "idPlaceholder": "Extensie-ID",
+          "labelPlaceholder": "Label (optioneel)"
+        },
+        "degradedPort": {
+          "description": "Poorten 16802–16806 waren niet beschikbaar, daarom gebruikt de bridge poort {{port}}. Browserextensies vinden deze niet door het standaardbereik af te zoeken — koppel via native messaging of stel een vaste poort in. De Motrix-CLI en native host blijven ongewijzigd werken.",
+          "title": "Bridge gebruikt een uitwijkpoort"
+        },
+        "disconnecting": "Verbinding verbreken…",
+        "headerBrowser": "Browser",
+        "headerId": "Extensie-ID",
+        "headerSource": "Bron",
+        "install": {
+          "chrome": "Chrome",
+          "development": "Ontwikkeling",
+          "edge": "Microsoft Edge",
+          "firefox": "Firefox",
+          "github": "GitHub",
+          "store": "Installeren"
+        },
+        "lastActive": "Laatst actief",
+        "masterSwitch": "Browserextensies verbinden",
+        "masterSwitchDesc": "Stuur downloads van webpagina's naar Motrix met de browserextensie.",
+        "pairToast": {
+          "copyCode": "Koppelingscode kopiëren",
+          "deny": "Niet toestaan",
+          "extensionId": "ID: {{id}}",
+          "identityLabel": {
+            "attested": "Geverifieerde extensie",
+            "official": "Officiële Motrix-extensie",
+            "unverified": "Niet-geverifieerde extensie"
+          },
+          "identityUnverifiedWarning": "De identiteit van deze extensie kon niet worden geverifieerd. Ga alleen door als je deze vertrouwt.",
+          "pairCode": "Koppelingscode",
+          "pairCodeHint": "Voer deze code in de extensie in",
+          "title": "Een {{browser}}-extensie wil verbinding maken met Motrix"
+        },
+        "pairUnavailable": "Dit koppelingsverzoek is niet meer in behandeling — probeer opnieuw te koppelen vanuit de browserextensie.",
+        "pairedEmpty": "Nog geen extensies verbonden.",
+        "pairedTitle": "Verbonden extensies",
+        "pairingStateDegraded": {
+          "description": "Motrix kon de gegevens van gekoppelde extensies niet veilig bijwerken. Bestaande extensiesessies zijn gesloten en nieuwe toegang is voor deze uitvoering geblokkeerd. Herstart Motrix om het herstel opnieuw te proberen; vertrouw niet op de onderstaande lijst totdat dit bericht verdwenen is.",
+          "title": "Toegang voor extensies is tijdelijk afgesloten"
+        },
+        "removeTrusted": "Verwijderen",
+        "revoke": "Verbinding verbreken",
+        "sourceLabel": {
+          "builtin": "Ingebouwd",
+          "imported": "Geïmporteerd",
+          "userAdded": "Toegevoegd"
+        },
+        "title": "Browserextensies",
+        "trustedEmpty": "Hier staat nog niets.",
+        "trustedExtensions": "Vertrouwde extensies",
+        "trustedGuidance": "Voeg voor andere vertrouwde extensies de door de ontwikkelaar verstrekte ID toe.",
+        "trustedSummary": "{{count}} totaal"
+      },
+      "cli": {
+        "inbox": {
+          "approve": "Goedkeuren",
+          "deny": "Weigeren",
+          "empty": "Geen externe koppelingsverzoeken in behandeling.",
+          "expiresIn": "Verloopt over {{time}}",
+          "title": "Wacht op goedkeuring"
+        },
+        "pairToast": {
+          "allow": "Toestaan",
+          "code": "Verificatiecode: {{code}}",
+          "deny": "Niet toestaan",
+          "title": "{{name}} wil koppelen met Motrix"
+        },
+        "pairUnavailable": "Dit koppelingsverzoek is niet meer in behandeling — voer motrix pair opnieuw uit.",
+        "remote": {
+          "description": "Lokale hulpmiddelen verbinden automatisch. Voer motrix pair uit om met een andere computer of server te verbinden.",
+          "empty": "Geen externe hulpmiddelen gekoppeld.",
+          "lastActive": "Laatst actief",
+          "neverActive": "Nooit gebruikt",
+          "revoke": "Intrekken",
+          "title": "Gekoppelde externe hulpmiddelen"
+        },
+        "title": "Opdrachtregelhulpmiddelen",
+        "tool": {
+          "action": {
+            "checkAgain": "Opnieuw controleren",
+            "checking": "Controleren…",
+            "install": "Installeren",
+            "installing": "Installeren…"
+          },
+          "attentionTitle": "Het opdrachtregelhulpmiddel vereist aandacht",
+          "commandLabel": "Installatieopdracht",
+          "copyCommand": "Installatieopdracht kopiëren",
+          "description": "Voer motrix uit in een terminal om deze app te bedienen.",
+          "diagnostics": {
+            "hide": "Details verbergen",
+            "show": "Details tonen"
+          },
+          "manager": {
+            "bun": "Bun",
+            "npm": "npm",
+            "pnpm": "pnpm",
+            "volta": "Volta",
+            "yarn": "Yarn Classic"
+          },
+          "managerLabel": "Pakketbeheerder",
+          "metadata": {
+            "manager": "Geïnstalleerd met",
+            "path": "Uitvoerbaar bestand",
+            "unknown": "onbekend",
+            "version": "Versie"
+          },
+          "reason": {
+            "installFailed": "De pakketbeheerder kon @motrix/cli niet installeren. Bekijk de details en probeer het opnieuw of voer de opdracht handmatig uit.",
+            "managerMissing": "Er is geen ondersteunde pakketbeheerder gevonden. Installeer npm, pnpm, Yarn Classic, Bun of Volta en controleer opnieuw.",
+            "network": "De pakketbeheerder kon het pakketregister niet bereiken. Controleer je netwerk- of registerconfiguratie en probeer het opnieuw.",
+            "nodeMissing": "Node.js 22 of nieuwer is niet gevonden. Installeer Node.js en controleer opnieuw.",
+            "nodeTooOld": "Node.js 22 of nieuwer is vereist. {{version}} gedetecteerd.",
+            "pathMissing": "Het pakket is geïnstalleerd, maar motrix staat niet in PATH. Open een nieuwe terminal of voeg de aangegeven installatiemap toe aan PATH.",
+            "pathShadowed": "Een ander uitvoerbaar motrix-bestand staat eerder in PATH. Verwijder de oudere vermelding of corrigeer PATH en controleer opnieuw.",
+            "permission": "De pakketbeheerder kan niet schrijven naar de globale installatielocatie. Gebruik een Node.js-versiebeheerder of een prefix waar je schrijfrechten hebt; gebruik geen sudo.",
+            "sandboxed": "Installatie met één klik is niet beschikbaar in dit sandboxpakket. Kopieer de opdracht en voer deze uit in een terminal.",
+            "timeout": "De installatie duurde te lang en is gestopt. Controleer je netwerk en probeer het opnieuw.",
+            "unknown": "Motrix kon het opdrachtregelhulpmiddel niet controleren. Probeer het opnieuw of voer de gekopieerde opdracht handmatig uit.",
+            "unsupportedWeb": "Installatie met één klik is alleen beschikbaar in de desktopapp. Kopieer de opdracht en voer deze uit op de Motrix-host.",
+            "verifyFailed": "De installatie is voltooid, maar Motrix kon het actieve uitvoerbare motrix-bestand niet verifiëren."
+          },
+          "status": {
+            "checking": "Controleren",
+            "error": "Mislukt",
+            "installed": "Geïnstalleerd",
+            "installing": "Installeren",
+            "manualOnly": "Handmatige installatie",
+            "needsAttention": "Aandacht vereist",
+            "ready": "Klaar om te installeren"
+          },
+          "successGuidance": "Open een nieuwe terminal en voer motrix --help uit.",
+          "title": "Motrix-opdrachtregelhulpmiddel"
+        }
+      },
+      "description": "Browsers, standaardapps en hulpmiddelen",
+      "media": {
+        "applyHint": "Sla op om dit pad te gebruiken voor nieuwe mediadownloads. Scan opnieuw in de browserextensie om de ondersteunde mogelijkheden bij te werken.",
+        "binaryPath": "Aangepast FFmpeg-pad",
+        "browse": "Bladeren…",
+        "candidateKind": {
+          "env": "MOTRIX_FFMPEG_BIN",
+          "manual": "Aangepast pad",
+          "path": "Systeem-PATH",
+          "userData": "Motrix-gegevensmap"
+        },
+        "cleanupConfirm": "Alle tijdelijke FFmpeg-mappen verwijderen?",
+        "cleanupStaging": "Tijdelijke bestanden opruimen",
+        "desc": "Media samenvoegen of converteren met FFmpeg.",
+        "desktopSavedHint": "Nieuwe mediadownloads gebruiken het opgeslagen pad. Herstart Motrix zodat actieve plug-ins de wijziging herkennen.",
+        "detection": {
+          "copyManagedPath": "Motrix-FFmpeg-pad kopiëren",
+          "editCustomPath": "Aangepast FFmpeg-pad bewerken",
+          "finishEditingCustomPath": "Bewerken van aangepast FFmpeg-pad afronden",
+          "hideDetails": "Detectiedetails verbergen",
+          "location": "Gecontroleerde locatie",
+          "notConfigured": "Niet ingesteld",
+          "readyTitle": "FFmpeg {{version}}",
+          "result": "Resultaat",
+          "showDetails": "Detectiedetails tonen",
+          "source": "Bron",
+          "sourcesChecked_one": "{{count}} bron gecontroleerd",
+          "sourcesChecked_other": "{{count}} bronnen gecontroleerd",
+          "unavailableDesc": "Stel een aangepast pad in, installeer FFmpeg of voeg het toe aan PATH en vernieuw daarna.",
+          "unavailableTitle": "FFmpeg is niet beschikbaar",
+          "untrustedDesc": "Het bestand bestaat, maar is niet door de beveiligingscontrole van macOS gekomen. Installeer een vertrouwde versie of keur het goed onder Privacy en beveiliging en vernieuw daarna.",
+          "untrustedTitle": "FFmpeg is geblokkeerd door macOS",
+          "usingSource": "{{source}} wordt gebruikt"
+        },
+        "download": {
+          "action": "FFmpeg downloaden"
+        },
+        "ffmpegRequired": "Deze download vereist FFmpeg. Configureer het via Instellingen → Integratie → Mediahulpmiddelen, sla op en probeer het opnieuw.",
+        "notDetected": "FFmpeg niet gedetecteerd",
+        "opTimeoutSec": "FFmpeg-time-out (seconden)",
+        "opTimeoutSecDesc": "Maximale tijd voor één mediabewerking, tot 3.600 seconden.",
+        "pipelineUnavailable": "Ondersteuning voor mediadownloads is niet beschikbaar.",
+        "refresh": "Vernieuwen",
+        "restartHint": "Opgeslagen. Herstart Motrix zodat actieve plug-ins de wijzigingen herkennen.",
+        "restartNow": "Nu herstarten",
+        "savedTitle": "FFmpeg-instellingen opgeslagen",
+        "stagingMB": "Limiet voor tijdelijke bestanden (MB)",
+        "stagingMBDesc": "Ruimte voor tussenbestanden, per plug-in en taak.",
+        "state": {
+          "active": "In gebruik",
+          "available": "Gevonden",
+          "missing": "Niet gevonden",
+          "unconfigured": "Niet ingesteld",
+          "untrusted": "Geblokkeerd door macOS",
+          "version_mismatch": "Niet ondersteund"
+        },
+        "title": "Mediahulpmiddelen",
+        "validation": {
+          "fileMissing": "Er bestaat geen bestand op dit pad."
+        }
+      },
+      "pairResolveFailed": "Je beslissing kon niet worden verstuurd — probeer het opnieuw.",
+      "system": {
+        "associationChecking": "Controleren…",
+        "associationDefault": "Standaard",
+        "associationNotDefault": "Niet standaard",
+        "associationNotRegistered": "Niet geregistreerd",
+        "associationSetupRequired": "Configuratie vereist",
+        "associationStatusLabel": "Huidige status als standaardapp in Windows",
+        "associationStatusLabelLinux": "Huidige status van bestands- en linkkoppelingen in Linux",
+        "associationUnavailable": "Kon niet worden gecontroleerd",
+        "defaultAssociationsLinux": "Bestands- en linkkoppelingen in Linux",
+        "defaultAssociationsLinuxAppImageDesc": "Gebruik de desktopintegratie hieronder om deze AppImage veilig te registreren of te verwijderen. Motrix herstelt bevestigde eerdere bestands- en linkkoppelingen voordat het zijn desktopvermelding verwijdert.",
+        "defaultAssociationsLinuxCheckingDesc": "Dit Linux-pakket en de huidige desktopkoppelingen controleren…",
+        "defaultAssociationsLinuxDesc": "Motrix kan zichzelf instellen als standaardapp voor .torrent-bestanden bij een geïnstalleerd deb- of rpm-pakket. Wijzigingen voor magnetlinks worden actief wanneer je de wijzigingen in dit dialoogvenster toepast.",
+        "defaultAssociationsLinuxSandboxDesc": "Dit pakket meldt Motrix aan als app voor deze bestanden en links, maar je desktopomgeving kiest de standaardapp. Bij het verwijderen van het pakket wordt de vorige standaard mogelijk niet automatisch hersteld.",
+        "defaultAssociationsLinuxUnavailableDesc": "De status van desktopkoppelingen is niet beschikbaar vanuit deze appomgeving.",
+        "defaultAssociationsWindows": "Standaardapp voor torrents en magnetlinks",
+        "defaultAssociationsWindowsDesc": "Kies Motrix voor .torrent-bestanden en magnetlinks in de Windows-instellingen. Vereist een geïnstalleerde versie van Motrix.",
+        "linuxActionFailed": "De standaardapp in Linux kon niet worden bijgewerkt. Controleer de instellingen van je desktopomgeving.",
+        "linuxActionFallback": "Automatische configuratie is niet beschikbaar voor dit pakket. De configuratie-instructies zijn geopend.",
+        "linuxActionSet": "Motrix is nu de standaardapp voor .torrent-bestanden.",
+        "linuxPackage": {
+          "appimage": "AppImage",
+          "flatpak": "Flatpak",
+          "native": "deb / rpm",
+          "snap": "Snap",
+          "unknown": "Onbekend pakket"
+        },
+        "linuxPackageDetected": "Pakket: {{package}}",
+        "magnetLinks": "Magnetlinks",
+        "openWindowsSettings": "Windows-instellingen openen",
+        "protocolMagnet": "Magnetlinks openen met Motrix",
+        "protocolMagnetAppImageDesc": "Direct na het opslaan toegepast wanneer desktopintegratie is ingeschakeld.",
+        "protocolMagnetApplyFailed": "De voorkeur is opgeslagen, maar de desktopkoppeling kon niet worden gewijzigd. Kies de standaardapp in je systeeminstellingen.",
+        "protocolMagnetDesc": "Magnetlinks uit je browser openen in Motrix.",
+        "protocolMagnetSandboxDesc": "Motrix vraagt de wijziging aan bij het opslaan, maar de sandbox of desktopomgeving kan vereisen dat je de standaardapp handmatig kiest.",
+        "repairLinuxAssociations": "Koppelingen herstellen",
+        "setTorrentDefaultLinux": "Als standaard voor .torrent instellen",
+        "title": "Standaardapp",
+        "torrentAssociation": ".torrent-bestanden openen met Motrix",
+        "torrentAssociationDesc": "Dubbelklik op een .torrent-bestand om het in Motrix te openen.",
+        "torrentAssociationMacDesc": "Klik in Finder met de rechtermuisknop op een .torrent-bestand → Toon info → Open met → kies Motrix → Wijzig alles…",
+        "torrentFiles": ".torrent-bestanden",
+        "viewLinuxInstructions": "Configuratiestappen bekijken"
+      }
+    },
+    "network": {
+      "description": "Proxy, DNS en verbindingscontroles",
+      "diagnostic": {
+        "enable": "Automatische controles",
+        "enableDesc": "De hierboven ingeschakelde controles herhalen.",
+        "interval": "Controle-interval (s)",
+        "title": "Automatische netwerkcontroles"
+      },
+      "diagnostics": "Netwerkdiagnostiek",
+      "dns": {
+        "mode": "DNS-resolutie",
+        "modeAuto": "Automatisch",
+        "modeDesc": "Hoe downloads serveradressen opzoeken.",
+        "modeEngine": "Ingebouwde DNS",
+        "modeSystem": "Systeem-DNS",
+        "title": "DNS"
+      },
+      "nat": {
+        "automatic": "Automatisch",
+        "btPortHint": "Poortdoorsturing geldt voor de BT/DHT-poorten die in BitTorrent zijn ingesteld.",
+        "enable": "Poortdoorsturing inschakelen",
+        "enableDesc": "De router vragen de poorten uit de BitTorrent-instellingen te openen.",
+        "mappingTtl": "Duur van poortdoorsturing (s)",
+        "preferredProtocol": "Voorkeursprotocol",
+        "title": "Poortdoorsturing (NAT)"
+      },
+      "proxy": {
+        "auth": "Proxyinloggegevens",
+        "authDesc": "Schakel dit in als je proxy een gebruikersnaam en wachtwoord vereist.",
+        "bypass": "Rechtstreeks verbinden met",
+        "bypassDesc": "Eén domein, IP-adres of CIDR per regel. Begin met . om alleen subdomeinen te selecteren. Bestandsdownloads ondersteunen geen *-jokertekens.",
+        "bypassPlaceholder": "localhost\n127.0.0.1\n.local",
+        "bypassScopeNote": "Alleen bestandsdownloads en appupdates",
+        "enable": "Proxy inschakelen",
+        "enableDesc": "Een proxy gebruiken voor de hieronder geselecteerde verbindingen.",
+        "hidePassword": "Wachtwoord verbergen",
+        "host": "Serveradres",
+        "hostPlaceholder": "proxy.example.com",
+        "importFromSystem": "Importeren uit systeem",
+        "importedToast": "Systeemproxy geïmporteerd: {{host}}:{{port}}",
+        "noSystemProxy": "Geen systeemproxy ingesteld.",
+        "password": "Wachtwoord",
+        "port": "Poort",
+        "protocol": "Protocol",
+        "scopeChoose": "Selecteren…",
+        "scopeDownload": "Bestandsdownloads",
+        "scopeDownloadDesc": "Bij BT gebruikt alleen HTTP(S) de proxy. Peers, DHT en UDP-trackers verbinden rechtstreeks.",
+        "scopeHint": "BT-peers, DHT en UDP-trackers verbinden rechtstreeks.",
+        "scopeNone": "Niets geselecteerd",
+        "scopeSeparator": ", ",
+        "scopeUpdateApp": "Appupdates",
+        "scopeUpdateAppDesc": "Via de proxy zoeken naar Motrix-updates.",
+        "scopeUpdateTrackers": "Updates van trackerlijsten",
+        "scopeUpdateTrackersDesc": "Trackerlijsten downloaden via de proxy; BT-verkeer blijft ongewijzigd.",
+        "scopes": "Proxy gebruiken voor",
+        "scopesDesc": "Kies welke soorten verkeer via de proxy gaan.",
+        "server": "Server",
+        "showPassword": "Wachtwoord tonen",
+        "title": "Proxy",
+        "user": "Gebruikersnaam"
+      },
+      "reachability": {
+        "addEndpoint": "Controledienst toevoegen",
+        "empty": "Voeg minstens één controledienst toe.",
+        "enable": "Inkomende poorten controleren",
+        "endpoints": "Controlediensten (HTTPS)",
+        "privacyHint": "Gebruikt een dienst van derden om de bereikbaarheid vanaf internet te controleren.",
+        "title": "Inkomende poorten controleren"
+      },
+      "stun": {
+        "addServer": "STUN-server toevoegen",
+        "empty": "Voeg minstens één STUN-server toe.",
+        "enable": "NAT-type detecteren",
+        "privacyHint": "Gebruikt STUN-servers van derden.",
+        "servers": "STUN-servers",
+        "title": "NAT-type detecteren"
+      }
+    },
+    "title": "Instellingen",
+    "validation": {
+      "address": "Adres {{number}}",
+      "addressDraft": "Nieuw adres",
+      "directory": "Kies een downloadmap.",
+      "httpUrl": "Voer een volledig adres in dat begint met http:// of https://.",
+      "httpsUrl": "Voer een volledig adres in dat begint met https://.",
+      "integer": "Voer een geheel getal in.",
+      "integerRange": "Voer een geheel getal van {{min}} tot {{max}} in.",
+      "invalid": "Voer een geldige waarde in.",
+      "itemCount": "Gebruik maximaal {{max}} adressen.",
+      "loadFailed": "De instellingen konden niet worden geladen. Probeer het opnieuw.",
+      "maximum": "Voer {{max}} of minder in.",
+      "minimum": "Voer {{min}} of meer in.",
+      "number": "Voer een geldig getal in.",
+      "proxyHost": "Voer een servernaam of IP-adres in, zonder http:// of poort.",
+      "range": "Voer een getal van {{min}} tot {{max}} in.",
+      "rangeHint": "Bereik: {{min}}–{{max}}.",
+      "required": "Voer eerst een adres in.",
+      "saveFailed": "Je wijzigingen konden niet worden opgeslagen. Probeer het opnieuw.",
+      "selection": "Kies een beschikbare optie.",
+      "stunServer": "Gebruik host:poort, zoals stun.example.com:3478. De poort moet tussen 1 en 65535 liggen.",
+      "text": "Verwijder regeleinden of verborgen besturingstekens.",
+      "textLength": "Gebruik maximaal {{max}} tekens.",
+      "time": "Gebruik een tijd in 24-uursnotatie, zoals 23:00.",
+      "wholeBytes": "Gebruik minder decimalen."
+    }
+  },
+  "task": {
+    "add": {
+      "adding": "Toevoegen…",
+      "advanced": "Geavanceerd",
+      "allProxy": "Proxy",
+      "authorization": "Authorization",
+      "batchCreated": "{{count}} taken toegevoegd",
+      "browse": "bladeren",
+      "changeSaveDir": "Opslagmap wijzigen",
+      "clearSelection": "Selectie wissen",
+      "cookie": "Cookie",
+      "createFailed": "De downloadtaak kon niet worden aangemaakt.",
+      "createFailedByPlugin": "De taak kon niet worden aangemaakt: de plug-in ‘{{pluginId}}’ heeft deze tegengehouden ({{detail}}). Schakel die plug-in uit onder Instellingen → Plug-ins en probeer het opnieuw.",
+      "createFailedPathTooLong": "De taak kon niet worden aangemaakt: het doelpad bevat {{length}} tekens, meer dan de Windows-limiet van {{limit}}. Kies een kortere opslagmap of bestandsnaam.",
+      "createFailedWithReason": "De downloadtaak kon niet worden aangemaakt: {{reason}}",
+      "created": "Taak toegevoegd",
+      "createdCopy": "Afzonderlijke kopie toegevoegd",
+      "createdPartial": "{{ok}} toegevoegd · {{failed}} mislukt",
+      "dlLimit": "Downloadlimiet",
+      "downloadAllTorrents": "Alles downloaden ({{count}})",
+      "downloadAndContinue": "Downloaden en doorgaan",
+      "dropTorrent": "Sleep hier een .torrent-bestand naartoe of klik om er een te kiezen",
+      "duplicate": {
+        "active-info-hash": "{{name}} is al actief. aria2 kan dezelfde torrentinhoud niet twee keer tegelijk uitvoeren.",
+        "createCopy": "Afzonderlijke kopie maken",
+        "existing-files": "{{name}} bestaat al op deze bestemming, maar de bijbehorende taakgegevens zijn niet beschikbaar. Motrix overschrijft deze niet.",
+        "filesOnDisk": "Torrentbestanden",
+        "selection-mismatch": "{{name}} gebruikt dezelfde bestemming met een andere bestandsselectie. Motrix overschrijft deze niet en maakt ook niet ongemerkt een kopie met een andere naam.",
+        "showExisting": "Bestaande taak tonen",
+        "title": "Deze torrent bestaat al"
+      },
+      "errors": {
+        "missingSource": "Er is een torrentbestand of magnetlink nodig",
+        "noFilesSelected": "Selecteer minstens één bestand",
+        "saveDirRequired": "Er is een opslagmap nodig",
+        "urlsRequired": "Er is minstens één URL nodig"
+      },
+      "filename": "Bestandsnaam",
+      "filenameAuto": "Automatisch",
+      "filterBy": {
+        "audio": "Audio",
+        "doc": "Document",
+        "image": "Afbeelding",
+        "video": "Video"
+      },
+      "interpretedCurl": "cURL-opdracht verwerkt",
+      "interpretedInfoHash": "BT-infohash omgezet naar een magnetlink",
+      "interpretedJson": "URL's geïmporteerd uit JSON",
+      "interpretedMagnet": "Magnetlink herkend",
+      "invalidJson": "Er wordt een JSON-tekenreeks met een URL of een array van URL-tekenreeksen verwacht.",
+      "invalidUrlCount": "{{count}} ongeldig",
+      "links": "Links",
+      "parseFailed": "Het torrentbestand kon niet worden verwerkt.",
+      "pickPathCustom": "Aangepast pad",
+      "pickPathTitle": "Opslagmap kiezen",
+      "queueAdvanceFailed": "De volgende torrent kon niet worden geopend.",
+      "referer": "Referer",
+      "saveDirEmpty": "Kies een map…",
+      "saveTo": "Opslaan in",
+      "seedRatio": "Deelverhouding",
+      "selectionTimeout": {
+        "failed": "{{name}} kon niet automatisch worden gestart. Open de taakdetails om bestanden te selecteren en probeer het opnieuw.",
+        "started": "De tijd voor bestandsselectie is verstreken: alle bestanden in {{name}} worden gedownload"
+      },
+      "skipTorrent": "Overslaan",
+      "sourceCorrections": {
+        "encodeLiteralCharacters": "Als letterlijke tekens coderen",
+        "useCanonicalUrl": "Deze uitgeschreven URL gebruiken",
+        "usePathSeparators": "Backslashes als padscheidingstekens behandelen"
+      },
+      "sourceErrors": {
+        "ambiguousBackslash": "Een backslash maakt de host of het pad onduidelijk. Kies hoe deze moet worden geïnterpreteerd.",
+        "ambiguousStructure": "De URL-parser zou dit adres wijzigen. Controleer de uitgeschreven URL.",
+        "controlCharacter": "Verwijder besturingstekens uit de URL.",
+        "credentialsInUrl": "Gebruik de authenticatievelden in plaats van inloggegevens in de URL.",
+        "invalidHost": "De host van de URL ontbreekt of is ongeldig.",
+        "invalidMagnet": "De magnetlink moet een ondersteunde BT-infohash in de xt-parameter bevatten.",
+        "invalidPercentEncoding": "Een procentteken moet worden gevolgd door twee hexadecimale cijfers.",
+        "invalidPort": "De poort in de URL is ongeldig.",
+        "invalidUnicode": "De URL bevat ongeldige Unicode.",
+        "missingScheme": "Voeg het URL-schema toe, zoals https://.",
+        "mixedProtocols": "Spiegels van één download moeten dezelfde protocolfamilie gebruiken.",
+        "tooManySources": "De invoer overschrijdt het toegestane aantal links of hun maximale grootte.",
+        "unescapedCharacter": "Codeer spaties en gereserveerde tekens expliciet.",
+        "unsupportedInput": "Deze invoervorm is niet geïmporteerd. Plak een URL of ondersteunde JSON- of Bash-cURL-invoer.",
+        "unsupportedProtocol": "Dit URL-protocol wordt niet ondersteund voor deze download.",
+        "unsupportedRequestOptions": "HTTP-headers kunnen niet worden toegepast op een FTP-download.",
+        "urlTooLong": "De URL overschrijdt de limiet van 16 KiB."
+      },
+      "sourceLine": "Regel {{line}}",
+      "split": "Verbindingen",
+      "submissionUnconfirmed": "Het resultaat is nog niet bevestigd. Bij een nieuwe poging wordt eerst het oorspronkelijke verzoek gecontroleerd voordat er een nieuwe taak wordt aangemaakt.",
+      "title": "Nieuwe taak",
+      "torrent": "Torrent",
+      "torrentQueueProgress": "Torrent {{current}} van {{total}}",
+      "ulLimit": "Uploadlimiet",
+      "undoCorrection": "URL-correctie ongedaan maken",
+      "unlimited": "Onbeperkt",
+      "unsupportedCurl": "Deze cURL-opdracht kan niet zonder wijzigingen worden geïmporteerd. Kopieer de URL of een Bash-GET-opdracht met ondersteunde opties.",
+      "urlPlaceholder": "Voer een URL, magnetlink of BT-infohash in…",
+      "urlsCount_one": "{{count}} URL",
+      "urlsCount_other": "{{count}} URL's",
+      "urlsLabel": "URL's",
+      "urlsWithInvalid": "{{valid}} geldig, {{invalid}} ongeldig",
+      "userAgent": "User-Agent",
+      "validUrlCount": "{{count}} geldig"
+    },
+    "detail": {
+      "peers": "Peers: {{count}}",
+      "seeds": "Seeders: {{count}}"
+    },
+    "error": {
+      "detail": {
+        "filesMissing": "Er ontbreken bestanden na het herstarten van de app",
+        "finalizeFailed": "De download kon niet worden afgerond: {{cause}}",
+        "magnetCleanupQuarantined": "Het opruimen van magnetmetadata is in quarantaine geplaatst",
+        "muxFailed": "De gedownloade media konden niet worden samengevoegd",
+        "pathTooLong": "Het pad bevat {{length}} tekens; Windows staat {{limit}} toe",
+        "pluginChainAborted": "Plug-inketen afgebroken: {{cause}}",
+        "recoveryFailed": "De download kon niet worden hersteld: {{cause}}",
+        "recoveryOutputConflict": "Zowel het tijdelijke als het definitieve bestand bestaat; beide zijn bewaard voor handmatige controle",
+        "renameDirFailed": "De map kon niet worden hernoemd: {{cause}}",
+        "renameFileFailed": "Het bestand kon niet worden hernoemd: {{cause}}"
+      },
+      "hint": {
+        "btMetadataFailed": "Controleer de magnetlink of voeg meer trackers toe en probeer het opnieuw",
+        "checksumMismatch": "Het gedownloade bestand is mogelijk beschadigd; download het opnieuw om het te controleren",
+        "diskFull": "Maak schijfruimte vrij of wijzig de opslagmap en probeer het opnieuw",
+        "fileWriteError": "Controleer de maprechten en beschikbare schijfruimte en probeer het opnieuw",
+        "networkError": "Controleer je netwerkverbinding en probeer het opnieuw",
+        "pathTooLong": "Verkort het pad naar de opslagmap of de bestandsnaam en probeer het opnieuw",
+        "timeout": "Controleer de snelheid en stabiliteit van je verbinding en probeer het opnieuw",
+        "tooManyRedirects": "De bronlink werkt mogelijk niet meer; probeer een andere link",
+        "unauthorized": "Controleer je inloggegevens of toegangsrechten en probeer het opnieuw"
+      },
+      "reason": {
+        "btMetadataFailed": "De torrentmetadata konden niet worden opgehaald",
+        "btTrackerError": "Verbinding met de tracker mislukt",
+        "checksumMismatch": "De controlesom van het bestand komt niet overeen",
+        "diskFull": "De schijf is vol",
+        "fileWriteError": "Het bestand kon niet worden geschreven",
+        "generic": "Download mislukt",
+        "networkError": "Netwerkverbinding mislukt",
+        "notFound": "Bestand niet gevonden",
+        "pathTooLong": "Het bestandspad is te lang voor Windows",
+        "serverError": "De server heeft een fout geretourneerd",
+        "timeout": "Time-out bij downloaden",
+        "tooManyRedirects": "Te veel omleidingen",
+        "unauthorized": "Autorisatie vereist",
+        "unknown": "Download mislukt"
+      }
+    },
+    "recovery": {
+      "finalizeRenameFailed": "Het bestand kon niet worden hernoemd. Het downloadbestand behoudt het achtervoegsel .motrix.",
+      "metaMissing": "De torrentmetadata ontbreken. Seeden kan niet worden gestart.",
+      "reseedFailed": "Download voltooid, maar het seeden kon niet worden gestart.",
+      "startup": {
+        "dirtyMetadata": "Deze taak kan niet worden hersteld: de identificatiegegevens die nodig zijn om te hervatten ontbreken.",
+        "mediaInterrupted": "Deze mediadownload is onderbroken door een herstart van de app en kan niet worden hervat. Voeg deze opnieuw toe om het nogmaals te proberen.",
+        "reAddFailed": "Deze taak kan niet worden hersteld: de engine heeft het verzoek om de taak opnieuw toe te voegen geweigerd. Verwijder de taak en voeg deze handmatig opnieuw toe.",
+        "resumeCheckpointMissing": "Het gedeeltelijke bestand is bewaard, maar het hervattingspunt ontbreekt. Start veilig opnieuw of voeg de taak opnieuw toe.",
+        "resumeCredentialsRequired": "Het gedeeltelijke bestand is bewaard, maar deze download vereist inloggegevens voor het verzoek die niet automatisch opnieuw kunnen worden gebruikt.",
+        "resumePathInvalid": "Het gedeeltelijke bestand is bewaard omdat het opgeslagen uitvoerpad ongeldig is.",
+        "resumeRangeUnsupported": "Het gedeeltelijke bestand is bewaard omdat de server veilig hervatten met bereikverzoeken niet ondersteunt.",
+        "resumeSourceChanged": "Het gedeeltelijke bestand is bewaard omdat het externe bestand is gewijzigd sinds de download begon.",
+        "resumeValidationFailed": "Het gedeeltelijke bestand is bewaard omdat Motrix niet kon controleren of het externe bestand ongewijzigd is.",
+        "torrentMetaMissing": "Deze BitTorrent-taak kan niet worden hersteld: het .torrent-metadatabestand ontbreekt. Verwijder de taak en voeg deze opnieuw toe."
+      },
+      "toast": "Herstelde onderbroken taken: {{count}}. Klik om ze te bekijken."
+    },
+    "remove": {
+      "cancel": "Annuleren",
+      "confirm": "Verwijderen",
+      "deleteFilesLabel": "Gedownloade bestanden verwijderen",
+      "description": "‘{{name}}’ wordt uit de downloadlijst verwijderd.",
+      "notAvailableDuringFinalize": "Wacht tot de taak is afgerond.",
+      "orphanToast": "Taak verwijderd. Bestanden bewaard in {{path}}.",
+      "title": "Taak verwijderen?"
+    },
+    "torrent": {
+      "audio": "Audio",
+      "column": {
+        "name": "Bestandsnaam",
+        "size": "Grootte",
+        "type": "Bestandstype"
+      },
+      "doc": "Document",
+      "fileSelected_one": "{{count}} bestand geselecteerd",
+      "fileSelected_other": "{{count}} bestanden geselecteerd",
+      "image": "Afbeelding",
+      "selectAll": "Alles selecteren",
+      "video": "Video"
+    }
+  },
+  "trackers": {
+    "blacklist": {
+      "column": {
+        "source": "Bron",
+        "url": "URL"
+      },
+      "disabled": "Uitgeschakeld — schakel in om de blokkeerlijst te bekijken.",
+      "empty": "De blokkeerlijst is leeg.",
+      "enabled": "Blokkeerlijstfilter toepassen",
+      "enabledDesc": "Verbindingen met verdachte en foutieve trackerservers blokkeren.",
+      "summary": "{{count}} URL's van toepassing"
+    },
+    "combobox": {
+      "addSource": "Toevoegen",
+      "addSourcePlaceholder": "https://example.com/list.txt",
+      "builtinBadge": "ingebouwd",
+      "cdnBadge": "CDN",
+      "directBadge": "Rechtstreeks",
+      "empty": "Geen overeenkomende bronnen.",
+      "placeholder": "Bronnen selecteren",
+      "removeSource": "Bron verwijderen"
+    },
+    "effective": {
+      "column": {
+        "health": "Kwaliteit",
+        "lastProbedAt": "Laatst gecontroleerd",
+        "responseTimeMs": "Reactietijd (ms)",
+        "source": "Bron",
+        "url": "URL"
+      },
+      "disabled": "Uitgeschakeld — schakel in om de gebruikte trackerlijst te bekijken.",
+      "empty": "Nog geen trackers in gebruik. Synchroniseer om de lijst te vullen.",
+      "enabled": "Geselecteerde trackers toevoegen",
+      "enabledDesc": "De samengestelde trackerlijst aan alle BitTorrent-taken toevoegen."
+    },
+    "sync": {
+      "applying": "Trackerlijsten toepassen…",
+      "failed": "Synchronisatie onvolledig. Controleer je netwerk of bronnen en probeer het opnieuw.",
+      "fetching": "Trackerlijsten ophalen…",
+      "probing": "Beschikbaarheid van trackers controleren…",
+      "syncing": "Synchroniseren…",
+      "unavailable": "De synchronisatiestatus kan niet worden gelezen. Controleer je verbinding en probeer het opnieuw."
+    }
+  },
+  "tray": {
+    "checkUpdates": "Zoeken naar updates",
+    "manual": "Handleiding",
+    "newTask": "Nieuwe taak",
+    "newTorrentTask": "Nieuwe torrenttaak",
+    "openTorrentFile": "Torrentbestand openen",
+    "preferences": "Instellingen",
+    "quit": "Afsluiten",
+    "showMotrix": "Motrix tonen"
+  }
+}

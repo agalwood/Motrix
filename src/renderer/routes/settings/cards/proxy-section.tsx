@@ -185,7 +185,7 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
 
       {/* Body — only when proxy is enabled */}
       {(proxyEnabled || form.formState.errors.proxy) && (
-        <div className="space-y-4 border-l border-border/60 pl-4">
+        <div className="space-y-4 border-s border-border/60 ps-4">
           {/* Server: protocol + host as one InputGroup, port adjacent */}
           <div className="space-y-1.5">
             <p className="text-sm font-medium">

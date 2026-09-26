@@ -36,7 +36,7 @@ export function TaskTimestamp({
         : formatted.compact
   const className = cn(
     'tabular-nums',
-    variant === 'list' ? 'block truncate' : 'ml-auto text-end'
+    variant === 'list' ? 'block truncate' : 'ms-auto text-end'
   )
   return (
     <Tooltip>

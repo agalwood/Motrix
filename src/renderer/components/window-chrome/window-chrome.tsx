@@ -198,8 +198,13 @@ export function WindowChrome({
     display: 'flex',
     alignItems: 'center',
     paddingLeft: showTrafficLight ? 94 : undefined,
+    paddingRight: showTrafficLight ? 20 : undefined,
     paddingInlineStart: showTrafficLight ? undefined : 12,
-    paddingInlineEnd: showDesktopControls ? 0 : 20,
+    paddingInlineEnd: showTrafficLight
+      ? undefined
+      : showDesktopControls
+        ? 0
+        : 20,
     flexShrink: 0,
     userSelect: 'none',
     ...(isOverlay && {

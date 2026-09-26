@@ -53,7 +53,7 @@ function LiveMetric({
       </span>
       <div className="min-w-0">
         <span className="whitespace-nowrap text-base font-semibold tracking-tight text-foreground tabular-nums">
-          {formatSpeed(value)}
+          <bdi>{formatSpeed(value)}</bdi>
         </span>
         <p className="mt-0.5 text-[10px] font-medium leading-none text-muted-foreground">
           {label}
@@ -73,13 +73,13 @@ function SummaryRow({
   value: string
 }) {
   return (
-    <div className="min-w-0 px-3 first:pl-0 last:pr-0">
+    <div className="min-w-0 px-3 first:ps-0 last:pe-0">
       <dt className="text-[10px] font-medium leading-none text-muted-foreground">
         <span className="sr-only">{accessibleLabel}</span>
         <span aria-hidden="true">{label}</span>
       </dt>
       <dd className="mt-1 whitespace-nowrap text-sm font-semibold tracking-tight text-foreground tabular-nums">
-        {value}
+        <bdi>{value}</bdi>
       </dd>
     </div>
   )

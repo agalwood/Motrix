@@ -551,7 +551,7 @@ function PickerSession({ request, controller }: Session) {
                   size="icon-sm"
                   disabled={creating}
                   aria-label={t('chrome.close')}
-                  className="absolute top-2 right-2"
+                  className="absolute top-2 end-2"
                 />
               }
             >

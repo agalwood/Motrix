@@ -7,6 +7,7 @@ import {
   TrackerIcon,
 } from '@renderer/components/icons'
 import { NotificationsNavItem } from '@renderer/components/notification-center/notifications-nav-item'
+import { useDirection } from '@renderer/components/ui/direction'
 import {
   Sidebar,
   SidebarContent,
@@ -42,9 +43,14 @@ const FOOTER_NAV_ITEMS: readonly NavItem[] = [
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { t } = useTranslation()
+  const direction = useDirection()
 
   return (
-    <Sidebar variant="inset" {...props}>
+    <Sidebar
+      variant="inset"
+      side={direction === 'rtl' ? 'right' : 'left'}
+      {...props}
+    >
       <SidebarHeader
         style={{
           height: 45,
