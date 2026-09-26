@@ -79,6 +79,13 @@ describe('resolveSupportedLocale', () => {
   it('uses the default when no candidate is supported', () => {
     expect(resolveSupportedLocale('qaa')).toBe(DEFAULT_LOCALE)
   })
+
+  it.each(['es', 'es-ES', 'es-MX', 'es-419', 'es_ES.UTF-8'])(
+    'resolves Spanish locale %s to the bundled resource',
+    (locale) => {
+      expect(resolveSupportedLocale(locale, 'en-US')).toBe('es')
+    }
+  )
 })
 
 describe('isSupportedLocale', () => {
@@ -86,6 +93,8 @@ describe('isSupportedLocale', () => {
     expect(isSupportedLocale('en-US')).toBe(true)
     expect(isSupportedLocale('de')).toBe(true)
     expect(isSupportedLocale('de-DE')).toBe(false)
+    expect(isSupportedLocale('es')).toBe(true)
+    expect(isSupportedLocale('es-ES')).toBe(false)
     expect(isSupportedLocale('fr')).toBe(true)
     expect(isSupportedLocale('zh-CN')).toBe(true)
     expect(isSupportedLocale('zh-TW')).toBe(true)
