@@ -27,8 +27,14 @@ describe('resolvePluginHostLanguage', () => {
   })
 
   it('falls back through the shared catalog for unsupported candidates', () => {
-    getLocale.mockReturnValue('fr-FR')
+    getLocale.mockReturnValue('qaa')
 
     expect(resolvePluginHostLanguage('invalid')).toBe('en-US')
+  })
+
+  it('uses bundled French for a French system locale', () => {
+    getLocale.mockReturnValue('fr-FR')
+
+    expect(resolvePluginHostLanguage('system')).toBe('fr')
   })
 })
