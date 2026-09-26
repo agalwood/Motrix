@@ -16,6 +16,7 @@ describe('locale catalog', () => {
     )
     expect(SUPPORTED_LOCALE_CODES).toContain(DEFAULT_LOCALE)
     expect(SUPPORTED_LOCALES).toHaveLength(SUPPORTED_LOCALE_CODES.length)
+    expect(SUPPORTED_LOCALE_CODES).toEqual([...SUPPORTED_LOCALE_CODES].sort())
   })
 
   it('provides metadata for every supported locale', () => {
@@ -57,18 +58,26 @@ describe('resolveSupportedLocale', () => {
     expect(resolveSupportedLocale('zh-Hant-TW')).toBe('zh-TW')
   })
 
+  it.each(['fr', 'fr-FR', 'fr-CA', 'fr_BE.UTF-8'])(
+    'resolves French locale %s to the bundled resource',
+    (locale) => {
+      expect(resolveSupportedLocale(locale, 'en-US')).toBe('fr')
+    }
+  )
+
   it('tries later candidates before the default', () => {
-    expect(resolveSupportedLocale('fr-FR', 'zh-CN')).toBe('zh-CN')
+    expect(resolveSupportedLocale('qaa', 'zh-CN')).toBe('zh-CN')
   })
 
   it('uses the default when no candidate is supported', () => {
-    expect(resolveSupportedLocale('fr-FR')).toBe(DEFAULT_LOCALE)
+    expect(resolveSupportedLocale('qaa')).toBe(DEFAULT_LOCALE)
   })
 })
 
 describe('isSupportedLocale', () => {
   it('accepts only exact catalog values', () => {
     expect(isSupportedLocale('en-US')).toBe(true)
+    expect(isSupportedLocale('fr')).toBe(true)
     expect(isSupportedLocale('zh-CN')).toBe(true)
     expect(isSupportedLocale('zh-TW')).toBe(true)
     expect(isSupportedLocale('zh_cn')).toBe(false)
