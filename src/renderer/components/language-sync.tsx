@@ -1,4 +1,7 @@
-import type { RendererWindowId } from '@renderer/lib/bootstrap-locale'
+import {
+  languageFromState,
+  type RendererWindowId,
+} from '@renderer/lib/bootstrap-locale'
 import { applyRendererLocale } from '@renderer/lib/i18n'
 import {
   onSettingsRefresh,
@@ -61,11 +64,7 @@ export function LanguageSync({
           : Queries.GetSettings
       )
       if (!active || localeGeneration !== generation) return
-      const locale =
-        windowId === 'onboarding'
-          ? (state as { language?: unknown } | undefined)?.language
-          : (state as { app?: { language?: unknown } } | undefined)?.app
-              ?.language
+      const locale = languageFromState(windowId, state)
       if (!isSupportedLocale(locale)) return
       await queueLocale(locale, localeGeneration)
     }

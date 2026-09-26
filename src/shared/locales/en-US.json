@@ -1279,7 +1279,8 @@
       "languageAndDisplay": "Language and display",
       "menuBar": "Menu bar",
       "description": "Theme, language and display",
-      "systemTray": "System tray"
+      "systemTray": "System tray",
+      "followSystem": "Follow system"
     },
     "advanced": {
       "rpc": {

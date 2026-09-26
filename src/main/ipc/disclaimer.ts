@@ -1,7 +1,10 @@
-import type { SupportedLocale } from '@shared/constants/locales'
+import type {
+  LanguagePreference,
+  SupportedLocale,
+} from '@shared/constants/locales'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
-import { supportedLocaleSchema } from '@shared/schemas/locale'
+import { languagePreferenceSchema } from '@shared/schemas/locale'
 import type { AppSettings } from '@shared/types/settings'
 import { ipcMain } from 'electron'
 import type { DisclaimerGate } from '../onboarding/disclaimer-gate'
@@ -10,10 +13,12 @@ import { registerTrustedIpcHandler } from './trusted-ipc'
 
 export interface DisclaimerIpcDeps {
   gate: Pick<DisclaimerGate, 'accept'>
+  getResolvedLanguage: () => SupportedLocale
+  applyLocale: (language: LanguagePreference) => Promise<void>
   settings: {
     get(): AppSettings
     setDisclaimerLanguage(
-      language: SupportedLocale
+      language: LanguagePreference
     ): Promise<{ saved: boolean }>
   }
   windowManager: Pick<WindowManager, 'close' | 'open'>
@@ -29,10 +34,12 @@ export function buildDisclaimerHandlers(
   return {
     [Queries.GetDisclaimerState]: async () => ({
       language: deps.settings.get().app.language,
+      resolvedLanguage: deps.getResolvedLanguage(),
     }),
     [Commands.SetDisclaimerLanguage]: async (input: unknown) => {
-      const language = supportedLocaleSchema.parse(input)
+      const language = languagePreferenceSchema.parse(input)
       await deps.settings.setDisclaimerLanguage(language)
+      await deps.applyLocale(language)
       return { ok: true }
     },
     [Commands.AcceptDisclaimer]: async () => {

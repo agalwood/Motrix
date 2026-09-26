@@ -7,7 +7,7 @@ import {
   DEFAULT_BYTE_UNIT_PREFERENCE,
 } from './byte-unit-system'
 import { DirectoryPreferencesSchema } from './directory-preferences'
-import { supportedLocaleSchema } from './locale'
+import { languagePreferenceSchema } from './locale'
 import { settingsInputObject } from './settings-input'
 import { sidebarColorSchema } from './sidebar-color'
 import { DEFAULT_TRAY_ICON_COLOR, trayIconColorSchema } from './tray-icon-color'
@@ -34,7 +34,7 @@ export const appSettingsSchema = z.object({
   theme: z.enum(['system', 'light', 'dark']).catch('system'),
   sidebarColor: sidebarColorSchema.catch('cyan'),
   reduceMotion: z.boolean().catch(false),
-  language: supportedLocaleSchema.catch(DEFAULT_LOCALE),
+  language: languagePreferenceSchema.catch(DEFAULT_LOCALE),
   byteUnitSystem: byteUnitSystemSchema.catch(DEFAULT_BYTE_UNIT_PREFERENCE),
   // Empty string is a sentinel: SettingsManager (main/server) seeds the
   // absolute platform download directory on first load. The renderer never

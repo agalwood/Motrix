@@ -1207,6 +1207,7 @@ async function main() {
     ])
   }
   const queryHandlers = buildServerQueryHandlers({
+    getResolvedLanguage: () => hostLanguage,
     mediaMetaStore,
     serverDirectoryService,
     taskManager,

@@ -233,49 +233,87 @@ function makeSettings(
   }
 }
 
-describe('server Commands.UpdateSettings', () => {
-  it('awaits locale application and permits retrying an already saved language', async () => {
-    const base = makeSettings(PROXY_OFF)
-    const current = { ...base, app: { ...base.app, language: 'zh-CN' } }
-    let rejectLocale!: (error: Error) => void
-    const applyLocale = vi
-      .fn()
-      .mockImplementationOnce(
-        () =>
-          new Promise<void>((_, reject) => {
-            rejectLocale = reject
-          })
-      )
-      .mockResolvedValue(undefined)
-    const ctx = { ...makeFakeCtx(), applyLocale }
-    vi.mocked(ctx.settingsManager.get).mockReturnValue(current as never)
-    vi.mocked(ctx.settingsManager.update).mockResolvedValue({
-      saved: true,
-      requiresRestart: false,
-      changedRestartKeys: [],
-      requiresAppRestart: false,
-      changedAppRestartKeys: [],
-    })
-    const update = buildServerCommandHandlers(
-      ctx as unknown as ServerCommandContext
-    )[Commands.UpdateSettings]!
-    let settled = false
-    const pending = update({ app: { language: 'zh-CN' } }).then((value) => {
-      settled = true
-      return value
-    })
-    await vi.waitFor(() => expect(applyLocale).toHaveBeenCalledWith('zh-CN'))
-    expect(settled).toBe(false)
-    rejectLocale(new Error('locale apply failed'))
-    await expect(pending).resolves.toMatchObject({
-      saved: true,
-      applicationFailed: true,
-    })
-    await expect(update({ app: { language: 'zh-CN' } })).resolves.toMatchObject(
-      { saved: true }
+describe('server disclaimer language', () => {
+  it('persists system and waits for locale application before reporting success', async () => {
+    let finish!: () => void
+    const applyLocale = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve
+        })
     )
-    expect(applyLocale).toHaveBeenCalledTimes(2)
+    const ctx = makeFakeCtx()
+    const setDisclaimerLanguage = vi.fn().mockResolvedValue({ saved: true })
+    const handlers = buildServerCommandHandlers({
+      ...ctx,
+      settingsManager: { ...ctx.settingsManager, setDisclaimerLanguage },
+      applyLocale,
+    } as unknown as ServerCommandContext)
+    let settled = false
+    const pending = handlers[Commands.SetDisclaimerLanguage]?.('system').then(
+      (value) => {
+        settled = true
+        return value
+      }
+    )
+    await vi.waitFor(() => expect(applyLocale).toHaveBeenCalledWith('system'))
+    expect(setDisclaimerLanguage).toHaveBeenCalledWith('system')
+    expect(settled).toBe(false)
+    finish()
+    await expect(pending).resolves.toEqual({ ok: true })
+    await expect(
+      handlers[Commands.SetDisclaimerLanguage]?.('unknown')
+    ).rejects.toThrow()
+    expect(setDisclaimerLanguage).toHaveBeenCalledOnce()
   })
+})
+
+describe('server Commands.UpdateSettings', () => {
+  it.each(['zh-CN', 'system'])(
+    'awaits locale application and permits retrying saved %s',
+    async (language) => {
+      const base = makeSettings(PROXY_OFF)
+      const current = { ...base, app: { ...base.app, language } }
+      let rejectLocale!: (error: Error) => void
+      const applyLocale = vi
+        .fn()
+        .mockImplementationOnce(
+          () =>
+            new Promise<void>((_, reject) => {
+              rejectLocale = reject
+            })
+        )
+        .mockResolvedValue(undefined)
+      const ctx = { ...makeFakeCtx(), applyLocale }
+      vi.mocked(ctx.settingsManager.get).mockReturnValue(current as never)
+      vi.mocked(ctx.settingsManager.update).mockResolvedValue({
+        saved: true,
+        requiresRestart: false,
+        changedRestartKeys: [],
+        requiresAppRestart: false,
+        changedAppRestartKeys: [],
+      })
+      const update = buildServerCommandHandlers(
+        ctx as unknown as ServerCommandContext
+      )[Commands.UpdateSettings]!
+      let settled = false
+      const pending = update({ app: { language } }).then((value) => {
+        settled = true
+        return value
+      })
+      await vi.waitFor(() => expect(applyLocale).toHaveBeenCalledWith(language))
+      expect(settled).toBe(false)
+      rejectLocale(new Error('locale apply failed'))
+      await expect(pending).resolves.toMatchObject({
+        saved: true,
+        applicationFailed: true,
+      })
+      await expect(update({ app: { language } })).resolves.toMatchObject({
+        saved: true,
+      })
+      expect(applyLocale).toHaveBeenCalledTimes(2)
+    }
+  )
 
   it('uses Server path policy before one General commit and does not apply partial fields on an outside-root destination', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'motrix-server-general-'))

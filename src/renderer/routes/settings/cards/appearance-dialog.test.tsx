@@ -1,6 +1,7 @@
 import '@test-utils/dom-animations'
 import '@testing-library/jest-dom/vitest'
 import { i18n } from '@renderer/lib/i18n'
+import { SUPPORTED_LOCALES } from '@shared/constants/locales'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { render, screen, waitFor } from '@testing-library/react'
@@ -70,6 +71,57 @@ beforeEach(async () => {
 })
 
 describe('<AppearanceDialog>', () => {
+  it('pins Follow system first and saves the preference only after confirmation', async () => {
+    render(
+      <AppearanceDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const select = await screen.findByRole('combobox', { name: 'Language' })
+    await waitFor(() => expect(select).toHaveTextContent('English'))
+    await user.click(select)
+    const options = await screen.findAllByRole('option')
+    expect(options.map((option) => option.textContent)).toEqual([
+      'Follow system',
+      ...SUPPORTED_LOCALES.map(({ nativeName }) => nativeName),
+    ])
+    await user.click(options[0]!)
+    expect(select).toHaveTextContent('Follow system')
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      app: { language: 'system' },
+    })
+  })
+
+  it('restores the saved system preference instead of displaying a resolved language', async () => {
+    vi.mocked(transport.invoke).mockResolvedValue({
+      ...FIXTURE,
+      app: { ...FIXTURE.app, language: 'system' },
+      resolvedLanguage: 'fr',
+    })
+    render(
+      <AppearanceDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+    await waitFor(() =>
+      expect(
+        screen.getByRole('combobox', { name: 'Language' })
+      ).toHaveTextContent('Follow system')
+    )
+  })
+
   it.each(['darwin', 'win32', 'web'])(
     'hides the Linux tray color selector on %s',
     async (platform) => {

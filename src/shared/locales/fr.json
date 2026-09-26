@@ -1768,7 +1768,8 @@
       "trayIconColorDesc": "Choisissez une couleur qui reste visible sur le panneau de votre système.",
       "trayIconColorLight": "Icône claire (panneau sombre)",
       "traySpeedometer": "Afficher le débit dans la barre des menus",
-      "traySpeedometerDesc": "Afficher les débits de réception et d’envoi à côté de l’icône de l’application."
+      "traySpeedometerDesc": "Afficher les débits de réception et d’envoi à côté de l’icône de l’application.",
+      "followSystem": "Suivre le système"
     },
     "bittorrent": {
       "description": "Liens magnet, partage et trackers",

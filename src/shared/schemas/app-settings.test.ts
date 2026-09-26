@@ -6,6 +6,19 @@ import {
 } from './app-settings'
 
 describe('appSettingsSchema', () => {
+  it('preserves system and explicit language preferences on load and write', () => {
+    for (const language of ['system', 'fr', 'en-US', 'zh-CN', 'zh-TW']) {
+      expect(appSettingsSchema.parse({ language }).language).toBe(language)
+      expect(
+        appSettingsInputSchema.partial().safeParse({ language }).success
+      ).toBe(true)
+    }
+    expect(
+      appSettingsInputSchema.partial().safeParse({ language: 'unknown' })
+        .success
+    ).toBe(false)
+    expect(DEFAULT_APP_SETTINGS.language).toBe('en-US')
+  })
   it('preserves existing notification defaults, loads desktop choices, and rejects malformed writes', () => {
     const defaults = {
       notifyInAppOnComplete: true,

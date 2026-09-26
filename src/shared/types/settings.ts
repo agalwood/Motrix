@@ -7,7 +7,7 @@ import type { SidebarColor } from '@shared/schemas/sidebar-color'
 import type { TrayIconColor } from '@shared/schemas/tray-icon-color'
 import type { RunMode } from '../constants'
 import type { EnginePerformanceProfile } from '../constants/engine-performance-profiles'
-import type { SupportedLocale } from '../constants/locales'
+import type { LanguagePreference } from '../constants/locales'
 import type { BridgeSettings } from '../schemas/bridge-settings'
 import type { DirectoryPreferences } from '../schemas/directory-preferences'
 import type { GeoIPSettings } from './geoip'
@@ -227,7 +227,7 @@ export interface MotrixAppSettings {
   sidebarColor: SidebarColor
   reduceMotion: boolean
   byteUnitSystem: ByteUnitPreference
-  language: SupportedLocale
+  language: LanguagePreference
   directoryPreferences: DirectoryPreferences
   defaultSaveDir: string
   /** Desktop task file deletion only; the server always deletes directly. */

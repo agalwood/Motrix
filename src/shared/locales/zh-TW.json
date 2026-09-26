@@ -1265,7 +1265,8 @@
       "languageAndDisplay": "語言與顯示",
       "menuBar": "選單列",
       "description": "主題、語言與顯示",
-      "systemTray": "系統匣"
+      "systemTray": "系統匣",
+      "followSystem": "跟隨系統"
     },
     "advanced": {
       "rpc": {
