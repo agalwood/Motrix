@@ -167,8 +167,8 @@
 
 /*
  * Inter intentionally has no CJK glyphs. Prefer each platform's native UI
- * face for the active Chinese locale, following the same platform + :lang()
- * model used by VS Code. The non-UI Windows aliases cover family-name
+ * face for the active CJK locale, following the same platform + :lang()
+ * model used by VS Code. The non-UI Windows Chinese aliases cover family-name
  * variations while resolving to the same system font files.
  */
 :root.platform-win32:lang(zh-CN) {
@@ -181,6 +181,18 @@
   --app-font-sans:
     "Inter Variable", "Microsoft JhengHei UI", "Microsoft JhengHei", "Segoe UI",
     sans-serif, "Segoe UI Emoji", "Segoe UI Symbol";
+}
+
+:root.platform-win32:lang(ja) {
+  --app-font-sans:
+    "Inter Variable", "Yu Gothic UI", "Segoe UI", sans-serif, "Segoe UI Emoji",
+    "Segoe UI Symbol";
+}
+
+:root.platform-win32:lang(ko) {
+  --app-font-sans:
+    "Inter Variable", "Malgun Gothic", "Segoe UI", sans-serif, "Segoe UI Emoji",
+    "Segoe UI Symbol";
 }
 
 :root.platform-darwin:lang(zh-CN) {
