@@ -4,6 +4,7 @@ import enUS from '@shared/locales/en-US.json'
 import es from '@shared/locales/es.json'
 import fr from '@shared/locales/fr.json'
 import ja from '@shared/locales/ja.json'
+import ko from '@shared/locales/ko.json'
 import zhCN from '@shared/locales/zh-CN.json'
 import zhTW from '@shared/locales/zh-TW.json'
 
@@ -13,6 +14,7 @@ export const I18N_RESOURCES = {
   es: { translation: es },
   fr: { translation: fr },
   ja: { translation: ja },
+  ko: { translation: ko },
   'zh-CN': { translation: zhCN },
   'zh-TW': { translation: zhTW },
 } satisfies Record<SupportedLocale, { translation: Record<string, unknown> }>

@@ -168,3 +168,42 @@ describe('bundled Japanese translations', () => {
     expect(disclaimer.body).toContain(disclaimer.agree)
   })
 })
+
+describe('bundled Korean translations', () => {
+  it('resolves complete headings and other-only plurals without English fallback', async () => {
+    const i18n = createInstance()
+    await i18n.init({
+      lng: 'ko',
+      fallbackLng: false,
+      resources: I18N_RESOURCES,
+      interpolation: { escapeValue: false },
+    })
+
+    expect(i18n.t('common.retry')).toBe('다시 시도')
+    expect(i18n.t('settings.appearance.followSystem')).toBe(
+      '시스템 설정 따르기'
+    )
+    expect(i18n.t('panel.downloads.heading.all')).toBe('모든 다운로드')
+    expect(i18n.t('task.remove.description', { name: 'example.zip' })).toBe(
+      '다운로드 목록에서 “example.zip” 작업을 제거합니다.'
+    )
+    expect(i18n.t('task.remove.deleteFilesLabel')).toBe('다운로드한 파일 삭제')
+    for (const count of [0, 1, 2, 5, 1.5, 1000000, 2000000]) {
+      const result = i18n.t('task.torrent.fileSelected', {
+        count,
+        returnDetails: true,
+      })
+      expect(result.exactUsedKey).toBe('task.torrent.fileSelected_other')
+      expect(result.res).toBe(`파일 ${count}개 선택됨`)
+      expect(result.usedLng).toBe('ko')
+    }
+  })
+
+  it('preserves the usage-notice highlights inside the Korean message', () => {
+    const { disclaimer } = I18N_RESOURCES.ko.translation.onboarding
+    for (const highlight of Object.values(disclaimer.highlights)) {
+      expect(disclaimer.body).toContain(highlight)
+    }
+    expect(disclaimer.body).toContain(disclaimer.agree)
+  })
+})
