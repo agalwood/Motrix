@@ -25,8 +25,7 @@ export function StatusTitleMenu({
   visibleCount = counts[tab],
 }: StatusTitleMenuProps) {
   const { t } = useTranslation()
-  const statusLabel = t(`panel.downloads.tab.${tab}`)
-  const title = `${statusLabel} ${t('panel.downloads.title')}`
+  const title = t(`panel.downloads.heading.${tab}`)
 
   return (
     <div className="flex min-w-0 items-center gap-2">

@@ -1176,6 +1176,12 @@
         "relativeDateTime": "{{date}}, {{time}}"
       },
       "title": "Téléchargements",
+      "heading": {
+        "all": "Tous les téléchargements",
+        "active": "Téléchargements actifs",
+        "completed": "Téléchargements terminés",
+        "error": "Téléchargements en échec"
+      },
       "titleCount": "Affichés : {{shown}} · Total : {{total}}",
       "type": {
         "bt": "BitTorrent",
