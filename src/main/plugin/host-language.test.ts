@@ -65,4 +65,11 @@ describe('resolvePluginHostLanguage', () => {
     expect(resolvePluginHostLanguage('system')).toBe('ja')
     expect(resolvePluginHostLanguage('en-US')).toBe('en-US')
   })
+
+  it('uses Brazilian Portuguese for the system while honoring explicit English', () => {
+    getLocale.mockReturnValue('pt-BR')
+
+    expect(resolvePluginHostLanguage('system')).toBe('pt-BR')
+    expect(resolvePluginHostLanguage('en-US')).toBe('en-US')
+  })
 })
