@@ -730,7 +730,8 @@ describe('PluginDiagnosticsPage', () => {
   it('shows current node and edge selections in the Graph inspector', async () => {
     await renderSuccess()
 
-    fireEvent.click(screen.getByTestId('flow-node-plugin.alpha'))
+    // The canvas mounts before the asynchronous layout supplies its nodes.
+    fireEvent.click(await screen.findByTestId('flow-node-plugin.alpha'))
     const inspector = screen.getByRole('complementary', {
       name: 'Call graph selection details',
     })
