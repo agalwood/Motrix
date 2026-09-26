@@ -91,6 +91,7 @@ describe('OnboardingLanguageSelect', () => {
   })
 
   it.each([
+    ['Deutsch', 'de'],
     ['简体中文', 'zh-CN'],
     ['Français', 'fr'],
   ])(

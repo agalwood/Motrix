@@ -14,6 +14,7 @@ export interface LocaleDefinition<Code extends string = string> {
  * enforced by TypeScript and `pnpm run check:i18n`.
  */
 export const SUPPORTED_LOCALES = [
+  { code: 'de', nativeName: 'Deutsch', dir: 'ltr' },
   { code: 'en-US', nativeName: 'English', dir: 'ltr' },
   { code: 'fr', nativeName: 'Français', dir: 'ltr' },
   { code: 'zh-CN', nativeName: '简体中文', dir: 'ltr' },

@@ -1,0 +1,2782 @@
+{
+  "operatorUnlock": {
+    "title": "Motrix entsperren",
+    "help": "Dieser Server benötigt das Betreiber-Token. Setzen Sie auf dem Host MOTRIX_OPERATOR_TOKEN oder lesen Sie das Token aus <dataDir>/operator-token und fügen Sie es unten ein.",
+    "placeholder": "Betreiber-Token",
+    "error": "Ungültiges Betreiber-Token. Prüfen Sie MOTRIX_OPERATOR_TOKEN oder <dataDir>/operator-token auf dem Host und versuchen Sie es erneut.",
+    "submit": "Entsperren"
+  },
+  "operatorAdmin": {
+    "help": "Verwendung:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nDer Befehl kommuniziert ausschließlich über die Loopback-Schnittstelle des Containers mit dem laufenden Motrix-Server.",
+    "errorPrefix": "motrix-admin: {{message}}",
+    "usageHint": "Hinweise zur Verwendung erhalten Sie mit `motrix-admin --help`.",
+    "pending": {
+      "none": "Keine ausstehenden Kopplungsanfragen.",
+      "row": "{{userCode}}  {{clientName}}  {{clientVersion}}  läuft in {{ttl}} ab",
+      "ttl": "{{minutes}}m {{seconds}}s"
+    },
+    "decision": {
+      "approve": "{{userCode}} für {{clientName}} ({{clientVersion}}) genehmigt.",
+      "deny": "{{userCode}} für {{clientName}} ({{clientVersion}}) abgelehnt."
+    },
+    "errors": {
+      "usage": {
+        "jsonRepeated": "--json darf nur einmal angegeben werden.",
+        "unknownOption": "Unbekannte Befehlszeilenoption.",
+        "pairingCommandRequired": "Der Befehl pairing wird erwartet.",
+        "pairingOperationRequired": "Erwartet wird pairing pending, pairing approve CODE oder pairing deny CODE.",
+        "pairingCodeInvalid": "Der Kopplungscode muss acht ASCII-Zeichen enthalten und darf I, O, 0 oder 1 nicht verwenden.",
+        "portInvalid": "PORT muss eine ganze Zahl zwischen 1 und 65535 sein."
+      },
+      "credential": {
+        "tokenHeaderInvalid": "MOTRIX_OPERATOR_TOKEN kann nicht in einem HTTP-Header verwendet werden.",
+        "dataDirNotAbsolute": "MOTRIX_DATA_DIR muss ein absoluter Pfad sein.",
+        "unavailable": "Die Betreiber-Zugangsdaten sind nicht verfügbar. Setzen Sie MOTRIX_OPERATOR_TOKEN oder stellen Sie sicher, dass operator-token im Datenverzeichnis vorhanden ist.",
+        "notFile": "Der Pfad für die Betreiber-Zugangsdaten verweist nicht auf eine reguläre Datei.",
+        "unreadable": "Die Betreiber-Zugangsdaten konnten nicht gelesen werden.",
+        "invalid": "Die Datei mit den Betreiber-Zugangsdaten ist ungültig.",
+        "rejected": "Motrix hat die Betreiber-Zugangsdaten abgelehnt."
+      },
+      "server": {
+        "responseUnreadable": "Motrix hat eine nicht lesbare Antwort zurückgegeben.",
+        "responseOversized": "Motrix hat eine zu große Antwort zurückgegeben.",
+        "responseInvalidJson": "Motrix hat eine ungültige JSON-Antwort zurückgegeben.",
+        "rpcHttp": "Der Motrix-Kopplungs-RPC ist mit HTTP {{status}} fehlgeschlagen.",
+        "approvalUnavailable": "Die Kopplungsfreigabe ist auf dem laufenden Motrix-Server nicht verfügbar.",
+        "pendingResponseInvalid": "Motrix hat eine ungültige Antwort zu ausstehenden Kopplungen zurückgegeben.",
+        "decisionOutcomeUnknown": "Das Ergebnis der Kopplungsentscheidung ist unbekannt. Führen Sie pairing pending aus, bevor Sie es erneut versuchen.",
+        "decisionResponseInvalid": "Motrix hat eine ungültige Antwort zur Kopplungsentscheidung zurückgegeben.",
+        "requestNoLongerPending": "Die Kopplungsanfrage ist nicht mehr ausstehend.",
+        "noMatchingRequest": "Keine ausstehende Kopplungsanfrage passt zu {{userCode}}.",
+        "ambiguousRequest": "Mehrere ausstehende Kopplungsanfragen passen zu {{userCode}}; es wurde keine Entscheidung angewendet.",
+        "unexpected": "Unerwarteter Fehler von motrix-admin."
+      },
+      "unavailable": {
+        "loopback": "Der laufende Motrix-Server ist über die Loopback-Schnittstelle des Containers nicht erreichbar.",
+        "approvalNotReady": "Die Kopplungsfreigabe ist auf dem laufenden Motrix-Server noch nicht bereit."
+      }
+    }
+  },
+  "common": {
+    "clearSearch": "Suche leeren",
+    "download": "Herunterladen",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "close": "Schließen",
+    "loading": "Wird geladen…",
+    "name": "Name:",
+    "error": "Fehler",
+    "remove": "Entfernen",
+    "collapse": "Einklappen",
+    "apply": "Übernehmen",
+    "confirm": "Bestätigen",
+    "status": {
+      "finalizing": "Wird fertiggestellt…"
+    },
+    "reset": "Zurücksetzen",
+    "retry": "Erneut versuchen",
+    "showPassword": "Passwort anzeigen",
+    "hidePassword": "Passwort ausblenden"
+  },
+  "quit": {
+    "confirm": {
+      "message_one": "{{count}} Download ist noch aktiv.",
+      "message_other": "{{count}} Downloads sind noch aktiv.",
+      "detail": "Beim Beenden werden laufende Downloads pausiert. Möchten Sie Motrix wirklich beenden?",
+      "quitButton": "Beenden",
+      "dontAskAgain": "Nicht erneut fragen"
+    }
+  },
+  "nav": {
+    "dashboard": "Übersicht",
+    "downloads": "Downloads",
+    "completed": "Abgeschlossen",
+    "trackers": "Tracker",
+    "plugins": "Plugins",
+    "notifications": "Benachrichtigungen",
+    "settings": "Einstellungen"
+  },
+  "chrome": {
+    "minimize": "Minimieren",
+    "maximize": "Maximieren",
+    "restore": "Wiederherstellen",
+    "close": "Schließen",
+    "toggleSidebar": "Seitenleiste ein-/ausblenden",
+    "newTask": "Neue Aufgabe",
+    "sidebarTitle": "Seitenleiste",
+    "sidebarDescription": "Navigation in der Anwendung."
+  },
+  "tray": {
+    "newTask": "Neue Aufgabe",
+    "newTorrentTask": "Neue Torrent-Aufgabe",
+    "openTorrentFile": "Torrent-Datei öffnen",
+    "showMotrix": "Motrix anzeigen",
+    "manual": "Handbuch",
+    "checkUpdates": "Nach Updates suchen",
+    "preferences": "Einstellungen",
+    "quit": "Beenden"
+  },
+  "panel": {
+    "connection": {
+      "polling": "Regelmäßige Aktualisierungen",
+      "reconnecting": "Verbindung zum Server wird wiederhergestellt…",
+      "unavailable": "Server nicht erreichbar",
+      "originMismatch": "Zugriffsadresse stimmt nicht überein"
+    },
+    "dashboard": {
+      "title": "Übersicht",
+      "engine": {
+        "title": "Engine",
+        "features": "Funktionen",
+        "startFailed": "aria2-Engine konnte nicht gestartet werden",
+        "state": {
+          "ready": "Bereit",
+          "starting": "Wird gestartet…",
+          "reconnecting": "Verbindung wird wiederhergestellt…",
+          "failed": "Fehlgeschlagen",
+          "disconnected": "Getrennt",
+          "stopped": "Gestoppt"
+        },
+        "name": "Aria2",
+        "version": "Version",
+        "rpcPort": "RPC-Port",
+        "listenPort": "Empfangsport",
+        "diagnostics": {
+          "title": "Engine-Diagnose",
+          "description": "Prüfen Sie die Engine, ermitteln Sie den Prozess am RPC-Port von Motrix und nehmen Sie die Engine sicher wieder in Betrieb.",
+          "open": "Diagnose",
+          "checking": "Engine wird geprüft…",
+          "runAgain": "Erneut ausführen",
+          "loadFailed": "Die Engine-Diagnose konnte nicht ausgeführt werden.",
+          "currentStatus": "Aktueller Status",
+          "lastChecked": "Geprüft um {{time}}",
+          "checks": {
+            "binary": "Engine",
+            "features": "Funktionen",
+            "rpc": "RPC-Port",
+            "process": "Prozess",
+            "communication": "Verbindung"
+          },
+          "binary": {
+            "available": "{{name}} {{version}}",
+            "unavailable": "{{name}} fehlt oder kann nicht gestartet werden."
+          },
+          "features": {
+            "none": "Nicht gemeldet",
+            "unavailable": "Nicht verfügbar"
+          },
+          "rpc": {
+            "listening": "{{port}} (Lauscht)",
+            "available": "{{port}} (Verfügbar)",
+            "occupied": "{{port}} (Belegt)"
+          },
+          "process": {
+            "none": "Kein Portkonflikt",
+            "unidentified": "Nicht identifiziert; wird nicht beendet",
+            "current_app": "PID {{pid}} ({{name}}), von Motrix verwaltet",
+            "verified_orphan": "PID {{pid}} ({{name}}), bestätigter verwaister Motrix-Prozess; kann sicher beendet werden",
+            "external_aria2": "PID {{pid}} ({{name}}), Zugehörigkeit nicht bestätigt; wird nicht beendet",
+            "other": "PID {{pid}} ({{name}}), Zugehörigkeit nicht bestätigt; wird nicht beendet",
+            "unknown": "PID {{pid}}, nicht identifiziert; wird nicht beendet"
+          },
+          "communication": {
+            "ready": "Motrix kann mit aria2 kommunizieren."
+          },
+          "reason": {
+            "port_in_use": "Der RPC-Port von Motrix ist belegt. Daher konnte die aria2-Engine nicht gestartet werden.",
+            "binary_unavailable": "Die mitgelieferte aria2-Programmdatei fehlt oder ist nicht verfügbar.",
+            "spawn_failed": "Der aria2-Prozess konnte nicht erstellt werden.",
+            "rpc_unavailable": "Die aria2-Engine wurde gestartet, hat aber keine RPC-Verbindungen von Motrix angenommen.",
+            "unexpected_exit": "Die aria2-Engine wurde unerwartet beendet.",
+            "health_check_failed": "aria2 antwortet nicht mehr auf Motrix.",
+            "unknown": "Die aria2-Engine konnte aus einem unbekannten Grund nicht gestartet werden."
+          },
+          "recommendation": {
+            "title": "Empfohlene Wiederherstellung",
+            "retry": "Der Port ist frei. Starten Sie aria2 erneut, ohne Ihre Einstellungen zu ändern.",
+            "force_terminate": "Die Zugehörigkeit dieses Prozesses zu Motrix wurde bestätigt. Erzwingen Sie das Beenden von PID {{pid}} und starten Sie aria2 anschließend am Motrix-RPC-Port {{rpcPort}} neu.",
+            "switch_port": "Der Prozess kann nicht sicher beendet werden. Verwenden Sie Port {{port}} nur als Ausweichlösung oder beenden Sie den Prozess, der den Konflikt verursacht, selbst."
+          },
+          "technicalDetails": "Technische Details",
+          "retry": "Erneut versuchen",
+          "restart": "Engine neu starten",
+          "switchPort": "Port {{port}} verwenden",
+          "forceRecover": "Beenden erzwingen und wiederherstellen",
+          "recovered": "Die aria2-Engine ist wieder verfügbar.",
+          "recoveredOnPort": "Die aria2-Engine ist am RPC-Port {{port}} wieder verfügbar.",
+          "recoveryFailed": "Die Engine konnte nicht wieder in Betrieb genommen werden. Führen Sie die Diagnose erneut aus, um den aktuellen Status abzurufen.",
+          "fallback": {
+            "available": "Der Standardport {{port}} von Motrix ist verfügbar und kann jetzt wiederhergestellt werden.",
+            "verifiedOrphan": "Ein bestätigter verwaister aria2-Prozess von Motrix (PID {{pid}}) verwendet den Standardport {{port}}. Motrix kann ihn sicher beenden, bevor der Port wiederhergestellt wird.",
+            "blocked": "Der Standardport {{port}} wird von PID {{pid}} ({{name}}) verwendet, aber Motrix kann dessen Zugehörigkeit nicht bestätigen. Der Prozess wird nicht beendet.",
+            "unidentified": "Der Prozess am Standardport {{port}} konnte nicht identifiziert werden. Motrix verwendet weiterhin den aktuellen Port.",
+            "restore": "Motrix-Standardport {{port}} wiederherstellen",
+            "restoring": "Motrix-Standardport {{port}} wird wiederhergestellt…",
+            "restoredDefault": "Der Standard-RPC-Port {{port}} von Motrix wurde wiederhergestellt.",
+            "confirm": {
+              "title": "Verwaisten Prozess beenden und Port {{port}} wiederherstellen?",
+              "description": "PID {{pid}} wurde als verwaister aria2-Prozess von Motrix bestätigt. Er wird beendet, der Standardport {{port}} wird gespeichert und aria2 wird neu gestartet.",
+              "action": "Beenden und Port {{port}} wiederherstellen"
+            }
+          },
+          "confirmForce": {
+            "title": "Beenden des verwaisten aria2-Prozesses erzwingen?",
+            "description": "PID {{pid}} stimmt mit der mitgelieferten Programmdatei, dem privaten RPC-Schlüssel und den Datenpfaden von Motrix überein. Der Prozess wird sofort beendet. Anschließend wird aria2 am RPC-Port von Motrix neu gestartet.",
+            "action": "Beenden erzwingen und wiederherstellen"
+          },
+          "details": "Diagnosedetails",
+          "versionUnknown": "Version nicht verfügbar",
+          "copy": "Diagnose kopieren",
+          "copied": "Kopiert",
+          "copyFailed": "Die Diagnose konnte nicht kopiert werden. Bitte versuchen Sie es erneut.",
+          "refreshFailed": "Die Diagnose konnte nicht aktualisiert werden. Unten wird der zuletzt erfolgreich abgerufene Bericht angezeigt.",
+          "summary": {
+            "ready": "Die Download-Engine läuft ordnungsgemäß",
+            "starting": "Die Download-Engine wird gestartet",
+            "restarting": "Die Download-Engine wird wieder in Betrieb genommen",
+            "stopped": "Die Download-Engine ist gestoppt",
+            "port_in_use": "Der Steuerungsport der Engine ist belegt",
+            "binary_unavailable": "Die Download-Engine ist nicht verfügbar",
+            "spawn_failed": "Die Download-Engine konnte nicht gestartet werden",
+            "rpc_unavailable": "Die Steuerungsverbindung zur Engine ist nicht verfügbar",
+            "unexpected_exit": "Die Download-Engine wurde unerwartet beendet",
+            "health_check_failed": "Die Download-Engine antwortet nicht mehr",
+            "unknown": "Die Download-Engine ist nicht verfügbar"
+          },
+          "impact": {
+            "failed": "Die Download-Steuerung ist nicht verfügbar. Der Aufgabenstatus ist möglicherweise veraltet.",
+            "connecting": "Die Download-Steuerung ist verfügbar, sobald die Engine bereit ist.",
+            "stopped": "Starten Sie die Engine, um Downloads zu beginnen oder zu verwalten."
+          },
+          "runtime": {
+            "process": "Prozess",
+            "running": "Läuft",
+            "notRunning": "Läuft nicht",
+            "connection": "Verbindung",
+            "connected": "Verbunden",
+            "connecting": "Verbindung wird hergestellt…",
+            "disconnected": "Nicht verbunden",
+            "unavailable": "Nicht verfügbar",
+            "connectionStatus": "{{transport}} ({{status}})"
+          },
+          "port": {
+            "available": "{{port}} (Verfügbar)",
+            "listening": "{{port}} (Lauscht)",
+            "occupied": "{{port}} (Belegt)"
+          },
+          "motrixEngine": "aria2 Motrix",
+          "transport": {
+            "websocket": "WebSocket"
+          }
+        }
+      },
+      "speed": {
+        "up": "UPLOAD",
+        "down": "DOWNLOAD",
+        "peak": "Spitze {{value}}",
+        "offline": "offline"
+      },
+      "speedUp": {
+        "title": "Upload-Geschwindigkeit"
+      },
+      "speedDown": {
+        "title": "Download-Geschwindigkeit"
+      },
+      "active": {
+        "title": "Aktive Aufgaben",
+        "downloading": "Wird heruntergeladen",
+        "seeding": "Seeding",
+        "waiting": "Wartend",
+        "error": "Fehler",
+        "engineOffline": "Engine offline"
+      },
+      "transfer": {
+        "title": "Übertragung",
+        "rangeLabel": "Übertragungszeitraum",
+        "scope": {
+          "today": "Heute",
+          "allTime": "Gesamtzeit"
+        },
+        "download": "Download",
+        "upload": "Upload",
+        "sinceTime": "Seit {{time}}",
+        "sinceDate": "Seit {{date}}",
+        "empty": {
+          "today": "Heute wurden keine Übertragungen erfasst.",
+          "allTime": "Bisher wurden keine Übertragungen erfasst."
+        },
+        "loading": "Übertragungsdaten werden geladen",
+        "unavailable": "Übertragungsdaten nicht verfügbar",
+        "retry": "Erneut versuchen",
+        "updated": "Aktualisiert: {{time}}",
+        "outOfDate": "Die Daten sind möglicherweise veraltet",
+        "totalLabel": "Übertragungsvolumen ({{scope}}): {{value}}"
+      },
+      "activity": {
+        "title": "Aktivität",
+        "loading": "Aktivität wird geladen",
+        "unavailable": "Aktivität nicht verfügbar",
+        "retry": "Erneut versuchen",
+        "stale": "Die Aktivitätsdaten sind möglicherweise veraltet",
+        "coverageDegraded": "Die Aktivitätsdaten sind seit {{time}} möglicherweise unvollständig",
+        "rangeSummary": "Download-Aktivität über {{weeks}} Wochen, von {{start}} bis {{end}}",
+        "completedIntensity": "Die Farbintensität zeigt die Anzahl abgeschlossener Downloads",
+        "less": "Weniger",
+        "more": "Mehr",
+        "weekday": {
+          "sun": "So",
+          "mon": "Mo",
+          "tue": "Di",
+          "wed": "Mi",
+          "thu": "Do",
+          "fri": "Fr",
+          "sat": "Sa"
+        },
+        "tooltip": {
+          "completed": "{{count}} abgeschlossen",
+          "submitted": "{{count}} hinzugefügt",
+          "recovered": "Enthält einen bei der Wiederherstellung erkannten Abschluss",
+          "recoveredCount": "{{count}} wiederhergestellt",
+          "untracked": "Noch nicht erfasst",
+          "noData": "Keine Aktivitätsdaten",
+          "noDataOnDate": "Keine Aktivitätsdaten am {{date}}",
+          "completedOnDate": "{{count}} am {{date}} abgeschlossen",
+          "partial": "Erfassung seit {{time}}",
+          "partialShort": "Tag teilweise erfasst",
+          "coverage": "Die Erfassung ist seit {{time}} möglicherweise unvollständig",
+          "coverageShort": "Die Daten sind möglicherweise unvollständig",
+          "today": "Heute, wird noch aktualisiert"
+        }
+      },
+      "tasks": {
+        "title": "Aufgaben",
+        "viewLabel": "Aufgabenansicht",
+        "view": {
+          "active": "Aktiv",
+          "failed": "Fehlgeschlagen",
+          "recent": "Zuletzt"
+        },
+        "newTask": "Neue Aufgabe",
+        "more": "+{{count}} weitere",
+        "loading": "Aufgaben werden geladen",
+        "unavailable": "Aufgaben nicht verfügbar",
+        "retry": "Erneut versuchen",
+        "empty": {
+          "active": "Keine aktiven Aufgaben",
+          "failed": "Keine fehlgeschlagenen Aufgaben",
+          "recent": "Noch nichts abgeschlossen"
+        },
+        "offline": "Engine offline",
+        "metric": {
+          "fetching": "Wird abgerufen",
+          "ready": "Bereit",
+          "finalizing": "Wird fertiggestellt",
+          "queued": "In Warteschlange",
+          "paused": "Pausiert"
+        },
+        "secondary": {
+          "metadata": "Metadaten werden abgerufen",
+          "chooseFiles": "Dateiauswahl ausstehend",
+          "finalizing": "Download wird fertiggestellt",
+          "waiting": "Wartet auf Start",
+          "eta": "Restzeit {{time}}",
+          "ratio": "Verhältnis {{ratio}}",
+          "saved": "{{percent}} % gespeichert",
+          "offline": "Offline (letzter bekannter Fortschritt)",
+          "completed": "Abgeschlossen: {{time}}",
+          "failed": "Fehlgeschlagen: {{reason}}",
+          "technicalDetail": "Technisches Detail: {{detail}}"
+        },
+        "progressLabel": "Fortschritt von {{name}}"
+      },
+      "configure": {
+        "action": "Anpassen",
+        "addTile": "Hinzufügen",
+        "addTitle": "Kachel hinzufügen",
+        "apply": "Übernehmen",
+        "cancel": "Abbrechen",
+        "reset": "Zurücksetzen",
+        "drag": "Kachel verschieben",
+        "removeTile": "Kachel entfernen",
+        "resizeTile": "Kachelgröße ändern",
+        "sizeGroup": "Kachelgröße",
+        "size": "{{width}} × {{height}}",
+        "currentSize": "Aktuelle Größe: {{width}} × {{height}}",
+        "invalidCapacity": "Nicht genügend Platz für diese Größe",
+        "availabilityHints": {
+          "space": "Verkleinern oder entfernen Sie eine andere Kachel.",
+          "bounds": "Verschieben Sie die Kachel zuerst weiter nach innen.",
+          "unsupported": "Wählen Sie eine unterstützte Größe."
+        },
+        "sizeLabels": {
+          "compact": "Kompakt",
+          "wide": "Breit",
+          "tall": "Hoch",
+          "large": "Groß",
+          "fullWidth": "Volle Breite",
+          "fullHeight": "Volle Höhe"
+        },
+        "sizeUnavailable": {
+          "unsupported": "Nicht unterstützt",
+          "outOfBounds": "Passt nicht",
+          "insufficientSpace": "Nicht genügend Platz"
+        },
+        "presets": {
+          "action": "Vorlagen",
+          "custom": "Benutzerdefiniert",
+          "undo": "Letzte Vorlage rückgängig machen",
+          "balanced": {
+            "title": "Ausgewogen"
+          },
+          "taskFocus": {
+            "title": "Aufgaben im Fokus"
+          },
+          "speedFocus": {
+            "title": "Geschwindigkeit im Fokus"
+          },
+          "compact": {
+            "title": "Kompakt"
+          }
+        },
+        "saveFailed": "Das Layout konnte nicht gespeichert werden. Versuchen Sie es erneut.",
+        "expandHint": "Vergrößern Sie das Fenster, um das Layout der Übersicht anzupassen."
+      },
+      "errors": {
+        "tileFailed": "{{tile}}: Darstellung fehlgeschlagen",
+        "retry": "Erneut versuchen"
+      },
+      "speedLimit": {
+        "title": "Geschwindigkeitslimit",
+        "unlimited": "Unbegrenzt",
+        "smart": "Automatisch",
+        "settings": "Geschwindigkeitslimits einstellen",
+        "turtle": {
+          "off": "Standardmodus",
+          "on": "Langsamer Modus",
+          "auto": "Automatikmodus"
+        },
+        "tooltip": {
+          "off": "Standard-Geschwindigkeitslimits verwenden",
+          "on": "Jetzt die niedrigen Geschwindigkeitslimits verwenden",
+          "auto": "Geschwindigkeit automatisch an Zeitplan und Bandbreite anpassen"
+        },
+        "reason": {
+          "base": "Standardlimit",
+          "turtle": "Langsamer Modus",
+          "schedule": "Zeitplan",
+          "videoApp": "Video-App",
+          "adaptive": "Bandbreitenreserve"
+        }
+      },
+      "nat": {
+        "title": "NAT",
+        "compact": {
+          "state": {
+            "active": "Weitergeleitet",
+            "settingUp": "Weiterleitung",
+            "failed": "Weiterleitung",
+            "off": "Aus"
+          },
+          "caption": {
+            "active_one": "{{count}} Port",
+            "active_other": "{{count}} Ports",
+            "settingUp": "Verbindung wird hergestellt…",
+            "failed": "Nicht verfügbar",
+            "off": "BT / DHT",
+            "waiting": "Wird geladen…"
+          }
+        },
+        "internalIp": "Lokale IP",
+        "gatewayIp": "Router",
+        "caption": {
+          "off": "Die BT-Portweiterleitung ist ausgeschaltet.",
+          "settingUp": "Verbindung zum Router wird hergestellt…",
+          "failed": "Automatische Weiterleitung nicht verfügbar.",
+          "waiting": "Warten auf Netzwerkstatus…"
+        },
+        "mappingDetails": "Weitergeleitete Ports",
+        "mappingPurpose": {
+          "bt-listen": "BitTorrent",
+          "dht-listen": "DHT"
+        },
+        "portMapping": "Intern {{internal}} → extern {{external}}",
+        "noMappings": "Keine aktiven Portweiterleitungen.",
+        "state": {
+          "active": "Aktiv",
+          "settingUp": "Wird initialisiert",
+          "failed": "Fehlgeschlagen",
+          "off": "Aus"
+        },
+        "retrying": "Erneuter Versuch {{attempt}}/{{max}}",
+        "type": "Typ",
+        "externalIp": "Externe IP",
+        "mappings": "Weiterleitungen",
+        "mappingsValue_one": "{{count}} aktiv",
+        "mappingsValue_other": "{{count}} aktiv",
+        "health": "Zustand",
+        "healthScore": {
+          "good": "Gut",
+          "fair": "Mittelmäßig",
+          "poor": "Schlecht",
+          "unknown": "—"
+        },
+        "natType": {
+          "open": "Offen",
+          "fullcone": "Full Cone",
+          "restricted": "Eingeschränkt",
+          "port-restricted": "Porteingeschränkt",
+          "symmetric": "Symmetrisch",
+          "blocked": "Blockiert",
+          "unknown": "Unbekannt"
+        },
+        "lastCheck": "Letzte Prüfung",
+        "lastCheckNever": "Nie",
+        "actions": {
+          "group": "NAT-Steuerung",
+          "enable": "NAT aktivieren",
+          "disable": "NAT deaktivieren",
+          "remap": "Neue Weiterleitung erzwingen",
+          "diagnose": "Diagnose ausführen",
+          "troubleshoot": "Anleitung zur NAT-Fehlerbehebung",
+          "short": {
+            "enable": "Aktivieren",
+            "disable": "Deaktivieren",
+            "remap": "Neu weiterleiten",
+            "diagnose": "Diagnose",
+            "help": "Hilfe"
+          },
+          "settings": "NAT-Einstellungen"
+        },
+        "rateLimited": "Zu häufig – versuchen Sie es in Kürze erneut",
+        "none": "—"
+      }
+    },
+    "completed": {
+      "title": "Abgeschlossen",
+      "desc": "Abgeschlossene Download-Aufgaben"
+    },
+    "trackers": {
+      "title": "Tracker",
+      "desc": "Tracker-Zustand und Abonnements verwalten",
+      "tab": {
+        "effective": "Wirksam",
+        "blacklist": "Sperrliste"
+      },
+      "searchPlaceholder": "Nach URL filtern…",
+      "syncNow": "Jetzt synchronisieren"
+    },
+    "downloads": {
+      "title": "Downloads",
+      "status": {
+        "queued": "In Warteschlange",
+        "fetchingMetadata": "Wird abgerufen",
+        "metadataReady": "Dateiauswahl ausstehend",
+        "downloading": "Wird heruntergeladen",
+        "finalizing": "Wird fertiggestellt",
+        "seeding": "Seeding",
+        "paused": "Pausiert",
+        "completed": "Abgeschlossen",
+        "error": "Fehler"
+      },
+      "column": {
+        "name": "Name",
+        "size": "Größe",
+        "progress": "Fortschritt",
+        "down": "Download-Geschwindigkeit",
+        "up": "Upload-Geschwindigkeit",
+        "eta": "Restzeit",
+        "connections": "Peers",
+        "status": "Status",
+        "createdAt": "Erstellt am",
+        "finishedAt": "Abgeschlossen am"
+      },
+      "columnHeader": {
+        "down": "Download",
+        "up": "Upload"
+      },
+      "timestamp": {
+        "notRecorded": "Nicht erfasst",
+        "notCompleted": "Noch nicht abgeschlossen",
+        "relativeDateTime": "{{date}}, {{time}}"
+      },
+      "sort": {
+        "down": "Download-Geschwindigkeit",
+        "up": "Upload-Geschwindigkeit",
+        "asc": "{{column}}: aufsteigend",
+        "desc": "{{column}}: absteigend",
+        "sortAscending": "{{column}} aufsteigend sortieren",
+        "sortDescending": "{{column}} absteigend sortieren",
+        "reset": "Standardreihenfolge wiederherstellen"
+      },
+      "empty": {
+        "noTasks": "Noch keine Downloads",
+        "noTasksCta": "Mit + einen Download hinzufügen",
+        "noMatchFilter": "Keine Aufgaben entsprechen diesem Filter",
+        "noMatchSearch": "Keine Aufgaben entsprechen „{{query}}“",
+        "clearSearch": "Suche leeren",
+        "unavailable": "Aufgaben nicht verfügbar",
+        "motion": {
+          "open": "Glasanimation anpassen",
+          "title": "Glasanimation",
+          "description": "Entwicklungsvorschau",
+          "enabled": "Bewegungseffekte",
+          "enabledDesc": "Mit Darstellung → Bewegung reduzieren synchronisiert. Änderungen werden sofort gespeichert.",
+          "systemReducedMotion": "Die Systemeinstellung „Bewegung reduzieren“ deaktiviert die Animationen.",
+          "saveFailed": "Die Bewegungseinstellung konnte nicht gespeichert werden. Versuchen Sie es erneut.",
+          "loadFade": "Einblenden beim Laden",
+          "breathing": "Pulsierendes Licht",
+          "pointerFollow": "Mauszeiger folgen",
+          "positionConstraint": "Bewegungsgrenze bei Schwerkraft",
+          "horizontalSpeed": "Horizontale Geschwindigkeit"
+        }
+      },
+      "stats": {
+        "downSpeed": "Download-Geschwindigkeit",
+        "upSpeed": "Upload-Geschwindigkeit",
+        "engineOk": "Engine bereit",
+        "engineStarting": "Engine wird gestartet",
+        "engineOffline": "Engine offline",
+        "natActive": "NAT-Weiterleitung aktiv",
+        "natActiveDesc": "Erleichtert anderen BT-Peers, eine Verbindung zu Ihnen herzustellen.",
+        "natSettingUp": "NAT-Weiterleitung",
+        "natRetrying": "Automatische Wiederholungen ({{attempt}}/{{max}})",
+        "natMapping": "NAT-Weiterleitung",
+        "natUnavailable": "Automatische Weiterleitung nicht verfügbar",
+        "natUnavailableDesc": "Downloads über Links sind nicht betroffen. BT-Verbindungen können eingeschränkt sein.",
+        "natRetry": "Erneut versuchen",
+        "natDisable": "NAT-Weiterleitung ausschalten",
+        "natSettings": "Netzwerkeinstellungen",
+        "natHelp": "Netzwerkanleitung"
+      },
+      "tab": {
+        "all": "Alle",
+        "active": "Aktiv",
+        "completed": "Abgeschlossen",
+        "error": "Fehler"
+      },
+      "inspector": {
+        "overview": {
+          "transfer": "Übertragung",
+          "progress": "Fortschritt",
+          "network": "Netzwerk",
+          "general": "Allgemein",
+          "createdAt": "Erstellt",
+          "finishedAt": "Abgeschlossen",
+          "downSpeed": "Download-Geschwindigkeit",
+          "upSpeed": "Upload-Geschwindigkeit",
+          "eta": "Restzeit",
+          "downloaded": "Heruntergeladen",
+          "totalSize": "Gesamtgröße",
+          "percent": "Prozent",
+          "peers": "Peers",
+          "seeds": "Seeder",
+          "ratio": "Verhältnis",
+          "type": "Typ",
+          "infoHash": "Info-Hash",
+          "private": "Privat",
+          "connections": "Verbindungen",
+          "uploaded": "Hochgeladen",
+          "seedingTime": "Seeding-Dauer",
+          "seedingRecordedSince": "Erfasst seit {{date}}. Pausen und Offline-Zeiten sind ausgeschlossen; frühere Seeding-Daten sind nicht verfügbar.",
+          "seedingUnavailable": "Für diese Aufgabe wurde keine Seeding-Dauer erfasst."
+        },
+        "activity": {
+          "transferTitle": {
+            "session": "Übertragung dieser Sitzung",
+            "lifetime": "Gesamte Übertragung"
+          },
+          "download": "Download",
+          "upload": "Upload",
+          "loading": "Aktivität wird geladen…",
+          "collecting": "Übertragungsdaten werden erfasst…",
+          "noSessionHistory": "In dieser App-Sitzung wurden keine Übertragungen erfasst.",
+          "lifetimeEmpty": "Der Gesamtverlauf ist noch nicht verfügbar.",
+          "noTraffic": "Derzeit kein Netzwerkverkehr.",
+          "unavailable": "Die Gesamtaktivität ist nicht verfügbar.",
+          "coverageGap": "Die Erfassung wurde unterbrochen.",
+          "retry": "Erneut versuchen",
+          "notAvailable": "Nicht verfügbar",
+          "stale": {
+            "short": "Veraltete Daten.",
+            "message": "Die Daten sind möglicherweise veraltet. Zuletzt aktualisiert: {{time}}."
+          },
+          "range": {
+            "label": "Übertragungszeitraum",
+            "session": "Sitzung (60 s)",
+            "lifetime": "Gesamtzeit",
+            "latest": "Letzte 60 Sekunden",
+            "adaptive_one": "Adaptive Auflösung · {{count}} Messwert",
+            "adaptive_other": "Adaptive Auflösung · {{count}} Messwerte"
+          },
+          "timeline": {
+            "title": "Aufgabenverlauf",
+            "current": "Jetzt: {{status}}",
+            "cluster_one": "+{{count}} Ereignis",
+            "cluster_other": "+{{count}} Ereignisse",
+            "repeated": "{{label}} ×{{count}}",
+            "truncated_one": "Früherer Verlauf um {{count}} Ereignis gekürzt",
+            "truncated_other": "Früherer Verlauf um {{count}} Ereignisse gekürzt",
+            "truncatedAt": "Früheste Kürzung: {{time}}",
+            "timeRange": "{{start}}–{{end}}",
+            "detailTitle": "Details zu {{label}}",
+            "destination": "{{event}} {{status}}",
+            "previous": "Vorherige Ereignisse im Zeitverlauf anzeigen",
+            "next": "Nächste Ereignisse im Zeitverlauf anzeigen",
+            "event": {
+              "added": "Hinzugefügt",
+              "started": "Gestartet",
+              "paused": "Pausiert",
+              "resumed": "Fortgesetzt",
+              "stage_changed": "Phase geändert",
+              "completed": "Abgeschlossen",
+              "failed": "Fehlgeschlagen",
+              "observed_state": "Status wiederhergestellt"
+            },
+            "status": {
+              "queued": "In Warteschlange",
+              "fetching_metadata": "Metadaten werden abgerufen",
+              "metadata_ready": "Metadaten bereit",
+              "downloading": "Wird heruntergeladen",
+              "finalizing": "Wird fertiggestellt",
+              "seeding": "Seeding",
+              "paused": "Pausiert",
+              "completed": "Abgeschlossen",
+              "error": "Fehlgeschlagen",
+              "removed": "Entfernt"
+            }
+          },
+          "summary": {
+            "title": "Aktuelle Zusammenfassung",
+            "average": "Durchschnitt",
+            "averageExpanded": "Durchschnittliche Download-Geschwindigkeit",
+            "peak": "Spitze",
+            "peakExpanded": "Maximale Download-Geschwindigkeit",
+            "active": "Aktiv",
+            "activeExpanded": "Aktive Übertragungszeit"
+          },
+          "chart": {
+            "accessibleSummary": "{{range}} von {{start}} bis {{end}}. Aktueller Download {{download}}, Upload {{upload}}. Über die Gesamtzeit: durchschnittlicher Download {{average}}, maximaler Download {{peak}}, aktiv {{activeDuration}}. {{sampleLabel}}. {{state}}",
+            "activeSeconds_one": "{{count}} Sekunde",
+            "activeSeconds_other": "{{count}} Sekunden",
+            "sampleCount_one": "{{count}} Messwert",
+            "sampleCount_other": "{{count}} Messwerte",
+            "noDataQualityIssues": "Keine Warnungen zur Erfassung."
+          }
+        },
+        "pieces": {
+          "mapLabel": "Übersicht der Download-Blöcke",
+          "legend": {
+            "done": "Abgeschlossen",
+            "active": "Wird heruntergeladen",
+            "endgame": "Endphase",
+            "pending": "Ausstehend"
+          },
+          "empty": "Keine Blockdaten",
+          "pieceLength": "Blockgröße",
+          "totalPieces": "Blöcke insgesamt"
+        },
+        "peers": {
+          "summary_one": "{{count}} Peer ({{seeders}} Seeder)",
+          "summary_other": "{{count}} Peers ({{seeders}} Seeder)",
+          "empty": "Keine Peers verbunden",
+          "col": {
+            "country": "Land",
+            "endpoint": "IP : Port",
+            "client": "Client",
+            "down": "↓",
+            "up": "↑",
+            "progress": "%",
+            "flags": "Flags",
+            "flagsHint": "D = Peer sendet an uns, U = wir senden an den Peer, S = Peer ist ein Seeder. Ein Unterstrich bedeutet inaktiv."
+          }
+        },
+        "trackers": {
+          "summary_one": "{{count}} Tracker",
+          "summary_other": "{{count}} Tracker",
+          "driftSuffix_one": "{{count}} nicht in der globalen Liste",
+          "driftSuffix_other": "{{count}} nicht in der globalen Liste",
+          "privateBanner": "Privater Torrent – globale Tracker werden nicht hinzugefügt.",
+          "empty": "Keine Tracker",
+          "loadFailed": "Tracker konnten nicht geladen werden: {{reason}}",
+          "action": {
+            "edit": "Bearbeiten",
+            "save": "Speichern",
+            "cancel": "Abbrechen",
+            "sync": "Synchronisieren",
+            "delete": "Tracker löschen"
+          },
+          "syncPrivateDisabled": "Die Synchronisierung ist für private Torrents nicht verfügbar.",
+          "saveFailed": "Tracker konnten nicht aktualisiert werden: {{reason}}",
+          "syncFailed": "Tracker konnten nicht synchronisiert werden: {{reason}}",
+          "deleteFailed": "Tracker konnte nicht entfernt werden: {{reason}}",
+          "invalidLines_one": "{{count}} ungültige Zeile übersprungen",
+          "invalidLines_other": "{{count}} ungültige Zeilen übersprungen",
+          "editPlaceholder": "Eine Tracker-URL pro Zeile. Nur http(s)/udp/ws(s).",
+          "editHint": "Diese Tracker ersetzen die wirksame bt-tracker-Liste der Aufgabe. Einträge der announce-list aus der .torrent-Datei bleiben unverändert."
+        },
+        "multi": {
+          "totals": "Gesamtwerte",
+          "liveSpeed": "Aktuelle Geschwindigkeit",
+          "statusDist": "Statusverteilung",
+          "totalSize": "Gesamtgröße",
+          "downloaded": "Heruntergeladen",
+          "avgProgress": "Ø Fortschritt",
+          "combinedDown": "Gesamt ↓",
+          "combinedUp": "Gesamt ↑",
+          "longestEta": "Längste Restzeit"
+        },
+        "tab": {
+          "overview": "Übersicht",
+          "files": "Dateien",
+          "pieces": "Blöcke",
+          "peers": "Peers",
+          "trackers": "Tracker",
+          "activity": "Aktivität"
+        },
+        "placeholder": {
+          "files": "Dateiliste.",
+          "peers": "Peer-Liste.",
+          "trackers": "Tracker-Liste."
+        }
+      },
+      "action": {
+        "pause": "Pausieren",
+        "queueMoveFailed": "Die Warteschlange konnte nicht aktualisiert werden.",
+        "queueTaskStarted": "Die Aufgabe befindet sich nicht mehr in der Warteschlange.",
+        "queueMoveHint": "Die Position in der Warteschlange bestimmt, welcher wartende Download als Nächstes startet. Die Spaltensortierung wird separat gespeichert.",
+        "queueBoundary": "Die Auswahl befindet sich bereits am Ende oder Anfang der Warteschlange",
+        "queueMoved": "Warteschlange aktualisiert",
+        "moveQueueDown": "In Warteschlange nach unten",
+        "moveQueueUp": "In Warteschlange nach oben",
+        "resume": "Fortsetzen",
+        "retry": "Erneut versuchen",
+        "openFolder": "Ordner öffnen",
+        "copyUrl": "URL kopieren",
+        "copyUrls": "URLs kopieren",
+        "copyPath": "Dateipfad kopieren",
+        "copied": "In die Zwischenablage kopiert",
+        "copyFailed": "Kopieren in die Zwischenablage fehlgeschlagen. Versuchen Sie es erneut.",
+        "selectFilesFailed": "Die Dateiauswahl konnte nicht geöffnet werden.",
+        "copyUrlFailed": "Kopieren fehlgeschlagen: Die Linkdetails der Aufgabe konnten nicht geladen werden. Versuchen Sie es erneut.",
+        "selectFiles": "Dateien auswählen",
+        "remove": "Entfernen",
+        "removeConfirmWithFiles": "Auch die heruntergeladenen Dateien vom Datenträger löschen",
+        "cancel": "Abbrechen",
+        "batchPartial": "{{ok}} erfolgreich, {{failed}} fehlgeschlagen",
+        "singleTaskFailed": "{{name}}: {{reason}}",
+        "stopSeeding": "Seeding stoppen",
+        "reseed": "Erneut seeden",
+        "retryWithDialog": "Mit Optionen erneut versuchen… (Alt+Klick)",
+        "finalizingTooltip": "Die Aufgabe wird fertiggestellt. Bitte warten Sie.",
+        "pauseTooltipBatch": "{{n}} von {{total}} ausgewählten Aufgaben pausieren",
+        "resumeTooltipBatch": "{{n}} von {{total}} ausgewählten Aufgaben fortsetzen",
+        "retryTooltipBatch": "{{n}} von {{total}} ausgewählten Aufgaben erneut versuchen",
+        "reseedTooltipBatch": "{{n}} von {{total}} ausgewählten Aufgaben erneut seeden",
+        "stopSeedingTooltipBatch": "Seeding bei {{n}} von {{total}} ausgewählten Aufgaben stoppen",
+        "removeTooltipBatch": "{{n}} von {{total}} ausgewählten Aufgaben entfernen",
+        "removeWithFilesShift": "Umschalttaste gedrückt halten, um auch Dateien zu löschen",
+        "removeFilesEstimate": "{{bytes}} werden vom Datenträger gelöscht",
+        "removeSingleTitle": "„{{name}}“ entfernen?",
+        "removeAll_paused_Title": "{{count}} pausierte Aufgaben entfernen?",
+        "removeAll_seeding_Title": "{{count}} Seeding-Aufgaben entfernen?",
+        "removeAll_completed_Title": "{{count}} abgeschlossene Aufgaben entfernen?",
+        "removeAll_error_Title": "{{count}} fehlgeschlagene Aufgaben entfernen?",
+        "removeAll_downloading_Title": "{{count}} aktive Aufgaben entfernen?",
+        "removeMixedTitle": "{{count}} Aufgaben entfernen?",
+        "openFile": "Datei öffnen",
+        "openFileFailed": "Die Datei konnte nicht geöffnet werden",
+        "chooseFiles": "Dateien auswählen…",
+        "queueOrder": "Download-Reihenfolge",
+        "moveQueueTop": "An den Anfang",
+        "moveQueueBottom": "Ans Ende",
+        "copyError": "Fehlerinformationen kopieren",
+        "errorReport": "{{name}}\nAufgaben-ID: {{id}}\n{{details}}"
+      },
+      "titleCount": "{{shown}} angezeigt · {{total}} insgesamt",
+      "type": {
+        "http": "HTTP",
+        "magnet": "Magnet",
+        "bt": "BitTorrent",
+        "ftp": "FTP",
+        "metalink": "Metalink"
+      },
+      "search": {
+        "placeholder": "Downloads durchsuchen",
+        "activeTypeFilters": "Typfilter: {{types}}",
+        "filters": "Filter",
+        "resetFilters": "Filter zurücksetzen",
+        "clearQuery": "Suche leeren",
+        "activeQuery": "Suche: {{query}}",
+        "scopeLabel": "Typ",
+        "clear": "Leeren",
+        "empty": "Keine passenden Aufgaben",
+        "emptyHint": "Entfernen Sie den Typfilter oder versuchen Sie einen anderen Suchbegriff"
+      },
+      "stale": {
+        "banner": "Die Aufgabenliste ist möglicherweise veraltet – Verbindung wird wiederhergestellt…"
+      },
+      "view": {
+        "title": "Listenansicht",
+        "columns": "Spalten",
+        "resetColumns": "Standardspalten wiederherstellen",
+        "sortBy": "Sortieren nach",
+        "ascending": "Aufsteigend",
+        "descending": "Absteigend",
+        "showInspector": "Detailbereich anzeigen",
+        "hideInspector": "Detailbereich ausblenden",
+        "inspector": "Aufgabendetails",
+        "resizeInspector": "Größe des Detailbereichs ändern",
+        "selectToInspect": "Wählen Sie eine Aufgabe aus, um ihre Details anzuzeigen.",
+        "resizeColumn": "Breite der Spalte {{column}} ändern",
+        "taskActions": "Mehr"
+      },
+      "speedLimit": {
+        "title": "Geschwindigkeitsmodus",
+        "currentMode": "Geschwindigkeitsmodus: {{mode}}",
+        "uploadLimit": "Upload-Limit: {{speed}}",
+        "downloadLimit": "Download-Limit: {{speed}}",
+        "saveFailed": "Der Geschwindigkeitsmodus konnte nicht geändert werden. Versuchen Sie es erneut."
+      },
+      "media": {
+        "preparing": "Wird vorbereitet",
+        "decrypting": "Wird entschlüsselt",
+        "assembling": "Wird zusammengesetzt",
+        "muxing": "Wird zusammengeführt",
+        "renaming": "Wird gespeichert",
+        "stage": "Phase",
+        "downloadProgress": "Download-Fortschritt",
+        "muxProgress": "Fortschritt der Zusammenführung",
+        "parts": "Segmente",
+        "partsFormat": "{{completed}} / {{total}} Segmente",
+        "downloadSize": "Download-Größe",
+        "outputSize": "Ausgabegröße",
+        "downloadEta": "Download-Restzeit",
+        "avgDownloadProgress": "Durchschnittlicher Download-Fortschritt",
+        "processingTasks": "In Verarbeitung"
+      }
+    }
+  },
+  "task": {
+    "add": {
+      "title": "Neue Aufgabe",
+      "links": "Links",
+      "torrent": "Torrent",
+      "urlPlaceholder": "URL, Magnet-Link oder BT-Info-Hash eingeben…",
+      "dropTorrent": ".torrent-Datei hier ablegen oder zum Auswählen klicken",
+      "clearSelection": "Auswahl aufheben",
+      "createFailed": "Die Download-Aufgabe konnte nicht erstellt werden.",
+      "createFailedWithReason": "Die Download-Aufgabe konnte nicht erstellt werden: {{reason}}",
+      "createFailedByPlugin": "Die Aufgabe konnte nicht erstellt werden: Das Plugin „{{pluginId}}“ hat sie gestoppt ({{detail}}). Deaktivieren Sie dieses Plugin unter Einstellungen → Plugins und versuchen Sie es erneut.",
+      "createFailedPathTooLong": "Die Aufgabe konnte nicht erstellt werden: Der Zielpfad ist {{length}} Zeichen lang und überschreitet das Windows-Limit von {{limit}}. Wählen Sie einen kürzeren Speicherpfad oder Dateinamen.",
+      "parseFailed": "Die Torrent-Datei konnte nicht eingelesen werden.",
+      "urlsCount_one": "{{count}} URL",
+      "urlsCount_other": "{{count}} URLs",
+      "urlsWithInvalid": "{{valid}} gültig, {{invalid}} ungültig",
+      "validUrlCount": "{{count}} gültig",
+      "invalidUrlCount": "{{count}} ungültig",
+      "urlsLabel": "URLs",
+      "advanced": "Erweitert",
+      "filename": "Dateiname",
+      "filenameAuto": "Automatisch",
+      "split": "Verbindungen",
+      "userAgent": "User-Agent",
+      "referer": "Referer",
+      "cookie": "Cookie",
+      "authorization": "Authorization",
+      "allProxy": "Proxy",
+      "dlLimit": "Download-Limit",
+      "ulLimit": "Upload-Limit",
+      "seedRatio": "Seeding-Verhältnis",
+      "unlimited": "Unbegrenzt",
+      "browse": "Durchsuchen",
+      "pickPathTitle": "Speicherordner auswählen",
+      "pickPathCustom": "Eigener Pfad",
+      "saveTo": "Speichern unter",
+      "saveDirEmpty": "Ordner auswählen…",
+      "changeSaveDir": "Speicherordner ändern",
+      "created": "Aufgabe hinzugefügt",
+      "batchCreated": "{{count}} Aufgaben hinzugefügt",
+      "createdCopy": "Separate Kopie hinzugefügt",
+      "createdPartial": "{{ok}} hinzugefügt · {{failed}} fehlgeschlagen",
+      "torrentQueueProgress": "Torrent {{current}} von {{total}}",
+      "downloadAndContinue": "Herunterladen und fortfahren",
+      "downloadAllTorrents": "Alle herunterladen ({{count}})",
+      "skipTorrent": "Überspringen",
+      "queueAdvanceFailed": "Der nächste Torrent konnte nicht geöffnet werden.",
+      "duplicate": {
+        "title": "Dieser Torrent ist bereits vorhanden",
+        "active-info-hash": "{{name}} ist bereits aktiv. aria2 kann denselben Torrent-Inhalt nicht zweimal gleichzeitig verarbeiten.",
+        "selection-mismatch": "{{name}} verwendet denselben Zielordner mit einer anderen Dateiauswahl. Motrix überschreibt diese Dateien nicht und erstellt auch keine umbenannte Kopie ohne Rückfrage.",
+        "existing-files": "{{name}} ist in diesem Zielordner bereits vorhanden, aber der Aufgabeneintrag ist nicht verfügbar. Motrix überschreibt die vorhandenen Dateien nicht.",
+        "filesOnDisk": "Torrent-Dateien",
+        "showExisting": "Vorhandene Aufgabe anzeigen",
+        "createCopy": "Separate Kopie erstellen"
+      },
+      "adding": "Wird hinzugefügt…",
+      "interpretedMagnet": "Magnet-Link erkannt",
+      "interpretedInfoHash": "BT-Info-Hash in einen Magnet-Link umgewandelt",
+      "unsupportedCurl": "Dieser cURL-Befehl lässt sich nicht unverändert importieren. Kopieren Sie die URL oder einen Bash-GET-Befehl mit unterstützten Optionen.",
+      "invalidJson": "Erwartet wird eine JSON-Zeichenfolge mit einer URL oder ein Array solcher Zeichenfolgen.",
+      "interpretedJson": "URLs aus JSON importiert",
+      "sourceLine": "Zeile {{line}}",
+      "sourceCorrections": {
+        "useCanonicalUrl": "Diese aufgelöste URL verwenden",
+        "usePathSeparators": "Umgekehrte Schrägstriche als Pfadtrenner behandeln",
+        "encodeLiteralCharacters": "Als wörtliche Zeichen kodieren"
+      },
+      "sourceErrors": {
+        "missingScheme": "Geben Sie das URL-Schema an, zum Beispiel https://.",
+        "invalidHost": "Der Host der URL fehlt oder ist ungültig.",
+        "invalidPort": "Der Port der URL ist ungültig.",
+        "controlCharacter": "Entfernen Sie Steuerzeichen aus der URL.",
+        "invalidUnicode": "Die URL enthält ungültige Unicode-Zeichen.",
+        "ambiguousBackslash": "Ein umgekehrter Schrägstrich macht den Host oder Pfad mehrdeutig. Wählen Sie aus, wie er interpretiert werden soll.",
+        "invalidPercentEncoding": "Auf ein Prozentzeichen müssen zwei hexadezimale Ziffern folgen.",
+        "credentialsInUrl": "Verwenden Sie die Authentifizierungsfelder, statt Zugangsdaten in die URL einzutragen.",
+        "unsupportedProtocol": "Dieses URL-Protokoll wird für diesen Download nicht unterstützt.",
+        "urlTooLong": "Die URL überschreitet das Limit von 16 KiB.",
+        "tooManySources": "Die Eingabe überschreitet die zulässige Anzahl oder Größe der Links.",
+        "ambiguousStructure": "Beim Einlesen würde diese Adresse geändert. Prüfen Sie die aufgelöste URL.",
+        "unescapedCharacter": "Kodieren Sie Leerzeichen und reservierte Zeichen ausdrücklich.",
+        "invalidMagnet": "Der Magnet-Link benötigt einen unterstützten BT-Info-Hash im Parameter xt.",
+        "mixedProtocols": "Alternative Quellen für einen Download müssen dieselbe Protokollfamilie verwenden.",
+        "unsupportedInput": "Dieses Eingabeformat wurde nicht importiert. Fügen Sie eine URL oder eine unterstützte JSON- oder Bash-cURL-Eingabe ein.",
+        "unsupportedRequestOptions": "HTTP-Header können nicht auf einen FTP-Download angewendet werden."
+      },
+      "interpretedCurl": "cURL-Befehl eingelesen",
+      "filterBy": {
+        "video": "Video",
+        "audio": "Audio",
+        "image": "Bild",
+        "doc": "Dokument"
+      },
+      "errors": {
+        "urlsRequired": "Mindestens eine URL ist erforderlich",
+        "saveDirRequired": "Ein Speicherordner ist erforderlich",
+        "noFilesSelected": "Wählen Sie mindestens eine Datei aus",
+        "missingSource": "Eine Torrent-Datei oder ein Magnet-Link ist erforderlich"
+      },
+      "selectionTimeout": {
+        "started": "Zeit für die Dateiauswahl abgelaufen: Alle Dateien von {{name}} werden heruntergeladen",
+        "failed": "{{name}} konnte nicht automatisch gestartet werden. Öffnen Sie die Aufgabendetails, um Dateien auszuwählen, und versuchen Sie es erneut."
+      },
+      "undoCorrection": "URL-Korrektur rückgängig machen",
+      "submissionUnconfirmed": "Das Ergebnis ist nicht bestätigt. Ein erneuter Versuch prüft die ursprüngliche Anfrage, bevor eine weitere Aufgabe erstellt wird."
+    },
+    "detail": {
+      "peers": "Peers: {{count}}",
+      "seeds": "Seeder: {{count}}"
+    },
+    "torrent": {
+      "column": {
+        "name": "Dateiname",
+        "type": "Dateityp",
+        "size": "Größe"
+      },
+      "fileSelected_one": "{{count}} Datei ausgewählt",
+      "fileSelected_other": "{{count}} Dateien ausgewählt",
+      "selectAll": "Alle auswählen",
+      "video": "Video",
+      "audio": "Audio",
+      "image": "Bild",
+      "doc": "Dokument"
+    },
+    "remove": {
+      "title": "Aufgabe entfernen?",
+      "description": "„{{name}}“ wird aus der Download-Liste entfernt.",
+      "deleteFilesLabel": "Heruntergeladene Dateien löschen",
+      "confirm": "Entfernen",
+      "cancel": "Abbrechen",
+      "orphanToast": "Aufgabe entfernt. Die Dateien bleiben unter {{path}} erhalten.",
+      "notAvailableDuringFinalize": "Bitte warten Sie, bis die Aufgabe fertiggestellt ist."
+    },
+    "recovery": {
+      "toast": "Unterbrochene Aufgaben wiederhergestellt: {{count}}. Zum Prüfen klicken.",
+      "finalizeRenameFailed": "Die Datei konnte nicht umbenannt werden. Die heruntergeladene Datei behält die Endung .motrix.",
+      "reseedFailed": "Download abgeschlossen, aber das Seeding konnte nicht gestartet werden.",
+      "metaMissing": "Torrent-Metadaten fehlen. Seeding kann nicht gestartet werden.",
+      "startup": {
+        "torrentMetaMissing": "Diese BitTorrent-Aufgabe kann nicht wiederhergestellt werden: Die .torrent-Metadatendatei fehlt. Entfernen Sie die Aufgabe und fügen Sie sie erneut hinzu.",
+        "reAddFailed": "Diese Aufgabe kann nicht wiederhergestellt werden: Die Engine hat die Anfrage zum erneuten Hinzufügen abgelehnt. Entfernen Sie die Aufgabe und fügen Sie sie manuell erneut hinzu.",
+        "dirtyMetadata": "Diese Aufgabe kann nicht wiederhergestellt werden: Die zur Fortsetzung erforderlichen Identifikationsdaten fehlen.",
+        "resumeCheckpointMissing": "Die unvollständige Datei wurde beibehalten, aber der Wiederaufnahmepunkt fehlt. Starten Sie den Download sicher von vorn oder fügen Sie die Aufgabe erneut hinzu.",
+        "resumeCredentialsRequired": "Die unvollständige Datei wurde beibehalten, aber für diesen Download sind Zugangsdaten erforderlich, die nicht automatisch erneut übermittelt werden können.",
+        "resumePathInvalid": "Die unvollständige Datei wurde beibehalten, weil der gespeicherte Zielpfad ungültig ist.",
+        "resumeSourceChanged": "Die unvollständige Datei wurde beibehalten, weil die Datei auf dem Server seit Beginn des Downloads geändert wurde.",
+        "resumeRangeUnsupported": "Die unvollständige Datei wurde beibehalten, weil der Server keine sichere Fortsetzung über Bereichsanfragen unterstützt.",
+        "resumeValidationFailed": "Die unvollständige Datei wurde beibehalten, weil Motrix nicht bestätigen konnte, dass die Datei auf dem Server unverändert ist.",
+        "mediaInterrupted": "Dieser Mediendownload wurde durch einen Neustart der Anwendung unterbrochen und kann nicht fortgesetzt werden. Fügen Sie ihn erneut hinzu, um es noch einmal zu versuchen."
+      }
+    },
+    "error": {
+      "detail": {
+        "finalizeFailed": "Der Download konnte nicht fertiggestellt werden: {{cause}}",
+        "recoveryFailed": "Der Download konnte nicht wiederhergestellt werden: {{cause}}",
+        "recoveryOutputConflict": "Sowohl die temporäre als auch die endgültige Datei sind vorhanden; beide wurden zur manuellen Prüfung beibehalten",
+        "filesMissing": "Nach dem Neustart der Anwendung fehlen Dateien",
+        "renameFileFailed": "Die Datei konnte nicht umbenannt werden: {{cause}}",
+        "renameDirFailed": "Der Ordner konnte nicht umbenannt werden: {{cause}}",
+        "pluginChainAborted": "Plugin-Kette abgebrochen: {{cause}}",
+        "magnetCleanupQuarantined": "Die Bereinigung der Magnet-Metadaten wurde isoliert und gesperrt",
+        "muxFailed": "Die heruntergeladenen Medien konnten nicht zusammengeführt werden",
+        "pathTooLong": "Der Pfad ist {{length}} Zeichen lang; Windows erlaubt {{limit}}"
+      },
+      "reason": {
+        "unknown": "Download fehlgeschlagen",
+        "notFound": "Datei nicht gefunden",
+        "unauthorized": "Autorisierung erforderlich",
+        "networkError": "Netzwerkverbindung fehlgeschlagen",
+        "timeout": "Zeitüberschreitung beim Download",
+        "diskFull": "Datenträger voll",
+        "fileWriteError": "Die Datei konnte nicht geschrieben werden",
+        "pathTooLong": "Der Dateipfad ist für Windows zu lang",
+        "checksumMismatch": "Die Prüfsumme der Datei stimmt nicht überein",
+        "tooManyRedirects": "Zu viele Weiterleitungen",
+        "serverError": "Der Server hat einen Fehler zurückgegeben",
+        "btMetadataFailed": "Die Torrent-Metadaten konnten nicht abgerufen werden",
+        "btTrackerError": "Verbindung zum Tracker fehlgeschlagen",
+        "generic": "Download fehlgeschlagen"
+      },
+      "hint": {
+        "diskFull": "Geben Sie Speicherplatz frei oder ändern Sie den Speicherordner und versuchen Sie es erneut",
+        "unauthorized": "Prüfen Sie Ihre Zugangsdaten oder Zugriffsberechtigungen und versuchen Sie es erneut",
+        "networkError": "Prüfen Sie Ihre Netzwerkverbindung und versuchen Sie es erneut",
+        "timeout": "Prüfen Sie die Geschwindigkeit und Stabilität Ihrer Verbindung und versuchen Sie es erneut",
+        "fileWriteError": "Prüfen Sie die Ordnerberechtigungen und den freien Speicherplatz und versuchen Sie es erneut",
+        "pathTooLong": "Verkürzen Sie den Speicherpfad oder Dateinamen und versuchen Sie es erneut",
+        "checksumMismatch": "Die heruntergeladene Datei ist möglicherweise beschädigt. Laden Sie sie zur Überprüfung erneut herunter",
+        "tooManyRedirects": "Der Quelllink ist möglicherweise ungültig. Versuchen Sie einen anderen Link",
+        "btMetadataFailed": "Prüfen Sie den Magnet-Link oder fügen Sie weitere Tracker hinzu und versuchen Sie es erneut"
+      }
+    }
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "desc": "Motrix konfigurieren",
+    "cards": {
+      "general": {
+        "title": "Allgemein",
+        "desc": "Startverhalten, Standardordner, Systemintegration"
+      },
+      "bittorrent": {
+        "title": "BitTorrent",
+        "desc": "DHT, Empfangsports, Tracker, Peer-Standorte"
+      },
+      "appearance": {
+        "title": "Darstellung",
+        "desc": "Design, Sprache, Symbol im Infobereich"
+      },
+      "advanced": {
+        "title": "Erweitert",
+        "desc": "RPC, dauerhafte Speicherung in SQLite"
+      },
+      "about": {
+        "title": "Über Motrix",
+        "desc": "Version, Updates, Quellcode und Handbuch"
+      },
+      "downloads": {
+        "title": "Downloads",
+        "desc": "Gleichzeitige Downloads, Bandbreitenlimits, Netzwerkzuverlässigkeit"
+      },
+      "network": {
+        "title": "Netzwerk",
+        "desc": "Proxy, DNS und NAT/UPnP"
+      },
+      "integration": {
+        "title": "Integration",
+        "desc": "Browsererweiterungen, CLI, Systemintegration"
+      }
+    },
+    "general": {
+      "launchAtStartup": "Bei der Anmeldung öffnen",
+      "launchAtStartupDesc": "Motrix bei der Anmeldung automatisch starten.",
+      "showMainWindowAtLogin": "Fenster bei der Anmeldung anzeigen",
+      "showMainWindowAtLoginDesc": "Bei „{{mode}}“ ausgeblendet.",
+      "defaultSaveDir": "Standardordner für Downloads",
+      "defaultSaveDirDesc": "Neue Downloads werden hier gespeichert, sofern für die Aufgabe kein anderer Ordner gewählt wird.",
+      "inAppNotifications": "Benachrichtigungen in der Anwendung",
+      "inAppNotificationsDesc": "Wählen Sie, welche Download-Benachrichtigungen angezeigt werden. Anwendungshinweise bleiben aktiviert.",
+      "notifyInAppOnComplete": "Abgeschlossene Downloads anzeigen",
+      "notifyInAppOnError": "Fehlgeschlagene Downloads anzeigen",
+      "notificationBadgeStyle": "Kennzeichnung ungelesener Benachrichtigungen",
+      "notificationBadgeCount": "Anzahl",
+      "notificationBadgeDot": "Punkt",
+      "notificationBadgeHidden": "Ausgeblendet",
+      "systemNotifications": "Systembenachrichtigungen",
+      "notifyOnComplete": "Nach abgeschlossenem Download benachrichtigen",
+      "notifyOnCompleteDesc": "Eine Systembenachrichtigung anzeigen, wenn eine Aufgabe abgeschlossen ist.",
+      "autofillClipboardLinks": "Link aus der Zwischenablage übernehmen",
+      "autofillClipboardLinksDesc": "Beim Öffnen einer neuen Aufgabe einen Link aus der Zwischenablage in das leere URL-Feld einfügen.",
+      "notifyOnError": "Bei Fehlern benachrichtigen",
+      "notifyOnErrorDesc": "Eine Systembenachrichtigung anzeigen, wenn ein Download fehlschlägt und das Fenster im Hintergrund ist.",
+      "warnBeforeQuit": "Vor dem Beenden nachfragen",
+      "warnBeforeQuitDesc": "Vor dem Beenden nachfragen, wenn noch Downloads laufen.",
+      "notificationBadgeDesc": "Wird am Symbol der Benachrichtigungszentrale angezeigt.",
+      "notificationOff": "Aus",
+      "notificationSystem": "Systembenachrichtigungen",
+      "notificationInApp": "In der Anwendung",
+      "notificationBoth": "Beides",
+      "startupAndQuitting": "Starten und Beenden",
+      "runMode": "Anwendung anzeigen in",
+      "runModeStandard": "Dock und Menüleiste",
+      "runModeTray": "Nur Menüleiste",
+      "runModeHideTray": "Nur Dock",
+      "lightweightMode": "Bei geschlossenem Fenster Arbeitsspeicher sparen",
+      "lightweightModeDesc": "Downloads laufen weiter. Das erneute Öffnen dauert länger und nicht gespeicherte Eingaben werden verworfen.",
+      "notifications": "Benachrichtigungen",
+      "notificationsDesc": "Fehlermeldungen der Anwendung bleiben aktiviert.",
+      "downloadCompleted": "Download abgeschlossen",
+      "downloadFailed": "Download fehlgeschlagen",
+      "description": "Starten, Beenden und Benachrichtigungen",
+      "desktopOnly": "Einstellungen zum Startverhalten und zu Benachrichtigungen sind in der Desktop-Anwendung verfügbar."
+    },
+    "appearance": {
+      "theme": "Design",
+      "themeAuto": "System",
+      "themeLight": "Hell",
+      "themeDark": "Dunkel",
+      "language": "Sprache",
+      "traySpeedometer": "Geschwindigkeit in der Menüleiste anzeigen",
+      "traySpeedometerDesc": "Download- und Upload-Geschwindigkeit neben dem Anwendungssymbol anzeigen.",
+      "trayIconColor": "Symbolfarbe im Infobereich",
+      "trayIconColorDesc": "Wählen Sie eine Farbe, die sich von Ihrer Systemleiste abhebt.",
+      "trayIconColorAuto": "Anwendungsdesign folgen",
+      "trayIconColorLight": "Helles Symbol (dunkle Leiste)",
+      "trayIconColorDark": "Dunkles Symbol (helle Leiste)",
+      "reduceMotion": "Bewegung reduzieren",
+      "reduceMotionDesc": "Weniger Animationen in der gesamten Anwendung verwenden.",
+      "liquidGlassEffect": "Liquid Glass",
+      "liquidGlassEffectDesc": "Der Download-Werkzeugleiste einen durchscheinenden Glaseffekt verleihen.",
+      "liquidGlassEffectMacDesc": "Gilt ab macOS 26 auch für das Fenster. Nach einer Änderung wird das Fenster erneut geöffnet.",
+      "runMode": "Anwendung anzeigen in",
+      "runModeStandard": "Dock und Menüleiste",
+      "runModeTray": "Nur Menüleiste",
+      "runModeHideTray": "Nur Dock",
+      "runModeLaunch": "Beim Öffnen von Motrix",
+      "runModeStandardDesktop": "Hauptfenster öffnen",
+      "runModeTrayDesktop": "Im Infobereich starten",
+      "runModeLinuxDesc": "Die Verfügbarkeit des Infobereichs und das Aktivierungsverhalten hängen von Ihrer Desktop-Umgebung ab.",
+      "lightweightMode": "Speichersparmodus",
+      "lightweightModeDesc": "Bei geschlossenem Fenster Arbeitsspeicher sparen. Downloads laufen weiter, aber das erneute Öffnen dauert länger und nicht gespeicherte Eingaben werden verworfen.",
+      "byteUnitSystem": "Einheiten für Größe und Geschwindigkeit",
+      "byteUnitSystemDesc": "Wählen Sie die Anzeigeeinheiten für Dateigrößen und Übertragungsgeschwindigkeiten.",
+      "byteUnitDecimal": "Dezimal (MB, GB · 1000)",
+      "byteUnitBinary": "Binär (MiB, GiB · 1024)",
+      "byteUnitSystemDefault": "Systemvorgabe ({{units}})",
+      "sidebarColor": "Akzentfarbe",
+      "sidebarColors": {
+        "blue": "Blau",
+        "violet": "Violett",
+        "pink": "Rosa",
+        "orange": "Orange",
+        "gold": "Gold",
+        "green": "Grün",
+        "cyan": "Cyan",
+        "gray": "Grau",
+        "auto": "Automatisch"
+      },
+      "themeAndEffects": "Design und Effekte",
+      "languageAndDisplay": "Sprache und Anzeige",
+      "menuBar": "Menüleiste",
+      "description": "Design, Sprache und Anzeige",
+      "systemTray": "Infobereich",
+      "followSystem": "Systemsprache verwenden"
+    },
+    "advanced": {
+      "rpc": {
+        "title": "RPC",
+        "port": "RPC-Port",
+        "portDesc": "Nach einer Änderung ist ein Neustart erforderlich.",
+        "secret": "Geheimer RPC-Schlüssel",
+        "secretDesc": "Für RPC-Verbindungen erforderlich."
+      },
+      "persistence": {
+        "title": "Fortschritt und Wiederherstellung",
+        "enable": "Wiederherstellungsdaten speichern",
+        "enableDesc": "Daten aufbewahren, mit denen Downloads nach einem Neustart fortgesetzt werden können.",
+        "dbPath": "Datei für Wiederherstellungsdaten",
+        "dbPathDesc": "Leer lassen, um den Standardspeicherort zu verwenden.",
+        "dbPathPlaceholder": "Standardspeicherort",
+        "historyLimit": "Wiederherstellungsdatensätze abgeschlossener Aufgaben",
+        "historyLimitDesc": "Die Download-Liste und heruntergeladene Dateien bleiben unverändert.",
+        "historyKeepAll": "Alle Datensätze",
+        "historyKeepRecent": "Neueste Datensätze…",
+        "historySessionOnly": "Nicht aufbewahren",
+        "historyCount": "Anzahl aufzubewahrender Datensätze",
+        "historyCountHint": "Ältere Wiederherstellungsdatensätze werden entfernt.",
+        "historyCountPositive": "Geben Sie eine Zahl größer als 0 ein."
+      },
+      "description": "RPC, Fortschritt und Wiederherstellung"
+    },
+    "about": {
+      "appIconAlt": "Motrix-App-Symbol",
+      "version": "Version {{version}}",
+      "tagline": "Bewahren Sie, was wirklich zählt, bevor Inhalte verschwinden. Geben Sie dem Schönen einen Platz in Ihrer Sammlung.",
+      "webVersionNote": "Diese Webversion wird von der für die Bereitstellung zuständigen Administration aktualisiert.",
+      "update": {
+        "title": "App-Updates",
+        "currentVersion": "Aktuelle Version {{version}}",
+        "idleTitle": "Motrix aktuell halten",
+        "idle": "Version {{version}} ist installiert. Suchen Sie jetzt nach Updates oder lassen Sie Motrix beim Start danach suchen.",
+        "unsupportedTitle": "Automatische Updates nicht verfügbar",
+        "unsupported": "Diese Version kann nicht automatisch aktualisiert werden. Laden Sie die neueste Version von der offiziellen Website herunter.",
+        "check": "Nach Updates suchen",
+        "checkAction": "Prüfen",
+        "checking": "Wird geprüft…",
+        "checkingTitle": "Nach Updates wird gesucht…",
+        "checkingDescription": "Verbindung zum Motrix-Update-Dienst wird hergestellt…",
+        "upToDateTitle": "Motrix ist aktuell",
+        "upToDate": "Version {{version}} ist die neueste verfügbare Version.",
+        "available": "Motrix {{version}} ist verfügbar.",
+        "availableTitle": "Motrix {{version}} ist verfügbar",
+        "availableDescription": "Laden Sie das Update jetzt herunter und entscheiden Sie selbst, wann es durch einen Neustart installiert wird.",
+        "download": "Update herunterladen",
+        "downloading": "Wird heruntergeladen…",
+        "downloadingTitle": "Motrix {{version}} wird heruntergeladen",
+        "downloadingDescription": "Sie können dieses Fenster schließen. Der Download wird im Hintergrund fortgesetzt.",
+        "downloadedTitle": "Update zur Installation bereit",
+        "downloaded": "Motrix {{version}} ist zur Installation bereit.",
+        "restart": "Neu starten und installieren",
+        "cancelledTitle": "Download abgebrochen",
+        "cancelled": "Der Download des Updates wurde abgebrochen.",
+        "cancelledDescription": "Starten Sie den Download erneut, wenn Sie bereit sind.",
+        "errorTitle": "Motrix konnte nicht aktualisiert werden",
+        "errorDescription": "Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+        "error": "Update fehlgeschlagen: {{message}}",
+        "retry": "Erneut versuchen",
+        "automaticChecks": "Automatisch prüfen",
+        "automaticChecksDescription": "Beim Start von Motrix",
+        "automaticChecksError": "Diese Einstellung konnte nicht gespeichert werden",
+        "channelLabel": "Update-Kanal",
+        "channelDescription": "Wählen Sie stabile Versionen oder testen Sie neue Funktionen in der Beta.",
+        "channelStable": "Stabil",
+        "channelBeta": "Beta",
+        "channelBetaWarning": "Beta-Versionen können weniger stabil sein. Sie erhalten auch neuere stabile Versionen. Beim Zurückwechseln werden keine weiteren Beta-Updates installiert; ein Downgrade erfolgt nicht.",
+        "channelSaveError": "Der Update-Kanal konnte nicht gespeichert werden. Versuchen Sie es erneut."
+      },
+      "details": {
+        "author": "Autor",
+        "createdBy": "Entwickelt von",
+        "license": "Lizenz",
+        "licenseValue": "{{license}}-Lizenz"
+      },
+      "resources": {
+        "title": "Ressourcen",
+        "repository": "Quellcode-Repository",
+        "repositoryDescription": "Code auf GitHub ansehen",
+        "manual": "Handbuch",
+        "manualDescription": "Benutzerhandbuch lesen",
+        "plugins": "Plugins",
+        "changelog": "Änderungsprotokoll",
+        "website": "Offizielle Website",
+        "websiteDescription": "motrix.app besuchen",
+        "acknowledgments": "Danksagungen",
+        "acknowledgmentsDescription": "Mitwirkende und Danksagungen auf motrix.app ansehen"
+      }
+    },
+    "bittorrent": {
+      "trackers": {
+        "autoSync": "Tracker-Liste automatisch aktualisieren",
+        "autoSyncDesc": "Die Liste anhand Ihrer Quellen aktuell halten.",
+        "syncInterval": "Aktualisierungsintervall (Stunden)",
+        "syncIntervalDesc": "Zwischen 1 und 168 Stunden.",
+        "enableProbe": "Tracker-Verfügbarkeit prüfen",
+        "enableProbeDesc": "Tracker vor der Verwendung für Downloads testen.",
+        "probeTimeout": "Zeitlimit für Prüfung (ms)",
+        "probeTimeoutDesc": "So lange auf eine Antwort warten. 1.000–30.000 ms.",
+        "healthyThreshold": "Schwellenwert für langsame Antworten (ms)",
+        "healthyThresholdDesc": "Längere Antwortzeiten werden als langsam markiert. 500–10.000 ms.",
+        "minSuccessRate": "Minimale Erfolgsrate",
+        "minSuccessRateDesc": "Tracker mit mindestens dieser Erfolgsrate verwenden. 0,5 = 50 %.",
+        "maxTrackerCount": "Tracker pro Aufgabe",
+        "maxTrackerCountDesc": "Höchstens so viele Tracker verwenden. 5–200.",
+        "title": "Tracker",
+        "manageSourcesHint": "Verwalten Sie Quellen auf der Tracker-Seite.",
+        "blacklistMovedInfo": "Verwalten Sie blockierte Tracker unter Tracker → Sperrliste."
+      },
+      "geoip": {
+        "title": "Peer-Standorte",
+        "enable": "Land oder Region anzeigen",
+        "enableDesc": "Standorte in der Peer-Liste anzeigen. Standortdaten werden bei Bedarf heruntergeladen.",
+        "lastUpdated": "Zuletzt aktualisiert",
+        "neverUpdated": "Nie",
+        "updateNow": "Jetzt aktualisieren",
+        "updating": "Wird aktualisiert…",
+        "source": "Quelle der Standortdaten",
+        "sourceDesc": "Wählen Sie die Download-Quelle für Standortdaten.",
+        "source.loyalsoldier": "Loyalsoldier (Community)",
+        "source.p3terx": "P3TERX (Community-Spiegelserver)",
+        "source.maxmind": "MaxMind (offiziell)",
+        "source.custom": "Benutzerdefinierte URL",
+        "maxmindUnsupported": "Noch nicht unterstützt",
+        "customUrl": "Benutzerdefinierte Download-URL",
+        "customUrlPlaceholder": "https://example.com/GeoLite2-Country.mmdb",
+        "autoUpdate": "Automatisch aktualisieren",
+        "autoUpdateDesc": "Etwa einmal pro Woche nach neuen Standortdaten suchen.",
+        "status.loaded": "Bereit",
+        "status.notDownloaded": "Standortdaten nicht heruntergeladen",
+        "status.downloading": "Wird heruntergeladen…",
+        "status.error": "Aktualisierung fehlgeschlagen",
+        "customUrlDesc": "Link zu einer Länderdatenbank im .mmdb-Format.",
+        "saveBeforeUpdate": "Speichern Sie Ihre Änderungen, bevor Sie die Standortdaten aktualisieren.",
+        "updateFailed": "Die Standortdaten konnten nicht aktualisiert werden. Versuchen Sie es erneut."
+      },
+      "listen": {
+        "title": "Eingehende Verbindungen",
+        "listenPort": "BT-Empfangsport",
+        "listenPortDesc": "Eingehende Peer-Verbindungen an diesem Port annehmen.",
+        "dhtListenPort": "DHT-Empfangsport",
+        "dhtListenPortDesc": "Über DHT an diesem Port Peers finden.",
+        "dhtEnabled": "DHT aktivieren",
+        "dhtEnabledDesc": "Peers finden, ohne auf einen Tracker angewiesen zu sein."
+      },
+      "peers": {
+        "title": "Peers",
+        "btMaxPeers": "Maximale Peers pro Torrent",
+        "btMaxPeersDesc": "Maximale Anzahl gleichzeitiger Peer-Verbindungen pro Aufgabe.",
+        "btEnableLpd": "Lokale Peer-Suche",
+        "btEnableLpdDesc": "Peers in Ihrem lokalen Netzwerk finden, die Dateien teilen.",
+        "magnetFileSelection": "Dateien vor dem Download auswählen",
+        "magnetFileSelectionDesc": "Dateiauswahl anzeigen, nachdem ein Magnet-Link geladen wurde.",
+        "magnetFileSelectionAutoDownload": "Alles herunterladen, wenn keine Auswahl erfolgt",
+        "magnetFileSelectionAutoDownloadDesc": "Startet nach der unten angegebenen Zeit, auch wenn das App-Fenster oder der Browser geschlossen ist.",
+        "magnetFileSelectionTimeoutSeconds": "Zeit für die Dateiauswahl (s)",
+        "magnetFileSelectionTimeoutSecondsDesc": "Beginnt, sobald die Dateiliste bereit ist. Änderungen gelten auch für bereits wartende Aufgaben.",
+        "magnetFileSelectionTimeoutInvalid": "Geben Sie eine ganze Zahl zwischen {{min}} und {{max}} Sekunden ein."
+      },
+      "seeding": {
+        "title": "Seeding",
+        "seedRatio": "Upload/Download-Verhältnis begrenzen",
+        "seedRatioDesc": "Upload ÷ Download. Das Seeding stoppt bei diesem Verhältnis. 0 = unbegrenzt.",
+        "seedTime": "Seeding-Zeitlimit (Minuten)",
+        "seedTimeDesc": "0 = unbegrenzt. Gilt für neue Aufgaben und beim erneuten Start des Seedings."
+      },
+      "newMagnetTasks": "Neue Magnet-Aufgaben",
+      "description": "Magnet-Links, Seeding und Tracker"
+    },
+    "downloads": {
+      "performance": {
+        "title": "Leistung",
+        "profile": "Download-Leistung",
+        "profileDesc": "Download-Geschwindigkeit und Ressourcenverbrauch abstimmen.",
+        "learnMore": "Mehr erfahren",
+        "metrics": {
+          "connections": "Max. Verbindungen",
+          "perServer": "Limit pro Server",
+          "minimum": "Min. Segmentgröße",
+          "cache": "Datenträger-Cache"
+        },
+        "customParameters": "Benutzerdefinierte Leistungsparameter",
+        "profiles": {
+          "auto": {
+            "label": "Automatisch",
+            "desc": "Passt sich an Laufwerk und Dateigröße an. Die Werte unten sind Standardwerte."
+          },
+          "balanced": {
+            "label": "Ausgewogen",
+            "desc": "Verbraucht weniger Ressourcen für alltägliche Downloads."
+          },
+          "high": {
+            "label": "Hohe Geschwindigkeit",
+            "desc": "Verwendet mehr Verbindungen für schnellere Downloads."
+          },
+          "maximum": {
+            "label": "Maximum",
+            "desc": "Verwendet mehr Verbindungen. Manche Server begrenzen deren Anzahl."
+          },
+          "custom": {
+            "label": "Benutzerdefiniert",
+            "desc": "Verbindungen, Segmentgröße und Cache festlegen."
+          }
+        },
+        "maxConcurrentDownloads": "Gleichzeitige Downloads",
+        "maxConcurrentDownloadsDesc": "Weitere Aufgaben warten in der Warteschlange.",
+        "maxConnectionPerServer": "Max. Verbindungen pro Server",
+        "maxConnectionPerServerDesc": "Verbindungslimit je Datei zu einem Server.",
+        "split": "Max. Verbindungen pro Datei",
+        "splitDesc": "Verbindungen zum Herunterladen einer Datei.",
+        "minSplitSize": "Min. Segmentgröße (MiB)",
+        "minSplitSizeDesc": "Segmente kleiner als das Doppelte dieses Werts werden nicht aufgeteilt."
+      },
+      "reliability": {
+        "title": "Verbindungen und Wiederholungen",
+        "userAgent": "User-Agent",
+        "userAgentDesc": "Identifiziert die App gegenüber Websites. Ändern Sie ihn, wenn eine Website einen anderen verlangt.",
+        "connectTimeout": "Verbindungszeitlimit (s)",
+        "connectTimeoutDesc": "Wartezeit für den Verbindungsaufbau.",
+        "socketTimeout": "Zeitlimit ohne Daten (s)",
+        "socketTimeoutDesc": "Wartezeit, wenn keine Daten eingehen.",
+        "maxTries": "Maximale Versuche",
+        "maxTriesDesc": "Einschließlich des ersten Versuchs. 0 = unbegrenzt.",
+        "retryWait": "Wartezeit vor Wiederholung (s)",
+        "retryWaitDesc": "So lange vor einem erneuten Versuch warten.",
+        "lowestSpeedLimit": "Minimale Verbindungsgeschwindigkeit (KiB/s)",
+        "lowestSpeedLimitDesc": "Verbindung unterhalb dieser Geschwindigkeit trennen. 0 = deaktiviert."
+      },
+      "disk": {
+        "title": "Datenträger und Dateien",
+        "fileDeletionMode": "Beim Löschen von Aufgabendateien",
+        "fileDeletionTrash": "In den Papierkorb verschieben",
+        "fileDeletionPermanent": "Dauerhaft löschen",
+        "fileDeletionTrashDesc": "Speicherplatz wird beim Leeren des Papierkorbs freigegeben.",
+        "fileDeletionPermanentDesc": "Gelöschte Dateien können nicht aus dem Papierkorb wiederhergestellt werden.",
+        "fileAllocation": "Speicherplatz reservieren",
+        "fileAllocationDesc": "Speicherplatz vor dem Herunterladen einer Datei reservieren.",
+        "fileAllocationNone": "Nicht reservieren",
+        "fileAllocationPrealloc": "Vorab reservieren",
+        "fileAllocationTrunc": "Dateigröße festlegen",
+        "fileAllocationFalloc": "Systemzuweisung",
+        "modifiedTime": "Änderungszeit der Datei",
+        "modifiedTimeDesc": "Für abgeschlossene HTTP- und FTP-Downloads.",
+        "modifiedTimeLocal": "Download-Zeitpunkt",
+        "modifiedTimeServer": "Zeitangabe des Servers",
+        "diskCache": "Datenträger-Cache (MiB)",
+        "diskCacheDesc": "Arbeitsspeicher zum Puffern von Dateien vor dem Schreiben auf den Datenträger.",
+        "sessionSaveInterval": "Intervall zum Speichern des Fortschritts (s)",
+        "sessionSaveIntervalDesc": "Häufiger speichern, um den Fortschrittsverlust bei einem Absturz zu verringern."
+      },
+      "magnet": {
+        "title": "Magnet",
+        "magnetResolveTimeout": "Zeitlimit zum Laden von Magnet-Links (s)",
+        "magnetResolveTimeoutDesc": "Wartezeit für die Dateiliste."
+      },
+      "speedLimit": {
+        "title": "Geschwindigkeitslimits",
+        "titleDesc": "Legen Sie fest, wie Motrix Ihre Verbindung im Standardmodus, langsamen Modus und Automatikmodus nutzt.",
+        "modeSection": "Geschwindigkeitsmodus",
+        "modeSectionDesc": "Legen Sie fest, wie Motrix Ihre Verbindung nutzen soll.",
+        "turtle": "Geschwindigkeitsmodus",
+        "turtleDesc_off": "Standard-Geschwindigkeitslimits verwenden.",
+        "turtleDesc_on": "Jetzt niedrige Geschwindigkeitslimits verwenden, um Bandbreite für andere Apps freizuhalten.",
+        "turtleDesc_auto": "Geschwindigkeit automatisch an Uhrzeit und Verbindungsbandbreite anpassen.",
+        "turtle_off": "Standard",
+        "turtle_on": "Langsam",
+        "turtle_auto": "Automatisch",
+        "baseSection": "Standardlimits",
+        "baseSectionDesc": "Für alltägliche Downloads; gelten in jedem Modus.",
+        "baseDownload": "Download",
+        "baseDownloadDesc": "Die maximale Download-Geschwindigkeit im Alltag.",
+        "baseUpload": "Upload",
+        "baseUploadDesc": "Die maximale Upload-Geschwindigkeit im Alltag.",
+        "unlimited": "Unbegrenzt",
+        "setUnlimited": "Auf unbegrenzt setzen",
+        "standardLimit": "Standard verwenden",
+        "useStandardLimit": "Standardlimit verwenden",
+        "altSection": "Niedrige Geschwindigkeitslimits",
+        "altSectionDesc": "Für den langsamen Modus oder geplante Regeln. Diese Limits können die Standardlimits nur weiter verringern.",
+        "altDownload": "Download",
+        "altDownloadDesc": "Die maximale Download-Geschwindigkeit im langsamen Modus.",
+        "altUpload": "Upload",
+        "altUploadDesc": "Die maximale Upload-Geschwindigkeit im langsamen Modus.",
+        "autoSection": "Automatische Regeln",
+        "autoSectionDesc": "Diese Regeln gelten nur im Automatikmodus.",
+        "autoSchedule": "Geplante Drosselung",
+        "scheduleEnabled": "Langsamen Modus planen",
+        "scheduleEnabledDesc": "An ausgewählten Tagen und zu ausgewählten Zeiten niedrige Geschwindigkeitslimits verwenden.",
+        "scheduleFrom": "Beginn",
+        "scheduleTo": "Ende",
+        "scheduleTimeFormat": "24-Stunden-Format (HH:mm)",
+        "scheduleDays": "Tage",
+        "scheduleDaysHint": "Liegt die Endzeit vor der Startzeit, läuft der Zeitraum bis zum nächsten Tag.",
+        "weekdays": {
+          "sun": {
+            "short": "So",
+            "long": "Sonntag"
+          },
+          "mon": {
+            "short": "Mo",
+            "long": "Montag"
+          },
+          "tue": {
+            "short": "Di",
+            "long": "Dienstag"
+          },
+          "wed": {
+            "short": "Mi",
+            "long": "Mittwoch"
+          },
+          "thu": {
+            "short": "Do",
+            "long": "Donnerstag"
+          },
+          "fri": {
+            "short": "Fr",
+            "long": "Freitag"
+          },
+          "sat": {
+            "short": "Sa",
+            "long": "Samstag"
+          }
+        },
+        "autoAdaptive": "Bandbreite für andere Apps freihalten",
+        "adaptiveEnabled": "Bandbreite für andere Apps reservieren",
+        "adaptiveEnabledDesc": "Geben Sie unten die Geschwindigkeit Ihrer Verbindung ein, um das Limit zu berechnen.",
+        "linkDown": "Download-Geschwindigkeit der Verbindung",
+        "linkDownDesc": "Die erreichbare Download-Geschwindigkeit Ihrer Internetverbindung.",
+        "linkUp": "Upload-Geschwindigkeit der Verbindung",
+        "linkUpDesc": "Die erreichbare Upload-Geschwindigkeit Ihrer Internetverbindung.",
+        "fillFromPeak": "Verbindungsgeschwindigkeit schätzen",
+        "fillFromPeakHint": "Anhand der schnellsten kürzlich gemessenen Downloads und Uploads.",
+        "estimateEmpty": "Noch kein Geschwindigkeitsverlauf verfügbar. Schließen Sie einen Download ohne Geschwindigkeitslimit ab oder geben Sie die Bandbreite manuell ein.",
+        "estimateSuccess": "Verbindungsbandbreite anhand der zuletzt gemessenen Geschwindigkeiten eingetragen.",
+        "estimateError": "Der Geschwindigkeitsverlauf konnte nicht gelesen werden. Geben Sie die Bandbreite manuell ein.",
+        "headroomPercent": "Für andere Apps reservieren",
+        "headroomPercentDesc": "Derzeit werden {{reserved}} % reserviert; Motrix kann bis zu {{motrix}} % nutzen.",
+        "effect": {
+          "title": "Aktuelle Wirkung",
+          "standard": "Standardlimits aktiv: Download {{download}}, Upload {{upload}}.",
+          "lowSpeed": "Niedrige Geschwindigkeitslimits aktiv: Download {{download}}, Upload {{upload}}.",
+          "noAutoRules": "Keine automatischen Regeln aktiviert. Derzeit gilt das Verhalten des Standardmodus.",
+          "standardValues": "Standardlimits: Download {{download}}, Upload {{upload}}.",
+          "scheduleRule": "von {{from}} bis {{to}}{{nextDay}} niedrige Geschwindigkeitslimits verwenden",
+          "nextDay": " am nächsten Tag",
+          "adaptiveRule": "{{reserved}} % der Bandbreite für andere Apps reservieren",
+          "adaptiveRulePending": "nach Eingabe der Verbindungsbandbreite {{reserved}} % für andere Apps reservieren",
+          "ruleSeparator": " und ",
+          "autoRules": "Motrix wird {{rules}}.",
+          "lowerWins": "Es gilt das niedrigste aktive Limit."
+        },
+        "bandwidthUsed": "Motrix kann bis zu {{motrix}} % nutzen.",
+        "bandwidthPending": "Geben Sie beide Verbindungsgeschwindigkeiten ein, um dieses Limit anzuwenden."
+      },
+      "newTasks": "Neue Aufgaben",
+      "defaultDownloadFolder": "Standard-Download-Ordner",
+      "autofillFromClipboard": "Links aus der Zwischenablage automatisch einfügen",
+      "fillInLinksWhenOpeningNewTask": "Kopierte Links beim Öffnen einer neuen Aufgabe einfügen.",
+      "saveFolders": "Speicherordner",
+      "description": "Dateien, Download-Geschwindigkeit und Verbindungen"
+    },
+    "network": {
+      "dns": {
+        "title": "DNS",
+        "mode": "DNS-Auflösung",
+        "modeDesc": "Wie Downloads Serveradressen auflösen.",
+        "modeAuto": "Automatisch",
+        "modeSystem": "System-DNS",
+        "modeEngine": "Integriertes DNS"
+      },
+      "proxy": {
+        "title": "Proxy",
+        "enable": "Proxy aktivieren",
+        "enableDesc": "Für die unten ausgewählten Verbindungen einen Proxy verwenden.",
+        "server": "Server",
+        "protocol": "Protokoll",
+        "host": "Serveradresse",
+        "hostPlaceholder": "proxy.example.com",
+        "port": "Port",
+        "auth": "Proxy-Anmeldung",
+        "authDesc": "Aktivieren, wenn Ihr Proxy einen Benutzernamen und ein Passwort erfordert.",
+        "user": "Benutzername",
+        "password": "Passwort",
+        "showPassword": "Passwort anzeigen",
+        "hidePassword": "Passwort ausblenden",
+        "bypass": "Direkt verbinden mit",
+        "bypassDesc": "Eine Domain, IP-Adresse oder CIDR-Angabe pro Zeile. Mit . beginnen, um nur Subdomains zu erfassen. Datei-Downloads unterstützen keine *-Platzhalter.",
+        "bypassScopeNote": "Nur Datei-Downloads und App-Updates",
+        "scopes": "Proxy verwenden für",
+        "scopesDesc": "Wählen Sie aus, welcher Datenverkehr über den Proxy läuft.",
+        "scopeDownload": "Datei-Downloads",
+        "scopeDownloadDesc": "Bei BT verwendet nur HTTP(S) den Proxy. Peers, DHT und UDP-Tracker verbinden sich direkt.",
+        "scopeUpdateApp": "App-Updates",
+        "scopeUpdateAppDesc": "Über den Proxy nach Motrix-Updates suchen.",
+        "scopeUpdateTrackers": "Aktualisierung der Tracker-Listen",
+        "scopeUpdateTrackersDesc": "Tracker-Listen über den Proxy herunterladen; der BT-Datenverkehr bleibt unverändert.",
+        "importFromSystem": "Vom System importieren",
+        "importedToast": "System-Proxy importiert: {{host}}:{{port}}",
+        "noSystemProxy": "Kein System-Proxy konfiguriert.",
+        "bypassPlaceholder": "localhost\n127.0.0.1\n.local",
+        "scopeHint": "BT-Peers, DHT und UDP-Tracker verbinden sich direkt.",
+        "scopeNone": "Nichts ausgewählt",
+        "scopeChoose": "Auswählen…",
+        "scopeSeparator": ", "
+      },
+      "nat": {
+        "title": "Portweiterleitung (NAT)",
+        "enable": "Portweiterleitung aktivieren",
+        "enableDesc": "Den Router bitten, die in den BitTorrent-Einstellungen festgelegten Ports zu öffnen.",
+        "preferredProtocol": "Bevorzugtes Protokoll",
+        "mappingTtl": "Dauer der Weiterleitung (s)",
+        "btPortHint": "Die Weiterleitung gilt für die unter BitTorrent konfigurierten BT-/DHT-Ports.",
+        "automatic": "Automatisch"
+      },
+      "stun": {
+        "title": "NAT-Typ-Erkennung",
+        "privacyHint": "Verwendet STUN-Server von Drittanbietern.",
+        "enable": "NAT-Typ erkennen",
+        "servers": "STUN-Server",
+        "empty": "Fügen Sie mindestens einen STUN-Server hinzu.",
+        "addServer": "STUN-Server hinzufügen"
+      },
+      "reachability": {
+        "title": "Prüfung eingehender Ports",
+        "privacyHint": "Prüft den Zugriff aus dem Internet über einen Dienst eines Drittanbieters.",
+        "enable": "Eingehende Ports prüfen",
+        "endpoints": "Prüfdienste (HTTPS)",
+        "empty": "Fügen Sie mindestens einen Prüfdienst hinzu.",
+        "addEndpoint": "Prüfdienst hinzufügen"
+      },
+      "diagnostic": {
+        "title": "Automatische Netzwerkprüfungen",
+        "enable": "Automatische Prüfungen",
+        "interval": "Prüfintervall (s)",
+        "enableDesc": "Die oben aktivierten Prüfungen wiederholen."
+      },
+      "description": "Proxy, DNS und Verbindungsprüfungen",
+      "diagnostics": "Netzwerkdiagnose"
+    },
+    "common": {
+      "browse": "Durchsuchen…",
+      "add": "Hinzufügen",
+      "remove": "Entfernen",
+      "preset": "Schnellauswahl:",
+      "noChange": "Keine Änderungen zum Speichern",
+      "setAsDefault": "Als Standard festlegen",
+      "openHelp": "Hilfe öffnen",
+      "generate": "Erzeugen",
+      "changeDirectory": "Ordner ändern",
+      "directoryEmpty": "(kein Ordner ausgewählt)",
+      "showSecret": "Geheimen Schlüssel anzeigen",
+      "hideSecret": "Geheimen Schlüssel ausblenden"
+    },
+    "integration": {
+      "system": {
+        "title": "Standard-App",
+        "protocolMagnet": "Magnet-Links mit Motrix öffnen",
+        "protocolMagnetDesc": "Magnet-Links aus Ihrem Browser in Motrix öffnen.",
+        "torrentAssociation": ".torrent-Dateien mit Motrix öffnen",
+        "torrentAssociationDesc": ".torrent-Dateien per Doppelklick in Motrix öffnen.",
+        "torrentAssociationMacDesc": "Im Finder auf eine .torrent-Datei rechtsklicken → Informationen → Öffnen mit → Motrix wählen → Alle ändern…",
+        "defaultAssociationsWindows": "Standard-App für Torrents und Magnet-Links",
+        "defaultAssociationsWindowsDesc": "Wählen Sie Motrix in den Windows-Einstellungen für .torrent-Dateien und Magnet-Links. Motrix muss dafür installiert sein.",
+        "torrentFiles": ".torrent-Dateien",
+        "magnetLinks": "Magnet-Links",
+        "associationStatusLabel": "Aktueller Status als Windows-Standard-App",
+        "associationChecking": "Wird geprüft…",
+        "associationSetupRequired": "Einrichtung erforderlich",
+        "associationDefault": "Standard",
+        "associationNotDefault": "Nicht Standard",
+        "associationUnavailable": "Prüfung nicht möglich",
+        "associationNotRegistered": "Nicht registriert",
+        "openWindowsSettings": "Windows-Einstellungen öffnen",
+        "defaultAssociationsLinux": "Linux-Datei- und Linkzuordnungen",
+        "defaultAssociationsLinuxCheckingDesc": "Dieses Linux-Paket und seine aktuellen Desktop-Zuordnungen werden geprüft…",
+        "defaultAssociationsLinuxUnavailableDesc": "Der Status der Desktop-Zuordnungen ist in dieser App-Umgebung nicht verfügbar.",
+        "defaultAssociationsLinuxDesc": "Bei einem installierten deb- oder rpm-Paket kann sich Motrix als Standard-App für .torrent festlegen. Änderungen für Magnet-Links werden beim Übernehmen dieses Dialogs wirksam.",
+        "defaultAssociationsLinuxAppImageDesc": "Mit der Desktop-Integration unten können Sie dieses AppImage sicher registrieren oder entfernen. Motrix stellt bestätigte frühere Zuordnungen wieder her, bevor es seinen Desktop-Eintrag löscht.",
+        "defaultAssociationsLinuxSandboxDesc": "Dieses Paket registriert Motrix als zuständige App, aber Ihre Desktop-Umgebung bestimmt die Standard-App. Beim Entfernen des Pakets wird die vorherige Standard-App möglicherweise nicht automatisch wiederhergestellt.",
+        "associationStatusLabelLinux": "Aktueller Status der Linux-Datei- und Linkzuordnungen",
+        "linuxPackageDetected": "Paket: {{package}}",
+        "linuxPackage": {
+          "appimage": "AppImage",
+          "native": "deb / rpm",
+          "flatpak": "Flatpak",
+          "snap": "Snap",
+          "unknown": "Unbekanntes Paket"
+        },
+        "protocolMagnetAppImageDesc": "Wird nach dem Speichern sofort wirksam, wenn die Desktop-Integration aktiviert ist.",
+        "protocolMagnetSandboxDesc": "Motrix fordert die Änderung beim Speichern an. Die Sandbox oder Desktop-Umgebung kann jedoch eine manuelle Auswahl der Standard-App verlangen.",
+        "protocolMagnetApplyFailed": "Die Einstellung wurde gespeichert, aber die Desktop-Zuordnung konnte nicht geändert werden. Wählen Sie die Standard-App in Ihren Systemeinstellungen.",
+        "setTorrentDefaultLinux": "Als Standard für .torrent festlegen",
+        "repairLinuxAssociations": "Zuordnungen reparieren",
+        "viewLinuxInstructions": "Einrichtungsschritte anzeigen",
+        "linuxActionSet": "Motrix ist jetzt die Standard-App für .torrent-Dateien.",
+        "linuxActionFallback": "Für dieses Paket ist keine automatische Einrichtung verfügbar. Stattdessen wurde die Einrichtungsanleitung geöffnet.",
+        "linuxActionFailed": "Die Linux-Standardzuordnung konnte nicht aktualisiert werden. Prüfen Sie die Einstellungen Ihrer Desktop-Umgebung."
+      },
+      "browser": {
+        "title": "Browsererweiterungen",
+        "masterSwitch": "Browsererweiterungen verbinden",
+        "masterSwitchDesc": "Downloads von Webseiten mit der Browsererweiterung an Motrix senden.",
+        "install": {
+          "chrome": "Chrome",
+          "edge": "Microsoft Edge",
+          "firefox": "Firefox",
+          "github": "GitHub",
+          "store": "Installieren",
+          "development": "Entwicklung"
+        },
+        "pairedTitle": "Verbundene Erweiterungen",
+        "pairedEmpty": "Noch keine Erweiterungen verbunden.",
+        "lastActive": "Zuletzt aktiv",
+        "revoke": "Trennen",
+        "disconnecting": "Verbindung wird getrennt…",
+        "addTrusted": {
+          "add": "Erweiterung hinzufügen",
+          "idPlaceholder": "Erweiterungs-ID",
+          "labelPlaceholder": "Bezeichnung (optional)",
+          "browserLabel": "Browser",
+          "chromiumEdge": "Chrome / Edge",
+          "firefox": "Firefox",
+          "cancel": "Abbrechen",
+          "addAction": "Hinzufügen"
+        },
+        "pairToast": {
+          "title": "Eine {{browser}}-Erweiterung möchte sich mit Motrix verbinden",
+          "extensionId": "ID: {{id}}",
+          "deny": "Nicht erlauben",
+          "pairCode": "Kopplungscode",
+          "copyCode": "Kopplungscode kopieren",
+          "pairCodeHint": "Geben Sie diesen Code in der Erweiterung ein",
+          "identityLabel": {
+            "official": "Offizielle Motrix-Erweiterung",
+            "attested": "Verifizierte Erweiterung",
+            "unverified": "Nicht verifizierte Erweiterung"
+          },
+          "identityUnverifiedWarning": "Die Identität dieser Erweiterung konnte nicht bestätigt werden. Fahren Sie nur fort, wenn Sie ihr vertrauen."
+        },
+        "pairUnavailable": "Diese Kopplungsanfrage ist nicht mehr offen. Starten Sie die Kopplung in der Browsererweiterung erneut.",
+        "trustedExtensions": "Vertrauenswürdige Erweiterungen",
+        "trustedSummary": "{{count}} insgesamt",
+        "trustedGuidance": "Fügen Sie für weitere vertrauenswürdige Erweiterungen die vom Entwickler bereitgestellte ID hinzu.",
+        "trustedEmpty": "Noch keine Einträge.",
+        "headerId": "Erweiterungs-ID",
+        "headerBrowser": "Browser",
+        "headerSource": "Quelle",
+        "removeTrusted": "Entfernen",
+        "sourceLabel": {
+          "builtin": "Integriert",
+          "userAdded": "Hinzugefügt",
+          "imported": "Importiert"
+        },
+        "degradedPort": {
+          "title": "Bridge verwendet einen Ausweichport",
+          "description": "Die Ports 16802–16806 waren nicht verfügbar, daher verwendet die Bridge Port {{port}}. Browsererweiterungen können sie durch Prüfen des Standardbereichs nicht finden. Koppeln Sie über Native Messaging oder legen Sie einen festen Port fest. Die Motrix-CLI und der native Host sind nicht betroffen."
+        },
+        "pairingStateDegraded": {
+          "title": "Zugriff für Erweiterungen vorübergehend gesperrt",
+          "description": "Motrix konnte die Einträge gekoppelter Erweiterungen nicht sicher aktualisieren. Bestehende Erweiterungssitzungen wurden geschlossen, und neuer Zugriff ist für diese Sitzung gesperrt. Starten Sie Motrix neu, um die Reparatur erneut zu versuchen. Verlassen Sie sich nicht auf die Liste unten, solange diese Meldung angezeigt wird."
+        }
+      },
+      "cli": {
+        "title": "Befehlszeilenwerkzeuge",
+        "tool": {
+          "title": "Motrix-Befehlszeilenwerkzeug",
+          "description": "Führen Sie motrix in einem Terminal aus, um diese App zu steuern.",
+          "managerLabel": "Paketmanager",
+          "commandLabel": "Installationsbefehl",
+          "copyCommand": "Installationsbefehl kopieren",
+          "manager": {
+            "npm": "npm",
+            "pnpm": "pnpm",
+            "yarn": "Yarn Classic",
+            "bun": "Bun",
+            "volta": "Volta"
+          },
+          "attentionTitle": "Befehlszeilenwerkzeug erfordert Aufmerksamkeit",
+          "status": {
+            "checking": "Wird geprüft",
+            "ready": "Zur Installation bereit",
+            "installing": "Wird installiert",
+            "installed": "Installiert",
+            "needsAttention": "Handlungsbedarf",
+            "manualOnly": "Manuelle Installation",
+            "error": "Fehlgeschlagen"
+          },
+          "action": {
+            "checking": "Wird geprüft…",
+            "install": "Installieren",
+            "installing": "Wird installiert…",
+            "checkAgain": "Erneut prüfen"
+          },
+          "metadata": {
+            "version": "Version",
+            "path": "Programmdatei",
+            "manager": "Installiert mit",
+            "unknown": "unbekannt"
+          },
+          "successGuidance": "Öffnen Sie ein neues Terminal und führen Sie motrix --help aus.",
+          "diagnostics": {
+            "show": "Details anzeigen",
+            "hide": "Details ausblenden"
+          },
+          "reason": {
+            "nodeMissing": "Node.js 22 oder neuer wurde nicht gefunden. Installieren Sie Node.js und prüfen Sie erneut.",
+            "nodeTooOld": "Node.js 22 oder neuer ist erforderlich. Gefunden wurde {{version}}.",
+            "managerMissing": "Kein unterstützter Paketmanager gefunden. Installieren Sie npm, pnpm, Yarn Classic, Bun oder Volta und prüfen Sie erneut.",
+            "sandboxed": "In diesem Sandbox-Paket ist keine Installation per Klick verfügbar. Kopieren Sie den Befehl und führen Sie ihn in einem Terminal aus.",
+            "unsupportedWeb": "Die Installation per Klick ist nur in der Desktop-App verfügbar. Kopieren Sie den Befehl und führen Sie ihn auf dem Motrix-Host aus.",
+            "permission": "Der Paketmanager kann nicht in seinen globalen Installationspfad schreiben. Verwenden Sie einen Node.js-Versionsmanager oder ein für Sie beschreibbares Präfix; verwenden Sie kein sudo.",
+            "network": "Der Paketmanager konnte die Registry nicht erreichen. Prüfen Sie Ihre Netzwerk- oder Registry-Konfiguration und versuchen Sie es erneut.",
+            "timeout": "Die Installation dauerte zu lange und wurde gestoppt. Prüfen Sie Ihr Netzwerk und versuchen Sie es erneut.",
+            "pathMissing": "Das Paket wurde installiert, aber motrix wurde nicht im PATH gefunden. Öffnen Sie ein neues Terminal oder fügen Sie das angegebene Installationsverzeichnis dem PATH hinzu.",
+            "pathShadowed": "Eine andere motrix-Programmdatei steht im PATH weiter vorn. Entfernen Sie den älteren Eintrag oder korrigieren Sie den PATH und prüfen Sie erneut.",
+            "verifyFailed": "Die Installation wurde abgeschlossen, aber Motrix konnte die aktive motrix-Programmdatei nicht überprüfen.",
+            "installFailed": "Der Paketmanager konnte @motrix/cli nicht installieren. Prüfen Sie die Details und versuchen Sie es erneut oder führen Sie den Befehl manuell aus.",
+            "unknown": "Motrix konnte das Befehlszeilenwerkzeug nicht prüfen. Versuchen Sie es erneut oder führen Sie den kopierten Befehl manuell aus."
+          }
+        },
+        "remote": {
+          "title": "Gekoppelte Remote-Werkzeuge",
+          "description": "Lokale Werkzeuge verbinden sich automatisch. Führen Sie motrix pair aus, um eine Verbindung zu einem anderen Computer oder Server herzustellen.",
+          "empty": "Keine Remote-Werkzeuge gekoppelt.",
+          "lastActive": "Zuletzt aktiv",
+          "neverActive": "Nie verwendet",
+          "revoke": "Widerrufen"
+        },
+        "pairToast": {
+          "title": "{{name}} möchte sich mit Motrix koppeln",
+          "code": "Bestätigungscode: {{code}}",
+          "allow": "Erlauben",
+          "deny": "Nicht erlauben"
+        },
+        "inbox": {
+          "title": "Ausstehende Genehmigungen",
+          "empty": "Keine ausstehenden Remote-Kopplungsanfragen.",
+          "approve": "Genehmigen",
+          "deny": "Ablehnen",
+          "expiresIn": "Läuft in {{time}} ab"
+        },
+        "pairUnavailable": "Diese Kopplungsanfrage ist nicht mehr offen. Führen Sie motrix pair erneut aus."
+      },
+      "media": {
+        "title": "Medienwerkzeuge",
+        "desc": "Medien mit FFmpeg zusammenführen oder konvertieren.",
+        "notDetected": "FFmpeg nicht erkannt",
+        "refresh": "Aktualisieren",
+        "binaryPath": "Benutzerdefinierter FFmpeg-Pfad",
+        "browse": "Durchsuchen…",
+        "download": {
+          "action": "FFmpeg herunterladen"
+        },
+        "detection": {
+          "readyTitle": "FFmpeg {{version}}",
+          "unavailableTitle": "FFmpeg ist nicht verfügbar",
+          "untrustedTitle": "FFmpeg wurde von macOS blockiert",
+          "usingSource": "Verwendet: {{source}}",
+          "unavailableDesc": "Legen Sie einen benutzerdefinierten Pfad fest, installieren Sie FFmpeg oder fügen Sie es dem PATH hinzu. Aktualisieren Sie anschließend die Ansicht.",
+          "untrustedDesc": "Die Datei ist vorhanden, hat aber die macOS-Sicherheitsprüfung nicht bestanden. Installieren Sie eine vertrauenswürdige Version oder erlauben Sie die Datei unter „Datenschutz & Sicherheit“. Aktualisieren Sie anschließend die Ansicht.",
+          "showDetails": "Erkennungsdetails anzeigen",
+          "hideDetails": "Erkennungsdetails ausblenden",
+          "sourcesChecked_one": "{{count}} Quelle geprüft",
+          "sourcesChecked_other": "{{count}} Quellen geprüft",
+          "source": "Quelle",
+          "location": "Geprüfter Speicherort",
+          "result": "Ergebnis",
+          "copyManagedPath": "Motrix-FFmpeg-Pfad kopieren",
+          "editCustomPath": "Benutzerdefinierten FFmpeg-Pfad bearbeiten",
+          "finishEditingCustomPath": "Bearbeitung des benutzerdefinierten FFmpeg-Pfads abschließen",
+          "notConfigured": "Nicht festgelegt"
+        },
+        "candidateKind": {
+          "manual": "Benutzerdefinierter Pfad",
+          "userData": "Motrix-Datenverzeichnis",
+          "env": "MOTRIX_FFMPEG_BIN",
+          "path": "System-PATH"
+        },
+        "state": {
+          "active": "In Verwendung",
+          "available": "Gefunden",
+          "missing": "Nicht gefunden",
+          "untrusted": "Von macOS blockiert",
+          "unconfigured": "Nicht festgelegt",
+          "version_mismatch": "Nicht unterstützt"
+        },
+        "stagingMB": "Limit für temporäre Dateien (MB)",
+        "stagingMBDesc": "Speicherplatz für Zwischendateien pro Plugin und Aufgabe.",
+        "opTimeoutSec": "FFmpeg-Zeitlimit (Sekunden)",
+        "opTimeoutSecDesc": "Maximale Dauer eines Medienvorgangs, bis zu 3.600 Sekunden.",
+        "cleanupStaging": "Temporäre Dateien bereinigen",
+        "cleanupConfirm": "Alle temporären FFmpeg-Verzeichnisse entfernen?",
+        "restartHint": "Gespeichert. Starten Sie Motrix neu, damit aktive Plugins die Änderungen erkennen.",
+        "restartNow": "Jetzt neu starten",
+        "validation": {
+          "fileMissing": "Unter diesem Pfad ist keine Datei vorhanden."
+        },
+        "applyHint": "Speichern Sie, um diesen Pfad für neue Medien-Downloads zu verwenden. Suchen Sie in der Browsererweiterung erneut, um die unterstützten Funktionen zu aktualisieren.",
+        "savedTitle": "FFmpeg-Einstellungen gespeichert",
+        "desktopSavedHint": "Neue Medien-Downloads verwenden den gespeicherten Pfad. Starten Sie Motrix neu, damit aktive Plugins die Änderung erkennen.",
+        "pipelineUnavailable": "Die Unterstützung für Medien-Downloads ist nicht verfügbar.",
+        "ffmpegRequired": "Dieser Download erfordert FFmpeg. Konfigurieren Sie es unter Einstellungen → Integration → Medienwerkzeuge, speichern Sie und versuchen Sie es erneut."
+      },
+      "pairResolveFailed": "Ihre Entscheidung konnte nicht übermittelt werden. Versuchen Sie es erneut.",
+      "appimage": {
+        "title": "Desktop-Integration",
+        "desc": "Registrieren Sie dieses Motrix-AppImage in Ihrer Desktop-Umgebung, damit Browser und Magnet-Links Downloads übergeben können.",
+        "enable": "Desktop-Integration aktivieren",
+        "remove": "Desktop-Integration entfernen",
+        "prompt": {
+          "title": "Motrix in Ihre Desktop-Umgebung integrieren?",
+          "message": "Diesem Motrix-AppImage die Registrierung in Ihrer Desktop-Umgebung erlauben?",
+          "detail": "Motrix fügt einen Desktop-Eintrag und ein Symbol in Ihrem Benutzerdatenverzeichnis hinzu und registriert sich als zuständige App für motrix:-Links, Magnet-Links und .torrent-Dateien. Dadurch können Ihr Browser und die Motrix-Erweiterung Motrix starten und Downloads übergeben. Außerhalb Ihres Benutzerverzeichnisses wird nichts geschrieben. Sie können dies in den Einstellungen rückgängig machen.",
+          "accept": "Integrieren",
+          "decline": "Nicht jetzt"
+        },
+        "status": {
+          "healthy": "In diese Desktop-Umgebung integriert.",
+          "notIntegrated": "Nicht in diese Desktop-Umgebung integriert.",
+          "failedTitle": "Desktop-Integration unvollständig",
+          "failedDetail": "Motrix konnte sich nicht als zuständige App für seine Links registrieren. Die Übergabe aus dem Browser funktioniert möglicherweise erst, wenn Sie die Desktop-Integration erneut aktivieren.",
+          "removeBlockedDetail": "Motrix konnte eine bestätigte frühere Zuordnung nicht sicher wiederherstellen. Daher wurde der Desktop-Eintrag beibehalten, damit keine ungültige Standardzuordnung zurückbleibt. Wählen Sie in Ihren Desktop-Einstellungen eine andere Standard-App und versuchen Sie erneut, die Integration zu entfernen.",
+          "externalManaged": "Die Desktop-Integration wird von einer anderen Motrix-Installation bereitgestellt."
+        },
+        "movedHint": "Wenn Sie das AppImage bei geschlossenem Motrix verschieben, funktionieren Links möglicherweise erst wieder, nachdem Sie Motrix einmal am neuen Speicherort gestartet haben."
+      },
+      "appimageHost": {
+        "title": "AppImage aus dem Browser starten",
+        "desc": "Erlauben Sie einer Erweiterung, dieses AppImage beim Klicken auf „Verbinden“ zu öffnen. Aktivieren Sie dafür die Browserintegration.",
+        "enable": "Start aus dem Browser aktivieren",
+        "repair": "Reparieren",
+        "useCurrent": "Dieses AppImage verwenden",
+        "remove": "Start aus dem Browser entfernen",
+        "copyDiagnostics": "Diagnose kopieren",
+        "status": {
+          "ready": "Die lokalen Installationsprüfungen waren erfolgreich. Stellen Sie zur Überprüfung eine Verbindung aus Ihrem Browser her.",
+          "disabled": "Der Start aus dem Browser ist deaktiviert.",
+          "conflict": "Diese Dateien gehören zu einer anderen Installation. Entfernen Sie zuerst deren Browserintegration.",
+          "permissions": "Prüfen Sie, ob die Dateien ausführbar sind und nur von Ihrem Konto beschrieben werden können.",
+          "invalid": "Der Installationseintrag oder die Programmdatei ist ungültig.",
+          "sourceChanged": "Das AppImage wurde geändert. Starten Sie die gewünschte Version und reparieren Sie die Installation.",
+          "missing": "Eine erforderliche Datei fehlt. Starten Sie das AppImage von seinem aktuellen Speicherort und reparieren Sie die Installation.",
+          "io": "Der Vorgang ist fehlgeschlagen. Prüfen Sie den Datenträgerzugriff und versuchen Sie „Reparieren“."
+        }
+      },
+      "description": "Browser, Standard-Apps und Werkzeuge"
+    },
+    "validation": {
+      "rangeHint": "Bereich: {{min}}–{{max}}.",
+      "range": "Geben Sie eine Zahl zwischen {{min}} und {{max}} ein.",
+      "integerRange": "Geben Sie eine ganze Zahl zwischen {{min}} und {{max}} ein.",
+      "minimum": "Geben Sie mindestens {{min}} ein.",
+      "maximum": "Geben Sie höchstens {{max}} ein.",
+      "integer": "Geben Sie eine ganze Zahl ein.",
+      "wholeBytes": "Verwenden Sie weniger Nachkommastellen.",
+      "number": "Geben Sie eine gültige Zahl ein.",
+      "invalid": "Geben Sie einen gültigen Wert ein.",
+      "selection": "Wählen Sie eine verfügbare Option.",
+      "textLength": "Verwenden Sie höchstens {{max}} Zeichen.",
+      "itemCount": "Verwenden Sie höchstens {{max}} Adressen.",
+      "text": "Entfernen Sie Zeilenumbrüche oder unsichtbare Steuerzeichen.",
+      "directory": "Wählen Sie einen Download-Ordner.",
+      "proxyHost": "Geben Sie einen Servernamen oder eine IP-Adresse ohne http:// und ohne Port ein.",
+      "stunServer": "Verwenden Sie host:port, zum Beispiel stun.example.com:3478. Der Port muss zwischen 1 und 65535 liegen.",
+      "httpsUrl": "Geben Sie eine vollständige Adresse ein, die mit https:// beginnt.",
+      "httpUrl": "Geben Sie eine vollständige Adresse ein, die mit http:// oder https:// beginnt.",
+      "saveFailed": "Ihre Änderungen konnten nicht gespeichert werden. Versuchen Sie es erneut.",
+      "address": "Adresse {{number}}",
+      "addressDraft": "Neue Adresse",
+      "required": "Geben Sie zuerst eine Adresse ein.",
+      "time": "Verwenden Sie das 24-Stunden-Format, zum Beispiel 23:00.",
+      "loadFailed": "Die Einstellungen konnten nicht geladen werden. Versuchen Sie es erneut."
+    },
+    "feedback": {
+      "syncFailedTitle": "Einstellungen gespeichert; Aktualisierung der Oberfläche fehlgeschlagen",
+      "syncFailedBody": "Ihre Einstellungen wurden gespeichert. Wiederholen Sie die Synchronisierung, um diese Seite ohne erneutes Speichern zu aktualisieren.",
+      "retrySync": "Synchronisierung erneut versuchen",
+      "applyFailedTitle": "Einstellungen gespeichert; einige Änderungen konnten nicht angewendet werden",
+      "applyFailedBody": "Die gespeicherte Konfiguration bleibt erhalten. Prüfen Sie die Anwendungsprotokolle und starten Sie den betroffenen Dienst nach Behebung des Problems neu.",
+      "appRestartTitle": "Motrix neu starten, um die Einstellungen anzuwenden",
+      "appRestartBody": "Ihre Einstellungen wurden gespeichert. Starten Sie Motrix zu einem geeigneten Zeitpunkt neu."
+    },
+    "connection": {
+      "originMismatchTitle": "Die Zugriffsadresse des Servers stimmt nicht überein.",
+      "originMismatchBody": "Echtzeitaktualisierungen sind nicht verfügbar. Verwenden Sie die konfigurierte Serveradresse oder bitten Sie die Administration um eine Korrektur.",
+      "disconnectedTitle": "Die Verbindung für Echtzeitaktualisierungen ist unterbrochen.",
+      "disconnectedBody": "Einige Informationen werden möglicherweise verzögert angezeigt. Prüfen Sie bei anhaltenden Problemen die Serververbindung und Proxy-Konfiguration."
+    }
+  },
+  "errors": {
+    "task": {
+      "create": {
+        "dedupExhausted": "Es gibt bereits zu viele Dateien mit diesem Namen (>9999).",
+        "torrentMetaFailed": "Die Torrent-Metadaten konnten nicht gespeichert werden."
+      }
+    }
+  },
+  "menu": {
+    "app": {
+      "title": "Motrix",
+      "about": "Über Motrix",
+      "preferences": "Einstellungen…",
+      "checkForUpdates": "Nach Updates suchen",
+      "show": "Motrix anzeigen",
+      "hide": "Motrix ausblenden",
+      "hideOthers": "Andere ausblenden",
+      "unhide": "Alle einblenden",
+      "quit": "Motrix beenden"
+    },
+    "file": {
+      "title": "Datei"
+    },
+    "task": {
+      "title": "Aufgabe",
+      "newTask": "Neue Aufgabe…",
+      "newBtTask": "Neue BitTorrent-Aufgabe…",
+      "openFile": "Torrent-Datei öffnen…",
+      "taskList": "Aufgabenliste",
+      "pauseTask": "Pausieren",
+      "resumeTask": "Fortsetzen",
+      "deleteTask": "Aufgaben entfernen…",
+      "moveTaskUp": "In der Warteschlange nach oben",
+      "moveTaskDown": "In der Warteschlange nach unten",
+      "pauseAllTask": "Alle pausieren",
+      "resumeAllTask": "Alle fortsetzen",
+      "selectAllTask": "Alle Aufgaben auswählen",
+      "clearRecentTasks": "Beendete Aufgabeneinträge löschen…"
+    },
+    "edit": {
+      "title": "Bearbeiten",
+      "undo": "Rückgängig",
+      "redo": "Wiederholen",
+      "cut": "Ausschneiden",
+      "copy": "Kopieren",
+      "paste": "Einfügen",
+      "delete": "Löschen",
+      "selectAll": "Alles auswählen"
+    },
+    "window": {
+      "title": "Fenster",
+      "reload": "Neu laden",
+      "close": "Schließen",
+      "minimize": "Minimieren",
+      "zoom": "Zoomen",
+      "toggleFullscreen": "Vollbild ein-/ausschalten",
+      "front": "Alle nach vorne bringen"
+    },
+    "help": {
+      "title": "Hilfe",
+      "officialWebsite": "Motrix-Website",
+      "manual": "Motrix-Hilfe",
+      "changelog": "Versionshinweise",
+      "reportProblem": "Problem melden",
+      "toggleDevTools": "Entwicklerwerkzeuge ein-/ausblenden"
+    }
+  },
+  "trackers": {
+    "effective": {
+      "enabled": "Kuratierte Tracker hinzufügen",
+      "enabledDesc": "Die kuratierte Tracker-Liste an alle BitTorrent-Aufgaben anhängen.",
+      "disabled": "Deaktiviert – aktivieren Sie die Funktion, um die wirksame Tracker-Liste anzuzeigen.",
+      "empty": "Noch keine wirksamen Tracker. Starten Sie die Synchronisierung, um die Liste zu füllen.",
+      "column": {
+        "url": "URL",
+        "health": "Zustand",
+        "responseTimeMs": "Antwortzeit (ms)",
+        "lastProbedAt": "Zuletzt geprüft",
+        "source": "Quelle"
+      }
+    },
+    "blacklist": {
+      "enabled": "Sperrliste anwenden",
+      "enabledDesc": "Verbindungen zu verdächtigen und fehlerhaften Tracker-Servern blockieren.",
+      "disabled": "Deaktiviert – aktivieren Sie die Funktion, um die Sperrliste anzuzeigen.",
+      "empty": "Die Sperrliste ist leer.",
+      "summary": "{{count}} URLs wirksam",
+      "column": {
+        "url": "URL",
+        "source": "Quelle"
+      }
+    },
+    "combobox": {
+      "placeholder": "Quellen auswählen",
+      "addSourcePlaceholder": "https://example.com/list.txt",
+      "addSource": "Hinzufügen",
+      "removeSource": "Quelle entfernen",
+      "empty": "Keine passenden Quellen.",
+      "builtinBadge": "integriert",
+      "cdnBadge": "CDN",
+      "directBadge": "Direkt"
+    },
+    "sync": {
+      "syncing": "Wird synchronisiert…",
+      "fetching": "Tracker-Listen werden abgerufen…",
+      "probing": "Tracker-Verfügbarkeit wird geprüft…",
+      "applying": "Tracker-Listen werden angewendet…",
+      "failed": "Synchronisierung unvollständig. Prüfen Sie Ihr Netzwerk oder Ihre Quellen und versuchen Sie es erneut.",
+      "unavailable": "Der Synchronisierungsstatus konnte nicht gelesen werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut."
+    }
+  },
+  "plugins": {
+    "title": "Plugins",
+    "empty": "Noch keine Plugins installiert.",
+    "errors_one": "{{count}} Fehler",
+    "errors_other": "{{count}} Fehler",
+    "status": {
+      "active": "Aktiv",
+      "inactive": "Inaktiv",
+      "disabled": "Deaktiviert",
+      "error": "Fehler"
+    },
+    "install": {
+      "title": "Plugin hinzufügen",
+      "github": "GitHub",
+      "github.spec": "GitHub-Repository (owner/repo[@tag])",
+      "url": "URL",
+      "url.spec": "Paket-URL (.moext)",
+      "local": "Lokale Datei",
+      "local.pick": ".moext-Datei auswählen",
+      "lead": "Fügen Sie eine Plugin-Adresse ein, wählen Sie eine .moext-Datei oder ziehen Sie eine Datei in das Eingabefeld.",
+      "placeholder": "GitHub-Adresse oder URL einfügen oder eine lokale .moext-Datei auswählen",
+      "detected": {
+        "auto": "Automatisch",
+        "github": "GitHub",
+        "url": "URL",
+        "local": "Datei"
+      },
+      "detectedRow": {
+        "ok": "Als {{type}} erkannt",
+        "localSupported": "Lokale .moext-Dateien unterstützt"
+      },
+      "checkAriaLabel": "Dieses Plugin prüfen",
+      "install": "Plugin installieren",
+      "pickLocal": "Lokale .moext-Datei auswählen",
+      "localUnavailable": "Auf diesem Host ist die Installation lokaler Dateien nicht verfügbar.",
+      "localPrepareFailed": "Diese Plugin-Datei konnte nicht vorbereitet werden: {{detail}}",
+      "dropHint": ".moext-Datei hier ablegen, um dieses Plugin zu prüfen",
+      "dragDisabledHint": "Drag-and-drop wird in dieser Umgebung nicht unterstützt. Verwenden Sie eine GitHub-Adresse oder URL.",
+      "warning": "Vor der Installation: Fahren Sie nur fort, wenn Sie dem Autor vertrauen und die oben aufgeführten Zugriffe durch das Plugin erwarten."
+    },
+    "consent": {
+      "installTitle": "{{name}} {{version}} installieren?",
+      "upgradeTitle": "{{name}} auf {{version}} aktualisieren?",
+      "notVerified": "Dieses Plugin ist nicht verifiziert. Installieren Sie nur Plugins aus vertrauenswürdigen Quellen.",
+      "confirm": "Erlauben und installieren",
+      "permissions": "Erforderliche Berechtigungen",
+      "optionalPermissions": "Optionale Berechtigungen",
+      "hostPermissions": "Host-Zugriff",
+      "invokesCommands": "Ruft Befehle anderer Plugins auf",
+      "calleeMissing": "Nicht installiert",
+      "source": "Quelle: {{type}} · {{url}}",
+      "broadAccess": {
+        "title": "Umfassender Host-Zugriff",
+        "body": "Dieses Plugin kann Downloads von beliebigen URLs lesen und ändern. Installieren Sie es nur, wenn Sie der Quelle vertrauen.",
+        "tag": "Umfassend"
+      },
+      "diff": {
+        "title": "Änderungen seit der letzten Zustimmung",
+        "permissions": "Neue Berechtigungen",
+        "optionalPermissions": "Neue optionale Berechtigungen",
+        "hostPermissions": "Neuer Host-Zugriff",
+        "invokesCommands": "Neue pluginübergreifende Befehlsaufrufe",
+        "publicCommands": "Neue öffentliche Befehle",
+        "publicCommandsSchema": "Schemas öffentlicher Befehle geändert",
+        "heap": "Angeforderter Arbeitsspeicher",
+        "engines": "Motrix-Engine-Version",
+        "source": "Paketquelle"
+      }
+    },
+    "detail": {
+      "overview": "Übersicht",
+      "settings": "Einstellungen",
+      "logs": "Protokolle",
+      "about": "Über",
+      "loading": "Wird geladen…",
+      "back": "Alle Plugins",
+      "author": "Autor",
+      "homepage": "Homepage",
+      "uninstall": "Deinstallieren",
+      "uninstallConfirm": "Dieses Plugin deinstallieren? Seine Daten werden entfernt.",
+      "enabled": "Aktiviert",
+      "disabled": "Deaktiviert",
+      "access": "Zugriff",
+      "advanced": "Erweitert",
+      "accessGranted": "Was dieses Plugin bereits tun kann",
+      "accessOptional": "Optionaler Zugriff",
+      "hero": {
+        "ready": "Bereit",
+        "review": "Zugriff prüfen",
+        "attention": "Handlungsbedarf",
+        "off": "Ausgeschaltet",
+        "optional": "Kann weitere Zugriffe anfordern"
+      },
+      "mini": {
+        "purpose": "Zweck",
+        "access": "Zugriff",
+        "health": "Zustand"
+      },
+      "healthOk": "Alles in Ordnung",
+      "healthIssues_one": "{{count}} Problem in den letzten 24 Stunden gemeldet",
+      "healthIssues_other": "{{count}} Probleme in den letzten 24 Stunden gemeldet",
+      "accessNone": "Nur eigene Einstellungen",
+      "accessHosts_one": "Kann {{count}} Website lesen",
+      "accessHosts_other": "Kann {{count}} Websites lesen",
+      "accessBroad": "Kann jede Website lesen",
+      "attentionTitle": "Dieses Plugin hat ein Problem gemeldet",
+      "attentionGeneric": "Weitere Informationen finden Sie in den Protokollen.",
+      "viewIssue": "Problem anzeigen",
+      "removeTitle": "Plugin entfernen",
+      "removeDesc": "Beim Entfernen dieses Plugins werden auch seine in Motrix gespeicherten Daten gelöscht.",
+      "uninstallConfirmTitle": "{{name}} deinstallieren?",
+      "uninstallConfirmDesc": "Das Plugin und seine gespeicherten Einstellungen werden aus Motrix entfernt."
+    },
+    "permissions": {
+      "empty": "Dieses Plugin fordert keine Berechtigungen an.",
+      "granted": "Gewährt",
+      "denied": "Verweigert"
+    },
+    "logs": {
+      "verbose": "Ausführliche Protokollierung",
+      "verboseWarning": "Erfasst eine Stunde lang vollständige URLs und Header. Mit Vorsicht verwenden.",
+      "filterLabel": "Protokollstufe",
+      "levels": {
+        "all": "Alle Stufen",
+        "trace": "Trace",
+        "debug": "Debug",
+        "info": "Info",
+        "warn": "Warnung",
+        "error": "Fehler",
+        "fatal": "Schwerwiegend"
+      },
+      "copy": "Kopieren",
+      "clear": "Leeren",
+      "output": "Live-Ausgabe",
+      "entryCount_one": "{{count}} Eintrag",
+      "entryCount_other": "{{count}} Einträge",
+      "empty": "Noch keine Protokolleinträge",
+      "emptyHint": "Neue Plugin-Aktivitäten werden hier automatisch angezeigt.",
+      "emptyFiltered": "Keine Einträge für diese Stufe."
+    },
+    "lead": "Erweitern Sie Motrix um kleine Funktionen. Behalten Sie Plugins, denen Sie vertrauen, und schalten Sie die übrigen aus.",
+    "search": "Plugin suchen",
+    "registry": {
+      "availableTitle": "Verfügbare Plugins",
+      "featured": "Empfohlen",
+      "byAuthor": "von {{name}}",
+      "requires": "Erfordert Motrix {{range}}",
+      "notInstalled": "Nicht installiert",
+      "notFound": "Plugin „{{id}}“ wurde nicht in der Registry gefunden",
+      "viewOnWebsite": "Auf motrix.app ansehen",
+      "updated": "aktualisiert: {{date}}",
+      "featuresTitle": "Funktionen",
+      "permissionsTitle": "Berechtigungen",
+      "permissionsPreviewNote": "Vorschau aus dem Registry-Eintrag. Die tatsächliche Zustimmungsabfrage basiert immer auf dem Manifest im Plugin-Paket.",
+      "optionalTag": "optional",
+      "install": "Installieren",
+      "updateAvailable": "Update verfügbar",
+      "updateTo": "Auf v{{version}} aktualisieren",
+      "refresh": "Nach Updates suchen",
+      "builtinUpdateTitle": "Integriertes Plugin aktualisieren",
+      "builtinConsentLead": "Dieses Update fordert neue Zugriffe an:",
+      "revertToBundled": "Zur mitgelieferten Version zurückkehren",
+      "restartRequired": "Update installiert. Starten Sie Motrix neu, um es vollständig anzuwenden.",
+      "updateInstalled": "Update installiert.",
+      "actionFailed": "Die Aktion konnte nicht abgeschlossen werden."
+    },
+    "searchNoMatch": "Keine Plugins entsprechen „{{query}}“",
+    "clearSearch": "Suche leeren",
+    "tone": {
+      "safe": "Wirkt sicher",
+      "review": "Prüfung erforderlich",
+      "optional": "Optionaler Zugriff",
+      "off": "Aus"
+    },
+    "card": {
+      "advancedDetails": "Erweiterte Details",
+      "commandsInvoked": "Aufgerufene Befehle: {{count}}",
+      "commandsServing": "Bereitgestellte Befehle: {{count}}",
+      "primaryAction": {
+        "settings": "Einstellungen",
+        "open": "Öffnen",
+        "reviewAccess": "Zugriff prüfen",
+        "viewIssue": "Problem anzeigen",
+        "grantAccess": "Zugriff gewähren",
+        "turnOn": "Einschalten"
+      },
+      "plain": {
+        "safe": "Dieses Plugin ist aktiviert und bereit. Es speichert nur seine eigenen Einstellungen und liest keine Websites.",
+        "reviewBroadHost": "Dieses Plugin kann {{hostSummary}} lesen. Lassen Sie es nur aktiviert, wenn Sie ihm vertrauen.",
+        "reviewError": "Dieses Plugin hat ein Problem gemeldet.",
+        "optional": "Dieses Plugin funktioniert ohne zusätzliche Zugriffe. Sie können später weitere Zugriffe gewähren.",
+        "off": "Dieses Plugin ist ausgeschaltet."
+      }
+    },
+    "help": {
+      "guidance": {
+        "firstUse": {
+          "title": "Vertrauenswürdige Plugins hinzufügen",
+          "body": "Installieren Sie aus einer vertrauenswürdigen Quelle, prüfen Sie die angeforderten Zugriffe und aktivieren Sie dann das Plugin.",
+          "safety": "Gewähren Sie Website-Zugriff nur für Websites, die das Plugin erwartungsgemäß verarbeiten soll.",
+          "browse": "Plugins im offiziellen Motrix-Plugin-Marktplatz entdecken"
+        },
+        "ongoing": "Prüfen Sie die Zugriffe, bevor Sie ein Plugin aktivieren. Gewähren Sie Website-Zugriff nur für Websites, die es erwartungsgemäß verarbeiten soll."
+      }
+    },
+    "diagnostics": {
+      "title": "Diagnose",
+      "intro": "Erfolgreiche Aufrufe zwischen Plugins aus den letzten 24 Stunden untersuchen.",
+      "callGraph": {
+        "toolbarLabel": "Steuerung des Aufrufgraphen",
+        "modeLabel": "Beziehungsansicht",
+        "modes": {
+          "graph": "Graph",
+          "table": "Tabelle"
+        },
+        "filters": {
+          "searchLabel": "Beziehungen durchsuchen",
+          "searchPlaceholder": "Plugin oder Befehl suchen",
+          "clearSearch": "Suche leeren",
+          "pluginsGroup": "Plugins",
+          "commandsGroup": "Befehle",
+          "noSuggestions": "Keine Plugin- oder Befehlsvorschläge"
+        },
+        "refresh": "Aktualisieren",
+        "refreshing": "Wird aktualisiert…",
+        "refreshTooltip": "Die neuesten erfolgreichen Aufrufe laden",
+        "renderGraphTooltip": "Dieses große Ergebnis als Graph darstellen",
+        "columns": {
+          "caller": "Aufrufer",
+          "command": "Befehl",
+          "callee": "Aufgerufenes Plugin",
+          "calls": "Aufrufe",
+          "lastCall": "Letzter Aufruf"
+        },
+        "legend": {
+          "label": "Legende zur Anzahl der Aufrufe",
+          "fewerCalls": "Weniger Aufrufe",
+          "moreCalls": "Mehr Aufrufe"
+        },
+        "loading": {
+          "graph": "Aufrufverlauf wird geladen…",
+          "metadata": "Plugin-Details werden geladen…"
+        },
+        "globalEmpty": {
+          "title": "Noch keine erfolgreichen pluginübergreifenden Aufrufe",
+          "description": "Integrierte Plugins erzeugen standardmäßig möglicherweise keinen pluginübergreifenden Datenverkehr."
+        },
+        "filteredEmpty": "Keine erfolgreichen Aufrufe entsprechen dieser Suche.",
+        "errors": {
+          "graphTitle": "Der Aufrufverlauf konnte nicht geladen werden",
+          "graphDescription": "Versuchen Sie erneut, den Verlauf erfolgreicher Aufrufe zu laden.",
+          "graphRetry": "Aufrufverlauf erneut laden",
+          "metadataTitle": "Plugin-Details konnten nicht geladen werden",
+          "metadataDescription": "Plugin-Details sind erforderlich, um nicht verfügbare Plugins zu erkennen.",
+          "metadataRetry": "Plugin-Details erneut laden",
+          "layout": "Die Beziehungsübersicht konnte nicht angeordnet werden.",
+          "layoutRetry": "Übersicht erneut anordnen",
+          "canvasTitle": "Die Graphenfläche konnte nicht angezeigt werden",
+          "canvasDescription": "Sie können die Darstellung erneut versuchen oder die vollständige Tabellenansicht verwenden.",
+          "canvasRetry": "Darstellung erneut versuchen",
+          "canvasTable": "Tabelle verwenden"
+        },
+        "truncated": "Der Aufrufverlauf ist möglicherweise unvollständig, da Leselimit, Aufbewahrungsdauer oder Dateirotation das Ergebnis begrenzt haben.",
+        "statuses": {
+          "active": "Läuft",
+          "inactive": "Bereit, aber inaktiv",
+          "disabled": "Deaktiviert",
+          "error": "Handlungsbedarf",
+          "missing": "Nicht installiert"
+        },
+        "inspector": {
+          "label": "Details zur Auswahl im Aufrufgraphen",
+          "scopeTitle": "Erfolgreiche Aufrufe",
+          "neutralScope": "Wählen Sie ein Plugin oder eine Verbindung aus, um erfolgreiche Aufrufe aus den letzten 24 Stunden zu untersuchen.",
+          "pluginId": "Plugin-ID",
+          "status": "Status",
+          "incomingCalls": "Eingehende Aufrufe",
+          "outgoingCalls": "Ausgehende Aufrufe",
+          "connections": "Verbundene Plugins",
+          "noConnections": "Keine verbundenen Plugins",
+          "openPlugin": "Plugin öffnen",
+          "edgeTitle": "Verbindungsdetails",
+          "totalCalls": "Aufrufe insgesamt",
+          "commands": "Befehle"
+        },
+        "tableRegionLabel": "Scrollbare Befehlsbeziehungen",
+        "tableLabel": "Plugin-Befehlsbeziehungen",
+        "counts": {
+          "calls_one": "{{count}} erfolgreicher Aufruf",
+          "calls_other": "{{count}} erfolgreiche Aufrufe",
+          "commands_one": "{{count}} Befehl",
+          "commands_other": "{{count}} Befehle"
+        },
+        "aria": {
+          "graphLabel": "Plugin-Befehlsbeziehungen",
+          "graphDescription": "{{nodeCount}} Plugins und {{pairCount}} Beziehungen aus den letzten 24 Stunden.",
+          "nodeLabel": "{{name}}, Plugin {{id}}, {{status}}, {{incoming}} eingehende und {{outgoing}} ausgehende Aufrufe",
+          "edgeLabel": "{{source}} hat {{target}} über {{commands}} Befehle {{calls}}-mal aufgerufen",
+          "nodeDescription": "Wählen Sie einen Plugin-Knoten aus, um ihn zu untersuchen.",
+          "nodeKeyboardInstruction": "Verwenden Sie die Pfeiltasten, um diesen Plugin-Knoten zu verschieben.",
+          "nodeMoved": "Plugin-Knoten {{direction}} auf {{x}}, {{y}} verschoben.",
+          "directions": {
+            "left": "nach links",
+            "right": "nach rechts",
+            "up": "nach oben",
+            "down": "nach unten"
+          },
+          "edgeDescription": "Wählen Sie eine Aufrufkante aus, um sie zu untersuchen.",
+          "controls": "Steuerung der Plugin-Graphenansicht",
+          "zoomIn": "Graph vergrößern",
+          "zoomOut": "Graph verkleinern",
+          "fitView": "Plugin-Graph an die Ansicht anpassen",
+          "interactive": "Interaktionsmodus des Graphen umschalten",
+          "minimap": "Plugin-Graphenübersicht",
+          "handle": "Schreibgeschützter Aufrufendpunkt"
+        }
+      }
+    },
+    "permission": {
+      "http": {
+        "strong": "Websites lesen",
+        "plain": "Öffnet Seiten, die dieses Plugin unterstützt.",
+        "cookies": {
+          "strong": "Website-Cookies verwenden",
+          "plain": "Greift auf Websites zu, bei denen Sie angemeldet sind."
+        }
+      },
+      "ffmpeg": {
+        "strong": "FFmpeg verwenden",
+        "plain": "Verarbeitet Audio oder Video."
+      },
+      "notify": {
+        "strong": "Benachrichtigungen senden",
+        "plain": "Zeigt Abschlussmeldungen an."
+      },
+      "fs": {
+        "task": {
+          "read": {
+            "strong": "Download-Dateien lesen",
+            "plain": "Kann Dateien einer Aufgabe einsehen."
+          },
+          "write": {
+            "strong": "Download-Dateien ändern",
+            "plain": "Kann Aufgabendateien hinzufügen oder aktualisieren."
+          }
+        },
+        "storage": {
+          "strong": "Plugin-Dateien speichern",
+          "plain": "Bewahrt Dateien für dieses Plugin auf."
+        }
+      },
+      "storage": {
+        "strong": "Einstellungen speichern",
+        "plain": "Speichert Plugin-Optionen."
+      },
+      "notifications": {
+        "strong": "Benachrichtigungen senden",
+        "plain": "Zeigt Plugin-Meldungen an."
+      },
+      "network": {
+        "strong": "Websites lesen",
+        "plain": "Ruft unterstützte Seiten ab."
+      },
+      "tasks:read": {
+        "strong": "Downloads lesen",
+        "plain": "Kann Ihre Download-Liste einsehen."
+      },
+      "tasks:write": {
+        "strong": "Ihre Downloads verwalten",
+        "plain": "Kann Aufgaben pausieren, fortsetzen oder entfernen."
+      },
+      "unknown": {
+        "plain": "Unbekannte Berechtigung."
+      },
+      "accessTone": {
+        "required": "Erforderlich",
+        "websiteAccess": "Web-Zugriff",
+        "offByDefault": "Optional",
+        "allowed": "Erlaubt",
+        "noAccess": "Aus",
+        "grant": "Erlauben"
+      }
+    }
+  },
+  "plugin": {
+    "ffmpeg": {
+      "destination_phase_disallowed": "ffmpeg kann im Hook {{phase}} nicht in {{kind}} schreiben. Schreiben Sie in den Plugin-Speicher oder verschieben Sie diesen Aufruf nach beforeFinalize.",
+      "staging_quota_exceeded": "Das Kontingent für temporären ffmpeg-Speicher dieser Aufgabe wurde überschritten. Verringern Sie die Ausgabegröße oder erhöhen Sie das Limit in den Medieneinstellungen."
+    },
+    "install": {
+      "ffmpeg": {
+        "title": "FFmpeg-Voraussetzung",
+        "notInstalled": "FFmpeg ist auf diesem System nicht installiert.",
+        "versionMismatch": "FFmpeg {{version}} ist installiert.",
+        "requiredByPlugin": "Dieses Plugin erfordert ffmpeg. Installieren Sie es und versuchen Sie es erneut.",
+        "optionalDegraded": "Die Medienfunktionen dieses Plugins sind erst verfügbar, wenn ffmpeg installiert ist."
+      }
+    }
+  },
+  "bridge": {
+    "receiver": {
+      "error": {
+        "invalidPayload": "Ungültige Anfrage der Erweiterung",
+        "invalidUrlScheme": "Die URL muss mit http: oder https: beginnen",
+        "unsupportedKind": "Downloads vom Typ {{kind}} werden in dieser Motrix-Version nicht unterstützt",
+        "unsupportedLive": "Livestreams können nicht heruntergeladen werden",
+        "unsupportedMaster": "Die Erweiterung hat eine Master-Playlist gesendet; erwartet wurde eine Varianten-Playlist",
+        "unsupportedEncryption": "DRM-geschützte Inhalte können nicht heruntergeladen werden",
+        "authExpired": "Sitzung abgelaufen. Laden Sie die Seite im Browser neu und versuchen Sie es erneut",
+        "notFound": "Ressource nicht gefunden (404)",
+        "transientFailure": "Download nach mehreren Versuchen fehlgeschlagen: {{detail}}",
+        "rangeNotSatisfiable": "Fortsetzen fehlgeschlagen. Starten Sie den Download von vorn",
+        "diskFull": "Datenträger voll",
+        "diskWriteFailed": "Schreiben auf den Datenträger nicht möglich: {{detail}}",
+        "muxFailed": "ffmpeg ist beim Zusammenführen von Audio und Video fehlgeschlagen",
+        "muxAborted": "Zusammenführen abgebrochen",
+        "cancelled": "Abgebrochen",
+        "internalError": "Interner Fehler: {{detail}}"
+      }
+    }
+  },
+  "onboarding": {
+    "disclaimer": {
+      "title": "Nutzungshinweis",
+      "language": "Sprache",
+      "languages": {
+        "english": "English",
+        "chinese": "简体中文"
+      },
+      "summary": "Bitte lesen Sie die folgenden Hinweise, bevor Sie fortfahren.",
+      "body": "Motrix dient ausschließlich der Verwaltung von Downloads. Es stellt keine herunterladbaren Inhalte bereit, speichert oder hostet sie nicht und empfiehlt sie nicht. Sie müssen sicherstellen, dass alle Inhalte, auf die Sie über Motrix zugreifen, die Sie nutzen oder teilen, rechtmäßig genutzt werden dürfen und den geltenden Urheberrechtsbestimmungen sowie anderen Gesetzen entsprechen. Sie sind für alle Folgen verantwortlich, die sich aus dem Herunterladen, Nutzen oder Teilen von Inhalten ergeben. Mit der Auswahl von „Zustimmen und fortfahren“ bestätigen Sie, dass Sie diesen Hinweis gelesen und verstanden haben.",
+      "highlights": {
+        "downloadManagement": "Verwaltung von Downloads",
+        "authorized": "rechtmäßig genutzt",
+        "responsibility": "Sie sind für alle Folgen verantwortlich"
+      },
+      "localConsent": "Ihre Auswahl wird auf diesem Gerät gespeichert.",
+      "agree": "Zustimmen und fortfahren",
+      "quit": "Beenden",
+      "retry": "Erneut versuchen",
+      "saveFailed": "Ihre Zustimmung konnte nicht gespeichert werden. Prüfen Sie den freien Speicherplatz und versuchen Sie es erneut."
+    }
+  },
+  "notification": {
+    "taskError": {
+      "title": "{{name}} fehlgeschlagen"
+    },
+    "taskComplete": {
+      "title": "{{name}} wurde heruntergeladen"
+    },
+    "engineFailure": {
+      "title": "Fehler der Download-Engine"
+    },
+    "engineCompatibility": {
+      "title": "aria2-Version ohne Motrix-Anpassungen erkannt",
+      "body": "aria2 {{version}} ist nicht die Motrix-Variante. Verbindungseinstellungen sind auf höchstens {{limit}} begrenzt, und das dauerhafte Speichern des Verlaufs in SQLite ist nicht verfügbar. Stellen Sie die mitgelieferte Engine aria2_motrix wieder her, um alle Funktionen nutzen zu können."
+    },
+    "engineRestartRequired": {
+      "title": "Download-Engine neu starten, um die Einstellungen anzuwenden",
+      "body": "Ihre Einstellungen wurden gespeichert. Starten Sie die Download-Engine zu einem geeigneten Zeitpunkt neu.",
+      "restartNow": "Jetzt neu starten"
+    },
+    "dnsFallback": {
+      "title": "{{name}} erneut mit System-DNS versucht",
+      "body": "Motrix konnte keinen DNS-Server erreichen und verwendet deshalb für diese Sitzung System-DNS."
+    },
+    "center": {
+      "title": "Benachrichtigungen",
+      "markAllRead": "Alle als gelesen markieren",
+      "clearAll": "Leeren",
+      "empty": "Keine Benachrichtigungen",
+      "emptyDesc": "Hier erscheinen Download-Aktivitäten und wichtige Anwendungshinweise",
+      "unreadDotAria": "Ungelesene Benachrichtigungen",
+      "unreadBadgeAria_one": "{{count}} ungelesene Benachrichtigung",
+      "unreadBadgeAria_other": "{{count}} ungelesene Benachrichtigungen",
+      "rowUnreadAria": "{{title}} (ungelesen)",
+      "toastRegionAria": "Benachrichtigungen",
+      "removeAria": "{{title}} entfernen",
+      "actionFailed": "Die Benachrichtigungen konnten nicht aktualisiert werden. Versuchen Sie es erneut.",
+      "markRead": "Als gelesen markieren",
+      "viewTask": "Aufgabe anzeigen",
+      "taskRemoved": "Aufgabe entfernt",
+      "openTaskFailed": "Die Aufgabe konnte nicht geöffnet werden. Versuchen Sie es erneut."
+    }
+  },
+  "applicationMenu": {
+    "signOut": "Abmelden…",
+    "back": "Zurück",
+    "serverUnavailable": "Der Server ist nicht erreichbar. Sie wurden nicht abgemeldet.",
+    "retry": "Erneut versuchen",
+    "actionFailed": "Die Aktion konnte nicht abgeschlossen werden. Prüfen Sie die Verbindung und versuchen Sie es erneut.",
+    "clearTitle": "Beendete Aufgabeneinträge löschen?",
+    "clearDescription": "Entfernt die Einträge abgeschlossener, fehlgeschlagener und entfernter Aufgaben, die beim Öffnen dieses Dialogs erfasst wurden. Heruntergeladene Dateien bleiben auf dem Datenträger.",
+    "clearConfirm": "Einträge löschen",
+    "logoutTitle": "Von diesem Server abmelden?",
+    "logoutDescription": "Andere Tabs in derselben Browsersitzung werden ebenfalls abgemeldet. Downloads laufen auf dem Server weiter. Nicht gespeicherte Eingaben in diesen Tabs werden verworfen.",
+    "logoutConfirm": "Abmelden",
+    "discardTitle": "Diesen Aufgabenentwurf verwerfen?",
+    "discardDescription": "Ihre nicht gespeicherten Links, die Torrent-Auswahl und die Einstellungen werden verworfen.",
+    "discardConfirm": "Verwerfen"
+  },
+  "directoryPicker": {
+    "title": "Serverordner auswählen",
+    "description": "Die Pfade befinden sich auf dem Server, bei Docker innerhalb des Containers.",
+    "back": "Zurück",
+    "forward": "Vorwärts",
+    "up": "Eine Ebene nach oben",
+    "refresh": "Aktualisieren",
+    "goToFolder": "Zum Ordner wechseln",
+    "location": "Ort",
+    "viewOptions": "Ansichtsoptionen",
+    "sortBy": "Sortieren nach",
+    "sortName": "Name",
+    "sortModified": "Änderungsdatum",
+    "sortOrder": "Reihenfolge",
+    "sortAscending": "Aufsteigend",
+    "sortDescending": "Absteigend",
+    "showHidden": "Versteckte Ordner anzeigen",
+    "folders": "Ordner",
+    "loading": "Ordner werden geladen…",
+    "empty": "Keine Unterordner",
+    "incomplete": "Es wird nur ein Teil dieses Ordners angezeigt. Geben Sie den genauen Pfad ein, um einen anderen Ordner zu öffnen.",
+    "selectFolder": "Ordner auswählen",
+    "selectedPath": "Ausgewählter Ordner",
+    "path": "Ordnerpfad",
+    "go": "Öffnen",
+    "newFolder": "Neuer Ordner",
+    "folderName": "Ordnername",
+    "create": "Erstellen",
+    "createHelp": "Erstellte Ordner bleiben auf dem Server, auch wenn Sie die Auswahl abbrechen.",
+    "fallback": "Der angeforderte Ordner ist nicht verfügbar. Angezeigt wird {{path}}.",
+    "refreshAfterCreateFailed": "Der Ordner wurde erstellt, aber die Liste konnte nicht aktualisiert werden.",
+    "unknownOutcome": "Die Erstellung konnte nicht bestätigt werden. Aktualisieren Sie die Liste zur Überprüfung, bevor Sie hier einen weiteren Ordner erstellen.",
+    "retry": "Erneut versuchen",
+    "errors": {
+      "invalidPath": "Geben Sie einen gültigen absoluten Ordnerpfad ein.",
+      "outsideRoots": "Dieser Ordner liegt außerhalb der zulässigen Speicherorte.",
+      "notFound": "Dieser Ordner existiert nicht mehr.",
+      "notDirectory": "Dieser Pfad ist kein Ordner.",
+      "permissionDenied": "Sie haben keine Berechtigung, diesen Ordner zu verwenden.",
+      "alreadyExists": "Eine Datei oder ein Ordner mit diesem Namen existiert bereits.",
+      "invalidName": "Geben Sie einen gültigen Ordnernamen ein.",
+      "tooLarge": "Dieser Pfad oder Ordnername ist zu lang.",
+      "unavailable": "Der Server konnte diese Anfrage nicht abschließen. Versuchen Sie es erneut.",
+      "creationOutcomeUnknown": "Die Erstellung konnte nicht bestätigt werden. Aktualisieren Sie die Liste zur Überprüfung, bevor Sie hier einen weiteren Ordner erstellen."
+    },
+    "places": {
+      "common": "Häufige Orte",
+      "allowed": "Zulässige Speicherorte",
+      "default": "Standardordner",
+      "home": "Persönlicher Ordner",
+      "desktop": "Schreibtisch",
+      "documents": "Dokumente",
+      "downloads": "Downloads",
+      "root": "Dateisystem",
+      "loadFailed": "Einige Speicherorte konnten nicht geladen werden."
+    }
+  },
+  "directoryPreferences": {
+    "sectionDescription": "Halten Sie häufig verwendete Ordner griffbereit.",
+    "manage": "Ordner verwalten",
+    "manageDescription": "Wählen Sie bevorzugte Ordner aus und verwalten Sie zuletzt verwendete Ordner.",
+    "title": "Ordner verwalten",
+    "description": "Wenn Sie einen Ordner aus dieser Liste entfernen, werden weder der Ordner noch seine Dateien gelöscht.",
+    "favorites": "Bevorzugte Ordner",
+    "recent": "Zuletzt verwendete Ordner",
+    "addFavorite": "Favoriten hinzufügen",
+    "removeFavorite": "Favoriten entfernen",
+    "favoriteRecent": "Zu Favoriten hinzufügen",
+    "removeRecent": "Aus zuletzt verwendeten Ordnern entfernen",
+    "clearRecent": "Liste zuletzt verwendeter Ordner leeren",
+    "emptyFavorites": "Keine bevorzugten Ordner",
+    "emptyRecent": "Keine zuletzt verwendeten Ordner",
+    "loading": "Ordner werden geladen…",
+    "retry": "Erneut versuchen",
+    "limitHint": "Sie können bis zu {{count}} bevorzugte Ordner speichern.",
+    "pickerFailed": "Die Ordnerauswahl konnte nicht geöffnet werden. Versuchen Sie es erneut.",
+    "close": "Schließen",
+    "history": "Ordnerverlauf",
+    "emptyHistory": "Noch keine bevorzugten oder zuletzt verwendeten Ordner",
+    "errors": {
+      "conflict": "Die Einstellungen wurden in einem anderen Fenster geändert. Prüfen Sie Ihre Änderungen und speichern Sie erneut.",
+      "invalidPath": "Geben Sie einen gültigen absoluten Ordnerpfad ein.",
+      "outsideRoots": "Dieser Ordner liegt außerhalb der zulässigen Speicherorte.",
+      "notFound": "Dieser Ordner existiert nicht mehr.",
+      "notDirectory": "Dieser Pfad ist kein Ordner.",
+      "permissionDenied": "Sie haben keine Berechtigung, diesen Ordner zu verwenden.",
+      "tooLarge": "Dieser Ordnerpfad ist zu lang.",
+      "unavailable": "Die Ordnereinträge konnten nicht aktualisiert werden. Aktualisieren Sie die Ansicht, um ihren aktuellen Stand zu prüfen.",
+      "limitReached": "Die Höchstzahl bevorzugter Ordner ist erreicht. Entfernen Sie einen Favoriten, bevor Sie einen weiteren hinzufügen."
+    },
+    "manageAction": "Verwalten",
+    "alreadyFavorite": "Bereits in den Favoriten"
+  }
+}

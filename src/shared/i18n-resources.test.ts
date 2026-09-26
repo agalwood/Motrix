@@ -2,6 +2,49 @@ import { I18N_RESOURCES } from '@shared/i18n-resources'
 import { createInstance } from 'i18next'
 import { describe, expect, it } from 'vitest'
 
+describe('bundled German translations', () => {
+  it('resolves actions and German plural forms without English fallback', async () => {
+    const i18n = createInstance()
+    await i18n.init({
+      lng: 'de',
+      fallbackLng: false,
+      resources: I18N_RESOURCES,
+      interpolation: { escapeValue: false },
+    })
+
+    expect(i18n.t('common.retry')).toBe('Erneut versuchen')
+    expect(i18n.t('settings.appearance.followSystem')).toBe(
+      'Systemsprache verwenden'
+    )
+    expect(i18n.t('task.remove.deleteFilesLabel')).toBe(
+      'Heruntergeladene Dateien löschen'
+    )
+    for (const [count, category, text] of [
+      [0, 'other', '0 Dateien ausgewählt'],
+      [1, 'one', '1 Datei ausgewählt'],
+      [2, 'other', '2 Dateien ausgewählt'],
+      [1.5, 'other', '1.5 Dateien ausgewählt'],
+      [1000000, 'other', '1000000 Dateien ausgewählt'],
+    ] as const) {
+      const result = i18n.t('task.torrent.fileSelected', {
+        count,
+        returnDetails: true,
+      })
+      expect(result.exactUsedKey).toBe(`task.torrent.fileSelected_${category}`)
+      expect(result.res).toBe(text)
+      expect(result.usedLng).toBe('de')
+    }
+  })
+
+  it('preserves the usage-notice highlights inside the German message', () => {
+    const { disclaimer } = I18N_RESOURCES.de.translation.onboarding
+    for (const highlight of Object.values(disclaimer.highlights)) {
+      expect(disclaimer.body).toContain(highlight)
+    }
+    expect(disclaimer.body).toContain(disclaimer.agree)
+  })
+})
+
 describe('bundled French translations', () => {
   it('resolves actions and all French plural categories without English fallback', async () => {
     const i18n = createInstance()
