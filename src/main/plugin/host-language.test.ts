@@ -52,6 +52,13 @@ describe('resolvePluginHostLanguage', () => {
     expect(resolvePluginHostLanguage('en-US')).toBe('en-US')
   })
 
+  it('uses bundled Korean for a Korean system locale', () => {
+    getLocale.mockReturnValue('ko-KR')
+
+    expect(resolvePluginHostLanguage('system')).toBe('ko')
+    expect(resolvePluginHostLanguage('en-US')).toBe('en-US')
+  })
+
   it('uses bundled Japanese for a Japanese system locale', () => {
     getLocale.mockReturnValue('ja-JP')
 

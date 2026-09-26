@@ -83,6 +83,13 @@ describe('resolveSupportedLocale', () => {
     }
   )
 
+  it.each(['ko', 'ko-KR', 'ko-Kore-KR', 'ko_KR.UTF-8'])(
+    'resolves Korean locale %s to the bundled resource',
+    (locale) => {
+      expect(resolveSupportedLocale(locale, 'en-US')).toBe('ko')
+    }
+  )
+
   it('uses the default when no candidate is supported', () => {
     expect(resolveSupportedLocale('qaa')).toBe(DEFAULT_LOCALE)
   })
@@ -105,6 +112,8 @@ describe('isSupportedLocale', () => {
     expect(isSupportedLocale('fr')).toBe(true)
     expect(isSupportedLocale('ja')).toBe(true)
     expect(isSupportedLocale('ja-JP')).toBe(false)
+    expect(isSupportedLocale('ko')).toBe(true)
+    expect(isSupportedLocale('ko-KR')).toBe(false)
     expect(isSupportedLocale('zh-CN')).toBe(true)
     expect(isSupportedLocale('zh-TW')).toBe(true)
     expect(isSupportedLocale('zh_cn')).toBe(false)

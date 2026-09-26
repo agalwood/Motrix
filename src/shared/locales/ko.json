@@ -1,0 +1,2766 @@
+{
+  "operatorUnlock": {
+    "title": "Motrix 잠금 해제",
+    "help": "이 서버에는 관리자 토큰이 필요합니다. 호스트에서 MOTRIX_OPERATOR_TOKEN을 설정하거나 <dataDir>/operator-token에서 토큰을 읽어 아래에 붙여넣으세요.",
+    "placeholder": "관리자 토큰",
+    "error": "관리자 토큰이 올바르지 않습니다. 호스트의 MOTRIX_OPERATOR_TOKEN 또는 <dataDir>/operator-token을 확인하고 다시 시도하세요.",
+    "submit": "잠금 해제"
+  },
+  "operatorAdmin": {
+    "help": "사용법:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\n이 명령은 컨테이너 루프백을 통해 실행 중인 Motrix 서버와만 통신합니다.",
+    "errorPrefix": "motrix-admin: {{message}}",
+    "usageHint": "사용법을 보려면 `motrix-admin --help`를 실행하세요.",
+    "pending": {
+      "none": "대기 중인 페어링 요청이 없습니다.",
+      "row": "{{userCode}}  {{clientName}}  {{clientVersion}}  {{ttl}} 후 만료",
+      "ttl": "{{minutes}}분 {{seconds}}초"
+    },
+    "decision": {
+      "approve": "{{clientName}}({{clientVersion}})의 {{userCode}} 요청을 승인했습니다.",
+      "deny": "{{clientName}}({{clientVersion}})의 {{userCode}} 요청을 거부했습니다."
+    },
+    "errors": {
+      "usage": {
+        "jsonRepeated": "--json은 한 번만 지정할 수 있습니다.",
+        "unknownOption": "알 수 없는 명령줄 옵션입니다.",
+        "pairingCommandRequired": "pairing 명령을 지정하세요.",
+        "pairingOperationRequired": "pairing pending, pairing approve CODE 또는 pairing deny CODE를 지정하세요.",
+        "pairingCodeInvalid": "페어링 코드는 ASCII 문자 8개로 구성되어야 하며 I, O, 0, 1은 사용할 수 없습니다.",
+        "portInvalid": "PORT는 1~65535 사이의 정수여야 합니다."
+      },
+      "credential": {
+        "tokenHeaderInvalid": "MOTRIX_OPERATOR_TOKEN의 값을 HTTP 헤더에 사용할 수 없습니다.",
+        "dataDirNotAbsolute": "MOTRIX_DATA_DIR은 절대 경로여야 합니다.",
+        "unavailable": "관리자 인증 정보를 사용할 수 없습니다. MOTRIX_OPERATOR_TOKEN을 설정하거나 데이터 디렉터리에 operator-token이 있는지 확인하세요.",
+        "notFile": "관리자 인증 정보 경로가 일반 파일이 아닙니다.",
+        "unreadable": "관리자 인증 정보를 읽지 못했습니다.",
+        "invalid": "관리자 인증 정보 파일이 올바르지 않습니다.",
+        "rejected": "Motrix가 관리자 인증 정보를 거부했습니다."
+      },
+      "server": {
+        "responseUnreadable": "Motrix가 읽을 수 없는 응답을 반환했습니다.",
+        "responseOversized": "Motrix의 응답이 크기 제한을 초과했습니다.",
+        "responseInvalidJson": "Motrix가 올바르지 않은 JSON 응답을 반환했습니다.",
+        "rpcHttp": "Motrix 페어링 RPC가 HTTP {{status}} 오류로 실패했습니다.",
+        "approvalUnavailable": "실행 중인 Motrix 서버에서 페어링 승인을 사용할 수 없습니다.",
+        "pendingResponseInvalid": "Motrix가 대기 중인 페어링에 대해 올바르지 않은 응답을 반환했습니다.",
+        "decisionOutcomeUnknown": "페어링 승인 또는 거부 결과를 확인할 수 없습니다. 다시 시도하기 전에 pairing pending을 실행하세요.",
+        "decisionResponseInvalid": "Motrix가 페어링 승인 또는 거부에 대해 올바르지 않은 응답을 반환했습니다.",
+        "requestNoLongerPending": "이 페어링 요청은 더 이상 대기 상태가 아닙니다.",
+        "noMatchingRequest": "{{userCode}}와(과) 일치하는 대기 중인 페어링 요청이 없습니다.",
+        "ambiguousRequest": "{{userCode}}와(과) 일치하는 대기 중인 페어링 요청이 여러 개여서 승인 또는 거부를 적용하지 않았습니다.",
+        "unexpected": "motrix-admin에서 예기치 않은 오류가 발생했습니다."
+      },
+      "unavailable": {
+        "loopback": "컨테이너 루프백에서 실행 중인 Motrix 서버에 연결할 수 없습니다.",
+        "approvalNotReady": "실행 중인 Motrix 서버의 페어링 승인이 아직 준비되지 않았습니다."
+      }
+    }
+  },
+  "common": {
+    "clearSearch": "검색 지우기",
+    "download": "다운로드",
+    "cancel": "취소",
+    "save": "저장",
+    "close": "닫기",
+    "loading": "불러오는 중...",
+    "name": "이름:",
+    "error": "오류",
+    "remove": "제거",
+    "collapse": "접기",
+    "apply": "적용",
+    "confirm": "확인",
+    "status": {
+      "finalizing": "마무리 중…"
+    },
+    "reset": "초기화",
+    "retry": "다시 시도",
+    "showPassword": "비밀번호 표시",
+    "hidePassword": "비밀번호 숨기기"
+  },
+  "quit": {
+    "confirm": {
+      "message_other": "아직 다운로드 {{count}}개가 진행 중입니다.",
+      "detail": "지금 종료하면 다운로드가 일시 정지됩니다. 종료하시겠습니까?",
+      "quitButton": "종료",
+      "dontAskAgain": "다시 묻지 않기"
+    }
+  },
+  "nav": {
+    "dashboard": "대시보드",
+    "downloads": "다운로드",
+    "completed": "완료됨",
+    "trackers": "트래커",
+    "plugins": "플러그인",
+    "notifications": "알림",
+    "settings": "설정"
+  },
+  "chrome": {
+    "minimize": "최소화",
+    "maximize": "최대화",
+    "restore": "이전 크기로",
+    "close": "닫기",
+    "toggleSidebar": "사이드바 표시 전환",
+    "newTask": "새 작업",
+    "sidebarTitle": "사이드바",
+    "sidebarDescription": "앱 탐색 메뉴입니다."
+  },
+  "tray": {
+    "newTask": "새 작업",
+    "newTorrentTask": "새 토렌트 작업",
+    "openTorrentFile": "토렌트 파일 열기",
+    "showMotrix": "Motrix 표시",
+    "manual": "사용 설명서",
+    "checkUpdates": "업데이트 확인",
+    "preferences": "설정",
+    "quit": "종료"
+  },
+  "panel": {
+    "connection": {
+      "polling": "주기적 업데이트",
+      "reconnecting": "서버에 다시 연결하는 중…",
+      "unavailable": "서버에 연결할 수 없음",
+      "originMismatch": "접속 주소 불일치"
+    },
+    "dashboard": {
+      "title": "대시보드",
+      "engine": {
+        "title": "엔진",
+        "features": "기능",
+        "startFailed": "aria2 엔진을 시작하지 못했습니다",
+        "state": {
+          "ready": "준비됨",
+          "starting": "시작 중…",
+          "reconnecting": "다시 연결하는 중…",
+          "failed": "실패",
+          "disconnected": "연결 끊김",
+          "stopped": "중지됨"
+        },
+        "name": "Aria2",
+        "version": "버전",
+        "rpcPort": "RPC 포트",
+        "listenPort": "수신 포트",
+        "diagnostics": {
+          "title": "엔진 진단",
+          "description": "엔진을 점검하고 Motrix의 RPC 포트를 사용하는 프로세스를 확인하여 안전하게 복구합니다.",
+          "open": "진단",
+          "checking": "엔진 점검 중…",
+          "runAgain": "다시 실행",
+          "loadFailed": "엔진 진단을 실행하지 못했습니다.",
+          "currentStatus": "현재 상태",
+          "lastChecked": "{{time}}에 점검함",
+          "checks": {
+            "binary": "엔진",
+            "features": "기능",
+            "rpc": "RPC 포트",
+            "process": "프로세스",
+            "communication": "연결"
+          },
+          "binary": {
+            "available": "{{name}} {{version}}",
+            "unavailable": "{{name}}이(가) 없거나 시작할 수 없습니다."
+          },
+          "features": {
+            "none": "보고되지 않음",
+            "unavailable": "사용할 수 없음"
+          },
+          "rpc": {
+            "listening": "{{port}}(수신 대기 중)",
+            "available": "{{port}}(사용 가능)",
+            "occupied": "{{port}}(사용 중)"
+          },
+          "process": {
+            "none": "포트 충돌 없음",
+            "unidentified": "확인되지 않음, 중지하지 않음",
+            "current_app": "PID {{pid}}({{name}}), Motrix에서 관리 중",
+            "verified_orphan": "PID {{pid}}({{name}}), 남아 있는 Motrix 프로세스로 확인됨; 안전하게 중지 가능",
+            "external_aria2": "PID {{pid}}({{name}}), 소유 관계가 확인되지 않아 중지하지 않음",
+            "other": "PID {{pid}}({{name}}), 소유 관계가 확인되지 않아 중지하지 않음",
+            "unknown": "PID {{pid}}, 확인되지 않아 중지하지 않음"
+          },
+          "communication": {
+            "ready": "Motrix가 aria2와 통신할 수 있습니다."
+          },
+          "reason": {
+            "port_in_use": "Motrix의 RPC 포트가 사용 중이어서 aria2 엔진을 시작하지 못했습니다.",
+            "binary_unavailable": "기본 제공되는 aria2 실행 파일이 없거나 사용할 수 없습니다.",
+            "spawn_failed": "aria2 프로세스를 만들지 못했습니다.",
+            "rpc_unavailable": "aria2 엔진이 시작되었지만 Motrix의 RPC 연결을 수락하지 않았습니다.",
+            "unexpected_exit": "aria2 엔진이 예기치 않게 종료되었습니다.",
+            "health_check_failed": "aria2가 Motrix에 응답하지 않습니다.",
+            "unknown": "알 수 없는 이유로 aria2 엔진을 시작하지 못했습니다."
+          },
+          "recommendation": {
+            "title": "권장 복구 방법",
+            "retry": "포트를 사용할 수 있습니다. 설정을 변경하지 않고 aria2 시작을 다시 시도하세요.",
+            "force_terminate": "이 프로세스가 Motrix 소유임을 확인했습니다. PID {{pid}}을(를) 강제 종료한 후 Motrix RPC 포트 {{rpcPort}}에서 aria2를 다시 시작합니다.",
+            "switch_port": "이 프로세스를 안전하게 종료할 수 없습니다. 대안으로 포트 {{port}}을(를) 사용하거나 충돌하는 프로세스를 직접 종료하세요."
+          },
+          "technicalDetails": "기술 세부 정보",
+          "retry": "다시 시도",
+          "restart": "엔진 재시작",
+          "switchPort": "포트 {{port}} 사용",
+          "forceRecover": "강제 종료 후 복구",
+          "recovered": "aria2 엔진을 다시 사용할 수 있습니다.",
+          "recoveredOnPort": "RPC 포트 {{port}}에서 aria2 엔진을 복구했습니다.",
+          "recoveryFailed": "엔진 복구에 실패했습니다. 최신 상태를 확인하려면 진단을 다시 실행하세요.",
+          "fallback": {
+            "available": "Motrix 기본 포트 {{port}}을(를) 사용할 수 있으며 지금 복원할 수 있습니다.",
+            "verifiedOrphan": "종료 후 남아 있는 것으로 확인된 Motrix aria2 프로세스(PID {{pid}})가 기본 포트 {{port}}을(를) 사용 중입니다. 포트를 복원하기 전에 Motrix가 이 프로세스를 안전하게 중지할 수 있습니다.",
+            "blocked": "PID {{pid}}({{name}})이(가) 기본 포트 {{port}}을(를) 사용 중이지만 Motrix가 소유 관계를 확인할 수 없습니다. 해당 프로세스는 종료하지 않습니다.",
+            "unidentified": "기본 포트 {{port}}을(를) 사용하는 프로세스를 확인하지 못했습니다. Motrix는 현재 포트를 계속 사용합니다.",
+            "restore": "Motrix 기본 포트 {{port}} 복원",
+            "restoring": "Motrix 기본 포트 {{port}} 복원 중…",
+            "restoredDefault": "Motrix 기본 RPC 포트 {{port}}을(를) 복원했습니다.",
+            "confirm": {
+              "title": "남아 있는 프로세스를 중지하고 포트 {{port}}을(를) 복원하시겠습니까?",
+              "description": "PID {{pid}}은(는) 종료 후 남아 있는 Motrix aria2 프로세스로 확인되었습니다. 이 프로세스를 중지하고 기본 포트 {{port}}을(를) 저장한 후 aria2를 재시작합니다.",
+              "action": "중지 후 포트 {{port}} 복원"
+            }
+          },
+          "confirmForce": {
+            "title": "남아 있는 aria2 프로세스를 강제 종료하시겠습니까?",
+            "description": "PID {{pid}} 프로세스의 바이너리, 비공개 RPC 비밀 키 및 데이터 경로가 Motrix의 기본 제공 엔진과 일치합니다. 이 프로세스를 즉시 종료한 후 Motrix RPC 포트에서 aria2를 재시작합니다.",
+            "action": "강제 종료 후 복구"
+          },
+          "details": "진단 세부 정보",
+          "versionUnknown": "버전 정보를 사용할 수 없음",
+          "copy": "진단 내용 복사",
+          "copied": "복사됨",
+          "copyFailed": "진단 내용을 복사하지 못했습니다. 다시 시도하세요.",
+          "refreshFailed": "진단 내용을 새로고침하지 못했습니다. 아래에 마지막으로 성공한 진단 결과를 표시합니다.",
+          "summary": {
+            "ready": "다운로드 엔진이 정상적으로 실행 중입니다",
+            "starting": "다운로드 엔진을 시작하는 중입니다",
+            "restarting": "다운로드 엔진을 복구하는 중입니다",
+            "stopped": "다운로드 엔진이 중지되었습니다",
+            "port_in_use": "엔진 제어 포트가 사용 중입니다",
+            "binary_unavailable": "다운로드 엔진을 사용할 수 없습니다",
+            "spawn_failed": "다운로드 엔진을 시작하지 못했습니다",
+            "rpc_unavailable": "엔진 제어 연결을 사용할 수 없습니다",
+            "unexpected_exit": "다운로드 엔진이 예기치 않게 종료되었습니다",
+            "health_check_failed": "다운로드 엔진이 응답하지 않습니다",
+            "unknown": "다운로드 엔진을 사용할 수 없습니다"
+          },
+          "impact": {
+            "failed": "다운로드를 제어할 수 없습니다. 작업 상태가 최신 정보가 아닐 수 있습니다.",
+            "connecting": "엔진이 준비되면 다운로드를 제어할 수 있습니다.",
+            "stopped": "다운로드를 시작하거나 관리하려면 엔진을 시작하세요."
+          },
+          "runtime": {
+            "process": "프로세스",
+            "running": "실행 중",
+            "notRunning": "실행 중이 아님",
+            "connection": "연결",
+            "connected": "연결됨",
+            "connecting": "연결 중…",
+            "disconnected": "연결되지 않음",
+            "unavailable": "사용할 수 없음",
+            "connectionStatus": "{{transport}}({{status}})"
+          },
+          "port": {
+            "available": "{{port}}(사용 가능)",
+            "listening": "{{port}}(수신 대기 중)",
+            "occupied": "{{port}}(사용 중)"
+          },
+          "motrixEngine": "aria2 Motrix",
+          "transport": {
+            "websocket": "WebSocket"
+          }
+        }
+      },
+      "speed": {
+        "up": "업로드",
+        "down": "다운로드",
+        "peak": "최고 {{value}}",
+        "offline": "오프라인"
+      },
+      "speedUp": {
+        "title": "업로드 속도"
+      },
+      "speedDown": {
+        "title": "다운로드 속도"
+      },
+      "active": {
+        "title": "진행 중인 작업",
+        "downloading": "다운로드 중",
+        "seeding": "시딩 중",
+        "waiting": "대기 중",
+        "error": "오류",
+        "engineOffline": "엔진 오프라인"
+      },
+      "transfer": {
+        "title": "전송량",
+        "rangeLabel": "전송량 집계 기간",
+        "scope": {
+          "today": "오늘",
+          "allTime": "전체 기간"
+        },
+        "download": "다운로드",
+        "upload": "업로드",
+        "sinceTime": "{{time}}부터",
+        "sinceDate": "{{date}}부터",
+        "empty": {
+          "today": "오늘 기록된 전송량이 없습니다.",
+          "allTime": "아직 기록된 전송량이 없습니다."
+        },
+        "loading": "전송 데이터를 불러오는 중",
+        "unavailable": "전송 데이터를 사용할 수 없음",
+        "retry": "다시 시도",
+        "updated": "{{time}}에 업데이트됨",
+        "outOfDate": "최신 데이터가 아닐 수 있습니다",
+        "totalLabel": "{{scope}} 총 전송량: {{value}}"
+      },
+      "activity": {
+        "title": "활동",
+        "loading": "활동을 불러오는 중",
+        "unavailable": "활동을 사용할 수 없음",
+        "retry": "다시 시도",
+        "stale": "최신 활동 정보가 아닐 수 있습니다",
+        "coverageDegraded": "{{time}} 이후의 활동 기록이 불완전할 수 있습니다",
+        "rangeSummary": "{{start}}~{{end}}, {{weeks}}주간의 다운로드 활동",
+        "completedIntensity": "색상의 진하기는 완료된 다운로드 수를 나타냅니다",
+        "less": "적음",
+        "more": "많음",
+        "weekday": {
+          "sun": "일",
+          "mon": "월",
+          "tue": "화",
+          "wed": "수",
+          "thu": "목",
+          "fri": "금",
+          "sat": "토"
+        },
+        "tooltip": {
+          "completed": "{{count}}개 완료",
+          "submitted": "{{count}}개 추가",
+          "recovered": "복구 중 감지한 완료 항목 포함",
+          "recoveredCount": "{{count}}개 복구됨",
+          "untracked": "아직 기록하지 않음",
+          "noData": "활동 데이터 없음",
+          "noDataOnDate": "{{date}}의 활동 데이터 없음",
+          "completedOnDate": "{{date}}에 {{count}}개 완료",
+          "partial": "{{time}}에 기록 시작",
+          "partialShort": "하루 중 일부만 기록됨",
+          "coverage": "{{time}} 이후의 기록이 불완전할 수 있습니다",
+          "coverageShort": "데이터가 불완전할 수 있습니다",
+          "today": "오늘, 계속 업데이트 중"
+        }
+      },
+      "tasks": {
+        "title": "작업",
+        "viewLabel": "작업 보기",
+        "view": {
+          "active": "진행 중",
+          "failed": "실패",
+          "recent": "최근"
+        },
+        "newTask": "새 작업",
+        "more": "{{count}}개 더 보기",
+        "loading": "작업을 불러오는 중",
+        "unavailable": "작업을 사용할 수 없음",
+        "retry": "다시 시도",
+        "empty": {
+          "active": "진행 중인 작업 없음",
+          "failed": "실패한 작업 없음",
+          "recent": "아직 완료된 작업 없음"
+        },
+        "offline": "엔진 오프라인",
+        "metric": {
+          "fetching": "가져오는 중",
+          "ready": "준비됨",
+          "finalizing": "마무리 중",
+          "queued": "대기열에 있음",
+          "paused": "일시 정지됨"
+        },
+        "secondary": {
+          "metadata": "메타데이터를 가져오는 중",
+          "chooseFiles": "파일 선택 대기 중",
+          "finalizing": "다운로드 마무리 중",
+          "waiting": "시작 대기 중",
+          "eta": "남은 시간 {{time}}",
+          "ratio": "비율 {{ratio}}",
+          "saved": "{{percent}}% 저장됨",
+          "offline": "오프라인(마지막으로 확인된 진행률)",
+          "completed": "{{time}}에 완료됨",
+          "failed": "실패: {{reason}}",
+          "technicalDetail": "기술 세부 정보: {{detail}}"
+        },
+        "progressLabel": "{{name}} 진행률"
+      },
+      "configure": {
+        "action": "구성",
+        "addTile": "추가",
+        "addTitle": "타일 추가",
+        "apply": "적용",
+        "cancel": "취소",
+        "reset": "초기화",
+        "drag": "타일 끌기",
+        "removeTile": "타일 제거",
+        "resizeTile": "타일 크기 조절",
+        "sizeGroup": "타일 크기",
+        "size": "{{width}} × {{height}}",
+        "currentSize": "현재 크기: {{width}} × {{height}}",
+        "invalidCapacity": "이 크기를 적용할 공간이 부족합니다",
+        "availabilityHints": {
+          "space": "다른 타일을 줄이거나 제거하세요.",
+          "bounds": "먼저 타일을 안쪽으로 이동하세요.",
+          "unsupported": "지원되는 크기를 선택하세요."
+        },
+        "sizeLabels": {
+          "compact": "작게",
+          "wide": "넓게",
+          "tall": "세로로 길게",
+          "large": "크게",
+          "fullWidth": "전체 너비",
+          "fullHeight": "전체 높이"
+        },
+        "sizeUnavailable": {
+          "unsupported": "지원되지 않음",
+          "outOfBounds": "영역을 벗어남",
+          "insufficientSpace": "공간 부족"
+        },
+        "presets": {
+          "action": "프리셋",
+          "custom": "사용자 지정",
+          "undo": "마지막 프리셋 적용 취소",
+          "balanced": {
+            "title": "균형"
+          },
+          "taskFocus": {
+            "title": "작업 중심"
+          },
+          "speedFocus": {
+            "title": "속도 중심"
+          },
+          "compact": {
+            "title": "간결"
+          }
+        },
+        "saveFailed": "레이아웃을 저장하지 못했습니다. 다시 시도하세요.",
+        "expandHint": "대시보드 레이아웃을 구성하려면 창을 넓히세요."
+      },
+      "errors": {
+        "tileFailed": "{{tile}}: 표시 실패",
+        "retry": "다시 시도"
+      },
+      "speedLimit": {
+        "title": "속도 제한",
+        "unlimited": "무제한",
+        "smart": "자동",
+        "settings": "속도 제한 설정",
+        "turtle": {
+          "off": "표준 모드",
+          "on": "저속 모드",
+          "auto": "자동 모드"
+        },
+        "tooltip": {
+          "off": "표준 속도 제한 사용",
+          "on": "지금 저속 제한 사용",
+          "auto": "일정과 대역폭에 따라 속도를 자동으로 조절"
+        },
+        "reason": {
+          "base": "표준 제한",
+          "turtle": "저속 모드",
+          "schedule": "일정",
+          "videoApp": "동영상 앱",
+          "adaptive": "대역폭 확보"
+        }
+      },
+      "nat": {
+        "title": "NAT",
+        "compact": {
+          "state": {
+            "active": "매핑됨",
+            "settingUp": "매핑 중",
+            "failed": "매핑",
+            "off": "끔"
+          },
+          "caption": {
+            "active_other": "포트 {{count}}개",
+            "settingUp": "연결 중…",
+            "failed": "사용할 수 없음",
+            "off": "BT / DHT",
+            "waiting": "불러오는 중…"
+          }
+        },
+        "internalIp": "로컬 IP",
+        "gatewayIp": "라우터",
+        "caption": {
+          "off": "BT 포트 매핑이 꺼져 있습니다.",
+          "settingUp": "라우터에 연결하는 중…",
+          "failed": "자동 매핑을 사용할 수 없습니다.",
+          "waiting": "네트워크 상태를 기다리는 중…"
+        },
+        "mappingDetails": "매핑된 포트",
+        "mappingPurpose": {
+          "bt-listen": "BitTorrent",
+          "dht-listen": "DHT"
+        },
+        "portMapping": "내부 {{internal}} → 외부 {{external}}",
+        "noMappings": "활성 포트 매핑이 없습니다.",
+        "state": {
+          "active": "활성",
+          "settingUp": "초기화 중",
+          "failed": "실패",
+          "off": "끔"
+        },
+        "retrying": "재시도 {{attempt}}/{{max}}",
+        "type": "유형",
+        "externalIp": "외부 IP",
+        "mappings": "매핑",
+        "mappingsValue_other": "{{count}}개 활성",
+        "health": "연결 상태",
+        "healthScore": {
+          "good": "좋음",
+          "fair": "보통",
+          "poor": "나쁨",
+          "unknown": "—"
+        },
+        "natType": {
+          "open": "개방형",
+          "fullcone": "풀 콘",
+          "restricted": "제한형",
+          "port-restricted": "포트 제한형",
+          "symmetric": "대칭형",
+          "blocked": "차단됨",
+          "unknown": "알 수 없음"
+        },
+        "lastCheck": "마지막 확인",
+        "lastCheckNever": "확인한 적 없음",
+        "actions": {
+          "group": "NAT 제어",
+          "enable": "NAT 켜기",
+          "disable": "NAT 끄기",
+          "remap": "강제로 다시 매핑",
+          "diagnose": "진단 실행",
+          "troubleshoot": "NAT 문제 해결 가이드",
+          "short": {
+            "enable": "켜기",
+            "disable": "끄기",
+            "remap": "다시 매핑",
+            "diagnose": "진단",
+            "help": "도움말"
+          },
+          "settings": "NAT 설정"
+        },
+        "rateLimited": "요청이 너무 잦습니다. 잠시 후 다시 시도하세요",
+        "none": "—"
+      }
+    },
+    "completed": {
+      "title": "완료됨",
+      "desc": "완료된 다운로드 작업"
+    },
+    "trackers": {
+      "title": "트래커",
+      "desc": "트래커 상태 및 구독 관리",
+      "tab": {
+        "effective": "유효한 트래커",
+        "blacklist": "차단 목록"
+      },
+      "searchPlaceholder": "URL로 필터링…",
+      "syncNow": "지금 동기화"
+    },
+    "downloads": {
+      "title": "다운로드",
+      "heading": {
+        "all": "모든 다운로드",
+        "active": "진행 중인 다운로드",
+        "completed": "완료된 다운로드",
+        "error": "실패한 다운로드"
+      },
+      "status": {
+        "queued": "대기열에 있음",
+        "fetchingMetadata": "가져오는 중",
+        "metadataReady": "파일 선택 대기 중",
+        "downloading": "다운로드 중",
+        "finalizing": "마무리 중",
+        "seeding": "시딩 중",
+        "paused": "일시 정지됨",
+        "completed": "완료됨",
+        "error": "오류"
+      },
+      "column": {
+        "name": "이름",
+        "size": "크기",
+        "progress": "진행률",
+        "down": "다운로드 속도",
+        "up": "업로드 속도",
+        "eta": "남은 시간",
+        "connections": "피어",
+        "status": "상태",
+        "createdAt": "만든 날짜",
+        "finishedAt": "완료한 날짜"
+      },
+      "columnHeader": {
+        "down": "다운로드",
+        "up": "업로드"
+      },
+      "timestamp": {
+        "notRecorded": "기록되지 않음",
+        "notCompleted": "아직 완료되지 않음",
+        "relativeDateTime": "{{date}}, {{time}}"
+      },
+      "sort": {
+        "down": "다운로드 속도",
+        "up": "업로드 속도",
+        "asc": "{{column}}: 오름차순",
+        "desc": "{{column}}: 내림차순",
+        "sortAscending": "{{column}} 오름차순 정렬",
+        "sortDescending": "{{column}} 내림차순 정렬",
+        "reset": "기본 순서로 복원"
+      },
+      "empty": {
+        "noTasks": "아직 다운로드가 없습니다",
+        "noTasksCta": "+를 눌러 추가하세요",
+        "noMatchFilter": "이 필터에 맞는 작업이 없습니다",
+        "noMatchSearch": "“{{query}}”와(과) 일치하는 작업이 없습니다",
+        "clearSearch": "검색 지우기",
+        "unavailable": "작업을 사용할 수 없음",
+        "motion": {
+          "open": "유리 동작 효과 조정",
+          "title": "유리 동작 효과",
+          "description": "개발용 미리 보기",
+          "enabled": "동작 효과",
+          "enabledDesc": "모양 → 동작 줄이기와 동기화됩니다. 변경 사항은 즉시 저장됩니다.",
+          "systemReducedMotion": "시스템의 동작 줄이기 설정으로 인해 동작 효과가 꺼져 있습니다.",
+          "saveFailed": "동작 설정을 저장하지 못했습니다. 다시 시도하세요.",
+          "loadFade": "불러올 때 페이드 효과",
+          "breathing": "밝기가 서서히 변하는 빛",
+          "pointerFollow": "포인터 따라가기",
+          "positionConstraint": "중력 이동 범위 제한",
+          "horizontalSpeed": "가로 이동 속도"
+        }
+      },
+      "stats": {
+        "downSpeed": "다운로드 속도",
+        "upSpeed": "업로드 속도",
+        "engineOk": "엔진 준비됨",
+        "engineStarting": "엔진 시작 중",
+        "engineOffline": "엔진 오프라인",
+        "natActive": "NAT 매핑됨",
+        "natActiveDesc": "다른 BT 피어가 연결하기 쉽게 합니다.",
+        "natSettingUp": "NAT 매핑 중",
+        "natRetrying": "자동 재시도({{attempt}}/{{max}})",
+        "natMapping": "NAT 매핑",
+        "natUnavailable": "자동 매핑을 사용할 수 없음",
+        "natUnavailableDesc": "링크 다운로드에는 영향을 주지 않습니다. BT 연결은 제한될 수 있습니다.",
+        "natRetry": "다시 시도",
+        "natDisable": "NAT 매핑 끄기",
+        "natSettings": "네트워크 설정",
+        "natHelp": "네트워크 가이드"
+      },
+      "tab": {
+        "all": "전체",
+        "active": "진행 중",
+        "completed": "완료됨",
+        "error": "오류"
+      },
+      "inspector": {
+        "overview": {
+          "transfer": "전송",
+          "progress": "진행률",
+          "network": "네트워크",
+          "general": "일반",
+          "createdAt": "만든 날짜",
+          "finishedAt": "완료한 날짜",
+          "downSpeed": "다운로드 속도",
+          "upSpeed": "업로드 속도",
+          "eta": "남은 시간",
+          "downloaded": "다운로드됨",
+          "totalSize": "전체 크기",
+          "percent": "백분율",
+          "peers": "피어",
+          "seeds": "시드",
+          "ratio": "비율",
+          "type": "유형",
+          "infoHash": "정보 해시",
+          "private": "비공개",
+          "connections": "연결 수",
+          "uploaded": "업로드됨",
+          "seedingTime": "시딩 시간",
+          "seedingRecordedSince": "{{date}}부터 기록되었습니다. 일시 정지 및 오프라인 시간은 제외되며 이전 시딩 기록은 확인할 수 없습니다.",
+          "seedingUnavailable": "이 작업의 시딩 시간은 기록되지 않았습니다."
+        },
+        "activity": {
+          "transferTitle": {
+            "session": "세션 전송량",
+            "lifetime": "전체 전송량"
+          },
+          "download": "다운로드",
+          "upload": "업로드",
+          "loading": "활동을 불러오는 중…",
+          "collecting": "전송 데이터를 수집하는 중…",
+          "noSessionHistory": "이번 앱 세션에 기록된 전송량이 없습니다.",
+          "lifetimeEmpty": "아직 전체 기간 기록을 사용할 수 없습니다.",
+          "noTraffic": "현재 네트워크 트래픽이 없습니다.",
+          "unavailable": "전체 기간 활동을 사용할 수 없습니다.",
+          "coverageGap": "기록 수집이 중단되었습니다.",
+          "retry": "다시 시도",
+          "notAvailable": "사용할 수 없음",
+          "stale": {
+            "short": "오래된 데이터입니다.",
+            "message": "최신 데이터가 아닐 수 있습니다. 마지막 업데이트: {{time}}."
+          },
+          "range": {
+            "label": "전송 시간 범위",
+            "session": "세션(60초)",
+            "lifetime": "전체 기간",
+            "latest": "최근 60초",
+            "adaptive_other": "적응형 해상도 · 표본 {{count}}개"
+          },
+          "timeline": {
+            "title": "작업 기록",
+            "current": "현재 {{status}}",
+            "cluster_other": "이벤트 {{count}}개 더 있음",
+            "repeated": "{{label}} ×{{count}}",
+            "truncated_other": "이전 기록에서 이벤트 {{count}}개가 생략되었습니다",
+            "truncatedAt": "가장 이른 생략 시점: {{time}}",
+            "timeRange": "{{start}}~{{end}}",
+            "detailTitle": "{{label}} 상세 정보",
+            "destination": "{{event}} {{status}}",
+            "previous": "이전 타임라인 이벤트 표시",
+            "next": "다음 타임라인 이벤트 표시",
+            "event": {
+              "added": "추가됨",
+              "started": "시작됨",
+              "paused": "일시 정지됨",
+              "resumed": "재개됨",
+              "stage_changed": "단계 변경됨",
+              "completed": "완료됨",
+              "failed": "실패",
+              "observed_state": "상태 복구됨"
+            },
+            "status": {
+              "queued": "대기열에 있음",
+              "fetching_metadata": "메타데이터를 가져오는 중",
+              "metadata_ready": "메타데이터 준비됨",
+              "downloading": "다운로드 중",
+              "finalizing": "마무리 중",
+              "seeding": "시딩 중",
+              "paused": "일시 정지됨",
+              "completed": "완료됨",
+              "error": "실패",
+              "removed": "제거됨"
+            }
+          },
+          "summary": {
+            "title": "현재 요약",
+            "average": "평균",
+            "averageExpanded": "평균 다운로드 속도",
+            "peak": "최고",
+            "peakExpanded": "최고 다운로드 속도",
+            "active": "전송 시간",
+            "activeExpanded": "실제 전송 시간"
+          },
+          "chart": {
+            "accessibleSummary": "{{range}}, {{start}}~{{end}}. 최근 다운로드 {{download}}, 업로드 {{upload}}. 전체 기간 평균 다운로드 {{average}}, 최고 다운로드 {{peak}}, 실제 전송 시간 {{activeDuration}}. {{sampleLabel}}. {{state}}",
+            "activeSeconds_other": "{{count}}초",
+            "sampleCount_other": "표본 {{count}}개",
+            "noDataQualityIssues": "기록 관련 경고가 없습니다."
+          }
+        },
+        "pieces": {
+          "mapLabel": "다운로드 조각 맵",
+          "legend": {
+            "done": "완료됨",
+            "active": "다운로드 중",
+            "endgame": "마지막 조각 처리",
+            "pending": "대기 중"
+          },
+          "empty": "조각 데이터 없음",
+          "pieceLength": "조각 크기",
+          "totalPieces": "전체 조각 수"
+        },
+        "peers": {
+          "summary_other": "피어 {{count}}개(시더 {{seeders}}개)",
+          "empty": "연결된 피어 없음",
+          "col": {
+            "country": "지역",
+            "endpoint": "IP : 포트",
+            "client": "클라이언트",
+            "down": "↓",
+            "up": "↑",
+            "progress": "%",
+            "flags": "플래그",
+            "flagsHint": "D = 피어가 나에게 전송 중, U = 내가 피어에게 전송 중, S = 피어가 시더임. 밑줄은 비활성 상태를 의미합니다."
+          }
+        },
+        "trackers": {
+          "summary_other": "트래커 {{count}}개",
+          "driftSuffix_other": "{{count}}개가 전역 목록에 없음",
+          "privateBanner": "비공개 토렌트에는 전역 트래커를 병합하지 않습니다.",
+          "empty": "트래커 없음",
+          "loadFailed": "트래커를 불러오지 못했습니다: {{reason}}",
+          "action": {
+            "edit": "편집",
+            "save": "저장",
+            "cancel": "취소",
+            "sync": "동기화",
+            "delete": "트래커 삭제"
+          },
+          "syncPrivateDisabled": "비공개 토렌트에는 동기화를 사용할 수 없습니다.",
+          "saveFailed": "트래커를 업데이트하지 못했습니다: {{reason}}",
+          "syncFailed": "트래커를 동기화하지 못했습니다: {{reason}}",
+          "deleteFailed": "트래커를 제거하지 못했습니다: {{reason}}",
+          "invalidLines_other": "올바르지 않은 줄 {{count}}개를 건너뛰었습니다",
+          "editPlaceholder": "한 줄에 트래커 URL 하나를 입력하세요. http(s)/udp/ws(s)만 지원합니다.",
+          "editHint": "이 트래커 목록은 작업에 적용되는 bt-tracker 목록을 대체합니다. .torrent의 announce-list 항목에는 영향을 주지 않습니다."
+        },
+        "multi": {
+          "totals": "합계",
+          "liveSpeed": "실시간 속도",
+          "statusDist": "상태별 분포",
+          "totalSize": "전체 크기",
+          "downloaded": "다운로드됨",
+          "avgProgress": "평균 진행률",
+          "combinedDown": "합계 ↓",
+          "combinedUp": "합계 ↑",
+          "longestEta": "최대 남은 시간"
+        },
+        "tab": {
+          "overview": "개요",
+          "files": "파일",
+          "pieces": "조각",
+          "peers": "피어",
+          "trackers": "트래커",
+          "activity": "활동"
+        },
+        "placeholder": {
+          "files": "파일 목록.",
+          "peers": "피어 목록.",
+          "trackers": "트래커 목록."
+        }
+      },
+      "action": {
+        "pause": "일시 정지",
+        "queueMoveFailed": "대기열을 업데이트하지 못했습니다.",
+        "queueTaskStarted": "이 작업은 더 이상 대기열에 없습니다.",
+        "queueMoveHint": "대기열 순서는 다음에 시작할 다운로드를 결정합니다. 열 정렬 순서는 별도로 저장됩니다.",
+        "queueBoundary": "선택한 작업을 이 방향으로 더 이동할 수 없습니다",
+        "queueMoved": "대기열이 업데이트되었습니다",
+        "moveQueueDown": "대기열에서 아래로 이동",
+        "moveQueueUp": "대기열에서 위로 이동",
+        "resume": "재개",
+        "retry": "다시 시도",
+        "openFolder": "폴더 열기",
+        "copyUrl": "URL 복사",
+        "copyUrls": "URL 복사",
+        "copyPath": "파일 경로 복사",
+        "copied": "클립보드에 복사됨",
+        "copyFailed": "클립보드에 복사하지 못했습니다. 다시 시도하세요.",
+        "selectFilesFailed": "파일 선택 창을 열지 못했습니다.",
+        "copyUrlFailed": "작업의 링크 정보를 불러오지 못해 복사에 실패했습니다. 다시 시도하세요.",
+        "selectFiles": "파일 선택",
+        "remove": "제거",
+        "removeConfirmWithFiles": "다운로드한 파일도 디스크에서 삭제",
+        "cancel": "취소",
+        "batchPartial": "{{ok}}개 성공, {{failed}}개 실패",
+        "singleTaskFailed": "{{name}}: {{reason}}",
+        "stopSeeding": "시딩 중지",
+        "reseed": "시딩 다시 시작",
+        "retryWithDialog": "옵션을 지정하여 다시 시도... (Alt+클릭)",
+        "finalizingTooltip": "작업을 마무리하는 중입니다. 기다려 주세요",
+        "pauseTooltipBatch": "선택한 {{total}}개 중 {{n}}개 일시 정지",
+        "resumeTooltipBatch": "선택한 {{total}}개 중 {{n}}개 재개",
+        "retryTooltipBatch": "선택한 {{total}}개 중 {{n}}개 다시 시도",
+        "reseedTooltipBatch": "선택한 {{total}}개 중 {{n}}개 시딩 다시 시작",
+        "stopSeedingTooltipBatch": "선택한 {{total}}개 중 {{n}}개 시딩 중지",
+        "removeTooltipBatch": "선택한 {{total}}개 중 {{n}}개 제거",
+        "removeWithFilesShift": "파일도 삭제하려면 Shift를 누른 채로 실행하세요",
+        "removeFilesEstimate": "디스크에서 {{bytes}}을(를) 삭제합니다",
+        "removeSingleTitle": "“{{name}}” 작업을 제거하시겠습니까?",
+        "removeAll_paused_Title": "일시 정지된 작업 {{count}}개를 제거하시겠습니까?",
+        "removeAll_seeding_Title": "시딩 중인 작업 {{count}}개를 제거하시겠습니까?",
+        "removeAll_completed_Title": "완료된 작업 {{count}}개를 제거하시겠습니까?",
+        "removeAll_error_Title": "실패한 작업 {{count}}개를 제거하시겠습니까?",
+        "removeAll_downloading_Title": "진행 중인 작업 {{count}}개를 제거하시겠습니까?",
+        "removeMixedTitle": "작업 {{count}}개를 제거하시겠습니까?",
+        "openFile": "파일 열기",
+        "openFileFailed": "파일을 열지 못했습니다",
+        "chooseFiles": "파일 선택…",
+        "queueOrder": "다운로드 순서",
+        "moveQueueTop": "맨 앞으로 이동",
+        "moveQueueBottom": "맨 뒤로 이동",
+        "copyError": "오류 정보 복사",
+        "errorReport": "{{name}}\n작업 ID: {{id}}\n{{details}}"
+      },
+      "titleCount": "{{shown}}개 표시 · 전체 {{total}}개",
+      "type": {
+        "http": "HTTP",
+        "magnet": "마그넷",
+        "bt": "BitTorrent",
+        "ftp": "FTP",
+        "metalink": "Metalink"
+      },
+      "search": {
+        "placeholder": "다운로드 검색",
+        "activeTypeFilters": "유형 필터: {{types}}",
+        "filters": "필터",
+        "resetFilters": "필터 초기화",
+        "clearQuery": "검색 지우기",
+        "activeQuery": "검색: {{query}}",
+        "scopeLabel": "유형",
+        "clear": "지우기",
+        "empty": "일치하는 작업 없음",
+        "emptyHint": "유형 필터를 해제하거나 다른 검색어를 사용해 보세요"
+      },
+      "stale": {
+        "banner": "작업 목록이 최신 정보가 아닐 수 있습니다. 다시 연결하는 중…"
+      },
+      "view": {
+        "title": "목록 보기",
+        "columns": "열",
+        "resetColumns": "기본 열 복원",
+        "sortBy": "정렬 기준",
+        "ascending": "오름차순",
+        "descending": "내림차순",
+        "showInspector": "상세 정보 표시",
+        "hideInspector": "상세 정보 숨기기",
+        "inspector": "작업 상세 정보",
+        "resizeInspector": "상세 정보 패널 크기 조절",
+        "selectToInspect": "상세 정보를 보려면 작업을 선택하세요.",
+        "resizeColumn": "{{column}} 열 크기 조절",
+        "taskActions": "더 보기"
+      },
+      "speedLimit": {
+        "title": "속도 모드",
+        "currentMode": "속도 모드: {{mode}}",
+        "uploadLimit": "업로드 제한: {{speed}}",
+        "downloadLimit": "다운로드 제한: {{speed}}",
+        "saveFailed": "속도 모드를 변경하지 못했습니다. 다시 시도하세요."
+      },
+      "media": {
+        "preparing": "준비 중",
+        "decrypting": "암호 해독 중",
+        "assembling": "세그먼트 결합 중",
+        "muxing": "합치는 중",
+        "renaming": "저장 중",
+        "stage": "단계",
+        "downloadProgress": "다운로드 진행률",
+        "muxProgress": "합치기 진행률",
+        "parts": "세그먼트",
+        "partsFormat": "세그먼트 {{completed}}/{{total}}개",
+        "downloadSize": "다운로드 크기",
+        "outputSize": "출력 크기",
+        "downloadEta": "다운로드 남은 시간",
+        "avgDownloadProgress": "평균 다운로드 진행률",
+        "processingTasks": "처리 중"
+      }
+    }
+  },
+  "task": {
+    "add": {
+      "title": "새 작업",
+      "links": "링크",
+      "torrent": "토렌트",
+      "urlPlaceholder": "URL, 마그넷 링크 또는 BT 정보 해시를 입력하세요…",
+      "dropTorrent": ".torrent 파일을 여기에 끌어다 놓거나 클릭하여 선택하세요",
+      "clearSelection": "선택 해제",
+      "createFailed": "다운로드 작업을 만들지 못했습니다.",
+      "createFailedWithReason": "다운로드 작업을 만들지 못했습니다: {{reason}}",
+      "createFailedByPlugin": "작업을 만들지 못했습니다. “{{pluginId}}” 플러그인이 작업을 중단했습니다({{detail}}). 설정 → 플러그인에서 해당 플러그인을 비활성화한 후 다시 시도하세요.",
+      "createFailedPathTooLong": "작업을 만들지 못했습니다. 대상 경로가 {{length}}자로 Windows 제한인 {{limit}}자를 초과합니다. 더 짧은 저장 폴더 경로나 파일 이름을 선택하세요.",
+      "parseFailed": "토렌트 파일을 분석하지 못했습니다.",
+      "urlsCount_other": "URL {{count}}개",
+      "urlsWithInvalid": "유효 {{valid}}개, 유효하지 않음 {{invalid}}개",
+      "validUrlCount": "유효 {{count}}개",
+      "invalidUrlCount": "유효하지 않음 {{count}}개",
+      "urlsLabel": "URL",
+      "advanced": "고급",
+      "filename": "파일 이름",
+      "filenameAuto": "자동",
+      "split": "연결 수",
+      "userAgent": "User-Agent",
+      "referer": "Referer",
+      "cookie": "Cookie",
+      "authorization": "Authorization",
+      "allProxy": "프록시",
+      "dlLimit": "다운로드 제한",
+      "ulLimit": "업로드 제한",
+      "seedRatio": "공유 비율",
+      "unlimited": "무제한",
+      "browse": "찾아보기",
+      "pickPathTitle": "저장 폴더 선택",
+      "pickPathCustom": "사용자 지정 경로",
+      "saveTo": "저장 위치",
+      "saveDirEmpty": "폴더 선택…",
+      "changeSaveDir": "저장 폴더 변경",
+      "created": "작업이 추가되었습니다",
+      "batchCreated": "작업 {{count}}개가 추가되었습니다",
+      "createdCopy": "별도 사본이 추가되었습니다",
+      "createdPartial": "{{ok}}개 추가됨 · {{failed}}개 실패",
+      "torrentQueueProgress": "토렌트 {{current}}/{{total}}",
+      "downloadAndContinue": "다운로드하고 계속",
+      "downloadAllTorrents": "모두 다운로드({{count}}개)",
+      "skipTorrent": "건너뛰기",
+      "queueAdvanceFailed": "다음 토렌트를 열지 못했습니다.",
+      "duplicate": {
+        "title": "이 토렌트가 이미 있습니다",
+        "active-info-hash": "{{name}} 작업이 이미 진행 중입니다. aria2는 같은 토렌트 콘텐츠의 작업을 동시에 두 개 실행할 수 없습니다.",
+        "selection-mismatch": "{{name}} 작업에서 선택한 파일이 다르지만 저장 위치는 같습니다. Motrix는 이를 덮어쓰거나 알리지 않고 이름을 바꾼 사본을 만들지 않습니다.",
+        "existing-files": "이 저장 위치에 {{name}}이(가) 이미 있지만 작업 기록을 찾을 수 없습니다. Motrix는 이를 덮어쓰지 않습니다.",
+        "filesOnDisk": "토렌트 파일",
+        "showExisting": "기존 작업 보기",
+        "createCopy": "별도 사본 만들기"
+      },
+      "adding": "추가 중…",
+      "interpretedMagnet": "마그넷 링크 감지됨",
+      "interpretedInfoHash": "BT 정보 해시를 마그넷 링크로 변환했습니다",
+      "unsupportedCurl": "이 cURL 명령을 원래 의미 그대로 가져올 수 없습니다. URL 또는 지원되는 옵션을 사용하는 Bash GET 명령을 복사하세요.",
+      "invalidJson": "JSON 형식의 URL 문자열 또는 URL 문자열 배열이 필요합니다.",
+      "interpretedJson": "JSON에서 URL을 가져왔습니다",
+      "sourceLine": "{{line}}번째 줄",
+      "sourceCorrections": {
+        "useCanonicalUrl": "이 확장된 URL 사용",
+        "usePathSeparators": "역슬래시를 경로 구분자로 처리",
+        "encodeLiteralCharacters": "문자 자체로 인코딩"
+      },
+      "sourceErrors": {
+        "missingScheme": "https://와 같은 URL 스킴을 포함하세요.",
+        "invalidHost": "URL의 호스트가 없거나 올바르지 않습니다.",
+        "invalidPort": "URL의 포트가 올바르지 않습니다.",
+        "controlCharacter": "URL에서 제어 문자를 제거하세요.",
+        "invalidUnicode": "URL에 올바르지 않은 유니코드가 포함되어 있습니다.",
+        "ambiguousBackslash": "역슬래시 때문에 호스트나 경로를 명확히 해석할 수 없습니다. 처리 방법을 선택하세요.",
+        "invalidPercentEncoding": "퍼센트 기호 뒤에는 16진수 숫자 두 자리가 와야 합니다.",
+        "credentialsInUrl": "URL에 인증 정보를 넣는 대신 인증 입력란을 사용하세요.",
+        "unsupportedProtocol": "이 다운로드에서는 해당 URL 프로토콜을 지원하지 않습니다.",
+        "urlTooLong": "URL이 16 KiB 제한을 초과합니다.",
+        "tooManySources": "입력한 링크의 개수 또는 크기가 허용 범위를 초과합니다.",
+        "ambiguousStructure": "URL 분석기가 이 주소를 변경하게 됩니다. 확장된 URL을 확인하세요.",
+        "unescapedCharacter": "공백과 예약 문자를 명시적으로 인코딩하세요.",
+        "invalidMagnet": "마그넷 링크의 xt 매개변수에 지원되는 BT 정보 해시가 필요합니다.",
+        "mixedProtocols": "하나의 다운로드에 사용할 미러는 같은 계열의 프로토콜을 사용해야 합니다.",
+        "unsupportedInput": "이 입력 형식을 가져오지 못했습니다. URL 또는 지원되는 JSON이나 Bash cURL 입력을 붙여넣으세요.",
+        "unsupportedRequestOptions": "FTP 다운로드에는 HTTP 헤더를 적용할 수 없습니다."
+      },
+      "interpretedCurl": "cURL 명령을 분석했습니다",
+      "filterBy": {
+        "video": "비디오",
+        "audio": "오디오",
+        "image": "이미지",
+        "doc": "문서"
+      },
+      "errors": {
+        "urlsRequired": "URL을 하나 이상 입력하세요",
+        "saveDirRequired": "저장 폴더를 지정하세요",
+        "noFilesSelected": "파일을 하나 이상 선택하세요",
+        "missingSource": "토렌트 파일 또는 마그넷 링크가 필요합니다"
+      },
+      "selectionTimeout": {
+        "started": "파일 선택 시간이 초과되어 {{name}}의 모든 파일을 다운로드합니다",
+        "failed": "{{name}} 작업을 자동으로 시작하지 못했습니다. 작업 상세 정보에서 파일을 선택하고 다시 시도하세요."
+      },
+      "undoCorrection": "URL 수정 실행 취소",
+      "submissionUnconfirmed": "결과가 확인되지 않았습니다. 다시 시도하면 새 작업을 만들기 전에 원래 요청의 처리 결과를 확인합니다."
+    },
+    "detail": {
+      "peers": "피어: {{count}}",
+      "seeds": "시드: {{count}}"
+    },
+    "torrent": {
+      "column": {
+        "name": "파일 이름",
+        "type": "파일 유형",
+        "size": "크기"
+      },
+      "fileSelected_other": "파일 {{count}}개 선택됨",
+      "selectAll": "모두 선택",
+      "video": "비디오",
+      "audio": "오디오",
+      "image": "이미지",
+      "doc": "문서"
+    },
+    "remove": {
+      "title": "작업을 제거하시겠습니까?",
+      "description": "다운로드 목록에서 “{{name}}” 작업을 제거합니다.",
+      "deleteFilesLabel": "다운로드한 파일 삭제",
+      "confirm": "제거",
+      "cancel": "취소",
+      "orphanToast": "작업이 제거되었습니다. 파일은 {{path}}에 보관되어 있습니다.",
+      "notAvailableDuringFinalize": "작업의 마무리 처리가 끝날 때까지 기다려 주세요."
+    },
+    "recovery": {
+      "toast": "중단된 작업 {{count}}개를 복구했습니다. 클릭하여 확인하세요.",
+      "finalizeRenameFailed": "파일 이름을 변경하지 못했습니다. 다운로드 파일은 이름 끝에 .motrix가 붙은 상태로 남아 있습니다.",
+      "reseedFailed": "다운로드는 완료되었지만 시딩을 시작하지 못했습니다.",
+      "metaMissing": "토렌트 메타데이터가 없어 시딩을 시작할 수 없습니다.",
+      "startup": {
+        "torrentMetaMissing": ".torrent 메타데이터 파일이 없어 이 BitTorrent 작업을 복구할 수 없습니다. 작업을 제거한 후 다시 추가하세요.",
+        "reAddFailed": "엔진이 다시 추가 요청을 거부하여 이 작업을 복구할 수 없습니다. 작업을 제거한 후 직접 다시 추가하세요.",
+        "dirtyMetadata": "다운로드를 재개하는 데 필요한 식별 정보가 없어 이 작업을 복구할 수 없습니다.",
+        "resumeCheckpointMissing": "일부 다운로드된 파일은 보존했지만 재개 지점 정보가 없습니다. 안전하게 처음부터 다시 다운로드하거나 작업을 다시 추가하세요.",
+        "resumeCredentialsRequired": "일부 다운로드된 파일은 보존했지만 이 다운로드에는 자동으로 다시 사용할 수 없는 요청 인증 정보가 필요합니다.",
+        "resumePathInvalid": "저장된 출력 경로가 올바르지 않아 일부 다운로드된 파일을 보존했습니다.",
+        "resumeSourceChanged": "다운로드를 시작한 이후 원격 파일이 변경되어 일부 다운로드된 파일을 보존했습니다.",
+        "resumeRangeUnsupported": "서버가 안전한 범위 기반 다운로드 재개를 지원하지 않아 일부 다운로드된 파일을 보존했습니다.",
+        "resumeValidationFailed": "원격 파일이 변경되지 않았는지 확인할 수 없어 일부 다운로드된 파일을 보존했습니다.",
+        "mediaInterrupted": "앱 재시작으로 이 미디어 다운로드가 중단되었으며 재개할 수 없습니다. 다시 시도하려면 작업을 다시 추가하세요."
+      }
+    },
+    "error": {
+      "detail": {
+        "finalizeFailed": "다운로드를 마무리하지 못했습니다: {{cause}}",
+        "recoveryFailed": "다운로드를 복구하지 못했습니다: {{cause}}",
+        "recoveryOutputConflict": "임시 파일과 최종 파일이 모두 존재하여 직접 확인할 수 있도록 둘 다 보존했습니다",
+        "filesMissing": "앱 재시작 후 파일을 찾을 수 없습니다",
+        "renameFileFailed": "파일 이름을 변경하지 못했습니다: {{cause}}",
+        "renameDirFailed": "폴더 이름을 변경하지 못했습니다: {{cause}}",
+        "pluginChainAborted": "플러그인 처리 체인이 중단되었습니다: {{cause}}",
+        "magnetCleanupQuarantined": "마그넷 메타데이터 정리 작업이 격리되었습니다",
+        "muxFailed": "다운로드한 미디어를 합치지 못했습니다",
+        "pathTooLong": "경로가 {{length}}자입니다. Windows에서는 {{limit}}자까지 허용됩니다"
+      },
+      "reason": {
+        "unknown": "다운로드 실패",
+        "notFound": "파일을 찾을 수 없음",
+        "unauthorized": "접근 권한 필요",
+        "networkError": "네트워크 연결 실패",
+        "timeout": "다운로드 시간 초과",
+        "diskFull": "디스크 공간 부족",
+        "fileWriteError": "파일을 쓸 수 없음",
+        "pathTooLong": "Windows에서 허용하는 파일 경로 길이를 초과함",
+        "checksumMismatch": "파일 체크섬 불일치",
+        "tooManyRedirects": "리디렉션 횟수 초과",
+        "serverError": "서버가 오류를 반환함",
+        "btMetadataFailed": "토렌트 메타데이터를 가져올 수 없음",
+        "btTrackerError": "트래커 연결 실패",
+        "generic": "다운로드 실패"
+      },
+      "hint": {
+        "diskFull": "디스크 공간을 확보하거나 저장 폴더를 변경한 후 다시 시도하세요",
+        "unauthorized": "인증 정보 또는 접근 권한을 확인한 후 다시 시도하세요",
+        "networkError": "네트워크 연결을 확인한 후 다시 시도하세요",
+        "timeout": "연결 속도와 안정성을 확인한 후 다시 시도하세요",
+        "fileWriteError": "폴더 권한과 사용 가능한 디스크 공간을 확인한 후 다시 시도하세요",
+        "pathTooLong": "저장 폴더 경로나 파일 이름을 짧게 바꾼 후 다시 시도하세요",
+        "checksumMismatch": "다운로드한 파일이 손상되었을 수 있습니다. 다시 다운로드하여 확인하세요",
+        "tooManyRedirects": "원본 링크에 문제가 있을 수 있습니다. 다른 링크를 사용해 보세요",
+        "btMetadataFailed": "마그넷 링크를 확인하거나 트래커를 추가한 후 다시 시도하세요"
+      }
+    }
+  },
+  "settings": {
+    "title": "설정",
+    "desc": "Motrix 설정",
+    "cards": {
+      "general": {
+        "title": "일반",
+        "desc": "시작, 기본 저장 폴더, 시스템 연동"
+      },
+      "bittorrent": {
+        "title": "BitTorrent",
+        "desc": "DHT, 수신 포트, 트래커, 피어 위치"
+      },
+      "appearance": {
+        "title": "모양",
+        "desc": "테마, 언어, 트레이 아이콘"
+      },
+      "advanced": {
+        "title": "고급",
+        "desc": "RPC, SQLite 기록 저장"
+      },
+      "about": {
+        "title": "정보",
+        "desc": "버전, 업데이트, 소스 코드 및 사용 설명서"
+      },
+      "downloads": {
+        "title": "다운로드",
+        "desc": "동시 실행 수, 대역폭 제한, 네트워크 안정성"
+      },
+      "network": {
+        "title": "네트워크",
+        "desc": "프록시, DNS, NAT/UPnP"
+      },
+      "integration": {
+        "title": "연동",
+        "desc": "브라우저 확장 프로그램, CLI, 시스템 연동"
+      }
+    },
+    "general": {
+      "launchAtStartup": "로그인 시 열기",
+      "launchAtStartupDesc": "로그인하면 Motrix를 자동으로 시작합니다.",
+      "showMainWindowAtLogin": "로그인 시 창 표시",
+      "showMainWindowAtLoginDesc": "“{{mode}}” 모드에서는 숨겨집니다.",
+      "defaultSaveDir": "기본 다운로드 폴더",
+      "defaultSaveDirDesc": "작업별로 따로 지정하지 않으면 새 다운로드가 여기에 저장됩니다.",
+      "inAppNotifications": "앱 내 알림",
+      "inAppNotificationsDesc": "표시할 다운로드 알림을 선택합니다. 앱 경고는 계속 표시됩니다.",
+      "notifyInAppOnComplete": "완료된 다운로드 표시",
+      "notifyInAppOnError": "실패한 다운로드 표시",
+      "notificationBadgeStyle": "읽지 않음 배지",
+      "notificationBadgeCount": "개수",
+      "notificationBadgeDot": "점",
+      "notificationBadgeHidden": "숨김",
+      "systemNotifications": "시스템 알림",
+      "notifyOnComplete": "다운로드 완료 알림",
+      "notifyOnCompleteDesc": "작업이 완료되면 시스템 알림을 표시합니다.",
+      "autofillClipboardLinks": "클립보드에서 링크 자동 입력",
+      "autofillClipboardLinksDesc": "새 작업을 열 때 URL 입력란이 비어 있으면 클립보드의 링크를 붙여넣습니다.",
+      "notifyOnError": "실패 알림",
+      "notifyOnErrorDesc": "창이 백그라운드에 있을 때 다운로드가 실패하면 시스템 알림을 표시합니다.",
+      "warnBeforeQuit": "종료 전 확인",
+      "warnBeforeQuitDesc": "다운로드가 진행 중이면 종료 전에 확인합니다.",
+      "notificationBadgeDesc": "알림 센터 아이콘에 표시됩니다.",
+      "notificationOff": "끔",
+      "notificationSystem": "시스템 알림",
+      "notificationInApp": "앱 내 알림",
+      "notificationBoth": "둘 다",
+      "startupAndQuitting": "시작 및 종료",
+      "runMode": "앱 표시 위치",
+      "runModeStandard": "Dock 및 메뉴 막대",
+      "runModeTray": "메뉴 막대만",
+      "runModeHideTray": "Dock만",
+      "lightweightMode": "창을 닫으면 메모리 절약",
+      "lightweightModeDesc": "다운로드는 계속됩니다. 창을 다시 여는 데 더 오래 걸리며 저장하지 않은 입력 내용은 지워집니다.",
+      "notifications": "알림",
+      "notificationsDesc": "앱 오류 경고는 계속 표시됩니다.",
+      "downloadCompleted": "다운로드 완료",
+      "downloadFailed": "다운로드 실패",
+      "description": "시작, 종료 및 알림",
+      "desktopOnly": "시작 및 알림 설정은 데스크톱 앱에서 사용할 수 있습니다."
+    },
+    "appearance": {
+      "theme": "테마",
+      "themeAuto": "시스템",
+      "themeLight": "라이트",
+      "themeDark": "다크",
+      "language": "언어",
+      "traySpeedometer": "메뉴 막대에 속도 표시",
+      "traySpeedometerDesc": "앱 아이콘 옆에 다운로드 및 업로드 속도를 표시합니다.",
+      "trayIconColor": "트레이 아이콘 색상",
+      "trayIconColorDesc": "시스템 패널에서 잘 보이는 색상을 선택하세요.",
+      "trayIconColorAuto": "앱 테마 따르기",
+      "trayIconColorLight": "밝은 아이콘(어두운 패널용)",
+      "trayIconColorDark": "어두운 아이콘(밝은 패널용)",
+      "reduceMotion": "동작 줄이기",
+      "reduceMotionDesc": "앱 전체에서 애니메이션 사용을 줄입니다.",
+      "liquidGlassEffect": "Liquid Glass",
+      "liquidGlassEffectDesc": "다운로드 도구 막대에 반투명 유리 효과를 적용합니다.",
+      "liquidGlassEffectMacDesc": "macOS 26 이상에서는 창에도 적용됩니다. 변경하면 창이 다시 열립니다.",
+      "runMode": "앱 표시 위치",
+      "runModeStandard": "Dock 및 메뉴 막대",
+      "runModeTray": "메뉴 막대만",
+      "runModeHideTray": "Dock만",
+      "runModeLaunch": "Motrix를 열 때",
+      "runModeStandardDesktop": "기본 창 열기",
+      "runModeTrayDesktop": "시스템 트레이에서 시작",
+      "runModeLinuxDesc": "시스템 트레이 지원 여부와 활성화 동작은 데스크톱 환경에 따라 다릅니다.",
+      "lightweightMode": "경량 모드",
+      "lightweightModeDesc": "창을 닫으면 메모리를 절약합니다. 다운로드는 계속되지만 창을 다시 여는 데 더 오래 걸리며 저장하지 않은 입력 내용은 지워집니다.",
+      "byteUnitSystem": "크기 및 속도 단위",
+      "byteUnitSystemDesc": "파일 크기와 속도의 표시 방식을 선택하세요.",
+      "byteUnitDecimal": "십진수(MB, GB · 1000)",
+      "byteUnitBinary": "이진수(MiB, GiB · 1024)",
+      "byteUnitSystemDefault": "시스템 설정 따르기({{units}})",
+      "sidebarColor": "강조 색상",
+      "sidebarColors": {
+        "blue": "파란색",
+        "violet": "보라색",
+        "pink": "분홍색",
+        "orange": "주황색",
+        "gold": "금색",
+        "green": "초록색",
+        "cyan": "청록색",
+        "gray": "회색",
+        "auto": "자동"
+      },
+      "themeAndEffects": "테마 및 효과",
+      "languageAndDisplay": "언어 및 표시",
+      "menuBar": "메뉴 막대",
+      "description": "테마, 언어 및 표시",
+      "systemTray": "시스템 트레이",
+      "followSystem": "시스템 설정 따르기"
+    },
+    "advanced": {
+      "rpc": {
+        "title": "RPC",
+        "port": "RPC 포트",
+        "portDesc": "변경 후 재시작이 필요합니다.",
+        "secret": "RPC 비밀 키",
+        "secretDesc": "RPC 연결에 필요합니다."
+      },
+      "persistence": {
+        "title": "진행 상황 및 복구",
+        "enable": "복구 데이터 저장",
+        "enableDesc": "재시작 후 다운로드를 재개하는 데 사용할 데이터를 저장합니다.",
+        "dbPath": "복구 데이터 파일",
+        "dbPathDesc": "비워 두면 기본 위치를 사용합니다.",
+        "dbPathPlaceholder": "기본 위치",
+        "historyLimit": "완료된 복구 기록",
+        "historyLimitDesc": "다운로드 목록과 다운로드한 파일에는 영향을 주지 않습니다.",
+        "historyKeepAll": "모든 기록",
+        "historyKeepRecent": "최근 기록…",
+        "historySessionOnly": "보관하지 않음",
+        "historyCount": "보관할 기록 수",
+        "historyCountHint": "오래된 복구 기록은 제거됩니다.",
+        "historyCountPositive": "0보다 큰 숫자를 입력하세요."
+      },
+      "description": "RPC, 진행 상황 및 복구"
+    },
+    "about": {
+      "appIconAlt": "Motrix 앱 아이콘",
+      "version": "버전 {{version}}",
+      "tagline": "콘텐츠가 사라지기 전에 소중한 것을 간직하고, 아름다움이 머물 자리를 만들어 보세요.",
+      "webVersionNote": "이 웹 버전은 배포 관리자가 업데이트합니다.",
+      "update": {
+        "title": "앱 업데이트",
+        "currentVersion": "현재 버전 {{version}}",
+        "idleTitle": "Motrix를 최신 상태로 유지하세요",
+        "idle": "현재 설치된 버전은 {{version}}입니다. 지금 업데이트를 확인하거나 Motrix를 열 때 확인하도록 설정하세요.",
+        "unsupportedTitle": "자동 업데이트를 사용할 수 없음",
+        "unsupported": "이 버전은 자동으로 업데이트할 수 없습니다. 공식 웹사이트에서 최신 버전을 다운로드하세요.",
+        "check": "업데이트 확인",
+        "checkAction": "확인",
+        "checking": "확인 중…",
+        "checkingTitle": "업데이트 확인 중…",
+        "checkingDescription": "Motrix 업데이트 서비스에 연결하는 중…",
+        "upToDateTitle": "Motrix가 최신 상태입니다",
+        "upToDate": "현재 사용할 수 있는 최신 릴리스는 버전 {{version}}입니다.",
+        "available": "Motrix {{version}} 업데이트가 있습니다.",
+        "availableTitle": "Motrix {{version}} 업데이트가 있습니다",
+        "availableDescription": "지금 다운로드하고 재시작하여 설치할 시점을 선택하세요.",
+        "download": "업데이트 다운로드",
+        "downloading": "다운로드 중…",
+        "downloadingTitle": "Motrix {{version}} 다운로드 중",
+        "downloadingDescription": "이 창을 닫아도 됩니다. 다운로드는 백그라운드에서 계속됩니다.",
+        "downloadedTitle": "업데이트 설치 준비 완료",
+        "downloaded": "Motrix {{version}} 설치 준비가 완료되었습니다.",
+        "restart": "재시작 및 설치",
+        "cancelledTitle": "다운로드 취소됨",
+        "cancelled": "업데이트 다운로드가 취소되었습니다.",
+        "cancelledDescription": "준비가 되면 다운로드를 다시 시도하세요.",
+        "errorTitle": "Motrix를 업데이트하지 못했습니다",
+        "errorDescription": "연결 상태를 확인하고 다시 시도하세요.",
+        "error": "업데이트 실패: {{message}}",
+        "retry": "다시 시도",
+        "automaticChecks": "자동으로 확인",
+        "automaticChecksDescription": "Motrix를 열 때",
+        "automaticChecksError": "이 설정을 저장하지 못했습니다",
+        "channelLabel": "업데이트 채널",
+        "channelDescription": "안정 버전을 사용하거나 베타에서 새 기능을 미리 사용해 보세요.",
+        "channelStable": "안정",
+        "channelBeta": "베타",
+        "channelBetaWarning": "베타는 안정성이 낮을 수 있습니다. 더 새로운 안정 버전도 받게 됩니다. 안정 채널로 돌아가면 버전을 낮추지 않고 베타 업데이트만 중단합니다.",
+        "channelSaveError": "업데이트 채널을 저장하지 못했습니다. 다시 시도하세요."
+      },
+      "details": {
+        "author": "제작자",
+        "createdBy": "제작",
+        "license": "라이선스",
+        "licenseValue": "{{license}} 라이선스"
+      },
+      "resources": {
+        "title": "관련 자료",
+        "repository": "소스 저장소",
+        "repositoryDescription": "GitHub에서 코드 보기",
+        "manual": "사용 설명서",
+        "manualDescription": "사용 설명서 읽기",
+        "plugins": "플러그인",
+        "changelog": "변경 기록",
+        "website": "공식 웹사이트",
+        "websiteDescription": "motrix.app 방문",
+        "acknowledgments": "감사의 말",
+        "acknowledgmentsDescription": "motrix.app에서 프로젝트 기여자 확인"
+      }
+    },
+    "bittorrent": {
+      "trackers": {
+        "autoSync": "트래커 목록 자동 업데이트",
+        "autoSyncDesc": "등록한 소스를 사용하여 목록을 최신 상태로 유지합니다.",
+        "syncInterval": "업데이트 간격(시간)",
+        "syncIntervalDesc": "1~168시간.",
+        "enableProbe": "트래커 사용 가능 여부 확인",
+        "enableProbeDesc": "다운로드에 사용하기 전에 트래커를 테스트합니다.",
+        "probeTimeout": "확인 제한 시간(ms)",
+        "probeTimeoutDesc": "응답을 기다리는 최대 시간입니다. 1,000~30,000ms.",
+        "healthyThreshold": "느린 응답 기준(ms)",
+        "healthyThresholdDesc": "이보다 오래 걸리면 느림으로 표시합니다. 500~10,000ms.",
+        "minSuccessRate": "최소 성공률",
+        "minSuccessRateDesc": "성공률이 이 값 이상인 트래커를 사용합니다. 0.5 = 50%.",
+        "maxTrackerCount": "작업당 트래커 수",
+        "maxTrackerCountDesc": "사용할 최대 트래커 수입니다. 5~200개.",
+        "title": "트래커",
+        "manageSourcesHint": "트래커 페이지에서 소스를 관리하세요.",
+        "blacklistMovedInfo": "트래커 → 차단 목록에서 차단된 트래커를 관리하세요."
+      },
+      "geoip": {
+        "title": "피어 위치",
+        "enable": "국가 또는 지역 표시",
+        "enableDesc": "피어 목록에 위치를 표시합니다. 필요할 때 위치 데이터를 다운로드합니다.",
+        "lastUpdated": "마지막 업데이트",
+        "neverUpdated": "업데이트한 적 없음",
+        "updateNow": "지금 업데이트",
+        "updating": "업데이트 중…",
+        "source": "위치 데이터 소스",
+        "sourceDesc": "위치 데이터를 다운로드할 소스를 선택하세요.",
+        "source.loyalsoldier": "Loyalsoldier(커뮤니티)",
+        "source.p3terx": "P3TERX(커뮤니티 미러)",
+        "source.maxmind": "MaxMind(공식)",
+        "source.custom": "사용자 지정 URL",
+        "maxmindUnsupported": "아직 지원되지 않음",
+        "customUrl": "사용자 지정 다운로드 URL",
+        "customUrlPlaceholder": "https://example.com/GeoLite2-Country.mmdb",
+        "autoUpdate": "자동 업데이트",
+        "autoUpdateDesc": "약 일주일에 한 번 새 위치 데이터를 확인합니다.",
+        "status.loaded": "준비됨",
+        "status.notDownloaded": "위치 데이터가 다운로드되지 않음",
+        "status.downloading": "다운로드 중…",
+        "status.error": "업데이트 실패",
+        "customUrlDesc": ".mmdb 형식의 국가 데이터베이스 링크입니다.",
+        "saveBeforeUpdate": "위치 데이터를 업데이트하기 전에 변경 사항을 저장하세요.",
+        "updateFailed": "위치 데이터를 업데이트하지 못했습니다. 다시 시도하세요."
+      },
+      "listen": {
+        "title": "들어오는 연결",
+        "listenPort": "BT 수신 포트",
+        "listenPortDesc": "이 포트에서 들어오는 피어 연결을 수락합니다.",
+        "dhtListenPort": "DHT 수신 포트",
+        "dhtListenPortDesc": "이 포트에서 DHT를 통해 피어를 찾습니다.",
+        "dhtEnabled": "DHT 켜기",
+        "dhtEnabledDesc": "트래커에 의존하지 않고 피어를 찾습니다."
+      },
+      "peers": {
+        "title": "피어",
+        "btMaxPeers": "토렌트당 최대 피어 수",
+        "btMaxPeersDesc": "한 작업이 동시에 연결할 수 있는 최대 피어 수입니다.",
+        "btEnableLpd": "로컬 피어 검색",
+        "btEnableLpdDesc": "로컬 네트워크에서 파일을 공유하는 피어를 찾습니다.",
+        "magnetFileSelection": "다운로드 전 파일 선택",
+        "magnetFileSelectionDesc": "마그넷 링크를 불러온 후 파일 선택 화면을 표시합니다.",
+        "magnetFileSelectionAutoDownload": "파일을 선택하지 않으면 모두 다운로드",
+        "magnetFileSelectionAutoDownloadDesc": "앱 창이나 브라우저를 닫아도 아래 시간이 지나면 시작합니다.",
+        "magnetFileSelectionTimeoutSeconds": "파일 선택 시간(초)",
+        "magnetFileSelectionTimeoutSecondsDesc": "파일 목록이 준비되면 제한 시간의 카운트가 시작됩니다. 변경 사항은 이미 대기 중인 작업에도 적용됩니다.",
+        "magnetFileSelectionTimeoutInvalid": "{{min}}~{{max}}초 사이의 정수를 입력하세요."
+      },
+      "seeding": {
+        "title": "시딩",
+        "seedRatio": "공유 비율 제한",
+        "seedRatioDesc": "업로드 ÷ 다운로드. 이 비율에 도달하면 시딩을 중지합니다. 0 = 무제한.",
+        "seedTime": "시딩 시간 제한(분)",
+        "seedTimeDesc": "0 = 무제한. 새 작업과 시딩을 다시 시작할 때 적용됩니다."
+      },
+      "newMagnetTasks": "새 마그넷 작업",
+      "description": "마그넷, 시딩 및 트래커"
+    },
+    "downloads": {
+      "performance": {
+        "title": "성능",
+        "profile": "다운로드 성능",
+        "profileDesc": "다운로드 속도와 리소스 사용량의 균형을 조절합니다.",
+        "learnMore": "자세히 알아보기",
+        "metrics": {
+          "connections": "최대 연결 수",
+          "perServer": "서버당 제한",
+          "minimum": "최소 세그먼트",
+          "cache": "디스크 캐시"
+        },
+        "customParameters": "사용자 지정 성능 매개변수",
+        "profiles": {
+          "auto": {
+            "label": "자동",
+            "desc": "드라이브와 파일 크기에 맞게 조절합니다. 아래 값은 기본값입니다."
+          },
+          "balanced": {
+            "label": "균형",
+            "desc": "일반적인 다운로드에 적합하도록 리소스를 적게 사용합니다."
+          },
+          "high": {
+            "label": "고속",
+            "desc": "더 빠른 다운로드를 위해 연결 수를 늘립니다."
+          },
+          "maximum": {
+            "label": "최대",
+            "desc": "더 많은 연결을 사용합니다. 일부 서버에서는 연결 수를 제한할 수 있습니다."
+          },
+          "custom": {
+            "label": "사용자 지정",
+            "desc": "연결 수, 세그먼트 크기 및 캐시를 설정합니다."
+          }
+        },
+        "maxConcurrentDownloads": "동시 다운로드 수",
+        "maxConcurrentDownloadsDesc": "나머지 작업은 대기열에서 기다립니다.",
+        "maxConnectionPerServer": "서버당 최대 연결 수",
+        "maxConnectionPerServerDesc": "한 서버에서 파일 하나를 다운로드할 때의 연결 수 제한입니다.",
+        "split": "파일당 최대 연결 수",
+        "splitDesc": "파일 하나를 다운로드하는 데 사용하는 연결 수입니다.",
+        "minSplitSize": "최소 세그먼트 크기(MiB)",
+        "minSplitSizeDesc": "이 크기의 2배보다 작은 세그먼트는 분할하지 않습니다."
+      },
+      "reliability": {
+        "title": "연결 및 재시도",
+        "userAgent": "User-Agent",
+        "userAgentDesc": "웹사이트에 앱을 식별하는 정보입니다. 사이트에서 다른 값을 요구하면 변경하세요.",
+        "connectTimeout": "연결 제한 시간(초)",
+        "connectTimeoutDesc": "연결을 기다리는 시간입니다.",
+        "socketTimeout": "데이터 수신 대기 시간(초)",
+        "socketTimeoutDesc": "데이터가 수신되지 않을 때 기다리는 시간입니다.",
+        "maxTries": "최대 시도 횟수",
+        "maxTriesDesc": "첫 시도를 포함합니다. 0 = 무제한.",
+        "retryWait": "재시도 대기 시간(초)",
+        "retryWaitDesc": "다시 시도하기 전에 기다리는 시간입니다.",
+        "lowestSpeedLimit": "최소 연결 속도(KiB/s)",
+        "lowestSpeedLimitDesc": "속도가 이 값보다 낮으면 연결을 끊습니다. 0 = 사용 안 함."
+      },
+      "disk": {
+        "title": "디스크 및 파일",
+        "fileDeletionMode": "작업 파일 삭제 시",
+        "fileDeletionTrash": "휴지통으로 이동",
+        "fileDeletionPermanent": "영구 삭제",
+        "fileDeletionTrashDesc": "휴지통을 비우면 공간이 확보됩니다.",
+        "fileDeletionPermanentDesc": "삭제한 파일은 휴지통에서 복원할 수 없습니다.",
+        "fileAllocation": "디스크 공간 예약",
+        "fileAllocationDesc": "파일을 다운로드하기 전에 공간을 예약합니다.",
+        "fileAllocationNone": "예약 안 함",
+        "fileAllocationPrealloc": "미리 할당",
+        "fileAllocationTrunc": "파일 크기 설정",
+        "fileAllocationFalloc": "시스템 할당",
+        "modifiedTime": "파일 수정 시간",
+        "modifiedTimeDesc": "완료된 HTTP 및 FTP 다운로드에 적용됩니다.",
+        "modifiedTimeLocal": "다운로드 시간",
+        "modifiedTimeServer": "서버에서 제공한 시간",
+        "diskCache": "디스크 캐시(MiB)",
+        "diskCacheDesc": "디스크에 쓰기 전에 파일 데이터를 임시 보관하는 메모리입니다.",
+        "sessionSaveInterval": "진행 상황 저장 간격(초)",
+        "sessionSaveIntervalDesc": "자주 저장하면 비정상 종료 시 잃는 진행 상황을 줄일 수 있습니다."
+      },
+      "magnet": {
+        "title": "마그넷",
+        "magnetResolveTimeout": "마그넷 불러오기 제한 시간(초)",
+        "magnetResolveTimeoutDesc": "파일 목록을 기다리는 시간입니다."
+      },
+      "speedLimit": {
+        "title": "속도 제한",
+        "titleDesc": "표준, 저속 및 자동 모드에서 Motrix가 네트워크 연결을 사용하는 방식을 선택하세요.",
+        "modeSection": "속도 모드",
+        "modeSectionDesc": "Motrix가 네트워크 연결을 사용하는 방식을 선택하세요.",
+        "turtle": "속도 모드",
+        "turtleDesc_off": "표준 속도 제한을 사용합니다.",
+        "turtleDesc_on": "지금 저속 제한을 적용하여 다른 앱에 대역폭을 남겨 둡니다.",
+        "turtleDesc_auto": "시간과 연결 대역폭에 따라 속도를 자동으로 조절합니다.",
+        "turtle_off": "표준",
+        "turtle_on": "저속",
+        "turtle_auto": "자동",
+        "baseSection": "표준 제한",
+        "baseSectionDesc": "일반적인 다운로드에 사용하며 모든 모드에서 이 제한을 준수합니다.",
+        "baseDownload": "다운로드",
+        "baseDownloadDesc": "일반적인 사용 시 최대 다운로드 속도입니다.",
+        "baseUpload": "업로드",
+        "baseUploadDesc": "일반적인 사용 시 최대 업로드 속도입니다.",
+        "unlimited": "무제한",
+        "setUnlimited": "무제한으로 설정",
+        "standardLimit": "표준값 사용",
+        "useStandardLimit": "표준 제한 사용",
+        "altSection": "저속 제한",
+        "altSectionDesc": "저속 모드 또는 예약 규칙에서 사용합니다. 표준 제한보다 속도를 낮출 수만 있습니다.",
+        "altDownload": "다운로드",
+        "altDownloadDesc": "저속 모드가 활성화되었을 때의 최대 다운로드 속도입니다.",
+        "altUpload": "업로드",
+        "altUploadDesc": "저속 모드가 활성화되었을 때의 최대 업로드 속도입니다.",
+        "autoSection": "자동 규칙",
+        "autoSectionDesc": "이 규칙은 자동 모드에서만 적용됩니다.",
+        "autoSchedule": "예약된 속도 줄이기",
+        "scheduleEnabled": "저속 모드 예약",
+        "scheduleEnabledDesc": "선택한 요일과 시간에 저속 제한으로 전환합니다.",
+        "scheduleFrom": "시작",
+        "scheduleTo": "종료",
+        "scheduleTimeFormat": "24시간제(HH:mm)",
+        "scheduleDays": "요일",
+        "scheduleDaysHint": "종료 시간이 시작 시간보다 이르면 다음 날까지 이어집니다.",
+        "weekdays": {
+          "sun": {
+            "short": "일",
+            "long": "일요일"
+          },
+          "mon": {
+            "short": "월",
+            "long": "월요일"
+          },
+          "tue": {
+            "short": "화",
+            "long": "화요일"
+          },
+          "wed": {
+            "short": "수",
+            "long": "수요일"
+          },
+          "thu": {
+            "short": "목",
+            "long": "목요일"
+          },
+          "fri": {
+            "short": "금",
+            "long": "금요일"
+          },
+          "sat": {
+            "short": "토",
+            "long": "토요일"
+          }
+        },
+        "autoAdaptive": "다른 앱에 대역폭 남겨 두기",
+        "adaptiveEnabled": "다른 앱을 위한 대역폭 확보",
+        "adaptiveEnabledDesc": "아래에 연결 속도를 입력하면 제한값을 계산합니다.",
+        "linkDown": "회선 다운로드 속도",
+        "linkDownDesc": "인터넷 연결에서 도달할 수 있는 다운로드 속도입니다.",
+        "linkUp": "회선 업로드 속도",
+        "linkUpDesc": "인터넷 연결에서 도달할 수 있는 업로드 속도입니다.",
+        "fillFromPeak": "회선 속도 추정",
+        "fillFromPeakHint": "최근의 가장 빠른 다운로드 및 업로드 속도를 기준으로 합니다.",
+        "estimateEmpty": "아직 속도 기록이 없습니다. 속도 제한 없이 다운로드를 완료하거나 대역폭을 직접 입력하세요.",
+        "estimateSuccess": "최근 속도를 기준으로 회선 대역폭을 입력했습니다.",
+        "estimateError": "최근 속도 기록을 읽지 못했습니다. 대역폭을 직접 입력하세요.",
+        "headroomPercent": "다른 앱에 남겨 둘 비율",
+        "headroomPercentDesc": "현재 {{reserved}}%를 남겨 두며 Motrix는 최대 {{motrix}}%를 사용할 수 있습니다.",
+        "effect": {
+          "title": "현재 적용 내용",
+          "standard": "표준 제한 사용 중: 다운로드 {{download}}, 업로드 {{upload}}.",
+          "lowSpeed": "현재 저속 제한 사용 중: 다운로드 {{download}}, 업로드 {{upload}}.",
+          "noAutoRules": "활성화된 자동 규칙이 없습니다. 현재는 표준 모드와 동일하게 동작합니다.",
+          "standardValues": "표준 제한: 다운로드 {{download}}, 업로드 {{upload}}.",
+          "scheduleRule": "{{from}}부터 {{nextDay}}{{to}}까지 저속 제한을 적용",
+          "nextDay": "다음 날 ",
+          "adaptiveRule": "다른 앱을 위해 대역폭의 {{reserved}}%를 확보",
+          "adaptiveRulePending": "회선 대역폭을 입력하면 다른 앱을 위해 대역폭의 {{reserved}}%를 확보",
+          "ruleSeparator": "하고 ",
+          "autoRules": "Motrix가 {{rules}}합니다.",
+          "lowerWins": "활성 제한 중 가장 낮은 값이 적용됩니다."
+        },
+        "bandwidthUsed": "Motrix는 최대 {{motrix}}%를 사용할 수 있습니다.",
+        "bandwidthPending": "이 제한을 적용하려면 다운로드와 업로드 회선 속도를 모두 입력하세요."
+      },
+      "newTasks": "새 작업",
+      "defaultDownloadFolder": "기본 다운로드 폴더",
+      "autofillFromClipboard": "클립보드에서 링크 자동 입력",
+      "fillInLinksWhenOpeningNewTask": "새 작업을 열 때 복사한 링크를 붙여넣습니다.",
+      "saveFolders": "저장 폴더",
+      "description": "파일, 다운로드 속도 및 연결"
+    },
+    "network": {
+      "dns": {
+        "title": "DNS",
+        "mode": "DNS 조회",
+        "modeDesc": "다운로드 시 서버 주소를 조회하는 방법입니다.",
+        "modeAuto": "자동",
+        "modeSystem": "시스템 DNS",
+        "modeEngine": "내장 DNS"
+      },
+      "proxy": {
+        "title": "프록시",
+        "enable": "프록시 사용",
+        "enableDesc": "아래에서 선택한 연결에 프록시를 사용합니다.",
+        "server": "서버",
+        "protocol": "프로토콜",
+        "host": "서버 주소",
+        "hostPlaceholder": "proxy.example.com",
+        "port": "포트",
+        "auth": "프록시 로그인",
+        "authDesc": "프록시에 사용자 이름과 비밀번호가 필요하면 켜세요.",
+        "user": "사용자 이름",
+        "password": "비밀번호",
+        "showPassword": "비밀번호 표시",
+        "hidePassword": "비밀번호 숨기기",
+        "bypass": "직접 연결할 대상",
+        "bypassDesc": "한 줄에 도메인, IP 또는 CIDR 하나를 입력하세요. 하위 도메인만 일치시키려면 .으로 시작하세요. 파일 다운로드에서는 * 와일드카드를 지원하지 않습니다.",
+        "bypassScopeNote": "파일 다운로드 및 앱 업데이트에만 적용",
+        "scopes": "프록시 적용 대상",
+        "scopesDesc": "프록시를 거칠 트래픽 유형을 선택하세요.",
+        "scopeDownload": "파일 다운로드",
+        "scopeDownloadDesc": "BT에서는 HTTP(S)만 프록시를 사용합니다. 피어, DHT 및 UDP 트래커는 직접 연결합니다.",
+        "scopeUpdateApp": "앱 업데이트",
+        "scopeUpdateAppDesc": "프록시를 통해 Motrix 업데이트를 확인합니다.",
+        "scopeUpdateTrackers": "트래커 목록 업데이트",
+        "scopeUpdateTrackersDesc": "프록시를 통해 트래커 목록을 다운로드합니다. BT 트래픽에는 영향을 주지 않습니다.",
+        "importFromSystem": "시스템에서 가져오기",
+        "importedToast": "시스템 프록시를 가져왔습니다: {{host}}:{{port}}",
+        "noSystemProxy": "설정된 시스템 프록시가 없습니다.",
+        "bypassPlaceholder": "localhost\n127.0.0.1\n.local",
+        "scopeHint": "BT 피어, DHT 및 UDP 트래커는 직접 연결합니다.",
+        "scopeNone": "선택한 항목 없음",
+        "scopeChoose": "선택…",
+        "scopeSeparator": ", "
+      },
+      "nat": {
+        "title": "포트 매핑(NAT)",
+        "enable": "포트 매핑 사용",
+        "enableDesc": "라우터에 BitTorrent 설정에서 지정한 포트를 열도록 요청합니다.",
+        "preferredProtocol": "선호 프로토콜",
+        "mappingTtl": "매핑 유지 시간(초)",
+        "btPortHint": "BitTorrent에서 설정한 BT/DHT 포트에 매핑을 적용합니다.",
+        "automatic": "자동"
+      },
+      "stun": {
+        "title": "NAT 유형 감지",
+        "privacyHint": "타사 STUN 서버를 사용합니다.",
+        "enable": "NAT 유형 감지",
+        "servers": "STUN 서버",
+        "empty": "STUN 서버를 하나 이상 추가하세요.",
+        "addServer": "STUN 서버 추가"
+      },
+      "reachability": {
+        "title": "외부 연결 포트 확인",
+        "privacyHint": "타사 서비스를 통해 인터넷에서 접근 가능한지 확인합니다.",
+        "enable": "들어오는 연결 포트 확인",
+        "endpoints": "확인 서비스(HTTPS)",
+        "empty": "확인 서비스를 하나 이상 추가하세요.",
+        "addEndpoint": "확인 서비스 추가"
+      },
+      "diagnostic": {
+        "title": "자동 네트워크 점검",
+        "enable": "자동 점검",
+        "interval": "점검 간격(초)",
+        "enableDesc": "위에서 활성화한 점검을 반복합니다."
+      },
+      "description": "프록시, DNS 및 연결 점검",
+      "diagnostics": "네트워크 진단"
+    },
+    "common": {
+      "browse": "찾아보기…",
+      "add": "추가",
+      "remove": "제거",
+      "preset": "빠른 설정:",
+      "noChange": "저장할 변경 사항이 없습니다",
+      "setAsDefault": "기본값으로 설정",
+      "openHelp": "도움말 열기",
+      "generate": "생성",
+      "changeDirectory": "폴더 변경",
+      "directoryEmpty": "(선택한 폴더 없음)",
+      "showSecret": "비밀 값 표시",
+      "hideSecret": "비밀 값 숨기기"
+    },
+    "integration": {
+      "system": {
+        "title": "기본 앱",
+        "protocolMagnet": "Motrix로 마그넷 링크 열기",
+        "protocolMagnetDesc": "브라우저의 마그넷 링크를 Motrix에서 엽니다.",
+        "torrentAssociation": "Motrix로 .torrent 파일 열기",
+        "torrentAssociationDesc": ".torrent 파일을 이중 클릭하면 Motrix에서 엽니다.",
+        "torrentAssociationMacDesc": "Finder에서 .torrent 파일을 마우스 오른쪽 버튼으로 클릭 → 정보 가져오기 → 다음으로 열기 → Motrix 선택 → 모두 변경…",
+        "defaultAssociationsWindows": "토렌트 및 마그넷 링크의 기본 앱",
+        "defaultAssociationsWindowsDesc": "Windows 설정에서 .torrent 파일과 마그넷 링크에 사용할 앱으로 Motrix를 선택하세요. Motrix가 설치되어 있어야 합니다.",
+        "torrentFiles": ".torrent 파일",
+        "magnetLinks": "마그넷 링크",
+        "associationStatusLabel": "현재 Windows 기본 앱 상태",
+        "associationChecking": "확인 중…",
+        "associationSetupRequired": "설정 필요",
+        "associationDefault": "기본 앱",
+        "associationNotDefault": "기본 앱이 아님",
+        "associationUnavailable": "확인하지 못함",
+        "associationNotRegistered": "등록되지 않음",
+        "openWindowsSettings": "Windows 설정 열기",
+        "defaultAssociationsLinux": "Linux 파일 및 링크 연결",
+        "defaultAssociationsLinuxCheckingDesc": "이 Linux 패키지와 현재 데스크톱 연결 설정을 확인하는 중…",
+        "defaultAssociationsLinuxUnavailableDesc": "이 앱 환경에서는 데스크톱 연결 상태를 확인할 수 없습니다.",
+        "defaultAssociationsLinuxDesc": "설치된 deb 또는 rpm 패키지에서는 Motrix를 .torrent 기본 앱으로 설정할 수 있습니다. 마그넷 설정 변경은 이 대화상자에서 적용하면 반영됩니다.",
+        "defaultAssociationsLinuxAppImageDesc": "아래의 데스크톱 통합 기능으로 이 AppImage를 안전하게 등록하거나 등록 해제하세요. Motrix는 데스크톱 항목을 삭제하기 전에 확인된 이전 처리 앱을 복원합니다.",
+        "defaultAssociationsLinuxSandboxDesc": "이 패키지는 Motrix를 처리 앱으로 등록하지만 기본 앱은 데스크톱 환경에서 선택합니다. 패키지를 제거해도 이전 기본 앱이 자동으로 복원되지 않을 수 있습니다.",
+        "associationStatusLabelLinux": "현재 Linux 파일 및 링크 연결 상태",
+        "linuxPackageDetected": "패키지: {{package}}",
+        "linuxPackage": {
+          "appimage": "AppImage",
+          "native": "deb / rpm",
+          "flatpak": "Flatpak",
+          "snap": "Snap",
+          "unknown": "알 수 없는 패키지"
+        },
+        "protocolMagnetAppImageDesc": "데스크톱 통합이 활성화되어 있으면 저장 후 즉시 적용됩니다.",
+        "protocolMagnetSandboxDesc": "저장하면 Motrix가 변경을 요청하지만 샌드박스나 데스크톱 환경에 따라 기본 앱을 직접 선택해야 할 수 있습니다.",
+        "protocolMagnetApplyFailed": "설정은 저장되었지만 데스크톱 연결을 변경하지 못했습니다. 시스템 설정에서 기본 앱을 선택하세요.",
+        "setTorrentDefaultLinux": ".torrent 기본 앱으로 설정",
+        "repairLinuxAssociations": "연결 설정 복구",
+        "viewLinuxInstructions": "설정 방법 보기",
+        "linuxActionSet": "이제 Motrix가 .torrent 파일의 기본 앱입니다.",
+        "linuxActionFallback": "이 패키지는 자동 설정을 지원하지 않아 설정 안내를 열었습니다.",
+        "linuxActionFailed": "Linux 기본 앱을 변경하지 못했습니다. 데스크톱 환경 설정을 확인하세요."
+      },
+      "browser": {
+        "title": "브라우저 확장 프로그램",
+        "masterSwitch": "브라우저 확장 프로그램 연결",
+        "masterSwitchDesc": "브라우저 확장 프로그램으로 웹페이지의 다운로드를 Motrix에 보냅니다.",
+        "install": {
+          "chrome": "Chrome",
+          "edge": "Microsoft Edge",
+          "firefox": "Firefox",
+          "github": "GitHub",
+          "store": "설치",
+          "development": "개발"
+        },
+        "pairedTitle": "연결된 확장 프로그램",
+        "pairedEmpty": "아직 연결된 확장 프로그램이 없습니다.",
+        "lastActive": "마지막 활동",
+        "revoke": "연결 해제",
+        "disconnecting": "연결 해제 중…",
+        "addTrusted": {
+          "add": "확장 프로그램 추가",
+          "idPlaceholder": "확장 프로그램 ID",
+          "labelPlaceholder": "이름(선택 사항)",
+          "browserLabel": "브라우저",
+          "chromiumEdge": "Chrome / Edge",
+          "firefox": "Firefox",
+          "cancel": "취소",
+          "addAction": "추가"
+        },
+        "pairToast": {
+          "title": "{{browser}} 확장 프로그램이 Motrix에 연결하려고 합니다",
+          "extensionId": "ID: {{id}}",
+          "deny": "허용 안 함",
+          "pairCode": "페어링 코드",
+          "copyCode": "페어링 코드 복사",
+          "pairCodeHint": "확장 프로그램에 이 코드를 입력하세요",
+          "identityLabel": {
+            "official": "공식 Motrix 확장 프로그램",
+            "attested": "검증된 확장 프로그램",
+            "unverified": "검증되지 않은 확장 프로그램"
+          },
+          "identityUnverifiedWarning": "이 확장 프로그램의 신원을 확인하지 못했습니다. 신뢰하는 경우에만 계속하세요."
+        },
+        "pairUnavailable": "이 페어링 요청은 더 이상 대기 상태가 아닙니다. 브라우저 확장 프로그램에서 페어링을 다시 시도하세요.",
+        "trustedExtensions": "신뢰하는 확장 프로그램",
+        "trustedSummary": "총 {{count}}개",
+        "trustedGuidance": "다른 신뢰할 수 있는 확장 프로그램을 사용하려면 개발자가 제공한 ID를 추가하세요.",
+        "trustedEmpty": "아직 항목이 없습니다.",
+        "headerId": "확장 프로그램 ID",
+        "headerBrowser": "브라우저",
+        "headerSource": "출처",
+        "removeTrusted": "제거",
+        "sourceLabel": {
+          "builtin": "기본 제공",
+          "userAdded": "직접 추가",
+          "imported": "가져옴"
+        },
+        "degradedPort": {
+          "title": "브리지가 대체 포트에서 실행 중입니다",
+          "description": "16802~16806 포트를 사용할 수 없어 브리지가 대신 {{port}} 포트에 바인딩되었습니다. 브라우저 확장 프로그램은 표준 포트 범위를 검색해도 브리지를 찾지 못합니다. 네이티브 메시징으로 페어링하거나 고정 포트를 설정하세요. Motrix CLI와 네이티브 호스트에는 영향을 주지 않습니다."
+        },
+        "pairingStateDegraded": {
+          "title": "확장 프로그램 접근이 일시적으로 차단되었습니다",
+          "description": "Motrix가 페어링된 확장 프로그램 기록을 안전하게 업데이트하지 못했습니다. 기존 확장 프로그램 세션은 종료되었으며 이번 실행에서는 새로운 접근이 차단됩니다. 복구를 다시 시도하려면 Motrix를 재시작하세요. 이 메시지가 사라질 때까지 아래 목록을 신뢰하지 마세요."
+        }
+      },
+      "cli": {
+        "title": "명령줄 도구",
+        "tool": {
+          "title": "Motrix 명령줄 도구",
+          "description": "터미널에서 motrix를 실행하여 이 앱을 제어합니다.",
+          "managerLabel": "패키지 관리자",
+          "commandLabel": "설치 명령",
+          "copyCommand": "설치 명령 복사",
+          "manager": {
+            "npm": "npm",
+            "pnpm": "pnpm",
+            "yarn": "Yarn Classic",
+            "bun": "Bun",
+            "volta": "Volta"
+          },
+          "attentionTitle": "명령줄 도구 확인 필요",
+          "status": {
+            "checking": "확인 중",
+            "ready": "설치 준비됨",
+            "installing": "설치 중",
+            "installed": "설치됨",
+            "needsAttention": "확인 필요",
+            "manualOnly": "수동 설치",
+            "error": "실패"
+          },
+          "action": {
+            "checking": "확인 중…",
+            "install": "설치",
+            "installing": "설치 중…",
+            "checkAgain": "다시 확인"
+          },
+          "metadata": {
+            "version": "버전",
+            "path": "실행 파일",
+            "manager": "설치에 사용한 도구",
+            "unknown": "알 수 없음"
+          },
+          "successGuidance": "새 터미널을 열고 motrix --help를 실행하세요.",
+          "diagnostics": {
+            "show": "세부 정보 표시",
+            "hide": "세부 정보 숨기기"
+          },
+          "reason": {
+            "nodeMissing": "Node.js 22 이상을 찾을 수 없습니다. Node.js를 설치한 후 다시 확인하세요.",
+            "nodeTooOld": "Node.js 22 이상이 필요합니다. 감지된 버전: {{version}}.",
+            "managerMissing": "지원되는 패키지 관리자를 찾을 수 없습니다. npm, pnpm, Yarn Classic, Bun 또는 Volta를 설치한 후 다시 확인하세요.",
+            "sandboxed": "이 샌드박스 패키지에서는 원클릭 설치를 사용할 수 없습니다. 명령을 복사하여 터미널에서 실행하세요.",
+            "unsupportedWeb": "원클릭 설치는 데스크톱 앱에서만 사용할 수 있습니다. 명령을 복사하여 Motrix 호스트에서 실행하세요.",
+            "permission": "패키지 관리자가 전역 설치 위치에 쓸 수 없습니다. Node.js 버전 관리자 또는 사용자 쓰기 권한이 있는 설치 경로를 사용하세요. sudo는 사용하지 마세요.",
+            "network": "패키지 관리자가 레지스트리에 연결하지 못했습니다. 네트워크 또는 레지스트리 설정을 확인한 후 다시 시도하세요.",
+            "timeout": "설치 시간이 너무 오래 걸려 중단되었습니다. 네트워크를 확인한 후 다시 시도하세요.",
+            "pathMissing": "패키지는 설치되었지만 PATH에서 motrix를 찾을 수 없습니다. 새 터미널을 열거나 표시된 설치 디렉터리를 PATH에 추가하세요.",
+            "pathShadowed": "PATH에서 다른 motrix 실행 파일이 먼저 발견되었습니다. 이전 항목을 제거하거나 PATH를 수정한 후 다시 확인하세요.",
+            "verifyFailed": "설치 프로그램은 완료되었지만 현재 사용되는 motrix 실행 파일을 확인하지 못했습니다.",
+            "installFailed": "패키지 관리자가 @motrix/cli를 설치하지 못했습니다. 세부 정보를 확인한 후 다시 시도하거나 명령을 직접 실행하세요.",
+            "unknown": "Motrix가 명령줄 도구를 확인하지 못했습니다. 다시 시도하거나 복사한 명령을 직접 실행하세요."
+          }
+        },
+        "remote": {
+          "title": "페어링된 원격 도구",
+          "description": "로컬 도구는 자동으로 연결됩니다. 다른 컴퓨터나 서버에 연결하려면 motrix pair를 실행하세요.",
+          "empty": "페어링된 원격 도구가 없습니다.",
+          "lastActive": "마지막 활동",
+          "neverActive": "사용한 적 없음",
+          "revoke": "권한 철회"
+        },
+        "pairToast": {
+          "title": "{{name}}이(가) Motrix와 페어링하려고 합니다",
+          "code": "확인 코드: {{code}}",
+          "allow": "허용",
+          "deny": "허용 안 함"
+        },
+        "inbox": {
+          "title": "승인 대기 중",
+          "empty": "대기 중인 원격 페어링 요청이 없습니다.",
+          "approve": "승인",
+          "deny": "거부",
+          "expiresIn": "{{time}} 후 만료"
+        },
+        "pairUnavailable": "이 페어링 요청은 더 이상 대기 상태가 아닙니다. motrix pair를 다시 실행하세요."
+      },
+      "media": {
+        "title": "미디어 도구",
+        "desc": "FFmpeg로 미디어를 합치거나 변환합니다.",
+        "notDetected": "FFmpeg가 감지되지 않음",
+        "refresh": "새로고침",
+        "binaryPath": "사용자 지정 FFmpeg 경로",
+        "browse": "찾아보기…",
+        "download": {
+          "action": "FFmpeg 다운로드"
+        },
+        "detection": {
+          "readyTitle": "FFmpeg {{version}}",
+          "unavailableTitle": "FFmpeg를 사용할 수 없습니다",
+          "untrustedTitle": "macOS가 FFmpeg를 차단했습니다",
+          "usingSource": "{{source}} 사용 중",
+          "unavailableDesc": "사용자 지정 경로를 설정하거나 FFmpeg를 설치하거나 PATH에 추가한 후 새로고침하세요.",
+          "untrustedDesc": "파일은 존재하지만 macOS 보안 검증을 통과하지 못했습니다. 신뢰할 수 있는 빌드를 설치하거나 개인정보 보호 및 보안에서 허용한 후 새로고침하세요.",
+          "showDetails": "감지 세부 정보 표시",
+          "hideDetails": "감지 세부 정보 숨기기",
+          "sourcesChecked_other": "소스 {{count}}개 확인됨",
+          "source": "소스",
+          "location": "확인한 위치",
+          "result": "결과",
+          "copyManagedPath": "Motrix FFmpeg 경로 복사",
+          "editCustomPath": "사용자 지정 FFmpeg 경로 편집",
+          "finishEditingCustomPath": "사용자 지정 FFmpeg 경로 편집 완료",
+          "notConfigured": "설정되지 않음"
+        },
+        "candidateKind": {
+          "manual": "사용자 지정 경로",
+          "userData": "Motrix 데이터 디렉터리",
+          "env": "MOTRIX_FFMPEG_BIN",
+          "path": "시스템 PATH"
+        },
+        "state": {
+          "active": "사용 중",
+          "available": "찾음",
+          "missing": "찾을 수 없음",
+          "untrusted": "macOS에서 차단됨",
+          "unconfigured": "설정되지 않음",
+          "version_mismatch": "지원되지 않음"
+        },
+        "stagingMB": "임시 파일 제한(MB)",
+        "stagingMBDesc": "플러그인과 작업별 중간 파일에 사용할 공간입니다.",
+        "opTimeoutSec": "FFmpeg 제한 시간(초)",
+        "opTimeoutSecDesc": "미디어 작업 한 건의 최대 처리 시간입니다. 최대 3,600초.",
+        "cleanupStaging": "임시 파일 정리",
+        "cleanupConfirm": "모든 FFmpeg 임시 디렉터리를 제거하시겠습니까?",
+        "restartHint": "저장되었습니다. 활성 플러그인이 변경 사항을 감지하도록 Motrix를 재시작하세요.",
+        "restartNow": "지금 재시작",
+        "validation": {
+          "fileMissing": "이 경로에 파일이 없습니다."
+        },
+        "applyHint": "새 미디어 다운로드에 이 경로를 사용하려면 저장하세요. 지원 정보를 갱신하려면 브라우저 확장 프로그램에서 다시 검색하세요.",
+        "savedTitle": "FFmpeg 설정이 저장되었습니다",
+        "desktopSavedHint": "새 미디어 다운로드는 저장된 경로를 사용합니다. 활성 플러그인이 변경 사항을 감지하도록 Motrix를 재시작하세요.",
+        "pipelineUnavailable": "미디어 다운로드 기능을 사용할 수 없습니다.",
+        "ffmpegRequired": "이 다운로드에는 FFmpeg가 필요합니다. 설정 → 연동 → 미디어 도구에서 설정하고 저장한 후 다시 시도하세요."
+      },
+      "pairResolveFailed": "승인 또는 거부를 제출하지 못했습니다. 다시 시도하세요.",
+      "appimage": {
+        "title": "데스크톱 통합",
+        "desc": "이 Motrix AppImage를 데스크톱에 등록하여 브라우저와 마그넷 링크가 다운로드를 전달할 수 있게 합니다.",
+        "enable": "데스크톱 통합 활성화",
+        "remove": "데스크톱 통합 제거",
+        "prompt": {
+          "title": "Motrix를 데스크톱에 통합하시겠습니까?",
+          "message": "이 Motrix AppImage를 데스크톱 환경에 등록하도록 허용하시겠습니까?",
+          "detail": "Motrix가 사용자 데이터 디렉터리에 데스크톱 항목과 아이콘을 추가하고 motrix: 링크, 마그넷 링크 및 .torrent 파일을 처리하는 앱으로 등록됩니다. 이를 통해 브라우저와 Motrix 확장 프로그램이 Motrix를 실행하고 다운로드를 전달할 수 있습니다. 홈 디렉터리 밖에는 아무것도 기록하지 않으며 설정에서 되돌릴 수 있습니다.",
+          "accept": "통합",
+          "decline": "나중에"
+        },
+        "status": {
+          "healthy": "이 데스크톱에 통합되었습니다.",
+          "notIntegrated": "이 데스크톱에 통합되지 않았습니다.",
+          "failedTitle": "데스크톱 통합이 완료되지 않음",
+          "failedDetail": "Motrix를 해당 링크의 처리 앱으로 등록하지 못했습니다. 데스크톱 통합을 다시 활성화하기 전까지 브라우저의 다운로드 전달이 작동하지 않을 수 있습니다.",
+          "removeBlockedDetail": "확인된 이전 처리 앱을 안전하게 복원하지 못했습니다. 작동하지 않는 기본 앱 설정이 남지 않도록 Motrix의 데스크톱 항목을 유지했습니다. 데스크톱 설정에서 다른 기본 앱을 선택한 후 통합 제거를 다시 시도하세요.",
+          "externalManaged": "다른 Motrix 설치본에서 데스크톱 통합을 제공하고 있습니다."
+        },
+        "movedHint": "Motrix가 닫힌 상태에서 AppImage를 이동하면 새 위치에서 Motrix를 한 번 실행하기 전까지 링크로 앱을 실행하지 못할 수 있습니다."
+      },
+      "appimageHost": {
+        "title": "브라우저에서 AppImage 실행",
+        "desc": "연결을 클릭할 때 확장 프로그램이 이 AppImage를 열도록 허용합니다. 사용하려면 브라우저 연동을 활성화하세요.",
+        "enable": "브라우저에서 실행 허용",
+        "repair": "복구",
+        "useCurrent": "이 AppImage 사용",
+        "remove": "브라우저에서 실행하는 기능 제거",
+        "copyDiagnostics": "진단 내용 복사",
+        "status": {
+          "ready": "로컬 설치 점검을 통과했습니다. 브라우저에서 연결하여 확인하세요.",
+          "disabled": "브라우저에서 실행하는 기능이 비활성화되어 있습니다.",
+          "conflict": "다른 설치본이 이 파일들을 소유하고 있습니다. 먼저 해당 설치본의 브라우저 연동을 제거하세요.",
+          "permissions": "파일을 실행할 수 있으며 쓰기 권한은 본인 계정에만 있는지 확인하세요.",
+          "invalid": "설치 기록 또는 실행 파일이 올바르지 않습니다.",
+          "sourceChanged": "AppImage가 변경되었습니다. 사용할 버전을 실행하고 설치를 복구하세요.",
+          "missing": "필요한 파일이 없습니다. 현재 위치에서 AppImage를 실행한 후 복구하세요.",
+          "io": "작업에 실패했습니다. 디스크 접근 권한을 확인한 후 복구를 시도하세요."
+        }
+      },
+      "description": "브라우저, 기본 앱 및 도구"
+    },
+    "validation": {
+      "rangeHint": "범위: {{min}}~{{max}}.",
+      "range": "{{min}}~{{max}} 사이의 숫자를 입력하세요.",
+      "integerRange": "{{min}}~{{max}} 사이의 정수를 입력하세요.",
+      "minimum": "{{min}} 이상의 값을 입력하세요.",
+      "maximum": "{{max}} 이하의 값을 입력하세요.",
+      "integer": "정수를 입력하세요.",
+      "wholeBytes": "소수점 자릿수를 줄이세요.",
+      "number": "올바른 숫자를 입력하세요.",
+      "invalid": "올바른 값을 입력하세요.",
+      "selection": "사용 가능한 옵션을 선택하세요.",
+      "textLength": "{{max}}자 이하로 입력하세요.",
+      "itemCount": "주소는 {{max}}개 이하로 입력하세요.",
+      "text": "줄바꿈이나 보이지 않는 제어 문자를 제거하세요.",
+      "directory": "다운로드 폴더를 선택하세요.",
+      "proxyHost": "http://와 포트를 제외한 서버 이름이나 IP 주소를 입력하세요.",
+      "stunServer": "stun.example.com:3478과 같이 호스트:포트 형식을 사용하세요. 포트는 1~65535 사이여야 합니다.",
+      "httpsUrl": "https://로 시작하는 전체 주소를 입력하세요.",
+      "httpUrl": "http:// 또는 https://로 시작하는 전체 주소를 입력하세요.",
+      "saveFailed": "변경 사항을 저장하지 못했습니다. 다시 시도하세요.",
+      "address": "주소 {{number}}",
+      "addressDraft": "새 주소",
+      "required": "먼저 주소를 입력하세요.",
+      "time": "23:00과 같이 24시간제 시간을 입력하세요.",
+      "loadFailed": "설정을 불러오지 못했습니다. 다시 시도하세요."
+    },
+    "feedback": {
+      "syncFailedTitle": "설정은 저장되었지만 화면 업데이트에 실패했습니다",
+      "syncFailedBody": "설정이 저장되었습니다. 다시 저장하지 않고 이 페이지를 업데이트하려면 동기화를 다시 시도하세요.",
+      "retrySync": "동기화 다시 시도",
+      "applyFailedTitle": "설정은 저장되었지만 일부 변경 사항을 적용하지 못했습니다",
+      "applyFailedBody": "저장된 설정은 유지됩니다. 앱 로그를 확인하여 문제를 해결한 후 해당 서비스를 재시작하세요.",
+      "appRestartTitle": "설정을 적용하려면 Motrix를 재시작하세요",
+      "appRestartBody": "설정이 저장되었습니다. 편리할 때 Motrix를 재시작하세요."
+    },
+    "connection": {
+      "originMismatchTitle": "서버 접속 주소가 일치하지 않습니다.",
+      "originMismatchBody": "실시간 업데이트를 사용할 수 없습니다. 설정된 서버 주소를 사용하거나 관리자에게 수정을 요청하세요.",
+      "disconnectedTitle": "실시간 업데이트 연결이 끊겼습니다.",
+      "disconnectedBody": "일부 정보가 늦게 표시될 수 있습니다. 문제가 계속되면 서버 연결과 프록시 설정을 확인하세요."
+    }
+  },
+  "errors": {
+    "task": {
+      "create": {
+        "dedupExhausted": "같은 이름의 파일이 너무 많습니다(9999개 초과).",
+        "torrentMetaFailed": "토렌트 메타데이터를 저장하지 못했습니다."
+      }
+    }
+  },
+  "menu": {
+    "app": {
+      "title": "Motrix",
+      "about": "Motrix 정보",
+      "preferences": "설정…",
+      "checkForUpdates": "업데이트 확인",
+      "show": "Motrix 표시",
+      "hide": "Motrix 가리기",
+      "hideOthers": "기타 가리기",
+      "unhide": "모두 보기",
+      "quit": "Motrix 종료"
+    },
+    "file": {
+      "title": "파일"
+    },
+    "task": {
+      "title": "작업",
+      "newTask": "새 작업…",
+      "newBtTask": "새 BitTorrent 작업…",
+      "openFile": "토렌트 파일 열기…",
+      "taskList": "작업 목록",
+      "pauseTask": "일시 정지",
+      "resumeTask": "재개",
+      "deleteTask": "작업 제거…",
+      "moveTaskUp": "대기열에서 위로 이동",
+      "moveTaskDown": "대기열에서 아래로 이동",
+      "pauseAllTask": "모두 일시 정지",
+      "resumeAllTask": "모두 재개",
+      "selectAllTask": "모든 작업 선택",
+      "clearRecentTasks": "중지된 작업 기록 지우기…"
+    },
+    "edit": {
+      "title": "편집",
+      "undo": "실행 취소",
+      "redo": "다시 실행",
+      "cut": "오려두기",
+      "copy": "복사하기",
+      "paste": "붙여넣기",
+      "delete": "삭제",
+      "selectAll": "모두 선택"
+    },
+    "window": {
+      "title": "윈도우",
+      "reload": "새로고침",
+      "close": "닫기",
+      "minimize": "최소화",
+      "zoom": "확대/축소",
+      "toggleFullscreen": "전체 화면 전환",
+      "front": "모두 앞으로 가져오기"
+    },
+    "help": {
+      "title": "도움말",
+      "officialWebsite": "Motrix 웹사이트",
+      "manual": "Motrix 도움말",
+      "changelog": "릴리스 노트",
+      "reportProblem": "문제 신고",
+      "toggleDevTools": "개발자 도구 표시 전환"
+    }
+  },
+  "trackers": {
+    "effective": {
+      "enabled": "선별된 트래커 추가",
+      "enabledDesc": "모든 BitTorrent 작업에 선별된 트래커 목록을 추가합니다.",
+      "disabled": "비활성화됨. 유효한 트래커 목록을 보려면 켜세요.",
+      "empty": "아직 유효한 트래커가 없습니다. 동기화하여 목록을 채우세요.",
+      "column": {
+        "url": "URL",
+        "health": "상태",
+        "responseTimeMs": "응답 시간(ms)",
+        "lastProbedAt": "마지막 점검",
+        "source": "소스"
+      }
+    },
+    "blacklist": {
+      "enabled": "차단 목록 필터 적용",
+      "enabledDesc": "의심스럽거나 오류가 있는 트래커 서버로의 연결을 차단합니다.",
+      "disabled": "비활성화됨. 차단 목록을 보려면 켜세요.",
+      "empty": "차단 목록이 비어 있습니다.",
+      "summary": "URL {{count}}개 적용 중",
+      "column": {
+        "url": "URL",
+        "source": "소스"
+      }
+    },
+    "combobox": {
+      "placeholder": "소스 선택",
+      "addSourcePlaceholder": "https://example.com/list.txt",
+      "addSource": "추가",
+      "removeSource": "소스 제거",
+      "empty": "일치하는 소스가 없습니다.",
+      "builtinBadge": "기본 제공",
+      "cdnBadge": "CDN",
+      "directBadge": "직접"
+    },
+    "sync": {
+      "syncing": "동기화 중...",
+      "fetching": "트래커 목록을 가져오는 중…",
+      "probing": "트래커 사용 가능 여부를 확인하는 중…",
+      "applying": "트래커 목록을 적용하는 중…",
+      "failed": "동기화가 완료되지 않았습니다. 네트워크 또는 소스를 확인하고 다시 시도하세요.",
+      "unavailable": "동기화 상태를 읽지 못했습니다. 연결을 확인하고 다시 시도하세요."
+    }
+  },
+  "plugins": {
+    "title": "플러그인",
+    "empty": "아직 설치된 플러그인이 없습니다.",
+    "errors_other": "오류 {{count}}개",
+    "status": {
+      "active": "활성",
+      "inactive": "유휴",
+      "disabled": "비활성화됨",
+      "error": "오류"
+    },
+    "install": {
+      "title": "플러그인 추가",
+      "github": "GitHub",
+      "github.spec": "GitHub 저장소(owner/repo[@tag])",
+      "url": "URL",
+      "url.spec": "번들 URL(.moext)",
+      "local": "로컬 파일",
+      "local.pick": ".moext 파일 선택",
+      "lead": "플러그인 주소를 붙여넣거나 .moext 파일을 선택하거나 입력란에 파일을 끌어다 놓으세요.",
+      "placeholder": "GitHub 주소 또는 URL을 붙여넣거나 로컬 .moext 파일을 선택하세요",
+      "detected": {
+        "auto": "자동",
+        "github": "GitHub",
+        "url": "URL",
+        "local": "파일"
+      },
+      "detectedRow": {
+        "ok": "{{type}} 형식으로 감지됨",
+        "localSupported": "로컬 .moext 지원"
+      },
+      "checkAriaLabel": "이 플러그인 확인",
+      "install": "플러그인 설치",
+      "pickLocal": "로컬 .moext 파일 선택",
+      "localUnavailable": "이 호스트에서는 로컬 파일 설치를 사용할 수 없습니다.",
+      "localPrepareFailed": "이 플러그인 파일을 준비하지 못했습니다: {{detail}}",
+      "dropHint": "이 플러그인을 확인하려면 .moext 파일을 여기에 끌어다 놓으세요",
+      "dragDisabledHint": "이 환경에서는 끌어다 놓기를 지원하지 않습니다. GitHub 주소 또는 URL을 사용하세요.",
+      "warning": "설치 전 확인: 제작자를 신뢰하고 위에 나열된 접근 권한을 사용할 것으로 예상하는 경우에만 계속하세요."
+    },
+    "consent": {
+      "installTitle": "{{name}} {{version}}을(를) 설치하시겠습니까?",
+      "upgradeTitle": "{{name}}을(를) {{version}}(으)로 업그레이드하시겠습니까?",
+      "notVerified": "검증되지 않은 플러그인입니다. 신뢰하는 출처의 플러그인만 설치하세요.",
+      "confirm": "허용 및 설치",
+      "permissions": "필수 권한",
+      "optionalPermissions": "선택적 권한",
+      "hostPermissions": "호스트 접근",
+      "invokesCommands": "다른 플러그인의 명령 호출",
+      "calleeMissing": "설치되지 않음",
+      "source": "출처: {{type}} · {{url}}",
+      "broadAccess": {
+        "title": "광범위한 호스트 접근",
+        "body": "이 플러그인은 모든 URL의 다운로드를 읽고 수정할 수 있습니다. 출처를 신뢰하는 경우에만 설치하세요.",
+        "tag": "광범위"
+      },
+      "diff": {
+        "title": "마지막 동의 이후 변경 사항",
+        "permissions": "추가된 권한",
+        "optionalPermissions": "추가된 선택적 권한",
+        "hostPermissions": "추가된 호스트 접근",
+        "invokesCommands": "새로운 플러그인 간 명령 호출",
+        "publicCommands": "새 공개 명령",
+        "publicCommandsSchema": "공개 명령 스키마 변경",
+        "heap": "메모리 요청",
+        "engines": "Motrix 엔진 버전",
+        "source": "번들 소스"
+      }
+    },
+    "detail": {
+      "overview": "개요",
+      "settings": "설정",
+      "logs": "로그",
+      "about": "정보",
+      "loading": "불러오는 중…",
+      "back": "모든 플러그인",
+      "author": "제작자",
+      "homepage": "홈페이지",
+      "uninstall": "제거",
+      "uninstallConfirm": "이 플러그인을 제거하시겠습니까? 플러그인 데이터도 삭제됩니다.",
+      "enabled": "활성화됨",
+      "disabled": "비활성화됨",
+      "access": "접근 권한",
+      "advanced": "고급",
+      "accessGranted": "이 플러그인에 이미 허용된 기능",
+      "accessOptional": "선택적 접근 권한",
+      "hero": {
+        "ready": "준비됨",
+        "review": "접근 권한 검토",
+        "attention": "확인 필요",
+        "off": "꺼짐",
+        "optional": "추가 접근 권한을 요청할 수 있음"
+      },
+      "mini": {
+        "purpose": "용도",
+        "access": "접근 권한",
+        "health": "상태"
+      },
+      "healthOk": "정상",
+      "healthIssues_other": "지난 하루 동안 문제 {{count}}개 보고됨",
+      "accessNone": "자체 설정만 접근 가능",
+      "accessHosts_other": "웹사이트 {{count}}개 읽기 가능",
+      "accessBroad": "모든 웹사이트 읽기 가능",
+      "attentionTitle": "이 플러그인이 문제를 보고했습니다",
+      "attentionGeneric": "자세한 내용은 로그를 확인하세요.",
+      "viewIssue": "문제 보기",
+      "removeTitle": "플러그인 제거",
+      "removeDesc": "이 플러그인을 제거하면 Motrix에 저장된 플러그인 데이터도 삭제됩니다.",
+      "uninstallConfirmTitle": "{{name}}을(를) 제거하시겠습니까?",
+      "uninstallConfirmDesc": "Motrix에서 플러그인과 저장된 설정을 제거합니다."
+    },
+    "permissions": {
+      "empty": "이 플러그인은 권한을 요청하지 않습니다.",
+      "granted": "허용됨",
+      "denied": "거부됨"
+    },
+    "logs": {
+      "verbose": "상세 로그 모드",
+      "verboseWarning": "1시간 동안 전체 URL과 헤더를 기록합니다. 주의해서 사용하세요.",
+      "filterLabel": "로그 수준",
+      "levels": {
+        "all": "모든 수준",
+        "trace": "추적",
+        "debug": "디버그",
+        "info": "정보",
+        "warn": "경고",
+        "error": "오류",
+        "fatal": "치명적 오류"
+      },
+      "copy": "복사",
+      "clear": "지우기",
+      "output": "실시간 출력",
+      "entryCount_other": "항목 {{count}}개",
+      "empty": "아직 로그 항목이 없습니다",
+      "emptyHint": "새로운 플러그인 활동이 여기에 자동으로 표시됩니다.",
+      "emptyFiltered": "이 수준에 해당하는 항목이 없습니다."
+    },
+    "lead": "Motrix에 작은 기능을 추가하세요. 신뢰하는 플러그인을 사용하고 나머지는 끄세요.",
+    "search": "플러그인 찾기",
+    "registry": {
+      "availableTitle": "사용 가능한 플러그인",
+      "featured": "추천",
+      "byAuthor": "제작: {{name}}",
+      "requires": "Motrix {{range}} 필요",
+      "notInstalled": "설치되지 않음",
+      "notFound": "레지스트리에서 “{{id}}” 플러그인을 찾을 수 없습니다",
+      "viewOnWebsite": "motrix.app에서 보기",
+      "updated": "{{date}}에 업데이트됨",
+      "featuresTitle": "기능",
+      "permissionsTitle": "권한",
+      "permissionsPreviewNote": "레지스트리 항목의 미리 보기입니다. 실제 동의 요청은 항상 플러그인 패키지 내부의 매니페스트를 기준으로 합니다.",
+      "optionalTag": "선택 사항",
+      "install": "설치",
+      "updateAvailable": "업데이트 있음",
+      "updateTo": "v{{version}}(으)로 업데이트",
+      "refresh": "업데이트 확인",
+      "builtinUpdateTitle": "기본 제공 플러그인 업데이트",
+      "builtinConsentLead": "이 업데이트는 새로운 접근 권한을 요청합니다:",
+      "revertToBundled": "기본 제공 버전으로 되돌리기",
+      "restartRequired": "업데이트가 설치되었습니다. 적용을 완료하려면 Motrix를 재시작하세요.",
+      "updateInstalled": "업데이트가 설치되었습니다.",
+      "actionFailed": "작업을 완료하지 못했습니다."
+    },
+    "searchNoMatch": "“{{query}}”와(과) 일치하는 플러그인이 없습니다",
+    "clearSearch": "검색 지우기",
+    "tone": {
+      "safe": "안전해 보임",
+      "review": "검토 필요",
+      "optional": "선택적 접근 권한",
+      "off": "끔"
+    },
+    "card": {
+      "advancedDetails": "고급 세부 정보",
+      "commandsInvoked": "호출하는 명령: {{count}}개",
+      "commandsServing": "제공하는 명령: {{count}}개",
+      "primaryAction": {
+        "settings": "설정",
+        "open": "열기",
+        "reviewAccess": "접근 권한 검토",
+        "viewIssue": "문제 보기",
+        "grantAccess": "접근 권한 허용",
+        "turnOn": "켜기"
+      },
+      "plain": {
+        "safe": "이 플러그인은 활성화되어 사용할 준비가 되었습니다. 자체 설정만 저장하며 웹사이트를 읽지 않습니다.",
+        "reviewBroadHost": "이 플러그인은 {{hostSummary}}을(를) 읽을 수 있습니다. 신뢰하는 경우에만 켜 두세요.",
+        "reviewError": "이 플러그인이 문제를 보고했습니다.",
+        "optional": "이 플러그인은 추가 접근 권한 없이 작동합니다. 나중에 더 많은 권한을 허용할 수 있습니다.",
+        "off": "이 플러그인은 꺼져 있습니다."
+      }
+    },
+    "help": {
+      "guidance": {
+        "firstUse": {
+          "title": "신뢰하는 플러그인 추가",
+          "body": "신뢰하는 출처에서 설치하고 요청한 접근 권한을 검토한 후 플러그인을 활성화하세요.",
+          "safety": "플러그인이 처리할 것으로 예상하는 사이트에 대해서만 웹사이트 접근 권한을 허용하세요.",
+          "browse": "Motrix 공식 플러그인 마켓플레이스에서 플러그인 찾기"
+        },
+        "ongoing": "플러그인을 활성화하기 전에 접근 권한을 검토하세요. 플러그인이 처리할 것으로 예상하는 사이트에 대해서만 웹사이트 접근 권한을 허용하세요."
+      }
+    },
+    "diagnostics": {
+      "title": "진단",
+      "intro": "지난 24시간 동안 성공한 플러그인 간 호출을 확인합니다.",
+      "callGraph": {
+        "toolbarLabel": "호출 그래프 제어",
+        "modeLabel": "관계 보기",
+        "modes": {
+          "graph": "그래프",
+          "table": "표"
+        },
+        "filters": {
+          "searchLabel": "관계 검색",
+          "searchPlaceholder": "플러그인 또는 명령 찾기",
+          "clearSearch": "검색 지우기",
+          "pluginsGroup": "플러그인",
+          "commandsGroup": "명령",
+          "noSuggestions": "추천 플러그인 또는 명령 없음"
+        },
+        "refresh": "새로고침",
+        "refreshing": "새로고침 중…",
+        "refreshTooltip": "최근 성공한 호출 불러오기",
+        "renderGraphTooltip": "이 많은 결과를 그래프로 표시",
+        "columns": {
+          "caller": "호출자",
+          "command": "명령",
+          "callee": "호출 대상",
+          "calls": "호출 수",
+          "lastCall": "마지막 호출"
+        },
+        "legend": {
+          "label": "호출 횟수 범례",
+          "fewerCalls": "적은 호출",
+          "moreCalls": "많은 호출"
+        },
+        "loading": {
+          "graph": "호출 기록을 불러오는 중…",
+          "metadata": "플러그인 상세 정보를 불러오는 중…"
+        },
+        "globalEmpty": {
+          "title": "아직 성공한 플러그인 간 호출이 없습니다",
+          "description": "기본 제공 플러그인은 기본 동작으로 플러그인 간 호출을 만들지 않을 수 있습니다."
+        },
+        "filteredEmpty": "이 검색에 맞는 성공한 호출이 없습니다.",
+        "errors": {
+          "graphTitle": "호출 기록을 불러오지 못했습니다",
+          "graphDescription": "성공한 호출 기록을 다시 불러와 보세요.",
+          "graphRetry": "호출 기록 다시 불러오기",
+          "metadataTitle": "플러그인 상세 정보를 불러오지 못했습니다",
+          "metadataDescription": "사용할 수 없는 플러그인을 식별하려면 먼저 플러그인 상세 정보가 필요합니다.",
+          "metadataRetry": "플러그인 상세 정보 다시 불러오기",
+          "layout": "관계도를 배치하지 못했습니다.",
+          "layoutRetry": "관계도 다시 배치",
+          "canvasTitle": "그래프 캔버스를 표시하지 못했습니다",
+          "canvasDescription": "캔버스 표시를 다시 시도하거나 전체 결과를 제공하는 표 보기를 사용할 수 있습니다.",
+          "canvasRetry": "캔버스 다시 표시",
+          "canvasTable": "표 보기 사용"
+        },
+        "truncated": "읽기 한도, 보관 기간 또는 로그 파일 교체로 인해 결과가 제한되어 호출 기록이 불완전할 수 있습니다.",
+        "statuses": {
+          "active": "실행 중",
+          "inactive": "준비됨, 유휴 상태",
+          "disabled": "비활성화됨",
+          "error": "확인 필요",
+          "missing": "설치되지 않음"
+        },
+        "inspector": {
+          "label": "호출 그래프 선택 항목 상세 정보",
+          "scopeTitle": "성공한 호출",
+          "neutralScope": "플러그인 또는 연결을 선택하여 지난 24시간 동안 성공한 호출을 확인하세요.",
+          "pluginId": "플러그인 ID",
+          "status": "상태",
+          "incomingCalls": "받은 호출",
+          "outgoingCalls": "보낸 호출",
+          "connections": "연결된 플러그인",
+          "noConnections": "연결된 플러그인 없음",
+          "openPlugin": "플러그인 열기",
+          "edgeTitle": "연결 상세 정보",
+          "totalCalls": "총 호출 수",
+          "commands": "명령"
+        },
+        "tableRegionLabel": "스크롤 가능한 명령 관계",
+        "tableLabel": "플러그인 명령 관계",
+        "counts": {
+          "calls_other": "성공한 호출 {{count}}회",
+          "commands_other": "명령 {{count}}개"
+        },
+        "aria": {
+          "graphLabel": "플러그인 명령 관계",
+          "graphDescription": "지난 24시간 동안 플러그인 {{nodeCount}}개와 관계 {{pairCount}}개.",
+          "nodeLabel": "{{name}}, 플러그인 {{id}}, {{status}}, 받은 호출 {{incoming}}회, 보낸 호출 {{outgoing}}회",
+          "edgeLabel": "{{source}}에서 {{commands}}개 명령으로 {{target}}을(를) {{calls}}회 호출했습니다",
+          "nodeDescription": "확인할 플러그인 노드를 선택하세요.",
+          "nodeKeyboardInstruction": "방향키로 이 플러그인 노드를 이동하세요.",
+          "nodeMoved": "플러그인 노드를 {{direction}} 방향으로 이동했습니다. 위치: {{x}}, {{y}}.",
+          "directions": {
+            "left": "왼쪽",
+            "right": "오른쪽",
+            "up": "위",
+            "down": "아래"
+          },
+          "edgeDescription": "확인할 호출 연결선을 선택하세요.",
+          "controls": "플러그인 그래프 보기 제어",
+          "zoomIn": "그래프 확대",
+          "zoomOut": "그래프 축소",
+          "fitView": "플러그인 그래프를 화면에 맞추기",
+          "interactive": "그래프 상호작용 모드 전환",
+          "minimap": "플러그인 그래프 전체 보기",
+          "handle": "읽기 전용 호출 끝점"
+        }
+      }
+    },
+    "permission": {
+      "http": {
+        "strong": "웹사이트 읽기",
+        "plain": "이 플러그인이 지원하는 페이지를 엽니다.",
+        "cookies": {
+          "strong": "웹사이트 쿠키 사용",
+          "plain": "로그인한 사이트에 접근합니다."
+        }
+      },
+      "ffmpeg": {
+        "strong": "FFmpeg 사용",
+        "plain": "오디오 또는 비디오를 처리합니다."
+      },
+      "notify": {
+        "strong": "알림 보내기",
+        "plain": "완료 알림을 표시합니다."
+      },
+      "fs": {
+        "task": {
+          "read": {
+            "strong": "다운로드 파일 읽기",
+            "plain": "작업에 포함된 파일을 읽습니다."
+          },
+          "write": {
+            "strong": "다운로드 파일 변경",
+            "plain": "작업 파일을 추가하거나 업데이트할 수 있습니다."
+          }
+        },
+        "storage": {
+          "strong": "플러그인 파일 저장",
+          "plain": "이 플러그인의 파일을 보관합니다."
+        }
+      },
+      "storage": {
+        "strong": "설정 저장",
+        "plain": "플러그인 옵션을 기억합니다."
+      },
+      "notifications": {
+        "strong": "알림 보내기",
+        "plain": "플러그인 알림을 표시합니다."
+      },
+      "network": {
+        "strong": "웹사이트 읽기",
+        "plain": "지원되는 페이지를 가져옵니다."
+      },
+      "tasks:read": {
+        "strong": "다운로드 읽기",
+        "plain": "다운로드 목록을 읽습니다."
+      },
+      "tasks:write": {
+        "strong": "다운로드 관리",
+        "plain": "작업을 일시 정지, 재개 또는 제거할 수 있습니다."
+      },
+      "unknown": {
+        "plain": "알 수 없는 권한입니다."
+      },
+      "accessTone": {
+        "required": "필수",
+        "websiteAccess": "웹 접근",
+        "offByDefault": "선택 사항",
+        "allowed": "허용됨",
+        "noAccess": "꺼짐",
+        "grant": "허용"
+      }
+    }
+  },
+  "plugin": {
+    "ffmpeg": {
+      "destination_phase_disallowed": "{{phase}} 훅에서는 ffmpeg가 {{kind}}에 쓸 수 없습니다. 플러그인 저장소에 쓰거나 이 호출을 beforeFinalize로 옮기세요.",
+      "staging_quota_exceeded": "이 작업에 할당된 ffmpeg 임시 공간을 초과했습니다. 출력 크기를 줄이거나 미디어 설정에서 한도를 높이세요."
+    },
+    "install": {
+      "ffmpeg": {
+        "title": "FFmpeg 요구 사항",
+        "notInstalled": "이 시스템에 FFmpeg가 설치되어 있지 않습니다.",
+        "versionMismatch": "설치된 FFmpeg 버전: {{version}}.",
+        "requiredByPlugin": "이 플러그인에는 ffmpeg가 필요합니다. 설치한 후 다시 시도하세요.",
+        "optionalDegraded": "ffmpeg를 설치하기 전까지 이 플러그인의 미디어 기능을 사용할 수 없습니다."
+      }
+    }
+  },
+  "bridge": {
+    "receiver": {
+      "error": {
+        "invalidPayload": "확장 프로그램의 요청이 올바르지 않습니다",
+        "invalidUrlScheme": "URL은 http: 또는 https:로 시작해야 합니다",
+        "unsupportedKind": "이 Motrix 버전에서는 {{kind}} 다운로드를 지원하지 않습니다",
+        "unsupportedLive": "실시간 스트림은 다운로드할 수 없습니다",
+        "unsupportedMaster": "확장 프로그램이 개별 재생목록 대신 마스터 재생목록을 보냈습니다",
+        "unsupportedEncryption": "DRM으로 보호된 콘텐츠는 다운로드할 수 없습니다",
+        "authExpired": "세션이 만료되었습니다. 브라우저에서 페이지를 새로고침한 후 다시 시도하세요",
+        "notFound": "리소스를 찾을 수 없습니다(404)",
+        "transientFailure": "재시도 후에도 다운로드에 실패했습니다: {{detail}}",
+        "rangeNotSatisfiable": "다운로드를 재개하지 못했습니다. 처음부터 다시 다운로드하세요",
+        "diskFull": "디스크 공간이 부족합니다",
+        "diskWriteFailed": "디스크에 쓸 수 없습니다: {{detail}}",
+        "muxFailed": "오디오와 비디오를 합치는 중 ffmpeg 오류가 발생했습니다",
+        "muxAborted": "합치기가 취소되었습니다",
+        "cancelled": "취소됨",
+        "internalError": "내부 오류: {{detail}}"
+      }
+    }
+  },
+  "onboarding": {
+    "disclaimer": {
+      "title": "이용 안내",
+      "language": "언어",
+      "languages": {
+        "english": "English",
+        "chinese": "简体中文"
+      },
+      "summary": "계속하기 전에 다음 내용을 읽어 주세요.",
+      "body": "Motrix는 다운로드 관리 기능만 제공합니다. 다운로드할 콘텐츠를 제공, 저장, 호스팅하거나 추천하지 않습니다. Motrix를 통해 접근, 이용 또는 공유하는 모든 콘텐츠가 법적으로 허용되며 관련 저작권법 및 기타 법률을 준수하는지 확인해야 합니다. 콘텐츠의 다운로드, 이용 또는 공유로 인해 발생하는 결과에 대한 책임은 사용자에게 있습니다. “동의하고 계속”을 선택하면 이 안내를 읽고 이해했음을 확인하는 것입니다.",
+      "highlights": {
+        "downloadManagement": "다운로드 관리 기능만 제공합니다",
+        "authorized": "법적으로 허용되며",
+        "responsibility": "책임은 사용자에게 있습니다"
+      },
+      "localConsent": "선택한 내용은 이 기기에 저장됩니다.",
+      "agree": "동의하고 계속",
+      "quit": "종료",
+      "retry": "다시 시도",
+      "saveFailed": "동의 여부를 저장하지 못했습니다. 디스크 공간을 확인하고 다시 시도하세요."
+    }
+  },
+  "notification": {
+    "taskError": {
+      "title": "{{name}} 실패"
+    },
+    "taskComplete": {
+      "title": "{{name}} 다운로드 완료"
+    },
+    "engineFailure": {
+      "title": "다운로드 엔진 오류"
+    },
+    "engineCompatibility": {
+      "title": "Motrix용이 아닌 aria2 감지됨",
+      "body": "설치된 aria2 버전({{version}})은 Motrix 포크가 아닙니다. 연결 설정의 최댓값은 {{limit}}이며 SQLite 기록 저장 기능을 사용할 수 없습니다. 모든 기능을 사용하려면 기본 제공되는 aria2_motrix 엔진을 복원하세요."
+    },
+    "engineRestartRequired": {
+      "title": "설정을 적용하려면 다운로드 엔진을 재시작하세요",
+      "body": "설정이 저장되었습니다. 편리할 때 다운로드 엔진을 재시작하세요.",
+      "restartNow": "지금 재시작"
+    },
+    "dnsFallback": {
+      "title": "{{name}}: 시스템 DNS로 재시도함",
+      "body": "Motrix가 DNS 서버에 연결하지 못해 이번 세션에서는 시스템 DNS로 전환했습니다."
+    },
+    "center": {
+      "title": "알림",
+      "markAllRead": "모두 읽음으로 표시",
+      "clearAll": "지우기",
+      "empty": "알림 없음",
+      "emptyDesc": "다운로드 활동과 중요한 앱 알림이 여기에 표시됩니다",
+      "unreadDotAria": "읽지 않은 알림",
+      "unreadBadgeAria_other": "읽지 않은 알림 {{count}}개",
+      "rowUnreadAria": "{{title}}(읽지 않음)",
+      "toastRegionAria": "알림",
+      "removeAria": "{{title}} 제거",
+      "actionFailed": "알림을 업데이트하지 못했습니다. 다시 시도하세요.",
+      "markRead": "읽음으로 표시",
+      "viewTask": "작업 보기",
+      "taskRemoved": "작업이 제거되었습니다",
+      "openTaskFailed": "작업을 열지 못했습니다. 다시 시도하세요."
+    }
+  },
+  "applicationMenu": {
+    "signOut": "로그아웃…",
+    "back": "뒤로",
+    "serverUnavailable": "서버에 연결할 수 없습니다. 세션은 로그아웃되지 않았습니다.",
+    "retry": "다시 시도",
+    "actionFailed": "작업을 완료하지 못했습니다. 연결 상태를 확인하고 다시 시도하세요.",
+    "clearTitle": "중지된 작업 기록을 지우시겠습니까?",
+    "clearDescription": "이 대화상자를 열었을 때의 완료, 실패, 제거된 작업 기록을 지웁니다. 다운로드한 파일은 디스크에 남아 있습니다.",
+    "clearConfirm": "기록 지우기",
+    "logoutTitle": "이 서버에서 로그아웃하시겠습니까?",
+    "logoutDescription": "같은 브라우저 세션을 사용하는 다른 탭에서도 로그아웃됩니다. 서버의 다운로드는 계속됩니다. 해당 탭에서 저장하지 않은 입력 내용은 삭제됩니다.",
+    "logoutConfirm": "로그아웃",
+    "discardTitle": "작성 중인 작업을 버리시겠습니까?",
+    "discardDescription": "저장하지 않은 링크, 토렌트 선택 및 설정이 삭제됩니다.",
+    "discardConfirm": "버리기"
+  },
+  "directoryPicker": {
+    "title": "서버 폴더 선택",
+    "description": "경로는 서버 기준입니다. Docker를 사용하는 경우 컨테이너 내부 경로입니다.",
+    "back": "뒤로",
+    "forward": "앞으로",
+    "up": "상위 폴더로",
+    "refresh": "새로고침",
+    "goToFolder": "폴더로 이동",
+    "location": "위치",
+    "viewOptions": "보기 옵션",
+    "sortBy": "정렬 기준",
+    "sortName": "이름",
+    "sortModified": "수정한 날짜",
+    "sortOrder": "순서",
+    "sortAscending": "오름차순",
+    "sortDescending": "내림차순",
+    "showHidden": "숨김 폴더 표시",
+    "folders": "폴더",
+    "loading": "폴더를 불러오는 중…",
+    "empty": "하위 폴더 없음",
+    "incomplete": "이 폴더의 일부만 표시됩니다. 다른 폴더로 이동하려면 정확한 경로를 입력하세요.",
+    "selectFolder": "폴더 선택",
+    "selectedPath": "선택한 폴더",
+    "path": "폴더 경로",
+    "go": "이동",
+    "newFolder": "새 폴더",
+    "folderName": "폴더 이름",
+    "create": "만들기",
+    "createHelp": "선택을 취소해도 만든 폴더는 서버에 남아 있습니다.",
+    "fallback": "요청한 폴더를 사용할 수 없어 {{path}}을(를) 표시합니다.",
+    "refreshAfterCreateFailed": "폴더를 만들었지만 목록을 새로고침하지 못했습니다.",
+    "unknownOutcome": "폴더 생성 여부를 확인하지 못했습니다. 여기에 다른 폴더를 만들기 전에 새로고침하여 확인하세요.",
+    "retry": "다시 시도",
+    "errors": {
+      "invalidPath": "올바른 폴더 절대 경로를 입력하세요.",
+      "outsideRoots": "이 폴더는 허용된 위치를 벗어납니다.",
+      "notFound": "이 폴더가 더 이상 존재하지 않습니다.",
+      "notDirectory": "이 경로는 폴더가 아닙니다.",
+      "permissionDenied": "이 폴더를 사용할 권한이 없습니다.",
+      "alreadyExists": "같은 이름의 파일 또는 폴더가 이미 있습니다.",
+      "invalidName": "올바른 폴더 이름을 입력하세요.",
+      "tooLarge": "경로 또는 폴더 이름이 너무 깁니다.",
+      "unavailable": "서버가 요청을 완료하지 못했습니다. 다시 시도하세요.",
+      "creationOutcomeUnknown": "폴더 생성 여부를 확인하지 못했습니다. 여기에 다른 폴더를 만들기 전에 새로고침하여 확인하세요."
+    },
+    "places": {
+      "common": "자주 사용하는 위치",
+      "allowed": "허용된 위치",
+      "default": "기본 폴더",
+      "home": "홈",
+      "desktop": "데스크톱",
+      "documents": "문서",
+      "downloads": "다운로드",
+      "root": "파일 시스템",
+      "loadFailed": "일부 폴더 위치를 불러오지 못했습니다."
+    }
+  },
+  "directoryPreferences": {
+    "sectionDescription": "자주 사용하는 폴더에 빠르게 접근합니다.",
+    "manage": "폴더 관리",
+    "manageDescription": "즐겨찾는 폴더를 선택하고 최근 폴더를 관리합니다.",
+    "title": "폴더 관리",
+    "description": "이 목록에서 폴더를 제거해도 폴더 자체나 그 안의 파일은 삭제되지 않습니다.",
+    "favorites": "즐겨찾는 폴더",
+    "recent": "최근 폴더",
+    "addFavorite": "즐겨찾기 추가",
+    "removeFavorite": "즐겨찾기에서 제거",
+    "favoriteRecent": "즐겨찾기에 추가",
+    "removeRecent": "최근 폴더에서 제거",
+    "clearRecent": "최근 폴더 목록 지우기",
+    "emptyFavorites": "즐겨찾는 폴더 없음",
+    "emptyRecent": "최근 폴더 없음",
+    "loading": "폴더를 불러오는 중…",
+    "retry": "다시 시도",
+    "limitHint": "즐겨찾는 폴더는 최대 {{count}}개까지 저장할 수 있습니다.",
+    "pickerFailed": "폴더 선택 창을 열지 못했습니다. 다시 시도하세요.",
+    "close": "닫기",
+    "history": "폴더 기록",
+    "emptyHistory": "즐겨찾는 폴더나 최근 폴더가 아직 없습니다",
+    "errors": {
+      "conflict": "다른 창에서 설정이 변경되었습니다. 변경 내용을 확인하고 다시 저장하세요.",
+      "invalidPath": "올바른 폴더 절대 경로를 입력하세요.",
+      "outsideRoots": "이 폴더는 허용된 위치를 벗어납니다.",
+      "notFound": "이 폴더가 더 이상 존재하지 않습니다.",
+      "notDirectory": "이 경로는 폴더가 아닙니다.",
+      "permissionDenied": "이 폴더를 사용할 권한이 없습니다.",
+      "tooLarge": "폴더 경로가 너무 깁니다.",
+      "unavailable": "폴더 기록을 업데이트하지 못했습니다. 새로고침하여 현재 상태를 확인하세요.",
+      "limitReached": "즐겨찾는 폴더 수가 한도에 도달했습니다. 다른 폴더를 추가하기 전에 즐겨찾기에서 폴더를 제거하세요."
+    },
+    "manageAction": "관리",
+    "alreadyFavorite": "이미 즐겨찾기에 있음"
+  }
+}
