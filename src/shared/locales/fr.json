@@ -43,6 +43,8 @@
     "minimize": "Réduire",
     "newTask": "Nouvelle tâche",
     "restore": "Restaurer",
+    "sidebarDescription": "Navigation dans l’application.",
+    "sidebarTitle": "Barre latérale",
     "toggleSidebar": "Afficher ou masquer la barre latérale"
   },
   "common": {
