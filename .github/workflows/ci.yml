@@ -76,6 +76,7 @@ jobs:
           src/preload/preload.test.ts
           src/renderer/lib/bootstrap-locale.test.ts
           src/renderer/lib/i18n.test.ts
+          src/renderer/components/ui/primitives-i18n.test.tsx
           src/renderer/components/language-sync.test.tsx
           src/renderer/components/locale-direction-provider.test.tsx
           src/renderer/components/onboarding/onboarding-language-select.test.tsx

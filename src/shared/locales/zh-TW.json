@@ -101,7 +101,9 @@
     "restore": "還原",
     "close": "關閉",
     "toggleSidebar": "切換側邊欄",
-    "newTask": "新增任務"
+    "newTask": "新增任務",
+    "sidebarTitle": "側邊欄",
+    "sidebarDescription": "應用程式導覽。"
   },
   "tray": {
     "newTask": "新增任務",

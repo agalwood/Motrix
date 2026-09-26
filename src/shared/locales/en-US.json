@@ -102,7 +102,9 @@
     "restore": "Restore",
     "close": "Close",
     "toggleSidebar": "Toggle sidebar",
-    "newTask": "New task"
+    "newTask": "New task",
+    "sidebarTitle": "Sidebar",
+    "sidebarDescription": "Application navigation."
   },
   "tray": {
     "newTask": "New Task",

@@ -101,7 +101,9 @@
     "restore": "还原",
     "close": "关闭",
     "toggleSidebar": "切换边栏",
-    "newTask": "新建任务"
+    "newTask": "新建任务",
+    "sidebarTitle": "侧边栏",
+    "sidebarDescription": "应用导航。"
   },
   "tray": {
     "newTask": "新建任务",
