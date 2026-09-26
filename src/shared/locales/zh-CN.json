@@ -564,6 +564,12 @@
     },
     "downloads": {
       "title": "下载",
+      "heading": {
+        "all": "全部下载",
+        "active": "进行中的下载",
+        "completed": "已完成的下载",
+        "error": "失败的下载"
+      },
       "status": {
         "queued": "排队中",
         "fetchingMetadata": "获取信息中",

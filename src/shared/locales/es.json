@@ -570,6 +570,12 @@
     },
     "downloads": {
       "title": "Descargas",
+      "heading": {
+        "all": "Todas las descargas",
+        "active": "Descargas activas",
+        "completed": "Descargas completadas",
+        "error": "Descargas fallidas"
+      },
       "status": {
         "queued": "En cola",
         "fetchingMetadata": "Obteniendo",

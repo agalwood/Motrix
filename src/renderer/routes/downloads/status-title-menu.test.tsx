@@ -1,8 +1,9 @@
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
+import { applyRendererLocale } from '@renderer/lib/i18n'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StatusTitleMenu } from './status-title-menu'
 
 beforeAll(() => {
@@ -16,6 +17,32 @@ beforeAll(() => {
 const counts = { all: 12, active: 4, completed: 7, error: 1 }
 
 describe('StatusTitleMenu', () => {
+  beforeEach(async () => {
+    await applyRendererLocale('en-US')
+  })
+
+  it.each([
+    ['es', 'all', 'Todas las descargas'],
+    ['es', 'active', 'Descargas activas'],
+    ['es', 'completed', 'Descargas completadas'],
+    ['es', 'error', 'Descargas fallidas'],
+    ['fr', 'all', 'Tous les téléchargements'],
+    ['de', 'active', 'Aktive Downloads'],
+    ['zh-CN', 'all', '全部下载'],
+    ['zh-TW', 'all', '全部下載'],
+  ] as const)(
+    'renders a complete %s heading for %s without joining standalone labels',
+    async (locale, tab, heading) => {
+      await applyRendererLocale(locale)
+      render(
+        <StatusTitleMenu tab={tab} onTabChange={vi.fn()} counts={counts} />
+      )
+
+      expect(screen.getByRole('heading', { name: heading })).toBeVisible()
+      expect(screen.getByRole('button', { name: heading })).toBeVisible()
+    }
+  )
+
   it('renders the current status in the heading', () => {
     render(
       <StatusTitleMenu tab="active" onTabChange={vi.fn()} counts={counts} />

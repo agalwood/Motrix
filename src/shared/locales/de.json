@@ -567,6 +567,12 @@
     },
     "downloads": {
       "title": "Downloads",
+      "heading": {
+        "all": "Alle Downloads",
+        "active": "Aktive Downloads",
+        "completed": "Abgeschlossene Downloads",
+        "error": "Fehlgeschlagene Downloads"
+      },
       "status": {
         "queued": "In Warteschlange",
         "fetchingMetadata": "Wird abgerufen",
