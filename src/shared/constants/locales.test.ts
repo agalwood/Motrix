@@ -69,6 +69,13 @@ describe('resolveSupportedLocale', () => {
     expect(resolveSupportedLocale('qaa', 'zh-CN')).toBe('zh-CN')
   })
 
+  it.each(['de', 'de-DE', 'de-AT', 'de-CH', 'de_DE.UTF-8'])(
+    'resolves German locale %s to the bundled resource',
+    (locale) => {
+      expect(resolveSupportedLocale(locale, 'en-US')).toBe('de')
+    }
+  )
+
   it('uses the default when no candidate is supported', () => {
     expect(resolveSupportedLocale('qaa')).toBe(DEFAULT_LOCALE)
   })
@@ -77,6 +84,8 @@ describe('resolveSupportedLocale', () => {
 describe('isSupportedLocale', () => {
   it('accepts only exact catalog values', () => {
     expect(isSupportedLocale('en-US')).toBe(true)
+    expect(isSupportedLocale('de')).toBe(true)
+    expect(isSupportedLocale('de-DE')).toBe(false)
     expect(isSupportedLocale('fr')).toBe(true)
     expect(isSupportedLocale('zh-CN')).toBe(true)
     expect(isSupportedLocale('zh-TW')).toBe(true)

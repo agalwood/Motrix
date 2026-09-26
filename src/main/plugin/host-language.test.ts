@@ -37,4 +37,11 @@ describe('resolvePluginHostLanguage', () => {
 
     expect(resolvePluginHostLanguage('system')).toBe('fr')
   })
+
+  it('uses bundled German for a German system locale', () => {
+    getLocale.mockReturnValue('de-DE')
+
+    expect(resolvePluginHostLanguage('system')).toBe('de')
+    expect(resolvePluginHostLanguage('en-US')).toBe('en-US')
+  })
 })
