@@ -413,10 +413,14 @@ export function AppearanceDialog({
                         </SettingsFormRow>
                       )}
                     />
-                    <Separator className="my-4" />
-                    <h3 className="text-sm font-semibold">
-                      {t('settings.appearance.menuBar')}
-                    </h3>
+                    {(isMac || isLinux) && (
+                      <>
+                        <Separator className="my-4" />
+                        <h3 className="text-sm font-semibold">
+                          {t('settings.appearance.menuBar')}
+                        </h3>
+                      </>
+                    )}
                     {isLinux && (
                       <FormField
                         control={form.control}
