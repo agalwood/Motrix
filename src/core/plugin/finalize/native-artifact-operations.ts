@@ -1,14 +1,7 @@
 import { constants } from 'node:fs'
-import {
-  lstat,
-  mkdir,
-  mkdtemp,
-  open,
-  readdir,
-  rmdir,
-  stat,
-} from 'node:fs/promises'
+import { lstat, mkdtemp, open, readdir, rmdir, stat } from 'node:fs/promises'
 import path from 'node:path'
+import { ensureDirectory } from '@core/fs/ensure-directory'
 import {
   type ArtifactIdentity,
   ArtifactIdentityCache,
@@ -506,7 +499,7 @@ export class NativeFinalizeArtifactOperations
 
   private async ensureSafeDirectory(directoryPath: string): Promise<void> {
     await assertExistingAncestorsAreDirectories(directoryPath)
-    await mkdir(directoryPath, { recursive: true })
+    await ensureDirectory(directoryPath)
     const held = await this.adapter.openRoot(directoryPath)
     await this.adapter.close(held).catch(() => undefined)
   }

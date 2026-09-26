@@ -26,6 +26,16 @@ import { FinalizeCommitter, removalQuarantinePath } from './finalize-committer'
 import * as hashing from './hash-opened-file'
 import { NativeFinalizeArtifactOperations } from './native-artifact-operations'
 
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>()
+  const mkdirMock = vi.fn(actual.mkdir)
+  return {
+    ...actual,
+    mkdir: mkdirMock,
+    default: { ...actual, mkdir: mkdirMock },
+  }
+})
+
 const binary = process.env.MOTRIX_FINALIZE_FS_TEST_BIN
   ? path.resolve(process.env.MOTRIX_FINALIZE_FS_TEST_BIN)
   : path.resolve(
@@ -43,6 +53,7 @@ describe.runIf(existsSync(binary))(
 
     afterEach(async () => {
       vi.restoreAllMocks()
+      vi.mocked(mkdir).mockReset()
       await Promise.all(
         roots
           .splice(0)
@@ -60,6 +71,29 @@ describe.runIf(existsSync(binary))(
       await operations.assertSupported()
       return { root, adapter, operations }
     }
+
+    it('finalizes in an existing directory whose mkdir reports EPERM like a Windows drive root', async () => {
+      const { root, adapter, operations } = await setup()
+      const source = path.join(root, 'archive.zip.motrix')
+      const target = path.join(root, 'archive.zip')
+      await writeFile(source, 'completed download')
+      const identity = await readArtifactIdentity(source)
+      const mkdirMock = vi.mocked(mkdir).mockRejectedValue(
+        Object.assign(new Error(`EPERM: mkdir '${root}'`), {
+          code: 'EPERM',
+          syscall: 'mkdir',
+        })
+      )
+      try {
+        await operations.preflight(source, target)
+        await operations.moveNoReplace(source, identity, target)
+        expect(await readFile(target, 'utf8')).toBe('completed download')
+        expect(existsSync(source)).toBe(false)
+        expect(mkdirMock).not.toHaveBeenCalled()
+      } finally {
+        await adapter.dispose()
+      }
+    })
 
     it('finalizes a large file with at most two content reads and metadata-only native rename', async () => {
       const { root, adapter, operations } = await setup()
