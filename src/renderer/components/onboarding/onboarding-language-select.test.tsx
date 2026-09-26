@@ -102,6 +102,7 @@ describe('OnboardingLanguageSelect', () => {
     ['Polski', 'pl'],
     ['Português (Brasil)', 'pt-BR'],
     ['Русский', 'ru'],
+    ['Türkçe', 'tr'],
   ])(
     'switches to %s immediately and persists only that preference',
     async (name, locale) => {
