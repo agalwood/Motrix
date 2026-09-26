@@ -448,3 +448,54 @@ describe('bundled Russian translations', () => {
     expect(disclaimer.body).toContain(disclaimer.agree)
   })
 })
+
+describe('bundled Turkish translations', () => {
+  it('resolves actions and Turkish plural forms without English fallback', async () => {
+    const i18n = createInstance()
+    await i18n.init({
+      lng: 'tr',
+      fallbackLng: false,
+      resources: I18N_RESOURCES,
+      interpolation: { escapeValue: false },
+    })
+
+    expect(i18n.t('common.retry')).toBe('Yeniden dene')
+    expect(i18n.t('settings.appearance.followSystem')).toBe(
+      'Sistem dilini kullan'
+    )
+    expect(i18n.t('panel.downloads.heading.all')).toBe('Tüm İndirmeler')
+    expect(i18n.t('panel.downloads.action.remove')).toBe('Listeden kaldır')
+    expect(i18n.t('task.remove.description', { name: 'example.zip' })).toBe(
+      '“example.zip” indirme listesinden kaldırılacak.'
+    )
+    expect(i18n.t('task.remove.deleteFilesLabel')).toBe(
+      'İndirilen dosyaları sil'
+    )
+    for (const [count, category] of [
+      [0, 'other'],
+      [1, 'one'],
+      [2, 'other'],
+      [5, 'other'],
+      [11, 'other'],
+      [21, 'other'],
+      [1.5, 'other'],
+      [1000000, 'other'],
+    ] as const) {
+      const result = i18n.t('task.torrent.fileSelected', {
+        count,
+        returnDetails: true,
+      })
+      expect(result.exactUsedKey).toBe(`task.torrent.fileSelected_${category}`)
+      expect(result.res).toBe(`${count} dosya seçildi`)
+      expect(result.usedLng).toBe('tr')
+    }
+  })
+
+  it('preserves the usage-notice highlights inside the Turkish message', () => {
+    const { disclaimer } = I18N_RESOURCES.tr.translation.onboarding
+    for (const highlight of Object.values(disclaimer.highlights)) {
+      expect(disclaimer.body).toContain(highlight)
+    }
+    expect(disclaimer.body).toContain(disclaimer.agree)
+  })
+})

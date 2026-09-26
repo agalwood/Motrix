@@ -1,0 +1,2788 @@
+{
+  "operatorUnlock": {
+    "title": "Motrix’in kilidini aç",
+    "help": "Bu sunucu operatör belirteci gerektirir. Sunucu makinesinde MOTRIX_OPERATOR_TOKEN değişkenini ayarlayın veya <dataDir>/operator-token dosyasındaki belirteci okuyup aşağıya yapıştırın.",
+    "placeholder": "Operatör belirteci",
+    "error": "Operatör belirteci geçersiz. Sunucu makinesindeki MOTRIX_OPERATOR_TOKEN değişkenini veya <dataDir>/operator-token dosyasını kontrol edip tekrar deneyin.",
+    "submit": "Kilidi aç"
+  },
+  "operatorAdmin": {
+    "help": "Kullanım:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nKomut yalnızca çalışan Motrix sunucusuyla, kapsayıcının geri döngü bağlantısı üzerinden iletişim kurar.",
+    "errorPrefix": "motrix-admin: {{message}}",
+    "usageHint": "Kullanım bilgisi için `motrix-admin --help` komutunu çalıştırın.",
+    "pending": {
+      "none": "Bekleyen eşleştirme isteği yok.",
+      "row": "{{userCode}}  {{clientName}}  {{clientVersion}}  {{ttl}} sonra süresi dolacak",
+      "ttl": "{{minutes}} dk {{seconds}} sn"
+    },
+    "decision": {
+      "approve": "{{clientName}} ({{clientVersion}}) için {{userCode}} onaylandı.",
+      "deny": "{{clientName}} ({{clientVersion}}) için {{userCode}} reddedildi."
+    },
+    "errors": {
+      "usage": {
+        "jsonRepeated": "--json yalnızca bir kez belirtilebilir.",
+        "unknownOption": "Bilinmeyen komut satırı seçeneği.",
+        "pairingCommandRequired": "pairing komutu bekleniyor.",
+        "pairingOperationRequired": "pairing pending, pairing approve CODE veya pairing deny CODE bekleniyor.",
+        "pairingCodeInvalid": "Eşleştirme kodu sekiz ASCII karakterden oluşmalı ve I, O, 0 veya 1 içermemelidir.",
+        "portInvalid": "PORT, 1 ile 65535 arasında bir tam sayı olmalıdır."
+      },
+      "credential": {
+        "tokenHeaderInvalid": "MOTRIX_OPERATOR_TOKEN değeri HTTP üstbilgisinde kullanılamıyor.",
+        "dataDirNotAbsolute": "MOTRIX_DATA_DIR mutlak bir yol olmalıdır.",
+        "unavailable": "Operatör kimlik bilgisi kullanılamıyor. MOTRIX_OPERATOR_TOKEN değişkenini ayarlayın veya veri klasöründe operator-token dosyasının bulunduğundan emin olun.",
+        "notFile": "Operatör kimlik bilgisi yolu normal bir dosya değil.",
+        "unreadable": "Operatör kimlik bilgisi okunamadı.",
+        "invalid": "Operatör kimlik bilgisi dosyası geçersiz.",
+        "rejected": "Operatör kimlik bilgisi Motrix tarafından reddedildi."
+      },
+      "server": {
+        "responseUnreadable": "Motrix okunamayan bir yanıt döndürdü.",
+        "responseOversized": "Motrix aşırı büyük bir yanıt döndürdü.",
+        "responseInvalidJson": "Motrix geçersiz bir JSON yanıtı döndürdü.",
+        "rpcHttp": "Motrix eşleştirme RPC isteği HTTP {{status}} hatasıyla başarısız oldu.",
+        "approvalUnavailable": "Çalışan Motrix sunucusunda eşleştirme onayı kullanılamıyor.",
+        "pendingResponseInvalid": "Motrix, bekleyen eşleştirmeler için geçersiz bir yanıt döndürdü.",
+        "decisionOutcomeUnknown": "Eşleştirme kararının sonucu bilinmiyor. Tekrar denemeden önce pairing pending komutunu çalıştırın.",
+        "decisionResponseInvalid": "Motrix, eşleştirme kararı için geçersiz bir yanıt döndürdü.",
+        "requestNoLongerPending": "Eşleştirme isteği artık beklemede değil.",
+        "noMatchingRequest": "{{userCode}} ile eşleşen bekleyen eşleştirme isteği yok.",
+        "ambiguousRequest": "{{userCode}} ile birden fazla bekleyen eşleştirme isteği eşleşiyor; hiçbir karar uygulanmadı.",
+        "unexpected": "Beklenmeyen motrix-admin hatası."
+      },
+      "unavailable": {
+        "loopback": "Çalışan Motrix sunucusuna kapsayıcının geri döngü bağlantısından ulaşılamıyor.",
+        "approvalNotReady": "Çalışan Motrix sunucusunda eşleştirme onayı henüz hazır değil."
+      }
+    }
+  },
+  "common": {
+    "clearSearch": "Aramayı temizle",
+    "download": "İndir",
+    "cancel": "İptal",
+    "save": "Kaydet",
+    "close": "Kapat",
+    "loading": "Yükleniyor…",
+    "name": "Ad:",
+    "error": "Hata",
+    "remove": "Kaldır",
+    "collapse": "Daralt",
+    "apply": "Uygula",
+    "confirm": "Onayla",
+    "status": {
+      "finalizing": "Sonlandırılıyor…"
+    },
+    "reset": "Sıfırla",
+    "retry": "Yeniden dene",
+    "showPassword": "Parolayı göster",
+    "hidePassword": "Parolayı gizle"
+  },
+  "quit": {
+    "confirm": {
+      "message_one": "{{count}} indirme hâlâ etkin.",
+      "message_other": "{{count}} indirme hâlâ etkin.",
+      "detail": "Şimdi çıkarsanız indirmeler duraklatılır. Çıkmak istediğinizden emin misiniz?",
+      "quitButton": "Çık",
+      "dontAskAgain": "Bir daha sorma"
+    }
+  },
+  "nav": {
+    "dashboard": "Genel bakış",
+    "downloads": "İndirmeler",
+    "completed": "Tamamlananlar",
+    "trackers": "İzleyiciler",
+    "plugins": "Eklentiler",
+    "notifications": "Bildirimler",
+    "settings": "Ayarlar"
+  },
+  "chrome": {
+    "minimize": "Simge durumuna küçült",
+    "maximize": "Ekranı kapla",
+    "restore": "Önceki boyuta dön",
+    "close": "Kapat",
+    "toggleSidebar": "Kenar çubuğunu göster veya gizle",
+    "newTask": "Yeni görev",
+    "sidebarTitle": "Kenar çubuğu",
+    "sidebarDescription": "Uygulama gezintisi."
+  },
+  "tray": {
+    "newTask": "Yeni görev",
+    "newTorrentTask": "Yeni torrent görevi",
+    "openTorrentFile": "Torrent dosyası aç",
+    "showMotrix": "Motrix’i göster",
+    "manual": "Kılavuz",
+    "checkUpdates": "Güncellemeleri denetle",
+    "preferences": "Ayarlar",
+    "quit": "Çık"
+  },
+  "panel": {
+    "connection": {
+      "polling": "Düzenli güncellemeler",
+      "reconnecting": "Sunucuya yeniden bağlanılıyor…",
+      "unavailable": "Sunucuya ulaşılamıyor",
+      "originMismatch": "Erişim adresi eşleşmiyor"
+    },
+    "dashboard": {
+      "title": "Genel bakış",
+      "engine": {
+        "title": "Motor",
+        "features": "Özellikler",
+        "startFailed": "aria2 motoru başlatılamadı",
+        "state": {
+          "ready": "Hazır",
+          "starting": "Başlatılıyor…",
+          "reconnecting": "Yeniden bağlanılıyor…",
+          "failed": "Başarısız",
+          "disconnected": "Bağlantı kesildi",
+          "stopped": "Durduruldu"
+        },
+        "name": "Aria2",
+        "version": "Sürüm",
+        "rpcPort": "RPC bağlantı noktası",
+        "listenPort": "Dinleme bağlantı noktası",
+        "diagnostics": {
+          "title": "Motor tanılama",
+          "description": "Motoru kontrol edin, Motrix’in RPC bağlantı noktasını kullanan işlemi belirleyin ve motoru güvenle kurtarın.",
+          "open": "Tanıla",
+          "checking": "Motor kontrolleri çalıştırılıyor…",
+          "runAgain": "Yeniden çalıştır",
+          "loadFailed": "Motor tanılaması çalıştırılamadı.",
+          "currentStatus": "Güncel durum",
+          "lastChecked": "Kontrol zamanı: {{time}}",
+          "checks": {
+            "binary": "Motor",
+            "features": "Özellikler",
+            "rpc": "RPC bağlantı noktası",
+            "process": "İşlem",
+            "communication": "Bağlantı"
+          },
+          "binary": {
+            "available": "{{name}} {{version}}",
+            "unavailable": "{{name}} eksik veya başlatılamıyor."
+          },
+          "features": {
+            "none": "Bildirilmedi",
+            "unavailable": "Kullanılamıyor"
+          },
+          "rpc": {
+            "listening": "{{port}} (Dinleniyor)",
+            "available": "{{port}} (Kullanılabilir)",
+            "occupied": "{{port}} (Kullanımda)"
+          },
+          "process": {
+            "none": "Bağlantı noktası çakışması yok",
+            "unidentified": "Tanımlanamadı, durdurulmayacak",
+            "current_app": "PID {{pid}} ({{name}}), Motrix tarafından yönetiliyor",
+            "verified_orphan": "PID {{pid}} ({{name}}), Motrix’ten kalan işlem olduğu doğrulandı; güvenle durdurulabilir",
+            "external_aria2": "PID {{pid}} ({{name}}), hangi uygulamaya ait olduğu doğrulanamadı; durdurulmayacak",
+            "other": "PID {{pid}} ({{name}}), hangi uygulamaya ait olduğu doğrulanamadı; durdurulmayacak",
+            "unknown": "PID {{pid}}, tanımlanamadı; durdurulmayacak"
+          },
+          "communication": {
+            "ready": "Motrix, aria2 ile iletişim kurabiliyor."
+          },
+          "reason": {
+            "port_in_use": "Motrix’in RPC bağlantı noktası kullanımda olduğu için aria2 motoru başlatılamadı.",
+            "binary_unavailable": "Uygulamayla gelen aria2 yürütülebilir dosyası eksik veya kullanılamıyor.",
+            "spawn_failed": "aria2 işlemi oluşturulamadı.",
+            "rpc_unavailable": "aria2 motoru başlatıldı ancak Motrix’in RPC bağlantılarını kabul etmedi.",
+            "unexpected_exit": "aria2 motoru beklenmedik şekilde kapandı.",
+            "health_check_failed": "aria2, Motrix’e yanıt vermeyi durdurdu.",
+            "unknown": "aria2 motoru bilinmeyen bir nedenle başlatılamadı."
+          },
+          "recommendation": {
+            "title": "Önerilen kurtarma işlemi",
+            "retry": "Bağlantı noktası boş. Ayarlarınızı değiştirmeden aria2’yi yeniden başlatmayı deneyin.",
+            "force_terminate": "Bu işlemin Motrix’e ait olduğu doğrulandı. PID {{pid}} işlemini zorla durdurun, ardından aria2’yi Motrix’in {{rpcPort}} RPC bağlantı noktasında yeniden başlatın.",
+            "switch_port": "İşlem güvenle sonlandırılamıyor. {{port}} bağlantı noktasını yalnızca alternatif olarak kullanın veya çakışan işlemi kendiniz kapatın."
+          },
+          "technicalDetails": "Teknik ayrıntılar",
+          "retry": "Yeniden dene",
+          "restart": "Motoru yeniden başlat",
+          "switchPort": "{{port}} bağlantı noktasını kullan",
+          "forceRecover": "Zorla durdur ve kurtar",
+          "recovered": "aria2 motoru yeniden kullanılabilir durumda.",
+          "recoveredOnPort": "aria2 motoru {{port}} RPC bağlantı noktasında kurtarıldı.",
+          "recoveryFailed": "Motor kurtarılamadı. Güncel durum için tanılamayı yeniden çalıştırın.",
+          "fallback": {
+            "available": "Motrix’in varsayılan {{port}} bağlantı noktası kullanılabilir ve şimdi geri yüklenebilir.",
+            "verifiedOrphan": "Motrix’ten kaldığı doğrulanmış bir aria2 işlemi (PID {{pid}}), varsayılan {{port}} bağlantı noktasını kullanıyor. Motrix, bağlantı noktasını geri yüklemeden önce bu işlemi güvenle durdurabilir.",
+            "blocked": "Varsayılan {{port}} bağlantı noktasını PID {{pid}} ({{name}}) kullanıyor ancak Motrix bu işlemin kendisine ait olduğunu doğrulayamıyor. İşlem sonlandırılmayacak.",
+            "unidentified": "Varsayılan {{port}} bağlantı noktasını kullanan işlem tanımlanamadı. Motrix mevcut bağlantı noktasını kullanmaya devam edecek.",
+            "restore": "Motrix’in varsayılan {{port}} bağlantı noktasını geri yükle",
+            "restoring": "Motrix’in varsayılan {{port}} bağlantı noktası geri yükleniyor…",
+            "restoredDefault": "Motrix’in varsayılan {{port}} RPC bağlantı noktası geri yüklendi.",
+            "confirm": {
+              "title": "Kalan işlem durdurulup {{port}} bağlantı noktası geri yüklensin mi?",
+              "description": "PID {{pid}} işleminin Motrix’ten kalan bir aria2 işlemi olduğu doğrulandı. İşlem durdurulacak, varsayılan {{port}} bağlantı noktası kaydedilecek ve aria2 yeniden başlatılacak.",
+              "action": "Durdur ve {{port}} bağlantı noktasını geri yükle"
+            }
+          },
+          "confirmForce": {
+            "title": "Kalan aria2 işlemi zorla durdurulsun mu?",
+            "description": "PID {{pid}}, Motrix’le gelen yürütülebilir dosya, özel RPC gizli anahtarı ve veri yollarıyla eşleşiyor. İşlem hemen sonlandırılacak, ardından aria2 Motrix’in RPC bağlantı noktasında yeniden başlatılacak.",
+            "action": "Zorla durdur ve kurtar"
+          },
+          "details": "Tanılama ayrıntıları",
+          "versionUnknown": "Sürüm bilgisi kullanılamıyor",
+          "copy": "Tanılamayı kopyala",
+          "copied": "Kopyalandı",
+          "copyFailed": "Tanılama bilgileri kopyalanamadı. Tekrar deneyin.",
+          "refreshFailed": "Tanılama yenilenemedi. Son başarılı rapor aşağıda gösteriliyor.",
+          "summary": {
+            "ready": "İndirme motoru normal çalışıyor",
+            "starting": "İndirme motoru başlatılıyor",
+            "restarting": "İndirme motoru kurtarılıyor",
+            "stopped": "İndirme motoru durduruldu",
+            "port_in_use": "Motorun kontrol bağlantı noktası kullanımda",
+            "binary_unavailable": "İndirme motoru kullanılamıyor",
+            "spawn_failed": "İndirme motoru başlatılamadı",
+            "rpc_unavailable": "Motorun kontrol bağlantısı kullanılamıyor",
+            "unexpected_exit": "İndirme motoru beklenmedik şekilde kapandı",
+            "health_check_failed": "İndirme motoru yanıt vermeyi durdurdu",
+            "unknown": "İndirme motoru kullanılamıyor"
+          },
+          "impact": {
+            "failed": "İndirme kontrolleri kullanılamıyor. Görev durumları güncel olmayabilir.",
+            "connecting": "Motor hazır olduğunda indirme kontrolleri kullanılabilir olacak.",
+            "stopped": "İndirmeleri başlatmak veya yönetmek için motoru başlatın."
+          },
+          "runtime": {
+            "process": "İşlem",
+            "running": "Çalışıyor",
+            "notRunning": "Çalışmıyor",
+            "connection": "Bağlantı",
+            "connected": "Bağlı",
+            "connecting": "Bağlanılıyor…",
+            "disconnected": "Bağlı değil",
+            "unavailable": "Kullanılamıyor",
+            "connectionStatus": "{{transport}} ({{status}})"
+          },
+          "port": {
+            "available": "{{port}} (Kullanılabilir)",
+            "listening": "{{port}} (Dinleniyor)",
+            "occupied": "{{port}} (Kullanımda)"
+          },
+          "motrixEngine": "aria2 Motrix",
+          "transport": {
+            "websocket": "WebSocket"
+          }
+        }
+      },
+      "speed": {
+        "up": "GÖNDERME",
+        "down": "İNDİRME",
+        "peak": "En yüksek {{value}}",
+        "offline": "çevrimdışı"
+      },
+      "speedUp": {
+        "title": "Gönderme Hızı"
+      },
+      "speedDown": {
+        "title": "İndirme Hızı"
+      },
+      "active": {
+        "title": "Etkin Görevler",
+        "downloading": "İndiriliyor",
+        "seeding": "Paylaşılıyor",
+        "waiting": "Bekliyor",
+        "error": "Hata",
+        "engineOffline": "motor çevrimdışı"
+      },
+      "transfer": {
+        "title": "Aktarım",
+        "rangeLabel": "Aktarım dönemi",
+        "scope": {
+          "today": "Bugün",
+          "allTime": "Tüm Zamanlar"
+        },
+        "download": "İndirme",
+        "upload": "Gönderme",
+        "sinceTime": "{{time}} saatinden beri",
+        "sinceDate": "{{date}} tarihinden beri",
+        "empty": {
+          "today": "Bugün aktarım kaydedilmedi.",
+          "allTime": "Henüz aktarım kaydedilmedi."
+        },
+        "loading": "Aktarım verileri yükleniyor",
+        "unavailable": "Aktarım verileri kullanılamıyor",
+        "retry": "Yeniden dene",
+        "updated": "Güncelleme: {{time}}",
+        "outOfDate": "Veriler güncel olmayabilir",
+        "totalLabel": "{{scope}} için toplam aktarım: {{value}}"
+      },
+      "activity": {
+        "title": "Etkinlik",
+        "loading": "Etkinlik yükleniyor",
+        "unavailable": "Etkinlik kullanılamıyor",
+        "retry": "Yeniden dene",
+        "stale": "Etkinlik güncel olmayabilir",
+        "coverageDegraded": "{{time}} itibarıyla etkinlik eksik olabilir",
+        "rangeSummary": "{{start}} ile {{end}} arasında {{weeks}} haftalık indirme etkinliği",
+        "completedIntensity": "Renk yoğunluğu tamamlanan indirmeleri gösterir",
+        "less": "Az",
+        "more": "Çok",
+        "weekday": {
+          "sun": "Paz",
+          "mon": "Pzt",
+          "tue": "Sal",
+          "wed": "Çar",
+          "thu": "Per",
+          "fri": "Cum",
+          "sat": "Cmt"
+        },
+        "tooltip": {
+          "completed": "{{count}} tamamlandı",
+          "submitted": "{{count}} görev eklendi",
+          "recovered": "Kurtarma sırasında tamamlandığı algılanan bir indirmeyi içerir",
+          "recoveredCount": "{{count}} kurtarıldı",
+          "untracked": "Henüz izlenmiyor",
+          "noData": "Etkinlik verisi yok",
+          "noDataOnDate": "{{date}} tarihinde etkinlik verisi yok",
+          "completedOnDate": "{{date}} tarihinde {{count}} tamamlandı",
+          "partial": "İzleme başlangıcı: {{time}}",
+          "partialShort": "Günün bir bölümü",
+          "coverage": "{{time}} itibarıyla veriler eksik olabilir",
+          "coverageShort": "Veriler eksik olabilir",
+          "today": "Bugün, hâlâ güncelleniyor"
+        }
+      },
+      "tasks": {
+        "title": "Görevler",
+        "viewLabel": "Görev görünümü",
+        "view": {
+          "active": "Etkin",
+          "failed": "Başarısız",
+          "recent": "Son"
+        },
+        "newTask": "Yeni görev",
+        "more": "+{{count}} daha",
+        "loading": "Görevler yükleniyor",
+        "unavailable": "Görevler kullanılamıyor",
+        "retry": "Yeniden dene",
+        "empty": {
+          "active": "Etkin görev yok",
+          "failed": "Başarısız görev yok",
+          "recent": "Henüz tamamlanan görev yok"
+        },
+        "offline": "Motor çevrimdışı",
+        "metric": {
+          "fetching": "Alınıyor",
+          "ready": "Hazır",
+          "finalizing": "Sonlandırılıyor",
+          "queued": "Kuyrukta",
+          "paused": "Duraklatıldı"
+        },
+        "secondary": {
+          "metadata": "Meta veriler alınıyor",
+          "chooseFiles": "Dosya seçimi bekleniyor",
+          "finalizing": "İndirme tamamlanıyor",
+          "waiting": "Başlamak için bekliyor",
+          "eta": "Kalan süre {{time}}",
+          "ratio": "Oran {{ratio}}",
+          "saved": "%{{percent}} kaydedildi",
+          "offline": "Çevrimdışı (bilinen son ilerleme)",
+          "completed": "Tamamlanma: {{time}}",
+          "failed": "Başarısız: {{reason}}",
+          "technicalDetail": "Teknik ayrıntı: {{detail}}"
+        },
+        "progressLabel": "{{name}} ilerlemesi"
+      },
+      "configure": {
+        "action": "Düzenle",
+        "addTile": "Ekle",
+        "addTitle": "Kart ekle",
+        "apply": "Uygula",
+        "cancel": "İptal",
+        "reset": "Sıfırla",
+        "drag": "Kartı sürükle",
+        "removeTile": "Kartı kaldır",
+        "resizeTile": "Kartı yeniden boyutlandır",
+        "sizeGroup": "Kart boyutu",
+        "size": "{{width}} × {{height}}",
+        "currentSize": "Geçerli boyut: {{width}} × {{height}}",
+        "invalidCapacity": "Bu boyut için yeterli alan yok",
+        "availabilityHints": {
+          "space": "Başka bir kartı küçültün veya kaldırın.",
+          "bounds": "Önce kartı içeri doğru taşıyın.",
+          "unsupported": "Desteklenen bir boyut seçin."
+        },
+        "sizeLabels": {
+          "compact": "Kompakt",
+          "wide": "Geniş",
+          "tall": "Uzun",
+          "large": "Büyük",
+          "fullWidth": "Tam genişlik",
+          "fullHeight": "Tam yükseklik"
+        },
+        "sizeUnavailable": {
+          "unsupported": "Desteklenmiyor",
+          "outOfBounds": "Sığmıyor",
+          "insufficientSpace": "Yeterli alan yok"
+        },
+        "presets": {
+          "action": "Hazır düzenler",
+          "custom": "Özel",
+          "undo": "Son hazır düzeni geri al",
+          "balanced": {
+            "title": "Dengeli"
+          },
+          "taskFocus": {
+            "title": "Görev Odaklı"
+          },
+          "speedFocus": {
+            "title": "Hız Odaklı"
+          },
+          "compact": {
+            "title": "Kompakt"
+          }
+        },
+        "saveFailed": "Düzen kaydedilemedi. Tekrar deneyin.",
+        "expandHint": "Genel bakış düzenini değiştirmek için pencereyi genişletin."
+      },
+      "errors": {
+        "tileFailed": "{{tile}}: görüntülenemedi",
+        "retry": "Yeniden dene"
+      },
+      "speedLimit": {
+        "title": "Hız Sınırı",
+        "unlimited": "Sınırsız",
+        "smart": "Otomatik",
+        "settings": "Hız sınırı ayarları",
+        "turtle": {
+          "off": "Standart mod",
+          "on": "Düşük hız modu",
+          "auto": "Otomatik mod"
+        },
+        "tooltip": {
+          "off": "Standart hız sınırlarını kullan",
+          "on": "Düşük hız sınırlarını şimdi kullan",
+          "auto": "Hızı zaman planına ve bant genişliğine göre otomatik ayarla"
+        },
+        "reason": {
+          "base": "Standart sınır",
+          "turtle": "Düşük hız modu",
+          "schedule": "Zaman planı",
+          "videoApp": "Video uygulaması",
+          "adaptive": "Bant genişliği rezervi"
+        }
+      },
+      "nat": {
+        "title": "NAT",
+        "compact": {
+          "state": {
+            "active": "Eşlendi",
+            "settingUp": "Eşleme",
+            "failed": "Eşleme",
+            "off": "Kapalı"
+          },
+          "caption": {
+            "active_one": "{{count}} bağlantı noktası",
+            "active_other": "{{count}} bağlantı noktası",
+            "settingUp": "Bağlanılıyor…",
+            "failed": "Kullanılamıyor",
+            "off": "BT / DHT",
+            "waiting": "Yükleniyor…"
+          }
+        },
+        "internalIp": "Yerel IP",
+        "gatewayIp": "Yönlendirici",
+        "caption": {
+          "off": "BT bağlantı noktası eşlemesi kapalı.",
+          "settingUp": "Yönlendiricinize bağlanılıyor…",
+          "failed": "Otomatik eşleme kullanılamıyor.",
+          "waiting": "Ağ durumu bekleniyor…"
+        },
+        "mappingDetails": "Eşlenen bağlantı noktaları",
+        "mappingPurpose": {
+          "bt-listen": "BitTorrent",
+          "dht-listen": "DHT"
+        },
+        "portMapping": "İç {{internal}} → dış {{external}}",
+        "noMappings": "Etkin bağlantı noktası eşlemesi yok.",
+        "state": {
+          "active": "Etkin",
+          "settingUp": "Başlatılıyor",
+          "failed": "Başarısız",
+          "off": "Kapalı"
+        },
+        "retrying": "Yeniden deneniyor {{attempt}}/{{max}}",
+        "type": "Tür",
+        "externalIp": "Dış IP",
+        "mappings": "Eşlemeler",
+        "mappingsValue_one": "{{count}} etkin",
+        "mappingsValue_other": "{{count}} etkin",
+        "health": "Sağlık",
+        "healthScore": {
+          "good": "İyi",
+          "fair": "Orta",
+          "poor": "Zayıf",
+          "unknown": "—"
+        },
+        "natType": {
+          "open": "Açık",
+          "fullcone": "Tam koni",
+          "restricted": "Kısıtlı",
+          "port-restricted": "Bağlantı noktası kısıtlı",
+          "symmetric": "Simetrik",
+          "blocked": "Engellendi",
+          "unknown": "Bilinmiyor"
+        },
+        "lastCheck": "Son kontrol",
+        "lastCheckNever": "Hiçbir zaman",
+        "actions": {
+          "group": "NAT kontrolleri",
+          "enable": "NAT’ı etkinleştir",
+          "disable": "NAT’ı devre dışı bırak",
+          "remap": "Yeniden eşlemeyi zorla",
+          "diagnose": "Tanılamayı çalıştır",
+          "troubleshoot": "NAT sorun giderme kılavuzu",
+          "short": {
+            "enable": "Etkinleştir",
+            "disable": "Devre dışı bırak",
+            "remap": "Yeniden eşle",
+            "diagnose": "Tanıla",
+            "help": "Yardım"
+          },
+          "settings": "NAT ayarları"
+        },
+        "rateLimited": "Çok sık denediniz; biraz sonra tekrar deneyin",
+        "none": "—"
+      }
+    },
+    "completed": {
+      "title": "Tamamlananlar",
+      "desc": "Tamamlanan indirme görevleri"
+    },
+    "trackers": {
+      "title": "İzleyiciler",
+      "desc": "İzleyici sağlığını ve aboneliklerini yönetin",
+      "tab": {
+        "effective": "Kullanılanlar",
+        "blacklist": "Engellenenler"
+      },
+      "searchPlaceholder": "URL’ye göre filtrele…",
+      "syncNow": "Şimdi Eşzamanla"
+    },
+    "downloads": {
+      "title": "İndirmeler",
+      "heading": {
+        "all": "Tüm İndirmeler",
+        "active": "Etkin İndirmeler",
+        "completed": "Tamamlanan İndirmeler",
+        "error": "Başarısız İndirmeler"
+      },
+      "status": {
+        "queued": "Kuyrukta",
+        "fetchingMetadata": "Alınıyor",
+        "metadataReady": "Dosya seçimi bekleniyor",
+        "downloading": "İndiriliyor",
+        "finalizing": "Sonlandırılıyor",
+        "seeding": "Paylaşılıyor",
+        "paused": "Duraklatıldı",
+        "completed": "Tamamlandı",
+        "error": "Hata"
+      },
+      "column": {
+        "name": "Ad",
+        "size": "Boyut",
+        "progress": "İlerleme",
+        "down": "İndirme hızı",
+        "up": "Gönderme hızı",
+        "eta": "Kalan süre",
+        "connections": "Eşler",
+        "status": "Durum",
+        "createdAt": "Oluşturulma tarihi",
+        "finishedAt": "Tamamlanma tarihi"
+      },
+      "columnHeader": {
+        "down": "İndirme",
+        "up": "Gönderme"
+      },
+      "timestamp": {
+        "notRecorded": "Kaydedilmedi",
+        "notCompleted": "Henüz tamamlanmadı",
+        "relativeDateTime": "{{date}}, {{time}}"
+      },
+      "sort": {
+        "down": "İndirme hızı",
+        "up": "Gönderme hızı",
+        "asc": "{{column}}: artan",
+        "desc": "{{column}}: azalan",
+        "sortAscending": "{{column}} sütununu artan sırala",
+        "sortDescending": "{{column}} sütununu azalan sırala",
+        "reset": "Varsayılan sıralamayı geri yükle"
+      },
+      "empty": {
+        "noTasks": "Henüz indirme yok",
+        "noTasksCta": "Eklemek için + düğmesine basın",
+        "noMatchFilter": "Bu filtreyle eşleşen görev yok",
+        "noMatchSearch": "“{{query}}” ile eşleşen görev yok",
+        "clearSearch": "Aramayı temizle",
+        "unavailable": "Görevler kullanılamıyor",
+        "motion": {
+          "open": "Cam hareketini ayarla",
+          "title": "Cam hareketi",
+          "description": "Geliştirme önizlemesi",
+          "enabled": "Hareket efektleri",
+          "enabledDesc": "Görünüm → Hareketi azalt ayarıyla eşzamanlıdır. Değişiklikler hemen kaydedilir.",
+          "systemReducedMotion": "Sisteminizin Hareketi Azalt tercihi nedeniyle hareket devre dışı.",
+          "saveFailed": "Hareket ayarı kaydedilemedi. Tekrar deneyin.",
+          "loadFade": "Yüklenirken belirme",
+          "breathing": "Soluk alıp veren ışık",
+          "pointerFollow": "İşaretçiyi takip et",
+          "positionConstraint": "Yerçekimi konum sınırı",
+          "horizontalSpeed": "Yatay hız"
+        }
+      },
+      "stats": {
+        "downSpeed": "İndirme hızı",
+        "upSpeed": "Gönderme hızı",
+        "engineOk": "Motor hazır",
+        "engineStarting": "Motor başlatılıyor",
+        "engineOffline": "Motor çevrimdışı",
+        "natActive": "NAT eşlendi",
+        "natActiveDesc": "Diğer BT eşlerinin size bağlanmasına yardımcı olur.",
+        "natSettingUp": "NAT eşleniyor",
+        "natRetrying": "Otomatik yeniden denemeler ({{attempt}}/{{max}})",
+        "natMapping": "NAT eşlemesi",
+        "natUnavailable": "Otomatik eşleme kullanılamıyor",
+        "natUnavailableDesc": "Bağlantı indirmelerini etkilemez. BT bağlantıları sınırlı olabilir.",
+        "natRetry": "Yeniden dene",
+        "natDisable": "NAT eşlemesini kapat",
+        "natSettings": "Ağ ayarları",
+        "natHelp": "Ağ kılavuzu"
+      },
+      "tab": {
+        "all": "Tümü",
+        "active": "Etkin",
+        "completed": "Tamamlananlar",
+        "error": "Hatalı"
+      },
+      "inspector": {
+        "overview": {
+          "transfer": "Aktarım",
+          "progress": "İlerleme",
+          "network": "Ağ",
+          "general": "Genel",
+          "createdAt": "Oluşturulma",
+          "finishedAt": "Tamamlanma",
+          "downSpeed": "İndirme hızı",
+          "upSpeed": "Gönderme hızı",
+          "eta": "Kalan süre",
+          "downloaded": "İndirilen",
+          "totalSize": "Toplam boyut",
+          "percent": "Yüzde",
+          "peers": "Eşler",
+          "seeds": "Kaynaklar",
+          "ratio": "Oran",
+          "type": "Tür",
+          "infoHash": "Bilgi karması",
+          "private": "Özel",
+          "connections": "Bağlantılar",
+          "uploaded": "Gönderilen",
+          "seedingTime": "Paylaşım süresi",
+          "seedingRecordedSince": "{{date}} tarihinden beri kaydediliyor. Duraklatılmış ve çevrimdışı süreler dahil değildir; önceki paylaşım geçmişi kullanılamıyor.",
+          "seedingUnavailable": "Bu görev için paylaşım süresi kaydedilmedi."
+        },
+        "activity": {
+          "transferTitle": {
+            "session": "Oturum aktarımı",
+            "lifetime": "Tüm zamanlardaki aktarım"
+          },
+          "download": "İndirme",
+          "upload": "Gönderme",
+          "loading": "Etkinlik yükleniyor…",
+          "collecting": "Aktarım verileri toplanıyor…",
+          "noSessionHistory": "Bu uygulama oturumunda aktarım kaydedilmedi.",
+          "lifetimeEmpty": "Tüm zamanların geçmişi henüz kullanılamıyor.",
+          "noTraffic": "Şu anda ağ trafiği yok.",
+          "unavailable": "Tüm zamanların etkinliği kullanılamıyor.",
+          "coverageGap": "İzleme kesintiye uğradı.",
+          "retry": "Yeniden dene",
+          "notAvailable": "Kullanılamıyor",
+          "stale": {
+            "short": "Güncel olmayan veriler.",
+            "message": "Veriler güncel olmayabilir. Son güncelleme: {{time}}."
+          },
+          "range": {
+            "label": "Aktarım zaman aralığı",
+            "session": "Oturum (60 sn)",
+            "lifetime": "Tüm zamanlar",
+            "latest": "Son 60 saniye",
+            "adaptive_one": "Uyarlanabilir çözünürlük · {{count}} örnek",
+            "adaptive_other": "Uyarlanabilir çözünürlük · {{count}} örnek"
+          },
+          "timeline": {
+            "title": "Görev geçmişi",
+            "current": "Şimdi: {{status}}",
+            "cluster_one": "+{{count}} olay",
+            "cluster_other": "+{{count}} olay",
+            "repeated": "{{label}} ×{{count}}",
+            "truncated_one": "Önceki kayıtlardan {{count}} olay çıkarıldı",
+            "truncated_other": "Önceki kayıtlardan {{count}} olay çıkarıldı",
+            "truncatedAt": "İlk çıkarılma zamanı: {{time}}",
+            "timeRange": "{{start}}–{{end}}",
+            "detailTitle": "{{label}} ayrıntıları",
+            "destination": "{{event}} {{status}}",
+            "previous": "Zaman çizelgesindeki önceki olayları göster",
+            "next": "Zaman çizelgesindeki sonraki olayları göster",
+            "event": {
+              "added": "Eklendi",
+              "started": "Başlatıldı",
+              "paused": "Duraklatıldı",
+              "resumed": "Sürdürüldü",
+              "stage_changed": "Aşama değişti",
+              "completed": "Tamamlandı",
+              "failed": "Başarısız oldu",
+              "observed_state": "Durum kurtarıldı"
+            },
+            "status": {
+              "queued": "Kuyrukta",
+              "fetching_metadata": "Meta veriler alınıyor",
+              "metadata_ready": "Meta veriler hazır",
+              "downloading": "İndiriliyor",
+              "finalizing": "Sonlandırılıyor",
+              "seeding": "Paylaşılıyor",
+              "paused": "Duraklatıldı",
+              "completed": "Tamamlandı",
+              "error": "Başarısız oldu",
+              "removed": "Listeden kaldırıldı"
+            }
+          },
+          "summary": {
+            "title": "Güncel özet",
+            "average": "Ortalama",
+            "averageExpanded": "Ortalama indirme hızı",
+            "peak": "En yüksek",
+            "peakExpanded": "En yüksek indirme hızı",
+            "active": "Etkin",
+            "activeExpanded": "Etkin aktarım süresi"
+          },
+          "chart": {
+            "accessibleSummary": "{{start}} ile {{end}} arası, {{range}}. Son indirme hızı {{download}}, gönderme hızı {{upload}}. Tüm zamanlarda ortalama indirme hızı {{average}}, en yüksek indirme hızı {{peak}}, etkin süre {{activeDuration}}. {{sampleLabel}}. {{state}}",
+            "activeSeconds_one": "{{count}} saniye",
+            "activeSeconds_other": "{{count}} saniye",
+            "sampleCount_one": "{{count}} örnek",
+            "sampleCount_other": "{{count}} örnek",
+            "noDataQualityIssues": "İzleme uyarısı yok."
+          }
+        },
+        "pieces": {
+          "mapLabel": "İndirme parça haritası",
+          "legend": {
+            "done": "Tamamlandı",
+            "active": "İndiriliyor",
+            "endgame": "Son aşama",
+            "pending": "Bekliyor"
+          },
+          "empty": "Parça verisi yok",
+          "pieceLength": "Parça uzunluğu",
+          "totalPieces": "Toplam parça"
+        },
+        "peers": {
+          "summary_one": "{{count}} eş ({{seeders}} kaynak)",
+          "summary_other": "{{count}} eş ({{seeders}} kaynak)",
+          "empty": "Bağlı eş yok",
+          "col": {
+            "country": "Konum",
+            "endpoint": "IP : Bağlantı noktası",
+            "client": "İstemci",
+            "down": "↓",
+            "up": "↑",
+            "progress": "%",
+            "flags": "Bayraklar",
+            "flagsHint": "D = eş bize gönderiyor, U = biz eşe gönderiyoruz, S = eş bir kaynaktır. Alt çizgi etkin olmadığını gösterir."
+          }
+        },
+        "trackers": {
+          "summary_one": "{{count}} izleyici",
+          "summary_other": "{{count}} izleyici",
+          "driftSuffix_one": "{{count}} izleyici genel listede yok",
+          "driftSuffix_other": "{{count}} izleyici genel listede yok",
+          "privateBanner": "Özel torrent; genel izleyiciler eklenmeyecek.",
+          "empty": "İzleyici yok",
+          "loadFailed": "İzleyiciler yüklenemedi: {{reason}}",
+          "action": {
+            "edit": "Düzenle",
+            "save": "Kaydet",
+            "cancel": "İptal",
+            "sync": "Eşzamanla",
+            "delete": "İzleyiciyi sil"
+          },
+          "syncPrivateDisabled": "Özel torrentlerde eşzamanlama kullanılamaz.",
+          "saveFailed": "İzleyiciler güncellenemedi: {{reason}}",
+          "syncFailed": "İzleyiciler eşzamanlanamadı: {{reason}}",
+          "deleteFailed": "İzleyici kaldırılamadı: {{reason}}",
+          "invalidLines_one": "{{count}} geçersiz satır atlandı",
+          "invalidLines_other": "{{count}} geçersiz satır atlandı",
+          "editPlaceholder": "Her satıra bir izleyici URL’si girin. Yalnızca http(s)/udp/ws(s).",
+          "editHint": "Bu izleyiciler, görevin kullanılan bt-tracker listesinin yerini alır. .torrent dosyasındaki announce-list kayıtları etkilenmez."
+        },
+        "multi": {
+          "totals": "Toplamlar",
+          "liveSpeed": "Anlık hız",
+          "statusDist": "Durum dağılımı",
+          "totalSize": "Toplam boyut",
+          "downloaded": "İndirilen",
+          "avgProgress": "Ortalama ilerleme",
+          "combinedDown": "Toplam ↓",
+          "combinedUp": "Toplam ↑",
+          "longestEta": "En uzun kalan süre"
+        },
+        "tab": {
+          "overview": "Genel bakış",
+          "files": "Dosyalar",
+          "pieces": "Parçalar",
+          "peers": "Eşler",
+          "trackers": "İzleyiciler",
+          "activity": "Etkinlik"
+        },
+        "placeholder": {
+          "files": "Dosya listesi.",
+          "peers": "Eş listesi.",
+          "trackers": "İzleyici listesi."
+        }
+      },
+      "action": {
+        "pause": "Duraklat",
+        "queueMoveFailed": "Bekleme kuyruğu güncellenemedi.",
+        "queueTaskStarted": "Görev artık bekleme kuyruğunda değil.",
+        "queueMoveHint": "Kuyruk konumu, bekleyen indirmelerden hangisinin önce başlayacağını belirler. Sütun sıralaması ayrıca kaydedilir.",
+        "queueBoundary": "Seçim zaten kuyruğun sınırında",
+        "queueMoved": "Bekleme kuyruğu güncellendi",
+        "moveQueueDown": "Kuyrukta Aşağı Taşı",
+        "moveQueueUp": "Kuyrukta Yukarı Taşı",
+        "resume": "Sürdür",
+        "retry": "Yeniden dene",
+        "openFolder": "Klasörü aç",
+        "copyUrl": "URL’yi kopyala",
+        "copyUrls": "URL’leri kopyala",
+        "copyPath": "Dosya yolunu kopyala",
+        "copied": "Panoya kopyalandı",
+        "copyFailed": "Panoya kopyalanamadı. Tekrar deneyin.",
+        "selectFilesFailed": "Dosya seçimi açılamadı.",
+        "copyUrlFailed": "Görevin bağlantı ayrıntıları yüklenemediği için kopyalama başarısız oldu. Tekrar deneyin.",
+        "selectFiles": "Dosyaları seç",
+        "remove": "Listeden kaldır",
+        "removeConfirmWithFiles": "İndirilen dosyaları diskten de sil",
+        "cancel": "İptal",
+        "batchPartial": "{{ok}} başarılı, {{failed}} başarısız",
+        "singleTaskFailed": "{{name}}: {{reason}}",
+        "stopSeeding": "Paylaşımı durdur",
+        "reseed": "Yeniden paylaş",
+        "retryWithDialog": "Seçeneklerle yeniden dene… (Alt+Tıklama)",
+        "finalizingTooltip": "Görev sonlandırılıyor, lütfen bekleyin",
+        "pauseTooltipBatch": "Seçilen {{total}} görevin {{n}} tanesini duraklat",
+        "resumeTooltipBatch": "Seçilen {{total}} görevin {{n}} tanesini sürdür",
+        "retryTooltipBatch": "Seçilen {{total}} görevin {{n}} tanesini yeniden dene",
+        "reseedTooltipBatch": "Seçilen {{total}} görevin {{n}} tanesini yeniden paylaş",
+        "stopSeedingTooltipBatch": "Seçilen {{total}} görevin {{n}} tanesinin paylaşımını durdur",
+        "removeTooltipBatch": "Seçilen {{total}} görevin {{n}} tanesini listeden kaldır",
+        "removeWithFilesShift": "Dosyaları da silmek için Shift tuşunu basılı tutun",
+        "removeFilesEstimate": "Diskten {{bytes}} silinecek",
+        "removeSingleTitle": "“{{name}}” listeden kaldırılsın mı?",
+        "removeAll_paused_Title": "Duraklatılmış {{count}} görev listeden kaldırılsın mı?",
+        "removeAll_seeding_Title": "Paylaşım yapan {{count}} görev listeden kaldırılsın mı?",
+        "removeAll_completed_Title": "Tamamlanan {{count}} görev listeden kaldırılsın mı?",
+        "removeAll_error_Title": "Başarısız {{count}} görev listeden kaldırılsın mı?",
+        "removeAll_downloading_Title": "Etkin {{count}} görev listeden kaldırılsın mı?",
+        "removeMixedTitle": "{{count}} görev listeden kaldırılsın mı?",
+        "openFile": "Dosyayı aç",
+        "openFileFailed": "Dosya açılamadı",
+        "chooseFiles": "Dosyaları seç…",
+        "queueOrder": "İndirme sırası",
+        "moveQueueTop": "Başa Taşı",
+        "moveQueueBottom": "Sona Taşı",
+        "copyError": "Hata bilgilerini kopyala",
+        "errorReport": "{{name}}\nGörev kimliği: {{id}}\n{{details}}"
+      },
+      "titleCount": "{{shown}} gösteriliyor · toplam {{total}}",
+      "type": {
+        "http": "HTTP",
+        "magnet": "Magnet",
+        "bt": "BitTorrent",
+        "ftp": "FTP",
+        "metalink": "Metalink"
+      },
+      "search": {
+        "placeholder": "İndirmelerde ara",
+        "activeTypeFilters": "Tür filtresi: {{types}}",
+        "filters": "Filtreler",
+        "resetFilters": "Filtreleri sıfırla",
+        "clearQuery": "Aramayı temizle",
+        "activeQuery": "Arama: {{query}}",
+        "scopeLabel": "Tür",
+        "clear": "Temizle",
+        "empty": "Eşleşen görev yok",
+        "emptyHint": "Tür filtresini temizlemeyi veya başka bir anahtar sözcük kullanmayı deneyin"
+      },
+      "stale": {
+        "banner": "Görev listesi güncel olmayabilir; yeniden bağlanılıyor…"
+      },
+      "view": {
+        "title": "Liste Görünümü",
+        "columns": "Sütunlar",
+        "resetColumns": "Varsayılan Sütunları Geri Yükle",
+        "sortBy": "Sıralama Ölçütü",
+        "ascending": "Artan",
+        "descending": "Azalan",
+        "showInspector": "Ayrıntı Panelini Göster",
+        "hideInspector": "Ayrıntı Panelini Gizle",
+        "inspector": "Görev Ayrıntı Paneli",
+        "resizeInspector": "Ayrıntı Panelini Yeniden Boyutlandır",
+        "selectToInspect": "Ayrıntılarını görmek için bir görev seçin.",
+        "resizeColumn": "{{column}} sütununu yeniden boyutlandır",
+        "taskActions": "Diğer"
+      },
+      "speedLimit": {
+        "title": "Hız modu",
+        "currentMode": "Hız modu: {{mode}}",
+        "uploadLimit": "Gönderme sınırı: {{speed}}",
+        "downloadLimit": "İndirme sınırı: {{speed}}",
+        "saveFailed": "Hız modu değiştirilemedi. Tekrar deneyin."
+      },
+      "media": {
+        "preparing": "Hazırlanıyor",
+        "decrypting": "Şifre çözülüyor",
+        "assembling": "Parçalar birleştiriliyor",
+        "muxing": "Ses ve video birleştiriliyor",
+        "renaming": "Kaydediliyor",
+        "stage": "Aşama",
+        "downloadProgress": "İndirme ilerlemesi",
+        "muxProgress": "Birleştirme ilerlemesi",
+        "parts": "Bölümler",
+        "partsFormat": "{{completed}} / {{total}} bölüm",
+        "downloadSize": "İndirme boyutu",
+        "outputSize": "Çıktı boyutu",
+        "downloadEta": "İndirme için kalan süre",
+        "avgDownloadProgress": "Ortalama indirme ilerlemesi",
+        "processingTasks": "İşleniyor"
+      }
+    }
+  },
+  "task": {
+    "add": {
+      "title": "Yeni Görev",
+      "links": "Bağlantılar",
+      "torrent": "Torrent",
+      "urlPlaceholder": "URL, magnet bağlantısı veya BT bilgi karması girin…",
+      "dropTorrent": ".torrent dosyasını buraya bırakın veya seçmek için tıklayın",
+      "clearSelection": "Seçimi temizle",
+      "createFailed": "İndirme görevi oluşturulamadı.",
+      "createFailedWithReason": "İndirme görevi oluşturulamadı: {{reason}}",
+      "createFailedByPlugin": "Görev oluşturulamadı: “{{pluginId}}” eklentisi işlemi durdurdu ({{detail}}). Ayarlar → Eklentiler bölümünden bu eklentiyi devre dışı bırakıp tekrar deneyin.",
+      "createFailedPathTooLong": "Görev oluşturulamadı: hedef yol {{length}} karakter uzunluğunda ve Windows’un {{limit}} karakter sınırını aşıyor. Daha kısa bir kayıt klasörü yolu veya dosya adı seçin.",
+      "parseFailed": "Torrent dosyası ayrıştırılamadı.",
+      "urlsCount_one": "{{count}} URL",
+      "urlsCount_other": "{{count}} URL",
+      "urlsWithInvalid": "{{valid}} geçerli, {{invalid}} geçersiz",
+      "validUrlCount": "{{count}} geçerli",
+      "invalidUrlCount": "{{count}} geçersiz",
+      "urlsLabel": "URL’ler",
+      "advanced": "Gelişmiş",
+      "filename": "Dosya adı",
+      "filenameAuto": "Otomatik",
+      "split": "Bağlantılar",
+      "userAgent": "User-Agent",
+      "referer": "Referer",
+      "cookie": "Cookie",
+      "authorization": "Authorization",
+      "allProxy": "Vekil sunucu",
+      "dlLimit": "İndirme sınırı",
+      "ulLimit": "Gönderme sınırı",
+      "seedRatio": "Paylaşım oranı",
+      "unlimited": "Sınırsız",
+      "browse": "göz at",
+      "pickPathTitle": "Kayıt klasörünü seçin",
+      "pickPathCustom": "Özel yol",
+      "saveTo": "Kayıt konumu",
+      "saveDirEmpty": "Klasör seçin…",
+      "changeSaveDir": "Kayıt klasörünü değiştir",
+      "created": "Görev eklendi",
+      "batchCreated": "{{count}} görev eklendi",
+      "createdCopy": "Ayrı kopya eklendi",
+      "createdPartial": "{{ok}} eklendi · {{failed}} başarısız",
+      "torrentQueueProgress": "Torrent {{current}} / {{total}}",
+      "downloadAndContinue": "İndir ve devam et",
+      "downloadAllTorrents": "Tümünü indir ({{count}})",
+      "skipTorrent": "Atla",
+      "queueAdvanceFailed": "Sonraki torrent açılamadı.",
+      "duplicate": {
+        "title": "Bu torrent zaten var",
+        "active-info-hash": "{{name}} zaten etkin. aria2 aynı torrent içeriğini aynı anda iki kez çalıştıramaz.",
+        "selection-mismatch": "{{name}}, farklı bir dosya seçimiyle aynı hedefi kullanıyor. Motrix mevcut dosyaların üzerine yazmaz veya size bildirmeden farklı adla bir kopya oluşturmaz.",
+        "existing-files": "{{name}} bu hedefte zaten var ancak görev kaydı kullanılamıyor. Motrix mevcut dosyaların üzerine yazmaz.",
+        "filesOnDisk": "Torrent dosyaları",
+        "showExisting": "Mevcut görevi göster",
+        "createCopy": "Ayrı kopya oluştur"
+      },
+      "adding": "Ekleniyor…",
+      "interpretedMagnet": "Magnet bağlantısı algılandı",
+      "interpretedInfoHash": "BT bilgi karması magnet bağlantısına dönüştürüldü",
+      "unsupportedCurl": "Bu cURL komutu, isteği değiştirmeden içe aktarılamıyor. URL’yi veya desteklenen seçenekleri kullanan bir Bash GET komutunu kopyalayın.",
+      "invalidJson": "JSON biçiminde bir URL dizesi veya URL dizelerinden oluşan bir dizi bekleniyor.",
+      "interpretedJson": "URL’ler JSON’dan içe aktarıldı",
+      "sourceLine": "Satır {{line}}",
+      "sourceCorrections": {
+        "useCanonicalUrl": "Bu genişletilmiş URL’yi kullan",
+        "usePathSeparators": "Ters eğik çizgileri yol ayırıcı olarak yorumla",
+        "encodeLiteralCharacters": "Karakterleri olduğu gibi koruyarak kodla"
+      },
+      "sourceErrors": {
+        "missingScheme": "https:// gibi bir URL şeması ekleyin.",
+        "invalidHost": "URL’nin sunucu adı eksik veya geçersiz.",
+        "invalidPort": "URL’nin bağlantı noktası geçersiz.",
+        "controlCharacter": "URL’deki kontrol karakterlerini kaldırın.",
+        "invalidUnicode": "URL geçersiz Unicode içeriyor.",
+        "ambiguousBackslash": "Ters eğik çizgi, sunucu adını veya yolu belirsiz kılıyor. Nasıl yorumlanacağını seçin.",
+        "invalidPercentEncoding": "Yüzde işaretinden sonra iki onaltılık rakam gelmelidir.",
+        "credentialsInUrl": "Kimlik bilgilerini URL’ye eklemek yerine kimlik doğrulama alanlarını kullanın.",
+        "unsupportedProtocol": "Bu URL protokolü bu indirme için desteklenmiyor.",
+        "urlTooLong": "URL, 16 KiB sınırını aşıyor.",
+        "tooManySources": "Giriş, izin verilen bağlantı sayısını veya boyutunu aşıyor.",
+        "ambiguousStructure": "URL ayrıştırıcısı bu adresi değiştirecek. Genişletilmiş URL’yi gözden geçirin.",
+        "unescapedCharacter": "Boşlukları ve ayrılmış karakterleri açıkça kodlayın.",
+        "invalidMagnet": "Magnet bağlantısının xt parametresinde desteklenen bir BT bilgi karması bulunmalıdır.",
+        "mixedProtocols": "Aynı indirmenin yansı kaynakları aynı protokol ailesini kullanmalıdır.",
+        "unsupportedInput": "Bu giriş biçimi içe aktarılamadı. Bir URL veya desteklenen JSON ya da Bash cURL girdisi yapıştırın.",
+        "unsupportedRequestOptions": "HTTP üstbilgileri FTP indirmelerine uygulanamaz."
+      },
+      "interpretedCurl": "cURL komutu ayrıştırıldı",
+      "filterBy": {
+        "video": "Video",
+        "audio": "Ses",
+        "image": "Görsel",
+        "doc": "Belge"
+      },
+      "errors": {
+        "urlsRequired": "En az bir URL gerekli",
+        "saveDirRequired": "Kayıt klasörü gerekli",
+        "noFilesSelected": "En az bir dosya seçin",
+        "missingSource": "Torrent dosyası veya magnet bağlantısı gerekli"
+      },
+      "selectionTimeout": {
+        "started": "Dosya seçimi zaman aşımına uğradı: {{name}} içindeki tüm dosyalar indiriliyor",
+        "failed": "{{name}} otomatik olarak başlatılamadı. Dosyaları seçip tekrar denemek için görev ayrıntılarını açın."
+      },
+      "undoCorrection": "URL düzeltmesini geri al",
+      "submissionUnconfirmed": "Sonuç doğrulanmadı. Yeniden denediğinizde, başka bir görev oluşturulmadan önce ilk isteğin sonucu kontrol edilir."
+    },
+    "detail": {
+      "peers": "Eş: {{count}}",
+      "seeds": "Kaynak: {{count}}"
+    },
+    "torrent": {
+      "column": {
+        "name": "Dosya adı",
+        "type": "Dosya türü",
+        "size": "Boyut"
+      },
+      "fileSelected_one": "{{count}} dosya seçildi",
+      "fileSelected_other": "{{count}} dosya seçildi",
+      "selectAll": "Tümünü seç",
+      "video": "Video",
+      "audio": "Ses",
+      "image": "Görsel",
+      "doc": "Belge"
+    },
+    "remove": {
+      "title": "Görev listeden kaldırılsın mı?",
+      "description": "“{{name}}” indirme listesinden kaldırılacak.",
+      "deleteFilesLabel": "İndirilen dosyaları sil",
+      "confirm": "Listeden kaldır",
+      "cancel": "İptal",
+      "orphanToast": "Görev listeden kaldırıldı. Dosyalar {{path}} konumunda tutuldu.",
+      "notAvailableDuringFinalize": "Görevin sonlandırılmasını bekleyin."
+    },
+    "recovery": {
+      "toast": "Kesintiye uğrayan {{count}} görev kurtarıldı. Gözden geçirmek için tıklayın.",
+      "finalizeRenameFailed": "Dosya yeniden adlandırılamadı. İndirilen dosya .motrix uzantısıyla duruyor.",
+      "reseedFailed": "İndirme tamamlandı ancak paylaşım başlatılamadı.",
+      "metaMissing": "Torrent meta verileri eksik. Paylaşım başlatılamıyor.",
+      "startup": {
+        "torrentMetaMissing": "Bu BitTorrent görevi kurtarılamıyor: .torrent meta veri dosyası eksik. Görevi listeden kaldırıp yeniden ekleyin.",
+        "reAddFailed": "Bu görev kurtarılamıyor: motor, yeniden ekleme isteğini reddetti. Görevi listeden kaldırıp elle yeniden ekleyin.",
+        "dirtyMetadata": "Bu görev kurtarılamıyor: sürdürmek için gereken tanımlayıcı bilgiler eksik.",
+        "resumeCheckpointMissing": "Kısmen indirilen dosya korundu ancak sürdürme kontrol noktası eksik. İndirmeyi güvenle baştan başlatın veya görevi yeniden ekleyin.",
+        "resumeCredentialsRequired": "Kısmen indirilen dosya korundu ancak bu indirme, otomatik olarak yeniden kullanılamayan istek kimlik bilgileri gerektiriyor.",
+        "resumePathInvalid": "Kayıtlı çıktı yolu geçersiz olduğu için kısmen indirilen dosya korundu.",
+        "resumeSourceChanged": "İndirme başladıktan sonra uzak dosya değiştiği için kısmen indirilen dosya korundu.",
+        "resumeRangeUnsupported": "Sunucu, kalan dosya aralığından güvenle devam etmeyi desteklemediği için kısmen indirilen dosya korundu.",
+        "resumeValidationFailed": "Motrix uzak dosyanın değişmediğini doğrulayamadığı için kısmen indirilen dosya korundu.",
+        "mediaInterrupted": "Uygulama yeniden başlatıldığı için bu medya indirmesi kesintiye uğradı ve sürdürülemiyor. Tekrar denemek için yeniden ekleyin."
+      }
+    },
+    "error": {
+      "detail": {
+        "finalizeFailed": "İndirme tamamlanamadı: {{cause}}",
+        "recoveryFailed": "İndirme kurtarılamadı: {{cause}}",
+        "recoveryOutputConflict": "Hem geçici hem de son dosya mevcut; elle incelenmeleri için ikisi de korundu",
+        "filesMissing": "Uygulama yeniden başlatıldıktan sonra dosyalar bulunamadı",
+        "renameFileFailed": "Dosya yeniden adlandırılamadı: {{cause}}",
+        "renameDirFailed": "Klasör yeniden adlandırılamadı: {{cause}}",
+        "pluginChainAborted": "Eklenti zinciri durduruldu: {{cause}}",
+        "magnetCleanupQuarantined": "Başarısız denemeler nedeniyle magnet meta verilerinin temizlenmesi engellendi",
+        "muxFailed": "İndirilen medya birleştirilemedi",
+        "pathTooLong": "Yol {{length}} karakter uzunluğunda; Windows en fazla {{limit}} karaktere izin veriyor"
+      },
+      "reason": {
+        "unknown": "İndirme başarısız oldu",
+        "notFound": "Dosya bulunamadı",
+        "unauthorized": "Yetkilendirme gerekli",
+        "networkError": "Ağ bağlantısı kurulamadı",
+        "timeout": "İndirme zaman aşımına uğradı",
+        "diskFull": "Disk dolu",
+        "fileWriteError": "Dosya yazılamadı",
+        "pathTooLong": "Dosya yolu Windows için çok uzun",
+        "checksumMismatch": "Dosya sağlama toplamı eşleşmedi",
+        "tooManyRedirects": "Çok fazla yönlendirme",
+        "serverError": "Sunucu hata döndürdü",
+        "btMetadataFailed": "Torrent meta verileri alınamadı",
+        "btTrackerError": "İzleyici bağlantısı kurulamadı",
+        "generic": "İndirme başarısız oldu"
+      },
+      "hint": {
+        "diskFull": "Diskte yer açın veya kayıt klasörünü değiştirin, ardından tekrar deneyin",
+        "unauthorized": "Kimlik bilgilerinizi veya erişim izinlerinizi kontrol edip tekrar deneyin",
+        "networkError": "Ağ bağlantınızı kontrol edip tekrar deneyin",
+        "timeout": "Bağlantınızın hızını ve kararlılığını kontrol edip tekrar deneyin",
+        "fileWriteError": "Klasör izinlerini ve kullanılabilir disk alanını kontrol edip tekrar deneyin",
+        "pathTooLong": "Kayıt klasörünün yolunu veya dosya adını kısaltıp tekrar deneyin",
+        "checksumMismatch": "İndirilen dosya bozulmuş olabilir; doğrulamak için yeniden indirin",
+        "tooManyRedirects": "Kaynak bağlantı bozuk olabilir; başka bir bağlantı deneyin",
+        "btMetadataFailed": "Magnet bağlantısını kontrol edin veya daha fazla izleyici ekleyip tekrar deneyin"
+      }
+    }
+  },
+  "settings": {
+    "title": "Ayarlar",
+    "desc": "Motrix’i yapılandırın",
+    "cards": {
+      "general": {
+        "title": "Genel",
+        "desc": "Başlangıç, varsayılan kayıt klasörü, sistem entegrasyonu"
+      },
+      "bittorrent": {
+        "title": "BitTorrent",
+        "desc": "DHT, dinleme bağlantı noktaları, izleyiciler, eş konumları"
+      },
+      "appearance": {
+        "title": "Görünüm",
+        "desc": "Tema, dil, sistem tepsisi simgesi"
+      },
+      "advanced": {
+        "title": "Gelişmiş",
+        "desc": "RPC, SQLite ile kalıcı depolama"
+      },
+      "about": {
+        "title": "Hakkında",
+        "desc": "Sürüm, güncellemeler, kaynak kodu ve kılavuz"
+      },
+      "downloads": {
+        "title": "İndirmeler",
+        "desc": "Eşzamanlı indirmeler, bant genişliği sınırları, ağ güvenilirliği"
+      },
+      "network": {
+        "title": "Ağ",
+        "desc": "Vekil sunucu, DNS ve NAT/UPnP"
+      },
+      "integration": {
+        "title": "Entegrasyon",
+        "desc": "Tarayıcı uzantıları, CLI, sistem entegrasyonları"
+      }
+    },
+    "general": {
+      "launchAtStartup": "Oturum açıldığında aç",
+      "launchAtStartupDesc": "Oturum açtığınızda Motrix’i otomatik olarak başlatın.",
+      "showMainWindowAtLogin": "Oturum açıldığında pencereyi göster",
+      "showMainWindowAtLoginDesc": "“{{mode}}” seçildiğinde gizlenir.",
+      "defaultSaveDir": "Varsayılan indirme klasörü",
+      "defaultSaveDirDesc": "Görev için başka bir konum seçilmedikçe yeni indirmeler buraya kaydedilir.",
+      "inAppNotifications": "Uygulama içi bildirimler",
+      "inAppNotificationsDesc": "Gösterilecek indirme bildirimlerini seçin. Uygulama uyarıları açık kalır.",
+      "notifyInAppOnComplete": "Tamamlanan indirmeleri göster",
+      "notifyInAppOnError": "Başarısız indirmeleri göster",
+      "notificationBadgeStyle": "Okunmamış bildirim rozeti",
+      "notificationBadgeCount": "Sayı",
+      "notificationBadgeDot": "Nokta",
+      "notificationBadgeHidden": "Gizli",
+      "systemNotifications": "Sistem bildirimleri",
+      "notifyOnComplete": "İndirme tamamlandığında bildir",
+      "notifyOnCompleteDesc": "Görev tamamlandığında sistem bildirimi gösterin.",
+      "autofillClipboardLinks": "Panodaki bağlantıyı otomatik doldur",
+      "autofillClipboardLinksDesc": "Yeni Görev açıldığında panodaki bağlantı boş URL alanına otomatik olarak yapıştırılır.",
+      "notifyOnError": "Başarısız olduğunda bildir",
+      "notifyOnErrorDesc": "Pencere arka plandayken bir indirme başarısız olursa sistem bildirimi gösterin.",
+      "warnBeforeQuit": "Çıkmadan önce onay iste",
+      "warnBeforeQuitDesc": "İndirmeler sürüyorsa çıkmadan önce onay isteyin.",
+      "notificationBadgeDesc": "Bildirim merkezi simgesinde gösterilir.",
+      "notificationOff": "Kapalı",
+      "notificationSystem": "Sistem bildirimleri",
+      "notificationInApp": "Uygulama içi bildirimler",
+      "notificationBoth": "İkisi de",
+      "startupAndQuitting": "Başlangıç ve çıkış",
+      "runMode": "Uygulamanın gösterileceği yer",
+      "runModeStandard": "Dock ve menü çubuğu",
+      "runModeTray": "Yalnızca menü çubuğu",
+      "runModeHideTray": "Yalnızca Dock",
+      "lightweightMode": "Pencere kapalıyken bellekten tasarruf et",
+      "lightweightModeDesc": "İndirmeler devam eder. Pencerenin yeniden açılması daha uzun sürer ve kaydedilmemiş girişler temizlenir.",
+      "notifications": "Bildirimler",
+      "notificationsDesc": "Uygulama hata uyarıları açık kalır.",
+      "downloadCompleted": "İndirme tamamlandı",
+      "downloadFailed": "İndirme başarısız oldu",
+      "description": "Başlangıç, çıkış ve bildirimler",
+      "desktopOnly": "Başlangıç ve bildirim tercihleri masaüstü uygulamasında kullanılabilir."
+    },
+    "appearance": {
+      "theme": "Tema",
+      "themeAuto": "Sistem",
+      "themeLight": "Açık",
+      "themeDark": "Koyu",
+      "language": "Dil",
+      "traySpeedometer": "Menü çubuğunda hızı göster",
+      "traySpeedometerDesc": "Uygulama simgesinin yanında indirme ve gönderme hızlarını görün.",
+      "trayIconColor": "Sistem tepsisi simgesinin rengi",
+      "trayIconColorDesc": "Sistem panelinizde belirgin görünen bir renk seçin.",
+      "trayIconColorAuto": "Uygulama temasını kullan",
+      "trayIconColorLight": "Açık simge (koyu panel)",
+      "trayIconColorDark": "Koyu simge (açık panel)",
+      "reduceMotion": "Hareketi azalt",
+      "reduceMotionDesc": "Uygulama genelinde daha az animasyon kullanın.",
+      "liquidGlassEffect": "Liquid Glass",
+      "liquidGlassEffectDesc": "İndirme araç çubuğuna yarı saydam cam efekti uygulayın.",
+      "liquidGlassEffectMacDesc": "macOS 26 ve üzeri sürümlerde pencereye de uygulanır. Bu ayar değiştiğinde pencere yeniden açılır.",
+      "runMode": "Uygulamanın gösterileceği yer",
+      "runModeStandard": "Dock ve Menü Çubuğu",
+      "runModeTray": "Yalnızca Menü Çubuğu",
+      "runModeHideTray": "Yalnızca Dock",
+      "runModeLaunch": "Motrix açıldığında",
+      "runModeStandardDesktop": "Ana Pencereyi Aç",
+      "runModeTrayDesktop": "Sistem Tepsisinde Başlat",
+      "runModeLinuxDesc": "Sistem tepsisinin kullanılabilirliği ve etkinleştirme davranışı masaüstü ortamınıza bağlıdır.",
+      "lightweightMode": "Hafif mod",
+      "lightweightModeDesc": "Pencere kapalıyken bellekten tasarruf edin. İndirmeler devam eder ancak pencerenin yeniden açılması daha uzun sürer ve kaydedilmemiş girişler temizlenir.",
+      "byteUnitSystem": "Boyut ve hız birimleri",
+      "byteUnitSystemDesc": "Dosya boyutlarının ve hızların nasıl gösterileceğini seçin.",
+      "byteUnitDecimal": "Ondalık (MB, GB · 1000)",
+      "byteUnitBinary": "İkili (MiB, GiB · 1024)",
+      "byteUnitSystemDefault": "Sistemi kullan ({{units}})",
+      "sidebarColor": "Vurgu rengi",
+      "sidebarColors": {
+        "blue": "Mavi",
+        "violet": "Mor",
+        "pink": "Pembe",
+        "orange": "Turuncu",
+        "gold": "Altın",
+        "green": "Yeşil",
+        "cyan": "Camgöbeği",
+        "gray": "Gri",
+        "auto": "Otomatik"
+      },
+      "themeAndEffects": "Tema ve efektler",
+      "languageAndDisplay": "Dil ve görüntüleme",
+      "menuBar": "Menü çubuğu",
+      "description": "Tema, dil ve görüntüleme",
+      "systemTray": "Sistem tepsisi",
+      "followSystem": "Sistem dilini kullan"
+    },
+    "advanced": {
+      "rpc": {
+        "title": "RPC",
+        "port": "RPC bağlantı noktası",
+        "portDesc": "Değiştirildikten sonra yeniden başlatılması gerekir.",
+        "secret": "RPC gizli anahtarı",
+        "secretDesc": "RPC bağlantıları için gereklidir."
+      },
+      "persistence": {
+        "title": "İlerleme ve kurtarma",
+        "enable": "Kurtarma verilerini kaydet",
+        "enableDesc": "Yeniden başlatmadan sonra indirmeleri sürdürmek için kullanılan verileri saklayın.",
+        "dbPath": "Kurtarma verisi dosyası",
+        "dbPathDesc": "Varsayılan konumu kullanmak için boş bırakın.",
+        "dbPathPlaceholder": "Varsayılan konum",
+        "historyLimit": "Tamamlanan görevlerin kurtarma kayıtları",
+        "historyLimitDesc": "İndirme listesi ve indirilen dosyalar etkilenmez.",
+        "historyKeepAll": "Tüm kayıtlar",
+        "historyKeepRecent": "En son kayıtlar…",
+        "historySessionOnly": "Kayıtları saklama",
+        "historyCount": "Saklanacak kayıt sayısı",
+        "historyCountHint": "Daha eski kurtarma kayıtları kaldırılır.",
+        "historyCountPositive": "0’dan büyük bir sayı girin."
+      },
+      "description": "RPC, ilerleme ve kurtarma"
+    },
+    "about": {
+      "appIconAlt": "Motrix uygulama simgesi",
+      "version": "Sürüm {{version}}",
+      "tagline": "İçerik yok olmadan önce gerçekten önemli olanı koruyun; güzelliği koruma yörüngenize alın.",
+      "webVersionNote": "Bu web sürümü, dağıtım yöneticisi tarafından güncellenir.",
+      "update": {
+        "title": "Uygulama güncellemeleri",
+        "currentVersion": "Geçerli sürüm {{version}}",
+        "idleTitle": "Motrix’i güncel tutun",
+        "idle": "{{version}} sürümü yüklü. Şimdi denetleyin veya Motrix açıldığında denetlemesine izin verin.",
+        "unsupportedTitle": "Otomatik güncellemeler kullanılamıyor",
+        "unsupported": "Bu sürüm otomatik olarak güncellenemez. En son sürümü resmî web sitesinden indirin.",
+        "check": "Güncellemeleri denetle",
+        "checkAction": "Denetle",
+        "checking": "Denetleniyor…",
+        "checkingTitle": "Güncellemeler denetleniyor…",
+        "checkingDescription": "Motrix güncelleme hizmetine bağlanılıyor…",
+        "upToDateTitle": "Motrix güncel",
+        "upToDate": "{{version}}, kullanıma sunulan en son sürümdür.",
+        "available": "Motrix {{version}} kullanıma sunuldu.",
+        "availableTitle": "Motrix {{version}} kullanıma sunuldu",
+        "availableDescription": "Şimdi indirin; yeniden başlatıp yüklemek için uygun zamanı kendiniz seçin.",
+        "download": "Güncellemeyi indir",
+        "downloading": "İndiriliyor…",
+        "downloadingTitle": "Motrix {{version}} indiriliyor",
+        "downloadingDescription": "Bu pencereyi kapatabilirsiniz. İndirme arka planda devam edecek.",
+        "downloadedTitle": "Güncelleme yüklenmeye hazır",
+        "downloaded": "Motrix {{version}} yüklenmeye hazır.",
+        "restart": "Yeniden başlat ve yükle",
+        "cancelledTitle": "İndirme iptal edildi",
+        "cancelled": "Güncelleme indirmesi iptal edildi.",
+        "cancelledDescription": "Hazır olduğunuzda indirmeyi tekrar deneyin.",
+        "errorTitle": "Motrix güncellenemedi",
+        "errorDescription": "Bağlantınızı kontrol edip tekrar deneyin.",
+        "error": "Güncelleme başarısız oldu: {{message}}",
+        "retry": "Yeniden dene",
+        "automaticChecks": "Otomatik denetle",
+        "automaticChecksDescription": "Motrix açıldığında",
+        "automaticChecksError": "Bu ayar kaydedilemedi",
+        "channelLabel": "Güncelleme kanalı",
+        "channelDescription": "Kararlı sürümleri seçin veya beta sürümündeki yeni özellikleri deneyin.",
+        "channelStable": "Kararlı",
+        "channelBeta": "Beta",
+        "channelBetaWarning": "Beta daha az kararlı olabilir. Yeni kararlı sürümleri de alırsınız. Kararlı kanala dönmek, sürümü düşürmeden beta güncellemelerini durdurur.",
+        "channelSaveError": "Güncelleme kanalı kaydedilemedi. Tekrar deneyin."
+      },
+      "details": {
+        "author": "Yazar",
+        "createdBy": "Geliştiren",
+        "license": "Lisans",
+        "licenseValue": "{{license}} Lisansı"
+      },
+      "resources": {
+        "title": "Kaynaklar",
+        "repository": "Kaynak kodu deposu",
+        "repositoryDescription": "GitHub’da koda göz atın",
+        "manual": "Kılavuz",
+        "manualDescription": "Kullanım kılavuzunu okuyun",
+        "plugins": "Eklentiler",
+        "changelog": "Değişiklik günlüğü",
+        "website": "Resmî web sitesi",
+        "websiteDescription": "motrix.app adresini ziyaret edin",
+        "acknowledgments": "Teşekkürler",
+        "acknowledgmentsDescription": "motrix.app adresinde projeye katkıda bulunanları görün"
+      }
+    },
+    "bittorrent": {
+      "trackers": {
+        "autoSync": "İzleyici listesini otomatik güncelle",
+        "autoSyncDesc": "Kaynaklarınızı kullanarak listeyi güncel tutun.",
+        "syncInterval": "Güncelleme aralığı (saat)",
+        "syncIntervalDesc": "1 ile 168 saat arasında.",
+        "enableProbe": "İzleyicilerin kullanılabilirliğini kontrol et",
+        "enableProbeDesc": "İzleyicileri indirmelerde kullanmadan önce test edin.",
+        "probeTimeout": "Kontrol zaman aşımı (ms)",
+        "probeTimeoutDesc": "Yanıt için en fazla bu süre kadar bekleyin. 1.000–30.000 ms.",
+        "healthyThreshold": "Yavaş yanıt eşiği (ms)",
+        "healthyThresholdDesc": "Daha uzun süren yanıtlar yavaş olarak işaretlenir. 500–10.000 ms.",
+        "minSuccessRate": "En düşük başarı oranı",
+        "minSuccessRateDesc": "En az bu başarı oranına sahip izleyicileri kullanın. 0.5 = %50.",
+        "maxTrackerCount": "Görev başına izleyici",
+        "maxTrackerCountDesc": "En fazla bu sayıda izleyici kullanın. 5–200.",
+        "title": "İzleyiciler",
+        "manageSourcesHint": "Kaynakları İzleyiciler sayfasından yönetin.",
+        "blacklistMovedInfo": "Engellenen izleyicileri İzleyiciler → Engellenenler bölümünden yönetin."
+      },
+      "geoip": {
+        "title": "Eş konumları",
+        "enable": "Ülke veya bölgeyi göster",
+        "enableDesc": "Eş listesinde konumları gösterin. Gerektiğinde konum verilerini indirir.",
+        "lastUpdated": "Son güncelleme",
+        "neverUpdated": "Hiçbir zaman",
+        "updateNow": "Şimdi güncelle",
+        "updating": "Güncelleniyor…",
+        "source": "Konum verisi kaynağı",
+        "sourceDesc": "Konum verilerinin indirileceği kaynağı seçin.",
+        "source.loyalsoldier": "Loyalsoldier (topluluk)",
+        "source.p3terx": "P3TERX (topluluk yansısı)",
+        "source.maxmind": "MaxMind (resmî)",
+        "source.custom": "Özel URL",
+        "maxmindUnsupported": "Henüz desteklenmiyor",
+        "customUrl": "Özel indirme URL’si",
+        "customUrlPlaceholder": "https://example.com/GeoLite2-Country.mmdb",
+        "autoUpdate": "Otomatik güncelle",
+        "autoUpdateDesc": "Yeni konum verilerini yaklaşık haftada bir kontrol edin.",
+        "status.loaded": "Hazır",
+        "status.notDownloaded": "Konum verileri indirilmedi",
+        "status.downloading": "İndiriliyor…",
+        "status.error": "Güncelleme başarısız oldu",
+        "customUrlDesc": ".mmdb biçiminde bir ülke veri tabanının bağlantısı.",
+        "saveBeforeUpdate": "Konum verilerini güncellemeden önce değişiklikleri kaydedin.",
+        "updateFailed": "Konum verileri güncellenemedi. Tekrar deneyin."
+      },
+      "listen": {
+        "title": "Gelen bağlantılar",
+        "listenPort": "BT dinleme bağlantı noktası",
+        "listenPortDesc": "Gelen eş bağlantılarını bu bağlantı noktasında kabul edin.",
+        "dhtListenPort": "DHT dinleme bağlantı noktası",
+        "dhtListenPortDesc": "Bu bağlantı noktasında DHT aracılığıyla eşleri bulun.",
+        "dhtEnabled": "DHT’yi etkinleştir",
+        "dhtEnabledDesc": "Bir izleyiciye bağlı kalmadan eşleri bulun."
+      },
+      "peers": {
+        "title": "Eşler",
+        "btMaxPeers": "Torrent başına en fazla eş",
+        "btMaxPeersDesc": "Bir görevin aynı anda bağlanabileceği en fazla eş sayısı.",
+        "btEnableLpd": "Yerel eş keşfi",
+        "btEnableLpdDesc": "Yerel ağınızda dosya paylaşan eşleri bulun.",
+        "magnetFileSelection": "İndirmeden önce dosyaları seç",
+        "magnetFileSelectionDesc": "Magnet bağlantısı yüklendikten sonra dosya seçimini gösterin.",
+        "magnetFileSelectionAutoDownload": "Seçim yapılmazsa tümünü indir",
+        "magnetFileSelectionAutoDownloadDesc": "Uygulama penceresi veya tarayıcı kapalı olsa bile aşağıdaki sürenin sonunda başlar.",
+        "magnetFileSelectionTimeoutSeconds": "Dosya seçme süresi (sn)",
+        "magnetFileSelectionTimeoutSecondsDesc": "Dosya listesi hazır olduğunda başlar. Değişiklikler hâlihazırda bekleyen görevlere de uygulanır.",
+        "magnetFileSelectionTimeoutInvalid": "{{min}} ile {{max}} saniye arasında bir tam sayı girin."
+      },
+      "seeding": {
+        "title": "Paylaşım",
+        "seedRatio": "Paylaşım oranı sınırı",
+        "seedRatioDesc": "Gönderilen ÷ indirilen. Bu orana ulaşıldığında paylaşım durur. 0 = sınırsız.",
+        "seedTime": "Paylaşım süresi sınırı (dakika)",
+        "seedTimeDesc": "0 = sınırsız. Yeni görevlere ve paylaşım yeniden başlatıldığında uygulanır."
+      },
+      "newMagnetTasks": "Yeni magnet görevleri",
+      "description": "Magnet bağlantıları, paylaşım ve izleyiciler"
+    },
+    "downloads": {
+      "performance": {
+        "title": "Performans",
+        "profile": "İndirme performansı",
+        "profileDesc": "İndirme hızı ile kaynak kullanımını dengeleyin.",
+        "learnMore": "Daha fazla bilgi",
+        "metrics": {
+          "connections": "En fazla bağlantı",
+          "perServer": "Sunucu başına sınır",
+          "minimum": "En küçük bölüm",
+          "cache": "Disk önbelleği"
+        },
+        "customParameters": "Özel performans parametreleri",
+        "profiles": {
+          "auto": {
+            "label": "Otomatik",
+            "desc": "Sürücünüze ve dosya boyutuna göre ayarlanır. Aşağıdaki değerler varsayılanlardır."
+          },
+          "balanced": {
+            "label": "Dengeli",
+            "desc": "Günlük indirmelerde daha az kaynak kullanır."
+          },
+          "high": {
+            "label": "Yüksek hız",
+            "desc": "Daha hızlı indirmeler için daha fazla bağlantı kullanır."
+          },
+          "maximum": {
+            "label": "En yüksek",
+            "desc": "Daha fazla bağlantı kullanır. Bazı sunucular bunları sınırlayabilir."
+          },
+          "custom": {
+            "label": "Özel",
+            "desc": "Bağlantıları, bölüm boyutunu ve önbelleği ayarlayın."
+          }
+        },
+        "maxConcurrentDownloads": "Eşzamanlı indirmeler",
+        "maxConcurrentDownloadsDesc": "Ek görevler kuyrukta bekler.",
+        "maxConnectionPerServer": "Sunucu başına en fazla bağlantı",
+        "maxConnectionPerServerDesc": "Bir sunucu için dosya başına bağlantı sınırı.",
+        "split": "Dosya başına en fazla bağlantı",
+        "splitDesc": "Bir dosyayı indirmek için kullanılan bağlantılar.",
+        "minSplitSize": "En küçük bölüm boyutu (MiB)",
+        "minSplitSizeDesc": "Bu boyutun 2 katından küçük bölümler bölünmez."
+      },
+      "reliability": {
+        "title": "Bağlantılar ve yeniden denemeler",
+        "userAgent": "User-Agent",
+        "userAgentDesc": "Uygulamayı web sitelerine tanıtır. Bir site farklı bir değer gerektiriyorsa değiştirin.",
+        "connectTimeout": "Bağlantı zaman aşımı (sn)",
+        "connectTimeoutDesc": "Bağlantı kurulması için beklenecek süre.",
+        "socketTimeout": "Veri gelmediğinde zaman aşımı (sn)",
+        "socketTimeoutDesc": "Veri gelmediğinde beklenecek süre.",
+        "maxTries": "En fazla deneme",
+        "maxTriesDesc": "İlk deneme dahildir. 0 = sınırsız.",
+        "retryWait": "Yeniden deneme gecikmesi (sn)",
+        "retryWaitDesc": "Yeniden denemeden önce bu süre kadar bekleyin.",
+        "lowestSpeedLimit": "En düşük bağlantı hızı (KiB/s)",
+        "lowestSpeedLimitDesc": "Hız bu değerin altına düşerse bağlantıyı kesin. 0 = devre dışı."
+      },
+      "disk": {
+        "title": "Disk ve dosyalar",
+        "fileDeletionMode": "Görev dosyaları silinirken",
+        "fileDeletionTrash": "Çöp kutusuna taşı",
+        "fileDeletionPermanent": "Kalıcı olarak sil",
+        "fileDeletionTrashDesc": "Çöp kutusunu boşalttığınızda alan açılır.",
+        "fileDeletionPermanentDesc": "Silinen dosyalar çöp kutusundan geri yüklenemez.",
+        "fileAllocation": "Disk alanı ayır",
+        "fileAllocationDesc": "Bir dosyayı indirmeden önce alan ayırın.",
+        "fileAllocationNone": "Alan ayırma",
+        "fileAllocationPrealloc": "Önceden ayır",
+        "fileAllocationTrunc": "Dosya boyutunu ayarla",
+        "fileAllocationFalloc": "Sistem ile ayır",
+        "modifiedTime": "Dosya değiştirilme zamanı",
+        "modifiedTimeDesc": "Tamamlanan HTTP ve FTP indirmeleri için.",
+        "modifiedTimeLocal": "İndirme zamanı",
+        "modifiedTimeServer": "Sunucudan alınan zaman",
+        "diskCache": "Disk önbelleği (MiB)",
+        "diskCacheDesc": "Dosyaları diske yazmadan önce arabellekte tutmak için kullanılan bellek.",
+        "sessionSaveInterval": "İlerleme kaydetme aralığı (sn)",
+        "sessionSaveIntervalDesc": "Çökme sonrasında kaybolan ilerlemeyi azaltmak için daha sık kaydedin."
+      },
+      "magnet": {
+        "title": "Magnet",
+        "magnetResolveTimeout": "Magnet yükleme zaman aşımı (sn)",
+        "magnetResolveTimeoutDesc": "Dosya listesi için beklenecek süre."
+      },
+      "speedLimit": {
+        "title": "Hız sınırları",
+        "titleDesc": "Motrix’in Standart, Düşük hız ve Otomatik modlarında bağlantınızı nasıl kullanacağını seçin.",
+        "modeSection": "Hız modu",
+        "modeSectionDesc": "Motrix’in bağlantınızı nasıl kullanacağını seçin.",
+        "turtle": "Hız modu",
+        "turtleDesc_off": "Standart hız sınırlarını kullanın.",
+        "turtleDesc_on": "Diğer uygulamalara yer bırakmak için şimdi düşük hız sınırlarını kullanın.",
+        "turtleDesc_auto": "Hızı zamana ve bağlantı bant genişliğine göre otomatik ayarlayın.",
+        "turtle_off": "Standart",
+        "turtle_on": "Düşük hız",
+        "turtle_auto": "Otomatik",
+        "baseSection": "Standart sınırlar",
+        "baseSectionDesc": "Günlük indirmelerde kullanılır ve her modda geçerlidir.",
+        "baseDownload": "İndirme",
+        "baseDownloadDesc": "Günlük kullanım için en yüksek indirme hızı.",
+        "baseUpload": "Gönderme",
+        "baseUploadDesc": "Günlük kullanım için en yüksek gönderme hızı.",
+        "unlimited": "Sınırsız",
+        "setUnlimited": "Sınırsız yap",
+        "standardLimit": "Standart sınırı kullan",
+        "useStandardLimit": "Standart sınırı kullan",
+        "altSection": "Düşük hız sınırları",
+        "altSectionDesc": "Düşük hız modunda veya zamanlanmış kurallarla kullanılır. Bu sınırlar standart sınırları yalnızca düşürebilir.",
+        "altDownload": "İndirme",
+        "altDownloadDesc": "Düşük hız modu etkinken en yüksek indirme hızı.",
+        "altUpload": "Gönderme",
+        "altUploadDesc": "Düşük hız modu etkinken en yüksek gönderme hızı.",
+        "autoSection": "Otomatik kurallar",
+        "autoSectionDesc": "Bu kurallar yalnızca Otomatik modda uygulanır.",
+        "autoSchedule": "Zamanlanmış yavaşlatma",
+        "scheduleEnabled": "Düşük hızı zamanla",
+        "scheduleEnabledDesc": "Seçilen gün ve saatlerde düşük hız sınırlarına geçin.",
+        "scheduleFrom": "Başlangıç",
+        "scheduleTo": "Bitiş",
+        "scheduleTimeFormat": "24 saat biçimi (HH:mm)",
+        "scheduleDays": "Günler",
+        "scheduleDaysHint": "Bitiş saati başlangıçtan önceyse plan ertesi güne devam eder.",
+        "weekdays": {
+          "sun": {
+            "short": "Paz",
+            "long": "Pazar"
+          },
+          "mon": {
+            "short": "Pzt",
+            "long": "Pazartesi"
+          },
+          "tue": {
+            "short": "Sal",
+            "long": "Salı"
+          },
+          "wed": {
+            "short": "Çar",
+            "long": "Çarşamba"
+          },
+          "thu": {
+            "short": "Per",
+            "long": "Perşembe"
+          },
+          "fri": {
+            "short": "Cum",
+            "long": "Cuma"
+          },
+          "sat": {
+            "short": "Cmt",
+            "long": "Cumartesi"
+          }
+        },
+        "autoAdaptive": "Diğer uygulamalar için bant genişliği bırak",
+        "adaptiveEnabled": "Diğer uygulamalar için bant genişliği ayır",
+        "adaptiveEnabledDesc": "Sınırı hesaplamak için bağlantı hızlarınızı aşağıya girin.",
+        "linkDown": "Bağlantının indirme hızı",
+        "linkDownDesc": "İnternet bağlantınızın ulaşabileceği indirme hızı.",
+        "linkUp": "Bağlantının gönderme hızı",
+        "linkUpDesc": "İnternet bağlantınızın ulaşabileceği gönderme hızı.",
+        "fillFromPeak": "Bağlantı hızını tahmin et",
+        "fillFromPeakHint": "Son indirme ve göndermelerdeki en yüksek hızlara göre hesaplanır.",
+        "estimateEmpty": "Henüz hız geçmişi yok. Hız sınırı olmayan bir indirmeyi tamamlayın veya bant genişliğini elle girin.",
+        "estimateSuccess": "Bağlantı bant genişliği son hızlara göre dolduruldu.",
+        "estimateError": "Son hız geçmişi okunamadı. Bant genişliğini elle girin.",
+        "headroomPercent": "Diğer uygulamalara ayrılan pay",
+        "headroomPercentDesc": "Şu anda %{{reserved}} ayrılıyor; Motrix en fazla %{{motrix}} kullanabilir.",
+        "effect": {
+          "title": "Güncel etki",
+          "standard": "Standart sınırlar kullanılıyor: indirme {{download}}, gönderme {{upload}}.",
+          "lowSpeed": "Şu anda düşük hız sınırları kullanılıyor: indirme {{download}}, gönderme {{upload}}.",
+          "noAutoRules": "Etkin otomatik kural yok. Şu anda Standart mod gibi çalışır.",
+          "standardValues": "Standart sınırlar: indirme {{download}}, gönderme {{upload}}.",
+          "scheduleRule": "{{from}} saatinden{{nextDay}} {{to}} saatine kadar düşük hız sınırlarını kullanır",
+          "nextDay": " ertesi gün",
+          "adaptiveRule": "diğer uygulamalar için %{{reserved}} bant genişliği ayırır",
+          "adaptiveRulePending": "bağlantı bant genişliği girildikten sonra diğer uygulamalar için %{{reserved}} bant genişliği ayırır",
+          "ruleSeparator": " ve ",
+          "autoRules": "Motrix {{rules}}.",
+          "lowerWins": "Etkin sınırların en düşüğü uygulanır."
+        },
+        "bandwidthUsed": "Motrix en fazla %{{motrix}} kullanabilir.",
+        "bandwidthPending": "Bu sınırı uygulamak için her iki bağlantı hızını da girin."
+      },
+      "newTasks": "Yeni görevler",
+      "defaultDownloadFolder": "Varsayılan indirme klasörü",
+      "autofillFromClipboard": "Panodaki bağlantıları otomatik doldur",
+      "fillInLinksWhenOpeningNewTask": "Yeni görev açılırken kopyalanan bağlantılar otomatik olarak yapıştırılır.",
+      "saveFolders": "Kayıt klasörleri",
+      "description": "Dosyalar, indirme hızı ve bağlantılar"
+    },
+    "network": {
+      "dns": {
+        "title": "DNS",
+        "mode": "DNS çözümleme",
+        "modeDesc": "İndirmelerde sunucu adreslerinin nasıl çözümleneceği.",
+        "modeAuto": "Otomatik",
+        "modeSystem": "Sistem DNS’i",
+        "modeEngine": "Yerleşik DNS"
+      },
+      "proxy": {
+        "title": "Vekil sunucu",
+        "enable": "Vekil sunucuyu etkinleştir",
+        "enableDesc": "Aşağıda seçilen bağlantılarda vekil sunucu kullanın.",
+        "server": "Sunucu",
+        "protocol": "Protokol",
+        "host": "Sunucu adresi",
+        "hostPlaceholder": "proxy.example.com",
+        "port": "Bağlantı noktası",
+        "auth": "Vekil sunucu oturumu",
+        "authDesc": "Vekil sunucunuz kullanıcı adı ve parola gerektiriyorsa açın.",
+        "user": "Kullanıcı adı",
+        "password": "Parola",
+        "showPassword": "Parolayı göster",
+        "hidePassword": "Parolayı gizle",
+        "bypass": "Doğrudan bağlanılacak adresler",
+        "bypassDesc": "Her satıra bir alan adı, IP veya CIDR girin. Yalnızca alt alan adlarını eşleştirmek için . ile başlayın. Dosya indirmeleri * joker karakterini desteklemez.",
+        "bypassScopeNote": "Yalnızca dosya indirmeleri ve uygulama güncellemeleri",
+        "scopes": "Vekil sunucunun kullanılacağı işlemler",
+        "scopesDesc": "Vekil sunucudan geçecek trafik türlerini seçin.",
+        "scopeDownload": "Dosya indirmeleri",
+        "scopeDownloadDesc": "BT için yalnızca HTTP(S) vekil sunucuyu kullanır. Eşler, DHT ve UDP izleyicileri doğrudan bağlanır.",
+        "scopeUpdateApp": "Uygulama güncellemeleri",
+        "scopeUpdateAppDesc": "Motrix güncellemelerini vekil sunucu üzerinden denetleyin.",
+        "scopeUpdateTrackers": "İzleyici listesi güncellemeleri",
+        "scopeUpdateTrackersDesc": "İzleyici listelerini vekil sunucu üzerinden indirin; BT trafiği etkilenmez.",
+        "importFromSystem": "Sistemden içe aktar",
+        "importedToast": "Sistem vekil sunucusu içe aktarıldı: {{host}}:{{port}}",
+        "noSystemProxy": "Sistem vekil sunucusu yapılandırılmamış.",
+        "bypassPlaceholder": "localhost\n127.0.0.1\n.local",
+        "scopeHint": "BT eşleri, DHT ve UDP izleyicileri doğrudan bağlanır.",
+        "scopeNone": "Hiçbiri seçilmedi",
+        "scopeChoose": "Seç…",
+        "scopeSeparator": ", "
+      },
+      "nat": {
+        "title": "Bağlantı noktası eşlemesi (NAT)",
+        "enable": "Bağlantı noktası eşlemesini etkinleştir",
+        "enableDesc": "Yönlendiriciden BitTorrent ayarlarında belirtilen bağlantı noktalarını açmasını isteyin.",
+        "preferredProtocol": "Tercih edilen protokol",
+        "mappingTtl": "Eşleme süresi (sn)",
+        "btPortHint": "Eşleme, BitTorrent’te yapılandırılan BT/DHT bağlantı noktalarına uygulanır.",
+        "automatic": "Otomatik"
+      },
+      "stun": {
+        "title": "NAT türü algılama",
+        "privacyHint": "Üçüncü taraf STUN sunucularını kullanır.",
+        "enable": "NAT türünü algıla",
+        "servers": "STUN sunucuları",
+        "empty": "En az bir STUN sunucusu ekleyin.",
+        "addServer": "STUN sunucusu ekle"
+      },
+      "reachability": {
+        "title": "Gelen bağlantı noktası kontrolü",
+        "privacyHint": "İnternetten erişimi kontrol etmek için üçüncü taraf bir hizmet kullanır.",
+        "enable": "Gelen bağlantı noktalarını kontrol et",
+        "endpoints": "Kontrol hizmetleri (HTTPS)",
+        "empty": "En az bir kontrol hizmeti ekleyin.",
+        "addEndpoint": "Kontrol hizmeti ekle"
+      },
+      "diagnostic": {
+        "title": "Otomatik ağ kontrolleri",
+        "enable": "Otomatik kontroller",
+        "interval": "Kontrol aralığı (sn)",
+        "enableDesc": "Yukarıda etkinleştirilen kontrolleri tekrarlayın."
+      },
+      "description": "Vekil sunucu, DNS ve bağlantı kontrolleri",
+      "diagnostics": "Ağ tanılama"
+    },
+    "common": {
+      "browse": "Göz at…",
+      "add": "Ekle",
+      "remove": "Kaldır",
+      "preset": "Hızlı seçim:",
+      "noChange": "Kaydedilecek değişiklik yok",
+      "setAsDefault": "Varsayılan yap",
+      "openHelp": "Yardımı aç",
+      "generate": "Oluştur",
+      "changeDirectory": "Klasörü değiştir",
+      "directoryEmpty": "(klasör seçilmedi)",
+      "showSecret": "Gizli bilgiyi göster",
+      "hideSecret": "Gizli bilgiyi gizle"
+    },
+    "integration": {
+      "system": {
+        "title": "Varsayılan uygulama",
+        "protocolMagnet": "Magnet bağlantılarını Motrix ile aç",
+        "protocolMagnetDesc": "Tarayıcınızdaki magnet bağlantılarını Motrix’te açın.",
+        "torrentAssociation": ".torrent dosyalarını Motrix ile aç",
+        "torrentAssociationDesc": "Bir .torrent dosyasını Motrix’te açmak için çift tıklayın.",
+        "torrentAssociationMacDesc": "Finder’da herhangi bir .torrent dosyasına sağ tıklayın → Bilgi Ver → Şununla Aç → Motrix’i seçin → Tümünü Değiştir…",
+        "defaultAssociationsWindows": "Torrent ve magnet bağlantıları için varsayılan uygulama",
+        "defaultAssociationsWindowsDesc": "Windows ayarlarında .torrent dosyaları ve magnet bağlantıları için Motrix’i seçin. Motrix’in kurulu olması gerekir.",
+        "torrentFiles": ".torrent dosyaları",
+        "magnetLinks": "Magnet bağlantıları",
+        "associationStatusLabel": "Windows’ta geçerli varsayılan uygulama durumu",
+        "associationChecking": "Kontrol ediliyor…",
+        "associationSetupRequired": "Kurulum gerekli",
+        "associationDefault": "Varsayılan",
+        "associationNotDefault": "Varsayılan değil",
+        "associationUnavailable": "Doğrulanamadı",
+        "associationNotRegistered": "Kayıtlı değil",
+        "openWindowsSettings": "Windows ayarlarını aç",
+        "defaultAssociationsLinux": "Linux dosya ve bağlantı ilişkilendirmeleri",
+        "defaultAssociationsLinuxCheckingDesc": "Bu Linux paketi ve geçerli masaüstü ilişkilendirmeleri kontrol ediliyor…",
+        "defaultAssociationsLinuxUnavailableDesc": "Bu uygulama ortamında masaüstü ilişkilendirme durumu kullanılamıyor.",
+        "defaultAssociationsLinuxDesc": "deb veya rpm paketi kuruluysa Motrix kendisini .torrent için varsayılan uygulama yapabilir. Magnet değişiklikleri bu iletişim kutusundaki ayarları uyguladığınızda geçerli olur.",
+        "defaultAssociationsLinuxAppImageDesc": "Bu AppImage’i güvenle kaydetmek veya kaydını kaldırmak için aşağıdaki Masaüstü entegrasyonu bölümünü kullanın. Motrix, masaüstü kaydını silmeden önce doğrulanmış önceki uygulama ilişkilendirmelerini geri yükler.",
+        "defaultAssociationsLinuxSandboxDesc": "Bu paket Motrix’i dosya ve bağlantıları açabilecek bir uygulama olarak kaydeder ancak varsayılan uygulamayı masaüstü ortamınız seçer. Paket kaldırıldığında önceki varsayılan otomatik olarak geri yüklenmeyebilir.",
+        "associationStatusLabelLinux": "Linux’ta geçerli dosya ve bağlantı ilişkilendirme durumu",
+        "linuxPackageDetected": "Paket: {{package}}",
+        "linuxPackage": {
+          "appimage": "AppImage",
+          "native": "deb / rpm",
+          "flatpak": "Flatpak",
+          "snap": "Snap",
+          "unknown": "Bilinmeyen paket"
+        },
+        "protocolMagnetAppImageDesc": "Masaüstü entegrasyonu etkinken kaydettikten hemen sonra uygulanır.",
+        "protocolMagnetSandboxDesc": "Kaydettiğinizde Motrix değişikliği isteyecek ancak korumalı alan veya masaüstü ortamı varsayılan uygulamayı elle seçmenizi gerektirebilir.",
+        "protocolMagnetApplyFailed": "Tercih kaydedildi ancak masaüstü ilişkilendirmesi değiştirilemedi. Sistem ayarlarınızdan varsayılan uygulamayı seçin.",
+        "setTorrentDefaultLinux": ".torrent için varsayılan yap",
+        "repairLinuxAssociations": "İlişkilendirmeleri onar",
+        "viewLinuxInstructions": "Kurulum adımlarını göster",
+        "linuxActionSet": "Motrix artık .torrent dosyaları için varsayılan uygulama.",
+        "linuxActionFallback": "Bu paket için otomatik kurulum kullanılamıyor. Bunun yerine kurulum yönergeleri açıldı.",
+        "linuxActionFailed": "Linux varsayılanı güncellenemedi. Masaüstü ortamınızın ayarlarını kontrol edin."
+      },
+      "browser": {
+        "title": "Tarayıcı uzantıları",
+        "masterSwitch": "Tarayıcı uzantılarını bağla",
+        "masterSwitchDesc": "Tarayıcı uzantısıyla web sayfası indirmelerini Motrix’e gönderin.",
+        "install": {
+          "chrome": "Chrome",
+          "edge": "Microsoft Edge",
+          "firefox": "Firefox",
+          "github": "GitHub",
+          "store": "Yükle",
+          "development": "Geliştirme"
+        },
+        "pairedTitle": "Bağlı uzantılar",
+        "pairedEmpty": "Henüz bağlı uzantı yok.",
+        "lastActive": "Son etkinlik",
+        "revoke": "Bağlantıyı kes",
+        "disconnecting": "Bağlantı kesiliyor…",
+        "addTrusted": {
+          "add": "Uzantı ekle",
+          "idPlaceholder": "Uzantı kimliği",
+          "labelPlaceholder": "Etiket (isteğe bağlı)",
+          "browserLabel": "Tarayıcı",
+          "chromiumEdge": "Chrome / Edge",
+          "firefox": "Firefox",
+          "cancel": "İptal",
+          "addAction": "Ekle"
+        },
+        "pairToast": {
+          "title": "Bir {{browser}} uzantısı Motrix’e bağlanmak istiyor",
+          "extensionId": "Kimlik: {{id}}",
+          "deny": "İzin verme",
+          "pairCode": "Eşleştirme kodu",
+          "copyCode": "Eşleştirme kodunu kopyala",
+          "pairCodeHint": "Bu kodu uzantıya yazın",
+          "identityLabel": {
+            "official": "Resmî Motrix uzantısı",
+            "attested": "Doğrulanmış uzantı",
+            "unverified": "Doğrulanmamış uzantı"
+          },
+          "identityUnverifiedWarning": "Bu uzantının kimliği doğrulanamadı. Yalnızca uzantıya güveniyorsanız devam edin."
+        },
+        "pairUnavailable": "Bu eşleştirme isteği artık beklemede değil. Tarayıcı uzantısından eşleştirmeyi yeniden deneyin.",
+        "trustedExtensions": "Güvenilen uzantılar",
+        "trustedSummary": "Toplam {{count}}",
+        "trustedGuidance": "Güvendiğiniz diğer uzantılar için geliştiricinin sağladığı kimliği ekleyin.",
+        "trustedEmpty": "Henüz bir şey yok.",
+        "headerId": "Uzantı kimliği",
+        "headerBrowser": "Tarayıcı",
+        "headerSource": "Kaynak",
+        "removeTrusted": "Kaldır",
+        "sourceLabel": {
+          "builtin": "Yerleşik",
+          "userAdded": "Eklenen",
+          "imported": "İçe aktarılan"
+        },
+        "degradedPort": {
+          "title": "Köprü alternatif bir bağlantı noktasında çalışıyor",
+          "description": "16802–16806 bağlantı noktaları kullanılamadığı için köprü {{port}} bağlantı noktasını kullanıyor. Tarayıcı uzantıları standart aralığı tarayarak köprüyü bulamaz. Yerel mesajlaşma ile eşleştirin veya sabit bir bağlantı noktası ayarlayın. Motrix CLI ve yerel mesajlaşma bileşeni etkilenmez."
+        },
+        "pairingStateDegraded": {
+          "title": "Uzantı erişimi geçici olarak kapalı",
+          "description": "Motrix, eşleştirilmiş uzantı kayıtlarını güvenle güncelleyemedi. Mevcut uzantı oturumları kapatıldı ve bu çalıştırmada yeni erişim engellendi. Onarımı yeniden denemek için Motrix’i yeniden başlatın; bu ileti kaybolana kadar aşağıdaki listeye güvenmeyin."
+        }
+      },
+      "cli": {
+        "title": "Komut satırı araçları",
+        "tool": {
+          "title": "Motrix komut satırı aracı",
+          "description": "Bu uygulamayı kontrol etmek için terminalde motrix komutunu çalıştırın.",
+          "managerLabel": "Paket yöneticisi",
+          "commandLabel": "Yükleme komutu",
+          "copyCommand": "Yükleme komutunu kopyala",
+          "manager": {
+            "npm": "npm",
+            "pnpm": "pnpm",
+            "yarn": "Yarn Classic",
+            "bun": "Bun",
+            "volta": "Volta"
+          },
+          "attentionTitle": "Komut satırı aracı işlem gerektiriyor",
+          "status": {
+            "checking": "Kontrol ediliyor",
+            "ready": "Yüklenmeye hazır",
+            "installing": "Yükleniyor",
+            "installed": "Yüklü",
+            "needsAttention": "İşlem gerekli",
+            "manualOnly": "Elle yükleme",
+            "error": "Başarısız"
+          },
+          "action": {
+            "checking": "Kontrol ediliyor…",
+            "install": "Yükle",
+            "installing": "Yükleniyor…",
+            "checkAgain": "Yeniden kontrol et"
+          },
+          "metadata": {
+            "version": "Sürüm",
+            "path": "Yürütülebilir dosya",
+            "manager": "Yükleyen paket yöneticisi",
+            "unknown": "bilinmiyor"
+          },
+          "successGuidance": "Yeni bir terminal açıp motrix --help komutunu çalıştırın.",
+          "diagnostics": {
+            "show": "Ayrıntıları göster",
+            "hide": "Ayrıntıları gizle"
+          },
+          "reason": {
+            "nodeMissing": "Node.js 22 veya üzeri bulunamadı. Node.js’i yükleyip yeniden kontrol edin.",
+            "nodeTooOld": "Node.js 22 veya üzeri gerekli. Algılanan sürüm: {{version}}.",
+            "managerMissing": "Desteklenen bir paket yöneticisi bulunamadı. npm, pnpm, Yarn Classic, Bun veya Volta yükleyip yeniden kontrol edin.",
+            "sandboxed": "Bu korumalı paket içinde tek tıklamayla yükleme kullanılamıyor. Komutu kopyalayıp terminalde çalıştırın.",
+            "unsupportedWeb": "Tek tıklamayla yükleme yalnızca masaüstü uygulamasında kullanılabilir. Komutu kopyalayıp Motrix’in çalıştığı makinede çalıştırın.",
+            "permission": "Paket yöneticisi genel yükleme konumuna yazamıyor. Node.js sürüm yöneticisi veya kullanıcının yazabildiği bir yükleme konumu kullanın; sudo kullanmayın.",
+            "network": "Paket yöneticisi paket deposuna ulaşamadı. Ağınızı veya depo yapılandırmanızı kontrol edip tekrar deneyin.",
+            "timeout": "Yükleme çok uzun sürdüğü için durduruldu. Ağınızı kontrol edip tekrar deneyin.",
+            "pathMissing": "Paket yüklendi ancak motrix, PATH üzerinde bulunmuyor. Yeni bir terminal açın veya bildirilen yükleme klasörünü PATH değişkenine ekleyin.",
+            "pathShadowed": "PATH üzerinde başka bir motrix yürütülebilir dosyası daha önce geliyor. Eski kaydı kaldırın veya PATH değişkenini düzeltip yeniden kontrol edin.",
+            "verifyFailed": "Yükleyici tamamlandı ancak Motrix etkin motrix yürütülebilir dosyasını doğrulayamadı.",
+            "installFailed": "Paket yöneticisi @motrix/cli paketini yükleyemedi. Ayrıntıları inceleyip tekrar deneyin veya komutu elle çalıştırın.",
+            "unknown": "Motrix komut satırı aracını kontrol edemedi. Tekrar deneyin veya kopyalanan komutu elle çalıştırın."
+          }
+        },
+        "remote": {
+          "title": "Eşleştirilmiş uzak araçlar",
+          "description": "Yerel araçlar otomatik bağlanır. Başka bir bilgisayara veya sunucuya bağlanmak için motrix pair komutunu çalıştırın.",
+          "empty": "Eşleştirilmiş uzak araç yok.",
+          "lastActive": "Son etkinlik",
+          "neverActive": "Hiç kullanılmadı",
+          "revoke": "Erişimi iptal et"
+        },
+        "pairToast": {
+          "title": "{{name}}, Motrix ile eşleşmek istiyor",
+          "code": "Doğrulama kodu: {{code}}",
+          "allow": "İzin ver",
+          "deny": "İzin verme"
+        },
+        "inbox": {
+          "title": "Bekleyen onaylar",
+          "empty": "Bekleyen uzak eşleştirme isteği yok.",
+          "approve": "Onayla",
+          "deny": "Reddet",
+          "expiresIn": "{{time}} sonra süresi dolacak"
+        },
+        "pairUnavailable": "Bu eşleştirme isteği artık beklemede değil. motrix pair komutunu yeniden çalıştırın."
+      },
+      "media": {
+        "title": "Medya araçları",
+        "desc": "FFmpeg ile medyayı birleştirin veya dönüştürün.",
+        "notDetected": "FFmpeg algılanmadı",
+        "refresh": "Yenile",
+        "binaryPath": "Özel FFmpeg yolu",
+        "browse": "Göz at…",
+        "download": {
+          "action": "FFmpeg’i indir"
+        },
+        "detection": {
+          "readyTitle": "FFmpeg {{version}}",
+          "unavailableTitle": "FFmpeg kullanılamıyor",
+          "untrustedTitle": "FFmpeg macOS tarafından engellendi",
+          "usingSource": "Kullanılan kaynak: {{source}}",
+          "unavailableDesc": "Özel bir yol ayarlayın, FFmpeg’i yükleyin veya PATH değişkenine ekleyin; ardından yenileyin.",
+          "untrustedDesc": "Dosya mevcut ancak macOS güvenlik doğrulamasından geçemedi. Güvenilir bir sürüm yükleyin veya Gizlilik ve Güvenlik bölümünde onaylayın, ardından yenileyin.",
+          "showDetails": "Algılama ayrıntılarını göster",
+          "hideDetails": "Algılama ayrıntılarını gizle",
+          "sourcesChecked_one": "{{count}} kaynak kontrol edildi",
+          "sourcesChecked_other": "{{count}} kaynak kontrol edildi",
+          "source": "Kaynak",
+          "location": "Kontrol edilen konum",
+          "result": "Sonuç",
+          "copyManagedPath": "Motrix FFmpeg yolunu kopyala",
+          "editCustomPath": "Özel FFmpeg yolunu düzenle",
+          "finishEditingCustomPath": "Özel FFmpeg yolunu düzenlemeyi bitir",
+          "notConfigured": "Ayarlanmadı"
+        },
+        "candidateKind": {
+          "manual": "Özel yol",
+          "userData": "Motrix veri klasörü",
+          "env": "MOTRIX_FFMPEG_BIN",
+          "path": "Sistem PATH değişkeni"
+        },
+        "state": {
+          "active": "Kullanımda",
+          "available": "Bulundu",
+          "missing": "Bulunamadı",
+          "untrusted": "macOS tarafından engellendi",
+          "unconfigured": "Ayarlanmadı",
+          "version_mismatch": "Desteklenmiyor"
+        },
+        "stagingMB": "Geçici dosya sınırı (MB)",
+        "stagingMBDesc": "Eklenti ve görev başına ara dosyalar için ayrılan alan.",
+        "opTimeoutSec": "FFmpeg zaman aşımı (saniye)",
+        "opTimeoutSecDesc": "Tek bir medya işlemi için en uzun süre, en fazla 3.600 saniye.",
+        "cleanupStaging": "Geçici dosyaları temizle",
+        "cleanupConfirm": "Tüm FFmpeg geçici klasörleri silinsin mi?",
+        "restartHint": "Kaydedildi. Etkin eklentilerin değişiklikleri algılaması için Motrix’i yeniden başlatın.",
+        "restartNow": "Şimdi yeniden başlat",
+        "validation": {
+          "fileMissing": "Bu yolda dosya yok."
+        },
+        "applyHint": "Yeni medya indirmelerinde bu yolu kullanmak için kaydedin. Destek durumunu yenilemek için tarayıcı uzantısında yeniden tarayın.",
+        "savedTitle": "FFmpeg ayarları kaydedildi",
+        "desktopSavedHint": "Yeni medya indirmeleri kaydedilen yolu kullanır. Etkin eklentilerin değişikliği algılaması için Motrix’i yeniden başlatın.",
+        "pipelineUnavailable": "Medya indirme desteği kullanılamıyor.",
+        "ffmpegRequired": "Bu indirme FFmpeg gerektirir. Ayarlar → Entegrasyon → Medya araçları bölümünden yapılandırın, kaydedin ve tekrar deneyin."
+      },
+      "pairResolveFailed": "Kararınız gönderilemedi. Tekrar deneyin.",
+      "appimage": {
+        "title": "Masaüstü entegrasyonu",
+        "desc": "Tarayıcıların ve magnet bağlantılarının indirmeleri bu Motrix AppImage’e gönderebilmesi için onu masaüstünüze kaydedin.",
+        "enable": "Masaüstü entegrasyonunu etkinleştir",
+        "remove": "Masaüstü entegrasyonunu kaldır",
+        "prompt": {
+          "title": "Motrix masaüstünüzle entegre edilsin mi?",
+          "message": "Bu Motrix AppImage’in masaüstü ortamınıza kaydolmasına izin verilsin mi?",
+          "detail": "Motrix, kullanıcı veri klasörünüze bir masaüstü kaydı ve simge ekler; motrix: bağlantılarını, magnet bağlantılarını ve .torrent dosyalarını açabilecek bir uygulama olarak kaydolur. Böylece tarayıcınız ve Motrix uzantısı Motrix’i başlatıp indirmeleri ona gönderebilir. Ev klasörünüzün dışına hiçbir şey yazılmaz ve bu işlemi Ayarlar’dan geri alabilirsiniz.",
+          "accept": "Entegre et",
+          "decline": "Şimdi değil"
+        },
+        "status": {
+          "healthy": "Bu masaüstüyle entegre edildi.",
+          "notIntegrated": "Bu masaüstüyle entegre edilmedi.",
+          "failedTitle": "Masaüstü entegrasyonu tamamlanmadı",
+          "failedDetail": "Motrix, kendi bağlantılarını açacak uygulama olarak kaydolamadı. Masaüstü entegrasyonunu yeniden etkinleştirene kadar tarayıcıdan aktarım çalışmayabilir.",
+          "removeBlockedDetail": "Motrix, doğrulanmış önceki uygulama ilişkilendirmesini güvenle geri yükleyemedi. Bozuk bir varsayılan bırakmamak için kendi masaüstü kaydını korudu. Masaüstü ayarlarınızdan başka bir varsayılan uygulama seçip entegrasyonu kaldırmayı yeniden deneyin.",
+          "externalManaged": "Masaüstü entegrasyonu başka bir Motrix kurulumu tarafından sağlanıyor."
+        },
+        "movedHint": "Motrix kapalıyken AppImage’i taşırsanız yeni konumundan Motrix’i bir kez başlatana kadar bağlantılar uygulamayı açamayabilir."
+      },
+      "appimageHost": {
+        "title": "AppImage’i tarayıcıdan başlatma",
+        "desc": "Bağlan’a tıkladığınızda uzantının bu AppImage’i açmasına izin verin. Kullanmak için tarayıcı entegrasyonunu etkinleştirin.",
+        "enable": "Tarayıcıdan başlatmayı etkinleştir",
+        "repair": "Onar",
+        "useCurrent": "Bu AppImage’i kullan",
+        "remove": "Tarayıcıdan başlatmayı kaldır",
+        "copyDiagnostics": "Tanılamayı kopyala",
+        "status": {
+          "ready": "Yerel kurulum kontrolleri geçti. Doğrulamak için tarayıcınızdan bağlanın.",
+          "disabled": "Tarayıcıdan başlatma devre dışı.",
+          "conflict": "Bu dosyalar başka bir kuruluma ait. Önce o kurulumun tarayıcı entegrasyonunu kaldırın.",
+          "permissions": "Dosyaların çalıştırılabilir olduğunu ve yalnızca hesabınız tarafından yazılabildiğini kontrol edin.",
+          "invalid": "Kurulum kaydı veya yürütülebilir dosya geçersiz.",
+          "sourceChanged": "AppImage değişti. Kullanmak istediğiniz sürümü çalıştırıp kurulumu onarın.",
+          "missing": "Gerekli bir dosya eksik. AppImage’i geçerli konumundan çalıştırıp onarın.",
+          "io": "İşlem başarısız oldu. Disk erişimini kontrol edip Onar’ı deneyin."
+        }
+      },
+      "description": "Tarayıcılar, varsayılan uygulamalar ve araçlar"
+    },
+    "validation": {
+      "rangeHint": "Aralık: {{min}}–{{max}}.",
+      "range": "{{min}} ile {{max}} arasında bir sayı girin.",
+      "integerRange": "{{min}} ile {{max}} arasında bir tam sayı girin.",
+      "minimum": "{{min}} veya daha büyük bir değer girin.",
+      "maximum": "{{max}} veya daha küçük bir değer girin.",
+      "integer": "Bir tam sayı girin.",
+      "wholeBytes": "Daha az ondalık basamak kullanın.",
+      "number": "Geçerli bir sayı girin.",
+      "invalid": "Geçerli bir değer girin.",
+      "selection": "Kullanılabilir bir seçenek seçin.",
+      "textLength": "En fazla {{max}} karakter kullanın.",
+      "itemCount": "En fazla {{max}} adres kullanın.",
+      "text": "Satır sonlarını veya gizli kontrol karakterlerini kaldırın.",
+      "directory": "Bir indirme klasörü seçin.",
+      "proxyHost": "http:// veya bağlantı noktası eklemeden bir sunucu adı ya da IP adresi girin.",
+      "stunServer": "stun.example.com:3478 gibi host:port biçimini kullanın. Bağlantı noktası 1–65535 arasında olmalıdır.",
+      "httpsUrl": "https:// ile başlayan tam bir adres girin.",
+      "httpUrl": "http:// veya https:// ile başlayan tam bir adres girin.",
+      "saveFailed": "Değişiklikleriniz kaydedilemedi. Tekrar deneyin.",
+      "address": "Adres {{number}}",
+      "addressDraft": "Yeni adres",
+      "required": "Önce bir adres girin.",
+      "time": "23:00 gibi 24 saat biçiminde bir saat kullanın.",
+      "loadFailed": "Ayarlar yüklenemedi. Tekrar deneyin."
+    },
+    "feedback": {
+      "syncFailedTitle": "Ayarlar kaydedildi; arayüz güncellenemedi",
+      "syncFailedBody": "Ayarlarınız kaydedildi. Yeniden kaydetmeden bu sayfayı güncellemek için eşzamanlamayı tekrar deneyin.",
+      "retrySync": "Eşzamanlamayı tekrar dene",
+      "applyFailedTitle": "Ayarlar kaydedildi; bazı değişiklikler uygulanamadı",
+      "applyFailedBody": "Kaydedilen yapılandırma korundu. Uygulama günlüklerini kontrol edin ve sorunu çözdükten sonra etkilenen hizmeti yeniden başlatın.",
+      "appRestartTitle": "Ayarları uygulamak için Motrix’i yeniden başlatın",
+      "appRestartBody": "Ayarlarınız kaydedildi. Uygun olduğunda Motrix’i yeniden başlatın."
+    },
+    "connection": {
+      "originMismatchTitle": "Sunucu erişim adresi eşleşmiyor.",
+      "originMismatchBody": "Gerçek zamanlı güncellemeler kullanılamıyor. Yapılandırılmış sunucu adresini kullanın veya yöneticiden adresi düzeltmesini isteyin.",
+      "disconnectedTitle": "Gerçek zamanlı güncelleme bağlantısı kesildi.",
+      "disconnectedBody": "Bazı bilgiler gecikebilir. Sorun sürerse sunucu bağlantısını ve vekil sunucu yapılandırmasını kontrol edin."
+    }
+  },
+  "errors": {
+    "task": {
+      "create": {
+        "dedupExhausted": "Bu ada sahip çok fazla dosya var (>9999).",
+        "torrentMetaFailed": "Torrent meta verileri kaydedilemedi."
+      }
+    }
+  },
+  "menu": {
+    "app": {
+      "title": "Motrix",
+      "about": "Motrix Hakkında",
+      "preferences": "Ayarlar…",
+      "checkForUpdates": "Güncellemeleri Denetle",
+      "show": "Motrix’i Göster",
+      "hide": "Motrix’i Gizle",
+      "hideOthers": "Diğerlerini Gizle",
+      "unhide": "Tümünü Göster",
+      "quit": "Motrix’ten Çık"
+    },
+    "file": {
+      "title": "Dosya"
+    },
+    "task": {
+      "title": "Görev",
+      "newTask": "Yeni Görev…",
+      "newBtTask": "Yeni BitTorrent Görevi…",
+      "openFile": "Torrent Dosyası Aç…",
+      "taskList": "Görev Listesi",
+      "pauseTask": "Duraklat",
+      "resumeTask": "Sürdür",
+      "deleteTask": "Görevleri Listeden Kaldır…",
+      "moveTaskUp": "Kuyrukta Yukarı Taşı",
+      "moveTaskDown": "Kuyrukta Aşağı Taşı",
+      "pauseAllTask": "Tümünü Duraklat",
+      "resumeAllTask": "Tümünü Sürdür",
+      "selectAllTask": "Tüm Görevleri Seç",
+      "clearRecentTasks": "Durdurulmuş Görev Kayıtlarını Temizle…"
+    },
+    "edit": {
+      "title": "Düzen",
+      "undo": "Geri Al",
+      "redo": "Yinele",
+      "cut": "Kes",
+      "copy": "Kopyala",
+      "paste": "Yapıştır",
+      "delete": "Sil",
+      "selectAll": "Tümünü Seç"
+    },
+    "window": {
+      "title": "Pencere",
+      "reload": "Yeniden Yükle",
+      "close": "Kapat",
+      "minimize": "Simge Durumuna Küçült",
+      "zoom": "Büyüt",
+      "toggleFullscreen": "Tam Ekranı Aç/Kapat",
+      "front": "Tümünü Öne Getir"
+    },
+    "help": {
+      "title": "Yardım",
+      "officialWebsite": "Motrix Web Sitesi",
+      "manual": "Motrix Yardımı",
+      "changelog": "Sürüm Notları",
+      "reportProblem": "Sorun Bildir",
+      "toggleDevTools": "Geliştirici Araçlarını Aç/Kapat"
+    }
+  },
+  "trackers": {
+    "effective": {
+      "enabled": "Seçilmiş izleyicileri ekle",
+      "enabledDesc": "Seçilmiş izleyici listesini tüm BitTorrent görevlerine ekleyin.",
+      "disabled": "Devre dışı. Kullanılan izleyici listesini görmek için açın.",
+      "empty": "Henüz kullanılan izleyici yok. Listeyi doldurmak için eşzamanlayın.",
+      "column": {
+        "url": "URL",
+        "health": "Sağlık",
+        "responseTimeMs": "Yanıt (ms)",
+        "lastProbedAt": "Son kontrol",
+        "source": "Kaynak"
+      }
+    },
+    "blacklist": {
+      "enabled": "Engelleme filtresini uygula",
+      "enabledDesc": "Şüpheli ve Hatalı izleyici sunucularına bağlantıları engelleyin.",
+      "disabled": "Devre dışı. Engellenenler listesini görmek için açın.",
+      "empty": "Engellenenler listesi boş.",
+      "summary": "{{count}} URL etkin",
+      "column": {
+        "url": "URL",
+        "source": "Kaynak"
+      }
+    },
+    "combobox": {
+      "placeholder": "Kaynak seçin",
+      "addSourcePlaceholder": "https://example.com/list.txt",
+      "addSource": "Ekle",
+      "removeSource": "Kaynağı kaldır",
+      "empty": "Eşleşen kaynak yok.",
+      "builtinBadge": "yerleşik",
+      "cdnBadge": "CDN",
+      "directBadge": "Doğrudan"
+    },
+    "sync": {
+      "syncing": "Eşzamanlanıyor…",
+      "fetching": "İzleyici listeleri alınıyor…",
+      "probing": "İzleyicilerin kullanılabilirliği kontrol ediliyor…",
+      "applying": "İzleyici listeleri uygulanıyor…",
+      "failed": "Eşzamanlama tamamlanmadı. Ağınızı veya kaynakları kontrol edip tekrar deneyin.",
+      "unavailable": "Eşzamanlama durumu okunamıyor. Bağlantınızı kontrol edip tekrar deneyin."
+    }
+  },
+  "plugins": {
+    "title": "Eklentiler",
+    "empty": "Henüz yüklü eklenti yok.",
+    "errors_one": "{{count}} hata",
+    "errors_other": "{{count}} hata",
+    "status": {
+      "active": "Etkin",
+      "inactive": "Boşta",
+      "disabled": "Devre dışı",
+      "error": "Hata"
+    },
+    "install": {
+      "title": "Eklenti ekle",
+      "github": "GitHub",
+      "github.spec": "GitHub deposu (owner/repo[@tag])",
+      "url": "URL",
+      "url.spec": "Paket URL’si (.moext)",
+      "local": "Yerel dosya",
+      "local.pick": "Bir .moext dosyası seçin",
+      "lead": "Eklenti adresi yapıştırın, bir .moext dosyası seçin veya giriş alanına bir dosya bırakın.",
+      "placeholder": "GitHub adresi veya URL yapıştırın ya da yerel bir .moext dosyası seçin",
+      "detected": {
+        "auto": "Otomatik",
+        "github": "GitHub",
+        "url": "URL",
+        "local": "Dosya"
+      },
+      "detectedRow": {
+        "ok": "{{type}} olarak algılandı",
+        "localSupported": "Yerel .moext dosyası destekleniyor"
+      },
+      "checkAriaLabel": "Bu eklentiyi kontrol et",
+      "install": "Eklentiyi yükle",
+      "pickLocal": "Yerel bir .moext dosyası seçin",
+      "localUnavailable": "Bu ortamda yerel dosyadan yükleme kullanılamıyor.",
+      "localPrepareFailed": "Bu eklenti dosyası hazırlanamadı: {{detail}}",
+      "dropHint": "Bu eklentiyi kontrol etmek için buraya bir .moext dosyası bırakın",
+      "dragDisabledHint": "Bu ortamda sürükleyip bırakma desteklenmiyor. GitHub adresi veya URL kullanın.",
+      "warning": "Yüklemeden önce: yalnızca yazara güveniyorsanız ve eklentinin yukarıda belirtilen erişimleri kullanmasını bekliyorsanız devam edin."
+    },
+    "consent": {
+      "installTitle": "{{name}} {{version}} yüklensin mi?",
+      "upgradeTitle": "{{name}}, {{version}} sürümüne yükseltilsin mi?",
+      "notVerified": "Bu eklenti doğrulanmamış. Yalnızca güvendiğiniz kaynaklardan eklenti yükleyin.",
+      "confirm": "İzin ver ve yükle",
+      "permissions": "Gerekli izinler",
+      "optionalPermissions": "İsteğe bağlı izinler",
+      "hostPermissions": "Site erişimi",
+      "invokesCommands": "Diğer eklentilerin komutlarını çağırır",
+      "calleeMissing": "Yüklü değil",
+      "source": "Kaynak: {{type}} · {{url}}",
+      "broadAccess": {
+        "title": "Geniş site erişimi",
+        "body": "Bu eklenti herhangi bir URL’den yapılan indirmeleri okuyabilir ve değiştirebilir. Yalnızca kaynağa güveniyorsanız yükleyin.",
+        "tag": "Geniş"
+      },
+      "diff": {
+        "title": "Son onaydan bu yana değişiklikler",
+        "permissions": "Eklenen izinler",
+        "optionalPermissions": "Eklenen isteğe bağlı izinler",
+        "hostPermissions": "Eklenen site erişimi",
+        "invokesCommands": "Eklentiler arası yeni komut çağrıları",
+        "publicCommands": "Yeni genel komutlar",
+        "publicCommandsSchema": "Genel komut şemaları değişti",
+        "heap": "Bellek isteği",
+        "engines": "Motrix motor sürümü",
+        "source": "Paket kaynağı"
+      }
+    },
+    "detail": {
+      "overview": "Genel bakış",
+      "settings": "Ayarlar",
+      "logs": "Günlükler",
+      "about": "Hakkında",
+      "loading": "Yükleniyor…",
+      "back": "Tüm eklentiler",
+      "author": "Yazar",
+      "homepage": "Ana sayfa",
+      "uninstall": "Kaldır",
+      "uninstallConfirm": "Bu eklenti kaldırılsın mı? Verileri de silinecek.",
+      "enabled": "Etkin",
+      "disabled": "Devre dışı",
+      "access": "Erişim",
+      "advanced": "Gelişmiş",
+      "accessGranted": "Bu eklentinin şu anda yapabildikleri",
+      "accessOptional": "İsteğe bağlı erişim",
+      "hero": {
+        "ready": "Hazır",
+        "review": "Erişimi gözden geçir",
+        "attention": "İşlem gerekli",
+        "off": "Kapalı",
+        "optional": "Daha fazla erişim isteyebilir"
+      },
+      "mini": {
+        "purpose": "Amaç",
+        "access": "Erişim",
+        "health": "Sağlık"
+      },
+      "healthOk": "Her şey yolunda",
+      "healthIssues_one": "Son bir günde {{count}} sorun bildirildi",
+      "healthIssues_other": "Son bir günde {{count}} sorun bildirildi",
+      "accessNone": "Yalnızca kendi ayarları",
+      "accessHosts_one": "{{count}} web sitesini okuyabilir",
+      "accessHosts_other": "{{count}} web sitesini okuyabilir",
+      "accessBroad": "Herhangi bir web sitesini okuyabilir",
+      "attentionTitle": "Bu eklenti bir sorun bildirdi",
+      "attentionGeneric": "Ayrıntılar için günlüklere bakın.",
+      "viewIssue": "Sorunu görüntüle",
+      "removeTitle": "Eklentiyi kaldır",
+      "removeDesc": "Bu eklentiyi kaldırmak, Motrix’te saklanan verilerini de siler.",
+      "uninstallConfirmTitle": "{{name}} kaldırılsın mı?",
+      "uninstallConfirmDesc": "Eklenti ve kaydedilmiş ayarları Motrix’ten kaldırılacak."
+    },
+    "permissions": {
+      "empty": "Bu eklenti herhangi bir izin istemiyor.",
+      "granted": "İzin verildi",
+      "denied": "Reddedildi"
+    },
+    "logs": {
+      "verbose": "Ayrıntılı mod",
+      "verboseWarning": "1 saat boyunca tam URL’leri ve üstbilgileri kaydeder. Dikkatli kullanın.",
+      "filterLabel": "Günlük düzeyi",
+      "levels": {
+        "all": "Tüm düzeyler",
+        "trace": "İzleme",
+        "debug": "Hata ayıklama",
+        "info": "Bilgi",
+        "warn": "Uyarı",
+        "error": "Hata",
+        "fatal": "Kritik"
+      },
+      "copy": "Kopyala",
+      "clear": "Temizle",
+      "output": "Canlı çıktı",
+      "entryCount_one": "{{count}} kayıt",
+      "entryCount_other": "{{count}} kayıt",
+      "empty": "Henüz günlük kaydı yok",
+      "emptyHint": "Yeni eklenti etkinliği burada otomatik olarak görünür.",
+      "emptyFiltered": "Bu düzeyle eşleşen kayıt yok."
+    },
+    "lead": "Motrix’e küçük özellikler ekleyin. Güvendiklerinizi tutun, diğerlerini kapatın.",
+    "search": "Eklenti bul",
+    "registry": {
+      "availableTitle": "Kullanılabilir eklentiler",
+      "featured": "Öne çıkanlar",
+      "byAuthor": "{{name}} tarafından",
+      "requires": "Motrix {{range}} gerektirir",
+      "notInstalled": "Yüklü değil",
+      "notFound": "“{{id}}” eklentisi katalogda bulunamadı",
+      "viewOnWebsite": "motrix.app üzerinde görüntüle",
+      "updated": "güncelleme: {{date}}",
+      "featuresTitle": "Ne yapar",
+      "permissionsTitle": "İzinler",
+      "permissionsPreviewNote": "Katalog kaydından alınan önizleme. Gerçek onay istemi her zaman eklenti paketinin içindeki bildirime dayanır.",
+      "optionalTag": "isteğe bağlı",
+      "install": "Yükle",
+      "updateAvailable": "Güncelleme var",
+      "updateTo": "v{{version}} sürümüne güncelle",
+      "refresh": "Güncellemeleri denetle",
+      "builtinUpdateTitle": "Yerleşik eklentiyi güncelle",
+      "builtinConsentLead": "Bu güncelleme yeni erişimler istiyor:",
+      "revertToBundled": "Uygulamayla gelen sürüme dön",
+      "restartRequired": "Güncelleme yüklendi. Güncellemeyi uygulamak için Motrix’i yeniden başlatın.",
+      "updateInstalled": "Güncelleme yüklendi.",
+      "actionFailed": "İşlem tamamlanamadı."
+    },
+    "searchNoMatch": "“{{query}}” ile eşleşen eklenti yok",
+    "clearSearch": "Aramayı temizle",
+    "tone": {
+      "safe": "Güvenli görünüyor",
+      "review": "İnceleme gerekli",
+      "optional": "İsteğe bağlı erişim",
+      "off": "Kapalı"
+    },
+    "card": {
+      "advancedDetails": "Gelişmiş ayrıntılar",
+      "commandsInvoked": "Çağrılan komutlar: {{count}}",
+      "commandsServing": "Sunulan komutlar: {{count}}",
+      "primaryAction": {
+        "settings": "Ayarlar",
+        "open": "Aç",
+        "reviewAccess": "Erişimi gözden geçir",
+        "viewIssue": "Sorunu görüntüle",
+        "grantAccess": "Erişim ver",
+        "turnOn": "Aç"
+      },
+      "plain": {
+        "safe": "Bu eklenti etkin ve hazır. Yalnızca kendi ayarlarını kaydeder; web sitelerini okumaz.",
+        "reviewBroadHost": "Bu eklenti şu siteleri okuyabilir: {{hostSummary}}. Yalnızca güveniyorsanız açık tutun.",
+        "reviewError": "Bu eklenti bir sorun bildirdi.",
+        "optional": "Bu eklenti ek erişim olmadan çalışır. Daha sonra ek erişim verebilirsiniz.",
+        "off": "Bu eklenti kapalı."
+      }
+    },
+    "help": {
+      "guidance": {
+        "firstUse": {
+          "title": "Güvendiğiniz eklentileri ekleyin",
+          "body": "Güvendiğiniz bir kaynaktan yükleyin, istenen erişimi gözden geçirin ve ardından eklentiyi etkinleştirin.",
+          "safety": "Yalnızca eklentinin işlemesini beklediğiniz siteler için web sitesi erişimi verin.",
+          "browse": "Motrix’in resmî eklenti mağazasında eklentileri keşfedin"
+        },
+        "ongoing": "Bir eklentiyi etkinleştirmeden önce erişimini gözden geçirin. Yalnızca eklentinin işlemesini beklediğiniz siteler için web sitesi erişimi verin."
+      }
+    },
+    "diagnostics": {
+      "title": "Tanılama",
+      "intro": "Son 24 saatte eklentiler arasındaki başarılı çağrıları inceleyin.",
+      "callGraph": {
+        "toolbarLabel": "Çağrı grafiği kontrolleri",
+        "modeLabel": "İlişki görünümü",
+        "modes": {
+          "graph": "Grafik",
+          "table": "Tablo"
+        },
+        "filters": {
+          "searchLabel": "İlişkilerde ara",
+          "searchPlaceholder": "Eklenti veya komut bul",
+          "clearSearch": "Aramayı temizle",
+          "pluginsGroup": "Eklentiler",
+          "commandsGroup": "Komutlar",
+          "noSuggestions": "Eklenti veya komut önerisi yok"
+        },
+        "refresh": "Yenile",
+        "refreshing": "Yenileniyor…",
+        "refreshTooltip": "En son başarılı çağrıları yükle",
+        "renderGraphTooltip": "Bu büyük sonucu grafik olarak göster",
+        "columns": {
+          "caller": "Çağıran",
+          "command": "Komut",
+          "callee": "Çağrılan",
+          "calls": "Çağrılar",
+          "lastCall": "Son çağrı"
+        },
+        "legend": {
+          "label": "Çağrı hacmi açıklaması",
+          "fewerCalls": "Daha az çağrı",
+          "moreCalls": "Daha fazla çağrı"
+        },
+        "loading": {
+          "graph": "Çağrı geçmişi yükleniyor…",
+          "metadata": "Eklenti ayrıntıları yükleniyor…"
+        },
+        "globalEmpty": {
+          "title": "Henüz eklentiler arası başarılı çağrı yok",
+          "description": "Yerleşik eklentiler varsayılan olarak eklentiler arası trafik oluşturmayabilir."
+        },
+        "filteredEmpty": "Bu aramayla eşleşen başarılı çağrı yok.",
+        "errors": {
+          "graphTitle": "Çağrı geçmişi yüklenemedi",
+          "graphDescription": "Başarılı çağrı geçmişini yeniden yüklemeyi deneyin.",
+          "graphRetry": "Çağrı geçmişini yeniden yükle",
+          "metadataTitle": "Eklenti ayrıntıları yüklenemedi",
+          "metadataDescription": "Kullanılamayan eklentileri belirlemek için önce eklenti ayrıntıları gerekir.",
+          "metadataRetry": "Eklenti ayrıntılarını yeniden yükle",
+          "layout": "İlişki haritası düzenlenemedi.",
+          "layoutRetry": "Haritayı yeniden düzenle",
+          "canvasTitle": "Grafik tuvali görüntülenemedi",
+          "canvasDescription": "Tuvali yeniden deneyebilir veya tüm sonuçları içeren Tablo görünümünü kullanabilirsiniz.",
+          "canvasRetry": "Tuvali yeniden dene",
+          "canvasTable": "Tablo görünümünü kullan"
+        },
+        "truncated": "Okuma sınırı, saklama süresi veya dosya rotasyonu bu sonucu sınırlandırdığı için çağrı geçmişi eksik olabilir.",
+        "statuses": {
+          "active": "Çalışıyor",
+          "inactive": "Hazır ancak boşta",
+          "disabled": "Devre dışı",
+          "error": "İşlem gerekli",
+          "missing": "Yüklü değil"
+        },
+        "inspector": {
+          "label": "Çağrı grafiği seçim ayrıntıları",
+          "scopeTitle": "Başarılı çağrılar",
+          "neutralScope": "Son 24 saatteki başarılı çağrıları incelemek için bir eklenti veya bağlantı seçin.",
+          "pluginId": "Eklenti kimliği",
+          "status": "Durum",
+          "incomingCalls": "Gelen çağrılar",
+          "outgoingCalls": "Giden çağrılar",
+          "connections": "Bağlı eklentiler",
+          "noConnections": "Bağlı eklenti yok",
+          "openPlugin": "Eklentiyi aç",
+          "edgeTitle": "Bağlantı ayrıntıları",
+          "totalCalls": "Toplam çağrı",
+          "commands": "Komutlar"
+        },
+        "tableRegionLabel": "Kaydırılabilir komut ilişkileri",
+        "tableLabel": "Eklenti komut ilişkileri",
+        "counts": {
+          "calls_one": "{{count}} başarılı çağrı",
+          "calls_other": "{{count}} başarılı çağrı",
+          "commands_one": "{{count}} komut",
+          "commands_other": "{{count}} komut"
+        },
+        "aria": {
+          "graphLabel": "Eklenti komut ilişkileri",
+          "graphDescription": "Son 24 saatte {{nodeCount}} eklenti ve {{pairCount}} ilişki.",
+          "nodeLabel": "{{name}}, eklenti {{id}}, {{status}}, {{incoming}} gelen çağrı ve {{outgoing}} giden çağrı",
+          "edgeLabel": "{{source}}, {{target}} eklentisini {{commands}} komut aracılığıyla {{calls}} kez çağırdı",
+          "nodeDescription": "İncelemek için bir eklenti düğümü seçin.",
+          "nodeKeyboardInstruction": "Bu eklenti düğümünü taşımak için ok tuşlarını kullanın.",
+          "nodeMoved": "Eklenti düğümü {{direction}} yönünde {{x}}, {{y}} konumuna taşındı.",
+          "directions": {
+            "left": "sol",
+            "right": "sağ",
+            "up": "yukarı",
+            "down": "aşağı"
+          },
+          "edgeDescription": "İncelemek için bir çağrı bağlantısı seçin.",
+          "controls": "Eklenti grafiği görünüm kontrolleri",
+          "zoomIn": "Grafik ölçeğini büyüt",
+          "zoomOut": "Grafik ölçeğini küçült",
+          "fitView": "Eklenti grafiğini görünüme sığdır",
+          "interactive": "Grafik etkileşim modunu değiştir",
+          "minimap": "Eklenti grafiğine genel bakış",
+          "handle": "Salt okunur çağrı uç noktası"
+        }
+      }
+    },
+    "permission": {
+      "http": {
+        "strong": "Web sitelerini okuma",
+        "plain": "Bu eklentinin desteklediği sayfaları açar.",
+        "cookies": {
+          "strong": "Web sitesi çerezlerini kullanma",
+          "plain": "Oturum açtığınız sitelere erişir."
+        }
+      },
+      "ffmpeg": {
+        "strong": "FFmpeg kullanma",
+        "plain": "Ses veya video işler."
+      },
+      "notify": {
+        "strong": "Bildirim gönderme",
+        "plain": "Tamamlanma uyarıları gösterir."
+      },
+      "fs": {
+        "task": {
+          "read": {
+            "strong": "İndirme dosyalarını okuma",
+            "plain": "Bir görevin dosyalarını görür."
+          },
+          "write": {
+            "strong": "İndirme dosyalarını değiştirme",
+            "plain": "Görev dosyaları ekleyebilir veya güncelleyebilir."
+          }
+        },
+        "storage": {
+          "strong": "Eklenti dosyalarını kaydetme",
+          "plain": "Bu eklenti için dosyalar saklar."
+        }
+      },
+      "storage": {
+        "strong": "Ayarları kaydetme",
+        "plain": "Eklenti seçeneklerini hatırlar."
+      },
+      "notifications": {
+        "strong": "Bildirim gönderme",
+        "plain": "Eklenti uyarıları gösterir."
+      },
+      "network": {
+        "strong": "Web sitelerini okuma",
+        "plain": "Desteklenen sayfaları getirir."
+      },
+      "tasks:read": {
+        "strong": "İndirmeleri okuma",
+        "plain": "İndirme listenizi görür."
+      },
+      "tasks:write": {
+        "strong": "İndirmelerinizi yönetme",
+        "plain": "Görevleri duraklatabilir, sürdürebilir veya listeden kaldırabilir."
+      },
+      "unknown": {
+        "plain": "Bilinmeyen izin."
+      },
+      "accessTone": {
+        "required": "Gerekli",
+        "websiteAccess": "Web erişimi",
+        "offByDefault": "İsteğe bağlı",
+        "allowed": "İzin verildi",
+        "noAccess": "Kapalı",
+        "grant": "İzin ver"
+      }
+    }
+  },
+  "plugin": {
+    "ffmpeg": {
+      "destination_phase_disallowed": "ffmpeg, {{phase}} kancasında {{kind}} hedefine yazamaz. Eklenti depolama alanına yazmayı deneyin veya bu çağrıyı beforeFinalize içine taşıyın.",
+      "staging_quota_exceeded": "Bu görev için ffmpeg geçici alan kotası aşıldı. Çıktı boyutunu küçültün veya Medya ayarlarından sınırı artırın."
+    },
+    "install": {
+      "ffmpeg": {
+        "title": "FFmpeg gereksinimi",
+        "notInstalled": "Bu sistemde FFmpeg yüklü değil.",
+        "versionMismatch": "FFmpeg {{version}} yüklü.",
+        "requiredByPlugin": "Bu eklenti ffmpeg gerektirir. Yükleyip tekrar deneyin.",
+        "optionalDegraded": "ffmpeg yüklenene kadar bu eklentinin medya özellikleri kullanılamayacak."
+      }
+    }
+  },
+  "bridge": {
+    "receiver": {
+      "error": {
+        "invalidPayload": "Uzantıdan gelen istek geçersiz",
+        "invalidUrlScheme": "URL, http: veya https: ile başlamalıdır",
+        "unsupportedKind": "Bu Motrix sürümü {{kind}} indirmelerini desteklemiyor",
+        "unsupportedLive": "Canlı yayınlar indirilemez",
+        "unsupportedMaster": "Uzantı ana oynatma listesi gönderdi; bir varyant listesi bekleniyordu",
+        "unsupportedEncryption": "DRM korumalı içerik indirilemez",
+        "authExpired": "Oturumun süresi doldu. Tarayıcınızda sayfayı yenileyip tekrar deneyin",
+        "notFound": "Kaynak bulunamadı (404)",
+        "transientFailure": "Yeniden denemelere rağmen indirme başarısız oldu: {{detail}}",
+        "rangeNotSatisfiable": "İndirme sürdürülemedi; indirmeyi baştan başlatın",
+        "diskFull": "Disk dolu",
+        "diskWriteFailed": "Diske yazılamıyor: {{detail}}",
+        "muxFailed": "Ses ve video birleştirilirken ffmpeg başarısız oldu",
+        "muxAborted": "Birleştirme iptal edildi",
+        "cancelled": "İptal edildi",
+        "internalError": "İç hata: {{detail}}"
+      }
+    }
+  },
+  "onboarding": {
+    "disclaimer": {
+      "title": "Kullanım bildirimi",
+      "language": "Dil",
+      "languages": {
+        "english": "English",
+        "chinese": "简体中文"
+      },
+      "summary": "Devam etmeden önce aşağıdaki bilgileri okuyun.",
+      "body": "Motrix yalnızca indirme yönetimi sağlar. İndirilebilir içerik sunmaz, saklamaz, barındırmaz veya önermez. Motrix üzerinden içeriğe erişmek, içeriği kullanmak veya paylaşmak için yasal izne sahip olmalı ve geçerli telif hakkı yasalarına ve diğer yasalara uymalısınız. İçerik indirmenin, kullanmanın veya paylaşmanın sonuçlarından siz sorumlusunuz. “Kabul et ve devam et” seçeneğini seçerek bu bildirimi okuduğunuzu ve anladığınızı onaylarsınız.",
+      "highlights": {
+        "downloadManagement": "yalnızca indirme yönetimi",
+        "authorized": "yasal izne sahip",
+        "responsibility": "siz sorumlusunuz"
+      },
+      "localConsent": "Seçiminiz bu cihaza kaydedilir.",
+      "agree": "Kabul et ve devam et",
+      "quit": "Çık",
+      "retry": "Yeniden dene",
+      "saveFailed": "Onayınız kaydedilemedi. Disk alanını kontrol edip yeniden deneyin."
+    }
+  },
+  "notification": {
+    "taskError": {
+      "title": "{{name}} başarısız oldu"
+    },
+    "taskComplete": {
+      "title": "{{name}} indirildi"
+    },
+    "engineFailure": {
+      "title": "İndirme motoru başarısız oldu"
+    },
+    "engineCompatibility": {
+      "title": "Motrix’e ait olmayan bir aria2 algılandı",
+      "body": "aria2 {{version}}, Motrix’in özelleştirdiği sürüm değil. Bağlantı ayarları en fazla {{limit}} ile sınırlıdır ve geçmişin SQLite ile kalıcı olarak saklanması kullanılamaz. Tam destek için uygulamayla gelen aria2_motrix motorunu geri yükleyin."
+    },
+    "engineRestartRequired": {
+      "title": "Ayarları uygulamak için indirme motorunu yeniden başlatın",
+      "body": "Ayarlarınız kaydedildi. Uygun olduğunda indirme motorunu yeniden başlatın.",
+      "restartNow": "Şimdi yeniden başlat"
+    },
+    "dnsFallback": {
+      "title": "{{name}} sistem DNS’i ile yeniden denendi",
+      "body": "Motrix bir DNS sunucusuna ulaşamadığı için bu oturumda sistem DNS’ine geçti."
+    },
+    "center": {
+      "title": "Bildirimler",
+      "markAllRead": "Tümünü okundu olarak işaretle",
+      "clearAll": "Temizle",
+      "empty": "Bildirim yok",
+      "emptyDesc": "İndirme etkinliği ve önemli uygulama bildirimleri burada görünür",
+      "unreadDotAria": "Okunmamış bildirimler",
+      "unreadBadgeAria_one": "{{count}} okunmamış bildirim",
+      "unreadBadgeAria_other": "{{count}} okunmamış bildirim",
+      "rowUnreadAria": "{{title}} (okunmadı)",
+      "toastRegionAria": "Bildirimler",
+      "removeAria": "{{title}} bildirimini kaldır",
+      "actionFailed": "Bildirimler güncellenemedi. Tekrar deneyin.",
+      "markRead": "Okundu olarak işaretle",
+      "viewTask": "Görevi görüntüle",
+      "taskRemoved": "Görev listeden kaldırıldı",
+      "openTaskFailed": "Görev açılamadı. Tekrar deneyin."
+    }
+  },
+  "applicationMenu": {
+    "signOut": "Oturumu kapat…",
+    "back": "Geri",
+    "serverUnavailable": "Sunucuya ulaşılamıyor. Oturumunuz kapatılmadı.",
+    "retry": "Yeniden dene",
+    "actionFailed": "İşlem tamamlanamadı. Bağlantıyı kontrol edip yeniden deneyin.",
+    "clearTitle": "Durdurulmuş görev kayıtları temizlensin mi?",
+    "clearDescription": "Bu pencere açıldığında listede bulunan tamamlanmış, başarısız ve kaldırılmış görev kayıtları silinir. İndirilen dosyalar diskte kalır.",
+    "clearConfirm": "Kayıtları temizle",
+    "logoutTitle": "Bu sunucudaki oturum kapatılsın mı?",
+    "logoutDescription": "Aynı tarayıcı oturumunu kullanan diğer sekmelerdeki oturum da kapatılır. İndirmeler sunucuda devam eder. Bu sekmelerdeki kaydedilmemiş girişler silinir.",
+    "logoutConfirm": "Oturumu kapat",
+    "discardTitle": "Bu görev taslağı silinsin mi?",
+    "discardDescription": "Kaydedilmemiş bağlantılarınız, torrent seçiminiz ve ayarlarınız silinir.",
+    "discardConfirm": "Taslağı sil"
+  },
+  "directoryPicker": {
+    "title": "Sunucu klasörünü seçin",
+    "description": "Yollar sunucu üzerindedir (Docker kullanılıyorsa kapsayıcının içindedir).",
+    "back": "Geri",
+    "forward": "İleri",
+    "up": "Bir üst düzey",
+    "refresh": "Yenile",
+    "goToFolder": "Klasöre git",
+    "location": "Konum",
+    "viewOptions": "Görünüm seçenekleri",
+    "sortBy": "Sıralama ölçütü",
+    "sortName": "Ad",
+    "sortModified": "Değiştirilme tarihi",
+    "sortOrder": "Sıralama yönü",
+    "sortAscending": "Artan",
+    "sortDescending": "Azalan",
+    "showHidden": "Gizli klasörleri göster",
+    "folders": "Klasörler",
+    "loading": "Klasörler yükleniyor…",
+    "empty": "Alt klasör yok",
+    "incomplete": "Bu klasörün yalnızca bir bölümü gösteriliyor. Başka bir klasöre ulaşmak için tam yolunu girin.",
+    "selectFolder": "Klasörü seç",
+    "selectedPath": "Seçilen klasör",
+    "path": "Klasör yolu",
+    "go": "Git",
+    "newFolder": "Yeni klasör",
+    "folderName": "Klasör adı",
+    "create": "Oluştur",
+    "createHelp": "Seçimi iptal etseniz bile oluşturulan klasörler sunucuda kalır.",
+    "fallback": "İstenen klasör kullanılamıyor. {{path}} gösteriliyor.",
+    "refreshAfterCreateFailed": "Klasör oluşturuldu ancak liste yenilenemedi.",
+    "unknownOutcome": "Klasörün oluşturulduğu doğrulanamadı. Burada başka bir klasör oluşturmadan önce kontrol etmek için yenileyin.",
+    "retry": "Yeniden dene",
+    "errors": {
+      "invalidPath": "Geçerli bir mutlak klasör yolu girin.",
+      "outsideRoots": "Bu klasör izin verilen konumların dışında.",
+      "notFound": "Bu klasör artık mevcut değil.",
+      "notDirectory": "Bu yol bir klasör değil.",
+      "permissionDenied": "Bu klasörü kullanma izniniz yok.",
+      "alreadyExists": "Bu adda bir dosya veya klasör zaten var.",
+      "invalidName": "Geçerli bir klasör adı girin.",
+      "tooLarge": "Bu yol veya klasör adı çok uzun.",
+      "unavailable": "Sunucu bu isteği tamamlayamadı. Tekrar deneyin.",
+      "creationOutcomeUnknown": "Klasörün oluşturulduğu doğrulanamadı. Burada başka bir klasör oluşturmadan önce kontrol etmek için yenileyin."
+    },
+    "places": {
+      "common": "Sık kullanılan konumlar",
+      "allowed": "İzin verilen konumlar",
+      "default": "Varsayılan klasör",
+      "home": "Ev",
+      "desktop": "Masaüstü",
+      "documents": "Belgeler",
+      "downloads": "İndirilenler",
+      "root": "Dosya sistemi",
+      "loadFailed": "Bazı klasör konumları yüklenemedi."
+    }
+  },
+  "directoryPreferences": {
+    "sectionDescription": "Sık kullandığınız klasörlere kolayca erişin.",
+    "manage": "Klasörleri yönet",
+    "manageDescription": "Favori klasörleri seçin ve son kullanılan klasörleri yönetin.",
+    "title": "Klasörleri yönet",
+    "description": "Bir klasörü bu listeden kaldırmak, klasörü veya içindeki dosyaları silmez.",
+    "favorites": "Favori klasörler",
+    "recent": "Son kullanılan klasörler",
+    "addFavorite": "Favori ekle",
+    "removeFavorite": "Favorilerden kaldır",
+    "favoriteRecent": "Favorilere ekle",
+    "removeRecent": "Son kullanılanlardan kaldır",
+    "clearRecent": "Son kullanılan klasörleri temizle",
+    "emptyFavorites": "Favori klasör yok",
+    "emptyRecent": "Son kullanılan klasör yok",
+    "loading": "Klasörler yükleniyor…",
+    "retry": "Yeniden dene",
+    "limitHint": "En fazla {{count}} favori klasör kaydedebilirsiniz.",
+    "pickerFailed": "Klasör seçici açılamadı. Tekrar deneyin.",
+    "close": "Kapat",
+    "history": "Klasör geçmişi",
+    "emptyHistory": "Henüz favori veya son kullanılan klasör yok",
+    "errors": {
+      "conflict": "Ayarlar başka bir pencerede değiştirildi. Değişikliklerinizi gözden geçirip yeniden kaydedin.",
+      "invalidPath": "Geçerli bir mutlak klasör yolu girin.",
+      "outsideRoots": "Bu klasör izin verilen konumların dışında.",
+      "notFound": "Bu klasör artık mevcut değil.",
+      "notDirectory": "Bu yol bir klasör değil.",
+      "permissionDenied": "Bu klasörü kullanma izniniz yok.",
+      "tooLarge": "Bu klasör yolu çok uzun.",
+      "unavailable": "Klasör kayıtları güncellenemedi. Güncel durumlarını kontrol etmek için yenileyin.",
+      "limitReached": "Favori klasör sınırına ulaşıldı. Başka bir klasör eklemeden önce bir favoriyi kaldırın."
+    },
+    "manageAction": "Yönet",
+    "alreadyFavorite": "Zaten favorilerde"
+  }
+}

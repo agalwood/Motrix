@@ -94,6 +94,13 @@ describe('resolvePluginHostLanguage', () => {
     expect(resolvePluginHostLanguage('en-US')).toBe('en-US')
   })
 
+  it('uses Turkish for the system while honoring explicit English', () => {
+    getLocale.mockReturnValue('tr-TR')
+
+    expect(resolvePluginHostLanguage('system')).toBe('tr')
+    expect(resolvePluginHostLanguage('en-US')).toBe('en-US')
+  })
+
   it('uses Polish for the system while honoring explicit English', () => {
     getLocale.mockReturnValue('pl-PL')
 
