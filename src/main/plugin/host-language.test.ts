@@ -44,4 +44,11 @@ describe('resolvePluginHostLanguage', () => {
     expect(resolvePluginHostLanguage('system')).toBe('de')
     expect(resolvePluginHostLanguage('en-US')).toBe('en-US')
   })
+
+  it('uses bundled Spanish for a Spanish system locale', () => {
+    getLocale.mockReturnValue('es-ES')
+
+    expect(resolvePluginHostLanguage('system')).toBe('es')
+    expect(resolvePluginHostLanguage('en-US')).toBe('en-US')
+  })
 })

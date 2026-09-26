@@ -16,6 +16,7 @@ export interface LocaleDefinition<Code extends string = string> {
 export const SUPPORTED_LOCALES = [
   { code: 'de', nativeName: 'Deutsch', dir: 'ltr' },
   { code: 'en-US', nativeName: 'English', dir: 'ltr' },
+  { code: 'es', nativeName: 'Español', dir: 'ltr' },
   { code: 'fr', nativeName: 'Français', dir: 'ltr' },
   { code: 'zh-CN', nativeName: '简体中文', dir: 'ltr' },
   { code: 'zh-TW', nativeName: '繁體中文', dir: 'ltr' },
