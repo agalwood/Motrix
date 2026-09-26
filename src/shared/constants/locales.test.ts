@@ -76,6 +76,13 @@ describe('resolveSupportedLocale', () => {
     }
   )
 
+  it.each(['ja', 'ja-JP', 'ja-Jpan-JP', 'ja_JP.UTF-8'])(
+    'resolves Japanese locale %s to the bundled resource',
+    (locale) => {
+      expect(resolveSupportedLocale(locale, 'en-US')).toBe('ja')
+    }
+  )
+
   it('uses the default when no candidate is supported', () => {
     expect(resolveSupportedLocale('qaa')).toBe(DEFAULT_LOCALE)
   })
@@ -96,6 +103,8 @@ describe('isSupportedLocale', () => {
     expect(isSupportedLocale('es')).toBe(true)
     expect(isSupportedLocale('es-ES')).toBe(false)
     expect(isSupportedLocale('fr')).toBe(true)
+    expect(isSupportedLocale('ja')).toBe(true)
+    expect(isSupportedLocale('ja-JP')).toBe(false)
     expect(isSupportedLocale('zh-CN')).toBe(true)
     expect(isSupportedLocale('zh-TW')).toBe(true)
     expect(isSupportedLocale('zh_cn')).toBe(false)

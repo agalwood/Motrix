@@ -127,3 +127,44 @@ describe('bundled French translations', () => {
     expect(disclaimer.body).toContain(disclaimer.agree)
   })
 })
+
+describe('bundled Japanese translations', () => {
+  it('resolves complete headings and other-only plurals without English fallback', async () => {
+    const i18n = createInstance()
+    await i18n.init({
+      lng: 'ja',
+      fallbackLng: false,
+      resources: I18N_RESOURCES,
+      interpolation: { escapeValue: false },
+    })
+
+    expect(i18n.t('common.retry')).toBe('再試行')
+    expect(i18n.t('settings.appearance.followSystem')).toBe(
+      'システムに合わせる'
+    )
+    expect(i18n.t('panel.downloads.heading.all')).toBe('すべてのダウンロード')
+    expect(i18n.t('task.remove.description', { name: 'example.zip' })).toBe(
+      '「example.zip」をダウンロード一覧から削除します。'
+    )
+    expect(i18n.t('task.remove.deleteFilesLabel')).toBe(
+      'ダウンロードしたファイルを削除'
+    )
+    for (const count of [0, 1, 2, 5, 1.5, 1000000, 2000000]) {
+      const result = i18n.t('task.torrent.fileSelected', {
+        count,
+        returnDetails: true,
+      })
+      expect(result.exactUsedKey).toBe('task.torrent.fileSelected_other')
+      expect(result.res).toBe(`${count} 個のファイルを選択`)
+      expect(result.usedLng).toBe('ja')
+    }
+  })
+
+  it('preserves the usage-notice highlights inside the Japanese message', () => {
+    const { disclaimer } = I18N_RESOURCES.ja.translation.onboarding
+    for (const highlight of Object.values(disclaimer.highlights)) {
+      expect(disclaimer.body).toContain(highlight)
+    }
+    expect(disclaimer.body).toContain(disclaimer.agree)
+  })
+})

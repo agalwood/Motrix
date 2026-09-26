@@ -51,4 +51,11 @@ describe('resolvePluginHostLanguage', () => {
     expect(resolvePluginHostLanguage('system')).toBe('es')
     expect(resolvePluginHostLanguage('en-US')).toBe('en-US')
   })
+
+  it('uses bundled Japanese for a Japanese system locale', () => {
+    getLocale.mockReturnValue('ja-JP')
+
+    expect(resolvePluginHostLanguage('system')).toBe('ja')
+    expect(resolvePluginHostLanguage('en-US')).toBe('en-US')
+  })
 })
