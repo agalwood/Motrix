@@ -207,3 +207,50 @@ describe('bundled Korean translations', () => {
     expect(disclaimer.body).toContain(disclaimer.agree)
   })
 })
+
+describe('bundled Brazilian Portuguese translations', () => {
+  it('resolves actions and all Brazilian plural categories without English fallback', async () => {
+    const i18n = createInstance()
+    await i18n.init({
+      lng: 'pt-BR',
+      fallbackLng: false,
+      resources: I18N_RESOURCES,
+      interpolation: { escapeValue: false },
+    })
+
+    expect(i18n.t('common.retry')).toBe('Tentar novamente')
+    expect(i18n.t('settings.appearance.followSystem')).toBe('Seguir o sistema')
+    expect(i18n.t('panel.downloads.heading.all')).toBe('Todos os downloads')
+    expect(i18n.t('task.remove.description', { name: 'example.zip' })).toBe(
+      'A tarefa “example.zip” será removida da lista de downloads.'
+    )
+    expect(i18n.t('task.remove.deleteFilesLabel')).toBe(
+      'Excluir arquivos baixados'
+    )
+    for (const [count, category, text] of [
+      [0, 'one', '0 arquivo selecionado'],
+      [1, 'one', '1 arquivo selecionado'],
+      [1.5, 'one', '1.5 arquivo selecionado'],
+      [2, 'other', '2 arquivos selecionados'],
+      [5, 'other', '5 arquivos selecionados'],
+      [1000000, 'many', '1000000 arquivos selecionados'],
+      [2000000, 'many', '2000000 arquivos selecionados'],
+    ] as const) {
+      const result = i18n.t('task.torrent.fileSelected', {
+        count,
+        returnDetails: true,
+      })
+      expect(result.exactUsedKey).toBe(`task.torrent.fileSelected_${category}`)
+      expect(result.res).toBe(text)
+      expect(result.usedLng).toBe('pt-BR')
+    }
+  })
+
+  it('preserves the usage-notice highlights inside the Brazilian Portuguese message', () => {
+    const { disclaimer } = I18N_RESOURCES['pt-BR'].translation.onboarding
+    for (const highlight of Object.values(disclaimer.highlights)) {
+      expect(disclaimer.body).toContain(highlight)
+    }
+    expect(disclaimer.body).toContain(disclaimer.agree)
+  })
+})
