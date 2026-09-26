@@ -1,0 +1,2766 @@
+{
+  "operatorUnlock": {
+    "title": "Mở khóa Motrix",
+    "help": "Máy chủ này yêu cầu token quản trị. Trên máy chủ, đặt MOTRIX_OPERATOR_TOKEN hoặc đọc token từ <dataDir>/operator-token rồi dán vào bên dưới.",
+    "placeholder": "Token quản trị",
+    "error": "Token quản trị không hợp lệ. Hãy kiểm tra MOTRIX_OPERATOR_TOKEN hoặc <dataDir>/operator-token trên máy chủ rồi thử lại.",
+    "submit": "Mở khóa"
+  },
+  "operatorAdmin": {
+    "help": "Cách dùng:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nLệnh chỉ giao tiếp với máy chủ Motrix đang chạy qua địa chỉ loopback của container.",
+    "errorPrefix": "motrix-admin: {{message}}",
+    "usageHint": "Chạy `motrix-admin --help` để xem cách dùng.",
+    "pending": {
+      "none": "Không có yêu cầu ghép đôi đang chờ.",
+      "row": "{{userCode}}  {{clientName}}  {{clientVersion}}  hết hạn sau {{ttl}}",
+      "ttl": "{{minutes}} phút {{seconds}} giây"
+    },
+    "decision": {
+      "approve": "Đã chấp thuận {{userCode}} cho {{clientName}} ({{clientVersion}}).",
+      "deny": "Đã từ chối {{userCode}} cho {{clientName}} ({{clientVersion}})."
+    },
+    "errors": {
+      "usage": {
+        "jsonRepeated": "Chỉ được chỉ định --json một lần.",
+        "unknownOption": "Tùy chọn dòng lệnh không xác định.",
+        "pairingCommandRequired": "Cần dùng lệnh pairing.",
+        "pairingOperationRequired": "Cần dùng pairing pending, pairing approve CODE hoặc pairing deny CODE.",
+        "pairingCodeInvalid": "Mã ghép đôi phải gồm tám ký tự ASCII và không được dùng I, O, 0 hoặc 1.",
+        "portInvalid": "PORT phải là số nguyên từ 1 đến 65535."
+      },
+      "credential": {
+        "tokenHeaderInvalid": "Không thể dùng MOTRIX_OPERATOR_TOKEN trong tiêu đề HTTP.",
+        "dataDirNotAbsolute": "MOTRIX_DATA_DIR phải là đường dẫn tuyệt đối.",
+        "unavailable": "Thông tin xác thực quản trị không khả dụng. Hãy đặt MOTRIX_OPERATOR_TOKEN hoặc bảo đảm tệp operator-token tồn tại trong thư mục dữ liệu.",
+        "notFile": "Đường dẫn thông tin xác thực quản trị không trỏ đến tệp thông thường.",
+        "unreadable": "Không thể đọc thông tin xác thực quản trị.",
+        "invalid": "Tệp thông tin xác thực quản trị không hợp lệ.",
+        "rejected": "Motrix từ chối thông tin xác thực quản trị."
+      },
+      "server": {
+        "responseUnreadable": "Motrix trả về phản hồi không thể đọc được.",
+        "responseOversized": "Motrix trả về phản hồi quá lớn.",
+        "responseInvalidJson": "Motrix trả về phản hồi JSON không hợp lệ.",
+        "rpcHttp": "RPC ghép đôi Motrix thất bại với HTTP {{status}}.",
+        "approvalUnavailable": "Máy chủ Motrix đang chạy không hỗ trợ chấp thuận ghép đôi.",
+        "pendingResponseInvalid": "Motrix trả về phản hồi không hợp lệ về các yêu cầu ghép đôi đang chờ.",
+        "decisionOutcomeUnknown": "Chưa rõ kết quả xử lý yêu cầu ghép đôi. Hãy chạy pairing pending trước khi thử lại.",
+        "decisionResponseInvalid": "Motrix trả về phản hồi không hợp lệ về quyết định ghép đôi.",
+        "requestNoLongerPending": "Yêu cầu ghép đôi không còn ở trạng thái chờ.",
+        "noMatchingRequest": "Không có yêu cầu ghép đôi đang chờ nào khớp với {{userCode}}.",
+        "ambiguousRequest": "Có nhiều yêu cầu ghép đôi đang chờ khớp với {{userCode}}; chưa áp dụng quyết định nào.",
+        "unexpected": "motrix-admin gặp lỗi ngoài dự kiến."
+      },
+      "unavailable": {
+        "loopback": "Không thể truy cập máy chủ Motrix đang chạy qua địa chỉ loopback của container.",
+        "approvalNotReady": "Chức năng chấp thuận ghép đôi trên máy chủ Motrix đang chạy chưa sẵn sàng."
+      }
+    }
+  },
+  "common": {
+    "clearSearch": "Xóa nội dung tìm kiếm",
+    "download": "Tải xuống",
+    "cancel": "Hủy",
+    "save": "Lưu",
+    "close": "Đóng",
+    "loading": "Đang tải…",
+    "name": "Tên:",
+    "error": "Lỗi",
+    "remove": "Xóa",
+    "collapse": "Thu gọn",
+    "apply": "Áp dụng",
+    "confirm": "Xác nhận",
+    "status": {
+      "finalizing": "Đang hoàn tất…"
+    },
+    "reset": "Đặt lại",
+    "retry": "Thử lại",
+    "showPassword": "Hiện mật khẩu",
+    "hidePassword": "Ẩn mật khẩu"
+  },
+  "quit": {
+    "confirm": {
+      "message_other": "Vẫn còn {{count}} lượt tải xuống đang hoạt động.",
+      "detail": "Thoát bây giờ sẽ tạm dừng các lượt tải xuống. Bạn có chắc muốn thoát không?",
+      "quitButton": "Thoát",
+      "dontAskAgain": "Không hỏi lại"
+    }
+  },
+  "nav": {
+    "dashboard": "Tổng quan",
+    "downloads": "Tải xuống",
+    "completed": "Đã hoàn tất",
+    "trackers": "Máy chủ theo dõi",
+    "plugins": "Tiện ích",
+    "notifications": "Thông báo",
+    "settings": "Cài đặt"
+  },
+  "chrome": {
+    "minimize": "Thu nhỏ",
+    "maximize": "Phóng to",
+    "restore": "Khôi phục",
+    "close": "Đóng",
+    "toggleSidebar": "Ẩn/hiện thanh bên",
+    "newTask": "Tác vụ mới",
+    "sidebarTitle": "Thanh bên",
+    "sidebarDescription": "Điều hướng ứng dụng."
+  },
+  "tray": {
+    "newTask": "Tác vụ mới",
+    "newTorrentTask": "Tác vụ torrent mới",
+    "openTorrentFile": "Mở tệp torrent",
+    "showMotrix": "Hiện Motrix",
+    "manual": "Hướng dẫn sử dụng",
+    "checkUpdates": "Kiểm tra bản cập nhật",
+    "preferences": "Cài đặt",
+    "quit": "Thoát"
+  },
+  "panel": {
+    "connection": {
+      "polling": "Cập nhật định kỳ",
+      "reconnecting": "Đang kết nối lại với máy chủ…",
+      "unavailable": "Không thể truy cập máy chủ",
+      "originMismatch": "Địa chỉ truy cập không khớp"
+    },
+    "dashboard": {
+      "title": "Tổng quan",
+      "engine": {
+        "title": "Bộ máy tải xuống",
+        "features": "Tính năng",
+        "startFailed": "Không thể khởi động bộ máy aria2",
+        "state": {
+          "ready": "Sẵn sàng",
+          "starting": "Đang khởi động…",
+          "reconnecting": "Đang kết nối lại…",
+          "failed": "Thất bại",
+          "disconnected": "Đã ngắt kết nối",
+          "stopped": "Đã dừng"
+        },
+        "name": "Aria2",
+        "version": "Phiên bản",
+        "rpcPort": "Cổng RPC",
+        "listenPort": "Cổng lắng nghe",
+        "diagnostics": {
+          "title": "Chẩn đoán bộ máy tải xuống",
+          "description": "Kiểm tra bộ máy tải xuống, xác định tiến trình đang dùng cổng RPC của Motrix và khôi phục an toàn.",
+          "open": "Chẩn đoán",
+          "checking": "Đang kiểm tra bộ máy tải xuống…",
+          "runAgain": "Chạy lại",
+          "loadFailed": "Không thể chạy chẩn đoán bộ máy tải xuống.",
+          "currentStatus": "Trạng thái hiện tại",
+          "lastChecked": "Đã kiểm tra lúc {{time}}",
+          "checks": {
+            "binary": "Bộ máy tải xuống",
+            "features": "Tính năng",
+            "rpc": "Cổng RPC",
+            "process": "Tiến trình",
+            "communication": "Kết nối"
+          },
+          "binary": {
+            "available": "{{name}} {{version}}",
+            "unavailable": "Thiếu {{name}} hoặc không thể khởi động."
+          },
+          "features": {
+            "none": "Chưa có thông tin",
+            "unavailable": "Không khả dụng"
+          },
+          "rpc": {
+            "listening": "{{port}} (Đang lắng nghe)",
+            "available": "{{port}} (Khả dụng)",
+            "occupied": "{{port}} (Đang được sử dụng)"
+          },
+          "process": {
+            "none": "Không có xung đột cổng",
+            "unidentified": "Chưa xác định, sẽ không bị dừng",
+            "current_app": "PID {{pid}} ({{name}}), do Motrix quản lý",
+            "verified_orphan": "PID {{pid}} ({{name}}), đã xác minh là tiến trình Motrix còn sót lại; có thể dừng an toàn",
+            "external_aria2": "PID {{pid}} ({{name}}), chưa xác minh thuộc về ứng dụng nào; sẽ không bị dừng",
+            "other": "PID {{pid}} ({{name}}), chưa xác minh thuộc về ứng dụng nào; sẽ không bị dừng",
+            "unknown": "PID {{pid}}, chưa xác định; sẽ không bị dừng"
+          },
+          "communication": {
+            "ready": "Motrix có thể giao tiếp với aria2."
+          },
+          "reason": {
+            "port_in_use": "Cổng RPC của Motrix đang được sử dụng nên không thể khởi động bộ máy aria2.",
+            "binary_unavailable": "Tệp thực thi aria2 đi kèm bị thiếu hoặc không khả dụng.",
+            "spawn_failed": "Không thể tạo tiến trình aria2.",
+            "rpc_unavailable": "Bộ máy aria2 đã khởi động nhưng không chấp nhận kết nối RPC từ Motrix.",
+            "unexpected_exit": "Bộ máy aria2 đã thoát ngoài dự kiến.",
+            "health_check_failed": "aria2 ngừng phản hồi Motrix.",
+            "unknown": "Không thể khởi động bộ máy aria2 vì lý do không xác định."
+          },
+          "recommendation": {
+            "title": "Cách khôi phục đề xuất",
+            "retry": "Cổng đang trống. Hãy thử chạy lại aria2 mà không thay đổi cài đặt.",
+            "force_terminate": "Đã xác minh tiến trình này thuộc Motrix. Buộc dừng PID {{pid}} rồi khởi động lại aria2 trên cổng RPC {{rpcPort}} của Motrix.",
+            "switch_port": "Không thể kết thúc tiến trình này một cách an toàn. Chỉ dùng cổng {{port}} làm phương án dự phòng hoặc tự đóng tiến trình gây xung đột."
+          },
+          "technicalDetails": "Chi tiết kỹ thuật",
+          "retry": "Thử lại",
+          "restart": "Khởi động lại bộ máy",
+          "switchPort": "Dùng cổng {{port}}",
+          "forceRecover": "Buộc dừng và khôi phục",
+          "recovered": "Bộ máy aria2 đã hoạt động trở lại.",
+          "recoveredOnPort": "Bộ máy aria2 đã được khôi phục trên cổng RPC {{port}}.",
+          "recoveryFailed": "Không thể khôi phục bộ máy tải xuống. Hãy chạy lại chẩn đoán để xem trạng thái mới nhất.",
+          "fallback": {
+            "available": "Cổng mặc định {{port}} của Motrix đang trống và có thể khôi phục ngay.",
+            "verifiedOrphan": "Một tiến trình aria2 còn sót lại đã được xác minh thuộc Motrix (PID {{pid}}) đang dùng cổng mặc định {{port}}. Motrix có thể dừng tiến trình này an toàn trước khi khôi phục cổng.",
+            "blocked": "PID {{pid}} ({{name}}) đang dùng cổng mặc định {{port}} nhưng Motrix không thể xác minh tiến trình thuộc về ứng dụng nào. Tiến trình sẽ không bị kết thúc.",
+            "unidentified": "Không thể xác định tiến trình đang dùng cổng mặc định {{port}}. Motrix sẽ tiếp tục dùng cổng hiện tại.",
+            "restore": "Khôi phục cổng mặc định {{port}} của Motrix",
+            "restoring": "Đang khôi phục cổng mặc định {{port}} của Motrix…",
+            "restoredDefault": "Đã khôi phục cổng RPC mặc định {{port}} của Motrix.",
+            "confirm": {
+              "title": "Dừng tiến trình còn sót lại và khôi phục cổng {{port}}?",
+              "description": "PID {{pid}} đã được xác minh là tiến trình aria2 còn sót lại của Motrix. Tiến trình sẽ bị dừng, cổng mặc định {{port}} sẽ được lưu và aria2 sẽ khởi động lại.",
+              "action": "Dừng và khôi phục cổng {{port}}"
+            }
+          },
+          "confirmForce": {
+            "title": "Buộc dừng tiến trình aria2 còn sót lại?",
+            "description": "PID {{pid}} khớp với tệp thực thi đi kèm, mã bí mật RPC riêng và đường dẫn dữ liệu của Motrix. Tiến trình sẽ bị kết thúc ngay, sau đó aria2 sẽ khởi động lại trên cổng RPC của Motrix.",
+            "action": "Buộc dừng và khôi phục"
+          },
+          "details": "Chi tiết chẩn đoán",
+          "versionUnknown": "Không có thông tin phiên bản",
+          "copy": "Sao chép thông tin chẩn đoán",
+          "copied": "Đã sao chép",
+          "copyFailed": "Không thể sao chép thông tin chẩn đoán. Vui lòng thử lại.",
+          "refreshFailed": "Không thể làm mới thông tin chẩn đoán. Bên dưới là báo cáo thành công gần nhất.",
+          "summary": {
+            "ready": "Bộ máy tải xuống đang hoạt động bình thường",
+            "starting": "Bộ máy tải xuống đang khởi động",
+            "restarting": "Bộ máy tải xuống đang được khôi phục",
+            "stopped": "Bộ máy tải xuống đã dừng",
+            "port_in_use": "Cổng điều khiển của bộ máy tải xuống đang được sử dụng",
+            "binary_unavailable": "Bộ máy tải xuống không khả dụng",
+            "spawn_failed": "Không thể khởi động bộ máy tải xuống",
+            "rpc_unavailable": "Kết nối điều khiển bộ máy tải xuống không khả dụng",
+            "unexpected_exit": "Bộ máy tải xuống đã thoát ngoài dự kiến",
+            "health_check_failed": "Bộ máy tải xuống ngừng phản hồi",
+            "unknown": "Bộ máy tải xuống không khả dụng"
+          },
+          "impact": {
+            "failed": "Không thể điều khiển tải xuống. Trạng thái tác vụ có thể đã cũ.",
+            "connecting": "Bạn có thể điều khiển tải xuống khi bộ máy sẵn sàng.",
+            "stopped": "Khởi động bộ máy để bắt đầu hoặc quản lý tải xuống."
+          },
+          "runtime": {
+            "process": "Tiến trình",
+            "running": "Đang chạy",
+            "notRunning": "Không chạy",
+            "connection": "Kết nối",
+            "connected": "Đã kết nối",
+            "connecting": "Đang kết nối…",
+            "disconnected": "Chưa kết nối",
+            "unavailable": "Không khả dụng",
+            "connectionStatus": "{{transport}} ({{status}})"
+          },
+          "port": {
+            "available": "{{port}} (Khả dụng)",
+            "listening": "{{port}} (Đang lắng nghe)",
+            "occupied": "{{port}} (Đang được sử dụng)"
+          },
+          "motrixEngine": "aria2 Motrix",
+          "transport": {
+            "websocket": "WebSocket"
+          }
+        }
+      },
+      "speed": {
+        "up": "TẢI LÊN",
+        "down": "TẢI XUỐNG",
+        "peak": "Cao nhất {{value}}",
+        "offline": "ngoại tuyến"
+      },
+      "speedUp": {
+        "title": "Tốc độ tải lên"
+      },
+      "speedDown": {
+        "title": "Tốc độ tải xuống"
+      },
+      "active": {
+        "title": "Tác vụ đang hoạt động",
+        "downloading": "Đang tải xuống",
+        "seeding": "Đang chia sẻ",
+        "waiting": "Đang chờ",
+        "error": "Lỗi",
+        "engineOffline": "bộ máy ngoại tuyến"
+      },
+      "transfer": {
+        "title": "Lưu lượng",
+        "rangeLabel": "Khoảng thời gian thống kê lưu lượng",
+        "scope": {
+          "today": "Hôm nay",
+          "allTime": "Toàn bộ thời gian"
+        },
+        "download": "Tải xuống",
+        "upload": "Tải lên",
+        "sinceTime": "Từ {{time}}",
+        "sinceDate": "Từ {{date}}",
+        "empty": {
+          "today": "Chưa ghi nhận lưu lượng hôm nay.",
+          "allTime": "Chưa ghi nhận lưu lượng."
+        },
+        "loading": "Đang tải dữ liệu lưu lượng",
+        "unavailable": "Không thể tải dữ liệu lưu lượng",
+        "retry": "Thử lại",
+        "updated": "Cập nhật {{time}}",
+        "outOfDate": "Dữ liệu có thể đã cũ",
+        "totalLabel": "Tổng lưu lượng {{scope}}: {{value}}"
+      },
+      "activity": {
+        "title": "Hoạt động",
+        "loading": "Đang tải dữ liệu hoạt động",
+        "unavailable": "Không thể tải dữ liệu hoạt động",
+        "retry": "Thử lại",
+        "stale": "Dữ liệu hoạt động có thể đã cũ",
+        "coverageDegraded": "Dữ liệu hoạt động có thể không đầy đủ từ {{time}}",
+        "rangeSummary": "{{weeks}} tuần hoạt động tải xuống, từ {{start}} đến {{end}}",
+        "completedIntensity": "Độ đậm của màu thể hiện số lượt tải xuống hoàn tất",
+        "less": "Ít",
+        "more": "Nhiều",
+        "weekday": {
+          "sun": "CN",
+          "mon": "T2",
+          "tue": "T3",
+          "wed": "T4",
+          "thu": "T5",
+          "fri": "T6",
+          "sat": "T7"
+        },
+        "tooltip": {
+          "completed": "{{count}} hoàn tất",
+          "submitted": "{{count}} tác vụ được thêm",
+          "recovered": "Bao gồm một lượt tải hoàn tất được phát hiện khi khôi phục",
+          "recoveredCount": "{{count}} được khôi phục",
+          "untracked": "Chưa theo dõi",
+          "noData": "Không có dữ liệu hoạt động",
+          "noDataOnDate": "Không có dữ liệu hoạt động vào {{date}}",
+          "completedOnDate": "{{count}} hoàn tất vào {{date}}",
+          "partial": "Bắt đầu theo dõi lúc {{time}}",
+          "partialShort": "Chỉ ghi nhận một phần ngày",
+          "coverage": "Dữ liệu có thể không đầy đủ từ {{time}}",
+          "coverageShort": "Dữ liệu có thể không đầy đủ",
+          "today": "Hôm nay, vẫn đang cập nhật"
+        }
+      },
+      "tasks": {
+        "title": "Tác vụ",
+        "viewLabel": "Chế độ xem tác vụ",
+        "view": {
+          "active": "Đang hoạt động",
+          "failed": "Thất bại",
+          "recent": "Gần đây"
+        },
+        "newTask": "Tác vụ mới",
+        "more": "Xem thêm {{count}} tác vụ",
+        "loading": "Đang tải tác vụ",
+        "unavailable": "Không thể tải danh sách tác vụ",
+        "retry": "Thử lại",
+        "empty": {
+          "active": "Không có tác vụ đang hoạt động",
+          "failed": "Không có tác vụ thất bại",
+          "recent": "Chưa có lượt tải nào hoàn tất"
+        },
+        "offline": "Bộ máy ngoại tuyến",
+        "metric": {
+          "fetching": "Đang lấy dữ liệu",
+          "ready": "Sẵn sàng",
+          "finalizing": "Đang hoàn tất",
+          "queued": "Đang trong hàng đợi",
+          "paused": "Đã tạm dừng"
+        },
+        "secondary": {
+          "metadata": "Đang lấy siêu dữ liệu",
+          "chooseFiles": "Đang chờ chọn tệp",
+          "finalizing": "Đang hoàn tất tải xuống",
+          "waiting": "Đang chờ bắt đầu",
+          "eta": "Còn khoảng {{time}}",
+          "ratio": "Tỷ lệ {{ratio}}",
+          "saved": "Đã lưu {{percent}}%",
+          "offline": "Ngoại tuyến (tiến độ đã biết gần nhất)",
+          "completed": "Hoàn tất {{time}}",
+          "failed": "Thất bại: {{reason}}",
+          "technicalDetail": "Chi tiết kỹ thuật: {{detail}}"
+        },
+        "progressLabel": "Tiến độ của {{name}}"
+      },
+      "configure": {
+        "action": "Cấu hình",
+        "addTile": "Thêm",
+        "addTitle": "Thêm ô thông tin",
+        "apply": "Áp dụng",
+        "cancel": "Hủy",
+        "reset": "Đặt lại",
+        "drag": "Kéo ô thông tin",
+        "removeTile": "Xóa ô thông tin",
+        "resizeTile": "Đổi kích thước ô thông tin",
+        "sizeGroup": "Kích thước ô thông tin",
+        "size": "{{width}} × {{height}}",
+        "currentSize": "Kích thước hiện tại: {{width}} × {{height}}",
+        "invalidCapacity": "Không đủ chỗ cho kích thước này",
+        "availabilityHints": {
+          "space": "Thu nhỏ hoặc xóa một ô thông tin khác.",
+          "bounds": "Di chuyển ô thông tin vào trong trước.",
+          "unsupported": "Chọn kích thước được hỗ trợ."
+        },
+        "sizeLabels": {
+          "compact": "Nhỏ gọn",
+          "wide": "Rộng",
+          "tall": "Cao",
+          "large": "Lớn",
+          "fullWidth": "Toàn bộ chiều rộng",
+          "fullHeight": "Toàn bộ chiều cao"
+        },
+        "sizeUnavailable": {
+          "unsupported": "Không được hỗ trợ",
+          "outOfBounds": "Không vừa",
+          "insufficientSpace": "Không đủ chỗ"
+        },
+        "presets": {
+          "action": "Bố cục có sẵn",
+          "custom": "Tùy chỉnh",
+          "undo": "Hoàn tác bố cục có sẵn vừa áp dụng",
+          "balanced": {
+            "title": "Cân bằng"
+          },
+          "taskFocus": {
+            "title": "Ưu tiên tác vụ"
+          },
+          "speedFocus": {
+            "title": "Ưu tiên tốc độ"
+          },
+          "compact": {
+            "title": "Nhỏ gọn"
+          }
+        },
+        "saveFailed": "Không thể lưu bố cục. Hãy thử lại.",
+        "expandHint": "Mở rộng cửa sổ để cấu hình bố cục Tổng quan."
+      },
+      "errors": {
+        "tileFailed": "{{tile}}: không thể hiển thị",
+        "retry": "Thử lại"
+      },
+      "speedLimit": {
+        "title": "Giới hạn tốc độ",
+        "unlimited": "Không giới hạn",
+        "smart": "Tự động",
+        "settings": "Cài đặt giới hạn tốc độ",
+        "turtle": {
+          "off": "Chế độ tiêu chuẩn",
+          "on": "Chế độ tốc độ thấp",
+          "auto": "Chế độ tự động"
+        },
+        "tooltip": {
+          "off": "Dùng giới hạn tốc độ tiêu chuẩn",
+          "on": "Dùng giới hạn tốc độ thấp ngay",
+          "auto": "Tự động điều chỉnh tốc độ theo lịch và băng thông"
+        },
+        "reason": {
+          "base": "Giới hạn tiêu chuẩn",
+          "turtle": "Chế độ tốc độ thấp",
+          "schedule": "Lịch",
+          "videoApp": "Ứng dụng video",
+          "adaptive": "Băng thông dự trữ"
+        }
+      },
+      "nat": {
+        "title": "NAT",
+        "compact": {
+          "state": {
+            "active": "Đã ánh xạ",
+            "settingUp": "Đang ánh xạ",
+            "failed": "Ánh xạ",
+            "off": "Tắt"
+          },
+          "caption": {
+            "active_other": "{{count}} cổng",
+            "settingUp": "Đang kết nối…",
+            "failed": "Không khả dụng",
+            "off": "BT / DHT",
+            "waiting": "Đang tải…"
+          }
+        },
+        "internalIp": "IP nội bộ",
+        "gatewayIp": "Bộ định tuyến",
+        "caption": {
+          "off": "Ánh xạ cổng BT đang tắt.",
+          "settingUp": "Đang kết nối với bộ định tuyến…",
+          "failed": "Không thể tự động ánh xạ.",
+          "waiting": "Đang chờ trạng thái mạng…"
+        },
+        "mappingDetails": "Cổng đã ánh xạ",
+        "mappingPurpose": {
+          "bt-listen": "BitTorrent",
+          "dht-listen": "DHT"
+        },
+        "portMapping": "Cổng nội bộ {{internal}} đến cổng bên ngoài {{external}}",
+        "noMappings": "Không có ánh xạ cổng đang hoạt động.",
+        "state": {
+          "active": "Đang hoạt động",
+          "settingUp": "Đang khởi tạo",
+          "failed": "Thất bại",
+          "off": "Tắt"
+        },
+        "retrying": "Đang thử lại {{attempt}}/{{max}}",
+        "type": "Loại",
+        "externalIp": "IP bên ngoài",
+        "mappings": "Ánh xạ",
+        "mappingsValue_other": "{{count}} đang hoạt động",
+        "health": "Tình trạng",
+        "healthScore": {
+          "good": "Tốt",
+          "fair": "Trung bình",
+          "poor": "Kém",
+          "unknown": "—"
+        },
+        "natType": {
+          "open": "Mở",
+          "fullcone": "Hình nón đầy đủ",
+          "restricted": "Hạn chế",
+          "port-restricted": "Hạn chế cổng",
+          "symmetric": "Đối xứng",
+          "blocked": "Bị chặn",
+          "unknown": "Không xác định"
+        },
+        "lastCheck": "Lần kiểm tra gần nhất",
+        "lastCheckNever": "Chưa từng",
+        "actions": {
+          "group": "Điều khiển NAT",
+          "enable": "Bật NAT",
+          "disable": "Tắt NAT",
+          "remap": "Buộc ánh xạ lại",
+          "diagnose": "Chạy chẩn đoán",
+          "troubleshoot": "Hướng dẫn khắc phục sự cố NAT",
+          "short": {
+            "enable": "Bật",
+            "disable": "Tắt",
+            "remap": "Ánh xạ lại",
+            "diagnose": "Chẩn đoán",
+            "help": "Trợ giúp"
+          },
+          "settings": "Cài đặt NAT"
+        },
+        "rateLimited": "Thao tác quá thường xuyên — hãy thử lại sau giây lát",
+        "none": "—"
+      }
+    },
+    "completed": {
+      "title": "Đã hoàn tất",
+      "desc": "Các tác vụ tải xuống đã hoàn tất"
+    },
+    "trackers": {
+      "title": "Máy chủ theo dõi",
+      "desc": "Quản lý tình trạng máy chủ theo dõi và các nguồn đăng ký",
+      "tab": {
+        "effective": "Đang áp dụng",
+        "blacklist": "Danh sách chặn"
+      },
+      "searchPlaceholder": "Lọc theo URL…",
+      "syncNow": "Đồng bộ ngay"
+    },
+    "downloads": {
+      "title": "Tải xuống",
+      "heading": {
+        "all": "Tất cả lượt tải xuống",
+        "active": "Lượt tải xuống đang hoạt động",
+        "completed": "Lượt tải xuống đã hoàn tất",
+        "error": "Lượt tải xuống thất bại"
+      },
+      "status": {
+        "queued": "Đang trong hàng đợi",
+        "fetchingMetadata": "Đang lấy dữ liệu",
+        "metadataReady": "Đang chờ chọn tệp",
+        "downloading": "Đang tải xuống",
+        "finalizing": "Đang hoàn tất",
+        "seeding": "Đang chia sẻ",
+        "paused": "Đã tạm dừng",
+        "completed": "Đã hoàn tất",
+        "error": "Lỗi"
+      },
+      "column": {
+        "name": "Tên",
+        "size": "Kích thước",
+        "progress": "Tiến độ",
+        "down": "Tốc độ tải xuống",
+        "up": "Tốc độ tải lên",
+        "eta": "Thời gian còn lại",
+        "connections": "Máy ngang hàng",
+        "status": "Trạng thái",
+        "createdAt": "Ngày tạo",
+        "finishedAt": "Ngày hoàn tất"
+      },
+      "columnHeader": {
+        "down": "Tải xuống",
+        "up": "Tải lên"
+      },
+      "timestamp": {
+        "notRecorded": "Chưa ghi nhận",
+        "notCompleted": "Chưa hoàn tất",
+        "relativeDateTime": "{{date}}, {{time}}"
+      },
+      "sort": {
+        "down": "Tốc độ tải xuống",
+        "up": "Tốc độ tải lên",
+        "asc": "{{column}}: tăng dần",
+        "desc": "{{column}}: giảm dần",
+        "sortAscending": "Sắp xếp {{column}} tăng dần",
+        "sortDescending": "Sắp xếp {{column}} giảm dần",
+        "reset": "Khôi phục thứ tự mặc định"
+      },
+      "empty": {
+        "noTasks": "Chưa có lượt tải xuống",
+        "noTasksCta": "Nhấn + để thêm",
+        "noMatchFilter": "Không có tác vụ khớp với bộ lọc này",
+        "noMatchSearch": "Không có tác vụ khớp với “{{query}}”",
+        "clearSearch": "Xóa nội dung tìm kiếm",
+        "unavailable": "Không thể tải danh sách tác vụ",
+        "motion": {
+          "open": "Điều chỉnh chuyển động kính",
+          "title": "Chuyển động kính",
+          "description": "Bản xem trước dành cho phát triển",
+          "enabled": "Hiệu ứng chuyển động",
+          "enabledDesc": "Đồng bộ với Giao diện → Giảm chuyển động. Thay đổi được lưu ngay.",
+          "systemReducedMotion": "Chuyển động bị tắt theo tùy chọn Giảm chuyển động của hệ thống.",
+          "saveFailed": "Không thể lưu cài đặt chuyển động. Hãy thử lại.",
+          "loadFade": "Hiện dần khi tải",
+          "breathing": "Ánh sáng theo nhịp thở",
+          "pointerFollow": "Theo con trỏ",
+          "positionConstraint": "Giới hạn vị trí theo trọng lực",
+          "horizontalSpeed": "Tốc độ ngang"
+        }
+      },
+      "stats": {
+        "downSpeed": "Tốc độ tải xuống",
+        "upSpeed": "Tốc độ tải lên",
+        "engineOk": "Bộ máy sẵn sàng",
+        "engineStarting": "Bộ máy đang khởi động",
+        "engineOffline": "Bộ máy ngoại tuyến",
+        "natActive": "Đã ánh xạ NAT",
+        "natActiveDesc": "Giúp các máy ngang hàng BT khác kết nối với bạn.",
+        "natSettingUp": "Đang ánh xạ NAT",
+        "natRetrying": "Tự động thử lại ({{attempt}}/{{max}})",
+        "natMapping": "Ánh xạ NAT",
+        "natUnavailable": "Không thể tự động ánh xạ",
+        "natUnavailableDesc": "Không ảnh hưởng đến tải xuống từ liên kết. Kết nối BT có thể bị hạn chế.",
+        "natRetry": "Thử lại",
+        "natDisable": "Tắt ánh xạ NAT",
+        "natSettings": "Cài đặt mạng",
+        "natHelp": "Hướng dẫn mạng"
+      },
+      "tab": {
+        "all": "Tất cả",
+        "active": "Đang hoạt động",
+        "completed": "Đã hoàn tất",
+        "error": "Lỗi"
+      },
+      "inspector": {
+        "overview": {
+          "transfer": "Lưu lượng",
+          "progress": "Tiến độ",
+          "network": "Mạng",
+          "general": "Thông tin chung",
+          "createdAt": "Đã tạo",
+          "finishedAt": "Đã hoàn tất",
+          "downSpeed": "Tốc độ tải xuống",
+          "upSpeed": "Tốc độ tải lên",
+          "eta": "Thời gian còn lại",
+          "downloaded": "Đã tải xuống",
+          "totalSize": "Tổng kích thước",
+          "percent": "Phần trăm",
+          "peers": "Máy ngang hàng",
+          "seeds": "Máy chia sẻ hoàn chỉnh",
+          "ratio": "Tỷ lệ",
+          "type": "Loại",
+          "infoHash": "Mã băm thông tin",
+          "private": "Riêng tư",
+          "connections": "Kết nối",
+          "uploaded": "Đã tải lên",
+          "seedingTime": "Thời gian chia sẻ",
+          "seedingRecordedSince": "Ghi nhận từ {{date}}. Không tính thời gian tạm dừng và ngoại tuyến; không có lịch sử chia sẻ trước đó.",
+          "seedingUnavailable": "Chưa ghi nhận thời gian chia sẻ cho tác vụ này."
+        },
+        "activity": {
+          "transferTitle": {
+            "session": "Lưu lượng trong phiên",
+            "lifetime": "Lưu lượng toàn bộ thời gian"
+          },
+          "download": "Tải xuống",
+          "upload": "Tải lên",
+          "loading": "Đang tải dữ liệu hoạt động…",
+          "collecting": "Đang thu thập dữ liệu lưu lượng…",
+          "noSessionHistory": "Chưa ghi nhận lưu lượng trong phiên ứng dụng này.",
+          "lifetimeEmpty": "Chưa có lịch sử toàn bộ thời gian.",
+          "noTraffic": "Hiện không có lưu lượng mạng.",
+          "unavailable": "Không thể tải dữ liệu hoạt động của toàn bộ thời gian.",
+          "coverageGap": "Việc theo dõi đã bị gián đoạn.",
+          "retry": "Thử lại",
+          "notAvailable": "Không khả dụng",
+          "stale": {
+            "short": "Dữ liệu đã cũ.",
+            "message": "Dữ liệu có thể đã cũ. Cập nhật lần cuối {{time}}."
+          },
+          "range": {
+            "label": "Khoảng thời gian truyền dữ liệu",
+            "session": "Phiên (60 giây)",
+            "lifetime": "Toàn bộ thời gian",
+            "latest": "60 giây gần nhất",
+            "adaptive_other": "Độ phân giải thích ứng · {{count}} mẫu"
+          },
+          "timeline": {
+            "title": "Lịch sử tác vụ",
+            "current": "Hiện tại: {{status}}",
+            "cluster_other": "+{{count}} sự kiện",
+            "repeated": "{{label}} ×{{count}}",
+            "truncated_other": "Đã lược bớt {{count}} sự kiện trong phần lịch sử trước đó",
+            "truncatedAt": "Lần lược bớt sớm nhất: {{time}}",
+            "timeRange": "{{start}}–{{end}}",
+            "detailTitle": "Chi tiết {{label}}",
+            "destination": "{{event}} {{status}}",
+            "previous": "Hiện các sự kiện trước trên dòng thời gian",
+            "next": "Hiện các sự kiện tiếp theo trên dòng thời gian",
+            "event": {
+              "added": "Đã thêm",
+              "started": "Đã bắt đầu",
+              "paused": "Đã tạm dừng",
+              "resumed": "Đã tiếp tục",
+              "stage_changed": "Đã đổi giai đoạn",
+              "completed": "Đã hoàn tất",
+              "failed": "Đã thất bại",
+              "observed_state": "Đã khôi phục trạng thái"
+            },
+            "status": {
+              "queued": "Đang trong hàng đợi",
+              "fetching_metadata": "Đang lấy siêu dữ liệu",
+              "metadata_ready": "Siêu dữ liệu sẵn sàng",
+              "downloading": "Đang tải xuống",
+              "finalizing": "Đang hoàn tất",
+              "seeding": "Đang chia sẻ",
+              "paused": "Đã tạm dừng",
+              "completed": "Đã hoàn tất",
+              "error": "Thất bại",
+              "removed": "Đã xóa khỏi danh sách"
+            }
+          },
+          "summary": {
+            "title": "Tóm tắt hiện tại",
+            "average": "Trung bình",
+            "averageExpanded": "Tốc độ tải xuống trung bình",
+            "peak": "Cao nhất",
+            "peakExpanded": "Tốc độ tải xuống cao nhất",
+            "active": "Hoạt động",
+            "activeExpanded": "Thời gian truyền dữ liệu thực tế"
+          },
+          "chart": {
+            "accessibleSummary": "{{range}} từ {{start}} đến {{end}}. Tốc độ mới nhất: tải xuống {{download}}, tải lên {{upload}}. Trong toàn bộ thời gian: tải xuống trung bình {{average}}, cao nhất {{peak}}, hoạt động {{activeDuration}}. {{sampleLabel}}. {{state}}",
+            "activeSeconds_other": "{{count}} giây",
+            "sampleCount_other": "{{count}} mẫu",
+            "noDataQualityIssues": "Không có cảnh báo theo dõi."
+          }
+        },
+        "pieces": {
+          "mapLabel": "Sơ đồ các mảnh tải xuống",
+          "legend": {
+            "done": "Đã hoàn tất",
+            "active": "Đang tải xuống",
+            "endgame": "Giai đoạn cuối",
+            "pending": "Đang chờ"
+          },
+          "empty": "Không có dữ liệu mảnh",
+          "pieceLength": "Kích thước mảnh",
+          "totalPieces": "Tổng số mảnh"
+        },
+        "peers": {
+          "summary_other": "{{count}} máy ngang hàng ({{seeders}} máy chia sẻ hoàn chỉnh)",
+          "empty": "Chưa kết nối với máy ngang hàng nào",
+          "col": {
+            "country": "Vị trí",
+            "endpoint": "IP : Cổng",
+            "client": "Ứng dụng",
+            "down": "↓",
+            "up": "↑",
+            "progress": "%",
+            "flags": "Cờ",
+            "flagsHint": "D = máy ngang hàng đang gửi dữ liệu cho chúng ta, U = chúng ta đang gửi cho máy ngang hàng, S = máy ngang hàng có bản sao hoàn chỉnh để chia sẻ. Dấu gạch dưới nghĩa là không hoạt động."
+          }
+        },
+        "trackers": {
+          "summary_other": "{{count}} máy chủ theo dõi",
+          "driftSuffix_other": "{{count}} máy chủ không có trong danh sách chung",
+          "privateBanner": "Torrent riêng tư — sẽ không bổ sung máy chủ theo dõi từ danh sách chung.",
+          "empty": "Không có máy chủ theo dõi",
+          "loadFailed": "Không thể tải danh sách máy chủ theo dõi: {{reason}}",
+          "action": {
+            "edit": "Sửa",
+            "save": "Lưu",
+            "cancel": "Hủy",
+            "sync": "Đồng bộ",
+            "delete": "Xóa máy chủ theo dõi"
+          },
+          "syncPrivateDisabled": "Không thể đồng bộ cho torrent riêng tư.",
+          "saveFailed": "Không thể cập nhật danh sách máy chủ theo dõi: {{reason}}",
+          "syncFailed": "Không thể đồng bộ danh sách máy chủ theo dõi: {{reason}}",
+          "deleteFailed": "Không thể xóa máy chủ theo dõi: {{reason}}",
+          "invalidLines_other": "Đã bỏ qua {{count}} dòng không hợp lệ",
+          "editPlaceholder": "Mỗi dòng một URL máy chủ theo dõi. Chỉ hỗ trợ http(s)/udp/ws(s).",
+          "editHint": "Các máy chủ này thay thế danh sách bt-tracker đang áp dụng cho tác vụ. Các mục announce-list trong tệp .torrent không bị ảnh hưởng."
+        },
+        "multi": {
+          "totals": "Tổng cộng",
+          "liveSpeed": "Tốc độ hiện tại",
+          "statusDist": "Phân bố trạng thái",
+          "totalSize": "Tổng kích thước",
+          "downloaded": "Đã tải xuống",
+          "avgProgress": "Tiến độ trung bình",
+          "combinedDown": "Tổng tải xuống ↓",
+          "combinedUp": "Tổng tải lên ↑",
+          "longestEta": "Thời gian còn lại dài nhất"
+        },
+        "tab": {
+          "overview": "Tổng quan",
+          "files": "Tệp",
+          "pieces": "Mảnh",
+          "peers": "Máy ngang hàng",
+          "trackers": "Máy chủ theo dõi",
+          "activity": "Hoạt động"
+        },
+        "placeholder": {
+          "files": "Danh sách tệp.",
+          "peers": "Danh sách máy ngang hàng.",
+          "trackers": "Danh sách máy chủ theo dõi."
+        }
+      },
+      "action": {
+        "pause": "Tạm dừng",
+        "queueMoveFailed": "Không thể cập nhật hàng đợi.",
+        "queueTaskStarted": "Tác vụ không còn trong hàng đợi.",
+        "queueMoveHint": "Vị trí trong hàng đợi quyết định lượt tải xuống đang chờ nào sẽ bắt đầu tiếp theo. Cách sắp xếp theo cột được lưu riêng.",
+        "queueBoundary": "Các tác vụ được chọn đã ở đầu hoặc cuối hàng đợi",
+        "queueMoved": "Đã cập nhật hàng đợi",
+        "moveQueueDown": "Chuyển xuống trong hàng đợi",
+        "moveQueueUp": "Chuyển lên trong hàng đợi",
+        "resume": "Tiếp tục",
+        "retry": "Thử lại",
+        "openFolder": "Mở thư mục",
+        "copyUrl": "Sao chép URL",
+        "copyUrls": "Sao chép các URL",
+        "copyPath": "Sao chép đường dẫn tệp",
+        "copied": "Đã sao chép vào bảng nhớ tạm",
+        "copyFailed": "Không thể sao chép vào bảng nhớ tạm. Hãy thử lại.",
+        "selectFilesFailed": "Không thể mở phần chọn tệp.",
+        "copyUrlFailed": "Sao chép thất bại: không thể tải chi tiết liên kết của tác vụ. Hãy thử lại.",
+        "selectFiles": "Chọn tệp",
+        "remove": "Xóa khỏi danh sách",
+        "removeConfirmWithFiles": "Đồng thời xóa các tệp đã tải xuống khỏi ổ đĩa",
+        "cancel": "Hủy",
+        "batchPartial": "{{ok}} thành công, {{failed}} thất bại",
+        "singleTaskFailed": "{{name}}: {{reason}}",
+        "stopSeeding": "Dừng chia sẻ",
+        "reseed": "Chia sẻ lại",
+        "retryWithDialog": "Thử lại với tùy chọn… (Alt+Bấm)",
+        "finalizingTooltip": "Tác vụ đang hoàn tất, vui lòng đợi",
+        "pauseTooltipBatch": "Tạm dừng {{n}}/{{total}} tác vụ đã chọn",
+        "resumeTooltipBatch": "Tiếp tục {{n}}/{{total}} tác vụ đã chọn",
+        "retryTooltipBatch": "Thử lại {{n}}/{{total}} tác vụ đã chọn",
+        "reseedTooltipBatch": "Chia sẻ lại {{n}}/{{total}} tác vụ đã chọn",
+        "stopSeedingTooltipBatch": "Dừng chia sẻ {{n}}/{{total}} tác vụ đã chọn",
+        "removeTooltipBatch": "Xóa {{n}}/{{total}} tác vụ đã chọn khỏi danh sách",
+        "removeWithFilesShift": "Giữ Shift để đồng thời xóa tệp",
+        "removeFilesEstimate": "Sẽ xóa {{bytes}} khỏi ổ đĩa",
+        "removeSingleTitle": "Xóa “{{name}}” khỏi danh sách?",
+        "removeAll_paused_Title": "Xóa {{count}} tác vụ đã tạm dừng khỏi danh sách?",
+        "removeAll_seeding_Title": "Xóa {{count}} tác vụ đang chia sẻ khỏi danh sách?",
+        "removeAll_completed_Title": "Xóa {{count}} tác vụ đã hoàn tất khỏi danh sách?",
+        "removeAll_error_Title": "Xóa {{count}} tác vụ thất bại khỏi danh sách?",
+        "removeAll_downloading_Title": "Xóa {{count}} tác vụ đang hoạt động khỏi danh sách?",
+        "removeMixedTitle": "Xóa {{count}} tác vụ khỏi danh sách?",
+        "openFile": "Mở tệp",
+        "openFileFailed": "Không thể mở tệp",
+        "chooseFiles": "Chọn tệp…",
+        "queueOrder": "Thứ tự tải xuống",
+        "moveQueueTop": "Chuyển lên đầu",
+        "moveQueueBottom": "Chuyển xuống cuối",
+        "copyError": "Sao chép thông tin lỗi",
+        "errorReport": "{{name}}\nID tác vụ: {{id}}\n{{details}}"
+      },
+      "titleCount": "Đang hiện {{shown}} · Tổng cộng {{total}}",
+      "type": {
+        "http": "HTTP",
+        "magnet": "Magnet",
+        "bt": "BitTorrent",
+        "ftp": "FTP",
+        "metalink": "Metalink"
+      },
+      "search": {
+        "placeholder": "Tìm lượt tải xuống",
+        "activeTypeFilters": "Bộ lọc loại: {{types}}",
+        "filters": "Bộ lọc",
+        "resetFilters": "Đặt lại bộ lọc",
+        "clearQuery": "Xóa nội dung tìm kiếm",
+        "activeQuery": "Tìm kiếm: {{query}}",
+        "scopeLabel": "Loại",
+        "clear": "Xóa",
+        "empty": "Không có tác vụ phù hợp",
+        "emptyHint": "Thử bỏ bộ lọc loại hoặc dùng từ khóa khác"
+      },
+      "stale": {
+        "banner": "Danh sách tác vụ có thể đã cũ — đang kết nối lại…"
+      },
+      "view": {
+        "title": "Chế độ xem danh sách",
+        "columns": "Cột",
+        "resetColumns": "Khôi phục các cột mặc định",
+        "sortBy": "Sắp xếp theo",
+        "ascending": "Tăng dần",
+        "descending": "Giảm dần",
+        "showInspector": "Hiện bảng chi tiết",
+        "hideInspector": "Ẩn bảng chi tiết",
+        "inspector": "Chi tiết tác vụ",
+        "resizeInspector": "Đổi kích thước bảng chi tiết",
+        "selectToInspect": "Chọn tác vụ để xem chi tiết.",
+        "resizeColumn": "Đổi độ rộng cột {{column}}",
+        "taskActions": "Thao tác khác"
+      },
+      "speedLimit": {
+        "title": "Chế độ tốc độ",
+        "currentMode": "Chế độ tốc độ: {{mode}}",
+        "uploadLimit": "Giới hạn tải lên: {{speed}}",
+        "downloadLimit": "Giới hạn tải xuống: {{speed}}",
+        "saveFailed": "Không thể đổi chế độ tốc độ. Hãy thử lại."
+      },
+      "media": {
+        "preparing": "Đang chuẩn bị",
+        "decrypting": "Đang giải mã",
+        "assembling": "Đang ráp các phần",
+        "muxing": "Đang ghép",
+        "renaming": "Đang lưu",
+        "stage": "Giai đoạn",
+        "downloadProgress": "Tiến độ tải xuống",
+        "muxProgress": "Tiến độ ghép",
+        "parts": "Đoạn",
+        "partsFormat": "{{completed}} / {{total}} đoạn",
+        "downloadSize": "Kích thước tải xuống",
+        "outputSize": "Kích thước đầu ra",
+        "downloadEta": "Thời gian tải xuống còn lại",
+        "avgDownloadProgress": "Tiến độ tải xuống trung bình",
+        "processingTasks": "Đang xử lý"
+      }
+    }
+  },
+  "task": {
+    "add": {
+      "title": "Tác vụ mới",
+      "links": "Liên kết",
+      "torrent": "Torrent",
+      "urlPlaceholder": "Nhập URL, liên kết magnet hoặc mã băm thông tin BT…",
+      "dropTorrent": "Thả tệp .torrent vào đây hoặc bấm để chọn",
+      "clearSelection": "Bỏ lựa chọn",
+      "createFailed": "Không thể tạo tác vụ tải xuống.",
+      "createFailedWithReason": "Không thể tạo tác vụ tải xuống: {{reason}}",
+      "createFailedByPlugin": "Không thể tạo tác vụ: tiện ích “{{pluginId}}” đã chặn tác vụ ({{detail}}). Hãy tắt tiện ích đó trong Cài đặt → Tiện ích rồi thử lại.",
+      "createFailedPathTooLong": "Không thể tạo tác vụ: đường dẫn đích dài {{length}} ký tự, vượt giới hạn {{limit}} của Windows. Hãy chọn thư mục lưu hoặc tên tệp ngắn hơn.",
+      "parseFailed": "Không thể phân tích tệp torrent.",
+      "urlsCount_other": "{{count}} URL",
+      "urlsWithInvalid": "{{valid}} hợp lệ, {{invalid}} không hợp lệ",
+      "validUrlCount": "{{count}} hợp lệ",
+      "invalidUrlCount": "{{count}} không hợp lệ",
+      "urlsLabel": "URL",
+      "advanced": "Nâng cao",
+      "filename": "Tên tệp",
+      "filenameAuto": "Tự động",
+      "split": "Kết nối",
+      "userAgent": "User-Agent",
+      "referer": "Referer",
+      "cookie": "Cookie",
+      "authorization": "Authorization",
+      "allProxy": "Máy chủ proxy",
+      "dlLimit": "Giới hạn tải xuống",
+      "ulLimit": "Giới hạn tải lên",
+      "seedRatio": "Tỷ lệ chia sẻ",
+      "unlimited": "Không giới hạn",
+      "browse": "duyệt",
+      "pickPathTitle": "Chọn thư mục lưu",
+      "pickPathCustom": "Đường dẫn tùy chỉnh",
+      "saveTo": "Lưu vào",
+      "saveDirEmpty": "Chọn thư mục…",
+      "changeSaveDir": "Đổi thư mục lưu",
+      "created": "Đã thêm tác vụ",
+      "batchCreated": "Đã thêm {{count}} tác vụ",
+      "createdCopy": "Đã thêm bản sao riêng",
+      "createdPartial": "Đã thêm {{ok}} · {{failed}} thất bại",
+      "torrentQueueProgress": "Torrent {{current}}/{{total}}",
+      "downloadAndContinue": "Tải xuống và tiếp tục",
+      "downloadAllTorrents": "Tải xuống tất cả ({{count}})",
+      "skipTorrent": "Bỏ qua",
+      "queueAdvanceFailed": "Không thể mở torrent tiếp theo.",
+      "duplicate": {
+        "title": "Torrent này đã tồn tại",
+        "active-info-hash": "{{name}} đang hoạt động. aria2 không thể chạy hai tác vụ có cùng nội dung torrent đồng thời.",
+        "selection-mismatch": "{{name}} dùng cùng vị trí đích nhưng chọn các tệp khác. Motrix sẽ không ghi đè hoặc tự động tạo bản sao với tên khác mà không thông báo.",
+        "existing-files": "{{name}} đã tồn tại ở vị trí đích này nhưng không truy cập được bản ghi tác vụ. Motrix sẽ không ghi đè.",
+        "filesOnDisk": "Các tệp trong torrent",
+        "showExisting": "Hiện tác vụ hiện có",
+        "createCopy": "Tạo bản sao riêng"
+      },
+      "adding": "Đang thêm…",
+      "interpretedMagnet": "Đã phát hiện liên kết magnet",
+      "interpretedInfoHash": "Đã chuyển mã băm thông tin BT thành liên kết magnet",
+      "unsupportedCurl": "Không thể nhập chính xác lệnh cURL này. Hãy sao chép URL hoặc lệnh GET của Bash với các tùy chọn được hỗ trợ.",
+      "invalidJson": "Cần một chuỗi URL dạng JSON hoặc một mảng các chuỗi URL.",
+      "interpretedJson": "Đã nhập URL từ JSON",
+      "sourceLine": "Dòng {{line}}",
+      "sourceCorrections": {
+        "useCanonicalUrl": "Dùng URL đã khai triển này",
+        "usePathSeparators": "Coi dấu gạch chéo ngược là dấu phân cách đường dẫn",
+        "encodeLiteralCharacters": "Mã hóa thành ký tự nguyên dạng"
+      },
+      "sourceErrors": {
+        "missingScheme": "Thêm giao thức URL, chẳng hạn https://.",
+        "invalidHost": "Tên máy chủ trong URL bị thiếu hoặc không hợp lệ.",
+        "invalidPort": "Cổng trong URL không hợp lệ.",
+        "controlCharacter": "Xóa ký tự điều khiển khỏi URL.",
+        "invalidUnicode": "URL chứa Unicode không hợp lệ.",
+        "ambiguousBackslash": "Dấu gạch chéo ngược khiến tên máy chủ hoặc đường dẫn không rõ ràng. Hãy chọn cách diễn giải.",
+        "invalidPercentEncoding": "Sau dấu phần trăm phải là hai chữ số thập lục phân.",
+        "credentialsInUrl": "Dùng các trường xác thực thay vì đưa thông tin xác thực vào URL.",
+        "unsupportedProtocol": "Giao thức URL này không được hỗ trợ cho lượt tải xuống này.",
+        "urlTooLong": "URL vượt giới hạn 16 KiB.",
+        "tooManySources": "Nội dung nhập vượt số lượng hoặc kích thước liên kết cho phép.",
+        "ambiguousStructure": "Bộ phân tích URL sẽ thay đổi địa chỉ này. Hãy kiểm tra URL đã khai triển.",
+        "unescapedCharacter": "Hãy mã hóa rõ ràng dấu cách và các ký tự dành riêng.",
+        "invalidMagnet": "Liên kết magnet cần có mã băm thông tin BT được hỗ trợ trong tham số xt.",
+        "mixedProtocols": "Các nguồn thay thế của cùng một lượt tải xuống phải dùng cùng nhóm giao thức.",
+        "unsupportedInput": "Không thể nhập nội dung này. Hãy dán URL hoặc nội dung JSON hay Bash cURL được hỗ trợ.",
+        "unsupportedRequestOptions": "Không thể áp dụng tiêu đề HTTP cho lượt tải xuống FTP."
+      },
+      "interpretedCurl": "Đã phân tích lệnh cURL",
+      "filterBy": {
+        "video": "Video",
+        "audio": "Âm thanh",
+        "image": "Hình ảnh",
+        "doc": "Tài liệu"
+      },
+      "errors": {
+        "urlsRequired": "Cần ít nhất một URL",
+        "saveDirRequired": "Cần chọn thư mục lưu",
+        "noFilesSelected": "Chọn ít nhất một tệp",
+        "missingSource": "Cần có tệp torrent hoặc liên kết magnet"
+      },
+      "selectionTimeout": {
+        "started": "Đã hết thời gian chọn tệp: đang tải xuống tất cả tệp trong {{name}}",
+        "failed": "Không thể tự động bắt đầu {{name}}. Hãy mở chi tiết tác vụ để chọn tệp rồi thử lại."
+      },
+      "undoCorrection": "Hoàn tác sửa URL",
+      "submissionUnconfirmed": "Chưa xác nhận được kết quả. Khi thử lại, yêu cầu ban đầu sẽ được kiểm tra trước khi tạo tác vụ khác."
+    },
+    "detail": {
+      "peers": "Máy ngang hàng: {{count}}",
+      "seeds": "Máy chia sẻ hoàn chỉnh: {{count}}"
+    },
+    "torrent": {
+      "column": {
+        "name": "Tên tệp",
+        "type": "Loại tệp",
+        "size": "Kích thước"
+      },
+      "fileSelected_other": "Đã chọn {{count}} tệp",
+      "selectAll": "Chọn tất cả",
+      "video": "Video",
+      "audio": "Âm thanh",
+      "image": "Hình ảnh",
+      "doc": "Tài liệu"
+    },
+    "remove": {
+      "title": "Xóa tác vụ khỏi danh sách?",
+      "description": "“{{name}}” sẽ bị xóa khỏi danh sách tải xuống.",
+      "deleteFilesLabel": "Xóa tệp đã tải xuống",
+      "confirm": "Xóa khỏi danh sách",
+      "cancel": "Hủy",
+      "orphanToast": "Đã xóa tác vụ khỏi danh sách. Các tệp được giữ tại {{path}}.",
+      "notAvailableDuringFinalize": "Vui lòng đợi tác vụ hoàn tất bước xử lý cuối."
+    },
+    "recovery": {
+      "toast": "Đã khôi phục {{count}} tác vụ bị gián đoạn. Bấm để kiểm tra.",
+      "finalizeRenameFailed": "Không thể đổi tên tệp. Tệp tải xuống vẫn có hậu tố .motrix.",
+      "reseedFailed": "Tải xuống đã hoàn tất nhưng không thể bắt đầu chia sẻ.",
+      "metaMissing": "Thiếu siêu dữ liệu torrent. Không thể bắt đầu chia sẻ.",
+      "startup": {
+        "torrentMetaMissing": "Không thể khôi phục tác vụ BitTorrent này: thiếu tệp siêu dữ liệu .torrent. Vui lòng xóa tác vụ khỏi danh sách rồi thêm lại.",
+        "reAddFailed": "Không thể khôi phục tác vụ này: bộ máy tải xuống từ chối yêu cầu thêm lại. Vui lòng xóa tác vụ khỏi danh sách rồi thêm lại thủ công.",
+        "dirtyMetadata": "Không thể khôi phục tác vụ này: thiếu thông tin nhận dạng cần thiết để tiếp tục.",
+        "resumeCheckpointMissing": "Tệp tải dở được giữ lại nhưng thiếu điểm kiểm tra để tiếp tục. Hãy tải lại từ đầu một cách an toàn hoặc thêm lại tác vụ.",
+        "resumeCredentialsRequired": "Tệp tải dở được giữ lại nhưng lượt tải xuống này cần thông tin xác thực không thể tự động gửi lại.",
+        "resumePathInvalid": "Tệp tải dở được giữ lại vì đường dẫn đầu ra đã lưu không hợp lệ.",
+        "resumeSourceChanged": "Tệp tải dở được giữ lại vì tệp trên máy chủ đã thay đổi kể từ khi bắt đầu tải xuống.",
+        "resumeRangeUnsupported": "Tệp tải dở được giữ lại vì máy chủ không hỗ trợ tải tiếp an toàn từ vị trí đã dừng.",
+        "resumeValidationFailed": "Tệp tải dở được giữ lại vì Motrix không thể xác minh rằng tệp trên máy chủ chưa thay đổi.",
+        "mediaInterrupted": "Lượt tải nội dung đa phương tiện này bị gián đoạn khi ứng dụng khởi động lại và không thể tiếp tục. Hãy thêm lại để thử lại."
+      }
+    },
+    "error": {
+      "detail": {
+        "finalizeFailed": "Không thể hoàn tất tải xuống: {{cause}}",
+        "recoveryFailed": "Không thể khôi phục lượt tải xuống: {{cause}}",
+        "recoveryOutputConflict": "Cả tệp tạm và tệp cuối cùng đều tồn tại; cả hai được giữ lại để kiểm tra thủ công",
+        "filesMissing": "Thiếu tệp sau khi ứng dụng khởi động lại",
+        "renameFileFailed": "Không thể đổi tên tệp: {{cause}}",
+        "renameDirFailed": "Không thể đổi tên thư mục: {{cause}}",
+        "pluginChainAborted": "Chuỗi tiện ích đã bị hủy: {{cause}}",
+        "magnetCleanupQuarantined": "Thao tác dọn siêu dữ liệu magnet đã bị cách ly",
+        "muxFailed": "Không thể ghép nội dung đa phương tiện đã tải xuống",
+        "pathTooLong": "Đường dẫn dài {{length}} ký tự; Windows cho phép {{limit}}"
+      },
+      "reason": {
+        "unknown": "Tải xuống thất bại",
+        "notFound": "Không tìm thấy tệp",
+        "unauthorized": "Cần quyền truy cập hợp lệ",
+        "networkError": "Kết nối mạng thất bại",
+        "timeout": "Tải xuống hết thời gian chờ",
+        "diskFull": "Ổ đĩa đầy",
+        "fileWriteError": "Không thể ghi tệp",
+        "pathTooLong": "Đường dẫn tệp quá dài đối với Windows",
+        "checksumMismatch": "Mã kiểm tra tệp không khớp",
+        "tooManyRedirects": "Quá nhiều lần chuyển hướng",
+        "serverError": "Máy chủ trả về lỗi",
+        "btMetadataFailed": "Không thể lấy siêu dữ liệu torrent",
+        "btTrackerError": "Không thể kết nối đến máy chủ theo dõi",
+        "generic": "Tải xuống thất bại"
+      },
+      "hint": {
+        "diskFull": "Giải phóng dung lượng ổ đĩa hoặc đổi thư mục lưu rồi thử lại",
+        "unauthorized": "Kiểm tra thông tin xác thực hoặc quyền truy cập rồi thử lại",
+        "networkError": "Kiểm tra kết nối mạng rồi thử lại",
+        "timeout": "Kiểm tra tốc độ và độ ổn định của kết nối rồi thử lại",
+        "fileWriteError": "Kiểm tra quyền truy cập thư mục và dung lượng ổ đĩa còn trống rồi thử lại",
+        "pathTooLong": "Rút ngắn đường dẫn thư mục lưu hoặc tên tệp rồi thử lại",
+        "checksumMismatch": "Tệp đã tải xuống có thể bị hỏng; hãy tải lại để kiểm tra",
+        "tooManyRedirects": "Liên kết nguồn có thể bị hỏng; hãy thử liên kết khác",
+        "btMetadataFailed": "Kiểm tra liên kết magnet hoặc thêm máy chủ theo dõi rồi thử lại"
+      }
+    }
+  },
+  "settings": {
+    "title": "Cài đặt",
+    "desc": "Cấu hình Motrix",
+    "cards": {
+      "general": {
+        "title": "Cài đặt chung",
+        "desc": "Khởi động, thư mục lưu mặc định, tích hợp hệ thống"
+      },
+      "bittorrent": {
+        "title": "BitTorrent",
+        "desc": "DHT, cổng lắng nghe, máy chủ theo dõi, vị trí máy ngang hàng"
+      },
+      "appearance": {
+        "title": "Giao diện",
+        "desc": "Chủ đề, ngôn ngữ, biểu tượng khay hệ thống"
+      },
+      "advanced": {
+        "title": "Nâng cao",
+        "desc": "RPC, lưu trữ bằng SQLite"
+      },
+      "about": {
+        "title": "Giới thiệu",
+        "desc": "Phiên bản, cập nhật, mã nguồn và hướng dẫn sử dụng"
+      },
+      "downloads": {
+        "title": "Tải xuống",
+        "desc": "Số lượt tải đồng thời, giới hạn băng thông, độ tin cậy của mạng"
+      },
+      "network": {
+        "title": "Mạng",
+        "desc": "Proxy, DNS và NAT/UPnP"
+      },
+      "integration": {
+        "title": "Tích hợp",
+        "desc": "Tiện ích mở rộng trình duyệt, CLI, tích hợp hệ thống"
+      }
+    },
+    "general": {
+      "launchAtStartup": "Mở khi đăng nhập",
+      "launchAtStartupDesc": "Tự động khởi động Motrix khi bạn đăng nhập.",
+      "showMainWindowAtLogin": "Hiện cửa sổ khi đăng nhập",
+      "showMainWindowAtLoginDesc": "Ẩn khi chọn “{{mode}}”.",
+      "defaultSaveDir": "Thư mục tải xuống mặc định",
+      "defaultSaveDirDesc": "Các lượt tải xuống mới được lưu ở đây, trừ khi có lựa chọn khác cho từng tác vụ.",
+      "inAppNotifications": "Thông báo trong ứng dụng",
+      "inAppNotificationsDesc": "Chọn thông báo tải xuống cần hiện. Các cảnh báo của ứng dụng vẫn được bật.",
+      "notifyInAppOnComplete": "Hiện thông báo tải xuống hoàn tất",
+      "notifyInAppOnError": "Hiện thông báo tải xuống thất bại",
+      "notificationBadgeStyle": "Dấu hiệu chưa đọc",
+      "notificationBadgeCount": "Số lượng",
+      "notificationBadgeDot": "Dấu chấm",
+      "notificationBadgeHidden": "Ẩn",
+      "systemNotifications": "Thông báo hệ thống",
+      "notifyOnComplete": "Thông báo khi tải xuống hoàn tất",
+      "notifyOnCompleteDesc": "Hiện thông báo hệ thống khi tác vụ hoàn tất.",
+      "autofillClipboardLinks": "Tự điền liên kết từ bảng nhớ tạm",
+      "autofillClipboardLinksDesc": "Khi mở Tác vụ mới, tự dán liên kết trong bảng nhớ tạm vào trường URL còn trống.",
+      "notifyOnError": "Thông báo khi thất bại",
+      "notifyOnErrorDesc": "Hiện thông báo hệ thống khi tải xuống thất bại trong lúc cửa sổ ở nền.",
+      "warnBeforeQuit": "Xác nhận trước khi thoát",
+      "warnBeforeQuitDesc": "Hỏi trước khi thoát nếu vẫn còn lượt tải xuống đang chạy.",
+      "notificationBadgeDesc": "Hiển thị trên biểu tượng trung tâm thông báo.",
+      "notificationOff": "Tắt",
+      "notificationSystem": "Thông báo hệ thống",
+      "notificationInApp": "Thông báo trong ứng dụng",
+      "notificationBoth": "Cả hai",
+      "startupAndQuitting": "Khởi động và thoát",
+      "runMode": "Hiển thị ứng dụng trong",
+      "runModeStandard": "Dock và thanh menu",
+      "runModeTray": "Chỉ thanh menu",
+      "runModeHideTray": "Chỉ Dock",
+      "lightweightMode": "Tiết kiệm bộ nhớ khi đóng cửa sổ",
+      "lightweightModeDesc": "Tải xuống vẫn tiếp tục. Cửa sổ mở lại chậm hơn và nội dung chưa lưu sẽ bị xóa.",
+      "notifications": "Thông báo",
+      "notificationsDesc": "Cảnh báo lỗi ứng dụng luôn được bật.",
+      "downloadCompleted": "Tải xuống hoàn tất",
+      "downloadFailed": "Tải xuống thất bại",
+      "description": "Khởi động, thoát và thông báo",
+      "desktopOnly": "Các tùy chọn khởi động và thông báo có trong ứng dụng máy tính."
+    },
+    "appearance": {
+      "theme": "Chủ đề",
+      "themeAuto": "Hệ thống",
+      "themeLight": "Sáng",
+      "themeDark": "Tối",
+      "language": "Ngôn ngữ",
+      "traySpeedometer": "Hiện tốc độ trên thanh menu",
+      "traySpeedometerDesc": "Xem tốc độ tải xuống và tải lên bên cạnh biểu tượng ứng dụng.",
+      "trayIconColor": "Màu biểu tượng khay hệ thống",
+      "trayIconColorDesc": "Chọn màu dễ nhìn trên thanh hệ thống.",
+      "trayIconColorAuto": "Theo chủ đề ứng dụng",
+      "trayIconColorLight": "Biểu tượng sáng (nền tối)",
+      "trayIconColorDark": "Biểu tượng tối (nền sáng)",
+      "reduceMotion": "Giảm chuyển động",
+      "reduceMotionDesc": "Giảm hiệu ứng chuyển động trong toàn bộ ứng dụng.",
+      "liquidGlassEffect": "Liquid Glass",
+      "liquidGlassEffectDesc": "Thêm hiệu ứng kính trong mờ cho thanh công cụ tải xuống.",
+      "liquidGlassEffectMacDesc": "Cũng áp dụng cho cửa sổ trên macOS 26 trở lên. Cửa sổ sẽ mở lại khi thay đổi.",
+      "runMode": "Hiển thị ứng dụng trong",
+      "runModeStandard": "Dock và thanh menu",
+      "runModeTray": "Chỉ thanh menu",
+      "runModeHideTray": "Chỉ Dock",
+      "runModeLaunch": "Khi mở Motrix",
+      "runModeStandardDesktop": "Mở cửa sổ chính",
+      "runModeTrayDesktop": "Khởi động trong khay hệ thống",
+      "runModeLinuxDesc": "Khả năng dùng khay hệ thống và cách kích hoạt phụ thuộc vào môi trường màn hình nền của bạn.",
+      "lightweightMode": "Chế độ nhẹ",
+      "lightweightModeDesc": "Tiết kiệm bộ nhớ khi đóng cửa sổ. Tải xuống vẫn tiếp tục, nhưng cửa sổ mở lại lâu hơn và nội dung chưa lưu sẽ bị xóa.",
+      "byteUnitSystem": "Đơn vị kích thước và tốc độ",
+      "byteUnitSystemDesc": "Chọn cách hiển thị kích thước tệp và tốc độ.",
+      "byteUnitDecimal": "Thập phân (MB, GB · 1000)",
+      "byteUnitBinary": "Nhị phân (MiB, GiB · 1024)",
+      "byteUnitSystemDefault": "Theo hệ thống ({{units}})",
+      "sidebarColor": "Màu nhấn",
+      "sidebarColors": {
+        "blue": "Xanh dương",
+        "violet": "Tím",
+        "pink": "Hồng",
+        "orange": "Cam",
+        "gold": "Vàng kim",
+        "green": "Xanh lá",
+        "cyan": "Xanh lơ",
+        "gray": "Xám",
+        "auto": "Tự động"
+      },
+      "themeAndEffects": "Chủ đề và hiệu ứng",
+      "languageAndDisplay": "Ngôn ngữ và hiển thị",
+      "menuBar": "Thanh menu",
+      "description": "Chủ đề, ngôn ngữ và hiển thị",
+      "systemTray": "Khay hệ thống",
+      "followSystem": "Theo hệ thống"
+    },
+    "advanced": {
+      "rpc": {
+        "title": "RPC",
+        "port": "Cổng RPC",
+        "portDesc": "Cần khởi động lại sau khi thay đổi.",
+        "secret": "Mã bí mật RPC",
+        "secretDesc": "Cần có để kết nối RPC."
+      },
+      "persistence": {
+        "title": "Tiến độ và khôi phục",
+        "enable": "Lưu dữ liệu khôi phục",
+        "enableDesc": "Giữ dữ liệu cần thiết để tiếp tục tải xuống sau khi khởi động lại.",
+        "dbPath": "Tệp dữ liệu khôi phục",
+        "dbPathDesc": "Để trống để dùng vị trí mặc định.",
+        "dbPathPlaceholder": "Vị trí mặc định",
+        "historyLimit": "Bản ghi khôi phục của tác vụ đã hoàn tất",
+        "historyLimitDesc": "Không ảnh hưởng đến danh sách tải xuống và các tệp đã tải xuống.",
+        "historyKeepAll": "Tất cả bản ghi",
+        "historyKeepRecent": "Các bản ghi mới nhất…",
+        "historySessionOnly": "Không giữ lại",
+        "historyCount": "Số bản ghi cần giữ",
+        "historyCountHint": "Các bản ghi khôi phục cũ hơn sẽ bị xóa.",
+        "historyCountPositive": "Nhập một số lớn hơn 0."
+      },
+      "description": "RPC, tiến độ và khôi phục"
+    },
+    "about": {
+      "appIconAlt": "Biểu tượng ứng dụng Motrix",
+      "version": "Phiên bản {{version}}",
+      "tagline": "Trước khi nội dung biến mất, hãy giữ lại những điều thực sự có ý nghĩa và dành một chỗ cho cái đẹp trong bộ sưu tập của bạn.",
+      "webVersionNote": "Phiên bản web này do quản trị viên triển khai cập nhật.",
+      "update": {
+        "title": "Cập nhật ứng dụng",
+        "currentVersion": "Phiên bản hiện tại {{version}}",
+        "idleTitle": "Luôn cập nhật Motrix",
+        "idle": "Đã cài đặt phiên bản {{version}}. Kiểm tra ngay hoặc để Motrix kiểm tra khi mở ứng dụng.",
+        "unsupportedTitle": "Không thể cập nhật tự động",
+        "unsupported": "Phiên bản này không thể tự động cập nhật. Hãy tải phiên bản mới nhất từ trang web chính thức.",
+        "check": "Kiểm tra bản cập nhật",
+        "checkAction": "Kiểm tra",
+        "checking": "Đang kiểm tra…",
+        "checkingTitle": "Đang kiểm tra bản cập nhật…",
+        "checkingDescription": "Đang kết nối với dịch vụ cập nhật Motrix…",
+        "upToDateTitle": "Motrix đang ở phiên bản mới nhất",
+        "upToDate": "Phiên bản {{version}} là bản phát hành mới nhất hiện có.",
+        "available": "Đã có Motrix {{version}}.",
+        "availableTitle": "Đã có Motrix {{version}}",
+        "availableDescription": "Tải xuống ngay và chọn thời điểm khởi động lại để cài đặt.",
+        "download": "Tải bản cập nhật",
+        "downloading": "Đang tải xuống…",
+        "downloadingTitle": "Đang tải Motrix {{version}}",
+        "downloadingDescription": "Bạn có thể đóng cửa sổ này. Quá trình tải xuống sẽ tiếp tục ở nền.",
+        "downloadedTitle": "Bản cập nhật sẵn sàng để cài đặt",
+        "downloaded": "Motrix {{version}} sẵn sàng để cài đặt.",
+        "restart": "Khởi động lại và cài đặt",
+        "cancelledTitle": "Đã hủy tải xuống",
+        "cancelled": "Đã hủy tải bản cập nhật.",
+        "cancelledDescription": "Thử tải lại khi bạn sẵn sàng.",
+        "errorTitle": "Không thể cập nhật Motrix",
+        "errorDescription": "Kiểm tra kết nối rồi thử lại.",
+        "error": "Cập nhật thất bại: {{message}}",
+        "retry": "Thử lại",
+        "automaticChecks": "Tự động kiểm tra",
+        "automaticChecksDescription": "Khi mở Motrix",
+        "automaticChecksError": "Không thể lưu cài đặt này",
+        "channelLabel": "Kênh cập nhật",
+        "channelDescription": "Chọn bản phát hành ổn định hoặc trải nghiệm tính năng mới trong bản beta.",
+        "channelStable": "Ổn định",
+        "channelBeta": "Beta",
+        "channelBetaWarning": "Bản beta có thể kém ổn định hơn. Bạn cũng sẽ nhận các bản phát hành ổn định mới hơn. Chuyển về kênh ổn định sẽ ngừng cập nhật beta mà không hạ phiên bản.",
+        "channelSaveError": "Không thể lưu kênh cập nhật. Hãy thử lại."
+      },
+      "details": {
+        "author": "Tác giả",
+        "createdBy": "Tạo bởi",
+        "license": "Giấy phép",
+        "licenseValue": "Giấy phép {{license}}"
+      },
+      "resources": {
+        "title": "Tài nguyên",
+        "repository": "Kho mã nguồn",
+        "repositoryDescription": "Xem mã nguồn trên GitHub",
+        "manual": "Hướng dẫn sử dụng",
+        "manualDescription": "Đọc hướng dẫn sử dụng",
+        "plugins": "Tiện ích",
+        "changelog": "Nhật ký thay đổi",
+        "website": "Trang web chính thức",
+        "websiteDescription": "Truy cập motrix.app",
+        "acknowledgments": "Lời cảm ơn",
+        "acknowledgmentsDescription": "Xem thông tin đóng góp cho dự án trên motrix.app"
+      }
+    },
+    "bittorrent": {
+      "trackers": {
+        "autoSync": "Tự động cập nhật danh sách máy chủ theo dõi",
+        "autoSyncDesc": "Cập nhật danh sách từ các nguồn của bạn.",
+        "syncInterval": "Khoảng thời gian cập nhật (giờ)",
+        "syncIntervalDesc": "Từ 1 đến 168 giờ.",
+        "enableProbe": "Kiểm tra khả năng kết nối máy chủ theo dõi",
+        "enableProbeDesc": "Kiểm tra máy chủ theo dõi trước khi dùng để tải xuống.",
+        "probeTimeout": "Thời gian chờ kiểm tra (ms)",
+        "probeTimeoutDesc": "Thời gian chờ phản hồi tối đa. 1.000–30.000 ms.",
+        "healthyThreshold": "Ngưỡng phản hồi chậm (ms)",
+        "healthyThresholdDesc": "Phản hồi lâu hơn sẽ được đánh dấu là chậm. 500–10.000 ms.",
+        "minSuccessRate": "Tỷ lệ thành công tối thiểu",
+        "minSuccessRateDesc": "Dùng máy chủ theo dõi có tỷ lệ thành công ít nhất bằng giá trị này. 0.5 = 50%.",
+        "maxTrackerCount": "Số máy chủ theo dõi mỗi tác vụ",
+        "maxTrackerCountDesc": "Số máy chủ theo dõi tối đa được dùng. 5–200.",
+        "title": "Máy chủ theo dõi",
+        "manageSourcesHint": "Quản lý các nguồn trong trang Máy chủ theo dõi.",
+        "blacklistMovedInfo": "Quản lý máy chủ bị chặn trong Máy chủ theo dõi → Danh sách chặn."
+      },
+      "geoip": {
+        "title": "Vị trí máy ngang hàng",
+        "enable": "Hiện quốc gia hoặc vùng",
+        "enableDesc": "Hiện vị trí trong danh sách máy ngang hàng. Tải dữ liệu vị trí khi cần.",
+        "lastUpdated": "Cập nhật lần cuối",
+        "neverUpdated": "Chưa từng",
+        "updateNow": "Cập nhật ngay",
+        "updating": "Đang cập nhật…",
+        "source": "Nguồn dữ liệu vị trí",
+        "sourceDesc": "Chọn nơi tải dữ liệu vị trí.",
+        "source.loyalsoldier": "Loyalsoldier (cộng đồng)",
+        "source.p3terx": "P3TERX (bản sao cộng đồng)",
+        "source.maxmind": "MaxMind (chính thức)",
+        "source.custom": "URL tùy chỉnh",
+        "maxmindUnsupported": "Chưa được hỗ trợ",
+        "customUrl": "URL tải xuống tùy chỉnh",
+        "customUrlPlaceholder": "https://example.com/GeoLite2-Country.mmdb",
+        "autoUpdate": "Tự động cập nhật",
+        "autoUpdateDesc": "Kiểm tra dữ liệu vị trí mới khoảng mỗi tuần một lần.",
+        "status.loaded": "Sẵn sàng",
+        "status.notDownloaded": "Chưa tải dữ liệu vị trí",
+        "status.downloading": "Đang tải xuống…",
+        "status.error": "Cập nhật thất bại",
+        "customUrlDesc": "Liên kết tới cơ sở dữ liệu vị trí theo quốc gia ở định dạng .mmdb.",
+        "saveBeforeUpdate": "Lưu thay đổi trước khi cập nhật dữ liệu vị trí.",
+        "updateFailed": "Không thể cập nhật dữ liệu vị trí. Hãy thử lại."
+      },
+      "listen": {
+        "title": "Kết nối đến",
+        "listenPort": "Cổng lắng nghe BT",
+        "listenPortDesc": "Chấp nhận kết nối từ máy ngang hàng trên cổng này.",
+        "dhtListenPort": "Cổng lắng nghe DHT",
+        "dhtListenPortDesc": "Tìm máy ngang hàng qua DHT trên cổng này.",
+        "dhtEnabled": "Bật DHT",
+        "dhtEnabledDesc": "Tìm máy ngang hàng mà không phụ thuộc vào máy chủ theo dõi."
+      },
+      "peers": {
+        "title": "Máy ngang hàng",
+        "btMaxPeers": "Số máy ngang hàng tối đa mỗi torrent",
+        "btMaxPeersDesc": "Số máy ngang hàng tối đa mà một tác vụ có thể kết nối đồng thời.",
+        "btEnableLpd": "Khám phá máy ngang hàng cục bộ",
+        "btEnableLpdDesc": "Tìm các máy ngang hàng đang chia sẻ tệp trong mạng cục bộ.",
+        "magnetFileSelection": "Chọn tệp trước khi tải xuống",
+        "magnetFileSelectionDesc": "Hiện phần chọn tệp sau khi tải liên kết magnet.",
+        "magnetFileSelectionAutoDownload": "Tải tất cả nếu chưa chọn tệp",
+        "magnetFileSelectionAutoDownloadDesc": "Bắt đầu sau khoảng thời gian bên dưới, ngay cả khi cửa sổ ứng dụng hoặc trình duyệt đã đóng.",
+        "magnetFileSelectionTimeoutSeconds": "Thời gian chọn tệp (giây)",
+        "magnetFileSelectionTimeoutSecondsDesc": "Thời gian chờ bắt đầu khi danh sách tệp sẵn sàng. Thay đổi cũng áp dụng cho các tác vụ đang chờ.",
+        "magnetFileSelectionTimeoutInvalid": "Nhập một số nguyên từ {{min}} đến {{max}} giây."
+      },
+      "seeding": {
+        "title": "Chia sẻ",
+        "seedRatio": "Giới hạn tỷ lệ chia sẻ",
+        "seedRatioDesc": "Tải lên ÷ tải xuống. Dừng chia sẻ khi đạt tỷ lệ này. 0 = không giới hạn.",
+        "seedTime": "Giới hạn thời gian chia sẻ (phút)",
+        "seedTimeDesc": "0 = không giới hạn. Áp dụng cho tác vụ mới và khi bắt đầu chia sẻ lại."
+      },
+      "newMagnetTasks": "Tác vụ magnet mới",
+      "description": "Magnet, chia sẻ và máy chủ theo dõi"
+    },
+    "downloads": {
+      "performance": {
+        "title": "Hiệu suất",
+        "profile": "Hiệu suất tải xuống",
+        "profileDesc": "Cân bằng tốc độ tải xuống và mức sử dụng tài nguyên.",
+        "learnMore": "Tìm hiểu thêm",
+        "metrics": {
+          "connections": "Số kết nối tối đa",
+          "perServer": "Giới hạn mỗi máy chủ",
+          "minimum": "Kích thước đoạn tối thiểu",
+          "cache": "Bộ nhớ đệm ổ đĩa"
+        },
+        "customParameters": "Thông số hiệu suất tùy chỉnh",
+        "profiles": {
+          "auto": {
+            "label": "Tự động",
+            "desc": "Điều chỉnh theo ổ đĩa và kích thước tệp. Các giá trị bên dưới là mặc định."
+          },
+          "balanced": {
+            "label": "Cân bằng",
+            "desc": "Dùng ít tài nguyên hơn cho các lượt tải xuống hằng ngày."
+          },
+          "high": {
+            "label": "Tốc độ cao",
+            "desc": "Dùng nhiều kết nối hơn để tải xuống nhanh hơn."
+          },
+          "maximum": {
+            "label": "Tối đa",
+            "desc": "Dùng nhiều kết nối hơn. Một số máy chủ có thể giới hạn số kết nối."
+          },
+          "custom": {
+            "label": "Tùy chỉnh",
+            "desc": "Đặt số kết nối, kích thước đoạn và bộ nhớ đệm."
+          }
+        },
+        "maxConcurrentDownloads": "Số lượt tải xuống đồng thời",
+        "maxConcurrentDownloadsDesc": "Các tác vụ vượt giới hạn sẽ chờ trong hàng đợi.",
+        "maxConnectionPerServer": "Số kết nối tối đa mỗi máy chủ",
+        "maxConnectionPerServerDesc": "Giới hạn kết nối cho một tệp từ một máy chủ.",
+        "split": "Số kết nối tối đa mỗi tệp",
+        "splitDesc": "Số kết nối dùng để tải xuống một tệp.",
+        "minSplitSize": "Kích thước đoạn tối thiểu (MiB)",
+        "minSplitSizeDesc": "Các đoạn nhỏ hơn 2× giá trị này sẽ không được chia nhỏ."
+      },
+      "reliability": {
+        "title": "Kết nối và thử lại",
+        "userAgent": "User-Agent",
+        "userAgentDesc": "Nhận dạng ứng dụng với các trang web. Hãy thay đổi nếu trang web yêu cầu giá trị khác.",
+        "connectTimeout": "Thời gian chờ kết nối (giây)",
+        "connectTimeoutDesc": "Thời gian chờ thiết lập kết nối.",
+        "socketTimeout": "Thời gian chờ khi không có dữ liệu (giây)",
+        "socketTimeoutDesc": "Thời gian chờ khi không nhận được dữ liệu.",
+        "maxTries": "Số lần thử tối đa",
+        "maxTriesDesc": "Bao gồm lần thử đầu tiên. 0 = không giới hạn.",
+        "retryWait": "Thời gian đợi trước khi thử lại (giây)",
+        "retryWaitDesc": "Đợi khoảng thời gian này trước khi thử lại.",
+        "lowestSpeedLimit": "Tốc độ kết nối tối thiểu (KiB/s)",
+        "lowestSpeedLimitDesc": "Ngắt kết nối khi tốc độ thấp hơn giá trị này. 0 = tắt."
+      },
+      "disk": {
+        "title": "Ổ đĩa và tệp",
+        "fileDeletionMode": "Khi xóa tệp của tác vụ",
+        "fileDeletionTrash": "Chuyển vào thùng rác",
+        "fileDeletionPermanent": "Xóa vĩnh viễn",
+        "fileDeletionTrashDesc": "Dung lượng được giải phóng khi bạn dọn sạch thùng rác.",
+        "fileDeletionPermanentDesc": "Các tệp đã xóa không thể được khôi phục từ thùng rác.",
+        "fileAllocation": "Dành trước dung lượng ổ đĩa",
+        "fileAllocationDesc": "Dành trước dung lượng trước khi tải xuống tệp.",
+        "fileAllocationNone": "Không dành trước",
+        "fileAllocationPrealloc": "Cấp phát trước",
+        "fileAllocationTrunc": "Đặt kích thước tệp",
+        "fileAllocationFalloc": "Cấp phát qua hệ thống",
+        "modifiedTime": "Thời gian sửa đổi tệp",
+        "modifiedTimeDesc": "Áp dụng cho các lượt tải xuống HTTP và FTP đã hoàn tất.",
+        "modifiedTimeLocal": "Thời gian tải xuống",
+        "modifiedTimeServer": "Thời gian từ máy chủ",
+        "diskCache": "Bộ nhớ đệm ổ đĩa (MiB)",
+        "diskCacheDesc": "Bộ nhớ dùng để đệm dữ liệu tệp trước khi ghi vào ổ đĩa.",
+        "sessionSaveInterval": "Khoảng thời gian lưu tiến độ (giây)",
+        "sessionSaveIntervalDesc": "Lưu thường xuyên hơn để giảm lượng tiến độ bị mất khi ứng dụng gặp sự cố."
+      },
+      "magnet": {
+        "title": "Magnet",
+        "magnetResolveTimeout": "Thời gian chờ tải magnet (giây)",
+        "magnetResolveTimeoutDesc": "Thời gian chờ danh sách tệp."
+      },
+      "speedLimit": {
+        "title": "Giới hạn tốc độ",
+        "titleDesc": "Chọn cách Motrix sử dụng kết nối trong các chế độ Tiêu chuẩn, Tốc độ thấp và Tự động.",
+        "modeSection": "Chế độ tốc độ",
+        "modeSectionDesc": "Chọn cách Motrix sử dụng kết nối.",
+        "turtle": "Chế độ tốc độ",
+        "turtleDesc_off": "Dùng giới hạn tốc độ tiêu chuẩn.",
+        "turtleDesc_on": "Dùng giới hạn tốc độ thấp ngay để dành băng thông cho ứng dụng khác.",
+        "turtleDesc_auto": "Tự động điều chỉnh tốc độ theo thời gian và băng thông kết nối.",
+        "turtle_off": "Tiêu chuẩn",
+        "turtle_on": "Tốc độ thấp",
+        "turtle_auto": "Tự động",
+        "baseSection": "Giới hạn tiêu chuẩn",
+        "baseSectionDesc": "Dùng cho các lượt tải xuống hằng ngày và được tuân thủ trong mọi chế độ.",
+        "baseDownload": "Tải xuống",
+        "baseDownloadDesc": "Tốc độ tải xuống tối đa thường dùng.",
+        "baseUpload": "Tải lên",
+        "baseUploadDesc": "Tốc độ tải lên tối đa thường dùng.",
+        "unlimited": "Không giới hạn",
+        "setUnlimited": "Đặt thành không giới hạn",
+        "standardLimit": "Dùng tiêu chuẩn",
+        "useStandardLimit": "Dùng giới hạn tiêu chuẩn",
+        "altSection": "Giới hạn tốc độ thấp",
+        "altSectionDesc": "Dùng trong chế độ Tốc độ thấp hoặc theo lịch. Các giới hạn này chỉ có thể giảm giới hạn tiêu chuẩn.",
+        "altDownload": "Tải xuống",
+        "altDownloadDesc": "Tốc độ tải xuống tối đa khi chế độ Tốc độ thấp đang bật.",
+        "altUpload": "Tải lên",
+        "altUploadDesc": "Tốc độ tải lên tối đa khi chế độ Tốc độ thấp đang bật.",
+        "autoSection": "Quy tắc tự động",
+        "autoSectionDesc": "Các quy tắc này chỉ áp dụng trong chế độ Tự động.",
+        "autoSchedule": "Giảm tốc theo lịch",
+        "scheduleEnabled": "Lập lịch tốc độ thấp",
+        "scheduleEnabledDesc": "Chuyển sang giới hạn tốc độ thấp vào các ngày và giờ đã chọn.",
+        "scheduleFrom": "Bắt đầu",
+        "scheduleTo": "Kết thúc",
+        "scheduleTimeFormat": "Định dạng 24 giờ (HH:mm)",
+        "scheduleDays": "Ngày",
+        "scheduleDaysHint": "Nếu giờ kết thúc sớm hơn giờ bắt đầu, lịch sẽ kéo dài sang ngày tiếp theo.",
+        "weekdays": {
+          "sun": {
+            "short": "CN",
+            "long": "Chủ Nhật"
+          },
+          "mon": {
+            "short": "T2",
+            "long": "Thứ Hai"
+          },
+          "tue": {
+            "short": "T3",
+            "long": "Thứ Ba"
+          },
+          "wed": {
+            "short": "T4",
+            "long": "Thứ Tư"
+          },
+          "thu": {
+            "short": "T5",
+            "long": "Thứ Năm"
+          },
+          "fri": {
+            "short": "T6",
+            "long": "Thứ Sáu"
+          },
+          "sat": {
+            "short": "T7",
+            "long": "Thứ Bảy"
+          }
+        },
+        "autoAdaptive": "Dành băng thông cho ứng dụng khác",
+        "adaptiveEnabled": "Dự trữ băng thông cho ứng dụng khác",
+        "adaptiveEnabledDesc": "Nhập tốc độ kết nối bên dưới để tính giới hạn.",
+        "linkDown": "Tốc độ tải xuống của kết nối",
+        "linkDownDesc": "Tốc độ tải xuống mà kết nối internet của bạn có thể đạt được.",
+        "linkUp": "Tốc độ tải lên của kết nối",
+        "linkUpDesc": "Tốc độ tải lên mà kết nối internet của bạn có thể đạt được.",
+        "fillFromPeak": "Ước tính tốc độ kết nối",
+        "fillFromPeakHint": "Dựa trên tốc độ tải xuống và tải lên cao nhất gần đây.",
+        "estimateEmpty": "Chưa có lịch sử tốc độ. Hãy hoàn tất một lượt tải xuống không giới hạn tốc độ hoặc nhập băng thông thủ công.",
+        "estimateSuccess": "Đã điền băng thông kết nối dựa trên tốc độ gần đây.",
+        "estimateError": "Không thể đọc lịch sử tốc độ gần đây. Hãy nhập băng thông thủ công.",
+        "headroomPercent": "Dành cho ứng dụng khác",
+        "headroomPercentDesc": "Hiện dành {{reserved}}%; Motrix có thể dùng tối đa {{motrix}}%.",
+        "effect": {
+          "title": "Hiệu lực hiện tại",
+          "standard": "Đang dùng giới hạn tiêu chuẩn: tải xuống {{download}}, tải lên {{upload}}.",
+          "lowSpeed": "Đang dùng giới hạn tốc độ thấp: tải xuống {{download}}, tải lên {{upload}}.",
+          "noAutoRules": "Chưa bật quy tắc tự động nào. Hiện hoạt động giống chế độ Tiêu chuẩn.",
+          "standardValues": "Giới hạn tiêu chuẩn: tải xuống {{download}}, tải lên {{upload}}.",
+          "scheduleRule": "dùng giới hạn tốc độ thấp từ {{from}} đến {{to}}{{nextDay}}",
+          "nextDay": " ngày hôm sau",
+          "adaptiveRule": "dành {{reserved}}% băng thông cho ứng dụng khác",
+          "adaptiveRulePending": "dành {{reserved}}% băng thông cho ứng dụng khác sau khi nhập băng thông kết nối",
+          "ruleSeparator": " và ",
+          "autoRules": "Motrix sẽ {{rules}}.",
+          "lowerWins": "Áp dụng giới hạn đang có hiệu lực thấp nhất."
+        },
+        "bandwidthUsed": "Motrix có thể dùng tối đa {{motrix}}%.",
+        "bandwidthPending": "Nhập cả hai tốc độ kết nối để áp dụng giới hạn này."
+      },
+      "newTasks": "Tác vụ mới",
+      "defaultDownloadFolder": "Thư mục tải xuống mặc định",
+      "autofillFromClipboard": "Tự điền liên kết từ bảng nhớ tạm",
+      "fillInLinksWhenOpeningNewTask": "Tự dán liên kết đã sao chép khi mở tác vụ mới.",
+      "saveFolders": "Thư mục lưu",
+      "description": "Tệp, tốc độ tải xuống và kết nối"
+    },
+    "network": {
+      "dns": {
+        "title": "DNS",
+        "mode": "Tra cứu DNS",
+        "modeDesc": "Cách các lượt tải xuống tra cứu địa chỉ máy chủ.",
+        "modeAuto": "Tự động",
+        "modeSystem": "DNS hệ thống",
+        "modeEngine": "DNS tích hợp"
+      },
+      "proxy": {
+        "title": "Proxy",
+        "enable": "Bật proxy",
+        "enableDesc": "Dùng proxy cho các loại kết nối được chọn bên dưới.",
+        "server": "Máy chủ",
+        "protocol": "Giao thức",
+        "host": "Địa chỉ máy chủ",
+        "hostPlaceholder": "proxy.example.com",
+        "port": "Cổng",
+        "auth": "Đăng nhập proxy",
+        "authDesc": "Bật nếu proxy yêu cầu tên người dùng và mật khẩu.",
+        "user": "Tên người dùng",
+        "password": "Mật khẩu",
+        "showPassword": "Hiện mật khẩu",
+        "hidePassword": "Ẩn mật khẩu",
+        "bypass": "Kết nối trực tiếp đến",
+        "bypassDesc": "Mỗi dòng một tên miền, IP hoặc CIDR. Bắt đầu bằng dấu . để chỉ khớp tên miền con. Tải tệp không hỗ trợ ký tự đại diện *.",
+        "bypassScopeNote": "Chỉ áp dụng cho tải tệp và cập nhật ứng dụng",
+        "scopes": "Dùng proxy cho",
+        "scopesDesc": "Chọn các loại lưu lượng đi qua proxy.",
+        "scopeDownload": "Tải tệp",
+        "scopeDownloadDesc": "Đối với BT, chỉ HTTP(S) dùng proxy. Máy ngang hàng, DHT và máy chủ theo dõi UDP kết nối trực tiếp.",
+        "scopeUpdateApp": "Cập nhật ứng dụng",
+        "scopeUpdateAppDesc": "Kiểm tra bản cập nhật Motrix qua proxy.",
+        "scopeUpdateTrackers": "Cập nhật danh sách máy chủ theo dõi",
+        "scopeUpdateTrackersDesc": "Tải danh sách máy chủ theo dõi qua proxy; không ảnh hưởng đến lưu lượng BT.",
+        "importFromSystem": "Nhập từ hệ thống",
+        "importedToast": "Đã nhập proxy hệ thống: {{host}}:{{port}}",
+        "noSystemProxy": "Chưa cấu hình proxy hệ thống.",
+        "bypassPlaceholder": "localhost\n127.0.0.1\n.local",
+        "scopeHint": "Máy ngang hàng BT, DHT và máy chủ theo dõi UDP kết nối trực tiếp.",
+        "scopeNone": "Chưa chọn",
+        "scopeChoose": "Chọn…",
+        "scopeSeparator": ", "
+      },
+      "nat": {
+        "title": "Ánh xạ cổng (NAT)",
+        "enable": "Bật ánh xạ cổng",
+        "enableDesc": "Yêu cầu bộ định tuyến mở các cổng đã đặt trong cài đặt BitTorrent.",
+        "preferredProtocol": "Giao thức ưu tiên",
+        "mappingTtl": "Thời hạn ánh xạ (giây)",
+        "btPortHint": "Ánh xạ áp dụng cho các cổng BT/DHT đã cấu hình trong BitTorrent.",
+        "automatic": "Tự động"
+      },
+      "stun": {
+        "title": "Phát hiện loại NAT",
+        "privacyHint": "Sử dụng máy chủ STUN của bên thứ ba.",
+        "enable": "Phát hiện loại NAT",
+        "servers": "Máy chủ STUN",
+        "empty": "Thêm ít nhất một máy chủ STUN.",
+        "addServer": "Thêm máy chủ STUN"
+      },
+      "reachability": {
+        "title": "Kiểm tra cổng kết nối đến",
+        "privacyHint": "Sử dụng dịch vụ bên thứ ba để kiểm tra khả năng truy cập từ internet.",
+        "enable": "Kiểm tra cổng kết nối đến",
+        "endpoints": "Dịch vụ kiểm tra (HTTPS)",
+        "empty": "Thêm ít nhất một dịch vụ kiểm tra.",
+        "addEndpoint": "Thêm dịch vụ kiểm tra"
+      },
+      "diagnostic": {
+        "title": "Tự động kiểm tra mạng",
+        "enable": "Tự động kiểm tra",
+        "interval": "Khoảng thời gian kiểm tra (giây)",
+        "enableDesc": "Lặp lại các kiểm tra đã bật ở trên."
+      },
+      "description": "Proxy, DNS và kiểm tra kết nối",
+      "diagnostics": "Chẩn đoán mạng"
+    },
+    "common": {
+      "browse": "Duyệt…",
+      "add": "Thêm",
+      "remove": "Xóa",
+      "preset": "Chọn nhanh:",
+      "noChange": "Không có thay đổi để lưu",
+      "setAsDefault": "Đặt làm mặc định",
+      "openHelp": "Mở trợ giúp",
+      "generate": "Tạo",
+      "changeDirectory": "Đổi thư mục",
+      "directoryEmpty": "(chưa chọn thư mục)",
+      "showSecret": "Hiện giá trị bí mật",
+      "hideSecret": "Ẩn giá trị bí mật"
+    },
+    "integration": {
+      "system": {
+        "title": "Ứng dụng mặc định",
+        "protocolMagnet": "Mở liên kết magnet bằng Motrix",
+        "protocolMagnetDesc": "Mở liên kết magnet từ trình duyệt trong Motrix.",
+        "torrentAssociation": "Mở tệp .torrent bằng Motrix",
+        "torrentAssociationDesc": "Bấm đúp vào tệp .torrent để mở trong Motrix.",
+        "torrentAssociationMacDesc": "Trong Finder, bấm chuột phải vào một tệp .torrent bất kỳ → Lấy thông tin → Mở bằng → chọn Motrix → Thay đổi tất cả…",
+        "defaultAssociationsWindows": "Ứng dụng mặc định cho torrent và liên kết magnet",
+        "defaultAssociationsWindowsDesc": "Chọn Motrix cho tệp .torrent và liên kết magnet trong cài đặt Windows. Cần cài đặt Motrix trên máy.",
+        "torrentFiles": "Tệp .torrent",
+        "magnetLinks": "Liên kết magnet",
+        "associationStatusLabel": "Trạng thái ứng dụng mặc định hiện tại trên Windows",
+        "associationChecking": "Đang kiểm tra…",
+        "associationSetupRequired": "Cần thiết lập",
+        "associationDefault": "Mặc định",
+        "associationNotDefault": "Không phải mặc định",
+        "associationUnavailable": "Không thể xác minh",
+        "associationNotRegistered": "Chưa đăng ký",
+        "openWindowsSettings": "Mở cài đặt Windows",
+        "defaultAssociationsLinux": "Liên kết tệp và giao thức trên Linux",
+        "defaultAssociationsLinuxCheckingDesc": "Đang kiểm tra gói Linux này và các liên kết tệp, giao thức hiện tại trong môi trường màn hình nền…",
+        "defaultAssociationsLinuxUnavailableDesc": "Không thể xác định trạng thái liên kết tệp và giao thức trong môi trường ứng dụng này.",
+        "defaultAssociationsLinuxDesc": "Motrix có thể tự đặt làm ứng dụng mặc định cho .torrent khi được cài bằng gói deb hoặc rpm. Thay đổi liên kết magnet có hiệu lực khi bạn áp dụng hộp thoại này.",
+        "defaultAssociationsLinuxAppImageDesc": "Dùng Tích hợp màn hình nền bên dưới để đăng ký hoặc gỡ đăng ký AppImage này an toàn. Motrix khôi phục các ứng dụng xử lý trước đó đã được xác minh trước khi xóa mục desktop của mình.",
+        "defaultAssociationsLinuxSandboxDesc": "Gói này đăng ký Motrix làm ứng dụng xử lý, nhưng môi trường màn hình nền quyết định ứng dụng mặc định. Gỡ gói có thể không tự động khôi phục ứng dụng mặc định trước đó.",
+        "associationStatusLabelLinux": "Trạng thái liên kết tệp và giao thức hiện tại trên Linux",
+        "linuxPackageDetected": "Gói: {{package}}",
+        "linuxPackage": {
+          "appimage": "AppImage",
+          "native": "deb / rpm",
+          "flatpak": "Flatpak",
+          "snap": "Snap",
+          "unknown": "Gói không xác định"
+        },
+        "protocolMagnetAppImageDesc": "Áp dụng ngay sau khi lưu nếu đã bật Tích hợp màn hình nền.",
+        "protocolMagnetSandboxDesc": "Motrix sẽ yêu cầu thay đổi khi bạn lưu, nhưng sandbox hoặc môi trường màn hình nền có thể yêu cầu bạn chọn ứng dụng mặc định thủ công.",
+        "protocolMagnetApplyFailed": "Đã lưu tùy chọn nhưng không thể thay đổi liên kết giao thức trong môi trường màn hình nền. Hãy chọn ứng dụng mặc định trong cài đặt hệ thống.",
+        "setTorrentDefaultLinux": "Đặt làm mặc định cho .torrent",
+        "repairLinuxAssociations": "Sửa liên kết tệp và giao thức",
+        "viewLinuxInstructions": "Xem các bước thiết lập",
+        "linuxActionSet": "Motrix hiện là ứng dụng mặc định cho tệp .torrent.",
+        "linuxActionFallback": "Gói này không hỗ trợ thiết lập tự động. Đã mở hướng dẫn thiết lập.",
+        "linuxActionFailed": "Không thể cập nhật ứng dụng mặc định trên Linux. Hãy kiểm tra cài đặt môi trường màn hình nền."
+      },
+      "browser": {
+        "title": "Tiện ích mở rộng trình duyệt",
+        "masterSwitch": "Kết nối tiện ích mở rộng trình duyệt",
+        "masterSwitchDesc": "Gửi nội dung tải xuống từ trang web đến Motrix bằng tiện ích mở rộng trình duyệt.",
+        "install": {
+          "chrome": "Chrome",
+          "edge": "Microsoft Edge",
+          "firefox": "Firefox",
+          "github": "GitHub",
+          "store": "Cài đặt",
+          "development": "Phát triển"
+        },
+        "pairedTitle": "Tiện ích mở rộng đã kết nối",
+        "pairedEmpty": "Chưa có tiện ích mở rộng nào kết nối.",
+        "lastActive": "Hoạt động gần nhất",
+        "revoke": "Ngắt kết nối",
+        "disconnecting": "Đang ngắt kết nối…",
+        "addTrusted": {
+          "add": "Thêm tiện ích mở rộng",
+          "idPlaceholder": "ID tiện ích mở rộng",
+          "labelPlaceholder": "Nhãn (không bắt buộc)",
+          "browserLabel": "Trình duyệt",
+          "chromiumEdge": "Chrome / Edge",
+          "firefox": "Firefox",
+          "cancel": "Hủy",
+          "addAction": "Thêm"
+        },
+        "pairToast": {
+          "title": "Một tiện ích mở rộng {{browser}} muốn kết nối với Motrix",
+          "extensionId": "ID: {{id}}",
+          "deny": "Không cho phép",
+          "pairCode": "Mã ghép đôi",
+          "copyCode": "Sao chép mã ghép đôi",
+          "pairCodeHint": "Nhập mã này trong tiện ích mở rộng",
+          "identityLabel": {
+            "official": "Tiện ích mở rộng Motrix chính thức",
+            "attested": "Tiện ích mở rộng đã xác minh",
+            "unverified": "Tiện ích mở rộng chưa xác minh"
+          },
+          "identityUnverifiedWarning": "Không thể xác minh danh tính tiện ích mở rộng này. Chỉ tiếp tục nếu bạn tin tưởng tiện ích."
+        },
+        "pairUnavailable": "Yêu cầu ghép đôi này không còn ở trạng thái chờ — hãy thử ghép đôi lại từ tiện ích mở rộng trình duyệt.",
+        "trustedExtensions": "Tiện ích mở rộng đáng tin cậy",
+        "trustedSummary": "Tổng cộng {{count}}",
+        "trustedGuidance": "Với các tiện ích mở rộng đáng tin cậy khác, thêm ID do nhà phát triển cung cấp.",
+        "trustedEmpty": "Chưa có mục nào.",
+        "headerId": "ID tiện ích mở rộng",
+        "headerBrowser": "Trình duyệt",
+        "headerSource": "Nguồn",
+        "removeTrusted": "Xóa",
+        "sourceLabel": {
+          "builtin": "Tích hợp sẵn",
+          "userAdded": "Đã thêm",
+          "imported": "Đã nhập"
+        },
+        "degradedPort": {
+          "title": "Cầu nối đang chạy trên cổng dự phòng",
+          "description": "Các cổng 16802–16806 không khả dụng nên cầu nối dùng cổng {{port}}. Tiện ích mở rộng trình duyệt sẽ không tìm thấy bằng cách dò dải cổng tiêu chuẩn — hãy ghép đôi qua native messaging hoặc đặt cổng cố định. Motrix CLI và native host không bị ảnh hưởng."
+        },
+        "pairingStateDegraded": {
+          "title": "Tạm thời đóng quyền truy cập của tiện ích mở rộng",
+          "description": "Motrix không thể cập nhật an toàn các bản ghi tiện ích mở rộng đã ghép đôi. Các phiên tiện ích mở rộng hiện có đã bị đóng và quyền truy cập mới bị chặn trong lần chạy này. Khởi động lại Motrix để thử sửa lại; không dựa vào danh sách bên dưới cho đến khi thông báo này biến mất."
+        }
+      },
+      "cli": {
+        "title": "Công cụ dòng lệnh",
+        "tool": {
+          "title": "Công cụ dòng lệnh Motrix",
+          "description": "Chạy motrix trong terminal để điều khiển ứng dụng này.",
+          "managerLabel": "Trình quản lý gói",
+          "commandLabel": "Lệnh cài đặt",
+          "copyCommand": "Sao chép lệnh cài đặt",
+          "manager": {
+            "npm": "npm",
+            "pnpm": "pnpm",
+            "yarn": "Yarn Classic",
+            "bun": "Bun",
+            "volta": "Volta"
+          },
+          "attentionTitle": "Công cụ dòng lệnh cần được kiểm tra",
+          "status": {
+            "checking": "Đang kiểm tra",
+            "ready": "Sẵn sàng để cài đặt",
+            "installing": "Đang cài đặt",
+            "installed": "Đã cài đặt",
+            "needsAttention": "Cần kiểm tra",
+            "manualOnly": "Cài đặt thủ công",
+            "error": "Thất bại"
+          },
+          "action": {
+            "checking": "Đang kiểm tra…",
+            "install": "Cài đặt",
+            "installing": "Đang cài đặt…",
+            "checkAgain": "Kiểm tra lại"
+          },
+          "metadata": {
+            "version": "Phiên bản",
+            "path": "Tệp thực thi",
+            "manager": "Được cài bằng",
+            "unknown": "không xác định"
+          },
+          "successGuidance": "Mở terminal mới rồi chạy motrix --help.",
+          "diagnostics": {
+            "show": "Hiện chi tiết",
+            "hide": "Ẩn chi tiết"
+          },
+          "reason": {
+            "nodeMissing": "Không tìm thấy Node.js 22 trở lên. Hãy cài Node.js rồi kiểm tra lại.",
+            "nodeTooOld": "Cần Node.js 22 trở lên. Phát hiện phiên bản {{version}}.",
+            "managerMissing": "Không tìm thấy trình quản lý gói được hỗ trợ. Hãy cài npm, pnpm, Yarn Classic, Bun hoặc Volta rồi kiểm tra lại.",
+            "sandboxed": "Gói chạy trong sandbox này không hỗ trợ cài đặt bằng một lần bấm. Hãy sao chép lệnh và chạy trong terminal.",
+            "unsupportedWeb": "Chỉ ứng dụng máy tính hỗ trợ cài đặt bằng một lần bấm. Hãy sao chép lệnh và chạy trên máy chủ Motrix.",
+            "permission": "Trình quản lý gói không thể ghi vào vị trí cài đặt toàn cục. Hãy dùng trình quản lý phiên bản Node.js hoặc tiền tố cài đặt mà người dùng có quyền ghi; không dùng sudo.",
+            "network": "Trình quản lý gói không thể kết nối tới kho gói. Hãy kiểm tra mạng hoặc cấu hình kho gói rồi thử lại.",
+            "timeout": "Quá trình cài đặt kéo dài quá lâu nên đã bị dừng. Hãy kiểm tra mạng rồi thử lại.",
+            "pathMissing": "Đã cài gói nhưng motrix không có trong PATH. Hãy mở terminal mới hoặc thêm thư mục cài đặt được báo vào PATH.",
+            "pathShadowed": "Một tệp thực thi motrix khác xuất hiện trước trong PATH. Hãy xóa mục cũ hoặc sửa PATH rồi kiểm tra lại.",
+            "verifyFailed": "Trình cài đặt đã hoàn tất nhưng Motrix không thể xác minh tệp thực thi motrix đang được sử dụng.",
+            "installFailed": "Trình quản lý gói không thể cài @motrix/cli. Hãy xem chi tiết rồi thử lại hoặc chạy lệnh thủ công.",
+            "unknown": "Motrix không thể kiểm tra công cụ dòng lệnh. Hãy thử lại hoặc chạy lệnh đã sao chép thủ công."
+          }
+        },
+        "remote": {
+          "title": "Công cụ từ xa đã ghép đôi",
+          "description": "Công cụ cục bộ kết nối tự động. Chạy motrix pair để kết nối với máy tính hoặc máy chủ khác.",
+          "empty": "Chưa ghép đôi công cụ từ xa nào.",
+          "lastActive": "Hoạt động gần nhất",
+          "neverActive": "Chưa từng dùng",
+          "revoke": "Thu hồi quyền"
+        },
+        "pairToast": {
+          "title": "{{name}} muốn ghép đôi với Motrix",
+          "code": "Mã xác minh: {{code}}",
+          "allow": "Cho phép",
+          "deny": "Không cho phép"
+        },
+        "inbox": {
+          "title": "Đang chờ chấp thuận",
+          "empty": "Không có yêu cầu ghép đôi từ xa đang chờ.",
+          "approve": "Chấp thuận",
+          "deny": "Từ chối",
+          "expiresIn": "Hết hạn sau {{time}}"
+        },
+        "pairUnavailable": "Yêu cầu ghép đôi này không còn ở trạng thái chờ — hãy chạy lại motrix pair."
+      },
+      "media": {
+        "title": "Công cụ đa phương tiện",
+        "desc": "Ghép hoặc chuyển đổi nội dung đa phương tiện bằng FFmpeg.",
+        "notDetected": "Chưa phát hiện FFmpeg",
+        "refresh": "Làm mới",
+        "binaryPath": "Đường dẫn FFmpeg tùy chỉnh",
+        "browse": "Duyệt…",
+        "download": {
+          "action": "Tải FFmpeg"
+        },
+        "detection": {
+          "readyTitle": "FFmpeg {{version}}",
+          "unavailableTitle": "FFmpeg không khả dụng",
+          "untrustedTitle": "FFmpeg bị macOS chặn",
+          "usingSource": "Đang dùng {{source}}",
+          "unavailableDesc": "Đặt đường dẫn tùy chỉnh, cài FFmpeg hoặc thêm vào PATH rồi làm mới.",
+          "untrustedDesc": "Tệp tồn tại nhưng không vượt qua bước xác minh bảo mật của macOS. Hãy cài bản dựng đáng tin cậy hoặc cho phép trong Quyền riêng tư & bảo mật rồi làm mới.",
+          "showDetails": "Hiện chi tiết dò tìm",
+          "hideDetails": "Ẩn chi tiết dò tìm",
+          "sourcesChecked_other": "Đã kiểm tra {{count}} nguồn",
+          "source": "Nguồn",
+          "location": "Vị trí đã kiểm tra",
+          "result": "Kết quả",
+          "copyManagedPath": "Sao chép đường dẫn FFmpeg của Motrix",
+          "editCustomPath": "Sửa đường dẫn FFmpeg tùy chỉnh",
+          "finishEditingCustomPath": "Hoàn tất sửa đường dẫn FFmpeg tùy chỉnh",
+          "notConfigured": "Chưa đặt"
+        },
+        "candidateKind": {
+          "manual": "Đường dẫn tùy chỉnh",
+          "userData": "Thư mục dữ liệu Motrix",
+          "env": "MOTRIX_FFMPEG_BIN",
+          "path": "PATH hệ thống"
+        },
+        "state": {
+          "active": "Đang sử dụng",
+          "available": "Đã tìm thấy",
+          "missing": "Không tìm thấy",
+          "untrusted": "Bị macOS chặn",
+          "unconfigured": "Chưa đặt",
+          "version_mismatch": "Không được hỗ trợ"
+        },
+        "stagingMB": "Giới hạn tệp tạm (MB)",
+        "stagingMBDesc": "Dung lượng cho tệp trung gian, tính riêng theo từng tiện ích và tác vụ.",
+        "opTimeoutSec": "Thời gian chờ FFmpeg (giây)",
+        "opTimeoutSecDesc": "Thời gian tối đa cho một thao tác đa phương tiện, tối đa 3.600 giây.",
+        "cleanupStaging": "Dọn tệp tạm",
+        "cleanupConfirm": "Xóa tất cả thư mục tạm của FFmpeg?",
+        "restartHint": "Đã lưu. Khởi động lại Motrix để các tiện ích đang chạy nhận biết thay đổi.",
+        "restartNow": "Khởi động lại ngay",
+        "validation": {
+          "fileMissing": "Không có tệp tại đường dẫn này."
+        },
+        "applyHint": "Lưu để dùng đường dẫn này cho các lượt tải đa phương tiện mới. Quét lại trong tiện ích mở rộng trình duyệt để cập nhật khả năng hỗ trợ.",
+        "savedTitle": "Đã lưu cài đặt FFmpeg",
+        "desktopSavedHint": "Các lượt tải đa phương tiện mới sẽ dùng đường dẫn đã lưu. Khởi động lại Motrix để các tiện ích đang chạy nhận biết thay đổi.",
+        "pipelineUnavailable": "Chức năng tải nội dung đa phương tiện không khả dụng.",
+        "ffmpegRequired": "Lượt tải xuống này cần FFmpeg. Hãy cấu hình trong Cài đặt → Tích hợp → Công cụ đa phương tiện, lưu rồi thử lại."
+      },
+      "pairResolveFailed": "Không thể gửi quyết định của bạn — hãy thử lại.",
+      "appimage": {
+        "title": "Tích hợp màn hình nền",
+        "desc": "Đăng ký AppImage Motrix này với môi trường màn hình nền để trình duyệt và liên kết magnet có thể chuyển yêu cầu tải xuống tới ứng dụng.",
+        "enable": "Bật tích hợp màn hình nền",
+        "remove": "Gỡ tích hợp màn hình nền",
+        "prompt": {
+          "title": "Tích hợp Motrix với môi trường màn hình nền?",
+          "message": "Cho phép AppImage Motrix này đăng ký với môi trường màn hình nền?",
+          "detail": "Motrix sẽ thêm mục desktop và biểu tượng trong thư mục dữ liệu người dùng, đồng thời đăng ký xử lý liên kết motrix:, liên kết magnet và tệp .torrent. Nhờ đó, trình duyệt và tiện ích mở rộng Motrix có thể mở Motrix và chuyển yêu cầu tải xuống. Không ghi gì ngoài thư mục cá nhân của bạn; bạn có thể hoàn tác trong Cài đặt.",
+          "accept": "Tích hợp",
+          "decline": "Để sau"
+        },
+        "status": {
+          "healthy": "Đã tích hợp với môi trường màn hình nền này.",
+          "notIntegrated": "Chưa tích hợp với môi trường màn hình nền này.",
+          "failedTitle": "Tích hợp màn hình nền chưa hoàn tất",
+          "failedDetail": "Motrix không thể đăng ký xử lý các liên kết của mình. Việc chuyển yêu cầu từ trình duyệt có thể không hoạt động cho đến khi bạn bật lại tích hợp màn hình nền.",
+          "removeBlockedDetail": "Motrix không thể khôi phục an toàn ứng dụng xử lý trước đó đã được xác minh nên giữ lại mục desktop để tránh khiến liên kết với ứng dụng mặc định ngừng hoạt động. Hãy chọn ứng dụng mặc định khác trong cài đặt môi trường màn hình nền rồi thử gỡ tích hợp lại.",
+          "externalManaged": "Một bản cài đặt Motrix khác đang cung cấp tính năng tích hợp màn hình nền."
+        },
+        "movedHint": "Nếu bạn di chuyển AppImage khi Motrix đang đóng, các liên kết có thể không mở được ứng dụng cho đến khi bạn chạy Motrix một lần từ vị trí mới."
+      },
+      "appimageHost": {
+        "title": "Mở AppImage từ trình duyệt",
+        "desc": "Cho phép tiện ích mở rộng mở AppImage này khi bạn bấm Kết nối. Bật tích hợp trình duyệt để sử dụng.",
+        "enable": "Bật mở từ trình duyệt",
+        "repair": "Sửa chữa",
+        "useCurrent": "Dùng AppImage này",
+        "remove": "Gỡ tính năng mở từ trình duyệt",
+        "copyDiagnostics": "Sao chép thông tin chẩn đoán",
+        "status": {
+          "ready": "Đã vượt qua kiểm tra cài đặt cục bộ. Hãy kết nối từ trình duyệt để xác minh.",
+          "disabled": "Tính năng mở từ trình duyệt đang tắt.",
+          "conflict": "Các tệp này thuộc một bản cài đặt khác. Hãy gỡ tích hợp trình duyệt của bản cài đặt đó trước.",
+          "permissions": "Kiểm tra rằng các tệp có quyền thực thi và chỉ tài khoản của bạn có quyền ghi.",
+          "invalid": "Bản ghi cài đặt hoặc tệp thực thi không hợp lệ.",
+          "sourceChanged": "AppImage đã thay đổi. Hãy chạy đúng phiên bản cần dùng rồi sửa cài đặt.",
+          "missing": "Thiếu tệp bắt buộc. Hãy chạy AppImage từ vị trí hiện tại rồi sửa chữa.",
+          "io": "Thao tác thất bại. Hãy kiểm tra quyền truy cập ổ đĩa rồi thử Sửa chữa."
+        }
+      },
+      "description": "Trình duyệt, ứng dụng mặc định và công cụ"
+    },
+    "validation": {
+      "rangeHint": "Phạm vi: {{min}}–{{max}}.",
+      "range": "Nhập một số từ {{min}} đến {{max}}.",
+      "integerRange": "Nhập một số nguyên từ {{min}} đến {{max}}.",
+      "minimum": "Nhập {{min}} hoặc lớn hơn.",
+      "maximum": "Nhập {{max}} hoặc nhỏ hơn.",
+      "integer": "Nhập một số nguyên.",
+      "wholeBytes": "Dùng ít chữ số thập phân hơn.",
+      "number": "Nhập một số hợp lệ.",
+      "invalid": "Nhập một giá trị hợp lệ.",
+      "selection": "Chọn một tùy chọn khả dụng.",
+      "textLength": "Dùng tối đa {{max}} ký tự.",
+      "itemCount": "Giữ tối đa {{max}} địa chỉ.",
+      "text": "Xóa dấu xuống dòng hoặc ký tự điều khiển ẩn.",
+      "directory": "Chọn thư mục tải xuống.",
+      "proxyHost": "Nhập tên máy chủ hoặc địa chỉ IP, không kèm http:// hoặc cổng.",
+      "stunServer": "Dùng dạng host:port, chẳng hạn stun.example.com:3478. Cổng phải nằm trong khoảng 1–65535.",
+      "httpsUrl": "Nhập địa chỉ đầy đủ bắt đầu bằng https://.",
+      "httpUrl": "Nhập địa chỉ đầy đủ bắt đầu bằng http:// hoặc https://.",
+      "saveFailed": "Không thể lưu thay đổi. Hãy thử lại.",
+      "address": "Địa chỉ {{number}}",
+      "addressDraft": "Địa chỉ mới",
+      "required": "Nhập địa chỉ trước.",
+      "time": "Dùng định dạng 24 giờ, chẳng hạn 23:00.",
+      "loadFailed": "Không thể tải cài đặt. Hãy thử lại."
+    },
+    "feedback": {
+      "syncFailedTitle": "Đã lưu cài đặt; không thể cập nhật giao diện",
+      "syncFailedBody": "Cài đặt của bạn đã được lưu. Hãy thử đồng bộ lại để cập nhật trang này mà không cần lưu lại.",
+      "retrySync": "Thử đồng bộ lại",
+      "applyFailedTitle": "Đã lưu cài đặt; không thể áp dụng một số thay đổi",
+      "applyFailedBody": "Cấu hình đã lưu được giữ lại. Hãy kiểm tra nhật ký ứng dụng, giải quyết sự cố rồi khởi động lại dịch vụ bị ảnh hưởng.",
+      "appRestartTitle": "Khởi động lại Motrix để áp dụng cài đặt",
+      "appRestartBody": "Cài đặt của bạn đã được lưu. Hãy khởi động lại Motrix khi thuận tiện."
+    },
+    "connection": {
+      "originMismatchTitle": "Địa chỉ truy cập máy chủ không khớp.",
+      "originMismatchBody": "Không có cập nhật theo thời gian thực. Hãy dùng địa chỉ máy chủ đã cấu hình hoặc nhờ quản trị viên sửa địa chỉ.",
+      "disconnectedTitle": "Kết nối cập nhật theo thời gian thực đã bị ngắt.",
+      "disconnectedBody": "Một số thông tin có thể bị trễ. Nếu tình trạng này kéo dài, hãy kiểm tra kết nối máy chủ và cấu hình proxy."
+    }
+  },
+  "errors": {
+    "task": {
+      "create": {
+        "dedupExhausted": "Đã có quá nhiều tệp trùng tên này (>9999).",
+        "torrentMetaFailed": "Không thể lưu siêu dữ liệu torrent."
+      }
+    }
+  },
+  "menu": {
+    "app": {
+      "title": "Motrix",
+      "about": "Giới thiệu về Motrix",
+      "preferences": "Cài đặt…",
+      "checkForUpdates": "Kiểm tra bản cập nhật",
+      "show": "Hiện Motrix",
+      "hide": "Ẩn Motrix",
+      "hideOthers": "Ẩn ứng dụng khác",
+      "unhide": "Hiện tất cả",
+      "quit": "Thoát Motrix"
+    },
+    "file": {
+      "title": "Tệp"
+    },
+    "task": {
+      "title": "Tác vụ",
+      "newTask": "Tác vụ mới…",
+      "newBtTask": "Tác vụ BitTorrent mới…",
+      "openFile": "Mở tệp torrent…",
+      "taskList": "Danh sách tác vụ",
+      "pauseTask": "Tạm dừng",
+      "resumeTask": "Tiếp tục",
+      "deleteTask": "Xóa tác vụ khỏi danh sách…",
+      "moveTaskUp": "Chuyển lên trong hàng đợi",
+      "moveTaskDown": "Chuyển xuống trong hàng đợi",
+      "pauseAllTask": "Tạm dừng tất cả",
+      "resumeAllTask": "Tiếp tục tất cả",
+      "selectAllTask": "Chọn tất cả tác vụ",
+      "clearRecentTasks": "Xóa bản ghi tác vụ đã dừng…"
+    },
+    "edit": {
+      "title": "Sửa",
+      "undo": "Hoàn tác",
+      "redo": "Làm lại",
+      "cut": "Cắt",
+      "copy": "Sao chép",
+      "paste": "Dán",
+      "delete": "Xóa",
+      "selectAll": "Chọn tất cả"
+    },
+    "window": {
+      "title": "Cửa sổ",
+      "reload": "Tải lại",
+      "close": "Đóng",
+      "minimize": "Thu nhỏ",
+      "zoom": "Thu phóng",
+      "toggleFullscreen": "Bật/tắt toàn màn hình",
+      "front": "Đưa tất cả ra trước"
+    },
+    "help": {
+      "title": "Trợ giúp",
+      "officialWebsite": "Trang web Motrix",
+      "manual": "Trợ giúp Motrix",
+      "changelog": "Ghi chú phát hành",
+      "reportProblem": "Báo cáo sự cố",
+      "toggleDevTools": "Bật/tắt công cụ nhà phát triển"
+    }
+  },
+  "trackers": {
+    "effective": {
+      "enabled": "Bổ sung máy chủ theo dõi được tuyển chọn",
+      "enabledDesc": "Thêm danh sách máy chủ theo dõi được tuyển chọn vào tất cả tác vụ BitTorrent.",
+      "disabled": "Đã tắt — bật để xem danh sách máy chủ theo dõi đang áp dụng.",
+      "empty": "Chưa có máy chủ theo dõi đang áp dụng. Hãy đồng bộ để tạo danh sách.",
+      "column": {
+        "url": "URL",
+        "health": "Tình trạng",
+        "responseTimeMs": "Phản hồi (ms)",
+        "lastProbedAt": "Kiểm tra gần nhất",
+        "source": "Nguồn"
+      }
+    },
+    "blacklist": {
+      "enabled": "Áp dụng bộ lọc danh sách chặn",
+      "enabledDesc": "Chặn kết nối đến các máy chủ theo dõi đáng ngờ hoặc bị lỗi.",
+      "disabled": "Đã tắt — bật để xem danh sách chặn.",
+      "empty": "Danh sách chặn trống.",
+      "summary": "{{count}} URL đang được áp dụng",
+      "column": {
+        "url": "URL",
+        "source": "Nguồn"
+      }
+    },
+    "combobox": {
+      "placeholder": "Chọn nguồn",
+      "addSourcePlaceholder": "https://example.com/list.txt",
+      "addSource": "Thêm",
+      "removeSource": "Xóa nguồn",
+      "empty": "Không có nguồn phù hợp.",
+      "builtinBadge": "tích hợp sẵn",
+      "cdnBadge": "CDN",
+      "directBadge": "Trực tiếp"
+    },
+    "sync": {
+      "syncing": "Đang đồng bộ…",
+      "fetching": "Đang tải danh sách máy chủ theo dõi…",
+      "probing": "Đang kiểm tra khả năng kết nối máy chủ theo dõi…",
+      "applying": "Đang áp dụng danh sách máy chủ theo dõi…",
+      "failed": "Đồng bộ chưa hoàn tất. Hãy kiểm tra mạng hoặc các nguồn rồi thử lại.",
+      "unavailable": "Không thể đọc trạng thái đồng bộ. Hãy kiểm tra kết nối rồi thử lại."
+    }
+  },
+  "plugins": {
+    "title": "Tiện ích",
+    "empty": "Chưa cài tiện ích nào.",
+    "errors_other": "{{count}} lỗi",
+    "status": {
+      "active": "Đang hoạt động",
+      "inactive": "Không hoạt động",
+      "disabled": "Đã tắt",
+      "error": "Lỗi"
+    },
+    "install": {
+      "title": "Thêm tiện ích",
+      "github": "GitHub",
+      "github.spec": "Kho GitHub (owner/repo[@tag])",
+      "url": "URL",
+      "url.spec": "URL gói (.moext)",
+      "local": "Tệp cục bộ",
+      "local.pick": "Chọn tệp .moext",
+      "lead": "Dán địa chỉ tiện ích, chọn tệp .moext hoặc thả tệp vào ô nhập.",
+      "placeholder": "Dán địa chỉ GitHub, URL hoặc chọn tệp .moext cục bộ",
+      "detected": {
+        "auto": "Tự động",
+        "github": "GitHub",
+        "url": "URL",
+        "local": "Tệp"
+      },
+      "detectedRow": {
+        "ok": "Được nhận dạng là {{type}}",
+        "localSupported": "Hỗ trợ tệp .moext cục bộ"
+      },
+      "checkAriaLabel": "Kiểm tra tiện ích này",
+      "install": "Cài tiện ích",
+      "pickLocal": "Chọn tệp .moext cục bộ",
+      "localUnavailable": "Môi trường này không hỗ trợ cài từ tệp cục bộ.",
+      "localPrepareFailed": "Không thể chuẩn bị tệp tiện ích này: {{detail}}",
+      "dropHint": "Thả tệp .moext vào đây để kiểm tra tiện ích",
+      "dragDisabledHint": "Môi trường này không hỗ trợ kéo và thả. Hãy dùng địa chỉ GitHub hoặc URL.",
+      "warning": "Trước khi cài: chỉ tiếp tục nếu bạn tin tưởng tác giả và đồng ý với việc tiện ích sử dụng các quyền truy cập liệt kê ở trên."
+    },
+    "consent": {
+      "installTitle": "Cài {{name}} {{version}}?",
+      "upgradeTitle": "Nâng cấp {{name}} lên {{version}}?",
+      "notVerified": "Tiện ích này chưa được xác minh. Chỉ cài tiện ích từ nguồn bạn tin tưởng.",
+      "confirm": "Cho phép và cài đặt",
+      "permissions": "Quyền bắt buộc",
+      "optionalPermissions": "Quyền tùy chọn",
+      "hostPermissions": "Quyền truy cập trang web",
+      "invokesCommands": "Gọi lệnh trong các tiện ích khác",
+      "calleeMissing": "Chưa cài đặt",
+      "source": "Nguồn: {{type}} · {{url}}",
+      "broadAccess": {
+        "title": "Quyền truy cập nhiều trang web",
+        "body": "Tiện ích này có thể đọc và sửa các lượt tải xuống từ mọi URL. Chỉ cài nếu bạn tin tưởng nguồn.",
+        "tag": "Phạm vi rộng"
+      },
+      "diff": {
+        "title": "Thay đổi kể từ lần chấp thuận trước",
+        "permissions": "Quyền được thêm",
+        "optionalPermissions": "Quyền tùy chọn được thêm",
+        "hostPermissions": "Quyền truy cập trang web được thêm",
+        "invokesCommands": "Lời gọi lệnh giữa các tiện ích được thêm",
+        "publicCommands": "Lệnh công khai mới",
+        "publicCommandsSchema": "Lược đồ lệnh công khai đã thay đổi",
+        "heap": "Bộ nhớ yêu cầu",
+        "engines": "Phiên bản bộ máy Motrix",
+        "source": "Nguồn gói"
+      }
+    },
+    "detail": {
+      "overview": "Tổng quan",
+      "settings": "Cài đặt",
+      "logs": "Nhật ký",
+      "about": "Giới thiệu",
+      "loading": "Đang tải…",
+      "back": "Tất cả tiện ích",
+      "author": "Tác giả",
+      "homepage": "Trang chủ",
+      "uninstall": "Gỡ cài đặt",
+      "uninstallConfirm": "Gỡ tiện ích này? Dữ liệu của tiện ích sẽ bị xóa.",
+      "enabled": "Đã bật",
+      "disabled": "Đã tắt",
+      "access": "Quyền truy cập",
+      "advanced": "Nâng cao",
+      "accessGranted": "Các thao tác tiện ích đã được phép thực hiện",
+      "accessOptional": "Quyền truy cập tùy chọn",
+      "hero": {
+        "ready": "Sẵn sàng",
+        "review": "Kiểm tra quyền truy cập",
+        "attention": "Cần kiểm tra",
+        "off": "Đã tắt",
+        "optional": "Có thể yêu cầu thêm quyền truy cập"
+      },
+      "mini": {
+        "purpose": "Mục đích",
+        "access": "Quyền truy cập",
+        "health": "Tình trạng"
+      },
+      "healthOk": "Hoạt động tốt",
+      "healthIssues_other": "Đã báo cáo {{count}} sự cố trong 24 giờ qua",
+      "accessNone": "Chỉ truy cập cài đặt riêng",
+      "accessHosts_other": "Có thể đọc {{count}} trang web",
+      "accessBroad": "Có thể đọc mọi trang web",
+      "attentionTitle": "Tiện ích này đã báo cáo sự cố",
+      "attentionGeneric": "Xem chi tiết trong nhật ký.",
+      "viewIssue": "Xem sự cố",
+      "removeTitle": "Gỡ tiện ích",
+      "removeDesc": "Gỡ tiện ích này cũng sẽ xóa dữ liệu của tiện ích được lưu trong Motrix.",
+      "uninstallConfirmTitle": "Gỡ cài đặt {{name}}?",
+      "uninstallConfirmDesc": "Thao tác này sẽ xóa tiện ích và các cài đặt đã lưu của tiện ích khỏi Motrix."
+    },
+    "permissions": {
+      "empty": "Tiện ích này không yêu cầu quyền nào.",
+      "granted": "Đã cấp",
+      "denied": "Đã từ chối"
+    },
+    "logs": {
+      "verbose": "Chế độ ghi nhật ký chi tiết",
+      "verboseWarning": "Ghi lại đầy đủ URL và tiêu đề HTTP trong 1 giờ. Hãy thận trọng khi dùng.",
+      "filterLabel": "Mức nhật ký",
+      "levels": {
+        "all": "Tất cả mức",
+        "trace": "Truy vết",
+        "debug": "Gỡ lỗi",
+        "info": "Thông tin",
+        "warn": "Cảnh báo",
+        "error": "Lỗi",
+        "fatal": "Lỗi nghiêm trọng"
+      },
+      "copy": "Sao chép",
+      "clear": "Xóa",
+      "output": "Đầu ra trực tiếp",
+      "entryCount_other": "{{count}} mục",
+      "empty": "Chưa có mục nhật ký",
+      "emptyHint": "Hoạt động mới của tiện ích sẽ tự động xuất hiện ở đây.",
+      "emptyFiltered": "Không có mục nào khớp mức này."
+    },
+    "lead": "Bổ sung tính năng nhỏ cho Motrix. Giữ các tiện ích bạn tin tưởng và tắt những tiện ích khác.",
+    "search": "Tìm tiện ích",
+    "registry": {
+      "availableTitle": "Tiện ích có sẵn",
+      "featured": "Nổi bật",
+      "byAuthor": "bởi {{name}}",
+      "requires": "Yêu cầu Motrix {{range}}",
+      "notInstalled": "Chưa cài đặt",
+      "notFound": "Không tìm thấy tiện ích “{{id}}” trong danh mục",
+      "viewOnWebsite": "Xem trên motrix.app",
+      "updated": "cập nhật {{date}}",
+      "featuresTitle": "Chức năng",
+      "permissionsTitle": "Quyền",
+      "permissionsPreviewNote": "Bản xem trước từ mục trong danh mục. Hộp thoại xin quyền thực tế luôn dựa trên manifest bên trong gói tiện ích.",
+      "optionalTag": "không bắt buộc",
+      "install": "Cài đặt",
+      "updateAvailable": "Có bản cập nhật",
+      "updateTo": "Cập nhật lên v{{version}}",
+      "refresh": "Kiểm tra bản cập nhật",
+      "builtinUpdateTitle": "Cập nhật tiện ích tích hợp sẵn",
+      "builtinConsentLead": "Bản cập nhật này yêu cầu quyền truy cập mới:",
+      "revertToBundled": "Quay về phiên bản đi kèm",
+      "restartRequired": "Đã cài bản cập nhật. Khởi động lại Motrix để hoàn tất áp dụng.",
+      "updateInstalled": "Đã cài bản cập nhật.",
+      "actionFailed": "Không thể hoàn thành thao tác."
+    },
+    "searchNoMatch": "Không có tiện ích khớp với “{{query}}”",
+    "clearSearch": "Xóa nội dung tìm kiếm",
+    "tone": {
+      "safe": "Có vẻ an toàn",
+      "review": "Cần xem xét",
+      "optional": "Quyền truy cập tùy chọn",
+      "off": "Tắt"
+    },
+    "card": {
+      "advancedDetails": "Chi tiết nâng cao",
+      "commandsInvoked": "Số lệnh được gọi: {{count}}",
+      "commandsServing": "Số lệnh được cung cấp: {{count}}",
+      "primaryAction": {
+        "settings": "Cài đặt",
+        "open": "Mở",
+        "reviewAccess": "Kiểm tra quyền truy cập",
+        "viewIssue": "Xem sự cố",
+        "grantAccess": "Cấp quyền truy cập",
+        "turnOn": "Bật"
+      },
+      "plain": {
+        "safe": "Tiện ích này đã bật và sẵn sàng. Tiện ích chỉ lưu cài đặt riêng và không đọc trang web nào.",
+        "reviewBroadHost": "Tiện ích này có thể đọc {{hostSummary}}. Chỉ giữ tiện ích ở trạng thái bật nếu bạn tin tưởng tiện ích.",
+        "reviewError": "Tiện ích này đã báo cáo sự cố.",
+        "optional": "Tiện ích này hoạt động mà không cần thêm quyền. Bạn có thể cấp thêm quyền sau.",
+        "off": "Tiện ích này đã tắt."
+      }
+    },
+    "help": {
+      "guidance": {
+        "firstUse": {
+          "title": "Thêm tiện ích bạn tin tưởng",
+          "body": "Cài từ nguồn bạn tin tưởng, kiểm tra quyền truy cập được yêu cầu rồi bật tiện ích.",
+          "safety": "Chỉ cấp quyền truy cập các trang web mà bạn muốn tiện ích xử lý.",
+          "browse": "Khám phá tiện ích trên kho tiện ích chính thức của Motrix"
+        },
+        "ongoing": "Kiểm tra quyền truy cập trước khi bật tiện ích. Chỉ cấp quyền truy cập các trang web mà bạn muốn tiện ích xử lý."
+      }
+    },
+    "diagnostics": {
+      "title": "Chẩn đoán",
+      "intro": "Kiểm tra các lời gọi thành công giữa các tiện ích trong 24 giờ qua.",
+      "callGraph": {
+        "toolbarLabel": "Điều khiển sơ đồ lời gọi",
+        "modeLabel": "Chế độ xem quan hệ",
+        "modes": {
+          "graph": "Sơ đồ",
+          "table": "Bảng"
+        },
+        "filters": {
+          "searchLabel": "Tìm quan hệ",
+          "searchPlaceholder": "Tìm tiện ích hoặc lệnh",
+          "clearSearch": "Xóa nội dung tìm kiếm",
+          "pluginsGroup": "Tiện ích",
+          "commandsGroup": "Lệnh",
+          "noSuggestions": "Không có gợi ý tiện ích hoặc lệnh"
+        },
+        "refresh": "Làm mới",
+        "refreshing": "Đang làm mới…",
+        "refreshTooltip": "Tải các lời gọi thành công mới nhất",
+        "renderGraphTooltip": "Hiển thị tập kết quả lớn này dưới dạng sơ đồ",
+        "columns": {
+          "caller": "Bên gọi",
+          "command": "Lệnh",
+          "callee": "Bên được gọi",
+          "calls": "Số lần gọi",
+          "lastCall": "Lần gọi gần nhất"
+        },
+        "legend": {
+          "label": "Chú giải số lượng lời gọi",
+          "fewerCalls": "Ít lời gọi hơn",
+          "moreCalls": "Nhiều lời gọi hơn"
+        },
+        "loading": {
+          "graph": "Đang tải lịch sử lời gọi…",
+          "metadata": "Đang tải chi tiết tiện ích…"
+        },
+        "globalEmpty": {
+          "title": "Chưa có lời gọi thành công giữa các tiện ích",
+          "description": "Theo mặc định, các tiện ích tích hợp sẵn có thể không gọi lẫn nhau."
+        },
+        "filteredEmpty": "Không có lời gọi thành công khớp với nội dung tìm kiếm này.",
+        "errors": {
+          "graphTitle": "Không thể tải lịch sử lời gọi",
+          "graphDescription": "Thử tải lại lịch sử lời gọi thành công.",
+          "graphRetry": "Tải lại lịch sử lời gọi",
+          "metadataTitle": "Không thể tải chi tiết tiện ích",
+          "metadataDescription": "Cần có chi tiết tiện ích để xác định các tiện ích không khả dụng.",
+          "metadataRetry": "Tải lại chi tiết tiện ích",
+          "layout": "Không thể sắp xếp sơ đồ quan hệ.",
+          "layoutRetry": "Sắp xếp lại sơ đồ",
+          "canvasTitle": "Không thể hiển thị vùng vẽ sơ đồ",
+          "canvasDescription": "Bạn có thể thử lại vùng vẽ hoặc dùng chế độ Bảng để xem đầy đủ dữ liệu.",
+          "canvasRetry": "Thử lại vùng vẽ",
+          "canvasTable": "Dùng chế độ Bảng"
+        },
+        "truncated": "Lịch sử lời gọi có thể không đầy đủ do giới hạn đọc, thời gian lưu giữ hoặc cơ chế luân phiên tệp.",
+        "statuses": {
+          "active": "Đang chạy",
+          "inactive": "Sẵn sàng nhưng chưa hoạt động",
+          "disabled": "Đã tắt",
+          "error": "Cần kiểm tra",
+          "missing": "Chưa cài đặt"
+        },
+        "inspector": {
+          "label": "Chi tiết mục đã chọn trong sơ đồ lời gọi",
+          "scopeTitle": "Lời gọi thành công",
+          "neutralScope": "Chọn tiện ích hoặc kết nối để kiểm tra các lời gọi thành công trong 24 giờ qua.",
+          "pluginId": "ID tiện ích",
+          "status": "Trạng thái",
+          "incomingCalls": "Lời gọi đến",
+          "outgoingCalls": "Lời gọi đi",
+          "connections": "Tiện ích được kết nối",
+          "noConnections": "Không có tiện ích được kết nối",
+          "openPlugin": "Mở tiện ích",
+          "edgeTitle": "Chi tiết kết nối",
+          "totalCalls": "Tổng số lần gọi",
+          "commands": "Lệnh"
+        },
+        "tableRegionLabel": "Vùng quan hệ lệnh có thể cuộn",
+        "tableLabel": "Quan hệ lệnh giữa các tiện ích",
+        "counts": {
+          "calls_other": "{{count}} lời gọi thành công",
+          "commands_other": "{{count}} lệnh"
+        },
+        "aria": {
+          "graphLabel": "Quan hệ lệnh giữa các tiện ích",
+          "graphDescription": "{{nodeCount}} tiện ích và {{pairCount}} quan hệ trong 24 giờ qua.",
+          "nodeLabel": "{{name}}, tiện ích {{id}}, {{status}}, {{incoming}} lời gọi đến và {{outgoing}} lời gọi đi",
+          "edgeLabel": "{{source}} đã gọi {{target}} {{calls}} lần qua {{commands}} lệnh",
+          "nodeDescription": "Chọn một nút tiện ích để kiểm tra.",
+          "nodeKeyboardInstruction": "Dùng các phím mũi tên để di chuyển nút tiện ích này.",
+          "nodeMoved": "Đã di chuyển nút tiện ích {{direction}} đến {{x}}, {{y}}.",
+          "directions": {
+            "left": "sang trái",
+            "right": "sang phải",
+            "up": "lên trên",
+            "down": "xuống dưới"
+          },
+          "edgeDescription": "Chọn một đường nối lời gọi để kiểm tra.",
+          "controls": "Điều khiển chế độ xem sơ đồ tiện ích",
+          "zoomIn": "Phóng to sơ đồ",
+          "zoomOut": "Thu nhỏ sơ đồ",
+          "fitView": "Điều chỉnh sơ đồ tiện ích vừa với vùng xem",
+          "interactive": "Bật/tắt chế độ tương tác với sơ đồ",
+          "minimap": "Tổng quan sơ đồ tiện ích",
+          "handle": "Điểm đầu cuối lời gọi chỉ đọc"
+        }
+      }
+    },
+    "permission": {
+      "http": {
+        "strong": "Đọc trang web",
+        "plain": "Mở các trang mà tiện ích này hỗ trợ.",
+        "cookies": {
+          "strong": "Dùng cookie trang web",
+          "plain": "Truy cập các trang web mà bạn đã đăng nhập."
+        }
+      },
+      "ffmpeg": {
+        "strong": "Dùng FFmpeg",
+        "plain": "Xử lý âm thanh hoặc video."
+      },
+      "notify": {
+        "strong": "Gửi thông báo",
+        "plain": "Hiện thông báo hoàn tất."
+      },
+      "fs": {
+        "task": {
+          "read": {
+            "strong": "Đọc tệp tải xuống",
+            "plain": "Đọc các tệp trong tác vụ."
+          },
+          "write": {
+            "strong": "Thay đổi tệp tải xuống",
+            "plain": "Có thể thêm hoặc cập nhật tệp của tác vụ."
+          }
+        },
+        "storage": {
+          "strong": "Lưu tệp tiện ích",
+          "plain": "Giữ các tệp cho tiện ích này."
+        }
+      },
+      "storage": {
+        "strong": "Lưu cài đặt",
+        "plain": "Ghi nhớ tùy chọn tiện ích."
+      },
+      "notifications": {
+        "strong": "Gửi thông báo",
+        "plain": "Hiện cảnh báo của tiện ích."
+      },
+      "network": {
+        "strong": "Đọc trang web",
+        "plain": "Tải nội dung các trang được hỗ trợ."
+      },
+      "tasks:read": {
+        "strong": "Đọc danh sách tải xuống",
+        "plain": "Xem danh sách tải xuống của bạn."
+      },
+      "tasks:write": {
+        "strong": "Quản lý tải xuống của bạn",
+        "plain": "Có thể tạm dừng, tiếp tục hoặc xóa tác vụ khỏi danh sách."
+      },
+      "unknown": {
+        "plain": "Quyền không xác định."
+      },
+      "accessTone": {
+        "required": "Cần thiết",
+        "websiteAccess": "Quyền truy cập web",
+        "offByDefault": "Không bắt buộc",
+        "allowed": "Đã cho phép",
+        "noAccess": "Tắt",
+        "grant": "Cho phép"
+      }
+    }
+  },
+  "plugin": {
+    "ffmpeg": {
+      "destination_phase_disallowed": "ffmpeg không thể ghi vào {{kind}} trong hook {{phase}}. Hãy thử ghi vào bộ lưu trữ của tiện ích hoặc chuyển lời gọi này sang beforeFinalize.",
+      "staging_quota_exceeded": "Đã vượt hạn mức dung lượng tạm của ffmpeg cho tác vụ này. Hãy giảm kích thước đầu ra hoặc tăng giới hạn trong cài đặt Công cụ đa phương tiện."
+    },
+    "install": {
+      "ffmpeg": {
+        "title": "Yêu cầu FFmpeg",
+        "notInstalled": "Chưa cài FFmpeg trên hệ thống này.",
+        "versionMismatch": "Đã cài FFmpeg {{version}}.",
+        "requiredByPlugin": "Tiện ích này cần ffmpeg. Hãy cài đặt rồi thử lại.",
+        "optionalDegraded": "Các tính năng đa phương tiện của tiện ích này sẽ không khả dụng cho đến khi cài ffmpeg."
+      }
+    }
+  },
+  "bridge": {
+    "receiver": {
+      "error": {
+        "invalidPayload": "Yêu cầu không hợp lệ từ tiện ích mở rộng",
+        "invalidUrlScheme": "URL phải dùng http: hoặc https:",
+        "unsupportedKind": "Phiên bản Motrix này không hỗ trợ tải xuống {{kind}}",
+        "unsupportedLive": "Không thể tải xuống luồng trực tiếp",
+        "unsupportedMaster": "Tiện ích mở rộng đã gửi danh sách phát chính; cần danh sách phát của một luồng cụ thể",
+        "unsupportedEncryption": "Không thể tải xuống nội dung được bảo vệ bằng DRM",
+        "authExpired": "Phiên đã hết hạn — hãy tải lại trang trong trình duyệt rồi thử lại",
+        "notFound": "Không tìm thấy tài nguyên (404)",
+        "transientFailure": "Tải xuống thất bại sau khi thử lại: {{detail}}",
+        "rangeNotSatisfiable": "Không thể tiếp tục; hãy tải lại từ đầu",
+        "diskFull": "Ổ đĩa đầy",
+        "diskWriteFailed": "Không thể ghi vào ổ đĩa: {{detail}}",
+        "muxFailed": "ffmpeg gặp lỗi khi ghép âm thanh và video",
+        "muxAborted": "Đã hủy ghép",
+        "cancelled": "Đã hủy",
+        "internalError": "Lỗi nội bộ: {{detail}}"
+      }
+    }
+  },
+  "onboarding": {
+    "disclaimer": {
+      "title": "Thông báo sử dụng",
+      "language": "Ngôn ngữ",
+      "languages": {
+        "english": "English",
+        "chinese": "简体中文"
+      },
+      "summary": "Vui lòng đọc nội dung sau trước khi tiếp tục.",
+      "body": "Motrix chỉ quản lý tải xuống. Ứng dụng không cung cấp, lưu giữ, lưu trữ trên máy chủ hoặc đề xuất nội dung có thể tải xuống. Bạn phải bảo đảm mình có quyền hợp pháp để truy cập, sử dụng hoặc chia sẻ nội dung qua Motrix, đồng thời tuân thủ luật bản quyền và các luật hiện hành khác. Bạn chịu trách nhiệm về mọi hậu quả phát sinh từ việc tải xuống, sử dụng hoặc chia sẻ nội dung. Khi chọn “Đồng ý và tiếp tục”, bạn xác nhận đã đọc và hiểu thông báo này.",
+      "highlights": {
+        "downloadManagement": "chỉ quản lý tải xuống",
+        "authorized": "có quyền hợp pháp",
+        "responsibility": "Bạn chịu trách nhiệm"
+      },
+      "localConsent": "Lựa chọn của bạn sẽ được lưu trên thiết bị này.",
+      "agree": "Đồng ý và tiếp tục",
+      "quit": "Thoát",
+      "retry": "Thử lại",
+      "saveFailed": "Không thể lưu sự đồng ý của bạn. Hãy kiểm tra dung lượng ổ đĩa rồi thử lại."
+    }
+  },
+  "notification": {
+    "taskError": {
+      "title": "{{name}} thất bại"
+    },
+    "taskComplete": {
+      "title": "Đã tải xong {{name}}"
+    },
+    "engineFailure": {
+      "title": "Bộ máy tải xuống gặp lỗi"
+    },
+    "engineCompatibility": {
+      "title": "Phát hiện aria2 không thuộc Motrix",
+      "body": "aria2 {{version}} không phải bản tùy biến của Motrix. Cài đặt kết nối bị giới hạn tối đa là {{limit}} và không thể lưu lịch sử bằng SQLite. Hãy khôi phục bộ máy aria2_motrix đi kèm để có đầy đủ tính năng."
+    },
+    "engineRestartRequired": {
+      "title": "Khởi động lại bộ máy tải xuống để áp dụng cài đặt",
+      "body": "Cài đặt của bạn đã được lưu. Hãy khởi động lại bộ máy tải xuống khi thuận tiện.",
+      "restartNow": "Khởi động lại ngay"
+    },
+    "dnsFallback": {
+      "title": "{{name}} đã thử lại bằng DNS hệ thống",
+      "body": "Motrix không thể kết nối đến máy chủ DNS nên đã chuyển sang DNS hệ thống cho phiên này."
+    },
+    "center": {
+      "title": "Thông báo",
+      "markAllRead": "Đánh dấu tất cả là đã đọc",
+      "clearAll": "Xóa",
+      "empty": "Không có thông báo",
+      "emptyDesc": "Hoạt động tải xuống và thông báo quan trọng của ứng dụng sẽ xuất hiện ở đây",
+      "unreadDotAria": "Thông báo chưa đọc",
+      "unreadBadgeAria_other": "{{count}} thông báo chưa đọc",
+      "rowUnreadAria": "{{title}} (chưa đọc)",
+      "toastRegionAria": "Thông báo",
+      "removeAria": "Xóa {{title}}",
+      "actionFailed": "Không thể cập nhật thông báo. Hãy thử lại.",
+      "markRead": "Đánh dấu là đã đọc",
+      "viewTask": "Xem tác vụ",
+      "taskRemoved": "Tác vụ đã bị xóa khỏi danh sách",
+      "openTaskFailed": "Không thể mở tác vụ. Hãy thử lại."
+    }
+  },
+  "applicationMenu": {
+    "signOut": "Đăng xuất…",
+    "back": "Quay lại",
+    "serverUnavailable": "Máy chủ không khả dụng. Phiên của bạn chưa được đăng xuất.",
+    "retry": "Thử lại",
+    "actionFailed": "Không thể hoàn thành thao tác. Hãy kiểm tra kết nối rồi thử lại.",
+    "clearTitle": "Xóa bản ghi của các tác vụ đã dừng?",
+    "clearDescription": "Xóa bản ghi của các tác vụ đã hoàn tất, thất bại hoặc đã bị xóa khỏi danh sách, theo trạng thái ghi nhận khi hộp thoại này mở. Các tệp đã tải xuống vẫn được giữ trên ổ đĩa.",
+    "clearConfirm": "Xóa bản ghi",
+    "logoutTitle": "Đăng xuất khỏi máy chủ này?",
+    "logoutDescription": "Thao tác này sẽ đăng xuất các thẻ khác dùng chung phiên trình duyệt. Các lượt tải xuống trên máy chủ vẫn tiếp tục. Nội dung chưa lưu trong các thẻ đó sẽ bị mất.",
+    "logoutConfirm": "Đăng xuất",
+    "discardTitle": "Bỏ bản nháp tác vụ này?",
+    "discardDescription": "Các liên kết, lựa chọn torrent và cài đặt chưa lưu của bạn sẽ bị loại bỏ.",
+    "discardConfirm": "Bỏ bản nháp"
+  },
+  "directoryPicker": {
+    "title": "Chọn thư mục trên máy chủ",
+    "description": "Các đường dẫn nằm trên máy chủ (bên trong container nếu dùng Docker).",
+    "back": "Quay lại",
+    "forward": "Tiến tới",
+    "up": "Lên một cấp",
+    "refresh": "Làm mới",
+    "goToFolder": "Đi tới thư mục",
+    "location": "Vị trí",
+    "viewOptions": "Tùy chọn hiển thị",
+    "sortBy": "Sắp xếp theo",
+    "sortName": "Tên",
+    "sortModified": "Ngày sửa đổi",
+    "sortOrder": "Thứ tự",
+    "sortAscending": "Tăng dần",
+    "sortDescending": "Giảm dần",
+    "showHidden": "Hiện thư mục ẩn",
+    "folders": "Thư mục",
+    "loading": "Đang tải thư mục…",
+    "empty": "Không có thư mục con",
+    "incomplete": "Chỉ hiển thị một phần nội dung thư mục này. Nhập đường dẫn chính xác để mở thư mục khác.",
+    "selectFolder": "Chọn thư mục",
+    "selectedPath": "Thư mục đã chọn",
+    "path": "Đường dẫn thư mục",
+    "go": "Đi tới",
+    "newFolder": "Thư mục mới",
+    "folderName": "Tên thư mục",
+    "create": "Tạo",
+    "createHelp": "Các thư mục đã tạo vẫn được giữ trên máy chủ nếu bạn hủy lựa chọn.",
+    "fallback": "Thư mục yêu cầu không khả dụng. Đang hiển thị {{path}}.",
+    "refreshAfterCreateFailed": "Đã tạo thư mục nhưng không thể làm mới danh sách.",
+    "unknownOutcome": "Chưa xác nhận được việc tạo thư mục. Hãy làm mới để kiểm tra trước khi tạo thư mục khác tại đây.",
+    "retry": "Thử lại",
+    "errors": {
+      "invalidPath": "Nhập đường dẫn thư mục tuyệt đối hợp lệ.",
+      "outsideRoots": "Thư mục này nằm ngoài các vị trí được phép.",
+      "notFound": "Thư mục này không còn tồn tại.",
+      "notDirectory": "Đường dẫn này không phải là thư mục.",
+      "permissionDenied": "Bạn không có quyền sử dụng thư mục này.",
+      "alreadyExists": "Đã có tệp hoặc thư mục trùng tên này.",
+      "invalidName": "Nhập tên thư mục hợp lệ.",
+      "tooLarge": "Đường dẫn hoặc tên thư mục này quá dài.",
+      "unavailable": "Máy chủ không thể hoàn thành yêu cầu này. Hãy thử lại.",
+      "creationOutcomeUnknown": "Chưa xác nhận được việc tạo thư mục. Hãy làm mới để kiểm tra trước khi tạo thư mục khác tại đây."
+    },
+    "places": {
+      "common": "Vị trí thường dùng",
+      "allowed": "Vị trí được phép",
+      "default": "Thư mục mặc định",
+      "home": "Thư mục cá nhân",
+      "desktop": "Màn hình nền",
+      "documents": "Tài liệu",
+      "downloads": "Tải xuống",
+      "root": "Hệ thống tệp",
+      "loadFailed": "Không thể tải một số vị trí thư mục."
+    }
+  },
+  "directoryPreferences": {
+    "sectionDescription": "Truy cập nhanh các thư mục thường dùng.",
+    "manage": "Quản lý thư mục",
+    "manageDescription": "Chọn thư mục yêu thích và quản lý thư mục gần đây.",
+    "title": "Quản lý thư mục",
+    "description": "Xóa thư mục khỏi danh sách này sẽ không xóa thư mục hoặc các tệp bên trong.",
+    "favorites": "Thư mục yêu thích",
+    "recent": "Thư mục gần đây",
+    "addFavorite": "Thêm thư mục yêu thích",
+    "removeFavorite": "Xóa khỏi mục yêu thích",
+    "favoriteRecent": "Thêm vào mục yêu thích",
+    "removeRecent": "Xóa khỏi danh sách gần đây",
+    "clearRecent": "Xóa danh sách thư mục gần đây",
+    "emptyFavorites": "Không có thư mục yêu thích",
+    "emptyRecent": "Không có thư mục gần đây",
+    "loading": "Đang tải thư mục…",
+    "retry": "Thử lại",
+    "limitHint": "Bạn có thể lưu tối đa {{count}} thư mục yêu thích.",
+    "pickerFailed": "Không thể mở bộ chọn thư mục. Hãy thử lại.",
+    "close": "Đóng",
+    "history": "Lịch sử thư mục",
+    "emptyHistory": "Chưa có thư mục yêu thích hoặc gần đây",
+    "errors": {
+      "conflict": "Cài đặt đã thay đổi trong cửa sổ khác. Hãy kiểm tra thay đổi của bạn rồi lưu lại.",
+      "invalidPath": "Nhập đường dẫn thư mục tuyệt đối hợp lệ.",
+      "outsideRoots": "Thư mục này nằm ngoài các vị trí được phép.",
+      "notFound": "Thư mục này không còn tồn tại.",
+      "notDirectory": "Đường dẫn này không phải là thư mục.",
+      "permissionDenied": "Bạn không có quyền sử dụng thư mục này.",
+      "tooLarge": "Đường dẫn thư mục này quá dài.",
+      "unavailable": "Không thể cập nhật bản ghi thư mục. Hãy làm mới để kiểm tra trạng thái hiện tại.",
+      "limitReached": "Đã đạt giới hạn thư mục yêu thích. Hãy xóa một mục yêu thích trước khi thêm mục khác."
+    },
+    "manageAction": "Quản lý",
+    "alreadyFavorite": "Đã có trong mục yêu thích"
+  }
+}

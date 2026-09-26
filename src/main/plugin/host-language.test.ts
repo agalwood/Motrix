@@ -101,6 +101,13 @@ describe('resolvePluginHostLanguage', () => {
     expect(resolvePluginHostLanguage('en-US')).toBe('en-US')
   })
 
+  it('uses Vietnamese for the system while honoring explicit English', () => {
+    getLocale.mockReturnValue('vi-VN')
+
+    expect(resolvePluginHostLanguage('system')).toBe('vi')
+    expect(resolvePluginHostLanguage('en-US')).toBe('en-US')
+  })
+
   it('uses Polish for the system while honoring explicit English', () => {
     getLocale.mockReturnValue('pl-PL')
 

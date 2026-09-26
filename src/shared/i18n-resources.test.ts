@@ -499,3 +499,41 @@ describe('bundled Turkish translations', () => {
     expect(disclaimer.body).toContain(disclaimer.agree)
   })
 })
+
+describe('bundled Vietnamese translations', () => {
+  it('resolves actions and other-only plurals without English fallback', async () => {
+    const i18n = createInstance()
+    await i18n.init({
+      lng: 'vi',
+      fallbackLng: false,
+      resources: I18N_RESOURCES,
+      interpolation: { escapeValue: false },
+    })
+
+    expect(i18n.t('common.retry')).toBe('Thử lại')
+    expect(i18n.t('settings.appearance.followSystem')).toBe('Theo hệ thống')
+    expect(i18n.t('panel.downloads.heading.all')).toBe('Tất cả lượt tải xuống')
+    expect(i18n.t('panel.downloads.action.remove')).toBe('Xóa khỏi danh sách')
+    expect(i18n.t('task.remove.description', { name: 'example.zip' })).toBe(
+      '“example.zip” sẽ bị xóa khỏi danh sách tải xuống.'
+    )
+    expect(i18n.t('task.remove.deleteFilesLabel')).toBe('Xóa tệp đã tải xuống')
+    for (const count of [0, 1, 2, 5, 1.5, 1000000, 2000000]) {
+      const result = i18n.t('task.torrent.fileSelected', {
+        count,
+        returnDetails: true,
+      })
+      expect(result.exactUsedKey).toBe('task.torrent.fileSelected_other')
+      expect(result.res).toBe(`Đã chọn ${count} tệp`)
+      expect(result.usedLng).toBe('vi')
+    }
+  })
+
+  it('preserves the usage-notice highlights inside the Vietnamese message', () => {
+    const { disclaimer } = I18N_RESOURCES.vi.translation.onboarding
+    for (const highlight of Object.values(disclaimer.highlights)) {
+      expect(disclaimer.body).toContain(highlight)
+    }
+    expect(disclaimer.body).toContain(disclaimer.agree)
+  })
+})
