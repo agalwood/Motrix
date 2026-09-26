@@ -1,0 +1,2766 @@
+{
+  "operatorUnlock": {
+    "title": "Motrix のロックを解除",
+    "help": "このサーバーには管理者トークンが必要です。ホスト上で MOTRIX_OPERATOR_TOKEN を設定するか、<dataDir>/operator-token からトークンを読み取り、以下に貼り付けてください。",
+    "placeholder": "管理者トークン",
+    "error": "管理者トークンが無効です。ホスト上の MOTRIX_OPERATOR_TOKEN または <dataDir>/operator-token を確認して、もう一度お試しください。",
+    "submit": "ロックを解除"
+  },
+  "operatorAdmin": {
+    "help": "使い方:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nこのコマンドは、コンテナーのループバック経由で、実行中の Motrix サーバーとのみ通信します。",
+    "errorPrefix": "motrix-admin: {{message}}",
+    "usageHint": "使い方を確認するには `motrix-admin --help` を実行してください。",
+    "pending": {
+      "none": "承認待ちのペアリングリクエストはありません。",
+      "row": "{{userCode}}  {{clientName}}  {{clientVersion}}  有効期限まで {{ttl}}",
+      "ttl": "{{minutes}} 分 {{seconds}} 秒"
+    },
+    "decision": {
+      "approve": "{{clientName}}（{{clientVersion}}）の {{userCode}} を承認しました。",
+      "deny": "{{clientName}}（{{clientVersion}}）の {{userCode}} を拒否しました。"
+    },
+    "errors": {
+      "usage": {
+        "jsonRepeated": "--json は 1 回だけ指定できます。",
+        "unknownOption": "不明なコマンドラインオプションです。",
+        "pairingCommandRequired": "pairing コマンドを指定してください。",
+        "pairingOperationRequired": "pairing pending、pairing approve CODE、または pairing deny CODE を指定してください。",
+        "pairingCodeInvalid": "ペアリングコードは ASCII 文字 8 文字で指定してください。I、O、0、1 は使用できません。",
+        "portInvalid": "PORT は 1～65535 の整数で指定してください。"
+      },
+      "credential": {
+        "tokenHeaderInvalid": "MOTRIX_OPERATOR_TOKEN の値を HTTP ヘッダーに使用できません。",
+        "dataDirNotAbsolute": "MOTRIX_DATA_DIR は絶対パスで指定してください。",
+        "unavailable": "管理者の認証情報を利用できません。MOTRIX_OPERATOR_TOKEN を設定するか、データディレクトリーに operator-token が存在することを確認してください。",
+        "notFile": "管理者の認証情報のパスは通常のファイルではありません。",
+        "unreadable": "管理者の認証情報を読み取れませんでした。",
+        "invalid": "管理者の認証情報ファイルが無効です。",
+        "rejected": "Motrix が管理者の認証情報を拒否しました。"
+      },
+      "server": {
+        "responseUnreadable": "Motrix からの応答を読み取れませんでした。",
+        "responseOversized": "Motrix からの応答がサイズの上限を超えています。",
+        "responseInvalidJson": "Motrix から無効な JSON 応答が返されました。",
+        "rpcHttp": "Motrix のペアリング RPC が HTTP {{status}} で失敗しました。",
+        "approvalUnavailable": "実行中の Motrix サーバーではペアリングの承認を利用できません。",
+        "pendingResponseInvalid": "Motrix から承認待ちペアリングについての無効な応答が返されました。",
+        "decisionOutcomeUnknown": "ペアリングの承認・拒否の結果を確認できていません。再試行する前に pairing pending を実行してください。",
+        "decisionResponseInvalid": "Motrix からペアリングの承認・拒否についての無効な応答が返されました。",
+        "requestNoLongerPending": "このペアリングリクエストはすでに承認待ちではありません。",
+        "noMatchingRequest": "{{userCode}} に一致する承認待ちのペアリングリクエストはありません。",
+        "ambiguousRequest": "{{userCode}} に一致する承認待ちのペアリングリクエストが複数あります。承認・拒否は適用されませんでした。",
+        "unexpected": "motrix-admin で予期しないエラーが発生しました。"
+      },
+      "unavailable": {
+        "loopback": "コンテナーのループバックから実行中の Motrix サーバーに接続できません。",
+        "approvalNotReady": "実行中の Motrix サーバーでペアリング承認の準備ができていません。"
+      }
+    }
+  },
+  "common": {
+    "clearSearch": "検索をクリア",
+    "download": "ダウンロード",
+    "cancel": "キャンセル",
+    "save": "保存",
+    "close": "閉じる",
+    "loading": "読み込み中…",
+    "name": "名前:",
+    "error": "エラー",
+    "remove": "削除",
+    "collapse": "折りたたむ",
+    "apply": "適用",
+    "confirm": "確認",
+    "status": {
+      "finalizing": "仕上げ処理中…"
+    },
+    "reset": "リセット",
+    "retry": "再試行",
+    "showPassword": "パスワードを表示",
+    "hidePassword": "パスワードを非表示"
+  },
+  "quit": {
+    "confirm": {
+      "message_other": "{{count}} 件のダウンロードがまだ進行中です。",
+      "detail": "今終了すると、進行中のダウンロードは一時停止されます。終了しますか？",
+      "quitButton": "終了",
+      "dontAskAgain": "次回から確認しない"
+    }
+  },
+  "nav": {
+    "dashboard": "ダッシュボード",
+    "downloads": "ダウンロード",
+    "completed": "完了",
+    "trackers": "トラッカー",
+    "plugins": "プラグイン",
+    "notifications": "通知",
+    "settings": "設定"
+  },
+  "chrome": {
+    "minimize": "最小化",
+    "maximize": "最大化",
+    "restore": "元のサイズに戻す",
+    "close": "閉じる",
+    "toggleSidebar": "サイドバーの表示を切り替える",
+    "newTask": "新規タスク",
+    "sidebarTitle": "サイドバー",
+    "sidebarDescription": "アプリのナビゲーション。"
+  },
+  "tray": {
+    "newTask": "新規タスク",
+    "newTorrentTask": "新規トレントタスク",
+    "openTorrentFile": "トレントファイルを開く",
+    "showMotrix": "Motrix を表示",
+    "manual": "マニュアル",
+    "checkUpdates": "アップデートを確認",
+    "preferences": "設定",
+    "quit": "終了"
+  },
+  "panel": {
+    "connection": {
+      "polling": "定期更新",
+      "reconnecting": "サーバーに再接続中…",
+      "unavailable": "サーバーに接続できません",
+      "originMismatch": "アクセス先アドレスが一致しません"
+    },
+    "dashboard": {
+      "title": "ダッシュボード",
+      "engine": {
+        "title": "エンジン",
+        "features": "機能",
+        "startFailed": "aria2 エンジンを起動できませんでした",
+        "state": {
+          "ready": "準備完了",
+          "starting": "起動中…",
+          "reconnecting": "再接続中…",
+          "failed": "失敗",
+          "disconnected": "切断済み",
+          "stopped": "停止中"
+        },
+        "name": "Aria2",
+        "version": "バージョン",
+        "rpcPort": "RPC ポート",
+        "listenPort": "待ち受けポート",
+        "diagnostics": {
+          "title": "エンジンの診断",
+          "description": "エンジンを確認し、Motrix の RPC ポートを使用しているプロセスを特定して、安全に復旧します。",
+          "open": "診断",
+          "checking": "エンジンを確認中…",
+          "runAgain": "もう一度実行",
+          "loadFailed": "エンジンの診断を実行できませんでした。",
+          "currentStatus": "現在の状態",
+          "lastChecked": "確認日時：{{time}}",
+          "checks": {
+            "binary": "エンジン",
+            "features": "機能",
+            "rpc": "RPC ポート",
+            "process": "プロセス",
+            "communication": "接続"
+          },
+          "binary": {
+            "available": "{{name}} {{version}}",
+            "unavailable": "{{name}} が見つからないか、起動できません。"
+          },
+          "features": {
+            "none": "報告なし",
+            "unavailable": "利用不可"
+          },
+          "rpc": {
+            "listening": "{{port}}（待ち受け中）",
+            "available": "{{port}}（使用可能）",
+            "occupied": "{{port}}（使用中）"
+          },
+          "process": {
+            "none": "ポートの競合なし",
+            "unidentified": "特定できません。停止しません",
+            "current_app": "PID {{pid}}（{{name}}）、Motrix が管理",
+            "verified_orphan": "PID {{pid}}（{{name}}）、Motrix の残存プロセスであることを確認済み。安全に停止できます",
+            "external_aria2": "PID {{pid}}（{{name}}）、Motrix のプロセスか確認できません。停止しません",
+            "other": "PID {{pid}}（{{name}}）、Motrix のプロセスか確認できません。停止しません",
+            "unknown": "PID {{pid}}、特定できません。停止しません"
+          },
+          "communication": {
+            "ready": "Motrix は aria2 と通信できます。"
+          },
+          "reason": {
+            "port_in_use": "Motrix の RPC ポートが使用されているため、aria2 エンジンを起動できませんでした。",
+            "binary_unavailable": "同梱の aria2 実行ファイルが見つからないか、利用できません。",
+            "spawn_failed": "aria2 プロセスを作成できませんでした。",
+            "rpc_unavailable": "aria2 エンジンは起動しましたが、Motrix からの RPC 接続を受け付けませんでした。",
+            "unexpected_exit": "aria2 エンジンが予期せず終了しました。",
+            "health_check_failed": "aria2 が Motrix に応答しなくなりました。",
+            "unknown": "不明な理由で aria2 エンジンを起動できませんでした。"
+          },
+          "recommendation": {
+            "title": "推奨する復旧方法",
+            "retry": "ポートは空いています。設定を変更せずに aria2 の起動を再試行してください。",
+            "force_terminate": "このプロセスが Motrix のものであることを確認しました。PID {{pid}} を強制終了してから、Motrix の RPC ポート {{rpcPort}} で aria2 を再起動します。",
+            "switch_port": "このプロセスは安全に終了できません。代替手段としてポート {{port}} を使用するか、競合しているプロセスを手動で終了してください。"
+          },
+          "technicalDetails": "技術的な詳細",
+          "retry": "再試行",
+          "restart": "エンジンを再起動",
+          "switchPort": "ポート {{port}} を使用",
+          "forceRecover": "強制終了して復旧",
+          "recovered": "aria2 エンジンが再び利用できるようになりました。",
+          "recoveredOnPort": "RPC ポート {{port}} で aria2 エンジンが復旧しました。",
+          "recoveryFailed": "エンジンを復旧できませんでした。診断を再実行して最新の状態を確認してください。",
+          "fallback": {
+            "available": "Motrix の既定のポート {{port}} は空いており、今すぐ元に戻せます。",
+            "verifiedOrphan": "既定のポート {{port}} は、Motrix の残存 aria2 プロセス（PID {{pid}}、確認済み）が使用しています。Motrix はこのプロセスを安全に停止してから、ポートを元に戻せます。",
+            "blocked": "既定のポート {{port}} は PID {{pid}}（{{name}}）が使用していますが、Motrix のプロセスか確認できません。このプロセスは終了しません。",
+            "unidentified": "既定のポート {{port}} を使用しているプロセスを特定できませんでした。Motrix は現在のポートを引き続き使用します。",
+            "restore": "Motrix の既定のポート {{port}} に戻す",
+            "restoring": "Motrix の既定のポート {{port}} に戻しています…",
+            "restoredDefault": "Motrix の既定の RPC ポート {{port}} に戻しました。",
+            "confirm": {
+              "title": "残存プロセスを停止してポート {{port}} に戻しますか？",
+              "description": "PID {{pid}} は Motrix の残存 aria2 プロセスであることを確認済みです。このプロセスを停止し、既定のポート {{port}} を保存して、aria2 を再起動します。",
+              "action": "停止してポート {{port}} に戻す"
+            }
+          },
+          "confirmForce": {
+            "title": "残存 aria2 プロセスを強制終了しますか？",
+            "description": "PID {{pid}} は Motrix に同梱の実行ファイル、専用 RPC シークレット、データパスと一致しています。このプロセスを直ちに終了してから、Motrix の RPC ポートで aria2 を再起動します。",
+            "action": "強制終了して復旧"
+          },
+          "details": "診断の詳細",
+          "versionUnknown": "バージョンを取得できません",
+          "copy": "診断結果をコピー",
+          "copied": "コピーしました",
+          "copyFailed": "診断結果をコピーできませんでした。もう一度お試しください。",
+          "refreshFailed": "診断結果を更新できませんでした。前回成功した診断の結果を以下に表示しています。",
+          "summary": {
+            "ready": "ダウンロードエンジンは正常に動作しています",
+            "starting": "ダウンロードエンジンを起動中です",
+            "restarting": "ダウンロードエンジンを復旧中です",
+            "stopped": "ダウンロードエンジンは停止しています",
+            "port_in_use": "エンジンの制御ポートが使用されています",
+            "binary_unavailable": "ダウンロードエンジンを利用できません",
+            "spawn_failed": "ダウンロードエンジンを起動できませんでした",
+            "rpc_unavailable": "エンジンの制御接続を利用できません",
+            "unexpected_exit": "ダウンロードエンジンが予期せず終了しました",
+            "health_check_failed": "ダウンロードエンジンが応答しなくなりました",
+            "unknown": "ダウンロードエンジンを利用できません"
+          },
+          "impact": {
+            "failed": "ダウンロードを操作できません。タスクの状態が古い可能性があります。",
+            "connecting": "エンジンの準備ができると、ダウンロードを操作できるようになります。",
+            "stopped": "ダウンロードを開始または管理するには、エンジンを起動してください。"
+          },
+          "runtime": {
+            "process": "プロセス",
+            "running": "実行中",
+            "notRunning": "停止中",
+            "connection": "接続",
+            "connected": "接続済み",
+            "connecting": "接続中…",
+            "disconnected": "未接続",
+            "unavailable": "利用不可",
+            "connectionStatus": "{{transport}}（{{status}}）"
+          },
+          "port": {
+            "available": "{{port}}（使用可能）",
+            "listening": "{{port}}（待ち受け中）",
+            "occupied": "{{port}}（使用中）"
+          },
+          "motrixEngine": "aria2 Motrix",
+          "transport": {
+            "websocket": "WebSocket"
+          }
+        }
+      },
+      "speed": {
+        "up": "アップロード",
+        "down": "ダウンロード",
+        "peak": "最大 {{value}}",
+        "offline": "オフライン"
+      },
+      "speedUp": {
+        "title": "アップロード速度"
+      },
+      "speedDown": {
+        "title": "ダウンロード速度"
+      },
+      "active": {
+        "title": "進行中のタスク",
+        "downloading": "ダウンロード中",
+        "seeding": "シード中",
+        "waiting": "待機中",
+        "error": "エラー",
+        "engineOffline": "エンジンはオフラインです"
+      },
+      "transfer": {
+        "title": "転送量",
+        "rangeLabel": "転送量の集計期間",
+        "scope": {
+          "today": "今日",
+          "allTime": "全期間"
+        },
+        "download": "ダウンロード",
+        "upload": "アップロード",
+        "sinceTime": "{{time}} から",
+        "sinceDate": "{{date}} から",
+        "empty": {
+          "today": "今日の転送記録はありません。",
+          "allTime": "転送記録はまだありません。"
+        },
+        "loading": "転送データを読み込み中",
+        "unavailable": "転送データを取得できません",
+        "retry": "再試行",
+        "updated": "更新：{{time}}",
+        "outOfDate": "データが古い可能性があります",
+        "totalLabel": "{{scope}}の転送量合計：{{value}}"
+      },
+      "activity": {
+        "title": "アクティビティ",
+        "loading": "アクティビティを読み込み中",
+        "unavailable": "アクティビティを取得できません",
+        "retry": "再試行",
+        "stale": "アクティビティが古い可能性があります",
+        "coverageDegraded": "{{time}} 以降のアクティビティに欠落がある可能性があります",
+        "rangeSummary": "{{start}} から {{end}} までの {{weeks}} 週間のダウンロードアクティビティ",
+        "completedIntensity": "色の濃さは完了したダウンロード数を表します",
+        "less": "少ない",
+        "more": "多い",
+        "weekday": {
+          "sun": "日",
+          "mon": "月",
+          "tue": "火",
+          "wed": "水",
+          "thu": "木",
+          "fri": "金",
+          "sat": "土"
+        },
+        "tooltip": {
+          "completed": "{{count}} 件完了",
+          "submitted": "{{count}} 件追加",
+          "recovered": "復旧時に検出された完了を含みます",
+          "recoveredCount": "{{count}} 件復旧",
+          "untracked": "記録開始前",
+          "noData": "アクティビティデータなし",
+          "noDataOnDate": "{{date}} のアクティビティデータはありません",
+          "completedOnDate": "{{date}} に {{count}} 件完了",
+          "partial": "{{time}} に記録を開始",
+          "partialShort": "この日の一部のみ",
+          "coverage": "{{time}} 以降の記録に欠落がある可能性があります",
+          "coverageShort": "データに欠落がある可能性があります",
+          "today": "今日（更新中）"
+        }
+      },
+      "tasks": {
+        "title": "タスク",
+        "viewLabel": "タスクの表示",
+        "view": {
+          "active": "進行中",
+          "failed": "失敗",
+          "recent": "最近"
+        },
+        "newTask": "新規タスク",
+        "more": "ほか {{count}} 件",
+        "loading": "タスクを読み込み中",
+        "unavailable": "タスクを取得できません",
+        "retry": "再試行",
+        "empty": {
+          "active": "進行中のタスクはありません",
+          "failed": "失敗したタスクはありません",
+          "recent": "完了したタスクはまだありません"
+        },
+        "offline": "エンジンはオフラインです",
+        "metric": {
+          "fetching": "取得中",
+          "ready": "準備完了",
+          "finalizing": "仕上げ処理中",
+          "queued": "待機中",
+          "paused": "一時停止中"
+        },
+        "secondary": {
+          "metadata": "メタデータを取得中",
+          "chooseFiles": "ファイルの選択待ち",
+          "finalizing": "ダウンロードの仕上げ処理中",
+          "waiting": "開始待ち",
+          "eta": "残り {{time}}",
+          "ratio": "共有比 {{ratio}}",
+          "saved": "{{percent}}% 保存済み",
+          "offline": "オフライン（最後に取得した進捗）",
+          "completed": "完了：{{time}}",
+          "failed": "失敗：{{reason}}",
+          "technicalDetail": "技術的な詳細：{{detail}}"
+        },
+        "progressLabel": "{{name}} の進捗"
+      },
+      "configure": {
+        "action": "配置を編集",
+        "addTile": "追加",
+        "addTitle": "タイルを追加",
+        "apply": "適用",
+        "cancel": "キャンセル",
+        "reset": "リセット",
+        "drag": "タイルをドラッグ",
+        "removeTile": "タイルを削除",
+        "resizeTile": "タイルのサイズを変更",
+        "sizeGroup": "タイルのサイズ",
+        "size": "{{width}} × {{height}}",
+        "currentSize": "現在のサイズ：{{width}} × {{height}}",
+        "invalidCapacity": "このサイズに必要なスペースがありません",
+        "availabilityHints": {
+          "space": "別のタイルを縮小または削除してください。",
+          "bounds": "先にタイルを内側に移動してください。",
+          "unsupported": "対応しているサイズを選択してください。"
+        },
+        "sizeLabels": {
+          "compact": "コンパクト",
+          "wide": "横長",
+          "tall": "縦長",
+          "large": "大",
+          "fullWidth": "幅いっぱい",
+          "fullHeight": "高さいっぱい"
+        },
+        "sizeUnavailable": {
+          "unsupported": "非対応",
+          "outOfBounds": "枠内に収まりません",
+          "insufficientSpace": "スペースが足りません"
+        },
+        "presets": {
+          "action": "プリセット",
+          "custom": "カスタム",
+          "undo": "直前のプリセット適用を取り消す",
+          "balanced": {
+            "title": "バランス"
+          },
+          "taskFocus": {
+            "title": "タスク重視"
+          },
+          "speedFocus": {
+            "title": "速度重視"
+          },
+          "compact": {
+            "title": "コンパクト"
+          }
+        },
+        "saveFailed": "レイアウトを保存できませんでした。もう一度お試しください。",
+        "expandHint": "ダッシュボードのレイアウトを編集するには、ウインドウを広げてください。"
+      },
+      "errors": {
+        "tileFailed": "{{tile}}：表示できませんでした",
+        "retry": "再試行"
+      },
+      "speedLimit": {
+        "title": "速度制限",
+        "unlimited": "無制限",
+        "smart": "自動",
+        "settings": "速度制限の設定",
+        "turtle": {
+          "off": "標準モード",
+          "on": "低速モード",
+          "auto": "自動モード"
+        },
+        "tooltip": {
+          "off": "標準の速度制限を使用",
+          "on": "今すぐ低速モードの制限を使用",
+          "auto": "スケジュールと帯域幅に応じて速度を自動調整"
+        },
+        "reason": {
+          "base": "標準の制限",
+          "turtle": "低速モード",
+          "schedule": "スケジュール",
+          "videoApp": "動画アプリ",
+          "adaptive": "帯域幅の確保"
+        }
+      },
+      "nat": {
+        "title": "NAT",
+        "compact": {
+          "state": {
+            "active": "マッピング済み",
+            "settingUp": "マッピング中",
+            "failed": "マッピング",
+            "off": "オフ"
+          },
+          "caption": {
+            "active_other": "{{count}} ポート",
+            "settingUp": "接続中…",
+            "failed": "利用不可",
+            "off": "BT / DHT",
+            "waiting": "読み込み中…"
+          }
+        },
+        "internalIp": "ローカル IP",
+        "gatewayIp": "ルーター",
+        "caption": {
+          "off": "BT ポートマッピングはオフです。",
+          "settingUp": "ルーターに接続中…",
+          "failed": "自動マッピングを利用できません。",
+          "waiting": "ネットワークの状態を待機中…"
+        },
+        "mappingDetails": "マッピング済みポート",
+        "mappingPurpose": {
+          "bt-listen": "BitTorrent",
+          "dht-listen": "DHT"
+        },
+        "portMapping": "内部 {{internal}} → 外部 {{external}}",
+        "noMappings": "有効なポートマッピングはありません。",
+        "state": {
+          "active": "有効",
+          "settingUp": "初期化中",
+          "failed": "失敗",
+          "off": "オフ"
+        },
+        "retrying": "再試行中 {{attempt}}/{{max}}",
+        "type": "種類",
+        "externalIp": "外部 IP",
+        "mappings": "マッピング",
+        "mappingsValue_other": "{{count}} 件有効",
+        "health": "接続状態",
+        "healthScore": {
+          "good": "良好",
+          "fair": "普通",
+          "poor": "不良",
+          "unknown": "—"
+        },
+        "natType": {
+          "open": "オープン",
+          "fullcone": "フルコーン",
+          "restricted": "制限付きコーン",
+          "port-restricted": "ポート制限付きコーン",
+          "symmetric": "対称型",
+          "blocked": "ブロック",
+          "unknown": "不明"
+        },
+        "lastCheck": "前回の確認",
+        "lastCheckNever": "未確認",
+        "actions": {
+          "group": "NAT 操作",
+          "enable": "NAT を有効にする",
+          "disable": "NAT を無効にする",
+          "remap": "強制再マッピング",
+          "diagnose": "診断を実行",
+          "troubleshoot": "NAT のトラブルシューティングガイド",
+          "short": {
+            "enable": "有効にする",
+            "disable": "無効にする",
+            "remap": "再マッピング",
+            "diagnose": "診断",
+            "help": "ヘルプ"
+          },
+          "settings": "NAT 設定"
+        },
+        "rateLimited": "操作の間隔が短すぎます。しばらくしてからお試しください",
+        "none": "—"
+      }
+    },
+    "completed": {
+      "title": "完了",
+      "desc": "完了したダウンロードタスク"
+    },
+    "trackers": {
+      "title": "トラッカー",
+      "desc": "トラッカーの状態と購読リストを管理",
+      "tab": {
+        "effective": "適用中",
+        "blacklist": "ブロックリスト"
+      },
+      "searchPlaceholder": "URL で絞り込み…",
+      "syncNow": "今すぐ同期"
+    },
+    "downloads": {
+      "title": "ダウンロード",
+      "heading": {
+        "all": "すべてのダウンロード",
+        "active": "進行中のダウンロード",
+        "completed": "完了したダウンロード",
+        "error": "失敗したダウンロード"
+      },
+      "status": {
+        "queued": "待機中",
+        "fetchingMetadata": "取得中",
+        "metadataReady": "ファイルの選択待ち",
+        "downloading": "ダウンロード中",
+        "finalizing": "仕上げ処理中",
+        "seeding": "シード中",
+        "paused": "一時停止中",
+        "completed": "完了",
+        "error": "エラー"
+      },
+      "column": {
+        "name": "名前",
+        "size": "サイズ",
+        "progress": "進捗",
+        "down": "ダウンロード速度",
+        "up": "アップロード速度",
+        "eta": "残り時間",
+        "connections": "ピア",
+        "status": "状態",
+        "createdAt": "作成日時",
+        "finishedAt": "完了日時"
+      },
+      "columnHeader": {
+        "down": "ダウンロード",
+        "up": "アップロード"
+      },
+      "timestamp": {
+        "notRecorded": "記録なし",
+        "notCompleted": "未完了",
+        "relativeDateTime": "{{date}} {{time}}"
+      },
+      "sort": {
+        "down": "ダウンロード速度",
+        "up": "アップロード速度",
+        "asc": "{{column}}：昇順",
+        "desc": "{{column}}：降順",
+        "sortAscending": "{{column}}を昇順で並べ替え",
+        "sortDescending": "{{column}}を降順で並べ替え",
+        "reset": "既定の順序に戻す"
+      },
+      "empty": {
+        "noTasks": "ダウンロードはまだありません",
+        "noTasksCta": "＋を押して追加してください",
+        "noMatchFilter": "このフィルターに一致するタスクはありません",
+        "noMatchSearch": "「{{query}}」に一致するタスクはありません",
+        "clearSearch": "検索をクリア",
+        "unavailable": "タスクを取得できません",
+        "motion": {
+          "open": "ガラスの動きを調整",
+          "title": "ガラスの動き",
+          "description": "開発用プレビュー",
+          "enabled": "モーションエフェクト",
+          "enabledDesc": "「外観」→「視差効果を減らす」と連動しています。変更はすぐに保存されます。",
+          "systemReducedMotion": "システムの「視差効果を減らす」設定により、モーションが無効になっています。",
+          "saveFailed": "モーション設定を保存できませんでした。もう一度お試しください。",
+          "loadFade": "読み込み時のフェード",
+          "breathing": "明るさのゆらぎ",
+          "pointerFollow": "ポインターに追従",
+          "positionConstraint": "重力による移動範囲",
+          "horizontalSpeed": "水平方向の速度"
+        }
+      },
+      "stats": {
+        "downSpeed": "ダウンロード速度",
+        "upSpeed": "アップロード速度",
+        "engineOk": "エンジンの準備完了",
+        "engineStarting": "エンジンを起動中",
+        "engineOffline": "エンジンはオフラインです",
+        "natActive": "NAT マッピング済み",
+        "natActiveDesc": "ほかの BT ピアが接続しやすくなります。",
+        "natSettingUp": "NAT マッピング中",
+        "natRetrying": "自動再試行（{{attempt}}/{{max}}）",
+        "natMapping": "NAT マッピング",
+        "natUnavailable": "自動マッピングを利用できません",
+        "natUnavailableDesc": "リンクからのダウンロードには影響しません。BT 接続は制限される可能性があります。",
+        "natRetry": "再試行",
+        "natDisable": "NAT マッピングをオフにする",
+        "natSettings": "ネットワーク設定",
+        "natHelp": "ネットワークガイド"
+      },
+      "tab": {
+        "all": "すべて",
+        "active": "進行中",
+        "completed": "完了",
+        "error": "エラー"
+      },
+      "inspector": {
+        "overview": {
+          "transfer": "転送",
+          "progress": "進捗",
+          "network": "ネットワーク",
+          "general": "一般",
+          "createdAt": "作成日時",
+          "finishedAt": "完了日時",
+          "downSpeed": "ダウンロード速度",
+          "upSpeed": "アップロード速度",
+          "eta": "残り時間",
+          "downloaded": "ダウンロード済み",
+          "totalSize": "合計サイズ",
+          "percent": "進捗率",
+          "peers": "ピア",
+          "seeds": "シーダー",
+          "ratio": "共有比",
+          "type": "種類",
+          "infoHash": "Info ハッシュ",
+          "private": "プライベート",
+          "connections": "接続数",
+          "uploaded": "アップロード済み",
+          "seedingTime": "シード時間",
+          "seedingRecordedSince": "{{date}} から記録しています。一時停止中とオフラインの時間は含みません。それ以前のシード履歴はありません。",
+          "seedingUnavailable": "このタスクのシード時間は記録されていません。"
+        },
+        "activity": {
+          "transferTitle": {
+            "session": "セッションの転送量",
+            "lifetime": "全期間の転送量"
+          },
+          "download": "ダウンロード",
+          "upload": "アップロード",
+          "loading": "アクティビティを読み込み中…",
+          "collecting": "転送データを収集中…",
+          "noSessionHistory": "アプリのこのセッションには転送記録がありません。",
+          "lifetimeEmpty": "全期間の履歴はまだありません。",
+          "noTraffic": "現在、ネットワーク通信はありません。",
+          "unavailable": "全期間のアクティビティを取得できません。",
+          "coverageGap": "記録が中断されました。",
+          "retry": "再試行",
+          "notAvailable": "利用不可",
+          "stale": {
+            "short": "古いデータです。",
+            "message": "データが古い可能性があります。最終更新：{{time}}。"
+          },
+          "range": {
+            "label": "転送量の表示期間",
+            "session": "セッション（60 秒）",
+            "lifetime": "全期間",
+            "latest": "直近 60 秒",
+            "adaptive_other": "解像度を自動調整 · {{count}} サンプル"
+          },
+          "timeline": {
+            "title": "タスクの履歴",
+            "current": "現在：{{status}}",
+            "cluster_other": "ほか {{count}} 件のイベント",
+            "repeated": "{{label}} ×{{count}}",
+            "truncated_other": "古い履歴 {{count}} 件を省略",
+            "truncatedAt": "最初に省略された時刻：{{time}}",
+            "timeRange": "{{start}}–{{end}}",
+            "detailTitle": "{{label}}の詳細",
+            "destination": "{{event}} {{status}}",
+            "previous": "前のタイムラインイベントを表示",
+            "next": "次のタイムラインイベントを表示",
+            "event": {
+              "added": "追加",
+              "started": "開始",
+              "paused": "一時停止",
+              "resumed": "再開",
+              "stage_changed": "段階の変更",
+              "completed": "完了",
+              "failed": "失敗",
+              "observed_state": "状態の復元"
+            },
+            "status": {
+              "queued": "待機中",
+              "fetching_metadata": "メタデータを取得中",
+              "metadata_ready": "メタデータの準備完了",
+              "downloading": "ダウンロード中",
+              "finalizing": "仕上げ処理中",
+              "seeding": "シード中",
+              "paused": "一時停止中",
+              "completed": "完了",
+              "error": "失敗",
+              "removed": "削除済み"
+            }
+          },
+          "summary": {
+            "title": "現在の概要",
+            "average": "平均",
+            "averageExpanded": "平均ダウンロード速度",
+            "peak": "最大",
+            "peakExpanded": "最大ダウンロード速度",
+            "active": "転送時間",
+            "activeExpanded": "実際に転送した時間"
+          },
+          "chart": {
+            "accessibleSummary": "{{range}}：{{start}} から {{end}} まで。直近のダウンロード {{download}}、アップロード {{upload}}。全期間の平均ダウンロード {{average}}、最大ダウンロード {{peak}}、転送時間 {{activeDuration}}。{{sampleLabel}}。{{state}}",
+            "activeSeconds_other": "{{count}} 秒",
+            "sampleCount_other": "{{count}} サンプル",
+            "noDataQualityIssues": "記録に関する警告はありません。"
+          }
+        },
+        "pieces": {
+          "mapLabel": "ダウンロードピースマップ",
+          "legend": {
+            "done": "完了",
+            "active": "ダウンロード中",
+            "endgame": "エンドゲーム",
+            "pending": "待機中"
+          },
+          "empty": "ピースデータがありません",
+          "pieceLength": "ピースの長さ",
+          "totalPieces": "ピース総数"
+        },
+        "peers": {
+          "summary_other": "ピア {{count}}（シーダー {{seeders}}）",
+          "empty": "接続中のピアはありません",
+          "col": {
+            "country": "地域",
+            "endpoint": "IP : ポート",
+            "client": "クライアント",
+            "down": "↓",
+            "up": "↑",
+            "progress": "%",
+            "flags": "フラグ",
+            "flagsHint": "D = ピアから受信中、U = ピアへ送信中、S = ピアがシーダー。アンダースコアは非アクティブを表します。"
+          }
+        },
+        "trackers": {
+          "summary_other": "トラッカー {{count}} 件",
+          "driftSuffix_other": "全体リストにないもの {{count}} 件",
+          "privateBanner": "プライベートトレントのため、全体設定のトラッカーは追加されません。",
+          "empty": "トラッカーはありません",
+          "loadFailed": "トラッカーを読み込めませんでした：{{reason}}",
+          "action": {
+            "edit": "編集",
+            "save": "保存",
+            "cancel": "キャンセル",
+            "sync": "同期",
+            "delete": "トラッカーを削除"
+          },
+          "syncPrivateDisabled": "プライベートトレントでは同期を利用できません。",
+          "saveFailed": "トラッカーを更新できませんでした：{{reason}}",
+          "syncFailed": "トラッカーを同期できませんでした：{{reason}}",
+          "deleteFailed": "トラッカーを削除できませんでした：{{reason}}",
+          "invalidLines_other": "無効な行を {{count}} 行スキップしました",
+          "editPlaceholder": "トラッカーの URL を 1 行に 1 件入力してください。http(s)/udp/ws(s) のみ対応しています。",
+          "editHint": "このトラッカー一覧でタスクに適用中の bt-tracker リストを置き換えます。.torrent の Announce-list エントリーは変更しません。"
+        },
+        "multi": {
+          "totals": "合計",
+          "liveSpeed": "現在の速度",
+          "statusDist": "状態別の内訳",
+          "totalSize": "合計サイズ",
+          "downloaded": "ダウンロード済み",
+          "avgProgress": "平均進捗",
+          "combinedDown": "合計 ↓",
+          "combinedUp": "合計 ↑",
+          "longestEta": "最長残り時間"
+        },
+        "tab": {
+          "overview": "概要",
+          "files": "ファイル",
+          "pieces": "ピース",
+          "peers": "ピア",
+          "trackers": "トラッカー",
+          "activity": "アクティビティ"
+        },
+        "placeholder": {
+          "files": "ファイル一覧。",
+          "peers": "ピア一覧。",
+          "trackers": "トラッカー一覧。"
+        }
+      },
+      "action": {
+        "pause": "一時停止",
+        "queueMoveFailed": "待機キューを更新できませんでした。",
+        "queueTaskStarted": "このタスクは待機キューにありません。",
+        "queueMoveHint": "待機キュー内の位置によって、次に開始するダウンロードが決まります。列による並べ替えは別に保存されます。",
+        "queueBoundary": "選択したタスクはすでにキューの端にあります",
+        "queueMoved": "待機キューを更新しました",
+        "moveQueueDown": "キュー内で下へ移動",
+        "moveQueueUp": "キュー内で上へ移動",
+        "resume": "再開",
+        "retry": "再試行",
+        "openFolder": "フォルダーを開く",
+        "copyUrl": "URL をコピー",
+        "copyUrls": "URL をコピー",
+        "copyPath": "ファイルパスをコピー",
+        "copied": "クリップボードにコピーしました",
+        "copyFailed": "クリップボードにコピーできませんでした。もう一度お試しください。",
+        "selectFilesFailed": "ファイル選択を開けませんでした。",
+        "copyUrlFailed": "コピーできませんでした。タスクのリンク情報を読み込めません。もう一度お試しください。",
+        "selectFiles": "ファイルを選択",
+        "remove": "削除",
+        "removeConfirmWithFiles": "ダウンロードしたファイルもディスクから削除",
+        "cancel": "キャンセル",
+        "batchPartial": "成功 {{ok}} 件、失敗 {{failed}} 件",
+        "singleTaskFailed": "{{name}}：{{reason}}",
+        "stopSeeding": "シードを停止",
+        "reseed": "再シード",
+        "retryWithDialog": "オプションを指定して再試行…（Alt+クリック）",
+        "finalizingTooltip": "タスクの仕上げ処理中です。しばらくお待ちください",
+        "pauseTooltipBatch": "選択した {{total}} 件のうち {{n}} 件を一時停止",
+        "resumeTooltipBatch": "選択した {{total}} 件のうち {{n}} 件を再開",
+        "retryTooltipBatch": "選択した {{total}} 件のうち {{n}} 件を再試行",
+        "reseedTooltipBatch": "選択した {{total}} 件のうち {{n}} 件を再シード",
+        "stopSeedingTooltipBatch": "選択した {{total}} 件のうち {{n}} 件のシードを停止",
+        "removeTooltipBatch": "選択した {{total}} 件のうち {{n}} 件を削除",
+        "removeWithFilesShift": "Shift キーを押しながら操作すると、ファイルも削除します",
+        "removeFilesEstimate": "ディスクから {{bytes}} を削除します",
+        "removeSingleTitle": "「{{name}}」を削除しますか？",
+        "removeAll_paused_Title": "一時停止中のタスク {{count}} 件を削除しますか？",
+        "removeAll_seeding_Title": "シード中のタスク {{count}} 件を削除しますか？",
+        "removeAll_completed_Title": "完了したタスク {{count}} 件を削除しますか？",
+        "removeAll_error_Title": "失敗したタスク {{count}} 件を削除しますか？",
+        "removeAll_downloading_Title": "進行中のタスク {{count}} 件を削除しますか？",
+        "removeMixedTitle": "タスク {{count}} 件を削除しますか？",
+        "openFile": "ファイルを開く",
+        "openFileFailed": "ファイルを開けませんでした",
+        "chooseFiles": "ファイルを選択…",
+        "queueOrder": "ダウンロード順序",
+        "moveQueueTop": "先頭に移動",
+        "moveQueueBottom": "末尾に移動",
+        "copyError": "エラー情報をコピー",
+        "errorReport": "{{name}}\nタスク ID：{{id}}\n{{details}}"
+      },
+      "titleCount": "{{shown}} 件表示 · 全 {{total}} 件",
+      "type": {
+        "http": "HTTP",
+        "magnet": "マグネット",
+        "bt": "BitTorrent",
+        "ftp": "FTP",
+        "metalink": "Metalink"
+      },
+      "search": {
+        "placeholder": "ダウンロードを検索",
+        "activeTypeFilters": "種類フィルター：{{types}}",
+        "filters": "フィルター",
+        "resetFilters": "フィルターをリセット",
+        "clearQuery": "検索をクリア",
+        "activeQuery": "検索：{{query}}",
+        "scopeLabel": "種類",
+        "clear": "クリア",
+        "empty": "一致するタスクはありません",
+        "emptyHint": "種類の絞り込みを解除するか、別のキーワードをお試しください"
+      },
+      "stale": {
+        "banner": "タスク一覧が古い可能性があります。再接続中…"
+      },
+      "view": {
+        "title": "リスト表示",
+        "columns": "列",
+        "resetColumns": "既定の列に戻す",
+        "sortBy": "並べ替え",
+        "ascending": "昇順",
+        "descending": "降順",
+        "showInspector": "詳細パネルを表示",
+        "hideInspector": "詳細パネルを非表示",
+        "inspector": "タスクの詳細",
+        "resizeInspector": "詳細パネルのサイズを変更",
+        "selectToInspect": "タスクを選択すると詳細を表示します。",
+        "resizeColumn": "{{column}}列の幅を変更",
+        "taskActions": "その他"
+      },
+      "speedLimit": {
+        "title": "速度モード",
+        "currentMode": "速度モード：{{mode}}",
+        "uploadLimit": "アップロード制限：{{speed}}",
+        "downloadLimit": "ダウンロード制限：{{speed}}",
+        "saveFailed": "速度モードを変更できませんでした。もう一度お試しください。"
+      },
+      "media": {
+        "preparing": "準備中",
+        "decrypting": "復号中",
+        "assembling": "組み立て中",
+        "muxing": "結合中",
+        "renaming": "保存中",
+        "stage": "段階",
+        "downloadProgress": "ダウンロードの進捗",
+        "muxProgress": "結合の進捗",
+        "parts": "セグメント",
+        "partsFormat": "{{completed}} / {{total}} セグメント",
+        "downloadSize": "ダウンロードサイズ",
+        "outputSize": "出力サイズ",
+        "downloadEta": "ダウンロードの残り時間",
+        "avgDownloadProgress": "平均ダウンロード進捗",
+        "processingTasks": "処理中"
+      }
+    }
+  },
+  "task": {
+    "add": {
+      "title": "新規タスク",
+      "links": "リンク",
+      "torrent": "トレント",
+      "urlPlaceholder": "URL、マグネットリンク、または BT の Info ハッシュを入力…",
+      "dropTorrent": ".torrent ファイルをここにドロップするか、クリックして選択",
+      "clearSelection": "選択を解除",
+      "createFailed": "ダウンロードタスクを作成できませんでした。",
+      "createFailedWithReason": "ダウンロードタスクを作成できませんでした: {{reason}}",
+      "createFailedByPlugin": "タスクを作成できませんでした。プラグイン「{{pluginId}}」が処理を停止しました（{{detail}}）。設定 → プラグインでそのプラグインを無効にして、もう一度お試しください。",
+      "createFailedPathTooLong": "タスクを作成できませんでした。保存先のパスは {{length}} 文字あり、Windows の上限 {{limit}} 文字を超えています。保存先フォルダーまたはファイル名を短くしてください。",
+      "parseFailed": "トレントファイルを解析できませんでした。",
+      "urlsCount_other": "{{count}} 件の URL",
+      "urlsWithInvalid": "有効: {{valid}} 件、無効: {{invalid}} 件",
+      "validUrlCount": "有効: {{count}} 件",
+      "invalidUrlCount": "無効: {{count}} 件",
+      "urlsLabel": "URL",
+      "advanced": "詳細設定",
+      "filename": "ファイル名",
+      "filenameAuto": "自動",
+      "split": "接続数",
+      "userAgent": "User-Agent",
+      "referer": "Referer",
+      "cookie": "Cookie",
+      "authorization": "Authorization",
+      "allProxy": "プロキシ",
+      "dlLimit": "ダウンロード速度の上限",
+      "ulLimit": "アップロード速度の上限",
+      "seedRatio": "共有比",
+      "unlimited": "無制限",
+      "browse": "参照",
+      "pickPathTitle": "保存先フォルダーを選択",
+      "pickPathCustom": "カスタムパス",
+      "saveTo": "保存先",
+      "saveDirEmpty": "フォルダーを選択…",
+      "changeSaveDir": "保存先フォルダーを変更",
+      "created": "タスクを追加しました",
+      "batchCreated": "{{count}} 件のタスクを追加しました",
+      "createdCopy": "別のコピーを追加しました",
+      "createdPartial": "追加: {{ok}} 件 · 失敗: {{failed}} 件",
+      "torrentQueueProgress": "トレント {{current}} / {{total}}",
+      "downloadAndContinue": "ダウンロードして続行",
+      "downloadAllTorrents": "すべてダウンロード（{{count}} 件）",
+      "skipTorrent": "スキップ",
+      "queueAdvanceFailed": "次のトレントを開けませんでした。",
+      "duplicate": {
+        "title": "このトレントはすでに存在します",
+        "active-info-hash": "{{name}} はすでに実行中です。aria2 では同じトレントのコンテンツを同時に複数実行できません。",
+        "selection-mismatch": "{{name}} は同じ保存先を使用していますが、選択されたファイルが異なります。Motrix は上書きしたり、通知せずに名前を変えたコピーを作成したりしません。",
+        "existing-files": "{{name}} はこの保存先にすでに存在しますが、タスクの記録を利用できません。Motrix は上書きしません。",
+        "filesOnDisk": "トレントのファイル",
+        "showExisting": "既存のタスクを表示",
+        "createCopy": "別のコピーを作成"
+      },
+      "adding": "追加中…",
+      "interpretedMagnet": "マグネットリンクを検出しました",
+      "interpretedInfoHash": "BT の Info ハッシュをマグネットリンクに変換しました",
+      "unsupportedCurl": "この cURL コマンドは意味を保持したまま取り込めません。URL、または対応するオプションを使用した Bash の GET コマンドをコピーしてください。",
+      "invalidJson": "URL を表す JSON 文字列、または URL 文字列の配列を指定してください。",
+      "interpretedJson": "JSON から URL を取り込みました",
+      "sourceLine": "{{line}} 行目",
+      "sourceCorrections": {
+        "useCanonicalUrl": "この展開済み URL を使用",
+        "usePathSeparators": "バックスラッシュをパスの区切り文字として扱う",
+        "encodeLiteralCharacters": "文字そのものとしてエンコード"
+      },
+      "sourceErrors": {
+        "missingScheme": "https:// などの URL スキームを含めてください。",
+        "invalidHost": "URL のホストが指定されていないか、無効です。",
+        "invalidPort": "URL のポートが無効です。",
+        "controlCharacter": "URL から制御文字を削除してください。",
+        "invalidUnicode": "URL に無効な Unicode が含まれています。",
+        "ambiguousBackslash": "バックスラッシュによりホストまたはパスが曖昧になっています。解釈方法を選択してください。",
+        "invalidPercentEncoding": "パーセント記号の後には 2 桁の 16 進数が必要です。",
+        "credentialsInUrl": "URL に認証情報を含めず、認証用の入力欄を使用してください。",
+        "unsupportedProtocol": "このダウンロードでは、この URL のプロトコルは使用できません。",
+        "urlTooLong": "URL が 16 KiB の上限を超えています。",
+        "tooManySources": "入力したリンクの数またはサイズが上限を超えています。",
+        "ambiguousStructure": "URL の解析時にこのアドレスが変更されます。展開後の URL を確認してください。",
+        "unescapedCharacter": "スペースと予約文字は明示的にエンコードしてください。",
+        "invalidMagnet": "マグネットリンクの xt パラメーターには、対応する BT の Info ハッシュが必要です。",
+        "mixedProtocols": "同じダウンロードのミラーには、同系統のプロトコルを使用してください。",
+        "unsupportedInput": "この入力形式は取り込まれませんでした。URL、または対応する JSON や Bash cURL 形式の入力を貼り付けてください。",
+        "unsupportedRequestOptions": "FTP ダウンロードには HTTP ヘッダーを適用できません。"
+      },
+      "interpretedCurl": "cURL コマンドを解析しました",
+      "filterBy": {
+        "video": "動画",
+        "audio": "音声",
+        "image": "画像",
+        "doc": "文書"
+      },
+      "errors": {
+        "urlsRequired": "URL を 1 件以上入力してください",
+        "saveDirRequired": "保存先フォルダーを指定してください",
+        "noFilesSelected": "ファイルを 1 個以上選択してください",
+        "missingSource": "トレントファイルまたはマグネットリンクが必要です"
+      },
+      "selectionTimeout": {
+        "started": "ファイル選択の時間切れにより、{{name}} のすべてのファイルをダウンロードしています",
+        "failed": "{{name}} を自動で開始できませんでした。タスクの詳細を開き、ファイルを選択して再試行してください。"
+      },
+      "undoCorrection": "URL の修正を取り消す",
+      "submissionUnconfirmed": "結果を確認できていません。再試行時は、別のタスクを作成する前に元のリクエストを確認します。"
+    },
+    "detail": {
+      "peers": "ピア: {{count}}",
+      "seeds": "シーダー: {{count}}"
+    },
+    "torrent": {
+      "column": {
+        "name": "ファイル名",
+        "type": "ファイルの種類",
+        "size": "サイズ"
+      },
+      "fileSelected_other": "{{count}} 個のファイルを選択",
+      "selectAll": "すべて選択",
+      "video": "動画",
+      "audio": "音声",
+      "image": "画像",
+      "doc": "文書"
+    },
+    "remove": {
+      "title": "タスクを削除しますか？",
+      "description": "「{{name}}」をダウンロード一覧から削除します。",
+      "deleteFilesLabel": "ダウンロードしたファイルを削除",
+      "confirm": "削除",
+      "cancel": "キャンセル",
+      "orphanToast": "タスクを削除しました。ファイルは {{path}} に残っています。",
+      "notAvailableDuringFinalize": "タスクの仕上げ処理が完了するまでお待ちください。"
+    },
+    "recovery": {
+      "toast": "中断された {{count}} 件のタスクを復元しました。クリックして確認してください。",
+      "finalizeRenameFailed": "ファイル名を変更できませんでした。ダウンロードしたファイルには .motrix の拡張子が残っています。",
+      "reseedFailed": "ダウンロードは完了しましたが、シードを開始できませんでした。",
+      "metaMissing": "トレントのメタデータがないため、シードを開始できません。",
+      "startup": {
+        "torrentMetaMissing": "この BitTorrent タスクは復元できません。.torrent メタデータファイルがありません。タスクを削除して再度追加してください。",
+        "reAddFailed": "このタスクは復元できません。エンジンが再追加のリクエストを拒否しました。手動で削除して再度追加してください。",
+        "dirtyMetadata": "このタスクは復元できません。再開に必要な識別情報がありません。",
+        "resumeCheckpointMissing": "ダウンロード途中のファイルは保持されていますが、再開用のチェックポイントがありません。安全に最初からダウンロードするか、タスクを再度追加してください。",
+        "resumeCredentialsRequired": "ダウンロード途中のファイルは保持されていますが、このダウンロードには自動で再送信できない認証情報が必要です。",
+        "resumePathInvalid": "保存された出力パスが無効なため、ダウンロード途中のファイルをそのまま保持しました。",
+        "resumeSourceChanged": "ダウンロード開始後にサーバー上のファイルが変更されたため、ダウンロード途中のファイルをそのまま保持しました。",
+        "resumeRangeUnsupported": "サーバーが安全な範囲指定による再開に対応していないため、ダウンロード途中のファイルをそのまま保持しました。",
+        "resumeValidationFailed": "サーバー上のファイルが変更されていないことを確認できなかったため、ダウンロード途中のファイルをそのまま保持しました。",
+        "mediaInterrupted": "このメディアのダウンロードはアプリの再起動により中断されたため、再開できません。再度追加してお試しください。"
+      }
+    },
+    "error": {
+      "detail": {
+        "finalizeFailed": "ダウンロードを完了できませんでした: {{cause}}",
+        "recoveryFailed": "ダウンロードを復元できませんでした: {{cause}}",
+        "recoveryOutputConflict": "一時ファイルと最終ファイルの両方が存在します。手動で確認できるよう、両方を保持しました",
+        "filesMissing": "アプリの再起動後にファイルが見つかりません",
+        "renameFileFailed": "ファイル名を変更できませんでした: {{cause}}",
+        "renameDirFailed": "フォルダー名を変更できませんでした: {{cause}}",
+        "pluginChainAborted": "プラグインの処理チェーンが中止されました: {{cause}}",
+        "magnetCleanupQuarantined": "マグネットのメタデータ削除処理は隔離されています",
+        "muxFailed": "ダウンロードしたメディアを結合できませんでした",
+        "pathTooLong": "パスは {{length}} 文字です。Windows の上限は {{limit}} 文字です"
+      },
+      "reason": {
+        "unknown": "ダウンロードに失敗しました",
+        "notFound": "ファイルが見つかりません",
+        "unauthorized": "認証が必要です",
+        "networkError": "ネットワークに接続できませんでした",
+        "timeout": "ダウンロードがタイムアウトしました",
+        "diskFull": "ディスクの空き容量がありません",
+        "fileWriteError": "ファイルに書き込めませんでした",
+        "pathTooLong": "ファイルのパスが Windows の上限を超えています",
+        "checksumMismatch": "ファイルのチェックサムが一致しませんでした",
+        "tooManyRedirects": "リダイレクト回数が多すぎます",
+        "serverError": "サーバーがエラーを返しました",
+        "btMetadataFailed": "トレントのメタデータを取得できませんでした",
+        "btTrackerError": "トラッカーに接続できませんでした",
+        "generic": "ダウンロードに失敗しました"
+      },
+      "hint": {
+        "diskFull": "ディスクの空き容量を増やすか、保存先フォルダーを変更してから再試行してください",
+        "unauthorized": "認証情報またはアクセス権限を確認してから再試行してください",
+        "networkError": "ネットワーク接続を確認してから再試行してください",
+        "timeout": "接続の速度と安定性を確認してから再試行してください",
+        "fileWriteError": "フォルダーの権限とディスクの空き容量を確認してから再試行してください",
+        "pathTooLong": "保存先フォルダーのパスまたはファイル名を短くしてから再試行してください",
+        "checksumMismatch": "ダウンロードしたファイルが破損している可能性があります。再度ダウンロードして確認してください",
+        "tooManyRedirects": "リンク先に問題がある可能性があります。別のリンクをお試しください",
+        "btMetadataFailed": "マグネットリンクを確認するか、トラッカーを追加してから再試行してください"
+      }
+    }
+  },
+  "settings": {
+    "title": "設定",
+    "desc": "Motrix の設定",
+    "cards": {
+      "general": {
+        "title": "一般",
+        "desc": "起動、既定の保存先、システム連携"
+      },
+      "bittorrent": {
+        "title": "BitTorrent",
+        "desc": "DHT、待ち受けポート、トラッカー、ピアの地域"
+      },
+      "appearance": {
+        "title": "外観",
+        "desc": "テーマ、言語、トレイアイコン"
+      },
+      "advanced": {
+        "title": "詳細設定",
+        "desc": "RPC、SQLite による永続保存"
+      },
+      "about": {
+        "title": "このアプリについて",
+        "desc": "バージョン、アップデート、ソースコード、マニュアル"
+      },
+      "downloads": {
+        "title": "ダウンロード",
+        "desc": "同時実行数、帯域幅の上限、ネットワークの信頼性"
+      },
+      "network": {
+        "title": "ネットワーク",
+        "desc": "プロキシ、DNS、NAT/UPnP"
+      },
+      "integration": {
+        "title": "連携",
+        "desc": "ブラウザー拡張機能、CLI、システム連携"
+      }
+    },
+    "general": {
+      "launchAtStartup": "ログイン時に起動",
+      "launchAtStartupDesc": "ログイン時に Motrix を自動で起動します。",
+      "showMainWindowAtLogin": "ログイン時にウインドウを表示",
+      "showMainWindowAtLoginDesc": "「{{mode}}」では非表示になります。",
+      "defaultSaveDir": "既定のダウンロードフォルダー",
+      "defaultSaveDirDesc": "タスクごとに変更しない限り、新しいダウンロードはここに保存されます。",
+      "inAppNotifications": "アプリ内通知",
+      "inAppNotificationsDesc": "表示するダウンロード通知を選択します。アプリの警告は引き続き表示されます。",
+      "notifyInAppOnComplete": "ダウンロード完了を表示",
+      "notifyInAppOnError": "ダウンロード失敗を表示",
+      "notificationBadgeStyle": "未読バッジ",
+      "notificationBadgeCount": "件数",
+      "notificationBadgeDot": "ドット",
+      "notificationBadgeHidden": "非表示",
+      "systemNotifications": "システム通知",
+      "notifyOnComplete": "ダウンロード完了時に通知",
+      "notifyOnCompleteDesc": "タスクが完了するとシステム通知を表示します。",
+      "autofillClipboardLinks": "クリップボードからリンクを自動入力",
+      "autofillClipboardLinksDesc": "新規タスクを開くと、空の URL 欄にクリップボードのリンクを貼り付けます。",
+      "notifyOnError": "失敗時に通知",
+      "notifyOnErrorDesc": "ウインドウがバックグラウンドにあるときにダウンロードが失敗すると、システム通知を表示します。",
+      "warnBeforeQuit": "終了前に確認",
+      "warnBeforeQuitDesc": "ダウンロードが進行中の場合、終了する前に確認します。",
+      "notificationBadgeDesc": "通知センターのアイコンに表示します。",
+      "notificationOff": "オフ",
+      "notificationSystem": "システム通知",
+      "notificationInApp": "アプリ内通知",
+      "notificationBoth": "両方",
+      "startupAndQuitting": "起動と終了",
+      "runMode": "アプリの表示場所",
+      "runModeStandard": "Dock とメニューバー",
+      "runModeTray": "メニューバーのみ",
+      "runModeHideTray": "Dock のみ",
+      "lightweightMode": "ウインドウを閉じたときにメモリーを節約",
+      "lightweightModeDesc": "ダウンロードは続行されます。再度開くときに時間がかかり、未保存の入力内容は消去されます。",
+      "notifications": "通知",
+      "notificationsDesc": "アプリのエラー通知は引き続き表示されます。",
+      "downloadCompleted": "ダウンロード完了",
+      "downloadFailed": "ダウンロード失敗",
+      "description": "起動、終了、通知",
+      "desktopOnly": "起動と通知の設定はデスクトップアプリで利用できます。"
+    },
+    "appearance": {
+      "theme": "テーマ",
+      "themeAuto": "システム",
+      "themeLight": "ライト",
+      "themeDark": "ダーク",
+      "language": "言語",
+      "traySpeedometer": "メニューバーに速度を表示",
+      "traySpeedometerDesc": "アプリのアイコンの横にダウンロード速度とアップロード速度を表示します。",
+      "trayIconColor": "トレイアイコンの色",
+      "trayIconColorDesc": "システムパネル上で見やすい色を選択します。",
+      "trayIconColorAuto": "アプリのテーマに合わせる",
+      "trayIconColorLight": "明るいアイコン（暗いパネル向け）",
+      "trayIconColorDark": "暗いアイコン（明るいパネル向け）",
+      "reduceMotion": "視差効果を減らす",
+      "reduceMotionDesc": "アプリ全体のアニメーションを減らします。",
+      "liquidGlassEffect": "Liquid Glass",
+      "liquidGlassEffectDesc": "ダウンロードのツールバーに半透明のガラス効果を適用します。",
+      "liquidGlassEffectMacDesc": "macOS 26 以降ではウインドウにも適用します。変更するとウインドウが開き直されます。",
+      "runMode": "アプリの表示場所",
+      "runModeStandard": "Dock とメニューバー",
+      "runModeTray": "メニューバーのみ",
+      "runModeHideTray": "Dock のみ",
+      "runModeLaunch": "Motrix を開くとき",
+      "runModeStandardDesktop": "メインウインドウを開く",
+      "runModeTrayDesktop": "システムトレイで起動",
+      "runModeLinuxDesc": "システムトレイの利用可否やアプリの表示動作は、デスクトップ環境によって異なります。",
+      "lightweightMode": "軽量モード",
+      "lightweightModeDesc": "ウインドウを閉じたときにメモリーを節約します。ダウンロードは続行されますが、再度開くときに時間がかかり、未保存の入力内容は消去されます。",
+      "byteUnitSystem": "サイズと速度の単位",
+      "byteUnitSystemDesc": "ファイルサイズと速度の表示方法を選択します。",
+      "byteUnitDecimal": "10 進単位（MB、GB · 1000）",
+      "byteUnitBinary": "2 進単位（MiB、GiB · 1024）",
+      "byteUnitSystemDefault": "システムに合わせる（{{units}}）",
+      "sidebarColor": "アクセントカラー",
+      "sidebarColors": {
+        "blue": "ブルー",
+        "violet": "バイオレット",
+        "pink": "ピンク",
+        "orange": "オレンジ",
+        "gold": "ゴールド",
+        "green": "グリーン",
+        "cyan": "シアン",
+        "gray": "グレー",
+        "auto": "自動"
+      },
+      "themeAndEffects": "テーマとエフェクト",
+      "languageAndDisplay": "言語と表示",
+      "menuBar": "メニューバー",
+      "description": "テーマ、言語、表示",
+      "systemTray": "システムトレイ",
+      "followSystem": "システムに合わせる"
+    },
+    "advanced": {
+      "rpc": {
+        "title": "RPC",
+        "port": "RPC ポート",
+        "portDesc": "変更後は再起動が必要です。",
+        "secret": "RPC シークレット",
+        "secretDesc": "RPC 接続に必要です。"
+      },
+      "persistence": {
+        "title": "進捗と復旧",
+        "enable": "復旧データを保存",
+        "enableDesc": "再起動後にダウンロードを再開するためのデータを保存します。",
+        "dbPath": "復旧データファイル",
+        "dbPathDesc": "空欄の場合は既定の場所を使用します。",
+        "dbPathPlaceholder": "既定の場所",
+        "historyLimit": "完了したタスクの復旧記録",
+        "historyLimitDesc": "ダウンロード一覧やダウンロードしたファイルには影響しません。",
+        "historyKeepAll": "すべての記録",
+        "historyKeepRecent": "最新の記録…",
+        "historySessionOnly": "保持しない",
+        "historyCount": "保持する記録数",
+        "historyCountHint": "古い復旧記録は削除されます。",
+        "historyCountPositive": "0 より大きい数値を入力してください。"
+      },
+      "description": "RPC、進捗と復旧"
+    },
+    "about": {
+      "appIconAlt": "Motrix アプリのアイコン",
+      "version": "バージョン {{version}}",
+      "tagline": "コンテンツが失われる前に、本当に大切なものを残そう。美しいものも、あなたのコレクションへ。",
+      "webVersionNote": "この Web 版は、運用管理者が更新します。",
+      "update": {
+        "title": "アプリのアップデート",
+        "currentVersion": "現在のバージョン {{version}}",
+        "idleTitle": "Motrix を最新の状態に保ちましょう",
+        "idle": "バージョン {{version}} がインストールされています。今すぐ確認するか、Motrix の起動時に自動で確認できます。",
+        "unsupportedTitle": "自動アップデートは利用できません",
+        "unsupported": "このバージョンは自動でアップデートできません。公式サイトから最新版をダウンロードしてください。",
+        "check": "アップデートを確認",
+        "checkAction": "確認",
+        "checking": "確認中…",
+        "checkingTitle": "アップデートを確認中…",
+        "checkingDescription": "Motrix のアップデートサービスに接続中…",
+        "upToDateTitle": "Motrix は最新です",
+        "upToDate": "バージョン {{version}} は、現在利用できる最新のリリースです。",
+        "available": "Motrix {{version}} が利用できます。",
+        "availableTitle": "Motrix {{version}} が利用できます",
+        "availableDescription": "今すぐダウンロードして、都合のよいときに再起動してインストールできます。",
+        "download": "アップデートをダウンロード",
+        "downloading": "ダウンロード中…",
+        "downloadingTitle": "Motrix {{version}} をダウンロード中",
+        "downloadingDescription": "このウインドウを閉じても、バックグラウンドでダウンロードが続行されます。",
+        "downloadedTitle": "アップデートのインストール準備完了",
+        "downloaded": "Motrix {{version}} をインストールできます。",
+        "restart": "再起動してインストール",
+        "cancelledTitle": "ダウンロードをキャンセルしました",
+        "cancelled": "アップデートのダウンロードをキャンセルしました。",
+        "cancelledDescription": "都合のよいときに、もう一度ダウンロードしてください。",
+        "errorTitle": "Motrix をアップデートできませんでした",
+        "errorDescription": "接続を確認して、もう一度お試しください。",
+        "error": "アップデートに失敗しました：{{message}}",
+        "retry": "再試行",
+        "automaticChecks": "自動で確認",
+        "automaticChecksDescription": "Motrix の起動時",
+        "automaticChecksError": "この設定を保存できませんでした",
+        "channelLabel": "アップデートチャンネル",
+        "channelDescription": "安定版を選択するか、ベータ版で新機能を試せます。",
+        "channelStable": "安定版",
+        "channelBeta": "ベータ版",
+        "channelBetaWarning": "ベータ版は動作が不安定な場合があります。新しい安定版も受け取れます。安定版に戻すとベータ版の配信は停止しますが、ダウングレードは行われません。",
+        "channelSaveError": "アップデートチャンネルを保存できませんでした。もう一度お試しください。"
+      },
+      "details": {
+        "author": "作者",
+        "createdBy": "制作",
+        "license": "ライセンス",
+        "licenseValue": "{{license}} ライセンス"
+      },
+      "resources": {
+        "title": "関連情報",
+        "repository": "ソースリポジトリ",
+        "repositoryDescription": "GitHub でコードを表示",
+        "manual": "マニュアル",
+        "manualDescription": "ユーザーマニュアルを読む",
+        "plugins": "プラグイン",
+        "changelog": "変更履歴",
+        "website": "公式サイト",
+        "websiteDescription": "motrix.app を開く",
+        "acknowledgments": "謝辞",
+        "acknowledgmentsDescription": "motrix.app でプロジェクトのクレジットを表示"
+      }
+    },
+    "bittorrent": {
+      "trackers": {
+        "autoSync": "トラッカー一覧を自動更新",
+        "autoSyncDesc": "登録したソースを使って一覧を最新に保ちます。",
+        "syncInterval": "更新間隔（時間）",
+        "syncIntervalDesc": "1～168 時間。",
+        "enableProbe": "トラッカーの接続確認",
+        "enableProbeDesc": "ダウンロードに使用する前にトラッカーを確認します。",
+        "probeTimeout": "確認のタイムアウト（ミリ秒）",
+        "probeTimeoutDesc": "応答を待つ上限時間です。1,000～30,000 ミリ秒。",
+        "healthyThreshold": "応答遅延の判定値（ミリ秒）",
+        "healthyThresholdDesc": "これより応答に時間がかかる場合は「遅い」と判定します。500～10,000 ミリ秒。",
+        "minSuccessRate": "最低成功率",
+        "minSuccessRateDesc": "成功率がこの値以上のトラッカーを使用します。0.5 = 50%。",
+        "maxTrackerCount": "タスクあたりのトラッカー数",
+        "maxTrackerCountDesc": "使用するトラッカー数の上限です。5～200。",
+        "title": "トラッカー",
+        "manageSourcesHint": "ソースは「トラッカー」ページで管理できます。",
+        "blacklistMovedInfo": "ブロックしたトラッカーは「トラッカー」→「ブロックリスト」で管理できます。"
+      },
+      "geoip": {
+        "title": "ピアの所在地",
+        "enable": "国または地域を表示",
+        "enableDesc": "ピア一覧に所在地を表示します。必要に応じて所在地データをダウンロードします。",
+        "lastUpdated": "最終更新",
+        "neverUpdated": "未更新",
+        "updateNow": "今すぐ更新",
+        "updating": "更新中…",
+        "source": "所在地データの取得元",
+        "sourceDesc": "所在地データのダウンロード元を選択します。",
+        "source.loyalsoldier": "Loyalsoldier（コミュニティ）",
+        "source.p3terx": "P3TERX（コミュニティミラー）",
+        "source.maxmind": "MaxMind（公式）",
+        "source.custom": "カスタム URL",
+        "maxmindUnsupported": "まだ対応していません",
+        "customUrl": "カスタムダウンロード URL",
+        "customUrlPlaceholder": "https://example.com/GeoLite2-Country.mmdb",
+        "autoUpdate": "自動更新",
+        "autoUpdateDesc": "新しい所在地データを約 1 週間ごとに確認します。",
+        "status.loaded": "準備完了",
+        "status.notDownloaded": "所在地データは未ダウンロードです",
+        "status.downloading": "ダウンロード中…",
+        "status.error": "更新失敗",
+        "customUrlDesc": ".mmdb 形式の国データベースへのリンク。",
+        "saveBeforeUpdate": "所在地データを更新する前に、変更を保存してください。",
+        "updateFailed": "所在地データを更新できませんでした。もう一度お試しください。"
+      },
+      "listen": {
+        "title": "着信接続",
+        "listenPort": "BT 待ち受けポート",
+        "listenPortDesc": "このポートでピアからの接続を受け付けます。",
+        "dhtListenPort": "DHT 待ち受けポート",
+        "dhtListenPortDesc": "このポートで DHT を使ってピアを検索します。",
+        "dhtEnabled": "DHT を有効にする",
+        "dhtEnabledDesc": "トラッカーに依存せずにピアを検索します。"
+      },
+      "peers": {
+        "title": "ピア",
+        "btMaxPeers": "トレントあたりの最大ピア数",
+        "btMaxPeersDesc": "1 つのタスクで同時に接続できるピア数の上限です。",
+        "btEnableLpd": "ローカルピア検出",
+        "btEnableLpdDesc": "ローカルネットワークでファイルを共有しているピアを検索します。",
+        "magnetFileSelection": "ダウンロード前にファイルを選択",
+        "magnetFileSelectionDesc": "マグネットリンクの読み込み後にファイル選択を表示します。",
+        "magnetFileSelectionAutoDownload": "未選択の場合はすべてダウンロード",
+        "magnetFileSelectionAutoDownloadDesc": "以下の時間が経過すると、アプリのウインドウやブラウザーを閉じていても開始します。",
+        "magnetFileSelectionTimeoutSeconds": "ファイルを選択する時間（秒）",
+        "magnetFileSelectionTimeoutSecondsDesc": "ファイル一覧の準備ができた時点から計測します。変更はすでに待機中のタスクにも適用されます。",
+        "magnetFileSelectionTimeoutInvalid": "{{min}}～{{max}} 秒の整数を入力してください。"
+      },
+      "seeding": {
+        "title": "シード",
+        "seedRatio": "共有比の上限",
+        "seedRatioDesc": "アップロード量 ÷ ダウンロード量。この比率に達するとシードを停止します。0 = 無制限。",
+        "seedTime": "シード時間の上限（分）",
+        "seedTimeDesc": "0 = 無制限。新しいタスクとシードを再開するときに適用されます。"
+      },
+      "newMagnetTasks": "新規マグネットタスク",
+      "description": "マグネット、シード、トラッカー"
+    },
+    "downloads": {
+      "performance": {
+        "title": "パフォーマンス",
+        "profile": "ダウンロードのパフォーマンス",
+        "profileDesc": "ダウンロード速度とリソース使用量のバランスを調整します。",
+        "learnMore": "詳しく見る",
+        "metrics": {
+          "connections": "最大接続数",
+          "perServer": "サーバーあたりの上限",
+          "minimum": "最小セグメント",
+          "cache": "ディスクキャッシュ"
+        },
+        "customParameters": "パフォーマンスのカスタム設定",
+        "profiles": {
+          "auto": {
+            "label": "自動",
+            "desc": "ドライブとファイルサイズに応じて調整します。以下は既定値です。"
+          },
+          "balanced": {
+            "label": "バランス",
+            "desc": "日常的なダウンロード向けに、リソースの使用量を抑えます。"
+          },
+          "high": {
+            "label": "高速",
+            "desc": "接続数を増やしてダウンロードを高速化します。"
+          },
+          "maximum": {
+            "label": "最大",
+            "desc": "より多くの接続を使用します。サーバーによっては接続数を制限される場合があります。"
+          },
+          "custom": {
+            "label": "カスタム",
+            "desc": "接続数、セグメントサイズ、キャッシュを設定します。"
+          }
+        },
+        "maxConcurrentDownloads": "同時ダウンロード数",
+        "maxConcurrentDownloadsDesc": "上限を超えるタスクはキューで待機します。",
+        "maxConnectionPerServer": "サーバーあたりの最大接続数",
+        "maxConnectionPerServerDesc": "1 つのサーバーに対する、ファイルごとの接続数の上限です。",
+        "split": "ファイルあたりの最大接続数",
+        "splitDesc": "1 つのファイルのダウンロードに使用する接続数です。",
+        "minSplitSize": "最小セグメントサイズ（MiB）",
+        "minSplitSizeDesc": "このサイズの 2 倍未満のセグメントは分割しません。"
+      },
+      "reliability": {
+        "title": "接続と再試行",
+        "userAgent": "User-Agent",
+        "userAgentDesc": "Web サイトにアプリを識別させます。サイトが別の値を要求する場合に変更してください。",
+        "connectTimeout": "接続タイムアウト（秒）",
+        "connectTimeoutDesc": "接続を待つ時間です。",
+        "socketTimeout": "データ未受信のタイムアウト（秒）",
+        "socketTimeoutDesc": "データが届かない場合に待機する時間です。",
+        "maxTries": "最大試行回数",
+        "maxTriesDesc": "初回の試行を含みます。0 = 無制限。",
+        "retryWait": "再試行までの待機時間（秒）",
+        "retryWaitDesc": "再試行するまで、この時間だけ待機します。",
+        "lowestSpeedLimit": "最低接続速度（KiB/s）",
+        "lowestSpeedLimitDesc": "この速度を下回ると切断します。0 = 無効。"
+      },
+      "disk": {
+        "title": "ディスクとファイル",
+        "fileDeletionMode": "タスクのファイルを削除するとき",
+        "fileDeletionTrash": "ゴミ箱に移動",
+        "fileDeletionPermanent": "完全に削除",
+        "fileDeletionTrashDesc": "ゴミ箱を空にすると空き容量が増えます。",
+        "fileDeletionPermanentDesc": "削除したファイルをゴミ箱から復元することはできません。",
+        "fileAllocation": "ディスク領域の確保",
+        "fileAllocationDesc": "ファイルのダウンロード前に領域を確保します。",
+        "fileAllocationNone": "確保しない",
+        "fileAllocationPrealloc": "事前に割り当て",
+        "fileAllocationTrunc": "ファイルサイズを設定",
+        "fileAllocationFalloc": "システムによる割り当て",
+        "modifiedTime": "ファイルの更新日時",
+        "modifiedTimeDesc": "完了した HTTP および FTP ダウンロードに適用します。",
+        "modifiedTimeLocal": "ダウンロード日時",
+        "modifiedTimeServer": "サーバーの日時",
+        "diskCache": "ディスクキャッシュ（MiB）",
+        "diskCacheDesc": "ディスクに書き込む前にファイルを一時保存するためのメモリ量です。",
+        "sessionSaveInterval": "進捗の保存間隔（秒）",
+        "sessionSaveIntervalDesc": "頻繁に保存すると、クラッシュ時に失われる進捗を減らせます。"
+      },
+      "magnet": {
+        "title": "マグネット",
+        "magnetResolveTimeout": "マグネット読み込みのタイムアウト（秒）",
+        "magnetResolveTimeoutDesc": "ファイル一覧を待つ時間です。"
+      },
+      "speedLimit": {
+        "title": "速度制限",
+        "titleDesc": "標準、低速、自動の各モードで Motrix が回線をどのように使用するかを設定します。",
+        "modeSection": "速度モード",
+        "modeSectionDesc": "Motrix による回線の使用方法を選択します。",
+        "turtle": "速度モード",
+        "turtleDesc_off": "標準の速度制限を使用します。",
+        "turtleDesc_on": "今すぐ低速モードの制限を使用して、ほかのアプリが使う帯域を確保します。",
+        "turtleDesc_auto": "時間と回線の帯域幅に応じて速度を自動調整します。",
+        "turtle_off": "標準",
+        "turtle_on": "低速",
+        "turtle_auto": "自動",
+        "baseSection": "標準の制限",
+        "baseSectionDesc": "通常のダウンロードに使用し、どのモードでもこの上限を守ります。",
+        "baseDownload": "ダウンロード",
+        "baseDownloadDesc": "通常時の最大ダウンロード速度です。",
+        "baseUpload": "アップロード",
+        "baseUploadDesc": "通常時の最大アップロード速度です。",
+        "unlimited": "無制限",
+        "setUnlimited": "無制限に設定",
+        "standardLimit": "標準を使用",
+        "useStandardLimit": "標準の制限を使用",
+        "altSection": "低速モードの制限",
+        "altSectionDesc": "低速モードまたはスケジュールルールで使用します。標準の制限より速度を下げることだけができます。",
+        "altDownload": "ダウンロード",
+        "altDownloadDesc": "低速モード有効時の最大ダウンロード速度です。",
+        "altUpload": "アップロード",
+        "altUploadDesc": "低速モード有効時の最大アップロード速度です。",
+        "autoSection": "自動ルール",
+        "autoSectionDesc": "このルールは自動モードでのみ適用されます。",
+        "autoSchedule": "スケジュールによる速度制限",
+        "scheduleEnabled": "低速モードのスケジュール",
+        "scheduleEnabledDesc": "指定した曜日と時間帯に低速モードの制限へ切り替えます。",
+        "scheduleFrom": "開始",
+        "scheduleTo": "終了",
+        "scheduleTimeFormat": "24 時間形式（HH:mm）",
+        "scheduleDays": "曜日",
+        "scheduleDaysHint": "終了時刻が開始時刻より前の場合は、翌日まで継続します。",
+        "weekdays": {
+          "sun": {
+            "short": "日",
+            "long": "日曜日"
+          },
+          "mon": {
+            "short": "月",
+            "long": "月曜日"
+          },
+          "tue": {
+            "short": "火",
+            "long": "火曜日"
+          },
+          "wed": {
+            "short": "水",
+            "long": "水曜日"
+          },
+          "thu": {
+            "short": "木",
+            "long": "木曜日"
+          },
+          "fri": {
+            "short": "金",
+            "long": "金曜日"
+          },
+          "sat": {
+            "short": "土",
+            "long": "土曜日"
+          }
+        },
+        "autoAdaptive": "ほかのアプリ用に帯域幅を確保",
+        "adaptiveEnabled": "ほかのアプリ用に帯域幅を確保",
+        "adaptiveEnabledDesc": "以下に回線速度を入力すると、制限値を計算します。",
+        "linkDown": "回線のダウンロード速度",
+        "linkDownDesc": "インターネット回線で利用できるダウンロード速度です。",
+        "linkUp": "回線のアップロード速度",
+        "linkUpDesc": "インターネット回線で利用できるアップロード速度です。",
+        "fillFromPeak": "回線速度を推定",
+        "fillFromPeakHint": "最近のダウンロードとアップロードの最高速度を基に推定します。",
+        "estimateEmpty": "速度の履歴がまだありません。速度制限なしのダウンロードを完了するか、帯域幅を手動で入力してください。",
+        "estimateSuccess": "最近の速度から回線の帯域幅を入力しました。",
+        "estimateError": "最近の速度履歴を読み込めませんでした。帯域幅を手動で入力してください。",
+        "headroomPercent": "ほかのアプリ用に確保",
+        "headroomPercentDesc": "現在 {{reserved}}% を確保しています。Motrix は最大 {{motrix}}% を使用できます。",
+        "effect": {
+          "title": "現在の動作",
+          "standard": "標準の制限を使用中：ダウンロード {{download}}、アップロード {{upload}}。",
+          "lowSpeed": "低速モードの制限を使用中：ダウンロード {{download}}、アップロード {{upload}}。",
+          "noAutoRules": "自動ルールが有効になっていません。現在は標準モードと同じ動作になります。",
+          "standardValues": "標準の制限：ダウンロード {{download}}、アップロード {{upload}}。",
+          "scheduleRule": "{{from}} から{{nextDay}}{{to}} まで低速モードの制限を使用します",
+          "nextDay": "翌日 ",
+          "adaptiveRule": "ほかのアプリ用に帯域幅の {{reserved}}% を確保します",
+          "adaptiveRulePending": "回線の帯域幅を入力すると、ほかのアプリ用に {{reserved}}% を確保します",
+          "ruleSeparator": "。また、",
+          "autoRules": "Motrix は{{rules}}。",
+          "lowerWins": "有効な制限のうち、最も低い値を適用します。"
+        },
+        "bandwidthUsed": "Motrix は最大 {{motrix}}% を使用できます。",
+        "bandwidthPending": "この制限を適用するには、回線のダウンロード速度とアップロード速度の両方を入力してください。"
+      },
+      "newTasks": "新規タスク",
+      "defaultDownloadFolder": "既定のダウンロードフォルダー",
+      "autofillFromClipboard": "クリップボードからリンクを自動入力",
+      "fillInLinksWhenOpeningNewTask": "新規タスクを開くと、コピーしたリンクを貼り付けます。",
+      "saveFolders": "保存フォルダー",
+      "description": "ファイル、ダウンロード速度、接続"
+    },
+    "network": {
+      "dns": {
+        "title": "DNS",
+        "mode": "DNS 名前解決",
+        "modeDesc": "ダウンロード時にサーバーのアドレスを調べる方法です。",
+        "modeAuto": "自動",
+        "modeSystem": "システム DNS",
+        "modeEngine": "内蔵 DNS"
+      },
+      "proxy": {
+        "title": "プロキシ",
+        "enable": "プロキシを有効にする",
+        "enableDesc": "以下で選択した接続にプロキシを使用します。",
+        "server": "サーバー",
+        "protocol": "プロトコル",
+        "host": "サーバーアドレス",
+        "hostPlaceholder": "proxy.example.com",
+        "port": "ポート",
+        "auth": "プロキシ認証",
+        "authDesc": "プロキシにユーザー名とパスワードが必要な場合に有効にします。",
+        "user": "ユーザー名",
+        "password": "パスワード",
+        "showPassword": "パスワードを表示",
+        "hidePassword": "パスワードを非表示",
+        "bypass": "直接接続する宛先",
+        "bypassDesc": "ドメイン、IP、CIDR を 1 行に 1 件入力してください。先頭に . を付けるとサブドメインのみが対象になります。ファイルのダウンロードでは * ワイルドカードは使用できません。",
+        "bypassScopeNote": "ファイルのダウンロードとアプリのアップデートのみ",
+        "scopes": "プロキシの適用対象",
+        "scopesDesc": "プロキシを経由する通信の種類を選択します。",
+        "scopeDownload": "ファイルのダウンロード",
+        "scopeDownloadDesc": "BT では HTTP(S) のみプロキシを使用します。ピア、DHT、UDP トラッカーには直接接続します。",
+        "scopeUpdateApp": "アプリのアップデート",
+        "scopeUpdateAppDesc": "プロキシ経由で Motrix のアップデートを確認します。",
+        "scopeUpdateTrackers": "トラッカー一覧の更新",
+        "scopeUpdateTrackersDesc": "プロキシ経由でトラッカー一覧をダウンロードします。BT 通信には影響しません。",
+        "importFromSystem": "システムからインポート",
+        "importedToast": "システムのプロキシをインポートしました：{{host}}:{{port}}",
+        "noSystemProxy": "システムのプロキシは設定されていません。",
+        "bypassPlaceholder": "localhost\n127.0.0.1\n.local",
+        "scopeHint": "BT ピア、DHT、UDP トラッカーには直接接続します。",
+        "scopeNone": "未選択",
+        "scopeChoose": "選択…",
+        "scopeSeparator": "、"
+      },
+      "nat": {
+        "title": "ポートマッピング（NAT）",
+        "enable": "ポートマッピングを有効にする",
+        "enableDesc": "BitTorrent 設定のポートを開くようルーターに要求します。",
+        "preferredProtocol": "優先プロトコル",
+        "mappingTtl": "マッピングの有効期間（秒）",
+        "btPortHint": "マッピングは BitTorrent で設定した BT/DHT ポートに適用されます。",
+        "automatic": "自動"
+      },
+      "stun": {
+        "title": "NAT タイプの検出",
+        "privacyHint": "第三者の STUN サーバーを使用します。",
+        "enable": "NAT タイプを検出",
+        "servers": "STUN サーバー",
+        "empty": "STUN サーバーを 1 つ以上追加してください。",
+        "addServer": "STUN サーバーを追加"
+      },
+      "reachability": {
+        "title": "着信ポートの確認",
+        "privacyHint": "第三者のサービスを使って、インターネットからのアクセスを確認します。",
+        "enable": "着信ポートを確認",
+        "endpoints": "確認サービス（HTTPS）",
+        "empty": "確認サービスを 1 つ以上追加してください。",
+        "addEndpoint": "確認サービスを追加"
+      },
+      "diagnostic": {
+        "title": "ネットワークの自動確認",
+        "enable": "自動確認",
+        "interval": "確認間隔（秒）",
+        "enableDesc": "上で有効にした確認を繰り返します。"
+      },
+      "description": "プロキシ、DNS、接続確認",
+      "diagnostics": "ネットワークの診断"
+    },
+    "common": {
+      "browse": "参照…",
+      "add": "追加",
+      "remove": "削除",
+      "preset": "プリセット:",
+      "noChange": "保存する変更はありません",
+      "setAsDefault": "既定に設定",
+      "openHelp": "ヘルプを開く",
+      "generate": "生成",
+      "changeDirectory": "フォルダーを変更",
+      "directoryEmpty": "（フォルダー未選択）",
+      "showSecret": "シークレットを表示",
+      "hideSecret": "シークレットを非表示"
+    },
+    "integration": {
+      "system": {
+        "title": "既定のアプリ",
+        "protocolMagnet": "マグネットリンクを Motrix で開く",
+        "protocolMagnetDesc": "ブラウザーのマグネットリンクを Motrix で開きます。",
+        "torrentAssociation": ".torrent ファイルを Motrix で開く",
+        "torrentAssociationDesc": ".torrent ファイルをダブルクリックすると Motrix で開きます。",
+        "torrentAssociationMacDesc": "Finder で .torrent ファイルを右クリック →「情報を見る」→「このアプリケーションで開く」→ Motrix を選択 →「すべてを変更…」",
+        "defaultAssociationsWindows": "トレントとマグネットリンクの既定のアプリ",
+        "defaultAssociationsWindowsDesc": "Windows の設定で、.torrent ファイルとマグネットリンクに Motrix を選択してください。Motrix のインストール版が必要です。",
+        "torrentFiles": ".torrent ファイル",
+        "magnetLinks": "マグネットリンク",
+        "associationStatusLabel": "Windows の既定のアプリの現在の状態",
+        "associationChecking": "確認中…",
+        "associationSetupRequired": "設定が必要",
+        "associationDefault": "既定に設定済み",
+        "associationNotDefault": "既定ではありません",
+        "associationUnavailable": "確認できませんでした",
+        "associationNotRegistered": "未登録",
+        "openWindowsSettings": "Windows の設定を開く",
+        "defaultAssociationsLinux": "Linux のファイルとリンクの関連付け",
+        "defaultAssociationsLinuxCheckingDesc": "この Linux パッケージと現在のデスクトップの関連付けを確認中…",
+        "defaultAssociationsLinuxUnavailableDesc": "このアプリ環境ではデスクトップの関連付け状態を取得できません。",
+        "defaultAssociationsLinuxDesc": "インストール済みの deb または rpm パッケージでは、Motrix を .torrent の既定のアプリに設定できます。マグネットの変更は、このダイアログで設定を適用すると反映されます。",
+        "defaultAssociationsLinuxAppImageDesc": "以下の「デスクトップ統合」で、この AppImage を安全に登録または登録解除できます。Motrix は確認済みの以前の関連付けを復元してから、自身のデスクトップエントリーを削除します。",
+        "defaultAssociationsLinuxSandboxDesc": "このパッケージは Motrix を対応アプリとして登録しますが、既定のアプリはデスクトップ環境が決定します。パッケージを削除しても、以前の既定のアプリに自動で戻らない場合があります。",
+        "associationStatusLabelLinux": "Linux のファイルとリンクの現在の関連付け状態",
+        "linuxPackageDetected": "パッケージ：{{package}}",
+        "linuxPackage": {
+          "appimage": "AppImage",
+          "native": "deb / rpm",
+          "flatpak": "Flatpak",
+          "snap": "Snap",
+          "unknown": "不明なパッケージ"
+        },
+        "protocolMagnetAppImageDesc": "デスクトップ統合が有効な場合、保存するとすぐに適用されます。",
+        "protocolMagnetSandboxDesc": "保存時に Motrix が変更を要求しますが、サンドボックスやデスクトップ環境によっては既定のアプリを手動で選択する必要があります。",
+        "protocolMagnetApplyFailed": "設定は保存されましたが、デスクトップの関連付けを変更できませんでした。システム設定で既定のアプリを選択してください。",
+        "setTorrentDefaultLinux": ".torrent の既定に設定",
+        "repairLinuxAssociations": "関連付けを修復",
+        "viewLinuxInstructions": "設定手順を表示",
+        "linuxActionSet": "Motrix を .torrent ファイルの既定のアプリに設定しました。",
+        "linuxActionFallback": "このパッケージでは自動設定を利用できないため、設定手順を開きました。",
+        "linuxActionFailed": "Linux の既定のアプリを更新できませんでした。デスクトップ環境の設定を確認してください。"
+      },
+      "browser": {
+        "title": "ブラウザー拡張機能",
+        "masterSwitch": "ブラウザー拡張機能を接続",
+        "masterSwitchDesc": "ブラウザー拡張機能を使って、Web ページのダウンロードを Motrix に送信します。",
+        "install": {
+          "chrome": "Chrome",
+          "edge": "Microsoft Edge",
+          "firefox": "Firefox",
+          "github": "GitHub",
+          "store": "インストール",
+          "development": "開発"
+        },
+        "pairedTitle": "接続済みの拡張機能",
+        "pairedEmpty": "接続済みの拡張機能はまだありません。",
+        "lastActive": "最終利用",
+        "revoke": "接続を解除",
+        "disconnecting": "接続を解除中…",
+        "addTrusted": {
+          "add": "拡張機能を追加",
+          "idPlaceholder": "拡張機能 ID",
+          "labelPlaceholder": "ラベル（任意）",
+          "browserLabel": "ブラウザー",
+          "chromiumEdge": "Chrome / Edge",
+          "firefox": "Firefox",
+          "cancel": "キャンセル",
+          "addAction": "追加"
+        },
+        "pairToast": {
+          "title": "{{browser}} の拡張機能が Motrix への接続を要求しています",
+          "extensionId": "ID：{{id}}",
+          "deny": "許可しない",
+          "pairCode": "ペアリングコード",
+          "copyCode": "ペアリングコードをコピー",
+          "pairCodeHint": "このコードを拡張機能に入力してください",
+          "identityLabel": {
+            "official": "Motrix 公式拡張機能",
+            "attested": "確認済みの拡張機能",
+            "unverified": "未確認の拡張機能"
+          },
+          "identityUnverifiedWarning": "この拡張機能の身元を確認できませんでした。信頼できる場合にのみ続行してください。"
+        },
+        "pairUnavailable": "このペアリング要求は保留中ではありません。ブラウザー拡張機能からもう一度ペアリングしてください。",
+        "trustedExtensions": "信頼する拡張機能",
+        "trustedSummary": "全 {{count}} 件",
+        "trustedGuidance": "ほかの信頼できる拡張機能については、開発者が提供する ID を追加してください。",
+        "trustedEmpty": "まだありません。",
+        "headerId": "拡張機能 ID",
+        "headerBrowser": "ブラウザー",
+        "headerSource": "登録元",
+        "removeTrusted": "削除",
+        "sourceLabel": {
+          "builtin": "組み込み",
+          "userAdded": "追加済み",
+          "imported": "インポート済み"
+        },
+        "degradedPort": {
+          "title": "ブリッジは代替ポートで動作しています",
+          "description": "ポート 16802～16806 を利用できなかったため、ブリッジは代わりにポート {{port}} を使用しています。ブラウザー拡張機能は標準範囲の探索では見つけられません。ネイティブメッセージングでペアリングするか、固定ポートを設定してください。Motrix CLI とネイティブホストには影響しません。"
+        },
+        "pairingStateDegraded": {
+          "title": "拡張機能からのアクセスを一時的に停止しています",
+          "description": "Motrix はペアリング済み拡張機能の記録を安全に更新できませんでした。既存の拡張機能セッションは終了し、今回の起動中は新しいアクセスをブロックします。Motrix を再起動して修復を再試行してください。このメッセージが消えるまでは、以下の一覧を信頼しないでください。"
+        }
+      },
+      "cli": {
+        "title": "コマンドラインツール",
+        "tool": {
+          "title": "Motrix コマンドラインツール",
+          "description": "ターミナルで motrix を実行して、このアプリを操作できます。",
+          "managerLabel": "パッケージマネージャー",
+          "commandLabel": "インストールコマンド",
+          "copyCommand": "インストールコマンドをコピー",
+          "manager": {
+            "npm": "npm",
+            "pnpm": "pnpm",
+            "yarn": "Yarn Classic",
+            "bun": "Bun",
+            "volta": "Volta"
+          },
+          "attentionTitle": "コマンドラインツールの確認が必要です",
+          "status": {
+            "checking": "確認中",
+            "ready": "インストール可能",
+            "installing": "インストール中",
+            "installed": "インストール済み",
+            "needsAttention": "確認が必要",
+            "manualOnly": "手動インストール",
+            "error": "失敗"
+          },
+          "action": {
+            "checking": "確認中…",
+            "install": "インストール",
+            "installing": "インストール中…",
+            "checkAgain": "もう一度確認"
+          },
+          "metadata": {
+            "version": "バージョン",
+            "path": "実行ファイル",
+            "manager": "インストール方法",
+            "unknown": "不明"
+          },
+          "successGuidance": "新しいターミナルを開いて、motrix --help を実行してください。",
+          "diagnostics": {
+            "show": "詳細を表示",
+            "hide": "詳細を非表示"
+          },
+          "reason": {
+            "nodeMissing": "Node.js 22 以降が見つかりませんでした。Node.js をインストールしてから、もう一度確認してください。",
+            "nodeTooOld": "Node.js 22 以降が必要です。検出されたバージョン：{{version}}。",
+            "managerMissing": "対応するパッケージマネージャーが見つかりませんでした。npm、pnpm、Yarn Classic、Bun、Volta のいずれかをインストールしてから、もう一度確認してください。",
+            "sandboxed": "このサンドボックス化されたパッケージでは、ワンクリックインストールを利用できません。コマンドをコピーしてターミナルで実行してください。",
+            "unsupportedWeb": "ワンクリックインストールはデスクトップアプリでのみ利用できます。コマンドをコピーして Motrix ホストで実行してください。",
+            "permission": "パッケージマネージャーがグローバルインストール先に書き込めません。Node.js のバージョンマネージャーか、ユーザーが書き込める prefix を使用してください。sudo は使用しないでください。",
+            "network": "パッケージマネージャーがレジストリに接続できませんでした。ネットワークまたはレジストリの設定を確認してから、もう一度お試しください。",
+            "timeout": "インストールに時間がかかりすぎたため停止しました。ネットワークを確認してから、もう一度お試しください。",
+            "pathMissing": "パッケージはインストールされましたが、motrix が PATH にありません。新しいターミナルを開くか、表示されたインストール先を PATH に追加してください。",
+            "pathShadowed": "別の motrix 実行ファイルが PATH 上で先に見つかります。古いエントリーを削除するか PATH を修正してから、もう一度確認してください。",
+            "verifyFailed": "インストーラーは完了しましたが、実際に使用される motrix 実行ファイルを確認できませんでした。",
+            "installFailed": "パッケージマネージャーが @motrix/cli をインストールできませんでした。詳細を確認してから再試行するか、コマンドを手動で実行してください。",
+            "unknown": "コマンドラインツールを確認できませんでした。再試行するか、コピーしたコマンドを手動で実行してください。"
+          }
+        },
+        "remote": {
+          "title": "ペアリング済みのリモートツール",
+          "description": "ローカルのツールは自動で接続します。別のコンピューターやサーバーに接続するには、motrix pair を実行してください。",
+          "empty": "ペアリング済みのリモートツールはありません。",
+          "lastActive": "最終利用",
+          "neverActive": "未使用",
+          "revoke": "取り消す"
+        },
+        "pairToast": {
+          "title": "{{name}} が Motrix とのペアリングを要求しています",
+          "code": "確認コード：{{code}}",
+          "allow": "許可",
+          "deny": "許可しない"
+        },
+        "inbox": {
+          "title": "承認待ち",
+          "empty": "承認待ちのリモートペアリング要求はありません。",
+          "approve": "承認",
+          "deny": "拒否",
+          "expiresIn": "有効期限まで {{time}}"
+        },
+        "pairUnavailable": "このペアリング要求は保留中ではありません。motrix pair を再実行してください。"
+      },
+      "media": {
+        "title": "メディアツール",
+        "desc": "FFmpeg でメディアを結合または変換します。",
+        "notDetected": "FFmpeg が検出されませんでした",
+        "refresh": "再読み込み",
+        "binaryPath": "FFmpeg のカスタムパス",
+        "browse": "参照…",
+        "download": {
+          "action": "FFmpeg をダウンロード"
+        },
+        "detection": {
+          "readyTitle": "FFmpeg {{version}}",
+          "unavailableTitle": "FFmpeg を利用できません",
+          "untrustedTitle": "macOS が FFmpeg をブロックしました",
+          "usingSource": "{{source}}を使用中",
+          "unavailableDesc": "カスタムパスを設定するか、FFmpeg をインストールまたは PATH に追加してから、再読み込みしてください。",
+          "untrustedDesc": "ファイルは存在しますが、macOS のセキュリティ検証に合格しませんでした。信頼できるビルドをインストールするか、「プライバシーとセキュリティ」で許可してから、再読み込みしてください。",
+          "showDetails": "検出の詳細を表示",
+          "hideDetails": "検出の詳細を非表示",
+          "sourcesChecked_other": "{{count}} か所を確認済み",
+          "source": "取得元",
+          "location": "確認した場所",
+          "result": "結果",
+          "copyManagedPath": "Motrix の FFmpeg パスをコピー",
+          "editCustomPath": "FFmpeg のカスタムパスを編集",
+          "finishEditingCustomPath": "FFmpeg のカスタムパスの編集を完了",
+          "notConfigured": "未設定"
+        },
+        "candidateKind": {
+          "manual": "カスタムパス",
+          "userData": "Motrix のデータディレクトリ",
+          "env": "MOTRIX_FFMPEG_BIN",
+          "path": "システムの PATH"
+        },
+        "state": {
+          "active": "使用中",
+          "available": "検出済み",
+          "missing": "見つかりません",
+          "untrusted": "macOS によりブロック",
+          "unconfigured": "未設定",
+          "version_mismatch": "非対応"
+        },
+        "stagingMB": "一時ファイルの上限（MB）",
+        "stagingMBDesc": "プラグインおよびタスクごとの中間ファイル用の容量です。",
+        "opTimeoutSec": "FFmpeg のタイムアウト（秒）",
+        "opTimeoutSecDesc": "1 回のメディア操作にかける最大時間です。上限は 3,600 秒です。",
+        "cleanupStaging": "一時ファイルを削除",
+        "cleanupConfirm": "FFmpeg の一時ディレクトリをすべて削除しますか？",
+        "restartHint": "保存しました。有効なプラグインに変更を反映するには Motrix を再起動してください。",
+        "restartNow": "今すぐ再起動",
+        "validation": {
+          "fileMissing": "このパスにファイルが存在しません。"
+        },
+        "applyHint": "保存すると、新しいメディアダウンロードにこのパスを使用します。ブラウザー拡張機能で再スキャンすると、対応状況が更新されます。",
+        "savedTitle": "FFmpeg の設定を保存しました",
+        "desktopSavedHint": "新しいメディアダウンロードでは保存したパスを使用します。有効なプラグインに変更を反映するには Motrix を再起動してください。",
+        "pipelineUnavailable": "メディアのダウンロード機能を利用できません。",
+        "ffmpegRequired": "このダウンロードには FFmpeg が必要です。「設定」→「連携」→「メディアツール」で設定を保存してから、再試行してください。"
+      },
+      "pairResolveFailed": "選択内容を送信できませんでした。もう一度お試しください。",
+      "appimage": {
+        "title": "デスクトップ統合",
+        "desc": "この Motrix AppImage をデスクトップに登録すると、ブラウザーやマグネットリンクからダウンロードを渡せます。",
+        "enable": "デスクトップ統合を有効にする",
+        "remove": "デスクトップ統合を解除",
+        "prompt": {
+          "title": "Motrix をデスクトップに統合しますか？",
+          "message": "この Motrix AppImage をデスクトップ環境に登録しますか？",
+          "detail": "Motrix はユーザーデータディレクトリにデスクトップエントリーとアイコンを追加し、motrix: リンク、マグネットリンク、.torrent ファイルの対応アプリとして登録します。これにより、ブラウザーや Motrix 拡張機能から Motrix を起動し、ダウンロードを渡せます。ホームディレクトリ外には書き込みません。設定から元に戻せます。",
+          "accept": "統合",
+          "decline": "今はしない"
+        },
+        "status": {
+          "healthy": "このデスクトップに統合済みです。",
+          "notIntegrated": "このデスクトップには統合されていません。",
+          "failedTitle": "デスクトップ統合が未完了です",
+          "failedDetail": "Motrix をリンクの対応アプリとして登録できませんでした。デスクトップ統合を再度有効にするまで、ブラウザーからの受け渡しが機能しない場合があります。",
+          "removeBlockedDetail": "確認済みの以前の関連付けを安全に復元できませんでした。既定のアプリが無効にならないよう、Motrix のデスクトップエントリーを残しました。デスクトップ設定で別の既定のアプリを選択してから、もう一度統合を解除してください。",
+          "externalManaged": "別の Motrix インストールによってデスクトップ統合が提供されています。"
+        },
+        "movedHint": "Motrix の終了中に AppImage を移動した場合、新しい場所から一度 Motrix を起動するまで、リンクから起動できない場合があります。"
+      },
+      "appimageHost": {
+        "title": "ブラウザーから AppImage を起動",
+        "desc": "拡張機能で「接続」をクリックすると、この AppImage を開けるようにします。使用するにはブラウザー連携を有効にしてください。",
+        "enable": "ブラウザーからの起動を有効にする",
+        "repair": "修復",
+        "useCurrent": "この AppImage を使用",
+        "remove": "ブラウザーからの起動を解除",
+        "copyDiagnostics": "診断結果をコピー",
+        "status": {
+          "ready": "ローカルのインストール確認に合格しました。ブラウザーから接続して動作を確認してください。",
+          "disabled": "ブラウザーからの起動は無効です。",
+          "conflict": "このファイルは別のインストールが管理しています。先にそのブラウザー連携を解除してください。",
+          "permissions": "ファイルが実行可能で、書き込み権限が自分のアカウントだけにあることを確認してください。",
+          "invalid": "インストール記録または実行ファイルが無効です。",
+          "sourceChanged": "AppImage が変更されています。使用するバージョンを起動して、インストールを修復してください。",
+          "missing": "必要なファイルがありません。現在の場所から AppImage を起動して、修復してください。",
+          "io": "操作に失敗しました。ディスクへのアクセスを確認して、「修復」をお試しください。"
+        }
+      },
+      "description": "ブラウザー、既定のアプリ、ツール"
+    },
+    "validation": {
+      "rangeHint": "範囲: {{min}}～{{max}}。",
+      "range": "{{min}}～{{max}} の数値を入力してください。",
+      "integerRange": "{{min}}～{{max}} の整数を入力してください。",
+      "minimum": "{{min}} 以上を入力してください。",
+      "maximum": "{{max}} 以下を入力してください。",
+      "integer": "整数を入力してください。",
+      "wholeBytes": "小数点以下の桁数を減らしてください。",
+      "number": "有効な数値を入力してください。",
+      "invalid": "有効な値を入力してください。",
+      "selection": "利用可能な選択肢を選んでください。",
+      "textLength": "{{max}} 文字以内にしてください。",
+      "itemCount": "アドレスは {{max}} 件以下にしてください。",
+      "text": "改行や表示されない制御文字を削除してください。",
+      "directory": "ダウンロードフォルダーを選択してください。",
+      "proxyHost": "http:// やポートを含めずに、サーバー名または IP アドレスを入力してください。",
+      "stunServer": "stun.example.com:3478 のように host:port 形式で入力してください。ポートは 1～65535 です。",
+      "httpsUrl": "https:// で始まる完全なアドレスを入力してください。",
+      "httpUrl": "http:// または https:// で始まる完全なアドレスを入力してください。",
+      "saveFailed": "変更を保存できませんでした。もう一度お試しください。",
+      "address": "アドレス {{number}}",
+      "addressDraft": "新しいアドレス",
+      "required": "先にアドレスを入力してください。",
+      "time": "23:00 のように 24 時間形式で入力してください。",
+      "loadFailed": "設定を読み込めませんでした。もう一度お試しください。"
+    },
+    "feedback": {
+      "syncFailedTitle": "設定は保存されましたが、画面を更新できませんでした",
+      "syncFailedBody": "設定は保存されています。再保存せずにこのページを更新するには、同期を再試行してください。",
+      "retrySync": "同期を再試行",
+      "applyFailedTitle": "設定は保存されましたが、一部の変更を適用できませんでした",
+      "applyFailedBody": "保存された設定は保持されています。アプリのログを確認し、問題を解決してから該当するサービスを再起動してください。",
+      "appRestartTitle": "設定を適用するには Motrix の再起動が必要です",
+      "appRestartBody": "設定を保存しました。都合のよいときに Motrix を再起動してください。"
+    },
+    "connection": {
+      "originMismatchTitle": "サーバーへのアクセスアドレスが一致しません。",
+      "originMismatchBody": "リアルタイム更新を利用できません。設定済みのサーバーアドレスを使用するか、管理者に修正を依頼してください。",
+      "disconnectedTitle": "リアルタイム更新の接続が切れています。",
+      "disconnectedBody": "一部の情報の表示が遅れる場合があります。解消しない場合は、サーバーへの接続とプロキシ設定を確認してください。"
+    }
+  },
+  "errors": {
+    "task": {
+      "create": {
+        "dedupExhausted": "同じ名前のファイルが多すぎます（9999 個を超えています）。",
+        "torrentMetaFailed": "トレントのメタデータを保存できませんでした。"
+      }
+    }
+  },
+  "menu": {
+    "app": {
+      "title": "Motrix",
+      "about": "Motrix について",
+      "preferences": "設定…",
+      "checkForUpdates": "アップデートを確認",
+      "show": "Motrix を表示",
+      "hide": "Motrix を非表示",
+      "hideOthers": "ほかを非表示",
+      "unhide": "すべて表示",
+      "quit": "Motrix を終了"
+    },
+    "file": {
+      "title": "ファイル"
+    },
+    "task": {
+      "title": "タスク",
+      "newTask": "新規タスク…",
+      "newBtTask": "新規 BitTorrent タスク…",
+      "openFile": "トレントファイルを開く…",
+      "taskList": "タスク一覧",
+      "pauseTask": "一時停止",
+      "resumeTask": "再開",
+      "deleteTask": "タスクを削除…",
+      "moveTaskUp": "キュー内で上に移動",
+      "moveTaskDown": "キュー内で下に移動",
+      "pauseAllTask": "すべて一時停止",
+      "resumeAllTask": "すべて再開",
+      "selectAllTask": "すべてのタスクを選択",
+      "clearRecentTasks": "停止したタスクの記録を消去…"
+    },
+    "edit": {
+      "title": "編集",
+      "undo": "取り消す",
+      "redo": "やり直す",
+      "cut": "切り取り",
+      "copy": "コピー",
+      "paste": "貼り付け",
+      "delete": "削除",
+      "selectAll": "すべて選択"
+    },
+    "window": {
+      "title": "ウインドウ",
+      "reload": "再読み込み",
+      "close": "閉じる",
+      "minimize": "最小化",
+      "zoom": "拡大／縮小",
+      "toggleFullscreen": "フルスクリーンを切り替える",
+      "front": "すべてを手前に移動"
+    },
+    "help": {
+      "title": "ヘルプ",
+      "officialWebsite": "Motrix のウェブサイト",
+      "manual": "Motrix ヘルプ",
+      "changelog": "リリースノート",
+      "reportProblem": "問題を報告",
+      "toggleDevTools": "開発者ツールの表示を切り替える"
+    }
+  },
+  "trackers": {
+    "effective": {
+      "enabled": "選定済みトラッカーを追加",
+      "enabledDesc": "選定済みのトラッカー一覧をすべての BitTorrent タスクに追加します。",
+      "disabled": "無効です。有効にすると、適用中のトラッカー一覧を表示します。",
+      "empty": "適用中のトラッカーはまだありません。同期して取得してください。",
+      "column": {
+        "url": "URL",
+        "health": "状態",
+        "responseTimeMs": "応答時間（ミリ秒）",
+        "lastProbedAt": "前回の確認",
+        "source": "ソース"
+      }
+    },
+    "blacklist": {
+      "enabled": "ブロックリストで除外",
+      "enabledDesc": "不審またはエラーのあるトラッカーサーバーへの接続をブロックします。",
+      "disabled": "無効です。有効にすると、ブロックリストを表示します。",
+      "empty": "ブロックリストは空です。",
+      "summary": "{{count}} 件の URL が適用中",
+      "column": {
+        "url": "URL",
+        "source": "ソース"
+      }
+    },
+    "combobox": {
+      "placeholder": "ソースを選択",
+      "addSourcePlaceholder": "https://example.com/list.txt",
+      "addSource": "追加",
+      "removeSource": "ソースを削除",
+      "empty": "一致するソースはありません。",
+      "builtinBadge": "組み込み",
+      "cdnBadge": "CDN",
+      "directBadge": "直接"
+    },
+    "sync": {
+      "syncing": "同期中…",
+      "fetching": "トラッカー一覧を取得中…",
+      "probing": "トラッカーの接続を確認中…",
+      "applying": "トラッカー一覧を適用中…",
+      "failed": "同期が完了しませんでした。ネットワークまたはソースを確認して、もう一度お試しください。",
+      "unavailable": "同期状態を読み取れません。接続を確認して、もう一度お試しください。"
+    }
+  },
+  "plugins": {
+    "title": "プラグイン",
+    "empty": "インストール済みのプラグインはまだありません。",
+    "errors_other": "エラー {{count}} 件",
+    "status": {
+      "active": "動作中",
+      "inactive": "待機中",
+      "disabled": "無効",
+      "error": "エラー"
+    },
+    "install": {
+      "title": "プラグインを追加",
+      "github": "GitHub",
+      "github.spec": "GitHub リポジトリ（owner/repo[@tag]）",
+      "url": "URL",
+      "url.spec": "バンドル URL（.moext）",
+      "local": "ローカルファイル",
+      "local.pick": ".moext ファイルを選択",
+      "lead": "プラグインのアドレスを貼り付けるか、.moext ファイルを選択するか、入力欄にファイルをドロップしてください。",
+      "placeholder": "GitHub のアドレスや URL を貼り付けるか、ローカルの .moext ファイルを選択",
+      "detected": {
+        "auto": "自動",
+        "github": "GitHub",
+        "url": "URL",
+        "local": "ファイル"
+      },
+      "detectedRow": {
+        "ok": "{{type}} として検出",
+        "localSupported": "ローカルの .moext に対応"
+      },
+      "checkAriaLabel": "このプラグインを確認",
+      "install": "プラグインをインストール",
+      "pickLocal": "ローカルの .moext ファイルを選択",
+      "localUnavailable": "このホストではローカルファイルからインストールできません。",
+      "localPrepareFailed": "このプラグインファイルを準備できませんでした：{{detail}}",
+      "dropHint": "ここに .moext ファイルをドロップしてプラグインを確認",
+      "dragDisabledHint": "この環境ではドラッグ＆ドロップに対応していません。GitHub のアドレスまたは URL を使用してください。",
+      "warning": "インストール前に：作者を信頼でき、上記のアクセス権の使用を想定している場合にのみ続行してください。"
+    },
+    "consent": {
+      "installTitle": "{{name}} {{version}} をインストールしますか？",
+      "upgradeTitle": "{{name}} を {{version}} にアップグレードしますか？",
+      "notVerified": "このプラグインは検証されていません。信頼できるソースのプラグインのみをインストールしてください。",
+      "confirm": "許可してインストール",
+      "permissions": "必要な権限",
+      "optionalPermissions": "任意の権限",
+      "hostPermissions": "ホストへのアクセス",
+      "invokesCommands": "ほかのプラグインのコマンドを呼び出します",
+      "calleeMissing": "未インストール",
+      "source": "ソース：{{type}} · {{url}}",
+      "broadAccess": {
+        "title": "広範囲のホストアクセス",
+        "body": "このプラグインは、あらゆる URL のダウンロードを読み取り、変更できます。ソースを信頼できる場合にのみインストールしてください。",
+        "tag": "広範囲"
+      },
+      "diff": {
+        "title": "前回の同意からの変更",
+        "permissions": "追加された権限",
+        "optionalPermissions": "追加された任意の権限",
+        "hostPermissions": "追加されたホストアクセス",
+        "invokesCommands": "新たなプラグイン間コマンド呼び出し",
+        "publicCommands": "新たな公開コマンド",
+        "publicCommandsSchema": "公開コマンドのスキーマ変更",
+        "heap": "メモリ要求",
+        "engines": "Motrix エンジンのバージョン",
+        "source": "バンドルの取得元"
+      }
+    },
+    "detail": {
+      "overview": "概要",
+      "settings": "設定",
+      "logs": "ログ",
+      "about": "情報",
+      "loading": "読み込み中…",
+      "back": "すべてのプラグイン",
+      "author": "作者",
+      "homepage": "ホームページ",
+      "uninstall": "アンインストール",
+      "uninstallConfirm": "このプラグインをアンインストールしますか？データも削除されます。",
+      "enabled": "有効",
+      "disabled": "無効",
+      "access": "アクセス権",
+      "advanced": "詳細設定",
+      "accessGranted": "このプラグインに許可済みの操作",
+      "accessOptional": "任意のアクセス権",
+      "hero": {
+        "ready": "準備完了",
+        "review": "アクセス権を確認",
+        "attention": "確認が必要",
+        "off": "オフ",
+        "optional": "追加のアクセス権を要求できます"
+      },
+      "mini": {
+        "purpose": "目的",
+        "access": "アクセス権",
+        "health": "状態"
+      },
+      "healthOk": "問題なし",
+      "healthIssues_other": "過去 1 日間に {{count}} 件の問題を報告",
+      "accessNone": "自身の設定のみ",
+      "accessHosts_other": "{{count}} 件の Web サイトを読み取り可能",
+      "accessBroad": "すべての Web サイトを読み取り可能",
+      "attentionTitle": "このプラグインが問題を報告しました",
+      "attentionGeneric": "詳細はログを確認してください。",
+      "viewIssue": "問題を表示",
+      "removeTitle": "プラグインを削除",
+      "removeDesc": "このプラグインを削除すると、Motrix に保存されたプラグインのデータも削除されます。",
+      "uninstallConfirmTitle": "{{name}} をアンインストールしますか？",
+      "uninstallConfirmDesc": "プラグインと保存済みの設定を Motrix から削除します。"
+    },
+    "permissions": {
+      "empty": "このプラグインは権限を要求していません。",
+      "granted": "許可済み",
+      "denied": "拒否済み"
+    },
+    "logs": {
+      "verbose": "詳細ログモード",
+      "verboseWarning": "1 時間、完全な URL とヘッダーを記録します。注意して使用してください。",
+      "filterLabel": "ログレベル",
+      "levels": {
+        "all": "すべてのレベル",
+        "trace": "トレース",
+        "debug": "デバッグ",
+        "info": "情報",
+        "warn": "警告",
+        "error": "エラー",
+        "fatal": "致命的"
+      },
+      "copy": "コピー",
+      "clear": "クリア",
+      "output": "リアルタイム出力",
+      "entryCount_other": "{{count}} 件",
+      "empty": "ログはまだありません",
+      "emptyHint": "プラグインの新しい動作がここに自動で表示されます。",
+      "emptyFiltered": "このレベルに一致するログはありません。"
+    },
+    "lead": "Motrix に小さな機能を追加できます。信頼できるものを残し、それ以外は無効にしましょう。",
+    "search": "プラグインを検索",
+    "registry": {
+      "availableTitle": "利用できるプラグイン",
+      "featured": "おすすめ",
+      "byAuthor": "作者：{{name}}",
+      "requires": "Motrix {{range}} が必要",
+      "notInstalled": "未インストール",
+      "notFound": "プラグイン「{{id}}」はレジストリに見つかりませんでした",
+      "viewOnWebsite": "motrix.app で表示",
+      "updated": "更新：{{date}}",
+      "featuresTitle": "機能",
+      "permissionsTitle": "権限",
+      "permissionsPreviewNote": "レジストリの情報に基づくプレビューです。実際の同意画面は、常にプラグインパッケージ内のマニフェストに基づいて表示されます。",
+      "optionalTag": "任意",
+      "install": "インストール",
+      "updateAvailable": "アップデートあり",
+      "updateTo": "v{{version}} にアップデート",
+      "refresh": "アップデートを確認",
+      "builtinUpdateTitle": "組み込みプラグインをアップデート",
+      "builtinConsentLead": "このアップデートは新しいアクセス権を要求します：",
+      "revertToBundled": "同梱バージョンに戻す",
+      "restartRequired": "アップデートをインストールしました。適用を完了するには Motrix を再起動してください。",
+      "updateInstalled": "アップデートをインストールしました。",
+      "actionFailed": "操作を完了できませんでした。"
+    },
+    "searchNoMatch": "「{{query}}」に一致するプラグインはありません",
+    "clearSearch": "検索をクリア",
+    "tone": {
+      "safe": "安全と思われます",
+      "review": "確認が必要",
+      "optional": "任意のアクセス権",
+      "off": "オフ"
+    },
+    "card": {
+      "advancedDetails": "詳細情報",
+      "commandsInvoked": "呼び出すコマンド：{{count}}",
+      "commandsServing": "提供するコマンド：{{count}}",
+      "primaryAction": {
+        "settings": "設定",
+        "open": "開く",
+        "reviewAccess": "アクセス権を確認",
+        "viewIssue": "問題を表示",
+        "grantAccess": "アクセスを許可",
+        "turnOn": "有効にする"
+      },
+      "plain": {
+        "safe": "このプラグインは有効で、使用できます。自身の設定のみを保存し、Web サイトは読み取りません。",
+        "reviewBroadHost": "このプラグインは{{hostSummary}}を読み取れます。信頼できる場合にのみ有効にしてください。",
+        "reviewError": "このプラグインが問題を報告しました。",
+        "optional": "このプラグインは追加のアクセス権なしで動作します。後から追加のアクセス権を許可できます。",
+        "off": "このプラグインは無効です。"
+      }
+    },
+    "help": {
+      "guidance": {
+        "firstUse": {
+          "title": "信頼できるプラグインを追加しましょう",
+          "body": "信頼できるソースからインストールし、要求されるアクセス権を確認してからプラグインを有効にしてください。",
+          "safety": "プラグインで利用する予定の Web サイトにのみアクセスを許可してください。",
+          "browse": "Motrix 公式プラグインマーケットプレイスで探す"
+        },
+        "ongoing": "プラグインを有効にする前にアクセス権を確認してください。プラグインで利用する予定の Web サイトにのみアクセスを許可してください。"
+      }
+    },
+    "diagnostics": {
+      "title": "診断",
+      "intro": "過去 24 時間に成功したプラグイン間の呼び出しを確認できます。",
+      "callGraph": {
+        "toolbarLabel": "呼び出しグラフの操作",
+        "modeLabel": "関係の表示方法",
+        "modes": {
+          "graph": "グラフ",
+          "table": "表"
+        },
+        "filters": {
+          "searchLabel": "関係を検索",
+          "searchPlaceholder": "プラグインまたはコマンドを検索",
+          "clearSearch": "検索をクリア",
+          "pluginsGroup": "プラグイン",
+          "commandsGroup": "コマンド",
+          "noSuggestions": "プラグインやコマンドの候補はありません"
+        },
+        "refresh": "再読み込み",
+        "refreshing": "再読み込み中…",
+        "refreshTooltip": "最新の成功した呼び出しを読み込む",
+        "renderGraphTooltip": "この大きな結果をグラフで表示",
+        "columns": {
+          "caller": "呼び出し元",
+          "command": "コマンド",
+          "callee": "呼び出し先",
+          "calls": "呼び出し回数",
+          "lastCall": "最終呼び出し"
+        },
+        "legend": {
+          "label": "呼び出し回数の凡例",
+          "fewerCalls": "少ない",
+          "moreCalls": "多い"
+        },
+        "loading": {
+          "graph": "呼び出し履歴を読み込み中…",
+          "metadata": "プラグインの詳細を読み込み中…"
+        },
+        "globalEmpty": {
+          "title": "成功したプラグイン間の呼び出しはまだありません",
+          "description": "組み込みプラグインは、既定ではプラグイン間の通信を行わない場合があります。"
+        },
+        "filteredEmpty": "この検索に一致する成功した呼び出しはありません。",
+        "errors": {
+          "graphTitle": "呼び出し履歴を読み込めませんでした",
+          "graphDescription": "成功した呼び出しの履歴をもう一度読み込んでください。",
+          "graphRetry": "呼び出し履歴を再読み込み",
+          "metadataTitle": "プラグインの詳細を読み込めませんでした",
+          "metadataDescription": "利用できないプラグインを特定するには、プラグインの詳細が必要です。",
+          "metadataRetry": "プラグインの詳細を再読み込み",
+          "layout": "関係図を配置できませんでした。",
+          "layoutRetry": "関係図を再配置",
+          "canvasTitle": "グラフのキャンバスを表示できませんでした",
+          "canvasDescription": "キャンバスの表示を再試行するか、すべての結果を表示できる表を使用してください。",
+          "canvasRetry": "キャンバスを再表示",
+          "canvasTable": "表を使用"
+        },
+        "truncated": "読み取り上限、保存期間、ファイルのローテーションにより結果が制限されたため、呼び出し履歴に欠落がある可能性があります。",
+        "statuses": {
+          "active": "実行中",
+          "inactive": "準備完了・待機中",
+          "disabled": "無効",
+          "error": "確認が必要",
+          "missing": "未インストール"
+        },
+        "inspector": {
+          "label": "呼び出しグラフの選択項目の詳細",
+          "scopeTitle": "成功した呼び出し",
+          "neutralScope": "プラグインまたは接続を選択すると、過去 24 時間に成功した呼び出しを確認できます。",
+          "pluginId": "プラグイン ID",
+          "status": "状態",
+          "incomingCalls": "受けた呼び出し",
+          "outgoingCalls": "送った呼び出し",
+          "connections": "接続先のプラグイン",
+          "noConnections": "接続先のプラグインはありません",
+          "openPlugin": "プラグインを開く",
+          "edgeTitle": "接続の詳細",
+          "totalCalls": "合計呼び出し回数",
+          "commands": "コマンド"
+        },
+        "tableRegionLabel": "スクロール可能なコマンド関係表",
+        "tableLabel": "プラグインのコマンド関係",
+        "counts": {
+          "calls_other": "成功した呼び出し {{count}} 回",
+          "commands_other": "コマンド {{count}} 件"
+        },
+        "aria": {
+          "graphLabel": "プラグインのコマンド関係",
+          "graphDescription": "過去 24 時間のプラグイン {{nodeCount}} 件、関係 {{pairCount}} 件。",
+          "nodeLabel": "{{name}}、プラグイン {{id}}、{{status}}、受けた呼び出し {{incoming}} 回、送った呼び出し {{outgoing}} 回",
+          "edgeLabel": "{{source}} が {{commands}} 件のコマンドで {{target}} を {{calls}} 回呼び出しました",
+          "nodeDescription": "プラグインのノードを選択すると詳細を確認できます。",
+          "nodeKeyboardInstruction": "矢印キーでこのプラグインのノードを移動できます。",
+          "nodeMoved": "プラグインのノードを{{direction}}方向の {{x}}, {{y}} に移動しました。",
+          "directions": {
+            "left": "左",
+            "right": "右",
+            "up": "上",
+            "down": "下"
+          },
+          "edgeDescription": "呼び出しの線を選択すると詳細を確認できます。",
+          "controls": "プラグイングラフの表示操作",
+          "zoomIn": "グラフを拡大",
+          "zoomOut": "グラフを縮小",
+          "fitView": "プラグイングラフを表示範囲に合わせる",
+          "interactive": "グラフの操作モードを切り替え",
+          "minimap": "プラグイングラフの全体図",
+          "handle": "読み取り専用の呼び出し端点"
+        }
+      }
+    },
+    "permission": {
+      "http": {
+        "strong": "Web サイトの読み取り",
+        "plain": "このプラグインが対応するページを開きます。",
+        "cookies": {
+          "strong": "Web サイトの Cookie の使用",
+          "plain": "ログイン済みのサイトにアクセスします。"
+        }
+      },
+      "ffmpeg": {
+        "strong": "FFmpeg の使用",
+        "plain": "音声や動画を処理します。"
+      },
+      "notify": {
+        "strong": "通知の送信",
+        "plain": "完了通知を表示します。"
+      },
+      "fs": {
+        "task": {
+          "read": {
+            "strong": "ダウンロードファイルの読み取り",
+            "plain": "タスク内のファイルを参照します。"
+          },
+          "write": {
+            "strong": "ダウンロードファイルの変更",
+            "plain": "タスクのファイルを追加または更新できます。"
+          }
+        },
+        "storage": {
+          "strong": "プラグインのファイルの保存",
+          "plain": "このプラグイン用のファイルを保存します。"
+        }
+      },
+      "storage": {
+        "strong": "設定の保存",
+        "plain": "プラグインの設定を記憶します。"
+      },
+      "notifications": {
+        "strong": "通知の送信",
+        "plain": "プラグインの通知を表示します。"
+      },
+      "network": {
+        "strong": "Web サイトの読み取り",
+        "plain": "対応するページを取得します。"
+      },
+      "tasks:read": {
+        "strong": "ダウンロードの読み取り",
+        "plain": "ダウンロード一覧を参照します。"
+      },
+      "tasks:write": {
+        "strong": "ダウンロードの管理",
+        "plain": "タスクを一時停止、再開、削除できます。"
+      },
+      "unknown": {
+        "plain": "不明な権限です。"
+      },
+      "accessTone": {
+        "required": "必須",
+        "websiteAccess": "Web アクセス",
+        "offByDefault": "任意",
+        "allowed": "許可済み",
+        "noAccess": "オフ",
+        "grant": "許可"
+      }
+    }
+  },
+  "plugin": {
+    "ffmpeg": {
+      "destination_phase_disallowed": "ffmpeg は {{phase}} フック内では {{kind}} に書き込めません。プラグインのストレージに書き込むか、この呼び出しを beforeFinalize に移してください。",
+      "staging_quota_exceeded": "このタスクの ffmpeg 一時領域の上限を超えました。出力サイズを小さくするか、メディア設定で上限を増やしてください。"
+    },
+    "install": {
+      "ffmpeg": {
+        "title": "FFmpeg の要件",
+        "notInstalled": "このシステムに FFmpeg がインストールされていません。",
+        "versionMismatch": "FFmpeg {{version}} がインストールされています。",
+        "requiredByPlugin": "このプラグインには ffmpeg が必要です。インストールしてから、もう一度お試しください。",
+        "optionalDegraded": "ffmpeg をインストールするまで、このプラグインのメディア機能は利用できません。"
+      }
+    }
+  },
+  "bridge": {
+    "receiver": {
+      "error": {
+        "invalidPayload": "拡張機能からのリクエストが無効です",
+        "invalidUrlScheme": "URL は http: または https: で始まる必要があります",
+        "unsupportedKind": "このバージョンの Motrix は {{kind}} のダウンロードに対応していません",
+        "unsupportedLive": "ライブ配信はダウンロードできません",
+        "unsupportedMaster": "バリアントプレイリストが必要ですが、拡張機能からマスタープレイリストが送信されました",
+        "unsupportedEncryption": "DRM で保護されたコンテンツはダウンロードできません",
+        "authExpired": "セッションの有効期限が切れました。ブラウザーでページを更新して、もう一度お試しください",
+        "notFound": "リソースが見つかりません（404）",
+        "transientFailure": "再試行後もダウンロードに失敗しました: {{detail}}",
+        "rangeNotSatisfiable": "再開できませんでした。ダウンロードを最初からやり直してください",
+        "diskFull": "ディスクの空き容量がありません",
+        "diskWriteFailed": "ディスクに書き込めません: {{detail}}",
+        "muxFailed": "音声と映像の結合中に ffmpeg でエラーが発生しました",
+        "muxAborted": "結合をキャンセルしました",
+        "cancelled": "キャンセルしました",
+        "internalError": "内部エラー: {{detail}}"
+      }
+    }
+  },
+  "onboarding": {
+    "disclaimer": {
+      "title": "ご利用にあたって",
+      "language": "言語",
+      "languages": {
+        "english": "English",
+        "chinese": "简体中文"
+      },
+      "summary": "続行する前に、以下をお読みください。",
+      "body": "Motrix が提供するのはダウンロード管理機能のみです。ダウンロード可能なコンテンツの提供、保存、ホスティング、推奨は行いません。Motrix を通じてアクセス、利用、共有するコンテンツについて、適法な権限を得ていること、および適用される著作権法やその他の法令を遵守していることをご自身で確認してください。コンテンツのダウンロード、利用、共有によって生じる結果については、ご自身が責任を負います。「同意して続行」を選択すると、この注意事項を読み、理解したことを確認したものとします。",
+      "highlights": {
+        "downloadManagement": "ダウンロード管理機能のみ",
+        "authorized": "適法な権限を得ている",
+        "responsibility": "ご自身が責任を負います"
+      },
+      "localConsent": "選択内容はこのデバイスに保存されます。",
+      "agree": "同意して続行",
+      "quit": "終了",
+      "retry": "再試行",
+      "saveFailed": "同意を保存できませんでした。ディスクの空き容量を確認して、もう一度お試しください。"
+    }
+  },
+  "notification": {
+    "taskError": {
+      "title": "{{name}} のダウンロードに失敗しました"
+    },
+    "taskComplete": {
+      "title": "{{name}} のダウンロードが完了しました"
+    },
+    "engineFailure": {
+      "title": "ダウンロードエンジンでエラーが発生しました"
+    },
+    "engineCompatibility": {
+      "title": "Motrix 版ではない aria2 が検出されました",
+      "body": "aria2 {{version}} は Motrix 版ではありません。接続設定の上限は {{limit}} に制限され、SQLite による履歴の永続保存は利用できません。すべての機能を利用するには、同梱の aria2_motrix エンジンに戻してください。"
+    },
+    "engineRestartRequired": {
+      "title": "設定を適用するにはダウンロードエンジンの再起動が必要です",
+      "body": "設定を保存しました。都合のよいときにダウンロードエンジンを再起動してください。",
+      "restartNow": "今すぐ再起動"
+    },
+    "dnsFallback": {
+      "title": "{{name}} をシステム DNS で再試行しました",
+      "body": "DNS サーバーに接続できなかったため、このセッションではシステム DNS に切り替えました。"
+    },
+    "center": {
+      "title": "通知",
+      "markAllRead": "すべて既読にする",
+      "clearAll": "消去",
+      "empty": "通知はありません",
+      "emptyDesc": "ダウンロードの状況やアプリからの重要なお知らせがここに表示されます",
+      "unreadDotAria": "未読の通知",
+      "unreadBadgeAria_other": "{{count}} 件の未読通知",
+      "rowUnreadAria": "{{title}}（未読）",
+      "toastRegionAria": "通知",
+      "removeAria": "{{title}} を削除",
+      "actionFailed": "通知を更新できませんでした。もう一度お試しください。",
+      "markRead": "既読にする",
+      "viewTask": "タスクを表示",
+      "taskRemoved": "タスクは削除されました",
+      "openTaskFailed": "タスクを開けませんでした。もう一度お試しください。"
+    }
+  },
+  "applicationMenu": {
+    "signOut": "サインアウト…",
+    "back": "戻る",
+    "serverUnavailable": "サーバーに接続できません。セッションからはサインアウトしていません。",
+    "retry": "再試行",
+    "actionFailed": "操作を完了できませんでした。接続を確認して、もう一度お試しください。",
+    "clearTitle": "停止したタスクの記録を消去しますか？",
+    "clearDescription": "このダイアログを開いた時点で完了、失敗、削除済みだったタスクの記録を消去します。ダウンロードしたファイルはディスクに残ります。",
+    "clearConfirm": "記録を消去",
+    "logoutTitle": "このサーバーからサインアウトしますか？",
+    "logoutDescription": "同じブラウザーセッションを使用する他のタブからもサインアウトします。サーバー上のダウンロードは続行されます。それらのタブにある未保存の入力内容は破棄されます。",
+    "logoutConfirm": "サインアウト",
+    "discardTitle": "このタスクの下書きを破棄しますか？",
+    "discardDescription": "未保存のリンク、トレントの選択内容、設定が破棄されます。",
+    "discardConfirm": "破棄"
+  },
+  "directoryPicker": {
+    "title": "サーバー上のフォルダーを選択",
+    "description": "パスはサーバー上のものです。Docker 使用時はコンテナー内のパスになります。",
+    "back": "戻る",
+    "forward": "進む",
+    "up": "1 つ上の階層へ",
+    "refresh": "更新",
+    "goToFolder": "フォルダーへ移動",
+    "location": "場所",
+    "viewOptions": "表示オプション",
+    "sortBy": "並べ替えの基準",
+    "sortName": "名前",
+    "sortModified": "更新日時",
+    "sortOrder": "順序",
+    "sortAscending": "昇順",
+    "sortDescending": "降順",
+    "showHidden": "隠しフォルダーを表示",
+    "folders": "フォルダー",
+    "loading": "フォルダーを読み込み中…",
+    "empty": "サブフォルダーはありません",
+    "incomplete": "このフォルダーの一部のみ表示しています。別のフォルダーを開くには、正確なパスを入力してください。",
+    "selectFolder": "フォルダーを選択",
+    "selectedPath": "選択したフォルダー",
+    "path": "フォルダーのパス",
+    "go": "移動",
+    "newFolder": "新規フォルダー",
+    "folderName": "フォルダー名",
+    "create": "作成",
+    "createHelp": "選択をキャンセルしても、作成したフォルダーはサーバー上に残ります。",
+    "fallback": "指定したフォルダーを利用できないため、{{path}} を表示しています。",
+    "refreshAfterCreateFailed": "フォルダーは作成されましたが、一覧を更新できませんでした。",
+    "unknownOutcome": "作成結果を確認できていません。同じ場所に別のフォルダーを作成する前に、更新して確認してください。",
+    "retry": "再試行",
+    "errors": {
+      "invalidPath": "有効なフォルダーの絶対パスを入力してください。",
+      "outsideRoots": "このフォルダーは許可された場所の範囲外です。",
+      "notFound": "このフォルダーは存在しなくなりました。",
+      "notDirectory": "このパスはフォルダーではありません。",
+      "permissionDenied": "このフォルダーを使用する権限がありません。",
+      "alreadyExists": "この名前のファイルまたはフォルダーはすでに存在します。",
+      "invalidName": "有効なフォルダー名を入力してください。",
+      "tooLarge": "パスまたはフォルダー名が長すぎます。",
+      "unavailable": "サーバーがこのリクエストを完了できませんでした。もう一度お試しください。",
+      "creationOutcomeUnknown": "作成結果を確認できていません。同じ場所に別のフォルダーを作成する前に、更新して確認してください。"
+    },
+    "places": {
+      "common": "よく使う場所",
+      "allowed": "許可された場所",
+      "default": "既定のフォルダー",
+      "home": "ホーム",
+      "desktop": "デスクトップ",
+      "documents": "書類",
+      "downloads": "ダウンロード",
+      "root": "ファイルシステム",
+      "loadFailed": "一部のフォルダーの場所を読み込めませんでした。"
+    }
+  },
+  "directoryPreferences": {
+    "sectionDescription": "よく使うフォルダーにすぐアクセスできます。",
+    "manage": "フォルダーを管理",
+    "manageDescription": "お気に入りのフォルダーを選び、最近使ったフォルダーを管理します。",
+    "title": "フォルダーを管理",
+    "description": "この一覧からフォルダーを削除しても、フォルダー自体や中のファイルは削除されません。",
+    "favorites": "お気に入りのフォルダー",
+    "recent": "最近使ったフォルダー",
+    "addFavorite": "お気に入りを追加",
+    "removeFavorite": "お気に入りから削除",
+    "favoriteRecent": "お気に入りに追加",
+    "removeRecent": "最近使ったフォルダーから削除",
+    "clearRecent": "最近使ったフォルダーを消去",
+    "emptyFavorites": "お気に入りのフォルダーはありません",
+    "emptyRecent": "最近使ったフォルダーはありません",
+    "loading": "フォルダーを読み込み中…",
+    "retry": "再試行",
+    "limitHint": "お気に入りのフォルダーは {{count}} 個まで保存できます。",
+    "pickerFailed": "フォルダー選択画面を開けませんでした。もう一度お試しください。",
+    "close": "閉じる",
+    "history": "フォルダー履歴",
+    "emptyHistory": "お気に入りや最近使ったフォルダーはまだありません",
+    "errors": {
+      "conflict": "別のウインドウで設定が変更されました。変更内容を確認して、再度保存してください。",
+      "invalidPath": "有効なフォルダーの絶対パスを入力してください。",
+      "outsideRoots": "このフォルダーは許可された場所の範囲外です。",
+      "notFound": "このフォルダーは存在しなくなりました。",
+      "notDirectory": "このパスはフォルダーではありません。",
+      "permissionDenied": "このフォルダーを使用する権限がありません。",
+      "tooLarge": "フォルダーのパスが長すぎます。",
+      "unavailable": "フォルダーの記録を更新できませんでした。更新して現在の状態を確認してください。",
+      "limitReached": "お気に入りのフォルダー数が上限に達しています。別のフォルダーを追加する前に、お気に入りを削除してください。"
+    },
+    "manageAction": "管理",
+    "alreadyFavorite": "お気に入りに追加済み"
+  }
+}

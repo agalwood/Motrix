@@ -95,6 +95,7 @@ describe('OnboardingLanguageSelect', () => {
     ['Español', 'es'],
     ['简体中文', 'zh-CN'],
     ['Français', 'fr'],
+    ['日本語', 'ja'],
   ])(
     'switches to %s immediately and persists only that preference',
     async (name, locale) => {
