@@ -36,6 +36,7 @@ import { slimTasksForBroadcast } from '@core/task/slim-task-for-broadcast'
 import type { TaskManager } from '@core/task/task-manager'
 import type { TrackerManager } from '@core/tracker'
 import type { NatManager } from '@motrix/nat'
+import type { SupportedLocale } from '@shared/constants/locales'
 import {
   assertTaskInspectorActivityArguments,
   makeProtocolFailure,
@@ -64,6 +65,7 @@ const SYSTEM_PROXY_PROBE_PARTITION = 'motrix-system-proxy-probe'
 const SYSTEM_PROXY_PROBE_URL = 'https://example.com'
 
 export interface QueryContext {
+  getResolvedLanguage: () => SupportedLocale
   cliToolService: Pick<CliToolService, 'getStatus'>
   taskManager: TaskManager
   statsAggregator: StatsAggregator
@@ -176,7 +178,10 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
 
     [Queries.GetSystemAccentColor]: async () => getSystemAccentColor(),
     [Queries.GetSettings]: async () => {
-      return settingsManager.get()
+      return {
+        ...settingsManager.get(),
+        resolvedLanguage: ctx.getResolvedLanguage(),
+      }
     },
 
     [Queries.GetUpdateState]: async () => updateManager.getState(),

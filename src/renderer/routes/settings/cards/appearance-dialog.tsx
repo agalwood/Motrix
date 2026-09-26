@@ -43,7 +43,10 @@ import { pickDirty } from '@renderer/lib/form-utils'
 import { saveSettings } from '@renderer/lib/settings-save'
 import { useSidebarColorState } from '@renderer/lib/sidebar-color'
 import { transport } from '@renderer/lib/transport'
-import { isSupportedLocale, SUPPORTED_LOCALES } from '@shared/constants/locales'
+import {
+  isLanguagePreference,
+  SUPPORTED_LOCALES,
+} from '@shared/constants/locales'
 import { DEFAULT_APP_SETTINGS } from '@shared/schemas'
 import { resolveByteUnitSystem } from '@shared/schemas/byte-unit-system'
 import type { MotrixAppSettings } from '@shared/types/settings'
@@ -93,6 +96,10 @@ export function AppearanceDialog({
   labelKey,
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
+  const languageOptions = [
+    { value: 'system', label: t('settings.appearance.followSystem') },
+    ...LANGUAGE_OPTIONS,
+  ]
   const form = useSettingsForm<AppearanceFields>(appearanceFormSchema, DEFAULTS)
 
   const load = useSettingsLoad((all) => {
@@ -338,10 +345,10 @@ export function AppearanceDialog({
                           </FormLabel>
                           <FormControl>
                             <Select
-                              items={LANGUAGE_OPTIONS}
+                              items={languageOptions}
                               value={field.value}
                               onValueChange={(value) => {
-                                if (isSupportedLocale(value))
+                                if (isLanguagePreference(value))
                                   field.onChange(value)
                               }}
                             >
@@ -350,7 +357,7 @@ export function AppearanceDialog({
                               </SettingsSelectTrigger>
                               <SelectContent>
                                 <SelectGroup>
-                                  {LANGUAGE_OPTIONS.map((option) => (
+                                  {languageOptions.map((option) => (
                                     <SelectItem
                                       key={option.value}
                                       value={option.value}

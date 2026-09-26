@@ -157,11 +157,30 @@ function makeCtx(over: Record<string, unknown> = {}) {
     },
     serverDirectoryService: { list: vi.fn(), validate: vi.fn() },
     environment: {},
+    getResolvedLanguage: () => 'en-US',
     ...over,
   }
 }
 
 describe('buildServerQueryHandlers — allowed save directories', () => {
+  it('returns the same committed system locale for settings and onboarding', async () => {
+    const settings = { app: { language: 'system' } }
+    const handlers = buildServerQueryHandlers(
+      makeCtx({
+        settingsManager: { get: () => settings, getApp: () => settings.app },
+        getResolvedLanguage: () => 'fr',
+      }) as unknown as ServerQueryContext
+    )
+    await expect(handlers[Queries.GetSettings]?.()).resolves.toEqual({
+      ...settings,
+      resolvedLanguage: 'fr',
+    })
+    await expect(handlers[Queries.GetDisclaimerState]?.()).resolves.toEqual({
+      language: 'system',
+      resolvedLanguage: 'fr',
+    })
+  })
+
   it('exposes the current tracker sync status to remote clients', async () => {
     const ctx = makeCtx()
     const handlers = buildServerQueryHandlers(ctx as never)

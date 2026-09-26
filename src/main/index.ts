@@ -1728,6 +1728,8 @@ async function initializeMainProcess(): Promise<void> {
   } else {
     const disposeDisclaimerIpc = registerDisclaimerIpc({
       gate,
+      getResolvedLanguage: () => resolvedApplicationLocale,
+      applyLocale: (language) => enqueueLocaleUpdate(language, true),
       settings: settingsManager,
       windowManager,
       canContinue: () => mainProcessWork.isAccepting(),
@@ -2732,6 +2734,7 @@ async function initializeMainProcess(): Promise<void> {
     overlayDir,
   })
   const disposeQueryHandlers = registerQueryHandlers({
+    getResolvedLanguage: () => resolvedApplicationLocale,
     mediaMetaStore,
     cliToolService,
     taskManager,

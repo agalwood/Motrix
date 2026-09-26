@@ -85,7 +85,7 @@ import {
   removeTasksPayloadSchema,
   taskIdsPayloadSchema,
 } from '@shared/schemas/bulk-task-command'
-import { supportedLocaleSchema } from '@shared/schemas/locale'
+import { languagePreferenceSchema } from '@shared/schemas/locale'
 import { moveTasksPayloadSchema } from '@shared/schemas/move-tasks'
 import { checkPluginUpdatesPayloadSchema } from '@shared/schemas/plugin-update'
 import { removeTaskPayloadSchema } from '@shared/schemas/remove-task'
@@ -392,8 +392,9 @@ export function buildServerCommandHandlers(
     [Commands.CreateServerDirectory]: async (request: unknown) =>
       ctx.serverDirectoryService.create(request),
     [Commands.SetDisclaimerLanguage]: async (payload: unknown) => {
-      const language = supportedLocaleSchema.parse(payload)
+      const language = languagePreferenceSchema.parse(payload)
       await settingsManager.setDisclaimerLanguage(language)
+      await ctx.applyLocale?.(language)
       return { ok: true }
     },
 

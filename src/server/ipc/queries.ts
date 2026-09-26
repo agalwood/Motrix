@@ -38,6 +38,7 @@ import type { MediaMetaStore } from '@core/task/media-meta-store'
 import { slimTasksForBroadcast } from '@core/task/slim-task-for-broadcast'
 import type { TaskManager } from '@core/task/task-manager'
 import type { TrackerManager } from '@core/tracker'
+import type { SupportedLocale } from '@shared/constants/locales'
 import type { QueryHandlerMap } from '@shared/protocol/handler-types'
 import { Queries } from '@shared/protocol/queries'
 import { ListServerDirectoryLocationsRequestSchema } from '@shared/schemas/server-directory'
@@ -100,6 +101,7 @@ const UNSUPPORTED_APPIMAGE_INTEGRATION: AppImageIntegrationView = {
 }
 
 export interface ServerQueryContext {
+  getResolvedLanguage: () => SupportedLocale
   taskManager: TaskManager
   statsAggregator: StatsAggregator
   speedHistoryStore: SpeedHistoryStore
@@ -186,6 +188,7 @@ export function buildServerQueryHandlers(
       ctx.serverDirectoryService.validate(request),
     [Queries.GetDisclaimerState]: async () => ({
       language: settingsManager.getApp().language,
+      resolvedLanguage: ctx.getResolvedLanguage(),
     }),
 
     [Queries.GetCliToolStatus]: async () => UNSUPPORTED_WEB_CLI_STATUS,
@@ -258,7 +261,10 @@ export function buildServerQueryHandlers(
     [Queries.GetDirectoryPreferences]:
       createDirectoryPreferencesHandlers(settingsManager).get,
 
-    [Queries.GetSettings]: async () => settingsManager.get(),
+    [Queries.GetSettings]: async () => ({
+      ...settingsManager.get(),
+      resolvedLanguage: ctx.getResolvedLanguage(),
+    }),
     // A remote server cannot read the browser user's operating-system accent.
     [Queries.GetSystemAccentColor]: async () => null,
 

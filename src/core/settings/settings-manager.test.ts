@@ -1005,6 +1005,13 @@ describe('SettingsManager', () => {
       })
     })
 
+    it('persists the system preference without freezing it to a resolved locale', async () => {
+      await manager.setDisclaimerLanguage('system')
+      expect(manager.getApp().language).toBe('system')
+      const writtenJson = mockedFs.writeFile.mock.calls.at(-1)?.[1] as string
+      expect(JSON.parse(writtenJson).app.language).toBe('system')
+    })
+
     it('serializes acceptance with a concurrent disclaimer language save', async () => {
       mockedFs.writeFile.mockClear()
 

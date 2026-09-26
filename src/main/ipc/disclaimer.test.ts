@@ -27,6 +27,8 @@ function createDeps() {
   } as AppSettings
   return {
     gate: { accept: vi.fn().mockResolvedValue(undefined) },
+    getResolvedLanguage: vi.fn(() => 'en-US' as const),
+    applyLocale: vi.fn().mockResolvedValue(undefined),
     settings: {
       get: vi.fn(() => state),
       setDisclaimerLanguage: vi.fn().mockImplementation(async (language) => {
@@ -54,6 +56,7 @@ describe('disclaimer IPC', () => {
 
     await expect(handlers[Queries.GetDisclaimerState]?.()).resolves.toEqual({
       language: 'en-US',
+      resolvedLanguage: 'en-US',
     })
   })
 
@@ -68,6 +71,29 @@ describe('disclaimer IPC', () => {
     await expect(
       handlers[Commands.SetDisclaimerLanguage]?.('fr-FR')
     ).rejects.toThrow()
+  })
+
+  it('persists system preference and waits for host application', async () => {
+    const deps = createDeps()
+    const handlers = buildDisclaimerHandlers(deps)
+    await expect(
+      handlers[Commands.SetDisclaimerLanguage]?.('system')
+    ).resolves.toEqual({ ok: true })
+    expect(deps.settings.setDisclaimerLanguage).toHaveBeenCalledWith('system')
+    expect(deps.applyLocale).toHaveBeenCalledWith('system')
+    expect(
+      deps.settings.setDisclaimerLanguage.mock.invocationCallOrder[0]
+    ).toBeLessThan(deps.applyLocale.mock.invocationCallOrder[0] ?? 0)
+    await expect(handlers[Queries.GetDisclaimerState]?.()).resolves.toEqual({
+      language: 'system',
+      resolvedLanguage: 'en-US',
+    })
+    deps.applyLocale.mockRejectedValueOnce(
+      new Error('locale application failed')
+    )
+    await expect(
+      handlers[Commands.SetDisclaimerLanguage]?.('system')
+    ).rejects.toThrow('locale application failed')
   })
 
   it('persists acceptance before replacing the disclaimer with main', async () => {

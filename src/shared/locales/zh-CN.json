@@ -1265,7 +1265,8 @@
       "languageAndDisplay": "语言与显示",
       "menuBar": "菜单栏",
       "description": "主题、语言与显示",
-      "systemTray": "系统托盘"
+      "systemTray": "系统托盘",
+      "followSystem": "跟随系统"
     },
     "about": {
       "appIconAlt": "Motrix 应用图标",

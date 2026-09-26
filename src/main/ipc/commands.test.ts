@@ -1381,53 +1381,56 @@ describe('Commands.UpdateSettings', () => {
     }
   )
 
-  it('awaits locale application and permits retrying an already saved language', async () => {
-    const base = makeSettingsLike(PROXY_OFF)
-    const current = { ...base, app: { ...base.app, language: 'zh-CN' } }
-    let rejectLocale!: (error: Error) => void
-    const applyLocale = vi
-      .fn()
-      .mockImplementationOnce(
-        () =>
-          new Promise<void>((_, reject) => {
-            rejectLocale = reject
-          })
-      )
-      .mockResolvedValue(undefined)
-    const baseCtx = fakeCtx()
-    const ctx = {
-      ...baseCtx,
-      applyLocale,
-      settingsManager: { ...baseCtx.settingsManager, get: vi.fn() },
+  it.each(['zh-CN', 'system'])(
+    'awaits locale application and permits retrying saved %s',
+    async (language) => {
+      const base = makeSettingsLike(PROXY_OFF)
+      const current = { ...base, app: { ...base.app, language } }
+      let rejectLocale!: (error: Error) => void
+      const applyLocale = vi
+        .fn()
+        .mockImplementationOnce(
+          () =>
+            new Promise<void>((_, reject) => {
+              rejectLocale = reject
+            })
+        )
+        .mockResolvedValue(undefined)
+      const baseCtx = fakeCtx()
+      const ctx = {
+        ...baseCtx,
+        applyLocale,
+        settingsManager: { ...baseCtx.settingsManager, get: vi.fn() },
+      }
+      vi.mocked(ctx.settingsManager.get).mockReturnValue(current as never)
+      vi.mocked(ctx.settingsManager.update).mockResolvedValue({
+        saved: true,
+        requiresRestart: false,
+        changedRestartKeys: [],
+        requiresAppRestart: false,
+        changedAppRestartKeys: [],
+      })
+      const update = buildCommandHandlers(ctx as unknown as CommandContext)[
+        Commands.UpdateSettings
+      ]!
+      let settled = false
+      const pending = update({ app: { language } }).then((value) => {
+        settled = true
+        return value
+      })
+      await vi.waitFor(() => expect(applyLocale).toHaveBeenCalledWith(language))
+      expect(settled).toBe(false)
+      rejectLocale(new Error('locale apply failed'))
+      await expect(pending).resolves.toMatchObject({
+        saved: true,
+        applicationFailed: true,
+      })
+      await expect(update({ app: { language } })).resolves.toMatchObject({
+        saved: true,
+      })
+      expect(applyLocale).toHaveBeenCalledTimes(2)
     }
-    vi.mocked(ctx.settingsManager.get).mockReturnValue(current as never)
-    vi.mocked(ctx.settingsManager.update).mockResolvedValue({
-      saved: true,
-      requiresRestart: false,
-      changedRestartKeys: [],
-      requiresAppRestart: false,
-      changedAppRestartKeys: [],
-    })
-    const update = buildCommandHandlers(ctx as unknown as CommandContext)[
-      Commands.UpdateSettings
-    ]!
-    let settled = false
-    const pending = update({ app: { language: 'zh-CN' } }).then((value) => {
-      settled = true
-      return value
-    })
-    await vi.waitFor(() => expect(applyLocale).toHaveBeenCalledWith('zh-CN'))
-    expect(settled).toBe(false)
-    rejectLocale(new Error('locale apply failed'))
-    await expect(pending).resolves.toMatchObject({
-      saved: true,
-      applicationFailed: true,
-    })
-    await expect(update({ app: { language: 'zh-CN' } })).resolves.toMatchObject(
-      { saved: true }
-    )
-    expect(applyLocale).toHaveBeenCalledTimes(2)
-  })
+  )
 
   it('returns the canonical native directory identity for General favorite drafts', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'motrix-native-directory-'))

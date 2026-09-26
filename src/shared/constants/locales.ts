@@ -21,6 +21,13 @@ export const SUPPORTED_LOCALES = [
 ] as const satisfies readonly LocaleDefinition[]
 
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number]['code']
+export type LanguagePreference = SupportedLocale | 'system'
+
+export function isLanguagePreference(
+  value: unknown
+): value is LanguagePreference {
+  return value === 'system' || isSupportedLocale(value)
+}
 
 export const SUPPORTED_LOCALE_CODES = SUPPORTED_LOCALES.map(
   ({ code }) => code

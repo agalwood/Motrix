@@ -69,6 +69,9 @@ jobs:
           src/core/plugin/host/quick-js-worker.locale.test.ts
           src/main/ipc/events.test.ts
           src/main/ipc/disclaimer.test.ts
+          src/main/ipc/queries.test.ts
+          src/server/ipc/queries.test.ts
+          src/shared/schemas/app-settings.test.ts
           src/main/plugin/capability-host.test.ts
           src/main/plugin/host-language.test.ts
           src/main/window/window-manager.test.ts

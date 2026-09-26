@@ -2,6 +2,7 @@ import { applyRendererLocale } from '@renderer/lib/i18n'
 import { transport } from '@renderer/lib/transport'
 import {
   DEFAULT_LOCALE,
+  isSupportedLocale,
   SUPPORTED_LOCALE_CODES,
   type SupportedLocale,
 } from '@shared/constants/locales'
@@ -17,11 +18,14 @@ interface SettingsState {
   app?: LanguageState
 }
 
-function languageFromState(
+export function languageFromState(
   windowId: RendererWindowId,
   state: unknown
 ): string | undefined {
   if (!state || typeof state !== 'object') return undefined
+
+  const resolved = (state as { resolvedLanguage?: unknown }).resolvedLanguage
+  if (isSupportedLocale(resolved)) return resolved
 
   const language =
     windowId === 'onboarding'

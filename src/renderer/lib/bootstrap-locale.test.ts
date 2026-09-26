@@ -84,6 +84,19 @@ describe('bootstrapRendererLocale', () => {
     }
   )
 
+  it.each(['main', 'add-task', 'onboarding'] as const)(
+    'hydrates %s from the committed system locale',
+    async (windowId) => {
+      vi.mocked(transport.invoke).mockResolvedValue({
+        language: 'system',
+        app: { language: 'system' },
+        resolvedLanguage: 'fr',
+      })
+      await expect(bootstrapRendererLocale(windowId, '')).resolves.toBe('fr')
+      expect(document.documentElement).toHaveAttribute('lang', 'fr')
+    }
+  )
+
   it('uses the default locale when hydration fails', async () => {
     vi.mocked(transport.invoke).mockRejectedValue(new Error('unavailable'))
 
