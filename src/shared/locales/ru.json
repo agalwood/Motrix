@@ -1,0 +1,2832 @@
+{
+  "operatorUnlock": {
+    "title": "Разблокировать Motrix",
+    "help": "Для этого сервера требуется токен оператора. На хосте задайте MOTRIX_OPERATOR_TOKEN или прочитайте токен из <dataDir>/operator-token, затем вставьте его ниже.",
+    "placeholder": "Токен оператора",
+    "error": "Неверный токен оператора. Проверьте MOTRIX_OPERATOR_TOKEN или <dataDir>/operator-token на хосте и повторите попытку.",
+    "submit": "Разблокировать"
+  },
+  "operatorAdmin": {
+    "help": "Использование:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nКоманда взаимодействует только с запущенным сервером Motrix через интерфейс обратной петли контейнера.",
+    "errorPrefix": "motrix-admin: {{message}}",
+    "usageHint": "Выполните `motrix-admin --help`, чтобы узнать, как использовать команду.",
+    "pending": {
+      "none": "Нет ожидающих запросов сопряжения.",
+      "row": "{{userCode}}  {{clientName}}  {{clientVersion}}  истекает через {{ttl}}",
+      "ttl": "{{minutes}}м {{seconds}}с"
+    },
+    "decision": {
+      "approve": "Код {{userCode}} одобрен для {{clientName}} ({{clientVersion}}).",
+      "deny": "Код {{userCode}} отклонён для {{clientName}} ({{clientVersion}})."
+    },
+    "errors": {
+      "usage": {
+        "jsonRepeated": "Параметр --json можно указать только один раз.",
+        "unknownOption": "Неизвестный параметр командной строки.",
+        "pairingCommandRequired": "Ожидалась команда pairing.",
+        "pairingOperationRequired": "Ожидалась команда pairing pending, pairing approve CODE или pairing deny CODE.",
+        "pairingCodeInvalid": "Код сопряжения должен содержать восемь символов ASCII и не может включать I, O, 0 или 1.",
+        "portInvalid": "PORT должен быть целым числом от 1 до 65535."
+      },
+      "credential": {
+        "tokenHeaderInvalid": "MOTRIX_OPERATOR_TOKEN нельзя использовать в заголовке HTTP.",
+        "dataDirNotAbsolute": "MOTRIX_DATA_DIR должен быть абсолютным путём.",
+        "unavailable": "Учётные данные оператора недоступны. Задайте MOTRIX_OPERATOR_TOKEN или убедитесь, что файл operator-token существует в папке данных.",
+        "notFile": "Путь к учётным данным оператора не указывает на обычный файл.",
+        "unreadable": "Не удалось прочитать учётные данные оператора.",
+        "invalid": "Файл учётных данных оператора некорректен.",
+        "rejected": "Motrix отклонил учётные данные оператора."
+      },
+      "server": {
+        "responseUnreadable": "Motrix вернул ответ, который невозможно прочитать.",
+        "responseOversized": "Motrix вернул слишком большой ответ.",
+        "responseInvalidJson": "Motrix вернул некорректный ответ JSON.",
+        "rpcHttp": "Запрос RPC сопряжения Motrix завершился ошибкой HTTP {{status}}.",
+        "approvalUnavailable": "Подтверждение сопряжения недоступно на запущенном сервере Motrix.",
+        "pendingResponseInvalid": "Motrix вернул некорректный ответ об ожидающем сопряжении.",
+        "decisionOutcomeUnknown": "Результат решения о сопряжении неизвестен. Перед повторной попыткой выполните pairing pending.",
+        "decisionResponseInvalid": "Motrix вернул некорректный ответ на решение о сопряжении.",
+        "requestNoLongerPending": "Запрос сопряжения больше не ожидает решения.",
+        "noMatchingRequest": "Нет ожидающих запросов сопряжения с кодом {{userCode}}.",
+        "ambiguousRequest": "Коду {{userCode}} соответствует несколько ожидающих запросов сопряжения; решение не применено.",
+        "unexpected": "Непредвиденная ошибка motrix-admin."
+      },
+      "unavailable": {
+        "loopback": "Запущенный сервер Motrix недоступен через интерфейс обратной петли контейнера.",
+        "approvalNotReady": "Подтверждение сопряжения ещё не готово на запущенном сервере Motrix."
+      }
+    }
+  },
+  "common": {
+    "clearSearch": "Очистить поиск",
+    "download": "Скачать",
+    "cancel": "Отмена",
+    "save": "Сохранить",
+    "close": "Закрыть",
+    "loading": "Загрузка…",
+    "name": "Название:",
+    "error": "Ошибка",
+    "remove": "Удалить",
+    "collapse": "Свернуть",
+    "apply": "Применить",
+    "confirm": "Подтвердить",
+    "status": {
+      "finalizing": "Завершение…"
+    },
+    "reset": "Сбросить",
+    "retry": "Повторить",
+    "showPassword": "Показать пароль",
+    "hidePassword": "Скрыть пароль"
+  },
+  "quit": {
+    "confirm": {
+      "message_one": "Ещё выполняется {{count}} загрузка.",
+      "message_other": "Ещё выполняется {{count}} загрузки.",
+      "message_few": "Ещё выполняются {{count}} загрузки.",
+      "message_many": "Ещё выполняется {{count}} загрузок.",
+      "detail": "При выходе загрузки будут приостановлены. Вы уверены, что хотите выйти?",
+      "quitButton": "Выйти",
+      "dontAskAgain": "Больше не спрашивать"
+    }
+  },
+  "nav": {
+    "dashboard": "Обзор",
+    "downloads": "Загрузки",
+    "completed": "Завершённые",
+    "trackers": "Трекеры",
+    "plugins": "Плагины",
+    "notifications": "Уведомления",
+    "settings": "Настройки"
+  },
+  "chrome": {
+    "minimize": "Свернуть",
+    "maximize": "Развернуть",
+    "restore": "Восстановить",
+    "close": "Закрыть",
+    "toggleSidebar": "Показать или скрыть боковую панель",
+    "newTask": "Новая задача",
+    "sidebarTitle": "Боковая панель",
+    "sidebarDescription": "Навигация по приложению."
+  },
+  "tray": {
+    "newTask": "Новая задача",
+    "newTorrentTask": "Новая торрент-задача",
+    "openTorrentFile": "Открыть торрент-файл",
+    "showMotrix": "Показать Motrix",
+    "manual": "Руководство",
+    "checkUpdates": "Проверить обновления",
+    "preferences": "Настройки",
+    "quit": "Выйти"
+  },
+  "panel": {
+    "connection": {
+      "polling": "Периодические обновления",
+      "reconnecting": "Повторное подключение к серверу…",
+      "unavailable": "Сервер недоступен",
+      "originMismatch": "Несоответствие адреса доступа"
+    },
+    "dashboard": {
+      "title": "Обзор",
+      "engine": {
+        "title": "Движок",
+        "features": "Возможности",
+        "startFailed": "Не удалось запустить движок aria2",
+        "state": {
+          "ready": "Готов",
+          "starting": "Запуск…",
+          "reconnecting": "Повторное подключение…",
+          "failed": "Ошибка",
+          "disconnected": "Отключён",
+          "stopped": "Остановлен"
+        },
+        "name": "Aria2",
+        "version": "Версия",
+        "rpcPort": "Порт RPC",
+        "listenPort": "Порт приёма подключений",
+        "diagnostics": {
+          "title": "Диагностика движка",
+          "description": "Проверьте движок, определите процесс, занимающий порт RPC Motrix, и безопасно восстановите работу.",
+          "open": "Диагностика",
+          "checking": "Проверка движка…",
+          "runAgain": "Проверить снова",
+          "loadFailed": "Не удалось запустить диагностику движка.",
+          "currentStatus": "Текущее состояние",
+          "lastChecked": "Проверено в {{time}}",
+          "checks": {
+            "binary": "Движок",
+            "features": "Возможности",
+            "rpc": "Порт RPC",
+            "process": "Процесс",
+            "communication": "Подключение"
+          },
+          "binary": {
+            "available": "{{name}} {{version}}",
+            "unavailable": "{{name}} отсутствует или не запускается."
+          },
+          "features": {
+            "none": "Не сообщены",
+            "unavailable": "Недоступны"
+          },
+          "rpc": {
+            "listening": "{{port}} (принимает подключения)",
+            "available": "{{port}} (свободен)",
+            "occupied": "{{port}} (занят)"
+          },
+          "process": {
+            "none": "Нет конфликта портов",
+            "unidentified": "Не определён; не будет остановлен",
+            "current_app": "PID {{pid}} ({{name}}), управляется Motrix",
+            "verified_orphan": "PID {{pid}} ({{name}}), подтверждён оставшийся процесс Motrix; можно безопасно остановить",
+            "external_aria2": "PID {{pid}} ({{name}}), принадлежность не подтверждена; не будет остановлен",
+            "other": "PID {{pid}} ({{name}}), принадлежность не подтверждена; не будет остановлен",
+            "unknown": "PID {{pid}}, не определён; не будет остановлен"
+          },
+          "communication": {
+            "ready": "Motrix может взаимодействовать с aria2."
+          },
+          "reason": {
+            "port_in_use": "Порт RPC Motrix занят, поэтому не удалось запустить движок aria2.",
+            "binary_unavailable": "Встроенный исполняемый файл aria2 отсутствует или недоступен.",
+            "spawn_failed": "Не удалось создать процесс aria2.",
+            "rpc_unavailable": "Движок aria2 запущен, но не принимает RPC-подключения Motrix.",
+            "unexpected_exit": "Процесс aria2 неожиданно завершился.",
+            "health_check_failed": "aria2 перестал отвечать Motrix.",
+            "unknown": "Не удалось запустить движок aria2 по неизвестной причине."
+          },
+          "recommendation": {
+            "title": "Рекомендуемый способ восстановления",
+            "retry": "Порт свободен. Повторите запуск aria2 без изменения настроек.",
+            "force_terminate": "Подтверждено, что этот процесс принадлежит Motrix. Принудительно остановите процесс с PID {{pid}}, затем перезапустите aria2 на порту RPC Motrix {{rpcPort}}.",
+            "switch_port": "Этот процесс нельзя безопасно завершить. Используйте порт {{port}} только как запасной вариант или самостоятельно закройте конфликтующий процесс."
+          },
+          "technicalDetails": "Технические сведения",
+          "retry": "Повторить",
+          "restart": "Перезапустить движок",
+          "switchPort": "Использовать порт {{port}}",
+          "forceRecover": "Принудительно остановить и восстановить",
+          "recovered": "Движок aria2 снова доступен.",
+          "recoveredOnPort": "Движок aria2 восстановлен на порту RPC {{port}}.",
+          "recoveryFailed": "Не удалось восстановить движок. Запустите диагностику снова, чтобы узнать текущее состояние.",
+          "fallback": {
+            "available": "Порт Motrix по умолчанию {{port}} свободен. Его можно восстановить сейчас.",
+            "verifiedOrphan": "Порт по умолчанию {{port}} занят оставшимся процессом aria2 (PID {{pid}}), принадлежность которого Motrix подтверждена. Motrix может безопасно остановить его перед восстановлением порта.",
+            "blocked": "Порт по умолчанию {{port}} занят процессом с PID {{pid}} ({{name}}), но Motrix не может подтвердить его принадлежность. Процесс не будет завершён.",
+            "unidentified": "Не удалось определить процесс, занимающий порт по умолчанию {{port}}. Motrix продолжит использовать текущий порт.",
+            "restore": "Восстановить порт Motrix по умолчанию {{port}}",
+            "restoring": "Восстановление порта Motrix по умолчанию {{port}}…",
+            "restoredDefault": "Порт RPC Motrix по умолчанию {{port}} восстановлен.",
+            "confirm": {
+              "title": "Остановить оставшийся процесс и восстановить порт {{port}}?",
+              "description": "Подтверждено, что процесс с PID {{pid}} — это оставшийся процесс aria2, принадлежащий Motrix. Он будет остановлен, порт по умолчанию {{port}} будет сохранён, а aria2 перезапущен.",
+              "action": "Остановить и восстановить порт {{port}}"
+            }
+          },
+          "confirmForce": {
+            "title": "Принудительно остановить оставшийся процесс aria2?",
+            "description": "Процесс с PID {{pid}} соответствует встроенному исполняемому файлу Motrix, закрытому секрету RPC и путям данных. Он будет немедленно завершён, затем aria2 перезапустится на порту RPC Motrix.",
+            "action": "Принудительно остановить и восстановить"
+          },
+          "details": "Подробности диагностики",
+          "versionUnknown": "Версия недоступна",
+          "copy": "Скопировать данные диагностики",
+          "copied": "Скопировано",
+          "copyFailed": "Не удалось скопировать данные диагностики. Повторите попытку.",
+          "refreshFailed": "Не удалось обновить диагностику. Ниже показан последний успешно созданный отчёт.",
+          "summary": {
+            "ready": "Движок загрузок работает нормально",
+            "starting": "Движок загрузок запускается",
+            "restarting": "Восстановление движка загрузок",
+            "stopped": "Движок загрузок остановлен",
+            "port_in_use": "Порт управления движком занят",
+            "binary_unavailable": "Движок загрузок недоступен",
+            "spawn_failed": "Не удалось запустить движок загрузок",
+            "rpc_unavailable": "Управляющее соединение с движком недоступно",
+            "unexpected_exit": "Движок загрузок неожиданно завершился",
+            "health_check_failed": "Движок загрузок перестал отвечать",
+            "unknown": "Движок загрузок недоступен"
+          },
+          "impact": {
+            "failed": "Управление загрузками недоступно. Состояние задач может быть устаревшим.",
+            "connecting": "Управление загрузками станет доступно, когда движок будет готов.",
+            "stopped": "Запустите движок, чтобы начать загрузку или управлять задачами."
+          },
+          "runtime": {
+            "process": "Процесс",
+            "running": "Запущен",
+            "notRunning": "Не запущен",
+            "connection": "Подключение",
+            "connected": "Подключено",
+            "connecting": "Подключение…",
+            "disconnected": "Нет подключения",
+            "unavailable": "Недоступно",
+            "connectionStatus": "{{transport}} ({{status}})"
+          },
+          "port": {
+            "available": "{{port}} (свободен)",
+            "listening": "{{port}} (принимает подключения)",
+            "occupied": "{{port}} (занят)"
+          },
+          "motrixEngine": "aria2 Motrix",
+          "transport": {
+            "websocket": "WebSocket"
+          }
+        }
+      },
+      "speed": {
+        "up": "ОТДАЧА",
+        "down": "ЗАГРУЗКА",
+        "peak": "Пик {{value}}",
+        "offline": "нет связи"
+      },
+      "speedUp": {
+        "title": "Скорость отдачи"
+      },
+      "speedDown": {
+        "title": "Скорость загрузки"
+      },
+      "active": {
+        "title": "Активные задачи",
+        "downloading": "Загрузка",
+        "seeding": "Раздача",
+        "waiting": "Ожидание",
+        "error": "Ошибка",
+        "engineOffline": "нет связи с движком"
+      },
+      "transfer": {
+        "title": "Передача данных",
+        "rangeLabel": "Период передачи данных",
+        "scope": {
+          "today": "Сегодня",
+          "allTime": "За всё время"
+        },
+        "download": "Скачано",
+        "upload": "Отдано",
+        "sinceTime": "С {{time}}",
+        "sinceDate": "С {{date}}",
+        "empty": {
+          "today": "Сегодня передача данных не зафиксирована.",
+          "allTime": "Передача данных ещё не зафиксирована."
+        },
+        "loading": "Загрузка статистики передачи данных",
+        "unavailable": "Статистика передачи данных недоступна",
+        "retry": "Повторить",
+        "updated": "Обновлено {{time}}",
+        "outOfDate": "Данные могут быть устаревшими",
+        "totalLabel": "Общий объём передачи данных ({{scope}}): {{value}}"
+      },
+      "activity": {
+        "title": "Активность",
+        "loading": "Загрузка активности",
+        "unavailable": "Активность недоступна",
+        "retry": "Повторить",
+        "stale": "Данные об активности могут быть устаревшими",
+        "coverageDegraded": "Данные об активности могут быть неполными с {{time}}",
+        "rangeSummary": "Активность загрузок с {{start}} по {{end}} (недель: {{weeks}})",
+        "completedIntensity": "Интенсивность цвета показывает количество завершённых загрузок",
+        "less": "Меньше",
+        "more": "Больше",
+        "weekday": {
+          "sun": "Вс",
+          "mon": "Пн",
+          "tue": "Вт",
+          "wed": "Ср",
+          "thu": "Чт",
+          "fri": "Пт",
+          "sat": "Сб"
+        },
+        "tooltip": {
+          "completed": "Завершено: {{count}}",
+          "submitted": "Добавлено: {{count}}",
+          "recovered": "Включает завершение, обнаруженное при восстановлении",
+          "recoveredCount": "Восстановлено: {{count}}",
+          "untracked": "Учёт ещё не вёлся",
+          "noData": "Нет данных об активности",
+          "noDataOnDate": "Нет данных об активности за {{date}}",
+          "completedOnDate": "Завершено за {{date}}: {{count}}",
+          "partial": "Начало учёта: {{time}}",
+          "partialShort": "Неполный день",
+          "coverage": "Данные могут быть неполными с {{time}}",
+          "coverageShort": "Данные могут быть неполными",
+          "today": "Сегодня, данные ещё обновляются"
+        }
+      },
+      "tasks": {
+        "title": "Задачи",
+        "viewLabel": "Вид задач",
+        "view": {
+          "active": "Активные",
+          "failed": "С ошибкой",
+          "recent": "Недавние"
+        },
+        "newTask": "Новая задача",
+        "more": "Ещё: +{{count}}",
+        "loading": "Загрузка задач",
+        "unavailable": "Задачи недоступны",
+        "retry": "Повторить",
+        "empty": {
+          "active": "Нет активных задач",
+          "failed": "Нет задач с ошибкой",
+          "recent": "Пока ничего не завершено"
+        },
+        "offline": "Нет связи с движком",
+        "metric": {
+          "fetching": "Получение метаданных",
+          "ready": "Готово",
+          "finalizing": "Завершение",
+          "queued": "В очереди",
+          "paused": "Приостановлено"
+        },
+        "secondary": {
+          "metadata": "Получение метаданных",
+          "chooseFiles": "Ожидание выбора файлов",
+          "finalizing": "Завершение загрузки",
+          "waiting": "Ожидание запуска",
+          "eta": "Осталось: {{time}}",
+          "ratio": "Коэффициент {{ratio}}",
+          "saved": "Сохранено {{percent}}%",
+          "offline": "Нет связи (последний известный прогресс)",
+          "completed": "Завершено {{time}}",
+          "failed": "Ошибка: {{reason}}",
+          "technicalDetail": "Технические сведения: {{detail}}"
+        },
+        "progressLabel": "Прогресс: {{name}}"
+      },
+      "configure": {
+        "action": "Настроить",
+        "addTile": "Добавить",
+        "addTitle": "Добавить виджет",
+        "apply": "Применить",
+        "cancel": "Отмена",
+        "reset": "Сбросить",
+        "drag": "Перетащить виджет",
+        "removeTile": "Удалить виджет",
+        "resizeTile": "Изменить размер виджета",
+        "sizeGroup": "Размер виджета",
+        "size": "{{width}} × {{height}}",
+        "currentSize": "Текущий размер: {{width}} × {{height}}",
+        "invalidCapacity": "Недостаточно места для этого размера",
+        "availabilityHints": {
+          "space": "Уменьшите или удалите другой виджет.",
+          "bounds": "Сначала переместите виджет ближе к центру.",
+          "unsupported": "Выберите поддерживаемый размер."
+        },
+        "sizeLabels": {
+          "compact": "Компактный",
+          "wide": "Широкий",
+          "tall": "Высокий",
+          "large": "Большой",
+          "fullWidth": "Во всю ширину",
+          "fullHeight": "Во всю высоту"
+        },
+        "sizeUnavailable": {
+          "unsupported": "Не поддерживается",
+          "outOfBounds": "Не помещается",
+          "insufficientSpace": "Недостаточно места"
+        },
+        "presets": {
+          "action": "Готовые макеты",
+          "custom": "Свой макет",
+          "undo": "Отменить последний выбранный макет",
+          "balanced": {
+            "title": "Сбалансированный"
+          },
+          "taskFocus": {
+            "title": "Акцент на задачах"
+          },
+          "speedFocus": {
+            "title": "Акцент на скорости"
+          },
+          "compact": {
+            "title": "Компактный"
+          }
+        },
+        "saveFailed": "Не удалось сохранить макет. Повторите попытку.",
+        "expandHint": "Увеличьте окно, чтобы настроить макет обзора."
+      },
+      "errors": {
+        "tileFailed": "{{tile}}: не удалось отобразить",
+        "retry": "Повторить"
+      },
+      "speedLimit": {
+        "title": "Лимит скорости",
+        "unlimited": "Без ограничений",
+        "smart": "Автоматически",
+        "settings": "Настройки лимитов скорости",
+        "turtle": {
+          "off": "Стандартный режим",
+          "on": "Режим низкой скорости",
+          "auto": "Автоматический режим"
+        },
+        "tooltip": {
+          "off": "Использовать стандартные лимиты скорости",
+          "on": "Использовать лимиты низкой скорости сейчас",
+          "auto": "Автоматически регулировать скорость по расписанию и пропускной способности"
+        },
+        "reason": {
+          "base": "Стандартный лимит",
+          "turtle": "Режим низкой скорости",
+          "schedule": "Расписание",
+          "videoApp": "Видеоприложение",
+          "adaptive": "Резерв пропускной способности"
+        }
+      },
+      "nat": {
+        "title": "NAT",
+        "compact": {
+          "state": {
+            "active": "Порты проброшены",
+            "settingUp": "Проброс портов",
+            "failed": "Проброс портов",
+            "off": "Выключено"
+          },
+          "caption": {
+            "active_one": "{{count}} порт",
+            "active_other": "{{count}} порта",
+            "active_few": "{{count}} порта",
+            "active_many": "{{count}} портов",
+            "settingUp": "Подключение…",
+            "failed": "Недоступно",
+            "off": "BT / DHT",
+            "waiting": "Загрузка…"
+          }
+        },
+        "internalIp": "Локальный IP",
+        "gatewayIp": "Маршрутизатор",
+        "caption": {
+          "off": "Проброс портов BT выключен.",
+          "settingUp": "Подключение к маршрутизатору…",
+          "failed": "Автоматический проброс портов недоступен.",
+          "waiting": "Ожидание состояния сети…"
+        },
+        "mappingDetails": "Проброшенные порты",
+        "mappingPurpose": {
+          "bt-listen": "BitTorrent",
+          "dht-listen": "DHT"
+        },
+        "portMapping": "Внутренний порт {{internal}} на внешний {{external}}",
+        "noMappings": "Нет активных правил проброса портов.",
+        "state": {
+          "active": "Активно",
+          "settingUp": "Инициализация",
+          "failed": "Ошибка",
+          "off": "Выключено"
+        },
+        "retrying": "Повторная попытка {{attempt}}/{{max}}",
+        "type": "Тип",
+        "externalIp": "Внешний IP",
+        "mappings": "Правила проброса",
+        "mappingsValue_one": "{{count}} активное",
+        "mappingsValue_other": "{{count}} активного",
+        "mappingsValue_few": "{{count}} активных",
+        "mappingsValue_many": "{{count}} активных",
+        "health": "Состояние",
+        "healthScore": {
+          "good": "Хорошее",
+          "fair": "Среднее",
+          "poor": "Плохое",
+          "unknown": "—"
+        },
+        "natType": {
+          "open": "Открытый",
+          "fullcone": "Полный конус",
+          "restricted": "Ограниченный",
+          "port-restricted": "Ограниченный по порту",
+          "symmetric": "Симметричный",
+          "blocked": "Заблокированный",
+          "unknown": "Неизвестный"
+        },
+        "lastCheck": "Последняя проверка",
+        "lastCheckNever": "Никогда",
+        "actions": {
+          "group": "Управление NAT",
+          "enable": "Включить NAT",
+          "disable": "Выключить NAT",
+          "remap": "Повторить проброс принудительно",
+          "diagnose": "Запустить диагностику",
+          "troubleshoot": "Руководство по устранению неполадок NAT",
+          "short": {
+            "enable": "Включить",
+            "disable": "Выключить",
+            "remap": "Повторить проброс",
+            "diagnose": "Диагностика",
+            "help": "Справка"
+          },
+          "settings": "Настройки NAT"
+        },
+        "rateLimited": "Слишком частые запросы — повторите попытку чуть позже",
+        "none": "—"
+      }
+    },
+    "completed": {
+      "title": "Завершённые",
+      "desc": "Завершённые задачи загрузки"
+    },
+    "trackers": {
+      "title": "Трекеры",
+      "desc": "Управляйте состоянием трекеров и подписками",
+      "tab": {
+        "effective": "Используемые",
+        "blacklist": "Чёрный список"
+      },
+      "searchPlaceholder": "Фильтр по URL…",
+      "syncNow": "Синхронизировать сейчас"
+    },
+    "downloads": {
+      "title": "Загрузки",
+      "heading": {
+        "all": "Все загрузки",
+        "active": "Активные загрузки",
+        "completed": "Завершённые загрузки",
+        "error": "Загрузки с ошибкой"
+      },
+      "status": {
+        "queued": "В очереди",
+        "fetchingMetadata": "Получение метаданных",
+        "metadataReady": "Ожидание выбора файлов",
+        "downloading": "Загрузка",
+        "finalizing": "Завершение",
+        "seeding": "Раздача",
+        "paused": "Приостановлено",
+        "completed": "Завершено",
+        "error": "Ошибка"
+      },
+      "column": {
+        "name": "Имя",
+        "size": "Размер",
+        "progress": "Прогресс",
+        "down": "Скорость загрузки",
+        "up": "Скорость отдачи",
+        "eta": "Осталось",
+        "connections": "Пиры",
+        "status": "Состояние",
+        "createdAt": "Дата создания",
+        "finishedAt": "Дата завершения"
+      },
+      "columnHeader": {
+        "down": "Загрузка",
+        "up": "Отдача"
+      },
+      "timestamp": {
+        "notRecorded": "Не записано",
+        "notCompleted": "Ещё не завершено",
+        "relativeDateTime": "{{date}}, {{time}}"
+      },
+      "sort": {
+        "down": "Скорость загрузки",
+        "up": "Скорость отдачи",
+        "asc": "{{column}}: по возрастанию",
+        "desc": "{{column}}: по убыванию",
+        "sortAscending": "Сортировать по возрастанию: {{column}}",
+        "sortDescending": "Сортировать по убыванию: {{column}}",
+        "reset": "Восстановить порядок по умолчанию"
+      },
+      "empty": {
+        "noTasks": "Пока нет загрузок",
+        "noTasksCta": "Нажмите +, чтобы добавить загрузку",
+        "noMatchFilter": "Нет задач, соответствующих фильтру",
+        "noMatchSearch": "Нет задач по запросу «{{query}}»",
+        "clearSearch": "Очистить поиск",
+        "unavailable": "Задачи недоступны",
+        "motion": {
+          "open": "Настроить движение стекла",
+          "title": "Движение стекла",
+          "description": "Предпросмотр для разработчиков",
+          "enabled": "Эффекты движения",
+          "enabledDesc": "Синхронизировано с настройкой Внешний вид → Уменьшить движение. Изменения сохраняются сразу.",
+          "systemReducedMotion": "Движение отключено системной настройкой уменьшения движения.",
+          "saveFailed": "Не удалось сохранить настройку движения. Повторите попытку.",
+          "loadFade": "Плавное появление при загрузке",
+          "breathing": "Пульсирующий свет",
+          "pointerFollow": "Следовать за указателем",
+          "positionConstraint": "Ограничение положения гравитации",
+          "horizontalSpeed": "Горизонтальная скорость"
+        }
+      },
+      "stats": {
+        "downSpeed": "Скорость загрузки",
+        "upSpeed": "Скорость отдачи",
+        "engineOk": "Движок готов",
+        "engineStarting": "Движок запускается",
+        "engineOffline": "Нет связи с движком",
+        "natActive": "Порты NAT проброшены",
+        "natActiveDesc": "Помогает другим пирам BT подключаться к вам.",
+        "natSettingUp": "Проброс портов NAT",
+        "natRetrying": "Автоматические повторные попытки ({{attempt}}/{{max}})",
+        "natMapping": "Проброс портов NAT",
+        "natUnavailable": "Автоматический проброс портов недоступен",
+        "natUnavailableDesc": "Не влияет на загрузки по ссылкам. Подключения BT могут быть ограничены.",
+        "natRetry": "Повторить",
+        "natDisable": "Выключить проброс портов NAT",
+        "natSettings": "Настройки сети",
+        "natHelp": "Руководство по сети"
+      },
+      "tab": {
+        "all": "Все",
+        "active": "Активные",
+        "completed": "Завершённые",
+        "error": "Ошибки"
+      },
+      "inspector": {
+        "overview": {
+          "transfer": "Передача данных",
+          "progress": "Прогресс",
+          "network": "Сеть",
+          "general": "Общие",
+          "createdAt": "Создано",
+          "finishedAt": "Завершено",
+          "downSpeed": "Скорость загрузки",
+          "upSpeed": "Скорость отдачи",
+          "eta": "Осталось",
+          "downloaded": "Скачано",
+          "totalSize": "Общий размер",
+          "percent": "Процент",
+          "peers": "Пиры",
+          "seeds": "Сиды",
+          "ratio": "Коэффициент",
+          "type": "Тип",
+          "infoHash": "Инфо-хеш",
+          "private": "Приватный",
+          "connections": "Подключения",
+          "uploaded": "Отдано",
+          "seedingTime": "Время раздачи",
+          "seedingRecordedSince": "Учёт ведётся с {{date}}. Время пауз и отсутствия связи не учитывается; более ранняя история раздачи недоступна.",
+          "seedingUnavailable": "Время раздачи для этой задачи не записывалось."
+        },
+        "activity": {
+          "transferTitle": {
+            "session": "Передача за сеанс",
+            "lifetime": "Передача за всё время"
+          },
+          "download": "Загрузка",
+          "upload": "Отдача",
+          "loading": "Загрузка активности…",
+          "collecting": "Сбор данных о передаче…",
+          "noSessionHistory": "В текущем сеансе приложения передача данных не зафиксирована.",
+          "lifetimeEmpty": "Полная история пока недоступна.",
+          "noTraffic": "Сейчас нет сетевой активности.",
+          "unavailable": "Активность за всё время недоступна.",
+          "coverageGap": "Учёт был прерван.",
+          "retry": "Повторить",
+          "notAvailable": "Недоступно",
+          "stale": {
+            "short": "Устаревшие данные.",
+            "message": "Данные могут быть устаревшими. Последнее обновление: {{time}}."
+          },
+          "range": {
+            "label": "Период передачи данных",
+            "session": "Сеанс (60 с)",
+            "lifetime": "За всё время",
+            "latest": "Последние 60 секунд",
+            "adaptive_one": "Адаптивное разрешение · {{count}} отсчёт",
+            "adaptive_other": "Адаптивное разрешение · {{count}} отсчёта",
+            "adaptive_few": "Адаптивное разрешение · {{count}} отсчёта",
+            "adaptive_many": "Адаптивное разрешение · {{count}} отсчётов"
+          },
+          "timeline": {
+            "title": "История задачи",
+            "current": "Сейчас: {{status}}",
+            "cluster_one": "+{{count}} событие",
+            "cluster_other": "+{{count}} события",
+            "cluster_few": "+{{count}} события",
+            "cluster_many": "+{{count}} событий",
+            "repeated": "{{label}} ×{{count}}",
+            "truncated_one": "Из ранней истории удалено {{count}} событие",
+            "truncated_other": "Из ранней истории удалено {{count}} события",
+            "truncated_few": "Из ранней истории удалено {{count}} события",
+            "truncated_many": "Из ранней истории удалено {{count}} событий",
+            "truncatedAt": "Первое сокращение истории: {{time}}",
+            "timeRange": "{{start}}–{{end}}",
+            "detailTitle": "Подробности: {{label}}",
+            "destination": "{{event}}: {{status}}",
+            "previous": "Показать предыдущие события на временной шкале",
+            "next": "Показать следующие события на временной шкале",
+            "event": {
+              "added": "Добавлено",
+              "started": "Запущено",
+              "paused": "Приостановлено",
+              "resumed": "Возобновлено",
+              "stage_changed": "Этап изменён",
+              "completed": "Завершено",
+              "failed": "Ошибка",
+              "observed_state": "Состояние восстановлено"
+            },
+            "status": {
+              "queued": "В очереди",
+              "fetching_metadata": "Получение метаданных",
+              "metadata_ready": "Метаданные готовы",
+              "downloading": "Загрузка",
+              "finalizing": "Завершение",
+              "seeding": "Раздача",
+              "paused": "Приостановлено",
+              "completed": "Завершено",
+              "error": "Ошибка",
+              "removed": "Удалено из списка"
+            }
+          },
+          "summary": {
+            "title": "Текущая сводка",
+            "average": "Средняя",
+            "averageExpanded": "Средняя скорость загрузки",
+            "peak": "Пиковая",
+            "peakExpanded": "Пиковая скорость загрузки",
+            "active": "Активное время",
+            "activeExpanded": "Время активной передачи"
+          },
+          "chart": {
+            "accessibleSummary": "{{range}} с {{start}} по {{end}}. Последняя скорость загрузки: {{download}}, отдачи: {{upload}}. За всё время: средняя скорость загрузки {{average}}, пиковая {{peak}}, активное время {{activeDuration}}. {{sampleLabel}}. {{state}}",
+            "activeSeconds_one": "{{count}} секунда",
+            "activeSeconds_other": "{{count}} секунды",
+            "activeSeconds_few": "{{count}} секунды",
+            "activeSeconds_many": "{{count}} секунд",
+            "sampleCount_one": "{{count}} отсчёт",
+            "sampleCount_other": "{{count}} отсчёта",
+            "sampleCount_few": "{{count}} отсчёта",
+            "sampleCount_many": "{{count}} отсчётов",
+            "noDataQualityIssues": "Нет предупреждений об учёте."
+          }
+        },
+        "pieces": {
+          "mapLabel": "Карта частей загрузки",
+          "legend": {
+            "done": "Завершено",
+            "active": "Загружается",
+            "endgame": "Финальная стадия",
+            "pending": "Ожидание"
+          },
+          "empty": "Нет данных о частях",
+          "pieceLength": "Размер части",
+          "totalPieces": "Всего частей"
+        },
+        "peers": {
+          "summary_one": "Пиры: {{count}} (сиды: {{seeders}})",
+          "summary_other": "Пиры: {{count}} (сиды: {{seeders}})",
+          "summary_few": "Пиры: {{count}} (сиды: {{seeders}})",
+          "summary_many": "Пиры: {{count}} (сиды: {{seeders}})",
+          "empty": "Нет подключённых пиров",
+          "col": {
+            "country": "Местоположение",
+            "endpoint": "IP : Порт",
+            "client": "Клиент",
+            "down": "↓",
+            "up": "↑",
+            "progress": "%",
+            "flags": "Флаги",
+            "flagsHint": "D = пир отправляет нам данные, U = мы отправляем данные пиру, S = пир является сидом. Подчёркивание означает отсутствие активности."
+          }
+        },
+        "trackers": {
+          "summary_one": "{{count}} трекер",
+          "summary_other": "{{count}} трекера",
+          "summary_few": "{{count}} трекера",
+          "summary_many": "{{count}} трекеров",
+          "driftSuffix_one": "{{count}} вне общего списка",
+          "driftSuffix_other": "{{count}} вне общего списка",
+          "driftSuffix_few": "{{count}} вне общего списка",
+          "driftSuffix_many": "{{count}} вне общего списка",
+          "privateBanner": "Приватный торрент — общие трекеры не будут добавлены.",
+          "empty": "Нет трекеров",
+          "loadFailed": "Не удалось загрузить трекеры: {{reason}}",
+          "action": {
+            "edit": "Изменить",
+            "save": "Сохранить",
+            "cancel": "Отмена",
+            "sync": "Синхронизировать",
+            "delete": "Удалить трекер"
+          },
+          "syncPrivateDisabled": "Синхронизация недоступна для приватных торрентов.",
+          "saveFailed": "Не удалось обновить трекеры: {{reason}}",
+          "syncFailed": "Не удалось синхронизировать трекеры: {{reason}}",
+          "deleteFailed": "Не удалось удалить трекер: {{reason}}",
+          "invalidLines_one": "Пропущена {{count}} некорректная строка",
+          "invalidLines_other": "Пропущено {{count}} некорректной строки",
+          "invalidLines_few": "Пропущены {{count}} некорректные строки",
+          "invalidLines_many": "Пропущено {{count}} некорректных строк",
+          "editPlaceholder": "Один URL трекера на строку. Только http(s)/udp/ws(s).",
+          "editHint": "Эти трекеры заменяют действующий список bt-tracker задачи. Записи announce-list из файла .torrent остаются без изменений."
+        },
+        "multi": {
+          "totals": "Итоги",
+          "liveSpeed": "Текущая скорость",
+          "statusDist": "Распределение по статусам",
+          "totalSize": "Общий размер",
+          "downloaded": "Загружено",
+          "avgProgress": "Средний прогресс",
+          "combinedDown": "Всего ↓",
+          "combinedUp": "Всего ↑",
+          "longestEta": "Наибольшее оставшееся время"
+        },
+        "tab": {
+          "overview": "Обзор",
+          "files": "Файлы",
+          "pieces": "Части",
+          "peers": "Пиры",
+          "trackers": "Трекеры",
+          "activity": "Активность"
+        },
+        "placeholder": {
+          "files": "Список файлов.",
+          "peers": "Список пиров.",
+          "trackers": "Список трекеров."
+        }
+      },
+      "action": {
+        "pause": "Приостановить",
+        "queueMoveFailed": "Не удалось обновить очередь ожидания.",
+        "queueTaskStarted": "Задача больше не находится в очереди ожидания.",
+        "queueMoveHint": "Позиция в очереди определяет, какая ожидающая загрузка начнётся следующей. Сортировка столбцов сохраняется отдельно.",
+        "queueBoundary": "Выбранные задачи уже находятся на границе очереди",
+        "queueMoved": "Очередь ожидания обновлена",
+        "moveQueueDown": "Ниже в очереди",
+        "moveQueueUp": "Выше в очереди",
+        "resume": "Возобновить",
+        "retry": "Повторить",
+        "openFolder": "Открыть папку",
+        "copyUrl": "Копировать URL",
+        "copyUrls": "Копировать URL",
+        "copyPath": "Копировать путь к файлу",
+        "copied": "Скопировано в буфер обмена",
+        "copyFailed": "Не удалось скопировать в буфер обмена. Повторите попытку.",
+        "selectFilesFailed": "Не удалось открыть выбор файлов.",
+        "copyUrlFailed": "Не удалось скопировать: сведения о ссылке задачи не загрузились. Повторите попытку.",
+        "selectFiles": "Выбрать файлы",
+        "remove": "Удалить из списка",
+        "removeConfirmWithFiles": "Также удалить скачанные файлы с диска",
+        "cancel": "Отмена",
+        "batchPartial": "Успешно: {{ok}}, с ошибкой: {{failed}}",
+        "singleTaskFailed": "{{name}}: {{reason}}",
+        "stopSeeding": "Остановить раздачу",
+        "reseed": "Возобновить раздачу",
+        "retryWithDialog": "Повторить с настройками… (Alt+щелчок)",
+        "finalizingTooltip": "Задача завершается, подождите",
+        "pauseTooltipBatch": "Приостановить {{n}} из {{total}} выбранных",
+        "resumeTooltipBatch": "Возобновить {{n}} из {{total}} выбранных",
+        "retryTooltipBatch": "Повторить {{n}} из {{total}} выбранных",
+        "reseedTooltipBatch": "Возобновить раздачу для {{n}} из {{total}} выбранных",
+        "stopSeedingTooltipBatch": "Остановить раздачу для {{n}} из {{total}} выбранных",
+        "removeTooltipBatch": "Удалить из списка {{n}} из {{total}} выбранных",
+        "removeWithFilesShift": "Удерживайте Shift, чтобы также удалить файлы",
+        "removeFilesEstimate": "С диска будет удалено {{bytes}}",
+        "removeSingleTitle": "Удалить «{{name}}» из списка?",
+        "removeAll_paused_Title": "Удалить приостановленные задачи из списка ({{count}})?",
+        "removeAll_seeding_Title": "Удалить задачи на раздаче из списка ({{count}})?",
+        "removeAll_completed_Title": "Удалить завершённые задачи из списка ({{count}})?",
+        "removeAll_error_Title": "Удалить задачи с ошибкой из списка ({{count}})?",
+        "removeAll_downloading_Title": "Удалить активные задачи из списка ({{count}})?",
+        "removeMixedTitle": "Удалить задачи из списка ({{count}})?",
+        "openFile": "Открыть файл",
+        "openFileFailed": "Не удалось открыть файл",
+        "chooseFiles": "Выбрать файлы…",
+        "queueOrder": "Порядок загрузки",
+        "moveQueueTop": "В начало очереди",
+        "moveQueueBottom": "В конец очереди",
+        "copyError": "Копировать сведения об ошибке",
+        "errorReport": "{{name}}\nID задачи: {{id}}\n{{details}}"
+      },
+      "titleCount": "Показано: {{shown}} · Всего: {{total}}",
+      "type": {
+        "http": "HTTP",
+        "magnet": "Magnet",
+        "bt": "BitTorrent",
+        "ftp": "FTP",
+        "metalink": "Metalink"
+      },
+      "search": {
+        "placeholder": "Поиск загрузок",
+        "activeTypeFilters": "Фильтр по типу: {{types}}",
+        "filters": "Фильтры",
+        "resetFilters": "Сбросить фильтры",
+        "clearQuery": "Очистить поиск",
+        "activeQuery": "Поиск: {{query}}",
+        "scopeLabel": "Тип",
+        "clear": "Очистить",
+        "empty": "Нет подходящих задач",
+        "emptyHint": "Попробуйте сбросить фильтр по типу или ввести другое слово"
+      },
+      "stale": {
+        "banner": "Список задач может быть устаревшим — повторное подключение…"
+      },
+      "view": {
+        "title": "Вид списка",
+        "columns": "Столбцы",
+        "resetColumns": "Восстановить стандартные столбцы",
+        "sortBy": "Сортировать по",
+        "ascending": "По возрастанию",
+        "descending": "По убыванию",
+        "showInspector": "Показать сведения",
+        "hideInspector": "Скрыть сведения",
+        "inspector": "Сведения о задаче",
+        "resizeInspector": "Изменить размер панели сведений",
+        "selectToInspect": "Выберите задачу, чтобы просмотреть сведения о ней.",
+        "resizeColumn": "Изменить ширину столбца «{{column}}»",
+        "taskActions": "Ещё"
+      },
+      "speedLimit": {
+        "title": "Режим скорости",
+        "currentMode": "Режим скорости: {{mode}}",
+        "uploadLimit": "Ограничение отдачи: {{speed}}",
+        "downloadLimit": "Ограничение загрузки: {{speed}}",
+        "saveFailed": "Не удалось изменить режим скорости. Повторите попытку."
+      },
+      "media": {
+        "preparing": "Подготовка",
+        "decrypting": "Расшифровка",
+        "assembling": "Сборка",
+        "muxing": "Объединение",
+        "renaming": "Сохранение",
+        "stage": "Этап",
+        "downloadProgress": "Прогресс загрузки",
+        "muxProgress": "Прогресс объединения",
+        "parts": "Сегменты",
+        "partsFormat": "Сегменты: {{completed}} / {{total}}",
+        "downloadSize": "Объём загрузки",
+        "outputSize": "Размер итогового файла",
+        "downloadEta": "До конца загрузки",
+        "avgDownloadProgress": "Средний прогресс загрузки",
+        "processingTasks": "Обработка"
+      }
+    }
+  },
+  "task": {
+    "add": {
+      "title": "Новая задача",
+      "links": "Ссылки",
+      "torrent": "Торрент",
+      "urlPlaceholder": "Введите URL, magnet-ссылку или инфо-хеш BT…",
+      "dropTorrent": "Перетащите сюда файл .torrent или нажмите, чтобы выбрать",
+      "clearSelection": "Снять выделение",
+      "createFailed": "Не удалось создать задачу загрузки.",
+      "createFailedWithReason": "Не удалось создать задачу загрузки: {{reason}}",
+      "createFailedByPlugin": "Не удалось создать задачу: плагин «{{pluginId}}» остановил её ({{detail}}). Отключите этот плагин в разделе Настройки → Плагины и повторите попытку.",
+      "createFailedPathTooLong": "Не удалось создать задачу: число символов в пути назначения ({{length}}) превышает ограничение Windows ({{limit}}). Выберите более короткий путь к папке сохранения или имя файла.",
+      "parseFailed": "Не удалось прочитать торрент-файл.",
+      "urlsCount_one": "{{count}} URL",
+      "urlsCount_other": "{{count}} URL",
+      "urlsCount_few": "{{count}} URL",
+      "urlsCount_many": "{{count}} URL",
+      "urlsWithInvalid": "Корректных: {{valid}}, некорректных: {{invalid}}",
+      "validUrlCount": "Корректных: {{count}}",
+      "invalidUrlCount": "Некорректных: {{count}}",
+      "urlsLabel": "Адреса URL",
+      "advanced": "Дополнительно",
+      "filename": "Имя файла",
+      "filenameAuto": "Автоматически",
+      "split": "Подключения",
+      "userAgent": "User-Agent",
+      "referer": "Referer",
+      "cookie": "Cookie",
+      "authorization": "Authorization",
+      "allProxy": "Прокси",
+      "dlLimit": "Лимит загрузки",
+      "ulLimit": "Лимит отдачи",
+      "seedRatio": "Коэффициент раздачи",
+      "unlimited": "Без ограничений",
+      "browse": "обзор",
+      "pickPathTitle": "Выберите папку сохранения",
+      "pickPathCustom": "Свой путь",
+      "saveTo": "Сохранить в",
+      "saveDirEmpty": "Выберите папку…",
+      "changeSaveDir": "Изменить папку сохранения",
+      "created": "Задача добавлена",
+      "batchCreated": "Добавлено задач: {{count}}",
+      "createdCopy": "Добавлена отдельная копия",
+      "createdPartial": "Добавлено: {{ok}} · Не удалось: {{failed}}",
+      "torrentQueueProgress": "Торрент {{current}} из {{total}}",
+      "downloadAndContinue": "Скачать и продолжить",
+      "downloadAllTorrents": "Скачать все ({{count}})",
+      "skipTorrent": "Пропустить",
+      "queueAdvanceFailed": "Не удалось открыть следующий торрент.",
+      "duplicate": {
+        "title": "Этот торрент уже существует",
+        "active-info-hash": "Торрент {{name}} уже активен. aria2 не может одновременно выполнять две задачи с одинаковым содержимым торрента.",
+        "selection-mismatch": "Задача {{name}} использует ту же папку назначения, но другой набор файлов. Motrix не перезапишет её и не создаст переименованную копию без уведомления.",
+        "existing-files": "{{name}} уже существует в этой папке назначения, но запись задачи недоступна. Motrix не перезапишет существующие файлы.",
+        "filesOnDisk": "Файлы торрента",
+        "showExisting": "Показать существующую задачу",
+        "createCopy": "Создать отдельную копию"
+      },
+      "adding": "Добавление…",
+      "interpretedMagnet": "Обнаружена magnet-ссылка",
+      "interpretedInfoHash": "Инфо-хеш BT преобразован в magnet-ссылку",
+      "unsupportedCurl": "Невозможно точно импортировать эту команду cURL. Скопируйте URL или команду GET для Bash с поддерживаемыми параметрами.",
+      "invalidJson": "Ожидалась строка URL в JSON или массив таких строк.",
+      "interpretedJson": "Адреса URL импортированы из JSON",
+      "sourceLine": "Строка {{line}}",
+      "sourceCorrections": {
+        "useCanonicalUrl": "Использовать этот развёрнутый URL",
+        "usePathSeparators": "Считать обратные косые черты разделителями пути",
+        "encodeLiteralCharacters": "Закодировать как буквальные символы"
+      },
+      "sourceErrors": {
+        "missingScheme": "Укажите схему URL, например https://.",
+        "invalidHost": "Хост в URL отсутствует или некорректен.",
+        "invalidPort": "Некорректный порт в URL.",
+        "controlCharacter": "Удалите управляющие символы из URL.",
+        "invalidUnicode": "URL содержит некорректные символы Unicode.",
+        "ambiguousBackslash": "Обратная косая черта делает хост или путь неоднозначным. Выберите, как её интерпретировать.",
+        "invalidPercentEncoding": "После знака процента должны идти две шестнадцатеричные цифры.",
+        "credentialsInUrl": "Укажите учётные данные в полях аутентификации, а не в URL.",
+        "unsupportedProtocol": "Протокол этого URL не поддерживается для этой загрузки.",
+        "urlTooLong": "URL превышает ограничение в 16 КиБ.",
+        "tooManySources": "Введённые данные превышают допустимое количество или размер ссылок.",
+        "ambiguousStructure": "Анализатор URL изменит этот адрес. Проверьте развёрнутый URL.",
+        "unescapedCharacter": "Явно закодируйте пробелы и зарезервированные символы.",
+        "invalidMagnet": "Magnet-ссылка должна содержать поддерживаемый инфо-хеш BT в параметре xt.",
+        "mixedProtocols": "Зеркала одной загрузки должны использовать одно семейство протоколов.",
+        "unsupportedInput": "Этот формат входных данных не импортирован. Вставьте URL, поддерживаемые данные JSON или команду cURL для Bash.",
+        "unsupportedRequestOptions": "Заголовки HTTP нельзя применить к загрузке по FTP."
+      },
+      "interpretedCurl": "Команда cURL распознана",
+      "filterBy": {
+        "video": "Видео",
+        "audio": "Аудио",
+        "image": "Изображение",
+        "doc": "Документ"
+      },
+      "errors": {
+        "urlsRequired": "Требуется хотя бы один URL",
+        "saveDirRequired": "Укажите папку сохранения",
+        "noFilesSelected": "Выберите хотя бы один файл",
+        "missingSource": "Требуется торрент-файл или magnet-ссылка"
+      },
+      "selectionTimeout": {
+        "started": "Время выбора файлов истекло: загружаются все файлы из {{name}}",
+        "failed": "Не удалось автоматически запустить {{name}}. Откройте сведения о задаче, выберите файлы и повторите попытку."
+      },
+      "undoCorrection": "Отменить исправление URL",
+      "submissionUnconfirmed": "Результат не подтверждён. При повторной попытке исходный запрос будет проверен перед созданием новой задачи."
+    },
+    "detail": {
+      "peers": "Пиры: {{count}}",
+      "seeds": "Сиды: {{count}}"
+    },
+    "torrent": {
+      "column": {
+        "name": "Имя файла",
+        "type": "Тип файла",
+        "size": "Размер"
+      },
+      "fileSelected_one": "Выбран {{count}} файл",
+      "fileSelected_other": "Выбрано {{count}} файла",
+      "fileSelected_few": "Выбрано {{count}} файла",
+      "fileSelected_many": "Выбрано {{count}} файлов",
+      "selectAll": "Выбрать всё",
+      "video": "Видео",
+      "audio": "Аудио",
+      "image": "Изображение",
+      "doc": "Документ"
+    },
+    "remove": {
+      "title": "Удалить задачу из списка?",
+      "description": "Задача «{{name}}» будет удалена из списка загрузок.",
+      "deleteFilesLabel": "Удалить скачанные файлы",
+      "confirm": "Удалить",
+      "cancel": "Отмена",
+      "orphanToast": "Задача удалена из списка. Файлы сохранены в {{path}}.",
+      "notAvailableDuringFinalize": "Дождитесь завершения обработки задачи."
+    },
+    "recovery": {
+      "toast": "Восстановлено прерванных задач: {{count}}. Нажмите, чтобы просмотреть.",
+      "finalizeRenameFailed": "Не удалось переименовать файл. Скачанный файл остался с суффиксом .motrix.",
+      "reseedFailed": "Загрузка завершена, но не удалось начать раздачу.",
+      "metaMissing": "Метаданные торрента отсутствуют. Невозможно начать раздачу.",
+      "startup": {
+        "torrentMetaMissing": "Невозможно восстановить эту задачу BitTorrent: отсутствует файл метаданных .torrent. Удалите задачу из списка и добавьте её заново.",
+        "reAddFailed": "Невозможно восстановить эту задачу: движок отклонил запрос повторного добавления. Удалите задачу из списка и добавьте её заново вручную.",
+        "dirtyMetadata": "Невозможно восстановить эту задачу: отсутствуют идентификационные данные, необходимые для возобновления.",
+        "resumeCheckpointMissing": "Частично скачанный файл сохранён, но отсутствует контрольная точка возобновления. Безопасно начните загрузку заново или повторно добавьте задачу.",
+        "resumeCredentialsRequired": "Частично скачанный файл сохранён, но эта загрузка требует учётных данных запроса, которые нельзя автоматически использовать повторно.",
+        "resumePathInvalid": "Частично скачанный файл сохранён, поскольку записанный путь к итоговому файлу некорректен.",
+        "resumeSourceChanged": "Частично скачанный файл сохранён, поскольку удалённый файл изменился с начала загрузки.",
+        "resumeRangeUnsupported": "Частично скачанный файл сохранён, поскольку сервер не поддерживает безопасное возобновление с помощью запросов диапазона.",
+        "resumeValidationFailed": "Частично скачанный файл сохранён, поскольку Motrix не смог подтвердить, что удалённый файл не изменился.",
+        "mediaInterrupted": "Эта загрузка мультимедиа прервана перезапуском приложения, и её невозможно возобновить. Добавьте задачу заново, чтобы повторить попытку."
+      }
+    },
+    "error": {
+      "detail": {
+        "finalizeFailed": "Не удалось завершить загрузку: {{cause}}",
+        "recoveryFailed": "Не удалось восстановить загрузку: {{cause}}",
+        "recoveryOutputConflict": "Существуют и временный, и итоговый файл; оба сохранены для ручной проверки",
+        "filesMissing": "После перезапуска приложения файлы отсутствуют",
+        "renameFileFailed": "Не удалось переименовать файл: {{cause}}",
+        "renameDirFailed": "Не удалось переименовать папку: {{cause}}",
+        "pluginChainAborted": "Цепочка плагинов прервана: {{cause}}",
+        "magnetCleanupQuarantined": "Очистка метаданных magnet заблокирована после неудачных попыток",
+        "muxFailed": "Не удалось объединить скачанные медиапотоки",
+        "pathTooLong": "Число символов в пути: {{length}}; ограничение Windows: {{limit}}"
+      },
+      "reason": {
+        "unknown": "Не удалось скачать",
+        "notFound": "Файл не найден",
+        "unauthorized": "Требуется авторизация",
+        "networkError": "Ошибка сетевого подключения",
+        "timeout": "Время ожидания загрузки истекло",
+        "diskFull": "Диск заполнен",
+        "fileWriteError": "Не удалось записать файл",
+        "pathTooLong": "Путь к файлу слишком длинный для Windows",
+        "checksumMismatch": "Контрольная сумма файла не совпадает",
+        "tooManyRedirects": "Слишком много перенаправлений",
+        "serverError": "Сервер вернул ошибку",
+        "btMetadataFailed": "Не удалось получить метаданные торрента",
+        "btTrackerError": "Не удалось подключиться к трекеру",
+        "generic": "Не удалось скачать"
+      },
+      "hint": {
+        "diskFull": "Освободите место на диске или измените папку сохранения и повторите попытку",
+        "unauthorized": "Проверьте учётные данные или права доступа и повторите попытку",
+        "networkError": "Проверьте сетевое подключение и повторите попытку",
+        "timeout": "Проверьте скорость и стабильность подключения и повторите попытку",
+        "fileWriteError": "Проверьте права доступа к папке и свободное место на диске и повторите попытку",
+        "pathTooLong": "Сократите путь к папке сохранения или имя файла и повторите попытку",
+        "checksumMismatch": "Скачанный файл может быть повреждён; скачайте его заново для проверки",
+        "tooManyRedirects": "Исходная ссылка может быть недействительна; попробуйте другую",
+        "btMetadataFailed": "Проверьте magnet-ссылку или добавьте больше трекеров и повторите попытку"
+      }
+    }
+  },
+  "settings": {
+    "title": "Настройки",
+    "desc": "Настройте Motrix",
+    "cards": {
+      "general": {
+        "title": "Основные",
+        "desc": "Запуск, папка сохранения по умолчанию, интеграция с системой"
+      },
+      "bittorrent": {
+        "title": "BitTorrent",
+        "desc": "DHT, порты приёма подключений, трекеры, местоположение пиров"
+      },
+      "appearance": {
+        "title": "Внешний вид",
+        "desc": "Тема, язык, значок в трее"
+      },
+      "advanced": {
+        "title": "Дополнительно",
+        "desc": "RPC, сохранение в SQLite"
+      },
+      "about": {
+        "title": "О программе",
+        "desc": "Версия, обновления, исходный код и руководство"
+      },
+      "downloads": {
+        "title": "Загрузки",
+        "desc": "Одновременные загрузки, ограничения скорости, надёжность сети"
+      },
+      "network": {
+        "title": "Сеть",
+        "desc": "Прокси, DNS и NAT/UPnP"
+      },
+      "integration": {
+        "title": "Интеграция",
+        "desc": "Расширения браузера, CLI, интеграция с системой"
+      }
+    },
+    "general": {
+      "launchAtStartup": "Открывать при входе в систему",
+      "launchAtStartupDesc": "Автоматически запускать Motrix при входе в систему.",
+      "showMainWindowAtLogin": "Показывать окно при входе",
+      "showMainWindowAtLoginDesc": "Скрыто в режиме «{{mode}}».",
+      "defaultSaveDir": "Папка загрузок по умолчанию",
+      "defaultSaveDirDesc": "Новые загрузки сохраняются здесь, если для задачи не выбрана другая папка.",
+      "inAppNotifications": "Уведомления в приложении",
+      "inAppNotificationsDesc": "Выберите, какие уведомления о загрузках показывать. Служебные уведомления приложения останутся включены.",
+      "notifyInAppOnComplete": "Показывать завершённые загрузки",
+      "notifyInAppOnError": "Показывать загрузки с ошибкой",
+      "notificationBadgeStyle": "Индикатор непрочитанных",
+      "notificationBadgeCount": "Количество",
+      "notificationBadgeDot": "Точка",
+      "notificationBadgeHidden": "Скрыт",
+      "systemNotifications": "Системные уведомления",
+      "notifyOnComplete": "Уведомлять о завершении загрузки",
+      "notifyOnCompleteDesc": "Показывать системное уведомление при завершении задачи.",
+      "autofillClipboardLinks": "Вставлять ссылку из буфера обмена",
+      "autofillClipboardLinksDesc": "При открытии новой задачи вставлять ссылку из буфера обмена в пустое поле URL.",
+      "notifyOnError": "Уведомлять об ошибках",
+      "notifyOnErrorDesc": "Показывать системное уведомление об ошибке загрузки, если окно находится в фоне.",
+      "warnBeforeQuit": "Подтверждать выход",
+      "warnBeforeQuitDesc": "Спрашивать перед выходом, если загрузки ещё выполняются.",
+      "notificationBadgeDesc": "Отображается на значке центра уведомлений.",
+      "notificationOff": "Выключено",
+      "notificationSystem": "Системные уведомления",
+      "notificationInApp": "Уведомления в приложении",
+      "notificationBoth": "Оба варианта",
+      "startupAndQuitting": "Запуск и выход",
+      "runMode": "Показывать приложение",
+      "runModeStandard": "В Dock и в строке меню",
+      "runModeTray": "Только в строке меню",
+      "runModeHideTray": "Только в Dock",
+      "lightweightMode": "Экономить память при закрытом окне",
+      "lightweightModeDesc": "Загрузки продолжатся. Повторное открытие займёт больше времени, а несохранённые данные будут очищены.",
+      "notifications": "Уведомления",
+      "notificationsDesc": "Уведомления об ошибках приложения останутся включены.",
+      "downloadCompleted": "Загрузка завершена",
+      "downloadFailed": "Ошибка загрузки",
+      "description": "Запуск, выход и уведомления",
+      "desktopOnly": "Настройки запуска и уведомлений доступны в настольном приложении."
+    },
+    "appearance": {
+      "theme": "Тема",
+      "themeAuto": "Системная",
+      "themeLight": "Светлая",
+      "themeDark": "Тёмная",
+      "language": "Язык",
+      "traySpeedometer": "Показывать скорость в строке меню",
+      "traySpeedometerDesc": "Отображать скорость загрузки и отдачи рядом со значком приложения.",
+      "trayIconColor": "Цвет значка в трее",
+      "trayIconColorDesc": "Выберите цвет, который хорошо виден на системной панели.",
+      "trayIconColorAuto": "Как в теме приложения",
+      "trayIconColorLight": "Светлый значок (тёмная панель)",
+      "trayIconColorDark": "Тёмный значок (светлая панель)",
+      "reduceMotion": "Уменьшить движение",
+      "reduceMotionDesc": "Использовать меньше анимации в приложении.",
+      "liquidGlassEffect": "Liquid Glass",
+      "liquidGlassEffectDesc": "Добавить полупрозрачный стеклянный эффект панели инструментов загрузок.",
+      "liquidGlassEffectMacDesc": "Также применяется к окну в macOS 26 и новее. При изменении окно открывается заново.",
+      "runMode": "Показывать приложение",
+      "runModeStandard": "В Dock и в строке меню",
+      "runModeTray": "Только в строке меню",
+      "runModeHideTray": "Только в Dock",
+      "runModeLaunch": "При открытии Motrix",
+      "runModeStandardDesktop": "Открывать главное окно",
+      "runModeTrayDesktop": "Запускать в системном трее",
+      "runModeLinuxDesc": "Доступность системного трея и поведение при активации зависят от окружения рабочего стола.",
+      "lightweightMode": "Режим экономии памяти",
+      "lightweightModeDesc": "Экономить память при закрытом окне. Загрузки продолжатся, но повторное открытие займёт больше времени и очистит несохранённые данные.",
+      "byteUnitSystem": "Единицы размера и скорости",
+      "byteUnitSystemDesc": "Выберите, как отображать размеры файлов и скорость.",
+      "byteUnitDecimal": "Десятичные (MB, GB · 1000)",
+      "byteUnitBinary": "Двоичные (MiB, GiB · 1024)",
+      "byteUnitSystemDefault": "Как в системе ({{units}})",
+      "sidebarColor": "Цвет акцента",
+      "sidebarColors": {
+        "blue": "Синий",
+        "violet": "Фиолетовый",
+        "pink": "Розовый",
+        "orange": "Оранжевый",
+        "gold": "Золотой",
+        "green": "Зелёный",
+        "cyan": "Голубой",
+        "gray": "Серый",
+        "auto": "Автоматически"
+      },
+      "themeAndEffects": "Тема и эффекты",
+      "languageAndDisplay": "Язык и отображение",
+      "menuBar": "Строка меню",
+      "description": "Тема, язык и отображение",
+      "systemTray": "Системный трей",
+      "followSystem": "Как в системе"
+    },
+    "advanced": {
+      "rpc": {
+        "title": "RPC",
+        "port": "Порт RPC",
+        "portDesc": "После изменения потребуется перезапуск.",
+        "secret": "Секрет RPC",
+        "secretDesc": "Необходим для подключений по RPC."
+      },
+      "persistence": {
+        "title": "Прогресс и восстановление",
+        "enable": "Сохранять данные для восстановления",
+        "enableDesc": "Хранить данные для возобновления загрузок после перезапуска.",
+        "dbPath": "Файл данных для восстановления",
+        "dbPathDesc": "Оставьте пустым, чтобы использовать расположение по умолчанию.",
+        "dbPathPlaceholder": "Расположение по умолчанию",
+        "historyLimit": "Записи восстановления завершённых задач",
+        "historyLimitDesc": "Список загрузок и скачанные файлы не затрагиваются.",
+        "historyKeepAll": "Все записи",
+        "historyKeepRecent": "Последние записи…",
+        "historySessionOnly": "Не сохранять",
+        "historyCount": "Количество сохраняемых записей",
+        "historyCountHint": "Более старые записи восстановления удаляются.",
+        "historyCountPositive": "Введите число больше 0."
+      },
+      "description": "RPC, прогресс и восстановление"
+    },
+    "about": {
+      "appIconAlt": "Значок приложения Motrix",
+      "version": "Версия {{version}}",
+      "tagline": "Сохраните то, что вам дорого, пока оно не исчезло. Пусть прекрасное найдёт место в вашей коллекции.",
+      "webVersionNote": "Эту веб-версию обновляет администратор сервера.",
+      "update": {
+        "title": "Обновления приложения",
+        "currentVersion": "Текущая версия {{version}}",
+        "idleTitle": "Поддерживайте Motrix в актуальном состоянии",
+        "idle": "Установлена версия {{version}}. Проверьте обновления сейчас или разрешите Motrix проверять их при запуске.",
+        "unsupportedTitle": "Автоматическое обновление недоступно",
+        "unsupported": "Эта версия не поддерживает автоматическое обновление. Скачайте последнюю версию с официального сайта.",
+        "check": "Проверить обновления",
+        "checkAction": "Проверить",
+        "checking": "Проверка…",
+        "checkingTitle": "Проверка обновлений…",
+        "checkingDescription": "Подключение к службе обновления Motrix…",
+        "upToDateTitle": "Установлена последняя версия Motrix",
+        "upToDate": "Версия {{version}} — последняя доступная версия.",
+        "available": "Доступна версия Motrix {{version}}.",
+        "availableTitle": "Доступна версия Motrix {{version}}",
+        "availableDescription": "Скачайте обновление сейчас, а время перезапуска и установки выберите позже.",
+        "download": "Скачать обновление",
+        "downloading": "Загрузка…",
+        "downloadingTitle": "Загрузка Motrix {{version}}",
+        "downloadingDescription": "Вы можете закрыть это окно. Загрузка продолжится в фоне.",
+        "downloadedTitle": "Обновление готово к установке",
+        "downloaded": "Motrix {{version}} готов к установке.",
+        "restart": "Перезапустить и установить",
+        "cancelledTitle": "Загрузка отменена",
+        "cancelled": "Загрузка обновления отменена.",
+        "cancelledDescription": "Повторите загрузку, когда будете готовы.",
+        "errorTitle": "Не удалось обновить Motrix",
+        "errorDescription": "Проверьте подключение и повторите попытку.",
+        "error": "Ошибка обновления: {{message}}",
+        "retry": "Повторить",
+        "automaticChecks": "Проверять автоматически",
+        "automaticChecksDescription": "При запуске Motrix",
+        "automaticChecksError": "Не удалось сохранить настройку",
+        "channelLabel": "Канал обновлений",
+        "channelDescription": "Выберите стабильные версии или пробуйте новые функции в бета-версиях.",
+        "channelStable": "Стабильный",
+        "channelBeta": "Бета",
+        "channelBetaWarning": "Бета-версии могут работать менее стабильно. Вы также будете получать новые стабильные версии. Возврат к стабильному каналу прекратит получение бета-обновлений, но не понизит установленную версию.",
+        "channelSaveError": "Не удалось сохранить канал обновлений. Повторите попытку."
+      },
+      "details": {
+        "author": "Автор",
+        "createdBy": "Разработчик",
+        "license": "Лицензия",
+        "licenseValue": "Лицензия {{license}}"
+      },
+      "resources": {
+        "title": "Ресурсы",
+        "repository": "Репозиторий исходного кода",
+        "repositoryDescription": "Посмотреть код на GitHub",
+        "manual": "Руководство",
+        "manualDescription": "Прочитать руководство пользователя",
+        "plugins": "Плагины",
+        "changelog": "История изменений",
+        "website": "Официальный сайт",
+        "websiteDescription": "Перейти на motrix.app",
+        "acknowledgments": "Благодарности",
+        "acknowledgmentsDescription": "Узнать об участниках проекта на motrix.app"
+      }
+    },
+    "bittorrent": {
+      "trackers": {
+        "autoSync": "Обновлять список трекеров автоматически",
+        "autoSyncDesc": "Поддерживать список в актуальном состоянии с помощью выбранных источников.",
+        "syncInterval": "Интервал обновления (ч)",
+        "syncIntervalDesc": "От 1 до 168 часов.",
+        "enableProbe": "Проверять доступность трекеров",
+        "enableProbeDesc": "Проверять трекеры перед использованием для загрузок.",
+        "probeTimeout": "Время ожидания ответа (мс)",
+        "probeTimeoutDesc": "Максимальное время ожидания ответа. От 1 000 до 30 000 мс.",
+        "healthyThreshold": "Порог медленного ответа (мс)",
+        "healthyThresholdDesc": "Более долгие ответы отмечаются как медленные. От 500 до 10 000 мс.",
+        "minSuccessRate": "Минимальная доля успешных проверок",
+        "minSuccessRateDesc": "Использовать трекеры с долей успешных проверок не ниже указанной. 0.5 = 50 %.",
+        "maxTrackerCount": "Трекеров на задачу",
+        "maxTrackerCountDesc": "Использовать не более указанного количества трекеров. От 5 до 200.",
+        "title": "Трекеры",
+        "manageSourcesHint": "Управляйте источниками на странице «Трекеры».",
+        "blacklistMovedInfo": "Управляйте заблокированными трекерами в разделе «Трекеры → Чёрный список»."
+      },
+      "geoip": {
+        "title": "Расположение пиров",
+        "enable": "Показывать страну или регион",
+        "enableDesc": "Показывать расположение в списке пиров. При необходимости данные о расположении будут скачаны.",
+        "lastUpdated": "Последнее обновление",
+        "neverUpdated": "Никогда",
+        "updateNow": "Обновить сейчас",
+        "updating": "Обновление…",
+        "source": "Источник данных о расположении",
+        "sourceDesc": "Выберите, откуда скачивать данные о расположении.",
+        "source.loyalsoldier": "Loyalsoldier (сообщество)",
+        "source.p3terx": "P3TERX (зеркало сообщества)",
+        "source.maxmind": "MaxMind (официальный)",
+        "source.custom": "Свой URL",
+        "maxmindUnsupported": "Пока не поддерживается",
+        "customUrl": "Свой URL для скачивания",
+        "customUrlPlaceholder": "https://example.com/GeoLite2-Country.mmdb",
+        "autoUpdate": "Обновлять автоматически",
+        "autoUpdateDesc": "Проверять наличие новых данных о расположении примерно раз в неделю.",
+        "status.loaded": "Готово",
+        "status.notDownloaded": "Данные о расположении не скачаны",
+        "status.downloading": "Загрузка…",
+        "status.error": "Ошибка обновления",
+        "customUrlDesc": "Ссылка на базу стран в формате .mmdb.",
+        "saveBeforeUpdate": "Сохраните изменения перед обновлением данных о расположении.",
+        "updateFailed": "Не удалось обновить данные о расположении. Повторите попытку."
+      },
+      "listen": {
+        "title": "Входящие подключения",
+        "listenPort": "Порт BT",
+        "listenPortDesc": "Принимать входящие подключения пиров на этом порту.",
+        "dhtListenPort": "Порт DHT",
+        "dhtListenPortDesc": "Находить пиров через DHT на этом порту.",
+        "dhtEnabled": "Включить DHT",
+        "dhtEnabledDesc": "Находить пиров без помощи трекера."
+      },
+      "peers": {
+        "title": "Пиры",
+        "btMaxPeers": "Максимум пиров на торрент",
+        "btMaxPeersDesc": "Максимальное количество пиров, к которым одна задача может подключаться одновременно.",
+        "btEnableLpd": "Поиск локальных пиров",
+        "btEnableLpdDesc": "Находить пиров, раздающих файлы в вашей локальной сети.",
+        "magnetFileSelection": "Выбирать файлы перед загрузкой",
+        "magnetFileSelectionDesc": "Показывать выбор файлов после обработки magnet-ссылки.",
+        "magnetFileSelectionAutoDownload": "Скачать всё, если файлы не выбраны",
+        "magnetFileSelectionAutoDownloadDesc": "Загрузка начнётся через указанное ниже время, даже если окно приложения или браузер закрыты.",
+        "magnetFileSelectionTimeoutSeconds": "Время на выбор файлов (с)",
+        "magnetFileSelectionTimeoutSecondsDesc": "Отсчёт начинается, когда список файлов готов. Изменения также применяются к уже ожидающим задачам.",
+        "magnetFileSelectionTimeoutInvalid": "Введите целое число от {{min}} до {{max}} секунд."
+      },
+      "seeding": {
+        "title": "Раздача",
+        "seedRatio": "Ограничение коэффициента раздачи",
+        "seedRatioDesc": "Объём отданных данных ÷ объём загруженных данных. Раздача остановится при достижении этого коэффициента. 0 = без ограничений.",
+        "seedTime": "Ограничение времени раздачи (мин)",
+        "seedTimeDesc": "0 = без ограничений. Применяется к новым задачам и при возобновлении раздачи."
+      },
+      "newMagnetTasks": "Новые задачи по magnet-ссылкам",
+      "description": "Magnet-ссылки, раздача и трекеры"
+    },
+    "downloads": {
+      "performance": {
+        "title": "Производительность",
+        "profile": "Производительность загрузки",
+        "profileDesc": "Баланс скорости загрузки и использования ресурсов.",
+        "learnMore": "Подробнее",
+        "metrics": {
+          "connections": "Максимум подключений",
+          "perServer": "На один сервер",
+          "minimum": "Мин. размер сегмента",
+          "cache": "Дисковый кэш"
+        },
+        "customParameters": "Свои параметры производительности",
+        "profiles": {
+          "auto": {
+            "label": "Автоматически",
+            "desc": "Адаптируется к накопителю и размеру файла. Ниже приведены значения по умолчанию."
+          },
+          "balanced": {
+            "label": "Сбалансированный",
+            "desc": "Использует меньше ресурсов для повседневных загрузок."
+          },
+          "high": {
+            "label": "Высокая скорость",
+            "desc": "Использует больше подключений для ускорения загрузки."
+          },
+          "maximum": {
+            "label": "Максимальный",
+            "desc": "Использует больше подключений. Некоторые серверы могут ограничивать их количество."
+          },
+          "custom": {
+            "label": "Свой",
+            "desc": "Настройте подключения, размер сегмента и кэш."
+          }
+        },
+        "maxConcurrentDownloads": "Одновременные загрузки",
+        "maxConcurrentDownloadsDesc": "Остальные задачи ожидают в очереди.",
+        "maxConnectionPerServer": "Максимум подключений к серверу",
+        "maxConnectionPerServerDesc": "Ограничение подключений к одному серверу для каждого файла.",
+        "split": "Максимум подключений на файл",
+        "splitDesc": "Подключения для загрузки одного файла.",
+        "minSplitSize": "Мин. размер сегмента (МиБ)",
+        "minSplitSizeDesc": "Сегменты размером менее удвоенного указанного значения не разделяются."
+      },
+      "reliability": {
+        "title": "Подключения и повторные попытки",
+        "userAgent": "User-Agent",
+        "userAgentDesc": "Представляет приложение веб-сайтам. Измените, если сайт требует другое значение.",
+        "connectTimeout": "Время ожидания подключения (с)",
+        "connectTimeoutDesc": "Как долго ожидать установления подключения.",
+        "socketTimeout": "Время ожидания данных (с)",
+        "socketTimeoutDesc": "Как долго ждать, если данные не поступают.",
+        "maxTries": "Максимум попыток",
+        "maxTriesDesc": "Включая первую попытку. 0 = без ограничений.",
+        "retryWait": "Пауза между попытками (с)",
+        "retryWaitDesc": "Время ожидания перед повторной попыткой.",
+        "lowestSpeedLimit": "Минимальная скорость подключения (КиБ/с)",
+        "lowestSpeedLimitDesc": "Разрывать подключение при скорости ниже указанной. 0 = отключено."
+      },
+      "disk": {
+        "title": "Диск и файлы",
+        "fileDeletionMode": "При удалении файлов задачи",
+        "fileDeletionTrash": "Перемещать в корзину",
+        "fileDeletionPermanent": "Удалять безвозвратно",
+        "fileDeletionTrashDesc": "Место освобождается после очистки корзины.",
+        "fileDeletionPermanentDesc": "Удалённые файлы нельзя восстановить из корзины.",
+        "fileAllocation": "Резервировать место на диске",
+        "fileAllocationDesc": "Резервировать место перед загрузкой файла.",
+        "fileAllocationNone": "Не резервировать",
+        "fileAllocationPrealloc": "Предварительно выделять",
+        "fileAllocationTrunc": "Задавать размер файла",
+        "fileAllocationFalloc": "Выделять средствами системы",
+        "modifiedTime": "Время изменения файла",
+        "modifiedTimeDesc": "Для завершённых загрузок по HTTP и FTP.",
+        "modifiedTimeLocal": "Время загрузки",
+        "modifiedTimeServer": "Время с сервера",
+        "diskCache": "Дисковый кэш (МиБ)",
+        "diskCacheDesc": "Память для буферизации файлов перед записью на диск.",
+        "sessionSaveInterval": "Интервал сохранения прогресса (с)",
+        "sessionSaveIntervalDesc": "Более частое сохранение уменьшает потери прогресса при сбое."
+      },
+      "magnet": {
+        "title": "Magnet",
+        "magnetResolveTimeout": "Время ожидания magnet-ссылки (с)",
+        "magnetResolveTimeoutDesc": "Как долго ожидать список файлов."
+      },
+      "speedLimit": {
+        "title": "Ограничения скорости",
+        "titleDesc": "Настройте использование подключения в режимах «Стандартный», «Низкая скорость» и «Автоматически».",
+        "modeSection": "Режим скорости",
+        "modeSectionDesc": "Выберите, как Motrix будет использовать подключение.",
+        "turtle": "Режим скорости",
+        "turtleDesc_off": "Использовать стандартные ограничения скорости.",
+        "turtleDesc_on": "Использовать пониженную скорость, чтобы оставить пропускную способность другим приложениям.",
+        "turtleDesc_auto": "Автоматически регулировать скорость с учётом времени и пропускной способности подключения.",
+        "turtle_off": "Стандартный",
+        "turtle_on": "Низкая скорость",
+        "turtle_auto": "Автоматически",
+        "baseSection": "Стандартные ограничения",
+        "baseSectionDesc": "Используются для повседневных загрузок и соблюдаются во всех режимах.",
+        "baseDownload": "Загрузка",
+        "baseDownloadDesc": "Максимальная скорость повседневной загрузки.",
+        "baseUpload": "Отдача",
+        "baseUploadDesc": "Максимальная скорость повседневной отдачи.",
+        "unlimited": "Без ограничений",
+        "setUnlimited": "Без ограничений",
+        "standardLimit": "Стандартное",
+        "useStandardLimit": "Использовать стандартное ограничение",
+        "altSection": "Ограничения низкой скорости",
+        "altSectionDesc": "Используются в режиме «Низкая скорость» или по расписанию. Могут только снижать стандартные ограничения.",
+        "altDownload": "Загрузка",
+        "altDownloadDesc": "Максимальная скорость загрузки в режиме «Низкая скорость».",
+        "altUpload": "Отдача",
+        "altUploadDesc": "Максимальная скорость отдачи в режиме «Низкая скорость».",
+        "autoSection": "Автоматические правила",
+        "autoSectionDesc": "Эти правила действуют только в режиме «Автоматически».",
+        "autoSchedule": "Снижение скорости по расписанию",
+        "scheduleEnabled": "Включить расписание низкой скорости",
+        "scheduleEnabledDesc": "Переходить на пониженную скорость в выбранные дни и часы.",
+        "scheduleFrom": "Начало",
+        "scheduleTo": "Конец",
+        "scheduleTimeFormat": "24-часовой формат (ЧЧ:мм)",
+        "scheduleDays": "Дни",
+        "scheduleDaysHint": "Если время окончания раньше времени начала, период продолжается на следующий день.",
+        "weekdays": {
+          "sun": {
+            "short": "Вс",
+            "long": "Воскресенье"
+          },
+          "mon": {
+            "short": "Пн",
+            "long": "Понедельник"
+          },
+          "tue": {
+            "short": "Вт",
+            "long": "Вторник"
+          },
+          "wed": {
+            "short": "Ср",
+            "long": "Среда"
+          },
+          "thu": {
+            "short": "Чт",
+            "long": "Четверг"
+          },
+          "fri": {
+            "short": "Пт",
+            "long": "Пятница"
+          },
+          "sat": {
+            "short": "Сб",
+            "long": "Суббота"
+          }
+        },
+        "autoAdaptive": "Оставлять пропускную способность другим приложениям",
+        "adaptiveEnabled": "Резервировать пропускную способность для других приложений",
+        "adaptiveEnabledDesc": "Укажите скорость подключения ниже, чтобы рассчитать ограничение.",
+        "linkDown": "Скорость входящего подключения",
+        "linkDownDesc": "Максимальная скорость загрузки, доступная вашему интернет-подключению.",
+        "linkUp": "Скорость исходящего подключения",
+        "linkUpDesc": "Максимальная скорость отдачи, доступная вашему интернет-подключению.",
+        "fillFromPeak": "Оценить скорость подключения",
+        "fillFromPeakHint": "На основе наибольшей скорости недавних загрузок и отдачи.",
+        "estimateEmpty": "История скорости пока отсутствует. Завершите загрузку без ограничения скорости или укажите пропускную способность вручную.",
+        "estimateSuccess": "Пропускная способность заполнена на основе недавних значений скорости.",
+        "estimateError": "Не удалось прочитать историю скорости. Укажите пропускную способность вручную.",
+        "headroomPercent": "Резерв для других приложений",
+        "headroomPercentDesc": "Сейчас зарезервировано {{reserved}} %; Motrix может использовать до {{motrix}} %.",
+        "effect": {
+          "title": "Текущие ограничения",
+          "standard": "Действуют стандартные ограничения: загрузка {{download}}, отдача {{upload}}.",
+          "lowSpeed": "Сейчас действует пониженная скорость: загрузка {{download}}, отдача {{upload}}.",
+          "noAutoRules": "Автоматические правила не включены. Сейчас используется стандартный режим.",
+          "standardValues": "Стандартные ограничения: загрузка {{download}}, отдача {{upload}}.",
+          "scheduleRule": "использовать пониженную скорость с {{from}} до {{to}}{{nextDay}}",
+          "nextDay": " следующего дня",
+          "adaptiveRule": "резервировать {{reserved}} % пропускной способности для других приложений",
+          "adaptiveRulePending": "резервировать {{reserved}} % пропускной способности для других приложений после указания скорости подключения",
+          "ruleSeparator": " и ",
+          "autoRules": "Motrix будет {{rules}}.",
+          "lowerWins": "Применяется самое низкое из действующих ограничений."
+        },
+        "bandwidthUsed": "Motrix может использовать до {{motrix}} %.",
+        "bandwidthPending": "Укажите обе скорости подключения, чтобы применить это ограничение."
+      },
+      "newTasks": "Новые задачи",
+      "defaultDownloadFolder": "Папка загрузок по умолчанию",
+      "autofillFromClipboard": "Автоматически вставлять ссылки из буфера обмена",
+      "fillInLinksWhenOpeningNewTask": "Вставлять скопированные ссылки при открытии новой задачи.",
+      "saveFolders": "Папки сохранения",
+      "description": "Файлы, скорость загрузки и подключения"
+    },
+    "network": {
+      "dns": {
+        "title": "DNS",
+        "mode": "Разрешение имён DNS",
+        "modeDesc": "Как определять адреса серверов для загрузок.",
+        "modeAuto": "Автоматически",
+        "modeSystem": "Системный DNS",
+        "modeEngine": "Встроенный DNS"
+      },
+      "proxy": {
+        "title": "Прокси",
+        "enable": "Включить прокси",
+        "enableDesc": "Использовать прокси для выбранных ниже подключений.",
+        "server": "Сервер",
+        "protocol": "Протокол",
+        "host": "Адрес сервера",
+        "hostPlaceholder": "proxy.example.com",
+        "port": "Порт",
+        "auth": "Авторизация на прокси",
+        "authDesc": "Включите, если прокси требует имя пользователя и пароль.",
+        "user": "Имя пользователя",
+        "password": "Пароль",
+        "showPassword": "Показать пароль",
+        "hidePassword": "Скрыть пароль",
+        "bypass": "Подключаться напрямую к",
+        "bypassDesc": "Один домен, IP-адрес или CIDR на строку. Начните с . для совпадения только с поддоменами. При загрузке файлов подстановочный знак * не поддерживается.",
+        "bypassScopeNote": "Только загрузки файлов и обновления приложения",
+        "scopes": "Использовать прокси для",
+        "scopesDesc": "Выберите, какие виды трафика направлять через прокси.",
+        "scopeDownload": "Загрузки файлов",
+        "scopeDownloadDesc": "Для BT через прокси идёт только HTTP(S). Пиры, DHT и UDP-трекеры подключаются напрямую.",
+        "scopeUpdateApp": "Обновления приложения",
+        "scopeUpdateAppDesc": "Проверять обновления Motrix через прокси.",
+        "scopeUpdateTrackers": "Обновления списков трекеров",
+        "scopeUpdateTrackersDesc": "Скачивать списки трекеров через прокси; трафик BT не затрагивается.",
+        "importFromSystem": "Импортировать из системы",
+        "importedToast": "Системный прокси импортирован: {{host}}:{{port}}",
+        "noSystemProxy": "Системный прокси не настроен.",
+        "bypassPlaceholder": "localhost\n127.0.0.1\n.local",
+        "scopeHint": "Пиры BT, DHT и UDP-трекеры подключаются напрямую.",
+        "scopeNone": "Ничего не выбрано",
+        "scopeChoose": "Выбрать…",
+        "scopeSeparator": ", "
+      },
+      "nat": {
+        "title": "Проброс портов (NAT)",
+        "enable": "Включить проброс портов",
+        "enableDesc": "Запрашивать у маршрутизатора открытие портов из настроек BitTorrent.",
+        "preferredProtocol": "Предпочтительный протокол",
+        "mappingTtl": "Срок действия проброса (с)",
+        "btPortHint": "Проброс применяется к портам BT/DHT, указанным в настройках BitTorrent.",
+        "automatic": "Автоматически"
+      },
+      "stun": {
+        "title": "Определение типа NAT",
+        "privacyHint": "Используются сторонние STUN-серверы.",
+        "enable": "Определять тип NAT",
+        "servers": "STUN-серверы",
+        "empty": "Добавьте хотя бы один STUN-сервер.",
+        "addServer": "Добавить STUN-сервер"
+      },
+      "reachability": {
+        "title": "Проверка входящих портов",
+        "privacyHint": "Для проверки доступности из интернета используется сторонняя служба.",
+        "enable": "Проверять входящие порты",
+        "endpoints": "Службы проверки (HTTPS)",
+        "empty": "Добавьте хотя бы одну службу проверки.",
+        "addEndpoint": "Добавить службу проверки"
+      },
+      "diagnostic": {
+        "title": "Автоматические проверки сети",
+        "enable": "Автоматические проверки",
+        "interval": "Интервал проверки (с)",
+        "enableDesc": "Повторять включённые выше проверки."
+      },
+      "description": "Прокси, DNS и проверки подключения",
+      "diagnostics": "Диагностика сети"
+    },
+    "common": {
+      "browse": "Обзор…",
+      "add": "Добавить",
+      "remove": "Удалить",
+      "preset": "Быстрый выбор:",
+      "noChange": "Нет изменений для сохранения",
+      "setAsDefault": "Использовать по умолчанию",
+      "openHelp": "Открыть справку",
+      "generate": "Сгенерировать",
+      "changeDirectory": "Изменить папку",
+      "directoryEmpty": "(папка не выбрана)",
+      "showSecret": "Показать секрет",
+      "hideSecret": "Скрыть секрет"
+    },
+    "integration": {
+      "system": {
+        "title": "Приложение по умолчанию",
+        "protocolMagnet": "Открывать magnet-ссылки в Motrix",
+        "protocolMagnetDesc": "Открывать magnet-ссылки из браузера в Motrix.",
+        "torrentAssociation": "Открывать файлы .torrent в Motrix",
+        "torrentAssociationDesc": "Открывать файлы .torrent в Motrix двойным щелчком.",
+        "torrentAssociationMacDesc": "В Finder нажмите правой кнопкой на любой файл .torrent → «Свойства» → «Открывать в приложении» → выберите Motrix → «Настроить…»",
+        "defaultAssociationsWindows": "Приложение по умолчанию для торрентов и magnet-ссылок",
+        "defaultAssociationsWindowsDesc": "Выберите Motrix для файлов .torrent и magnet-ссылок в параметрах Windows. Требуется установленная копия Motrix.",
+        "torrentFiles": "Файлы .torrent",
+        "magnetLinks": "Magnet-ссылки",
+        "associationStatusLabel": "Текущее приложение по умолчанию в Windows",
+        "associationChecking": "Проверка…",
+        "associationSetupRequired": "Требуется настройка",
+        "associationDefault": "По умолчанию",
+        "associationNotDefault": "Не по умолчанию",
+        "associationUnavailable": "Не удалось проверить",
+        "associationNotRegistered": "Не зарегистрировано",
+        "openWindowsSettings": "Открыть параметры Windows",
+        "defaultAssociationsLinux": "Ассоциации файлов и ссылок в Linux",
+        "defaultAssociationsLinuxCheckingDesc": "Проверка пакета Linux и текущих ассоциаций файлов и ссылок…",
+        "defaultAssociationsLinuxUnavailableDesc": "Сведения об ассоциациях недоступны в этой среде приложения.",
+        "defaultAssociationsLinuxDesc": "Установленная версия Motrix из пакета deb или rpm может назначить себя приложением по умолчанию для .torrent. Изменения для magnet-ссылок вступят в силу после применения настроек в этом окне.",
+        "defaultAssociationsLinuxAppImageDesc": "Используйте раздел «Интеграция с рабочим столом» ниже, чтобы безопасно зарегистрировать этот AppImage или удалить его регистрацию. Перед удалением своей записи рабочего стола Motrix восстанавливает проверенные предыдущие обработчики.",
+        "defaultAssociationsLinuxSandboxDesc": "Этот пакет регистрирует Motrix как обработчик, но приложение по умолчанию выбирает среда рабочего стола. Удаление пакета может не восстановить предыдущее приложение по умолчанию автоматически.",
+        "associationStatusLabelLinux": "Текущие ассоциации файлов и ссылок в Linux",
+        "linuxPackageDetected": "Пакет: {{package}}",
+        "linuxPackage": {
+          "appimage": "AppImage",
+          "native": "deb / rpm",
+          "flatpak": "Flatpak",
+          "snap": "Snap",
+          "unknown": "Неизвестный пакет"
+        },
+        "protocolMagnetAppImageDesc": "Применяется сразу после сохранения, если включена интеграция с рабочим столом.",
+        "protocolMagnetSandboxDesc": "При сохранении Motrix запросит изменение, но ограничения изолированной среды или среды рабочего стола могут потребовать ручного выбора приложения по умолчанию.",
+        "protocolMagnetApplyFailed": "Настройка сохранена, но изменить ассоциацию не удалось. Выберите приложение по умолчанию в настройках системы.",
+        "setTorrentDefaultLinux": "Назначить для .torrent",
+        "repairLinuxAssociations": "Восстановить ассоциации",
+        "viewLinuxInstructions": "Показать инструкции",
+        "linuxActionSet": "Теперь Motrix используется по умолчанию для файлов .torrent.",
+        "linuxActionFallback": "Автоматическая настройка недоступна для этого пакета. Открыта инструкция по настройке.",
+        "linuxActionFailed": "Не удалось изменить приложение по умолчанию в Linux. Проверьте настройки среды рабочего стола."
+      },
+      "browser": {
+        "title": "Расширения браузера",
+        "masterSwitch": "Подключать расширения браузера",
+        "masterSwitchDesc": "Отправляйте загрузки с веб-страниц в Motrix с помощью расширения браузера.",
+        "install": {
+          "chrome": "Chrome",
+          "edge": "Microsoft Edge",
+          "firefox": "Firefox",
+          "github": "GitHub",
+          "store": "Установить",
+          "development": "Разработка"
+        },
+        "pairedTitle": "Подключённые расширения",
+        "pairedEmpty": "Расширения ещё не подключены.",
+        "lastActive": "Последняя активность",
+        "revoke": "Отключить",
+        "disconnecting": "Отключение…",
+        "addTrusted": {
+          "add": "Добавить расширение",
+          "idPlaceholder": "ID расширения",
+          "labelPlaceholder": "Метка (необязательно)",
+          "browserLabel": "Браузер",
+          "chromiumEdge": "Chrome / Edge",
+          "firefox": "Firefox",
+          "cancel": "Отмена",
+          "addAction": "Добавить"
+        },
+        "pairToast": {
+          "title": "Расширение {{browser}} запрашивает подключение к Motrix",
+          "extensionId": "ID: {{id}}",
+          "deny": "Не разрешать",
+          "pairCode": "Код сопряжения",
+          "copyCode": "Копировать код сопряжения",
+          "pairCodeHint": "Введите этот код в расширении",
+          "identityLabel": {
+            "official": "Официальное расширение Motrix",
+            "attested": "Проверенное расширение",
+            "unverified": "Непроверенное расширение"
+          },
+          "identityUnverifiedWarning": "Не удалось подтвердить подлинность этого расширения. Продолжайте, только если доверяете ему."
+        },
+        "pairUnavailable": "Этот запрос сопряжения больше не активен. Повторите сопряжение из расширения браузера.",
+        "trustedExtensions": "Доверенные расширения",
+        "trustedSummary": "Всего: {{count}}",
+        "trustedGuidance": "Для других доверенных расширений добавьте ID, предоставленный разработчиком.",
+        "trustedEmpty": "Пока здесь ничего нет.",
+        "headerId": "ID расширения",
+        "headerBrowser": "Браузер",
+        "headerSource": "Источник",
+        "removeTrusted": "Удалить",
+        "sourceLabel": {
+          "builtin": "Встроенный",
+          "userAdded": "Добавленный",
+          "imported": "Импортированный"
+        },
+        "degradedPort": {
+          "title": "Мост работает на резервном порту",
+          "description": "Порты 16802–16806 были недоступны, поэтому мост занял порт {{port}}. Расширения браузера не найдут его при проверке стандартного диапазона — выполните сопряжение через Native Messaging или задайте фиксированный порт. CLI Motrix и нативный хост не затронуты."
+        },
+        "pairingStateDegraded": {
+          "title": "Доступ расширений временно закрыт",
+          "description": "Motrix не удалось безопасно обновить записи о сопряжённых расширениях. Существующие сеансы расширений закрыты, а новый доступ заблокирован до перезапуска. Перезапустите Motrix, чтобы повторить восстановление; не полагайтесь на список ниже, пока это сообщение не исчезнет."
+        }
+      },
+      "cli": {
+        "title": "Инструменты командной строки",
+        "tool": {
+          "title": "Инструмент командной строки Motrix",
+          "description": "Запустите motrix в терминале для управления приложением.",
+          "managerLabel": "Менеджер пакетов",
+          "commandLabel": "Команда установки",
+          "copyCommand": "Копировать команду установки",
+          "manager": {
+            "npm": "npm",
+            "pnpm": "pnpm",
+            "yarn": "Yarn Classic",
+            "bun": "Bun",
+            "volta": "Volta"
+          },
+          "attentionTitle": "Инструмент командной строки требует внимания",
+          "status": {
+            "checking": "Проверка",
+            "ready": "Готово к установке",
+            "installing": "Установка",
+            "installed": "Установлено",
+            "needsAttention": "Требуется внимание",
+            "manualOnly": "Ручная установка",
+            "error": "Ошибка"
+          },
+          "action": {
+            "checking": "Проверка…",
+            "install": "Установить",
+            "installing": "Установка…",
+            "checkAgain": "Проверить снова"
+          },
+          "metadata": {
+            "version": "Версия",
+            "path": "Исполняемый файл",
+            "manager": "Установлено с помощью",
+            "unknown": "неизвестно"
+          },
+          "successGuidance": "Откройте новый терминал и выполните motrix --help.",
+          "diagnostics": {
+            "show": "Показать сведения",
+            "hide": "Скрыть сведения"
+          },
+          "reason": {
+            "nodeMissing": "Node.js версии 22 или новее не найден. Установите Node.js и повторите проверку.",
+            "nodeTooOld": "Требуется Node.js версии 22 или новее. Обнаружена версия {{version}}.",
+            "managerMissing": "Поддерживаемый менеджер пакетов не найден. Установите npm, pnpm, Yarn Classic, Bun или Volta и повторите проверку.",
+            "sandboxed": "Установка одним нажатием недоступна в этом изолированном пакете. Скопируйте команду и выполните её в терминале.",
+            "unsupportedWeb": "Установка одним нажатием доступна только в настольном приложении. Скопируйте команду и выполните её на хосте Motrix.",
+            "permission": "Менеджер пакетов не может записывать в каталог глобальной установки. Используйте менеджер версий Node.js или доступный для записи пользовательский префикс; не используйте sudo.",
+            "network": "Менеджеру пакетов не удалось подключиться к реестру. Проверьте сеть или настройки реестра и повторите попытку.",
+            "timeout": "Установка заняла слишком много времени и была остановлена. Проверьте сеть и повторите попытку.",
+            "pathMissing": "Пакет установлен, но motrix отсутствует в PATH. Откройте новый терминал или добавьте указанный каталог установки в PATH.",
+            "pathShadowed": "В PATH раньше встречается другой исполняемый файл motrix. Удалите старую запись или исправьте PATH и повторите проверку.",
+            "verifyFailed": "Установщик завершил работу, но Motrix не удалось проверить используемый исполняемый файл motrix.",
+            "installFailed": "Менеджеру пакетов не удалось установить @motrix/cli. Просмотрите сведения, затем повторите попытку или выполните команду вручную.",
+            "unknown": "Motrix не удалось проверить инструмент командной строки. Повторите попытку или выполните скопированную команду вручную."
+          }
+        },
+        "remote": {
+          "title": "Сопряжённые удалённые инструменты",
+          "description": "Локальные инструменты подключаются автоматически. Выполните motrix pair для подключения к другому компьютеру или серверу.",
+          "empty": "Нет сопряжённых удалённых инструментов.",
+          "lastActive": "Последняя активность",
+          "neverActive": "Не использовалось",
+          "revoke": "Отозвать доступ"
+        },
+        "pairToast": {
+          "title": "{{name}} запрашивает сопряжение с Motrix",
+          "code": "Код подтверждения: {{code}}",
+          "allow": "Разрешить",
+          "deny": "Не разрешать"
+        },
+        "inbox": {
+          "title": "Ожидают подтверждения",
+          "empty": "Нет ожидающих запросов удалённого сопряжения.",
+          "approve": "Разрешить",
+          "deny": "Отклонить",
+          "expiresIn": "Истекает через {{time}}"
+        },
+        "pairUnavailable": "Этот запрос сопряжения больше не активен. Повторно выполните motrix pair."
+      },
+      "media": {
+        "title": "Инструменты для медиа",
+        "desc": "Объединяйте или преобразуйте медиафайлы с помощью FFmpeg.",
+        "notDetected": "FFmpeg не обнаружен",
+        "refresh": "Обновить",
+        "binaryPath": "Свой путь к FFmpeg",
+        "browse": "Обзор…",
+        "download": {
+          "action": "Скачать FFmpeg"
+        },
+        "detection": {
+          "readyTitle": "FFmpeg {{version}}",
+          "unavailableTitle": "FFmpeg недоступен",
+          "untrustedTitle": "FFmpeg заблокирован macOS",
+          "usingSource": "Используется: {{source}}",
+          "unavailableDesc": "Укажите свой путь, установите FFmpeg или добавьте его в PATH, затем обновите сведения.",
+          "untrustedDesc": "Файл существует, но не прошёл проверку безопасности macOS. Установите доверенную сборку или разрешите её запуск в разделе «Конфиденциальность и безопасность», затем обновите сведения.",
+          "showDetails": "Показать сведения о поиске",
+          "hideDetails": "Скрыть сведения о поиске",
+          "sourcesChecked_one": "Проверен {{count}} источник",
+          "sourcesChecked_other": "Проверено {{count}} источника",
+          "sourcesChecked_few": "Проверено {{count}} источника",
+          "sourcesChecked_many": "Проверено {{count}} источников",
+          "source": "Источник",
+          "location": "Проверенное расположение",
+          "result": "Результат",
+          "copyManagedPath": "Копировать путь к FFmpeg Motrix",
+          "editCustomPath": "Изменить свой путь к FFmpeg",
+          "finishEditingCustomPath": "Завершить изменение своего пути к FFmpeg",
+          "notConfigured": "Не задано"
+        },
+        "candidateKind": {
+          "manual": "Свой путь",
+          "userData": "Каталог данных Motrix",
+          "env": "MOTRIX_FFMPEG_BIN",
+          "path": "Системный PATH"
+        },
+        "state": {
+          "active": "Используется",
+          "available": "Найден",
+          "missing": "Не найден",
+          "untrusted": "Заблокирован macOS",
+          "unconfigured": "Не задано",
+          "version_mismatch": "Не поддерживается"
+        },
+        "stagingMB": "Лимит временных файлов (МБ)",
+        "stagingMBDesc": "Место для промежуточных файлов, отдельно для каждого плагина и задачи.",
+        "opTimeoutSec": "Время ожидания FFmpeg (с)",
+        "opTimeoutSecDesc": "Максимальное время одной операции с медиа, до 3 600 секунд.",
+        "cleanupStaging": "Очистить временные файлы",
+        "cleanupConfirm": "Удалить все временные каталоги FFmpeg?",
+        "restartHint": "Сохранено. Перезапустите Motrix, чтобы активные плагины обнаружили изменения.",
+        "restartNow": "Перезапустить сейчас",
+        "validation": {
+          "fileMissing": "Файл по этому пути не существует."
+        },
+        "applyHint": "Сохраните, чтобы использовать этот путь для новых загрузок медиа. Повторите поиск в расширении браузера, чтобы обновить сведения о поддержке.",
+        "savedTitle": "Настройки FFmpeg сохранены",
+        "desktopSavedHint": "Новые загрузки медиа используют сохранённый путь. Перезапустите Motrix, чтобы активные плагины обнаружили изменение.",
+        "pipelineUnavailable": "Загрузка медиа недоступна.",
+        "ffmpegRequired": "Для этой загрузки требуется FFmpeg. Настройте его в разделе «Настройки → Интеграция → Инструменты для медиа», сохраните и повторите попытку."
+      },
+      "pairResolveFailed": "Не удалось отправить ваше решение. Повторите попытку.",
+      "appimage": {
+        "title": "Интеграция с рабочим столом",
+        "desc": "Зарегистрируйте этот AppImage Motrix в среде рабочего стола, чтобы браузеры и magnet-ссылки могли передавать ему загрузки.",
+        "enable": "Включить интеграцию с рабочим столом",
+        "remove": "Удалить интеграцию с рабочим столом",
+        "prompt": {
+          "title": "Интегрировать Motrix с рабочим столом?",
+          "message": "Разрешить этому AppImage Motrix зарегистрироваться в среде рабочего стола?",
+          "detail": "Motrix добавит запись рабочего стола и значок в пользовательский каталог данных, а также зарегистрирует себя как обработчик ссылок motrix:, magnet-ссылок и файлов .torrent. Это позволит браузеру и расширению Motrix запускать Motrix и передавать ему загрузки. За пределы домашнего каталога ничего не записывается. Отменить это действие можно в настройках.",
+          "accept": "Интегрировать",
+          "decline": "Не сейчас"
+        },
+        "status": {
+          "healthy": "Интегрирован с этим рабочим столом.",
+          "notIntegrated": "Не интегрирован с этим рабочим столом.",
+          "failedTitle": "Интеграция с рабочим столом не завершена",
+          "failedDetail": "Motrix не удалось зарегистрироваться как обработчик своих ссылок. Передача загрузок из браузера может не работать, пока вы снова не включите интеграцию с рабочим столом.",
+          "removeBlockedDetail": "Motrix не удалось безопасно восстановить проверенный предыдущий обработчик, поэтому запись рабочего стола сохранена, чтобы не оставить неработающее приложение по умолчанию. Выберите другое приложение по умолчанию в настройках рабочего стола и повторите удаление интеграции.",
+          "externalManaged": "Интеграцию с рабочим столом обеспечивает другая установленная копия Motrix."
+        },
+        "movedHint": "Если переместить AppImage при закрытом Motrix, ссылки могут не запускать приложение, пока вы один раз не запустите Motrix из нового расположения."
+      },
+      "appimageHost": {
+        "title": "Запуск AppImage из браузера",
+        "desc": "Разрешить расширению открывать этот AppImage при нажатии «Подключить». Для этого включите интеграцию с браузером.",
+        "enable": "Включить запуск из браузера",
+        "repair": "Восстановить",
+        "useCurrent": "Использовать этот AppImage",
+        "remove": "Удалить запуск из браузера",
+        "copyDiagnostics": "Копировать диагностику",
+        "status": {
+          "ready": "Проверки локальной установки пройдены. Подключитесь из браузера для проверки работы.",
+          "disabled": "Запуск из браузера отключён.",
+          "conflict": "Эти файлы принадлежат другой установленной копии. Сначала удалите её интеграцию с браузером.",
+          "permissions": "Убедитесь, что файлы исполняемые и изменять их может только ваша учётная запись.",
+          "invalid": "Запись об установке или исполняемый файл некорректны.",
+          "sourceChanged": "AppImage изменился. Запустите нужную версию и восстановите установку.",
+          "missing": "Отсутствует необходимый файл. Запустите AppImage из текущего расположения и выполните восстановление.",
+          "io": "Операция не удалась. Проверьте доступ к диску и нажмите «Восстановить»."
+        }
+      },
+      "description": "Браузеры, приложения по умолчанию и инструменты"
+    },
+    "validation": {
+      "rangeHint": "Диапазон: {{min}}–{{max}}.",
+      "range": "Введите число от {{min}} до {{max}}.",
+      "integerRange": "Введите целое число от {{min}} до {{max}}.",
+      "minimum": "Введите {{min}} или больше.",
+      "maximum": "Введите {{max}} или меньше.",
+      "integer": "Введите целое число.",
+      "wholeBytes": "Используйте меньше знаков после запятой.",
+      "number": "Введите корректное число.",
+      "invalid": "Введите корректное значение.",
+      "selection": "Выберите доступный вариант.",
+      "textLength": "Максимальное число символов: {{max}}.",
+      "itemCount": "Максимальное число адресов: {{max}}.",
+      "text": "Удалите переносы строк или скрытые управляющие символы.",
+      "directory": "Выберите папку загрузок.",
+      "proxyHost": "Введите имя сервера или IP-адрес без http:// и порта.",
+      "stunServer": "Используйте формат host:port, например stun.example.com:3478. Порт должен быть в диапазоне 1–65535.",
+      "httpsUrl": "Введите полный адрес, начинающийся с https://.",
+      "httpUrl": "Введите полный адрес, начинающийся с http:// или https://.",
+      "saveFailed": "Не удалось сохранить изменения. Повторите попытку.",
+      "address": "Адрес {{number}}",
+      "addressDraft": "Новый адрес",
+      "required": "Сначала введите адрес.",
+      "time": "Используйте 24-часовой формат времени, например 23:00.",
+      "loadFailed": "Не удалось загрузить настройки. Повторите попытку."
+    },
+    "feedback": {
+      "syncFailedTitle": "Настройки сохранены; не удалось обновить интерфейс",
+      "syncFailedBody": "Настройки сохранены. Повторите синхронизацию, чтобы обновить страницу без повторного сохранения.",
+      "retrySync": "Повторить синхронизацию",
+      "applyFailedTitle": "Настройки сохранены; некоторые изменения не удалось применить",
+      "applyFailedBody": "Настройки остаются сохранёнными. Проверьте журналы приложения и после устранения проблемы перезапустите затронутую службу.",
+      "appRestartTitle": "Перезапустите Motrix, чтобы применить настройки",
+      "appRestartBody": "Настройки сохранены. Перезапустите Motrix в удобное время."
+    },
+    "connection": {
+      "originMismatchTitle": "Адрес доступа к серверу не совпадает с настроенным.",
+      "originMismatchBody": "Обновления в реальном времени недоступны. Используйте настроенный адрес сервера или попросите администратора исправить его.",
+      "disconnectedTitle": "Соединение для обновлений в реальном времени прервано.",
+      "disconnectedBody": "Некоторая информация может обновляться с задержкой. Если проблема не исчезнет, проверьте подключение к серверу и настройки прокси."
+    }
+  },
+  "errors": {
+    "task": {
+      "create": {
+        "dedupExhausted": "Уже существует слишком много файлов с таким именем (>9999).",
+        "torrentMetaFailed": "Не удалось сохранить метаданные торрента."
+      }
+    }
+  },
+  "menu": {
+    "app": {
+      "title": "Motrix",
+      "about": "О программе Motrix",
+      "preferences": "Настройки…",
+      "checkForUpdates": "Проверить обновления",
+      "show": "Показать Motrix",
+      "hide": "Скрыть Motrix",
+      "hideOthers": "Скрыть остальные",
+      "unhide": "Показать все",
+      "quit": "Завершить Motrix"
+    },
+    "file": {
+      "title": "Файл"
+    },
+    "task": {
+      "title": "Задача",
+      "newTask": "Новая задача…",
+      "newBtTask": "Новая задача BitTorrent…",
+      "openFile": "Открыть торрент-файл…",
+      "taskList": "Список задач",
+      "pauseTask": "Приостановить",
+      "resumeTask": "Возобновить",
+      "deleteTask": "Удалить задачи из списка…",
+      "moveTaskUp": "Переместить вверх в очереди",
+      "moveTaskDown": "Переместить вниз в очереди",
+      "pauseAllTask": "Приостановить все",
+      "resumeAllTask": "Возобновить все",
+      "selectAllTask": "Выбрать все задачи",
+      "clearRecentTasks": "Очистить записи остановленных задач…"
+    },
+    "edit": {
+      "title": "Правка",
+      "undo": "Отменить",
+      "redo": "Повторить",
+      "cut": "Вырезать",
+      "copy": "Скопировать",
+      "paste": "Вставить",
+      "delete": "Удалить",
+      "selectAll": "Выбрать всё"
+    },
+    "window": {
+      "title": "Окно",
+      "reload": "Перезагрузить",
+      "close": "Закрыть",
+      "minimize": "Свернуть",
+      "zoom": "Масштаб",
+      "toggleFullscreen": "Переключить полноэкранный режим",
+      "front": "Все окна на передний план"
+    },
+    "help": {
+      "title": "Справка",
+      "officialWebsite": "Сайт Motrix",
+      "manual": "Справка Motrix",
+      "changelog": "Информация о выпуске",
+      "reportProblem": "Сообщить о проблеме",
+      "toggleDevTools": "Показать или скрыть инструменты разработчика"
+    }
+  },
+  "trackers": {
+    "effective": {
+      "enabled": "Добавлять отобранные трекеры",
+      "enabledDesc": "Добавлять отобранный список трекеров ко всем задачам BitTorrent.",
+      "disabled": "Отключено — включите, чтобы просмотреть действующий список трекеров.",
+      "empty": "Действующих трекеров пока нет. Запустите синхронизацию для заполнения списка.",
+      "column": {
+        "url": "URL",
+        "health": "Состояние",
+        "responseTimeMs": "Отклик (мс)",
+        "lastProbedAt": "Последняя проверка",
+        "source": "Источник"
+      }
+    },
+    "blacklist": {
+      "enabled": "Применять чёрный список",
+      "enabledDesc": "Блокировать подключения к серверам трекеров со статусом «Подозрительный» и «Ошибка».",
+      "disabled": "Отключено — включите, чтобы просмотреть чёрный список.",
+      "empty": "Чёрный список пуст.",
+      "summary": "Действующих URL: {{count}}",
+      "column": {
+        "url": "URL",
+        "source": "Источник"
+      }
+    },
+    "combobox": {
+      "placeholder": "Выберите источники",
+      "addSourcePlaceholder": "https://example.com/list.txt",
+      "addSource": "Добавить",
+      "removeSource": "Удалить источник",
+      "empty": "Подходящих источников нет.",
+      "builtinBadge": "встроенный",
+      "cdnBadge": "CDN",
+      "directBadge": "Напрямую"
+    },
+    "sync": {
+      "syncing": "Синхронизация…",
+      "fetching": "Получение списков трекеров…",
+      "probing": "Проверка доступности трекеров…",
+      "applying": "Применение списков трекеров…",
+      "failed": "Синхронизация не завершена. Проверьте сеть или источники и повторите попытку.",
+      "unavailable": "Не удалось получить статус синхронизации. Проверьте подключение и повторите попытку."
+    }
+  },
+  "plugins": {
+    "title": "Плагины",
+    "empty": "Плагины ещё не установлены.",
+    "errors_one": "{{count}} ошибка",
+    "errors_other": "{{count}} ошибки",
+    "errors_few": "{{count}} ошибки",
+    "errors_many": "{{count}} ошибок",
+    "status": {
+      "active": "Активен",
+      "inactive": "Бездействует",
+      "disabled": "Отключён",
+      "error": "Ошибка"
+    },
+    "install": {
+      "title": "Добавить плагин",
+      "github": "GitHub",
+      "github.spec": "Репозиторий GitHub (owner/repo[@tag])",
+      "url": "URL",
+      "url.spec": "URL пакета (.moext)",
+      "local": "Локальный файл",
+      "local.pick": "Выберите файл .moext",
+      "lead": "Вставьте адрес плагина, выберите файл .moext или перетащите файл в поле ввода.",
+      "placeholder": "Вставьте адрес GitHub, URL или выберите локальный файл .moext",
+      "detected": {
+        "auto": "Автоматически",
+        "github": "GitHub",
+        "url": "URL",
+        "local": "Файл"
+      },
+      "detectedRow": {
+        "ok": "Определён тип: {{type}}",
+        "localSupported": "Локальные файлы .moext поддерживаются"
+      },
+      "checkAriaLabel": "Проверить этот плагин",
+      "install": "Установить плагин",
+      "pickLocal": "Выберите локальный файл .moext",
+      "localUnavailable": "Установка из локального файла недоступна на этом хосте.",
+      "localPrepareFailed": "Не удалось подготовить файл плагина: {{detail}}",
+      "dropHint": "Перетащите файл .moext сюда, чтобы проверить плагин",
+      "dragDisabledHint": "Перетаскивание не поддерживается в этой среде. Используйте адрес GitHub или URL.",
+      "warning": "Перед установкой убедитесь, что доверяете автору и согласны с использованием плагином указанного выше доступа."
+    },
+    "consent": {
+      "installTitle": "Установить {{name}} {{version}}?",
+      "upgradeTitle": "Обновить {{name}} до {{version}}?",
+      "notVerified": "Этот плагин не проверен. Устанавливайте плагины только из доверенных источников.",
+      "confirm": "Разрешить и установить",
+      "permissions": "Обязательные разрешения",
+      "optionalPermissions": "Необязательные разрешения",
+      "hostPermissions": "Доступ к хостам",
+      "invokesCommands": "Вызывает команды в других плагинах",
+      "calleeMissing": "Не установлен",
+      "source": "Источник: {{type}} · {{url}}",
+      "broadAccess": {
+        "title": "Широкий доступ к хостам",
+        "body": "Этот плагин может читать и изменять загрузки с любого URL. Устанавливайте, только если доверяете источнику.",
+        "tag": "Широкий"
+      },
+      "diff": {
+        "title": "Изменения с последнего согласия",
+        "permissions": "Добавленные разрешения",
+        "optionalPermissions": "Добавленные необязательные разрешения",
+        "hostPermissions": "Добавленный доступ к хостам",
+        "invokesCommands": "Новые вызовы команд других плагинов",
+        "publicCommands": "Новые общедоступные команды",
+        "publicCommandsSchema": "Схемы общедоступных команд изменены",
+        "heap": "Запрашиваемая память",
+        "engines": "Версия движка Motrix",
+        "source": "Источник пакета"
+      }
+    },
+    "detail": {
+      "overview": "Обзор",
+      "settings": "Настройки",
+      "logs": "Журналы",
+      "about": "О плагине",
+      "loading": "Загрузка…",
+      "back": "Все плагины",
+      "author": "Автор",
+      "homepage": "Домашняя страница",
+      "uninstall": "Удалить",
+      "uninstallConfirm": "Удалить этот плагин? Его данные будут удалены.",
+      "enabled": "Включён",
+      "disabled": "Отключён",
+      "access": "Доступ",
+      "advanced": "Дополнительно",
+      "accessGranted": "Что этому плагину уже разрешено",
+      "accessOptional": "Необязательный доступ",
+      "hero": {
+        "ready": "Готов",
+        "review": "Проверить доступ",
+        "attention": "Требуется внимание",
+        "off": "Выключен",
+        "optional": "Может запросить дополнительный доступ"
+      },
+      "mini": {
+        "purpose": "Назначение",
+        "access": "Доступ",
+        "health": "Состояние"
+      },
+      "healthOk": "Всё в порядке",
+      "healthIssues_one": "За последние сутки зарегистрирована {{count}} проблема",
+      "healthIssues_other": "За последние сутки зарегистрировано {{count}} проблемы",
+      "healthIssues_few": "За последние сутки зарегистрированы {{count}} проблемы",
+      "healthIssues_many": "За последние сутки зарегистрировано {{count}} проблем",
+      "accessNone": "Только собственные настройки",
+      "accessHosts_one": "Может читать {{count}} веб-сайт",
+      "accessHosts_other": "Может читать {{count}} веб-сайта",
+      "accessHosts_few": "Может читать {{count}} веб-сайта",
+      "accessHosts_many": "Может читать {{count}} веб-сайтов",
+      "accessBroad": "Может читать любой веб-сайт",
+      "attentionTitle": "Этот плагин сообщил о проблеме",
+      "attentionGeneric": "Подробности в журналах.",
+      "viewIssue": "Посмотреть проблему",
+      "removeTitle": "Удаление плагина",
+      "removeDesc": "При удалении плагина также удаляются его данные, хранящиеся в Motrix.",
+      "uninstallConfirmTitle": "Удалить {{name}}?",
+      "uninstallConfirmDesc": "Плагин и его сохранённые настройки будут удалены из Motrix."
+    },
+    "permissions": {
+      "empty": "Этот плагин не запрашивает разрешений.",
+      "granted": "Разрешено",
+      "denied": "Запрещено"
+    },
+    "logs": {
+      "verbose": "Подробный режим",
+      "verboseWarning": "Записывает полные URL и заголовки в течение 1 часа. Используйте осторожно.",
+      "filterLabel": "Уровень журнала",
+      "levels": {
+        "all": "Все уровни",
+        "trace": "Трассировка",
+        "debug": "Отладка",
+        "info": "Информация",
+        "warn": "Предупреждение",
+        "error": "Ошибка",
+        "fatal": "Критическая ошибка"
+      },
+      "copy": "Копировать",
+      "clear": "Очистить",
+      "output": "Вывод в реальном времени",
+      "entryCount_one": "{{count}} запись",
+      "entryCount_other": "{{count}} записи",
+      "entryCount_few": "{{count}} записи",
+      "entryCount_many": "{{count}} записей",
+      "empty": "Записей в журнале пока нет",
+      "emptyHint": "Новая активность плагина будет появляться здесь автоматически.",
+      "emptyFiltered": "Нет записей выбранного уровня."
+    },
+    "lead": "Добавляйте небольшие функции в Motrix. Оставляйте доверенные плагины, а остальные отключайте.",
+    "search": "Найти плагин",
+    "registry": {
+      "availableTitle": "Доступные плагины",
+      "featured": "Рекомендуемые",
+      "byAuthor": "Автор: {{name}}",
+      "requires": "Требуется Motrix {{range}}",
+      "notInstalled": "Не установлен",
+      "notFound": "Плагин «{{id}}» не найден в реестре",
+      "viewOnWebsite": "Посмотреть на motrix.app",
+      "updated": "Обновлено: {{date}}",
+      "featuresTitle": "Возможности",
+      "permissionsTitle": "Разрешения",
+      "permissionsPreviewNote": "Предварительные сведения из реестра. Фактический запрос согласия всегда основан на манифесте внутри пакета плагина.",
+      "optionalTag": "необязательно",
+      "install": "Установить",
+      "updateAvailable": "Доступно обновление",
+      "updateTo": "Обновить до v{{version}}",
+      "refresh": "Проверить обновления",
+      "builtinUpdateTitle": "Обновить встроенный плагин",
+      "builtinConsentLead": "Это обновление запрашивает новый доступ:",
+      "revertToBundled": "Вернуться к комплектной версии",
+      "restartRequired": "Обновление установлено. Перезапустите Motrix, чтобы завершить его применение.",
+      "updateInstalled": "Обновление установлено.",
+      "actionFailed": "Не удалось выполнить действие."
+    },
+    "searchNoMatch": "Нет плагинов по запросу «{{query}}»",
+    "clearSearch": "Очистить поиск",
+    "tone": {
+      "safe": "Выглядит безопасным",
+      "review": "Требуется проверка",
+      "optional": "Необязательный доступ",
+      "off": "Выключен"
+    },
+    "card": {
+      "advancedDetails": "Подробные сведения",
+      "commandsInvoked": "Вызываемых команд: {{count}}",
+      "commandsServing": "Предоставляемых команд: {{count}}",
+      "primaryAction": {
+        "settings": "Настройки",
+        "open": "Открыть",
+        "reviewAccess": "Проверить доступ",
+        "viewIssue": "Посмотреть проблему",
+        "grantAccess": "Предоставить доступ",
+        "turnOn": "Включить"
+      },
+      "plain": {
+        "safe": "Этот плагин включён и готов к работе. Он сохраняет только собственные настройки и не читает веб-сайты.",
+        "reviewBroadHost": "Этот плагин может читать {{hostSummary}}. Оставляйте его включённым, только если доверяете ему.",
+        "reviewError": "Этот плагин сообщил о проблеме.",
+        "optional": "Этот плагин работает без дополнительного доступа. Вы можете предоставить его позже.",
+        "off": "Этот плагин выключен."
+      }
+    },
+    "help": {
+      "guidance": {
+        "firstUse": {
+          "title": "Добавляйте доверенные плагины",
+          "body": "Установите плагин из доверенного источника, проверьте запрашиваемый доступ, затем включите его.",
+          "safety": "Предоставляйте доступ только к тем сайтам, с которыми плагин должен работать.",
+          "browse": "Найдите плагины в официальном каталоге Motrix"
+        },
+        "ongoing": "Проверьте доступ перед включением плагина. Предоставляйте доступ только к тем сайтам, с которыми он должен работать."
+      }
+    },
+    "diagnostics": {
+      "title": "Диагностика",
+      "intro": "Просматривайте успешные вызовы между плагинами за последние 24 часа.",
+      "callGraph": {
+        "toolbarLabel": "Управление графом вызовов",
+        "modeLabel": "Вид связей",
+        "modes": {
+          "graph": "Граф",
+          "table": "Таблица"
+        },
+        "filters": {
+          "searchLabel": "Поиск связей",
+          "searchPlaceholder": "Найти плагин или команду",
+          "clearSearch": "Очистить поиск",
+          "pluginsGroup": "Плагины",
+          "commandsGroup": "Команды",
+          "noSuggestions": "Нет подходящих плагинов или команд"
+        },
+        "refresh": "Обновить",
+        "refreshing": "Обновление…",
+        "refreshTooltip": "Загрузить последние успешные вызовы",
+        "renderGraphTooltip": "Показать этот большой результат в виде графа",
+        "columns": {
+          "caller": "Вызывающий плагин",
+          "command": "Команда",
+          "callee": "Вызываемый плагин",
+          "calls": "Вызовы",
+          "lastCall": "Последний вызов"
+        },
+        "legend": {
+          "label": "Легенда количества вызовов",
+          "fewerCalls": "Меньше вызовов",
+          "moreCalls": "Больше вызовов"
+        },
+        "loading": {
+          "graph": "Загрузка истории вызовов…",
+          "metadata": "Загрузка сведений о плагинах…"
+        },
+        "globalEmpty": {
+          "title": "Успешных вызовов между плагинами пока нет",
+          "description": "Встроенные плагины могут не вызывать другие плагины по умолчанию."
+        },
+        "filteredEmpty": "Успешных вызовов по этому запросу не найдено.",
+        "errors": {
+          "graphTitle": "Не удалось загрузить историю вызовов",
+          "graphDescription": "Попробуйте загрузить историю успешных вызовов ещё раз.",
+          "graphRetry": "Повторить загрузку истории",
+          "metadataTitle": "Не удалось загрузить сведения о плагинах",
+          "metadataDescription": "Для определения недоступных плагинов нужны сведения о них.",
+          "metadataRetry": "Повторить загрузку сведений",
+          "layout": "Не удалось расположить элементы на карте связей.",
+          "layoutRetry": "Повторить размещение",
+          "canvasTitle": "Не удалось отобразить граф",
+          "canvasDescription": "Повторите попытку отображения или используйте полное представление в виде таблицы.",
+          "canvasRetry": "Повторить отображение",
+          "canvasTable": "Использовать таблицу"
+        },
+        "truncated": "История вызовов может быть неполной из-за лимита чтения, срока хранения или ротации файлов.",
+        "statuses": {
+          "active": "Работает",
+          "inactive": "Готов, но бездействует",
+          "disabled": "Отключён",
+          "error": "Требуется внимание",
+          "missing": "Не установлен"
+        },
+        "inspector": {
+          "label": "Сведения о выбранном элементе графа вызовов",
+          "scopeTitle": "Успешные вызовы",
+          "neutralScope": "Выберите плагин или связь, чтобы просмотреть успешные вызовы за последние 24 часа.",
+          "pluginId": "ID плагина",
+          "status": "Статус",
+          "incomingCalls": "Входящие вызовы",
+          "outgoingCalls": "Исходящие вызовы",
+          "connections": "Связанные плагины",
+          "noConnections": "Нет связанных плагинов",
+          "openPlugin": "Открыть плагин",
+          "edgeTitle": "Сведения о связи",
+          "totalCalls": "Всего вызовов",
+          "commands": "Команды"
+        },
+        "tableRegionLabel": "Прокручиваемая область связей команд",
+        "tableLabel": "Связи команд плагинов",
+        "counts": {
+          "calls_one": "{{count}} успешный вызов",
+          "calls_other": "{{count}} успешного вызова",
+          "calls_few": "{{count}} успешных вызова",
+          "calls_many": "{{count}} успешных вызовов",
+          "commands_one": "{{count}} команда",
+          "commands_other": "{{count}} команды",
+          "commands_few": "{{count}} команды",
+          "commands_many": "{{count}} команд"
+        },
+        "aria": {
+          "graphLabel": "Связи команд плагинов",
+          "graphDescription": "За последние 24 часа: плагинов — {{nodeCount}}, связей — {{pairCount}}.",
+          "nodeLabel": "{{name}}, плагин {{id}}, {{status}}; входящих вызовов: {{incoming}}, исходящих: {{outgoing}}",
+          "edgeLabel": "{{source}} вызывал {{target}}; вызовов: {{calls}}, использованных команд: {{commands}}",
+          "nodeDescription": "Выберите узел плагина, чтобы просмотреть сведения о нём.",
+          "nodeKeyboardInstruction": "Используйте клавиши со стрелками для перемещения узла плагина.",
+          "nodeMoved": "Узел плагина перемещён {{direction}} в позицию {{x}}, {{y}}.",
+          "directions": {
+            "left": "влево",
+            "right": "вправо",
+            "up": "вверх",
+            "down": "вниз"
+          },
+          "edgeDescription": "Выберите связь вызовов, чтобы просмотреть сведения о ней.",
+          "controls": "Управление видом графа плагинов",
+          "zoomIn": "Увеличить масштаб графа",
+          "zoomOut": "Уменьшить масштаб графа",
+          "fitView": "Уместить граф плагинов в области просмотра",
+          "interactive": "Переключить режим взаимодействия с графом",
+          "minimap": "Обзор графа плагинов",
+          "handle": "Конечная точка вызова только для чтения"
+        }
+      }
+    },
+    "permission": {
+      "http": {
+        "strong": "Чтение веб-сайтов",
+        "plain": "Открывает страницы, поддерживаемые этим плагином.",
+        "cookies": {
+          "strong": "Использование файлов cookie сайтов",
+          "plain": "Получает доступ к сайтам, на которых выполнен вход."
+        }
+      },
+      "ffmpeg": {
+        "strong": "Использование FFmpeg",
+        "plain": "Обрабатывает аудио или видео."
+      },
+      "notify": {
+        "strong": "Отправка уведомлений",
+        "plain": "Показывает уведомления о завершении."
+      },
+      "fs": {
+        "task": {
+          "read": {
+            "strong": "Чтение файлов загрузок",
+            "plain": "Просматривает файлы задачи."
+          },
+          "write": {
+            "strong": "Изменение файлов загрузок",
+            "plain": "Может добавлять или обновлять файлы задачи."
+          }
+        },
+        "storage": {
+          "strong": "Сохранение файлов плагина",
+          "plain": "Хранит файлы этого плагина."
+        }
+      },
+      "storage": {
+        "strong": "Сохранение настроек",
+        "plain": "Запоминает параметры плагина."
+      },
+      "notifications": {
+        "strong": "Отправка уведомлений",
+        "plain": "Показывает уведомления плагина."
+      },
+      "network": {
+        "strong": "Чтение веб-сайтов",
+        "plain": "Загружает поддерживаемые страницы."
+      },
+      "tasks:read": {
+        "strong": "Чтение списка загрузок",
+        "plain": "Просматривает ваш список загрузок."
+      },
+      "tasks:write": {
+        "strong": "Управление загрузками",
+        "plain": "Может приостанавливать, возобновлять или удалять задачи из списка."
+      },
+      "unknown": {
+        "plain": "Неизвестное разрешение."
+      },
+      "accessTone": {
+        "required": "Необходимо",
+        "websiteAccess": "Веб-доступ",
+        "offByDefault": "Необязательно",
+        "allowed": "Разрешено",
+        "noAccess": "Выключено",
+        "grant": "Разрешить"
+      }
+    }
+  },
+  "plugin": {
+    "ffmpeg": {
+      "destination_phase_disallowed": "ffmpeg не может записывать в {{kind}} в обработчике {{phase}}. Попробуйте записать в хранилище плагина или перенесите вызов в beforeFinalize.",
+      "staging_quota_exceeded": "Превышен лимит временного пространства ffmpeg для этой задачи. Уменьшите размер итогового файла или увеличьте лимит в настройках инструментов для медиа."
+    },
+    "install": {
+      "ffmpeg": {
+        "title": "Требования к FFmpeg",
+        "notInstalled": "FFmpeg не установлен в этой системе.",
+        "versionMismatch": "Установлен FFmpeg {{version}}.",
+        "requiredByPlugin": "Этому плагину требуется ffmpeg. Установите его и повторите попытку.",
+        "optionalDegraded": "Функции работы с медиа в этом плагине будут недоступны до установки ffmpeg."
+      }
+    }
+  },
+  "bridge": {
+    "receiver": {
+      "error": {
+        "invalidPayload": "Некорректный запрос от расширения",
+        "invalidUrlScheme": "Адрес URL должен начинаться с http: или https:",
+        "unsupportedKind": "Загрузки типа {{kind}} не поддерживаются в этой версии Motrix",
+        "unsupportedLive": "Скачивание прямых трансляций не поддерживается",
+        "unsupportedMaster": "Расширение отправило основной плейлист; ожидался плейлист варианта",
+        "unsupportedEncryption": "Скачивание содержимого, защищённого DRM, не поддерживается",
+        "authExpired": "Сеанс истёк — обновите страницу в браузере и повторите попытку",
+        "notFound": "Ресурс не найден (404)",
+        "transientFailure": "Не удалось скачать после повторных попыток: {{detail}}",
+        "rangeNotSatisfiable": "Не удалось возобновить; начните загрузку заново",
+        "diskFull": "Диск заполнен",
+        "diskWriteFailed": "Не удалось записать на диск: {{detail}}",
+        "muxFailed": "Ошибка ffmpeg при объединении аудио и видео",
+        "muxAborted": "Объединение отменено",
+        "cancelled": "Отменено",
+        "internalError": "Внутренняя ошибка: {{detail}}"
+      }
+    }
+  },
+  "onboarding": {
+    "disclaimer": {
+      "title": "Уведомление об использовании",
+      "language": "Язык",
+      "languages": {
+        "english": "English",
+        "chinese": "简体中文"
+      },
+      "summary": "Прочитайте следующую информацию, прежде чем продолжить.",
+      "body": "Motrix предназначен только для управления загрузками. Он не предоставляет, не хранит, не размещает и не рекомендует содержимое для скачивания. Вы должны убедиться, что доступ к содержимому, его использование или распространение через Motrix разрешены законом и соответствуют применимым нормам авторского права и другим законам. Вы несёте ответственность за любые последствия скачивания, использования или распространения содержимого. Нажимая «Принять и продолжить», вы подтверждаете, что прочитали и поняли это уведомление.",
+      "highlights": {
+        "downloadManagement": "только для управления загрузками",
+        "authorized": "разрешены законом",
+        "responsibility": "Вы несёте ответственность"
+      },
+      "localConsent": "Ваш выбор будет сохранён на этом устройстве.",
+      "agree": "Принять и продолжить",
+      "quit": "Выйти",
+      "retry": "Повторить",
+      "saveFailed": "Не удалось сохранить согласие. Проверьте свободное место на диске и повторите попытку."
+    }
+  },
+  "notification": {
+    "taskError": {
+      "title": "Не удалось скачать: {{name}}"
+    },
+    "taskComplete": {
+      "title": "Загрузка завершена: {{name}}"
+    },
+    "engineFailure": {
+      "title": "Ошибка движка загрузок"
+    },
+    "engineCompatibility": {
+      "title": "Обнаружена версия aria2, не относящаяся к Motrix",
+      "body": "aria2 {{version}} не является форком Motrix. Максимальное значение параметров подключений ограничено {{limit}}, а сохранение истории в SQLite недоступно. Для полной поддержки восстановите встроенный движок aria2_motrix."
+    },
+    "engineRestartRequired": {
+      "title": "Перезапустите движок загрузок, чтобы применить настройки",
+      "body": "Настройки сохранены. Перезапустите движок загрузок в удобное время.",
+      "restartNow": "Перезапустить сейчас"
+    },
+    "dnsFallback": {
+      "title": "Загрузка {{name}} повторена с системным DNS",
+      "body": "Motrix не смог подключиться к DNS-серверу и переключился на системный DNS для текущего сеанса."
+    },
+    "center": {
+      "title": "Уведомления",
+      "markAllRead": "Отметить все как прочитанные",
+      "clearAll": "Очистить",
+      "empty": "Нет уведомлений",
+      "emptyDesc": "Здесь будут отображаться сведения о загрузках и важные сообщения приложения",
+      "unreadDotAria": "Непрочитанные уведомления",
+      "unreadBadgeAria_one": "{{count}} непрочитанное уведомление",
+      "unreadBadgeAria_other": "{{count}} непрочитанного уведомления",
+      "unreadBadgeAria_few": "{{count}} непрочитанных уведомления",
+      "unreadBadgeAria_many": "{{count}} непрочитанных уведомлений",
+      "rowUnreadAria": "{{title}} (не прочитано)",
+      "toastRegionAria": "Уведомления",
+      "removeAria": "Удалить {{title}}",
+      "actionFailed": "Не удалось обновить уведомления. Повторите попытку.",
+      "markRead": "Отметить как прочитанное",
+      "viewTask": "Показать задачу",
+      "taskRemoved": "Задача удалена из списка",
+      "openTaskFailed": "Не удалось открыть задачу. Повторите попытку."
+    }
+  },
+  "applicationMenu": {
+    "signOut": "Выйти из аккаунта…",
+    "back": "Назад",
+    "serverUnavailable": "Сервер недоступен. Выход из сеанса не выполнен.",
+    "retry": "Повторить",
+    "actionFailed": "Не удалось выполнить действие. Проверьте подключение и повторите попытку.",
+    "clearTitle": "Очистить записи остановленных задач?",
+    "clearDescription": "Удалить записи завершённых, неудачных и удалённых задач, зафиксированные при открытии этого окна. Скачанные файлы останутся на диске.",
+    "clearConfirm": "Очистить записи",
+    "logoutTitle": "Выйти из сеанса на этом сервере?",
+    "logoutDescription": "Это также завершит сеанс в других вкладках, использующих тот же сеанс браузера. Загрузки продолжатся на сервере. Несохранённые данные в этих вкладках будут потеряны.",
+    "logoutConfirm": "Выйти из сеанса",
+    "discardTitle": "Отменить черновик задачи?",
+    "discardDescription": "Несохранённые ссылки, выбранный торрент и настройки будут потеряны.",
+    "discardConfirm": "Отменить черновик"
+  },
+  "directoryPicker": {
+    "title": "Выберите папку на сервере",
+    "description": "Пути относятся к серверу (при использовании Docker — внутри контейнера).",
+    "back": "Назад",
+    "forward": "Вперёд",
+    "up": "На уровень выше",
+    "refresh": "Обновить",
+    "goToFolder": "Перейти к папке",
+    "location": "Расположение",
+    "viewOptions": "Параметры вида",
+    "sortBy": "Сортировать по",
+    "sortName": "Имя",
+    "sortModified": "Дата изменения",
+    "sortOrder": "Порядок",
+    "sortAscending": "По возрастанию",
+    "sortDescending": "По убыванию",
+    "showHidden": "Показывать скрытые папки",
+    "folders": "Папки",
+    "loading": "Загрузка папок…",
+    "empty": "Нет вложенных папок",
+    "incomplete": "Показана только часть содержимого этой папки. Введите точный путь, чтобы перейти к другой папке.",
+    "selectFolder": "Выбрать папку",
+    "selectedPath": "Выбранная папка",
+    "path": "Путь к папке",
+    "go": "Перейти",
+    "newFolder": "Новая папка",
+    "folderName": "Имя папки",
+    "create": "Создать",
+    "createHelp": "Созданные папки останутся на сервере, если вы отмените выбор.",
+    "fallback": "Запрошенная папка недоступна. Показана {{path}}.",
+    "refreshAfterCreateFailed": "Папка создана, но не удалось обновить список.",
+    "unknownOutcome": "Не удалось подтвердить создание. Обновите список и проверьте результат, прежде чем создавать здесь ещё одну папку.",
+    "retry": "Повторить",
+    "errors": {
+      "invalidPath": "Введите корректный абсолютный путь к папке.",
+      "outsideRoots": "Эта папка находится вне разрешённых расположений.",
+      "notFound": "Эта папка больше не существует.",
+      "notDirectory": "Этот путь не указывает на папку.",
+      "permissionDenied": "У вас нет разрешения на использование этой папки.",
+      "alreadyExists": "Файл или папка с таким именем уже существует.",
+      "invalidName": "Введите корректное имя папки.",
+      "tooLarge": "Слишком длинный путь или имя папки.",
+      "unavailable": "Сервер не смог выполнить этот запрос. Повторите попытку.",
+      "creationOutcomeUnknown": "Не удалось подтвердить создание. Обновите список и проверьте результат, прежде чем создавать здесь ещё одну папку."
+    },
+    "places": {
+      "common": "Часто используемые расположения",
+      "allowed": "Разрешённые расположения",
+      "default": "Папка по умолчанию",
+      "home": "Домашняя папка",
+      "desktop": "Рабочий стол",
+      "documents": "Документы",
+      "downloads": "Загрузки",
+      "root": "Файловая система",
+      "loadFailed": "Не удалось загрузить некоторые расположения папок."
+    }
+  },
+  "directoryPreferences": {
+    "sectionDescription": "Держите часто используемые папки под рукой.",
+    "manage": "Управление папками",
+    "manageDescription": "Выбирайте избранные папки и управляйте недавно использованными.",
+    "title": "Управление папками",
+    "description": "Удаление папки из этого списка не удаляет саму папку или её файлы.",
+    "favorites": "Избранные папки",
+    "recent": "Недавние папки",
+    "addFavorite": "Добавить в избранное",
+    "removeFavorite": "Удалить из избранного",
+    "favoriteRecent": "Добавить в избранное",
+    "removeRecent": "Убрать из недавних папок",
+    "clearRecent": "Очистить список недавних папок",
+    "emptyFavorites": "Нет избранных папок",
+    "emptyRecent": "Нет недавних папок",
+    "loading": "Загрузка папок…",
+    "retry": "Повторить",
+    "limitHint": "Максимальное число избранных папок: {{count}}.",
+    "pickerFailed": "Не удалось открыть окно выбора папки. Повторите попытку.",
+    "close": "Закрыть",
+    "history": "История папок",
+    "emptyHistory": "Пока нет избранных или недавних папок",
+    "errors": {
+      "conflict": "Настройки изменены в другом окне. Проверьте свои изменения и сохраните ещё раз.",
+      "invalidPath": "Введите корректный абсолютный путь к папке.",
+      "outsideRoots": "Эта папка находится вне разрешённых расположений.",
+      "notFound": "Эта папка больше не существует.",
+      "notDirectory": "Этот путь не указывает на папку.",
+      "permissionDenied": "У вас нет разрешения на использование этой папки.",
+      "tooLarge": "Путь к этой папке слишком длинный.",
+      "unavailable": "Не удалось обновить записи папок. Обновите список, чтобы проверить их текущее состояние.",
+      "limitReached": "Достигнут предел избранных папок. Удалите папку из избранного, прежде чем добавлять новую."
+    },
+    "manageAction": "Управление",
+    "alreadyFavorite": "Уже в избранном"
+  }
+}
