@@ -95,6 +95,7 @@ describe('OnboardingLanguageSelect', () => {
     ['Español', 'es'],
     ['简体中文', 'zh-CN'],
     ['Français', 'fr'],
+    ['Bahasa Indonesia', 'id'],
     ['日本語', 'ja'],
     ['한국어', 'ko'],
     ['Português (Brasil)', 'pt-BR'],

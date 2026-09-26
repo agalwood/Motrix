@@ -254,3 +254,42 @@ describe('bundled Brazilian Portuguese translations', () => {
     expect(disclaimer.body).toContain(disclaimer.agree)
   })
 })
+
+describe('bundled Indonesian translations', () => {
+  it('resolves complete headings and other-only plurals without English fallback', async () => {
+    const i18n = createInstance()
+    await i18n.init({
+      lng: 'id',
+      fallbackLng: false,
+      resources: I18N_RESOURCES,
+      interpolation: { escapeValue: false },
+    })
+
+    expect(i18n.t('common.retry')).toBe('Coba lagi')
+    expect(i18n.t('settings.appearance.followSystem')).toBe('Ikuti sistem')
+    expect(i18n.t('panel.downloads.heading.all')).toBe('Semua unduhan')
+    expect(i18n.t('task.remove.description', { name: 'example.zip' })).toBe(
+      '“example.zip” akan dihapus dari daftar unduhan.'
+    )
+    expect(i18n.t('task.remove.deleteFilesLabel')).toBe(
+      'Hapus berkas yang telah diunduh'
+    )
+    for (const count of [0, 1, 2, 5, 1.5, 1000000, 2000000]) {
+      const result = i18n.t('task.torrent.fileSelected', {
+        count,
+        returnDetails: true,
+      })
+      expect(result.exactUsedKey).toBe('task.torrent.fileSelected_other')
+      expect(result.res).toBe(`${count} berkas dipilih`)
+      expect(result.usedLng).toBe('id')
+    }
+  })
+
+  it('preserves the usage-notice highlights inside the Indonesian message', () => {
+    const { disclaimer } = I18N_RESOURCES.id.translation.onboarding
+    for (const highlight of Object.values(disclaimer.highlights)) {
+      expect(disclaimer.body).toContain(highlight)
+    }
+    expect(disclaimer.body).toContain(disclaimer.agree)
+  })
+})
