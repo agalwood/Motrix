@@ -22,6 +22,7 @@ export const SUPPORTED_LOCALES = [
   { code: 'it', nativeName: 'Italiano', dir: 'ltr' },
   { code: 'ja', nativeName: '日本語', dir: 'ltr' },
   { code: 'ko', nativeName: '한국어', dir: 'ltr' },
+  { code: 'pl', nativeName: 'Polski', dir: 'ltr' },
   { code: 'pt-BR', nativeName: 'Português (Brasil)', dir: 'ltr' },
   { code: 'zh-CN', nativeName: '简体中文', dir: 'ltr' },
   { code: 'zh-TW', nativeName: '繁體中文', dir: 'ltr' },

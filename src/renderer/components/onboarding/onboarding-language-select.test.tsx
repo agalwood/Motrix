@@ -99,6 +99,7 @@ describe('OnboardingLanguageSelect', () => {
     ['Italiano', 'it'],
     ['日本語', 'ja'],
     ['한국어', 'ko'],
+    ['Polski', 'pl'],
     ['Português (Brasil)', 'pt-BR'],
   ])(
     'switches to %s immediately and persists only that preference',

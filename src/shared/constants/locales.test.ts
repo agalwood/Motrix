@@ -108,6 +108,13 @@ describe('resolveSupportedLocale', () => {
     expect(resolveSupportedLocale('qaa')).toBe(DEFAULT_LOCALE)
   })
 
+  it.each(['pl', 'pl-PL', 'pl_PL.UTF-8'])(
+    'resolves Polish locale %s to the bundled resource',
+    (locale) => {
+      expect(resolveSupportedLocale(locale, 'en-US')).toBe('pl')
+    }
+  )
+
   it.each(['pt-BR', 'pt', 'pt-PT', 'pt_BR.UTF-8'])(
     'resolves Portuguese locale %s to the bundled Brazilian resource',
     (locale) => {
@@ -140,6 +147,8 @@ describe('isSupportedLocale', () => {
     expect(isSupportedLocale('ja-JP')).toBe(false)
     expect(isSupportedLocale('ko')).toBe(true)
     expect(isSupportedLocale('ko-KR')).toBe(false)
+    expect(isSupportedLocale('pl')).toBe(true)
+    expect(isSupportedLocale('pl-PL')).toBe(false)
     expect(isSupportedLocale('pt-BR')).toBe(true)
     expect(isSupportedLocale('pt')).toBe(false)
     expect(isSupportedLocale('pt-PT')).toBe(false)
