@@ -69,7 +69,7 @@ it('keeps preference changes in the outer draft and blocks Update until saved', 
   await user.click(
     screen.getByRole('combobox', { name: 'Location data source' })
   )
-  await user.click(screen.getByRole('option', { name: 'Custom URL' }))
+  await user.click(await screen.findByRole('option', { name: 'Custom URL' }))
   expect(
     screen.getByRole('textbox', { name: 'Custom download URL' })
   ).toBeEnabled()
