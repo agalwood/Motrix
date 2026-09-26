@@ -11,6 +11,7 @@ import pl from '@shared/locales/pl.json'
 import ptBR from '@shared/locales/pt-BR.json'
 import ru from '@shared/locales/ru.json'
 import tr from '@shared/locales/tr.json'
+import vi from '@shared/locales/vi.json'
 import zhCN from '@shared/locales/zh-CN.json'
 import zhTW from '@shared/locales/zh-TW.json'
 
@@ -27,6 +28,7 @@ export const I18N_RESOURCES = {
   'pt-BR': { translation: ptBR },
   ru: { translation: ru },
   tr: { translation: tr },
+  vi: { translation: vi },
   'zh-CN': { translation: zhCN },
   'zh-TW': { translation: zhTW },
 } satisfies Record<SupportedLocale, { translation: Record<string, unknown> }>
