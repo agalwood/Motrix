@@ -82,7 +82,7 @@ async function readRegular(root, relative, maximum) {
   }
 }
 
-function requireConsoleExecutable(bytes) {
+export function requireConsoleExecutable(bytes) {
   if (
     !Buffer.isBuffer(bytes) ||
     bytes.length < 256 ||

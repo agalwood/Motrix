@@ -214,9 +214,14 @@ Edge 和 Mozilla Firefox。仅在已安装诊断包的可丢弃测试账户中�
 $diagnosticLayout = 'C:\path\motrix-store-diagnostic-upgrade-layout'
 $expectedPackageVersion = '1.0.1.0'
 $browserOutput = 'C:\path\motrix-store-runtime-b\browser'
-node scripts/test-windows-store-native-messaging-browser.mjs --prepared $diagnosticLayout --expected-package-version $expectedPackageVersion --output-directory $browserOutput
+$relayBuild = 'C:\path\motrix-store-firefox-relay'
+pwsh -NoProfile -File scripts/build-windows-store-firefox-alias-relay.ps1 -OutputDirectory $relayBuild
+if ($LASTEXITCODE -ne 0) { throw 'Diagnostic relay build failed' }
+node scripts/test-windows-store-native-messaging-browser.mjs --prepared $diagnosticLayout --expected-package-version $expectedPackageVersion --output-directory $browserOutput --firefox-relay-build-dir $relayBuild
 if ($LASTEXITCODE -ne 0) { throw 'Diagnostic browser verification failed' }
 ```
+
+该显式实验为 Firefox 注册普通 PE 中转入口，再由它调用固定诊断 alias；Chrome 和 Edge 直接调用 alias。中转入口只转发一次固定挑战，不读取配置或连接 MBP1。检查器核对源码、编译报告和实际 EXE 摘要，并记录 `hostLaunchMode`。省略 `--firefox-relay-build-dir` 可重现 Firefox 直连 alias 的路径；两种模式不能混为同一验证结果。此实验使用临时目录，不证明生产环境的中转文件部署、跨升级保留或卸载清理已实现。
 
 每个浏览器都必须在注册前连接失败、注册后收到固定诊断回复、撤销注册后再次失败。
 检查器拒绝任何已存在的同名测试 host 注册，包括其他注册表视图和 Edge 回退位置。

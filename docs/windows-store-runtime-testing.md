@@ -236,9 +236,14 @@ the regular Motrix host. Supply a new output directory with an existing parent:
 $diagnosticLayout = 'C:\path\motrix-store-diagnostic-upgrade-layout'
 $expectedPackageVersion = '1.0.1.0'
 $browserOutput = 'C:\path\motrix-store-runtime-b\browser'
-node scripts/test-windows-store-native-messaging-browser.mjs --prepared $diagnosticLayout --expected-package-version $expectedPackageVersion --output-directory $browserOutput
+$relayBuild = 'C:\path\motrix-store-firefox-relay'
+pwsh -NoProfile -File scripts/build-windows-store-firefox-alias-relay.ps1 -OutputDirectory $relayBuild
+if ($LASTEXITCODE -ne 0) { throw 'Diagnostic relay build failed' }
+node scripts/test-windows-store-native-messaging-browser.mjs --prepared $diagnosticLayout --expected-package-version $expectedPackageVersion --output-directory $browserOutput --firefox-relay-build-dir $relayBuild
 if ($LASTEXITCODE -ne 0) { throw 'Diagnostic browser verification failed' }
 ```
+
+This explicit experiment registers an ordinary PE relay for Firefox, which invokes the fixed diagnostic alias; Chrome and Edge invoke the alias directly. The relay forwards one fixed challenge, without reading profiles or connecting to MBP1. The checker binds the source, build report and actual executable digests, and records `hostLaunchMode`. Omit `--firefox-relay-build-dir` to reproduce the direct Firefox alias path; these modes are distinct evidence. The relay uses a temporary directory, so this does not establish production relay deployment, continuity across upgrades, or uninstall cleanup.
 
 Each browser must fail to connect before registration, return the fixed diagnostic
 reply after registration, and fail again after removal. The checker rejects any

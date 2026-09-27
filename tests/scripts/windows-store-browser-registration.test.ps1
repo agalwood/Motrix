@@ -84,7 +84,7 @@ try {
   $ast = [Management.Automation.Language.Parser]::ParseFile($source, [ref]$tokens, [ref]$parseErrors)
   if (@($parseErrors).Count -ne 0) { throw 'registration-parser-failed' }
   $definitions = @(
-    foreach ($name in @('Get-RegistrationSpec', 'Get-RegistrationTargets', 'Get-BytesHash', 'Get-JsonBytes', 'Assert-RegistrationInputs', 'New-HostManifest', 'Assert-NewKeyDisposition', 'Assert-OwnedKey', 'Assert-RollbackKey', 'Assert-RegistrySurvey', 'Assert-ReceiptBinding')) {
+    foreach ($name in @('Get-RegistrationSpec', 'Get-RegistrationTargets', 'Get-BytesHash', 'Get-JsonBytes', 'Assert-RegistrationInputs', 'New-HostManifest', 'Assert-NewKeyDisposition', 'Assert-OwnedKey', 'Assert-RollbackKey', 'Assert-RegistrySurvey', 'Assert-ReceiptBinding', 'Get-HostLaunchBinding', 'Get-ReceiptLaunchBinding', 'Assert-RelayFileProperties', 'Assert-RelayContent', 'Assert-LaunchTargetForAction')) {
       $matching = @($ast.EndBlock.Statements | Where-Object {
         $_ -is [Management.Automation.Language.FunctionDefinitionAst] -and $_.Name -ceq $name
       })
@@ -95,6 +95,59 @@ try {
   # No main script, registry API, filesystem mutation helper or native type is
   # loaded. Only the named pure definitions above can be executed by this test.
   . ([scriptblock]::Create(($definitions -join "`n")))
+
+  function Relay-Check([string]$Name, [scriptblock]$Test, [bool]$Reject = $false) {
+    $rejected = $false
+    try { $null = & $Test } catch { $rejected = $true }
+    $results.Add([ordered]@{ name = $Name; ok = ($rejected -eq $Reject); expected = $(if ($Reject) { 'rejected' } else { 'accepted' }); observed = $(if ($rejected) { 'rejected' } else { 'accepted' }) })
+  }
+  $relayPath = 'C:\Synthetic\relay\motrix-store-p0-firefox-relay.exe'
+  $relayDigest = 'a' * 64
+  Relay-Check 'accepts-explicit-firefox-relay-binding' { Get-HostLaunchBinding 'firefox' $relayPath $relayDigest }
+  Relay-Check 'rejects-chrome-relay' { Get-HostLaunchBinding 'chrome' $relayPath $relayDigest } $true
+  Relay-Check 'rejects-relay-without-digest' { Get-HostLaunchBinding 'firefox' $relayPath $null } $true
+  Relay-Check 'rejects-digest-without-relay' { Get-HostLaunchBinding 'firefox' $null $relayDigest } $true
+  Relay-Check 'rejects-other-relay-filename' { Get-HostLaunchBinding 'firefox' 'C:\Synthetic\other.exe' $relayDigest } $true
+  Relay-Check 'rejects-relative-relay' { Get-HostLaunchBinding 'firefox' 'motrix-store-p0-firefox-relay.exe' $relayDigest } $true
+  Relay-Check 'rejects-relay-parent-traversal' { Get-HostLaunchBinding 'firefox' 'C:\Synthetic\..\motrix-store-p0-firefox-relay.exe' $relayDigest } $true
+  Relay-Check 'rejects-relay-empty-path-component' { Get-HostLaunchBinding 'firefox' 'C:\Synthetic\\motrix-store-p0-firefox-relay.exe' $relayDigest } $true
+  Relay-Check 'rejects-empty-relay-file' { Assert-RelayFileProperties $true 0 @([IO.FileAttributes]::Normal) } $true
+  Relay-Check 'rejects-oversized-relay-file' { Assert-RelayFileProperties $true 1048577 @([IO.FileAttributes]::Normal) } $true
+  Relay-Check 'rejects-relay-parent-reparse' { Assert-RelayFileProperties $true 512 @([IO.FileAttributes]::Normal, [IO.FileAttributes]::ReparsePoint) } $true
+  $peBytes = [byte[]]::new(512)
+  $peBytes[0] = 0x4d; $peBytes[1] = 0x5a
+  [BitConverter]::GetBytes([uint32]128).CopyTo($peBytes, 0x3c)
+  [BitConverter]::GetBytes([uint32]0x4550).CopyTo($peBytes, 128)
+  [BitConverter]::GetBytes([uint16]0x8664).CopyTo($peBytes, 132)
+  [BitConverter]::GetBytes([uint16]112).CopyTo($peBytes, 148)
+  [BitConverter]::GetBytes([uint16]2).CopyTo($peBytes, 150)
+  [BitConverter]::GetBytes([uint16]0x20b).CopyTo($peBytes, 152)
+  [BitConverter]::GetBytes([uint16]3).CopyTo($peBytes, 220)
+  Relay-Check 'accepts-bound-x64-console-header' { Assert-RelayContent $peBytes (Get-BytesHash $peBytes) }
+  Relay-Check 'rejects-relay-digest-mismatch' { Assert-RelayContent $peBytes ('f' * 64) } $true
+  $peBytes[220] = 2
+  Relay-Check 'rejects-gui-relay-header' { Assert-RelayContent $peBytes (Get-BytesHash $peBytes) } $true
+  function Assert-RelayFile([object]$Binding) { throw 'pure-test-filesystem-sentinel' }
+  $relayBinding = Get-HostLaunchBinding 'firefox' $relayPath $relayDigest
+  Relay-Check 'remove-does-not-read-relay-after-caller-removes-it' { Assert-LaunchTargetForAction 'Remove' $relayBinding }
+  Relay-Check 'inspect-does-read-relay' { Assert-LaunchTargetForAction 'Inspect' $relayBinding } $true
+  Relay-Check 'register-does-read-relay' { Assert-LaunchTargetForAction 'Register' $relayBinding } $true
+  $relayFixture = New-OwnershipFixture
+  $relayFixture.browser = 'firefox'
+  $relayFixture.receipt.browser = 'firefox'
+  $relayFixture.receipt.extensionId = 'motrix-store-p0@motrix.invalid'
+  $relayFixture.receipt.registryPath = 'Software\Mozilla\NativeMessagingHosts\app.motrix.bridge.store.p0'
+  $relayFixture.receipt | Add-Member -NotePropertyName relayPath -NotePropertyValue $relayPath
+  $relayFixture.receipt | Add-Member -NotePropertyName relaySha256 -NotePropertyValue $relayDigest
+  $relayFixture.manifestBytes = Get-JsonBytes (New-HostManifest 'firefox' $relayFixture.receipt.extensionId $relayPath)
+  $relayFixture.receipt.manifestSha256 = Get-BytesHash $relayFixture.manifestBytes
+  $relayFixture.receiptBytes = Get-JsonBytes $relayFixture.receipt
+  $relayFixture.digest = Get-BytesHash $relayFixture.receiptBytes
+  Relay-Check 'accepts-relay-receipt-without-reading-owned-target' { Assert-ReceiptBinding $relayFixture.receipt $relayFixture.receiptBytes $relayFixture.digest 'firefox' $relayFixture.directory $relayFixture.manifestBytes }
+  $relayFixture.receipt.relayPath = 'C:\Synthetic\changed\motrix-store-p0-firefox-relay.exe'
+  $relayFixture.receiptBytes = Get-JsonBytes $relayFixture.receipt
+  $relayFixture.digest = Get-BytesHash $relayFixture.receiptBytes
+  Relay-Check 'rejects-rebound-relay-path-with-original-manifest' { Assert-ReceiptBinding $relayFixture.receipt $relayFixture.receiptBytes $relayFixture.digest 'firefox' $relayFixture.directory $relayFixture.manifestBytes } $true
 
   $targets = @(Get-RegistrationTargets)
   $targetLabels = @($targets | ForEach-Object { "$($_.hive)/$($_.view)/$($_.keyPath)" })

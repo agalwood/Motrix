@@ -27,6 +27,7 @@ import {
   safeBrowserProbeObservation,
   validateBrowserInventory,
   validateBrowserProbeResult,
+  validateFirefoxRelayBuild,
 } from '../../scripts/test-windows-store-native-messaging-browser.mjs'
 import { renderWindowsStoreManifest } from '../../scripts/windows-store-manifest.mjs'
 import { WINDOWS_STORE_TEST_IDENTITY } from '../../scripts/windows-store-metadata.mjs'
@@ -526,6 +527,10 @@ async function harness() {
         cleanupVerified: args.action === 'Remove',
         registryView: 'Registry32',
         registryPathRole: args.browser,
+        hostLaunchMode: args.relayPath
+          ? 'firefox-alias-relay'
+          : 'execution-alias',
+        ...(args.relaySha256 ? { relaySha256: args.relaySha256 } : {}),
         receiptSha256: sha(args.browser),
         manifestSha256: HASH,
       },
@@ -553,6 +558,161 @@ async function harness() {
   }
   return { input, deps, registered, closed }
 }
+
+function relayEvidence() {
+  return {
+    executablePath: `${PRIVATE_PATH}\\motrix-store-p0-firefox-relay.exe`,
+    sourceSha256: HASH,
+    executableSha256: 'b'.repeat(64),
+    bytes: 512,
+    buildReportSha256: 'c'.repeat(64),
+  }
+}
+
+describe('explicit Firefox relay experiment', () => {
+  it('uses a pinned ordinary relay only for Firefox and retains identity checks and cleanup', async () => {
+    const lab = await harness()
+    const loadFirefoxRelayBuild = vi.fn(async () => relayEvidence())
+    const report = await runBrowserNativeMessagingChecks(
+      { ...lab.input, firefoxRelayBuildDirectory: PRIVATE_PATH },
+      { ...lab.deps, loadFirefoxRelayBuild }
+    )
+    expect(report.ok).toBe(true)
+    expect(
+      report.browsers.map(
+        (browser: { hostLaunchMode: string }) => browser.hostLaunchMode
+      )
+    ).toEqual(['execution-alias', 'execution-alias', 'firefox-alias-relay'])
+    expect(report.firefoxRelay.executableSha256).toBe(
+      relayEvidence().executableSha256
+    )
+    expect(loadFirefoxRelayBuild.mock.calls.length).toBeGreaterThan(9)
+    for (const [input] of lab.deps.registration.mock.calls) {
+      expect(input.relayPath).toBe(
+        input.browser === 'firefox' ? relayEvidence().executablePath : undefined
+      )
+    }
+    expect(JSON.stringify(report)).not.toContain(PRIVATE_PATH)
+    expect(report.browserUpgradeVerified).toBe(false)
+    expect(report.mbp1Verified).toBe(false)
+  })
+  it('stops when relay content changes without promoting passing cases', async () => {
+    const lab = await harness()
+    const loadFirefoxRelayBuild = vi
+      .fn()
+      .mockResolvedValueOnce(relayEvidence())
+      .mockResolvedValue({
+        ...relayEvidence(),
+        executableSha256: 'd'.repeat(64),
+      })
+    const report = await runBrowserNativeMessagingChecks(
+      { ...lab.input, firefoxRelayBuildDirectory: PRIVATE_PATH },
+      { ...lab.deps, loadFirefoxRelayBuild }
+    )
+    expect(report.ok).toBe(false)
+    expect(report.checks.at(-1).code).toBe('relay-content-changed')
+    expect(lab.deps.registration).not.toHaveBeenCalled()
+  })
+  it('rejects a registration report that substitutes the relay route', async () => {
+    const lab = await harness()
+    const real = lab.deps.registration.getMockImplementation()
+    lab.deps.registration.mockImplementation(async (input) => {
+      const result = await real?.(input)
+      if (!result) throw new Error('missing fixture')
+      if (input.browser === 'firefox')
+        result.report.hostLaunchMode = 'execution-alias'
+      return result
+    })
+    const report = await runBrowserNativeMessagingChecks(
+      { ...lab.input, firefoxRelayBuildDirectory: PRIVATE_PATH },
+      { ...lab.deps, loadFirefoxRelayBuild: async () => relayEvidence() }
+    )
+    expect(report.ok).toBe(false)
+    expect(report.browsers[2].checks.at(-1).code).toBe('registration-failed')
+  })
+})
+
+function relayBuildFixture() {
+  const executableBytes = Buffer.alloc(512)
+  executableBytes.write('MZ')
+  executableBytes.writeUInt32LE(128, 0x3c)
+  executableBytes.writeUInt32LE(0x4550, 128)
+  executableBytes.writeUInt16LE(0x8664, 132)
+  executableBytes.writeUInt16LE(112, 148)
+  executableBytes.writeUInt16LE(2, 150)
+  executableBytes.writeUInt16LE(0x20b, 152)
+  executableBytes.writeUInt16LE(3, 220)
+  const sourceBytes = Buffer.from(
+    'synthetic source for contract validation only'
+  )
+  const build = {
+    schemaVersion: 1,
+    scope: 'windows-native-messaging-firefox-alias-relay-build',
+    ok: true,
+    compiled: true,
+    compiler: 'Windows .NET Framework64 csc',
+    source: {
+      path: 'tests/fixtures/windows-store-native-messaging/firefox-alias-relay.cs',
+      sha256: sha(sourceBytes),
+    },
+    executable: {
+      path: 'motrix-store-p0-firefox-relay.exe',
+      bytes: executableBytes.length,
+      sha256: sha(executableBytes),
+      peMachine: '0x8664',
+      peMachineVerified: true,
+      peOptionalHeaderMagic: '0x020b',
+      peSubsystem: '0x0003',
+      consoleSubsystemVerified: true,
+    },
+    directStdioVerified: false,
+    packagedActivationVerified: false,
+    browserNativeMessagingVerified: false,
+    mbp1Verified: false,
+  }
+  return { executableBytes, sourceBytes, build }
+}
+
+describe('relay build association', () => {
+  it('checks actual PE bytes and checkout source without treating the report as signing proof', () => {
+    const { build, ...bytes } = relayBuildFixture()
+    expect(
+      validateFirefoxRelayBuild({
+        ...bytes,
+        buildReportBytes: Buffer.from(JSON.stringify(build)),
+      })
+    ).toMatchObject({
+      executableSha256: sha(bytes.executableBytes),
+      sourceSha256: sha(bytes.sourceBytes),
+      bytes: 512,
+    })
+  })
+  it.each([
+    'source',
+    'executable',
+    'pe',
+    'scope',
+    'claim',
+    'extra',
+    'malformed',
+  ])('rejects %s substitution', (mode) => {
+    const { build, ...bytes } = relayBuildFixture()
+    if (mode === 'source') bytes.sourceBytes = Buffer.from('other')
+    if (mode === 'executable') bytes.executableBytes[400] = 1
+    if (mode === 'pe') bytes.executableBytes.writeUInt16LE(0x14c, 132)
+    if (mode === 'scope') build.scope = 'windows-native-messaging-probe-build'
+    if (mode === 'claim') build.browserNativeMessagingVerified = true
+    if (mode === 'extra') Object.assign(build, { path: PRIVATE_PATH })
+    expect(() =>
+      validateFirefoxRelayBuild({
+        ...bytes,
+        buildReportBytes: Buffer.from(
+          mode === 'malformed' ? '{' : JSON.stringify(build)
+        ),
+      })
+    ).toThrow('relay-build-invalid')
+  })
+})
 
 describe('isolated sequential experiment coordinator', () => {
   it('completes nine actual-browser API cases with exact receipt hashes and safe claims', async () => {

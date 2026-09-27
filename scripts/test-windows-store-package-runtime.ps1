@@ -15,6 +15,7 @@ param(
   [Parameter(Mandatory = $true)][string]$PreparedDirectory,
   [Parameter(Mandatory = $true)][string]$UpgradePreparedDirectory,
   [Parameter(Mandatory = $true)][string]$SdkBinDirectory,
+  [Parameter(Mandatory = $true)][string]$FirefoxRelayBuildDirectory,
   [Parameter(Mandatory = $true)][string]$OutputDirectory
 )
 
@@ -484,6 +485,13 @@ function Assert-BrowserReport([object]$BrowserReport, [object]$PackageInput, [st
   if ($BrowserReport.testCount -ne 9 -or @($BrowserReport.browsers).Count -ne 3) {
     throw 'Expected exactly three branded browsers and nine cases.'
   }
+  if ($null -eq $PackageInput.RelayEvidence -or
+      $BrowserReport.firefoxRelay.sourceSha256 -cne $PackageInput.RelayEvidence.sourceSha256 -or
+      $BrowserReport.firefoxRelay.executableSha256 -cne $PackageInput.RelayEvidence.executableSha256 -or
+      $BrowserReport.firefoxRelay.buildReportSha256 -cne $PackageInput.RelayEvidence.buildReportSha256 -or
+      $BrowserReport.firefoxRelay.bytes -ne $PackageInput.RelayEvidence.bytes) {
+    throw 'Browser relay evidence differs from the supplied build.'
+  }
   $summaryNames = @('installed-before', 'installed-after')
   if (@($BrowserReport.checks).Count -ne 2) { throw 'Browser summary checks are incomplete.' }
   for ($index = 0; $index -lt 2; $index++) {
@@ -500,6 +508,8 @@ function Assert-BrowserReport([object]$BrowserReport, [object]$PackageInput, [st
         $browser.executableSha256 -cnotmatch '^[0-9a-f]{64}$' -or $browser.fixtureSha256 -cnotmatch '^[0-9a-f]{64}$' -or
         [string]::IsNullOrWhiteSpace($browser.fileVersion) -or [string]::IsNullOrWhiteSpace($browser.extensionId) -or
         @($browser.checks).Count -ne 3) { throw 'Unexpected browser identity, digest or case set.' }
+    $hostLaunchMode = if ($index -eq 2) { 'firefox-alias-relay' } else { 'execution-alias' }
+    if ($browser.hostLaunchMode -cne $hostLaunchMode) { throw 'Unexpected browser host launch mode.' }
     $automationMode = if ($index -eq 2) { 'firefox-headless-bidi' } else { 'chromium-headed-cdp' }
     if ($browser.automationMode -cne $automationMode -or
         ($index -eq 2 -and $browser.extensionId -cne 'motrix-store-p0@motrix.invalid') -or
@@ -719,8 +729,18 @@ try {
   # establish browser continuity across A-to-B, and never launch the main app.
   $stage = 'browser-b'
   $browserDirectory = Join-Path $OutputDirectory 'browser'
+  $relayDirectory = Get-AbsolutePath $FirefoxRelayBuildDirectory
+  $relayBuildPath = Join-Path $relayDirectory 'build-report.json'
+  $relayBuild = Read-Json $relayBuildPath
+  $relayEvidence = [pscustomobject]@{
+    sourceSha256 = Get-Hash (Join-Path $repository 'tests/fixtures/windows-store-native-messaging/firefox-alias-relay.cs')
+    executableSha256 = Get-Hash (Join-Path $relayDirectory 'motrix-store-p0-firefox-relay.exe')
+    buildReportSha256 = Get-Hash $relayBuildPath
+    bytes = $relayBuild.executable.bytes
+  }
+  $after | Add-Member -NotePropertyName RelayEvidence -NotePropertyValue $relayEvidence
   $browserAttempted = $true
-  $null = Invoke-BoundedProgram $node @((Join-Path $repository 'scripts\test-windows-store-native-messaging-browser.mjs'), '--prepared', $after.Prepared, '--expected-package-version', $after.Version, '--output-directory', $browserDirectory) 'test-installed-browsers-b' 360000
+  $null = Invoke-BoundedProgram $node @((Join-Path $repository 'scripts\test-windows-store-native-messaging-browser.mjs'), '--prepared', $after.Prepared, '--expected-package-version', $after.Version, '--output-directory', $browserDirectory, '--firefox-relay-build-dir', $relayDirectory) 'test-installed-browsers-b' 360000
   $browserReport = Read-Json $browserReportPath
   Assert-BrowserReport $browserReport $after $env:GITHUB_SHA
   Confirm-InstalledPackage $after

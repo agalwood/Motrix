@@ -14,7 +14,10 @@ import {
   validateInstalledProbeState,
 } from './test-windows-store-native-messaging-alias.mjs'
 import { verifyWindowsStoreLayout } from './verify-windows-store-layout.mjs'
-import { loadPreparedWindowsStoreDiagnostic } from './windows-store-diagnostics.mjs'
+import {
+  loadPreparedWindowsStoreDiagnostic,
+  requireConsoleExecutable,
+} from './windows-store-diagnostics.mjs'
 import { renderWindowsStoreManifest } from './windows-store-manifest.mjs'
 import {
   WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC as DIAGNOSTIC,
@@ -23,6 +26,9 @@ import {
 
 const REPO = fileURLToPath(new URL('../', import.meta.url))
 const HOST = 'app.motrix.bridge.store.p0'
+const RELAY_SOURCE =
+  'tests/fixtures/windows-store-native-messaging/firefox-alias-relay.cs'
+const RELAY_EXECUTABLE = 'motrix-store-p0-firefox-relay.exe'
 const FIREFOX_ID = 'motrix-store-p0@motrix.invalid'
 const FIREFOX_UUID = '9efccb48-20d1-4b4d-89cb-1e617591976a'
 const BRANDS = Object.freeze({
@@ -73,6 +79,8 @@ const CODES = new Set([
   'registration-cleanup-failed',
   'experiment-timeout',
   'fixture-invalid',
+  'relay-build-invalid',
+  'relay-content-changed',
   'report-write-failed',
   'internal-error',
 ])
@@ -339,6 +347,79 @@ try {
 `)
 }
 
+/** The report associates checked-in source and actual PE bytes; it is not a signature. */
+export function validateFirefoxRelayBuild({
+  buildReportBytes,
+  executableBytes,
+  sourceBytes,
+}) {
+  try {
+    requireConsoleExecutable(executableBytes)
+    if (
+      !Buffer.isBuffer(buildReportBytes) ||
+      buildReportBytes.length > 16384 ||
+      !Buffer.isBuffer(sourceBytes) ||
+      sourceBytes.length === 0 ||
+      sourceBytes.length > 65536
+    )
+      fail('relay-build-invalid')
+    const expected = {
+      schemaVersion: 1,
+      scope: 'windows-native-messaging-firefox-alias-relay-build',
+      ok: true,
+      compiled: true,
+      compiler: 'Windows .NET Framework64 csc',
+      source: { path: RELAY_SOURCE, sha256: hash(sourceBytes) },
+      executable: {
+        path: RELAY_EXECUTABLE,
+        bytes: executableBytes.length,
+        sha256: hash(executableBytes),
+        peMachine: '0x8664',
+        peMachineVerified: true,
+        peOptionalHeaderMagic: '0x020b',
+        peSubsystem: '0x0003',
+        consoleSubsystemVerified: true,
+      },
+      directStdioVerified: false,
+      packagedActivationVerified: false,
+      browserNativeMessagingVerified: false,
+      mbp1Verified: false,
+    }
+    if (!isDeepStrictEqual(JSON.parse(utf8(buildReportBytes)), expected))
+      fail('relay-build-invalid')
+    return {
+      sourceSha256: expected.source.sha256,
+      executableSha256: expected.executable.sha256,
+      bytes: executableBytes.length,
+      buildReportSha256: hash(buildReportBytes),
+    }
+  } catch {
+    fail('relay-build-invalid')
+  }
+}
+
+async function loadFirefoxRelayBuild(directory) {
+  if (!windowsPath(directory) || path.win32.normalize(directory) !== directory)
+    fail('invalid-arguments')
+  try {
+    const executablePath = path.win32.join(directory, RELAY_EXECUTABLE)
+    const evidence = validateFirefoxRelayBuild({
+      buildReportBytes: await readInstalledFile(
+        path.win32.join(directory, 'build-report.json'),
+        16384
+      ),
+      executableBytes: await readInstalledFile(executablePath, 1048576),
+      sourceBytes: await readInstalledFile(
+        path.join(REPO, RELAY_SOURCE),
+        65536
+      ),
+    })
+    return { executablePath, ...evidence }
+  } catch {
+    fail('relay-build-invalid')
+  }
+}
+
 /** Fixed script plus JSON data: never evaluate a caller-provided command. */
 export function buildBrowserRegistrationArguments(input) {
   if (
@@ -352,6 +433,16 @@ export function buildBrowserRegistrationArguments(input) {
     RunDirectory: input.runDirectory,
   }
   if (input.receiptSha256) parameters.ReceiptSha256 = input.receiptSha256
+  if (input.relayPath || input.relaySha256) {
+    if (
+      input.browser !== 'firefox' ||
+      !windowsPath(input.relayPath) ||
+      !hashPattern.test(input.relaySha256)
+    )
+      fail('invalid-arguments')
+    parameters.RelayPath = input.relayPath
+    parameters.RelaySha256 = input.relaySha256
+  }
   if (input.action === 'Register')
     Object.assign(parameters, {
       ExtensionId: input.extensionId,
@@ -399,7 +490,10 @@ async function registration(input) {
   }
 }
 
-function checkRegistration(value, { action, browser, registered }) {
+function checkRegistration(
+  value,
+  { action, browser, registered, relaySha256 }
+) {
   const report = value?.report
   if (
     value?.exitCode !== 0 ||
@@ -412,6 +506,11 @@ function checkRegistration(value, { action, browser, registered }) {
     report.browser !== browser ||
     report.hostName !== HOST ||
     report.registered !== registered ||
+    report.hostLaunchMode !==
+      (relaySha256 ? 'firefox-alias-relay' : 'execution-alias') ||
+    (relaySha256
+      ? report.relaySha256 !== relaySha256
+      : Object.hasOwn(report, 'relaySha256')) ||
     (action === 'Remove' && report.cleanupVerified !== true)
   )
     fail('registration-failed')
@@ -786,6 +885,7 @@ export async function runBrowserNativeMessagingChecks(
     manifestBytes,
     expectedPackageVersion,
     outputDirectory,
+    firefoxRelayBuildDirectory,
   },
   dependencies = {}
 ) {
@@ -794,6 +894,7 @@ export async function runBrowserNativeMessagingChecks(
   const inventory = dependencies.browserInventory ?? browserInventory
   const fixtureSource = dependencies.fixture ?? fixture
   const register = dependencies.registration ?? registration
+  const loadRelay = dependencies.loadFirefoxRelayBuild ?? loadFirefoxRelayBuild
   const launch =
     dependencies.openBrowser ??
     ((input) =>
@@ -809,6 +910,7 @@ export async function runBrowserNativeMessagingChecks(
   }
   let metadata
   let before
+  let relay
   let step = 'inputs'
   try {
     metadata = validateWindowsStoreMetadata(raw).metadata
@@ -828,6 +930,22 @@ export async function runBrowserNativeMessagingChecks(
     report.sourceCommit = metadata.source.commit
     report.packageVersion = metadata.packageVersion
     report.executableSha256 = diagnostic.executable.sha256
+    if (firefoxRelayBuildDirectory !== undefined) {
+      relay = await within(() => loadRelay(firefoxRelayBuildDirectory))
+      if (
+        !windowsPath(relay.executablePath) ||
+        path.win32.basename(relay.executablePath) !== RELAY_EXECUTABLE ||
+        !hashPattern.test(relay.sourceSha256) ||
+        !hashPattern.test(relay.executableSha256) ||
+        !hashPattern.test(relay.buildReportSha256) ||
+        !Number.isSafeInteger(relay.bytes) ||
+        relay.bytes < 256 ||
+        relay.bytes > 1048576
+      )
+        fail('relay-build-invalid')
+      const { executablePath: _path, ...safeRelay } = relay
+      report.firefoxRelay = safeRelay
+    }
     async function snapshot() {
       let value
       try {
@@ -854,6 +972,14 @@ export async function runBrowserNativeMessagingChecks(
         hash(probe) !== diagnostic.executable.sha256
       )
         fail('installed-content-mismatch')
+      if (
+        relay &&
+        !isDeepStrictEqual(
+          await within(() => loadRelay(firefoxRelayBuildDirectory)),
+          relay
+        )
+      )
+        fail('relay-content-changed')
       if (before && !isDeepStrictEqual(value, before))
         fail('installed-state-changed')
       return value
@@ -866,6 +992,10 @@ export async function runBrowserNativeMessagingChecks(
     for (const browser of Object.keys(BRANDS)) {
       const browserReport = {
         browser,
+        hostLaunchMode:
+          browser === 'firefox' && relay
+            ? 'firefox-alias-relay'
+            : 'execution-alias',
         automationMode:
           browser === 'firefox'
             ? 'firefox-headless-bidi'
@@ -897,6 +1027,16 @@ export async function runBrowserNativeMessagingChecks(
         packageVersion: expectedPackageVersion,
         probeSha256: diagnostic.executable.sha256,
         sourceCommit: metadata.source.commit,
+        ...(browser === 'firefox' && relay
+          ? {
+              relayPath: relay.executablePath,
+              relaySha256: relay.executableSha256,
+            }
+          : {}),
+      }
+      const registrationExpectation = {
+        browser,
+        relaySha256: registerInput.relaySha256,
       }
       try {
         const details = await within(() => inventory(browser))
@@ -970,8 +1110,8 @@ export async function runBrowserNativeMessagingChecks(
               }
             }
             checkRegistration(created, {
+              ...registrationExpectation,
               action: 'Register',
-              browser,
               registered: true,
             })
             browserReport.registration = {
@@ -983,7 +1123,11 @@ export async function runBrowserNativeMessagingChecks(
               await within(() =>
                 register({ ...registerInput, action: 'Inspect', receiptSha256 })
               ),
-              { action: 'Inspect', browser, registered: true }
+              {
+                ...registrationExpectation,
+                action: 'Inspect',
+                registered: true,
+              }
             )
           } else {
             if (receiptSha256) {
@@ -995,7 +1139,11 @@ export async function runBrowserNativeMessagingChecks(
                     receiptSha256,
                   })
                 ),
-                { action: 'Remove', browser, registered: false }
+                {
+                  ...registrationExpectation,
+                  action: 'Remove',
+                  registered: false,
+                }
               )
               receiptSha256 = undefined
               registrationAttempted = false
@@ -1004,7 +1152,11 @@ export async function runBrowserNativeMessagingChecks(
               await within(() =>
                 register({ ...registerInput, action: 'Inspect' })
               ),
-              { action: 'Inspect', browser, registered: false }
+              {
+                ...registrationExpectation,
+                action: 'Inspect',
+                registered: false,
+              }
             )
           }
           const observed = await within(() => session.runCase(), 16000)
@@ -1059,7 +1211,11 @@ export async function runBrowserNativeMessagingChecks(
                 action: 'Remove',
                 receiptSha256,
               }),
-              { action: 'Remove', browser, registered: false }
+              {
+                ...registrationExpectation,
+                action: 'Remove',
+                registered: false,
+              }
             )
             registrationAttempted = false
           })
@@ -1116,6 +1272,7 @@ async function main(args) {
           '--prepared',
           '--expected-package-version',
           '--output-directory',
+          '--firefox-relay-build-dir',
         ].includes(args[index]) ||
         Object.hasOwn(options, args[index]) ||
         !args[index + 1] ||
@@ -1125,7 +1282,9 @@ async function main(args) {
       options[args[index]] = args[index + 1]
     }
     if (
-      Object.keys(options).length !== 3 ||
+      ![3, 4].includes(Object.keys(options).length) ||
+      !options['--prepared'] ||
+      !options['--output-directory'] ||
       !/^\d+\.\d+\.\d+\.\d+$/.test(options['--expected-package-version'])
     )
       fail('invalid-arguments')
@@ -1162,6 +1321,7 @@ async function main(args) {
       manifestBytes: Buffer.from(renderWindowsStoreManifest(metadata)),
       expectedPackageVersion: options['--expected-package-version'],
       outputDirectory,
+      firefoxRelayBuildDirectory: options['--firefox-relay-build-dir'],
     })
     const after = await verifyWindowsStoreLayout({
       preparedDirectory,

@@ -67,6 +67,8 @@ jobs:
             'scripts/pack-windows-store-test.ps1',
             'tests/scripts/windows-store-pri.test.ps1',
             'scripts/build-windows-store-native-messaging-probe.ps1',
+            'scripts/build-windows-store-firefox-alias-relay.ps1',
+            'tests/scripts/windows-store-firefox-alias-relay.test.ps1',
             'tests/scripts/windows-store-native-messaging-probe.test.ps1',
             'scripts/test-windows-store-package-runtime.ps1',
             'tests/scripts/windows-store-package-runtime.test.ps1',
@@ -101,6 +103,17 @@ jobs:
           ./tests/scripts/windows-store-native-messaging-probe.test.ps1
           -ProbePath (Join-Path $env:RUNNER_TEMP 'motrix-store-native-messaging-probe/motrix-store-p0-probe.exe')
           -ReportPath (Join-Path $env:RUNNER_TEMP 'motrix-store-native-messaging-probe/direct-stdio-report.json')
+
+      - name: Compile Firefox diagnostic relay
+        run: >-
+          ./scripts/build-windows-store-firefox-alias-relay.ps1
+          -OutputDirectory (Join-Path $env:RUNNER_TEMP 'motrix-store-firefox-relay')
+
+      - name: Test Firefox relay contracts
+        run: >-
+          ./tests/scripts/windows-store-firefox-alias-relay.test.ps1
+          -RelayPath (Join-Path $env:RUNNER_TEMP 'motrix-store-firefox-relay/motrix-store-p0-firefox-relay.exe')
+          -ReportPath (Join-Path $env:RUNNER_TEMP 'motrix-store-firefox-relay/contracts-report.json')
 
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
@@ -289,6 +302,7 @@ jobs:
           -PreparedDirectory $env:MOTRIX_STORE_DIAGNOSTIC_LAYOUT
           -UpgradePreparedDirectory $env:MOTRIX_STORE_UPGRADE_LAYOUT
           -SdkBinDirectory $env:MOTRIX_STORE_SDK_BIN
+          -FirefoxRelayBuildDirectory (Join-Path $env:RUNNER_TEMP 'motrix-store-firefox-relay')
           -OutputDirectory (Join-Path $env:RUNNER_TEMP 'motrix-store-alias-runtime')
 
       # Only text evidence leaves the runner. A manual dispatch tests a signed
@@ -301,6 +315,8 @@ jobs:
           path: |
             ${{ runner.temp }}/motrix-store-runtime-contracts.json
             ${{ runner.temp }}/motrix-store-browser-registration-contracts.json
+            ${{ runner.temp }}/motrix-store-firefox-relay/build-report.json
+            ${{ runner.temp }}/motrix-store-firefox-relay/contracts-report.json
             ${{ runner.temp }}/motrix-store-native-messaging-probe/build-report.json
             ${{ runner.temp }}/motrix-store-native-messaging-probe/direct-stdio-report.json
             ${{ runner.temp }}/motrix-windows-store/build/build-plan.json

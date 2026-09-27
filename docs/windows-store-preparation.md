@@ -437,7 +437,7 @@ the same alias and application identity activate B immediately. Separate reports
 retain each version's observations. Before removing B, a separate
 [browser checker](windows-store-runtime-testing.md#check-diagnostic-native-messaging-in-real-browsers)
 tests the diagnostic host with installed Chrome, Edge, and Firefox using fresh
-profiles and temporary current-user test registrations. Each browser must reject
+profiles and temporary current-user test registrations. Firefox uses an explicit ordinary PE relay to invoke the fixed alias; Chrome and Edge invoke the alias directly. Reports identify the launch mode, without claiming production relay deployment or lifecycle support. Each browser must reject
 the absent host, connect while registered, and reject it after registration removal.
 Registration ownership and profile cleanup are required for a successful report.
 The wrapper removes only its own installed package,

@@ -363,7 +363,7 @@ B 的提供版本历史包含 A。两包都须先通过 SDK 和 PRI 检查。Win
 两版本分别保留报告。卸载 B 前，独立的
 [浏览器检查器](windows-store-runtime-testing.zh-CN.md#在真实浏览器中检查诊断-native-messaging)
 使用已安装的 Chrome、Edge、Firefox，通过新建 profile 和当前用户临时测试注册验证
-诊断 host。每个浏览器必须在 host 未注册时拒绝连接、注册期间成功连接、撤销后再次
+诊断 host。Firefox 使用显式普通 PE 中转入口调用固定 alias，Chrome 和 Edge 直接调用 alias；报告分别记录启动模式。这不证明生产中转文件的部署或生命周期。每个浏览器必须在 host 未注册时拒绝连接、注册期间成功连接、撤销后再次
 拒绝连接。注册所有权和 profile 清理均为成功报告的必要条件。
 包装脚本结束后仅删除本次已安装包、证书和信任项、临时签名副本，并复查
 清理结果；两份 SDK 未签名原包保持原样。PR 运行跳过安装步骤。不使用发布者证书、

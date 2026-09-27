@@ -233,6 +233,38 @@ describe('Windows Store SDK test workflow', () => {
     }
   })
 
+  it('builds and checks the fixed relay before the browser experiment and uploads text only', () => {
+    const compile = steps[stepIndex('Compile Firefox diagnostic relay')]
+    const check = steps[stepIndex('Test Firefox relay contracts')]
+    expect(compile?.run).toContain(
+      'scripts/build-windows-store-firefox-alias-relay.ps1'
+    )
+    expect(check?.run).toContain(
+      'tests/scripts/windows-store-firefox-alias-relay.test.ps1'
+    )
+    expect(check?.run).toContain('motrix-store-p0-firefox-relay.exe')
+    expect(stepIndex('Test Firefox relay contracts')).toBeGreaterThan(
+      stepIndex('Compile Firefox diagnostic relay')
+    )
+    expect(stepIndex('Test Firefox relay contracts')).toBeLessThan(
+      stepIndex('Prepare fixed test inputs')
+    )
+    expect(
+      steps[
+        stepIndex(
+          'Test installed diagnostic alias and browsers on the hosted runner'
+        )
+      ]?.run
+    ).toContain(
+      "-FirefoxRelayBuildDirectory (Join-Path $env:RUNNER_TEMP 'motrix-store-firefox-relay')"
+    )
+    const paths = String(
+      steps[stepIndex('Upload SDK text evidence')]?.with?.path
+    )
+    expect(paths).toContain('motrix-store-firefox-relay/build-report.json')
+    expect(paths).toContain('motrix-store-firefox-relay/contracts-report.json')
+  })
+
   it('builds and stages before invoking the complete directory config and SDK round trip', () => {
     const ordered = [
       'Install locked dependencies',

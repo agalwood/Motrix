@@ -19,6 +19,8 @@ param(
   [string]$ProbeSha256,
   [string]$SourceCommit,
   [string]$ReceiptSha256,
+  [string]$RelayPath,
+  [string]$RelaySha256,
   [switch]$AllowTemporaryRegistration
 )
 
@@ -75,6 +77,90 @@ function Assert-RegistrationInputs(
   if ($Version -cnotmatch '^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$') { throw 'invalid-package-version' }
   foreach ($part in $Version.Split('.')) { if ([int]$part -gt 65535) { throw 'invalid-package-version' } }
   if ($ProbeHash -cnotmatch '^[0-9a-f]{64}$' -or $Commit -cnotmatch '^[0-9a-f]{40}$') { throw 'invalid-build-digest' }
+}
+
+function Get-HostLaunchBinding([string]$BrowserName, [string]$CandidateRelay, [string]$RelayDigest) {
+  $hasPath = -not [string]::IsNullOrEmpty($CandidateRelay)
+  $hasDigest = -not [string]::IsNullOrEmpty($RelayDigest)
+  if ($hasPath -ne $hasDigest) { throw 'relay-parameters-incomplete' }
+  if (-not $hasPath) {
+    return [pscustomobject]@{ mode = 'execution-alias'; relayPath = $null; relaySha256 = $null }
+  }
+  if ($BrowserName -cne 'firefox' -or $RelayDigest -cnotmatch '^[0-9a-f]{64}$' -or
+      $CandidateRelay -cnotmatch '^[A-Za-z]:\\' -or $CandidateRelay -match '[\x00-\x1f/<>"|?*]' -or
+      $CandidateRelay.Substring(2).Contains(':')) { throw 'invalid-relay-binding' }
+  $parts = $CandidateRelay.Substring(3).Split('\')
+  if ($parts[-1] -cne 'motrix-store-p0-firefox-relay.exe') { throw 'invalid-relay-binding' }
+  foreach ($part in $parts) {
+    if ([string]::IsNullOrEmpty($part) -or $part -in @('.', '..') -or $part.EndsWith('.') -or $part.EndsWith(' ')) { throw 'invalid-relay-binding' }
+  }
+  return [pscustomobject]@{ mode = 'firefox-alias-relay'; relayPath = $CandidateRelay; relaySha256 = $RelayDigest }
+}
+
+function Get-ReceiptLaunchBinding([object]$Receipt) {
+  if ($null -ne $Receipt.PSObject.Properties['relayPath'] -or $null -ne $Receipt.PSObject.Properties['relaySha256']) {
+    $binding = Get-HostLaunchBinding $Receipt.browser $Receipt.relayPath $Receipt.relaySha256
+    if ($binding.mode -cne 'firefox-alias-relay') { throw 'invalid-receipt' }
+    return $binding
+  }
+  return (Get-HostLaunchBinding $Receipt.browser $null $null)
+}
+
+function Assert-RelayFileProperties([bool]$IsRegularFile, [long]$Length, [IO.FileAttributes[]]$PathAttributes) {
+  if (-not $IsRegularFile -or $Length -le 0 -or $Length -gt 1048576 -or $PathAttributes.Count -eq 0) { throw 'invalid-relay-file' }
+  foreach ($attributes in $PathAttributes) {
+    if (($attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'relay-reparse-path-rejected' }
+  }
+}
+
+function Assert-RelayContent([byte[]]$Bytes, [string]$ExpectedHash) {
+  if ($ExpectedHash -cnotmatch '^[0-9a-f]{64}$' -or $Bytes.Length -lt 256 -or $Bytes.Length -gt 1048576 -or
+      (Get-BytesHash $Bytes) -cne $ExpectedHash -or $Bytes[0] -ne 0x4d -or $Bytes[1] -ne 0x5a) { throw 'invalid-relay-content' }
+  $pe = [BitConverter]::ToUInt32($Bytes, 0x3c)
+  if ($pe -lt 64 -or $pe -gt ($Bytes.Length - 94)) { throw 'invalid-relay-pe' }
+  $optionalSize = [BitConverter]::ToUInt16($Bytes, $pe + 20)
+  $characteristics = [BitConverter]::ToUInt16($Bytes, $pe + 22)
+  if ([BitConverter]::ToUInt32($Bytes, $pe) -ne 0x4550 -or
+      [BitConverter]::ToUInt16($Bytes, $pe + 4) -ne 0x8664 -or
+      $optionalSize -lt 70 -or ($pe + 24 + $optionalSize) -gt $Bytes.Length -or
+      ($characteristics -band 2) -eq 0 -or ($characteristics -band 0x2000) -ne 0 -or
+      [BitConverter]::ToUInt16($Bytes, $pe + 24) -ne 0x20b -or
+      [BitConverter]::ToUInt16($Bytes, $pe + 92) -ne 3) { throw 'invalid-relay-pe' }
+}
+
+function Assert-RelayFile([object]$Binding) {
+  if ([IO.Path]::GetFullPath($Binding.relayPath) -cne $Binding.relayPath) { throw 'invalid-relay-binding' }
+  $item = Get-Item -LiteralPath $Binding.relayPath -Force -ErrorAction Stop
+  $attributes = @(
+    for ($current = $item; $null -ne $current; $current = $(if ($current -is [IO.DirectoryInfo]) { $current.Parent } else { $current.Directory })) {
+      $current.Attributes
+    }
+  )
+  $isFile = $item -is [IO.FileInfo]
+  $length = if ($isFile) { $item.Length } else { 0 }
+  Assert-RelayFileProperties $isFile $length $attributes
+  # Bound the read again while holding a share-read handle, so a concurrent
+  # writer cannot grow the file between the size check and reading its bytes.
+  $stream = [IO.File]::Open($item.FullName, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+  try {
+    if ($stream.Length -ne $length) { throw 'relay-content-changed' }
+    $bytes = [byte[]]::new($length)
+    $offset = 0
+    while ($offset -lt $bytes.Length) {
+      $count = $stream.Read($bytes, $offset, $bytes.Length - $offset)
+      if ($count -eq 0) { throw 'relay-content-changed' }
+      $offset += $count
+    }
+    Assert-RelayContent $bytes $Binding.relaySha256
+  } finally { $stream.Dispose() }
+}
+
+function Assert-LaunchTargetForAction([string]$RequestedAction, [object]$Binding) {
+  if ($RequestedAction -cnotin @('Register', 'Inspect', 'Remove')) { throw 'invalid-action' }
+  # The caller owns the relay. Removing our exact registry/manifest registration
+  # must remain possible after that caller removes or replaces its relay file.
+  if ($RequestedAction -ceq 'Remove' -or $Binding.mode -ceq 'execution-alias') { return }
+  Assert-RelayFile $Binding
 }
 
 function New-HostManifest([string]$BrowserName, [string]$Id, [string]$HostAlias) {
@@ -136,6 +222,7 @@ function Assert-ReceiptBinding(
   if ($ExpectedHash -cnotmatch '^[0-9a-f]{64}$' -or (Get-BytesHash $ReceiptBytes) -cne $ExpectedHash) { throw 'receipt-digest-mismatch' }
   $names = @('schemaVersion', 'runId', 'browser', 'hostName', 'extensionId', 'sourceCommit', 'packageVersion', 'probeSha256', 'aliasPath', 'registryHive', 'registryView', 'registryPath', 'createdNew', 'runDirectory', 'manifestPath', 'manifestSha256')
   $actualNames = @($Receipt.PSObject.Properties.Name)
+  if ($actualNames -ccontains 'relayPath' -or $actualNames -ccontains 'relaySha256') { $names += @('relayPath', 'relaySha256') }
   if ($actualNames.Count -ne $names.Count -or @($actualNames | Where-Object { $_ -cnotin $names }).Count -ne 0) { throw 'invalid-receipt' }
   $spec = Get-RegistrationSpec $BrowserName
   if ($Receipt.schemaVersion -ne 1 -or $Receipt.runId -cnotmatch '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' -or
@@ -145,7 +232,9 @@ function Assert-ReceiptBinding(
       $Receipt.runDirectory -cne $DirectoryPath -or $Receipt.manifestPath -cne "$DirectoryPath\host-manifest.json" -or
       $Receipt.manifestSha256 -cnotmatch '^[0-9a-f]{64}$' -or (Get-BytesHash $ManifestBytes) -cne $Receipt.manifestSha256) { throw 'invalid-receipt' }
   Assert-RegistrationInputs $Receipt.browser $Receipt.extensionId $Receipt.aliasPath $Receipt.aliasPath $Receipt.packageVersion $Receipt.probeSha256 $Receipt.sourceCommit
-  $expectedManifest = Get-JsonBytes (New-HostManifest $Receipt.browser $Receipt.extensionId $Receipt.aliasPath)
+  $binding = Get-ReceiptLaunchBinding $Receipt
+  $manifestTarget = if ($binding.mode -ceq 'firefox-alias-relay') { $binding.relayPath } else { $Receipt.aliasPath }
+  $expectedManifest = Get-JsonBytes (New-HostManifest $Receipt.browser $Receipt.extensionId $manifestTarget)
   if ((Get-BytesHash $expectedManifest) -cne $Receipt.manifestSha256) { throw 'manifest-binding-mismatch' }
 }
 
@@ -175,7 +264,7 @@ function Read-OwnedBundle([string]$DirectoryPath, [string]$BrowserName, [string]
   $manifestBytes = [IO.File]::ReadAllBytes($manifestPath)
   $receipt = [Text.UTF8Encoding]::new($false, $true).GetString($receiptBytes) | ConvertFrom-Json
   Assert-ReceiptBinding $receipt $receiptBytes $Digest $BrowserName $DirectoryPath $manifestBytes
-  return [pscustomobject]@{ receipt = $receipt; receiptPath = $receiptPath; manifestPath = $manifestPath }
+  return [pscustomobject]@{ receipt = $receipt; receiptPath = $receiptPath; manifestPath = $manifestPath; launch = (Get-ReceiptLaunchBinding $receipt) }
 }
 
 function Read-KeySnapshot([Microsoft.Win32.RegistryKey]$Key) {
@@ -277,7 +366,7 @@ function Invoke-RegistrationRollback([object]$Owned) {
 $result = [ordered]@{
   schemaVersion = 1; ok = $false; action = $Action; browser = $Browser
   hostName = 'app.motrix.bridge.store.p0'; registered = $false; cleanupVerified = $false
-  registryView = 'Registry32'; registryPathRole = $Browser
+  registryView = 'Registry32'; registryPathRole = $Browser; hostLaunchMode = 'execution-alias'
 }
 $owned = [pscustomobject]@{
   directoryCreated = $false; directory = $null; manifestPath = $null
@@ -289,7 +378,13 @@ try {
   $spec = Get-RegistrationSpec $Browser
   $stage = 'invalid-run-directory'
   $directory = Get-RunPath $RunDirectory
+  $stage = 'invalid-relay-binding'
+  $launch = Get-HostLaunchBinding $Browser $RelayPath $RelaySha256
+  $result.hostLaunchMode = $launch.mode
+  if ($launch.mode -ceq 'firefox-alias-relay') { $result.relaySha256 = $launch.relaySha256 }
   if ($Action -ceq 'Inspect' -and [string]::IsNullOrEmpty($ReceiptSha256)) {
+    $stage = 'relay-verification-failed'
+    Assert-LaunchTargetForAction $Action $launch
     $stage = 'registration-collision'
     Assert-RegistrySurvey @(Get-RegistrySurvey)
     $result.ok = $true
@@ -300,6 +395,8 @@ try {
     $knownAlias = Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)) 'Microsoft\WindowsApps\motrix-store-p0-native-host.exe'
     Assert-RegistrationInputs $Browser $ExtensionId $AliasPath $knownAlias $ExpectedPackageVersion $ProbeSha256 $SourceCommit
     if (-not [IO.File]::Exists($knownAlias)) { throw 'diagnostic-alias-missing' }
+    $stage = 'relay-verification-failed'
+    Assert-LaunchTargetForAction $Action $launch
     $stage = 'registration-collision'
     Assert-RegistrySurvey @(Get-RegistrySurvey)
     $stage = 'registration-directory-unavailable'
@@ -312,7 +409,8 @@ try {
     Assert-RegularPath $directory $true
     $manifestPath = Join-Path $directory 'host-manifest.json'
     $owned.manifestPath = $manifestPath
-    $manifestBytes = Get-JsonBytes (New-HostManifest $Browser $ExtensionId $knownAlias)
+    $manifestTarget = if ($launch.mode -ceq 'firefox-alias-relay') { $launch.relayPath } else { $knownAlias }
+    $manifestBytes = Get-JsonBytes (New-HostManifest $Browser $ExtensionId $manifestTarget)
     Write-NewBytes $manifestPath $manifestBytes
     $owned.files.Add([pscustomobject]@{ path = $manifestPath; sha256 = (Get-BytesHash $manifestBytes) })
     $receipt = [ordered]@{
@@ -321,6 +419,10 @@ try {
       probeSha256 = $ProbeSha256; aliasPath = $knownAlias
       registryHive = 'CurrentUser'; registryView = 'Registry32'; registryPath = $spec.keyPath; createdNew = $true
       runDirectory = $directory; manifestPath = $manifestPath; manifestSha256 = (Get-BytesHash $manifestBytes)
+    }
+    if ($launch.mode -ceq 'firefox-alias-relay') {
+      $receipt.relayPath = $launch.relayPath
+      $receipt.relaySha256 = $launch.relaySha256
     }
     $stage = 'registration-collision'
     Assert-RegistrySurvey @(Get-RegistrySurvey)
@@ -345,6 +447,7 @@ try {
     } finally { $createdKey.Dispose() }
     $stage = 'registration-postcheck-failed'
     $bundle = Read-OwnedBundle $directory $Browser $result.receiptSha256
+    Assert-LaunchTargetForAction $Action $bundle.launch
     Assert-RegistrySurvey @(Get-RegistrySurvey) $bundle.receipt
     $result.registered = $true
     $result.ok = $true
@@ -352,9 +455,15 @@ try {
     $stage = 'ownership-check-failed'
     $bundle = Read-OwnedBundle $directory $Browser $ReceiptSha256
     $receipt = $bundle.receipt
+    if ($launch.mode -ceq 'firefox-alias-relay' -and
+        ($launch.relayPath -cne $bundle.launch.relayPath -or $launch.relaySha256 -cne $bundle.launch.relaySha256)) { throw 'relay-receipt-mismatch' }
+    $launch = $bundle.launch
+    $result.hostLaunchMode = $launch.mode
+    if ($launch.mode -ceq 'firefox-alias-relay') { $result.relaySha256 = $launch.relaySha256 }
     $result.receiptSha256 = $ReceiptSha256
     $result.manifestSha256 = $receipt.manifestSha256
     $result.runId = $receipt.runId
+    Assert-LaunchTargetForAction $Action $launch
     if ($Action -ceq 'Inspect') {
       Assert-RegistrySurvey @(Get-RegistrySurvey) $receipt
       $result.registered = $true

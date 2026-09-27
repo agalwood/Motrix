@@ -30,6 +30,7 @@ function New-BrowserFixture([object]$PackageInput, [string]$Commit) {
         browser = $brands[$index]; product = $products[$index]; version = '123.0.1.2'; fileVersion = '123.0.1.2'
         executableSha256 = ('c' * 64); fixtureSha256 = ('d' * 64)
         extensionId = $(if ($index -eq 2) { 'motrix-store-p0@motrix.invalid' } else { 'a' * 32 })
+        hostLaunchMode = $(if ($index -eq 2) { 'firefox-alias-relay' } else { 'execution-alias' })
         automationMode = $(if ($index -eq 2) { 'firefox-headless-bidi' } else { 'chromium-headed-cdp' })
         ok = $true; brandedBinaryVerified = $true; cleanupVerified = $true
         checks = @(
@@ -40,7 +41,10 @@ function New-BrowserFixture([object]$PackageInput, [string]$Commit) {
       }
     }
   )
+  $relay = [pscustomobject]@{ sourceSha256 = ('e' * 64); executableSha256 = ('f' * 64); buildReportSha256 = ('b' * 64); bytes = 512 }
+  $PackageInput | Add-Member -NotePropertyName RelayEvidence -NotePropertyValue $relay
   return [pscustomobject]@{
+    firefoxRelay = ($relay | ConvertTo-Json | ConvertFrom-Json)
     schemaVersion = 1; scope = 'windows-native-messaging-branded-browsers'
     sourceCommit = $Commit; packageVersion = $PackageInput.Version; executableSha256 = $PackageInput.ProbeHash
     identity = [pscustomobject]@{
@@ -216,6 +220,10 @@ try {
   Test-ContractCase 'alias-rejects-extra-frame' 'alias' $true { param($f) $f.Alias.checks[2].frameCount = 2 }
   Test-ContractCase 'alias-rejects-simulated-browser-overclaim' 'alias' $true { param($f) $f.Alias.browserNativeMessagingVerified = $true }
   Test-ContractCase 'browser-accepts-three-brands-on-b' 'browser'
+  Test-ContractCase 'browser-rejects-relay-digest-substitution' 'browser' $true { param($f) $f.Browser.firefoxRelay.executableSha256 = 'a' * 64 }
+  Test-ContractCase 'browser-rejects-relay-source-substitution' 'browser' $true { param($f) $f.Browser.firefoxRelay.sourceSha256 = 'a' * 64 }
+  Test-ContractCase 'browser-rejects-relay-report-substitution' 'browser' $true { param($f) $f.Browser.firefoxRelay.buildReportSha256 = 'a' * 64 }
+  Test-ContractCase 'browser-rejects-relay-route-substitution' 'browser' $true { param($f) $f.Browser.browsers[2].hostLaunchMode = 'execution-alias' }
   Test-ContractCase 'browser-rejects-wrong-schema' 'browser' $true { param($f) $f.Browser.schemaVersion = 2 }
   Test-ContractCase 'browser-rejects-wrong-scope' 'browser' $true { param($f) $f.Browser.scope = 'simulated-browser' }
   Test-ContractCase 'browser-rejects-a-version' 'browser' $true { param($f) $f.Browser.packageVersion = '1.0.0.0' }
