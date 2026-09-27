@@ -69,7 +69,7 @@ function Invoke-ProbeCase([hashtable]$Case) {
     if ($Case.input.Length -gt 0) {
       $write = $process.StandardInput.BaseStream.WriteAsync($Case.input, 0, $Case.input.Length)
       if (-not $write.Wait(2000)) { throw 'probe-write-timeout' }
-      $write.GetAwaiter().GetResult()
+      $null = $write.GetAwaiter().GetResult()
     }
     if (-not $Case.holdOpen) { $process.StandardInput.Close() }
     $stdoutEnded = $false
@@ -174,7 +174,11 @@ try {
     foreach ($default in @{ arguments = [string[]]@(); holdOpen = $false; chromiumCallerShape = $false; firefoxTestCallerShape = $false }.GetEnumerator()) {
       if (-not $case.ContainsKey($default.Key)) { $case[$default.Key] = $default.Value }
     }
-    $checks.Add((Invoke-ProbeCase $case))
+    $check = Invoke-ProbeCase $case
+    if ($check -isnot [Collections.IDictionary] -or $check.name -cne $case.name -or $check.ok -ne $true) {
+      throw 'invalid-case-result'
+    }
+    $checks.Add($check)
   }
   $failedCase = 'probe-file-unchanged'
   if ((Get-FileHash -LiteralPath $probe.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -cne $probeHash) {
