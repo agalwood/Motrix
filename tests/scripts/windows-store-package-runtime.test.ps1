@@ -3,7 +3,7 @@
 .SYNOPSIS
 Tests the runtime script's pure upgrade and alias evidence guards.
 .DESCRIPTION
-Loads only seven named top-level function definitions through the PowerShell AST.
+Loads only eight named top-level function definitions through the PowerShell AST.
 Never executes the runtime script's main flow, installs packages, uses PKI, or
 launches an alias. Synthetic records do not prove Windows runtime behavior.
 #>
@@ -108,6 +108,21 @@ function New-ContractFixture {
     B = $packages[1]
     Current = @([pscustomobject]@{ PackageFullName = $packages[1].ObservedFullName; Version = [Version]'1.0.1.0' })
     SourceCommit = $commit
+    Profile = [pscustomobject]@{
+      schemaVersion = 1; scope = 'windows-native-host-profile-isolation'; sourceCommit = $commit
+      packageVersion = '1.0.1.0'; nativeHostSha256 = ('e' * 64); ok = $true
+      profileParityVerified = $false; mbp1Verified = $false; windows11AcceptanceVerified = $false; storeReady = $false
+      checks = @([pscustomobject]@{ name = 'installed-content-before'; ok = $true }, [pscustomobject]@{ name = 'installed-content-after'; ok = $true })
+      cases = [pscustomobject]@{
+        ok = $true; cleanupVerified = $true; overrideConnectionRejected = $true
+        profileParityVerified = $false; mbp1Verified = $false; mainApplicationLaunched = $false
+        checks = @(
+          foreach ($name in @('direct-control-before', 'alias-rejects-override', 'alias-without-endpoint', 'direct-control-after')) {
+            [pscustomobject]@{ name = $name; ok = $true; fixtureRequests = $(if ($name.StartsWith('direct-')) { 2 } else { 0 }); exitCode = 0; stdoutBytes = 80; stderrBytes = 0 }
+          }
+        )
+      }
+    }
     Browser = (New-BrowserFixture $packages[1] $commit)
     Alias = [pscustomobject]@{
       schemaVersion = 1
@@ -133,7 +148,7 @@ function New-ContractFixture {
 
 function Test-ContractCase(
   [string]$Name,
-  [ValidateSet('pair', 'transition', 'alias', 'browser', 'browser-cleanup')][string]$Contract,
+  [ValidateSet('pair', 'transition', 'alias', 'browser', 'browser-cleanup', 'profile')][string]$Contract,
   [bool]$Reject = $false,
   [scriptblock]$Mutate = {}
 ) {
@@ -144,6 +159,7 @@ function Test-ContractCase(
   $rejected = $false
   try {
     switch ($Contract) {
+      'profile' { Assert-NativeHostProfileReport $fixture.Profile $fixture.SourceCommit $fixture.B.Version ('e' * 64) }
       'pair' { Assert-UpgradeInputs $fixture.A $fixture.B }
       'transition' { Assert-UpgradeRetargeting $fixture.A $fixture.B $fixture.Current }
       'alias' { Assert-AliasReport $fixture.Alias $fixture.B $fixture.SourceCommit }
@@ -166,7 +182,7 @@ try {
   $ast = [Management.Automation.Language.Parser]::ParseFile($runtimePath, [ref]$tokens, [ref]$parseErrors)
   if (@($parseErrors).Count -ne 0) { throw 'Runtime source has parser errors.' }
   $definitions = @(
-    foreach ($name in @('Assert-True', 'Assert-False', 'Assert-UpgradeInputs', 'Assert-UpgradeRetargeting', 'Assert-AliasReport', 'Assert-BrowserCleanupReport', 'Assert-BrowserReport')) {
+    foreach ($name in @('Assert-True', 'Assert-False', 'Assert-UpgradeInputs', 'Assert-UpgradeRetargeting', 'Assert-AliasReport', 'Assert-BrowserCleanupReport', 'Assert-BrowserReport', 'Assert-NativeHostProfileReport')) {
       $matching = @($ast.EndBlock.Statements | Where-Object {
         $_ -is [Management.Automation.Language.FunctionDefinitionAst] -and $_.Name -ceq $name
       })
@@ -178,6 +194,18 @@ try {
   # its parameters, environment checks and main lifecycle must never execute.
   . ([scriptblock]::Create(($definitions -join "`n")))
 
+  Test-ContractCase 'profile-accepts-complete-evidence' 'profile'
+  Test-ContractCase 'profile-rejects-other-source' 'profile' $true { param($f) $f.Profile.sourceCommit = 'f' * 40 }
+  Test-ContractCase 'profile-rejects-other-binary' 'profile' $true { param($f) $f.Profile.nativeHostSha256 = 'f' * 64 }
+  Test-ContractCase 'profile-rejects-other-version' 'profile' $true { param($f) $f.Profile.packageVersion = '1.0.0.0' }
+  Test-ContractCase 'profile-rejects-missing-control' 'profile' $true { param($f) $f.Profile.cases.checks = @($f.Profile.cases.checks | Select-Object -First 3) }
+  Test-ContractCase 'profile-rejects-unproven-cleanup' 'profile' $true { param($f) $f.Profile.cases.cleanupVerified = $false }
+  Test-ContractCase 'profile-rejects-alias-traffic' 'profile' $true { param($f) $f.Profile.cases.checks[1].fixtureRequests = 2 }
+  Test-ContractCase 'profile-rejects-missing-positive-traffic' 'profile' $true { param($f) $f.Profile.cases.checks[0].fixtureRequests = 0 }
+  Test-ContractCase 'profile-rejects-profile-parity-claim' 'profile' $true { param($f) $f.Profile.profileParityVerified = $true }
+  Test-ContractCase 'profile-rejects-main-launch' 'profile' $true { param($f) $f.Profile.cases.mainApplicationLaunched = $true }
+  Test-ContractCase 'profile-rejects-stderr' 'profile' $true { param($f) $f.Profile.cases.checks[1].stderrBytes = 1 }
+  Test-ContractCase 'profile-rejects-partial-content-checks' 'profile' $true { param($f) $f.Profile.checks = @($f.Profile.checks | Select-Object -First 1) }
   Test-ContractCase 'pair-accepts-fixed-a-to-b' 'pair'
   Test-ContractCase 'transition-accepts-unique-b' 'transition'
   Test-ContractCase 'alias-accepts-complete-bound-evidence' 'alias'

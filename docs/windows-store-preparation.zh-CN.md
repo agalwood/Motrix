@@ -301,8 +301,18 @@ checkout 关联，复制后再次核对字节。`diagnostic-build-report.json` �
 诊断 manifest 增加隐藏的 `MotrixNativeHostP0` 应用与
 `motrix-store-p0-native-host.exe` 执行 alias，两者指向
 `diagnostics/motrix-store-p0-probe.exe`。Electron payload 保持原样，仍拒绝未声明的
-EXE；helper 复用现有图标。prepared、indexed、unpacked 检查均要求精确的附加文件
-和 manifest，SDK 会依据相同的四个 PRI 资源检查两个应用的引用。
+EXE。第二个隐藏应用 `MotrixNativeHost` 通过仅用于测试的
+`motrix-store-p0-profile-host.exe` alias 指向已有的
+`app/resources/bin/motrix-native-host.exe`。两个 helper 复用现有图标。
+prepared、indexed、unpacked 检查均要求精确的附加文件和 manifest，
+SDK 会依据相同的四个 PRI 资源检查三个应用的引用。
+
+升级到 B 后，hosted CI 使用 `allowLaunch:false` 调用实际 Rust host。
+临时 loopback 测试服务必须在 alias 案例前后都能被无包身份 EXE 通过桥接目录覆盖访问。
+包内 alias 必须拒绝该覆盖且不连接测试服务；没有 endpoint 时须返回
+`motrix-not-running`。检查器将已安装二进制与准备布局的字节绑定，并要求清理
+测试目录和服务。这些检查不证明 Electron/Rust profile 一致、AUMID 查询成功、
+MBP1 或生产 host 的浏览器集成。
 
 诊断包与普通测试包使用相同身份，不能并排安装。A→B 实验应准备两个递增包版本，
 保持身份、helper 和 alias 相同。按[测试签名与安装指南](windows-store-runtime-testing.zh-CN.md)

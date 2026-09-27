@@ -289,6 +289,7 @@ export function runBoundedProbeProcess({
   timeoutMs = 15000,
   maxStdoutBytes = 4100,
   maxStderrBytes = 1024,
+  profileEnvironment,
 }) {
   if (
     typeof executable !== 'string' ||
@@ -308,16 +309,42 @@ export function runBoundedProbeProcess({
     maxStdoutBytes > 32768 ||
     !Number.isInteger(maxStderrBytes) ||
     maxStderrBytes < 1 ||
-    maxStderrBytes > 1024
+    maxStderrBytes > 1024 ||
+    (profileEnvironment !== undefined &&
+      (!exactKeys(profileEnvironment, [
+        'MOTRIX_USER_DATA',
+        'MOTRIX_BRIDGE_DATA_DIR',
+      ]) ||
+        Object.values(profileEnvironment).some(
+          (value) =>
+            value !== null &&
+            (typeof value !== 'string' ||
+              value.length > 8192 ||
+              value.includes('\0') ||
+              !path.isAbsolute(value))
+        )))
   )
     return Promise.reject(new ProbeCheckError('invalid-process-options'))
   return new Promise((resolve, reject) => {
     let child
     try {
+      let env
+      if (profileEnvironment !== undefined) {
+        // Windows environment names are case-insensitive. Clear inherited
+        // spellings before applying this test's explicit profile inputs.
+        env = Object.fromEntries(
+          Object.entries(process.env).filter(
+            ([key]) => !Object.hasOwn(profileEnvironment, key.toUpperCase())
+          )
+        )
+        for (const [key, value] of Object.entries(profileEnvironment))
+          if (value !== null) env[key] = value
+      }
       child = spawn(executable, args, {
         shell: false,
         windowsHide: true,
         stdio: ['pipe', 'pipe', 'pipe'],
+        ...(env ? { env } : {}),
       })
     } catch {
       reject(new ProbeCheckError('process-start-failed'))

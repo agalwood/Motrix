@@ -210,7 +210,7 @@ function Test-MotrixPriDump([string]$ManifestPath, [string]$DumpPath, [object]$T
     throw 'PRI validation only accepts the fixed Motrix.Store.Test identity'
   }
   $applicationIds = @('Motrix')
-  if ($diagnosticMode) { $applicationIds += 'MotrixNativeHostP0' }
+  if ($diagnosticMode) { $applicationIds += @('MotrixNativeHostP0', 'MotrixNativeHost') }
   $applications = @($manifest.SelectNodes('/f:Package/f:Applications/f:Application', $namespaces))
   if ($applications.Count -ne $applicationIds.Count -or
       @($manifest.SelectNodes('//*[local-name()="Application"]')).Count -ne $applicationIds.Count) {
@@ -218,7 +218,11 @@ function Test-MotrixPriDump([string]$ManifestPath, [string]$DumpPath, [object]$T
   }
   foreach ($id in $applicationIds) {
     $matches = @($applications | Where-Object { $_.GetAttribute('Id') -ceq $id })
-    $executable = if ($id -ceq 'Motrix') { 'app/Motrix.exe' } else { 'diagnostics/motrix-store-p0-probe.exe' }
+    $executable = switch -CaseSensitive ($id) {
+      'Motrix' { 'app/Motrix.exe' }
+      'MotrixNativeHostP0' { 'diagnostics/motrix-store-p0-probe.exe' }
+      'MotrixNativeHost' { 'app/resources/bin/motrix-native-host.exe' }
+    }
     if ($matches.Count -ne 1 -or $matches[0].GetAttribute('Executable').Replace('\', '/') -cne $executable) {
       throw "Unexpected manifest Application identity or executable: $id"
     }
@@ -229,7 +233,7 @@ function Test-MotrixPriDump([string]$ManifestPath, [string]$DumpPath, [object]$T
     if ($tiles.Count -ne $expectedTileCount) { throw "Unexpected manifest default tile: $id" }
   }
   # Validate references by fixed Application Id, not by document order. The
-  # diagnostic helper reuses two existing images and has no DefaultTile.
+  # diagnostic helpers reuse two existing images and have no DefaultTile.
   $expected = @(
     @{ xpath = '/f:Package/f:Properties/f:Logo'; path = 'Assets/StoreLogo.png' },
     @{ xpath = '/f:Package/f:Applications/f:Application[@Id="Motrix"]/uap:VisualElements/@Square44x44Logo'; path = 'Assets/Square44x44Logo.png' },
@@ -239,7 +243,9 @@ function Test-MotrixPriDump([string]$ManifestPath, [string]$DumpPath, [object]$T
   if ($diagnosticMode) {
     $expected += @(
       @{ xpath = '/f:Package/f:Applications/f:Application[@Id="MotrixNativeHostP0"]/uap:VisualElements/@Square44x44Logo'; path = 'Assets/Square44x44Logo.png' },
-      @{ xpath = '/f:Package/f:Applications/f:Application[@Id="MotrixNativeHostP0"]/uap:VisualElements/@Square150x150Logo'; path = 'Assets/Square150x150Logo.png' }
+      @{ xpath = '/f:Package/f:Applications/f:Application[@Id="MotrixNativeHostP0"]/uap:VisualElements/@Square150x150Logo'; path = 'Assets/Square150x150Logo.png' },
+      @{ xpath = '/f:Package/f:Applications/f:Application[@Id="MotrixNativeHost"]/uap:VisualElements/@Square44x44Logo'; path = 'Assets/Square44x44Logo.png' },
+      @{ xpath = '/f:Package/f:Applications/f:Application[@Id="MotrixNativeHost"]/uap:VisualElements/@Square150x150Logo'; path = 'Assets/Square150x150Logo.png' }
     )
   }
   # Reject additional logo/image references, including unused tile sizes and

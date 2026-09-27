@@ -12,6 +12,7 @@ import {
 } from '../../scripts/windows-store-manifest.mjs'
 // @ts-expect-error -- JavaScript packaging script intentionally has no declarations
 import {
+  WINDOWS_STORE_NATIVE_HOST_PROFILE_DIAGNOSTIC,
   WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC,
   WINDOWS_STORE_TEST_IDENTITY,
 } from '../../scripts/windows-store-metadata.mjs'
@@ -64,7 +65,11 @@ function parseXml(xml: string) {
   return document
 }
 
-function element(document: Document, namespace: string, name: string) {
+function element(
+  document: Document | Element,
+  namespace: string,
+  name: string
+) {
   const matches = document.getElementsByTagNameNS(namespace, name)
   expect(matches).toHaveLength(1)
   return matches[0]
@@ -400,6 +405,7 @@ describe('test Native Messaging diagnostic manifest', () => {
     expect(applications.map((app) => app.getAttribute('Id'))).toEqual([
       'Motrix',
       diagnostic.applicationId,
+      WINDOWS_STORE_NATIVE_HOST_PROFILE_DIAGNOSTIC.applicationId,
     ])
     expect(applications[0].outerHTML).toBe(
       element(
@@ -408,58 +414,69 @@ describe('test Native Messaging diagnostic manifest', () => {
         'Application'
       ).outerHTML
     )
-    const helper = applications[1]
-    const executable = diagnostic.executable.replaceAll('/', '\\')
-    expect(attributes(helper)).toEqual({
-      Id: diagnostic.applicationId,
-      Executable: executable,
-      'uap10:RuntimeBehavior': 'packagedClassicApp',
-      'uap10:TrustLevel': 'mediumIL',
-      'desktop4:Subsystem': 'console',
-      'desktop4:SupportsMultipleInstances': 'true',
-    })
-    expect(
-      Array.from(helper.children, (node) => [node.namespaceURI, node.localName])
-    ).toEqual([
-      [UAP, 'VisualElements'],
-      [FOUNDATION, 'Extensions'],
-    ])
-    const visuals = helper.getElementsByTagNameNS(UAP, 'VisualElements')
-    expect(visuals).toHaveLength(1)
-    expect(attributes(visuals[0])).toEqual({
-      DisplayName: 'Motrix Native Messaging PROBE',
-      Description: 'Test-only Native Messaging diagnostic',
-      AppListEntry: 'none',
-      BackgroundColor: 'transparent',
-      Square150x150Logo: 'Assets\\Square150x150Logo.png',
-      Square44x44Logo: 'Assets\\Square44x44Logo.png',
-    })
-    expect(visuals[0].children).toHaveLength(0)
-    const extensions = helper.getElementsByTagNameNS(FOUNDATION, 'Extensions')
-    expect(extensions).toHaveLength(1)
-    expect(extensions[0].children).toHaveLength(1)
-    const extension = element(document, UAP5, 'Extension')
-    expect(extension.parentElement).toBe(extensions[0])
-    expect(attributes(extension)).toEqual({
-      Category: 'windows.appExecutionAlias',
-      Executable: executable,
-      'uap10:RuntimeBehavior': 'packagedClassicApp',
-      'uap10:TrustLevel': 'mediumIL',
-    })
-    expect(extension.children).toHaveLength(1)
-    const aliases = element(document, UAP5, 'AppExecutionAlias')
-    expect(aliases.parentElement).toBe(extension)
-    expect(attributes(aliases)).toEqual({ 'desktop4:Subsystem': 'console' })
-    expect(aliases.children).toHaveLength(1)
-    const alias = element(document, UAP5, 'ExecutionAlias')
-    expect(alias.parentElement).toBe(aliases)
-    expect(attributes(alias)).toEqual({ Alias: diagnostic.alias })
-    expect(alias.children).toHaveLength(0)
+    for (const [index, declaration] of [
+      diagnostic,
+      WINDOWS_STORE_NATIVE_HOST_PROFILE_DIAGNOSTIC,
+    ].entries()) {
+      const helper = applications[index + 1]
+      const executable = declaration.executable.replaceAll('/', '\\')
+      expect(attributes(helper)).toEqual({
+        Id: declaration.applicationId,
+        Executable: executable,
+        'uap10:RuntimeBehavior': 'packagedClassicApp',
+        'uap10:TrustLevel': 'mediumIL',
+        'desktop4:Subsystem': 'console',
+        'desktop4:SupportsMultipleInstances': 'true',
+      })
+      expect(
+        Array.from(helper.children, (node) => [
+          node.namespaceURI,
+          node.localName,
+        ])
+      ).toEqual([
+        [UAP, 'VisualElements'],
+        [FOUNDATION, 'Extensions'],
+      ])
+      const visuals = helper.getElementsByTagNameNS(UAP, 'VisualElements')
+      expect(visuals).toHaveLength(1)
+      expect(attributes(visuals[0])).toEqual({
+        DisplayName:
+          index === 0
+            ? 'Motrix Native Messaging PROBE'
+            : 'Motrix Native Host PROFILE TEST',
+        Description: 'Test-only Native Messaging diagnostic',
+        AppListEntry: 'none',
+        BackgroundColor: 'transparent',
+        Square150x150Logo: 'Assets\\Square150x150Logo.png',
+        Square44x44Logo: 'Assets\\Square44x44Logo.png',
+      })
+      expect(visuals[0].children).toHaveLength(0)
+      const extensions = helper.getElementsByTagNameNS(FOUNDATION, 'Extensions')
+      expect(extensions).toHaveLength(1)
+      expect(extensions[0].children).toHaveLength(1)
+      const extension = element(helper, UAP5, 'Extension')
+      expect(extension.parentElement).toBe(extensions[0])
+      expect(attributes(extension)).toEqual({
+        Category: 'windows.appExecutionAlias',
+        Executable: executable,
+        'uap10:RuntimeBehavior': 'packagedClassicApp',
+        'uap10:TrustLevel': 'mediumIL',
+      })
+      expect(extension.children).toHaveLength(1)
+      const aliases = element(helper, UAP5, 'AppExecutionAlias')
+      expect(aliases.parentElement).toBe(extension)
+      expect(attributes(aliases)).toEqual({ 'desktop4:Subsystem': 'console' })
+      expect(aliases.children).toHaveLength(1)
+      const alias = element(helper, UAP5, 'ExecutionAlias')
+      expect(alias.parentElement).toBe(aliases)
+      expect(attributes(alias)).toEqual({ Alias: declaration.alias })
+      expect(alias.children).toHaveLength(0)
+    }
     expect(attributes(element(document, RESCAP, 'Capability'))).toEqual({
       Name: 'runFullTrust',
     })
     expect(renderWindowsStoreManifest(input())).not.toMatch(
-      /EntryPoint|unvirtualizedResources|motrix-native-host\.exe/
+      /EntryPoint|unvirtualizedResources/
     )
   })
 

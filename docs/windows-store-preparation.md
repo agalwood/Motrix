@@ -356,10 +356,22 @@ the package as a build association record, not a signed attestation.
 The diagnostic manifest adds the hidden `MotrixNativeHostP0` application and
 `motrix-store-p0-native-host.exe` execution alias, both pointing to
 `diagnostics/motrix-store-p0-probe.exe`. The Electron payload stays unchanged;
-it still rejects undeclared executables. The helper shares the existing icons.
+it still rejects undeclared executables. A second hidden `MotrixNativeHost`
+application points to the existing `app/resources/bin/motrix-native-host.exe`
+through the test-only `motrix-store-p0-profile-host.exe` alias. Both helpers
+share the existing icons.
 The prepared, indexed, and unpacked checks require the exact extra file and
-manifest, and the SDK checks both application references against the same four
+manifest, and the SDK checks all three application references against the same four
 PRI resources.
+
+After upgrading to B, hosted CI invokes the actual Rust host with
+`allowLaunch:false`. A temporary loopback fixture must be reachable through a
+bridge-directory override by the unpackaged executable both before and after
+the alias cases. The packaged alias must refuse that override without connecting
+to the fixture; without an endpoint it must report `motrix-not-running`. The
+checker binds installed bytes to the prepared layout and requires fixture
+cleanup. These checks do not prove Electron/Rust profile parity, successful
+AUMID resolution, MBP1, or browser integration with the production host.
 
 This diagnostic package uses the same identity as the ordinary test package;
 they do not install side by side. For A-to-B testing, prepare two increasing

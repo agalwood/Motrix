@@ -5,8 +5,9 @@ Tests a fixed diagnostic AppX upgrade on a disposable GitHub-hosted runner.
 .DESCRIPTION
 Requires 64-bit Windows PowerShell 5.1 and workflow_dispatch. Signs new A/B copies
 with one ephemeral non-exportable test key, installs A then upgrades to B for
-the current user, and runs only the diagnostic alias before and after upgrade.
-Then checks diagnostic Native Messaging in three branded browsers against B.
+the current user, and runs the diagnostic alias before and after upgrade.
+At B, checks the Rust host's profile override refusal with live positive controls,
+then diagnostic Native Messaging in three branded browsers.
 No production certificates, PFX, timestamp, main-app launch, or policy changes
 are involved; no MBP1 or browser continuity across the upgrade is tested.
 #>
@@ -224,7 +225,43 @@ function Invoke-BoundedProgram([string]$Program, [string[]]$Arguments, [string]$
 function Test-AliasPresent {
   if (-not [IO.Directory]::Exists($aliasRoot)) { return $false }
   # Enumerating the parent also detects a dangling/zero-byte alias reparse point.
-  return @([IO.Directory]::EnumerateFileSystemEntries($aliasRoot, 'motrix-store-p0-native-host.exe')).Count -ne 0
+  foreach ($name in @('motrix-store-p0-native-host.exe', 'motrix-store-p0-profile-host.exe')) {
+    if (@([IO.Directory]::EnumerateFileSystemEntries($aliasRoot, $name)).Count -ne 0) { return $true }
+  }
+  return $false
+}
+
+function Assert-NativeHostProfileReport([object]$Profile, [string]$SourceCommit, [string]$Version, [string]$NativeHostHash) {
+  if ($Profile.schemaVersion -ne 1 -or $Profile.scope -cne 'windows-native-host-profile-isolation' -or
+      $Profile.sourceCommit -cne $SourceCommit -or $Profile.packageVersion -cne $Version -or
+      $Profile.nativeHostSha256 -cne $NativeHostHash) { throw 'Native host profile evidence does not match this package.' }
+  Assert-True $Profile.ok 'Native host profile check failed.'
+  foreach ($flag in @('profileParityVerified', 'mbp1Verified', 'windows11AcceptanceVerified', 'storeReady')) {
+    Assert-False $Profile.$flag 'Profile report overstates its runtime evidence.'
+  }
+  $contentNames = @('installed-content-before', 'installed-content-after')
+  if (@($Profile.checks).Count -ne 2) { throw 'Profile content checks are incomplete.' }
+  for ($index = 0; $index -lt 2; $index++) {
+    if ($Profile.checks[$index].name -cne $contentNames[$index]) { throw 'Unexpected profile content check.' }
+    Assert-True $Profile.checks[$index].ok 'Profile content check failed.'
+  }
+  foreach ($flag in @('ok', 'cleanupVerified', 'overrideConnectionRejected')) {
+    Assert-True $Profile.cases.$flag 'Profile cases or cleanup failed.'
+  }
+  foreach ($flag in @('profileParityVerified', 'mbp1Verified', 'mainApplicationLaunched')) {
+    Assert-False $Profile.cases.$flag 'Profile cases overstate their runtime evidence.'
+  }
+  $names = @('direct-control-before', 'alias-rejects-override', 'alias-without-endpoint', 'direct-control-after')
+  $traffic = @(2, 0, 0, 2)
+  if (@($Profile.cases.checks).Count -ne 4) { throw 'Profile cases are incomplete.' }
+  for ($index = 0; $index -lt 4; $index++) {
+    $case = $Profile.cases.checks[$index]
+    Assert-True $case.ok 'A profile case failed.'
+    if ($case -is [array] -or $case.name -cne $names[$index] -or $case.fixtureRequests -ne $traffic[$index] -or
+        $case.exitCode -ne 0 -or $case.stderrBytes -ne 0 -or $case.stdoutBytes -lt 5 -or $case.stdoutBytes -gt 4100) {
+      throw 'Unexpected profile case, traffic or output bounds.'
+    }
+  }
 }
 
 function Get-CurrentTestPackages {
@@ -599,6 +636,8 @@ $testCompleted = $false
 $browserTestCompleted = $false
 $browserAttempted = $false
 $browserReportPath = Join-Path (Join-Path $OutputDirectory 'browser') 'browser-report.json'
+$profileAttempted = $false
+$profileReportPath = Join-Path $OutputDirectory 'native-host-profile-report.json'
 try {
   $null = Assert-RegularPath $PreparedDirectory $true
   $null = Assert-RegularPath $SdkBinDirectory $true
@@ -725,6 +764,14 @@ try {
   $report.aliasActivationVerified = $true
   $report.packageIdentityVerified = $true
   $report.server2025InstalledProbeVerified = $true
+  $stage = 'native-host-profile-b'
+  $profileAttempted = $true
+  $null = Invoke-BoundedProgram $node @((Join-Path $repository 'scripts\test-windows-store-native-host-profile.mjs'), '--prepared', $after.Prepared, '--expected-package-version', $after.Version, '--report', $profileReportPath) 'test-native-host-profile-b'
+  $profileReport = Read-Json $profileReportPath
+  $nativeHostHash = Get-Hash (Join-Path $after.Prepared 'layout\app\resources\bin\motrix-native-host.exe')
+  Assert-NativeHostProfileReport $profileReport $env:GITHUB_SHA $after.Version $nativeHostHash
+  $report.nativeHostProfile = [ordered]@{ reportSha256 = Get-Hash $profileReportPath; nativeHostSha256 = $nativeHostHash; overrideConnectionRejected = $true; profileParityVerified = $false }
+  Complete-Phase $stage
   # These browser cases test the already installed B package. They do not
   # establish browser continuity across A-to-B, and never launch the main app.
   $stage = 'browser-b'
@@ -757,6 +804,13 @@ try {
   $report.error = Get-Failure $_ $stage
   $report.phases.Add([ordered]@{ name = $stage; ok = $false; error = $report.error })
 } finally {
+  if ($profileAttempted) {
+    Invoke-CleanupCheck 'native-host-profile-fixture-cleanup' {
+      $profileCleanup = Read-Json $profileReportPath
+      Assert-True $profileCleanup.cases.cleanupVerified 'Native host profile fixture cleanup was not verified.'
+      if (@([IO.Directory]::EnumerateFileSystemEntries($OutputDirectory, 'native-host-profile-fixture-*')).Count -ne 0) { throw 'Native host profile fixture remains.' }
+    }
+  }
   if ($browserAttempted) {
     # A killed Node process may never reach its own finally. Package/certificate
     # cleanup alone cannot prove browser profiles or registrations were removed.

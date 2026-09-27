@@ -16,6 +16,13 @@ export const WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC = Object.freeze({
   source: 'tests/fixtures/windows-store-native-messaging/stdio-probe.cs',
 })
 
+// Uses the actual shipped Rust executable, but declares only a test alias.
+export const WINDOWS_STORE_NATIVE_HOST_PROFILE_DIAGNOSTIC = Object.freeze({
+  applicationId: 'MotrixNativeHost',
+  alias: 'motrix-store-p0-profile-host.exe',
+  executable: 'app/resources/bin/motrix-native-host.exe',
+})
+
 // Also reserve the earlier local packaging prototype's exact identity fields.
 // Do not reject unrelated publisher names merely because they contain "Test".
 const TEST_IDENTITIES = [

@@ -60,7 +60,7 @@ function Invoke-PriManifestCases([string]$Manifest, [string]$Dump, [string]$Temp
   $mode = 'native-messaging-probe-v1'
   $ordinary = Read-SafeXmlDocument $Manifest
   foreach ($application in @($ordinary.SelectNodes('//*[local-name()="Application"]'))) {
-    if ($application.GetAttribute('Id') -ceq 'MotrixNativeHostP0') {
+    if ($application.GetAttribute('Id') -cin @('MotrixNativeHostP0', 'MotrixNativeHost')) {
       [void]$application.get_ParentNode().RemoveChild($application)
     }
   }
@@ -80,6 +80,10 @@ function Invoke-PriManifestCases([string]$Manifest, [string]$Dump, [string]$Temp
     [void]$visual.RemoveChild($tile)
   }
   [void]$main.get_ParentNode().AppendChild($helper)
+  $profileHelper = $helper.CloneNode($true)
+  $profileHelper.SetAttribute('Id', 'MotrixNativeHost')
+  $profileHelper.SetAttribute('Executable', 'app\resources\bin\motrix-native-host.exe')
+  [void]$main.get_ParentNode().AppendChild($profileHelper)
   $diagnosticPath = Join-Path $TemporaryDirectory 'diagnostic.manifest.xml'
   Write-NewText $diagnosticPath $diagnostic.get_OuterXml()
   # These manifest variants are XML fixtures derived from the actual manifest;
@@ -92,12 +96,25 @@ function Invoke-PriManifestCases([string]$Manifest, [string]$Dump, [string]$Temp
   }
   $checks.Add([ordered]@{ name = 'ordinary-single-application'; ok = $true; manifestFixture = $true })
   $diagnosticReport = Test-MotrixPriDump $diagnosticPath $Dump $mode
-  if (($diagnosticReport.applicationIds -join ',') -cne 'Motrix,MotrixNativeHostP0' -or
+  if (($diagnosticReport.applicationIds -join ',') -cne 'Motrix,MotrixNativeHostP0,MotrixNativeHost' -or
       $diagnosticReport.testDiagnostics -cne $mode -or $diagnosticReport.images.Count -ne 4) {
-    throw 'Diagnostic manifest fixture did not validate both applications with four images'
+    throw 'Diagnostic manifest fixture did not validate all three applications with four images'
   }
-  $checks.Add([ordered]@{ name = 'diagnostic-two-applications'; ok = $true; manifestFixture = $true })
+  $checks.Add([ordered]@{ name = 'diagnostic-three-applications'; ok = $true; manifestFixture = $true })
   $mutations = @(
+    @{
+      name = 'diagnostic-wrong-rust-executable'; diagnostic = $true; mode = $mode; prefix = 'Unexpected manifest Application identity or executable:'
+      mutate = { param($Document)
+        $Document.SelectSingleNode('//*[local-name()="Application" and @Id="MotrixNativeHost"]').SetAttribute('Executable', 'app\Motrix.exe')
+      }
+    },
+    @{
+      name = 'diagnostic-missing-rust-helper'; diagnostic = $true; mode = $mode; prefix = 'Unexpected manifest Application set'
+      mutate = { param($Document)
+        $target = $Document.SelectSingleNode('//*[local-name()="Application" and @Id="MotrixNativeHost"]')
+        [void]$target.get_ParentNode().RemoveChild($target)
+      }
+    },
     @{ name = 'ordinary-rejects-helper'; diagnostic = $true; mode = $null; prefix = 'Unexpected manifest Application set'; mutate = {} },
     @{ name = 'diagnostic-requires-helper'; diagnostic = $false; mode = $mode; prefix = 'Unexpected manifest Application set'; mutate = {} },
     @{ name = 'unsupported-diagnostic-mode'; diagnostic = $true; mode = 'unknown-mode'; prefix = 'Unsupported testDiagnostics mode'; mutate = {} },

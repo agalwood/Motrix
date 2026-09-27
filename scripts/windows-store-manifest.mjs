@@ -3,6 +3,7 @@ import windowsPackage from '../src/shared/config/windows-package.json' with {
 }
 import {
   validateWindowsStoreMetadata,
+  WINDOWS_STORE_NATIVE_HOST_PROFILE_DIAGNOSTIC,
   WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC,
 } from './windows-store-metadata.mjs'
 
@@ -73,18 +74,31 @@ export function renderWindowsStoreManifest(rawMetadata) {
   // https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-uap-visualelements
   // https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-uap5-extension
   // https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-uap5-appexecutionalias
-  const diagnosticApplication = diagnostic
-    ? String.raw`    <Application Id="${probe.applicationId}" Executable="${probeExecutable}" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL" desktop4:Subsystem="console" desktop4:SupportsMultipleInstances="true">
-      <uap:VisualElements DisplayName="Motrix Native Messaging PROBE" Description="Test-only Native Messaging diagnostic" AppListEntry="none" BackgroundColor="transparent" Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png" />
+  function consoleApplication(helper, executable, displayName) {
+    return String.raw`    <Application Id="${helper.applicationId}" Executable="${executable}" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL" desktop4:Subsystem="console" desktop4:SupportsMultipleInstances="true">
+      <uap:VisualElements DisplayName="${displayName}" Description="Test-only Native Messaging diagnostic" AppListEntry="none" BackgroundColor="transparent" Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png" />
       <Extensions>
-        <uap5:Extension Category="windows.appExecutionAlias" Executable="${probeExecutable}" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL">
+        <uap5:Extension Category="windows.appExecutionAlias" Executable="${executable}" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL">
           <uap5:AppExecutionAlias desktop4:Subsystem="console">
-            <uap5:ExecutionAlias Alias="${probe.alias}" />
+            <uap5:ExecutionAlias Alias="${helper.alias}" />
           </uap5:AppExecutionAlias>
         </uap5:Extension>
       </Extensions>
     </Application>
 `
+  }
+  const profile = WINDOWS_STORE_NATIVE_HOST_PROFILE_DIAGNOSTIC
+  const diagnosticApplication = diagnostic
+    ? consoleApplication(
+        probe,
+        probeExecutable,
+        'Motrix Native Messaging PROBE'
+      ) +
+      consoleApplication(
+        profile,
+        profile.executable.replaceAll('/', '\\'),
+        'Motrix Native Host PROFILE TEST'
+      )
     : ''
 
   // uap10 attributes declare a packaged classic desktop process at medium IL.
