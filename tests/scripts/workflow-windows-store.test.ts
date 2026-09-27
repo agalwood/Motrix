@@ -13,6 +13,7 @@ const steps = job.steps as Array<{
   uses?: string
   with?: Record<string, unknown>
   env?: Record<string, unknown>
+  'continue-on-error'?: boolean
 }>
 const commands = steps.map((step) => step.run ?? '').join('\n')
 const stepIndex = (name: string) =>
@@ -69,6 +70,52 @@ describe('Windows Store SDK test workflow', () => {
     expect(source).not.toContain('inputs.')
   })
 
+  it('compiles and exercises the diagnostic host outside the package before the SDK build', () => {
+    const compileIndex = stepIndex('Compile Native Messaging diagnostic probe')
+    const testIndex = stepIndex('Test direct Native Messaging probe framing')
+    expect(compileIndex).toBeGreaterThan(
+      stepIndex('Parse SDK scripts with PowerShell')
+    )
+    expect(testIndex).toBeGreaterThan(compileIndex)
+    expect(testIndex).toBeLessThan(stepIndex('Prepare fixed test inputs'))
+    const compile = steps[compileIndex]
+    const test = steps[testIndex]
+    expect(compile?.['continue-on-error']).toBeUndefined()
+    expect(test?.['continue-on-error']).toBeUndefined()
+    expect(compile?.run).toContain(
+      './scripts/build-windows-store-native-messaging-probe.ps1'
+    )
+    expect(compile?.run).toContain(
+      "-OutputDirectory (Join-Path $env:RUNNER_TEMP 'motrix-store-native-messaging-probe')"
+    )
+    expect(test?.run).toContain(
+      './tests/scripts/windows-store-native-messaging-probe.test.ps1'
+    )
+    expect(test?.run).toContain(
+      "-ProbePath (Join-Path $env:RUNNER_TEMP 'motrix-store-native-messaging-probe/motrix-store-p0-probe.exe')"
+    )
+    expect(test?.run).toContain(
+      "-ReportPath (Join-Path $env:RUNNER_TEMP 'motrix-store-native-messaging-probe/direct-stdio-report.json')"
+    )
+    const parse = steps[stepIndex('Parse SDK scripts with PowerShell')]?.run
+    expect(parse).toContain(
+      'scripts/build-windows-store-native-messaging-probe.ps1'
+    )
+    expect(parse).toContain(
+      'tests/scripts/windows-store-native-messaging-probe.test.ps1'
+    )
+    for (const trigger of [
+      'tests/fixtures/windows-store-native-messaging/**',
+      'scripts/*third-party-notices*',
+      'THIRD_PARTY_LICENSES/**',
+      'THIRD_PARTY_NOTICES*.md',
+      'LICENSE',
+      '.gitattributes',
+    ]) {
+      expect(workflow.on.pull_request.paths).toContain(trigger)
+    }
+  })
+
   it('builds and stages before invoking the complete directory config and SDK round trip', () => {
     const ordered = [
       'Install locked dependencies',
@@ -121,6 +168,12 @@ describe('Windows Store SDK test workflow', () => {
     expect(uploads).toHaveLength(1)
     const paths = String(uploads[0]?.with?.path).trim().split('\n')
     expect(paths.length).toBeGreaterThan(0)
+    expect(paths).toContain(
+      `\${{ runner.temp }}/motrix-store-native-messaging-probe/build-report.json`
+    )
+    expect(paths).toContain(
+      `\${{ runner.temp }}/motrix-store-native-messaging-probe/direct-stdio-report.json`
+    )
     for (const entry of paths) {
       expect(entry).toMatch(/\.(?:json|xml|log)$/)
       expect(entry).not.toContain('**')

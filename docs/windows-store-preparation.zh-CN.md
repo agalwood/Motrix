@@ -248,6 +248,34 @@ Windows 包的 Native Messaging 注册策略为 `unsupported`。安装器在解�
 证据及浏览器扩展配合。不能将传统 host 直接暴露为 Store alias：它现有的数据
 和启动路径属于官网版。
 
+## Native Messaging 诊断进程检查
+
+SDK 工作流还会使用 Windows .NET Framework 编译器，编译独立的 x64 诊断控制台
+程序，并测试其二进制标准输入输出。探针只接受固定的公开挑战值，不读取 Motrix
+profile、endpoint、凭据或注册表，不启动 Motrix。该程序不进入 AppX，也不作为
+artifact 上传。
+
+在 Windows 的 PowerShell 7 中使用新目录，可执行同样的进程检查：
+
+```powershell
+$probeOutput = Join-Path $env:TEMP 'motrix-store-native-messaging-probe'
+./scripts/build-windows-store-native-messaging-probe.ps1 -OutputDirectory $probeOutput
+./tests/scripts/windows-store-native-messaging-probe.test.ps1 -ProbePath (Join-Path $probeOutput 'motrix-store-p0-probe.exe') -ReportPath (Join-Path $probeOutput 'direct-stdio-report.json')
+```
+
+任一命令失败都应停止。`build-report.json` 记录源码／程序摘要和 x64 控制台检查；
+`direct-stdio-report.json` 仅在响应帧、子进程退出码、无效输入拒绝及超时检查
+全部通过后记录 `ok: true` 和 `directStdioVerified: true`。失败时可以写入
+`ok: false` 报告，但命令仍然失败，不能以报告存在判断成功。直接运行成功时必须
+报告不存在包身份。浏览器格式的参数只是
+模拟输入，不是真实浏览器启动。
+
+这些报告仅证明编译与直接进程行为，`packagedActivationVerified`、
+`browserNativeMessagingVerified` 和 `mbp1Verified` 均保持 false。探针中的 P0
+身份常量不代表当前 `Motrix.Store.Test` manifest；当前包没有诊断 Application 或
+alias。包激活、外部注册可见性、三浏览器行为、升级后未首次启动的连接及 MBP1
+配对仍需独立实施和验证。
+
 ## CLI 集成边界
 
 当前 Windows 包尚不支持 CLI 默认自动发现。包版使用独立于官网版的数据目录，

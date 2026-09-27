@@ -298,6 +298,37 @@ first launch, uninstall, and coexistence still require Windows 11 evidence and
 coordination with the browser extensions. Do not expose the traditional host as
 a Store alias: its existing data and launch paths belong to the direct version.
 
+## Native Messaging diagnostic process check
+
+The SDK workflow also compiles a separate x64 diagnostic console executable
+with the Windows .NET Framework compiler and tests its binary stdin/stdout.
+The probe accepts only a fixed public challenge; it does not read a Motrix
+profile, endpoint, credentials, or registry entries, and does not launch Motrix.
+It is not included in the AppX or uploaded as an artifact.
+
+To run the same process checks in PowerShell 7 on Windows, use a new directory:
+
+```powershell
+$probeOutput = Join-Path $env:TEMP 'motrix-store-native-messaging-probe'
+./scripts/build-windows-store-native-messaging-probe.ps1 -OutputDirectory $probeOutput
+./tests/scripts/windows-store-native-messaging-probe.test.ps1 -ProbePath (Join-Path $probeOutput 'motrix-store-p0-probe.exe') -ReportPath (Join-Path $probeOutput 'direct-stdio-report.json')
+```
+
+Stop if either command fails. `build-report.json` records the source/executable
+hashes and x64 console checks. `direct-stdio-report.json` records `ok: true` and
+`directStdioVerified: true` only after the response framing, child exit codes,
+malformed-input rejection, and timeout checks pass. A failed check can write an
+`ok: false` report and still fails the command; report existence is not success.
+Successful direct execution must report no package identity.
+Browser-shaped arguments are synthetic test inputs, not real browser launches.
+
+These reports establish compilation and direct process behavior only. They keep
+`packagedActivationVerified`, `browserNativeMessagingVerified`, and
+`mbp1Verified` false. The diagnostic P0 identity constants do not describe the
+current `Motrix.Store.Test` manifest, which has no diagnostic application or
+alias. Package activation, external registration visibility, three-browser
+behavior, upgrade before first launch, and MBP1 pairing remain separate work.
+
 ## CLI integration boundary
 
 This Windows package does not yet support default CLI discovery. Its private
