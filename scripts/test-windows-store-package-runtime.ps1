@@ -293,8 +293,11 @@ function Assert-MainRuntimeReport([object]$Main, [string]$SourceCommit, [string]
           $extension.sourceCommit -cne $env:MOTRIX_STORE_EXTENSION_COMMIT -or
           $extension.build.sha256 -cnotmatch '^[0-9a-f]{64}$' -or
           $extension.extensionId -cnotmatch '^[a-p]{32}$') { throw 'Production extension evidence mismatch.' }
-      foreach ($name in @('ok', 'firstPairVerified', 'browserRestartReconnectVerified', 'cleanupVerified')) {
+      foreach ($name in @('ok', 'firstPairVerified', 'browserRestartReconnectVerified', 'serviceWorkerRestartReconnectVerified', 'cleanupVerified')) {
         Assert-True $extension.$name 'Production extension pairing or reconnect was not verified.'
+      }
+      foreach ($name in @('oldTargetStoppedVerified', 'newTargetVerified', 'browserProcessUnchangedVerified', 'retainedCredentialReconnectVerified')) {
+        Assert-True $extension.serviceWorkerRestart.$name 'Isolated service worker restart evidence is incomplete.'
       }
       foreach ($name in @('firefoxVerified', 'windows11AcceptanceVerified')) {
         Assert-False $extension.$name 'Production Chromium extension report overstates its scope.'

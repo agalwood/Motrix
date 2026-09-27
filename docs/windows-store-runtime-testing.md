@@ -284,8 +284,14 @@ reconnection must use the retained credential without another pairing code.
 The driver does not preseed credentials or application consent, or copy a user's
 existing browser profile. The application's first-run consent uses its normal UI.
 
+The driver then closes the popup and terminates only the observed service worker
+whose extension ID and script URL match the unchanged build. It requires the old
+target to disappear, reopens the normal popup, and checks authenticated recovery
+with a new worker target in the same browser process. It does not reinstall the
+extension, write storage, or enter another pairing code.
+
 The manual workflow's `protocol_browser` choice selects `edge` (default) or
-`chrome` for cold launch. Both still run pairing and browser-restart checks; the
+`chrome` for cold launch. Both still run pairing, browser-restart and isolated worker-restart checks; the
 selected browser runs last, closes the application and checks that no Motrix
 process or endpoint remains. It clicks the extension's normal **Connect** or
 **View tasks** action and first cancels the browser's confirmation for the test
@@ -298,8 +304,9 @@ origins or remember permission. The native host only observes with
 The new application's package identity, process generation and loopback listener
 must match before the extension reconnects using its original credential.
 
-Accept a result only when pairing, browser restart, and cleanup all pass for both
-browsers. The selected browser also requires `protocolActivationVerified`,
+Accept a result only when pairing, browser restart, isolated worker restart, and
+cleanup all pass for both browsers. `serviceWorkerRestartReconnectVerified` and
+every `serviceWorkerRestart` check must be true. The selected browser also requires `protocolActivationVerified`,
 confirmed browser consent, `protocolCancellationVerified`, and every
 `protocolLaunch` ownership/no-launch/cleanup check, including
 `noLaunchAfterCancelVerified`. Cancellation evidence must identify the owned
@@ -313,8 +320,7 @@ are deleted, and CI retains only its existing JSON/XML/log evidence allowlist.
 These checks exercise production code loaded unpacked, not a browser-store
 installation. They do not establish Firefox production pairing, protocol
 activation or cancellation in the unselected browser, missing-handler behavior,
-download takeover,
-service-worker restart in isolation, or connection continuity across application
+download takeover, or connection continuity across application
 upgrades/uninstallation. Record these separately, together with Windows 11
 standard-user acceptance, WACK and the actual Microsoft-signed Store flight.
 A hosted Windows Server result cannot replace those gates; global `mbp1Verified`

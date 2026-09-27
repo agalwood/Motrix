@@ -441,7 +441,7 @@ establish browser user-gesture handling, production extension discovery, or
 coexistence with a direct installation.
 
 Manual hosted runs separately exercise the pinned production extension build in
-Chrome and Edge, including UI pairing and browser restart. The `protocol_browser`
+Chrome and Edge, including UI pairing, browser restart and isolated service-worker restart. The `protocol_browser`
 choice selects which browser must additionally complete explicit protocol
 cancellation without application launch, a normal retry, confirmation and
 authenticated cold reconnect in that run.

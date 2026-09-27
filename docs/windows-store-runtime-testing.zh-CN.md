@@ -251,8 +251,12 @@ Chrome 和 Edge 使用有界面的 CDP 会话，Firefox 使用无界面的 BiDi 
 profile，要求使用保留的凭据重连，不再次输入配对码。驱动不预写凭据或应用同意状态，
 也不复制用户已有的浏览器 profile；应用首次同意通过正常 UI 完成。
 
+驱动随后关闭扩展页面，只终止扩展 ID 和脚本 URL 与未修改构建一致的 service worker。
+要求旧 target 消失，再重新打开正常扩展页面；须在相同浏览器进程中观察到新的 worker
+target 和认证连接恢复。此过程不重新安装扩展、不写入存储、不再次输入配对码。
+
 手动工作流的 `protocol_browser` 选项指定 `edge`（默认）或 `chrome` 进行冷启动。
-两个浏览器仍各自验证配对和浏览器重启；所选浏览器最后执行，关闭应用并确认 Motrix
+两个浏览器仍各自验证配对、浏览器重启和单独重启 worker；所选浏览器最后执行，关闭应用并确认 Motrix
 进程和端点均不存在，再点击扩展正常的
 **Connect** 或 **View tasks** 操作，先取消浏览器针对测试包的确认。扩展须恢复到可重试
 的断开状态，不出现新的配对码输入；应用和端点须保持未启动。驱动再从相同 UI 重试，
@@ -262,7 +266,8 @@ profile，要求使用保留的凭据重连，不再次输入配对码。驱动�
 包激活必须来自扩展操作。检查新应用的包身份、进程启动时间和 loopback 监听器后，
 扩展必须使用原凭据重新认证连接。
 
-两个浏览器的配对、浏览器重启和清理全部通过，结果才可接受。所选浏览器还要求
+两个浏览器的配对、浏览器重启、单独重启 worker 和清理全部通过，结果才可接受。
+`serviceWorkerRestartReconnectVerified` 及 `serviceWorkerRestart` 中所有检查须为 true。所选浏览器还要求
 `protocolActivationVerified`、浏览器确认、`protocolCancellationVerified`，以及
 `protocolLaunch` 中所有身份、未启动状态和清理检查（含
 `noLaunchAfterCancelVerified`）通过。取消证据须属于本轮浏览器，不能同时声称接受。`runtime.protocolBrowser` 必须与指定选项相符；另一
@@ -271,8 +276,7 @@ profile，要求使用保留的凭据重连，不再次输入配对码。驱动�
 截图、视频或 trace。profile 会被删除，CI 仍只保留原有 JSON/XML/log 证据白名单。
 
 这些检查运行以解包方式加载的生产代码，不等于从浏览器商店安装。它们不证明 Firefox
-生产配对、未选浏览器的协议激活或取消、缺少 handler、下载接管、单独重启 service
-worker，或应用升级/卸载后的连接连续性。这些项目仍需单独记录，并完成 Windows 11
+生产配对、未选浏览器的协议激活或取消、缺少 handler、下载接管，或应用升级/卸载后的连接连续性。这些项目仍需单独记录，并完成 Windows 11
 普通用户验收、WACK 和实际微软签名的 Store flight。hosted Windows Server 结果
 不能代替这些关卡；全局 `mbp1Verified` 和 `storeReady` 保持 false。已配置测试不代表
 已有通过观察，必须检查与源码绑定的运行报告和清理结果后才能宣称成功。

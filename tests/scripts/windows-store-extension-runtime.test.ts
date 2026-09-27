@@ -2,12 +2,13 @@
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   extensionFailure,
   fingerprintExtensionBuild,
   productionBrowserOrder,
   productionChromiumTarget,
+  restartProductionWorker,
   runStoreExtensionRuntime,
   validateProtocolDialogObservation,
 } from '../../scripts/test-windows-store-extension-runtime.mjs'
@@ -17,6 +18,140 @@ afterEach(async () => {
   await Promise.all(
     roots.splice(0).map((root) => rm(root, { recursive: true, force: true }))
   )
+})
+
+describe('isolated production worker restart', () => {
+  function fixture(change: Record<string, unknown> = {}) {
+    const id = 'a'.repeat(32)
+    let stopped = false
+    let reopened = false
+    const initial = {
+      type: 'service_worker',
+      url: `chrome-extension://${id}/worker.js`,
+      targetId: 'old',
+      ...change,
+    }
+    const cdp = {
+      send: vi.fn(async (method: string) => {
+        if (method === 'SystemInfo.getProcessInfo')
+          return { processInfo: [{ type: 'browser', id: 123 }] }
+        if (method === 'Target.closeTarget') {
+          stopped = true
+          return { success: true }
+        }
+        return {
+          targetInfos: stopped
+            ? reopened
+              ? [{ ...initial, targetId: 'new' }]
+              : []
+            : [initial],
+        }
+      }),
+    }
+    const options = {
+      cdp,
+      extensionId: id,
+      workerScript: 'worker.js',
+      browserPid: 123,
+      closePopup: vi.fn(async () => {}),
+      openPopup: vi.fn(async () => {
+        reopened = true
+        return 'page'
+      }),
+      reconnect: vi.fn(async () => {}),
+      pause: vi.fn(async () => {}),
+    }
+    return options
+  }
+  it('requires old-target disappearance, replacement and the same browser before accepting reconnect', async () => {
+    const options = fixture()
+    const result = await restartProductionWorker(options)
+    expect(result.evidence).toEqual({
+      oldTargetStoppedVerified: true,
+      newTargetVerified: true,
+      browserProcessUnchangedVerified: true,
+      retainedCredentialReconnectVerified: true,
+    })
+    expect(options.cdp.send).toHaveBeenCalledWith('Target.closeTarget', {
+      targetId: 'old',
+    })
+    expect(options.reconnect).toHaveBeenCalledWith('page')
+    expect(JSON.stringify(result.evidence)).not.toContain('chrome-extension')
+  })
+  it.each([
+    { type: 'page' },
+    { url: `chrome-extension://${'b'.repeat(32)}/worker.js` },
+    { url: `chrome-extension://${'a'.repeat(32)}/different.js` },
+    { targetId: '' },
+  ])('never closes an unrelated or malformed target: %j', async (change) => {
+    const options = fixture(change)
+    await expect(restartProductionWorker(options)).rejects.toThrow(
+      'extension-worker-identity'
+    )
+    expect(
+      options.cdp.send.mock.calls.some(
+        ([method]) => method === 'Target.closeTarget'
+      )
+    ).toBe(false)
+  })
+  it.each(['../worker.js', '/worker.js', 'https://other/worker.js'])(
+    'rejects unsafe manifest script %s',
+    async (workerScript) => {
+      const options = { ...fixture(), workerScript }
+      await expect(restartProductionWorker(options)).rejects.toThrow(
+        'extension-worker-identity'
+      )
+      expect(options.cdp.send).not.toHaveBeenCalled()
+    }
+  )
+  it('refuses an ambiguous pair of production workers', async () => {
+    const options = fixture()
+    const original = options.cdp.send.getMockImplementation()!
+    options.cdp.send.mockImplementation(async (method) => {
+      const result = await original(method)
+      if (method === 'Target.getTargets' && result.targetInfos)
+        result.targetInfos.push({
+          ...result.targetInfos[0],
+          targetId: 'duplicate',
+        })
+      return result
+    })
+    await expect(restartProductionWorker(options)).rejects.toThrow(
+      'extension-worker-identity'
+    )
+    expect(options.closePopup).not.toHaveBeenCalled()
+  })
+  it('does not accept closeTarget success while the old worker still exists', async () => {
+    const options = fixture()
+    const original = options.cdp.send.getMockImplementation()!
+    options.cdp.send.mockImplementation(async (method) =>
+      method === 'Target.closeTarget' ? { success: true } : original(method)
+    )
+    await expect(restartProductionWorker(options)).rejects.toThrow(
+      'extension-worker-not-stopped'
+    )
+    expect(options.openPopup).not.toHaveBeenCalled()
+  })
+  it('does not convert authentication failure into worker recovery', async () => {
+    const options = fixture()
+    options.reconnect.mockRejectedValue(new Error('not-connected'))
+    await expect(restartProductionWorker(options)).rejects.toThrow(
+      'not-connected'
+    )
+  })
+  it('rejects a browser process change even after successful reconnection', async () => {
+    const options = fixture()
+    const original = options.cdp.send.getMockImplementation()!
+    options.cdp.send.mockImplementation(async (method) =>
+      method === 'SystemInfo.getProcessInfo' &&
+      options.reconnect.mock.calls.length
+        ? { processInfo: [{ type: 'browser', id: 456 }] }
+        : original(method)
+    )
+    await expect(restartProductionWorker(options)).rejects.toThrow(
+      'extension-worker-browser-changed'
+    )
+  })
 })
 
 describe('protocol dialog evidence redaction', () => {

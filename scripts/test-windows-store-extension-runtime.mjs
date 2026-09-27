@@ -66,6 +66,7 @@ export function extensionFailure(stage) {
     'authenticated-pairing',
     'browser-restart',
     'authenticated-reconnect',
+    'service-worker-restart',
     'application-close',
     'protocol-cancellation',
     'protocol-cancelled-state',
@@ -232,6 +233,82 @@ export function productionBrowserOrder(protocolBrowser) {
   return [protocolBrowser === 'chrome' ? 'edge' : 'chrome', protocolBrowser]
 }
 
+/** Stop only the observed production worker in the disposable owned browser. */
+export async function restartProductionWorker({
+  cdp,
+  extensionId,
+  workerScript,
+  browserPid,
+  closePopup,
+  openPopup,
+  reconnect,
+  pause = delay,
+}) {
+  if (
+    !/^[a-p]{32}$/.test(extensionId) ||
+    typeof workerScript !== 'string' ||
+    !/^[A-Za-z0-9_./-]+\.js$/.test(workerScript) ||
+    workerScript
+      .split('/')
+      .some((part) => !part || part === '.' || part === '..') ||
+    !Number.isInteger(browserPid) ||
+    browserPid < 1
+  )
+    fail('extension-worker-identity')
+  const origin = `chrome-extension://${extensionId}/`
+  const scriptUrl = `${origin}${workerScript}`
+  async function targets() {
+    const result = await bounded(cdp.send('Target.getTargets'))
+    if (!Array.isArray(result.targetInfos)) fail('extension-worker-inventory')
+    return result.targetInfos
+  }
+  function worker(inventory) {
+    const matches = inventory.filter(
+      (entry) =>
+        entry.type === 'service_worker' && entry.url?.startsWith(origin)
+    )
+    if (
+      matches.length !== 1 ||
+      matches[0].url !== scriptUrl ||
+      typeof matches[0].targetId !== 'string' ||
+      !/^[A-Za-z0-9-]{1,128}$/.test(matches[0].targetId)
+    )
+      fail('extension-worker-identity')
+    return matches[0].targetId
+  }
+  async function sameBrowser() {
+    const result = await bounded(cdp.send('SystemInfo.getProcessInfo'))
+    const roots = result.processInfo.filter((entry) => entry.type === 'browser')
+    if (roots.length !== 1 || roots[0].id !== browserPid)
+      fail('extension-worker-browser-changed')
+  }
+  await sameBrowser()
+  const previous = worker(await targets())
+  await closePopup()
+  // A retained CDP connection and unchanged root PID distinguish this case
+  // from a complete browser restart. Never reload/reinstall the extension.
+  await bounded(cdp.send('Target.closeTarget', { targetId: previous }))
+  for (let attempt = 0; ; attempt++) {
+    if (!(await targets()).some((entry) => entry.targetId === previous)) break
+    if (attempt >= 40) fail('extension-worker-not-stopped')
+    await pause(250)
+  }
+  const page = await openPopup()
+  await reconnect(page)
+  if (worker(await targets()) === previous)
+    fail('extension-worker-not-replaced')
+  await sameBrowser()
+  return {
+    page,
+    evidence: {
+      oldTargetStoppedVerified: true,
+      newTargetVerified: true,
+      browserProcessUnchangedVerified: true,
+      retainedCredentialReconnectVerified: true,
+    },
+  }
+}
+
 /**
  * Production Chromium build, normal UI and PAKE, disposable CI profile.
  * Optional cold launch exercises normal protocol consent, never Store identity.
@@ -251,6 +328,7 @@ export async function runStoreExtensionRuntime({
     ok: false,
     firstPairVerified: false,
     browserRestartReconnectVerified: false,
+    serviceWorkerRestartReconnectVerified: false,
     cleanupVerified: false,
     protocolActivationVerified: false,
     protocolCancellationVerified: false,
@@ -260,6 +338,7 @@ export async function runStoreExtensionRuntime({
   }
   let stage = 'preflight'
   let context
+  let browserCdp
   let ownedPid
   let profileCreated = false
   async function closeBrowser() {
@@ -313,6 +392,7 @@ export async function runStoreExtensionRuntime({
       })
       context.setDefaultTimeout(10000)
       const cdp = await bounded(context.browser().newBrowserCDPSession())
+      browserCdp = cdp
       const processes = await bounded(cdp.send('SystemInfo.getProcessInfo'))
       const roots = processes.processInfo.filter(
         (entry) => entry.type === 'browser'
@@ -333,11 +413,17 @@ export async function runStoreExtensionRuntime({
       if (report.extensionId && loaded.id !== report.extensionId)
         fail('extension-id-changed')
       report.extensionId = loaded.id
+      return openPopup()
+    }
+    async function openPopup() {
       const page = await context.newPage()
-      await page.goto(`chrome-extension://${loaded.id}/popup.html`, {
+      await page.goto(`chrome-extension://${report.extensionId}/popup.html`, {
         timeout: 10000,
       })
-      if ((await bounded(page.evaluate(() => chrome.runtime.id))) !== loaded.id)
+      if (
+        (await bounded(page.evaluate(() => chrome.runtime.id))) !==
+        report.extensionId
+      )
         fail('extension-id-invalid')
       return page
     }
@@ -388,6 +474,22 @@ export async function runStoreExtensionRuntime({
     // reconnect message that could silently turn this into a new first pair.
     await waitConnected(page)
     report.browserRestartReconnectVerified = true
+    stage = 'service-worker-restart'
+    const manifest = JSON.parse(
+      await readFile(path.join(extensionDirectory, 'manifest.json'), 'utf8')
+    )
+    const restarted = await restartProductionWorker({
+      cdp: browserCdp,
+      extensionId: report.extensionId,
+      workerScript: manifest.background.service_worker,
+      browserPid: ownedPid,
+      closePopup: () => bounded(page.close()),
+      openPopup,
+      reconnect: waitConnected,
+    })
+    page = restarted.page
+    report.serviceWorkerRestart = restarted.evidence
+    report.serviceWorkerRestartReconnectVerified = true
     if (coldLaunch) {
       stage = 'application-close'
       await coldLaunch.stop()
