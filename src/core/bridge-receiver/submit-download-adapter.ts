@@ -8,7 +8,11 @@ import {
   admitDownloadSources,
   admitHttpSource,
 } from '@core/task/source-admission'
-import type { DownloadSubmitParams } from '@motrix/mdxp'
+import {
+  type DownloadSubmitParams,
+  ErrorCodes,
+  makeMdxpError,
+} from '@motrix/mdxp'
 import { type Browser, makeSessionKey } from '@shared/protocol/bridge'
 import type { BridgeSourceMeta, SourceMeta } from '@shared/types/task'
 import { stripHopByHopHeaders } from './header-replay'
@@ -17,6 +21,7 @@ import { ensureMediaExtension } from './pipelines/media-final-name'
 export interface AdapterDeps {
   /** Read the current receiver-side default directory for each submission. */
   getDefaultSaveDir: () => string
+  resolveSaveDir?: (selected: string) => Promise<string>
   /** FinalNamePicker shim — wraps existing picker so tests can stub. */
   pickName: (saveDir: string, desired: string) => Promise<string>
   /** newTaskId injection — defaults to a uuid mint in production wiring. */
@@ -124,7 +129,17 @@ export class SubmitDownloadAdapter {
 
     const { selection, source, meta } = params
     // Keep name selection and every async pipeline step in the same directory.
-    const saveDir = this.deps.getDefaultSaveDir()
+    let saveDir: string
+    if (params.saveDir === undefined) saveDir = this.deps.getDefaultSaveDir()
+    else {
+      if (!this.deps.resolveSaveDir) {
+        throw makeMdxpError(
+          ErrorCodes.CapabilityNotSupported,
+          'Directory selection is unsupported'
+        )
+      }
+      saveDir = await this.deps.resolveSaveDir(params.saveDir)
+    }
 
     if (selection.kind === 'magnet') {
       return {

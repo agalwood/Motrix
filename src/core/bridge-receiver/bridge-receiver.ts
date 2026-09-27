@@ -57,6 +57,8 @@ export interface BridgeReceiverDeps {
     typeof MediaTaskCoordinator
   >[0]['mediaMetaStore']
   getDefaultSaveDir: AdapterDeps['getDefaultSaveDir']
+  resolveSaveDir?: AdapterDeps['resolveSaveDir']
+  recordDirectory?: (path: string) => Promise<unknown>
   pickName: AdapterDeps['pickName']
   createTask: ConstructorParameters<typeof DirectPipeline>[0]['createTask']
   removeTask: ConstructorParameters<typeof DirectPipeline>[0]['removeTask']
@@ -188,11 +190,15 @@ export class BridgeReceiver {
    * result instead of creating a duplicate task — dedup semantics live in
    * IdempotencyCache (failure eviction, settled-only capacity eviction).
    */
-  private readonly submitsByKey = new IdempotencyCache<{ taskId: string }>()
+  private readonly submitsByKey = new IdempotencyCache<{
+    taskId: string
+    requestedSaveDir?: string
+  }>()
 
   constructor(private readonly deps: BridgeReceiverDeps) {
     this.adapter = new SubmitDownloadAdapter({
       getDefaultSaveDir: deps.getDefaultSaveDir,
+      resolveSaveDir: deps.resolveSaveDir,
       pickName: deps.pickName,
       mintTaskId: newTaskId,
     })
@@ -306,10 +312,20 @@ export class BridgeReceiver {
     const key = params.idempotencyKey
     if (!key) return this.dispatchSubmit(params, identity)
 
-    return this.submitsByKey.run(
+    const result = await this.submitsByKey.run(
       JSON.stringify([clientKey(identity), key]),
-      () => this.dispatchSubmit(params, identity)
+      async () => ({
+        ...(await this.dispatchSubmit(params, identity)),
+        requestedSaveDir: params.saveDir,
+      })
     )
+    if (result.requestedSaveDir !== params.saveDir) {
+      throw makeMdxpError(
+        ErrorCodes.InvalidParams,
+        'Submission key was already used with another directory'
+      )
+    }
+    return { taskId: result.taskId }
   }
 
   private async dispatchSubmit(
@@ -327,6 +343,18 @@ export class BridgeReceiver {
       browser: identity.browser,
     })
 
+    const result = await this.dispatchAdapted(adapted, params)
+    // A history-write failure must never turn an accepted task into a retry.
+    void Promise.resolve()
+      .then(() => this.deps.recordDirectory?.(adapted.saveDir))
+      .catch(() => {})
+    return result
+  }
+
+  private async dispatchAdapted(
+    adapted: Awaited<ReturnType<SubmitDownloadAdapter['adapt']>>,
+    params: DownloadSubmitParams
+  ): Promise<{ taskId: string }> {
     // Submit-path pre-resolve: if the adapted result is a direct download and
     // a resolveToMux factory is wired (bootstrap only), call it. On a non-null
     // mux pair the direct submit is transparently re-routed to MuxPipeline.

@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import path from 'node:path'
 import { TaskActivityService, TaskActivityStore } from '@core/activity'
+import { createDownloadDirectories } from '@core/bridge-receiver/download-directories'
 import { Aria2SegmentClient } from '@core/download/aria2-segment-client'
 import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
 import { Aria2ConfigBuilder } from '@core/engine/aria2/aria2-config-builder'
@@ -2507,6 +2508,9 @@ async function initializeMainProcess(): Promise<void> {
     }
     // mediaTmpDir / mediaTmpRoot were computed once at bootstrap (above) so
     // SessionManager.restore() and the poll loop share the exact same root.
+    const downloadDirectories = createDownloadDirectories({
+      getSettings: () => settingsManager.getApp(),
+    })
     return bootstrapBridge({
       mediaMetaStore,
       getMainWindow: () => windowManager?.get('main') ?? null,
@@ -2541,7 +2545,14 @@ async function initializeMainProcess(): Promise<void> {
         settingsManager.getApp().magnetFileSelection,
       finalNamePicker,
       getDefaultSaveDir: () => settingsManager.getApp().defaultSaveDir,
+      resolveSaveDir: downloadDirectories.resolveSelection,
+      recordDirectory: (path) =>
+        settingsManager.mutateDirectoryPreferences({
+          action: 'recordRecent',
+          path,
+        }),
       readHandlerDeps: {
+        getDownloadDirectories: downloadDirectories.list,
         taskManager,
         statsAggregator,
         supervisor,

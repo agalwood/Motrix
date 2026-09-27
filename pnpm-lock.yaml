@@ -189,8 +189,8 @@ importers:
         specifier: ^0.32.0
         version: 0.32.0
       '@motrix/mdxp':
-        specifier: ^0.6.0
-        version: 0.6.0
+        specifier: ^0.7.0
+        version: 0.7.0
       '@motrix/nat':
         specifier: ^0.1.3
         version: 0.1.3
@@ -1106,8 +1106,8 @@ packages:
     engines: {node: '>=22.12'}
     hasBin: true
 
-  '@motrix/mdxp@0.6.0':
-    resolution: {integrity: sha512-ySgMuME8chFax2lxtELbCYrM9ayGciEN8UikYG6MLGg3Z8I6RTY+XarC40RjhY2vVnMdLrf9ff7ZiH6hSjLkdg==}
+  '@motrix/mdxp@0.7.0':
+    resolution: {integrity: sha512-usgS94FNEXQyt6wg5hA8UZfCuuf+5inAzhcEc6mNt88RwwOqgbrYDG/VvtD0yn94kNEsxNxZcPowJXqcaGx41w==}
 
   '@motrix/nat@0.1.3':
     resolution: {integrity: sha512-qrMAkP/zkXQlYxAKwSm5xYSG8XwKWLECtkX25P1KrgNlK1dGhWpjj485xO3Pojvwztp6yhcPQ3z29fFymXJfvw==}
@@ -4642,6 +4642,10 @@ packages:
     resolution: {integrity: sha512-SbQSV9yRemARxeXw6LU5sS6Zq0e9/DgCCX5yelH263ZQWukbTk8EF8fjTrr1dziasf4GwlJbvTwFnTrnQFWZXQ==}
     engines: {node: '>=14.0.0'}
 
+  vscode-jsonrpc@9.0.3:
+    resolution: {integrity: sha512-qETYf9PCl1lVfwR+oBmMfc4vP2nqLNA35ABxorw3j06+xlKRgDVxbLgKm4Y/xPL0YWdeDjLoI4ImICIT3nB0zQ==}
+    engines: {node: '>=14.0.0'}
+
   w3c-xmlserializer@6.0.0:
     resolution: {integrity: sha512-4Nsy8K5Tr6SPDH9jhKJOHf7ChDrc1zufZTVSF7x72hwuEXBqxqk9G6cK+K2NRUtB3iELRJqjXb4JPDMBjMTl2Q==}
     engines: {node: ^22.22.2 || ^24.15.0 || >=26.0.0}
@@ -5468,9 +5472,9 @@ snapshots:
     dependencies:
       commander: 15.0.0
 
-  '@motrix/mdxp@0.6.0':
+  '@motrix/mdxp@0.7.0':
     dependencies:
-      vscode-jsonrpc: 9.0.2
+      vscode-jsonrpc: 9.0.3
       zod: 4.6.5
 
   '@motrix/nat@0.1.3': {}
@@ -8851,6 +8855,8 @@ snapshots:
       - msw
 
   vscode-jsonrpc@9.0.2: {}
+
+  vscode-jsonrpc@9.0.3: {}
 
   w3c-xmlserializer@6.0.0:
     dependencies:
