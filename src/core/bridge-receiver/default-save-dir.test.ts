@@ -39,6 +39,29 @@ describe('bridge default save directory', () => {
     await rm(root, { recursive: true, force: true })
   })
 
+  it('binds retries to the selected directory and records only accepted submissions', async () => {
+    const recordDirectory = vi.fn(async () => {})
+    const deps = makeBridgeReceiverDeps({
+      resolveSaveDir: async (path) => path,
+      recordDirectory,
+    })
+    const createTask = vi.spyOn(deps, 'createTask')
+    const receiver = new BridgeReceiver(deps)
+    const params = {
+      ...makeDirectSubmit(),
+      idempotencyKey: 'directory-key',
+      saveDir: newDir,
+    }
+    await receiver.handle(params, makeExtensionContext())
+    await receiver.handle(params, makeExtensionContext())
+    await expect(
+      receiver.handle({ ...params, saveDir: oldDir }, makeExtensionContext())
+    ).rejects.toMatchObject({ code: -32602 })
+    expect(createTask).toHaveBeenCalledTimes(1)
+    expect(createTask.mock.calls[0]?.[0]).toMatchObject({ saveDir: newDir })
+    expect(recordDirectory).toHaveBeenCalledExactlyOnceWith(newDir)
+  })
+
   it('uses a committed directory change without recreating the receiver', async () => {
     const deps = makeBridgeReceiverDeps({
       getDefaultSaveDir: () => settings.getApp().defaultSaveDir,

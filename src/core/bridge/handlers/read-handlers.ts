@@ -1,4 +1,6 @@
 import {
+  DownloadDirectoriesParamsSchema,
+  type DownloadDirectoriesResult,
   EngineStatusParamsSchema,
   type EngineStatusResult,
   Methods,
@@ -23,6 +25,7 @@ import type { MdxpDispatcher } from '../mdxp-dispatcher'
  * fake in tests.
  */
 export interface ReadHandlerDeps {
+  getDownloadDirectories?: () => Promise<DownloadDirectoriesResult>
   taskManager: {
     getAll(): DownloadTask[]
     getById(id: string): DownloadTask | undefined
@@ -38,13 +41,21 @@ export interface ReadHandlerDeps {
  * Register the v1 READ methods (`task/list`, `task/get`, `stats/get`,
  * `engine/status`) on a dispatcher. No new core logic — each is a thin
  * projection of an existing manager read through the `DownloadTask → MdxpTask`
- * mapper. These methods are agent-facing (unary `POST /mdxp` only); they are
- * deliberately NOT wired onto the extension WebSocket request surface.
+ * mapper. Task/stats reads are shared by unary and paired WebSocket transports;
+ * download/directories is available only to paired extension WebSockets.
  */
 export function registerReadHandlers(
   dispatcher: MdxpDispatcher,
   deps: ReadHandlerDeps
 ): void {
+  if (deps.getDownloadDirectories) {
+    const get = deps.getDownloadDirectories
+    dispatcher.register(
+      Methods.DownloadDirectories,
+      DownloadDirectoriesParamsSchema,
+      () => get()
+    )
+  }
   dispatcher.register(
     Methods.TaskList,
     TaskListParamsSchema,

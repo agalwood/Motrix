@@ -78,6 +78,11 @@ describe('unary POST /mdxp', () => {
       cancelDownload: async () => undefined,
     })
     server.registerReadMethods({
+      getDownloadDirectories: async () => ({
+        defaultSaveDir: '/private/downloads',
+        favorites: [],
+        recent: [],
+      }),
       taskManager: {
         getAll: () => [
           makeDownloadTask({ id: 'a', status: TaskStatus.Downloading }),
@@ -209,6 +214,16 @@ describe('unary POST /mdxp', () => {
     )
     expect(res.status).toBe(404)
     expect(res.body.error?.code).toBe(ErrorCodes.CapabilityNotSupported)
+  })
+
+  it('does not expose directory paths on the authenticated unary surface', async () => {
+    const res = await postMdxp(
+      port,
+      { jsonrpc: '2.0', id: 1, method: 'download/directories', params: {} },
+      { token: LOCAL_TOKEN }
+    )
+    expect(res.body.error).toBeDefined()
+    expect(JSON.stringify(res.body)).not.toContain('/private/downloads')
   })
 
   it('rejects paired-UI-only task/reveal on the unary agent surface', async () => {

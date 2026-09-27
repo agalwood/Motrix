@@ -198,7 +198,7 @@ describe('third-party notice generator', () => {
       (relationship) => relationship.relationshipType === 'DESCRIBES'
     )?.relatedSpdxElement
     const packageIds = new Map(
-      sbom.packages.map((pkg) => [pkg.name, pkg.SPDXID])
+      sbom.packages.map((pkg) => [`${pkg.name}@${pkg.versionInfo}`, pkg.SPDXID])
     )
     const rootDependencyIds = new Set(
       sbom.relationships
@@ -220,7 +220,17 @@ describe('third-party notice generator', () => {
       'ws',
       'zod',
     ]) {
-      expect(rootDependencyIds).toContain(packageIds.get(packageName))
+      // A transitive dependency can install another version of the same name.
+      // The root edge must point to the version actually resolved by the app.
+      const manifest = JSON.parse(
+        await readFile(
+          path.join(process.cwd(), 'node_modules', packageName, 'package.json'),
+          'utf8'
+        )
+      ) as { version: string }
+      expect(rootDependencyIds).toContain(
+        packageIds.get(`${packageName}@${manifest.version}`)
+      )
     }
 
     const parsedAgain = JSON.parse(

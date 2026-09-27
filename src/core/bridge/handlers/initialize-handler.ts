@@ -12,6 +12,7 @@ export interface InitializeHandlerDeps {
   ffmpegAvailable: boolean | (() => Promise<boolean>)
   /** Read lazily so capabilities match the methods actually registered. */
   supportsTaskReveal: () => boolean
+  supportsDownloadDirectories?: () => boolean
 }
 
 /**
@@ -96,6 +97,7 @@ async function buildResult(
       progress: true,
       cancellation: true,
       taskReveal: deps.supportsTaskReveal(),
+      downloadDirectories: deps.supportsDownloadDirectories?.() === true,
     },
     serverAdapters: [],
   }

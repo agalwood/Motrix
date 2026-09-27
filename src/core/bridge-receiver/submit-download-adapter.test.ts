@@ -54,6 +54,32 @@ describe('SubmitDownloadAdapter.adapt', () => {
       mintTaskId: () => 'task-1',
     })
 
+  it('validates an explicit destination before picking a filename and rejects unsupported overrides', async () => {
+    const params = { ...baseInput(), saveDir: '/favorite' }
+    await expect(
+      adapter().adapt(params, { extensionId: 'e', browser: 'chromium' })
+    ).rejects.toMatchObject({ code: -32005 })
+    const pickName = vi.fn(async (_path: string, name: string) => name)
+    const resolveSaveDir = vi.fn(async () => '/canonical/favorite')
+    const subject = new SubmitDownloadAdapter({
+      getDefaultSaveDir: () => '/default',
+      resolveSaveDir,
+      pickName,
+      mintTaskId: () => 'id',
+    })
+    expect(
+      (await subject.adapt(params, { extensionId: 'e', browser: 'chromium' }))
+        .saveDir
+    ).toBe('/canonical/favorite')
+    expect(pickName).toHaveBeenCalledWith('/canonical/favorite', 'demo.mp4')
+    resolveSaveDir.mockRejectedValueOnce(new Error('unavailable'))
+    pickName.mockClear()
+    await expect(
+      subject.adapt(params, { extensionId: 'e', browser: 'chromium' })
+    ).rejects.toThrow('unavailable')
+    expect(pickName).not.toHaveBeenCalled()
+  })
+
   it('keeps scoped cookies in memory without writing a jar', async () => {
     const result = await adapter().adapt(baseInput(), {
       extensionId: 'e',

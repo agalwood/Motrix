@@ -15,6 +15,7 @@ import {
   Methods,
   makeMdxpError,
   Notifications,
+  ResponseError,
   Tools,
 } from '@motrix/mdxp'
 import { AppError, ErrorCode } from '@shared/errors'
@@ -25,7 +26,6 @@ import {
   makeSessionKey,
   type PairRequestPayload,
 } from '@shared/protocol/bridge'
-import { ResponseError } from 'vscode-jsonrpc'
 import { type RawData, type WebSocket, WebSocketServer } from 'ws'
 import { BridgeConnection } from './bridge-connection'
 import type { Mbp1CredentialStore } from './credential-store'
@@ -306,6 +306,7 @@ export type MethodHandlers = {
  * reachable only over the agent-facing unary `POST /mdxp` transport.
  */
 const EXTENSION_WS_CONTROL_PLANE = [
+  Methods.DownloadDirectories,
   Methods.TaskList,
   Methods.TaskGet,
   Methods.TaskPause,
@@ -601,6 +602,8 @@ export class WebSocketBridgeServer {
         runtime: opts.runtime,
         ffmpegAvailable: opts.ffmpegAvailable,
         supportsTaskReveal: () => this.dispatcher.has(Methods.TaskReveal),
+        supportsDownloadDirectories: () =>
+          this.dispatcher.has(Methods.DownloadDirectories),
       })
     )
     // Revocation/rotation must reach live SSE firehose streams, not just future
@@ -2266,9 +2269,15 @@ export class WebSocketBridgeServer {
     params: unknown,
     ctx: MdxpSessionContext
   ): Promise<unknown> {
-    return this.requestWork.run(() =>
-      this.dispatcher.dispatch(method, params, ctx)
-    )
+    return this.requestWork
+      .run(() => this.dispatcher.dispatch(method, params, ctx))
+      .catch((error) => {
+        // Plain MDXP errors otherwise become InternalError in vscode-jsonrpc,
+        // making a pre-dispatch directory rejection look like an unknown submit.
+        if (isMdxpErrorShape(error))
+          throw new ResponseError(error.code, error.message, error.data)
+        throw error
+      })
   }
 }
 

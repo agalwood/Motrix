@@ -278,6 +278,11 @@ describe('WebSocketBridgeServer.start() bind guard', () => {
 
 function makeFakeReadDeps(): ReadHandlerDeps {
   return {
+    getDownloadDirectories: async () => ({
+      defaultSaveDir: '/downloads',
+      favorites: [],
+      recent: [],
+    }),
     taskManager: {
       getAll: () => [],
       getById: () => undefined,
@@ -369,6 +374,10 @@ describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
       initializeParams(EXTENSION_ID)
     )
     expect(initialized.capabilities.taskReveal).toBe(true)
+    expect(initialized.capabilities.downloadDirectories).toBe(true)
+    await expect(conn.sendRequest('download/directories', {})).resolves.toEqual(
+      { defaultSaveDir: '/downloads', favorites: [], recent: [] }
+    )
     conn.sendNotification('motrix/initialized', undefined as never)
 
     // task/list reaches the dispatcher and returns its shape.
@@ -396,6 +405,61 @@ describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
 
     conn.dispose()
     paired.wire.ws.close()
+  })
+
+  it('preserves directory rejections and schema failures on the paired wire', async () => {
+    const submitDownload = vi.fn(async () => {
+      throw {
+        code: ErrorCodes.InvalidParams,
+        message: 'Download directory is unavailable',
+        data: { appCode: 'download-directory-unavailable' },
+      }
+    })
+    server.setHandlers({ submitDownload })
+    const paired = await pairAndExchange({
+      port,
+      origin: ORIGIN,
+      browser: 'chromium',
+      claimedExtensionId: EXTENSION_ID,
+      code: () => mbp1.dialogs.latestCode(),
+    })
+    const conn = mdxpOverChannel(paired.wire, paired.channel)
+    try {
+      await conn.sendRequest(
+        'motrix/initialize',
+        initializeParams(EXTENSION_ID)
+      )
+      conn.sendNotification('motrix/initialized', undefined)
+      const params = {
+        source: {
+          pageUrl: 'https://example.test',
+          pageTitle: '',
+          detectedAt: 0,
+        },
+        selection: {
+          kind: 'magnet' as const,
+          uri: 'magnet:?xt=urn:btih:0123456789012345678901234567890123456789',
+        },
+        meta: { suggestedFilename: '', qualityLabel: '' },
+        saveDir: '/stale',
+      }
+      await expect(
+        conn.sendRequest('download/submit', params)
+      ).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+        data: { appCode: 'download-directory-unavailable' },
+      })
+      await expect(
+        conn.sendRequest('download/submit', {
+          ...params,
+          saveDir: '/bad\0path',
+        })
+      ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams })
+      expect(submitDownload).toHaveBeenCalledTimes(1)
+    } finally {
+      conn.dispose()
+      paired.wire.ws.close()
+    }
   })
 
   it('refreshes live capabilities and preserves a missing-media rejection on the authenticated wire', async () => {

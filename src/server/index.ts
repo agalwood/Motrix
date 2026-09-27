@@ -12,6 +12,7 @@ import { createExtensionIdentityResolver } from '@core/bridge/extension-identity
 import { FileRegistryStoreAdapter } from '@core/bridge/registry-store-adapter'
 import { TrustedExtensionRegistry } from '@core/bridge/trusted-extension-registry'
 import { BridgeReceiver } from '@core/bridge-receiver/bridge-receiver'
+import { createDownloadDirectories } from '@core/bridge-receiver/download-directories'
 import { Aria2SegmentClient } from '@core/download/aria2-segment-client'
 import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
 import { Aria2ConfigBuilder } from '@core/engine/aria2/aria2-config-builder'
@@ -1919,6 +1920,11 @@ async function main() {
       ) {
         throw new Error('Bridge data ownership is unavailable')
       }
+      const downloadDirectories = createDownloadDirectories({
+        getSettings: () => settingsManager.getApp(),
+        authorizeDirectory: async (path) =>
+          (await downloadPathPolicy.authorizeDirectory(path)).canonicalPath,
+      })
       const candidateBridgeRuntime = await bootstrapBridgeForServer({
         userDataDir: platform.userDataDir,
         host: mdxpHost,
@@ -1934,6 +1940,12 @@ async function main() {
           new BridgeReceiver({
             mediaMetaStore,
             getDefaultSaveDir: () => settingsManager.getApp().defaultSaveDir,
+            resolveSaveDir: downloadDirectories.resolveSelection,
+            recordDirectory: (path) =>
+              settingsManager.mutateDirectoryPreferences({
+                action: 'recordRecent',
+                path,
+              }),
             pickName: (saveDir, desired) =>
               finalNamePicker.pick(saveDir, desired),
             createTask: (request, _deps, options) =>
@@ -1985,7 +1997,12 @@ async function main() {
         // The web approval UI is a separate (Fastify) service; the operator points
         // device-code clients at it via MOTRIX_PUBLIC_URL. Unset → no URL printed.
         verificationUri: process.env.MOTRIX_PUBLIC_URL,
-        readHandlerDeps: { taskManager, statsAggregator, supervisor },
+        readHandlerDeps: {
+          taskManager,
+          statsAggregator,
+          supervisor,
+          getDownloadDirectories: downloadDirectories.list,
+        },
         writeHandlerDeps: {
           taskManager,
           pauseTask: (taskId) => pauseTaskAction(taskId, taskActionDeps),
