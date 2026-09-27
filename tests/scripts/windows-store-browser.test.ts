@@ -24,6 +24,7 @@ import {
   buildBrowserRegistrationArguments,
   createBrowserOutputDirectory,
   runBrowserNativeMessagingChecks,
+  runChromiumProbeCase,
   safeBrowserProbeObservation,
   validateBrowserInventory,
   validateBrowserProbeResult,
@@ -841,6 +842,7 @@ describe('isolated sequential experiment coordinator', () => {
       name: 'registered',
       ok: false,
       code: 'invalid-browser-result',
+      operation: 'native-probe',
       status: 'disconnected',
       messageCount: 0,
       errorPresent: true,
@@ -928,6 +930,70 @@ describe('isolated sequential experiment coordinator', () => {
 })
 
 describe('Chromium adapter contract without starting a browser', () => {
+  function probePage() {
+    const click = vi.fn(async () => {})
+    const read = vi.fn(async () => JSON.stringify(observed('chrome', false)))
+    const wait = vi.fn(async () => {})
+    return {
+      click,
+      read,
+      wait,
+      page: {
+        locator: () => ({ click, textContent: read }),
+        waitForFunction: wait,
+      },
+    }
+  }
+  it.each(['click', 'wait', 'read'] as const)(
+    'classifies %s failures without preserving exception text',
+    async (stage) => {
+      for (const timeout of [true, false]) {
+        const lab = probePage()
+        lab[stage].mockRejectedValueOnce(
+          Object.assign(new Error(PRIVATE_PATH), {
+            name: timeout ? 'TimeoutError' : 'Error',
+          })
+        )
+        await expect(runChromiumProbeCase(lab.page)).rejects.toMatchObject({
+          message: `browser-probe-${stage}-${timeout ? 'timeout' : 'failed'}`,
+        })
+        if (stage === 'click') expect(lab.wait).not.toHaveBeenCalled()
+        if (stage !== 'read') expect(lab.read).not.toHaveBeenCalled()
+      }
+    }
+  )
+  it('waits for a present result and keeps click, wait and read individually bounded', async () => {
+    const lab = probePage()
+    await expect(runChromiumProbeCase(lab.page)).resolves.toEqual(
+      observed('chrome', false)
+    )
+    expect(lab.click).toHaveBeenCalledWith({ timeout: 5000 })
+    expect(lab.wait).toHaveBeenCalledWith(expect.any(Function), null, {
+      timeout: 14000,
+    })
+    expect(lab.read).toHaveBeenCalledWith({ timeout: 1000 })
+    const predicate = lab.wait.mock.calls[0][0]
+    for (const text of [undefined, 'null', '{"status":"disconnected"}']) {
+      expect(
+        runInNewContext(`(${predicate.toString()})()`, {
+          document: {
+            getElementById: () =>
+              text === undefined ? null : { textContent: text },
+          },
+        })
+      ).toBe(text !== undefined && text !== 'null')
+    }
+  })
+  it.each(['{', 'x'.repeat(8193)])(
+    'rejects malformed or oversized result text',
+    async (text) => {
+      const lab = probePage()
+      lab.read.mockResolvedValueOnce(text)
+      await expect(runChromiumProbeCase(lab.page)).rejects.toThrow(
+        'invalid-browser-result'
+      )
+    }
+  )
   async function adapter(loaderFails = false) {
     const lab = await harness()
     const waitForFunction = vi.fn(async () => {})

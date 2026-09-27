@@ -69,6 +69,12 @@ const CODES = new Set([
   'browser-protocol-failed',
   'browser-timeout',
   'browser-output-limit',
+  'browser-probe-click-failed',
+  'browser-probe-click-timeout',
+  'browser-probe-wait-failed',
+  'browser-probe-wait-timeout',
+  'browser-probe-read-failed',
+  'browser-probe-read-timeout',
   'browser-cleanup-failed',
   'invalid-extension-id',
   'invalid-browser-result',
@@ -566,6 +572,42 @@ async function killOwnedProcess(pid) {
   }
 }
 
+/** Keep automation failures actionable without retaining URLs, paths or logs. */
+export async function runChromiumProbeCase(page) {
+  async function operation(name, execute) {
+    try {
+      return await execute()
+    } catch (error) {
+      fail(
+        `browser-probe-${name}-${error?.name === 'TimeoutError' ? 'timeout' : 'failed'}`
+      )
+    }
+  }
+  await operation('click', () =>
+    page.locator('#probe').click({ timeout: 5000 })
+  )
+  await operation('wait', () =>
+    page.waitForFunction(
+      () => {
+        const text = document.getElementById('result')?.textContent
+        return typeof text === 'string' && text !== 'null'
+      },
+      null,
+      { timeout: 14000 }
+    )
+  )
+  const text = await operation('read', () =>
+    page.locator('#result').textContent({ timeout: 1000 })
+  )
+  if (typeof text !== 'string' || Buffer.byteLength(text) > 8192)
+    fail('invalid-browser-result')
+  try {
+    return JSON.parse(text)
+  } catch {
+    fail('invalid-browser-result')
+  }
+}
+
 async function openChromium({
   browser,
   inventory,
@@ -632,18 +674,7 @@ async function openChromium({
       version,
       close,
       async runCase() {
-        await page.locator('#probe').click({ timeout: 1000 })
-        await page.waitForFunction(
-          () => document.getElementById('result')?.textContent !== 'null',
-          null,
-          { timeout: 14000 }
-        )
-        const text = await page
-          .locator('#result')
-          .textContent({ timeout: 1000 })
-        if (typeof text !== 'string' || Buffer.byteLength(text) > 8192)
-          fail('invalid-browser-result')
-        return JSON.parse(text)
+        return runChromiumProbeCase(page)
       },
     }
   } catch (error) {
@@ -1015,6 +1046,7 @@ export async function runBrowserNativeMessagingChecks(
       let registrationAttempted = false
       let profileCreated = false
       let browserStep = 'inventory'
+      let browserOperation
       let observation
       const registerInput = {
         browser,
@@ -1079,8 +1111,10 @@ export async function runBrowserNativeMessagingChecks(
         for (const name of CASES) {
           browserStep = name
           observation = undefined
+          browserOperation = 'verify-installed-before'
           await snapshot()
           if (name === 'registered') {
+            browserOperation = 'register-host'
             registrationAttempted = true
             const created = await within(() =>
               register({
@@ -1119,6 +1153,7 @@ export async function runBrowserNativeMessagingChecks(
               registryView: created.report.registryView,
               registryPathRole: created.report.registryPathRole,
             }
+            browserOperation = 'inspect-registration'
             checkRegistration(
               await within(() =>
                 register({ ...registerInput, action: 'Inspect', receiptSha256 })
@@ -1131,6 +1166,7 @@ export async function runBrowserNativeMessagingChecks(
             )
           } else {
             if (receiptSha256) {
+              browserOperation = 'remove-registration'
               checkRegistration(
                 await within(() =>
                   register({
@@ -1148,6 +1184,7 @@ export async function runBrowserNativeMessagingChecks(
               receiptSha256 = undefined
               registrationAttempted = false
             }
+            browserOperation = 'inspect-registration'
             checkRegistration(
               await within(() =>
                 register({ ...registerInput, action: 'Inspect' })
@@ -1159,7 +1196,11 @@ export async function runBrowserNativeMessagingChecks(
               }
             )
           }
-          const observed = await within(() => session.runCase(), 16000)
+          browserOperation = 'native-probe'
+          const observed = await within(
+            () => session.runCase(),
+            browser === 'firefox' ? 16000 : 21000
+          )
           observation = safeBrowserProbeObservation(observed)
           const safe = validateBrowserProbeResult({
             result: observed,
@@ -1171,6 +1212,7 @@ export async function runBrowserNativeMessagingChecks(
           browserReport.checks.push({ name, ok: true, ...safe })
           report.testCount += 1
           observation = undefined
+          browserOperation = 'verify-installed-after'
           await snapshot()
         }
         if (
@@ -1191,6 +1233,9 @@ export async function runBrowserNativeMessagingChecks(
           name: browserStep,
           ok: false,
           code: codeOf(error),
+          ...(CASES.includes(browserStep)
+            ? { operation: browserOperation }
+            : {}),
           ...observation,
         })
       } finally {
