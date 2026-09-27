@@ -39,7 +39,21 @@ async function bounded<T>(
   }
 }
 
-export function createInstalledMbp1Client() {
+type InstalledClientStage =
+  | 'pair-start'
+  | 'pair-ui'
+  | 'pair-pake'
+  | 'pair-credential'
+  | 'mdxp-initialize'
+  | 'mdxp-ready'
+  | 'mdxp-read'
+  | 'reconnect-start'
+  | 'connection-close'
+
+export function createInstalledMbp1Client(
+  options: { onProgress?: (stage: InstalledClientStage) => void } = {}
+) {
+  const progress = (stage: InstalledClientStage) => options.onProgress?.(stage)
   let credential: IssuedCredential | undefined
   let instanceId: string | undefined
   let paired = false
@@ -48,6 +62,7 @@ export function createInstalledMbp1Client() {
   let connection: MdxpConnection | undefined
 
   async function closeConnection() {
+    progress('connection-close')
     connection?.dispose()
     connection = undefined
     if (wire) {
@@ -62,6 +77,7 @@ export function createInstalledMbp1Client() {
   async function initializeAndRead(channel: EnvelopeChannel) {
     if (!wire) fail('mbp1-client-state-invalid')
     connection = client.mdxpOverChannel(wire, channel)
+    progress('mdxp-initialize')
     const initialized = await bounded(
       connection.sendRequest(
         Methods.MotrixInitialize,
@@ -76,7 +92,9 @@ export function createInstalledMbp1Client() {
     ) {
       fail('mbp1-initialize-invalid')
     }
+    progress('mdxp-ready')
     connection.sendNotification(Notifications.MotrixInitialized, undefined)
+    progress('mdxp-read')
     const tasks = TaskListResultSchema.safeParse(
       await bounded(connection.sendRequest(Methods.TaskList, {}), 10000)
     )
@@ -93,6 +111,7 @@ export function createInstalledMbp1Client() {
     ) {
       if (disposed || paired || credential) fail('mbp1-client-state-invalid')
       try {
+        progress('pair-start')
         const handshake = await client.startPair({
           port,
           pairNonce,
@@ -103,7 +122,11 @@ export function createInstalledMbp1Client() {
         })
         wire = handshake.wire
         instanceId = handshake.instanceId
-        const { channel } = await client.runPake(handshake, await readCode())
+        progress('pair-ui')
+        const code = await readCode()
+        progress('pair-pake')
+        const { channel } = await client.runPake(handshake, code)
+        progress('pair-credential')
         credential = await client.exchangeCredential(handshake, channel)
         await initializeAndRead(channel)
         paired = true
@@ -117,6 +140,7 @@ export function createInstalledMbp1Client() {
       if (disposed || !paired || !credential || !instanceId)
         fail('mbp1-client-state-invalid')
       try {
+        progress('reconnect-start')
         const resumed = await client.reconnect({
           port,
           origin,

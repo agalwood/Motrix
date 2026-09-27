@@ -85,10 +85,49 @@ export function installRuntimeFailureRecorder(fd, currentStage) {
       'ERR_INVALID_ARG_TYPE',
       'ERR_INVALID_ARG_VALUE',
     ]
+    // Match only known code locations in stack frames after the message.
+    // Discard all paths, function names and unknown frames.
+    const modules = [
+      ['mbp1-client', /[/\\]mbp1-client\.ts:(\d+):(\d+)/],
+      ['installed-client', /[/\\]windows-store-mbp1-client\.ts:(\d+):(\d+)/],
+      ['ws-receiver', /[/\\]ws[/\\]lib[/\\]receiver\.js:(\d+):(\d+)/],
+      ['ws-websocket', /[/\\]ws[/\\]lib[/\\]websocket\.js:(\d+):(\d+)/],
+      [
+        'jsonrpc-connection',
+        /[/\\]vscode-jsonrpc[/\\]lib[/\\]common[/\\]connection\.js:(\d+):(\d+)/,
+      ],
+      [
+        'jsonrpc-events',
+        /[/\\]vscode-jsonrpc[/\\]lib[/\\]common[/\\]events\.js:(\d+):(\d+)/,
+      ],
+      ['node-events', /node:events:(\d+):(\d+)/],
+      [
+        'node-task-queues',
+        /node:internal[/\\]process[/\\]task_queues:(\d+):(\d+)/,
+      ],
+    ]
+    const frames = []
+    if (typeof error?.stack === 'string') {
+      for (const frame of error.stack.split('\n').slice(1, 21)) {
+        if (!/^\s+at /.test(frame)) continue
+        for (const [module, pattern] of modules) {
+          const match = pattern.exec(frame)
+          if (match) {
+            frames.push({
+              module,
+              line: Number(match[1]),
+              column: Number(match[2]),
+            })
+            break
+          }
+        }
+      }
+    }
     fatal = {
       name: names.includes(error?.name) ? error.name : 'other',
       code: codes.includes(error?.code) ? error.code : 'other',
       origin: origin === 'unhandledRejection' ? origin : 'uncaughtException',
+      frames,
     }
   }
   writeFailure()
@@ -747,7 +786,11 @@ async function main(args) {
       '../src/core/bridge/__tests__/windows-store-mbp1-client.ts',
       import.meta.url
     )
-    pairing = createInstalledMbp1Client()
+    pairing = createInstalledMbp1Client({
+      onProgress: (value) => {
+        stage = `mbp1:${value}`
+      },
+    })
     stage = 'main-runtime'
     report.runtime = await runMainCase(before, pairing, (value) => {
       stage = `main-runtime:${value}`

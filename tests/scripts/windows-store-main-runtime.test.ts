@@ -234,7 +234,7 @@ describe('fatal installed-runtime evidence', () => {
     expect(status).toBe(1)
     expect(report.failureStage).toBe('main-runtime:installed-mbp1-pairing')
     expect(report.failureCode).toBe('uncaught-runtime-error')
-    expect(report.fatal).toEqual({
+    expect(report.fatal).toMatchObject({
       name: 'TypeError',
       code: 'other',
       origin: 'unhandledRejection',
@@ -248,6 +248,21 @@ describe('fatal installed-runtime evidence', () => {
       'storeReady',
     ])
       expect(report[key]).toBe(false)
+  })
+
+  it('keeps only known module coordinates from a fatal stack', () => {
+    const { status, report } = exercise(`
+      const error = new Error('private-message');
+      error.stack = 'Error: private-message\\n' +
+        '    at privateFunction (C:/private-user/node_modules/ws/lib/receiver.js:610:20)\\n' +
+        '    at privateFunction (C:/private-user/private-module.js:1:2)';
+      throw error;
+    `)
+    expect(status).toBe(1)
+    expect(report.fatal.frames).toEqual([
+      { module: 'ws-receiver', line: 610, column: 20 },
+    ])
+    expect(JSON.stringify(report)).not.toContain('private')
   })
 
   it('retains an incomplete report for direct process exit', () => {

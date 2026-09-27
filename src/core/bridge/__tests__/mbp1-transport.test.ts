@@ -816,12 +816,25 @@ describe('§6 first pair over the wire', () => {
   })
 
   it('drives the installed-package controller through pairing and a restarted listener', async () => {
-    const probe = createInstalledMbp1Client()
+    const stages: string[] = []
+    const probe = createInstalledMbp1Client({
+      onProgress: (stage) => stages.push(stage),
+    })
     try {
       await probe.pair(h.port, await fetchNonce(h.port), () =>
         h.dialogs.latestCode()
       )
       expect(JSON.stringify(probe)).toBe('{}')
+      expect(stages).toEqual([
+        'pair-start',
+        'pair-ui',
+        'pair-pake',
+        'pair-credential',
+        'mdxp-initialize',
+        'mdxp-ready',
+        'mdxp-read',
+        'connection-close',
+      ])
       const first = h.authenticated[0]
       await h.server.stop()
       // Production restarts construct a fresh bridge server. A stopped server
