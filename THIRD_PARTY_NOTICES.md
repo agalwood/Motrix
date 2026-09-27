@@ -97,6 +97,22 @@ bundled binaries. Redistributors must continue to meet the GPL source-code and
 notice obligations for the exact binaries they ship, including any additional
 libraries linked into their own builds.
 
+The Windows x64 engine's version-specific dependency declarations, original
+license texts, pinned source locations, and libssh2 patch references are in
+[`THIRD_PARTY_LICENSES/aria2-win32-x64/README.md`](THIRD_PARTY_LICENSES/aria2-win32-x64/README.md)
+and `components.json` in that directory. This supplement is limited to the
+engine version and Windows binary hashes recorded there; it does not describe
+the dependencies of other platform builds. Its texts are also retained in the
+consolidated license collection under the aria2 entry. They retain their
+respective terms; this grouping does not change their licenses.
+
+In particular, the recorded OpenSSL 3.5.8 uses Apache-2.0. The older
+`aria2-LICENSE.OpenSSL` text is retained from aria2 but does not replace this
+dependency's own license. These notices are not a complete binary dependency
+inventory or a complete corresponding-source distribution. Redistributors
+must review the applicable GPL version, source provision, linked runtime
+libraries, and embedded third-party code for their actual release.
+
 ---
 
 ## GeoIP database (opt-in, downloaded by the user)

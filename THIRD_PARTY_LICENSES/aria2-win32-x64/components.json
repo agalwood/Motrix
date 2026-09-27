@@ -1,0 +1,309 @@
+{
+  "schemaVersion": 1,
+  "engine": {
+    "repository": "motrixapp/aria2",
+    "tag": "v1.37.0-motrix.16",
+    "commit": "e093973f113f0a880f9757a2ad0258cb2356295e",
+    "version": "1.37.0-motrix.16",
+    "target": "win32-x64",
+    "archiveSha256": "579f17351e81c9fe3ed11d9700f5983235fc362beaf20f5f02820f7a1bfe49b0",
+    "binarySha256": "b7edee5c43ff18b9e8b77983033ba7816fa220d810949d81fdb928e8b36d862f"
+  },
+  "scope": {
+    "description": "Selected third-party components configured into this pinned Windows x64 aria2 engine.",
+    "completeRuntimeSbom": false,
+    "gplCompatibilityDetermined": false,
+    "sourceProvisionComplete": false,
+    "otherTargetsCovered": false
+  },
+  "provenance": {
+    "releaseUrl": "https://github.com/motrixapp/aria2/releases/tag/v1.37.0-motrix.16",
+    "sourceUrl": "https://github.com/motrixapp/aria2/tree/e093973f113f0a880f9757a2ad0258cb2356295e",
+    "buildRunUrl": "https://github.com/motrixapp/aria2/actions/runs/35833737683",
+    "windowsBuildJobUrl": "https://github.com/motrixapp/aria2/actions/runs/35833737683/job/107092178635",
+    "buildWorkflowUrl": "https://github.com/motrixapp/aria2/blob/e093973f113f0a880f9757a2ad0258cb2356295e/.github/workflows/release.yml",
+    "buildRecipeUrl": "https://github.com/motrixapp/aria2/blob/e093973f113f0a880f9757a2ad0258cb2356295e/Dockerfile.mingw",
+    "configurationUrl": "https://github.com/motrixapp/aria2/blob/e093973f113f0a880f9757a2ad0258cb2356295e/mingw-config",
+    "dependencyPinsUrl": "https://github.com/motrixapp/aria2/blob/e093973f113f0a880f9757a2ad0258cb2356295e/scripts/ci/deps.env"
+  },
+  "components": [
+    {
+      "id": "c-ares",
+      "name": "c-ares",
+      "version": "1.34.8",
+      "licenseDeclared": "MIT",
+      "licenseFiles": ["c-ares-LICENSE.md"],
+      "source": {
+        "repository": "c-ares/c-ares",
+        "commit": "c7a3138dcfe3bb0eaaf10c0c24c36dc66dc790ab",
+        "path": "LICENSE.md",
+        "url": "https://github.com/c-ares/c-ares/blob/c7a3138dcfe3bb0eaaf10c0c24c36dc66dc790ab/LICENSE.md",
+        "gitBlobSha": "910ddded5c7a698cbf42c4819d24850aff72d744"
+      },
+      "sourceArchive": {
+        "url": "https://github.com/c-ares/c-ares/releases/download/v1.34.8/c-ares-1.34.8.tar.gz",
+        "sha256": "c222b6d681096f9444d2c4863d2c1174019e27cacca0a4a5c114d36dd7d7bf78"
+      },
+      "licenseSources": [
+        {
+          "file": "c-ares-LICENSE.md",
+          "sha256": "460f5e768fda3752ca2169a95df062578a10fb126bfd65f3b9b1a1bed2f84807",
+          "source": {
+            "repository": "c-ares/c-ares",
+            "commit": "c7a3138dcfe3bb0eaaf10c0c24c36dc66dc790ab",
+            "path": "LICENSE.md",
+            "url": "https://github.com/c-ares/c-ares/blob/c7a3138dcfe3bb0eaaf10c0c24c36dc66dc790ab/LICENSE.md",
+            "gitBlobSha": "910ddded5c7a698cbf42c4819d24850aff72d744"
+          }
+        }
+      ]
+    },
+    {
+      "id": "expat",
+      "name": "Expat",
+      "version": "2.8.3",
+      "licenseDeclared": "MIT",
+      "licenseFiles": ["expat-COPYING"],
+      "source": {
+        "repository": "libexpat/libexpat",
+        "commit": "92810461043fce37e70079b37ab1f04490a8f039",
+        "path": "expat/COPYING",
+        "url": "https://github.com/libexpat/libexpat/blob/92810461043fce37e70079b37ab1f04490a8f039/expat/COPYING",
+        "gitBlobSha": "c6d184a8aae845ce7bf4d195b214d8244d457f8f"
+      },
+      "sourceArchive": {
+        "url": "https://github.com/libexpat/libexpat/releases/download/R_2_8_3/expat-2.8.3.tar.bz2",
+        "sha256": "b4cc2483927d5e90bf8c40b44a6b95b368b42a8a96e25883fce188b48a92b670"
+      },
+      "licenseSources": [
+        {
+          "file": "expat-COPYING",
+          "sha256": "31b15de82aa19a845156169a17a5488bf597e561b2c318d159ed583139b25e87",
+          "source": {
+            "repository": "libexpat/libexpat",
+            "commit": "92810461043fce37e70079b37ab1f04490a8f039",
+            "path": "expat/COPYING",
+            "url": "https://github.com/libexpat/libexpat/blob/92810461043fce37e70079b37ab1f04490a8f039/expat/COPYING",
+            "gitBlobSha": "c6d184a8aae845ce7bf4d195b214d8244d457f8f"
+          }
+        }
+      ]
+    },
+    {
+      "id": "libssh2",
+      "name": "libssh2",
+      "version": "1.11.1",
+      "licenseDeclared": "BSD-3-Clause",
+      "licenseFiles": ["libssh2-COPYING"],
+      "source": {
+        "repository": "libssh2/libssh2",
+        "commit": "a312b43325e3383c865a87bb1d26cb52e3292641",
+        "path": "COPYING",
+        "url": "https://github.com/libssh2/libssh2/blob/a312b43325e3383c865a87bb1d26cb52e3292641/COPYING",
+        "gitBlobSha": "6eb51468404b21423ff3d842adfab0cd475de13d"
+      },
+      "sourceArchive": {
+        "url": "https://libssh2.org/download/libssh2-1.11.1.tar.bz2",
+        "sha256": "8ddbd698403a2c3a9987df48f2940c6f6a9bddce28d37eb201938dd7755646f0"
+      },
+      "licenseSources": [
+        {
+          "file": "libssh2-COPYING",
+          "sha256": "f7f9633cf9ff2f1333f3d7ce46973a8716a4d2a2815ad56f30d437d5fea7bafe",
+          "source": {
+            "repository": "libssh2/libssh2",
+            "commit": "a312b43325e3383c865a87bb1d26cb52e3292641",
+            "path": "COPYING",
+            "url": "https://github.com/libssh2/libssh2/blob/a312b43325e3383c865a87bb1d26cb52e3292641/COPYING",
+            "gitBlobSha": "6eb51468404b21423ff3d842adfab0cd475de13d"
+          }
+        }
+      ],
+      "patches": [
+        {
+          "repository": "motrixapp/aria2",
+          "commit": "e093973f113f0a880f9757a2ad0258cb2356295e",
+          "path": "patches/libssh2-1.11.1-cve-2026-55199.patch",
+          "url": "https://github.com/motrixapp/aria2/blob/e093973f113f0a880f9757a2ad0258cb2356295e/patches/libssh2-1.11.1-cve-2026-55199.patch",
+          "gitBlobSha": "541f42b451ef7f20a0db853ac356a4cb8d5639cd",
+          "sha256": "a84d9b1f42163136b7936002bc7b89719257c24271847f97b314660ea352847a"
+        },
+        {
+          "repository": "motrixapp/aria2",
+          "commit": "e093973f113f0a880f9757a2ad0258cb2356295e",
+          "path": "patches/libssh2-1.11.1-cve-2026-55200.patch",
+          "url": "https://github.com/motrixapp/aria2/blob/e093973f113f0a880f9757a2ad0258cb2356295e/patches/libssh2-1.11.1-cve-2026-55200.patch",
+          "gitBlobSha": "4b22d4d74d77d0943b58dfa9eb4c6e8d283a81af",
+          "sha256": "7b7e720a5d849328896d7ae911a751640fbb0f651c9c96e569aa5a4b8c1d6dab"
+        },
+        {
+          "repository": "motrixapp/aria2",
+          "commit": "e093973f113f0a880f9757a2ad0258cb2356295e",
+          "path": "patches/libssh2-1.11.1-security-rollup-2026.patch",
+          "url": "https://github.com/motrixapp/aria2/blob/e093973f113f0a880f9757a2ad0258cb2356295e/patches/libssh2-1.11.1-security-rollup-2026.patch",
+          "gitBlobSha": "bbd7e728125f8c07cae2040558626ecdc2250641",
+          "sha256": "19183c586a87385e4f31312a36d4f077355cfd07b231a97d8cdd409b396a257d"
+        }
+      ],
+      "notes": [
+        "The upstream version remains 1.11.1. The Windows engine build applies the three listed patches from the pinned aria2 source commit; its libssh2 code differs from the unmodified 1.11.1 release."
+      ]
+    },
+    {
+      "id": "openssl",
+      "name": "OpenSSL",
+      "version": "3.5.8",
+      "licenseDeclared": "Apache-2.0",
+      "licenseFiles": ["openssl-LICENSE.txt"],
+      "source": {
+        "repository": "openssl/openssl",
+        "commit": "f4dc4d58b48d346a8270183f89acf826d459b0ca",
+        "path": "LICENSE.txt",
+        "url": "https://github.com/openssl/openssl/blob/f4dc4d58b48d346a8270183f89acf826d459b0ca/LICENSE.txt",
+        "gitBlobSha": "49cc83d2ee29d13453188217f0e4edd70c7f842f"
+      },
+      "sourceArchive": {
+        "url": "https://github.com/openssl/openssl/releases/download/openssl-3.5.8/openssl-3.5.8.tar.gz",
+        "sha256": "a8f84a39918ec6415ce765d9b429d313ba97b8143169c172e734b9514464f5b2"
+      },
+      "licenseSources": [
+        {
+          "file": "openssl-LICENSE.txt",
+          "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a",
+          "source": {
+            "repository": "openssl/openssl",
+            "commit": "f4dc4d58b48d346a8270183f89acf826d459b0ca",
+            "path": "LICENSE.txt",
+            "url": "https://github.com/openssl/openssl/blob/f4dc4d58b48d346a8270183f89acf826d459b0ca/LICENSE.txt",
+            "gitBlobSha": "49cc83d2ee29d13453188217f0e4edd70c7f842f"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sqlite",
+      "name": "SQLite",
+      "version": "3.53.4",
+      "licenseDeclared": "NOASSERTION",
+      "licenseFiles": ["sqlite-LICENSE.md", "sqlite-main.c-public-domain.txt"],
+      "source": {
+        "repository": "sqlite/sqlite",
+        "commit": "b09c88c14082339b66c7b7158d609a771e64ca69",
+        "path": "LICENSE.md",
+        "url": "https://github.com/sqlite/sqlite/blob/b09c88c14082339b66c7b7158d609a771e64ca69/LICENSE.md",
+        "gitBlobSha": "5f59bb8fefd54767e2eb08a17d0dc19007958d90"
+      },
+      "sourceArchive": {
+        "url": "https://www.sqlite.org/2026/sqlite-autoconf-3530400.tar.gz",
+        "sha256": "0e9483900e92cd5de8fd48d16bf9200145a61f7fd5be542a5ac81d8a9516eb9c"
+      },
+      "licenseSources": [
+        {
+          "file": "sqlite-LICENSE.md",
+          "sha256": "ee6af51062b30d532991face5164136ae6f84e265ecf8abe89dc69dac45ca1e7",
+          "source": {
+            "repository": "sqlite/sqlite",
+            "commit": "b09c88c14082339b66c7b7158d609a771e64ca69",
+            "path": "LICENSE.md",
+            "url": "https://github.com/sqlite/sqlite/blob/b09c88c14082339b66c7b7158d609a771e64ca69/LICENSE.md",
+            "gitBlobSha": "5f59bb8fefd54767e2eb08a17d0dc19007958d90"
+          }
+        },
+        {
+          "file": "sqlite-main.c-public-domain.txt",
+          "sha256": "71c9d370765c4e00aaf89d43bdb57cef6d2404aa3121a1f29931778c0e599b46",
+          "source": {
+            "repository": "sqlite/sqlite",
+            "commit": "b09c88c14082339b66c7b7158d609a771e64ca69",
+            "path": "src/main.c",
+            "url": "https://github.com/sqlite/sqlite/blob/b09c88c14082339b66c7b7158d609a771e64ca69/src/main.c",
+            "gitBlobSha": "b532a3f3b477ea4fb1f1e18027709069f75c4b6e"
+          },
+          "sourceLines": {
+            "start": 1,
+            "end": 16
+          },
+          "sourceSha256": "318f5b725d7c1403a442e59cd1565672a6fe0c6b24c4c5d06a9c74c32b17f1de"
+        }
+      ],
+      "notes": [
+        "The upstream LICENSE.md declares the SQLite core implementation, including sqlite3.c and sqlite3.h, to be public domain. NOASSERTION is used here without inventing an SPDX identifier for that declaration.",
+        "sqlite-main.c-public-domain.txt preserves lines 1–16 of the exact upstream src/main.c, including its copyright disclaimer. It is an excerpt, not a separate upstream license file."
+      ]
+    },
+    {
+      "id": "wslay",
+      "name": "wslay",
+      "version": "1.1.1",
+      "licenseDeclared": "MIT",
+      "licenseFiles": ["wslay-COPYING"],
+      "source": {
+        "repository": "motrixapp/aria2",
+        "commit": "e093973f113f0a880f9757a2ad0258cb2356295e",
+        "path": "deps/wslay/COPYING",
+        "url": "https://github.com/motrixapp/aria2/blob/e093973f113f0a880f9757a2ad0258cb2356295e/deps/wslay/COPYING",
+        "gitBlobSha": "6080330303500a095d27e2313c6603bfa5a5fdb2"
+      },
+      "vendored": {
+        "repository": "motrixapp/aria2",
+        "commit": "e093973f113f0a880f9757a2ad0258cb2356295e",
+        "path": "deps/wslay",
+        "url": "https://github.com/motrixapp/aria2/tree/e093973f113f0a880f9757a2ad0258cb2356295e/deps/wslay",
+        "versionSource": "https://github.com/motrixapp/aria2/blob/e093973f113f0a880f9757a2ad0258cb2356295e/deps/wslay/configure.ac#L24"
+      },
+      "licenseSources": [
+        {
+          "file": "wslay-COPYING",
+          "sha256": "0e602a00db6ce15c1311a180b13563aa638918a77f813b24cd78c9fe5cab63d0",
+          "source": {
+            "repository": "motrixapp/aria2",
+            "commit": "e093973f113f0a880f9757a2ad0258cb2356295e",
+            "path": "deps/wslay/COPYING",
+            "url": "https://github.com/motrixapp/aria2/blob/e093973f113f0a880f9757a2ad0258cb2356295e/deps/wslay/COPYING",
+            "gitBlobSha": "6080330303500a095d27e2313c6603bfa5a5fdb2"
+          }
+        }
+      ],
+      "notes": [
+        "The version is declared in the vendored configure.ac. The exact code is identified by the aria2 source commit, not by an independently downloaded wslay release."
+      ]
+    },
+    {
+      "id": "zlib",
+      "name": "zlib",
+      "version": "1.3.2",
+      "licenseDeclared": "Zlib",
+      "licenseFiles": ["zlib-LICENSE"],
+      "source": {
+        "repository": "madler/zlib",
+        "commit": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+        "path": "LICENSE",
+        "url": "https://github.com/madler/zlib/blob/da607da739fa6047df13e66a2af6b8bec7c2a498/LICENSE",
+        "gitBlobSha": "b7a69d058e616651eae27b3f90c0b7fd36c099b2"
+      },
+      "sourceArchive": {
+        "url": "https://github.com/madler/zlib/releases/download/v1.3.2/zlib-1.3.2.tar.gz",
+        "sha256": "bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16"
+      },
+      "licenseSources": [
+        {
+          "file": "zlib-LICENSE",
+          "sha256": "e32ff4e00d9d94930537635291da39e7e612703334bf6fde8c7f1686fe8a45a2",
+          "source": {
+            "repository": "madler/zlib",
+            "commit": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+            "path": "LICENSE",
+            "url": "https://github.com/madler/zlib/blob/da607da739fa6047df13e66a2af6b8bec7c2a498/LICENSE",
+            "gitBlobSha": "b7a69d058e616651eae27b3f90c0b7fd36c099b2"
+          }
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "License texts are copied from the exact official Git source files identified here; the SQLite source declaration is the explicitly identified verbatim excerpt. Source archive URLs and SHA-256 values identify the build recipe inputs. This inventory does not assert that archive-internal license bytes were independently compared with these Git source files.",
+    "GMP was built as an input, but the Windows build configuration reports LibGmp: no; it is not included in this linked-component inventory.",
+    "The legacy LICENSE.OpenSSL in the aria2 source is not a substitute for the Apache-2.0 text of OpenSSL 3.5.8. aria2 declares GPL-2.0-or-later; this inventory does not determine a GPL version choice, linking-exception coverage, or license compatibility.",
+    "This directory is not a complete runtime SBOM. Compiler runtimes and other embedded source components require a separate inventory. It does not establish complete corresponding-source provision or reproducible builds."
+  ]
+}

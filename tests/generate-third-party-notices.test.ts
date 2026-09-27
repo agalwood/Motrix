@@ -171,6 +171,23 @@ describe('third-party notice generator', () => {
     expect(licenses).toContain(
       'Chromium software is made available as source code'
     )
+    const engineNoticeRoot = path.join(
+      process.cwd(),
+      'THIRD_PARTY_LICENSES/aria2-win32-x64'
+    )
+    const engineNotices = JSON.parse(
+      await readFile(path.join(engineNoticeRoot, 'components.json'), 'utf8')
+    ) as { components: Array<{ licenseFiles: string[] }> }
+    for (const file of [
+      'README.md',
+      ...engineNotices.components.flatMap(({ licenseFiles }) => licenseFiles),
+    ]) {
+      const originalText = await readFile(
+        path.join(engineNoticeRoot, file),
+        'utf8'
+      )
+      expect(licenses).toContain(originalText.replace(/\r\n/g, '\n').trimEnd())
+    }
     expect(sbom.spdxVersion).toBe('SPDX-2.3')
     expect(sbom.packages).toContainEqual(
       expect.objectContaining({ name: 'Electron', versionInfo: '44.4.3' })

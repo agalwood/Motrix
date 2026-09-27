@@ -4,6 +4,10 @@
 # Windows checkouts (autocrlf) stay byte-identical to the committed blobs.
 THIRD_PARTY_LICENSES/** -text
 
+# Preserve upstream Markdown hard line breaks in these byte-pinned notices.
+THIRD_PARTY_LICENSES/aria2-win32-x64/c-ares-LICENSE.md whitespace=-blank-at-eol
+THIRD_PARTY_LICENSES/aria2-win32-x64/sqlite-LICENSE.md whitespace=-blank-at-eol
+
 # Isolated signing control files are hash-pinned byte-for-byte. Keep their
 # checkout representation identical on Windows, macOS, and Linux.
 LICENSE text eol=lf

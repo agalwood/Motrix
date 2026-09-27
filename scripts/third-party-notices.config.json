@@ -20,7 +20,15 @@
   "reviewedRepositoryLicenseFiles": {
     "THIRD_PARTY_LICENSES/MPL-2.0": "5eba353fe5076ac3432177f8ab1cf75e3afcd0584251e37c3bfead5f447d040e",
     "THIRD_PARTY_LICENSES/aria2-COPYING": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
-    "THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL": "e05998a2537cddad682fb240371fbf859966ff8d9b34e55f2ebe55ecaef4333f"
+    "THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL": "e05998a2537cddad682fb240371fbf859966ff8d9b34e55f2ebe55ecaef4333f",
+    "THIRD_PARTY_LICENSES/aria2-win32-x64/openssl-LICENSE.txt": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a",
+    "THIRD_PARTY_LICENSES/aria2-win32-x64/expat-COPYING": "31b15de82aa19a845156169a17a5488bf597e561b2c318d159ed583139b25e87",
+    "THIRD_PARTY_LICENSES/aria2-win32-x64/sqlite-LICENSE.md": "ee6af51062b30d532991face5164136ae6f84e265ecf8abe89dc69dac45ca1e7",
+    "THIRD_PARTY_LICENSES/aria2-win32-x64/sqlite-main.c-public-domain.txt": "71c9d370765c4e00aaf89d43bdb57cef6d2404aa3121a1f29931778c0e599b46",
+    "THIRD_PARTY_LICENSES/aria2-win32-x64/zlib-LICENSE": "e32ff4e00d9d94930537635291da39e7e612703334bf6fde8c7f1686fe8a45a2",
+    "THIRD_PARTY_LICENSES/aria2-win32-x64/c-ares-LICENSE.md": "460f5e768fda3752ca2169a95df062578a10fb126bfd65f3b9b1a1bed2f84807",
+    "THIRD_PARTY_LICENSES/aria2-win32-x64/libssh2-COPYING": "f7f9633cf9ff2f1333f3d7ce46973a8716a4d2a2815ad56f30d437d5fea7bafe",
+    "THIRD_PARTY_LICENSES/aria2-win32-x64/wslay-COPYING": "0e602a00db6ce15c1311a180b13563aa638918a77f813b24cd78c9fe5cab63d0"
   },
   "packageOverrides": {
     "@resvg/resvg-wasm@2.6.2": {
@@ -83,7 +91,16 @@
       "licenseDeclared": "GPL-2.0-or-later",
       "licenseFiles": [
         "THIRD_PARTY_LICENSES/aria2-COPYING",
-        "THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL"
+        "THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL",
+        "THIRD_PARTY_LICENSES/aria2-win32-x64/README.md",
+        "THIRD_PARTY_LICENSES/aria2-win32-x64/openssl-LICENSE.txt",
+        "THIRD_PARTY_LICENSES/aria2-win32-x64/expat-COPYING",
+        "THIRD_PARTY_LICENSES/aria2-win32-x64/sqlite-LICENSE.md",
+        "THIRD_PARTY_LICENSES/aria2-win32-x64/sqlite-main.c-public-domain.txt",
+        "THIRD_PARTY_LICENSES/aria2-win32-x64/zlib-LICENSE",
+        "THIRD_PARTY_LICENSES/aria2-win32-x64/c-ares-LICENSE.md",
+        "THIRD_PARTY_LICENSES/aria2-win32-x64/libssh2-COPYING",
+        "THIRD_PARTY_LICENSES/aria2-win32-x64/wslay-COPYING"
       ],
       "noticeMarkers": [
         "aria2",

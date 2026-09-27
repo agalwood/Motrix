@@ -589,6 +589,83 @@ describe('third-party graph dependency notices', () => {
     }
   )
 
+  it('binds Windows engine dependency notices to the locked binary and original texts', async () => {
+    const directory = 'THIRD_PARTY_LICENSES/aria2-win32-x64'
+    const manifest = JSON.parse(
+      await readFile(path.join(ROOT, directory, 'components.json'), 'utf8')
+    ) as {
+      schemaVersion: number
+      engine: {
+        repository: string
+        tag: string
+        version: string
+        target: string
+        archiveSha256: string
+        binarySha256: string
+      }
+      components: Array<{
+        id: string
+        licenseFiles: string[]
+        licenseSources: Array<{ file: string; sha256: string }>
+      }>
+    }
+    const lock = JSON.parse(
+      await readFile(path.join(ROOT, 'scripts/engine.lock.json'), 'utf8')
+    ) as {
+      repo: string
+      tag: string
+      version: string
+      assets: Record<string, { archiveSha256: string; binarySha256: string }>
+    }
+    const config = JSON.parse(
+      await readFile(
+        path.join(ROOT, 'scripts/third-party-notices.config.json'),
+        'utf8'
+      )
+    ) as {
+      reviewedRepositoryLicenseFiles: Record<string, string>
+      externalComponents: Array<{ id: string; licenseFiles?: string[] }>
+    }
+
+    expect(manifest.schemaVersion).toBe(1)
+    expect(manifest.engine).toMatchObject({
+      repository: lock.repo,
+      tag: lock.tag,
+      version: lock.version,
+      target: 'win32-x64',
+      archiveSha256: lock.assets['win32-x64']?.archiveSha256,
+      binarySha256: lock.assets['win32-x64']?.binarySha256,
+    })
+    expect(manifest.components.map(({ id }) => id).sort()).toEqual([
+      'c-ares',
+      'expat',
+      'libssh2',
+      'openssl',
+      'sqlite',
+      'wslay',
+      'zlib',
+    ])
+    const retained = config.externalComponents.find(
+      (component) => component.id === 'aria2'
+    )?.licenseFiles
+    expect(retained).toContain(`${directory}/README.md`)
+    for (const component of manifest.components) {
+      expect(component.licenseSources.map(({ file }) => file).sort()).toEqual(
+        [...component.licenseFiles].sort()
+      )
+      for (const source of component.licenseSources) {
+        expect(path.basename(source.file)).toBe(source.file)
+        const relativePath = `${directory}/${source.file}`
+        const bytes = await readFile(path.join(ROOT, relativePath))
+        const digest = createHash('sha256').update(bytes).digest('hex')
+        expect(bytes.length).toBeGreaterThan(0)
+        expect(digest).toBe(source.sha256)
+        expect(config.reviewedRepositoryLicenseFiles[relativePath]).toBe(digest)
+        expect(retained).toContain(relativePath)
+      }
+    }
+  })
+
   it('tracks every registry crate locked into the native host', async () => {
     const cargoLock = await readFile(NATIVE_HOST_CARGO_LOCK, 'utf8')
     const expected = RUST_NATIVE_HOST_CRATES.map(({ name, version }) => ({
