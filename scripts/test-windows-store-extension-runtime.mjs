@@ -59,6 +59,7 @@ export function extensionFailure(stage) {
     'browser-launch',
     'store-selection',
     'candidate-selection',
+    'pairing-dialog',
     'code-entry',
     'authenticated-pairing',
     'browser-restart',
@@ -228,6 +229,11 @@ export async function runStoreExtensionRuntime({
       if (attempt >= 40) fail('extension-target-timeout')
       await delay(100)
     }
+    // Radio menu selection keeps the popup menu open. Dismiss it normally
+    // before interacting with the underlying pairing action.
+    await page.keyboard.press('Escape')
+    await page.getByRole('menu').waitFor({ state: 'hidden' })
+    stage = 'pairing-dialog'
     await page.getByRole('button', { name: 'Pair', exact: true }).click()
     stage = 'candidate-selection'
     const dialog = page.getByRole('dialog')
