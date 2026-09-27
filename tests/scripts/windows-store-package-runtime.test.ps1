@@ -206,3 +206,4 @@ if (-not [string]::IsNullOrWhiteSpace($ReportPath)) {
 }
 $report | ConvertTo-Json -Depth 8
 if (-not $report.ok) { exit 1 }
+exit 0
