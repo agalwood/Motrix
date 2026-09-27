@@ -67,12 +67,14 @@ export function renderWindowsStoreManifest(rawMetadata) {
   // The current OS floor supports uap10 activation without an EntryPoint.
   // AppListEntry=none hides this helper; console attributes are explicit test
   // declarations, not evidence that alias activation preserves browser pipes.
+  // A console Application must declare SupportsMultipleInstances=true. Its
+  // foreground extensions inherit that declaration; do not repeat it there.
   // https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-f-application
   // https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-uap-visualelements
   // https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-uap5-extension
   // https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-uap5-appexecutionalias
   const diagnosticApplication = diagnostic
-    ? String.raw`    <Application Id="${probe.applicationId}" Executable="${probeExecutable}" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL" desktop4:Subsystem="console">
+    ? String.raw`    <Application Id="${probe.applicationId}" Executable="${probeExecutable}" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL" desktop4:Subsystem="console" desktop4:SupportsMultipleInstances="true">
       <uap:VisualElements DisplayName="Motrix Native Messaging PROBE" Description="Test-only Native Messaging diagnostic" AppListEntry="none" BackgroundColor="transparent" Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png" />
       <Extensions>
         <uap5:Extension Category="windows.appExecutionAlias" Executable="${probeExecutable}" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL">

@@ -416,6 +416,7 @@ describe('test Native Messaging diagnostic manifest', () => {
       'uap10:RuntimeBehavior': 'packagedClassicApp',
       'uap10:TrustLevel': 'mediumIL',
       'desktop4:Subsystem': 'console',
+      'desktop4:SupportsMultipleInstances': 'true',
     })
     expect(
       Array.from(helper.children, (node) => [node.namespaceURI, node.localName])
