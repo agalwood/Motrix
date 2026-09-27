@@ -166,7 +166,7 @@
     "undici": "^8.11.0",
     "uuid": "^14.0.2",
     "vaul": "^1.1.2",
-    "vscode-jsonrpc": "^9.0.2",
+    "vscode-jsonrpc": "^9.0.3",
     "write-file-atomic": "^8.0.0",
     "ws": "^8.21.3",
     "yauzl": "^3.4.0",
