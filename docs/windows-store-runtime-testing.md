@@ -287,8 +287,11 @@ existing browser profile. The application's first-run consent uses its normal UI
 The driver then closes the popup and terminates only the observed service worker
 whose extension ID and script URL match the unchanged build. It requires the old
 target to disappear, reopens the normal popup, and checks authenticated recovery
-with a new worker target in the same browser process. It does not reinstall the
-extension, write storage, or enter another pairing code.
+with a newer worker `performance.timeOrigin` in the same browser process. Chrome
+may reuse a target ID after the old target disappears; the check therefore requires
+a new worker global, not a different ID. Only boolean generation evidence is
+retained. It does not reinstall the extension, write storage, or enter another
+pairing code.
 
 The manual workflow's `protocol_browser` choice selects `edge` (default) or
 `chrome` for cold launch. Both still run pairing, browser-restart and isolated worker-restart checks; the

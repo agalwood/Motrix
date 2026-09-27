@@ -254,6 +254,7 @@ export async function restartProductionWorker({
   closePopup,
   openPopup,
   reconnect,
+  workerGeneration,
   pause = delay,
   observe = () => {},
 }) {
@@ -310,6 +311,9 @@ export async function restartProductionWorker({
   await sameBrowser()
   observe({ phase: 'worker-before' })
   const previous = worker(await targets())
+  const previousGeneration = await bounded(workerGeneration())
+  if (!Number.isFinite(previousGeneration) || previousGeneration <= 0)
+    fail('extension-worker-generation')
   observe({ phase: 'popup-close' })
   await closePopup()
   // A retained CDP connection and unchanged root PID distinguish this case
@@ -331,8 +335,14 @@ export async function restartProductionWorker({
   observe({ phase: 'authenticated-reconnect' })
   await reconnect(page)
   observe({ phase: 'worker-after' })
-  if (worker(await targets()) === previous)
-    fail('extension-worker-not-replaced')
+  const current = worker(await targets())
+  const currentGeneration = await bounded(workerGeneration())
+  const generationChanged =
+    Number.isFinite(currentGeneration) && currentGeneration > previousGeneration
+  observe({ targetIdReused: current === previous, generationChanged })
+  // Chromium can reuse the target ID after an observed disappearance. Require
+  // a newly created worker global's time origin, not an incidental ID change.
+  if (!generationChanged) fail('extension-worker-not-replaced')
   observe({ phase: 'browser-after' })
   await sameBrowser()
   observe({ phase: 'complete' })
@@ -340,7 +350,7 @@ export async function restartProductionWorker({
     page,
     evidence: {
       oldTargetStoppedVerified: true,
-      newTargetVerified: true,
+      newWorkerGenerationVerified: true,
       browserProcessUnchangedVerified: true,
       retainedCredentialReconnectVerified: true,
     },
@@ -525,6 +535,14 @@ export async function runStoreExtensionRuntime({
       closePopup: () => bounded(page.close()),
       openPopup,
       reconnect: waitConnected,
+      workerGeneration: async () => {
+        const scriptUrl = `chrome-extension://${report.extensionId}/${manifest.background.service_worker}`
+        const workers = context
+          .serviceWorkers()
+          .filter((entry) => entry.url() === scriptUrl)
+        if (workers.length !== 1) fail('extension-worker-identity')
+        return workers[0].evaluate(() => performance.timeOrigin)
+      },
       observe: (value) =>
         Object.assign(report.serviceWorkerRestartObservation, value),
     })

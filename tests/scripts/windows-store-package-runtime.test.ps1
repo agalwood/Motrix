@@ -286,7 +286,7 @@ try {
             browser = [pscustomobject]@{ product = $product }
             build = [pscustomobject]@{ sha256 = ('e' * 64) }; extensionId = ('a' * 32)
             ok = $true; firstPairVerified = $true; browserRestartReconnectVerified = $true; serviceWorkerRestartReconnectVerified = $true; cleanupVerified = $true
-            serviceWorkerRestart = [pscustomobject]@{ oldTargetStoppedVerified = $true; newTargetVerified = $true; browserProcessUnchangedVerified = $true; retainedCredentialReconnectVerified = $true }
+            serviceWorkerRestart = [pscustomobject]@{ oldTargetStoppedVerified = $true; newWorkerGenerationVerified = $true; browserProcessUnchangedVerified = $true; retainedCredentialReconnectVerified = $true }
             protocolCancellationVerified = $false; protocolActivationVerified = $false; firefoxVerified = $false; windows11AcceptanceVerified = $false
           }
           $records | Add-Member $brand $proof
@@ -317,10 +317,10 @@ try {
           }
           'worker-missing' { $proof.serviceWorkerRestartReconnectVerified = $false }
           'worker-not-stopped' { $proof.serviceWorkerRestart.oldTargetStoppedVerified = $false }
-          'worker-not-new' { $proof.serviceWorkerRestart.newTargetVerified = $false }
+          'worker-not-new' { $proof.serviceWorkerRestart.newWorkerGenerationVerified = $false }
           'worker-browser-changed' { $proof.serviceWorkerRestart.browserProcessUnchangedVerified = $false }
           'worker-not-authenticated' { $proof.serviceWorkerRestart.retainedCredentialReconnectVerified = $false }
-          'worker-string' { $proof.serviceWorkerRestart.newTargetVerified = 'true' }
+          'worker-string' { $proof.serviceWorkerRestart.newWorkerGenerationVerified = 'true' }
           'chrome-worker-missing' { $records.chrome.serviceWorkerRestartReconnectVerified = $false }
           'cancel-not-verified' { $proof.protocolCancellationVerified = $false }
           'cancel-not-clicked' { $proof.protocolCancellation.cancelled = $false }

@@ -59,6 +59,7 @@ describe('isolated production worker restart', () => {
         return 'page'
       }),
       reconnect: vi.fn(async () => {}),
+      workerGeneration: vi.fn(async () => (reopened ? 2000 : 1000)),
       pause: vi.fn(async () => {}),
       observe: vi.fn(),
     }
@@ -69,7 +70,7 @@ describe('isolated production worker restart', () => {
     const result = await restartProductionWorker(options)
     expect(result.evidence).toEqual({
       oldTargetStoppedVerified: true,
-      newTargetVerified: true,
+      newWorkerGenerationVerified: true,
       browserProcessUnchangedVerified: true,
       retainedCredentialReconnectVerified: true,
     })
@@ -152,6 +153,46 @@ describe('isolated production worker restart', () => {
     await expect(restartProductionWorker(options)).rejects.toThrow(
       'not-connected'
     )
+  })
+  it('accepts a reused target ID only after disappearance and a newer worker global', async () => {
+    const options = fixture()
+    const original = options.cdp.send.getMockImplementation()!
+    options.cdp.send.mockImplementation(async (method) => {
+      const result = await original(method)
+      if (result.targetInfos)
+        result.targetInfos.forEach((entry) => {
+          entry.targetId = 'old'
+        })
+      return result
+    })
+    expect(
+      (await restartProductionWorker(options)).evidence
+        .newWorkerGenerationVerified
+    ).toBe(true)
+    expect(options.observe).toHaveBeenCalledWith({
+      targetIdReused: true,
+      generationChanged: true,
+    })
+  })
+  it.each([1000, 999, NaN, Infinity])(
+    'rejects an unchanged, older or invalid generation %s despite a new target ID',
+    async (generation) => {
+      const options = fixture()
+      options.workerGeneration
+        .mockResolvedValueOnce(1000)
+        .mockResolvedValueOnce(generation)
+      await expect(restartProductionWorker(options)).rejects.toThrow(
+        'extension-worker-not-replaced'
+      )
+    }
+  )
+  it('refuses invalid initial generation before closing any target', async () => {
+    const options = fixture()
+    options.workerGeneration.mockResolvedValue(NaN)
+    await expect(restartProductionWorker(options)).rejects.toThrow(
+      'extension-worker-generation'
+    )
+    expect(options.closePopup).not.toHaveBeenCalled()
   })
   it('rejects a browser process change even after successful reconnection', async () => {
     const options = fixture()

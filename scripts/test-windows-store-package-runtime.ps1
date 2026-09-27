@@ -310,7 +310,7 @@ function Assert-MainRuntimeReport([object]$Main, [string]$SourceCommit, [string]
       foreach ($name in @('ok', 'firstPairVerified', 'browserRestartReconnectVerified', 'serviceWorkerRestartReconnectVerified', 'cleanupVerified')) {
         Assert-True $extension.$name 'Production extension pairing or reconnect was not verified.'
       }
-      foreach ($name in @('oldTargetStoppedVerified', 'newTargetVerified', 'browserProcessUnchangedVerified', 'retainedCredentialReconnectVerified')) {
+      foreach ($name in @('oldTargetStoppedVerified', 'newWorkerGenerationVerified', 'browserProcessUnchangedVerified', 'retainedCredentialReconnectVerified')) {
         Assert-True $extension.serviceWorkerRestart.$name 'Isolated service worker restart evidence is incomplete.'
       }
       foreach ($name in @('firefoxVerified', 'windows11AcceptanceVerified')) {
