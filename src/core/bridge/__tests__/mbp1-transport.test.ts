@@ -36,6 +36,7 @@ import {
   WireClient,
 } from './mbp1-client'
 import { mintTicket } from './mbp1-ticket'
+import { createInstalledMbp1Client } from './windows-store-mbp1-client'
 
 const INSTANCE_ID = 'instance-abcdef'
 const SERVER_GENERATION = 'gen-1'
@@ -69,11 +70,12 @@ async function makeHarness(
       dialogs: FakeDialogs
     ) => PairingPromptEnqueueResult
     extensionMbp1RoutesEnabled?: boolean
+    credentials?: Harness['credentials']
   } = {}
 ): Promise<Harness> {
   const dialogs = makeFakeDialogs()
   const authenticated: Harness['authenticated'] = []
-  const credentials = await makeTempCredentialStore()
+  const credentials = overrides.credentials ?? (await makeTempCredentialStore())
   const server = new WebSocketBridgeServer({
     pairing: makeStatefulFakePairing(),
     registry: makeFakeRegistry(),
@@ -811,6 +813,44 @@ describe('§6 first pair over the wire', () => {
 
   afterEach(async () => {
     await h.server.stop()
+  })
+
+  it('drives the installed-package controller through pairing and a restarted listener', async () => {
+    const probe = createInstalledMbp1Client()
+    try {
+      await probe.pair(h.port, await fetchNonce(h.port), () =>
+        h.dialogs.latestCode()
+      )
+      expect(JSON.stringify(probe)).toBe('{}')
+      const first = h.authenticated[0]
+      await h.server.stop()
+      // Production restarts construct a fresh bridge server. A stopped server
+      // deliberately keeps its dispatch gate closed and is not reusable.
+      h = await makeHarness({ credentials: h.credentials })
+      await probe.reconnect(h.port)
+      expect(h.authenticated).toHaveLength(1)
+      expect(first?.credentialId === h.authenticated[0]?.credentialId).toBe(
+        true
+      )
+    } finally {
+      await probe.dispose()
+    }
+    await expect(probe.reconnect(h.port)).rejects.toThrow(
+      'mbp1-client-state-invalid'
+    )
+  })
+
+  it('redacts pairing UI failures from the installed-package controller', async () => {
+    const probe = createInstalledMbp1Client()
+    try {
+      await expect(
+        probe.pair(h.port, await fetchNonce(h.port), () => {
+          throw new Error('private-renderer-sentinel')
+        })
+      ).rejects.toThrow('mbp1-pair-failed')
+    } finally {
+      await probe.dispose()
+    }
   })
 
   it('consumes the supplied bootstrap nonce once without fetching a replacement', async () => {

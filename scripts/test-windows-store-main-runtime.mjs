@@ -61,7 +61,7 @@ export function validateMainProcess(
   return value.startTicks
 }
 
-export function validateMainHostReply(result) {
+function decodeMainHostReply(result) {
   if (
     result?.exitCode !== 0 ||
     !Buffer.isBuffer(result.stderr) ||
@@ -96,7 +96,14 @@ export function validateMainHostReply(result) {
     !/^[A-Za-z0-9_-]{21}[AQgw]$/.test(value.nonce)
   )
     fail('unexpected-host-reply')
-  // The nonce stays in this function's memory. It is never returned or recorded.
+  return value
+}
+
+export function validateMainHostReply(result) {
+  const value = decodeMainHostReply(result)
+  if (!value) return null
+  // Public evidence remains redacted; only the in-memory pairing controller
+  // below consumes the nonce from the private decoder.
   return { port: value.port, stdoutBytes: result.stdout.length }
 }
 
@@ -178,7 +185,25 @@ async function waitForPage(browser, installLocation, route) {
   fail('renderer-timeout')
 }
 
-async function runMainCase(installed) {
+async function readPairingCode(page) {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const codes = await page
+      .locator('span.font-mono')
+      .evaluateAll((nodes) =>
+        nodes
+          .map((node) => node.textContent?.trim() ?? '')
+          .filter((text) =>
+            /^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/u.test(text)
+          )
+      )
+    if (codes.length > 1) fail('ambiguous-pairing-ui')
+    if (codes.length === 1) return codes[0]
+    await delay(200)
+  }
+  fail('pairing-ui-timeout')
+}
+
+async function runMainCase(installed, pairing) {
   const report = {
     ok: false,
     mainApplicationLaunched: false,
@@ -186,6 +211,7 @@ async function runMainCase(installed) {
     disclaimerUiVerified: false,
     mainUiVerified: false,
     mainBridgeEndpointVerified: false,
+    mbp1TransportPairingVerified: false,
     cleanupVerified: false,
     mbp1Verified: false,
     profilePathEqualityVerified: false,
@@ -296,6 +322,11 @@ async function runMainCase(installed) {
         })
         report.mainBridgeEndpointVerified = true
         report.hostStdoutBytes = reply.stdoutBytes
+        stage = 'installed-mbp1-pairing'
+        await pairing.pair(reply.port, decodeMainHostReply(result).nonce, () =>
+          readPairingCode(main)
+        )
+        report.mbp1TransportPairingVerified = true
         break
       }
       await delay(500)
@@ -320,6 +351,7 @@ async function runMainCase(installed) {
       'invalid-host-json',
       'unexpected-host-reply',
       'actual-endpoint-unavailable',
+      'mbp1-pair-failed',
     ].includes(error?.message)
       ? error.message
       : 'operation-failed'
@@ -388,13 +420,14 @@ async function nativeRequest(installed, allowLaunch) {
   }
 }
 
-async function runColdLaunchCase(installed) {
+async function runColdLaunchCase(installed, pairing) {
   const report = {
     ok: false,
     noLaunchBeforeVerified: false,
     coldLaunchVerified: false,
     processIdentityVerified: false,
     mainBridgeEndpointVerified: false,
+    mbp1TransportReconnectVerified: false,
     noLaunchAfterVerified: false,
     cleanupVerified: false,
     mbp1Verified: false,
@@ -459,6 +492,9 @@ async function runColdLaunchCase(installed) {
     report.processIdentityVerified = true
     report.mainBridgeEndpointVerified = true
     report.hostStdoutBytes = launched.stdoutBytes
+    stage = 'installed-mbp1-reconnect'
+    await pairing.reconnect(launched.reply.port)
+    report.mbp1TransportReconnectVerified = true
     stage = 'cold-process-close'
     await stopCreatedMain()
     stage = 'no-launch-after'
@@ -484,6 +520,7 @@ async function runColdLaunchCase(installed) {
       'invalid-host-json',
       'process-query-failed',
       'process-timeout',
+      'mbp1-reconnect-failed',
     ].includes(error?.message)
       ? error.message
       : 'operation-failed'
@@ -539,11 +576,15 @@ async function main(args) {
     ok: false,
     mainBridgeEndpointVerified: false,
     coldLaunchVerified: false,
+    installedMbp1TransportVerified: false,
+    mbp1ClientCleanupVerified: false,
+    syntheticMbp1Client: true,
     mbp1Verified: false,
     windows11AcceptanceVerified: false,
     storeReady: false,
   }
   let stage = 'prepared-inputs'
+  let pairing
   try {
     const initialLayout = await verifyWindowsStoreLayout({
       preparedDirectory: prepared,
@@ -607,12 +648,19 @@ async function main(args) {
     }
     stage = 'installed-content-before'
     await checkContent()
+    stage = 'load-mbp1-test-client'
+    const { tsImport } = await import('tsx/esm/api')
+    const { createInstalledMbp1Client } = await tsImport(
+      '../src/core/bridge/__tests__/windows-store-mbp1-client.ts',
+      import.meta.url
+    )
+    pairing = createInstalledMbp1Client()
     stage = 'main-runtime'
-    report.runtime = await runMainCase(before)
+    report.runtime = await runMainCase(before, pairing)
     if (!report.runtime.ok || !report.runtime.cleanupVerified)
       fail('main-runtime-failed')
     stage = 'cold-launch'
-    report.coldLaunch = await runColdLaunchCase(before)
+    report.coldLaunch = await runColdLaunchCase(before, pairing)
     stage = 'installed-content-after'
     await checkContent()
     const after = validateInstalledProbeState({
@@ -641,6 +689,19 @@ async function main(args) {
   } catch {
     report.failureStage = stage
   } finally {
+    try {
+      await pairing?.dispose()
+      report.mbp1ClientCleanupVerified = true
+    } catch {
+      report.ok = false
+    }
+    report.installedMbp1TransportVerified =
+      report.ok &&
+      report.mbp1ClientCleanupVerified &&
+      report.runtime.mbp1TransportPairingVerified &&
+      report.coldLaunch.mbp1TransportReconnectVerified
+    report.coldLaunchVerified &&= report.ok
+    report.mainBridgeEndpointVerified &&= report.ok
     try {
       await output.writeFile(`${JSON.stringify(report, null, 2)}\n`)
     } finally {

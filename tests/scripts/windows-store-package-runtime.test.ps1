@@ -127,14 +127,17 @@ function New-ContractFixture {
       schemaVersion = 1; scope = 'windows-installed-main-bridge-startup'
       sourceCommit = $commit; packageVersion = '1.0.1.0'; nativeHostSha256 = ('e' * 64); mainExecutableSha256 = ('f' * 64); windowsPlatformSha256 = ('a' * 64)
       ok = $true; mainBridgeEndpointVerified = $true; coldLaunchVerified = $true; mbp1Verified = $false; windows11AcceptanceVerified = $false; storeReady = $false
+      installedMbp1TransportVerified = $true; mbp1ClientCleanupVerified = $true; syntheticMbp1Client = $true
       coldLaunch = [pscustomobject]@{
         ok = $true; noLaunchBeforeVerified = $true; coldLaunchVerified = $true; processIdentityVerified = $true
         mainBridgeEndpointVerified = $true; noLaunchAfterVerified = $true; cleanupVerified = $true; mbp1Verified = $false
+        mbp1TransportReconnectVerified = $true
         hostStdoutBytes = 94; noLaunchBeforeStdoutBytes = 34; noLaunchAfterStdoutBytes = 34
       }
       runtime = [pscustomobject]@{
         ok = $true; mainApplicationLaunched = $true; processIdentityVerified = $true; disclaimerUiVerified = $true
         mainUiVerified = $true; mainBridgeEndpointVerified = $true; cleanupVerified = $true
+        mbp1TransportPairingVerified = $true
         mbp1Verified = $false; profilePathEqualityVerified = $false; hostStdoutBytes = 94
       }
     }
@@ -235,6 +238,11 @@ try {
   }
 
   Test-ContractCase 'main-accepts-bound-evidence' 'main'
+  Test-ContractCase 'main-rejects-missing-transport-proof' 'main' $true { param($f) $f.Main.installedMbp1TransportVerified = $false }
+  Test-ContractCase 'main-rejects-client-cleanup-failure' 'main' $true { param($f) $f.Main.mbp1ClientCleanupVerified = $false }
+  Test-ContractCase 'main-rejects-unlabelled-synthetic-client' 'main' $true { param($f) $f.Main.syntheticMbp1Client = $false }
+  Test-ContractCase 'main-rejects-pairing-failure' 'main' $true { param($f) $f.Main.runtime.mbp1TransportPairingVerified = $false }
+  Test-ContractCase 'main-rejects-reconnect-failure' 'main' $true { param($f) $f.Main.coldLaunch.mbp1TransportReconnectVerified = $false }
   Test-ContractCase 'main-rejects-other-source' 'main' $true { param($f) $f.Main.sourceCommit = 'b' * 40 }
   Test-ContractCase 'main-rejects-other-package' 'main' $true { param($f) $f.Main.packageVersion = '1.0.0.0' }
   Test-ContractCase 'main-rejects-other-native-host' 'main' $true { param($f) $f.Main.nativeHostSha256 = 'b' * 64 }

@@ -321,12 +321,19 @@ MBP1 或生产 host 的浏览器集成。
 及监听端口归属，再遵循正常首次声明 UI。实际 Rust alias 随后必须发现一个
 监听端口属于该主进程的端点。只保留布尔值、字节计数及摘要，不保留 nonce、
 profile 文件、Electron 原始输出或图片。这验证桥接启动和端点互通，
-不证明 MBP1、完整应用验收、两个进程的文件系统路径完全相等；
+不证明正式扩展 MBP1、完整应用验收、两个进程的文件系统路径完全相等；
 进程清理是通过检查的必要条件。
 首次正常启动关闭后，CI 单独验证实际 Rust host：`allowLaunch:false` 必须保持应用关闭，
 `allowLaunch:true` 必须激活新的同包主进程，并返回由它监听的桥接端点。关闭已核验的
 进程后，再执行一次不允许启动的检查。冷启动传输预算为25秒，涵盖 helper 激活和
 已有15秒端点等待；不预写同意状态、不改变 profile。冷启动与 MBP1 分别记录结论。
+
+同一次实验还会使用现有 Node MBP1 测试客户端，消费实际 Rust host 返回的 nonce，
+只在内存中读取正常配对码 UI，完成 PAKE、凭证交换、加密初始化和空任务列表读取。
+冷启动后必须用原凭证重连。凭证只在控制器内存中保留，不进入报告。
+`installedMbp1TransportVerified` 仅记录这项传输验证；`syntheticMbp1Client`
+保持 true，正式 `mbp1Verified` 保持 false。Node 提供的 Origin 不证明真实浏览器来源、
+正式扩展行为或 Native Messaging ticket 认证。
 
 诊断包与普通测试包使用相同身份，不能并排安装。A→B 实验应准备两个递增包版本，
 保持身份、helper 和 alias 相同。按[测试签名与安装指南](windows-store-runtime-testing.zh-CN.md)

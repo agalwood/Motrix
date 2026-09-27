@@ -382,7 +382,7 @@ ownership, and follows the normal first-run disclaimer UI. The actual Rust alias
 must then discover an endpoint whose listener belongs to that main process.
 Only booleans, byte counts and digests are retained; nonces, profile files, raw
 Electron output and images are never retained. This checks bridge startup and
-endpoint interoperability, not MBP1, full application acceptance
+endpoint interoperability, not production extension MBP1, full application acceptance
 or equality of the two processes' filesystem paths. Process cleanup is required.
 After that first normal launch has been closed, CI separately requires the actual
 Rust host to leave the application closed for `allowLaunch:false`, activate it for
@@ -391,6 +391,16 @@ main process. It closes that verified process and repeats the no-launch check.
 The cold-launch transport has a 25-second budget for helper activation and the
 existing 15-second endpoint wait. It does not seed consent or change profiles.
 Cold-launch and MBP1 results are recorded separately.
+
+The same experiment also uses the existing Node MBP1 test client to consume the
+actual Rust host's nonce, read the normal pairing-code UI in memory, and complete
+the PAKE, credential exchange, encrypted initialization and an empty task-list
+read. After cold activation it must reconnect using that original credential.
+Credentials remain only in the controller's memory and are never included in
+reports. `installedMbp1TransportVerified` records this narrower transport check;
+`syntheticMbp1Client` remains true and the production `mbp1Verified` flag remains
+false. A supplied Node Origin does not prove real browser provenance, production
+extension behavior or Native Messaging ticket attestation.
 
 This diagnostic package uses the same identity as the ordinary test package;
 they do not install side by side. For A-to-B testing, prepare two increasing
