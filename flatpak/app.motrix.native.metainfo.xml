@@ -68,6 +68,16 @@
   </screenshots>
 
   <releases>
+    <release version="2.0.0-beta.41" date="2026-09-27">
+      <description>
+        <p>
+          Adds 25 interface languages with right-to-left support, improves
+          preferences and desktop notifications, and fixes download recovery,
+          Windows long paths, torrent metadata, and file publication across
+          local disks and network filesystems.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.40" date="2026-09-21">
       <description>
         <p>
