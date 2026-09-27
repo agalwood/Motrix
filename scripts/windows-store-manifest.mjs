@@ -1,7 +1,10 @@
 import windowsPackage from '../src/shared/config/windows-package.json' with {
   type: 'json',
 }
-import { validateWindowsStoreMetadata } from './windows-store-metadata.mjs'
+import {
+  validateWindowsStoreMetadata,
+  WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC,
+} from './windows-store-metadata.mjs'
 
 // These checked-in PNGs are scale-200 assets, despite their unqualified names.
 // Paths are package-root relative after copying, and repo-root relative before it.
@@ -41,7 +44,8 @@ function escapeXml(value) {
  * Render the Windows package declaration contract without creating package files.
  * This does not verify Partner Center identity, payloads, assets, or Windows support.
  * StartupTask is opt-in; associations declare handlers without choosing defaults.
- * Native-host declarations remain pending.
+ * Only an explicit test mode declares the diagnostic probe; production native
+ * messaging registration and browser integration remain unsupported.
  */
 export function renderWindowsStoreManifest(rawMetadata) {
   const { metadata } = validateWindowsStoreMetadata(rawMetadata)
@@ -51,6 +55,35 @@ export function renderWindowsStoreManifest(rawMetadata) {
     metadata.profile === 'test'
       ? 'Experimental Windows package; not for distribution'
       : 'Motrix download manager'
+  const diagnostic =
+    metadata.testDiagnostics === WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC.mode
+  const diagnosticNamespaces = diagnostic
+    ? `
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:desktop4="http://schemas.microsoft.com/appx/manifest/desktop/windows10/4"`
+    : ''
+  const probe = WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC
+  const probeExecutable = probe.executable.replaceAll('/', '\\')
+  // The current OS floor supports uap10 activation without an EntryPoint.
+  // AppListEntry=none hides this helper; console attributes are explicit test
+  // declarations, not evidence that alias activation preserves browser pipes.
+  // https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-f-application
+  // https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-uap-visualelements
+  // https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-uap5-extension
+  // https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-uap5-appexecutionalias
+  const diagnosticApplication = diagnostic
+    ? String.raw`    <Application Id="${probe.applicationId}" Executable="${probeExecutable}" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL" desktop4:Subsystem="console">
+      <uap:VisualElements DisplayName="Motrix Native Messaging PROBE" Description="Test-only Native Messaging diagnostic" AppListEntry="none" BackgroundColor="transparent" Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png" />
+      <Extensions>
+        <uap5:Extension Category="windows.appExecutionAlias" Executable="${probeExecutable}" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL">
+          <uap5:AppExecutionAlias desktop4:Subsystem="console">
+            <uap5:ExecutionAlias Alias="${probe.alias}" />
+          </uap5:AppExecutionAlias>
+        </uap5:Extension>
+      </Extensions>
+    </Application>
+`
+    : ''
 
   // uap10 attributes declare a packaged classic desktop process at medium IL.
   // Do not combine this model with the older EntryPoint declaration.
@@ -79,8 +112,8 @@ export function renderWindowsStoreManifest(rawMetadata) {
   xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
   xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
   xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
-  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap uap3 uap10 desktop com rescap">
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"${diagnosticNamespaces}
+  IgnorableNamespaces="uap uap3 uap10 desktop com rescap${diagnostic ? ' uap5 desktop4' : ''}">
   <Identity Name="${escapeXml(metadata.identity.name)}" Publisher="${escapeXml(metadata.identity.publisher)}" Version="${escapeXml(metadata.packageVersion)}" ProcessorArchitecture="${escapeXml(metadata.architecture)}" />
   <Properties>
     <DisplayName>${escapeXml(displayName)}</DisplayName>
@@ -134,7 +167,7 @@ export function renderWindowsStoreManifest(rawMetadata) {
         </com:Extension>
       </Extensions>
     </Application>
-  </Applications>
+${diagnosticApplication}  </Applications>
 </Package>
 `
 }

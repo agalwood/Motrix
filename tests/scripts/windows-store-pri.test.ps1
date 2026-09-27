@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#
 .SYNOPSIS
-Tests PRI validation against a completed SDK dump and seven mutated copies.
+Tests PRI validation against a completed SDK dump and bounded XML mutations.
 .DESCRIPTION
 Runs no SDK commands. Reads the prepared layout and its sibling SDK evidence,
 creates all mutations in one temporary directory, and removes that directory.
@@ -31,11 +31,12 @@ function Assert-PriMutationRejected {
     [string]$Manifest,
     [string]$Dump,
     [string]$ExpectedMessagePrefix,
-    [bool]$ExpectXmlException
+    [bool]$ExpectXmlException,
+    [object]$TestDiagnostics = $null
   )
   $caught = $null
   try {
-    $ignored = Test-MotrixPriDump $Manifest $Dump
+    $ignored = Test-MotrixPriDump $Manifest $Dump $TestDiagnostics
   } catch {
     $caught = $_.Exception
   }
@@ -53,6 +54,110 @@ function Assert-PriMutationRejected {
   } elseif (-not $caught.Message.StartsWith($ExpectedMessagePrefix, [StringComparison]::Ordinal)) {
     throw "Mutation $Name failed for an unexpected reason: $($caught.Message)"
   }
+}
+
+function Invoke-PriManifestCases([string]$Manifest, [string]$Dump, [string]$TemporaryDirectory) {
+  $mode = 'native-messaging-probe-v1'
+  $ordinary = Read-SafeXmlDocument $Manifest
+  foreach ($application in @($ordinary.SelectNodes('//*[local-name()="Application"]'))) {
+    if ($application.GetAttribute('Id') -ceq 'MotrixNativeHostP0') {
+      [void]$application.get_ParentNode().RemoveChild($application)
+    }
+  }
+  $ordinaryPath = Join-Path $TemporaryDirectory 'ordinary.manifest.xml'
+  Write-NewText $ordinaryPath $ordinary.get_OuterXml()
+  $diagnostic = $ordinary.CloneNode($true)
+  $main = $diagnostic.SelectSingleNode('//*[local-name()="Application" and @Id="Motrix"]')
+  $helper = $main.CloneNode($true)
+  $helper.SetAttribute('Id', 'MotrixNativeHostP0')
+  $helper.SetAttribute('Executable', 'diagnostics\motrix-store-p0-probe.exe')
+  foreach ($extension in @($helper.SelectNodes('./*[local-name()="Extensions"]'))) {
+    [void]$helper.RemoveChild($extension)
+  }
+  $visual = $helper.SelectSingleNode('./*[local-name()="VisualElements"]')
+  $visual.SetAttribute('AppListEntry', 'none')
+  foreach ($tile in @($visual.SelectNodes('./*[local-name()="DefaultTile"]'))) {
+    [void]$visual.RemoveChild($tile)
+  }
+  [void]$main.get_ParentNode().AppendChild($helper)
+  $diagnosticPath = Join-Path $TemporaryDirectory 'diagnostic.manifest.xml'
+  Write-NewText $diagnosticPath $diagnostic.get_OuterXml()
+  # These manifest variants are XML fixtures derived from the actual manifest;
+  # they reuse the real dump, but do not claim a second SDK packaging execution.
+  $checks = [Collections.Generic.List[object]]::new()
+  $normalReport = Test-MotrixPriDump $ordinaryPath $Dump
+  if (($normalReport.applicationIds -join ',') -cne 'Motrix' -or
+      $normalReport.Contains('testDiagnostics') -or $normalReport.images.Count -ne 4) {
+    throw 'Ordinary manifest fixture did not retain its single-application contract'
+  }
+  $checks.Add([ordered]@{ name = 'ordinary-single-application'; ok = $true; manifestFixture = $true })
+  $diagnosticReport = Test-MotrixPriDump $diagnosticPath $Dump $mode
+  if (($diagnosticReport.applicationIds -join ',') -cne 'Motrix,MotrixNativeHostP0' -or
+      $diagnosticReport.testDiagnostics -cne $mode -or $diagnosticReport.images.Count -ne 4) {
+    throw 'Diagnostic manifest fixture did not validate both applications with four images'
+  }
+  $checks.Add([ordered]@{ name = 'diagnostic-two-applications'; ok = $true; manifestFixture = $true })
+  $mutations = @(
+    @{ name = 'ordinary-rejects-helper'; diagnostic = $true; mode = $null; prefix = 'Unexpected manifest Application set'; mutate = {} },
+    @{ name = 'diagnostic-requires-helper'; diagnostic = $false; mode = $mode; prefix = 'Unexpected manifest Application set'; mutate = {} },
+    @{ name = 'unsupported-diagnostic-mode'; diagnostic = $true; mode = 'unknown-mode'; prefix = 'Unsupported testDiagnostics mode'; mutate = {} },
+    @{
+      name = 'diagnostic-unknown-application'; diagnostic = $true; mode = $mode; prefix = 'Unexpected manifest Application identity or executable:'
+      mutate = { param($Document)
+        $Document.SelectSingleNode('//*[local-name()="Application" and @Id="MotrixNativeHostP0"]').SetAttribute('Id', 'UnknownHelper')
+      }
+    },
+    @{
+      name = 'diagnostic-duplicate-application'; diagnostic = $true; mode = $mode; prefix = 'Unexpected manifest Application identity or executable:'
+      mutate = { param($Document)
+        $Document.SelectSingleNode('//*[local-name()="Application" and @Id="MotrixNativeHostP0"]').SetAttribute('Id', 'Motrix')
+      }
+    },
+    @{
+      name = 'diagnostic-wrong-main-image'; diagnostic = $true; mode = $mode; prefix = 'Unexpected manifest image reference:'
+      mutate = { param($Document)
+        $Document.SelectSingleNode('//*[local-name()="Application" and @Id="Motrix"]/*[local-name()="VisualElements"]').SetAttribute('Square44x44Logo', 'Assets\StoreLogo.png')
+      }
+    },
+    @{
+      name = 'diagnostic-wrong-helper-image'; diagnostic = $true; mode = $mode; prefix = 'Unexpected manifest image reference:'
+      mutate = { param($Document)
+        $Document.SelectSingleNode('//*[local-name()="Application" and @Id="MotrixNativeHostP0"]/*[local-name()="VisualElements"]').SetAttribute('Square150x150Logo', 'Assets\StoreLogo.png')
+      }
+    },
+    @{
+      name = 'diagnostic-extra-helper-image'; diagnostic = $true; mode = $mode; prefix = 'Unexpected manifest image reference count'
+      mutate = { param($Document)
+        $Document.SelectSingleNode('//*[local-name()="Application" and @Id="MotrixNativeHostP0"]/*[local-name()="VisualElements"]').SetAttribute('Square71x71Logo', 'Assets\Square44x44Logo.png')
+      }
+    },
+    @{
+      name = 'diagnostic-helper-default-tile'; diagnostic = $true; mode = $mode; prefix = 'Unexpected manifest default tile:'
+      mutate = { param($Document)
+        $tile = $Document.SelectSingleNode('//*[local-name()="Application" and @Id="Motrix"]//*[local-name()="DefaultTile"]')
+        $target = $Document.SelectSingleNode('//*[local-name()="Application" and @Id="MotrixNativeHostP0"]/*[local-name()="VisualElements"]')
+        [void]$target.AppendChild($tile.CloneNode($true))
+      }
+    },
+    @{
+      name = 'ordinary-extra-image'; diagnostic = $false; mode = $null; prefix = 'Unexpected manifest image reference count'
+      mutate = { param($Document)
+        $target = $Document.SelectSingleNode('//*[local-name()="Application"]/*[local-name()="VisualElements"]')
+        $splash = $Document.CreateElement('uap', 'SplashScreen', 'http://schemas.microsoft.com/appx/manifest/uap/windows10')
+        $splash.SetAttribute('Image', 'Assets\Square44x44Logo.png')
+        [void]$target.AppendChild($splash)
+      }
+    }
+  )
+  foreach ($case in $mutations) {
+    $document = if ($case.diagnostic) { $diagnostic.CloneNode($true) } else { $ordinary.CloneNode($true) }
+    & $case.mutate $document | Out-Null
+    $mutatedPath = Join-Path $TemporaryDirectory ($case.name + '.manifest.xml')
+    Write-NewText $mutatedPath $document.get_OuterXml()
+    Assert-PriMutationRejected $case.name $mutatedPath $Dump $case.prefix $false $case.mode
+    $checks.Add([ordered]@{ name = $case.name; ok = $true; rejected = $true; manifestFixture = $true })
+  }
+  return $checks.ToArray()
 }
 
 $cases = @(
@@ -143,10 +248,12 @@ try {
   if ($null -eq $prepared.Parent) { throw 'The prepared directory must not be a filesystem root' }
   $sdkOutput = Join-Path $prepared.Parent.FullName ($prepared.Name + '.sdk-output')
   $manifest = Join-Path $prepared.FullName 'layout/AppxManifest.xml'
+  $metadataPath = Join-Path $prepared.FullName 'release-metadata.json'
   $sourceDump = Join-Path $sdkOutput 'resources.pri.xml'
   $sdkResultPath = Join-Path $sdkOutput 'sdk-result.json'
   $protectedFiles = @(
     $manifest,
+    $metadataPath,
     $sourceDump,
     $sdkResultPath,
     (Join-Path $prepared.FullName 'layout/resources.pri')
@@ -160,7 +267,13 @@ try {
       $sdkResult.windowsSdkExecuted -isnot [bool] -or -not $sdkResult.windowsSdkExecuted) {
     throw 'A completed Windows SDK smoke result is required before PRI mutation tests'
   }
-  $baseline = Test-MotrixPriDump $manifest $sourceDump
+  $metadata = [IO.File]::ReadAllText($metadataPath) | ConvertFrom-Json -AsHashtable -Depth 100
+  $testDiagnostics = Get-WindowsStoreTestDiagnostics $metadata
+  if (($null -eq $testDiagnostics -and $sdkResult.Contains('testDiagnostics')) -or
+      ($null -ne $testDiagnostics -and $sdkResult.testDiagnostics -cne $testDiagnostics)) {
+    throw 'SDK result testDiagnostics mode must match the prepared metadata'
+  }
+  $baseline = Test-MotrixPriDump $manifest $sourceDump $testDiagnostics
   if ($baseline.ok -isnot [bool] -or -not $baseline.ok -or $baseline.images.Count -ne 4) {
     throw 'The original SDK dump did not validate its four manifest images'
   }
@@ -176,8 +289,11 @@ try {
     & $case.mutate $copy | Out-Null
     $mutatedPath = Join-Path $temporaryDirectory ($case.name + '.pri.xml')
     Write-NewText $mutatedPath $copy.get_OuterXml()
-    Assert-PriMutationRejected $case.name $manifest $mutatedPath $case.prefix $case.xmlException
+    Assert-PriMutationRejected $case.name $manifest $mutatedPath $case.prefix $case.xmlException $testDiagnostics
     $checks.Add([ordered]@{ name = $case.name; ok = $true; rejected = $true })
+  }
+  foreach ($check in (Invoke-PriManifestCases $manifest $sourceDump $temporaryDirectory)) {
+    $checks.Add($check)
   }
 } catch {
   $failure = $_.Exception.Message
@@ -189,7 +305,7 @@ try {
         throw "Original SDK evidence changed during the test: $path"
       }
     }
-    $sourceFilesUnchanged = $sourceHashes.Count -eq 4
+    $sourceFilesUnchanged = $sourceHashes.Count -eq 5
   } catch {
     $failure = "Original evidence verification failed: $($_.Exception.Message)"
     $failureDetails = Get-WindowsStoreErrorDetails $_

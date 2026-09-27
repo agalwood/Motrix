@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   compareWindowsPackageVersions,
   validateWindowsStoreMetadata,
+  WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC,
   WINDOWS_STORE_TEST_IDENTITY,
 } from '../../scripts/windows-store-metadata.mjs'
 
@@ -38,6 +39,90 @@ function testMetadata(overrides: Record<string, unknown> = {}) {
 }
 
 describe('Windows Store metadata', () => {
+  it('exposes one immutable diagnostic contract with no caller-selected paths or identities', () => {
+    expect(WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC).toEqual({
+      mode: 'native-messaging-probe-v1',
+      applicationId: 'MotrixNativeHostP0',
+      alias: 'motrix-store-p0-native-host.exe',
+      executable: 'diagnostics/motrix-store-p0-probe.exe',
+      source: 'tests/fixtures/windows-store-native-messaging/stdio-probe.cs',
+    })
+    expect(Object.isFrozen(WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC)).toBe(
+      true
+    )
+  })
+
+  it('preserves the explicit test diagnostic mode and omits it from ordinary metadata', () => {
+    const input = testMetadata({
+      testDiagnostics: WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC.mode,
+    })
+    const result = validateWindowsStoreMetadata(input)
+    expect(result.metadata.testDiagnostics).toBe('native-messaging-probe-v1')
+    expect(result.metadata.identity).toEqual(WINDOWS_STORE_TEST_IDENTITY)
+    expect(result.metadata.source).toEqual({ commit: COMMIT })
+    expect(result.validation.partnerCenterIdentityVerified).toBe(false)
+    expect(Object.isFrozen(result.metadata)).toBe(true)
+    for (const ordinary of [testMetadata(), storeMetadata()]) {
+      expect(
+        validateWindowsStoreMetadata(ordinary).metadata
+      ).not.toHaveProperty('testDiagnostics')
+    }
+  })
+
+  it.each([undefined, null, '', false, {}, 'native-messaging-probe-v2'])(
+    'rejects an invalid explicit test diagnostic mode %#',
+    (testDiagnostics) => {
+      expect(() =>
+        validateWindowsStoreMetadata(testMetadata({ testDiagnostics }))
+      ).toThrow(/testDiagnostics/)
+    }
+  )
+
+  it.each([
+    undefined,
+    null,
+    '',
+    WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC.mode,
+  ])(
+    'rejects every Store diagnostic property, including undefined: %#',
+    (testDiagnostics) => {
+      expect(() =>
+        validateWindowsStoreMetadata(storeMetadata({ testDiagnostics }))
+      ).toThrow(/only allowed for the test profile/)
+    }
+  )
+
+  it('rejects diagnostic accessors without evaluating them', () => {
+    const input = testMetadata()
+    Object.defineProperty(input, 'testDiagnostics', {
+      get: () => {
+        throw new Error('accessor executed')
+      },
+    })
+    expect(() => validateWindowsStoreMetadata(input)).toThrow(
+      /must be a data property/
+    )
+  })
+
+  it('retains the same diagnostic identity and mode across a monotonic test upgrade', () => {
+    const a = validateWindowsStoreMetadata(
+      testMetadata({
+        testDiagnostics: WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC.mode,
+      })
+    ).metadata
+    const b = validateWindowsStoreMetadata({
+      ...a,
+      packageVersion: '1.0.2.0',
+      previousPackageVersions: [a.packageVersion],
+    }).metadata
+    expect(b.identity).toEqual(a.identity)
+    expect(b.source).toEqual(a.source)
+    expect(b.testDiagnostics).toBe(a.testDiagnostics)
+    expect(() =>
+      validateWindowsStoreMetadata({ ...b, packageVersion: a.packageVersion })
+    ).toThrow(/must be greater/)
+  })
+
   it('keeps product and package versions independent without inventing evidence', () => {
     const input = storeMetadata({
       previousPackageVersions: [

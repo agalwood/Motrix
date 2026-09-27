@@ -57,7 +57,7 @@ internal static class StdioProbe
                 // other query failures must not become successful diagnostics.
                 string package = Identity(GetCurrentPackageFullName, 15700); // APPMODEL_ERROR_NO_PACKAGE
                 string app = Identity(GetCurrentApplicationUserModelId, 15703); // APPMODEL_ERROR_NO_APPLICATION
-                Match version = Regex.Match(package, "\\AMotrix\\.Store\\.P0_([0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+)_");
+                Match version = Regex.Match(package, "\\AMotrix\\.Store\\.Test_([0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+)_");
                 // Caller shapes are observations only, never caller authentication.
                 // In particular, the Firefox manifest argument is never opened.
                 bool chromium = args.Length >= 1 && Regex.IsMatch(args[0], "\\Achrome-extension://[a-p]{32}/?\\z");

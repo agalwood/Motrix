@@ -141,10 +141,11 @@ pri-root/Assets/             # 相同资产文件，供 PRI 索引
 priconfig.xml
 ```
 
-manifest 包含一个具有包身份的桌面应用和 `runFullTrust`，并为 `app\Motrix.exe`
+普通测试 manifest 包含一个具有包身份的桌面应用和 `runFullTrust`，并为 `app\Motrix.exe`
 声明需主动启用的 `MotrixStartup` 任务，设置 `Enabled="false"` 与
 `--opened-at-login=1`。同时声明 `motrix`、`mo`、`magnet` 协议和 `.torrent` 文件。
-native-host alias 声明等待浏览器联动适配包身份。当前配置的 Windows
+生产 native-host alias 声明等待浏览器联动适配包身份；下文显式诊断模式使用
+独立测试探针。当前配置的 Windows
 阈值为 10.0.19045.0，并非 Windows 兼容性实测结论。现有四张图片按 scale-200
 资源命名，manifest 引用逻辑路径；PRI 配置从仅含 `Assets/` 的独立
 `pri-root` 根目录开始索引，保留逻辑资源名中的 `Assets/` 层级。该命令**不会生成**
@@ -252,8 +253,8 @@ Windows 包的 Native Messaging 注册策略为 `unsupported`。安装器在解�
 
 SDK 工作流还会使用 Windows .NET Framework 编译器，编译独立的 x64 诊断控制台
 程序，并测试其二进制标准输入输出。探针只接受固定的公开挑战值，不读取 Motrix
-profile、endpoint、凭据或注册表，不启动 Motrix。该程序不进入 AppX，也不作为
-artifact 上传。
+profile、endpoint、凭据或注册表，不启动 Motrix。该程序不进入普通测试 AppX，
+也不作为二进制 artifact 上传。
 
 在 Windows 的 PowerShell 7 中使用新目录，可执行同样的进程检查：
 
@@ -271,10 +272,41 @@ $probeOutput = Join-Path $env:TEMP 'motrix-store-native-messaging-probe'
 模拟输入，不是真实浏览器启动。
 
 这些报告仅证明编译与直接进程行为，`packagedActivationVerified`、
-`browserNativeMessagingVerified` 和 `mbp1Verified` 均保持 false。探针中的 P0
-身份常量不代表当前 `Motrix.Store.Test` manifest；当前包没有诊断 Application 或
-alias。包激活、外部注册可见性、三浏览器行为、升级后未首次启动的连接及 MBP1
+`browserNativeMessagingVerified` 和 `mbp1Verified` 均保持 false。探针通过下文
+诊断模式安装时，预期固定的 `Motrix.Store.Test` 包身份。普通测试 manifest
+没有诊断 Application 或 alias。包激活、外部注册可见性、三浏览器行为、升级后未首次启动的连接及 MBP1
 配对仍需独立实施和验证。
+
+### 装配诊断测试包
+
+可选 metadata 字段 `testDiagnostics: "native-messaging-probe-v1"` 仅在固定测试
+身份下接受，Store metadata 拒绝该字段。从同一个干净 checkout 编译探针后，
+创建独立的 metadata 文件和布局：
+
+```powershell
+$diagnosticMetadata = Get-Content -LiteralPath "$storeBuild\release-metadata.json" -Raw | ConvertFrom-Json -AsHashtable
+$diagnosticMetadata.testDiagnostics = 'native-messaging-probe-v1'
+$diagnosticMetadataFile = Join-Path $env:TEMP 'motrix-store-diagnostic-input.json'
+$diagnosticMetadata | ConvertTo-Json -Depth 8 | Out-File -LiteralPath $diagnosticMetadataFile -Encoding utf8NoBOM -NoClobber
+$diagnosticLayout = Join-Path $env:TEMP 'motrix-store-diagnostic-layout'
+node scripts/prepare-windows-store-layout.mjs --repo-root . --app-dir "$storeBuild\payload\win-unpacked" --metadata $diagnosticMetadataFile --out $diagnosticLayout --probe-build-dir $probeOutput
+```
+
+两个输出路径都必须尚未使用。将 `$diagnosticLayout` 作为下文 SDK 命令的准备
+目录。布局流程检查探针实际 x64 控制台头和摘要，将编译报告中的源码摘要与
+checkout 关联，复制后再次核对字节。`diagnostic-build-report.json` 保留在包外，
+它是构建关联记录，不是经过签名的证明。
+
+诊断 manifest 增加隐藏的 `MotrixNativeHostP0` 应用与
+`motrix-store-p0-native-host.exe` 执行 alias，两者指向
+`diagnostics/motrix-store-p0-probe.exe`。Electron payload 保持原样，仍拒绝未声明的
+EXE；helper 复用现有图标。prepared、indexed、unpacked 检查均要求精确的附加文件
+和 manifest，SDK 会依据相同的四个 PRI 资源检查两个应用的引用。
+
+诊断包与普通测试包使用相同身份，不能并排安装。A→B 实验应准备两个递增包版本，
+保持身份、helper 和 alias 相同。按[测试签名与安装指南](windows-store-runtime-testing.zh-CN.md)
+操作后，再独立验证 alias 激活和浏览器发现。上述直接进程测试预期没有包身份，
+不能用于验证已安装的 alias。该模式没有实现浏览器 host 注册或 MBP1 连接。
 
 ## CLI 集成边界
 

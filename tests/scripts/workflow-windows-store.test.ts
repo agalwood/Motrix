@@ -133,6 +133,7 @@ describe('Windows Store SDK test workflow', () => {
       'Verify Windows platform runtime imports',
       'Reject platform operations without package identity',
       'Verify and assemble test layout',
+      'Verify and assemble diagnostic test layout',
       'Build PRI and pack/unpack with Windows SDK',
     ].map(stepIndex)
     expect(ordered.every((index) => index >= 0)).toBe(true)
@@ -159,6 +160,30 @@ describe('Windows Store SDK test workflow', () => {
       "@('startup_query', 'startup_enable', 'startup_disable', 'associations_query')"
     )
     expect(negativeCheck).toContain("$reply.code -ne 'no_package_identity'")
+  })
+
+  it('packages ordinary and explicit diagnostic layouts from the same verified payload', () => {
+    const diagnostic =
+      steps[stepIndex('Verify and assemble diagnostic test layout')]?.run
+    expect(diagnostic).toContain(
+      "$metadata.testDiagnostics = 'native-messaging-probe-v1'"
+    )
+    expect(diagnostic).toContain('MOTRIX_STORE_BUILD/release-metadata.json')
+    expect(diagnostic).toContain(
+      '--app-dir "$env:MOTRIX_STORE_BUILD/payload/win-unpacked"'
+    )
+    expect(diagnostic).toContain('--probe-build-dir $probe')
+    expect(diagnostic).toContain(
+      "if ($LASTEXITCODE -ne 0) { throw 'Diagnostic test layout failed' }"
+    )
+    const sdk =
+      steps[stepIndex('Build PRI and pack/unpack with Windows SDK')]?.run
+    expect(sdk).toContain(
+      '@($env:MOTRIX_STORE_LAYOUT, $env:MOTRIX_STORE_DIAGNOSTIC_LAYOUT)'
+    )
+    expect(
+      steps[stepIndex('Exercise diagnostic PRI rejection cases')]?.run
+    ).toContain('-PreparedDirectory $env:MOTRIX_STORE_DIAGNOSTIC_LAYOUT')
   })
 
   it('uploads only named text evidence, never an unsigned package or image', () => {

@@ -186,7 +186,21 @@ function Invoke-LayoutVerification {
   return [ordered]@{ phase = $Phase; ok = $true; report = $reportPath; command = $command }
 }
 
-function Test-MotrixPriDump([string]$ManifestPath, [string]$DumpPath) {
+function Get-WindowsStoreTestDiagnostics([Collections.IDictionary]$Metadata) {
+  if (-not $Metadata.Contains('testDiagnostics')) { return $null }
+  if ($Metadata.testDiagnostics -isnot [string] -or
+      $Metadata.testDiagnostics -cne 'native-messaging-probe-v1') {
+    throw 'Unsupported testDiagnostics mode'
+  }
+  return $Metadata.testDiagnostics
+}
+
+function Test-MotrixPriDump([string]$ManifestPath, [string]$DumpPath, [object]$TestDiagnostics = $null) {
+  if ($null -ne $TestDiagnostics -and
+      ($TestDiagnostics -isnot [string] -or $TestDiagnostics -cne 'native-messaging-probe-v1')) {
+    throw 'Unsupported testDiagnostics mode'
+  }
+  $diagnosticMode = $null -ne $TestDiagnostics
   $manifest = Read-SafeXmlDocument $ManifestPath
   $namespaces = [Xml.XmlNamespaceManager]::new($manifest.get_NameTable())
   $namespaces.AddNamespace('f', 'http://schemas.microsoft.com/appx/manifest/foundation/windows10')
@@ -195,12 +209,45 @@ function Test-MotrixPriDump([string]$ManifestPath, [string]$DumpPath) {
   if ($identity.Count -ne 1 -or $identity[0].GetAttribute('Name') -cne 'Motrix.Store.Test') {
     throw 'PRI validation only accepts the fixed Motrix.Store.Test identity'
   }
+  $applicationIds = @('Motrix')
+  if ($diagnosticMode) { $applicationIds += 'MotrixNativeHostP0' }
+  $applications = @($manifest.SelectNodes('/f:Package/f:Applications/f:Application', $namespaces))
+  if ($applications.Count -ne $applicationIds.Count -or
+      @($manifest.SelectNodes('//*[local-name()="Application"]')).Count -ne $applicationIds.Count) {
+    throw 'Unexpected manifest Application set for the selected testDiagnostics mode'
+  }
+  foreach ($id in $applicationIds) {
+    $matches = @($applications | Where-Object { $_.GetAttribute('Id') -ceq $id })
+    $executable = if ($id -ceq 'Motrix') { 'app/Motrix.exe' } else { 'diagnostics/motrix-store-p0-probe.exe' }
+    if ($matches.Count -ne 1 -or $matches[0].GetAttribute('Executable').Replace('\', '/') -cne $executable) {
+      throw "Unexpected manifest Application identity or executable: $id"
+    }
+    $visuals = @($matches[0].SelectNodes('./uap:VisualElements', $namespaces))
+    if ($visuals.Count -ne 1) { throw "Unexpected manifest visual elements: $id" }
+    $tiles = @($visuals[0].SelectNodes('./uap:DefaultTile', $namespaces))
+    $expectedTileCount = if ($id -ceq 'Motrix') { 1 } else { 0 }
+    if ($tiles.Count -ne $expectedTileCount) { throw "Unexpected manifest default tile: $id" }
+  }
+  # Validate references by fixed Application Id, not by document order. The
+  # diagnostic helper reuses two existing images and has no DefaultTile.
   $expected = @(
     @{ xpath = '/f:Package/f:Properties/f:Logo'; path = 'Assets/StoreLogo.png' },
-    @{ xpath = '/f:Package/f:Applications/f:Application/uap:VisualElements/@Square44x44Logo'; path = 'Assets/Square44x44Logo.png' },
-    @{ xpath = '/f:Package/f:Applications/f:Application/uap:VisualElements/@Square150x150Logo'; path = 'Assets/Square150x150Logo.png' },
-    @{ xpath = '/f:Package/f:Applications/f:Application/uap:VisualElements/uap:DefaultTile/@Wide310x150Logo'; path = 'Assets/Wide310x150Logo.png' }
+    @{ xpath = '/f:Package/f:Applications/f:Application[@Id="Motrix"]/uap:VisualElements/@Square44x44Logo'; path = 'Assets/Square44x44Logo.png' },
+    @{ xpath = '/f:Package/f:Applications/f:Application[@Id="Motrix"]/uap:VisualElements/@Square150x150Logo'; path = 'Assets/Square150x150Logo.png' },
+    @{ xpath = '/f:Package/f:Applications/f:Application[@Id="Motrix"]/uap:VisualElements/uap:DefaultTile/@Wide310x150Logo'; path = 'Assets/Wide310x150Logo.png' }
   )
+  if ($diagnosticMode) {
+    $expected += @(
+      @{ xpath = '/f:Package/f:Applications/f:Application[@Id="MotrixNativeHostP0"]/uap:VisualElements/@Square44x44Logo'; path = 'Assets/Square44x44Logo.png' },
+      @{ xpath = '/f:Package/f:Applications/f:Application[@Id="MotrixNativeHostP0"]/uap:VisualElements/@Square150x150Logo'; path = 'Assets/Square150x150Logo.png' }
+    )
+  }
+  # Reject additional logo/image references, including unused tile sizes and
+  # SplashScreen images, even when they happen to reuse an indexed image.
+  $imageReferences = @($manifest.SelectNodes('//*[contains(local-name(), "Logo") or local-name()="Image"] | //@*[contains(local-name(), "Logo") or local-name()="Image"]'))
+  if ($imageReferences.Count -ne $expected.Count) {
+    throw 'Unexpected manifest image reference count'
+  }
   $expectedPaths = [Collections.Generic.Dictionary[string, string]]::new([StringComparer]::OrdinalIgnoreCase)
   foreach ($asset in $expected) {
     $nodes = @($manifest.SelectNodes($asset.xpath, $namespaces))
@@ -209,8 +256,9 @@ function Test-MotrixPriDump([string]$ManifestPath, [string]$DumpPath) {
     if ($nodes.Count -ne 1 -or $nodes[0].get_InnerText().Replace('\', '/') -cne $asset.path) {
       throw "Unexpected manifest image reference: $($asset.path)"
     }
-    $expectedPaths.Add("Files/$($asset.path)", $asset.path.Replace('.png', '.scale-200.png'))
+    $expectedPaths["Files/$($asset.path)"] = $asset.path.Replace('.png', '.scale-200.png')
   }
+  if ($expectedPaths.Count -ne 4) { throw 'Expected exactly four unique manifest images' }
 
   # Microsoft documents the Detailed dump XSD and real Path candidate examples:
   # https://learn.microsoft.com/windows/uwp/app-resources/makepri-exe-format-specific-indexers#priinfo
@@ -280,16 +328,19 @@ function Test-MotrixPriDump([string]$ManifestPath, [string]$DumpPath) {
       candidatePath = $candidatePath
     })
   }
-  return [ordered]@{
+  $result = [ordered]@{
     schemaVersion = 1
     scope = 'windows-test-pri-detailed-dump'
     ok = $true
     resourceMap = $maps[0].GetAttribute('name')
     dump = Get-FileEvidence $DumpPath
     images = $verified.ToArray()
+    applicationIds = $applicationIds
     windowsRuntimeVerified = $false
     storeSubmissionReady = $false
   }
+  if ($diagnosticMode) { $result.testDiagnostics = $TestDiagnostics }
+  return $result
 }
 
 function Invoke-WindowsStoreSdkTest([string]$PreparedPath, [string]$SdkPath) {
@@ -317,6 +368,7 @@ function Invoke-WindowsStoreSdkTest([string]$PreparedPath, [string]$SdkPath) {
       $metadata.identity.publisherDisplayName -cne 'Motrix Store Test') {
     throw 'Only metadata.profile=test with the fixed experimental identity is supported'
   }
+  $testDiagnostics = Get-WindowsStoreTestDiagnostics $metadata
   # New-Item without -Force fails if the sibling output already exists.
   New-Item -ItemType Directory -Path $output -ErrorAction Stop | Out-Null
   $preparedCheck = Invoke-LayoutVerification $node $verifier $prepared.FullName 'prepared' $output
@@ -340,7 +392,7 @@ function Invoke-WindowsStoreSdkTest([string]$PreparedPath, [string]$SdkPath) {
   $dumpCommand = Invoke-CheckedProgram $makePri @(
     'dump', '/if', $pri, '/of', $dump, '/dt', 'detailed'
   ) $output 'makepri-dump'
-  $priReport = Test-MotrixPriDump $manifest $dump
+  $priReport = Test-MotrixPriDump $manifest $dump $testDiagnostics
   $priReportPath = Join-Path $output 'pri-report.json'
   Write-NewJson $priReportPath $priReport
   $indexedCheck = Invoke-LayoutVerification $node $verifier $prepared.FullName 'indexed' $output
@@ -396,6 +448,7 @@ function Invoke-WindowsStoreSdkTest([string]$PreparedPath, [string]$SdkPath) {
     storeReady = $false
     storeSubmissionReady = $false
   }
+  if ($null -ne $testDiagnostics) { $result.testDiagnostics = $testDiagnostics }
   # The completion marker is created last, exclusively; no successful report is
   # written for a failed SDK command, malformed dump, or failed layout verifier.
   $resultPath = Join-Path $output 'sdk-result.json'

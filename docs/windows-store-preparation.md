@@ -162,11 +162,12 @@ pri-root/Assets/             # identical asset files for PRI indexing
 priconfig.xml
 ```
 
-The manifest contains one packaged desktop application and `runFullTrust`.
+The ordinary test manifest contains one packaged desktop application and `runFullTrust`.
 It declares the opt-in `MotrixStartup` task for `app\Motrix.exe`, with
 `Enabled="false"` and `--opened-at-login=1`. It also declares the `motrix`, `mo`,
-and `magnet` protocols and `.torrent` files. Native-host alias declarations
-await package-aware browser integration. The configured Windows threshold is
+and `magnet` protocols and `.torrent` files. Production native-host alias declarations
+await package-aware browser integration; the explicit diagnostic mode below uses
+a separate test probe. The configured Windows threshold is
 10.0.19045.0; this is not a Windows compatibility test result. The four existing
 images are scale-200 resources, referenced by logical paths in the manifest.
 The PRI configuration indexes the isolated `pri-root` directory, which contains
@@ -304,7 +305,7 @@ The SDK workflow also compiles a separate x64 diagnostic console executable
 with the Windows .NET Framework compiler and tests its binary stdin/stdout.
 The probe accepts only a fixed public challenge; it does not read a Motrix
 profile, endpoint, credentials, or registry entries, and does not launch Motrix.
-It is not included in the AppX or uploaded as an artifact.
+It is excluded from the ordinary test AppX and is never uploaded as a binary artifact.
 
 To run the same process checks in PowerShell 7 on Windows, use a new directory:
 
@@ -324,10 +325,48 @@ Browser-shaped arguments are synthetic test inputs, not real browser launches.
 
 These reports establish compilation and direct process behavior only. They keep
 `packagedActivationVerified`, `browserNativeMessagingVerified`, and
-`mbp1Verified` false. The diagnostic P0 identity constants do not describe the
-current `Motrix.Store.Test` manifest, which has no diagnostic application or
-alias. Package activation, external registration visibility, three-browser
+`mbp1Verified` false. The probe expects the fixed `Motrix.Store.Test` package
+identity when installed through the diagnostic mode below. The ordinary test
+manifest has no diagnostic application or alias. Package activation, external registration visibility, three-browser
 behavior, upgrade before first launch, and MBP1 pairing remain separate work.
+
+### Assemble a diagnostic test package
+
+The optional metadata field `testDiagnostics: "native-messaging-probe-v1"` is
+accepted only with the fixed test identity. Store metadata rejects this field.
+After compiling the probe from the same clean checkout, create a separate
+metadata file and layout:
+
+```powershell
+$diagnosticMetadata = Get-Content -LiteralPath "$storeBuild\release-metadata.json" -Raw | ConvertFrom-Json -AsHashtable
+$diagnosticMetadata.testDiagnostics = 'native-messaging-probe-v1'
+$diagnosticMetadataFile = Join-Path $env:TEMP 'motrix-store-diagnostic-input.json'
+$diagnosticMetadata | ConvertTo-Json -Depth 8 | Out-File -LiteralPath $diagnosticMetadataFile -Encoding utf8NoBOM -NoClobber
+$diagnosticLayout = Join-Path $env:TEMP 'motrix-store-diagnostic-layout'
+node scripts/prepare-windows-store-layout.mjs --repo-root . --app-dir "$storeBuild\payload\win-unpacked" --metadata $diagnosticMetadataFile --out $diagnosticLayout --probe-build-dir $probeOutput
+```
+
+Both output paths must be unused. Pass `$diagnosticLayout` as the prepared
+directory to the SDK command below. The layout checks the probe's actual x64
+console headers and hashes, binds its build-report source hash to the checkout,
+and rechecks the copied bytes. It retains `diagnostic-build-report.json` outside
+the package as a build association record, not a signed attestation.
+
+The diagnostic manifest adds the hidden `MotrixNativeHostP0` application and
+`motrix-store-p0-native-host.exe` execution alias, both pointing to
+`diagnostics/motrix-store-p0-probe.exe`. The Electron payload stays unchanged;
+it still rejects undeclared executables. The helper shares the existing icons.
+The prepared, indexed, and unpacked checks require the exact extra file and
+manifest, and the SDK checks both application references against the same four
+PRI resources.
+
+This diagnostic package uses the same identity as the ordinary test package;
+they do not install side by side. For A-to-B testing, prepare two increasing
+package versions using the same identity, helper, and alias. Follow the
+[test signing and installation guide](windows-store-runtime-testing.md), then
+verify alias activation and browser discovery separately. The direct-process
+test above expects no package identity and cannot validate the installed alias.
+No browser host registration or MBP1 connection is implemented by this mode.
 
 ## CLI integration boundary
 

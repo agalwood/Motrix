@@ -206,6 +206,21 @@ jobs:
           & node scripts/prepare-windows-store-layout.mjs --repo-root . --app-dir "$env:MOTRIX_STORE_BUILD/payload/win-unpacked" --metadata "$env:MOTRIX_STORE_BUILD/release-metadata.json" --out $env:MOTRIX_STORE_LAYOUT > "$env:MOTRIX_STORE_BUILD/layout-command.json"
           if ($LASTEXITCODE -ne 0) { throw 'Store test layout failed' }
 
+      - name: Verify and assemble diagnostic test layout
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $diagnosticRoot = Join-Path $env:RUNNER_TEMP 'motrix-windows-store-diagnostic'
+          New-Item -ItemType Directory -Path $diagnosticRoot | Out-Null
+          $metadata = Get-Content -LiteralPath "$env:MOTRIX_STORE_BUILD/release-metadata.json" -Raw | ConvertFrom-Json -AsHashtable
+          $metadata.testDiagnostics = 'native-messaging-probe-v1'
+          $metadataFile = Join-Path $diagnosticRoot 'input.json'
+          [IO.File]::WriteAllText($metadataFile, ($metadata | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
+          $layout = Join-Path $diagnosticRoot 'prepared'
+          $probe = Join-Path $env:RUNNER_TEMP 'motrix-store-native-messaging-probe'
+          & node scripts/prepare-windows-store-layout.mjs --repo-root . --app-dir "$env:MOTRIX_STORE_BUILD/payload/win-unpacked" --metadata $metadataFile --out $layout --probe-build-dir $probe
+          if ($LASTEXITCODE -ne 0) { throw 'Diagnostic test layout failed' }
+          "MOTRIX_STORE_DIAGNOSTIC_LAYOUT=$layout" >> $env:GITHUB_ENV
+
       - name: Build PRI and pack/unpack with Windows SDK
         run: |
           $ErrorActionPreference = 'Stop'
@@ -218,10 +233,15 @@ jobs:
               (Test-Path -LiteralPath (Join-Path $_.FullName 'x64/makeappx.exe'))
             } | Select-Object -First 1
           if ($null -eq $sdk) { throw 'Windows SDK makepri/makeappx not found' }
-          & ./scripts/pack-windows-store-test.ps1 -PreparedDirectory $env:MOTRIX_STORE_LAYOUT -SdkBinDirectory (Join-Path $sdk.FullName 'x64')
+          foreach ($layout in @($env:MOTRIX_STORE_LAYOUT, $env:MOTRIX_STORE_DIAGNOSTIC_LAYOUT)) {
+            & ./scripts/pack-windows-store-test.ps1 -PreparedDirectory $layout -SdkBinDirectory (Join-Path $sdk.FullName 'x64')
+          }
 
       - name: Exercise PRI rejection cases
         run: ./tests/scripts/windows-store-pri.test.ps1 -PreparedDirectory $env:MOTRIX_STORE_LAYOUT
+
+      - name: Exercise diagnostic PRI rejection cases
+        run: ./tests/scripts/windows-store-pri.test.ps1 -PreparedDirectory $env:MOTRIX_STORE_DIAGNOSTIC_LAYOUT
 
       # Keep only text evidence. The unsigned test package is not a release,
       # installation test, or Store submission and is not uploaded here.
@@ -241,5 +261,12 @@ jobs:
             ${{ runner.temp }}/motrix-windows-store/prepared.sdk-output/*.json
             ${{ runner.temp }}/motrix-windows-store/prepared.sdk-output/*.xml
             ${{ runner.temp }}/motrix-windows-store/prepared.sdk-output/*.log
+            ${{ runner.temp }}/motrix-windows-store-diagnostic/prepared/layout-report.json
+            ${{ runner.temp }}/motrix-windows-store-diagnostic/prepared/payload-report.json
+            ${{ runner.temp }}/motrix-windows-store-diagnostic/prepared/source-report.json
+            ${{ runner.temp }}/motrix-windows-store-diagnostic/prepared/diagnostic-build-report.json
+            ${{ runner.temp }}/motrix-windows-store-diagnostic/prepared.sdk-output/*.json
+            ${{ runner.temp }}/motrix-windows-store-diagnostic/prepared.sdk-output/*.xml
+            ${{ runner.temp }}/motrix-windows-store-diagnostic/prepared.sdk-output/*.log
           if-no-files-found: warn
           retention-days: 14

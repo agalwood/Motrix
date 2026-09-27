@@ -12,6 +12,11 @@ import { pathToFileURL } from 'node:url'
 import { verifyWindowsStorePayload } from './verify-windows-store-payload.mjs'
 import { verifyWindowsStoreSource } from './verify-windows-store-source.mjs'
 import {
+  loadPreparedWindowsStoreDiagnostic,
+  loadWindowsStoreDiagnostic,
+  WINDOWS_STORE_DIAGNOSTIC_BUILD_REPORT,
+} from './windows-store-diagnostics.mjs'
+import {
   renderWindowsStoreManifest,
   renderWindowsStorePriConfig,
   WINDOWS_STORE_SCALE_200_ASSETS,
@@ -66,6 +71,7 @@ export async function prepareWindowsStoreLayout({
   appDir,
   metadata: raw,
   outputDirectory,
+  probeBuildDirectory,
 }) {
   const { metadata } = validateWindowsStoreMetadata(raw)
   if (metadata.profile !== 'test') {
@@ -81,16 +87,41 @@ export async function prepareWindowsStoreLayout({
   ) {
     throw new Error('repoRoot and appDir must be explicit directories')
   }
+  if (
+    metadata.testDiagnostics === undefined &&
+    probeBuildDirectory !== undefined
+  )
+    throw new Error(
+      'probeBuildDirectory requires the explicit test diagnostic mode'
+    )
+  if (
+    metadata.testDiagnostics !== undefined &&
+    (typeof probeBuildDirectory !== 'string' ||
+      !path.isAbsolute(probeBuildDirectory))
+  )
+    throw new Error('Diagnostic mode requires an absolute probeBuildDirectory')
   const root = await realpath(repoRoot)
   const output = await resolveWindowsStoreOutput({
     outputDirectory,
-    inputDirectories: [root, appDir],
+    inputDirectories: [
+      root,
+      appDir,
+      ...(probeBuildDirectory === undefined ? [] : [probeBuildDirectory]),
+    ],
   })
   const sourceReport = await verifyWindowsStoreSource({
     repoRoot: root,
     metadata,
   })
   requirePassed(sourceReport, 'Source')
+  const diagnostic =
+    metadata.testDiagnostics === undefined
+      ? null
+      : await loadWindowsStoreDiagnostic({
+          repoRoot: root,
+          probeBuildDirectory,
+          metadata,
+        })
   const payloadReport = await verifyWindowsStorePayload({
     appDir,
     metadata,
@@ -123,6 +154,23 @@ export async function prepareWindowsStoreLayout({
     throw new Error('Payload changed during layout assembly')
   }
   const assetInventory = []
+  if (diagnostic) {
+    const destination = path.join(layout, diagnostic.record.executable.path)
+    await mkdir(path.dirname(destination))
+    await writeFile(destination, diagnostic.executableBytes, { flag: 'wx' })
+    await writeFile(
+      path.join(output, WINDOWS_STORE_DIAGNOSTIC_BUILD_REPORT),
+      diagnostic.buildReportBytes,
+      { flag: 'wx' }
+    )
+    const copied = await loadPreparedWindowsStoreDiagnostic({
+      preparedDirectory: output,
+      layoutDirectory: layout,
+      metadata,
+    })
+    if (json(copied) !== json(diagnostic.record))
+      throw new Error('Diagnostic probe changed during layout assembly')
+  }
   for (const { asset, bytes } of assets) {
     for (const directory of [layout, path.join(output, 'pri-root')]) {
       const destination = path.join(directory, asset.destination)
@@ -152,6 +200,23 @@ export async function prepareWindowsStoreLayout({
     metadata,
   })
   requirePassed(finalSourceReport, 'Final source')
+  if (diagnostic) {
+    const finalInput = await loadWindowsStoreDiagnostic({
+      repoRoot: root,
+      probeBuildDirectory,
+      metadata,
+    })
+    const copied = await loadPreparedWindowsStoreDiagnostic({
+      preparedDirectory: output,
+      layoutDirectory: layout,
+      metadata,
+    })
+    if (
+      json(finalInput.record) !== json(diagnostic.record) ||
+      json(copied) !== json(diagnostic.record)
+    )
+      throw new Error('Diagnostic probe changed during layout assembly')
+  }
   await writeFile(
     path.join(output, 'source-report.json'),
     json(finalSourceReport),
@@ -176,6 +241,7 @@ export async function prepareWindowsStoreLayout({
     priConfigSha256: digest(priConfig),
     assets: assetInventory,
     payload: copiedReport.inventory.physicalFiles,
+    ...(diagnostic ? { diagnostics: diagnostic.record } : {}),
     copiedPayloadMatched: true,
     payloadSourceVerified: false,
     windowsSdkExecuted: false,
@@ -191,10 +257,14 @@ export async function prepareWindowsStoreLayout({
 
 function parseArgs(argv) {
   const keys = ['--repo-root', '--app-dir', '--metadata', '--out']
+  const optionalKeys = ['--probe-build-dir']
   const options = {}
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index]
-    if (!keys.includes(key) || Object.hasOwn(options, key))
+    if (
+      ![...keys, ...optionalKeys].includes(key) ||
+      Object.hasOwn(options, key)
+    )
       throw new Error(`Unknown or duplicate argument: ${key}`)
     const value = argv[++index]
     if (!value || value.startsWith('--'))
@@ -220,6 +290,7 @@ if (
       appDir: options['--app-dir'],
       metadata: JSON.parse(await readFile(options['--metadata'], 'utf8')),
       outputDirectory: options['--out'],
+      probeBuildDirectory: options['--probe-build-dir'],
     })
     process.stdout.write(json(report))
   } catch (error) {

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -10,15 +11,20 @@ import {
   WINDOWS_STORE_SCALE_200_ASSETS,
 } from '../../scripts/windows-store-manifest.mjs'
 // @ts-expect-error -- JavaScript packaging script intentionally has no declarations
-import { WINDOWS_STORE_TEST_IDENTITY } from '../../scripts/windows-store-metadata.mjs'
+import {
+  WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC,
+  WINDOWS_STORE_TEST_IDENTITY,
+} from '../../scripts/windows-store-metadata.mjs'
 import windowsPackage from '../../src/shared/config/windows-package.json'
 
 const FOUNDATION =
   'http://schemas.microsoft.com/appx/manifest/foundation/windows10'
 const UAP = 'http://schemas.microsoft.com/appx/manifest/uap/windows10'
 const UAP3 = `${UAP}/3`
+const UAP5 = `${UAP}/5`
 const UAP10 = `${UAP}/10`
 const DESKTOP = 'http://schemas.microsoft.com/appx/manifest/desktop/windows10'
+const DESKTOP4 = `${DESKTOP}/4`
 const COM = 'http://schemas.microsoft.com/appx/manifest/com/windows10'
 const RESCAP = `${FOUNDATION}/restrictedcapabilities`
 
@@ -71,6 +77,28 @@ function attributes(element: Element) {
 }
 
 describe('Windows Store manifest renderer', () => {
+  it.each([
+    [
+      'store',
+      storeMetadata(),
+      'bfd8b921a83a40e6f481457dc40b85b81b061557d77eddc7941030947d62abcc',
+    ],
+    [
+      'test',
+      testMetadata(),
+      '35827725efba807e2b8577141e67f732ddd4bb253135003aaaac453826bc8360',
+    ],
+  ])(
+    'keeps the ordinary %s manifest byte-identical to the pre-diagnostic contract',
+    (_profile, input, expected) => {
+      expect(
+        createHash('sha256')
+          .update(renderWindowsStoreManifest(input))
+          .digest('hex')
+      ).toBe(expected)
+    }
+  )
+
   it('preserves the exact identity and independent package version', () => {
     const input = storeMetadata()
     const document = parseXml(renderWindowsStoreManifest(input))
@@ -352,6 +380,154 @@ describe('Windows Store manifest renderer', () => {
     expect(xml).toContain('&lt;')
     expect(xml).toContain('&gt;')
   })
+})
+
+describe('test Native Messaging diagnostic manifest', () => {
+  const diagnostic = WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC
+  const input = () => testMetadata({ testDiagnostics: diagnostic.mode })
+
+  it('declares exactly the fixed hidden console helper and alias alongside the unchanged main app', () => {
+    const document = parseXml(renderWindowsStoreManifest(input()))
+    const root = document.documentElement
+    expect(root.lookupNamespaceURI('uap5')).toBe(UAP5)
+    expect(root.lookupNamespaceURI('desktop4')).toBe(DESKTOP4)
+    expect(root.getAttribute('IgnorableNamespaces')).toBe(
+      'uap uap3 uap10 desktop com rescap uap5 desktop4'
+    )
+    const applications = Array.from(
+      document.getElementsByTagNameNS(FOUNDATION, 'Application')
+    )
+    expect(applications.map((app) => app.getAttribute('Id'))).toEqual([
+      'Motrix',
+      diagnostic.applicationId,
+    ])
+    expect(applications[0].outerHTML).toBe(
+      element(
+        parseXml(renderWindowsStoreManifest(testMetadata())),
+        FOUNDATION,
+        'Application'
+      ).outerHTML
+    )
+    const helper = applications[1]
+    const executable = diagnostic.executable.replaceAll('/', '\\')
+    expect(attributes(helper)).toEqual({
+      Id: diagnostic.applicationId,
+      Executable: executable,
+      'uap10:RuntimeBehavior': 'packagedClassicApp',
+      'uap10:TrustLevel': 'mediumIL',
+      'desktop4:Subsystem': 'console',
+    })
+    expect(
+      Array.from(helper.children, (node) => [node.namespaceURI, node.localName])
+    ).toEqual([
+      [UAP, 'VisualElements'],
+      [FOUNDATION, 'Extensions'],
+    ])
+    const visuals = helper.getElementsByTagNameNS(UAP, 'VisualElements')
+    expect(visuals).toHaveLength(1)
+    expect(attributes(visuals[0])).toEqual({
+      DisplayName: 'Motrix Native Messaging PROBE',
+      Description: 'Test-only Native Messaging diagnostic',
+      AppListEntry: 'none',
+      BackgroundColor: 'transparent',
+      Square150x150Logo: 'Assets\\Square150x150Logo.png',
+      Square44x44Logo: 'Assets\\Square44x44Logo.png',
+    })
+    expect(visuals[0].children).toHaveLength(0)
+    const extensions = helper.getElementsByTagNameNS(FOUNDATION, 'Extensions')
+    expect(extensions).toHaveLength(1)
+    expect(extensions[0].children).toHaveLength(1)
+    const extension = element(document, UAP5, 'Extension')
+    expect(extension.parentElement).toBe(extensions[0])
+    expect(attributes(extension)).toEqual({
+      Category: 'windows.appExecutionAlias',
+      Executable: executable,
+      'uap10:RuntimeBehavior': 'packagedClassicApp',
+      'uap10:TrustLevel': 'mediumIL',
+    })
+    expect(extension.children).toHaveLength(1)
+    const aliases = element(document, UAP5, 'AppExecutionAlias')
+    expect(aliases.parentElement).toBe(extension)
+    expect(attributes(aliases)).toEqual({ 'desktop4:Subsystem': 'console' })
+    expect(aliases.children).toHaveLength(1)
+    const alias = element(document, UAP5, 'ExecutionAlias')
+    expect(alias.parentElement).toBe(aliases)
+    expect(attributes(alias)).toEqual({ Alias: diagnostic.alias })
+    expect(alias.children).toHaveLength(0)
+    expect(attributes(element(document, RESCAP, 'Capability'))).toEqual({
+      Name: 'runFullTrust',
+    })
+    expect(renderWindowsStoreManifest(input())).not.toMatch(
+      /EntryPoint|unvirtualizedResources|motrix-native-host\.exe/
+    )
+  })
+
+  it('keeps all four existing logical image resources and the same PRI config', () => {
+    const document = parseXml(renderWindowsStoreManifest(input()))
+    const images = new Set([element(document, FOUNDATION, 'Logo').textContent])
+    for (const node of Array.from(document.getElementsByTagName('*'))) {
+      for (const attribute of Array.from(node.attributes)) {
+        if (attribute.name.endsWith('Logo')) images.add(attribute.value)
+      }
+    }
+    expect([...images].sort()).toEqual(
+      WINDOWS_STORE_SCALE_200_ASSETS.map((asset: { logicalPath: string }) =>
+        asset.logicalPath.replaceAll('/', '\\')
+      ).sort()
+    )
+    expect(renderWindowsStorePriConfig(input())).toBe(
+      renderWindowsStorePriConfig(testMetadata())
+    )
+  })
+
+  it('changes only the package version during the A to B diagnostic upgrade', () => {
+    const a = input()
+    const b = {
+      ...a,
+      packageVersion: '1.0.2.0',
+      previousPackageVersions: [a.packageVersion],
+    }
+    expect(renderWindowsStoreManifest(b)).toBe(
+      renderWindowsStoreManifest(a).replace(
+        'Version="1.0.1.0"',
+        'Version="1.0.2.0"'
+      )
+    )
+  })
+
+  it('binds the probe source to the current fixed package name while retaining the P0 helper', async () => {
+    const source = await readFile(
+      resolve(
+        dirname(fileURLToPath(import.meta.url)),
+        '../..',
+        diagnostic.source
+      ),
+      'utf8'
+    )
+    expect(source).toContain(
+      `${WINDOWS_STORE_TEST_IDENTITY.name.replaceAll('.', String.raw`\\.`)}_`
+    )
+    expect(source).toContain(`!${diagnostic.applicationId}`)
+    expect(source).toContain('motrix-store-p0')
+  })
+
+  it.each([undefined, null, 'unknown', { mode: diagnostic.mode }])(
+    'rejects malformed test diagnostic modes before rendering: %#',
+    (testDiagnostics) => {
+      expect(() =>
+        renderWindowsStoreManifest(testMetadata({ testDiagnostics }))
+      ).toThrow(/testDiagnostics/)
+    }
+  )
+
+  it.each([undefined, diagnostic.mode])(
+    'never emits diagnostic declarations for Store metadata: %#',
+    (testDiagnostics) => {
+      expect(() =>
+        renderWindowsStoreManifest(storeMetadata({ testDiagnostics }))
+      ).toThrow(/only allowed for the test profile/)
+    }
+  )
 })
 
 describe('Windows Store PRI config renderer', () => {

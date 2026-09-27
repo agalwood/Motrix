@@ -6,6 +6,10 @@ import { pathToFileURL } from 'node:url'
 import { isDeepStrictEqual } from 'node:util'
 import { verifyWindowsStorePayload } from './verify-windows-store-payload.mjs'
 import {
+  loadPreparedWindowsStoreDiagnostic,
+  WINDOWS_STORE_DIAGNOSTIC_BUILD_REPORT,
+} from './windows-store-diagnostics.mjs'
+import {
   renderWindowsStoreManifest,
   renderWindowsStorePriConfig,
   WINDOWS_STORE_SCALE_200_ASSETS,
@@ -241,6 +245,7 @@ export async function verifyWindowsStoreLayout({
   let manifest
   let priConfig
   let assets
+  let diagnostic
   if (
     !(await check('metadata-and-static-content', async () => {
       const raw = JSON.parse(
@@ -257,6 +262,15 @@ export async function verifyWindowsStoreLayout({
       await requireBytes(baseline, 'AppxManifest.xml', manifest)
       await requireBytes(prepared, 'priconfig.xml', priConfig)
       assets = await assetInventory(prepared, baseline)
+      if (metadata.testDiagnostics !== undefined) {
+        diagnostic = await loadPreparedWindowsStoreDiagnostic({
+          preparedDirectory: prepared,
+          layoutDirectory: baseline,
+          metadata,
+        })
+        report.testDiagnostics = metadata.testDiagnostics
+        report.diagnostics = diagnostic
+      }
       report.versions = {
         productVersion: metadata.productVersion,
         packageVersion: metadata.packageVersion,
@@ -292,6 +306,7 @@ export async function verifyWindowsStoreLayout({
         priConfigSha256: digest(priConfig),
         assets,
         payload: payload.inventory.physicalFiles,
+        ...(diagnostic ? { diagnostics: diagnostic } : {}),
         copiedPayloadMatched: true,
         payloadSourceVerified: false,
         windowsSdkExecuted: false,
@@ -310,6 +325,7 @@ export async function verifyWindowsStoreLayout({
     'AppxManifest.xml',
     ...assets.map((asset) => asset.path),
     ...payload.inventory.physicalFiles.map((file) => `app/${file.path}`),
+    ...(diagnostic ? [diagnostic.executable.path] : []),
   ]
   const indexedFiles = phase === 'prepared' ? [] : ['resources.pri']
   if (
@@ -318,6 +334,7 @@ export async function verifyWindowsStoreLayout({
         preparedTree,
         [
           ...PREPARATION_FILES,
+          ...(diagnostic ? [WINDOWS_STORE_DIAGNOSTIC_BUILD_REPORT] : []),
           ...assets.map((asset) => `pri-root/${asset.path}`),
           ...staticFiles.concat(indexedFiles).map((file) => `layout/${file}`),
         ],
@@ -358,6 +375,20 @@ export async function verifyWindowsStoreLayout({
         await requireBytes(layout, 'AppxManifest.xml', manifest)
         if (!isDeepStrictEqual(await assetInventory(prepared, layout), assets))
           throw new Error('Unpacked assets differ from prepared assets')
+        if (
+          diagnostic &&
+          !isDeepStrictEqual(
+            await loadPreparedWindowsStoreDiagnostic({
+              preparedDirectory: prepared,
+              layoutDirectory: layout,
+              metadata,
+            }),
+            diagnostic
+          )
+        )
+          throw new Error(
+            'Unpacked diagnostic probe differs from the prepared probe'
+          )
       }))
     )
       return report

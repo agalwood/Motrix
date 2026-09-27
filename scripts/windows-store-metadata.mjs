@@ -7,6 +7,15 @@ export const WINDOWS_STORE_TEST_IDENTITY = Object.freeze({
   publisherDisplayName: 'Motrix Store Test',
 })
 
+// Fixed diagnostic inputs only; none of these fields are caller-configurable.
+export const WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC = Object.freeze({
+  mode: 'native-messaging-probe-v1',
+  applicationId: 'MotrixNativeHostP0',
+  alias: 'motrix-store-p0-native-host.exe',
+  executable: 'diagnostics/motrix-store-p0-probe.exe',
+  source: 'tests/fixtures/windows-store-native-messaging/stdio-probe.cs',
+})
+
 // Also reserve the earlier local packaging prototype's exact identity fields.
 // Do not reject unrelated publisher names merely because they contain "Test".
 const TEST_IDENTITIES = [
@@ -28,6 +37,7 @@ const METADATA_KEYS = [
   'identity',
   'storeProductId',
   'previousPackageVersions',
+  'testDiagnostics',
 ]
 const IDENTITY_KEYS = ['name', 'publisher', 'publisherDisplayName']
 const QUAD_VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/
@@ -160,6 +170,21 @@ export function validateWindowsStoreMetadata(value) {
   }
   if (input.architecture !== 'x64') throw new Error('architecture must be x64')
 
+  let testDiagnostics
+  if (Object.hasOwn(input, 'testDiagnostics')) {
+    if (input.profile !== 'test') {
+      throw new Error('testDiagnostics is only allowed for the test profile')
+    }
+    if (
+      input.testDiagnostics !== WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC.mode
+    ) {
+      throw new Error(
+        'testDiagnostics must be native-messaging-probe-v1 when present'
+      )
+    }
+    testDiagnostics = input.testDiagnostics
+  }
+
   const productVersion = requireText(
     input.productVersion,
     'productVersion',
@@ -254,6 +279,7 @@ export function validateWindowsStoreMetadata(value) {
       identity,
       ...(storeProductId === undefined ? {} : { storeProductId }),
       previousPackageVersions: Object.freeze(previousPackageVersions),
+      ...(testDiagnostics === undefined ? {} : { testDiagnostics }),
     }),
     validation: Object.freeze({
       scope: 'syntax-and-supplied-history-only',
