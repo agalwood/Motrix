@@ -652,6 +652,7 @@ export function createExtensionColdLaunchController(
   const pause = dependencies.delay ?? delay
   const report = {
     noLaunchBeforeVerified: false,
+    noLaunchAfterCancelVerified: false,
     processIdentityVerified: false,
     mainBridgeEndpointVerified: false,
     noLaunchAfterVerified: false,
@@ -686,6 +687,14 @@ export function createExtensionColdLaunchController(
       await pause(1000)
       await noEndpoint()
       report.noLaunchBeforeVerified = true
+    },
+    async verifyCancelled() {
+      if (!report.noLaunchBeforeVerified || rootState)
+        fail('cold-launch-not-prepared')
+      await noEndpoint()
+      await pause(1000)
+      await noEndpoint()
+      report.noLaunchAfterCancelVerified = true
     },
     async observe() {
       if (!report.noLaunchBeforeVerified) fail('cold-launch-not-prepared')

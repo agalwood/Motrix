@@ -288,8 +288,10 @@ The manual workflow's `protocol_browser` choice selects `edge` (default) or
 `chrome` for cold launch. Both still run pairing and browser-restart checks; the
 selected browser runs last, closes the application and checks that no Motrix
 process or endpoint remains. It clicks the extension's normal **Connect** or
-**View tasks** action and accepts the browser's normal confirmation for the test
-package. UI Automation is restricted to the owned browser process, start time,
+**View tasks** action and first cancels the browser's confirmation for the test
+package. The extension must return to a retryable disconnected state without
+showing another pairing-code prompt, and the application and endpoint must remain
+absent. The driver then retries through the same UI and accepts the confirmation. UI Automation is restricted to the owned browser process, start time,
 binary digest and fixed test application name. It does not pre-authorize protocol
 origins or remember permission. The native host only observes with
 `allowLaunch: false`; package activation must originate from the extension action.
@@ -298,8 +300,10 @@ must match before the extension reconnects using its original credential.
 
 Accept a result only when pairing, browser restart, and cleanup all pass for both
 browsers. The selected browser also requires `protocolActivationVerified`,
-confirmed browser consent, and every `protocolLaunch` ownership/no-launch/cleanup
-check. `runtime.protocolBrowser` must match the requested choice. The other
+confirmed browser consent, `protocolCancellationVerified`, and every
+`protocolLaunch` ownership/no-launch/cleanup check, including
+`noLaunchAfterCancelVerified`. Cancellation evidence must identify the owned
+browser and must never report acceptance. `runtime.protocolBrowser` must match the requested choice. The other
 browser's protocol flag remains false. Run each choice and retain both reports
 before claiming protocol activation for both browsers.
 Failure-stage codes and bounded UI control counts support diagnosis without
@@ -308,8 +312,8 @@ are deleted, and CI retains only its existing JSON/XML/log evidence allowlist.
 
 These checks exercise production code loaded unpacked, not a browser-store
 installation. They do not establish Firefox production pairing, protocol
-activation in the unselected browser, permission cancellation, missing-handler
-behavior, download takeover,
+activation or cancellation in the unselected browser, missing-handler behavior,
+download takeover,
 service-worker restart in isolation, or connection continuity across application
 upgrades/uninstallation. Record these separately, together with Windows 11
 standard-user acceptance, WACK and the actual Microsoft-signed Store flight.

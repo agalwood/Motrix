@@ -273,7 +273,7 @@ try {
     $env:MOTRIX_STORE_EXTENSION_DIRECTORY = 'synthetic-contract-only'
     $env:MOTRIX_STORE_EXTENSION_COMMIT = 'd' * 40
     Test-ContractCase 'extension-rejects-missing-runtime-evidence' 'main' $true
-    foreach ($case in @('valid', 'wrong-source', 'missing-pair', 'missing-reconnect', 'missing-cleanup', 'string-boolean', 'windows11-overclaim', 'missing-edge', 'wrong-brand', 'wrong-scope', 'different-build', 'extra-browser', 'chrome-missing-pair', 'chrome-missing-cleanup', 'missing-protocol', 'chrome-protocol-overclaim', 'protocol-no-before', 'protocol-no-identity', 'protocol-no-endpoint', 'protocol-no-after', 'protocol-no-cleanup', 'protocol-string-boolean', 'valid-chrome', 'wrong-protocol-browser', 'consent-missing', 'consent-foreign', 'consent-string', 'invalid-browser-config')) {
+    foreach ($case in @('valid', 'wrong-source', 'missing-pair', 'missing-reconnect', 'missing-cleanup', 'string-boolean', 'windows11-overclaim', 'missing-edge', 'wrong-brand', 'wrong-scope', 'different-build', 'extra-browser', 'chrome-missing-pair', 'chrome-missing-cleanup', 'missing-protocol', 'chrome-protocol-overclaim', 'protocol-no-before', 'protocol-no-identity', 'protocol-no-endpoint', 'protocol-no-after', 'protocol-no-cleanup', 'protocol-string-boolean', 'valid-chrome', 'wrong-protocol-browser', 'consent-missing', 'consent-foreign', 'consent-string', 'invalid-browser-config', 'cancel-not-verified', 'cancel-not-clicked', 'cancel-accepted', 'cancel-foreign', 'cancel-string', 'cancel-launched', 'accept-cancelled', 'other-cancel-overclaim')) {
       Test-ContractCase "extension-$case" 'main' ($case -cnotin @('valid', 'valid-chrome')) {
         param($f)
         $env:MOTRIX_STORE_PROTOCOL_BROWSER = 'edge'
@@ -286,14 +286,16 @@ try {
             browser = [pscustomobject]@{ product = $product }
             build = [pscustomobject]@{ sha256 = ('e' * 64) }; extensionId = ('a' * 32)
             ok = $true; firstPairVerified = $true; browserRestartReconnectVerified = $true; cleanupVerified = $true
-            protocolActivationVerified = $false; firefoxVerified = $false; windows11AcceptanceVerified = $false
+            protocolCancellationVerified = $false; protocolActivationVerified = $false; firefoxVerified = $false; windows11AcceptanceVerified = $false
           }
           $records | Add-Member $brand $proof
         }
         $records.edge.protocolActivationVerified = $true
-        $records.edge | Add-Member protocolConfirmation ([pscustomobject]@{ confirmed = $true; processIdentityVerified = $true })
+        $records.edge.protocolCancellationVerified = $true
+        $records.edge | Add-Member protocolCancellation ([pscustomobject]@{ confirmed = $false; cancelled = $true; processIdentityVerified = $true })
+        $records.edge | Add-Member protocolConfirmation ([pscustomobject]@{ confirmed = $true; cancelled = $false; processIdentityVerified = $true })
         $records.edge | Add-Member protocolLaunch ([pscustomobject]@{
-          noLaunchBeforeVerified = $true; processIdentityVerified = $true; mainBridgeEndpointVerified = $true
+          noLaunchBeforeVerified = $true; noLaunchAfterCancelVerified = $true; processIdentityVerified = $true; mainBridgeEndpointVerified = $true
           noLaunchAfterVerified = $true; cleanupVerified = $true
         })
         $proof = $records.edge
@@ -302,12 +304,24 @@ try {
             $env:MOTRIX_STORE_PROTOCOL_BROWSER = 'chrome'
             $f.Main.runtime.protocolBrowser = 'chrome'
             $records.chrome.protocolActivationVerified = $true
+            $records.chrome.protocolCancellationVerified = $true
+            $records.edge.protocolCancellationVerified = $false
+            $records.chrome | Add-Member protocolCancellation $proof.protocolCancellation
+            $records.edge.PSObject.Properties.Remove('protocolCancellation')
             $records.edge.protocolActivationVerified = $false
             $records.chrome | Add-Member protocolLaunch $proof.protocolLaunch
             $records.chrome | Add-Member protocolConfirmation $proof.protocolConfirmation
             $records.edge.PSObject.Properties.Remove('protocolLaunch')
             $records.edge.PSObject.Properties.Remove('protocolConfirmation')
           }
+          'cancel-not-verified' { $proof.protocolCancellationVerified = $false }
+          'cancel-not-clicked' { $proof.protocolCancellation.cancelled = $false }
+          'cancel-accepted' { $proof.protocolCancellation.confirmed = $true }
+          'cancel-foreign' { $proof.protocolCancellation.processIdentityVerified = $false }
+          'cancel-string' { $proof.protocolCancellation.cancelled = 'true' }
+          'cancel-launched' { $proof.protocolLaunch.noLaunchAfterCancelVerified = $false }
+          'accept-cancelled' { $proof.protocolConfirmation.cancelled = $true }
+          'other-cancel-overclaim' { $records.chrome.protocolCancellationVerified = $true }
           'wrong-protocol-browser' { $f.Main.runtime.protocolBrowser = 'chrome' }
           'consent-missing' { $proof.protocolConfirmation.confirmed = $false }
           'consent-foreign' { $proof.protocolConfirmation.processIdentityVerified = $false }

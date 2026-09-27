@@ -67,6 +67,8 @@ export function extensionFailure(stage) {
     'browser-restart',
     'authenticated-reconnect',
     'application-close',
+    'protocol-cancellation',
+    'protocol-cancelled-state',
     'protocol-confirmation',
     'protocol-identity',
     'protocol-reconnect',
@@ -161,6 +163,8 @@ async function protocolConfirmation(mode, browserName, pid, hash, startTicks) {
   }
   if (
     typeof value.confirmed !== 'boolean' ||
+    typeof value.cancelled !== 'boolean' ||
+    (value.confirmed && value.cancelled) ||
     value.processIdentityVerified !== true ||
     ['ownedWindows', 'openButtons', 'eligibleDialogs'].some(
       (key) =>
@@ -170,6 +174,7 @@ async function protocolConfirmation(mode, browserName, pid, hash, startTicks) {
     fail('protocol-confirmation-failed')
   return {
     confirmed: value.confirmed,
+    cancelled: value.cancelled,
     processIdentityVerified: true,
     ownedWindows: value.ownedWindows,
     openButtons: value.openButtons,
@@ -215,6 +220,7 @@ export async function runStoreExtensionRuntime({
     browserRestartReconnectVerified: false,
     cleanupVerified: false,
     protocolActivationVerified: false,
+    protocolCancellationVerified: false,
     firefoxVerified: false,
     windows11AcceptanceVerified: false,
     ...(coldLaunch ? { protocolLaunch: coldLaunch.report } : {}),
@@ -365,9 +371,36 @@ export async function runStoreExtensionRuntime({
         ownedPid,
         inventory.executableSha256
       )
-      stage = 'protocol-confirmation'
+      stage = 'protocol-cancellation'
       await page.bringToFront()
-      await page.getByRole('button', { name: /^(Connect|View tasks)$/ }).click()
+      const reconnect = page.getByRole('button', {
+        name: /^(Connect|View tasks)$/,
+      })
+      await reconnect.click()
+      report.protocolCancellation = await protocolConfirmation(
+        'cancel',
+        browserName,
+        ownedPid,
+        inventory.executableSha256,
+        browserStart
+      )
+      if (
+        !report.protocolCancellation.cancelled ||
+        report.protocolCancellation.confirmed
+      )
+        fail('protocol-cancellation-failed')
+      stage = 'protocol-cancelled-state'
+      await page.bringToFront()
+      // Let the product finish its bounded discovery attempt. A trial click
+      // verifies normal retry is reachable without launching the application.
+      await reconnect.click({ trial: true, timeout: 30000 })
+      const cancelled = await state(page)
+      if (!cancelled.store || cancelled.connected || cancelled.prompt)
+        fail('protocol-cancelled-state-failed')
+      await coldLaunch.verifyCancelled()
+      report.protocolCancellationVerified = true
+      stage = 'protocol-confirmation'
+      await reconnect.click()
       report.protocolConfirmation = await protocolConfirmation(
         'confirm',
         browserName,
@@ -375,7 +408,10 @@ export async function runStoreExtensionRuntime({
         inventory.executableSha256,
         browserStart
       )
-      if (!report.protocolConfirmation.confirmed)
+      if (
+        !report.protocolConfirmation.confirmed ||
+        report.protocolConfirmation.cancelled
+      )
         fail('protocol-confirmation-failed')
       stage = 'protocol-identity'
       await coldLaunch.observe()

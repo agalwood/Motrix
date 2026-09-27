@@ -97,6 +97,7 @@ describe('production extension cold launch ownership', () => {
     await f.controller.stop()
     expect(f.close).toHaveBeenCalledOnce()
     expect(f.controller.report.noLaunchBeforeVerified).toBe(true)
+    await f.controller.verifyCancelled()
     f.launch()
     await f.controller.observe()
     await f.controller.cleanup()
@@ -114,10 +115,32 @@ describe('production extension cold launch ownership', () => {
     await expect(f.controller.observe()).rejects.toThrow(
       'cold-launch-not-prepared'
     )
+    await expect(f.controller.verifyCancelled()).rejects.toThrow(
+      'cold-launch-not-prepared'
+    )
     await f.controller.cleanup()
     expect(f.nativeRequest).not.toHaveBeenCalled()
     expect(f.kill).not.toHaveBeenCalled()
     expect(f.controller.report.noLaunchBeforeVerified).toBe(false)
+  })
+  it('rejects cancellation if the application nevertheless starts', async () => {
+    const f = fixture()
+    await f.controller.stop()
+    f.launch()
+    await expect(f.controller.verifyCancelled()).rejects.toThrow(
+      'unexpected-running-endpoint'
+    )
+    expect(f.controller.report.noLaunchAfterCancelVerified).toBe(false)
+  })
+  it('does not certify cancellation after observing an accepted launch', async () => {
+    const f = fixture()
+    await f.controller.stop()
+    f.launch()
+    await f.controller.observe()
+    await expect(f.controller.verifyCancelled()).rejects.toThrow(
+      'cold-launch-not-prepared'
+    )
+    expect(f.controller.report.noLaunchAfterCancelVerified).toBe(false)
   })
   it('rejects a pre-existing process and never force-stops it', async () => {
     const f = fixture()

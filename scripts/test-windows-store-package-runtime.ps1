@@ -303,10 +303,16 @@ function Assert-MainRuntimeReport([object]$Main, [string]$SourceCommit, [string]
     $otherBrowser = if ($protocolBrowser -ceq 'chrome') { 'edge' } else { 'chrome' }
     $protocol = $records.$protocolBrowser
     Assert-False $records.$otherBrowser.protocolActivationVerified 'Unselected browser protocol activation is not tested in this run.'
+    Assert-False $records.$otherBrowser.protocolCancellationVerified 'Unselected browser protocol cancellation is not tested in this run.'
     Assert-True $protocol.protocolActivationVerified 'Requested browser protocol activation was not verified.'
+    Assert-True $protocol.protocolCancellationVerified 'Requested browser protocol cancellation was not verified.'
+    Assert-True $protocol.protocolCancellation.cancelled 'Browser protocol cancellation did not complete.'
+    Assert-False $protocol.protocolCancellation.confirmed 'Cancellation must not accept the protocol.'
+    Assert-True $protocol.protocolCancellation.processIdentityVerified 'Protocol cancellation was not scoped to the owned browser.'
     Assert-True $protocol.protocolConfirmation.confirmed 'Browser protocol consent was not verified.'
+    Assert-False $protocol.protocolConfirmation.cancelled 'Protocol acceptance must not use cancellation evidence.'
     Assert-True $protocol.protocolConfirmation.processIdentityVerified 'Protocol confirmation was not scoped to the owned browser.'
-    foreach ($name in @('noLaunchBeforeVerified', 'processIdentityVerified', 'mainBridgeEndpointVerified', 'noLaunchAfterVerified', 'cleanupVerified')) {
+    foreach ($name in @('noLaunchBeforeVerified', 'noLaunchAfterCancelVerified', 'processIdentityVerified', 'mainBridgeEndpointVerified', 'noLaunchAfterVerified', 'cleanupVerified')) {
       Assert-True $protocol.protocolLaunch.$name 'Browser protocol launch ownership or cleanup is incomplete.'
     }
     if ($records.chrome.build.sha256 -cne $records.edge.build.sha256) { throw 'Browsers did not use the same production extension build.' }

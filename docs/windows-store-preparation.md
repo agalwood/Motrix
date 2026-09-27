@@ -443,7 +443,8 @@ coexistence with a direct installation.
 Manual hosted runs separately exercise the pinned production extension build in
 Chrome and Edge, including UI pairing and browser restart. The `protocol_browser`
 choice selects which browser must additionally complete explicit protocol
-confirmation and authenticated cold reconnect in that run.
+cancellation without application launch, a normal retry, confirmation and
+authenticated cold reconnect in that run.
 See [production extension runtime checks](windows-store-runtime-testing.md#check-the-production-extension-build-with-the-installed-application)
 for report requirements and remaining acceptance gates. These per-browser results
 must not be inferred from the synthetic client or OS-only URI check above.

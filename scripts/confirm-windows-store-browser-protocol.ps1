@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 param(
-  [Parameter(Mandatory)][ValidateSet('identity', 'confirm')][string]$Mode,
+  [Parameter(Mandatory)][ValidateSet('identity', 'confirm', 'cancel')][string]$Mode,
   [Parameter(Mandatory)][ValidateRange(1, 2147483647)][int]$TargetPid,
   [Parameter(Mandatory)][ValidateSet('chrome', 'edge')][string]$Browser,
   [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{64}$')][string]$ExecutableHash,
@@ -36,7 +36,7 @@ try {
   $ownedCondition = [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty, $TargetPid)
   $buttonCondition = [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty, [Windows.Automation.ControlType]::Button)
   $deadline = [DateTime]::UtcNow.AddSeconds(15)
-  $report = [ordered]@{ confirmed = $false; processIdentityVerified = $true; ownedWindows = 0; openButtons = 0; eligibleDialogs = 0 }
+  $report = [ordered]@{ confirmed = $false; cancelled = $false; processIdentityVerified = $true; ownedWindows = 0; openButtons = 0; eligibleDialogs = 0 }
   while ([DateTime]::UtcNow -lt $deadline) {
     $null = Assert-OwnedBrowser
     # Enumerate desktop children only, then inspect this owned browser's UI.
@@ -64,7 +64,10 @@ try {
           if ($parent.Current.Name -cnotin @('Open Motrix Store TEST ONLY?', 'This site is trying to open Motrix Store TEST ONLY.')) { continue }
           $report.eligibleDialogs++
           $cancel = $parent.FindAll([Windows.Automation.TreeScope]::Descendants, [Windows.Automation.AndCondition]::new($buttonCondition, [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty, 'Cancel')))
-          if ($cancel.Count -eq 1 -and $cancel[0].Current.ProcessId -eq $TargetPid) { $matches.Add($button) }
+          if ($cancel.Count -eq 1 -and $cancel[0].Current.ProcessId -eq $TargetPid -and
+              -not $cancel[0].Current.IsOffscreen -and $cancel[0].Current.IsEnabled) {
+            if ($Mode -ceq 'cancel') { $matches.Add($cancel[0]) } else { $matches.Add($button) }
+          }
           break
         }
       }
@@ -75,7 +78,8 @@ try {
       $pattern = $null
       if (-not $matches[0].TryGetCurrentPattern([Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) { exit 1 }
       $pattern.Invoke()
-      $report.confirmed = $true
+      $report.confirmed = $Mode -ceq 'confirm'
+      $report.cancelled = $Mode -ceq 'cancel'
       $report | ConvertTo-Json -Compress
       exit 0
     }
