@@ -107,6 +107,7 @@ public static class MotrixCiRuntimeProcess {
     public sealed class Result {
         public int ExitCode = -1;
         public int StartHResult;
+        public int StartNativeErrorCode;
         public bool TimedOut, OutputLimitExceeded, ReadFailed;
         public byte[] Stdout = new byte[0], Stderr = new byte[0];
     }
@@ -164,7 +165,12 @@ public static class MotrixCiRuntimeProcess {
             child.StartInfo.RedirectStandardInput = true;
             child.StartInfo.RedirectStandardOutput = true; child.StartInfo.RedirectStandardError = true;
             try { if (!child.Start()) throw new InvalidOperationException(); }
-            catch (Exception ex) { result.StartHResult = ex.HResult; return result; }
+            catch (Exception ex) {
+                result.StartHResult = ex.HResult;
+                var native = ex as System.ComponentModel.Win32Exception;
+                if (native != null) result.StartNativeErrorCode = native.NativeErrorCode;
+                return result;
+            }
             try {
                 child.StandardInput.Close();
                 Task stdout = output.Read(child.StandardOutput.BaseStream, 65536);
@@ -200,6 +206,7 @@ function Invoke-BoundedProgram([string]$Program, [string[]]$Arguments, [string]$
     name = $Name; exitCode = $result.ExitCode; timedOut = $result.TimedOut
     outputLimitExceeded = $result.OutputLimitExceeded; readFailed = $result.ReadFailed
     startHResult = ('0x{0:X8}' -f $result.StartHResult)
+    startNativeErrorCode = $result.StartNativeErrorCode
     stdoutBytes = $result.Stdout.Length; stderrBytes = $result.Stderr.Length
   })
   if ($result.ExitCode -ne 0 -or $result.StartHResult -ne 0 -or $result.TimedOut -or
@@ -321,8 +328,12 @@ try {
     throw 'This experiment is limited to the current Server 2025 Desktop Experience image.'
   }
   Add-BoundedProcessType
-  $node = (Get-Command node.exe -CommandType Application -ErrorAction Stop).Source
-  $git = (Get-Command git.exe -CommandType Application -ErrorAction Stop).Source
+  # PATH can contain several copies. Select one command before accessing Source;
+  # coercing the whole Source array to a string produces an invalid executable.
+  $node = (Get-Command node.exe -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+  $git = (Get-Command git.exe -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+  $null = Assert-RegularPath (Get-AbsolutePath $node)
+  $null = Assert-RegularPath (Get-AbsolutePath $git)
   $head = Invoke-BoundedProgram $git @('-C', $repository, 'rev-parse', 'HEAD') 'git-head'
   if ($head.Trim() -cne $env:GITHUB_SHA) { throw 'Checkout HEAD differs from GITHUB_SHA.' }
   Import-Module PKI -ErrorAction Stop
