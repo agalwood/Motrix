@@ -108,7 +108,7 @@ export function RegistryDetailPanel({ entry }: Props) {
                     size="sm"
                     onClick={() =>
                       services.openExternal(
-                        `${EXTERNAL_URLS.motrix.plugins}?plugin=${encodeURIComponent(entry.id)}`
+                        `${EXTERNAL_URLS.motrix.plugins}/${encodeURIComponent(entry.id)}/`
                       )
                     }
                   >
