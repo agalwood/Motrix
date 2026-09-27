@@ -25,7 +25,9 @@ import {
   createBrowserOutputDirectory,
   runBrowserNativeMessagingChecks,
   runChromiumProbeCase,
+  runFirefoxOperation,
   safeBrowserProbeObservation,
+  stopBrowserProcess,
   validateBrowserInventory,
   validateBrowserProbeResult,
   validateFirefoxRelayBuild,
@@ -67,10 +69,79 @@ async function temp() {
   return root
 }
 afterEach(async () => {
+  vi.useRealTimers()
   vi.doUnmock('playwright')
   await Promise.all(
     roots.splice(0).map((root) => rm(root, { recursive: true, force: true }))
   )
+})
+
+describe('Firefox startup evidence and process cleanup', () => {
+  it('retains only the fixed operation and timeout classification', async () => {
+    const error = Object.assign(new Error(PRIVATE_PATH), {
+      name: 'TimeoutError',
+    })
+    await expect(
+      runFirefoxOperation('session-new', async () => {
+        throw error
+      })
+    ).rejects.toThrow('firefox-session-new-timeout')
+    await expect(
+      runFirefoxOperation('navigate', async () => {
+        throw new Error(PRIVATE_PATH)
+      })
+    ).rejects.toThrow('firefox-navigate-failed')
+    const execute = vi.fn()
+    await expect(runFirefoxOperation(PRIVATE_PATH, execute)).rejects.toThrow(
+      'browser-protocol-failed'
+    )
+    expect(execute).not.toHaveBeenCalled()
+  })
+
+  it('waits for stdio closure even after the owned root has exited', async () => {
+    const kill = vi.fn()
+    let release!: () => void
+    const closed = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let finished = false
+    const result = stopBrowserProcess(
+      { pid: 123, exitCode: 0, signalCode: null },
+      closed,
+      kill
+    ).then(() => {
+      finished = true
+    })
+    await Promise.resolve()
+    expect(finished).toBe(false)
+    expect(kill).not.toHaveBeenCalled()
+    release()
+    await result
+    expect(finished).toBe(true)
+  })
+
+  it('terminates only the still-running owned root before waiting for closure', async () => {
+    const kill = vi.fn().mockResolvedValue(undefined)
+    await stopBrowserProcess(
+      { pid: 123, exitCode: null, signalCode: null },
+      Promise.resolve(),
+      kill
+    )
+    expect(kill).toHaveBeenCalledExactlyOnceWith(123)
+  })
+
+  it('fails cleanup when inherited handles never close', async () => {
+    vi.useFakeTimers()
+    const result = expect(
+      stopBrowserProcess(
+        { pid: 123, exitCode: 0, signalCode: null },
+        new Promise(() => {}),
+        vi.fn()
+      )
+    ).rejects.toThrow('browser-cleanup-failed')
+    await vi.advanceTimersByTimeAsync(3000)
+    await result
+  })
 })
 function state() {
   return {

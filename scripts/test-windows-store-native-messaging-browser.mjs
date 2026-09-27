@@ -37,6 +37,14 @@ const BRANDS = Object.freeze({
   firefox: { product: 'Firefox', signer: 'Mozilla Corporation' },
 })
 const CASES = ['unregistered-before', 'registered', 'unregistered-after']
+const FIREFOX_OPERATIONS = [
+  'remote-connect',
+  'session-new',
+  'extension-install',
+  'context-create',
+  'navigate',
+  'evaluate',
+]
 const OBSERVATION_STATUSES = new Set([
   'reply',
   'disconnected',
@@ -52,6 +60,10 @@ const OBSERVATION_ERROR_KINDS = new Set([
   'other',
 ])
 const CODES = new Set([
+  ...FIREFOX_OPERATIONS.flatMap((name) => [
+    `firefox-${name}-timeout`,
+    `firefox-${name}-failed`,
+  ]),
   'invalid-arguments',
   'windows-required',
   'unsafe-path',
@@ -572,6 +584,33 @@ async function killOwnedProcess(pid) {
   }
 }
 
+// A process exit does not mean its inherited stdio handles have closed. Wait
+// for the spawn-time close promise even when the exit code is already set.
+export async function stopBrowserProcess(
+  child,
+  closed,
+  kill = killOwnedProcess
+) {
+  if (
+    Number.isInteger(child.pid) &&
+    child.exitCode === null &&
+    child.signalCode === null
+  )
+    await kill(child.pid)
+  await timed(closed, 3000, 'browser-cleanup-failed')
+}
+
+export async function runFirefoxOperation(name, execute) {
+  if (!FIREFOX_OPERATIONS.includes(name)) fail('browser-protocol-failed')
+  try {
+    return await execute()
+  } catch (error) {
+    fail(
+      `firefox-${name}-${codeOf(error) === 'browser-timeout' || error?.name === 'TimeoutError' ? 'timeout' : 'failed'}`
+    )
+  }
+}
+
 /** Keep automation failures actionable without retaining URLs, paths or logs. */
 export async function runChromiumProbeCase(page) {
   async function operation(name, execute) {
@@ -717,6 +756,7 @@ async function openFirefox({ inventory, fixture: source, profileDirectory }) {
     ],
     { shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }
   )
+  const closed = new Promise((resolve) => child.once('close', resolve))
   let failure
   let socket
   let sequence = 0
@@ -766,21 +806,7 @@ async function openFirefox({ inventory, fixture: source, profileDirectory }) {
     socket?.terminate()
     for (const waiter of pending.values()) waiter.reject()
     pending.clear()
-    if (
-      Number.isInteger(child.pid) &&
-      child.exitCode === null &&
-      child.signalCode === null
-    ) {
-      await killOwnedProcess(child.pid)
-      await timed(
-        new Promise((resolve) => {
-          if (child.exitCode !== null || child.signalCode !== null) resolve()
-          else child.once('close', resolve)
-        }),
-        3000,
-        'browser-cleanup-failed'
-      )
-    }
+    await stopBrowserProcess(child, closed)
   }
   try {
     const deadline = Date.now() + 20000
@@ -803,7 +829,7 @@ async function openFirefox({ inventory, fixture: source, profileDirectory }) {
         await new Promise((resolve) => setTimeout(resolve, 100))
       }
     }
-    if (!socket) fail('browser-timeout')
+    if (!socket) fail('firefox-remote-connect-timeout')
     socket.on('error', () => {
       failure = 'browser-protocol-failed'
     })
@@ -824,9 +850,11 @@ async function openFirefox({ inventory, fixture: source, profileDirectory }) {
         socket.terminate()
       }
     })
-    const session = await command('session.new', {
-      capabilities: { alwaysMatch: { browserName: 'firefox' } },
-    })
+    const session = await runFirefoxOperation('session-new', () =>
+      command('session.new', {
+        capabilities: { alwaysMatch: { browserName: 'firefox' } },
+      })
+    )
     const version = session.capabilities.browserVersion
     if (session.capabilities.browserName !== 'firefox')
       fail('browser-brand-mismatch')
@@ -835,31 +863,34 @@ async function openFirefox({ inventory, fixture: source, profileDirectory }) {
       inventory,
       runtimeVersion: version,
     })
-    let loaded
-    try {
-      loaded = await command('webExtension.install', {
+    const loaded = await runFirefoxOperation('extension-install', () =>
+      command('webExtension.install', {
         extensionData: { type: 'path', path: source.directory },
       })
-    } catch {
-      fail('browser-loader-unsupported')
-    }
+    )
     if (loaded.extension !== FIREFOX_ID) fail('invalid-extension-id')
-    const { context } = await command('browsingContext.create', { type: 'tab' })
-    await command('browsingContext.navigate', {
-      context,
-      url: `moz-extension://${FIREFOX_UUID}/probe.html`,
-      wait: 'complete',
-    })
+    const { context } = await runFirefoxOperation('context-create', () =>
+      command('browsingContext.create', { type: 'tab' })
+    )
+    await runFirefoxOperation('navigate', () =>
+      command('browsingContext.navigate', {
+        context,
+        url: `moz-extension://${FIREFOX_UUID}/probe.html`,
+        wait: 'complete',
+      })
+    )
     async function evaluate(expression) {
-      const response = await command(
-        'script.evaluate',
-        {
-          expression,
-          target: { context },
-          awaitPromise: true,
-          resultOwnership: 'none',
-        },
-        15000
+      const response = await runFirefoxOperation('evaluate', () =>
+        command(
+          'script.evaluate',
+          {
+            expression,
+            target: { context },
+            awaitPromise: true,
+            resultOwnership: 'none',
+          },
+          15000
+        )
       )
       if (response.type !== 'success' || response.result.type !== 'string')
         fail('browser-protocol-failed')
@@ -1279,7 +1310,14 @@ export async function runBrowserNativeMessagingChecks(
             )
               fail('browser-cleanup-failed')
             await safeDirectory(profileDirectory)
-            await rm(profileDirectory, { recursive: true, force: false })
+            // Windows may release profile locks shortly after process handles
+            // close. Bound retries to the filesystem's transient lock errors.
+            await rm(profileDirectory, {
+              recursive: true,
+              force: false,
+              maxRetries: 5,
+              retryDelay: 100,
+            })
           })
         browserReport.cleanupVerified =
           browserReport.cleanup.every((item) => item.ok) &&
