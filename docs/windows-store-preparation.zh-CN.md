@@ -7,6 +7,10 @@ Windows SDK 脚本生成未签名测试 AppX。这些工具不会签名、安装
 代表已兼容 Microsoft Store。StartupTask、包关联和通知激活已实现供测试；
 浏览器自动发现和安装生命周期仍需继续开发，Windows 包内运行验证尚未完成。
 
+SDK 检查完成后，按 [Windows 测试包运行验收](windows-store-runtime-testing.zh-CN.md)
+在可丢弃的 Windows 11 测试机执行本地测试签名、安装、升级和清理。这是手动测试
+流程，不改变未签名的 CI 工作流。
+
 ## 发布元数据
 
 将发布元数据放在源码 checkout 之外。以下是本地测试的结构示例；两个尖括号占位符

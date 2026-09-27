@@ -9,6 +9,10 @@ Microsoft Store compatibility. StartupTask, package associations, and notificati
 activation are implemented for testing. Browser discovery and installation
 lifecycle still need work. Windows package runtime verification remains required.
 
+After the SDK check, follow [Windows test package runtime validation](windows-store-runtime-testing.md)
+for local test signing, installation, upgrade, and cleanup on a disposable
+Windows 11 machine. That manual procedure does not change the unsigned CI workflow.
+
 ## Release metadata
 
 Keep release metadata outside the source checkout. Use this shape for a local
