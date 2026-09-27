@@ -33,6 +33,8 @@ export function validateMainProcess(
   { pid, installed, startTicks, requireListener = true }
 ) {
   if (
+    !Number.isInteger(pid) ||
+    pid < 1 ||
     !value ||
     value.pid !== pid ||
     value.sameSession !== true ||
@@ -350,6 +352,154 @@ async function runMainCase(installed) {
   return report
 }
 
+export function validateColdMainProcess(value, installed, startedAfter) {
+  validateMainProcess(value, {
+    pid: value?.pid,
+    installed,
+    requireListener: false,
+  })
+  if (
+    typeof startedAfter !== 'string' ||
+    !/^\d{15,20}$/.test(startedAfter) ||
+    BigInt(value.startTicks) < BigInt(startedAfter)
+  )
+    fail('cold-main-process-predates-launch')
+}
+
+async function nativeRequest(installed, allowLaunch) {
+  const body = Buffer.from(JSON.stringify({ allowLaunch }))
+  const header = Buffer.alloc(4)
+  header.writeUInt32LE(body.length)
+  const result = await runBoundedProbeProcess({
+    executable: path.win32.join(
+      installed.localApplicationData,
+      'Microsoft/WindowsApps',
+      HOST.alias
+    ),
+    input: Buffer.concat([header, body]),
+    profileEnvironment: clearedEnvironment,
+    // The product helper has a five-second limit, then endpoint polling has
+    // its existing fifteen-second limit. Leave transport/cleanup headroom.
+    timeoutMs: allowLaunch ? 25000 : 5000,
+  })
+  return {
+    reply: validateMainHostReply(result),
+    stdoutBytes: result.stdout.length,
+  }
+}
+
+async function runColdLaunchCase(installed) {
+  const report = {
+    ok: false,
+    noLaunchBeforeVerified: false,
+    coldLaunchVerified: false,
+    processIdentityVerified: false,
+    mainBridgeEndpointVerified: false,
+    noLaunchAfterVerified: false,
+    cleanupVerified: false,
+    mbp1Verified: false,
+  }
+  let stage = 'cold-preflight'
+  let startedAfter
+  let attempted = false
+  let rootState
+  async function requireAbsent() {
+    const state = await queryProcess()
+    if (
+      state.processCount !== 0 ||
+      state.packageProcessCount !== 0 ||
+      !Array.isArray(state.mainRoots) ||
+      state.mainRoots.length !== 0
+    )
+      fail('main-process-remains')
+    return state
+  }
+  async function stopCreatedMain() {
+    const state = await queryProcess()
+    if (state.processCount === 0 && state.packageProcessCount === 0) return
+    if (!Array.isArray(state.mainRoots) || state.mainRoots.length !== 1)
+      fail('ambiguous-cold-main')
+    const current = await queryProcess(state.mainRoots[0])
+    validateColdMainProcess(current, installed.package, startedAfter)
+    if (
+      rootState &&
+      (current.pid !== rootState.pid ||
+        current.startTicks !== rootState.startTicks)
+    )
+      fail('cold-main-process-changed')
+    await runBoundedProbeProcess({
+      executable: path.win32.join(
+        process.env.SystemRoot,
+        'System32/taskkill.exe'
+      ),
+      args: ['/PID', String(current.pid), '/T', '/F'],
+    })
+    await delay(500)
+    await requireAbsent()
+  }
+  try {
+    startedAfter = (await requireAbsent()).queriedAtTicks
+    stage = 'no-launch-before'
+    const before = await nativeRequest(installed, false)
+    if (before.reply !== null) fail('unexpected-running-endpoint')
+    await requireAbsent()
+    report.noLaunchBeforeVerified = true
+    report.noLaunchBeforeStdoutBytes = before.stdoutBytes
+    stage = 'native-host-cold-launch'
+    attempted = true
+    const launched = await nativeRequest(installed, true)
+    if (launched.reply === null) fail('cold-endpoint-unavailable')
+    stage = 'cold-process-identity'
+    rootState = await queryProcess(0, launched.reply.port)
+    validateColdMainProcess(rootState, installed.package, startedAfter)
+    validateMainProcess(rootState, {
+      pid: rootState.pid,
+      installed: installed.package,
+    })
+    report.processIdentityVerified = true
+    report.mainBridgeEndpointVerified = true
+    report.hostStdoutBytes = launched.stdoutBytes
+    stage = 'cold-process-close'
+    await stopCreatedMain()
+    stage = 'no-launch-after'
+    const after = await nativeRequest(installed, false)
+    if (after.reply !== null) fail('unexpected-running-endpoint')
+    await requireAbsent()
+    report.noLaunchAfterVerified = true
+    report.noLaunchAfterStdoutBytes = after.stdoutBytes
+    report.ok = true
+    report.coldLaunchVerified = true
+  } catch (error) {
+    report.failureStage = stage
+    report.failureCode = [
+      'main-process-remains',
+      'ambiguous-cold-main',
+      'cold-main-process-changed',
+      'cold-main-process-predates-launch',
+      'main-process-identity-mismatch',
+      'cold-endpoint-unavailable',
+      'unexpected-running-endpoint',
+      'unexpected-host-reply',
+      'invalid-host-frame',
+      'invalid-host-json',
+      'process-query-failed',
+      'process-timeout',
+    ].includes(error?.message)
+      ? error.message
+      : 'operation-failed'
+  } finally {
+    try {
+      if (attempted) await stopCreatedMain()
+      await requireAbsent()
+      report.cleanupVerified = true
+    } catch {
+      report.ok = false
+    }
+    report.coldLaunchVerified = report.ok && report.cleanupVerified
+  }
+  return report
+}
+
 async function main(args) {
   const options = {}
   for (let i = 0; i < args.length; i += 2) {
@@ -388,6 +538,7 @@ async function main(args) {
     scope: 'windows-installed-main-bridge-startup',
     ok: false,
     mainBridgeEndpointVerified: false,
+    coldLaunchVerified: false,
     mbp1Verified: false,
     windows11AcceptanceVerified: false,
     storeReady: false,
@@ -421,6 +572,7 @@ async function main(args) {
     for (const [name, maximum] of [
       [MAIN.executable, 512 * 1024 * 1024],
       [HOST.executable, 32 * 1024 * 1024],
+      ['app/resources/bin/motrix-windows-platform.exe', 32 * 1024 * 1024],
       ['app/resources/app.asar', 512 * 1024 * 1024],
     ])
       expected.set(name, {
@@ -432,6 +584,9 @@ async function main(args) {
     report.appArchiveSha256 = expected.get('app/resources/app.asar').digest
     report.mainExecutableSha256 = expected.get(MAIN.executable).digest
     report.nativeHostSha256 = expected.get(HOST.executable).digest
+    report.windowsPlatformSha256 = expected.get(
+      'app/resources/bin/motrix-windows-platform.exe'
+    ).digest
     async function checkContent() {
       const manifest = await readInstalledFile(
         path.win32.join(before.package.installLocation, 'AppxManifest.xml'),
@@ -454,6 +609,10 @@ async function main(args) {
     await checkContent()
     stage = 'main-runtime'
     report.runtime = await runMainCase(before)
+    if (!report.runtime.ok || !report.runtime.cleanupVerified)
+      fail('main-runtime-failed')
+    stage = 'cold-launch'
+    report.coldLaunch = await runColdLaunchCase(before)
     stage = 'installed-content-after'
     await checkContent()
     const after = validateInstalledProbeState({
@@ -470,7 +629,13 @@ async function main(args) {
       !isDeepStrictEqual(initialLayout, finalLayout)
     )
       fail('inputs-changed')
-    report.ok = report.runtime.ok && report.runtime.cleanupVerified
+    report.ok =
+      report.runtime.ok &&
+      report.runtime.cleanupVerified &&
+      report.coldLaunch.ok &&
+      report.coldLaunch.cleanupVerified
+    report.coldLaunchVerified =
+      report.ok && report.coldLaunch.coldLaunchVerified
     report.mainBridgeEndpointVerified =
       report.ok && report.runtime.mainBridgeEndpointVerified
   } catch {

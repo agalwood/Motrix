@@ -244,7 +244,7 @@ Windows 包的 Native Messaging 注册策略为 `unsupported`。安装器在解�
 列表和撤销控制。MDXP 桥运行正常不代表 Native Messaging 可用；其认证行为
 保持不变。
 
-Rust host 已加入包身份路径选择：只有 OS 明确报告无包身份时，才使用传统目录、环境变量、开发 sidecar 和 EXE 启动发现。包内 host 须拥有同一包族的 `MotrixNativeHost` Application 身份，使用系统 Roaming AppData 下的 `Motrix-Store/bridge`，拒绝自定义数据目录；包查询失败不会退回官网版。当前包内冷启动仍返回失败，等待 AUMID 激活实现。生产 alias、Electron/Rust 实际目录一致性和正式 MBP1 仍未通过安装验证，因此设置继续显示不支持自动发现。
+Rust host 已加入包身份路径选择：只有 OS 明确报告无包身份时，才使用传统目录、环境变量、开发 sidecar 和 EXE 启动发现。包内 host 须拥有同一包族的 `MotrixNativeHost` Application 身份，使用系统 Roaming AppData 下的 `Motrix-Store/bridge`，拒绝自定义数据目录；包查询失败不会退回官网版。包内冷启动通过同目录的固定 Windows platform helper，激活当前包内唯一的主应用入口。枚举与激活共用四秒时限，host 将 helper 限制为五秒，再执行已有端点就绪等待；不会回退到传统 EXE 或协议默认处理程序。生产 alias、Electron/Rust 实际目录一致性和正式 MBP1 仍未通过安装验证，因此设置继续显示不支持自动发现。
 
 这项隔离不等于已支持 Store 浏览器联动。稳定的包 host、正确的 profile 发现、
 浏览器 stdio 行为、冷启动、升级后首次启动前连接、卸载和共存仍需 Windows 11
@@ -321,8 +321,12 @@ MBP1 或生产 host 的浏览器集成。
 及监听端口归属，再遵循正常首次声明 UI。实际 Rust alias 随后必须发现一个
 监听端口属于该主进程的端点。只保留布尔值、字节计数及摘要，不保留 nonce、
 profile 文件、Electron 原始输出或图片。这验证桥接启动和端点互通，
-不证明 MBP1、完整应用验收、冷启动或两个进程的文件系统路径完全相等；
+不证明 MBP1、完整应用验收、两个进程的文件系统路径完全相等；
 进程清理是通过检查的必要条件。
+首次正常启动关闭后，CI 单独验证实际 Rust host：`allowLaunch:false` 必须保持应用关闭，
+`allowLaunch:true` 必须激活新的同包主进程，并返回由它监听的桥接端点。关闭已核验的
+进程后，再执行一次不允许启动的检查。冷启动传输预算为25秒，涵盖 helper 激活和
+已有15秒端点等待；不预写同意状态、不改变 profile。冷启动与 MBP1 分别记录结论。
 
 诊断包与普通测试包使用相同身份，不能并排安装。A→B 实验应准备两个递增包版本，
 保持身份、helper 和 alias 相同。按[测试签名与安装指南](windows-store-runtime-testing.zh-CN.md)

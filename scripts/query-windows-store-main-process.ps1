@@ -11,14 +11,18 @@ try {
   if ($PSVersionTable.PSEdition -cne 'Desktop' -or $PSVersionTable.PSVersion.Major -ne 5) { exit 1 }
   [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
   $motrix = @(Get-Process -Name Motrix -ErrorAction SilentlyContinue)
-  if ($TargetPid -eq 0) {
+  if ($TargetPid -eq 0 -and $Port -eq 0) {
     $packages = @(Get-AppxPackage -Name 'Motrix.Store.Test' -ErrorAction Stop)
     if ($packages.Count -ne 1) { exit 1 }
     $root = $packages[0].InstallLocation.TrimEnd('\') + '\'
     $packageProcesses = @(Get-Process | Where-Object {
       $null -ne $_.Path -and $_.Path.StartsWith($root, [StringComparison]::OrdinalIgnoreCase)
     })
-    [ordered]@{ processCount = $motrix.Count; packageProcessCount = $packageProcesses.Count } | ConvertTo-Json -Compress
+    $mainPath = Join-Path $packages[0].InstallLocation 'app\Motrix.exe'
+    $mainRoots = @(Get-CimInstance Win32_Process -Filter "Name='Motrix.exe'" -ErrorAction Stop | Where-Object {
+      $_.ExecutablePath -ieq $mainPath -and $null -ne $_.CommandLine -and -not $_.CommandLine.Contains('--type=')
+    } | ForEach-Object { [int]$_.ProcessId })
+    [ordered]@{ processCount = $motrix.Count; packageProcessCount = $packageProcesses.Count; mainRoots = $mainRoots; queriedAtTicks = [DateTime]::UtcNow.Ticks.ToString() } | ConvertTo-Json -Compress
     exit 0
   }
   Add-Type -TypeDefinition @'
@@ -41,13 +45,18 @@ public static class MotrixMainIdentity {
     }
 }
 '@
-  $target = Get-Process -Id $TargetPid -ErrorAction Stop
   $listeners = @()
   if ($Port -ne 0) {
     $listeners = @(Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue | ForEach-Object {
       [ordered]@{ pid = [int]$_.OwningProcess; address = $_.LocalAddress }
     })
   }
+  if ($TargetPid -eq 0) {
+    $owners = @($listeners | Select-Object -ExpandProperty pid -Unique)
+    if ($owners.Count -ne 1) { exit 1 }
+    $TargetPid = $owners[0]
+  }
+  $target = Get-Process -Id $TargetPid -ErrorAction Stop
   [ordered]@{
     pid = $target.Id
     executable = $target.Path

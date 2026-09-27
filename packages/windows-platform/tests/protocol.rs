@@ -61,6 +61,7 @@ fn non_windows_never_claims_package_identity_or_startup_state() {
         "startup_enable",
         "startup_disable",
         "associations_query",
+        "main_launch",
     ] {
         let input = format!("{{\"version\":1,\"op\":\"{op}\"}}");
         assert_eq!(

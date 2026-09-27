@@ -100,7 +100,7 @@ pub fn resolve_bridge_data_dir(
     }
 }
 
-fn has_package_profile_override() -> bool {
+pub(crate) fn has_package_profile_override() -> bool {
     ["MOTRIX_USER_DATA", "MOTRIX_BRIDGE_DATA_DIR"]
         .iter()
         .any(|name| std::env::var_os(name).is_some_and(|value| !value.is_empty()))

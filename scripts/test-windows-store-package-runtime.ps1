@@ -265,18 +265,25 @@ function Assert-NativeHostProfileReport([object]$Profile, [string]$SourceCommit,
   }
 }
 
-function Assert-MainRuntimeReport([object]$Main, [string]$SourceCommit, [string]$Version, [string]$NativeHostHash, [string]$MainHash) {
+function Assert-MainRuntimeReport([object]$Main, [string]$SourceCommit, [string]$Version, [string]$NativeHostHash, [string]$MainHash, [string]$PlatformHash) {
   if ($Main.schemaVersion -ne 1 -or $Main.scope -cne 'windows-installed-main-bridge-startup' -or
       $Main.sourceCommit -cne $SourceCommit -or $Main.packageVersion -cne $Version -or
-      $Main.nativeHostSha256 -cne $NativeHostHash -or $Main.mainExecutableSha256 -cne $MainHash) {
+      $Main.nativeHostSha256 -cne $NativeHostHash -or $Main.mainExecutableSha256 -cne $MainHash -or $Main.windowsPlatformSha256 -cne $PlatformHash) {
     throw 'Installed main runtime report does not match this package.'
   }
-  foreach ($name in @('ok', 'mainBridgeEndpointVerified')) { Assert-True $Main.$name 'Main bridge startup was not verified.' }
+  foreach ($name in @('ok', 'mainBridgeEndpointVerified', 'coldLaunchVerified')) { Assert-True $Main.$name 'Main bridge startup was not verified.' }
   foreach ($name in @('mbp1Verified', 'windows11AcceptanceVerified', 'storeReady')) { Assert-False $Main.$name 'Main report overstates its scope.' }
   foreach ($name in @('ok', 'mainApplicationLaunched', 'processIdentityVerified', 'disclaimerUiVerified', 'mainUiVerified', 'mainBridgeEndpointVerified', 'cleanupVerified')) {
     Assert-True $Main.runtime.$name 'Installed main runtime check is incomplete.'
   }
   foreach ($name in @('mbp1Verified', 'profilePathEqualityVerified')) { Assert-False $Main.runtime.$name 'Main runtime report overstates its scope.' }
+  foreach ($name in @('ok', 'noLaunchBeforeVerified', 'coldLaunchVerified', 'processIdentityVerified', 'mainBridgeEndpointVerified', 'noLaunchAfterVerified', 'cleanupVerified')) {
+    Assert-True $Main.coldLaunch.$name 'Packaged cold launch check is incomplete.'
+  }
+  Assert-False $Main.coldLaunch.mbp1Verified 'Cold launch does not establish MBP1.'
+  foreach ($name in @('hostStdoutBytes', 'noLaunchBeforeStdoutBytes', 'noLaunchAfterStdoutBytes')) {
+    if ($Main.coldLaunch.$name -isnot [int] -or $Main.coldLaunch.$name -lt 5 -or $Main.coldLaunch.$name -gt 4100) { throw 'Invalid cold launch output count.' }
+  }
   if ($Main.runtime.hostStdoutBytes -isnot [int] -or $Main.runtime.hostStdoutBytes -lt 5 -or $Main.runtime.hostStdoutBytes -gt 4100) {
     throw 'Invalid actual host output count.'
   }
@@ -638,7 +645,7 @@ $report = [ordered]@{
   upgradeBeforeMainLaunchVerified = $false; sameAliasRetargetedVerified = $false
   windows11AcceptanceVerified = $false; standardUserVerified = $false
   browserNativeMessagingVerified = $false; browserUpgradeVerified = $false; mbp1Verified = $false
-  mainBridgeEndpointVerified = $false
+  mainBridgeEndpointVerified = $false; mainColdLaunchVerified = $false
   motrixMainRuntimeVerified = $false; upgradeVerified = $false; wackVerified = $false
   productionSigned = $false; storeReady = $false; storeSubmissionReady = $false
   error = $null
@@ -824,9 +831,9 @@ try {
   $mainAttempted = $true
   $null = Invoke-BoundedProgram $node @((Join-Path $repository 'scripts\test-windows-store-main-runtime.mjs'), '--prepared', $after.Prepared, '--expected-package-version', $after.Version, '--report', $mainReportPath) 'test-installed-main-b' 360000
   $mainReport = Read-Json $mainReportPath
-  Assert-MainRuntimeReport $mainReport $env:GITHUB_SHA $after.Version (Get-Hash (Join-Path $after.Prepared 'layout\app\resources\bin\motrix-native-host.exe')) (Get-Hash (Join-Path $after.Prepared 'layout\app\Motrix.exe'))
+  Assert-MainRuntimeReport $mainReport $env:GITHUB_SHA $after.Version (Get-Hash (Join-Path $after.Prepared 'layout\app\resources\bin\motrix-native-host.exe')) (Get-Hash (Join-Path $after.Prepared 'layout\app\Motrix.exe')) (Get-Hash (Join-Path $after.Prepared 'layout\app\resources\bin\motrix-windows-platform.exe'))
   Confirm-InstalledPackage $after
-  $report.mainRuntime = [ordered]@{ packageVersion = $after.Version; reportSha256 = Get-Hash $mainReportPath; mainBridgeEndpointVerified = $true; mbp1Verified = $false }
+  $report.mainRuntime = [ordered]@{ packageVersion = $after.Version; reportSha256 = Get-Hash $mainReportPath; mainBridgeEndpointVerified = $true; coldLaunchVerified = $true; mbp1Verified = $false }
   Complete-Phase $stage
   $testCompleted = $true
 } catch {
@@ -837,6 +844,7 @@ try {
     Invoke-CleanupCheck 'installed-main-process-cleanup' {
       $mainCleanup = Read-Json $mainReportPath
       Assert-True $mainCleanup.runtime.cleanupVerified 'Installed main cleanup was not verified.'
+      if ($mainCleanup.PSObject.Properties.Name -contains 'coldLaunch') { Assert-True $mainCleanup.coldLaunch.cleanupVerified 'Cold launch cleanup was not verified.' }
       if (@(Get-Process -Name Motrix -ErrorAction SilentlyContinue).Count -ne 0) { throw 'A Motrix process remains.' }
     }
   }
@@ -920,6 +928,7 @@ try {
   $report.sameAliasRetargetedVerified = $report.ok
   $report.browserNativeMessagingVerified = $report.ok -and $browserTestCompleted
   $report.mainBridgeEndpointVerified = $report.ok -and $mainAttempted
+  $report.mainColdLaunchVerified = $report.ok -and $mainAttempted
   $report.completedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
   Write-NewText (Join-Path $OutputDirectory 'runtime-result.json') (($report | ConvertTo-Json -Depth 32) + "`n")
 }

@@ -125,8 +125,13 @@ function New-ContractFixture {
     }
     Main = [pscustomobject]@{
       schemaVersion = 1; scope = 'windows-installed-main-bridge-startup'
-      sourceCommit = $commit; packageVersion = '1.0.1.0'; nativeHostSha256 = ('e' * 64); mainExecutableSha256 = ('f' * 64)
-      ok = $true; mainBridgeEndpointVerified = $true; mbp1Verified = $false; windows11AcceptanceVerified = $false; storeReady = $false
+      sourceCommit = $commit; packageVersion = '1.0.1.0'; nativeHostSha256 = ('e' * 64); mainExecutableSha256 = ('f' * 64); windowsPlatformSha256 = ('a' * 64)
+      ok = $true; mainBridgeEndpointVerified = $true; coldLaunchVerified = $true; mbp1Verified = $false; windows11AcceptanceVerified = $false; storeReady = $false
+      coldLaunch = [pscustomobject]@{
+        ok = $true; noLaunchBeforeVerified = $true; coldLaunchVerified = $true; processIdentityVerified = $true
+        mainBridgeEndpointVerified = $true; noLaunchAfterVerified = $true; cleanupVerified = $true; mbp1Verified = $false
+        hostStdoutBytes = 94; noLaunchBeforeStdoutBytes = 34; noLaunchAfterStdoutBytes = 34
+      }
       runtime = [pscustomobject]@{
         ok = $true; mainApplicationLaunched = $true; processIdentityVerified = $true; disclaimerUiVerified = $true
         mainUiVerified = $true; mainBridgeEndpointVerified = $true; cleanupVerified = $true
@@ -169,7 +174,7 @@ function Test-ContractCase(
   $rejected = $false
   try {
     switch ($Contract) {
-      'main' { Assert-MainRuntimeReport $fixture.Main $fixture.SourceCommit $fixture.B.Version ('e' * 64) ('f' * 64) }
+      'main' { Assert-MainRuntimeReport $fixture.Main $fixture.SourceCommit $fixture.B.Version ('e' * 64) ('f' * 64) ('a' * 64) }
       'profile' { Assert-NativeHostProfileReport $fixture.Profile $fixture.SourceCommit $fixture.B.Version ('e' * 64) }
       'pair' { Assert-UpgradeInputs $fixture.A $fixture.B }
       'transition' { Assert-UpgradeRetargeting $fixture.A $fixture.B $fixture.Current }
@@ -218,6 +223,13 @@ try {
   Test-ContractCase 'main-rejects-path-equality-overclaim' 'main' $true { param($f) $f.Main.runtime.profilePathEqualityVerified = $true }
   Test-ContractCase 'main-rejects-windows11-overclaim' 'main' $true { param($f) $f.Main.windows11AcceptanceVerified = $true }
   Test-ContractCase 'main-rejects-extra-output' 'main' $true { param($f) $f.Main.runtime.hostStdoutBytes = 4101 }
+  Test-ContractCase 'main-rejects-other-platform-helper' 'main' $true { param($f) $f.Main.windowsPlatformSha256 = 'b' * 64 }
+  Test-ContractCase 'main-rejects-no-cold-launch' 'main' $true { param($f) $f.Main.coldLaunchVerified = $false }
+  Test-ContractCase 'main-rejects-no-cold-identity' 'main' $true { param($f) $f.Main.coldLaunch.processIdentityVerified = $false }
+  Test-ContractCase 'main-rejects-launch-without-intent-before' 'main' $true { param($f) $f.Main.coldLaunch.noLaunchBeforeVerified = $false }
+  Test-ContractCase 'main-rejects-launch-without-intent-after' 'main' $true { param($f) $f.Main.coldLaunch.noLaunchAfterVerified = $false }
+  Test-ContractCase 'main-rejects-cold-cleanup-failure' 'main' $true { param($f) $f.Main.coldLaunch.cleanupVerified = $false }
+  Test-ContractCase 'main-rejects-cold-mbp1-overclaim' 'main' $true { param($f) $f.Main.coldLaunch.mbp1Verified = $true }
   Test-ContractCase 'profile-accepts-complete-evidence'  'profile'
   Test-ContractCase 'profile-rejects-other-source' 'profile' $true { param($f) $f.Profile.sourceCommit = 'f' * 40 }
   Test-ContractCase 'profile-rejects-other-binary' 'profile' $true { param($f) $f.Profile.nativeHostSha256 = 'f' * 64 }

@@ -1,4 +1,7 @@
 use std::marker::PhantomData;
+use std::time::Instant;
+
+use windows::ApplicationModel::Core::AppListEntry;
 
 use windows::ApplicationModel::{Package, StartupTask};
 use windows::Win32::Foundation::{
@@ -16,6 +19,7 @@ use crate::associations::{
     Association, AssociationsBackend, MAX_AUMID_UNITS, MAX_PACKAGE_APPLICATIONS,
     PackageApplications, query_aumid,
 };
+use crate::main_launch::{LAUNCH_OPERATION_TIMEOUT, MainLaunchBackend, wait_for_operation};
 use crate::protocol::{ErrorCode, TASK_ID};
 use crate::startup_task::{StartupBackend, StartupError};
 
@@ -47,6 +51,8 @@ impl Drop for Apartment {
 pub struct WindowsBackend {
     // Rust drops fields in declaration order: release COM objects first.
     task: Option<StartupTask>,
+    launch_entry: Option<AppListEntry>,
+    launch_deadline: Option<Instant>,
     apartment: Option<Apartment>,
 }
 
@@ -94,6 +100,93 @@ fn association_flags(association: Association) -> ASSOCF {
         flags | ASSOCF_IS_PROTOCOL
     } else {
         flags
+    }
+}
+
+impl MainLaunchBackend for WindowsBackend {
+    fn require_package_identity(&mut self) -> Result<(), StartupError> {
+        StartupBackend::require_package_identity(self)
+    }
+
+    fn applications_for_launch(&mut self) -> Result<PackageApplications, StartupError> {
+        let deadline = Instant::now() + LAUNCH_OPERATION_TIMEOUT;
+        self.launch_deadline = Some(deadline);
+        self.launch_entry = None;
+        self.ensure_apartment()?;
+        let package = Package::Current().map_err(winrt_error)?;
+        let family = package
+            .Id()
+            .and_then(|id| id.FamilyName())
+            .map_err(winrt_error)?;
+        let family_name = bounded_identifier(&family)?;
+        let operation = package.GetAppListEntriesAsync().map_err(winrt_error)?;
+        let entries = wait_for_operation(
+            deadline,
+            || {
+                // AsyncStatus.Started is 0. GetResults propagates error/cancellation
+                // for every terminal state instead of treating it as completion.
+                if operation.Status().map_err(winrt_error)?.0 == 0 {
+                    return Ok(None);
+                }
+                operation.GetResults().map(Some).map_err(winrt_error)
+            },
+            || {
+                let _ = operation.Cancel();
+            },
+        )?;
+        let count = entries.Size().map_err(winrt_error)?;
+        if count as usize > MAX_PACKAGE_APPLICATIONS {
+            return Err(StartupError::new(ErrorCode::MainAppUnavailable));
+        }
+        let candidate = format!("{family_name}!{}", crate::associations::MAIN_APP_ID);
+        let mut app_user_model_ids = Vec::with_capacity(count as usize);
+        for index in 0..count {
+            if Instant::now() >= deadline {
+                return Err(StartupError::new(ErrorCode::OperationTimedOut));
+            }
+            let entry = entries.GetAt(index).map_err(winrt_error)?;
+            let aumid = bounded_identifier(&entry.AppUserModelId().map_err(winrt_error)?)?;
+            if aumid == candidate {
+                self.launch_entry = Some(entry);
+            }
+            app_user_model_ids.push(aumid);
+        }
+        Ok(PackageApplications {
+            family_name,
+            app_user_model_ids,
+        })
+    }
+
+    fn launch_main(&mut self, aumid: &str) -> Result<bool, StartupError> {
+        let deadline = self
+            .launch_deadline
+            .ok_or(StartupError::new(ErrorCode::MainAppUnavailable))?;
+        if Instant::now() >= deadline {
+            return Err(StartupError::new(ErrorCode::OperationTimedOut));
+        }
+        let entry = self
+            .launch_entry
+            .as_ref()
+            .ok_or(StartupError::new(ErrorCode::MainAppUnavailable))?;
+        if bounded_identifier(&entry.AppUserModelId().map_err(winrt_error)?)? != aumid {
+            return Err(StartupError::new(ErrorCode::MainAppUnavailable));
+        }
+        // Activate the OS-enumerated main entry, with no arguments and no
+        // executable/protocol search. This does not assert bridge readiness.
+        // https://learn.microsoft.com/uwp/api/windows.applicationmodel.core.applistentry.launchasync
+        let operation = entry.LaunchAsync().map_err(winrt_error)?;
+        wait_for_operation(
+            deadline,
+            || {
+                if operation.Status().map_err(winrt_error)?.0 == 0 {
+                    return Ok(None);
+                }
+                operation.GetResults().map(Some).map_err(winrt_error)
+            },
+            || {
+                let _ = operation.Cancel();
+            },
+        )
     }
 }
 

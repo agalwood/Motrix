@@ -15,6 +15,7 @@ pub enum Operation {
     StartupEnable,
     StartupDisable,
     AssociationsQuery,
+    MainLaunch,
 }
 
 #[derive(Debug, Deserialize)]
@@ -33,11 +34,14 @@ pub enum ErrorCode {
     WinrtFailed,
     UnknownState,
     MainAppUnavailable,
+    LaunchRejected,
+    OperationTimedOut,
 }
 
 pub enum OperationResult {
     Startup(StartupState),
     Associations(AssociationStatus),
+    MainLaunch,
 }
 
 #[derive(Debug, Serialize)]
@@ -62,6 +66,13 @@ pub enum Response {
         torrent: Option<bool>,
         magnet: Option<bool>,
     },
+    MainLaunch {
+        version: u8,
+        ok: bool,
+        #[serde(rename = "packageIdentityPresent")]
+        package_identity_present: bool,
+        launched: bool,
+    },
     Error {
         version: u8,
         ok: bool,
@@ -74,6 +85,12 @@ pub enum Response {
 impl Response {
     pub fn from_operation_result(result: Result<OperationResult, StartupError>) -> Self {
         match result {
+            Ok(OperationResult::MainLaunch) => Self::MainLaunch {
+                version: 1,
+                ok: true,
+                package_identity_present: true,
+                launched: true,
+            },
             Ok(OperationResult::Associations(status)) => Self::Associations {
                 version: 1,
                 ok: true,
@@ -153,12 +170,13 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn accepts_only_the_four_operations_and_version_one() {
+    fn accepts_only_the_five_operations_and_version_one() {
         for (name, op) in [
             ("startup_query", Operation::StartupQuery),
             ("startup_enable", Operation::StartupEnable),
             ("startup_disable", Operation::StartupDisable),
             ("associations_query", Operation::AssociationsQuery),
+            ("main_launch", Operation::MainLaunch),
         ] {
             let input = format!("{{\"version\":1,\"op\":\"{name}\"}}\n");
             assert_eq!(read_request(input.as_bytes()).unwrap(), op);
@@ -170,6 +188,8 @@ mod tests {
         for input in [
             "",
             "null",
+            r#"{"version":1,"op":"main_launch","aumid":"Other!App"}"#,
+            r#"{"version":1,"op":"main_launch","arguments":"--evil"}"#,
             "[]",
             "{}",
             r#"{"version":0,"op":"startup_query"}"#,
@@ -276,6 +296,28 @@ mod tests {
         );
         assert!(output.len() < 1024);
         assert!(write_response(&mut [0u8; 1][..], &response).is_err());
+    }
+
+    #[test]
+    fn main_launch_has_a_distinct_exact_success_shape() {
+        let response = handle_request(
+            &br#"{"version":1,"op":"main_launch"}"#[..],
+            false,
+            |operation| {
+                assert_eq!(operation, Operation::MainLaunch);
+                Ok(OperationResult::MainLaunch)
+            },
+        );
+        assert_eq!(
+            serde_json::to_value(response).unwrap(),
+            json!({"version":1,"ok":true,"packageIdentityPresent":true,"launched":true})
+        );
+        for code in [ErrorCode::LaunchRejected, ErrorCode::OperationTimedOut] {
+            assert!(matches!(
+                Response::from_operation_result(Err(StartupError::new(code))),
+                Response::Error { .. }
+            ));
+        }
     }
 
     #[test]

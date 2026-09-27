@@ -293,6 +293,16 @@ describe('single framed diagnostic alias reply', () => {
 })
 
 describe('bounded local child process transport (not a Windows alias)', () => {
+  it('allows explicit cold-launch headroom but rejects unbounded budgets', async () => {
+    const result = await runBoundedProbeProcess(
+      node('process.exitCode=0', { timeoutMs: 25000 })
+    )
+    expect(result.exitCode).toBe(0)
+    await expect(
+      runBoundedProbeProcess(node('process.exitCode=0', { timeoutMs: 30001 }))
+    ).rejects.toThrow()
+  })
+
   it('writes binary stdin and collects exact stdout at the configured boundary', async () => {
     const input = frame({ probe: 'motrix-store-p0' })
     const result = await runBoundedProbeProcess(

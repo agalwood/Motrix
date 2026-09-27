@@ -325,7 +325,7 @@ describe('Windows Store SDK test workflow', () => {
         step.name === 'Reject platform operations without package identity'
     )?.run
     expect(negativeCheck).toContain(
-      "@('startup_query', 'startup_enable', 'startup_disable', 'associations_query')"
+      "@('startup_query', 'startup_enable', 'startup_disable', 'associations_query', 'main_launch')"
     )
     expect(negativeCheck).toContain("$reply.code -ne 'no_package_identity'")
   })

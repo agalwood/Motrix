@@ -303,7 +303,7 @@ export function runBoundedProbeProcess({
     input.length > 1024 ||
     !Number.isInteger(timeoutMs) ||
     timeoutMs < 1 ||
-    timeoutMs > 15000 ||
+    timeoutMs > 30000 ||
     !Number.isInteger(maxStdoutBytes) ||
     maxStdoutBytes < 1 ||
     maxStdoutBytes > 32768 ||

@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   isMainRendererUrl,
+  validateColdMainProcess,
   validateMainHostReply,
   validateMainProcess,
 } from '../../scripts/test-windows-store-main-runtime.mjs'
@@ -151,5 +152,35 @@ describe('renderer ownership before UI interaction', () => {
     expect(
       isMainRendererUrl(url, installed.installLocation, 'onboarding')
     ).toBe(false)
+  })
+})
+
+describe('cold activation process ownership', () => {
+  it('requires a process created after this test requested activation', () => {
+    expect(() =>
+      validateColdMainProcess(processState(), installed, startTicks)
+    ).not.toThrow()
+    expect(() =>
+      validateColdMainProcess(processState(), installed, '638000000000000001')
+    ).toThrow()
+    expect(() =>
+      validateColdMainProcess(processState(), installed, 'invalid')
+    ).toThrow()
+  })
+  it('rejects a foreign application even if its creation time is new', () => {
+    expect(() =>
+      validateColdMainProcess(
+        { ...processState(), applicationUserModelId: 'Other!Motrix' },
+        installed,
+        startTicks
+      )
+    ).toThrow()
+    expect(() =>
+      validateColdMainProcess(
+        { ...processState(), pid: undefined },
+        installed,
+        startTicks
+      )
+    ).toThrow()
   })
 })

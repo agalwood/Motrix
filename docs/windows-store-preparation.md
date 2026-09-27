@@ -293,7 +293,7 @@ retaining the switch, paired-client list, and revocation controls. A running MDX
 bridge does not prove Native Messaging is available; its authentication is
 unchanged.
 
-The Rust host now selects its profile from OS package identity. Only confirmed absence of package identity permits traditional profiles, environment overrides, development sidecars, or EXE launch discovery. A packaged host requires the same family’s `MotrixNativeHost` application identity and uses system Roaming AppData with `Motrix-Store/bridge`; custom data-directory overrides are rejected. Package query failures never fall back to the direct installation. Packaged cold launch currently fails pending AUMID activation. The production alias, actual Electron/Rust profile parity, and production MBP1 still require installed-package validation, so settings continue to report unsupported automatic discovery.
+The Rust host now selects its profile from OS package identity. Only confirmed absence of package identity permits traditional profiles, environment overrides, development sidecars, or EXE launch discovery. A packaged host requires the same family’s `MotrixNativeHost` application identity and uses system Roaming AppData with `Motrix-Store/bridge`; custom data-directory overrides are rejected. Package query failures never fall back to the direct installation. Packaged cold launch invokes the fixed sibling Windows platform helper, which activates only the unique main app entry in the current package. Enumeration and activation share a four-second deadline; the host bounds its helper to five seconds and then uses the existing endpoint-readiness polling. There is no traditional EXE or default-protocol fallback. The production alias, actual Electron/Rust profile parity, and production MBP1 still require installed-package validation, so settings continue to report unsupported automatic discovery.
 
 This isolation does not implement Store browser support. A stable package host,
 correct profile discovery, browser stdio behavior, cold launch, upgrade before
@@ -382,8 +382,15 @@ ownership, and follows the normal first-run disclaimer UI. The actual Rust alias
 must then discover an endpoint whose listener belongs to that main process.
 Only booleans, byte counts and digests are retained; nonces, profile files, raw
 Electron output and images are never retained. This checks bridge startup and
-endpoint interoperability, not MBP1, full application acceptance, cold launch
+endpoint interoperability, not MBP1, full application acceptance
 or equality of the two processes' filesystem paths. Process cleanup is required.
+After that first normal launch has been closed, CI separately requires the actual
+Rust host to leave the application closed for `allowLaunch:false`, activate it for
+`allowLaunch:true`, and return an endpoint owned by a newly created same-package
+main process. It closes that verified process and repeats the no-launch check.
+The cold-launch transport has a 25-second budget for helper activation and the
+existing 15-second endpoint wait. It does not seed consent or change profiles.
+Cold-launch and MBP1 results are recorded separately.
 
 This diagnostic package uses the same identity as the ordinary test package;
 they do not install side by side. For A-to-B testing, prepare two increasing

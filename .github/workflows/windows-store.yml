@@ -228,7 +228,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $binary = Join-Path $env:MOTRIX_STORE_BUILD 'payload/win-unpacked/resources/bin/motrix-windows-platform.exe'
-          foreach ($operation in @('startup_query', 'startup_enable', 'startup_disable', 'associations_query')) {
+          foreach ($operation in @('startup_query', 'startup_enable', 'startup_disable', 'associations_query', 'main_launch')) {
             $request = @{ version = 1; op = $operation } | ConvertTo-Json -Compress
             $replyText = $request | & $binary
             if ($LASTEXITCODE -ne 0) { throw "Unpackaged helper failed to execute: $operation" }

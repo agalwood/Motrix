@@ -60,7 +60,10 @@ pub fn execute(
     backend: &mut impl StartupBackend,
     operation: Operation,
 ) -> Result<StartupState, StartupError> {
-    if operation == Operation::AssociationsQuery {
+    if !matches!(
+        operation,
+        Operation::StartupQuery | Operation::StartupEnable | Operation::StartupDisable
+    ) {
         return Err(StartupError::new(ErrorCode::InvalidRequest));
     }
     backend.require_package_identity()?;
@@ -140,15 +143,15 @@ mod tests {
     }
 
     #[test]
-    fn association_requests_cannot_be_misrouted_to_startup() {
-        let mut backend = FakeBackend::new(0);
-        assert_eq!(
-            execute(&mut backend, Operation::AssociationsQuery)
-                .unwrap_err()
-                .code,
-            ErrorCode::InvalidRequest
-        );
-        assert!(backend.calls.is_empty());
+    fn non_startup_requests_cannot_be_misrouted_to_startup() {
+        for operation in [Operation::AssociationsQuery, Operation::MainLaunch] {
+            let mut backend = FakeBackend::new(0);
+            assert_eq!(
+                execute(&mut backend, operation).unwrap_err().code,
+                ErrorCode::InvalidRequest
+            );
+            assert!(backend.calls.is_empty());
+        }
     }
 
     #[test]
