@@ -74,6 +74,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
           toolchain: 1.94.1
+          components: rustfmt, clippy
           targets: x86_64-pc-windows-msvc
 
       - name: Install locked dependencies

@@ -26,6 +26,10 @@ describe('Windows Store SDK test workflow', () => {
     expect(job['runs-on']).toBe('windows-2025')
     expect(job['continue-on-error']).toBeUndefined()
     expect(job.permissions).toBeUndefined()
+    const rust = steps.find((step) =>
+      step.uses?.startsWith('dtolnay/rust-toolchain@')
+    )
+    expect(rust?.with?.components).toBe('rustfmt, clippy')
     expect(source).not.toContain('secrets.')
     expect(commands).not.toMatch(
       /signtool|Add-AppxPackage|Import-PfxCertificate|Publish-Appx|gh release/i
