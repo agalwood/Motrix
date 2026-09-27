@@ -68,6 +68,79 @@ node scripts/verify-windows-store-source.mjs --repo-root . --metadata /path/to/r
 `--win --x64 --publish never`。这一步只准备后续 Windows SDK 打包所需的目录
 payload；普通 Electron `appId` 不能证明 AppX 包身份。
 
+## 准备目录构建
+
+使用干净的 Windows x64 开发 checkout，并安装仓库指定的 Node、pnpm 和 Rust 版本。
+以下命令将元数据、本地源码校验与完整 builder 配置串联起来：
+
+```powershell
+$storeBuild = Join-Path $env:TEMP 'motrix-store-build-a'
+node scripts/prepare-windows-store-build.mjs --repo-root . --metadata C:\path\release-metadata.json --out $storeBuild
+```
+
+输出必须是尚不存在的绝对路径，其父目录已存在，且位于 checkout 之外。命令不会
+覆盖已有输出，依次写入 `electron-builder.json`、`release-metadata.json`、
+`source-report.json`，最后写入 `build-plan.json`。最后一个文件记录输入摘要与
+builder 参数数组；它是准备记录，不是构建证明。命令不会自动执行构建。
+
+随后对同一个 checkout 执行现有 Windows 包构建与 staging 流程：
+
+```powershell
+pnpm run ensure:electron-runtime
+pnpm run fetch:engine --platform win32 --arch x64
+pnpm run build:builtin
+pnpm run build:native-host -- --platform win32 --arch x64
+pnpm run build:finalize-fs -- --platform win32 --arch x64
+pnpm run build:electron
+pnpm run stage:electron -- --platform win32 --arch x64
+pnpm exec electron-builder --config "$storeBuild\electron-builder.json" --win --x64 --publish never
+```
+
+逐条检查退出码，失败时停止。目录 payload 应位于准备目录下的
+`payload/win-unpacked`。期间不要修改源码、复用另一 checkout 的构建输出，或将旧
+stage 当作全新构建的证据；发布工作流来源记录与最终 payload 验证仍是独立要求。
+
+## 校验 payload 并装配测试布局
+
+```powershell
+node scripts/verify-windows-store-payload.mjs --app-dir "$storeBuild\payload\win-unpacked" --metadata "$storeBuild\release-metadata.json"
+```
+
+JSON 报告将现有 Electron 包校验与 Windows 路径、x64 PE machine、产品版本比对和
+文件摘要检查组合起来。它拒绝链接、大小写碰撞、签名密钥/证书文件、更新器配置和
+未声明的可执行文件/安装包，同时读取目录和实际 ASAR 内容。包版本目前只记录元数据
+提供的值，尚未写入 AppX；machine 检查通过不表示程序已经运行或验证过签名。
+
+仅对 `test` 元数据，装配通过校验的 payload 与现有资产：
+
+```powershell
+$storeLayout = Join-Path $env:TEMP 'motrix-store-layout-a'
+node scripts/prepare-windows-store-layout.mjs --repo-root . --app-dir "$storeBuild\payload\win-unpacked" --metadata "$storeBuild\release-metadata.json" --out $storeLayout
+```
+
+输出必须全新，且位于源码和 payload 目录之外。命令重新验证复制后的 payload，逐项
+比较物理文件摘要，再写入完成记录 `layout-report.json`。它还输出源码和 payload
+报告、元数据、`TEST-ONLY.txt`，以及以下 SDK 输入：
+
+```text
+layout/
+  AppxManifest.xml
+  Assets/*.scale-200.png
+  app/                       # 未改变、已验证的目录 payload
+pri-root/Assets/             # 相同资产文件，供 PRI 索引
+priconfig.xml
+```
+
+manifest 只包含一个具有包身份的桌面应用和 `runFullTrust`。协议、文件关联、
+StartupTask 与 native-host alias 声明等待对应运行时实现。当前配置的 Windows
+阈值为 10.0.19045.0，并非 Windows 兼容性实测结论。现有四张图片按 scale-200
+资源命名，manifest 引用逻辑路径；PRI 配置只索引资产目录。该命令**不会生成**
+`resources.pri` 或 AppX，仍需 Windows SDK 资源解析和打包/解包验证。
+
+目前拒绝装配 Store profile：生产资产变体和包集成尚未完成。测试布局只应用于隔离
+Windows 用户或 VM；即使不声明上述扩展，现有浏览器注册和自启动代码仍需要适配包
+身份。
+
 未签名的目录包、合法元数据或通过本地校验，都不等于可分发的 Store 包。仍须执行
 真正的 Windows 打包、包身份核验、WACK，以及安装和升级测试。
 
@@ -76,3 +149,6 @@ payload；普通 Electron `appId` 不能证明 AppX 包身份。
 - [包身份和版本范围](https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/package-identity-overview)
 - [Store 包与版本要求](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/app-package-requirements)
 - [Partner Center 身份详情](https://learn.microsoft.com/en-us/windows/apps/publish/view-app-identity-details)
+- [桌面包 manifest](https://learn.microsoft.com/en-us/windows/msix/desktop/desktop-to-uwp-manual-conversion)
+- [应用图标资产要求](https://learn.microsoft.com/en-us/windows/apps/design/iconography/app-icon-construction)
+- [PRI 配置](https://learn.microsoft.com/en-us/windows/uwp/app-resources/makepri-exe-configuration)

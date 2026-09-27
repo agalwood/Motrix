@@ -79,6 +79,93 @@ NSIS configuration. Invoke electron-builder with `--win --x64 --publish never`.
 This only prepares the directory payload for later Windows SDK packaging; the
 ordinary Electron `appId` does not establish an AppX package identity.
 
+## Prepare a directory build
+
+Use a clean Windows x64 development checkout with the repository's Node, pnpm,
+and Rust versions. This preparation command joins the metadata, local source
+check, and complete builder configuration:
+
+```powershell
+$storeBuild = Join-Path $env:TEMP 'motrix-store-build-a'
+node scripts/prepare-windows-store-build.mjs --repo-root . --metadata C:\path\release-metadata.json --out $storeBuild
+```
+
+The absolute output directory must be new, its parent must already exist, and
+it must be outside the checkout. Existing output is never overwritten. The
+command writes `electron-builder.json`, `release-metadata.json`,
+`source-report.json`, and finally `build-plan.json`. The last file records the
+input digests and builder argument array; it is a preparation record, not a
+build attestation. No build command runs automatically.
+
+Build and stage the same checkout using the existing Windows package flow:
+
+```powershell
+pnpm run ensure:electron-runtime
+pnpm run fetch:engine --platform win32 --arch x64
+pnpm run build:builtin
+pnpm run build:native-host -- --platform win32 --arch x64
+pnpm run build:finalize-fs -- --platform win32 --arch x64
+pnpm run build:electron
+pnpm run stage:electron -- --platform win32 --arch x64
+pnpm exec electron-builder --config "$storeBuild\electron-builder.json" --win --x64 --publish never
+```
+
+Check each command's exit code and stop on failure. The directory payload is
+expected under `payload/win-unpacked` inside the preparation directory. Do not
+change source, reuse another checkout's build outputs, or treat an old stage
+as evidence of a fresh build. Release workflow provenance and verification of
+the final payload are separate requirements.
+
+## Verify the payload and assemble a test layout
+
+```powershell
+node scripts/verify-windows-store-payload.mjs --app-dir "$storeBuild\payload\win-unpacked" --metadata "$storeBuild\release-metadata.json"
+```
+
+The JSON report combines the existing Electron package checks with Windows
+path checks, x64 PE machine checks, product-version comparison, and file hashes.
+It rejects links, case collisions, signing-key/certificate files, updater
+configuration, and undeclared executables/installers. It reads the actual ASAR
+entries as well as the directory. The package version is recorded from metadata;
+it has not yet been embedded in an AppX. Successful machine checks do not mean
+that an executable has run or its signature has been verified.
+
+For `test` metadata only, assemble the verified payload and existing assets:
+
+```powershell
+$storeLayout = Join-Path $env:TEMP 'motrix-store-layout-a'
+node scripts/prepare-windows-store-layout.mjs --repo-root . --app-dir "$storeBuild\payload\win-unpacked" --metadata "$storeBuild\release-metadata.json" --out $storeLayout
+```
+
+The output must be fresh and outside both source and payload. The command
+verifies the copied payload and compares every physical file's digest before
+writing its completion record, `layout-report.json`. It also writes the source
+and payload reports, metadata, `TEST-ONLY.txt`, and these SDK inputs:
+
+```text
+layout/
+  AppxManifest.xml
+  Assets/*.scale-200.png
+  app/                       # unchanged, verified directory payload
+pri-root/Assets/             # identical asset files for PRI indexing
+priconfig.xml
+```
+
+The manifest contains one packaged desktop application and `runFullTrust`.
+Protocol, file association, StartupTask, and native-host alias declarations
+await their runtime implementations. The configured Windows threshold is
+10.0.19045.0; this is not a Windows compatibility test result. The four existing
+images are scale-200 resources, referenced by logical paths in the manifest.
+The PRI configuration indexes only the asset directory. `resources.pri` and the
+AppX are **not generated** by this command; Windows SDK resource resolution and
+pack/unpack verification remain required.
+
+Store profile layout preparation is currently rejected: production asset
+variants and package integration remain incomplete. Use test layouts only with
+an isolated Windows user or VM. The existing browser-registration and startup
+code still needs package-aware behavior, even when manifest extensions are
+absent.
+
 Do not treat an unsigned directory build, a valid metadata file, or a successful
 local check as a distributable Store package. Actual Windows packaging, package
 identity verification, WACK, and installation/update tests remain required.
@@ -88,3 +175,6 @@ identity verification, WACK, and installation/update tests remain required.
 - [Package identity and version ranges](https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/package-identity-overview)
 - [Store package and version requirements](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/app-package-requirements)
 - [Partner Center identity details](https://learn.microsoft.com/en-us/windows/apps/publish/view-app-identity-details)
+- [Desktop package manifest](https://learn.microsoft.com/en-us/windows/msix/desktop/desktop-to-uwp-manual-conversion)
+- [App icon asset requirements](https://learn.microsoft.com/en-us/windows/apps/design/iconography/app-icon-construction)
+- [PRI configuration](https://learn.microsoft.com/en-us/windows/uwp/app-resources/makepri-exe-configuration)
