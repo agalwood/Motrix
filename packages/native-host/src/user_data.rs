@@ -7,6 +7,7 @@ use serde::Deserialize;
 
 use crate::MOTRIX_FLATPAK_ID;
 use crate::endpoint::is_owner_only;
+use crate::windows_package::{current_profile, select_profile};
 
 pub const DEVELOPMENT_HOST_CONFIG_NAME: &str = "motrix-native-host.dev.json";
 const MAX_DEVELOPMENT_HOST_CONFIG_BYTES: usize = 4 * 1024;
@@ -62,11 +63,13 @@ pub fn resolve_native_host_user_data_dir(
 }
 
 pub fn native_host_user_data_dir() -> Option<PathBuf> {
-    resolve_native_host_user_data_dir_from_optional_home(
-        current_platform(),
-        home::home_dir().as_deref(),
-        std::env::var_os("APPDATA").as_deref(),
-    )
+    select_profile(current_profile(), has_package_profile_override(), || {
+        resolve_native_host_user_data_dir_from_optional_home(
+            current_platform(),
+            home::home_dir().as_deref(),
+            std::env::var_os("APPDATA").as_deref(),
+        )
+    })
 }
 
 pub(crate) fn absolute_directory_from_env(value: &OsStr) -> Option<PathBuf> {
@@ -97,7 +100,23 @@ pub fn resolve_bridge_data_dir(
     }
 }
 
+fn has_package_profile_override() -> bool {
+    ["MOTRIX_USER_DATA", "MOTRIX_BRIDGE_DATA_DIR"]
+        .iter()
+        .any(|name| std::env::var_os(name).is_some_and(|value| !value.is_empty()))
+}
+
 pub fn native_host_bridge_data_dir(user_data: Option<&Path>) -> Option<PathBuf> {
+    // Resolve the package path independently of the supplied direct profile;
+    // only confirmed absence may inspect environment overrides or dev sidecars.
+    select_profile(
+        current_profile().map(|profile| profile.map(|path| path.join("bridge"))),
+        has_package_profile_override(),
+        || direct_bridge_data_dir(user_data),
+    )
+}
+
+fn direct_bridge_data_dir(user_data: Option<&Path>) -> Option<PathBuf> {
     let override_data_dir = std::env::var_os("MOTRIX_BRIDGE_DATA_DIR");
     let development_data_dir = if override_data_dir.is_none() {
         std::env::current_exe()

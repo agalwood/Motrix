@@ -158,6 +158,11 @@ pub(crate) fn spawn_configured(mut command: Command) -> bool {
 }
 
 pub fn launch_motrix() -> bool {
+    // Package activation needs its own AUMID path. Until that is implemented,
+    // never let a packaged host launch a traditional installation or guess one.
+    if !crate::windows_package::permits_direct_launch(&crate::windows_package::current_profile()) {
+        return false;
+    }
     let platform = current_platform();
     match flatpak_launch_decision(platform, std::env::var_os("FLATPAK_ID").as_deref()) {
         FlatpakLaunchDecision::Launch(spec) => return spawn_detached(spec),

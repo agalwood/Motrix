@@ -244,10 +244,11 @@ Windows 包的 Native Messaging 注册策略为 `unsupported`。安装器在解�
 列表和撤销控制。MDXP 桥运行正常不代表 Native Messaging 可用；其认证行为
 保持不变。
 
+Rust host 已加入包身份路径选择：只有 OS 明确报告无包身份时，才使用传统目录、环境变量、开发 sidecar 和 EXE 启动发现。包内 host 须拥有同一包族的 `MotrixNativeHost` Application 身份，使用系统 Roaming AppData 下的 `Motrix-Store/bridge`，拒绝自定义数据目录；包查询失败不会退回官网版。当前包内冷启动仍返回失败，等待 AUMID 激活实现。生产 alias、Electron/Rust 实际目录一致性和正式 MBP1 仍未通过安装验证，因此设置继续显示不支持自动发现。
+
 这项隔离不等于已支持 Store 浏览器联动。稳定的包 host、正确的 profile 发现、
 浏览器 stdio 行为、冷启动、升级后首次启动前连接、卸载和共存仍需 Windows 11
-证据及浏览器扩展配合。不能将传统 host 直接暴露为 Store alias：它现有的数据
-和启动路径属于官网版。
+证据及浏览器扩展配合。不能在完成实际目录、激活与生命周期验证前暴露生产 Store alias。
 
 ## Native Messaging 诊断进程检查
 

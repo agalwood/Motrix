@@ -265,6 +265,24 @@ describe('Windows Store SDK test workflow', () => {
     expect(paths).toContain('motrix-store-firefox-relay/contracts-report.json')
   })
 
+  it('runs the native host Windows tests before building its packaged executable', () => {
+    const index = stepIndex('Test native host package profile contracts')
+    expect(index).toBeGreaterThan(
+      steps.findIndex((step) =>
+        step.uses?.startsWith('dtolnay/rust-toolchain@')
+      )
+    )
+    expect(index).toBeLessThan(stepIndex('Build native host'))
+    const command = steps[index]?.run
+    expect(command).toContain(
+      'cargo clippy --manifest-path packages/native-host/Cargo.toml --all-targets --locked -- -D warnings'
+    )
+    expect(command).toContain(
+      'cargo test --manifest-path packages/native-host/Cargo.toml --locked --all-targets'
+    )
+    expect(steps[index]?.['continue-on-error']).toBeUndefined()
+  })
+
   it('builds and stages before invoking the complete directory config and SDK round trip', () => {
     const ordered = [
       'Install locked dependencies',
@@ -272,6 +290,7 @@ describe('Windows Store SDK test workflow', () => {
       'Ensure Electron runtime',
       'Fetch Windows engine',
       'Build builtin plugins',
+      'Test native host package profile contracts',
       'Build native host',
       'Build filesystem helper',
       'Test Windows platform helper',

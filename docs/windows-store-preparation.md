@@ -293,11 +293,12 @@ retaining the switch, paired-client list, and revocation controls. A running MDX
 bridge does not prove Native Messaging is available; its authentication is
 unchanged.
 
+The Rust host now selects its profile from OS package identity. Only confirmed absence of package identity permits traditional profiles, environment overrides, development sidecars, or EXE launch discovery. A packaged host requires the same family’s `MotrixNativeHost` application identity and uses system Roaming AppData with `Motrix-Store/bridge`; custom data-directory overrides are rejected. Package query failures never fall back to the direct installation. Packaged cold launch currently fails pending AUMID activation. The production alias, actual Electron/Rust profile parity, and production MBP1 still require installed-package validation, so settings continue to report unsupported automatic discovery.
+
 This isolation does not implement Store browser support. A stable package host,
 correct profile discovery, browser stdio behavior, cold launch, upgrade before
 first launch, uninstall, and coexistence still require Windows 11 evidence and
-coordination with the browser extensions. Do not expose the traditional host as
-a Store alias: its existing data and launch paths belong to the direct version.
+coordination with the browser extensions. Do not expose the production Store alias before profile, activation, and lifecycle validation is complete.
 
 ## Native Messaging diagnostic process check
 

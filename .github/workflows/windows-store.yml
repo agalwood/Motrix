@@ -177,6 +177,15 @@ jobs:
       - name: Build builtin plugins
         run: pnpm run build:builtin
 
+      - name: Test native host package profile contracts
+        run: |
+          cargo fmt --manifest-path packages/native-host/Cargo.toml --all -- --check
+          if ($LASTEXITCODE -ne 0) { throw 'Native host formatting failed' }
+          cargo clippy --manifest-path packages/native-host/Cargo.toml --all-targets --locked -- -D warnings
+          if ($LASTEXITCODE -ne 0) { throw 'Native host lint failed' }
+          cargo test --manifest-path packages/native-host/Cargo.toml --locked --all-targets
+          if ($LASTEXITCODE -ne 0) { throw 'Native host tests failed' }
+
       - name: Build native host
         run: pnpm run build:native-host -- --platform win32 --arch x64
 
