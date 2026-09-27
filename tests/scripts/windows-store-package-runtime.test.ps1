@@ -266,6 +266,36 @@ try {
   }
 
   Test-ContractCase 'main-accepts-bound-evidence' 'main'
+  $previousExtensionDirectory = $env:MOTRIX_STORE_EXTENSION_DIRECTORY
+  $previousExtensionCommit = $env:MOTRIX_STORE_EXTENSION_COMMIT
+  try {
+    $env:MOTRIX_STORE_EXTENSION_DIRECTORY = 'synthetic-contract-only'
+    $env:MOTRIX_STORE_EXTENSION_COMMIT = 'd' * 40
+    Test-ContractCase 'extension-rejects-missing-runtime-evidence' 'main' $true
+    foreach ($case in @('valid', 'wrong-source', 'missing-pair', 'missing-reconnect', 'missing-cleanup', 'string-boolean', 'windows11-overclaim')) {
+      Test-ContractCase "extension-$case" 'main' ($case -ne 'valid') {
+        param($f)
+        $proof = [pscustomobject]@{
+          scope = 'installed-appx-production-chrome-extension'; sourceCommit = ('d' * 40)
+          build = [pscustomobject]@{ sha256 = ('e' * 64) }; extensionId = ('a' * 32)
+          ok = $true; firstPairVerified = $true; browserRestartReconnectVerified = $true; cleanupVerified = $true
+          protocolActivationVerified = $false; edgeVerified = $false; firefoxVerified = $false; windows11AcceptanceVerified = $false
+        }
+        switch ($case) {
+          'wrong-source' { $proof.sourceCommit = 'f' * 40 }
+          'missing-pair' { $proof.firstPairVerified = $false }
+          'missing-reconnect' { $proof.browserRestartReconnectVerified = $false }
+          'missing-cleanup' { $proof.cleanupVerified = $false }
+          'string-boolean' { $proof.ok = 'true' }
+          'windows11-overclaim' { $proof.windows11AcceptanceVerified = $true }
+        }
+        $f.Main.runtime | Add-Member extensionRuntime $proof
+      }
+    }
+  } finally {
+    $env:MOTRIX_STORE_EXTENSION_DIRECTORY = $previousExtensionDirectory
+    $env:MOTRIX_STORE_EXTENSION_COMMIT = $previousExtensionCommit
+  }
   Test-ContractCase 'main-rejects-missing-transport-proof' 'main' $true { param($f) $f.Main.installedMbp1TransportVerified = $false }
   Test-ContractCase 'main-rejects-missing-bootstrap-proof' 'main' $true { param($f) $f.Main.installedBootstrapTicketProofVerified = $false }
   Test-ContractCase 'main-rejects-callerless-ticket' 'main' $true { param($f) $f.Main.runtime.noCallerTicketlessVerified = $false }

@@ -7,6 +7,7 @@ import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { isDeepStrictEqual } from 'node:util'
+import { runStoreExtensionRuntime } from './test-windows-store-extension-runtime.mjs'
 import {
   queryInstalledState,
   readInstalledFile,
@@ -501,6 +502,30 @@ async function runMainCase(installed, pairing, progress) {
         )
         report.mbp1TransportPairingVerified = true
         report.bootstrapTicketProofVerified = true
+        if (process.env.MOTRIX_STORE_EXTENSION_DIRECTORY) {
+          stage = 'production-extension'
+          progress(stage)
+          report.extensionRuntime = await runStoreExtensionRuntime({
+            extensionDirectory: process.env.MOTRIX_STORE_EXTENSION_DIRECTORY,
+            sourceCommit: process.env.MOTRIX_STORE_EXTENSION_COMMIT,
+            profileDirectory: path.join(
+              process.env.RUNNER_TEMP,
+              'motrix-store-production-extension-profile'
+            ),
+            appPort: reply.port,
+            readPairingCode: () => readPairingCode(main),
+          })
+          if (
+            !report.extensionRuntime.ok ||
+            !report.extensionRuntime.cleanupVerified
+          )
+            fail('extension-runtime-failed')
+          validateMainProcess(await queryProcess(child.pid, reply.port), {
+            pid: child.pid,
+            installed: installed.package,
+            startTicks,
+          })
+        }
         break
       }
       await delay(500)
@@ -528,6 +553,7 @@ async function runMainCase(installed, pairing, progress) {
       'actual-endpoint-unavailable',
       'unexpected-bootstrap-endpoint',
       'mbp1-pair-failed',
+      'extension-runtime-failed',
     ].includes(error?.message)
       ? error.message
       : 'operation-failed'

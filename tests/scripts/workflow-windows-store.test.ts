@@ -59,6 +59,23 @@ describe('Windows Store SDK test workflow', () => {
     }
   })
 
+  it('builds the production extension from one immutable source without publishing its profile or build', () => {
+    const checkout = steps[stepIndex('Check out production extension source')]
+    const build = steps[stepIndex('Build and verify production extension')]
+    expect(checkout?.with?.repository).toBe('motrixapp/motrix-extension')
+    expect(checkout?.with?.ref).toMatch(/^[0-9a-f]{40}$/)
+    expect(checkout?.with?.['persist-credentials']).toBe(false)
+    expect(build?.run).toContain(checkout?.with?.ref)
+    expect(build?.run).toContain('pnpm install --frozen-lockfile')
+    expect(build?.run).toContain('pnpm build:webstore')
+    expect(build?.run).toContain('git status --porcelain')
+    expect(build?.run).toContain('MOTRIX_STORE_EXTENSION_COMMIT=')
+    const upload = steps[stepIndex('Upload SDK text evidence')]
+    expect(upload?.with?.path).not.toMatch(
+      /store-extension-source|production-extension-profile/
+    )
+  })
+
   it('limits installed-package testing to manual dispatch after both SDK and PRI checks', () => {
     const index = stepIndex(
       'Test installed diagnostic alias and browsers on the hosted runner'

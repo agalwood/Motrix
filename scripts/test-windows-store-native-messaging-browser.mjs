@@ -341,7 +341,7 @@ async function encodedQuery(script) {
   }
 }
 
-async function browserInventory(browser) {
+export async function browserInventory(browser) {
   // Browser names are a closed enum; no user-supplied PowerShell is interpolated.
   const relative = {
     chrome: 'Google\\Chrome\\Application\\chrome.exe',
@@ -566,7 +566,7 @@ export function browserTerminationOptions(pid, systemRoot) {
   }
 }
 
-async function killOwnedProcess(pid) {
+export async function killOwnedProcess(pid) {
   try {
     const result = await runBoundedProbeProcess(
       browserTerminationOptions(pid, process.env.SystemRoot)

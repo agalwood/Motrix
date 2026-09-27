@@ -278,6 +278,19 @@ function Assert-MainRuntimeReport([object]$Main, [string]$SourceCommit, [string]
   foreach ($name in @('ok', 'mainApplicationLaunched', 'processIdentityVerified', 'disclaimerUiVerified', 'mainUiVerified', 'mainBridgeEndpointVerified', 'mbp1TransportPairingVerified', 'noCallerTicketlessVerified', 'bootstrapTicketProofVerified', 'cleanupVerified')) {
     Assert-True $Main.runtime.$name 'Installed main runtime check is incomplete.'
   }
+  if ($env:MOTRIX_STORE_EXTENSION_DIRECTORY) {
+    $extension = $Main.runtime.extensionRuntime
+    if ($extension.scope -cne 'installed-appx-production-chrome-extension' -or
+        $extension.sourceCommit -cne $env:MOTRIX_STORE_EXTENSION_COMMIT -or
+        $extension.build.sha256 -cnotmatch '^[0-9a-f]{64}$' -or
+        $extension.extensionId -cnotmatch '^[a-p]{32}$') { throw 'Production extension evidence mismatch.' }
+    foreach ($name in @('ok', 'firstPairVerified', 'browserRestartReconnectVerified', 'cleanupVerified')) {
+      Assert-True $extension.$name 'Production extension pairing or reconnect was not verified.'
+    }
+    foreach ($name in @('protocolActivationVerified', 'edgeVerified', 'firefoxVerified', 'windows11AcceptanceVerified')) {
+      Assert-False $extension.$name 'Production Chrome extension report overstates its scope.'
+    }
+  }
   foreach ($name in @('mbp1Verified', 'profilePathEqualityVerified')) { Assert-False $Main.runtime.$name 'Main runtime report overstates its scope.' }
   foreach ($name in @('ok', 'noLaunchBeforeVerified', 'coldLaunchVerified', 'processIdentityVerified', 'mainBridgeEndpointVerified', 'mbp1TransportReconnectVerified', 'noLaunchAfterVerified', 'cleanupVerified')) {
     Assert-True $Main.coldLaunch.$name 'Packaged cold launch check is incomplete.'
