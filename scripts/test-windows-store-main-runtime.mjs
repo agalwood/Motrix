@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
+import { ftruncateSync, writeSync } from 'node:fs'
 import { open } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import path from 'node:path'
@@ -26,6 +27,78 @@ const clearedEnvironment = {
 }
 const fail = (code) => {
   throw new Error(code)
+}
+
+// Fatal loader errors and unhandled rejections can bypass main's finally.
+// Retain only fixed classifications; never serialize Error.message/stack or
+// protocol state. Observing uncaughtExceptionMonitor preserves Node's failure.
+export function installRuntimeFailureRecorder(fd, currentStage) {
+  let fatal
+  const writeFailure = () => {
+    const bytes = Buffer.from(
+      `${JSON.stringify(
+        {
+          schemaVersion: 1,
+          scope: 'windows-installed-main-bridge-startup',
+          ok: false,
+          failureStage: currentStage(),
+          failureCode: fatal
+            ? 'uncaught-runtime-error'
+            : 'incomplete-runtime-check',
+          ...(fatal ? { fatal } : {}),
+          mainBridgeEndpointVerified: false,
+          coldLaunchVerified: false,
+          installedMbp1TransportVerified: false,
+          mbp1ClientCleanupVerified: false,
+          syntheticMbp1Client: true,
+          mbp1Verified: false,
+          windows11AcceptanceVerified: false,
+          storeReady: false,
+        },
+        null,
+        2
+      )}\n`
+    )
+    writeSync(fd, bytes, 0, bytes.length, 0)
+    ftruncateSync(fd, bytes.length)
+  }
+  const observe = (error, origin) => {
+    const names = [
+      'Error',
+      'TypeError',
+      'ReferenceError',
+      'SyntaxError',
+      'RangeError',
+    ]
+    const codes = [
+      'ENOENT',
+      'EACCES',
+      'EPERM',
+      'EPIPE',
+      'ECONNRESET',
+      'ETIMEDOUT',
+      'ERR_MODULE_NOT_FOUND',
+      'ERR_UNKNOWN_FILE_EXTENSION',
+      'ERR_UNSUPPORTED_ESM_URL_SCHEME',
+      'ERR_REQUIRE_ASYNC_MODULE',
+      'ERR_INVALID_URL',
+      'ERR_INVALID_ARG_TYPE',
+      'ERR_INVALID_ARG_VALUE',
+    ]
+    fatal = {
+      name: names.includes(error?.name) ? error.name : 'other',
+      code: codes.includes(error?.code) ? error.code : 'other',
+      origin: origin === 'unhandledRejection' ? origin : 'uncaughtException',
+    }
+  }
+  writeFailure()
+  process.on('uncaughtExceptionMonitor', observe)
+  process.on('exit', writeFailure)
+  return () => {
+    process.off('uncaughtExceptionMonitor', observe)
+    process.off('exit', writeFailure)
+    ftruncateSync(fd, 0)
+  }
 }
 
 export function validateMainProcess(
@@ -203,7 +276,7 @@ async function readPairingCode(page) {
   fail('pairing-ui-timeout')
 }
 
-async function runMainCase(installed, pairing) {
+async function runMainCase(installed, pairing, progress) {
   const report = {
     ok: false,
     mainApplicationLaunched: false,
@@ -217,6 +290,7 @@ async function runMainCase(installed, pairing) {
     profilePathEqualityVerified: false,
   }
   let stage = 'process-preflight'
+  progress(stage)
   let child
   let exited = false
   let browser
@@ -231,6 +305,7 @@ async function runMainCase(installed, pairing) {
       'Microsoft/WindowsApps'
     )
     stage = 'alias-launch'
+    progress(stage)
     child = spawn(
       path.win32.join(aliasRoot, MAIN.alias),
       [
@@ -260,6 +335,7 @@ async function runMainCase(installed, pairing) {
     })
     report.mainApplicationLaunched = Number.isInteger(child.pid)
     stage = 'process-identity'
+    progress(stage)
     for (let attempt = 0; attempt < 8; attempt++) {
       if (exited || !child.pid) fail('main-process-exited')
       const state = await queryProcess(child.pid, port)
@@ -277,11 +353,13 @@ async function runMainCase(installed, pairing) {
     }
     if (!report.processIdentityVerified) fail('cdp-listener-timeout')
     stage = 'renderer-connect'
+    progress(stage)
     const { chromium } = await import('playwright')
     browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, {
       timeout: 10000,
     })
     stage = 'first-run-disclaimer'
+    progress(stage)
     const disclaimer = await waitForPage(
       browser,
       installed.package.installLocation,
@@ -295,6 +373,7 @@ async function runMainCase(installed, pairing) {
     await disclaimer.getByTestId('disclaimer-agree').click({ timeout: 5000 })
     report.disclaimerUiVerified = true
     stage = 'main-renderer'
+    progress(stage)
     const main = await waitForPage(
       browser,
       installed.package.installLocation,
@@ -303,6 +382,7 @@ async function runMainCase(installed, pairing) {
     await main.waitForLoadState('domcontentloaded', { timeout: 10000 })
     report.mainUiVerified = true
     stage = 'actual-host-endpoint'
+    progress(stage)
     const body = Buffer.from('{"allowLaunch":false}')
     const header = Buffer.alloc(4)
     header.writeUInt32LE(body.length)
@@ -323,6 +403,7 @@ async function runMainCase(installed, pairing) {
         report.mainBridgeEndpointVerified = true
         report.hostStdoutBytes = reply.stdoutBytes
         stage = 'installed-mbp1-pairing'
+        progress(stage)
         await pairing.pair(reply.port, decodeMainHostReply(result).nonce, () =>
           readPairingCode(main)
         )
@@ -335,6 +416,7 @@ async function runMainCase(installed, pairing) {
     report.ok = true
     // Browser.close is attempted only after both OS and renderer ownership checks.
     stage = 'normal-close'
+    progress(stage)
     const cdp = await browser.newBrowserCDPSession()
     await Promise.race([cdp.send('Browser.close').catch(() => {}), delay(3000)])
     await Promise.race([closed, delay(5000)])
@@ -420,7 +502,7 @@ async function nativeRequest(installed, allowLaunch) {
   }
 }
 
-async function runColdLaunchCase(installed, pairing) {
+async function runColdLaunchCase(installed, pairing, progress) {
   const report = {
     ok: false,
     noLaunchBeforeVerified: false,
@@ -433,6 +515,7 @@ async function runColdLaunchCase(installed, pairing) {
     mbp1Verified: false,
   }
   let stage = 'cold-preflight'
+  progress(stage)
   let startedAfter
   let attempted = false
   let rootState
@@ -473,16 +556,19 @@ async function runColdLaunchCase(installed, pairing) {
   try {
     startedAfter = (await requireAbsent()).queriedAtTicks
     stage = 'no-launch-before'
+    progress(stage)
     const before = await nativeRequest(installed, false)
     if (before.reply !== null) fail('unexpected-running-endpoint')
     await requireAbsent()
     report.noLaunchBeforeVerified = true
     report.noLaunchBeforeStdoutBytes = before.stdoutBytes
     stage = 'native-host-cold-launch'
+    progress(stage)
     attempted = true
     const launched = await nativeRequest(installed, true)
     if (launched.reply === null) fail('cold-endpoint-unavailable')
     stage = 'cold-process-identity'
+    progress(stage)
     rootState = await queryProcess(0, launched.reply.port)
     validateColdMainProcess(rootState, installed.package, startedAfter)
     validateMainProcess(rootState, {
@@ -493,11 +579,14 @@ async function runColdLaunchCase(installed, pairing) {
     report.mainBridgeEndpointVerified = true
     report.hostStdoutBytes = launched.stdoutBytes
     stage = 'installed-mbp1-reconnect'
+    progress(stage)
     await pairing.reconnect(launched.reply.port)
     report.mbp1TransportReconnectVerified = true
     stage = 'cold-process-close'
+    progress(stage)
     await stopCreatedMain()
     stage = 'no-launch-after'
+    progress(stage)
     const after = await nativeRequest(installed, false)
     if (after.reply !== null) fail('unexpected-running-endpoint')
     await requireAbsent()
@@ -585,6 +674,10 @@ async function main(args) {
   }
   let stage = 'prepared-inputs'
   let pairing
+  const finishFailureRecorder = installRuntimeFailureRecorder(
+    output.fd,
+    () => stage
+  )
   try {
     const initialLayout = await verifyWindowsStoreLayout({
       preparedDirectory: prepared,
@@ -656,11 +749,15 @@ async function main(args) {
     )
     pairing = createInstalledMbp1Client()
     stage = 'main-runtime'
-    report.runtime = await runMainCase(before, pairing)
+    report.runtime = await runMainCase(before, pairing, (value) => {
+      stage = `main-runtime:${value}`
+    })
     if (!report.runtime.ok || !report.runtime.cleanupVerified)
       fail('main-runtime-failed')
     stage = 'cold-launch'
-    report.coldLaunch = await runColdLaunchCase(before, pairing)
+    report.coldLaunch = await runColdLaunchCase(before, pairing, (value) => {
+      stage = `cold-launch:${value}`
+    })
     stage = 'installed-content-after'
     await checkContent()
     const after = validateInstalledProbeState({
@@ -703,6 +800,7 @@ async function main(args) {
     report.coldLaunchVerified &&= report.ok
     report.mainBridgeEndpointVerified &&= report.ok
     try {
+      finishFailureRecorder()
       await output.writeFile(`${JSON.stringify(report, null, 2)}\n`)
     } finally {
       await output.close()

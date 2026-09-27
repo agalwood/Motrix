@@ -1,4 +1,9 @@
 // @vitest-environment node
+import { spawnSync } from 'node:child_process'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   isMainRendererUrl,
@@ -182,5 +187,85 @@ describe('cold activation process ownership', () => {
         startTicks
       )
     ).toThrow()
+  })
+})
+
+describe('fatal installed-runtime evidence', () => {
+  const moduleUrl = pathToFileURL(
+    path.resolve('scripts/test-windows-store-main-runtime.mjs')
+  ).href
+
+  function exercise(ending: string) {
+    const directory = mkdtempSync(path.join(tmpdir(), 'motrix-runtime-fatal-'))
+    const file = path.join(directory, 'report.json')
+    try {
+      const result = spawnSync(
+        process.execPath,
+        [
+          '--input-type=module',
+          '-e',
+          `
+        import { openSync, closeSync, writeFileSync } from 'node:fs';
+        import { installRuntimeFailureRecorder } from ${JSON.stringify(moduleUrl)};
+        const fd = openSync(${JSON.stringify(file)}, 'wx');
+        let stage = 'load-mbp1-test-client';
+        const finish = installRuntimeFailureRecorder(fd, () => stage);
+        ${ending}
+      `,
+        ],
+        { encoding: 'utf8', timeout: 10000 }
+      )
+      return {
+        status: result.status,
+        report: JSON.parse(readFileSync(file, 'utf8')),
+      }
+    } finally {
+      rmSync(directory, { recursive: true, force: true })
+    }
+  }
+
+  it('preserves a nonzero uncaught rejection and reports only fixed error classifications', () => {
+    const { status, report } = exercise(`
+      stage = 'main-runtime:installed-mbp1-pairing';
+      const error = new TypeError('private-message-sentinel');
+      error.code = 'private-code-sentinel';
+      Promise.reject(error);
+    `)
+    expect(status).toBe(1)
+    expect(report.failureStage).toBe('main-runtime:installed-mbp1-pairing')
+    expect(report.failureCode).toBe('uncaught-runtime-error')
+    expect(report.fatal).toEqual({
+      name: 'TypeError',
+      code: 'other',
+      origin: 'unhandledRejection',
+    })
+    expect(JSON.stringify(report)).not.toContain('private-')
+    for (const key of [
+      'ok',
+      'installedMbp1TransportVerified',
+      'mbp1ClientCleanupVerified',
+      'mbp1Verified',
+      'storeReady',
+    ])
+      expect(report[key]).toBe(false)
+  })
+
+  it('retains an incomplete report for direct process exit', () => {
+    const { status, report } = exercise('process.exit(7)')
+    expect(status).toBe(7)
+    expect(report.failureStage).toBe('load-mbp1-test-client')
+    expect(report.failureCode).toBe('incomplete-runtime-check')
+    expect(report.fatal).toBeUndefined()
+    expect(report.ok).toBe(false)
+  })
+
+  it('releases the observer before normal report finalization', () => {
+    const { status, report } = exercise(`
+      finish();
+      writeFileSync(fd, JSON.stringify({ ok: true }));
+      closeSync(fd);
+    `)
+    expect(status).toBe(0)
+    expect(report).toEqual({ ok: true })
   })
 })
