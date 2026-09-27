@@ -523,10 +523,9 @@ async function runMainCase(installed, pairing, progress) {
             appPort: reply.port,
             readPairingCode: () => readPairingCode(main),
           })
-          if (
-            !report.firefoxExtensionRuntime.ok ||
-            !report.firefoxExtensionRuntime.cleanupVerified
-          )
+          // Continue independent Chromium checks after a clean Firefox failure;
+          // the aggregate result below still fails if any browser check failed.
+          if (!report.firefoxExtensionRuntime.cleanupVerified)
             fail('extension-runtime-failed')
           validateMainProcess(await queryProcess(child.pid, reply.port), {
             pid: child.pid,
@@ -586,6 +585,13 @@ async function runMainCase(installed, pairing, progress) {
                 startTicks,
               })
           }
+        }
+        if (
+          report.firefoxExtensionRuntime &&
+          !report.firefoxExtensionRuntime.ok
+        ) {
+          stage = 'production-extension-firefox'
+          fail('extension-runtime-failed')
         }
         break
       }

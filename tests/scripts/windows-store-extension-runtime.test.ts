@@ -60,6 +60,7 @@ describe('isolated production worker restart', () => {
       }),
       reconnect: vi.fn(async () => {}),
       pause: vi.fn(async () => {}),
+      observe: vi.fn(),
     }
     return options
   }
@@ -76,6 +77,12 @@ describe('isolated production worker restart', () => {
       targetId: 'old',
     })
     expect(options.reconnect).toHaveBeenCalledWith('page')
+    expect(options.observe).toHaveBeenLastCalledWith({ phase: 'complete' })
+    expect(options.observe).toHaveBeenCalledWith({
+      matchingWorkers: 1,
+      exactScriptMatches: 1,
+      attachedWorkers: 0,
+    })
     expect(JSON.stringify(result.evidence)).not.toContain('chrome-extension')
   })
   it.each([
@@ -131,6 +138,13 @@ describe('isolated production worker restart', () => {
       'extension-worker-not-stopped'
     )
     expect(options.openPopup).not.toHaveBeenCalled()
+    expect(options.observe).toHaveBeenCalledWith({
+      phase: 'worker-stop-observation',
+    })
+    expect(options.observe).toHaveBeenLastCalledWith({ oldTargetPresent: true })
+    expect(JSON.stringify(options.observe.mock.calls)).not.toContain(
+      'chrome-extension'
+    )
   })
   it('does not convert authentication failure into worker recovery', async () => {
     const options = fixture()

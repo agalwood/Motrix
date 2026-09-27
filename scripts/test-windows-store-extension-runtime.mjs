@@ -255,6 +255,7 @@ export async function restartProductionWorker({
   openPopup,
   reconnect,
   pause = delay,
+  observe = () => {},
 }) {
   if (
     !/^[a-p]{32}$/.test(extensionId) ||
@@ -279,6 +280,17 @@ export async function restartProductionWorker({
       (entry) =>
         entry.type === 'service_worker' && entry.url?.startsWith(origin)
     )
+    observe({
+      matchingWorkers: Math.min(matches.length, 100),
+      exactScriptMatches: Math.min(
+        matches.filter((entry) => entry.url === scriptUrl).length,
+        100
+      ),
+      attachedWorkers: Math.min(
+        matches.filter((entry) => entry.attached === true).length,
+        100
+      ),
+    })
     if (
       matches.length !== 1 ||
       matches[0].url !== scriptUrl ||
@@ -294,22 +306,36 @@ export async function restartProductionWorker({
     if (roots.length !== 1 || roots[0].id !== browserPid)
       fail('extension-worker-browser-changed')
   }
+  observe({ phase: 'browser-before' })
   await sameBrowser()
+  observe({ phase: 'worker-before' })
   const previous = worker(await targets())
+  observe({ phase: 'popup-close' })
   await closePopup()
   // A retained CDP connection and unchanged root PID distinguish this case
   // from a complete browser restart. Never reload/reinstall the extension.
+  observe({ phase: 'worker-close' })
   await bounded(cdp.send('Target.closeTarget', { targetId: previous }))
+  observe({ phase: 'worker-stop-observation' })
   for (let attempt = 0; ; attempt++) {
-    if (!(await targets()).some((entry) => entry.targetId === previous)) break
+    const oldTargetPresent = (await targets()).some(
+      (entry) => entry.targetId === previous
+    )
+    observe({ oldTargetPresent })
+    if (!oldTargetPresent) break
     if (attempt >= 40) fail('extension-worker-not-stopped')
     await pause(250)
   }
+  observe({ phase: 'popup-reopen' })
   const page = await openPopup()
+  observe({ phase: 'authenticated-reconnect' })
   await reconnect(page)
+  observe({ phase: 'worker-after' })
   if (worker(await targets()) === previous)
     fail('extension-worker-not-replaced')
+  observe({ phase: 'browser-after' })
   await sameBrowser()
+  observe({ phase: 'complete' })
   return {
     page,
     evidence: {
@@ -487,6 +513,7 @@ export async function runStoreExtensionRuntime({
     await waitConnected(page)
     report.browserRestartReconnectVerified = true
     stage = 'service-worker-restart'
+    report.serviceWorkerRestartObservation = { phase: 'preflight' }
     const manifest = JSON.parse(
       await readFile(path.join(extensionDirectory, 'manifest.json'), 'utf8')
     )
@@ -498,6 +525,8 @@ export async function runStoreExtensionRuntime({
       closePopup: () => bounded(page.close()),
       openPopup,
       reconnect: waitConnected,
+      observe: (value) =>
+        Object.assign(report.serviceWorkerRestartObservation, value),
     })
     page = restarted.page
     report.serviceWorkerRestart = restarted.evidence
