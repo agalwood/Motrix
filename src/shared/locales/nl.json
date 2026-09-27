@@ -2212,6 +2212,10 @@
         "headerBrowser": "Browser",
         "headerId": "Extensie-ID",
         "headerSource": "Bron",
+        "windowsDiscoveryUnavailable": {
+          "title": "Automatische browserdetectie is momenteel niet beschikbaar",
+          "description": "Dit Windows-pakket ondersteunt nog geen automatische browserdetectie. Het inschakelen van browserintegratie installeert de component voor de browserverbinding niet."
+        },
         "install": {
           "chrome": "Chrome",
           "development": "Ontwikkeling",

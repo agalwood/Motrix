@@ -1793,6 +1793,10 @@
         "title": "Tiện ích mở rộng trình duyệt",
         "masterSwitch": "Kết nối tiện ích mở rộng trình duyệt",
         "masterSwitchDesc": "Gửi nội dung tải xuống từ trang web đến Motrix bằng tiện ích mở rộng trình duyệt.",
+        "windowsDiscoveryUnavailable": {
+          "title": "Tính năng tự động phát hiện trình duyệt hiện chưa khả dụng",
+          "description": "Gói Windows này chưa hỗ trợ tự động phát hiện trình duyệt. Bật tích hợp trình duyệt sẽ không cài đặt thành phần kết nối với trình duyệt."
+        },
         "install": {
           "chrome": "Chrome",
           "edge": "Microsoft Edge",

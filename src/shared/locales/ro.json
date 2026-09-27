@@ -2231,6 +2231,10 @@
         "headerBrowser": "Browser",
         "headerId": "ID extensie",
         "headerSource": "Sursă",
+        "windowsDiscoveryUnavailable": {
+          "title": "Detectarea automată a browserului nu este disponibilă momentan",
+          "description": "Acest pachet pentru Windows nu acceptă încă detectarea automată a browserului. Activarea integrării cu browserul nu va instala componenta de conectare la browser."
+        },
         "install": {
           "chrome": "Chrome",
           "development": "Dezvoltare",

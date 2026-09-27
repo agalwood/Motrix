@@ -67,7 +67,6 @@ import { CancellationTokenSource } from 'vscode-jsonrpc'
 import { registerTrustedIpcHandler } from '../ipc/trusted-ipc'
 import { i18n } from '../lib/i18n'
 import { getAppImageNativeHost } from './appimage-native-host-electron'
-import { isPackagedLinuxFlatpak } from './flatpak-environment'
 import { resolveNativeHostBinaryPath } from './native-host-path'
 import {
   NativeMessagingInstaller,
@@ -75,6 +74,7 @@ import {
   type Platform,
   type SyncArgs,
 } from './native-messaging-installer'
+import { resolveNativeMessagingRegistrationPolicy } from './native-messaging-policy'
 import { PairingDialogController } from './pairing-dialog-controller'
 import {
   isValidSnapInstanceName,
@@ -287,12 +287,24 @@ interface NativeMessagingInstallation {
 
 function createNativeMessagingInstallation(): NativeMessagingInstallation {
   const platform = osPlatform() as Platform
-  const home = homedir()
-  const flatpak = isPackagedLinuxFlatpak({
+  const policy = resolveNativeMessagingRegistrationPolicy({
     platform,
     isPackaged: app.isPackaged,
+    windowsStore: process.windowsStore,
     env: process.env,
   })
+  if (policy.mode === 'unsupported' && policy.reason === 'windows-package') {
+    // No legacy host resolution, sidecar, manifest, or registry ownership is
+    // valid for a Windows package until its browser discovery path is proven.
+    return {
+      installer: new NativeMessagingInstaller({
+        registrationMode: 'unsupported',
+        unsupportedReason: 'windows-package',
+      }),
+      snap: null,
+    }
+  }
+  const home = homedir()
   const snap = resolvePackagedLinuxSnapEnvironment({
     platform,
     isPackaged: app.isPackaged,
@@ -304,6 +316,7 @@ function createNativeMessagingInstallation(): NativeMessagingInstallation {
     platform: installationPlatform,
     arch: process.arch,
     isPackaged: app.isPackaged,
+    windowsStore: process.windowsStore,
     resourcesPath: process.resourcesPath,
     cwd: process.cwd(),
     devOverride: process.env.MOTRIX_BRIDGE_HOST_BIN,
@@ -327,7 +340,9 @@ function createNativeMessagingInstallation(): NativeMessagingInstallation {
       ...(installationPlatform === 'win32'
         ? { windowsRoamingAppData: app.getPath('appData') }
         : {}),
-      ...(flatpak ? { registrationMode: 'external' as const } : {}),
+      ...(policy.mode === 'external'
+        ? { registrationMode: 'external' as const }
+        : {}),
     }),
     snap,
   }
@@ -368,6 +383,10 @@ export async function syncNativeMessagingManifests(args: {
     warn(
       `Browser Native Messaging registration is blocked by Snap confinement. Run "sudo snap connect ${args.snap.instanceName}:browser-native-messaging", then restart Motrix.`
     )
+    return
+  }
+  if (result.unsupportedReason === 'windows-package') {
+    warn('Browser Native Messaging is not supported in this Windows package.')
     return
   }
   let permissionDenied = false

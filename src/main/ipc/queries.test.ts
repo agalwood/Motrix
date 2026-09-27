@@ -16,6 +16,7 @@ import { generalSettingsSnapshot } from '@test-utils/general-settings'
 import { makeTaskInspectorActivitySnapshot } from '@test-utils/task-inspector-activity'
 import { ipcMain } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getNativeMessagingRegistrationPolicy } from '../bridge/native-messaging-policy'
 import { MainProcessWorkCoordinator } from '../main-process-work-coordinator'
 import { makeElectronFfmpegDetect } from '../plugin/ffmpeg-detect-electron'
 import type { QueryContext } from './queries'
@@ -62,6 +63,13 @@ vi.mock('../plugin/ffmpeg-detect-electron', () => ({
 
 vi.mock('../platform/auto-launch', () => ({
   getAutoLaunchStatus: vi.fn(async () => ({ authority: 'application' })),
+}))
+
+vi.mock('../bridge/native-messaging-policy', () => ({
+  getNativeMessagingRegistrationPolicy: vi.fn(() => ({
+    mode: 'unsupported',
+    reason: 'windows-package',
+  })),
 }))
 
 const mockedFfmpegFactory = vi.mocked(makeElectronFfmpegDetect)
@@ -150,6 +158,14 @@ function serializeCommandGraphRecords(): string {
 }
 
 describe('buildQueryHandlers', () => {
+  it('exposes registration policy without a running bridge', async () => {
+    const handlers = buildQueryHandlers({} as QueryContext)
+    expect(
+      await handlers[Queries.GetNativeMessagingRegistrationPolicy]?.()
+    ).toEqual({ mode: 'unsupported', reason: 'windows-package' })
+    expect(getNativeMessagingRegistrationPolicy).toHaveBeenCalledOnce()
+  })
+
   it('returns one General draft snapshot and validates before reading it', async () => {
     const snapshot = generalSettingsSnapshot({
       favorites: ['/saved'],

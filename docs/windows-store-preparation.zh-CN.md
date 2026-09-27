@@ -4,8 +4,8 @@
 
 Motrix 的 Windows 打包支持仍在开发中。准备工具校验输入并装配测试布局，独立的
 Windows SDK 脚本生成未签名测试 AppX。这些工具不会签名、安装或提交商店，也不
-代表已兼容 Microsoft Store。StartupTask 已实现供测试；包关联、浏览器集成和
-安装生命周期仍需继续开发，Windows 包内运行验证尚未完成。
+代表已兼容 Microsoft Store。StartupTask、包关联和通知激活已实现供测试；
+浏览器自动发现和安装生命周期仍需继续开发，Windows 包内运行验证尚未完成。
 
 ## 发布元数据
 
@@ -147,8 +147,8 @@ native-host alias 声明等待浏览器联动适配包身份。当前配置的 W
 `resources.pri` 或 AppX，仍需 Windows SDK 资源解析和打包/解包验证。
 
 目前拒绝装配 Store profile：生产资产变体和包集成尚未完成。测试布局只应用于隔离
-Windows 用户或 VM；即使不声明 native-host alias，现有浏览器注册仍使用官网版
-路径，需要适配包身份。
+Windows 用户或 VM。Windows 包暂不支持浏览器自动发现；包版不会注册或移除
+官网版的浏览器连接组件。
 
 ## Windows 启动集成
 
@@ -226,6 +226,23 @@ ready 后初始化通知 presenter，使尚未展示新通知的进程也能接�
 运行中点击、重启或进程退出后的通知中心点击、启动期间点击、重复事件及官网版
 共存；还应测试插件通知替换、关闭并观察包身份。`Notification.isSupported()`
 返回成功和 SDK 打包通过均不能证明这些运行时行为。
+
+## 浏览器注册隔离
+
+Windows 包的 Native Messaging 注册策略为 `unsupported`。安装器在解析 host
+路径或接触 manifest、开发 sidecar、浏览器注册表键之前返回；注册、独立清理、
+启动回滚及受信任扩展变更均遵守该约束。host 路径解析器也拒绝 Windows 包误用。
+官网等直接发行版保留现有注册方式，Flatpak 保留外部管理策略。
+
+设置通过独立于桥服务的查询获取策略，因此关闭浏览器联动时仍会显示包版限制。
+包版隐藏扩展安装卡片和 Native Messaging 恢复建议，保留开关、已配对客户端
+列表和撤销控制。MDXP 桥运行正常不代表 Native Messaging 可用；其认证和 CLI
+行为保持不变。
+
+这项隔离不等于已支持 Store 浏览器联动。稳定的包 host、正确的 profile 发现、
+浏览器 stdio 行为、冷启动、升级后首次启动前连接、卸载和共存仍需 Windows 11
+证据及浏览器扩展配合。不能将传统 host 直接暴露为 Store alias：它现有的数据
+和启动路径属于官网版。
 
 ## 执行 Windows SDK 包检查
 

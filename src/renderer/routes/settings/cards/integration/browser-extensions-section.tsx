@@ -21,7 +21,11 @@ import { useTranslation } from 'react-i18next'
 import { BrowserExtensionInstalls } from './browser-extension-installs'
 import type { IntegrationFormValues } from './integration-dialog'
 import { TrustedExtensionsSection } from './trusted-extensions-section'
-import { useBridgeStatus, usePairedExtensions } from './use-bridge'
+import {
+  useBridgeStatus,
+  useNativeMessagingRegistrationPolicy,
+  usePairedExtensions,
+} from './use-bridge'
 
 const IDENTITY_LABEL_KEYS = {
   official: 'settings.integration.browser.pairToast.identityLabel.official',
@@ -35,6 +39,10 @@ export function BrowserExtensionsSection() {
   const form = useFormContext<IntegrationFormValues>()
   const { items: paired, revoke } = usePairedExtensions()
   const status = useBridgeStatus()
+  const registrationPolicy = useNativeMessagingRegistrationPolicy()
+  const windowsDiscoveryUnavailable =
+    registrationPolicy?.mode === 'unsupported' &&
+    registrationPolicy.reason === 'windows-package'
   // This section lists browser extensions only; cli/agent clients (device-code
   // paired) are a separate principal kind.
   const pairedExtensions = paired.filter(
@@ -65,9 +73,25 @@ export function BrowserExtensionsSection() {
         )}
       />
 
-      <BrowserExtensionInstalls />
+      {windowsDiscoveryUnavailable ? (
+        <Alert className="border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-4 text-amber-900 dark:text-amber-200">
+          <WarningIcon />
+          <AlertTitle>
+            {t(
+              'settings.integration.browser.windowsDiscoveryUnavailable.title'
+            )}
+          </AlertTitle>
+          <AlertDescription className="text-amber-900/80 dark:text-amber-200/80">
+            {t(
+              'settings.integration.browser.windowsDiscoveryUnavailable.description'
+            )}
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <BrowserExtensionInstalls />
+      )}
 
-      {status?.degraded && (
+      {status?.degraded && !windowsDiscoveryUnavailable && (
         <Alert className="border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-4 text-amber-900 dark:text-amber-200">
           <WarningIcon />
           <AlertTitle>

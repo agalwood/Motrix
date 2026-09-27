@@ -14,7 +14,11 @@ import {
 } from '@shared/protocol/bridge'
 import type { CommandChannel } from '@shared/protocol/commands'
 import type { EventChannel } from '@shared/protocol/events'
-import type { QueryChannel } from '@shared/protocol/queries'
+import { Queries, type QueryChannel } from '@shared/protocol/queries'
+import {
+  type NativeMessagingRegistrationPolicy,
+  NativeMessagingRegistrationPolicySchema,
+} from '@shared/schemas/native-messaging-policy'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { resolvePairWithFeedback } from './pair-resolve'
@@ -118,6 +122,33 @@ function isBridgeStatusInfo(value: unknown): value is BridgeStatusInfo {
       (value as { extensionPairingHealth?: unknown }).extensionPairingHealth ===
         'degraded')
   )
+}
+
+/** Registration policy is host-wide and remains queryable with the bridge off. */
+export function useNativeMessagingRegistrationPolicy(): NativeMessagingRegistrationPolicy | null {
+  const [policy, setPolicy] =
+    useState<NativeMessagingRegistrationPolicy | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const raw = await transport.invoke(
+          Queries.GetNativeMessagingRegistrationPolicy
+        )
+        if (cancelled) return
+        const parsed = NativeMessagingRegistrationPolicySchema.safeParse(raw)
+        setPolicy(parsed.success ? parsed.data : null)
+      } catch {
+        if (!cancelled) setPolicy(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  return policy
 }
 
 /**

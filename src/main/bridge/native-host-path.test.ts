@@ -10,6 +10,47 @@ import { NativeMessagingInstaller } from './native-messaging-installer'
 import { resolvePackagedLinuxSnapEnvironment } from './snap-environment'
 
 describe('resolveNativeHostBinaryPath', () => {
+  it.each(['x64', 'arm64'])(
+    'refuses the traditional host for a Windows package on %s',
+    (arch) => {
+      expect(() =>
+        resolveNativeHostBinaryPath({
+          platform: 'win32',
+          arch,
+          isPackaged: true,
+          windowsStore: true,
+          resourcesPath: '/versioned/windows-package/resources',
+          cwd: '/unused',
+          devOverride: '/must-not-bypass.exe',
+        })
+      ).toThrow('Native Messaging host is unsupported for Windows packages')
+    }
+  )
+
+  it('does not infer a Windows package from a flag on another platform or development', () => {
+    const common = {
+      arch: 'x64',
+      windowsStore: true,
+      resourcesPath: '/resources',
+      cwd: '/workspace',
+      devOverride: '/development-host.exe',
+    }
+    expect(
+      resolveNativeHostBinaryPath({
+        ...common,
+        platform: 'win32',
+        isPackaged: false,
+      })
+    ).toBe('/development-host.exe')
+    expect(
+      resolveNativeHostBinaryPath({
+        ...common,
+        platform: 'linux',
+        isPackaged: true,
+      })
+    ).toBe(join('/resources', 'bin', 'motrix-native-host'))
+  })
+
   it.each([
     ['darwin', 'x64'],
     ['darwin', 'arm64'],

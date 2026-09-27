@@ -1807,6 +1807,10 @@
         "title": "Browsererweiterungen",
         "masterSwitch": "Browsererweiterungen verbinden",
         "masterSwitchDesc": "Downloads von Webseiten mit der Browsererweiterung an Motrix senden.",
+        "windowsDiscoveryUnavailable": {
+          "title": "Automatische Browsererkennung derzeit nicht verfügbar",
+          "description": "Dieses Windows-Paket unterstützt die automatische Browsererkennung noch nicht. Das Aktivieren der Browserintegration installiert keine Komponente für die Verbindung mit dem Browser."
+        },
         "install": {
           "chrome": "Chrome",
           "edge": "Microsoft Edge",

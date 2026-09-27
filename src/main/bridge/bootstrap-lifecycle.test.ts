@@ -31,6 +31,8 @@ import {
 } from '@test-utils/bridge-receiver'
 import { makeMediaMetaStoreStub } from '@test-utils/media-meta-store'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as appImageInstallation from './appimage-native-host-electron'
+import * as nativeHostPaths from './native-host-path'
 import {
   computeManifestPaths,
   NativeMessagingInstaller,
@@ -58,7 +60,6 @@ const snapRuntime = vi.hoisted(() => ({
   enabled: false,
   instanceName: 'motrix_work',
 }))
-
 vi.mock('./snap-environment', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./snap-environment')>()
   return {
@@ -96,7 +97,11 @@ vi.mock('../ipc/trusted-ipc', () => ({
   ) => electron.handle(channel, listener),
 }))
 
-import { bootstrapBridge } from './index'
+import {
+  bootstrapBridge,
+  createNativeMessagingInstaller,
+  syncNativeMessagingManifests,
+} from './index'
 
 function args(): Parameters<typeof bootstrapBridge>[0] {
   return {
@@ -159,15 +164,25 @@ function args(): Parameters<typeof bootstrapBridge>[0] {
 }
 
 const realManifestSync = NativeMessagingInstaller.prototype.syncManifests
+const realUnregister = NativeMessagingInstaller.prototype.unregister
 
 describe('desktop bridge bootstrap ownership', () => {
   let userDataDir: string
+  const originalPlatform = process.platform
+  const originalWindowsStore = Object.getOwnPropertyDescriptor(
+    process,
+    'windowsStore'
+  )
   const activeChannels = new Set<string>()
 
   beforeEach(async () => {
     userDataDir = await mkdtemp(join(tmpdir(), 'motrix-desktop-bridge-'))
     electron.userDataDir = userDataDir
     electron.isPackaged = false
+    Object.defineProperty(process, 'windowsStore', {
+      configurable: true,
+      value: false,
+    })
     snapRuntime.enabled = false
     snapRuntime.instanceName = 'motrix_work'
     activeChannels.clear()
@@ -212,7 +227,156 @@ describe('desktop bridge bootstrap ownership', () => {
 
   afterEach(async () => {
     vi.restoreAllMocks()
+    vi.unstubAllEnvs()
+    Object.defineProperty(process, 'platform', { value: originalPlatform })
+    if (originalWindowsStore) {
+      Object.defineProperty(process, 'windowsStore', originalWindowsStore)
+    } else {
+      Reflect.deleteProperty(process, 'windowsStore')
+    }
     await rm(userDataDir, { recursive: true, force: true })
+  })
+
+  function useWindowsPackageInstaller() {
+    electron.isPackaged = true
+    Object.defineProperty(process, 'platform', { value: 'win32' })
+    Object.defineProperty(process, 'windowsStore', {
+      configurable: true,
+      value: true,
+    })
+    vi.mocked(
+      NativeMessagingInstaller.prototype.syncManifests
+    ).mockImplementation(realManifestSync)
+    vi.mocked(NativeMessagingInstaller.prototype.unregister).mockImplementation(
+      realUnregister
+    )
+    vi.spyOn(nativeHostPaths, 'resolveNativeHostBinaryPath').mockImplementation(
+      () => {
+        throw new Error('Windows packages must not resolve the direct host')
+      }
+    )
+    vi.spyOn(appImageInstallation, 'getAppImageNativeHost').mockImplementation(
+      () => {
+        throw new Error('Windows packages must not prepare an AppImage host')
+      }
+    )
+  }
+
+  it('constructs an independent package cleanup owner without legacy host setup', async () => {
+    useWindowsPackageInstaller()
+    await expect(
+      bootstrapBridge({ ...args(), enabled: false })
+    ).resolves.toBeNull()
+    const installer = createNativeMessagingInstaller()
+    expect(installer.registrationPolicy).toEqual({
+      mode: 'unsupported',
+      reason: 'windows-package',
+    })
+    await installer.unregister()
+    await installer.unregister()
+    expect(nativeHostPaths.resolveNativeHostBinaryPath).not.toHaveBeenCalled()
+    expect(appImageInstallation.getAppImageNativeHost).not.toHaveBeenCalled()
+    expect(EndpointFileWriter.prototype.write).not.toHaveBeenCalled()
+    expect(activeChannels.size).toBe(0)
+
+    const warn = vi.fn()
+    await syncNativeMessagingManifests({
+      installer,
+      manifests: { chromium: [], firefox: [] },
+      snap: null,
+      warn,
+    })
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      'Browser Native Messaging is not supported in this Windows package.'
+    )
+  })
+
+  it('does not let environment hints classify a direct Windows installer as a package', () => {
+    electron.isPackaged = true
+    Object.defineProperty(process, 'platform', { value: 'win32' })
+    vi.stubEnv('MOTRIX_WINDOWS_STORE', '1')
+    vi.stubEnv('MOTRIX_DISTRIBUTION', 'windows-package')
+    const resolveHost = vi
+      .spyOn(nativeHostPaths, 'resolveNativeHostBinaryPath')
+      .mockReturnValue('/direct/native-host.exe')
+    vi.spyOn(appImageInstallation, 'getAppImageNativeHost').mockReturnValue(
+      null
+    )
+
+    const installer = createNativeMessagingInstaller()
+    expect(installer.registrationPolicy).toEqual({ mode: 'managed' })
+    expect(resolveHost).toHaveBeenCalledWith(
+      expect.objectContaining({ platform: 'win32', windowsStore: false })
+    )
+  })
+
+  it('keeps package bridge and trust edits live while every manifest sync is unsupported', async () => {
+    useWindowsPackageInstaller()
+    const runtime = await bootstrapBridge(args())
+    const handler = (key: string) =>
+      electron.handle.mock.calls.find(([channel]) => channel === key)?.[1]
+    try {
+      expect(runtime).not.toBeNull()
+      expect(runtime?.installer.registrationPolicy).toEqual({
+        mode: 'unsupported',
+        reason: 'windows-package',
+      })
+      expect(EndpointFileWriter.prototype.write).toHaveBeenCalledOnce()
+      expect(WebSocketBridgeServer.prototype.stop).not.toHaveBeenCalled()
+      expect(BridgeReceiver.prototype.stopAndDrain).not.toHaveBeenCalled()
+      expect(activeChannels).toContain(BridgeQueries.ListPaired)
+      expect(activeChannels).toContain(BridgeCommands.ResolvePair)
+      await expect(handler(BridgeQueries.GetStatus)?.()).resolves.toMatchObject(
+        {
+          port: 19002,
+          degraded: false,
+        }
+      )
+      const id = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+      await handler(BridgeCommands.AddTrusted)?.(
+        {},
+        { id, browser: 'chromium' }
+      )
+      expect(runtime?.registry.list().some((entry) => entry.id === id)).toBe(
+        true
+      )
+      await handler(BridgeCommands.RemoveTrusted)?.(
+        {},
+        { id, browser: 'chromium' }
+      )
+      expect(runtime?.registry.list().some((entry) => entry.id === id)).toBe(
+        false
+      )
+      expect(
+        NativeMessagingInstaller.prototype.syncManifests
+      ).toHaveBeenCalledTimes(3)
+      expect(registrationLog.warn.mock.calls).toEqual(
+        Array.from({ length: 3 }, () => [
+          'Browser Native Messaging is not supported in this Windows package.',
+        ])
+      )
+      expect(nativeHostPaths.resolveNativeHostBinaryPath).not.toHaveBeenCalled()
+      expect(appImageInstallation.getAppImageNativeHost).not.toHaveBeenCalled()
+    } finally {
+      await runtime?.shutdown()
+    }
+    expect(WebSocketBridgeServer.prototype.stop).toHaveBeenCalledOnce()
+  })
+
+  it('rolls back a later package startup failure without resolving or unregistering a direct host', async () => {
+    useWindowsPackageInstaller()
+    const failure = new Error('endpoint write failed')
+    vi.mocked(EndpointFileWriter.prototype.write).mockRejectedValueOnce(failure)
+
+    await expect(bootstrapBridge(args())).rejects.toBe(failure)
+
+    expect(NativeMessagingInstaller.prototype.unregister).toHaveBeenCalledOnce()
+    expect(nativeHostPaths.resolveNativeHostBinaryPath).not.toHaveBeenCalled()
+    expect(appImageInstallation.getAppImageNativeHost).not.toHaveBeenCalled()
+    expect(EndpointFileWriter.prototype.clear).toHaveBeenCalledOnce()
+    expect(WebSocketBridgeServer.prototype.stop).toHaveBeenCalledOnce()
+    expect(BridgeReceiver.prototype.stopAndDrain).toHaveBeenCalledOnce()
+    expect(activeChannels.size).toBe(0)
   })
 
   it('uses the current directory through the registered submit handler without restarting', async () => {

@@ -254,6 +254,13 @@ describe('buildServerQueryHandlers — allowed save directories', () => {
     })
   })
 
+  it('reports browser host registration as unsupported on the web server', async () => {
+    const handlers = buildServerQueryHandlers(makeCtx() as never)
+    await expect(
+      handlers[Queries.GetNativeMessagingRegistrationPolicy]?.()
+    ).resolves.toEqual({ mode: 'unsupported', reason: 'server' })
+  })
+
   it('reports Windows associations as unsupported on the web server', async () => {
     const handlers = buildServerQueryHandlers(makeCtx() as never)
 

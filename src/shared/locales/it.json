@@ -1821,6 +1821,10 @@
         "title": "Estensioni del browser",
         "masterSwitch": "Collega estensioni del browser",
         "masterSwitchDesc": "Invia i download delle pagine web a Motrix con l’estensione del browser.",
+        "windowsDiscoveryUnavailable": {
+          "title": "Il rilevamento automatico del browser non è al momento disponibile",
+          "description": "Questo pacchetto Windows non supporta ancora il rilevamento automatico del browser. Attivare l’integrazione con il browser non installerà il componente di connessione al browser."
+        },
         "install": {
           "chrome": "Chrome",
           "edge": "Microsoft Edge",

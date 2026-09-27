@@ -1793,6 +1793,10 @@
         "title": "Ekstensi browser",
         "masterSwitch": "Hubungkan ekstensi browser",
         "masterSwitchDesc": "Kirim unduhan halaman web ke Motrix dengan ekstensi browser.",
+        "windowsDiscoveryUnavailable": {
+          "title": "Penemuan browser otomatis belum tersedia",
+          "description": "Paket Windows ini belum mendukung penemuan browser otomatis. Mengaktifkan integrasi browser tidak akan memasang komponen penghubung browser."
+        },
         "install": {
           "chrome": "Chrome",
           "edge": "Microsoft Edge",

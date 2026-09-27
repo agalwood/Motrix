@@ -2231,6 +2231,10 @@
         "headerBrowser": "Navegador",
         "headerId": "ID de l'extensió",
         "headerSource": "Origen",
+        "windowsDiscoveryUnavailable": {
+          "title": "La detecció automàtica del navegador no està disponible de moment",
+          "description": "Aquest paquet per a Windows encara no admet la detecció automàtica del navegador. Activar la integració amb el navegador no instal·larà el component de connexió amb el navegador."
+        },
         "install": {
           "chrome": "Chrome",
           "development": "Desenvolupament",

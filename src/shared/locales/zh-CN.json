@@ -1793,6 +1793,10 @@
         "title": "浏览器扩展",
         "masterSwitch": "连接浏览器扩展",
         "masterSwitchDesc": "安装浏览器扩展后，将网页下载发送到 Motrix。",
+        "windowsDiscoveryUnavailable": {
+          "title": "浏览器自动发现暂不可用",
+          "description": "此 Windows 安装包尚不支持浏览器自动发现。启用浏览器联动不会安装浏览器连接组件。"
+        },
         "install": {
           "chrome": "Chrome",
           "edge": "Microsoft Edge",

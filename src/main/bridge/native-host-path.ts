@@ -1,4 +1,5 @@
 import { join, posix } from 'node:path'
+import { resolveDistributionContext } from '../platform/distribution-context'
 import type { Platform } from './native-messaging-installer'
 import { isValidSnapInstanceName } from './snap-environment'
 
@@ -8,6 +9,8 @@ export interface NativeHostPathOptions {
   platform: Platform
   arch: string
   isPackaged: boolean
+  /** Electron runtime identity; never sourced from an environment override. */
+  windowsStore?: boolean
   resourcesPath: string
   cwd: string
   devOverride?: string
@@ -23,6 +26,9 @@ export function nativeHostBinaryName(platform: Platform): string {
 export function resolveNativeHostBinaryPath(
   options: NativeHostPathOptions
 ): string {
+  if (resolveDistributionContext(options).isWindowsPackage) {
+    throw new Error('Native Messaging host is unsupported for Windows packages')
+  }
   if (options.arch !== 'x64' && options.arch !== 'arm64') {
     throw new Error(`Unsupported native-host architecture: ${options.arch}`)
   }

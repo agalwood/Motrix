@@ -1793,6 +1793,10 @@
         "title": "ブラウザー拡張機能",
         "masterSwitch": "ブラウザー拡張機能を接続",
         "masterSwitchDesc": "ブラウザー拡張機能を使って、Web ページのダウンロードを Motrix に送信します。",
+        "windowsDiscoveryUnavailable": {
+          "title": "ブラウザーの自動検出は現在利用できません",
+          "description": "この Windows パッケージは、ブラウザーの自動検出にまだ対応していません。ブラウザー連携を有効にしても、ブラウザー接続用のコンポーネントはインストールされません。"
+        },
         "install": {
           "chrome": "Chrome",
           "edge": "Microsoft Edge",

@@ -2288,6 +2288,10 @@
         "headerBrowser": "المتصفح",
         "headerId": "معرّف الامتداد",
         "headerSource": "المصدر",
+        "windowsDiscoveryUnavailable": {
+          "title": "اكتشاف المتصفح تلقائيًا غير متاح حاليًا",
+          "description": "لا تدعم حزمة Windows هذه اكتشاف المتصفح تلقائيًا بعد. لن يؤدي تفعيل التكامل مع المتصفح إلى تثبيت مكوّن الاتصال بالمتصفح."
+        },
         "install": {
           "chrome": "Chrome",
           "development": "تطوير",

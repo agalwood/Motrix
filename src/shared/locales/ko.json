@@ -1793,6 +1793,10 @@
         "title": "브라우저 확장 프로그램",
         "masterSwitch": "브라우저 확장 프로그램 연결",
         "masterSwitchDesc": "브라우저 확장 프로그램으로 웹페이지의 다운로드를 Motrix에 보냅니다.",
+        "windowsDiscoveryUnavailable": {
+          "title": "현재 브라우저 자동 검색을 사용할 수 없습니다",
+          "description": "이 Windows 패키지는 아직 브라우저 자동 검색을 지원하지 않습니다. 브라우저 연동을 켜도 브라우저 연결 구성 요소는 설치되지 않습니다."
+        },
         "install": {
           "chrome": "Chrome",
           "edge": "Microsoft Edge",

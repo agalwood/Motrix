@@ -1807,6 +1807,10 @@
         "title": "Browser extensions",
         "masterSwitch": "Connect browser extensions",
         "masterSwitchDesc": "Send webpage downloads to Motrix with the browser extension.",
+        "windowsDiscoveryUnavailable": {
+          "title": "Automatic browser discovery is currently unavailable",
+          "description": "This Windows package does not yet support automatic browser discovery. Turning on browser integration will not install the browser connection component."
+        },
         "install": {
           "chrome": "Chrome",
           "edge": "Microsoft Edge",

@@ -49,6 +49,7 @@ import type { GetTransferStatsParams } from '@shared/types/stats'
 import type { GetTaskActivityParams } from '@shared/types/task-activity'
 import { ipcMain, session } from 'electron'
 import { getAppImageNativeHost } from '../bridge/appimage-native-host-electron'
+import { getNativeMessagingRegistrationPolicy } from '../bridge/native-messaging-policy'
 import type { CliToolService } from '../cli/cli-tool-service'
 import type { AppUpdateService } from '../core/app-update-service'
 import { getAppImageIntegrationView } from '../platform/appimage-integration-host'
@@ -218,6 +219,9 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
 
     [Queries.GetWindowsDefaultAssociations]: async () =>
       getWindowsDefaultAssociations(),
+
+    [Queries.GetNativeMessagingRegistrationPolicy]: async () =>
+      getNativeMessagingRegistrationPolicy(),
 
     [Queries.GetEngineStatus]: async () => {
       return supervisor.getStatus()

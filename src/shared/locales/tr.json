@@ -1807,6 +1807,10 @@
         "title": "Tarayıcı uzantıları",
         "masterSwitch": "Tarayıcı uzantılarını bağla",
         "masterSwitchDesc": "Tarayıcı uzantısıyla web sayfası indirmelerini Motrix’e gönderin.",
+        "windowsDiscoveryUnavailable": {
+          "title": "Otomatik tarayıcı keşfi şu anda kullanılamıyor",
+          "description": "Bu Windows paketi henüz otomatik tarayıcı keşfini desteklemiyor. Tarayıcı entegrasyonunu açmak, tarayıcı bağlantı bileşenini yüklemez."
+        },
         "install": {
           "chrome": "Chrome",
           "edge": "Microsoft Edge",

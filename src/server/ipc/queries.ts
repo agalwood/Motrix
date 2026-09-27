@@ -298,6 +298,11 @@ export function buildServerQueryHandlers(
       magnet: false,
     }),
 
+    [Queries.GetNativeMessagingRegistrationPolicy]: async () => ({
+      mode: 'unsupported',
+      reason: 'server',
+    }),
+
     [Queries.GetTrackerList]: async () => trackerManager.getCuratedList(),
 
     [Queries.GetTrackerSyncStatus]: async () => trackerManager.getSyncStatus(),

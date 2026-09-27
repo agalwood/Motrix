@@ -1793,6 +1793,10 @@
         "title": "瀏覽器擴充功能",
         "masterSwitch": "連接瀏覽器擴充功能",
         "masterSwitchDesc": "安裝瀏覽器擴充功能後，將網頁下載傳送至 Motrix。",
+        "windowsDiscoveryUnavailable": {
+          "title": "瀏覽器自動探索暫時無法使用",
+          "description": "此 Windows 安裝套件尚不支援瀏覽器自動探索。啟用瀏覽器整合不會安裝瀏覽器連線元件。"
+        },
         "install": {
           "chrome": "Chrome",
           "edge": "Microsoft Edge",

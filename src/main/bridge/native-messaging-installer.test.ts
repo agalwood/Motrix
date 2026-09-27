@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { AppImageNativeHost } from './appimage-native-host'
 import {
   computeManifestPaths,
   computeRegistryEntries,
@@ -177,6 +178,36 @@ describe('NativeMessagingInstaller.syncManifests', () => {
 
     expect(await readFile(paths.chrome)).toEqual(chromiumSentinel)
     expect(await readFile(paths.firefox)).toEqual(firefoxSentinel)
+  })
+
+  it('keeps AppImage host ownership and its startup-failure preservation', async () => {
+    const appImage = new AppImageNativeHost({
+      home: dir,
+      env: {},
+      appImagePath: join(dir, 'Motrix.AppImage'),
+      sourceHostPath: join(dir, 'motrix-native-host'),
+      userDataDir: join(dir, 'data'),
+      bridgeDataDir: join(dir, 'data', 'bridge'),
+      arch: 'x64',
+    })
+    const sync = vi.spyOn(appImage, 'sync').mockResolvedValue()
+    const suspend = vi.spyOn(appImage, 'suspend').mockResolvedValue()
+    const installer = new NativeMessagingInstaller({
+      appImage,
+      platform: 'linux',
+      hostBinaryPath: join(dir, 'motrix-native-host'),
+      manifestRoot: dir,
+    })
+    const ids = { chromium: ['chromium'], firefox: ['firefox'] }
+
+    expect(installer.registrationPolicy).toEqual({ mode: 'managed' })
+    expect(installer.preserveOnStartupFailure).toBe(true)
+    await expect(installer.syncManifests(ids)).resolves.toEqual({
+      failures: [],
+    })
+    expect(sync).toHaveBeenCalledExactlyOnceWith(ids)
+    await installer.unregister()
+    expect(suspend).toHaveBeenCalledOnce()
   })
 
   it('does not replace manifests owned by an installed Flatpak companion', async () => {
@@ -651,6 +682,156 @@ describe('NativeMessagingInstaller.syncManifests (win32)', () => {
     })
 
     await installer.unregister()
+    await installer.unregister()
+  })
+})
+
+describe('NativeMessagingInstaller unsupported Windows package', () => {
+  const unsupported = {
+    registrationMode: 'unsupported' as const,
+    unsupportedReason: 'windows-package' as const,
+  }
+
+  it('needs no host paths and reports its immutable registration policy', async () => {
+    const installer = new NativeMessagingInstaller(unsupported)
+    expect(installer.registrationPolicy).toEqual({
+      mode: 'unsupported',
+      reason: 'windows-package',
+    })
+    expect(Object.isFrozen(installer.registrationPolicy)).toBe(true)
+    expect(installer.preserveOnStartupFailure).toBe(false)
+    await expect(
+      installer.syncManifests({ chromium: [], firefox: [] })
+    ).resolves.toEqual({ failures: [], unsupportedReason: 'windows-package' })
+    await expect(installer.unregister()).resolves.toBeUndefined()
+  })
+
+  it('returns before consulting any managed installer inputs', async () => {
+    const options = { ...unsupported }
+    const accessed = vi.fn(() => {
+      throw new Error('managed installer input must not be accessed')
+    })
+    for (const key of [
+      'appImage',
+      'env',
+      'hostBinaryPath',
+      'manifestRoot',
+      'platform',
+      'windowsRoamingAppData',
+      'registryWriter',
+      'registryDeleter',
+      'developmentBridgeDataDir',
+    ]) {
+      Object.defineProperty(options, key, { get: accessed })
+    }
+    const installer = new NativeMessagingInstaller(options)
+    expect(installer.preserveOnStartupFailure).toBe(false)
+    await installer.syncManifests({
+      chromium: ['changed'],
+      firefox: ['changed'],
+    })
+    await installer.unregister()
+    expect(accessed).not.toHaveBeenCalled()
+  })
+
+  it.each(['cleanup-only', 'sync-and-cleanup'])(
+    'preserves direct-install files and both registry views during %s',
+    async (operation) => {
+      const dir = await mkdtemp(join(tmpdir(), 'motrix-nm-package-'))
+      try {
+        const registry = new Map<string, string>()
+        const registryWriter = vi.fn(
+          async (entry: RegistryEntry, view: RegistryView) => {
+            registry.set(`${view}:${entry.keyPath}`, entry.value)
+          }
+        )
+        const registryDeleter = vi.fn(
+          async (entry: RegistryEntry, view: RegistryView) => {
+            registry.delete(`${view}:${entry.keyPath}`)
+          }
+        )
+        const managedOptions = {
+          platform: 'win32' as const,
+          hostBinaryPath: join(dir, 'direct', 'motrix-native-host.exe'),
+          manifestRoot: dir,
+          windowsRoamingAppData: join(dir, 'Roaming'),
+          developmentBridgeDataDir: join(dir, 'Motrix-dev', 'bridge'),
+          registryWriter,
+          registryDeleter,
+        }
+        const direct = new NativeMessagingInstaller(managedOptions)
+        expect(direct.registrationPolicy).toEqual({ mode: 'managed' })
+        await direct.syncManifests({
+          chromium: ['direct'],
+          firefox: ['direct'],
+        })
+        const files = [
+          ...Object.values(
+            computeManifestPaths(
+              'win32',
+              dir,
+              managedOptions.windowsRoamingAppData
+            )
+          ),
+          join(
+            dirname(managedOptions.hostBinaryPath),
+            DEVELOPMENT_HOST_CONFIG_NAME
+          ),
+        ]
+        const originals = await Promise.all(files.map((file) => readFile(file)))
+        const originalRegistry = [...registry.entries()]
+        expect(originalRegistry).toHaveLength(6)
+        expect(
+          new Set(originalRegistry.map(([key]) => key.slice(0, 2)))
+        ).toEqual(new Set(['32', '64']))
+        registryWriter.mockClear()
+        registryDeleter.mockClear()
+        const appImage = { sync: vi.fn(), suspend: vi.fn() }
+        // Even if a caller carries legacy options forward, the unsupported
+        // discriminator must take precedence over every previous owner.
+        const installer = new NativeMessagingInstaller({
+          ...managedOptions,
+          ...unsupported,
+          ...{ appImage },
+        })
+        if (operation === 'sync-and-cleanup') {
+          await expect(
+            installer.syncManifests({
+              chromium: ['package'],
+              firefox: ['package'],
+            })
+          ).resolves.toEqual({
+            failures: [],
+            unsupportedReason: 'windows-package',
+          })
+        }
+        await installer.unregister()
+        await installer.unregister()
+        expect(registryWriter).not.toHaveBeenCalled()
+        expect(registryDeleter).not.toHaveBeenCalled()
+        expect(appImage.sync).not.toHaveBeenCalled()
+        expect(appImage.suspend).not.toHaveBeenCalled()
+        expect([...registry.entries()]).toEqual(originalRegistry)
+        expect(await Promise.all(files.map((file) => readFile(file)))).toEqual(
+          originals
+        )
+      } finally {
+        await rm(dir, { recursive: true, force: true })
+      }
+    }
+  )
+
+  it('keeps an external companion distinct from unsupported registration', async () => {
+    const installer = new NativeMessagingInstaller({
+      platform: 'linux',
+      hostBinaryPath: '/app/bin/motrix-native-host',
+      manifestRoot: '/unused',
+      registrationMode: 'external',
+    })
+    expect(installer.registrationPolicy).toEqual({ mode: 'external' })
+    await expect(
+      installer.syncManifests({ chromium: [], firefox: [] })
+    ).resolves.toEqual({ failures: [] })
     await installer.unregister()
   })
 })

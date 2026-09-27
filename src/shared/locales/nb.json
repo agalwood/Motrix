@@ -2212,6 +2212,10 @@
         "headerBrowser": "Nettleser",
         "headerId": "Utvidelses-ID",
         "headerSource": "Kilde",
+        "windowsDiscoveryUnavailable": {
+          "title": "Automatisk nettleseroppdagelse er foreløpig utilgjengelig",
+          "description": "Denne Windows-pakken støtter ennå ikke automatisk nettleseroppdagelse. Å slå på nettleserintegrasjonen installerer ikke komponenten som kobler til nettleseren."
+        },
         "install": {
           "chrome": "Chrome",
           "development": "Utvikling",

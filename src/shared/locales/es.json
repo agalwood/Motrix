@@ -1821,6 +1821,10 @@
         "title": "Extensiones del navegador",
         "masterSwitch": "Conectar extensiones del navegador",
         "masterSwitchDesc": "Envía las descargas de páginas web a Motrix con la extensión del navegador.",
+        "windowsDiscoveryUnavailable": {
+          "title": "La detección automática del navegador no está disponible por ahora",
+          "description": "Este paquete para Windows aún no admite la detección automática del navegador. Activar la integración con el navegador no instalará el componente de conexión con el navegador."
+        },
         "install": {
           "chrome": "Chrome",
           "edge": "Microsoft Edge",

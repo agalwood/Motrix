@@ -1835,6 +1835,10 @@
         "title": "Rozszerzenia przeglądarki",
         "masterSwitch": "Połącz rozszerzenia przeglądarki",
         "masterSwitchDesc": "Wysyłaj pobrania ze stron internetowych do Motrix za pomocą rozszerzenia przeglądarki.",
+        "windowsDiscoveryUnavailable": {
+          "title": "Automatyczne wykrywanie przeglądarki jest obecnie niedostępne",
+          "description": "Ten pakiet dla systemu Windows nie obsługuje jeszcze automatycznego wykrywania przeglądarki. Włączenie integracji z przeglądarką nie zainstaluje komponentu połączenia z przeglądarką."
+        },
         "install": {
           "chrome": "Chrome",
           "edge": "Microsoft Edge",

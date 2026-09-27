@@ -86,6 +86,8 @@ export const Queries = {
   GetAppImageNativeHostStatus: 'query:getAppImageNativeHostStatus',
   GetLinuxDefaultAssociations: 'query:getLinuxDefaultAssociations',
   GetWindowsDefaultAssociations: 'query:getWindowsDefaultAssociations',
+  GetNativeMessagingRegistrationPolicy:
+    'query:getNativeMessagingRegistrationPolicy',
   GetApplicationMenu: 'query:getApplicationMenu',
 } as const
 

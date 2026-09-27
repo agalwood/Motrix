@@ -2212,6 +2212,10 @@
         "headerBrowser": "مرورگر",
         "headerId": "شناسهٔ افزونهٔ مرورگر",
         "headerSource": "منبع",
+        "windowsDiscoveryUnavailable": {
+          "title": "کشف خودکار مرورگر در حال حاضر در دسترس نیست",
+          "description": "این بستهٔ Windows هنوز از کشف خودکار مرورگر پشتیبانی نمی‌کند. فعال کردن یکپارچه‌سازی با مرورگر، مؤلفهٔ اتصال به مرورگر را نصب نمی‌کند."
+        },
         "install": {
           "chrome": "Chrome",
           "development": "توسعه",

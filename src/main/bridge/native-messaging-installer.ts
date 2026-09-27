@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process'
 import { chmod, lstat, mkdir, readFile, rm } from 'node:fs/promises'
 import { dirname, isAbsolute, join, posix } from 'node:path'
 import { promisify } from 'node:util'
+import type { NativeMessagingRegistrationPolicy } from '@shared/schemas/native-messaging-policy'
 import writeFileAtomic from 'write-file-atomic'
 import type { AppImageNativeHost } from './appimage-native-host'
 
@@ -239,7 +240,7 @@ async function regDeleteKey(
   ])
 }
 
-export interface InstallerOptions {
+interface ManagedInstallerOptions {
   appImage?: AppImageNativeHost | null
   env?: NodeJS.ProcessEnv
   /** Absolute path to the Native Messaging host executable. */
@@ -279,6 +280,13 @@ export interface InstallerOptions {
   developmentBridgeDataDir?: string
 }
 
+export type InstallerOptions =
+  | ManagedInstallerOptions
+  | {
+      registrationMode: 'unsupported'
+      unsupportedReason: 'windows-package'
+    }
+
 export interface SyncArgs {
   /** Chromium-family extension IDs (Chrome / Edge). */
   chromium: string[]
@@ -294,9 +302,12 @@ export interface NativeMessagingRegistrationFailure {
   error: unknown
 }
 
-export interface NativeMessagingSyncResult {
-  failures: NativeMessagingRegistrationFailure[]
-}
+export type NativeMessagingSyncResult =
+  | {
+      failures: NativeMessagingRegistrationFailure[]
+      unsupportedReason?: never
+    }
+  | { failures: []; unsupportedReason: 'windows-package' }
 
 interface ChromiumManifest {
   name: string
@@ -317,11 +328,27 @@ interface FirefoxManifest {
 export class NativeMessagingInstaller {
   constructor(private readonly opts: InstallerOptions) {}
 
+  /** Registration ownership policy, not evidence that a browser can connect. */
+  get registrationPolicy(): Readonly<NativeMessagingRegistrationPolicy> {
+    if (this.opts.registrationMode === 'unsupported') {
+      return Object.freeze({
+        mode: 'unsupported',
+        reason: this.opts.unsupportedReason,
+      })
+    }
+    return Object.freeze({ mode: this.opts.registrationMode ?? 'managed' })
+  }
+
   get preserveOnStartupFailure(): boolean {
-    return this.opts.appImage != null
+    return (
+      this.opts.registrationMode !== 'unsupported' && this.opts.appImage != null
+    )
   }
 
   async syncManifests(args: SyncArgs): Promise<NativeMessagingSyncResult> {
+    if (this.opts.registrationMode === 'unsupported') {
+      return { failures: [], unsupportedReason: this.opts.unsupportedReason }
+    }
     if (this.opts.appImage) {
       await this.opts.appImage.sync(args)
       return { failures: [] }
@@ -393,6 +420,7 @@ export class NativeMessagingInstaller {
   }
 
   async unregister(): Promise<void> {
+    if (this.opts.registrationMode === 'unsupported') return
     if (this.opts.appImage) return this.opts.appImage.suspend()
     if (this.opts.registrationMode === 'external') return
 
@@ -428,12 +456,14 @@ export class NativeMessagingInstaller {
   }
 
   private developmentHostConfigPath(): string | null {
+    if (this.opts.registrationMode === 'unsupported') return null
     return this.opts.developmentBridgeDataDir
       ? join(dirname(this.opts.hostBinaryPath), DEVELOPMENT_HOST_CONFIG_NAME)
       : null
   }
 
   private async writeDevelopmentHostConfig(): Promise<void> {
+    if (this.opts.registrationMode === 'unsupported') return
     const filePath = this.developmentHostConfigPath()
     if (!filePath) return
 
@@ -456,6 +486,7 @@ export class NativeMessagingInstaller {
   }
 
   private async writeJson(filePath: string, obj: object): Promise<void> {
+    if (this.opts.registrationMode === 'unsupported') return
     if (this.opts.platform === 'linux') {
       try {
         const stat = await lstat(filePath)
@@ -484,6 +515,7 @@ export class NativeMessagingInstaller {
   }
 
   private async removeOwnedManifest(filePath: string): Promise<void> {
+    if (this.opts.registrationMode === 'unsupported') return
     if (this.opts.platform === 'win32') {
       await rm(filePath, { force: true })
       return

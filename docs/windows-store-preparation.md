@@ -5,9 +5,9 @@
 Motrix's Windows package support is under development. Preparation tools validate
 inputs and assemble a test layout; a separate Windows SDK runner creates an
 unsigned test AppX. These tools do not sign, install, submit, or establish
-Microsoft Store compatibility. StartupTask integration is implemented for testing;
-package associations, browser integration, and installation lifecycle still need
-work. Windows package runtime verification remains required.
+Microsoft Store compatibility. StartupTask, package associations, and notification
+activation are implemented for testing. Browser discovery and installation
+lifecycle still need work. Windows package runtime verification remains required.
 
 ## Release metadata
 
@@ -172,9 +172,9 @@ pack/unpack verification remain required.
 
 Store profile layout preparation is currently rejected: production asset
 variants and package integration remain incomplete. Use test layouts only with
-an isolated Windows user or VM. Existing browser registration still uses direct
-distribution paths and needs package-aware behavior, even without a native-host
-alias declaration.
+an isolated Windows user or VM. Browser auto-discovery is currently unsupported
+in Windows packages; the package does not register or remove the direct
+distribution's browser connector.
 
 ## Windows startup integration
 
@@ -271,6 +271,28 @@ after restart or process exit, clicks during startup, repeated events, and
 coexistence with the direct installation. Also exercise plugin notification
 replacement and dismissal while observing package identity. Neither
 `Notification.isSupported()` nor SDK packing proves those runtime behaviors.
+
+## Browser registration isolation
+
+Windows packages report an `unsupported` Native Messaging registration policy.
+The installer returns before resolving a host path or touching manifests,
+development sidecars, or browser registry keys. This applies to registration,
+standalone cleanup, startup rollback, and trusted-extension changes. The native
+host path resolver also rejects Windows package use. Direct distributions keep
+their existing registration; Flatpak keeps its externally managed policy.
+
+Settings queries this policy independently of the bridge, so the Windows package
+limitation remains visible while browser integration is off. It hides extension
+installation cards and Native Messaging recovery advice for this package, while
+retaining the switch, paired-client list, and revocation controls. A running MDXP
+bridge does not prove Native Messaging is available; its authentication and CLI
+behavior are unchanged.
+
+This isolation does not implement Store browser support. A stable package host,
+correct profile discovery, browser stdio behavior, cold launch, upgrade before
+first launch, uninstall, and coexistence still require Windows 11 evidence and
+coordination with the browser extensions. Do not expose the traditional host as
+a Store alias: its existing data and launch paths belong to the direct version.
 
 ## Run the Windows SDK package check
 
