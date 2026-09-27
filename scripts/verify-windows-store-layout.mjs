@@ -20,7 +20,8 @@ const PREPARATION_FILES = [
   'TEST-ONLY.txt',
   'layout-report.json',
 ]
-const UNPACKED_FILES = ['AppxBlockMap.xml', '[Content_Types].xml']
+// MakeAppx unpack extracts the block map, but not the ZIP content-types part.
+const UNPACKED_FILES = ['AppxBlockMap.xml']
 const OPTIONAL_CATALOG = 'AppxMetadata/CodeIntegrity.cat'
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex')

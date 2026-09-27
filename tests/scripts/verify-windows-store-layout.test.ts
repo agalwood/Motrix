@@ -95,10 +95,6 @@ async function unpacked(input: Fixture, catalog = false) {
     path.join(directory, 'AppxBlockMap.xml'),
     '<synthetic-block-map />'
   )
-  await writeFile(
-    path.join(directory, '[Content_Types].xml'),
-    '<synthetic-content-types />'
-  )
   if (catalog) {
     await mkdir(path.join(directory, 'AppxMetadata'))
     await writeFile(
@@ -390,7 +386,7 @@ describe('Windows Store layout content verification', () => {
     }
   )
 
-  it.each(['resources.pri', 'AppxBlockMap.xml', '[Content_Types].xml'])(
+  it.each(['resources.pri', 'AppxBlockMap.xml'])(
     'rejects missing unpacked generated file %s',
     async (relative) => {
       const input = await fixture()
@@ -424,22 +420,24 @@ describe('Windows Store layout content verification', () => {
     )
   })
 
-  it.each(['AppxSignature.p7x', 'extra.txt', 'AppxMetadata/extra.cat'])(
-    'rejects extra unpacked file %s',
-    async (relative) => {
-      const input = await fixture()
-      const layoutDirectory = await unpacked(input, true)
-      await writeFile(path.join(layoutDirectory, relative), 'unexpected')
-      failed(
-        await verifyWindowsStoreLayout({
-          preparedDirectory: input.preparedDirectory,
-          layoutDirectory,
-          phase: 'unpacked',
-        }),
-        'unpacked-tree'
-      )
-    }
-  )
+  it.each([
+    'AppxSignature.p7x',
+    '[Content_Types].xml',
+    'extra.txt',
+    'AppxMetadata/extra.cat',
+  ])('rejects extra unpacked file %s', async (relative) => {
+    const input = await fixture()
+    const layoutDirectory = await unpacked(input, true)
+    await writeFile(path.join(layoutDirectory, relative), 'unexpected')
+    failed(
+      await verifyWindowsStoreLayout({
+        preparedDirectory: input.preparedDirectory,
+        layoutDirectory,
+        phase: 'unpacked',
+      }),
+      'unpacked-tree'
+    )
+  })
 
   it('detects a changed unpacked payload even when both PE headers are x64', async () => {
     const input = await fixture()
