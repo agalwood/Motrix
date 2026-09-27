@@ -34,6 +34,13 @@ on:
       - 'packages/finalize-fs/**'
       - 'packages/windows-platform/**'
   workflow_dispatch:
+    inputs:
+      protocol_browser:
+        description: Browser to verify for explicit Store URI cold launch
+        required: true
+        default: edge
+        type: choice
+        options: [edge, chrome]
 
 permissions:
   contents: read
@@ -347,6 +354,8 @@ jobs:
       - name: Test installed diagnostic alias and browsers on the hosted runner
         if: github.event_name == 'workflow_dispatch'
         shell: powershell
+        env:
+          MOTRIX_STORE_PROTOCOL_BROWSER: ${{ inputs.protocol_browser || 'edge' }}
         run: >-
           ./scripts/test-windows-store-package-runtime.ps1
           -PreparedDirectory $env:MOTRIX_STORE_DIAGNOSTIC_LAYOUT

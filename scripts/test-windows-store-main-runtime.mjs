@@ -7,7 +7,10 @@ import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { isDeepStrictEqual } from 'node:util'
-import { runStoreExtensionRuntime } from './test-windows-store-extension-runtime.mjs'
+import {
+  productionBrowserOrder,
+  runStoreExtensionRuntime,
+} from './test-windows-store-extension-runtime.mjs'
 import {
   queryInstalledState,
   readInstalledFile,
@@ -347,6 +350,8 @@ async function runMainCase(installed, pairing, progress) {
   let startTicks
   let originalClosed = false
   try {
+    const protocolBrowser = process.env.MOTRIX_STORE_PROTOCOL_BROWSER || 'edge'
+    const browserOrder = productionBrowserOrder(protocolBrowser)
     const preflight = await queryProcess()
     if (preflight.processCount !== 0 || preflight.packageProcessCount !== 0)
       fail('existing-motrix-process')
@@ -505,7 +510,8 @@ async function runMainCase(installed, pairing, progress) {
         report.bootstrapTicketProofVerified = true
         if (process.env.MOTRIX_STORE_EXTENSION_DIRECTORY) {
           report.extensionRuntimes = {}
-          for (const browserName of ['chrome', 'edge']) {
+          report.protocolBrowser = protocolBrowser
+          for (const browserName of browserOrder) {
             stage = `production-extension-${browserName}`
             progress(stage)
             const extension = await runStoreExtensionRuntime({
@@ -518,7 +524,7 @@ async function runMainCase(installed, pairing, progress) {
               ),
               appPort: reply.port,
               readPairingCode: () => readPairingCode(main),
-              ...(browserName === 'edge'
+              ...(browserName === protocolBrowser
                 ? {
                     coldLaunch: createExtensionColdLaunchController(
                       installed,

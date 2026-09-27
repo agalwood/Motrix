@@ -268,13 +268,16 @@ try {
   Test-ContractCase 'main-accepts-bound-evidence' 'main'
   $previousExtensionDirectory = $env:MOTRIX_STORE_EXTENSION_DIRECTORY
   $previousExtensionCommit = $env:MOTRIX_STORE_EXTENSION_COMMIT
+  $previousProtocolBrowser = $env:MOTRIX_STORE_PROTOCOL_BROWSER
   try {
     $env:MOTRIX_STORE_EXTENSION_DIRECTORY = 'synthetic-contract-only'
     $env:MOTRIX_STORE_EXTENSION_COMMIT = 'd' * 40
     Test-ContractCase 'extension-rejects-missing-runtime-evidence' 'main' $true
-    foreach ($case in @('valid', 'wrong-source', 'missing-pair', 'missing-reconnect', 'missing-cleanup', 'string-boolean', 'windows11-overclaim', 'missing-edge', 'wrong-brand', 'wrong-scope', 'different-build', 'extra-browser', 'chrome-missing-pair', 'chrome-missing-cleanup', 'missing-protocol', 'chrome-protocol-overclaim', 'protocol-no-before', 'protocol-no-identity', 'protocol-no-endpoint', 'protocol-no-after', 'protocol-no-cleanup', 'protocol-string-boolean')) {
-      Test-ContractCase "extension-$case" 'main' ($case -ne 'valid') {
+    foreach ($case in @('valid', 'wrong-source', 'missing-pair', 'missing-reconnect', 'missing-cleanup', 'string-boolean', 'windows11-overclaim', 'missing-edge', 'wrong-brand', 'wrong-scope', 'different-build', 'extra-browser', 'chrome-missing-pair', 'chrome-missing-cleanup', 'missing-protocol', 'chrome-protocol-overclaim', 'protocol-no-before', 'protocol-no-identity', 'protocol-no-endpoint', 'protocol-no-after', 'protocol-no-cleanup', 'protocol-string-boolean', 'valid-chrome', 'wrong-protocol-browser', 'consent-missing', 'consent-foreign', 'consent-string', 'invalid-browser-config')) {
+      Test-ContractCase "extension-$case" 'main' ($case -cnotin @('valid', 'valid-chrome')) {
         param($f)
+        $env:MOTRIX_STORE_PROTOCOL_BROWSER = 'edge'
+        $f.Main.runtime | Add-Member protocolBrowser 'edge'
         $records = [pscustomobject]@{}
         foreach ($brand in @('chrome', 'edge')) {
           $product = if ($brand -ceq 'chrome') { 'Google Chrome' } else { 'Microsoft Edge' }
@@ -295,6 +298,21 @@ try {
         })
         $proof = $records.edge
         switch ($case) {
+          'valid-chrome' {
+            $env:MOTRIX_STORE_PROTOCOL_BROWSER = 'chrome'
+            $f.Main.runtime.protocolBrowser = 'chrome'
+            $records.chrome.protocolActivationVerified = $true
+            $records.edge.protocolActivationVerified = $false
+            $records.chrome | Add-Member protocolLaunch $proof.protocolLaunch
+            $records.chrome | Add-Member protocolConfirmation $proof.protocolConfirmation
+            $records.edge.PSObject.Properties.Remove('protocolLaunch')
+            $records.edge.PSObject.Properties.Remove('protocolConfirmation')
+          }
+          'wrong-protocol-browser' { $f.Main.runtime.protocolBrowser = 'chrome' }
+          'consent-missing' { $proof.protocolConfirmation.confirmed = $false }
+          'consent-foreign' { $proof.protocolConfirmation.processIdentityVerified = $false }
+          'consent-string' { $proof.protocolConfirmation.confirmed = 'true' }
+          'invalid-browser-config' { $env:MOTRIX_STORE_PROTOCOL_BROWSER = 'firefox' }
           'missing-protocol' { $proof.protocolActivationVerified = $false }
           'chrome-protocol-overclaim' { $records.chrome.protocolActivationVerified = $true }
           'protocol-no-before' { $proof.protocolLaunch.noLaunchBeforeVerified = $false }
@@ -323,6 +341,7 @@ try {
   } finally {
     $env:MOTRIX_STORE_EXTENSION_DIRECTORY = $previousExtensionDirectory
     $env:MOTRIX_STORE_EXTENSION_COMMIT = $previousExtensionCommit
+    $env:MOTRIX_STORE_PROTOCOL_BROWSER = $previousProtocolBrowser
   }
   Test-ContractCase 'main-rejects-missing-transport-proof' 'main' $true { param($f) $f.Main.installedMbp1TransportVerified = $false }
   Test-ContractCase 'main-rejects-missing-bootstrap-proof' 'main' $true { param($f) $f.Main.installedBootstrapTicketProofVerified = $false }

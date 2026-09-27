@@ -94,6 +94,17 @@ describe('Windows Store SDK test workflow', () => {
     const runtime = steps[index]
     expect(runtime?.if).toBe("github.event_name == 'workflow_dispatch'")
     expect(runtime?.shell).toBe('powershell')
+    expect(workflow.on.workflow_dispatch.inputs.protocol_browser).toEqual({
+      description: 'Browser to verify for explicit Store URI cold launch',
+      required: true,
+      default: 'edge',
+      type: 'choice',
+      options: ['edge', 'chrome'],
+    })
+    expect(runtime?.env?.MOTRIX_STORE_PROTOCOL_BROWSER).toBe(
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions expression, not JavaScript interpolation.
+      "${{ inputs.protocol_browser || 'edge' }}"
+    )
     expect(runtime?.['continue-on-error']).toBeUndefined()
     expect(runtime?.run).toContain(
       './scripts/test-windows-store-package-runtime.ps1'
@@ -208,7 +219,13 @@ describe('Windows Store SDK test workflow', () => {
     expect(prepare).toContain("name = 'Motrix.Store.Test'")
     expect(prepare).toContain("publisher = 'CN=Motrix Store Test'")
     expect(prepare).toContain('prepare-windows-store-build.mjs')
-    expect(source).not.toContain('inputs.')
+    expect(prepare).not.toContain('inputs.')
+    expect(Object.keys(workflow.on.workflow_dispatch.inputs)).toEqual([
+      'protocol_browser',
+    ])
+    expect(source.match(/inputs\.[a-z_]+/g)).toEqual([
+      'inputs.protocol_browser',
+    ])
   })
 
   it('compiles and exercises the diagnostic host outside the package before the SDK build', () => {

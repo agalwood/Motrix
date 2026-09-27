@@ -188,6 +188,12 @@ export function productionChromiumTarget(browserName) {
   }
 }
 
+/** The selected cold-launch case runs last because it closes the application. */
+export function productionBrowserOrder(protocolBrowser) {
+  productionChromiumTarget(protocolBrowser)
+  return [protocolBrowser === 'chrome' ? 'edge' : 'chrome', protocolBrowser]
+}
+
 /**
  * Production Chromium build, normal UI and PAKE, disposable CI profile.
  * Optional cold launch exercises normal protocol consent, never Store identity.

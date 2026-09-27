@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   extensionFailure,
   fingerprintExtensionBuild,
+  productionBrowserOrder,
   productionChromiumTarget,
   runStoreExtensionRuntime,
 } from '../../scripts/test-windows-store-extension-runtime.mjs'
@@ -104,6 +105,10 @@ describe('production browser evidence boundary', () => {
 })
 
 describe('production Chromium browser selection', () => {
+  it('retains both brands and runs the requested application-closing case last', () => {
+    expect(productionBrowserOrder('chrome')).toEqual(['edge', 'chrome'])
+    expect(productionBrowserOrder('edge')).toEqual(['chrome', 'edge'])
+  })
   it('selects the matching branded channel and evidence scope', () => {
     expect(productionChromiumTarget('chrome')).toEqual({
       browserName: 'chrome',
@@ -120,6 +125,9 @@ describe('production Chromium browser selection', () => {
     'rejects unsupported browser %s before launch',
     (name) => {
       expect(() => productionChromiumTarget(name)).toThrow(
+        'extension-browser-unsupported'
+      )
+      expect(() => productionBrowserOrder(name)).toThrow(
         'extension-browser-unsupported'
       )
     }

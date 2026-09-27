@@ -284,7 +284,9 @@ reconnection must use the retained credential without another pairing code.
 The driver does not preseed credentials or application consent, or copy a user's
 existing browser profile. The application's first-run consent uses its normal UI.
 
-The Edge case additionally closes the application and checks that no Motrix
+The manual workflow's `protocol_browser` choice selects `edge` (default) or
+`chrome` for cold launch. Both still run pairing and browser-restart checks; the
+selected browser runs last, closes the application and checks that no Motrix
 process or endpoint remains. It clicks the extension's normal **Connect** or
 **View tasks** action and accepts the browser's normal confirmation for the test
 package. UI Automation is restricted to the owned browser process, start time,
@@ -295,16 +297,19 @@ The new application's package identity, process generation and loopback listener
 must match before the extension reconnects using its original credential.
 
 Accept a result only when pairing, browser restart, and cleanup all pass for both
-browsers. Edge also requires `protocolActivationVerified`, confirmed browser
-consent, and every `protocolLaunch` ownership/no-launch/cleanup check. Chrome's
-protocol flag remains false because that phase currently runs only in Edge.
+browsers. The selected browser also requires `protocolActivationVerified`,
+confirmed browser consent, and every `protocolLaunch` ownership/no-launch/cleanup
+check. `runtime.protocolBrowser` must match the requested choice. The other
+browser's protocol flag remains false. Run each choice and retain both reports
+before claiming protocol activation for both browsers.
 Failure-stage codes and bounded UI control counts support diagnosis without
 retaining page text, pairing material, screenshots, videos or traces. Profiles
 are deleted, and CI retains only its existing JSON/XML/log evidence allowlist.
 
 These checks exercise production code loaded unpacked, not a browser-store
-installation. They do not establish Firefox production pairing, Chrome protocol
-activation, permission cancellation, missing-handler behavior, download takeover,
+installation. They do not establish Firefox production pairing, protocol
+activation in the unselected browser, permission cancellation, missing-handler
+behavior, download takeover,
 service-worker restart in isolation, or connection continuity across application
 upgrades/uninstallation. Record these separately, together with Windows 11
 standard-user acceptance, WACK and the actual Microsoft-signed Store flight.
