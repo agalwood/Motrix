@@ -39,6 +39,8 @@ export interface OsNotificationBridgeDeps {
   navigateToDownloads: () => void
   /** Reveal the task's current output, or its containing directory if missing. */
   revealTaskInFolder: (taskId: string) => Promise<void>
+  /** Give a live task click priority over a package toast's generic fallback. */
+  claimLiveClick?: () => void
   isSupported?: () => boolean
   createNotification?: (opts: {
     title: string
@@ -86,6 +88,7 @@ export function createOsNotificationBridge(deps: OsNotificationBridgeDeps): {
     // Native clicks fire after handle() returns, so isolate both asynchronous
     // file-manager failures and errors while showing or navigating the window.
     try {
+      deps.claimLiveClick?.()
       if (
         payload.kind === NotificationKinds.TaskComplete &&
         payload.taskId != null &&

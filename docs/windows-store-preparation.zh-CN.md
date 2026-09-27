@@ -207,6 +207,26 @@ Windows 11 还须验证：
 
 SDK 打包通过本身不代表上述激活或默认关联检查通过。
 
+## Windows 包通知
+
+包版从 `src/shared/config/windows-package.json` 读取固定 toast 激活 CLSID，
+Electron 与清单中的 COM/toast 声明共用该值。通知初始化前先设置 CLSID；应用
+ready 后初始化通知 presenter，使尚未展示新通知的进程也能接收 COM 激活。
+官网等其他发行方式保留现有初始化行为。
+
+历史通知点击的参数可能为空。包版在启动完成前只保留有界的显示主窗口请求，
+不把激活参数解释为 URL、文件路径或任务命令。仍在内存中的业务通知保留已有
+任务导航、文件定位行为；同一事件循环中的实例点击优先于全局兜底，这不代表
+能够消除之后重复到达的所有事件。包版插件通知点击也会打开主窗口。
+退出时丢弃尚未执行的激活请求。
+
+实现依据当前锁定的 Electron 通知实现及微软的 [toast 激活](https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-desktop-toastnotificationactivation)
+和 [COM 可执行服务器](https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-com-exeserver)
+契约，不使用 Windows App SDK 专用激活参数。Windows 11 仍须验证通知投递、
+运行中点击、重启或进程退出后的通知中心点击、启动期间点击、重复事件及官网版
+共存；还应测试插件通知替换、关闭并观察包身份。`Notification.isSupported()`
+返回成功和 SDK 打包通过均不能证明这些运行时行为。
+
 ## 执行 Windows SDK 包检查
 
 在 Windows 的 PowerShell 7 中选择同时包含 `makepri.exe` 和 `makeappx.exe` 的已安装 x64 SDK

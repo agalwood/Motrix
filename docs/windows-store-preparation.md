@@ -244,6 +244,34 @@ Windows 11 validation must also cover:
 
 SDK packing alone does not execute any of these activation or association checks.
 
+## Windows package notifications
+
+The package uses one fixed toast activator CLSID from
+`src/shared/config/windows-package.json` for both Electron and the manifest's
+COM/toast declarations. Electron receives this CLSID before notification
+initialization. The package initializes its notification presenter after app
+readiness so a notification can activate the COM server even before a new toast
+has been shown. Direct distributions retain their existing initialization.
+
+Persistent notification clicks may have empty arguments. The package queues a
+bounded request to show the main window until startup finishes; it does not
+interpret activation arguments as a URL, file path, or task command. Live
+business notification clicks retain their existing task/reveal behavior. An
+instance click takes priority over a global fallback in the same event-loop
+turn; this is not a guarantee against duplicate events delivered later. Plugin
+notification clicks in the package also open the main window. Shutdown discards
+pending activation work.
+
+This follows the pinned Electron notification implementation and Microsoft's
+[toast activation](https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-desktop-toastnotificationactivation)
+and [COM executable server](https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-com-exeserver)
+contracts. The manifest does not use Windows App SDK-specific activation
+arguments. On Windows 11, verify delivery, live clicks, notification-center clicks
+after restart or process exit, clicks during startup, repeated events, and
+coexistence with the direct installation. Also exercise plugin notification
+replacement and dismissal while observing package identity. Neither
+`Notification.isSupported()` nor SDK packing proves those runtime behaviors.
+
 ## Run the Windows SDK package check
 
 In PowerShell 7 on Windows, select an installed x64 SDK directory containing `makepri.exe` and

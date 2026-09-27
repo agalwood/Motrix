@@ -18,7 +18,10 @@ const { MockNotification, mockLocateFfmpeg, mockVersionDetectorFactory } =
   vi.hoisted(() => {
     class MockNotification {
       static isSupported = vi.fn(() => true)
-      on(_ev: string, _fn: () => void): void {}
+      static clickListeners: Array<() => void> = []
+      on(ev: string, fn: () => void): void {
+        if (ev === 'click') MockNotification.clickListeners.push(fn)
+      }
       show(): void {}
       close(): void {}
     }
@@ -102,6 +105,7 @@ describe('createElectronCapabilityHost', () => {
   beforeEach(() => {
     db = makeDb()
     MockNotification.isSupported.mockClear()
+    MockNotification.clickListeners.length = 0
     mockLocateFfmpeg.mockClear()
     mockVersionDetectorFactory.mockClear()
   })
@@ -140,6 +144,27 @@ describe('createElectronCapabilityHost', () => {
     })
 
     expect(MockNotification.isSupported).not.toHaveBeenCalled()
+  })
+
+  it('wires the optional package notification click to the shell callback', async () => {
+    const onNotificationClick = vi.fn()
+    const host = await createElectronCapabilityHost({
+      appVersion: '2.0.0',
+      hostLanguage: 'en-US',
+      db,
+      userDataDir: tmpdir(),
+      pluginsDir: path.join(tmpdir(), 'plugins'),
+      settingsManager: makeSettingsManager(),
+      configReader: () => ({}),
+      secretFieldsFor: () => new Set(),
+      manifestCommandIdsFor: () => new Set(),
+      onNotificationClick,
+    })
+    await host.notify.show('plugin-a', { title: 'Title', body: 'Body' })
+    expect(onNotificationClick).not.toHaveBeenCalled()
+    expect(MockNotification.clickListeners).toHaveLength(1)
+    MockNotification.clickListeners[0]()
+    expect(onNotificationClick).toHaveBeenCalledExactlyOnceWith()
   })
 
   it('locates FFmpeg without running the version detector at startup', async () => {

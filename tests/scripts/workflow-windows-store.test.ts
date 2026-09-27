@@ -23,6 +23,9 @@ describe('Windows Store SDK test workflow', () => {
     expect(workflow.permissions).toEqual({ contents: 'read' })
     expect(workflow.on).not.toHaveProperty('pull_request_target')
     expect(workflow.on.pull_request.branches).toEqual(['main'])
+    expect(workflow.on.pull_request.paths).toContain(
+      'src/shared/config/windows-package.json'
+    )
     expect(job['runs-on']).toBe('windows-2025')
     expect(job['continue-on-error']).toBeUndefined()
     expect(job.permissions).toBeUndefined()

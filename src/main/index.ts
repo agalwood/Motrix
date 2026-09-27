@@ -142,6 +142,7 @@ import {
   app,
   type BrowserWindow,
   dialog,
+  Notification,
   autoUpdater as nativeAutoUpdater,
   powerMonitor,
   shell,
@@ -182,6 +183,7 @@ import { MenuManager } from './menu/menu-manager'
 import { MenuRegistry } from './menu/menu-registry'
 import { createNatManager } from './nat/nat-manager-factory'
 import { createOsNotificationBridge } from './notifications/os-bridge'
+import { createWindowsPackageActivation } from './notifications/windows-package-activation'
 import { DisclaimerGate } from './onboarding/disclaimer-gate'
 import { setupAppImageIntegration } from './platform/appimage-integration-host'
 import { syncAutoLaunch } from './platform/auto-launch'
@@ -262,6 +264,23 @@ const rendererUrlPolicy = initializeRendererUrlPolicy({
 const logDir = path.join(platform.userDataDir, 'logs')
 setupLogger({ level: 'info', logDir, isDev: platform.isDev })
 const log = getLogger('main')
+
+const windowsPackageActivation = createWindowsPackageActivation({
+  isWindowsPackage: distributionContext.isWindowsPackage,
+  setToastActivatorCLSID: (clsid) => app.setToastActivatorCLSID(clsid),
+  handleActivation: (callback) => Notification.handleActivation(callback),
+  isSupported: () => Notification.isSupported(),
+  // The controller buffers activations until the main window and IPC are ready;
+  // this callback cannot access the later declarations during early setup.
+  openMainWindow: () => {
+    if (!mainProcessWork.isAccepting()) return
+    windowManager.show('main')
+    const win = windowManager.get('main')
+    if (!win || win.isDestroyed()) return
+    dispatchWhenReady(win, Events.NavigateTo, ALL_DOWNLOADS_ROUTE)
+  },
+  log,
+})
 
 // ─── Core Services ──────────────────────────────────────
 
@@ -527,6 +546,7 @@ let resolvedApplicationLocale: SupportedLocale = DEFAULT_LOCALE
 let cleanupPromise: Promise<void> | null = null
 
 function performCleanup(): Promise<void> {
+  windowsPackageActivation.dispose()
   // Fence engine exit handling before the first await. Windows may terminate
   // aria2 as soon as session end begins, before graceful cleanup reaches it.
   supervisor?.prepareForShutdown()
@@ -1707,6 +1727,9 @@ async function initializeMainProcess(): Promise<void> {
       dispatchWhenReady(win, Events.NavigateTo, ALL_DOWNLOADS_ROUTE)
     },
     revealTaskInFolder: (taskId) => revealNotificationTask({ taskId }),
+    claimLiveClick: distributionContext.isWindowsPackage
+      ? windowsPackageActivation.claimLiveClick
+      : undefined,
     log,
   })
 
@@ -1895,6 +1918,9 @@ async function initializeMainProcess(): Promise<void> {
     userDataDir: app.getPath('userData'),
     pluginsDir,
     settingsManager,
+    onNotificationClick: distributionContext.isWindowsPackage
+      ? windowsPackageActivation.handleLiveClick
+      : undefined,
     // TODO Task 22: wire settingsManager.snapshot()?.plugins?.[pluginId] ?? {}
     configReader: (_pluginId) => ({}),
     // TODO Plan F: derive from manifest contributes.configuration schema
@@ -2803,6 +2829,7 @@ async function initializeMainProcess(): Promise<void> {
   })
 
   launcher.flushDeferred()
+  windowsPackageActivation.flush()
 
   // ── Phase 3: Background tasks (no blocking) ───────────────
   // NAT discovery, engine start, and add-task window creation
@@ -2852,6 +2879,7 @@ async function initializeMainProcess(): Promise<void> {
 }
 
 app.on('ready', () => {
+  windowsPackageActivation.initializePresenter()
   void mainProcessWork.run(initializeMainProcess).catch((err) => {
     if (
       !mainProcessWork.isAccepting() &&
@@ -2890,6 +2918,7 @@ async function showQuitConfirmation(activeCount: number): Promise<{
 }
 
 function beginShutdown(): void {
+  windowsPackageActivation.dispose()
   // quitController.phase is already 'shutting-down' (set synchronously before
   // this call). app.quit() below re-fires before-quit synchronously; the guard
   // there relies on the phase already being terminal.
@@ -2912,6 +2941,7 @@ function beginShutdown(): void {
 }
 
 function prepareForSessionEnd(): void {
+  windowsPackageActivation.dispose()
   // This callback runs from Windows query-session-end/session-end and the
   // cross-platform powerMonitor shutdown event. Mark the child exit expected
   // synchronously; the ordinary quit flow performs the graceful stop later.

@@ -20,6 +20,7 @@ on:
       - 'src/main/**'
       - 'src/shared/schemas/auto-launch*'
       - 'src/shared/schemas/windows-*'
+      - 'src/shared/config/windows-package.json'
       - 'src/renderer/routes/settings/cards/*auto-launch*'
       - 'src/renderer/routes/settings/cards/general-dialog*'
       - 'src/renderer/routes/settings/cards/integration/system-protocols-section*'

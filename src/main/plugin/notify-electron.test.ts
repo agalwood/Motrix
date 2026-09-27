@@ -21,6 +21,7 @@ const { instances, FakeNotification } = vi.hoisted(() => {
     on: (ev: string, fn: () => void) => void
     show: () => void
     close: () => void
+    click: () => void
   }> = []
 
   class FakeNotification {
@@ -48,6 +49,10 @@ const { instances, FakeNotification } = vi.hoisted(() => {
 
     show(): void {
       this.shown = true
+    }
+
+    click(): void {
+      for (const fn of this.listeners.get('click') ?? []) fn()
     }
 
     close(): void {
@@ -116,6 +121,25 @@ describe('ElectronNotifyHost', () => {
     expect(instances[0].opts.title).toBe('Hello')
     expect(instances[0].opts.body).toBe('World')
     expect(instances[0].shown).toBe(true)
+  })
+
+  it('forwards package live clicks only to the supplied safe shell callback', async () => {
+    const onNotificationClick = vi.fn()
+    const host = new ElectronNotifyHost(onNotificationClick)
+    await host.show('plugin-a', {
+      title: 'Hello',
+      body: 'motrix://untrusted-content',
+    })
+    expect(onNotificationClick).not.toHaveBeenCalled()
+    instances[0].click()
+    expect(onNotificationClick).toHaveBeenCalledExactlyOnceWith()
+  })
+
+  it('keeps ordinary notification clicks inert when no callback is supplied', async () => {
+    const host = new ElectronNotifyHost()
+    await host.show('plugin-a', { title: 'Hello', body: 'World' })
+    expect(() => instances[0].click()).not.toThrow()
+    expect(instances[0].closed).toBe(false)
   })
 
   // Test 3: Dedupe — show(pid, {id: 'a'}) then show(pid, {id: 'a'}) closes the first.

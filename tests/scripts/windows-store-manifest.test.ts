@@ -11,6 +11,7 @@ import {
 } from '../../scripts/windows-store-manifest.mjs'
 // @ts-expect-error -- JavaScript packaging script intentionally has no declarations
 import { WINDOWS_STORE_TEST_IDENTITY } from '../../scripts/windows-store-metadata.mjs'
+import windowsPackage from '../../src/shared/config/windows-package.json'
 
 const FOUNDATION =
   'http://schemas.microsoft.com/appx/manifest/foundation/windows10'
@@ -18,6 +19,7 @@ const UAP = 'http://schemas.microsoft.com/appx/manifest/uap/windows10'
 const UAP3 = `${UAP}/3`
 const UAP10 = `${UAP}/10`
 const DESKTOP = 'http://schemas.microsoft.com/appx/manifest/desktop/windows10'
+const COM = 'http://schemas.microsoft.com/appx/manifest/com/windows10'
 const RESCAP = `${FOUNDATION}/restrictedcapabilities`
 
 function storeMetadata(overrides: Record<string, unknown> = {}) {
@@ -79,9 +81,11 @@ describe('Windows Store manifest renderer', () => {
     expect(root.lookupNamespaceURI('uap')).toBe(UAP)
     expect(root.lookupNamespaceURI('uap3')).toBe(UAP3)
     expect(root.lookupNamespaceURI('uap10')).toBe(UAP10)
+    expect(root.lookupNamespaceURI('desktop')).toBe(DESKTOP)
+    expect(root.lookupNamespaceURI('com')).toBe(COM)
     expect(root.lookupNamespaceURI('rescap')).toBe(RESCAP)
     expect(root.getAttribute('IgnorableNamespaces')).toBe(
-      'uap uap3 uap10 desktop rescap'
+      'uap uap3 uap10 desktop com rescap'
     )
     expect(attributes(element(document, FOUNDATION, 'Identity'))).toEqual({
       Name: input.identity.name,
@@ -153,6 +157,12 @@ describe('Windows Store manifest renderer', () => {
       [UAP, 'FileType'],
       [DESKTOP, 'Extension'],
       [DESKTOP, 'StartupTask'],
+      [DESKTOP, 'Extension'],
+      [DESKTOP, 'ToastNotificationActivation'],
+      [COM, 'Extension'],
+      [COM, 'ComServer'],
+      [COM, 'ExeServer'],
+      [COM, 'Class'],
     ])
     expect(xml).not.toMatch(/EntryPoint|AppExecutionAlias|\$\{|@@/)
   })
@@ -208,19 +218,71 @@ describe('Windows Store manifest renderer', () => {
 
   it('starts the package executable only after opt-in with the login argument', () => {
     const document = parseXml(renderWindowsStoreManifest(testMetadata()))
-    expect(attributes(element(document, DESKTOP, 'Extension'))).toEqual({
+    const startupTask = element(document, DESKTOP, 'StartupTask')
+    expect(attributes(startupTask.parentElement!)).toEqual({
       Category: 'windows.startupTask',
       Executable: 'app\\Motrix.exe',
       'uap10:RuntimeBehavior': 'packagedClassicApp',
       'uap10:TrustLevel': 'mediumIL',
       'uap10:Parameters': '--opened-at-login=1',
     })
-    expect(attributes(element(document, DESKTOP, 'StartupTask'))).toEqual({
+    expect(attributes(startupTask)).toEqual({
       TaskId: 'MotrixStartup',
       Enabled: 'false',
       DisplayName: 'Motrix Store TEST ONLY',
     })
   })
+
+  it.each([
+    ['test', testMetadata(), 'Motrix Store TEST ONLY'],
+    ['store', storeMetadata(), 'Motrix'],
+  ])(
+    'registers the shared toast activator and its COM server for the %s profile',
+    (_profile, input, displayName) => {
+      const document = parseXml(renderWindowsStoreManifest(input))
+      const extensions = element(document, FOUNDATION, 'Extensions')
+      expect(extensions.parentElement).toBe(
+        element(document, FOUNDATION, 'Application')
+      )
+      expect(windowsPackage.toastActivatorClsid).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      )
+
+      const toast = element(document, DESKTOP, 'ToastNotificationActivation')
+      expect(attributes(toast)).toEqual({
+        ToastActivatorCLSID: windowsPackage.toastActivatorClsid,
+      })
+      expect(toast.children).toHaveLength(0)
+      const toastExtension = toast.parentElement!
+      expect(toastExtension.namespaceURI).toBe(DESKTOP)
+      expect(toastExtension.localName).toBe('Extension')
+      expect(attributes(toastExtension)).toEqual({
+        Category: 'windows.toastNotificationActivation',
+      })
+      expect(toastExtension.parentElement).toBe(extensions)
+
+      const comExtension = element(document, COM, 'Extension')
+      expect(attributes(comExtension)).toEqual({
+        Category: 'windows.comServer',
+      })
+      expect(comExtension.parentElement).toBe(extensions)
+      const server = element(document, COM, 'ComServer')
+      expect(server.parentElement).toBe(comExtension)
+      expect(attributes(server)).toEqual({})
+      const executable = element(document, COM, 'ExeServer')
+      expect(executable.parentElement).toBe(server)
+      expect(attributes(executable)).toEqual({
+        Executable: 'app\\Motrix.exe',
+        DisplayName: displayName,
+      })
+      const activator = element(document, COM, 'Class')
+      expect(activator.parentElement).toBe(executable)
+      expect(attributes(activator)).toEqual({
+        Id: windowsPackage.toastActivatorClsid,
+      })
+      expect(activator.children).toHaveLength(0)
+    }
+  )
 
   it('declares one language, configured OS thresholds, and logical asset paths', () => {
     const document = parseXml(renderWindowsStoreManifest(storeMetadata()))

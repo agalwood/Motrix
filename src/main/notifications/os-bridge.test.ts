@@ -150,6 +150,7 @@ function baseDeps(overrides: {
   navigateToTask?: (taskId: string) => void
   navigateToDownloads?: () => void
   revealTaskInFolder?: (taskId: string) => Promise<void>
+  claimLiveClick?: () => void
   translate?: (key: string, params?: Record<string, string>) => string
 }) {
   const { subscribe, deliver } = makeCapturingSubscribe()
@@ -185,12 +186,33 @@ function baseDeps(overrides: {
       navigateToDownloads,
       getTaskStatus,
       revealTaskInFolder,
+      claimLiveClick: overrides.claimLiveClick,
       isSupported: overrides.isSupported ?? (() => true),
       createNotification: overrides.createNotification,
       log,
     },
   }
 }
+
+it('claims a package live click before asynchronous reveal without changing its behavior', async () => {
+  const { createNotification, instances } = makeNotificationFactory()
+  const order: string[] = []
+  const { deps, deliver, showMainWindow } = baseDeps({
+    createNotification,
+    claimLiveClick: () => order.push('claim'),
+    revealTaskInFolder: async () => {
+      order.push('reveal')
+    },
+  })
+  const bridge = createOsNotificationBridge(deps)
+  deliver(makeNotification({ taskId: 'task-1' }))
+  await instances[0].click()
+  expect(order).toEqual(['claim', 'reveal'])
+  expect(showMainWindow).not.toHaveBeenCalled()
+  bridge.dispose()
+  await instances[0].click()
+  expect(order).toEqual(['claim', 'reveal'])
+})
 
 // ---------------------------------------------------------------------------
 // Full gating matrix: (window state) x (kind) x (toggle on/off)

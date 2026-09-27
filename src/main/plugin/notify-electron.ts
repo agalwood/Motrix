@@ -16,10 +16,12 @@ export class ElectronNotifyHost implements NotifyCapabilityHost {
 
   private readonly active = new Map<string, Notification>()
 
+  constructor(private readonly onNotificationClick?: () => void) {}
+
   get available(): boolean {
     // Keep this check lazy. On Windows, Electron initializes its toast
-    // activator from Notification.isSupported(), which creates or rewrites a
-    // per-user Start Menu shortcut. Constructing the capability host happens
+    // activator from Notification.isSupported(). Unpackaged Windows apps also
+    // create or rewrite a per-user Start Menu shortcut. Host construction happens
     // on every app launch, even when no plugin requests a notification.
     this.notificationSupported ??= Notification.isSupported()
     return this.notificationSupported
@@ -46,6 +48,10 @@ export class ElectronNotifyHost implements NotifyCapabilityHost {
       body: opts.body,
       urgency: opts.urgency,
     })
+
+    if (this.onNotificationClick) {
+      n.on('click', this.onNotificationClick)
+    }
 
     n.on('close', () => {
       // Remove from map only if this is still the active entry for the key.

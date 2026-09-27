@@ -1,3 +1,6 @@
+import windowsPackage from '../src/shared/config/windows-package.json' with {
+  type: 'json',
+}
 import { validateWindowsStoreMetadata } from './windows-store-metadata.mjs'
 
 // These checked-in PNGs are scale-200 assets, despite their unqualified names.
@@ -62,6 +65,12 @@ export function renderWindowsStoreManifest(rawMetadata) {
   // https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-uap3-filetypeassociation
   // Document activates once per selected file; Electron forwards each subsequent
   // activation to its single instance. Single would discard additional files.
+  // Packaged Electron skips LocalServer32 registration, so the manifest must
+  // register the same fixed toast activator CLSID used by its notification API.
+  // No activation Arguments: Electron registers its executable alone.
+  // https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-com-exeserver
+  // https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-desktop-toastnotificationactivation
+  // https://github.com/electron/electron/blob/v44.4.3/shell/browser/notifications/win/windows_toast_activator.cc
   return String.raw`<?xml version="1.0" encoding="utf-8"?>
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
@@ -69,8 +78,9 @@ export function renderWindowsStoreManifest(rawMetadata) {
   xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
   xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
   xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap uap3 uap10 desktop rescap">
+  IgnorableNamespaces="uap uap3 uap10 desktop com rescap">
   <Identity Name="${escapeXml(metadata.identity.name)}" Publisher="${escapeXml(metadata.identity.publisher)}" Version="${escapeXml(metadata.packageVersion)}" ProcessorArchitecture="${escapeXml(metadata.architecture)}" />
   <Properties>
     <DisplayName>${escapeXml(displayName)}</DisplayName>
@@ -112,6 +122,16 @@ export function renderWindowsStoreManifest(rawMetadata) {
         <desktop:Extension Category="windows.startupTask" Executable="app\Motrix.exe" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL" uap10:Parameters="--opened-at-login=1">
           <desktop:StartupTask TaskId="MotrixStartup" Enabled="false" DisplayName="${escapeXml(displayName)}" />
         </desktop:Extension>
+        <desktop:Extension Category="windows.toastNotificationActivation">
+          <desktop:ToastNotificationActivation ToastActivatorCLSID="${escapeXml(windowsPackage.toastActivatorClsid)}" />
+        </desktop:Extension>
+        <com:Extension Category="windows.comServer">
+          <com:ComServer>
+            <com:ExeServer Executable="app\Motrix.exe" DisplayName="${escapeXml(displayName)}">
+              <com:Class Id="${escapeXml(windowsPackage.toastActivatorClsid)}" />
+            </com:ExeServer>
+          </com:ComServer>
+        </com:Extension>
       </Extensions>
     </Application>
   </Applications>

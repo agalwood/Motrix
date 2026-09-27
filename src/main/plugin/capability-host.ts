@@ -55,6 +55,8 @@ export interface ElectronCapabilityHostOptions {
    * spec §5 L1741-1746 manifest-declaration check on register().
    */
   manifestCommandIdsFor: (pluginId: string) => ReadonlySet<string>
+  /** Optional shell-owned safe activation for Windows package notifications. */
+  onNotificationClick?: () => void
   /** Dictionaries cached by PluginRegistry for the active + fallback locale. */
   localeSnapshotFor?: (pluginId: string) => {
     currentDict: Record<string, string>
@@ -103,7 +105,7 @@ export async function createElectronCapabilityHost(
       })
     },
   })
-  const notify = new ElectronNotifyHost()
+  const notify = new ElectronNotifyHost(opts.onNotificationClick)
   const secrets = await LibsodiumSecretStore.create({
     userDataDir: opts.userDataDir,
     envSeed: process.env.MOTRIX_SECRETS_SEED,
