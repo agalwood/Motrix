@@ -29,6 +29,7 @@ import {
   type EnvelopeChannel,
   wrapWithEnvelope,
 } from '../mbp1/envelope-message-stream'
+import { isCanonicalMbp1PairNonce } from '../mbp1/nonce-service'
 import { normalizePairingCode } from '../mbp1/pairing-code'
 import {
   buildRT,
@@ -197,6 +198,9 @@ export interface PairAttemptOptions {
   claimedExtensionId: string
   clientInstallationId?: string
   ticket?: ClientTicket
+  /** Test-only nonce returned by a real Native Messaging bootstrap. When
+   * supplied, consume it directly without issuing another POST /nonce. */
+  pairNonce?: string
   /** Test-only public surface prefix, such as `/bridge`. */
   routePrefix?: string
   /** Test-only reverse-proxy Host preserved at the raw boundary. */
@@ -304,7 +308,10 @@ export async function fetchNonce(
 export async function startPair(
   opts: PairAttemptOptions
 ): Promise<PairHandshake> {
-  const pairNonce = await fetchNonce(opts.port, opts)
+  const pairNonce = opts.pairNonce ?? (await fetchNonce(opts.port, opts))
+  if (!isCanonicalMbp1PairNonce(pairNonce)) {
+    throw new Error('invalid pairing nonce')
+  }
   const prefix = opts.routePrefix ?? ''
   const protocol = opts.secureTransport === undefined ? 'ws' : 'wss'
   const wire = await WireClient.open(

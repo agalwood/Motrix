@@ -813,6 +813,60 @@ describe('§6 first pair over the wire', () => {
     await h.server.stop()
   })
 
+  it('consumes the supplied bootstrap nonce once without fetching a replacement', async () => {
+    const pairNonce = await fetchNonce(h.port)
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    const options = {
+      port: h.port,
+      origin: OFFICIAL_ORIGIN,
+      browser: 'chromium' as const,
+      claimedExtensionId: OFFICIAL_ID,
+      pairNonce,
+    }
+    try {
+      const hs = await startPair(options)
+      const { channel } = await runPake(hs, h.dialogs.latestCode())
+      await exchangeCredential(hs, channel)
+      const conn = mdxpOverChannel(hs.wire, channel)
+      try {
+        const result = await conn.sendRequest(
+          'motrix/initialize',
+          initializeParams(OFFICIAL_ID)
+        )
+        expect(result.server.name).toBe('motrix')
+      } finally {
+        conn.dispose()
+        hs.wire.ws.close()
+        await hs.wire.closed
+      }
+      await expect(startPair(options)).rejects.toThrow(
+        'unexpected-response 401'
+      )
+      expect(fetchSpy).not.toHaveBeenCalled()
+      expect(h.dialogs.closed).toBe(1)
+    } finally {
+      fetchSpy.mockRestore()
+    }
+  })
+
+  it('rejects a malformed supplied nonce before any network request', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    try {
+      await expect(
+        startPair({
+          port: h.port,
+          origin: OFFICIAL_ORIGIN,
+          browser: 'chromium',
+          claimedExtensionId: OFFICIAL_ID,
+          pairNonce: 'invalid-secret-sentinel',
+        })
+      ).rejects.toThrow('invalid pairing nonce')
+      expect(fetchSpy).not.toHaveBeenCalled()
+    } finally {
+      fetchSpy.mockRestore()
+    }
+  })
+
   it('pairs, then runs motrix/initialize inside the AEAD channel', async () => {
     const hs = await startPair({
       port: h.port,
