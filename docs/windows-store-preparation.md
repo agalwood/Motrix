@@ -160,8 +160,9 @@ priconfig.xml
 
 The manifest contains one packaged desktop application and `runFullTrust`.
 It declares the opt-in `MotrixStartup` task for `app\Motrix.exe`, with
-`Enabled="false"` and `--opened-at-login=1`. Protocol, file association, and
-native-host alias declarations await their runtime implementations. The configured Windows threshold is
+`Enabled="false"` and `--opened-at-login=1`. It also declares the `motrix`, `mo`,
+and `magnet` protocols and `.torrent` files. Native-host alias declarations
+await package-aware browser integration. The configured Windows threshold is
 10.0.19045.0; this is not a Windows compatibility test result. The four existing
 images are scale-200 resources, referenced by logical paths in the manifest.
 The PRI configuration indexes the isolated `pri-root` directory, which contains
@@ -179,8 +180,8 @@ alias declaration.
 
 The Store directory build includes `bin/motrix-windows-platform.exe`. The helper
 checks its actual Windows package identity before using WinRT `StartupTask`.
-It accepts only a bounded, versioned JSON request for the fixed `MotrixStartup`
-task. Electron calls the helper from its packaged resource path, serializes
+Startup operations use a bounded, versioned JSON request for the fixed
+`MotrixStartup` task. Electron calls the helper from its packaged resource path, serializes
 requests, and limits execution time and output size. A helper failure never
 falls back to traditional login-item registration.
 
@@ -206,6 +207,42 @@ activation, or login behavior. Windows 11 validation must cover:
 
 Record text logs and observed states for those checks. The SDK workflow uploads
 only JSON/XML/log evidence; it does not install the package or execute this matrix.
+
+## Windows links and default applications
+
+The test manifest uses [desktop protocol and file associations](https://learn.microsoft.com/windows/apps/desktop/modernize/desktop-to-uwp-extensions)
+with a quoted `%1` argument. `Document` selection mode activates the application
+once for each selected torrent file. The launcher forwards subsequent activations
+to the running instance. `mo://` and `motrix://` share route validation; links
+prefill the add-task form or open existing task/plugin details. They do not
+submit downloads or install plugins. Resource URLs are excluded from the local
+torrent-file scan to prevent duplicate dispatch.
+
+For packaged Windows, the helper verifies the main `Motrix` application's AUMID
+against the current package's app entries. It queries `.torrent` and `magnet`
+defaults through [AssocQueryStringW](https://learn.microsoft.com/windows/win32/api/shlwapi/nf-shlwapi-assocquerystringw)
+and compares the returned AUMID. An unreadable result, including a traditional
+handler without an AUMID, remains unknown. A main app entry does not prove that
+each association extension was registered. Traditional installer registration
+and UserChoice registry reads are not used in this package branch, and no default
+choice is written. The UI validates responses and clears stale status on failure.
+
+On supported Windows 11 builds, the settings button uses the verified main AUMID
+in the [application-specific Default Apps link](https://learn.microsoft.com/windows/apps/develop/launch/launch-default-apps-settings).
+Earlier systems or an unverifiable identity use the general Default Apps page.
+The current manifest retains its configured `MaxVersionTested` of 19045. An OS
+upgrade may require raising that value to reindex the application for this link;
+this must be decided together with actual Windows testing.
+
+Windows 11 validation must also cover:
+
+- Cold and running-app activation for all three schemes and torrent files, including spaces, Unicode paths, and multiple selected files.
+- Malformed links produce no task, plugin installation, or duplicate file dispatch.
+- Defaults changed in Windows settings refresh correctly on return to Motrix; unreadable defaults remain unknown.
+- Direct and packaged installations coexist without silently changing the user's default choices; upgrade and uninstall remove only their own declarations.
+- The application-specific settings page works after a fresh install and an OS upgrade. Record the OS build, package identity, and observed destination.
+
+SDK packing alone does not execute any of these activation or association checks.
 
 ## Run the Windows SDK package check
 

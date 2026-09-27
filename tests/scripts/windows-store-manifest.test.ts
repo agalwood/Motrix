@@ -15,6 +15,7 @@ import { WINDOWS_STORE_TEST_IDENTITY } from '../../scripts/windows-store-metadat
 const FOUNDATION =
   'http://schemas.microsoft.com/appx/manifest/foundation/windows10'
 const UAP = 'http://schemas.microsoft.com/appx/manifest/uap/windows10'
+const UAP3 = `${UAP}/3`
 const UAP10 = `${UAP}/10`
 const DESKTOP = 'http://schemas.microsoft.com/appx/manifest/desktop/windows10'
 const RESCAP = `${FOUNDATION}/restrictedcapabilities`
@@ -76,10 +77,11 @@ describe('Windows Store manifest renderer', () => {
     expect(root.localName).toBe('Package')
     expect(root.namespaceURI).toBe(FOUNDATION)
     expect(root.lookupNamespaceURI('uap')).toBe(UAP)
+    expect(root.lookupNamespaceURI('uap3')).toBe(UAP3)
     expect(root.lookupNamespaceURI('uap10')).toBe(UAP10)
     expect(root.lookupNamespaceURI('rescap')).toBe(RESCAP)
     expect(root.getAttribute('IgnorableNamespaces')).toBe(
-      'uap uap10 desktop rescap'
+      'uap uap3 uap10 desktop rescap'
     )
     expect(attributes(element(document, FOUNDATION, 'Identity'))).toEqual({
       Name: input.identity.name,
@@ -139,10 +141,69 @@ describe('Windows Store manifest renderer', () => {
       [UAP, 'VisualElements'],
       [UAP, 'DefaultTile'],
       [FOUNDATION, 'Extensions'],
+      [UAP3, 'Extension'],
+      [UAP3, 'Protocol'],
+      [UAP3, 'Extension'],
+      [UAP3, 'Protocol'],
+      [UAP3, 'Extension'],
+      [UAP3, 'Protocol'],
+      [UAP3, 'Extension'],
+      [UAP3, 'FileTypeAssociation'],
+      [UAP, 'SupportedFileTypes'],
+      [UAP, 'FileType'],
       [DESKTOP, 'Extension'],
       [DESKTOP, 'StartupTask'],
     ])
     expect(xml).not.toMatch(/EntryPoint|AppExecutionAlias|\$\{|@@/)
+  })
+
+  it('passes each declared protocol as one quoted argument to the desktop executable', () => {
+    const document = parseXml(renderWindowsStoreManifest(testMetadata()))
+    const protocols = Array.from(
+      document.getElementsByTagNameNS(UAP3, 'Protocol')
+    )
+    expect(protocols.map(attributes)).toEqual(
+      ['motrix', 'mo', 'magnet'].map((Name) => ({
+        Name,
+        Parameters: '"%1"',
+      }))
+    )
+    for (const protocol of protocols) {
+      expect(protocol.children).toHaveLength(0)
+      expect(attributes(protocol.parentElement!)).toEqual({
+        Category: 'windows.protocol',
+        Executable: 'app\\Motrix.exe',
+        'uap10:RuntimeBehavior': 'packagedClassicApp',
+        'uap10:TrustLevel': 'mediumIL',
+      })
+    }
+  })
+
+  it('declares only the torrent file type and passes its path as one quoted argument', () => {
+    const xml = renderWindowsStoreManifest(testMetadata())
+    const document = parseXml(xml)
+    const association = element(document, UAP3, 'FileTypeAssociation')
+    expect(attributes(association)).toEqual({
+      Name: 'torrent',
+      Parameters: '"%1"',
+      MultiSelectModel: 'Document',
+    })
+    expect(attributes(association.parentElement!)).toEqual({
+      Category: 'windows.fileTypeAssociation',
+      Executable: 'app\\Motrix.exe',
+      'uap10:RuntimeBehavior': 'packagedClassicApp',
+      'uap10:TrustLevel': 'mediumIL',
+    })
+    const supportedTypes = element(document, UAP, 'SupportedFileTypes')
+    expect(supportedTypes.parentElement).toBe(association)
+    expect(attributes(supportedTypes)).toEqual({})
+    const fileType = element(document, UAP, 'FileType')
+    expect(fileType.parentElement).toBe(supportedTypes)
+    expect(attributes(fileType)).toEqual({})
+    expect(fileType.textContent).toBe('.torrent')
+    expect(xml).not.toMatch(
+      /MigrationProgId|UserChoice|AllowSilentDefaultTakeOver|UseUrl|SupportedVerbs/
+    )
   })
 
   it('starts the package executable only after opt-in with the login argument', () => {

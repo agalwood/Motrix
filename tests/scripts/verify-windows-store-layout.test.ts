@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import {
   cp,
   mkdir,
@@ -294,6 +295,48 @@ describe('Windows Store layout content verification', () => {
           phase: 'prepared',
         }),
         'metadata-and-static-content'
+      )
+    }
+  )
+
+  it.each([
+    ['prepared', true, 'metadata-and-static-content'],
+    ['indexed', true, 'metadata-and-static-content'],
+    ['unpacked', true, 'completion-record'],
+    ['unpacked', false, 'unpacked-tree'],
+  ] as const)(
+    'rejects an injected extension in %s with hash replacement=%s',
+    async (phase, replaceHash, expectedCheck) => {
+      const input = await fixture()
+      let layoutDirectory: string | undefined
+      if (phase === 'indexed') await indexed(input)
+      if (phase === 'unpacked') layoutDirectory = await unpacked(input)
+      const manifestPath = path.join(
+        layoutDirectory ?? input.baseline,
+        'AppxManifest.xml'
+      )
+      const manifest = (await readFile(manifestPath, 'utf8')).replace(
+        '</Extensions>',
+        '<uap3:Extension Category="windows.protocol"><uap3:Protocol Name="unexpected" Parameters="&quot;%1&quot;" /></uap3:Extension></Extensions>'
+      )
+      await writeFile(manifestPath, manifest)
+      if (replaceHash) {
+        await editJson(
+          path.join(input.preparedDirectory, 'layout-report.json'),
+          (record) => {
+            record.manifestSha256 = createHash('sha256')
+              .update(manifest)
+              .digest('hex')
+          }
+        )
+      }
+      failed(
+        await verifyWindowsStoreLayout({
+          preparedDirectory: input.preparedDirectory,
+          phase,
+          ...(layoutDirectory ? { layoutDirectory } : {}),
+        }),
+        expectedCheck
       )
     }
   )

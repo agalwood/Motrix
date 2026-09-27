@@ -1,13 +1,21 @@
 use std::marker::PhantomData;
 
-use windows::ApplicationModel::StartupTask;
+use windows::ApplicationModel::{Package, StartupTask};
 use windows::Win32::Foundation::{
     APPMODEL_ERROR_NO_PACKAGE, ERROR_INSUFFICIENT_BUFFER, ERROR_SUCCESS,
 };
 use windows::Win32::Storage::Packaging::Appx::GetCurrentPackageFullName;
 use windows::Win32::System::WinRT::{RO_INIT_MULTITHREADED, RoInitialize, RoUninitialize};
-use windows::core::{Error, HRESULT, HSTRING, PWSTR};
+use windows::Win32::UI::Shell::{
+    ASSOCF, ASSOCF_IS_PROTOCOL, ASSOCF_NOFIXUPS, ASSOCF_NOTRUNCATE, ASSOCSTR_APPID,
+    AssocQueryStringW,
+};
+use windows::core::{Error, HRESULT, HSTRING, PCWSTR, PWSTR};
 
+use crate::associations::{
+    Association, AssociationsBackend, MAX_AUMID_UNITS, MAX_PACKAGE_APPLICATIONS,
+    PackageApplications, query_aumid,
+};
 use crate::protocol::{ErrorCode, TASK_ID};
 use crate::startup_task::{StartupBackend, StartupError};
 
@@ -16,7 +24,7 @@ fn winrt_error(error: Error) -> StartupError {
 }
 
 // The apartment guard cannot move to a different thread. Its matching
-// RoUninitialize runs after every StartupTask reference has been released.
+// RoUninitialize runs after every WinRT reference has been released.
 struct Apartment(PhantomData<*mut ()>);
 
 impl Apartment {
@@ -43,10 +51,15 @@ pub struct WindowsBackend {
 }
 
 impl WindowsBackend {
-    fn task(&mut self) -> Result<&StartupTask, StartupError> {
+    fn ensure_apartment(&mut self) -> Result<(), StartupError> {
         if self.apartment.is_none() {
             self.apartment = Some(Apartment::initialize()?);
         }
+        Ok(())
+    }
+
+    fn task(&mut self) -> Result<&StartupTask, StartupError> {
+        self.ensure_apartment()?;
         if self.task.is_none() {
             let task = StartupTask::GetAsync(&HSTRING::from(TASK_ID))
                 .and_then(|operation| operation.join())
@@ -61,6 +74,87 @@ impl WindowsBackend {
         self.task
             .as_ref()
             .ok_or_else(|| StartupError::new(ErrorCode::TaskUnavailable))
+    }
+}
+
+fn bounded_identifier(value: &HSTRING) -> Result<String, StartupError> {
+    if value.is_empty() || value.len() > MAX_AUMID_UNITS {
+        return Err(StartupError::new(ErrorCode::MainAppUnavailable));
+    }
+    String::from_utf16(value).map_err(|_| StartupError::new(ErrorCode::MainAppUnavailable))
+}
+
+fn association_flags(association: Association) -> ASSOCF {
+    // NOFIXUPS keeps the query read-only; NOTRUNCATE rejects partial identifiers.
+    // IS_PROTOCOL (Windows 8+) resolves magnet through current user defaults.
+    // No NOUSERSETTINGS, PER_MACHINE_ONLY, or FIXED_PROGID fallback is used.
+    // https://learn.microsoft.com/windows/win32/shell/assocf_str
+    let flags = ASSOCF_NOFIXUPS | ASSOCF_NOTRUNCATE;
+    if association.is_protocol() {
+        flags | ASSOCF_IS_PROTOCOL
+    } else {
+        flags
+    }
+}
+
+impl AssociationsBackend for WindowsBackend {
+    fn require_package_identity(&mut self) -> Result<(), StartupError> {
+        StartupBackend::require_package_identity(self)
+    }
+
+    fn package_applications(&mut self) -> Result<PackageApplications, StartupError> {
+        self.ensure_apartment()?;
+        // Package/PackageId and GetAppListEntriesAsync are UniversalApiContract
+        // v1; AppUserModelId is v5 (16299), below the manifest minimum 19045.
+        // AppListEntry.AppInfo requires 20348 and is deliberately not used.
+        // https://learn.microsoft.com/uwp/api/windows.applicationmodel.package
+        // https://learn.microsoft.com/uwp/api/windows.applicationmodel.core.applistentry.appusermodelid
+        let package = Package::Current().map_err(winrt_error)?;
+        let family = package
+            .Id()
+            .and_then(|id| id.FamilyName())
+            .map_err(winrt_error)?;
+        let family_name = bounded_identifier(&family)?;
+        let entries = package
+            .GetAppListEntriesAsync()
+            .and_then(|operation| operation.join())
+            .map_err(winrt_error)?;
+        let count = entries.Size().map_err(winrt_error)?;
+        // Defensive enumeration bound, not a Windows package schema limit.
+        if count as usize > MAX_PACKAGE_APPLICATIONS {
+            return Err(StartupError::new(ErrorCode::MainAppUnavailable));
+        }
+        let mut app_user_model_ids = Vec::with_capacity(count as usize);
+        for index in 0..count {
+            let aumid = entries
+                .GetAt(index)
+                .and_then(|entry| entry.AppUserModelId())
+                .map_err(winrt_error)?;
+            app_user_model_ids.push(bounded_identifier(&aumid)?);
+        }
+        Ok(PackageApplications {
+            family_name,
+            app_user_model_ids,
+        })
+    }
+
+    fn default_aumid(&mut self, association: Association) -> Option<String> {
+        let name = HSTRING::from(association.name());
+        let flags = association_flags(association);
+        // ASSOCSTR_APPID is available since Windows 10 and returns the default
+        // app's AUMID. Missing AUMIDs (including traditional apps) stay unknown.
+        // https://learn.microsoft.com/windows/win32/api/shlwapi/ne-shlwapi-assocstr
+        query_aumid(|buffer, length| unsafe {
+            AssocQueryStringW(
+                flags,
+                ASSOCSTR_APPID,
+                &name,
+                PCWSTR::null(),
+                buffer.map(|buffer| PWSTR(buffer.as_mut_ptr())),
+                length,
+            )
+            .0
+        })
     }
 }
 
@@ -124,5 +218,26 @@ impl StartupBackend for WindowsBackend {
 
     fn disable(&mut self) -> Result<(), StartupError> {
         self.task()?.Disable().map_err(winrt_error)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shell_queries_use_only_read_only_current_user_flags() {
+        assert_eq!(
+            MAX_AUMID_UNITS + 1,
+            windows::Win32::Storage::Packaging::Appx::APPLICATION_USER_MODEL_ID_MAX_LENGTH as usize
+        );
+        assert_eq!(
+            association_flags(Association::Torrent),
+            ASSOCF_NOFIXUPS | ASSOCF_NOTRUNCATE
+        );
+        assert_eq!(
+            association_flags(Association::Magnet),
+            ASSOCF_NOFIXUPS | ASSOCF_NOTRUNCATE | ASSOCF_IS_PROTOCOL
+        );
     }
 }

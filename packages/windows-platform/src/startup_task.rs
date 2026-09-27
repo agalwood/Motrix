@@ -60,6 +60,9 @@ pub fn execute(
     backend: &mut impl StartupBackend,
     operation: Operation,
 ) -> Result<StartupState, StartupError> {
+    if operation == Operation::AssociationsQuery {
+        return Err(StartupError::new(ErrorCode::InvalidRequest));
+    }
     backend.require_package_identity()?;
     let current = StartupState::try_from(backend.state()?)?;
     // Preserve user and policy choices. The state returned by RequestEnableAsync
@@ -134,6 +137,18 @@ mod tests {
             );
             assert_eq!(backend.calls, ["identity", "state"]);
         }
+    }
+
+    #[test]
+    fn association_requests_cannot_be_misrouted_to_startup() {
+        let mut backend = FakeBackend::new(0);
+        assert_eq!(
+            execute(&mut backend, Operation::AssociationsQuery)
+                .unwrap_err()
+                .code,
+            ErrorCode::InvalidRequest
+        );
+        assert!(backend.calls.is_empty());
     }
 
     #[test]

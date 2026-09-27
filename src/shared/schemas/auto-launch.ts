@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { WindowsPlatformClientErrorCodeSchema } from './windows-platform'
 
 export const WindowsStartupTaskStateSchema = z.enum([
   'disabled',
@@ -55,11 +56,7 @@ export const WindowsStartupTaskResultSchema = z.discriminatedUnion('ok', [
   helperErrorSchema.extend({
     code: z.enum([
       ...helperErrorCodeSchema.options,
-      'helper_unavailable',
-      'helper_failed',
-      'helper_timeout',
-      'output_limit',
-      'invalid_response',
+      ...WindowsPlatformClientErrorCodeSchema.options,
     ]),
   }),
 ])

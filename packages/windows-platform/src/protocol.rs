@@ -2,6 +2,7 @@ use std::io::{self, Read, Write};
 
 use serde::{Deserialize, Serialize};
 
+use crate::associations::AssociationStatus;
 use crate::startup_task::{StartupError, StartupState};
 
 pub const MAX_REQUEST_BYTES: usize = 4096;
@@ -13,6 +14,7 @@ pub enum Operation {
     StartupQuery,
     StartupEnable,
     StartupDisable,
+    AssociationsQuery,
 }
 
 #[derive(Debug, Deserialize)]
@@ -30,6 +32,12 @@ pub enum ErrorCode {
     TaskUnavailable,
     WinrtFailed,
     UnknownState,
+    MainAppUnavailable,
+}
+
+pub enum OperationResult {
+    Startup(StartupState),
+    Associations(AssociationStatus),
 }
 
 #[derive(Debug, Serialize)]
@@ -44,6 +52,16 @@ pub enum Response {
         #[serde(rename = "packageIdentityPresent")]
         package_identity_present: bool,
     },
+    Associations {
+        version: u8,
+        ok: bool,
+        #[serde(rename = "packageIdentityPresent")]
+        package_identity_present: bool,
+        #[serde(rename = "mainAppAumid")]
+        main_app_aumid: String,
+        torrent: Option<bool>,
+        magnet: Option<bool>,
+    },
     Error {
         version: u8,
         ok: bool,
@@ -54,6 +72,21 @@ pub enum Response {
 }
 
 impl Response {
+    pub fn from_operation_result(result: Result<OperationResult, StartupError>) -> Self {
+        match result {
+            Ok(OperationResult::Associations(status)) => Self::Associations {
+                version: 1,
+                ok: true,
+                package_identity_present: true,
+                main_app_aumid: status.main_app_aumid,
+                torrent: status.torrent,
+                magnet: status.magnet,
+            },
+            Ok(OperationResult::Startup(state)) => Self::from_result(Ok(state)),
+            Err(error) => Self::from_result(Err(error)),
+        }
+    }
+
     pub fn from_result(result: Result<StartupState, StartupError>) -> Self {
         match result {
             Ok(state) => Self::Success {
@@ -93,7 +126,7 @@ pub fn read_request(reader: impl Read) -> Result<Operation, StartupError> {
 }
 
 pub fn write_response(mut writer: impl Write, response: &Response) -> io::Result<()> {
-    // No user input or arbitrary strings are included in the response schema.
+    // Strings come only from fixed identifiers or bounded, validated OS data.
     serde_json::to_writer(&mut writer, response).map_err(io::Error::other)?;
     writer.write_all(b"\n")?;
     writer.flush()
@@ -104,14 +137,14 @@ pub fn write_response(mut writer: impl Write, response: &Response) -> io::Result
 pub fn handle_request(
     reader: impl Read,
     has_arguments: bool,
-    execute: impl FnOnce(Operation) -> Result<StartupState, StartupError>,
+    execute: impl FnOnce(Operation) -> Result<OperationResult, StartupError>,
 ) -> Response {
     let result = if has_arguments {
         Err(StartupError::new(ErrorCode::InvalidRequest))
     } else {
         read_request(reader).and_then(execute)
     };
-    Response::from_result(result)
+    Response::from_operation_result(result)
 }
 
 #[cfg(test)]
@@ -120,11 +153,12 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn accepts_only_the_three_operations_and_version_one() {
+    fn accepts_only_the_four_operations_and_version_one() {
         for (name, op) in [
             ("startup_query", Operation::StartupQuery),
             ("startup_enable", Operation::StartupEnable),
             ("startup_disable", Operation::StartupDisable),
+            ("associations_query", Operation::AssociationsQuery),
         ] {
             let input = format!("{{\"version\":1,\"op\":\"{name}\"}}\n");
             assert_eq!(read_request(input.as_bytes()).unwrap(), op);
@@ -143,6 +177,9 @@ mod tests {
             r#"{"version":1.0,"op":"startup_query"}"#,
             r#"{"version":"1","op":"startup_query"}"#,
             r#"{"version":1,"op":"launch"}"#,
+            r#"{"version":1,"op":"associations_enable"}"#,
+            r#"{"version":1,"op":"associations_query","extension":".exe"}"#,
+            r#"{"version":1,"op":"associations_query","mainAppAumid":"Other!App"}"#,
             r#"{"version":1,"op":"startup_query","taskId":"OtherTask"}"#,
             r#"{"version":1,"op":"startup_query","path":"evil.exe"}"#,
             r#"{"version":1,"version":1,"op":"startup_query"}"#,
@@ -239,5 +276,45 @@ mod tests {
         );
         assert!(output.len() < 1024);
         assert!(write_response(&mut [0u8; 1][..], &response).is_err());
+    }
+
+    #[test]
+    fn association_response_has_no_startup_fields_and_preserves_nulls() {
+        let response = handle_request(
+            &br#"{"version":1,"op":"associations_query"}"#[..],
+            false,
+            |operation| {
+                assert_eq!(operation, Operation::AssociationsQuery);
+                Ok(OperationResult::Associations(AssociationStatus {
+                    main_app_aumid: "Example.Package_123456789abcd!Motrix".into(),
+                    torrent: None,
+                    magnet: Some(false),
+                }))
+            },
+        );
+        assert_eq!(
+            serde_json::to_value(response).unwrap(),
+            json!({
+                "version": 1, "ok": true, "packageIdentityPresent": true,
+                "mainAppAumid": "Example.Package_123456789abcd!Motrix",
+                "torrent": null, "magnet": false,
+            })
+        );
+        assert_eq!(
+            serde_json::to_value(Response::from_operation_result(Err(StartupError::new(
+                ErrorCode::MainAppUnavailable
+            ))))
+            .unwrap(),
+            json!({"version":1,"ok":false,"code":"main_app_unavailable"})
+        );
+        let startup = handle_request(&br#"{"version":1,"op":"startup_query"}"#[..], false, |_| {
+            Ok(OperationResult::Startup(StartupState::Enabled))
+        });
+        assert_eq!(
+            serde_json::to_value(startup).unwrap(),
+            json!({
+                "version":1,"ok":true,"taskId":"MotrixStartup","state":"enabled","packageIdentityPresent":true
+            })
+        );
     }
 }

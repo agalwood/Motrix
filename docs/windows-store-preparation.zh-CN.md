@@ -139,8 +139,8 @@ priconfig.xml
 
 manifest 包含一个具有包身份的桌面应用和 `runFullTrust`，并为 `app\Motrix.exe`
 声明需主动启用的 `MotrixStartup` 任务，设置 `Enabled="false"` 与
-`--opened-at-login=1`。协议、文件关联与 native-host alias 声明等待对应运行时
-实现。当前配置的 Windows
+`--opened-at-login=1`。同时声明 `motrix`、`mo`、`magnet` 协议和 `.torrent` 文件。
+native-host alias 声明等待浏览器联动适配包身份。当前配置的 Windows
 阈值为 10.0.19045.0，并非 Windows 兼容性实测结论。现有四张图片按 scale-200
 资源命名，manifest 引用逻辑路径；PRI 配置从仅含 `Assets/` 的独立
 `pri-root` 根目录开始索引，保留逻辑资源名中的 `Assets/` 层级。该命令**不会生成**
@@ -153,8 +153,8 @@ Windows 用户或 VM；即使不声明 native-host alias，现有浏览器注册
 ## Windows 启动集成
 
 Store 目录构建包含 `bin/motrix-windows-platform.exe`。helper 先核实进程的真实
-Windows 包身份，再调用 WinRT `StartupTask`；只接收有长度限制和版本字段的 JSON
-请求，操作固定 `MotrixStartup` 任务。Electron 从包内资源绝对路径调用 helper，
+Windows 包身份，再调用 WinRT `StartupTask`；启动操作使用有长度限制和版本字段的
+JSON 请求，针对固定 `MotrixStartup` 任务。Electron 从包内资源绝对路径调用 helper，
 串行处理请求，并限制执行时间和输出大小。失败时不回退到传统登录项注册。
 
 包启动时只读取 Windows 状态，不应用已保存的偏好。常规设置显示 Windows 的五种
@@ -176,6 +176,36 @@ Windows 包身份，再调用 WinRT `StartupTask`；只接收有长度限制和�
 
 记录文字日志和观察到的状态。SDK 工作流只上传 JSON/XML/log 证据，不安装包或执行
 上述运行时验证。
+
+## Windows 链接与默认应用
+
+测试清单按[桌面协议和文件关联文档](https://learn.microsoft.com/windows/apps/desktop/modernize/desktop-to-uwp-extensions)
+传递带引号的 `%1` 参数。`Document` 多选模式为每个选中的 torrent 文件分别激活
+应用；启动器把后续激活交给已运行实例。`mo://` 和 `motrix://` 复用路由校验，
+链接只预填新建任务表单或打开已有任务、插件详情，不提交下载或安装插件。
+资源 URL 不再进入本地 torrent 文件扫描，避免重复派发。
+
+在 Windows 包模式下，helper 从当前包的应用列表验证主应用 `Motrix` 的 AUMID，
+通过 [AssocQueryStringW](https://learn.microsoft.com/windows/win32/api/shlwapi/nf-shlwapi-assocquerystringw)
+查询 `.torrent`、`magnet` 默认处理程序并比较 AUMID。读取失败、传统处理程序
+没有 AUMID 等情况保持未知。主应用出现在列表中不证明每项关联扩展都已注册。
+该分支不读取传统安装器注册信息或 UserChoice，不写入默认选择。
+界面校验响应，查询失败时清除过期状态。
+
+适用的 Windows 11 版本使用已验证主 AUMID 打开[应用专属默认应用页](https://learn.microsoft.com/windows/apps/develop/launch/launch-default-apps-settings)；
+较早系统或身份无法确认时打开通用默认应用页。当前清单仍使用配置值 19045 作为
+`MaxVersionTested`。系统升级后可能需要提高此值才能重新索引该应用的定向链接，
+应结合真实 Windows 验证确定。
+
+Windows 11 还须验证：
+
+- 三种协议和 torrent 文件的冷启动、运行中激活，包括空格、中文路径及多文件选择。
+- 畸形链接不会创建任务、安装插件或重复派发文件。
+- 在 Windows 设置中切换默认应用，返回 Motrix 后状态刷新；无法读取时仍显示未知。
+- 官网版与包版共存，不擅自改变用户的默认选择；升级和卸载只处理各自声明。
+- 全新安装及系统升级后，应用专属设置页均可使用；记录系统版本、包身份和实际打开位置。
+
+SDK 打包通过本身不代表上述激活或默认关联检查通过。
 
 ## 执行 Windows SDK 包检查
 

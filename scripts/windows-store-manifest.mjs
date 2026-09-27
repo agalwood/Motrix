@@ -37,7 +37,8 @@ function escapeXml(value) {
 /**
  * Render the Windows package declaration contract without creating package files.
  * This does not verify Partner Center identity, payloads, assets, or Windows support.
- * StartupTask is opt-in. Protocol and native-host declarations remain pending.
+ * StartupTask is opt-in; associations declare handlers without choosing defaults.
+ * Native-host declarations remain pending.
  */
 export function renderWindowsStoreManifest(rawMetadata) {
   const { metadata } = validateWindowsStoreMetadata(rawMetadata)
@@ -54,14 +55,22 @@ export function renderWindowsStoreManifest(rawMetadata) {
   // MinVersion/MaxVersionTested below are configured P2 thresholds, not evidence
   // of testing on Windows 10 22H2 or any other Windows release.
   // https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-targetdevicefamily
+  // uap3 association Parameters pass one quoted URI/file argument to the full-
+  // trust executable. Keep substitutions on Protocol/FileTypeAssociation, not
+  // on the extension, and do not prepend a UWP EntryPoint or a launcher command.
+  // https://learn.microsoft.com/windows/apps/desktop/modernize/desktop-to-uwp-extensions
+  // https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-uap3-filetypeassociation
+  // Document activates once per selected file; Electron forwards each subsequent
+  // activation to its single instance. Single would discard additional files.
   return String.raw`<?xml version="1.0" encoding="utf-8"?>
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
   xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
   xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap uap10 desktop rescap">
+  IgnorableNamespaces="uap uap3 uap10 desktop rescap">
   <Identity Name="${escapeXml(metadata.identity.name)}" Publisher="${escapeXml(metadata.identity.publisher)}" Version="${escapeXml(metadata.packageVersion)}" ProcessorArchitecture="${escapeXml(metadata.architecture)}" />
   <Properties>
     <DisplayName>${escapeXml(displayName)}</DisplayName>
@@ -84,6 +93,22 @@ export function renderWindowsStoreManifest(rawMetadata) {
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
       </uap:VisualElements>
       <Extensions>
+        <uap3:Extension Category="windows.protocol" Executable="app\Motrix.exe" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL">
+          <uap3:Protocol Name="motrix" Parameters="&quot;%1&quot;" />
+        </uap3:Extension>
+        <uap3:Extension Category="windows.protocol" Executable="app\Motrix.exe" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL">
+          <uap3:Protocol Name="mo" Parameters="&quot;%1&quot;" />
+        </uap3:Extension>
+        <uap3:Extension Category="windows.protocol" Executable="app\Motrix.exe" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL">
+          <uap3:Protocol Name="magnet" Parameters="&quot;%1&quot;" />
+        </uap3:Extension>
+        <uap3:Extension Category="windows.fileTypeAssociation" Executable="app\Motrix.exe" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL">
+          <uap3:FileTypeAssociation Name="torrent" Parameters="&quot;%1&quot;" MultiSelectModel="Document">
+            <uap:SupportedFileTypes>
+              <uap:FileType>.torrent</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap3:FileTypeAssociation>
+        </uap3:Extension>
         <desktop:Extension Category="windows.startupTask" Executable="app\Motrix.exe" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL" uap10:Parameters="--opened-at-login=1">
           <desktop:StartupTask TaskId="MotrixStartup" Enabled="false" DisplayName="${escapeXml(displayName)}" />
         </desktop:Extension>

@@ -56,7 +56,12 @@ fn oversized_input_is_rejected() {
 #[cfg(not(windows))]
 #[test]
 fn non_windows_never_claims_package_identity_or_startup_state() {
-    for op in ["startup_query", "startup_enable", "startup_disable"] {
+    for op in [
+        "startup_query",
+        "startup_enable",
+        "startup_disable",
+        "associations_query",
+    ] {
         let input = format!("{{\"version\":1,\"op\":\"{op}\"}}");
         assert_eq!(
             invoke(input.as_bytes(), &[]),

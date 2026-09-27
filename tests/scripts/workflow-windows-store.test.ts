@@ -81,7 +81,7 @@ describe('Windows Store SDK test workflow', () => {
       'Stage Electron application',
       'Build isolated Windows directory',
       'Verify Windows platform runtime imports',
-      'Reject startup operations without package identity',
+      'Reject platform operations without package identity',
       'Verify and assemble test layout',
       'Build PRI and pack/unpack with Windows SDK',
     ].map(stepIndex)
@@ -101,6 +101,14 @@ describe('Windows Store SDK test workflow', () => {
       'payload/win-unpacked/resources/bin/motrix-windows-platform.exe'
     )
     expect(commands).not.toContain('--prepackaged')
+    const negativeCheck = steps.find(
+      (step) =>
+        step.name === 'Reject platform operations without package identity'
+    )?.run
+    expect(negativeCheck).toContain(
+      "@('startup_query', 'startup_enable', 'startup_disable', 'associations_query')"
+    )
+    expect(negativeCheck).toContain("$reply.code -ne 'no_package_identity'")
   })
 
   it('uploads only named text evidence, never an unsigned package or image', () => {

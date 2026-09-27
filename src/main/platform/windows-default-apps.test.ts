@@ -1,4 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('electron', () => ({ app: { isPackaged: true } }))
+
+import type { WindowsAssociationsResult } from '@shared/schemas/windows-default-apps'
 import {
   buildWindowsDefaultAppsSettingsUrl,
   getWindowsDefaultAssociations,
@@ -205,5 +209,138 @@ describe('Windows Default Apps settings', () => {
       torrent: null,
       magnet: null,
     })
+  })
+})
+
+describe('packaged Windows Default Apps', () => {
+  const success: WindowsAssociationsResult = {
+    version: 1,
+    ok: true,
+    packageIdentityPresent: true,
+    mainAppAumid: 'Motrix.Store.Test_8wekyb3d8bbwe!Motrix',
+    torrent: true,
+    magnet: false,
+  }
+
+  function setup() {
+    return {
+      getContext: () => ({
+        platform: 'win32' as const,
+        isPackaged: true,
+        windowsStore: true,
+      }),
+      readPackagedAssociations: vi.fn().mockResolvedValue(success),
+      hasRegistration: vi.fn().mockResolvedValue(true),
+      readUserChoice: vi.fn().mockResolvedValue({
+        ok: true,
+        progId: 'Motrix.File.Torrent',
+      }),
+      osRelease: '10.0.26100.1',
+    }
+  }
+
+  it('uses main package defaults without inspecting traditional registrations', async () => {
+    const deps = setup()
+    expect(await getWindowsDefaultAssociations(deps)).toEqual({
+      authority: 'windows-package',
+      supported: true,
+      registered: null,
+      scope: null,
+      mainAppAumid: success.mainAppAumid,
+      torrent: true,
+      magnet: false,
+    })
+    expect(deps.readPackagedAssociations).toHaveBeenCalledOnce()
+    expect(deps.hasRegistration).not.toHaveBeenCalled()
+    expect(deps.readUserChoice).not.toHaveBeenCalled()
+  })
+
+  it('retains each unreadable default independently', async () => {
+    const deps = setup()
+    deps.readPackagedAssociations.mockResolvedValue({
+      ...success,
+      magnet: null,
+    })
+    expect(await getWindowsDefaultAssociations(deps)).toMatchObject({
+      mainAppAumid: success.mainAppAumid,
+      torrent: true,
+      magnet: null,
+    })
+  })
+
+  it.each([
+    { version: 1, ok: false, code: 'main_app_unavailable' },
+    { version: 1, ok: false, code: 'no_package_identity' },
+    { version: 1, ok: false, code: 'helper_timeout' },
+    { ...success, mainAppAumid: 'Other.Helper' },
+    { ...success, torrent: 'true' },
+    { ...success, extra: true },
+    null,
+  ])(
+    'does not fall back to NSIS for an unverified helper result %j',
+    async (result) => {
+      const deps = setup()
+      deps.readPackagedAssociations.mockResolvedValue(result)
+      expect(await getWindowsDefaultAssociations(deps)).toEqual({
+        authority: 'windows-package',
+        supported: true,
+        registered: null,
+        scope: null,
+        mainAppAumid: null,
+        torrent: null,
+        magnet: null,
+      })
+      expect(await resolveWindowsDefaultAppsSettingsUrl(deps)).toBe(
+        WINDOWS_DEFAULT_APPS_SETTINGS_URL
+      )
+      expect(deps.hasRegistration).not.toHaveBeenCalled()
+      expect(deps.readUserChoice).not.toHaveBeenCalled()
+    }
+  )
+
+  it('bounds a rejected helper to unknown status and the generic settings page', async () => {
+    const deps = setup()
+    deps.readPackagedAssociations.mockRejectedValue(new Error('fixture'))
+    expect(await getWindowsDefaultAssociations(deps)).toMatchObject({
+      mainAppAumid: null,
+      torrent: null,
+      magnet: null,
+    })
+    expect(await resolveWindowsDefaultAppsSettingsUrl(deps)).toBe(
+      WINDOWS_DEFAULT_APPS_SETTINGS_URL
+    )
+    expect(deps.hasRegistration).not.toHaveBeenCalled()
+  })
+
+  it('opens the main application AUMID page on supported Windows builds', async () => {
+    const deps = setup()
+    expect(await resolveWindowsDefaultAppsSettingsUrl(deps)).toBe(
+      `ms-settings:defaultapps?registeredAUMID=${success.mainAppAumid}`
+    )
+    expect(deps.hasRegistration).not.toHaveBeenCalled()
+  })
+
+  it('uses the generic page on earlier systems without querying either backend', async () => {
+    const deps = { ...setup(), osRelease: '10.0.19045.5737' }
+    expect(await resolveWindowsDefaultAppsSettingsUrl(deps)).toBe(
+      WINDOWS_DEFAULT_APPS_SETTINGS_URL
+    )
+    expect(deps.readPackagedAssociations).not.toHaveBeenCalled()
+    expect(deps.hasRegistration).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { platform: 'win32', isPackaged: true, windowsStore: false },
+    { platform: 'win32', isPackaged: false, windowsStore: true },
+  ] as const)('retains traditional registration for %j', async (context) => {
+    const deps = { ...setup(), getContext: () => context }
+    expect(await getWindowsDefaultAssociations(deps)).toMatchObject({
+      registered: true,
+      scope: 'user',
+    })
+    expect(await resolveWindowsDefaultAppsSettingsUrl(deps)).toBe(
+      'ms-settings:defaultapps?registeredAppUser=Motrix'
+    )
+    expect(deps.readPackagedAssociations).not.toHaveBeenCalled()
   })
 })
