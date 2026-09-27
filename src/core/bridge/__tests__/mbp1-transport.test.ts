@@ -14,6 +14,7 @@ import { ErrorCodes, Notifications } from '@motrix/mdxp'
 import { utf8ToBytes } from '@noble/hashes/utils.js'
 import type { Browser, ClientIdentity } from '@shared/protocol/bridge'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { fromBase64Url } from '../mbp1/canonical'
 import {
   type FakeDialogs,
   makeAllowlist,
@@ -36,7 +37,7 @@ import {
   startPair,
   WireClient,
 } from './mbp1-client'
-import { mintTicket } from './mbp1-ticket'
+import { mintTicket, mintTicketWire } from './mbp1-ticket'
 import { createInstalledMbp1Client } from './windows-store-mbp1-client'
 
 const INSTANCE_ID = 'instance-abcdef'
@@ -852,6 +853,87 @@ describe('§6 first pair over the wire', () => {
     await expect(probe.reconnect(h.port)).rejects.toThrow(
       'mbp1-client-state-invalid'
     )
+  })
+
+  it('binds an installed-client bootstrap ticket to its private key through encrypted pairing', async () => {
+    const probe = createInstalledMbp1Client()
+    const bootstrap = probe.bootstrap()
+    expect(bootstrap.callerArguments).toEqual([
+      'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/',
+    ])
+    expect(bootstrap.request).toMatchObject({
+      action: 'bootstrap',
+      protocolVersion: 1,
+      allowLaunch: false,
+    })
+    expect(() => probe.bootstrap()).toThrow('mbp1-client-state-invalid')
+    const ticket = mintTicketWire(
+      {
+        localToken: LOCAL_TOKEN,
+        serverGeneration: SERVER_GENERATION,
+        browser: 'chromium',
+        callerId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      },
+      fromBase64Url(bootstrap.request.bindingPub)
+    )
+    try {
+      await probe.pair(
+        h.port,
+        await fetchNonce(h.port),
+        () => h.dialogs.latestCode(),
+        ticket
+      )
+      await probe.reconnect(h.port)
+      expect(h.authenticated).toHaveLength(2)
+      expect(JSON.stringify(probe)).toBe('{}')
+    } finally {
+      await probe.dispose()
+    }
+    expect(() => probe.bootstrap()).toThrow('mbp1-client-state-invalid')
+  })
+
+  it('rejects a forged bootstrap ticket before asking for the pairing code', async () => {
+    const probe = createInstalledMbp1Client()
+    const bootstrap = probe.bootstrap()
+    const ticket = mintTicketWire(
+      {
+        localToken: 'wrong-fixture-token',
+        serverGeneration: SERVER_GENERATION,
+        browser: 'chromium',
+        callerId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      },
+      fromBase64Url(bootstrap.request.bindingPub)
+    )
+    const readCode = vi.fn(() => 'never-read')
+    try {
+      await expect(
+        probe.pair(h.port, await fetchNonce(h.port), readCode, ticket)
+      ).rejects.toThrow('mbp1-pair-failed')
+      expect(readCode).not.toHaveBeenCalled()
+      expect(h.authenticated).toHaveLength(0)
+      // Failure releases the old one-use binding; a retry needs a new key.
+      expect(
+        probe.bootstrap().request.bindingPub === bootstrap.request.bindingPub
+      ).toBe(false)
+    } finally {
+      await probe.dispose()
+    }
+  })
+
+  it('refuses missing or mismatched tickets after allocating a bootstrap binding', async () => {
+    for (const ticket of [undefined, { bindingPub: 'wrong-key' }]) {
+      const probe = createInstalledMbp1Client()
+      probe.bootstrap()
+      const readCode = vi.fn(() => 'never-read')
+      try {
+        await expect(
+          probe.pair(h.port, 'not-used', readCode, ticket)
+        ).rejects.toThrow('mbp1-pair-failed')
+        expect(readCode).not.toHaveBeenCalled()
+      } finally {
+        await probe.dispose()
+      }
+    }
   })
 
   it('pairs and reads MDXP from an isolated Node client without server-side runtime imports', async () => {

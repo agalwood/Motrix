@@ -49,6 +49,7 @@ export function installRuntimeFailureRecorder(fd, currentStage) {
           mainBridgeEndpointVerified: false,
           coldLaunchVerified: false,
           installedMbp1TransportVerified: false,
+          installedBootstrapTicketProofVerified: false,
           mbp1ClientCleanupVerified: false,
           syntheticMbp1Client: true,
           mbp1Verified: false,
@@ -173,7 +174,7 @@ export function validateMainProcess(
   return value.startTicks
 }
 
-function decodeMainHostReply(result) {
+function decodeMainHostReply(result, { ticketRequired = false } = {}) {
   if (
     result?.exitCode !== 0 ||
     !Buffer.isBuffer(result.stderr) ||
@@ -198,7 +199,13 @@ function decodeMainHostReply(result) {
   if (
     !value ||
     Object.keys(value).sort().join(',') !==
-      'action,nonce,port,protocolVersion' ||
+      (ticketRequired
+        ? 'action,nmTicket,nonce,port,protocolVersion'
+        : 'action,nonce,port,protocolVersion') ||
+    (ticketRequired &&
+      (!value.nmTicket ||
+        typeof value.nmTicket !== 'object' ||
+        Array.isArray(value.nmTicket))) ||
     value.action !== 'requestPair' ||
     value.protocolVersion !== 1 ||
     !Number.isInteger(value.port) ||
@@ -211,8 +218,8 @@ function decodeMainHostReply(result) {
   return value
 }
 
-export function validateMainHostReply(result) {
-  const value = decodeMainHostReply(result)
+export function validateMainHostReply(result, options) {
+  const value = decodeMainHostReply(result, options)
   if (!value) return null
   // Public evidence remains redacted; only the in-memory pairing controller
   // below consumes the nonce from the private decoder.
@@ -324,6 +331,8 @@ async function runMainCase(installed, pairing, progress) {
     mainUiVerified: false,
     mainBridgeEndpointVerified: false,
     mbp1TransportPairingVerified: false,
+    noCallerTicketlessVerified: false,
+    bootstrapTicketProofVerified: false,
     cleanupVerified: false,
     mbp1Verified: false,
     profilePathEqualityVerified: false,
@@ -441,12 +450,56 @@ async function runMainCase(installed, pairing, progress) {
         })
         report.mainBridgeEndpointVerified = true
         report.hostStdoutBytes = reply.stdoutBytes
+        stage = 'actual-host-bootstrap'
+        progress(stage)
+        const bootstrap = pairing.bootstrap()
+        const bootstrapBody = Buffer.from(JSON.stringify(bootstrap.request))
+        const bootstrapHeader = Buffer.alloc(4)
+        bootstrapHeader.writeUInt32LE(bootstrapBody.length)
+        const bootstrapInput = Buffer.concat([bootstrapHeader, bootstrapBody])
+        const requestBootstrap = (args) =>
+          runBoundedProbeProcess({
+            executable: path.win32.join(aliasRoot, HOST.alias),
+            args,
+            input: bootstrapInput,
+            profileEnvironment: clearedEnvironment,
+            timeoutMs: 5000,
+          })
+        // A public binding key alone cannot attribute a caller. Keep the
+        // negative control ticketless, then use fixed synthetic browser argv.
+        const anonymous = await requestBootstrap([])
+        const anonymousReply = validateMainHostReply(anonymous)
+        if (!anonymousReply || anonymousReply.port !== reply.port)
+          fail('unexpected-bootstrap-endpoint')
+        report.noCallerTicketlessVerified = true
+        report.anonymousBootstrapStdoutBytes = anonymousReply.stdoutBytes
+        const attested = await requestBootstrap(bootstrap.callerArguments)
+        const publicReply = validateMainHostReply(attested, {
+          ticketRequired: true,
+        })
+        if (!publicReply || publicReply.port !== reply.port)
+          fail('unexpected-bootstrap-endpoint')
+        validateMainProcess(await queryProcess(child.pid, publicReply.port), {
+          pid: child.pid,
+          installed: installed.package,
+          startTicks,
+        })
+        report.bootstrapStdoutBytes = publicReply.stdoutBytes
+        // Only the in-memory controller receives the nonce and ticket. Neither
+        // the endpoint's localToken nor a test-minted ticket is used here.
+        const privateReply = decodeMainHostReply(attested, {
+          ticketRequired: true,
+        })
         stage = 'installed-mbp1-pairing'
         progress(stage)
-        await pairing.pair(reply.port, decodeMainHostReply(result).nonce, () =>
-          readPairingCode(main)
+        await pairing.pair(
+          privateReply.port,
+          privateReply.nonce,
+          () => readPairingCode(main),
+          privateReply.nmTicket
         )
         report.mbp1TransportPairingVerified = true
+        report.bootstrapTicketProofVerified = true
         break
       }
       await delay(500)
@@ -472,6 +525,7 @@ async function runMainCase(installed, pairing, progress) {
       'invalid-host-json',
       'unexpected-host-reply',
       'actual-endpoint-unavailable',
+      'unexpected-bootstrap-endpoint',
       'mbp1-pair-failed',
     ].includes(error?.message)
       ? error.message
@@ -705,6 +759,7 @@ async function main(args) {
     mainBridgeEndpointVerified: false,
     coldLaunchVerified: false,
     installedMbp1TransportVerified: false,
+    installedBootstrapTicketProofVerified: false,
     mbp1ClientCleanupVerified: false,
     syntheticMbp1Client: true,
     mbp1Verified: false,
@@ -840,6 +895,10 @@ async function main(args) {
       report.mbp1ClientCleanupVerified &&
       report.runtime.mbp1TransportPairingVerified &&
       report.coldLaunch.mbp1TransportReconnectVerified
+    report.installedBootstrapTicketProofVerified =
+      report.installedMbp1TransportVerified &&
+      report.runtime.noCallerTicketlessVerified &&
+      report.runtime.bootstrapTicketProofVerified
     report.coldLaunchVerified &&= report.ok
     report.mainBridgeEndpointVerified &&= report.ok
     try {

@@ -2,6 +2,7 @@
 // cryptography come from the existing MBP1 test client.
 // This is a synthetic Node peer, not evidence of browser-origin attestation.
 
+import { randomBytes } from 'node:crypto'
 import {
   InitializeResultSchema,
   type MdxpConnection,
@@ -9,8 +10,10 @@ import {
   Notifications,
   TaskListResultSchema,
 } from '@motrix/mdxp'
+import { ed25519 } from '@noble/curves/ed25519.js'
+import { toBase64Url } from '../mbp1/canonical'
 import type { EnvelopeChannel } from '../mbp1/envelope-message-stream'
-import type { IssuedCredential, WireClient } from './mbp1-client'
+import type { ClientTicket, IssuedCredential, WireClient } from './mbp1-client'
 import * as client from './mbp1-client'
 
 const extensionId = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
@@ -54,12 +57,20 @@ export function createInstalledMbp1Client(
   options: { onProgress?: (stage: InstalledClientStage) => void } = {}
 ) {
   const progress = (stage: InstalledClientStage) => options.onProgress?.(stage)
+  let bindingPrivate: Uint8Array | undefined
+  let bindingPublic: string | undefined
   let credential: IssuedCredential | undefined
   let instanceId: string | undefined
   let paired = false
   let disposed = false
   let wire: WireClient | undefined
   let connection: MdxpConnection | undefined
+
+  function clearBinding() {
+    bindingPrivate?.fill(0)
+    bindingPrivate = undefined
+    bindingPublic = undefined
+  }
 
   async function closeConnection() {
     progress('connection-close')
@@ -104,17 +115,51 @@ export function createInstalledMbp1Client(
   }
 
   return Object.freeze({
+    bootstrap() {
+      if (disposed || paired || credential || bindingPrivate)
+        fail('mbp1-client-state-invalid')
+      bindingPrivate = new Uint8Array(randomBytes(32))
+      bindingPublic = toBase64Url(ed25519.getPublicKey(bindingPrivate))
+      // Public material only; the signing key stays in this disposable closure.
+      return Object.freeze({
+        request: Object.freeze({
+          action: 'bootstrap',
+          protocolVersion: 1,
+          bindingPub: bindingPublic,
+          allowLaunch: false,
+        }),
+        callerArguments: Object.freeze([`${origin}/`]),
+      })
+    },
     async pair(
       port: number,
       pairNonce: string,
-      readCode: () => string | Promise<string>
+      readCode: () => string | Promise<string>,
+      nmTicket?: Record<string, unknown>
     ) {
       if (disposed || paired || credential) fail('mbp1-client-state-invalid')
       try {
+        let ticket: ClientTicket | undefined
+        if (bindingPrivate || nmTicket !== undefined) {
+          const key = bindingPrivate
+          if (
+            !key ||
+            !bindingPublic ||
+            !nmTicket ||
+            nmTicket.bindingPub !== bindingPublic
+          )
+            fail('mbp1-bootstrap-binding-mismatch')
+          ticket = {
+            wire: nmTicket,
+            bindingKeyB64: bindingPublic,
+            sign: (message) => ed25519.sign(new Uint8Array(message), key),
+          }
+        }
         progress('pair-start')
         const handshake = await client.startPair({
           port,
           pairNonce,
+          ticket,
           origin,
           browser: 'chromium',
           claimedExtensionId: extensionId,
@@ -125,7 +170,7 @@ export function createInstalledMbp1Client(
         progress('pair-ui')
         const code = await readCode()
         progress('pair-pake')
-        const { channel } = await client.runPake(handshake, code)
+        const { channel } = await client.runPake(handshake, code, { ticket })
         progress('pair-credential')
         credential = await client.exchangeCredential(handshake, channel)
         await initializeAndRead(channel)
@@ -133,6 +178,7 @@ export function createInstalledMbp1Client(
       } catch {
         fail('mbp1-pair-failed')
       } finally {
+        clearBinding()
         await closeConnection()
       }
     },
@@ -158,6 +204,7 @@ export function createInstalledMbp1Client(
     async dispose() {
       disposed = true
       paired = false
+      clearBinding()
       credential?.mutualKey.fill(0)
       credential = undefined
       instanceId = undefined

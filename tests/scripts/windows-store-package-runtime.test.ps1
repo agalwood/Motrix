@@ -127,7 +127,7 @@ function New-ContractFixture {
       schemaVersion = 1; scope = 'windows-installed-main-bridge-startup'
       sourceCommit = $commit; packageVersion = '1.0.1.0'; nativeHostSha256 = ('e' * 64); mainExecutableSha256 = ('f' * 64); windowsPlatformSha256 = ('a' * 64)
       ok = $true; mainBridgeEndpointVerified = $true; coldLaunchVerified = $true; mbp1Verified = $false; windows11AcceptanceVerified = $false; storeReady = $false
-      installedMbp1TransportVerified = $true; mbp1ClientCleanupVerified = $true; syntheticMbp1Client = $true
+      installedMbp1TransportVerified = $true; installedBootstrapTicketProofVerified = $true; mbp1ClientCleanupVerified = $true; syntheticMbp1Client = $true
       coldLaunch = [pscustomobject]@{
         ok = $true; noLaunchBeforeVerified = $true; coldLaunchVerified = $true; processIdentityVerified = $true
         mainBridgeEndpointVerified = $true; noLaunchAfterVerified = $true; cleanupVerified = $true; mbp1Verified = $false
@@ -137,7 +137,8 @@ function New-ContractFixture {
       runtime = [pscustomobject]@{
         ok = $true; mainApplicationLaunched = $true; processIdentityVerified = $true; disclaimerUiVerified = $true
         mainUiVerified = $true; mainBridgeEndpointVerified = $true; cleanupVerified = $true
-        mbp1TransportPairingVerified = $true
+        mbp1TransportPairingVerified = $true; noCallerTicketlessVerified = $true; bootstrapTicketProofVerified = $true
+        anonymousBootstrapStdoutBytes = 94; bootstrapStdoutBytes = 512
         mbp1Verified = $false; profilePathEqualityVerified = $false; hostStdoutBytes = 94
       }
     }
@@ -239,6 +240,10 @@ try {
 
   Test-ContractCase 'main-accepts-bound-evidence' 'main'
   Test-ContractCase 'main-rejects-missing-transport-proof' 'main' $true { param($f) $f.Main.installedMbp1TransportVerified = $false }
+  Test-ContractCase 'main-rejects-missing-bootstrap-proof' 'main' $true { param($f) $f.Main.installedBootstrapTicketProofVerified = $false }
+  Test-ContractCase 'main-rejects-callerless-ticket' 'main' $true { param($f) $f.Main.runtime.noCallerTicketlessVerified = $false }
+  Test-ContractCase 'main-rejects-missing-ticket-pair' 'main' $true { param($f) $f.Main.runtime.bootstrapTicketProofVerified = $false }
+  Test-ContractCase 'main-rejects-invalid-bootstrap-count' 'main' $true { param($f) $f.Main.runtime.bootstrapStdoutBytes = 0 }
   Test-ContractCase 'main-rejects-client-cleanup-failure' 'main' $true { param($f) $f.Main.mbp1ClientCleanupVerified = $false }
   Test-ContractCase 'main-rejects-unlabelled-synthetic-client' 'main' $true { param($f) $f.Main.syntheticMbp1Client = $false }
   Test-ContractCase 'main-rejects-pairing-failure' 'main' $true { param($f) $f.Main.runtime.mbp1TransportPairingVerified = $false }

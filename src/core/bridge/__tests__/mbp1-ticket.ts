@@ -34,7 +34,7 @@ function toBytes(buf: Uint8Array): Uint8Array {
   return new Uint8Array(buf)
 }
 
-export function mintTicket(opts: {
+interface TicketFixtureOptions {
   localToken: string
   serverGeneration: string
   browser: Browser
@@ -46,9 +46,13 @@ export function mintTicket(opts: {
     protocolVersion: number
     exp: number
   }>
-}): ClientTicket {
-  const bindingPriv = toBytes(randomBytes(32))
-  const bindingPub = ed25519.getPublicKey(bindingPriv)
+}
+
+/** Test fixtures only: mint for a peer-owned public key without its secret. */
+export function mintTicketWire(
+  opts: TicketFixtureOptions,
+  bindingPub: Uint8Array
+): Record<string, unknown> {
   const fields = {
     v: opts.overrides?.v ?? TICKET_VERSION,
     purpose: opts.overrides?.purpose ?? TICKET_PURPOSE,
@@ -66,11 +70,17 @@ export function mintTicket(opts: {
   )
 
   return {
-    wire: {
-      ...fields,
-      bindingPub: toBase64Url(bindingPub),
-      mac: toBase64Url(mac),
-    },
+    ...fields,
+    bindingPub: toBase64Url(bindingPub),
+    mac: toBase64Url(mac),
+  }
+}
+
+export function mintTicket(opts: TicketFixtureOptions): ClientTicket {
+  const bindingPriv = toBytes(randomBytes(32))
+  const bindingPub = ed25519.getPublicKey(bindingPriv)
+  return {
+    wire: mintTicketWire(opts, bindingPub),
     bindingKeyB64: toBase64Url(bindingPub),
     sign: (message) => ed25519.sign(toBytes(message), bindingPriv),
   }

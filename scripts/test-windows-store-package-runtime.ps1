@@ -271,9 +271,9 @@ function Assert-MainRuntimeReport([object]$Main, [string]$SourceCommit, [string]
       $Main.nativeHostSha256 -cne $NativeHostHash -or $Main.mainExecutableSha256 -cne $MainHash -or $Main.windowsPlatformSha256 -cne $PlatformHash) {
     throw 'Installed main runtime report does not match this package.'
   }
-  foreach ($name in @('ok', 'mainBridgeEndpointVerified', 'coldLaunchVerified', 'installedMbp1TransportVerified', 'mbp1ClientCleanupVerified', 'syntheticMbp1Client')) { Assert-True $Main.$name 'Main bridge startup or synthetic MBP1 transport was not verified.' }
+  foreach ($name in @('ok', 'mainBridgeEndpointVerified', 'coldLaunchVerified', 'installedMbp1TransportVerified', 'installedBootstrapTicketProofVerified', 'mbp1ClientCleanupVerified', 'syntheticMbp1Client')) { Assert-True $Main.$name 'Main bridge startup or synthetic MBP1 transport was not verified.' }
   foreach ($name in @('mbp1Verified', 'windows11AcceptanceVerified', 'storeReady')) { Assert-False $Main.$name 'Main report overstates its scope.' }
-  foreach ($name in @('ok', 'mainApplicationLaunched', 'processIdentityVerified', 'disclaimerUiVerified', 'mainUiVerified', 'mainBridgeEndpointVerified', 'mbp1TransportPairingVerified', 'cleanupVerified')) {
+  foreach ($name in @('ok', 'mainApplicationLaunched', 'processIdentityVerified', 'disclaimerUiVerified', 'mainUiVerified', 'mainBridgeEndpointVerified', 'mbp1TransportPairingVerified', 'noCallerTicketlessVerified', 'bootstrapTicketProofVerified', 'cleanupVerified')) {
     Assert-True $Main.runtime.$name 'Installed main runtime check is incomplete.'
   }
   foreach ($name in @('mbp1Verified', 'profilePathEqualityVerified')) { Assert-False $Main.runtime.$name 'Main runtime report overstates its scope.' }
@@ -284,8 +284,8 @@ function Assert-MainRuntimeReport([object]$Main, [string]$SourceCommit, [string]
   foreach ($name in @('hostStdoutBytes', 'noLaunchBeforeStdoutBytes', 'noLaunchAfterStdoutBytes')) {
     if ($Main.coldLaunch.$name -isnot [int] -or $Main.coldLaunch.$name -lt 5 -or $Main.coldLaunch.$name -gt 4100) { throw 'Invalid cold launch output count.' }
   }
-  if ($Main.runtime.hostStdoutBytes -isnot [int] -or $Main.runtime.hostStdoutBytes -lt 5 -or $Main.runtime.hostStdoutBytes -gt 4100) {
-    throw 'Invalid actual host output count.'
+  foreach ($name in @('hostStdoutBytes', 'anonymousBootstrapStdoutBytes', 'bootstrapStdoutBytes')) {
+    if ($Main.runtime.$name -isnot [int] -or $Main.runtime.$name -lt 5 -or $Main.runtime.$name -gt 4100) { throw 'Invalid actual host output count.' }
   }
 }
 
@@ -646,7 +646,7 @@ $report = [ordered]@{
   windows11AcceptanceVerified = $false; standardUserVerified = $false
   browserNativeMessagingVerified = $false; browserUpgradeVerified = $false; mbp1Verified = $false
   mainBridgeEndpointVerified = $false; mainColdLaunchVerified = $false
-  installedMbp1TransportVerified = $false
+  installedMbp1TransportVerified = $false; installedBootstrapTicketProofVerified = $false
   motrixMainRuntimeVerified = $false; upgradeVerified = $false; wackVerified = $false
   productionSigned = $false; storeReady = $false; storeSubmissionReady = $false
   error = $null
@@ -834,7 +834,7 @@ try {
   $mainReport = Read-Json $mainReportPath
   Assert-MainRuntimeReport $mainReport $env:GITHUB_SHA $after.Version (Get-Hash (Join-Path $after.Prepared 'layout\app\resources\bin\motrix-native-host.exe')) (Get-Hash (Join-Path $after.Prepared 'layout\app\Motrix.exe')) (Get-Hash (Join-Path $after.Prepared 'layout\app\resources\bin\motrix-windows-platform.exe'))
   Confirm-InstalledPackage $after
-  $report.mainRuntime = [ordered]@{ packageVersion = $after.Version; reportSha256 = Get-Hash $mainReportPath; mainBridgeEndpointVerified = $true; coldLaunchVerified = $true; installedMbp1TransportVerified = $true; syntheticMbp1Client = $true; mbp1Verified = $false }
+  $report.mainRuntime = [ordered]@{ packageVersion = $after.Version; reportSha256 = Get-Hash $mainReportPath; mainBridgeEndpointVerified = $true; coldLaunchVerified = $true; installedMbp1TransportVerified = $true; installedBootstrapTicketProofVerified = $true; syntheticMbp1Client = $true; mbp1Verified = $false }
   Complete-Phase $stage
   $testCompleted = $true
 } catch {
@@ -931,6 +931,7 @@ try {
   $report.mainBridgeEndpointVerified = $report.ok -and $mainAttempted
   $report.mainColdLaunchVerified = $report.ok -and $mainAttempted
   $report.installedMbp1TransportVerified = $report.ok -and $mainAttempted
+  $report.installedBootstrapTicketProofVerified = $report.ok -and $mainAttempted
   $report.completedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
   Write-NewText (Join-Path $OutputDirectory 'runtime-result.json') (($report | ConvertTo-Json -Depth 32) + "`n")
 }

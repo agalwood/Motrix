@@ -333,7 +333,15 @@ profile 文件、Electron 原始输出或图片。这验证桥接启动和端点
 冷启动后必须用原凭证重连。凭证只在控制器内存中保留，不进入报告。
 `installedMbp1TransportVerified` 仅记录这项传输验证；`syntheticMbp1Client`
 保持 true，正式 `mbp1Verified` 保持 false。Node 提供的 Origin 不证明真实浏览器来源、
-正式扩展行为或 Native Messaging ticket 认证。
+正式扩展行为或生产浏览器注册生命周期。
+
+控制器还会为实际 Rust host 的 `bootstrap` 请求生成一次性 Ed25519 绑定密钥。
+没有调用者参数时，响应必须不带票据；传入固定的合成 Chromium 调用者参数后，
+必须返回能在配对中通过服务端校验及绑定证明的票据。私钥只在内存中保留，配对结束
+或释放控制器时清除。`installedBootstrapTicketProofVerified` 要求两项检查、
+传输验证和清理均成功。它不证明调用者参数来自真实浏览器，也不证明 Windows 端点
+文件通过 ACL 保护检查：现有 Windows 读取器会保留所选用户数据目录中的票据字段。
+控制器不读取端点 token 或自行生成 CI 票据，报告不包含这些材料。
 
 诊断包与普通测试包使用相同身份，不能并排安装。A→B 实验应准备两个递增包版本，
 保持身份、helper 和 alias 相同。按[测试签名与安装指南](windows-store-runtime-testing.zh-CN.md)

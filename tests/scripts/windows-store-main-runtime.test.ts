@@ -99,6 +99,29 @@ describe('actual host response and redaction', () => {
       pair.nonce
     )
   })
+  it('redacts bootstrap tickets and requires the explicitly selected reply mode', () => {
+    const result = framed({
+      ...pair,
+      nmTicket: { bindingPub: 'private-ticket-sentinel' },
+    })
+    expect(() => validateMainHostReply(result)).toThrow()
+    const publicReply = validateMainHostReply(result, { ticketRequired: true })
+    expect(publicReply).toEqual({
+      port: pair.port,
+      stdoutBytes: result.stdout.length,
+    })
+    expect(JSON.stringify(publicReply)).not.toContain('private-ticket')
+    expect(() =>
+      validateMainHostReply(framed(pair), { ticketRequired: true })
+    ).toThrow()
+    for (const nmTicket of [null, 'private-ticket-sentinel', []])
+      expect(() =>
+        validateMainHostReply(framed({ ...pair, nmTicket }), {
+          ticketRequired: true,
+        })
+      ).toThrow()
+  })
+
   it('recognizes only the exact pending-startup response', () => {
     expect(
       validateMainHostReply(framed({ error: 'motrix-not-running' }))
