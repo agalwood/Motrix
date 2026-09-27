@@ -266,6 +266,52 @@ uninstalling B. This tests diagnostic browser discovery at B, not a browser
 connection surviving an upgrade, the production MBP1 host, or Windows 11
 standard-user acceptance.
 
+### Check the production extension build with the installed application
+
+Manual runs of `windows-store.yml` also build the production extension from the
+immutable commit pinned in the workflow. The build uses its frozen lockfile and
+must leave its source checkout clean. `main-runtime-report.json` records the
+extension source commit, complete build digest, browser brand/version and separate
+`runtime.extensionRuntimes.chrome` and `runtime.extensionRuntimes.edge` results.
+The diagnostic extensions described above cannot satisfy these checks.
+
+Each browser gets a new disposable profile and loads the unchanged Web Store
+build through CDP as an unpacked extension. The driver selects **Motrix · Microsoft
+Store** and the installed application's candidate through the normal popup UI,
+enters the pairing code shown by that application's renderer, and waits for
+authenticated connection. It then closes and reopens the same browser profile;
+reconnection must use the retained credential without another pairing code.
+The driver does not preseed credentials or application consent, or copy a user's
+existing browser profile. The application's first-run consent uses its normal UI.
+
+The Edge case additionally closes the application and checks that no Motrix
+process or endpoint remains. It clicks the extension's normal **Connect** or
+**View tasks** action and accepts the browser's normal confirmation for the test
+package. UI Automation is restricted to the owned browser process, start time,
+binary digest and fixed test application name. It does not pre-authorize protocol
+origins or remember permission. The native host only observes with
+`allowLaunch: false`; package activation must originate from the extension action.
+The new application's package identity, process generation and loopback listener
+must match before the extension reconnects using its original credential.
+
+Accept a result only when pairing, browser restart, and cleanup all pass for both
+browsers. Edge also requires `protocolActivationVerified`, confirmed browser
+consent, and every `protocolLaunch` ownership/no-launch/cleanup check. Chrome's
+protocol flag remains false because that phase currently runs only in Edge.
+Failure-stage codes and bounded UI control counts support diagnosis without
+retaining page text, pairing material, screenshots, videos or traces. Profiles
+are deleted, and CI retains only its existing JSON/XML/log evidence allowlist.
+
+These checks exercise production code loaded unpacked, not a browser-store
+installation. They do not establish Firefox production pairing, Chrome protocol
+activation, permission cancellation, missing-handler behavior, download takeover,
+service-worker restart in isolation, or connection continuity across application
+upgrades/uninstallation. Record these separately, together with Windows 11
+standard-user acceptance, WACK and the actual Microsoft-signed Store flight.
+A hosted Windows Server result cannot replace those gates; global `mbp1Verified`
+and `storeReady` remain false. A configured test is not a passing observation:
+inspect the run's source-bound report and cleanup results before claiming success.
+
 ### Launch Motrix and record runtime scenarios
 
 ```powershell

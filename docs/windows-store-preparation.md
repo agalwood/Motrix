@@ -440,6 +440,13 @@ client credential, and cleanup. The native host only observes in this case
 establish browser user-gesture handling, production extension discovery, or
 coexistence with a direct installation.
 
+Manual hosted runs separately exercise the pinned production extension build in
+Chrome and Edge, including UI pairing and browser restart; the Edge case also
+requires explicit browser protocol confirmation and authenticated cold reconnect.
+See [production extension runtime checks](windows-store-runtime-testing.md#check-the-production-extension-build-with-the-installed-application)
+for report requirements and remaining acceptance gates. These per-browser results
+must not be inferred from the synthetic client or OS-only URI check above.
+
 The controller also generates a one-use Ed25519 binding key for the actual Rust
 host's `bootstrap` request. Without caller arguments the response must omit a
 ticket; with fixed synthetic Chromium caller arguments it must return a ticket

@@ -237,6 +237,40 @@ Chrome 和 Edge 使用有界面的 CDP 会话，Firefox 使用无界面的 BiDi 
 在 B 的 alias 检查后、卸载 B 前执行此检查。它只测试 B 的诊断 host 浏览器发现，
 不证明浏览器连接跨升级保留、正式 MBP1 host 或 Windows 11 普通用户验收通过。
 
+### 使用已安装应用检查生产扩展构建
+
+手动运行 `windows-store.yml` 时，还会从工作流固定的完整提交构建生产扩展。
+构建使用冻结的 lockfile，完成后源码目录必须保持干净。`main-runtime-report.json`
+记录扩展源提交、完整构建摘要、浏览器品牌/版本，并分别记录
+`runtime.extensionRuntimes.chrome` 与 `runtime.extensionRuntimes.edge`。
+上文的诊断扩展不能代替这些检查。
+
+每个浏览器使用全新的可丢弃 profile，通过 CDP 以解包方式加载未修改的 Web Store
+构建。驱动通过正常 popup UI 选择 **Motrix · Microsoft Store** 和已安装应用的候选项，
+输入该应用渲染窗口显示的配对码，等待认证连接。随后关闭并重新打开相同浏览器
+profile，要求使用保留的凭据重连，不再次输入配对码。驱动不预写凭据或应用同意状态，
+也不复制用户已有的浏览器 profile；应用首次同意通过正常 UI 完成。
+
+Edge 用例还会关闭应用，确认 Motrix 进程和端点均不存在，再点击扩展正常的
+**Connect** 或 **View tasks** 操作，接受浏览器针对测试包的正常确认。UI Automation
+只操作属于本轮浏览器进程、启动时间、二进制摘要和固定测试应用名称的确认控件，
+不预先授权协议来源、不记住权限。native host 仅通过 `allowLaunch: false` 观察，
+包激活必须来自扩展操作。检查新应用的包身份、进程启动时间和 loopback 监听器后，
+扩展必须使用原凭据重新认证连接。
+
+两个浏览器的配对、浏览器重启和清理全部通过，结果才可接受。Edge 还要求
+`protocolActivationVerified`、浏览器确认，以及 `protocolLaunch` 中所有身份、
+未启动状态和清理检查通过。该阶段目前只在 Edge 执行，因此 Chrome 的协议标记
+仍为 false。固定失败阶段码和有界 UI 控件数量用于定位，不保留页面文本、配对材料、
+截图、视频或 trace。profile 会被删除，CI 仍只保留原有 JSON/XML/log 证据白名单。
+
+这些检查运行以解包方式加载的生产代码，不等于从浏览器商店安装。它们不证明 Firefox
+生产配对、Chrome 协议激活、取消权限、缺少 handler、下载接管、单独重启 service
+worker，或应用升级/卸载后的连接连续性。这些项目仍需单独记录，并完成 Windows 11
+普通用户验收、WACK 和实际微软签名的 Store flight。hosted Windows Server 结果
+不能代替这些关卡；全局 `mbp1Verified` 和 `storeReady` 保持 false。已配置测试不代表
+已有通过观察，必须检查与源码绑定的运行报告和清理结果后才能宣称成功。
+
 ### 启动 Motrix 并记录运行场景
 
 ```powershell
