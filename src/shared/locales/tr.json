@@ -1324,6 +1324,8 @@
         "currentVersion": "Geçerli sürüm {{version}}",
         "idleTitle": "Motrix’i güncel tutun",
         "idle": "{{version}} sürümü yüklü. Şimdi denetleyin veya Motrix açıldığında denetlemesine izin verin.",
+        "managedTitle": "Yükleme kaynağından güncellemeler",
+        "managedDescription": "Bu paketlenmiş Windows sürümü, ilk yükleme kaynağı üzerinden güncellenir. Uygulama içi güncellemeler kullanılamaz.",
         "unsupportedTitle": "Otomatik güncellemeler kullanılamıyor",
         "unsupported": "Bu sürüm otomatik olarak güncellenemez. En son sürümü resmî web sitesinden indirin.",
         "check": "Güncellemeleri denetle",

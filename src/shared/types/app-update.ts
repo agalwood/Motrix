@@ -1,5 +1,6 @@
 export type AppUpdatePhase =
   | 'idle'
+  | 'managed'
   | 'unsupported'
   | 'checking'
   | 'up-to-date'
@@ -24,6 +25,8 @@ export interface AppUpdateError {
 export interface AppUpdateState {
   phase: AppUpdatePhase
   currentVersion: string
+  /** Absent on older hosts that predate externally managed updates. */
+  updateAuthority?: 'application' | 'system'
   availableVersion?: string
   releaseName?: string
   progress?: AppUpdateProgress

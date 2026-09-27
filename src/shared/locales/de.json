@@ -1324,6 +1324,8 @@
         "currentVersion": "Aktuelle Version {{version}}",
         "idleTitle": "Motrix aktuell halten",
         "idle": "Version {{version}} ist installiert. Suchen Sie jetzt nach Updates oder lassen Sie Motrix beim Start danach suchen.",
+        "managedTitle": "Updates über die Installationsquelle",
+        "managedDescription": "Diese paketierte Windows-Version wird über ihre ursprüngliche Installationsquelle aktualisiert. Updates innerhalb der App sind nicht verfügbar.",
         "unsupportedTitle": "Automatische Updates nicht verfügbar",
         "unsupported": "Diese Version kann nicht automatisch aktualisiert werden. Laden Sie die neueste Version von der offiziellen Website herunter.",
         "check": "Nach Updates suchen",

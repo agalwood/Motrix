@@ -3,8 +3,10 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { NOOP_TASK_ACTIVITY_RECORDER } from '@core/activity'
 import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
+import { EventBus } from '@core/events/event-bus'
 import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { SettingsManager } from '@core/settings/settings-manager'
+import { ErrorCode } from '@shared/errors'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
@@ -20,6 +22,7 @@ import { makeMediaMetaStoreStub } from '@test-utils/media-meta-store'
 import { makeDownloadTask } from '@test-utils/task'
 import { directTaskUpdatePublication } from '@test-utils/task-update'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createAppUpdateService } from '../core/app-update-service'
 import { MainProcessWorkCoordinator } from '../main-process-work-coordinator'
 import { WINDOWS_DEFAULT_APPS_SETTINGS_URL } from '../platform/windows-default-apps'
 import type { CommandContext } from './commands'
@@ -906,6 +909,37 @@ describe('buildCommandHandlers', () => {
     expect(ctx.contextStore.merge).toHaveBeenCalledWith({
       currentRoute: '/downloads',
     })
+  })
+
+  it('rejects direct update IPC for a Windows package without loading its updater', async () => {
+    const loadUpdater = vi.fn(async () => {
+      throw new Error('Application updater must stay unloaded')
+    })
+    const updateManager = await createAppUpdateService({
+      eventBus: new EventBus(),
+      currentVersion: '2.0.0',
+      channel: 'stable',
+      isWindowsPackage: true,
+      supported: true,
+      loadUpdater,
+      getManagedMessage: () => 'Updates come from the installation source',
+    })
+    const handlers = buildCommandHandlers({
+      ...fakeCtx(),
+      updateManager,
+    } as unknown as CommandContext)
+
+    for (const command of [
+      Commands.CheckForUpdates,
+      Commands.DownloadUpdate,
+      Commands.InstallUpdate,
+    ]) {
+      await expect(handlers[command]?.()).rejects.toMatchObject({
+        code: ErrorCode.AppUpdateManaged,
+      })
+    }
+    expect(loadUpdater).not.toHaveBeenCalled()
+    expect(updateManager.getState().phase).toBe('managed')
   })
 
   it.each([0, 1, 2])(

@@ -50,7 +50,7 @@ import type { GetTaskActivityParams } from '@shared/types/task-activity'
 import { ipcMain, session } from 'electron'
 import { getAppImageNativeHost } from '../bridge/appimage-native-host-electron'
 import type { CliToolService } from '../cli/cli-tool-service'
-import type { UpdateManager } from '../core/update-manager'
+import type { AppUpdateService } from '../core/app-update-service'
 import { getAppImageIntegrationView } from '../platform/appimage-integration-host'
 import { getLinuxDefaultAssociations } from '../platform/linux-default-apps'
 import { getSystemAccentColor } from '../platform/system-accent-color'
@@ -94,7 +94,7 @@ export interface QueryContext {
   hostVersion: string
   userDataDir: string
   speedLimitController: SpeedLimitController
-  updateManager: UpdateManager
+  updateManager: AppUpdateService
 }
 
 export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {

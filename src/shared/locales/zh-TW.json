@@ -1310,6 +1310,8 @@
         "currentVersion": "目前版本 {{version}}",
         "idleTitle": "讓 Motrix 保持最新",
         "idle": "已安裝版本 {{version}}。現在檢查，或讓 Motrix 在開啟時檢查。",
+        "managedTitle": "透過原安裝來源更新",
+        "managedDescription": "此 Windows 封裝版透過原安裝來源更新，無法在應用程式內更新。",
         "unsupportedTitle": "無法自動更新",
         "unsupported": "目前版本不支援自動更新，請至官網下載最新版。",
         "check": "檢查更新",

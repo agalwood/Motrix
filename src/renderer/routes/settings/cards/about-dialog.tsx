@@ -19,6 +19,7 @@ import { useTranslation } from 'react-i18next'
 import { AppUpdateSection, shouldShowAppUpdate } from './app-update-section'
 import { AutomaticUpdateSetting } from './automatic-update-setting'
 import type { SettingsCardDialogProps } from './card-types'
+import { useAppUpdate } from './use-app-update'
 
 const appIconUrl = `${import.meta.env.BASE_URL}app-icon.png`
 
@@ -50,6 +51,7 @@ export function AboutDialog({
   const heading = useRef<HTMLHeadingElement>(null)
   const metadata = __MOTRIX_APP_METADATA__
   const showUpdates = shouldShowAppUpdate(__MOTRIX_TARGET__)
+  const update = useAppUpdate(showUpdates && open)
 
   return (
     <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
@@ -157,7 +159,7 @@ export function AboutDialog({
           >
             <ScrollAreaContent style={{ minWidth: '100%' }}>
               {showUpdates ? (
-                <AppUpdateSection />
+                <AppUpdateSection update={update} />
               ) : (
                 <p className="px-6 py-5 text-xs text-muted-foreground">
                   {t('settings.about.webVersionNote')}
@@ -169,7 +171,7 @@ export function AboutDialog({
         </ScrollArea>
 
         <DialogFooter className="shrink-0 flex-row items-center justify-between gap-4 border-t border-border/70 bg-background/85 px-6 py-3.5 backdrop-blur-xl sm:justify-between">
-          {showUpdates ? <AutomaticUpdateSetting /> : <span />}
+          {update.showControls ? <AutomaticUpdateSetting /> : <span />}
           <Button onClick={onClose} size="sm" className="min-w-20">
             {t('common.close')}
           </Button>

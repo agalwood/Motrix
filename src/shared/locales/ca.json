@@ -1692,6 +1692,8 @@
         "retry": "Tornar-ho a provar",
         "title": "Actualitzacions de l'aplicació",
         "unsupported": "Aquesta versió no es pot actualitzar automàticament. Baixeu l'última versió del lloc web oficial.",
+        "managedTitle": "Actualitzacions des de la font d’instal·lació",
+        "managedDescription": "Aquesta edició empaquetada per a Windows s’actualitza des de la font d’instal·lació original. Les actualitzacions des de l’aplicació no estan disponibles.",
         "unsupportedTitle": "Actualitzacions automàtiques no disponibles",
         "upToDate": "La versió {{version}} és l'última disponible.",
         "upToDateTitle": "El Motrix està actualitzat"

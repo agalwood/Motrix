@@ -1284,6 +1284,8 @@
         "currentVersion": "当前版本 {{version}}",
         "idleTitle": "让 Motrix 保持最新",
         "idle": "当前安装的是版本 {{version}}。立即检查，或让 Motrix 在启动时自动检查。",
+        "managedTitle": "通过原安装来源更新",
+        "managedDescription": "此 Windows 打包版通过原安装来源更新，应用内更新不可用。",
         "unsupportedTitle": "自动更新不可用",
         "unsupported": "当前版本不支持自动更新，请到官网下载最新版。",
         "check": "检查更新",

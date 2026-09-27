@@ -1692,6 +1692,8 @@
         "retry": "Încearcă din nou",
         "title": "Actualizările aplicației",
         "unsupported": "Această versiune nu se poate actualiza automat. Descarcă cea mai nouă versiune de pe site-ul oficial.",
+        "managedTitle": "Actualizări din sursa de instalare",
+        "managedDescription": "Această ediție Windows împachetată se actualizează prin sursa de instalare originală. Actualizările din aplicație nu sunt disponibile.",
         "unsupportedTitle": "Actualizările automate nu sunt disponibile",
         "upToDate": "Versiunea {{version}} este cea mai nouă versiune disponibilă.",
         "upToDateTitle": "Motrix este la zi"

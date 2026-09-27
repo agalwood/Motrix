@@ -138,7 +138,7 @@ import type { BridgeManager } from '../bridge/bridge-manager'
 import type { CliToolService } from '../cli/cli-tool-service'
 import { MenuContextPatchSchema } from '../commands/context-schema'
 import type { ContextStore } from '../commands/context-store'
-import type { UpdateManager } from '../core/update-manager'
+import type { AppUpdateService } from '../core/app-update-service'
 import { i18n } from '../lib/i18n'
 import {
   enableAppImageIntegrationFromSettings,
@@ -183,7 +183,7 @@ export interface CommandContext {
   torrentParser: TorrentParser
   adapter: EngineAdapter
   taskManager: TaskManager
-  updateManager: UpdateManager
+  updateManager: AppUpdateService
   /**
    * Startup barrier: resolves once engine start + session restore have
    * settled (success or failure). createTask awaits it (after engine-ready)

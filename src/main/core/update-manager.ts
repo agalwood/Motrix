@@ -67,6 +67,10 @@ export class UpdateManager {
       currentVersion: options.currentVersion,
     }
 
+    // Unsupported builds must remain inert even if the shared updater emits
+    // stale events. Do not configure or subscribe to that backend.
+    if (!this.supported) return
+
     // We never auto-download or auto-install. The renderer drives the
     // user experience: check → ask → download → ask → install, and can
     // recover the latest snapshot whenever the About dialog is reopened.
@@ -104,7 +108,7 @@ export class UpdateManager {
   setChannel(channel: AppUpdateChannel): void {
     if (channel === this.channel) return
     this.channel = channel
-    this.configureUpdaterChannel()
+    if (this.supported) this.configureUpdaterChannel()
     this.transition({
       phase: this.supported ? 'idle' : 'unsupported',
       currentVersion: this.state.currentVersion,
@@ -146,6 +150,11 @@ export class UpdateManager {
   }
 
   download(): Promise<unknown> {
+    if (!this.supported) {
+      return Promise.reject(
+        new Error('Automatic updates are not supported in this build')
+      )
+    }
     if (this.downloadPromise) return this.downloadPromise
     const canDownload =
       this.state.phase === 'available' ||
@@ -179,6 +188,9 @@ export class UpdateManager {
   }
 
   install(): void {
+    if (!this.supported) {
+      throw new Error('Automatic updates are not supported in this build')
+    }
     if (this.state.phase !== 'downloaded') {
       throw new Error('Update is not ready to install')
     }
