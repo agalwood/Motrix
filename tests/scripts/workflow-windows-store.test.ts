@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { describe, expect, it } from 'vitest'
@@ -65,6 +66,12 @@ describe('Windows Store SDK test workflow', () => {
     expect(checkout?.with?.repository).toBe('motrixapp/motrix-extension')
     expect(checkout?.with?.ref).toMatch(/^[0-9a-f]{40}$/)
     expect(checkout?.with?.['persist-credentials']).toBe(false)
+    const extensionPath = String(checkout?.with?.path)
+    expect(
+      execFileSync('git', ['check-ignore', '--no-index', extensionPath], {
+        encoding: 'utf8',
+      }).trim()
+    ).toBe(extensionPath)
     expect(build?.run).toContain(checkout?.with?.ref)
     expect(build?.run).toContain('pnpm install --frozen-lockfile')
     expect(build?.run).toContain('pnpm build:webstore')

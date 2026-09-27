@@ -159,11 +159,11 @@ jobs:
         with:
           repository: motrixapp/motrix-extension
           ref: 273e2c519a9bd17e43c0bc4291a98f9089124ad0
-          path: output/store-extension-source
+          path: output/playwright/manual/store-extension-source
           persist-credentials: false
 
       - name: Build and verify production extension
-        working-directory: output/store-extension-source
+        working-directory: output/playwright/manual/store-extension-source
         run: |
           $ErrorActionPreference = 'Stop'
           $expected = '273e2c519a9bd17e43c0bc4291a98f9089124ad0'
