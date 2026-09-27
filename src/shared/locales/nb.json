@@ -1673,6 +1673,8 @@
         "retry": "Prøv igjen",
         "title": "Appoppdateringer",
         "unsupported": "Denne versjonen kan ikke oppdateres automatisk. Last ned den nyeste versjonen fra det offisielle nettstedet.",
+        "managedTitle": "Oppdateringer fra installasjonskilden",
+        "managedDescription": "Denne pakkede Windows-utgaven oppdateres via den opprinnelige installasjonskilden. Oppdatering fra appen er ikke tilgjengelig.",
         "unsupportedTitle": "Automatiske oppdateringer er utilgjengelige",
         "upToDate": "Versjon {{version}} er den nyeste tilgjengelige utgaven.",
         "upToDateTitle": "Motrix er oppdatert"

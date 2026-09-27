@@ -1310,6 +1310,8 @@
         "currentVersion": "Phiên bản hiện tại {{version}}",
         "idleTitle": "Luôn cập nhật Motrix",
         "idle": "Đã cài đặt phiên bản {{version}}. Kiểm tra ngay hoặc để Motrix kiểm tra khi mở ứng dụng.",
+        "managedTitle": "Cập nhật qua nguồn cài đặt",
+        "managedDescription": "Phiên bản Windows đóng gói này được cập nhật qua nguồn cài đặt ban đầu. Không thể cập nhật trong ứng dụng.",
         "unsupportedTitle": "Không thể cập nhật tự động",
         "unsupported": "Phiên bản này không thể tự động cập nhật. Hãy tải phiên bản mới nhất từ trang web chính thức.",
         "check": "Kiểm tra bản cập nhật",

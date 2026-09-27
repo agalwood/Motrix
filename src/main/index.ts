@@ -147,14 +147,10 @@ import {
   shell,
   systemPreferences,
 } from 'electron'
-import { autoUpdater } from 'electron-updater'
 import { bootstrapBridge, createNativeMessagingInstaller } from './bridge'
 import { BridgeManager } from './bridge/bridge-manager'
 import { isPackagedLinuxFlatpak } from './bridge/flatpak-environment'
-import {
-  isElectronSelfUpdateSupported,
-  resolvePackagedLinuxSnapEnvironment,
-} from './bridge/snap-environment'
+import { resolvePackagedLinuxSnapEnvironment } from './bridge/snap-environment'
 import { CliToolService } from './cli/cli-tool-service'
 import { resolveExecutable } from './cli/shell-environment'
 import { CommandRegistry } from './commands/command-registry'
@@ -162,11 +158,11 @@ import { ContextStore } from './commands/context-store'
 import { registerAllCommands } from './commands/definitions'
 import { KeybindingRegistry } from './commands/keybindings/keybinding-registry'
 import type { CommandDeps } from './commands/types'
+import { createAppUpdateService } from './core/app-update-service'
 import {
   DevelopmentUpdateSimulator,
   shouldUseDevelopmentUpdateSimulator,
 } from './core/development-update-simulator'
-import { UpdateManager } from './core/update-manager'
 import { registerUpdateQuitPreparation } from './core/update-quit-preparation'
 import { setupExceptionHandler } from './exception-handler'
 import { registerApplicationMenuIpc } from './ipc/application-menu'
@@ -191,10 +187,12 @@ import { setupAppImageIntegration } from './platform/appimage-integration-host'
 import { syncAutoLaunch } from './platform/auto-launch'
 import { resolveDefaultSaveDirOptions } from './platform/default-save-dir'
 import { resolveDesktopBackgroundPolicy } from './platform/desktop-background-policy'
+import { resolveDistributionContext } from './platform/distribution-context'
 import { removePathRecursive, renameAtomic } from './platform/fs-helpers'
 import { setupNativeThemeSync } from './platform/native-theme-sync'
 import { setupPowerManager } from './platform/power-manager'
 import { createProtocolManager } from './platform/protocol-manager'
+import { isElectronSelfUpdateSupported } from './platform/self-update-policy'
 import { createElectronPlatformServices } from './platform/services'
 import { setupSystemAccentColorSync } from './platform/system-accent-color'
 import { removeTaskPath } from './platform/task-file-remover'
@@ -225,7 +223,13 @@ import { resolveMainWindowStartupPlan } from './window/window-startup-plan'
 
 suppressMacOSAutomaticFullscreenMenuItem(process.platform, systemPreferences)
 
-if (process.platform === 'win32') {
+const distributionContext = resolveDistributionContext({
+  platform: process.platform,
+  isPackaged: app.isPackaged,
+  windowsStore: process.windowsStore,
+})
+
+if (process.platform === 'win32' && !distributionContext.isWindowsPackage) {
   app.setAppUserModelId(APP_ID)
 }
 
@@ -246,7 +250,7 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('password-store', 'basic')
 }
 
-const platform = createElectronPlatformServices()
+const platform = createElectronPlatformServices(distributionContext)
 const rendererUrlPolicy = initializeRendererUrlPolicy({
   isPackaged: app.isPackaged,
   appPath: app.getAppPath(),
@@ -2173,14 +2177,15 @@ async function initializeMainProcess(): Promise<void> {
         onQuitAndInstall: () => app.quit(),
       })
     : null
-  const updateBackend = developmentUpdateSimulator ?? autoUpdater
   const updatesSupported =
-    updateSimulatorEnabled ||
-    isElectronSelfUpdateSupported({
-      hasUpdateMetadata,
-      isPackaged: app.isPackaged,
-      snapEnvironment: settingsSnapEnvironment,
-    })
+    !distributionContext.isWindowsPackage &&
+    (updateSimulatorEnabled ||
+      isElectronSelfUpdateSupported({
+        hasUpdateMetadata,
+        isPackaged: app.isPackaged,
+        isWindowsPackage: distributionContext.isWindowsPackage,
+        isSnap: settingsSnapEnvironment !== null,
+      }))
   if (developmentUpdateSimulator) {
     log.info('development update simulator enabled')
     registerUpdateQuitPreparation({
@@ -2190,13 +2195,18 @@ async function initializeMainProcess(): Promise<void> {
     })
   }
   if (!mainProcessWork.isAccepting()) return
-  const updateManager = new UpdateManager({
+  const updateManager = await createAppUpdateService({
     eventBus,
-    updater: updateBackend,
     currentVersion: app.getVersion(),
     channel: settingsManager.getApp().updateChannel,
+    isWindowsPackage: distributionContext.isWindowsPackage,
     supported: updatesSupported,
+    loadUpdater: async () =>
+      developmentUpdateSimulator ??
+      (await import('electron-updater')).default.autoUpdater,
+    getManagedMessage: () => i18n.t('settings.about.update.managedDescription'),
   })
+  if (!mainProcessWork.isAccepting()) return
 
   const trackerStorePath = path.join(platform.userDataDir, 'tracker.json')
   const trackerStore = new TrackerStore(trackerStorePath)
@@ -2916,11 +2926,13 @@ const quitController = new QuitController({
   beginShutdown,
 })
 
-registerUpdateQuitPreparation({
-  updater: nativeAutoUpdater,
-  markForceQuit: () => quitController.markForceQuit(),
-  setWillQuit: (value) => windowManager?.setWillQuit(value),
-})
+if (!distributionContext.isWindowsPackage) {
+  registerUpdateQuitPreparation({
+    updater: nativeAutoUpdater,
+    markForceQuit: () => quitController.markForceQuit(),
+    setWillQuit: (value) => windowManager?.setWillQuit(value),
+  })
+}
 
 const requestForcedQuit = (reason: string) => {
   log.info({ reason }, 'received forced quit request')

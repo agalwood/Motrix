@@ -14,7 +14,7 @@ import type { TaskManager } from '@core/task/task-manager'
 import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
 import type { MagnetTracker } from '@core/torrent/magnet-tracker'
 import type { MenuContext } from '@shared/types/menu-context'
-import type { UpdateManager } from '../core/update-manager'
+import type { AppUpdateService } from '../core/app-update-service'
 import type { createProtocolManager } from '../platform/protocol-manager'
 import type { WindowManager } from '../window/window-manager'
 import type { WhenExpr } from './when'
@@ -26,7 +26,7 @@ export interface CommandDeps {
   windowManager: WindowManager
   eventBus: EventBus
   log: Logger
-  updateManager: UpdateManager
+  updateManager: AppUpdateService
   protocolManager: ReturnType<typeof createProtocolManager>
   fileCleanupService: FileCleanupService
   torrentMetaStore: TorrentMetaStore

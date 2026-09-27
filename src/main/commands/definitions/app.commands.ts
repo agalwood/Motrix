@@ -33,7 +33,12 @@ export function registerAppCommands(
       deps.eventBus.emit(Events.NavigateTo, '/settings/about')
       // The About page already explains why updates are unavailable;
       // checking anyway would only log a rejected command.
-      if (deps.updateManager.getState().phase !== 'unsupported') {
+      const state = deps.updateManager.getState()
+      if (
+        state.phase !== 'unsupported' &&
+        state.phase !== 'managed' &&
+        state.updateAuthority !== 'system'
+      ) {
         await deps.updateManager.check()
       }
     },

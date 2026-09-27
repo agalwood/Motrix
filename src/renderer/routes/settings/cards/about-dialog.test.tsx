@@ -12,7 +12,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import packageJson from '../../../../../package.json'
 import { AboutDialog } from './about-dialog'
-import { shouldShowAppUpdate } from './app-update-section'
+import * as appUpdateSection from './app-update-section'
 
 vi.mock('@renderer/lib/transport', () => ({
   transport: {
@@ -173,6 +173,163 @@ describe('<AboutDialog>', () => {
 
     expect(transport.invoke).toHaveBeenCalledWith(Queries.GetUpdateState)
     expect(transport.invoke).toHaveBeenCalledWith(Commands.CheckForUpdates)
+  })
+
+  it('keeps update controls hidden until the initial state is known', async () => {
+    let resolveSnapshot!: (state: AppUpdateState) => void
+    vi.mocked(transport.invoke).mockImplementation((channel) => {
+      if (channel === Queries.GetUpdateState) {
+        return new Promise((resolve) => {
+          resolveSnapshot = resolve
+        })
+      }
+      return Promise.resolve({ ok: true })
+    })
+    renderDialog()
+
+    expect(screen.getByText('Loading...')).toBeInTheDocument()
+    expectNoUpdateControls()
+    expect(transport.invoke).not.toHaveBeenCalledWith(Queries.GetSettings)
+    expect(vi.mocked(transport.on).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(transport.invoke).mock.invocationCallOrder[0] ?? 0
+    )
+
+    await act(async () => {
+      resolveSnapshot({
+        phase: 'managed',
+        currentVersion: packageJson.version,
+        updateAuthority: 'system',
+      })
+    })
+    expectNoUpdateControls()
+  })
+
+  it('keeps controls hidden when update capability cannot be loaded', async () => {
+    vi.mocked(transport.invoke).mockRejectedValue(
+      new Error('service unavailable')
+    )
+    renderDialog()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Update failed: service unavailable'
+    )
+    expectNoUpdateControls()
+    expect(transport.invoke).not.toHaveBeenCalledWith(Queries.GetSettings)
+  })
+
+  it.each<AppUpdateState>([
+    {
+      phase: 'managed',
+      currentVersion: packageJson.version,
+      updateAuthority: 'system',
+    },
+    { phase: 'managed', currentVersion: packageJson.version },
+    {
+      phase: 'error',
+      currentVersion: packageJson.version,
+      updateAuthority: 'system',
+      error: { message: 'backend failed' },
+    },
+  ])(
+    'explains externally managed updates for $phase without app controls',
+    async (state) => {
+      vi.mocked(transport.invoke).mockResolvedValue(state)
+      renderDialog()
+
+      expect(
+        await screen.findByText('Updates from your installation source')
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          'This packaged Windows edition is updated through its original installation source. In-app updates are unavailable.'
+        )
+      ).toBeInTheDocument()
+      expectNoUpdateControls()
+      expect(screen.queryByText('Motrix is up to date')).not.toBeInTheDocument()
+      expect(transport.invoke).not.toHaveBeenCalledWith(Queries.GetSettings)
+      expect(transport.invoke).not.toHaveBeenCalledWith(
+        Commands.CheckForUpdates
+      )
+    }
+  )
+
+  it('retains system update authority through late backend events', async () => {
+    renderDialog()
+    await emitState({
+      phase: 'managed',
+      currentVersion: packageJson.version,
+      updateAuthority: 'system',
+    })
+
+    for (const phase of ['error', 'available', 'downloaded', 'idle'] as const) {
+      await emitState({
+        phase,
+        currentVersion: packageJson.version,
+        availableVersion: '2.0.1',
+        error: { message: 'stale backend event' },
+      })
+      expectNoUpdateControls()
+      expect(
+        screen.getByText('Updates from your installation source')
+      ).toBeInTheDocument()
+    }
+  })
+
+  it('retains system update authority when an earlier command rejects', async () => {
+    let rejectCheck!: (error: Error) => void
+    vi.mocked(transport.invoke).mockImplementation((channel) => {
+      if (channel === Queries.GetUpdateState) return Promise.resolve(idleState)
+      if (channel === Queries.GetSettings)
+        return Promise.resolve({
+          app: { checkForUpdatesOnLaunch: true, updateChannel: 'stable' },
+        })
+      if (channel === Commands.CheckForUpdates)
+        return new Promise((_, reject) => {
+          rejectCheck = reject
+        })
+      return Promise.resolve({ ok: true })
+    })
+    renderDialog()
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Check for updates' })
+    )
+    await emitState({
+      phase: 'managed',
+      currentVersion: packageJson.version,
+      updateAuthority: 'system',
+    })
+    await act(async () => {
+      rejectCheck(new Error('late check failure'))
+    })
+
+    expectNoUpdateControls()
+    expect(
+      screen.getByText('Updates from your installation source')
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('shares one snapshot and subscription while supporting an older host', async () => {
+    renderDialog()
+    expect(
+      await screen.findByRole('button', { name: 'Check for updates' })
+    ).toBeEnabled()
+    expect(
+      await screen.findByRole('switch', { name: 'Check automatically' })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('combobox', { name: 'Update channel' })
+    ).toBeInTheDocument()
+    expect(
+      vi
+        .mocked(transport.invoke)
+        .mock.calls.filter(([channel]) => channel === Queries.GetUpdateState)
+    ).toHaveLength(1)
+    expect(
+      vi
+        .mocked(transport.on)
+        .mock.calls.filter(([channel]) => channel === Events.UpdateStateChanged)
+    ).toHaveLength(1)
   })
 
   it('offers download when a newer version becomes available', async () => {
@@ -466,9 +623,31 @@ describe('<AboutDialog>', () => {
     )
   })
 
+  it('renders the web note without querying or subscribing to app updates', () => {
+    const showUpdates = vi
+      .spyOn(appUpdateSection, 'shouldShowAppUpdate')
+      .mockReturnValue(false)
+    try {
+      renderDialog()
+      expect(
+        screen.getByText(
+          'This web edition is updated by its deployment administrator.'
+        )
+      ).toBeInTheDocument()
+      expectNoUpdateControls()
+      expect(transport.invoke).not.toHaveBeenCalledWith(Queries.GetUpdateState)
+      expect(transport.on).not.toHaveBeenCalledWith(
+        Events.UpdateStateChanged,
+        expect.any(Function)
+      )
+    } finally {
+      showUpdates.mockRestore()
+    }
+  })
+
   it('does not expose app updates to the web target', () => {
-    expect(shouldShowAppUpdate('web')).toBe(false)
-    expect(shouldShowAppUpdate('electron')).toBe(true)
+    expect(appUpdateSection.shouldShowAppUpdate('web')).toBe(false)
+    expect(appUpdateSection.shouldShowAppUpdate('electron')).toBe(true)
   })
 })
 
@@ -485,4 +664,18 @@ async function emitState(state: AppUpdateState) {
   await act(async () => {
     call?.[1](state)
   })
+}
+
+function expectNoUpdateControls() {
+  expect(
+    screen.queryByRole('button', {
+      name: /^(Check for updates|Download update|Restart and install|Retry)$/,
+    })
+  ).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole('combobox', { name: 'Update channel' })
+  ).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole('switch', { name: 'Check automatically' })
+  ).not.toBeInTheDocument()
 }

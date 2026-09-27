@@ -1692,6 +1692,8 @@
         "retry": "Réessayer",
         "title": "Mises à jour de l’application",
         "unsupported": "Cette version ne peut pas se mettre à jour automatiquement. Téléchargez la dernière version sur le site officiel.",
+        "managedTitle": "Mises à jour via la source d’installation",
+        "managedDescription": "Cette édition Windows empaquetée se met à jour via sa source d’installation d’origine. Les mises à jour depuis l’application ne sont pas disponibles.",
         "unsupportedTitle": "Mises à jour automatiques indisponibles",
         "upToDate": "La version {{version}} est la dernière version disponible.",
         "upToDateTitle": "Motrix est à jour"

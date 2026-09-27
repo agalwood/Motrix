@@ -39,29 +39,32 @@ describe('app commands', () => {
     )
   })
 
-  it('still opens About but skips the check when updates are unsupported', async () => {
-    const registry = new CommandRegistry()
-    registerAppCommands(registry, {} as CommandDeps)
-    const show = vi.fn()
-    const emit = vi.fn()
-    const check = vi.fn().mockResolvedValue(undefined)
-    const deps = {
-      windowManager: { show },
-      eventBus: { emit },
-      updateManager: {
-        check,
-        getState: () => ({ phase: 'unsupported', currentVersion: '2.0.0' }),
-      },
-      log: { error: vi.fn() },
-    } as unknown as CommandDeps
+  it.each(['unsupported', 'managed'])(
+    'still opens About but skips the check when updates are %s',
+    async (phase) => {
+      const registry = new CommandRegistry()
+      registerAppCommands(registry, {} as CommandDeps)
+      const show = vi.fn()
+      const emit = vi.fn()
+      const check = vi.fn().mockResolvedValue(undefined)
+      const deps = {
+        windowManager: { show },
+        eventBus: { emit },
+        updateManager: {
+          check,
+          getState: () => ({ phase, currentVersion: '2.0.0' }),
+        },
+        log: { error: vi.fn() },
+      } as unknown as CommandDeps
 
-    await registry.execute(CommandIds.AppCheckForUpdates, undefined, {
-      menuContext: DEFAULT_MENU_CONTEXT,
-      deps,
-    })
+      await registry.execute(CommandIds.AppCheckForUpdates, undefined, {
+        menuContext: DEFAULT_MENU_CONTEXT,
+        deps,
+      })
 
-    expect(show).toHaveBeenCalledWith('main')
-    expect(emit).toHaveBeenCalledWith(Events.NavigateTo, '/settings/about')
-    expect(check).not.toHaveBeenCalled()
-  })
+      expect(show).toHaveBeenCalledWith('main')
+      expect(emit).toHaveBeenCalledWith(Events.NavigateTo, '/settings/about')
+      expect(check).not.toHaveBeenCalled()
+    }
+  )
 })

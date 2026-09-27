@@ -1310,6 +1310,8 @@
         "currentVersion": "현재 버전 {{version}}",
         "idleTitle": "Motrix를 최신 상태로 유지하세요",
         "idle": "현재 설치된 버전은 {{version}}입니다. 지금 업데이트를 확인하거나 Motrix를 열 때 확인하도록 설정하세요.",
+        "managedTitle": "설치 출처를 통한 업데이트",
+        "managedDescription": "이 Windows 패키지 버전은 원래 설치 출처를 통해 업데이트됩니다. 앱 내 업데이트는 사용할 수 없습니다.",
         "unsupportedTitle": "자동 업데이트를 사용할 수 없음",
         "unsupported": "이 버전은 자동으로 업데이트할 수 없습니다. 공식 웹사이트에서 최신 버전을 다운로드하세요.",
         "check": "업데이트 확인",

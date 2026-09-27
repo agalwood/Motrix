@@ -14,33 +14,12 @@ export interface SnapEnvironmentOptions {
   env: Readonly<Record<string, string | undefined>>
 }
 
-export interface ElectronSelfUpdateOptions {
-  hasUpdateMetadata: boolean
-  isPackaged: boolean
-  snapEnvironment: PackagedLinuxSnapEnvironment | null
-}
-
 const SNAP_NAME = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/
 const SNAP_INSTANCE_NAME =
   /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?(?:_[a-z0-9]{1,10})?$/
 
 export function isValidSnapInstanceName(value: string): boolean {
   return SNAP_INSTANCE_NAME.test(value)
-}
-
-/**
- * Store-managed packages must not compete with electron-updater. Even if an
- * app-update.yml file is accidentally staged, snapd remains the only
- * application update authority for a packaged Snap.
- */
-export function isElectronSelfUpdateSupported(
-  options: ElectronSelfUpdateOptions
-): boolean {
-  return (
-    options.isPackaged &&
-    options.snapEnvironment === null &&
-    options.hasUpdateMetadata
-  )
 }
 
 function canonicalAbsoluteDirectory(value: string, label: string): string {

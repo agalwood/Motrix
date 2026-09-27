@@ -1310,6 +1310,8 @@
         "currentVersion": "Versi saat ini {{version}}",
         "idleTitle": "Pastikan Motrix selalu terbaru",
         "idle": "Versi {{version}} terpasang. Periksa sekarang atau izinkan Motrix memeriksa saat dibuka.",
+        "managedTitle": "Pembaruan melalui sumber instalasi",
+        "managedDescription": "Edisi Windows dalam paket ini diperbarui melalui sumber instalasi aslinya. Pembaruan di dalam aplikasi tidak tersedia.",
         "unsupportedTitle": "Pembaruan otomatis tidak tersedia",
         "unsupported": "Versi ini tidak dapat diperbarui secara otomatis. Unduh versi terbaru dari situs resmi.",
         "check": "Periksa pembaruan",
