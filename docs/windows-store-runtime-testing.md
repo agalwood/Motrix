@@ -181,6 +181,44 @@ if ($installed.Publisher -cne 'CN=Motrix Store Test' -or
     $installed.Version.ToString() -cne $record.packageVersion -or
     $installed.Status.ToString() -cne 'Ok') { throw 'Installed package identity/version/status mismatch' }
 $installed | Select-Object Name, Publisher, Version, PackageFullName, PackageFamilyName, Architecture, SignatureKind, Status | Format-List
+```
+
+### Check the installed diagnostic alias
+
+For a package built with `testDiagnostics: "native-messaging-probe-v1"`, run this
+optional diagnostic check after installation and before launching Motrix. Use
+Node 24 and the locked dependencies in the same checkout used for preparation,
+and supply that package's indexed preparation directory. Select the installed
+four-part package version explicitly and a new JSON report path with an existing
+parent directory. The tool runs as the current test user and performs no signing,
+installation, browser registration, or application startup.
+
+```powershell
+$diagnosticLayout = 'C:\path\motrix-store-diagnostic-layout'
+$expectedPackageVersion = '1.0.0.0'
+$aliasReport = 'C:\path\motrix-store-runtime-a\alias-report.json'
+node scripts/test-windows-store-native-messaging-alias.mjs --prepared $diagnosticLayout --expected-package-version $expectedPackageVersion --report $aliasReport
+if ($LASTEXITCODE -ne 0) { throw 'Installed diagnostic alias verification failed' }
+```
+
+The checker verifies the installed manifest and probe bytes against the prepared
+records, then launches the absolute WindowsApps alias with a fixed public
+challenge. It requires one bounded frame, empty stderr, the expected version,
+and SHA-256 matches for the full package name and helper AUMID reported by the
+probe. Those hashes are comparison data, not authentication credentials. It
+checks the installed package again after the three cases to reject an upgrade
+during the test. An error produces a failed report and a nonzero exit.
+
+Chromium- and Firefox-shaped arguments in this check are simulations. A successful
+report establishes the diagnostic alias's activation, identity, and pipes in the
+recorded environment; it does not establish real browser discovery, MBP1, main
+application behavior, or a Store-signed installation. For an upgrade-before-first-
+launch experiment, run it again after installing B, with B's prepared directory
+and version, before starting the main application.
+
+### Launch Motrix and record runtime scenarios
+
+```powershell
 Start-Process explorer.exe -ArgumentList "shell:AppsFolder\$($installed.PackageFamilyName)!Motrix"
 ```
 

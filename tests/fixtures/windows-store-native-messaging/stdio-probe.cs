@@ -2,6 +2,7 @@
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -39,6 +40,17 @@ internal static class StdioProbe
 
     private static string Bool(bool value) { return value ? "true" : "false"; }
 
+    private static string IdentityHash(string value)
+    {
+        if (value.Length == 0) return "";
+        using (var hash = SHA256.Create())
+        {
+            // A comparison digest of the full OS value, not caller authentication.
+            return BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(value)))
+                .Replace("-", "").ToLowerInvariant();
+        }
+    }
+
     public static int Main(string[] args)
     {
         // Exit codes: 2 rejected request, 3 truncated/invalid UTF-8 or API failure,
@@ -63,9 +75,11 @@ internal static class StdioProbe
                 bool chromium = args.Length >= 1 && Regex.IsMatch(args[0], "\\Achrome-extension://[a-p]{32}/?\\z");
                 bool firefox = args.Length == 2 && args[1] == "motrix-store-p0@motrix.invalid";
                 string response = "{\"schemaVersion\":1,\"probe\":\"motrix-store-p0\",\"packageIdentityPresent\":" + Bool(package.Length > 0)
+                    + ",\"packageFullNameSha256\":\"" + IdentityHash(package) + "\""
                     + ",\"expectedPackageName\":" + Bool(version.Success)
                     + ",\"packageVersion\":\"" + (version.Success ? version.Groups[1].Value : "") + "\""
                     + ",\"applicationIdentityPresent\":" + Bool(app.Length > 0)
+                    + ",\"applicationUserModelIdSha256\":\"" + IdentityHash(app) + "\""
                     + ",\"expectedHelperApplication\":" + Bool(app.EndsWith("!MotrixNativeHostP0", StringComparison.Ordinal))
                     + ",\"chromiumCallerShape\":" + Bool(chromium)
                     + ",\"firefoxTestCallerShape\":" + Bool(firefox) + "}";

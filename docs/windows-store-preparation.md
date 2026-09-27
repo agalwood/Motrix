@@ -419,11 +419,29 @@ node scripts/verify-windows-store-layout.mjs --prepared $storeLayout --phase ind
 node scripts/verify-windows-store-layout.mjs --prepared $storeLayout --phase unpacked --layout "$storeLayout.sdk-output\unpacked"
 ```
 
-The `Windows Store package check` workflow performs this test on a Windows
+The `Windows Store package check` workflow performs these checks on a Windows
 runner from the checked-out commit, using the fixed test identity and package
-version. It builds its own payload and consumes no signing or submission
-credentials. Its artifact contains only JSON/XML reports and process logs, with no images or
-AppX upload. A green job establishes the SDK checks for that commit only.
+version. It builds its own payload and uses no publisher signing or submission
+credentials. Its artifact contains only JSON/XML reports and process logs, with
+no images, packages, or certificates.
+
+A manual workflow dispatch additionally tests a copy of the diagnostic package
+on the disposable hosted runner. A Windows PowerShell 5.1 wrapper requires that
+CI environment, creates a non-exportable temporary test key, signs the new copy,
+verifies it, installs it for the current runner account, and invokes the
+[installed-alias checker](windows-store-runtime-testing.md#check-the-installed-diagnostic-alias).
+It then removes only its own package, certificate/trust entries, and temporary
+signed copy, and verifies cleanup. The unsigned SDK package stays unchanged.
+Pull request runs skip this installation step. No publisher certificate, PFX,
+private key export, or Store submission is involved.
+
+The runtime report records the actual runner image, OS, account context, and
+individual results. GitHub's Windows hosted runners use an administrator account;
+this Server baseline cannot establish Windows 11 standard-user behavior, real
+browser Native Messaging, MBP1, upgrade behavior, or Store certification.
+An SDK result remains an SDK result; any installed-alias claim requires a
+successful separate runtime report. See [supported MSIX platforms](https://learn.microsoft.com/windows/msix/supported-platforms)
+and [hosted-runner privileges](https://docs.github.com/en/actions/reference/runners/github-hosted-runners#administrative-privileges).
 
 Do not treat an unsigned directory build, a valid metadata file, or a successful
 local check as a distributable Store package. Actual Windows packaging, package

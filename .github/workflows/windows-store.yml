@@ -44,7 +44,7 @@ concurrency:
 
 jobs:
   package-test:
-    name: Windows SDK / unsigned test AppX
+    name: Windows SDK / test package checks
     runs-on: windows-2025
     timeout-minutes: 35
     defaults:
@@ -67,7 +67,8 @@ jobs:
             'scripts/pack-windows-store-test.ps1',
             'tests/scripts/windows-store-pri.test.ps1',
             'scripts/build-windows-store-native-messaging-probe.ps1',
-            'tests/scripts/windows-store-native-messaging-probe.test.ps1'
+            'tests/scripts/windows-store-native-messaging-probe.test.ps1',
+            'scripts/test-windows-store-package-runtime.ps1'
           )) {
             $tokens = $null
             $parseErrors = $null
@@ -230,9 +231,11 @@ jobs:
             Sort-Object { [version]$_.Name } -Descending |
             Where-Object {
               (Test-Path -LiteralPath (Join-Path $_.FullName 'x64/makepri.exe')) -and
-              (Test-Path -LiteralPath (Join-Path $_.FullName 'x64/makeappx.exe'))
+              (Test-Path -LiteralPath (Join-Path $_.FullName 'x64/makeappx.exe')) -and
+              (Test-Path -LiteralPath (Join-Path $_.FullName 'x64/signtool.exe'))
             } | Select-Object -First 1
-          if ($null -eq $sdk) { throw 'Windows SDK makepri/makeappx not found' }
+          if ($null -eq $sdk) { throw 'Windows SDK makepri/makeappx/signtool not found' }
+          "MOTRIX_STORE_SDK_BIN=$(Join-Path $sdk.FullName 'x64')" >> $env:GITHUB_ENV
           foreach ($layout in @($env:MOTRIX_STORE_LAYOUT, $env:MOTRIX_STORE_DIAGNOSTIC_LAYOUT)) {
             & ./scripts/pack-windows-store-test.ps1 -PreparedDirectory $layout -SdkBinDirectory (Join-Path $sdk.FullName 'x64')
           }
@@ -243,8 +246,17 @@ jobs:
       - name: Exercise diagnostic PRI rejection cases
         run: ./tests/scripts/windows-store-pri.test.ps1 -PreparedDirectory $env:MOTRIX_STORE_DIAGNOSTIC_LAYOUT
 
-      # Keep only text evidence. The unsigned test package is not a release,
-      # installation test, or Store submission and is not uploaded here.
+      - name: Test installed diagnostic alias on the hosted runner
+        if: github.event_name == 'workflow_dispatch'
+        shell: powershell
+        run: >-
+          ./scripts/test-windows-store-package-runtime.ps1
+          -PreparedDirectory $env:MOTRIX_STORE_DIAGNOSTIC_LAYOUT
+          -SdkBinDirectory $env:MOTRIX_STORE_SDK_BIN
+          -OutputDirectory (Join-Path $env:RUNNER_TEMP 'motrix-store-alias-runtime')
+
+      # Only text evidence leaves the runner. A manual dispatch tests a signed
+      # copy with an ephemeral certificate; no package, image, or key is uploaded.
       - name: Upload SDK text evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -268,5 +280,7 @@ jobs:
             ${{ runner.temp }}/motrix-windows-store-diagnostic/prepared.sdk-output/*.json
             ${{ runner.temp }}/motrix-windows-store-diagnostic/prepared.sdk-output/*.xml
             ${{ runner.temp }}/motrix-windows-store-diagnostic/prepared.sdk-output/*.log
+            ${{ runner.temp }}/motrix-store-alias-runtime/*.json
+            ${{ runner.temp }}/motrix-store-alias-runtime/*.log
           if-no-files-found: warn
           retention-days: 14

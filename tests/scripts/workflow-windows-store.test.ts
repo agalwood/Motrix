@@ -13,6 +13,8 @@ const steps = job.steps as Array<{
   uses?: string
   with?: Record<string, unknown>
   env?: Record<string, unknown>
+  if?: string
+  shell?: string
   'continue-on-error'?: boolean
 }>
 const commands = steps.map((step) => step.run ?? '').join('\n')
@@ -20,7 +22,7 @@ const stepIndex = (name: string) =>
   steps.findIndex((step) => step.name === name)
 
 describe('Windows Store SDK test workflow', () => {
-  it('uses an isolated Windows job with read-only permissions and no signing or publishing', () => {
+  it('uses an isolated Windows job with read-only permissions and no release credentials or publishing', () => {
     expect(workflow.permissions).toEqual({ contents: 'read' })
     expect(workflow.on).not.toHaveProperty('pull_request_target')
     expect(workflow.on.pull_request.branches).toEqual(['main'])
@@ -36,7 +38,7 @@ describe('Windows Store SDK test workflow', () => {
     expect(rust?.with?.components).toBe('rustfmt, clippy')
     expect(source).not.toContain('secrets.')
     expect(commands).not.toMatch(
-      /signtool|Add-AppxPackage|Import-PfxCertificate|Publish-Appx|gh release/i
+      /signtool\s+sign|Add-AppxPackage|Import-PfxCertificate|Publish-Appx|gh release/i
     )
     expect(commands).not.toMatch(/--publish\s+(?:always|onTag)/)
     const checkout = steps.find((step) =>
@@ -55,6 +57,35 @@ describe('Windows Store SDK test workflow', () => {
     for (const step of steps.filter((step) => step.uses)) {
       expect(step.uses).toMatch(/@[0-9a-f]{40}$/)
     }
+  })
+
+  it('limits installed-package testing to manual dispatch after both SDK and PRI checks', () => {
+    const index = stepIndex(
+      'Test installed diagnostic alias on the hosted runner'
+    )
+    expect(index).toBeGreaterThan(
+      stepIndex('Exercise diagnostic PRI rejection cases')
+    )
+    expect(index).toBeLessThan(stepIndex('Upload SDK text evidence'))
+    const runtime = steps[index]
+    expect(runtime?.if).toBe("github.event_name == 'workflow_dispatch'")
+    expect(runtime?.shell).toBe('powershell')
+    expect(runtime?.['continue-on-error']).toBeUndefined()
+    expect(runtime?.run).toContain(
+      './scripts/test-windows-store-package-runtime.ps1'
+    )
+    expect(runtime?.run).toContain(
+      '-PreparedDirectory $env:MOTRIX_STORE_DIAGNOSTIC_LAYOUT'
+    )
+    expect(runtime?.run).toContain('-SdkBinDirectory $env:MOTRIX_STORE_SDK_BIN')
+    expect(runtime?.run).toContain(
+      "-OutputDirectory (Join-Path $env:RUNNER_TEMP 'motrix-store-alias-runtime')"
+    )
+    const sdk =
+      steps[stepIndex('Build PRI and pack/unpack with Windows SDK')]?.run
+    expect(sdk).toContain('MOTRIX_STORE_SDK_BIN=')
+    const parse = steps[stepIndex('Parse SDK scripts with PowerShell')]?.run
+    expect(parse).toContain('scripts/test-windows-store-package-runtime.ps1')
   })
 
   it('binds fixed test metadata to the checkout without accepting production identity inputs', () => {
@@ -186,7 +217,7 @@ describe('Windows Store SDK test workflow', () => {
     ).toContain('-PreparedDirectory $env:MOTRIX_STORE_DIAGNOSTIC_LAYOUT')
   })
 
-  it('uploads only named text evidence, never an unsigned package or image', () => {
+  it('uploads only named text evidence, never a package, image, or certificate', () => {
     const uploads = steps.filter((step) =>
       step.uses?.startsWith('actions/upload-artifact@')
     )
@@ -198,6 +229,12 @@ describe('Windows Store SDK test workflow', () => {
     )
     expect(paths).toContain(
       `\${{ runner.temp }}/motrix-store-native-messaging-probe/direct-stdio-report.json`
+    )
+    expect(paths).toContain(
+      `\${{ runner.temp }}/motrix-store-alias-runtime/*.json`
+    )
+    expect(paths).toContain(
+      `\${{ runner.temp }}/motrix-store-alias-runtime/*.log`
     )
     for (const entry of paths) {
       expect(entry).toMatch(/\.(?:json|xml|log)$/)

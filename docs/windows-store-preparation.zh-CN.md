@@ -350,10 +350,21 @@ node scripts/verify-windows-store-layout.mjs --prepared $storeLayout --phase ind
 node scripts/verify-windows-store-layout.mjs --prepared $storeLayout --phase unpacked --layout "$storeLayout.sdk-output\unpacked"
 ```
 
-`Windows Store package check` 工作流使用 Windows runner，对 checkout 的提交
-执行上述测试，身份与包版本固定为测试值。它自行构建 payload，不使用签名或提交
-凭据；artifact 仅含 JSON/XML 报告和进程日志，不上传图片或 AppX。绿色结果仅证明该提交
-通过这些 SDK 检查。
+`Windows Store package check` 工作流从当前 checkout 在 Windows runner 上执行上述检查，
+使用固定测试身份和包版本，自行构建 payload，不使用发布者签名或商店提交凭据。
+artifact 仅含 JSON/XML 报告和进程日志，不含图片、包或证书。
+
+手动 dispatch 还会在可丢弃的 hosted runner 上测试诊断包副本。Windows PowerShell 5.1
+包装脚本只接受该 CI 环境，创建不可导出的临时测试私钥，为新副本签名并核验，以当前
+runner 账户安装，然后调用[已安装 alias 检查器](windows-store-runtime-testing.zh-CN.md#检查已安装的诊断-alias)。
+结束后仅删除本次包、证书和信任项、临时签名副本，并复查清理结果；SDK 未签名原包
+保持原样。PR 运行跳过安装步骤。不使用发布者证书、PFX、私钥导出或商店投递。
+
+运行报告记录实际 runner 镜像、操作系统、账户上下文和各项结果。GitHub Windows
+hosted runner 使用管理员账户；Server 基线不能证明 Windows 11 普通用户行为、真实
+浏览器 Native Messaging、MBP1、升级或商店认证。SDK 报告只代表 SDK 检查，已安装
+alias 的结论必须有单独成功的运行报告。参见 [MSIX 支持平台](https://learn.microsoft.com/windows/msix/supported-platforms)
+和 [hosted runner 权限](https://docs.github.com/en/actions/reference/runners/github-hosted-runners#administrative-privileges)。
 
 未签名的目录包、合法元数据或通过本地校验，都不等于可分发的 Store 包。仍须执行
 真正的 Windows 打包、包身份核验、WACK，以及安装和升级测试。

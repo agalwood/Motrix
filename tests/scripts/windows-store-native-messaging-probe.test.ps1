@@ -109,10 +109,11 @@ function Invoke-ProbeCase([hashtable]$Case) {
       $json = [Text.UTF8Encoding]::new($false, $true).GetString($stdout, 4, $length)
       $reply = $json | ConvertFrom-Json -AsHashtable -Depth 8
       $fields = @('schemaVersion', 'probe', 'packageIdentityPresent', 'expectedPackageName', 'packageVersion',
-        'applicationIdentityPresent', 'expectedHelperApplication', 'chromiumCallerShape', 'firefoxTestCallerShape')
+        'applicationIdentityPresent', 'expectedHelperApplication', 'chromiumCallerShape', 'firefoxTestCallerShape',
+        'packageFullNameSha256', 'applicationUserModelIdSha256')
       if ($reply -isnot [Collections.IDictionary] -or $reply.Count -ne $fields.Count) { throw 'invalid-probe-reply-fields' }
       foreach ($field in $fields) {
-        if (-not $reply.Contains($field)) { throw 'missing-probe-reply-field' }
+        if ($reply.Keys -cnotcontains $field) { throw 'missing-probe-reply-field' }
       }
       if ($reply.schemaVersion -isnot [long] -or $reply.schemaVersion -ne 1 -or
           $reply.probe -cne 'motrix-store-p0' -or $reply.packageVersion -cne '') {
@@ -120,6 +121,9 @@ function Invoke-ProbeCase([hashtable]$Case) {
       }
       foreach ($field in @('packageIdentityPresent', 'expectedPackageName', 'applicationIdentityPresent', 'expectedHelperApplication')) {
         if ($reply[$field] -isnot [bool] -or $reply[$field]) { throw 'direct-probe-must-have-no-package-identity' }
+      }
+      foreach ($field in @('packageFullNameSha256', 'applicationUserModelIdSha256')) {
+        if ($reply[$field] -isnot [string] -or $reply[$field] -cne '') { throw 'direct-probe-must-have-empty-identity-hashes' }
       }
       foreach ($field in @('chromiumCallerShape', 'firefoxTestCallerShape')) {
         if ($reply[$field] -isnot [bool] -or $reply[$field] -ne $Case[$field]) { throw 'unexpected-simulated-caller-shape' }

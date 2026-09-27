@@ -170,6 +170,36 @@ if ($installed.Publisher -cne 'CN=Motrix Store Test' -or
     $installed.Version.ToString() -cne $record.packageVersion -or
     $installed.Status.ToString() -cne 'Ok') { throw 'Installed package identity/version/status mismatch' }
 $installed | Select-Object Name, Publisher, Version, PackageFullName, PackageFamilyName, Architecture, SignatureKind, Status | Format-List
+```
+
+### 检查已安装的诊断 alias
+
+若包以 `testDiagnostics: "native-messaging-probe-v1"` 构建，可在安装后、启动 Motrix
+之前运行此可选诊断。使用准备包时同一 checkout 中的 Node 24 和锁定依赖，传入该包
+已经生成 PRI 的准备目录。显式指定当前安装的四段包版本，以及父目录已存在的新
+JSON 报告路径。工具以当前测试用户运行，不执行签名、安装、浏览器注册或主应用启动。
+
+```powershell
+$diagnosticLayout = 'C:\path\motrix-store-diagnostic-layout'
+$expectedPackageVersion = '1.0.0.0'
+$aliasReport = 'C:\path\motrix-store-runtime-a\alias-report.json'
+node scripts/test-windows-store-native-messaging-alias.mjs --prepared $diagnosticLayout --expected-package-version $expectedPackageVersion --report $aliasReport
+if ($LASTEXITCODE -ne 0) { throw 'Installed diagnostic alias verification failed' }
+```
+
+检查器对比已安装 manifest、探针字节与准备记录，再通过绝对 WindowsApps alias
+发送固定公开挑战。必须得到一个有界帧、空 stderr、预期版本，以及与完整包名和
+helper AUMID 相符的 SHA-256 摘要。摘要用于比对，并非认证凭据。三个案例结束后
+会重新检查安装包，拒绝测试期间发生的升级。失败会写失败报告并以非零状态退出。
+
+Chromium、Firefox 形状的参数是模拟输入。成功报告只证明所记录环境中的诊断 alias
+激活、身份和管道，不证明真实浏览器发现、MBP1、主应用行为或微软签名商店安装。
+验证“升级后尚未首次启动”时，在安装 B 后使用 B 的准备目录和版本再次运行，随后
+再启动主应用。
+
+### 启动 Motrix 并记录运行场景
+
+```powershell
 Start-Process explorer.exe -ArgumentList "shell:AppsFolder\$($installed.PackageFamilyName)!Motrix"
 ```
 
