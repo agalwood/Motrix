@@ -354,15 +354,20 @@ node scripts/verify-windows-store-layout.mjs --prepared $storeLayout --phase unp
 使用固定测试身份和包版本，自行构建 payload，不使用发布者签名或商店提交凭据。
 artifact 仅含 JSON/XML 报告和进程日志，不含图片、包或证书。
 
-手动 dispatch 还会在可丢弃的 hosted runner 上测试诊断包副本。Windows PowerShell 5.1
-包装脚本只接受该 CI 环境，创建不可导出的临时测试私钥，为新副本签名并核验，以当前
-runner 账户安装，然后调用[已安装 alias 检查器](windows-store-runtime-testing.zh-CN.md#检查已安装的诊断-alias)。
-结束后仅删除本次包、证书和信任项、临时签名副本，并复查清理结果；SDK 未签名原包
-保持原样。PR 运行跳过安装步骤。不使用发布者证书、PFX、私钥导出或商店投递。
+手动 dispatch 还会从相同 payload 和源码准备诊断版本 A（`1.0.0.0`）和 B（`1.0.1.0`），
+B 的提供版本历史包含 A。两包都须先通过 SDK 和 PRI 检查。Windows PowerShell 5.1
+包装脚本只接受可丢弃的 hosted CI 环境，创建一份不可导出的临时测试私钥，为两份新
+副本签名并核验，以当前 runner 账户安装 A，然后调用
+[已安装 alias 检查器](windows-store-runtime-testing.zh-CN.md#检查已安装的诊断-alias)。
+随后不卸载 A、不启动 Motrix，直接升级 B，检查同一 alias 和应用身份是否立即激活 B。
+两版本分别保留报告。结束后仅删除本次已安装包、证书和信任项、临时签名副本，并复查
+清理结果；两份 SDK 未签名原包保持原样。PR 运行跳过安装步骤。不使用发布者证书、
+PFX、私钥导出或商店投递。
 
 运行报告记录实际 runner 镜像、操作系统、账户上下文和各项结果。GitHub Windows
 hosted runner 使用管理员账户；Server 基线不能证明 Windows 11 普通用户行为、真实
-浏览器 Native Messaging、MBP1、升级或商店认证。SDK 报告只代表 SDK 检查，已安装
+浏览器 Native Messaging、MBP1、主应用数据迁移或商店认证。该升级实验只改变包版本、
+保持 payload 不变，仅证明所记录的诊断 alias 行为。SDK 报告只代表 SDK 检查，已安装
 alias 的结论必须有单独成功的运行报告。参见 [MSIX 支持平台](https://learn.microsoft.com/windows/msix/supported-platforms)
 和 [hosted runner 权限](https://docs.github.com/en/actions/reference/runners/github-hosted-runners#administrative-privileges)。
 

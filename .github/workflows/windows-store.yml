@@ -68,13 +68,20 @@ jobs:
             'tests/scripts/windows-store-pri.test.ps1',
             'scripts/build-windows-store-native-messaging-probe.ps1',
             'tests/scripts/windows-store-native-messaging-probe.test.ps1',
-            'scripts/test-windows-store-package-runtime.ps1'
+            'scripts/test-windows-store-package-runtime.ps1',
+            'tests/scripts/windows-store-package-runtime.test.ps1'
           )) {
             $tokens = $null
             $parseErrors = $null
             [Management.Automation.Language.Parser]::ParseFile((Join-Path $pwd $script), [ref]$tokens, [ref]$parseErrors) | Out-Null
             if ($parseErrors.Count -ne 0) { throw ($parseErrors | Out-String) }
           }
+
+      - name: Test runtime upgrade contracts
+        shell: powershell
+        run: |
+          & ./tests/scripts/windows-store-package-runtime.test.ps1 -ReportPath (Join-Path $env:RUNNER_TEMP 'motrix-store-runtime-contracts.json')
+          if ($LASTEXITCODE -ne 0) { throw 'Runtime upgrade contract tests failed' }
 
       - name: Compile Native Messaging diagnostic probe
         run: >-
@@ -246,23 +253,45 @@ jobs:
       - name: Exercise diagnostic PRI rejection cases
         run: ./tests/scripts/windows-store-pri.test.ps1 -PreparedDirectory $env:MOTRIX_STORE_DIAGNOSTIC_LAYOUT
 
+      - name: Build and check the diagnostic upgrade package
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $upgradeRoot = Join-Path $env:RUNNER_TEMP 'motrix-windows-store-diagnostic-upgrade'
+          New-Item -ItemType Directory -Path $upgradeRoot | Out-Null
+          $metadata = Get-Content -LiteralPath "$env:MOTRIX_STORE_DIAGNOSTIC_LAYOUT/release-metadata.json" -Raw | ConvertFrom-Json -AsHashtable
+          if ($metadata.packageVersion -cne '1.0.0.0') { throw 'Unexpected diagnostic baseline version' }
+          $metadata.previousPackageVersions = @($metadata.packageVersion)
+          $metadata.packageVersion = '1.0.1.0'
+          $metadataFile = Join-Path $upgradeRoot 'input.json'
+          [IO.File]::WriteAllText($metadataFile, ($metadata | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
+          $layout = Join-Path $upgradeRoot 'prepared'
+          $probe = Join-Path $env:RUNNER_TEMP 'motrix-store-native-messaging-probe'
+          & node scripts/prepare-windows-store-layout.mjs --repo-root . --app-dir "$env:MOTRIX_STORE_BUILD/payload/win-unpacked" --metadata $metadataFile --out $layout --probe-build-dir $probe
+          if ($LASTEXITCODE -ne 0) { throw 'Diagnostic upgrade layout failed' }
+          & ./scripts/pack-windows-store-test.ps1 -PreparedDirectory $layout -SdkBinDirectory $env:MOTRIX_STORE_SDK_BIN
+          & ./tests/scripts/windows-store-pri.test.ps1 -PreparedDirectory $layout
+          "MOTRIX_STORE_UPGRADE_LAYOUT=$layout" >> $env:GITHUB_ENV
+
       - name: Test installed diagnostic alias on the hosted runner
         if: github.event_name == 'workflow_dispatch'
         shell: powershell
         run: >-
           ./scripts/test-windows-store-package-runtime.ps1
           -PreparedDirectory $env:MOTRIX_STORE_DIAGNOSTIC_LAYOUT
+          -UpgradePreparedDirectory $env:MOTRIX_STORE_UPGRADE_LAYOUT
           -SdkBinDirectory $env:MOTRIX_STORE_SDK_BIN
           -OutputDirectory (Join-Path $env:RUNNER_TEMP 'motrix-store-alias-runtime')
 
       # Only text evidence leaves the runner. A manual dispatch tests a signed
-      # copy with an ephemeral certificate; no package, image, or key is uploaded.
+      # upgrade with an ephemeral certificate; no package, image, or key is uploaded.
       - name: Upload SDK text evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows-store-sdk-evidence
           path: |
+            ${{ runner.temp }}/motrix-store-runtime-contracts.json
             ${{ runner.temp }}/motrix-store-native-messaging-probe/build-report.json
             ${{ runner.temp }}/motrix-store-native-messaging-probe/direct-stdio-report.json
             ${{ runner.temp }}/motrix-windows-store/build/build-plan.json
@@ -280,6 +309,13 @@ jobs:
             ${{ runner.temp }}/motrix-windows-store-diagnostic/prepared.sdk-output/*.json
             ${{ runner.temp }}/motrix-windows-store-diagnostic/prepared.sdk-output/*.xml
             ${{ runner.temp }}/motrix-windows-store-diagnostic/prepared.sdk-output/*.log
+            ${{ runner.temp }}/motrix-windows-store-diagnostic-upgrade/prepared/layout-report.json
+            ${{ runner.temp }}/motrix-windows-store-diagnostic-upgrade/prepared/payload-report.json
+            ${{ runner.temp }}/motrix-windows-store-diagnostic-upgrade/prepared/source-report.json
+            ${{ runner.temp }}/motrix-windows-store-diagnostic-upgrade/prepared/diagnostic-build-report.json
+            ${{ runner.temp }}/motrix-windows-store-diagnostic-upgrade/prepared.sdk-output/*.json
+            ${{ runner.temp }}/motrix-windows-store-diagnostic-upgrade/prepared.sdk-output/*.xml
+            ${{ runner.temp }}/motrix-windows-store-diagnostic-upgrade/prepared.sdk-output/*.log
             ${{ runner.temp }}/motrix-store-alias-runtime/*.json
             ${{ runner.temp }}/motrix-store-alias-runtime/*.log
           if-no-files-found: warn

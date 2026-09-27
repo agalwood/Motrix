@@ -1,16 +1,17 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-Tests the fixed diagnostic AppX on a disposable GitHub-hosted Windows runner.
+Tests a fixed diagnostic AppX upgrade on a disposable GitHub-hosted runner.
 .DESCRIPTION
-Requires 64-bit Windows PowerShell 5.1 and workflow_dispatch. Signs a new copy
-with an ephemeral non-exportable test key, installs for the current user, and
-runs only the diagnostic alias. No production certificates, PFX, timestamp,
+Requires 64-bit Windows PowerShell 5.1 and workflow_dispatch. Signs new A/B copies
+with one ephemeral non-exportable test key, installs A then upgrades to B for
+the current user, and runs only the diagnostic alias before and after upgrade. No production certificates, PFX, timestamp,
 main-app launch, policy changes, or browser integration are involved.
 #>
 [CmdletBinding()]
 param(
   [Parameter(Mandatory = $true)][string]$PreparedDirectory,
+  [Parameter(Mandatory = $true)][string]$UpgradePreparedDirectory,
   [Parameter(Mandatory = $true)][string]$SdkBinDirectory,
   [Parameter(Mandatory = $true)][string]$OutputDirectory
 )
@@ -226,21 +227,231 @@ function Get-CurrentTestPackages {
   return @(Get-AppxPackage -Name 'Motrix.Store.Test' -ErrorAction Stop)
 }
 
-function Assert-OwnedPackage([object]$Package) {
+function Complete-Phase([string]$Name) {
+  $report.phases.Add([ordered]@{ name = $Name; ok = $true })
+}
+
+function Read-VerifiedPackageInput([string]$Directory, [string]$Label, [string]$ExpectedVersion) {
+  $null = Assert-RegularPath $Directory $true
+  $metadata = Read-Json (Join-Path $Directory 'release-metadata.json')
+  $source = Read-Json (Join-Path $Directory 'source-report.json')
+  $layout = Read-Json (Join-Path $Directory 'layout-report.json')
+  $sdkDirectory = "$Directory.sdk-output"
+  $sdkPath = Join-Path $sdkDirectory 'sdk-result.json'
+  $sdk = Read-Json $sdkPath
+  if ($metadata.schemaVersion -ne 1 -or $source.schemaVersion -ne 1 -or $sdk.schemaVersion -ne 1 -or
+      $source.scope -cne 'local-git-checkout-only' -or $sdk.scope -cne 'windows-test-sdk-smoke') {
+    throw 'Unexpected metadata, source or SDK report schema.'
+  }
+  foreach ($value in @($metadata, $sdk)) {
+    if ($value.profile -cne 'test' -or $value.testDiagnostics -cne 'native-messaging-probe-v1' -or
+        $value.identity.name -cne 'Motrix.Store.Test' -or $value.identity.publisher -cne 'CN=Motrix Store Test' -or
+        $value.identity.publisherDisplayName -cne 'Motrix Store Test') { throw 'Only the fixed diagnostic test identity is permitted.' }
+  }
+  Assert-True $source.ok 'Source report failed.'
+  foreach ($check in $source.checks) { Assert-True $check.ok 'A source check failed.' }
+  if ($metadata.architecture -cne 'x64' -or $metadata.source.commit -cne $env:GITHUB_SHA -or
+      $source.observed.commit -cne $env:GITHUB_SHA -or $layout.sourceCommit -cne $env:GITHUB_SHA -or
+      $layout.diagnostics.source.commit -cne $env:GITHUB_SHA -or
+      $layout.diagnostics.mode -cne 'native-messaging-probe-v1') { throw 'Source or diagnostic layout does not match this run.' }
+  $packageVersion = $metadata.packageVersion
+  if ($packageVersion -cnotmatch '^[1-9][0-9]*\.[0-9]+\.[0-9]+\.[0-9]+$' -or
+      $sdk.packageVersion -cne $packageVersion -or $sdk.productVersion -cne $metadata.productVersion -or
+      $sdk.status -cne 'completed' -or $packageVersion -cne $ExpectedVersion) { throw 'Completed SDK result and metadata versions must agree.' }
+  Assert-True $sdk.windowsSdkExecuted 'SDK execution is missing.'
+  foreach ($name in @('signed', 'installed', 'windowsRuntimeVerified', 'storeReady', 'storeSubmissionReady')) {
+    Assert-False $sdk.$name 'The input must remain the unsigned, uninstalled test SDK result.'
+  }
+  foreach ($phase in @('prepared', 'indexed', 'unpacked')) {
+    Assert-True $sdk.verification.$phase.ok 'An SDK layout phase failed.'
+    if ($sdk.verification.$phase.phase -cne $phase -or $sdk.verification.$phase.command.exitCode -ne 0) {
+      throw 'An SDK layout phase is incomplete.'
+    }
+  }
+  foreach ($command in @('makepriNew', 'makepriDump', 'makeappxPack', 'makeappxUnpack')) {
+    if ($sdk.verification.$command.exitCode -ne 0) { throw 'An SDK command failed.' }
+  }
+  $unsignedPackage = Join-Path $sdkDirectory "Motrix-Store-Test-$packageVersion-x64.appx"
+  if ((Get-AbsolutePath $sdk.package.path) -ine $unsignedPackage -or
+      (Get-Hash $unsignedPackage) -cne $sdk.package.sha256 -or
+      (Get-Item -LiteralPath $unsignedPackage).Length -ne $sdk.package.bytes) {
+    throw 'Unsigned package does not match the completed SDK record.'
+  }
+  foreach ($entry in @(
+    @{ role = 'unsignedPackage'; path = $unsignedPackage },
+    @{ role = 'sdkResult'; path = $sdkPath },
+    @{ role = 'metadata'; path = (Join-Path $Directory 'release-metadata.json') },
+    @{ role = 'sourceReport'; path = (Join-Path $Directory 'source-report.json') },
+    @{ role = 'layoutReport'; path = (Join-Path $Directory 'layout-report.json') }
+  )) {
+    $snapshots.Add(@{ role = "$Label-$($entry.role)"; path = $entry.path; sha256 = (Get-Hash $entry.path) })
+  }
+  if ($layout.packageVersion -cne $packageVersion -or $layout.productVersion -cne $metadata.productVersion) {
+    throw 'Layout versions differ from metadata.'
+  }
+  $probeHash = $layout.diagnostics.executable.sha256
+  if ($probeHash -cnotmatch '^[0-9a-f]{64}$') { throw 'Diagnostic executable hash is invalid.' }
+  $verified = Invoke-BoundedProgram $node @((Join-Path $repository 'scripts\verify-windows-store-layout.mjs'), '--prepared', $Directory, '--phase', 'indexed') "verify-indexed-$Label"
+  $verified = $verified | ConvertFrom-Json
+  Assert-True $verified.ok 'Indexed verification failed.'
+  if ($verified.phase -cne 'indexed' -or $verified.testDiagnostics -cne 'native-messaging-probe-v1' -or
+      $verified.diagnostics.executable.sha256 -cne $probeHash) { throw 'Indexed diagnostic verification differs from the layout.' }
+
+  $record = [ordered]@{
+    packageVersion = $packageVersion; productVersion = $metadata.productVersion
+    sourceCommit = $metadata.source.commit; unsignedPackageSha256 = $sdk.package.sha256
+    sdkResultSha256 = Get-Hash $sdkPath; probeExecutableSha256 = $probeHash
+    signedTestCopyVerified = $false; currentUserInstallationVerified = $false
+    aliasActivationVerified = $false; packageIdentityVerified = $false
+  }
+  $report.packages[$Label] = $record
+  return @{
+    Label = $Label; Prepared = $Directory; Metadata = $metadata; Record = $record
+    Version = $packageVersion; UnsignedPackage = $unsignedPackage; ProbeHash = $probeHash
+    SignedPackage = (Join-Path $OutputDirectory "diagnostic-ci-signed-$Label.appx")
+    InstallAttempted = $false; ObservedFullName = $null; ObservedFamilyName = $null
+    ObservedAliasPath = $null
+  }
+}
+
+function Assert-UpgradeInputs([object]$Before, [object]$After) {
+  if ($Before.Version -cne '1.0.0.0' -or $After.Version -cne '1.0.1.0' -or
+      [Version]$After.Version -le [Version]$Before.Version -or
+      @($After.Metadata.previousPackageVersions) -cnotcontains $Before.Version -or
+      $After.Metadata.productVersion -cne $Before.Metadata.productVersion -or
+      $After.Metadata.source.commit -cne $Before.Metadata.source.commit -or
+      $After.Metadata.architecture -cne $Before.Metadata.architecture -or
+      $After.Metadata.testDiagnostics -cne $Before.Metadata.testDiagnostics) {
+    throw 'B must advance A with matching source/product/architecture/mode and supplied A version history.'
+  }
+  foreach ($name in @('name', 'publisher', 'publisherDisplayName')) {
+    if ($After.Metadata.identity.$name -cne $Before.Metadata.identity.$name) {
+      throw 'Upgrade identities must be identical.'
+    }
+  }
+}
+
+function Assert-UpgradeRetargeting([object]$Before, [object]$After, [object[]]$Current) {
+  if ($before.Version -cne '1.0.0.0' -or $after.Version -cne '1.0.1.0' -or
+      $before.ObservedFamilyName -cne $after.ObservedFamilyName -or
+      $before.Record.installedPackage.helperApplicationUserModelIdSha256 -cne $after.Record.installedPackage.helperApplicationUserModelIdSha256 -or
+      $before.ObservedAliasPath -ine $after.ObservedAliasPath -or
+      $before.ObservedFullName -ceq $after.ObservedFullName) {
+    throw 'Upgrade must retain the family, helper AUMID and alias path while changing the full package name.'
+  }
+  if ($current.Count -ne 1 -or $current[0].PackageFullName -cne $after.ObservedFullName -or
+      $current[0].Version.ToString() -cne $after.Version -or
+      @($current | Where-Object { $_.PackageFullName -ceq $before.ObservedFullName }).Count -ne 0) {
+    throw 'A remains registered or B is not the unique current-user test package.'
+  }
+}
+
+function Assert-OwnedPackage([object]$Package, [object]$PackageInput) {
+  $version = $PackageInput.Version
   if ($Package.Name -cne 'Motrix.Store.Test' -or $Package.Publisher -cne 'CN=Motrix Store Test' -or
-      $Package.Version.ToString() -cne $packageVersion -or $Package.Architecture.ToString() -ine 'X64') {
+      $Package.Version.ToString() -cne $version -or $Package.Architecture.ToString() -ine 'X64') {
     throw 'Installed package identity/version/architecture does not match this test.'
   }
   if ($Package.PublisherId -cnotmatch '^[0-9a-hjkmnp-tv-z]{13}$' -or
-      $Package.PackageFullName -cne "Motrix.Store.Test_${packageVersion}_x64__$($Package.PublisherId)" -or
+      $Package.PackageFullName -cne "Motrix.Store.Test_${version}_x64__$($Package.PublisherId)" -or
       $Package.PackageFamilyName -cne "Motrix.Store.Test_$($Package.PublisherId)") {
     throw 'Installed package has an unexpected full or family name.'
   }
-  if ($null -ne $createdPackageFullName -and $Package.PackageFullName -cne $createdPackageFullName) {
+  if ($null -ne $PackageInput.ObservedFullName -and $Package.PackageFullName -cne $PackageInput.ObservedFullName) {
     throw 'Cleanup candidate differs from the exact package observed after installation.'
   }
   $installedProbe = Join-Path $Package.InstallLocation 'diagnostics\motrix-store-p0-probe.exe'
-  if ((Get-Hash $installedProbe) -cne $probeHash) { throw 'Installed probe hash does not match this test.' }
+  if ((Get-Hash $installedProbe) -cne $PackageInput.ProbeHash) { throw 'Installed probe hash does not match this test version.' }
+}
+
+function Get-InstalledAliasPath {
+  if (-not [IO.Directory]::Exists($aliasRoot)) { throw 'Diagnostic alias directory is absent.' }
+  $paths = @([IO.Directory]::EnumerateFileSystemEntries($aliasRoot, 'motrix-store-p0-native-host.exe'))
+  if ($paths.Count -ne 1) { throw 'Expected exactly one diagnostic alias.' }
+  # Compare the absolute alias path, not its version-dependent reparse target.
+  return (Get-AbsolutePath $paths[0])
+}
+
+function Confirm-InstalledPackage([object]$PackageInput) {
+  $packages = @(Get-CurrentTestPackages)
+  if ($packages.Count -ne 1) { throw 'Expected exactly one current-user test package.' }
+  $package = $packages[0]
+  Assert-OwnedPackage $package $PackageInput
+  $PackageInput.ObservedFullName = $package.PackageFullName
+  $PackageInput.ObservedFamilyName = $package.PackageFamilyName
+  $PackageInput.ObservedAliasPath = Get-InstalledAliasPath
+  $PackageInput.Record.installedPackage = [ordered]@{
+    fullNameSha256 = Get-TextHash $package.PackageFullName
+    familyNameSha256 = Get-TextHash $package.PackageFamilyName
+    helperApplicationUserModelIdSha256 = Get-TextHash "$($package.PackageFamilyName)!MotrixNativeHostP0"
+    installedProbeSha256 = $PackageInput.ProbeHash
+    absoluteAliasPathSha256 = Get-TextHash $PackageInput.ObservedAliasPath
+  }
+  $PackageInput.Record.currentUserInstallationVerified = $true
+}
+
+function Sign-TestCopy([object]$PackageInput) {
+  $signed = $PackageInput.SignedPackage
+  [IO.File]::Copy($PackageInput.UnsignedPackage, $signed, $false)
+  if ((Get-Hash $signed) -cne $PackageInput.Record.unsignedPackageSha256) { throw 'Test copy differs before signing.' }
+  $PackageInput.Record.copyBeforeSigningSha256 = Get-Hash $signed
+  # /sha1 selects the certificate; /fd controls the package digest. No /sm,
+  # automatic certificate selection, timestamp, or private-key export.
+  # https://learn.microsoft.com/windows/win32/seccrypto/signtool
+  $null = Invoke-BoundedProgram $signTool @('sign', '/sha1', $thumbprint, '/s', 'My', '/fd', 'SHA256', $signed) "sign-test-copy-$($PackageInput.Label)"
+  $null = Invoke-BoundedProgram $signTool @('verify', '/pa', '/v', $signed) "verify-test-signature-$($PackageInput.Label)"
+  $PackageInput.Record.signedPackageSha256 = Get-Hash $signed
+  $PackageInput.Record.signedTestCopyVerified = $true
+}
+
+function Assert-AliasReport([object]$AliasReport, [object]$PackageInput, [string]$ExpectedSourceCommit) {
+  $installed = $PackageInput.Record.installedPackage
+  if ($aliasReport.schemaVersion -ne 1 -or $aliasReport.scope -cne 'windows-native-messaging-installed-alias' -or
+      $aliasReport.sourceCommit -cne $ExpectedSourceCommit -or $aliasReport.packageVersion -cne $PackageInput.Version -or
+      $aliasReport.executableSha256 -cne $PackageInput.ProbeHash -or
+      $aliasReport.identity.packageFullNameSha256 -cne $installed.fullNameSha256 -or
+      $aliasReport.identity.applicationUserModelIdSha256 -cne $installed.helperApplicationUserModelIdSha256) {
+    throw 'Alias checker report does not match this diagnostic package version.'
+  }
+  foreach ($name in @('ok', 'aliasActivationVerified', 'packageIdentityVerified')) {
+    Assert-True $aliasReport.$name 'Installed alias verification failed.'
+  }
+  $expectedChecks = @('installed-state-before', 'installed-content-before', 'alias-none', 'alias-syntheticChromium', 'alias-syntheticFirefox', 'installed-state-after', 'installed-content-after')
+  if (@($aliasReport.checks).Count -ne $expectedChecks.Count) { throw 'Alias checker records are incomplete.' }
+  for ($index = 0; $index -lt $expectedChecks.Count; $index++) {
+    if ($aliasReport.checks[$index] -is [array] -or $aliasReport.checks[$index].name -cne $expectedChecks[$index]) {
+      throw 'Alias checker records must have the fixed flat check names.'
+    }
+  }
+  $aliasCases = @($aliasReport.checks | Where-Object { $null -ne $_.PSObject.Properties['exitCode'] })
+  if ($aliasReport.testCount -ne 3 -or $aliasCases.Count -ne 3) { throw 'Alias checker did not complete all three cases.' }
+  foreach ($check in $aliasReport.checks) {
+    if ($check -is [array]) { throw 'Alias checks must be flat records.' }
+    Assert-True $check.ok 'An installed alias check failed.'
+  }
+  foreach ($check in $aliasCases) {
+    if ($check.exitCode -ne 0 -or $check.frameCount -ne 1 -or $check.stderrBytes -ne 0 -or
+        $check.stdoutBytes -le 4 -or $check.stdoutBytes -gt 4100) {
+      throw 'An installed alias case has unexpected exit, frame or output bounds.'
+    }
+  }
+  if ($aliasCases[0].callerEvidence -cne 'none' -or
+      $aliasCases[1].callerEvidence -cne 'simulated-argv-only' -or
+      $aliasCases[2].callerEvidence -cne 'simulated-argv-only') { throw 'Unexpected alias caller evidence.' }
+  foreach ($name in @('browserNativeMessagingVerified', 'mbp1Verified', 'windows11AcceptanceVerified')) {
+    Assert-False $aliasReport.$name 'Alias report overstates the scope of this experiment.'
+  }
+}
+
+function Test-InstalledAlias([object]$PackageInput) {
+  $aliasReportPath = Join-Path $OutputDirectory "alias-report-$($PackageInput.Label).json"
+  $null = Invoke-BoundedProgram $node @((Join-Path $repository 'scripts\test-windows-store-native-messaging-alias.mjs'), '--prepared', $PackageInput.Prepared, '--expected-package-version', $PackageInput.Version, '--report', $aliasReportPath) "test-installed-alias-$($PackageInput.Label)"
+  $aliasReport = Read-Json $aliasReportPath
+  Assert-AliasReport $aliasReport $PackageInput $env:GITHUB_SHA
+  if ((Get-InstalledAliasPath) -ine $PackageInput.ObservedAliasPath) { throw 'Alias path changed during its checks.' }
+  $PackageInput.Record.aliasReportSha256 = Get-Hash $aliasReportPath
+  $PackageInput.Record.aliasActivationVerified = $true
+  $PackageInput.Record.packageIdentityVerified = $true
 }
 
 function Invoke-CleanupCheck([string]$Name, [scriptblock]$Action) {
@@ -266,22 +477,26 @@ if ($env:GITHUB_ACTIONS -cne 'true' -or $env:RUNNER_ENVIRONMENT -cne 'github-hos
 $runnerTemp = Get-AbsolutePath $env:RUNNER_TEMP
 $null = Assert-RegularPath $runnerTemp $true
 $PreparedDirectory = Get-AbsolutePath $PreparedDirectory
+$UpgradePreparedDirectory = Get-AbsolutePath $UpgradePreparedDirectory
 $SdkBinDirectory = Get-AbsolutePath $SdkBinDirectory
 $OutputDirectory = Get-AbsolutePath $OutputDirectory
 if ($PreparedDirectory -ine (Join-Path $runnerTemp 'motrix-windows-store-diagnostic\prepared') -or
+    $UpgradePreparedDirectory -ine (Join-Path $runnerTemp 'motrix-windows-store-diagnostic-upgrade\prepared') -or
     $OutputDirectory -ine (Join-Path $runnerTemp 'motrix-store-alias-runtime')) {
   throw 'Only the fixed diagnostic prepared and runtime output paths are permitted.'
 }
 if (Test-Path -LiteralPath $OutputDirectory) { throw 'Runtime output must be a new directory.' }
 $null = [IO.Directory]::CreateDirectory($OutputDirectory)
 $report = [ordered]@{
-  schemaVersion = 1; scope = 'github-hosted-server-test-package-runtime'; ok = $false
+  schemaVersion = 2; scope = 'github-hosted-server-test-package-runtime'; ok = $false
   sourceCommit = $env:GITHUB_SHA; stage = 'preflight'; context = $null
+  packages = [ordered]@{}; phases = [Collections.Generic.List[object]]::new()
   commands = [Collections.Generic.List[object]]::new()
   cleanup = [Collections.Generic.List[object]]::new()
   signedTestCopyVerified = $false; currentUserInstallationVerified = $false
   aliasActivationVerified = $false; packageIdentityVerified = $false
   server2025InstalledProbeVerified = $false
+  upgradeBeforeMainLaunchVerified = $false; sameAliasRetargetedVerified = $false
   windows11AcceptanceVerified = $false; standardUserVerified = $false
   browserNativeMessagingVerified = $false; mbp1Verified = $false
   motrixMainRuntimeVerified = $false; upgradeVerified = $false; wackVerified = $false
@@ -290,16 +505,12 @@ $report = [ordered]@{
 }
 $stage = 'preflight'
 $snapshots = [Collections.Generic.List[object]]::new()
+$packageInputs = @{}
 $certificate = $null
 $thumbprint = $null
 $trustImportAttempted = $false
-$installAttempted = $false
-$createdPackageFullName = $null
-$signedPackage = Join-Path $OutputDirectory 'diagnostic-ci-signed.appx'
 $publicCer = Join-Path $OutputDirectory 'diagnostic-ci-public.cer'
 $aliasRoot = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Microsoft\WindowsApps'
-$packageVersion = $null
-$probeHash = $null
 $testCompleted = $false
 try {
   $null = Assert-RegularPath $PreparedDirectory $true
@@ -338,77 +549,24 @@ try {
   if ($head.Trim() -cne $env:GITHUB_SHA) { throw 'Checkout HEAD differs from GITHUB_SHA.' }
   Import-Module PKI -ErrorAction Stop
   Import-Module Appx -ErrorAction Stop
-  $stage = 'validate-inputs'
-  $metadata = Read-Json (Join-Path $PreparedDirectory 'release-metadata.json')
-  $source = Read-Json (Join-Path $PreparedDirectory 'source-report.json')
-  $layout = Read-Json (Join-Path $PreparedDirectory 'layout-report.json')
-  $sdkDirectory = "$PreparedDirectory.sdk-output"
-  $sdkPath = Join-Path $sdkDirectory 'sdk-result.json'
-  $sdk = Read-Json $sdkPath
-  if ($metadata.schemaVersion -ne 1 -or $source.schemaVersion -ne 1 -or $sdk.schemaVersion -ne 1 -or
-      $source.scope -cne 'local-git-checkout-only' -or $sdk.scope -cne 'windows-test-sdk-smoke') {
-    throw 'Unexpected metadata, source or SDK report schema.'
-  }
-  foreach ($value in @($metadata, $sdk)) {
-    if ($value.profile -cne 'test' -or $value.testDiagnostics -cne 'native-messaging-probe-v1' -or
-        $value.identity.name -cne 'Motrix.Store.Test' -or $value.identity.publisher -cne 'CN=Motrix Store Test' -or
-        $value.identity.publisherDisplayName -cne 'Motrix Store Test') { throw 'Only the fixed diagnostic test identity is permitted.' }
-  }
-  Assert-True $source.ok 'Source report failed.'
-  foreach ($check in $source.checks) { Assert-True $check.ok 'A source check failed.' }
-  if ($metadata.architecture -cne 'x64' -or $metadata.source.commit -cne $env:GITHUB_SHA -or
-      $source.observed.commit -cne $env:GITHUB_SHA -or $layout.sourceCommit -cne $env:GITHUB_SHA -or
-      $layout.diagnostics.source.commit -cne $env:GITHUB_SHA -or
-      $layout.diagnostics.mode -cne 'native-messaging-probe-v1') { throw 'Source or diagnostic layout does not match this run.' }
-  $packageVersion = $metadata.packageVersion
-  if ($packageVersion -cnotmatch '^[1-9][0-9]*\.[0-9]+\.[0-9]+\.[0-9]+$' -or
-      $sdk.packageVersion -cne $packageVersion -or $sdk.productVersion -cne $metadata.productVersion -or
-      $sdk.status -cne 'completed') { throw 'Completed SDK result and metadata versions must agree.' }
-  Assert-True $sdk.windowsSdkExecuted 'SDK execution is missing.'
-  foreach ($name in @('signed', 'installed', 'windowsRuntimeVerified', 'storeReady', 'storeSubmissionReady')) {
-    Assert-False $sdk.$name 'The input must remain the unsigned, uninstalled test SDK result.'
-  }
-  foreach ($phase in @('prepared', 'indexed', 'unpacked')) {
-    Assert-True $sdk.verification.$phase.ok 'An SDK layout phase failed.'
-    if ($sdk.verification.$phase.phase -cne $phase -or $sdk.verification.$phase.command.exitCode -ne 0) {
-      throw 'An SDK layout phase is incomplete.'
-    }
-  }
-  foreach ($command in @('makepriNew', 'makepriDump', 'makeappxPack', 'makeappxUnpack')) {
-    if ($sdk.verification.$command.exitCode -ne 0) { throw 'An SDK command failed.' }
-  }
-  $unsignedPackage = Join-Path $sdkDirectory "Motrix-Store-Test-$packageVersion-x64.appx"
-  if ((Get-AbsolutePath $sdk.package.path) -ine $unsignedPackage -or
-      (Get-Hash $unsignedPackage) -cne $sdk.package.sha256 -or
-      (Get-Item -LiteralPath $unsignedPackage).Length -ne $sdk.package.bytes) {
-    throw 'Unsigned package does not match the completed SDK record.'
-  }
-  foreach ($entry in @(
-    @{ role = 'unsignedPackage'; path = $unsignedPackage },
-    @{ role = 'sdkResult'; path = $sdkPath },
-    @{ role = 'metadata'; path = (Join-Path $PreparedDirectory 'release-metadata.json') },
-    @{ role = 'sourceReport'; path = (Join-Path $PreparedDirectory 'source-report.json') },
-    @{ role = 'layoutReport'; path = (Join-Path $PreparedDirectory 'layout-report.json') }
-  )) {
-    $snapshots.Add(@{ role = $entry.role; path = $entry.path; sha256 = (Get-Hash $entry.path) })
-  }
-  $probeHash = $layout.diagnostics.executable.sha256
-  if ($probeHash -cnotmatch '^[0-9a-f]{64}$') { throw 'Diagnostic executable hash is invalid.' }
-  $verified = Invoke-BoundedProgram $node @((Join-Path $repository 'scripts\verify-windows-store-layout.mjs'), '--prepared', $PreparedDirectory, '--phase', 'indexed') 'verify-indexed'
-  $verified = $verified | ConvertFrom-Json
-  Assert-True $verified.ok 'Indexed verification failed.'
-  if ($verified.phase -cne 'indexed' -or $verified.testDiagnostics -cne 'native-messaging-probe-v1' -or
-      $verified.diagnostics.executable.sha256 -cne $probeHash) { throw 'Indexed diagnostic verification differs from the layout.' }
-  $report.packageVersion = $packageVersion
-  $report.unsignedPackageSha256 = $sdk.package.sha256
-  $report.sdkResultSha256 = Get-Hash $sdkPath
-  $report.probeExecutableSha256 = $probeHash
+  Complete-Phase 'preflight'
+  # Validate both complete SDK inputs before creating any certificate or package.
+  $stage = 'validate-a'
+  $packageInputs.a = Read-VerifiedPackageInput $PreparedDirectory 'a' '1.0.0.0'
+  Complete-Phase $stage
+  $stage = 'validate-b'
+  $packageInputs.b = Read-VerifiedPackageInput $UpgradePreparedDirectory 'b' '1.0.1.0'
+  Complete-Phase $stage
+  $stage = 'validate-upgrade-inputs'
+  Assert-UpgradeInputs $packageInputs.a $packageInputs.b
+  Complete-Phase $stage
   $signTool = Join-Path $SdkBinDirectory 'signtool.exe'
   $report.signTool = [ordered]@{ sha256 = (Get-Hash $signTool); fileVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($signTool).FileVersion }
   $stage = 'check-clean-machine'
   if (@(Get-AppxPackage -AllUsers -Name 'Motrix.Store.Test' -ErrorAction Stop).Count -ne 0 -or (Test-AliasPresent)) {
     throw 'An existing test package or diagnostic alias prevents this experiment.'
   }
+  Complete-Phase $stage
   $stage = 'create-test-certificate'
   # Publisher/EKU/end-entity requirements:
   # https://learn.microsoft.com/windows/msix/package/create-certificate-package-signing
@@ -429,83 +587,83 @@ try {
   $trusted = Get-Item "Cert:\LocalMachine\TrustedPeople\$thumbprint"
   if ($trusted.Thumbprint -cne $thumbprint -or $trusted.HasPrivateKey) { throw 'Test trust must contain only the matching public certificate.' }
   $report.testCertificate = [ordered]@{ thumbprint = $thumbprint; subject = $certificate.Subject; privateKeyExported = $false; trustedPeopleOnly = $true }
-  $stage = 'sign-test-copy'
-  [IO.File]::Copy($unsignedPackage, $signedPackage, $false)
-  if ((Get-Hash $signedPackage) -cne $sdk.package.sha256) { throw 'Test copy differs before signing.' }
-  $report.copyBeforeSigningSha256 = Get-Hash $signedPackage
-  # /sha1 selects the certificate; /fd controls the package digest. No /sm,
-  # automatic certificate selection, timestamp, or private-key export.
-  # https://learn.microsoft.com/windows/win32/seccrypto/signtool
-  $null = Invoke-BoundedProgram $signTool @('sign', '/sha1', $thumbprint, '/s', 'My', '/fd', 'SHA256', $signedPackage) 'sign-test-copy'
-  $null = Invoke-BoundedProgram $signTool @('verify', '/pa', '/v', $signedPackage) 'verify-test-signature'
-  $report.signedPackageSha256 = Get-Hash $signedPackage
+  Complete-Phase $stage
+  foreach ($label in @('a', 'b')) {
+    $stage = "sign-$label"
+    Sign-TestCopy $packageInputs[$label]
+    Complete-Phase $stage
+  }
   $report.signedTestCopyVerified = $true
-  $stage = 'install-current-user'
-  $installAttempted = $true
-  Add-AppxPackage -Path $signedPackage -ErrorAction Stop
-  $packages = @(Get-CurrentTestPackages)
-  if ($packages.Count -ne 1) { throw 'Expected exactly one current-user test package after installation.' }
-  Assert-OwnedPackage $packages[0]
-  $createdPackageFullName = $packages[0].PackageFullName
-  $report.installedPackage = [ordered]@{
-    fullNameSha256 = Get-TextHash $packages[0].PackageFullName
-    familyNameSha256 = Get-TextHash $packages[0].PackageFamilyName
-    helperApplicationUserModelIdSha256 = Get-TextHash "$($packages[0].PackageFamilyName)!MotrixNativeHostP0"
-    installedProbeSha256 = $probeHash
-  }
+  $stage = 'install-a'
+  $packageInputs.a.InstallAttempted = $true
+  Add-AppxPackage -Path $packageInputs.a.SignedPackage -ErrorAction Stop
+  Confirm-InstalledPackage $packageInputs.a
+  Complete-Phase $stage
+  $stage = 'alias-a'
+  Test-InstalledAlias $packageInputs.a
+  Complete-Phase $stage
+
+  # Add B directly over A. Never uninstall A between the two alias checks and
+  # never launch the main Application; only the diagnostic checker is invoked.
+  $stage = 'upgrade-b'
+  Confirm-InstalledPackage $packageInputs.a
+  $packageInputs.b.InstallAttempted = $true
+  Add-AppxPackage -Path $packageInputs.b.SignedPackage -ErrorAction Stop
+  Confirm-InstalledPackage $packageInputs.b
   $report.currentUserInstallationVerified = $true
-  $stage = 'test-installed-alias'
-  $aliasReportPath = Join-Path $OutputDirectory 'alias-report.json'
-  $null = Invoke-BoundedProgram $node @((Join-Path $repository 'scripts\test-windows-store-native-messaging-alias.mjs'), '--prepared', $PreparedDirectory, '--expected-package-version', $packageVersion, '--report', $aliasReportPath) 'test-installed-alias'
-  $aliasReport = Read-Json $aliasReportPath
-  if ($aliasReport.schemaVersion -ne 1 -or $aliasReport.scope -cne 'windows-native-messaging-installed-alias' -or
-      $aliasReport.sourceCommit -cne $env:GITHUB_SHA -or $aliasReport.packageVersion -cne $packageVersion -or
-      $aliasReport.executableSha256 -cne $probeHash -or
-      $aliasReport.identity.packageFullNameSha256 -cne $report.installedPackage.fullNameSha256 -or
-      $aliasReport.identity.applicationUserModelIdSha256 -cne $report.installedPackage.helperApplicationUserModelIdSha256) {
-    throw 'Alias checker report does not match this diagnostic package.'
-  }
-  foreach ($name in @('ok', 'aliasActivationVerified', 'packageIdentityVerified')) {
-    Assert-True $aliasReport.$name 'Installed alias verification failed.'
-  }
-  $aliasCases = @($aliasReport.checks | Where-Object { $null -ne $_.PSObject.Properties['exitCode'] })
-  if ($aliasReport.testCount -ne 3 -or $aliasCases.Count -ne 3) {
-    throw 'Alias checker did not complete all three cases.'
-  }
-  foreach ($check in $aliasReport.checks) {
-    if ($check -is [array]) { throw 'Alias checks must be flat records.' }
-    Assert-True $check.ok 'An installed alias case failed.'
-  }
-  foreach ($check in $aliasCases) {
-    if ($check.exitCode -ne 0 -or $check.frameCount -ne 1 -or $check.stderrBytes -ne 0 -or
-        $check.stdoutBytes -le 4 -or $check.stdoutBytes -gt 4100) {
-      throw 'An installed alias case has unexpected exit, frame or output bounds.'
+  Complete-Phase $stage
+  $stage = 'alias-b'
+  Test-InstalledAlias $packageInputs.b
+  Complete-Phase $stage
+  $stage = 'verify-upgrade-retargeting'
+  $before = $packageInputs.a
+  $after = $packageInputs.b
+  $current = @(Get-CurrentTestPackages)
+  Assert-UpgradeRetargeting $before $after $current
+  Assert-OwnedPackage $current[0] $after
+  foreach ($label in @('a', 'b')) {
+    $packageInput = $packageInputs[$label]
+    $packageInput.Record.signedPackageAfterProbeSha256 = Get-Hash $packageInput.SignedPackage
+    if ($packageInput.Record.signedPackageAfterProbeSha256 -cne $packageInput.Record.signedPackageSha256) {
+      throw 'A signed copy changed during installation or alias testing.'
     }
   }
-  foreach ($name in @('browserNativeMessagingVerified', 'mbp1Verified', 'windows11AcceptanceVerified')) {
-    Assert-False $aliasReport.$name 'Alias report overstates the scope of this experiment.'
+  $report.retargeting = [ordered]@{
+    fromVersion = $before.Version; toVersion = $after.Version
+    packageFamilyUnchanged = $true; helperApplicationUserModelIdUnchanged = $true
+    absoluteAliasPathUnchanged = $true; packageFullNameChanged = $true
+    oldVersionNoLongerRegistered = $true; mainApplicationLaunched = $false
   }
+  Complete-Phase $stage
   $report.aliasActivationVerified = $true
   $report.packageIdentityVerified = $true
   $report.server2025InstalledProbeVerified = $true
-  $report.aliasReportSha256 = Get-Hash $aliasReportPath
-  $report.signedPackageAfterProbeSha256 = Get-Hash $signedPackage
-  if ($report.signedPackageAfterProbeSha256 -cne $report.signedPackageSha256) { throw 'Signed copy changed during installation or alias testing.' }
   $testCompleted = $true
 } catch {
   $report.error = Get-Failure $_ $stage
+  $report.phases.Add([ordered]@{ name = $stage; ok = $false; error = $report.error })
 } finally {
-  if ($installAttempted) {
-    Invoke-CleanupCheck 'remove-exact-created-package' {
-      $remaining = @(Get-CurrentTestPackages)
-      if ($remaining.Count -gt 1) { throw 'Ambiguous current-user packages; refusing cleanup.' }
-      foreach ($package in $remaining) {
-        # A failed installation may still register a package. Remove it only
-        # after identity, version, architecture and installed probe hash match.
-        Assert-OwnedPackage $package
-        Remove-AppxPackage -Package $package.PackageFullName -ErrorAction Stop
+  # Each attempted version is an independent cleanup action. A partial upgrade
+  # may leave either version registered; unfamiliar versions are never removed.
+  foreach ($label in @('a', 'b')) {
+    if ($packageInputs.ContainsKey($label) -and $packageInputs[$label].InstallAttempted) {
+      $packageInput = $packageInputs[$label]
+      Invoke-CleanupCheck "remove-exact-created-package-$label" {
+        $remaining = @(Get-CurrentTestPackages | Where-Object { $_.Version.ToString() -ceq $packageInput.Version })
+        if ($remaining.Count -gt 1) { throw 'Ambiguous packages for this test version; refusing cleanup.' }
+        foreach ($package in $remaining) {
+          Assert-OwnedPackage $package $packageInput
+          Remove-AppxPackage -Package $package.PackageFullName -ErrorAction Stop
+        }
+        if (@(Get-CurrentTestPackages | Where-Object { $_.Version.ToString() -ceq $packageInput.Version }).Count -ne 0) {
+          throw 'This test package version remains after removal.'
+        }
       }
-      if (@(Get-CurrentTestPackages).Count -ne 0) { throw 'Test package remains after removal.' }
+    }
+  }
+  if (@($packageInputs.Values | Where-Object { $_.InstallAttempted }).Count -ne 0) {
+    Invoke-CleanupCheck 'test-package-absent' {
+      if (@(Get-CurrentTestPackages).Count -ne 0) { throw 'A test-named package remains; unfamiliar packages are not removed.' }
     }
     Invoke-CleanupCheck 'diagnostic-alias-removed' {
       if (Test-AliasPresent) { throw 'Diagnostic alias remains after package removal.' }
@@ -528,7 +686,7 @@ try {
       if (Test-Path $path) { throw 'Test private certificate remains.' }
     }
   }
-  foreach ($path in @($signedPackage, $publicCer)) {
+  foreach ($path in @((Join-Path $OutputDirectory 'diagnostic-ci-signed-a.appx'), (Join-Path $OutputDirectory 'diagnostic-ci-signed-b.appx'), $publicCer)) {
     Invoke-CleanupCheck ([IO.Path]::GetFileName($path)) {
       if ([IO.File]::Exists($path)) { [IO.File]::Delete($path) }
       if (Test-Path -LiteralPath $path) { throw 'Transient test file remains.' }
@@ -545,8 +703,11 @@ try {
     $report.error = @($report.cleanup | Where-Object { -not $_.ok })[0].error
   }
   $report.ok = $testCompleted -and $report.cleanupVerified
+  # These narrow upgrade claims require both alias checks and complete cleanup.
+  $report.upgradeBeforeMainLaunchVerified = $report.ok
+  $report.sameAliasRetargetedVerified = $report.ok
   $report.completedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
   Write-NewText (Join-Path $OutputDirectory 'runtime-result.json') (($report | ConvertTo-Json -Depth 32) + "`n")
 }
 if (-not $report.ok) { throw "CI diagnostic package runtime test failed at $($report.stage); see runtime-result.json and bounded logs." }
-Write-Host 'Server 2025 diagnostic package alias test and cleanup completed; Windows 11/browser/MBP1 acceptance remains unverified.'
+Write-Host 'Server 2025 diagnostic A-to-B alias upgrade and cleanup completed; Windows 11/browser/MBP1 acceptance remains unverified.'

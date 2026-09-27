@@ -64,7 +64,7 @@ describe('Windows Store SDK test workflow', () => {
       'Test installed diagnostic alias on the hosted runner'
     )
     expect(index).toBeGreaterThan(
-      stepIndex('Exercise diagnostic PRI rejection cases')
+      stepIndex('Build and check the diagnostic upgrade package')
     )
     expect(index).toBeLessThan(stepIndex('Upload SDK text evidence'))
     const runtime = steps[index]
@@ -77,6 +77,9 @@ describe('Windows Store SDK test workflow', () => {
     expect(runtime?.run).toContain(
       '-PreparedDirectory $env:MOTRIX_STORE_DIAGNOSTIC_LAYOUT'
     )
+    expect(runtime?.run).toContain(
+      '-UpgradePreparedDirectory $env:MOTRIX_STORE_UPGRADE_LAYOUT'
+    )
     expect(runtime?.run).toContain('-SdkBinDirectory $env:MOTRIX_STORE_SDK_BIN')
     expect(runtime?.run).toContain(
       "-OutputDirectory (Join-Path $env:RUNNER_TEMP 'motrix-store-alias-runtime')"
@@ -86,6 +89,60 @@ describe('Windows Store SDK test workflow', () => {
     expect(sdk).toContain('MOTRIX_STORE_SDK_BIN=')
     const parse = steps[stepIndex('Parse SDK scripts with PowerShell')]?.run
     expect(parse).toContain('scripts/test-windows-store-package-runtime.ps1')
+  })
+
+  it('prepares an increasing diagnostic version and checks its SDK output before manual installation', () => {
+    const index = stepIndex('Build and check the diagnostic upgrade package')
+    expect(index).toBeGreaterThan(
+      stepIndex('Exercise diagnostic PRI rejection cases')
+    )
+    const upgrade = steps[index]
+    expect(upgrade?.if).toBe("github.event_name == 'workflow_dispatch'")
+    expect(upgrade?.['continue-on-error']).toBeUndefined()
+    expect(upgrade?.run).toContain(
+      'MOTRIX_STORE_DIAGNOSTIC_LAYOUT/release-metadata.json'
+    )
+    expect(upgrade?.run).toContain("$metadata.packageVersion -cne '1.0.0.0'")
+    expect(upgrade?.run).toContain(
+      '$metadata.previousPackageVersions = @($metadata.packageVersion)'
+    )
+    expect(upgrade?.run).toContain("$metadata.packageVersion = '1.0.1.0'")
+    expect(upgrade?.run).toContain(
+      '--app-dir "$env:MOTRIX_STORE_BUILD/payload/win-unpacked"'
+    )
+    expect(upgrade?.run).toContain('--probe-build-dir $probe')
+    const prepareAt =
+      upgrade?.run?.indexOf('prepare-windows-store-layout.mjs') ?? -1
+    const sdkAt = upgrade?.run?.indexOf('pack-windows-store-test.ps1') ?? -1
+    const priAt = upgrade?.run?.indexOf('windows-store-pri.test.ps1') ?? -1
+    const exportAt = upgrade?.run?.indexOf('MOTRIX_STORE_UPGRADE_LAYOUT=') ?? -1
+    expect(prepareAt).toBeGreaterThan(0)
+    expect(sdkAt).toBeGreaterThan(prepareAt)
+    expect(priAt).toBeGreaterThan(sdkAt)
+    expect(exportAt).toBeGreaterThan(priAt)
+  })
+
+  it('runs pure upgrade guards under Windows PowerShell before package construction', () => {
+    const index = stepIndex('Test runtime upgrade contracts')
+    expect(index).toBeGreaterThan(
+      stepIndex('Parse SDK scripts with PowerShell')
+    )
+    expect(index).toBeLessThan(
+      stepIndex('Compile Native Messaging diagnostic probe')
+    )
+    const test = steps[index]
+    expect(test?.shell).toBe('powershell')
+    expect(test?.if).toBeUndefined()
+    expect(test?.['continue-on-error']).toBeUndefined()
+    expect(test?.run).toContain(
+      'tests/scripts/windows-store-package-runtime.test.ps1'
+    )
+    expect(test?.run).toContain(
+      "-ReportPath (Join-Path $env:RUNNER_TEMP 'motrix-store-runtime-contracts.json')"
+    )
+    expect(
+      steps[stepIndex('Parse SDK scripts with PowerShell')]?.run
+    ).toContain('tests/scripts/windows-store-package-runtime.test.ps1')
   })
 
   it('binds fixed test metadata to the checkout without accepting production identity inputs', () => {
@@ -225,6 +282,9 @@ describe('Windows Store SDK test workflow', () => {
     const paths = String(uploads[0]?.with?.path).trim().split('\n')
     expect(paths.length).toBeGreaterThan(0)
     expect(paths).toContain(
+      `\${{ runner.temp }}/motrix-store-runtime-contracts.json`
+    )
+    expect(paths).toContain(
       `\${{ runner.temp }}/motrix-store-native-messaging-probe/build-report.json`
     )
     expect(paths).toContain(
@@ -235,6 +295,9 @@ describe('Windows Store SDK test workflow', () => {
     )
     expect(paths).toContain(
       `\${{ runner.temp }}/motrix-store-alias-runtime/*.log`
+    )
+    expect(paths).toContain(
+      `\${{ runner.temp }}/motrix-windows-store-diagnostic-upgrade/prepared.sdk-output/*.json`
     )
     for (const entry of paths) {
       expect(entry).toMatch(/\.(?:json|xml|log)$/)

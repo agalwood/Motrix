@@ -425,20 +425,27 @@ version. It builds its own payload and uses no publisher signing or submission
 credentials. Its artifact contains only JSON/XML reports and process logs, with
 no images, packages, or certificates.
 
-A manual workflow dispatch additionally tests a copy of the diagnostic package
-on the disposable hosted runner. A Windows PowerShell 5.1 wrapper requires that
-CI environment, creates a non-exportable temporary test key, signs the new copy,
-verifies it, installs it for the current runner account, and invokes the
+A manual workflow dispatch additionally prepares diagnostic versions A
+(`1.0.0.0`) and B (`1.0.1.0`) from the same payload and source, with B recording A
+in its supplied version history. Both pass the SDK and PRI checks before
+installation. A Windows PowerShell 5.1 wrapper requires the disposable hosted
+CI environment, creates one non-exportable temporary test key, signs and verifies
+new copies, installs A for the current runner account, and invokes the
 [installed-alias checker](windows-store-runtime-testing.md#check-the-installed-diagnostic-alias).
-It then removes only its own package, certificate/trust entries, and temporary
-signed copy, and verifies cleanup. The unsigned SDK package stays unchanged.
+It then upgrades to B without uninstalling A or starting Motrix, and checks that
+the same alias and application identity activate B immediately. Separate reports
+retain each version's observations. It removes only its own installed package,
+certificate/trust entries, and temporary signed copies, and verifies cleanup.
+Both unsigned SDK packages stay unchanged.
 Pull request runs skip this installation step. No publisher certificate, PFX,
 private key export, or Store submission is involved.
 
 The runtime report records the actual runner image, OS, account context, and
 individual results. GitHub's Windows hosted runners use an administrator account;
 this Server baseline cannot establish Windows 11 standard-user behavior, real
-browser Native Messaging, MBP1, upgrade behavior, or Store certification.
+browser Native Messaging, MBP1, main-application data migration, or Store
+certification. The upgrade experiment changes the package version while keeping
+the payload fixed; it proves only the recorded diagnostic alias behavior.
 An SDK result remains an SDK result; any installed-alias claim requires a
 successful separate runtime report. See [supported MSIX platforms](https://learn.microsoft.com/windows/msix/supported-platforms)
 and [hosted-runner privileges](https://docs.github.com/en/actions/reference/runners/github-hosted-runners#administrative-privileges).

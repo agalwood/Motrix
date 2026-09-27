@@ -216,6 +216,14 @@ application behavior, or a Store-signed installation. For an upgrade-before-firs
 launch experiment, run it again after installing B, with B's prepared directory
 and version, before starting the main application.
 
+The manual hosted CI uses this sequence with a fixed payload: three alias cases
+on A, an in-place upgrade to B, then the same three cases before any main-app
+launch. Its `alias-report-a.json` and `alias-report-b.json` must show the expected
+versions, different full package names, and the same family/helper application
+identity. This isolates alias retargeting across package versions; it does not
+test application data migration or real browser connections. The runtime report
+records that narrow result separately from general upgrade acceptance.
+
 ### Launch Motrix and record runtime scenarios
 
 ```powershell

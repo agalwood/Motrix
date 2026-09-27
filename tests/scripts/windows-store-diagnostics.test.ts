@@ -183,6 +183,41 @@ afterEach(async () => {
 })
 
 describe('Windows Store diagnostic layout contract', () => {
+  it('prepares an increasing package version from the same payload without changing the baseline', async () => {
+    const input = await fixture()
+    const a = {
+      ...input,
+      metadata: { ...input.metadata, packageVersion: '1.0.0.0' },
+    }
+    const aReport = await prepareWindowsStoreLayout(a)
+    const aBytes = await readFile(completion(a))
+    const aManifest = await readFile(
+      path.join(baseline(a), 'AppxManifest.xml'),
+      'utf8'
+    )
+    const b = {
+      ...input,
+      outputDirectory: path.join(input.root, 'upgrade'),
+      metadata: {
+        ...input.metadata,
+        packageVersion: '1.0.1.0',
+        previousPackageVersions: ['1.0.0.0'],
+      },
+    }
+    const bReport = await prepareWindowsStoreLayout(b)
+    expect(bReport.payload).toEqual(aReport.payload)
+    expect(bReport.diagnostics).toEqual(aReport.diagnostics)
+    expect(bReport.sourceCommit).toBe(aReport.sourceCommit)
+    expect(bReport.productVersion).toBe(aReport.productVersion)
+    expect(bReport.packageVersion).toBe('1.0.1.0')
+    expect(
+      await readFile(path.join(baseline(b), 'AppxManifest.xml'), 'utf8')
+    ).toBe(aManifest.replace('Version="1.0.0.0"', 'Version="1.0.1.0"'))
+    expect(await readFile(completion(a))).toEqual(aBytes)
+    expect((await verify(a)).ok).toBe(true)
+    expect((await verify(b)).ok).toBe(true)
+  })
+
   it.each(['prepared', 'indexed', 'unpacked'] as const)(
     'retains checked diagnostic bytes in a %s layout without runtime claims',
     async (phase) => {
