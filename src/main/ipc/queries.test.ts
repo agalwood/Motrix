@@ -60,6 +60,10 @@ vi.mock('../plugin/ffmpeg-detect-electron', () => ({
   })),
 }))
 
+vi.mock('../platform/auto-launch', () => ({
+  getAutoLaunchStatus: vi.fn(async () => ({ authority: 'application' })),
+}))
+
 const mockedFfmpegFactory = vi.mocked(makeElectronFfmpegDetect)
 
 const NOW = 1_800_000_000_000
@@ -338,6 +342,7 @@ describe('buildQueryHandlers', () => {
     expect(handlers[Queries.GetTaskActivity]).toBeInstanceOf(Function)
     expect(handlers[Queries.GetTaskSpeedHistory]).toBeInstanceOf(Function)
     expect(handlers[Queries.GetTaskInspectorActivity]).toBeInstanceOf(Function)
+    expect(handlers[Queries.GetAutoLaunchStatus]).toBeInstanceOf(Function)
     expect(handlers[Queries.GetSettings]).toBeInstanceOf(Function)
     expect(handlers[Queries.GetUpdateState]).toBeInstanceOf(Function)
     expect(handlers[Queries.GetEngineStatus]).toBeInstanceOf(Function)

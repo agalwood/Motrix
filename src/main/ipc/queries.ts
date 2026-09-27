@@ -52,6 +52,7 @@ import { getAppImageNativeHost } from '../bridge/appimage-native-host-electron'
 import type { CliToolService } from '../cli/cli-tool-service'
 import type { AppUpdateService } from '../core/app-update-service'
 import { getAppImageIntegrationView } from '../platform/appimage-integration-host'
+import { getAutoLaunchStatus } from '../platform/auto-launch'
 import { getLinuxDefaultAssociations } from '../platform/linux-default-apps'
 import { getSystemAccentColor } from '../platform/system-accent-color'
 import { getWindowsDefaultAssociations } from '../platform/windows-default-apps'
@@ -132,6 +133,7 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
   })
 
   return {
+    [Queries.GetAutoLaunchStatus]: async () => getAutoLaunchStatus(),
     [Queries.GetCliToolStatus]: async () => cliToolService.getStatus(),
 
     [Queries.ListTasks]: async () => {

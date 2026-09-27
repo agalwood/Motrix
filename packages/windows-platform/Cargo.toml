@@ -1,0 +1,24 @@
+[package]
+name = "motrix-windows-platform"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "=0.62.2", features = [
+  "ApplicationModel",
+  "Win32_Foundation",
+  "Win32_Storage_Packaging_Appx",
+  "Win32_System_WinRT",
+] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+panic = "abort"
+strip = true

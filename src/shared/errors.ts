@@ -1,5 +1,7 @@
 export enum ErrorCode {
   AppUpdateManaged = 'APP_UPDATE_MANAGED',
+  AutoLaunchFailed = 'AUTO_LAUNCH_FAILED',
+  AutoLaunchNotApplied = 'AUTO_LAUNCH_NOT_APPLIED',
   EngineStartFailed = 'ENGINE_START_FAILED',
   EngineConnectionLost = 'ENGINE_CONNECTION_LOST',
   EngineTimeout = 'ENGINE_TIMEOUT',

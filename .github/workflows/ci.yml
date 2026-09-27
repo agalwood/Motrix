@@ -306,16 +306,19 @@ jobs:
         run: |
           cargo fmt --manifest-path packages/native-host/Cargo.toml --all -- --check
           cargo fmt --manifest-path packages/finalize-fs/Cargo.toml --all -- --check
+          cargo fmt --manifest-path packages/windows-platform/Cargo.toml --all -- --check
 
       - name: Clippy
         run: |
           cargo clippy --manifest-path packages/native-host/Cargo.toml --all-targets --locked -- -D warnings
           cargo clippy --manifest-path packages/finalize-fs/Cargo.toml --all-targets --locked -- -D warnings
+          cargo clippy --manifest-path packages/windows-platform/Cargo.toml --all-targets --locked -- -D warnings
 
       - name: Tests
         run: |
           cargo test --manifest-path packages/native-host/Cargo.toml --locked --all-targets
           cargo test --manifest-path packages/finalize-fs/Cargo.toml --locked --all-targets
+          cargo test --manifest-path packages/windows-platform/Cargo.toml --locked --all-targets
 
   package-targets:
     name: Package smoke / ${{ matrix.target }}

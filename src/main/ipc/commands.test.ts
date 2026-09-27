@@ -6,7 +6,7 @@ import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
 import { EventBus } from '@core/events/event-bus'
 import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { SettingsManager } from '@core/settings/settings-manager'
-import { ErrorCode } from '@shared/errors'
+import { AppError, ErrorCode } from '@shared/errors'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
@@ -1162,6 +1162,83 @@ describe('buildCommandHandlers', () => {
     }
   })
 
+  it('opens only the fixed Windows startup settings URI', async () => {
+    const platformDescriptor = Object.getOwnPropertyDescriptor(
+      process,
+      'platform'
+    )!
+    Object.defineProperty(process, 'platform', {
+      ...platformDescriptor,
+      value: 'win32',
+    })
+    openExternalMock.mockReset()
+    openExternalMock.mockResolvedValue(undefined)
+    try {
+      const open = buildCommandHandlers(fakeCtx() as unknown as CommandContext)[
+        Commands.OpenStartupSettings
+      ]!
+      expect(await open({ url: 'file:///private/untrusted' })).toEqual({
+        ok: true,
+      })
+      expect(openExternalMock).toHaveBeenCalledExactlyOnceWith(
+        'ms-settings:startupapps'
+      )
+    } finally {
+      Object.defineProperty(process, 'platform', platformDescriptor)
+      openExternalMock.mockReset()
+    }
+  })
+
+  it('returns false when Windows cannot open startup settings', async () => {
+    const platformDescriptor = Object.getOwnPropertyDescriptor(
+      process,
+      'platform'
+    )!
+    Object.defineProperty(process, 'platform', {
+      ...platformDescriptor,
+      value: 'win32',
+    })
+    openExternalMock.mockReset()
+    openExternalMock.mockRejectedValueOnce(new Error('Settings unavailable'))
+    try {
+      const open = buildCommandHandlers(fakeCtx() as unknown as CommandContext)[
+        Commands.OpenStartupSettings
+      ]!
+      expect(await open()).toEqual({ ok: false })
+      expect(openExternalMock).toHaveBeenCalledExactlyOnceWith(
+        'ms-settings:startupapps'
+      )
+    } finally {
+      Object.defineProperty(process, 'platform', platformDescriptor)
+      openExternalMock.mockReset()
+    }
+  })
+
+  it.each(['darwin', 'linux'])(
+    'does not open Windows startup settings on %s',
+    async (platform) => {
+      const platformDescriptor = Object.getOwnPropertyDescriptor(
+        process,
+        'platform'
+      )!
+      Object.defineProperty(process, 'platform', {
+        ...platformDescriptor,
+        value: platform,
+      })
+      openExternalMock.mockReset()
+      try {
+        const open = buildCommandHandlers(
+          fakeCtx() as unknown as CommandContext
+        )[Commands.OpenStartupSettings]!
+        expect(await open()).toEqual({ ok: false })
+        expect(openExternalMock).not.toHaveBeenCalled()
+      } finally {
+        Object.defineProperty(process, 'platform', platformDescriptor)
+        openExternalMock.mockReset()
+      }
+    }
+  )
+
   it('forwards add-task prefill only after the window finishes loading', async () => {
     let didFinishLoad: (() => void) | undefined
     const send = vi.fn()
@@ -1370,6 +1447,152 @@ describe('SetTaskBtTracker handler', () => {
 })
 
 describe('Commands.UpdateSettings', () => {
+  it('uses the latest startup preference when an older proxy apply resumes after a General save', async () => {
+    const root = await mkdtemp(
+      path.join(tmpdir(), 'motrix-startup-proxy-race-')
+    )
+    let releaseProxy!: () => void
+    const proxyGate = new Promise<void>((resolve) => {
+      releaseProxy = resolve
+    })
+    let older: Promise<unknown> | undefined
+    syncAutoLaunchMock.mockReset()
+    try {
+      const settingsPath = path.join(root, 'settings.json')
+      const manager = new SettingsManager(settingsPath)
+      await manager.load()
+      const ctx = { ...fakeCtx(), settingsManager: manager }
+      ctx.proxyApplier.applyAll.mockImplementationOnce(async () => {
+        await proxyGate
+        return { downloadProxy: 'unchanged' }
+      })
+      const handlers = buildCommandHandlers(ctx as unknown as CommandContext)
+      older = handlers[Commands.UpdateSettings]!({
+        app: { launchAtStartup: true },
+        proxy: PROXY_ON,
+      })
+      await vi.waitFor(() =>
+        expect(ctx.proxyApplier.applyAll).toHaveBeenCalledOnce()
+      )
+      expect(manager.getApp().launchAtStartup).toBe(true)
+      expect(syncAutoLaunchMock).not.toHaveBeenCalled()
+
+      expect(
+        await handlers[Commands.SaveGeneralSettings]!({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
+          app: { launchAtStartup: false },
+          directories: {
+            addFavorites: [],
+            removeFavorites: [],
+            removeRecent: [],
+          },
+        })
+      ).toMatchObject({ ok: true })
+      expect(syncAutoLaunchMock).toHaveBeenCalledExactlyOnceWith(false)
+      expect(manager.getApp().launchAtStartup).toBe(false)
+
+      releaseProxy()
+      await expect(older).resolves.toMatchObject({ saved: true })
+      expect(syncAutoLaunchMock.mock.calls).toEqual([[false], [false]])
+      const reloaded = new SettingsManager(settingsPath)
+      await reloaded.load()
+      expect(reloaded.getApp().launchAtStartup).toBe(false)
+    } finally {
+      releaseProxy()
+      await older
+      syncAutoLaunchMock.mockReset()
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it.each([true, false])(
+    'retries an explicitly submitted unchanged startup value %s after failure',
+    async (enabled) => {
+      const root = await mkdtemp(path.join(tmpdir(), 'motrix-startup-retry-'))
+      syncAutoLaunchMock.mockReset()
+      try {
+        const manager = new SettingsManager(path.join(root, 'settings.json'))
+        await manager.load()
+        await manager.update({ app: { launchAtStartup: enabled } })
+        syncAutoLaunchMock.mockRejectedValueOnce(
+          new AppError(ErrorCode.AutoLaunchFailed, 'Startup helper unavailable')
+        )
+        syncAutoLaunchMock.mockResolvedValue(undefined)
+        const update = buildCommandHandlers({
+          ...fakeCtx(),
+          settingsManager: manager,
+        } as unknown as CommandContext)[Commands.UpdateSettings]!
+
+        expect(
+          await update({ app: { launchAtStartup: enabled } })
+        ).toMatchObject({ saved: true, applicationFailed: true })
+        expect(manager.getApp().launchAtStartup).toBe(enabled)
+        const retried = await update({ app: { launchAtStartup: enabled } })
+        expect(retried).toMatchObject({ saved: true })
+        expect(retried).not.toHaveProperty('applicationFailed', true)
+        expect(syncAutoLaunchMock.mock.calls).toEqual([[enabled], [enabled]])
+      } finally {
+        syncAutoLaunchMock.mockReset()
+        await rm(root, { recursive: true, force: true })
+      }
+    }
+  )
+
+  it('does not apply startup from unrelated UpdateSettings snapshot differences', async () => {
+    const root = await mkdtemp(
+      path.join(tmpdir(), 'motrix-startup-unsubmitted-')
+    )
+    let releaseUpdate!: () => void
+    const updateGate = new Promise<void>((resolve) => {
+      releaseUpdate = resolve
+    })
+    let older: Promise<unknown> | undefined
+    syncAutoLaunchMock.mockReset()
+    try {
+      const manager = new SettingsManager(path.join(root, 'settings.json'))
+      await manager.load()
+      const originalUpdate = manager.update.bind(manager)
+      const write = vi
+        .spyOn(manager, 'update')
+        .mockImplementationOnce(async (partial) => {
+          await updateGate
+          return originalUpdate(partial)
+        })
+      const handlers = buildCommandHandlers({
+        ...fakeCtx(),
+        settingsManager: manager,
+      } as unknown as CommandContext)
+      older = handlers[Commands.UpdateSettings]!({ app: { theme: 'dark' } })
+      await vi.waitFor(() => expect(write).toHaveBeenCalledOnce())
+      expect(manager.getApp().launchAtStartup).toBe(false)
+      expect(
+        await handlers[Commands.SaveGeneralSettings]!({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
+          app: { launchAtStartup: true },
+          directories: {
+            addFavorites: [],
+            removeFavorites: [],
+            removeRecent: [],
+          },
+        })
+      ).toMatchObject({ ok: true })
+      expect(syncAutoLaunchMock).toHaveBeenCalledExactlyOnceWith(true)
+
+      releaseUpdate()
+      await expect(older).resolves.toMatchObject({ saved: true })
+      expect(manager.getApp()).toMatchObject({
+        theme: 'dark',
+        launchAtStartup: true,
+      })
+      expect(syncAutoLaunchMock).toHaveBeenCalledExactlyOnceWith(true)
+    } finally {
+      releaseUpdate()
+      await older
+      syncAutoLaunchMock.mockReset()
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
   it.each([
     { app: { theme: 'dark' } },
     { nat: { diagnosticIntervalSec: 600 } },
@@ -1544,7 +1767,7 @@ describe('Commands.UpdateSettings', () => {
         value: { app: { showMainWindowAtLogin: true } },
       })
       expect(manager.getApp().showMainWindowAtLogin).toBe(true)
-      expect(syncAutoLaunchMock).toHaveBeenCalledExactlyOnceWith(true)
+      expect(syncAutoLaunchMock).not.toHaveBeenCalled()
       expect(ctx.supervisor.applyDefaultSaveDir).not.toHaveBeenCalled()
       syncAutoLaunchMock.mockClear()
       expect(

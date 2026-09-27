@@ -885,6 +885,7 @@ export function buildServerCommandHandlers(
     }),
 
     [Commands.RequestDefaultTorrentHandler]: async () => ({ ok: false }),
+    [Commands.OpenStartupSettings]: async () => ({ ok: false }),
 
     [Commands.SyncTrackers]: async () => trackerManager.syncAndCurate(),
 

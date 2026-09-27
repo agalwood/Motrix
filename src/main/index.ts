@@ -1760,7 +1760,9 @@ async function initializeMainProcess(): Promise<void> {
   }
 
   if (!mainProcessWork.isAccepting()) return
-  syncAutoLaunch(settingsManager.getApp().launchAtStartup)
+  runShellAsyncWork('auto-launch', () =>
+    syncAutoLaunch(settingsManager.getApp().launchAtStartup, 'startup')
+  )
   protocolManager.register()
 
   // Linux AppImage self-integration (desktop entry, icon, URL-scheme handlers).

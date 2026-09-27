@@ -1,4 +1,5 @@
 export const Queries = {
+  GetAutoLaunchStatus: 'query:getAutoLaunchStatus',
   GetDownloadsSettingsDraft: 'query:getDownloadsSettingsDraft',
   GetDisclaimerState: 'query:getDisclaimerState',
   ListTasks: 'query:listTasks',

@@ -40,6 +40,10 @@ export function createWindowsStoreBuilderConfig(base, { outputDirectory }) {
   config.win.publish = null
   // Store signs the outer package. Preserve EXE resource editing and all fuses.
   config.win.signExecutable = false
+  config.win.extraResources.push({
+    from: 'packages/windows-platform/dist/win32-x64/motrix-windows-platform.exe',
+    to: 'bin/motrix-windows-platform.exe',
+  })
   delete config.nsis
   delete config.artifactBuildCompleted
   return config

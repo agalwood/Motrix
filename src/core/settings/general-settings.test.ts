@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, readFile, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { AppError, ErrorCode } from '@shared/errors'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createSaveGeneralSettingsHandler } from './general-settings'
 import { SettingsManager } from './settings-manager'
@@ -41,6 +42,39 @@ async function fixture() {
 }
 
 describe('General settings save handler', () => {
+  it.each([
+    [ErrorCode.AutoLaunchFailed, 'startupUnavailable'],
+    [ErrorCode.AutoLaunchNotApplied, 'startupNotApplied'],
+  ] as const)(
+    'keeps the committed snapshot and startup error %s on an effect failure',
+    async (code, expected) => {
+      const { manager, file } = await fixture()
+      const apply = vi
+        .fn()
+        .mockRejectedValueOnce(
+          new AppError(code, 'startup failed', { code: 'ENOENT' })
+        )
+      const save = createCurrentSave(manager, { applySavedApp: apply })
+      const request = {
+        app: { launchAtStartup: true, notifyOnComplete: false },
+        directories: empty,
+      }
+      expect(await save(request)).toMatchObject({
+        ok: false,
+        error: { code: expected },
+        snapshot: { app: request.app },
+      })
+      const restored = new SettingsManager(file)
+      await restored.load()
+      expect(restored.getApp()).toMatchObject(request.app)
+      expect(await save(request)).toMatchObject({
+        ok: true,
+        value: { app: request.app },
+      })
+      expect(apply).toHaveBeenCalledTimes(2)
+    }
+  )
+
   it('persists desktop notification preferences independently of native settings', async () => {
     const { manager, file } = await fixture()
     const preferences = {

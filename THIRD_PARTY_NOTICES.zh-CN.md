@@ -151,11 +151,12 @@ npm 依赖清单根据根目录声明的运行时依赖，以及 `pnpm-lock.yaml
 ## Rust 原生可执行文件依赖
 
 `motrix-native-host`、宿主机侧 `motrix-flatpak-native-host` 与沙箱内
-`motrix-native-host-broker` 可执行文件，以及 `motrix-finalize-fs` 文件系统 sidecar，
-均使用以下经过审阅的 crate 清单构建。具体版本由
-`packages/native-host/Cargo.lock` 与 `packages/finalize-fs/Cargo.lock` 锁定；sidecar
-锁文件必须始终是这份清单的子集。Windows-only crate 也列在表中，因为 Windows
-原生可执行文件构建会包含它们。
+`motrix-native-host-broker` 可执行文件，以及 `motrix-finalize-fs` 文件系统 sidecar
+和 `motrix-windows-platform` Windows 包集成辅助程序，均使用以下经过审阅的
+crate 清单构建。具体版本由 `packages/native-host/Cargo.lock`、
+`packages/finalize-fs/Cargo.lock` 和 `packages/windows-platform/Cargo.lock`
+锁定；每个锁文件都必须始终是这份清单的子集。Windows 专用 crate 也列在表中，
+因为 Windows 原生可执行文件构建会包含它们。
 
 | Crate | 版本 | SPDX 许可证表达式 | 源码仓库 |
 | --- | --- | --- | --- |
@@ -185,16 +186,32 @@ npm 依赖清单根据根目录声明的运行时依赖，以及 `pnpm-lock.yaml
 | serde_json | 1.0.151 | `MIT OR Apache-2.0` | <https://github.com/serde-rs/json> |
 | sha2 | 0.10.9 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/hashes> |
 | subtle | 2.6.1 | `BSD-3-Clause` | <https://github.com/dalek-cryptography/subtle> |
+| syn | 2.0.119 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/syn> |
 | syn | 3.0.3 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/syn> |
+| syn | 3.0.6 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/syn> |
 | typenum | 1.20.1 | `MIT OR Apache-2.0` | <https://github.com/paholg/typenum> |
 | unicode-ident | 1.0.24 | `(MIT OR Apache-2.0) AND Unicode-3.0` | <https://github.com/dtolnay/unicode-ident> |
+| unicode-ident | 1.0.26 | `(MIT OR Apache-2.0) AND Unicode-3.0` | <https://github.com/dtolnay/unicode-ident> |
 | version_check | 0.9.5 | `MIT/Apache-2.0` | <https://github.com/SergioBenitez/version_check> |
+| windows | 0.62.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-collections | 0.3.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-core | 0.62.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-future | 0.3.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-implement | 0.60.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-interface | 0.59.3 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
 | windows-link | 0.2.1 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-numerics | 0.3.1 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-result | 0.4.1 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-strings | 0.5.1 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
 | windows-sys | 0.61.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-threading | 0.2.1 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
 | zmij | 1.0.23 | `MIT` | <https://github.com/dtolnay/zmij> |
 
 下列许可证文件均从锁定版本的 crate 源码逐字节复制。仅当许可证条款一致时
-复用通用文本；包含特定归属声明或附加条款的文件会单独保留：
+复用通用文本；包含特定归属声明或附加条款的文件会单独保留。Windows 包辅助
+程序的 `syn` 复用已有的通用 MIT 和 Apache 文本，`unicode-ident` 在此基础上
+还保留 Unicode 许可证，`windows` 与 `windows-*` crate 使用 Microsoft MIT
+文本；复用的文本均与锁定版本源码逐字节一致：
 
 - `THIRD_PARTY_LICENSES/rust-base64-LICENSE-APACHE`
 - `THIRD_PARTY_LICENSES/rust-base64-LICENSE-MIT`

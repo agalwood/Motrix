@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/windows-store.yml'
       - 'scripts/*windows-store*'
+      - 'scripts/verify-windows-native-host-dependencies.ps1'
       - 'scripts/*electron*'
       - 'scripts/before-*'
       - 'tests/scripts/*windows-store*'
@@ -17,8 +18,12 @@ on:
       - 'build/**'
       - 'extra/**'
       - 'src/main/**'
+      - 'src/shared/schemas/auto-launch*'
+      - 'src/renderer/routes/settings/cards/*auto-launch*'
+      - 'src/renderer/routes/settings/cards/general-dialog*'
       - 'packages/native-host/**'
       - 'packages/finalize-fs/**'
+      - 'packages/windows-platform/**'
   workflow_dispatch:
 
 permissions:
@@ -123,6 +128,18 @@ jobs:
       - name: Build filesystem helper
         run: pnpm run build:finalize-fs -- --platform win32 --arch x64
 
+      - name: Test Windows platform helper
+        run: |
+          cargo fmt --manifest-path packages/windows-platform/Cargo.toml --check
+          if ($LASTEXITCODE -ne 0) { throw 'Windows platform formatting failed' }
+          cargo clippy --manifest-path packages/windows-platform/Cargo.toml --locked --all-targets -- -D warnings
+          if ($LASTEXITCODE -ne 0) { throw 'Windows platform lint failed' }
+          cargo test --manifest-path packages/windows-platform/Cargo.toml --locked
+          if ($LASTEXITCODE -ne 0) { throw 'Windows platform tests failed' }
+
+      - name: Build Windows platform helper
+        run: pnpm run build:windows-platform --platform win32 --arch x64
+
       - name: Build Electron application
         run: pnpm run build:electron
 
@@ -136,6 +153,26 @@ jobs:
           pnpm exec electron-builder
           --config "$env:MOTRIX_STORE_BUILD/electron-builder.json"
           --win --x64 --publish never
+
+      - name: Verify Windows platform runtime imports
+        run: >-
+          ./scripts/verify-windows-native-host-dependencies.ps1
+          -Binary "$env:MOTRIX_STORE_BUILD/payload/win-unpacked/resources/bin/motrix-windows-platform.exe"
+
+      - name: Reject startup operations without package identity
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $binary = Join-Path $env:MOTRIX_STORE_BUILD 'payload/win-unpacked/resources/bin/motrix-windows-platform.exe'
+          foreach ($operation in @('startup_query', 'startup_enable', 'startup_disable')) {
+            $request = @{ version = 1; op = $operation } | ConvertTo-Json -Compress
+            $replyText = $request | & $binary
+            if ($LASTEXITCODE -ne 0) { throw "Unpackaged helper failed to execute: $operation" }
+            $reply = $replyText | ConvertFrom-Json -AsHashtable
+            if ($reply.Count -ne 3 -or $reply.version -ne 1 -or $reply.ok -ne $false -or $reply.code -ne 'no_package_identity') {
+              throw "Unpackaged helper did not reject startup operation: $operation"
+            }
+            Write-Host "$operation rejected without package identity"
+          }
 
       - name: Verify and assemble test layout
         run: |

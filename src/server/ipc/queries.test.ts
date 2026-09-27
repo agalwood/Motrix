@@ -247,6 +247,13 @@ describe('buildServerQueryHandlers — allowed save directories', () => {
     })
   })
 
+  it('reports startup settings as unsupported on the web server', async () => {
+    const handlers = buildServerQueryHandlers(makeCtx() as never)
+    await expect(handlers[Queries.GetAutoLaunchStatus]?.()).resolves.toEqual({
+      authority: 'unsupported',
+    })
+  })
+
   it('reports Windows associations as unsupported on the web server', async () => {
     const handlers = buildServerQueryHandlers(makeCtx() as never)
 

@@ -975,11 +975,8 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       settingsManager,
       {
         applySavedApp: async (patch) => {
-          if (
-            patch.launchAtStartup !== undefined ||
-            patch.showMainWindowAtLogin !== undefined
-          ) {
-            syncAutoLaunch(settingsManager.getApp().launchAtStartup)
+          if (patch.launchAtStartup !== undefined) {
+            await syncAutoLaunch(settingsManager.getApp().launchAtStartup)
           }
           if (patch.defaultSaveDir !== undefined) {
             await supervisor.applyDefaultSaveDir(
@@ -1019,8 +1016,10 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         partialObj !== null &&
         Object.hasOwn(partialObj, 'proxy')
       const appPartial = partialObj?.app as
-        | { protocols?: { magnet?: unknown } }
+        | { protocols?: { magnet?: unknown }; launchAtStartup?: unknown }
         | undefined
+      const startupPreferenceSubmitted =
+        typeof appPartial?.launchAtStartup === 'boolean'
       const magnetPreferenceSubmitted =
         typeof appPartial?.protocols?.magnet === 'boolean'
       const natPartial = partialObj?.nat as
@@ -1089,8 +1088,10 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
             updateManager.setChannel(newFull.app.updateChannel)
           }
 
-          if (oldFull.app.launchAtStartup !== newFull.app.launchAtStartup) {
-            syncAutoLaunch(newFull.app.launchAtStartup)
+          if (startupPreferenceSubmitted) {
+            // General settings has its own commit queue. A newer save may
+            // finish while the proxy effects above are awaiting completion.
+            await syncAutoLaunch(settingsManager.getApp().launchAtStartup)
           }
           if (
             oldFull.app.browserBridgeEnabled !==
@@ -1414,6 +1415,16 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       removeAppImageIntegrationFromSettings({
         getMagnetEnabled: () => settingsManager.getApp().protocols.magnet,
       }),
+
+    [Commands.OpenStartupSettings]: async () => {
+      if (process.platform !== 'win32') return { ok: false }
+      try {
+        await shell.openExternal('ms-settings:startupapps')
+        return { ok: true }
+      } catch {
+        return { ok: false }
+      }
+    },
 
     [Commands.RequestDefaultTorrentHandler]: async () => {
       if (process.platform === 'darwin') {

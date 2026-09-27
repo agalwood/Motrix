@@ -23,6 +23,7 @@ const EXECUTABLES = [
   'Motrix.exe',
   'resources/bin/motrix-native-host.exe',
   'resources/bin/motrix-finalize-fs.exe',
+  'resources/bin/motrix-windows-platform.exe',
   'resources/extra/win32/x64/aria2c.exe',
 ]
 export const WINDOWS_STORE_PAYLOAD_METADATA = {

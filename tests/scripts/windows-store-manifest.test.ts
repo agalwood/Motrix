@@ -16,6 +16,7 @@ const FOUNDATION =
   'http://schemas.microsoft.com/appx/manifest/foundation/windows10'
 const UAP = 'http://schemas.microsoft.com/appx/manifest/uap/windows10'
 const UAP10 = `${UAP}/10`
+const DESKTOP = 'http://schemas.microsoft.com/appx/manifest/desktop/windows10'
 const RESCAP = `${FOUNDATION}/restrictedcapabilities`
 
 function storeMetadata(overrides: Record<string, unknown> = {}) {
@@ -77,7 +78,9 @@ describe('Windows Store manifest renderer', () => {
     expect(root.lookupNamespaceURI('uap')).toBe(UAP)
     expect(root.lookupNamespaceURI('uap10')).toBe(UAP10)
     expect(root.lookupNamespaceURI('rescap')).toBe(RESCAP)
-    expect(root.getAttribute('IgnorableNamespaces')).toBe('uap uap10 rescap')
+    expect(root.getAttribute('IgnorableNamespaces')).toBe(
+      'uap uap10 desktop rescap'
+    )
     expect(attributes(element(document, FOUNDATION, 'Identity'))).toEqual({
       Name: input.identity.name,
       Publisher: input.identity.publisher,
@@ -135,10 +138,27 @@ describe('Windows Store manifest renderer', () => {
       [FOUNDATION, 'Application'],
       [UAP, 'VisualElements'],
       [UAP, 'DefaultTile'],
+      [FOUNDATION, 'Extensions'],
+      [DESKTOP, 'Extension'],
+      [DESKTOP, 'StartupTask'],
     ])
-    expect(xml).not.toMatch(
-      /EntryPoint|Extensions|AppExecutionAlias|StartupTask|\$\{|@@/
-    )
+    expect(xml).not.toMatch(/EntryPoint|AppExecutionAlias|\$\{|@@/)
+  })
+
+  it('starts the package executable only after opt-in with the login argument', () => {
+    const document = parseXml(renderWindowsStoreManifest(testMetadata()))
+    expect(attributes(element(document, DESKTOP, 'Extension'))).toEqual({
+      Category: 'windows.startupTask',
+      Executable: 'app\\Motrix.exe',
+      'uap10:RuntimeBehavior': 'packagedClassicApp',
+      'uap10:TrustLevel': 'mediumIL',
+      'uap10:Parameters': '--opened-at-login=1',
+    })
+    expect(attributes(element(document, DESKTOP, 'StartupTask'))).toEqual({
+      TaskId: 'MotrixStartup',
+      Enabled: 'false',
+      DisplayName: 'Motrix Store TEST ONLY',
+    })
   })
 
   it('declares one language, configured OS thresholds, and logical asset paths', () => {

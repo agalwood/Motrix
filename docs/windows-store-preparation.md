@@ -5,9 +5,9 @@
 Motrix's Windows package support is under development. Preparation tools validate
 inputs and assemble a test layout; a separate Windows SDK runner creates an
 unsigned test AppX. These tools do not sign, install, submit, or establish
-Microsoft Store compatibility. Startup tasks, package associations, browser
-integration, and installation lifecycle still require implementation and Windows
-verification.
+Microsoft Store compatibility. StartupTask integration is implemented for testing;
+package associations, browser integration, and installation lifecycle still need
+work. Windows package runtime verification remains required.
 
 ## Release metadata
 
@@ -111,6 +111,7 @@ pnpm run fetch:engine --platform win32 --arch x64
 pnpm run build:builtin
 pnpm run build:native-host -- --platform win32 --arch x64
 pnpm run build:finalize-fs -- --platform win32 --arch x64
+pnpm run build:windows-platform --platform win32 --arch x64
 pnpm run build:electron
 pnpm run stage:electron -- --platform win32 --arch x64
 pnpm exec electron-builder --config "$storeBuild\electron-builder.json" --win --x64 --publish never
@@ -158,8 +159,9 @@ priconfig.xml
 ```
 
 The manifest contains one packaged desktop application and `runFullTrust`.
-Protocol, file association, StartupTask, and native-host alias declarations
-await their runtime implementations. The configured Windows threshold is
+It declares the opt-in `MotrixStartup` task for `app\Motrix.exe`, with
+`Enabled="false"` and `--opened-at-login=1`. Protocol, file association, and
+native-host alias declarations await their runtime implementations. The configured Windows threshold is
 10.0.19045.0; this is not a Windows compatibility test result. The four existing
 images are scale-200 resources, referenced by logical paths in the manifest.
 The PRI configuration indexes the isolated `pri-root` directory, which contains
@@ -169,9 +171,41 @@ pack/unpack verification remain required.
 
 Store profile layout preparation is currently rejected: production asset
 variants and package integration remain incomplete. Use test layouts only with
-an isolated Windows user or VM. The existing browser-registration and startup
-code still needs package-aware behavior, even when manifest extensions are
-absent.
+an isolated Windows user or VM. Existing browser registration still uses direct
+distribution paths and needs package-aware behavior, even without a native-host
+alias declaration.
+
+## Windows startup integration
+
+The Store directory build includes `bin/motrix-windows-platform.exe`. The helper
+checks its actual Windows package identity before using WinRT `StartupTask`.
+It accepts only a bounded, versioned JSON request for the fixed `MotrixStartup`
+task. Electron calls the helper from its packaged resource path, serializes
+requests, and limits execution time and output size. A helper failure never
+falls back to traditional login-item registration.
+
+Package startup reads the Windows state without applying the saved preference.
+General settings displays the five Windows states, requests changes only after
+an explicit edit and Save, and directs user-disabled or policy-controlled tasks
+to Windows startup settings. Returning to Motrix refreshes the state. Changes to
+“Show main window at login” alone do not request startup activation. Errors keep
+the committed settings snapshot and the startup-specific explanation for retry.
+Unpackaged Windows and macOS retain the existing Electron login-item behavior.
+
+The declaration uses the documented [desktop extension parameters](https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-desktop-extension)
+and [StartupTask opt-in attribute](https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-desktop-startuptask).
+Compilation and unit tests do not prove package identity inheritance, WinRT
+activation, or login behavior. Windows 11 validation must cover:
+
+- Fresh install and first launch: disabled by default; opening settings does not enable it.
+- Explicit enable/disable: Windows and Motrix agree, including after restarting the app.
+- Disable in Windows settings: returning to Motrix respects that choice and discards a conflicting unsaved edit.
+- Policy-controlled states, when available: the app cannot override the system choice.
+- Sign out/in with startup enabled: `--opened-at-login=1` reaches the launcher and the saved window preference is respected.
+- Upgrade between two increasing package versions and uninstall: startup registration follows the package lifecycle.
+
+Record text logs and observed states for those checks. The SDK workflow uploads
+only JSON/XML/log evidence; it does not install the package or execute this matrix.
 
 ## Run the Windows SDK package check
 

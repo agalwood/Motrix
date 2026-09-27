@@ -48,7 +48,11 @@ export function DirectoryPreferencesStatus({
           className="flex items-center gap-2 rounded-md border border-destructive/30 p-2 text-xs"
         >
           <p className="min-w-0 flex-1 text-destructive">
-            {t(`directoryPreferences.errors.${error}`)}
+            {t(
+              error === 'startupUnavailable' || error === 'startupNotApplied'
+                ? `settings.general.${error}`
+                : `directoryPreferences.errors.${error}`
+            )}
           </p>
           <Button
             type="button"

@@ -82,7 +82,13 @@ describe('Windows Store directory builder configuration', () => {
     ]) {
       expect(config[key], key).toEqual(base[key])
     }
-    expect(config.win.extraResources).toEqual(base.win.extraResources)
+    expect(config.win.extraResources).toEqual([
+      ...base.win.extraResources,
+      {
+        from: 'packages/windows-platform/dist/win32-x64/motrix-windows-platform.exe',
+        to: 'bin/motrix-windows-platform.exe',
+      },
+    ])
     expect(config.win).not.toHaveProperty('signAndEditExecutable')
     expect(config.directories.app).toBe('dist/electron-app')
     expect(config.directories.buildResources).toBe(

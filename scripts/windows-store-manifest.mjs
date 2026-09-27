@@ -35,10 +35,9 @@ function escapeXml(value) {
 }
 
 /**
- * Render the P2 declaration contract, without reading or creating package files.
+ * Render the Windows package declaration contract without creating package files.
  * This does not verify Partner Center identity, payloads, assets, or Windows support.
- * No protocol, startup, or native-host extensions are enabled before their runtime
- * integration is implemented and verified.
+ * StartupTask is opt-in. Protocol and native-host declarations remain pending.
  */
 export function renderWindowsStoreManifest(rawMetadata) {
   const { metadata } = validateWindowsStoreMetadata(rawMetadata)
@@ -60,8 +59,9 @@ export function renderWindowsStoreManifest(rawMetadata) {
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap uap10 rescap">
+  IgnorableNamespaces="uap uap10 desktop rescap">
   <Identity Name="${escapeXml(metadata.identity.name)}" Publisher="${escapeXml(metadata.identity.publisher)}" Version="${escapeXml(metadata.packageVersion)}" ProcessorArchitecture="${escapeXml(metadata.architecture)}" />
   <Properties>
     <DisplayName>${escapeXml(displayName)}</DisplayName>
@@ -83,6 +83,11 @@ export function renderWindowsStoreManifest(rawMetadata) {
       <uap:VisualElements DisplayName="${escapeXml(displayName)}" Description="${escapeXml(description)}" BackgroundColor="transparent" Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png">
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
       </uap:VisualElements>
+      <Extensions>
+        <desktop:Extension Category="windows.startupTask" Executable="app\Motrix.exe" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL" uap10:Parameters="--opened-at-login=1">
+          <desktop:StartupTask TaskId="MotrixStartup" Enabled="false" DisplayName="${escapeXml(displayName)}" />
+        </desktop:Extension>
+      </Extensions>
     </Application>
   </Applications>
 </Package>

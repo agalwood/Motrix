@@ -42,10 +42,11 @@ import { transport } from '@renderer/lib/transport'
 import { RunMode } from '@shared/constants'
 import { DEFAULT_APP_SETTINGS } from '@shared/schemas'
 import { GeneralSettingsAppSchema } from '@shared/schemas/general-settings'
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SettingsCardDialogProps } from './card-types'
 import { generalFormSchema } from './settings-form-schemas'
+import { useAutoLaunchStatus } from './use-auto-launch-status'
 
 export function GeneralDialog({
   open,
@@ -56,17 +57,42 @@ export function GeneralDialog({
   const isWeb = transport.platform === 'web'
   const isMac = transport.platform === 'darwin'
   const isLinux = transport.platform === 'linux'
+  const isWindows = transport.platform === 'win32'
+  const startup = useAutoLaunchStatus(open && isWindows)
+  // A Windows state can differ from a persisted preference. Retain explicit
+  // intent even when the new value equals the form's saved default.
+  const [startupIntent, setStartupIntent] = useState(false)
   const form = useSettingsForm(
     generalFormSchema,
     generalFormSchema.parse(DEFAULT_APP_SETTINGS)
   )
   const baseline = useRef(GeneralSettingsAppSchema.parse(DEFAULT_APP_SETTINGS))
   const directories = useDirectoryPreferencesDraft({
-    getAppDraft: () => ({
-      values: { ...baseline.current, ...form.getValues() },
-      dirty: pickDirty(form.getValues(), form.formState.dirtyFields) ?? {},
-    }),
+    getAppDraft: () => {
+      const values = form.getValues()
+      const dirty = pickDirty(values, form.formState.dirtyFields) ?? {}
+      if (startup.status?.authority === 'windows-package') {
+        delete dirty.launchAtStartup
+        // A retry of a committed request must not replay intent superseded
+        // by the user's Windows setting or by organizational policy.
+        if (packageResult?.ok && (!startupIntent || startupLocked))
+          values.launchAtStartup =
+            startupState === 'enabled' || startupState === 'enabled_by_policy'
+      }
+      return {
+        values: { ...baseline.current, ...values },
+        dirty: {
+          ...dirty,
+          ...(startupIntent && !startupLocked
+            ? { launchAtStartup: values.launchAtStartup }
+            : {}),
+        },
+      }
+    },
     onAppRebase: (authority, intent) => {
+      setStartupIntent(
+        !startupLocked && Object.hasOwn(intent, 'launchAtStartup')
+      )
       baseline.current = authority
       form.reset(
         generalFormSchema.parse({
@@ -86,9 +112,48 @@ export function GeneralDialog({
   })
   const busy = form.formState.isSubmitting || directories.saving
   const disabled = !directories.ready || directories.loading || busy
+  const packageResult =
+    startup.status?.authority === 'windows-package'
+      ? startup.status.result
+      : null
+  const startupState = packageResult?.ok ? packageResult.state : null
+  const windowsUnavailable =
+    isWindows &&
+    (startup.loading ||
+      !startup.status ||
+      startup.status.authority === 'unsupported' ||
+      packageResult?.ok === false)
+  const startupLocked =
+    startupState === 'disabled_by_user' ||
+    startupState === 'disabled_by_policy' ||
+    startupState === 'enabled_by_policy'
+  const startupEnabled = windowsUnavailable
+    ? false
+    : (startupIntent && !startupLocked) || !packageResult
+      ? form.watch('launchAtStartup')
+      : startupState === 'enabled' || startupState === 'enabled_by_policy'
+  useEffect(() => {
+    if (startupLocked) setStartupIntent(false)
+  }, [startupLocked])
+  const startupMessage = startup.loading
+    ? 'startupLoading'
+    : startup.status?.authority === 'unsupported'
+      ? 'startupUnsupported'
+      : !startup.status || packageResult?.ok === false
+        ? 'startupStateUnavailable'
+        : startupState
+          ? {
+              disabled: 'startupDisabled',
+              disabled_by_user: 'startupDisabledByUser',
+              enabled: 'startupEnabled',
+              disabled_by_policy: 'startupDisabledByPolicy',
+              enabled_by_policy: 'startupEnabledByPolicy',
+            }[startupState]
+          : null
   const onSubmit = useSettingsSubmit(form, async () => {
     if (!directories.ready || directories.loading || isWeb) return
     if (await directories.save()) onClose()
+    else await startup.refresh()
   })
   const close = () => {
     if (!busy) onClose()
@@ -242,7 +307,10 @@ export function GeneralDialog({
                 loading={directories.loading}
                 error={directories.error}
                 disabled={busy}
-                onRetry={() => void directories.refresh()}
+                onRetry={() => {
+                  void directories.refresh()
+                  void startup.refresh()
+                }}
               />
               {isWeb ? (
                 <p className="text-sm text-muted-foreground">
@@ -259,11 +327,79 @@ export function GeneralDialog({
                       <h3 className="text-sm font-semibold">
                         {t('settings.general.startupAndQuitting')}
                       </h3>
-                      {boolRow('launchAtStartup')}
+                      {isWindows ? (
+                        <FormField
+                          control={form.control}
+                          name="launchAtStartup"
+                          render={({ field }) => (
+                            <SettingsFormRow>
+                              <div className="space-y-1">
+                                <FormLabel>
+                                  {t('settings.general.launchAtStartup')}
+                                </FormLabel>
+                                {startupMessage && (
+                                  <FormDescription className="text-xs">
+                                    {t(`settings.general.${startupMessage}`)}
+                                  </FormDescription>
+                                )}
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={startupEnabled}
+                                  disabled={
+                                    disabled ||
+                                    windowsUnavailable ||
+                                    startupLocked
+                                  }
+                                  onCheckedChange={(value) => {
+                                    setStartupIntent(true)
+                                    field.onChange(value)
+                                  }}
+                                />
+                              </FormControl>
+                            </SettingsFormRow>
+                          )}
+                        />
+                      ) : (
+                        boolRow('launchAtStartup')
+                      )}
+                      {isWindows &&
+                        startup.status?.authority !== 'application' && (
+                          <div className="space-y-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void startup.openSettings()}
+                            >
+                              {t('settings.general.startupOpenSettings')}
+                            </Button>
+                            {windowsUnavailable && !startup.loading && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => void startup.refresh()}
+                              >
+                                {t('directoryPreferences.retry')}
+                              </Button>
+                            )}
+                            {startup.openFailed && (
+                              <p
+                                role="alert"
+                                className="text-xs text-destructive"
+                              >
+                                {t(
+                                  'settings.general.startupOpenSettingsFailed'
+                                )}
+                              </p>
+                            )}
+                          </div>
+                        )}
                       {boolRow(
                         'showMainWindowAtLogin',
                         undefined,
-                        form.watch('launchAtStartup')
+                        startupEnabled
                       )}
                       <FormField
                         control={form.control}

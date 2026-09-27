@@ -14,6 +14,7 @@ const ALLOWED_EXECUTABLES = new Set([
   'chrome_crashpad_handler.exe',
   'resources/bin/motrix-native-host.exe',
   'resources/bin/motrix-finalize-fs.exe',
+  'resources/bin/motrix-windows-platform.exe',
   'resources/extra/win32/x64/aria2c.exe',
 ])
 const SIGNING_EXTENSIONS = new Set([
@@ -413,6 +414,12 @@ export async function verifyWindowsStorePayload({
       physical = await inventoryDirectory(root)
       if (!physical.some((file) => file.path === 'Motrix.exe'))
         throw new Error('Motrix.exe is missing')
+      if (
+        !physical.some(
+          (file) => file.path === 'resources/bin/motrix-windows-platform.exe'
+        )
+      )
+        throw new Error('motrix-windows-platform.exe is missing')
       if (!physical.some((file) => file.path === 'resources/app.asar'))
         throw new Error('resources/app.asar is missing')
     }))

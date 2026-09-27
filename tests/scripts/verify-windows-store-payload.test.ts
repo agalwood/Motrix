@@ -84,6 +84,23 @@ afterEach(async () => {
 })
 
 describe('Windows Store directory payload verification', () => {
+  it('rejects a payload missing the Windows startup helper', async () => {
+    const input = await fixture()
+    await unlink(
+      path.join(input.appDir, 'resources/bin/motrix-windows-platform.exe')
+    )
+    const report = await verifyWindowsStorePayload({
+      appDir: input.appDir,
+      metadata,
+    })
+    failed(report, 'safe-directory')
+    expect(report.checks).toContainEqual(
+      expect.objectContaining({
+        message: 'motrix-windows-platform.exe is missing',
+      })
+    )
+  })
+
   it('composes the real Electron verifier and records physical and ASAR digests', async () => {
     const input = await fixture(async (source) => {
       await write(

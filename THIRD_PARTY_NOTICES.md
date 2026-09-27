@@ -176,11 +176,12 @@ files are platform-specific build output and are not committed.
 
 The `motrix-native-host`, host-side `motrix-flatpak-native-host`, and
 in-sandbox `motrix-native-host-broker` executables, together with the
-`motrix-finalize-fs` filesystem sidecar, are built from the following reviewed
-crate inventory. Versions are locked in `packages/native-host/Cargo.lock` and
-`packages/finalize-fs/Cargo.lock`; the sidecar lock must remain a subset of
-this inventory. Windows-only crates are listed because they are included in
-the Windows native executable builds.
+`motrix-finalize-fs` filesystem sidecar and `motrix-windows-platform` Windows
+package integration helper, are built from the following reviewed crate
+inventory. Versions are locked in `packages/native-host/Cargo.lock`,
+`packages/finalize-fs/Cargo.lock`, and `packages/windows-platform/Cargo.lock`;
+each lock must remain a subset of this inventory. Windows-only crates are
+listed because they are included in the Windows native executable builds.
 
 | Crate | Version | SPDX license expression | Repository |
 | --- | --- | --- | --- |
@@ -210,17 +211,34 @@ the Windows native executable builds.
 | serde_json | 1.0.151 | `MIT OR Apache-2.0` | <https://github.com/serde-rs/json> |
 | sha2 | 0.10.9 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/hashes> |
 | subtle | 2.6.1 | `BSD-3-Clause` | <https://github.com/dalek-cryptography/subtle> |
+| syn | 2.0.119 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/syn> |
 | syn | 3.0.3 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/syn> |
+| syn | 3.0.6 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/syn> |
 | typenum | 1.20.1 | `MIT OR Apache-2.0` | <https://github.com/paholg/typenum> |
 | unicode-ident | 1.0.24 | `(MIT OR Apache-2.0) AND Unicode-3.0` | <https://github.com/dtolnay/unicode-ident> |
+| unicode-ident | 1.0.26 | `(MIT OR Apache-2.0) AND Unicode-3.0` | <https://github.com/dtolnay/unicode-ident> |
 | version_check | 0.9.5 | `MIT/Apache-2.0` | <https://github.com/SergioBenitez/version_check> |
+| windows | 0.62.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-collections | 0.3.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-core | 0.62.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-future | 0.3.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-implement | 0.60.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-interface | 0.59.3 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
 | windows-link | 0.2.1 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-numerics | 0.3.1 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-result | 0.4.1 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-strings | 0.5.1 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
 | windows-sys | 0.61.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-threading | 0.2.1 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
 | zmij | 1.0.23 | `MIT` | <https://github.com/dtolnay/zmij> |
 
 Each license file below is copied byte-for-byte from a locked crate source.
 Common texts are reused only where the license terms are the same;
-crate-specific notices are preserved separately:
+crate-specific notices are preserved separately. The Windows package helper
+uses the existing common MIT and Apache texts for `syn`, those texts plus the
+Unicode license for `unicode-ident`, and the Microsoft MIT text for its
+`windows` and `windows-*` crates; all reused texts match the locked sources
+byte-for-byte:
 
 - `THIRD_PARTY_LICENSES/rust-base64-LICENSE-APACHE`
 - `THIRD_PARTY_LICENSES/rust-base64-LICENSE-MIT`

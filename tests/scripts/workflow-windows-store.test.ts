@@ -71,9 +71,13 @@ describe('Windows Store SDK test workflow', () => {
       'Build builtin plugins',
       'Build native host',
       'Build filesystem helper',
+      'Test Windows platform helper',
+      'Build Windows platform helper',
       'Build Electron application',
       'Stage Electron application',
       'Build isolated Windows directory',
+      'Verify Windows platform runtime imports',
+      'Reject startup operations without package identity',
       'Verify and assemble test layout',
       'Build PRI and pack/unpack with Windows SDK',
     ].map(stepIndex)
@@ -86,6 +90,12 @@ describe('Windows Store SDK test workflow', () => {
     expect(commands).toContain('--win --x64 --publish never')
     expect(commands).toContain('prepare-windows-store-layout.mjs')
     expect(commands).toContain('pack-windows-store-test.ps1')
+    expect(commands).toContain(
+      'pnpm run build:windows-platform --platform win32 --arch x64'
+    )
+    expect(commands).toContain(
+      'payload/win-unpacked/resources/bin/motrix-windows-platform.exe'
+    )
     expect(commands).not.toContain('--prepackaged')
   })
 

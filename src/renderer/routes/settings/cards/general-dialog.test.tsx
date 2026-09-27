@@ -30,7 +30,11 @@ beforeEach(() => {
   snapshot = generalSettingsSnapshot()
   vi.mocked(transport.invoke)
     .mockReset()
-    .mockImplementation(async () => ({ ok: true, value: snapshot }))
+    .mockImplementation(async (channel) =>
+      channel === Queries.GetAutoLaunchStatus
+        ? { authority: 'application' }
+        : { ok: true, value: snapshot }
+    )
 })
 async function openGeneral(close = vi.fn()) {
   render(
@@ -198,5 +202,206 @@ describe('General settings', () => {
     )
     await user.click(screen.getByRole('button', { name: 'Save' }))
     expect(saves().at(-1)?.[1]).toMatchObject({ app: { warnBeforeQuit: true } })
+  })
+})
+
+describe('Windows packaged startup settings', () => {
+  const status = (state: string) => ({
+    authority: 'windows-package',
+    result: {
+      version: 1,
+      ok: true,
+      taskId: 'MotrixStartup',
+      state,
+      packageIdentityPresent: true,
+    },
+  })
+  function windows(initial: unknown) {
+    transport.platform = 'win32'
+    let current = initial
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.GetAutoLaunchStatus) return current
+      if (channel === Commands.OpenStartupSettings) return { ok: true }
+      return { ok: true, value: snapshot }
+    })
+    return (next: unknown) => {
+      current = next
+    }
+  }
+  it('reads actual Windows state without submitting a saved preference', async () => {
+    snapshot.app.launchAtStartup = false
+    windows(status('enabled'))
+    await openGeneral()
+    expect(await screen.findByText('Enabled in Windows')).toBeVisible()
+    expect(screen.getByRole('switch', { name: 'Open at login' })).toBeChecked()
+    expect(saves()).toHaveLength(0)
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(saves()[0]?.[1]).toMatchObject({ app: {} })
+  })
+  it.each([
+    [false, 'enabled', false],
+    [true, 'disabled', true],
+  ] as const)(
+    'submits explicit intent even when it matches the stored value %s',
+    async (stored, state, desired) => {
+      snapshot.app.launchAtStartup = stored
+      windows(status(state))
+      await openGeneral()
+      const toggle = screen.getByRole('switch', { name: 'Open at login' })
+      await waitFor(() =>
+        expect(toggle).not.toHaveAttribute('aria-disabled', 'true')
+      )
+      await userEvent.click(toggle)
+      if (desired) expect(toggle).toBeChecked()
+      else expect(toggle).not.toBeChecked()
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      expect(saves()[0]?.[1]).toMatchObject({
+        app: { launchAtStartup: desired },
+      })
+    }
+  )
+  it.each(['disabled_by_user', 'disabled_by_policy', 'enabled_by_policy'])(
+    'leaves %s under Windows control',
+    async (state) => {
+      windows(status(state))
+      await openGeneral()
+      const toggle = screen.getByRole('switch', { name: 'Open at login' })
+      expect(toggle).toHaveAttribute('aria-disabled', 'true')
+      if (state === 'enabled_by_policy') expect(toggle).toBeChecked()
+      else expect(toggle).not.toBeChecked()
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Open Windows startup settings' })
+      )
+      expect(transport.invoke).toHaveBeenCalledWith(
+        Commands.OpenStartupSettings
+      )
+      expect(saves()).toHaveLength(0)
+    }
+  )
+  it('refreshes on focus without changing the stored preference or draft', async () => {
+    const setStatus = windows(status('enabled'))
+    await openGeneral()
+    expect(await screen.findByText('Enabled in Windows')).toBeVisible()
+    setStatus(status('disabled_by_user'))
+    fireEvent(window, new Event('focus'))
+    await screen.findByText(
+      'Disabled in Windows startup settings. Enable it there to allow opening at login.'
+    )
+    expect(
+      screen.getByRole('switch', { name: 'Open at login' })
+    ).not.toBeChecked()
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(saves()[0]?.[1]).toMatchObject({ app: {} })
+  })
+  it('discards an unsaved startup edit superseded by a locked Windows choice', async () => {
+    snapshot.app.launchAtStartup = false
+    const setStatus = windows(status('disabled'))
+    await openGeneral()
+    await screen.findByText('Disabled in Windows')
+    const toggle = screen.getByRole('switch', { name: 'Open at login' })
+    await userEvent.click(toggle)
+    expect(toggle).toBeChecked()
+    setStatus(status('disabled_by_user'))
+    fireEvent(window, new Event('focus'))
+    await screen.findByText(
+      'Disabled in Windows startup settings. Enable it there to allow opening at login.'
+    )
+    expect(toggle).not.toBeChecked()
+    expect(toggle).toHaveAttribute('aria-disabled', 'true')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(saves()[0]?.[1]).toMatchObject({ app: {} })
+  })
+
+  it('does not resurrect a failed submitted edit after a Windows lock is removed', async () => {
+    windows(status('disabled'))
+    let current = status('disabled')
+    let failSave!: (value: unknown) => void
+    const pendingSave = new Promise((resolve) => {
+      failSave = resolve
+    })
+    let first = true
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.GetAutoLaunchStatus) return current
+      if (channel === Commands.SaveGeneralSettings && first) {
+        first = false
+        return pendingSave
+      }
+      return { ok: true, value: snapshot }
+    })
+    await openGeneral()
+    await screen.findByText('Disabled in Windows')
+    await userEvent.click(screen.getByRole('switch', { name: 'Open at login' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    current = status('disabled_by_user')
+    fireEvent(window, new Event('focus'))
+    await screen.findByText(
+      'Disabled in Windows startup settings. Enable it there to allow opening at login.'
+    )
+    snapshot.app.launchAtStartup = true
+    failSave({ ok: false, error: { code: 'startupNotApplied' }, snapshot })
+    await screen.findByText(
+      'Settings were saved, but Windows did not apply the startup change. Review Windows startup settings.'
+    )
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+    )
+    current = status('disabled')
+    fireEvent(window, new Event('focus'))
+    await screen.findByText('Disabled in Windows')
+    expect(
+      screen.getByRole('switch', { name: 'Open at login' })
+    ).not.toBeChecked()
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(saves()[1]?.[1]).toMatchObject({ app: { launchAtStartup: false } })
+  })
+
+  it('keeps unknown or failed states unavailable and can retry the query', async () => {
+    const setStatus = windows(status('future_state'))
+    await openGeneral()
+    await screen.findByText('Windows startup status is unavailable. Try again.')
+    expect(
+      screen.getByRole('switch', { name: 'Open at login' })
+    ).toHaveAttribute('aria-disabled', 'true')
+    setStatus(status('enabled'))
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await screen.findByText('Enabled in Windows')
+    expect(
+      screen.getByRole('switch', { name: 'Open at login' })
+    ).not.toHaveAttribute('aria-disabled', 'true')
+    expect(saves()).toHaveLength(0)
+  })
+  it('retains explicit startup intent for retry after an already committed effect failure', async () => {
+    snapshot.app.launchAtStartup = true
+    windows(status('disabled'))
+    const invoke = vi.mocked(transport.invoke)
+    let failed = false
+    invoke.mockImplementation(async (channel) => {
+      if (channel === Queries.GetAutoLaunchStatus) return status('disabled')
+      if (channel === Commands.SaveGeneralSettings && !failed) {
+        failed = true
+        return { ok: false, error: { code: 'startupNotApplied' }, snapshot }
+      }
+      return { ok: true, value: snapshot }
+    })
+    const close = await openGeneral()
+    await waitFor(() =>
+      expect(
+        screen.getByRole('switch', { name: 'Open at login' })
+      ).toBeEnabled()
+    )
+    await userEvent.click(screen.getByRole('switch', { name: 'Open at login' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await screen.findByText(
+      'Settings were saved, but Windows did not apply the startup change. Review Windows startup settings.'
+    )
+    expect(close).not.toHaveBeenCalled()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(saves()).toHaveLength(2)
+    for (const [, request] of saves())
+      expect(request).toMatchObject({ app: { launchAtStartup: true } })
+    expect(close).toHaveBeenCalledOnce()
   })
 })

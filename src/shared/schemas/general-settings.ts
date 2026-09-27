@@ -37,6 +37,8 @@ export const GeneralSettingsSnapshotSchema = z
 export const GeneralSettingsErrorCodeSchema = z.enum([
   ...DirectoryPreferencesErrorCodeSchema.options,
   'conflict',
+  'startupUnavailable',
+  'startupNotApplied',
 ])
 export const GeneralSettingsResultSchema = z.discriminatedUnion('ok', [
   z

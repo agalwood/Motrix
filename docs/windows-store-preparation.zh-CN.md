@@ -4,8 +4,8 @@
 
 Motrix 的 Windows 打包支持仍在开发中。准备工具校验输入并装配测试布局，独立的
 Windows SDK 脚本生成未签名测试 AppX。这些工具不会签名、安装或提交商店，也不
-代表已兼容 Microsoft Store。启动任务、包关联、
-浏览器集成和安装生命周期仍需要实现及 Windows 验证。
+代表已兼容 Microsoft Store。StartupTask 已实现供测试；包关联、浏览器集成和
+安装生命周期仍需继续开发，Windows 包内运行验证尚未完成。
 
 ## 发布元数据
 
@@ -96,6 +96,7 @@ pnpm run fetch:engine --platform win32 --arch x64
 pnpm run build:builtin
 pnpm run build:native-host -- --platform win32 --arch x64
 pnpm run build:finalize-fs -- --platform win32 --arch x64
+pnpm run build:windows-platform --platform win32 --arch x64
 pnpm run build:electron
 pnpm run stage:electron -- --platform win32 --arch x64
 pnpm exec electron-builder --config "$storeBuild\electron-builder.json" --win --x64 --publish never
@@ -136,16 +137,45 @@ pri-root/Assets/             # 相同资产文件，供 PRI 索引
 priconfig.xml
 ```
 
-manifest 只包含一个具有包身份的桌面应用和 `runFullTrust`。协议、文件关联、
-StartupTask 与 native-host alias 声明等待对应运行时实现。当前配置的 Windows
+manifest 包含一个具有包身份的桌面应用和 `runFullTrust`，并为 `app\Motrix.exe`
+声明需主动启用的 `MotrixStartup` 任务，设置 `Enabled="false"` 与
+`--opened-at-login=1`。协议、文件关联与 native-host alias 声明等待对应运行时
+实现。当前配置的 Windows
 阈值为 10.0.19045.0，并非 Windows 兼容性实测结论。现有四张图片按 scale-200
 资源命名，manifest 引用逻辑路径；PRI 配置从仅含 `Assets/` 的独立
 `pri-root` 根目录开始索引，保留逻辑资源名中的 `Assets/` 层级。该命令**不会生成**
 `resources.pri` 或 AppX，仍需 Windows SDK 资源解析和打包/解包验证。
 
 目前拒绝装配 Store profile：生产资产变体和包集成尚未完成。测试布局只应用于隔离
-Windows 用户或 VM；即使不声明上述扩展，现有浏览器注册和自启动代码仍需要适配包
-身份。
+Windows 用户或 VM；即使不声明 native-host alias，现有浏览器注册仍使用官网版
+路径，需要适配包身份。
+
+## Windows 启动集成
+
+Store 目录构建包含 `bin/motrix-windows-platform.exe`。helper 先核实进程的真实
+Windows 包身份，再调用 WinRT `StartupTask`；只接收有长度限制和版本字段的 JSON
+请求，操作固定 `MotrixStartup` 任务。Electron 从包内资源绝对路径调用 helper，
+串行处理请求，并限制执行时间和输出大小。失败时不回退到传统登录项注册。
+
+包启动时只读取 Windows 状态，不应用已保存的偏好。常规设置显示 Windows 的五种
+状态，仅在用户主动修改并保存后申请变更；用户在系统中禁用或策略控制的任务引导
+至 Windows 启动设置。返回 Motrix 时刷新状态。单独修改“登录时显示主窗口”不会
+申请启用启动任务。失败时保留已提交的设置快照，并显示启动设置错误供重试。
+非包版 Windows 和 macOS 保留原有 Electron 登录项行为。
+
+清单使用官方文档中的 [desktop 扩展参数](https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-desktop-extension)
+和 [StartupTask 启用属性](https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-desktop-startuptask)。
+编译和单元测试不证明包身份继承、WinRT 激活或登录启动已经可用。Windows 11 必须验证：
+
+- 全新安装及首次启动：默认禁用，打开设置不会自动启用。
+- 主动启用和禁用：Windows 与 Motrix 状态一致，重启应用后仍一致。
+- 在 Windows 设置中禁用：返回 Motrix 尊重该选择，并丢弃冲突的未保存草稿。
+- 存在策略控制时：应用不能覆盖系统选择。
+- 启用后注销再登录：启动器收到 `--opened-at-login=1`，窗口行为遵循已保存偏好。
+- 两个递增包版本之间升级及卸载：启动注册随包生命周期正确更新和移除。
+
+记录文字日志和观察到的状态。SDK 工作流只上传 JSON/XML/log 证据，不安装包或执行
+上述运行时验证。
 
 ## 执行 Windows SDK 包检查
 

@@ -119,7 +119,9 @@ describe('Windows Store test layout preparation', () => {
       'utf8'
     )
     expect(manifest).toContain('Motrix.Store.Test')
-    expect(manifest).not.toContain('<Extensions>')
+    expect(manifest).toContain(
+      '<desktop:StartupTask TaskId="MotrixStartup" Enabled="false"'
+    )
     expect(
       await readFile(
         path.join(options.outputDirectory, 'TEST-ONLY.txt'),
