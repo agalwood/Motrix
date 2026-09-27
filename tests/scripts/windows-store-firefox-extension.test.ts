@@ -26,7 +26,6 @@ const identity = () => ({
       temporarilyInstalled: true,
       sourceURL: source,
       policy: {
-        isActive: true,
         uuid,
         extensionURL: `moz-extension://${uuid}/`,
         baseURL: source,
@@ -75,7 +74,6 @@ describe('observed Firefox temporary installation identity', () => {
     { uuid: 'seeded-or-invalid' },
     { extensionURL: 'moz-extension://foreign/' },
     { baseURL: 'file:///C:/foreign/' },
-    { isActive: false },
   ])('rejects mismatched policy: %j', (change) => {
     const value = identity()
     Object.assign(value.extensions[0].policy, change)

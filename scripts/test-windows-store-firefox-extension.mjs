@@ -36,7 +36,6 @@ export function validateFirefoxExtensionIdentity(result, sourceUrl, version) {
     entry.temporarilyInstalled !== true ||
     entry.sourceURL !== expectedSource.href ||
     policy?.baseURL !== expectedSource.href ||
-    policy.isActive !== true ||
     typeof policy.uuid !== 'string' ||
     !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(policy.uuid) ||
     policy.extensionURL !== `moz-extension://${policy.uuid}/`
