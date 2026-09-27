@@ -61,6 +61,15 @@ function Write-NewJson([string]$Path, [object]$Value) {
   Write-NewText $Path (($Value | ConvertTo-Json -Depth 64) + "`n")
 }
 
+function Get-WindowsStoreErrorDetails([Management.Automation.ErrorRecord]$Record) {
+  return [ordered]@{
+    message = $Record.Exception.Message
+    exceptionType = $Record.Exception.GetType().FullName
+    position = if ($null -ne $Record.InvocationInfo) { $Record.InvocationInfo.PositionMessage } else { $null }
+    scriptStackTrace = $Record.ScriptStackTrace
+  }
+}
+
 function Read-SafeXmlDocument([string]$Path) {
   $file = Get-RegularFile $Path
   $settings = [Xml.XmlReaderSettings]::new()
@@ -179,7 +188,7 @@ function Invoke-LayoutVerification {
 
 function Test-MotrixPriDump([string]$ManifestPath, [string]$DumpPath) {
   $manifest = Read-SafeXmlDocument $ManifestPath
-  $namespaces = [Xml.XmlNamespaceManager]::new($manifest.NameTable)
+  $namespaces = [Xml.XmlNamespaceManager]::new($manifest.get_NameTable())
   $namespaces.AddNamespace('f', 'http://schemas.microsoft.com/appx/manifest/foundation/windows10')
   $namespaces.AddNamespace('uap', 'http://schemas.microsoft.com/appx/manifest/uap/windows10')
   $identity = @($manifest.SelectNodes('/f:Package/f:Identity', $namespaces))
@@ -195,7 +204,9 @@ function Test-MotrixPriDump([string]$ManifestPath, [string]$DumpPath) {
   $expectedPaths = [Collections.Generic.Dictionary[string, string]]::new([StringComparer]::OrdinalIgnoreCase)
   foreach ($asset in $expected) {
     $nodes = @($manifest.SelectNodes($asset.xpath, $namespaces))
-    if ($nodes.Count -ne 1 -or $nodes[0].InnerText.Replace('\', '/') -cne $asset.path) {
+    # PowerShell's XML adapter returns null for XmlAttribute.InnerText. Invoke
+    # the DOM getter directly for both XPath attribute and element results.
+    if ($nodes.Count -ne 1 -or $nodes[0].get_InnerText().Replace('\', '/') -cne $asset.path) {
       throw "Unexpected manifest image reference: $($asset.path)"
     }
     $expectedPaths.Add("Files/$($asset.path)", $asset.path.Replace('.png', '.scale-200.png'))
@@ -206,7 +217,7 @@ function Test-MotrixPriDump([string]$ManifestPath, [string]$DumpPath) {
   # Qualifiers belong to Candidate/QualifierSet, not a text substring in the dump
   # or the alternative Basic dump's qualifiers attribute.
   $dump = Read-SafeXmlDocument $DumpPath
-  if ($dump.DocumentElement.LocalName -cne 'PriInfo' -or
+  if ($dump.get_DocumentElement().get_LocalName() -cne 'PriInfo' -or
       @($dump.SelectNodes('//*[namespace-uri() != ""]')).Count -ne 0) {
     throw 'Expected a namespace-free MakePri Detailed PriInfo dump'
   }
@@ -225,10 +236,10 @@ function Test-MotrixPriDump([string]$ManifestPath, [string]$DumpPath) {
   foreach ($resource in $resources) {
     $segments = [Collections.Generic.List[string]]::new()
     $segments.Add($resource.GetAttribute('name'))
-    $parent = $resource.ParentNode
-    while ($parent -is [Xml.XmlElement] -and $parent.LocalName -ceq 'ResourceMapSubtree') {
+    $parent = $resource.get_ParentNode()
+    while ($parent -is [Xml.XmlElement] -and $parent.get_LocalName() -ceq 'ResourceMapSubtree') {
       $segments.Insert(0, $parent.GetAttribute('name'))
-      $parent = $parent.ParentNode
+      $parent = $parent.get_ParentNode()
     }
     $logicalName = $segments -join '/'
     if (-not [object]::ReferenceEquals($parent, $maps[0]) -or
@@ -256,7 +267,7 @@ function Test-MotrixPriDump([string]$ManifestPath, [string]$DumpPath) {
         @($candidate.SelectNodes('./*')).Count -ne 2) {
       throw "PRI image must have only the Scale=200 qualifier and one literal Value: $logicalName"
     }
-    $candidatePath = $values[0].InnerText.Replace('\', '/')
+    $candidatePath = $values[0].get_InnerText().Replace('\', '/')
     if ($candidatePath -ine $expectedPaths[$logicalName]) {
       throw "PRI candidate does not point to the expected scale-200 asset: $logicalName"
     }
@@ -396,5 +407,15 @@ function Invoke-WindowsStoreSdkTest([string]$PreparedPath, [string]$SdkPath) {
 # Dot-sourcing with explicit arguments exposes the XML/PRI helpers for tests
 # without invoking the Windows-only runner or any SDK process.
 if ($MyInvocation.InvocationName -ne '.') {
-  Invoke-WindowsStoreSdkTest $PreparedDirectory $SdkBinDirectory
+  try {
+    Invoke-WindowsStoreSdkTest $PreparedDirectory $SdkBinDirectory
+  } catch {
+    # PowerShell's default concise error view can show only the outer invocation.
+    # Keep the original internal location and stack visible in Windows CI logs.
+    $details = Get-WindowsStoreErrorDetails $_
+    Write-Host "Windows SDK smoke failed: $($details.message)"
+    Write-Host $details.position
+    Write-Host $details.scriptStackTrace
+    throw
+  }
 }

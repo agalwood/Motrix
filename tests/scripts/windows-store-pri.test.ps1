@@ -72,7 +72,7 @@ $cases = @(
     xmlException = $false
     mutate = {
       param([Xml.XmlDocument]$Document)
-      $Document.SelectSingleNode('(//NamedResource/Candidate/Value)[1]').InnerText = 'Assets\Unexpected.scale-200.png'
+      $Document.SelectSingleNode('(//NamedResource/Candidate/Value)[1]').set_InnerText('Assets\Unexpected.scale-200.png')
     }
   },
   @{
@@ -82,7 +82,7 @@ $cases = @(
     mutate = {
       param([Xml.XmlDocument]$Document)
       $candidate = $Document.SelectSingleNode('(//NamedResource/Candidate)[1]')
-      [void]$candidate.ParentNode.AppendChild($candidate.CloneNode($true))
+      [void]$candidate.get_ParentNode().AppendChild($candidate.CloneNode($true))
     }
   },
   @{
@@ -92,7 +92,7 @@ $cases = @(
     mutate = {
       param([Xml.XmlDocument]$Document)
       $resource = $Document.SelectSingleNode('(//NamedResource)[1]')
-      [void]$resource.ParentNode.RemoveChild($resource)
+      [void]$resource.get_ParentNode().RemoveChild($resource)
     }
   },
   @{
@@ -104,7 +104,7 @@ $cases = @(
       $resources = @($Document.SelectNodes('//NamedResource'))
       # Replace a different resource rather than appending: retain four resources
       # and four candidates so this exercises duplicate-name detection itself.
-      [void]$resources[1].ParentNode.ReplaceChild($resources[0].CloneNode($true), $resources[1])
+      [void]$resources[1].get_ParentNode().ReplaceChild($resources[0].CloneNode($true), $resources[1])
     }
   },
   @{
@@ -125,7 +125,7 @@ $cases = @(
       # A well-formed internal DTD, with no external URL or file access. The
       # parser must reject the declaration even though no entity is referenced.
       $doctype = $Document.CreateDocumentType('PriInfo', $null, $null, '<!ENTITY motrixTest "unused">')
-      [void]$Document.InsertBefore($doctype, $Document.DocumentElement)
+      [void]$Document.InsertBefore($doctype, $Document.get_DocumentElement())
     }
   }
 )
@@ -133,6 +133,7 @@ $cases = @(
 $checks = [Collections.Generic.List[object]]::new()
 $sourceHashes = @{}
 $failure = $null
+$failureDetails = $null
 $temporaryDirectory = $null
 $temporaryCreated = $false
 $temporaryFilesRemoved = $false
@@ -174,12 +175,13 @@ try {
     $copy = Read-SafeXmlDocument $sourceDump
     & $case.mutate $copy | Out-Null
     $mutatedPath = Join-Path $temporaryDirectory ($case.name + '.pri.xml')
-    Write-NewText $mutatedPath $copy.OuterXml
+    Write-NewText $mutatedPath $copy.get_OuterXml()
     Assert-PriMutationRejected $case.name $manifest $mutatedPath $case.prefix $case.xmlException
     $checks.Add([ordered]@{ name = $case.name; ok = $true; rejected = $true })
   }
 } catch {
   $failure = $_.Exception.Message
+  $failureDetails = Get-WindowsStoreErrorDetails $_
 } finally {
   try {
     foreach ($path in $sourceHashes.Keys) {
@@ -190,6 +192,7 @@ try {
     $sourceFilesUnchanged = $sourceHashes.Count -eq 4
   } catch {
     $failure = "Original evidence verification failed: $($_.Exception.Message)"
+    $failureDetails = Get-WindowsStoreErrorDetails $_
   }
   try {
     if ($temporaryCreated) {
@@ -198,6 +201,7 @@ try {
     $temporaryFilesRemoved = $true
   } catch {
     $failure = "Temporary test cleanup failed: $($_.Exception.Message)"
+    $failureDetails = Get-WindowsStoreErrorDetails $_
   }
 }
 
@@ -211,6 +215,9 @@ $result = [ordered]@{
   temporaryFilesRemoved = $temporaryFilesRemoved
   sdkCommandsExecutedByTests = $false
 }
-if ($null -ne $failure) { $result.error = $failure }
+if ($null -ne $failure) {
+  $result.error = $failure
+  $result.diagnostics = $failureDetails
+}
 $result | ConvertTo-Json -Depth 8 -Compress
 if ($null -ne $failure) { throw $failure }

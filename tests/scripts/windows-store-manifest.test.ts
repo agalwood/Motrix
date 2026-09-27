@@ -216,7 +216,7 @@ describe('Windows Store PRI config renderer', () => {
     ['test', testMetadata(), '200'],
     ['store', storeMetadata(), '100'],
   ])(
-    'limits %s indexing to Assets with the intended fallback scale',
+    'indexes the isolated %s asset root with the intended fallback scale',
     (_profile, input, scale) => {
       const xml = renderWindowsStorePriConfig(input)
       const document = parseXml(xml)
@@ -231,7 +231,7 @@ describe('Windows Store PRI config renderer', () => {
       expect(index).toHaveLength(1)
       expect(attributes(index[0])).toEqual({
         root: '\\',
-        startIndexAt: 'Assets',
+        startIndexAt: '\\',
       })
       expect(
         Array.from(document.getElementsByTagName('qualifier'), attributes)

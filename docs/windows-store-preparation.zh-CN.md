@@ -54,6 +54,10 @@ node scripts/verify-windows-store-source.mjs --repo-root . --metadata /path/to/r
 请使用完整、干净的 checkout，不要包含 Git replacement refs、grafts、隐藏的索引
 改动、自定义 clean/process filters 或子模块。被忽略的构建输出可以保留。
 
+校验器忽略 global/system Git 配置。创建新的 Windows 构建 checkout 时，使用
+`git clone --config core.autocrlf=false <repository> <new-directory>`，避免检出
+内容依赖机器的全局 CRLF 转换设置。Store CI 已在 checkout 之前设置该选项。
+
 本地报告通过**不能证明**远端 refs 是最新状态、tag 已受保护，或已有应用 bundle
 确实由该源码构建。这些检查仍由发布工作流及候选验证负责。
 
@@ -135,7 +139,8 @@ priconfig.xml
 manifest 只包含一个具有包身份的桌面应用和 `runFullTrust`。协议、文件关联、
 StartupTask 与 native-host alias 声明等待对应运行时实现。当前配置的 Windows
 阈值为 10.0.19045.0，并非 Windows 兼容性实测结论。现有四张图片按 scale-200
-资源命名，manifest 引用逻辑路径；PRI 配置只索引资产目录。该命令**不会生成**
+资源命名，manifest 引用逻辑路径；PRI 配置从仅含 `Assets/` 的独立
+`pri-root` 根目录开始索引，保留逻辑资源名中的 `Assets/` 层级。该命令**不会生成**
 `resources.pri` 或 AppX，仍需 Windows SDK 资源解析和打包/解包验证。
 
 目前拒绝装配 Store profile：生产资产变体和包集成尚未完成。测试布局只应用于隔离

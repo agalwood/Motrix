@@ -90,8 +90,9 @@ export function renderWindowsStoreManifest(rawMetadata) {
 }
 
 /**
- * The MakePri project root must contain Assets/. Keep that root as the resource
- * reference base while limiting traversal to Assets, excluding the app payload.
+ * Index the isolated PRI project root, which contains only Assets/. Starting
+ * inside Assets strips that segment from the logical names; indexing the root
+ * preserves Files/Assets/* references without traversing the app payload.
  * No packaging element means no automatic Language/Scale resource-package split.
  * Store's scale-100 default does not create the missing production asset variants.
  * https://learn.microsoft.com/windows/uwp/app-resources/makepri-exe-configuration
@@ -101,7 +102,7 @@ export function renderWindowsStorePriConfig(rawMetadata) {
   const scale = metadata.profile === 'test' ? '200' : '100'
   return String.raw`<?xml version="1.0" encoding="utf-8"?>
 <resources targetOsVersion="10.0.0" majorVersion="1">
-  <index root="\" startIndexAt="Assets">
+  <index root="\" startIndexAt="\">
     <default>
       <qualifier name="Language" value="en-US" />
       <qualifier name="Scale" value="${scale}" />

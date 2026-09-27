@@ -62,6 +62,11 @@ verifier performs no network operations. Run against a clean, complete checkout
 without Git replacement refs, grafts, hidden index changes, custom clean/process
 filters, or submodules. Ignored build output is permitted.
 
+The verifier ignores global/system Git configuration. For a new Windows build
+checkout, use `git clone --config core.autocrlf=false <repository> <new-directory>`
+so checkout bytes do not depend on the runner's global CRLF conversion setting.
+The Store CI applies that setting before checkout.
+
 A successful local report does **not** prove that remote refs are fresh, a tag
 is protected, or an existing application bundle was built from that source.
 Those checks still belong to the release workflow and candidate verification.
@@ -157,8 +162,9 @@ Protocol, file association, StartupTask, and native-host alias declarations
 await their runtime implementations. The configured Windows threshold is
 10.0.19045.0; this is not a Windows compatibility test result. The four existing
 images are scale-200 resources, referenced by logical paths in the manifest.
-The PRI configuration indexes only the asset directory. `resources.pri` and the
-AppX are **not generated** by this command; Windows SDK resource resolution and
+The PRI configuration indexes the isolated `pri-root` directory, which contains
+only `Assets/`, preserving the `Assets/` segment in logical resource names.
+`resources.pri` and the AppX are **not generated** by this command; Windows SDK resource resolution and
 pack/unpack verification remain required.
 
 Store profile layout preparation is currently rejected: production asset
