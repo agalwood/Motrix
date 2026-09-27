@@ -8,9 +8,10 @@ with one ephemeral non-exportable test key, installs A then upgrades to B for
 the current user, and runs the diagnostic alias before and after upgrade.
 At B, checks the Rust host's profile override refusal with live positive controls,
 then diagnostic Native Messaging in three branded browsers, followed by normal
-first-run UI and actual Rust endpoint discovery in the installed main application.
+first-run UI, actual Rust bootstrap, and synthetic MBP1 pairing/reconnect. A fixed
+registry helper observes package writes across A/B and after natural uninstall.
 No production certificates, PFX, timestamp, or policy changes are involved;
-no MBP1 or browser continuity across the upgrade is tested.
+no production-extension MBP1 or browser continuity across the upgrade is tested.
 #>
 [CmdletBinding()]
 param(
@@ -226,7 +227,7 @@ function Invoke-BoundedProgram([string]$Program, [string[]]$Arguments, [string]$
 function Test-AliasPresent {
   if (-not [IO.Directory]::Exists($aliasRoot)) { return $false }
   # Enumerating the parent also detects a dangling/zero-byte alias reparse point.
-  foreach ($name in @('motrix-store-p0-native-host.exe', 'motrix-store-p0-profile-host.exe', 'motrix-store-p0-main.exe')) {
+  foreach ($name in @('motrix-store-p0-registry.exe', 'motrix-store-p0-native-host.exe', 'motrix-store-p0-profile-host.exe', 'motrix-store-p0-main.exe')) {
     if (@([IO.Directory]::EnumerateFileSystemEntries($aliasRoot, $name)).Count -ne 0) { return $true }
   }
   return $false
@@ -287,6 +288,94 @@ function Assert-MainRuntimeReport([object]$Main, [string]$SourceCommit, [string]
   foreach ($name in @('hostStdoutBytes', 'anonymousBootstrapStdoutBytes', 'bootstrapStdoutBytes')) {
     if ($Main.runtime.$name -isnot [int] -or $Main.runtime.$name -lt 5 -or $Main.runtime.$name -gt 4100) { throw 'Invalid actual host output count.' }
   }
+}
+
+# Fixed test leaves only. The marker is public and is not a host manifest or credential.
+function Get-RegistryVisibilityState([switch]$Cleanup) {
+  $parents = @('Software\Google\Chrome\NativeMessagingHosts', 'Software\Microsoft\Edge\NativeMessagingHosts', 'Software\Mozilla\NativeMessagingHosts')
+  $brands = @('chrome', 'edge', 'firefox')
+  foreach ($view in @([Microsoft.Win32.RegistryView]::Registry32, [Microsoft.Win32.RegistryView]::Registry64)) {
+    $root = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, $view)
+    try {
+      for ($index = 0; $index -lt $parents.Count; $index++) {
+        $path = $parents[$index] + '\app.motrix.bridge.store.visibilityprobe'
+        $key = $root.OpenSubKey($path)
+        $present = $null -ne $key
+        $matches = $false
+        try {
+          if ($present) {
+            $matches = $key.SubKeyCount -eq 0 -and $key.ValueCount -eq 1 -and
+              $key.GetValueNames()[0] -ceq '' -and $key.GetValueKind('') -eq [Microsoft.Win32.RegistryValueKind]::String -and
+              $key.GetValue('', $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames) -ceq 'motrix-store-registry-visibility-v1'
+          }
+        } finally { if ($null -ne $key) { $key.Dispose() } }
+        if ($Cleanup -and $present) {
+          if (-not $matches) { throw 'Foreign registry probe contents prevent cleanup.' }
+          $root.DeleteSubKey($path, $true)
+        }
+        [pscustomobject]@{ view = $view.ToString(); browser = $brands[$index]; present = $present; matches = $matches }
+      }
+    } finally { $root.Dispose() }
+  }
+}
+
+function Get-RegistryVisibilityParents {
+  $paths = @('Software\Google', 'Software\Google\Chrome', 'Software\Google\Chrome\NativeMessagingHosts',
+    'Software\Microsoft', 'Software\Microsoft\Edge', 'Software\Microsoft\Edge\NativeMessagingHosts',
+    'Software\Mozilla', 'Software\Mozilla\NativeMessagingHosts')
+  foreach ($view in @([Microsoft.Win32.RegistryView]::Registry32, [Microsoft.Win32.RegistryView]::Registry64)) {
+    $root = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, $view)
+    try {
+      foreach ($path in $paths) {
+        $key = $root.OpenSubKey($path)
+        try { [pscustomobject]@{ view = $view; path = $path; present = $null -ne $key } }
+        finally { if ($null -ne $key) { $key.Dispose() } }
+      }
+    } finally { $root.Dispose() }
+  }
+}
+
+function Restore-RegistryVisibilityParents([object[]]$Before) {
+  foreach ($entry in @($Before | Sort-Object { $_.path.Length } -Descending)) {
+    if ($entry.present) { continue }
+    $root = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, $entry.view)
+    try {
+      $key = $root.OpenSubKey($entry.path)
+      if ($null -eq $key) { continue }
+      try {
+        if ($key.SubKeyCount -ne 0 -or $key.ValueCount -ne 0) { throw 'New registry parent has foreign contents; refusing removal.' }
+      } finally { $key.Dispose() }
+      $root.DeleteSubKey($entry.path, $true)
+    } finally { $root.Dispose() }
+  }
+  $after = @(Get-RegistryVisibilityParents)
+  if ($after.Count -ne $Before.Count) { throw 'Registry parent inventory changed.' }
+  for ($i = 0; $i -lt $after.Count; $i++) {
+    if ($after[$i].present -ne $Before[$i].present) { throw 'Registry parent state was not restored.' }
+  }
+}
+
+function Assert-RegistryVisibilityReply([object]$Value) {
+  $keys = @($Value.PSObject.Properties.Name | Sort-Object)
+  if (($keys -join ',') -cne 'matches,packageIdentityVerified,schemaVersion' -or
+      $Value.schemaVersion -isnot [int] -or $Value.schemaVersion -ne 1 -or @($Value.matches).Count -ne 6) {
+    throw 'Registry helper reply has an invalid shape.'
+  }
+  Assert-True $Value.packageIdentityVerified 'Registry helper package identity is not verified.'
+  foreach ($match in $Value.matches) { Assert-True $match 'Registry value was not retained inside the package.' }
+}
+
+function Test-PackageRegistryVisibility([object]$PackageInput, [ValidateSet('write', 'read')][string]$Action) {
+  Confirm-InstalledPackage $PackageInput
+  $installed = @(Get-CurrentTestPackages)[0]
+  $relative = 'diagnostics\motrix-store-p0-registry.exe'
+  $expectedHash = Get-Hash (Join-Path (Join-Path $PackageInput.Prepared 'layout') $relative)
+  if ((Get-Hash (Join-Path $installed.InstallLocation $relative)) -cne $expectedHash) { throw 'Installed registry helper differs from verified package.' }
+  $text = Invoke-BoundedProgram (Join-Path $aliasRoot 'motrix-store-p0-registry.exe') @($Action) ("registry-" + $Action + '-' + $PackageInput.Label)
+  $value = $text | ConvertFrom-Json
+  Assert-RegistryVisibilityReply $value
+  Confirm-InstalledPackage $PackageInput
+  return [ordered]@{ insidePackageMatches = @($value.matches); helperSha256 = $expectedHash; outside = @(Get-RegistryVisibilityState) }
 }
 
 function Get-CurrentTestPackages {
@@ -665,6 +754,8 @@ $browserAttempted = $false
 $browserReportPath = Join-Path (Join-Path $OutputDirectory 'browser') 'browser-report.json'
 $mainAttempted = $false
 $mainReportPath = Join-Path $OutputDirectory 'main-runtime-report.json'
+$registryAttempted = $false
+$registryParents = @()
 $profileAttempted = $false
 $profileReportPath = Join-Path $OutputDirectory 'native-host-profile-report.json'
 try {
@@ -721,6 +812,12 @@ try {
   if (@(Get-AppxPackage -AllUsers -Name 'Motrix.Store.Test' -ErrorAction Stop).Count -ne 0 -or (Test-AliasPresent)) {
     throw 'An existing test package or diagnostic alias prevents this experiment.'
   }
+  $report.registryVisibility = [ordered]@{
+    scope = 'fixed-test-leaf-default-virtualization'; productionRegistrationVerified = $false
+    before = @(Get-RegistryVisibilityState)
+  }
+  if (@($report.registryVisibility.before | Where-Object { $_.present }).Count -ne 0) { throw 'Existing registry probe leaves prevent this experiment.' }
+  $registryParents = @(Get-RegistryVisibilityParents)
   Complete-Phase $stage
   $stage = 'create-test-certificate'
   # Publisher/EKU/end-entity requirements:
@@ -758,6 +855,11 @@ try {
   Test-InstalledAlias $packageInputs.a
   Complete-Phase $stage
 
+  $stage = 'registry-write-a'
+  $registryAttempted = $true
+  $report.registryVisibility.a = Test-PackageRegistryVisibility $packageInputs.a 'write'
+  Complete-Phase $stage
+
   # Add B directly over A. Never uninstall A between the two alias checks and
   # never launch the main Application; only the diagnostic checker is invoked.
   $stage = 'upgrade-b'
@@ -769,6 +871,9 @@ try {
   Complete-Phase $stage
   $stage = 'alias-b'
   Test-InstalledAlias $packageInputs.b
+  Complete-Phase $stage
+  $stage = 'registry-read-b'
+  $report.registryVisibility.b = Test-PackageRegistryVisibility $packageInputs.b 'read'
   Complete-Phase $stage
   $stage = 'verify-upgrade-retargeting'
   $before = $packageInputs.a
@@ -888,6 +993,18 @@ try {
     }
     Invoke-CleanupCheck 'diagnostic-alias-removed' {
       if (Test-AliasPresent) { throw 'Diagnostic alias remains after package removal.' }
+    }
+  }
+  if ($registryAttempted) {
+    Invoke-CleanupCheck 'registry-natural-uninstall-observation' {
+      if (@(Get-CurrentTestPackages).Count -ne 0) { throw 'Cannot observe uninstall before test packages are absent.' }
+      $report.registryVisibility.afterNaturalUninstall = @(Get-RegistryVisibilityState)
+    }
+    Invoke-CleanupCheck 'registry-owned-leaves-cleanup' {
+      $null = Get-RegistryVisibilityState -Cleanup
+      if (@(Get-RegistryVisibilityState | Where-Object { $_.present }).Count -ne 0) { throw 'Registry probe leaves remain.' }
+      Restore-RegistryVisibilityParents $registryParents
+      $report.registryVisibility.outsideCleanupVerified = $true
     }
   }
   if ($trustImportAttempted) {

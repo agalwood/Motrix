@@ -6,6 +6,7 @@ import {
   WINDOWS_STORE_MAIN_DIAGNOSTIC,
   WINDOWS_STORE_NATIVE_HOST_PROFILE_DIAGNOSTIC,
   WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC,
+  WINDOWS_STORE_REGISTRY_DIAGNOSTIC,
 } from './windows-store-metadata.mjs'
 
 // These checked-in PNGs are scale-200 assets, despite their unqualified names.
@@ -99,6 +100,11 @@ export function renderWindowsStoreManifest(rawMetadata) {
         profile,
         profile.executable.replaceAll('/', '\\'),
         'Motrix Native Host PROFILE TEST'
+      ) +
+      consoleApplication(
+        WINDOWS_STORE_REGISTRY_DIAGNOSTIC,
+        WINDOWS_STORE_REGISTRY_DIAGNOSTIC.executable.replaceAll('/', '\\'),
+        'Motrix Registry VISIBILITY TEST'
       )
     : ''
 

@@ -8,6 +8,7 @@ import { verifyWindowsStorePayload } from './verify-windows-store-payload.mjs'
 import {
   loadPreparedWindowsStoreDiagnostic,
   WINDOWS_STORE_DIAGNOSTIC_BUILD_REPORT,
+  WINDOWS_STORE_REGISTRY_BUILD_REPORT,
 } from './windows-store-diagnostics.mjs'
 import {
   renderWindowsStoreManifest,
@@ -325,7 +326,9 @@ export async function verifyWindowsStoreLayout({
     'AppxManifest.xml',
     ...assets.map((asset) => asset.path),
     ...payload.inventory.physicalFiles.map((file) => `app/${file.path}`),
-    ...(diagnostic ? [diagnostic.executable.path] : []),
+    ...(diagnostic
+      ? [diagnostic.executable.path, diagnostic.registry.executable.path]
+      : []),
   ]
   const indexedFiles = phase === 'prepared' ? [] : ['resources.pri']
   if (
@@ -334,7 +337,12 @@ export async function verifyWindowsStoreLayout({
         preparedTree,
         [
           ...PREPARATION_FILES,
-          ...(diagnostic ? [WINDOWS_STORE_DIAGNOSTIC_BUILD_REPORT] : []),
+          ...(diagnostic
+            ? [
+                WINDOWS_STORE_DIAGNOSTIC_BUILD_REPORT,
+                WINDOWS_STORE_REGISTRY_BUILD_REPORT,
+              ]
+            : []),
           ...assets.map((asset) => `pri-root/${asset.path}`),
           ...staticFiles.concat(indexedFiles).map((file) => `layout/${file}`),
         ],

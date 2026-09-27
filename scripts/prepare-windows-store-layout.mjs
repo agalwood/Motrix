@@ -15,6 +15,7 @@ import {
   loadPreparedWindowsStoreDiagnostic,
   loadWindowsStoreDiagnostic,
   WINDOWS_STORE_DIAGNOSTIC_BUILD_REPORT,
+  WINDOWS_STORE_REGISTRY_BUILD_REPORT,
 } from './windows-store-diagnostics.mjs'
 import {
   renderWindowsStoreManifest,
@@ -161,6 +162,16 @@ export async function prepareWindowsStoreLayout({
     await writeFile(
       path.join(output, WINDOWS_STORE_DIAGNOSTIC_BUILD_REPORT),
       diagnostic.buildReportBytes,
+      { flag: 'wx' }
+    )
+    await writeFile(
+      path.join(layout, diagnostic.record.registry.executable.path),
+      diagnostic.registryExecutableBytes,
+      { flag: 'wx' }
+    )
+    await writeFile(
+      path.join(output, WINDOWS_STORE_REGISTRY_BUILD_REPORT),
+      diagnostic.registryBuildReportBytes,
       { flag: 'wx' }
     )
     const copied = await loadPreparedWindowsStoreDiagnostic({

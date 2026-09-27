@@ -167,7 +167,7 @@ function New-ContractFixture {
 
 function Test-ContractCase(
   [string]$Name,
-  [ValidateSet('pair', 'transition', 'alias', 'browser', 'browser-cleanup', 'profile', 'main')][string]$Contract,
+  [ValidateSet('pair', 'transition', 'alias', 'browser', 'browser-cleanup', 'profile', 'main', 'registry')][string]$Contract,
   [bool]$Reject = $false,
   [scriptblock]$Mutate = {}
 ) {
@@ -178,6 +178,7 @@ function Test-ContractCase(
   $rejected = $false
   try {
     switch ($Contract) {
+      'registry' { Assert-RegistryVisibilityReply $fixture.Registry }
       'main' { Assert-MainRuntimeReport $fixture.Main $fixture.SourceCommit $fixture.B.Version ('e' * 64) ('f' * 64) ('a' * 64) }
       'profile' { Assert-NativeHostProfileReport $fixture.Profile $fixture.SourceCommit $fixture.B.Version ('e' * 64) }
       'pair' { Assert-UpgradeInputs $fixture.A $fixture.B }
@@ -202,7 +203,7 @@ try {
   $ast = [Management.Automation.Language.Parser]::ParseFile($runtimePath, [ref]$tokens, [ref]$parseErrors)
   if (@($parseErrors).Count -ne 0) { throw 'Runtime source has parser errors.' }
   $definitions = @(
-    foreach ($name in @('Assert-True', 'Assert-False', 'Assert-UpgradeInputs', 'Assert-UpgradeRetargeting', 'Assert-AliasReport', 'Assert-BrowserCleanupReport', 'Assert-BrowserReport', 'Assert-NativeHostProfileReport', 'Assert-MainRuntimeReport')) {
+    foreach ($name in @('Assert-True', 'Assert-False', 'Assert-UpgradeInputs', 'Assert-UpgradeRetargeting', 'Assert-AliasReport', 'Assert-BrowserCleanupReport', 'Assert-BrowserReport', 'Assert-NativeHostProfileReport', 'Assert-MainRuntimeReport', 'Assert-RegistryVisibilityReply')) {
       $matching = @($ast.EndBlock.Statements | Where-Object {
         $_ -is [Management.Automation.Language.FunctionDefinitionAst] -and $_.Name -ceq $name
       })
@@ -244,6 +245,21 @@ try {
   Test-ContractCase 'main-rejects-callerless-ticket' 'main' $true { param($f) $f.Main.runtime.noCallerTicketlessVerified = $false }
   Test-ContractCase 'main-rejects-missing-ticket-pair' 'main' $true { param($f) $f.Main.runtime.bootstrapTicketProofVerified = $false }
   Test-ContractCase 'main-rejects-invalid-bootstrap-count' 'main' $true { param($f) $f.Main.runtime.bootstrapStdoutBytes = 0 }
+  Test-ContractCase 'registry-accepts-six-matches' 'registry' $false { param($f) $f | Add-Member Registry ([pscustomobject]@{schemaVersion=1;packageIdentityVerified=$true;matches=@($true,$true,$true,$true,$true,$true)}) }
+  foreach ($case in @('missing', 'false', 'string', 'extra', 'identity')) {
+    Test-ContractCase ("registry-rejects-" + $case) 'registry' $true {
+      param($f)
+      $value = [pscustomobject]@{schemaVersion=1;packageIdentityVerified=$true;matches=@($true,$true,$true,$true,$true,$true)}
+      switch ($case) {
+        'missing' { $value.matches = @($true) }
+        'false' { $value.matches[3] = $false }
+        'string' { $value.matches[2] = 'true' }
+        'extra' { $value | Add-Member unexpected 'withheld' }
+        'identity' { $value.packageIdentityVerified = $false }
+      }
+      $f | Add-Member Registry $value
+    }
+  }
   Test-ContractCase 'main-rejects-client-cleanup-failure' 'main' $true { param($f) $f.Main.mbp1ClientCleanupVerified = $false }
   Test-ContractCase 'main-rejects-unlabelled-synthetic-client' 'main' $true { param($f) $f.Main.syntheticMbp1Client = $false }
   Test-ContractCase 'main-rejects-pairing-failure' 'main' $true { param($f) $f.Main.runtime.mbp1TransportPairingVerified = $false }

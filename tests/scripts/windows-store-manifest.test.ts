@@ -15,6 +15,7 @@ import {
   WINDOWS_STORE_MAIN_DIAGNOSTIC,
   WINDOWS_STORE_NATIVE_HOST_PROFILE_DIAGNOSTIC,
   WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC,
+  WINDOWS_STORE_REGISTRY_DIAGNOSTIC,
   WINDOWS_STORE_TEST_IDENTITY,
 } from '../../scripts/windows-store-metadata.mjs'
 import windowsPackage from '../../src/shared/config/windows-package.json'
@@ -407,6 +408,7 @@ describe('test Native Messaging diagnostic manifest', () => {
       'Motrix',
       diagnostic.applicationId,
       WINDOWS_STORE_NATIVE_HOST_PROFILE_DIAGNOSTIC.applicationId,
+      WINDOWS_STORE_REGISTRY_DIAGNOSTIC.applicationId,
     ])
     const mainExtension = element(applications[0], UAP5, 'Extension')
     expect(attributes(mainExtension)).toEqual({
@@ -439,6 +441,7 @@ describe('test Native Messaging diagnostic manifest', () => {
     for (const [index, declaration] of [
       diagnostic,
       WINDOWS_STORE_NATIVE_HOST_PROFILE_DIAGNOSTIC,
+      WINDOWS_STORE_REGISTRY_DIAGNOSTIC,
     ].entries()) {
       const helper = applications[index + 1]
       const executable = declaration.executable.replaceAll('/', '\\')
@@ -465,7 +468,9 @@ describe('test Native Messaging diagnostic manifest', () => {
         DisplayName:
           index === 0
             ? 'Motrix Native Messaging PROBE'
-            : 'Motrix Native Host PROFILE TEST',
+            : index === 1
+              ? 'Motrix Native Host PROFILE TEST'
+              : 'Motrix Registry VISIBILITY TEST',
         Description: 'Test-only Native Messaging diagnostic',
         AppListEntry: 'none',
         BackgroundColor: 'transparent',

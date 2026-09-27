@@ -262,6 +262,7 @@ profile、endpoint、凭据或注册表，不启动 Motrix。该程序不进入�
 ```powershell
 $probeOutput = Join-Path $env:TEMP 'motrix-store-native-messaging-probe'
 ./scripts/build-windows-store-native-messaging-probe.ps1 -OutputDirectory $probeOutput
+./scripts/build-windows-store-native-messaging-probe.ps1 -Kind registry -OutputDirectory (Join-Path $probeOutput 'registry')
 ./tests/scripts/windows-store-native-messaging-probe.test.ps1 -ProbePath (Join-Path $probeOutput 'motrix-store-p0-probe.exe') -ReportPath (Join-Path $probeOutput 'direct-stdio-report.json')
 ```
 
@@ -303,9 +304,21 @@ checkout 关联，复制后再次核对字节。`diagnostic-build-report.json` �
 `diagnostics/motrix-store-p0-probe.exe`。Electron payload 保持原样，仍拒绝未声明的
 EXE。第二个隐藏应用 `MotrixNativeHost` 通过仅用于测试的
 `motrix-store-p0-profile-host.exe` alias 指向已有的
-`app/resources/bin/motrix-native-host.exe`。两个 helper 复用现有图标。
+`app/resources/bin/motrix-native-host.exe`。另一个仅用于诊断的 `MotrixRegistryP0` 应用通过
+`motrix-store-p0-registry.exe` alias 运行独立的固定用途注册表探针。
+这些 helper 复用现有图标。
 prepared、indexed、unpacked 检查均要求精确的附加文件和 manifest，
-SDK 会依据相同的四个 PRI 资源检查三个应用的引用。
+SDK 会依据相同的四个 PRI 资源检查四个应用的引用。
+
+注册表探针仅在固定测试包身份和 helper AUMID 下操作三个浏览器的 HKCU
+`NativeMessagingHosts\app.motrix.bridge.store.visibilityprobe` 测试叶子键。
+它写入公开标记，不是可供浏览器使用的 host manifest。A 包写入，B 包读取；
+包外控制器分别观察 32/64 位视图，并在系统卸载后、主动清理前记录残留。
+清理仅删除仍与标记精确匹配且没有额外内容的测试叶子键，再恢复本次新建且
+仍为空的固定父键。已有测试键会阻止实验。报告不预设可见性结果，
+`productionRegistrationVerified` 始终为 false；该实验不证明真实浏览器能连接，
+也不证明包内私有注册表已完全删除。编译报告 `registry-build-report.json`
+及实际探针字节纳入布局摘要校验。正式包不包含该入口，也不添加虚拟化排除权限。
 
 升级到 B 后，hosted CI 使用 `allowLaunch:false` 调用实际 Rust host。
 临时 loopback 测试服务必须在 alias 案例前后都能被无包身份 EXE 通过桥接目录覆盖访问。

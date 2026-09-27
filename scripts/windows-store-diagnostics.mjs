@@ -5,12 +5,14 @@ import path from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
 import {
   WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC as DIAGNOSTIC,
+  WINDOWS_STORE_REGISTRY_DIAGNOSTIC as REGISTRY,
   validateWindowsStoreMetadata,
 } from './windows-store-metadata.mjs'
 
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex')
 export const WINDOWS_STORE_DIAGNOSTIC_BUILD_REPORT =
   'diagnostic-build-report.json'
+export const WINDOWS_STORE_REGISTRY_BUILD_REPORT = 'registry-build-report.json'
 
 function requireDiagnostic(raw) {
   const { metadata } = validateWindowsStoreMetadata(raw)
@@ -117,8 +119,10 @@ export function inspectWindowsStoreDiagnostic({
   executableBytes,
   buildReportBytes,
   sourceBytes,
+  registry = false,
 }) {
   const metadata = requireDiagnostic(raw)
+  const descriptor = registry ? REGISTRY : DIAGNOSTIC
   requireConsoleExecutable(executableBytes)
   if (!Buffer.isBuffer(buildReportBytes) || buildReportBytes.length > 16 * 1024)
     throw new Error('Diagnostic build report must be bounded JSON')
@@ -133,13 +137,15 @@ export function inspectWindowsStoreDiagnostic({
   const executableHash = digest(executableBytes)
   const expected = {
     schemaVersion: 1,
-    scope: 'windows-native-messaging-probe-build',
+    scope: registry
+      ? 'windows-registry-visibility-probe-build'
+      : 'windows-native-messaging-probe-build',
     ok: true,
     compiled: true,
     compiler: 'Windows .NET Framework64 csc',
-    source: { path: DIAGNOSTIC.source, sha256: sourceHash },
+    source: { path: descriptor.source, sha256: sourceHash },
     executable: {
-      path: path.posix.basename(DIAGNOSTIC.executable),
+      path: path.posix.basename(descriptor.executable),
       bytes: executableBytes.length,
       sha256: executableHash,
       peMachine: '0x8664',
@@ -161,11 +167,11 @@ export function inspectWindowsStoreDiagnostic({
     mode: DIAGNOSTIC.mode,
     source: {
       commit: metadata.source.commit,
-      path: DIAGNOSTIC.source,
+      path: descriptor.source,
       sha256: sourceHash,
     },
     executable: {
-      path: DIAGNOSTIC.executable,
+      path: descriptor.executable,
       bytes: executableBytes.length,
       sha256: executableHash,
     },
@@ -176,7 +182,7 @@ export function inspectWindowsStoreDiagnostic({
   }
 }
 
-/** Read only the two fixed build inputs and bind their report to the checked source. */
+/** Read the fixed probe build inputs and bind their reports to the checked source. */
 export async function loadWindowsStoreDiagnostic({
   repoRoot,
   probeBuildDirectory,
@@ -212,10 +218,34 @@ export async function loadWindowsStoreDiagnostic({
     buildReportBytes,
     sourceBytes,
   })
+  const registryExecutableBytes = await readRegular(
+    probeBuildDirectory,
+    `registry/${path.posix.basename(REGISTRY.executable)}`,
+    1024 * 1024
+  )
+  const registryBuildReportBytes = await readRegular(
+    probeBuildDirectory,
+    'registry/build-report.json',
+    16 * 1024
+  )
+  const registrySourceBytes = await readRegular(
+    repoRoot,
+    REGISTRY.source,
+    1024 * 1024
+  )
+  record.registry = inspectWindowsStoreDiagnostic({
+    metadata,
+    registry: true,
+    executableBytes: registryExecutableBytes,
+    buildReportBytes: registryBuildReportBytes,
+    sourceBytes: registrySourceBytes,
+  })
   return {
     directory: await realpath(probeBuildDirectory),
     executableBytes,
     buildReportBytes,
+    registryExecutableBytes,
+    registryBuildReportBytes,
     record,
   }
 }
@@ -236,9 +266,24 @@ export async function loadPreparedWindowsStoreDiagnostic({
     WINDOWS_STORE_DIAGNOSTIC_BUILD_REPORT,
     16 * 1024
   )
-  return inspectWindowsStoreDiagnostic({
+  const record = inspectWindowsStoreDiagnostic({
     metadata,
     executableBytes,
     buildReportBytes,
   })
+  record.registry = inspectWindowsStoreDiagnostic({
+    metadata,
+    registry: true,
+    executableBytes: await readRegular(
+      layoutDirectory,
+      REGISTRY.executable,
+      1024 * 1024
+    ),
+    buildReportBytes: await readRegular(
+      preparedDirectory,
+      WINDOWS_STORE_REGISTRY_BUILD_REPORT,
+      16 * 1024
+    ),
+  })
+  return record
 }

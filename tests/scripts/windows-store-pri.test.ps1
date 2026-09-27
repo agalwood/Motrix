@@ -60,7 +60,7 @@ function Invoke-PriManifestCases([string]$Manifest, [string]$Dump, [string]$Temp
   $mode = 'native-messaging-probe-v1'
   $ordinary = Read-SafeXmlDocument $Manifest
   foreach ($application in @($ordinary.SelectNodes('//*[local-name()="Application"]'))) {
-    if ($application.GetAttribute('Id') -cin @('MotrixNativeHostP0', 'MotrixNativeHost')) {
+    if ($application.GetAttribute('Id') -cin @('MotrixNativeHostP0', 'MotrixNativeHost', 'MotrixRegistryP0')) {
       [void]$application.get_ParentNode().RemoveChild($application)
     }
   }
@@ -84,6 +84,10 @@ function Invoke-PriManifestCases([string]$Manifest, [string]$Dump, [string]$Temp
   $profileHelper.SetAttribute('Id', 'MotrixNativeHost')
   $profileHelper.SetAttribute('Executable', 'app\resources\bin\motrix-native-host.exe')
   [void]$main.get_ParentNode().AppendChild($profileHelper)
+  $registryHelper = $helper.CloneNode($true)
+  $registryHelper.SetAttribute('Id', 'MotrixRegistryP0')
+  $registryHelper.SetAttribute('Executable', 'diagnostics\motrix-store-p0-registry.exe')
+  [void]$main.get_ParentNode().AppendChild($registryHelper)
   $diagnosticPath = Join-Path $TemporaryDirectory 'diagnostic.manifest.xml'
   Write-NewText $diagnosticPath $diagnostic.get_OuterXml()
   # These manifest variants are XML fixtures derived from the actual manifest;
@@ -96,11 +100,11 @@ function Invoke-PriManifestCases([string]$Manifest, [string]$Dump, [string]$Temp
   }
   $checks.Add([ordered]@{ name = 'ordinary-single-application'; ok = $true; manifestFixture = $true })
   $diagnosticReport = Test-MotrixPriDump $diagnosticPath $Dump $mode
-  if (($diagnosticReport.applicationIds -join ',') -cne 'Motrix,MotrixNativeHostP0,MotrixNativeHost' -or
+  if (($diagnosticReport.applicationIds -join ',') -cne 'Motrix,MotrixNativeHostP0,MotrixNativeHost,MotrixRegistryP0' -or
       $diagnosticReport.testDiagnostics -cne $mode -or $diagnosticReport.images.Count -ne 4) {
-    throw 'Diagnostic manifest fixture did not validate all three applications with four images'
+    throw 'Diagnostic manifest fixture did not validate all four applications with four images'
   }
-  $checks.Add([ordered]@{ name = 'diagnostic-three-applications'; ok = $true; manifestFixture = $true })
+  $checks.Add([ordered]@{ name = 'diagnostic-four-applications'; ok = $true; manifestFixture = $true })
   $mutations = @(
     @{
       name = 'diagnostic-wrong-rust-executable'; diagnostic = $true; mode = $mode; prefix = 'Unexpected manifest Application identity or executable:'

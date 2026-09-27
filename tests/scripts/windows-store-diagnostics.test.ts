@@ -17,7 +17,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { prepareWindowsStoreLayout } from '../../scripts/prepare-windows-store-layout.mjs'
 import { verifyWindowsStoreLayout } from '../../scripts/verify-windows-store-layout.mjs'
 import { verifyWindowsStorePayload } from '../../scripts/verify-windows-store-payload.mjs'
-import { WINDOWS_STORE_TEST_IDENTITY } from '../../scripts/windows-store-metadata.mjs'
+import {
+  WINDOWS_STORE_REGISTRY_DIAGNOSTIC as REGISTRY,
+  WINDOWS_STORE_TEST_IDENTITY,
+} from '../../scripts/windows-store-metadata.mjs'
 import {
   createWindowsStorePayloadFixture,
   payloadFixtureSha256 as hash,
@@ -81,6 +84,7 @@ async function fixture() {
   })
   await mkdir(path.dirname(path.join(repoRoot, SOURCE)), { recursive: true })
   await cp(path.resolve(SOURCE), path.join(repoRoot, SOURCE))
+  await cp(path.resolve(REGISTRY.source), path.join(repoRoot, REGISTRY.source))
   git(repoRoot, 'add', '.')
   git(repoRoot, 'commit', '-m', 'fixed diagnostic source fixture')
   const probeBuildDirectory = path.join(payload.root, 'probe-build')
@@ -114,6 +118,27 @@ async function fixture() {
   await writeFile(
     path.join(probeBuildDirectory, 'build-report.json'),
     JSON.stringify(buildReport)
+  )
+  const registryBuild = path.join(probeBuildDirectory, 'registry')
+  await mkdir(registryBuild)
+  await writeFile(
+    path.join(registryBuild, path.basename(REGISTRY.executable)),
+    executable
+  )
+  await writeFile(
+    path.join(registryBuild, 'build-report.json'),
+    JSON.stringify({
+      ...buildReport,
+      scope: 'windows-registry-visibility-probe-build',
+      source: {
+        path: REGISTRY.source,
+        sha256: hash(await readFile(path.join(repoRoot, REGISTRY.source))),
+      },
+      executable: {
+        ...buildReport.executable,
+        path: path.basename(REGISTRY.executable),
+      },
+    })
   )
   return {
     root: payload.root,
@@ -254,6 +279,7 @@ describe('Windows Store diagnostic layout contract', () => {
       ).toEqual(originalReport)
       expect(await readdir(path.join(baseline(input), 'diagnostics'))).toEqual([
         EXECUTABLE,
+        path.basename(REGISTRY.executable),
       ])
       const manifest = await readFile(
         path.join(baseline(input), 'AppxManifest.xml'),
@@ -284,6 +310,36 @@ describe('Windows Store diagnostic layout contract', () => {
       })
       expect(JSON.stringify(report)).not.toContain(input.root)
       expect(git(input.repoRoot, 'status', '--porcelain')).toBe('')
+    }
+  )
+
+  it.each(['registry executable', 'registry source', 'registry report'])(
+    'rejects changed %s before preparing a package',
+    async (which) => {
+      const input = await fixture()
+      if (which === 'registry executable') {
+        const target = path.join(
+          input.probeBuildDirectory,
+          'registry',
+          path.basename(REGISTRY.executable)
+        )
+        const bytes = await readFile(target)
+        bytes[bytes.length - 1] ^= 1
+        await writeFile(target, bytes)
+      } else if (which === 'registry source') {
+        await writeFile(
+          path.join(input.repoRoot, REGISTRY.source),
+          '// changed source'
+        )
+      } else {
+        await editJson(
+          path.join(input.probeBuildDirectory, 'registry/build-report.json'),
+          (record) => {
+            record.scope = 'windows-native-messaging-probe-build'
+          }
+        )
+      }
+      await expect(prepareWindowsStoreLayout(input)).rejects.toThrow()
     }
   )
 

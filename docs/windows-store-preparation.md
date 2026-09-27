@@ -313,6 +313,7 @@ To run the same process checks in PowerShell 7 on Windows, use a new directory:
 ```powershell
 $probeOutput = Join-Path $env:TEMP 'motrix-store-native-messaging-probe'
 ./scripts/build-windows-store-native-messaging-probe.ps1 -OutputDirectory $probeOutput
+./scripts/build-windows-store-native-messaging-probe.ps1 -Kind registry -OutputDirectory (Join-Path $probeOutput 'registry')
 ./tests/scripts/windows-store-native-messaging-probe.test.ps1 -ProbePath (Join-Path $probeOutput 'motrix-store-p0-probe.exe') -ReportPath (Join-Path $probeOutput 'direct-stdio-report.json')
 ```
 
@@ -358,11 +359,27 @@ The diagnostic manifest adds the hidden `MotrixNativeHostP0` application and
 `diagnostics/motrix-store-p0-probe.exe`. The Electron payload stays unchanged;
 it still rejects undeclared executables. A second hidden `MotrixNativeHost`
 application points to the existing `app/resources/bin/motrix-native-host.exe`
-through the test-only `motrix-store-p0-profile-host.exe` alias. Both helpers
+through the test-only `motrix-store-p0-profile-host.exe` alias. A further diagnostic-only `MotrixRegistryP0` application runs a separate fixed-purpose
+registry probe through `motrix-store-p0-registry.exe`. These helpers
 share the existing icons.
 The prepared, indexed, and unpacked checks require the exact extra file and
-manifest, and the SDK checks all three application references against the same four
+manifest, and the SDK checks all four application references against the same four
 PRI resources.
+
+The registry probe operates only under the fixed test package identity and helper
+AUMID, on the three browsers' HKCU
+`NativeMessagingHosts\app.motrix.bridge.store.visibilityprobe` test leaves. It
+writes a public marker, not a usable native-host manifest. A writes it and B
+reads it; the unpackaged controller observes both registry views and records
+residue after system uninstall, before active cleanup. Cleanup removes only
+exactly matching test leaves with no extra contents, then restores fixed parent
+keys created by this experiment only if they are still empty. Existing test
+leaves prevent the experiment. Visibility is an observation, not a presumed
+result; `productionRegistrationVerified` stays false. This does not prove a real
+browser connection or complete removal of package-private registry state.
+`registry-build-report.json` and the probe bytes participate in layout hash
+checks. Ordinary packages contain neither this entrypoint nor virtualization
+exclusion capabilities.
 
 After upgrading to B, hosted CI invokes the actual Rust host with
 `allowLaunch:false`. A temporary loopback fixture must be reachable through a

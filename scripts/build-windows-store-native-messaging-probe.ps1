@@ -1,9 +1,10 @@
 #Requires -Version 7.0
 <#
 .SYNOPSIS
-Compiles the fixed, test-only Native Messaging probe using Framework64 csc.
+Compiles a fixed, test-only diagnostic probe using Framework64 csc.
 .DESCRIPTION
-Creates a new directory containing only the console executable and its build
+Kind selects the stdio challenge or registry visibility entrypoint; neither
+accepts a caller-selected source. Creates a new directory with the executable and its build
 report. Does not package, install, register, or run the probe. The report contains
 relative names and hashes, never local absolute paths or compiler output.
 #>
@@ -11,7 +12,8 @@ relative names and hashes, never local absolute paths or compiler output.
 param(
   [Parameter(Mandatory = $true)]
   [ValidateNotNullOrEmpty()]
-  [string]$OutputDirectory
+  [string]$OutputDirectory,
+  [ValidateSet('native-messaging', 'registry')][string]$Kind = 'native-messaging'
 )
 
 Set-StrictMode -Version Latest
@@ -23,7 +25,11 @@ if (-not [Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([Runtime.Int
 
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 if (Test-Path -LiteralPath $output) { throw 'Use a new output directory' }
-$source = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../tests/fixtures/windows-store-native-messaging/stdio-probe.cs'))
+$sourceName = if ($Kind -eq 'registry') { 'registry-probe.cs' } else { 'stdio-probe.cs' }
+$executableName = if ($Kind -eq 'registry') { 'motrix-store-p0-registry.exe' } else { 'motrix-store-p0-probe.exe' }
+$scope = if ($Kind -eq 'registry') { 'windows-registry-visibility-probe-build' } else { 'windows-native-messaging-probe-build' }
+$sourceRelative = 'tests/fixtures/windows-store-native-messaging/' + $sourceName
+$source = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot ('../' + $sourceRelative)))
 $compiler = Join-Path $env:WINDIR 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
 foreach ($path in @($source, $compiler)) {
   $file = Get-Item -LiteralPath $path -Force -ErrorAction Stop
@@ -34,7 +40,7 @@ foreach ($path in @($source, $compiler)) {
 }
 $sourceHash = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant()
 New-Item -ItemType Directory -Path $output -ErrorAction Stop | Out-Null
-$executable = Join-Path $output 'motrix-store-p0-probe.exe'
+$executable = Join-Path $output $executableName
 $start = [Diagnostics.ProcessStartInfo]::new()
 $start.FileName = $compiler
 $start.UseShellExecute = $false
@@ -94,13 +100,13 @@ if ($machine -ne 0x8664 -or $magic -ne 0x020b -or $subsystem -ne 3 -or
 }
 $report = [ordered]@{
   schemaVersion = 1
-  scope = 'windows-native-messaging-probe-build'
+  scope = $scope
   ok = $true
   compiled = $true
   compiler = 'Windows .NET Framework64 csc'
-  source = [ordered]@{ path = 'tests/fixtures/windows-store-native-messaging/stdio-probe.cs'; sha256 = $sourceHash }
+  source = [ordered]@{ path = $sourceRelative; sha256 = $sourceHash }
   executable = [ordered]@{
-    path = 'motrix-store-p0-probe.exe'
+    path = $executableName
     bytes = $bytes.Length
     sha256 = (Get-FileHash -LiteralPath $executable -Algorithm SHA256).Hash.ToLowerInvariant()
     peMachine = '0x8664'

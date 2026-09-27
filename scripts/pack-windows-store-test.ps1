@@ -210,7 +210,7 @@ function Test-MotrixPriDump([string]$ManifestPath, [string]$DumpPath, [object]$T
     throw 'PRI validation only accepts the fixed Motrix.Store.Test identity'
   }
   $applicationIds = @('Motrix')
-  if ($diagnosticMode) { $applicationIds += @('MotrixNativeHostP0', 'MotrixNativeHost') }
+  if ($diagnosticMode) { $applicationIds += @('MotrixNativeHostP0', 'MotrixNativeHost', 'MotrixRegistryP0') }
   $applications = @($manifest.SelectNodes('/f:Package/f:Applications/f:Application', $namespaces))
   if ($applications.Count -ne $applicationIds.Count -or
       @($manifest.SelectNodes('//*[local-name()="Application"]')).Count -ne $applicationIds.Count) {
@@ -222,6 +222,7 @@ function Test-MotrixPriDump([string]$ManifestPath, [string]$DumpPath, [object]$T
       'Motrix' { 'app/Motrix.exe' }
       'MotrixNativeHostP0' { 'diagnostics/motrix-store-p0-probe.exe' }
       'MotrixNativeHost' { 'app/resources/bin/motrix-native-host.exe' }
+      'MotrixRegistryP0' { 'diagnostics/motrix-store-p0-registry.exe' }
     }
     if ($matches.Count -ne 1 -or $matches[0].GetAttribute('Executable').Replace('\', '/') -cne $executable) {
       throw "Unexpected manifest Application identity or executable: $id"
@@ -245,7 +246,9 @@ function Test-MotrixPriDump([string]$ManifestPath, [string]$DumpPath, [object]$T
       @{ xpath = '/f:Package/f:Applications/f:Application[@Id="MotrixNativeHostP0"]/uap:VisualElements/@Square44x44Logo'; path = 'Assets/Square44x44Logo.png' },
       @{ xpath = '/f:Package/f:Applications/f:Application[@Id="MotrixNativeHostP0"]/uap:VisualElements/@Square150x150Logo'; path = 'Assets/Square150x150Logo.png' },
       @{ xpath = '/f:Package/f:Applications/f:Application[@Id="MotrixNativeHost"]/uap:VisualElements/@Square44x44Logo'; path = 'Assets/Square44x44Logo.png' },
-      @{ xpath = '/f:Package/f:Applications/f:Application[@Id="MotrixNativeHost"]/uap:VisualElements/@Square150x150Logo'; path = 'Assets/Square150x150Logo.png' }
+      @{ xpath = '/f:Package/f:Applications/f:Application[@Id="MotrixNativeHost"]/uap:VisualElements/@Square150x150Logo'; path = 'Assets/Square150x150Logo.png' },
+      @{ xpath = '/f:Package/f:Applications/f:Application[@Id="MotrixRegistryP0"]/uap:VisualElements/@Square44x44Logo'; path = 'Assets/Square44x44Logo.png' },
+      @{ xpath = '/f:Package/f:Applications/f:Application[@Id="MotrixRegistryP0"]/uap:VisualElements/@Square150x150Logo'; path = 'Assets/Square150x150Logo.png' }
     )
   }
   # Reject additional logo/image references, including unused tile sizes and

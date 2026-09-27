@@ -99,6 +99,22 @@ jobs:
           ./scripts/build-windows-store-native-messaging-probe.ps1
           -OutputDirectory (Join-Path $env:RUNNER_TEMP 'motrix-store-native-messaging-probe')
 
+      - name: Compile package registry visibility probe
+        run: >-
+          ./scripts/build-windows-store-native-messaging-probe.ps1
+          -Kind registry
+          -OutputDirectory (Join-Path $env:RUNNER_TEMP 'motrix-store-native-messaging-probe/registry')
+
+      - name: Reject registry writes without test package identity
+        run: |
+          $probe = Join-Path $env:RUNNER_TEMP 'motrix-store-native-messaging-probe/registry/motrix-store-p0-registry.exe'
+          foreach ($action in @('write', 'read', 'unknown')) {
+            $expected = if ($action -eq 'unknown') { 2 } else { 5 }
+            $reply = & $probe $action
+            if ($LASTEXITCODE -ne $expected -or $null -ne $reply) { throw 'Registry probe did not reject direct execution silently' }
+          }
+          $global:LASTEXITCODE = 0
+
       - name: Test direct Native Messaging probe framing
         run: >-
           ./tests/scripts/windows-store-native-messaging-probe.test.ps1
@@ -328,6 +344,7 @@ jobs:
             ${{ runner.temp }}/motrix-store-firefox-relay/build-report.json
             ${{ runner.temp }}/motrix-store-firefox-relay/contracts-report.json
             ${{ runner.temp }}/motrix-store-native-messaging-probe/build-report.json
+            ${{ runner.temp }}/motrix-store-native-messaging-probe/registry/build-report.json
             ${{ runner.temp }}/motrix-store-native-messaging-probe/direct-stdio-report.json
             ${{ runner.temp }}/motrix-windows-store/build/build-plan.json
             ${{ runner.temp }}/motrix-windows-store/build/source-report.json
@@ -341,6 +358,7 @@ jobs:
             ${{ runner.temp }}/motrix-windows-store-diagnostic/prepared/payload-report.json
             ${{ runner.temp }}/motrix-windows-store-diagnostic/prepared/source-report.json
             ${{ runner.temp }}/motrix-windows-store-diagnostic/prepared/diagnostic-build-report.json
+            ${{ runner.temp }}/motrix-windows-store-diagnostic/prepared/registry-build-report.json
             ${{ runner.temp }}/motrix-windows-store-diagnostic/prepared.sdk-output/*.json
             ${{ runner.temp }}/motrix-windows-store-diagnostic/prepared.sdk-output/*.xml
             ${{ runner.temp }}/motrix-windows-store-diagnostic/prepared.sdk-output/*.log
@@ -348,6 +366,7 @@ jobs:
             ${{ runner.temp }}/motrix-windows-store-diagnostic-upgrade/prepared/payload-report.json
             ${{ runner.temp }}/motrix-windows-store-diagnostic-upgrade/prepared/source-report.json
             ${{ runner.temp }}/motrix-windows-store-diagnostic-upgrade/prepared/diagnostic-build-report.json
+            ${{ runner.temp }}/motrix-windows-store-diagnostic-upgrade/prepared/registry-build-report.json
             ${{ runner.temp }}/motrix-windows-store-diagnostic-upgrade/prepared.sdk-output/*.json
             ${{ runner.temp }}/motrix-windows-store-diagnostic-upgrade/prepared.sdk-output/*.xml
             ${{ runner.temp }}/motrix-windows-store-diagnostic-upgrade/prepared.sdk-output/*.log

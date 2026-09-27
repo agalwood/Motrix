@@ -16,6 +16,14 @@ export const WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC = Object.freeze({
   source: 'tests/fixtures/windows-store-native-messaging/stdio-probe.cs',
 })
 
+// Fixed-purpose registry visibility experiment; never in an ordinary package.
+export const WINDOWS_STORE_REGISTRY_DIAGNOSTIC = Object.freeze({
+  applicationId: 'MotrixRegistryP0',
+  alias: 'motrix-store-p0-registry.exe',
+  executable: 'diagnostics/motrix-store-p0-registry.exe',
+  source: 'tests/fixtures/windows-store-native-messaging/registry-probe.cs',
+})
+
 // Uses the actual shipped Rust executable, but declares only a test alias.
 export const WINDOWS_STORE_NATIVE_HOST_PROFILE_DIAGNOSTIC = Object.freeze({
   applicationId: 'MotrixNativeHost',
