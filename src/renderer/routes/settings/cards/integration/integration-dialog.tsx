@@ -44,6 +44,7 @@ import { CliToolSection } from './cli-tool-section'
 import { MediaToolsSection } from './media-tools-section'
 import { PendingApprovalsSection } from './pending-approvals-section'
 import { SystemProtocolsSection } from './system-protocols-section'
+import { useCliTool } from './use-cli-tool'
 
 export type IntegrationFormValues = z.infer<typeof integrationFormSchema>
 
@@ -53,6 +54,19 @@ const DEFAULTS: IntegrationFormValues = {
     protocols: DEFAULT_APP_SETTINGS.protocols,
   },
   media: { ...DEFAULT_MEDIA_SETTINGS },
+}
+
+// Keep discovery tied to the visible CLI content, including dialog remounts.
+function CliToolsContent() {
+  const tool = useCliTool()
+  return (
+    <>
+      <CliToolSection tool={tool} />
+      <Separator />
+      <CLIClientsSection status={tool.status} />
+      <PendingApprovalsSection />
+    </>
+  )
 }
 
 export function IntegrationDialog({
@@ -207,10 +221,7 @@ export function IntegrationDialog({
                     >
                       {t('settings.integration.cli.title')}
                     </h3>
-                    <CliToolSection />
-                    <Separator />
-                    <CLIClientsSection />
-                    <PendingApprovalsSection />
+                    <CliToolsContent />
                   </section>
 
                   <Separator />

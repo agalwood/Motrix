@@ -1902,6 +1902,7 @@
           },
           "attentionTitle": "A ferramenta de linha de comando precisa de atenção",
           "status": {
+            "unsupported": "Configuração automática indisponível",
             "checking": "Verificando",
             "ready": "Pronta para instalar",
             "installing": "Instalando",
@@ -1928,6 +1929,7 @@
             "hide": "Ocultar detalhes"
           },
           "reason": {
+            "windowsPackage": "Este pacote para Windows ainda não oferece suporte à descoberta automática da ferramenta de linha de comando nem à instalação pelo aplicativo.",
             "nodeMissing": "O Node.js 22 ou posterior não foi encontrado. Instale o Node.js e verifique novamente.",
             "nodeTooOld": "É necessário o Node.js 22 ou posterior. Versão detectada: {{version}}.",
             "managerMissing": "Nenhum gerenciador de pacotes compatível foi encontrado. Instale npm, pnpm, Yarn Classic, Bun ou Volta e verifique novamente.",
@@ -1944,6 +1946,7 @@
           }
         },
         "remote": {
+          "windowsPackageDescription": "Gerencie aqui as ferramentas pareadas com este aplicativo.",
           "title": "Ferramentas remotas pareadas",
           "description": "Ferramentas locais se conectam automaticamente. Execute motrix pair para conectar a outro computador ou servidor.",
           "empty": "Nenhuma ferramenta remota pareada.",

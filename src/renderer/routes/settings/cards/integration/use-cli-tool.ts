@@ -153,6 +153,9 @@ function reconcileSelection(
   policy: SelectionPolicy,
   installIntent?: InstallSelectionIntent
 ): ReconciledSelection {
+  if (status.capability === CliInstallCapability.Unsupported) {
+    return { manager: CliPackageManager.Npm, command: '', userSelected: false }
+  }
   const manager =
     policy === SelectionPolicy.AdoptBackend
       ? (installCommandManager(status) ?? backendDefaultManager(status))
@@ -303,6 +306,9 @@ export function useCliTool(): UseCliToolResult {
 
   const install = useCallback((): Promise<void> => {
     if (installPromiseRef.current) return installPromiseRef.current
+    if (status.capability === CliInstallCapability.Unsupported) {
+      return Promise.resolve()
+    }
 
     const packageManager =
       selectedManagerRef.current ?? backendDefaultManager(status)

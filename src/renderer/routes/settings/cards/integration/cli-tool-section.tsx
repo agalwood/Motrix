@@ -43,14 +43,15 @@ import {
 } from '@shared/types/cli-tool'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useCliTool } from './use-cli-tool'
+import type { UseCliToolResult } from './use-cli-tool'
 
 function badgeVariant(phase: CliToolPhase) {
   if (phase === CliToolPhase.Error) return 'destructive' as const
   if (
     phase === CliToolPhase.Ready ||
     phase === CliToolPhase.NeedsAttention ||
-    phase === CliToolPhase.ManualOnly
+    phase === CliToolPhase.ManualOnly ||
+    phase === CliToolPhase.Unsupported
   ) {
     return 'outline' as const
   }
@@ -74,6 +75,8 @@ function statusKey(phase: CliToolPhase): string {
       return 'settings.integration.cli.tool.status.needsAttention'
     case CliToolPhase.ManualOnly:
       return 'settings.integration.cli.tool.status.manualOnly'
+    case CliToolPhase.Unsupported:
+      return 'settings.integration.cli.tool.status.unsupported'
     case CliToolPhase.Error:
       return 'settings.integration.cli.tool.status.error'
   }
@@ -91,6 +94,8 @@ function reasonKey(reason: CliToolReason | null): string {
       return 'settings.integration.cli.tool.reason.sandboxed'
     case CliToolReason.UnsupportedWeb:
       return 'settings.integration.cli.tool.reason.unsupportedWeb'
+    case CliToolReason.WindowsPackage:
+      return 'settings.integration.cli.tool.reason.windowsPackage'
     case CliToolReason.Permission:
       return 'settings.integration.cli.tool.reason.permission'
     case CliToolReason.Network:
@@ -147,7 +152,7 @@ function shouldShowAlert(status: CliToolStatus): boolean {
   )
 }
 
-export function CliToolSection() {
+export function CliToolSection({ tool }: { tool: UseCliToolResult }) {
   const { t } = useTranslation()
   const {
     status,
@@ -157,7 +162,7 @@ export function CliToolSection() {
     selectManager,
     install,
     refresh,
-  } = useCliTool()
+  } = tool
   const [detailsOpen, setDetailsOpen] = useState(false)
   const isChecking = status.phase === CliToolPhase.Checking
   const isInstalling = status.phase === CliToolPhase.Installing
@@ -172,6 +177,26 @@ export function CliToolSection() {
 
   const runAction = () => {
     void (isReady ? install() : refresh())
+  }
+
+  if (status.phase === CliToolPhase.Unsupported) {
+    return (
+      <Card className="gap-3 py-4 shadow-none">
+        <CardHeader className="gap-1 px-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <CardTitle>{t('settings.integration.cli.tool.title')}</CardTitle>
+            <span className="shrink-0" role="status" aria-live="polite">
+              <Badge variant={badgeVariant(status.phase)}>
+                {t(statusKey(status.phase))}
+              </Badge>
+            </span>
+          </div>
+          {status.reason === CliToolReason.WindowsPackage && (
+            <CardDescription>{t(reasonKey(status.reason))}</CardDescription>
+          )}
+        </CardHeader>
+      </Card>
+    )
   }
 
   return (

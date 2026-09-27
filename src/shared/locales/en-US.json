@@ -1888,6 +1888,7 @@
           },
           "attentionTitle": "Command-line tool needs attention",
           "status": {
+            "unsupported": "Automatic setup unavailable",
             "checking": "Checking",
             "ready": "Ready to install",
             "installing": "Installing",
@@ -1914,6 +1915,7 @@
             "hide": "Hide details"
           },
           "reason": {
+            "windowsPackage": "This Windows package does not yet support automatic CLI discovery or in-app installation.",
             "nodeMissing": "Node.js 22 or newer was not found. Install Node.js, then check again.",
             "nodeTooOld": "Node.js 22 or newer is required. Detected {{version}}.",
             "managerMissing": "No supported package manager was found. Install npm, pnpm, Yarn Classic, Bun, or Volta, then check again.",
@@ -1930,6 +1932,7 @@
           }
         },
         "remote": {
+          "windowsPackageDescription": "Manage tools paired with this app here.",
           "title": "Paired remote tools",
           "description": "Local tools connect automatically. Run motrix pair to connect to another computer or server.",
           "empty": "No remote tools paired.",

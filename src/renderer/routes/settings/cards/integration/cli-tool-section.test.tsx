@@ -13,11 +13,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CliToolSection } from './cli-tool-section'
-import { useCliTool } from './use-cli-tool'
-
-vi.mock('./use-cli-tool', () => ({
-  useCliTool: vi.fn(),
-}))
+import type { UseCliToolResult } from './use-cli-tool'
 
 const install = vi.fn(async () => {})
 const refresh = vi.fn(async () => {})
@@ -77,7 +73,7 @@ function renderStatus(
     command: 'pnpm add -g @motrix/cli@latest',
   }
 ) {
-  vi.mocked(useCliTool).mockReturnValue({
+  const tool: UseCliToolResult = {
     status,
     selectedManager: selected.manager,
     selectedCommand: selected.command,
@@ -85,8 +81,8 @@ function renderStatus(
     selectManager,
     install,
     refresh,
-  })
-  return render(<CliToolSection />)
+  }
+  return render(<CliToolSection tool={tool} />)
 }
 
 class MockResizeObserver {
@@ -118,6 +114,48 @@ describe('CliToolSection', () => {
       value: { writeText: vi.fn() },
     })
   })
+
+  it('shows the Windows package limitation without installation or local-control guidance', () => {
+    renderStatus({
+      phase: CliToolPhase.Unsupported,
+      capability: CliInstallCapability.Unsupported,
+      installCommand: '',
+      packageManager: CliPackageManager.Unknown,
+      managerOptions: [],
+      version: null,
+      executablePath: null,
+      nodeVersion: null,
+      reason: CliToolReason.WindowsPackage,
+      detail: null,
+    })
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Automatic setup unavailable'
+    )
+    expect(
+      screen.getByText(
+        'This Windows package does not yet support automatic CLI discovery or in-app installation.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    expect(screen.queryByText(/control this app/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/motrix --help/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Executable')).not.toBeInTheDocument()
+    expect(install).not.toHaveBeenCalled()
+  })
+
+  it.each([CliToolPhase.Checking, CliToolPhase.Error])(
+    'does not infer a Windows package restriction from %s',
+    (phase) => {
+      renderStatus({ ...BASE_STATUS, phase, reason: CliToolReason.Unknown })
+      expect(screen.queryByText(/This Windows package/)).not.toBeInTheDocument()
+      expect(
+        screen.getByRole('textbox', { name: 'Install command' })
+      ).toBeInTheDocument()
+    }
+  )
 
   it.each([
     [CliToolPhase.Ready, 'Ready to install', 'Install'],

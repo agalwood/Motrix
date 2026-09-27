@@ -1874,6 +1874,7 @@
           },
           "attentionTitle": "コマンドラインツールの確認が必要です",
           "status": {
+            "unsupported": "自動セットアップは利用できません",
             "checking": "確認中",
             "ready": "インストール可能",
             "installing": "インストール中",
@@ -1900,6 +1901,7 @@
             "hide": "詳細を非表示"
           },
           "reason": {
+            "windowsPackage": "この Windows パッケージは、コマンドラインツールの自動検出やアプリ内からのインストールにまだ対応していません。",
             "nodeMissing": "Node.js 22 以降が見つかりませんでした。Node.js をインストールしてから、もう一度確認してください。",
             "nodeTooOld": "Node.js 22 以降が必要です。検出されたバージョン：{{version}}。",
             "managerMissing": "対応するパッケージマネージャーが見つかりませんでした。npm、pnpm、Yarn Classic、Bun、Volta のいずれかをインストールしてから、もう一度確認してください。",
@@ -1916,6 +1918,7 @@
           }
         },
         "remote": {
+          "windowsPackageDescription": "このアプリとペアリングしたツールをここで管理できます。",
           "title": "ペアリング済みのリモートツール",
           "description": "ローカルのツールは自動で接続します。別のコンピューターやサーバーに接続するには、motrix pair を実行してください。",
           "empty": "ペアリング済みのリモートツールはありません。",

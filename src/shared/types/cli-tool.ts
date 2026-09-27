@@ -5,12 +5,14 @@ export enum CliToolPhase {
   Installed = 'installed',
   NeedsAttention = 'needs-attention',
   ManualOnly = 'manual-only',
+  Unsupported = 'unsupported',
   Error = 'error',
 }
 
 export enum CliInstallCapability {
   Direct = 'direct',
   ManualOnly = 'manual-only',
+  Unsupported = 'unsupported',
 }
 
 export enum CliPackageManager {
@@ -28,6 +30,7 @@ export enum CliToolReason {
   ManagerMissing = 'manager-missing',
   Sandboxed = 'sandboxed',
   UnsupportedWeb = 'unsupported-web',
+  WindowsPackage = 'windows-package',
   Permission = 'permission',
   Network = 'network',
   Timeout = 'timeout',

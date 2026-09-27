@@ -3,13 +3,15 @@ import '@test-utils/dom-animations'
 import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
 import { toast } from '@renderer/components/ui/toast'
+import { BridgeCommands, BridgeQueries } from '@shared/protocol/bridge'
+import { Queries } from '@shared/protocol/queries'
 import {
   CliInstallCapability,
   CliPackageManager,
   CliToolPhase,
   CliToolReason,
 } from '@shared/types/cli-tool'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -110,8 +112,11 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
 import { transport } from '@renderer/lib/transport'
 import { IntegrationDialog } from './integration-dialog'
 
+const defaultInvoke = vi.mocked(transport.invoke).getMockImplementation()!
+
 describe('IntegrationDialog scaffold', () => {
   beforeEach(() => {
+    vi.mocked(transport.invoke).mockImplementation(defaultInvoke).mockClear()
     transport.platform = 'darwin'
     bridgeStatus.current = {
       port: 16802,
@@ -120,6 +125,122 @@ describe('IntegrationDialog scaffold', () => {
       fixedPort: 'auto',
       instanceId: 'test-instance',
     }
+  })
+
+  it('shares the unsupported CLI status without hiding pairing, approvals, or revocation', async () => {
+    vi.mocked(transport.invoke).mockImplementation(async (channel, ...args) => {
+      if (channel === Queries.GetCliToolStatus) {
+        return {
+          phase: CliToolPhase.Unsupported,
+          capability: CliInstallCapability.Unsupported,
+          installCommand: '',
+          packageManager: CliPackageManager.Unknown,
+          managerOptions: [],
+          version: null,
+          executablePath: null,
+          nodeVersion: null,
+          reason: CliToolReason.WindowsPackage,
+          detail: null,
+        }
+      }
+      if ((channel as string) === BridgeQueries.ListPaired) {
+        return [
+          {
+            kind: 'cli',
+            id: 'paired-cli',
+            name: 'Previously paired tool',
+            pairedAt: 1,
+            lastActiveAt: null,
+          },
+        ]
+      }
+      if ((channel as string) === BridgeQueries.ListPendingPairRequests) {
+        return [
+          {
+            kind: 'cli',
+            requestId: 'pending-cli',
+            userCode: 'WXYZ-2345',
+            clientName: 'Pending tool',
+            clientVersion: '0.5.0',
+            createdAt: Date.now(),
+            expiresAt: Date.now() + 300_000,
+          },
+        ]
+      }
+      return defaultInvoke(channel, ...args)
+    })
+    render(
+      <IntegrationDialog
+        open
+        onClose={() => {}}
+        labelKey="settings.cards.integration.title"
+        descKey="settings.cards.integration.desc"
+      />
+    )
+
+    expect(
+      await screen.findByText(
+        /This Windows package does not yet support automatic CLI discovery/
+      )
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('Manage tools paired with this app here.')
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText(/Local tools connect automatically/)
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/Run motrix in a terminal to control this app/)
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('textbox', { name: 'Install command' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Copy install command' })
+    ).not.toBeInTheDocument()
+    expect(screen.getByText('Previously paired tool')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Revoke' }))
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith(BridgeCommands.RevokePair, {
+        identity: { kind: 'cli', id: 'paired-cli' },
+      })
+    )
+    expect(
+      vi
+        .mocked(transport.invoke)
+        .mock.calls.filter(([channel]) => channel === Queries.GetCliToolStatus)
+    ).toHaveLength(1)
+  })
+
+  it('queries the shared CLI status only while dialog content is mounted and refreshes on reopen', async () => {
+    const props = {
+      onClose: () => {},
+      labelKey: 'settings.cards.integration.title',
+      descKey: 'settings.cards.integration.desc',
+    }
+    const view = render(<IntegrationDialog {...props} open={false} />)
+    await act(async () => {})
+    const cliQueries = () =>
+      vi
+        .mocked(transport.invoke)
+        .mock.calls.filter(([channel]) => channel === Queries.GetCliToolStatus)
+    expect(cliQueries()).toHaveLength(0)
+
+    view.rerender(<IntegrationDialog {...props} open />)
+    await screen.findByText('Manual install')
+    expect(cliQueries()).toHaveLength(1)
+
+    view.rerender(<IntegrationDialog {...props} open={false} />)
+    await waitFor(() =>
+      expect(
+        screen.queryByText('Motrix command-line tool')
+      ).not.toBeInTheDocument()
+    )
+    expect(cliQueries()).toHaveLength(1)
+    view.rerender(<IntegrationDialog {...props} open />)
+    await screen.findByText('Manual install')
+    expect(cliQueries()).toHaveLength(2)
   })
 
   it('renders the four top-level section headings', async () => {
@@ -184,7 +305,8 @@ describe('IntegrationDialog scaffold', () => {
     ).toBeTruthy()
   })
 
-  it('renders the complete manual-only unsupported CLI recovery state', async () => {
+  it('preserves manual-only installation guidance in the web client', async () => {
+    transport.platform = 'web'
     render(
       <IntegrationDialog
         open={true}
@@ -203,6 +325,10 @@ describe('IntegrationDialog scaffold', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       /only in the desktop app/i
     )
+    expect(
+      screen.getByText(/Local tools connect automatically/)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/This Windows package/)).not.toBeInTheDocument()
   })
 
   it.each([true, false])(

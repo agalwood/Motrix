@@ -1902,6 +1902,7 @@
           },
           "attentionTitle": "Lo strumento da riga di comando richiede attenzione",
           "status": {
+            "unsupported": "Configurazione automatica non disponibile",
             "checking": "Verifica",
             "ready": "Pronto per l’installazione",
             "installing": "Installazione",
@@ -1928,6 +1929,7 @@
             "hide": "Nascondi dettagli"
           },
           "reason": {
+            "windowsPackage": "Questo pacchetto Windows non supporta ancora il rilevamento automatico dello strumento a riga di comando o la sua installazione dall’app.",
             "nodeMissing": "Node.js 22 o successivo non trovato. Installa Node.js, quindi verifica di nuovo.",
             "nodeTooOld": "È richiesto Node.js 22 o successivo. Versione rilevata: {{version}}.",
             "managerMissing": "Nessun gestore di pacchetti supportato trovato. Installa npm, pnpm, Yarn Classic, Bun o Volta, quindi verifica di nuovo.",
@@ -1944,6 +1946,7 @@
           }
         },
         "remote": {
+          "windowsPackageDescription": "Gestisci qui gli strumenti associati a questa app.",
           "title": "Strumenti remoti associati",
           "description": "Gli strumenti locali si connettono automaticamente. Esegui motrix pair per connetterti a un altro computer o server.",
           "empty": "Nessuno strumento remoto associato.",

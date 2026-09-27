@@ -1874,6 +1874,7 @@
           },
           "attentionTitle": "命令列工具需要處理",
           "status": {
+            "unsupported": "自動設定暫時無法使用",
             "checking": "檢查中",
             "ready": "可安裝",
             "installing": "安裝中",
@@ -1900,6 +1901,7 @@
             "hide": "隱藏詳細資料"
           },
           "reason": {
+            "windowsPackage": "此 Windows 安裝套件尚不支援命令列工具自動探索及應用程式內安裝。",
             "nodeMissing": "找不到 Node.js 22 或更新版本。請安裝 Node.js 後再次檢查。",
             "nodeTooOld": "需要 Node.js 22 或更新版本。偵測到 {{version}}。",
             "managerMissing": "找不到支援的套件管理員。請安裝 npm、pnpm、Yarn Classic、Bun 或 Volta 後再次檢查。",
@@ -1916,6 +1918,7 @@
           }
         },
         "remote": {
+          "windowsPackageDescription": "在此管理已與本應用程式配對的工具。",
           "title": "已配對的遠端工具",
           "description": "本機工具會自動連線；連接其他電腦或伺服器時，執行 motrix pair。",
           "empty": "沒有已配對的遠端工具。",

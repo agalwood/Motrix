@@ -1888,6 +1888,7 @@
           },
           "attentionTitle": "Komut satırı aracı işlem gerektiriyor",
           "status": {
+            "unsupported": "Otomatik kurulum kullanılamıyor",
             "checking": "Kontrol ediliyor",
             "ready": "Yüklenmeye hazır",
             "installing": "Yükleniyor",
@@ -1914,6 +1915,7 @@
             "hide": "Ayrıntıları gizle"
           },
           "reason": {
+            "windowsPackage": "Bu Windows paketi henüz komut satırı aracının otomatik keşfini veya uygulama içinden yüklenmesini desteklemiyor.",
             "nodeMissing": "Node.js 22 veya üzeri bulunamadı. Node.js’i yükleyip yeniden kontrol edin.",
             "nodeTooOld": "Node.js 22 veya üzeri gerekli. Algılanan sürüm: {{version}}.",
             "managerMissing": "Desteklenen bir paket yöneticisi bulunamadı. npm, pnpm, Yarn Classic, Bun veya Volta yükleyip yeniden kontrol edin.",
@@ -1930,6 +1932,7 @@
           }
         },
         "remote": {
+          "windowsPackageDescription": "Bu uygulamayla eşleştirilmiş araçları buradan yönetin.",
           "title": "Eşleştirilmiş uzak araçlar",
           "description": "Yerel araçlar otomatik bağlanır. Başka bir bilgisayara veya sunucuya bağlanmak için motrix pair komutunu çalıştırın.",
           "empty": "Eşleştirilmiş uzak araç yok.",

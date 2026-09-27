@@ -5,6 +5,11 @@ import {
   EmptyHeader,
 } from '@renderer/components/ui/empty'
 import type { PairedClientInfo } from '@shared/protocol/bridge'
+import {
+  CliToolPhase,
+  CliToolReason,
+  type CliToolStatus,
+} from '@shared/types/cli-tool'
 import { useTranslation } from 'react-i18next'
 import { usePairedExtensions } from './use-bridge'
 
@@ -13,9 +18,12 @@ import { usePairedExtensions } from './use-bridge'
  * with revoke. A local CLI uses endpoint-file discovery and never appears
  * here.
  */
-export function CLIClientsSection() {
+export function CLIClientsSection({ status }: { status: CliToolStatus }) {
   const { t } = useTranslation()
   const { items: paired, revoke } = usePairedExtensions()
+  const isWindowsPackage =
+    status.phase === CliToolPhase.Unsupported &&
+    status.reason === CliToolReason.WindowsPackage
   const clis = paired.filter(
     (p): p is Extract<PairedClientInfo, { kind: 'cli' }> => p.kind === 'cli'
   )
@@ -28,7 +36,11 @@ export function CLIClientsSection() {
           <span className="text-muted-foreground">({clis.length})</span>
         </h4>
         <p className="text-xs text-muted-foreground">
-          {t('settings.integration.cli.remote.description')}
+          {t(
+            isWindowsPackage
+              ? 'settings.integration.cli.remote.windowsPackageDescription'
+              : 'settings.integration.cli.remote.description'
+          )}
         </p>
       </div>
       {clis.length === 0 ? (

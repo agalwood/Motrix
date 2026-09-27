@@ -1874,6 +1874,7 @@
           },
           "attentionTitle": "명령줄 도구 확인 필요",
           "status": {
+            "unsupported": "자동 설정을 사용할 수 없습니다",
             "checking": "확인 중",
             "ready": "설치 준비됨",
             "installing": "설치 중",
@@ -1900,6 +1901,7 @@
             "hide": "세부 정보 숨기기"
           },
           "reason": {
+            "windowsPackage": "이 Windows 패키지는 아직 명령줄 도구의 자동 검색이나 앱 내 설치를 지원하지 않습니다.",
             "nodeMissing": "Node.js 22 이상을 찾을 수 없습니다. Node.js를 설치한 후 다시 확인하세요.",
             "nodeTooOld": "Node.js 22 이상이 필요합니다. 감지된 버전: {{version}}.",
             "managerMissing": "지원되는 패키지 관리자를 찾을 수 없습니다. npm, pnpm, Yarn Classic, Bun 또는 Volta를 설치한 후 다시 확인하세요.",
@@ -1916,6 +1918,7 @@
           }
         },
         "remote": {
+          "windowsPackageDescription": "이 앱과 페어링된 도구를 여기에서 관리하세요.",
           "title": "페어링된 원격 도구",
           "description": "로컬 도구는 자동으로 연결됩니다. 다른 컴퓨터나 서버에 연결하려면 motrix pair를 실행하세요.",
           "empty": "페어링된 원격 도구가 없습니다.",

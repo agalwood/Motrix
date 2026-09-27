@@ -131,6 +131,7 @@ import {
   resolveByteUnitSystem,
 } from '@shared/schemas/byte-unit-system'
 import { REGISTRY_CACHE_FILENAME } from '@shared/schemas/registry'
+import { CliToolReason } from '@shared/types/cli-tool'
 import { EngineState } from '@shared/types/engine'
 import type { AppNotification } from '@shared/types/notification'
 import { getHiddenNotificationKinds } from '@shared/types/notification'
@@ -357,6 +358,9 @@ const defaultSaveDirOptions = resolveDefaultSaveDirOptions({
 const cliToolService = new CliToolService({
   directInstallSupported:
     !settingsFlatpakEnvironment && settingsSnapEnvironment === null,
+  unsupportedReason: distributionContext.isWindowsPackage
+    ? CliToolReason.WindowsPackage
+    : undefined,
 })
 const settingsManager = new SettingsManager(settingsPath, {
   defaultByteUnitSystem: resolveByteUnitSystem(

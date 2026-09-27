@@ -1874,6 +1874,7 @@
           },
           "attentionTitle": "Alat baris perintah perlu diperiksa",
           "status": {
+            "unsupported": "Penyiapan otomatis tidak tersedia",
             "checking": "Memeriksa",
             "ready": "Siap dipasang",
             "installing": "Memasang",
@@ -1900,6 +1901,7 @@
             "hide": "Sembunyikan detail"
           },
           "reason": {
+            "windowsPackage": "Paket Windows ini belum mendukung penemuan otomatis alat baris perintah atau pemasangannya dari dalam aplikasi.",
             "nodeMissing": "Node.js 22 atau yang lebih baru tidak ditemukan. Pasang Node.js, lalu periksa lagi.",
             "nodeTooOld": "Diperlukan Node.js 22 atau yang lebih baru. Versi terdeteksi: {{version}}.",
             "managerMissing": "Tidak ditemukan pengelola paket yang didukung. Pasang npm, pnpm, Yarn Classic, Bun, atau Volta, lalu periksa lagi.",
@@ -1916,6 +1918,7 @@
           }
         },
         "remote": {
+          "windowsPackageDescription": "Kelola alat yang dipasangkan dengan aplikasi ini di sini.",
           "title": "Alat jarak jauh yang dipasangkan",
           "description": "Alat lokal terhubung secara otomatis. Jalankan motrix pair untuk terhubung ke komputer atau server lain.",
           "empty": "Belum ada alat jarak jauh yang dipasangkan.",

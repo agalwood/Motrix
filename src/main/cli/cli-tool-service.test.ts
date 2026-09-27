@@ -1,6 +1,8 @@
 import {
+  CLI_INSTALL_PACKAGE_MANAGERS,
   CliInstallCapability,
   type CliInstallPackageManager,
+  type CliInstallRequest,
   CliPackageManager,
   CliToolPhase,
   CliToolReason,
@@ -15,6 +17,8 @@ function completed(stdout = '', overrides: Partial<RunResult> = {}): RunResult {
 
 interface HarnessOptions {
   directInstallSupported?: boolean
+  unsupportedReason?: CliToolReason.WindowsPackage
+  platform?: NodeJS.Platform
   nodeVersion?: string | null
   installedVersion?: string | null
   installedManager?: CliPackageManager
@@ -156,15 +160,111 @@ function harness(options: HarnessOptions = {}) {
   }
   const service = new CliToolService({
     directInstallSupported: options.directInstallSupported ?? true,
-    platform: 'linux',
+    unsupportedReason: options.unsupportedReason,
+    platform: options.platform ?? 'linux',
     environment,
     run,
     resolve,
     realpathPath,
     neutralDir: '/home/user',
   })
-  return { service, run: vi.mocked(run), resolve, environment }
+  return { service, run: vi.mocked(run), resolve, environment, realpathPath }
 }
+
+describe('CliToolService unsupported Windows package integration', () => {
+  const expectedStatus = {
+    phase: CliToolPhase.Unsupported,
+    capability: CliInstallCapability.Unsupported,
+    reason: CliToolReason.WindowsPackage,
+    installCommand: '',
+    packageManager: CliPackageManager.Unknown,
+    managerOptions: [],
+    version: null,
+    executablePath: null,
+    nodeVersion: null,
+    detail: null,
+  }
+
+  function unsupportedHarness() {
+    return harness({
+      unsupportedReason: CliToolReason.WindowsPackage,
+      platform: 'win32',
+      installedVersion: '0.5.0',
+      availableManagers: [...CLI_INSTALL_PACKAGE_MANAGERS],
+    })
+  }
+
+  function expectNoProbes(testHarness: ReturnType<typeof harness>) {
+    expect(testHarness.environment.resolve).not.toHaveBeenCalled()
+    expect(testHarness.resolve).not.toHaveBeenCalled()
+    expect(testHarness.run).not.toHaveBeenCalled()
+    expect(testHarness.realpathPath).not.toHaveBeenCalled()
+  }
+
+  it('leaves existing Node.js and CLI installations unprobed', async () => {
+    const testHarness = unsupportedHarness()
+
+    await expect(testHarness.service.getStatus()).resolves.toEqual(
+      expectedStatus
+    )
+    await expect(testHarness.service.getStatus()).resolves.toEqual(
+      expectedStatus
+    )
+    expectNoProbes(testHarness)
+  })
+
+  it.each(CLI_INSTALL_PACKAGE_MANAGERS)(
+    'rejects direct %s installation before environment or executable probes',
+    async (packageManager) => {
+      const testHarness = unsupportedHarness()
+
+      await expect(
+        testHarness.service.install({ packageManager })
+      ).resolves.toEqual(expectedStatus)
+      await expect(testHarness.service.getStatus()).resolves.toEqual(
+        expectedStatus
+      )
+      expectNoProbes(testHarness)
+    }
+  )
+
+  it.each<unknown>([
+    undefined,
+    null,
+    {},
+    [],
+    42,
+    'npm',
+    { packageManager: 'npm; touch sentinel' },
+    { packageManager: CliPackageManager.Unknown },
+  ])(
+    'ignores malformed direct install input %j without probing',
+    async (request) => {
+      const testHarness = unsupportedHarness()
+
+      await expect(
+        testHarness.service.install(request as CliInstallRequest)
+      ).resolves.toEqual(expectedStatus)
+      expectNoProbes(testHarness)
+    }
+  )
+
+  it('returns unsupported before reading an install request getter', async () => {
+    const testHarness = unsupportedHarness()
+    const readPackageManager = vi.fn(() => {
+      throw new Error('The unsupported integration must not read the request')
+    })
+    const request = Object.defineProperty({}, 'packageManager', {
+      get: readPackageManager,
+    }) as CliInstallRequest
+
+    await expect(testHarness.service.install(request)).resolves.toEqual(
+      expectedStatus
+    )
+    expect(readPackageManager).not.toHaveBeenCalled()
+    expectNoProbes(testHarness)
+  })
+})
 
 describe('CliToolService status', () => {
   it('reports an existing installation without overwriting it', async () => {
@@ -263,6 +363,34 @@ describe('CliToolService status', () => {
     expect(
       run.mock.calls.filter(([, args]) => args[0] === 'install')
     ).toHaveLength(0)
+  })
+
+  it('continues probing ordinary Windows installations without a package guard', async () => {
+    const { service, environment, run } = harness({ platform: 'win32' })
+
+    await expect(service.getStatus()).resolves.toMatchObject({
+      phase: CliToolPhase.Ready,
+      capability: CliInstallCapability.Direct,
+      packageManager: CliPackageManager.Npm,
+      installCommand: 'npm install -g @motrix/cli@latest',
+    })
+    expect(environment.resolve).toHaveBeenCalledWith(false)
+    expect(run).toHaveBeenCalled()
+  })
+
+  it('continues reporting an installed CLI in a manual-only sandbox', async () => {
+    const { service, environment } = harness({
+      directInstallSupported: false,
+      installedVersion: '0.5.0',
+    })
+
+    await expect(service.getStatus()).resolves.toMatchObject({
+      phase: CliToolPhase.Installed,
+      capability: CliInstallCapability.ManualOnly,
+      version: '0.5.0',
+      reason: null,
+    })
+    expect(environment.resolve).toHaveBeenCalledWith(false)
   })
 })
 

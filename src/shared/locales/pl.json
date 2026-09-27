@@ -1916,6 +1916,7 @@
           },
           "attentionTitle": "Narzędzie wiersza poleceń wymaga uwagi",
           "status": {
+            "unsupported": "Automatyczna konfiguracja jest niedostępna",
             "checking": "Sprawdzanie",
             "ready": "Gotowe do instalacji",
             "installing": "Instalowanie",
@@ -1942,6 +1943,7 @@
             "hide": "Ukryj szczegóły"
           },
           "reason": {
+            "windowsPackage": "Ten pakiet dla systemu Windows nie obsługuje jeszcze automatycznego wykrywania narzędzia wiersza poleceń ani jego instalacji z poziomu aplikacji.",
             "nodeMissing": "Nie znaleziono Node.js w wersji 22 lub nowszej. Zainstaluj Node.js i sprawdź ponownie.",
             "nodeTooOld": "Wymagany jest Node.js w wersji 22 lub nowszej. Wykryto {{version}}.",
             "managerMissing": "Nie znaleziono obsługiwanego menedżera pakietów. Zainstaluj npm, pnpm, Yarn Classic, Bun lub Volta i sprawdź ponownie.",
@@ -1958,6 +1960,7 @@
           }
         },
         "remote": {
+          "windowsPackageDescription": "Tutaj możesz zarządzać narzędziami sparowanymi z tą aplikacją.",
           "title": "Sparowane narzędzia zdalne",
           "description": "Narzędzia lokalne łączą się automatycznie. Uruchom motrix pair, aby połączyć się z innym komputerem lub serwerem.",
           "empty": "Brak sparowanych narzędzi zdalnych.",

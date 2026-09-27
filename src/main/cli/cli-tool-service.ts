@@ -38,6 +38,7 @@ type ResolveRealpath = (value: string) => Promise<string>
 interface CliToolServiceOptions {
   directInstallSupported: boolean
   manualOnlyReason?: CliToolReason
+  unsupportedReason?: CliToolReason.WindowsPackage
   platform?: NodeJS.Platform
   inheritedEnv?: NodeJS.ProcessEnv
   environment?: ShellEnvironmentSource
@@ -84,6 +85,21 @@ function baseStatus(
     detail: null,
     ...values,
   }
+}
+
+function unsupportedStatus(
+  reason: CliToolReason.WindowsPackage
+): CliToolStatus {
+  // This build does not integrate the Windows package profile with the CLI.
+  // This is not a Microsoft policy restriction or a claim that every standalone
+  // CLI use is unavailable. Null versions and paths mean they were not probed.
+  return baseStatus({
+    phase: CliToolPhase.Unsupported,
+    capability: CliInstallCapability.Unsupported,
+    installCommand: '',
+    managerOptions: [],
+    reason,
+  })
 }
 
 function parseVersion(output: string): string | null {
@@ -172,6 +188,7 @@ function installFailureReason(result: RunResult): CliToolReason {
 export class CliToolService {
   readonly #directInstallSupported: boolean
   readonly #manualOnlyReason: CliToolReason
+  readonly #unsupportedReason: CliToolReason.WindowsPackage | undefined
   readonly #platform: NodeJS.Platform
   readonly #environment: ShellEnvironmentSource
   readonly #run: RunCommand
@@ -185,6 +202,7 @@ export class CliToolService {
   constructor(options: CliToolServiceOptions) {
     this.#directInstallSupported = options.directInstallSupported
     this.#manualOnlyReason = options.manualOnlyReason ?? CliToolReason.Sandboxed
+    this.#unsupportedReason = options.unsupportedReason
     this.#platform = options.platform ?? process.platform
     const inheritedEnv = { ...(options.inheritedEnv ?? process.env) }
     this.#run =
@@ -206,6 +224,9 @@ export class CliToolService {
   }
 
   async getStatus(): Promise<CliToolStatus> {
+    if (this.#unsupportedReason) {
+      return unsupportedStatus(this.#unsupportedReason)
+    }
     if (this.#installFlight && this.#current) return this.#current
     const generation = this.#stateGeneration
     const result = await this.#probe(false)
@@ -217,6 +238,9 @@ export class CliToolService {
   }
 
   install(request: CliInstallRequest): Promise<CliToolStatus> {
+    if (this.#unsupportedReason) {
+      return Promise.resolve(unsupportedStatus(this.#unsupportedReason))
+    }
     const requestedManager = request?.packageManager
     if (!isCliInstallPackageManager(requestedManager)) {
       return Promise.resolve(

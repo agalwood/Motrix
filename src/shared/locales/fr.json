@@ -2296,6 +2296,7 @@
         },
         "pairUnavailable": "Cette demande d’association n’est plus en attente. Relancez motrix pair.",
         "remote": {
+          "windowsPackageDescription": "Gérez ici les outils associés à cette application.",
           "description": "Les outils locaux se connectent automatiquement. Exécutez motrix pair pour vous connecter à un autre ordinateur ou serveur.",
           "empty": "Aucun outil distant associé.",
           "lastActive": "Dernière activité",
@@ -2334,6 +2335,7 @@
             "version": "Version"
           },
           "reason": {
+            "windowsPackage": "Ce paquet Windows ne prend pas encore en charge la détection automatique de l’outil en ligne de commande ni son installation depuis l’application.",
             "installFailed": "Le gestionnaire de paquets n’a pas pu installer @motrix/cli. Consultez les détails, puis réessayez ou exécutez la commande manuellement.",
             "managerMissing": "Aucun gestionnaire de paquets pris en charge n’a été trouvé. Installez npm, pnpm, Yarn Classic, Bun ou Volta, puis vérifiez à nouveau.",
             "network": "Le gestionnaire de paquets ne peut pas joindre le registre. Vérifiez votre réseau ou la configuration du registre, puis réessayez.",
@@ -2349,6 +2351,7 @@
             "verifyFailed": "L’installation s’est terminée, mais Motrix n’a pas pu vérifier l’exécutable motrix actif."
           },
           "status": {
+            "unsupported": "Configuration automatique indisponible",
             "checking": "Vérification",
             "error": "Échec",
             "installed": "Installé",

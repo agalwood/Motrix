@@ -75,6 +75,35 @@ describe('useCliTool', () => {
     vi.useRealTimers()
   })
 
+  it('keeps the unsupported package command empty and does not start an install', async () => {
+    const unsupported: CliToolStatus = {
+      phase: CliToolPhase.Unsupported,
+      capability: CliInstallCapability.Unsupported,
+      installCommand: '',
+      packageManager: CliPackageManager.Unknown,
+      managerOptions: [],
+      version: null,
+      executablePath: null,
+      nodeVersion: null,
+      reason: CliToolReason.WindowsPackage,
+      detail: null,
+    }
+    vi.mocked(transport.invoke).mockResolvedValue(unsupported)
+    const { result } = renderHook(() => useCliTool())
+    await waitFor(() => expect(result.current.status).toEqual(unsupported))
+    expect(result.current.selectedCommand).toBe('')
+
+    await act(async () => {
+      result.current.selectManager(CliPackageManager.Pnpm)
+      await result.current.install()
+    })
+    expect(result.current.selectedCommand).toBe('')
+    expect(result.current.status).toEqual(unsupported)
+    expect(transport.invoke).toHaveBeenCalledExactlyOnceWith(
+      Queries.GetCliToolStatus
+    )
+  })
+
   it('adopts the initial Ready marker default over the npm checking fallback', async () => {
     vi.mocked(transport.invoke).mockResolvedValue(READY_STATUS)
 

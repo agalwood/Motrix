@@ -2296,6 +2296,7 @@
         },
         "pairUnavailable": "Aquesta petició d'aparellament ja no està pendent; torneu a executar motrix pair.",
         "remote": {
+          "windowsPackageDescription": "Gestiona aquí les eines vinculades amb aquesta aplicació.",
           "description": "Les eines locals es connecten automàticament. Executeu motrix pair per connectar-vos a un altre ordinador o servidor.",
           "empty": "No hi ha eines remotes aparellades.",
           "lastActive": "Última activitat",
@@ -2334,6 +2335,7 @@
             "version": "Versió"
           },
           "reason": {
+            "windowsPackage": "Aquest paquet per a Windows encara no admet la detecció automàtica de l’eina de línia d’ordres ni la instal·lació des de l’aplicació.",
             "installFailed": "El gestor de paquets no ha pogut instal·lar @motrix/cli. Reviseu els detalls i torneu-ho a provar o executeu l'ordre manualment.",
             "managerMissing": "No s'ha trobat cap gestor de paquets compatible. Instal·leu npm, pnpm, Yarn Classic, Bun o Volta i torneu a comprovar-ho.",
             "network": "El gestor de paquets no ha pogut accedir al registre. Comproveu la xarxa o la configuració del registre i torneu-ho a provar.",
@@ -2349,6 +2351,7 @@
             "verifyFailed": "L'instal·lador ha acabat, però el Motrix no ha pogut verificar l'executable motrix actiu."
           },
           "status": {
+            "unsupported": "La configuració automàtica no està disponible",
             "checking": "S'està comprovant",
             "error": "Ha fallat",
             "installed": "Instal·lada",

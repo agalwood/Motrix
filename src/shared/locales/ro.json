@@ -2296,6 +2296,7 @@
         },
         "pairUnavailable": "Această cerere de asociere nu mai este în așteptare — rulează din nou motrix pair.",
         "remote": {
+          "windowsPackageDescription": "Gestionează aici instrumentele asociate cu această aplicație.",
           "description": "Instrumentele locale se conectează automat. Rulează motrix pair pentru a te conecta la alt computer sau server.",
           "empty": "Niciun instrument la distanță asociat.",
           "lastActive": "Ultima activitate",
@@ -2334,6 +2335,7 @@
             "version": "Versiune"
           },
           "reason": {
+            "windowsPackage": "Acest pachet pentru Windows nu acceptă încă detectarea automată a instrumentului de linie de comandă sau instalarea acestuia din aplicație.",
             "installFailed": "Managerul de pachete nu a putut instala @motrix/cli. Verifică detaliile, apoi încearcă din nou sau rulează comanda manual.",
             "managerMissing": "Nu a fost găsit un manager de pachete acceptat. Instalează npm, pnpm, Yarn Classic, Bun sau Volta, apoi verifică din nou.",
             "network": "Managerul de pachete nu a putut accesa registrul. Verifică rețeaua sau configurația registrului, apoi încearcă din nou.",
@@ -2349,6 +2351,7 @@
             "verifyFailed": "Instalarea s-a încheiat, dar Motrix nu a putut verifica executabilul motrix activ."
           },
           "status": {
+            "unsupported": "Configurarea automată nu este disponibilă",
             "checking": "Se verifică",
             "error": "Eșuat",
             "installed": "Instalat",

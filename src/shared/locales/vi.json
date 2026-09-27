@@ -1874,6 +1874,7 @@
           },
           "attentionTitle": "Công cụ dòng lệnh cần được kiểm tra",
           "status": {
+            "unsupported": "Không hỗ trợ thiết lập tự động",
             "checking": "Đang kiểm tra",
             "ready": "Sẵn sàng để cài đặt",
             "installing": "Đang cài đặt",
@@ -1900,6 +1901,7 @@
             "hide": "Ẩn chi tiết"
           },
           "reason": {
+            "windowsPackage": "Gói Windows này chưa hỗ trợ tự động phát hiện công cụ dòng lệnh hoặc cài đặt từ trong ứng dụng.",
             "nodeMissing": "Không tìm thấy Node.js 22 trở lên. Hãy cài Node.js rồi kiểm tra lại.",
             "nodeTooOld": "Cần Node.js 22 trở lên. Phát hiện phiên bản {{version}}.",
             "managerMissing": "Không tìm thấy trình quản lý gói được hỗ trợ. Hãy cài npm, pnpm, Yarn Classic, Bun hoặc Volta rồi kiểm tra lại.",
@@ -1916,6 +1918,7 @@
           }
         },
         "remote": {
+          "windowsPackageDescription": "Quản lý các công cụ đã ghép đôi với ứng dụng này tại đây.",
           "title": "Công cụ từ xa đã ghép đôi",
           "description": "Công cụ cục bộ kết nối tự động. Chạy motrix pair để kết nối với máy tính hoặc máy chủ khác.",
           "empty": "Chưa ghép đôi công cụ từ xa nào.",

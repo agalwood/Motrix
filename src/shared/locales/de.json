@@ -1888,6 +1888,7 @@
           },
           "attentionTitle": "Befehlszeilenwerkzeug erfordert Aufmerksamkeit",
           "status": {
+            "unsupported": "Automatische Einrichtung nicht verfügbar",
             "checking": "Wird geprüft",
             "ready": "Zur Installation bereit",
             "installing": "Wird installiert",
@@ -1914,6 +1915,7 @@
             "hide": "Details ausblenden"
           },
           "reason": {
+            "windowsPackage": "Dieses Windows-Paket unterstützt noch keine automatische Erkennung des Kommandozeilenwerkzeugs oder dessen Installation innerhalb der App.",
             "nodeMissing": "Node.js 22 oder neuer wurde nicht gefunden. Installieren Sie Node.js und prüfen Sie erneut.",
             "nodeTooOld": "Node.js 22 oder neuer ist erforderlich. Gefunden wurde {{version}}.",
             "managerMissing": "Kein unterstützter Paketmanager gefunden. Installieren Sie npm, pnpm, Yarn Classic, Bun oder Volta und prüfen Sie erneut.",
@@ -1930,6 +1932,7 @@
           }
         },
         "remote": {
+          "windowsPackageDescription": "Hier können Sie mit dieser App gekoppelte Werkzeuge verwalten.",
           "title": "Gekoppelte Remote-Werkzeuge",
           "description": "Lokale Werkzeuge verbinden sich automatisch. Führen Sie motrix pair aus, um eine Verbindung zu einem anderen Computer oder Server herzustellen.",
           "empty": "Keine Remote-Werkzeuge gekoppelt.",

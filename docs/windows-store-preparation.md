@@ -285,14 +285,33 @@ Settings queries this policy independently of the bridge, so the Windows package
 limitation remains visible while browser integration is off. It hides extension
 installation cards and Native Messaging recovery advice for this package, while
 retaining the switch, paired-client list, and revocation controls. A running MDXP
-bridge does not prove Native Messaging is available; its authentication and CLI
-behavior are unchanged.
+bridge does not prove Native Messaging is available; its authentication is
+unchanged.
 
 This isolation does not implement Store browser support. A stable package host,
 correct profile discovery, browser stdio behavior, cold launch, upgrade before
 first launch, uninstall, and coexistence still require Windows 11 evidence and
 coordination with the browser extensions. Do not expose the traditional host as
 a Store alias: its existing data and launch paths belong to the direct version.
+
+## CLI integration boundary
+
+This Windows package does not yet support default CLI discovery. Its private
+profile is separate from the direct installation, so finding a global `motrix`
+executable does not prove that it can select or connect to this package.
+
+The package reports CLI integration as unsupported before shell or executable
+probing and rejects application-initiated CLI installation through every package
+manager. Settings displays the limitation without installation commands or
+automatic-connection claims. A null CLI version or path in this state means it
+was not inspected; it does not mean no CLI is installed. Direct distributions and
+the server retain their existing behavior.
+
+This is a limit of the current integration, not a claim that Microsoft prohibits
+CLI tools. Existing MDXP authentication, pairing approval, and revocation remain
+available. Package-aware CLI target selection, coexistence, activation, and
+external access to the package profile need a compatible CLI release and Windows
+validation before automatic discovery can be advertised.
 
 ## Run the Windows SDK package check
 
