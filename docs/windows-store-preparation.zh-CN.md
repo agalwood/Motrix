@@ -2,8 +2,9 @@
 
 [English](windows-store-preparation.md)
 
-Motrix 的 Windows 打包支持仍在开发中。以下工具用于校验构建输入，不会生成
-AppX/MSIX、签名、提交商店，也不代表已兼容 Microsoft Store。启动任务、包关联、
+Motrix 的 Windows 打包支持仍在开发中。准备工具校验输入并装配测试布局，独立的
+Windows SDK 脚本生成未签名测试 AppX。这些工具不会签名、安装或提交商店，也不
+代表已兼容 Microsoft Store。启动任务、包关联、
 浏览器集成和安装生命周期仍需要实现及 Windows 验证。
 
 ## 发布元数据
@@ -141,6 +142,39 @@ StartupTask 与 native-host alias 声明等待对应运行时实现。当前配�
 Windows 用户或 VM；即使不声明上述扩展，现有浏览器注册和自启动代码仍需要适配包
 身份。
 
+## 执行 Windows SDK 包检查
+
+在 Windows 的 PowerShell 7 中选择同时包含 `makepri.exe` 和 `makeappx.exe` 的已安装 x64 SDK
+目录，然后运行：
+
+```powershell
+./scripts/pack-windows-store-test.ps1 -PreparedDirectory $storeLayout -SdkBinDirectory 'C:\Program Files (x86)\Windows Kits\10\bin\<installed-sdk-version>\x64'
+```
+
+SDK 脚本要求布局中尚无 `resources.pri`，并创建全新的同级目录
+`<布局目录名>.sdk-output`。它检查输入，生成和导出 PRI，核对逻辑图片路径与
+scale-200 候选，打包未签名 AppX，再解包比对实际 manifest、资产、payload 与 PRI
+摘要。只有全部成功才写入 `sdk-result.json`。失败时保留部分输出供诊断；重试应
+使用新的准备目录。
+
+打包命令使用 `/l` 处理限定资源；这个参数会跳过特定本地化检查，不能证明全部
+manifest 语义。脚本不使用 `/nv`。MakeAppx 的验证范围有限，打包/解包通过不代表
+安装、运行时、WACK 或 Store 认证通过。
+
+只读布局校验器可独立检查以下阶段，并输出 JSON 报告：
+
+```powershell
+node scripts/verify-windows-store-layout.mjs --prepared $storeLayout --phase prepared
+# 生成索引后执行；第一条命令会拒绝已有 PRI：
+node scripts/verify-windows-store-layout.mjs --prepared $storeLayout --phase indexed
+node scripts/verify-windows-store-layout.mjs --prepared $storeLayout --phase unpacked --layout "$storeLayout.sdk-output\unpacked"
+```
+
+`Windows Store package check` 工作流使用 Windows runner，对 checkout 的提交
+执行上述测试，身份与包版本固定为测试值。它自行构建 payload，不使用签名或提交
+凭据；artifact 仅含 JSON/XML 报告和进程日志，不上传图片或 AppX。绿色结果仅证明该提交
+通过这些 SDK 检查。
+
 未签名的目录包、合法元数据或通过本地校验，都不等于可分发的 Store 包。仍须执行
 真正的 Windows 打包、包身份核验、WACK，以及安装和升级测试。
 
@@ -152,3 +186,4 @@ Windows 用户或 VM；即使不声明上述扩展，现有浏览器注册和自
 - [桌面包 manifest](https://learn.microsoft.com/en-us/windows/msix/desktop/desktop-to-uwp-manual-conversion)
 - [应用图标资产要求](https://learn.microsoft.com/en-us/windows/apps/design/iconography/app-icon-construction)
 - [PRI 配置](https://learn.microsoft.com/en-us/windows/uwp/app-resources/makepri-exe-configuration)
+- [MakeAppx 命令及验证边界](https://learn.microsoft.com/en-us/windows/msix/package/create-app-package-with-makeappx-tool)

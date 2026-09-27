@@ -1,0 +1,175 @@
+name: Windows Store package check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/windows-store.yml'
+      - 'scripts/*windows-store*'
+      - 'scripts/*electron*'
+      - 'scripts/before-*'
+      - 'tests/scripts/*windows-store*'
+      - 'tests/helpers/windows-store-payload-fixture.ts'
+      - 'electron-builder.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'build/**'
+      - 'extra/**'
+      - 'src/main/**'
+      - 'packages/native-host/**'
+      - 'packages/finalize-fs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-store-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package-test:
+    name: Windows SDK / unsigned test AppX
+    runs-on: windows-2025
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Parse SDK scripts with PowerShell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($script in @('scripts/pack-windows-store-test.ps1', 'tests/scripts/windows-store-pri.test.ps1')) {
+            $tokens = $null
+            $parseErrors = $null
+            [Management.Automation.Language.Parser]::ParseFile((Join-Path $pwd $script), [ref]$tokens, [ref]$parseErrors) | Out-Null
+            if ($parseErrors.Count -ne 0) { throw ($parseErrors | Out-String) }
+          }
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.5.1
+          run_install: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: 1.94.1
+          targets: x86_64-pc-windows-msvc
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          MOTRIX_SKIP_ELECTRON_REBUILD: '1'
+          MOTRIX_SKIP_ENGINE_FETCH: '1'
+
+      - name: Prepare fixed test inputs
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $storeRoot = Join-Path $env:RUNNER_TEMP 'motrix-windows-store'
+          New-Item -ItemType Directory -Path $storeRoot | Out-Null
+          $sourceCommit = (& git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve checked-out source commit' }
+          $product = Get-Content -LiteralPath package.json -Raw | ConvertFrom-Json
+          $metadata = [ordered]@{
+            schemaVersion = 1
+            profile = 'test'
+            architecture = 'x64'
+            productVersion = $product.version
+            packageVersion = '1.0.0.0'
+            source = @{ commit = $sourceCommit }
+            identity = @{
+              name = 'Motrix.Store.Test'
+              publisher = 'CN=Motrix Store Test'
+              publisherDisplayName = 'Motrix Store Test'
+            }
+            previousPackageVersions = @()
+          }
+          $metadataFile = Join-Path $storeRoot 'input.json'
+          [IO.File]::WriteAllText($metadataFile, ($metadata | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
+          $build = Join-Path $storeRoot 'build'
+          $layout = Join-Path $storeRoot 'prepared'
+          "MOTRIX_STORE_BUILD=$build" >> $env:GITHUB_ENV
+          "MOTRIX_STORE_LAYOUT=$layout" >> $env:GITHUB_ENV
+          & node scripts/prepare-windows-store-build.mjs --repo-root . --metadata $metadataFile --out $build
+          if ($LASTEXITCODE -ne 0) { throw 'Store build preparation failed' }
+
+      - name: Ensure Electron runtime
+        run: node node_modules/electron/install.js
+
+      - name: Fetch Windows engine
+        run: pnpm run fetch:engine --platform win32 --arch x64
+
+      - name: Build builtin plugins
+        run: pnpm run build:builtin
+
+      - name: Build native host
+        run: pnpm run build:native-host -- --platform win32 --arch x64
+
+      - name: Build filesystem helper
+        run: pnpm run build:finalize-fs -- --platform win32 --arch x64
+
+      - name: Build Electron application
+        run: pnpm run build:electron
+
+      - name: Stage Electron application
+        run: pnpm run stage:electron -- --platform win32 --arch x64
+
+      - name: Build isolated Windows directory
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: >-
+          pnpm exec electron-builder
+          --config "$env:MOTRIX_STORE_BUILD/electron-builder.json"
+          --win --x64 --publish never
+
+      - name: Verify and assemble test layout
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & node scripts/prepare-windows-store-layout.mjs --repo-root . --app-dir "$env:MOTRIX_STORE_BUILD/payload/win-unpacked" --metadata "$env:MOTRIX_STORE_BUILD/release-metadata.json" --out $env:MOTRIX_STORE_LAYOUT > "$env:MOTRIX_STORE_BUILD/layout-command.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Store test layout failed' }
+
+      - name: Build PRI and pack/unpack with Windows SDK
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $kits = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10/bin'
+          $sdk = Get-ChildItem -LiteralPath $kits -Directory |
+            Where-Object { $_.Name -match '^10\.0\.\d+\.\d+$' } |
+            Sort-Object { [version]$_.Name } -Descending |
+            Where-Object {
+              (Test-Path -LiteralPath (Join-Path $_.FullName 'x64/makepri.exe')) -and
+              (Test-Path -LiteralPath (Join-Path $_.FullName 'x64/makeappx.exe'))
+            } | Select-Object -First 1
+          if ($null -eq $sdk) { throw 'Windows SDK makepri/makeappx not found' }
+          & ./scripts/pack-windows-store-test.ps1 -PreparedDirectory $env:MOTRIX_STORE_LAYOUT -SdkBinDirectory (Join-Path $sdk.FullName 'x64')
+
+      - name: Exercise PRI rejection cases
+        run: ./tests/scripts/windows-store-pri.test.ps1 -PreparedDirectory $env:MOTRIX_STORE_LAYOUT
+
+      # Keep only text evidence. The unsigned test package is not a release,
+      # installation test, or Store submission and is not uploaded here.
+      - name: Upload SDK text evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-store-sdk-evidence
+          path: |
+            ${{ runner.temp }}/motrix-windows-store/build/build-plan.json
+            ${{ runner.temp }}/motrix-windows-store/build/source-report.json
+            ${{ runner.temp }}/motrix-windows-store/prepared/layout-report.json
+            ${{ runner.temp }}/motrix-windows-store/prepared/payload-report.json
+            ${{ runner.temp }}/motrix-windows-store/prepared/source-report.json
+            ${{ runner.temp }}/motrix-windows-store/prepared.sdk-output/*.json
+            ${{ runner.temp }}/motrix-windows-store/prepared.sdk-output/*.xml
+            ${{ runner.temp }}/motrix-windows-store/prepared.sdk-output/*.log
+          if-no-files-found: warn
+          retention-days: 14

@@ -2,8 +2,9 @@
 
 [简体中文](windows-store-preparation.zh-CN.md)
 
-Motrix's Windows package support is under development. The tools below validate
-build inputs; they do not create an AppX/MSIX, sign it, submit it, or establish
+Motrix's Windows package support is under development. Preparation tools validate
+inputs and assemble a test layout; a separate Windows SDK runner creates an
+unsigned test AppX. These tools do not sign, install, submit, or establish
 Microsoft Store compatibility. Startup tasks, package associations, browser
 integration, and installation lifecycle still require implementation and Windows
 verification.
@@ -166,6 +167,44 @@ an isolated Windows user or VM. The existing browser-registration and startup
 code still needs package-aware behavior, even when manifest extensions are
 absent.
 
+## Run the Windows SDK package check
+
+In PowerShell 7 on Windows, select an installed x64 SDK directory containing `makepri.exe` and
+`makeappx.exe`, then run:
+
+```powershell
+./scripts/pack-windows-store-test.ps1 -PreparedDirectory $storeLayout -SdkBinDirectory 'C:\Program Files (x86)\Windows Kits\10\bin\<installed-sdk-version>\x64'
+```
+
+The SDK runner requires a fresh layout with no `resources.pri`, and creates a
+new sibling directory named `<layout-directory-name>.sdk-output`. It checks the
+prepared inputs, generates and dumps the PRI, verifies the logical image paths
+and scale-200 candidates, packs an unsigned AppX, unpacks it, and compares the
+actual manifest, assets, payload, and PRI digests. It writes `sdk-result.json`
+only after those steps succeed. Partial output remains for diagnosis; use a
+new preparation directory for a retry.
+
+The pack command uses `/l` for qualified resources. That option skips a specific
+localization check; it does not prove all manifest semantics. The runner never
+passes `/nv`. MakeAppx validation is limited, and a successful pack/unpack does
+not prove installation, runtime behavior, WACK, or Store certification.
+
+To inspect a layout independently, the read-only validator supports these
+phases and prints a JSON report:
+
+```powershell
+node scripts/verify-windows-store-layout.mjs --prepared $storeLayout --phase prepared
+# After indexing; the first command deliberately rejects an existing PRI:
+node scripts/verify-windows-store-layout.mjs --prepared $storeLayout --phase indexed
+node scripts/verify-windows-store-layout.mjs --prepared $storeLayout --phase unpacked --layout "$storeLayout.sdk-output\unpacked"
+```
+
+The `Windows Store package check` workflow performs this test on a Windows
+runner from the checked-out commit, using the fixed test identity and package
+version. It builds its own payload and consumes no signing or submission
+credentials. Its artifact contains only JSON/XML reports and process logs, with no images or
+AppX upload. A green job establishes the SDK checks for that commit only.
+
 Do not treat an unsigned directory build, a valid metadata file, or a successful
 local check as a distributable Store package. Actual Windows packaging, package
 identity verification, WACK, and installation/update tests remain required.
@@ -178,3 +217,4 @@ identity verification, WACK, and installation/update tests remain required.
 - [Desktop package manifest](https://learn.microsoft.com/en-us/windows/msix/desktop/desktop-to-uwp-manual-conversion)
 - [App icon asset requirements](https://learn.microsoft.com/en-us/windows/apps/design/iconography/app-icon-construction)
 - [PRI configuration](https://learn.microsoft.com/en-us/windows/uwp/app-resources/makepri-exe-configuration)
+- [MakeAppx commands and validation limits](https://learn.microsoft.com/en-us/windows/msix/package/create-app-package-with-makeappx-tool)

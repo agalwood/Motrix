@@ -216,12 +216,14 @@ jobs:
           tests/scripts/verify-container-publication.test.ts
           tests/scripts/verify-server-package.test.ts
           tests/scripts/verify-update-artifacts.test.ts
+          tests/scripts/verify-windows-store-layout.test.ts
           tests/scripts/verify-windows-store-payload.test.ts
           tests/scripts/verify-windows-store-source.test.ts
           tests/scripts/windows-store-builder-config.test.ts
           tests/scripts/windows-store-manifest.test.ts
           tests/scripts/windows-store-metadata.test.ts
           tests/scripts/workflow-release-matrix.test.ts
+          tests/scripts/workflow-windows-store.test.ts
           tests/scripts/workflow-flatpak-release.test.ts
           tests/scripts/workflow-snap.test.ts
 
