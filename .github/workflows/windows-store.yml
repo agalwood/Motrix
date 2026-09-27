@@ -37,6 +37,11 @@ jobs:
       run:
         shell: pwsh
     steps:
+      # Keep checkout bytes consistent with the source verifier, which ignores
+      # machine/global Git configuration. Hosted Windows otherwise enables CRLF.
+      - name: Configure deterministic checkout line endings
+        run: git config --global core.autocrlf false
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false

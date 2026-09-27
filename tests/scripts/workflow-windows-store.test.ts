@@ -34,7 +34,16 @@ describe('Windows Store SDK test workflow', () => {
     const checkout = steps.find((step) =>
       step.uses?.startsWith('actions/checkout@')
     )
-    expect(checkout?.with?.['persist-credentials']).toBe(false)
+    if (!checkout) throw new Error('Missing checkout step')
+    expect(checkout.with?.['persist-credentials']).toBe(false)
+    const lineEndings = stepIndex(
+      'Configure deterministic checkout line endings'
+    )
+    expect(lineEndings).toBeGreaterThanOrEqual(0)
+    expect(lineEndings).toBeLessThan(steps.indexOf(checkout))
+    expect(steps[lineEndings]?.run).toBe(
+      'git config --global core.autocrlf false'
+    )
     for (const step of steps.filter((step) => step.uses)) {
       expect(step.uses).toMatch(/@[0-9a-f]{40}$/)
     }
