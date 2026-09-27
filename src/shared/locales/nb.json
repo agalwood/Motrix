@@ -281,6 +281,7 @@
   },
   "onboarding": {
     "disclaimer": {
+      "privacyPolicy": "Personvernerklæring",
       "agree": "Godta og fortsett",
       "body": "Motrix tilbyr bare nedlastingshåndtering. Det tilbyr, lagrer, er vert for eller anbefaler ikke innhold for nedlasting. Du må sikre at du har lovlig rett til å hente, bruke eller dele innhold gjennom Motrix, og at dette er i samsvar med gjeldende opphavsrett og annen lovgivning. Du er ansvarlig for eventuelle følger av å laste ned, bruke eller dele innhold. Ved å velge «Godta og fortsett» bekrefter du at du har lest og forstått denne informasjonen.",
       "highlights": {
@@ -1623,6 +1624,7 @@
         "licenseValue": "{{license}}-lisens"
       },
       "resources": {
+        "privacyPolicy": "Personvernerklæring",
         "acknowledgments": "Takk til",
         "acknowledgmentsDescription": "Se bidragsyterne på motrix.app",
         "changelog": "Endringslogg",

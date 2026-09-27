@@ -282,6 +282,7 @@
   },
   "onboarding": {
     "disclaimer": {
+      "privacyPolicy": "Politica de confidențialitate",
       "agree": "Acceptă și continuă",
       "body": "Motrix oferă doar gestionarea descărcărilor. Nu furnizează, nu stochează, nu găzduiește și nu recomandă conținut de descărcat. Trebuie să te asiguri că ai dreptul legal de a accesa, utiliza sau distribui orice conținut prin Motrix și că respecți legislația aplicabilă privind drepturile de autor și celelalte legi. Ești responsabil pentru orice consecințe ale descărcării, utilizării sau distribuirii conținutului. Selectând „Acceptă și continuă”, confirmi că ai citit și ai înțeles această notă.",
       "highlights": {
@@ -1642,6 +1643,7 @@
         "licenseValue": "Licență {{license}}"
       },
       "resources": {
+        "privacyPolicy": "Politica de confidențialitate",
         "acknowledgments": "Mulțumiri",
         "acknowledgmentsDescription": "Vezi contributorii proiectului pe motrix.app",
         "changelog": "Jurnal de modificări",

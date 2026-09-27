@@ -1381,6 +1381,7 @@
         "licenseValue": "{{license}} License"
       },
       "resources": {
+        "privacyPolicy": "Privacy policy",
         "title": "Resources",
         "repository": "Source repository",
         "repositoryDescription": "Browse the code on GitHub",
@@ -2635,6 +2636,7 @@
   },
   "onboarding": {
     "disclaimer": {
+      "privacyPolicy": "Privacy policy",
       "title": "Usage Notice",
       "language": "Language",
       "languages": {

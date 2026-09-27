@@ -282,6 +282,7 @@
   },
   "onboarding": {
     "disclaimer": {
+      "privacyPolicy": "Politique de confidentialité",
       "agree": "Accepter et continuer",
       "body": "Motrix assure uniquement la gestion des téléchargements. Il ne fournit, ne stocke, n’héberge et ne recommande aucun contenu téléchargeable. Vous devez vous assurer que tout contenu auquel vous accédez, que vous utilisez ou que vous partagez via Motrix est légalement autorisé et respecte le droit d’auteur ainsi que les autres lois applicables. Vous êtes responsable des conséquences du téléchargement, de l’utilisation ou du partage de contenus. En sélectionnant « Accepter et continuer », vous confirmez avoir lu et compris cet avis.",
       "highlights": {
@@ -1642,6 +1643,7 @@
         "licenseValue": "Licence {{license}}"
       },
       "resources": {
+        "privacyPolicy": "Politique de confidentialité",
         "acknowledgments": "Remerciements",
         "acknowledgmentsDescription": "Consulter les crédits du projet sur motrix.app",
         "changelog": "Historique des modifications",

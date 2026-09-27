@@ -136,7 +136,6 @@ The following signed extension bundles are fetched from pinned releases of
 application:
 
 - `motrix.filename-template`
-- `motrix.scraper-hook`
 - `motrix.url-resolver`
 
 They are maintained and released by the Motrix project, rather than consumed

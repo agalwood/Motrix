@@ -566,6 +566,29 @@ describe('third-party graph dependency notices', () => {
     }
   )
 
+  it.each([
+    ['THIRD_PARTY_NOTICES.md', '## Bundled Motrix extensions'],
+    ['THIRD_PARTY_NOTICES.zh-CN.md', '## 随应用分发的 Motrix 扩展'],
+  ])(
+    '%s lists exactly the locked builtin extensions',
+    async (file, heading) => {
+      const [notice, lockSource] = await Promise.all([
+        readFile(path.join(ROOT, file), 'utf8'),
+        readFile(path.join(ROOT, 'scripts/builtins.lock.json'), 'utf8'),
+      ])
+      const lock = JSON.parse(lockSource) as {
+        plugins: Record<string, unknown>
+      }
+      const section = notice.split(`${heading}\n`)[1]?.split('\n## ')[0]
+      expect(section).toBeDefined()
+      const listedIds = [...(section ?? '').matchAll(/^- `([^`]+)`\s*$/gm)].map(
+        (match) => match[1]
+      )
+
+      expect(listedIds.sort()).toEqual(Object.keys(lock.plugins).sort())
+    }
+  )
+
   it('tracks every registry crate locked into the native host', async () => {
     const cargoLock = await readFile(NATIVE_HOST_CARGO_LOCK, 'utf8')
     const expected = RUST_NATIVE_HOST_CRATES.map(({ name, version }) => ({
@@ -647,6 +670,10 @@ describe('third-party graph dependency notices', () => {
     const sources =
       config.extraResources?.map((resource) => resource.from) ?? []
 
+    expect(config.extraResources).toContainEqual({
+      from: './LICENSE',
+      to: './LICENSE',
+    })
     expect(sources).toContain('./THIRD_PARTY_NOTICES.md')
     expect(sources).toContain('./THIRD_PARTY_NOTICES.zh-CN.md')
     expect(sources).toContain('./THIRD_PARTY_LICENSES')

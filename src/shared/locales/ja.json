@@ -1367,6 +1367,7 @@
         "licenseValue": "{{license}} ライセンス"
       },
       "resources": {
+        "privacyPolicy": "プライバシーポリシー",
         "title": "関連情報",
         "repository": "ソースリポジトリ",
         "repositoryDescription": "GitHub でコードを表示",
@@ -2614,6 +2615,7 @@
   },
   "onboarding": {
     "disclaimer": {
+      "privacyPolicy": "プライバシーポリシー",
       "title": "ご利用にあたって",
       "language": "言語",
       "languages": {

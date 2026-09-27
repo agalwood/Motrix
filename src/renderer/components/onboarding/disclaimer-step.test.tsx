@@ -3,6 +3,7 @@ import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
 import { i18n } from '@renderer/lib/i18n'
 import { transport } from '@renderer/lib/transport'
+import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -22,6 +23,20 @@ describe('DisclaimerStep', () => {
     vi.clearAllMocks()
     vi.mocked(transport.invoke).mockResolvedValue(undefined)
     await i18n.changeLanguage('en-US')
+  })
+
+  it('offers the privacy policy before acceptance without submitting consent', () => {
+    render(<DisclaimerStep />)
+    const link = screen.getByRole('link', { name: 'Privacy policy' })
+    expect(link).toHaveAttribute('href', EXTERNAL_URLS.motrix.privacyPolicy)
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+
+    fireEvent.click(link)
+
+    expect(transport.invoke).not.toHaveBeenCalled()
+    expect(screen.getByTestId('disclaimer-agree')).toBeEnabled()
+    expect(screen.getByTestId('disclaimer-quit')).toBeEnabled()
   })
 
   it('persists acceptance and blocks duplicate actions while saving', async () => {
@@ -112,6 +127,10 @@ describe('DisclaimerStep', () => {
     render(<DisclaimerStep />)
 
     expect(screen.getByRole('heading', { name: '使用声明' })).toBeVisible()
+    expect(screen.getByRole('link', { name: '隐私政策' })).toHaveAttribute(
+      'href',
+      EXTERNAL_URLS.motrix.privacyPolicy
+    )
     expect(
       [...document.querySelectorAll('[data-slot="blur-highlight-bit"]')].map(
         (bit) => bit.textContent

@@ -282,6 +282,7 @@
   },
   "onboarding": {
     "disclaimer": {
+      "privacyPolicy": "Política de privadesa",
       "agree": "Acceptar i continuar",
       "body": "El Motrix només gestiona baixades. No proporciona, emmagatzema, allotja ni recomana contingut per baixar. Us heu d'assegurar que teniu autorització legal per accedir al contingut, utilitzar-lo o compartir-lo mitjançant el Motrix i que compliu la legislació aplicable sobre drets d'autor i altres lleis. Sou responsables de les conseqüències de baixar, utilitzar o compartir contingut. En seleccionar «Acceptar i continuar», confirmeu que heu llegit i entès aquest avís.",
       "highlights": {
@@ -1642,6 +1643,7 @@
         "licenseValue": "Llicència {{license}}"
       },
       "resources": {
+        "privacyPolicy": "Política de privadesa",
         "acknowledgments": "Agraïments",
         "acknowledgmentsDescription": "Consulteu els crèdits del projecte a motrix.app",
         "changelog": "Historial de canvis",

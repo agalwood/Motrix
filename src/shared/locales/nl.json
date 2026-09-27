@@ -281,6 +281,7 @@
   },
   "onboarding": {
     "disclaimer": {
+      "privacyPolicy": "Privacybeleid",
       "agree": "Akkoord en doorgaan",
       "body": "Motrix biedt alleen downloadbeheer. Het biedt, bewaart, host of beveelt geen downloadbare inhoud aan. Je moet ervoor zorgen dat je wettelijk gerechtigd bent om inhoud via Motrix te openen, te gebruiken of te delen en dat je daarbij voldoet aan het toepasselijke auteursrecht en andere wetgeving. Je bent verantwoordelijk voor eventuele gevolgen van het downloaden, gebruiken of delen van inhoud. Door ‘Akkoord en doorgaan’ te kiezen, bevestig je dat je deze informatie hebt gelezen en begrepen.",
       "highlights": {
@@ -1623,6 +1624,7 @@
         "licenseValue": "{{license}}-licentie"
       },
       "resources": {
+        "privacyPolicy": "Privacybeleid",
         "acknowledgments": "Dankbetuigingen",
         "acknowledgmentsDescription": "Bekijk op motrix.app wie aan het project heeft bijgedragen.",
         "changelog": "Wijzigingslogboek",

@@ -22,6 +22,7 @@ export const EXTERNAL_URLS = {
   },
   motrix: {
     home: 'https://motrix.app/',
+    privacyPolicy: 'https://motrix.app/privacy/',
     acknowledgments: 'https://motrix.app/acknowledgments',
     plugins: 'https://motrix.app/plugins',
     changelog: 'https://motrix.app/changelog/',

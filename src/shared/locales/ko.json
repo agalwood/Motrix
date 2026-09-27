@@ -1367,6 +1367,7 @@
         "licenseValue": "{{license}} 라이선스"
       },
       "resources": {
+        "privacyPolicy": "개인정보 처리방침",
         "title": "관련 자료",
         "repository": "소스 저장소",
         "repositoryDescription": "GitHub에서 코드 보기",
@@ -2614,6 +2615,7 @@
   },
   "onboarding": {
     "disclaimer": {
+      "privacyPolicy": "개인정보 처리방침",
       "title": "이용 안내",
       "language": "언어",
       "languages": {

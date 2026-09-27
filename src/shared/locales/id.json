@@ -1367,6 +1367,7 @@
         "licenseValue": "Lisensi {{license}}"
       },
       "resources": {
+        "privacyPolicy": "Kebijakan privasi",
         "title": "Sumber daya",
         "repository": "Repositori sumber",
         "repositoryDescription": "Lihat kode di GitHub",
@@ -2614,6 +2615,7 @@
   },
   "onboarding": {
     "disclaimer": {
+      "privacyPolicy": "Kebijakan privasi",
       "title": "Pemberitahuan penggunaan",
       "language": "Bahasa",
       "languages": {

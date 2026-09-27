@@ -11,6 +11,7 @@ const OUTPUTS = [
   'dist/renderer/index.html',
 ]
 const LEGAL = [
+  'LICENSE',
   'THIRD_PARTY_LICENSES/aria2-COPYING',
   'THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL',
   'THIRD_PARTY_NOTICES.md',

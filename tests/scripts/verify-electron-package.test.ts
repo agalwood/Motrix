@@ -48,6 +48,7 @@ const OUTPUTS = [
   'dist/renderer/index.html',
 ]
 const LEGAL = [
+  'LICENSE',
   'THIRD_PARTY_LICENSES/aria2-COPYING',
   'THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL',
   'THIRD_PARTY_NOTICES.md',
@@ -513,6 +514,7 @@ describe('post-package Electron verification', () => {
     'bin/motrix-native-host',
     'bin/motrix-finalize-fs',
     'builtin-plugins/motrix.fixture/motrix-plugin.json',
+    'LICENSE',
     'THIRD_PARTY_NOTICES.md',
   ])('rejects a missing external resource %s', async (relativePath) => {
     const fixture = await createFixture(undefined, async ({ resources }) => {

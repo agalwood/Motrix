@@ -1341,6 +1341,7 @@
         "licenseValue": "{{license}} License"
       },
       "resources": {
+        "privacyPolicy": "隐私政策",
         "title": "相关资源",
         "repository": "开源仓库",
         "repositoryDescription": "在 GitHub 浏览源代码",
@@ -2614,6 +2615,7 @@
   },
   "onboarding": {
     "disclaimer": {
+      "privacyPolicy": "隐私政策",
       "title": "使用声明",
       "language": "语言",
       "languages": {

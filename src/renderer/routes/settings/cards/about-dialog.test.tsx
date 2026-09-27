@@ -96,6 +96,13 @@ describe('<AboutDialog>', () => {
     expect(
       screen.getByRole('link', { name: /acknowledgments/i })
     ).toHaveAttribute('href', EXTERNAL_URLS.motrix.acknowledgments)
+    const privacyPolicy = screen.getByRole('link', { name: 'Privacy policy' })
+    expect(privacyPolicy).toHaveAttribute(
+      'href',
+      EXTERNAL_URLS.motrix.privacyPolicy
+    )
+    expect(privacyPolicy).toHaveAttribute('target', '_blank')
+    expect(privacyPolicy).toHaveAttribute('rel', 'noopener noreferrer')
   })
 
   it('closes from the footer action', async () => {
@@ -634,6 +641,9 @@ describe('<AboutDialog>', () => {
           'This web edition is updated by its deployment administrator.'
         )
       ).toBeInTheDocument()
+      expect(
+        screen.getByRole('link', { name: 'Privacy policy' })
+      ).toHaveAttribute('href', EXTERNAL_URLS.motrix.privacyPolicy)
       expectNoUpdateControls()
       expect(transport.invoke).not.toHaveBeenCalledWith(Queries.GetUpdateState)
       expect(transport.on).not.toHaveBeenCalledWith(

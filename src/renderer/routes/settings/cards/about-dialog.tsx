@@ -148,6 +148,10 @@ export function AboutDialog({
               href={EXTERNAL_URLS.motrix.acknowledgments}
               title={t('settings.about.resources.acknowledgments')}
             />
+            <CompactLink
+              href={EXTERNAL_URLS.motrix.privacyPolicy}
+              title={t('settings.about.resources.privacyPolicy')}
+            />
           </nav>
         </section>
 

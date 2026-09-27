@@ -1381,6 +1381,7 @@
         "licenseValue": "{{license}} Lisansı"
       },
       "resources": {
+        "privacyPolicy": "Gizlilik politikası",
         "title": "Kaynaklar",
         "repository": "Kaynak kodu deposu",
         "repositoryDescription": "GitHub’da koda göz atın",
@@ -2635,6 +2636,7 @@
   },
   "onboarding": {
     "disclaimer": {
+      "privacyPolicy": "Gizlilik politikası",
       "title": "Kullanım bildirimi",
       "language": "Dil",
       "languages": {

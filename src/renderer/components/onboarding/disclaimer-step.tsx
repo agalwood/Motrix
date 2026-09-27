@@ -9,6 +9,7 @@ import {
 import { isCjkLocale } from '@renderer/lib/locale-script'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
+import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -86,6 +87,14 @@ export function DisclaimerStep() {
             >
               {t('onboarding.disclaimer.localConsent')}
             </p>
+            <a
+              href={EXTERNAL_URLS.motrix.privacyPolicy}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 block w-fit rounded-sm text-[13px] leading-5 text-primary underline underline-offset-4 outline-none hover:text-primary/80 focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {t('onboarding.disclaimer.privacyPolicy')}
+            </a>
 
             {failed && (
               <p

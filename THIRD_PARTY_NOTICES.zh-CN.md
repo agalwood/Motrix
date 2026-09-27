@@ -117,7 +117,6 @@ Motrix Turbo 提供一个可选的 IP→国家查找功能，依赖 **MaxMind Ge
 分发以下经过签名的扩展包：
 
 - `motrix.filename-template`
-- `motrix.scraper-hook`
 - `motrix.url-resolver`
 
 这些扩展由 Motrix 项目自行维护和发布，并不是 npm 第三方依赖。但当前上游扩展包

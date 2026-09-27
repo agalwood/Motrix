@@ -1367,6 +1367,7 @@
         "licenseValue": "{{license}} 授權條款"
       },
       "resources": {
+        "privacyPolicy": "隱私權政策",
         "title": "資源",
         "repository": "原始碼存放庫",
         "repositoryDescription": "在 GitHub 瀏覽原始碼",
@@ -2236,6 +2237,7 @@
   },
   "onboarding": {
     "disclaimer": {
+      "privacyPolicy": "隱私權政策",
       "title": "使用須知",
       "language": "語言",
       "languages": {

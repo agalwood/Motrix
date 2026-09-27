@@ -1367,6 +1367,7 @@
         "licenseValue": "Giấy phép {{license}}"
       },
       "resources": {
+        "privacyPolicy": "Chính sách quyền riêng tư",
         "title": "Tài nguyên",
         "repository": "Kho mã nguồn",
         "repositoryDescription": "Xem mã nguồn trên GitHub",
@@ -2614,6 +2615,7 @@
   },
   "onboarding": {
     "disclaimer": {
+      "privacyPolicy": "Chính sách quyền riêng tư",
       "title": "Thông báo sử dụng",
       "language": "Ngôn ngữ",
       "languages": {

@@ -1409,6 +1409,7 @@
         "licenseValue": "Лицензия {{license}}"
       },
       "resources": {
+        "privacyPolicy": "Политика конфиденциальности",
         "title": "Ресурсы",
         "repository": "Репозиторий исходного кода",
         "repositoryDescription": "Посмотреть код на GitHub",
@@ -2677,6 +2678,7 @@
   },
   "onboarding": {
     "disclaimer": {
+      "privacyPolicy": "Политика конфиденциальности",
       "title": "Уведомление об использовании",
       "language": "Язык",
       "languages": {

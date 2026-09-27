@@ -1395,6 +1395,7 @@
         "licenseValue": "Licença {{license}}"
       },
       "resources": {
+        "privacyPolicy": "Política de privacidade",
         "title": "Recursos",
         "repository": "Repositório do código-fonte",
         "repositoryDescription": "Veja o código no GitHub",
@@ -2656,6 +2657,7 @@
   },
   "onboarding": {
     "disclaimer": {
+      "privacyPolicy": "Política de privacidade",
       "title": "Aviso de uso",
       "language": "Idioma",
       "languages": {
