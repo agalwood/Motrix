@@ -985,6 +985,19 @@ The host MUST NOT expose `localToken` to the extension, MUST NOT log ticket
 material, and holds no `clientInstallationId` (the PAKE transcript binds that
 instead).
 
+**Current Windows implementation limitation:** the Rust host's `read_endpoint`
+retains `localToken` and `generation` from a readable, valid endpoint without
+checking its owner or DACL. This differs from the endpoint trust root in step 3
+above; that requirement has not been verified by a successful Windows ticket
+exchange. The strict Windows `is_owner_only` check is used for development
+configuration beside the executable, not for `endpoint.json`. Unix still
+checks the open endpoint's owner and mode before retaining these fields.
+Selecting the current user's data directory, including the separate Store
+profile, does not establish owner-only permissions. PAKE, ticket MAC and
+binding-key proof verification do not establish that file-permission property
+either. This documents the existing implementation gap without changing the
+wire protocol or treating it as a Store acceptance result.
+
 ### 9.2 Ticket format
 
 Wire form (JSON, inside `pairHello`):

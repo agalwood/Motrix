@@ -679,6 +679,15 @@ origin；Firefox：扩展 ID 参数）。NM host 读取它并铸造一张一次�
 host MUST NOT 向扩展暴露 `localToken`，MUST NOT 记录 ticket 材料，且不持有
 `clientInstallationId`（由 PAKE transcript 绑定）。
 
+**当前 Windows 实现的限制：** Rust host 的 `read_endpoint` 从可读且格式有效的
+endpoint 保留 `localToken` 和 `generation`，不检查其所有者或 DACL。这与上面
+第 3 步描述的 endpoint 信任根存在差距；Windows ticket 交换成功不能证明该要求
+已得到验证。严格的 Windows `is_owner_only` 检查用于可执行文件旁的开发配置，
+不用于 `endpoint.json`。Unix 仍在保留这两个字段前检查已打开 endpoint 的所有者
+和权限。选择当前用户的数据目录（包括独立 Store profile）不能证明文件权限为
+owner-only；PAKE、ticket MAC 和绑定密钥持有证明的验证也不能证明这项文件权限
+属性。此处记录现有实现差距，不改变线协议，也不将其视为 Store 验收结果。
+
 ### 9.2 Ticket 格式
 
 Wire 形态（JSON，位于 `pairHello` 内）：

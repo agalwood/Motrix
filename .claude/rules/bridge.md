@@ -246,26 +246,31 @@ For a `bootstrap` request, the host also mints a §9.2 NM attestation ticket
 `{ action: 'requestPair', protocolVersion: 1, port, nonce, nmTicket? }` —
 `protocolVersion` is always emitted, by both `request_pair` and
 `request_pair_with_ticket`, and §9.1 makes it normative — whenever every trusted
-input is available: an argv-extracted caller identity, an owner-checked
-`localToken` and ASCII `generation` from `endpoint.json`, and the
+input is available: an argv-extracted caller identity, `localToken` and ASCII
+`generation` retained by the platform's endpoint reader, and the
 extension's `bindingPub`. A missing input degrades to a ticketless reply
-rather than fabricating one — ticketless resolves to `unverified` on the
-server, the same outcome as presenting no ticket at all, which is safer
-than a structurally broken ticket (§9.2 aborts on that). `localToken`
-itself never reaches the wire, only the MAC key it derives.
+rather than fabricating one. Without a ticket, Chromium identity still
+comes from its verified Origin, while Firefox remains `unverified` because
+its UUID does not establish its Gecko ID. A structurally broken ticket
+instead aborts pairing (§9.2). Neither `localToken` nor its derived MAC key
+reaches the wire; the ticket carries only the computed MAC.
 
-`endpoint.json`'s `localToken`/`generation` are trusted for minting only
-when the file passes `is_owner_only` on the already-open handle (§9.1); a
-file that fails it still yields a port, but those two fields are dropped. On
-Unix that is a 0600 owner-and-mode check. On Windows it is the deliberately
-weaker analogue documented on `is_owner_only` itself: owner = current process
-user, and every DACL entry either a deny-family ACE or a plain allow ACE for
-that user, `LocalSystem`, or `BUILTIN\Administrators` — any other ACE type
-(the conditional/object allow variants included) fails the check closed and
-drops the fields. SYSTEM and Administrators are admitted because they can
-already rewrite anything the user owns, which means an administrator can
-*read* `localToken` on Windows — do not read the ticket-minting path above
-as attesting anything stronger than that there.
+On Unix, `read_endpoint` retains `localToken`/`generation` for minting only
+when the already-open file passes the 0600 owner-and-mode check; failure
+still yields a port but drops those fields. **Windows currently does not
+apply `is_owner_only` to `endpoint.json`.** It retains the fields from a
+readable, valid endpoint in the selected bridge-data namespace. Direct
+installations can explicitly override that location; package installations
+select the Store profile from OS package identity and reject those overrides.
+Namespace selection does not prove owner-only file permissions.
+
+The strict Windows `is_owner_only` DACL check remains in use for the
+development-only configuration beside the executable, not for the endpoint.
+This is a current implementation deviation from the endpoint trust root
+described in protocol §9.1. A successful Windows ticket exchange proves
+neither that the endpoint passed a DACL check nor that only its owner can
+read or rewrite it. Do not silently change this inherited runtime policy
+while adding Store integration or claim that a CI ticket test closes the gap.
 
 On Flatpak, only the **broker** (`motrix-native-host-broker`) speaks HTTP:
 `probe_bridge` reaches `probe.rs` through `resolve_endpoint`, so the broker
