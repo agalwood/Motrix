@@ -5,6 +5,16 @@ param(
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+function Resolve-MainListenerOwner([object[]]$Listeners) {
+  # These records are ordered dictionaries. Select-Object -ExpandProperty
+  # cannot read their keys, so project the PID through dictionary adaptation.
+  $owners = @($Listeners | ForEach-Object {
+    if ($_.pid -isnot [int] -or $_.pid -lt 1) { throw 'Invalid listener owner.' }
+    $_.pid
+  } | Sort-Object -Unique)
+  if ($owners.Count -ne 1) { throw 'Expected one listener owner.' }
+  return $owners[0]
+}
 # This read-only query emits sensitive local paths only to the controller's
 # bounded pipe. The controller retains digests and booleans, never this JSON.
 try {
@@ -52,9 +62,7 @@ public static class MotrixMainIdentity {
     })
   }
   if ($TargetPid -eq 0) {
-    $owners = @($listeners | Select-Object -ExpandProperty pid -Unique)
-    if ($owners.Count -ne 1) { exit 1 }
-    $TargetPid = $owners[0]
+    $TargetPid = Resolve-MainListenerOwner $listeners
   }
   $target = Get-Process -Id $TargetPid -ErrorAction Stop
   [ordered]@{

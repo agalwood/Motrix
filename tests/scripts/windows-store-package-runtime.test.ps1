@@ -3,7 +3,7 @@
 .SYNOPSIS
 Tests the runtime script's pure upgrade and alias evidence guards.
 .DESCRIPTION
-Loads only nine named top-level function definitions through the PowerShell AST.
+Loads named top-level guards and the listener-owner resolver through the PowerShell AST.
 Never executes the runtime script's main flow, installs packages, uses PKI, or
 launches an alias. Synthetic records do not prove Windows runtime behavior.
 #>
@@ -209,6 +209,30 @@ try {
   # Define only the AST-selected guards. Do not dot-source the runtime file:
   # its parameters, environment checks and main lifecycle must never execute.
   . ([scriptblock]::Create(($definitions -join "`n")))
+
+  $queryPath = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../scripts/query-windows-store-main-process.ps1'))
+  $queryAst = [Management.Automation.Language.Parser]::ParseFile($queryPath, [ref]$tokens, [ref]$parseErrors)
+  if (@($parseErrors).Count -ne 0) { throw 'Process query source has parser errors.' }
+  $resolver = @($queryAst.EndBlock.Statements | Where-Object {
+    $_ -is [Management.Automation.Language.FunctionDefinitionAst] -and $_.Name -ceq 'Resolve-MainListenerOwner'
+  })
+  if ($resolver.Count -ne 1) { throw 'Expected one listener resolver definition.' }
+  . ([scriptblock]::Create($resolver[0].Extent.Text))
+  foreach ($case in @(
+    @{ name = 'listener-owner-ordered-dictionary'; listeners = @([ordered]@{ pid = 42; address = '127.0.0.1' }); expected = 42 },
+    @{ name = 'listener-owner-two-addresses-same-process'; listeners = @([ordered]@{ pid = 42; address = '127.0.0.1' }, [ordered]@{ pid = 42; address = '::1' }); expected = 42 },
+    @{ name = 'listener-owner-custom-object'; listeners = @([pscustomobject]@{ pid = 42; address = '127.0.0.1' }); expected = 42 },
+    @{ name = 'listener-owner-rejects-empty'; listeners = @(); expected = $null },
+    @{ name = 'listener-owner-rejects-ambiguous'; listeners = @([ordered]@{ pid = 42 }, [ordered]@{ pid = 43 }); expected = $null },
+    @{ name = 'listener-owner-rejects-zero'; listeners = @([ordered]@{ pid = 0 }); expected = $null },
+    @{ name = 'listener-owner-rejects-string'; listeners = @([ordered]@{ pid = '42' }); expected = $null }
+  )) {
+    $observed = $null
+    $rejected = $false
+    try { $observed = Resolve-MainListenerOwner $case.listeners } catch { $rejected = $true }
+    $ok = if ($null -eq $case.expected) { $rejected } else { -not $rejected -and $observed -eq $case.expected }
+    $results.Add([ordered]@{ name = $case.name; ok = $ok })
+  }
 
   Test-ContractCase 'main-accepts-bound-evidence' 'main'
   Test-ContractCase 'main-rejects-other-source' 'main' $true { param($f) $f.Main.sourceCommit = 'b' * 40 }
