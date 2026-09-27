@@ -89,7 +89,7 @@ function CountedButton({
       {icon}
       {label}
       {total > 1 && count > 0 && (
-        <span className="tabular-nums ml-0.5">({count})</span>
+        <span className="tabular-nums ms-0.5">({count})</span>
       )}
     </Button>
   )

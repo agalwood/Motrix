@@ -144,7 +144,7 @@ export function TrustedExtensionsSection({ disabled }: { disabled: boolean }) {
               type="button"
               variant="ghost"
               size="sm"
-              className="-ml-2 flex h-7 w-full items-center justify-between pl-2 pr-0 text-xs text-muted-foreground hover:text-foregroun hover:bg-transparent dark:hover:bg-transparent"
+              className="-ms-2 flex h-7 w-full items-center justify-between ps-2 pe-0 text-xs text-muted-foreground hover:text-foregroun hover:bg-transparent dark:hover:bg-transparent"
             />
           }
         >

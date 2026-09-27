@@ -38,7 +38,7 @@ export function PluginLogRow({ entry }: { entry: PluginLogEntry }) {
       <span className="min-w-0 whitespace-pre-wrap break-words text-foreground">
         {entry.msg}
         {extraFields.length > 0 && (
-          <span className="ml-2 text-muted-foreground">
+          <span className="ms-2 text-muted-foreground">
             {extraFields
               .map(
                 ([k, v]) =>

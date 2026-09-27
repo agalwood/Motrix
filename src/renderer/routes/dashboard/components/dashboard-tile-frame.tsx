@@ -8,6 +8,7 @@ import {
   ResizeIcon,
 } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
+import { useDirection } from '@renderer/components/ui/direction'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -102,6 +103,7 @@ export function DashboardTileFrame({
   onRemove,
 }: DashboardTileFrameProps) {
   const { t } = useTranslation()
+  const direction = useDirection()
   const hintId = useId()
   const [hintReason, setHintReason] =
     useState<DashboardLayoutFailureReason | null>(null)
@@ -117,6 +119,7 @@ export function DashboardTileFrame({
   return (
     <section
       data-testid={`dashboard-tile-${tile.id}`}
+      dir={direction}
       data-dashboard-tile-id={tile.id}
       data-enabled={tile.enabled}
       style={gridStyle}

@@ -385,7 +385,7 @@ export function NetworkDialog({
                                 !stunFieldsInvalid &&
                                 !revealedDiagnosticFields.stun
                               }
-                              className="border-l border-border/60 pl-4"
+                              className="border-s border-border/60 ps-4"
                             >
                               <FormField
                                 control={form.control}
@@ -446,7 +446,7 @@ export function NetworkDialog({
                                 !portFieldsInvalid &&
                                 !revealedDiagnosticFields.ports
                               }
-                              className="border-l border-border/60 pl-4"
+                              className="border-s border-border/60 ps-4"
                             >
                               <FormField
                                 control={form.control}
@@ -510,7 +510,7 @@ export function NetworkDialog({
                                 !intervalInvalid &&
                                 !revealedDiagnosticFields.interval
                               }
-                              className="border-l border-border/60 pl-4"
+                              className="border-s border-border/60 ps-4"
                             >
                               <FormField
                                 control={form.control}
@@ -559,7 +559,7 @@ export function NetworkDialog({
 
         <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
           {form.formState.errors.root?.save && (
-            <p role="alert" className="mr-auto text-xs text-destructive">
+            <p role="alert" className="me-auto text-xs text-destructive">
               {form.formState.errors.root.save.message}
             </p>
           )}

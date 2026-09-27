@@ -114,11 +114,11 @@ export function FileList<T extends BaseFileRow = BaseFileRow>({
               <span className="w-14 shrink-0 truncate">
                 {t('task.torrent.column.type')}
               </span>
-              <span className="w-18 shrink-0 truncate text-right">
+              <span className="w-18 shrink-0 truncate text-end">
                 {t('task.torrent.column.size')}
               </span>
               {renderRowTrailing && (
-                <span className="w-14 shrink-0 truncate text-right">
+                <span className="w-14 shrink-0 truncate text-end">
                   {rowTrailingLabel}
                 </span>
               )}
@@ -159,11 +159,11 @@ export function FileList<T extends BaseFileRow = BaseFileRow>({
             >
               {fileType}
             </span>
-            <span className="w-18 shrink-0 truncate text-right text-xs tabular-nums text-muted-foreground">
+            <span className="w-18 shrink-0 truncate text-end text-xs tabular-nums text-muted-foreground">
               {renderRowSize ? renderRowSize(file) : formatBytes(file.size)}
             </span>
             {renderRowTrailing && (
-              <span className="w-14 shrink-0 truncate text-right">
+              <span className="w-14 shrink-0 truncate text-end">
                 {renderRowTrailing(file)}
               </span>
             )}

@@ -6,7 +6,7 @@ interface ResizeHandleProps {
   value: number
   min: number
   max: number
-  /** A bottom pane grows upwards; a column grows to the right. */
+  /** Reverse pointer growth, for bottom panes or RTL columns. */
   reverse?: boolean
   className?: string
   onChange: (value: number) => void
@@ -78,8 +78,18 @@ export function ResizeHandle({
       }}
       onKeyDown={(event) => {
         event.stopPropagation()
-        const decrease = orientation === 'vertical' ? 'ArrowLeft' : 'ArrowDown'
-        const increase = orientation === 'vertical' ? 'ArrowRight' : 'ArrowUp'
+        const decrease =
+          orientation === 'vertical'
+            ? reverse
+              ? 'ArrowRight'
+              : 'ArrowLeft'
+            : 'ArrowDown'
+        const increase =
+          orientation === 'vertical'
+            ? reverse
+              ? 'ArrowLeft'
+              : 'ArrowRight'
+            : 'ArrowUp'
         if (![decrease, increase, 'Home', 'End'].includes(event.key)) return
         event.preventDefault()
         onCommit(

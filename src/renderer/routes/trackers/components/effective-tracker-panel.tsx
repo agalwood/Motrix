@@ -135,10 +135,10 @@ export function EffectiveTrackerPanel({
             <ScrollAreaContent style={{ minWidth: '100%' }}>
               <div className="sticky top-0 z-10 grid grid-cols-[1fr_80px_140px_140px] items-center gap-4 border-b border-border bg-background px-3 py-2 text-[11px] uppercase text-muted-foreground">
                 <div>{t('trackers.effective.column.url')}</div>
-                <div className="text-right">
+                <div className="text-end">
                   {t('trackers.effective.column.health')}
                 </div>
-                <div className="text-right">
+                <div className="text-end">
                   {t('trackers.effective.column.lastProbedAt')}
                 </div>
                 <div>{t('trackers.effective.column.source')}</div>
@@ -157,12 +157,12 @@ export function EffectiveTrackerPanel({
                       {row.url}
                     </span>
                     <span className="flex items-center justify-end gap-1.5">
-                      <span className="text-xs text-right">
+                      <span className="text-xs text-end">
                         {row.responseTimeMs ? `${row.responseTimeMs} ms` : '—'}
                       </span>
                       <HealthDot status={row.health} />
                     </span>
-                    <span className="text-xs text-right text-muted-foreground">
+                    <span className="text-xs text-end text-muted-foreground">
                       {row.lastProbedAt ?? '—'}
                     </span>
                     <span

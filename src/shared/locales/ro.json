@@ -1,0 +1,2810 @@
+{
+  "applicationMenu": {
+    "actionFailed": "Acțiunea nu a putut fi finalizată. Verifică conexiunea și încearcă din nou.",
+    "back": "Înapoi",
+    "clearConfirm": "Șterge înregistrările",
+    "clearDescription": "Elimină înregistrările sarcinilor finalizate, eșuate și eliminate, identificate la deschiderea acestui dialog. Fișierele descărcate rămân pe disc.",
+    "clearTitle": "Ștergi înregistrările sarcinilor oprite?",
+    "discardConfirm": "Renunță",
+    "discardDescription": "Linkurile, selecția torrent și setările nesalvate vor fi pierdute.",
+    "discardTitle": "Renunți la această ciornă de sarcină?",
+    "logoutConfirm": "Deconectează-te",
+    "logoutDescription": "Această acțiune deconectează și celelalte file care folosesc aceeași sesiune de browser. Descărcările continuă pe server. Datele nesalvate din acele file vor fi pierdute.",
+    "logoutTitle": "Te deconectezi de la acest server?",
+    "retry": "Încearcă din nou",
+    "serverUnavailable": "Serverul nu este disponibil. Sesiunea ta nu a fost deconectată.",
+    "signOut": "Deconectează-te…"
+  },
+  "bridge": {
+    "receiver": {
+      "error": {
+        "authExpired": "Sesiunea a expirat — reîncarcă pagina în browser și încearcă din nou",
+        "cancelled": "Anulat",
+        "diskFull": "Discul este plin",
+        "diskWriteFailed": "Nu se poate scrie pe disc: {{detail}}",
+        "internalError": "Eroare internă: {{detail}}",
+        "invalidPayload": "Cerere nevalidă de la extensie",
+        "invalidUrlScheme": "URL-ul trebuie să folosească http: sau https:",
+        "muxAborted": "Combinare anulată",
+        "muxFailed": "ffmpeg a eșuat la combinarea fluxurilor audio și video",
+        "notFound": "Resursa nu a fost găsită (404)",
+        "rangeNotSatisfiable": "Reluarea a eșuat; repornește descărcarea",
+        "transientFailure": "Descărcarea a eșuat după mai multe încercări: {{detail}}",
+        "unsupportedEncryption": "Conținutul protejat prin DRM nu poate fi descărcat",
+        "unsupportedKind": "Descărcările de tip {{kind}} nu sunt acceptate în această versiune Motrix",
+        "unsupportedLive": "Transmisiunile în direct nu pot fi descărcate",
+        "unsupportedMaster": "Extensia a trimis lista de redare principală; era așteptată o variantă"
+      }
+    }
+  },
+  "chrome": {
+    "close": "Închide",
+    "maximize": "Maximizează",
+    "minimize": "Minimizează",
+    "newTask": "Sarcină nouă",
+    "restore": "Restaurează",
+    "sidebarDescription": "Navigarea în aplicație.",
+    "sidebarTitle": "Bară laterală",
+    "toggleSidebar": "Arată sau ascunde bara laterală"
+  },
+  "common": {
+    "apply": "Aplică",
+    "cancel": "Anulează",
+    "clearSearch": "Șterge căutarea",
+    "close": "Închide",
+    "collapse": "Restrânge",
+    "confirm": "Confirmă",
+    "download": "Descarcă",
+    "error": "Eroare",
+    "hidePassword": "Ascunde parola",
+    "loading": "Se încarcă…",
+    "name": "Nume:",
+    "remove": "Elimină",
+    "reset": "Resetează",
+    "retry": "Încearcă din nou",
+    "save": "Salvează",
+    "showPassword": "Arată parola",
+    "status": {
+      "finalizing": "Se finalizează…"
+    }
+  },
+  "directoryPicker": {
+    "back": "Înapoi",
+    "create": "Creează",
+    "createHelp": "Dosarele create rămân pe server dacă anulezi selecția.",
+    "description": "Căile se află pe server (în interiorul containerului dacă folosești Docker).",
+    "empty": "Niciun subdosar",
+    "errors": {
+      "alreadyExists": "Există deja un fișier sau un dosar cu acest nume.",
+      "creationOutcomeUnknown": "Crearea nu a putut fi confirmată. Reîmprospătează pentru a verifica înainte de a crea alt dosar aici.",
+      "invalidName": "Introdu un nume de dosar valid.",
+      "invalidPath": "Introdu o cale absolută validă către un dosar.",
+      "notDirectory": "Această cale nu indică un dosar.",
+      "notFound": "Acest dosar nu mai există.",
+      "outsideRoots": "Acest dosar se află în afara locațiilor permise.",
+      "permissionDenied": "Nu ai permisiunea de a folosi acest dosar.",
+      "tooLarge": "Calea ori numele dosarului depășește lungimea permisă.",
+      "unavailable": "Serverul nu a putut finaliza cererea. Încearcă din nou."
+    },
+    "fallback": "Dosarul solicitat nu este disponibil. Se afișează {{path}}.",
+    "folderName": "Numele dosarului",
+    "folders": "Dosare",
+    "forward": "Înainte",
+    "go": "Mergi",
+    "goToFolder": "Mergi la dosar",
+    "incomplete": "Este afișată doar o parte a acestui dosar. Introdu o cale exactă pentru a accesa alt dosar.",
+    "loading": "Se încarcă dosarele…",
+    "location": "Locație",
+    "newFolder": "Dosar nou",
+    "path": "Calea dosarului",
+    "places": {
+      "allowed": "Locații permise",
+      "common": "Locații uzuale",
+      "default": "Dosar implicit",
+      "desktop": "Desktop",
+      "documents": "Documente",
+      "downloads": "Descărcări",
+      "home": "Dosar personal",
+      "loadFailed": "Unele locații de dosare nu au putut fi încărcate.",
+      "root": "Sistem de fișiere"
+    },
+    "refresh": "Reîmprospătează",
+    "refreshAfterCreateFailed": "Dosarul a fost creat, dar lista nu a putut fi reîmprospătată.",
+    "retry": "Încearcă din nou",
+    "selectFolder": "Selectează dosarul",
+    "selectedPath": "Dosar selectat",
+    "showHidden": "Arată dosarele ascunse",
+    "sortAscending": "Crescătoare",
+    "sortBy": "Sortează după",
+    "sortDescending": "Descrescătoare",
+    "sortModified": "Data modificării",
+    "sortName": "Nume",
+    "sortOrder": "Ordine",
+    "title": "Selectează dosarul de pe server",
+    "unknownOutcome": "Crearea nu a putut fi confirmată. Reîmprospătează pentru a verifica înainte de a crea alt dosar aici.",
+    "up": "Un nivel mai sus",
+    "viewOptions": "Opțiuni de afișare"
+  },
+  "directoryPreferences": {
+    "addFavorite": "Adaugă un favorit",
+    "alreadyFavorite": "Deja în favorite",
+    "clearRecent": "Golește lista dosarelor recente",
+    "close": "Închide",
+    "description": "Eliminarea unui dosar din această listă nu șterge dosarul sau fișierele sale.",
+    "emptyFavorites": "Niciun dosar favorit",
+    "emptyHistory": "Încă nu există dosare favorite sau recente",
+    "emptyRecent": "Niciun dosar recent",
+    "errors": {
+      "conflict": "Setările au fost modificate în altă fereastră. Verifică modificările și salvează din nou.",
+      "invalidPath": "Introdu o cale absolută validă către un dosar.",
+      "limitReached": "A fost atinsă limita de dosare favorite. Elimină un favorit înainte de a adăuga altul.",
+      "notDirectory": "Această cale nu indică un dosar.",
+      "notFound": "Acest dosar nu mai există.",
+      "outsideRoots": "Acest dosar se află în afara locațiilor permise.",
+      "permissionDenied": "Nu ai permisiunea de a folosi acest dosar.",
+      "tooLarge": "Calea acestui dosar este prea lungă.",
+      "unavailable": "Înregistrările dosarelor nu au putut fi actualizate. Reîmprospătează pentru a verifica starea lor curentă."
+    },
+    "favoriteRecent": "Adaugă la favorite",
+    "favorites": "Dosare favorite",
+    "history": "Istoricul dosarelor",
+    "limitHint": "Numărul maxim de dosare favorite pe care le poți salva este {{count}}.",
+    "loading": "Se încarcă dosarele…",
+    "manage": "Gestionează dosarele",
+    "manageAction": "Gestionează",
+    "manageDescription": "Alege dosarele favorite și gestionează dosarele recente.",
+    "pickerFailed": "Selectorul de dosare nu a putut fi deschis. Încearcă din nou.",
+    "recent": "Dosare recente",
+    "removeFavorite": "Elimină din favorite",
+    "removeRecent": "Elimină dosarul din lista de recente",
+    "retry": "Încearcă din nou",
+    "sectionDescription": "Păstrează la îndemână dosarele folosite frecvent.",
+    "title": "Gestionează dosarele"
+  },
+  "errors": {
+    "task": {
+      "create": {
+        "dedupExhausted": "Există deja prea multe fișiere cu acest nume (>9999).",
+        "torrentMetaFailed": "Metadatele torrentului nu au putut fi salvate."
+      }
+    }
+  },
+  "menu": {
+    "app": {
+      "about": "Despre Motrix",
+      "checkForUpdates": "Caută actualizări",
+      "hide": "Ascunde Motrix",
+      "hideOthers": "Ascunde celelalte",
+      "preferences": "Setări…",
+      "quit": "Ieși din Motrix",
+      "show": "Arată Motrix",
+      "title": "Motrix",
+      "unhide": "Arată tot"
+    },
+    "edit": {
+      "copy": "Copiază",
+      "cut": "Decupează",
+      "delete": "Șterge",
+      "paste": "Lipește",
+      "redo": "Refă",
+      "selectAll": "Selectează tot",
+      "title": "Editare",
+      "undo": "Anulează ultima acțiune"
+    },
+    "file": {
+      "title": "Fișier"
+    },
+    "help": {
+      "changelog": "Notele versiunii",
+      "manual": "Ajutor Motrix",
+      "officialWebsite": "Site-ul Motrix",
+      "reportProblem": "Raportează o problemă",
+      "title": "Ajutor",
+      "toggleDevTools": "Arată sau ascunde instrumentele pentru dezvoltatori"
+    },
+    "task": {
+      "clearRecentTasks": "Șterge înregistrările sarcinilor oprite…",
+      "deleteTask": "Elimină sarcinile…",
+      "moveTaskDown": "Mută în jos în coadă",
+      "moveTaskUp": "Mută în sus în coadă",
+      "newBtTask": "Sarcină BitTorrent nouă…",
+      "newTask": "Sarcină nouă…",
+      "openFile": "Deschide fișier torrent…",
+      "pauseAllTask": "Pune totul pe pauză",
+      "pauseTask": "Pune pe pauză",
+      "resumeAllTask": "Reia tot",
+      "resumeTask": "Reia",
+      "selectAllTask": "Selectează toate sarcinile",
+      "taskList": "Lista sarcinilor",
+      "title": "Sarcină"
+    },
+    "window": {
+      "close": "Închide",
+      "front": "Adu toate ferestrele în față",
+      "minimize": "Minimizează",
+      "reload": "Reîncarcă",
+      "title": "Fereastră",
+      "toggleFullscreen": "Activează sau dezactivează ecranul complet",
+      "zoom": "Zoom"
+    }
+  },
+  "nav": {
+    "completed": "Finalizate",
+    "dashboard": "Panou de control",
+    "downloads": "Descărcări",
+    "notifications": "Notificări",
+    "plugins": "Module",
+    "settings": "Setări",
+    "trackers": "Trackere"
+  },
+  "notification": {
+    "center": {
+      "actionFailed": "Notificările nu au putut fi actualizate. Încearcă din nou.",
+      "clearAll": "Șterge",
+      "empty": "Nicio notificare",
+      "emptyDesc": "Activitatea descărcărilor și mesajele importante ale aplicației vor apărea aici",
+      "markAllRead": "Marchează toate ca citite",
+      "markRead": "Marchează ca citită",
+      "openTaskFailed": "Sarcina nu a putut fi deschisă. Încearcă din nou.",
+      "removeAria": "Elimină {{title}}",
+      "rowUnreadAria": "{{title}} (notificare necitită)",
+      "taskRemoved": "Sarcină eliminată",
+      "title": "Notificări",
+      "toastRegionAria": "Notificări",
+      "unreadBadgeAria_few": "{{count}} notificări necitite",
+      "unreadBadgeAria_one": "{{count}} notificare necitită",
+      "unreadBadgeAria_other": "{{count}} de notificări necitite",
+      "unreadDotAria": "Notificări necitite",
+      "viewTask": "Vezi sarcina"
+    },
+    "dnsFallback": {
+      "body": "Motrix nu a putut contacta un server DNS și a trecut la DNS-ul sistemului pentru această sesiune.",
+      "title": "Descărcarea {{name}} a fost reîncercată cu DNS-ul sistemului"
+    },
+    "engineCompatibility": {
+      "body": "aria2 {{version}} nu este varianta Motrix. Setările conexiunilor sunt limitate la maximum {{limit}}, iar salvarea istoricului în SQLite nu este disponibilă. Restaurează motorul aria2_motrix inclus pentru compatibilitate completă.",
+      "title": "A fost detectată o versiune aria2 care nu aparține Motrix"
+    },
+    "engineFailure": {
+      "title": "Motorul de descărcare a eșuat"
+    },
+    "engineRestartRequired": {
+      "body": "Setările sunt salvate. Repornește motorul de descărcare când îți convine.",
+      "restartNow": "Repornește acum",
+      "title": "Repornește motorul de descărcare pentru a aplica setările"
+    },
+    "taskComplete": {
+      "title": "Descărcarea {{name}} s-a încheiat"
+    },
+    "taskError": {
+      "title": "{{name}} a eșuat"
+    }
+  },
+  "onboarding": {
+    "disclaimer": {
+      "agree": "Acceptă și continuă",
+      "body": "Motrix oferă doar gestionarea descărcărilor. Nu furnizează, nu stochează, nu găzduiește și nu recomandă conținut de descărcat. Trebuie să te asiguri că ai dreptul legal de a accesa, utiliza sau distribui orice conținut prin Motrix și că respecți legislația aplicabilă privind drepturile de autor și celelalte legi. Ești responsabil pentru orice consecințe ale descărcării, utilizării sau distribuirii conținutului. Selectând „Acceptă și continuă”, confirmi că ai citit și ai înțeles această notă.",
+      "highlights": {
+        "authorized": "dreptul legal",
+        "downloadManagement": "oferă doar gestionarea descărcărilor",
+        "responsibility": "Ești responsabil"
+      },
+      "language": "Limbă",
+      "languages": {
+        "chinese": "简体中文",
+        "english": "English"
+      },
+      "localConsent": "Alegerea ta va fi salvată pe acest dispozitiv.",
+      "quit": "Ieși",
+      "retry": "Încearcă din nou",
+      "saveFailed": "Acordul tău nu a putut fi salvat. Verifică spațiul de pe disc și încearcă din nou.",
+      "summary": "Citește următoarele informații înainte de a continua.",
+      "title": "Notă privind utilizarea"
+    }
+  },
+  "operatorAdmin": {
+    "decision": {
+      "approve": "{{userCode}} aprobat pentru {{clientName}} ({{clientVersion}}).",
+      "deny": "{{userCode}} respins pentru {{clientName}} ({{clientVersion}})."
+    },
+    "errorPrefix": "motrix-admin: {{message}}",
+    "errors": {
+      "credential": {
+        "dataDirNotAbsolute": "MOTRIX_DATA_DIR trebuie să fie o cale absolută.",
+        "invalid": "Fișierul cu datele de autentificare ale operatorului nu este valid.",
+        "notFile": "Calea datelor de autentificare ale operatorului nu indică un fișier obișnuit.",
+        "rejected": "Datele de autentificare ale operatorului au fost respinse de Motrix.",
+        "tokenHeaderInvalid": "MOTRIX_OPERATOR_TOKEN nu poate fi folosit într-un antet HTTP.",
+        "unavailable": "Datele de autentificare ale operatorului nu sunt disponibile. Setează MOTRIX_OPERATOR_TOKEN sau asigură-te că operator-token există în dosarul de date.",
+        "unreadable": "Datele de autentificare ale operatorului nu au putut fi citite."
+      },
+      "server": {
+        "ambiguousRequest": "Mai multe cereri de asociere în așteptare corespund codului {{userCode}}; nu a fost aplicată nicio decizie.",
+        "approvalUnavailable": "Aprobarea asocierilor nu este disponibilă pe serverul Motrix activ.",
+        "decisionOutcomeUnknown": "Rezultatul deciziei de asociere este necunoscut. Rulează pairing pending înainte de a încerca din nou.",
+        "decisionResponseInvalid": "Motrix a returnat un răspuns nevalid la decizia de asociere.",
+        "noMatchingRequest": "Nicio cerere de asociere în așteptare nu corespunde codului {{userCode}}.",
+        "pendingResponseInvalid": "Motrix a returnat un răspuns nevalid privind asocierile în așteptare.",
+        "requestNoLongerPending": "Cererea de asociere nu mai este în așteptare.",
+        "responseInvalidJson": "Motrix a returnat un răspuns JSON nevalid.",
+        "responseOversized": "Motrix a returnat un răspuns prea mare.",
+        "responseUnreadable": "Motrix a returnat un răspuns care nu poate fi citit.",
+        "rpcHttp": "RPC-ul de asociere Motrix a eșuat cu HTTP {{status}}.",
+        "unexpected": "Eroare neașteptată în motrix-admin."
+      },
+      "unavailable": {
+        "approvalNotReady": "Aprobarea asocierilor nu este pregătită pe serverul Motrix activ.",
+        "loopback": "Serverul Motrix activ nu este disponibil prin interfața loopback a containerului."
+      },
+      "usage": {
+        "jsonRepeated": "--json poate fi specificat o singură dată.",
+        "pairingCodeInvalid": "Codul de asociere trebuie să conțină opt caractere ASCII și nu poate include I, O, 0 sau 1.",
+        "pairingCommandRequired": "Este așteptată comanda pairing.",
+        "pairingOperationRequired": "Este așteptată comanda pairing pending, pairing approve CODE sau pairing deny CODE.",
+        "portInvalid": "PORT trebuie să fie un număr întreg între 1 și 65535.",
+        "unknownOption": "Opțiune necunoscută a liniei de comandă."
+      }
+    },
+    "help": "Utilizare:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nComanda comunică doar cu serverul Motrix activ, prin interfața loopback a containerului.",
+    "pending": {
+      "none": "Nu există cereri de asociere în așteptare.",
+      "row": "{{userCode}}  {{clientName}}  {{clientVersion}}  expiră în {{ttl}}",
+      "ttl": "{{minutes}}m {{seconds}}s"
+    },
+    "usageHint": "Rulează `motrix-admin --help` pentru instrucțiuni de utilizare."
+  },
+  "operatorUnlock": {
+    "error": "Token de operator nevalid. Verifică MOTRIX_OPERATOR_TOKEN sau <dataDir>/operator-token pe gazdă și încearcă din nou.",
+    "help": "Acest server necesită tokenul operatorului. Pe gazdă, setează MOTRIX_OPERATOR_TOKEN sau citește tokenul din <dataDir>/operator-token, apoi lipește-l mai jos.",
+    "placeholder": "Token operator",
+    "submit": "Deblochează",
+    "title": "Deblochează Motrix"
+  },
+  "panel": {
+    "completed": {
+      "desc": "Sarcini de descărcare finalizate",
+      "title": "Finalizate"
+    },
+    "connection": {
+      "originMismatch": "Adresa de acces nu corespunde",
+      "polling": "Actualizări periodice",
+      "reconnecting": "Se reconectează la server…",
+      "unavailable": "Server inaccesibil"
+    },
+    "dashboard": {
+      "active": {
+        "downloading": "Se descarcă",
+        "engineOffline": "motor offline",
+        "error": "Eroare",
+        "seeding": "Se distribuie",
+        "title": "Sarcini active",
+        "waiting": "În așteptare"
+      },
+      "activity": {
+        "completedIntensity": "Intensitatea culorii indică descărcările finalizate",
+        "coverageDegraded": "Activitatea poate fi incompletă începând cu {{time}}",
+        "less": "Mai puține",
+        "loading": "Se încarcă activitatea",
+        "more": "Mai multe",
+        "rangeSummary": "Activitate de descărcare de la {{start}} la {{end}}; număr de săptămâni: {{weeks}}",
+        "retry": "Încearcă din nou",
+        "stale": "Activitatea poate fi învechită",
+        "title": "Activitate",
+        "tooltip": {
+          "completed": "Finalizate: {{count}}",
+          "completedOnDate": "Finalizate la {{date}}: {{count}}",
+          "coverage": "Înregistrarea poate fi incompletă începând cu {{time}}",
+          "coverageShort": "Datele pot fi incomplete",
+          "noData": "Nu există date de activitate",
+          "noDataOnDate": "Nu există date de activitate pentru {{date}}",
+          "partial": "Înregistrarea a început la {{time}}",
+          "partialShort": "Zi parțială",
+          "recovered": "Include o finalizare detectată în timpul recuperării",
+          "recoveredCount": "Recuperate: {{count}}",
+          "submitted": "Trimise: {{count}}",
+          "today": "Astăzi, încă se actualizează",
+          "untracked": "Încă nu se înregistrează"
+        },
+        "unavailable": "Activitatea nu este disponibilă",
+        "weekday": {
+          "fri": "Vin",
+          "mon": "Lun",
+          "sat": "Sâm",
+          "sun": "Dum",
+          "thu": "Joi",
+          "tue": "Mar",
+          "wed": "Mie"
+        }
+      },
+      "configure": {
+        "action": "Configurează",
+        "addTile": "Adaugă",
+        "addTitle": "Adaugă un card",
+        "apply": "Aplică",
+        "availabilityHints": {
+          "bounds": "Mută mai întâi cardul spre interior.",
+          "space": "Micșorează sau elimină alt card.",
+          "unsupported": "Alege o dimensiune acceptată."
+        },
+        "cancel": "Anulează",
+        "currentSize": "Dimensiune curentă: {{width}} × {{height}}",
+        "drag": "Trage cardul",
+        "expandHint": "Mărește fereastra pentru a configura aranjamentul panoului de control.",
+        "invalidCapacity": "Spațiu insuficient pentru această dimensiune",
+        "presets": {
+          "action": "Configurații prestabilite",
+          "balanced": {
+            "title": "Echilibrat"
+          },
+          "compact": {
+            "title": "Compact"
+          },
+          "custom": "Personalizat",
+          "speedFocus": {
+            "title": "Accent pe viteză"
+          },
+          "taskFocus": {
+            "title": "Accent pe sarcini"
+          },
+          "undo": "Anulează ultima configurație prestabilită"
+        },
+        "removeTile": "Elimină cardul",
+        "reset": "Resetează",
+        "resizeTile": "Redimensionează cardul",
+        "saveFailed": "Aranjamentul nu a putut fi salvat. Încearcă din nou.",
+        "size": "{{width}} × {{height}}",
+        "sizeGroup": "Dimensiunea cardului",
+        "sizeLabels": {
+          "compact": "Compact",
+          "fullHeight": "Înălțime completă",
+          "fullWidth": "Lățime completă",
+          "large": "Mare",
+          "tall": "Înalt",
+          "wide": "Lat"
+        },
+        "sizeUnavailable": {
+          "insufficientSpace": "Spațiu insuficient",
+          "outOfBounds": "Nu încape",
+          "unsupported": "Neacceptat"
+        }
+      },
+      "engine": {
+        "diagnostics": {
+          "binary": {
+            "available": "{{name}} {{version}}",
+            "unavailable": "{{name}} lipsește sau nu poate fi pornit."
+          },
+          "checking": "Se verifică motorul…",
+          "checks": {
+            "binary": "Motor",
+            "communication": "Conexiune",
+            "features": "Funcționalități",
+            "process": "Proces",
+            "rpc": "Port RPC"
+          },
+          "communication": {
+            "ready": "Motrix poate comunica cu aria2."
+          },
+          "confirmForce": {
+            "action": "Oprește forțat și restabilește",
+            "description": "PID {{pid}} corespunde executabilului inclus în Motrix, secretului RPC privat și căilor de date. Va fi oprit imediat, apoi aria2 va reporni pe portul RPC al Motrix.",
+            "title": "Oprești forțat procesul aria2 rămas?"
+          },
+          "copied": "Copiat",
+          "copy": "Copiază diagnosticul",
+          "copyFailed": "Diagnosticul nu a putut fi copiat. Încearcă din nou.",
+          "currentStatus": "Stare curentă",
+          "description": "Verifică motorul, identifică procesul care folosește portul RPC al Motrix și restabilește funcționarea în siguranță.",
+          "details": "Detalii de diagnosticare",
+          "fallback": {
+            "available": "Portul implicit {{port}} al Motrix este disponibil și poate fi restabilit acum.",
+            "blocked": "Portul implicit {{port}} este folosit de PID {{pid}} ({{name}}), dar Motrix nu poate verifica apartenența procesului. Procesul nu va fi oprit.",
+            "confirm": {
+              "action": "Oprește și restabilește portul {{port}}",
+              "description": "PID {{pid}} a fost verificat ca proces aria2 Motrix rămas. Acesta va fi oprit, portul implicit {{port}} va fi salvat, iar aria2 va reporni.",
+              "title": "Oprești procesul rămas și restabilești portul {{port}}?"
+            },
+            "restore": "Restabilește portul implicit {{port}} al Motrix",
+            "restoredDefault": "Portul RPC implicit {{port}} al Motrix a fost restabilit.",
+            "restoring": "Se restabilește portul implicit {{port}} al Motrix…",
+            "unidentified": "Procesul care folosește portul implicit {{port}} nu a putut fi identificat. Motrix va continua să folosească portul curent.",
+            "verifiedOrphan": "Un proces aria2 Motrix rămas, verificat (PID {{pid}}), folosește portul implicit {{port}}. Motrix îl poate opri în siguranță înainte de a restabili portul."
+          },
+          "features": {
+            "none": "Neraportate",
+            "unavailable": "Indisponibile"
+          },
+          "forceRecover": "Oprește forțat și restabilește",
+          "impact": {
+            "connecting": "Comenzile de descărcare vor fi disponibile când motorul este pregătit.",
+            "failed": "Comenzile de descărcare nu sunt disponibile. Starea sarcinilor poate fi învechită.",
+            "stopped": "Pornește motorul pentru a începe sau gestiona descărcările."
+          },
+          "lastChecked": "Verificat la {{time}}",
+          "loadFailed": "Diagnosticarea motorului nu a putut fi executată.",
+          "motrixEngine": "aria2 Motrix",
+          "open": "Diagnostichează",
+          "port": {
+            "available": "{{port}} (disponibil)",
+            "listening": "{{port}} (ascultă)",
+            "occupied": "{{port}} (în uz)"
+          },
+          "process": {
+            "current_app": "PID {{pid}} ({{name}}), gestionat de Motrix",
+            "external_aria2": "PID {{pid}} ({{name}}), apartenență neverificată; nu va fi oprit",
+            "none": "Niciun conflict de port",
+            "other": "PID {{pid}} ({{name}}), apartenență neverificată; nu va fi oprit",
+            "unidentified": "Neidentificat; nu va fi oprit",
+            "unknown": "PID {{pid}}, neidentificat; nu va fi oprit",
+            "verified_orphan": "PID {{pid}} ({{name}}), proces Motrix rămas, verificat; poate fi oprit în siguranță"
+          },
+          "reason": {
+            "binary_unavailable": "Executabilul aria2 inclus lipsește sau nu este disponibil.",
+            "health_check_failed": "aria2 nu mai răspunde la cererile Motrix.",
+            "port_in_use": "Portul RPC al Motrix este ocupat, astfel că motorul aria2 nu a putut porni.",
+            "rpc_unavailable": "Motorul aria2 a pornit, dar nu a acceptat conexiunile RPC ale Motrix.",
+            "spawn_failed": "Procesul aria2 nu a putut fi creat.",
+            "unexpected_exit": "Motorul aria2 s-a închis neașteptat.",
+            "unknown": "Motorul aria2 nu a putut porni dintr-un motiv necunoscut."
+          },
+          "recommendation": {
+            "force_terminate": "S-a verificat că acest proces aparține Motrix. Oprește forțat PID {{pid}}, apoi repornește aria2 pe portul RPC {{rpcPort}} al Motrix.",
+            "retry": "Portul este liber. Încearcă să pornești aria2 din nou fără să schimbi setările.",
+            "switch_port": "Procesul nu poate fi oprit în siguranță. Folosește portul {{port}} doar ca soluție de rezervă sau închide manual procesul care produce conflictul.",
+            "title": "Restabilire recomandată"
+          },
+          "recovered": "Motorul aria2 este din nou disponibil.",
+          "recoveredOnPort": "Motorul aria2 a fost restabilit pe portul RPC {{port}}.",
+          "recoveryFailed": "Restabilirea motorului a eșuat. Rulează din nou diagnosticarea pentru starea actuală.",
+          "refreshFailed": "Diagnosticul nu a putut fi reîmprospătat. Mai jos este afișat ultimul raport reușit.",
+          "restart": "Repornește motorul",
+          "retry": "Încearcă din nou",
+          "rpc": {
+            "available": "{{port}} (disponibil)",
+            "listening": "{{port}} (ascultă)",
+            "occupied": "{{port}} (în uz)"
+          },
+          "runAgain": "Rulează din nou",
+          "runtime": {
+            "connected": "Conectat",
+            "connecting": "Se conectează…",
+            "connection": "Conexiune",
+            "connectionStatus": "{{transport}} ({{status}})",
+            "disconnected": "Neconectat",
+            "notRunning": "Nu rulează",
+            "process": "Proces",
+            "running": "În execuție",
+            "unavailable": "Indisponibil"
+          },
+          "summary": {
+            "binary_unavailable": "Motorul de descărcare nu este disponibil",
+            "health_check_failed": "Motorul de descărcare nu mai răspunde",
+            "port_in_use": "Portul de control al motorului este ocupat",
+            "ready": "Motorul de descărcare funcționează normal",
+            "restarting": "Motorul de descărcare este în curs de restabilire",
+            "rpc_unavailable": "Conexiunea de control a motorului nu este disponibilă",
+            "spawn_failed": "Motorul de descărcare nu a putut porni",
+            "starting": "Motorul de descărcare pornește",
+            "stopped": "Motorul de descărcare este oprit",
+            "unexpected_exit": "Motorul de descărcare s-a închis neașteptat",
+            "unknown": "Motorul de descărcare nu este disponibil"
+          },
+          "switchPort": "Folosește portul {{port}}",
+          "technicalDetails": "Detalii tehnice",
+          "title": "Diagnosticarea motorului",
+          "transport": {
+            "websocket": "WebSocket"
+          },
+          "versionUnknown": "Versiune indisponibilă"
+        },
+        "features": "Funcționalități",
+        "listenPort": "Port de ascultare",
+        "name": "Aria2",
+        "rpcPort": "Port RPC",
+        "startFailed": "Motorul aria2 nu a putut porni",
+        "state": {
+          "disconnected": "Deconectat",
+          "failed": "Eșuat",
+          "ready": "Pregătit",
+          "reconnecting": "Se reconectează…",
+          "starting": "Se pornește…",
+          "stopped": "Oprit"
+        },
+        "title": "Motor",
+        "version": "Versiune"
+      },
+      "errors": {
+        "retry": "Încearcă din nou",
+        "tileFailed": "{{tile}}: afișarea a eșuat"
+      },
+      "nat": {
+        "actions": {
+          "diagnose": "Rulează diagnosticarea",
+          "disable": "Dezactivează NAT",
+          "enable": "Activează NAT",
+          "group": "Comenzi NAT",
+          "remap": "Forțează refacerea redirecționării",
+          "settings": "Setări NAT",
+          "short": {
+            "diagnose": "Diagnostichează",
+            "disable": "Dezactivează",
+            "enable": "Activează",
+            "help": "Ajutor",
+            "remap": "Refă redirecționarea"
+          },
+          "troubleshoot": "Ghid de depanare NAT"
+        },
+        "caption": {
+          "failed": "Redirecționarea automată nu este disponibilă.",
+          "off": "Redirecționarea porturilor BT este dezactivată.",
+          "settingUp": "Se conectează la router…",
+          "waiting": "Se așteaptă starea rețelei…"
+        },
+        "compact": {
+          "caption": {
+            "active_few": "{{count}} porturi",
+            "active_one": "{{count}} port",
+            "active_other": "{{count}} de porturi",
+            "failed": "Indisponibil",
+            "off": "BT / DHT",
+            "settingUp": "Se conectează…",
+            "waiting": "Se încarcă…"
+          },
+          "state": {
+            "active": "Redirecționat",
+            "failed": "Redirecționare",
+            "off": "Dezactivat",
+            "settingUp": "Redirecționare"
+          }
+        },
+        "externalIp": "IP extern",
+        "gatewayIp": "Router",
+        "health": "Calitatea conexiunii",
+        "healthScore": {
+          "fair": "Acceptabilă",
+          "good": "Bună",
+          "poor": "Slabă",
+          "unknown": "—"
+        },
+        "internalIp": "IP local",
+        "lastCheck": "Ultima verificare",
+        "lastCheckNever": "Niciodată",
+        "mappingDetails": "Porturi redirecționate",
+        "mappingPurpose": {
+          "bt-listen": "BitTorrent",
+          "dht-listen": "DHT"
+        },
+        "mappings": "Redirecționări",
+        "mappingsValue_few": "Active: {{count}}",
+        "mappingsValue_one": "{{count}} activă",
+        "mappingsValue_other": "Active: {{count}}",
+        "natType": {
+          "blocked": "Blocat",
+          "fullcone": "Con complet",
+          "open": "Deschis",
+          "port-restricted": "Restricționat după port",
+          "restricted": "Restricționat",
+          "symmetric": "Simetric",
+          "unknown": "Necunoscut"
+        },
+        "noMappings": "Nicio redirecționare de port activă.",
+        "none": "—",
+        "portMapping": "Intern {{internal}} către extern {{external}}",
+        "rateLimited": "Prea frecvent — încearcă din nou peste puțin timp",
+        "retrying": "Se reîncearcă {{attempt}}/{{max}}",
+        "state": {
+          "active": "Activ",
+          "failed": "Eșuat",
+          "off": "Dezactivat",
+          "settingUp": "Se inițializează"
+        },
+        "title": "NAT",
+        "type": "Tip"
+      },
+      "speed": {
+        "down": "DESCĂRCARE",
+        "offline": "offline",
+        "peak": "Vârf {{value}}",
+        "up": "ÎNCĂRCARE"
+      },
+      "speedDown": {
+        "title": "Viteză de descărcare"
+      },
+      "speedLimit": {
+        "reason": {
+          "adaptive": "Rezervă de lățime de bandă",
+          "base": "Limită standard",
+          "schedule": "Program",
+          "turtle": "Mod de viteză redusă",
+          "videoApp": "Aplicație video"
+        },
+        "settings": "Setări pentru limitele de viteză",
+        "smart": "Automat",
+        "title": "Limită de viteză",
+        "tooltip": {
+          "auto": "Ajustează automat viteza în funcție de program și lățimea de bandă",
+          "off": "Folosește limitele de viteză standard",
+          "on": "Folosește acum limitele de viteză redusă"
+        },
+        "turtle": {
+          "auto": "Mod automat",
+          "off": "Mod standard",
+          "on": "Mod de viteză redusă"
+        },
+        "unlimited": "Nelimitat"
+      },
+      "speedUp": {
+        "title": "Viteză de încărcare"
+      },
+      "tasks": {
+        "empty": {
+          "active": "Nicio sarcină activă",
+          "failed": "Nicio sarcină eșuată",
+          "recent": "Încă nu s-a finalizat nimic"
+        },
+        "loading": "Se încarcă sarcinile",
+        "metric": {
+          "fetching": "Se preia",
+          "finalizing": "Se finalizează",
+          "paused": "Pe pauză",
+          "queued": "În coadă",
+          "ready": "Pregătit"
+        },
+        "more": "Încă {{count}}",
+        "newTask": "Sarcină nouă",
+        "offline": "Motor offline",
+        "progressLabel": "Progres pentru {{name}}",
+        "retry": "Încearcă din nou",
+        "secondary": {
+          "chooseFiles": "Se așteaptă selectarea fișierelor",
+          "completed": "Finalizat {{time}}",
+          "eta": "Timp rămas {{time}}",
+          "failed": "Eșuat: {{reason}}",
+          "finalizing": "Se finalizează descărcarea",
+          "metadata": "Se preiau metadatele",
+          "offline": "Offline (ultimul progres cunoscut)",
+          "ratio": "Raport {{ratio}}",
+          "saved": "{{percent}}% salvat",
+          "technicalDetail": "Detaliu tehnic: {{detail}}",
+          "waiting": "Se așteaptă pornirea"
+        },
+        "title": "Sarcini",
+        "unavailable": "Sarcinile nu sunt disponibile",
+        "view": {
+          "active": "Active",
+          "failed": "Eșuate",
+          "recent": "Recente"
+        },
+        "viewLabel": "Vizualizarea sarcinilor"
+      },
+      "title": "Panou de control",
+      "transfer": {
+        "download": "Descărcat",
+        "empty": {
+          "allTime": "Încă nu există transferuri înregistrate.",
+          "today": "Niciun transfer înregistrat astăzi."
+        },
+        "loading": "Se încarcă datele de transfer",
+        "outOfDate": "Datele pot fi învechite",
+        "rangeLabel": "Perioada transferului",
+        "retry": "Încearcă din nou",
+        "scope": {
+          "allTime": "Toată perioada",
+          "today": "Astăzi"
+        },
+        "sinceDate": "Din {{date}}",
+        "sinceTime": "De la {{time}}",
+        "title": "Transfer",
+        "totalLabel": "Transfer total ({{scope}}): {{value}}",
+        "unavailable": "Datele de transfer nu sunt disponibile",
+        "updated": "Actualizat {{time}}",
+        "upload": "Încărcat"
+      }
+    },
+    "downloads": {
+      "action": {
+        "batchPartial": "Reușite: {{ok}}, eșuate: {{failed}}",
+        "cancel": "Anulează",
+        "chooseFiles": "Alege fișierele…",
+        "copied": "Copiat în clipboard",
+        "copyError": "Copiază informațiile erorii",
+        "copyFailed": "Copierea în clipboard a eșuat. Încearcă din nou.",
+        "copyPath": "Copiază calea fișierului",
+        "copyUrl": "Copiază URL-ul",
+        "copyUrlFailed": "Copierea a eșuat: detaliile linkului sarcinii nu au putut fi încărcate. Încearcă din nou.",
+        "copyUrls": "Copiază URL-urile",
+        "errorReport": "{{name}}\nID sarcină: {{id}}\n{{details}}",
+        "finalizingTooltip": "Sarcina se finalizează, te rugăm să aștepți",
+        "moveQueueBottom": "Mută la sfârșit",
+        "moveQueueDown": "Mută în jos în coadă",
+        "moveQueueTop": "Mută la început",
+        "moveQueueUp": "Mută în sus în coadă",
+        "openFile": "Deschide fișierul",
+        "openFileFailed": "Fișierul nu a putut fi deschis",
+        "openFolder": "Deschide dosarul",
+        "pause": "Pune pe pauză",
+        "pauseTooltipBatch": "Pune pe pauză: {{n}} din selecția totală de {{total}}",
+        "queueBoundary": "Selecția este deja la începutul sau la sfârșitul cozii",
+        "queueMoveFailed": "Coada de așteptare nu a putut fi actualizată.",
+        "queueMoveHint": "Poziția în coadă determină care descărcare în așteptare pornește următoarea. Sortarea coloanelor se salvează separat.",
+        "queueMoved": "Coada de așteptare a fost actualizată",
+        "queueOrder": "Ordinea descărcărilor",
+        "queueTaskStarted": "Sarcina nu mai este în coada de așteptare.",
+        "remove": "Elimină",
+        "removeAll_completed_Title": "Elimini sarcinile finalizate ({{count}})?",
+        "removeAll_downloading_Title": "Elimini sarcinile active ({{count}})?",
+        "removeAll_error_Title": "Elimini sarcinile eșuate ({{count}})?",
+        "removeAll_paused_Title": "Elimini sarcinile puse pe pauză ({{count}})?",
+        "removeAll_seeding_Title": "Elimini sarcinile în distribuire ({{count}})?",
+        "removeConfirmWithFiles": "Șterge și fișierele descărcate de pe disc",
+        "removeFilesEstimate": "Se vor șterge {{bytes}} de pe disc",
+        "removeMixedTitle": "Elimini sarcinile ({{count}})?",
+        "removeSingleTitle": "Elimini „{{name}}”?",
+        "removeTooltipBatch": "Elimină: {{n}} din selecția totală de {{total}}",
+        "removeWithFilesShift": "Ține apăsat Shift pentru a șterge și fișierele",
+        "reseed": "Distribuie din nou",
+        "reseedTooltipBatch": "Distribuie din nou: {{n}} din selecția totală de {{total}}",
+        "resume": "Reia",
+        "resumeTooltipBatch": "Reia: {{n}} din selecția totală de {{total}}",
+        "retry": "Încearcă din nou",
+        "retryTooltipBatch": "Reîncearcă: {{n}} din selecția totală de {{total}}",
+        "retryWithDialog": "Încearcă din nou cu opțiuni… (Alt+clic)",
+        "selectFiles": "Selectează fișierele",
+        "selectFilesFailed": "Selecția fișierelor nu a putut fi deschisă.",
+        "singleTaskFailed": "{{name}}: {{reason}}",
+        "stopSeeding": "Oprește distribuirea",
+        "stopSeedingTooltipBatch": "Oprește distribuirea: {{n}} din selecția totală de {{total}}"
+      },
+      "column": {
+        "connections": "Parteneri",
+        "createdAt": "Data creării",
+        "down": "Viteză de descărcare",
+        "eta": "Timp rămas",
+        "finishedAt": "Data finalizării",
+        "name": "Nume",
+        "progress": "Progres",
+        "size": "Dimensiune",
+        "status": "Stare",
+        "up": "Viteză de încărcare"
+      },
+      "columnHeader": {
+        "down": "Descărcare",
+        "up": "Încărcare"
+      },
+      "empty": {
+        "clearSearch": "Șterge căutarea",
+        "motion": {
+          "breathing": "Lumină pulsatorie",
+          "description": "Previzualizare pentru dezvoltare",
+          "enabled": "Efecte de mișcare",
+          "enabledDesc": "Sincronizat cu Aspect → Redu mișcarea. Modificările se salvează imediat.",
+          "horizontalSpeed": "Viteză orizontală",
+          "loadFade": "Estompare la încărcare",
+          "open": "Ajustează mișcarea sticlei",
+          "pointerFollow": "Urmărește indicatorul",
+          "positionConstraint": "Limită de poziție pentru gravitație",
+          "saveFailed": "Setarea de mișcare nu a putut fi salvată. Încearcă din nou.",
+          "systemReducedMotion": "Mișcarea este dezactivată prin preferința sistemului de reducere a mișcării.",
+          "title": "Mișcarea sticlei"
+        },
+        "noMatchFilter": "Nicio sarcină nu corespunde acestui filtru",
+        "noMatchSearch": "Nicio sarcină nu corespunde căutării „{{query}}”",
+        "noTasks": "Încă nu există descărcări",
+        "noTasksCta": "Apasă + pentru a adăuga una",
+        "unavailable": "Sarcinile nu sunt disponibile"
+      },
+      "heading": {
+        "active": "Descărcări active",
+        "all": "Toate descărcările",
+        "completed": "Descărcări finalizate",
+        "error": "Descărcări eșuate"
+      },
+      "inspector": {
+        "activity": {
+          "chart": {
+            "accessibleSummary": "{{range}}, de la {{start}} la {{end}}. Ultima viteză de descărcare: {{download}}, încărcare: {{upload}}. Media descărcării pe întreaga durată: {{average}}, maxim: {{peak}}, timp activ: {{activeDuration}}. {{sampleLabel}}. {{state}}",
+            "activeSeconds_few": "{{count}} secunde",
+            "activeSeconds_one": "{{count}} secundă",
+            "activeSeconds_other": "{{count}} de secunde",
+            "noDataQualityIssues": "Niciun avertisment privind înregistrarea.",
+            "sampleCount_few": "{{count}} eșantioane",
+            "sampleCount_one": "{{count}} eșantion",
+            "sampleCount_other": "{{count}} de eșantioane"
+          },
+          "collecting": "Se colectează datele de transfer…",
+          "coverageGap": "Înregistrarea a fost întreruptă.",
+          "download": "Descărcare",
+          "lifetimeEmpty": "Istoricul pe întreaga durată nu este încă disponibil.",
+          "loading": "Se încarcă activitatea…",
+          "noSessionHistory": "Niciun transfer înregistrat în această sesiune a aplicației.",
+          "noTraffic": "Nu există trafic de rețea momentan.",
+          "notAvailable": "Indisponibil",
+          "range": {
+            "adaptive_few": "Rezoluție adaptivă · {{count}} eșantioane",
+            "adaptive_one": "Rezoluție adaptivă · {{count}} eșantion",
+            "adaptive_other": "Rezoluție adaptivă · {{count}} de eșantioane",
+            "label": "Intervalul de timp al transferului",
+            "latest": "Ultimele 60 de secunde",
+            "lifetime": "Întreaga durată",
+            "session": "Sesiune (60 s)"
+          },
+          "retry": "Încearcă din nou",
+          "stale": {
+            "message": "Datele pot fi învechite. Ultima actualizare: {{time}}.",
+            "short": "Date învechite."
+          },
+          "summary": {
+            "active": "Activ",
+            "activeExpanded": "Timp de transfer activ",
+            "average": "Medie",
+            "averageExpanded": "Viteza medie de descărcare",
+            "peak": "Vârf",
+            "peakExpanded": "Viteza maximă de descărcare",
+            "title": "Rezumat curent"
+          },
+          "timeline": {
+            "cluster_few": "+{{count}} evenimente",
+            "cluster_one": "+{{count}} eveniment",
+            "cluster_other": "+{{count}} de evenimente",
+            "current": "Acum {{status}}",
+            "destination": "{{event}} {{status}}",
+            "detailTitle": "Detalii pentru {{label}}",
+            "event": {
+              "added": "Adăugat",
+              "completed": "Finalizat",
+              "failed": "Eșuat",
+              "observed_state": "Stare recuperată",
+              "paused": "Pus pe pauză",
+              "resumed": "Reluat",
+              "stage_changed": "Etapă schimbată",
+              "started": "Pornit"
+            },
+            "next": "Arată evenimentele următoare din cronologie",
+            "previous": "Arată evenimentele anterioare din cronologie",
+            "repeated": "{{label}} ×{{count}}",
+            "status": {
+              "completed": "Finalizat",
+              "downloading": "Se descarcă",
+              "error": "Eșuat",
+              "fetching_metadata": "Se preiau metadatele",
+              "finalizing": "Se finalizează",
+              "metadata_ready": "Metadate pregătite",
+              "paused": "Pe pauză",
+              "queued": "În coadă",
+              "removed": "Eliminat",
+              "seeding": "Se distribuie"
+            },
+            "timeRange": "{{start}}–{{end}}",
+            "title": "Istoricul sarcinii",
+            "truncatedAt": "Prima trunchiere: {{time}}",
+            "truncated_few": "{{count}} evenimente omise din istoricul anterior",
+            "truncated_one": "{{count}} eveniment omis din istoricul anterior",
+            "truncated_other": "{{count}} de evenimente omise din istoricul anterior"
+          },
+          "transferTitle": {
+            "lifetime": "Transfer pe întreaga durată",
+            "session": "Transfer în sesiune"
+          },
+          "unavailable": "Activitatea pe întreaga durată nu este disponibilă.",
+          "upload": "Încărcare"
+        },
+        "multi": {
+          "avgProgress": "Progres mediu",
+          "combinedDown": "Total ↓",
+          "combinedUp": "Total ↑",
+          "downloaded": "Descărcat",
+          "liveSpeed": "Viteză în timp real",
+          "longestEta": "Cel mai lung timp rămas",
+          "statusDist": "Distribuția stărilor",
+          "totalSize": "Dimensiune totală",
+          "totals": "Totaluri"
+        },
+        "overview": {
+          "connections": "Conexiuni",
+          "createdAt": "Creat",
+          "downSpeed": "Viteză de descărcare",
+          "downloaded": "Descărcat",
+          "eta": "Timp rămas",
+          "finishedAt": "Finalizat",
+          "general": "General",
+          "infoHash": "Hash de identificare",
+          "network": "Rețea",
+          "peers": "Parteneri",
+          "percent": "Procent",
+          "private": "Privat",
+          "progress": "Progres",
+          "ratio": "Raport",
+          "seedingRecordedSince": "Înregistrat din {{date}}. Pauzele și timpul offline nu sunt incluse; istoricul anterior al distribuirii nu este disponibil.",
+          "seedingTime": "Timp de distribuire",
+          "seedingUnavailable": "Timpul de distribuire nu a fost înregistrat pentru această sarcină.",
+          "seeds": "Surse complete",
+          "totalSize": "Dimensiune totală",
+          "transfer": "Transfer",
+          "type": "Tip",
+          "upSpeed": "Viteză de încărcare",
+          "uploaded": "Încărcat"
+        },
+        "peers": {
+          "col": {
+            "client": "Client",
+            "country": "Locație",
+            "down": "↓",
+            "endpoint": "IP : port",
+            "flags": "Indicatori",
+            "flagsHint": "D = partenerul ne trimite date, U = noi trimitem date partenerului, S = partenerul este o sursă completă. Linia de subliniere indică inactivitate.",
+            "progress": "%",
+            "up": "↑"
+          },
+          "empty": "Niciun partener conectat",
+          "summary_few": "{{count}} parteneri (surse complete: {{seeders}})",
+          "summary_one": "{{count}} partener (surse complete: {{seeders}})",
+          "summary_other": "{{count}} de parteneri (surse complete: {{seeders}})"
+        },
+        "pieces": {
+          "empty": "Nu există date despre fragmente",
+          "legend": {
+            "active": "Se descarcă",
+            "done": "Finalizat",
+            "endgame": "Fază finală",
+            "pending": "În așteptare"
+          },
+          "mapLabel": "Harta fragmentelor descărcării",
+          "pieceLength": "Dimensiunea fragmentului",
+          "totalPieces": "Număr total de fragmente"
+        },
+        "placeholder": {
+          "files": "Lista fișierelor.",
+          "peers": "Lista partenerilor.",
+          "trackers": "Lista trackerelor."
+        },
+        "tab": {
+          "activity": "Activitate",
+          "files": "Fișiere",
+          "overview": "Prezentare generală",
+          "peers": "Parteneri",
+          "pieces": "Fragmente",
+          "trackers": "Trackere"
+        },
+        "trackers": {
+          "action": {
+            "cancel": "Anulează",
+            "delete": "Șterge trackerul",
+            "edit": "Editează",
+            "save": "Salvează",
+            "sync": "Sincronizează"
+          },
+          "deleteFailed": "Trackerul nu a putut fi eliminat: {{reason}}",
+          "driftSuffix_few": "Lipsesc din lista globală: {{count}}",
+          "driftSuffix_one": "{{count}} lipsește din lista globală",
+          "driftSuffix_other": "Lipsesc din lista globală: {{count}}",
+          "editHint": "Aceste trackere înlocuiesc lista bt-tracker folosită de sarcină. Intrările announce-list din fișierul .torrent nu sunt afectate.",
+          "editPlaceholder": "Un URL de tracker pe linie. Doar http(s)/udp/ws(s).",
+          "empty": "Niciun tracker",
+          "invalidLines_few": "{{count}} linii nevalide omise",
+          "invalidLines_one": "{{count}} linie nevalidă omisă",
+          "invalidLines_other": "{{count}} de linii nevalide omise",
+          "loadFailed": "Trackerele nu au putut fi încărcate: {{reason}}",
+          "privateBanner": "Torrent privat — trackerele globale nu vor fi adăugate.",
+          "saveFailed": "Trackerele nu au putut fi actualizate: {{reason}}",
+          "summary_few": "{{count}} trackere",
+          "summary_one": "{{count}} tracker",
+          "summary_other": "{{count}} de trackere",
+          "syncFailed": "Trackerele nu au putut fi sincronizate: {{reason}}",
+          "syncPrivateDisabled": "Sincronizarea nu este disponibilă pentru torrente private."
+        }
+      },
+      "media": {
+        "assembling": "Se asamblează",
+        "avgDownloadProgress": "Progres mediu al descărcării",
+        "decrypting": "Se decriptează",
+        "downloadEta": "Timp rămas pentru descărcare",
+        "downloadProgress": "Progresul descărcării",
+        "downloadSize": "Dimensiunea descărcării",
+        "muxProgress": "Progresul combinării",
+        "muxing": "Se combină",
+        "outputSize": "Dimensiunea rezultatului",
+        "parts": "Segmente",
+        "partsFormat": "Segmente: {{completed}} / {{total}}",
+        "preparing": "Se pregătește",
+        "processingTasks": "Se procesează",
+        "renaming": "Se salvează",
+        "stage": "Etapă"
+      },
+      "search": {
+        "activeQuery": "Căutare: {{query}}",
+        "activeTypeFilters": "Filtru de tip: {{types}}",
+        "clear": "Șterge",
+        "clearQuery": "Șterge căutarea",
+        "empty": "Nicio sarcină corespunzătoare",
+        "emptyHint": "Încearcă să elimini filtrul de tip sau folosește alt cuvânt-cheie",
+        "filters": "Filtre",
+        "placeholder": "Caută descărcări",
+        "resetFilters": "Resetează filtrele",
+        "scopeLabel": "Tip"
+      },
+      "sort": {
+        "asc": "{{column}}: crescător",
+        "desc": "{{column}}: descrescător",
+        "down": "Viteză de descărcare",
+        "reset": "Restabilește ordinea implicită",
+        "sortAscending": "Sortează {{column}} crescător",
+        "sortDescending": "Sortează {{column}} descrescător",
+        "up": "Viteză de încărcare"
+      },
+      "speedLimit": {
+        "currentMode": "Mod de viteză: {{mode}}",
+        "downloadLimit": "Limită de descărcare: {{speed}}",
+        "saveFailed": "Modul de viteză nu a putut fi schimbat. Încearcă din nou.",
+        "title": "Mod de viteză",
+        "uploadLimit": "Limită de încărcare: {{speed}}"
+      },
+      "stale": {
+        "banner": "Lista sarcinilor poate fi învechită — se reconectează…"
+      },
+      "stats": {
+        "downSpeed": "Viteză de descărcare",
+        "engineOffline": "Motor offline",
+        "engineOk": "Motor pregătit",
+        "engineStarting": "Motorul pornește",
+        "natActive": "Porturi NAT redirecționate",
+        "natActiveDesc": "Ajută alți parteneri BT să se conecteze la tine.",
+        "natDisable": "Dezactivează redirecționarea NAT",
+        "natHelp": "Ghid de rețea",
+        "natMapping": "Redirecționare NAT",
+        "natRetry": "Încearcă din nou",
+        "natRetrying": "Reîncercări automate ({{attempt}}/{{max}})",
+        "natSettingUp": "Redirecționare NAT",
+        "natSettings": "Setări de rețea",
+        "natUnavailable": "Redirecționarea automată nu este disponibilă",
+        "natUnavailableDesc": "Nu afectează descărcările prin linkuri. Conexiunile BT pot fi limitate.",
+        "upSpeed": "Viteză de încărcare"
+      },
+      "status": {
+        "completed": "Finalizat",
+        "downloading": "Se descarcă",
+        "error": "Eroare",
+        "fetchingMetadata": "Se preia",
+        "finalizing": "Se finalizează",
+        "metadataReady": "Se așteaptă selectarea fișierelor",
+        "paused": "Pe pauză",
+        "queued": "În coadă",
+        "seeding": "Se distribuie"
+      },
+      "tab": {
+        "active": "Active",
+        "all": "Toate",
+        "completed": "Finalizate",
+        "error": "Eroare"
+      },
+      "timestamp": {
+        "notCompleted": "Încă nu s-a finalizat",
+        "notRecorded": "Neînregistrat",
+        "relativeDateTime": "{{date}}, {{time}}"
+      },
+      "title": "Descărcări",
+      "titleCount": "Afișate: {{shown}} · Total: {{total}}",
+      "type": {
+        "bt": "BitTorrent",
+        "ftp": "FTP",
+        "http": "HTTP",
+        "magnet": "Magnet",
+        "metalink": "Metalink"
+      },
+      "view": {
+        "ascending": "Crescător",
+        "columns": "Coloane",
+        "descending": "Descrescător",
+        "hideInspector": "Ascunde panoul de detalii",
+        "inspector": "Detaliile sarcinii",
+        "resetColumns": "Restabilește coloanele implicite",
+        "resizeColumn": "Redimensionează coloana {{column}}",
+        "resizeInspector": "Redimensionează panoul de detalii",
+        "selectToInspect": "Selectează o sarcină pentru a-i vedea detaliile.",
+        "showInspector": "Arată panoul de detalii",
+        "sortBy": "Sortează după",
+        "taskActions": "Mai multe",
+        "title": "Vizualizare listă"
+      }
+    },
+    "trackers": {
+      "desc": "Gestionează starea trackerelor și abonamentele",
+      "searchPlaceholder": "Filtrează după URL…",
+      "syncNow": "Sincronizează acum",
+      "tab": {
+        "blacklist": "Listă de blocare",
+        "effective": "În uz"
+      },
+      "title": "Trackere"
+    }
+  },
+  "plugin": {
+    "ffmpeg": {
+      "destination_phase_disallowed": "ffmpeg nu poate scrie în {{kind}} în hook-ul {{phase}}. Încearcă să scrii în spațiul de stocare al modulului sau mută acest apel în beforeFinalize.",
+      "staging_quota_exceeded": "Limita spațiului temporar ffmpeg a fost depășită pentru această sarcină. Redu dimensiunea rezultatului sau mărește limita din setările media."
+    },
+    "install": {
+      "ffmpeg": {
+        "notInstalled": "FFmpeg nu este instalat pe acest sistem.",
+        "optionalDegraded": "Funcțiile media ale acestui modul nu vor fi disponibile până la instalarea ffmpeg.",
+        "requiredByPlugin": "Acest modul necesită ffmpeg. Instalează-l și încearcă din nou.",
+        "title": "Cerință FFmpeg",
+        "versionMismatch": "Este instalat FFmpeg {{version}}."
+      }
+    }
+  },
+  "plugins": {
+    "card": {
+      "advancedDetails": "Detalii avansate",
+      "commandsInvoked": "Comenzi apelate: {{count}}",
+      "commandsServing": "Comenzi oferite: {{count}}",
+      "plain": {
+        "off": "Acest modul este dezactivat.",
+        "optional": "Acest modul funcționează fără acces suplimentar. Poți acorda mai mult acces ulterior.",
+        "reviewBroadHost": "Acest modul poate citi {{hostSummary}}. Păstrează-l activ doar dacă ai încredere în el.",
+        "reviewError": "Acest modul a raportat o problemă.",
+        "safe": "Acest modul este activat și pregătit. Salvează doar propriile setări și nu citește niciun site."
+      },
+      "primaryAction": {
+        "grantAccess": "Acordă acces",
+        "open": "Deschide",
+        "reviewAccess": "Verifică accesul",
+        "settings": "Setări",
+        "turnOn": "Activează",
+        "viewIssue": "Vezi problema"
+      }
+    },
+    "clearSearch": "Șterge căutarea",
+    "consent": {
+      "broadAccess": {
+        "body": "Acest modul poate citi și modifica descărcări de la orice URL. Instalează-l doar dacă ai încredere în sursă.",
+        "tag": "Extins",
+        "title": "Acces extins la site-uri"
+      },
+      "calleeMissing": "Neinstalat",
+      "confirm": "Permite și instalează",
+      "diff": {
+        "engines": "Versiunea motorului Motrix",
+        "heap": "Memorie solicitată",
+        "hostPermissions": "Acces la site-uri adăugat",
+        "invokesCommands": "Apeluri noi de comenzi între module",
+        "optionalPermissions": "Permisiuni opționale adăugate",
+        "permissions": "Permisiuni adăugate",
+        "publicCommands": "Comenzi publice noi",
+        "publicCommandsSchema": "Schemele comenzilor publice s-au modificat",
+        "source": "Sursa pachetului",
+        "title": "Modificări de la ultimul acord"
+      },
+      "hostPermissions": "Acces la site-uri",
+      "installTitle": "Instalezi {{name}} {{version}}?",
+      "invokesCommands": "Apelează comenzi din alte module",
+      "notVerified": "Acest modul nu este verificat. Instalează doar module din surse în care ai încredere.",
+      "optionalPermissions": "Permisiuni opționale",
+      "permissions": "Permisiuni necesare",
+      "source": "Sursă: {{type}} · {{url}}",
+      "upgradeTitle": "Actualizezi {{name}} la {{version}}?"
+    },
+    "detail": {
+      "about": "Despre",
+      "access": "Acces",
+      "accessBroad": "Poate citi orice site",
+      "accessGranted": "Ce poate face deja acest modul",
+      "accessHosts_few": "Poate citi {{count}} site-uri",
+      "accessHosts_one": "Poate citi {{count}} site",
+      "accessHosts_other": "Poate citi {{count}} de site-uri",
+      "accessNone": "Doar propriile setări",
+      "accessOptional": "Acces opțional",
+      "advanced": "Avansat",
+      "attentionGeneric": "Consultă jurnalele pentru detalii.",
+      "attentionTitle": "Acest modul a raportat o problemă",
+      "author": "Autor",
+      "back": "Toate modulele",
+      "disabled": "Dezactivat",
+      "enabled": "Activat",
+      "healthIssues_few": "{{count}} probleme raportate în ultima zi",
+      "healthIssues_one": "{{count}} problemă raportată în ultima zi",
+      "healthIssues_other": "{{count}} de probleme raportate în ultima zi",
+      "healthOk": "Totul este în regulă",
+      "hero": {
+        "attention": "Necesită atenție",
+        "off": "Dezactivat",
+        "optional": "Poate solicita acces suplimentar",
+        "ready": "Pregătit",
+        "review": "Verifică accesul"
+      },
+      "homepage": "Pagina principală",
+      "loading": "Se încarcă…",
+      "logs": "Jurnale",
+      "mini": {
+        "access": "Acces",
+        "health": "Stare",
+        "purpose": "Scop"
+      },
+      "overview": "Prezentare generală",
+      "removeDesc": "Eliminarea acestui modul șterge și datele sale stocate în Motrix.",
+      "removeTitle": "Elimină modulul",
+      "settings": "Setări",
+      "uninstall": "Dezinstalează",
+      "uninstallConfirm": "Dezinstalezi acest modul? Datele sale vor fi eliminate.",
+      "uninstallConfirmDesc": "Această acțiune elimină modulul și setările sale salvate din Motrix.",
+      "uninstallConfirmTitle": "Dezinstalezi {{name}}?",
+      "viewIssue": "Vezi problema"
+    },
+    "diagnostics": {
+      "callGraph": {
+        "aria": {
+          "controls": "Comenzi de vizualizare a grafului modulelor",
+          "directions": {
+            "down": "în jos",
+            "left": "la stânga",
+            "right": "la dreapta",
+            "up": "în sus"
+          },
+          "edgeDescription": "Alege o legătură de apel pentru a o examina.",
+          "edgeLabel": "{{source}} a apelat {{target}}; număr de apeluri: {{calls}}, comenzi folosite: {{commands}}",
+          "fitView": "Încadrează graful modulelor în vizualizare",
+          "graphDescription": "Module: {{nodeCount}}, relații: {{pairCount}}, din ultimele 24 de ore.",
+          "graphLabel": "Relațiile comenzilor modulelor",
+          "handle": "Punct de apel doar pentru citire",
+          "interactive": "Comută modul de interacțiune cu graful",
+          "minimap": "Prezentare generală a grafului modulelor",
+          "nodeDescription": "Alege un nod de modul pentru a-l examina.",
+          "nodeKeyboardInstruction": "Folosește tastele săgeată pentru a muta acest nod de modul.",
+          "nodeLabel": "{{name}}, modul {{id}}, {{status}}, apeluri de intrare: {{incoming}}, apeluri de ieșire: {{outgoing}}",
+          "nodeMoved": "Nodul modulului a fost mutat {{direction}} la {{x}}, {{y}}.",
+          "zoomIn": "Mărește graful",
+          "zoomOut": "Micșorează graful"
+        },
+        "columns": {
+          "callee": "Apelat",
+          "caller": "Apelant",
+          "calls": "Apeluri",
+          "command": "Comandă",
+          "lastCall": "Ultimul apel"
+        },
+        "counts": {
+          "calls_few": "{{count}} apeluri reușite",
+          "calls_one": "{{count}} apel reușit",
+          "calls_other": "{{count}} de apeluri reușite",
+          "commands_few": "{{count}} comenzi",
+          "commands_one": "{{count}} comandă",
+          "commands_other": "{{count}} de comenzi"
+        },
+        "errors": {
+          "canvasDescription": "Poți reîncerca afișarea grafului sau folosi vizualizarea completă Tabel.",
+          "canvasRetry": "Reîncearcă afișarea grafului",
+          "canvasTable": "Folosește tabelul",
+          "canvasTitle": "Graful nu a putut fi afișat",
+          "graphDescription": "Încearcă să încarci din nou istoricul apelurilor reușite.",
+          "graphRetry": "Reîncarcă istoricul apelurilor",
+          "graphTitle": "Istoricul apelurilor nu a putut fi încărcat",
+          "layout": "Harta relațiilor nu a putut fi aranjată.",
+          "layoutRetry": "Aranjează harta din nou",
+          "metadataDescription": "Detaliile modulelor sunt necesare pentru identificarea modulelor indisponibile.",
+          "metadataRetry": "Reîncarcă detaliile modulelor",
+          "metadataTitle": "Detaliile modulelor nu au putut fi încărcate"
+        },
+        "filteredEmpty": "Niciun apel reușit nu corespunde acestei căutări.",
+        "filters": {
+          "clearSearch": "Șterge căutarea",
+          "commandsGroup": "Comenzi",
+          "noSuggestions": "Nicio sugestie de modul sau comandă",
+          "pluginsGroup": "Module",
+          "searchLabel": "Caută relații",
+          "searchPlaceholder": "Caută modul sau comandă"
+        },
+        "globalEmpty": {
+          "description": "Modulele integrate pot să nu genereze implicit trafic între module.",
+          "title": "Încă nu există apeluri reușite între module"
+        },
+        "inspector": {
+          "commands": "Comenzi",
+          "connections": "Module conectate",
+          "edgeTitle": "Detaliile conexiunii",
+          "incomingCalls": "Apeluri de intrare",
+          "label": "Detaliile selecției din graful apelurilor",
+          "neutralScope": "Selectează un modul sau o conexiune pentru a examina apelurile reușite din ultimele 24 de ore.",
+          "noConnections": "Niciun modul conectat",
+          "openPlugin": "Deschide modulul",
+          "outgoingCalls": "Apeluri de ieșire",
+          "pluginId": "ID modul",
+          "scopeTitle": "Apeluri reușite",
+          "status": "Stare",
+          "totalCalls": "Total apeluri"
+        },
+        "legend": {
+          "fewerCalls": "Mai puține apeluri",
+          "label": "Legenda volumului de apeluri",
+          "moreCalls": "Mai multe apeluri"
+        },
+        "loading": {
+          "graph": "Se încarcă istoricul apelurilor…",
+          "metadata": "Se încarcă detaliile modulelor…"
+        },
+        "modeLabel": "Vizualizarea relațiilor",
+        "modes": {
+          "graph": "Graf",
+          "table": "Tabel"
+        },
+        "refresh": "Reîmprospătează",
+        "refreshTooltip": "Încarcă cele mai recente apeluri reușite",
+        "refreshing": "Se reîmprospătează…",
+        "renderGraphTooltip": "Afișează acest rezultat mare ca graf",
+        "statuses": {
+          "active": "În execuție",
+          "disabled": "Dezactivat",
+          "error": "Necesită atenție",
+          "inactive": "Pregătit, dar inactiv",
+          "missing": "Neinstalat"
+        },
+        "tableLabel": "Relațiile comenzilor modulelor",
+        "tableRegionLabel": "Relații între comenzi, cu derulare",
+        "toolbarLabel": "Comenzi pentru graful apelurilor",
+        "truncated": "Istoricul apelurilor poate fi incomplet deoarece limita de citire, perioada de păstrare sau rotația fișierelor a limitat rezultatul."
+      },
+      "intro": "Examinează apelurile reușite între module din ultimele 24 de ore.",
+      "title": "Diagnosticare"
+    },
+    "empty": "Încă nu există module instalate.",
+    "errors_few": "{{count}} erori",
+    "errors_one": "{{count}} eroare",
+    "errors_other": "{{count}} de erori",
+    "help": {
+      "guidance": {
+        "firstUse": {
+          "body": "Instalează dintr-o sursă de încredere, verifică accesul solicitat, apoi activează modulul.",
+          "browse": "Descoperă module în catalogul oficial Motrix",
+          "safety": "Acordă acces doar la site-urile pe care te aștepți să le gestioneze modulul.",
+          "title": "Adaugă module în care ai încredere"
+        },
+        "ongoing": "Verifică accesul înainte de a activa un modul. Acordă acces doar la site-urile pe care te aștepți să le gestioneze."
+      }
+    },
+    "install": {
+      "checkAriaLabel": "Verifică acest modul",
+      "detected": {
+        "auto": "Automat",
+        "github": "GitHub",
+        "local": "Fișier",
+        "url": "URL"
+      },
+      "detectedRow": {
+        "localSupported": "Fișierele .moext locale sunt acceptate",
+        "ok": "Detectat ca {{type}}"
+      },
+      "dragDisabledHint": "Tragerea și plasarea nu sunt acceptate în acest mediu. Folosește o adresă GitHub sau un URL.",
+      "dropHint": "Trage un fișier .moext aici pentru a verifica modulul",
+      "github": "GitHub",
+      "github.spec": "Depozit GitHub (owner/repo[@tag])",
+      "install": "Instalează modulul",
+      "lead": "Lipește adresa unui modul, alege un fișier .moext sau trage un fișier în câmpul de introducere.",
+      "local": "Fișier local",
+      "local.pick": "Alege un fișier .moext",
+      "localPrepareFailed": "Acest fișier de modul nu a putut fi pregătit: {{detail}}",
+      "localUnavailable": "Instalarea din fișier local nu este disponibilă pe această gazdă.",
+      "pickLocal": "Alege un fișier .moext local",
+      "placeholder": "Lipește o adresă GitHub, un URL sau alege un fișier .moext local",
+      "title": "Adaugă modul",
+      "url": "URL",
+      "url.spec": "URL pachet (.moext)",
+      "warning": "Înainte de instalare: continuă doar dacă ai încredere în autor și te aștepți ca modulul să folosească accesul indicat mai sus."
+    },
+    "lead": "Adaugă funcții mici în Motrix. Păstrează active modulele în care ai încredere și dezactivează-le pe celelalte.",
+    "logs": {
+      "clear": "Șterge",
+      "copy": "Copiază",
+      "empty": "Încă nu există înregistrări în jurnal",
+      "emptyFiltered": "Nicio înregistrare nu corespunde acestui nivel.",
+      "emptyHint": "Activitatea nouă a modulului va apărea aici automat.",
+      "entryCount_few": "{{count}} înregistrări",
+      "entryCount_one": "{{count}} înregistrare",
+      "entryCount_other": "{{count}} de înregistrări",
+      "filterLabel": "Nivel de jurnalizare",
+      "levels": {
+        "all": "Toate nivelurile",
+        "debug": "Depanare",
+        "error": "Eroare",
+        "fatal": "Fatal",
+        "info": "Informații",
+        "trace": "Urmărire",
+        "warn": "Avertisment"
+      },
+      "output": "Ieșire în timp real",
+      "verbose": "Mod detaliat",
+      "verboseWarning": "Înregistrează URL-uri și antete complete timp de 1 oră. Folosește cu grijă."
+    },
+    "permission": {
+      "accessTone": {
+        "allowed": "Permis",
+        "grant": "Permite",
+        "noAccess": "Dezactivat",
+        "offByDefault": "Opțional",
+        "required": "Necesar",
+        "websiteAccess": "Acces web"
+      },
+      "ffmpeg": {
+        "plain": "Procesează audio sau video.",
+        "strong": "Folosește FFmpeg"
+      },
+      "fs": {
+        "storage": {
+          "plain": "Păstrează fișiere pentru acest modul.",
+          "strong": "Salvează fișierele modulului"
+        },
+        "task": {
+          "read": {
+            "plain": "Vede fișierele unei sarcini.",
+            "strong": "Citește fișierele descărcate"
+          },
+          "write": {
+            "plain": "Poate adăuga sau actualiza fișierele sarcinilor.",
+            "strong": "Modifică fișierele descărcate"
+          }
+        }
+      },
+      "http": {
+        "cookies": {
+          "plain": "Accesează site-urile pe care ești autentificat.",
+          "strong": "Folosește cookie-urile site-urilor"
+        },
+        "plain": "Deschide paginile acceptate de acest modul.",
+        "strong": "Citește site-uri"
+      },
+      "network": {
+        "plain": "Preia paginile acceptate.",
+        "strong": "Citește site-uri"
+      },
+      "notifications": {
+        "plain": "Arată alertele modulului.",
+        "strong": "Trimite notificări"
+      },
+      "notify": {
+        "plain": "Arată alerte de finalizare.",
+        "strong": "Trimite notificări"
+      },
+      "storage": {
+        "plain": "Reține opțiunile modulului.",
+        "strong": "Salvează setările"
+      },
+      "tasks:read": {
+        "plain": "Vede lista ta de descărcări.",
+        "strong": "Citește descărcările"
+      },
+      "tasks:write": {
+        "plain": "Poate pune pe pauză, relua sau elimina sarcini.",
+        "strong": "Gestionează descărcările tale"
+      },
+      "unknown": {
+        "plain": "Permisiune necunoscută."
+      }
+    },
+    "permissions": {
+      "denied": "Refuzat",
+      "empty": "Acest modul nu solicită permisiuni.",
+      "granted": "Acordat"
+    },
+    "registry": {
+      "actionFailed": "Acțiunea nu a putut fi finalizată.",
+      "availableTitle": "Module disponibile",
+      "builtinConsentLead": "Această actualizare solicită acces nou:",
+      "builtinUpdateTitle": "Actualizează modulul integrat",
+      "byAuthor": "de {{name}}",
+      "featured": "Recomandate",
+      "featuresTitle": "Ce face",
+      "install": "Instalează",
+      "notFound": "Modulul „{{id}}” nu a fost găsit în registru",
+      "notInstalled": "Neinstalat",
+      "optionalTag": "opțional",
+      "permissionsPreviewNote": "Previzualizare din înregistrarea registrului. Solicitarea efectivă de acord se bazează întotdeauna pe manifestul din pachetul modulului.",
+      "permissionsTitle": "Permisiuni",
+      "refresh": "Caută actualizări",
+      "requires": "Necesită Motrix {{range}}",
+      "restartRequired": "Actualizare instalată. Repornește Motrix pentru a încheia aplicarea ei.",
+      "revertToBundled": "Revino la versiunea inclusă",
+      "updateAvailable": "Actualizare disponibilă",
+      "updateInstalled": "Actualizare instalată.",
+      "updateTo": "Actualizează la v{{version}}",
+      "updated": "actualizat {{date}}",
+      "viewOnWebsite": "Vezi pe motrix.app"
+    },
+    "search": "Caută un modul",
+    "searchNoMatch": "Niciun modul nu corespunde căutării „{{query}}”",
+    "status": {
+      "active": "Activ",
+      "disabled": "Dezactivat",
+      "error": "Eroare",
+      "inactive": "Inactiv"
+    },
+    "title": "Module",
+    "tone": {
+      "off": "Dezactivat",
+      "optional": "Acces opțional",
+      "review": "Necesită verificare",
+      "safe": "Pare sigur"
+    }
+  },
+  "quit": {
+    "confirm": {
+      "detail": "Dacă ieși acum, descărcările active vor fi puse pe pauză. Sigur vrei să ieși?",
+      "dontAskAgain": "Nu mai întreba",
+      "message_few": "{{count}} descărcări sunt încă active.",
+      "message_one": "{{count}} descărcare este încă activă.",
+      "message_other": "{{count}} de descărcări sunt încă active.",
+      "quitButton": "Ieși"
+    }
+  },
+  "settings": {
+    "about": {
+      "appIconAlt": "Pictograma aplicației Motrix",
+      "details": {
+        "author": "Autor",
+        "createdBy": "Creat de",
+        "license": "Licență",
+        "licenseValue": "Licență {{license}}"
+      },
+      "resources": {
+        "acknowledgments": "Mulțumiri",
+        "acknowledgmentsDescription": "Vezi contributorii proiectului pe motrix.app",
+        "changelog": "Jurnal de modificări",
+        "manual": "Manual",
+        "manualDescription": "Citește manualul de utilizare",
+        "plugins": "Module",
+        "repository": "Depozit de cod sursă",
+        "repositoryDescription": "Răsfoiește codul pe GitHub",
+        "title": "Resurse",
+        "website": "Site oficial",
+        "websiteDescription": "Vizitează motrix.app"
+      },
+      "tagline": "Înainte ca tot conținutul să dispară, păstrează ceea ce contează cu adevărat și fă loc frumuseții în colecția ta.",
+      "update": {
+        "automaticChecks": "Verifică automat",
+        "automaticChecksDescription": "La deschiderea Motrix",
+        "automaticChecksError": "Această setare nu a putut fi salvată",
+        "available": "Motrix {{version}} este disponibil.",
+        "availableDescription": "Descarcă acum și alege când să repornești pentru instalare.",
+        "availableTitle": "Motrix {{version}} este disponibil",
+        "cancelled": "Descărcarea actualizării a fost anulată.",
+        "cancelledDescription": "Încearcă din nou descărcarea când ești pregătit.",
+        "cancelledTitle": "Descărcare anulată",
+        "channelBeta": "Beta",
+        "channelBetaWarning": "Versiunea beta poate fi mai puțin stabilă. Vei primi și versiuni stabile mai noi. Revenirea oprește actualizările beta fără a instala o versiune mai veche.",
+        "channelDescription": "Alege versiuni stabile sau încearcă funcții noi în versiunea beta.",
+        "channelLabel": "Canal de actualizare",
+        "channelSaveError": "Canalul de actualizare nu a putut fi salvat. Încearcă din nou.",
+        "channelStable": "Stabil",
+        "check": "Caută actualizări",
+        "checkAction": "Verifică",
+        "checking": "Se verifică…",
+        "checkingDescription": "Se contactează serviciul de actualizare Motrix…",
+        "checkingTitle": "Se caută actualizări…",
+        "currentVersion": "Versiunea curentă {{version}}",
+        "download": "Descarcă actualizarea",
+        "downloaded": "Motrix {{version}} este pregătit pentru instalare.",
+        "downloadedTitle": "Actualizare pregătită pentru instalare",
+        "downloading": "Se descarcă…",
+        "downloadingDescription": "Poți închide această fereastră. Descărcarea va continua în fundal.",
+        "downloadingTitle": "Se descarcă Motrix {{version}}",
+        "error": "Actualizarea a eșuat: {{message}}",
+        "errorDescription": "Verifică conexiunea și încearcă din nou.",
+        "errorTitle": "Motrix nu a putut fi actualizat",
+        "idle": "Este instalată versiunea {{version}}. Verifică acum sau lasă Motrix să verifice la deschidere.",
+        "idleTitle": "Menține Motrix la zi",
+        "restart": "Repornește și instalează",
+        "retry": "Încearcă din nou",
+        "title": "Actualizările aplicației",
+        "unsupported": "Această versiune nu se poate actualiza automat. Descarcă cea mai nouă versiune de pe site-ul oficial.",
+        "unsupportedTitle": "Actualizările automate nu sunt disponibile",
+        "upToDate": "Versiunea {{version}} este cea mai nouă versiune disponibilă.",
+        "upToDateTitle": "Motrix este la zi"
+      },
+      "version": "Versiunea {{version}}",
+      "webVersionNote": "Această ediție web este actualizată de administratorul instalării."
+    },
+    "advanced": {
+      "description": "RPC, progres și recuperare",
+      "persistence": {
+        "dbPath": "Fișier cu date de recuperare",
+        "dbPathDesc": "Lasă gol pentru a folosi locația implicită.",
+        "dbPathPlaceholder": "Locație implicită",
+        "enable": "Salvează datele de recuperare",
+        "enableDesc": "Păstrează datele folosite pentru reluarea descărcărilor după repornire.",
+        "historyCount": "Înregistrări de păstrat",
+        "historyCountHint": "Înregistrările de recuperare mai vechi sunt eliminate.",
+        "historyCountPositive": "Introdu un număr mai mare decât 0.",
+        "historyKeepAll": "Toate înregistrările",
+        "historyKeepRecent": "Cele mai recente înregistrări…",
+        "historyLimit": "Înregistrări de recuperare pentru sarcini finalizate",
+        "historyLimitDesc": "Lista de descărcări și fișierele descărcate nu sunt afectate.",
+        "historySessionOnly": "Nu păstra",
+        "title": "Progres și recuperare"
+      },
+      "rpc": {
+        "port": "Port RPC",
+        "portDesc": "Este necesară repornirea după modificare.",
+        "secret": "Secret RPC",
+        "secretDesc": "Necesar pentru conexiunile RPC.",
+        "title": "RPC"
+      }
+    },
+    "appearance": {
+      "byteUnitBinary": "Binare (MiB, GiB · 1024)",
+      "byteUnitDecimal": "Zecimale (MB, GB · 1000)",
+      "byteUnitSystem": "Unități pentru dimensiune și viteză",
+      "byteUnitSystemDefault": "Urmează sistemul ({{units}})",
+      "byteUnitSystemDesc": "Alege cum sunt afișate dimensiunile fișierelor și vitezele.",
+      "description": "Temă, limbă și afișare",
+      "followSystem": "Urmează sistemul",
+      "language": "Limbă",
+      "languageAndDisplay": "Limbă și afișare",
+      "lightweightMode": "Mod de economisire a memoriei",
+      "lightweightModeDesc": "Economisește memorie când fereastra este închisă. Descărcările continuă, dar redeschiderea durează mai mult și șterge datele nesalvate.",
+      "liquidGlassEffect": "Liquid Glass",
+      "liquidGlassEffectDesc": "Aplică un efect de sticlă translucidă barei de instrumente pentru descărcări.",
+      "liquidGlassEffectMacDesc": "Se aplică și ferestrei pe macOS 26 sau mai nou. Fereastra se redeschide la modificare.",
+      "menuBar": "Bara de meniu",
+      "reduceMotion": "Redu mișcarea",
+      "reduceMotionDesc": "Folosește mai puține animații în aplicație.",
+      "runMode": "Arată aplicația în",
+      "runModeHideTray": "Doar Dock",
+      "runModeLaunch": "La deschiderea Motrix",
+      "runModeLinuxDesc": "Disponibilitatea și comportamentul zonei de notificare depind de mediul desktop.",
+      "runModeStandard": "Dock și bara de meniu",
+      "runModeStandardDesktop": "Deschide fereastra principală",
+      "runModeTray": "Doar bara de meniu",
+      "runModeTrayDesktop": "Pornește în zona de notificare",
+      "sidebarColor": "Culoare de accent",
+      "sidebarColors": {
+        "auto": "Automat",
+        "blue": "Albastru",
+        "cyan": "Cian",
+        "gold": "Auriu",
+        "gray": "Gri",
+        "green": "Verde",
+        "orange": "Portocaliu",
+        "pink": "Roz",
+        "violet": "Violet"
+      },
+      "systemTray": "Zona de notificare",
+      "theme": "Temă",
+      "themeAndEffects": "Temă și efecte",
+      "themeAuto": "Sistem",
+      "themeDark": "Întunecată",
+      "themeLight": "Luminoasă",
+      "trayIconColor": "Culoarea pictogramei din zona de notificare",
+      "trayIconColorAuto": "Urmează tema aplicației",
+      "trayIconColorDark": "Pictogramă de culoare închisă (panou luminos)",
+      "trayIconColorDesc": "Alege o culoare vizibilă pe panoul sistemului.",
+      "trayIconColorLight": "Pictogramă de culoare deschisă (panou întunecat)",
+      "traySpeedometer": "Arată viteza în bara de meniu",
+      "traySpeedometerDesc": "Arată vitezele de descărcare și încărcare lângă pictograma aplicației."
+    },
+    "bittorrent": {
+      "description": "Linkuri magnet, distribuire și trackere",
+      "geoip": {
+        "autoUpdate": "Actualizează automat",
+        "autoUpdateDesc": "Verifică aproximativ săptămânal dacă există date de localizare noi.",
+        "customUrl": "URL de descărcare personalizat",
+        "customUrlDesc": "Link către o bază de date cu țări în format .mmdb.",
+        "customUrlPlaceholder": "https://example.com/GeoLite2-Country.mmdb",
+        "enable": "Arată țara sau regiunea",
+        "enableDesc": "Arată locațiile în lista partenerilor. Descarcă datele de localizare când este necesar.",
+        "lastUpdated": "Ultima actualizare",
+        "maxmindUnsupported": "Încă nu este acceptat",
+        "neverUpdated": "Niciodată",
+        "saveBeforeUpdate": "Salvează modificările înainte de a actualiza datele de localizare.",
+        "source": "Sursa datelor de localizare",
+        "source.custom": "URL personalizat",
+        "source.loyalsoldier": "Loyalsoldier (comunitate)",
+        "source.maxmind": "MaxMind (oficial)",
+        "source.p3terx": "P3TERX (oglindă comunitară)",
+        "sourceDesc": "Alege sursa pentru descărcarea datelor de localizare.",
+        "status.downloading": "Se descarcă…",
+        "status.error": "Actualizarea a eșuat",
+        "status.loaded": "Pregătit",
+        "status.notDownloaded": "Datele de localizare nu sunt descărcate",
+        "title": "Locațiile partenerilor",
+        "updateFailed": "Datele de localizare nu au putut fi actualizate. Încearcă din nou.",
+        "updateNow": "Actualizează acum",
+        "updating": "Se actualizează…"
+      },
+      "listen": {
+        "dhtEnabled": "Activează DHT",
+        "dhtEnabledDesc": "Găsește parteneri fără a depinde de un tracker.",
+        "dhtListenPort": "Port de ascultare DHT",
+        "dhtListenPortDesc": "Găsește parteneri prin DHT pe acest port.",
+        "listenPort": "Port de ascultare BT",
+        "listenPortDesc": "Acceptă conexiunile de intrare ale partenerilor pe acest port.",
+        "title": "Conexiuni de intrare"
+      },
+      "newMagnetTasks": "Sarcini magnet noi",
+      "peers": {
+        "btEnableLpd": "Descoperirea partenerilor locali",
+        "btEnableLpdDesc": "Găsește parteneri care partajează fișiere în rețeaua locală.",
+        "btMaxPeers": "Număr maxim de parteneri per torrent",
+        "btMaxPeersDesc": "Numărul maxim de parteneri la care se poate conecta simultan o sarcină.",
+        "magnetFileSelection": "Alege fișierele înainte de descărcare",
+        "magnetFileSelectionAutoDownload": "Descarcă tot dacă nu este făcută o selecție",
+        "magnetFileSelectionAutoDownloadDesc": "Pornește după timpul de mai jos, chiar dacă închizi fereastra aplicației sau browserul.",
+        "magnetFileSelectionDesc": "Arată selecția fișierelor după încărcarea unui link magnet.",
+        "magnetFileSelectionTimeoutInvalid": "Introdu un număr întreg de secunde între {{min}} și {{max}}.",
+        "magnetFileSelectionTimeoutSeconds": "Timp pentru alegerea fișierelor (s)",
+        "magnetFileSelectionTimeoutSecondsDesc": "Începe când lista fișierelor este pregătită. Modificările se aplică și sarcinilor aflate deja în așteptare.",
+        "title": "Parteneri"
+      },
+      "seeding": {
+        "seedRatio": "Limită a raportului de partajare",
+        "seedRatioDesc": "Încărcare ÷ descărcare. Distribuirea se oprește la acest raport. 0 = nelimitat.",
+        "seedTime": "Limită de timp pentru distribuire (minute)",
+        "seedTimeDesc": "0 = nelimitat. Se aplică sarcinilor noi și la repornirea distribuirii.",
+        "title": "Distribuire"
+      },
+      "trackers": {
+        "autoSync": "Actualizează automat lista de trackere",
+        "autoSyncDesc": "Menține lista la zi folosind sursele tale.",
+        "blacklistMovedInfo": "Gestionează trackerele blocate în Trackere → Listă de blocare.",
+        "enableProbe": "Verifică disponibilitatea trackerelor",
+        "enableProbeDesc": "Testează trackerele înainte de a le folosi pentru descărcări.",
+        "healthyThreshold": "Prag pentru răspuns lent (ms)",
+        "healthyThresholdDesc": "Răspunsurile care durează mai mult sunt marcate ca lente. 500–10.000 ms.",
+        "manageSourcesHint": "Gestionează sursele în pagina Trackere.",
+        "maxTrackerCount": "Trackere pe sarcină",
+        "maxTrackerCountDesc": "Folosește cel mult acest număr de trackere. 5–200.",
+        "minSuccessRate": "Rată minimă de succes",
+        "minSuccessRateDesc": "Folosește trackere cu cel puțin această rată de succes. 0,5 = 50%.",
+        "probeTimeout": "Timp-limită de verificare (ms)",
+        "probeTimeoutDesc": "Așteaptă cel mult atât timp un răspuns. 1.000–30.000 ms.",
+        "syncInterval": "Interval de actualizare (ore)",
+        "syncIntervalDesc": "Între 1 și 168 de ore.",
+        "title": "Trackere"
+      }
+    },
+    "cards": {
+      "about": {
+        "desc": "Versiune, actualizări, cod sursă și manual",
+        "title": "Despre"
+      },
+      "advanced": {
+        "desc": "RPC, stocare în SQLite",
+        "title": "Avansat"
+      },
+      "appearance": {
+        "desc": "Temă, limbă, pictograma din zona de notificare",
+        "title": "Aspect"
+      },
+      "bittorrent": {
+        "desc": "DHT, porturi de ascultare, trackere, localizarea partenerilor",
+        "title": "BitTorrent"
+      },
+      "downloads": {
+        "desc": "Descărcări simultane, limite de lățime de bandă, fiabilitatea rețelei",
+        "title": "Descărcări"
+      },
+      "general": {
+        "desc": "Pornire, dosar de salvare implicit, integrare cu sistemul",
+        "title": "General"
+      },
+      "integration": {
+        "desc": "Extensii de browser, CLI, integrări cu sistemul",
+        "title": "Integrare"
+      },
+      "network": {
+        "desc": "Proxy, DNS și NAT/UPnP",
+        "title": "Rețea"
+      }
+    },
+    "common": {
+      "add": "Adaugă",
+      "browse": "Răsfoiește…",
+      "changeDirectory": "Schimbă dosarul",
+      "directoryEmpty": "(niciun dosar selectat)",
+      "generate": "Generează",
+      "hideSecret": "Ascunde secretul",
+      "noChange": "Nu există modificări de salvat",
+      "openHelp": "Deschide ajutorul",
+      "preset": "Alegere rapidă:",
+      "remove": "Elimină",
+      "setAsDefault": "Setează ca implicit",
+      "showSecret": "Arată secretul"
+    },
+    "connection": {
+      "disconnectedBody": "Unele informații pot întârzia. Dacă problema persistă, verifică conexiunea la server și configurația proxy.",
+      "disconnectedTitle": "Conexiunea pentru actualizări în timp real este întreruptă.",
+      "originMismatchBody": "Actualizările în timp real nu sunt disponibile. Folosește adresa de server configurată sau cere administratorului să o corecteze.",
+      "originMismatchTitle": "Adresa de acces a serverului nu corespunde."
+    },
+    "desc": "Configurează Motrix",
+    "downloads": {
+      "autofillFromClipboard": "Completează automat linkurile din clipboard",
+      "defaultDownloadFolder": "Dosar de descărcare implicit",
+      "description": "Fișiere, viteză de descărcare și conexiuni",
+      "disk": {
+        "diskCache": "Cache pe disc (MiB)",
+        "diskCacheDesc": "Memorie folosită pentru stocarea temporară a fișierelor înainte de scrierea pe disc.",
+        "fileAllocation": "Rezervă spațiu pe disc",
+        "fileAllocationDesc": "Rezervă spațiu înainte de descărcarea unui fișier.",
+        "fileAllocationFalloc": "Alocare de către sistem",
+        "fileAllocationNone": "Nu rezerva",
+        "fileAllocationPrealloc": "Prealocă",
+        "fileAllocationTrunc": "Setează dimensiunea fișierului",
+        "fileDeletionMode": "La ștergerea fișierelor unei sarcini",
+        "fileDeletionPermanent": "Șterge definitiv",
+        "fileDeletionPermanentDesc": "Fișierele șterse nu pot fi recuperate din coș.",
+        "fileDeletionTrash": "Mută în coș",
+        "fileDeletionTrashDesc": "Spațiul se eliberează când golești coșul.",
+        "modifiedTime": "Data modificării fișierului",
+        "modifiedTimeDesc": "Pentru descărcări HTTP și FTP finalizate.",
+        "modifiedTimeLocal": "Momentul descărcării",
+        "modifiedTimeServer": "Data de pe server",
+        "sessionSaveInterval": "Interval de salvare a progresului (s)",
+        "sessionSaveIntervalDesc": "Salvează mai des pentru a pierde mai puțin progres după o închidere neașteptată.",
+        "title": "Disc și fișiere"
+      },
+      "fillInLinksWhenOpeningNewTask": "Lipește linkurile copiate la deschiderea unei sarcini noi.",
+      "magnet": {
+        "magnetResolveTimeout": "Timp-limită pentru încărcarea magnetului (s)",
+        "magnetResolveTimeoutDesc": "Cât timp se așteaptă lista fișierelor.",
+        "title": "Magnet"
+      },
+      "newTasks": "Sarcini noi",
+      "performance": {
+        "customParameters": "Parametri de performanță personalizați",
+        "learnMore": "Află mai multe",
+        "maxConcurrentDownloads": "Descărcări simultane",
+        "maxConcurrentDownloadsDesc": "Sarcinile suplimentare așteaptă în coadă.",
+        "maxConnectionPerServer": "Conexiuni maxime per server",
+        "maxConnectionPerServerDesc": "Limita conexiunilor pentru un fișier de pe același server.",
+        "metrics": {
+          "cache": "Cache pe disc",
+          "connections": "Conexiuni maxime",
+          "minimum": "Segment minim",
+          "perServer": "Limită per server"
+        },
+        "minSplitSize": "Dimensiunea minimă a segmentului (MiB)",
+        "minSplitSizeDesc": "Segmentele mai mici decât dublul acestei dimensiuni nu sunt împărțite.",
+        "profile": "Performanța descărcării",
+        "profileDesc": "Echilibrează viteza de descărcare și consumul de resurse.",
+        "profiles": {
+          "auto": {
+            "desc": "Se adaptează la disc și la dimensiunea fișierului. Valorile de mai jos sunt cele implicite.",
+            "label": "Automat"
+          },
+          "balanced": {
+            "desc": "Folosește mai puține resurse pentru descărcările obișnuite.",
+            "label": "Echilibrat"
+          },
+          "custom": {
+            "desc": "Setează conexiunile, dimensiunea segmentelor și memoria cache.",
+            "label": "Personalizat"
+          },
+          "high": {
+            "desc": "Folosește mai multe conexiuni pentru descărcări mai rapide.",
+            "label": "Viteză mare"
+          },
+          "maximum": {
+            "desc": "Folosește mai multe conexiuni. Unele servere le pot limita.",
+            "label": "Maxim"
+          }
+        },
+        "split": "Conexiuni maxime per fișier",
+        "splitDesc": "Conexiunile folosite pentru descărcarea unui fișier.",
+        "title": "Performanță"
+      },
+      "reliability": {
+        "connectTimeout": "Timp-limită de conectare (s)",
+        "connectTimeoutDesc": "Cât timp se așteaptă stabilirea conexiunii.",
+        "lowestSpeedLimit": "Viteza minimă a conexiunii (KiB/s)",
+        "lowestSpeedLimitDesc": "Deconectează sub această viteză. 0 = dezactivat.",
+        "maxTries": "Număr maxim de încercări",
+        "maxTriesDesc": "Include prima încercare. 0 = nelimitat.",
+        "retryWait": "Pauză înainte de reîncercare (s)",
+        "retryWaitDesc": "Așteaptă atât timp înainte de o nouă încercare.",
+        "socketTimeout": "Timp-limită fără date (s)",
+        "socketTimeoutDesc": "Cât timp se așteaptă când nu sosesc date.",
+        "title": "Conexiuni și reîncercări",
+        "userAgent": "User-Agent",
+        "userAgentDesc": "Identifică aplicația pentru site-uri. Schimbă-l dacă un site cere altul."
+      },
+      "saveFolders": "Dosare de salvare",
+      "speedLimit": {
+        "adaptiveEnabled": "Rezervă lățime de bandă pentru alte aplicații",
+        "adaptiveEnabledDesc": "Introdu mai jos vitezele conexiunii pentru a calcula limita.",
+        "altDownload": "Descărcare",
+        "altDownloadDesc": "Viteza maximă de descărcare când este activ modul de viteză redusă.",
+        "altSection": "Limite de viteză redusă",
+        "altSectionDesc": "Folosite în modul de viteză redusă sau de regulile programate. Aceste limite pot doar să reducă limitele standard.",
+        "altUpload": "Încărcare",
+        "altUploadDesc": "Viteza maximă de încărcare când este activ modul de viteză redusă.",
+        "autoAdaptive": "Lasă lățime de bandă pentru alte aplicații",
+        "autoSchedule": "Reducere programată a vitezei",
+        "autoSection": "Reguli automate",
+        "autoSectionDesc": "Aceste reguli se aplică doar în modul Automat.",
+        "bandwidthPending": "Introdu ambele viteze ale conexiunii pentru a aplica această limită.",
+        "bandwidthUsed": "Motrix poate folosi până la {{motrix}}%.",
+        "baseDownload": "Descărcare",
+        "baseDownloadDesc": "Viteza maximă obișnuită de descărcare.",
+        "baseSection": "Limite standard",
+        "baseSectionDesc": "Folosite pentru descărcările obișnuite și respectate în toate modurile.",
+        "baseUpload": "Încărcare",
+        "baseUploadDesc": "Viteza maximă obișnuită de încărcare.",
+        "effect": {
+          "adaptiveRule": "rezerva {{reserved}}% din lățimea de bandă pentru alte aplicații",
+          "adaptiveRulePending": "rezerva {{reserved}}% din lățimea de bandă pentru alte aplicații după introducerea lățimii de bandă a conexiunii",
+          "autoRules": "Motrix va {{rules}}.",
+          "lowSpeed": "Se folosesc acum limitele de viteză redusă: descărcare {{download}}, încărcare {{upload}}.",
+          "lowerWins": "Se aplică cea mai mică limită activă.",
+          "nextDay": " în ziua următoare",
+          "noAutoRules": "Nu este activată nicio regulă automată. Comportamentul actual este cel al modului Standard.",
+          "ruleSeparator": " și va ",
+          "scheduleRule": "folosi limitele de viteză redusă de la {{from}} până la {{to}}{{nextDay}}",
+          "standard": "Se folosesc limitele standard: descărcare {{download}}, încărcare {{upload}}.",
+          "standardValues": "Limite standard: descărcare {{download}}, încărcare {{upload}}.",
+          "title": "Efect curent"
+        },
+        "estimateEmpty": "Încă nu există istoric de viteză. Finalizează o descărcare fără limită de viteză sau introdu manual lățimea de bandă.",
+        "estimateError": "Istoricul recent de viteză nu a putut fi citit. Introdu manual lățimea de bandă.",
+        "estimateSuccess": "Lățimea de bandă a conexiunii a fost completată pe baza vitezelor recente.",
+        "fillFromPeak": "Estimează viteza conexiunii",
+        "fillFromPeakHint": "Pe baza celor mai rapide descărcări și încărcări recente.",
+        "headroomPercent": "Rezervă pentru alte aplicații",
+        "headroomPercentDesc": "În prezent se rezervă {{reserved}}%; Motrix poate folosi până la {{motrix}}%.",
+        "linkDown": "Viteza de descărcare a conexiunii",
+        "linkDownDesc": "Viteza de descărcare pe care o poate atinge conexiunea ta la internet.",
+        "linkUp": "Viteza de încărcare a conexiunii",
+        "linkUpDesc": "Viteza de încărcare pe care o poate atinge conexiunea ta la internet.",
+        "modeSection": "Mod de viteză",
+        "modeSectionDesc": "Alege cum ar trebui să folosească Motrix conexiunea.",
+        "scheduleDays": "Zile",
+        "scheduleDaysHint": "Dacă ora de sfârșit este înaintea celei de început, intervalul se încheie în ziua următoare.",
+        "scheduleEnabled": "Programează viteza redusă",
+        "scheduleEnabledDesc": "Trece la limitele de viteză redusă în zilele și la orele selectate.",
+        "scheduleFrom": "Început",
+        "scheduleTimeFormat": "Format de 24 de ore (HH:mm)",
+        "scheduleTo": "Sfârșit",
+        "setUnlimited": "Setează nelimitat",
+        "standardLimit": "Folosește valoarea standard",
+        "title": "Limite de viteză",
+        "titleDesc": "Alege cum folosește Motrix conexiunea în modurile Standard, Viteză redusă și Automat.",
+        "turtle": "Mod de viteză",
+        "turtleDesc_auto": "Ajustează automat viteza în funcție de oră și lățimea de bandă a conexiunii.",
+        "turtleDesc_off": "Folosește limitele de viteză standard.",
+        "turtleDesc_on": "Folosește acum limitele de viteză redusă pentru a lăsa bandă disponibilă altor aplicații.",
+        "turtle_auto": "Automat",
+        "turtle_off": "Standard",
+        "turtle_on": "Viteză redusă",
+        "unlimited": "Nelimitat",
+        "useStandardLimit": "Folosește limita standard",
+        "weekdays": {
+          "fri": {
+            "long": "Vineri",
+            "short": "Vin"
+          },
+          "mon": {
+            "long": "Luni",
+            "short": "Lun"
+          },
+          "sat": {
+            "long": "Sâmbătă",
+            "short": "Sâm"
+          },
+          "sun": {
+            "long": "Duminică",
+            "short": "Dum"
+          },
+          "thu": {
+            "long": "Joi",
+            "short": "Joi"
+          },
+          "tue": {
+            "long": "Marți",
+            "short": "Mar"
+          },
+          "wed": {
+            "long": "Miercuri",
+            "short": "Mie"
+          }
+        }
+      }
+    },
+    "feedback": {
+      "appRestartBody": "Setările sunt salvate. Repornește Motrix când îți convine.",
+      "appRestartTitle": "Repornește Motrix pentru a aplica setările",
+      "applyFailedBody": "Configurația salvată este păstrată. Verifică jurnalele aplicației și repornește serviciul afectat după rezolvarea problemei.",
+      "applyFailedTitle": "Setări salvate; unele modificări nu au putut fi aplicate",
+      "retrySync": "Reîncearcă sincronizarea",
+      "syncFailedBody": "Setările sunt salvate. Reîncearcă sincronizarea pentru a actualiza pagina fără a salva din nou.",
+      "syncFailedTitle": "Setări salvate; actualizarea interfeței a eșuat"
+    },
+    "general": {
+      "autofillClipboardLinks": "Completează automat linkul din clipboard",
+      "autofillClipboardLinksDesc": "La deschiderea dialogului Sarcină nouă, lipește un link din clipboard în câmpul URL gol.",
+      "defaultSaveDir": "Dosar de descărcare implicit",
+      "defaultSaveDirDesc": "Descărcările noi sunt salvate aici, dacă nu alegi alt dosar pentru o anumită sarcină.",
+      "description": "Pornire, ieșire și notificări",
+      "desktopOnly": "Preferințele pentru pornire și notificări sunt disponibile în aplicația desktop.",
+      "downloadCompleted": "Descărcare finalizată",
+      "downloadFailed": "Descărcare eșuată",
+      "inAppNotifications": "Notificări în aplicație",
+      "inAppNotificationsDesc": "Alege notificările de descărcare afișate. Alertele aplicației rămân active.",
+      "launchAtStartup": "Deschide la autentificare",
+      "launchAtStartupDesc": "Pornește Motrix automat când te autentifici.",
+      "lightweightMode": "Economisește memorie când fereastra este închisă",
+      "lightweightModeDesc": "Descărcările continuă. Redeschiderea durează mai mult, iar datele nesalvate sunt șterse.",
+      "notificationBadgeCount": "Număr",
+      "notificationBadgeDesc": "Afișat pe pictograma centrului de notificări.",
+      "notificationBadgeDot": "Punct",
+      "notificationBadgeHidden": "Ascuns",
+      "notificationBadgeStyle": "Indicator pentru notificări necitite",
+      "notificationBoth": "Ambele",
+      "notificationInApp": "Notificări în aplicație",
+      "notificationOff": "Dezactivat",
+      "notificationSystem": "Notificări de sistem",
+      "notifications": "Notificări",
+      "notificationsDesc": "Alertele de eroare ale aplicației rămân active.",
+      "notifyInAppOnComplete": "Arată descărcările finalizate",
+      "notifyInAppOnError": "Arată descărcările eșuate",
+      "notifyOnComplete": "Notifică la finalizarea descărcării",
+      "notifyOnCompleteDesc": "Arată o notificare de sistem când se finalizează o sarcină.",
+      "notifyOnError": "Notifică la eșec",
+      "notifyOnErrorDesc": "Arată o notificare de sistem când o descărcare eșuează, iar fereastra este în fundal.",
+      "runMode": "Arată aplicația în",
+      "runModeHideTray": "Doar Dock",
+      "runModeStandard": "Dock și bara de meniu",
+      "runModeTray": "Doar bara de meniu",
+      "showMainWindowAtLogin": "Arată fereastra la autentificare",
+      "showMainWindowAtLoginDesc": "Ascunsă în modul „{{mode}}”.",
+      "startupAndQuitting": "Pornire și ieșire",
+      "systemNotifications": "Notificări de sistem",
+      "warnBeforeQuit": "Confirmă înainte de ieșire",
+      "warnBeforeQuitDesc": "Cere confirmare la ieșire dacă există descărcări active."
+    },
+    "integration": {
+      "appimage": {
+        "desc": "Înregistrează acest AppImage Motrix în mediul desktop, astfel încât browserele și linkurile magnet să îi poată trimite descărcări.",
+        "enable": "Activează integrarea desktop",
+        "movedHint": "Dacă muți AppImage când Motrix este închis, linkurile pot să nu îl mai pornească până când deschizi Motrix o dată din noua locație.",
+        "prompt": {
+          "accept": "Integrează",
+          "decline": "Nu acum",
+          "detail": "Motrix va adăuga o intrare desktop și o pictogramă în dosarul de date al utilizatorului și se va înregistra ca aplicație pentru linkuri motrix:, linkuri magnet și fișiere .torrent. Astfel, browserul și extensia Motrix pot porni Motrix și îi pot trimite descărcări. Nu se scrie nimic în afara dosarului personal, iar acțiunea poate fi anulată din Setări.",
+          "message": "Permiți acestui AppImage Motrix să se înregistreze în mediul desktop?",
+          "title": "Integrezi Motrix în mediul desktop?"
+        },
+        "remove": "Elimină integrarea desktop",
+        "status": {
+          "externalManaged": "Integrarea desktop este asigurată de altă instalare Motrix.",
+          "failedDetail": "Motrix nu s-a putut înregistra ca aplicație pentru linkurile sale. Trimiterea din browser poate să nu funcționeze până la reactivarea integrării desktop.",
+          "failedTitle": "Integrare desktop incompletă",
+          "healthy": "Integrat cu acest mediu desktop.",
+          "notIntegrated": "Neintegrat cu acest mediu desktop.",
+          "removeBlockedDetail": "Motrix nu a putut restabili în siguranță o aplicație asociată anterior, verificată, așa că și-a păstrat intrarea desktop pentru a evita o asociere implicită defectă. Alege altă aplicație implicită în setările desktop, apoi încearcă din nou să elimini integrarea."
+        },
+        "title": "Integrare desktop"
+      },
+      "appimageHost": {
+        "copyDiagnostics": "Copiază diagnosticul",
+        "desc": "Permite unei extensii să deschidă acest AppImage când apeși Conectează. Activează integrarea cu browserul pentru a folosi această funcție.",
+        "enable": "Activează pornirea din browser",
+        "remove": "Elimină pornirea din browser",
+        "repair": "Repară",
+        "status": {
+          "conflict": "Aceste fișiere aparțin altei instalări. Elimină mai întâi integrarea ei cu browserul.",
+          "disabled": "Pornirea din browser este dezactivată.",
+          "invalid": "Înregistrarea instalării nu este validă sau executabilul nu este valid.",
+          "io": "Operația a eșuat. Verifică accesul la disc și încearcă Repară.",
+          "missing": "Lipsește un fișier necesar. Rulează AppImage din locația curentă și repară instalarea.",
+          "permissions": "Verifică dacă fișierele sunt executabile și pot fi modificate doar de contul tău.",
+          "ready": "Verificările instalării locale au trecut. Conectează-te din browser pentru a verifica funcționarea.",
+          "sourceChanged": "AppImage s-a modificat. Rulează versiunea dorită și repară instalarea."
+        },
+        "title": "Pornirea AppImage din browser",
+        "useCurrent": "Folosește acest AppImage"
+      },
+      "browser": {
+        "addTrusted": {
+          "add": "Adaugă extensie",
+          "addAction": "Adaugă",
+          "browserLabel": "Browser",
+          "cancel": "Anulează",
+          "chromiumEdge": "Chrome / Edge",
+          "firefox": "Firefox",
+          "idPlaceholder": "ID extensie",
+          "labelPlaceholder": "Etichetă (opțional)"
+        },
+        "degradedPort": {
+          "description": "Porturile 16802–16806 nu erau disponibile, așa că puntea folosește portul {{port}}. Extensiile de browser nu o vor găsi verificând intervalul standard — asociază prin mesagerie nativă sau setează un port fix. CLI-ul Motrix și gazda de mesagerie nativă nu sunt afectate.",
+          "title": "Puntea rulează pe un port de rezervă"
+        },
+        "disconnecting": "Se deconectează…",
+        "headerBrowser": "Browser",
+        "headerId": "ID extensie",
+        "headerSource": "Sursă",
+        "install": {
+          "chrome": "Chrome",
+          "development": "Dezvoltare",
+          "edge": "Microsoft Edge",
+          "firefox": "Firefox",
+          "github": "GitHub",
+          "store": "Instalează"
+        },
+        "lastActive": "Ultima activitate",
+        "masterSwitch": "Conectează extensiile de browser",
+        "masterSwitchDesc": "Trimite descărcările din paginile web către Motrix folosind extensia de browser.",
+        "pairToast": {
+          "copyCode": "Copiază codul de asociere",
+          "deny": "Nu permite",
+          "extensionId": "ID: {{id}}",
+          "identityLabel": {
+            "attested": "Extensie verificată",
+            "official": "Extensie Motrix oficială",
+            "unverified": "Extensie neverificată"
+          },
+          "identityUnverifiedWarning": "Identitatea acestei extensii nu a putut fi verificată. Continuă doar dacă ai încredere în ea.",
+          "pairCode": "Cod de asociere",
+          "pairCodeHint": "Introdu acest cod în extensie",
+          "title": "O extensie {{browser}} dorește să se conecteze la Motrix"
+        },
+        "pairUnavailable": "Această cerere de asociere nu mai este în așteptare — reîncearcă asocierea din extensia de browser.",
+        "pairedEmpty": "Încă nu există extensii conectate.",
+        "pairedTitle": "Extensii conectate",
+        "pairingStateDegraded": {
+          "description": "Motrix nu a putut actualiza în siguranță înregistrările extensiilor asociate. Sesiunile existente ale extensiilor sunt închise, iar accesul nou este blocat pentru această rulare. Repornește Motrix pentru a reîncerca repararea; nu te baza pe lista de mai jos până când dispare acest mesaj.",
+          "title": "Accesul extensiilor este închis temporar"
+        },
+        "removeTrusted": "Elimină",
+        "revoke": "Deconectează",
+        "sourceLabel": {
+          "builtin": "Integrată",
+          "imported": "Importată",
+          "userAdded": "Adăugată"
+        },
+        "title": "Extensii de browser",
+        "trustedEmpty": "Încă nu există nimic aici.",
+        "trustedExtensions": "Extensii de încredere",
+        "trustedGuidance": "Pentru alte extensii de încredere, adaugă ID-ul furnizat de dezvoltator.",
+        "trustedSummary": "Total: {{count}}"
+      },
+      "cli": {
+        "inbox": {
+          "approve": "Aprobă",
+          "deny": "Respinge",
+          "empty": "Nu există cereri de asociere la distanță în așteptare.",
+          "expiresIn": "Expiră în {{time}}",
+          "title": "Aprobări în așteptare"
+        },
+        "pairToast": {
+          "allow": "Permite",
+          "code": "Cod de verificare: {{code}}",
+          "deny": "Nu permite",
+          "title": "{{name}} dorește să se asocieze cu Motrix"
+        },
+        "pairUnavailable": "Această cerere de asociere nu mai este în așteptare — rulează din nou motrix pair.",
+        "remote": {
+          "description": "Instrumentele locale se conectează automat. Rulează motrix pair pentru a te conecta la alt computer sau server.",
+          "empty": "Niciun instrument la distanță asociat.",
+          "lastActive": "Ultima activitate",
+          "neverActive": "Nefolosit",
+          "revoke": "Revocă",
+          "title": "Instrumente la distanță asociate"
+        },
+        "title": "Instrumente de linie de comandă",
+        "tool": {
+          "action": {
+            "checkAgain": "Verifică din nou",
+            "checking": "Se verifică…",
+            "install": "Instalează",
+            "installing": "Se instalează…"
+          },
+          "attentionTitle": "Instrumentul de linie de comandă necesită atenție",
+          "commandLabel": "Comandă de instalare",
+          "copyCommand": "Copiază comanda de instalare",
+          "description": "Rulează motrix într-un terminal pentru a controla această aplicație.",
+          "diagnostics": {
+            "hide": "Ascunde detaliile",
+            "show": "Arată detaliile"
+          },
+          "manager": {
+            "bun": "Bun",
+            "npm": "npm",
+            "pnpm": "pnpm",
+            "volta": "Volta",
+            "yarn": "Yarn Classic"
+          },
+          "managerLabel": "Manager de pachete",
+          "metadata": {
+            "manager": "Instalat cu",
+            "path": "Executabil",
+            "unknown": "necunoscut",
+            "version": "Versiune"
+          },
+          "reason": {
+            "installFailed": "Managerul de pachete nu a putut instala @motrix/cli. Verifică detaliile, apoi încearcă din nou sau rulează comanda manual.",
+            "managerMissing": "Nu a fost găsit un manager de pachete acceptat. Instalează npm, pnpm, Yarn Classic, Bun sau Volta, apoi verifică din nou.",
+            "network": "Managerul de pachete nu a putut accesa registrul. Verifică rețeaua sau configurația registrului, apoi încearcă din nou.",
+            "nodeMissing": "Node.js 22 sau mai nou nu a fost găsit. Instalează Node.js, apoi verifică din nou.",
+            "nodeTooOld": "Este necesar Node.js 22 sau mai nou. A fost detectată versiunea {{version}}.",
+            "pathMissing": "Pachetul a fost instalat, dar motrix nu este în PATH. Deschide un terminal nou sau adaugă dosarul de instalare indicat în PATH.",
+            "pathShadowed": "Un alt executabil motrix apare mai devreme în PATH. Elimină intrarea veche sau corectează PATH, apoi verifică din nou.",
+            "permission": "Managerul de pachete nu poate scrie în locația globală de instalare. Folosește un manager de versiuni Node.js sau un prefix în care ai drept de scriere; nu folosi sudo.",
+            "sandboxed": "Instalarea cu un singur clic nu este disponibilă în acest pachet izolat. Copiază comanda și ruleaz-o într-un terminal.",
+            "timeout": "Instalarea a durat prea mult și a fost oprită. Verifică rețeaua, apoi încearcă din nou.",
+            "unknown": "Motrix nu a putut verifica instrumentul de linie de comandă. Încearcă din nou sau rulează manual comanda copiată.",
+            "unsupportedWeb": "Instalarea cu un singur clic este disponibilă doar în aplicația desktop. Copiază comanda și ruleaz-o pe gazda Motrix.",
+            "verifyFailed": "Instalarea s-a încheiat, dar Motrix nu a putut verifica executabilul motrix activ."
+          },
+          "status": {
+            "checking": "Se verifică",
+            "error": "Eșuat",
+            "installed": "Instalat",
+            "installing": "Se instalează",
+            "manualOnly": "Instalare manuală",
+            "needsAttention": "Necesită atenție",
+            "ready": "Pregătit pentru instalare"
+          },
+          "successGuidance": "Deschide un terminal nou, apoi rulează motrix --help.",
+          "title": "Instrumentul de linie de comandă Motrix"
+        }
+      },
+      "description": "Browsere, aplicații implicite și instrumente",
+      "media": {
+        "applyHint": "Salvează pentru a folosi această cale la descărcările media noi. Scanează din nou în extensia de browser pentru a actualiza funcțiile disponibile.",
+        "binaryPath": "Cale FFmpeg personalizată",
+        "browse": "Răsfoiește…",
+        "candidateKind": {
+          "env": "MOTRIX_FFMPEG_BIN",
+          "manual": "Cale personalizată",
+          "path": "PATH al sistemului",
+          "userData": "Dosarul de date Motrix"
+        },
+        "cleanupConfirm": "Elimini toate dosarele temporare FFmpeg?",
+        "cleanupStaging": "Curăță fișierele temporare",
+        "desc": "Combină sau convertește fișiere media cu FFmpeg.",
+        "desktopSavedHint": "Descărcările media noi folosesc calea salvată. Repornește Motrix pentru ca modulele active să detecteze modificarea.",
+        "detection": {
+          "copyManagedPath": "Copiază calea FFmpeg din Motrix",
+          "editCustomPath": "Editează calea FFmpeg personalizată",
+          "finishEditingCustomPath": "Încheie editarea căii FFmpeg personalizate",
+          "hideDetails": "Ascunde detaliile detectării",
+          "location": "Locație verificată",
+          "notConfigured": "Nesetat",
+          "readyTitle": "FFmpeg {{version}}",
+          "result": "Rezultat",
+          "showDetails": "Arată detaliile detectării",
+          "source": "Sursă",
+          "sourcesChecked_few": "{{count}} surse verificate",
+          "sourcesChecked_one": "{{count}} sursă verificată",
+          "sourcesChecked_other": "{{count}} de surse verificate",
+          "unavailableDesc": "Setează o cale personalizată, instalează FFmpeg sau adaugă-l în PATH, apoi reîmprospătează.",
+          "unavailableTitle": "FFmpeg nu este disponibil",
+          "untrustedDesc": "Fișierul există, dar nu a trecut verificarea de securitate macOS. Instalează o versiune de încredere sau aprob-o în Intimitate și securitate, apoi reîmprospătează.",
+          "untrustedTitle": "FFmpeg a fost blocat de macOS",
+          "usingSource": "Se folosește {{source}}"
+        },
+        "download": {
+          "action": "Descarcă FFmpeg"
+        },
+        "ffmpegRequired": "Această descărcare necesită FFmpeg. Configurează-l în Setări → Integrare → Instrumente media, salvează, apoi încearcă din nou.",
+        "notDetected": "FFmpeg nu a fost detectat",
+        "opTimeoutSec": "Timp-limită FFmpeg (secunde)",
+        "opTimeoutSecDesc": "Timp maxim pentru o operație media, până la 3.600 de secunde.",
+        "pipelineUnavailable": "Suportul pentru descărcări media nu este disponibil.",
+        "refresh": "Reîmprospătează",
+        "restartHint": "Salvat. Repornește Motrix pentru ca modulele active să detecteze modificările.",
+        "restartNow": "Repornește acum",
+        "savedTitle": "Setări FFmpeg salvate",
+        "stagingMB": "Limită pentru fișiere temporare (MB)",
+        "stagingMBDesc": "Spațiu pentru fișiere intermediare, per modul și sarcină.",
+        "state": {
+          "active": "În uz",
+          "available": "Găsit",
+          "missing": "Negăsit",
+          "unconfigured": "Nesetat",
+          "untrusted": "Blocat de macOS",
+          "version_mismatch": "Neacceptat"
+        },
+        "title": "Instrumente media",
+        "validation": {
+          "fileMissing": "Fișierul nu există la această cale."
+        }
+      },
+      "pairResolveFailed": "Decizia ta nu a putut fi trimisă — încearcă din nou.",
+      "system": {
+        "associationChecking": "Se verifică…",
+        "associationDefault": "Implicită",
+        "associationNotDefault": "Nu este implicită",
+        "associationNotRegistered": "Neînregistrată",
+        "associationSetupRequired": "Necesită configurare",
+        "associationStatusLabel": "Starea curentă a aplicației implicite în Windows",
+        "associationStatusLabelLinux": "Starea curentă a asocierilor de fișiere și linkuri în Linux",
+        "associationUnavailable": "Nu s-a putut verifica",
+        "defaultAssociationsLinux": "Asocieri de fișiere și linkuri în Linux",
+        "defaultAssociationsLinuxAppImageDesc": "Folosește Integrare desktop de mai jos pentru a înregistra sau elimina în siguranță acest AppImage. Motrix restabilește aplicațiile asociate anterior, verificate, înainte de a-și șterge intrarea desktop.",
+        "defaultAssociationsLinuxCheckingDesc": "Se verifică acest pachet Linux și asocierile sale curente cu mediul desktop…",
+        "defaultAssociationsLinuxDesc": "Motrix se poate seta ca aplicație implicită pentru .torrent dacă este instalat dintr-un pachet deb sau rpm. Modificările pentru magnet se aplică atunci când aplici setările din acest dialog.",
+        "defaultAssociationsLinuxSandboxDesc": "Acest pachet înregistrează Motrix ca aplicație pentru fișiere și linkuri, dar mediul desktop alege aplicația implicită. Eliminarea pachetului poate să nu restabilească automat aplicația implicită anterioară.",
+        "defaultAssociationsLinuxUnavailableDesc": "Starea asocierilor cu mediul desktop nu este disponibilă în acest mediu al aplicației.",
+        "defaultAssociationsWindows": "Aplicație implicită pentru torrente și linkuri magnet",
+        "defaultAssociationsWindowsDesc": "Alege Motrix pentru fișierele .torrent și linkurile magnet în setările Windows. Este necesară o copie instalată a Motrix.",
+        "linuxActionFailed": "Aplicația implicită din Linux nu a putut fi actualizată. Verifică setările mediului desktop.",
+        "linuxActionFallback": "Configurarea automată nu este disponibilă pentru acest pachet. Au fost deschise instrucțiunile de configurare.",
+        "linuxActionSet": "Motrix este acum aplicația implicită pentru fișierele .torrent.",
+        "linuxPackage": {
+          "appimage": "AppImage",
+          "flatpak": "Flatpak",
+          "native": "deb / rpm",
+          "snap": "Snap",
+          "unknown": "Pachet necunoscut"
+        },
+        "linuxPackageDetected": "Pachet: {{package}}",
+        "magnetLinks": "Linkuri magnet",
+        "openWindowsSettings": "Deschide setările Windows",
+        "protocolMagnet": "Deschide linkurile magnet cu Motrix",
+        "protocolMagnetAppImageDesc": "Se aplică imediat după salvare dacă integrarea desktop este activată.",
+        "protocolMagnetApplyFailed": "Preferința a fost salvată, dar asocierea desktop nu a putut fi modificată. Alege aplicația implicită în setările sistemului.",
+        "protocolMagnetDesc": "Deschide linkurile magnet din browser în Motrix.",
+        "protocolMagnetSandboxDesc": "Motrix va solicita modificarea la salvare, dar mediul izolat sau mediul desktop poate cere alegerea manuală a aplicației implicite.",
+        "repairLinuxAssociations": "Repară asocierile",
+        "setTorrentDefaultLinux": "Setează ca implicit pentru .torrent",
+        "title": "Aplicație implicită",
+        "torrentAssociation": "Deschide fișierele .torrent cu Motrix",
+        "torrentAssociationDesc": "Fă dublu clic pe un fișier .torrent pentru a-l deschide în Motrix.",
+        "torrentAssociationMacDesc": "În Finder, fă clic dreapta pe un fișier .torrent → Obțineți informații → Deschideți cu → alege Motrix → Aplicați pentru toate…",
+        "torrentFiles": "Fișiere .torrent",
+        "viewLinuxInstructions": "Vezi pașii de configurare"
+      }
+    },
+    "network": {
+      "description": "Proxy, DNS și verificări ale conexiunii",
+      "diagnostic": {
+        "enable": "Verificări automate",
+        "enableDesc": "Repetă verificările activate mai sus.",
+        "interval": "Interval de verificare (s)",
+        "title": "Verificări automate ale rețelei"
+      },
+      "diagnostics": "Diagnosticarea rețelei",
+      "dns": {
+        "mode": "Rezoluție DNS",
+        "modeAuto": "Automat",
+        "modeDesc": "Cum sunt căutate adresele serverelor pentru descărcări.",
+        "modeEngine": "DNS integrat",
+        "modeSystem": "DNS-ul sistemului",
+        "title": "DNS"
+      },
+      "nat": {
+        "automatic": "Automat",
+        "btPortHint": "Redirecționarea se aplică porturilor BT/DHT configurate în BitTorrent.",
+        "enable": "Activează redirecționarea porturilor",
+        "enableDesc": "Cere routerului să deschidă porturile din setările BitTorrent.",
+        "mappingTtl": "Durata redirecționării (s)",
+        "preferredProtocol": "Protocol preferat",
+        "title": "Redirecționarea porturilor (NAT)"
+      },
+      "proxy": {
+        "auth": "Autentificare proxy",
+        "authDesc": "Activează dacă proxy-ul necesită nume de utilizator și parolă.",
+        "bypass": "Conectează direct la",
+        "bypassDesc": "Un domeniu, IP sau CIDR pe linie. Începe cu . pentru a include doar subdomenii. Descărcările de fișiere nu acceptă metacaracterul *.",
+        "bypassPlaceholder": "localhost\n127.0.0.1\n.local",
+        "bypassScopeNote": "Doar descărcări de fișiere și actualizări ale aplicației",
+        "enable": "Activează proxy-ul",
+        "enableDesc": "Folosește un proxy pentru conexiunile selectate mai jos.",
+        "hidePassword": "Ascunde parola",
+        "host": "Adresa serverului",
+        "hostPlaceholder": "proxy.example.com",
+        "importFromSystem": "Importă din sistem",
+        "importedToast": "Proxy de sistem importat: {{host}}:{{port}}",
+        "noSystemProxy": "Nu este configurat niciun proxy de sistem.",
+        "password": "Parolă",
+        "port": "Port",
+        "protocol": "Protocol",
+        "scopeChoose": "Selectează…",
+        "scopeDownload": "Descărcări de fișiere",
+        "scopeDownloadDesc": "Pentru BT, doar HTTP(S) folosește proxy-ul. Partenerii, DHT și trackerele UDP se conectează direct.",
+        "scopeHint": "Partenerii BT, DHT și trackerele UDP se conectează direct.",
+        "scopeNone": "Nimic selectat",
+        "scopeSeparator": ", ",
+        "scopeUpdateApp": "Actualizările aplicației",
+        "scopeUpdateAppDesc": "Caută actualizări Motrix prin proxy.",
+        "scopeUpdateTrackers": "Actualizări ale listelor de trackere",
+        "scopeUpdateTrackersDesc": "Descarcă listele de trackere prin proxy; traficul BT nu este afectat.",
+        "scopes": "Folosește proxy-ul pentru",
+        "scopesDesc": "Alege ce tipuri de trafic trec prin proxy.",
+        "server": "Server",
+        "showPassword": "Arată parola",
+        "title": "Proxy",
+        "user": "Nume de utilizator"
+      },
+      "reachability": {
+        "addEndpoint": "Adaugă serviciu de verificare",
+        "empty": "Adaugă cel puțin un serviciu de verificare.",
+        "enable": "Verifică porturile de intrare",
+        "endpoints": "Servicii de verificare (HTTPS)",
+        "privacyHint": "Folosește un serviciu terț pentru a verifica accesul din internet.",
+        "title": "Verificarea porturilor de intrare"
+      },
+      "stun": {
+        "addServer": "Adaugă server STUN",
+        "empty": "Adaugă cel puțin un server STUN.",
+        "enable": "Detectează tipul NAT",
+        "privacyHint": "Folosește servere STUN terțe.",
+        "servers": "Servere STUN",
+        "title": "Detectarea tipului NAT"
+      }
+    },
+    "title": "Setări",
+    "validation": {
+      "address": "Adresa {{number}}",
+      "addressDraft": "Adresă nouă",
+      "directory": "Alege un dosar de descărcare.",
+      "httpUrl": "Introdu o adresă completă care începe cu http:// sau https://.",
+      "httpsUrl": "Introdu o adresă completă care începe cu https://.",
+      "integer": "Introdu un număr întreg.",
+      "integerRange": "Introdu un număr întreg între {{min}} și {{max}}.",
+      "invalid": "Introdu o valoare validă.",
+      "itemCount": "Numărul de adrese nu trebuie să depășească {{max}}.",
+      "loadFailed": "Setările nu au putut fi încărcate. Încearcă din nou.",
+      "maximum": "Introdu {{max}} sau mai puțin.",
+      "minimum": "Introdu {{min}} sau mai mult.",
+      "number": "Introdu un număr valid.",
+      "proxyHost": "Introdu un nume de server sau o adresă IP, fără http:// sau port.",
+      "range": "Introdu un număr între {{min}} și {{max}}.",
+      "rangeHint": "Interval: {{min}}–{{max}}.",
+      "required": "Introdu mai întâi o adresă.",
+      "saveFailed": "Modificările nu au putut fi salvate. Încearcă din nou.",
+      "selection": "Alege o opțiune disponibilă.",
+      "stunServer": "Folosește gazdă:port, de exemplu stun.example.com:3478. Portul trebuie să fie între 1 și 65535.",
+      "text": "Elimină sfârșiturile de linie sau caracterele de control ascunse.",
+      "textLength": "Numărul de caractere nu trebuie să depășească {{max}}.",
+      "time": "Folosește formatul de 24 de ore, de exemplu 23:00.",
+      "wholeBytes": "Folosește mai puține zecimale."
+    }
+  },
+  "task": {
+    "add": {
+      "adding": "Se adaugă…",
+      "advanced": "Avansat",
+      "allProxy": "Proxy",
+      "authorization": "Authorization",
+      "batchCreated": "Sarcini adăugate: {{count}}",
+      "browse": "răsfoiește",
+      "changeSaveDir": "Schimbă dosarul de salvare",
+      "clearSelection": "Golește selecția",
+      "cookie": "Cookie",
+      "createFailed": "Sarcina de descărcare nu a putut fi creată.",
+      "createFailedByPlugin": "Sarcina nu a putut fi creată: modulul „{{pluginId}}” a oprit-o ({{detail}}). Dezactivează modulul din Setări → Module, apoi încearcă din nou.",
+      "createFailedPathTooLong": "Sarcina nu a putut fi creată: calea de destinație are {{length}} de caractere, depășind limita Windows de {{limit}}. Alege un dosar de salvare sau un nume de fișier mai scurt.",
+      "createFailedWithReason": "Sarcina de descărcare nu a putut fi creată: {{reason}}",
+      "created": "Sarcină adăugată",
+      "createdCopy": "Copie separată adăugată",
+      "createdPartial": "Adăugate: {{ok}} · Eșuate: {{failed}}",
+      "dlLimit": "Limită descărcare",
+      "downloadAllTorrents": "Descarcă tot ({{count}})",
+      "downloadAndContinue": "Descarcă și continuă",
+      "dropTorrent": "Trage un fișier .torrent aici sau apasă pentru a-l selecta",
+      "duplicate": {
+        "active-info-hash": "Torrentul {{name}} este deja activ. aria2 nu poate rula același conținut torrent de două ori simultan.",
+        "createCopy": "Creează o copie separată",
+        "existing-files": "{{name}} există deja la această destinație, dar înregistrarea sarcinii nu este disponibilă. Motrix nu va suprascrie conținutul.",
+        "filesOnDisk": "Fișiere torrent",
+        "selection-mismatch": "{{name}} folosește aceeași destinație cu o selecție diferită de fișiere. Motrix nu va suprascrie conținutul și nu va crea automat o copie redenumită fără a te anunța.",
+        "showExisting": "Arată sarcina existentă",
+        "title": "Acest torrent există deja"
+      },
+      "errors": {
+        "missingSource": "Este necesar un fișier torrent sau un link magnet",
+        "noFilesSelected": "Selectează cel puțin un fișier",
+        "saveDirRequired": "Este necesar un dosar de salvare",
+        "urlsRequired": "Este necesar cel puțin un URL"
+      },
+      "filename": "Nume fișier",
+      "filenameAuto": "Automat",
+      "filterBy": {
+        "audio": "Audio",
+        "doc": "Document",
+        "image": "Imagine",
+        "video": "Video"
+      },
+      "interpretedCurl": "Comandă cURL analizată",
+      "interpretedInfoHash": "Hash BT convertit în link magnet",
+      "interpretedJson": "URL-uri importate din JSON",
+      "interpretedMagnet": "Link magnet detectat",
+      "invalidJson": "Este așteptat un șir JSON cu un URL sau o listă de șiruri URL.",
+      "invalidUrlCount": "Nevalide: {{count}}",
+      "links": "Linkuri",
+      "parseFailed": "Fișierul torrent nu a putut fi analizat.",
+      "pickPathCustom": "Cale personalizată",
+      "pickPathTitle": "Selectează dosarul de salvare",
+      "queueAdvanceFailed": "Următorul torrent nu a putut fi deschis.",
+      "referer": "Referer",
+      "saveDirEmpty": "Alege un dosar…",
+      "saveTo": "Salvează în",
+      "seedRatio": "Raport de partajare",
+      "selectionTimeout": {
+        "failed": "Sarcina {{name}} nu a putut fi pornită automat. Deschide detaliile sarcinii pentru a selecta fișierele și încearcă din nou.",
+        "started": "Timpul pentru selectarea fișierelor a expirat: se descarcă toate fișierele din {{name}}"
+      },
+      "skipTorrent": "Omite",
+      "sourceCorrections": {
+        "encodeLiteralCharacters": "Codifică drept caractere literale",
+        "useCanonicalUrl": "Folosește acest URL extins",
+        "usePathSeparators": "Tratează barele oblice inverse ca separatori de cale"
+      },
+      "sourceErrors": {
+        "ambiguousBackslash": "O bară oblică inversă face gazda sau calea ambiguă. Alege cum să fie interpretată.",
+        "ambiguousStructure": "Analizorul URL ar modifica această adresă. Verifică URL-ul extins.",
+        "controlCharacter": "Elimină caracterele de control din URL.",
+        "credentialsInUrl": "Folosește câmpurile de autentificare în loc să incluzi datele de acces în URL.",
+        "invalidHost": "Gazda URL-ului lipsește sau nu este validă.",
+        "invalidMagnet": "Linkul magnet trebuie să conțină un hash BT acceptat în parametrul xt.",
+        "invalidPercentEncoding": "Semnul procent trebuie urmat de două cifre hexazecimale.",
+        "invalidPort": "Portul URL-ului nu este valid.",
+        "invalidUnicode": "URL-ul conține Unicode nevalid.",
+        "missingScheme": "Include schema URL-ului, de exemplu https://.",
+        "mixedProtocols": "Sursele alternative ale unei descărcări trebuie să folosească aceeași familie de protocoale.",
+        "tooManySources": "Datele introduse depășesc numărul sau dimensiunea permisă a linkurilor.",
+        "unescapedCharacter": "Codifică explicit spațiile și caracterele rezervate.",
+        "unsupportedInput": "Acest format de intrare nu a fost importat. Lipește un URL, date într-un format JSON acceptat sau o comandă cURL Bash acceptată.",
+        "unsupportedProtocol": "Acest protocol URL nu este acceptat pentru această descărcare.",
+        "unsupportedRequestOptions": "Antetele HTTP nu pot fi aplicate unei descărcări FTP.",
+        "urlTooLong": "URL-ul depășește limita de 16 KiB."
+      },
+      "sourceLine": "Linia {{line}}",
+      "split": "Conexiuni",
+      "submissionUnconfirmed": "Rezultatul nu este confirmat. O nouă încercare va verifica cererea inițială înainte de a crea altă sarcină.",
+      "title": "Sarcină nouă",
+      "torrent": "Torrent",
+      "torrentQueueProgress": "Torrent {{current}} din {{total}}",
+      "ulLimit": "Limită încărcare",
+      "undoCorrection": "Anulează corectarea URL-ului",
+      "unlimited": "Nelimitat",
+      "unsupportedCurl": "Această comandă cURL nu poate fi importată fidel. Copiază URL-ul sau o comandă GET Bash cu opțiuni acceptate.",
+      "urlPlaceholder": "Introdu un URL, un link magnet sau un hash BT…",
+      "urlsCount_few": "{{count}} URL-uri",
+      "urlsCount_one": "{{count}} URL",
+      "urlsCount_other": "{{count}} de URL-uri",
+      "urlsLabel": "URL-uri",
+      "urlsWithInvalid": "Valide: {{valid}}, nevalide: {{invalid}}",
+      "userAgent": "User-Agent",
+      "validUrlCount": "Valide: {{count}}"
+    },
+    "detail": {
+      "peers": "Parteneri: {{count}}",
+      "seeds": "Surse complete: {{count}}"
+    },
+    "error": {
+      "detail": {
+        "filesMissing": "Lipsesc fișiere după repornirea aplicației",
+        "finalizeFailed": "Descărcarea nu a putut fi finalizată: {{cause}}",
+        "magnetCleanupQuarantined": "Curățarea metadatelor magnet este în carantină",
+        "muxFailed": "Fluxurile media descărcate nu au putut fi combinate",
+        "pathTooLong": "Calea are {{length}} de caractere; Windows permite {{limit}}",
+        "pluginChainAborted": "Lanțul de module a fost întrerupt: {{cause}}",
+        "recoveryFailed": "Descărcarea nu a putut fi recuperată: {{cause}}",
+        "recoveryOutputConflict": "Există atât fișierul temporar, cât și cel final; ambele au fost păstrate pentru verificare manuală",
+        "renameDirFailed": "Dosarul nu a putut fi redenumit: {{cause}}",
+        "renameFileFailed": "Fișierul nu a putut fi redenumit: {{cause}}"
+      },
+      "hint": {
+        "btMetadataFailed": "Verifică linkul magnet sau adaugă mai multe trackere, apoi încearcă din nou",
+        "checksumMismatch": "Fișierul descărcat poate fi corupt; descarcă-l din nou pentru verificare",
+        "diskFull": "Eliberează spațiu pe disc sau schimbă dosarul de salvare, apoi încearcă din nou",
+        "fileWriteError": "Verifică permisiunile dosarului și spațiul disponibil pe disc, apoi încearcă din nou",
+        "networkError": "Verifică conexiunea la rețea, apoi încearcă din nou",
+        "pathTooLong": "Scurtează calea dosarului de salvare sau numele fișierului, apoi încearcă din nou",
+        "timeout": "Verifică viteza și stabilitatea conexiunii, apoi încearcă din nou",
+        "tooManyRedirects": "Linkul sursă poate fi defect; încearcă alt link",
+        "unauthorized": "Verifică datele de autentificare sau drepturile de acces, apoi încearcă din nou"
+      },
+      "reason": {
+        "btMetadataFailed": "Metadatele torrentului nu au putut fi preluate",
+        "btTrackerError": "Conectarea la tracker a eșuat",
+        "checksumMismatch": "Suma de control a fișierului nu corespunde",
+        "diskFull": "Discul este plin",
+        "fileWriteError": "Fișierul nu a putut fi scris",
+        "generic": "Descărcarea a eșuat",
+        "networkError": "Conectarea la rețea a eșuat",
+        "notFound": "Fișierul nu a fost găsit",
+        "pathTooLong": "Calea fișierului este prea lungă pentru Windows",
+        "serverError": "Serverul a returnat o eroare",
+        "timeout": "Timpul de așteptare pentru descărcare a expirat",
+        "tooManyRedirects": "Prea multe redirecționări",
+        "unauthorized": "Este necesară autorizarea",
+        "unknown": "Descărcarea a eșuat"
+      }
+    },
+    "recovery": {
+      "finalizeRenameFailed": "Fișierul nu a putut fi redenumit. Fișierul descărcat păstrează sufixul .motrix.",
+      "metaMissing": "Lipsesc metadatele torrentului. Distribuirea nu poate începe.",
+      "reseedFailed": "Descărcare finalizată, dar distribuirea nu a putut fi pornită.",
+      "startup": {
+        "dirtyMetadata": "Această sarcină nu poate fi recuperată: lipsesc datele de identificare necesare pentru reluare.",
+        "mediaInterrupted": "Această descărcare media a fost întreruptă de repornirea aplicației și nu poate fi reluată. Adaug-o din nou pentru a reîncerca.",
+        "reAddFailed": "Această sarcină nu poate fi recuperată: motorul a respins cererea de readăugare. Elimină sarcina și adaug-o din nou manual.",
+        "resumeCheckpointMissing": "Fișierul parțial a fost păstrat, dar lipsește punctul de reluare. Repornește în siguranță sau adaugă sarcina din nou.",
+        "resumeCredentialsRequired": "Fișierul parțial a fost păstrat, dar această descărcare necesită date de autentificare pentru cerere care nu pot fi reutilizate automat.",
+        "resumePathInvalid": "Fișierul parțial a fost păstrat deoarece calea de ieșire salvată nu este validă.",
+        "resumeRangeUnsupported": "Fișierul parțial a fost păstrat deoarece serverul nu acceptă reluarea sigură prin cereri de intervale de octeți.",
+        "resumeSourceChanged": "Fișierul parțial a fost păstrat deoarece fișierul de pe server s-a modificat de la începutul descărcării.",
+        "resumeValidationFailed": "Fișierul parțial a fost păstrat deoarece Motrix nu a putut verifica dacă fișierul de pe server a rămas neschimbat.",
+        "torrentMetaMissing": "Această sarcină BitTorrent nu poate fi recuperată: lipsește fișierul de metadate .torrent. Elimină sarcina și adaug-o din nou."
+      },
+      "toast": "Sarcini întrerupte recuperate: {{count}}. Apasă pentru a le vedea."
+    },
+    "remove": {
+      "cancel": "Anulează",
+      "confirm": "Elimină",
+      "deleteFilesLabel": "Șterge fișierele descărcate",
+      "description": "Sarcina „{{name}}” va fi eliminată din lista de descărcări.",
+      "notAvailableDuringFinalize": "Așteaptă finalizarea sarcinii.",
+      "orphanToast": "Sarcină eliminată. Fișierele au fost păstrate la {{path}}.",
+      "title": "Elimini sarcina?"
+    },
+    "torrent": {
+      "audio": "Audio",
+      "column": {
+        "name": "Nume fișier",
+        "size": "Dimensiune",
+        "type": "Tip fișier"
+      },
+      "doc": "Document",
+      "fileSelected_few": "{{count}} fișiere selectate",
+      "fileSelected_one": "{{count}} fișier selectat",
+      "fileSelected_other": "{{count}} de fișiere selectate",
+      "image": "Imagine",
+      "selectAll": "Selectează tot",
+      "video": "Video"
+    }
+  },
+  "trackers": {
+    "blacklist": {
+      "column": {
+        "source": "Sursă",
+        "url": "URL"
+      },
+      "disabled": "Dezactivat — activează pentru a vedea lista de blocare.",
+      "empty": "Lista de blocare este goală.",
+      "enabled": "Aplică filtrul listei de blocare",
+      "enabledDesc": "Blochează conexiunile la servere tracker suspecte sau cu erori.",
+      "summary": "URL-uri aplicate: {{count}}"
+    },
+    "combobox": {
+      "addSource": "Adaugă",
+      "addSourcePlaceholder": "https://example.com/list.txt",
+      "builtinBadge": "integrat",
+      "cdnBadge": "CDN",
+      "directBadge": "Direct",
+      "empty": "Nicio sursă corespunzătoare.",
+      "placeholder": "Selectează sursele",
+      "removeSource": "Elimină sursa"
+    },
+    "effective": {
+      "column": {
+        "health": "Stare",
+        "lastProbedAt": "Ultima verificare",
+        "responseTimeMs": "Răspuns (ms)",
+        "source": "Sursă",
+        "url": "URL"
+      },
+      "disabled": "Dezactivat — activează pentru a vedea lista de trackere folosită.",
+      "empty": "Încă nu există trackere în uz. Sincronizează pentru a popula lista.",
+      "enabled": "Adaugă trackerele selectate",
+      "enabledDesc": "Adaugă lista de trackere selectate la toate sarcinile BitTorrent."
+    },
+    "sync": {
+      "applying": "Se aplică listele de trackere…",
+      "failed": "Sincronizare incompletă. Verifică rețeaua sau sursele și încearcă din nou.",
+      "fetching": "Se preiau listele de trackere…",
+      "probing": "Se verifică disponibilitatea trackerelor…",
+      "syncing": "Se sincronizează…",
+      "unavailable": "Starea sincronizării nu poate fi citită. Verifică conexiunea și încearcă din nou."
+    }
+  },
+  "tray": {
+    "checkUpdates": "Caută actualizări",
+    "manual": "Manual",
+    "newTask": "Sarcină nouă",
+    "newTorrentTask": "Sarcină torrent nouă",
+    "openTorrentFile": "Deschide fișier torrent",
+    "preferences": "Setări",
+    "quit": "Ieși",
+    "showMotrix": "Arată Motrix"
+  }
+}

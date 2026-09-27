@@ -410,7 +410,7 @@ export function AdvancedDialog({
                               </Select>
                             </div>
                             {historyMode === 'limited' && (
-                              <div className="flex items-start justify-between gap-4 border-l border-border/60 pl-4">
+                              <div className="flex items-start justify-between gap-4 border-s border-border/60 ps-4">
                                 <div className="space-y-1">
                                   <Label htmlFor={historyCountId}>
                                     {t(
@@ -501,7 +501,7 @@ export function AdvancedDialog({
 
         <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
           {form.formState.errors.root?.save && (
-            <p role="alert" className="mr-auto text-xs text-destructive">
+            <p role="alert" className="me-auto text-xs text-destructive">
               {form.formState.errors.root.save.message}
             </p>
           )}

@@ -68,7 +68,7 @@ export function DisclaimerStep() {
               ]}
               highlightColor="var(--onboarding-highlight-color)"
               highlightTextColor="var(--onboarding-highlight-text-color)"
-              highlightClassName="font-medium"
+              highlightClassName="font-medium whitespace-normal!"
               viewportOptions={{ once: true, amount: 0.5 }}
               className={cn(
                 'mt-6 text-[14px] tracking-[-0.006em] text-[#1d1d1f] dark:text-card-foreground',

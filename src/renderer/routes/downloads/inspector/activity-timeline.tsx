@@ -11,6 +11,7 @@ import {
   WarningIcon,
 } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
+import { useDirection } from '@renderer/components/ui/direction'
 import {
   Popover,
   PopoverContent,
@@ -331,13 +332,16 @@ export function ActivityTimeline({
   onSelectNode,
 }: ActivityTimelineProps) {
   const { t } = useTranslation()
+  const textDirection = useDirection()
   const scrollerRef = useRef<HTMLDivElement>(null)
   const minimumWidth = model.overflow.hasOverflow
     ? model.nodes.length * 96
     : undefined
 
   const scrollTimeline = (direction: -1 | 1) => {
-    scrollerRef.current?.scrollBy({ left: direction * 240 })
+    scrollerRef.current?.scrollBy({
+      left: direction * 240 * (textDirection === 'rtl' ? -1 : 1),
+    })
   }
 
   return (
@@ -358,34 +362,34 @@ export function ActivityTimeline({
             <div
               data-testid="activity-timeline-edge-start"
               aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-[linear-gradient(to_right,hsl(var(--background)),transparent)]"
+              className="pointer-events-none absolute inset-y-0 start-0 z-10 w-10 bg-[linear-gradient(to_right,hsl(var(--background)),transparent)] rtl:bg-[linear-gradient(to_left,hsl(var(--background)),transparent)]"
             />
             <div
               data-testid="activity-timeline-edge-end"
               aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-[linear-gradient(to_left,hsl(var(--background)),transparent)]"
+              className="pointer-events-none absolute inset-y-0 end-0 z-10 w-10 bg-[linear-gradient(to_left,hsl(var(--background)),transparent)] rtl:bg-[linear-gradient(to_right,hsl(var(--background)),transparent)]"
             />
             <Button
               type="button"
               variant="outline"
               size="icon-xs"
-              className="absolute left-0 top-0 z-20 bg-background motion-reduce:transition-none"
+              className="absolute start-0 top-0 z-20 bg-background motion-reduce:transition-none"
               aria-label={t(
                 'panel.downloads.inspector.activity.timeline.previous'
               )}
               onClick={() => scrollTimeline(-1)}
             >
-              <ChevronLeftIcon aria-hidden="true" />
+              <ChevronLeftIcon aria-hidden="true" className="rtl:rotate-180" />
             </Button>
             <Button
               type="button"
               variant="outline"
               size="icon-xs"
-              className="absolute right-0 top-0 z-20 bg-background motion-reduce:transition-none"
+              className="absolute end-0 top-0 z-20 bg-background motion-reduce:transition-none"
               aria-label={t('panel.downloads.inspector.activity.timeline.next')}
               onClick={() => scrollTimeline(1)}
             >
-              <ChevronRightIcon aria-hidden="true" />
+              <ChevronRightIcon aria-hidden="true" className="rtl:rotate-180" />
             </Button>
           </>
         )}

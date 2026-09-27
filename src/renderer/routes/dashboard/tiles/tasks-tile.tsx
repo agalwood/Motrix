@@ -654,7 +654,7 @@ export function TasksTile({
               type="button"
               data-testid="tasks-more"
               onClick={() => navigate(routeForView)}
-              className="flex h-6 w-full items-center rounded-md px-1 text-left text-[11px] leading-none font-medium text-muted-foreground outline-none transition-colors hover:bg-accent/45 hover:text-foreground focus-visible:bg-accent/45 focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 motion-reduce:transition-none"
+              className="flex h-6 w-full items-center rounded-md px-1 text-start text-[11px] leading-none font-medium text-muted-foreground outline-none transition-colors hover:bg-accent/45 hover:text-foreground focus-visible:bg-accent/45 focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 motion-reduce:transition-none"
             >
               {t('panel.dashboard.tasks.more', { count: overflowCount })}
             </button>

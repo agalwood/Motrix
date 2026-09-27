@@ -1,0 +1,2810 @@
+{
+  "applicationMenu": {
+    "actionFailed": "No s'ha pogut completar l'acció. Comproveu la connexió i torneu-ho a provar.",
+    "back": "Enrere",
+    "clearConfirm": "Esborrar els registres",
+    "clearDescription": "Suprimeix els registres de tasques completades, fallides i suprimides presents en obrir aquest diàleg. Els fitxers baixats es conserven al disc.",
+    "clearTitle": "Voleu esborrar els registres de les tasques aturades?",
+    "discardConfirm": "Descartar",
+    "discardDescription": "Es perdran els enllaços, la selecció de torrents i la configuració que no hàgiu desat.",
+    "discardTitle": "Voleu descartar aquest esborrany de tasca?",
+    "logoutConfirm": "Tancar la sessió",
+    "logoutDescription": "Això tanca la sessió de les altres pestanyes que utilitzen la mateixa sessió del navegador. Les baixades continuen al servidor. Es perdran les dades no desades d'aquestes pestanyes.",
+    "logoutTitle": "Voleu tancar la sessió d'aquest servidor?",
+    "retry": "Tornar-ho a provar",
+    "serverUnavailable": "El servidor no està disponible. No s'ha tancat la vostra sessió.",
+    "signOut": "Tancar la sessió…"
+  },
+  "bridge": {
+    "receiver": {
+      "error": {
+        "authExpired": "La sessió ha caducat; actualitzeu la pàgina al navegador i torneu-ho a provar",
+        "cancelled": "Cancel·lat",
+        "diskFull": "El disc és ple",
+        "diskWriteFailed": "No es pot escriure al disc: {{detail}}",
+        "internalError": "Error intern: {{detail}}",
+        "invalidPayload": "Petició no vàlida de l'extensió",
+        "invalidUrlScheme": "L'URL ha de ser http: o https:",
+        "muxAborted": "S'ha cancel·lat la combinació",
+        "muxFailed": "L'ffmpeg ha fallat en combinar l'àudio i el vídeo",
+        "notFound": "No s'ha trobat el recurs (404)",
+        "rangeNotSatisfiable": "No s'ha pogut reprendre la baixada; torneu-la a començar",
+        "transientFailure": "La baixada ha fallat després de diversos intents: {{detail}}",
+        "unsupportedEncryption": "No es pot baixar contingut protegit amb DRM",
+        "unsupportedKind": "Aquesta versió del Motrix no admet baixades de tipus {{kind}}",
+        "unsupportedLive": "No es poden baixar transmissions en directe",
+        "unsupportedMaster": "L'extensió ha enviat una llista de reproducció mestra; s'esperava una llista d'una variant"
+      }
+    }
+  },
+  "chrome": {
+    "close": "Tancar",
+    "maximize": "Maximitzar",
+    "minimize": "Minimitzar",
+    "newTask": "Tasca nova",
+    "restore": "Restaurar",
+    "sidebarDescription": "Navegació de l'aplicació.",
+    "sidebarTitle": "Barra lateral",
+    "toggleSidebar": "Mostrar o amagar la barra lateral"
+  },
+  "common": {
+    "apply": "Aplicar",
+    "cancel": "Cancel·lar",
+    "clearSearch": "Esborrar la cerca",
+    "close": "Tancar",
+    "collapse": "Replegar",
+    "confirm": "Confirmar",
+    "download": "Baixar",
+    "error": "Error",
+    "hidePassword": "Amagar la contrasenya",
+    "loading": "S'està carregant…",
+    "name": "Nom:",
+    "remove": "Suprimir",
+    "reset": "Restablir",
+    "retry": "Tornar-ho a provar",
+    "save": "Desar",
+    "showPassword": "Mostrar la contrasenya",
+    "status": {
+      "finalizing": "S'està finalitzant…"
+    }
+  },
+  "directoryPicker": {
+    "back": "Enrere",
+    "create": "Crear",
+    "createHelp": "Les carpetes creades es conserven al servidor si cancel·leu la selecció.",
+    "description": "Els camins són al servidor (dins del contenidor si utilitzeu Docker).",
+    "empty": "No hi ha subcarpetes",
+    "errors": {
+      "alreadyExists": "Ja existeix un fitxer o una carpeta amb aquest nom.",
+      "creationOutcomeUnknown": "No s'ha pogut confirmar la creació. Actualitzeu la llista per comprovar-ho abans de crear una altra carpeta aquí.",
+      "invalidName": "Introduïu un nom de carpeta vàlid.",
+      "invalidPath": "Introduïu un camí absolut de carpeta vàlid.",
+      "notDirectory": "Aquest camí no és una carpeta.",
+      "notFound": "Aquesta carpeta ja no existeix.",
+      "outsideRoots": "Aquesta carpeta és fora de les ubicacions permeses.",
+      "permissionDenied": "No teniu permís per utilitzar aquesta carpeta.",
+      "tooLarge": "Aquest camí o nom de carpeta és massa llarg.",
+      "unavailable": "El servidor no ha pogut completar aquesta petició. Torneu-ho a provar."
+    },
+    "fallback": "La carpeta sol·licitada no està disponible. Es mostra {{path}}.",
+    "folderName": "Nom de la carpeta",
+    "folders": "Carpetes",
+    "forward": "Endavant",
+    "go": "Anar-hi",
+    "goToFolder": "Anar a la carpeta",
+    "incomplete": "Només es mostra una part d'aquesta carpeta. Introduïu un camí exacte per accedir a una altra carpeta.",
+    "loading": "S'estan carregant les carpetes…",
+    "location": "Ubicació",
+    "newFolder": "Carpeta nova",
+    "path": "Camí de la carpeta",
+    "places": {
+      "allowed": "Ubicacions permeses",
+      "common": "Ubicacions habituals",
+      "default": "Carpeta predeterminada",
+      "desktop": "Escriptori",
+      "documents": "Documents",
+      "downloads": "Baixades",
+      "home": "Carpeta personal",
+      "loadFailed": "No s'han pogut carregar algunes ubicacions de carpetes.",
+      "root": "Sistema de fitxers"
+    },
+    "refresh": "Actualitzar",
+    "refreshAfterCreateFailed": "S'ha creat la carpeta, però no s'ha pogut actualitzar la llista.",
+    "retry": "Tornar-ho a provar",
+    "selectFolder": "Seleccionar la carpeta",
+    "selectedPath": "Carpeta seleccionada",
+    "showHidden": "Mostrar les carpetes ocultes",
+    "sortAscending": "Ascendent",
+    "sortBy": "Ordenar per",
+    "sortDescending": "Descendent",
+    "sortModified": "Data de modificació",
+    "sortName": "Nom",
+    "sortOrder": "Ordre",
+    "title": "Seleccionar una carpeta del servidor",
+    "unknownOutcome": "No s'ha pogut confirmar la creació. Actualitzeu la llista per comprovar-ho abans de crear una altra carpeta aquí.",
+    "up": "Pujar un nivell",
+    "viewOptions": "Opcions de visualització"
+  },
+  "directoryPreferences": {
+    "addFavorite": "Afegir una carpeta preferida",
+    "alreadyFavorite": "Ja és a les preferides",
+    "clearRecent": "Esborrar les carpetes recents",
+    "close": "Tancar",
+    "description": "Suprimir una carpeta d'aquesta llista no elimina la carpeta ni els seus fitxers.",
+    "emptyFavorites": "No hi ha carpetes preferides",
+    "emptyHistory": "Encara no hi ha carpetes preferides ni recents",
+    "emptyRecent": "No hi ha carpetes recents",
+    "errors": {
+      "conflict": "La configuració ha canviat en una altra finestra. Reviseu els canvis i torneu-los a desar.",
+      "invalidPath": "Introduïu un camí absolut de carpeta vàlid.",
+      "limitReached": "S'ha arribat al límit de carpetes preferides. Suprimiu-ne una abans d'afegir-ne una altra.",
+      "notDirectory": "Aquest camí no és una carpeta.",
+      "notFound": "Aquesta carpeta ja no existeix.",
+      "outsideRoots": "Aquesta carpeta és fora de les ubicacions permeses.",
+      "permissionDenied": "No teniu permís per utilitzar aquesta carpeta.",
+      "tooLarge": "El camí d'aquesta carpeta és massa llarg.",
+      "unavailable": "No s'han pogut actualitzar els registres de carpetes. Actualitzeu la vista per comprovar-ne l'estat actual."
+    },
+    "favoriteRecent": "Afegir a les preferides",
+    "favorites": "Carpetes preferides",
+    "history": "Historial de carpetes",
+    "limitHint": "Podeu desar fins a {{count}} carpetes preferides.",
+    "loading": "S'estan carregant les carpetes…",
+    "manage": "Gestionar les carpetes",
+    "manageAction": "Gestionar",
+    "manageDescription": "Trieu les carpetes preferides i gestioneu les carpetes recents.",
+    "pickerFailed": "No s'ha pogut obrir el selector de carpetes. Torneu-ho a provar.",
+    "recent": "Carpetes recents",
+    "removeFavorite": "Suprimir de les preferides",
+    "removeRecent": "Suprimir de les carpetes recents",
+    "retry": "Tornar-ho a provar",
+    "sectionDescription": "Manteniu a mà les carpetes que utilitzeu sovint.",
+    "title": "Gestionar les carpetes"
+  },
+  "errors": {
+    "task": {
+      "create": {
+        "dedupExhausted": "Ja hi ha massa fitxers amb aquest nom (>9999).",
+        "torrentMetaFailed": "No s'han pogut desar les metadades del torrent."
+      }
+    }
+  },
+  "menu": {
+    "app": {
+      "about": "Quant al Motrix",
+      "checkForUpdates": "Comprovar si hi ha actualitzacions",
+      "hide": "Amagar el Motrix",
+      "hideOthers": "Amagar les altres aplicacions",
+      "preferences": "Configuració…",
+      "quit": "Sortir del Motrix",
+      "show": "Mostrar el Motrix",
+      "title": "Motrix",
+      "unhide": "Mostrar-ho tot"
+    },
+    "edit": {
+      "copy": "Copiar",
+      "cut": "Retallar",
+      "delete": "Eliminar",
+      "paste": "Enganxar",
+      "redo": "Refer",
+      "selectAll": "Seleccionar-ho tot",
+      "title": "Editar",
+      "undo": "Desfer"
+    },
+    "file": {
+      "title": "Fitxer"
+    },
+    "help": {
+      "changelog": "Notes de la versió",
+      "manual": "Ajuda del Motrix",
+      "officialWebsite": "Lloc web del Motrix",
+      "reportProblem": "Informar d'un problema",
+      "title": "Ajuda",
+      "toggleDevTools": "Mostrar o amagar les eines de desenvolupament"
+    },
+    "task": {
+      "clearRecentTasks": "Esborrar els registres de les tasques aturades…",
+      "deleteTask": "Suprimir tasques…",
+      "moveTaskDown": "Moure avall a la cua",
+      "moveTaskUp": "Moure amunt a la cua",
+      "newBtTask": "Tasca de BitTorrent nova…",
+      "newTask": "Tasca nova…",
+      "openFile": "Obrir un fitxer torrent…",
+      "pauseAllTask": "Pausar-les totes",
+      "pauseTask": "Pausar",
+      "resumeAllTask": "Reprendre-les totes",
+      "resumeTask": "Reprendre",
+      "selectAllTask": "Seleccionar totes les tasques",
+      "taskList": "Llista de tasques",
+      "title": "Tasca"
+    },
+    "window": {
+      "close": "Tancar",
+      "front": "Portar-ho tot al davant",
+      "minimize": "Minimitzar",
+      "reload": "Tornar a carregar",
+      "title": "Finestra",
+      "toggleFullscreen": "Activar o desactivar la pantalla completa",
+      "zoom": "Zoom"
+    }
+  },
+  "nav": {
+    "completed": "Completades",
+    "dashboard": "Tauler",
+    "downloads": "Baixades",
+    "notifications": "Notificacions",
+    "plugins": "Connectors",
+    "settings": "Configuració",
+    "trackers": "Rastrejadors"
+  },
+  "notification": {
+    "center": {
+      "actionFailed": "No s'han pogut actualitzar les notificacions. Torneu-ho a provar.",
+      "clearAll": "Esborrar",
+      "empty": "No hi ha notificacions",
+      "emptyDesc": "Aquí es mostrarà l'activitat de les baixades i els avisos importants de l'aplicació",
+      "markAllRead": "Marcar-les totes com a llegides",
+      "markRead": "Marcar com a llegida",
+      "openTaskFailed": "No s'ha pogut obrir la tasca. Torneu-ho a provar.",
+      "removeAria": "Suprimir {{title}}",
+      "rowUnreadAria": "{{title}} (no llegida)",
+      "taskRemoved": "Tasca suprimida",
+      "title": "Notificacions",
+      "toastRegionAria": "Notificacions",
+      "unreadBadgeAria_many": "{{count}} notificacions no llegides",
+      "unreadBadgeAria_one": "{{count}} notificació no llegida",
+      "unreadBadgeAria_other": "{{count}} notificacions no llegides",
+      "unreadDotAria": "Notificacions no llegides",
+      "viewTask": "Veure la tasca"
+    },
+    "dnsFallback": {
+      "body": "El Motrix no ha pogut contactar amb un servidor DNS i ha canviat al DNS del sistema per a aquesta sessió.",
+      "title": "S'ha tornat a provar {{name}} amb el DNS del sistema"
+    },
+    "engineCompatibility": {
+      "body": "L'aria2 {{version}} no és la variant del Motrix. La configuració de connexions està limitada a un màxim de {{limit}} i no es pot desar l'historial a SQLite. Restaureu el motor aria2_motrix inclòs per disposar de totes les funcions.",
+      "title": "S'ha detectat un aria2 que no és del Motrix"
+    },
+    "engineFailure": {
+      "title": "El motor de baixades ha fallat"
+    },
+    "engineRestartRequired": {
+      "body": "S'ha desat la configuració. Reinicieu el motor de baixades quan us vagi bé.",
+      "restartNow": "Reiniciar ara",
+      "title": "Reinicieu el motor de baixades per aplicar la configuració"
+    },
+    "taskComplete": {
+      "title": "S'ha completat la baixada de {{name}}"
+    },
+    "taskError": {
+      "title": "Ha fallat la baixada de {{name}}"
+    }
+  },
+  "onboarding": {
+    "disclaimer": {
+      "agree": "Acceptar i continuar",
+      "body": "El Motrix només gestiona baixades. No proporciona, emmagatzema, allotja ni recomana contingut per baixar. Us heu d'assegurar que teniu autorització legal per accedir al contingut, utilitzar-lo o compartir-lo mitjançant el Motrix i que compliu la legislació aplicable sobre drets d'autor i altres lleis. Sou responsables de les conseqüències de baixar, utilitzar o compartir contingut. En seleccionar «Acceptar i continuar», confirmeu que heu llegit i entès aquest avís.",
+      "highlights": {
+        "authorized": "teniu autorització legal",
+        "downloadManagement": "només gestiona baixades",
+        "responsibility": "Sou responsables"
+      },
+      "language": "Idioma",
+      "languages": {
+        "chinese": "简体中文",
+        "english": "English"
+      },
+      "localConsent": "La vostra elecció es desarà en aquest dispositiu.",
+      "quit": "Sortir",
+      "retry": "Tornar-ho a provar",
+      "saveFailed": "No s'ha pogut desar el vostre consentiment. Comproveu l'espai del disc i torneu-ho a provar.",
+      "summary": "Llegiu el text següent abans de continuar.",
+      "title": "Avís d'ús"
+    }
+  },
+  "operatorAdmin": {
+    "decision": {
+      "approve": "S'ha aprovat {{userCode}} per a {{clientName}} ({{clientVersion}}).",
+      "deny": "S'ha denegat {{userCode}} per a {{clientName}} ({{clientVersion}})."
+    },
+    "errorPrefix": "motrix-admin: {{message}}",
+    "errors": {
+      "credential": {
+        "dataDirNotAbsolute": "MOTRIX_DATA_DIR ha de ser un camí absolut.",
+        "invalid": "El fitxer de credencial d'operador no és vàlid.",
+        "notFile": "El camí de la credencial d'operador no apunta a un fitxer normal.",
+        "rejected": "El Motrix ha rebutjat la credencial d'operador.",
+        "tokenHeaderInvalid": "No es pot utilitzar MOTRIX_OPERATOR_TOKEN en una capçalera HTTP.",
+        "unavailable": "La credencial d'operador no està disponible. Establiu MOTRIX_OPERATOR_TOKEN o assegureu-vos que operator-token existeixi a la carpeta de dades.",
+        "unreadable": "No s'ha pogut llegir la credencial d'operador."
+      },
+      "server": {
+        "ambiguousRequest": "Hi ha més d'una petició d'aparellament pendent que coincideix amb {{userCode}}; no s'ha aplicat cap decisió.",
+        "approvalUnavailable": "L'aprovació d'aparellaments no està disponible al servidor Motrix en execució.",
+        "decisionOutcomeUnknown": "Es desconeix el resultat de la decisió d'aparellament. Executeu pairing pending abans de tornar-ho a provar.",
+        "decisionResponseInvalid": "El Motrix ha retornat una resposta no vàlida a la decisió d'aparellament.",
+        "noMatchingRequest": "No hi ha cap petició d'aparellament pendent que coincideixi amb {{userCode}}.",
+        "pendingResponseInvalid": "El Motrix ha retornat una resposta no vàlida sobre els aparellaments pendents.",
+        "requestNoLongerPending": "La petició d'aparellament ja no està pendent.",
+        "responseInvalidJson": "El Motrix ha retornat una resposta JSON no vàlida.",
+        "responseOversized": "El Motrix ha retornat una resposta massa gran.",
+        "responseUnreadable": "El Motrix ha retornat una resposta il·legible.",
+        "rpcHttp": "L'RPC d'aparellament del Motrix ha fallat amb HTTP {{status}}.",
+        "unexpected": "Error inesperat del motrix-admin."
+      },
+      "unavailable": {
+        "approvalNotReady": "L'aprovació d'aparellaments encara no està preparada al servidor Motrix en execució.",
+        "loopback": "El servidor Motrix en execució no està disponible a la interfície de bucle local del contenidor."
+      },
+      "usage": {
+        "jsonRepeated": "Només es pot especificar --json una vegada.",
+        "pairingCodeInvalid": "El codi d'aparellament ha de tenir vuit caràcters ASCII i no pot contenir I, O, 0 ni 1.",
+        "pairingCommandRequired": "S'esperava l'ordre pairing.",
+        "pairingOperationRequired": "S'esperava pairing pending, pairing approve CODE o pairing deny CODE.",
+        "portInvalid": "PORT ha de ser un nombre enter entre 1 i 65535.",
+        "unknownOption": "Opció de línia d'ordres desconeguda."
+      }
+    },
+    "help": "Ús:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nL'ordre només es comunica amb el servidor Motrix en execució mitjançant la interfície de bucle local del contenidor.",
+    "pending": {
+      "none": "No hi ha peticions d'aparellament pendents.",
+      "row": "{{userCode}}  {{clientName}}  {{clientVersion}}  caduca d'aquí a {{ttl}}",
+      "ttl": "{{minutes}} min {{seconds}} s"
+    },
+    "usageHint": "Executeu `motrix-admin --help` per veure les instruccions d'ús."
+  },
+  "operatorUnlock": {
+    "error": "El testimoni d'operador no és vàlid. Comproveu MOTRIX_OPERATOR_TOKEN o <dataDir>/operator-token a l'amfitrió i torneu-ho a provar.",
+    "help": "Aquest servidor necessita el testimoni d'operador. A l'amfitrió, establiu MOTRIX_OPERATOR_TOKEN o llegiu el testimoni de <dataDir>/operator-token i enganxeu-lo a continuació.",
+    "placeholder": "Testimoni d'operador",
+    "submit": "Desbloquejar",
+    "title": "Desbloquejar el Motrix"
+  },
+  "panel": {
+    "completed": {
+      "desc": "Tasques de baixada completades",
+      "title": "Completades"
+    },
+    "connection": {
+      "originMismatch": "L'adreça d'accés no coincideix",
+      "polling": "Actualitzacions periòdiques",
+      "reconnecting": "S'està tornant a connectar amb el servidor…",
+      "unavailable": "No es pot accedir al servidor"
+    },
+    "dashboard": {
+      "active": {
+        "downloading": "Baixant",
+        "engineOffline": "motor sense connexió",
+        "error": "Error",
+        "seeding": "Distribuint",
+        "title": "Tasques actives",
+        "waiting": "En espera"
+      },
+      "activity": {
+        "completedIntensity": "La intensitat del color indica les baixades completades",
+        "coverageDegraded": "L'activitat podria ser incompleta des de {{time}}",
+        "less": "Menys",
+        "loading": "S'està carregant l'activitat",
+        "more": "Més",
+        "rangeSummary": "{{weeks}} setmanes d'activitat de baixades, del {{start}} al {{end}}",
+        "retry": "Tornar-ho a provar",
+        "stale": "L'activitat podria estar desactualitzada",
+        "title": "Activitat",
+        "tooltip": {
+          "completed": "Completades: {{count}}",
+          "completedOnDate": "Completades el {{date}}: {{count}}",
+          "coverage": "La cobertura podria ser incompleta des de {{time}}",
+          "coverageShort": "Les dades podrien ser incompletes",
+          "noData": "No hi ha dades d'activitat",
+          "noDataOnDate": "No hi ha dades d'activitat el {{date}}",
+          "partial": "Inici del seguiment: {{time}}",
+          "partialShort": "Dia parcial",
+          "recovered": "Inclou una baixada completada detectada durant la recuperació",
+          "recoveredCount": "Recuperades: {{count}}",
+          "submitted": "Enviades: {{count}}",
+          "today": "Avui, encara s'està actualitzant",
+          "untracked": "Encara no se'n fa seguiment"
+        },
+        "unavailable": "Activitat no disponible",
+        "weekday": {
+          "fri": "dv.",
+          "mon": "dl.",
+          "sat": "ds.",
+          "sun": "dg.",
+          "thu": "dj.",
+          "tue": "dt.",
+          "wed": "dc."
+        }
+      },
+      "configure": {
+        "action": "Configurar",
+        "addTile": "Afegir",
+        "addTitle": "Afegir un mosaic",
+        "apply": "Aplicar",
+        "availabilityHints": {
+          "bounds": "Moveu primer el mosaic cap a l'interior.",
+          "space": "Reduïu o suprimiu un altre mosaic.",
+          "unsupported": "Trieu una mida compatible."
+        },
+        "cancel": "Cancel·lar",
+        "currentSize": "Mida actual: {{width}} × {{height}}",
+        "drag": "Arrossegar el mosaic",
+        "expandHint": "Amplieu la finestra per configurar la disposició del tauler.",
+        "invalidCapacity": "No hi ha prou espai per a aquesta mida",
+        "presets": {
+          "action": "Disposicions predefinides",
+          "balanced": {
+            "title": "Equilibrada"
+          },
+          "compact": {
+            "title": "Compacta"
+          },
+          "custom": "Personalitzada",
+          "speedFocus": {
+            "title": "Centrada en la velocitat"
+          },
+          "taskFocus": {
+            "title": "Centrada en les tasques"
+          },
+          "undo": "Desfer l'última disposició predefinida"
+        },
+        "removeTile": "Suprimir el mosaic",
+        "reset": "Restablir",
+        "resizeTile": "Canviar la mida del mosaic",
+        "saveFailed": "No s'ha pogut desar la disposició. Torneu-ho a provar.",
+        "size": "{{width}} × {{height}}",
+        "sizeGroup": "Mida del mosaic",
+        "sizeLabels": {
+          "compact": "Compacte",
+          "fullHeight": "Alçada completa",
+          "fullWidth": "Amplada completa",
+          "large": "Gran",
+          "tall": "Alt",
+          "wide": "Ample"
+        },
+        "sizeUnavailable": {
+          "insufficientSpace": "No hi ha prou espai",
+          "outOfBounds": "No hi cap",
+          "unsupported": "No compatible"
+        }
+      },
+      "engine": {
+        "diagnostics": {
+          "binary": {
+            "available": "{{name}} {{version}}",
+            "unavailable": "{{name}} no hi és o no es pot iniciar."
+          },
+          "checking": "S'està comprovant el motor…",
+          "checks": {
+            "binary": "Motor",
+            "communication": "Connexió",
+            "features": "Funcions",
+            "process": "Procés",
+            "rpc": "Port RPC"
+          },
+          "communication": {
+            "ready": "El Motrix es pot comunicar amb l'aria2."
+          },
+          "confirmForce": {
+            "action": "Forçar l'aturada i recuperar",
+            "description": "El PID {{pid}} coincideix amb l'executable inclòs, el secret RPC privat i els camins de dades del Motrix. Es finalitzarà immediatament i l'aria2 es reiniciarà al port RPC del Motrix.",
+            "title": "Voleu forçar l'aturada del procés aria2 residual?"
+          },
+          "copied": "Copiat",
+          "copy": "Copiar el diagnòstic",
+          "copyFailed": "No s'ha pogut copiar el diagnòstic. Torneu-ho a provar.",
+          "currentStatus": "Estat actual",
+          "description": "Comproveu el motor, identifiqueu el procés que utilitza el port RPC del Motrix i recupereu-ne el funcionament de manera segura.",
+          "details": "Detalls del diagnòstic",
+          "fallback": {
+            "available": "El port predeterminat {{port}} del Motrix està disponible i es pot restaurar ara.",
+            "blocked": "El PID {{pid}} ({{name}}) utilitza el port predeterminat {{port}}, però el Motrix no pot verificar a qui pertany. No es finalitzarà el procés.",
+            "confirm": {
+              "action": "Aturar i restaurar el port {{port}}",
+              "description": "S'ha verificat que el PID {{pid}} és un procés aria2 residual del Motrix. S'aturarà, es desarà el port predeterminat {{port}} i es reiniciarà l'aria2.",
+              "title": "Voleu aturar el procés residual i restaurar el port {{port}}?"
+            },
+            "restore": "Restaurar el port predeterminat {{port}} del Motrix",
+            "restoredDefault": "S'ha restaurat el port RPC predeterminat {{port}} del Motrix.",
+            "restoring": "S'està restaurant el port predeterminat {{port}} del Motrix…",
+            "unidentified": "No s'ha pogut identificar el procés que utilitza el port predeterminat {{port}}. El Motrix continuarà utilitzant el port actual.",
+            "verifiedOrphan": "Un procés aria2 residual del Motrix verificat (PID {{pid}}) utilitza el port predeterminat {{port}}. El Motrix el pot aturar de manera segura abans de restaurar el port."
+          },
+          "features": {
+            "none": "No s'ha informat",
+            "unavailable": "No disponible"
+          },
+          "forceRecover": "Forçar l'aturada i recuperar",
+          "impact": {
+            "connecting": "Els controls de baixada estaran disponibles quan el motor estigui preparat.",
+            "failed": "Els controls de baixada no estan disponibles. L'estat de les tasques podria estar desactualitzat.",
+            "stopped": "Inicieu el motor per començar o gestionar baixades."
+          },
+          "lastChecked": "Hora de comprovació: {{time}}",
+          "loadFailed": "No s'ha pogut executar el diagnòstic del motor.",
+          "motrixEngine": "aria2 Motrix",
+          "open": "Diagnosticar",
+          "port": {
+            "available": "{{port}} (Disponible)",
+            "listening": "{{port}} (Escoltant)",
+            "occupied": "{{port}} (En ús)"
+          },
+          "process": {
+            "current_app": "PID {{pid}} ({{name}}), gestionat pel Motrix",
+            "external_aria2": "PID {{pid}} ({{name}}), no s'ha verificat a qui pertany; no s'aturarà",
+            "none": "No hi ha cap conflicte de port",
+            "other": "PID {{pid}} ({{name}}), no s'ha verificat a qui pertany; no s'aturarà",
+            "unidentified": "No identificat; no s'aturarà",
+            "unknown": "PID {{pid}}, no identificat; no s'aturarà",
+            "verified_orphan": "PID {{pid}} ({{name}}), procés residual del Motrix verificat; es pot aturar de manera segura"
+          },
+          "reason": {
+            "binary_unavailable": "L'executable aria2 inclòs no hi és o no està disponible.",
+            "health_check_failed": "L'aria2 ha deixat de respondre al Motrix.",
+            "port_in_use": "El port RPC del Motrix està ocupat i el motor aria2 no s'ha pogut iniciar.",
+            "rpc_unavailable": "El motor aria2 s'ha iniciat, però no ha acceptat les connexions RPC del Motrix.",
+            "spawn_failed": "No s'ha pogut crear el procés aria2.",
+            "unexpected_exit": "El motor aria2 s'ha tancat inesperadament.",
+            "unknown": "El motor aria2 no s'ha pogut iniciar per un motiu desconegut."
+          },
+          "recommendation": {
+            "force_terminate": "S'ha verificat que aquest procés pertany al Motrix. Forceu l'aturada del PID {{pid}} i reinicieu l'aria2 al port RPC {{rpcPort}} del Motrix.",
+            "retry": "El port és lliure. Torneu a iniciar l'aria2 sense canviar la configuració.",
+            "switch_port": "No es pot finalitzar el procés de manera segura. Utilitzeu el port {{port}} només com a alternativa o tanqueu el procés en conflicte manualment.",
+            "title": "Recuperació recomanada"
+          },
+          "recovered": "El motor aria2 torna a estar disponible.",
+          "recoveredOnPort": "S'ha recuperat el motor aria2 al port RPC {{port}}.",
+          "recoveryFailed": "La recuperació del motor ha fallat. Torneu a executar el diagnòstic per consultar l'estat actual.",
+          "refreshFailed": "No s'ha pogut actualitzar el diagnòstic. A continuació es mostra l'últim informe obtingut correctament.",
+          "restart": "Reiniciar el motor",
+          "retry": "Tornar-ho a provar",
+          "rpc": {
+            "available": "{{port}} (Disponible)",
+            "listening": "{{port}} (Escoltant)",
+            "occupied": "{{port}} (En ús)"
+          },
+          "runAgain": "Tornar a comprovar",
+          "runtime": {
+            "connected": "Connectat",
+            "connecting": "S'està connectant…",
+            "connection": "Connexió",
+            "connectionStatus": "{{transport}} ({{status}})",
+            "disconnected": "No connectat",
+            "notRunning": "No està en execució",
+            "process": "Procés",
+            "running": "En execució",
+            "unavailable": "No disponible"
+          },
+          "summary": {
+            "binary_unavailable": "El motor de baixades no està disponible",
+            "health_check_failed": "El motor de baixades ha deixat de respondre",
+            "port_in_use": "El port de control del motor està ocupat",
+            "ready": "El motor de baixades funciona amb normalitat",
+            "restarting": "El motor de baixades s'està recuperant",
+            "rpc_unavailable": "La connexió de control del motor no està disponible",
+            "spawn_failed": "No s'ha pogut iniciar el motor de baixades",
+            "starting": "El motor de baixades s'està iniciant",
+            "stopped": "El motor de baixades està aturat",
+            "unexpected_exit": "El motor de baixades s'ha tancat inesperadament",
+            "unknown": "El motor de baixades no està disponible"
+          },
+          "switchPort": "Utilitzar el port {{port}}",
+          "technicalDetails": "Detalls tècnics",
+          "title": "Diagnòstic del motor",
+          "transport": {
+            "websocket": "WebSocket"
+          },
+          "versionUnknown": "Versió no disponible"
+        },
+        "features": "Funcions",
+        "listenPort": "Port d'escolta",
+        "name": "Aria2",
+        "rpcPort": "Port RPC",
+        "startFailed": "No s'ha pogut iniciar el motor aria2",
+        "state": {
+          "disconnected": "Desconnectat",
+          "failed": "Ha fallat",
+          "ready": "Preparat",
+          "reconnecting": "S'està tornant a connectar…",
+          "starting": "S'està iniciant…",
+          "stopped": "Aturat"
+        },
+        "title": "Motor",
+        "version": "Versió"
+      },
+      "errors": {
+        "retry": "Tornar-ho a provar",
+        "tileFailed": "{{tile}}: no s'ha pogut mostrar"
+      },
+      "nat": {
+        "actions": {
+          "diagnose": "Executar el diagnòstic",
+          "disable": "Desactivar NAT",
+          "enable": "Activar NAT",
+          "group": "Controls de NAT",
+          "remap": "Forçar una nova redirecció",
+          "settings": "Configuració de NAT",
+          "short": {
+            "diagnose": "Diagnosticar",
+            "disable": "Desactivar",
+            "enable": "Activar",
+            "help": "Ajuda",
+            "remap": "Tornar a redirigir"
+          },
+          "troubleshoot": "Guia de resolució de problemes de NAT"
+        },
+        "caption": {
+          "failed": "La redirecció automàtica no està disponible.",
+          "off": "La redirecció de ports de BT està desactivada.",
+          "settingUp": "S'està connectant amb l'encaminador…",
+          "waiting": "S'espera l'estat de la xarxa…"
+        },
+        "compact": {
+          "caption": {
+            "active_many": "{{count}} ports",
+            "active_one": "{{count}} port",
+            "active_other": "{{count}} ports",
+            "failed": "No disponible",
+            "off": "BT / DHT",
+            "settingUp": "S'està connectant…",
+            "waiting": "S'està carregant…"
+          },
+          "state": {
+            "active": "Redirigits",
+            "failed": "Redirecció",
+            "off": "Desactivat",
+            "settingUp": "Redirecció"
+          }
+        },
+        "externalIp": "IP externa",
+        "gatewayIp": "Encaminador",
+        "health": "Estat",
+        "healthScore": {
+          "fair": "Acceptable",
+          "good": "Bo",
+          "poor": "Dolent",
+          "unknown": "—"
+        },
+        "internalIp": "IP local",
+        "lastCheck": "Última comprovació",
+        "lastCheckNever": "Mai",
+        "mappingDetails": "Ports redirigits",
+        "mappingPurpose": {
+          "bt-listen": "BitTorrent",
+          "dht-listen": "DHT"
+        },
+        "mappings": "Redireccions",
+        "mappingsValue_many": "{{count}} actives",
+        "mappingsValue_one": "{{count}} activa",
+        "mappingsValue_other": "{{count}} actives",
+        "natType": {
+          "blocked": "Bloquejat",
+          "fullcone": "Con complet",
+          "open": "Obert",
+          "port-restricted": "Restringit per port",
+          "restricted": "Restringit",
+          "symmetric": "Simètric",
+          "unknown": "Desconegut"
+        },
+        "noMappings": "No hi ha redireccions de ports actives.",
+        "none": "—",
+        "portMapping": "Intern {{internal}} a extern {{external}}",
+        "rateLimited": "Massa sovint; torneu-ho a provar d'aquí a poc",
+        "retrying": "S'està tornant a provar {{attempt}}/{{max}}",
+        "state": {
+          "active": "Actiu",
+          "failed": "Ha fallat",
+          "off": "Desactivat",
+          "settingUp": "S'està inicialitzant"
+        },
+        "title": "NAT",
+        "type": "Tipus"
+      },
+      "speed": {
+        "down": "BAIXADA",
+        "offline": "sense connexió",
+        "peak": "Màxim {{value}}",
+        "up": "PUJADA"
+      },
+      "speedDown": {
+        "title": "Velocitat de baixada"
+      },
+      "speedLimit": {
+        "reason": {
+          "adaptive": "Reserva d'amplada de banda",
+          "base": "Límit estàndard",
+          "schedule": "Horari",
+          "turtle": "Mode de baixa velocitat",
+          "videoApp": "Aplicació de vídeo"
+        },
+        "settings": "Configuració del límit de velocitat",
+        "smart": "Automàtic",
+        "title": "Límit de velocitat",
+        "tooltip": {
+          "auto": "Ajustar la velocitat automàticament segons l'horari i l'amplada de banda",
+          "off": "Utilitzar els límits de velocitat estàndard",
+          "on": "Utilitzar ara els límits de baixa velocitat"
+        },
+        "turtle": {
+          "auto": "Mode automàtic",
+          "off": "Mode estàndard",
+          "on": "Mode de baixa velocitat"
+        },
+        "unlimited": "Sense límit"
+      },
+      "speedUp": {
+        "title": "Velocitat de pujada"
+      },
+      "tasks": {
+        "empty": {
+          "active": "No hi ha tasques actives",
+          "failed": "No hi ha tasques fallides",
+          "recent": "Encara no s'ha completat cap tasca"
+        },
+        "loading": "S'estan carregant les tasques",
+        "metric": {
+          "fetching": "Obtenint",
+          "finalizing": "Finalitzant",
+          "paused": "Pausada",
+          "queued": "A la cua",
+          "ready": "Preparada"
+        },
+        "more": "+{{count}} més",
+        "newTask": "Tasca nova",
+        "offline": "Motor sense connexió",
+        "progressLabel": "Progrés de {{name}}",
+        "retry": "Tornar-ho a provar",
+        "secondary": {
+          "chooseFiles": "S'espera la selecció de fitxers",
+          "completed": "Completada: {{time}}",
+          "eta": "Temps restant: {{time}}",
+          "failed": "Ha fallat: {{reason}}",
+          "finalizing": "S'està finalitzant la baixada",
+          "metadata": "S'estan obtenint les metadades",
+          "offline": "Sense connexió (últim progrés conegut)",
+          "ratio": "Ràtio {{ratio}}",
+          "saved": "{{percent}}% desat",
+          "technicalDetail": "Detall tècnic: {{detail}}",
+          "waiting": "S'espera l'inici"
+        },
+        "title": "Tasques",
+        "unavailable": "Tasques no disponibles",
+        "view": {
+          "active": "Actives",
+          "failed": "Fallides",
+          "recent": "Recents"
+        },
+        "viewLabel": "Vista de tasques"
+      },
+      "title": "Tauler",
+      "transfer": {
+        "download": "Baixat",
+        "empty": {
+          "allTime": "Encara no s'ha registrat cap transferència.",
+          "today": "Avui no s'ha registrat cap transferència."
+        },
+        "loading": "S'estan carregant les dades de transferència",
+        "outOfDate": "Les dades podrien estar desactualitzades",
+        "rangeLabel": "Període de transferència",
+        "retry": "Tornar-ho a provar",
+        "scope": {
+          "allTime": "Tot el període",
+          "today": "Avui"
+        },
+        "sinceDate": "Des del {{date}}",
+        "sinceTime": "Des de: {{time}}",
+        "title": "Transferència",
+        "totalLabel": "Transferència total de «{{scope}}»: {{value}}",
+        "unavailable": "Dades de transferència no disponibles",
+        "updated": "Actualitzat: {{time}}",
+        "upload": "Pujat"
+      }
+    },
+    "downloads": {
+      "action": {
+        "batchPartial": "Correctes: {{ok}}, fallits: {{failed}}",
+        "cancel": "Cancel·lar",
+        "chooseFiles": "Triar fitxers…",
+        "copied": "Copiat al porta-retalls",
+        "copyError": "Copiar la informació de l'error",
+        "copyFailed": "No s'ha pogut copiar al porta-retalls. Torneu-ho a provar.",
+        "copyPath": "Copiar el camí del fitxer",
+        "copyUrl": "Copiar l'URL",
+        "copyUrlFailed": "La còpia ha fallat: no s'han pogut carregar els detalls de l'enllaç de la tasca. Torneu-ho a provar.",
+        "copyUrls": "Copiar els URL",
+        "errorReport": "{{name}}\nID de la tasca: {{id}}\n{{details}}",
+        "finalizingTooltip": "La tasca s'està finalitzant; espereu",
+        "moveQueueBottom": "Moure al final",
+        "moveQueueDown": "Moure avall a la cua",
+        "moveQueueTop": "Moure al principi",
+        "moveQueueUp": "Moure amunt a la cua",
+        "openFile": "Obrir el fitxer",
+        "openFileFailed": "No s'ha pogut obrir el fitxer",
+        "openFolder": "Obrir la carpeta",
+        "pause": "Pausar",
+        "pauseTooltipBatch": "Pausar {{n}} de {{total}} tasques seleccionades",
+        "queueBoundary": "La selecció ja és al límit de la cua",
+        "queueMoveFailed": "No s'ha pogut actualitzar la cua d'espera.",
+        "queueMoveHint": "La posició a la cua determina quina baixada en espera comença a continuació. L'ordenació per columnes es desa per separat.",
+        "queueMoved": "S'ha actualitzat la cua d'espera",
+        "queueOrder": "Ordre de baixada",
+        "queueTaskStarted": "La tasca ja no és a la cua d'espera.",
+        "remove": "Suprimir",
+        "removeAll_completed_Title": "Voleu suprimir les tasques completades ({{count}})?",
+        "removeAll_downloading_Title": "Voleu suprimir les tasques actives ({{count}})?",
+        "removeAll_error_Title": "Voleu suprimir les tasques fallides ({{count}})?",
+        "removeAll_paused_Title": "Voleu suprimir les tasques pausades ({{count}})?",
+        "removeAll_seeding_Title": "Voleu suprimir les tasques en distribució ({{count}})?",
+        "removeConfirmWithFiles": "Eliminar també els fitxers baixats del disc",
+        "removeFilesEstimate": "S'eliminaran {{bytes}} del disc",
+        "removeMixedTitle": "Voleu suprimir les tasques ({{count}})?",
+        "removeSingleTitle": "Voleu suprimir «{{name}}»?",
+        "removeTooltipBatch": "Suprimir {{n}} de {{total}} tasques seleccionades",
+        "removeWithFilesShift": "Manteniu premuda la tecla Maj per eliminar també els fitxers",
+        "reseed": "Tornar a distribuir",
+        "reseedTooltipBatch": "Tornar a distribuir {{n}} de {{total}} tasques seleccionades",
+        "resume": "Reprendre",
+        "resumeTooltipBatch": "Reprendre {{n}} de {{total}} tasques seleccionades",
+        "retry": "Tornar-ho a provar",
+        "retryTooltipBatch": "Tornar a provar {{n}} de {{total}} tasques seleccionades",
+        "retryWithDialog": "Tornar-ho a provar amb opcions… (Alt+clic)",
+        "selectFiles": "Seleccionar fitxers",
+        "selectFilesFailed": "No s'ha pogut obrir la selecció de fitxers.",
+        "singleTaskFailed": "{{name}}: {{reason}}",
+        "stopSeeding": "Aturar la distribució",
+        "stopSeedingTooltipBatch": "Aturar la distribució de {{n}} de {{total}} tasques seleccionades"
+      },
+      "column": {
+        "connections": "Parells",
+        "createdAt": "Data de creació",
+        "down": "Velocitat de baixada",
+        "eta": "Temps restant",
+        "finishedAt": "Data de finalització",
+        "name": "Nom",
+        "progress": "Progrés",
+        "size": "Mida",
+        "status": "Estat",
+        "up": "Velocitat de pujada"
+      },
+      "columnHeader": {
+        "down": "Baixada",
+        "up": "Pujada"
+      },
+      "empty": {
+        "clearSearch": "Esborrar la cerca",
+        "motion": {
+          "breathing": "Llum palpitant",
+          "description": "Previsualització de desenvolupament",
+          "enabled": "Efectes de moviment",
+          "enabledDesc": "Se sincronitza amb Aparença → Reduir el moviment. Els canvis es desen immediatament.",
+          "horizontalSpeed": "Velocitat horitzontal",
+          "loadFade": "Aparició gradual en carregar",
+          "open": "Ajustar el moviment del vidre",
+          "pointerFollow": "Seguir el punter",
+          "positionConstraint": "Límit de posició per gravetat",
+          "saveFailed": "No s'ha pogut desar la configuració del moviment. Torneu-ho a provar.",
+          "systemReducedMotion": "La preferència de reducció de moviment del sistema ha desactivat el moviment.",
+          "title": "Moviment del vidre"
+        },
+        "noMatchFilter": "Cap tasca coincideix amb aquest filtre",
+        "noMatchSearch": "Cap tasca coincideix amb «{{query}}»",
+        "noTasks": "Encara no hi ha baixades",
+        "noTasksCta": "Premeu + per afegir-ne una",
+        "unavailable": "Tasques no disponibles"
+      },
+      "heading": {
+        "active": "Baixades actives",
+        "all": "Totes les baixades",
+        "completed": "Baixades completades",
+        "error": "Baixades fallides"
+      },
+      "inspector": {
+        "activity": {
+          "chart": {
+            "accessibleSummary": "{{range}} de {{start}} a {{end}}. Última velocitat de baixada: {{download}}, de pujada: {{upload}}. Velocitat mitjana de baixada acumulada: {{average}}, màxima: {{peak}}, temps actiu: {{activeDuration}}. {{sampleLabel}}. {{state}}",
+            "activeSeconds_many": "{{count}} segons",
+            "activeSeconds_one": "{{count}} segon",
+            "activeSeconds_other": "{{count}} segons",
+            "noDataQualityIssues": "No hi ha avisos de seguiment.",
+            "sampleCount_many": "{{count}} mostres",
+            "sampleCount_one": "{{count}} mostra",
+            "sampleCount_other": "{{count}} mostres"
+          },
+          "collecting": "S'estan recollint dades de transferència…",
+          "coverageGap": "S'ha interromput el seguiment.",
+          "download": "Baixada",
+          "lifetimeEmpty": "L'historial acumulat encara no està disponible.",
+          "loading": "S'està carregant l'activitat…",
+          "noSessionHistory": "No s'ha registrat cap transferència en aquesta sessió de l'aplicació.",
+          "noTraffic": "Ara mateix no hi ha trànsit de xarxa.",
+          "notAvailable": "No disponible",
+          "range": {
+            "adaptive_many": "Resolució adaptativa · {{count}} mostres",
+            "adaptive_one": "Resolució adaptativa · {{count}} mostra",
+            "adaptive_other": "Resolució adaptativa · {{count}} mostres",
+            "label": "Període de transferència",
+            "latest": "Últims 60 segons",
+            "lifetime": "Acumulat",
+            "session": "Sessió (60 s)"
+          },
+          "retry": "Tornar-ho a provar",
+          "stale": {
+            "message": "Les dades podrien estar desactualitzades. Última actualització: {{time}}.",
+            "short": "Dades desactualitzades."
+          },
+          "summary": {
+            "active": "Actiu",
+            "activeExpanded": "Temps de transferència activa",
+            "average": "Mitjana",
+            "averageExpanded": "Velocitat mitjana de baixada",
+            "peak": "Màxima",
+            "peakExpanded": "Velocitat màxima de baixada",
+            "title": "Resum actual"
+          },
+          "timeline": {
+            "cluster_many": "+{{count}} esdeveniments",
+            "cluster_one": "+{{count}} esdeveniment",
+            "cluster_other": "+{{count}} esdeveniments",
+            "current": "Ara: {{status}}",
+            "destination": "{{event}} {{status}}",
+            "detailTitle": "Detalls de {{label}}",
+            "event": {
+              "added": "Afegida",
+              "completed": "Completada",
+              "failed": "Fallida",
+              "observed_state": "Estat recuperat",
+              "paused": "Pausada",
+              "resumed": "Represa",
+              "stage_changed": "Fase canviada",
+              "started": "Iniciada"
+            },
+            "next": "Mostrar els esdeveniments següents de la cronologia",
+            "previous": "Mostrar els esdeveniments anteriors de la cronologia",
+            "repeated": "{{label}} ×{{count}}",
+            "status": {
+              "completed": "Completada",
+              "downloading": "Baixant",
+              "error": "Fallida",
+              "fetching_metadata": "S'estan obtenint les metadades",
+              "finalizing": "Finalitzant",
+              "metadata_ready": "Metadades preparades",
+              "paused": "Pausada",
+              "queued": "A la cua",
+              "removed": "Suprimida",
+              "seeding": "Distribuint"
+            },
+            "timeRange": "{{start}}–{{end}}",
+            "title": "Historial de la tasca",
+            "truncatedAt": "Truncament més antic: {{time}}",
+            "truncated_many": "S'han truncat {{count}} esdeveniments de l'historial anterior",
+            "truncated_one": "S'ha truncat {{count}} esdeveniment de l'historial anterior",
+            "truncated_other": "S'han truncat {{count}} esdeveniments de l'historial anterior"
+          },
+          "transferTitle": {
+            "lifetime": "Transferència acumulada",
+            "session": "Transferència de la sessió"
+          },
+          "unavailable": "L'activitat acumulada no està disponible.",
+          "upload": "Pujada"
+        },
+        "multi": {
+          "avgProgress": "Progrés mitjà",
+          "combinedDown": "Total ↓",
+          "combinedUp": "Total ↑",
+          "downloaded": "Baixat",
+          "liveSpeed": "Velocitat actual",
+          "longestEta": "Temps restant més llarg",
+          "statusDist": "Distribució per estat",
+          "totalSize": "Mida total",
+          "totals": "Totals"
+        },
+        "overview": {
+          "connections": "Connexions",
+          "createdAt": "Creada",
+          "downSpeed": "Velocitat de baixada",
+          "downloaded": "Baixat",
+          "eta": "Temps restant",
+          "finishedAt": "Completada",
+          "general": "General",
+          "infoHash": "Hash d'informació",
+          "network": "Xarxa",
+          "peers": "Parells",
+          "percent": "Percentatge",
+          "private": "Privat",
+          "progress": "Progrés",
+          "ratio": "Ràtio",
+          "seedingRecordedSince": "Registrat des del {{date}}. S'exclou el temps en pausa i sense connexió; l'historial de distribució anterior no està disponible.",
+          "seedingTime": "Temps de distribució",
+          "seedingUnavailable": "No s'ha registrat el temps de distribució d'aquesta tasca.",
+          "seeds": "Distribuïdors",
+          "totalSize": "Mida total",
+          "transfer": "Transferència",
+          "type": "Tipus",
+          "upSpeed": "Velocitat de pujada",
+          "uploaded": "Pujat"
+        },
+        "peers": {
+          "col": {
+            "client": "Client",
+            "country": "Ubicació",
+            "down": "↓",
+            "endpoint": "IP : Port",
+            "flags": "Indicadors",
+            "flagsHint": "D = el parell ens envia dades, U = enviem dades al parell, S = el parell és un distribuïdor. Un guió baix indica inactivitat.",
+            "progress": "%",
+            "up": "↑"
+          },
+          "empty": "No hi ha parells connectats",
+          "summary_many": "{{count}} parells (distribuïdors: {{seeders}})",
+          "summary_one": "{{count}} parell (distribuïdors: {{seeders}})",
+          "summary_other": "{{count}} parells (distribuïdors: {{seeders}})"
+        },
+        "pieces": {
+          "empty": "No hi ha dades de peces",
+          "legend": {
+            "active": "Baixant",
+            "done": "Completades",
+            "endgame": "Fase final",
+            "pending": "Pendents"
+          },
+          "mapLabel": "Mapa de peces de la baixada",
+          "pieceLength": "Mida de les peces",
+          "totalPieces": "Total de peces"
+        },
+        "placeholder": {
+          "files": "Llista de fitxers.",
+          "peers": "Llista de parells.",
+          "trackers": "Llista de rastrejadors."
+        },
+        "tab": {
+          "activity": "Activitat",
+          "files": "Fitxers",
+          "overview": "Resum",
+          "peers": "Parells",
+          "pieces": "Peces",
+          "trackers": "Rastrejadors"
+        },
+        "trackers": {
+          "action": {
+            "cancel": "Cancel·lar",
+            "delete": "Eliminar el rastrejador",
+            "edit": "Editar",
+            "save": "Desar",
+            "sync": "Sincronitzar"
+          },
+          "deleteFailed": "No s'ha pogut suprimir el rastrejador: {{reason}}",
+          "driftSuffix_many": "{{count}} no són a la llista global",
+          "driftSuffix_one": "{{count}} no és a la llista global",
+          "driftSuffix_other": "{{count}} no són a la llista global",
+          "editHint": "Aquests rastrejadors substitueixen la llista bt-tracker efectiva de la tasca. No afecten les entrades announce-list del fitxer .torrent.",
+          "editPlaceholder": "Un URL de rastrejador per línia. Només http(s)/udp/ws(s).",
+          "empty": "No hi ha rastrejadors",
+          "invalidLines_many": "S'han omès {{count}} línies no vàlides",
+          "invalidLines_one": "S'ha omès {{count}} línia no vàlida",
+          "invalidLines_other": "S'han omès {{count}} línies no vàlides",
+          "loadFailed": "No s'han pogut carregar els rastrejadors: {{reason}}",
+          "privateBanner": "Torrent privat: no s'hi afegiran els rastrejadors globals.",
+          "saveFailed": "No s'han pogut actualitzar els rastrejadors: {{reason}}",
+          "summary_many": "{{count}} rastrejadors",
+          "summary_one": "{{count}} rastrejador",
+          "summary_other": "{{count}} rastrejadors",
+          "syncFailed": "No s'han pogut sincronitzar els rastrejadors: {{reason}}",
+          "syncPrivateDisabled": "La sincronització no està disponible per als torrents privats."
+        }
+      },
+      "media": {
+        "assembling": "Ajuntant",
+        "avgDownloadProgress": "Progrés mitjà de baixada",
+        "decrypting": "Desxifrant",
+        "downloadEta": "Temps restant de baixada",
+        "downloadProgress": "Progrés de la baixada",
+        "downloadSize": "Mida de la baixada",
+        "muxProgress": "Progrés de la combinació",
+        "muxing": "Combinant",
+        "outputSize": "Mida de sortida",
+        "parts": "Segments",
+        "partsFormat": "Segments: {{completed}} / {{total}}",
+        "preparing": "Preparant",
+        "processingTasks": "Processant",
+        "renaming": "Desant",
+        "stage": "Fase"
+      },
+      "search": {
+        "activeQuery": "Cerca: {{query}}",
+        "activeTypeFilters": "Filtre de tipus: {{types}}",
+        "clear": "Esborrar",
+        "clearQuery": "Esborrar la cerca",
+        "empty": "No hi ha tasques coincidents",
+        "emptyHint": "Proveu d'esborrar el filtre de tipus o d'utilitzar una altra paraula clau",
+        "filters": "Filtres",
+        "placeholder": "Cercar baixades",
+        "resetFilters": "Restablir els filtres",
+        "scopeLabel": "Tipus"
+      },
+      "sort": {
+        "asc": "{{column}}: ascendent",
+        "desc": "{{column}}: descendent",
+        "down": "Velocitat de baixada",
+        "reset": "Restaurar l'ordre predeterminat",
+        "sortAscending": "Ordenar {{column}} de manera ascendent",
+        "sortDescending": "Ordenar {{column}} de manera descendent",
+        "up": "Velocitat de pujada"
+      },
+      "speedLimit": {
+        "currentMode": "Mode de velocitat: {{mode}}",
+        "downloadLimit": "Límit de baixada: {{speed}}",
+        "saveFailed": "No s'ha pogut canviar el mode de velocitat. Torneu-ho a provar.",
+        "title": "Mode de velocitat",
+        "uploadLimit": "Límit de pujada: {{speed}}"
+      },
+      "stale": {
+        "banner": "La llista de tasques podria estar desactualitzada; s'està tornant a connectar…"
+      },
+      "stats": {
+        "downSpeed": "Velocitat de baixada",
+        "engineOffline": "Motor sense connexió",
+        "engineOk": "Motor preparat",
+        "engineStarting": "S'està iniciant el motor",
+        "natActive": "Redirecció NAT activa",
+        "natActiveDesc": "Ajuda altres parells de BT a connectar-se amb vosaltres.",
+        "natDisable": "Desactivar la redirecció NAT",
+        "natHelp": "Guia de xarxa",
+        "natMapping": "Redirecció NAT",
+        "natRetry": "Tornar-ho a provar",
+        "natRetrying": "Intents automàtics ({{attempt}}/{{max}})",
+        "natSettingUp": "Redirecció NAT",
+        "natSettings": "Configuració de xarxa",
+        "natUnavailable": "Redirecció automàtica no disponible",
+        "natUnavailableDesc": "No afecta les baixades d'enllaços. Les connexions BT podrien estar limitades.",
+        "upSpeed": "Velocitat de pujada"
+      },
+      "status": {
+        "completed": "Completada",
+        "downloading": "Baixant",
+        "error": "Error",
+        "fetchingMetadata": "Obtenint",
+        "finalizing": "Finalitzant",
+        "metadataReady": "S'espera la selecció de fitxers",
+        "paused": "Pausada",
+        "queued": "A la cua",
+        "seeding": "Distribuint"
+      },
+      "tab": {
+        "active": "Actives",
+        "all": "Totes",
+        "completed": "Completades",
+        "error": "Error"
+      },
+      "timestamp": {
+        "notCompleted": "Encara no s'ha completat",
+        "notRecorded": "No registrada",
+        "relativeDateTime": "{{date}}, {{time}}"
+      },
+      "title": "Baixades",
+      "titleCount": "Mostrades: {{shown}} · Total: {{total}}",
+      "type": {
+        "bt": "BitTorrent",
+        "ftp": "FTP",
+        "http": "HTTP",
+        "magnet": "Magnet",
+        "metalink": "Metalink"
+      },
+      "view": {
+        "ascending": "Ascendent",
+        "columns": "Columnes",
+        "descending": "Descendent",
+        "hideInspector": "Amagar l'inspector",
+        "inspector": "Inspector de tasques",
+        "resetColumns": "Restaurar les columnes predeterminades",
+        "resizeColumn": "Canviar la mida de la columna {{column}}",
+        "resizeInspector": "Canviar la mida de l'inspector",
+        "selectToInspect": "Seleccioneu una tasca per veure'n els detalls.",
+        "showInspector": "Mostrar l'inspector",
+        "sortBy": "Ordenar per",
+        "taskActions": "Més",
+        "title": "Vista de llista"
+      }
+    },
+    "trackers": {
+      "desc": "Gestionar l'estat dels rastrejadors i les subscripcions",
+      "searchPlaceholder": "Filtrar per URL…",
+      "syncNow": "Sincronitzar ara",
+      "tab": {
+        "blacklist": "Llista de bloqueig",
+        "effective": "Efectius"
+      },
+      "title": "Rastrejadors"
+    }
+  },
+  "plugin": {
+    "ffmpeg": {
+      "destination_phase_disallowed": "L'ffmpeg no pot escriure a {{kind}} durant el hook {{phase}}. Proveu d'escriure a l'emmagatzematge del connector o moveu aquesta crida a beforeFinalize.",
+      "staging_quota_exceeded": "S'ha superat la quota d'espai temporal de l'ffmpeg per a aquesta tasca. Reduïu la mida de sortida o augmenteu el límit a la configuració multimèdia."
+    },
+    "install": {
+      "ffmpeg": {
+        "notInstalled": "L'FFmpeg no està instal·lat en aquest sistema.",
+        "optionalDegraded": "Les funcions multimèdia d'aquest connector no estaran disponibles fins que s'instal·li l'ffmpeg.",
+        "requiredByPlugin": "Aquest connector necessita l'ffmpeg. Instal·leu-lo i torneu-ho a provar.",
+        "title": "Requisit d'FFmpeg",
+        "versionMismatch": "L'FFmpeg {{version}} està instal·lat."
+      }
+    }
+  },
+  "plugins": {
+    "card": {
+      "advancedDetails": "Detalls avançats",
+      "commandsInvoked": "Ordres cridades: {{count}}",
+      "commandsServing": "Ordres ofertes: {{count}}",
+      "plain": {
+        "off": "Aquest connector està desactivat.",
+        "optional": "Aquest connector funciona sense accés addicional. Podeu concedir-li més accés més endavant.",
+        "reviewBroadHost": "Aquest connector pot llegir {{hostSummary}}. Manteniu-lo activat només si hi confieu.",
+        "reviewError": "Aquest connector ha notificat un problema.",
+        "safe": "Aquest connector està activat i preparat. Només desa la seva configuració i no llegeix cap lloc web."
+      },
+      "primaryAction": {
+        "grantAccess": "Concedir accés",
+        "open": "Obrir",
+        "reviewAccess": "Revisar l'accés",
+        "settings": "Configuració",
+        "turnOn": "Activar",
+        "viewIssue": "Veure el problema"
+      }
+    },
+    "clearSearch": "Esborrar la cerca",
+    "consent": {
+      "broadAccess": {
+        "body": "Aquest connector pot llegir i modificar baixades de qualsevol URL. Instal·leu-lo només si confieu en la font.",
+        "tag": "Ampli",
+        "title": "Accés ampli a llocs web"
+      },
+      "calleeMissing": "No instal·lat",
+      "confirm": "Permetre i instal·lar",
+      "diff": {
+        "engines": "Versió requerida del Motrix",
+        "heap": "Memòria sol·licitada",
+        "hostPermissions": "Accés a llocs web afegit",
+        "invokesCommands": "Crides noves a ordres d'altres connectors",
+        "optionalPermissions": "Permisos opcionals afegits",
+        "permissions": "Permisos afegits",
+        "publicCommands": "Ordres públiques noves",
+        "publicCommandsSchema": "Han canviat els esquemes de les ordres públiques",
+        "source": "Origen del paquet",
+        "title": "Canvis des de l'últim consentiment"
+      },
+      "hostPermissions": "Accés a llocs web",
+      "installTitle": "Voleu instal·lar {{name}} {{version}}?",
+      "invokesCommands": "Crida ordres d'altres connectors",
+      "notVerified": "Aquest connector no està verificat. Instal·leu només connectors de fonts de confiança.",
+      "optionalPermissions": "Permisos opcionals",
+      "permissions": "Permisos necessaris",
+      "source": "Origen: {{type}} · {{url}}",
+      "upgradeTitle": "Voleu actualitzar {{name}} a {{version}}?"
+    },
+    "detail": {
+      "about": "Quant a",
+      "access": "Accés",
+      "accessBroad": "Pot llegir qualsevol lloc web",
+      "accessGranted": "Què pot fer ja aquest connector",
+      "accessHosts_many": "Pot llegir {{count}} llocs web",
+      "accessHosts_one": "Pot llegir {{count}} lloc web",
+      "accessHosts_other": "Pot llegir {{count}} llocs web",
+      "accessNone": "Només la seva configuració",
+      "accessOptional": "Accés opcional",
+      "advanced": "Avançat",
+      "attentionGeneric": "Consulteu els registres per veure'n els detalls.",
+      "attentionTitle": "Aquest connector ha notificat un problema",
+      "author": "Autor",
+      "back": "Tots els connectors",
+      "disabled": "Desactivat",
+      "enabled": "Activat",
+      "healthIssues_many": "S'han notificat {{count}} problemes durant l'últim dia",
+      "healthIssues_one": "S'ha notificat {{count}} problema durant l'últim dia",
+      "healthIssues_other": "S'han notificat {{count}} problemes durant l'últim dia",
+      "healthOk": "Tot correcte",
+      "hero": {
+        "attention": "Necessita atenció",
+        "off": "Desactivat",
+        "optional": "Pot demanar més accés",
+        "ready": "Preparat",
+        "review": "Revisar l'accés"
+      },
+      "homepage": "Pàgina principal",
+      "loading": "S'està carregant…",
+      "logs": "Registres",
+      "mini": {
+        "access": "Accés",
+        "health": "Estat",
+        "purpose": "Finalitat"
+      },
+      "overview": "Resum",
+      "removeDesc": "Suprimir aquest connector també n'elimina les dades emmagatzemades al Motrix.",
+      "removeTitle": "Suprimir el connector",
+      "settings": "Configuració",
+      "uninstall": "Desinstal·lar",
+      "uninstallConfirm": "Voleu desinstal·lar aquest connector? Se n'eliminaran les dades.",
+      "uninstallConfirmDesc": "Això suprimirà el connector i la seva configuració desada del Motrix.",
+      "uninstallConfirmTitle": "Voleu desinstal·lar {{name}}?",
+      "viewIssue": "Veure el problema"
+    },
+    "diagnostics": {
+      "callGraph": {
+        "aria": {
+          "controls": "Controls de visualització del graf de connectors",
+          "directions": {
+            "down": "cap avall",
+            "left": "cap a l'esquerra",
+            "right": "cap a la dreta",
+            "up": "cap amunt"
+          },
+          "edgeDescription": "Trieu una aresta de crida per inspeccionar-la.",
+          "edgeLabel": "{{source}} ha cridat {{target}}; nombre de crides: {{calls}}, ordres utilitzades: {{commands}}",
+          "fitView": "Ajustar el graf de connectors a la vista",
+          "graphDescription": "Connectors: {{nodeCount}}; relacions durant les últimes 24 hores: {{pairCount}}.",
+          "graphLabel": "Relacions entre ordres de connectors",
+          "handle": "Extrem de crida de només lectura",
+          "interactive": "Canviar el mode d'interacció amb el graf",
+          "minimap": "Vista general del graf de connectors",
+          "nodeDescription": "Trieu un node de connector per inspeccionar-lo.",
+          "nodeKeyboardInstruction": "Utilitzeu les tecles de fletxa per moure aquest node de connector.",
+          "nodeLabel": "{{name}}, connector {{id}}, {{status}}, crides entrants: {{incoming}}, crides sortints: {{outgoing}}",
+          "nodeMoved": "S'ha mogut el node del connector {{direction}} fins a {{x}}, {{y}}.",
+          "zoomIn": "Ampliar el graf",
+          "zoomOut": "Reduir el graf"
+        },
+        "columns": {
+          "callee": "Destinatari de la crida",
+          "caller": "Origen de la crida",
+          "calls": "Crides",
+          "command": "Ordre",
+          "lastCall": "Última crida"
+        },
+        "counts": {
+          "calls_many": "{{count}} crides correctes",
+          "calls_one": "{{count}} crida correcta",
+          "calls_other": "{{count}} crides correctes",
+          "commands_many": "{{count}} ordres",
+          "commands_one": "{{count}} ordre",
+          "commands_other": "{{count}} ordres"
+        },
+        "errors": {
+          "canvasDescription": "Podeu tornar a provar de mostrar el llenç o utilitzar la vista de taula completa.",
+          "canvasRetry": "Tornar a mostrar el llenç",
+          "canvasTable": "Utilitzar la taula",
+          "canvasTitle": "No s'ha pogut mostrar el llenç del graf",
+          "graphDescription": "Torneu a provar de carregar l'historial de crides correctes.",
+          "graphRetry": "Tornar a carregar l'historial",
+          "graphTitle": "No s'ha pogut carregar l'historial de crides",
+          "layout": "No s'ha pogut organitzar el mapa de relacions.",
+          "layoutRetry": "Tornar a organitzar el mapa",
+          "metadataDescription": "Calen els detalls dels connectors per poder identificar els que no estan disponibles.",
+          "metadataRetry": "Tornar a carregar els detalls",
+          "metadataTitle": "No s'han pogut carregar els detalls dels connectors"
+        },
+        "filteredEmpty": "Cap crida correcta coincideix amb aquesta cerca.",
+        "filters": {
+          "clearSearch": "Esborrar la cerca",
+          "commandsGroup": "Ordres",
+          "noSuggestions": "No hi ha suggeriments de connectors ni d'ordres",
+          "pluginsGroup": "Connectors",
+          "searchLabel": "Cercar relacions",
+          "searchPlaceholder": "Cercar un connector o una ordre"
+        },
+        "globalEmpty": {
+          "description": "Els connectors integrats podrien no fer crides entre ells de manera predeterminada.",
+          "title": "Encara no hi ha crides correctes entre connectors"
+        },
+        "inspector": {
+          "commands": "Ordres",
+          "connections": "Connectors connectats",
+          "edgeTitle": "Detalls de la connexió",
+          "incomingCalls": "Crides entrants",
+          "label": "Detalls de la selecció del graf de crides",
+          "neutralScope": "Seleccioneu un connector o una connexió per inspeccionar les crides correctes de les últimes 24 hores.",
+          "noConnections": "No hi ha connectors connectats",
+          "openPlugin": "Obrir el connector",
+          "outgoingCalls": "Crides sortints",
+          "pluginId": "ID del connector",
+          "scopeTitle": "Crides correctes",
+          "status": "Estat",
+          "totalCalls": "Total de crides"
+        },
+        "legend": {
+          "fewerCalls": "Menys crides",
+          "label": "Llegenda del volum de crides",
+          "moreCalls": "Més crides"
+        },
+        "loading": {
+          "graph": "S'està carregant l'historial de crides…",
+          "metadata": "S'estan carregant els detalls dels connectors…"
+        },
+        "modeLabel": "Vista de relacions",
+        "modes": {
+          "graph": "Graf",
+          "table": "Taula"
+        },
+        "refresh": "Actualitzar",
+        "refreshTooltip": "Carregar les crides correctes més recents",
+        "refreshing": "S'està actualitzant…",
+        "renderGraphTooltip": "Representar aquest conjunt ampli de resultats com a graf",
+        "statuses": {
+          "active": "En execució",
+          "disabled": "Desactivat",
+          "error": "Necessita atenció",
+          "inactive": "Preparat però inactiu",
+          "missing": "No instal·lat"
+        },
+        "tableLabel": "Relacions entre ordres de connectors",
+        "tableRegionLabel": "Relacions entre ordres amb desplaçament",
+        "toolbarLabel": "Controls del graf de crides",
+        "truncated": "L'historial de crides podria ser incomplet perquè el límit de lectura, el període de conservació o la rotació de fitxers han limitat aquest resultat."
+      },
+      "intro": "Inspeccioneu les crides correctes entre connectors durant les últimes 24 hores.",
+      "title": "Diagnòstic"
+    },
+    "empty": "Encara no hi ha cap connector instal·lat.",
+    "errors_many": "{{count}} errors",
+    "errors_one": "{{count}} error",
+    "errors_other": "{{count}} errors",
+    "help": {
+      "guidance": {
+        "firstUse": {
+          "body": "Instal·leu des d'una font de confiança, reviseu l'accés sol·licitat i activeu el connector.",
+          "browse": "Descobriu connectors al catàleg oficial de connectors del Motrix",
+          "safety": "Concediu accés només als llocs web amb què espereu que el connector treballi.",
+          "title": "Afegiu connectors de confiança"
+        },
+        "ongoing": "Reviseu l'accés abans d'activar un connector. Concediu accés només als llocs web amb què espereu que treballi."
+      }
+    },
+    "install": {
+      "checkAriaLabel": "Comprovar aquest connector",
+      "detected": {
+        "auto": "Automàtic",
+        "github": "GitHub",
+        "local": "Fitxer",
+        "url": "URL"
+      },
+      "detectedRow": {
+        "localSupported": "S'admeten fitxers .moext locals",
+        "ok": "Detectat com a {{type}}"
+      },
+      "dragDisabledHint": "Aquest entorn no permet arrossegar i deixar anar fitxers. Utilitzeu una adreça de GitHub o un URL.",
+      "dropHint": "Deixeu anar un fitxer .moext aquí per comprovar el connector",
+      "github": "GitHub",
+      "github.spec": "Repositori de GitHub (owner/repo[@tag])",
+      "install": "Instal·lar el connector",
+      "lead": "Enganxeu l'adreça d'un connector, trieu un fitxer .moext o deixeu anar un fitxer al camp d'entrada.",
+      "local": "Fitxer local",
+      "local.pick": "Triar un fitxer .moext",
+      "localPrepareFailed": "No s'ha pogut preparar aquest fitxer de connector: {{detail}}",
+      "localUnavailable": "La instal·lació des d'un fitxer local no està disponible en aquest amfitrió.",
+      "pickLocal": "Triar un fitxer .moext local",
+      "placeholder": "Enganxeu una adreça de GitHub, un URL o trieu un fitxer .moext local",
+      "title": "Afegir un connector",
+      "url": "URL",
+      "url.spec": "URL del paquet (.moext)",
+      "warning": "Abans d'instal·lar: continueu només si confieu en l'autor i espereu que el connector utilitzi l'accés indicat més amunt."
+    },
+    "lead": "Afegiu petites funcions al Motrix. Manteniu els connectors de confiança i desactiveu la resta.",
+    "logs": {
+      "clear": "Esborrar",
+      "copy": "Copiar",
+      "empty": "Encara no hi ha entrades al registre",
+      "emptyFiltered": "No hi ha entrades d'aquest nivell.",
+      "emptyHint": "L'activitat nova del connector apareixerà aquí automàticament.",
+      "entryCount_many": "{{count}} entrades",
+      "entryCount_one": "{{count}} entrada",
+      "entryCount_other": "{{count}} entrades",
+      "filterLabel": "Nivell del registre",
+      "levels": {
+        "all": "Tots els nivells",
+        "debug": "Depuració",
+        "error": "Error",
+        "fatal": "Error fatal",
+        "info": "Informació",
+        "trace": "Traça",
+        "warn": "Avís"
+      },
+      "output": "Sortida en temps real",
+      "verbose": "Mode detallat",
+      "verboseWarning": "Registra els URL i les capçaleres complets durant 1 hora. Utilitzeu-lo amb precaució."
+    },
+    "permission": {
+      "accessTone": {
+        "allowed": "Permès",
+        "grant": "Permetre",
+        "noAccess": "Desactivat",
+        "offByDefault": "Opcional",
+        "required": "Necessari",
+        "websiteAccess": "Accés web"
+      },
+      "ffmpeg": {
+        "plain": "Processa àudio o vídeo.",
+        "strong": "Utilitzar l'FFmpeg"
+      },
+      "fs": {
+        "storage": {
+          "plain": "Conserva fitxers per a aquest connector.",
+          "strong": "Desar fitxers del connector"
+        },
+        "task": {
+          "read": {
+            "plain": "Veu els fitxers d'una tasca.",
+            "strong": "Llegir fitxers de baixades"
+          },
+          "write": {
+            "plain": "Pot afegir o actualitzar fitxers de tasques.",
+            "strong": "Modificar fitxers de baixades"
+          }
+        }
+      },
+      "http": {
+        "cookies": {
+          "plain": "Accedeix als llocs on heu iniciat la sessió.",
+          "strong": "Utilitzar galetes de llocs web"
+        },
+        "plain": "Obre les pàgines compatibles amb aquest connector.",
+        "strong": "Llegir llocs web"
+      },
+      "network": {
+        "plain": "Obté les pàgines compatibles.",
+        "strong": "Llegir llocs web"
+      },
+      "notifications": {
+        "plain": "Mostra avisos del connector.",
+        "strong": "Enviar notificacions"
+      },
+      "notify": {
+        "plain": "Mostra avisos de finalització.",
+        "strong": "Enviar notificacions"
+      },
+      "storage": {
+        "plain": "Recorda les opcions del connector.",
+        "strong": "Desar la configuració"
+      },
+      "tasks:read": {
+        "plain": "Veu la vostra llista de baixades.",
+        "strong": "Consultar les baixades"
+      },
+      "tasks:write": {
+        "plain": "Pot pausar, reprendre o suprimir tasques.",
+        "strong": "Gestionar les vostres baixades"
+      },
+      "unknown": {
+        "plain": "Permís desconegut."
+      }
+    },
+    "permissions": {
+      "denied": "Denegat",
+      "empty": "Aquest connector no demana cap permís.",
+      "granted": "Concedit"
+    },
+    "registry": {
+      "actionFailed": "No s'ha pogut completar l'acció.",
+      "availableTitle": "Connectors disponibles",
+      "builtinConsentLead": "Aquesta actualització demana accés nou:",
+      "builtinUpdateTitle": "Actualitzar el connector integrat",
+      "byAuthor": "de {{name}}",
+      "featured": "Destacats",
+      "featuresTitle": "Què fa",
+      "install": "Instal·lar",
+      "notFound": "No s'ha trobat el connector «{{id}}» al registre",
+      "notInstalled": "No instal·lat",
+      "optionalTag": "opcional",
+      "permissionsPreviewNote": "Previsualització de l'entrada del registre. La petició de consentiment real sempre es basa en el manifest del paquet del connector.",
+      "permissionsTitle": "Permisos",
+      "refresh": "Comprovar si hi ha actualitzacions",
+      "requires": "Requereix el Motrix {{range}}",
+      "restartRequired": "S'ha instal·lat l'actualització. Reinicieu el Motrix per acabar d'aplicar-la.",
+      "revertToBundled": "Tornar a la versió inclosa",
+      "updateAvailable": "Actualització disponible",
+      "updateInstalled": "S'ha instal·lat l'actualització.",
+      "updateTo": "Actualitzar a la v{{version}}",
+      "updated": "actualitzat el {{date}}",
+      "viewOnWebsite": "Veure a motrix.app"
+    },
+    "search": "Cercar un connector",
+    "searchNoMatch": "Cap connector coincideix amb «{{query}}»",
+    "status": {
+      "active": "Actiu",
+      "disabled": "Desactivat",
+      "error": "Error",
+      "inactive": "Inactiu"
+    },
+    "title": "Connectors",
+    "tone": {
+      "off": "Desactivat",
+      "optional": "Accés opcional",
+      "review": "Cal revisar-lo",
+      "safe": "Sembla segur"
+    }
+  },
+  "quit": {
+    "confirm": {
+      "detail": "Si sortiu ara, les baixades actives es pausaran. Segur que voleu sortir?",
+      "dontAskAgain": "No tornar-ho a preguntar",
+      "message_many": "Encara hi ha {{count}} baixades actives.",
+      "message_one": "Encara hi ha {{count}} baixada activa.",
+      "message_other": "Encara hi ha {{count}} baixades actives.",
+      "quitButton": "Sortir"
+    }
+  },
+  "settings": {
+    "about": {
+      "appIconAlt": "Icona de l'aplicació Motrix",
+      "details": {
+        "author": "Autor",
+        "createdBy": "Creat per",
+        "license": "Llicència",
+        "licenseValue": "Llicència {{license}}"
+      },
+      "resources": {
+        "acknowledgments": "Agraïments",
+        "acknowledgmentsDescription": "Consulteu els crèdits del projecte a motrix.app",
+        "changelog": "Historial de canvis",
+        "manual": "Manual",
+        "manualDescription": "Llegiu el manual d'usuari",
+        "plugins": "Connectors",
+        "repository": "Repositori de codi font",
+        "repositoryDescription": "Exploreu el codi a GitHub",
+        "title": "Recursos",
+        "website": "Lloc web oficial",
+        "websiteDescription": "Visiteu motrix.app"
+      },
+      "tagline": "Abans que el contingut desaparegui, preserveu allò que realment importa i feu lloc a la bellesa entre les coses que conserveu.",
+      "update": {
+        "automaticChecks": "Comprovar automàticament",
+        "automaticChecksDescription": "En obrir el Motrix",
+        "automaticChecksError": "No s'ha pogut desar aquesta configuració",
+        "available": "El Motrix {{version}} està disponible.",
+        "availableDescription": "Baixeu-lo ara i trieu quan voleu reiniciar per instal·lar-lo.",
+        "availableTitle": "El Motrix {{version}} està disponible",
+        "cancelled": "S'ha cancel·lat la baixada de l'actualització.",
+        "cancelledDescription": "Torneu a provar la baixada quan us vagi bé.",
+        "cancelledTitle": "Baixada cancel·lada",
+        "channelBeta": "Beta",
+        "channelBetaWarning": "Les versions beta poden ser menys estables. També rebreu les noves versions estables. Tornar al canal estable atura les actualitzacions beta sense instal·lar una versió anterior.",
+        "channelDescription": "Trieu versions estables o proveu funcions noves en beta.",
+        "channelLabel": "Canal d'actualitzacions",
+        "channelSaveError": "No s'ha pogut desar el canal d'actualitzacions. Torneu-ho a provar.",
+        "channelStable": "Estable",
+        "check": "Comprovar si hi ha actualitzacions",
+        "checkAction": "Comprovar",
+        "checking": "S'està comprovant…",
+        "checkingDescription": "S'està contactant amb el servei d'actualitzacions del Motrix…",
+        "checkingTitle": "S'estan cercant actualitzacions…",
+        "currentVersion": "Versió actual {{version}}",
+        "download": "Baixar l'actualització",
+        "downloaded": "El Motrix {{version}} està preparat per instal·lar.",
+        "downloadedTitle": "Actualització preparada per instal·lar",
+        "downloading": "S'està baixant…",
+        "downloadingDescription": "Podeu tancar aquesta finestra. La baixada continuarà en segon pla.",
+        "downloadingTitle": "S'està baixant el Motrix {{version}}",
+        "error": "L'actualització ha fallat: {{message}}",
+        "errorDescription": "Comproveu la connexió i torneu-ho a provar.",
+        "errorTitle": "No s'ha pogut actualitzar el Motrix",
+        "idle": "Teniu instal·lada la versió {{version}}. Comproveu si hi ha actualitzacions ara o deixeu que el Motrix ho comprovi en obrir-se.",
+        "idleTitle": "Manteniu el Motrix al dia",
+        "restart": "Reiniciar i instal·lar",
+        "retry": "Tornar-ho a provar",
+        "title": "Actualitzacions de l'aplicació",
+        "unsupported": "Aquesta versió no es pot actualitzar automàticament. Baixeu l'última versió del lloc web oficial.",
+        "unsupportedTitle": "Actualitzacions automàtiques no disponibles",
+        "upToDate": "La versió {{version}} és l'última disponible.",
+        "upToDateTitle": "El Motrix està actualitzat"
+      },
+      "version": "Versió {{version}}",
+      "webVersionNote": "L'administrador del desplegament actualitza aquesta edició web."
+    },
+    "advanced": {
+      "description": "RPC, progrés i recuperació",
+      "persistence": {
+        "dbPath": "Fitxer de dades de recuperació",
+        "dbPathDesc": "Deixeu-lo buit per utilitzar la ubicació predeterminada.",
+        "dbPathPlaceholder": "Ubicació predeterminada",
+        "enable": "Desar les dades de recuperació",
+        "enableDesc": "Conserva les dades que permeten reprendre les baixades després de reiniciar.",
+        "historyCount": "Registres per conservar",
+        "historyCountHint": "Se suprimeixen els registres de recuperació més antics.",
+        "historyCountPositive": "Introduïu un nombre superior a 0.",
+        "historyKeepAll": "Tots els registres",
+        "historyKeepRecent": "Registres més recents…",
+        "historyLimit": "Registres de recuperació de tasques completades",
+        "historyLimitDesc": "No afecta la llista de baixades ni els fitxers baixats.",
+        "historySessionOnly": "No conservar",
+        "title": "Progrés i recuperació"
+      },
+      "rpc": {
+        "port": "Port RPC",
+        "portDesc": "Cal reiniciar després de canviar-lo.",
+        "secret": "Secret RPC",
+        "secretDesc": "Necessari per a les connexions RPC.",
+        "title": "RPC"
+      }
+    },
+    "appearance": {
+      "byteUnitBinary": "Binàries (MiB, GiB · 1024)",
+      "byteUnitDecimal": "Decimals (MB, GB · 1000)",
+      "byteUnitSystem": "Unitats de mida i velocitat",
+      "byteUnitSystemDefault": "Seguir el sistema ({{units}})",
+      "byteUnitSystemDesc": "Trieu com es mostren les mides dels fitxers i les velocitats.",
+      "description": "Tema, idioma i visualització",
+      "followSystem": "Seguir el sistema",
+      "language": "Idioma",
+      "languageAndDisplay": "Idioma i visualització",
+      "lightweightMode": "Mode lleuger",
+      "lightweightModeDesc": "Estalvia memòria quan la finestra és tancada. Les baixades continuen, però tornar a obrir la finestra triga més i esborra les dades no desades.",
+      "liquidGlassEffect": "Liquid Glass",
+      "liquidGlassEffectDesc": "Dona un efecte de vidre translúcid a la barra d'eines de baixades.",
+      "liquidGlassEffectMacDesc": "També s'aplica a la finestra al macOS 26 o posterior. La finestra es torna a obrir quan es canvia.",
+      "menuBar": "Barra de menús",
+      "reduceMotion": "Reduir el moviment",
+      "reduceMotionDesc": "Utilitza menys animacions a tota l'aplicació.",
+      "runMode": "Mostrar l'aplicació a",
+      "runModeHideTray": "Només al Dock",
+      "runModeLaunch": "En obrir el Motrix",
+      "runModeLinuxDesc": "La disponibilitat de la safata del sistema i el comportament d'activació depenen de l'entorn d'escriptori.",
+      "runModeStandard": "Dock i barra de menús",
+      "runModeStandardDesktop": "Obrir la finestra principal",
+      "runModeTray": "Només a la barra de menús",
+      "runModeTrayDesktop": "Iniciar a la safata del sistema",
+      "sidebarColor": "Color d'accent",
+      "sidebarColors": {
+        "auto": "Automàtic",
+        "blue": "Blau",
+        "cyan": "Cian",
+        "gold": "Daurat",
+        "gray": "Gris",
+        "green": "Verd",
+        "orange": "Taronja",
+        "pink": "Rosa",
+        "violet": "Violeta"
+      },
+      "systemTray": "Safata del sistema",
+      "theme": "Tema",
+      "themeAndEffects": "Tema i efectes",
+      "themeAuto": "Del sistema",
+      "themeDark": "Fosc",
+      "themeLight": "Clar",
+      "trayIconColor": "Color de la icona de la safata",
+      "trayIconColorAuto": "Seguir el tema de l'aplicació",
+      "trayIconColorDark": "Icona fosca (tauler clar)",
+      "trayIconColorDesc": "Trieu un color que destaqui al tauler del sistema.",
+      "trayIconColorLight": "Icona clara (tauler fosc)",
+      "traySpeedometer": "Mostrar la velocitat a la barra de menús",
+      "traySpeedometerDesc": "Mostra les velocitats de baixada i pujada al costat de la icona de l'aplicació."
+    },
+    "bittorrent": {
+      "description": "Magnets, distribució i rastrejadors",
+      "geoip": {
+        "autoUpdate": "Actualitzar automàticament",
+        "autoUpdateDesc": "Comprova si hi ha noves dades d'ubicació aproximadament un cop per setmana.",
+        "customUrl": "URL de baixada personalitzat",
+        "customUrlDesc": "Enllaç a una base de dades de països en format .mmdb.",
+        "customUrlPlaceholder": "https://example.com/GeoLite2-Country.mmdb",
+        "enable": "Mostrar el país o la regió",
+        "enableDesc": "Mostra les ubicacions a la llista de parells. Baixa les dades d'ubicació quan cal.",
+        "lastUpdated": "Última actualització",
+        "maxmindUnsupported": "Encara no és compatible",
+        "neverUpdated": "Mai",
+        "saveBeforeUpdate": "Deseu els canvis abans d'actualitzar les dades d'ubicació.",
+        "source": "Font de dades d'ubicació",
+        "source.custom": "URL personalitzat",
+        "source.loyalsoldier": "Loyalsoldier (comunitat)",
+        "source.maxmind": "MaxMind (oficial)",
+        "source.p3terx": "P3TERX (rèplica de la comunitat)",
+        "sourceDesc": "Trieu d'on es baixen les dades d'ubicació.",
+        "status.downloading": "S'està baixant…",
+        "status.error": "L'actualització ha fallat",
+        "status.loaded": "Preparades",
+        "status.notDownloaded": "No s'han baixat les dades d'ubicació",
+        "title": "Ubicacions dels parells",
+        "updateFailed": "No s'han pogut actualitzar les dades d'ubicació. Torneu-ho a provar.",
+        "updateNow": "Actualitzar ara",
+        "updating": "S'està actualitzant…"
+      },
+      "listen": {
+        "dhtEnabled": "Activar DHT",
+        "dhtEnabledDesc": "Troba parells sense dependre d'un rastrejador.",
+        "dhtListenPort": "Port d'escolta de DHT",
+        "dhtListenPortDesc": "Troba parells mitjançant DHT en aquest port.",
+        "listenPort": "Port d'escolta de BT",
+        "listenPortDesc": "Accepta connexions entrants de parells en aquest port.",
+        "title": "Connexions entrants"
+      },
+      "newMagnetTasks": "Tasques magnet noves",
+      "peers": {
+        "btEnableLpd": "Descoberta de parells locals",
+        "btEnableLpdDesc": "Troba parells que comparteixen fitxers a la xarxa local.",
+        "btMaxPeers": "Màxim de parells per torrent",
+        "btMaxPeersDesc": "Nombre màxim de parells als quals una tasca es pot connectar alhora.",
+        "magnetFileSelection": "Triar els fitxers abans de baixar",
+        "magnetFileSelectionAutoDownload": "Baixar-ho tot si no es fa cap selecció",
+        "magnetFileSelectionAutoDownloadDesc": "Comença després del temps indicat, encara que la finestra de l'aplicació o el navegador estiguin tancats.",
+        "magnetFileSelectionDesc": "Mostra la selecció de fitxers després de carregar un enllaç magnet.",
+        "magnetFileSelectionTimeoutInvalid": "Introduïu un nombre enter de segons entre {{min}} i {{max}}.",
+        "magnetFileSelectionTimeoutSeconds": "Temps per triar els fitxers (s)",
+        "magnetFileSelectionTimeoutSecondsDesc": "Comença quan la llista de fitxers està preparada. Els canvis també s'apliquen a les tasques que ja estan esperant.",
+        "title": "Parells"
+      },
+      "seeding": {
+        "seedRatio": "Límit de la ràtio de compartició",
+        "seedRatioDesc": "Pujat ÷ baixat. La distribució s'atura en arribar a aquesta ràtio. 0 = sense límit.",
+        "seedTime": "Límit de temps de distribució (minuts)",
+        "seedTimeDesc": "0 = sense límit. S'aplica a les tasques noves i quan es reinicia la distribució.",
+        "title": "Distribució"
+      },
+      "trackers": {
+        "autoSync": "Actualitzar automàticament la llista de rastrejadors",
+        "autoSyncDesc": "Manté la llista actualitzada a partir de les vostres fonts.",
+        "blacklistMovedInfo": "Gestioneu els rastrejadors bloquejats a Rastrejadors → Llista de bloqueig.",
+        "enableProbe": "Comprovar la disponibilitat dels rastrejadors",
+        "enableProbeDesc": "Comprova els rastrejadors abans d'utilitzar-los per a les baixades.",
+        "healthyThreshold": "Llindar de resposta lenta (ms)",
+        "healthyThresholdDesc": "Les respostes que superen aquest temps es marquen com a lentes. 500–10.000 ms.",
+        "manageSourcesHint": "Gestioneu les fonts a la pàgina Rastrejadors.",
+        "maxTrackerCount": "Rastrejadors per tasca",
+        "maxTrackerCountDesc": "Nombre màxim de rastrejadors que s'utilitzen. 5–200.",
+        "minSuccessRate": "Taxa mínima d'èxit",
+        "minSuccessRateDesc": "Utilitza rastrejadors que tinguin almenys aquesta taxa d'èxit. 0.5 = 50%.",
+        "probeTimeout": "Temps d'espera de la comprovació (ms)",
+        "probeTimeoutDesc": "Temps màxim d'espera d'una resposta. 1.000–30.000 ms.",
+        "syncInterval": "Interval d'actualització (hores)",
+        "syncIntervalDesc": "D'1 a 168 hores.",
+        "title": "Rastrejadors"
+      }
+    },
+    "cards": {
+      "about": {
+        "desc": "Versió, actualitzacions, codi font i manual",
+        "title": "Quant a"
+      },
+      "advanced": {
+        "desc": "RPC i persistència a SQLite",
+        "title": "Avançada"
+      },
+      "appearance": {
+        "desc": "Tema, idioma i icona de la safata del sistema",
+        "title": "Aparença"
+      },
+      "bittorrent": {
+        "desc": "DHT, ports d'escolta, rastrejadors i ubicació dels parells",
+        "title": "BitTorrent"
+      },
+      "downloads": {
+        "desc": "Baixades simultànies, límits d'amplada de banda i fiabilitat de la xarxa",
+        "title": "Baixades"
+      },
+      "general": {
+        "desc": "Inici, carpeta de destinació predeterminada i integració amb el sistema",
+        "title": "General"
+      },
+      "integration": {
+        "desc": "Extensions del navegador, CLI i integracions del sistema",
+        "title": "Integració"
+      },
+      "network": {
+        "desc": "Servidor intermediari, DNS i NAT/UPnP",
+        "title": "Xarxa"
+      }
+    },
+    "common": {
+      "add": "Afegir",
+      "browse": "Explorar…",
+      "changeDirectory": "Canviar la carpeta",
+      "directoryEmpty": "(cap carpeta seleccionada)",
+      "generate": "Generar",
+      "hideSecret": "Amagar el secret",
+      "noChange": "No hi ha canvis per desar",
+      "openHelp": "Obrir l'ajuda",
+      "preset": "Tria ràpida:",
+      "remove": "Suprimir",
+      "setAsDefault": "Establir com a predeterminat",
+      "showSecret": "Mostrar el secret"
+    },
+    "connection": {
+      "disconnectedBody": "Alguna informació podria arribar amb retard. Si el problema persisteix, comproveu la connexió amb el servidor i la configuració del servidor intermediari.",
+      "disconnectedTitle": "S'ha perdut la connexió per a les actualitzacions en temps real.",
+      "originMismatchBody": "Les actualitzacions en temps real no estan disponibles. Utilitzeu l'adreça configurada del servidor o demaneu a l'administrador que la corregeixi.",
+      "originMismatchTitle": "L'adreça d'accés al servidor no coincideix."
+    },
+    "desc": "Configurar el Motrix",
+    "downloads": {
+      "autofillFromClipboard": "Emplenar els enllaços des del porta-retalls",
+      "defaultDownloadFolder": "Carpeta de baixades predeterminada",
+      "description": "Fitxers, velocitat de baixada i connexions",
+      "disk": {
+        "diskCache": "Memòria cau del disc (MiB)",
+        "diskCacheDesc": "Memòria per emmagatzemar temporalment els fitxers abans d'escriure'ls al disc.",
+        "fileAllocation": "Reservar espai al disc",
+        "fileAllocationDesc": "Reserva espai abans de baixar un fitxer.",
+        "fileAllocationFalloc": "Assignació del sistema",
+        "fileAllocationNone": "No reservar",
+        "fileAllocationPrealloc": "Assignar prèviament",
+        "fileAllocationTrunc": "Establir la mida del fitxer",
+        "fileDeletionMode": "En eliminar els fitxers d'una tasca",
+        "fileDeletionPermanent": "Eliminar permanentment",
+        "fileDeletionPermanentDesc": "Els fitxers eliminats no es poden restaurar des de la paperera.",
+        "fileDeletionTrash": "Moure a la paperera",
+        "fileDeletionTrashDesc": "L'espai s'allibera en buidar la paperera.",
+        "modifiedTime": "Data de modificació del fitxer",
+        "modifiedTimeDesc": "Per a baixades HTTP i FTP completades.",
+        "modifiedTimeLocal": "Data de baixada",
+        "modifiedTimeServer": "Data del servidor",
+        "sessionSaveInterval": "Interval per desar el progrés (s)",
+        "sessionSaveIntervalDesc": "Desar més sovint redueix el progrés perdut després d'un error inesperat.",
+        "title": "Disc i fitxers"
+      },
+      "fillInLinksWhenOpeningNewTask": "Enganxa els enllaços copiats en obrir una tasca nova.",
+      "magnet": {
+        "magnetResolveTimeout": "Temps d'espera de càrrega del magnet (s)",
+        "magnetResolveTimeoutDesc": "Quant de temps s'espera la llista de fitxers.",
+        "title": "Magnet"
+      },
+      "newTasks": "Tasques noves",
+      "performance": {
+        "customParameters": "Paràmetres de rendiment personalitzats",
+        "learnMore": "Més informació",
+        "maxConcurrentDownloads": "Baixades simultànies",
+        "maxConcurrentDownloadsDesc": "Les tasques addicionals esperen a la cua.",
+        "maxConnectionPerServer": "Màxim de connexions per servidor",
+        "maxConnectionPerServerDesc": "Límit de connexions d'un fitxer a un servidor.",
+        "metrics": {
+          "cache": "Memòria cau del disc",
+          "connections": "Màxim de connexions",
+          "minimum": "Segment mínim",
+          "perServer": "Límit per servidor"
+        },
+        "minSplitSize": "Mida mínima del segment (MiB)",
+        "minSplitSizeDesc": "Els segments més petits que el doble d'aquesta mida no es divideixen.",
+        "profile": "Rendiment de baixada",
+        "profileDesc": "Equilibra la velocitat de baixada i l'ús de recursos.",
+        "profiles": {
+          "auto": {
+            "desc": "S'adapta al disc i a la mida del fitxer. Els valors següents són els predeterminats.",
+            "label": "Automàtic"
+          },
+          "balanced": {
+            "desc": "Utilitza menys recursos per a les baixades habituals.",
+            "label": "Equilibrat"
+          },
+          "custom": {
+            "desc": "Establiu les connexions, la mida dels segments i la memòria cau.",
+            "label": "Personalitzat"
+          },
+          "high": {
+            "desc": "Utilitza més connexions per baixar més ràpidament.",
+            "label": "Alta velocitat"
+          },
+          "maximum": {
+            "desc": "Utilitza més connexions. Alguns servidors poden limitar-les.",
+            "label": "Màxim"
+          }
+        },
+        "split": "Màxim de connexions per fitxer",
+        "splitDesc": "Connexions utilitzades per baixar un fitxer.",
+        "title": "Rendiment"
+      },
+      "reliability": {
+        "connectTimeout": "Temps d'espera de connexió (s)",
+        "connectTimeoutDesc": "Quant de temps s'espera per establir una connexió.",
+        "lowestSpeedLimit": "Velocitat mínima de connexió (KiB/s)",
+        "lowestSpeedLimitDesc": "Desconnecta si la velocitat és inferior. 0 = desactivat.",
+        "maxTries": "Nombre màxim d'intents",
+        "maxTriesDesc": "Inclou el primer intent. 0 = sense límit.",
+        "retryWait": "Espera entre intents (s)",
+        "retryWaitDesc": "Espera aquest temps abans de tornar-ho a provar.",
+        "socketTimeout": "Temps d'espera sense dades (s)",
+        "socketTimeoutDesc": "Quant de temps s'espera quan no arriben dades.",
+        "title": "Connexions i reintents",
+        "userAgent": "User-Agent",
+        "userAgentDesc": "Identifica l'aplicació als llocs web. Canvieu-lo si un lloc en necessita un de diferent."
+      },
+      "saveFolders": "Carpetes de destinació",
+      "speedLimit": {
+        "adaptiveEnabled": "Reservar amplada de banda per a altres aplicacions",
+        "adaptiveEnabledDesc": "Introduïu les velocitats de connexió a continuació per calcular el límit.",
+        "altDownload": "Baixada",
+        "altDownloadDesc": "Velocitat màxima de baixada mentre el mode de baixa velocitat és actiu.",
+        "altSection": "Límits de baixa velocitat",
+        "altSectionDesc": "S'utilitzen en el mode de baixa velocitat o segons un horari. Aquests límits només poden reduir els límits estàndard.",
+        "altUpload": "Pujada",
+        "altUploadDesc": "Velocitat màxima de pujada mentre el mode de baixa velocitat és actiu.",
+        "autoAdaptive": "Deixar amplada de banda per a altres aplicacions",
+        "autoSchedule": "Reducció de velocitat programada",
+        "autoSection": "Regles automàtiques",
+        "autoSectionDesc": "Aquestes regles només s'apliquen en el mode automàtic.",
+        "bandwidthPending": "Introduïu les dues velocitats de connexió per aplicar aquest límit.",
+        "bandwidthUsed": "El Motrix pot utilitzar fins al {{motrix}}%.",
+        "baseDownload": "Baixada",
+        "baseDownloadDesc": "Velocitat màxima de baixada per a l'ús habitual.",
+        "baseSection": "Límits estàndard",
+        "baseSectionDesc": "S'utilitzen per a les baixades habituals i es respecten en tots els modes.",
+        "baseUpload": "Pujada",
+        "baseUploadDesc": "Velocitat màxima de pujada per a l'ús habitual.",
+        "effect": {
+          "adaptiveRule": "reservarà el {{reserved}}% de l'amplada de banda per a altres aplicacions",
+          "adaptiveRulePending": "reservarà el {{reserved}}% de l'amplada de banda per a altres aplicacions quan s'introdueixi l'amplada de banda de la connexió",
+          "autoRules": "El Motrix {{rules}}.",
+          "lowSpeed": "Ara s'utilitzen els límits de baixa velocitat: baixada {{download}}, pujada {{upload}}.",
+          "lowerWins": "S'aplica el límit actiu més baix.",
+          "nextDay": " de l'endemà",
+          "noAutoRules": "No hi ha cap regla automàtica activada. Actualment es comporta com el mode estàndard.",
+          "ruleSeparator": " i ",
+          "scheduleRule": "utilitzarà els límits de baixa velocitat de {{from}} a {{to}}{{nextDay}}",
+          "standard": "S'utilitzen els límits estàndard: baixada {{download}}, pujada {{upload}}.",
+          "standardValues": "Límits estàndard: baixada {{download}}, pujada {{upload}}.",
+          "title": "Efecte actual"
+        },
+        "estimateEmpty": "Encara no hi ha historial de velocitat. Completeu una baixada sense límit de velocitat o introduïu l'amplada de banda manualment.",
+        "estimateError": "No s'ha pogut llegir l'historial de velocitat recent. Introduïu l'amplada de banda manualment.",
+        "estimateSuccess": "S'ha emplenat l'amplada de banda de la connexió a partir de les velocitats recents.",
+        "fillFromPeak": "Estimar la velocitat de connexió",
+        "fillFromPeakHint": "Es basa en les baixades i pujades recents més ràpides.",
+        "headroomPercent": "Reserva per a altres aplicacions",
+        "headroomPercentDesc": "Ara es reserva el {{reserved}}%; el Motrix pot utilitzar fins al {{motrix}}%.",
+        "linkDown": "Velocitat de baixada de la connexió",
+        "linkDownDesc": "Velocitat de baixada que pot assolir la connexió a Internet.",
+        "linkUp": "Velocitat de pujada de la connexió",
+        "linkUpDesc": "Velocitat de pujada que pot assolir la connexió a Internet.",
+        "modeSection": "Mode de velocitat",
+        "modeSectionDesc": "Trieu com ha d'utilitzar el Motrix la connexió.",
+        "scheduleDays": "Dies",
+        "scheduleDaysHint": "Si l'hora de final és anterior a la d'inici, el període continua l'endemà.",
+        "scheduleEnabled": "Programar la baixa velocitat",
+        "scheduleEnabledDesc": "Canvia als límits de baixa velocitat els dies i les hores seleccionats.",
+        "scheduleFrom": "Inici",
+        "scheduleTimeFormat": "Format de 24 hores (HH:mm)",
+        "scheduleTo": "Final",
+        "setUnlimited": "Establir sense límit",
+        "standardLimit": "Utilitzar l'estàndard",
+        "title": "Límits de velocitat",
+        "titleDesc": "Trieu com utilitza el Motrix la connexió en els modes Estàndard, Baixa velocitat i Automàtic.",
+        "turtle": "Mode de velocitat",
+        "turtleDesc_auto": "Ajusta la velocitat automàticament segons l'hora i l'amplada de banda de la connexió.",
+        "turtleDesc_off": "Utilitza els límits de velocitat estàndard.",
+        "turtleDesc_on": "Utilitza ara els límits de baixa velocitat per deixar amplada de banda per a altres aplicacions.",
+        "turtle_auto": "Automàtic",
+        "turtle_off": "Estàndard",
+        "turtle_on": "Baixa velocitat",
+        "unlimited": "Sense límit",
+        "useStandardLimit": "Utilitzar el límit estàndard",
+        "weekdays": {
+          "fri": {
+            "long": "Divendres",
+            "short": "dv."
+          },
+          "mon": {
+            "long": "Dilluns",
+            "short": "dl."
+          },
+          "sat": {
+            "long": "Dissabte",
+            "short": "ds."
+          },
+          "sun": {
+            "long": "Diumenge",
+            "short": "dg."
+          },
+          "thu": {
+            "long": "Dijous",
+            "short": "dj."
+          },
+          "tue": {
+            "long": "Dimarts",
+            "short": "dt."
+          },
+          "wed": {
+            "long": "Dimecres",
+            "short": "dc."
+          }
+        }
+      }
+    },
+    "feedback": {
+      "appRestartBody": "S'ha desat la configuració. Reinicieu el Motrix quan us vagi bé.",
+      "appRestartTitle": "Reinicieu el Motrix per aplicar la configuració",
+      "applyFailedBody": "Es conserva la configuració desada. Comproveu els registres de l'aplicació i reinicieu el servei afectat després de resoldre el problema.",
+      "applyFailedTitle": "Configuració desada; no s'han pogut aplicar alguns canvis",
+      "retrySync": "Tornar a sincronitzar",
+      "syncFailedBody": "S'ha desat la configuració. Torneu a provar la sincronització per actualitzar aquesta pàgina sense tornar a desar.",
+      "syncFailedTitle": "Configuració desada; no s'ha pogut actualitzar la interfície"
+    },
+    "general": {
+      "autofillClipboardLinks": "Emplenar l'enllaç des del porta-retalls",
+      "autofillClipboardLinksDesc": "Quan s'obre una tasca nova, enganxa l'enllaç del porta-retalls al camp d'URL buit.",
+      "defaultSaveDir": "Carpeta de baixades predeterminada",
+      "defaultSaveDirDesc": "Les baixades noves es desen aquí, tret que trieu una altra carpeta per a la tasca.",
+      "description": "Inici, sortida i notificacions",
+      "desktopOnly": "Les preferències d'inici i notificacions estan disponibles a l'aplicació d'escriptori.",
+      "downloadCompleted": "Baixada completada",
+      "downloadFailed": "Baixada fallida",
+      "inAppNotifications": "Notificacions dins de l'aplicació",
+      "inAppNotificationsDesc": "Trieu quines notificacions de baixades es mostren. Els avisos de l'aplicació continuen actius.",
+      "launchAtStartup": "Obrir en iniciar la sessió",
+      "launchAtStartupDesc": "Inicia el Motrix automàticament quan inicieu la sessió.",
+      "lightweightMode": "Estalviar memòria quan la finestra és tancada",
+      "lightweightModeDesc": "Les baixades continuen. Tornar a obrir la finestra és més lent i s'esborren les dades no desades.",
+      "notificationBadgeCount": "Nombre",
+      "notificationBadgeDesc": "Es mostra a la icona del centre de notificacions.",
+      "notificationBadgeDot": "Punt",
+      "notificationBadgeHidden": "Amagat",
+      "notificationBadgeStyle": "Indicador de no llegides",
+      "notificationBoth": "Totes dues",
+      "notificationInApp": "Notificacions dins de l'aplicació",
+      "notificationOff": "Desactivades",
+      "notificationSystem": "Notificacions del sistema",
+      "notifications": "Notificacions",
+      "notificationsDesc": "Els avisos d'error de l'aplicació continuen actius.",
+      "notifyInAppOnComplete": "Mostrar les baixades completades",
+      "notifyInAppOnError": "Mostrar les baixades fallides",
+      "notifyOnComplete": "Notificar quan es completa una baixada",
+      "notifyOnCompleteDesc": "Mostra una notificació del sistema quan s'acaba una tasca.",
+      "notifyOnError": "Notificar els errors",
+      "notifyOnErrorDesc": "Mostra una notificació del sistema quan una baixada falla i la finestra és en segon pla.",
+      "runMode": "Mostrar l'aplicació a",
+      "runModeHideTray": "Només al Dock",
+      "runModeStandard": "Dock i barra de menús",
+      "runModeTray": "Només a la barra de menús",
+      "showMainWindowAtLogin": "Mostrar la finestra en iniciar la sessió",
+      "showMainWindowAtLoginDesc": "S'amaga amb «{{mode}}».",
+      "startupAndQuitting": "Inici i sortida",
+      "systemNotifications": "Notificacions del sistema",
+      "warnBeforeQuit": "Confirmar abans de sortir",
+      "warnBeforeQuitDesc": "Demana confirmació abans de sortir si encara hi ha baixades actives."
+    },
+    "integration": {
+      "appimage": {
+        "desc": "Registreu aquest AppImage del Motrix a l'escriptori perquè els navegadors i els enllaços magnet li puguin enviar baixades.",
+        "enable": "Activar la integració amb l'escriptori",
+        "movedHint": "Si moveu l'AppImage mentre el Motrix és tancat, els enllaços podrien no iniciar-lo fins que obriu el Motrix una vegada des de la ubicació nova.",
+        "prompt": {
+          "accept": "Integrar",
+          "decline": "Ara no",
+          "detail": "El Motrix afegirà una entrada d'escriptori i una icona a la carpeta de dades de l'usuari i es registrarà com a aplicació per als enllaços motrix:, els enllaços magnet i els fitxers .torrent. Això permet que el navegador i l'extensió del Motrix iniciïn el Motrix i li enviïn baixades. No s'escriu res fora de la carpeta personal i podeu desfer-ho des de Configuració.",
+          "message": "Voleu permetre que aquest AppImage del Motrix es registri a l'entorn d'escriptori?",
+          "title": "Voleu integrar el Motrix amb l'escriptori?"
+        },
+        "remove": "Suprimir la integració amb l'escriptori",
+        "status": {
+          "externalManaged": "Una altra instal·lació del Motrix proporciona la integració amb l'escriptori.",
+          "failedDetail": "El Motrix no s'ha pogut registrar com a aplicació per als seus enllaços. La transferència des del navegador podria no funcionar fins que torneu a activar la integració amb l'escriptori.",
+          "failedTitle": "Integració amb l'escriptori incompleta",
+          "healthy": "Integrat amb aquest escriptori.",
+          "notIntegrated": "No està integrat amb aquest escriptori.",
+          "removeBlockedDetail": "El Motrix no ha pogut restaurar de manera segura una aplicació associada anterior verificada i ha conservat la seva entrada d'escriptori per evitar una associació predeterminada trencada. Trieu una altra aplicació predeterminada a la configuració de l'escriptori i torneu a provar de suprimir la integració."
+        },
+        "title": "Integració amb l'escriptori"
+      },
+      "appimageHost": {
+        "copyDiagnostics": "Copiar el diagnòstic",
+        "desc": "Permet que una extensió obri aquest AppImage quan feu clic a Connectar. Activeu la integració amb el navegador per utilitzar-ho.",
+        "enable": "Activar l'inici des del navegador",
+        "remove": "Suprimir l'inici des del navegador",
+        "repair": "Reparar",
+        "status": {
+          "conflict": "Aquests fitxers pertanyen a una altra instal·lació. Suprimiu primer la seva integració amb el navegador.",
+          "disabled": "L'inici des del navegador està desactivat.",
+          "invalid": "El registre d'instal·lació o l'executable no és vàlid.",
+          "io": "L'operació ha fallat. Comproveu l'accés al disc i proveu Reparar.",
+          "missing": "Falta un fitxer necessari. Executeu l'AppImage des de la ubicació actual i repareu la instal·lació.",
+          "permissions": "Comproveu que els fitxers siguin executables i que només el vostre compte hi pugui escriure.",
+          "ready": "Les comprovacions locals d'instal·lació s'han superat. Connecteu-vos des del navegador per verificar-ho.",
+          "sourceChanged": "L'AppImage ha canviat. Executeu la versió que voleu utilitzar i repareu la instal·lació."
+        },
+        "title": "Inici de l'AppImage des del navegador",
+        "useCurrent": "Utilitzar aquest AppImage"
+      },
+      "browser": {
+        "addTrusted": {
+          "add": "Afegir una extensió",
+          "addAction": "Afegir",
+          "browserLabel": "Navegador",
+          "cancel": "Cancel·lar",
+          "chromiumEdge": "Chrome / Edge",
+          "firefox": "Firefox",
+          "idPlaceholder": "ID de l'extensió",
+          "labelPlaceholder": "Etiqueta (opcional)"
+        },
+        "degradedPort": {
+          "description": "Els ports 16802–16806 no estaven disponibles i el pont ha utilitzat el port {{port}}. Les extensions del navegador no el trobaran comprovant l'interval estàndard; aparelleu mitjançant missatgeria nativa o establiu un port fix. No afecta la CLI del Motrix ni l'amfitrió natiu.",
+          "title": "El pont funciona en un port alternatiu"
+        },
+        "disconnecting": "S'està desconnectant…",
+        "headerBrowser": "Navegador",
+        "headerId": "ID de l'extensió",
+        "headerSource": "Origen",
+        "install": {
+          "chrome": "Chrome",
+          "development": "Desenvolupament",
+          "edge": "Microsoft Edge",
+          "firefox": "Firefox",
+          "github": "GitHub",
+          "store": "Instal·lar"
+        },
+        "lastActive": "Última activitat",
+        "masterSwitch": "Connectar extensions del navegador",
+        "masterSwitchDesc": "Envieu les baixades de pàgines web al Motrix amb l'extensió del navegador.",
+        "pairToast": {
+          "copyCode": "Copiar el codi d'aparellament",
+          "deny": "No permetre",
+          "extensionId": "ID: {{id}}",
+          "identityLabel": {
+            "attested": "Extensió verificada",
+            "official": "Extensió oficial del Motrix",
+            "unverified": "Extensió no verificada"
+          },
+          "identityUnverifiedWarning": "No s'ha pogut verificar la identitat d'aquesta extensió. Continueu només si hi confieu.",
+          "pairCode": "Codi d'aparellament",
+          "pairCodeHint": "Introduïu aquest codi a l'extensió",
+          "title": "Una extensió de {{browser}} vol connectar-se amb el Motrix"
+        },
+        "pairUnavailable": "Aquesta petició d'aparellament ja no està pendent; torneu a aparellar des de l'extensió del navegador.",
+        "pairedEmpty": "Encara no hi ha extensions connectades.",
+        "pairedTitle": "Extensions connectades",
+        "pairingStateDegraded": {
+          "description": "El Motrix no ha pogut actualitzar de manera segura els registres d'extensions aparellades. S'han tancat les sessions d'extensions existents i s'ha bloquejat l'accés nou durant aquesta execució. Reinicieu el Motrix per tornar a provar la reparació; no us refieu de la llista següent fins que desaparegui aquest missatge.",
+          "title": "L'accés de les extensions està tancat temporalment"
+        },
+        "removeTrusted": "Suprimir",
+        "revoke": "Desconnectar",
+        "sourceLabel": {
+          "builtin": "Integrada",
+          "imported": "Importada",
+          "userAdded": "Afegida"
+        },
+        "title": "Extensions del navegador",
+        "trustedEmpty": "Encara no hi ha res.",
+        "trustedExtensions": "Extensions de confiança",
+        "trustedGuidance": "Per a altres extensions de confiança, afegiu l'ID proporcionat pel desenvolupador.",
+        "trustedSummary": "Total: {{count}}"
+      },
+      "cli": {
+        "inbox": {
+          "approve": "Aprovar",
+          "deny": "Denegar",
+          "empty": "No hi ha peticions d'aparellament remot pendents.",
+          "expiresIn": "Caduca d'aquí a {{time}}",
+          "title": "Aprovacions pendents"
+        },
+        "pairToast": {
+          "allow": "Permetre",
+          "code": "Codi de verificació: {{code}}",
+          "deny": "No permetre",
+          "title": "{{name}} es vol aparellar amb el Motrix"
+        },
+        "pairUnavailable": "Aquesta petició d'aparellament ja no està pendent; torneu a executar motrix pair.",
+        "remote": {
+          "description": "Les eines locals es connecten automàticament. Executeu motrix pair per connectar-vos a un altre ordinador o servidor.",
+          "empty": "No hi ha eines remotes aparellades.",
+          "lastActive": "Última activitat",
+          "neverActive": "No s'ha utilitzat mai",
+          "revoke": "Revocar",
+          "title": "Eines remotes aparellades"
+        },
+        "title": "Eines de línia d'ordres",
+        "tool": {
+          "action": {
+            "checkAgain": "Tornar a comprovar",
+            "checking": "S'està comprovant…",
+            "install": "Instal·lar",
+            "installing": "S'està instal·lant…"
+          },
+          "attentionTitle": "L'eina de línia d'ordres necessita atenció",
+          "commandLabel": "Ordre d'instal·lació",
+          "copyCommand": "Copiar l'ordre d'instal·lació",
+          "description": "Executeu motrix en un terminal per controlar aquesta aplicació.",
+          "diagnostics": {
+            "hide": "Amagar els detalls",
+            "show": "Mostrar els detalls"
+          },
+          "manager": {
+            "bun": "Bun",
+            "npm": "npm",
+            "pnpm": "pnpm",
+            "volta": "Volta",
+            "yarn": "Yarn Classic"
+          },
+          "managerLabel": "Gestor de paquets",
+          "metadata": {
+            "manager": "Instal·lat amb",
+            "path": "Executable",
+            "unknown": "desconegut",
+            "version": "Versió"
+          },
+          "reason": {
+            "installFailed": "El gestor de paquets no ha pogut instal·lar @motrix/cli. Reviseu els detalls i torneu-ho a provar o executeu l'ordre manualment.",
+            "managerMissing": "No s'ha trobat cap gestor de paquets compatible. Instal·leu npm, pnpm, Yarn Classic, Bun o Volta i torneu a comprovar-ho.",
+            "network": "El gestor de paquets no ha pogut accedir al registre. Comproveu la xarxa o la configuració del registre i torneu-ho a provar.",
+            "nodeMissing": "No s'ha trobat el Node.js 22 o posterior. Instal·leu el Node.js i torneu a comprovar-ho.",
+            "nodeTooOld": "Cal el Node.js 22 o posterior. Versió detectada: {{version}}.",
+            "pathMissing": "S'ha instal·lat el paquet, però motrix no és al PATH. Obriu un terminal nou o afegiu la carpeta d'instal·lació indicada al PATH.",
+            "pathShadowed": "Un altre executable motrix apareix abans al PATH. Traieu l'entrada antiga o corregiu el PATH i torneu a comprovar-ho.",
+            "permission": "El gestor de paquets no pot escriure a la ubicació d'instal·lació global. Utilitzeu un gestor de versions del Node.js o un prefix d'instal·lació on el vostre usuari pugui escriure; no utilitzeu sudo.",
+            "sandboxed": "La instal·lació amb un clic no està disponible en aquest paquet aïllat. Copieu l'ordre i executeu-la en un terminal.",
+            "timeout": "La instal·lació ha trigat massa i s'ha aturat. Comproveu la xarxa i torneu-ho a provar.",
+            "unknown": "El Motrix no ha pogut comprovar l'eina de línia d'ordres. Torneu-ho a provar o executeu manualment l'ordre copiada.",
+            "unsupportedWeb": "La instal·lació amb un clic només està disponible a l'aplicació d'escriptori. Copieu l'ordre i executeu-la a l'amfitrió del Motrix.",
+            "verifyFailed": "L'instal·lador ha acabat, però el Motrix no ha pogut verificar l'executable motrix actiu."
+          },
+          "status": {
+            "checking": "S'està comprovant",
+            "error": "Ha fallat",
+            "installed": "Instal·lada",
+            "installing": "S'està instal·lant",
+            "manualOnly": "Instal·lació manual",
+            "needsAttention": "Necessita atenció",
+            "ready": "Preparada per instal·lar"
+          },
+          "successGuidance": "Obriu un terminal nou i executeu motrix --help.",
+          "title": "Eina de línia d'ordres del Motrix"
+        }
+      },
+      "description": "Navegadors, aplicacions predeterminades i eines",
+      "media": {
+        "applyHint": "Deseu per utilitzar aquest camí en les baixades multimèdia noves. Torneu a explorar des de l'extensió del navegador per actualitzar les funcions compatibles.",
+        "binaryPath": "Camí personalitzat de l'FFmpeg",
+        "browse": "Explorar…",
+        "candidateKind": {
+          "env": "MOTRIX_FFMPEG_BIN",
+          "manual": "Camí personalitzat",
+          "path": "PATH del sistema",
+          "userData": "Carpeta de dades del Motrix"
+        },
+        "cleanupConfirm": "Voleu eliminar totes les carpetes temporals de l'FFmpeg?",
+        "cleanupStaging": "Netejar els fitxers temporals",
+        "desc": "Combineu o convertiu contingut multimèdia amb l'FFmpeg.",
+        "desktopSavedHint": "Les baixades multimèdia noves utilitzen el camí desat. Reinicieu el Motrix perquè els connectors actius detectin el canvi.",
+        "detection": {
+          "copyManagedPath": "Copiar el camí de l'FFmpeg del Motrix",
+          "editCustomPath": "Editar el camí personalitzat de l'FFmpeg",
+          "finishEditingCustomPath": "Finalitzar l'edició del camí personalitzat de l'FFmpeg",
+          "hideDetails": "Amagar els detalls de detecció",
+          "location": "Ubicació comprovada",
+          "notConfigured": "No establert",
+          "readyTitle": "FFmpeg {{version}}",
+          "result": "Resultat",
+          "showDetails": "Mostrar els detalls de detecció",
+          "source": "Origen",
+          "sourcesChecked_many": "{{count}} orígens comprovats",
+          "sourcesChecked_one": "{{count}} origen comprovat",
+          "sourcesChecked_other": "{{count}} orígens comprovats",
+          "unavailableDesc": "Establiu un camí personalitzat, instal·leu l'FFmpeg o afegiu-lo al PATH i actualitzeu la vista.",
+          "unavailableTitle": "L'FFmpeg no està disponible",
+          "untrustedDesc": "El fitxer existeix, però no ha superat la verificació de seguretat del macOS. Instal·leu una compilació de confiança o autoritzeu-lo a Privacitat i seguretat i actualitzeu la vista.",
+          "untrustedTitle": "El macOS ha bloquejat l'FFmpeg",
+          "usingSource": "S'utilitza {{source}}"
+        },
+        "download": {
+          "action": "Baixar l'FFmpeg"
+        },
+        "ffmpegRequired": "Aquesta baixada necessita l'FFmpeg. Configureu-lo a Configuració → Integració → Eines multimèdia, deseu i torneu-ho a provar.",
+        "notDetected": "No s'ha detectat l'FFmpeg",
+        "opTimeoutSec": "Temps d'espera de l'FFmpeg (segons)",
+        "opTimeoutSecDesc": "Temps màxim d'una operació multimèdia, fins a 3.600 segons.",
+        "pipelineUnavailable": "La funció de baixades multimèdia no està disponible.",
+        "refresh": "Actualitzar",
+        "restartHint": "Desat. Reinicieu el Motrix perquè els connectors actius detectin els canvis.",
+        "restartNow": "Reiniciar ara",
+        "savedTitle": "S'ha desat la configuració de l'FFmpeg",
+        "stagingMB": "Límit de fitxers temporals (MB)",
+        "stagingMBDesc": "Espai per a fitxers intermedis, per connector i tasca.",
+        "state": {
+          "active": "En ús",
+          "available": "Trobat",
+          "missing": "No trobat",
+          "unconfigured": "No establert",
+          "untrusted": "Bloquejat pel macOS",
+          "version_mismatch": "No compatible"
+        },
+        "title": "Eines multimèdia",
+        "validation": {
+          "fileMissing": "No existeix cap fitxer en aquest camí."
+        }
+      },
+      "pairResolveFailed": "No s'ha pogut enviar la vostra decisió; torneu-ho a provar.",
+      "system": {
+        "associationChecking": "S'està comprovant…",
+        "associationDefault": "Predeterminada",
+        "associationNotDefault": "No és la predeterminada",
+        "associationNotRegistered": "No registrada",
+        "associationSetupRequired": "Cal configurar-ho",
+        "associationStatusLabel": "Estat actual de l'aplicació predeterminada al Windows",
+        "associationStatusLabelLinux": "Estat actual de les associacions de fitxers i enllaços del Linux",
+        "associationUnavailable": "No s'ha pogut verificar",
+        "defaultAssociationsLinux": "Associacions de fitxers i enllaços del Linux",
+        "defaultAssociationsLinuxAppImageDesc": "Utilitzeu la integració amb l'escriptori següent per registrar aquest AppImage o suprimir-ne el registre de manera segura. El Motrix restaura les aplicacions associades anteriors verificades abans d'eliminar la seva entrada d'escriptori.",
+        "defaultAssociationsLinuxCheckingDesc": "S'estan comprovant aquest paquet del Linux i les associacions actuals de l'escriptori…",
+        "defaultAssociationsLinuxDesc": "El Motrix es pot establir com a aplicació predeterminada per a .torrent si s'ha instal·lat amb un paquet deb o rpm. Els canvis dels enllaços magnet tenen efecte en aplicar aquest diàleg.",
+        "defaultAssociationsLinuxSandboxDesc": "Aquest paquet registra el Motrix com a aplicació compatible, però l'entorn d'escriptori tria l'aplicació predeterminada. Suprimir el paquet podria no restaurar automàticament l'aplicació predeterminada anterior.",
+        "defaultAssociationsLinuxUnavailableDesc": "L'estat de les associacions de l'escriptori no està disponible des d'aquest entorn de l'aplicació.",
+        "defaultAssociationsWindows": "Aplicació predeterminada per a torrents i enllaços magnet",
+        "defaultAssociationsWindowsDesc": "Trieu el Motrix per als fitxers .torrent i els enllaços magnet a la configuració del Windows. Cal tenir el Motrix instal·lat.",
+        "linuxActionFailed": "No s'ha pogut actualitzar l'aplicació predeterminada del Linux. Comproveu la configuració de l'entorn d'escriptori.",
+        "linuxActionFallback": "La configuració automàtica no està disponible per a aquest paquet. S'han obert les instruccions de configuració.",
+        "linuxActionSet": "El Motrix és ara l'aplicació predeterminada per als fitxers .torrent.",
+        "linuxPackage": {
+          "appimage": "AppImage",
+          "flatpak": "Flatpak",
+          "native": "deb / rpm",
+          "snap": "Snap",
+          "unknown": "Paquet desconegut"
+        },
+        "linuxPackageDetected": "Paquet: {{package}}",
+        "magnetLinks": "Enllaços magnet",
+        "openWindowsSettings": "Obrir la configuració del Windows",
+        "protocolMagnet": "Obrir els enllaços magnet amb el Motrix",
+        "protocolMagnetAppImageDesc": "S'aplica immediatament després de desar si la integració amb l'escriptori està activada.",
+        "protocolMagnetApplyFailed": "S'ha desat la preferència, però no s'ha pogut canviar l'associació de l'escriptori. Trieu l'aplicació predeterminada a la configuració del sistema.",
+        "protocolMagnetDesc": "Obre els enllaços magnet del navegador amb el Motrix.",
+        "protocolMagnetSandboxDesc": "El Motrix demanarà el canvi quan deseu, però l'entorn aïllat o d'escriptori podria requerir que trieu manualment l'aplicació predeterminada.",
+        "repairLinuxAssociations": "Reparar les associacions",
+        "setTorrentDefaultLinux": "Establir com a predeterminat per a .torrent",
+        "title": "Aplicació predeterminada",
+        "torrentAssociation": "Obrir els fitxers .torrent amb el Motrix",
+        "torrentAssociationDesc": "Feu doble clic en un fitxer .torrent per obrir-lo amb el Motrix.",
+        "torrentAssociationMacDesc": "Al Finder, feu clic amb el botó secundari en un fitxer .torrent → Obtén informació → Obre amb → trieu Motrix → Canvia‑ho tot…",
+        "torrentFiles": "Fitxers .torrent",
+        "viewLinuxInstructions": "Veure els passos de configuració"
+      }
+    },
+    "network": {
+      "description": "Servidor intermediari, DNS i comprovacions de connexió",
+      "diagnostic": {
+        "enable": "Comprovacions automàtiques",
+        "enableDesc": "Repeteix les comprovacions activades més amunt.",
+        "interval": "Interval de comprovació (s)",
+        "title": "Comprovacions automàtiques de xarxa"
+      },
+      "diagnostics": "Diagnòstic de xarxa",
+      "dns": {
+        "mode": "Consulta DNS",
+        "modeAuto": "Automàtica",
+        "modeDesc": "Com cerquen les baixades les adreces dels servidors.",
+        "modeEngine": "DNS integrat",
+        "modeSystem": "DNS del sistema",
+        "title": "DNS"
+      },
+      "nat": {
+        "automatic": "Automàtic",
+        "btPortHint": "La redirecció s'aplica als ports BT/DHT configurats a BitTorrent.",
+        "enable": "Activar la redirecció de ports",
+        "enableDesc": "Demana a l'encaminador que obri els ports definits a la configuració de BitTorrent.",
+        "mappingTtl": "Durada de la redirecció (s)",
+        "preferredProtocol": "Protocol preferit",
+        "title": "Redirecció de ports (NAT)"
+      },
+      "proxy": {
+        "auth": "Autenticació al servidor intermediari",
+        "authDesc": "Activeu-la si el servidor intermediari necessita un nom d'usuari i una contrasenya.",
+        "bypass": "Connectar directament a",
+        "bypassDesc": "Un domini, una IP o un CIDR per línia. Comenceu amb . per incloure només els subdominis. Les baixades de fitxers no admeten comodins *.",
+        "bypassPlaceholder": "localhost\n127.0.0.1\n.local",
+        "bypassScopeNote": "Només baixades de fitxers i actualitzacions de l'aplicació",
+        "enable": "Activar el servidor intermediari",
+        "enableDesc": "Utilitza un servidor intermediari per a les connexions seleccionades a continuació.",
+        "hidePassword": "Amagar la contrasenya",
+        "host": "Adreça del servidor",
+        "hostPlaceholder": "proxy.example.com",
+        "importFromSystem": "Importar del sistema",
+        "importedToast": "S'ha importat el servidor intermediari del sistema: {{host}}:{{port}}",
+        "noSystemProxy": "No hi ha cap servidor intermediari configurat al sistema.",
+        "password": "Contrasenya",
+        "port": "Port",
+        "protocol": "Protocol",
+        "scopeChoose": "Seleccionar…",
+        "scopeDownload": "Baixades de fitxers",
+        "scopeDownloadDesc": "En BT, només HTTP(S) utilitza el servidor intermediari. Els parells, DHT i els rastrejadors UDP es connecten directament.",
+        "scopeHint": "Els parells de BT, DHT i els rastrejadors UDP es connecten directament.",
+        "scopeNone": "Cap selecció",
+        "scopeSeparator": ", ",
+        "scopeUpdateApp": "Actualitzacions de l'aplicació",
+        "scopeUpdateAppDesc": "Comprova si hi ha actualitzacions del Motrix mitjançant el servidor intermediari.",
+        "scopeUpdateTrackers": "Actualitzacions de les llistes de rastrejadors",
+        "scopeUpdateTrackersDesc": "Baixa les llistes de rastrejadors mitjançant el servidor intermediari; no afecta el trànsit BT.",
+        "scopes": "Utilitzar el servidor intermediari per a",
+        "scopesDesc": "Trieu quins tipus de trànsit passen pel servidor intermediari.",
+        "server": "Servidor",
+        "showPassword": "Mostrar la contrasenya",
+        "title": "Servidor intermediari",
+        "user": "Nom d'usuari"
+      },
+      "reachability": {
+        "addEndpoint": "Afegir un servei de comprovació",
+        "empty": "Afegiu almenys un servei de comprovació.",
+        "enable": "Comprovar els ports entrants",
+        "endpoints": "Serveis de comprovació (HTTPS)",
+        "privacyHint": "Utilitza un servei de tercers per comprovar l'accés des d'Internet.",
+        "title": "Comprovació dels ports entrants"
+      },
+      "stun": {
+        "addServer": "Afegir un servidor STUN",
+        "empty": "Afegiu almenys un servidor STUN.",
+        "enable": "Detectar el tipus de NAT",
+        "privacyHint": "Utilitza servidors STUN de tercers.",
+        "servers": "Servidors STUN",
+        "title": "Detecció del tipus de NAT"
+      }
+    },
+    "title": "Configuració",
+    "validation": {
+      "address": "Adreça {{number}}",
+      "addressDraft": "Adreça nova",
+      "directory": "Trieu una carpeta de baixades.",
+      "httpUrl": "Introduïu una adreça completa que comenci per http:// o https://.",
+      "httpsUrl": "Introduïu una adreça completa que comenci per https://.",
+      "integer": "Introduïu un nombre enter.",
+      "integerRange": "Introduïu un nombre enter entre {{min}} i {{max}}.",
+      "invalid": "Introduïu un valor vàlid.",
+      "itemCount": "Manteniu {{max}} adreces o menys.",
+      "loadFailed": "No s'ha pogut carregar la configuració. Torneu-ho a provar.",
+      "maximum": "Introduïu {{max}} o menys.",
+      "minimum": "Introduïu {{min}} o més.",
+      "number": "Introduïu un nombre vàlid.",
+      "proxyHost": "Introduïu un nom de servidor o una adreça IP, sense http:// ni port.",
+      "range": "Introduïu un nombre entre {{min}} i {{max}}.",
+      "rangeHint": "Interval: {{min}}–{{max}}.",
+      "required": "Introduïu primer una adreça.",
+      "saveFailed": "No s'han pogut desar els canvis. Torneu-ho a provar.",
+      "selection": "Trieu una opció disponible.",
+      "stunServer": "Utilitzeu servidor:port, com ara stun.example.com:3478. El port ha de ser entre 1 i 65535.",
+      "text": "Traieu els salts de línia o els caràcters de control ocults.",
+      "textLength": "Utilitzeu {{max}} caràcters o menys.",
+      "time": "Utilitzeu el format de 24 hores, com ara 23:00.",
+      "wholeBytes": "Utilitzeu menys decimals."
+    }
+  },
+  "task": {
+    "add": {
+      "adding": "S'està afegint…",
+      "advanced": "Opcions avançades",
+      "allProxy": "Servidor intermediari",
+      "authorization": "Authorization",
+      "batchCreated": "Tasques afegides: {{count}}",
+      "browse": "explorar",
+      "changeSaveDir": "Canviar la carpeta de destinació",
+      "clearSelection": "Esborrar la selecció",
+      "cookie": "Cookie",
+      "createFailed": "No s'ha pogut crear la tasca de baixada.",
+      "createFailedByPlugin": "No s'ha pogut crear la tasca: el connector «{{pluginId}}» l'ha aturada ({{detail}}). Desactiveu aquest connector a Configuració → Connectors i torneu-ho a provar.",
+      "createFailedPathTooLong": "No s'ha pogut crear la tasca: el camí de destinació té {{length}} caràcters i supera el límit de {{limit}} del Windows. Trieu un camí de carpeta o un nom de fitxer més curt.",
+      "createFailedWithReason": "No s'ha pogut crear la tasca de baixada: {{reason}}",
+      "created": "S'ha afegit la tasca",
+      "createdCopy": "S'ha afegit una còpia independent",
+      "createdPartial": "Afegides: {{ok}} · Fallides: {{failed}}",
+      "dlLimit": "Límit de baixada",
+      "downloadAllTorrents": "Baixar-los tots ({{count}})",
+      "downloadAndContinue": "Baixar i continuar",
+      "dropTorrent": "Deixeu anar un fitxer .torrent aquí o feu clic per seleccionar-lo",
+      "duplicate": {
+        "active-info-hash": "{{name}} ja està actiu. L'aria2 no pot executar el mateix contingut torrent dues vegades alhora.",
+        "createCopy": "Crear una còpia independent",
+        "existing-files": "{{name}} ja existeix en aquesta destinació, però el registre de la tasca no està disponible. El Motrix no el sobreescriurà.",
+        "filesOnDisk": "Fitxers del torrent",
+        "selection-mismatch": "{{name}} utilitza la mateixa destinació amb una selecció de fitxers diferent. El Motrix no el sobreescriurà ni crearà una còpia amb un altre nom sense avisar.",
+        "showExisting": "Mostrar la tasca existent",
+        "title": "Aquest torrent ja existeix"
+      },
+      "errors": {
+        "missingSource": "Cal un fitxer torrent o un enllaç magnet",
+        "noFilesSelected": "Seleccioneu almenys un fitxer",
+        "saveDirRequired": "Cal una carpeta de destinació",
+        "urlsRequired": "Cal almenys un URL"
+      },
+      "filename": "Nom del fitxer",
+      "filenameAuto": "Automàtic",
+      "filterBy": {
+        "audio": "Àudio",
+        "doc": "Document",
+        "image": "Imatge",
+        "video": "Vídeo"
+      },
+      "interpretedCurl": "S'ha interpretat l'ordre cURL",
+      "interpretedInfoHash": "S'ha convertit el hash d'informació de BT en un enllaç magnet",
+      "interpretedJson": "S'han importat els URL del JSON",
+      "interpretedMagnet": "S'ha detectat un enllaç magnet",
+      "invalidJson": "S'esperava una cadena JSON amb un URL o una matriu de cadenes d'URL.",
+      "invalidUrlCount": "No vàlids: {{count}}",
+      "links": "Enllaços",
+      "parseFailed": "No s'ha pogut interpretar el fitxer torrent.",
+      "pickPathCustom": "Camí personalitzat",
+      "pickPathTitle": "Seleccionar la carpeta de destinació",
+      "queueAdvanceFailed": "No s'ha pogut obrir el torrent següent.",
+      "referer": "Referer",
+      "saveDirEmpty": "Trieu una carpeta…",
+      "saveTo": "Desar a",
+      "seedRatio": "Ràtio de compartició",
+      "selectionTimeout": {
+        "failed": "No s'ha pogut iniciar {{name}} automàticament. Obriu els detalls de la tasca per seleccionar fitxers i torneu-ho a provar.",
+        "started": "S'ha esgotat el temps per seleccionar fitxers: es baixaran tots els fitxers de {{name}}"
+      },
+      "skipTorrent": "Ometre",
+      "sourceCorrections": {
+        "encodeLiteralCharacters": "Codificar com a caràcters literals",
+        "useCanonicalUrl": "Utilitzar aquest URL expandit",
+        "usePathSeparators": "Interpretar les barres inverses com a separadors del camí"
+      },
+      "sourceErrors": {
+        "ambiguousBackslash": "Una barra inversa fa que el servidor o el camí siguin ambigus. Trieu com interpretar-la.",
+        "ambiguousStructure": "L'analitzador d'URL canviaria aquesta adreça. Reviseu l'URL expandit.",
+        "controlCharacter": "Traieu els caràcters de control de l'URL.",
+        "credentialsInUrl": "Utilitzeu els camps d'autenticació en lloc d'incloure credencials a l'URL.",
+        "invalidHost": "El servidor de l'URL no hi és o no és vàlid.",
+        "invalidMagnet": "L'enllaç magnet necessita un hash d'informació de BT compatible al paràmetre xt.",
+        "invalidPercentEncoding": "El signe de percentatge ha d'anar seguit de dos dígits hexadecimals.",
+        "invalidPort": "El port de l'URL no és vàlid.",
+        "invalidUnicode": "L'URL conté Unicode no vàlid.",
+        "missingScheme": "Incloeu l'esquema de l'URL, com ara https://.",
+        "mixedProtocols": "Les rèpliques d'una baixada han d'utilitzar la mateixa família de protocols.",
+        "tooManySources": "Les dades introduïdes superen el nombre o la mida d'enllaços permesos.",
+        "unescapedCharacter": "Codifiqueu explícitament els espais i els caràcters reservats.",
+        "unsupportedInput": "No s'ha importat aquest format d'entrada. Enganxeu un URL o dades JSON o cURL de Bash compatibles.",
+        "unsupportedProtocol": "El protocol d'aquest URL no és compatible amb aquesta baixada.",
+        "unsupportedRequestOptions": "No es poden aplicar capçaleres HTTP a una baixada FTP.",
+        "urlTooLong": "L'URL supera el límit de 16 KiB."
+      },
+      "sourceLine": "Línia {{line}}",
+      "split": "Connexions",
+      "submissionUnconfirmed": "El resultat no s'ha confirmat. Si ho torneu a provar, es comprovarà la petició original abans de crear una altra tasca.",
+      "title": "Tasca nova",
+      "torrent": "Torrent",
+      "torrentQueueProgress": "Torrent {{current}} de {{total}}",
+      "ulLimit": "Límit de pujada",
+      "undoCorrection": "Desfer la correcció de l'URL",
+      "unlimited": "Sense límit",
+      "unsupportedCurl": "No es pot importar fidelment aquesta ordre cURL. Copieu l'URL o una ordre GET de Bash amb opcions compatibles.",
+      "urlPlaceholder": "Introduïu un URL, un enllaç magnet o un hash d'informació de BT…",
+      "urlsCount_many": "{{count}} URL",
+      "urlsCount_one": "{{count}} URL",
+      "urlsCount_other": "{{count}} URL",
+      "urlsLabel": "URL",
+      "urlsWithInvalid": "Vàlids: {{valid}}, no vàlids: {{invalid}}",
+      "userAgent": "User-Agent",
+      "validUrlCount": "Vàlids: {{count}}"
+    },
+    "detail": {
+      "peers": "Parells: {{count}}",
+      "seeds": "Distribuïdors: {{count}}"
+    },
+    "error": {
+      "detail": {
+        "filesMissing": "Falten fitxers després de reiniciar l'aplicació",
+        "finalizeFailed": "No s'ha pogut finalitzar la baixada: {{cause}}",
+        "magnetCleanupQuarantined": "La neteja de metadades del magnet està en quarantena",
+        "muxFailed": "No s'ha pogut combinar el contingut multimèdia baixat",
+        "pathTooLong": "El camí té {{length}} caràcters; el Windows en permet {{limit}}",
+        "pluginChainAborted": "S'ha interromput la cadena de connectors: {{cause}}",
+        "recoveryFailed": "No s'ha pogut recuperar la baixada: {{cause}}",
+        "recoveryOutputConflict": "Existeixen tant el fitxer temporal com el final; s'han conservat tots dos per revisar-los manualment",
+        "renameDirFailed": "No s'ha pogut canviar el nom de la carpeta: {{cause}}",
+        "renameFileFailed": "No s'ha pogut canviar el nom del fitxer: {{cause}}"
+      },
+      "hint": {
+        "btMetadataFailed": "Comproveu l'enllaç magnet o afegiu més rastrejadors i torneu-ho a provar",
+        "checksumMismatch": "El fitxer baixat podria estar malmès; torneu-lo a baixar per verificar-lo",
+        "diskFull": "Allibereu espai al disc o canvieu la carpeta de destinació i torneu-ho a provar",
+        "fileWriteError": "Comproveu els permisos de la carpeta i l'espai disponible al disc i torneu-ho a provar",
+        "networkError": "Comproveu la connexió de xarxa i torneu-ho a provar",
+        "pathTooLong": "Escurceu el camí de la carpeta de destinació o el nom del fitxer i torneu-ho a provar",
+        "timeout": "Comproveu la velocitat i l'estabilitat de la connexió i torneu-ho a provar",
+        "tooManyRedirects": "L'enllaç d'origen podria estar trencat; proveu-ne un altre",
+        "unauthorized": "Comproveu les credencials o els permisos d'accés i torneu-ho a provar"
+      },
+      "reason": {
+        "btMetadataFailed": "No s'han pogut obtenir les metadades del torrent",
+        "btTrackerError": "La connexió amb el rastrejador ha fallat",
+        "checksumMismatch": "La suma de verificació del fitxer no coincideix",
+        "diskFull": "El disc és ple",
+        "fileWriteError": "No s'ha pogut escriure el fitxer",
+        "generic": "La baixada ha fallat",
+        "networkError": "La connexió de xarxa ha fallat",
+        "notFound": "No s'ha trobat el fitxer",
+        "pathTooLong": "El camí del fitxer és massa llarg per al Windows",
+        "serverError": "El servidor ha retornat un error",
+        "timeout": "S'ha esgotat el temps d'espera de la baixada",
+        "tooManyRedirects": "Hi ha massa redireccions",
+        "unauthorized": "Cal autorització",
+        "unknown": "La baixada ha fallat"
+      }
+    },
+    "recovery": {
+      "finalizeRenameFailed": "No s'ha pogut canviar el nom del fitxer. El fitxer baixat conserva el sufix .motrix.",
+      "metaMissing": "Falten les metadades del torrent. No es pot iniciar la distribució.",
+      "reseedFailed": "La baixada s'ha completat, però no s'ha pogut iniciar la distribució.",
+      "startup": {
+        "dirtyMetadata": "No es pot recuperar aquesta tasca: falta la informació d'identificació de la tasca necessària per reprendre-la.",
+        "mediaInterrupted": "Aquesta baixada multimèdia s'ha interromput en reiniciar l'aplicació i no es pot reprendre. Torneu-la a afegir per provar-ho de nou.",
+        "reAddFailed": "No es pot recuperar aquesta tasca: el motor ha rebutjat la petició de tornar-la a afegir. Suprimiu-la i torneu-la a afegir manualment.",
+        "resumeCheckpointMissing": "S'ha conservat el fitxer parcial, però falta el punt de control per reprendre'l. Torneu a començar de manera segura o torneu a afegir la tasca.",
+        "resumeCredentialsRequired": "S'ha conservat el fitxer parcial, però aquesta baixada necessita credencials de petició que no es poden reutilitzar automàticament.",
+        "resumePathInvalid": "S'ha conservat el fitxer parcial perquè el camí de sortida desat no és vàlid.",
+        "resumeRangeUnsupported": "S'ha conservat el fitxer parcial perquè el servidor no admet reprendre la baixada de manera segura per intervals.",
+        "resumeSourceChanged": "S'ha conservat el fitxer parcial perquè el fitxer remot ha canviat des que va començar la baixada.",
+        "resumeValidationFailed": "S'ha conservat el fitxer parcial perquè el Motrix no ha pogut verificar que el fitxer remot no hagi canviat.",
+        "torrentMetaMissing": "No es pot recuperar aquesta tasca de BitTorrent: falta el fitxer de metadades .torrent. Suprimiu la tasca i torneu-la a afegir."
+      },
+      "toast": "Tasques interrompudes recuperades: {{count}}. Feu clic per revisar-les."
+    },
+    "remove": {
+      "cancel": "Cancel·lar",
+      "confirm": "Suprimir",
+      "deleteFilesLabel": "Eliminar els fitxers baixats",
+      "description": "La tasca «{{name}}» se suprimirà de la llista de baixades.",
+      "notAvailableDuringFinalize": "Espereu que finalitzi la tasca.",
+      "orphanToast": "S'ha suprimit la tasca. Els fitxers es conserven a {{path}}.",
+      "title": "Voleu suprimir la tasca?"
+    },
+    "torrent": {
+      "audio": "Àudio",
+      "column": {
+        "name": "Nom del fitxer",
+        "size": "Mida",
+        "type": "Tipus de fitxer"
+      },
+      "doc": "Document",
+      "fileSelected_many": "{{count}} fitxers seleccionats",
+      "fileSelected_one": "{{count}} fitxer seleccionat",
+      "fileSelected_other": "{{count}} fitxers seleccionats",
+      "image": "Imatge",
+      "selectAll": "Seleccionar-los tots",
+      "video": "Vídeo"
+    }
+  },
+  "trackers": {
+    "blacklist": {
+      "column": {
+        "source": "Origen",
+        "url": "URL"
+      },
+      "disabled": "Desactivat; activeu-ho per veure la llista de bloqueig.",
+      "empty": "La llista de bloqueig és buida.",
+      "enabled": "Aplicar el filtre de la llista de bloqueig",
+      "enabledDesc": "Bloqueja les connexions als servidors de rastrejadors sospitosos i amb errors.",
+      "summary": "URL actius: {{count}}"
+    },
+    "combobox": {
+      "addSource": "Afegir",
+      "addSourcePlaceholder": "https://example.com/list.txt",
+      "builtinBadge": "integrada",
+      "cdnBadge": "CDN",
+      "directBadge": "Directa",
+      "empty": "No hi ha fonts coincidents.",
+      "placeholder": "Seleccionar les fonts",
+      "removeSource": "Suprimir la font"
+    },
+    "effective": {
+      "column": {
+        "health": "Estat",
+        "lastProbedAt": "Última comprovació",
+        "responseTimeMs": "Resposta (ms)",
+        "source": "Origen",
+        "url": "URL"
+      },
+      "disabled": "Desactivat; activeu-ho per veure la llista de rastrejadors efectius.",
+      "empty": "Encara no hi ha rastrejadors efectius. Sincronitzeu per emplenar la llista.",
+      "enabled": "Afegir rastrejadors seleccionats",
+      "enabledDesc": "Afegeix la llista de rastrejadors seleccionats a totes les tasques de BitTorrent."
+    },
+    "sync": {
+      "applying": "S'estan aplicant les llistes de rastrejadors…",
+      "failed": "Sincronització incompleta. Comproveu la xarxa o les fonts i torneu-ho a provar.",
+      "fetching": "S'estan obtenint les llistes de rastrejadors…",
+      "probing": "S'està comprovant la disponibilitat dels rastrejadors…",
+      "syncing": "S'està sincronitzant…",
+      "unavailable": "No es pot llegir l'estat de sincronització. Comproveu la connexió i torneu-ho a provar."
+    }
+  },
+  "tray": {
+    "checkUpdates": "Comprovar si hi ha actualitzacions",
+    "manual": "Manual",
+    "newTask": "Tasca nova",
+    "newTorrentTask": "Tasca de torrent nova",
+    "openTorrentFile": "Obrir un fitxer torrent",
+    "preferences": "Configuració",
+    "quit": "Sortir",
+    "showMotrix": "Mostrar el Motrix"
+  }
+}

@@ -328,7 +328,7 @@ export function WebMenuButton() {
               variant="ghost"
               size="xs"
               aria-label={t('menu.app.title')}
-              className="app-no-drag h-7 w-[72px] gap-1 bg-transparent pl-2 pr-1 hover:bg-accent"
+              className="app-no-drag h-7 w-[72px] gap-1 bg-transparent ps-2 pe-1 hover:bg-accent"
               onPointerDownCapture={() => {
                 source.current =
                   document.activeElement instanceof HTMLElement

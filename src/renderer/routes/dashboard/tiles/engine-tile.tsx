@@ -173,7 +173,7 @@ function Sub({
         'min-w-0 border-border/70',
         stacked
           ? 'border-t pt-2 first:border-t-0 first:pt-0'
-          : 'border-l px-3 first:border-l-0 first:pl-0 last:pr-0'
+          : 'border-s px-3 first:border-s-0 first:ps-0 last:pe-0'
       )}
     >
       <span className="text-[11px] leading-none block truncate uppercase">

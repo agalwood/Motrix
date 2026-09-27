@@ -113,14 +113,14 @@ describe('PluginCallGraphTable', () => {
     ).toContain(longCommandId)
   })
 
-  it('right-aligns tabular counts and formats every timestamp through localized copy', () => {
+  it('aligns tabular counts to the inline end and formats every timestamp through localized copy', () => {
     render(<PluginCallGraphTable rows={model.tableRows} strings={strings} />)
 
     const table = screen.getByRole('table', { name: strings.tableLabel })
     const firstDataRow = within(table).getAllByRole('row')[1]
     const cells = within(firstDataRow).getAllByRole('cell')
-    expect(cells[3]).toHaveClass('text-right', 'tabular-nums')
-    expect(cells[4]).toHaveClass('text-right', 'tabular-nums')
+    expect(cells[3]).toHaveClass('text-end', 'tabular-nums')
+    expect(cells[4]).toHaveClass('text-end', 'tabular-nums')
     expect(cells[4]).toHaveTextContent('localized timestamp 300')
     expect(formatLastCall.mock.calls.map(([timestamp]) => timestamp)).toEqual([
       300, 100, 200,

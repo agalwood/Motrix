@@ -35,7 +35,7 @@ export function TaskProgress({ task }: { task: DownloadTask }) {
         aria-label={`${task.name}: ${label}`}
         className="h-1 min-w-4 flex-1"
       />
-      <span className="min-w-0 shrink truncate text-right">{label}</span>
+      <span className="min-w-0 shrink truncate text-end">{label}</span>
     </div>
   )
 }

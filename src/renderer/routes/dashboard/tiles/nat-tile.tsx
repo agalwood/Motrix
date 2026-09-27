@@ -287,7 +287,7 @@ function Metric({
           featured
             ? 'mt-1 break-all font-mono text-[clamp(0.75rem,8cqi,1rem)] leading-5'
             : inline
-              ? 'break-words text-right text-xs leading-4'
+              ? 'break-words text-end text-xs leading-4'
               : dense
                 ? 'mt-1 break-words text-xs leading-4'
                 : 'mt-1 break-words text-sm leading-5'

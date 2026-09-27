@@ -1,0 +1,2788 @@
+{
+  "applicationMenu": {
+    "actionFailed": "Handlingen kunne ikke fullføres. Kontroller tilkoblingen og prøv igjen.",
+    "back": "Tilbake",
+    "clearConfirm": "Tøm registreringer",
+    "clearDescription": "Fjerner registreringer for fullførte, mislykkede og fjernede oppgaver som fantes da denne dialogen ble åpnet. Nedlastede filer blir liggende på disken.",
+    "clearTitle": "Tømme registreringer for stoppede oppgaver?",
+    "discardConfirm": "Forkast",
+    "discardDescription": "Ulagrede lenker, torrentvalg og innstillinger forkastes.",
+    "discardTitle": "Forkaste dette oppgaveutkastet?",
+    "logoutConfirm": "Logg ut",
+    "logoutDescription": "Dette logger også ut andre faner som bruker samme nettleserøkt. Nedlastingene fortsetter på serveren. Ulagrede inndata i disse fanene forkastes.",
+    "logoutTitle": "Logge ut av denne serveren?",
+    "retry": "Prøv igjen",
+    "serverUnavailable": "Serveren er utilgjengelig. Du er ikke logget ut av økten.",
+    "signOut": "Logg ut…"
+  },
+  "bridge": {
+    "receiver": {
+      "error": {
+        "authExpired": "Økten er utløpt — oppdater siden i nettleseren og prøv igjen",
+        "cancelled": "Avbrutt",
+        "diskFull": "Disken er full",
+        "diskWriteFailed": "Kan ikke skrive til disken: {{detail}}",
+        "internalError": "Intern feil: {{detail}}",
+        "invalidPayload": "Ugyldig forespørsel fra utvidelsen",
+        "invalidUrlScheme": "URL-en må bruke http: eller https:",
+        "muxAborted": "Sammenslåing avbrutt",
+        "muxFailed": "ffmpeg mislyktes under sammenslåing av lyd og video",
+        "notFound": "Ressursen ble ikke funnet (404)",
+        "rangeNotSatisfiable": "Kunne ikke fortsette; start nedlastingen på nytt",
+        "transientFailure": "Nedlastingen mislyktes etter flere forsøk: {{detail}}",
+        "unsupportedEncryption": "DRM-beskyttet innhold kan ikke lastes ned",
+        "unsupportedKind": "Nedlastinger av typen {{kind}} støttes ikke i denne Motrix-versjonen",
+        "unsupportedLive": "Direktesendinger kan ikke lastes ned",
+        "unsupportedMaster": "Utvidelsen sendte en hovedspilleliste; forventet en variant"
+      }
+    }
+  },
+  "chrome": {
+    "close": "Lukk",
+    "maximize": "Maksimer",
+    "minimize": "Minimer",
+    "newTask": "Ny oppgave",
+    "restore": "Gjenopprett",
+    "sidebarDescription": "Appnavigasjon.",
+    "sidebarTitle": "Sidepanel",
+    "toggleSidebar": "Vis eller skjul sidepanelet"
+  },
+  "common": {
+    "apply": "Bruk",
+    "cancel": "Avbryt",
+    "clearSearch": "Tøm søket",
+    "close": "Lukk",
+    "collapse": "Trekk sammen",
+    "confirm": "Bekreft",
+    "download": "Last ned",
+    "error": "Feil",
+    "hidePassword": "Skjul passord",
+    "loading": "Laster inn…",
+    "name": "Navn:",
+    "remove": "Fjern",
+    "reset": "Tilbakestill",
+    "retry": "Prøv igjen",
+    "save": "Lagre",
+    "showPassword": "Vis passord",
+    "status": {
+      "finalizing": "Fullfører…"
+    }
+  },
+  "directoryPicker": {
+    "back": "Tilbake",
+    "create": "Opprett",
+    "createHelp": "Opprettede mapper blir liggende på serveren hvis du avbryter valget.",
+    "description": "Stiene er på serveren (inne i containeren ved bruk av Docker).",
+    "empty": "Ingen undermapper",
+    "errors": {
+      "alreadyExists": "En fil eller mappe med dette navnet finnes allerede.",
+      "creationOutcomeUnknown": "Opprettelsen kunne ikke bekreftes. Oppdater for å kontrollere før du oppretter en ny mappe her.",
+      "invalidName": "Skriv inn et gyldig mappenavn.",
+      "invalidPath": "Skriv inn en gyldig absolutt mappesti.",
+      "notDirectory": "Denne stien er ikke en mappe.",
+      "notFound": "Denne mappen finnes ikke lenger.",
+      "outsideRoots": "Denne mappen er utenfor de tillatte plasseringene.",
+      "permissionDenied": "Du har ikke tillatelse til å bruke denne mappen.",
+      "tooLarge": "Stien eller mappenavnet har for mange tegn.",
+      "unavailable": "Serveren kunne ikke fullføre denne forespørselen. Prøv igjen."
+    },
+    "fallback": "Den forespurte mappen er utilgjengelig. Viser {{path}}.",
+    "folderName": "Mappenavn",
+    "folders": "Mapper",
+    "forward": "Fremover",
+    "go": "Gå",
+    "goToFolder": "Gå til mappe",
+    "incomplete": "Bare deler av denne mappen vises. Skriv inn en nøyaktig sti for å gå til en annen mappe.",
+    "loading": "Laster inn mapper…",
+    "location": "Plassering",
+    "newFolder": "Ny mappe",
+    "path": "Mappesti",
+    "places": {
+      "allowed": "Tillatte plasseringer",
+      "common": "Vanlige plasseringer",
+      "default": "Standardmappe",
+      "desktop": "Skrivebord",
+      "documents": "Dokumenter",
+      "downloads": "Nedlastinger",
+      "home": "Hjem",
+      "loadFailed": "Noen mappeplasseringer kunne ikke lastes inn.",
+      "root": "Filsystem"
+    },
+    "refresh": "Oppdater",
+    "refreshAfterCreateFailed": "Mappen ble opprettet, men listen kunne ikke oppdateres.",
+    "retry": "Prøv igjen",
+    "selectFolder": "Velg mappe",
+    "selectedPath": "Valgt mappe",
+    "showHidden": "Vis skjulte mapper",
+    "sortAscending": "Stigende",
+    "sortBy": "Sorter etter",
+    "sortDescending": "Synkende",
+    "sortModified": "Endringsdato",
+    "sortName": "Navn",
+    "sortOrder": "Rekkefølge",
+    "title": "Velg servermappe",
+    "unknownOutcome": "Opprettelsen kunne ikke bekreftes. Oppdater for å kontrollere før du oppretter en ny mappe her.",
+    "up": "Opp ett nivå",
+    "viewOptions": "Visningsvalg"
+  },
+  "directoryPreferences": {
+    "addFavorite": "Legg til favoritt",
+    "alreadyFavorite": "Allerede i favoritter",
+    "clearRecent": "Tøm nylige mapper",
+    "close": "Lukk",
+    "description": "Hvis du fjerner en mappe fra denne listen, slettes ikke mappen eller filene i den.",
+    "emptyFavorites": "Ingen favorittmapper",
+    "emptyHistory": "Ingen favorittmapper eller nylige mapper ennå",
+    "emptyRecent": "Ingen nylige mapper",
+    "errors": {
+      "conflict": "Innstillingene ble endret i et annet vindu. Se gjennom endringene og lagre på nytt.",
+      "invalidPath": "Skriv inn en gyldig absolutt mappesti.",
+      "limitReached": "Grensen for favorittmapper er nådd. Fjern en favoritt før du legger til en ny.",
+      "notDirectory": "Denne stien er ikke en mappe.",
+      "notFound": "Denne mappen finnes ikke lenger.",
+      "outsideRoots": "Denne mappen er utenfor de tillatte plasseringene.",
+      "permissionDenied": "Du har ikke tillatelse til å bruke denne mappen.",
+      "tooLarge": "Denne mappestien er for lang.",
+      "unavailable": "Mapperegistreringene kunne ikke oppdateres. Oppdater for å kontrollere gjeldende tilstand."
+    },
+    "favoriteRecent": "Legg til i favoritter",
+    "favorites": "Favorittmapper",
+    "history": "Mappehistorikk",
+    "limitHint": "Du kan lagre opptil {{count}} favorittmapper.",
+    "loading": "Laster inn mapper…",
+    "manage": "Administrer mapper",
+    "manageAction": "Administrer",
+    "manageDescription": "Velg favorittmapper og administrer nylige mapper.",
+    "pickerFailed": "Kunne ikke åpne mappevelgeren. Prøv igjen.",
+    "recent": "Nylige mapper",
+    "removeFavorite": "Fjern favoritt",
+    "removeRecent": "Fjern nylig mappe",
+    "retry": "Prøv igjen",
+    "sectionDescription": "Ha ofte brukte mapper lett tilgjengelig.",
+    "title": "Administrer mapper"
+  },
+  "errors": {
+    "task": {
+      "create": {
+        "dedupExhausted": "Det finnes allerede for mange filer med dette navnet (>9999).",
+        "torrentMetaFailed": "Kunne ikke lagre torrentmetadata."
+      }
+    }
+  },
+  "menu": {
+    "app": {
+      "about": "Om Motrix",
+      "checkForUpdates": "Se etter oppdateringer",
+      "hide": "Skjul Motrix",
+      "hideOthers": "Skjul andre",
+      "preferences": "Innstillinger…",
+      "quit": "Avslutt Motrix",
+      "show": "Vis Motrix",
+      "title": "Motrix",
+      "unhide": "Vis alle"
+    },
+    "edit": {
+      "copy": "Kopier",
+      "cut": "Klipp ut",
+      "delete": "Slett",
+      "paste": "Lim inn",
+      "redo": "Gjør om",
+      "selectAll": "Velg alle",
+      "title": "Rediger",
+      "undo": "Angre"
+    },
+    "file": {
+      "title": "Arkiv"
+    },
+    "help": {
+      "changelog": "Utgivelsesnotater",
+      "manual": "Motrix-hjelp",
+      "officialWebsite": "Motrix-nettstedet",
+      "reportProblem": "Rapporter et problem",
+      "title": "Hjelp",
+      "toggleDevTools": "Vis eller skjul utviklerverktøy"
+    },
+    "task": {
+      "clearRecentTasks": "Tøm registreringer for stoppede oppgaver…",
+      "deleteTask": "Fjern oppgaver…",
+      "moveTaskDown": "Flytt ned i køen",
+      "moveTaskUp": "Flytt opp i køen",
+      "newBtTask": "Ny BitTorrent-oppgave…",
+      "newTask": "Ny oppgave…",
+      "openFile": "Åpne torrentfil…",
+      "pauseAllTask": "Sett alle på pause",
+      "pauseTask": "Sett på pause",
+      "resumeAllTask": "Fortsett alle",
+      "resumeTask": "Fortsett",
+      "selectAllTask": "Velg alle oppgaver",
+      "taskList": "Oppgaveliste",
+      "title": "Oppgave"
+    },
+    "window": {
+      "close": "Lukk",
+      "front": "Legg alle øverst",
+      "minimize": "Minimer",
+      "reload": "Last inn på nytt",
+      "title": "Vindu",
+      "toggleFullscreen": "Slå fullskjerm av eller på",
+      "zoom": "Zoom"
+    }
+  },
+  "nav": {
+    "completed": "Fullførte",
+    "dashboard": "Oversikt",
+    "downloads": "Nedlastinger",
+    "notifications": "Varsler",
+    "plugins": "Programtillegg",
+    "settings": "Innstillinger",
+    "trackers": "Trackere"
+  },
+  "notification": {
+    "center": {
+      "actionFailed": "Kunne ikke oppdatere varsler. Prøv igjen.",
+      "clearAll": "Tøm",
+      "empty": "Ingen varsler",
+      "emptyDesc": "Nedlastingsaktivitet og viktige meldinger fra appen vises her",
+      "markAllRead": "Merk alle som lest",
+      "markRead": "Merk som lest",
+      "openTaskFailed": "Kunne ikke åpne oppgaven. Prøv igjen.",
+      "removeAria": "Fjern {{title}}",
+      "rowUnreadAria": "{{title}} (ulest)",
+      "taskRemoved": "Oppgaven er fjernet",
+      "title": "Varsler",
+      "toastRegionAria": "Varsler",
+      "unreadBadgeAria_one": "{{count}} ulest varsel",
+      "unreadBadgeAria_other": "{{count}} uleste varsler",
+      "unreadDotAria": "Uleste varsler",
+      "viewTask": "Vis oppgave"
+    },
+    "dnsFallback": {
+      "body": "Motrix kunne ikke nå en DNS-server og byttet derfor til systemets DNS for denne økten.",
+      "title": "{{name}} ble forsøkt på nytt med systemets DNS"
+    },
+    "engineCompatibility": {
+      "body": "aria2 {{version}} er ikke Motrix-varianten. Tilkoblingsinnstillingene er begrenset til høyst {{limit}}, og lagring av historikk i SQLite er utilgjengelig. Gjenopprett den medfølgende aria2_motrix-motoren for full støtte.",
+      "title": "aria2 som ikke tilhører Motrix, ble oppdaget"
+    },
+    "engineFailure": {
+      "title": "Nedlastingsmotoren mislyktes"
+    },
+    "engineRestartRequired": {
+      "body": "Innstillingene er lagret. Start nedlastingsmotoren på nytt når det passer.",
+      "restartNow": "Start på nytt nå",
+      "title": "Start nedlastingsmotoren på nytt for å ta i bruk innstillingene"
+    },
+    "taskComplete": {
+      "title": "{{name}} er ferdig nedlastet"
+    },
+    "taskError": {
+      "title": "{{name}} mislyktes"
+    }
+  },
+  "onboarding": {
+    "disclaimer": {
+      "agree": "Godta og fortsett",
+      "body": "Motrix tilbyr bare nedlastingshåndtering. Det tilbyr, lagrer, er vert for eller anbefaler ikke innhold for nedlasting. Du må sikre at du har lovlig rett til å hente, bruke eller dele innhold gjennom Motrix, og at dette er i samsvar med gjeldende opphavsrett og annen lovgivning. Du er ansvarlig for eventuelle følger av å laste ned, bruke eller dele innhold. Ved å velge «Godta og fortsett» bekrefter du at du har lest og forstått denne informasjonen.",
+      "highlights": {
+        "authorized": "har lovlig rett",
+        "downloadManagement": "tilbyr bare nedlastingshåndtering",
+        "responsibility": "Du er ansvarlig"
+      },
+      "language": "Språk",
+      "languages": {
+        "chinese": "简体中文",
+        "english": "English"
+      },
+      "localConsent": "Valget ditt lagres på denne enheten.",
+      "quit": "Avslutt",
+      "retry": "Prøv igjen",
+      "saveFailed": "Kunne ikke lagre samtykket ditt. Kontroller diskplassen og prøv igjen.",
+      "summary": "Les følgende før du fortsetter.",
+      "title": "Informasjon om bruk"
+    }
+  },
+  "operatorAdmin": {
+    "decision": {
+      "approve": "Godkjente {{userCode}} for {{clientName}} ({{clientVersion}}).",
+      "deny": "Avviste {{userCode}} for {{clientName}} ({{clientVersion}})."
+    },
+    "errorPrefix": "motrix-admin: {{message}}",
+    "errors": {
+      "credential": {
+        "dataDirNotAbsolute": "MOTRIX_DATA_DIR må være en absolutt sti.",
+        "invalid": "Filen med operatørens autentiseringsopplysninger er ugyldig.",
+        "notFile": "Stien til operatørens autentiseringsopplysninger peker ikke til en vanlig fil.",
+        "rejected": "Motrix avviste operatørens autentiseringsopplysninger.",
+        "tokenHeaderInvalid": "MOTRIX_OPERATOR_TOKEN kan ikke brukes i et HTTP-hode.",
+        "unavailable": "Operatørens autentiseringsopplysninger er utilgjengelige. Sett MOTRIX_OPERATOR_TOKEN eller sørg for at operator-token finnes i datamappen.",
+        "unreadable": "Kunne ikke lese operatørens autentiseringsopplysninger."
+      },
+      "server": {
+        "ambiguousRequest": "Flere ventende sammenkoblingsforespørsler samsvarer med {{userCode}}; ingen avgjørelse ble gjennomført.",
+        "approvalUnavailable": "Godkjenning av sammenkobling er ikke tilgjengelig på den kjørende Motrix-serveren.",
+        "decisionOutcomeUnknown": "Resultatet av sammenkoblingsavgjørelsen er ukjent. Kjør pairing pending før du prøver igjen.",
+        "decisionResponseInvalid": "Motrix returnerte et ugyldig svar på sammenkoblingsavgjørelsen.",
+        "noMatchingRequest": "Ingen ventende sammenkoblingsforespørsel samsvarer med {{userCode}}.",
+        "pendingResponseInvalid": "Motrix returnerte et ugyldig svar om ventende sammenkoblinger.",
+        "requestNoLongerPending": "Sammenkoblingsforespørselen venter ikke lenger.",
+        "responseInvalidJson": "Motrix returnerte et ugyldig JSON-svar.",
+        "responseOversized": "Motrix returnerte et for stort svar.",
+        "responseUnreadable": "Motrix returnerte et uleselig svar.",
+        "rpcHttp": "Motrix-RPC for sammenkobling mislyktes med HTTP {{status}}.",
+        "unexpected": "Uventet motrix-admin-feil."
+      },
+      "unavailable": {
+        "approvalNotReady": "Godkjenning av sammenkobling er ikke klar på den kjørende Motrix-serveren.",
+        "loopback": "Den kjørende Motrix-serveren er utilgjengelig på containerens loopback-grensesnitt."
+      },
+      "usage": {
+        "jsonRepeated": "--json kan bare angis én gang.",
+        "pairingCodeInvalid": "Sammenkoblingskoden må inneholde åtte ASCII-tegn og kan ikke bruke I, O, 0 eller 1.",
+        "pairingCommandRequired": "Forventet kommandoen pairing.",
+        "pairingOperationRequired": "Forventet pairing pending, pairing approve CODE eller pairing deny CODE.",
+        "portInvalid": "PORT må være et heltall mellom 1 og 65535.",
+        "unknownOption": "Ukjent kommandolinjealternativ."
+      }
+    },
+    "help": "Bruk:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nKommandoen kommuniserer bare med den kjørende Motrix-serveren via containerens loopback-grensesnitt.",
+    "pending": {
+      "none": "Ingen ventende sammenkoblingsforespørsler.",
+      "row": "{{userCode}}  {{clientName}}  {{clientVersion}}  utløper om {{ttl}}",
+      "ttl": "{{minutes}} min {{seconds}} s"
+    },
+    "usageHint": "Kjør `motrix-admin --help` for bruksanvisning."
+  },
+  "operatorUnlock": {
+    "error": "Ugyldig operatørtoken. Kontroller MOTRIX_OPERATOR_TOKEN eller <dataDir>/operator-token på vertsmaskinen og prøv igjen.",
+    "help": "Denne serveren krever operatørtokenet. På vertsmaskinen setter du MOTRIX_OPERATOR_TOKEN eller leser tokenet fra <dataDir>/operator-token, og limer det inn nedenfor.",
+    "placeholder": "Operatørtoken",
+    "submit": "Lås opp",
+    "title": "Lås opp Motrix"
+  },
+  "panel": {
+    "completed": {
+      "desc": "Fullførte nedlastingsoppgaver",
+      "title": "Fullførte"
+    },
+    "connection": {
+      "originMismatch": "Tilgangsadressen stemmer ikke",
+      "polling": "Periodiske oppdateringer",
+      "reconnecting": "Kobler til serveren på nytt…",
+      "unavailable": "Serveren kan ikke nås"
+    },
+    "dashboard": {
+      "active": {
+        "downloading": "Laster ned",
+        "engineOffline": "motor frakoblet",
+        "error": "Feil",
+        "seeding": "Deler",
+        "title": "Aktive oppgaver",
+        "waiting": "Venter"
+      },
+      "activity": {
+        "completedIntensity": "Fargeintensiteten viser fullførte nedlastinger",
+        "coverageDegraded": "Aktiviteten kan være ufullstendig fra {{time}}",
+        "less": "Færre",
+        "loading": "Laster inn aktivitet",
+        "more": "Flere",
+        "rangeSummary": "{{weeks}} uker med nedlastingsaktivitet, fra {{start}} til {{end}}",
+        "retry": "Prøv igjen",
+        "stale": "Aktiviteten kan være utdatert",
+        "title": "Aktivitet",
+        "tooltip": {
+          "completed": "Fullført: {{count}}",
+          "completedOnDate": "Fullført {{date}}: {{count}}",
+          "coverage": "Dekningen kan være ufullstendig fra {{time}}",
+          "coverageShort": "Dataene kan være ufullstendige",
+          "noData": "Ingen aktivitetsdata",
+          "noDataOnDate": "Ingen aktivitetsdata for {{date}}",
+          "partial": "Registreringen startet {{time}}",
+          "partialShort": "Delvis dag",
+          "recovered": "Inkluderer en fullføring oppdaget under gjenoppretting",
+          "recoveredCount": "Gjenopprettet: {{count}}",
+          "submitted": "Sendt inn: {{count}}",
+          "today": "I dag, oppdateres fortsatt",
+          "untracked": "Registrering har ikke startet"
+        },
+        "unavailable": "Aktivitet er utilgjengelig",
+        "weekday": {
+          "fri": "Fre",
+          "mon": "Man",
+          "sat": "Lør",
+          "sun": "Søn",
+          "thu": "Tor",
+          "tue": "Tir",
+          "wed": "Ons"
+        }
+      },
+      "configure": {
+        "action": "Tilpass",
+        "addTile": "Legg til",
+        "addTitle": "Legg til en rute",
+        "apply": "Bruk",
+        "availabilityHints": {
+          "bounds": "Flytt ruten innover først.",
+          "space": "Gjør en annen rute mindre eller fjern den.",
+          "unsupported": "Velg en støttet størrelse."
+        },
+        "cancel": "Avbryt",
+        "currentSize": "Gjeldende størrelse: {{width}} × {{height}}",
+        "drag": "Dra rute",
+        "expandHint": "Gjør vinduet større for å tilpasse oversiktsoppsettet.",
+        "invalidCapacity": "Ikke nok plass til denne størrelsen",
+        "presets": {
+          "action": "Forhåndsinnstillinger",
+          "balanced": {
+            "title": "Balansert"
+          },
+          "compact": {
+            "title": "Kompakt"
+          },
+          "custom": "Egendefinert",
+          "speedFocus": {
+            "title": "Hastighetsfokus"
+          },
+          "taskFocus": {
+            "title": "Oppgavefokus"
+          },
+          "undo": "Angre siste forhåndsinnstilling"
+        },
+        "removeTile": "Fjern rute",
+        "reset": "Tilbakestill",
+        "resizeTile": "Endre rutestørrelse",
+        "saveFailed": "Kunne ikke lagre oppsettet. Prøv igjen.",
+        "size": "{{width}} × {{height}}",
+        "sizeGroup": "Rutestørrelse",
+        "sizeLabels": {
+          "compact": "Kompakt",
+          "fullHeight": "Full høyde",
+          "fullWidth": "Full bredde",
+          "large": "Stor",
+          "tall": "Høy",
+          "wide": "Bred"
+        },
+        "sizeUnavailable": {
+          "insufficientSpace": "Ikke nok plass",
+          "outOfBounds": "Passer ikke",
+          "unsupported": "Støttes ikke"
+        }
+      },
+      "engine": {
+        "diagnostics": {
+          "binary": {
+            "available": "{{name}} {{version}}",
+            "unavailable": "{{name}} mangler eller kan ikke startes."
+          },
+          "checking": "Kjører motorkontroller…",
+          "checks": {
+            "binary": "Nedlastingsmotor",
+            "communication": "Tilkobling",
+            "features": "Funksjoner",
+            "process": "Prosess",
+            "rpc": "RPC-port"
+          },
+          "communication": {
+            "ready": "Motrix kan kommunisere med aria2."
+          },
+          "confirmForce": {
+            "action": "Tvangsstopp og gjenopprett",
+            "description": "PID {{pid}} samsvarer med Motrix sin medfølgende programfil, private RPC-hemmelighet og datastier. Prosessen avsluttes umiddelbart, og aria2 startes deretter på nytt på Motrix sin RPC-port.",
+            "title": "Tvangsstoppe den gjenværende aria2-prosessen?"
+          },
+          "copied": "Kopiert",
+          "copy": "Kopier diagnostikk",
+          "copyFailed": "Kunne ikke kopiere diagnostikken. Prøv igjen.",
+          "currentStatus": "Gjeldende status",
+          "description": "Kontroller motoren, identifiser prosessen som bruker Motrix sin RPC-port, og gjenopprett trygt.",
+          "details": "Diagnostikkdetaljer",
+          "fallback": {
+            "available": "Motrix sin standardport {{port}} er ledig og kan gjenopprettes nå.",
+            "blocked": "Standardport {{port}} brukes av PID {{pid}} ({{name}}), men Motrix kan ikke bekrefte eierskapet. Prosessen vil ikke bli avsluttet.",
+            "confirm": {
+              "action": "Stopp og gjenopprett port {{port}}",
+              "description": "PID {{pid}} er bekreftet som en gjenværende aria2-prosess fra Motrix. Den stoppes, standardport {{port}} lagres, og aria2 startes på nytt.",
+              "title": "Stoppe restprosessen og gjenopprette port {{port}}?"
+            },
+            "restore": "Gjenopprett Motrix sin standardport {{port}}",
+            "restoredDefault": "Motrix sin standard-RPC-port {{port}} er gjenopprettet.",
+            "restoring": "Gjenoppretter Motrix sin standardport {{port}}…",
+            "unidentified": "Prosessen som bruker standardport {{port}}, kunne ikke identifiseres. Motrix fortsetter å bruke gjeldende port.",
+            "verifiedOrphan": "En bekreftet gjenværende aria2-prosess fra Motrix (PID {{pid}}) bruker standardport {{port}}. Motrix kan stoppe den trygt før porten gjenopprettes."
+          },
+          "features": {
+            "none": "Ikke rapportert",
+            "unavailable": "Utilgjengelig"
+          },
+          "forceRecover": "Tvangsstopp og gjenopprett",
+          "impact": {
+            "connecting": "Nedlastingskontroller blir tilgjengelige når motoren er klar.",
+            "failed": "Nedlastingskontroller er utilgjengelige. Oppgavestatusen kan være utdatert.",
+            "stopped": "Start motoren for å begynne eller administrere nedlastinger."
+          },
+          "lastChecked": "Kontrollert {{time}}",
+          "loadFailed": "Kunne ikke kjøre motordiagnostikk.",
+          "motrixEngine": "aria2 Motrix",
+          "open": "Diagnostiser",
+          "port": {
+            "available": "{{port}} (ledig)",
+            "listening": "{{port}} (lytter)",
+            "occupied": "{{port}} (i bruk)"
+          },
+          "process": {
+            "current_app": "PID {{pid}} ({{name}}), administreres av Motrix",
+            "external_aria2": "PID {{pid}} ({{name}}), ubekreftet eierskap; vil ikke bli stoppet",
+            "none": "Ingen portkonflikt",
+            "other": "PID {{pid}} ({{name}}), ubekreftet eierskap; vil ikke bli stoppet",
+            "unidentified": "Uidentifisert, vil ikke bli stoppet",
+            "unknown": "PID {{pid}}, uidentifisert; vil ikke bli stoppet",
+            "verified_orphan": "PID {{pid}} ({{name}}), bekreftet restprosess fra Motrix; trygg å stoppe"
+          },
+          "reason": {
+            "binary_unavailable": "Den medfølgende aria2-programfilen mangler eller er utilgjengelig.",
+            "health_check_failed": "aria2 sluttet å svare Motrix.",
+            "port_in_use": "Motrix sin RPC-port er opptatt, så aria2-motoren kunne ikke starte.",
+            "rpc_unavailable": "aria2-motoren startet, men godtok ikke RPC-tilkoblinger fra Motrix.",
+            "spawn_failed": "aria2-prosessen kunne ikke opprettes.",
+            "unexpected_exit": "aria2-motoren avsluttet uventet.",
+            "unknown": "aria2-motoren kunne ikke starte av en ukjent årsak."
+          },
+          "recommendation": {
+            "force_terminate": "Det er bekreftet at denne prosessen tilhører Motrix. Tvangsstopp PID {{pid}}, og start deretter aria2 på nytt på Motrix sin RPC-port {{rpcPort}}.",
+            "retry": "Porten er ledig. Prøv aria2 igjen uten å endre innstillingene.",
+            "switch_port": "Prosessen kan ikke avsluttes trygt. Bruk port {{port}} bare som reserve, eller avslutt den motstridende prosessen selv.",
+            "title": "Anbefalt gjenoppretting"
+          },
+          "recovered": "aria2-motoren er tilgjengelig igjen.",
+          "recoveredOnPort": "aria2-motoren ble gjenopprettet på RPC-port {{port}}.",
+          "recoveryFailed": "Gjenoppretting av motoren mislyktes. Kjør diagnostikken på nytt for oppdatert status.",
+          "refreshFailed": "Kunne ikke oppdatere diagnostikken. Den siste vellykkede rapporten vises nedenfor.",
+          "restart": "Start motoren på nytt",
+          "retry": "Prøv igjen",
+          "rpc": {
+            "available": "{{port}} (ledig)",
+            "listening": "{{port}} (lytter)",
+            "occupied": "{{port}} (i bruk)"
+          },
+          "runAgain": "Kjør igjen",
+          "runtime": {
+            "connected": "Tilkoblet",
+            "connecting": "Kobler til…",
+            "connection": "Tilkobling",
+            "connectionStatus": "{{transport}} ({{status}})",
+            "disconnected": "Ikke tilkoblet",
+            "notRunning": "Kjører ikke",
+            "process": "Prosess",
+            "running": "Kjører",
+            "unavailable": "Utilgjengelig"
+          },
+          "summary": {
+            "binary_unavailable": "Nedlastingsmotoren er utilgjengelig",
+            "health_check_failed": "Nedlastingsmotoren sluttet å svare",
+            "port_in_use": "Motorens kontrollport er opptatt",
+            "ready": "Nedlastingsmotoren kjører normalt",
+            "restarting": "Nedlastingsmotoren gjenopprettes",
+            "rpc_unavailable": "Motorens kontrolltilkobling er utilgjengelig",
+            "spawn_failed": "Nedlastingsmotoren kunne ikke starte",
+            "starting": "Nedlastingsmotoren starter",
+            "stopped": "Nedlastingsmotoren er stoppet",
+            "unexpected_exit": "Nedlastingsmotoren avsluttet uventet",
+            "unknown": "Nedlastingsmotoren er utilgjengelig"
+          },
+          "switchPort": "Bruk port {{port}}",
+          "technicalDetails": "Tekniske detaljer",
+          "title": "Motordiagnostikk",
+          "transport": {
+            "websocket": "WebSocket"
+          },
+          "versionUnknown": "Versjon utilgjengelig"
+        },
+        "features": "Funksjoner",
+        "listenPort": "Lytteport",
+        "name": "Aria2",
+        "rpcPort": "RPC-port",
+        "startFailed": "aria2-motoren kunne ikke starte",
+        "state": {
+          "disconnected": "Frakoblet",
+          "failed": "Mislyktes",
+          "ready": "Klar",
+          "reconnecting": "Kobler til på nytt…",
+          "starting": "Starter…",
+          "stopped": "Stoppet"
+        },
+        "title": "Nedlastingsmotor",
+        "version": "Versjon"
+      },
+      "errors": {
+        "retry": "Prøv igjen",
+        "tileFailed": "{{tile}}: visning mislyktes"
+      },
+      "nat": {
+        "actions": {
+          "diagnose": "Kjør diagnostikk",
+          "disable": "Deaktiver NAT",
+          "enable": "Aktiver NAT",
+          "group": "NAT-kontroller",
+          "remap": "Tving ny videresending",
+          "settings": "NAT-innstillinger",
+          "short": {
+            "diagnose": "Diagnostiser",
+            "disable": "Deaktiver",
+            "enable": "Aktiver",
+            "help": "Hjelp",
+            "remap": "Videresend på nytt"
+          },
+          "troubleshoot": "Feilsøkingsveiledning for NAT"
+        },
+        "caption": {
+          "failed": "Automatisk videresending er utilgjengelig.",
+          "off": "Videresending av BT-porter er av.",
+          "settingUp": "Kobler til ruteren…",
+          "waiting": "Venter på nettverksstatus…"
+        },
+        "compact": {
+          "caption": {
+            "active_one": "{{count}} port",
+            "active_other": "{{count}} porter",
+            "failed": "Utilgjengelig",
+            "off": "BT / DHT",
+            "settingUp": "Kobler til…",
+            "waiting": "Laster inn…"
+          },
+          "state": {
+            "active": "Videresendt",
+            "failed": "Videresending",
+            "off": "Av",
+            "settingUp": "Videresending"
+          }
+        },
+        "externalIp": "Ekstern IP",
+        "gatewayIp": "Ruter",
+        "health": "Tilstand",
+        "healthScore": {
+          "fair": "Middels",
+          "good": "God",
+          "poor": "Dårlig",
+          "unknown": "—"
+        },
+        "internalIp": "Lokal IP",
+        "lastCheck": "Siste kontroll",
+        "lastCheckNever": "Aldri",
+        "mappingDetails": "Videresendte porter",
+        "mappingPurpose": {
+          "bt-listen": "BitTorrent",
+          "dht-listen": "DHT"
+        },
+        "mappings": "Videresendinger",
+        "mappingsValue_one": "{{count}} aktiv",
+        "mappingsValue_other": "{{count}} aktive",
+        "natType": {
+          "blocked": "Blokkert",
+          "fullcone": "Full kjegle",
+          "open": "Åpen",
+          "port-restricted": "Portbegrenset",
+          "restricted": "Begrenset",
+          "symmetric": "Symmetrisk",
+          "unknown": "Ukjent"
+        },
+        "noMappings": "Ingen aktive portvideresendinger.",
+        "none": "—",
+        "portMapping": "Intern {{internal}} til ekstern {{external}}",
+        "rateLimited": "For hyppige forsøk — prøv igjen om litt",
+        "retrying": "Prøver igjen {{attempt}}/{{max}}",
+        "state": {
+          "active": "Aktiv",
+          "failed": "Mislyktes",
+          "off": "Av",
+          "settingUp": "Initialiserer"
+        },
+        "title": "NAT",
+        "type": "Type"
+      },
+      "speed": {
+        "down": "NEDLASTING",
+        "offline": "frakoblet",
+        "peak": "Topp {{value}}",
+        "up": "OPPLASTING"
+      },
+      "speedDown": {
+        "title": "Nedlastingshastighet"
+      },
+      "speedLimit": {
+        "reason": {
+          "adaptive": "Båndbreddereserve",
+          "base": "Standardgrense",
+          "schedule": "Tidsplan",
+          "turtle": "Lavhastighetsmodus",
+          "videoApp": "Videoapp"
+        },
+        "settings": "Innstillinger for hastighetsgrenser",
+        "smart": "Automatisk",
+        "title": "Hastighetsgrense",
+        "tooltip": {
+          "auto": "Juster hastigheten automatisk etter tidsplan og båndbredde",
+          "off": "Bruk standard hastighetsgrenser",
+          "on": "Bruk grensene for lav hastighet nå"
+        },
+        "turtle": {
+          "auto": "Automatisk modus",
+          "off": "Standardmodus",
+          "on": "Lavhastighetsmodus"
+        },
+        "unlimited": "Ubegrenset"
+      },
+      "speedUp": {
+        "title": "Opplastingshastighet"
+      },
+      "tasks": {
+        "empty": {
+          "active": "Ingen aktive oppgaver",
+          "failed": "Ingen mislykkede oppgaver",
+          "recent": "Ingen fullførte oppgaver ennå"
+        },
+        "loading": "Laster inn oppgaver",
+        "metric": {
+          "fetching": "Henter",
+          "finalizing": "Fullfører",
+          "paused": "På pause",
+          "queued": "I kø",
+          "ready": "Klar"
+        },
+        "more": "+{{count}} til",
+        "newTask": "Ny oppgave",
+        "offline": "Motor frakoblet",
+        "progressLabel": "Fremdrift for {{name}}",
+        "retry": "Prøv igjen",
+        "secondary": {
+          "chooseFiles": "Venter på filvalg",
+          "completed": "Fullført {{time}}",
+          "eta": "Gjenstående tid {{time}}",
+          "failed": "Mislyktes: {{reason}}",
+          "finalizing": "Fullfører nedlastingen",
+          "metadata": "Henter metadata",
+          "offline": "Frakoblet (siste kjente fremdrift)",
+          "ratio": "Forhold {{ratio}}",
+          "saved": "{{percent}}% lagret",
+          "technicalDetail": "Teknisk detalj: {{detail}}",
+          "waiting": "Venter på å starte"
+        },
+        "title": "Oppgaver",
+        "unavailable": "Oppgaver er utilgjengelige",
+        "view": {
+          "active": "Aktive",
+          "failed": "Mislykkede",
+          "recent": "Nylige"
+        },
+        "viewLabel": "Oppgavevisning"
+      },
+      "title": "Oversikt",
+      "transfer": {
+        "download": "Ned",
+        "empty": {
+          "allTime": "Ingen overføring registrert ennå.",
+          "today": "Ingen overføring registrert i dag."
+        },
+        "loading": "Laster inn overføringsdata",
+        "outOfDate": "Dataene kan være utdaterte",
+        "rangeLabel": "Overføringsperiode",
+        "retry": "Prøv igjen",
+        "scope": {
+          "allTime": "Hele perioden",
+          "today": "I dag"
+        },
+        "sinceDate": "Siden {{date}}",
+        "sinceTime": "Siden {{time}}",
+        "title": "Overføring",
+        "totalLabel": "Samlet overføring for «{{scope}}»: {{value}}",
+        "unavailable": "Overføringsdata er utilgjengelige",
+        "updated": "Oppdatert {{time}}",
+        "upload": "Opp"
+      }
+    },
+    "downloads": {
+      "action": {
+        "batchPartial": "Vellykket: {{ok}}, mislyktes: {{failed}}",
+        "cancel": "Avbryt",
+        "chooseFiles": "Velg filer…",
+        "copied": "Kopiert til utklippstavlen",
+        "copyError": "Kopier feilinformasjon",
+        "copyFailed": "Kunne ikke kopiere til utklippstavlen. Prøv igjen.",
+        "copyPath": "Kopier filsti",
+        "copyUrl": "Kopier URL",
+        "copyUrlFailed": "Kopiering mislyktes: kunne ikke laste inn oppgavens lenkedetaljer. Prøv igjen.",
+        "copyUrls": "Kopier URL-er",
+        "errorReport": "{{name}}\nOppgave-ID: {{id}}\n{{details}}",
+        "finalizingTooltip": "Oppgaven fullføres, vent litt",
+        "moveQueueBottom": "Flytt bakerst",
+        "moveQueueDown": "Flytt ned i køen",
+        "moveQueueTop": "Flytt fremst",
+        "moveQueueUp": "Flytt opp i køen",
+        "openFile": "Åpne fil",
+        "openFileFailed": "Kunne ikke åpne filen",
+        "openFolder": "Åpne mappe",
+        "pause": "Sett på pause",
+        "pauseTooltipBatch": "Sett på pause: {{n}} / {{total}} i utvalget",
+        "queueBoundary": "Utvalget kan ikke flyttes lenger i denne retningen",
+        "queueMoveFailed": "Kunne ikke oppdatere ventekøen.",
+        "queueMoveHint": "Plasseringen i køen bestemmer hvilken ventende nedlasting som starter neste gang. Kolonnesortering lagres separat.",
+        "queueMoved": "Ventekøen er oppdatert",
+        "queueOrder": "Nedlastingsrekkefølge",
+        "queueTaskStarted": "Oppgaven er ikke lenger i ventekøen.",
+        "remove": "Fjern",
+        "removeAll_completed_Title": "Fjerne fullførte oppgaver ({{count}})?",
+        "removeAll_downloading_Title": "Fjerne aktive oppgaver ({{count}})?",
+        "removeAll_error_Title": "Fjerne mislykkede oppgaver ({{count}})?",
+        "removeAll_paused_Title": "Fjerne oppgaver på pause ({{count}})?",
+        "removeAll_seeding_Title": "Fjerne delingsoppgaver ({{count}})?",
+        "removeConfirmWithFiles": "Slett også de nedlastede filene fra disken",
+        "removeFilesEstimate": "Vil slette {{bytes}} fra disken",
+        "removeMixedTitle": "Fjerne oppgaver ({{count}})?",
+        "removeSingleTitle": "Fjerne «{{name}}»?",
+        "removeTooltipBatch": "Fjern: {{n}} / {{total}} i utvalget",
+        "removeWithFilesShift": "Hold Shift for også å slette filer",
+        "reseed": "Start deling igjen",
+        "reseedTooltipBatch": "Start deling igjen: {{n}} / {{total}} i utvalget",
+        "resume": "Fortsett",
+        "resumeTooltipBatch": "Fortsett: {{n}} / {{total}} i utvalget",
+        "retry": "Prøv igjen",
+        "retryTooltipBatch": "Prøv igjen: {{n}} / {{total}} i utvalget",
+        "retryWithDialog": "Prøv igjen med alternativer… (Alt+klikk)",
+        "selectFiles": "Velg filer",
+        "selectFilesFailed": "Kunne ikke åpne filvalget.",
+        "singleTaskFailed": "{{name}}: {{reason}}",
+        "stopSeeding": "Stopp deling",
+        "stopSeedingTooltipBatch": "Stopp deling: {{n}} / {{total}} i utvalget"
+      },
+      "column": {
+        "connections": "Noder",
+        "createdAt": "Opprettelsesdato",
+        "down": "Nedlastingshastighet",
+        "eta": "Gjenstående tid",
+        "finishedAt": "Fullføringsdato",
+        "name": "Navn",
+        "progress": "Fremdrift",
+        "size": "Størrelse",
+        "status": "Status",
+        "up": "Opplastingshastighet"
+      },
+      "columnHeader": {
+        "down": "Nedlasting",
+        "up": "Opplasting"
+      },
+      "empty": {
+        "clearSearch": "Tøm søket",
+        "motion": {
+          "breathing": "Pulserende lys",
+          "description": "Utviklingsforhåndsvisning",
+          "enabled": "Bevegelseseffekter",
+          "enabledDesc": "Synkronisert med Utseende → Reduser bevegelse. Endringer lagres umiddelbart.",
+          "horizontalSpeed": "Vannrett hastighet",
+          "loadFade": "Inntoning ved innlasting",
+          "open": "Juster glassbevegelse",
+          "pointerFollow": "Følg pekeren",
+          "positionConstraint": "Posisjonsgrense for tyngdekraft",
+          "saveFailed": "Kunne ikke lagre bevegelsesinnstillingen. Prøv igjen.",
+          "systemReducedMotion": "Bevegelse er deaktivert av systemets innstilling for redusert bevegelse.",
+          "title": "Glassbevegelse"
+        },
+        "noMatchFilter": "Ingen oppgaver samsvarer med dette filteret",
+        "noMatchSearch": "Ingen oppgaver samsvarer med «{{query}}»",
+        "noTasks": "Ingen nedlastinger ennå",
+        "noTasksCta": "Trykk + for å legge til en",
+        "unavailable": "Oppgaver er utilgjengelige"
+      },
+      "heading": {
+        "active": "Aktive nedlastinger",
+        "all": "Alle nedlastinger",
+        "completed": "Fullførte nedlastinger",
+        "error": "Mislykkede nedlastinger"
+      },
+      "inspector": {
+        "activity": {
+          "chart": {
+            "accessibleSummary": "{{range}} fra {{start}} til {{end}}. Siste nedlastingshastighet {{download}}, opplastingshastighet {{upload}}. Samlet gjennomsnittlig nedlastingshastighet {{average}}, høyeste nedlastingshastighet {{peak}}, aktiv tid {{activeDuration}}. {{sampleLabel}}. {{state}}",
+            "activeSeconds_one": "{{count}} sekund",
+            "activeSeconds_other": "{{count}} sekunder",
+            "noDataQualityIssues": "Ingen registreringsadvarsler.",
+            "sampleCount_one": "{{count}} måling",
+            "sampleCount_other": "{{count}} målinger"
+          },
+          "collecting": "Samler overføringsdata…",
+          "coverageGap": "Registreringen ble avbrutt.",
+          "download": "Nedlasting",
+          "lifetimeEmpty": "Samlet historikk er ikke tilgjengelig ennå.",
+          "loading": "Laster inn aktivitet…",
+          "noSessionHistory": "Ingen overføring registrert i denne appøkten.",
+          "noTraffic": "Ingen nettverkstrafikk akkurat nå.",
+          "notAvailable": "Ikke tilgjengelig",
+          "range": {
+            "adaptive_one": "Tilpasset oppløsning · {{count}} måling",
+            "adaptive_other": "Tilpasset oppløsning · {{count}} målinger",
+            "label": "Tidsrom for overføring",
+            "latest": "Siste 60 sekunder",
+            "lifetime": "Hele perioden",
+            "session": "Økt (60 s)"
+          },
+          "retry": "Prøv igjen",
+          "stale": {
+            "message": "Dataene kan være utdaterte. Sist oppdatert {{time}}.",
+            "short": "Utdaterte data."
+          },
+          "summary": {
+            "active": "Aktiv",
+            "activeExpanded": "Aktiv overføringstid",
+            "average": "Gjennomsnitt",
+            "averageExpanded": "Gjennomsnittlig nedlastingshastighet",
+            "peak": "Topp",
+            "peakExpanded": "Høyeste nedlastingshastighet",
+            "title": "Gjeldende sammendrag"
+          },
+          "timeline": {
+            "cluster_one": "+{{count}} hendelse",
+            "cluster_other": "+{{count}} hendelser",
+            "current": "Nå: {{status}}",
+            "destination": "{{event}} {{status}}",
+            "detailTitle": "Detaljer for {{label}}",
+            "event": {
+              "added": "Lagt til",
+              "completed": "Fullført",
+              "failed": "Mislyktes",
+              "observed_state": "Tilstand gjenopprettet",
+              "paused": "Satt på pause",
+              "resumed": "Fortsatt",
+              "stage_changed": "Fase endret",
+              "started": "Startet"
+            },
+            "next": "Vis senere hendelser i tidslinjen",
+            "previous": "Vis tidligere hendelser i tidslinjen",
+            "repeated": "{{label}} ×{{count}}",
+            "status": {
+              "completed": "Fullført",
+              "downloading": "Laster ned",
+              "error": "Mislyktes",
+              "fetching_metadata": "Henter metadata",
+              "finalizing": "Fullfører",
+              "metadata_ready": "Metadata klare",
+              "paused": "På pause",
+              "queued": "I kø",
+              "removed": "Fjernet",
+              "seeding": "Deler"
+            },
+            "timeRange": "{{start}}–{{end}}",
+            "title": "Oppgavehistorikk",
+            "truncatedAt": "Tidligste avkorting: {{time}}",
+            "truncated_one": "{{count}} hendelse utelatt fra eldre historikk",
+            "truncated_other": "{{count}} hendelser utelatt fra eldre historikk"
+          },
+          "transferTitle": {
+            "lifetime": "Samlet overføring",
+            "session": "Overføring i økten"
+          },
+          "unavailable": "Samlet aktivitet er utilgjengelig.",
+          "upload": "Opplasting"
+        },
+        "multi": {
+          "avgProgress": "Gjennomsnittlig fremdrift",
+          "combinedDown": "Samlet ↓",
+          "combinedUp": "Samlet ↑",
+          "downloaded": "Lastet ned",
+          "liveSpeed": "Gjeldende hastighet",
+          "longestEta": "Lengste gjenstående tid",
+          "statusDist": "Statusfordeling",
+          "totalSize": "Samlet størrelse",
+          "totals": "Totaler"
+        },
+        "overview": {
+          "connections": "Tilkoblinger",
+          "createdAt": "Opprettet",
+          "downSpeed": "Nedlastingshastighet",
+          "downloaded": "Lastet ned",
+          "eta": "Gjenstående tid",
+          "finishedAt": "Fullført",
+          "general": "Generelt",
+          "infoHash": "Infohash",
+          "network": "Nettverk",
+          "peers": "Noder",
+          "percent": "Prosent",
+          "private": "Privat",
+          "progress": "Fremdrift",
+          "ratio": "Forhold",
+          "seedingRecordedSince": "Registrert siden {{date}}. Tid på pause og frakoblet tid er ikke inkludert; tidligere delingshistorikk er utilgjengelig.",
+          "seedingTime": "Delingstid",
+          "seedingUnavailable": "Delingstid er ikke registrert for denne oppgaven.",
+          "seeds": "Delere",
+          "totalSize": "Samlet størrelse",
+          "transfer": "Overføring",
+          "type": "Type",
+          "upSpeed": "Opplastingshastighet",
+          "uploaded": "Lastet opp"
+        },
+        "peers": {
+          "col": {
+            "client": "Klient",
+            "country": "Plassering",
+            "down": "↓",
+            "endpoint": "IP : Port",
+            "flags": "Flagg",
+            "flagsHint": "D = noden sender til oss, U = vi sender til noden, S = noden er en deler. Understrek betyr inaktiv.",
+            "progress": "%",
+            "up": "↑"
+          },
+          "empty": "Ingen noder tilkoblet",
+          "summary_one": "{{count}} node (delere: {{seeders}})",
+          "summary_other": "{{count}} noder (delere: {{seeders}})"
+        },
+        "pieces": {
+          "empty": "Ingen data om deler",
+          "legend": {
+            "active": "Laster ned",
+            "done": "Fullført",
+            "endgame": "Sluttfase",
+            "pending": "Venter"
+          },
+          "mapLabel": "Kart over nedlastingsdeler",
+          "pieceLength": "Delstørrelse",
+          "totalPieces": "Antall deler"
+        },
+        "placeholder": {
+          "files": "Filliste.",
+          "peers": "Nodeliste.",
+          "trackers": "Trackerliste."
+        },
+        "tab": {
+          "activity": "Aktivitet",
+          "files": "Filer",
+          "overview": "Oversikt",
+          "peers": "Noder",
+          "pieces": "Deler",
+          "trackers": "Trackere"
+        },
+        "trackers": {
+          "action": {
+            "cancel": "Avbryt",
+            "delete": "Fjern tracker",
+            "edit": "Rediger",
+            "save": "Lagre",
+            "sync": "Synkroniser"
+          },
+          "deleteFailed": "Kunne ikke fjerne tracker: {{reason}}",
+          "driftSuffix_one": "{{count}} mangler i den globale listen",
+          "driftSuffix_other": "{{count}} mangler i den globale listen",
+          "editHint": "Disse trackerne erstatter oppgavens gjeldende bt-tracker-liste. Oppføringene i .torrent-filens announce-list påvirkes ikke.",
+          "editPlaceholder": "Én tracker-URL per linje. Bare http(s)/udp/ws(s).",
+          "empty": "Ingen trackere",
+          "invalidLines_one": "Hoppet over {{count}} ugyldig linje",
+          "invalidLines_other": "Hoppet over {{count}} ugyldige linjer",
+          "loadFailed": "Kunne ikke laste inn trackere: {{reason}}",
+          "privateBanner": "Privat torrent — globale trackere legges ikke til.",
+          "saveFailed": "Kunne ikke oppdatere trackere: {{reason}}",
+          "summary_one": "{{count}} tracker",
+          "summary_other": "{{count}} trackere",
+          "syncFailed": "Kunne ikke synkronisere trackere: {{reason}}",
+          "syncPrivateDisabled": "Synkronisering er utilgjengelig for private torrenter."
+        }
+      },
+      "media": {
+        "assembling": "Setter sammen",
+        "avgDownloadProgress": "Gjennomsnittlig nedlastingsfremdrift",
+        "decrypting": "Dekrypterer",
+        "downloadEta": "Gjenstående nedlastingstid",
+        "downloadProgress": "Nedlastingsfremdrift",
+        "downloadSize": "Nedlastingsstørrelse",
+        "muxProgress": "Fremdrift for sammenslåing",
+        "muxing": "Slår sammen",
+        "outputSize": "Utdatastørrelse",
+        "parts": "Segmenter",
+        "partsFormat": "Segmenter: {{completed}} / {{total}}",
+        "preparing": "Forbereder",
+        "processingTasks": "Behandler",
+        "renaming": "Lagrer",
+        "stage": "Fase"
+      },
+      "search": {
+        "activeQuery": "Søk: {{query}}",
+        "activeTypeFilters": "Typefilter: {{types}}",
+        "clear": "Tøm",
+        "clearQuery": "Tøm søket",
+        "empty": "Ingen samsvarende oppgaver",
+        "emptyHint": "Prøv å fjerne typefilteret eller bruke et annet søkeord",
+        "filters": "Filtre",
+        "placeholder": "Søk i nedlastinger",
+        "resetFilters": "Tilbakestill filtre",
+        "scopeLabel": "Type"
+      },
+      "sort": {
+        "asc": "{{column}}: stigende",
+        "desc": "{{column}}: synkende",
+        "down": "Nedlastingshastighet",
+        "reset": "Gjenopprett standardrekkefølge",
+        "sortAscending": "Sorter {{column}} stigende",
+        "sortDescending": "Sorter {{column}} synkende",
+        "up": "Opplastingshastighet"
+      },
+      "speedLimit": {
+        "currentMode": "Hastighetsmodus: {{mode}}",
+        "downloadLimit": "Nedlastingsgrense: {{speed}}",
+        "saveFailed": "Kunne ikke endre hastighetsmodus. Prøv igjen.",
+        "title": "Hastighetsmodus",
+        "uploadLimit": "Opplastingsgrense: {{speed}}"
+      },
+      "stale": {
+        "banner": "Oppgavelisten kan være utdatert — kobler til på nytt…"
+      },
+      "stats": {
+        "downSpeed": "Nedlastingshastighet",
+        "engineOffline": "Motor frakoblet",
+        "engineOk": "Motoren er klar",
+        "engineStarting": "Motoren starter",
+        "natActive": "NAT-videresending aktiv",
+        "natActiveDesc": "Hjelper andre BT-noder med å koble til deg.",
+        "natDisable": "Slå av NAT-videresending",
+        "natHelp": "Nettverksveiledning",
+        "natMapping": "NAT-videresending",
+        "natRetry": "Prøv igjen",
+        "natRetrying": "Automatiske nye forsøk ({{attempt}}/{{max}})",
+        "natSettingUp": "NAT-videresending",
+        "natSettings": "Nettverksinnstillinger",
+        "natUnavailable": "Automatisk videresending er utilgjengelig",
+        "natUnavailableDesc": "Påvirker ikke lenkenedlastinger. BT-tilkoblinger kan være begrenset.",
+        "upSpeed": "Opplastingshastighet"
+      },
+      "status": {
+        "completed": "Fullført",
+        "downloading": "Laster ned",
+        "error": "Feil",
+        "fetchingMetadata": "Henter",
+        "finalizing": "Fullfører",
+        "metadataReady": "Venter på filvalg",
+        "paused": "På pause",
+        "queued": "I kø",
+        "seeding": "Deler"
+      },
+      "tab": {
+        "active": "Aktive",
+        "all": "Alle",
+        "completed": "Fullførte",
+        "error": "Feil"
+      },
+      "timestamp": {
+        "notCompleted": "Ikke fullført ennå",
+        "notRecorded": "Ikke registrert",
+        "relativeDateTime": "{{date}}, {{time}}"
+      },
+      "title": "Nedlastinger",
+      "titleCount": "Vises: {{shown}} · Totalt: {{total}}",
+      "type": {
+        "bt": "BitTorrent",
+        "ftp": "FTP",
+        "http": "HTTP",
+        "magnet": "Magnet",
+        "metalink": "Metalink"
+      },
+      "view": {
+        "ascending": "Stigende",
+        "columns": "Kolonner",
+        "descending": "Synkende",
+        "hideInspector": "Skjul detaljpanel",
+        "inspector": "Oppgavedetaljer",
+        "resetColumns": "Gjenopprett standardkolonner",
+        "resizeColumn": "Endre størrelsen på kolonnen {{column}}",
+        "resizeInspector": "Endre størrelsen på detaljpanelet",
+        "selectToInspect": "Velg en oppgave for å se detaljene.",
+        "showInspector": "Vis detaljpanel",
+        "sortBy": "Sorter etter",
+        "taskActions": "Mer",
+        "title": "Listevisning"
+      }
+    },
+    "trackers": {
+      "desc": "Administrer trackertilstand og abonnementer",
+      "searchPlaceholder": "Filtrer etter URL…",
+      "syncNow": "Synkroniser nå",
+      "tab": {
+        "blacklist": "Blokkeringsliste",
+        "effective": "I bruk"
+      },
+      "title": "Trackere"
+    }
+  },
+  "plugin": {
+    "ffmpeg": {
+      "destination_phase_disallowed": "ffmpeg kan ikke skrive til {{kind}} i hooken {{phase}}. Prøv å skrive til programtilleggets lagring, eller flytt dette kallet til beforeFinalize.",
+      "staging_quota_exceeded": "Kvoten for midlertidig ffmpeg-plass er overskredet for denne oppgaven. Reduser utdatastørrelsen eller øk grensen i medieinnstillingene."
+    },
+    "install": {
+      "ffmpeg": {
+        "notInstalled": "FFmpeg er ikke installert på dette systemet.",
+        "optionalDegraded": "Mediefunksjonene i dette programtillegget er utilgjengelige inntil ffmpeg er installert.",
+        "requiredByPlugin": "Dette programtillegget krever ffmpeg. Installer det og prøv igjen.",
+        "title": "FFmpeg-krav",
+        "versionMismatch": "FFmpeg {{version}} er installert."
+      }
+    }
+  },
+  "plugins": {
+    "card": {
+      "advancedDetails": "Avanserte detaljer",
+      "commandsInvoked": "Kommandoer som kalles: {{count}}",
+      "commandsServing": "Kommandoer som tilbys: {{count}}",
+      "plain": {
+        "off": "Dette programtillegget er slått av.",
+        "optional": "Dette programtillegget fungerer uten ekstra tilgang. Du kan gi mer tilgang senere.",
+        "reviewBroadHost": "Dette programtillegget kan lese {{hostSummary}}. La det bare være aktivert hvis du stoler på det.",
+        "reviewError": "Dette programtillegget rapporterte et problem.",
+        "safe": "Dette programtillegget er aktivert og klart. Det lagrer bare egne innstillinger og leser ingen nettsteder."
+      },
+      "primaryAction": {
+        "grantAccess": "Gi tilgang",
+        "open": "Åpne",
+        "reviewAccess": "Se gjennom tilgang",
+        "settings": "Innstillinger",
+        "turnOn": "Slå på",
+        "viewIssue": "Vis problem"
+      }
+    },
+    "clearSearch": "Tøm søket",
+    "consent": {
+      "broadAccess": {
+        "body": "Dette programtillegget kan lese og endre nedlastinger fra enhver URL. Installer bare hvis du stoler på kilden.",
+        "tag": "Omfattende",
+        "title": "Omfattende tilgang til nettsteder"
+      },
+      "calleeMissing": "Ikke installert",
+      "confirm": "Tillat og installer",
+      "diff": {
+        "engines": "Påkrevd Motrix-versjon",
+        "heap": "Minneforespørsel",
+        "hostPermissions": "Ny tilgang til nettsteder",
+        "invokesCommands": "Nye kommandokall mellom programtillegg",
+        "optionalPermissions": "Nye valgfrie tillatelser",
+        "permissions": "Nye tillatelser",
+        "publicCommands": "Nye offentlige kommandoer",
+        "publicCommandsSchema": "Skjemaer for offentlige kommandoer er endret",
+        "source": "Pakkekilde",
+        "title": "Endringer siden siste samtykke"
+      },
+      "hostPermissions": "Tilgang til nettsteder",
+      "installTitle": "Installere {{name}} {{version}}?",
+      "invokesCommands": "Kaller kommandoer i andre programtillegg",
+      "notVerified": "Dette programtillegget er ikke bekreftet. Installer bare programtillegg fra kilder du stoler på.",
+      "optionalPermissions": "Valgfrie tillatelser",
+      "permissions": "Påkrevde tillatelser",
+      "source": "Kilde: {{type}} · {{url}}",
+      "upgradeTitle": "Oppgradere {{name}} til {{version}}?"
+    },
+    "detail": {
+      "about": "Om",
+      "access": "Tilgang",
+      "accessBroad": "Kan lese ethvert nettsted",
+      "accessGranted": "Hva dette programtillegget allerede kan gjøre",
+      "accessHosts_one": "Kan lese {{count}} nettsted",
+      "accessHosts_other": "Kan lese {{count}} nettsteder",
+      "accessNone": "Bare egne innstillinger",
+      "accessOptional": "Valgfri tilgang",
+      "advanced": "Avansert",
+      "attentionGeneric": "Se loggene for detaljer.",
+      "attentionTitle": "Dette programtillegget rapporterte et problem",
+      "author": "Utvikler",
+      "back": "Alle programtillegg",
+      "disabled": "Deaktivert",
+      "enabled": "Aktivert",
+      "healthIssues_one": "{{count}} problem rapportert det siste døgnet",
+      "healthIssues_other": "{{count}} problemer rapportert det siste døgnet",
+      "healthOk": "Alt i orden",
+      "hero": {
+        "attention": "Trenger oppfølging",
+        "off": "Slått av",
+        "optional": "Kan be om mer tilgang",
+        "ready": "Klart",
+        "review": "Se gjennom tilgang"
+      },
+      "homepage": "Hjemmeside",
+      "loading": "Laster inn…",
+      "logs": "Logger",
+      "mini": {
+        "access": "Tilgang",
+        "health": "Tilstand",
+        "purpose": "Formål"
+      },
+      "overview": "Oversikt",
+      "removeDesc": "Hvis du fjerner dette programtillegget, slettes også dataene det har lagret i Motrix.",
+      "removeTitle": "Fjern programtillegg",
+      "settings": "Innstillinger",
+      "uninstall": "Avinstaller",
+      "uninstallConfirm": "Avinstallere dette programtillegget? Dataene blir fjernet.",
+      "uninstallConfirmDesc": "Dette fjerner programtillegget og de lagrede innstillingene fra Motrix.",
+      "uninstallConfirmTitle": "Avinstallere {{name}}?",
+      "viewIssue": "Vis problem"
+    },
+    "diagnostics": {
+      "callGraph": {
+        "aria": {
+          "controls": "Visningskontroller for programtilleggsgraf",
+          "directions": {
+            "down": "nedover",
+            "left": "mot venstre",
+            "right": "mot høyre",
+            "up": "oppover"
+          },
+          "edgeDescription": "Velg en kallkant for å undersøke den.",
+          "edgeLabel": "{{source}} kalte {{target}}; antall kall: {{calls}}, kommandoer: {{commands}}",
+          "fitView": "Tilpass programtilleggsgrafen til visningen",
+          "graphDescription": "Siste 24 timer: programtillegg {{nodeCount}}, relasjoner {{pairCount}}.",
+          "graphLabel": "Kommandorelasjoner mellom programtillegg",
+          "handle": "Skrivebeskyttet kallendepunkt",
+          "interactive": "Slå interaksjonsmodus for grafen av eller på",
+          "minimap": "Oversikt over programtilleggsgraf",
+          "nodeDescription": "Velg en programtilleggsnode for å undersøke den.",
+          "nodeKeyboardInstruction": "Bruk piltastene til å flytte denne programtilleggsnoden.",
+          "nodeLabel": "{{name}}, programtillegg {{id}}, {{status}}, innkommende kall: {{incoming}}, utgående kall: {{outgoing}}",
+          "nodeMoved": "Programtilleggsnoden ble flyttet {{direction}} til {{x}}, {{y}}.",
+          "zoomIn": "Forstørr grafen",
+          "zoomOut": "Forminsk grafen"
+        },
+        "columns": {
+          "callee": "Mottaker",
+          "caller": "Kaller",
+          "calls": "Kall",
+          "command": "Kommando",
+          "lastCall": "Siste kall"
+        },
+        "counts": {
+          "calls_one": "{{count}} vellykket kall",
+          "calls_other": "{{count}} vellykkede kall",
+          "commands_one": "{{count}} kommando",
+          "commands_other": "{{count}} kommandoer"
+        },
+        "errors": {
+          "canvasDescription": "Du kan prøve lerretet igjen eller bruke den fullstendige tabellvisningen.",
+          "canvasRetry": "Vis lerretet på nytt",
+          "canvasTable": "Bruk tabell i stedet",
+          "canvasTitle": "Graflerretet kunne ikke vises",
+          "graphDescription": "Prøv å laste inn historikken over vellykkede kall igjen.",
+          "graphRetry": "Last inn kallhistorikken på nytt",
+          "graphTitle": "Kallhistorikken kunne ikke lastes inn",
+          "layout": "Relasjonskartet kunne ikke ordnes.",
+          "layoutRetry": "Ordne kartet igjen",
+          "metadataDescription": "Programtilleggsdetaljer kreves før utilgjengelige programtillegg kan identifiseres.",
+          "metadataRetry": "Last inn programtilleggsdetaljene på nytt",
+          "metadataTitle": "Programtilleggsdetaljene kunne ikke lastes inn"
+        },
+        "filteredEmpty": "Ingen vellykkede kall samsvarer med dette søket.",
+        "filters": {
+          "clearSearch": "Tøm søket",
+          "commandsGroup": "Kommandoer",
+          "noSuggestions": "Ingen forslag til programtillegg eller kommandoer",
+          "pluginsGroup": "Programtillegg",
+          "searchLabel": "Søk i relasjoner",
+          "searchPlaceholder": "Finn programtillegg eller kommando"
+        },
+        "globalEmpty": {
+          "description": "Innebygde programtillegg oppretter ikke nødvendigvis trafikk mellom programtillegg som standard.",
+          "title": "Ingen vellykkede kall mellom programtillegg ennå"
+        },
+        "inspector": {
+          "commands": "Kommandoer",
+          "connections": "Tilkoblede programtillegg",
+          "edgeTitle": "Forbindelsesdetaljer",
+          "incomingCalls": "Innkommende kall",
+          "label": "Detaljer om utvalget i kallgrafen",
+          "neutralScope": "Velg et programtillegg eller en forbindelse for å undersøke vellykkede kall fra de siste 24 timene.",
+          "noConnections": "Ingen tilkoblede programtillegg",
+          "openPlugin": "Åpne programtillegg",
+          "outgoingCalls": "Utgående kall",
+          "pluginId": "Programtilleggs-ID",
+          "scopeTitle": "Vellykkede kall",
+          "status": "Status",
+          "totalCalls": "Antall kall"
+        },
+        "legend": {
+          "fewerCalls": "Færre kall",
+          "label": "Tegnforklaring for kallmengde",
+          "moreCalls": "Flere kall"
+        },
+        "loading": {
+          "graph": "Laster inn kallhistorikk…",
+          "metadata": "Laster inn programtilleggsdetaljer…"
+        },
+        "modeLabel": "Relasjonsvisning",
+        "modes": {
+          "graph": "Graf",
+          "table": "Tabell"
+        },
+        "refresh": "Oppdater",
+        "refreshTooltip": "Last inn de siste vellykkede kallene",
+        "refreshing": "Oppdaterer…",
+        "renderGraphTooltip": "Vis dette store resultatsettet som en graf",
+        "statuses": {
+          "active": "Kjører",
+          "disabled": "Deaktivert",
+          "error": "Trenger oppfølging",
+          "inactive": "Klart, men inaktivt",
+          "missing": "Ikke installert"
+        },
+        "tableLabel": "Kommandorelasjoner mellom programtillegg",
+        "tableRegionLabel": "Rullbare kommandorelasjoner",
+        "toolbarLabel": "Kontroller for kallgraf",
+        "truncated": "Kallhistorikken kan være ufullstendig fordi lesegrensen, oppbevaringen eller filrotasjonen begrenset resultatet."
+      },
+      "intro": "Undersøk vellykkede kall mellom programtillegg fra de siste 24 timene.",
+      "title": "Diagnostikk"
+    },
+    "empty": "Ingen programtillegg er installert ennå.",
+    "errors_one": "{{count}} feil",
+    "errors_other": "{{count}} feil",
+    "help": {
+      "guidance": {
+        "firstUse": {
+          "body": "Installer fra en kilde du stoler på, se gjennom den forespurte tilgangen og aktiver deretter programtillegget.",
+          "browse": "Finn programtillegg på Motrix sin offisielle markedsplass",
+          "safety": "Gi bare tilgang til nettsteder du forventer at programtillegget skal håndtere.",
+          "title": "Legg til programtillegg du stoler på"
+        },
+        "ongoing": "Se gjennom tilgangen før du aktiverer et programtillegg. Gi bare tilgang til nettsteder du forventer at det skal håndtere."
+      }
+    },
+    "install": {
+      "checkAriaLabel": "Kontroller dette programtillegget",
+      "detected": {
+        "auto": "Automatisk",
+        "github": "GitHub",
+        "local": "Fil",
+        "url": "URL"
+      },
+      "detectedRow": {
+        "localSupported": "Lokale .moext-filer støttes",
+        "ok": "Gjenkjent som {{type}}"
+      },
+      "dragDisabledHint": "Dra og slipp støttes ikke i dette miljøet. Bruk en GitHub-adresse eller URL.",
+      "dropHint": "Slipp en .moext-fil her for å kontrollere dette programtillegget",
+      "github": "GitHub",
+      "github.spec": "GitHub-kodelager (owner/repo[@tag])",
+      "install": "Installer programtillegg",
+      "lead": "Lim inn en adresse til et programtillegg, velg en .moext-fil eller slipp en fil i inndatafeltet.",
+      "local": "Lokal fil",
+      "local.pick": "Velg en .moext-fil",
+      "localPrepareFailed": "Kunne ikke klargjøre denne programtilleggsfilen: {{detail}}",
+      "localUnavailable": "Installering fra lokal fil er ikke tilgjengelig på denne verten.",
+      "pickLocal": "Velg en lokal .moext-fil",
+      "placeholder": "Lim inn en GitHub-adresse eller URL, eller velg en lokal .moext-fil",
+      "title": "Legg til programtillegg",
+      "url": "URL",
+      "url.spec": "Pakke-URL (.moext)",
+      "warning": "Før installering: Fortsett bare hvis du stoler på utvikleren og forventer at tillegget bruker tilgangen som er oppført ovenfor."
+    },
+    "lead": "Legg til små funksjoner i Motrix. Behold dem du stoler på, og slå av resten.",
+    "logs": {
+      "clear": "Tøm",
+      "copy": "Kopier",
+      "empty": "Ingen loggoppføringer ennå",
+      "emptyFiltered": "Ingen oppføringer samsvarer med dette nivået.",
+      "emptyHint": "Ny aktivitet fra programtillegget vises automatisk her.",
+      "entryCount_one": "{{count}} oppføring",
+      "entryCount_other": "{{count}} oppføringer",
+      "filterLabel": "Loggnivå",
+      "levels": {
+        "all": "Alle nivåer",
+        "debug": "Feilsøking",
+        "error": "Feil",
+        "fatal": "Kritisk feil",
+        "info": "Informasjon",
+        "trace": "Sporing",
+        "warn": "Advarsel"
+      },
+      "output": "Sanntidsutdata",
+      "verbose": "Detaljert logging",
+      "verboseWarning": "Registrerer fullstendige URL-er og hoder i 1 time. Bruk med forsiktighet."
+    },
+    "permission": {
+      "accessTone": {
+        "allowed": "Tillatt",
+        "grant": "Tillat",
+        "noAccess": "Av",
+        "offByDefault": "Valgfri",
+        "required": "Påkrevd",
+        "websiteAccess": "Nettilgang"
+      },
+      "ffmpeg": {
+        "plain": "Behandler lyd eller video.",
+        "strong": "Bruk FFmpeg"
+      },
+      "fs": {
+        "storage": {
+          "plain": "Beholder filer for dette programtillegget.",
+          "strong": "Lagre programtilleggsfiler"
+        },
+        "task": {
+          "read": {
+            "plain": "Ser filer i en oppgave.",
+            "strong": "Les nedlastede filer"
+          },
+          "write": {
+            "plain": "Kan legge til eller oppdatere oppgavefiler.",
+            "strong": "Endre nedlastede filer"
+          }
+        }
+      },
+      "http": {
+        "cookies": {
+          "plain": "Åpner nettsteder der du er logget inn.",
+          "strong": "Bruk informasjonskapsler fra nettsteder"
+        },
+        "plain": "Åpner sider som dette programtillegget støtter.",
+        "strong": "Les nettsteder"
+      },
+      "network": {
+        "plain": "Henter støttede sider.",
+        "strong": "Les nettsteder"
+      },
+      "notifications": {
+        "plain": "Viser programtilleggsvarsler.",
+        "strong": "Send varsler"
+      },
+      "notify": {
+        "plain": "Viser fullføringsvarsler.",
+        "strong": "Send varsler"
+      },
+      "storage": {
+        "plain": "Husker programtilleggsvalg.",
+        "strong": "Lagre innstillinger"
+      },
+      "tasks:read": {
+        "plain": "Ser nedlastingslisten din.",
+        "strong": "Les nedlastingslisten"
+      },
+      "tasks:write": {
+        "plain": "Kan sette oppgaver på pause, fortsette dem eller fjerne dem.",
+        "strong": "Administrer nedlastingene dine"
+      },
+      "unknown": {
+        "plain": "Ukjent tillatelse."
+      }
+    },
+    "permissions": {
+      "denied": "Avvist",
+      "empty": "Dette programtillegget ber ikke om tillatelser.",
+      "granted": "Innvilget"
+    },
+    "registry": {
+      "actionFailed": "Handlingen kunne ikke fullføres.",
+      "availableTitle": "Tilgjengelige programtillegg",
+      "builtinConsentLead": "Denne oppdateringen ber om ny tilgang:",
+      "builtinUpdateTitle": "Oppdater innebygd programtillegg",
+      "byAuthor": "av {{name}}",
+      "featured": "Utvalgte",
+      "featuresTitle": "Hva det gjør",
+      "install": "Installer",
+      "notFound": "Programtillegget «{{id}}» ble ikke funnet i registeret",
+      "notInstalled": "Ikke installert",
+      "optionalTag": "valgfri",
+      "permissionsPreviewNote": "Forhåndsvisning fra registeroppføringen. Den faktiske samtykkeforespørselen er alltid basert på manifestet i programtilleggspakken.",
+      "permissionsTitle": "Tillatelser",
+      "refresh": "Se etter oppdateringer",
+      "requires": "Krever Motrix {{range}}",
+      "restartRequired": "Oppdateringen er installert. Start Motrix på nytt for å fullføre aktiveringen.",
+      "revertToBundled": "Gå tilbake til den medfølgende versjonen",
+      "updateAvailable": "Oppdatering tilgjengelig",
+      "updateInstalled": "Oppdateringen er installert.",
+      "updateTo": "Oppdater til v{{version}}",
+      "updated": "oppdatert {{date}}",
+      "viewOnWebsite": "Vis på motrix.app"
+    },
+    "search": "Finn et programtillegg",
+    "searchNoMatch": "Ingen programtillegg samsvarer med «{{query}}»",
+    "status": {
+      "active": "Aktivt",
+      "disabled": "Deaktivert",
+      "error": "Feil",
+      "inactive": "Inaktivt"
+    },
+    "title": "Programtillegg",
+    "tone": {
+      "off": "Av",
+      "optional": "Valgfri tilgang",
+      "review": "Krever gjennomgang",
+      "safe": "Ser trygt ut"
+    }
+  },
+  "quit": {
+    "confirm": {
+      "detail": "Hvis du avslutter nå, settes aktive nedlastinger på pause. Er du sikker på at du vil avslutte?",
+      "dontAskAgain": "Ikke spør igjen",
+      "message_one": "{{count}} nedlasting er fortsatt aktiv.",
+      "message_other": "{{count}} nedlastinger er fortsatt aktive.",
+      "quitButton": "Avslutt"
+    }
+  },
+  "settings": {
+    "about": {
+      "appIconAlt": "Motrix-appikon",
+      "details": {
+        "author": "Utvikler",
+        "createdBy": "Laget av",
+        "license": "Lisens",
+        "licenseValue": "{{license}}-lisens"
+      },
+      "resources": {
+        "acknowledgments": "Takk til",
+        "acknowledgmentsDescription": "Se bidragsyterne på motrix.app",
+        "changelog": "Endringslogg",
+        "manual": "Brukerhåndbok",
+        "manualDescription": "Les brukerhåndboken",
+        "plugins": "Programtillegg",
+        "repository": "Kildekodelager",
+        "repositoryDescription": "Se koden på GitHub",
+        "title": "Ressurser",
+        "website": "Offisielt nettsted",
+        "websiteDescription": "Besøk motrix.app"
+      },
+      "tagline": "Før innhold går tapt, ta vare på det som virkelig betyr noe, og gi skjønnheten en plass i samlingen din.",
+      "update": {
+        "automaticChecks": "Se etter oppdateringer automatisk",
+        "automaticChecksDescription": "Når Motrix åpnes",
+        "automaticChecksError": "Kunne ikke lagre denne innstillingen",
+        "available": "Motrix {{version}} er tilgjengelig.",
+        "availableDescription": "Last ned nå, og velg når du vil starte på nytt og installere.",
+        "availableTitle": "Motrix {{version}} er tilgjengelig",
+        "cancelled": "Nedlastingen av oppdateringen ble avbrutt.",
+        "cancelledDescription": "Prøv nedlastingen igjen når du er klar.",
+        "cancelledTitle": "Nedlasting avbrutt",
+        "channelBeta": "Beta",
+        "channelBetaWarning": "Beta kan være mindre stabil. Du får også nyere stabile utgaver. Hvis du bytter tilbake, stopper betaoppdateringer uten at versjonen nedgraderes.",
+        "channelDescription": "Velg stabile utgaver eller prøv nye funksjoner i beta.",
+        "channelLabel": "Oppdateringskanal",
+        "channelSaveError": "Kunne ikke lagre oppdateringskanalen. Prøv igjen.",
+        "channelStable": "Stabil",
+        "check": "Se etter oppdateringer",
+        "checkAction": "Kontroller",
+        "checking": "Kontrollerer…",
+        "checkingDescription": "Kontakter Motrix sin oppdateringstjeneste…",
+        "checkingTitle": "Ser etter oppdateringer…",
+        "currentVersion": "Gjeldende versjon {{version}}",
+        "download": "Last ned oppdatering",
+        "downloaded": "Motrix {{version}} er klar til installering.",
+        "downloadedTitle": "Oppdateringen er klar til installering",
+        "downloading": "Laster ned…",
+        "downloadingDescription": "Du kan lukke dette vinduet. Nedlastingen fortsetter i bakgrunnen.",
+        "downloadingTitle": "Laster ned Motrix {{version}}",
+        "error": "Oppdateringen mislyktes: {{message}}",
+        "errorDescription": "Kontroller tilkoblingen og prøv igjen.",
+        "errorTitle": "Kunne ikke oppdatere Motrix",
+        "idle": "Versjon {{version}} er installert. Se etter oppdateringer nå, eller la Motrix gjøre det ved oppstart.",
+        "idleTitle": "Hold Motrix oppdatert",
+        "restart": "Start på nytt og installer",
+        "retry": "Prøv igjen",
+        "title": "Appoppdateringer",
+        "unsupported": "Denne versjonen kan ikke oppdateres automatisk. Last ned den nyeste versjonen fra det offisielle nettstedet.",
+        "unsupportedTitle": "Automatiske oppdateringer er utilgjengelige",
+        "upToDate": "Versjon {{version}} er den nyeste tilgjengelige utgaven.",
+        "upToDateTitle": "Motrix er oppdatert"
+      },
+      "version": "Versjon {{version}}",
+      "webVersionNote": "Denne nettutgaven oppdateres av administratoren for installasjonen."
+    },
+    "advanced": {
+      "description": "RPC, fremdrift og gjenoppretting",
+      "persistence": {
+        "dbPath": "Fil med gjenopprettingsdata",
+        "dbPathDesc": "La feltet stå tomt for å bruke standardplasseringen.",
+        "dbPathPlaceholder": "Standardplassering",
+        "enable": "Lagre gjenopprettingsdata",
+        "enableDesc": "Behold data som brukes til å fortsette nedlastinger etter omstart.",
+        "historyCount": "Antall registreringer som beholdes",
+        "historyCountHint": "Eldre gjenopprettingsregistreringer fjernes.",
+        "historyCountPositive": "Skriv inn et tall større enn 0.",
+        "historyKeepAll": "Alle registreringer",
+        "historyKeepRecent": "Nyeste registreringer…",
+        "historyLimit": "Gjenopprettingsregistreringer for fullførte oppgaver",
+        "historyLimitDesc": "Nedlastingslisten og nedlastede filer påvirkes ikke.",
+        "historySessionOnly": "Ikke behold",
+        "title": "Fremdrift og gjenoppretting"
+      },
+      "rpc": {
+        "port": "RPC-port",
+        "portDesc": "Omstart kreves etter endring.",
+        "secret": "RPC-hemmelighet",
+        "secretDesc": "Kreves for RPC-tilkoblinger.",
+        "title": "RPC"
+      }
+    },
+    "appearance": {
+      "byteUnitBinary": "Binære (MiB, GiB · 1024)",
+      "byteUnitDecimal": "Desimale (MB, GB · 1000)",
+      "byteUnitSystem": "Enheter for størrelse og hastighet",
+      "byteUnitSystemDefault": "Følg systemet ({{units}})",
+      "byteUnitSystemDesc": "Velg hvordan filstørrelser og hastigheter vises.",
+      "description": "Tema, språk og visning",
+      "followSystem": "Følg systemet",
+      "language": "Språk",
+      "languageAndDisplay": "Språk og visning",
+      "lightweightMode": "Lettvektsmodus",
+      "lightweightModeDesc": "Spar minne når vinduet er lukket. Nedlastingene fortsetter, men det tar lengre tid å åpne vinduet igjen, og ulagrede inndata tømmes.",
+      "liquidGlassEffect": "Liquid Glass",
+      "liquidGlassEffectDesc": "Gi nedlastingsverktøylinjen en gjennomskinnelig glasseffekt.",
+      "liquidGlassEffectMacDesc": "Gjelder også vinduet på macOS 26 eller nyere. Vinduet åpnes på nytt når dette endres.",
+      "menuBar": "Menylinje",
+      "reduceMotion": "Reduser bevegelse",
+      "reduceMotionDesc": "Bruk færre animasjoner i hele appen.",
+      "runMode": "Vis appen i",
+      "runModeHideTray": "Bare Dock",
+      "runModeLaunch": "Når Motrix åpnes",
+      "runModeLinuxDesc": "Tilgjengelighet og aktivering av systemstatusfeltet avhenger av skrivebordsmiljøet.",
+      "runModeStandard": "Dock og menylinje",
+      "runModeStandardDesktop": "Åpne hovedvindu",
+      "runModeTray": "Bare menylinje",
+      "runModeTrayDesktop": "Start i systemstatusfeltet",
+      "sidebarColor": "Aksentfarge",
+      "sidebarColors": {
+        "auto": "Automatisk",
+        "blue": "Blå",
+        "cyan": "Cyan",
+        "gold": "Gull",
+        "gray": "Grå",
+        "green": "Grønn",
+        "orange": "Oransje",
+        "pink": "Rosa",
+        "violet": "Fiolett"
+      },
+      "systemTray": "Systemstatusfelt",
+      "theme": "Tema",
+      "themeAndEffects": "Tema og effekter",
+      "themeAuto": "System",
+      "themeDark": "Mørkt",
+      "themeLight": "Lyst",
+      "trayIconColor": "Farge på systemstatusikon",
+      "trayIconColorAuto": "Følg appens tema",
+      "trayIconColorDark": "Mørkt ikon (lyst panel)",
+      "trayIconColorDesc": "Velg en farge som skiller seg ut på systempanelet.",
+      "trayIconColorLight": "Lyst ikon (mørkt panel)",
+      "traySpeedometer": "Vis hastighet i menylinjen",
+      "traySpeedometerDesc": "Se nedlastings- og opplastingshastighet ved siden av appikonet."
+    },
+    "bittorrent": {
+      "description": "Magneter, deling og trackere",
+      "geoip": {
+        "autoUpdate": "Oppdater automatisk",
+        "autoUpdateDesc": "Se etter nye plasseringsdata omtrent én gang i uken.",
+        "customUrl": "Egendefinert nedlastings-URL",
+        "customUrlDesc": "Lenke til en landdatabase i .mmdb-format.",
+        "customUrlPlaceholder": "https://example.com/GeoLite2-Country.mmdb",
+        "enable": "Vis land eller region",
+        "enableDesc": "Vis plasseringer i nodelisten. Laster ned plasseringsdata ved behov.",
+        "lastUpdated": "Sist oppdatert",
+        "maxmindUnsupported": "Støttes ikke ennå",
+        "neverUpdated": "Aldri",
+        "saveBeforeUpdate": "Lagre endringene før du oppdaterer plasseringsdata.",
+        "source": "Kilde for plasseringsdata",
+        "source.custom": "Egendefinert URL",
+        "source.loyalsoldier": "Loyalsoldier (fellesskap)",
+        "source.maxmind": "MaxMind (offisiell)",
+        "source.p3terx": "P3TERX (fellesskapsspeil)",
+        "sourceDesc": "Velg hvor plasseringsdata skal lastes ned fra.",
+        "status.downloading": "Laster ned…",
+        "status.error": "Oppdateringen mislyktes",
+        "status.loaded": "Klar",
+        "status.notDownloaded": "Plasseringsdata er ikke lastet ned",
+        "title": "Nodeplasseringer",
+        "updateFailed": "Kunne ikke oppdatere plasseringsdata. Prøv igjen.",
+        "updateNow": "Oppdater nå",
+        "updating": "Oppdaterer…"
+      },
+      "listen": {
+        "dhtEnabled": "Aktiver DHT",
+        "dhtEnabledDesc": "Finn noder uten å være avhengig av en tracker.",
+        "dhtListenPort": "DHT-lytteport",
+        "dhtListenPortDesc": "Finn noder gjennom DHT på denne porten.",
+        "listenPort": "BT-lytteport",
+        "listenPortDesc": "Godta innkommende nodetilkoblinger på denne porten.",
+        "title": "Innkommende tilkoblinger"
+      },
+      "newMagnetTasks": "Nye magnetoppgaver",
+      "peers": {
+        "btEnableLpd": "Lokal nodeoppdagelse",
+        "btEnableLpdDesc": "Finn noder som deler filer på lokalnettverket.",
+        "btMaxPeers": "Maks. noder per torrent",
+        "btMaxPeersDesc": "Det høyeste antallet noder én oppgave kan koble til samtidig.",
+        "magnetFileSelection": "Velg filer før nedlasting",
+        "magnetFileSelectionAutoDownload": "Last ned alle hvis ingen filer velges",
+        "magnetFileSelectionAutoDownloadDesc": "Starter etter tiden nedenfor, selv om appvinduet eller nettleseren er lukket.",
+        "magnetFileSelectionDesc": "Vis filvalg etter at en magnetlenke er lastet inn.",
+        "magnetFileSelectionTimeoutInvalid": "Skriv inn et heltall fra {{min}} til {{max}} sekunder.",
+        "magnetFileSelectionTimeoutSeconds": "Tid til å velge filer (s)",
+        "magnetFileSelectionTimeoutSecondsDesc": "Starter når fillisten er klar. Endringer gjelder også oppgaver som allerede venter.",
+        "title": "Noder"
+      },
+      "seeding": {
+        "seedRatio": "Grense for delingsforhold",
+        "seedRatioDesc": "Opplasting ÷ nedlasting. Deling stopper ved dette forholdet. 0 = ubegrenset.",
+        "seedTime": "Tidsgrense for deling (minutter)",
+        "seedTimeDesc": "0 = ubegrenset. Gjelder nye oppgaver og når deling startes på nytt.",
+        "title": "Deling"
+      },
+      "trackers": {
+        "autoSync": "Oppdater trackerlisten automatisk",
+        "autoSyncDesc": "Hold listen oppdatert med kildene dine.",
+        "blacklistMovedInfo": "Administrer blokkerte trackere under Trackere → Blokkeringsliste.",
+        "enableProbe": "Kontroller trackertilgjengelighet",
+        "enableProbeDesc": "Test trackere før de brukes til nedlastinger.",
+        "healthyThreshold": "Grense for treg respons (ms)",
+        "healthyThresholdDesc": "Svartider over denne grensen merkes som trege. 500–10 000 ms.",
+        "manageSourcesHint": "Administrer kilder på Trackere-siden.",
+        "maxTrackerCount": "Trackere per oppgave",
+        "maxTrackerCountDesc": "Bruk høyst så mange trackere. 5–200.",
+        "minSuccessRate": "Minste suksessrate",
+        "minSuccessRateDesc": "Bruk trackere med minst denne suksessraten. 0.5 = 50%.",
+        "probeTimeout": "Tidsgrense for kontroll (ms)",
+        "probeTimeoutDesc": "Vent opptil så lenge på svar. 1 000–30 000 ms.",
+        "syncInterval": "Oppdateringsintervall (timer)",
+        "syncIntervalDesc": "Fra 1 til 168 timer.",
+        "title": "Trackere"
+      }
+    },
+    "cards": {
+      "about": {
+        "desc": "Versjon, oppdateringer, kildekode og brukerhåndbok",
+        "title": "Om"
+      },
+      "advanced": {
+        "desc": "RPC, lagring i SQLite",
+        "title": "Avansert"
+      },
+      "appearance": {
+        "desc": "Tema, språk, systemstatusikon",
+        "title": "Utseende"
+      },
+      "bittorrent": {
+        "desc": "DHT, lytteporter, trackere, nodeplasseringer",
+        "title": "BitTorrent"
+      },
+      "downloads": {
+        "desc": "Samtidige nedlastinger, båndbreddegrenser, nettverkspålitelighet",
+        "title": "Nedlastinger"
+      },
+      "general": {
+        "desc": "Oppstart, standard lagringsmappe, systemintegrasjon",
+        "title": "Generelt"
+      },
+      "integration": {
+        "desc": "Nettleserutvidelser, CLI, systemintegrasjoner",
+        "title": "Integrasjon"
+      },
+      "network": {
+        "desc": "Mellomtjener, DNS og NAT/UPnP",
+        "title": "Nettverk"
+      }
+    },
+    "common": {
+      "add": "Legg til",
+      "browse": "Bla gjennom…",
+      "changeDirectory": "Endre mappe",
+      "directoryEmpty": "(ingen mappe valgt)",
+      "generate": "Generer",
+      "hideSecret": "Skjul hemmelighet",
+      "noChange": "Ingen endringer å lagre",
+      "openHelp": "Åpne hjelp",
+      "preset": "Hurtigvalg:",
+      "remove": "Fjern",
+      "setAsDefault": "Bruk som standard",
+      "showSecret": "Vis hemmelighet"
+    },
+    "connection": {
+      "disconnectedBody": "Noe informasjon kan være forsinket. Hvis dette vedvarer, kontroller servertilkoblingen og mellomtjenerinnstillingene.",
+      "disconnectedTitle": "Sanntidsoppdateringer er frakoblet.",
+      "originMismatchBody": "Sanntidsoppdateringer er utilgjengelige. Bruk den konfigurerte serveradressen eller be administratoren rette den.",
+      "originMismatchTitle": "Serverens tilgangsadresse stemmer ikke."
+    },
+    "desc": "Konfigurer Motrix",
+    "downloads": {
+      "autofillFromClipboard": "Fyll inn lenker fra utklippstavlen automatisk",
+      "defaultDownloadFolder": "Standard nedlastingsmappe",
+      "description": "Filer, nedlastingshastighet og tilkoblinger",
+      "disk": {
+        "diskCache": "Diskbuffer (MiB)",
+        "diskCacheDesc": "Minne som brukes til å mellomlagre filer før de skrives til disken.",
+        "fileAllocation": "Reserver diskplass",
+        "fileAllocationDesc": "Reserver plass før en fil lastes ned.",
+        "fileAllocationFalloc": "Systemallokering",
+        "fileAllocationNone": "Ikke reserver",
+        "fileAllocationPrealloc": "Forhåndsalloker",
+        "fileAllocationTrunc": "Angi filstørrelse",
+        "fileDeletionMode": "Ved sletting av oppgavefiler",
+        "fileDeletionPermanent": "Slett permanent",
+        "fileDeletionPermanentDesc": "Slettede filer kan ikke gjenopprettes fra papirkurven.",
+        "fileDeletionTrash": "Flytt til papirkurven",
+        "fileDeletionTrashDesc": "Plass frigjøres når du tømmer papirkurven.",
+        "modifiedTime": "Filens endringstidspunkt",
+        "modifiedTimeDesc": "For fullførte HTTP- og FTP-nedlastinger.",
+        "modifiedTimeLocal": "Nedlastingstidspunkt",
+        "modifiedTimeServer": "Tidspunkt fra server",
+        "sessionSaveInterval": "Intervall for lagring av fremdrift (s)",
+        "sessionSaveIntervalDesc": "Lagre oftere for å redusere tapt fremdrift etter et krasj.",
+        "title": "Disk og filer"
+      },
+      "fillInLinksWhenOpeningNewTask": "Lim inn kopierte lenker når en ny oppgave åpnes.",
+      "magnet": {
+        "magnetResolveTimeout": "Tidsgrense for magnetinnlasting (s)",
+        "magnetResolveTimeoutDesc": "Hvor lenge det skal ventes på fillisten.",
+        "title": "Magnet"
+      },
+      "newTasks": "Nye oppgaver",
+      "performance": {
+        "customParameters": "Egendefinerte ytelsesparametere",
+        "learnMore": "Les mer",
+        "maxConcurrentDownloads": "Samtidige nedlastinger",
+        "maxConcurrentDownloadsDesc": "Oppgaver utover denne grensen venter i køen.",
+        "maxConnectionPerServer": "Maks. tilkoblinger per server",
+        "maxConnectionPerServerDesc": "Tilkoblingsgrense per fil for én server.",
+        "metrics": {
+          "cache": "Diskbuffer",
+          "connections": "Maks. tilkoblinger",
+          "minimum": "Min. segment",
+          "perServer": "Grense per server"
+        },
+        "minSplitSize": "Min. segmentstørrelse (MiB)",
+        "minSplitSizeDesc": "Segmenter under det dobbelte av denne størrelsen deles ikke opp.",
+        "profile": "Nedlastingsytelse",
+        "profileDesc": "Balanser nedlastingshastighet og ressursbruk.",
+        "profiles": {
+          "auto": {
+            "desc": "Tilpasses lagringsenheten og filstørrelsen. Verdiene nedenfor er standardverdier.",
+            "label": "Automatisk"
+          },
+          "balanced": {
+            "desc": "Bruker færre ressurser til daglige nedlastinger.",
+            "label": "Balansert"
+          },
+          "custom": {
+            "desc": "Angi tilkoblinger, segmentstørrelse og buffer.",
+            "label": "Egendefinert"
+          },
+          "high": {
+            "desc": "Bruker flere tilkoblinger for raskere nedlastinger.",
+            "label": "Høy hastighet"
+          },
+          "maximum": {
+            "desc": "Bruker flere tilkoblinger. Noen servere kan begrense dem.",
+            "label": "Maksimal"
+          }
+        },
+        "split": "Maks. tilkoblinger per fil",
+        "splitDesc": "Tilkoblinger som brukes til å laste ned én fil.",
+        "title": "Ytelse"
+      },
+      "reliability": {
+        "connectTimeout": "Tidsgrense for tilkobling (s)",
+        "connectTimeoutDesc": "Hvor lenge det skal ventes på en tilkobling.",
+        "lowestSpeedLimit": "Minste tilkoblingshastighet (KiB/s)",
+        "lowestSpeedLimitDesc": "Koble fra under denne hastigheten. 0 = deaktivert.",
+        "maxTries": "Maksimalt antall forsøk",
+        "maxTriesDesc": "Inkluderer første forsøk. 0 = ubegrenset.",
+        "retryWait": "Ventetid før nytt forsøk (s)",
+        "retryWaitDesc": "Vent så lenge før et nytt forsøk.",
+        "socketTimeout": "Tidsgrense uten data (s)",
+        "socketTimeoutDesc": "Hvor lenge det skal ventes når ingen data kommer.",
+        "title": "Tilkoblinger og nye forsøk",
+        "userAgent": "User-Agent",
+        "userAgentDesc": "Identifiserer appen overfor nettsteder. Endre verdien hvis et nettsted krever en annen."
+      },
+      "saveFolders": "Lagringsmapper",
+      "speedLimit": {
+        "adaptiveEnabled": "Reserver båndbredde til andre apper",
+        "adaptiveEnabledDesc": "Skriv inn tilkoblingshastighetene nedenfor for å beregne grensen.",
+        "altDownload": "Nedlasting",
+        "altDownloadDesc": "Maksimal nedlastingshastighet når lavhastighetsmodus er aktiv.",
+        "altSection": "Grenser for lav hastighet",
+        "altSectionDesc": "Brukes i lavhastighetsmodus eller av tidsplanregler. Disse grensene kan bare redusere standardgrensene.",
+        "altUpload": "Opplasting",
+        "altUploadDesc": "Maksimal opplastingshastighet når lavhastighetsmodus er aktiv.",
+        "autoAdaptive": "La andre apper få båndbredde",
+        "autoSchedule": "Planlagt hastighetsreduksjon",
+        "autoSection": "Automatiske regler",
+        "autoSectionDesc": "Disse reglene gjelder bare i automatisk modus.",
+        "bandwidthPending": "Angi begge tilkoblingshastighetene for å ta i bruk denne grensen.",
+        "bandwidthUsed": "Motrix kan bruke opptil {{motrix}}%.",
+        "baseDownload": "Nedlasting",
+        "baseDownloadDesc": "Maksimal nedlastingshastighet til daglig bruk.",
+        "baseSection": "Standardgrenser",
+        "baseSectionDesc": "Brukes til daglige nedlastinger og overholdes i alle moduser.",
+        "baseUpload": "Opplasting",
+        "baseUploadDesc": "Maksimal opplastingshastighet til daglig bruk.",
+        "effect": {
+          "adaptiveRule": "reservere {{reserved}}% av båndbredden til andre apper",
+          "adaptiveRulePending": "reservere {{reserved}}% av båndbredden til andre apper etter at tilkoblingens båndbredde er angitt",
+          "autoRules": "Motrix vil {{rules}}.",
+          "lowSpeed": "Bruker nå grensene for lav hastighet: nedlasting {{download}}, opplasting {{upload}}.",
+          "lowerWins": "Den laveste aktive grensen gjelder.",
+          "nextDay": " neste dag",
+          "noAutoRules": "Ingen automatiske regler er aktivert. Dette fungerer foreløpig som standardmodus.",
+          "ruleSeparator": " og ",
+          "scheduleRule": "bruke grensene for lav hastighet fra {{from}} til {{to}}{{nextDay}}",
+          "standard": "Bruker standardgrenser: nedlasting {{download}}, opplasting {{upload}}.",
+          "standardValues": "Standardgrenser: nedlasting {{download}}, opplasting {{upload}}.",
+          "title": "Gjeldende virkning"
+        },
+        "estimateEmpty": "Ingen hastighetshistorikk er tilgjengelig ennå. Fullfør en nedlasting uten hastighetsgrense eller angi båndbredden manuelt.",
+        "estimateError": "Kunne ikke lese nylig hastighetshistorikk. Angi båndbredden manuelt.",
+        "estimateSuccess": "Tilkoblingens båndbredde er fylt inn fra nylige hastigheter.",
+        "fillFromPeak": "Anslå tilkoblingshastighet",
+        "fillFromPeakHint": "Basert på de raskeste nylige nedlastingene og opplastingene.",
+        "headroomPercent": "Reserver til andre apper",
+        "headroomPercentDesc": "Reserverer nå {{reserved}}%; Motrix kan bruke opptil {{motrix}}%.",
+        "linkDown": "Tilkoblingens nedlastingshastighet",
+        "linkDownDesc": "Nedlastingshastigheten internettilkoblingen kan oppnå.",
+        "linkUp": "Tilkoblingens opplastingshastighet",
+        "linkUpDesc": "Opplastingshastigheten internettilkoblingen kan oppnå.",
+        "modeSection": "Hastighetsmodus",
+        "modeSectionDesc": "Velg hvordan Motrix skal bruke tilkoblingen.",
+        "scheduleDays": "Dager",
+        "scheduleDaysHint": "Hvis sluttiden er før starttiden, varer perioden til neste dag.",
+        "scheduleEnabled": "Planlegg lav hastighet",
+        "scheduleEnabledDesc": "Bytt til grensene for lav hastighet på valgte dager og tidspunkter.",
+        "scheduleFrom": "Start",
+        "scheduleTimeFormat": "24-timersformat (HH:mm)",
+        "scheduleTo": "Slutt",
+        "setUnlimited": "Sett til ubegrenset",
+        "standardLimit": "Bruk standard",
+        "title": "Hastighetsgrenser",
+        "titleDesc": "Velg hvordan Motrix bruker tilkoblingen i modusene Standard, Lav hastighet og Automatisk.",
+        "turtle": "Hastighetsmodus",
+        "turtleDesc_auto": "Juster hastigheten automatisk etter tidspunkt og tilkoblingens båndbredde.",
+        "turtleDesc_off": "Bruk standard hastighetsgrenser.",
+        "turtleDesc_on": "Bruk grensene for lav hastighet nå for å gi plass til andre apper.",
+        "turtle_auto": "Automatisk",
+        "turtle_off": "Standard",
+        "turtle_on": "Lav hastighet",
+        "unlimited": "Ubegrenset",
+        "useStandardLimit": "Bruk standardgrense",
+        "weekdays": {
+          "fri": {
+            "long": "Fredag",
+            "short": "Fre"
+          },
+          "mon": {
+            "long": "Mandag",
+            "short": "Man"
+          },
+          "sat": {
+            "long": "Lørdag",
+            "short": "Lør"
+          },
+          "sun": {
+            "long": "Søndag",
+            "short": "Søn"
+          },
+          "thu": {
+            "long": "Torsdag",
+            "short": "Tor"
+          },
+          "tue": {
+            "long": "Tirsdag",
+            "short": "Tir"
+          },
+          "wed": {
+            "long": "Onsdag",
+            "short": "Ons"
+          }
+        }
+      }
+    },
+    "feedback": {
+      "appRestartBody": "Innstillingene er lagret. Start Motrix på nytt når det passer.",
+      "appRestartTitle": "Start Motrix på nytt for å ta i bruk innstillingene",
+      "applyFailedBody": "Den lagrede konfigurasjonen beholdes. Kontroller appens logger og start den berørte tjenesten på nytt etter at problemet er løst.",
+      "applyFailedTitle": "Innstillingene er lagret; noen endringer kunne ikke tas i bruk",
+      "retrySync": "Prøv synkronisering igjen",
+      "syncFailedBody": "Innstillingene er lagret. Prøv synkroniseringen igjen for å oppdatere denne siden uten å lagre på nytt.",
+      "syncFailedTitle": "Innstillingene er lagret; oppdatering av grensesnittet mislyktes"
+    },
+    "general": {
+      "autofillClipboardLinks": "Fyll inn lenke fra utklippstavlen automatisk",
+      "autofillClipboardLinksDesc": "Når Ny oppgave åpnes, limes en lenke fra utklippstavlen inn i det tomme URL-feltet.",
+      "defaultSaveDir": "Standard nedlastingsmappe",
+      "defaultSaveDirDesc": "Nye nedlastinger lagres her hvis du ikke velger en annen mappe for oppgaven.",
+      "description": "Oppstart, avslutning og varsler",
+      "desktopOnly": "Innstillinger for oppstart og varsler er tilgjengelige i skrivebordsappen.",
+      "downloadCompleted": "Nedlasting fullført",
+      "downloadFailed": "Nedlasting mislyktes",
+      "inAppNotifications": "Varsler i appen",
+      "inAppNotificationsDesc": "Velg hvilke nedlastingsvarsler som skal vises. Appvarsler forblir på.",
+      "launchAtStartup": "Åpne ved pålogging",
+      "launchAtStartupDesc": "Start Motrix automatisk når du logger på.",
+      "lightweightMode": "Spar minne når vinduet er lukket",
+      "lightweightModeDesc": "Nedlastingene fortsetter. Det tar lengre tid å åpne vinduet igjen, og ulagrede inndata tømmes.",
+      "notificationBadgeCount": "Antall",
+      "notificationBadgeDesc": "Vises på ikonet for varslingssenteret.",
+      "notificationBadgeDot": "Prikk",
+      "notificationBadgeHidden": "Skjult",
+      "notificationBadgeStyle": "Ulestmerke",
+      "notificationBoth": "Begge",
+      "notificationInApp": "Varsler i appen",
+      "notificationOff": "Av",
+      "notificationSystem": "Systemvarsler",
+      "notifications": "Varsler",
+      "notificationsDesc": "Varsler om appfeil forblir på.",
+      "notifyInAppOnComplete": "Vis fullførte nedlastinger",
+      "notifyInAppOnError": "Vis mislykkede nedlastinger",
+      "notifyOnComplete": "Varsle når nedlastingen er fullført",
+      "notifyOnCompleteDesc": "Vis et systemvarsel når en oppgave fullføres.",
+      "notifyOnError": "Varsle ved feil",
+      "notifyOnErrorDesc": "Vis et systemvarsel når en nedlasting mislykkes mens vinduet er i bakgrunnen.",
+      "runMode": "Vis appen i",
+      "runModeHideTray": "Bare Dock",
+      "runModeStandard": "Dock og menylinje",
+      "runModeTray": "Bare menylinje",
+      "showMainWindowAtLogin": "Vis vinduet ved pålogging",
+      "showMainWindowAtLoginDesc": "Skjult med «{{mode}}».",
+      "startupAndQuitting": "Oppstart og avslutning",
+      "systemNotifications": "Systemvarsler",
+      "warnBeforeQuit": "Bekreft før avslutning",
+      "warnBeforeQuitDesc": "Spør før avslutning hvis nedlastinger fortsatt pågår."
+    },
+    "integration": {
+      "appimage": {
+        "desc": "Registrer dette Motrix-AppImage i skrivebordsmiljøet, slik at nettlesere og magnetlenker kan overføre nedlastinger til det.",
+        "enable": "Aktiver skrivebordsintegrasjon",
+        "movedHint": "Hvis du flytter AppImage mens Motrix er lukket, kan lenker slutte å starte appen inntil du starter Motrix én gang fra den nye plasseringen.",
+        "prompt": {
+          "accept": "Integrer",
+          "decline": "Ikke nå",
+          "detail": "Motrix legger til en skrivebordsoppføring og et ikon under brukerdatamappen og registrerer seg som behandler for motrix:-lenker, magnetlenker og .torrent-filer. Da kan nettleseren og Motrix-utvidelsen starte Motrix og overføre nedlastinger til det. Ingenting skrives utenfor hjemmemappen, og du kan angre dette fra Innstillinger.",
+          "message": "La dette Motrix-AppImage registrere seg i skrivebordsmiljøet?",
+          "title": "Integrere Motrix med skrivebordet?"
+        },
+        "remove": "Fjern skrivebordsintegrasjon",
+        "status": {
+          "externalManaged": "Skrivebordsintegrasjonen leveres av en annen Motrix-installasjon.",
+          "failedDetail": "Motrix kunne ikke registrere seg som behandler for lenkene sine. Overføring fra nettleseren fungerer kanskje ikke før du aktiverer skrivebordsintegrasjonen på nytt.",
+          "failedTitle": "Skrivebordsintegrasjonen er ufullstendig",
+          "healthy": "Integrert med dette skrivebordet.",
+          "notIntegrated": "Ikke integrert med dette skrivebordet.",
+          "removeBlockedDetail": "Motrix kunne ikke trygt gjenopprette en bekreftet tidligere behandler og beholdt derfor skrivebordsoppføringen for å unngå en standardapp som ikke virker. Velg en annen standardapp i skrivebordsinnstillingene, og prøv deretter å fjerne integrasjonen igjen."
+        },
+        "title": "Skrivebordsintegrasjon"
+      },
+      "appimageHost": {
+        "copyDiagnostics": "Kopier diagnostikk",
+        "desc": "Tillat at en utvidelse åpner dette AppImage når du klikker Koble til. Aktiver nettleserintegrasjon for å bruke det.",
+        "enable": "Aktiver oppstart fra nettleser",
+        "remove": "Fjern oppstart fra nettleser",
+        "repair": "Reparer",
+        "status": {
+          "conflict": "En annen installasjon eier disse filene. Fjern nettleserintegrasjonen for den først.",
+          "disabled": "Oppstart fra nettleser er deaktivert.",
+          "invalid": "Installasjonsregistreringen eller programfilen er ugyldig.",
+          "io": "Handlingen mislyktes. Kontroller disktilgangen og prøv Reparer.",
+          "missing": "En påkrevd fil mangler. Kjør AppImage fra gjeldende plassering og reparer.",
+          "permissions": "Kontroller at filene kan kjøres, og at bare kontoen din kan skrive til dem.",
+          "ready": "Kontrollene av den lokale installasjonen var vellykkede. Koble til fra nettleseren for å bekrefte at det virker.",
+          "sourceChanged": "AppImage er endret. Kjør ønsket versjon og reparer installasjonen."
+        },
+        "title": "Start AppImage fra nettleser",
+        "useCurrent": "Bruk dette AppImage"
+      },
+      "browser": {
+        "addTrusted": {
+          "add": "Legg til utvidelse",
+          "addAction": "Legg til",
+          "browserLabel": "Nettleser",
+          "cancel": "Avbryt",
+          "chromiumEdge": "Chrome / Edge",
+          "firefox": "Firefox",
+          "idPlaceholder": "Utvidelses-ID",
+          "labelPlaceholder": "Etikett (valgfritt)"
+        },
+        "degradedPort": {
+          "description": "Portene 16802–16806 var utilgjengelige, så broen tok i bruk port {{port}}. Nettleserutvidelser finner den ikke ved å søke i standardområdet — koble sammen via native messaging, eller angi en fast port. Motrix CLI og den lokale native messaging-verten påvirkes ikke.",
+          "title": "Broen kjører på en reserveport"
+        },
+        "disconnecting": "Kobler fra…",
+        "headerBrowser": "Nettleser",
+        "headerId": "Utvidelses-ID",
+        "headerSource": "Kilde",
+        "install": {
+          "chrome": "Chrome",
+          "development": "Utvikling",
+          "edge": "Microsoft Edge",
+          "firefox": "Firefox",
+          "github": "GitHub",
+          "store": "Installer"
+        },
+        "lastActive": "Sist aktiv",
+        "masterSwitch": "Koble til nettleserutvidelser",
+        "masterSwitchDesc": "Send nedlastinger fra nettsider til Motrix med nettleserutvidelsen.",
+        "pairToast": {
+          "copyCode": "Kopier sammenkoblingskode",
+          "deny": "Ikke tillat",
+          "extensionId": "ID: {{id}}",
+          "identityLabel": {
+            "attested": "Bekreftet utvidelse",
+            "official": "Offisiell Motrix-utvidelse",
+            "unverified": "Ubekreftet utvidelse"
+          },
+          "identityUnverifiedWarning": "Identiteten til denne utvidelsen kunne ikke bekreftes. Fortsett bare hvis du stoler på den.",
+          "pairCode": "Sammenkoblingskode",
+          "pairCodeHint": "Skriv inn denne koden i utvidelsen",
+          "title": "En {{browser}}-utvidelse vil koble til Motrix"
+        },
+        "pairUnavailable": "Denne sammenkoblingsforespørselen venter ikke lenger — prøv sammenkoblingen på nytt fra nettleserutvidelsen.",
+        "pairedEmpty": "Ingen utvidelser er tilkoblet ennå.",
+        "pairedTitle": "Tilkoblede utvidelser",
+        "pairingStateDegraded": {
+          "description": "Motrix kunne ikke oppdatere registreringene for sammenkoblede utvidelser trygt. Eksisterende utvidelsesøkter er lukket, og ny tilgang er blokkert for denne kjøringen. Start Motrix på nytt for å prøve reparasjonen igjen; ikke stol på listen nedenfor før denne meldingen forsvinner.",
+          "title": "Tilgang for utvidelser er midlertidig stengt"
+        },
+        "removeTrusted": "Fjern",
+        "revoke": "Koble fra",
+        "sourceLabel": {
+          "builtin": "Innebygd",
+          "imported": "Importert",
+          "userAdded": "Lagt til"
+        },
+        "title": "Nettleserutvidelser",
+        "trustedEmpty": "Ingenting her ennå.",
+        "trustedExtensions": "Klarerte utvidelser",
+        "trustedGuidance": "For andre klarerte utvidelser legger du til ID-en fra utvikleren.",
+        "trustedSummary": "Totalt {{count}}"
+      },
+      "cli": {
+        "inbox": {
+          "approve": "Godkjenn",
+          "deny": "Avvis",
+          "empty": "Ingen ventende forespørsler om ekstern sammenkobling.",
+          "expiresIn": "Utløper om {{time}}",
+          "title": "Ventende godkjenninger"
+        },
+        "pairToast": {
+          "allow": "Tillat",
+          "code": "Bekreftelseskode: {{code}}",
+          "deny": "Ikke tillat",
+          "title": "{{name}} vil kobles sammen med Motrix"
+        },
+        "pairUnavailable": "Denne sammenkoblingsforespørselen venter ikke lenger — kjør motrix pair på nytt.",
+        "remote": {
+          "description": "Lokale verktøy kobles til automatisk. Kjør motrix pair for å koble til en annen datamaskin eller server.",
+          "empty": "Ingen eksterne verktøy er sammenkoblet.",
+          "lastActive": "Sist aktiv",
+          "neverActive": "Aldri brukt",
+          "revoke": "Trekk tilbake",
+          "title": "Sammenkoblede eksterne verktøy"
+        },
+        "title": "Kommandolinjeverktøy",
+        "tool": {
+          "action": {
+            "checkAgain": "Kontroller igjen",
+            "checking": "Kontrollerer…",
+            "install": "Installer",
+            "installing": "Installerer…"
+          },
+          "attentionTitle": "Kommandolinjeverktøyet trenger oppfølging",
+          "commandLabel": "Installeringskommando",
+          "copyCommand": "Kopier installeringskommando",
+          "description": "Kjør motrix i en terminal for å styre denne appen.",
+          "diagnostics": {
+            "hide": "Skjul detaljer",
+            "show": "Vis detaljer"
+          },
+          "manager": {
+            "bun": "Bun",
+            "npm": "npm",
+            "pnpm": "pnpm",
+            "volta": "Volta",
+            "yarn": "Yarn Classic"
+          },
+          "managerLabel": "Pakkebehandler",
+          "metadata": {
+            "manager": "Installert med",
+            "path": "Programfil",
+            "unknown": "ukjent",
+            "version": "Versjon"
+          },
+          "reason": {
+            "installFailed": "Pakkebehandleren kunne ikke installere @motrix/cli. Se gjennom detaljene og prøv igjen, eller kjør kommandoen manuelt.",
+            "managerMissing": "Fant ingen støttet pakkebehandler. Installer npm, pnpm, Yarn Classic, Bun eller Volta, og kontroller igjen.",
+            "network": "Pakkebehandleren kunne ikke nå registeret. Kontroller nettverket eller registerkonfigurasjonen og prøv igjen.",
+            "nodeMissing": "Fant ikke Node.js 22 eller nyere. Installer Node.js og kontroller igjen.",
+            "nodeTooOld": "Node.js 22 eller nyere kreves. Fant {{version}}.",
+            "pathMissing": "Pakken ble installert, men motrix finnes ikke i PATH. Åpne en ny terminal eller legg den oppgitte installasjonsmappen til i PATH.",
+            "pathShadowed": "En annen motrix-programfil kommer tidligere i PATH. Fjern den eldre oppføringen eller rett PATH, og kontroller igjen.",
+            "permission": "Pakkebehandleren kan ikke skrive til den globale installasjonsplasseringen. Bruk en Node.js-versjonsbehandler eller et installasjonsprefiks brukeren kan skrive til; ikke bruk sudo.",
+            "sandboxed": "Installering med ett klikk er utilgjengelig i denne sandkassepakken. Kopier kommandoen og kjør den i en terminal.",
+            "timeout": "Installeringen tok for lang tid og ble stoppet. Kontroller nettverket og prøv igjen.",
+            "unknown": "Motrix kunne ikke kontrollere kommandolinjeverktøyet. Prøv igjen eller kjør den kopierte kommandoen manuelt.",
+            "unsupportedWeb": "Installering med ett klikk er bare tilgjengelig i skrivebordsappen. Kopier kommandoen og kjør den på Motrix-verten.",
+            "verifyFailed": "Installeringen ble fullført, men Motrix kunne ikke bekrefte den aktive motrix-programfilen."
+          },
+          "status": {
+            "checking": "Kontrollerer",
+            "error": "Mislyktes",
+            "installed": "Installert",
+            "installing": "Installerer",
+            "manualOnly": "Manuell installering",
+            "needsAttention": "Trenger oppfølging",
+            "ready": "Klar til installering"
+          },
+          "successGuidance": "Åpne en ny terminal og kjør motrix --help.",
+          "title": "Motrix-kommandolinjeverktøy"
+        }
+      },
+      "description": "Nettlesere, standardapper og verktøy",
+      "media": {
+        "applyHint": "Lagre for å bruke denne stien til nye medienedlastinger. Søk på nytt i nettleserutvidelsen for å oppdatere støtten.",
+        "binaryPath": "Egendefinert FFmpeg-sti",
+        "browse": "Bla gjennom…",
+        "candidateKind": {
+          "env": "MOTRIX_FFMPEG_BIN",
+          "manual": "Egendefinert sti",
+          "path": "Systemets PATH",
+          "userData": "Motrix-datamappe"
+        },
+        "cleanupConfirm": "Slette alle midlertidige FFmpeg-mapper?",
+        "cleanupStaging": "Rydd midlertidige filer",
+        "desc": "Slå sammen eller konverter medier med FFmpeg.",
+        "desktopSavedHint": "Nye medienedlastinger leser den lagrede stien. Start Motrix på nytt slik at aktive programtillegg oppdager endringen.",
+        "detection": {
+          "copyManagedPath": "Kopier Motrix sin FFmpeg-sti",
+          "editCustomPath": "Rediger egendefinert FFmpeg-sti",
+          "finishEditingCustomPath": "Fullfør redigering av egendefinert FFmpeg-sti",
+          "hideDetails": "Skjul søkedetaljer",
+          "location": "Kontrollert plassering",
+          "notConfigured": "Ikke angitt",
+          "readyTitle": "FFmpeg {{version}}",
+          "result": "Resultat",
+          "showDetails": "Vis søkedetaljer",
+          "source": "Kilde",
+          "sourcesChecked_one": "{{count}} kilde kontrollert",
+          "sourcesChecked_other": "{{count}} kilder kontrollert",
+          "unavailableDesc": "Angi en egendefinert sti, installer FFmpeg eller legg det til i PATH, og oppdater.",
+          "unavailableTitle": "FFmpeg er ikke tilgjengelig",
+          "untrustedDesc": "Filen finnes, men besto ikke sikkerhetskontrollen i macOS. Installer en pålitelig utgave eller godkjenn den under Personvern og sikkerhet, og oppdater.",
+          "untrustedTitle": "FFmpeg ble blokkert av macOS",
+          "usingSource": "Bruker {{source}}"
+        },
+        "download": {
+          "action": "Last ned FFmpeg"
+        },
+        "ffmpegRequired": "Denne nedlastingen krever FFmpeg. Konfigurer det under Innstillinger → Integrasjon → Medieverktøy, lagre og prøv igjen.",
+        "notDetected": "FFmpeg ble ikke funnet",
+        "opTimeoutSec": "Tidsgrense for FFmpeg (sekunder)",
+        "opTimeoutSecDesc": "Maksimal tid for én medieoperasjon, opptil 3 600 sekunder.",
+        "pipelineUnavailable": "Støtte for medienedlasting er utilgjengelig.",
+        "refresh": "Oppdater",
+        "restartHint": "Lagret. Start Motrix på nytt slik at aktive programtillegg oppdager endringene.",
+        "restartNow": "Start på nytt nå",
+        "savedTitle": "FFmpeg-innstillingene er lagret",
+        "stagingMB": "Grense for midlertidige filer (MB)",
+        "stagingMBDesc": "Plass til mellomliggende filer, per programtillegg og oppgave.",
+        "state": {
+          "active": "I bruk",
+          "available": "Funnet",
+          "missing": "Ikke funnet",
+          "unconfigured": "Ikke angitt",
+          "untrusted": "Blokkert av macOS",
+          "version_mismatch": "Støttes ikke"
+        },
+        "title": "Medieverktøy",
+        "validation": {
+          "fileMissing": "Filen finnes ikke på denne stien."
+        }
+      },
+      "pairResolveFailed": "Kunne ikke sende inn avgjørelsen — prøv igjen.",
+      "system": {
+        "associationChecking": "Kontrollerer…",
+        "associationDefault": "Standard",
+        "associationNotDefault": "Ikke standard",
+        "associationNotRegistered": "Ikke registrert",
+        "associationSetupRequired": "Oppsett kreves",
+        "associationStatusLabel": "Gjeldende status som standardapp i Windows",
+        "associationStatusLabelLinux": "Gjeldende status for fil- og lenketilknytninger i Linux",
+        "associationUnavailable": "Kunne ikke bekrefte",
+        "defaultAssociationsLinux": "Fil- og lenketilknytninger i Linux",
+        "defaultAssociationsLinuxAppImageDesc": "Bruk Skrivebordsintegrasjon nedenfor for å registrere eller fjerne dette AppImage trygt. Motrix gjenoppretter bekreftede tidligere behandlere før skrivebordsoppføringen slettes.",
+        "defaultAssociationsLinuxCheckingDesc": "Kontrollerer denne Linux-pakken og gjeldende skrivebordstilknytninger…",
+        "defaultAssociationsLinuxDesc": "Motrix kan sette seg selv som standard for .torrent når det er installert som deb- eller rpm-pakke. Magnetendringer trer i kraft når du bruker innstillingene i denne dialogen.",
+        "defaultAssociationsLinuxSandboxDesc": "Denne pakken registrerer Motrix som behandler, men skrivebordsmiljøet velger standardappen. Hvis pakken fjernes, gjenopprettes ikke nødvendigvis den tidligere standardappen automatisk.",
+        "defaultAssociationsLinuxUnavailableDesc": "Status for skrivebordstilknytninger er ikke tilgjengelig fra dette appmiljøet.",
+        "defaultAssociationsWindows": "Standardapp for torrenter og magnetlenker",
+        "defaultAssociationsWindowsDesc": "Velg Motrix for .torrent-filer og magnetlenker i Windows-innstillingene. Krever en installert kopi av Motrix.",
+        "linuxActionFailed": "Kunne ikke oppdatere standardappen i Linux. Kontroller innstillingene for skrivebordsmiljøet.",
+        "linuxActionFallback": "Automatisk oppsett er ikke tilgjengelig for denne pakken. Oppsettveiledningen ble åpnet i stedet.",
+        "linuxActionSet": "Motrix er nå standard for .torrent-filer.",
+        "linuxPackage": {
+          "appimage": "AppImage",
+          "flatpak": "Flatpak",
+          "native": "deb / rpm",
+          "snap": "Snap",
+          "unknown": "Ukjent pakke"
+        },
+        "linuxPackageDetected": "Pakke: {{package}}",
+        "magnetLinks": "Magnetlenker",
+        "openWindowsSettings": "Åpne Windows-innstillinger",
+        "protocolMagnet": "Åpne magnetlenker med Motrix",
+        "protocolMagnetAppImageDesc": "Tas i bruk umiddelbart etter lagring når Skrivebordsintegrasjon er aktivert.",
+        "protocolMagnetApplyFailed": "Innstillingen ble lagret, men skrivebordstilknytningen kunne ikke endres. Velg standardappen i systeminnstillingene.",
+        "protocolMagnetDesc": "Åpne magnetlenker fra nettleseren i Motrix.",
+        "protocolMagnetSandboxDesc": "Motrix ber om endringen når du lagrer, men sandkassen eller skrivebordsmiljøet kan kreve at du velger standardappen manuelt.",
+        "repairLinuxAssociations": "Reparer tilknytninger",
+        "setTorrentDefaultLinux": "Sett som standard for .torrent",
+        "title": "Standardapp",
+        "torrentAssociation": "Åpne .torrent-filer med Motrix",
+        "torrentAssociationDesc": "Dobbeltklikk på en .torrent-fil for å åpne den i Motrix.",
+        "torrentAssociationMacDesc": "I Finder høyreklikker du på en .torrent-fil → Vis info → Åpne med → velg Motrix → Endre alle…",
+        "torrentFiles": ".torrent-filer",
+        "viewLinuxInstructions": "Vis oppsettstrinn"
+      }
+    },
+    "network": {
+      "description": "Mellomtjener, DNS og tilkoblingskontroller",
+      "diagnostic": {
+        "enable": "Automatiske kontroller",
+        "enableDesc": "Gjenta kontrollene som er aktivert ovenfor.",
+        "interval": "Kontrollintervall (s)",
+        "title": "Automatiske nettverkskontroller"
+      },
+      "diagnostics": "Nettverksdiagnostikk",
+      "dns": {
+        "mode": "DNS-oppslag",
+        "modeAuto": "Automatisk",
+        "modeDesc": "Hvordan nedlastinger finner serveradresser.",
+        "modeEngine": "Innebygd DNS",
+        "modeSystem": "Systemets DNS",
+        "title": "DNS"
+      },
+      "nat": {
+        "automatic": "Automatisk",
+        "btPortHint": "Videresending gjelder BT/DHT-portene som er konfigurert i BitTorrent.",
+        "enable": "Aktiver portvideresending",
+        "enableDesc": "Be ruteren åpne portene som er angitt i BitTorrent-innstillingene.",
+        "mappingTtl": "Varighet for videresending (s)",
+        "preferredProtocol": "Foretrukket protokoll",
+        "title": "Portvideresending (NAT)"
+      },
+      "proxy": {
+        "auth": "Mellomtjenerpålogging",
+        "authDesc": "Slå på hvis mellomtjeneren krever brukernavn og passord.",
+        "bypass": "Koble direkte til",
+        "bypassDesc": "Ett domene, én IP-adresse eller ett CIDR-område per linje. Start med . for bare å samsvare med underdomener. Filnedlastinger støtter ikke jokertegnet *.",
+        "bypassPlaceholder": "localhost\n127.0.0.1\n.local",
+        "bypassScopeNote": "Bare filnedlastinger og appoppdateringer",
+        "enable": "Aktiver mellomtjener",
+        "enableDesc": "Bruk en mellomtjener for tilkoblingene som er valgt nedenfor.",
+        "hidePassword": "Skjul passord",
+        "host": "Serveradresse",
+        "hostPlaceholder": "proxy.example.com",
+        "importFromSystem": "Importer fra systemet",
+        "importedToast": "Systemets mellomtjener er importert: {{host}}:{{port}}",
+        "noSystemProxy": "Ingen mellomtjener er konfigurert i systemet.",
+        "password": "Passord",
+        "port": "Port",
+        "protocol": "Protokoll",
+        "scopeChoose": "Velg…",
+        "scopeDownload": "Filnedlastinger",
+        "scopeDownloadDesc": "For BT bruker bare HTTP(S) mellomtjeneren. Noder, DHT og UDP-trackere kobler til direkte.",
+        "scopeHint": "BT-noder, DHT og UDP-trackere kobler til direkte.",
+        "scopeNone": "Ingen valgt",
+        "scopeSeparator": ", ",
+        "scopeUpdateApp": "Appoppdateringer",
+        "scopeUpdateAppDesc": "Se etter Motrix-oppdateringer gjennom mellomtjeneren.",
+        "scopeUpdateTrackers": "Oppdateringer av trackerlister",
+        "scopeUpdateTrackersDesc": "Last ned trackerlister gjennom mellomtjeneren; BT-trafikk påvirkes ikke.",
+        "scopes": "Bruk mellomtjener for",
+        "scopesDesc": "Velg hvilke typer trafikk som går gjennom mellomtjeneren.",
+        "server": "Server",
+        "showPassword": "Vis passord",
+        "title": "Mellomtjener",
+        "user": "Brukernavn"
+      },
+      "reachability": {
+        "addEndpoint": "Legg til kontrolltjeneste",
+        "empty": "Legg til minst én kontrolltjeneste.",
+        "enable": "Kontroller innkommende porter",
+        "endpoints": "Kontrolltjenester (HTTPS)",
+        "privacyHint": "Bruker en tredjepartstjeneste for å kontrollere tilgang fra internett.",
+        "title": "Kontroll av innkommende porter"
+      },
+      "stun": {
+        "addServer": "Legg til STUN-server",
+        "empty": "Legg til minst én STUN-server.",
+        "enable": "Registrer NAT-type",
+        "privacyHint": "Bruker STUN-servere fra tredjeparter.",
+        "servers": "STUN-servere",
+        "title": "Registrering av NAT-type"
+      }
+    },
+    "title": "Innstillinger",
+    "validation": {
+      "address": "Adresse {{number}}",
+      "addressDraft": "Ny adresse",
+      "directory": "Velg en nedlastingsmappe.",
+      "httpUrl": "Skriv inn en fullstendig adresse som begynner med http:// eller https://.",
+      "httpsUrl": "Skriv inn en fullstendig adresse som begynner med https://.",
+      "integer": "Skriv inn et heltall.",
+      "integerRange": "Skriv inn et heltall fra {{min}} til {{max}}.",
+      "invalid": "Skriv inn en gyldig verdi.",
+      "itemCount": "Behold høyst {{max}} adresser.",
+      "loadFailed": "Kunne ikke laste inn innstillingene. Prøv igjen.",
+      "maximum": "Skriv inn {{max}} eller mindre.",
+      "minimum": "Skriv inn {{min}} eller mer.",
+      "number": "Skriv inn et gyldig tall.",
+      "proxyHost": "Skriv inn et servernavn eller en IP-adresse, uten http:// eller port.",
+      "range": "Skriv inn et tall fra {{min}} til {{max}}.",
+      "rangeHint": "Område: {{min}}–{{max}}.",
+      "required": "Skriv inn en adresse først.",
+      "saveFailed": "Kunne ikke lagre endringene. Prøv igjen.",
+      "selection": "Velg et tilgjengelig alternativ.",
+      "stunServer": "Bruk vert:port, for eksempel stun.example.com:3478. Porten må være 1–65535.",
+      "text": "Fjern linjeskift eller skjulte kontrolltegn.",
+      "textLength": "Bruk høyst {{max}} tegn.",
+      "time": "Bruk 24-timersformat, for eksempel 23:00.",
+      "wholeBytes": "Bruk færre desimaler."
+    }
+  },
+  "task": {
+    "add": {
+      "adding": "Legger til…",
+      "advanced": "Avansert",
+      "allProxy": "Mellomtjener",
+      "authorization": "Authorization",
+      "batchCreated": "Oppgaver lagt til: {{count}}",
+      "browse": "bla gjennom",
+      "changeSaveDir": "Endre lagringsmappe",
+      "clearSelection": "Fjern valg",
+      "cookie": "Cookie",
+      "createFailed": "Kunne ikke opprette nedlastingsoppgaven.",
+      "createFailedByPlugin": "Kunne ikke opprette oppgaven: programtillegget «{{pluginId}}» stoppet den ({{detail}}). Deaktiver tillegget under Innstillinger → Programtillegg, og prøv igjen.",
+      "createFailedPathTooLong": "Kunne ikke opprette oppgaven: målstien er {{length}} tegn lang og overskrider Windows-grensen på {{limit}}. Velg en kortere mappesti eller et kortere filnavn.",
+      "createFailedWithReason": "Kunne ikke opprette nedlastingsoppgaven: {{reason}}",
+      "created": "Oppgaven er lagt til",
+      "createdCopy": "En separat kopi er lagt til",
+      "createdPartial": "Lagt til: {{ok}} · Mislyktes: {{failed}}",
+      "dlLimit": "Nedlastingsgrense",
+      "downloadAllTorrents": "Last ned alle ({{count}})",
+      "downloadAndContinue": "Last ned og fortsett",
+      "dropTorrent": "Slipp en .torrent-fil her, eller klikk for å velge",
+      "duplicate": {
+        "active-info-hash": "{{name}} er allerede aktiv. aria2 kan ikke kjøre det samme torrentinnholdet to ganger samtidig.",
+        "createCopy": "Opprett separat kopi",
+        "existing-files": "{{name}} finnes allerede på dette målet, men oppgaveregistreringen er utilgjengelig. Motrix vil ikke overskrive den.",
+        "filesOnDisk": "Torrentfiler",
+        "selection-mismatch": "{{name}} bruker samme mål med et annet filvalg. Motrix vil ikke overskrive den eller opprette en kopi med nytt navn uten å varsle.",
+        "showExisting": "Vis eksisterende oppgave",
+        "title": "Denne torrenten finnes allerede"
+      },
+      "errors": {
+        "missingSource": "En torrentfil eller magnetlenke kreves",
+        "noFilesSelected": "Velg minst én fil",
+        "saveDirRequired": "Lagringsmappe kreves",
+        "urlsRequired": "Minst én URL kreves"
+      },
+      "filename": "Filnavn",
+      "filenameAuto": "Automatisk",
+      "filterBy": {
+        "audio": "Lyd",
+        "doc": "Dokument",
+        "image": "Bilde",
+        "video": "Video"
+      },
+      "interpretedCurl": "cURL-kommando tolket",
+      "interpretedInfoHash": "BT-infohash konvertert til en magnetlenke",
+      "interpretedJson": "URL-er importert fra JSON",
+      "interpretedMagnet": "Magnetlenke oppdaget",
+      "invalidJson": "Forventet en JSON-streng med en URL eller en liste med URL-strenger.",
+      "invalidUrlCount": "Ugyldige: {{count}}",
+      "links": "Lenker",
+      "parseFailed": "Kunne ikke tolke torrentfilen.",
+      "pickPathCustom": "Egendefinert sti",
+      "pickPathTitle": "Velg lagringsmappe",
+      "queueAdvanceFailed": "Kunne ikke åpne neste torrent.",
+      "referer": "Referer",
+      "saveDirEmpty": "Velg en mappe…",
+      "saveTo": "Lagre i",
+      "seedRatio": "Delingsforhold",
+      "selectionTimeout": {
+        "failed": "Kunne ikke starte {{name}} automatisk. Åpne oppgavedetaljene for å velge filer og prøve igjen.",
+        "started": "Tiden for filvalg er utløpt: laster ned alle filer i {{name}}"
+      },
+      "skipTorrent": "Hopp over",
+      "sourceCorrections": {
+        "encodeLiteralCharacters": "Kod som bokstavelige tegn",
+        "useCanonicalUrl": "Bruk denne utvidede URL-en",
+        "usePathSeparators": "Tolk omvendte skråstreker som stiskilletegn"
+      },
+      "sourceErrors": {
+        "ambiguousBackslash": "En omvendt skråstrek gjør verten eller stien tvetydig. Velg hvordan den skal tolkes.",
+        "ambiguousStructure": "URL-tolkeren ville endret denne adressen. Kontroller den utvidede URL-en.",
+        "controlCharacter": "Fjern kontrolltegn fra URL-en.",
+        "credentialsInUrl": "Bruk autentiseringsfeltene i stedet for påloggingsopplysninger i URL-en.",
+        "invalidHost": "Vertsnavnet i URL-en mangler eller er ugyldig.",
+        "invalidMagnet": "Magnetlenken trenger en støttet BT-infohash i xt-parameteren.",
+        "invalidPercentEncoding": "Et prosenttegn må etterfølges av to heksadesimale sifre.",
+        "invalidPort": "Porten i URL-en er ugyldig.",
+        "invalidUnicode": "URL-en inneholder ugyldig Unicode.",
+        "missingScheme": "Ta med URL-skjemaet, for eksempel https://.",
+        "mixedProtocols": "Alternative kilder for én nedlasting må bruke samme protokollfamilie.",
+        "tooManySources": "Inndataene overskrider tillatt antall lenker eller lenkestørrelse.",
+        "unescapedCharacter": "Kod mellomrom og reserverte tegn eksplisitt.",
+        "unsupportedInput": "Dette inndataformatet ble ikke importert. Lim inn en URL eller støttede JSON- eller Bash cURL-inndata.",
+        "unsupportedProtocol": "Denne URL-protokollen støttes ikke for denne nedlastingen.",
+        "unsupportedRequestOptions": "HTTP-hoder kan ikke brukes på en FTP-nedlasting.",
+        "urlTooLong": "URL-en overskrider grensen på 16 KiB."
+      },
+      "sourceLine": "Linje {{line}}",
+      "split": "Tilkoblinger",
+      "submissionUnconfirmed": "Resultatet er ikke bekreftet. Et nytt forsøk kontrollerer den opprinnelige forespørselen før en ny oppgave opprettes.",
+      "title": "Ny oppgave",
+      "torrent": "Torrent",
+      "torrentQueueProgress": "Torrent {{current}} av {{total}}",
+      "ulLimit": "Opplastingsgrense",
+      "undoCorrection": "Angre URL-retting",
+      "unlimited": "Ubegrenset",
+      "unsupportedCurl": "Denne cURL-kommandoen kan ikke importeres nøyaktig. Kopier URL-en eller en Bash GET-kommando med støttede alternativer.",
+      "urlPlaceholder": "Skriv inn en URL, magnetlenke eller BT-infohash…",
+      "urlsCount_one": "{{count}} URL",
+      "urlsCount_other": "{{count}} URL-er",
+      "urlsLabel": "URL-er",
+      "urlsWithInvalid": "Gyldige: {{valid}}, ugyldige: {{invalid}}",
+      "userAgent": "User-Agent",
+      "validUrlCount": "Gyldige: {{count}}"
+    },
+    "detail": {
+      "peers": "Noder: {{count}}",
+      "seeds": "Delere: {{count}}"
+    },
+    "error": {
+      "detail": {
+        "filesMissing": "Filer mangler etter at appen startet på nytt",
+        "finalizeFailed": "Kunne ikke fullføre nedlastingen: {{cause}}",
+        "magnetCleanupQuarantined": "Opprydding av magnetmetadata er satt i karantene",
+        "muxFailed": "Kunne ikke slå sammen de nedlastede mediene",
+        "pathTooLong": "Stien er {{length}} tegn lang; Windows tillater {{limit}}",
+        "pluginChainAborted": "Programtilleggskjeden ble avbrutt: {{cause}}",
+        "recoveryFailed": "Kunne ikke gjenopprette nedlastingen: {{cause}}",
+        "recoveryOutputConflict": "Både den midlertidige og den endelige filen finnes; begge er beholdt for manuell gjennomgang",
+        "renameDirFailed": "Kunne ikke endre mappenavnet: {{cause}}",
+        "renameFileFailed": "Kunne ikke endre filnavnet: {{cause}}"
+      },
+      "hint": {
+        "btMetadataFailed": "Kontroller magnetlenken eller legg til flere trackere, og prøv igjen",
+        "checksumMismatch": "Den nedlastede filen kan være skadet; last den ned igjen for å kontrollere",
+        "diskFull": "Frigjør diskplass eller endre lagringsmappen, og prøv igjen",
+        "fileWriteError": "Kontroller mappetillatelser og ledig diskplass, og prøv igjen",
+        "networkError": "Kontroller nettverkstilkoblingen og prøv igjen",
+        "pathTooLong": "Forkort lagringsmappens sti eller filnavnet, og prøv igjen",
+        "timeout": "Kontroller tilkoblingens hastighet og stabilitet, og prøv igjen",
+        "tooManyRedirects": "Kildelenken kan være ødelagt; prøv en annen lenke",
+        "unauthorized": "Kontroller påloggingsopplysningene eller tilgangsrettighetene, og prøv igjen"
+      },
+      "reason": {
+        "btMetadataFailed": "Kunne ikke hente torrentmetadata",
+        "btTrackerError": "Tilkobling til tracker mislyktes",
+        "checksumMismatch": "Filens kontrollsum stemte ikke",
+        "diskFull": "Disken er full",
+        "fileWriteError": "Kunne ikke skrive filen",
+        "generic": "Nedlastingen mislyktes",
+        "networkError": "Nettverkstilkoblingen mislyktes",
+        "notFound": "Filen ble ikke funnet",
+        "pathTooLong": "Filstien er for lang for Windows",
+        "serverError": "Serveren returnerte en feil",
+        "timeout": "Tidsavbrudd for nedlastingen",
+        "tooManyRedirects": "For mange omdirigeringer",
+        "unauthorized": "Autorisasjon kreves",
+        "unknown": "Nedlastingen mislyktes"
+      }
+    },
+    "recovery": {
+      "finalizeRenameFailed": "Kunne ikke endre filnavnet. Nedlastingsfilen beholder endelsen .motrix.",
+      "metaMissing": "Torrentmetadata mangler. Kan ikke starte deling.",
+      "reseedFailed": "Nedlastingen er fullført, men deling kunne ikke startes.",
+      "startup": {
+        "dirtyMetadata": "Kan ikke gjenopprette denne oppgaven: den mangler identifiserende informasjon som kreves for å fortsette.",
+        "mediaInterrupted": "Denne medienedlastingen ble avbrutt da appen startet på nytt, og kan ikke fortsette. Legg den til igjen for å prøve på nytt.",
+        "reAddFailed": "Kan ikke gjenopprette denne oppgaven: motoren avviste forespørselen om å legge den til på nytt. Fjern den og legg den til igjen manuelt.",
+        "resumeCheckpointMissing": "Den delvise filen er beholdt, men kontrollpunktet for å fortsette mangler. Start trygt på nytt eller legg til oppgaven igjen.",
+        "resumeCredentialsRequired": "Den delvise filen er beholdt, men denne nedlastingen trenger autentiseringsopplysninger for forespørselen som ikke kan brukes på nytt automatisk.",
+        "resumePathInvalid": "Den delvise filen er beholdt fordi den lagrede utdatastien er ugyldig.",
+        "resumeRangeUnsupported": "Den delvise filen er beholdt fordi serveren ikke støtter trygg gjenopptakelse med byteområder.",
+        "resumeSourceChanged": "Den delvise filen er beholdt fordi den eksterne filen har blitt endret siden nedlastingen startet.",
+        "resumeValidationFailed": "Den delvise filen er beholdt fordi Motrix ikke kunne bekrefte at den eksterne filen er uendret.",
+        "torrentMetaMissing": "Kan ikke gjenopprette denne BitTorrent-oppgaven: metadatafilen .torrent mangler. Fjern oppgaven og legg den til på nytt."
+      },
+      "toast": "Gjenopprettede avbrutte oppgaver: {{count}}. Klikk for å se gjennom dem."
+    },
+    "remove": {
+      "cancel": "Avbryt",
+      "confirm": "Fjern",
+      "deleteFilesLabel": "Slett nedlastede filer",
+      "description": "«{{name}}» fjernes fra nedlastingslisten.",
+      "notAvailableDuringFinalize": "Vent mens oppgaven fullføres.",
+      "orphanToast": "Oppgaven er fjernet. Filene er beholdt i {{path}}.",
+      "title": "Fjerne oppgaven?"
+    },
+    "torrent": {
+      "audio": "Lyd",
+      "column": {
+        "name": "Filnavn",
+        "size": "Størrelse",
+        "type": "Filtype"
+      },
+      "doc": "Dokument",
+      "fileSelected_one": "{{count}} fil valgt",
+      "fileSelected_other": "{{count}} filer valgt",
+      "image": "Bilde",
+      "selectAll": "Velg alle",
+      "video": "Video"
+    }
+  },
+  "trackers": {
+    "blacklist": {
+      "column": {
+        "source": "Kilde",
+        "url": "URL"
+      },
+      "disabled": "Deaktivert — slå på for å se blokkeringslisten.",
+      "empty": "Blokkeringslisten er tom.",
+      "enabled": "Bruk blokkeringslistefilter",
+      "enabledDesc": "Blokker tilkoblinger til trackerservere med status Mistenkelig eller Feil.",
+      "summary": "URL-er i bruk: {{count}}"
+    },
+    "combobox": {
+      "addSource": "Legg til",
+      "addSourcePlaceholder": "https://example.com/list.txt",
+      "builtinBadge": "innebygd",
+      "cdnBadge": "CDN",
+      "directBadge": "Direkte",
+      "empty": "Ingen samsvarende kilder.",
+      "placeholder": "Velg kilder",
+      "removeSource": "Fjern kilde"
+    },
+    "effective": {
+      "column": {
+        "health": "Tilstand",
+        "lastProbedAt": "Sist kontrollert",
+        "responseTimeMs": "Svartid (ms)",
+        "source": "Kilde",
+        "url": "URL"
+      },
+      "disabled": "Deaktivert — slå på for å se trackerlisten som brukes.",
+      "empty": "Ingen trackere i bruk ennå. Kjør synkronisering for å fylle listen.",
+      "enabled": "Legg til utvalgte trackere",
+      "enabledDesc": "Legg den utvalgte trackerlisten til i alle BitTorrent-oppgaver."
+    },
+    "sync": {
+      "applying": "Tar i bruk trackerlister…",
+      "failed": "Synkroniseringen er ufullstendig. Kontroller nettverket eller kildene og prøv igjen.",
+      "fetching": "Henter trackerlister…",
+      "probing": "Kontrollerer trackertilgjengelighet…",
+      "syncing": "Synkroniserer…",
+      "unavailable": "Kan ikke lese synkroniseringsstatus. Kontroller tilkoblingen og prøv igjen."
+    }
+  },
+  "tray": {
+    "checkUpdates": "Se etter oppdateringer",
+    "manual": "Brukerhåndbok",
+    "newTask": "Ny oppgave",
+    "newTorrentTask": "Ny torrentoppgave",
+    "openTorrentFile": "Åpne torrentfil",
+    "preferences": "Innstillinger",
+    "quit": "Avslutt",
+    "showMotrix": "Vis Motrix"
+  }
+}

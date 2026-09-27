@@ -57,14 +57,14 @@ function TaskListSkeleton() {
     >
       <div className="flex h-9 shrink-0 items-center gap-6 border-b border-border px-3">
         <Skeleton className="h-3 w-1/3" />
-        <Skeleton className="ml-auto h-3 w-16" />
+        <Skeleton className="ms-auto h-3 w-16" />
       </div>
       <div className="flex flex-col gap-4 px-3 py-4">
         {SKELETON_ROW_IDS.map((id) => (
           <div key={id} className="flex h-8 items-center gap-3">
             <Skeleton className="size-4 rounded" />
             <Skeleton className="h-3 w-2/5" />
-            <Skeleton className="ml-auto h-3 w-20" />
+            <Skeleton className="ms-auto h-3 w-20" />
           </div>
         ))}
       </div>

@@ -47,7 +47,7 @@ export function NotificationsNavItem() {
                 data-testid="notification-badge-dot"
                 role="status"
                 aria-label={t('notification.center.unreadDotAria')}
-                className="ml-auto size-1.5 shrink-0 rounded-full bg-[#007aff] group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-1 group-data-[collapsible=icon]:right-1"
+                className="ms-auto size-1.5 shrink-0 rounded-full bg-[#007aff] group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-1 group-data-[collapsible=icon]:end-1"
               />
             )}
             {unreadCount > 0 && badgeStyle === 'count' && (
@@ -58,14 +58,14 @@ export function NotificationsNavItem() {
                   aria-label={t('notification.center.unreadBadgeAria', {
                     count: unreadCount,
                   })}
-                  className="ml-auto flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-[#007aff] px-1 text-[11px] font-semibold leading-none text-white proportional-nums group-data-[collapsible=icon]:hidden"
+                  className="ms-auto flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-[#007aff] px-1 text-[11px] font-semibold leading-none text-white proportional-nums group-data-[collapsible=icon]:hidden"
                 >
                   {badgeLabel}
                 </span>
                 <span
                   data-testid="notification-badge-dot"
                   aria-hidden="true"
-                  className="absolute top-1 right-1 hidden size-1.5 rounded-full bg-[#007aff] group-data-[collapsible=icon]:block"
+                  className="absolute top-1 end-1 hidden size-1.5 rounded-full bg-[#007aff] group-data-[collapsible=icon]:block"
                 />
               </>
             )}

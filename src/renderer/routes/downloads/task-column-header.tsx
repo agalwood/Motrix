@@ -5,6 +5,7 @@ import {
   ContextMenuContent,
   ContextMenuTrigger,
 } from '@renderer/components/ui/context-menu'
+import { useDirection } from '@renderer/components/ui/direction'
 import { cn } from '@renderer/lib/utils'
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -35,6 +36,7 @@ export function TaskColumnHeader({
   columns = defaultTaskColumns(),
 }: TaskColumnHeaderProps) {
   const { t } = useTranslation()
+  const direction = useDirection()
   const setWidth = useDownloadsView((state) => state.setColumnWidth)
   const moveColumn = useDownloadsView((state) => state.moveColumn)
   const dragging = useRef<TaskSortColumn | null>(null)
@@ -108,7 +110,7 @@ export function TaskColumnHeader({
                   { column: accessibleLabel }
                 )}
                 className={cn(
-                  'flex h-7 w-full min-w-0 cursor-default items-center gap-1 rounded-sm px-2 text-left outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
+                  'flex h-7 w-full min-w-0 cursor-default items-center gap-1 rounded-sm px-2 text-start outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
                   active && 'font-semibold text-foreground'
                 )}
                 onClick={() => onSort(id)}
@@ -129,10 +131,12 @@ export function TaskColumnHeader({
                   )
                     return
                   event.preventDefault()
-                  const neighbor =
-                    columns[index + (event.key === 'ArrowLeft' ? -1 : 1)]
+                  const towardStart =
+                    event.key ===
+                    (direction === 'rtl' ? 'ArrowRight' : 'ArrowLeft')
+                  const neighbor = columns[index + (towardStart ? -1 : 1)]
                   if (!neighbor) return
-                  if (event.key === 'ArrowLeft') moveColumn(id, neighbor.id)
+                  if (towardStart) moveColumn(id, neighbor.id)
                   else moveColumn(neighbor.id, id)
                 }}
                 onMouseDownCapture={(event) => event.stopPropagation()}
@@ -141,7 +145,7 @@ export function TaskColumnHeader({
                 {active && (
                   <SortIcon
                     aria-hidden="true"
-                    className="ml-auto size-3 shrink-0"
+                    className="ms-auto size-3 shrink-0"
                   />
                 )}
               </button>
@@ -150,10 +154,11 @@ export function TaskColumnHeader({
                   column: accessibleLabel,
                 })}
                 orientation="vertical"
+                reverse={direction === 'rtl'}
                 value={column.width}
                 min={TASK_COLUMNS[id].min}
                 max={TASK_COLUMNS[id].max}
-                className="absolute -right-1 top-1 z-10 h-5 w-2 cursor-col-resize touch-none border-r border-border/50 outline-none focus-visible:bg-ring/30"
+                className="absolute -end-1 top-1 z-10 h-5 w-2 cursor-col-resize touch-none border-e border-border/50 outline-none focus-visible:bg-ring/30"
                 onChange={(width) => setWidth(id, width, false)}
                 onCommit={(width) => setWidth(id, width)}
               />

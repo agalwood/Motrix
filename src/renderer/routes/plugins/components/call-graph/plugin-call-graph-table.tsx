@@ -53,7 +53,7 @@ export function PluginCallGraphTable({
     >
       <ScrollAreaViewport className="min-h-0 flex-1 overscroll-contain">
         <ScrollAreaContent style={{ minWidth: '100%' }}>
-          <table className="min-w-full border-separate border-spacing-0 text-left">
+          <table className="min-w-full border-separate border-spacing-0 text-start">
             <caption className="sr-only">{strings.tableLabel}</caption>
             <thead className="sticky top-0 z-10 bg-background">
               <tr>
@@ -77,13 +77,13 @@ export function PluginCallGraphTable({
                 </th>
                 <th
                   scope="col"
-                  className="border-b border-border px-3 py-2 text-right text-xs font-medium text-muted-foreground"
+                  className="border-b border-border px-3 py-2 text-end text-xs font-medium text-muted-foreground"
                 >
                   {strings.calls}
                 </th>
                 <th
                   scope="col"
-                  className="border-b border-border px-3 py-2 text-right text-xs font-medium text-muted-foreground"
+                  className="border-b border-border px-3 py-2 text-end text-xs font-medium text-muted-foreground"
                 >
                   {strings.lastCall}
                 </th>
@@ -124,10 +124,10 @@ export function PluginCallGraphTable({
                         id={row.targetPluginId}
                       />
                     </td>
-                    <td className="border-b border-border px-3 py-2.5 text-right text-sm tabular-nums">
+                    <td className="border-b border-border px-3 py-2.5 text-end text-sm tabular-nums">
                       {row.calls}
                     </td>
-                    <td className="border-b border-border px-3 py-2.5 text-right text-xs whitespace-nowrap tabular-nums text-muted-foreground">
+                    <td className="border-b border-border px-3 py-2.5 text-end text-xs whitespace-nowrap tabular-nums text-muted-foreground">
                       <time dateTime={new Date(row.lastCalledAt).toISOString()}>
                         {strings.formatLastCall(row.lastCalledAt)}
                       </time>

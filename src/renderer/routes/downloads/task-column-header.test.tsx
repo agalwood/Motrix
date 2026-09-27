@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
+import { DirectionProvider } from '@renderer/components/ui/direction'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
@@ -96,6 +97,30 @@ describe('TaskColumnHeader', () => {
         .map((column) => column.id)
     ).toEqual(['size', 'name'])
     expect(onSort).not.toHaveBeenCalled()
+  })
+
+  it('resizes and reorders RTL columns toward their visual neighbor', () => {
+    render(
+      <DirectionProvider direction="rtl">
+        <TaskColumnHeader sort={null} onSort={() => {}} />
+      </DirectionProvider>
+    )
+    fireEvent.keyDown(
+      screen.getByRole('separator', { name: 'Resize Name column' }),
+      { key: 'ArrowLeft' }
+    )
+    expect(useDownloadsView.getState().columns[0].width).toBe(216)
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Name' }), {
+      key: 'ArrowLeft',
+      shiftKey: true,
+      altKey: true,
+    })
+    expect(
+      useDownloadsView
+        .getState()
+        .columns.slice(0, 2)
+        .map((column) => column.id)
+    ).toEqual(['size', 'name'])
   })
 
   it('opens the shadcn context menu to choose columns', async () => {

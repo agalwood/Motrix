@@ -123,7 +123,7 @@ export function RegistryDetailPanel({ entry }: Props) {
                   <h3 className="text-sm font-semibold tracking-tight">
                     {t('plugins.registry.featuresTitle')}
                   </h3>
-                  <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                  <ul className="list-disc space-y-1 ps-5 text-sm text-muted-foreground">
                     {features.map((feature) => (
                       <li key={feature}>{feature}</li>
                     ))}

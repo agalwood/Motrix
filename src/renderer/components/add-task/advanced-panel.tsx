@@ -40,7 +40,7 @@ export function AdvancedPanel() {
             type="button"
             variant="ghost"
             size="sm"
-            className="-ml-2 h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-transparent dark:hover:bg-transparent"
+            className="-ms-2 h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-transparent dark:hover:bg-transparent"
           />
         }
       >
@@ -53,7 +53,7 @@ export function AdvancedPanel() {
         />
         {t('task.add.advanced')}
       </CollapsibleTrigger>
-      <CollapsibleContent className="mt-2 ml-1.5 space-y-2 border-l-2 border-border pl-3">
+      <CollapsibleContent className="mt-2 ms-1.5 space-y-2 border-s-2 border-border ps-3">
         {tab === 'links' ? <LinksAdvancedFields /> : <TorrentAdvancedFields />}
       </CollapsibleContent>
     </Collapsible>

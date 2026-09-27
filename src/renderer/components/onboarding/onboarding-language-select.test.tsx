@@ -90,23 +90,15 @@ describe('OnboardingLanguageSelect', () => {
     )
   })
 
-  it.each([
-    ['Deutsch', 'de'],
-    ['Español', 'es'],
-    ['简体中文', 'zh-CN'],
-    ['Français', 'fr'],
-    ['Bahasa Indonesia', 'id'],
-    ['Italiano', 'it'],
-    ['日本語', 'ja'],
-    ['한국어', 'ko'],
-    ['Polski', 'pl'],
-    ['Português (Brasil)', 'pt-BR'],
-    ['Русский', 'ru'],
-    ['Türkçe', 'tr'],
-    ['Tiếng Việt', 'vi'],
-  ])(
+  it.each(
+    SUPPORTED_LOCALES.map(({ nativeName, code, dir }) => [
+      nativeName,
+      code,
+      dir,
+    ])
+  )(
     'switches to %s immediately and persists only that preference',
-    async (name, locale) => {
+    async (name, locale, direction) => {
       const user = userEvent.setup({ pointerEventsCheck: 0 })
       render(<OnboardingLanguageSelect />)
 
@@ -119,6 +111,7 @@ describe('OnboardingLanguageSelect', () => {
 
       await waitFor(() => expect(i18n.resolvedLanguage).toBe(locale))
       expect(document.documentElement).toHaveAttribute('lang', locale)
+      expect(document.documentElement).toHaveAttribute('dir', direction)
       expect(transport.invoke).toHaveBeenCalledWith(
         Commands.SetDisclaimerLanguage,
         locale

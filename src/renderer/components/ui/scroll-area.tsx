@@ -52,8 +52,8 @@ export function ScrollBar({
       className={cn(
         'absolute z-20 flex touch-none select-none p-0.5 opacity-0 transition-opacity duration-150 data-hovering:opacity-100 data-scrolling:opacity-100 focus-within:opacity-100 motion-reduce:transition-none',
         orientation === 'vertical'
-          ? 'inset-y-0 right-0 w-2.5 data-has-overflow-x:bottom-2.5'
-          : 'inset-x-0 bottom-0 h-2.5 flex-col data-has-overflow-y:right-2.5',
+          ? 'inset-y-0 end-0 w-2.5 data-has-overflow-x:bottom-2.5'
+          : 'inset-x-0 bottom-0 h-2.5 flex-col data-has-overflow-y:end-2.5',
         className
       )}
       {...props}

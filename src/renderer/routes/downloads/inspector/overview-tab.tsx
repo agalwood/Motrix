@@ -63,7 +63,7 @@ function Row({
     <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
       <span className="text-muted-foreground">{label}</span>
       {typeof value === 'string' || typeof value === 'number' ? (
-        <span className="tabular-nums">{value}</span>
+        <bdi className="tabular-nums">{value}</bdi>
       ) : (
         value
       )}

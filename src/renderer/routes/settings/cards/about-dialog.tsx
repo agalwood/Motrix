@@ -124,7 +124,7 @@ export function AboutDialog({
 
           <nav
             aria-label={t('settings.about.resources.title')}
-            className="-mb-1 -ml-2 mt-4 flex flex-wrap items-center gap-0.5 border-t border-border/60 pt-3"
+            className="-mb-1 -ms-2 mt-4 flex flex-wrap items-center gap-0.5 border-t border-border/60 pt-3"
           >
             <CompactLink
               href={EXTERNAL_URLS.motrix.home}

@@ -166,11 +166,11 @@ export function SpeedLimitTile({
             className="flex shrink-0 items-center gap-3 text-[12px] text-muted-foreground"
           >
             <span className="flex gap-0.5 items-center">
-              <span className="mr-0.5 text-xs">↓</span>
+              <span className="me-0.5 text-xs">↓</span>
               {fmt(state.effective.download)}
             </span>
             <span className="flex gap-0.5 items-center">
-              <span className="mr-0.5 text-xs">↑</span>
+              <span className="me-0.5 text-xs">↑</span>
               {fmt(state.effective.upload)}
             </span>
           </div>

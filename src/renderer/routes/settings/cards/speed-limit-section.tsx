@@ -199,7 +199,7 @@ export function SpeedLimitSection({
                 type="number"
                 min={0}
                 step="any"
-                className="h-8 w-32 pr-14"
+                className="h-8 w-32 pe-14"
                 value={Number.isFinite(field.value) ? field.value / MBPS : ''}
                 onChange={(event) => {
                   field.onChange(Math.round(event.target.valueAsNumber * MBPS))
@@ -207,7 +207,7 @@ export function SpeedLimitSection({
               />
             </FormControl>
             <span
-              className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-[11px] text-muted-foreground"
+              className="pointer-events-none absolute inset-y-0 end-2.5 flex items-center text-[11px] text-muted-foreground"
               aria-hidden
             >
               Mbps
@@ -360,7 +360,7 @@ export function SpeedLimitSection({
           {(scheduleEnabled ||
             form.formState.errors.speedLimit?.auto?.schedule) && (
             <>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pl-1">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 ps-1">
                 <FormField
                   control={form.control}
                   name="speedLimit.auto.schedule.from"
@@ -496,7 +496,7 @@ export function SpeedLimitSection({
                 'settings.downloads.speedLimit.linkDown'
               )}
 
-              <div className="flex items-center gap-2 pl-1">
+              <div className="flex items-center gap-2 ps-1">
                 <Button
                   type="button"
                   variant="outline"
@@ -539,7 +539,7 @@ export function SpeedLimitSection({
                             type="number"
                             min={0}
                             max={99}
-                            className="h-8 w-32 pr-8"
+                            className="h-8 w-32 pe-8"
                             value={
                               Number.isFinite(reservedPercent)
                                 ? reservedPercent
@@ -551,7 +551,7 @@ export function SpeedLimitSection({
                           />
                         </FormControl>
                         <span
-                          className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-[11px] text-muted-foreground"
+                          className="pointer-events-none absolute inset-y-0 end-2.5 flex items-center text-[11px] text-muted-foreground"
                           aria-hidden
                         >
                           %

@@ -63,7 +63,7 @@ export function PluginGuidance({ hasUserManagedPlugin }: PluginGuidanceProps) {
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  className="-mr-1.5 -mt-1.5 shrink-0 text-muted-foreground"
+                  className="-me-1.5 -mt-1.5 shrink-0 text-muted-foreground"
                   onClick={() =>
                     services.openExternal(EXTERNAL_URLS.motrix.plugins)
                   }

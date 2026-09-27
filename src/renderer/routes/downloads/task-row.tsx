@@ -70,7 +70,8 @@ function TaskRowBase({
   const cells: Record<TaskSortColumn, ReactNode> = {
     name: (
       <span
-        className="flex min-w-0 font-medium"
+        dir="ltr"
+        className="flex min-w-0 font-medium rtl:justify-end"
         title={
           failure
             ? `${task.name}\n${failure.reason}\n${failure.technicalDetail ?? ''}`
@@ -128,10 +129,14 @@ function TaskRowBase({
           aria-colindex={columnIndex + 1}
           className={cn(
             'min-w-0 overflow-hidden px-2 tabular-nums',
-            TASK_COLUMNS[column.id].numeric && 'text-right'
+            TASK_COLUMNS[column.id].numeric && 'text-end'
           )}
         >
-          {cells[column.id]}
+          {TASK_COLUMNS[column.id].numeric ? (
+            <bdi>{cells[column.id]}</bdi>
+          ) : (
+            cells[column.id]
+          )}
         </div>
       ))}
     </div>

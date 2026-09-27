@@ -537,3 +537,183 @@ describe('bundled Vietnamese translations', () => {
     expect(disclaimer.body).toContain(disclaimer.agree)
   })
 })
+
+const expandedLocaleCases = [
+  {
+    locale: 'ar',
+    retry: 'إعادة المحاولة',
+    followSystem: 'اتباع النظام',
+    remove: 'ستُزال «example.zip» من قائمة التنزيلات.',
+    deleteFiles: 'حذف الملفات المنزّلة',
+    samples: [
+      [0, 'zero', 'الملفات المحددة: 0'],
+      [1, 'one', 'الملفات المحددة: 1'],
+      [2, 'two', 'الملفات المحددة: 2'],
+      [3, 'few', 'الملفات المحددة: 3'],
+      [11, 'many', 'الملفات المحددة: 11'],
+      [100, 'other', 'الملفات المحددة: 100'],
+      [1.5, 'other', 'الملفات المحددة: 1.5'],
+    ],
+  },
+  {
+    locale: 'bg',
+    retry: 'Повторен опит',
+    followSystem: 'Следване на системния език',
+    remove:
+      'Задачата „example.zip“ ще бъде премахната от списъка с изтегляния.',
+    deleteFiles: 'Изтриване на изтеглените файлове',
+    samples: [
+      [0, 'other', 'Избрани са 0 файла'],
+      [1, 'one', 'Избран е 1 файл'],
+      [2, 'other', 'Избрани са 2 файла'],
+      [1.5, 'other', 'Избрани са 1.5 файла'],
+    ],
+  },
+  {
+    locale: 'ca',
+    retry: 'Tornar-ho a provar',
+    followSystem: 'Seguir el sistema',
+    remove: 'La tasca «example.zip» se suprimirà de la llista de baixades.',
+    deleteFiles: 'Eliminar els fitxers baixats',
+    samples: [
+      [0, 'other', '0 fitxers seleccionats'],
+      [1, 'one', '1 fitxer seleccionat'],
+      [2, 'other', '2 fitxers seleccionats'],
+      [1000000, 'many', '1000000 fitxers seleccionats'],
+    ],
+  },
+  {
+    locale: 'el',
+    retry: 'Επανάληψη',
+    followSystem: 'Σύμφωνα με το σύστημα',
+    remove: 'Η εργασία «example.zip» θα αφαιρεθεί από τη λίστα λήψεων.',
+    deleteFiles: 'Διαγραφή ληφθέντων αρχείων',
+    samples: [
+      [0, 'other', 'Επιλέχθηκαν 0 αρχεία'],
+      [1, 'one', 'Επιλέχθηκε 1 αρχείο'],
+      [2, 'other', 'Επιλέχθηκαν 2 αρχεία'],
+      [1.5, 'other', 'Επιλέχθηκαν 1.5 αρχεία'],
+    ],
+  },
+  {
+    locale: 'fa',
+    retry: 'تلاش دوباره',
+    followSystem: 'پیروی از سیستم',
+    remove: '«example.zip» از فهرست دانلودها حذف می‌شود.',
+    deleteFiles: 'حذف فایل‌های دانلودشده',
+    samples: [
+      [0, 'one', '0 فایل انتخاب شده'],
+      [0.5, 'one', '0.5 فایل انتخاب شده'],
+      [1, 'one', '1 فایل انتخاب شده'],
+      [2, 'other', '2 فایل انتخاب شده'],
+    ],
+  },
+  {
+    locale: 'nb',
+    retry: 'Prøv igjen',
+    followSystem: 'Følg systemet',
+    remove: '«example.zip» fjernes fra nedlastingslisten.',
+    deleteFiles: 'Slett nedlastede filer',
+    samples: [
+      [0, 'other', '0 filer valgt'],
+      [1, 'one', '1 fil valgt'],
+      [2, 'other', '2 filer valgt'],
+      [1.5, 'other', '1.5 filer valgt'],
+    ],
+  },
+  {
+    locale: 'nl',
+    retry: 'Opnieuw proberen',
+    followSystem: 'Systeem volgen',
+    remove: '‘example.zip’ wordt uit de downloadlijst verwijderd.',
+    deleteFiles: 'Gedownloade bestanden verwijderen',
+    samples: [
+      [0, 'other', '0 bestanden geselecteerd'],
+      [1, 'one', '1 bestand geselecteerd'],
+      [2, 'other', '2 bestanden geselecteerd'],
+      [1.5, 'other', '1.5 bestanden geselecteerd'],
+    ],
+  },
+  {
+    locale: 'ro',
+    retry: 'Încearcă din nou',
+    followSystem: 'Urmează sistemul',
+    remove: 'Sarcina „example.zip” va fi eliminată din lista de descărcări.',
+    deleteFiles: 'Șterge fișierele descărcate',
+    samples: [
+      [0, 'few', '0 fișiere selectate'],
+      [1, 'one', '1 fișier selectat'],
+      [2, 'few', '2 fișiere selectate'],
+      [20, 'other', '20 de fișiere selectate'],
+      [101, 'few', '101 fișiere selectate'],
+      [1.5, 'few', '1.5 fișiere selectate'],
+    ],
+  },
+  {
+    locale: 'th',
+    retry: 'ลองอีกครั้ง',
+    followSystem: 'ตามระบบ',
+    remove: '“example.zip” จะถูกนำออกจากรายการดาวน์โหลด',
+    deleteFiles: 'ลบไฟล์ที่ดาวน์โหลด',
+    samples: [
+      [0, 'other', 'เลือก 0 ไฟล์แล้ว'],
+      [1, 'other', 'เลือก 1 ไฟล์แล้ว'],
+      [2, 'other', 'เลือก 2 ไฟล์แล้ว'],
+    ],
+  },
+  {
+    locale: 'uk',
+    retry: 'Спробувати ще раз',
+    followSystem: 'Як у системі',
+    remove: 'Завдання «example.zip» буде прибрано зі списку завантажень.',
+    deleteFiles: 'Видалити завантажені файли',
+    samples: [
+      [0, 'many', 'Вибрано 0 файлів'],
+      [1, 'one', 'Вибрано 1 файл'],
+      [2, 'few', 'Вибрано 2 файли'],
+      [5, 'many', 'Вибрано 5 файлів'],
+      [11, 'many', 'Вибрано 11 файлів'],
+      [21, 'one', 'Вибрано 21 файл'],
+      [1.5, 'other', 'Вибрано 1.5 файлу'],
+    ],
+  },
+] as const
+
+describe.each(expandedLocaleCases)(
+  'bundled $locale translations',
+  ({ locale, retry, followSystem, remove, deleteFiles, samples }) => {
+    it('resolves actions and each plural category without English fallback', async () => {
+      const i18n = createInstance()
+      await i18n.init({
+        lng: locale,
+        fallbackLng: false,
+        resources: I18N_RESOURCES,
+        interpolation: { escapeValue: false },
+      })
+      expect(i18n.t('common.retry')).toBe(retry)
+      expect(i18n.t('settings.appearance.followSystem')).toBe(followSystem)
+      expect(i18n.t('task.remove.description', { name: 'example.zip' })).toBe(
+        remove
+      )
+      expect(i18n.t('task.remove.deleteFilesLabel')).toBe(deleteFiles)
+      for (const [count, category, text] of samples) {
+        const result = i18n.t('task.torrent.fileSelected', {
+          count,
+          returnDetails: true,
+        })
+        expect(result.exactUsedKey).toBe(
+          `task.torrent.fileSelected_${category}`
+        )
+        expect(result.res).toBe(text)
+        expect(result.usedLng).toBe(locale)
+      }
+    })
+
+    it('keeps usage-notice highlights and consent inside the complete message', () => {
+      const { disclaimer } = I18N_RESOURCES[locale].translation.onboarding
+      for (const highlight of Object.values(disclaimer.highlights))
+        expect(disclaimer.body).toContain(highlight)
+      expect(disclaimer.body).toContain(disclaimer.agree)
+    })
+  }
+)
