@@ -88,15 +88,15 @@ describe('Windows Store manifest renderer', () => {
     [
       'store',
       storeMetadata(),
-      'bfd8b921a83a40e6f481457dc40b85b81b061557d77eddc7941030947d62abcc',
+      'b7b46ec3b25a93e4dc9d97ed3a204de57905a7d7a82be091fafc7b88b3145e29',
     ],
     [
       'test',
       testMetadata(),
-      '35827725efba807e2b8577141e67f732ddd4bb253135003aaaac453826bc8360',
+      'cc7c1ee276fa337783e12cf3ceaf7d4c0df443ec465eed508988e7bc5ff51057',
     ],
   ])(
-    'keeps the ordinary %s manifest byte-identical to the pre-diagnostic contract',
+    'keeps the ordinary %s manifest byte-identical to the package launch contract',
     (_profile, input, expected) => {
       expect(
         createHash('sha256')
@@ -187,6 +187,8 @@ describe('Windows Store manifest renderer', () => {
       [UAP3, 'Extension'],
       [UAP3, 'Protocol'],
       [UAP3, 'Extension'],
+      [UAP3, 'Protocol'],
+      [UAP3, 'Extension'],
       [UAP3, 'FileTypeAssociation'],
       [UAP, 'SupportedFileTypes'],
       [UAP, 'FileType'],
@@ -208,7 +210,7 @@ describe('Windows Store manifest renderer', () => {
       document.getElementsByTagNameNS(UAP3, 'Protocol')
     )
     expect(protocols.map(attributes)).toEqual(
-      ['motrix', 'mo', 'magnet'].map((Name) => ({
+      ['motrix', 'mo', 'magnet', 'motrix-store'].map((Name) => ({
         Name,
         Parameters: '"%1"',
       }))

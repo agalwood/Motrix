@@ -165,9 +165,15 @@ priconfig.xml
 The ordinary test manifest contains one packaged desktop application and `runFullTrust`.
 It declares the opt-in `MotrixStartup` task for `app\Motrix.exe`, with
 `Enabled="false"` and `--opened-at-login=1`. It also declares the `motrix`, `mo`,
-and `magnet` protocols and `.torrent` files. Production native-host alias declarations
+`magnet`, and `motrix-store` protocols and `.torrent` files. Production native-host alias declarations
 await package-aware browser integration; the explicit diagnostic mode below uses
-a separate test probe. The configured Windows threshold is
+a separate test probe. The package-only `motrix-store://open` URI (also accepting
+a trailing slash and ASCII case variations) only shows the main window. Other
+paths, queries, fragments, credentials, and ports are rejected. Direct builds
+neither register nor handle this entry point; the NSIS associations are unchanged.
+This is an application-side launch prototype, not authenticated browser discovery:
+URI activation grants no pairing or download authority, and extension integration,
+coexistence, and installed Windows activation still require validation. The configured Windows threshold is
 10.0.19045.0; this is not a Windows compatibility test result. The four existing
 images are scale-200 resources, referenced by logical paths in the manifest.
 The PRI configuration indexes the isolated `pri-root` directory, which contains
@@ -241,7 +247,7 @@ this must be decided together with actual Windows testing.
 
 Windows 11 validation must also cover:
 
-- Cold and running-app activation for all three schemes and torrent files, including spaces, Unicode paths, and multiple selected files.
+- Cold and running-app activation for all four schemes and torrent files, including spaces, Unicode paths, and multiple selected files.
 - Malformed links produce no task, plugin installation, or duplicate file dispatch.
 - Defaults changed in Windows settings refresh correctly on return to Motrix; unreadable defaults remain unknown.
 - Direct and packaged installations coexist without silently changing the user's default choices; upgrade and uninstall remove only their own declarations.
@@ -418,6 +424,14 @@ reports. `installedMbp1TransportVerified` records this narrower transport check;
 `syntheticMbp1Client` remains true and the production `mbp1Verified` flag remains
 false. A supplied Node Origin does not prove real browser provenance, production
 extension behavior or the production browser registration lifecycle.
+
+The installed runtime check also requests `motrix-store://open` through the OS
+association after closing the main application. It checks the new process's package
+and AUMID, endpoint ownership, authenticated reconnect with the original synthetic
+client credential, and cleanup. The native host only observes in this case
+(`allowLaunch: false`); it cannot rescue a failed URI launch. This check does not
+establish browser user-gesture handling, production extension discovery, or
+coexistence with a direct installation.
 
 The controller also generates a one-use Ed25519 binding key for the actual Rust
 host's `bootstrap` request. Without caller arguments the response must omit a

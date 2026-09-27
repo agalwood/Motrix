@@ -8,7 +8,8 @@ with one ephemeral non-exportable test key, installs A then upgrades to B for
 the current user, and runs the diagnostic alias before and after upgrade.
 At B, checks the Rust host's profile override refusal with live positive controls,
 then diagnostic Native Messaging in three branded browsers, followed by normal
-first-run UI, actual Rust bootstrap, and synthetic MBP1 pairing/reconnect. A fixed
+first-run UI, actual Rust bootstrap, synthetic MBP1 pairing/reconnect, and an
+OS association launch of the fixed package URI with authenticated reconnect. A fixed
 registry helper observes package writes across A/B and after natural uninstall.
 No production certificates, PFX, timestamp, or policy changes are involved;
 no production-extension MBP1 or browser continuity across the upgrade is tested.
@@ -272,7 +273,7 @@ function Assert-MainRuntimeReport([object]$Main, [string]$SourceCommit, [string]
       $Main.nativeHostSha256 -cne $NativeHostHash -or $Main.mainExecutableSha256 -cne $MainHash -or $Main.windowsPlatformSha256 -cne $PlatformHash) {
     throw 'Installed main runtime report does not match this package.'
   }
-  foreach ($name in @('ok', 'mainBridgeEndpointVerified', 'coldLaunchVerified', 'installedMbp1TransportVerified', 'installedBootstrapTicketProofVerified', 'mbp1ClientCleanupVerified', 'syntheticMbp1Client')) { Assert-True $Main.$name 'Main bridge startup or synthetic MBP1 transport was not verified.' }
+  foreach ($name in @('ok', 'mainBridgeEndpointVerified', 'coldLaunchVerified', 'packageUriLaunchVerified', 'installedMbp1TransportVerified', 'installedBootstrapTicketProofVerified', 'mbp1ClientCleanupVerified', 'syntheticMbp1Client')) { Assert-True $Main.$name 'Main bridge startup or synthetic MBP1 transport was not verified.' }
   foreach ($name in @('mbp1Verified', 'windows11AcceptanceVerified', 'storeReady')) { Assert-False $Main.$name 'Main report overstates its scope.' }
   foreach ($name in @('ok', 'mainApplicationLaunched', 'processIdentityVerified', 'disclaimerUiVerified', 'mainUiVerified', 'mainBridgeEndpointVerified', 'mbp1TransportPairingVerified', 'noCallerTicketlessVerified', 'bootstrapTicketProofVerified', 'cleanupVerified')) {
     Assert-True $Main.runtime.$name 'Installed main runtime check is incomplete.'
@@ -282,8 +283,14 @@ function Assert-MainRuntimeReport([object]$Main, [string]$SourceCommit, [string]
     Assert-True $Main.coldLaunch.$name 'Packaged cold launch check is incomplete.'
   }
   Assert-False $Main.coldLaunch.mbp1Verified 'Synthetic transport does not establish production extension MBP1.'
+  if ($Main.coldLaunch.launchMethod -cne 'native-host' -or $Main.packageUriLaunch.launchMethod -cne 'package-uri') { throw 'Unexpected package activation method.' }
+  foreach ($name in @('ok', 'noLaunchBeforeVerified', 'coldLaunchVerified', 'processIdentityVerified', 'mainBridgeEndpointVerified', 'mbp1TransportReconnectVerified', 'noLaunchAfterVerified', 'cleanupVerified')) {
+    Assert-True $Main.packageUriLaunch.$name 'Package URI launch check is incomplete.'
+  }
+  foreach ($name in @('mbp1Verified', 'browserActivationVerified', 'productionDiscoveryVerified')) { Assert-False $Main.packageUriLaunch.$name 'Package URI report overstates its scope.' }
   foreach ($name in @('hostStdoutBytes', 'noLaunchBeforeStdoutBytes', 'noLaunchAfterStdoutBytes')) {
     if ($Main.coldLaunch.$name -isnot [int] -or $Main.coldLaunch.$name -lt 5 -or $Main.coldLaunch.$name -gt 4100) { throw 'Invalid cold launch output count.' }
+    if ($Main.packageUriLaunch.$name -isnot [int] -or $Main.packageUriLaunch.$name -lt 5 -or $Main.packageUriLaunch.$name -gt 4100) { throw 'Invalid package URI output count.' }
   }
   foreach ($name in @('hostStdoutBytes', 'anonymousBootstrapStdoutBytes', 'bootstrapStdoutBytes')) {
     if ($Main.runtime.$name -isnot [int] -or $Main.runtime.$name -lt 5 -or $Main.runtime.$name -gt 4100) { throw 'Invalid actual host output count.' }
@@ -939,7 +946,7 @@ try {
   $mainReport = Read-Json $mainReportPath
   Assert-MainRuntimeReport $mainReport $env:GITHUB_SHA $after.Version (Get-Hash (Join-Path $after.Prepared 'layout\app\resources\bin\motrix-native-host.exe')) (Get-Hash (Join-Path $after.Prepared 'layout\app\Motrix.exe')) (Get-Hash (Join-Path $after.Prepared 'layout\app\resources\bin\motrix-windows-platform.exe'))
   Confirm-InstalledPackage $after
-  $report.mainRuntime = [ordered]@{ packageVersion = $after.Version; reportSha256 = Get-Hash $mainReportPath; mainBridgeEndpointVerified = $true; coldLaunchVerified = $true; installedMbp1TransportVerified = $true; installedBootstrapTicketProofVerified = $true; syntheticMbp1Client = $true; mbp1Verified = $false }
+  $report.mainRuntime = [ordered]@{ packageVersion = $after.Version; reportSha256 = Get-Hash $mainReportPath; mainBridgeEndpointVerified = $true; coldLaunchVerified = $true; packageUriLaunchVerified = $true; installedMbp1TransportVerified = $true; installedBootstrapTicketProofVerified = $true; syntheticMbp1Client = $true; mbp1Verified = $false }
   Complete-Phase $stage
   $testCompleted = $true
 } catch {
@@ -951,6 +958,7 @@ try {
       $mainCleanup = Read-Json $mainReportPath
       Assert-True $mainCleanup.runtime.cleanupVerified 'Installed main cleanup was not verified.'
       if ($mainCleanup.PSObject.Properties.Name -contains 'coldLaunch') { Assert-True $mainCleanup.coldLaunch.cleanupVerified 'Cold launch cleanup was not verified.' }
+      if ($mainCleanup.PSObject.Properties.Name -contains 'packageUriLaunch') { Assert-True $mainCleanup.packageUriLaunch.cleanupVerified 'Package URI launch cleanup was not verified.' }
       if (@(Get-Process -Name Motrix -ErrorAction SilentlyContinue).Count -ne 0) { throw 'A Motrix process remains.' }
     }
   }

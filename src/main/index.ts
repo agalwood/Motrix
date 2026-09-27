@@ -754,6 +754,8 @@ const protocolManager = createProtocolManager({
   // In an AppImage, appimage-integration owns the scheme defaults; don't let
   // Electron's setAsDefaultProtocolClient race it (see ProtocolManagerDeps).
   isAppImage: process.platform === 'linux' && Boolean(process.env.APPIMAGE),
+  isWindowsPackage: distributionContext.isWindowsPackage,
+  onShowWindow: () => windowManager?.show('main'),
   // External URL clicks (magnet/http(s)/ftp and
   // motrix://new-task?uri=...) open add-task with Links prefilled.
   onOpenAddTask: (params) => {

@@ -94,6 +94,104 @@ describe('createProtocolManager', () => {
     })
   })
 
+  describe('Windows package launch URI', () => {
+    it.each(['motrix-store://open', 'MOTRIX-STORE://OPEN/'])(
+      'shows only the main window for %s',
+      (url) => {
+        const deps = makeDeps()
+        const pm = createProtocolManager({
+          ...deps,
+          platform: 'win32',
+          isWindowsPackage: true,
+        })
+        pm.handle(url)
+        expect(deps.mockWindow.show).toHaveBeenCalledOnce()
+        expect(deps.mockWindow.focus).toHaveBeenCalledOnce()
+        expect(deps.onOpenAddTask).not.toHaveBeenCalled()
+        expect(deps.onOpenTaskDetail).not.toHaveBeenCalled()
+        expect(deps.onOpenPluginDetail).not.toHaveBeenCalled()
+        expect(deps.deliverToAddTask).not.toHaveBeenCalled()
+        expect(mockSend).not.toHaveBeenCalled()
+      }
+    )
+
+    it('recreates a released main window through the supplied callback', () => {
+      const deps = makeDeps()
+      const onShowWindow = vi.fn()
+      createProtocolManager({
+        ...deps,
+        platform: 'win32',
+        isWindowsPackage: true,
+        getWindow: () => null,
+        onShowWindow,
+      }).handle('motrix-store://open')
+      expect(onShowWindow).toHaveBeenCalledOnce()
+      expect(deps.onOpenAddTask).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      ['win32', false],
+      ['win32', undefined],
+      ['darwin', true],
+      ['linux', true],
+    ] as const)(
+      'ignores the URI on %s with package=%s',
+      (platform, isWindowsPackage) => {
+        const deps = makeDeps()
+        const onShowWindow = vi.fn()
+        createProtocolManager({
+          ...deps,
+          platform,
+          isWindowsPackage,
+          onShowWindow,
+        }).handle('motrix-store://open')
+        expect(onShowWindow).not.toHaveBeenCalled()
+        expect(deps.mockWindow.show).not.toHaveBeenCalled()
+        expect(deps.onOpenAddTask).not.toHaveBeenCalled()
+      }
+    )
+
+    it.each([
+      'motrix-store:open',
+      'motrix-store:///open',
+      'motrix-store://open//',
+      'motrix-store://open/.',
+      'motrix-store://open/a/..',
+      'motrix-store://open/%2e',
+      'motrix-store://%6fpen',
+      'motrix-store://user@open',
+      'motrix-store://open:80',
+      'motrix-store://open?',
+      'motrix-store://open#',
+      'motrix-store://open?uri=https://example.com/file.torrent',
+      'motrix-store://open?nonce=untrusted',
+      'motrix-store://tasks/task-1',
+      'motrix-store://plugins/example.plugin',
+      'motrix-store://new-task?uri=magnet:test',
+      ' motrix-store://open',
+      'motrix-store://open\n',
+      'motrix-store://op\ten',
+      'motrix-store://open\\',
+    ])('rejects non-launch input %j without forwarding data', (url) => {
+      const deps = makeDeps()
+      const onShowWindow = vi.fn()
+      createProtocolManager({
+        ...deps,
+        platform: 'win32',
+        isWindowsPackage: true,
+        onShowWindow,
+      }).handle(url)
+      expect(onShowWindow).not.toHaveBeenCalled()
+      expect(deps.mockWindow.show).not.toHaveBeenCalled()
+      expect(deps.onOpenAddTask).not.toHaveBeenCalled()
+      expect(deps.onOpenTaskDetail).not.toHaveBeenCalled()
+      expect(deps.onOpenPluginDetail).not.toHaveBeenCalled()
+      expect(deps.deliverToAddTask).not.toHaveBeenCalled()
+      expect(mockReadFile).not.toHaveBeenCalled()
+      expect(mockSend).not.toHaveBeenCalled()
+    })
+  })
+
   describe('register', () => {
     it('registers motrix and magnet when magnet is enabled', () => {
       const {

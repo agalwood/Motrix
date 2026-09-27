@@ -223,6 +223,31 @@ describe('setupLauncher', () => {
     return handler
   }
 
+  it('defers the package launch URI and forwards subsequent activations', () => {
+    Object.defineProperty(process, 'platform', { value: 'win32' })
+    process.argv = ['motrix', 'motrix-store://open']
+    const handle = setupLauncher(callbacks)
+    expect(callbacks.onProtocolUrl).not.toHaveBeenCalled()
+    handle.flushDeferred()
+    eventHandler('second-instance')({}, ['motrix', 'MOTRIX-STORE://OPEN/'])
+    expect(callbacks.onProtocolUrl.mock.calls).toEqual([
+      ['motrix-store://open'],
+      ['MOTRIX-STORE://OPEN/'],
+    ])
+    expect(callbacks.onTorrentFile).not.toHaveBeenCalled()
+  })
+
+  it('routes malformed package URLs to protocol validation, never file ingestion', () => {
+    Object.defineProperty(process, 'platform', { value: 'win32' })
+    const url = 'motrix-store://open?uri=https://example.com/file.torrent'
+    process.argv = ['motrix', url]
+    const handle = setupLauncher(callbacks)
+    handle.flushDeferred()
+    eventHandler('second-instance')({}, ['motrix', url])
+    expect(callbacks.onProtocolUrl.mock.calls).toEqual([[url], [url]])
+    expect(callbacks.onTorrentFile).not.toHaveBeenCalled()
+  })
+
   describe.each(['motrix', 'mo'])('%s deeplinks', (scheme) => {
     it.each(['win32', 'linux'])(
       'defers a cold-start URL on %s and never treats it as a torrent file',

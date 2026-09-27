@@ -48,6 +48,7 @@ export function installRuntimeFailureRecorder(fd, currentStage) {
           ...(fatal ? { fatal } : {}),
           mainBridgeEndpointVerified: false,
           coldLaunchVerified: false,
+          packageUriLaunchVerified: false,
           installedMbp1TransportVerified: false,
           installedBootstrapTicketProofVerified: false,
           mbp1ClientCleanupVerified: false,
@@ -595,8 +596,43 @@ async function nativeRequest(installed, allowLaunch) {
   }
 }
 
-async function runColdLaunchCase(installed, pairing, progress) {
+async function requestPackageUriLaunch(installed) {
+  // Exercise the installed OS association, not the diagnostic GUI alias or
+  // native host's launch helper. The fixed URI contains no pairing material.
+  const result = await runBoundedProbeProcess({
+    executable: path.win32.join(
+      process.env.SystemRoot,
+      'System32/WindowsPowerShell/v1.0/powershell.exe'
+    ),
+    args: [
+      '-NoLogo',
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      "$ErrorActionPreference = 'Stop'; Start-Process -FilePath 'motrix-store://open'",
+    ],
+    timeoutMs: 10000,
+  })
+  if (result.exitCode !== 0 || result.stdout.length || result.stderr.length)
+    fail('package-uri-launch-failed')
+  const deadline = performance.now() + 20000
+  while (performance.now() < deadline) {
+    // Discovery can only observe. It must never rescue a failed URI launch.
+    const observed = await nativeRequest(installed, false)
+    if (observed.reply !== null) return observed
+    await delay(250)
+  }
+  fail('cold-endpoint-unavailable')
+}
+
+async function runColdLaunchCase(
+  installed,
+  pairing,
+  progress,
+  launchMethod = 'native-host'
+) {
   const report = {
+    launchMethod,
     ok: false,
     noLaunchBeforeVerified: false,
     coldLaunchVerified: false,
@@ -606,6 +642,8 @@ async function runColdLaunchCase(installed, pairing, progress) {
     noLaunchAfterVerified: false,
     cleanupVerified: false,
     mbp1Verified: false,
+    browserActivationVerified: false,
+    productionDiscoveryVerified: false,
   }
   let stage = 'cold-preflight'
   progress(stage)
@@ -655,10 +693,13 @@ async function runColdLaunchCase(installed, pairing, progress) {
     await requireAbsent()
     report.noLaunchBeforeVerified = true
     report.noLaunchBeforeStdoutBytes = before.stdoutBytes
-    stage = 'native-host-cold-launch'
+    stage = `${launchMethod}-cold-launch`
     progress(stage)
     attempted = true
-    const launched = await nativeRequest(installed, true)
+    const launched =
+      launchMethod === 'package-uri'
+        ? await requestPackageUriLaunch(installed)
+        : await nativeRequest(installed, true)
     if (launched.reply === null) fail('cold-endpoint-unavailable')
     stage = 'cold-process-identity'
     progress(stage)
@@ -696,6 +737,7 @@ async function runColdLaunchCase(installed, pairing, progress) {
       'cold-main-process-predates-launch',
       'main-process-identity-mismatch',
       'cold-endpoint-unavailable',
+      'package-uri-launch-failed',
       'unexpected-running-endpoint',
       'unexpected-host-reply',
       'invalid-host-frame',
@@ -758,6 +800,7 @@ async function main(args) {
     ok: false,
     mainBridgeEndpointVerified: false,
     coldLaunchVerified: false,
+    packageUriLaunchVerified: false,
     installedMbp1TransportVerified: false,
     installedBootstrapTicketProofVerified: false,
     mbp1ClientCleanupVerified: false,
@@ -856,6 +899,17 @@ async function main(args) {
     report.coldLaunch = await runColdLaunchCase(before, pairing, (value) => {
       stage = `cold-launch:${value}`
     })
+    if (!report.coldLaunch.ok || !report.coldLaunch.cleanupVerified)
+      fail('cold-launch-failed')
+    stage = 'package-uri-launch'
+    report.packageUriLaunch = await runColdLaunchCase(
+      before,
+      pairing,
+      (value) => {
+        stage = `package-uri-launch:${value}`
+      },
+      'package-uri'
+    )
     stage = 'installed-content-after'
     await checkContent()
     const after = validateInstalledProbeState({
@@ -876,7 +930,11 @@ async function main(args) {
       report.runtime.ok &&
       report.runtime.cleanupVerified &&
       report.coldLaunch.ok &&
-      report.coldLaunch.cleanupVerified
+      report.coldLaunch.cleanupVerified &&
+      report.packageUriLaunch.ok &&
+      report.packageUriLaunch.cleanupVerified
+    report.packageUriLaunchVerified =
+      report.ok && report.packageUriLaunch.coldLaunchVerified
     report.coldLaunchVerified =
       report.ok && report.coldLaunch.coldLaunchVerified
     report.mainBridgeEndpointVerified =
@@ -894,12 +952,14 @@ async function main(args) {
       report.ok &&
       report.mbp1ClientCleanupVerified &&
       report.runtime.mbp1TransportPairingVerified &&
-      report.coldLaunch.mbp1TransportReconnectVerified
+      report.coldLaunch.mbp1TransportReconnectVerified &&
+      report.packageUriLaunch.mbp1TransportReconnectVerified
     report.installedBootstrapTicketProofVerified =
       report.installedMbp1TransportVerified &&
       report.runtime.noCallerTicketlessVerified &&
       report.runtime.bootstrapTicketProofVerified
     report.coldLaunchVerified &&= report.ok
+    report.packageUriLaunchVerified &&= report.ok
     report.mainBridgeEndpointVerified &&= report.ok
     try {
       finishFailureRecorder()

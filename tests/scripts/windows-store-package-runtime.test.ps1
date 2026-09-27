@@ -126,12 +126,19 @@ function New-ContractFixture {
     Main = [pscustomobject]@{
       schemaVersion = 1; scope = 'windows-installed-main-bridge-startup'
       sourceCommit = $commit; packageVersion = '1.0.1.0'; nativeHostSha256 = ('e' * 64); mainExecutableSha256 = ('f' * 64); windowsPlatformSha256 = ('a' * 64)
-      ok = $true; mainBridgeEndpointVerified = $true; coldLaunchVerified = $true; mbp1Verified = $false; windows11AcceptanceVerified = $false; storeReady = $false
+      ok = $true; mainBridgeEndpointVerified = $true; coldLaunchVerified = $true; packageUriLaunchVerified = $true; mbp1Verified = $false; windows11AcceptanceVerified = $false; storeReady = $false
       installedMbp1TransportVerified = $true; installedBootstrapTicketProofVerified = $true; mbp1ClientCleanupVerified = $true; syntheticMbp1Client = $true
       coldLaunch = [pscustomobject]@{
+        launchMethod = 'native-host'
         ok = $true; noLaunchBeforeVerified = $true; coldLaunchVerified = $true; processIdentityVerified = $true
         mainBridgeEndpointVerified = $true; noLaunchAfterVerified = $true; cleanupVerified = $true; mbp1Verified = $false
         mbp1TransportReconnectVerified = $true
+        hostStdoutBytes = 94; noLaunchBeforeStdoutBytes = 34; noLaunchAfterStdoutBytes = 34
+      }
+      packageUriLaunch = [pscustomobject]@{
+        launchMethod = 'package-uri'; ok = $true; noLaunchBeforeVerified = $true; coldLaunchVerified = $true; processIdentityVerified = $true
+        mainBridgeEndpointVerified = $true; noLaunchAfterVerified = $true; cleanupVerified = $true; mbp1Verified = $false
+        browserActivationVerified = $false; productionDiscoveryVerified = $false; mbp1TransportReconnectVerified = $true
         hostStdoutBytes = 94; noLaunchBeforeStdoutBytes = 34; noLaunchAfterStdoutBytes = 34
       }
       runtime = [pscustomobject]@{
@@ -278,6 +285,14 @@ try {
   Test-ContractCase 'main-rejects-extra-output' 'main' $true { param($f) $f.Main.runtime.hostStdoutBytes = 4101 }
   Test-ContractCase 'main-rejects-other-platform-helper' 'main' $true { param($f) $f.Main.windowsPlatformSha256 = 'b' * 64 }
   Test-ContractCase 'main-rejects-no-cold-launch' 'main' $true { param($f) $f.Main.coldLaunchVerified = $false }
+  Test-ContractCase 'main-rejects-no-package-uri-launch' 'main' $true { param($f) $f.Main.packageUriLaunchVerified = $false }
+  Test-ContractCase 'main-rejects-package-uri-native-fallback' 'main' $true { param($f) $f.Main.packageUriLaunch.launchMethod = 'native-host' }
+  Test-ContractCase 'main-rejects-package-uri-no-identity' 'main' $true { param($f) $f.Main.packageUriLaunch.processIdentityVerified = $false }
+  Test-ContractCase 'main-rejects-package-uri-no-reconnect' 'main' $true { param($f) $f.Main.packageUriLaunch.mbp1TransportReconnectVerified = $false }
+  Test-ContractCase 'main-rejects-package-uri-no-cleanup' 'main' $true { param($f) $f.Main.packageUriLaunch.cleanupVerified = $false }
+  Test-ContractCase 'main-rejects-package-uri-browser-overclaim' 'main' $true { param($f) $f.Main.packageUriLaunch.browserActivationVerified = $true }
+  Test-ContractCase 'main-rejects-package-uri-discovery-overclaim' 'main' $true { param($f) $f.Main.packageUriLaunch.productionDiscoveryVerified = $true }
+  Test-ContractCase 'main-rejects-package-uri-extra-output' 'main' $true { param($f) $f.Main.packageUriLaunch.hostStdoutBytes = 4101 }
   Test-ContractCase 'main-rejects-no-cold-identity' 'main' $true { param($f) $f.Main.coldLaunch.processIdentityVerified = $false }
   Test-ContractCase 'main-rejects-launch-without-intent-before' 'main' $true { param($f) $f.Main.coldLaunch.noLaunchBeforeVerified = $false }
   Test-ContractCase 'main-rejects-launch-without-intent-after' 'main' $true { param($f) $f.Main.coldLaunch.noLaunchAfterVerified = $false }

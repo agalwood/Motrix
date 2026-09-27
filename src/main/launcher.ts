@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import type { BridgeDataDirLockRecoveryAuthority } from '@core/bridge/bridge-data-dir-lock'
 import { getLogger } from '@core/logger'
+import windowsPackage from '@shared/config/windows-package.json'
 import { app } from 'electron'
 
 export interface LauncherCallbacks {
@@ -23,6 +24,7 @@ const SUPPORTED_SCHEMES = [
   'magnet:',
   'motrix:',
   'mo:',
+  `${windowsPackage.launchScheme}:`,
 ]
 
 function isSupportedUrl(arg: string): boolean {

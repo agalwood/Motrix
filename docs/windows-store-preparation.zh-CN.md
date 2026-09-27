@@ -143,9 +143,13 @@ priconfig.xml
 
 普通测试 manifest 包含一个具有包身份的桌面应用和 `runFullTrust`，并为 `app\Motrix.exe`
 声明需主动启用的 `MotrixStartup` 任务，设置 `Enabled="false"` 与
-`--opened-at-login=1`。同时声明 `motrix`、`mo`、`magnet` 协议和 `.torrent` 文件。
+`--opened-at-login=1`。同时声明 `motrix`、`mo`、`magnet`、`motrix-store` 协议和 `.torrent` 文件。
 生产 native-host alias 声明等待浏览器联动适配包身份；下文显式诊断模式使用
-独立测试探针。当前配置的 Windows
+独立测试探针。包版专用的 `motrix-store://open`（也接受末尾斜杠和 ASCII 大小写变化）
+只显示主窗口，拒绝其他路径、查询参数、片段、凭据和端口。普通安装版既不注册也不处理
+此入口，NSIS 关联保持不变。这是应用侧启动原型，不代表已完成经过认证的浏览器发现；
+URI 激活不授予配对或下载权限，扩展联动、共存和 Windows 安装后的实际激活仍需验证。
+当前配置的 Windows
 阈值为 10.0.19045.0，并非 Windows 兼容性实测结论。现有四张图片按 scale-200
 资源命名，manifest 引用逻辑路径；PRI 配置从仅含 `Assets/` 的独立
 `pri-root` 根目录开始索引，保留逻辑资源名中的 `Assets/` 层级。该命令**不会生成**
@@ -204,7 +208,7 @@ JSON 请求，针对固定 `MotrixStartup` 任务。Electron 从包内资源绝�
 
 Windows 11 还须验证：
 
-- 三种协议和 torrent 文件的冷启动、运行中激活，包括空格、中文路径及多文件选择。
+- 四种协议和 torrent 文件的冷启动、运行中激活，包括空格、中文路径及多文件选择。
 - 畸形链接不会创建任务、安装插件或重复派发文件。
 - 在 Windows 设置中切换默认应用，返回 Motrix 后状态刷新；无法读取时仍显示未知。
 - 官网版与包版共存，不擅自改变用户的默认选择；升级和卸载只处理各自声明。
@@ -347,6 +351,11 @@ profile 文件、Electron 原始输出或图片。这验证桥接启动和端点
 `installedMbp1TransportVerified` 仅记录这项传输验证；`syntheticMbp1Client`
 保持 true，正式 `mbp1Verified` 保持 false。Node 提供的 Origin 不证明真实浏览器来源、
 正式扩展行为或生产浏览器注册生命周期。
+
+安装后运行时检查也会在主程序关闭后，通过系统协议关联请求 `motrix-store://open`，
+核对新进程的包身份、AUMID、端点归属、原合成客户端凭据的认证重连及清理结果。
+该用例中的 native host 只观察状态（`allowLaunch: false`），不能补救失败的 URI 启动。
+此检查不证明浏览器用户手势处理、生产扩展发现或与普通安装版共存已通过。
 
 控制器还会为实际 Rust host 的 `bootstrap` 请求生成一次性 Ed25519 绑定密钥。
 没有调用者参数时，响应必须不带票据；传入固定的合成 Chromium 调用者参数后，

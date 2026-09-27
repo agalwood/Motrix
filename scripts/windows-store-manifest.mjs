@@ -177,6 +177,9 @@ export function renderWindowsStoreManifest(rawMetadata) {
         <uap3:Extension Category="windows.protocol" Executable="app\Motrix.exe" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL">
           <uap3:Protocol Name="magnet" Parameters="&quot;%1&quot;" />
         </uap3:Extension>
+        <uap3:Extension Category="windows.protocol" Executable="app\Motrix.exe" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL">
+          <uap3:Protocol Name="${escapeXml(windowsPackage.launchScheme)}" Parameters="&quot;%1&quot;" />
+        </uap3:Extension>
         <uap3:Extension Category="windows.fileTypeAssociation" Executable="app\Motrix.exe" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL">
           <uap3:FileTypeAssociation Name="torrent" Parameters="&quot;%1&quot;" MultiSelectModel="Document">
             <uap:SupportedFileTypes>

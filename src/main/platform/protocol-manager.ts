@@ -3,6 +3,7 @@ import { basename, extname } from 'node:path'
 import { getLogger } from '@core/logger'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import type { TorrentParser } from '@core/torrent/torrent-parser'
+import windowsPackage from '@shared/config/windows-package.json'
 import { Events } from '@shared/protocol/events'
 import type { AddTaskUrlParams } from '@shared/schemas/add-task'
 import { REGISTRY_PLUGIN_ID_RE } from '@shared/schemas/registry'
@@ -26,6 +27,11 @@ export interface ProtocolManagerDeps {
   // Windows associations are installer-owned so they can participate in the
   // protected Default Apps UI and be removed reliably on uninstall/update.
   platform?: NodeJS.Platform
+  // Distribution context controls routing, not browser authentication or
+  // proof of publisher identity. The package manifest owns this scheme.
+  isWindowsPackage?: boolean
+  // Recreate a released main window through the window manager when available.
+  onShowWindow?: () => void
   // Open (or focus) the add-task window with URL prefill. Wired in
   // main/index.ts to open the window + dispatch SetAddTaskMode once the
   // renderer's first paint + useEffect have completed.
@@ -216,6 +222,28 @@ export function createProtocolManager(deps: ProtocolManagerDeps) {
       // URL parsing strips some raw controls, so reject them before parsing.
       if (url.trim() !== url || CONTROL_CHARACTERS.test(url)) return
       const lower = url.toLowerCase()
+
+      if (lower.startsWith(`${windowsPackage.launchScheme}:`)) {
+        const launchUrl = `${windowsPackage.launchScheme}://open`
+        // Match the raw URI before normalization. This entry point can only
+        // show the package UI; it carries no pairing, download, or task data.
+        if (
+          deps.isWindowsPackage &&
+          (deps.platform ?? process.platform) === 'win32' &&
+          (lower === launchUrl || lower === `${launchUrl}/`)
+        ) {
+          if (deps.onShowWindow) {
+            deps.onShowWindow()
+          } else {
+            const win = deps.getWindow()
+            if (win && !win.isDestroyed()) {
+              win.show()
+              win.focus()
+            }
+          }
+        }
+        return
+      }
 
       if (RESOURCE_PREFIXES.some((p) => lower.startsWith(p))) {
         const params = uriToAddTaskParams(url)
