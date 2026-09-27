@@ -9,6 +9,7 @@ import {
   productionBrowserOrder,
   productionChromiumTarget,
   runStoreExtensionRuntime,
+  validateProtocolDialogObservation,
 } from '../../scripts/test-windows-store-extension-runtime.mjs'
 
 const roots: string[] = []
@@ -16,6 +17,69 @@ afterEach(async () => {
   await Promise.all(
     roots.splice(0).map((root) => rm(root, { recursive: true, force: true }))
   )
+})
+
+describe('protocol dialog evidence redaction', () => {
+  const observation = {
+    confirmed: true,
+    cancelled: false,
+    processIdentityVerified: true,
+    ownedWindows: 1,
+    openButtons: 1,
+    eligibleDialogs: 1,
+    namedOpenButtons: 1,
+    dialogRoleAncestors: 1,
+    exactTitleAncestors: 1,
+    testAppTitleAncestors: 1,
+    maxAncestorDepth: 5,
+    ownershipBoundaries: 0,
+  }
+  it('keeps bounded structure and discards any raw UI text or path', () => {
+    expect(
+      validateProtocolDialogObservation({
+        ...observation,
+        title: 'private title',
+        profile: 'private path',
+        code: 'XXXX-XXXX',
+      })
+    ).toEqual(observation)
+    expect(
+      validateProtocolDialogObservation({
+        ...observation,
+        confirmed: false,
+        cancelled: true,
+      }).cancelled
+    ).toBe(true)
+  })
+  it.each([
+    { cancelled: true },
+    { confirmed: 'true' },
+    { cancelled: 'false' },
+    { processIdentityVerified: false },
+    { openButtons: -1 },
+    { openButtons: 101 },
+    { openButtons: 1.5 },
+    { eligibleDialogs: 0 },
+    { eligibleDialogs: 2 },
+    { exactTitleAncestors: 0 },
+    { dialogRoleAncestors: 0 },
+    { maxAncestorDepth: 13 },
+    { maxAncestorDepth: 0 },
+    { ownershipBoundaries: '0' },
+  ])('rejects contradictory, missing or unbounded evidence: %j', (change) => {
+    expect(() =>
+      validateProtocolDialogObservation({ ...observation, ...change })
+    ).toThrow('protocol-confirmation-failed')
+  })
+  it('retains a failed search without turning it into consent', () => {
+    const failed = {
+      ...observation,
+      confirmed: false,
+      eligibleDialogs: 0,
+      exactTitleAncestors: 0,
+    }
+    expect(validateProtocolDialogObservation(failed)).toEqual(failed)
+  })
 })
 async function fixture() {
   const root = await mkdtemp(path.join(tmpdir(), 'store-extension-test-'))

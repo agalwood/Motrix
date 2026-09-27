@@ -148,7 +148,7 @@ async function protocolConfirmation(mode, browserName, pid, hash, startTicks) {
       ...(startTicks ? ['-StartTicks', startTicks] : []),
     ],
     timeoutMs: 20000,
-    maxStdoutBytes: 512,
+    maxStdoutBytes: 1024,
   })
   if (result.exitCode !== 0 || result.stderr.length)
     fail('protocol-confirmation-failed')
@@ -161,15 +161,42 @@ async function protocolConfirmation(mode, browserName, pid, hash, startTicks) {
       fail('protocol-browser-identity')
     return value.startTicks
   }
+  return validateProtocolDialogObservation(value)
+}
+
+/** Retain bounded structural counts, never accessible names or arbitrary data. */
+export function validateProtocolDialogObservation(value) {
   if (
+    !value ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
     typeof value.confirmed !== 'boolean' ||
     typeof value.cancelled !== 'boolean' ||
     (value.confirmed && value.cancelled) ||
     value.processIdentityVerified !== true ||
-    ['ownedWindows', 'openButtons', 'eligibleDialogs'].some(
+    [
+      'ownedWindows',
+      'openButtons',
+      'eligibleDialogs',
+      'namedOpenButtons',
+      'dialogRoleAncestors',
+      'exactTitleAncestors',
+      'testAppTitleAncestors',
+      'maxAncestorDepth',
+      'ownershipBoundaries',
+    ].some(
       (key) =>
         !Number.isInteger(value[key]) || value[key] < 0 || value[key] > 100
-    )
+    ) ||
+    value.maxAncestorDepth > 12 ||
+    ((value.confirmed || value.cancelled) &&
+      (value.eligibleDialogs !== 1 ||
+        value.ownedWindows < 1 ||
+        value.openButtons < 1 ||
+        value.dialogRoleAncestors < 1 ||
+        value.exactTitleAncestors < 1 ||
+        value.testAppTitleAncestors < 1 ||
+        value.maxAncestorDepth < 1))
   )
     fail('protocol-confirmation-failed')
   return {
@@ -179,6 +206,12 @@ async function protocolConfirmation(mode, browserName, pid, hash, startTicks) {
     ownedWindows: value.ownedWindows,
     openButtons: value.openButtons,
     eligibleDialogs: value.eligibleDialogs,
+    namedOpenButtons: value.namedOpenButtons,
+    dialogRoleAncestors: value.dialogRoleAncestors,
+    exactTitleAncestors: value.exactTitleAncestors,
+    testAppTitleAncestors: value.testAppTitleAncestors,
+    maxAncestorDepth: value.maxAncestorDepth,
+    ownershipBoundaries: value.ownershipBoundaries,
   }
 }
 

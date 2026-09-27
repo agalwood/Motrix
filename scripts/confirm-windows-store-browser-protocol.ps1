@@ -36,7 +36,12 @@ try {
   $ownedCondition = [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty, $TargetPid)
   $buttonCondition = [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty, [Windows.Automation.ControlType]::Button)
   $deadline = [DateTime]::UtcNow.AddSeconds(15)
-  $report = [ordered]@{ confirmed = $false; cancelled = $false; processIdentityVerified = $true; ownedWindows = 0; openButtons = 0; eligibleDialogs = 0 }
+  $report = [ordered]@{
+    confirmed = $false; cancelled = $false; processIdentityVerified = $true
+    ownedWindows = 0; openButtons = 0; eligibleDialogs = 0
+    namedOpenButtons = 0; dialogRoleAncestors = 0; exactTitleAncestors = 0
+    testAppTitleAncestors = 0; maxAncestorDepth = 0; ownershipBoundaries = 0
+  }
   while ([DateTime]::UtcNow -lt $deadline) {
     $null = Assert-OwnedBrowser
     # Enumerate desktop children only, then inspect this owned browser's UI.
@@ -46,6 +51,12 @@ try {
     $report.ownedWindows = $windows.Count
     $report.openButtons = 0
     $report.eligibleDialogs = 0
+    $report.namedOpenButtons = 0
+    $report.dialogRoleAncestors = 0
+    $report.exactTitleAncestors = 0
+    $report.testAppTitleAncestors = 0
+    $report.maxAncestorDepth = 0
+    $report.ownershipBoundaries = 0
     $matches = [Collections.Generic.List[object]]::new()
     foreach ($window in $windows) {
       $buttons = $window.FindAll([Windows.Automation.TreeScope]::Descendants, $buttonCondition)
@@ -53,15 +64,23 @@ try {
         if ($button.Current.ProcessId -ne $TargetPid -or $button.Current.IsOffscreen -or -not $button.Current.IsEnabled -or
             $button.Current.Name -cnotin @('Open', 'Open Motrix Store TEST ONLY')) { continue }
         $report.openButtons++
+        if ($button.Current.Name -ceq 'Open Motrix Store TEST ONLY') { $report.namedOpenButtons++ }
         $parent = $button
-        for ($level = 0; $level -lt 4; $level++) {
+        # Browser chrome can add nested layout containers. Search a bounded
+        # ancestor chain without relaxing process, dialog or title checks.
+        for ($level = 0; $level -lt 12; $level++) {
           $parent = [Windows.Automation.TreeWalker]::ControlViewWalker.GetParent($parent)
-          if ($null -eq $parent -or $parent.Current.ProcessId -ne $TargetPid) { break }
+          if ($null -eq $parent) { break }
+          $report.maxAncestorDepth = [Math]::Max($report.maxAncestorDepth, $level + 1)
+          if ($parent.Current.ProcessId -ne $TargetPid) { $report.ownershipBoundaries++; break }
+          $dialogRole = $parent.Current.ControlType -eq [Windows.Automation.ControlType]::Window -or $parent.Current.LocalizedControlType -ceq 'dialog'
+          $exactTitle = $parent.Current.Name -cin @('Open Motrix Store TEST ONLY?', 'This site is trying to open Motrix Store TEST ONLY.')
+          if ($dialogRole) { $report.dialogRoleAncestors++ }
+          if ($exactTitle) { $report.exactTitleAncestors++ }
+          if ($parent.Current.Name.Contains('Motrix Store TEST ONLY')) { $report.testAppTitleAncestors++ }
           # Only the test package's exact application name is eligible. A
           # generic Open button, web page or unknown handler must fail closed.
-          if ($parent.Current.ControlType -ne [Windows.Automation.ControlType]::Window -and
-              $parent.Current.LocalizedControlType -cne 'dialog') { continue }
-          if ($parent.Current.Name -cnotin @('Open Motrix Store TEST ONLY?', 'This site is trying to open Motrix Store TEST ONLY.')) { continue }
+          if (-not $dialogRole -or -not $exactTitle) { continue }
           $report.eligibleDialogs++
           $cancel = $parent.FindAll([Windows.Automation.TreeScope]::Descendants, [Windows.Automation.AndCondition]::new($buttonCondition, [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty, 'Cancel')))
           if ($cancel.Count -eq 1 -and $cancel[0].Current.ProcessId -eq $TargetPid -and
