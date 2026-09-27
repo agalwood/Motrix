@@ -425,6 +425,13 @@ reports. `installedMbp1TransportVerified` records this narrower transport check;
 false. A supplied Node Origin does not prove real browser provenance, production
 extension behavior or the production browser registration lifecycle.
 
+Registry cleanup removes matching test leaves and newly created empty parent
+keys. Shared parents populated during browser startup are preserved and reported
+separately; their presence does not establish test ownership. Pre-existing parents
+must remain, and any remaining `app.motrix.*` host registration fails the check.
+`outsideCleanupVerified` does not imply the shared parent inventory is unchanged;
+`parentCleanup.inventoryRestored` records that separately.
+
 The installed runtime check also requests `motrix-store://open` through the OS
 association after closing the main application. It checks the new process's package
 and AUMID, endpoint ownership, authenticated reconnect with the original synthetic

@@ -335,11 +335,36 @@ function Get-RegistryVisibilityParents {
     try {
       foreach ($path in $paths) {
         $key = $root.OpenSubKey($path)
-        try { [pscustomobject]@{ view = $view; path = $path; present = $null -ne $key } }
+        try {
+          [pscustomobject]@{
+            view = $view; path = $path; present = $null -ne $key
+            subKeyCount = $(if ($null -ne $key) { $key.SubKeyCount } else { 0 })
+            valueCount = $(if ($null -ne $key) { $key.ValueCount } else { 0 })
+            motrixSubKeyCount = $(if ($null -ne $key -and $path.EndsWith('\NativeMessagingHosts')) {
+              @($key.GetSubKeyNames() | Where-Object { $_ -like 'app.motrix.*' }).Count
+            } else { 0 })
+          }
+        }
         finally { if ($null -ne $key) { $key.Dispose() } }
       }
     } finally { $root.Dispose() }
   }
+}
+
+function Assert-RegistryParentCleanupState([object[]]$Before, [object[]]$After) {
+  if ($After.Count -ne $Before.Count) { throw 'Registry parent inventory changed.' }
+  $preserved = @()
+  for ($i = 0; $i -lt $After.Count; $i++) {
+    $entry = $After[$i]
+    if ($entry.view -ne $Before[$i].view -or $entry.path -cne $Before[$i].path) { throw 'Registry parent inventory changed.' }
+    if ($entry.motrixSubKeyCount -ne 0) { throw 'A Motrix native host registration remains.' }
+    if ($Before[$i].present -and -not $entry.present) { throw 'An existing registry parent was removed.' }
+    if (-not $Before[$i].present -and $entry.present) {
+      if ($entry.subKeyCount -eq 0 -and $entry.valueCount -eq 0) { throw 'An empty new registry parent remains.' }
+      $preserved += [pscustomobject]@{ view = $entry.view.ToString(); path = $entry.path; subKeyCount = $entry.subKeyCount; valueCount = $entry.valueCount }
+    }
+  }
+  return [pscustomobject]@{ inventoryRestored = $preserved.Count -eq 0; preservedNonemptyParents = $preserved }
 }
 
 function Restore-RegistryVisibilityParents([object[]]$Before) {
@@ -350,16 +375,15 @@ function Restore-RegistryVisibilityParents([object[]]$Before) {
       $key = $root.OpenSubKey($entry.path)
       if ($null -eq $key) { continue }
       try {
-        if ($key.SubKeyCount -ne 0 -or $key.ValueCount -ne 0) { throw 'New registry parent has foreign contents; refusing removal.' }
+        # Browser startup can populate a shared parent that was absent at
+        # preflight. Its appearance does not establish test ownership.
+        if ($key.SubKeyCount -ne 0 -or $key.ValueCount -ne 0) { continue }
       } finally { $key.Dispose() }
       $root.DeleteSubKey($entry.path, $true)
     } finally { $root.Dispose() }
   }
   $after = @(Get-RegistryVisibilityParents)
-  if ($after.Count -ne $Before.Count) { throw 'Registry parent inventory changed.' }
-  for ($i = 0; $i -lt $after.Count; $i++) {
-    if ($after[$i].present -ne $Before[$i].present) { throw 'Registry parent state was not restored.' }
-  }
+  return (Assert-RegistryParentCleanupState $Before $after)
 }
 
 function Assert-RegistryVisibilityReply([object]$Value) {
@@ -825,6 +849,7 @@ try {
   }
   if (@($report.registryVisibility.before | Where-Object { $_.present }).Count -ne 0) { throw 'Existing registry probe leaves prevent this experiment.' }
   $registryParents = @(Get-RegistryVisibilityParents)
+  if (@($registryParents | Where-Object { $_.motrixSubKeyCount -ne 0 }).Count -ne 0) { throw 'Existing Motrix native host registrations prevent this experiment.' }
   Complete-Phase $stage
   $stage = 'create-test-certificate'
   # Publisher/EKU/end-entity requirements:
@@ -1011,7 +1036,7 @@ try {
     Invoke-CleanupCheck 'registry-owned-leaves-cleanup' {
       $null = Get-RegistryVisibilityState -Cleanup
       if (@(Get-RegistryVisibilityState | Where-Object { $_.present }).Count -ne 0) { throw 'Registry probe leaves remain.' }
-      Restore-RegistryVisibilityParents $registryParents
+      $report.registryVisibility.parentCleanup = Restore-RegistryVisibilityParents $registryParents
       $report.registryVisibility.outsideCleanupVerified = $true
     }
   }

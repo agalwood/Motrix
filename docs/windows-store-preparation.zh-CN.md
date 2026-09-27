@@ -352,6 +352,11 @@ profile 文件、Electron 原始输出或图片。这验证桥接启动和端点
 保持 true，正式 `mbp1Verified` 保持 false。Node 提供的 Origin 不证明真实浏览器来源、
 正式扩展行为或生产浏览器注册生命周期。
 
+注册表清理删除内容匹配的测试条目和新建的空父键。浏览器启动期间被填充的共享父键会
+保留并单独记录；父键新出现不代表本次测试拥有它。原有父键必须保留，任何残留的
+`app.motrix.*` host 注册都会使检查失败。`outsideCleanupVerified` 不代表共享父键清单
+未变；`parentCleanup.inventoryRestored` 单独记录是否恢复原清单。
+
 安装后运行时检查也会在主程序关闭后，通过系统协议关联请求 `motrix-store://open`，
 核对新进程的包身份、AUMID、端点归属、原合成客户端凭据的认证重连及清理结果。
 该用例中的 native host 只观察状态（`allowLaunch: false`），不能补救失败的 URI 启动。

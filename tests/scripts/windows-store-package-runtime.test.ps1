@@ -210,7 +210,7 @@ try {
   $ast = [Management.Automation.Language.Parser]::ParseFile($runtimePath, [ref]$tokens, [ref]$parseErrors)
   if (@($parseErrors).Count -ne 0) { throw 'Runtime source has parser errors.' }
   $definitions = @(
-    foreach ($name in @('Assert-True', 'Assert-False', 'Assert-UpgradeInputs', 'Assert-UpgradeRetargeting', 'Assert-AliasReport', 'Assert-BrowserCleanupReport', 'Assert-BrowserReport', 'Assert-NativeHostProfileReport', 'Assert-MainRuntimeReport', 'Assert-RegistryVisibilityReply')) {
+    foreach ($name in @('Assert-True', 'Assert-False', 'Assert-UpgradeInputs', 'Assert-UpgradeRetargeting', 'Assert-AliasReport', 'Assert-BrowserCleanupReport', 'Assert-BrowserReport', 'Assert-NativeHostProfileReport', 'Assert-MainRuntimeReport', 'Assert-RegistryVisibilityReply', 'Assert-RegistryParentCleanupState')) {
       $matching = @($ast.EndBlock.Statements | Where-Object {
         $_ -is [Management.Automation.Language.FunctionDefinitionAst] -and $_.Name -ceq $name
       })
@@ -243,6 +243,25 @@ try {
     $rejected = $false
     try { $observed = Resolve-MainListenerOwner $case.listeners } catch { $rejected = $true }
     $ok = if ($null -eq $case.expected) { $rejected } else { -not $rejected -and $observed -eq $case.expected }
+    $results.Add([ordered]@{ name = $case.name; ok = $ok })
+  }
+
+  foreach ($case in @(
+    @{ name = 'parent-existing-kept'; before = $true; present = $true; subkeys = 0; values = 0; motrix = 0; reject = $false; restored = $true },
+    @{ name = 'parent-empty-new-removed'; before = $false; present = $false; subkeys = 0; values = 0; motrix = 0; reject = $false; restored = $true },
+    @{ name = 'parent-browser-subkeys-preserved'; before = $false; present = $true; subkeys = 2; values = 0; motrix = 0; reject = $false; restored = $false },
+    @{ name = 'parent-browser-values-preserved'; before = $false; present = $true; subkeys = 0; values = 1; motrix = 0; reject = $false; restored = $false },
+    @{ name = 'parent-existing-removal-rejected'; before = $true; present = $false; subkeys = 0; values = 0; motrix = 0; reject = $true; restored = $false },
+    @{ name = 'parent-empty-new-leftover-rejected'; before = $false; present = $true; subkeys = 0; values = 0; motrix = 0; reject = $true; restored = $false },
+    @{ name = 'parent-motrix-leftover-rejected'; before = $false; present = $true; subkeys = 1; values = 0; motrix = 1; reject = $true; restored = $false }
+  )) {
+    $before = @([pscustomobject]@{ view = 'Registry32'; path = 'Software\Google\Chrome\NativeMessagingHosts'; present = $case.before })
+    $after = @([pscustomobject]@{ view = 'Registry32'; path = $before[0].path; present = $case.present; subKeyCount = $case.subkeys; valueCount = $case.values; motrixSubKeyCount = $case.motrix })
+    $rejected = $false
+    $result = $null
+    try { $result = Assert-RegistryParentCleanupState $before $after } catch { $rejected = $true }
+    $ok = $rejected -eq $case.reject
+    if (-not $rejected) { $ok = $ok -and $result.inventoryRestored -eq $case.restored -and @($result.preservedNonemptyParents).Count -eq $(if ($case.restored) { 0 } else { 1 }) }
     $results.Add([ordered]@{ name = $case.name; ok = $ok })
   }
 
