@@ -503,28 +503,30 @@ async function runMainCase(installed, pairing, progress) {
         report.mbp1TransportPairingVerified = true
         report.bootstrapTicketProofVerified = true
         if (process.env.MOTRIX_STORE_EXTENSION_DIRECTORY) {
-          stage = 'production-extension'
-          progress(stage)
-          report.extensionRuntime = await runStoreExtensionRuntime({
-            extensionDirectory: process.env.MOTRIX_STORE_EXTENSION_DIRECTORY,
-            sourceCommit: process.env.MOTRIX_STORE_EXTENSION_COMMIT,
-            profileDirectory: path.join(
-              process.env.RUNNER_TEMP,
-              'motrix-store-production-extension-profile'
-            ),
-            appPort: reply.port,
-            readPairingCode: () => readPairingCode(main),
-          })
-          if (
-            !report.extensionRuntime.ok ||
-            !report.extensionRuntime.cleanupVerified
-          )
-            fail('extension-runtime-failed')
-          validateMainProcess(await queryProcess(child.pid, reply.port), {
-            pid: child.pid,
-            installed: installed.package,
-            startTicks,
-          })
+          report.extensionRuntimes = {}
+          for (const browserName of ['chrome', 'edge']) {
+            stage = `production-extension-${browserName}`
+            progress(stage)
+            const extension = await runStoreExtensionRuntime({
+              browserName,
+              extensionDirectory: process.env.MOTRIX_STORE_EXTENSION_DIRECTORY,
+              sourceCommit: process.env.MOTRIX_STORE_EXTENSION_COMMIT,
+              profileDirectory: path.join(
+                process.env.RUNNER_TEMP,
+                `motrix-store-production-${browserName}-extension-profile`
+              ),
+              appPort: reply.port,
+              readPairingCode: () => readPairingCode(main),
+            })
+            report.extensionRuntimes[browserName] = extension
+            if (!extension.ok || !extension.cleanupVerified)
+              fail('extension-runtime-failed')
+            validateMainProcess(await queryProcess(child.pid, reply.port), {
+              pid: child.pid,
+              installed: installed.package,
+              startTicks,
+            })
+          }
         }
         break
       }

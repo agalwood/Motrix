@@ -115,12 +115,24 @@ async function waitConnected(page) {
   fail('extension-connect-timeout')
 }
 
+/** Branded browsers only; Firefox uses a different automation/identity path. */
+export function productionChromiumTarget(browserName) {
+  if (browserName !== 'chrome' && browserName !== 'edge')
+    fail('extension-browser-unsupported')
+  return {
+    browserName,
+    channel: browserName === 'chrome' ? 'chrome' : 'msedge',
+    scope: `installed-appx-production-${browserName}-extension`,
+  }
+}
+
 /**
  * Production Chromium build, normal UI and PAKE, disposable CI profile.
  * This proves neither browser protocol activation nor Store publisher identity.
  * The caller owns the installed application's identity/port and code renderer.
  */
 export async function runStoreExtensionRuntime({
+  browserName,
   extensionDirectory,
   sourceCommit,
   profileDirectory,
@@ -128,13 +140,12 @@ export async function runStoreExtensionRuntime({
   readPairingCode,
 }) {
   const report = {
-    scope: 'installed-appx-production-chrome-extension',
+    scope: 'installed-appx-production-extension',
     ok: false,
     firstPairVerified: false,
     browserRestartReconnectVerified: false,
     cleanupVerified: false,
     protocolActivationVerified: false,
-    edgeVerified: false,
     firefoxVerified: false,
     windows11AcceptanceVerified: false,
   }
@@ -154,6 +165,9 @@ export async function runStoreExtensionRuntime({
     ownedPid = undefined
   }
   try {
+    const target = productionChromiumTarget(browserName)
+    report.scope = target.scope
+    report.browserName = target.browserName
     if (
       process.platform !== 'win32' ||
       !/^[0-9a-f]{40}$/.test(sourceCommit) ||
@@ -171,13 +185,16 @@ export async function runStoreExtensionRuntime({
     stage = 'build-before'
     const build = await fingerprintExtensionBuild(extensionDirectory)
     report.build = build
-    const inventory = await browserInventory('chrome')
-    report.browser = validateBrowserInventory({ browser: 'chrome', inventory })
+    const inventory = await browserInventory(target.browserName)
+    report.browser = validateBrowserInventory({
+      browser: target.browserName,
+      inventory,
+    })
     const { chromium } = await import('playwright')
     async function launch() {
       context = await chromium.launchPersistentContext(profileDirectory, {
         executablePath: inventory.executable,
-        channel: 'chrome',
+        channel: target.channel,
         headless: false,
         locale: 'en-US',
         timeout: 30000,
@@ -196,7 +213,7 @@ export async function runStoreExtensionRuntime({
       ownedPid = roots[0].id
       const runtime = await bounded(cdp.send('Browser.getVersion'))
       report.browser = validateBrowserInventory({
-        browser: 'chrome',
+        browser: target.browserName,
         inventory,
         runtimeVersion: runtime.product.replace(/^[^/]+\//, ''),
       })

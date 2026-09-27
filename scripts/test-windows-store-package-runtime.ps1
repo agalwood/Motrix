@@ -279,17 +279,24 @@ function Assert-MainRuntimeReport([object]$Main, [string]$SourceCommit, [string]
     Assert-True $Main.runtime.$name 'Installed main runtime check is incomplete.'
   }
   if ($env:MOTRIX_STORE_EXTENSION_DIRECTORY) {
-    $extension = $Main.runtime.extensionRuntime
-    if ($extension.scope -cne 'installed-appx-production-chrome-extension' -or
-        $extension.sourceCommit -cne $env:MOTRIX_STORE_EXTENSION_COMMIT -or
-        $extension.build.sha256 -cnotmatch '^[0-9a-f]{64}$' -or
-        $extension.extensionId -cnotmatch '^[a-p]{32}$') { throw 'Production extension evidence mismatch.' }
-    foreach ($name in @('ok', 'firstPairVerified', 'browserRestartReconnectVerified', 'cleanupVerified')) {
-      Assert-True $extension.$name 'Production extension pairing or reconnect was not verified.'
+    $records = $Main.runtime.extensionRuntimes
+    if (@($records.PSObject.Properties.Name).Count -ne 2) { throw 'Expected exactly Chrome and Edge production evidence.' }
+    foreach ($brand in @('chrome', 'edge')) {
+      $extension = $records.$brand
+      $product = if ($brand -ceq 'chrome') { 'Google Chrome' } else { 'Microsoft Edge' }
+      if ($extension.scope -cne "installed-appx-production-$brand-extension" -or
+          $extension.browserName -cne $brand -or $extension.browser.product -cne $product -or
+          $extension.sourceCommit -cne $env:MOTRIX_STORE_EXTENSION_COMMIT -or
+          $extension.build.sha256 -cnotmatch '^[0-9a-f]{64}$' -or
+          $extension.extensionId -cnotmatch '^[a-p]{32}$') { throw 'Production extension evidence mismatch.' }
+      foreach ($name in @('ok', 'firstPairVerified', 'browserRestartReconnectVerified', 'cleanupVerified')) {
+        Assert-True $extension.$name 'Production extension pairing or reconnect was not verified.'
+      }
+      foreach ($name in @('protocolActivationVerified', 'firefoxVerified', 'windows11AcceptanceVerified')) {
+        Assert-False $extension.$name 'Production Chromium extension report overstates its scope.'
+      }
     }
-    foreach ($name in @('protocolActivationVerified', 'edgeVerified', 'firefoxVerified', 'windows11AcceptanceVerified')) {
-      Assert-False $extension.$name 'Production Chrome extension report overstates its scope.'
-    }
+    if ($records.chrome.build.sha256 -cne $records.edge.build.sha256) { throw 'Browsers did not use the same production extension build.' }
   }
   foreach ($name in @('mbp1Verified', 'profilePathEqualityVerified')) { Assert-False $Main.runtime.$name 'Main runtime report overstates its scope.' }
   foreach ($name in @('ok', 'noLaunchBeforeVerified', 'coldLaunchVerified', 'processIdentityVerified', 'mainBridgeEndpointVerified', 'mbp1TransportReconnectVerified', 'noLaunchAfterVerified', 'cleanupVerified')) {

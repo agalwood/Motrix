@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   extensionFailure,
   fingerprintExtensionBuild,
+  productionChromiumTarget,
   runStoreExtensionRuntime,
 } from '../../scripts/test-windows-store-extension-runtime.mjs'
 
@@ -85,6 +86,7 @@ describe('production browser evidence boundary', () => {
   it('fails closed before browser startup for malformed source provenance', async () => {
     const root = await fixture()
     const report = await runStoreExtensionRuntime({
+      browserName: 'chrome',
       extensionDirectory: root,
       sourceCommit: 'invalid-commit',
       profileDirectory: root,
@@ -99,4 +101,27 @@ describe('production browser evidence boundary', () => {
     // Invalid inputs must not remove an existing directory.
     expect((await fingerprintExtensionBuild(root)).files).toBe(2)
   })
+})
+
+describe('production Chromium browser selection', () => {
+  it('selects the matching branded channel and evidence scope', () => {
+    expect(productionChromiumTarget('chrome')).toEqual({
+      browserName: 'chrome',
+      channel: 'chrome',
+      scope: 'installed-appx-production-chrome-extension',
+    })
+    expect(productionChromiumTarget('edge')).toEqual({
+      browserName: 'edge',
+      channel: 'msedge',
+      scope: 'installed-appx-production-edge-extension',
+    })
+  })
+  it.each(['firefox', 'chromium', 'edge --no-sandbox', '', undefined])(
+    'rejects unsupported browser %s before launch',
+    (name) => {
+      expect(() => productionChromiumTarget(name)).toThrow(
+        'extension-browser-unsupported'
+      )
+    }
+  )
 })

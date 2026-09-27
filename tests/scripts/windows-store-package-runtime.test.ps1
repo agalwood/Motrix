@@ -272,15 +272,22 @@ try {
     $env:MOTRIX_STORE_EXTENSION_DIRECTORY = 'synthetic-contract-only'
     $env:MOTRIX_STORE_EXTENSION_COMMIT = 'd' * 40
     Test-ContractCase 'extension-rejects-missing-runtime-evidence' 'main' $true
-    foreach ($case in @('valid', 'wrong-source', 'missing-pair', 'missing-reconnect', 'missing-cleanup', 'string-boolean', 'windows11-overclaim')) {
+    foreach ($case in @('valid', 'wrong-source', 'missing-pair', 'missing-reconnect', 'missing-cleanup', 'string-boolean', 'windows11-overclaim', 'missing-edge', 'wrong-brand', 'wrong-scope', 'different-build', 'extra-browser', 'chrome-missing-pair', 'chrome-missing-cleanup')) {
       Test-ContractCase "extension-$case" 'main' ($case -ne 'valid') {
         param($f)
-        $proof = [pscustomobject]@{
-          scope = 'installed-appx-production-chrome-extension'; sourceCommit = ('d' * 40)
-          build = [pscustomobject]@{ sha256 = ('e' * 64) }; extensionId = ('a' * 32)
-          ok = $true; firstPairVerified = $true; browserRestartReconnectVerified = $true; cleanupVerified = $true
-          protocolActivationVerified = $false; edgeVerified = $false; firefoxVerified = $false; windows11AcceptanceVerified = $false
+        $records = [pscustomobject]@{}
+        foreach ($brand in @('chrome', 'edge')) {
+          $product = if ($brand -ceq 'chrome') { 'Google Chrome' } else { 'Microsoft Edge' }
+          $proof = [pscustomobject]@{
+            scope = "installed-appx-production-$brand-extension"; browserName = $brand; sourceCommit = ('d' * 40)
+            browser = [pscustomobject]@{ product = $product }
+            build = [pscustomobject]@{ sha256 = ('e' * 64) }; extensionId = ('a' * 32)
+            ok = $true; firstPairVerified = $true; browserRestartReconnectVerified = $true; cleanupVerified = $true
+            protocolActivationVerified = $false; firefoxVerified = $false; windows11AcceptanceVerified = $false
+          }
+          $records | Add-Member $brand $proof
         }
+        $proof = $records.edge
         switch ($case) {
           'wrong-source' { $proof.sourceCommit = 'f' * 40 }
           'missing-pair' { $proof.firstPairVerified = $false }
@@ -288,8 +295,15 @@ try {
           'missing-cleanup' { $proof.cleanupVerified = $false }
           'string-boolean' { $proof.ok = 'true' }
           'windows11-overclaim' { $proof.windows11AcceptanceVerified = $true }
+          'missing-edge' { $records.PSObject.Properties.Remove('edge') }
+          'wrong-brand' { $proof.browser.product = 'Google Chrome' }
+          'wrong-scope' { $proof.scope = 'installed-appx-production-chrome-extension' }
+          'different-build' { $proof.build.sha256 = 'f' * 64 }
+          'extra-browser' { $records | Add-Member firefox $proof }
+          'chrome-missing-pair' { $records.chrome.firstPairVerified = $false }
+          'chrome-missing-cleanup' { $records.chrome.cleanupVerified = $false }
         }
-        $f.Main.runtime | Add-Member extensionRuntime $proof
+        $f.Main.runtime | Add-Member extensionRuntimes $records
       }
     }
   } finally {
