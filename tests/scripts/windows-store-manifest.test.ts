@@ -12,6 +12,7 @@ import {
 } from '../../scripts/windows-store-manifest.mjs'
 // @ts-expect-error -- JavaScript packaging script intentionally has no declarations
 import {
+  WINDOWS_STORE_MAIN_DIAGNOSTIC,
   WINDOWS_STORE_NATIVE_HOST_PROFILE_DIAGNOSTIC,
   WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC,
   WINDOWS_STORE_TEST_IDENTITY,
@@ -391,7 +392,7 @@ describe('test Native Messaging diagnostic manifest', () => {
   const diagnostic = WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC
   const input = () => testMetadata({ testDiagnostics: diagnostic.mode })
 
-  it('declares exactly the fixed hidden console helper and alias alongside the unchanged main app', () => {
+  it('declares fixed hidden console helpers and one GUI alias on the existing main app', () => {
     const document = parseXml(renderWindowsStoreManifest(input()))
     const root = document.documentElement
     expect(root.lookupNamespaceURI('uap5')).toBe(UAP5)
@@ -407,6 +408,27 @@ describe('test Native Messaging diagnostic manifest', () => {
       diagnostic.applicationId,
       WINDOWS_STORE_NATIVE_HOST_PROFILE_DIAGNOSTIC.applicationId,
     ])
+    const mainExtension = element(applications[0], UAP5, 'Extension')
+    expect(attributes(mainExtension)).toEqual({
+      Category: 'windows.appExecutionAlias',
+      Executable: 'app\\Motrix.exe',
+      'uap10:RuntimeBehavior': 'packagedClassicApp',
+      'uap10:TrustLevel': 'mediumIL',
+    })
+    expect(
+      attributes(element(mainExtension, UAP5, 'AppExecutionAlias'))
+    ).toEqual({
+      'desktop4:Subsystem': 'windows',
+    })
+    expect(attributes(element(mainExtension, UAP5, 'ExecutionAlias'))).toEqual({
+      Alias: WINDOWS_STORE_MAIN_DIAGNOSTIC.alias,
+    })
+    expect(
+      applications[0].getElementsByTagNameNS(UAP5, 'Extension')
+    ).toHaveLength(1)
+    // Removing this sole extension leaves the original main declaration intact.
+    mainExtension.previousSibling?.remove()
+    mainExtension.remove()
     expect(applications[0].outerHTML).toBe(
       element(
         parseXml(renderWindowsStoreManifest(testMetadata())),

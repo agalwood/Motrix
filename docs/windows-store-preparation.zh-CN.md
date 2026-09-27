@@ -314,6 +314,16 @@ SDK 会依据相同的四个 PRI 资源检查三个应用的引用。
 测试目录和服务。这些检查不证明 Electron/Rust profile 一致、AUMID 查询成功、
 MBP1 或生产 host 的浏览器集成。
 
+同一显式诊断模式还为现有 `Motrix` 应用增加 GUI alias
+`motrix-store-p0-main.exe`，不改变普通测试包或 Store manifest、应用 payload
+或 Electron fuses。诊断浏览器案例完成后，一次性 hosted CI 通过该 alias
+和 loopback renderer CDP 端口启动主程序，核对进程 EXE、OS 包身份、AUMID
+及监听端口归属，再遵循正常首次声明 UI。实际 Rust alias 随后必须发现一个
+监听端口属于该主进程的端点。只保留布尔值、字节计数及摘要，不保留 nonce、
+profile 文件、Electron 原始输出或图片。这验证桥接启动和端点互通，
+不证明 MBP1、完整应用验收、冷启动或两个进程的文件系统路径完全相等；
+进程清理是通过检查的必要条件。
+
 诊断包与普通测试包使用相同身份，不能并排安装。A→B 实验应准备两个递增包版本，
 保持身份、helper 和 alias 相同。按[测试签名与安装指南](windows-store-runtime-testing.zh-CN.md)
 操作后，再独立验证 alias 激活和浏览器发现。上述直接进程测试预期没有包身份，
@@ -376,6 +386,8 @@ B 的提供版本历史包含 A。两包都须先通过 SDK 和 PRI 检查。Win
 使用已安装的 Chrome、Edge、Firefox，通过新建 profile 和当前用户临时测试注册验证
 诊断 host。Firefox 使用显式普通 PE 中转入口调用固定 alias，Chrome 和 Edge 直接调用 alias；报告分别记录启动模式。这不证明生产中转文件的部署或生命周期。每个浏览器必须在 host 未注册时拒绝连接、注册期间成功连接、撤销后再次
 拒绝连接。注册所有权和 profile 清理均为成功报告的必要条件。
+最后单独执行主程序运行检查，遵循首次启动 UI 并验证实际 Rust 端点发现。
+该结果绑定到 B，不扩大此前“升级后尚未启动主程序”的验证范围。
 包装脚本结束后仅删除本次已安装包、证书和信任项、临时签名副本，并复查
 清理结果；两份 SDK 未签名原包保持原样。PR 运行跳过安装步骤。不使用发布者证书、
 PFX、私钥导出或商店投递。

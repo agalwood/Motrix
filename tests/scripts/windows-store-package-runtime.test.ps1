@@ -3,7 +3,7 @@
 .SYNOPSIS
 Tests the runtime script's pure upgrade and alias evidence guards.
 .DESCRIPTION
-Loads only eight named top-level function definitions through the PowerShell AST.
+Loads only nine named top-level function definitions through the PowerShell AST.
 Never executes the runtime script's main flow, installs packages, uses PKI, or
 launches an alias. Synthetic records do not prove Windows runtime behavior.
 #>
@@ -123,6 +123,16 @@ function New-ContractFixture {
         )
       }
     }
+    Main = [pscustomobject]@{
+      schemaVersion = 1; scope = 'windows-installed-main-bridge-startup'
+      sourceCommit = $commit; packageVersion = '1.0.1.0'; nativeHostSha256 = ('e' * 64); mainExecutableSha256 = ('f' * 64)
+      ok = $true; mainBridgeEndpointVerified = $true; mbp1Verified = $false; windows11AcceptanceVerified = $false; storeReady = $false
+      runtime = [pscustomobject]@{
+        ok = $true; mainApplicationLaunched = $true; processIdentityVerified = $true; disclaimerUiVerified = $true
+        mainUiVerified = $true; mainBridgeEndpointVerified = $true; cleanupVerified = $true
+        mbp1Verified = $false; profilePathEqualityVerified = $false; hostStdoutBytes = 94
+      }
+    }
     Browser = (New-BrowserFixture $packages[1] $commit)
     Alias = [pscustomobject]@{
       schemaVersion = 1
@@ -148,7 +158,7 @@ function New-ContractFixture {
 
 function Test-ContractCase(
   [string]$Name,
-  [ValidateSet('pair', 'transition', 'alias', 'browser', 'browser-cleanup', 'profile')][string]$Contract,
+  [ValidateSet('pair', 'transition', 'alias', 'browser', 'browser-cleanup', 'profile', 'main')][string]$Contract,
   [bool]$Reject = $false,
   [scriptblock]$Mutate = {}
 ) {
@@ -159,6 +169,7 @@ function Test-ContractCase(
   $rejected = $false
   try {
     switch ($Contract) {
+      'main' { Assert-MainRuntimeReport $fixture.Main $fixture.SourceCommit $fixture.B.Version ('e' * 64) ('f' * 64) }
       'profile' { Assert-NativeHostProfileReport $fixture.Profile $fixture.SourceCommit $fixture.B.Version ('e' * 64) }
       'pair' { Assert-UpgradeInputs $fixture.A $fixture.B }
       'transition' { Assert-UpgradeRetargeting $fixture.A $fixture.B $fixture.Current }
@@ -182,7 +193,7 @@ try {
   $ast = [Management.Automation.Language.Parser]::ParseFile($runtimePath, [ref]$tokens, [ref]$parseErrors)
   if (@($parseErrors).Count -ne 0) { throw 'Runtime source has parser errors.' }
   $definitions = @(
-    foreach ($name in @('Assert-True', 'Assert-False', 'Assert-UpgradeInputs', 'Assert-UpgradeRetargeting', 'Assert-AliasReport', 'Assert-BrowserCleanupReport', 'Assert-BrowserReport', 'Assert-NativeHostProfileReport')) {
+    foreach ($name in @('Assert-True', 'Assert-False', 'Assert-UpgradeInputs', 'Assert-UpgradeRetargeting', 'Assert-AliasReport', 'Assert-BrowserCleanupReport', 'Assert-BrowserReport', 'Assert-NativeHostProfileReport', 'Assert-MainRuntimeReport')) {
       $matching = @($ast.EndBlock.Statements | Where-Object {
         $_ -is [Management.Automation.Language.FunctionDefinitionAst] -and $_.Name -ceq $name
       })
@@ -194,7 +205,20 @@ try {
   # its parameters, environment checks and main lifecycle must never execute.
   . ([scriptblock]::Create(($definitions -join "`n")))
 
-  Test-ContractCase 'profile-accepts-complete-evidence' 'profile'
+  Test-ContractCase 'main-accepts-bound-evidence' 'main'
+  Test-ContractCase 'main-rejects-other-source' 'main' $true { param($f) $f.Main.sourceCommit = 'b' * 40 }
+  Test-ContractCase 'main-rejects-other-package' 'main' $true { param($f) $f.Main.packageVersion = '1.0.0.0' }
+  Test-ContractCase 'main-rejects-other-native-host' 'main' $true { param($f) $f.Main.nativeHostSha256 = 'b' * 64 }
+  Test-ContractCase 'main-rejects-other-main-executable' 'main' $true { param($f) $f.Main.mainExecutableSha256 = 'b' * 64 }
+  Test-ContractCase 'main-rejects-no-identity' 'main' $true { param($f) $f.Main.runtime.processIdentityVerified = $false }
+  Test-ContractCase 'main-rejects-no-consent-ui' 'main' $true { param($f) $f.Main.runtime.disclaimerUiVerified = $false }
+  Test-ContractCase 'main-rejects-no-real-endpoint' 'main' $true { param($f) $f.Main.runtime.mainBridgeEndpointVerified = $false }
+  Test-ContractCase 'main-rejects-no-cleanup' 'main' $true { param($f) $f.Main.runtime.cleanupVerified = $false }
+  Test-ContractCase 'main-rejects-mbp1-overclaim' 'main' $true { param($f) $f.Main.runtime.mbp1Verified = $true }
+  Test-ContractCase 'main-rejects-path-equality-overclaim' 'main' $true { param($f) $f.Main.runtime.profilePathEqualityVerified = $true }
+  Test-ContractCase 'main-rejects-windows11-overclaim' 'main' $true { param($f) $f.Main.windows11AcceptanceVerified = $true }
+  Test-ContractCase 'main-rejects-extra-output' 'main' $true { param($f) $f.Main.runtime.hostStdoutBytes = 4101 }
+  Test-ContractCase 'profile-accepts-complete-evidence'  'profile'
   Test-ContractCase 'profile-rejects-other-source' 'profile' $true { param($f) $f.Profile.sourceCommit = 'f' * 40 }
   Test-ContractCase 'profile-rejects-other-binary' 'profile' $true { param($f) $f.Profile.nativeHostSha256 = 'f' * 64 }
   Test-ContractCase 'profile-rejects-other-version' 'profile' $true { param($f) $f.Profile.packageVersion = '1.0.0.0' }

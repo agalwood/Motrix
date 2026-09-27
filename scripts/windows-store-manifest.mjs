@@ -3,6 +3,7 @@ import windowsPackage from '../src/shared/config/windows-package.json' with {
 }
 import {
   validateWindowsStoreMetadata,
+  WINDOWS_STORE_MAIN_DIAGNOSTIC,
   WINDOWS_STORE_NATIVE_HOST_PROFILE_DIAGNOSTIC,
   WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC,
 } from './windows-store-metadata.mjs'
@@ -101,6 +102,15 @@ export function renderWindowsStoreManifest(rawMetadata) {
       )
     : ''
 
+  const mainAlias = diagnostic
+    ? String.raw`        <uap5:Extension Category="windows.appExecutionAlias" Executable="app\Motrix.exe" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL">
+          <uap5:AppExecutionAlias desktop4:Subsystem="windows">
+            <uap5:ExecutionAlias Alias="${WINDOWS_STORE_MAIN_DIAGNOSTIC.alias}" />
+          </uap5:AppExecutionAlias>
+        </uap5:Extension>
+`
+    : ''
+
   // uap10 attributes declare a packaged classic desktop process at medium IL.
   // Do not combine this model with the older EntryPoint declaration.
   // https://learn.microsoft.com/uwp/schemas/appxpackage/uapmanifestschema/element-application
@@ -181,7 +191,7 @@ export function renderWindowsStoreManifest(rawMetadata) {
             </com:ExeServer>
           </com:ComServer>
         </com:Extension>
-      </Extensions>
+${mainAlias}      </Extensions>
     </Application>
 ${diagnosticApplication}  </Applications>
 </Package>

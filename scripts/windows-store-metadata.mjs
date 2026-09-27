@@ -23,6 +23,13 @@ export const WINDOWS_STORE_NATIVE_HOST_PROFILE_DIAGNOSTIC = Object.freeze({
   executable: 'app/resources/bin/motrix-native-host.exe',
 })
 
+// Activates the existing main Application only in the explicit diagnostic mode.
+export const WINDOWS_STORE_MAIN_DIAGNOSTIC = Object.freeze({
+  applicationId: 'Motrix',
+  alias: 'motrix-store-p0-main.exe',
+  executable: 'app/Motrix.exe',
+})
+
 // Also reserve the earlier local packaging prototype's exact identity fields.
 // Do not reject unrelated publisher names merely because they contain "Test".
 const TEST_IDENTITIES = [

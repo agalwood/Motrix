@@ -7,9 +7,10 @@ Requires 64-bit Windows PowerShell 5.1 and workflow_dispatch. Signs new A/B copi
 with one ephemeral non-exportable test key, installs A then upgrades to B for
 the current user, and runs the diagnostic alias before and after upgrade.
 At B, checks the Rust host's profile override refusal with live positive controls,
-then diagnostic Native Messaging in three branded browsers.
-No production certificates, PFX, timestamp, main-app launch, or policy changes
-are involved; no MBP1 or browser continuity across the upgrade is tested.
+then diagnostic Native Messaging in three branded browsers, followed by normal
+first-run UI and actual Rust endpoint discovery in the installed main application.
+No production certificates, PFX, timestamp, or policy changes are involved;
+no MBP1 or browser continuity across the upgrade is tested.
 #>
 [CmdletBinding()]
 param(
@@ -225,7 +226,7 @@ function Invoke-BoundedProgram([string]$Program, [string[]]$Arguments, [string]$
 function Test-AliasPresent {
   if (-not [IO.Directory]::Exists($aliasRoot)) { return $false }
   # Enumerating the parent also detects a dangling/zero-byte alias reparse point.
-  foreach ($name in @('motrix-store-p0-native-host.exe', 'motrix-store-p0-profile-host.exe')) {
+  foreach ($name in @('motrix-store-p0-native-host.exe', 'motrix-store-p0-profile-host.exe', 'motrix-store-p0-main.exe')) {
     if (@([IO.Directory]::EnumerateFileSystemEntries($aliasRoot, $name)).Count -ne 0) { return $true }
   }
   return $false
@@ -261,6 +262,23 @@ function Assert-NativeHostProfileReport([object]$Profile, [string]$SourceCommit,
         $case.exitCode -ne 0 -or $case.stderrBytes -ne 0 -or $case.stdoutBytes -lt 5 -or $case.stdoutBytes -gt 4100) {
       throw 'Unexpected profile case, traffic or output bounds.'
     }
+  }
+}
+
+function Assert-MainRuntimeReport([object]$Main, [string]$SourceCommit, [string]$Version, [string]$NativeHostHash, [string]$MainHash) {
+  if ($Main.schemaVersion -ne 1 -or $Main.scope -cne 'windows-installed-main-bridge-startup' -or
+      $Main.sourceCommit -cne $SourceCommit -or $Main.packageVersion -cne $Version -or
+      $Main.nativeHostSha256 -cne $NativeHostHash -or $Main.mainExecutableSha256 -cne $MainHash) {
+    throw 'Installed main runtime report does not match this package.'
+  }
+  foreach ($name in @('ok', 'mainBridgeEndpointVerified')) { Assert-True $Main.$name 'Main bridge startup was not verified.' }
+  foreach ($name in @('mbp1Verified', 'windows11AcceptanceVerified', 'storeReady')) { Assert-False $Main.$name 'Main report overstates its scope.' }
+  foreach ($name in @('ok', 'mainApplicationLaunched', 'processIdentityVerified', 'disclaimerUiVerified', 'mainUiVerified', 'mainBridgeEndpointVerified', 'cleanupVerified')) {
+    Assert-True $Main.runtime.$name 'Installed main runtime check is incomplete.'
+  }
+  foreach ($name in @('mbp1Verified', 'profilePathEqualityVerified')) { Assert-False $Main.runtime.$name 'Main runtime report overstates its scope.' }
+  if ($Main.runtime.hostStdoutBytes -isnot [int] -or $Main.runtime.hostStdoutBytes -lt 5 -or $Main.runtime.hostStdoutBytes -gt 4100) {
+    throw 'Invalid actual host output count.'
   }
 }
 
@@ -620,6 +638,7 @@ $report = [ordered]@{
   upgradeBeforeMainLaunchVerified = $false; sameAliasRetargetedVerified = $false
   windows11AcceptanceVerified = $false; standardUserVerified = $false
   browserNativeMessagingVerified = $false; browserUpgradeVerified = $false; mbp1Verified = $false
+  mainBridgeEndpointVerified = $false
   motrixMainRuntimeVerified = $false; upgradeVerified = $false; wackVerified = $false
   productionSigned = $false; storeReady = $false; storeSubmissionReady = $false
   error = $null
@@ -636,6 +655,8 @@ $testCompleted = $false
 $browserTestCompleted = $false
 $browserAttempted = $false
 $browserReportPath = Join-Path (Join-Path $OutputDirectory 'browser') 'browser-report.json'
+$mainAttempted = $false
+$mainReportPath = Join-Path $OutputDirectory 'main-runtime-report.json'
 $profileAttempted = $false
 $profileReportPath = Join-Path $OutputDirectory 'native-host-profile-report.json'
 try {
@@ -799,11 +820,26 @@ try {
   }
   Complete-Phase $stage
   $browserTestCompleted = $true
+  $stage = 'main-bridge-startup-b'
+  $mainAttempted = $true
+  $null = Invoke-BoundedProgram $node @((Join-Path $repository 'scripts\test-windows-store-main-runtime.mjs'), '--prepared', $after.Prepared, '--expected-package-version', $after.Version, '--report', $mainReportPath) 'test-installed-main-b' 360000
+  $mainReport = Read-Json $mainReportPath
+  Assert-MainRuntimeReport $mainReport $env:GITHUB_SHA $after.Version (Get-Hash (Join-Path $after.Prepared 'layout\app\resources\bin\motrix-native-host.exe')) (Get-Hash (Join-Path $after.Prepared 'layout\app\Motrix.exe'))
+  Confirm-InstalledPackage $after
+  $report.mainRuntime = [ordered]@{ packageVersion = $after.Version; reportSha256 = Get-Hash $mainReportPath; mainBridgeEndpointVerified = $true; mbp1Verified = $false }
+  Complete-Phase $stage
   $testCompleted = $true
 } catch {
   $report.error = Get-Failure $_ $stage
   $report.phases.Add([ordered]@{ name = $stage; ok = $false; error = $report.error })
 } finally {
+  if ($mainAttempted) {
+    Invoke-CleanupCheck 'installed-main-process-cleanup' {
+      $mainCleanup = Read-Json $mainReportPath
+      Assert-True $mainCleanup.runtime.cleanupVerified 'Installed main cleanup was not verified.'
+      if (@(Get-Process -Name Motrix -ErrorAction SilentlyContinue).Count -ne 0) { throw 'A Motrix process remains.' }
+    }
+  }
   if ($profileAttempted) {
     Invoke-CleanupCheck 'native-host-profile-fixture-cleanup' {
       $profileCleanup = Read-Json $profileReportPath
@@ -883,8 +919,9 @@ try {
   $report.upgradeBeforeMainLaunchVerified = $report.ok
   $report.sameAliasRetargetedVerified = $report.ok
   $report.browserNativeMessagingVerified = $report.ok -and $browserTestCompleted
+  $report.mainBridgeEndpointVerified = $report.ok -and $mainAttempted
   $report.completedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
   Write-NewText (Join-Path $OutputDirectory 'runtime-result.json') (($report | ConvertTo-Json -Depth 32) + "`n")
 }
 if (-not $report.ok) { throw "CI diagnostic package runtime test failed at $($report.stage); see runtime-result.json and bounded logs." }
-Write-Host 'Server 2025 diagnostic alias upgrade, branded browser checks on B and cleanup completed; Windows 11/main-app/MBP1 acceptance remains unverified.'
+Write-Host 'Server 2025 alias upgrade, diagnostic browsers, main bridge startup and cleanup completed; Windows 11/full main-runtime/MBP1 acceptance remains unverified.'

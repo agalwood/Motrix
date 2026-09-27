@@ -373,6 +373,18 @@ checker binds installed bytes to the prepared layout and requires fixture
 cleanup. These checks do not prove Electron/Rust profile parity, successful
 AUMID resolution, MBP1, or browser integration with the production host.
 
+The same explicit diagnostic mode adds the GUI alias `motrix-store-p0-main.exe`
+to the existing `Motrix` application. It does not change ordinary test or Store
+manifests, application payloads, or Electron fuses. After the diagnostic browser
+cases, disposable hosted CI launches this alias with a loopback renderer CDP
+port, verifies the process executable, OS package identity, AUMID and listener
+ownership, and follows the normal first-run disclaimer UI. The actual Rust alias
+must then discover an endpoint whose listener belongs to that main process.
+Only booleans, byte counts and digests are retained; nonces, profile files, raw
+Electron output and images are never retained. This checks bridge startup and
+endpoint interoperability, not MBP1, full application acceptance, cold launch
+or equality of the two processes' filesystem paths. Process cleanup is required.
+
 This diagnostic package uses the same identity as the ordinary test package;
 they do not install side by side. For A-to-B testing, prepare two increasing
 package versions using the same identity, helper, and alias. Follow the
@@ -453,6 +465,9 @@ tests the diagnostic host with installed Chrome, Edge, and Firefox using fresh
 profiles and temporary current-user test registrations. Firefox uses an explicit ordinary PE relay to invoke the fixed alias; Chrome and Edge invoke the alias directly. Reports identify the launch mode, without claiming production relay deployment or lifecycle support. Each browser must reject
 the absent host, connect while registered, and reject it after registration removal.
 Registration ownership and profile cleanup are required for a successful report.
+A final, separate main-runtime check follows the first-run UI and verifies actual
+Rust endpoint discovery. Its result is bound to B and does not extend the earlier
+before-main-launch upgrade claim.
 The wrapper removes only its own installed package,
 certificate/trust entries, and temporary signed copies, and verifies cleanup.
 Both unsigned SDK packages stay unchanged.
