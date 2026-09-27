@@ -24,6 +24,7 @@ import {
   buildBrowserRegistrationArguments,
   createBrowserOutputDirectory,
   runBrowserNativeMessagingChecks,
+  safeBrowserProbeObservation,
   validateBrowserInventory,
   validateBrowserProbeResult,
 } from '../../scripts/test-windows-store-native-messaging-browser.mjs'
@@ -121,6 +122,7 @@ function observed(browser = 'chrome', registered = true) {
     status: registered ? 'reply' : 'disconnected',
     messageCount: registered ? 1 : 0,
     errorPresent: true,
+    errorKind: 'other',
     reply: registered ? reply(browser) : null,
   }
 }
@@ -157,10 +159,13 @@ describe('browser observations are parsed messages, never raw stdio evidence', (
         status: 'reply',
         messageCount: 1,
         errorPresent: true,
+        errorKind: 'other',
       })
       expect(
-        validate({ ...observed(browser), errorPresent: false }, browser)
-          .messageCount
+        validate(
+          { ...observed(browser), errorPresent: false, errorKind: 'none' },
+          browser
+        ).messageCount
       ).toBe(1)
     }
   )
@@ -236,6 +241,41 @@ describe('browser observations are parsed messages, never raw stdio evidence', (
       validate({ ...observed(), exitCode: 0, frameCount: 1 })
     ).toThrow('invalid-browser-result')
   })
+  it.each([
+    { errorPresent: false, errorKind: 'other' },
+    { errorPresent: true, errorKind: 'none' },
+    { errorPresent: true, errorKind: PRIVATE_PATH },
+  ])('rejects inconsistent or arbitrary error classification: %j', (error) => {
+    expect(() => validate({ ...observed(), ...error })).toThrow(
+      'invalid-browser-result'
+    )
+  })
+  it('retains only bounded failure observations, without reading getters', () => {
+    const getter = vi.fn(() => PRIVATE_PATH)
+    const value = Object.defineProperty(
+      {
+        status: PRIVATE_PATH,
+        messageCount: 999,
+        errorKind: PRIVATE_PATH,
+        reply: { token: PRIVATE_PATH },
+      },
+      'errorPresent',
+      { get: getter }
+    )
+    expect(safeBrowserProbeObservation(value)).toEqual({
+      status: null,
+      messageCount: null,
+      errorPresent: null,
+      errorKind: null,
+    })
+    expect(getter).not.toHaveBeenCalled()
+    expect(safeBrowserProbeObservation(null)).toEqual({
+      status: null,
+      messageCount: null,
+      errorPresent: null,
+      errorKind: null,
+    })
+  })
 })
 
 describe('branded browser inventory', () => {
@@ -292,7 +332,7 @@ async function fixtureHarness(browser: 'chromium' | 'firefox') {
   const port = {
     disconnect: vi.fn(),
     postMessage: vi.fn(),
-    error: undefined,
+    error: undefined as unknown,
     onMessage: {
       addListener: (listener: typeof onMessage) => {
         onMessage = listener
@@ -392,6 +432,69 @@ describe('actual fixture JavaScript in a mock extension runtime', () => {
     timeout.message(reply())
     timeout.timeout()
     expect(timeout.result().status).toBe('timeout')
+  })
+  it.each([
+    [
+      `File at path "${PRIVATE_PATH}" does not exist, or is not executable`,
+      'native-host-not-executable',
+    ],
+    [
+      `File at path "${PRIVATE_PATH}" does not exist, or is not a normal file`,
+      'native-host-not-executable',
+    ],
+    [
+      'No such native application app.motrix.bridge.store.p0',
+      'native-host-not-found',
+    ],
+    [`unknown ${PRIVATE_PATH}`, 'other'],
+    [
+      `File at path "${PRIVATE_PATH}\n" does not exist, or is not executable`,
+      'other',
+    ],
+  ])(
+    'Firefox reduces native launch error to a safe enum: %s',
+    async (message, errorKind) => {
+      const fixture = await fixtureHarness('firefox')
+      fixture.click()
+      fixture.port.error = { message }
+      fixture.disconnect()
+      expect(fixture.result()).toEqual({
+        schemaVersion: 1,
+        status: 'disconnected',
+        messageCount: 0,
+        errorPresent: true,
+        errorKind,
+        reply: null,
+      })
+      expect(JSON.stringify(fixture.result())).not.toContain(PRIVATE_PATH)
+    }
+  )
+  it('Firefox clean EOF keeps its strict reply and records no error', async () => {
+    const fixture = await fixtureHarness('firefox')
+    fixture.click()
+    fixture.message(reply('firefox'))
+    fixture.disconnect()
+    expect(fixture.result()).toMatchObject({
+      status: 'reply',
+      messageCount: 1,
+      errorPresent: false,
+      errorKind: 'none',
+    })
+    expect(validate(fixture.result(), 'firefox').status).toBe('reply')
+  })
+  it('classifies synchronous connect errors without serializing them', async () => {
+    const fixture = await fixtureHarness('firefox')
+    fixture.runtime.connectNative.mockImplementation(() => {
+      throw new Error(PRIVATE_PATH)
+    })
+    fixture.click()
+    expect(fixture.result()).toMatchObject({
+      status: 'connect-failed',
+      messageCount: 0,
+      errorPresent: true,
+      errorKind: 'other',
+    })
+    expect(JSON.stringify(fixture.result())).not.toContain(PRIVATE_PATH)
   })
 })
 
@@ -543,7 +646,48 @@ describe('isolated sequential experiment coordinator', () => {
     expect(report.browsers[0].checks.at(-1)).toMatchObject({
       ok: false,
       code: 'invalid-browser-reply',
+      status: 'reply',
+      messageCount: 1,
+      errorPresent: true,
+      errorKind: 'other',
     })
+  })
+  it('retains Firefox failure observations without promoting the two passing brands', async () => {
+    const lab = await harness()
+    const real = lab.deps.openBrowser.getMockImplementation()
+    lab.deps.openBrowser.mockImplementation(async (args) => {
+      const session = await real?.(args)
+      if (!session) throw new Error('test fixture unavailable')
+      if (args.browser === 'firefox')
+        session.runCase.mockImplementation(async () => ({
+          ...observed('firefox', false),
+          errorKind: lab.registered.has('firefox')
+            ? 'native-host-not-executable'
+            : 'native-host-not-found',
+        }))
+      return session
+    })
+    const report = await runBrowserNativeMessagingChecks(lab.input, lab.deps)
+    expect(report.ok).toBe(false)
+    expect(report.testCount).toBe(7)
+    expect(report.browserNativeMessagingVerified).toBe(false)
+    expect(report.cleanupVerified).toBe(true)
+    expect(
+      report.browsers
+        .slice(0, 2)
+        .every((browser: { ok: boolean }) => browser.ok)
+    ).toBe(true)
+    expect(report.browsers[2].checks.at(-1)).toEqual({
+      name: 'registered',
+      ok: false,
+      code: 'invalid-browser-result',
+      status: 'disconnected',
+      messageCount: 0,
+      errorPresent: true,
+      errorKind: 'native-host-not-executable',
+    })
+    expect(lab.registered.size).toBe(0)
+    expect(JSON.stringify(report)).not.toContain(PRIVATE_PATH)
   })
   it('honors verified in-call rollback but never turns its failed Register into success', async () => {
     const lab = await harness()

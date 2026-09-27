@@ -31,6 +31,20 @@ const BRANDS = Object.freeze({
   firefox: { product: 'Firefox', signer: 'Mozilla Corporation' },
 })
 const CASES = ['unregistered-before', 'registered', 'unregistered-after']
+const OBSERVATION_STATUSES = new Set([
+  'reply',
+  'disconnected',
+  'timeout',
+  'multiple-messages',
+  'invalid-reply',
+  'connect-failed',
+])
+const OBSERVATION_ERROR_KINDS = new Set([
+  'none',
+  'native-host-not-found',
+  'native-host-not-executable',
+  'other',
+])
 const CODES = new Set([
   'invalid-arguments',
   'windows-required',
@@ -147,6 +161,31 @@ export async function createBrowserOutputDirectory({
   }
 }
 
+/** Whitelisted failure evidence only; never serialize arbitrary browser data. */
+export function safeBrowserProbeObservation(result) {
+  const read = (key) => {
+    if (!result || typeof result !== 'object') return undefined
+    try {
+      return Object.getOwnPropertyDescriptor(result, key)?.value
+    } catch {
+      return undefined
+    }
+  }
+  const status = read('status')
+  const messageCount = read('messageCount')
+  const errorPresent = read('errorPresent')
+  const errorKind = read('errorKind')
+  return {
+    status: OBSERVATION_STATUSES.has(status) ? status : null,
+    messageCount:
+      Number.isInteger(messageCount) && messageCount >= 0 && messageCount <= 2
+        ? messageCount
+        : null,
+    errorPresent: typeof errorPresent === 'boolean' ? errorPresent : null,
+    errorKind: OBSERVATION_ERROR_KINDS.has(errorKind) ? errorKind : null,
+  }
+}
+
 /** Parsed browser observations do not expose native exit codes or wire frames. */
 export function validateBrowserProbeResult({
   result,
@@ -163,10 +202,13 @@ export function validateBrowserProbeResult({
       'status',
       'messageCount',
       'errorPresent',
+      'errorKind',
       'reply',
     ]) ||
     result.schemaVersion !== 1 ||
     typeof result.errorPresent !== 'boolean' ||
+    !OBSERVATION_ERROR_KINDS.has(result.errorKind) ||
+    (result.errorKind === 'none') !== !result.errorPresent ||
     !Number.isInteger(result.messageCount) ||
     result.messageCount < 0 ||
     result.messageCount > 2
@@ -198,6 +240,7 @@ export function validateBrowserProbeResult({
     status: result.status,
     messageCount: result.messageCount,
     errorPresent: result.errorPresent,
+    errorKind: result.errorKind,
   }
 }
 
@@ -842,6 +885,7 @@ export async function runBrowserNativeMessagingChecks(
       let registrationAttempted = false
       let profileCreated = false
       let browserStep = 'inventory'
+      let observation
       const registerInput = {
         browser,
         runDirectory,
@@ -894,6 +938,7 @@ export async function runBrowserNativeMessagingChecks(
         browserReport.brandedBinaryVerified = true
         for (const name of CASES) {
           browserStep = name
+          observation = undefined
           await snapshot()
           if (name === 'registered') {
             registrationAttempted = true
@@ -963,6 +1008,7 @@ export async function runBrowserNativeMessagingChecks(
             )
           }
           const observed = await within(() => session.runCase(), 16000)
+          observation = safeBrowserProbeObservation(observed)
           const safe = validateBrowserProbeResult({
             result: observed,
             browser,
@@ -972,6 +1018,7 @@ export async function runBrowserNativeMessagingChecks(
           })
           browserReport.checks.push({ name, ok: true, ...safe })
           report.testCount += 1
+          observation = undefined
           await snapshot()
         }
         if (
@@ -992,6 +1039,7 @@ export async function runBrowserNativeMessagingChecks(
           name: browserStep,
           ok: false,
           code: codeOf(error),
+          ...observation,
         })
       } finally {
         async function clean(name, action) {

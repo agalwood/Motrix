@@ -16,6 +16,25 @@ const fields = [
   'firefoxTestCallerShape',
 ].sort()
 
+// Classify only known public error shapes. Never copy the message (which can
+// contain manifest, executable or profile paths) into the browser result.
+// Firefox Subprocess.call checks isExecutableFile before attempting to launch:
+// https://github.com/mozilla-firefox/firefox/blob/main/toolkit/modules/subprocess/Subprocess.sys.mjs
+const classifyError = (error) => {
+  if (!error) return 'none'
+  const message = error.message
+  if (typeof message !== 'string' || message.length > 8192) return 'other'
+  if (message === 'No such native application app.motrix.bridge.store.p0')
+    return 'native-host-not-found'
+  if (
+    /^File at path "[^\r\n]*" does not exist, or is not (?:executable|a normal file)$/.test(
+      message
+    )
+  )
+    return 'native-host-not-executable'
+  return 'other'
+}
+
 button.addEventListener('click', () => {
   button.disabled = true
   result.textContent = 'null'
@@ -24,6 +43,7 @@ button.addEventListener('click', () => {
   let reply = null
   let messageCount = 0
   let errorPresent = false
+  let errorKind = 'none'
   const finish = (status) => {
     if (done) return
     done = true
@@ -33,6 +53,7 @@ button.addEventListener('click', () => {
       status,
       messageCount,
       errorPresent,
+      errorKind,
       reply,
     })
     port?.disconnect()
@@ -75,11 +96,15 @@ button.addEventListener('click', () => {
       // raw framing, which the browser does not expose to this extension.
     })
     port.onDisconnect.addListener(() => {
-      errorPresent = Boolean(runtime.lastError || port.error)
+      const error = runtime.lastError || port.error
+      errorPresent = Boolean(error)
+      errorKind = classifyError(error)
       finish(reply && messageCount === 1 ? 'reply' : 'disconnected')
     })
     port.postMessage({ probe: 'motrix-store-p0' })
-  } catch {
+  } catch (error) {
+    errorPresent = Boolean(error)
+    errorKind = classifyError(error)
     finish('connect-failed')
   }
 })
