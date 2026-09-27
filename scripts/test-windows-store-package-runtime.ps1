@@ -5,8 +5,10 @@ Tests a fixed diagnostic AppX upgrade on a disposable GitHub-hosted runner.
 .DESCRIPTION
 Requires 64-bit Windows PowerShell 5.1 and workflow_dispatch. Signs new A/B copies
 with one ephemeral non-exportable test key, installs A then upgrades to B for
-the current user, and runs only the diagnostic alias before and after upgrade. No production certificates, PFX, timestamp,
-main-app launch, policy changes, or browser integration are involved.
+the current user, and runs only the diagnostic alias before and after upgrade.
+Then checks diagnostic Native Messaging in three branded browsers against B.
+No production certificates, PFX, timestamp, main-app launch, or policy changes
+are involved; no MBP1 or browser continuity across the upgrade is tested.
 #>
 [CmdletBinding()]
 param(
@@ -155,7 +157,7 @@ public static class MotrixCiRuntimeProcess {
         } catch { }
         try { if (!child.HasExited) child.Kill(); } catch { }
     }
-    public static Result Run(string program, string[] args, string directory) {
+    public static Result Run(string program, string[] args, string directory, int timeoutMilliseconds) {
         Result result = new Result();
         Capture output = new Capture(), error = new Capture();
         using (Process child = new Process()) {
@@ -179,7 +181,7 @@ public static class MotrixCiRuntimeProcess {
                 Stopwatch timer = Stopwatch.StartNew();
                 while (!child.HasExited || !stdout.IsCompleted || !stderr.IsCompleted) {
                     if (output.Limit || error.Limit || output.Failed || error.Failed) break;
-                    if (timer.ElapsedMilliseconds >= 120000) { result.TimedOut = true; break; }
+                    if (timer.ElapsedMilliseconds >= timeoutMilliseconds) { result.TimedOut = true; break; }
                     Thread.Sleep(25);
                 }
                 if (!child.HasExited) KillOwnedTree(child);
@@ -197,14 +199,15 @@ public static class MotrixCiRuntimeProcess {
 '@
 }
 
-function Invoke-BoundedProgram([string]$Program, [string[]]$Arguments, [string]$Name) {
-  $result = [MotrixCiRuntimeProcess]::Run($Program, $Arguments, $OutputDirectory)
+function Invoke-BoundedProgram([string]$Program, [string[]]$Arguments, [string]$Name, [ValidateSet(120000, 360000)][int]$TimeoutMilliseconds = 120000) {
+  $result = [MotrixCiRuntimeProcess]::Run($Program, $Arguments, $OutputDirectory, $TimeoutMilliseconds)
   $stdout = [Text.Encoding]::UTF8.GetString($result.Stdout)
   $stderr = [Text.Encoding]::UTF8.GetString($result.Stderr)
   Write-NewText (Join-Path $OutputDirectory "$Name.stdout.log") (Protect-Log $stdout)
   Write-NewText (Join-Path $OutputDirectory "$Name.stderr.log") (Protect-Log $stderr)
   $report.commands.Add([ordered]@{
     name = $Name; exitCode = $result.ExitCode; timedOut = $result.TimedOut
+    timeoutMilliseconds = $TimeoutMilliseconds
     outputLimitExceeded = $result.OutputLimitExceeded; readFailed = $result.ReadFailed
     startHResult = ('0x{0:X8}' -f $result.StartHResult)
     startNativeErrorCode = $result.StartNativeErrorCode
@@ -454,6 +457,77 @@ function Test-InstalledAlias([object]$PackageInput) {
   $PackageInput.Record.packageIdentityVerified = $true
 }
 
+function Assert-BrowserCleanupReport([object]$BrowserReport, [object]$PackageInput, [string]$ExpectedSourceCommit) {
+  $installed = $PackageInput.Record.installedPackage
+  if ($BrowserReport.schemaVersion -ne 1 -or $BrowserReport.scope -cne 'windows-native-messaging-branded-browsers' -or
+      $BrowserReport.sourceCommit -cne $ExpectedSourceCommit -or $BrowserReport.packageVersion -cne $PackageInput.Version -or
+      $BrowserReport.executableSha256 -cne $PackageInput.ProbeHash -or
+      $BrowserReport.identity.packageFullNameSha256 -cne $installed.fullNameSha256 -or
+      $BrowserReport.identity.applicationUserModelIdSha256 -cne $installed.helperApplicationUserModelIdSha256) {
+    throw 'Browser report does not match the installed B diagnostic package.'
+  }
+  Assert-True $BrowserReport.cleanupVerified 'Browser runner did not verify cleanup.'
+  foreach ($browser in $BrowserReport.browsers) {
+    if ($browser -is [array]) { throw 'Browser cleanup records must be flat.' }
+    Assert-True $browser.cleanupVerified 'A browser did not verify cleanup.'
+  }
+}
+
+function Assert-BrowserReport([object]$BrowserReport, [object]$PackageInput, [string]$ExpectedSourceCommit) {
+  Assert-BrowserCleanupReport $BrowserReport $PackageInput $ExpectedSourceCommit
+  foreach ($name in @('ok', 'cleanupVerified', 'browserNativeMessagingVerified', 'diagnosticProbeOnly')) {
+    Assert-True $BrowserReport.$name 'Branded browser verification is incomplete.'
+  }
+  foreach ($name in @('mbp1Verified', 'windows11AcceptanceVerified', 'motrixMainRuntimeVerified', 'browserUpgradeVerified', 'signatureVerified', 'packageInstallationPerformed')) {
+    Assert-False $BrowserReport.$name 'Browser report overstates this diagnostic experiment.'
+  }
+  if ($BrowserReport.testCount -ne 9 -or @($BrowserReport.browsers).Count -ne 3) {
+    throw 'Expected exactly three branded browsers and nine cases.'
+  }
+  $summaryNames = @('installed-before', 'installed-after')
+  if (@($BrowserReport.checks).Count -ne 2) { throw 'Browser summary checks are incomplete.' }
+  for ($index = 0; $index -lt 2; $index++) {
+    $check = $BrowserReport.checks[$index]
+    if ($check -is [array] -or $check.name -cne $summaryNames[$index]) { throw 'Unexpected browser summary check.' }
+    Assert-True $check.ok 'A browser summary check failed.'
+  }
+  $brands = @('chrome', 'edge', 'firefox')
+  $products = @('Google Chrome', 'Microsoft Edge', 'Firefox')
+  $caseNames = @('unregistered-before', 'registered', 'unregistered-after')
+  for ($index = 0; $index -lt 3; $index++) {
+    $browser = $BrowserReport.browsers[$index]
+    if ($browser -is [array] -or $browser.browser -cne $brands[$index] -or $browser.product -cne $products[$index] -or
+        $browser.executableSha256 -cnotmatch '^[0-9a-f]{64}$' -or $browser.fixtureSha256 -cnotmatch '^[0-9a-f]{64}$' -or
+        [string]::IsNullOrWhiteSpace($browser.fileVersion) -or [string]::IsNullOrWhiteSpace($browser.extensionId) -or
+        @($browser.checks).Count -ne 3) { throw 'Unexpected browser identity, digest or case set.' }
+    $automationMode = if ($index -eq 2) { 'firefox-headless-bidi' } else { 'chromium-headed-cdp' }
+    if ($browser.automationMode -cne $automationMode -or
+        ($index -eq 2 -and $browser.extensionId -cne 'motrix-store-p0@motrix.invalid') -or
+        ($index -lt 2 -and $browser.extensionId -cnotmatch '^[a-p]{32}$')) {
+      throw 'Unexpected browser automation mode or extension identity.'
+    }
+    $versionPattern = if ($index -eq 2) { '^[0-9]+(?:\.[0-9]+){1,3}$' } else { '^[0-9]+(?:\.[0-9]+){3}$' }
+    if ($browser.version -cnotmatch $versionPattern) { throw 'Unexpected branded browser version.' }
+    foreach ($name in @('ok', 'brandedBinaryVerified', 'cleanupVerified')) {
+      Assert-True $browser.$name 'A browser or its cleanup was not verified.'
+    }
+    for ($caseIndex = 0; $caseIndex -lt 3; $caseIndex++) {
+      $case = $browser.checks[$caseIndex]
+      if ($case -is [array] -or $case.name -cne $caseNames[$caseIndex]) { throw 'Unexpected browser case.' }
+      Assert-True $case.ok 'A browser case failed.'
+      if ($caseIndex -eq 1) {
+        if ($case.status -cne 'reply' -or $case.messageCount -ne 1) { throw 'Registered browser case did not return one reply.' }
+        # The one-response native host then exits. Chromium may report EOF as
+        # runtime.lastError on disconnect after a valid reply; preserve the bool.
+        if ($case.errorPresent -isnot [bool]) { throw 'Browser disconnect evidence must be boolean.' }
+      } else {
+        if ($case.status -cne 'disconnected' -or $case.messageCount -ne 0) { throw 'Unregistered browser case unexpectedly returned a reply.' }
+        Assert-True $case.errorPresent 'Unregistered browser case did not report disconnection.'
+      }
+    }
+  }
+}
+
 function Invoke-CleanupCheck([string]$Name, [scriptblock]$Action) {
   try {
     & $Action
@@ -498,7 +572,7 @@ $report = [ordered]@{
   server2025InstalledProbeVerified = $false
   upgradeBeforeMainLaunchVerified = $false; sameAliasRetargetedVerified = $false
   windows11AcceptanceVerified = $false; standardUserVerified = $false
-  browserNativeMessagingVerified = $false; mbp1Verified = $false
+  browserNativeMessagingVerified = $false; browserUpgradeVerified = $false; mbp1Verified = $false
   motrixMainRuntimeVerified = $false; upgradeVerified = $false; wackVerified = $false
   productionSigned = $false; storeReady = $false; storeSubmissionReady = $false
   error = $null
@@ -512,6 +586,9 @@ $trustImportAttempted = $false
 $publicCer = Join-Path $OutputDirectory 'diagnostic-ci-public.cer'
 $aliasRoot = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Microsoft\WindowsApps'
 $testCompleted = $false
+$browserTestCompleted = $false
+$browserAttempted = $false
+$browserReportPath = Join-Path (Join-Path $OutputDirectory 'browser') 'browser-report.json'
 try {
   $null = Assert-RegularPath $PreparedDirectory $true
   $null = Assert-RegularPath $SdkBinDirectory $true
@@ -638,11 +715,36 @@ try {
   $report.aliasActivationVerified = $true
   $report.packageIdentityVerified = $true
   $report.server2025InstalledProbeVerified = $true
+  # These browser cases test the already installed B package. They do not
+  # establish browser continuity across A-to-B, and never launch the main app.
+  $stage = 'browser-b'
+  $browserDirectory = Join-Path $OutputDirectory 'browser'
+  $browserAttempted = $true
+  $null = Invoke-BoundedProgram $node @((Join-Path $repository 'scripts\test-windows-store-native-messaging-browser.mjs'), '--prepared', $after.Prepared, '--expected-package-version', $after.Version, '--output-directory', $browserDirectory) 'test-installed-browsers-b' 360000
+  $browserReport = Read-Json $browserReportPath
+  Assert-BrowserReport $browserReport $after $env:GITHUB_SHA
+  Confirm-InstalledPackage $after
+  Assert-UpgradeRetargeting $before $after @(Get-CurrentTestPackages)
+  $report.browser = [ordered]@{
+    packageVersion = $after.Version; reportSha256 = Get-Hash $browserReportPath
+    browserCount = 3; testCount = 9; cleanupVerified = $true; diagnosticProbeOnly = $true
+    browserUpgradeVerified = $false
+  }
+  Complete-Phase $stage
+  $browserTestCompleted = $true
   $testCompleted = $true
 } catch {
   $report.error = Get-Failure $_ $stage
   $report.phases.Add([ordered]@{ name = $stage; ok = $false; error = $report.error })
 } finally {
+  if ($browserAttempted) {
+    # A killed Node process may never reach its own finally. Package/certificate
+    # cleanup alone cannot prove browser profiles or registrations were removed.
+    Invoke-CleanupCheck 'browser-runner-cleanup' {
+      $cleanupReport = Read-Json $browserReportPath
+      Assert-BrowserCleanupReport $cleanupReport $packageInputs.b $env:GITHUB_SHA
+    }
+  }
   # Each attempted version is an independent cleanup action. A partial upgrade
   # may leave either version registered; unfamiliar versions are never removed.
   foreach ($label in @('a', 'b')) {
@@ -706,8 +808,9 @@ try {
   # These narrow upgrade claims require both alias checks and complete cleanup.
   $report.upgradeBeforeMainLaunchVerified = $report.ok
   $report.sameAliasRetargetedVerified = $report.ok
+  $report.browserNativeMessagingVerified = $report.ok -and $browserTestCompleted
   $report.completedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
   Write-NewText (Join-Path $OutputDirectory 'runtime-result.json') (($report | ConvertTo-Json -Depth 32) + "`n")
 }
 if (-not $report.ok) { throw "CI diagnostic package runtime test failed at $($report.stage); see runtime-result.json and bounded logs." }
-Write-Host 'Server 2025 diagnostic A-to-B alias upgrade and cleanup completed; Windows 11/browser/MBP1 acceptance remains unverified.'
+Write-Host 'Server 2025 diagnostic alias upgrade, branded browser checks on B and cleanup completed; Windows 11/main-app/MBP1 acceptance remains unverified.'

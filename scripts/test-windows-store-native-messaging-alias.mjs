@@ -165,7 +165,7 @@ const CALLERS = Object.freeze({
   ],
 })
 
-function identityDigests(installedState) {
+export function identityDigests(installedState) {
   return {
     packageFullNameSha256: hash(
       Buffer.from(installedState.package.packageFullName, 'utf8')
@@ -214,6 +214,37 @@ export function validateAliasProbeReply({
   } catch {
     fail('invalid-reply-json')
   }
+  // Duplicate JSON members are observable only in the raw direct frame. The
+  // browser API delivers parsed objects and cannot provide that wire evidence.
+  if ((text.match(/:/g) ?? []).length !== 11) fail('invalid-reply-fields')
+  return validateInstalledProbeReply({
+    reply,
+    installedState,
+    expectedPackageVersion,
+    caller:
+      caller === 'syntheticChromium'
+        ? 'chromium'
+        : caller === 'syntheticFirefox'
+          ? 'firefox'
+          : 'none',
+  })
+}
+
+/** Validate a parsed observation; this does not assert raw framing or authentication. */
+export function validateInstalledProbeReply({
+  reply,
+  installedState,
+  expectedPackageVersion,
+  caller,
+}) {
+  if (!['none', 'chromium', 'firefox'].includes(caller))
+    fail('invalid-caller-case')
+  if (
+    typeof installedState?.package?.packageFullName !== 'string' ||
+    typeof installedState?.package?.packageFamilyName !== 'string' ||
+    installedState.package.version !== expectedPackageVersion
+  )
+    fail('invalid-installed-state')
   const fields = [
     'schemaVersion',
     'probe',
@@ -228,10 +259,6 @@ export function validateAliasProbeReply({
     'firefoxTestCallerShape',
   ]
   if (!exactKeys(reply, fields)) fail('invalid-reply-fields')
-  // All allowed keys and valid scalar values are colon-free. One separator per
-  // field also rejects duplicate JSON members that JSON.parse would overwrite.
-  if ((text.match(/:/g) ?? []).length !== fields.length)
-    fail('invalid-reply-fields')
   const expectedIdentity = identityDigests(installedState)
   if (
     reply.schemaVersion !== 1 ||
@@ -247,8 +274,8 @@ export function validateAliasProbeReply({
   )
     fail('invalid-reply-identity')
   if (
-    reply.chromiumCallerShape !== (caller === 'syntheticChromium') ||
-    reply.firefoxTestCallerShape !== (caller === 'syntheticFirefox')
+    reply.chromiumCallerShape !== (caller === 'chromium') ||
+    reply.firefoxTestCallerShape !== (caller === 'firefox')
   )
     fail('invalid-reply-caller')
   return { ok: true }
@@ -376,7 +403,7 @@ async function safeDirectory(absolute) {
   }
 }
 
-async function readInstalledFile(absolute, maximum) {
+export async function readInstalledFile(absolute, maximum) {
   await safeDirectory(path.dirname(absolute))
   const before = await lstat(absolute)
   if (
@@ -442,7 +469,7 @@ try {
 } catch { exit 1 }
 `
 
-async function queryInstalledState() {
+export async function queryInstalledState() {
   if (process.platform !== 'win32') fail('windows-required')
   const systemRoot = process.env.SystemRoot
   if (!windowsDirectory(systemRoot)) fail('os-query-failed')

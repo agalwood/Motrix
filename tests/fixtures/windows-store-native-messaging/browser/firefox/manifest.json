@@ -1,0 +1,10 @@
+{
+  "manifest_version": 2,
+  "name": "Motrix Store diagnostic browser fixture",
+  "version": "0.1.0",
+  "permissions": ["nativeMessaging"],
+  "browser_specific_settings": {
+    "gecko": { "id": "motrix-store-p0@motrix.invalid" }
+  },
+  "browser_action": { "default_popup": "probe.html" }
+}

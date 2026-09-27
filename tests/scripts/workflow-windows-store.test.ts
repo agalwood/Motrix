@@ -61,7 +61,7 @@ describe('Windows Store SDK test workflow', () => {
 
   it('limits installed-package testing to manual dispatch after both SDK and PRI checks', () => {
     const index = stepIndex(
-      'Test installed diagnostic alias on the hosted runner'
+      'Test installed diagnostic alias and browsers on the hosted runner'
     )
     expect(index).toBeGreaterThan(
       stepIndex('Build and check the diagnostic upgrade package')
@@ -143,6 +143,35 @@ describe('Windows Store SDK test workflow', () => {
     expect(
       steps[stepIndex('Parse SDK scripts with PowerShell')]?.run
     ).toContain('tests/scripts/windows-store-package-runtime.test.ps1')
+  })
+
+  it('checks temporary registration ownership without enabling browser mutations in pull requests', () => {
+    const index = stepIndex('Test temporary browser registration contracts')
+    expect(index).toBeGreaterThan(
+      stepIndex('Parse SDK scripts with PowerShell')
+    )
+    expect(index).toBeLessThan(
+      stepIndex('Compile Native Messaging diagnostic probe')
+    )
+    const test = steps[index]
+    expect(test?.shell).toBe('powershell')
+    expect(test?.if).toBeUndefined()
+    expect(test?.['continue-on-error']).toBeUndefined()
+    expect(test?.run).toContain(
+      'tests/scripts/windows-store-browser-registration.test.ps1'
+    )
+    expect(test?.run).toContain(
+      "'motrix-store-browser-registration-contracts.json'"
+    )
+    expect(test?.run).toContain('if ($LASTEXITCODE -ne 0)')
+    const parse = steps[stepIndex('Parse SDK scripts with PowerShell')]?.run
+    expect(parse).toContain('scripts/windows-store-browser-registration.ps1')
+    expect(parse).toContain(
+      'tests/scripts/windows-store-browser-registration.test.ps1'
+    )
+    expect(commands).not.toMatch(
+      /playwright\s+install|AllowTemporaryRegistration/
+    )
   })
 
   it('binds fixed test metadata to the checkout without accepting production identity inputs', () => {
@@ -284,6 +313,15 @@ describe('Windows Store SDK test workflow', () => {
     expect(paths).toContain(
       `\${{ runner.temp }}/motrix-store-runtime-contracts.json`
     )
+    expect(paths).toContain(
+      `\${{ runner.temp }}/motrix-store-browser-registration-contracts.json`
+    )
+    expect(paths).toContain(
+      `\${{ runner.temp }}/motrix-store-alias-runtime/browser/browser-report.json`
+    )
+    expect(paths.filter((path) => path.includes('/browser/'))).toEqual([
+      `\${{ runner.temp }}/motrix-store-alias-runtime/browser/browser-report.json`,
+    ])
     expect(paths).toContain(
       `\${{ runner.temp }}/motrix-store-native-messaging-probe/build-report.json`
     )

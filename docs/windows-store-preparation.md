@@ -434,7 +434,13 @@ new copies, installs A for the current runner account, and invokes the
 [installed-alias checker](windows-store-runtime-testing.md#check-the-installed-diagnostic-alias).
 It then upgrades to B without uninstalling A or starting Motrix, and checks that
 the same alias and application identity activate B immediately. Separate reports
-retain each version's observations. It removes only its own installed package,
+retain each version's observations. Before removing B, a separate
+[browser checker](windows-store-runtime-testing.md#check-diagnostic-native-messaging-in-real-browsers)
+tests the diagnostic host with installed Chrome, Edge, and Firefox using fresh
+profiles and temporary current-user test registrations. Each browser must reject
+the absent host, connect while registered, and reject it after registration removal.
+Registration ownership and profile cleanup are required for a successful report.
+The wrapper removes only its own installed package,
 certificate/trust entries, and temporary signed copies, and verifies cleanup.
 Both unsigned SDK packages stay unchanged.
 Pull request runs skip this installation step. No publisher certificate, PFX,
@@ -442,12 +448,13 @@ private key export, or Store submission is involved.
 
 The runtime report records the actual runner image, OS, account context, and
 individual results. GitHub's Windows hosted runners use an administrator account;
-this Server baseline cannot establish Windows 11 standard-user behavior, real
-browser Native Messaging, MBP1, main-application data migration, or Store
+this Server baseline cannot establish Windows 11 standard-user behavior,
+production MBP1, main-application data migration, or Store
 certification. The upgrade experiment changes the package version while keeping
 the payload fixed; it proves only the recorded diagnostic alias behavior.
-An SDK result remains an SDK result; any installed-alias claim requires a
-successful separate runtime report. See [supported MSIX platforms](https://learn.microsoft.com/windows/msix/supported-platforms)
+An SDK result remains an SDK result; installed-alias and real-browser diagnostic
+claims require their own successful reports. The browser checks run at B and do
+not establish browser behavior across an upgrade. See [supported MSIX platforms](https://learn.microsoft.com/windows/msix/supported-platforms)
 and [hosted-runner privileges](https://docs.github.com/en/actions/reference/runners/github-hosted-runners#administrative-privileges).
 
 Do not treat an unsigned directory build, a valid metadata file, or a successful

@@ -3,7 +3,7 @@
 .SYNOPSIS
 Tests the runtime script's pure upgrade and alias evidence guards.
 .DESCRIPTION
-Loads only five named top-level function definitions through the PowerShell AST.
+Loads only seven named top-level function definitions through the PowerShell AST.
 Never executes the runtime script's main flow, installs packages, uses PKI, or
 launches an alias. Synthetic records do not prove Windows runtime behavior.
 #>
@@ -19,6 +19,40 @@ function Get-FixtureHash([string]$Text) {
   try {
     return ([BitConverter]::ToString($algorithm.ComputeHash([Text.Encoding]::UTF8.GetBytes($Text)))).Replace('-', '').ToLowerInvariant()
   } finally { $algorithm.Dispose() }
+}
+
+function New-BrowserFixture([object]$PackageInput, [string]$Commit) {
+  $brands = @('chrome', 'edge', 'firefox')
+  $products = @('Google Chrome', 'Microsoft Edge', 'Firefox')
+  $browsers = @(
+    for ($index = 0; $index -lt 3; $index++) {
+      [pscustomobject]@{
+        browser = $brands[$index]; product = $products[$index]; version = '123.0.1.2'; fileVersion = '123.0.1.2'
+        executableSha256 = ('c' * 64); fixtureSha256 = ('d' * 64)
+        extensionId = $(if ($index -eq 2) { 'motrix-store-p0@motrix.invalid' } else { 'a' * 32 })
+        automationMode = $(if ($index -eq 2) { 'firefox-headless-bidi' } else { 'chromium-headed-cdp' })
+        ok = $true; brandedBinaryVerified = $true; cleanupVerified = $true
+        checks = @(
+          [pscustomobject]@{ name = 'unregistered-before'; ok = $true; status = 'disconnected'; messageCount = 0; errorPresent = $true }
+          [pscustomobject]@{ name = 'registered'; ok = $true; status = 'reply'; messageCount = 1; errorPresent = $false }
+          [pscustomobject]@{ name = 'unregistered-after'; ok = $true; status = 'disconnected'; messageCount = 0; errorPresent = $true }
+        )
+      }
+    }
+  )
+  return [pscustomobject]@{
+    schemaVersion = 1; scope = 'windows-native-messaging-branded-browsers'
+    sourceCommit = $Commit; packageVersion = $PackageInput.Version; executableSha256 = $PackageInput.ProbeHash
+    identity = [pscustomobject]@{
+      packageFullNameSha256 = $PackageInput.Record.installedPackage.fullNameSha256
+      applicationUserModelIdSha256 = $PackageInput.Record.installedPackage.helperApplicationUserModelIdSha256
+    }
+    ok = $true; cleanupVerified = $true; diagnosticProbeOnly = $true; browserNativeMessagingVerified = $true
+    testCount = 9; browsers = $browsers
+    checks = @([pscustomobject]@{ name = 'installed-before'; ok = $true }, [pscustomobject]@{ name = 'installed-after'; ok = $true })
+    mbp1Verified = $false; windows11AcceptanceVerified = $false; motrixMainRuntimeVerified = $false
+    browserUpgradeVerified = $false; signatureVerified = $false; packageInstallationPerformed = $false
+  }
 }
 
 function New-ContractFixture {
@@ -70,6 +104,7 @@ function New-ContractFixture {
     B = $packages[1]
     Current = @([pscustomobject]@{ PackageFullName = $packages[1].ObservedFullName; Version = [Version]'1.0.1.0' })
     SourceCommit = $commit
+    Browser = (New-BrowserFixture $packages[1] $commit)
     Alias = [pscustomobject]@{
       schemaVersion = 1
       scope = 'windows-native-messaging-installed-alias'
@@ -94,7 +129,7 @@ function New-ContractFixture {
 
 function Test-ContractCase(
   [string]$Name,
-  [ValidateSet('pair', 'transition', 'alias')][string]$Contract,
+  [ValidateSet('pair', 'transition', 'alias', 'browser', 'browser-cleanup')][string]$Contract,
   [bool]$Reject = $false,
   [scriptblock]$Mutate = {}
 ) {
@@ -108,6 +143,8 @@ function Test-ContractCase(
       'pair' { Assert-UpgradeInputs $fixture.A $fixture.B }
       'transition' { Assert-UpgradeRetargeting $fixture.A $fixture.B $fixture.Current }
       'alias' { Assert-AliasReport $fixture.Alias $fixture.B $fixture.SourceCommit }
+      'browser' { Assert-BrowserReport $fixture.Browser $fixture.B $fixture.SourceCommit }
+      'browser-cleanup' { Assert-BrowserCleanupReport $fixture.Browser $fixture.B $fixture.SourceCommit }
     }
   } catch { $rejected = $true }
   $results.Add([ordered]@{
@@ -125,7 +162,7 @@ try {
   $ast = [Management.Automation.Language.Parser]::ParseFile($runtimePath, [ref]$tokens, [ref]$parseErrors)
   if (@($parseErrors).Count -ne 0) { throw 'Runtime source has parser errors.' }
   $definitions = @(
-    foreach ($name in @('Assert-True', 'Assert-False', 'Assert-UpgradeInputs', 'Assert-UpgradeRetargeting', 'Assert-AliasReport')) {
+    foreach ($name in @('Assert-True', 'Assert-False', 'Assert-UpgradeInputs', 'Assert-UpgradeRetargeting', 'Assert-AliasReport', 'Assert-BrowserCleanupReport', 'Assert-BrowserReport')) {
       $matching = @($ast.EndBlock.Statements | Where-Object {
         $_ -is [Management.Automation.Language.FunctionDefinitionAst] -and $_.Name -ceq $name
       })
@@ -178,6 +215,48 @@ try {
   Test-ContractCase 'alias-rejects-other-executable' 'alias' $true { param($f) $f.Alias.executableSha256 = 'a' * 64 }
   Test-ContractCase 'alias-rejects-extra-frame' 'alias' $true { param($f) $f.Alias.checks[2].frameCount = 2 }
   Test-ContractCase 'alias-rejects-simulated-browser-overclaim' 'alias' $true { param($f) $f.Alias.browserNativeMessagingVerified = $true }
+  Test-ContractCase 'browser-accepts-three-brands-on-b' 'browser'
+  Test-ContractCase 'browser-rejects-wrong-schema' 'browser' $true { param($f) $f.Browser.schemaVersion = 2 }
+  Test-ContractCase 'browser-rejects-wrong-scope' 'browser' $true { param($f) $f.Browser.scope = 'simulated-browser' }
+  Test-ContractCase 'browser-rejects-a-version' 'browser' $true { param($f) $f.Browser.packageVersion = '1.0.0.0' }
+  Test-ContractCase 'browser-rejects-other-source' 'browser' $true { param($f) $f.Browser.sourceCommit = 'f' * 40 }
+  Test-ContractCase 'browser-rejects-other-probe' 'browser' $true { param($f) $f.Browser.executableSha256 = 'e' * 64 }
+  Test-ContractCase 'browser-rejects-a-package-fullname' 'browser' $true { param($f) $f.Browser.identity.packageFullNameSha256 = $f.A.Record.installedPackage.fullNameSha256 }
+  Test-ContractCase 'browser-rejects-other-aumid' 'browser' $true { param($f) $f.Browser.identity.applicationUserModelIdSha256 = 'e' * 64 }
+  Test-ContractCase 'browser-rejects-summary-failure' 'browser' $true { param($f) $f.Browser.ok = $false }
+  Test-ContractCase 'browser-rejects-global-cleanup-failure' 'browser' $true { param($f) $f.Browser.cleanupVerified = $false }
+  Test-ContractCase 'browser-rejects-missing-brand' 'browser' $true { param($f) $f.Browser.browsers = @($f.Browser.browsers[0], $f.Browser.browsers[1]) }
+  Test-ContractCase 'browser-rejects-duplicate-brand' 'browser' $true { param($f) $f.Browser.browsers[2] = $f.Browser.browsers[1] }
+  Test-ContractCase 'browser-rejects-unbranded-binary' 'browser' $true { param($f) $f.Browser.browsers[0].brandedBinaryVerified = $false }
+  Test-ContractCase 'browser-rejects-product-substitution' 'browser' $true { param($f) $f.Browser.browsers[0].product = 'Chromium' }
+  Test-ContractCase 'browser-rejects-invalid-version' 'browser' $true { param($f) $f.Browser.browsers[2].version = 'simulated' }
+  Test-ContractCase 'browser-rejects-invalid-fixture-hash' 'browser' $true { param($f) $f.Browser.browsers[1].fixtureSha256 = 'bad' }
+  Test-ContractCase 'browser-rejects-brand-cleanup-failure' 'browser' $true { param($f) $f.Browser.browsers[1].cleanupVerified = $false }
+  Test-ContractCase 'browser-rejects-missing-case' 'browser' $true { param($f) $f.Browser.browsers[0].checks = @($f.Browser.browsers[0].checks[1]) }
+  Test-ContractCase 'browser-rejects-failed-case' 'browser' $true { param($f) $f.Browser.browsers[0].checks[1].ok = $false }
+  Test-ContractCase 'browser-rejects-reply-before-registration' 'browser' $true { param($f) $f.Browser.browsers[0].checks[0].messageCount = 1 }
+  Test-ContractCase 'browser-rejects-no-registered-reply' 'browser' $true { param($f) $f.Browser.browsers[1].checks[1].messageCount = 0 }
+  Test-ContractCase 'browser-accepts-reply-then-error-disconnect' 'browser' $false { param($f) $f.Browser.browsers[0].checks[1].errorPresent = $true }
+  Test-ContractCase 'browser-rejects-nonboolean-disconnect-evidence' 'browser' $true { param($f) $f.Browser.browsers[2].checks[1].errorPresent = 'true' }
+  Test-ContractCase 'browser-rejects-reply-after-unregistration' 'browser' $true { param($f) $f.Browser.browsers[2].checks[2].status = 'reply' }
+  Test-ContractCase 'browser-rejects-wrong-test-count' 'browser' $true { param($f) $f.Browser.testCount = 8 }
+  Test-ContractCase 'browser-rejects-failed-summary-check' 'browser' $true { param($f) $f.Browser.checks[0].ok = $false }
+  Test-ContractCase 'browser-rejects-cross-upgrade-overclaim' 'browser' $true { param($f) $f.Browser.browserUpgradeVerified = $true }
+  Test-ContractCase 'browser-rejects-main-runtime-overclaim' 'browser' $true { param($f) $f.Browser.motrixMainRuntimeVerified = $true }
+  Test-ContractCase 'browser-rejects-mbp1-overclaim' 'browser' $true { param($f) $f.Browser.mbp1Verified = $true }
+
+  Test-ContractCase 'browser-cleanup-accepts-complete-proof' 'browser-cleanup'
+  Test-ContractCase 'browser-cleanup-independent-of-case-success' 'browser-cleanup' $false { param($f) $f.Browser.ok = $false; $f.Browser.browserNativeMessagingVerified = $false }
+  Test-ContractCase 'browser-cleanup-rejects-missing-report-after-timeout' 'browser-cleanup' $true { param($f) $f.Browser = $null }
+  Test-ContractCase 'browser-cleanup-rejects-unverified-cleanup' 'browser-cleanup' $true { param($f) $f.Browser.cleanupVerified = $false }
+  Test-ContractCase 'browser-cleanup-rejects-a-evidence' 'browser-cleanup' $true { param($f) $f.Browser.packageVersion = '1.0.0.0' }
+  Test-ContractCase 'browser-cleanup-rejects-brand-cleanup-failure' 'browser-cleanup' $true { param($f) $f.Browser.browsers[2].cleanupVerified = $false }
+
+  Test-ContractCase 'browser-rejects-incomplete-summary-checks' 'browser' $true { param($f) $f.Browser.checks = @() }
+  Test-ContractCase 'browser-rejects-wrong-summary-check' 'browser' $true { param($f) $f.Browser.checks[0].name = 'unknown' }
+  Test-ContractCase 'browser-rejects-automation-mode-substitution' 'browser' $true { param($f) $f.Browser.browsers[0].automationMode = 'chromium-headless' }
+  Test-ContractCase 'browser-rejects-extension-identity-substitution' 'browser' $true { param($f) $f.Browser.browsers[2].extensionId = 'other@example.invalid' }
+
 } catch {
   $results.Add([ordered]@{ name = 'test-harness'; ok = $false; expected = 'completed'; observed = 'harness-error' })
 }

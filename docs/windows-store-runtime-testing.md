@@ -224,6 +224,43 @@ identity. This isolates alias retargeting across package versions; it does not
 test application data migration or real browser connections. The runtime report
 records that narrow result separately from general upgrade acceptance.
 
+### Check diagnostic Native Messaging in real browsers
+
+The separate browser checker opens the installed Google Chrome, Microsoft Edge,
+and Mozilla Firefox in new temporary profiles. Run it only on the disposable test
+account with the diagnostic package already installed. It temporarily registers
+the fixed `app.motrix.bridge.store.p0` host for the current user; it does not use
+the regular Motrix host. Supply a new output directory with an existing parent:
+
+```powershell
+$diagnosticLayout = 'C:\path\motrix-store-diagnostic-upgrade-layout'
+$expectedPackageVersion = '1.0.1.0'
+$browserOutput = 'C:\path\motrix-store-runtime-b\browser'
+node scripts/test-windows-store-native-messaging-browser.mjs --prepared $diagnosticLayout --expected-package-version $expectedPackageVersion --output-directory $browserOutput
+if ($LASTEXITCODE -ne 0) { throw 'Diagnostic browser verification failed' }
+```
+
+Each browser must fail to connect before registration, return the fixed diagnostic
+reply after registration, and fail again after removal. The checker rejects any
+existing test-host registration, including other registry views and Edge fallback
+locations. It only removes registrations and files whose ownership still matches
+this run. It uses an unpacked test extension in Chrome/Edge and a temporary add-on
+in Firefox, without accessing existing browser profiles or signing into accounts.
+A missing browser or unsupported extension loader is a failure; another browser
+cannot substitute for the requested brand.
+Chrome and Edge use headed CDP sessions; Firefox uses a headless BiDi session.
+The report records the automation mode alongside the actual browser version.
+
+The reply must match the installed package version and full package/helper
+identity hashes. Browser evidence records extension messages and disconnects;
+raw stdio framing and process exit codes belong to the separate alias checker.
+Only `browser-report.json` is retained as CI evidence, with browser versions,
+hashes, case results, and cleanup results. No screenshots or profile files are
+uploaded. Manual hosted CI runs this checker after B's alias checks, before
+uninstalling B. This tests diagnostic browser discovery at B, not a browser
+connection surviving an upgrade, the production MBP1 host, or Windows 11
+standard-user acceptance.
+
 ### Launch Motrix and record runtime scenarios
 
 ```powershell

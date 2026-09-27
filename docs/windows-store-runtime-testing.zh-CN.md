@@ -203,6 +203,35 @@ Chromium、Firefox 形状的参数是模拟输入。成功报告只证明所记�
 变化时 alias 的重定向，不覆盖主应用数据迁移或真实浏览器连接；运行报告将此结果与
 一般升级验收分开记录。
 
+### 在真实浏览器中检查诊断 Native Messaging
+
+独立浏览器检查器会使用新建的临时 profile，打开已安装的 Google Chrome、Microsoft
+Edge 和 Mozilla Firefox。仅在已安装诊断包的可丢弃测试账户中运行。它会为当前用户
+临时注册固定的 `app.motrix.bridge.store.p0` host，不使用正式 Motrix host。
+传入一个父目录已存在、尚未创建的输出目录：
+
+```powershell
+$diagnosticLayout = 'C:\path\motrix-store-diagnostic-upgrade-layout'
+$expectedPackageVersion = '1.0.1.0'
+$browserOutput = 'C:\path\motrix-store-runtime-b\browser'
+node scripts/test-windows-store-native-messaging-browser.mjs --prepared $diagnosticLayout --expected-package-version $expectedPackageVersion --output-directory $browserOutput
+if ($LASTEXITCODE -ne 0) { throw 'Diagnostic browser verification failed' }
+```
+
+每个浏览器都必须在注册前连接失败、注册后收到固定诊断回复、撤销注册后再次失败。
+检查器拒绝任何已存在的同名测试 host 注册，包括其他注册表视图和 Edge 回退位置。
+它只清理所有权仍与本次运行匹配的注册和文件。Chrome/Edge 加载解包测试扩展，
+Firefox 加载临时附加组件，不访问现有浏览器 profile 或登录账户。缺少浏览器或
+不支持扩展加载方式均为失败，不能用其他浏览器替代所要求的品牌。
+Chrome 和 Edge 使用有界面的 CDP 会话，Firefox 使用无界面的 BiDi 会话；报告将
+自动化模式与实际浏览器版本一并记录。
+
+回复必须匹配安装包版本、完整包名与 helper 身份摘要。浏览器证据记录扩展消息和断连；
+原始 stdio 帧与进程退出码由独立 alias 检查器验证。CI 只保留 `browser-report.json`，
+记录浏览器版本、摘要、案例和清理结果，不上传截图或 profile 文件。手动 hosted CI
+在 B 的 alias 检查后、卸载 B 前执行此检查。它只测试 B 的诊断 host 浏览器发现，
+不证明浏览器连接跨升级保留、正式 MBP1 host 或 Windows 11 普通用户验收通过。
+
 ### 启动 Motrix 并记录运行场景
 
 ```powershell
