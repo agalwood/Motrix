@@ -34,7 +34,7 @@ const env = {
     )
   ),
   GIT_CONFIG_NOSYSTEM: '1',
-  GIT_CONFIG_GLOBAL: devNull,
+  GIT_CONFIG_GLOBAL: '/dev/null',
 }
 function git(root: string, ...args: string[]) {
   return execFileSync('git', ['-c', `core.hooksPath=${devNull}`, ...args], {

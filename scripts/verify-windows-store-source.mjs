@@ -1,6 +1,5 @@
 import { execFile } from 'node:child_process'
 import { lstat, readFile, realpath } from 'node:fs/promises'
-import { devNull } from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { validateWindowsStoreMetadata } from './windows-store-metadata.mjs'
@@ -31,7 +30,9 @@ function gitEnvironment() {
   return {
     ...env,
     GIT_CONFIG_NOSYSTEM: '1',
-    GIT_CONFIG_GLOBAL: devNull,
+    // Git for Windows maps /dev/null itself; Node's Windows device path
+    // (os.devNull) is not accepted as a Git configuration filename.
+    GIT_CONFIG_GLOBAL: '/dev/null',
     GIT_NO_REPLACE_OBJECTS: '1',
     GIT_NO_LAZY_FETCH: '1',
     GIT_OPTIONAL_LOCKS: '0',

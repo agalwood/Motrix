@@ -19,7 +19,7 @@ const env = {
     Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_'))
   ),
   GIT_CONFIG_NOSYSTEM: '1',
-  GIT_CONFIG_GLOBAL: devNull,
+  GIT_CONFIG_GLOBAL: '/dev/null',
 }
 
 function git(root: string, ...args: string[]) {
@@ -136,7 +136,12 @@ describe('Windows Store local source verification', () => {
       expect(args).not.toEqual(expect.arrayContaining(['ls-remote']))
       expect(options).toMatchObject({
         shell: false,
-        env: { GIT_NO_LAZY_FETCH: '1', GIT_TERMINAL_PROMPT: '0' },
+        env: {
+          GIT_CONFIG_GLOBAL: '/dev/null',
+          GIT_CONFIG_NOSYSTEM: '1',
+          GIT_NO_LAZY_FETCH: '1',
+          GIT_TERMINAL_PROMPT: '0',
+        },
       })
     }
   })

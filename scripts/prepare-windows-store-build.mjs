@@ -44,7 +44,7 @@ export async function prepareWindowsStoreBuild({
   if (!sourceReport.ok) {
     const failed = sourceReport.checks
       .filter((entry) => !entry.ok)
-      .map((entry) => entry.name)
+      .map((entry) => `${entry.name}: ${entry.message}`)
     throw new Error(`Source checks failed: ${failed.join(', ')}`)
   }
   const baseBytes = await readSourceFile(root, 'electron-builder.json')
