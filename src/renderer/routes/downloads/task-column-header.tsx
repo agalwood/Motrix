@@ -158,7 +158,7 @@ export function TaskColumnHeader({
                 value={column.width}
                 min={TASK_COLUMNS[id].min}
                 max={TASK_COLUMNS[id].max}
-                className="absolute -end-1 top-1 z-10 h-5 w-2 cursor-col-resize touch-none border-e border-border/50 outline-none focus-visible:bg-ring/30"
+                className="absolute -end-1 top-1 z-10 h-5 w-2 cursor-col-resize touch-none outline-none after:pointer-events-none after:absolute after:inset-y-0 after:end-1/2 after:border-e after:border-border/50 focus-visible:bg-ring/30"
                 onChange={(width) => setWidth(id, width, false)}
                 onCommit={(width) => setWidth(id, width)}
               />
