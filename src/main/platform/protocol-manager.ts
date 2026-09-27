@@ -34,11 +34,11 @@ export interface ProtocolManagerDeps {
   // payloads (parsed torrent meta, queue size updates) that can't be
   // encoded as AddTaskUrlParams.
   deliverToAddTask: (channel: string, payload: unknown) => void
-  // motrix://plugins/<id> — navigate the main window to a plugin's
+  // motrix://plugins/<id> (or mo://) — navigate the main window to a plugin's
   // marketplace detail route. Navigation-only by contract: the deeplink must
   // never carry or trigger an install (.claude/rules/plugin-registry.md).
   onOpenPluginDetail: (pluginId: string) => void
-  // motrix://tasks/<id> — open the existing task inspector, without changing it.
+  // motrix://tasks/<id> (or mo://) — open the existing task inspector unchanged.
   onOpenTaskDetail: (taskId: string) => void
 }
 
@@ -55,21 +55,30 @@ interface QueuedTorrent {
 }
 
 const RESOURCE_PREFIXES = ['magnet:', 'http:', 'https:', 'ftp:']
-const taskDeepLinkIdSchema = z.string().min(1).max(1024).regex(/^\S+$/u)
+const CONTROL_CHARACTERS = /\p{Cc}/u
+const taskDeepLinkIdSchema = z
+  .string()
+  .min(1)
+  .max(1024)
+  .regex(/^\S+$/u)
+  .refine((id) => !CONTROL_CHARACTERS.test(id))
 
 function uriToAddTaskParams(url: string): AddTaskUrlParams | null {
-  const lower = url.toLowerCase()
-  if (lower.startsWith('magnet:')) {
+  if (url.trim() !== url || CONTROL_CHARACTERS.test(url)) return null
+  try {
+    const parsed = new URL(url)
+    if (!RESOURCE_PREFIXES.includes(parsed.protocol)) return null
+    if (
+      parsed.protocol !== 'magnet:' &&
+      (!/^(?:https?|ftp):\/\//i.test(url) || !parsed.hostname)
+    ) {
+      return null
+    }
+    // Preserve the caller's URI; parsing only validates the prefill boundary.
     return { mode: 'links', url }
+  } catch {
+    return null
   }
-  if (
-    lower.startsWith('http:') ||
-    lower.startsWith('https:') ||
-    lower.startsWith('ftp:')
-  ) {
-    return { mode: 'links', url }
-  }
-  return null
 }
 
 export function createProtocolManager(deps: ProtocolManagerDeps) {
@@ -204,6 +213,8 @@ export function createProtocolManager(deps: ProtocolManagerDeps) {
 
     handle(url: string) {
       log.info({ url }, 'protocol url received')
+      // URL parsing strips some raw controls, so reject them before parsing.
+      if (url.trim() !== url || CONTROL_CHARACTERS.test(url)) return
       const lower = url.toLowerCase()
 
       if (RESOURCE_PREFIXES.some((p) => lower.startsWith(p))) {
@@ -215,35 +226,39 @@ export function createProtocolManager(deps: ProtocolManagerDeps) {
         return
       }
 
-      if (lower.startsWith('motrix://')) {
+      const deeplink = /^(?:motrix|mo):\/\/[^/?#]*([^?#]*)/i.exec(url)
+      if (deeplink) {
         try {
           const parsed = new URL(url)
+          if (parsed.username || parsed.password || parsed.port) {
+            log.warn('rejecting deeplink credentials or port')
+            return
+          }
           if (parsed.hostname === 'tasks') {
             const taskId = taskDeepLinkIdSchema.safeParse(
               decodeURIComponent(parsed.pathname.replace(/^\//, ''))
             )
-            if (
-              taskId.success &&
-              !parsed.username &&
-              !parsed.password &&
-              !parsed.port &&
-              !parsed.search &&
-              !parsed.hash
-            ) {
+            if (taskId.success && !url.includes('?') && !url.includes('#')) {
               deps.onOpenTaskDetail(taskId.data)
               return
             }
             log.warn('rejecting malformed task deeplink')
             return
           }
-          if (
-            parsed.hostname === 'new-task' &&
-            parsed.searchParams.has('uri')
-          ) {
-            const uri = parsed.searchParams.get('uri') ?? ''
-            const params = uriToAddTaskParams(uri)
+          if (parsed.hostname === 'new-task') {
+            // URLSearchParams replaces malformed escapes; validate first so
+            // the prefill never receives a silently repaired query value.
+            decodeURIComponent(parsed.search)
+            const uris = parsed.searchParams.getAll('uri')
+            const validShape =
+              // Check the original path before URL normalizes dot segments.
+              (deeplink[1] === '' || deeplink[1] === '/') &&
+              !url.includes('#') &&
+              uris.length === 1 &&
+              uris[0] !== ''
+            const params = validShape ? uriToAddTaskParams(uris[0]) : null
             if (params) {
-              log.info({ params }, 'opening add-task from motrix:// uri')
+              log.info({ params }, 'opening add-task from deeplink uri')
               deps.onOpenAddTask(params)
               return
             }
@@ -252,8 +267,12 @@ export function createProtocolManager(deps: ProtocolManagerDeps) {
             const pluginId = decodeURIComponent(
               parsed.pathname.replace(/^\//, '')
             )
-            if (REGISTRY_PLUGIN_ID_RE.test(pluginId)) {
-              log.info({ pluginId }, 'opening plugin detail from motrix:// url')
+            if (
+              REGISTRY_PLUGIN_ID_RE.test(pluginId) &&
+              !url.includes('?') &&
+              !url.includes('#')
+            ) {
+              log.info({ pluginId }, 'opening plugin detail from deeplink url')
               deps.onOpenPluginDetail(pluginId)
               return
             }

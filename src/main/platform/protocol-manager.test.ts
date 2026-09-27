@@ -249,226 +249,187 @@ describe('createProtocolManager', () => {
   })
 
   describe('handle', () => {
-    it.each(['task-123', '任务/一?#&%'])(
-      'opens task details for encoded id %s',
-      (id) => {
-        const deps = makeDeps()
-        createProtocolManager(deps).handle(
-          `motrix://tasks/${encodeURIComponent(id)}`
-        )
-        expect(deps.onOpenTaskDetail).toHaveBeenCalledExactlyOnceWith(id)
-        expect(deps.onOpenAddTask).not.toHaveBeenCalled()
-        expect(deps.onOpenPluginDetail).not.toHaveBeenCalled()
-      }
-    )
-
-    it.each([
-      'motrix://tasks/',
-      'motrix://tasks/%20',
-      'motrix://tasks/%E0%A4%A',
-      'motrix://tasks/task-1?other=task-2',
-      'motrix://tasks/task-1#other',
-      'motrix://user@tasks/task-1',
-      `motrix://tasks/${'a'.repeat(1025)}`,
-    ])('does not navigate to a task for malformed deeplink %s', (url) => {
-      const deps = makeDeps()
-      createProtocolManager(deps).handle(url)
+    function expectNoBusinessCallbacks(deps: ReturnType<typeof makeDeps>) {
       expect(deps.onOpenTaskDetail).not.toHaveBeenCalled()
       expect(deps.onOpenAddTask).not.toHaveBeenCalled()
-    })
+      expect(deps.onOpenPluginDetail).not.toHaveBeenCalled()
+    }
 
-    it('opens add-task window with magnet in links prefill', () => {
-      const {
-        getWindow,
-        settingsManager,
-        torrentParser,
-        onOpenAddTask,
-        deliverToAddTask,
-        onOpenPluginDetail,
-        onOpenTaskDetail,
-      } = makeDeps()
-      const pm = createProtocolManager({
-        getWindow,
-        settingsManager,
-        torrentParser,
-        onOpenAddTask,
-        deliverToAddTask,
-        onOpenPluginDetail,
-        onOpenTaskDetail,
-      })
-      pm.handle('magnet:?xt=urn:btih:abc123')
-
-      expect(onOpenAddTask).toHaveBeenCalledWith({
+    it.each([
+      'magnet:?xt=urn:btih:abc123',
+      'http://example.com/file.zip',
+      'HTTPS://example.com/file.zip?part=1#download',
+      'ftp://example.com/file.zip',
+    ])('opens add-task with the original resource URI %s', (url) => {
+      const deps = makeDeps()
+      createProtocolManager(deps).handle(url)
+      expect(deps.onOpenAddTask).toHaveBeenCalledExactlyOnceWith({
         mode: 'links',
-        url: 'magnet:?xt=urn:btih:abc123',
+        url,
       })
+      expect(deps.onOpenTaskDetail).not.toHaveBeenCalled()
+      expect(deps.onOpenPluginDetail).not.toHaveBeenCalled()
     })
 
-    it('opens add-task window with url prefill for http(s)/ftp', () => {
-      const {
-        getWindow,
-        settingsManager,
-        torrentParser,
-        onOpenAddTask,
-        deliverToAddTask,
-        onOpenPluginDetail,
-        onOpenTaskDetail,
-      } = makeDeps()
-      const pm = createProtocolManager({
-        getWindow,
-        settingsManager,
-        torrentParser,
-        onOpenAddTask,
-        deliverToAddTask,
-        onOpenPluginDetail,
-        onOpenTaskDetail,
-      })
-      pm.handle('https://example.com/file.zip')
-
-      expect(onOpenAddTask).toHaveBeenCalledWith({
-        mode: 'links',
-        url: 'https://example.com/file.zip',
-      })
+    it.each([
+      'https://%',
+      'https://',
+      'http:example.com',
+      'ftp://[invalid',
+      'https://example.com/\nfile',
+      'file:///tmp/file.zip',
+      'javascript:alert(1)',
+      'motrix+other://tasks/task-1',
+      'mo+other://plugins/example.plugin',
+      'motrix:tasks/task-1',
+      'mo:tasks/task-1',
+    ])('does not route malformed or unsupported URI %s', (url) => {
+      const deps = makeDeps()
+      createProtocolManager(deps).handle(url)
+      expectNoBusinessCallbacks(deps)
     })
 
-    it('decodes motrix://new-task?uri=<http-url> and opens add-task', () => {
-      const {
-        getWindow,
-        settingsManager,
-        torrentParser,
-        onOpenAddTask,
-        deliverToAddTask,
-        onOpenPluginDetail,
-        onOpenTaskDetail,
-      } = makeDeps()
-      const pm = createProtocolManager({
-        getWindow,
-        settingsManager,
-        torrentParser,
-        onOpenAddTask,
-        deliverToAddTask,
-        onOpenPluginDetail,
-        onOpenTaskDetail,
-      })
-      const encoded = encodeURIComponent('https://example.com/file.zip')
-      pm.handle(`motrix://new-task?uri=${encoded}`)
-
-      expect(onOpenAddTask).toHaveBeenCalledWith({
-        mode: 'links',
-        url: 'https://example.com/file.zip',
-      })
-    })
-
-    it('decodes motrix://new-task?uri=<magnet> into links prefill', () => {
-      const {
-        getWindow,
-        settingsManager,
-        torrentParser,
-        onOpenAddTask,
-        deliverToAddTask,
-        onOpenPluginDetail,
-        onOpenTaskDetail,
-      } = makeDeps()
-      const pm = createProtocolManager({
-        getWindow,
-        settingsManager,
-        torrentParser,
-        onOpenAddTask,
-        deliverToAddTask,
-        onOpenPluginDetail,
-        onOpenTaskDetail,
-      })
-      const encoded = encodeURIComponent('magnet:?xt=urn:btih:abc')
-      pm.handle(`motrix://new-task?uri=${encoded}`)
-
-      expect(onOpenAddTask).toHaveBeenCalledWith({
-        mode: 'links',
-        url: 'magnet:?xt=urn:btih:abc',
-      })
-    })
-
-    it('shows window for bare motrix:// URL', () => {
-      const {
-        getWindow,
-        settingsManager,
-        torrentParser,
-        onOpenAddTask,
-        deliverToAddTask,
-        onOpenPluginDetail,
-        onOpenTaskDetail,
-        mockWindow,
-      } = makeDeps()
-      const pm = createProtocolManager({
-        getWindow,
-        settingsManager,
-        torrentParser,
-        onOpenAddTask,
-        deliverToAddTask,
-        onOpenPluginDetail,
-        onOpenTaskDetail,
-      })
-      pm.handle('motrix://')
-
-      expect(mockWindow.show).toHaveBeenCalled()
-      expect(onOpenAddTask).not.toHaveBeenCalled()
-    })
-
-    it('routes motrix://plugins/<id> to the plugin detail navigation', () => {
-      const {
-        getWindow,
-        settingsManager,
-        torrentParser,
-        onOpenAddTask,
-        deliverToAddTask,
-        onOpenPluginDetail,
-        onOpenTaskDetail,
-        mockWindow,
-      } = makeDeps()
-      const pm = createProtocolManager({
-        getWindow,
-        settingsManager,
-        torrentParser,
-        onOpenAddTask,
-        deliverToAddTask,
-        onOpenPluginDetail,
-        onOpenTaskDetail,
-      })
-      pm.handle('motrix://plugins/example.archive-unpacker')
-
-      expect(onOpenPluginDetail).toHaveBeenCalledWith(
-        'example.archive-unpacker'
+    describe.each(['motrix', 'mo'])('%s deeplinks', (scheme) => {
+      it.each(['task-123', '任务/一?#&%'])(
+        'opens task details for encoded id %s',
+        (id) => {
+          const deps = makeDeps()
+          createProtocolManager(deps).handle(
+            `${scheme}://tasks/${encodeURIComponent(id)}`
+          )
+          expect(deps.onOpenTaskDetail).toHaveBeenCalledExactlyOnceWith(id)
+          expect(deps.onOpenAddTask).not.toHaveBeenCalled()
+          expect(deps.onOpenPluginDetail).not.toHaveBeenCalled()
+        }
       )
-      expect(onOpenAddTask).not.toHaveBeenCalled()
-      expect(mockWindow.show).not.toHaveBeenCalled()
-    })
 
-    it('rejects malformed plugin deeplink ids and shows the window', () => {
-      const {
-        getWindow,
-        settingsManager,
-        torrentParser,
-        onOpenAddTask,
-        deliverToAddTask,
-        onOpenPluginDetail,
-        onOpenTaskDetail,
-        mockWindow,
-      } = makeDeps()
-      const pm = createProtocolManager({
-        getWindow,
-        settingsManager,
-        torrentParser,
-        onOpenAddTask,
-        deliverToAddTask,
-        onOpenPluginDetail,
-        onOpenTaskDetail,
+      it.each([
+        'tasks/',
+        'tasks/%20',
+        'tasks/%E0%A4%A',
+        'tasks/%00',
+        'tasks/%1F',
+        'tasks/%7F',
+        'tasks/%C2%85',
+        'tasks/ta\tsk-1',
+        'tasks/task-1 ',
+        'tasks/task-1?other=task-2',
+        'tasks/task-1?',
+        'tasks/task-1#other',
+        'tasks/task-1#',
+        'user@tasks/task-1',
+        ':password@tasks/task-1',
+        'tasks:123/task-1',
+        `tasks/${'a'.repeat(1025)}`,
+        'plugins/',
+        'plugins/no-namespace',
+        'plugins/Upper.Case',
+        'plugins/../etc',
+        'plugins/%E0%A4%A',
+        'plugins/example.%00plugin',
+        'plugins/example.plugin?install=true',
+        'plugins/example.plugin?',
+        'plugins/example.plugin#install',
+        'plugins/example.plugin#',
+        'user@plugins/example.plugin',
+        ':password@plugins/example.plugin',
+        'plugins:123/example.plugin',
+        'user@new-task?uri=https%3A%2F%2Fexample.com',
+        ':password@new-task?uri=https%3A%2F%2Fexample.com',
+        'new-task:123?uri=https%3A%2F%2Fexample.com',
+        'new-task/extra?uri=https%3A%2F%2Fexample.com',
+        'new-task/extra/..?uri=https%3A%2F%2Fexample.com',
+        'new-task/%2e?uri=https%3A%2F%2Fexample.com',
+        'new-task?uri=https%3A%2F%2Fexample.com#fragment',
+        'new-task?uri=https%3A%2F%2Fexample.com#',
+        'new-task',
+        'new-task?uri=',
+        'new-task?uri=https%3A%2F%2Fexample.com&uri=',
+        'new-task?uri=https%3A%2F%2Fexample.com&%75ri=https%3A%2F%2Fother.com',
+        'new-task?uri=https%3A%2F%2Fexample.com%2F%E0%A4%A',
+        'new-task?uri=https%3A%2F%2Fexample.com%2F%',
+      ])('rejects malformed route %s without a business callback', (route) => {
+        const deps = makeDeps()
+        createProtocolManager(deps).handle(`${scheme}://${route}`)
+        expectNoBusinessCallbacks(deps)
       })
-      // No dot namespace / uppercase / traversal-looking ids are all refused.
-      pm.handle('motrix://plugins/no-namespace')
-      pm.handle('motrix://plugins/Upper.Case')
-      pm.handle('motrix://plugins/../etc')
 
-      expect(onOpenPluginDetail).not.toHaveBeenCalled()
-      expect(mockWindow.show).toHaveBeenCalled()
+      it.each([
+        'https://example.com/file.zip?part=1&name=任务#download',
+        'http://example.com/file%25name.zip',
+        'ftp://example.com/file.zip',
+        'magnet:?xt=urn:btih:abc&dn=任务',
+      ])('decodes a new-task URI once and preserves %s', (uri) => {
+        const deps = makeDeps()
+        createProtocolManager(deps).handle(
+          `${scheme}://new-task?uri=${encodeURIComponent(uri)}`
+        )
+        expect(deps.onOpenAddTask).toHaveBeenCalledExactlyOnceWith({
+          mode: 'links',
+          url: uri,
+        })
+        expect(deps.onOpenTaskDetail).not.toHaveBeenCalled()
+        expect(deps.onOpenPluginDetail).not.toHaveBeenCalled()
+      })
+
+      it('accepts an uppercase scheme and a trailing new-task slash', () => {
+        const deps = makeDeps()
+        const uri = 'HTTPS://example.com/File%20Name.zip'
+        createProtocolManager(deps).handle(
+          `${scheme.toUpperCase()}://new-task/?uri=${encodeURIComponent(uri)}`
+        )
+        expect(deps.onOpenAddTask).toHaveBeenCalledExactlyOnceWith({
+          mode: 'links',
+          url: uri,
+        })
+      })
+
+      it.each([
+        '',
+        ' ',
+        'https://',
+        'https://%',
+        'https:example.com',
+        'ftp://[invalid',
+        'https://example.com/\nfile',
+        'file:///tmp/file.zip',
+        'javascript:alert(1)',
+        'data:text/plain,hello',
+        'motrix://tasks/task-1',
+        'mo://plugins/example.plugin',
+      ])('rejects malformed or unsupported nested URI %s', (uri) => {
+        const deps = makeDeps()
+        createProtocolManager(deps).handle(
+          `${scheme}://new-task?uri=${encodeURIComponent(uri)}`
+        )
+        expectNoBusinessCallbacks(deps)
+      })
+
+      it('only navigates to the plugin detail', () => {
+        const deps = makeDeps()
+        createProtocolManager(deps).handle(
+          `${scheme}://plugins/example.archive-unpacker`
+        )
+        expect(deps.onOpenPluginDetail).toHaveBeenCalledExactlyOnceWith(
+          'example.archive-unpacker'
+        )
+        expect(deps.onOpenAddTask).not.toHaveBeenCalled()
+        expect(deps.onOpenTaskDetail).not.toHaveBeenCalled()
+        expect(deps.mockWindow.show).not.toHaveBeenCalled()
+      })
+
+      it.each([
+        '',
+        'bridge/native-host',
+        'unknown/path',
+        'plugins/no-namespace',
+      ])('keeps the window focus fallback for %s', (route) => {
+        const deps = makeDeps()
+        createProtocolManager(deps).handle(`${scheme}://${route}`)
+        expect(deps.mockWindow.show).toHaveBeenCalledOnce()
+        expect(deps.mockWindow.focus).toHaveBeenCalledOnce()
+        expectNoBusinessCallbacks(deps)
+      })
     })
   })
 

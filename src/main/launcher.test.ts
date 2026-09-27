@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockRequestLock,
@@ -36,6 +36,8 @@ vi.mock('@core/logger', () => ({
 import { setupLauncher } from './launcher'
 
 describe('setupLauncher', () => {
+  const originalPlatform = process.platform
+  const originalArgv = process.argv
   const callbacks = {
     onProtocolUrl: vi.fn(),
     onTorrentFile: vi.fn(),
@@ -50,6 +52,12 @@ describe('setupLauncher', () => {
     callbacks.onProtocolUrl.mockClear()
     callbacks.onTorrentFile.mockClear()
     callbacks.onShowWindow.mockClear()
+    process.argv = ['motrix']
+  })
+
+  afterEach(() => {
+    Object.defineProperty(process, 'platform', { value: originalPlatform })
+    process.argv = originalArgv
   })
 
   it('acquires single instance lock', () => {
@@ -207,5 +215,108 @@ describe('setupLauncher', () => {
     } finally {
       Object.defineProperty(process, 'platform', { value: originalPlatform })
     }
+  })
+
+  function eventHandler(event: string): (...args: unknown[]) => void {
+    const handler = mockOn.mock.calls.find(([name]) => name === event)?.[1]
+    expect(handler).toBeTypeOf('function')
+    return handler
+  }
+
+  describe.each(['motrix', 'mo'])('%s deeplinks', (scheme) => {
+    it.each(['win32', 'linux'])(
+      'defers a cold-start URL on %s and never treats it as a torrent file',
+      (platform) => {
+        Object.defineProperty(process, 'platform', { value: platform })
+        const url = `${scheme.toUpperCase()}://new-task?uri=https%3A%2F%2Fexample.com%2FFile.torrent`
+        process.argv = ['motrix', '--opened-at-login=1', url]
+
+        const handle = setupLauncher(callbacks)
+        expect(handle.wasOpenedAtLogin).toBe(true)
+        expect(callbacks.onProtocolUrl).not.toHaveBeenCalled()
+        expect(callbacks.onTorrentFile).not.toHaveBeenCalled()
+
+        handle.flushDeferred()
+        handle.flushDeferred()
+        expect(callbacks.onProtocolUrl).toHaveBeenCalledExactlyOnceWith(url)
+        expect(callbacks.onTorrentFile).not.toHaveBeenCalled()
+      }
+    )
+
+    it.each(['win32', 'linux'])(
+      'preserves second-instance URLs before and after flush on %s',
+      (platform) => {
+        Object.defineProperty(process, 'platform', { value: platform })
+        const handle = setupLauncher(callbacks)
+        const first = `${scheme}://tasks/${encodeURIComponent('任务/一?#&%')}`
+        const second = `${scheme}://plugins/example.archive-unpacker`
+        const onSecondInstance = eventHandler('second-instance')
+
+        onSecondInstance({}, ['motrix', first])
+        expect(callbacks.onProtocolUrl).not.toHaveBeenCalled()
+        expect(callbacks.onShowWindow).toHaveBeenCalledOnce()
+
+        handle.flushDeferred()
+        expect(callbacks.onProtocolUrl).toHaveBeenCalledExactlyOnceWith(first)
+        onSecondInstance({}, ['motrix', second])
+        expect(callbacks.onProtocolUrl.mock.calls).toEqual([[first], [second]])
+        expect(callbacks.onShowWindow).toHaveBeenCalledTimes(2)
+        expect(callbacks.onTorrentFile).not.toHaveBeenCalled()
+      }
+    )
+
+    it('uses open-url on macOS before and after flush without reading argv', () => {
+      Object.defineProperty(process, 'platform', { value: 'darwin' })
+      process.argv = ['motrix', `${scheme}://tasks/ignored-argv`]
+      const handle = setupLauncher(callbacks)
+      const first = `${scheme}://tasks/task-1`
+      const second = `${scheme.toUpperCase()}://new-task?uri=magnet%3A%3Fxt%3Durn%3Abtih%3Aabc`
+      const event = { preventDefault: vi.fn() }
+      const onOpenUrl = eventHandler('open-url')
+
+      onOpenUrl(event, first)
+      expect(event.preventDefault).toHaveBeenCalledOnce()
+      expect(callbacks.onProtocolUrl).not.toHaveBeenCalled()
+      handle.flushDeferred()
+      expect(callbacks.onProtocolUrl).toHaveBeenCalledExactlyOnceWith(first)
+
+      onOpenUrl(event, second)
+      expect(event.preventDefault).toHaveBeenCalledTimes(2)
+      expect(callbacks.onProtocolUrl.mock.calls).toEqual([[first], [second]])
+      expect(callbacks.onTorrentFile).not.toHaveBeenCalled()
+    })
+  })
+
+  it.each([
+    'http://example.com/file.torrent',
+    'HTTPS://example.com/File.TORRENT',
+    'ftp://example.com/file.torrent',
+    'magnet:?xt=urn:btih:abc&dn=file.torrent',
+  ])('does not also dispatch resource URL %s as a torrent file', (url) => {
+    Object.defineProperty(process, 'platform', { value: 'win32' })
+    process.argv = ['motrix', url, 'C:\\Downloads\\local.torrent']
+    const handle = setupLauncher(callbacks)
+    handle.flushDeferred()
+    expect(callbacks.onProtocolUrl).toHaveBeenCalledExactlyOnceWith(url)
+    expect(callbacks.onTorrentFile).toHaveBeenCalledExactlyOnceWith(
+      'C:\\Downloads\\local.torrent'
+    )
+  })
+
+  it('ignores switches and lookalike schemes while preserving the first URL', () => {
+    Object.defineProperty(process, 'platform', { value: 'win32' })
+    const url = 'mo://tasks/first'
+    process.argv = [
+      'motrix',
+      '--url=motrix://tasks/ignored',
+      'motrix+other://tasks/ignored',
+      'mo+other://tasks/ignored',
+      url,
+      'motrix://tasks/second',
+    ]
+    const handle = setupLauncher(callbacks)
+    handle.flushDeferred()
+    expect(callbacks.onProtocolUrl).toHaveBeenCalledExactlyOnceWith(url)
+    expect(callbacks.onTorrentFile).not.toHaveBeenCalled()
   })
 })

@@ -16,14 +16,25 @@ export interface LauncherHandle {
   flushDeferred: () => void
 }
 
-const SUPPORTED_SCHEMES = ['http:', 'https:', 'ftp:', 'magnet:', 'motrix:']
+const SUPPORTED_SCHEMES = [
+  'http:',
+  'https:',
+  'ftp:',
+  'magnet:',
+  'motrix:',
+  'mo:',
+]
+
+function isSupportedUrl(arg: string): boolean {
+  const lower = arg.toLowerCase()
+  return SUPPORTED_SCHEMES.some((scheme) => lower.startsWith(scheme))
+}
 
 function extractUrlFromArgv(argv: string[]): string | undefined {
   for (let i = 1; i < argv.length; i++) {
     const arg = argv[i]
     if (arg.startsWith('--')) continue
-    const lower = arg.toLowerCase()
-    if (SUPPORTED_SCHEMES.some((s) => lower.startsWith(s))) {
+    if (isSupportedUrl(arg)) {
       return arg
     }
   }
@@ -35,6 +46,7 @@ function extractFilesFromArgv(argv: string[]): string[] {
   for (let i = 1; i < argv.length; i++) {
     let arg = argv[i]
     if (arg.startsWith('--')) continue
+    if (isSupportedUrl(arg)) continue
     if (process.platform === 'linux') {
       arg = arg.replace(/^file:\/\//, '')
     }
