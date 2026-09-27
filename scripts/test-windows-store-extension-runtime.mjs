@@ -15,7 +15,12 @@ const fail = (code) => {
 }
 
 /** Hash the complete verified build, including maps, without following links. */
-export async function fingerprintExtensionBuild(directory) {
+export async function fingerprintExtensionBuild(
+  directory,
+  browserName = 'chrome'
+) {
+  if (!['chrome', 'edge', 'firefox'].includes(browserName))
+    fail('extension-build-browser')
   const digest = createHash('sha256')
   let files = 0
   let bytes = 0
@@ -45,7 +50,14 @@ export async function fingerprintExtensionBuild(directory) {
   if (
     manifest.manifest_version !== 3 ||
     manifest.action?.default_popup !== 'popup.html' ||
-    typeof manifest.background?.service_worker !== 'string' ||
+    (browserName === 'firefox'
+      ? manifest.browser_specific_settings?.gecko?.id !==
+          'motrix-extension@motrix.app' ||
+        !Array.isArray(manifest.background?.scripts) ||
+        manifest.background.scripts.length !== 1 ||
+        typeof manifest.background.scripts[0] !== 'string' ||
+        manifest.background.service_worker !== undefined
+      : typeof manifest.background?.service_worker !== 'string') ||
     !manifest.permissions?.includes('storage') ||
     !manifest.permissions?.includes('nativeMessaging')
   )

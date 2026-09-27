@@ -735,14 +735,9 @@ async function unusedPort() {
 }
 
 // The branded Firefox Remote Agent uses BiDi, not Playwright's patched Firefox.
-async function openFirefox({ inventory, fixture: source, profileDirectory }) {
+export async function openFirefoxRemote({ inventory, profileDirectory }) {
   const { default: WebSocket } = await import('ws')
   const port = await unusedPort()
-  await writeFile(
-    path.join(profileDirectory, 'user.js'),
-    `user_pref("extensions.webextensions.uuids", ${JSON.stringify(JSON.stringify({ [FIREFOX_ID]: FIREFOX_UUID }))});\nuser_pref("browser.startup.homepage", "about:blank");\n`,
-    { flag: 'wx' }
-  )
   const child = spawn(
     inventory.executable,
     [
@@ -863,6 +858,25 @@ async function openFirefox({ inventory, fixture: source, profileDirectory }) {
       inventory,
       runtimeVersion: version,
     })
+    return { command, version, close }
+  } catch (error) {
+    await close()
+    if (error instanceof BrowserCheckError) throw error
+    fail('browser-start-failed')
+  }
+}
+
+async function openFirefox({ inventory, fixture: source, profileDirectory }) {
+  await writeFile(
+    path.join(profileDirectory, 'user.js'),
+    `user_pref("extensions.webextensions.uuids", ${JSON.stringify(JSON.stringify({ [FIREFOX_ID]: FIREFOX_UUID }))});\nuser_pref("browser.startup.homepage", "about:blank");\n`,
+    { flag: 'wx' }
+  )
+  const { command, version, close } = await openFirefoxRemote({
+    inventory,
+    profileDirectory,
+  })
+  try {
     const loaded = await runFirefoxOperation('extension-install', () =>
       command('webExtension.install', {
         extensionData: { type: 'path', path: source.directory },

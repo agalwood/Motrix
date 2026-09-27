@@ -11,6 +11,7 @@ import {
   productionBrowserOrder,
   runStoreExtensionRuntime,
 } from './test-windows-store-extension-runtime.mjs'
+import { runFirefoxStoreExtension } from './test-windows-store-firefox-extension.mjs'
 import {
   queryInstalledState,
   readInstalledFile,
@@ -508,6 +509,31 @@ async function runMainCase(installed, pairing, progress) {
         )
         report.mbp1TransportPairingVerified = true
         report.bootstrapTicketProofVerified = true
+        if (process.env.MOTRIX_STORE_FIREFOX_EXTENSION_DIRECTORY) {
+          stage = 'production-extension-firefox'
+          progress(stage)
+          report.firefoxExtensionRuntime = await runFirefoxStoreExtension({
+            extensionDirectory:
+              process.env.MOTRIX_STORE_FIREFOX_EXTENSION_DIRECTORY,
+            sourceCommit: process.env.MOTRIX_STORE_EXTENSION_COMMIT,
+            profileDirectory: path.join(
+              process.env.RUNNER_TEMP,
+              'motrix-store-production-firefox-extension-profile'
+            ),
+            appPort: reply.port,
+            readPairingCode: () => readPairingCode(main),
+          })
+          if (
+            !report.firefoxExtensionRuntime.ok ||
+            !report.firefoxExtensionRuntime.cleanupVerified
+          )
+            fail('extension-runtime-failed')
+          validateMainProcess(await queryProcess(child.pid, reply.port), {
+            pid: child.pid,
+            installed: installed.package,
+            startTicks,
+          })
+        }
         if (process.env.MOTRIX_STORE_EXTENSION_DIRECTORY) {
           report.extensionRuntimes = {}
           report.protocolBrowser = protocolBrowser

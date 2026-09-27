@@ -181,8 +181,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Extension dependency installation failed' }
           pnpm build:webstore
           if ($LASTEXITCODE -ne 0) { throw 'Production extension verification failed' }
+          pnpm build:firefox
+          if ($LASTEXITCODE -ne 0) { throw 'Production Firefox extension verification failed' }
           if (@(& git status --porcelain).Count -ne 0) { throw 'Extension source changed during build' }
           "MOTRIX_STORE_EXTENSION_DIRECTORY=$(Join-Path $pwd 'dist/webstore')" >> $env:GITHUB_ENV
+          "MOTRIX_STORE_FIREFOX_EXTENSION_DIRECTORY=$(Join-Path $pwd 'dist/firefox')" >> $env:GITHUB_ENV
           "MOTRIX_STORE_EXTENSION_COMMIT=$expected" >> $env:GITHUB_ENV
 
       - name: Prepare fixed test inputs

@@ -327,6 +327,29 @@ A hosted Windows Server result cannot replace those gates; global `mbp1Verified`
 and `storeReady` remain false. A configured test is not a passing observation:
 inspect the run's source-bound report and cleanup results before claiming success.
 
+### Check temporary Firefox production pairing
+
+The manual workflow also builds the pinned Firefox production extension and runs
+it in the signed, branded Firefox binary using WebDriver BiDi. A fresh disposable
+profile receives a temporary unpacked installation. The driver reads the actual
+runtime UUID from `webExtension.moz:listExtensions`, checks the production ID,
+active policy and source directory against the build, then opens its normal popup.
+It selects the Store backend and installed application, enters the code displayed
+by Motrix, and requires an authenticated connection. Closing and reopening only
+the popup must preserve that connection without another code. Build hashes are
+checked before and after, and the browser/profile are cleaned up.
+
+`runtime.firefoxExtensionRuntime` must identify the
+`installed-appx-production-firefox-temporary-extension` scope. Require pairing,
+popup reopen, temporary-installation identity and cleanup flags to pass. This
+case does not establish full browser restart, protocol activation, installation
+permission consent, signed persistent installation, or Windows 11 acceptance;
+those flags remain false. No UUID preference, credential or consent is preseeded,
+and signature requirements are not disabled.
+[Firefox's BiDi documentation](https://firefox-source-docs.mozilla.org/remote/webdriver-bidi/Extensions.html)
+requires signing for permanent installation. Keep that acceptance separate from
+this temporary-build runtime check.
+
 ### Launch Motrix and record runtime scenarios
 
 ```powershell

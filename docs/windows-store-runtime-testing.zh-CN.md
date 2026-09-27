@@ -281,6 +281,23 @@ target 和认证连接恢复。此过程不重新安装扩展、不写入存储�
 不能代替这些关卡；全局 `mbp1Verified` 和 `storeReady` 保持 false。已配置测试不代表
 已有通过观察，必须检查与源码绑定的运行报告和清理结果后才能宣称成功。
 
+### 检查临时加载的 Firefox 生产扩展配对
+
+手动工作流同时构建固定提交的 Firefox 生产扩展，通过 WebDriver BiDi 在已核对签名和
+品牌的 Firefox 中运行。新建的可丢弃 profile 临时加载解包扩展；驱动从
+`webExtension.moz:listExtensions` 读取实际 UUID，并核对生产扩展 ID、活动 policy
+和构建来源目录，再打开正常扩展页面。通过界面选择 Store 后端及已安装应用，输入
+Motrix 显示的配对码，要求认证连接成功。只关闭并重新打开扩展页面后，连接须保持，
+不能再次输入配对码。运行前后比较构建摘要，结束后清理浏览器和 profile。
+
+`runtime.firefoxExtensionRuntime` 必须标明
+`installed-appx-production-firefox-temporary-extension` 范围；配对、重新打开页面、
+临时安装身份和清理标记须通过。此用例不证明完整浏览器重启、协议唤起、安装权限同意、
+签名持久安装或 Windows 11 验收，相应标记保持 false。不预设 UUID、不写入凭据或
+同意状态，也不关闭签名要求。
+[Firefox BiDi 文档](https://firefox-source-docs.mozilla.org/remote/webdriver-bidi/Extensions.html)
+要求持久安装使用签名扩展，这项验收须与临时构建的运行时验证分别记录。
+
 ### 启动 Motrix 并记录运行场景
 
 ```powershell

@@ -365,6 +365,50 @@ try {
     $env:MOTRIX_STORE_EXTENSION_COMMIT = $previousExtensionCommit
     $env:MOTRIX_STORE_PROTOCOL_BROWSER = $previousProtocolBrowser
   }
+  $previousFirefoxDirectory = $env:MOTRIX_STORE_FIREFOX_EXTENSION_DIRECTORY
+  $previousExtensionDirectory = $env:MOTRIX_STORE_EXTENSION_DIRECTORY
+  $previousExtensionCommit = $env:MOTRIX_STORE_EXTENSION_COMMIT
+  try {
+    $env:MOTRIX_STORE_FIREFOX_EXTENSION_DIRECTORY = 'synthetic-firefox-only'
+    $env:MOTRIX_STORE_EXTENSION_DIRECTORY = $null
+    $env:MOTRIX_STORE_EXTENSION_COMMIT = 'd' * 40
+    Test-ContractCase 'firefox-rejects-missing-runtime' 'main' $true
+    foreach ($case in @('valid', 'wrong-id', 'wrong-source', 'wrong-scope', 'no-pair', 'no-popup-reopen', 'no-temporary', 'no-identity', 'no-cleanup', 'string-boolean', 'restart-overclaim', 'signed-overclaim', 'consent-overclaim', 'protocol-overclaim', 'windows11-overclaim')) {
+      Test-ContractCase "firefox-$case" 'main' ($case -cne 'valid') {
+        param($f)
+        $proof = [pscustomobject]@{
+          scope = 'installed-appx-production-firefox-temporary-extension'; browserName = 'firefox'
+          browser = [pscustomobject]@{ product = 'Firefox' }; extensionId = 'motrix-extension@motrix.app'
+          sourceCommit = ('d' * 40); build = [pscustomobject]@{ sha256 = ('e' * 64) }
+          ok = $true; firstPairVerified = $true; popupReopenReconnectVerified = $true
+          temporaryInstallationVerified = $true; runtimeIdentityVerified = $true; cleanupVerified = $true
+          browserRestartReconnectVerified = $false; signedPersistentInstallationVerified = $false
+          installationConsentVerified = $false; protocolActivationVerified = $false; windows11AcceptanceVerified = $false
+        }
+        switch ($case) {
+          'wrong-id' { $proof.extensionId = 'motrix-store-p0@motrix.invalid' }
+          'wrong-source' { $proof.sourceCommit = 'f' * 40 }
+          'wrong-scope' { $proof.scope = 'production-firefox' }
+          'no-pair' { $proof.firstPairVerified = $false }
+          'no-popup-reopen' { $proof.popupReopenReconnectVerified = $false }
+          'no-temporary' { $proof.temporaryInstallationVerified = $false }
+          'no-identity' { $proof.runtimeIdentityVerified = $false }
+          'no-cleanup' { $proof.cleanupVerified = $false }
+          'string-boolean' { $proof.firstPairVerified = 'true' }
+          'restart-overclaim' { $proof.browserRestartReconnectVerified = $true }
+          'signed-overclaim' { $proof.signedPersistentInstallationVerified = $true }
+          'consent-overclaim' { $proof.installationConsentVerified = $true }
+          'protocol-overclaim' { $proof.protocolActivationVerified = $true }
+          'windows11-overclaim' { $proof.windows11AcceptanceVerified = $true }
+        }
+        $f.Main.runtime | Add-Member firefoxExtensionRuntime $proof
+      }
+    }
+  } finally {
+    $env:MOTRIX_STORE_FIREFOX_EXTENSION_DIRECTORY = $previousFirefoxDirectory
+    $env:MOTRIX_STORE_EXTENSION_DIRECTORY = $previousExtensionDirectory
+    $env:MOTRIX_STORE_EXTENSION_COMMIT = $previousExtensionCommit
+  }
   Test-ContractCase 'main-rejects-missing-transport-proof' 'main' $true { param($f) $f.Main.installedMbp1TransportVerified = $false }
   Test-ContractCase 'main-rejects-missing-bootstrap-proof' 'main' $true { param($f) $f.Main.installedBootstrapTicketProofVerified = $false }
   Test-ContractCase 'main-rejects-callerless-ticket' 'main' $true { param($f) $f.Main.runtime.noCallerTicketlessVerified = $false }

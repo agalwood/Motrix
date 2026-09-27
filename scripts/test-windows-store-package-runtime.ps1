@@ -280,6 +280,20 @@ function Assert-MainRuntimeReport([object]$Main, [string]$SourceCommit, [string]
   foreach ($name in @('ok', 'mainApplicationLaunched', 'processIdentityVerified', 'disclaimerUiVerified', 'mainUiVerified', 'mainBridgeEndpointVerified', 'mbp1TransportPairingVerified', 'noCallerTicketlessVerified', 'bootstrapTicketProofVerified', 'cleanupVerified')) {
     Assert-True $Main.runtime.$name 'Installed main runtime check is incomplete.'
   }
+  if ($env:MOTRIX_STORE_FIREFOX_EXTENSION_DIRECTORY) {
+    $firefox = $Main.runtime.firefoxExtensionRuntime
+    if ($firefox.scope -cne 'installed-appx-production-firefox-temporary-extension' -or
+        $firefox.browserName -cne 'firefox' -or $firefox.browser.product -cne 'Firefox' -or
+        $firefox.extensionId -cne 'motrix-extension@motrix.app' -or
+        $firefox.sourceCommit -cne $env:MOTRIX_STORE_EXTENSION_COMMIT -or
+        $firefox.build.sha256 -cnotmatch '^[0-9a-f]{64}$') { throw 'Production Firefox extension evidence mismatch.' }
+    foreach ($name in @('ok', 'firstPairVerified', 'popupReopenReconnectVerified', 'temporaryInstallationVerified', 'runtimeIdentityVerified', 'cleanupVerified')) {
+      Assert-True $firefox.$name 'Temporary Firefox production pairing is incomplete.'
+    }
+    foreach ($name in @('browserRestartReconnectVerified', 'signedPersistentInstallationVerified', 'installationConsentVerified', 'protocolActivationVerified', 'windows11AcceptanceVerified')) {
+      Assert-False $firefox.$name 'Temporary Firefox extension evidence overstates its scope.'
+    }
+  }
   if ($env:MOTRIX_STORE_EXTENSION_DIRECTORY) {
     $protocolBrowser = if ($env:MOTRIX_STORE_PROTOCOL_BROWSER) { $env:MOTRIX_STORE_PROTOCOL_BROWSER } else { 'edge' }
     if ($protocolBrowser -cnotin @('chrome', 'edge') -or $Main.runtime.protocolBrowser -cne $protocolBrowser) { throw 'Protocol evidence does not match the requested browser.' }

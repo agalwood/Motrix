@@ -75,6 +75,8 @@ describe('Windows Store SDK test workflow', () => {
     expect(build?.run).toContain(checkout?.with?.ref)
     expect(build?.run).toContain('pnpm install --frozen-lockfile')
     expect(build?.run).toContain('pnpm build:webstore')
+    expect(build?.run).toContain('pnpm build:firefox')
+    expect(build?.run).toContain('MOTRIX_STORE_FIREFOX_EXTENSION_DIRECTORY=')
     expect(build?.run).toContain('git status --porcelain')
     expect(build?.run).toContain('MOTRIX_STORE_EXTENSION_COMMIT=')
     const upload = steps[stepIndex('Upload SDK text evidence')]
