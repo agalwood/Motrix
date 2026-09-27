@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process'
 import { createServer as createHttpServer } from 'node:http'
 import { connect as netConnect } from 'node:net'
 import { MAX_ENVELOPE_PLAINTEXT_BYTES } from '@core/bridge/mbp1/envelope'
@@ -852,6 +853,61 @@ describe('§6 first pair over the wire', () => {
       'mbp1-client-state-invalid'
     )
   })
+
+  it('pairs and reads MDXP from an isolated Node client without server-side runtime imports', async () => {
+    const script = `
+      import { tsImport } from 'tsx/esm/api';
+      const { createInstalledMbp1Client } = await tsImport(
+        './src/core/bridge/__tests__/windows-store-mbp1-client.ts', import.meta.url);
+      const { fetchNonce } = await tsImport(
+        './src/core/bridge/__tests__/mbp1-client.ts', import.meta.url);
+      const probe = createInstalledMbp1Client();
+      try {
+        const port = Number(process.argv[1]);
+        await probe.pair(port, await fetchNonce(port), () => new Promise((resolve) => {
+          process.once('message', resolve);
+          process.send('pairing-code-request');
+        }));
+        await probe.reconnect(port);
+        process.send('pair-and-read-completed');
+      } catch {
+        process.exitCode = 1;
+      } finally {
+        await probe.dispose();
+        process.disconnect();
+      }
+    `
+    // The code is passed only through ephemeral IPC, never argv, output or a
+    // file. In particular, the child never imports the server which installs
+    // the Node JSON-RPC runtime as a side effect in ordinary in-process tests.
+    const child = spawn(
+      process.execPath,
+      ['--input-type=module', '-e', script, String(h.port)],
+      {
+        stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+      }
+    )
+    let completed = false
+    const timer = setTimeout(() => child.kill(), 10000)
+    try {
+      const exit = await new Promise<number | null>((resolve, reject) => {
+        child.once('error', reject)
+        child.once('close', resolve)
+        child.on('message', (message) => {
+          if (message === 'pairing-code-request') {
+            child.send(h.dialogs.latestCode())
+          } else if (message === 'pair-and-read-completed') {
+            completed = true
+          }
+        })
+      })
+      expect(exit).toBe(0)
+      expect(completed).toBe(true)
+    } finally {
+      clearTimeout(timer)
+      if (child.exitCode === null && child.signalCode === null) child.kill()
+    }
+  }, 15000)
 
   it('redacts pairing UI failures from the installed-package controller', async () => {
     const probe = createInstalledMbp1Client()

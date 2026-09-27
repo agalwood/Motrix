@@ -14,7 +14,9 @@ import { Buffer } from 'node:buffer'
 import { randomBytes } from 'node:crypto'
 import { request as httpRequest } from 'node:http'
 import { request as httpsRequest } from 'node:https'
-import { createMdxpConnection, type MdxpConnection } from '@motrix/mdxp'
+// The standalone Node client must install JSON-RPC's platform runtime itself;
+// in-process tests otherwise inherit it from the server's BridgeConnection.
+import { createMdxpConnection, type MdxpConnection } from '@motrix/mdxp/node'
 import { utf8ToBytes } from '@noble/hashes/utils.js'
 import type { Browser } from '@shared/protocol/bridge'
 import WebSocket, { type RawData } from 'ws'
