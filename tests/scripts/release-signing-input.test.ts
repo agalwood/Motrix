@@ -28,6 +28,7 @@ const require = createRequire(import.meta.url)
 const COMMIT = 'a'.repeat(40)
 const temporaryDirectories: string[] = []
 const HASH_PINNED_TEXT_SOURCES = [
+  'LICENSE',
   'electron-builder.signing.json',
   'build/entitlements.mac.plist',
   'build/installer.nsh',
@@ -41,6 +42,7 @@ const HASH_PINNED_TEXT_SOURCES = [
   'scripts/verify-electron-package.mjs',
 ] as const
 const TRUSTED_FIXTURES = [
+  ['LICENSE', 'LICENSE'],
   ['electron-builder.signing.json', 'electron-builder.signing.json'],
   ['build/256x256.png', 'signing-build-resources/256x256.png'],
   ['build/background.tiff', 'signing-build-resources/background.tiff'],
@@ -164,6 +166,52 @@ describe('isolated release signing input', () => {
       limits: SIGNING_ARCHIVE_LIMITS,
     })
   })
+
+  it('preserves the app license for isolated finalization', async () => {
+    const { directory, sourceRoot } = await createGeneratedSigningInput([])
+    const license = await readFile(path.join(sourceRoot, 'LICENSE'))
+    expect(await readFile(path.join(directory, 'LICENSE'))).toEqual(license)
+    const config = JSON.parse(
+      await readFile(
+        path.join(directory, 'electron-builder.signing.json'),
+        'utf8'
+      )
+    ) as { extraResources: Array<{ from: string; to: string }> }
+    expect(config.extraResources).toContainEqual({
+      from: './LICENSE',
+      to: './LICENSE',
+    })
+    const manifest = await verify(directory)
+    expect(manifest.files).toContainEqual(
+      expect.objectContaining({
+        path: 'LICENSE',
+        bytes: license.length,
+        sha256: createHash('sha256').update(license).digest('hex'),
+      })
+    )
+  })
+
+  it('rejects a missing app license before creating signing input', async () => {
+    await expect(createGeneratedSigningInput([], ['LICENSE'])).rejects.toThrow(
+      'missing signing input source: LICENSE'
+    )
+  })
+
+  it.each(['missing', 'empty', 'modified'])(
+    'rejects a %s app license even with a refreshed inventory',
+    async (variant) => {
+      const directory = await createFixture()
+      const license = path.join(directory, 'LICENSE')
+      if (variant === 'missing') await rm(license)
+      else
+        await writeFile(license, variant === 'empty' ? '' : 'replaced license')
+      await refreshManifest(directory)
+
+      await expect(verify(directory)).rejects.toThrow(
+        'trusted signing input digest mismatch: LICENSE'
+      )
+    }
+  )
 
   it.each([
     { name: 'both images', header: true, sidebar: true },

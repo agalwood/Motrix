@@ -657,48 +657,51 @@ describe('third-party graph dependency notices', () => {
     expect(digests).toEqual(RUST_LICENSE_FILES.map(({ sha256 }) => sha256))
   })
 
-  it('distributes notices, licenses, and generated compliance files with every Electron build', async () => {
-    const config = JSON.parse(
-      await readFile(path.join(ROOT, 'electron-builder.json'), 'utf8')
-    ) as {
-      extraResources?: Array<{
-        from?: string
-        to?: string
-        filter?: string[]
-      }>
-    }
-    const sources =
-      config.extraResources?.map((resource) => resource.from) ?? []
+  it.each(['electron-builder.json', 'electron-builder.signing.json'])(
+    '%s distributes notices, licenses, and generated compliance files',
+    async (configFile) => {
+      const config = JSON.parse(
+        await readFile(path.join(ROOT, configFile), 'utf8')
+      ) as {
+        extraResources?: Array<{
+          from?: string
+          to?: string
+          filter?: string[]
+        }>
+      }
+      const sources =
+        config.extraResources?.map((resource) => resource.from) ?? []
 
-    expect(config.extraResources).toContainEqual({
-      from: './LICENSE',
-      to: './LICENSE',
-    })
-    expect(sources).toContain('./THIRD_PARTY_NOTICES.md')
-    expect(sources).toContain('./THIRD_PARTY_NOTICES.zh-CN.md')
-    expect(sources).toContain('./THIRD_PARTY_LICENSES')
-    expect(sources).toContain('./build/legal')
-    expect(
-      config.extraResources?.find(
-        (resource) => resource.from === './build/legal'
-      )
-    ).toEqual({
-      from: './build/legal',
-      to: './legal',
-      filter: [...LEGAL_ARTIFACTS],
-    })
+      expect(config.extraResources).toContainEqual({
+        from: './LICENSE',
+        to: './LICENSE',
+      })
+      expect(sources).toContain('./THIRD_PARTY_NOTICES.md')
+      expect(sources).toContain('./THIRD_PARTY_NOTICES.zh-CN.md')
+      expect(sources).toContain('./THIRD_PARTY_LICENSES')
+      expect(sources).toContain('./build/legal')
+      expect(
+        config.extraResources?.find(
+          (resource) => resource.from === './build/legal'
+        )
+      ).toEqual({
+        from: './build/legal',
+        to: './legal',
+        filter: [...LEGAL_ARTIFACTS],
+      })
 
-    const macResources = JSON.parse(
-      await readFile(path.join(ROOT, 'electron-builder.json'), 'utf8')
-    ) as {
-      mac?: { extraResources?: Array<{ filter?: string[] }> }
+      const macResources = JSON.parse(
+        await readFile(path.join(ROOT, configFile), 'utf8')
+      ) as {
+        mac?: { extraResources?: Array<{ filter?: string[] }> }
+      }
+      expect(
+        macResources.mac?.extraResources?.some((resource) =>
+          resource.filter?.includes('SFNS-Regular.ttf')
+        )
+      ).toBe(true)
     }
-    expect(
-      macResources.mac?.extraResources?.some((resource) =>
-        resource.filter?.includes('SFNS-Regular.ttf')
-      )
-    ).toBe(true)
-  })
+  )
 
   it('delivers the verified staged legal payload into the Docker runtime image', async () => {
     const dockerfile = await readFile(path.join(ROOT, 'Dockerfile'), 'utf8')

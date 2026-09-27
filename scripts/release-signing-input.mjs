@@ -34,8 +34,9 @@ export const SIGNING_ARCHIVE_LIMITS = Object.freeze({
 })
 
 const TRUSTED_INPUT_SHA256 = Object.freeze({
+  LICENSE: 'f3bf2a4fd9eef124016cd77d742cddb36642c76ebc245ab97493e4e299ae06e3',
   'electron-builder.signing.json':
-    '2722cb4f6f925478e238f0e4dc7a9bd14d8371e644ffb7bbd3c4655257dcd762',
+    'fb1eb8d47a2610adcaf08f2eb7d467c4a9e47acb054bbff3980a68b0ab7da126',
   'signing-build-resources/256x256.png':
     '044d3b64a14aa512ca41469372d1ad630557daaeb2cb4e709d34f2d3c57d4c3b',
   'signing-build-resources/background.tiff':
@@ -69,7 +70,7 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
   'scripts/native-binary-target.mjs':
     '6f0a42eecf729eb6de2df28b5d7449993590e494deb4e309b99c367094045797',
   'scripts/verify-electron-package.mjs':
-    'ec160ddfa929242155e38d3e0cfdd752ca748a16a84c71eefd39d5b0cbfb9e8a',
+    '4a8a80bc0db816f63b7ed3a57469e8aa4edc4aa23b77311309a0f57f8a91583c',
 })
 
 // Use electron-builder's default resource names so the restricted config can
@@ -80,6 +81,7 @@ const OPTIONAL_NSIS_ARTWORK = Object.freeze({
 })
 
 const SOURCE_MAPPINGS = [
+  ['LICENSE', 'LICENSE'],
   ['THIRD_PARTY_LICENSES', 'THIRD_PARTY_LICENSES'],
   ['THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_NOTICES.md'],
   ['THIRD_PARTY_NOTICES.zh-CN.md', 'THIRD_PARTY_NOTICES.zh-CN.md'],
@@ -155,6 +157,7 @@ function compareCodeUnits(left, right) {
 function isAllowedSigningDataPath(relativePath) {
   return (
     [
+      'LICENSE',
       'THIRD_PARTY_NOTICES.md',
       'THIRD_PARTY_NOTICES.zh-CN.md',
       'electron-builder.signing.json',

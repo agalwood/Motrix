@@ -6,6 +6,7 @@ THIRD_PARTY_LICENSES/** -text
 
 # Isolated signing control files are hash-pinned byte-for-byte. Keep their
 # checkout representation identical on Windows, macOS, and Linux.
+LICENSE text eol=lf
 electron-builder.signing.json text eol=lf
 build/entitlements.mac.plist text eol=lf
 build/installer.nsh text eol=lf
