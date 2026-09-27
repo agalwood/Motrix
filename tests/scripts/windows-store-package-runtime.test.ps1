@@ -272,7 +272,7 @@ try {
     $env:MOTRIX_STORE_EXTENSION_DIRECTORY = 'synthetic-contract-only'
     $env:MOTRIX_STORE_EXTENSION_COMMIT = 'd' * 40
     Test-ContractCase 'extension-rejects-missing-runtime-evidence' 'main' $true
-    foreach ($case in @('valid', 'wrong-source', 'missing-pair', 'missing-reconnect', 'missing-cleanup', 'string-boolean', 'windows11-overclaim', 'missing-edge', 'wrong-brand', 'wrong-scope', 'different-build', 'extra-browser', 'chrome-missing-pair', 'chrome-missing-cleanup')) {
+    foreach ($case in @('valid', 'wrong-source', 'missing-pair', 'missing-reconnect', 'missing-cleanup', 'string-boolean', 'windows11-overclaim', 'missing-edge', 'wrong-brand', 'wrong-scope', 'different-build', 'extra-browser', 'chrome-missing-pair', 'chrome-missing-cleanup', 'missing-protocol', 'chrome-protocol-overclaim', 'protocol-no-before', 'protocol-no-identity', 'protocol-no-endpoint', 'protocol-no-after', 'protocol-no-cleanup', 'protocol-string-boolean')) {
       Test-ContractCase "extension-$case" 'main' ($case -ne 'valid') {
         param($f)
         $records = [pscustomobject]@{}
@@ -287,8 +287,22 @@ try {
           }
           $records | Add-Member $brand $proof
         }
+        $records.edge.protocolActivationVerified = $true
+        $records.edge | Add-Member protocolConfirmation ([pscustomobject]@{ confirmed = $true; processIdentityVerified = $true })
+        $records.edge | Add-Member protocolLaunch ([pscustomobject]@{
+          noLaunchBeforeVerified = $true; processIdentityVerified = $true; mainBridgeEndpointVerified = $true
+          noLaunchAfterVerified = $true; cleanupVerified = $true
+        })
         $proof = $records.edge
         switch ($case) {
+          'missing-protocol' { $proof.protocolActivationVerified = $false }
+          'chrome-protocol-overclaim' { $records.chrome.protocolActivationVerified = $true }
+          'protocol-no-before' { $proof.protocolLaunch.noLaunchBeforeVerified = $false }
+          'protocol-no-identity' { $proof.protocolLaunch.processIdentityVerified = $false }
+          'protocol-no-endpoint' { $proof.protocolLaunch.mainBridgeEndpointVerified = $false }
+          'protocol-no-after' { $proof.protocolLaunch.noLaunchAfterVerified = $false }
+          'protocol-no-cleanup' { $proof.protocolLaunch.cleanupVerified = $false }
+          'protocol-string-boolean' { $proof.protocolLaunch.cleanupVerified = 'true' }
           'wrong-source' { $proof.sourceCommit = 'f' * 40 }
           'missing-pair' { $proof.firstPairVerified = $false }
           'missing-reconnect' { $proof.browserRestartReconnectVerified = $false }

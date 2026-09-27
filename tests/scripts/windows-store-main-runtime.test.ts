@@ -4,8 +4,9 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
+  createExtensionColdLaunchController,
   isMainRendererUrl,
   validateColdMainProcess,
   validateMainHostReply,
@@ -47,6 +48,128 @@ const pair = {
   port: 49152,
   nonce: `${'a'.repeat(21)}A`,
 }
+
+describe('production extension cold launch ownership', () => {
+  function fixture() {
+    let running = false
+    const root = { ...processState(), startTicks: '638000000000000010' }
+    const queryProcess = vi.fn(async (pid = 0, port = 0) =>
+      pid || port
+        ? root
+        : {
+            processCount: running ? 1 : 0,
+            packageProcessCount: running ? 1 : 0,
+            mainRoots: running ? [root.pid] : [],
+            queriedAtTicks: startTicks,
+          }
+    )
+    const nativeRequest = vi.fn(async () => ({
+      reply: running ? { port: 49152 } : null,
+    }))
+    const kill = vi.fn(async () => {
+      running = false
+    })
+    const close = vi.fn(async () => {})
+    const controller = createExtensionColdLaunchController(
+      { package: installed },
+      close,
+      {
+        queryProcess,
+        nativeRequest,
+        runBoundedProbeProcess: kill,
+        delay: async () => {},
+      }
+    )
+    return {
+      controller,
+      nativeRequest,
+      kill,
+      close,
+      root,
+      queryProcess,
+      launch: () => {
+        running = true
+      },
+    }
+  }
+  it('only observes after the real UI launch and kills the verified new process', async () => {
+    const f = fixture()
+    await f.controller.stop()
+    expect(f.close).toHaveBeenCalledOnce()
+    expect(f.controller.report.noLaunchBeforeVerified).toBe(true)
+    f.launch()
+    await f.controller.observe()
+    await f.controller.cleanup()
+    expect(f.nativeRequest.mock.calls.every((call) => call[1] === false)).toBe(
+      true
+    )
+    expect(f.kill).toHaveBeenCalledOnce()
+    expect(f.kill.mock.calls[0][0].args).toEqual(['/PID', '4321', '/T', '/F'])
+    expect(
+      Object.values(f.controller.report).every((value) => value === true)
+    ).toBe(true)
+  })
+  it('does not observe or kill anything before application shutdown', async () => {
+    const f = fixture()
+    await expect(f.controller.observe()).rejects.toThrow(
+      'cold-launch-not-prepared'
+    )
+    await f.controller.cleanup()
+    expect(f.nativeRequest).not.toHaveBeenCalled()
+    expect(f.kill).not.toHaveBeenCalled()
+    expect(f.controller.report.noLaunchBeforeVerified).toBe(false)
+  })
+  it('rejects a pre-existing process and never force-stops it', async () => {
+    const f = fixture()
+    f.launch()
+    await expect(f.controller.stop()).rejects.toThrow('main-process-remains')
+    await f.controller.cleanup()
+    expect(f.kill).not.toHaveBeenCalled()
+  })
+  it('rejects an endpoint owned by a process older than the requested launch', async () => {
+    const f = fixture()
+    await f.controller.stop()
+    f.launch()
+    f.root.startTicks = '637999999999999999'
+    await expect(f.controller.observe()).rejects.toThrow(
+      'cold-main-process-predates-launch'
+    )
+    await expect(f.controller.cleanup()).rejects.toThrow(
+      'cold-main-process-predates-launch'
+    )
+    expect(f.kill).not.toHaveBeenCalled()
+  })
+  it('refuses cleanup after PID reuse or replacement by a different process', async () => {
+    const f = fixture()
+    await f.controller.stop()
+    f.launch()
+    await f.controller.observe()
+    f.queryProcess.mockImplementation(async (pid = 0) =>
+      pid
+        ? { ...f.root, startTicks: '638000000000000020' }
+        : {
+            processCount: 1,
+            packageProcessCount: 1,
+            mainRoots: [4321],
+            queriedAtTicks: startTicks,
+          }
+    )
+    await expect(f.controller.cleanup()).rejects.toThrow(
+      'cold-main-process-changed'
+    )
+    expect(f.kill).not.toHaveBeenCalled()
+    expect(f.controller.report.cleanupVerified).toBe(false)
+  })
+  it('cleans up a newly owned process even if consent or reconnect failed', async () => {
+    const f = fixture()
+    await f.controller.stop()
+    f.launch()
+    await f.controller.cleanup()
+    expect(f.kill).toHaveBeenCalledOnce()
+    expect(f.controller.report.processIdentityVerified).toBe(false)
+    expect(f.controller.report.cleanupVerified).toBe(true)
+  })
+})
 
 describe('installed main process ownership', () => {
   const options = { pid: 4321, installed, startTicks }

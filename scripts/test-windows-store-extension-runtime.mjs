@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto'
 import { lstat, mkdir, readdir, readFile, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
+import { fileURLToPath } from 'node:url'
+import { runBoundedProbeProcess } from './test-windows-store-native-messaging-alias.mjs'
 import {
   browserInventory,
   killOwnedProcess,
@@ -64,6 +66,10 @@ export function extensionFailure(stage) {
     'authenticated-pairing',
     'browser-restart',
     'authenticated-reconnect',
+    'application-close',
+    'protocol-confirmation',
+    'protocol-identity',
+    'protocol-reconnect',
     'build-after',
     'cleanup',
   ])
@@ -115,6 +121,62 @@ async function waitConnected(page) {
   fail('extension-connect-timeout')
 }
 
+async function protocolConfirmation(mode, browserName, pid, hash, startTicks) {
+  const result = await runBoundedProbeProcess({
+    executable: path.win32.join(
+      process.env.SystemRoot,
+      'System32/WindowsPowerShell/v1.0/powershell.exe'
+    ),
+    args: [
+      '-NoLogo',
+      '-NoProfile',
+      '-NonInteractive',
+      '-File',
+      fileURLToPath(
+        new URL('./confirm-windows-store-browser-protocol.ps1', import.meta.url)
+      ),
+      '-Mode',
+      mode,
+      '-TargetPid',
+      String(pid),
+      '-Browser',
+      browserName,
+      '-ExecutableHash',
+      hash,
+      ...(startTicks ? ['-StartTicks', startTicks] : []),
+    ],
+    timeoutMs: 20000,
+    maxStdoutBytes: 512,
+  })
+  if (result.exitCode !== 0 || result.stderr.length)
+    fail('protocol-confirmation-failed')
+  const value = JSON.parse(result.stdout.toString('utf8'))
+  if (mode === 'identity') {
+    if (
+      typeof value.startTicks !== 'string' ||
+      !/^\d{15,20}$/.test(value.startTicks)
+    )
+      fail('protocol-browser-identity')
+    return value.startTicks
+  }
+  if (
+    typeof value.confirmed !== 'boolean' ||
+    value.processIdentityVerified !== true ||
+    ['ownedWindows', 'openButtons', 'eligibleDialogs'].some(
+      (key) =>
+        !Number.isInteger(value[key]) || value[key] < 0 || value[key] > 100
+    )
+  )
+    fail('protocol-confirmation-failed')
+  return {
+    confirmed: value.confirmed,
+    processIdentityVerified: true,
+    ownedWindows: value.ownedWindows,
+    openButtons: value.openButtons,
+    eligibleDialogs: value.eligibleDialogs,
+  }
+}
+
 /** Branded browsers only; Firefox uses a different automation/identity path. */
 export function productionChromiumTarget(browserName) {
   if (browserName !== 'chrome' && browserName !== 'edge')
@@ -128,7 +190,7 @@ export function productionChromiumTarget(browserName) {
 
 /**
  * Production Chromium build, normal UI and PAKE, disposable CI profile.
- * This proves neither browser protocol activation nor Store publisher identity.
+ * Optional cold launch exercises normal protocol consent, never Store identity.
  * The caller owns the installed application's identity/port and code renderer.
  */
 export async function runStoreExtensionRuntime({
@@ -138,6 +200,7 @@ export async function runStoreExtensionRuntime({
   profileDirectory,
   appPort,
   readPairingCode,
+  coldLaunch,
 }) {
   const report = {
     scope: 'installed-appx-production-extension',
@@ -148,6 +211,7 @@ export async function runStoreExtensionRuntime({
     protocolActivationVerified: false,
     firefoxVerified: false,
     windows11AcceptanceVerified: false,
+    ...(coldLaunch ? { protocolLaunch: coldLaunch.report } : {}),
   }
   let stage = 'preflight'
   let context
@@ -279,6 +343,40 @@ export async function runStoreExtensionRuntime({
     // reconnect message that could silently turn this into a new first pair.
     await waitConnected(page)
     report.browserRestartReconnectVerified = true
+    if (coldLaunch) {
+      stage = 'application-close'
+      await coldLaunch.stop()
+      for (let attempt = 0; ; attempt++) {
+        const current = await state(page)
+        if (!current.store || current.prompt) fail('extension-target-mismatch')
+        if (!current.connected) break
+        if (attempt >= 40) fail('extension-disconnect-timeout')
+        await delay(250)
+      }
+      const browserStart = await protocolConfirmation(
+        'identity',
+        browserName,
+        ownedPid,
+        inventory.executableSha256
+      )
+      stage = 'protocol-confirmation'
+      await page.bringToFront()
+      await page.getByRole('button', { name: /^(Connect|View tasks)$/ }).click()
+      report.protocolConfirmation = await protocolConfirmation(
+        'confirm',
+        browserName,
+        ownedPid,
+        inventory.executableSha256,
+        browserStart
+      )
+      if (!report.protocolConfirmation.confirmed)
+        fail('protocol-confirmation-failed')
+      stage = 'protocol-identity'
+      await coldLaunch.observe()
+      stage = 'protocol-reconnect'
+      await waitConnected(page)
+      report.protocolActivationVerified = true
+    }
     stage = 'build-after'
     if (
       JSON.stringify(await fingerprintExtensionBuild(extensionDirectory)) !==
@@ -289,6 +387,12 @@ export async function runStoreExtensionRuntime({
   } catch {
     report.failureCode = extensionFailure(stage)
   } finally {
+    try {
+      if (coldLaunch) await coldLaunch.cleanup()
+    } catch {
+      report.ok = false
+      report.failureCode = extensionFailure('cleanup')
+    }
     try {
       await closeBrowser()
       if (profileCreated)
@@ -305,5 +409,6 @@ export async function runStoreExtensionRuntime({
     }
   }
   report.ok &&= report.cleanupVerified
+  if (coldLaunch) report.ok &&= coldLaunch.report.cleanupVerified
   return report
 }

@@ -345,6 +345,7 @@ async function runMainCase(installed, pairing, progress) {
   let exited = false
   let browser
   let startTicks
+  let originalClosed = false
   try {
     const preflight = await queryProcess()
     if (preflight.processCount !== 0 || preflight.packageProcessCount !== 0)
@@ -517,15 +518,41 @@ async function runMainCase(installed, pairing, progress) {
               ),
               appPort: reply.port,
               readPairingCode: () => readPairingCode(main),
+              ...(browserName === 'edge'
+                ? {
+                    coldLaunch: createExtensionColdLaunchController(
+                      installed,
+                      async () => {
+                        validateMainProcess(
+                          await queryProcess(child.pid, reply.port),
+                          {
+                            pid: child.pid,
+                            installed: installed.package,
+                            startTicks,
+                          }
+                        )
+                        const cdp = await browser.newBrowserCDPSession()
+                        await Promise.race([
+                          cdp.send('Browser.close').catch(() => {}),
+                          delay(3000),
+                        ])
+                        await Promise.race([closed, delay(5000)])
+                        if (!exited) fail('main-process-remains')
+                        originalClosed = true
+                      }
+                    ),
+                  }
+                : {}),
             })
             report.extensionRuntimes[browserName] = extension
             if (!extension.ok || !extension.cleanupVerified)
               fail('extension-runtime-failed')
-            validateMainProcess(await queryProcess(child.pid, reply.port), {
-              pid: child.pid,
-              installed: installed.package,
-              startTicks,
-            })
+            if (!originalClosed)
+              validateMainProcess(await queryProcess(child.pid, reply.port), {
+                pid: child.pid,
+                installed: installed.package,
+                startTicks,
+              })
           }
         }
         break
@@ -537,9 +564,14 @@ async function runMainCase(installed, pairing, progress) {
     // Browser.close is attempted only after both OS and renderer ownership checks.
     stage = 'normal-close'
     progress(stage)
-    const cdp = await browser.newBrowserCDPSession()
-    await Promise.race([cdp.send('Browser.close').catch(() => {}), delay(3000)])
-    await Promise.race([closed, delay(5000)])
+    if (!originalClosed) {
+      const cdp = await browser.newBrowserCDPSession()
+      await Promise.race([
+        cdp.send('Browser.close').catch(() => {}),
+        delay(3000),
+      ])
+      await Promise.race([closed, delay(5000)])
+    }
   } catch (error) {
     report.failureCode = [
       'existing-motrix-process',
@@ -600,6 +632,106 @@ export function validateColdMainProcess(value, installed, startedAfter) {
     BigInt(value.startTicks) < BigInt(startedAfter)
   )
     fail('cold-main-process-predates-launch')
+}
+
+/** Browser owns launch intent; this controller can only observe and clean up. */
+export function createExtensionColdLaunchController(
+  installed,
+  closeMain,
+  dependencies = {}
+) {
+  const query = dependencies.queryProcess ?? queryProcess
+  const observe = dependencies.nativeRequest ?? nativeRequest
+  const run = dependencies.runBoundedProbeProcess ?? runBoundedProbeProcess
+  const pause = dependencies.delay ?? delay
+  const report = {
+    noLaunchBeforeVerified: false,
+    processIdentityVerified: false,
+    mainBridgeEndpointVerified: false,
+    noLaunchAfterVerified: false,
+    cleanupVerified: false,
+  }
+  let startedAfter
+  let rootState
+  async function absent() {
+    const value = await query()
+    if (
+      value.processCount !== 0 ||
+      value.packageProcessCount !== 0 ||
+      !Array.isArray(value.mainRoots) ||
+      value.mainRoots.length !== 0
+    )
+      fail('main-process-remains')
+    return value
+  }
+  async function noEndpoint() {
+    if ((await observe(installed, false)).reply !== null)
+      fail('unexpected-running-endpoint')
+    await absent()
+  }
+  return {
+    report,
+    async stop() {
+      await closeMain()
+      startedAfter = (await absent()).queriedAtTicks
+      if (typeof startedAfter !== 'string' || !/^\d{15,20}$/.test(startedAfter))
+        fail('invalid-launch-time')
+      await noEndpoint()
+      await pause(1000)
+      await noEndpoint()
+      report.noLaunchBeforeVerified = true
+    },
+    async observe() {
+      if (!report.noLaunchBeforeVerified) fail('cold-launch-not-prepared')
+      const deadline = performance.now() + 20000
+      while (performance.now() < deadline) {
+        // allowLaunch:false is mandatory: observing cannot rescue a failed UI action.
+        const value = await observe(installed, false)
+        if (value.reply !== null) {
+          const current = await query(0, value.reply.port)
+          validateColdMainProcess(current, installed.package, startedAfter)
+          validateMainProcess(current, {
+            pid: current.pid,
+            installed: installed.package,
+          })
+          rootState = current
+          report.processIdentityVerified = true
+          report.mainBridgeEndpointVerified = true
+          return
+        }
+        await pause(250)
+      }
+      fail('cold-endpoint-unavailable')
+    },
+    async cleanup() {
+      if (startedAfter) {
+        const value = await query()
+        if (value.processCount !== 0 || value.packageProcessCount !== 0) {
+          if (!Array.isArray(value.mainRoots) || value.mainRoots.length !== 1)
+            fail('ambiguous-cold-main')
+          const current = await query(value.mainRoots[0])
+          validateColdMainProcess(current, installed.package, startedAfter)
+          if (
+            rootState &&
+            (current.pid !== rootState.pid ||
+              current.startTicks !== rootState.startTicks)
+          )
+            fail('cold-main-process-changed')
+          await run({
+            executable: path.win32.join(
+              process.env.SystemRoot ?? 'C:\\Windows',
+              'System32/taskkill.exe'
+            ),
+            args: ['/PID', String(current.pid), '/T', '/F'],
+          })
+          await pause(500)
+        }
+        await noEndpoint()
+        report.noLaunchAfterVerified = true
+      }
+      report.cleanupVerified = true
+    },
+  }
 }
 
 async function nativeRequest(installed, allowLaunch) {

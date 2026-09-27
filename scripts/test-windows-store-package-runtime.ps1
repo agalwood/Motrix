@@ -292,9 +292,16 @@ function Assert-MainRuntimeReport([object]$Main, [string]$SourceCommit, [string]
       foreach ($name in @('ok', 'firstPairVerified', 'browserRestartReconnectVerified', 'cleanupVerified')) {
         Assert-True $extension.$name 'Production extension pairing or reconnect was not verified.'
       }
-      foreach ($name in @('protocolActivationVerified', 'firefoxVerified', 'windows11AcceptanceVerified')) {
+      foreach ($name in @('firefoxVerified', 'windows11AcceptanceVerified')) {
         Assert-False $extension.$name 'Production Chromium extension report overstates its scope.'
       }
+    }
+    Assert-False $records.chrome.protocolActivationVerified 'Chrome protocol activation is not tested in this phase.'
+    Assert-True $records.edge.protocolActivationVerified 'Edge protocol activation was not verified.'
+    Assert-True $records.edge.protocolConfirmation.confirmed 'Edge protocol consent was not verified.'
+    Assert-True $records.edge.protocolConfirmation.processIdentityVerified 'Protocol confirmation was not scoped to the owned browser.'
+    foreach ($name in @('noLaunchBeforeVerified', 'processIdentityVerified', 'mainBridgeEndpointVerified', 'noLaunchAfterVerified', 'cleanupVerified')) {
+      Assert-True $records.edge.protocolLaunch.$name 'Edge protocol launch ownership or cleanup is incomplete.'
     }
     if ($records.chrome.build.sha256 -cne $records.edge.build.sha256) { throw 'Browsers did not use the same production extension build.' }
   }

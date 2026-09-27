@@ -72,6 +72,7 @@ jobs:
             'tests/scripts/windows-store-native-messaging-probe.test.ps1',
             'scripts/test-windows-store-package-runtime.ps1',
             'scripts/query-windows-store-main-process.ps1',
+            'scripts/confirm-windows-store-browser-protocol.ps1',
             'tests/scripts/windows-store-package-runtime.test.ps1',
             'scripts/windows-store-browser-registration.ps1',
             'tests/scripts/windows-store-browser-registration.test.ps1'
