@@ -1224,6 +1224,8 @@
     "general": {
       "launchAtStartup": "Uruchamiaj przy logowaniu",
       "launchAtStartupDesc": "Uruchamiaj Motrix automatycznie po zalogowaniu.",
+      "linuxAutostartDesc": "Skonfiguruj uruchamianie przy logowaniu w swoim środowisku graficznym.",
+      "linuxAutostartGuide": "Zobacz instrukcję konfiguracji",
       "showMainWindowAtLogin": "Pokaż okno przy logowaniu",
       "showMainWindowAtLoginDesc": "Ukryte w trybie „{{mode}}”.",
       "defaultSaveDir": "Domyślny folder pobierania",

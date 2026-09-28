@@ -1196,6 +1196,8 @@
     "general": {
       "launchAtStartup": "Oturum açıldığında aç",
       "launchAtStartupDesc": "Oturum açtığınızda Motrix’i otomatik olarak başlatın.",
+      "linuxAutostartDesc": "Oturum açıldığında başlatmayı masaüstü ortamınızda yapılandırın.",
+      "linuxAutostartGuide": "Kurulum kılavuzunu görüntüle",
       "showMainWindowAtLogin": "Oturum açıldığında pencereyi göster",
       "showMainWindowAtLoginDesc": "“{{mode}}” seçildiğinde gizlenir.",
       "defaultSaveDir": "Varsayılan indirme klasörü",

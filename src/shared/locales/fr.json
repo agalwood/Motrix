@@ -2129,6 +2129,8 @@
       "inAppNotificationsDesc": "Choisissez les notifications de téléchargement à afficher. Les alertes de l’application restent activées.",
       "launchAtStartup": "Ouvrir à la connexion",
       "launchAtStartupDesc": "Démarrer Motrix automatiquement à l’ouverture de votre session.",
+      "linuxAutostartDesc": "Configurez le démarrage à la connexion dans votre environnement de bureau.",
+      "linuxAutostartGuide": "Voir le guide de configuration",
       "lightweightMode": "Économiser la mémoire lorsque la fenêtre est fermée",
       "lightweightModeDesc": "Les téléchargements continuent. La réouverture est plus lente et les saisies non enregistrées sont effacées.",
       "notificationBadgeCount": "Nombre",

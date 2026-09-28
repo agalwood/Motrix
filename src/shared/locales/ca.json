@@ -2129,6 +2129,8 @@
       "inAppNotificationsDesc": "Trieu quines notificacions de baixades es mostren. Els avisos de l'aplicació continuen actius.",
       "launchAtStartup": "Obrir en iniciar la sessió",
       "launchAtStartupDesc": "Inicia el Motrix automàticament quan inicieu la sessió.",
+      "linuxAutostartDesc": "Configureu l’arrencada de l’aplicació en iniciar la sessió a l’entorn d’escriptori.",
+      "linuxAutostartGuide": "Mostra la guia de configuració",
       "lightweightMode": "Estalviar memòria quan la finestra és tancada",
       "lightweightModeDesc": "Les baixades continuen. Tornar a obrir la finestra és més lent i s'esborren les dades no desades.",
       "notificationBadgeCount": "Nombre",

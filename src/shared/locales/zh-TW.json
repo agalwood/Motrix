@@ -1182,6 +1182,8 @@
     "general": {
       "launchAtStartup": "登入時啟動",
       "launchAtStartupDesc": "登入時自動啟動 Motrix。",
+      "linuxAutostartDesc": "請在桌面環境中設定登入啟動。",
+      "linuxAutostartGuide": "查看設定指南",
       "showMainWindowAtLogin": "登入時顯示視窗",
       "showMainWindowAtLoginDesc": "選擇「{{mode}}」時不顯示。",
       "defaultSaveDir": "預設下載資料夾",

@@ -1,3 +1,4 @@
+import { ArrowUpRightIcon } from '@renderer/components/icons'
 import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
 import { SettingsSelectTrigger } from '@renderer/components/settings-kit/settings-select-trigger'
 import {
@@ -40,6 +41,7 @@ import { useDirectoryPreferencesDraft } from '@renderer/features/directory-prefe
 import { pickDirty } from '@renderer/lib/form-utils'
 import { transport } from '@renderer/lib/transport'
 import { RunMode } from '@shared/constants'
+import { getLinuxAutostartUrl } from '@shared/external-urls'
 import { DEFAULT_APP_SETTINGS } from '@shared/schemas'
 import { GeneralSettingsAppSchema } from '@shared/schemas/general-settings'
 import { useRef } from 'react'
@@ -52,7 +54,7 @@ export function GeneralDialog({
   onClose,
   labelKey,
 }: SettingsCardDialogProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const isWeb = transport.platform === 'web'
   const isMac = transport.platform === 'darwin'
   const isLinux = transport.platform === 'linux'
@@ -259,11 +261,38 @@ export function GeneralDialog({
                       <h3 className="text-sm font-semibold">
                         {t('settings.general.startupAndQuitting')}
                       </h3>
-                      {boolRow('launchAtStartup')}
-                      {boolRow(
-                        'showMainWindowAtLogin',
-                        undefined,
-                        form.watch('launchAtStartup')
+                      {isLinux ? (
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium">
+                            {t('settings.general.launchAtStartup')}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {t('settings.general.linuxAutostartDesc')}
+                          </p>
+                          <a
+                            href={getLinuxAutostartUrl(
+                              i18n.resolvedLanguage ?? i18n.language
+                            )}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-0.5 rounded-sm py-0.5 text-xs text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            {t('settings.general.linuxAutostartGuide')}
+                            <ArrowUpRightIcon
+                              aria-hidden="true"
+                              className="size-3"
+                            />
+                          </a>
+                        </div>
+                      ) : (
+                        <>
+                          {boolRow('launchAtStartup')}
+                          {boolRow(
+                            'showMainWindowAtLogin',
+                            undefined,
+                            form.watch('launchAtStartup')
+                          )}
+                        </>
                       )}
                       <FormField
                         control={form.control}

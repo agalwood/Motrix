@@ -2110,6 +2110,8 @@
       "inAppNotificationsDesc": "Kies welke downloadmeldingen je wilt zien. Appwaarschuwingen blijven ingeschakeld.",
       "launchAtStartup": "Openen bij inloggen",
       "launchAtStartupDesc": "Motrix automatisch starten wanneer je inlogt.",
+      "linuxAutostartDesc": "Stel automatisch starten bij aanmelden in via je bureaubladomgeving.",
+      "linuxAutostartGuide": "Installatiehandleiding bekijken",
       "lightweightMode": "Geheugen besparen wanneer het venster gesloten is",
       "lightweightModeDesc": "Downloads gaan door. Opnieuw openen duurt langer en niet-opgeslagen invoer wordt gewist.",
       "notificationBadgeCount": "Aantal",
