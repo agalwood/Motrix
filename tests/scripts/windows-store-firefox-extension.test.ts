@@ -81,6 +81,47 @@ describe('observed Firefox temporary installation identity', () => {
       validateFirefoxExtensionIdentity(value, source, '0.1.14')
     ).toThrow('firefox-extension-identity')
   })
+  it('reports only fixed boolean identity checks before rejecting a mismatch', () => {
+    const value = identity()
+    value.extensions[0].sourceURL = 'file:///C:/private-profile/'
+    const observations: Record<string, boolean>[] = []
+    expect(() =>
+      validateFirefoxExtensionIdentity(value, source, '0.1.14', (entry) =>
+        observations.push(entry)
+      )
+    ).toThrow('firefox-extension-identity')
+    expect(observations).toHaveLength(1)
+    expect(observations[0]).toEqual({
+      inventoryArray: true,
+      uniqueIdentity: true,
+      sourceInputValid: true,
+      active: true,
+      nonSystem: true,
+      visible: true,
+      manifestVersionMatches: true,
+      versionMatches: true,
+      temporary: true,
+      sourceMatches: false,
+      policyBaseMatches: true,
+      policyUuidValid: true,
+      policyNamespaceMatches: true,
+    })
+    expect(JSON.stringify(observations)).not.toContain('private-profile')
+    expect(JSON.stringify(observations)).not.toContain(uuid)
+  })
+  it('reports malformed inventory and source without leaking or throwing a URL error', () => {
+    const observations: Record<string, boolean>[] = []
+    expect(() =>
+      validateFirefoxExtensionIdentity({}, 'not-a-url', '0.1.14', (entry) =>
+        observations.push(entry)
+      )
+    ).toThrow('firefox-extension-identity')
+    expect(observations[0].inventoryArray).toBe(false)
+    expect(observations[0].sourceInputValid).toBe(false)
+    expect(
+      Object.values(observations[0]).every((v) => typeof v === 'boolean')
+    ).toBe(true)
+  })
   it('rejects duplicate identities and malformed inventory', () => {
     const value = identity()
     value.extensions.push(value.extensions[0])

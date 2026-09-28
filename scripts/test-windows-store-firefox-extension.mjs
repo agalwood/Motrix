@@ -15,31 +15,50 @@ const fail = (code) => {
 }
 
 /** Use the observed runtime UUID, never a profile preference seeded by a test. */
-export function validateFirefoxExtensionIdentity(result, sourceUrl, version) {
-  if (!Array.isArray(result?.extensions)) fail('firefox-extension-identity')
-  const entries = result.extensions.filter(
-    (entry) => entry?.id === EXTENSION_ID
-  )
-  if (!Array.isArray(entries) || entries.length !== 1)
-    fail('firefox-extension-identity')
-  const entry = entries[0]
-  const policy = entry.policy
-  const expectedSource = new URL(sourceUrl)
-  if (
-    expectedSource.protocol !== 'file:' ||
-    !expectedSource.pathname.endsWith('/') ||
-    entry.isActive !== true ||
-    entry.isSystem !== false ||
-    entry.hidden !== false ||
-    entry.manifestVersion !== 3 ||
-    entry.version !== version ||
-    entry.temporarilyInstalled !== true ||
-    entry.sourceURL !== expectedSource.href ||
-    policy?.baseURL !== expectedSource.href ||
-    typeof policy.uuid !== 'string' ||
-    !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(policy.uuid) ||
-    policy.extensionURL !== `moz-extension://${policy.uuid}/`
-  )
+export function validateFirefoxExtensionIdentity(
+  result,
+  sourceUrl,
+  version,
+  observe = () => {}
+) {
+  const entries = Array.isArray(result?.extensions)
+    ? result.extensions.filter((entry) => entry?.id === EXTENSION_ID)
+    : []
+  const entry = entries.length === 1 ? entries[0] : undefined
+  const policy = entry?.policy
+  let expectedSource
+  try {
+    expectedSource = new URL(sourceUrl)
+  } catch {
+    // Invalid input is reported as a boolean; URLs never leave this validator.
+  }
+  const checks = {
+    inventoryArray: Array.isArray(result?.extensions),
+    uniqueIdentity: entries.length === 1,
+    sourceInputValid:
+      expectedSource?.protocol === 'file:' &&
+      expectedSource.pathname.endsWith('/'),
+    active: entry?.isActive === true,
+    nonSystem: entry?.isSystem === false,
+    visible: entry?.hidden === false,
+    manifestVersionMatches: entry?.manifestVersion === 3,
+    versionMatches: typeof version === 'string' && entry?.version === version,
+    temporary: entry?.temporarilyInstalled === true,
+    sourceMatches:
+      typeof entry?.sourceURL === 'string' &&
+      entry.sourceURL === expectedSource?.href,
+    policyBaseMatches:
+      typeof policy?.baseURL === 'string' &&
+      policy.baseURL === expectedSource?.href,
+    policyUuidValid:
+      typeof policy?.uuid === 'string' &&
+      /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(policy.uuid),
+    policyNamespaceMatches:
+      typeof policy?.uuid === 'string' &&
+      policy.extensionURL === `moz-extension://${policy.uuid}/`,
+  }
+  observe({ ...checks })
+  if (!Object.values(checks).every((value) => value === true))
     fail('firefox-extension-identity')
   return {
     popupUrl: `${policy.extensionURL}popup.html`,
@@ -168,7 +187,10 @@ export async function runFirefoxStoreExtension({
     const identity = validateFirefoxExtensionIdentity(
       await session.command('webExtension.moz:listExtensions', {}),
       pathToFileURL(`${extensionDirectory}${path.sep}`).href,
-      manifest.version
+      manifest.version,
+      (value) => {
+        report.installationIdentityObservation = value
+      }
     )
     report.extensionId = identity.extensionId
     report.temporaryInstallationVerified = true

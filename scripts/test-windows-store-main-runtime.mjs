@@ -730,13 +730,20 @@ export function createExtensionColdLaunchController(
     },
     async observe() {
       if (!report.noLaunchBeforeVerified) fail('cold-launch-not-prepared')
+      const observation = { phase: 'endpoint-query', endpointObserved: false }
+      report.launchObservation = observation
       const deadline = performance.now() + 20000
       while (performance.now() < deadline) {
         // allowLaunch:false is mandatory: observing cannot rescue a failed UI action.
+        observation.phase = 'endpoint-query'
         const value = await observe(installed, false)
         if (value.reply !== null) {
+          observation.endpointObserved = true
+          observation.phase = 'process-query'
           const current = await query(0, value.reply.port)
+          observation.phase = 'process-identity'
           validateColdMainProcess(current, installed.package, startedAfter)
+          observation.phase = 'listener-identity'
           validateMainProcess(current, {
             pid: current.pid,
             installed: installed.package,
@@ -744,10 +751,19 @@ export function createExtensionColdLaunchController(
           rootState = current
           report.processIdentityVerified = true
           report.mainBridgeEndpointVerified = true
+          observation.phase = 'complete'
           return
         }
         await pause(250)
       }
+      observation.phase = 'timeout-process-query'
+      const remaining = await query()
+      for (const key of ['processCount', 'packageProcessCount']) {
+        const count = remaining[key]
+        if (Number.isInteger(count) && count >= 0 && count <= 1000)
+          observation[key] = count
+      }
+      observation.phase = 'endpoint-timeout'
       fail('cold-endpoint-unavailable')
     },
     async cleanup() {

@@ -104,11 +104,47 @@ describe('production extension cold launch ownership', () => {
     expect(f.nativeRequest.mock.calls.every((call) => call[1] === false)).toBe(
       true
     )
+    expect(f.controller.report.launchObservation).toEqual({
+      phase: 'complete',
+      endpointObserved: true,
+    })
     expect(f.kill).toHaveBeenCalledOnce()
     expect(f.kill.mock.calls[0][0].args).toEqual(['/PID', '4321', '/T', '/F'])
     expect(
-      Object.values(f.controller.report).every((value) => value === true)
+      Object.entries(f.controller.report)
+        .filter(([key]) => key !== 'launchObservation')
+        .every(([, value]) => value === true)
     ).toBe(true)
+  })
+  it('distinguishes a host observation failure without retaining its exception', async () => {
+    const f = fixture()
+    await f.controller.stop()
+    f.nativeRequest.mockRejectedValueOnce(new Error('private-host-detail'))
+    await expect(f.controller.observe()).rejects.toThrow('private-host-detail')
+    expect(f.controller.report.launchObservation).toEqual({
+      phase: 'endpoint-query',
+      endpointObserved: false,
+    })
+    expect(JSON.stringify(f.controller.report)).not.toContain(
+      'private-host-detail'
+    )
+    expect(f.controller.report.processIdentityVerified).toBe(false)
+    await f.controller.cleanup()
+  })
+  it('distinguishes a listener mismatch after observing a new owned process', async () => {
+    const f = fixture()
+    await f.controller.stop()
+    f.launch()
+    f.root.listeners = []
+    await expect(f.controller.observe()).rejects.toThrow(
+      'main-process-identity-mismatch'
+    )
+    expect(f.controller.report.launchObservation).toEqual({
+      phase: 'listener-identity',
+      endpointObserved: true,
+    })
+    expect(f.controller.report.processIdentityVerified).toBe(false)
+    await f.controller.cleanup()
   })
   it('does not observe or kill anything before application shutdown', async () => {
     const f = fixture()
