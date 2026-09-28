@@ -2,6 +2,7 @@ import {
   setByteUnitSystem,
   useByteFormat,
 } from '@renderer/hooks/use-byte-format'
+import { i18n } from '@renderer/lib/i18n'
 import { transport } from '@renderer/lib/transport'
 import type {
   EventListener,
@@ -35,7 +36,8 @@ function Values() {
   )
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  await i18n.changeLanguage('en-US')
   vi.clearAllMocks()
   setByteUnitSystem('decimal')
   vi.stubGlobal('navigator', { platform: 'MacIntel' })
@@ -55,7 +57,8 @@ beforeEach(() => {
   })
 })
 
-afterEach(() => {
+afterEach(async () => {
+  await i18n.changeLanguage('en-US')
   cleanup()
   vi.unstubAllGlobals()
   setByteUnitSystem('decimal')
@@ -75,6 +78,23 @@ it('hydrates and updates mounted size and speed displays without a reload', asyn
   expect(screen.getByRole('status').textContent).toBe('1.05 MB · 1.0 MB/s')
   act(() => onChange({ byteUnitSystem: 'invalid' }))
   expect(screen.getByRole('status').textContent).toBe('1.05 MB · 1.0 MB/s')
+})
+
+it('updates mounted values on language changes without changing the unit preference', async () => {
+  setByteUnitSystem('binary')
+  render(<Values />)
+  for (const [locale, expected] of [
+    ['fr', '1,00 Mio · 1,0 Mio/s'],
+    ['ru', '1,00 МиБ · 1,0 МиБ/с'],
+    ['uk', '1,00 МіБ · 1,0 МіБ/с'],
+    ['zh-CN', '1.00 MiB · 1.0 MiB/s'],
+  ]) {
+    await act(async () => {
+      await i18n.changeLanguage(locale)
+    })
+    expect(screen.getByRole('status').textContent).toBe(expected)
+  }
+  expect(transport.invoke).not.toHaveBeenCalled()
 })
 
 it('subscribes first and ignores snapshots older than a live update', async () => {

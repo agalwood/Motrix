@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { FormProvider, useForm } from 'react-hook-form'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
-import '@renderer/lib/i18n'
+import { i18n } from '@renderer/lib/i18n'
 import { AddTaskLayoutProvider } from './add-task-layout-context'
 import { AdvancedPanel } from './advanced-panel'
 
@@ -49,9 +49,29 @@ function Wrapper({
   )
 }
 
-afterEach(() => {
+afterEach(async () => {
   cleanup()
+  await i18n.changeLanguage('en-US')
   setByteUnitSystem('decimal')
+})
+
+it('localizes a populated limit without changing the submitted bytes', async () => {
+  setByteUnitSystem('binary')
+  const onSubmit = vi.fn()
+  const user = userEvent.setup()
+  render(<Wrapper tab="torrent" onSubmit={onSubmit} />)
+  await user.click(screen.getByRole('button', { name: /advanced/i }))
+  const input = screen.getByLabelText(/dl limit/i)
+  fireEvent.change(input, { target: { value: '1.5' } })
+  await act(async () => {
+    await i18n.changeLanguage('fr')
+  })
+  expect(input).toHaveValue(1.5)
+  expect(input).toHaveAccessibleName(/Kio\/s/)
+  await user.click(screen.getByRole('button', { name: 'Submit' }))
+  expect(onSubmit).toHaveBeenCalledWith(
+    expect.objectContaining({ dlLimit: 1536 })
+  )
 })
 
 describe('AdvancedPanel', () => {

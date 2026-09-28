@@ -123,9 +123,9 @@ function LinksAdvancedFields() {
 }
 
 function TorrentAdvancedFields() {
-  const { unitSystem } = useByteFormat()
+  const { unitSystem, formatByteUnit } = useByteFormat()
   const scale = unitSystem === 'binary' ? 1024 : 1000
-  const unit = unitSystem === 'binary' ? 'KiB/s' : 'KB/s'
+  const unit = formatByteUnit(unitSystem === 'binary' ? 'KiB' : 'KB', true)
   const { t } = useTranslation()
   const { control } = useFormContext<AddTaskFormValues>()
   return (

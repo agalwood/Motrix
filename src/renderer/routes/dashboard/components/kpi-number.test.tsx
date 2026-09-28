@@ -5,6 +5,26 @@ import { describe, expect, it } from 'vitest'
 import { KpiNumber } from './kpi-number'
 
 describe('KpiNumber', () => {
+  it.each([
+    ['1,50', 'Mio'],
+    ['1,5', 'МиБ/с'],
+    ['١٫٥', 'MiB/ث'],
+    ['۱٫۵', 'MiB/ثانیه'],
+    ['1\u202f234,5', 'Mo'],
+  ])(
+    'keeps localized numbers and units separately sized: %s %s',
+    (number, unit) => {
+      const { container } = render(<KpiNumber value={`${number} ${unit}`} />)
+      const spans = container.querySelectorAll(
+        '[data-slot="kpi-number"] > span'
+      )
+      expect(spans).toHaveLength(2)
+      expect(spans[0].textContent).toBe(number)
+      expect(spans[1]).toHaveTextContent(unit)
+      expect(spans[1]).toHaveClass('shrink-0', 'text-[12px]')
+    }
+  )
+
   it('renders text content with proportional-nums and split unit sizing', () => {
     const { container } = render(<KpiNumber value="1.2 MB/s" />)
     const el = container.firstElementChild as HTMLElement

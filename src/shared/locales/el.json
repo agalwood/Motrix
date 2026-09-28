@@ -1709,8 +1709,8 @@
       }
     },
     "appearance": {
-      "byteUnitBinary": "Δυαδικές (MiB, GiB · 1024)",
-      "byteUnitDecimal": "Δεκαδικές (MB, GB · 1000)",
+      "byteUnitBinary": "Δυαδικές ({{megabyte}}, {{gigabyte}} · 1024)",
+      "byteUnitDecimal": "Δεκαδικές ({{megabyte}}, {{gigabyte}} · 1000)",
       "byteUnitSystem": "Μονάδες μεγέθους και ταχύτητας",
       "byteUnitSystemDefault": "Σύμφωνα με το σύστημα ({{units}})",
       "byteUnitSystemDesc": "Επιλέξτε πώς εμφανίζονται τα μεγέθη αρχείων και οι ταχύτητες.",
@@ -1900,7 +1900,7 @@
       "defaultDownloadFolder": "Προεπιλεγμένος φάκελος λήψεων",
       "description": "Αρχεία, ταχύτητα λήψης και συνδέσεις",
       "disk": {
-        "diskCache": "Προσωρινή μνήμη δίσκου (MiB)",
+        "diskCache": "Προσωρινή μνήμη δίσκου ({{unit}})",
         "diskCacheDesc": "Μνήμη που χρησιμοποιείται για την προσωρινή αποθήκευση αρχείων πριν από την εγγραφή στον δίσκο.",
         "fileAllocation": "Δέσμευση χώρου στον δίσκο",
         "fileAllocationDesc": "Δέσμευση χώρου πριν από τη λήψη ενός αρχείου.",
@@ -1941,7 +1941,7 @@
           "minimum": "Ελάχιστο τμήμα",
           "perServer": "Όριο ανά διακομιστή"
         },
-        "minSplitSize": "Ελάχιστο μέγεθος τμήματος (MiB)",
+        "minSplitSize": "Ελάχιστο μέγεθος τμήματος ({{unit}})",
         "minSplitSizeDesc": "Τα τμήματα μικρότερα από το διπλάσιο αυτού του μεγέθους δεν διαιρούνται.",
         "profile": "Επιδόσεις λήψεων",
         "profileDesc": "Ισορροπία μεταξύ ταχύτητας λήψης και χρήσης πόρων.",
@@ -1974,7 +1974,7 @@
       "reliability": {
         "connectTimeout": "Χρονικό όριο σύνδεσης (δευτ.)",
         "connectTimeoutDesc": "Χρόνος αναμονής για σύνδεση.",
-        "lowestSpeedLimit": "Ελάχιστη ταχύτητα σύνδεσης (KiB/s)",
+        "lowestSpeedLimit": "Ελάχιστη ταχύτητα σύνδεσης ({{unit}})",
         "lowestSpeedLimitDesc": "Αποσύνδεση κάτω από αυτή την ταχύτητα. 0 = απενεργοποίηση.",
         "maxTries": "Μέγιστες προσπάθειες",
         "maxTriesDesc": "Περιλαμβάνει την πρώτη προσπάθεια. 0 = χωρίς όριο.",
@@ -2786,5 +2786,23 @@
     "preferences": "Ρυθμίσεις",
     "quit": "Έξοδος",
     "showMotrix": "Εμφάνιση Motrix"
+  },
+  "units": {
+    "bytes": {
+      "b": "B",
+      "kb": "KB",
+      "mb": "MB",
+      "gb": "GB",
+      "tb": "TB",
+      "pb": "PB",
+      "eb": "EB",
+      "kib": "KiB",
+      "mib": "MiB",
+      "gib": "GiB",
+      "tib": "TiB",
+      "pib": "PiB",
+      "eib": "EiB"
+    },
+    "perSecond": "{{value}}/s"
   }
 }

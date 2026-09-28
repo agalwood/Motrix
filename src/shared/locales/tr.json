@@ -1266,8 +1266,8 @@
       "lightweightModeDesc": "Pencere kapalıyken bellekten tasarruf edin. İndirmeler devam eder ancak pencerenin yeniden açılması daha uzun sürer ve kaydedilmemiş girişler temizlenir.",
       "byteUnitSystem": "Boyut ve hız birimleri",
       "byteUnitSystemDesc": "Dosya boyutlarının ve hızların nasıl gösterileceğini seçin.",
-      "byteUnitDecimal": "Ondalık (MB, GB · 1000)",
-      "byteUnitBinary": "İkili (MiB, GiB · 1024)",
+      "byteUnitDecimal": "Ondalık ({{megabyte}}, {{gigabyte}} · 1000)",
+      "byteUnitBinary": "İkili ({{megabyte}}, {{gigabyte}} · 1024)",
       "byteUnitSystemDefault": "Sistemi kullan ({{units}})",
       "sidebarColor": "Vurgu rengi",
       "sidebarColors": {
@@ -1503,7 +1503,7 @@
         "maxConnectionPerServerDesc": "Bir sunucu için dosya başına bağlantı sınırı.",
         "split": "Dosya başına en fazla bağlantı",
         "splitDesc": "Bir dosyayı indirmek için kullanılan bağlantılar.",
-        "minSplitSize": "En küçük bölüm boyutu (MiB)",
+        "minSplitSize": "En küçük bölüm boyutu ({{unit}})",
         "minSplitSizeDesc": "Bu boyutun 2 katından küçük bölümler bölünmez."
       },
       "reliability": {
@@ -1518,7 +1518,7 @@
         "maxTriesDesc": "İlk deneme dahildir. 0 = sınırsız.",
         "retryWait": "Yeniden deneme gecikmesi (sn)",
         "retryWaitDesc": "Yeniden denemeden önce bu süre kadar bekleyin.",
-        "lowestSpeedLimit": "En düşük bağlantı hızı (KiB/s)",
+        "lowestSpeedLimit": "En düşük bağlantı hızı ({{unit}})",
         "lowestSpeedLimitDesc": "Hız bu değerin altına düşerse bağlantıyı kesin. 0 = devre dışı."
       },
       "disk": {
@@ -1538,7 +1538,7 @@
         "modifiedTimeDesc": "Tamamlanan HTTP ve FTP indirmeleri için.",
         "modifiedTimeLocal": "İndirme zamanı",
         "modifiedTimeServer": "Sunucudan alınan zaman",
-        "diskCache": "Disk önbelleği (MiB)",
+        "diskCache": "Disk önbelleği ({{unit}})",
         "diskCacheDesc": "Dosyaları diske yazmadan önce arabellekte tutmak için kullanılan bellek.",
         "sessionSaveInterval": "İlerleme kaydetme aralığı (sn)",
         "sessionSaveIntervalDesc": "Çökme sonrasında kaybolan ilerlemeyi azaltmak için daha sık kaydedin."
@@ -2786,5 +2786,23 @@
     },
     "manageAction": "Yönet",
     "alreadyFavorite": "Zaten favorilerde"
+  },
+  "units": {
+    "bytes": {
+      "b": "B",
+      "kb": "KB",
+      "mb": "MB",
+      "gb": "GB",
+      "tb": "TB",
+      "pb": "PB",
+      "eb": "EB",
+      "kib": "KiB",
+      "mib": "MiB",
+      "gib": "GiB",
+      "tib": "TiB",
+      "pib": "PiB",
+      "eib": "EiB"
+    },
+    "perSecond": "{{value}}/sn"
   }
 }

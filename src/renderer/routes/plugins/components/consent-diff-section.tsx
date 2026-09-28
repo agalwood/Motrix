@@ -48,7 +48,7 @@ export function ConsentDiffSection({ diff }: { diff: TrustSurfaceDiff }) {
               {t('plugins.consent.diff.heap')}:
             </span>{' '}
             {diff.requestedHeapMBIncreased.from} →{' '}
-            {diff.requestedHeapMBIncreased.to} MB
+            {diff.requestedHeapMBIncreased.to} {t('units.bytes.mb')}
           </li>
         )}
         {diff.enginesMotrixMajorChange && (

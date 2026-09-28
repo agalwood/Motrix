@@ -1252,8 +1252,8 @@
       "lightweightModeDesc": "ウインドウを閉じたときにメモリーを節約します。ダウンロードは続行されますが、再度開くときに時間がかかり、未保存の入力内容は消去されます。",
       "byteUnitSystem": "サイズと速度の単位",
       "byteUnitSystemDesc": "ファイルサイズと速度の表示方法を選択します。",
-      "byteUnitDecimal": "10 進単位（MB、GB · 1000）",
-      "byteUnitBinary": "2 進単位（MiB、GiB · 1024）",
+      "byteUnitDecimal": "10 進単位（{{megabyte}}、{{gigabyte}} · 1000）",
+      "byteUnitBinary": "2 進単位（{{megabyte}}、{{gigabyte}} · 1024）",
       "byteUnitSystemDefault": "システムに合わせる（{{units}}）",
       "sidebarColor": "アクセントカラー",
       "sidebarColors": {
@@ -1489,7 +1489,7 @@
         "maxConnectionPerServerDesc": "1 つのサーバーに対する、ファイルごとの接続数の上限です。",
         "split": "ファイルあたりの最大接続数",
         "splitDesc": "1 つのファイルのダウンロードに使用する接続数です。",
-        "minSplitSize": "最小セグメントサイズ（MiB）",
+        "minSplitSize": "最小セグメントサイズ（{{unit}}）",
         "minSplitSizeDesc": "このサイズの 2 倍未満のセグメントは分割しません。"
       },
       "reliability": {
@@ -1504,7 +1504,7 @@
         "maxTriesDesc": "初回の試行を含みます。0 = 無制限。",
         "retryWait": "再試行までの待機時間（秒）",
         "retryWaitDesc": "再試行するまで、この時間だけ待機します。",
-        "lowestSpeedLimit": "最低接続速度（KiB/s）",
+        "lowestSpeedLimit": "最低接続速度（{{unit}}）",
         "lowestSpeedLimitDesc": "この速度を下回ると切断します。0 = 無効。"
       },
       "disk": {
@@ -1524,7 +1524,7 @@
         "modifiedTimeDesc": "完了した HTTP および FTP ダウンロードに適用します。",
         "modifiedTimeLocal": "ダウンロード日時",
         "modifiedTimeServer": "サーバーの日時",
-        "diskCache": "ディスクキャッシュ（MiB）",
+        "diskCache": "ディスクキャッシュ（{{unit}}）",
         "diskCacheDesc": "ディスクに書き込む前にファイルを一時保存するためのメモリ量です。",
         "sessionSaveInterval": "進捗の保存間隔（秒）",
         "sessionSaveIntervalDesc": "頻繁に保存すると、クラッシュ時に失われる進捗を減らせます。"
@@ -2764,5 +2764,23 @@
     },
     "manageAction": "管理",
     "alreadyFavorite": "お気に入りに追加済み"
+  },
+  "units": {
+    "bytes": {
+      "b": "B",
+      "kb": "KB",
+      "mb": "MB",
+      "gb": "GB",
+      "tb": "TB",
+      "pb": "PB",
+      "eb": "EB",
+      "kib": "KiB",
+      "mib": "MiB",
+      "gib": "GiB",
+      "tib": "TiB",
+      "pib": "PiB",
+      "eib": "EiB"
+    },
+    "perSecond": "{{value}}/秒"
   }
 }

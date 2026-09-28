@@ -1252,8 +1252,8 @@
       "lightweightModeDesc": "Hemat memori saat jendela ditutup. Unduhan tetap berjalan, tetapi jendela lebih lama dibuka kembali dan isian yang belum disimpan akan dihapus.",
       "byteUnitSystem": "Satuan ukuran dan kecepatan",
       "byteUnitSystemDesc": "Pilih cara menampilkan ukuran berkas dan kecepatan.",
-      "byteUnitDecimal": "Desimal (MB, GB · 1000)",
-      "byteUnitBinary": "Biner (MiB, GiB · 1024)",
+      "byteUnitDecimal": "Desimal ({{megabyte}}, {{gigabyte}} · 1000)",
+      "byteUnitBinary": "Biner ({{megabyte}}, {{gigabyte}} · 1024)",
       "byteUnitSystemDefault": "Ikuti sistem ({{units}})",
       "sidebarColor": "Warna aksen",
       "sidebarColors": {
@@ -1489,7 +1489,7 @@
         "maxConnectionPerServerDesc": "Batas koneksi per berkas untuk satu server.",
         "split": "Koneksi maksimum per berkas",
         "splitDesc": "Koneksi yang digunakan untuk mengunduh satu berkas.",
-        "minSplitSize": "Ukuran segmen minimum (MiB)",
+        "minSplitSize": "Ukuran segmen minimum ({{unit}})",
         "minSplitSizeDesc": "Segmen di bawah 2× ukuran ini tidak akan dibagi."
       },
       "reliability": {
@@ -1504,7 +1504,7 @@
         "maxTriesDesc": "Termasuk percobaan pertama. 0 = tanpa batas.",
         "retryWait": "Jeda percobaan ulang (dtk)",
         "retryWaitDesc": "Tunggu selama ini sebelum mencoba lagi.",
-        "lowestSpeedLimit": "Kecepatan koneksi minimum (KiB/dtk)",
+        "lowestSpeedLimit": "Kecepatan koneksi minimum ({{unit}})",
         "lowestSpeedLimitDesc": "Putuskan koneksi di bawah kecepatan ini. 0 = nonaktif."
       },
       "disk": {
@@ -1524,7 +1524,7 @@
         "modifiedTimeDesc": "Untuk unduhan HTTP dan FTP yang selesai.",
         "modifiedTimeLocal": "Waktu unduhan",
         "modifiedTimeServer": "Waktu dari server",
-        "diskCache": "Cache disk (MiB)",
+        "diskCache": "Cache disk ({{unit}})",
         "diskCacheDesc": "Memori untuk menampung sementara data berkas sebelum ditulis ke disk.",
         "sessionSaveInterval": "Interval penyimpanan progres (dtk)",
         "sessionSaveIntervalDesc": "Simpan lebih sering untuk mengurangi progres yang hilang setelah aplikasi berhenti mendadak."
@@ -2764,5 +2764,23 @@
     },
     "manageAction": "Kelola",
     "alreadyFavorite": "Sudah ada di favorit"
+  },
+  "units": {
+    "bytes": {
+      "b": "B",
+      "kb": "KB",
+      "mb": "MB",
+      "gb": "GB",
+      "tb": "TB",
+      "pb": "PB",
+      "eb": "EB",
+      "kib": "KiB",
+      "mib": "MiB",
+      "gib": "GiB",
+      "tib": "TiB",
+      "pib": "PiB",
+      "eib": "EiB"
+    },
+    "perSecond": "{{value}}/dtk"
   }
 }

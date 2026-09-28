@@ -1,36 +1,18 @@
 import {
   type ByteUnitPreference,
-  type ByteUnitSystem,
   DEFAULT_BYTE_UNIT_PREFERENCE,
   resolveByteUnitSystem,
 } from '@shared/schemas/byte-unit-system'
-import {
-  type ByteValue,
-  formatBytes,
-  formatSpeed,
-  formatSpeedLimit,
-} from '@shared/utils/format-bytes'
-import { useSyncExternalStore } from 'react'
+import { createLocalizedByteFormatter } from '@shared/utils/localized-byte-format'
+import { useMemo, useSyncExternalStore } from 'react'
+import { useTranslation } from 'react-i18next'
 
-function createFormatters(unitSystem: ByteUnitSystem) {
-  return {
-    unitSystem,
-    formatBytes: (bytes: ByteValue) => formatBytes(bytes, { unitSystem }),
-    formatSpeed: (bytes: ByteValue) => formatSpeed(bytes, unitSystem),
-    formatSpeedLimit: (bytes: ByteValue) => formatSpeedLimit(bytes, unitSystem),
-  }
-}
-
-const formatters = {
-  decimal: createFormatters('decimal'),
-  binary: createFormatters('binary'),
-}
 const listeners = new Set<() => void>()
 const devicePlatform = () => globalThis.navigator?.platform ?? ''
-let current =
-  formatters[
-    resolveByteUnitSystem(DEFAULT_BYTE_UNIT_PREFERENCE, devicePlatform())
-  ]
+let current = resolveByteUnitSystem(
+  DEFAULT_BYTE_UNIT_PREFERENCE,
+  devicePlatform()
+)
 const getSnapshot = () => current
 const subscribe = (listener: () => void) => {
   listeners.add(listener)
@@ -45,11 +27,17 @@ export function setByteUnitSystem(
   platform = devicePlatform()
 ): void {
   const value = resolveByteUnitSystem(preference, platform)
-  if (current === formatters[value]) return
-  current = formatters[value]
+  if (current === value) return
+  current = value
   for (const listener of listeners) listener()
 }
 
 export function useByteFormat() {
-  return useSyncExternalStore(subscribe, getSnapshot)
+  const unitSystem = useSyncExternalStore(subscribe, getSnapshot)
+  const { t, i18n } = useTranslation()
+  const locale = i18n.resolvedLanguage ?? i18n.language ?? 'en-US'
+  return useMemo(
+    () => createLocalizedByteFormatter(unitSystem, locale, t),
+    [unitSystem, locale, t]
+  )
 }

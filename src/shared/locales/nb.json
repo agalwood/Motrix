@@ -1709,8 +1709,8 @@
       }
     },
     "appearance": {
-      "byteUnitBinary": "Binære (MiB, GiB · 1024)",
-      "byteUnitDecimal": "Desimale (MB, GB · 1000)",
+      "byteUnitBinary": "Binære ({{megabyte}}, {{gigabyte}} · 1024)",
+      "byteUnitDecimal": "Desimale ({{megabyte}}, {{gigabyte}} · 1000)",
       "byteUnitSystem": "Enheter for størrelse og hastighet",
       "byteUnitSystemDefault": "Følg systemet ({{units}})",
       "byteUnitSystemDesc": "Velg hvordan filstørrelser og hastigheter vises.",
@@ -1900,7 +1900,7 @@
       "defaultDownloadFolder": "Standard nedlastingsmappe",
       "description": "Filer, nedlastingshastighet og tilkoblinger",
       "disk": {
-        "diskCache": "Diskbuffer (MiB)",
+        "diskCache": "Diskbuffer ({{unit}})",
         "diskCacheDesc": "Minne som brukes til å mellomlagre filer før de skrives til disken.",
         "fileAllocation": "Reserver diskplass",
         "fileAllocationDesc": "Reserver plass før en fil lastes ned.",
@@ -1941,7 +1941,7 @@
           "minimum": "Min. segment",
           "perServer": "Grense per server"
         },
-        "minSplitSize": "Min. segmentstørrelse (MiB)",
+        "minSplitSize": "Min. segmentstørrelse ({{unit}})",
         "minSplitSizeDesc": "Segmenter under det dobbelte av denne størrelsen deles ikke opp.",
         "profile": "Nedlastingsytelse",
         "profileDesc": "Balanser nedlastingshastighet og ressursbruk.",
@@ -1974,7 +1974,7 @@
       "reliability": {
         "connectTimeout": "Tidsgrense for tilkobling (s)",
         "connectTimeoutDesc": "Hvor lenge det skal ventes på en tilkobling.",
-        "lowestSpeedLimit": "Minste tilkoblingshastighet (KiB/s)",
+        "lowestSpeedLimit": "Minste tilkoblingshastighet ({{unit}})",
         "lowestSpeedLimitDesc": "Koble fra under denne hastigheten. 0 = deaktivert.",
         "maxTries": "Maksimalt antall forsøk",
         "maxTriesDesc": "Inkluderer første forsøk. 0 = ubegrenset.",
@@ -2786,5 +2786,23 @@
     "preferences": "Innstillinger",
     "quit": "Avslutt",
     "showMotrix": "Vis Motrix"
+  },
+  "units": {
+    "bytes": {
+      "b": "B",
+      "kb": "KB",
+      "mb": "MB",
+      "gb": "GB",
+      "tb": "TB",
+      "pb": "PB",
+      "eb": "EB",
+      "kib": "KiB",
+      "mib": "MiB",
+      "gib": "GiB",
+      "tib": "TiB",
+      "pib": "PiB",
+      "eib": "EiB"
+    },
+    "perSecond": "{{value}}/s"
   }
 }

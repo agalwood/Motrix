@@ -22,6 +22,7 @@ import {
   SelectItem,
   SelectValue,
 } from '@renderer/components/ui/select'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import {
   ENGINE_PERFORMANCE_PROFILE_IDS,
   type EnginePerformanceProfile,
@@ -46,6 +47,7 @@ export function PerformanceSection({
   form: UseFormReturn<DownloadsFields>
 }) {
   const { t, i18n } = useTranslation()
+  const { formatByteQuantity } = useByteFormat()
   const performanceProfile = useWatch({
     control: form.control,
     name: 'engine.performanceProfile',
@@ -74,12 +76,18 @@ export function PerformanceSection({
           {
             icon: PieceSizeIcon,
             label: t('settings.downloads.performance.metrics.minimum'),
-            value: `${Math.round(selectedPerformanceValues.minSplitSize / MB)} MiB`,
+            value: formatByteQuantity(
+              Math.round(selectedPerformanceValues.minSplitSize / MB),
+              'MiB'
+            ),
           },
           {
             icon: DiskCacheIcon,
             label: t('settings.downloads.performance.metrics.cache'),
-            value: `${Math.round(selectedPerformanceValues.diskCache / MB)} MiB`,
+            value: formatByteQuantity(
+              Math.round(selectedPerformanceValues.diskCache / MB),
+              'MiB'
+            ),
           },
         ]
       : null
@@ -249,10 +257,10 @@ export function PerformanceSection({
             labelKey="settings.downloads.performance.minSplitSize"
             descKey="settings.downloads.performance.minSplitSizeDesc"
             presets={[
-              { label: '1 MiB', value: 1 },
-              { label: '4 MiB', value: 4 },
-              { label: '10 MiB', value: 10 },
-              { label: '20 MiB', value: 20 },
+              { label: formatByteQuantity(1, 'MiB'), value: 1 },
+              { label: formatByteQuantity(4, 'MiB'), value: 4 },
+              { label: formatByteQuantity(10, 'MiB'), value: 10 },
+              { label: formatByteQuantity(20, 'MiB'), value: 20 },
             ]}
           />
           <EngineNumberSettingRow
@@ -261,9 +269,9 @@ export function PerformanceSection({
             labelKey="settings.downloads.disk.diskCache"
             descKey="settings.downloads.disk.diskCacheDesc"
             presets={[
-              { label: '16 MiB', value: 16 },
-              { label: '32 MiB', value: 32 },
-              { label: '64 MiB', value: 64 },
+              { label: formatByteQuantity(16, 'MiB'), value: 16 },
+              { label: formatByteQuantity(32, 'MiB'), value: 32 },
+              { label: formatByteQuantity(64, 'MiB'), value: 64 },
             ]}
           />
         </div>

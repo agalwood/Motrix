@@ -1728,8 +1728,8 @@
       }
     },
     "appearance": {
-      "byteUnitBinary": "Binàries (MiB, GiB · 1024)",
-      "byteUnitDecimal": "Decimals (MB, GB · 1000)",
+      "byteUnitBinary": "Binàries ({{megabyte}}, {{gigabyte}} · 1024)",
+      "byteUnitDecimal": "Decimals ({{megabyte}}, {{gigabyte}} · 1000)",
       "byteUnitSystem": "Unitats de mida i velocitat",
       "byteUnitSystemDefault": "Seguir el sistema ({{units}})",
       "byteUnitSystemDesc": "Trieu com es mostren les mides dels fitxers i les velocitats.",
@@ -1919,7 +1919,7 @@
       "defaultDownloadFolder": "Carpeta de baixades predeterminada",
       "description": "Fitxers, velocitat de baixada i connexions",
       "disk": {
-        "diskCache": "Memòria cau del disc (MiB)",
+        "diskCache": "Memòria cau del disc ({{unit}})",
         "diskCacheDesc": "Memòria per emmagatzemar temporalment els fitxers abans d'escriure'ls al disc.",
         "fileAllocation": "Reservar espai al disc",
         "fileAllocationDesc": "Reserva espai abans de baixar un fitxer.",
@@ -1960,7 +1960,7 @@
           "minimum": "Segment mínim",
           "perServer": "Límit per servidor"
         },
-        "minSplitSize": "Mida mínima del segment (MiB)",
+        "minSplitSize": "Mida mínima del segment ({{unit}})",
         "minSplitSizeDesc": "Els segments més petits que el doble d'aquesta mida no es divideixen.",
         "profile": "Rendiment de baixada",
         "profileDesc": "Equilibra la velocitat de baixada i l'ús de recursos.",
@@ -1993,7 +1993,7 @@
       "reliability": {
         "connectTimeout": "Temps d'espera de connexió (s)",
         "connectTimeoutDesc": "Quant de temps s'espera per establir una connexió.",
-        "lowestSpeedLimit": "Velocitat mínima de connexió (KiB/s)",
+        "lowestSpeedLimit": "Velocitat mínima de connexió ({{unit}})",
         "lowestSpeedLimitDesc": "Desconnecta si la velocitat és inferior. 0 = desactivat.",
         "maxTries": "Nombre màxim d'intents",
         "maxTriesDesc": "Inclou el primer intent. 0 = sense límit.",
@@ -2808,5 +2808,23 @@
     "preferences": "Configuració",
     "quit": "Sortir",
     "showMotrix": "Mostrar el Motrix"
+  },
+  "units": {
+    "bytes": {
+      "b": "B",
+      "kb": "KB",
+      "mb": "MB",
+      "gb": "GB",
+      "tb": "TB",
+      "pb": "PB",
+      "eb": "EB",
+      "kib": "KiB",
+      "mib": "MiB",
+      "gib": "GiB",
+      "tib": "TiB",
+      "pib": "PiB",
+      "eib": "EiB"
+    },
+    "perSecond": "{{value}}/s"
   }
 }

@@ -1785,8 +1785,8 @@
       }
     },
     "appearance": {
-      "byteUnitBinary": "ثنائية (MiB، GiB · 1024)",
-      "byteUnitDecimal": "عشرية (MB، GB · 1000)",
+      "byteUnitBinary": "ثنائية ({{megabyte}}، {{gigabyte}} · 1024)",
+      "byteUnitDecimal": "عشرية ({{megabyte}}، {{gigabyte}} · 1000)",
       "byteUnitSystem": "وحدات الحجم والسرعة",
       "byteUnitSystemDefault": "اتباع النظام ({{units}})",
       "byteUnitSystemDesc": "اختر كيفية عرض أحجام الملفات والسرعات.",
@@ -1976,7 +1976,7 @@
       "defaultDownloadFolder": "مجلد التنزيل الافتراضي",
       "description": "الملفات وسرعة التنزيل والاتصالات",
       "disk": {
-        "diskCache": "ذاكرة التخزين المؤقت للقرص (MiB)",
+        "diskCache": "ذاكرة التخزين المؤقت للقرص ({{unit}})",
         "diskCacheDesc": "ذاكرة لتخزين الملفات مؤقتًا قبل كتابتها إلى القرص.",
         "fileAllocation": "حجز مساحة على القرص",
         "fileAllocationDesc": "حجز المساحة قبل تنزيل الملف.",
@@ -2017,7 +2017,7 @@
           "minimum": "أدنى حجم مقطع",
           "perServer": "الحد لكل خادم"
         },
-        "minSplitSize": "أدنى حجم مقطع (MiB)",
+        "minSplitSize": "أدنى حجم مقطع ({{unit}})",
         "minSplitSizeDesc": "لا تُقسّم المقاطع الأصغر من ضعفي هذا الحجم.",
         "profile": "أداء التنزيل",
         "profileDesc": "وازن بين سرعة التنزيل واستخدام الموارد.",
@@ -2050,7 +2050,7 @@
       "reliability": {
         "connectTimeout": "مهلة الاتصال (ث)",
         "connectTimeoutDesc": "مدة انتظار إنشاء الاتصال.",
-        "lowestSpeedLimit": "أدنى سرعة اتصال (KiB/s)",
+        "lowestSpeedLimit": "أدنى سرعة اتصال ({{unit}})",
         "lowestSpeedLimitDesc": "قطع الاتصال إذا انخفضت السرعة عن هذه القيمة. 0 = معطّل.",
         "maxTries": "أقصى عدد محاولات",
         "maxTriesDesc": "يشمل المحاولة الأولى. 0 = غير محدود.",
@@ -2874,5 +2874,23 @@
     "preferences": "الإعدادات",
     "quit": "خروج",
     "showMotrix": "إظهار Motrix"
+  },
+  "units": {
+    "bytes": {
+      "b": "B",
+      "kb": "KB",
+      "mb": "MB",
+      "gb": "GB",
+      "tb": "TB",
+      "pb": "PB",
+      "eb": "EB",
+      "kib": "KiB",
+      "mib": "MiB",
+      "gib": "GiB",
+      "tib": "TiB",
+      "pib": "PiB",
+      "eib": "EiB"
+    },
+    "perSecond": "{{value}}/ث"
   }
 }

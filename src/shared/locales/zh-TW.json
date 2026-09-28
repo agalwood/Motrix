@@ -1252,8 +1252,8 @@
       "lightweightModeDesc": "關閉視窗後節省記憶體，下載不受影響。重新開啟稍慢，未儲存的輸入會清除。",
       "byteUnitSystem": "大小與速度單位",
       "byteUnitSystemDesc": "選擇檔案大小和速度的顯示單位。",
-      "byteUnitDecimal": "十進位（MB、GB · 1000）",
-      "byteUnitBinary": "二進位（MiB、GiB · 1024）",
+      "byteUnitDecimal": "十進位（{{megabyte}}、{{gigabyte}} · 1000）",
+      "byteUnitBinary": "二進位（{{megabyte}}、{{gigabyte}} · 1024）",
       "byteUnitSystemDefault": "跟隨系統（{{units}}）",
       "sidebarColor": "主題色",
       "sidebarColors": {
@@ -1489,7 +1489,7 @@
         "maxConnectionPerServerDesc": "每個檔案對同一伺服器的連線上限。",
         "split": "單一檔案連線數上限",
         "splitDesc": "下載單一檔案時使用的連線數。",
-        "minSplitSize": "最小分段大小（MiB）",
+        "minSplitSize": "最小分段大小（{{unit}}）",
         "minSplitSizeDesc": "小於此值兩倍的分段不再拆分。"
       },
       "reliability": {
@@ -1504,7 +1504,7 @@
         "maxTriesDesc": "包含首次嘗試；0 表示不限次數。",
         "retryWait": "重試間隔（秒）",
         "retryWaitDesc": "失敗後等多久再試。",
-        "lowestSpeedLimit": "最低連線速度（KiB/s）",
+        "lowestSpeedLimit": "最低連線速度（{{unit}}）",
         "lowestSpeedLimitDesc": "低於此速度時中斷連線；0 表示關閉。"
       },
       "disk": {
@@ -1524,7 +1524,7 @@
         "modifiedTimeDesc": "適用於下載完成的 HTTP 和 FTP 檔案。",
         "modifiedTimeLocal": "下載時間",
         "modifiedTimeServer": "伺服器提供的時間",
-        "diskCache": "磁碟快取 (MiB)",
+        "diskCache": "磁碟快取 ({{unit}})",
         "diskCacheDesc": "寫入磁碟前暫存檔案資料的記憶體。",
         "sessionSaveInterval": "進度儲存間隔（秒）",
         "sessionSaveIntervalDesc": "儲存越頻繁，意外退出時遺失的進度越少。"
@@ -2764,5 +2764,23 @@
     },
     "manageAction": "管理",
     "alreadyFavorite": "已在常用目錄中"
+  },
+  "units": {
+    "bytes": {
+      "b": "B",
+      "kb": "KB",
+      "mb": "MB",
+      "gb": "GB",
+      "tb": "TB",
+      "pb": "PB",
+      "eb": "EB",
+      "kib": "KiB",
+      "mib": "MiB",
+      "gib": "GiB",
+      "tib": "TiB",
+      "pib": "PiB",
+      "eib": "EiB"
+    },
+    "perSecond": "{{value}}/秒"
   }
 }
