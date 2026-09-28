@@ -18,6 +18,7 @@ export interface OsNotificationMainWindow {
 export interface OsNotificationHandle {
   show(): void
   on(event: 'click', listener: () => void): void
+  on(event: 'failed', listener: (event: unknown, error: string) => void): void
 }
 
 export interface OsNotificationBridgeDeps {
@@ -54,14 +55,14 @@ function isEnabledForKind(kind: string, settings: MotrixAppSettings): boolean {
 }
 
 /**
- * Best-effort OS notification bridge (Electron only) — Phase C of the
- * notification-center plan (spec §6). Mirrors `AppNotification` rows onto
- * native OS toasts when the main window is not in the foreground, gated
- * per-kind by the `notifyOnComplete` / `notifyOnError` toggles. `task-error`,
- * `engine-failure`, and any unknown kind all fall back to `notifyOnError`.
+ * Best-effort OS notification bridge (Electron only). Download outcomes
+ * follow the selected system notification preference regardless of focus.
+ * Other alerts stay background-only, with their existing in-app presentation
+ * owning the foreground. `task-error`, `engine-failure`, and unknown kinds
+ * all fall back to `notifyOnError`.
  *
- * OS toasts carry no delivery tracking — a dropped/dismissed/unsupported
- * toast never blocks or retries anything; the notification center's stored
+ * Unsupported delivery and native failures are logged but never retried;
+ * a dropped or dismissed toast never blocks anything. The center's stored
  * row (already written before `NotificationAdded` fires) is the durable
  * record. This bridge is a pure side effect on top of it.
  *
@@ -120,13 +121,28 @@ export function createOsNotificationBridge(deps: OsNotificationBridgeDeps): {
   }
 
   function handle(payload: AppNotification): void {
-    const win = deps.getMainWindow()
-    const foreground = win == null ? false : win.isVisible() && win.isFocused()
-    if (foreground) return
-
     if (!isEnabledForKind(payload.kind, deps.getAppSettings())) return
 
-    if (!isSupported()) return
+    const isTaskOutcome =
+      payload.kind === NotificationKinds.TaskComplete ||
+      payload.kind === NotificationKinds.TaskError
+    if (!isTaskOutcome) {
+      const win = deps.getMainWindow()
+      if (win?.isVisible() && win.isFocused()) return
+    }
+
+    const context = {
+      notificationId: payload.id,
+      kind: payload.kind,
+      taskId: payload.taskId,
+    }
+    if (!isSupported()) {
+      deps.log.warn(
+        context,
+        'os-notification-bridge: native notifications unavailable'
+      )
+      return
+    }
 
     const title = deps.translate(
       payload.titleKey,
@@ -141,6 +157,13 @@ export function createOsNotificationBridge(deps: OsNotificationBridgeDeps): {
       body === undefined ? { title } : { title, body }
     )
     notification.on('click', () => handleClick(payload))
+    notification.on('failed', (_event, error) => {
+      if (disposed) return
+      deps.log.warn(
+        { ...context, error },
+        'os-notification-bridge: native notification failed'
+      )
+    })
     notification.show()
   }
 
