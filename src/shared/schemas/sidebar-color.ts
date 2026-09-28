@@ -10,6 +10,7 @@ export const sidebarColorSchema = z.enum([
   'green',
   'cyan',
   'gray',
+  'cloud',
 ])
 
 export type SidebarColor = z.infer<typeof sidebarColorSchema>

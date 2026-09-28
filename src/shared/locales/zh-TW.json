@@ -1257,15 +1257,16 @@
       "byteUnitSystemDefault": "跟隨系統（{{units}}）",
       "sidebarColor": "主題色",
       "sidebarColors": {
+        "auto": "自動",
         "blue": "冰藍",
-        "violet": "鳶紫",
-        "pink": "玫粉",
-        "orange": "琥橙",
-        "gold": "香檳",
-        "green": "薄荷",
+        "cloud": "雲白",
         "cyan": "湖青",
+        "gold": "香檳",
         "gray": "淡灰",
-        "auto": "自動"
+        "green": "薄荷",
+        "orange": "琥橙",
+        "pink": "玫粉",
+        "violet": "鳶紫"
       },
       "themeAndEffects": "主題與效果",
       "languageAndDisplay": "語言與顯示",

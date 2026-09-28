@@ -1285,15 +1285,16 @@
       "byteUnitSystemDefault": "Del sistema ({{units}})",
       "sidebarColor": "Color de acento",
       "sidebarColors": {
+        "auto": "Automático",
         "blue": "Azul",
-        "violet": "Violeta",
-        "pink": "Rosa",
-        "orange": "Naranja",
-        "gold": "Dorado",
-        "green": "Verde",
+        "cloud": "Blanco nube",
         "cyan": "Cian",
+        "gold": "Dorado",
         "gray": "Gris",
-        "auto": "Automático"
+        "green": "Verde",
+        "orange": "Naranja",
+        "pink": "Rosa",
+        "violet": "Violeta"
       },
       "themeAndEffects": "Tema y efectos",
       "languageAndDisplay": "Idioma y visualización",

@@ -1271,15 +1271,16 @@
       "byteUnitSystemDefault": "Systemvorgabe ({{units}})",
       "sidebarColor": "Akzentfarbe",
       "sidebarColors": {
+        "auto": "Automatisch",
         "blue": "Blau",
-        "violet": "Violett",
-        "pink": "Rosa",
-        "orange": "Orange",
-        "gold": "Gold",
-        "green": "Grün",
+        "cloud": "Wolkenweiß",
         "cyan": "Cyan",
+        "gold": "Gold",
         "gray": "Grau",
-        "auto": "Automatisch"
+        "green": "Grün",
+        "orange": "Orange",
+        "pink": "Rosa",
+        "violet": "Violett"
       },
       "themeAndEffects": "Design und Effekte",
       "languageAndDisplay": "Sprache und Anzeige",

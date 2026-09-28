@@ -385,6 +385,39 @@ test('sidebar glass color previews, cancels, and survives restart after save', a
     )
     await openAppearance(main)
     await expect(main.getByRole('radio', { name: 'Violet' })).toBeChecked()
+    await main.getByRole('radio', { name: 'Cloud White' }).check()
+    await expect(main.locator('html')).toHaveAttribute(
+      'data-sidebar-color',
+      'cloud'
+    )
+    const sidebar = main.locator('[data-slot="sidebar-wrapper"]')
+    for (const theme of ['light', 'dark']) {
+      await main.evaluate((theme) => {
+        document.documentElement.classList.toggle('dark', theme === 'dark')
+      }, theme)
+      await expect(sidebar).toHaveCSS('background-image', 'none')
+      const lightness = await sidebar.evaluate((element) => {
+        const color = getComputedStyle(element).backgroundColor
+        return Number(color.match(/[\d.]+/g)?.[0])
+      })
+      if (theme === 'light') expect(lightness).toBeGreaterThan(240)
+      else expect(lightness).toBeLessThan(60)
+      await main.screenshot({
+        path: testInfo.outputPath(`sidebar-cloud-${theme}.png`),
+        animations: 'disabled',
+      })
+    }
+    await main.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(main.getByRole('radio', { name: 'Cloud White' })).toBeHidden()
+    await app.close()
+    app = await launchMotrix({ userDataDir, rpcPort })
+    main = await openMain(app)
+    await openAppearance(main)
+    await expect(main.getByRole('radio', { name: 'Cloud White' })).toBeChecked()
+    await expect(main.locator('[data-slot="sidebar-wrapper"]')).toHaveCSS(
+      'background-image',
+      'none'
+    )
     await main.getByRole('radio', { name: 'Auto' }).check()
     await main.getByRole('button', { name: 'Save', exact: true }).click()
     await expect(main.getByRole('radio', { name: 'Auto' })).toBeHidden()

@@ -64,12 +64,27 @@
   --sidebar-glass-saturation: 3%;
 }
 
-:root[data-sidebar-color]:not([data-sidebar-color="gray"]) {
+:root[data-sidebar-color]:not(
+  [data-sidebar-color="gray"],
+  [data-sidebar-color="cloud"]
+) {
   --sidebar: hsl(var(--sidebar-hue) 58% 94%);
 }
 
-:root.dark[data-sidebar-color]:not([data-sidebar-color="gray"]) {
+:root.dark[data-sidebar-color]:not(
+  [data-sidebar-color="gray"],
+  [data-sidebar-color="cloud"]
+) {
   --sidebar: hsl(var(--sidebar-hue) 24% 17%);
+}
+
+:root[data-sidebar-color="cloud"] {
+  --sidebar-cloud-tone: 220 12% 97%;
+  --sidebar: hsl(var(--sidebar-cloud-tone));
+}
+
+:root.dark[data-sidebar-color="cloud"] {
+  --sidebar-cloud-tone: 220 6% 18%;
 }
 
 /* Smoothstep lightness stops avoid a visible edge around a radial highlight.
@@ -135,6 +150,12 @@
   );
 }
 
+/* A uniform neutral wash preserves native glass without directional lighting. */
+:root[data-sidebar-color="cloud"] [data-slot="sidebar-wrapper"] {
+  background-color: hsl(var(--sidebar-cloud-tone) / var(--sidebar-glass-alpha));
+  background-image: none;
+}
+
 :root[data-sidebar-color] [data-slot="sidebar-inner"] {
   background-color: transparent;
 }
@@ -144,6 +165,9 @@
 }
 .sidebar-color-picker[data-color="gray"] {
   --selection-ring-color: #96999e;
+}
+.sidebar-color-picker[data-color="cloud"] {
+  --selection-ring-color: #b6bac2;
 }
 .sidebar-color-picker[data-color="auto"] {
   --selection-ring-color: var(--system-accent-color, #007aff);
@@ -160,6 +184,9 @@
 }
 .sidebar-color-swatch[data-color="gray"] {
   background: #a2a4a8;
+}
+.sidebar-color-swatch[data-color="cloud"] {
+  background: hsl(220 12% 97%);
 }
 .sidebar-color-swatch[data-color="auto"] {
   background: conic-gradient(
