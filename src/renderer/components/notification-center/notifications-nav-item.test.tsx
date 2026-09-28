@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import { SidebarProvider } from '@renderer/components/ui/sidebar'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
+import { refreshRendererSettings } from '@renderer/lib/settings-refresh'
 import { transport } from '@renderer/lib/transport'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
@@ -12,6 +13,7 @@ import { NotificationsNavItem } from './notifications-nav-item'
 
 vi.mock('@renderer/lib/transport', () => ({
   transport: {
+    platform: 'darwin',
     invoke: vi.fn(),
     on: vi.fn(),
     off: vi.fn(),
@@ -57,8 +59,9 @@ beforeAll(() => {
   )
 })
 
-function mockInvoke(count: number) {
+function mockInvoke(count: number, notificationBadgeStyle = 'count') {
   vi.mocked(transport.invoke).mockImplementation(async (ch: string) => {
+    if (ch === Queries.GetSettings) return { app: { notificationBadgeStyle } }
     if (ch === Queries.ListNotifications) return []
     if (ch === Queries.GetUnreadNotificationCount) return count
     return undefined
@@ -79,8 +82,107 @@ function renderNavItem() {
 
 describe('<NotificationsNavItem>', () => {
   afterEach(() => {
+    Object.defineProperty(transport, 'platform', {
+      value: 'darwin',
+      configurable: true,
+    })
     vi.clearAllMocks()
     vi.useRealTimers()
+  })
+
+  it('shows an accessible dot without announcing a numeric obligation', async () => {
+    mockInvoke(7, 'dot')
+    renderNavItem()
+    const dot = await screen.findByTestId('notification-badge-dot')
+    expect(dot).toHaveAttribute('role', 'status')
+    expect(dot).toHaveAttribute('aria-label', 'Unread notifications')
+    expect(dot).not.toHaveAttribute('aria-hidden')
+    expect(screen.queryByTestId('notification-badge')).not.toBeInTheDocument()
+  })
+
+  it('hides both badges and live announcements without hiding navigation', async () => {
+    mockInvoke(7, 'hidden')
+    renderNavItem()
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith(
+        Queries.GetUnreadNotificationCount
+      )
+    )
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(
+      screen.queryByTestId('notification-badge-dot')
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Notifications' })).toHaveAttribute(
+      'href',
+      '/notifications'
+    )
+  })
+
+  it('applies a saved badge preference without a notification event', async () => {
+    mockInvoke(4)
+    renderNavItem()
+    await screen.findByTestId('notification-badge')
+    mockInvoke(4, 'dot')
+    await act(() => refreshRendererSettings())
+    expect(screen.getByRole('status')).toHaveAttribute(
+      'aria-label',
+      'Unread notifications'
+    )
+    mockInvoke(4, 'hidden')
+    await act(() => refreshRendererSettings())
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('does not flash a count while the desktop preference is loading', async () => {
+    let resolveSettings!: (value: unknown) => void
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.GetSettings)
+        return new Promise((resolve) => {
+          resolveSettings = resolve
+        })
+      if (channel === Queries.GetUnreadNotificationCount) return 9
+    })
+    renderNavItem()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    await act(async () =>
+      resolveSettings({ app: { notificationBadgeStyle: 'hidden' } })
+    )
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('ignores an older count response after a newer refresh hides the badge', async () => {
+    let resolveCount!: (value: number) => void
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.GetSettings)
+        return { app: { notificationBadgeStyle: 'count' } }
+      if (channel === Queries.GetUnreadNotificationCount)
+        return new Promise<number>((resolve) => {
+          resolveCount = resolve
+        })
+    })
+    renderNavItem()
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith(
+        Queries.GetUnreadNotificationCount
+      )
+    )
+    mockInvoke(8, 'hidden')
+    await act(() => refreshRendererSettings())
+    await act(async () => resolveCount(7))
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('keeps the Web badge numeric even if desktop settings hide it', async () => {
+    Object.defineProperty(transport, 'platform', {
+      value: 'web',
+      configurable: true,
+    })
+    mockInvoke(7, 'hidden')
+    renderNavItem()
+    expect(await screen.findByTestId('notification-badge')).toHaveTextContent(
+      '7'
+    )
+    expect(transport.invoke).not.toHaveBeenCalledWith(Queries.GetSettings)
   })
 
   it('hides the badge when the unread count is zero', async () => {

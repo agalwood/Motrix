@@ -1,4 +1,16 @@
 // src/renderer/routes/dashboard/tiles/active-tile.tsx
+
+import {
+  DurationIcon,
+  type MotrixIcon,
+  TransferDownIcon,
+  TransferUpIcon,
+} from '@renderer/components/icons'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@renderer/components/ui/tooltip'
 import { useTaskList } from '@renderer/hooks/use-task-list'
 import { cn } from '@renderer/lib/utils'
 import { TaskStatus } from '@shared/types/task'
@@ -83,7 +95,28 @@ export function ActiveTile({
         className="flex min-h-0 flex-1 flex-col justify-between gap-3"
       >
         <TileTitle value={activeCount} />
-        {!compact ? (
+        {compact ? (
+          <dl
+            data-testid="active-compact-breakdown"
+            className="mt-auto flex min-w-0 items-center justify-between gap-2 text-muted-foreground"
+          >
+            <CompactStatus
+              icon={TransferDownIcon}
+              label={t('panel.dashboard.active.downloading')}
+              count={counts.downloading}
+            />
+            <CompactStatus
+              icon={DurationIcon}
+              label={t('panel.dashboard.active.waiting')}
+              count={counts.waiting}
+            />
+            <CompactStatus
+              icon={TransferUpIcon}
+              label={t('panel.dashboard.active.seeding')}
+              count={counts.seeding}
+            />
+          </dl>
+        ) : (
           <div
             data-testid="active-breakdown"
             className={cn(
@@ -98,9 +131,9 @@ export function ActiveTile({
             {visibleSubItems.map(([key, count]) => (
               <div
                 key={key}
-                className="min-w-0 border-border/70 border-l px-3 first:border-l-0 first:pl-0 last:pr-0"
+                className="min-w-0 border-border/70 border-s px-3 first:border-s-0 first:ps-0 last:pe-0"
               >
-                <span className="mb-1 block text-[20px] leading-none text-foreground font-semibold tabular-nums">
+                <span className="mb-1 block text-[20px] leading-none text-foreground font-semibold">
                   {count}
                 </span>
                 <span className="block truncate text-[10px] uppercase leading-none">
@@ -109,8 +142,42 @@ export function ActiveTile({
               </div>
             ))}
           </div>
-        ) : null}
+        )}
       </div>
     </TileShell>
+  )
+}
+
+function CompactStatus({
+  icon: Icon,
+  label,
+  count,
+}: {
+  icon: MotrixIcon
+  label: string
+  count: number
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={<div className="flex min-w-0 items-center gap-1" />}
+      >
+        <dt className="shrink-0">
+          <Icon className="size-3" aria-hidden />
+          <span className="sr-only">{label}</span>
+        </dt>
+        <dd
+          className={cn(
+            'min-w-0 truncate text-xs leading-4 tabular-nums',
+            count > 0 && 'font-medium text-foreground/80'
+          )}
+        >
+          {count}
+        </dd>
+      </TooltipTrigger>
+      <TooltipContent>
+        {label}: {count}
+      </TooltipContent>
+    </Tooltip>
   )
 }

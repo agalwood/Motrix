@@ -1,3 +1,7 @@
+import {
+  admitDownloadSources,
+  DownloadSourceError,
+} from '@core/task/source-admission'
 // src/core/plugin/hooks/hook-orchestrator.ts
 // Plan C — drives every hook chain:
 //   - beforeCreate / beforeFinalize: serial chain over eligible plugins,
@@ -27,6 +31,7 @@ import type {
   OnErrorContextDTO,
 } from '@shared/types/plugin-hooks'
 import type { CapabilityHost } from '../capabilities/interface'
+import { CircuitBreaker as RealCircuitBreaker } from '../circuit/circuit-breaker'
 import type { ActivationDispatcher } from '../host/activation-dispatcher'
 import type { ActivePluginInfo, PluginHost } from '../host/plugin-host'
 import { newHookAbort } from './abort'
@@ -72,7 +77,13 @@ export interface OrchestratorOptions {
   ffmpegStagingQuotaBytes?: number
   /** Optional NDJSON audit log; T15 wires the real instance. */
   auditLog?: HookAuditLog
-  /** Optional circuit breaker; T16 wires the real instance. */
+  /**
+   * Circuit breaker for per-(plugin, hook) failure accounting. Optional only
+   * so callers can substitute a stub: when omitted the orchestrator builds a
+   * real one. It must never be absent in effect — a `pre-resolve` plugin that
+   * fails every chain would otherwise block task creation forever, with no
+   * skip and no auto-disable (the #2189 failure mode).
+   */
   breaker?: CircuitBreaker
 }
 
@@ -137,7 +148,11 @@ function roleFromManifest(
 // ---------------------------------------------------------------------------
 
 export class HookOrchestrator {
-  constructor(private readonly opts: OrchestratorOptions) {}
+  private readonly breaker: CircuitBreaker
+
+  constructor(private readonly opts: OrchestratorOptions) {
+    this.breaker = opts.breaker ?? new RealCircuitBreaker()
+  }
 
   // -------------------------------------------------------------------------
   // beforeCreate (HTTP)
@@ -155,7 +170,7 @@ export class HookOrchestrator {
     log.info(
       {
         taskId,
-        url: initial.uris[0],
+        uriCount: initial.uris.length,
         chainLength: chain.length,
         chain: chain.map((e) => ({ id: e.id, role: e.role })),
       },
@@ -174,7 +189,7 @@ export class HookOrchestrator {
     let working = cloneBeforeCreate(initial)
 
     for (const entry of chain) {
-      if (this.opts.breaker?.isOpen(entry.id, 'beforeCreate')) {
+      if (this.breaker.isOpen(entry.id, 'beforeCreate')) {
         // Breaker open — skip this plugin entirely. Treated like fail-open:
         // resolve/post-process being skipped is a host policy decision, not a
         // plugin failure, so the chain continues regardless of band.
@@ -188,7 +203,7 @@ export class HookOrchestrator {
         continue
       }
 
-      const abort = newHookAbort(entry.info.bridge, entry.info.worker, timeout)
+      const abort = newHookAbort(timeout)
 
       try {
         const metadataSnapshot = await this.metadataSnapshot(taskId, entry.id)
@@ -209,9 +224,14 @@ export class HookOrchestrator {
           },
         })
         working = mergeBeforeCreateWorking(initial, staged)
-        this.opts.breaker?.success(entry.id, 'beforeCreate')
+        working.uris = admitDownloadSources(working.uris, 'plugin', [
+          'http',
+          'https',
+        ]).map((source) => source.sourceUrl)
+        this.breaker.success(entry.id, 'beforeCreate')
       } catch (e) {
-        this.opts.breaker?.failure(entry.id, 'beforeCreate')
+        if (e instanceof DownloadSourceError) throw e
+        this.breaker.failure(entry.id, 'beforeCreate')
         await this.maybeDisable(entry.id, 'beforeCreate')
         const message = (e as Error).message
         await this.opts.auditLog?.log({
@@ -238,6 +258,8 @@ export class HookOrchestrator {
         // merge step does not pick them up.
         staged.removeFromPlugin(entry.id)
         working = mergeBeforeCreateWorking(initial, staged)
+      } finally {
+        abort.dispose()
       }
     }
 
@@ -300,7 +322,7 @@ export class HookOrchestrator {
     let working = cloneBeforeFinalize(initial)
 
     for (const entry of chain) {
-      if (this.opts.breaker?.isOpen(entry.id, 'beforeFinalize')) {
+      if (this.breaker.isOpen(entry.id, 'beforeFinalize')) {
         await this.opts.auditLog?.log({
           type: 'chain.skip',
           hook: 'beforeFinalize',
@@ -310,8 +332,6 @@ export class HookOrchestrator {
         })
         continue
       }
-
-      const abort = newHookAbort(entry.info.bridge, entry.info.worker, timeout)
 
       // beforeFinalize uses the saveDir derived from initial.filePath's parent
       // for path-escape validation (T3 validateFinalizePatch). The bridge gate
@@ -333,6 +353,7 @@ export class HookOrchestrator {
       staged.appendStaging(entry.id, staging)
       const previousFinalizePath = staged.pendingFinalizePath
 
+      const abort = newHookAbort(timeout)
       try {
         const metadataSnapshot = await this.metadataSnapshot(taskId, entry.id)
         await this.opts.host.invokeHook(entry.id, 'beforeFinalize', {
@@ -364,9 +385,9 @@ export class HookOrchestrator {
             targetFilePath: nextTarget,
           }
         }
-        this.opts.breaker?.success(entry.id, 'beforeFinalize')
+        this.breaker.success(entry.id, 'beforeFinalize')
       } catch (e) {
-        this.opts.breaker?.failure(entry.id, 'beforeFinalize')
+        this.breaker.failure(entry.id, 'beforeFinalize')
         await this.maybeDisable(entry.id, 'beforeFinalize')
         const message = (e as Error).message
         await this.opts.auditLog?.log({
@@ -396,6 +417,8 @@ export class HookOrchestrator {
           filePath: previousFinalizePath ?? initial.filePath,
           targetFilePath: previousFinalizePath ?? initial.targetFilePath,
         }
+      } finally {
+        abort.dispose()
       }
     }
 
@@ -448,7 +471,7 @@ export class HookOrchestrator {
     const timeout = this.opts.hookTimeoutMs.parallel
 
     const work = chain.map(async (entry) => {
-      if (this.opts.breaker?.isOpen(entry.id, hook)) {
+      if (this.breaker.isOpen(entry.id, hook)) {
         await this.opts.auditLog?.log({
           type: 'chain.skip',
           hook,
@@ -459,7 +482,7 @@ export class HookOrchestrator {
         return
       }
 
-      const abort = newHookAbort(entry.info.bridge, entry.info.worker, timeout)
+      const abort = newHookAbort(timeout)
 
       try {
         const metadataSnapshot = await this.metadataSnapshot(taskId, entry.id)
@@ -478,9 +501,9 @@ export class HookOrchestrator {
             taskId,
           },
         })
-        this.opts.breaker?.success(entry.id, hook)
+        this.breaker.success(entry.id, hook)
       } catch (e) {
-        this.opts.breaker?.failure(entry.id, hook)
+        this.breaker.failure(entry.id, hook)
         await this.maybeDisable(entry.id, hook)
         await this.opts.auditLog?.log({
           type: 'chain.plugin_error',
@@ -490,6 +513,8 @@ export class HookOrchestrator {
           role: entry.role,
           error: (e as Error).message,
         })
+      } finally {
+        abort.dispose()
       }
     })
 
@@ -594,7 +619,7 @@ export class HookOrchestrator {
    * up and break the running hook chain's fail-mode handling.
    */
   private async maybeDisable(pluginId: string, hook: AnyHook): Promise<void> {
-    if (!this.opts.breaker?.isOpen(pluginId, hook)) return
+    if (!this.breaker.isOpen(pluginId, hook)) return
     try {
       await this.opts.host.disable(pluginId, 'circuit_open')
     } catch {

@@ -37,3 +37,32 @@ describe('useMinuteClock', () => {
     expect(first.result.current).toBe(second.result.current)
   })
 })
+
+describe('minute clock resume', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-15T15:59:30Z'))
+    __resetMinuteClockForTests()
+  })
+  afterEach(() => {
+    __resetMinuteClockForTests()
+    vi.useRealTimers()
+  })
+  it.each(['focus', 'visibilitychange'])(
+    'refreshes immediately on %s after sleep, with one timer',
+    (event) => {
+      const first = renderHook(() => useMinuteClock())
+      const second = renderHook(() => useMinuteClock())
+      vi.setSystemTime(new Date('2026-09-16T02:10:08Z'))
+      act(() =>
+        (event === 'focus' ? window : document).dispatchEvent(new Event(event))
+      )
+      expect(first.result.current).toBe(Date.now())
+      expect(second.result.current).toBe(Date.now())
+      expect(vi.getTimerCount()).toBe(1)
+      first.unmount()
+      second.unmount()
+      expect(vi.getTimerCount()).toBe(0)
+    }
+  )
+})

@@ -1,0 +1,88 @@
+.url-editor {
+  position: relative;
+  width: 100%;
+  --url-line-height: 22px;
+}
+
+.url-editor-control,
+.url-editor-mirror {
+  box-sizing: border-box;
+  margin: 0;
+  border: 0;
+  padding: 12px 56px 12px 12px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 400;
+  font-style: normal;
+  font-variant-ligatures: none;
+  line-height: var(--url-line-height);
+  letter-spacing: 0;
+  text-align: left;
+  text-indent: 0;
+  text-transform: none;
+  tab-size: 4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.url-editor-control {
+  display: block;
+  width: 100%;
+  field-sizing: fixed;
+  height: 100px;
+  overflow-y: auto;
+  color: var(--foreground);
+  caret-color: var(--foreground);
+}
+
+.url-editor-control::placeholder {
+  color: var(--muted-foreground);
+}
+
+.url-editor[data-enhanced="true"] .url-editor-control {
+  color: transparent;
+}
+
+.url-editor-control::selection {
+  color: HighlightText;
+  background: Highlight;
+}
+
+.url-editor-viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.url-editor-mirror {
+  position: relative;
+  color: var(--muted-foreground);
+}
+
+.url-editor-line {
+  min-height: var(--url-line-height);
+}
+
+.url-editor-host {
+  color: var(--foreground);
+}
+
+.url-editor-error {
+  color: var(--destructive);
+  text-decoration: underline wavy;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-skip-ink: none;
+}
+
+@media (forced-colors: active) {
+  .url-editor[data-enhanced="true"] .url-editor-control {
+    color: CanvasText;
+  }
+
+  .url-editor-mirror {
+    visibility: hidden;
+  }
+}

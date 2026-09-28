@@ -1,3 +1,4 @@
+import { ResetIcon, UnlimitedIcon } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import { ButtonGroup } from '@renderer/components/ui/button-group'
 import {
@@ -12,8 +13,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@renderer/components/ui/tooltip'
-import { Infinity as InfinityIcon, RotateCcw } from 'lucide-react'
-import { type ComponentProps, forwardRef } from 'react'
+import { type ComponentProps, forwardRef, useState } from 'react'
 
 type ZeroAction = 'unlimited' | 'inherit'
 
@@ -41,12 +41,17 @@ export const CompactLimitInput = forwardRef<
     resetLabel,
     zeroAction = 'unlimited',
     onKeyDown,
+    onBlur,
     ...props
   },
   ref
 ) {
-  const zero = value <= 0
-  const ResetIcon = zeroAction === 'inherit' ? RotateCcw : InfinityIcon
+  // Preserve partial decimals while editing; the parent rounds to whole bytes.
+  const [draft, setDraft] = useState<{ text: string; unit: string } | null>(
+    null
+  )
+  const zero = value === 0
+  const ZeroActionIcon = zeroAction === 'inherit' ? ResetIcon : UnlimitedIcon
 
   return (
     <ButtonGroup className="w-40 shrink-0">
@@ -60,9 +65,12 @@ export const CompactLimitInput = forwardRef<
                   variant="outline"
                   size="icon-sm"
                   aria-label={resetLabel}
-                  onClick={() => onValueChange(0)}
+                  onClick={() => {
+                    setDraft(null)
+                    onValueChange(0)
+                  }}
                 >
-                  <ResetIcon aria-hidden />
+                  <ZeroActionIcon aria-hidden />
                 </Button>
               }
             />
@@ -75,21 +83,32 @@ export const CompactLimitInput = forwardRef<
           {...props}
           ref={ref}
           data-slot="input-group-control"
-          type="text"
-          role="spinbutton"
-          inputMode="numeric"
+          type="number"
+          min={0}
+          step="any"
+          inputMode="decimal"
           autoComplete="off"
           aria-valuemin={0}
-          aria-valuenow={Math.max(0, value)}
+          aria-valuenow={Number.isFinite(value) ? value : undefined}
           aria-valuetext={zero ? zeroLabel : `${value} ${unit}`}
-          className="h-8 min-w-0 px-2 text-right tabular-nums placeholder:text-right placeholder:text-xs"
-          value={zero ? '' : value}
+          className="h-8 min-w-0 px-2 text-end tabular-nums placeholder:text-end placeholder:text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          value={
+            draft?.unit === unit
+              ? draft.text
+              : zero || !Number.isFinite(value)
+                ? ''
+                : value
+          }
           placeholder={zeroLabel}
           onChange={(event) => {
-            const nextValue = Number.parseInt(event.target.value, 10)
+            setDraft({ text: event.target.value, unit })
             onValueChange(
-              Number.isFinite(nextValue) ? Math.max(0, nextValue) : 0
+              event.target.value === '' ? 0 : event.target.valueAsNumber
             )
+          }}
+          onBlur={(event) => {
+            setDraft(null)
+            onBlur?.(event)
           }}
           onKeyDown={(event) => {
             onKeyDown?.(event)
@@ -100,12 +119,13 @@ export const CompactLimitInput = forwardRef<
               return
             }
             event.preventDefault()
+            setDraft(null)
             const delta = event.key === 'ArrowUp' ? 1 : -1
             onValueChange(Math.max(0, value + delta))
           }}
         />
         {!zero && (
-          <InputGroupAddon align="inline-end" className="pr-2">
+          <InputGroupAddon align="inline-end" className="pe-2">
             <InputGroupText className="text-[11px]">{unit}</InputGroupText>
           </InputGroupAddon>
         )}

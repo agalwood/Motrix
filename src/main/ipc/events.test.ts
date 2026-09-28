@@ -1,5 +1,9 @@
 import { EventBus } from '@core/events/event-bus'
 import { Events } from '@shared/protocol/events'
+import {
+  getHiddenNotificationKinds,
+  NotificationKinds,
+} from '@shared/types/notification'
 import { describe, expect, it, vi } from 'vitest'
 import type { WindowManager } from '../window/window-manager'
 import { setupEventForwarding } from './events'
@@ -36,6 +40,47 @@ function createWindowManager(
 }
 
 describe('setupEventForwarding', () => {
+  it('silences only hidden task events in renderers while preserving native subscribers and live preference changes', () => {
+    const eventBus = new EventBus()
+    const wm = createWindowManager()
+    const preferences = {
+      notifyInAppOnComplete: false,
+      notifyInAppOnError: false,
+    }
+    setupEventForwarding(eventBus, wm, () =>
+      getHiddenNotificationKinds(preferences)
+    )
+    const nativeSubscriber = vi.fn()
+    eventBus.on(Events.NotificationAdded, nativeSubscriber)
+    for (const kind of [
+      NotificationKinds.TaskComplete,
+      NotificationKinds.TaskError,
+    ]) {
+      eventBus.emit(Events.NotificationAdded, { kind })
+    }
+    expect(wm.broadcast).not.toHaveBeenCalled()
+    expect(nativeSubscriber).toHaveBeenCalledTimes(2)
+    for (const kind of [
+      NotificationKinds.EngineFailure,
+      NotificationKinds.EngineCompatibility,
+      'unknown-alert',
+    ]) {
+      eventBus.emit(Events.NotificationAdded, { kind })
+      expect(wm.broadcast).toHaveBeenCalledWith(Events.NotificationAdded, {
+        kind,
+      })
+    }
+    eventBus.emit(Events.NotificationsChanged)
+    expect(wm.broadcast).toHaveBeenCalledWith(Events.NotificationsChanged)
+    preferences.notifyInAppOnError = true
+    eventBus.emit(Events.NotificationAdded, {
+      kind: NotificationKinds.TaskError,
+    })
+    expect(wm.broadcast).toHaveBeenLastCalledWith(Events.NotificationAdded, {
+      kind: NotificationKinds.TaskError,
+    })
+  })
+
   it('broadcasts locale changes to every managed window', () => {
     const eventBus = new EventBus()
     const wm = createWindowManager()

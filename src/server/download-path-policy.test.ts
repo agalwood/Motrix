@@ -1,7 +1,17 @@
-import { chmod, mkdir, mkdtemp, realpath, rm, symlink } from 'node:fs/promises'
+import filesystem, {
+  chmod,
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  stat,
+  symlink,
+  utimes,
+} from 'node:fs/promises'
+import { syncBuiltinESMExports } from 'node:module'
 import os from 'node:os'
 import path from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   createServerDownloadPathPolicy,
   resolveServerDefaultSaveDir,
@@ -16,6 +26,8 @@ async function tempRoot(): Promise<string> {
 }
 
 afterEach(async () => {
+  vi.restoreAllMocks()
+  syncBuiltinESMExports()
   await Promise.all(
     roots.splice(0).map(async (root) => {
       await chmod(root, 0o700).catch(() => undefined)
@@ -45,6 +57,104 @@ describe('resolveServerDefaultSaveDir', () => {
 })
 
 describe('ServerDownloadPathPolicy', () => {
+  it('reuses the single authorization stat for the authorized symlink target modification time', async () => {
+    const root = await tempRoot()
+    const observed = vi.spyOn(filesystem, 'stat')
+    syncBuiltinESMExports()
+    vi.resetModules()
+    const { createServerDownloadPathPolicy: createPolicy } = await import(
+      './download-path-policy'
+    )
+    const policy = await createPolicy({
+      defaultSaveDir: root,
+      allowedSaveDirsValue: root,
+    })
+    const target = path.join(root, 'target')
+    const alias = path.join(root, 'alias')
+    await mkdir(target)
+    await symlink(target, alias)
+    await utimes(target, new Date(1700000000123), new Date(1700000000123))
+    const expected = await stat(target)
+    observed.mockClear()
+    expect(await policy.authorizeDirectory(alias)).toEqual({
+      path: alias,
+      canonicalPath: await realpath(target),
+      rootPath: root,
+      modifiedAt: expected.mtimeMs,
+    })
+    expect(observed).toHaveBeenCalledExactlyOnceWith(await realpath(target))
+  })
+
+  it.each([Number.NaN, Infinity, -Infinity])(
+    'omits nonfinite metadata without weakening the directory check: %s',
+    async (mtimeMs) => {
+      const root = await tempRoot()
+      const observed = vi.spyOn(filesystem, 'stat')
+      syncBuiltinESMExports()
+      vi.resetModules()
+      const { createServerDownloadPathPolicy: createPolicy } = await import(
+        './download-path-policy'
+      )
+      const policy = await createPolicy({
+        defaultSaveDir: root,
+      })
+      const info = await stat(root)
+      Object.defineProperty(info, 'mtimeMs', { value: mtimeMs })
+      observed.mockClear().mockResolvedValueOnce(info)
+      const authorized = await policy.authorizeDirectory(root)
+      expect(authorized).not.toHaveProperty('modifiedAt')
+      expect(observed).toHaveBeenCalledExactlyOnceWith(await realpath(root))
+    }
+  )
+
+  it('authorizes canonical aliases only within their configured resolved subtree, including restart defaults', async () => {
+    const root = await tempRoot()
+    const canonicalRoot = path.join(root, 'real')
+    const alias = path.join(root, 'alias')
+    await mkdir(canonicalRoot)
+    await symlink(canonicalRoot, alias)
+    const policy = await createServerDownloadPathPolicy({
+      defaultSaveDir: alias,
+      allowedSaveDirsValue: alias,
+    })
+    const prepared = await policy.prepareSaveDir(path.join(alias, 'child'))
+    expect(await policy.authorizeDirectory(prepared)).toEqual({
+      path: path.join(alias, 'child'),
+      canonicalPath: prepared,
+      rootPath: alias,
+      modifiedAt: expect.any(Number),
+    })
+    const restarted = await createServerDownloadPathPolicy({
+      defaultSaveDir: prepared,
+      allowedSaveDirsValue: alias,
+    })
+    expect(await restarted.prepareSaveDir(undefined)).toBe(prepared)
+    await expect(restarted.authorizeDirectory(root)).rejects.toMatchObject({
+      directoryCode: 'outsideRoots',
+    })
+    const outside = path.join(root, 'outside')
+    await mkdir(outside)
+    await symlink(outside, path.join(canonicalRoot, 'escape'))
+    await expect(
+      restarted.authorizeDirectory(path.join(canonicalRoot, 'escape'))
+    ).rejects.toMatchObject({ directoryCode: 'outsideRoots' })
+  })
+
+  it('does not treat whitespace-only literal requests as the default sentinel', async () => {
+    const root = await tempRoot()
+    const policy = await createServerDownloadPathPolicy({
+      defaultSaveDir: root,
+    })
+    await expect(policy.prepareSaveDir(' ')).rejects.toThrow(
+      'must be an absolute path'
+    )
+    expect(await policy.prepareSaveDir('')).toBe(await realpath(root))
+    const missing = path.join(root, 'absent')
+    await expect(policy.authorizeDirectory(missing)).rejects.toMatchObject({
+      code: 'ENOENT',
+    })
+    await expect(realpath(missing)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
   it('creates and prepares the default and allowed roots', async () => {
     const root = await tempRoot()
     const downloads = path.join(root, 'downloads')

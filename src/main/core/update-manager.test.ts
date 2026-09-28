@@ -311,6 +311,8 @@ describe('UpdateManager', () => {
     let unsupported: UpdateManager
 
     beforeEach(() => {
+      eventBus = new EventBus()
+      updater = createFakeUpdater()
       unsupported = new UpdateManager({
         eventBus,
         updater,
@@ -338,6 +340,67 @@ describe('UpdateManager', () => {
     it('download() rejects without contacting the updater', async () => {
       await expect(unsupported.download()).rejects.toThrow()
       expect(updater.downloadUpdate).not.toHaveBeenCalled()
+    })
+
+    it('cannot download or install after backend events', async () => {
+      updater.fire('update-available', { version: '2.0.1' })
+
+      await expect(unsupported.download()).rejects.toThrow(
+        'Automatic updates are not supported in this build'
+      )
+      updater.fire('update-downloaded', { version: '2.0.1' })
+      expect(() => unsupported.install()).toThrow(
+        'Automatic updates are not supported in this build'
+      )
+      expect(updater.downloadUpdate).not.toHaveBeenCalled()
+      expect(updater.quitAndInstall).not.toHaveBeenCalled()
+      expect(unsupported.getState().phase).toBe('unsupported')
+    })
+
+    it.each([
+      'checking-for-update',
+      'update-available',
+      'update-not-available',
+      'download-progress',
+      'update-downloaded',
+      'update-cancelled',
+      'error',
+    ])('ignores the backend %s event', (event) => {
+      const emit = vi.spyOn(eventBus, 'emit')
+
+      updater.fire(event, { version: '2.0.1', percent: 50 })
+
+      expect(unsupported.getState()).toEqual({
+        phase: 'unsupported',
+        currentVersion: '2.0.0',
+      })
+      expect(emit).not.toHaveBeenCalled()
+    })
+
+    it('never accesses the backend when created or changing channels', () => {
+      const inaccessibleUpdater = new Proxy(createFakeUpdater(), {
+        get() {
+          throw new Error('Unexpected updater access')
+        },
+        set() {
+          throw new Error('Unexpected updater mutation')
+        },
+      })
+      const isolated = new UpdateManager({
+        eventBus,
+        updater: inaccessibleUpdater,
+        currentVersion: '2.0.0',
+        channel: 'stable',
+        supported: false,
+      })
+
+      isolated.setChannel('beta')
+
+      expect(isolated.getChannel()).toBe('beta')
+      expect(isolated.getState()).toEqual({
+        phase: 'unsupported',
+        currentVersion: '2.0.0',
+      })
     })
   })
 

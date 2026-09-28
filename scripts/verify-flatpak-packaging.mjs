@@ -18,13 +18,13 @@ export const FLATPAK_BUILDER_TOOLS_COMMIT =
 // tag resolves to is pinned by hand (and cross-checked against the manifest).
 export const ARIA2_SOURCE = Object.freeze({
   url: 'https://github.com/motrixapp/aria2.git',
-  // v1.37.0-motrix.14 — current Motrix aria2 fork release
-  commit: 'fb5aa179a3fa6649c59fcfe90b69c44165e32be3',
+  // v1.37.0-motrix.16 — current Motrix aria2 fork release
+  commit: 'e093973f113f0a880f9757a2ad0258cb2356295e',
 })
 
 const PNPM_SOURCE = Object.freeze({
-  url: 'https://registry.npmjs.org/pnpm/-/pnpm-11.25.0.tgz',
-  sha256: '33dd0748f27e7916c4f1c8b6943461983e3453b06bbda6312a6280130b4881e5',
+  url: 'https://registry.npmjs.org/pnpm/-/pnpm-12.5.1.tgz',
+  sha256: '3c1439171c1396d7f30892d2444135c9f11de739175058a1503cdf53788f2099',
 })
 
 const RUST_SOURCES = Object.freeze({
@@ -53,8 +53,6 @@ const COMPANION_PAIR_FRAME_HEX =
 const BUILTIN_SIGNATURE_DIGESTS = Object.freeze({
   'motrix.filename-template-1.1.1.moext.sig':
     '5b6bfcc74e0d923ed37c4f2340bfdc4cdac30f64191a15ce5c46ddc86590bc6d',
-  'motrix.scraper-hook-1.0.0.moext.sig':
-    '7403d5ec5f61819370bcf153fe955e0736109b844c1eb53f959e6ebd0790be78',
   'motrix.url-resolver-1.0.0.moext.sig':
     '716af87eb2adbb4796ed6ac600c9b14840cb8354eb9ccebfe6122615ba88c17c',
 })
@@ -281,12 +279,14 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
   )
   invariant(
     motrixCommands.includes(
-      'npm install -g --prefix=/run/build/motrix/flatpak-node/pnpm-cli'
+      'pnpm_root=/run/build/motrix/flatpak-node/pnpm-cli/lib/node_modules/pnpm'
     ) &&
+      motrixCommands.includes('node "$pnpm_root/install.js"') &&
+      motrixCommands.includes('test "$(pnpm --version)" = \'12.5.1\'') &&
       motrixBuildOptions.includes(
         '/run/build/motrix/flatpak-node/pnpm-cli/bin'
       ),
-    'pnpm CLI must install into a writable build prefix'
+    'pnpm native CLI must bootstrap into a writable build prefix'
   )
   invariant(
     motrixCommands.includes('./flatpak-rust/install.sh') &&
@@ -441,6 +441,17 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
     generatedPnpmState.store_version === 'v11',
     'generated pnpm store must use v11'
   )
+  for (const arch of ['x64', 'arm64']) {
+    const filename = `@pnpm__exe.linux-${arch}-12.5.1.tgz`
+    const source = generatedSources.find(
+      (candidate) => candidate?.['dest-filename'] === filename
+    )
+    invariant(
+      /^[a-f0-9]{128}$/.test(source?.sha512 ?? '') &&
+        source?.dest === 'flatpak-node/pnpm-tarballs',
+      `pnpm ${arch} native bootstrap source is missing`
+    )
+  }
   invariant(
     !generatedSources.some((source) =>
       String(source?.dest).startsWith('flatpak-node/cache/ms-playwright/')

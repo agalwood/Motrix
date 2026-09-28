@@ -1,0 +1,65 @@
+.downloads-task-grid,
+.downloads-inspector-popup {
+  --ring: #7388a3;
+  --downloads-selection: #e4ebf3;
+}
+.downloads-task-row[data-alternate] {
+  background: color-mix(in srgb, var(--muted) 35%, transparent);
+}
+.downloads-task-grid[data-keyboard-focus="true"]:focus-visible {
+  outline: 1px solid var(--ring);
+  outline-offset: -1px;
+}
+.downloads-task-grid[data-keyboard-focus="true"]:focus-visible
+  .downloads-task-row[data-focused] {
+  outline: 1px solid var(--ring);
+  outline-offset: -1px;
+}
+.downloads-task-row[aria-selected="true"] {
+  background: var(--muted);
+}
+.downloads-task-grid[data-active="true"]
+  .downloads-task-row[aria-selected="true"] {
+  color: var(--foreground);
+  background: var(--downloads-selection);
+}
+.downloads-inspector-popup {
+  transform: translateY(
+    calc(
+      var(--drawer-snap-point-offset, 0px) +
+      var(--drawer-swipe-movement-y, 0px)
+    )
+  );
+  transition:
+    transform 220ms ease-out,
+    padding-bottom 220ms ease-out;
+}
+.downloads-inspector-popup[data-swiping] {
+  transition: none;
+}
+.downloads-inspector-popup[data-starting-style],
+.downloads-inspector-popup[data-ending-style] {
+  transform: translateY(100%);
+}
+.dark .downloads-task-grid,
+.dark .downloads-inspector-popup {
+  --ring: #97aac4;
+  --downloads-selection: #303d50;
+}
+@media (prefers-reduced-motion: reduce) {
+  .downloads-inspector-popup {
+    transition: none;
+  }
+}
+@media (forced-colors: active) {
+  .downloads-task-grid,
+  .downloads-inspector-popup {
+    --ring: Highlight;
+  }
+  .downloads-task-grid[data-active="true"]
+    .downloads-task-row[aria-selected="true"] {
+    color: HighlightText;
+    background: Highlight;
+    forced-color-adjust: none;
+  }
+}

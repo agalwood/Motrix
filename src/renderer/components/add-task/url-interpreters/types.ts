@@ -1,4 +1,5 @@
 export interface InterpretResult {
+  rejected?: boolean
   urls?: string[]
   headers?: Record<string, string>
   proxy?: string

@@ -42,6 +42,7 @@ const LIST_RESPONSE = {
 describe('<BlacklistTrackerPanel>', () => {
   beforeEach(() => {
     vi.mocked(transport.invoke).mockImplementation(async (cmd: string) => {
+      if (cmd === Commands.UpdateSettings) return { saved: true }
       if (cmd === Queries.GetSettings) return SETTINGS_RESPONSE
       if (cmd === Queries.GetTrackerList) return LIST_RESPONSE
       return undefined
@@ -73,6 +74,7 @@ describe('<BlacklistTrackerPanel>', () => {
 
   it('shows disabled hint when blacklistEnabled is false', async () => {
     vi.mocked(transport.invoke).mockImplementation(async (cmd: string) => {
+      if (cmd === Commands.UpdateSettings) return { saved: true }
       if (cmd === Queries.GetSettings)
         return {
           tracker: { ...SETTINGS_RESPONSE.tracker, blacklistEnabled: false },

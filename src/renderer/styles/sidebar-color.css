@@ -1,0 +1,228 @@
+/* The seven hues echo the Settings icons; gray uses a neutral glass tint. */
+:root[data-sidebar-color="blue"],
+.sidebar-color-picker[data-color="blue"],
+.sidebar-color-swatch[data-color="blue"] {
+  --sidebar-hue: 215;
+}
+:root[data-sidebar-color="violet"],
+.sidebar-color-picker[data-color="violet"],
+.sidebar-color-swatch[data-color="violet"] {
+  --sidebar-hue: 264;
+}
+:root[data-sidebar-color="pink"],
+.sidebar-color-picker[data-color="pink"],
+.sidebar-color-swatch[data-color="pink"] {
+  --sidebar-hue: 334;
+}
+:root[data-sidebar-color="orange"],
+.sidebar-color-picker[data-color="orange"],
+.sidebar-color-swatch[data-color="orange"] {
+  --sidebar-hue: 25;
+}
+:root[data-sidebar-color="gold"],
+.sidebar-color-picker[data-color="gold"],
+.sidebar-color-swatch[data-color="gold"] {
+  --sidebar-hue: 45;
+}
+:root[data-sidebar-color="green"],
+.sidebar-color-picker[data-color="green"],
+.sidebar-color-swatch[data-color="green"] {
+  --sidebar-hue: 145;
+}
+:root[data-sidebar-color="cyan"],
+.sidebar-color-picker[data-color="cyan"],
+.sidebar-color-swatch[data-color="cyan"] {
+  --sidebar-hue: 186;
+}
+
+/* Broad top lighting fades continuously into the lower tint. */
+:root[data-sidebar-color] {
+  --sidebar-glass-saturation: 52%;
+  --sidebar-glass-alpha: 0.8;
+  --sidebar-glass-top: 97%;
+  --sidebar-glass-range: 9%;
+}
+
+:root.dark[data-sidebar-color] {
+  --sidebar-glass-saturation: 24%;
+  --sidebar-glass-alpha: 0.92;
+  --sidebar-glass-top: 24%;
+}
+
+/* Keep native macOS glass and vibrancy visible beneath the color wash. */
+:root.platform-darwin.window-main[data-sidebar-color] {
+  --sidebar-glass-alpha: 0.4;
+}
+
+:root.dark.platform-darwin.window-main[data-sidebar-color] {
+  --sidebar-glass-alpha: 0.5;
+}
+
+:root[data-sidebar-color="gray"],
+:root.dark[data-sidebar-color="gray"] {
+  --sidebar-hue: 220;
+  --sidebar-glass-saturation: 3%;
+}
+
+:root[data-sidebar-color]:not([data-sidebar-color="gray"]) {
+  --sidebar: hsl(var(--sidebar-hue) 58% 94%);
+}
+
+:root.dark[data-sidebar-color]:not([data-sidebar-color="gray"]) {
+  --sidebar: hsl(var(--sidebar-hue) 24% 17%);
+}
+
+/* Smoothstep lightness stops avoid a visible edge around a radial highlight.
+   Constant alpha preserves one continuous surface over native vibrancy. */
+:root[data-sidebar-color] [data-slot="sidebar-wrapper"] {
+  background-color: transparent;
+  background-image: linear-gradient(
+    180deg in oklab,
+    hsl(
+        var(--sidebar-hue) var(--sidebar-glass-saturation)
+          var(--sidebar-glass-top) /
+        var(--sidebar-glass-alpha)
+      )
+      0%,
+    hsl(
+        var(--sidebar-hue) var(--sidebar-glass-saturation)
+          calc(var(--sidebar-glass-top) - var(--sidebar-glass-range) * 0.043) /
+        var(--sidebar-glass-alpha)
+      )
+      12.5%,
+    hsl(
+        var(--sidebar-hue) var(--sidebar-glass-saturation)
+          calc(var(--sidebar-glass-top) - var(--sidebar-glass-range) * 0.156) /
+        var(--sidebar-glass-alpha)
+      )
+      25%,
+    hsl(
+        var(--sidebar-hue) var(--sidebar-glass-saturation)
+          calc(var(--sidebar-glass-top) - var(--sidebar-glass-range) * 0.316) /
+        var(--sidebar-glass-alpha)
+      )
+      37.5%,
+    hsl(
+        var(--sidebar-hue) var(--sidebar-glass-saturation)
+          calc(var(--sidebar-glass-top) - var(--sidebar-glass-range) * 0.5) /
+        var(--sidebar-glass-alpha)
+      )
+      50%,
+    hsl(
+        var(--sidebar-hue) var(--sidebar-glass-saturation)
+          calc(var(--sidebar-glass-top) - var(--sidebar-glass-range) * 0.684) /
+        var(--sidebar-glass-alpha)
+      )
+      62.5%,
+    hsl(
+        var(--sidebar-hue) var(--sidebar-glass-saturation)
+          calc(var(--sidebar-glass-top) - var(--sidebar-glass-range) * 0.844) /
+        var(--sidebar-glass-alpha)
+      )
+      75%,
+    hsl(
+        var(--sidebar-hue) var(--sidebar-glass-saturation)
+          calc(var(--sidebar-glass-top) - var(--sidebar-glass-range) * 0.957) /
+        var(--sidebar-glass-alpha)
+      )
+      87.5%,
+    hsl(
+        var(--sidebar-hue) var(--sidebar-glass-saturation)
+          calc(var(--sidebar-glass-top) - var(--sidebar-glass-range)) /
+        var(--sidebar-glass-alpha)
+      )
+      100%
+  );
+}
+
+:root[data-sidebar-color] [data-slot="sidebar-inner"] {
+  background-color: transparent;
+}
+
+.sidebar-color-picker {
+  --selection-ring-color: hsl(var(--sidebar-hue) 74% 52%);
+}
+.sidebar-color-picker[data-color="gray"] {
+  --selection-ring-color: #96999e;
+}
+.sidebar-color-picker[data-color="auto"] {
+  --selection-ring-color: var(--system-accent-color, #007aff);
+}
+.sidebar-color-swatch {
+  position: relative;
+  display: block;
+  width: 24px;
+  height: 24px;
+  margin: 4px;
+  border-radius: 50%;
+  background: hsl(var(--sidebar-hue) 76% 56%);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 10%);
+}
+.sidebar-color-swatch[data-color="gray"] {
+  background: #a2a4a8;
+}
+.sidebar-color-swatch[data-color="auto"] {
+  background: conic-gradient(
+    #ef446c,
+    #f8ae24,
+    #7acb42,
+    #18b8d1,
+    #5173ed,
+    #ae4acb,
+    #ef446c
+  );
+}
+.sidebar-color-swatch::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border: 3px solid var(--selection-ring-color);
+  border-radius: inherit;
+  opacity: 0;
+  transform: scale(0.9);
+  transition:
+    border-color 200ms ease-out,
+    opacity 140ms ease-out,
+    transform 180ms ease-out;
+}
+[data-reduced-motion="true"] .sidebar-color-swatch::after {
+  transition: none;
+}
+.sidebar-color-picker input:checked + .sidebar-color-swatch::after {
+  opacity: 1;
+  transform: scale(1);
+}
+.sidebar-color-picker input:focus-visible + .sidebar-color-swatch {
+  outline: 2px solid var(--foreground);
+  outline-offset: 7px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-color-swatch::after {
+    transition: none;
+  }
+}
+.sidebar-color-picker:disabled {
+  opacity: 0.55;
+}
+.sidebar-color-picker:disabled label {
+  cursor: default;
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  :root[data-sidebar-color] [data-slot="sidebar-wrapper"] {
+    background-color: var(--sidebar);
+    background-image: none;
+  }
+}
+@media (forced-colors: active) {
+  .sidebar-color-picker input {
+    position: static;
+    opacity: 1;
+    width: 24px;
+    height: 24px;
+    clip-path: none;
+  }
+  .sidebar-color-swatch {
+    display: none;
+  }
+}

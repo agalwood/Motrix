@@ -2,11 +2,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // ─── Mock node:fs/promises ───────────────────────────────────
 
-const { mockAccess, mockCopyFile, mockMkdir, mockRename } = vi.hoisted(() => ({
+const {
+  mockAccess,
+  mockCopyFile,
+  mockMkdir,
+  mockReadFile,
+  mockRename,
+  mockWriteFileAtomic,
+} = vi.hoisted(() => ({
   mockAccess: vi.fn(),
   mockCopyFile: vi.fn(),
   mockMkdir: vi.fn(),
+  mockReadFile: vi.fn(),
   mockRename: vi.fn(),
+  mockWriteFileAtomic: vi.fn(),
 }))
 
 vi.mock('node:fs/promises', () => ({
@@ -14,13 +23,16 @@ vi.mock('node:fs/promises', () => ({
     access: mockAccess,
     copyFile: mockCopyFile,
     mkdir: mockMkdir,
+    readFile: mockReadFile,
     rename: mockRename,
   },
   access: mockAccess,
   copyFile: mockCopyFile,
   mkdir: mockMkdir,
+  readFile: mockReadFile,
   rename: mockRename,
 }))
+vi.mock('write-file-atomic', () => ({ default: mockWriteFileAtomic }))
 
 import type { Aria2ProxyOptions } from '@core/proxy/serializers'
 import { DEFAULT_ENGINE_SETTINGS } from '@core/settings/validators'
@@ -68,6 +80,8 @@ describe('Aria2ConfigBuilder', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockReadFile.mockResolvedValue('bt-detach-seed-only=true\n')
+    mockWriteFileAtomic.mockResolvedValue(undefined)
     builder = new Aria2ConfigBuilder(
       '/app/extra/aria2.conf',
       '/home/user/.config/motrix'
@@ -79,6 +93,32 @@ describe('Aria2ConfigBuilder', () => {
   })
 
   describe('ensureUserConfig', () => {
+    it('excludes advanced global seeding time while preserving the original config', async () => {
+      mockAccess.mockResolvedValue(undefined)
+      const source =
+        '# seed-time=10\r\nseed-time=0\r\n  seed-time = 60\nseed-ratio=2\n'
+      mockReadFile.mockResolvedValue(source)
+      await expect(builder.ensureUserConfig()).resolves.toBe(
+        '/home/user/.config/motrix/aria2.runtime.conf'
+      )
+      expect(mockWriteFileAtomic).toHaveBeenCalledWith(
+        '/home/user/.config/motrix/aria2.runtime.conf',
+        '# seed-time=10\r\nseed-ratio=2\n',
+        { mode: 0o600 }
+      )
+      expect(
+        buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+          download: 0,
+          upload: 0,
+        })[0]
+      ).toBe('--conf-path=/home/user/.config/motrix/aria2.runtime.conf')
+      expect(mockCopyFile).not.toHaveBeenCalled()
+      mockReadFile.mockResolvedValue('# seed-time=10\nseed-ratio=2\n')
+      await expect(builder.ensureUserConfig()).resolves.toBe(
+        '/home/user/.config/motrix/aria2.conf'
+      )
+    })
+
     it('returns existing user config path when file exists', async () => {
       // access resolves → file exists
       mockAccess.mockResolvedValue(undefined)
@@ -106,6 +146,52 @@ describe('Aria2ConfigBuilder', () => {
         '/home/user/.config/motrix/aria2.conf'
       )
     })
+  })
+
+  it.each([true, false])(
+    'clears a configured input-file when text loading is disabled (SQLite=%s)',
+    async (sqlite3Persistence) => {
+      mockReadFile.mockResolvedValue('  input-file=/old/missing.session\n')
+      await builder.ensureUserConfig()
+      const args = buildArgs(
+        makeEngineSettings({ sqlite3Persistence }),
+        true,
+        null,
+        { download: 0, upload: 0 }
+      )
+      expect(args).toContain('--input-file=')
+      expect(
+        args.filter((arg) => arg.startsWith('--input-file='))
+      ).toHaveLength(1)
+    }
+  )
+
+  it('overrides configured input with an available managed text session', async () => {
+    mockReadFile.mockResolvedValue('input-file=/old/session\n')
+    await builder.ensureUserConfig()
+    expect(
+      buildArgs(
+        makeEngineSettings({ sqlite3Persistence: false }),
+        true,
+        null,
+        { download: 0, upload: 0 },
+        true
+      )
+    ).toContain('--input-file=/home/user/.config/motrix/aria2.session')
+  })
+
+  it('refreshes configured input-file detection on every start', async () => {
+    mockReadFile
+      .mockResolvedValueOnce('input-file=/old/session\n')
+      .mockResolvedValueOnce('# input-file=/commented/session\n')
+    await builder.ensureUserConfig()
+    await builder.ensureUserConfig()
+    expect(
+      buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
+        download: 0,
+        upload: 0,
+      }).some((arg) => arg.startsWith('--input-file='))
+    ).toBe(false)
   })
 
   describe('hasSavedSession', () => {
@@ -171,6 +257,29 @@ describe('Aria2ConfigBuilder', () => {
   })
 
   describe('buildArgs', () => {
+    it.each([8, 64])(
+      'uses the configured server RPC budget of %s MiB',
+      (mib) => {
+        builder = new Aria2ConfigBuilder(
+          '/app/extra/aria2.conf',
+          '/home/user/.config/motrix',
+          {
+            rpcMaxRequestSizeBytes: mib * 1024 * 1024,
+          }
+        )
+        const args = buildArgs(DEFAULT_ENGINE_SETTINGS, false, null, {
+          download: 0,
+          upload: 0,
+        })
+        const requestLimitIndex = args.indexOf(`--rpc-max-request-size=${mib}M`)
+        expect(requestLimitIndex).toBeGreaterThan(
+          args.findIndex((arg) => arg.startsWith('--conf-path='))
+        )
+        expect(requestLimitIndex).toBeGreaterThan(
+          args.findIndex((arg) => arg.startsWith('--max-concurrent-downloads='))
+        )
+      }
+    )
     it('builds args array with default settings', () => {
       const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,
@@ -489,7 +598,7 @@ describe('Aria2ConfigBuilder', () => {
       expect(args).toContain(
         `--seed-ratio=${DEFAULT_ENGINE_SETTINGS.seedRatio}`
       )
-      expect(args).toContain(`--seed-time=${DEFAULT_ENGINE_SETTINGS.seedTime}`)
+      expect(args.some((arg) => arg.startsWith('--seed-time='))).toBe(false)
     })
 
     it('injects session-save-interval', () => {
@@ -530,7 +639,7 @@ describe('Aria2ConfigBuilder', () => {
       expect(args).toContain('--bt-max-peers=256')
       expect(args).toContain('--bt-enable-lpd=false')
       expect(args).toContain('--seed-ratio=2')
-      expect(args).toContain('--seed-time=0')
+      expect(args.some((arg) => arg.startsWith('--seed-time='))).toBe(false)
     })
   })
 

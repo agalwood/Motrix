@@ -1208,8 +1208,22 @@ different meaning to `4001`.
   `{port, instanceId}`. A pin is committed **only after** a
   mutually-authenticated session on that port — never from `/discovery`.
 - Pinned-port mismatch → full candidate sweep for the matching `instanceId`
-  → re-commit only post-auth; otherwise clear the pin and fall back to fresh
-  code-entry pairing.
+  → re-commit only post-auth. Failure to find or authenticate a running App
+  MUST retain credentials for retry; it MUST NOT fall back to fresh code-entry
+  pairing. A stale routing pin is not evidence that the pairing was revoked.
+- App exit, browser restart, transport loss and exhausted passive discovery
+  do not revoke a pairing. Opening the popup performs passive discovery without
+  launching the App. A download or task-view intent may launch a paired local
+  App and reconnect through `/v1`; a remote intent only reconnects to its Server.
+  Permission to launch is separate from permission to enter first pairing.
+  Native Messaging discovers/launches the App; downloads use authenticated MDXP
+  after initialization. A Native Host response alone does not acknowledge a task.
+- First pairing is admitted only by an explicit pairing action with no retained
+  credential. A download, task-view or ordinary reconnect action MUST NOT discard
+  a retained credential or enter `/pair`. The user may explicitly forget a
+  pairing and then pair again; authenticated revocation follows its own cleanup
+  path. A connection error or unauthenticated `authFailed` does not grant that
+  authority.
 - Remote authorities perform no port sweep and store no pin. Their committed
   credential durably includes the `authenticatedInstanceId`; reconnect uses
   that retained identity rather than the discovery hint. If the same authority
@@ -1227,8 +1241,9 @@ different meaning to `4001`.
   `authFailed` never deletes a credential on its own, so a forged `authFailed`
   cannot strand the client.
   When no stored credential authenticates, the retained set stays for a later
-  retry and the flow returns to first pair only on explicit user action or
-  revocation. Retained state is bounded: at most the committed credential plus
+  retry. First pairing is available only after explicit forgetting or
+  authenticated revocation has removed that retained set, followed by an explicit
+  pairing action. Retained state is bounded: at most the committed credential plus
   the newest provisional one per principal. Provisional entries carry a
   sub-state (§6.7): an `unacked` one expires after 10 minutes, but a
   `commit-uncertain` one (its `credentialAck` was sent, so the server may have

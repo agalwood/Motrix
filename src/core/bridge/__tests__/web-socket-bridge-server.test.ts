@@ -19,6 +19,8 @@ import {
   WS_CLOSE_PROTOCOL_ERROR,
 } from '@core/bridge/web-socket-bridge-server'
 import type { WebSocketLike } from '@core/bridge/web-socket-message-stream'
+import { BridgeReceiverError } from '@core/bridge-receiver/errors'
+import { ErrorCodes } from '@motrix/mdxp'
 import type { ClientIdentity } from '@shared/protocol/bridge'
 import { EngineState } from '@shared/types/engine'
 import { TaskStatus } from '@shared/types/task'
@@ -276,6 +278,11 @@ describe('WebSocketBridgeServer.start() bind guard', () => {
 
 function makeFakeReadDeps(): ReadHandlerDeps {
   return {
+    getDownloadDirectories: async () => ({
+      defaultSaveDir: '/downloads',
+      favorites: [],
+      recent: [],
+    }),
     taskManager: {
       getAll: () => [],
       getById: () => undefined,
@@ -321,10 +328,12 @@ function makeFakeWriteDeps(
 describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
   let server: WebSocketBridgeServer
   let mbp1: Mbp1TestWiring
+  let ffmpegAvailable = true
   let port: number
   let revealTask: Mock<(taskId: string) => Promise<void>>
 
   beforeEach(async () => {
+    ffmpegAvailable = true
     mbp1 = await makeMbp1TestWiring([['chromium', EXTENSION_ID]])
     server = new WebSocketBridgeServer({
       pairing: makeStatefulFakePairing(),
@@ -337,7 +346,7 @@ describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
       } as unknown as TrustedExtensionRegistry,
       motrixVersion: '2.0',
       runtime: 'electron',
-      ffmpegAvailable: true,
+      ffmpegAvailable: async () => ffmpegAvailable,
       localToken: 'test-token',
       ...mbp1.options,
     })
@@ -365,6 +374,10 @@ describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
       initializeParams(EXTENSION_ID)
     )
     expect(initialized.capabilities.taskReveal).toBe(true)
+    expect(initialized.capabilities.downloadDirectories).toBe(true)
+    await expect(conn.sendRequest('download/directories', {})).resolves.toEqual(
+      { defaultSaveDir: '/downloads', favorites: [], recent: [] }
+    )
     conn.sendNotification('motrix/initialized', undefined as never)
 
     // task/list reaches the dispatcher and returns its shape.
@@ -392,6 +405,120 @@ describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
 
     conn.dispose()
     paired.wire.ws.close()
+  })
+
+  it('preserves directory rejections and schema failures on the paired wire', async () => {
+    const submitDownload = vi.fn(async () => {
+      throw {
+        code: ErrorCodes.InvalidParams,
+        message: 'Download directory is unavailable',
+        data: { appCode: 'download-directory-unavailable' },
+      }
+    })
+    server.setHandlers({ submitDownload })
+    const paired = await pairAndExchange({
+      port,
+      origin: ORIGIN,
+      browser: 'chromium',
+      claimedExtensionId: EXTENSION_ID,
+      code: () => mbp1.dialogs.latestCode(),
+    })
+    const conn = mdxpOverChannel(paired.wire, paired.channel)
+    try {
+      await conn.sendRequest(
+        'motrix/initialize',
+        initializeParams(EXTENSION_ID)
+      )
+      conn.sendNotification('motrix/initialized', undefined)
+      const params = {
+        source: {
+          pageUrl: 'https://example.test',
+          pageTitle: '',
+          detectedAt: 0,
+        },
+        selection: {
+          kind: 'magnet' as const,
+          uri: 'magnet:?xt=urn:btih:0123456789012345678901234567890123456789',
+        },
+        meta: { suggestedFilename: '', qualityLabel: '' },
+        saveDir: '/stale',
+      }
+      await expect(
+        conn.sendRequest('download/submit', params)
+      ).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+        data: { appCode: 'download-directory-unavailable' },
+      })
+      await expect(
+        conn.sendRequest('download/submit', {
+          ...params,
+          saveDir: '/bad\0path',
+        })
+      ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams })
+      expect(submitDownload).toHaveBeenCalledTimes(1)
+    } finally {
+      conn.dispose()
+      paired.wire.ws.close()
+    }
+  })
+
+  it('refreshes live capabilities and preserves a missing-media rejection on the authenticated wire', async () => {
+    const submitDownload = vi.fn(async () => {
+      throw new BridgeReceiverError(
+        'unsupported-kind',
+        '/private/path/ffmpeg unavailable'
+      )
+    })
+    server.setHandlers({ submitDownload })
+    const paired = await pairAndExchange({
+      port,
+      origin: ORIGIN,
+      browser: 'chromium',
+      claimedExtensionId: EXTENSION_ID,
+      code: () => mbp1.dialogs.latestCode(),
+    })
+    const conn = mdxpOverChannel(paired.wire, paired.channel)
+    try {
+      ffmpegAvailable = false
+      const read = () =>
+        conn.sendRequest('motrix/initialize', initializeParams(EXTENSION_ID))
+      expect((await read()).capabilities.selectionKinds).toEqual(['direct'])
+      conn.sendNotification('motrix/initialized', undefined)
+      ffmpegAvailable = true
+      expect((await read()).capabilities.selectionKinds).toContain('mux')
+      ffmpegAvailable = false
+      expect((await read()).capabilities.selectionKinds).toEqual(['direct'])
+      await expect(
+        conn.sendRequest('download/submit', {
+          source: {
+            pageUrl: 'https://example.com',
+            pageTitle: 'Video',
+            detectedAt: 1,
+          },
+          selection: {
+            kind: 'direct',
+            primary: {
+              url: 'https://example.com/video.mp4',
+              headers: {},
+              cookies: [],
+              refererPolicy: 'strict-origin-when-cross-origin',
+            },
+          },
+          meta: { suggestedFilename: 'video.mp4', qualityLabel: '' },
+        })
+      ).rejects.toMatchObject({
+        code: ErrorCodes.CapabilityNotSupported,
+        message: 'Media selection is not supported',
+      })
+      expect(submitDownload).toHaveBeenCalledTimes(1)
+      await expect(conn.sendRequest('task/list', {})).resolves.toEqual({
+        tasks: [],
+        total: 0,
+      })
+    } finally {
+      conn.dispose()
+      paired.wire.ws.close()
+    }
   })
 
   it('round-trips system/ping inside the AEAD channel', async () => {

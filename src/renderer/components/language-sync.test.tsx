@@ -66,6 +66,26 @@ describe('LanguageSync', () => {
     expect(transport.off).toHaveBeenCalledWith(Events.LocaleChanged, listener)
   })
 
+  it.each(['main', 'onboarding'] as const)(
+    'keeps %s on the committed system locale across focus and reconnect',
+    async (windowId) => {
+      mocks.platform = 'web'
+      vi.mocked(transport.invoke).mockResolvedValue({
+        language: 'system',
+        app: { language: 'system' },
+        resolvedLanguage: 'fr',
+      })
+      render(<LanguageSync windowId={windowId} />)
+      await waitFor(() => expect(i18n.resolvedLanguage).toBe('fr'))
+      act(() => {
+        window.dispatchEvent(new Event('focus'))
+        mocks.connectionListener?.({ state: 'connected' })
+      })
+      await waitFor(() => expect(transport.invoke).toHaveBeenCalledTimes(3))
+      expect(i18n.resolvedLanguage).toBe('fr')
+    }
+  )
+
   it('ignores malformed locale events', async () => {
     render(<LanguageSync />)
     const listener = mocks.listeners.get(Events.LocaleChanged)
@@ -93,6 +113,7 @@ describe('LanguageSync', () => {
   it('reconciles persisted settings whenever the web transport connects', async () => {
     mocks.platform = 'web'
     vi.mocked(transport.invoke)
+      .mockResolvedValueOnce({ app: { language: 'en-US' } })
       .mockResolvedValueOnce({ app: { language: 'zh-CN' } })
       .mockResolvedValueOnce({ app: { language: 'en-US' } })
     render(<LanguageSync windowId="main" />)
@@ -108,7 +129,7 @@ describe('LanguageSync', () => {
       mocks.connectionListener?.({ state: 'connecting' })
       mocks.connectionListener?.({ state: 'connected' })
     })
-    await waitFor(() => expect(transport.invoke).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(transport.invoke).toHaveBeenCalledTimes(3))
     await waitFor(() => expect(i18n.resolvedLanguage).toBe('en-US'))
   })
 

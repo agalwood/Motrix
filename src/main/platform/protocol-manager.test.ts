@@ -66,6 +66,7 @@ function makeDeps(magnetEnabled = true) {
   const onOpenAddTask = vi.fn()
   const deliverToAddTask = vi.fn()
   const onOpenPluginDetail = vi.fn()
+  const onOpenTaskDetail = vi.fn()
   mockParse.mockResolvedValue(defaultMeta)
   return {
     getWindow: () => mockWindow as never,
@@ -76,6 +77,7 @@ function makeDeps(magnetEnabled = true) {
     onOpenAddTask,
     deliverToAddTask,
     onOpenPluginDetail,
+    onOpenTaskDetail,
     mockWindow,
   }
 }
@@ -101,6 +103,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       } = makeDeps(true)
       const pm = createProtocolManager({
         getWindow,
@@ -109,6 +112,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       })
       expect(pm.register()).toEqual({ magnetMatchesSetting: true })
 
@@ -124,6 +128,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       } = makeDeps(false)
       const pm = createProtocolManager({
         getWindow,
@@ -132,6 +137,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       })
       expect(pm.register()).toEqual({ magnetMatchesSetting: true })
 
@@ -148,6 +154,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       } = makeDeps(true)
       const pm = createProtocolManager({
         getWindow,
@@ -156,6 +163,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       })
       expect(pm.register()).toEqual({ magnetMatchesSetting: null })
 
@@ -170,6 +178,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       } = makeDeps(true)
       const pm = createProtocolManager({
         getWindow,
@@ -178,6 +187,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
         platform: 'win32',
       })
       expect(pm.register()).toEqual({ magnetMatchesSetting: null })
@@ -194,6 +204,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       } = makeDeps(true)
       const pm = createProtocolManager({
         getWindow,
@@ -202,6 +213,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
         isAppImage: true,
       })
       expect(pm.register()).toEqual({ magnetMatchesSetting: null })
@@ -218,6 +230,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       } = makeDeps(true)
       mockSetAsDefault.mockReturnValue(false)
       mockIsDefault.mockReturnValue(false)
@@ -228,6 +241,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       })
 
       expect(pm.register()).toEqual({ magnetMatchesSetting: false })
@@ -235,6 +249,34 @@ describe('createProtocolManager', () => {
   })
 
   describe('handle', () => {
+    it.each(['task-123', '任务/一?#&%'])(
+      'opens task details for encoded id %s',
+      (id) => {
+        const deps = makeDeps()
+        createProtocolManager(deps).handle(
+          `motrix://tasks/${encodeURIComponent(id)}`
+        )
+        expect(deps.onOpenTaskDetail).toHaveBeenCalledExactlyOnceWith(id)
+        expect(deps.onOpenAddTask).not.toHaveBeenCalled()
+        expect(deps.onOpenPluginDetail).not.toHaveBeenCalled()
+      }
+    )
+
+    it.each([
+      'motrix://tasks/',
+      'motrix://tasks/%20',
+      'motrix://tasks/%E0%A4%A',
+      'motrix://tasks/task-1?other=task-2',
+      'motrix://tasks/task-1#other',
+      'motrix://user@tasks/task-1',
+      `motrix://tasks/${'a'.repeat(1025)}`,
+    ])('does not navigate to a task for malformed deeplink %s', (url) => {
+      const deps = makeDeps()
+      createProtocolManager(deps).handle(url)
+      expect(deps.onOpenTaskDetail).not.toHaveBeenCalled()
+      expect(deps.onOpenAddTask).not.toHaveBeenCalled()
+    })
+
     it('opens add-task window with magnet in links prefill', () => {
       const {
         getWindow,
@@ -243,6 +285,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       } = makeDeps()
       const pm = createProtocolManager({
         getWindow,
@@ -251,6 +294,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       })
       pm.handle('magnet:?xt=urn:btih:abc123')
 
@@ -268,6 +312,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       } = makeDeps()
       const pm = createProtocolManager({
         getWindow,
@@ -276,6 +321,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       })
       pm.handle('https://example.com/file.zip')
 
@@ -293,6 +339,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       } = makeDeps()
       const pm = createProtocolManager({
         getWindow,
@@ -301,6 +348,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       })
       const encoded = encodeURIComponent('https://example.com/file.zip')
       pm.handle(`motrix://new-task?uri=${encoded}`)
@@ -319,6 +367,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       } = makeDeps()
       const pm = createProtocolManager({
         getWindow,
@@ -327,6 +376,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       })
       const encoded = encodeURIComponent('magnet:?xt=urn:btih:abc')
       pm.handle(`motrix://new-task?uri=${encoded}`)
@@ -345,6 +395,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
         mockWindow,
       } = makeDeps()
       const pm = createProtocolManager({
@@ -354,6 +405,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       })
       pm.handle('motrix://')
 
@@ -369,6 +421,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
         mockWindow,
       } = makeDeps()
       const pm = createProtocolManager({
@@ -378,6 +431,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       })
       pm.handle('motrix://plugins/example.archive-unpacker')
 
@@ -396,6 +450,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
         mockWindow,
       } = makeDeps()
       const pm = createProtocolManager({
@@ -405,6 +460,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       })
       // No dot namespace / uppercase / traversal-looking ids are all refused.
       pm.handle('motrix://plugins/no-namespace')
@@ -427,6 +483,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       } = makeDeps()
       const pm = createProtocolManager({
         getWindow,
@@ -435,6 +492,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       })
       await pm.handleTorrentFile('/path/to/test.torrent')
 
@@ -460,6 +518,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       } = makeDeps()
       const pm = createProtocolManager({
         getWindow,
@@ -468,6 +527,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       })
       await pm.handleTorrentFile('/path/to/file.txt')
 
@@ -488,6 +548,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       } = makeDeps()
       const pm = createProtocolManager({
         getWindow,
@@ -496,6 +557,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       })
       await pm.handleTorrentFile('/path/to/a.torrent')
       await pm.handleTorrentFile('/path/to/b.torrent')
@@ -523,6 +585,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       } = makeDeps()
       const pm = createProtocolManager({
         getWindow,
@@ -531,6 +594,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       })
       await pm.handleTorrentFile('/path/to/a.torrent')
       await pm.handleTorrentFile('/path/to/b.torrent')
@@ -583,6 +647,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       } = makeDeps()
       const pm = createProtocolManager({
         getWindow,
@@ -591,6 +656,7 @@ describe('createProtocolManager', () => {
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
+        onOpenTaskDetail,
       })
       await pm.handleTorrentFile('/path/to/a.torrent')
       await pm.handleTorrentFile('/path/to/b.torrent')

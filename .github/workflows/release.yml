@@ -15,7 +15,9 @@
 # runtime and per-architecture native zsync metadata. It self-integrates its
 # desktop entry and URL-scheme handlers at runtime under the user's XDG data
 # tree (src/main/platform/appimage-integration.ts). Snap has its own
-# strict-confinement build and Store promotion workflows. 32-bit targets remain
+# strict-confinement build and Store promotion workflows. Flatpak reuses its
+# native build and installed-payload checks and joins both Linux release sets.
+# 32-bit targets remain
 # unsupported. Windows arm64 remains reserved until the aria2 lock supplies that
 # architecture.
 
@@ -142,7 +144,7 @@ jobs:
             platform: linux
             arch: x64
             rust_target: x86_64-unknown-linux-musl
-            electron_builder_args: --linux deb rpm AppImage --x64
+            electron_builder_args: --linux deb rpm pacman AppImage --x64
             resources_dir: release/linux-unpacked/resources
             app_path: release/linux-unpacked
           - target: linux-arm64
@@ -150,7 +152,7 @@ jobs:
             platform: linux
             arch: arm64
             rust_target: aarch64-unknown-linux-musl
-            electron_builder_args: --linux deb rpm AppImage --arm64
+            electron_builder_args: --linux deb rpm pacman AppImage --arm64
             resources_dir: release/linux-arm64-unpacked/resources
             app_path: release/linux-arm64-unpacked
           - target: win32-x64
@@ -175,9 +177,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 11.25.0
+          version: 12.5.1
           run_install: false
 
       - name: Setup Node.js
@@ -193,7 +195,7 @@ jobs:
           # squashfs-tools provides `unsquashfs`, used by
           # verify-appimage-artifact.mjs to read the AppImage's embedded
           # desktop entry. zsync provides the canonical `zsyncmake` generator.
-          sudo apt-get install --yes rpm squashfs-tools zsync
+          sudo apt-get install --yes rpm squashfs-tools zsync zstd libarchive-tools
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
@@ -220,6 +222,7 @@ jobs:
         env:
           # Fetching the package target is explicit in the next step.
           MOTRIX_SKIP_ENGINE_FETCH: '1'
+          MOTRIX_SKIP_ELECTRON_REBUILD: '1'
 
       # Electron does not declare a postinstall script, so pnpm install
       # does not hydrate dist/ with the runtime and license payload.
@@ -236,14 +239,11 @@ jobs:
         run: pnpm run check:third-party-notices
 
       # Build each target on a runner with the same native CPU architecture.
-      # This also ensures better-sqlite3 is rebuilt for the packaged Electron.
       - name: Build
         run: |
           pnpm run build:builtin
           pnpm run build:native-host -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
           pnpm run build:finalize-fs -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
-          pnpm run build:electron
-          pnpm run stage:electron -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
 
       - name: Finalize filesystem runtime integration
         env:
@@ -251,7 +251,16 @@ jobs:
         run: >-
           pnpm exec vitest run
           src/core/plugin/finalize/native-artifact-operations.integration.test.ts
+          src/core/plugin/finalize/finalize-adversarial.integration.test.ts
+          src/core/plugin/finalize/finalize-smb-recovery.integration.test.ts
           --reporter=verbose
+
+      # SQLite integration tests above use Node. Rebuild for Electron before
+      # staging, so the packaged native dependency retains the correct ABI.
+      - name: Build Electron application
+        run: |
+          pnpm run build:electron
+          pnpm run stage:electron -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
 
       # Tagged macOS and Windows outputs are deliberately unsigned here. A
       # fresh, no-checkout job finalizes only the verified data artifact below,
@@ -394,13 +403,26 @@ jobs:
           shopt -s nullglob
           debs=(release/*.deb)
           rpms=(release/*.rpm)
+          pacmans=(release/*.pacman)
           appimages=(release/*.AppImage)
-          if (( ${#debs[@]} != 1 || ${#rpms[@]} != 1 || ${#appimages[@]} != 1 )); then
-            echo "Expected one deb, rpm, and AppImage for ${{ matrix.target }}" >&2
+          if (( ${#debs[@]} != 1 || ${#rpms[@]} != 1 || ${#pacmans[@]} != 1 || ${#appimages[@]} != 1 )); then
+            echo "Expected one deb, rpm, pacman, and AppImage for ${{ matrix.target }}" >&2
             exit 1
           fi
           dpkg-deb --info "${debs[0]}"
           rpm -qip "${rpms[0]}"
+
+      - name: Verify Arch Linux package
+        if: matrix.platform == 'linux'
+        run: >-
+          node scripts/verify-pacman-artifact.mjs
+          --dir release
+          --version "${{ needs.preflight.outputs.version }}"
+          --arch ${{ matrix.arch }}
+
+      - name: Smoke test Arch Linux installation
+        if: matrix.target == 'linux-x64'
+        run: bash scripts/smoke-pacman-package.sh release
 
       - name: Verify AppImage artifact
         if: matrix.platform == 'linux'
@@ -531,6 +553,7 @@ jobs:
             release/*.dmg
             release/*.exe
             release/*.rpm
+            release/*.pacman
             release/*.tar.gz
             release/latest*.yml
             release/size-reports/${{ matrix.target }}.json
@@ -573,7 +596,7 @@ jobs:
             electron_builder_args: --mac --arm64
             resources_dir: release/mac-arm64/Motrix.app/Contents/Resources
             app_path: release/mac-arm64/Motrix.app
-            electron_sha256: a8711350df6d9bafb8348f11fa7310a8d580edff476caafbf69d50dbf2d8043b
+            electron_sha256: 6b728f5dcfae74f3f936f2bca5b3cd9b9659ffea464f67939f004acb55425a85
           - target: darwin-x64
             os: macos-26-intel
             platform: darwin
@@ -582,7 +605,7 @@ jobs:
             electron_builder_args: --mac --x64
             resources_dir: release/mac/Motrix.app/Contents/Resources
             app_path: release/mac/Motrix.app
-            electron_sha256: 5def2f57eb119406997892a475794807fc32eba9d090160aaddc81f6d5657a36
+            electron_sha256: 015b52631d92187b552ff4e047255f596a7af4707e388a5890951f0b2645764e
           - target: win32-x64
             os: windows-2025
             platform: win32
@@ -591,7 +614,7 @@ jobs:
             electron_builder_args: --win --x64
             resources_dir: release/win-unpacked/resources
             app_path: release/win-unpacked
-            electron_sha256: c574a22981889b74212c90a9391adcca116cd9d74e32b660ab21d0130ab50cc2
+            electron_sha256: 790a355b684d5c7cc8dc3cdd8c4cca7c4b2d054685427c7554a956879a82e70b
     env:
       CUSTOM_DMGBUILD_PATH: ''
       ELECTRON_BUILDER_7ZIP_PATH: ''
@@ -868,7 +891,7 @@ jobs:
           EXPECTED_COMMIT: ${{ github.sha }}
           EXPECTED_PLATFORM: ${{ matrix.platform }}
           # Updated only after reviewing the verifier source itself.
-          VERIFIER_SHA256: 66b9274ea3cb775bc00f02cf82dd18730a09e09005843d270ac5e784f7d5aa9a
+          VERIFIER_SHA256: a1fbdc378f9d18c4a3ce37131749be1d6de282260f1cb235ab68968977956cd6
         run: |
           const crypto = require('node:crypto')
           const fs = require('node:fs')
@@ -1026,7 +1049,7 @@ jobs:
           cp \
             signing-input/signing-policy/installer.nsh \
             signing-input/trusted/installer.nsh
-          url="https://github.com/electron/electron/releases/download/v44.1.1/electron-v44.1.1-${{ matrix.platform }}-${{ matrix.arch }}.zip"
+          url="https://github.com/electron/electron/releases/download/v44.4.3/electron-v44.4.3-${{ matrix.platform }}-${{ matrix.arch }}.zip"
           curl --fail --location --proto '=https' --tlsv1.2 \
             "$url" --output signing-input/trusted/electron.zip
           node - <<'NODE'
@@ -1509,13 +1532,21 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  flatpak:
+    name: Build and validate Flatpak
+    needs: preflight
+    uses: ./.github/workflows/flatpak.yml
+    with:
+      release-version: ${{ needs.preflight.outputs.version }}
+
   assemble:
     name: Assemble and validate release
-    needs: [preflight, build, sign]
+    needs: [preflight, build, sign, flatpak]
     if: >-
       always() &&
       needs.preflight.result == 'success' &&
       needs.build.result == 'success' &&
+      needs.flatpak.result == 'success' &&
       (
         (github.event_name == 'push' && needs.sign.result == 'success') ||
         (github.event_name == 'workflow_dispatch' && needs.sign.result == 'skipped')
@@ -1530,9 +1561,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 11.25.0
+          version: 12.5.1
           run_install: false
 
       - name: Setup Node.js
@@ -1549,6 +1580,18 @@ jobs:
         with:
           pattern: release-input-*
           path: release-input
+
+      - name: Download verified x86_64 Flatpak
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: flatpak-release-x64
+          path: release-input/release-input-linux-x64/flatpak
+
+      - name: Download verified aarch64 Flatpak
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: flatpak-release-arm64
+          path: release-input/release-input-linux-arm64/flatpak
 
       - name: Assemble release artifacts
         run: >-

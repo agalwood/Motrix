@@ -1,0 +1,43 @@
+.directory-picker-pane {
+  --directory-picker-focus: #7388a3;
+}
+
+.directory-picker-list [role="listbox"] {
+  box-shadow: none;
+}
+
+.directory-picker-list
+  [role="listbox"]:focus-visible[aria-disabled="false"]
+  [role="option"][aria-selected="true"] {
+  outline: 2px solid var(--directory-picker-focus);
+  outline-offset: -2px;
+}
+
+.directory-picker-target {
+  position: relative;
+  padding-inline-start: 8px;
+}
+
+/* Keep the keyboard target visible when no child is selected or it is offscreen. */
+.directory-picker-pane:has(
+  .directory-picker-list [role="listbox"]:focus-visible[aria-disabled="false"]
+) .directory-picker-target::before {
+  content: "";
+  position: absolute;
+  inset-block: 2px;
+  inset-inline-start: 0;
+  width: 2px;
+  background: var(--directory-picker-focus);
+  forced-color-adjust: none;
+}
+
+.dark .directory-picker-pane {
+  --directory-picker-focus: #97aac4;
+}
+
+@media (forced-colors: active) {
+  .directory-picker-pane,
+  .dark .directory-picker-pane {
+    --directory-picker-focus: Highlight;
+  }
+}

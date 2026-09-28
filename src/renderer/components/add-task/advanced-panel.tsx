@@ -1,3 +1,4 @@
+import { ChevronRightIcon, HelpIcon } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import {
   Collapsible,
@@ -12,10 +13,10 @@ import {
 } from '@renderer/components/ui/form'
 import { Input } from '@renderer/components/ui/input'
 import { Textarea } from '@renderer/components/ui/textarea'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { cn } from '@renderer/lib/utils'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import type { AddTaskFormValues } from '@shared/schemas/add-task'
-import { ChevronRight, CircleQuestionMark } from 'lucide-react'
 import { type ReactNode, useLayoutEffect, useState } from 'react'
 import { useFormContext, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -39,11 +40,11 @@ export function AdvancedPanel() {
             type="button"
             variant="ghost"
             size="sm"
-            className="-ml-2 h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-transparent dark:hover:bg-transparent"
+            className="-ms-2 h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-transparent dark:hover:bg-transparent"
           />
         }
       >
-        <ChevronRight
+        <ChevronRightIcon
           className={cn(
             'h-3.5 w-3.5 transition-transform duration-150',
             open && 'rotate-90'
@@ -52,7 +53,7 @@ export function AdvancedPanel() {
         />
         {t('task.add.advanced')}
       </CollapsibleTrigger>
-      <CollapsibleContent className="mt-2 ml-1.5 space-y-2 border-l-2 border-border pl-3">
+      <CollapsibleContent className="mt-2 ms-1.5 space-y-2 border-s-2 border-border ps-3">
         {tab === 'links' ? <LinksAdvancedFields /> : <TorrentAdvancedFields />}
       </CollapsibleContent>
     </Collapsible>
@@ -111,7 +112,7 @@ function LinksAdvancedFields() {
               target="_blank"
               rel="noopener noreferrer"
             >
-              <CircleQuestionMark className="size-4 hover:text-foreground" />
+              <HelpIcon className="size-4 hover:text-foreground" />
             </a>
           </>
         }
@@ -122,6 +123,9 @@ function LinksAdvancedFields() {
 }
 
 function TorrentAdvancedFields() {
+  const { unitSystem } = useByteFormat()
+  const scale = unitSystem === 'binary' ? 1024 : 1000
+  const unit = unitSystem === 'binary' ? 'KiB/s' : 'KB/s'
   const { t } = useTranslation()
   const { control } = useFormContext<AddTaskFormValues>()
   return (
@@ -129,18 +133,30 @@ function TorrentAdvancedFields() {
       <DenseField
         control={control}
         name="dlLimit"
-        label={t('task.add.dlLimit')}
+        label={
+          <>
+            {t('task.add.dlLimit')} ({unit})
+          </>
+        }
         type="number"
         min={0}
-        placeholder="KB/s"
+        scale={scale}
+        step="any"
+        placeholder={t('task.add.unlimited')}
       />
       <DenseField
         control={control}
         name="ulLimit"
-        label={t('task.add.ulLimit')}
+        label={
+          <>
+            {t('task.add.ulLimit')} ({unit})
+          </>
+        }
         type="number"
         min={0}
-        placeholder="KB/s"
+        scale={scale}
+        step="any"
+        placeholder={t('task.add.unlimited')}
       />
       <DenseField
         control={control}
@@ -169,6 +185,7 @@ interface DenseFieldProps {
   max?: number
   step?: string
   multiline?: boolean
+  scale?: number
 }
 
 function DenseField({
@@ -181,7 +198,11 @@ function DenseField({
   max,
   step,
   multiline,
+  scale = 1,
 }: DenseFieldProps) {
+  const [draft, setDraft] = useState<{ text: string; scale: number } | null>(
+    null
+  )
   return (
     <FormField
       control={control}
@@ -220,18 +241,32 @@ function DenseField({
                 step={step}
                 placeholder={placeholder}
                 value={
-                  typeof field.value === 'number' ||
-                  typeof field.value === 'string'
-                    ? field.value
-                    : ''
+                  draft?.scale === scale
+                    ? draft.text
+                    : typeof field.value === 'number'
+                      ? field.value / scale
+                      : typeof field.value === 'string'
+                        ? field.value
+                        : ''
                 }
                 onChange={(e) => {
                   if (type === 'number') {
                     const v = e.target.value
-                    field.onChange(v === '' ? undefined : Number(v))
+                    if (scale !== 1) setDraft({ text: v, scale })
+                    field.onChange(
+                      v === ''
+                        ? undefined
+                        : scale === 1
+                          ? Number(v)
+                          : Math.round(Number(v) * scale)
+                    )
                   } else {
                     field.onChange(e.target.value)
                   }
+                }}
+                onBlur={() => {
+                  setDraft(null)
+                  field.onBlur()
                 }}
                 className="h-8 text-xs"
               />

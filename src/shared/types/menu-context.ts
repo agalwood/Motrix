@@ -14,6 +14,14 @@ export interface MenuContext {
   platform: 'darwin' | 'win32' | 'linux'
   locale: SupportedLocale
 
+  // Committed Downloads selection; predicates exclude transient marquee state.
+  selectedTaskIds?: readonly string[]
+  selectedTaskGeneration?: number
+  selectedCanPause?: boolean
+  selectedCanResume?: boolean
+  selectedCanRemove?: boolean
+  selectedCanMove?: boolean
+
   // Selected task
   selectedTaskId: string | null
   selectedTaskStatus: TaskStatus | null

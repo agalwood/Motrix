@@ -29,6 +29,7 @@ import { SegmentDownloader } from '../download/segment-downloader'
 import { FfmpegService } from '../ffmpeg/ffmpeg-service'
 import { assembleSegments } from '../media/segment-assembler'
 import { SegmentDecryptor } from '../media/segment-decryptor'
+import { MediaMetaStoreImpl } from './media-meta-store'
 import { type MediaJob, MediaTaskCoordinator } from './media-task-coordinator'
 import { TaskManager } from './task-manager'
 
@@ -135,6 +136,7 @@ describe.skipIf(
     const segmentClient = new Aria2SegmentClient(rpc, adapter)
     const taskManager = new TaskManager()
     const coordinator = new MediaTaskCoordinator({
+      mediaMetaStore: new MediaMetaStoreImpl(path.join(outRoot, 'metadata')),
       taskManager,
       activityRecorder: NOOP_TASK_ACTIVITY_RECORDER,
       eventBus: { emit() {} },

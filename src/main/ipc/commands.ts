@@ -1,4 +1,6 @@
+import { realpath } from 'node:fs/promises'
 import path from 'node:path'
+import { BridgeReceiverError } from '@core/bridge-receiver/errors'
 import type { AdaptedMux } from '@core/bridge-receiver/submit-download-adapter'
 import type { DnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
 import { dnsModeToAsyncDns } from '@core/engine/aria2/dns-fallback'
@@ -40,16 +42,24 @@ import {
 } from '@core/proxy/applied-download-proxy-policy'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
+import { applySavedSettings } from '@core/settings/apply-saved-settings'
+import { createDirectoryPreferencesHandlers } from '@core/settings/directory-preferences'
+import { createSaveDownloadsSettingsHandler } from '@core/settings/downloads-settings'
+import { createSaveGeneralSettingsHandler } from '@core/settings/general-settings'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import {
+  clearStoppedTasks,
+  pauseAllTasks,
   pauseTask,
   reAddTask,
   removeTask,
+  resumeAllTasks,
   resumeTask,
   runBulkTaskAction,
   stopSeedingTask,
   toBulkTaskCommandResult,
 } from '@core/task/actions'
+import { moveTasks } from '@core/task/actions/move-tasks'
 import type {
   TaskActionDeps,
   TaskTransitionRecordInput,
@@ -67,7 +77,13 @@ import {
 import { DirectResourceValidatorService } from '@core/task/direct-resource-validator'
 import type { FileCleanupService } from '@core/task/file-cleanup-service'
 import type { FinalNamePicker } from '@core/task/final-name-picker'
+import type { MediaMetaStore } from '@core/task/media-meta-store'
 import type { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
+import {
+  admitTaskCreateRequest,
+  taskCreateSourceFailure,
+} from '@core/task/source-admission'
+import { createTaskDirectoryHistory } from '@core/task/task-directory-history'
 import type { TaskManager } from '@core/task/task-manager'
 import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
 import { MagnetSelectionTimeout } from '@core/torrent/magnet-selection-timeout'
@@ -76,6 +92,7 @@ import { swapMagnetMetadataForBt } from '@core/torrent/swap-magnet-metadata-for-
 import type { TorrentParser } from '@core/torrent/torrent-parser'
 import type { TrackerManager } from '@core/tracker'
 import type { NatManager } from '@motrix/nat'
+import nativeMessagingExtensions from '@shared/config/native-messaging-extensions.json'
 import { AppError, ErrorCode } from '@shared/errors'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
@@ -86,11 +103,13 @@ import {
   taskCreateRequestSchema,
   torrentBatchCreateOptionsSchema,
 } from '@shared/schemas/add-task'
+import { appImageNativeHostActionSchema } from '@shared/schemas/appimage-native-host'
 import {
   removeTasksPayloadSchema,
   taskIdsPayloadSchema,
 } from '@shared/schemas/bulk-task-command'
 import { closeCurrentWindowSchema } from '@shared/schemas/close-current-window'
+import { moveTasksPayloadSchema } from '@shared/schemas/move-tasks'
 import { checkPluginUpdatesPayloadSchema } from '@shared/schemas/plugin-update'
 import { REGISTRY_PLUGIN_ID_RE } from '@shared/schemas/registry'
 import { removeTaskPayloadSchema } from '@shared/schemas/remove-task'
@@ -114,11 +133,13 @@ import {
   shell,
 } from 'electron'
 import { z } from 'zod'
+import { getAppImageNativeHost } from '../bridge/appimage-native-host-electron'
 import type { BridgeManager } from '../bridge/bridge-manager'
 import type { CliToolService } from '../cli/cli-tool-service'
 import { MenuContextPatchSchema } from '../commands/context-schema'
 import type { ContextStore } from '../commands/context-store'
-import type { UpdateManager } from '../core/update-manager'
+import type { AppUpdateService } from '../core/app-update-service'
+import { i18n } from '../lib/i18n'
 import {
   enableAppImageIntegrationFromSettings,
   reconcileAppImageIntegrationFromSettings,
@@ -130,6 +151,7 @@ import type { createProtocolManager } from '../platform/protocol-manager'
 import { resolveWindowsDefaultAppsSettingsUrl } from '../platform/windows-default-apps'
 import type { createMainProxyApplier } from '../proxy/wiring'
 import type { WindowManager } from '../window/window-manager'
+import { createOpenTaskFileHandler } from './commands/open-task-file'
 import { createRevealInFolderHandler } from './commands/reveal-in-folder'
 import { createSetSelectedFilesHandler } from './commands/set-selected-files'
 import { NatCommandHandlers } from './nat-commands'
@@ -151,15 +173,17 @@ export interface CommandContext {
    * paths cannot drift. Called synchronously during handler construction.
    */
   bindTaskRetry?: (fn: (taskId: string) => Promise<unknown>) => void
+  recoverFinalization?: (taskId: string) => Promise<void>
   sessionManager: SessionManager
   settingsManager: SettingsManager
+  applyLocale?: (language: string) => Promise<void>
   protocolManager: ReturnType<typeof createProtocolManager>
   windowManager: WindowManager
   natManager: NatManager
   torrentParser: TorrentParser
   adapter: EngineAdapter
   taskManager: TaskManager
-  updateManager: UpdateManager
+  updateManager: AppUpdateService
   /**
    * Startup barrier: resolves once engine start + session restore have
    * settled (success or failure). createTask awaits it (after engine-ready)
@@ -171,6 +195,7 @@ export interface CommandContext {
   trackerManager: TrackerManager
   contextStore: ContextStore
   finalNamePicker: FinalNamePicker
+  mediaMetaStore: MediaMetaStore
   torrentMetaStore: TorrentMetaStore
   fileCleanupService: FileCleanupService
   eventBus: EventBus
@@ -262,6 +287,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     trackerManager,
     contextStore,
     finalNamePicker,
+    mediaMetaStore,
     torrentMetaStore,
     fileCleanupService,
     eventBus,
@@ -339,20 +365,29 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     // Bilibili HD comes via the extension submit path, which carries cookies.
     resolveToMux: (url: string) =>
       bridgeManager.current?.resolveToMux(url) ?? Promise.resolve(null),
-    // A resolver can produce a mux pair WITHOUT ffmpeg (it only queries APIs),
-    // but actually downloading it needs the MuxPipeline, which exists only when
-    // ffmpeg is available. Throw a clear, actionable error instead of a
-    // TypeError when the pipeline is absent (bridge disabled / no ffmpeg) —
-    // mirrors the extension path's "ffmpeg unavailable" guard in BridgeReceiver.
-    dispatchMux: (adapted: AdaptedMux) => {
+    // Share the receiver's live FFmpeg check with desktop submissions.
+    dispatchMux: async (adapted: AdaptedMux) => {
       const mux = bridgeManager.current?.muxPipeline
       if (!mux) {
         throw new AppError(
           ErrorCode.EngineFeatureUnavailable,
-          'ffmpeg is required to download this video: its video and audio are separate streams that must be muxed. Install ffmpeg (or set MOTRIX_FFMPEG_BIN) and restart Motrix.'
+          i18n.t('settings.integration.media.pipelineUnavailable')
         )
       }
-      return mux.dispatch(adapted)
+      try {
+        return await mux.dispatch(adapted)
+      } catch (error) {
+        if (
+          error instanceof BridgeReceiverError &&
+          error.code === 'unsupported-kind'
+        ) {
+          throw new AppError(
+            ErrorCode.EngineFeatureUnavailable,
+            i18n.t('settings.integration.media.ffmpegRequired')
+          )
+        }
+        throw error
+      }
     },
   }
 
@@ -396,6 +431,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     publishTaskUpdateNow,
   }
   const reAddDeps = {
+    recoverFinalization: ctx.recoverFinalization,
     taskManager,
     adapter,
     eventBus,
@@ -426,6 +462,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     adapter,
     log,
     fileCleanupService,
+    mediaMetaStore,
     torrentMetaStore,
     eventBus,
     db: motrixDatabase,
@@ -549,7 +586,8 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     try {
       result = await handleCreateTask(request, createDeps)
     } catch (error) {
-      const conflict = taskCreateConflictResult(error)
+      const conflict =
+        taskCreateSourceFailure(error) ?? taskCreateConflictResult(error)
       if (conflict) return conflict
       throw error
     }
@@ -596,6 +634,14 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     },
   })
   const saveDirPickersInFlight = new WeakSet<WebContents>()
+
+  const directoryPreferences =
+    createDirectoryPreferencesHandlers(settingsManager)
+  const directoryHistory = createTaskDirectoryHistory({
+    recordRecent: (path) =>
+      directoryPreferences.mutate({ action: 'recordRecent', path }),
+    runWork: ctx.trackAsyncWork,
+  })
 
   return {
     [Commands.InstallCliTool]: async (payload: unknown) =>
@@ -663,6 +709,16 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     // Plural task commands (option C): one IPC request per multi-select
     // action. Per-task outcomes come back IPC-safe; the bulk close inside
     // runBulkTaskAction forces one immediate snapshot flush.
+    [Commands.MoveTasks]: async (rawPayload: unknown) =>
+      moveTasks(moveTasksPayloadSchema.parse(rawPayload), pauseResumeDeps),
+
+    [Commands.PauseAllTasks]: async () =>
+      toBulkTaskCommandResult(await pauseAllTasks(pauseResumeDeps)),
+    [Commands.ResumeAllTasks]: async () =>
+      toBulkTaskCommandResult(await resumeAllTasks(pauseResumeDeps)),
+    [Commands.ClearStoppedTasks]: async (rawPayload: unknown) =>
+      clearStoppedTasks(removeDeps, taskIdsPayloadSchema.parse(rawPayload)),
+
     [Commands.PauseTasks]: async (rawPayload: unknown) => {
       const taskIds = taskIdsPayloadSchema.parse(rawPayload)
       return toBulkTaskCommandResult(
@@ -749,16 +805,23 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       return { ok: true }
     },
 
-    [Commands.CreateTask]: async (request: unknown) => {
-      // Schema validation happens inside handleCreateTask; createAndPersist
-      // forwards the raw request unchanged. Activate plugins JIT first so
-      // beforeCreate hooks see the request (Plan C: onTaskType/onProtocol
+    [Commands.CreateTask]: directoryHistory.wrap(async (request: unknown) => {
+      try {
+        request = admitTaskCreateRequest(request)
+      } catch (error) {
+        const failure = taskCreateSourceFailure(error)
+        if (failure) return failure
+        throw error
+      }
+      // Activate plugins only after source admission, before task creation,
+      // so beforeCreate hooks see the validated request (onTaskType/onProtocol
       // resolvers don't activate at startup).
       const parsed = taskCreateRequestSchema.safeParse(request)
       if (parsed.success) {
         const req = parsed.data
         if (req.type === 'http') {
-          await activatePluginsForTask('http', req.uris[0] ?? '')
+          if (!req.uris[0].startsWith('ftp:'))
+            await activatePluginsForTask('http', req.uris[0] ?? '')
         } else if (req.payload.kind === 'magnet') {
           await activatePluginsForTask('magnet', req.payload.uri)
           if (
@@ -772,7 +835,9 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
                 req.saveDir || settingsManager.getApp().defaultSaveDir
               )
             } catch (error) {
-              const conflict = taskCreateConflictResult(error)
+              const conflict =
+                taskCreateSourceFailure(error) ??
+                taskCreateConflictResult(error)
               if (conflict) return conflict
               throw error
             }
@@ -869,7 +934,9 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
                   }
                 )
               } catch (error) {
-                const conflict = taskCreateConflictResult(error)
+                const conflict =
+                  taskCreateSourceFailure(error) ??
+                  taskCreateConflictResult(error)
                 if (conflict) return conflict
                 throw error
               }
@@ -880,7 +947,48 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         }
       }
       return createAndPersist(request as Parameters<typeof handleCreateTask>[0])
-    },
+    }),
+
+    [Commands.MutateDirectoryPreferences]: directoryPreferences.mutate,
+
+    [Commands.SaveDownloadsSettings]: createSaveDownloadsSettingsHandler(
+      settingsManager,
+      {
+        apply: async (oldEngine, result) => {
+          await supervisor.applyDefaultSaveDir(
+            settingsManager.getApp().defaultSaveDir
+          )
+          await supervisor.applyEngineSettings(
+            oldEngine,
+            settingsManager.getEngine()
+          )
+          if (result.requiresRestart)
+            publishEngineRestartRequired(
+              { eventBus, notificationCenter, log },
+              result.changedRestartKeys ?? []
+            )
+        },
+      }
+    ),
+
+    [Commands.SaveGeneralSettings]: createSaveGeneralSettingsHandler(
+      settingsManager,
+      {
+        applySavedApp: async (patch) => {
+          if (
+            patch.launchAtStartup !== undefined ||
+            patch.showMainWindowAtLogin !== undefined
+          ) {
+            syncAutoLaunch(settingsManager.getApp().launchAtStartup)
+          }
+          if (patch.defaultSaveDir !== undefined) {
+            await supervisor.applyDefaultSaveDir(
+              settingsManager.getApp().defaultSaveDir
+            )
+          }
+        },
+      }
+    ),
 
     [Commands.UpdateSettings]: async (partial: unknown) => {
       const oldFull = settingsManager.get()
@@ -915,120 +1023,168 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         | undefined
       const magnetPreferenceSubmitted =
         typeof appPartial?.protocols?.magnet === 'boolean'
+      const natPartial = partialObj?.nat as
+        | Record<string, unknown>
+        | null
+        | undefined
       const patched = {
         ...partialObj,
-        nat: {
-          ...((partialObj?.nat as object | undefined) ?? {}),
-          natTypeDetectionEnabled: gated.nat.natTypeDetectionEnabled,
-          portReachabilityCheckEnabled: gated.nat.portReachabilityCheckEnabled,
-        },
+        // The confirmation snapshot can be stale by the time this write is
+        // queued. Only replace submitted toggles; copying untouched flags can
+        // re-enable external checks disabled by another window in the meantime.
+        ...(natPartial && typeof natPartial === 'object'
+          ? {
+              nat: {
+                ...natPartial,
+                ...(Object.hasOwn(natPartial, 'natTypeDetectionEnabled')
+                  ? {
+                      natTypeDetectionEnabled:
+                        gated.nat.natTypeDetectionEnabled,
+                    }
+                  : {}),
+                ...(Object.hasOwn(natPartial, 'portReachabilityCheckEnabled')
+                  ? {
+                      portReachabilityCheckEnabled:
+                        gated.nat.portReachabilityCheckEnabled,
+                    }
+                  : {}),
+              },
+            }
+          : {}),
       }
 
       const result = await settingsManager.update(patched)
-      const newFull = settingsManager.get()
+      return applySavedSettings(
+        result,
+        async () => {
+          const newFull = settingsManager.get()
 
-      const proxySettingsChanged = proxyChanged(oldFull.proxy, newFull.proxy)
-      if (
-        proxySettingsChanged ||
-        proxySubmitted ||
-        appliedDownloadProxyPolicy.snapshot() === null
-      ) {
-        await appliedDownloadProxyPolicy.applyTransition(() => {
-          const latestProxy = settingsManager.get().proxy
-          // A command-local old value cannot describe concurrent updates
-          // across independent scopes. Stale commands do no work; the one
-          // matching the latest persisted value idempotently reasserts all
-          // proxy consumers, including aria2's explicit direct route.
-          return proxyChanged(newFull.proxy, latestProxy)
-            ? Promise.resolve({ downloadProxy: 'unchanged' } as const)
-            : proxyApplier.applyAll(latestProxy)
-        })
-      }
+          const proxySettingsChanged = proxyChanged(
+            oldFull.proxy,
+            newFull.proxy
+          )
+          if (
+            proxySettingsChanged ||
+            proxySubmitted ||
+            appliedDownloadProxyPolicy.snapshot() === null
+          ) {
+            await appliedDownloadProxyPolicy.applyTransition(() => {
+              const latestProxy = settingsManager.get().proxy
+              // A command-local old value cannot describe concurrent updates
+              // across independent scopes. Stale commands do no work; the one
+              // matching the latest persisted value idempotently reasserts all
+              // proxy consumers, including aria2's explicit direct route.
+              return proxyChanged(newFull.proxy, latestProxy)
+                ? Promise.resolve({ downloadProxy: 'unchanged' } as const)
+                : proxyApplier.applyAll(latestProxy)
+            })
+          }
 
-      // Proxy state is security-sensitive and settings are already durable at
-      // this point. Apply/fail-closed before unrelated shell side effects can
-      // reject and otherwise leave aria2 on the previous non-null route.
-      let protocolAssociationApplied: boolean | undefined
+          // Proxy state is security-sensitive and settings are already durable at
+          // this point. Apply/fail-closed before unrelated shell side effects can
+          // reject and otherwise leave aria2 on the previous non-null route.
+          let protocolAssociationApplied: boolean | undefined
 
-      if (oldFull.app.updateChannel !== newFull.app.updateChannel) {
-        updateManager.setChannel(newFull.app.updateChannel)
-      }
+          if (oldFull.app.updateChannel !== newFull.app.updateChannel) {
+            updateManager.setChannel(newFull.app.updateChannel)
+          }
 
-      if (oldFull.app.launchAtStartup !== newFull.app.launchAtStartup) {
-        syncAutoLaunch(newFull.app.launchAtStartup)
-      }
-      if (
-        oldFull.app.browserBridgeEnabled !== newFull.app.browserBridgeEnabled
-      ) {
-        await bridgeManager.setEnabled(newFull.app.browserBridgeEnabled)
-      }
-      if (oldFull.bridge.fixedPort !== newFull.bridge.fixedPort) {
-        await bridgeManager.restart()
-      }
-      if (
-        magnetPreferenceSubmitted ||
-        oldFull.app.protocols.magnet !== newFull.app.protocols.magnet
-      ) {
-        const registration = protocolManager.register()
-        if (registration?.magnetMatchesSetting !== null) {
-          protocolAssociationApplied = registration?.magnetMatchesSetting
-        }
-        const appImageView = await reconcileAppImageIntegrationFromSettings({
-          getMagnetEnabled: () => newFull.app.protocols.magnet,
-        })
-        if (
-          appImageView.supported &&
-          appImageView.decision === 'accepted' &&
-          appImageView.owner === 'self'
-        ) {
-          protocolAssociationApplied = appImageView.status === 'healthy'
-        }
-      }
+          if (oldFull.app.launchAtStartup !== newFull.app.launchAtStartup) {
+            syncAutoLaunch(newFull.app.launchAtStartup)
+          }
+          if (
+            oldFull.app.browserBridgeEnabled !==
+            newFull.app.browserBridgeEnabled
+          ) {
+            await bridgeManager.setEnabled(newFull.app.browserBridgeEnabled)
+          }
+          if (oldFull.bridge.fixedPort !== newFull.bridge.fixedPort) {
+            await bridgeManager.restart()
+          }
+          if (
+            magnetPreferenceSubmitted ||
+            oldFull.app.protocols.magnet !== newFull.app.protocols.magnet
+          ) {
+            const registration = protocolManager.register()
+            if (registration?.magnetMatchesSetting !== null) {
+              protocolAssociationApplied = registration?.magnetMatchesSetting
+            }
+            const appImageView = await reconcileAppImageIntegrationFromSettings(
+              {
+                getMagnetEnabled: () => newFull.app.protocols.magnet,
+              }
+            )
+            if (
+              appImageView.supported &&
+              appImageView.decision === 'accepted' &&
+              appImageView.owner === 'self'
+            ) {
+              protocolAssociationApplied = appImageView.status === 'healthy'
+            }
+          }
 
-      if (oldFull.app.defaultSaveDir !== newFull.app.defaultSaveDir) {
-        await supervisor.applyDefaultSaveDir(newFull.app.defaultSaveDir)
-      }
+          if (
+            oldFull.app.language !== newFull.app.language ||
+            typeof (partial as { app?: { language?: unknown } } | null)?.app
+              ?.language === 'string'
+          ) {
+            await ctx.applyLocale?.(settingsManager.get().app.language)
+          }
 
-      if (oldFull.tracker.sourcesEnabled !== newFull.tracker.sourcesEnabled) {
-        await trackerManager.applySourcesChange(newFull.tracker.sourcesEnabled)
-      }
+          if (oldFull.app.defaultSaveDir !== newFull.app.defaultSaveDir) {
+            await supervisor.applyDefaultSaveDir(newFull.app.defaultSaveDir)
+          }
 
-      if (
-        oldFull.tracker.blacklistEnabled !== newFull.tracker.blacklistEnabled
-      ) {
-        await trackerManager.applyBlacklistChange(
-          newFull.tracker.blacklistEnabled
-        )
-      }
+          if (
+            oldFull.tracker.sourcesEnabled !== newFull.tracker.sourcesEnabled
+          ) {
+            await trackerManager.applySourcesChange(
+              newFull.tracker.sourcesEnabled
+            )
+          }
 
-      if (
-        oldFull.tracker.autoSync !== newFull.tracker.autoSync ||
-        oldFull.tracker.syncIntervalHours !== newFull.tracker.syncIntervalHours
-      ) {
-        trackerManager.applySyncScheduleChange()
-      }
+          if (
+            oldFull.tracker.blacklistEnabled !==
+            newFull.tracker.blacklistEnabled
+          ) {
+            await trackerManager.applyBlacklistChange(
+              newFull.tracker.blacklistEnabled
+            )
+          }
 
-      await supervisor.applyEngineSettings(oldFull.engine, newFull.engine)
+          if (
+            oldFull.tracker.autoSync !== newFull.tracker.autoSync ||
+            oldFull.tracker.syncIntervalHours !==
+              newFull.tracker.syncIntervalHours
+          ) {
+            trackerManager.applySyncScheduleChange()
+          }
 
-      if (oldFull.engine.dnsMode !== newFull.engine.dnsMode) {
-        await supervisor.applyAsyncDns(
-          dnsModeToAsyncDns(newFull.engine.dnsMode)
-        )
-        // Mode changes re-arm the auto fallback so a later switch back to
-        // 'auto' starts optimistic again.
-        dnsFallback?.reset()
-      }
+          await supervisor.applyEngineSettings(oldFull.engine, newFull.engine)
 
-      if (result.requiresRestart) {
-        publishEngineRestartRequired(
-          { eventBus, notificationCenter, log },
-          result.changedRestartKeys
-        )
-      }
+          if (oldFull.engine.dnsMode !== newFull.engine.dnsMode) {
+            await supervisor.applyAsyncDns(
+              dnsModeToAsyncDns(newFull.engine.dnsMode)
+            )
+            // Mode changes re-arm the auto fallback so a later switch back to
+            // 'auto' starts optimistic again.
+            dnsFallback?.reset()
+          }
 
-      return protocolAssociationApplied === undefined
-        ? result
-        : { ...result, protocolAssociationApplied }
+          if (result.requiresRestart) {
+            publishEngineRestartRequired(
+              { eventBus, notificationCenter, log },
+              result.changedRestartKeys
+            )
+          }
+
+          return protocolAssociationApplied === undefined
+            ? result
+            : { ...result, protocolAssociationApplied }
+        },
+        (err) =>
+          log.warn({ err }, 'settings saved but runtime application failed')
+      )
     },
 
     [Commands.RestartEngine]: async () => {
@@ -1076,7 +1232,10 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
             seedRatio: options.seedRatio,
             displayName: torrent.meta.name,
           })
-          if (result.outcome === 'conflict') {
+          if (
+            result.outcome === 'conflict' ||
+            result.outcome === 'invalid-source'
+          ) {
             failed += 1
             continue
           }
@@ -1090,6 +1249,8 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
           )
         }
       }
+
+      if (succeeded > 0) directoryHistory.record(options.saveDir)
 
       return {
         total: torrents.length,
@@ -1173,7 +1334,8 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         if (result.canceled || result.filePaths.length === 0) {
           return null
         }
-        return { path: result.filePaths[0] }
+        const selected = await realpath(result.filePaths[0]).catch(() => null)
+        return selected ? { path: selected } : null
       } finally {
         saveDirPickersInFlight.delete(sender)
       }
@@ -1231,6 +1393,23 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         getMagnetEnabled: () => settingsManager.getApp().protocols.magnet,
       }),
 
+    [Commands.ConfigureAppImageNativeHost]: async (raw: unknown) => {
+      const action = appImageNativeHostActionSchema.parse(raw)
+      const registry = bridgeManager.current?.registry
+      return (
+        (await getAppImageNativeHost()?.configure(
+          action,
+          registry
+            ? {
+                chromium: registry.listManifestIds('chromium'),
+                firefox: registry.listManifestIds('firefox'),
+              }
+            : nativeMessagingExtensions,
+          settingsManager.getApp().browserBridgeEnabled
+        )) ?? { supported: false }
+      )
+    },
+
     [Commands.RemoveAppImageIntegration]: async () =>
       removeAppImageIntegrationFromSettings({
         getMagnetEnabled: () => settingsManager.getApp().protocols.magnet,
@@ -1269,6 +1448,10 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     },
 
     [Commands.RevealInFolder]: createRevealInFolderHandler({
+      shell,
+      getTask: (taskId) => taskManager.getById(taskId),
+    }),
+    [Commands.OpenTaskFile]: createOpenTaskFileHandler({
       shell,
       getTask: (taskId) => taskManager.getById(taskId),
     }),

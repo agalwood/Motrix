@@ -88,6 +88,39 @@ afterEach(() => {
 })
 
 describe('MarqueeOverlay', () => {
+  it('keeps an active drag when selection feedback replaces parent callbacks', () => {
+    const { container } = createMockContainer()
+    const containerRef = { current: container }
+    const firstChange = vi.fn()
+    const nextChange = vi.fn()
+    const firstEnd = vi.fn()
+    const nextEnd = vi.fn()
+    const tree = (
+      onSelectionChange: typeof firstChange,
+      onSelectionEnd: typeof firstEnd
+    ) => (
+      <MarqueeOverlay
+        containerRef={containerRef}
+        rowHeight={40}
+        totalCount={100}
+        onSelectionChange={onSelectionChange}
+        onSelectionEnd={onSelectionEnd}
+      />
+    )
+    const view = render(tree(firstChange, firstEnd))
+    fireEvent.mouseDown(container, { clientX: 100, clientY: 120 })
+    fireEvent.mouseMove(window, { clientX: 140, clientY: 180 })
+    flushAnimationFrames()
+    expect(firstChange).toHaveBeenLastCalledWith(3, 4)
+    view.rerender(tree(nextChange, nextEnd))
+    fireEvent.mouseMove(window, { clientX: 180, clientY: 260 })
+    flushAnimationFrames()
+    expect(nextChange).toHaveBeenLastCalledWith(3, 6)
+    expect(screen.getByTestId('marquee-box').style.opacity).toBe('1')
+    fireEvent.mouseUp(window)
+    expect(firstEnd).not.toHaveBeenCalled()
+    expect(nextEnd).toHaveBeenCalledOnce()
+  })
   it('keeps one box node mounted and updates its geometry imperatively', () => {
     const { container } = createMockContainer()
     renderOverlay(container)

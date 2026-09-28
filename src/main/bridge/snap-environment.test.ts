@@ -1,7 +1,6 @@
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
-  isElectronSelfUpdateSupported,
   isLegacySnapDefaultSaveDir,
   resolveBridgeDataDir,
   resolvePackagedLinuxSnapEnvironment,
@@ -155,39 +154,6 @@ describe('resolvePackagedLinuxSnapEnvironment', () => {
         resourcesPath: '/opt/Motrix/resources',
       })
     ).toThrow('process.resourcesPath must be inside SNAP')
-  })
-})
-
-describe('isElectronSelfUpdateSupported', () => {
-  it('keeps snapd as the only application update authority', () => {
-    expect(
-      isElectronSelfUpdateSupported({
-        hasUpdateMetadata: true,
-        isPackaged: true,
-        snapEnvironment: {
-          installRoot: '/snap/motrix/current',
-          instanceName: 'motrix',
-          realHome: '/home/user',
-        },
-      })
-    ).toBe(false)
-  })
-
-  it('preserves self-updates for packaged non-Snap distributions', () => {
-    expect(
-      isElectronSelfUpdateSupported({
-        hasUpdateMetadata: true,
-        isPackaged: true,
-        snapEnvironment: null,
-      })
-    ).toBe(true)
-    expect(
-      isElectronSelfUpdateSupported({
-        hasUpdateMetadata: false,
-        isPackaged: true,
-        snapEnvironment: null,
-      })
-    ).toBe(false)
   })
 })
 

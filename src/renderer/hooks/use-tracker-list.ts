@@ -1,8 +1,8 @@
-import { transport } from '@renderer/lib/transport'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
 import type { CuratedTrackerList } from '@shared/types/tracker'
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useTransportMirror } from './use-transport-mirror'
 
 const EMPTY: CuratedTrackerList = {
   effective: [],
@@ -18,25 +18,24 @@ export function useTrackerList() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const refresh = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      const data = await transport.invoke(Queries.GetTrackerList)
-      setList(data as CuratedTrackerList)
-      setError(null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    refresh()
-    const onUpdated = () => refresh()
-    transport.on(Events.TrackerListUpdated, onUpdated)
-    return () => transport.off(Events.TrackerListUpdated, onUpdated)
-  }, [refresh])
+  useTransportMirror({
+    events: [Events.TrackerListUpdated, Events.TrackerSyncStatusChanged],
+    refreshOnSettingsSave: true,
+    load: async (stale, read) => {
+      try {
+        setIsLoading(true)
+        const data = await read(Queries.GetTrackerList)
+        if (stale()) return
+        setList(data as CuratedTrackerList)
+        setError(null)
+      } catch (e) {
+        if (!stale()) setError(e instanceof Error ? e.message : 'Unknown error')
+        throw e
+      } finally {
+        if (!stale()) setIsLoading(false)
+      }
+    },
+  })
 
   return { list, isLoading, error, lastSyncAt: list.lastSyncAt }
 }

@@ -252,3 +252,16 @@ describe('task inspector activity wire validation', () => {
     ).toBeNull()
   })
 })
+
+it('accepts additive seeding statistics and rejects invalid counters', () => {
+  const value = snapshot()
+  expect(parseTaskInspectorActivitySnapshot(value, 'task-1')).not.toBeNull()
+  value.summary.seeding = { activeMs: 1000, trackingStartedAt: 1 }
+  expect(
+    parseTaskInspectorActivitySnapshot(value, 'task-1')?.summary.seeding
+  ).toEqual(value.summary.seeding)
+  for (const activeMs of [-1, Number.NaN, Number.POSITIVE_INFINITY, 0.5]) {
+    value.summary.seeding.activeMs = activeMs
+    expect(parseTaskInspectorActivitySnapshot(value, 'task-1')).toBeNull()
+  }
+})

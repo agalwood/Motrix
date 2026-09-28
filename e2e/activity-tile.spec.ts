@@ -94,7 +94,8 @@ const ENFORCE_REFERENCE_BUDGETS =
   process.env.MOTRIX_ACTIVITY_PROFILE_GATE === '1'
 
 function expectedWeeks(span: ActivitySpan): 13 | 26 | 53 {
-  if (span.w === 1 || (span.w === 2 && span.h === 1)) return 13
+  if (span.w === 1) return 13
+  if (span.w === 2 && span.h === 1) return 26
   if (span.w === 3 && span.h === 1) return 26
   if (span.w === 2 && span.h === 2) return 26
   return 53
@@ -500,11 +501,11 @@ async function readRendererProfile(page: Page): Promise<RendererProfile> {
         element.getAttribute('aria-hidden') === 'true'
     )
     const monthLabels = directLabels
-      .filter((element) => element.style.left !== '')
+      .filter((element) => element.dataset.calendarLabel === 'month')
       .map((element) => element.textContent?.trim() ?? '')
       .filter(Boolean)
     const weekdayLabels = directLabels
-      .filter((element) => element.style.top !== '')
+      .filter((element) => element.dataset.calendarLabel === 'weekday')
       .map((element) => element.textContent?.trim() ?? '')
       .filter(Boolean)
 
@@ -980,20 +981,26 @@ test.describe('Activity Tile production renderer', () => {
       expect(profile.canvasCssWidth).toBeLessThanOrEqual(
         profile.calendarClientWidth + 1
       )
+      await mainWindow.getByTestId('dashboard-tile-activity').screenshot({
+        path: testInfo.outputPath(`activity-${span.w}x${span.h}-light-en.png`),
+      })
 
       if (span.w === 4 && span.h === 2) {
         await expect(mainWindow.locator('html')).toHaveClass(/light/)
-        expect(profile.weekdayLabels).toEqual(['Mon', 'Wed', 'Fri'])
-        if (profile.monthLabels.length > 1) {
-          expect(profile.monthLabels.at(-1)).not.toBe(profile.monthLabels.at(0))
-        }
-        await mainWindow.getByTestId('dashboard-tile-activity').screenshot({
-          path: testInfo.outputPath('activity-4x2-light-en.png'),
-        })
+        expect(profile.weekdayLabels).toEqual([
+          'Mon',
+          'Wed',
+          'Fri',
+          'Mon',
+          'Wed',
+          'Fri',
+        ])
+        expect(profile.monthLabels.length).toBeGreaterThanOrEqual(12)
       }
     }
 
     const calendar = mainWindow.getByTestId('activity-calendar')
+    await mainWindow.mouse.move(1, 1)
     await calendar.focus()
     await expect(mainWindow.getByRole('tooltip')).toBeVisible()
     await expect(mainWindow.getByRole('tooltip')).toContainText(
@@ -1115,7 +1122,7 @@ test.describe('Activity Tile production renderer', () => {
     await mainWindow
       .getByRole('menuitemradio', { name: /2\s*[×x]\s*1/i })
       .click()
-    await expect(calendar).toHaveAttribute('aria-colcount', '13')
+    await expect(calendar).toHaveAttribute('aria-colcount', '26')
 
     const dragHandle = activityTile.getByRole('button', { name: 'Drag tile' })
     const dragBox = await dragHandle.boundingBox()
@@ -1295,7 +1302,14 @@ test.describe('Activity Tile production renderer', () => {
     ).toBeVisible()
     await expect(mainWindow.locator('html')).toHaveClass(/dark/)
     const chinese = await readRendererProfile(mainWindow)
-    expect(chinese.weekdayLabels).toEqual(['周一', '周三', '周五'])
+    expect(chinese.weekdayLabels).toEqual([
+      '周一',
+      '周三',
+      '周五',
+      '周一',
+      '周三',
+      '周五',
+    ])
     await mainWindow.getByTestId('dashboard-tile-activity').screenshot({
       path: testInfo.outputPath('activity-4x2-dark-zh.png'),
     })

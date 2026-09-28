@@ -1,9 +1,10 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
+import { createBtStoragePlan } from '@test-utils/legacy-bt-storage'
 import { describe, expect, it } from 'vitest'
 import {
   buildFinalOutputFilePaths,
-  createBtStoragePlan,
+  createBtDirectStoragePlan,
   getBtStorageLayout,
   parseBtFileLayout,
   shouldPrioritizeBtPreviewPieces,
@@ -25,7 +26,7 @@ function singleFileTorrent(name: string): Uint8Array {
   )
 }
 
-describe('BT indexed storage layout', () => {
+describe('legacy BT indexed storage layout', () => {
   it('maps a multi-file torrent below one short payload entry', async () => {
     const parsed = await parseBtFileLayout(
       new Uint8Array(readFileSync(FIXTURE_PATH))
@@ -110,5 +111,54 @@ describe('BT indexed storage layout', () => {
         ],
       } as unknown as Parameters<typeof getBtStorageLayout>[0])
     ).toBeNull()
+  })
+})
+
+describe('direct BT storage layout', () => {
+  it('separates single-file payloads from engine metadata at their chosen final name', async () => {
+    const parsed = await parseBtFileLayout(singleFileTorrent('original.iso'))
+    const plan = createBtDirectStoragePlan(
+      '/downloads/chosen.iso',
+      parsed,
+      '/metadata/task.torrent'
+    )
+    expect(plan).toEqual({
+      layout: {
+        version: 2,
+        strategy: 'direct',
+        torrentRootName: 'original.iso',
+        multiFile: false,
+        finalized: false,
+      },
+      saveDir: '/metadata/task.torrent.state',
+      outputRoot: '/downloads',
+      outputFilePaths: [{ fileIndex: 0, relativePath: 'chosen.iso' }],
+    })
+  })
+
+  it('requires durable metadata before placing a single-file engine task', async () => {
+    const parsed = await parseBtFileLayout(singleFileTorrent('original.iso'))
+    expect(() =>
+      createBtDirectStoragePlan('/downloads/chosen.iso', parsed)
+    ).toThrow('BT requires a durable torrent metadata path')
+  })
+
+  it('separates multi-file payloads from engine control files', async () => {
+    const parsed = await parseBtFileLayout(
+      new Uint8Array(readFileSync(FIXTURE_PATH))
+    )
+    const plan = createBtDirectStoragePlan(
+      '/downloads/Chosen folder',
+      parsed,
+      '/metadata/task.torrent'
+    )
+    expect(plan.saveDir).toBe('/metadata/task.torrent.state')
+    expect(plan.outputRoot).toBe('/downloads/Chosen folder')
+    expect(plan.outputFilePaths).toEqual([
+      { fileIndex: 0, relativePath: path.join('video', 'movie.mkv') },
+      { fileIndex: 1, relativePath: 'readme.txt' },
+      { fileIndex: 2, relativePath: 'cover.jpg' },
+    ])
+    expect(plan.layout).not.toHaveProperty('workspacePath')
   })
 })

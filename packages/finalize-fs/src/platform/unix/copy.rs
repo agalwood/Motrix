@@ -1,9 +1,30 @@
-use super::metadata::{directory_entries, ensure_same_entry, stat_named};
+use super::metadata::{directory_entries, ensure_same_entry, stat_named, stat_opened};
 use super::{ArtifactHandle, RootHandle, open_parent};
+use crate::error::native_error;
 use crate::path::validate_relative;
 use std::ffi::CString;
 use std::io;
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
+
+/// Copy staging is the cross-device fallback, so the staged file should keep
+/// the source's access and modification times instead of advertising the copy
+/// time as the download's own timestamp.
+fn copy_timestamps(source: RawFd, target: RawFd) -> io::Result<()> {
+    let stat = stat_opened(source)?;
+    let times = rustix::fs::Timestamps {
+        last_access: rustix::fs::Timespec {
+            tv_sec: stat.st_atime,
+            tv_nsec: stat.st_atime_nsec,
+        },
+        last_modification: rustix::fs::Timespec {
+            tv_sec: stat.st_mtime,
+            tv_nsec: stat.st_mtime_nsec,
+        },
+    };
+    let target = unsafe { <std::os::fd::BorrowedFd<'_>>::borrow_raw(target) };
+    rustix::fs::futimens(target, &times)
+        .map_err(|error| native_error(error.into(), "futimens(copy_timestamps)", None))
+}
 
 fn copy_file_contents(source: RawFd, target: RawFd) -> io::Result<()> {
     if unsafe { libc::lseek(source, 0, libc::SEEK_SET) } < 0 {
@@ -47,6 +68,7 @@ fn copy_file_contents(source: RawFd, target: RawFd) -> io::Result<()> {
             written += count as usize;
         }
     }
+    copy_timestamps(source, target)?;
     if unsafe { libc::fsync(target) } < 0 {
         return Err(io::Error::last_os_error());
     }
@@ -124,6 +146,9 @@ fn copy_directory_contents(source: RawFd, target: RawFd) -> io::Result<()> {
             ));
         }
     }
+    // Directory timestamps change with every child creation, so they are
+    // restored only after the whole subtree has been staged.
+    copy_timestamps(source, target)?;
     if unsafe { libc::fsync(target) } < 0 {
         return Err(io::Error::last_os_error());
     }

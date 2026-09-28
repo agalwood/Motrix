@@ -5,11 +5,11 @@ import { describe, expect, it } from 'vitest'
 import { KpiNumber } from './kpi-number'
 
 describe('KpiNumber', () => {
-  it('renders text content with tabular-nums and split unit sizing', () => {
+  it('renders text content with proportional-nums and split unit sizing', () => {
     const { container } = render(<KpiNumber value="1.2 MB/s" />)
     const el = container.firstElementChild as HTMLElement
     expect(el).toHaveTextContent('1.2 MB/s')
-    expect(el.className).toContain('tabular-nums')
+    expect(el.className).toContain('proportional-nums')
     expect(screen.getByText('1.2').className).toContain('font-semibold')
     expect(screen.getByText('MB/s').className).toContain('text-[12px]')
   })

@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -32,7 +32,10 @@ export const test = base.extend<MotrixFixtures>({
   // signature for "no upstream fixtures consumed".
   // biome-ignore lint/correctness/noEmptyPattern: playwright fixture signature
   userDataDir: async ({}, use) => {
-    const dir = await mkdtemp(path.join(tmpdir(), 'motrix-e2e-'))
+    // Finalization rejects symlink ancestors; macOS tmpdir can start at /var.
+    const dir = await realpath(
+      await mkdtemp(path.join(tmpdir(), 'motrix-e2e-'))
+    )
     try {
       await use(dir)
     } finally {
@@ -93,10 +96,21 @@ export async function waitForEngineReady(
         }
       ).motrix
       if (!api) return null
-      const result = (await api.invoke('query:getEngineStatus')) as {
-        state: string
+      try {
+        const result = (await api.invoke('query:getEngineStatus')) as {
+          state: string
+        }
+        return result?.state ?? null
+      } catch (error) {
+        // The first window can appear before main finishes registering IPC.
+        if (
+          String(error).includes(
+            "No handler registered for 'query:getEngineStatus'"
+          )
+        )
+          return null
+        throw error
       }
-      return result?.state ?? null
     })
     if (state === 'ready') return
     await new Promise((r) => setTimeout(r, 250))
@@ -157,12 +171,13 @@ export async function launchMotrix(
   const saveDir = path.join(opts.userDataDir, 'downloads')
 
   // Most end-to-end specs exercise the main application, so seed only the
-  // legal consent bit before the first launch. A disclaimer-specific spec can
-  // opt out, and subsequent launches keep the settings written by the app.
+  // legal consent bit and disable background tracker fetching. Specs covering
+  // sync can seed their own local sources; subsequent launches keep saved settings.
   await writeFile(
     path.join(opts.userDataDir, 'settings.json'),
     JSON.stringify({
       version: CURRENT_SETTINGS_VERSION,
+      tracker: { autoSync: false },
       onboarding: {
         disclaimerAccepted: opts.disclaimerAccepted ?? true,
       },

@@ -1,6 +1,7 @@
 import { request as httpRequest } from 'node:http'
 import type { PairedClient } from '@core/bridge/pairing-service'
 import { WebSocketBridgeServer } from '@core/bridge/web-socket-bridge-server'
+import { DownloadSourceError } from '@core/task/source-admission'
 import { ErrorCodes } from '@motrix/mdxp'
 import { AppError, ErrorCode } from '@shared/errors'
 import { EngineState } from '@shared/types/engine'
@@ -77,6 +78,11 @@ describe('unary POST /mdxp', () => {
       cancelDownload: async () => undefined,
     })
     server.registerReadMethods({
+      getDownloadDirectories: async () => ({
+        defaultSaveDir: '/private/downloads',
+        favorites: [],
+        recent: [],
+      }),
       taskManager: {
         getAll: () => [
           makeDownloadTask({ id: 'a', status: TaskStatus.Downloading }),
@@ -210,6 +216,16 @@ describe('unary POST /mdxp', () => {
     expect(res.body.error?.code).toBe(ErrorCodes.CapabilityNotSupported)
   })
 
+  it('does not expose directory paths on the authenticated unary surface', async () => {
+    const res = await postMdxp(
+      port,
+      { jsonrpc: '2.0', id: 1, method: 'download/directories', params: {} },
+      { token: LOCAL_TOKEN }
+    )
+    expect(res.body.error).toBeDefined()
+    expect(JSON.stringify(res.body)).not.toContain('/private/downloads')
+  })
+
   it('rejects paired-UI-only task/reveal on the unary agent surface', async () => {
     const res = await postMdxp(
       port,
@@ -274,8 +290,13 @@ describe('unary POST /mdxp', () => {
 describe('unary POST /mdxp — AppError normalization', () => {
   let server: WebSocketBridgeServer
   let port: number
+  let nativeError: Error
 
   beforeEach(async () => {
+    nativeError = new AppError(
+      ErrorCode.IpcInvalidPayload,
+      'bad native request'
+    )
     server = new WebSocketBridgeServer({
       pairing: makeFakePairing(),
       registry: makeFakeRegistry(),
@@ -292,7 +313,7 @@ describe('unary POST /mdxp — AppError normalization', () => {
       // handleCreateTask throws AppError (string `code`) on native re-validation;
       // the unary catch must translate it instead of collapsing to a 500.
       createTask: async () => {
-        throw new AppError(ErrorCode.IpcInvalidPayload, 'bad native request')
+        throw nativeError
       },
       parseTorrentFileCount: async () => 1,
     })
@@ -317,6 +338,36 @@ describe('unary POST /mdxp — AppError normalization', () => {
     expect(res.status).toBe(400)
     expect(res.body.error?.code).toBe(ErrorCodes.InvalidParams)
     expect(res.body.error?.message).toContain('bad native request')
+  })
+
+  it('returns the safe source reason and boundary without exposing the URL', async () => {
+    const failure = {
+      stage: 'plugin' as const,
+      index: 0,
+      diagnostic: { reason: 'ambiguousBackslash' as const, start: 22, end: 23 },
+    }
+    nativeError = new DownloadSourceError(failure)
+    const res = await postMdxp(
+      port,
+      {
+        jsonrpc: '2.0',
+        id: 'source',
+        method: 'download/add',
+        params: {
+          kind: 'url',
+          saveDir: '/dl',
+          uris: ['https://example.test/file?token=private'],
+        },
+      },
+      { token: LOCAL_TOKEN }
+    )
+    expect(res.status).toBe(400)
+    expect(res.body.error).toEqual({
+      code: ErrorCodes.InvalidParams,
+      message: 'task.add.sourceErrors.ambiguousBackslash',
+      data: failure,
+    })
+    expect(JSON.stringify(res.body)).not.toContain('private')
   })
 })
 

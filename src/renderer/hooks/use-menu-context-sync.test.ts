@@ -20,19 +20,16 @@ vi.mock('@renderer/lib/transport', () => ({
   transport: transportMock,
 }))
 
-vi.mock('./use-selected-task', () => ({
-  useSelectedTask: () => ({
-    task: hookState.task,
-    atTop: hookState.atTop,
-    atBottom: hookState.atBottom,
-  }),
-}))
-
-vi.mock('./use-task-list', () => ({
-  useTaskList: () => ({
-    hasAnyActive: hookState.hasAnyActive,
-    hasAnyPaused: hookState.hasAnyPaused,
-    hasStopped: hookState.hasStopped,
+vi.mock('@renderer/features/application-menu/task-context', () => ({
+  subscribeMenuContext: () => () => {},
+  menuContextPatch: () => ({
+    selectedTaskId: hookState.task?.id ?? null,
+    selectedTaskStatus: hookState.task?.status ?? null,
+    selectedTaskAtTop: hookState.atTop,
+    selectedTaskAtBottom: hookState.atBottom,
+    hasAnyActiveTask: hookState.hasAnyActive,
+    hasAnyPausedTask: hookState.hasAnyPaused,
+    hasStoppedTasks: hookState.hasStopped,
   }),
 }))
 

@@ -12,7 +12,6 @@ export type DashboardLayoutPresetId =
 export interface DashboardLayoutPreset {
   id: DashboardLayoutPresetId
   titleKey: string
-  descriptionKey: string
   layout: DashboardLayoutSettings
 }
 
@@ -20,7 +19,6 @@ export const DASHBOARD_LAYOUT_PRESETS: readonly DashboardLayoutPreset[] = [
   {
     id: 'balanced',
     titleKey: 'panel.dashboard.configure.presets.balanced.title',
-    descriptionKey: 'panel.dashboard.configure.presets.balanced.description',
     layout: {
       version: 1,
       columns: 4,
@@ -40,18 +38,17 @@ export const DASHBOARD_LAYOUT_PRESETS: readonly DashboardLayoutPreset[] = [
   {
     id: 'taskFocus',
     titleKey: 'panel.dashboard.configure.presets.taskFocus.title',
-    descriptionKey: 'panel.dashboard.configure.presets.taskFocus.description',
     layout: {
       version: 1,
       columns: 4,
       tiles: [
-        { id: 'tasks', enabled: true, x: 0, y: 0, w: 2, h: 3 },
-        { id: 'engine', enabled: true, x: 2, y: 0, w: 1, h: 1 },
-        { id: 'speedLimit', enabled: true, x: 3, y: 0, w: 1, h: 1 },
-        { id: 'speedUp', enabled: true, x: 2, y: 1, w: 1, h: 1 },
-        { id: 'speedDown', enabled: true, x: 3, y: 1, w: 1, h: 1 },
-        { id: 'active', enabled: true, x: 2, y: 2, w: 1, h: 1 },
-        { id: 'transfer', enabled: true, x: 3, y: 2, w: 1, h: 1 },
+        { id: 'engine', enabled: true, x: 0, y: 0, w: 1, h: 1 },
+        { id: 'speedLimit', enabled: true, x: 1, y: 0, w: 1, h: 1 },
+        { id: 'active', enabled: true, x: 2, y: 0, w: 1, h: 1 },
+        { id: 'transfer', enabled: true, x: 3, y: 0, w: 1, h: 1 },
+        { id: 'speedUp', enabled: true, x: 0, y: 1, w: 1, h: 1 },
+        { id: 'tasks', enabled: true, x: 1, y: 1, w: 3, h: 2 },
+        { id: 'speedDown', enabled: true, x: 0, y: 2, w: 1, h: 1 },
         { id: 'nat', enabled: false, x: 0, y: 0, w: 1, h: 1 },
         { id: 'activity', enabled: false, x: 0, y: 0, w: 1, h: 1 },
       ],
@@ -60,18 +57,17 @@ export const DASHBOARD_LAYOUT_PRESETS: readonly DashboardLayoutPreset[] = [
   {
     id: 'speedFocus',
     titleKey: 'panel.dashboard.configure.presets.speedFocus.title',
-    descriptionKey: 'panel.dashboard.configure.presets.speedFocus.description',
     layout: {
       version: 1,
       columns: 4,
       tiles: [
-        { id: 'speedUp', enabled: true, x: 0, y: 0, w: 2, h: 1 },
-        { id: 'speedDown', enabled: true, x: 2, y: 0, w: 2, h: 1 },
-        { id: 'tasks', enabled: true, x: 0, y: 1, w: 2, h: 2 },
-        { id: 'engine', enabled: true, x: 2, y: 1, w: 1, h: 1 },
-        { id: 'speedLimit', enabled: true, x: 3, y: 1, w: 1, h: 1 },
-        { id: 'active', enabled: true, x: 2, y: 2, w: 1, h: 1 },
-        { id: 'transfer', enabled: true, x: 3, y: 2, w: 1, h: 1 },
+        { id: 'speedDown', enabled: true, x: 0, y: 0, w: 2, h: 2 },
+        { id: 'speedUp', enabled: true, x: 2, y: 0, w: 2, h: 2 },
+        { id: 'engine', enabled: true, x: 0, y: 2, w: 1, h: 1 },
+        { id: 'speedLimit', enabled: true, x: 1, y: 2, w: 1, h: 1 },
+        { id: 'transfer', enabled: true, x: 2, y: 2, w: 2, h: 1 },
+        { id: 'tasks', enabled: false, x: 0, y: 0, w: 2, h: 2 },
+        { id: 'active', enabled: false, x: 0, y: 0, w: 1, h: 1 },
         { id: 'nat', enabled: false, x: 0, y: 0, w: 1, h: 1 },
         { id: 'activity', enabled: false, x: 0, y: 0, w: 1, h: 1 },
       ],
@@ -80,20 +76,19 @@ export const DASHBOARD_LAYOUT_PRESETS: readonly DashboardLayoutPreset[] = [
   {
     id: 'compact',
     titleKey: 'panel.dashboard.configure.presets.compact.title',
-    descriptionKey: 'panel.dashboard.configure.presets.compact.description',
     layout: {
       version: 1,
       columns: 4,
       tiles: [
-        { id: 'engine', enabled: true, x: 0, y: 0, w: 2, h: 1 },
-        { id: 'speedLimit', enabled: true, x: 2, y: 0, w: 2, h: 1 },
-        { id: 'speedUp', enabled: true, x: 0, y: 1, w: 1, h: 1 },
-        { id: 'speedDown', enabled: true, x: 1, y: 1, w: 1, h: 1 },
-        { id: 'active', enabled: true, x: 2, y: 1, w: 1, h: 1 },
-        { id: 'transfer', enabled: true, x: 3, y: 1, w: 1, h: 1 },
-        { id: 'tasks', enabled: true, x: 0, y: 2, w: 2, h: 1 },
-        { id: 'nat', enabled: true, x: 2, y: 2, w: 2, h: 1 },
-        { id: 'activity', enabled: false, x: 0, y: 0, w: 1, h: 1 },
+        { id: 'engine', enabled: true, x: 0, y: 0, w: 1, h: 1 },
+        { id: 'nat', enabled: true, x: 1, y: 0, w: 1, h: 1 },
+        { id: 'speedUp', enabled: true, x: 2, y: 0, w: 1, h: 1 },
+        { id: 'speedDown', enabled: true, x: 3, y: 0, w: 1, h: 1 },
+        { id: 'speedLimit', enabled: true, x: 0, y: 1, w: 1, h: 1 },
+        { id: 'transfer', enabled: true, x: 1, y: 1, w: 1, h: 1 },
+        { id: 'tasks', enabled: true, x: 2, y: 1, w: 2, h: 1 },
+        { id: 'active', enabled: true, x: 0, y: 2, w: 2, h: 1 },
+        { id: 'activity', enabled: true, x: 2, y: 2, w: 2, h: 1 },
       ],
     },
   },

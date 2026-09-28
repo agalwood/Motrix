@@ -1,3 +1,4 @@
+import { onOperatorSessionLost } from '@renderer/lib/operator-auth'
 // src/renderer/hooks/use-global-speed-history.ts
 import { transport } from '@renderer/lib/transport'
 import { Events } from '@shared/protocol/events'
@@ -7,6 +8,9 @@ import { useSyncExternalStore } from 'react'
 
 const MAX_POINTS = 200
 const MOCK_STEP_MS = 1000
+const IDLE_SAMPLE_STEP_MS = 1_000
+// Idle engine polls arrive every 10s. Stop holding zero if confirmation is stale.
+const IDLE_CONFIRMATION_MAX_AGE_MS = 15_000
 
 const MOCK_DOWNLOAD_MBPS = [
   0, 0, 0, 0, 5, 52, 0, 0, 0, 0, 0, 26, 0, 0, 0, 0, 3, 8, 15, 38, 63,
@@ -19,9 +23,48 @@ const MOCK_UPLOAD_BPS = [
 
 let store: readonly SpeedPoint[] = []
 const listeners = new Set<() => void>()
+let sessionEpoch = 0
 let initialized = false
 let initializing = false
 let pendingTail: SpeedPoint[] = []
+let idleConfirmedAt: number | null = null
+let idleTimer: ReturnType<typeof setTimeout> | null = null
+let stopConnectionListener: (() => void) | undefined
+
+function stopIdleClock() {
+  if (idleTimer !== null) clearTimeout(idleTimer)
+  idleTimer = null
+}
+
+function scheduleIdleClock() {
+  stopIdleClock()
+  if (
+    idleConfirmedAt === null ||
+    Date.now() - idleConfirmedAt >= IDLE_CONFIRMATION_MAX_AGE_MS ||
+    listeners.size === 0 ||
+    document.hidden ||
+    initializing
+  ) {
+    return
+  }
+
+  const nextSampleAt = (store.at(-1)?.t ?? Date.now()) + IDLE_SAMPLE_STEP_MS
+  idleTimer = setTimeout(
+    () => {
+      idleTimer = null
+      if (
+        idleConfirmedAt === null ||
+        Date.now() - idleConfirmedAt >= IDLE_CONFIRMATION_MAX_AGE_MS
+      ) {
+        return
+      }
+      // Display-only zero tail between confirmed idle polls; no extra engine RPC.
+      appendPoint({ t: Date.now(), down: 0, up: 0 })
+      scheduleIdleClock()
+    },
+    Math.max(0, nextSampleAt - Date.now())
+  )
+}
 
 function notify() {
   for (const cb of listeners) cb()
@@ -48,25 +91,49 @@ function createMockSpeedHistory(): SpeedPoint[] {
 
 function onStatsEvent(...args: unknown[]) {
   const stats = args[0] as GlobalStats
+  // Engines can retain their last measured rate after the final task stops.
+  const idle = stats.activeTasks === 0
   const point: SpeedPoint = {
     t: Date.now(),
-    down: stats.totalDownloadSpeed,
-    up: stats.totalUploadSpeed,
+    down: idle ? 0 : stats.totalDownloadSpeed,
+    up: idle ? 0 : stats.totalUploadSpeed,
   }
+  idleConfirmedAt = idle ? point.t : null
+  stopIdleClock()
   if (initializing) {
     pendingTail.push(point)
   } else {
-    appendPoint(point)
+    const tail = store.at(-1)
+    // A real idle poll can land just after the display clock. Confirm it
+    // without adding a second zero vertex or restarting an in-flight slide.
+    if (
+      idleConfirmedAt === null ||
+      !tail ||
+      tail.down !== 0 ||
+      tail.up !== 0 ||
+      point.t < tail.t ||
+      point.t - tail.t >= IDLE_SAMPLE_STEP_MS
+    ) {
+      appendPoint(point)
+    }
+    scheduleIdleClock()
   }
 }
 
 function initialize() {
   if (initialized || initializing) return
   initializing = true
+  const epoch = sessionEpoch
   transport.on(Events.StatsUpdated, onStatsEvent)
+  stopConnectionListener = transport.onConnectionChange?.(({ state }) => {
+    if (state === 'connected') return
+    idleConfirmedAt = null
+    stopIdleClock()
+  })
   void transport
     .invoke(Queries.GetSpeedHistory, { limit: MAX_POINTS })
     .then((data) => {
+      if (epoch !== sessionEpoch) return
       const seed = data as readonly SpeedPoint[]
       const base =
         seed.length === 0 && pendingTail.length === 0 && shouldUseWebMock()
@@ -78,8 +145,10 @@ function initialize() {
       initialized = true
       initializing = false
       notify()
+      scheduleIdleClock()
     })
     .catch(() => {
+      if (epoch !== sessionEpoch) return
       if (shouldUseWebMock()) {
         store = createMockSpeedHistory()
         initialized = true
@@ -90,6 +159,8 @@ function initialize() {
       }
       // reset so a later subscriber can retry without leaking the listener
       transport.off(Events.StatsUpdated, onStatsEvent)
+      stopConnectionListener?.()
+      stopConnectionListener = undefined
       initializing = false
       pendingTail = []
     })
@@ -97,8 +168,18 @@ function initialize() {
 
 function subscribe(cb: () => void): () => void {
   listeners.add(cb)
+  if (listeners.size === 1) {
+    document.addEventListener('visibilitychange', scheduleIdleClock)
+    scheduleIdleClock()
+  }
   if (!initialized && !initializing) initialize()
-  return () => listeners.delete(cb)
+  return () => {
+    listeners.delete(cb)
+    if (listeners.size === 0) {
+      stopIdleClock()
+      document.removeEventListener('visibilitychange', scheduleIdleClock)
+    }
+  }
 }
 
 export function useGlobalSpeedHistory(): readonly SpeedPoint[] {
@@ -111,6 +192,11 @@ export function useGlobalSpeedHistory(): readonly SpeedPoint[] {
 
 /** Internal: tests only. Resets the module-level singleton. */
 export function __resetGlobalSpeedHistoryStoreForTests(): void {
+  stopIdleClock()
+  idleConfirmedAt = null
+  stopConnectionListener?.()
+  stopConnectionListener = undefined
+  document.removeEventListener('visibilitychange', scheduleIdleClock)
   transport.off(Events.StatsUpdated, onStatsEvent)
   store = []
   listeners.clear()
@@ -118,3 +204,17 @@ export function __resetGlobalSpeedHistoryStoreForTests(): void {
   initializing = false
   pendingTail = []
 }
+
+onOperatorSessionLost(() => {
+  sessionEpoch++
+  stopIdleClock()
+  idleConfirmedAt = null
+  stopConnectionListener?.()
+  stopConnectionListener = undefined
+  transport.off(Events.StatsUpdated, onStatsEvent)
+  store = []
+  pendingTail = []
+  initialized = false
+  initializing = false
+  notify()
+})

@@ -1,6 +1,7 @@
 import type { TaskActivitySnapshot } from '@shared/types/task-activity'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
+  activityCellPosition,
   activityDepth,
   activityMonthLabels,
   buildActivityCells,
@@ -167,7 +168,7 @@ describe('activity calendar day model', () => {
 describe('activity calendar geometry', () => {
   it('maps tile content levels to presentation maximums', () => {
     expect(maxActivityWeeks('compact')).toBe(13)
-    expect(maxActivityWeeks('summary')).toBe(13)
+    expect(maxActivityWeeks('summary')).toBe(26)
     expect(maxActivityWeeks('detailed')).toBe(26)
     expect(maxActivityWeeks('focus')).toBe(53)
   })
@@ -376,6 +377,56 @@ describe('activity calendar geometry', () => {
       (geometry?.gridTop ?? 0) + (geometry?.gridHeight ?? 0)
     ).toBeLessThanOrEqual(48)
   })
+
+  it.each([
+    { width: 397, contentLevel: 'detailed' as const, weeks: 26 },
+    { width: 619, contentLevel: 'focus' as const, weeks: 53 },
+    { width: 842, contentLevel: 'focus' as const, weeks: 53 },
+  ])(
+    'uses both rows of a tall $width px calendar without losing dates',
+    ({ width, contentLevel, weeks }) => {
+      const geometry = selectActivityGeometry({
+        width,
+        height: 361,
+        contentLevel,
+      })
+      if (!geometry) throw new Error('Missing banded geometry')
+      expect(geometry.bands).toBe(2)
+      expect(geometry.weeks).toBe(weeks)
+      expect(geometry.cellSize).toBeGreaterThan(12)
+      const cells = projectActivityCells(
+        buildActivityCells(snapshot(), new Date(2026, 8, 19)),
+        weeks
+      )
+      for (const [index] of cells.entries()) {
+        const position = activityCellPosition(geometry, index)
+        expect(position.left).toBeGreaterThanOrEqual(0)
+        expect(position.top).toBeGreaterThanOrEqual(0)
+        expect(position.left + geometry.cellSize).toBeLessThanOrEqual(width)
+        expect(position.top + geometry.cellSize).toBeLessThanOrEqual(361)
+        expect(
+          hitTestActivityCell(
+            geometry,
+            cells,
+            position.left + 1,
+            position.top + 1
+          )
+        ).toBe(index)
+      }
+      expect(
+        hitTestActivityCell(
+          geometry,
+          cells,
+          geometry.gridLeft + 1,
+          geometry.gridTop + geometry.bandHeight + 1
+        )
+      ).toBeNull()
+      const labels = activityMonthLabels(cells, geometry.weeksPerBand)
+      expect(
+        labels.some((label) => label.cellIndex >= geometry.weeksPerBand * 7)
+      ).toBe(true)
+    }
+  )
 
   it('returns no geometry until the measured box can contain one week', () => {
     expect(

@@ -1,3 +1,4 @@
+import { AttachIcon, SearchIcon } from '@renderer/components/icons'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import {
@@ -17,7 +18,6 @@ import {
   type PluginInstallFileReference,
   useOptionalPlatformServices,
 } from '@renderer/platform/services'
-import { Paperclip, Search } from 'lucide-react'
 import { type ChangeEvent, useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getAudienceTone } from '../lib/audience'
@@ -137,7 +137,7 @@ export function PluginInputGroup({ onCheck, checking }: Props) {
                             : 'plugins.install.localUnavailable'
                         )}
                       >
-                        <Paperclip className="size-4" />
+                        <AttachIcon className="size-4" />
                       </Button>
                     </span>
                   }
@@ -173,7 +173,7 @@ export function PluginInputGroup({ onCheck, checking }: Props) {
               onClick={triggerCheck}
               aria-label={t('plugins.install.checkAriaLabel')}
             >
-              <Search />
+              <SearchIcon />
             </Button>
           )}
         </InputGroupAddon>

@@ -504,7 +504,7 @@ describe('usePairRequestPrompts', () => {
       expect(toastAddMock).toHaveBeenCalledWith(
         expect.objectContaining({
           title:
-            'This pairing request is no longer pending — re-run `motrix pair`.',
+            'This pairing request is no longer pending — re-run motrix pair.',
         })
       )
     )

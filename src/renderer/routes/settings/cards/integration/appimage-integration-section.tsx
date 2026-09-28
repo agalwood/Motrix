@@ -1,3 +1,4 @@
+import { StatusErrorIcon } from '@renderer/components/icons'
 import {
   Alert,
   AlertDescription,
@@ -9,7 +10,6 @@ import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import type { AppImageIntegrationView } from '@shared/types/appimage-integration'
-import { CircleAlert } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -139,7 +139,7 @@ export function AppImageIntegrationSection({
 
       {failed && (
         <Alert variant="destructive">
-          <CircleAlert aria-hidden="true" />
+          <StatusErrorIcon aria-hidden="true" />
           <AlertTitle>
             {t('settings.integration.appimage.status.failedTitle')}
           </AlertTitle>

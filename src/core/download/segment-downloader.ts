@@ -4,6 +4,7 @@ import type {
   MediaPart,
   SegmentPlan,
 } from '@core/media/segment-plan'
+import { segmentFraction } from '@shared/utils/media-progress'
 
 // ---------------------------------------------------------------------------
 // Public interface — narrow aria2 client (injected by T15 adapter)
@@ -54,16 +55,26 @@ export interface SegmentAria2 {
 
 /** Byte-accurate progress emitted by {@link SegmentDownloader.run}. */
 export interface SegmentProgress {
-  /** Segment-count fraction (completed jobs / total jobs), 0..1. */
+  /** All planned jobs, including partial contributions from active jobs. */
   fraction: number
+  completedParts: number
+  totalParts: number
   /**
    * Summed `completedLength` of finished + in-flight segments, in bytes.
    * Finished segments count their full size; in-flight ones count aria2's
    * live `completedLength` from the most recent poll.
    */
   downloadedBytes: number
-  /** Summed `totalLength` of finished + in-flight segments, in bytes. */
+  /** Full plan size, or zero until every job has a known size. */
   totalBytes: number
+}
+
+/** A stable index in the plan's [init?, ...segments] order, across retries. */
+export interface SegmentFileProgress {
+  index: number
+  downloadedBytes: number
+  totalBytes: number
+  completed: boolean
 }
 
 /**
@@ -88,6 +99,7 @@ interface Job {
   outPath: string
   /** How many re-add attempts remain after the first failure. */
   retriesLeft: number
+  knownSize?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -222,7 +234,8 @@ export class SegmentDownloader {
   run(
     plan: SegmentPlan,
     headers: Record<string, string>,
-    onProgress: (p: SegmentProgress) => void
+    onProgress: (p: SegmentProgress) => void,
+    onFileProgress?: (p: SegmentFileProgress) => void
   ): Promise<{ initPath?: string; partPaths: string[] }> {
     this.cancelled = false
     this.rejectRun = null
@@ -259,21 +272,19 @@ export class SegmentDownloader {
     const total = jobs.length
     let completed = 0
 
-    // ── Byte accounting ──────────────────────────────────────────────────
-    // `finished*` accumulates the final size of completed segments (a completed
-    // segment is 100% downloaded). Live in-flight bytes are recomputed on every
-    // report from `lastSeen` (the most recent tellStatus per active gid) summed
-    // over the CURRENT active gids — so a segment leaving the set never causes a
-    // double-count, and a poll that transiently returns null keeps the prior
-    // value instead of dropping bytes.
     const lastSeen = new Map<string, { completed: number; total: number }>()
-    // A completed segment counts its full size toward BOTH downloaded and total
-    // (completed === total once done), so ONE accumulator serves both. Live
-    // in-flight bytes are recomputed on every report from `lastSeen` over the
-    // CURRENT active gids — so a segment leaving the set never double-counts,
-    // and a poll that transiently returns null keeps the prior value instead of
-    // dropping bytes.
     let finishedBytes = 0
+    let knownBytes = 0
+    let knownParts = 0
+    const recordSize = (job: Job, size: number) => {
+      if (!Number.isFinite(size) || size <= 0) return
+      if (job.knownSize === undefined) knownParts++
+      knownBytes += size - (job.knownSize ?? 0)
+      job.knownSize = size
+    }
+    for (const job of jobs) recordSize(job, job.part.byteRange?.length ?? 0)
+    const safeBytes = (value: number) =>
+      Number.isFinite(value) ? Math.max(0, value) : 0
     return new Promise<{ initPath?: string; partPaths: string[] }>(
       (resolve, reject) => {
         if (total === 0) {
@@ -290,27 +301,23 @@ export class SegmentDownloader {
         }
 
         const report = () => {
+          if (this.cancelled) return
           let activeCompleted = 0
-          let activeTotal = 0
-          for (const gid of this.activeGids) {
-            const ls = lastSeen.get(gid)
-            if (ls) {
-              activeCompleted += ls.completed
-              activeTotal += ls.total
-            }
+          let partialParts = 0
+          // Keep settling jobs here until their contribution is atomically
+          // transferred to completed. Work per report is bounded by concurrency.
+          for (const ls of lastSeen.values()) {
+            activeCompleted += ls.completed
+            partialParts += segmentFraction(ls.completed, ls.total, false)
           }
           onProgress({
-            fraction: total > 0 ? completed / total : 0,
+            fraction:
+              completed === total ? 1 : (completed + partialParts) / total,
+            completedParts: completed,
+            totalParts: total,
             downloadedBytes: finishedBytes + activeCompleted,
-            totalBytes: finishedBytes + activeTotal,
+            totalBytes: knownParts === total ? knownBytes : 0,
           })
-        }
-
-        // Retain a finished segment's full size (so the total never shrinks when
-        // its gid leaves the active set), then re-report.
-        const addFinished = (bytes: number) => {
-          finishedBytes += bytes
-          report()
         }
 
         const buildResult = () => {
@@ -341,21 +348,33 @@ export class SegmentDownloader {
           this.settlingGids.add(gid)
           const operation = (async () => {
             const ls = lastSeen.get(gid)
-            if (ls) {
-              // Size known from a prior poll: move it to finished before the
-              // gid leaves the active set so the running total never dips.
-              lastSeen.delete(gid)
-              addFinished(ls.total)
-            } else {
-              // Query before purging: terminal downloads remain queryable only
-              // until removeDownloadResult succeeds.
-              const status = await this.aria2.tellStatus(gid).catch(() => null)
-              if (status) addFinished(status.totalLength)
-            }
-
+            // A prior poll may have seen an unknown length. Read the final
+            // size before removing the engine result, retaining the last poll
+            // (or declared byte range) if the terminal query fails.
+            const status = ls?.total
+              ? null
+              : await this.aria2.tellStatus(gid).catch(() => null)
+            const size = safeBytes(
+              status?.totalLength ||
+                ls?.total ||
+                job.knownSize ||
+                status?.completedLength ||
+                ls?.completed ||
+                0
+            )
+            recordSize(job, size)
             await this.purgeResult(gid)
             this.settlingGids.delete(gid)
+            if (this.cancelled) return
+            lastSeen.delete(gid)
+            finishedBytes += size
             completed++
+            onFileProgress?.({
+              index: job.jobIndex,
+              downloadedBytes: size,
+              totalBytes: size,
+              completed: true,
+            })
             report()
             releaseSlot()
             resolveWhenDone()
@@ -372,6 +391,13 @@ export class SegmentDownloader {
           // A retry restarts this segment from zero; drop its cached bytes so
           // the active sum reflects only live in-flight segments.
           lastSeen.delete(gid)
+          onFileProgress?.({
+            index: job.jobIndex,
+            downloadedBytes: 0,
+            totalBytes: job.knownSize ?? 0,
+            completed: false,
+          })
+          report()
           const operation = (async () => {
             await this.purgeResult(gid)
             this.settlingGids.delete(gid)
@@ -395,35 +421,56 @@ export class SegmentDownloader {
         // ── Byte poll ────────────────────────────────────────────────────
         // Refresh the live-byte cache for every in-flight gid, then report.
         // Never throws: tellStatus null-guards and the tick is fire-and-forget.
+        let polling = false
         const pollOnce = async () => {
-          const gids = [...this.activeGids]
-          if (gids.length > 0) {
-            const results = await Promise.all(
-              gids.map((g) =>
-                this.aria2.tellStatus(g).then(
-                  (s) => ({ gid: g, s }),
-                  () => ({ gid: g, s: null })
+          if (polling || this.cancelled) return
+          polling = true
+          try {
+            const gids = [...this.activeGids]
+            if (gids.length > 0) {
+              const results = await Promise.all(
+                gids.map((g) =>
+                  this.aria2.tellStatus(g).then(
+                    (s) => ({ gid: g, s }),
+                    () => ({ gid: g, s: null })
+                  )
                 )
               )
-            )
-            for (const { gid, s } of results) {
-              // A gid that completed/errored during the await is no longer
-              // active — skip it so we don't resurrect a stale cache entry.
-              if (!this.activeGids.has(gid)) continue
-              if (s) {
-                lastSeen.set(gid, {
-                  completed: s.completedLength,
-                  total: s.totalLength,
-                })
+              for (const { gid, s } of results) {
+                // A gid that completed/errored during the await is no longer
+                // active — skip it so we don't resurrect a stale cache entry.
+                if (!this.activeGids.has(gid)) continue
+                if (s) {
+                  const job = this.activeJobs.get(gid)
+                  if (!job || this.cancelled) continue
+                  recordSize(job, s.totalLength)
+                  const totalBytes = job.knownSize ?? 0
+                  const downloadedBytes =
+                    totalBytes > 0
+                      ? Math.min(totalBytes, safeBytes(s.completedLength))
+                      : safeBytes(s.completedLength)
+                  lastSeen.set(gid, {
+                    completed: downloadedBytes,
+                    total: totalBytes,
+                  })
+                  onFileProgress?.({
+                    index: job.jobIndex,
+                    downloadedBytes,
+                    totalBytes,
+                    completed: false,
+                  })
+                }
               }
             }
+            report()
+          } finally {
+            polling = false
           }
-          report()
         }
 
         // Semaphore implementation
         let running = 0
-        const jobQueue = jobs.slice()
+        let nextJob = 0
 
         const submitJob = (job: Job) => {
           if (this.cancelled) {
@@ -469,8 +516,8 @@ export class SegmentDownloader {
         }
 
         const drain = () => {
-          while (running < this.concurrency && jobQueue.length > 0) {
-            const next = jobQueue.shift()
+          while (running < this.concurrency && nextJob < jobs.length) {
+            const next = jobs[nextJob++]
             if (next !== undefined) submitJob(next)
           }
         }

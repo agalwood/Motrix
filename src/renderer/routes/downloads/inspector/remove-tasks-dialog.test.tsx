@@ -147,7 +147,7 @@ describe('RemoveTasksDialog', () => {
       />
     )
     expect(screen.getByText(/Will delete/)).toBeDefined()
-    expect(screen.getByText(/100/)).toBeDefined()
+    expect(screen.getByText(/104\.86 MB/)).toBeDefined()
   })
 
   it('confirm button calls onConfirm with current deleteFiles state', () => {

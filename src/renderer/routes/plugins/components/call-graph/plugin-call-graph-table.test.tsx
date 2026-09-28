@@ -1,3 +1,4 @@
+import '@test-utils/dom-animations'
 import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -112,14 +113,14 @@ describe('PluginCallGraphTable', () => {
     ).toContain(longCommandId)
   })
 
-  it('right-aligns tabular counts and formats every timestamp through localized copy', () => {
+  it('aligns tabular counts to the inline end and formats every timestamp through localized copy', () => {
     render(<PluginCallGraphTable rows={model.tableRows} strings={strings} />)
 
     const table = screen.getByRole('table', { name: strings.tableLabel })
     const firstDataRow = within(table).getAllByRole('row')[1]
     const cells = within(firstDataRow).getAllByRole('cell')
-    expect(cells[3]).toHaveClass('text-right', 'tabular-nums')
-    expect(cells[4]).toHaveClass('text-right', 'tabular-nums')
+    expect(cells[3]).toHaveClass('text-end', 'tabular-nums')
+    expect(cells[4]).toHaveClass('text-end', 'tabular-nums')
     expect(cells[4]).toHaveTextContent('localized timestamp 300')
     expect(formatLastCall.mock.calls.map(([timestamp]) => timestamp)).toEqual([
       300, 100, 200,
@@ -142,8 +143,10 @@ describe('PluginCallGraphTable', () => {
     const region = screen.getByRole('region', {
       name: strings.tableRegionLabel,
     })
-    expect(region).toHaveClass('min-h-0', 'flex-1', 'overflow-auto')
-    expect(container.querySelectorAll('.overflow-auto')).toHaveLength(1)
+    expect(region).toHaveClass('min-h-0', 'flex-1')
+    expect(
+      container.querySelectorAll('[data-slot="scroll-area-viewport"]')
+    ).toHaveLength(1)
     expect(region.querySelector('thead')).toHaveClass(
       'sticky',
       'top-0',

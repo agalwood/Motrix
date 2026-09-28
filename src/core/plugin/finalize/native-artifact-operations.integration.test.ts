@@ -1,11 +1,14 @@
 import { existsSync } from 'node:fs'
 import {
+  chmod,
+  link,
   mkdir,
   mkdtemp,
   readFile,
   realpath,
   rename,
   rm,
+  stat,
   symlink,
   writeFile,
 } from 'node:fs/promises'
@@ -22,6 +25,16 @@ import { NativeFinalizeFilesystemAdapter } from './filesystem-adapter'
 import { FinalizeCommitter, removalQuarantinePath } from './finalize-committer'
 import * as hashing from './hash-opened-file'
 import { NativeFinalizeArtifactOperations } from './native-artifact-operations'
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>()
+  const mkdirMock = vi.fn(actual.mkdir)
+  return {
+    ...actual,
+    mkdir: mkdirMock,
+    default: { ...actual, mkdir: mkdirMock },
+  }
+})
 
 const binary = process.env.MOTRIX_FINALIZE_FS_TEST_BIN
   ? path.resolve(process.env.MOTRIX_FINALIZE_FS_TEST_BIN)
@@ -40,6 +53,7 @@ describe.runIf(existsSync(binary))(
 
     afterEach(async () => {
       vi.restoreAllMocks()
+      vi.mocked(mkdir).mockReset()
       await Promise.all(
         roots
           .splice(0)
@@ -57,6 +71,29 @@ describe.runIf(existsSync(binary))(
       await operations.assertSupported()
       return { root, adapter, operations }
     }
+
+    it('finalizes in an existing directory whose mkdir reports EPERM like a Windows drive root', async () => {
+      const { root, adapter, operations } = await setup()
+      const source = path.join(root, 'archive.zip.motrix')
+      const target = path.join(root, 'archive.zip')
+      await writeFile(source, 'completed download')
+      const identity = await readArtifactIdentity(source)
+      const mkdirMock = vi.mocked(mkdir).mockRejectedValue(
+        Object.assign(new Error(`EPERM: mkdir '${root}'`), {
+          code: 'EPERM',
+          syscall: 'mkdir',
+        })
+      )
+      try {
+        await operations.preflight(source, target)
+        await operations.moveNoReplace(source, identity, target)
+        expect(await readFile(target, 'utf8')).toBe('completed download')
+        expect(existsSync(source)).toBe(false)
+        expect(mkdirMock).not.toHaveBeenCalled()
+      } finally {
+        await adapter.dispose()
+      }
+    })
 
     it('finalizes a large file with at most two content reads and metadata-only native rename', async () => {
       const { root, adapter, operations } = await setup()
@@ -111,6 +148,26 @@ describe.runIf(existsSync(binary))(
         await adapter.dispose()
       }
     })
+
+    it.runIf(process.platform !== 'win32')(
+      'rejects a different held isolation directory identity',
+      async () => {
+        const { root, adapter } = await setup()
+        try {
+          const metadata = await stat(root, { bigint: true })
+          const held = await adapter.openRoot(
+            root,
+            `${metadata.dev}:${metadata.ino}`
+          )
+          await adapter.close(held)
+          await expect(
+            adapter.openRoot(root, `${metadata.dev}:${metadata.ino + 1n}`)
+          ).rejects.toThrow('held directory identity changed')
+        } finally {
+          await adapter.dispose()
+        }
+      }
+    )
 
     it('publishes a held file without replacing an existing target', async () => {
       const { root, adapter, operations } = await setup()
@@ -222,6 +279,50 @@ describe.runIf(existsSync(binary))(
       expect(existsSync(tree)).toBe(false)
       await adapter.dispose()
     })
+
+    it.runIf(process.platform !== 'win32').each([0o700, 0o755, 0o770, 0o777])(
+      'checks exclusive directory write access during isolated cleanup (mode %s)',
+      async (mode) => {
+        const { root, adapter, operations } = await setup()
+        const source = path.join(root, 'download.motrix')
+        const target = path.join(root, 'download')
+        try {
+          await writeFile(source, 'complete download')
+          await link(source, target)
+          const identity = await readArtifactIdentity(source)
+          const intent = await operations.prepareRemoval(
+            source,
+            identity,
+            removalQuarantinePath('ntfs-mode', source)
+          )
+          if (!intent.isolation) throw new Error('missing isolation directory')
+          // Model NTFS mount masks overriding mkdir(0700), including on replay
+          // through a new operations instance with no in-memory state.
+          await chmod(intent.isolation.directory, mode)
+          const replay = new NativeFinalizeArtifactOperations(adapter)
+          const removal = replay.removeKnown(
+            source,
+            identity,
+            intent.quarantinePath,
+            intent.isolation,
+            { path: target, identity }
+          )
+          if (mode & 0o022) {
+            await expect(removal).rejects.toThrow(
+              'private isolation directory changed'
+            )
+            expect(await readFile(source, 'utf8')).toBe('complete download')
+          } else {
+            await removal
+            expect(existsSync(source)).toBe(false)
+            expect(existsSync(intent.isolation.directory)).toBe(false)
+          }
+          expect(await readFile(target, 'utf8')).toBe('complete download')
+        } finally {
+          await adapter.dispose()
+        }
+      }
+    )
 
     it('resumes the exact journal quarantine left by a removal crash', async () => {
       const { root, adapter, operations } = await setup()

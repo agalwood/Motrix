@@ -1,3 +1,4 @@
+import { ImportFileIcon } from '@renderer/components/icons'
 import {
   type ParsedTorrentFile,
   readTorrentFile,
@@ -5,7 +6,6 @@ import {
 import { cn } from '@renderer/lib/utils'
 import { usePlatformServices } from '@renderer/platform/services'
 import type { AddTaskFormValues } from '@shared/schemas/add-task'
-import { Upload } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
 import { useFormContext } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -73,7 +73,10 @@ export function DropZone({
           dragOver ? 'border-ring bg-muted' : 'border-border hover:border-ring'
         )}
       >
-        <Upload className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+        <ImportFileIcon
+          className="h-6 w-6 text-muted-foreground"
+          aria-hidden="true"
+        />
         <span className="text-sm text-muted-foreground">
           {t('task.add.dropTorrent')}{' '}
           <span className="font-medium text-foreground underline">

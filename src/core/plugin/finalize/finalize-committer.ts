@@ -5,6 +5,9 @@ import type {
   ArtifactMutationLease,
   ArtifactMutationLeaseCoordinator,
 } from './artifact-mutation-lease'
+import { FinalizeFsError } from './filesystem-adapter'
+import { FinalizeRecovery } from './finalize-recovery'
+import { selectRemovalSurvivor } from './finalize-removal-safety'
 import { assertValidHookPlan, type HookPlan } from './hook-plan'
 
 export type FinalizeJournalPhase =
@@ -25,11 +28,32 @@ export interface FinalizeJournalRecord {
   privateTargetIdentity?: ArtifactIdentity
   targetIdentity?: ArtifactIdentity
   rollbackPath?: string
+  publicationIntent?: FinalizePublicationIntent
   removalIntent?: FinalizeRemovalIntent
   quarantineReason?: string
 }
 
+export interface FinalizePublicationIntent {
+  /** Written only after the native exclusive link call returns success. */
+  confirmed?: true
+  version: 1
+  method: 'hard_link'
+  sourcePath: string
+  identity: ArtifactIdentity
+}
+
+export interface FinalizeIsolation {
+  directory: string
+  platformFileId: string
+}
+
+export interface FinalizeRemovalSurvivor {
+  path: string
+  identity: ArtifactIdentity
+}
+
 export interface FinalizeRemovalIntent {
+  isolation?: FinalizeIsolation
   artifactPath: string
   quarantinePath: string
   identity: ArtifactIdentity
@@ -47,6 +71,7 @@ export interface FinalizeJournalRepository {
         | 'targetIdentity'
         | 'rollbackPath'
         | 'removalIntent'
+        | 'publicationIntent'
       >
     >
   ): Promise<void>
@@ -66,10 +91,13 @@ export interface FinalizeJournalRepository {
   ): Promise<void>
   commitTerminal(record: FinalizeJournalRecord): Promise<void>
   quarantine(journalId: string, reason: string): Promise<void>
-  listRecoverable(): Promise<FinalizeJournalRecord[]>
+  listRecoverable(taskId?: string): Promise<FinalizeJournalRecord[]>
+  resumeQuarantined?(record: FinalizeJournalRecord): Promise<void>
 }
 
 export interface FinalizeArtifactOperations {
+  /** Validate the actual roots and flush source data before journaled mutation. */
+  preflight?(sourcePath: string, targetPath: string): Promise<void>
   identity(artifactPath: string): Promise<ArtifactIdentity | null>
   sameFilesystem(leftPath: string, rightPath: string): Promise<boolean>
   materializePrivate(
@@ -82,11 +110,23 @@ export interface FinalizeArtifactOperations {
     expected: ArtifactIdentity,
     targetPath: string
   ): Promise<void>
+  linkNoReplace?(
+    sourcePath: string,
+    expected: ArtifactIdentity,
+    targetPath: string
+  ): Promise<void>
+  prepareRemoval?(
+    artifactPath: string,
+    identity: ArtifactIdentity,
+    quarantinePath: string
+  ): Promise<FinalizeRemovalIntent>
   makeDurable(artifactPath: string): Promise<void>
   removeKnown(
     artifactPath: string,
     expected: ArtifactIdentity,
-    quarantinePath: string
+    quarantinePath: string,
+    isolation?: FinalizeIsolation,
+    survivor?: FinalizeRemovalSurvivor
   ): Promise<void>
 }
 
@@ -135,6 +175,7 @@ export class FinalizeCommitter {
       plan,
       publicationMode: 'copy',
     }
+    let prepared = false
     try {
       await this.requireExactIdentity(
         plan.sourcePath,
@@ -149,11 +190,16 @@ export class FinalizeCommitter {
         )
       }
       record.publicationMode = await this.selectPublicationMode(plan)
+      await this.options.fs.preflight?.(
+        plan.replacement?.stagedPath ?? plan.sourcePath,
+        plan.targetPath
+      )
       await this.options.repository.prepare(record)
+      prepared = true
       return await this.commitPrepared(record, lease)
     } catch (error) {
       if (error instanceof FinalizeQuarantinedError) throw error
-      await this.compensate(record, lease, error)
+      if (prepared) await this.compensate(record, lease, error)
       throw error
     } finally {
       if (ownsLease) await lease.release()
@@ -180,7 +226,8 @@ export class FinalizeCommitter {
     } else if (movesSource) {
       // moveNoReplace validates the expected source identity while holding the
       // artifact and both roots. Avoid hashing large artifacts once more here.
-      await this.options.fs.moveNoReplace(
+      await this.publish(
+        record,
         plan.sourcePath,
         plan.sourceIdentity,
         plan.targetPath
@@ -233,7 +280,8 @@ export class FinalizeCommitter {
         privateIdentity,
         record
       )
-      await this.options.fs.moveNoReplace(
+      await this.publish(
+        record,
         record.privateTargetPath,
         privateIdentity,
         plan.targetPath
@@ -268,13 +316,20 @@ export class FinalizeCommitter {
     record.phase = 'db_committed'
     let cleanupPending = false
     try {
-      if (!samePath && !movesSource) {
+      if (!samePath && (!movesSource || record.publicationIntent)) {
         await this.requireExactIdentity(
           plan.sourcePath,
           plan.sourceIdentity,
           record
         )
         await this.removeTracked(record, plan.sourcePath, plan.sourceIdentity)
+      }
+      if (record.publicationIntent && record.privateTargetPath) {
+        await this.removeTracked(
+          record,
+          record.privateTargetPath,
+          record.publicationIntent.identity
+        )
       }
       if (record.rollbackPath) {
         await this.requireExactIdentity(
@@ -315,89 +370,74 @@ export class FinalizeCommitter {
     }
   }
 
+  private async publish(
+    record: FinalizeJournalRecord,
+    sourcePath: string,
+    identity: ArtifactIdentity,
+    targetPath: string
+  ): Promise<void> {
+    try {
+      await this.options.fs.moveNoReplace(sourcePath, identity, targetPath)
+    } catch (error) {
+      if (
+        !(error instanceof FinalizeFsError) ||
+        error.code !== 'rename_unsupported' ||
+        identity.kind !== 'file' ||
+        !this.options.fs.linkNoReplace
+      )
+        throw error
+      await this.requireExactIdentity(sourcePath, identity, record)
+      if (await this.options.fs.identity(targetPath)) throw error
+      const publicationIntent: FinalizePublicationIntent = {
+        version: 1,
+        method: 'hard_link',
+        sourcePath,
+        identity,
+      }
+      // Persist before the native call: a lost response can leave both names.
+      await this.options.repository.checkpoint(record.journalId, {
+        publicationIntent,
+      })
+      record.publicationIntent = publicationIntent
+      await this.options.fs.linkNoReplace(sourcePath, identity, targetPath)
+      const confirmed = { ...publicationIntent, confirmed: true as const }
+      await this.options.repository.checkpoint(record.journalId, {
+        publicationIntent: confirmed,
+      })
+      record.publicationIntent = confirmed
+    }
+  }
+
   private async compensate(
     record: FinalizeJournalRecord,
-    _lease: ArtifactMutationLease,
+    lease: ArtifactMutationLease,
     cause: unknown
   ): Promise<void> {
     if (record.phase === 'db_committed' || record.phase === 'cleaned') return
     try {
-      const movesSource = record.publicationMode === 'move'
-      const installedIdentity =
-        record.targetIdentity ??
-        record.privateTargetIdentity ??
-        (movesSource ? record.plan.sourceIdentity : undefined)
-      const target = await this.options.fs.identity(record.plan.targetPath)
-      if (
-        target &&
-        installedIdentity &&
-        this.options.exactIdentity(target, installedIdentity)
-      ) {
-        if (movesSource) {
-          await this.options.fs.moveNoReplace(
-            record.plan.targetPath,
-            installedIdentity,
-            record.plan.sourcePath
-          )
-          await this.options.fs.makeDurable(record.plan.sourcePath)
-        } else {
-          await this.removeTracked(
-            record,
-            record.plan.targetPath,
-            installedIdentity
-          )
-        }
-      } else if (target) {
-        await this.quarantine(record, 'compensation target identity mismatch')
-      }
-      if (record.rollbackPath) {
-        await this.requireExactIdentity(
-          record.rollbackPath,
-          record.plan.sourceIdentity,
-          record
-        )
-        await this.options.fs.moveNoReplace(
-          record.rollbackPath,
-          record.plan.sourceIdentity,
-          record.plan.sourcePath
-        )
-        await this.options.fs.makeDurable(record.plan.sourcePath)
-      }
-      if (record.privateTargetPath) {
-        const privateTarget = await this.options.fs.identity(
-          record.privateTargetPath
-        )
-        if (privateTarget) {
-          const expectedPrivate = record.privateTargetIdentity
-          const selected =
-            record.plan.replacement?.identity ?? record.plan.sourceIdentity
-          if (
-            expectedPrivate
-              ? !this.options.exactIdentity(privateTarget, expectedPrivate)
-              : !this.options.sameContent(privateTarget, selected)
-          ) {
-            await this.quarantine(
-              record,
-              'compensation private target identity mismatch'
-            )
-          }
-          await this.removeTracked(
-            record,
-            record.privateTargetPath,
-            expectedPrivate ?? privateTarget
-          )
-        }
-      }
+      // Live rollback and startup recovery must make the same identity checks,
+      // and only mark the journal cleaned after the rollback is durable.
+      await new FinalizeRecovery({
+        ...this.options,
+        rollForwardTargetInstalled: false,
+      }).recover(record, lease)
     } catch (compensationError) {
-      await this.options.repository.quarantine(
-        record.journalId,
-        `compensation failed after ${String(cause)}: ${String(compensationError)}`
+      const failures = new AggregateError(
+        [cause, compensationError],
+        'finalize failed and rollback needs recovery'
       )
-      throw new FinalizeQuarantinedError(
-        record.journalId,
-        'compensation failed',
-        { cause: compensationError }
-      )
+      if (compensationError instanceof FinalizeQuarantinedError) {
+        throw new FinalizeQuarantinedError(
+          record.journalId,
+          compensationError.reason,
+          {
+            cause: failures,
+          }
+        )
+      }
+      // I/O and connectivity failures retain the journal's last checkpoint.
+      // Recovery rechecks both names; only identity conflicts are quarantined.
+      throw failures
     }
   }
 
@@ -435,19 +475,29 @@ export class FinalizeCommitter {
     artifactPath: string,
     identity: ArtifactIdentity
   ): Promise<void> {
-    const removalIntent: FinalizeRemovalIntent = {
+    const removalIntent = await prepareRemovalIntent(
+      this.options.fs,
+      record.journalId,
       artifactPath,
-      quarantinePath: removalQuarantinePath(record.journalId, artifactPath),
-      identity,
-    }
-    record.removalIntent = removalIntent
+      identity
+    )
     await this.options.repository.checkpoint(record.journalId, {
       removalIntent,
     })
+    record.removalIntent = removalIntent
+    const survivor = await selectRemovalSurvivor(
+      record,
+      removalIntent,
+      this.options.fs,
+      this.options.exactIdentity
+    )
+    if (typeof survivor === 'string') return this.quarantine(record, survivor)
     await this.options.fs.removeKnown(
       artifactPath,
       identity,
-      removalIntent.quarantinePath
+      removalIntent.quarantinePath,
+      removalIntent.isolation,
+      survivor
     )
     record.removalIntent = undefined
     await this.options.repository.checkpoint(record.journalId, {
@@ -462,6 +512,18 @@ export class FinalizeCommitter {
     await this.options.repository.quarantine(record.journalId, reason)
     throw new FinalizeQuarantinedError(record.journalId, reason)
   }
+}
+
+export async function prepareRemovalIntent(
+  fs: FinalizeArtifactOperations,
+  journalId: string,
+  artifactPath: string,
+  identity: ArtifactIdentity
+): Promise<FinalizeRemovalIntent> {
+  const quarantinePath = removalQuarantinePath(journalId, artifactPath)
+  return fs.prepareRemoval
+    ? fs.prepareRemoval(artifactPath, identity, quarantinePath)
+    : { artifactPath, quarantinePath, identity }
 }
 
 export function removalQuarantinePath(

@@ -1,62 +1,78 @@
 import '@renderer/lib/i18n'
-import { fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-
-const { transportMock, statusMock, loginMock } = vi.hoisted(() => ({
-  transportMock: { platform: 'web' as 'web' | 'electron' },
-  statusMock: vi.fn<() => Promise<boolean>>(),
-  loginMock: vi.fn<(t: string) => Promise<boolean>>(),
-}))
-
-vi.mock('@renderer/lib/transport', () => ({ transport: transportMock }))
-vi.mock('@renderer/lib/operator-auth', () => ({
-  getOperatorStatus: statusMock,
-  operatorLogin: loginMock,
-}))
-
+import { useOperatorSession } from '@renderer/lib/operator-auth'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { OperatorUnlockGate } from './operator-unlock-gate'
 
+const { transportMock } = vi.hoisted(() => ({
+  transportMock: { platform: 'web' as string },
+}))
+vi.mock('@renderer/lib/transport', () => ({ transport: transportMock }))
+const fetchMock = vi.fn()
+const reply = (authed: boolean) =>
+  new Response(
+    JSON.stringify({
+      authed,
+      mode: authed ? 'cookie' : 'unauthenticated',
+      canLogout: authed,
+    })
+  )
 const child = <div data-testid="app">APP</div>
-
-describe('OperatorUnlockGate', () => {
-  beforeEach(() => {
-    transportMock.platform = 'web'
-    statusMock.mockReset()
-    loginMock.mockReset()
+beforeEach(() => {
+  transportMock.platform = 'web'
+  useOperatorSession.setState({
+    state: 'checking',
+    status: null,
+    epoch: useOperatorSession.getState().epoch + 1,
   })
-
-  it('renders children directly on the desktop build (no /rpc)', () => {
-    transportMock.platform = 'electron'
+  vi.stubGlobal('fetch', fetchMock)
+  fetchMock.mockReset()
+})
+afterEach(() => vi.unstubAllGlobals())
+describe('OperatorUnlockGate', () => {
+  it('bypasses HTTP authentication on desktop', () => {
+    transportMock.platform = 'darwin'
     render(<OperatorUnlockGate>{child}</OperatorUnlockGate>)
     expect(screen.getByTestId('app')).toBeTruthy()
-    expect(statusMock).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
   })
-
-  it('renders children when already authed (web)', async () => {
-    statusMock.mockResolvedValue(true)
+  it('renders children for an authenticated cookie', async () => {
+    fetchMock.mockResolvedValue(reply(true))
     render(<OperatorUnlockGate>{child}</OperatorUnlockGate>)
     expect(await screen.findByTestId('app')).toBeTruthy()
   })
-
-  it('shows the unlock form when locked, then renders children after unlock', async () => {
-    statusMock.mockResolvedValue(false)
-    loginMock.mockResolvedValue(true)
+  it('exchanges a token and checks the resulting session', async () => {
+    fetchMock
+      .mockResolvedValueOnce(reply(false))
+      .mockResolvedValueOnce(new Response('{}'))
+      .mockResolvedValueOnce(reply(true))
     render(<OperatorUnlockGate>{child}</OperatorUnlockGate>)
-    const input = await screen.findByPlaceholderText('Operator token')
-    fireEvent.change(input, { target: { value: 'machine-token' } })
+    fireEvent.change(await screen.findByPlaceholderText('Operator token'), {
+      target: { value: 'machine-token' },
+    })
     fireEvent.click(screen.getByRole('button', { name: 'Unlock' }))
     expect(await screen.findByTestId('app')).toBeTruthy()
-    expect(loginMock).toHaveBeenCalledWith('machine-token')
+    expect(fetchMock.mock.calls[1][1].body).toBe(
+      JSON.stringify({ token: 'machine-token' })
+    )
   })
-
-  it('shows an error and stays locked when the token is rejected', async () => {
-    statusMock.mockResolvedValue(false)
-    loginMock.mockResolvedValue(false)
+  it('keeps rejected credentials locked', async () => {
+    fetchMock
+      .mockResolvedValueOnce(reply(false))
+      .mockResolvedValueOnce(new Response('{}', { status: 401 }))
     render(<OperatorUnlockGate>{child}</OperatorUnlockGate>)
-    const input = await screen.findByPlaceholderText('Operator token')
-    fireEvent.change(input, { target: { value: 'bad' } })
+    fireEvent.change(await screen.findByPlaceholderText('Operator token'), {
+      target: { value: 'bad' },
+    })
     fireEvent.click(screen.getByRole('button', { name: 'Unlock' }))
     expect(await screen.findByText(/Invalid operator token/)).toBeTruthy()
-    expect(screen.queryByTestId('app')).toBeNull()
+  })
+  it('offers retry for an unreachable server without pretending the session was revoked', async () => {
+    fetchMock
+      .mockRejectedValueOnce(new TypeError('offline'))
+      .mockResolvedValueOnce(reply(true))
+    render(<OperatorUnlockGate>{child}</OperatorUnlockGate>)
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(screen.getByTestId('app')).toBeTruthy())
   })
 })

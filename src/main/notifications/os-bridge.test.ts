@@ -6,12 +6,14 @@
 // import for the module under test because vitest.config.ts does not alias
 // @main (see CLAUDE.md gotchas); @shared/@core aliases still work in tests.
 
+import { EventEmitter } from 'node:events'
 import type { EventChannel } from '@shared/protocol/events'
 import { Events } from '@shared/protocol/events'
 import { DEFAULT_APP_SETTINGS } from '@shared/schemas/app-settings'
 import type { AppNotification } from '@shared/types/notification'
 import { NotificationKinds } from '@shared/types/notification'
 import type { MotrixAppSettings } from '@shared/types/settings'
+import { TaskStatus } from '@shared/types/task'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
@@ -79,31 +81,30 @@ function makeWindow(
   return {
     isVisible: vi.fn(() => isVisible),
     isFocused: vi.fn(() => isFocused),
-    show: vi.fn(),
-    focus: vi.fn(),
   }
 }
 
 interface FakeHandle extends OsNotificationHandle {
   opts: { title: string; body?: string }
-  click(): void
+  click(): Promise<void>
+  fail(error: string): void
 }
 
 function makeNotificationFactory() {
   const instances: FakeHandle[] = []
   const createNotification = vi.fn(
     (opts: { title: string; body?: string }): OsNotificationHandle => {
-      const clickListeners: Array<() => void> = []
-      const handle: FakeHandle = {
+      const emitter = new EventEmitter()
+      const handle: FakeHandle = Object.assign(emitter, {
         opts,
         show: vi.fn(),
-        on: vi.fn((event: 'click', listener: () => void) => {
-          if (event === 'click') clickListeners.push(listener)
-        }),
-        click: () => {
-          for (const listener of clickListeners) listener()
+        click: async () => {
+          for (const listener of emitter.listeners('click')) await listener()
         },
-      }
+        fail: (error: string) => {
+          emitter.emit('failed', {}, error)
+        },
+      })
       instances.push(handle)
       return handle
     }
@@ -146,11 +147,23 @@ function baseDeps(overrides: {
   >['createNotification']
   isSupported?: () => boolean
   log?: ReturnType<typeof makeLog>
+  showMainWindow?: () => void
+  getTaskStatus?: (taskId: string) => TaskStatus | null
   navigateToTask?: (taskId: string) => void
+  navigateToDownloads?: () => void
+  revealTaskInFolder?: (taskId: string) => Promise<void>
   translate?: (key: string, params?: Record<string, string>) => string
 }) {
   const { subscribe, deliver } = makeCapturingSubscribe()
-  const navigateToTask = overrides.navigateToTask ?? vi.fn()
+  const navigateToTask = vi.fn(overrides.navigateToTask)
+  const navigateToDownloads = vi.fn(overrides.navigateToDownloads)
+  const getTaskStatus = vi.fn(
+    overrides.getTaskStatus ?? (() => TaskStatus.Completed)
+  )
+  const showMainWindow = vi.fn(overrides.showMainWindow)
+  const revealTaskInFolder = vi.fn(
+    overrides.revealTaskInFolder ?? (async () => {})
+  )
   const log = overrides.log ?? makeLog()
   const translate = overrides.translate ?? ((key: string) => key)
   const window = overrides.window ?? null
@@ -160,12 +173,20 @@ function baseDeps(overrides: {
     deliver,
     log,
     navigateToTask,
+    navigateToDownloads,
+    getTaskStatus,
+    showMainWindow,
+    revealTaskInFolder,
     deps: {
       subscribe,
       getMainWindow: () => window,
+      showMainWindow,
       getAppSettings: () => settings,
       translate,
       navigateToTask,
+      navigateToDownloads,
+      getTaskStatus,
+      revealTaskInFolder,
       isSupported: overrides.isSupported ?? (() => true),
       createNotification: overrides.createNotification,
       log,
@@ -176,6 +197,26 @@ function baseDeps(overrides: {
 // ---------------------------------------------------------------------------
 // Full gating matrix: (window state) x (kind) x (toggle on/off)
 // ---------------------------------------------------------------------------
+
+it.each([NotificationKinds.TaskComplete, NotificationKinds.TaskError])(
+  'still delivers native %s notifications when desktop in-app surfaces are hidden',
+  (kind) => {
+    const factory = makeNotificationFactory()
+    const { deps, deliver } = baseDeps({
+      window: makeWindow(false, false),
+      settings: makeSettings({
+        notifyInAppOnComplete: false,
+        notifyInAppOnError: false,
+        notificationBadgeStyle: 'hidden',
+      }),
+      createNotification: factory.createNotification,
+    })
+    createOsNotificationBridge(deps)
+    deliver(makeNotification({ kind }))
+    expect(factory.instances).toHaveLength(1)
+    expect(factory.instances[0].show).toHaveBeenCalledOnce()
+  }
+)
 
 const WINDOW_STATES: Array<{
   label: string
@@ -249,7 +290,11 @@ describe('createOsNotificationBridge — gating matrix', () => {
               createOsNotificationBridge(deps)
               deliver(makeNotification({ kind: kindCase.kind }))
 
-              const expectSend = !windowState.foreground && toggleOn
+              const isTaskOutcome =
+                kindCase.kind === NotificationKinds.TaskComplete ||
+                kindCase.kind === NotificationKinds.TaskError
+              const expectSend =
+                toggleOn && (isTaskOutcome || !windowState.foreground)
               if (expectSend) {
                 expect(createNotification).toHaveBeenCalledOnce()
               } else {
@@ -300,6 +345,10 @@ describe('createOsNotificationBridge — subscription', () => {
       getMainWindow: () => null,
       getAppSettings: () => makeSettings(),
       translate: (key) => key,
+      showMainWindow: vi.fn(),
+      getTaskStatus: () => null,
+      navigateToDownloads: vi.fn(),
+      revealTaskInFolder: vi.fn(async () => {}),
       navigateToTask: vi.fn(),
       isSupported: () => true,
       createNotification,
@@ -318,10 +367,10 @@ describe('createOsNotificationBridge — subscription', () => {
 // ---------------------------------------------------------------------------
 
 describe('createOsNotificationBridge — isSupported gate', () => {
-  it('isSupported() === false skips silently even when everything else says send', () => {
+  it('logs unavailable native notifications without attempting delivery', () => {
     const { createNotification } = makeNotificationFactory()
     const translate = vi.fn((key: string) => key)
-    const { deps, deliver } = baseDeps({
+    const { deps, deliver, log } = baseDeps({
       window: null,
       settings: makeSettings({ notifyOnComplete: true }),
       createNotification,
@@ -335,6 +384,14 @@ describe('createOsNotificationBridge — isSupported gate', () => {
     expect(createNotification).not.toHaveBeenCalled()
     // Short-circuits before doing any translation work.
     expect(translate).not.toHaveBeenCalled()
+    expect(log.warn).toHaveBeenCalledWith(
+      {
+        notificationId: 'n-1',
+        kind: NotificationKinds.TaskComplete,
+        taskId: null,
+      },
+      'os-notification-bridge: native notifications unavailable'
+    )
   })
 })
 
@@ -434,73 +491,313 @@ describe('createOsNotificationBridge — body rendering', () => {
 // ---------------------------------------------------------------------------
 
 describe('createOsNotificationBridge — click behavior', () => {
-  it('click shows and focuses the main window, then navigates when taskId is set', () => {
+  it.each([
+    [NotificationKinds.TaskComplete, null],
+    [NotificationKinds.TaskComplete, TaskStatus.Removed],
+    [NotificationKinds.TaskError, null],
+    [NotificationKinds.TaskError, TaskStatus.Removed],
+  ])(
+    'opens all downloads when a %s task becomes %s before the click',
+    async (kind, removedStatus) => {
+      const { createNotification, instances } = makeNotificationFactory()
+      let status: TaskStatus | null = TaskStatus.Completed
+      const {
+        deps,
+        deliver,
+        showMainWindow,
+        navigateToTask,
+        navigateToDownloads,
+        revealTaskInFolder,
+        getTaskStatus,
+        log,
+      } = baseDeps({
+        settings: makeSettings({ notifyOnComplete: true, notifyOnError: true }),
+        createNotification,
+        getTaskStatus: () => status,
+      })
+
+      createOsNotificationBridge(deps)
+      deliver(makeNotification({ kind, taskId: 't-1' }))
+      status = removedStatus
+
+      await instances[0].click()
+
+      expect(getTaskStatus).toHaveBeenCalledWith('t-1')
+      expect(showMainWindow).toHaveBeenCalledOnce()
+      expect(showMainWindow).toHaveBeenCalledBefore(navigateToDownloads)
+      expect(navigateToDownloads).toHaveBeenCalledOnce()
+      expect(navigateToTask).not.toHaveBeenCalled()
+      expect(revealTaskInFolder).not.toHaveBeenCalled()
+      expect(log.warn).not.toHaveBeenCalled()
+    }
+  )
+
+  it('rechecks task availability after an asynchronous reveal failure', async () => {
     const { createNotification, instances } = makeNotificationFactory()
-    const window = makeWindow(false, true)
-    const navigateToTask = vi.fn()
-    const { deps, deliver } = baseDeps({
-      window,
+    const reveal = Promise.withResolvers<void>()
+    let status: TaskStatus | null = TaskStatus.Completed
+    const {
+      deps,
+      deliver,
+      navigateToTask,
+      navigateToDownloads,
+      showMainWindow,
+      log,
+    } = baseDeps({
       settings: makeSettings({ notifyOnComplete: true }),
       createNotification,
-      navigateToTask,
+      getTaskStatus: () => status,
+      revealTaskInFolder: () => reveal.promise,
     })
 
     createOsNotificationBridge(deps)
-    deliver(
-      makeNotification({ kind: NotificationKinds.TaskComplete, taskId: 't-1' })
-    )
+    deliver(makeNotification({ taskId: 't-1' }))
+    const click = instances[0].click()
+    status = null
+    reveal.reject(new Error('task removed while revealing'))
+    await click
 
-    instances[0].click()
-
-    expect(window.show).toHaveBeenCalledOnce()
-    expect(window.focus).toHaveBeenCalledOnce()
-    expect(navigateToTask).toHaveBeenCalledWith('t-1')
+    expect(showMainWindow).toHaveBeenCalledOnce()
+    expect(navigateToDownloads).toHaveBeenCalledOnce()
+    expect(navigateToTask).not.toHaveBeenCalled()
+    expect(log.warn).not.toHaveBeenCalled()
   })
 
-  it('click shows and focuses but does not navigate when taskId is null', () => {
+  it('rechecks task availability after recreating the main window', async () => {
     const { createNotification, instances } = makeNotificationFactory()
-    const window = makeWindow(false, true)
-    const navigateToTask = vi.fn()
-    const { deps, deliver } = baseDeps({
-      window,
-      settings: makeSettings({ notifyOnComplete: true }),
+    let status: TaskStatus | null = TaskStatus.Error
+    const { deps, deliver, navigateToTask, navigateToDownloads } = baseDeps({
+      settings: makeSettings({ notifyOnError: true }),
       createNotification,
-      navigateToTask,
+      getTaskStatus: () => status,
+      showMainWindow: () => {
+        status = null
+      },
     })
 
     createOsNotificationBridge(deps)
     deliver(
-      makeNotification({ kind: NotificationKinds.TaskComplete, taskId: null })
+      makeNotification({ kind: NotificationKinds.TaskError, taskId: 't-1' })
     )
+    await instances[0].click()
 
-    instances[0].click()
-
-    expect(window.show).toHaveBeenCalledOnce()
-    expect(window.focus).toHaveBeenCalledOnce()
+    expect(navigateToDownloads).toHaveBeenCalledOnce()
     expect(navigateToTask).not.toHaveBeenCalled()
   })
 
-  it('navigateToTask throwing inside the click callback is caught and logged via log.warn, not thrown', () => {
+  it.each(['hidden', 'released'])(
+    'reveals a completed task without showing the %s main window',
+    async (windowState) => {
+      const { createNotification, instances } = makeNotificationFactory()
+      const {
+        deps,
+        deliver,
+        revealTaskInFolder,
+        showMainWindow,
+        navigateToTask,
+      } = baseDeps({
+        window: windowState === 'hidden' ? makeWindow(false, true) : null,
+        settings: makeSettings({ notifyOnComplete: true }),
+        createNotification,
+      })
+
+      createOsNotificationBridge(deps)
+      deliver(makeNotification({ taskId: 't-1' }))
+      expect(revealTaskInFolder).not.toHaveBeenCalled()
+
+      await instances[0].click()
+
+      expect(revealTaskInFolder).toHaveBeenCalledExactlyOnceWith('t-1')
+      expect(showMainWindow).not.toHaveBeenCalled()
+      expect(navigateToTask).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each([
+    NotificationKinds.TaskError,
+    NotificationKinds.EngineFailure,
+    'unknown-kind',
+  ])('opens the main window before navigating for %s', async (kind) => {
     const { createNotification, instances } = makeNotificationFactory()
-    const window = makeWindow(false, true)
-    const err = new Error('EventBus listener threw')
-    const navigateToTask = vi.fn(() => {
-      throw err
-    })
-    const { deps, deliver, log } = baseDeps({
-      window,
-      settings: makeSettings({ notifyOnComplete: true }),
-      createNotification,
+    const {
+      deps,
+      deliver,
+      showMainWindow,
       navigateToTask,
+      revealTaskInFolder,
+    } = baseDeps({
+      window: null,
+      settings: makeSettings({ notifyOnError: true }),
+      createNotification,
     })
 
     createOsNotificationBridge(deps)
-    deliver(
-      makeNotification({ kind: NotificationKinds.TaskComplete, taskId: 't-1' })
-    )
+    deliver(makeNotification({ kind, taskId: 't-1' }))
 
-    expect(() => instances[0].click()).not.toThrow()
-    expect(log.warn).toHaveBeenCalledOnce()
+    await instances[0].click()
+
+    expect(showMainWindow).toHaveBeenCalledOnce()
+    expect(showMainWindow).toHaveBeenCalledBefore(navigateToTask)
+    expect(navigateToTask).toHaveBeenCalledExactlyOnceWith('t-1')
+    expect(revealTaskInFolder).not.toHaveBeenCalled()
+  })
+
+  it('opens the main window without revealing or navigating when taskId is null', async () => {
+    const { createNotification, instances } = makeNotificationFactory()
+    const {
+      deps,
+      deliver,
+      showMainWindow,
+      navigateToTask,
+      revealTaskInFolder,
+    } = baseDeps({
+      settings: makeSettings({ notifyOnComplete: true }),
+      createNotification,
+    })
+
+    createOsNotificationBridge(deps)
+    deliver(makeNotification({ taskId: null }))
+
+    await instances[0].click()
+
+    expect(showMainWindow).toHaveBeenCalledOnce()
+    expect(navigateToTask).not.toHaveBeenCalled()
+    expect(revealTaskInFolder).not.toHaveBeenCalled()
+  })
+
+  it.each(['rejection', 'synchronous throw'])(
+    'falls back to the task when revealing fails with a %s',
+    async (failure) => {
+      const { createNotification, instances } = makeNotificationFactory()
+      const err = new Error('output and containing folder unavailable')
+      const revealTaskInFolder = vi.fn(() => {
+        if (failure === 'rejection') return Promise.reject(err)
+        throw err
+      })
+      const { deps, deliver, showMainWindow, navigateToTask, log } = baseDeps({
+        window: null,
+        settings: makeSettings({ notifyOnComplete: true }),
+        createNotification,
+        revealTaskInFolder,
+      })
+
+      createOsNotificationBridge(deps)
+      deliver(makeNotification({ taskId: 't-1' }))
+
+      await expect(instances[0].click()).resolves.toBeUndefined()
+
+      expect(revealTaskInFolder).toHaveBeenCalledExactlyOnceWith('t-1')
+      expect(showMainWindow).toHaveBeenCalledOnce()
+      expect(showMainWindow).toHaveBeenCalledBefore(navigateToTask)
+      expect(navigateToTask).toHaveBeenCalledExactlyOnceWith('t-1')
+      expect(log.warn).toHaveBeenCalledExactlyOnceWith(
+        { err, taskId: 't-1' },
+        'os-notification-bridge: reveal failed; opening task'
+      )
+    }
+  )
+
+  it('waits for the reveal result before deciding to open the task', async () => {
+    const { createNotification, instances } = makeNotificationFactory()
+    const reveal = Promise.withResolvers<void>()
+    const { deps, deliver, showMainWindow, navigateToTask } = baseDeps({
+      settings: makeSettings({ notifyOnComplete: true }),
+      createNotification,
+      revealTaskInFolder: () => reveal.promise,
+    })
+
+    createOsNotificationBridge(deps)
+    deliver(makeNotification({ taskId: 't-1' }))
+    const click = instances[0].click()
+
+    expect(showMainWindow).not.toHaveBeenCalled()
+    expect(navigateToTask).not.toHaveBeenCalled()
+
+    reveal.resolve()
+    await click
+
+    expect(showMainWindow).not.toHaveBeenCalled()
+    expect(navigateToTask).not.toHaveBeenCalled()
+  })
+
+  it.each(['showMainWindow', 'navigateToTask'] as const)(
+    'catches and logs errors from %s during reveal fallback',
+    async (action) => {
+      const { createNotification, instances } = makeNotificationFactory()
+      const err = new Error('window action failed')
+      const { deps, deliver, log } = baseDeps({
+        settings: makeSettings({ notifyOnComplete: true }),
+        createNotification,
+        revealTaskInFolder: vi.fn().mockRejectedValue(new Error('missing')),
+        [action]: () => {
+          throw err
+        },
+      })
+
+      createOsNotificationBridge(deps)
+      deliver(makeNotification({ taskId: 't-1' }))
+
+      await expect(instances[0].click()).resolves.toBeUndefined()
+      expect(log.warn).toHaveBeenLastCalledWith(
+        { err },
+        'os-notification-bridge: click handler threw'
+      )
+    }
+  )
+
+  it('ignores clicks after disposal', async () => {
+    const { createNotification, instances } = makeNotificationFactory()
+    const {
+      deps,
+      deliver,
+      revealTaskInFolder,
+      showMainWindow,
+      navigateToTask,
+    } = baseDeps({
+      settings: makeSettings({ notifyOnComplete: true }),
+      createNotification,
+    })
+
+    const bridge = createOsNotificationBridge(deps)
+    deliver(makeNotification({ taskId: 't-1' }))
+    bridge.dispose()
+
+    await instances[0].click()
+
+    expect(revealTaskInFolder).not.toHaveBeenCalled()
+    expect(showMainWindow).not.toHaveBeenCalled()
+    expect(navigateToTask).not.toHaveBeenCalled()
+  })
+
+  it('does not reopen the app if disposed while revealing', async () => {
+    const { createNotification, instances } = makeNotificationFactory()
+    const reveal = Promise.withResolvers<void>()
+    const {
+      deps,
+      deliver,
+      showMainWindow,
+      navigateToTask,
+      navigateToDownloads,
+      getTaskStatus,
+      log,
+    } = baseDeps({
+      settings: makeSettings({ notifyOnComplete: true }),
+      createNotification,
+      revealTaskInFolder: () => reveal.promise,
+    })
+
+    const bridge = createOsNotificationBridge(deps)
+    deliver(makeNotification({ taskId: 't-1' }))
+    const click = instances[0].click()
+    bridge.dispose()
+    getTaskStatus.mockReturnValue(null)
+    reveal.reject(new Error('folder unavailable'))
+    await click
+
+    expect(showMainWindow).not.toHaveBeenCalled()
+    expect(navigateToTask).not.toHaveBeenCalled()
+    expect(navigateToDownloads).not.toHaveBeenCalled()
+    expect(log.warn).not.toHaveBeenCalled()
   })
 })
 
@@ -509,6 +806,36 @@ describe('createOsNotificationBridge — click behavior', () => {
 // ---------------------------------------------------------------------------
 
 describe('createOsNotificationBridge — throw isolation', () => {
+  it('logs asynchronous native failures and continues delivering later notifications', () => {
+    const { createNotification, instances } = makeNotificationFactory()
+    const { deps, deliver, log } = baseDeps({ createNotification })
+    createOsNotificationBridge(deps)
+    deliver(makeNotification({ taskId: 't-1' }))
+
+    instances[0].fail('WinAPI: Show failed, ERROR 0x80070490')
+    expect(log.warn).toHaveBeenCalledWith(
+      {
+        notificationId: 'n-1',
+        kind: NotificationKinds.TaskComplete,
+        taskId: 't-1',
+        error: 'WinAPI: Show failed, ERROR 0x80070490',
+      },
+      'os-notification-bridge: native notification failed'
+    )
+    deliver(makeNotification({ id: 'n-2' }))
+    expect(instances[1].show).toHaveBeenCalledOnce()
+  })
+
+  it('ignores late native failures after disposal', () => {
+    const { createNotification, instances } = makeNotificationFactory()
+    const { deps, deliver, log } = baseDeps({ createNotification })
+    const bridge = createOsNotificationBridge(deps)
+    deliver(makeNotification())
+    bridge.dispose()
+    instances[0].fail('late failure')
+    expect(log.warn).not.toHaveBeenCalled()
+  })
+
   it('createNotification throwing is caught, logged via log.warn, and not re-thrown', () => {
     const err = new Error('boom')
     const createNotification = vi.fn(() => {
@@ -590,6 +917,10 @@ describe('createOsNotificationBridge — Electron defaults', () => {
       getMainWindow: () => null,
       getAppSettings: () => makeSettings({ notifyOnComplete: true }),
       translate: (key) => key,
+      showMainWindow: vi.fn(),
+      getTaskStatus: () => null,
+      navigateToDownloads: vi.fn(),
+      revealTaskInFolder: vi.fn(async () => {}),
       navigateToTask: vi.fn(),
       log: { warn: vi.fn() },
     })
@@ -612,6 +943,10 @@ describe('createOsNotificationBridge — Electron defaults', () => {
       getMainWindow: () => null,
       getAppSettings: () => makeSettings({ notifyOnComplete: true }),
       translate: (key) => key,
+      showMainWindow: vi.fn(),
+      getTaskStatus: () => null,
+      navigateToDownloads: vi.fn(),
+      revealTaskInFolder: vi.fn(async () => {}),
       navigateToTask: vi.fn(),
       log: { warn: vi.fn() },
     })

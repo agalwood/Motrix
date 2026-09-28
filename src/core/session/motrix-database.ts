@@ -486,22 +486,25 @@ export class MotrixDatabase {
       `SELECT id, source_key, kind, severity, title_key, title_params,
               body_key, body_params, task_id, created_at, read_at
        FROM notifications
+       WHERE kind NOT IN (SELECT value FROM json_each(?))
        ORDER BY created_at DESC, rowid DESC
        LIMIT ?`
     )
     this.stmtGetUnreadNotificationCount = this.db.prepare(
-      'SELECT COUNT(*) AS c FROM notifications WHERE read_at IS NULL'
+      'SELECT COUNT(*) AS c FROM notifications WHERE read_at IS NULL AND kind NOT IN (SELECT value FROM json_each(?))'
     )
     this.stmtMarkNotificationRead = this.db.prepare(
       'UPDATE notifications SET read_at = ? WHERE id = ?'
     )
     this.stmtMarkAllNotificationsRead = this.db.prepare(
-      'UPDATE notifications SET read_at = ? WHERE read_at IS NULL'
+      'UPDATE notifications SET read_at = ? WHERE read_at IS NULL AND kind NOT IN (SELECT value FROM json_each(?))'
     )
     this.stmtDeleteNotification = this.db.prepare(
       'DELETE FROM notifications WHERE id = ?'
     )
-    this.stmtClearNotifications = this.db.prepare('DELETE FROM notifications')
+    this.stmtClearNotifications = this.db.prepare(
+      'DELETE FROM notifications WHERE kind NOT IN (SELECT value FROM json_each(?))'
+    )
     this.stmtUpdateNotificationBySourceKey = this.db.prepare(
       'UPDATE notifications SET body_key = ?, body_params = ? WHERE source_key = ?'
     )
@@ -1222,13 +1225,21 @@ export class MotrixDatabase {
   /** Display rows, newest first. Malformed `title_params`/`body_params`
    *  JSON on disk reads back as `null` (validate-on-read) rather than
    *  throwing or trusting an unreadable value. */
-  listNotifications(limit = NOTIFICATION_LIST_LIMIT): AppNotification[] {
-    const rows = this.stmtListNotifications.all(limit) as RawNotificationRow[]
+  listNotifications(
+    limit = NOTIFICATION_LIST_LIMIT,
+    hiddenKinds: readonly string[] = []
+  ): AppNotification[] {
+    const rows = this.stmtListNotifications.all(
+      JSON.stringify(hiddenKinds),
+      limit
+    ) as RawNotificationRow[]
     return rows.map(mapNotificationRow)
   }
 
-  getUnreadNotificationCount(): number {
-    const row = this.stmtGetUnreadNotificationCount.get() as { c: number }
+  getUnreadNotificationCount(hiddenKinds: readonly string[] = []): number {
+    const row = this.stmtGetUnreadNotificationCount.get(
+      JSON.stringify(hiddenKinds)
+    ) as { c: number }
     return row.c
   }
 
@@ -1236,8 +1247,14 @@ export class MotrixDatabase {
     return this.stmtMarkNotificationRead.run(readAt, id).changes > 0
   }
 
-  markAllNotificationsRead(readAt: number): number {
-    return this.stmtMarkAllNotificationsRead.run(readAt).changes
+  markAllNotificationsRead(
+    readAt: number,
+    hiddenKinds: readonly string[] = []
+  ): number {
+    return this.stmtMarkAllNotificationsRead.run(
+      readAt,
+      JSON.stringify(hiddenKinds)
+    ).changes
   }
 
   deleteNotification(id: string): boolean {
@@ -1246,8 +1263,8 @@ export class MotrixDatabase {
 
   /** Display table only — the ledger (`notification_occurrences`) is
    *  untouched by delete/clear/prune, per the delivery-idempotency spec. */
-  clearNotifications(): number {
-    return this.stmtClearNotifications.run().changes
+  clearNotifications(hiddenKinds: readonly string[] = []): number {
+    return this.stmtClearNotifications.run(JSON.stringify(hiddenKinds)).changes
   }
 
   updateNotificationBySourceKey(

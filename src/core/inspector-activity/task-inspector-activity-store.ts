@@ -41,6 +41,8 @@ interface SummaryRow {
   last_event_ordinal: bigint
   active_ms: bigint
   download_active_ms: bigint
+  seeding_ms: bigint | null
+  seeding_tracking_started_at: bigint | null
   estimated_download_bytes: bigint
   estimated_upload_bytes: bigint
   peak_download_bps: bigint
@@ -59,6 +61,7 @@ interface Summary {
   lastEventOrdinal: number
   activeMs: number
   downloadActiveMs: number
+  seeding: TaskInspectorActivitySnapshot['summary']['seeding']
   estimatedDownloadBytes: bigint
   estimatedUploadBytes: bigint
   peakDownloadBps: number
@@ -107,6 +110,8 @@ const READ_SUMMARY_SQL = `
     last_event_ordinal,
     active_ms,
     download_active_ms,
+    (SELECT seeding_ms FROM task_seeding_activity WHERE motrix_id = task_inspector_activity.motrix_id) AS seeding_ms,
+    (SELECT tracking_started_at FROM task_seeding_activity WHERE motrix_id = task_inspector_activity.motrix_id) AS seeding_tracking_started_at,
     estimated_download_bytes,
     estimated_upload_bytes,
     peak_download_bps,
@@ -209,6 +214,11 @@ export class TaskInspectorActivityStore {
        ) VALUES (?, ?, ?)
        ON CONFLICT(motrix_id) DO NOTHING`
     ).run(normalizedTaskId, BigInt(now), BigInt(now))
+    this.prepared(`INSERT INTO task_seeding_activity (motrix_id, tracking_started_at)
+      VALUES (?, ?) ON CONFLICT(motrix_id) DO NOTHING`).run(
+      normalizedTaskId,
+      BigInt(now)
+    )
   }
 
   checkpointBatch(
@@ -287,6 +297,7 @@ export class TaskInspectorActivityStore {
             lastEventOrdinal: summary.lastEventOrdinal,
             activeMs: summary.activeMs,
             downloadActiveMs: summary.downloadActiveMs,
+            seeding: summary.seeding,
             estimatedDownloadBytes: summary.estimatedDownloadBytes.toString(),
             estimatedUploadBytes: summary.estimatedUploadBytes.toString(),
             peakDownloadBps: summary.peakDownloadBps,
@@ -337,6 +348,10 @@ export class TaskInspectorActivityStore {
       summary.activeMs,
       input.activeMsDelta
     )
+    const seedingMs = saturatingAddSafeInteger(
+      summary.seeding?.activeMs ?? 0,
+      input.seedingMsDelta ?? 0
+    )
     const downloadActiveMs = saturatingAddSafeInteger(
       summary.downloadActiveMs,
       input.downloadActiveMsDelta
@@ -360,6 +375,7 @@ export class TaskInspectorActivityStore {
 
     const saturated =
       activeMs.saturated ||
+      seedingMs.saturated ||
       downloadActiveMs.saturated ||
       estimatedDownloadBytes.saturated ||
       estimatedUploadBytes.saturated ||
@@ -436,6 +452,13 @@ export class TaskInspectorActivityStore {
       }
     }
 
+    if (summary.seeding) {
+      const seeded = this.prepared(
+        'UPDATE task_seeding_activity SET seeding_ms = ? WHERE motrix_id = ?'
+      ).run(BigInt(seedingMs.value), input.taskId)
+      if (seeded.changes !== 1)
+        throw new Error('Task seeding activity disappeared')
+    }
     const updated = this.prepared(
       `UPDATE task_inspector_activity
        SET
@@ -723,6 +746,19 @@ export class TaskInspectorActivityStore {
         'last_event_ordinal'
       ),
       activeMs: nonNegativeIntegerFromBigInt(row.active_ms, 'active_ms'),
+      seeding:
+        row.seeding_ms === null || row.seeding_tracking_started_at === null
+          ? null
+          : {
+              activeMs: nonNegativeIntegerFromBigInt(
+                row.seeding_ms,
+                'seeding_ms'
+              ),
+              trackingStartedAt: safeIntegerFromSql(
+                row.seeding_tracking_started_at,
+                'seeding_tracking_started_at'
+              ),
+            },
       downloadActiveMs: nonNegativeIntegerFromBigInt(
         row.download_active_ms,
         'download_active_ms'

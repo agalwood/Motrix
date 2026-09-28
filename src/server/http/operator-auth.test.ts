@@ -58,7 +58,11 @@ describe('operator auth gate', () => {
     ).toBe(200)
     const status = await app.inject({ method: 'GET', url: '/rpc/auth/status' })
     expect(status.statusCode).toBe(200)
-    expect(status.json()).toEqual({ authed: false })
+    expect(status.json()).toEqual({
+      authed: false,
+      mode: 'unauthenticated',
+      canLogout: false,
+    })
   })
 
   it('rejects login with a wrong token', async () => {
@@ -93,7 +97,11 @@ describe('operator auth gate', () => {
       url: '/rpc/auth/status',
       headers: { cookie },
     })
-    expect(status.json()).toEqual({ authed: true })
+    expect(status.json()).toEqual({
+      authed: true,
+      mode: 'cookie',
+      canLogout: true,
+    })
   })
 
   it('accepts a Bearer operator token (host-script path)', async () => {

@@ -1,4 +1,10 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -24,6 +30,16 @@ describe('TorrentMetaStore', () => {
 
     const read = await store.read(pathOut)
     expect(Array.from(read)).toEqual([0xde, 0xad, 0xbe, 0xef])
+  })
+
+  it('removes the task-owned engine state with its metadata', async () => {
+    const meta = await store.persist('task-state', new Uint8Array([1]))
+    mkdirSync(`${meta}.state`)
+    writeFileSync(path.join(`${meta}.state`, 'bundle.aria2'), 'state')
+    await store.remove(meta)
+    expect(() =>
+      readFileSync(path.join(`${meta}.state`, 'bundle.aria2'))
+    ).toThrow()
   })
 
   it('remove deletes the file', async () => {

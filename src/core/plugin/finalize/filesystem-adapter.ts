@@ -1,12 +1,15 @@
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process'
 import path from 'node:path'
+import { getLogger } from '@core/logger'
 
 export type FinalizeFsErrorCode =
   | 'unsupported'
+  | 'rename_unsupported'
   | 'target_exists'
   | 'not_found'
   | 'invalid_path'
   | 'invalid_handle'
+  | 'invalid_request'
   | 'permission_denied'
   | 'cross_device'
   | 'symlink_rejected'
@@ -15,7 +18,12 @@ export type FinalizeFsErrorCode =
 export class FinalizeFsError extends Error {
   constructor(
     readonly code: FinalizeFsErrorCode,
-    message: string
+    message: string,
+    readonly details?: {
+      operation?: string
+      osError?: number
+      ntStatus?: string
+    }
   ) {
     super(message)
     this.name = 'FinalizeFsError'
@@ -31,11 +39,16 @@ export interface FinalizeFsCapabilities {
 }
 
 interface WireResponse {
-  request_id?: number
+  request_id?: number | null
   status: 'ok' | 'error'
   handle?: number
   code?: FinalizeFsErrorCode
   message?: string
+  operation?: string
+  os_error?: number
+  nt_status?: string
+  directory_sync_mode?: 'directory_flushed' | 'remote_acknowledged'
+  sanitized_name?: string
   platform?: string
   rename_no_replace?: boolean
   held_roots?: boolean
@@ -63,7 +76,12 @@ export interface FinalizeArtifactHandle {
 
 export interface FinalizeFilesystemAdapter {
   capabilities(): Promise<FinalizeFsCapabilities>
-  openRoot(rootPath: string): Promise<FinalizeRootHandle>
+  /** Map a final-name candidate onto the shared cross-platform domain. */
+  sanitizeName?(name: string): Promise<string>
+  openRoot(
+    rootPath: string,
+    expectedIdentity?: string
+  ): Promise<FinalizeRootHandle>
   openArtifact(
     root: FinalizeRootHandle,
     relativePath: string,
@@ -73,6 +91,17 @@ export interface FinalizeFilesystemAdapter {
     artifact: FinalizeArtifactHandle,
     targetRoot: FinalizeRootHandle,
     targetRelative: string
+  ): Promise<void>
+  linkOpenedNoReplace(
+    artifact: FinalizeArtifactHandle,
+    targetRoot: FinalizeRootHandle,
+    targetRelative: string
+  ): Promise<void>
+  isolateOpened(
+    artifact: FinalizeArtifactHandle,
+    targetRoot: FinalizeRootHandle,
+    targetRelative: string,
+    expectedRootIdentity: string
   ): Promise<void>
   copyOpened(
     artifact: FinalizeArtifactHandle,
@@ -88,7 +117,8 @@ export interface FinalizeFilesystemAdapter {
   removeOpened(
     artifact: FinalizeArtifactHandle,
     quarantineRelative: string,
-    resumeIsolated: boolean
+    resumeIsolated: boolean,
+    survivor?: FinalizeArtifactHandle
   ): Promise<void>
   syncRoot(root: FinalizeRootHandle): Promise<void>
   close(root: FinalizeRootHandle | FinalizeArtifactHandle): Promise<void>
@@ -108,6 +138,7 @@ export class NativeFinalizeFilesystemAdapter
   private readonly pending = new Map<number, PendingRequest>()
   private readonly requestTimeoutMs: number
   private deadError: Error | null = null
+  private remoteDurabilityReported = false
 
   constructor(
     private readonly binaryPath: string,
@@ -208,6 +239,34 @@ export class NativeFinalizeFilesystemAdapter
     })
   }
 
+  async linkOpenedNoReplace(
+    artifact: FinalizeArtifactHandle,
+    targetRoot: FinalizeRootHandle,
+    targetRelative: string
+  ): Promise<void> {
+    await this.request({
+      op: 'link_opened_no_replace',
+      artifact: this.nativeId(artifact),
+      target_root: this.nativeId(targetRoot),
+      target_relative: targetRelative,
+    })
+  }
+
+  async isolateOpened(
+    artifact: FinalizeArtifactHandle,
+    targetRoot: FinalizeRootHandle,
+    targetRelative: string,
+    expectedRootIdentity: string
+  ): Promise<void> {
+    await this.request({
+      op: 'isolate_opened',
+      expected_root_identity: expectedRootIdentity,
+      artifact: this.nativeId(artifact),
+      target_root: this.nativeId(targetRoot),
+      target_relative: targetRelative,
+    })
+  }
+
   async copyOpened(
     artifact: FinalizeArtifactHandle,
     targetRoot: FinalizeRootHandle,
@@ -221,12 +280,27 @@ export class NativeFinalizeFilesystemAdapter
     })
   }
 
-  async openRoot(rootPath: string): Promise<FinalizeRootHandle> {
+  async sanitizeName(name: string): Promise<string> {
+    const response = await this.request({ op: 'sanitize_name', name })
+    if (response.sanitized_name === undefined) {
+      throw new Error('sidecar omitted sanitized name')
+    }
+    return response.sanitized_name
+  }
+
+  async openRoot(
+    rootPath: string,
+    expectedIdentity?: string
+  ): Promise<FinalizeRootHandle> {
     if (!path.isAbsolute(rootPath)) {
       throw new FinalizeFsError('invalid_path', 'root path must be absolute')
     }
     const generation = this.generation
-    const response = await this.request({ op: 'open_root', path: rootPath })
+    const response = await this.request({
+      op: 'open_root',
+      path: normalizeSidecarRootPath(rootPath),
+      expected_identity: expectedIdentity,
+    })
     if (response.handle === undefined)
       throw new Error('sidecar omitted root handle')
     return this.heldHandle(response.handle, generation)
@@ -250,10 +324,12 @@ export class NativeFinalizeFilesystemAdapter
   async removeOpened(
     artifact: FinalizeArtifactHandle,
     quarantineRelative: string,
-    resumeIsolated: boolean
+    resumeIsolated: boolean,
+    survivor?: FinalizeArtifactHandle
   ): Promise<void> {
     await this.request({
-      op: 'remove_opened',
+      op: survivor ? 'remove_opened_preserving' : 'remove_opened',
+      ...(survivor ? { survivor: this.nativeId(survivor) } : {}),
       artifact: this.nativeId(artifact),
       quarantine_relative: quarantineRelative,
       resume_isolated: resumeIsolated,
@@ -261,7 +337,20 @@ export class NativeFinalizeFilesystemAdapter
   }
 
   async syncRoot(root: FinalizeRootHandle): Promise<void> {
-    await this.request({ op: 'sync_root', root: this.nativeId(root) })
+    const response = await this.request({
+      op: 'sync_root',
+      root: this.nativeId(root),
+    })
+    if (
+      response.directory_sync_mode === 'remote_acknowledged' &&
+      !this.remoteDurabilityReported
+    ) {
+      this.remoteDurabilityReported = true
+      getLogger('finalize').warn(
+        { durability: response.directory_sync_mode },
+        'SMB directory flush is unsupported; namespace durability depends on the remote server'
+      )
+    }
   }
 
   async close(
@@ -353,7 +442,12 @@ export class NativeFinalizeFilesystemAdapter
     if (result.status === 'error') {
       throw new FinalizeFsError(
         result.code ?? 'io_error',
-        result.message ?? 'finalize filesystem operation failed'
+        `${result.operation ?? body.op}: ${result.message ?? 'finalize filesystem operation failed'}`,
+        {
+          operation: result.operation ?? String(body.op),
+          osError: result.os_error,
+          ntStatus: result.nt_status,
+        }
       )
     }
     return result
@@ -382,7 +476,10 @@ export class NativeFinalizeFilesystemAdapter
       const key = response.request_id ?? 0
       const pending = this.pending.get(key)
       if (!pending) {
-        if (response.request_id === undefined && this.pending.size > 0) {
+        if (
+          (response.request_id === undefined || response.request_id === null) &&
+          this.pending.size > 0
+        ) {
           this.markDead(
             new FinalizeFsError(
               response.code ?? 'io_error',
@@ -410,4 +507,16 @@ export class NativeFinalizeFilesystemAdapter
     if (this.child.exitCode === null && this.child.signalCode === null)
       this.child.kill()
   }
+}
+
+/**
+ * The sidecar's Windows root walker rejects verbatim `\\?\` namespace paths,
+ * while user-selected and API-derived roots can carry either spelling.
+ * Normalize to the Win32 form before the path crosses the sidecar boundary.
+ */
+export function normalizeSidecarRootPath(rootPath: string): string {
+  if (process.platform !== 'win32') return rootPath
+  return rootPath
+    .replace(/^\\\\\?\\UNC\\/i, '\\\\')
+    .replace(/^\\\\\?\\([a-z]:\\)/i, '$1')
 }

@@ -6,7 +6,7 @@
 //
 // Lifecycle:
 //   parentPort.on('message') awaits init →
-//   getQuickJS() loads WASM →
+//   newQuickJSWASMModuleFromVariant() loads the release-sync WASM →
 //   setupGlobals(vm) — install setTimeout / clearTimeout with caps →
 //   injectPluginApi(vm, init) — populate globalThis.__motrix_plugin_api__ →
 //   vm.evalCode(bundle, ..., { type: 'module' }) — bundle was pre-transformed
@@ -21,6 +21,7 @@
 // deterministic unit.
 
 import { parentPort } from 'node:worker_threads'
+import releaseSyncVariant from '@jitl/quickjs-wasmfile-release-sync'
 import {
   CapabilityResponseMessageSchema,
   type CommandInvocationScopeV1,
@@ -35,10 +36,10 @@ import {
   HookMetadataOperationSchema,
 } from '@shared/schemas/plugin-hooks'
 import {
-  getQuickJS,
+  newQuickJSWASMModuleFromVariant,
   type QuickJSContext,
   type QuickJSHandle,
-} from 'quickjs-emscripten'
+} from 'quickjs-emscripten-core'
 import { classify } from '../capabilities/classification'
 import {
   BridgeExecuteCommandSchema,
@@ -846,7 +847,7 @@ async function boot(): Promise<void> {
   currentLanguage = init.i18n.language
   currentDirection = init.i18n.dir
 
-  const QuickJS = await getQuickJS()
+  const QuickJS = await newQuickJSWASMModuleFromVariant(releaseSyncVariant)
   const vm = QuickJS.newContext()
   vmRef = vm
   // Declared outside try so the catch block can call it.

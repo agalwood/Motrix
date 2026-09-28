@@ -5,8 +5,8 @@ import { useGlobalSpeedHistory } from '@renderer/hooks/use-global-speed-history'
 import { useGlobalStats } from '@renderer/hooks/use-global-stats'
 import { useSpeedLimitState } from '@renderer/hooks/use-speed-limit-state'
 import { useTransferStats } from '@renderer/hooks/use-transfer-stats'
+import { saveSettings } from '@renderer/lib/settings-save'
 import { transport } from '@renderer/lib/transport'
-import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import {
   DEFAULT_DASHBOARD_LAYOUT,
@@ -76,7 +76,7 @@ export function DashboardPage() {
 
   const saveLayout = useCallback(
     async (nextLayout: DashboardLayoutSettings) => {
-      await transport.invoke(Commands.UpdateSettings, { dashboard: nextLayout })
+      await saveSettings({ dashboard: nextLayout })
       cachedLayout = nextLayout
       setLayout(nextLayout)
     },
@@ -141,7 +141,7 @@ export function DashboardPage() {
                 state={speedLimit}
                 viewport={viewport}
                 onSelectTurtle={(turtle) =>
-                  transport.invoke(Commands.UpdateSettings, {
+                  saveSettings({
                     speedLimit: { turtle },
                   })
                 }
@@ -179,8 +179,9 @@ export function DashboardPage() {
     <PanelShell
       title={t('panel.dashboard.title')}
       actions={dashboardActions}
-      headerClassName="px-2"
-      contentClassName="pl-2.5 pr-2 pt-4 pb-10"
+      headerClassName="px-2 compact-header:py-1"
+      actionsClassName="compact-header:min-h-[30px]"
+      contentClassName="ps-2.5 pe-2 pt-4 pb-12"
     >
       <DashboardGrid
         layout={layout}

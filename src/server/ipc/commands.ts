@@ -28,16 +28,24 @@ import {
 } from '@core/proxy/applied-download-proxy-policy'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
+import { applySavedSettings } from '@core/settings/apply-saved-settings'
+import { createDirectoryPreferencesHandlers } from '@core/settings/directory-preferences'
+import { createSaveDownloadsSettingsHandler } from '@core/settings/downloads-settings'
+import { createSaveGeneralSettingsHandler } from '@core/settings/general-settings'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import {
+  clearStoppedTasks,
+  pauseAllTasks,
   pauseTask,
   reAddTask,
   removeTask,
+  resumeAllTasks,
   resumeTask,
   runBulkTaskAction,
   stopSeedingTask,
   toBulkTaskCommandResult,
 } from '@core/task/actions'
+import { moveTasks } from '@core/task/actions/move-tasks'
 import type {
   TaskActionDeps,
   TaskTransitionRecordInput,
@@ -55,8 +63,14 @@ import {
 import { DirectResourceValidatorService } from '@core/task/direct-resource-validator'
 import type { FileCleanupService } from '@core/task/file-cleanup-service'
 import type { FinalNamePicker } from '@core/task/final-name-picker'
+import type { MediaMetaStore } from '@core/task/media-meta-store'
 import type { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
 import { createSetSelectedFilesHandler } from '@core/task/set-selected-files'
+import {
+  admitTaskCreateRequest,
+  taskCreateSourceFailure,
+} from '@core/task/source-admission'
+import { createTaskDirectoryHistory } from '@core/task/task-directory-history'
 import type { TaskManager } from '@core/task/task-manager'
 import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
 import type { MagnetTracker } from '@core/torrent/magnet-tracker'
@@ -71,7 +85,8 @@ import {
   removeTasksPayloadSchema,
   taskIdsPayloadSchema,
 } from '@shared/schemas/bulk-task-command'
-import { supportedLocaleSchema } from '@shared/schemas/locale'
+import { languagePreferenceSchema } from '@shared/schemas/locale'
+import { moveTasksPayloadSchema } from '@shared/schemas/move-tasks'
 import { checkPluginUpdatesPayloadSchema } from '@shared/schemas/plugin-update'
 import { removeTaskPayloadSchema } from '@shared/schemas/remove-task'
 import { EngineRecoveryAction } from '@shared/types/engine'
@@ -85,10 +100,12 @@ import { z } from 'zod'
 import type { ServerDownloadPathPolicy } from '../download-path-policy'
 import type { ServerPluginInstallService } from '../plugin/install-service'
 import type { createServerProxyApplier } from '../proxy/wiring'
+import type { ServerDirectoryService } from '../server-directory-service'
 
 export interface ServerCommandContext {
   supervisor: EngineSupervisor
   settingsManager: SettingsManager
+  applyLocale?: (language: string) => Promise<void>
   geoipManager: Pick<GeoIPManager, 'triggerUpdate'>
   /** Session latch of the auto DNS fallback — reset when dnsMode changes. */
   dnsFallback?: Pick<DnsFallbackConsumer, 'reset'>
@@ -98,6 +115,7 @@ export interface ServerCommandContext {
    * paths cannot drift. Called synchronously during handler construction.
    */
   bindTaskRetry?: (fn: (taskId: string) => Promise<unknown>) => void
+  recoverFinalization?: (taskId: string) => Promise<void>
   rpcClient: Aria2RpcClient
   adapter: EngineAdapter
   trackerManager: TrackerManager
@@ -107,6 +125,7 @@ export interface ServerCommandContext {
   }
   aria2BinaryPath: string
   finalNamePicker: FinalNamePicker
+  mediaMetaStore: MediaMetaStore
   torrentMetaStore: TorrentMetaStore
   taskManager: TaskManager
   fileCleanupService: FileCleanupService
@@ -157,6 +176,10 @@ export interface ServerCommandContext {
   publishTaskUpdate: TaskActionDeps['publishTaskUpdate']
   publishTaskUpdateNow: TaskActionDeps['publishTaskUpdateNow']
   downloadPathPolicy: ServerDownloadPathPolicy
+  serverDirectoryService: Pick<
+    ServerDirectoryService,
+    'create' | 'resolvePreferenceDirectory'
+  >
 }
 
 export function buildServerCommandHandlers(
@@ -172,6 +195,7 @@ export function buildServerCommandHandlers(
     trackerManager,
     bridgeControl,
     finalNamePicker,
+    mediaMetaStore,
     torrentMetaStore,
     taskManager,
     fileCleanupService,
@@ -287,6 +311,7 @@ export function buildServerCommandHandlers(
     publishTaskUpdateNow,
   }
   const reAddDeps = {
+    recoverFinalization: ctx.recoverFinalization,
     taskManager,
     adapter,
     eventBus,
@@ -317,6 +342,7 @@ export function buildServerCommandHandlers(
     adapter,
     log,
     fileCleanupService,
+    mediaMetaStore,
     torrentMetaStore,
     eventBus,
     db: motrixDatabase,
@@ -353,15 +379,28 @@ export function buildServerCommandHandlers(
     action: z.enum(EngineRecoveryAction),
     expectedPid: z.number().int().positive().optional(),
   })
+  const directoryPreferences = createDirectoryPreferencesHandlers(
+    settingsManager,
+    (value) => ctx.serverDirectoryService.resolvePreferenceDirectory(value)
+  )
+  const directoryHistory = createTaskDirectoryHistory({
+    recordRecent: (path) =>
+      directoryPreferences.mutate({ action: 'recordRecent', path }),
+  })
+
   return {
+    [Commands.CreateServerDirectory]: async (request: unknown) =>
+      ctx.serverDirectoryService.create(request),
     [Commands.SetDisclaimerLanguage]: async (payload: unknown) => {
-      const language = supportedLocaleSchema.parse(payload)
+      const language = languagePreferenceSchema.parse(payload)
       await settingsManager.setDisclaimerLanguage(language)
+      await ctx.applyLocale?.(language)
       return { ok: true }
     },
 
     [Commands.AcceptDisclaimer]: async () => {
       await settingsManager.acceptDisclaimer()
+      trackerManager.applySyncScheduleChange()
       return { ok: true }
     },
 
@@ -404,12 +443,20 @@ export function buildServerCommandHandlers(
       return { ok: true, selection: selection ?? null }
     },
 
-    [Commands.CreateTask]: async (request: unknown) => {
+    [Commands.CreateTask]: directoryHistory.wrap(async (request: unknown) => {
+      try {
+        request = admitTaskCreateRequest(request)
+      } catch (error) {
+        const failure = taskCreateSourceFailure(error)
+        if (failure) return failure
+        throw error
+      }
       const parsed = taskCreateRequestSchema.safeParse(request)
       if (parsed.success) {
         const req = parsed.data
         if (req.type === 'http') {
-          await activatePluginsForTask('http', req.uris[0] ?? '')
+          if (!req.uris[0].startsWith('ftp:'))
+            await activatePluginsForTask('http', req.uris[0] ?? '')
         } else if (req.payload.kind === 'magnet') {
           await activatePluginsForTask('magnet', req.payload.uri)
           if (
@@ -423,7 +470,9 @@ export function buildServerCommandHandlers(
             try {
               taskId = await magnetTracker.submit(req.payload.uri, saveDir)
             } catch (error) {
-              const conflict = taskCreateConflictResult(error)
+              const conflict =
+                taskCreateSourceFailure(error) ??
+                taskCreateConflictResult(error)
               if (conflict) return conflict
               throw error
             }
@@ -521,7 +570,9 @@ export function buildServerCommandHandlers(
                   }
                 )
               } catch (error) {
-                const conflict = taskCreateConflictResult(error)
+                const conflict =
+                  taskCreateSourceFailure(error) ??
+                  taskCreateConflictResult(error)
                 if (conflict) return conflict
                 throw error
               }
@@ -534,11 +585,12 @@ export function buildServerCommandHandlers(
       try {
         return await handleCreateTask(request, createDeps)
       } catch (error) {
-        const conflict = taskCreateConflictResult(error)
+        const conflict =
+          taskCreateSourceFailure(error) ?? taskCreateConflictResult(error)
         if (conflict) return conflict
         throw error
       }
-    },
+    }),
 
     [Commands.PauseTask]: async (taskId: string) => {
       await pauseTask(taskId, pauseResumeDeps)
@@ -552,6 +604,16 @@ export function buildServerCommandHandlers(
 
     // Plural task commands (option C): one IPC request per multi-select
     // action from the web renderer. Same handlers as desktop.
+    [Commands.MoveTasks]: async (rawPayload: unknown) =>
+      moveTasks(moveTasksPayloadSchema.parse(rawPayload), pauseResumeDeps),
+
+    [Commands.PauseAllTasks]: async () =>
+      toBulkTaskCommandResult(await pauseAllTasks(pauseResumeDeps)),
+    [Commands.ResumeAllTasks]: async () =>
+      toBulkTaskCommandResult(await resumeAllTasks(pauseResumeDeps)),
+    [Commands.ClearStoppedTasks]: async (rawPayload: unknown) =>
+      clearStoppedTasks(removeDeps, taskIdsPayloadSchema.parse(rawPayload)),
+
     [Commands.PauseTasks]: async (rawPayload: unknown) => {
       const taskIds = taskIdsPayloadSchema.parse(rawPayload)
       return toBulkTaskCommandResult(
@@ -642,6 +704,54 @@ export function buildServerCommandHandlers(
       return supervisor.recover(engineRecoverySchema.parse(payload))
     },
 
+    [Commands.MutateDirectoryPreferences]: directoryPreferences.mutate,
+
+    [Commands.SaveDownloadsSettings]: createSaveDownloadsSettingsHandler(
+      settingsManager,
+      {
+        resolveFavorite: (value) =>
+          ctx.serverDirectoryService.resolvePreferenceDirectory(value),
+        resolveDefaultDirectory: async (value) =>
+          downloadPathPolicy.prepareSaveDir(
+            await ctx.serverDirectoryService.resolvePreferenceDirectory(value)
+          ),
+        apply: async (oldEngine, result) => {
+          await supervisor.applyDefaultSaveDir(
+            settingsManager.getApp().defaultSaveDir
+          )
+          await supervisor.applyEngineSettings(
+            oldEngine,
+            settingsManager.getEngine()
+          )
+          if (result.requiresRestart)
+            publishEngineRestartRequired(
+              { eventBus, notificationCenter, log },
+              result.changedRestartKeys ?? []
+            )
+        },
+      }
+    ),
+
+    [Commands.SaveGeneralSettings]: createSaveGeneralSettingsHandler(
+      settingsManager,
+      {
+        resolveFavorite: (value) =>
+          ctx.serverDirectoryService.resolvePreferenceDirectory(value),
+        resolveDefaultDirectory: async (value) => {
+          const existing =
+            await ctx.serverDirectoryService.resolvePreferenceDirectory(value)
+          return downloadPathPolicy.prepareSaveDir(existing)
+        },
+        applySavedApp: async (patch) => {
+          if (patch.defaultSaveDir !== undefined) {
+            await supervisor.applyDefaultSaveDir(
+              settingsManager.getApp().defaultSaveDir
+            )
+          }
+        },
+      }
+    ),
+
     [Commands.UpdateSettings]: async (partial: unknown) => {
       const saveDirPatch = z
         .object({
@@ -673,76 +783,101 @@ export function buildServerCommandHandlers(
       const result = await settingsManager.update(
         validatedPartial as Parameters<typeof settingsManager.update>[0]
       )
-      const newFull = settingsManager.get()
+      return applySavedSettings(
+        result,
+        async () => {
+          const newFull = settingsManager.get()
 
-      const proxySettingsChanged = proxyChanged(oldFull.proxy, newFull.proxy)
-      if (
-        proxySettingsChanged ||
-        proxySubmitted ||
-        appliedDownloadProxyPolicy.snapshot() === null
-      ) {
-        await appliedDownloadProxyPolicy.applyTransition(() => {
-          const latestProxy = settingsManager.get().proxy
-          // Re-check after acquiring the writer, then reassert the entire
-          // latest proxy state. Incremental command-local diffs lose updates
-          // when concurrent commands modify different proxy scopes.
-          return proxyChanged(newFull.proxy, latestProxy)
-            ? Promise.resolve({ downloadProxy: 'unchanged' } as const)
-            : proxyApplier.applyAll(latestProxy)
-        })
-      }
+          const proxySettingsChanged = proxyChanged(
+            oldFull.proxy,
+            newFull.proxy
+          )
+          if (
+            proxySettingsChanged ||
+            proxySubmitted ||
+            appliedDownloadProxyPolicy.snapshot() === null
+          ) {
+            await appliedDownloadProxyPolicy.applyTransition(() => {
+              const latestProxy = settingsManager.get().proxy
+              // Re-check after acquiring the writer, then reassert the entire
+              // latest proxy state. Incremental command-local diffs lose updates
+              // when concurrent commands modify different proxy scopes.
+              return proxyChanged(newFull.proxy, latestProxy)
+                ? Promise.resolve({ downloadProxy: 'unchanged' } as const)
+                : proxyApplier.applyAll(latestProxy)
+            })
+          }
 
-      if (oldFull.app.defaultSaveDir !== newFull.app.defaultSaveDir) {
-        await supervisor.applyDefaultSaveDir(newFull.app.defaultSaveDir)
-      }
+          if (
+            oldFull.app.language !== newFull.app.language ||
+            typeof (partial as { app?: { language?: unknown } } | null)?.app
+              ?.language === 'string'
+          ) {
+            await ctx.applyLocale?.(settingsManager.get().app.language)
+          }
 
-      if (
-        oldFull.app.browserBridgeEnabled !== newFull.app.browserBridgeEnabled
-      ) {
-        await bridgeControl?.setEnabled(newFull.app.browserBridgeEnabled)
-      }
-      if (oldFull.bridge.fixedPort !== newFull.bridge.fixedPort) {
-        await bridgeControl?.restart()
-      }
+          if (oldFull.app.defaultSaveDir !== newFull.app.defaultSaveDir) {
+            await supervisor.applyDefaultSaveDir(newFull.app.defaultSaveDir)
+          }
 
-      if (oldFull.tracker.sourcesEnabled !== newFull.tracker.sourcesEnabled) {
-        await trackerManager.applySourcesChange(newFull.tracker.sourcesEnabled)
-      }
+          if (
+            oldFull.app.browserBridgeEnabled !==
+            newFull.app.browserBridgeEnabled
+          ) {
+            await bridgeControl?.setEnabled(newFull.app.browserBridgeEnabled)
+          }
+          if (oldFull.bridge.fixedPort !== newFull.bridge.fixedPort) {
+            await bridgeControl?.restart()
+          }
 
-      if (
-        oldFull.tracker.blacklistEnabled !== newFull.tracker.blacklistEnabled
-      ) {
-        await trackerManager.applyBlacklistChange(
-          newFull.tracker.blacklistEnabled
-        )
-      }
+          if (
+            oldFull.tracker.sourcesEnabled !== newFull.tracker.sourcesEnabled
+          ) {
+            await trackerManager.applySourcesChange(
+              newFull.tracker.sourcesEnabled
+            )
+          }
 
-      if (
-        oldFull.tracker.autoSync !== newFull.tracker.autoSync ||
-        oldFull.tracker.syncIntervalHours !== newFull.tracker.syncIntervalHours
-      ) {
-        trackerManager.applySyncScheduleChange()
-      }
+          if (
+            oldFull.tracker.blacklistEnabled !==
+            newFull.tracker.blacklistEnabled
+          ) {
+            await trackerManager.applyBlacklistChange(
+              newFull.tracker.blacklistEnabled
+            )
+          }
 
-      await supervisor.applyEngineSettings(oldFull.engine, newFull.engine)
+          if (
+            oldFull.tracker.autoSync !== newFull.tracker.autoSync ||
+            oldFull.tracker.syncIntervalHours !==
+              newFull.tracker.syncIntervalHours
+          ) {
+            trackerManager.applySyncScheduleChange()
+          }
 
-      if (oldFull.engine.dnsMode !== newFull.engine.dnsMode) {
-        await supervisor.applyAsyncDns(
-          dnsModeToAsyncDns(newFull.engine.dnsMode)
-        )
-        // Mode changes re-arm the auto fallback so a later switch back to
-        // 'auto' starts optimistic again.
-        dnsFallback?.reset()
-      }
+          await supervisor.applyEngineSettings(oldFull.engine, newFull.engine)
 
-      if (result.requiresRestart) {
-        publishEngineRestartRequired(
-          { eventBus, notificationCenter, log },
-          result.changedRestartKeys
-        )
-      }
+          if (oldFull.engine.dnsMode !== newFull.engine.dnsMode) {
+            await supervisor.applyAsyncDns(
+              dnsModeToAsyncDns(newFull.engine.dnsMode)
+            )
+            // Mode changes re-arm the auto fallback so a later switch back to
+            // 'auto' starts optimistic again.
+            dnsFallback?.reset()
+          }
 
-      return result
+          if (result.requiresRestart) {
+            publishEngineRestartRequired(
+              { eventBus, notificationCenter, log },
+              result.changedRestartKeys
+            )
+          }
+
+          return result
+        },
+        (err) =>
+          log.warn({ err }, 'settings saved but runtime application failed')
+      )
     },
 
     [Commands.UpdateGeoIPDatabase]: createUpdateGeoIPDatabaseHandler({

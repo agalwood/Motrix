@@ -1,3 +1,9 @@
+import {
+  ANIME_TRACKER_BLACKLIST_SOURCE,
+  ANIME_TRACKER_DIRECT_SOURCE,
+  ANIME_TRACKER_SOURCE,
+  trackerSettingsSchema,
+} from '@shared/schemas/tracker-settings'
 import { describe, expect, it } from 'vitest'
 import { CURRENT_SETTINGS_VERSION, migrate } from './migrations'
 import { DEFAULT_MEDIA_SETTINGS } from './validators'
@@ -87,8 +93,8 @@ describe('migrate', () => {
 })
 
 describe('migration v3 → v4', () => {
-  it('targets version 11', () => {
-    expect(CURRENT_SETTINGS_VERSION).toBe(11)
+  it('targets version 12', () => {
+    expect(CURRENT_SETTINGS_VERSION).toBe(13)
   })
 
   it('adds dhtListenPort defaulting to listenPort value', () => {
@@ -198,8 +204,8 @@ describe('migration v5 → v6 (media namespace)', () => {
 })
 
 describe('migration v6 → v7 (speedLimit namespace)', () => {
-  it('targets version 11', () => {
-    expect(CURRENT_SETTINGS_VERSION).toBe(11)
+  it('targets version 12', () => {
+    expect(CURRENT_SETTINGS_VERSION).toBe(13)
   })
 
   it('v6→v7: maps a configured limit to base, turtle off', () => {
@@ -398,5 +404,141 @@ describe('migration v10 → v11 (magnet metadata timeout)', () => {
       engine: { magnetResolveTimeout: 120 },
     }
     expect(migrate(input)).toEqual(input)
+  })
+})
+
+describe('migration v11 → v12 (optional anime tracker source)', () => {
+  it('adds the disabled source while preserving existing choices and custom sources', () => {
+    const sources = [
+      {
+        id: 'ngosang-best',
+        url: 'https://example.test/best.txt',
+        enabled: false,
+      },
+      { id: 'custom', url: 'https://example.test/custom.txt', enabled: true },
+    ]
+    const input = { version: 11, tracker: { autoSync: false, sources } }
+    const result = migrate(input)
+    expect(result.tracker).toEqual({
+      autoSync: false,
+      sources: [...sources, ANIME_TRACKER_SOURCE, ANIME_TRACKER_DIRECT_SOURCE],
+    })
+    expect(ANIME_TRACKER_SOURCE.enabled).toBe(false)
+    expect(input.tracker.sources).toHaveLength(2)
+    expect(migrate(result)).toEqual(result)
+  })
+
+  it.each([
+    { ...ANIME_TRACKER_SOURCE, enabled: true },
+    {
+      ...ANIME_TRACKER_SOURCE,
+      id: 'custom-anime',
+      builtin: false,
+      enabled: true,
+    },
+  ])('preserves an existing source with the same ID or URL', (source) => {
+    const tracker = { sources: [source] }
+    expect(migrate({ version: 11, tracker }).tracker).toEqual({
+      sources: [source, ANIME_TRACKER_DIRECT_SOURCE],
+    })
+  })
+
+  it('does not enable other builtins when the saved source list is empty', () => {
+    const result = migrate({ version: 11, tracker: { sources: [] } })
+    const tracker = trackerSettingsSchema.parse(result.tracker)
+    expect(tracker.sources).toEqual([
+      ANIME_TRACKER_SOURCE,
+      ANIME_TRACKER_DIRECT_SOURCE,
+    ])
+    expect(tracker.sources.some((source) => source.enabled)).toBe(false)
+  })
+
+  it('lets missing source lists receive the complete defaults', () => {
+    const result = migrate({ version: 11, tracker: { autoSync: false } })
+    const tracker = trackerSettingsSchema.parse(result.tracker)
+    expect(tracker.autoSync).toBe(false)
+    expect(tracker.sources).toContainEqual(ANIME_TRACKER_SOURCE)
+    expect(tracker.sources.some((source) => source.enabled)).toBe(true)
+  })
+})
+
+describe('migration v12 → v13 (anime direct source and blacklist)', () => {
+  it('adds the new sources without changing existing source choices or global settings', () => {
+    const tracker = {
+      autoSync: false,
+      sourcesEnabled: false,
+      blacklistEnabled: false,
+      sources: [{ ...ANIME_TRACKER_SOURCE, enabled: true }],
+      blacklistSources: [
+        {
+          id: 'custom-blacklist',
+          url: 'https://example.test/bad.txt',
+          enabled: false,
+        },
+      ],
+    }
+    const input = { version: 12, tracker }
+    const result = migrate(input)
+    expect(result).toEqual({
+      version: 13,
+      tracker: {
+        ...tracker,
+        sources: [...tracker.sources, ANIME_TRACKER_DIRECT_SOURCE],
+        blacklistSources: [
+          ...tracker.blacklistSources,
+          ANIME_TRACKER_BLACKLIST_SOURCE,
+        ],
+      },
+    })
+    expect(tracker.sources).toHaveLength(1)
+    expect(tracker.blacklistSources).toHaveLength(1)
+    expect(migrate(result)).toEqual(result)
+  })
+
+  it.each(['id', 'url'] as const)(
+    'preserves existing entries matched by %s, including custom sources',
+    (match) => {
+      const sources = [
+        ANIME_TRACKER_DIRECT_SOURCE,
+        ANIME_TRACKER_BLACKLIST_SOURCE,
+      ].map((source) => ({
+        ...source,
+        id: match === 'id' ? source.id : `custom-${source.id}`,
+        url:
+          match === 'url'
+            ? source.url
+            : `https://example.test/${source.id}.txt`,
+        label: 'My source',
+        builtin: false,
+        enabled: !source.enabled,
+      }))
+      const tracker = { sources: [sources[0]], blacklistSources: [sources[1]] }
+      expect(migrate({ version: 12, tracker }).tracker).toEqual(tracker)
+    }
+  )
+
+  it('only adds new entries to empty lists instead of restoring older defaults', () => {
+    const result = migrate({
+      version: 12,
+      tracker: { sources: [], blacklistSources: [] },
+    })
+    expect(result.tracker).toEqual({
+      sources: [ANIME_TRACKER_DIRECT_SOURCE],
+      blacklistSources: [ANIME_TRACKER_BLACKLIST_SOURCE],
+    })
+  })
+
+  it('lets the schema recover missing or malformed lists using the complete defaults', () => {
+    const result = migrate({
+      version: 12,
+      tracker: { autoSync: false, sources: null, blacklistSources: 'invalid' },
+    })
+    const tracker = trackerSettingsSchema.parse(result.tracker)
+    expect(tracker.autoSync).toBe(false)
+    expect(tracker.sources).toContainEqual(ANIME_TRACKER_DIRECT_SOURCE)
+    expect(tracker.sources).toContainEqual(ANIME_TRACKER_SOURCE)
+    expect(tracker.blacklistSources).toContainEqual(
+      ANIME_TRACKER_BLACKLIST_SOURCE
+    )
   })
 })

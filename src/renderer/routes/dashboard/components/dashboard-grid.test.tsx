@@ -18,6 +18,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { DashboardTileViewport } from '../layout/dashboard-registry'
 import { DashboardGrid } from './dashboard-grid'
 
+vi.mock('@renderer/hooks/use-liquid-glass', () => ({
+  useLiquidGlass: () => false,
+}))
+
 const renderCounts = new Map<string, number>()
 
 function renderTile(
@@ -165,15 +169,15 @@ async function selectPreset(name: RegExp) {
 }
 
 const COMPACT_PRESET_TILES: DashboardTileLayout[] = [
-  { id: 'engine', enabled: true, x: 0, y: 0, w: 2, h: 1 },
-  { id: 'speedLimit', enabled: true, x: 2, y: 0, w: 2, h: 1 },
-  { id: 'speedUp', enabled: true, x: 0, y: 1, w: 1, h: 1 },
-  { id: 'speedDown', enabled: true, x: 1, y: 1, w: 1, h: 1 },
-  { id: 'active', enabled: true, x: 2, y: 1, w: 1, h: 1 },
-  { id: 'transfer', enabled: true, x: 3, y: 1, w: 1, h: 1 },
-  { id: 'tasks', enabled: true, x: 0, y: 2, w: 2, h: 1 },
-  { id: 'nat', enabled: true, x: 2, y: 2, w: 2, h: 1 },
-  { id: 'activity', enabled: false, x: 0, y: 0, w: 1, h: 1 },
+  { id: 'engine', enabled: true, x: 0, y: 0, w: 1, h: 1 },
+  { id: 'nat', enabled: true, x: 1, y: 0, w: 1, h: 1 },
+  { id: 'speedUp', enabled: true, x: 2, y: 0, w: 1, h: 1 },
+  { id: 'speedDown', enabled: true, x: 3, y: 0, w: 1, h: 1 },
+  { id: 'speedLimit', enabled: true, x: 0, y: 1, w: 1, h: 1 },
+  { id: 'transfer', enabled: true, x: 1, y: 1, w: 1, h: 1 },
+  { id: 'tasks', enabled: true, x: 2, y: 1, w: 2, h: 1 },
+  { id: 'active', enabled: true, x: 0, y: 2, w: 2, h: 1 },
+  { id: 'activity', enabled: true, x: 2, y: 2, w: 2, h: 1 },
 ]
 
 describe('DashboardGrid', () => {
@@ -391,22 +395,13 @@ describe('DashboardGrid', () => {
     expect(releaseOnUnmount).toHaveBeenCalledWith(8)
   })
 
-  it('groups the configure actions with visible labels', () => {
+  it('exposes configure actions in a keyboard-accessible toolbar', async () => {
+    const user = userEvent.setup()
     renderDefaultGrid()
 
     fireEvent.click(screen.getByRole('button', { name: /Configure|配置/i }))
 
-    // Actions render as nested button groups — an edit cluster
-    // (cancel/reset/apply) and a gapped preset/Add cluster. The outer group is
-    // the one wrapping all five buttons.
-    const group = screen
-      .getAllByRole('group')
-      .find(
-        (candidate) => within(candidate).queryAllByRole('button').length === 5
-      )
-    if (!group) {
-      throw new Error('no outer group with all five configure actions')
-    }
+    const group = screen.getByRole('toolbar', { name: /Configure|配置/i })
 
     const cancel = within(group).getByRole('button', { name: /Cancel|取消/i })
     const reset = within(group).getByRole('button', {
@@ -417,9 +412,8 @@ describe('DashboardGrid', () => {
       name: /Presets|预设/i,
     })
     const add = within(group).getByRole('button', { name: /Add|添加/i })
-    // Full mode shows the label text inline (not icon-only).
-    expect(cancel).toHaveTextContent(/Cancel|取消/i)
-    expect(reset).toHaveTextContent(/^(Reset|重置)$/i)
+    // Keep the primary action and current preset readable; secondary actions
+    // use the same icon buttons and accessible names as the Downloads toolbar.
     expect(apply).toHaveTextContent(/Apply|应用/i)
     // Add sits at the trailing edge so its end-aligned dropdown hangs
     // under the toolbar's right corner.
@@ -430,6 +424,19 @@ describe('DashboardGrid', () => {
       presets,
       add,
     ])
+
+    await user.tab()
+    expect(cancel).toHaveFocus()
+    await user.keyboard('{ArrowRight}')
+    expect(reset).toHaveFocus()
+    await user.keyboard('{ArrowRight}')
+    expect(apply).toHaveFocus()
+    await user.keyboard('{ArrowRight}')
+    expect(presets).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(await screen.findByRole('menu')).toBeVisible()
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(presets).toHaveFocus())
   })
 
   it('shows all presets only while configuring and labels exact or custom drafts', async () => {
@@ -490,29 +497,21 @@ describe('DashboardGrid', () => {
     await selectPreset(/Compact|紧凑/i)
 
     expect(onApply).not.toHaveBeenCalled()
+    expect(screen.getAllByTestId(/^dashboard-tile-/)).toHaveLength(9)
     expect(
-      screen.getByText('engine-0,0-2x1-summary-wide-viewport:2x1')
+      screen.getByText('engine-0,0-1x1-compact-square-viewport:1x1')
     ).toBeInTheDocument()
     expect(
-      screen.getByText('speedLimit-2,0-2x1-summary-wide-viewport:2x1')
+      screen.getByText('nat-1,0-1x1-compact-square-viewport:1x1')
     ).toBeInTheDocument()
     expect(
-      screen.getByText('speedUp-0,1-1x1-compact-square-viewport:1x1')
+      screen.getByText('speedDown-3,0-1x1-compact-square-viewport:1x1')
     ).toBeInTheDocument()
     expect(
-      screen.getByText('speedDown-1,1-1x1-compact-square-viewport:1x1')
+      screen.getByText('tasks-2,1-2x1-summary-wide-viewport:2x1')
     ).toBeInTheDocument()
     expect(
-      screen.getByText('active-2,1-1x1-compact-square-viewport:1x1')
-    ).toBeInTheDocument()
-    expect(
-      screen.getByText('transfer-3,1-1x1-compact-square-viewport:1x1')
-    ).toBeInTheDocument()
-    expect(
-      screen.getByText('tasks-0,2-2x1-summary-wide-viewport:2x1')
-    ).toBeInTheDocument()
-    expect(
-      screen.getByText('nat-2,2-2x1-summary-wide-viewport:2x1')
+      screen.getByText('activity-2,2-2x1-summary-wide-viewport:2x1')
     ).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /Apply|应用/i }))
@@ -537,7 +536,7 @@ describe('DashboardGrid', () => {
 
     expect(screen.queryByTestId('dashboard-tile-nat')).not.toBeInTheDocument()
     expect(
-      screen.getByText('tasks-0,0-2x3-focus-tall-viewport:2x3')
+      screen.getByText('tasks-1,1-3x2-focus-wide-viewport:3x2')
     ).toBeInTheDocument()
     expect(
       screen.getByRole('button', {
@@ -597,7 +596,7 @@ describe('DashboardGrid', () => {
       })
 
       if (operation === 'resize') {
-        await selectTileSize('engine', '1x1')
+        await selectTileSize('active', '1x1')
       } else if (operation === 'remove') {
         fireEvent.click(
           within(screen.getByTestId('dashboard-tile-engine')).getByRole(
@@ -645,7 +644,10 @@ describe('DashboardGrid', () => {
       name: /2\s*[×x]\s*1/i,
     })
     expect(expansion).toHaveAttribute('aria-disabled', 'true')
-    expect(expansion).toHaveTextContent(/Not enough space|空间不足/i)
+    expect(expansion).not.toHaveTextContent(/Not enough space|空间不足/i)
+    expect(expansion).toHaveAccessibleDescription(
+      /Shrink or remove|缩小或移除/i
+    )
   })
 
   it('enters configure mode and cancels draft resize changes', async () => {
@@ -824,7 +826,10 @@ describe('DashboardGrid', () => {
       name: /NAT.*(?:Not enough space|空间不足)/i,
     })
     expect(blockedNat).toHaveAttribute('aria-disabled', 'true')
-    expect(blockedNat).toHaveTextContent(/Not enough space|空间不足/i)
+    expect(blockedNat).not.toHaveTextContent(/Not enough space|空间不足/i)
+    expect(blockedNat).toHaveAccessibleDescription(
+      /Shrink or remove|缩小或移除/i
+    )
     expect(screen.getByTestId('dashboard-tile-speedUp')).toHaveAttribute(
       'data-enabled',
       'true'

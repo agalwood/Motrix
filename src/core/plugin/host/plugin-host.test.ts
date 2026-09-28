@@ -717,9 +717,12 @@ describe('PluginHost', () => {
       host.bridgeFor('alice.demo')?.getWorker().postMessage({
         type: 'test_clear_timer',
       })
-      await new Promise((resolve) => setTimeout(resolve, 5))
-      host.__sweepIdleForTest()
-      await vi.waitFor(() => expect(host.isActive('alice.demo')).toBe(false))
+      // Timer activity arrives asynchronously and resets the idle clock.
+      // Keep sweeping until the cleared timer has also become idle.
+      await vi.waitFor(() => {
+        host.__sweepIdleForTest()
+        expect(host.isActive('alice.demo')).toBe(false)
+      })
       await host.shutdown()
     })
 

@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest'
+import '@renderer/lib/i18n'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
 import type { DashboardTileLayout } from '@shared/types/settings'
 import { fireEvent, render, screen } from '@testing-library/react'
@@ -23,7 +24,6 @@ const labels: DashboardTileFrameLabels = {
   remove: 'Remove tile',
   resize: 'Resize tile',
   sizeGroup: 'Tile size',
-  size: (size) => size,
   unavailable: () => 'Not enough space',
 }
 
@@ -138,7 +138,9 @@ describe('DashboardTileFrame', () => {
 
     fireEvent.pointerDown(screen.getByRole('button', { name: 'Drag tile' }))
     await user.click(screen.getByRole('button', { name: 'Tile size' }))
-    await user.click(await screen.findByRole('menuitemradio', { name: '1x1' }))
+    await user.click(
+      await screen.findByRole('menuitemradio', { name: 'Compact 1 × 1' })
+    )
     await user.click(screen.getByRole('button', { name: 'Remove tile' }))
 
     expect(onDragHandlePointerDown).toHaveBeenCalledWith(
@@ -155,19 +157,28 @@ describe('DashboardTileFrame', () => {
     await user.click(screen.getByRole('button', { name: 'Tile size' }))
 
     expect(
-      await screen.findByRole('menuitemradio', { name: '2x1' })
+      await screen.findByRole('menuitemradio', { name: 'Wide 2 × 1' })
     ).toHaveAttribute('aria-checked', 'true')
   })
 
   it('shows registered but capacity-blocked spans as disabled', async () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 })
-    renderFrame({ editing: true })
+    const onResize = vi.fn()
+    renderFrame({ editing: true, onResize })
     await user.click(screen.getByRole('button', { name: 'Tile size' }))
 
     const blocked = await screen.findByRole('menuitemradio', {
-      name: /1x2 Not enough space/,
+      name: /Tall 1 × 2 Not enough space/,
     })
     expect(blocked).toHaveAttribute('aria-disabled', 'true')
-    expect(screen.queryByRole('menuitemradio', { name: /3x1/ })).toBeNull()
+    expect(blocked).toHaveAccessibleDescription(
+      'Shrink or remove another tile.'
+    )
+    expect(blocked).not.toHaveTextContent('Not enough space')
+    expect(screen.queryByRole('menuitemradio', { name: /3 × 1/ })).toBeNull()
+    await user.click(blocked)
+    blocked.focus()
+    await user.keyboard('{Enter}')
+    expect(onResize).not.toHaveBeenCalled()
   })
 })

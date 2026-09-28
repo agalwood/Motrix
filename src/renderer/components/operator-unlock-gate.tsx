@@ -1,5 +1,10 @@
 import { Button } from '@renderer/components/ui/button'
-import { getOperatorStatus, operatorLogin } from '@renderer/lib/operator-auth'
+import {
+  operatorLogin,
+  refreshOperatorSession,
+  useOperatorSession,
+  watchOperatorSession,
+} from '@renderer/lib/operator-auth'
 import { transport } from '@renderer/lib/transport'
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -14,27 +19,30 @@ export function OperatorUnlockGate({ children }: { children: ReactNode }) {
   return <WebGate>{children}</WebGate>
 }
 
-type GateState = 'checking' | 'locked' | 'unlocked'
-
 function WebGate({ children }: { children: ReactNode }) {
   const { t } = useTranslation()
-  const [state, setState] = useState<GateState>('checking')
+  const state = useOperatorSession((s) => s.state)
   const [token, setToken] = useState('')
   const [error, setError] = useState(false)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    let cancelled = false
-    void getOperatorStatus().then((ok) => {
-      if (!cancelled) setState(ok ? 'unlocked' : 'locked')
-    })
-    return () => {
-      cancelled = true
-    }
+    void refreshOperatorSession()
+    return watchOperatorSession()
   }, [])
 
   if (state === 'checking') return null
-  if (state === 'unlocked') return <>{children}</>
+  if (state === 'unavailable')
+    return (
+      <div className="flex h-svh flex-col items-center justify-center gap-4">
+        <p>{t('applicationMenu.serverUnavailable')}</p>
+        <Button onClick={() => void refreshOperatorSession()}>
+          {t('applicationMenu.retry')}
+        </Button>
+      </div>
+    )
+  if (state === 'authenticated' || state === 'logging-out')
+    return <>{children}</>
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -43,7 +51,7 @@ function WebGate({ children }: { children: ReactNode }) {
     setError(false)
     const ok = await operatorLogin(token.trim())
     setBusy(false)
-    if (ok) setState('unlocked')
+    if (ok) setToken('')
     else setError(true)
   }
 

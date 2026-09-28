@@ -7,7 +7,12 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { createElement, StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { __resetTaskListStoreForTests, useTaskList } from './use-task-list'
+import {
+  __resetTaskListStoreForTests,
+  clearTaskListSession,
+  invalidateTaskList,
+  useTaskList,
+} from './use-task-list'
 
 type Listener = (...args: unknown[]) => void
 
@@ -34,7 +39,8 @@ const transportMock = vi.hoisted(() => ({
       return () => connectionListeners.delete(cb)
     }
   ),
-  platform: 'darwin' as const,
+  platform: 'darwin' as 'darwin' | 'web',
+  getConnectionState: vi.fn(() => 'disconnected'),
 }))
 
 vi.mock('@renderer/lib/transport', () => ({
@@ -72,6 +78,7 @@ async function flushDeferredTeardown(): Promise<void> {
 }
 
 beforeEach(() => {
+  transportMock.platform = 'darwin'
   __resetTaskListStoreForTests()
   listeners.clear()
   transportMock.invoke.mockReset()
@@ -604,5 +611,138 @@ describe('useTaskList external store', () => {
     expect(result.current.hasAnyActive).toBe(true)
     expect(result.current.hasAnyPaused).toBe(true)
     expect(result.current.hasStopped).toBe(true)
+  })
+})
+
+describe('WebUI recovery without event delivery', () => {
+  beforeEach(() => {
+    transportMock.platform = 'web'
+    vi.useFakeTimers()
+    vi.setSystemTime(100_000)
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  it('adversarial: accepts healthy HTTP snapshots while successful WebSocket handshakes keep flapping', async () => {
+    const requests: Deferred<readonly DownloadTask[]>[] = []
+    transportMock.invoke.mockImplementation(() => {
+      const request = deferred<readonly DownloadTask[]>()
+      requests.push(request)
+      return request.promise
+    })
+    const { result } = renderHook(() => useTaskList())
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await act(async () => vi.advanceTimersByTimeAsync(2_000))
+      act(() => {
+        for (const state of ['connecting', 'connected', 'disconnected'])
+          for (const callback of connectionListeners) callback({ state })
+      })
+      await act(async () => {
+        requests[attempt].resolve([
+          task('visible-over-http', TaskStatus.Paused),
+        ])
+      })
+    }
+    expect(requests).toHaveLength(6)
+    expect(result.current.status).toBe('ready')
+    expect(result.current.tasks[0]?.id).toBe('visible-over-http')
+  })
+
+  it('accepts HTTP hydration despite repeated failed event connections and keeps polling', async () => {
+    const hydration = deferred<readonly DownloadTask[]>()
+    transportMock.invoke.mockReturnValueOnce(hydration.promise)
+    const { result } = renderHook(() => useTaskList())
+    act(() => {
+      for (const state of [
+        'connecting',
+        'disconnected',
+        'connecting',
+        'disconnected',
+      ]) {
+        for (const callback of connectionListeners) callback({ state })
+      }
+    })
+    await act(async () =>
+      hydration.resolve([task('first', TaskStatus.Downloading)])
+    )
+    expect(result.current.status).toBe('ready')
+    expect(result.current.realtimeConnected).toBe(false)
+    transportMock.invoke.mockResolvedValue([
+      task('created', TaskStatus.Downloading),
+    ])
+    await act(async () => vi.advanceTimersByTimeAsync(5_000))
+    expect(result.current.tasks[0]?.id).toBe('created')
+    expect(transportMock.invoke).toHaveBeenCalledTimes(2)
+  })
+
+  it('retains ready data on disconnect and coalesces post-write refreshes', async () => {
+    transportMock.invoke.mockResolvedValueOnce([task('old', TaskStatus.Paused)])
+    const { result } = renderHook(() => useTaskList())
+    await act(async () => {})
+    const pending = deferred<readonly DownloadTask[]>()
+    transportMock.invoke.mockReturnValueOnce(pending.promise)
+    act(() => {
+      for (const callback of connectionListeners)
+        callback({ state: 'disconnected' })
+    })
+    expect(result.current.status).toBe('ready')
+    await act(async () => vi.advanceTimersByTimeAsync(5_000))
+    transportMock.invoke.mockResolvedValueOnce([
+      task('new', TaskStatus.Downloading),
+    ])
+    act(() => {
+      invalidateTaskList()
+      invalidateTaskList()
+    })
+    await act(async () => pending.resolve([task('old', TaskStatus.Paused)]))
+    expect(transportMock.invoke).toHaveBeenCalledTimes(3)
+    expect(result.current.tasks[0]?.id).toBe('new')
+  })
+
+  it('retries initial HTTP failure without ever receiving a connected event', async () => {
+    transportMock.invoke
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce([task('recovered', TaskStatus.Paused)])
+    const { result } = renderHook(() => useTaskList())
+    await act(async () => {})
+    expect(result.current.status).toBe('error')
+    await act(async () => vi.advanceTimersByTimeAsync(1_000))
+    expect(result.current.status).toBe('ready')
+    expect(result.current.tasks[0]?.id).toBe('recovered')
+  })
+
+  it('stops periodic work while hidden and resynchronizes on foreground', async () => {
+    transportMock.invoke.mockResolvedValue([])
+    renderHook(() => useTaskList())
+    await act(async () => {})
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+    act(() => document.dispatchEvent(new Event('visibilitychange')))
+    await act(async () => vi.advanceTimersByTimeAsync(60_000))
+    expect(transportMock.invoke).toHaveBeenCalledTimes(1)
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    await act(async () => document.dispatchEvent(new Event('visibilitychange')))
+    expect(transportMock.invoke).toHaveBeenCalledTimes(2)
+  })
+
+  it('calibrates an apparently connected but silent stream and cancels on logout', async () => {
+    transportMock.invoke.mockResolvedValue([])
+    const { result } = renderHook(() => useTaskList())
+    await act(async () => {})
+    await act(async () => {
+      for (const callback of connectionListeners)
+        callback({ state: 'connected' })
+    })
+    expect(result.current.realtimeConnected).toBe(true)
+    expect(transportMock.invoke).toHaveBeenCalledTimes(2)
+    await act(async () => vi.advanceTimersByTimeAsync(30_000))
+    expect(transportMock.invoke).toHaveBeenCalledTimes(3)
+    act(() => clearTaskListSession())
+    await act(async () => vi.advanceTimersByTimeAsync(60_000))
+    expect(transportMock.invoke).toHaveBeenCalledTimes(3)
+    expect(result.current.tasks).toEqual([])
   })
 })

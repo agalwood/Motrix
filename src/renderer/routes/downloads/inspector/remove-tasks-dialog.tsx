@@ -1,3 +1,4 @@
+import { WarningIcon } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import { Checkbox } from '@renderer/components/ui/checkbox'
 import {
@@ -7,15 +8,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@renderer/components/ui/dialog'
-import { formatBytes } from '@renderer/lib/format'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
-import { AlertTriangle } from 'lucide-react'
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 export interface RemoveTasksDialogProps {
   open: boolean
+  busy?: boolean
   selected: readonly DownloadTask[]
   preCheckDeleteFiles: boolean
   onOpenChange: (open: boolean) => void
@@ -80,13 +81,17 @@ function estimateDiskUsage(selected: readonly DownloadTask[]): number {
 
 export function RemoveTasksDialog({
   open,
+  busy = false,
   selected,
   preCheckDeleteFiles,
   onOpenChange,
   onConfirm,
 }: RemoveTasksDialogProps) {
+  const { formatBytes } = useByteFormat()
+
   const { t } = useTranslation()
   const checkboxId = useId()
+  const cancelRef = useRef<HTMLButtonElement>(null)
   // Deleting files is always an explicit opt-in (or the Shift shortcut via
   // preCheckDeleteFiles) — even Error/Queued selections may hold partial
   // data on disk, so no task status ever pre-checks the box.
@@ -102,13 +107,19 @@ export function RemoveTasksDialog({
   const title = buildTitle(selected, t)
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!busy) onOpenChange(next)
+      }}
+    >
+      <DialogContent initialFocus={cancelRef} showCloseButton={!busy}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         <div className="flex items-center gap-2 text-sm">
           <Checkbox
+            disabled={busy}
             id={checkboxId}
             checked={deleteFiles}
             onCheckedChange={(v) => setDeleteFiles(Boolean(v))}
@@ -119,7 +130,7 @@ export function RemoveTasksDialog({
         </div>
         {showEstimate && (
           <div className="flex items-center gap-2 rounded-md bg-yellow-100 px-3 py-2 text-xs text-yellow-900 dark:bg-yellow-900/30 dark:text-yellow-200">
-            <AlertTriangle className="size-3.5" />
+            <WarningIcon className="size-3.5" />
             <span>
               {t('panel.downloads.action.removeFilesEstimate', {
                 bytes: formatBytes(estimateDiskUsage(selected)),
@@ -128,12 +139,19 @@ export function RemoveTasksDialog({
           </div>
         )}
         <DialogFooter>
-          <Button size="sm" variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button
+            ref={cancelRef}
+            disabled={busy}
+            size="sm"
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+          >
             {t('panel.downloads.action.cancel')}
           </Button>
           <Button
             size="sm"
             variant="destructive"
+            disabled={busy || selected.length === 0}
             onClick={() => onConfirm(deleteFiles)}
           >
             {t('panel.downloads.action.remove')}

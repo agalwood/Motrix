@@ -1,3 +1,6 @@
+import { mkdir, mkdtemp, realpath, rm, symlink } from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 import { NOOP_TASK_ACTIVITY_RECORDER } from '@core/activity'
 import type { Aria2RpcClient } from '@core/engine/aria2/aria2-rpc-client'
 import type { EngineAdapter } from '@core/engine/engine-adapter'
@@ -14,7 +17,7 @@ import type { RegistryClient } from '@core/plugin/registry/registry-client'
 import type { PluginStateStore } from '@core/plugin/state/plugin-state-store'
 import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { MotrixDatabase } from '@core/session/motrix-database'
-import type { SettingsManager } from '@core/settings/settings-manager'
+import { SettingsManager } from '@core/settings/settings-manager'
 import type { FileCleanupService } from '@core/task/file-cleanup-service'
 import type { FinalNamePicker } from '@core/task/final-name-picker'
 import type { TaskManager } from '@core/task/task-manager'
@@ -23,16 +26,23 @@ import type { MagnetTracker } from '@core/torrent/magnet-tracker'
 import type { TrackerManager } from '@core/tracker'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
+import { Queries } from '@shared/protocol/queries'
 import {
   TaskInstancePhase,
   TaskKind,
   TaskStatus,
   TaskType,
+  TransitionPhase,
 } from '@shared/types/task'
+import { makeMediaMetaStoreStub } from '@test-utils/media-meta-store'
+import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createServerDownloadPathPolicy } from '../download-path-policy'
 import type { ServerPluginInstallService } from '../plugin/install-service'
+import { ServerDirectoryService } from '../server-directory-service'
 import type { ServerCommandContext } from './commands'
 import { buildServerCommandHandlers } from './commands'
+import { buildServerQueryHandlers } from './queries'
 
 const PROXY_OFF = {
   enabled: false,
@@ -61,8 +71,13 @@ function makeFakeCtx() {
     } as unknown as EngineSupervisor,
     dnsFallback: { reset: vi.fn() },
     settingsManager: {
+      mutateDirectoryPreferences: vi.fn().mockResolvedValue({
+        ok: true,
+        value: { favorites: [], recent: [] },
+      }),
       get: vi.fn(),
       update: vi.fn(),
+      acceptDisclaimer: vi.fn().mockResolvedValue({ saved: true }),
       removePluginConfig: vi.fn().mockResolvedValue(undefined),
       getApp: vi.fn(() => ({
         defaultSaveDir: '/tmp',
@@ -86,6 +101,7 @@ function makeFakeCtx() {
     },
     aria2BinaryPath: '/usr/bin/aria2c',
     finalNamePicker: {} as FinalNamePicker,
+    mediaMetaStore: makeMediaMetaStoreStub(),
     torrentMetaStore: {} as TorrentMetaStore,
     taskManager: {
       getById: vi.fn(() => undefined),
@@ -174,6 +190,11 @@ function makeFakeCtx() {
     downloadPathPolicy: {
       allowedSaveDirs: ['/downloads'],
       prepareSaveDir: vi.fn(async (requested: string) => requested),
+      authorizeDirectory: vi.fn(),
+    },
+    serverDirectoryService: {
+      create: vi.fn(),
+      resolvePreferenceDirectory: vi.fn(async (value: string) => value),
     },
   }
 }
@@ -212,7 +233,384 @@ function makeSettings(
   }
 }
 
+describe('server disclaimer language', () => {
+  it('persists system and waits for locale application before reporting success', async () => {
+    let finish!: () => void
+    const applyLocale = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve
+        })
+    )
+    const ctx = makeFakeCtx()
+    const setDisclaimerLanguage = vi.fn().mockResolvedValue({ saved: true })
+    const handlers = buildServerCommandHandlers({
+      ...ctx,
+      settingsManager: { ...ctx.settingsManager, setDisclaimerLanguage },
+      applyLocale,
+    } as unknown as ServerCommandContext)
+    let settled = false
+    const pending = handlers[Commands.SetDisclaimerLanguage]?.('system').then(
+      (value) => {
+        settled = true
+        return value
+      }
+    )
+    await vi.waitFor(() => expect(applyLocale).toHaveBeenCalledWith('system'))
+    expect(setDisclaimerLanguage).toHaveBeenCalledWith('system')
+    expect(settled).toBe(false)
+    finish()
+    await expect(pending).resolves.toEqual({ ok: true })
+    await expect(
+      handlers[Commands.SetDisclaimerLanguage]?.('unknown')
+    ).rejects.toThrow()
+    expect(setDisclaimerLanguage).toHaveBeenCalledOnce()
+  })
+})
+
 describe('server Commands.UpdateSettings', () => {
+  it.each(['zh-CN', 'system'])(
+    'awaits locale application and permits retrying saved %s',
+    async (language) => {
+      const base = makeSettings(PROXY_OFF)
+      const current = { ...base, app: { ...base.app, language } }
+      let rejectLocale!: (error: Error) => void
+      const applyLocale = vi
+        .fn()
+        .mockImplementationOnce(
+          () =>
+            new Promise<void>((_, reject) => {
+              rejectLocale = reject
+            })
+        )
+        .mockResolvedValue(undefined)
+      const ctx = { ...makeFakeCtx(), applyLocale }
+      vi.mocked(ctx.settingsManager.get).mockReturnValue(current as never)
+      vi.mocked(ctx.settingsManager.update).mockResolvedValue({
+        saved: true,
+        requiresRestart: false,
+        changedRestartKeys: [],
+        requiresAppRestart: false,
+        changedAppRestartKeys: [],
+      })
+      const update = buildServerCommandHandlers(
+        ctx as unknown as ServerCommandContext
+      )[Commands.UpdateSettings]!
+      let settled = false
+      const pending = update({ app: { language } }).then((value) => {
+        settled = true
+        return value
+      })
+      await vi.waitFor(() => expect(applyLocale).toHaveBeenCalledWith(language))
+      expect(settled).toBe(false)
+      rejectLocale(new Error('locale apply failed'))
+      await expect(pending).resolves.toMatchObject({
+        saved: true,
+        applicationFailed: true,
+      })
+      await expect(update({ app: { language } })).resolves.toMatchObject({
+        saved: true,
+      })
+      expect(applyLocale).toHaveBeenCalledTimes(2)
+    }
+  )
+
+  it('uses Server path policy before one General commit and does not apply partial fields on an outside-root destination', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'motrix-server-general-'))
+    try {
+      const allowed = path.join(root, 'allowed')
+      const outside = path.join(root, 'outside')
+      await mkdir(outside)
+      const policy = await createServerDownloadPathPolicy({
+        defaultSaveDir: allowed,
+        allowedSaveDirsValue: allowed,
+      })
+      const destination = path.join(allowed, 'destination')
+      await mkdir(destination)
+      const manager = new SettingsManager(path.join(root, 'settings.json'), {
+        defaultSaveDir: allowed,
+      })
+      await manager.load()
+      const ctx = {
+        ...makeFakeCtx(),
+        settingsManager: manager,
+        downloadPathPolicy: policy,
+        serverDirectoryService: new ServerDirectoryService(policy),
+      }
+      const save = buildServerCommandHandlers(
+        ctx as unknown as ServerCommandContext
+      )[Commands.SaveGeneralSettings]
+      expect(
+        await save?.({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
+          app: { defaultSaveDir: destination, notifyOnComplete: false },
+          directories: {
+            addFavorites: [destination],
+            removeFavorites: [],
+            removeRecent: [],
+          },
+        })
+      ).toMatchObject({
+        ok: true,
+        value: {
+          directoryPreferences: { favorites: [destination], recent: [] },
+        },
+      })
+      expect(manager.getApp()).toMatchObject({
+        defaultSaveDir: await realpath(destination),
+        notifyOnComplete: false,
+      })
+      expect(
+        ctx.supervisor.applyDefaultSaveDir
+      ).toHaveBeenCalledExactlyOnceWith(await realpath(destination))
+      vi.mocked(ctx.supervisor.applyDefaultSaveDir).mockClear()
+      const before = structuredClone(manager.getApp())
+      expect(
+        await save?.({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
+          app: { defaultSaveDir: outside, notifyOnComplete: true },
+          directories: {
+            addFavorites: [],
+            removeFavorites: [destination],
+            removeRecent: [],
+          },
+        })
+      ).toEqual({ ok: false, error: { code: 'outsideRoots' } })
+      expect(
+        await save?.({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
+          app: { notifyOnComplete: true },
+          directories: {
+            addFavorites: [outside],
+            removeFavorites: [destination],
+            removeRecent: [],
+          },
+        })
+      ).toEqual({ ok: false, error: { code: 'outsideRoots' } })
+      expect(manager.getApp()).toEqual(before)
+      expect(ctx.supervisor.applyDefaultSaveDir).not.toHaveBeenCalled()
+      const authorize = vi.spyOn(
+        ctx.serverDirectoryService,
+        'resolvePreferenceDirectory'
+      )
+      expect(
+        await save?.({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
+          app: { defaultSaveDir: destination, extra: true },
+          directories: {
+            addFavorites: [destination],
+            removeFavorites: [],
+            removeRecent: [],
+          },
+        })
+      ).toEqual({ ok: false, error: { code: 'invalidPath' } })
+      expect(authorize).not.toHaveBeenCalled()
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('preserves latest queue preferences against stale/invalid app patches through Server handlers', async () => {
+    const root = await mkdtemp(
+      path.join(os.tmpdir(), 'motrix-server-preferences-')
+    )
+    try {
+      const policy = await createServerDownloadPathPolicy({
+        defaultSaveDir: root,
+        allowedSaveDirsValue: root,
+      })
+      const manager = new SettingsManager(path.join(root, 'settings.json'), {
+        defaultSaveDir: root,
+      })
+      await manager.load()
+      const staleApp = manager.getApp()
+      const ctx = {
+        ...makeFakeCtx(),
+        settingsManager: manager,
+        downloadPathPolicy: policy,
+        serverDirectoryService: new ServerDirectoryService(policy),
+      }
+      const handlers = buildServerCommandHandlers(
+        ctx as unknown as ServerCommandContext
+      )
+      expect(
+        await handlers[Commands.MutateDirectoryPreferences]?.({
+          action: 'addFavorite',
+          path: root,
+        })
+      ).toEqual({ ok: true, value: { favorites: [root], recent: [] } })
+      await handlers[Commands.UpdateSettings]?.({
+        app: { ...staleApp, theme: 'dark' },
+      })
+      await handlers[Commands.UpdateSettings]?.({
+        app: {
+          directoryPreferences: { corrupt: true },
+          notifyOnComplete: false,
+        },
+      })
+      expect(manager.getApp()).toMatchObject({
+        theme: 'dark',
+        notifyOnComplete: false,
+        directoryPreferences: { favorites: [root], recent: [] },
+      })
+      const queries = buildServerQueryHandlers(
+        ctx as unknown as Parameters<typeof buildServerQueryHandlers>[0]
+      )
+      expect(await queries[Queries.GetDirectoryPreferences]?.({})).toEqual({
+        ok: true,
+        value: { favorites: [root], recent: [] },
+      })
+      expect(
+        await queries[Queries.ListServerDirectoryLocations]?.({})
+      ).toMatchObject({
+        ok: true,
+        value: { favorites: [{ path: root, sourcePaths: [root] }] },
+      })
+      expect(
+        await handlers[Commands.MutateDirectoryPreferences]?.({
+          action: 'recordRecent',
+          path: path.dirname(root),
+        })
+      ).toEqual({ ok: false, error: { code: 'outsideRoots' } })
+      expect(
+        await handlers[Commands.MutateDirectoryPreferences]?.({
+          action: 'removeFavorite',
+          paths: [root],
+        })
+      ).toEqual({ ok: true, value: { favorites: [], recent: [] } })
+      const target = path.join(root, 'target')
+      const alias = path.join(root, 'alias')
+      await mkdir(target)
+      await symlink(target, alias)
+      await handlers[Commands.MutateDirectoryPreferences]?.({
+        action: 'addFavorite',
+        path: alias,
+      })
+      await handlers[Commands.MutateDirectoryPreferences]?.({
+        action: 'addFavorite',
+        path: target,
+      })
+      expect(
+        await queries[Queries.ListServerDirectoryLocations]?.({})
+      ).toMatchObject({
+        ok: true,
+        value: { favorites: [{ path: alias, sourcePaths: [alias, target] }] },
+      })
+      expect(
+        await handlers[Commands.MutateDirectoryPreferences]?.({
+          action: 'removeFavorite',
+          paths: [alias, target],
+        })
+      ).toEqual({ ok: true, value: { favorites: [], recent: [] } })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('round-trips selected root/internal aliases and whitespace through real settings Apply, reload, bootstrap and default preparation', async () => {
+    const temporary = await mkdtemp(
+      path.join(os.tmpdir(), 'motrix-picker-settings-')
+    )
+    try {
+      const realRoot = path.join(temporary, 'real')
+      const alias = path.join(temporary, 'alias')
+      await mkdir(realRoot)
+      await symlink(realRoot, alias)
+      await mkdir(path.join(realRoot, 'target'))
+      await symlink(
+        path.join(realRoot, 'target'),
+        path.join(realRoot, 'internal')
+      )
+      const policy = await createServerDownloadPathPolicy({
+        defaultSaveDir: alias,
+        allowedSaveDirsValue: alias,
+      })
+      const service = new ServerDirectoryService(policy)
+      const settingsPath = path.join(temporary, 'settings.json')
+      const manager = new SettingsManager(settingsPath, {
+        defaultSaveDir: alias,
+      })
+      await manager.load()
+      const ctx = {
+        ...makeFakeCtx(),
+        downloadPathPolicy: policy,
+        serverDirectoryService: service,
+        settingsManager: manager,
+      }
+      const handlers = buildServerCommandHandlers(
+        ctx as unknown as ServerCommandContext
+      )
+      for (const name of process.platform === 'win32'
+        ? ['Movies']
+        : ['Movies', 'Movies ', ' ']) {
+        const logical = path.join(alias, 'internal', name)
+        expect(
+          (
+            await service.create({
+              parentPath: path.join(alias, 'internal'),
+              name,
+            })
+          ).ok
+        ).toBe(true)
+        expect(await service.validate({ path: logical })).toEqual({
+          ok: true,
+          value: { path: logical },
+        })
+        await handlers[Commands.UpdateSettings]?.({
+          app: { defaultSaveDir: logical },
+        })
+        const canonical = await realpath(logical)
+        expect(manager.getApp().defaultSaveDir).toBe(canonical)
+        const reloaded = new SettingsManager(settingsPath, {
+          defaultSaveDir: alias,
+        })
+        await reloaded.load()
+        expect(reloaded.getApp().defaultSaveDir).toBe(canonical)
+        const queries = buildServerQueryHandlers({
+          ...ctx,
+          settingsManager: reloaded,
+        } as unknown as Parameters<typeof buildServerQueryHandlers>[0])
+        const bootstrap = await queries[Queries.ListAllowedSaveDirs]?.()
+        expect(bootstrap).toMatchObject({
+          defaultPath: canonical,
+          paths: [{ path: alias }],
+        })
+        expect(await service.validate({ path: canonical })).toEqual({
+          ok: true,
+          value: { path: path.join(alias, 'target', name) },
+        })
+        const restarted = await createServerDownloadPathPolicy({
+          defaultSaveDir: reloaded.getApp().defaultSaveDir,
+          allowedSaveDirsValue: alias,
+        })
+        expect(await restarted.prepareSaveDir('')).toBe(canonical)
+        expect(
+          await policy.prepareSaveDir(reloaded.getApp().defaultSaveDir)
+        ).toBe(canonical)
+      }
+      await expect(
+        policy.prepareSaveDir(path.join(temporary, 'outside'))
+      ).rejects.toThrow('outside MOTRIX_ALLOWED_SAVE_DIRS')
+    } finally {
+      await rm(temporary, { recursive: true, force: true })
+    }
+  })
+
+  it('delegates folder creation to the directory service', async () => {
+    const ctx = makeFakeCtx()
+    const request = { parentPath: '/downloads', name: 'new' }
+    const result = { ok: true, value: { path: '/downloads/new', name: 'new' } }
+    ctx.serverDirectoryService.create.mockResolvedValue(result)
+    const handlers = buildServerCommandHandlers(
+      ctx as unknown as ServerCommandContext
+    )
+    expect(await handlers[Commands.CreateServerDirectory]?.(request)).toEqual(
+      result
+    )
+    expect(ctx.serverDirectoryService.create).toHaveBeenCalledExactlyOnceWith(
+      request
+    )
+  })
   it('does not invoke proxyApplier when proxy unchanged', async () => {
     const ctx = makeFakeCtx()
     const settings = makeSettings(PROXY_OFF)
@@ -294,7 +692,7 @@ describe('server Commands.UpdateSettings', () => {
 
     await expect(
       handlers[Commands.UpdateSettings]?.({ proxy: PROXY_ON })
-    ).rejects.toThrow('RPC failed')
+    ).resolves.toMatchObject({ applicationFailed: true })
     expect(policy.snapshot()).toBeNull()
   })
 
@@ -329,7 +727,7 @@ describe('server Commands.UpdateSettings', () => {
 
     await expect(
       handlers[Commands.UpdateSettings]?.({ proxy: PROXY_ON })
-    ).rejects.toThrow('RPC failed')
+    ).resolves.toMatchObject({ applicationFailed: true })
     expect(policy.snapshot()).toBeNull()
 
     await expect(
@@ -430,6 +828,8 @@ describe('server Commands.UpdateSettings', () => {
     expect(ctx.supervisor.applyDefaultSaveDir).toHaveBeenCalledExactlyOnceWith(
       '/downloads/new'
     )
+    expect(ctx.bridgeControl.restart).not.toHaveBeenCalled()
+    expect(ctx.bridgeControl.setEnabled).not.toHaveBeenCalled()
   })
 
   it('hot-applies the browser bridge master switch', async () => {
@@ -681,6 +1081,29 @@ describe('server Commands.UpdateSettings', () => {
     expect(ctx.trackerManager.applySyncScheduleChange).toHaveBeenCalledOnce()
   })
 
+  it('rejects a disallowed save directory before committing or changing the bridge', async () => {
+    const ctx = makeFakeCtx()
+    const oldSettings = new SettingsManager('/unused-settings.json').get()
+    oldSettings.app.defaultSaveDir = '/downloads/old'
+    vi.mocked(ctx.settingsManager.get).mockReturnValue(oldSettings)
+    vi.mocked(ctx.downloadPathPolicy.prepareSaveDir).mockRejectedValue(
+      new Error('outside allowed roots')
+    )
+    const handlers = buildServerCommandHandlers(
+      ctx as Parameters<typeof buildServerCommandHandlers>[0]
+    )
+    await expect(
+      handlers[Commands.UpdateSettings]?.({
+        app: { defaultSaveDir: '/outside' },
+      })
+    ).rejects.toThrow('outside allowed roots')
+    expect(ctx.settingsManager.update).not.toHaveBeenCalled()
+    expect(ctx.settingsManager.get().app.defaultSaveDir).toBe('/downloads/old')
+    expect(ctx.supervisor.applyDefaultSaveDir).not.toHaveBeenCalled()
+    expect(ctx.bridgeControl.restart).not.toHaveBeenCalled()
+    expect(ctx.bridgeControl.setEnabled).not.toHaveBeenCalled()
+  })
+
   it('validates a default save directory before persisting settings', async () => {
     const ctx = makeFakeCtx()
     ;(
@@ -773,14 +1196,17 @@ describe('server Commands.CreateTask magnet metadata selection', () => {
 
     const result = await handlers[Commands.CreateTask]?.({
       type: 'bt',
-      payload: { kind: 'magnet', uri: 'magnet:?xt=urn:btih:abc' },
+      payload: {
+        kind: 'magnet',
+        uri: 'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
+      },
       selectedFiles: [],
       saveDir: '/downloads',
     })
 
     expect(result).toEqual({ ok: true })
     expect(ctx.magnetTracker.submit).toHaveBeenCalledWith(
-      'magnet:?xt=urn:btih:abc',
+      'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
       '/downloads'
     )
     expect(ctx.downloadPathPolicy.prepareSaveDir).toHaveBeenCalledWith(
@@ -816,6 +1242,42 @@ describe('server Commands.CreateTask magnet metadata selection', () => {
 })
 
 describe('server plural task commands', () => {
+  it('MoveTasks validates the payload and changes the actual engine queue', async () => {
+    const ctx = makeFakeCtx()
+    const queue = ['first', 'second']
+    vi.mocked(ctx.taskManager.getById).mockReturnValue({
+      id: 'task-second',
+      engineTaskId: 'second',
+      status: TaskStatus.Paused,
+    } as never)
+    Object.assign(ctx.adapter, {
+      listWaitingTaskIds: vi.fn(async () => [...queue]),
+      changePosition: vi.fn(async () => {
+        queue.reverse()
+        return 0
+      }),
+    })
+    const handlers = buildServerCommandHandlers(
+      ctx as Parameters<typeof buildServerCommandHandlers>[0]
+    )
+    await expect(
+      handlers[Commands.MoveTasks]?.({
+        taskIds: ['task-second'],
+        direction: 'up',
+      })
+    ).resolves.toEqual({ moved: ['task-second'], unchanged: [], failed: [] })
+    expect(queue).toEqual(['second', 'first'])
+    await expect(
+      handlers[Commands.MoveTasks]?.({ taskIds: [], direction: 'up' })
+    ).rejects.toThrow()
+    await expect(
+      handlers[Commands.MoveTasks]?.({
+        taskIds: ['task-second'],
+        direction: 'sideways',
+      })
+    ).rejects.toThrow()
+  })
+
   it('PauseTasks fans out per id and returns the IPC-safe bulk result', async () => {
     const ctx = makeFakeCtx()
     const tasks = new Map([
@@ -1386,5 +1848,108 @@ describe('buildServerCommandHandlers — notification center', () => {
     })
     await expect(handlers[Commands.ClearNotifications]?.()).resolves.toBe(1)
     expect(notificationCenter.list()).toHaveLength(0)
+  })
+})
+
+describe('server finalize retry wiring', () => {
+  it.each([Commands.ReAddTask, Commands.RetryTasks])(
+    'routes %s to recovery for an interrupted finalize',
+    async (command) => {
+      const ctx = makeFakeCtx() as unknown as ServerCommandContext
+      const task = makeDownloadTask({
+        id: 'interrupted-finalize',
+        type: TaskType.Bt,
+        status: TaskStatus.Error,
+        transitionPhase: TransitionPhase.Renaming,
+      })
+      vi.spyOn(ctx.taskManager, 'getById').mockReturnValue(task)
+      const recoverFinalization = vi.fn().mockResolvedValue(undefined)
+      const handlers = buildServerCommandHandlers({
+        ...ctx,
+        recoverFinalization,
+      })
+      await handlers[command]?.(
+        command === Commands.ReAddTask ? task.id : [task.id]
+      )
+      expect(recoverFinalization).toHaveBeenCalledExactlyOnceWith(task.id)
+    }
+  )
+})
+
+describe('server disclaimer acceptance', () => {
+  it('starts the tracker schedule only after consent is saved', async () => {
+    const ctx = makeFakeCtx()
+    let resolve!: (
+      value: Awaited<ReturnType<SettingsManager['acceptDisclaimer']>>
+    ) => void
+    vi.mocked(ctx.settingsManager.acceptDisclaimer).mockReturnValueOnce(
+      new Promise((done) => {
+        resolve = done
+      })
+    )
+    const handlers = buildServerCommandHandlers(
+      ctx as unknown as ServerCommandContext
+    )
+    const accepting = handlers[Commands.AcceptDisclaimer]?.()
+    expect(ctx.trackerManager.applySyncScheduleChange).not.toHaveBeenCalled()
+    resolve({
+      saved: true,
+      requiresRestart: false,
+      changedRestartKeys: [],
+      requiresAppRestart: false,
+      changedAppRestartKeys: [],
+    })
+    await accepting
+    expect(ctx.trackerManager.applySyncScheduleChange).toHaveBeenCalledOnce()
+  })
+
+  it('does not start tracker sync if consent cannot be saved', async () => {
+    const ctx = makeFakeCtx()
+    vi.mocked(ctx.settingsManager.acceptDisclaimer).mockRejectedValueOnce(
+      new Error('disk full')
+    )
+    const handlers = buildServerCommandHandlers(
+      ctx as unknown as ServerCommandContext
+    )
+    await expect(handlers[Commands.AcceptDisclaimer]?.()).rejects.toThrow(
+      'disk full'
+    )
+    expect(ctx.trackerManager.applySyncScheduleChange).not.toHaveBeenCalled()
+  })
+})
+
+describe('host-owned task directory history', () => {
+  it('returns an accepted magnet while the directory write is pending', async () => {
+    const ctx = makeFakeCtx()
+    let finish!: (value: unknown) => void
+    const record = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    ctx.settingsManager.mutateDirectoryPreferences = record as never
+    const handlers = buildServerCommandHandlers(
+      ctx as unknown as Parameters<typeof buildServerCommandHandlers>[0]
+    )
+    const request = {
+      type: 'bt',
+      payload: {
+        kind: 'magnet',
+        uri: 'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
+      },
+      selectedFiles: [],
+      saveDir: '/tmp',
+    }
+    await expect(handlers[Commands.CreateTask]?.(request)).resolves.toEqual({
+      ok: true,
+    })
+    await vi.waitFor(() =>
+      expect(record).toHaveBeenCalledExactlyOnceWith({
+        action: 'recordRecent',
+        path: '/tmp',
+      })
+    )
+    finish({ ok: true, value: { favorites: [], recent: [] } })
   })
 })

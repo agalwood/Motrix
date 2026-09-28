@@ -1,17 +1,28 @@
-import { access, mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, realpath, rm, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { NOOP_TASK_ACTIVITY_RECORDER } from '@core/activity'
 import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
+import { EventBus } from '@core/events/event-bus'
 import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
+import { SettingsManager } from '@core/settings/settings-manager'
+import { ErrorCode } from '@shared/errors'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import type { AppImageIntegrationView } from '@shared/types/appimage-integration'
 import { CliPackageManager } from '@shared/types/cli-tool'
-import { TaskInstancePhase, TaskStatus, TaskType } from '@shared/types/task'
+import {
+  TaskInstancePhase,
+  TaskStatus,
+  TaskType,
+  TransitionPhase,
+} from '@shared/types/task'
+import { makeMediaMetaStoreStub } from '@test-utils/media-meta-store'
+import { makeDownloadTask } from '@test-utils/task'
 import { directTaskUpdatePublication } from '@test-utils/task-update'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createAppUpdateService } from '../core/app-update-service'
 import { MainProcessWorkCoordinator } from '../main-process-work-coordinator'
 import { WINDOWS_DEFAULT_APPS_SETTINGS_URL } from '../platform/windows-default-apps'
 import type { CommandContext } from './commands'
@@ -28,6 +39,11 @@ const { reconcileAppImageIntegrationFromSettingsMock } = vi.hoisted(() => ({
       getMagnetEnabled: () => boolean
     }): Promise<AppImageIntegrationView> => ({ supported: false })
   ),
+}))
+
+const syncAutoLaunchMock = vi.hoisted(() => vi.fn())
+vi.mock('../platform/auto-launch', () => ({
+  syncAutoLaunch: syncAutoLaunchMock,
 }))
 
 vi.mock('../platform/appimage-integration-host', async (importOriginal) => ({
@@ -129,6 +145,10 @@ function fakeCtx() {
       ),
     },
     settingsManager: {
+      mutateDirectoryPreferences: vi.fn().mockResolvedValue({
+        ok: true,
+        value: { favorites: [], recent: [] },
+      }),
       getApp: () => ({ defaultSaveDir: '/tmp', magnetFileSelection: true }),
       getEngine: () => ({ maxConnectionPerServer: 5 }),
       removePluginConfig: vi.fn().mockResolvedValue(undefined),
@@ -194,6 +214,7 @@ function fakeCtx() {
     finalNamePicker: {
       pick: vi.fn(async (_dir: string, name: string) => name),
     },
+    mediaMetaStore: makeMediaMetaStoreStub(),
     torrentMetaStore: {
       persist: vi.fn(async () => '/tmp/x.torrent'),
       read: vi.fn(),
@@ -389,6 +410,42 @@ describe('buildCommandHandlers', () => {
     expect(ctx.sessionManager.runExclusivePersistence).toHaveBeenCalledOnce()
   })
 
+  it('MoveTasks validates the payload and changes the actual engine queue', async () => {
+    const ctx = fakeCtx()
+    const queue = ['first', 'second']
+    vi.mocked(ctx.taskManager.getById).mockReturnValue({
+      id: 'task-second',
+      engineTaskId: 'second',
+      status: TaskStatus.Paused,
+    } as never)
+    Object.assign(ctx.adapter, {
+      listWaitingTaskIds: vi.fn(async () => [...queue]),
+      changePosition: vi.fn(async () => {
+        queue.reverse()
+        return 0
+      }),
+    })
+    const handlers = buildCommandHandlers(
+      ctx as unknown as Parameters<typeof buildCommandHandlers>[0]
+    )
+    await expect(
+      handlers[Commands.MoveTasks]?.({
+        taskIds: ['task-second'],
+        direction: 'up',
+      })
+    ).resolves.toEqual({ moved: ['task-second'], unchanged: [], failed: [] })
+    expect(queue).toEqual(['second', 'first'])
+    await expect(
+      handlers[Commands.MoveTasks]?.({ taskIds: [], direction: 'up' })
+    ).rejects.toThrow()
+    await expect(
+      handlers[Commands.MoveTasks]?.({
+        taskIds: ['task-second'],
+        direction: 'sideways',
+      })
+    ).rejects.toThrow()
+  })
+
   it('PauseTasks fans out per id and returns the IPC-safe bulk result', async () => {
     const ctx = fakeCtx()
     const tasks = new Map([
@@ -502,7 +559,7 @@ describe('buildCommandHandlers', () => {
     // @ts-expect-error — partial ctx
     const handlers = buildCommandHandlers(ctx)
     const result = (await handlers[Commands.AddMagnetTask]?.({
-      uri: 'magnet:?xt=x',
+      uri: 'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
       selectedFiles: [0],
       saveDir: '',
     })) as { gid: string; taskId?: string } | undefined
@@ -512,13 +569,14 @@ describe('buildCommandHandlers', () => {
     expect(result).toMatchObject({
       gid: expect.stringMatching(/^[0-9a-f]{16}$/),
     })
-    // createTaskHandler writes BT tasks to <saveDir>/<finalName>.motrix as
-    // the container dir (incomplete-suffix). Assert the dir is rooted at
-    // the fallback /tmp path.
+    // Unresolved BT writes directly inside its final container under the
+    // fallback save root.
     expect(ctx.rpcClient.addUri).toHaveBeenCalledWith(
-      ['magnet:?xt=x'],
+      ['magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc'],
       expect.objectContaining({
-        dir: expect.stringMatching(/^\/tmp\/.+\.motrix$/) as unknown as string,
+        dir: expect.stringMatching(
+          /^\/tmp\/(?!.*\.motrix$).+$/
+        ) as unknown as string,
         gid: result?.gid,
       })
     )
@@ -555,14 +613,17 @@ describe('buildCommandHandlers', () => {
 
     const result = await handlers[Commands.CreateTask]?.({
       type: 'bt',
-      payload: { kind: 'magnet', uri: 'magnet:?xt=urn:btih:abc' },
+      payload: {
+        kind: 'magnet',
+        uri: 'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
+      },
       selectedFiles: [],
       saveDir: '/downloads',
     })
 
     expect(result).toEqual({ ok: true })
     expect(ctx.magnetTracker.submit).toHaveBeenCalledWith(
-      'magnet:?xt=urn:btih:abc',
+      'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
       '/downloads'
     )
     expect(ctx.rpcClient.addUri).not.toHaveBeenCalled()
@@ -850,70 +911,124 @@ describe('buildCommandHandlers', () => {
     })
   })
 
-  it('applies the current form options when creating an App torrent batch', async () => {
-    const ctx = fakeCtx()
-    ctx.protocolManager.downloadAllTorrents.mockResolvedValueOnce([
-      {
-        payload: { name: 'first.torrent', dataBase64: 'Zmlyc3Q=' },
-        meta: {
-          name: 'first.bin',
-          files: [
-            { index: 0, path: 'skip.bin' },
-            { index: 1, path: 'keep.bin' },
-          ],
-        },
-      },
-      {
-        payload: { name: 'second.torrent', dataBase64: 'c2Vjb25k' },
-        meta: {
-          name: 'second.bin',
-          files: [
-            { index: 0, path: 'one.bin' },
-            { index: 1, path: 'two.bin' },
-          ],
-        },
-      },
-    ] as never)
-    // @ts-expect-error partial ctx
-    const handlers = buildCommandHandlers(ctx)
-
-    await expect(
-      handlers[Commands.DownloadAllTorrents]?.({
-        selectedFiles: [1],
-        saveDir: '/tmp/batch',
-        dlLimit: 2048,
-        ulLimit: 1024,
-        seedRatio: 1.5,
-      })
-    ).resolves.toEqual({
-      total: 2,
-      succeeded: 2,
-      failed: 0,
-      firstTaskId: expect.any(String),
+  it('rejects direct update IPC for a Windows package without loading its updater', async () => {
+    const loadUpdater = vi.fn(async () => {
+      throw new Error('Application updater must stay unloaded')
     })
-    expect(ctx.rpcClient.addTorrent).toHaveBeenNthCalledWith(
-      1,
-      'Zmlyc3Q=',
-      [],
-      expect.objectContaining({
-        'select-file': '2',
-        'max-download-limit': '2048K',
-        'max-upload-limit': '1024K',
-        'seed-ratio': '1.5',
+    const updateManager = await createAppUpdateService({
+      eventBus: new EventBus(),
+      currentVersion: '2.0.0',
+      channel: 'stable',
+      isWindowsPackage: true,
+      supported: true,
+      loadUpdater,
+      getManagedMessage: () => 'Updates come from the installation source',
+    })
+    const handlers = buildCommandHandlers({
+      ...fakeCtx(),
+      updateManager,
+    } as unknown as CommandContext)
+
+    for (const command of [
+      Commands.CheckForUpdates,
+      Commands.DownloadUpdate,
+      Commands.InstallUpdate,
+    ]) {
+      await expect(handlers[command]?.()).rejects.toMatchObject({
+        code: ErrorCode.AppUpdateManaged,
       })
-    )
-    expect(ctx.rpcClient.addTorrent).toHaveBeenNthCalledWith(
-      2,
-      'c2Vjb25k',
-      [],
-      expect.objectContaining({
-        'select-file': '1,2',
-        'max-download-limit': '2048K',
-        'max-upload-limit': '1024K',
-        'seed-ratio': '1.5',
-      })
-    )
+    }
+    expect(loadUpdater).not.toHaveBeenCalled()
+    expect(updateManager.getState().phase).toBe('managed')
   })
+
+  it.each([0, 1, 2])(
+    'applies App batch options and records history only for accepted tasks (%s failures)',
+    async (failures) => {
+      const ctx = fakeCtx()
+      for (let index = 0; index < failures; index++) {
+        ctx.rpcClient.addTorrent.mockRejectedValueOnce(
+          new Error('engine rejected torrent')
+        )
+      }
+      ctx.protocolManager.downloadAllTorrents.mockResolvedValueOnce([
+        {
+          payload: { name: 'first.torrent', dataBase64: 'Zmlyc3Q=' },
+          meta: {
+            name: 'first.bin',
+            files: [
+              { index: 0, path: 'skip.bin' },
+              { index: 1, path: 'keep.bin' },
+            ],
+          },
+        },
+        {
+          payload: { name: 'second.torrent', dataBase64: 'c2Vjb25k' },
+          meta: {
+            name: 'second.bin',
+            files: [
+              { index: 0, path: 'one.bin' },
+              { index: 1, path: 'two.bin' },
+            ],
+          },
+        },
+      ] as never)
+      // @ts-expect-error partial ctx
+      const handlers = buildCommandHandlers(ctx)
+
+      await expect(
+        handlers[Commands.DownloadAllTorrents]?.({
+          selectedFiles: [1],
+          saveDir: '/tmp',
+          dlLimit: 2048,
+          ulLimit: 1024,
+          seedRatio: 1.5,
+        })
+      ).resolves.toEqual({
+        total: 2,
+        succeeded: 2 - failures,
+        failed: failures,
+        firstTaskId: failures === 2 ? null : expect.any(String),
+      })
+      expect(ctx.rpcClient.addTorrent).toHaveBeenNthCalledWith(
+        1,
+        'Zmlyc3Q=',
+        [],
+        expect.objectContaining({
+          'select-file': '2',
+          'max-download-limit': '2048',
+          'max-upload-limit': '1024',
+          'seed-ratio': '1.5',
+        })
+      )
+      expect(ctx.rpcClient.addTorrent).toHaveBeenNthCalledWith(
+        2,
+        'c2Vjb25k',
+        [],
+        expect.objectContaining({
+          'select-file': '1,2',
+          'max-download-limit': '2048',
+          'max-upload-limit': '1024',
+          'seed-ratio': '1.5',
+        })
+      )
+      if (failures < 2) {
+        const canonical = await realpath('/tmp')
+        await vi.waitFor(() =>
+          expect(
+            ctx.settingsManager.mutateDirectoryPreferences
+          ).toHaveBeenCalledExactlyOnceWith({
+            action: 'recordRecent',
+            path: canonical,
+          })
+        )
+      } else {
+        expect(
+          ctx.settingsManager.mutateDirectoryPreferences
+        ).not.toHaveBeenCalled()
+      }
+    }
+  )
 
   it('rejects menu-context updates from auxiliary windows', async () => {
     const ctx = fakeCtx()
@@ -937,7 +1052,7 @@ describe('buildCommandHandlers', () => {
     fromWebContentsMock.mockReturnValue(parent)
     showOpenDialogMock
       .mockResolvedValueOnce({ canceled: true, filePaths: [] })
-      .mockResolvedValueOnce({ canceled: false, filePaths: ['/downloads'] })
+      .mockResolvedValueOnce({ canceled: false, filePaths: [tmpdir()] })
     // @ts-expect-error partial ctx
     const handlers = buildCommandHandlers(fakeCtx())
 
@@ -946,7 +1061,7 @@ describe('buildCommandHandlers', () => {
     ).resolves.toBeNull()
     await expect(
       handlers[Commands.PickSaveDir]?.(sender, { defaultPath: '/tmp' })
-    ).resolves.toEqual({ path: '/downloads' })
+    ).resolves.toEqual({ path: await realpath(tmpdir()) })
     expect(showOpenDialogMock).toHaveBeenCalledWith(parent, {
       properties: ['openDirectory'],
       defaultPath: '/tmp',
@@ -980,8 +1095,8 @@ describe('buildCommandHandlers', () => {
     ).resolves.toBeNull()
     expect(showOpenDialogMock).toHaveBeenCalledOnce()
 
-    resolvePick({ canceled: false, filePaths: ['/picked'] })
-    await expect(first).resolves.toEqual({ path: '/picked' })
+    resolvePick({ canceled: false, filePaths: [tmpdir()] })
+    await expect(first).resolves.toEqual({ path: await realpath(tmpdir()) })
 
     showOpenDialogMock.mockResolvedValueOnce({ canceled: true, filePaths: [] })
     await expect(
@@ -1255,6 +1370,256 @@ describe('SetTaskBtTracker handler', () => {
 })
 
 describe('Commands.UpdateSettings', () => {
+  it.each([
+    { app: { theme: 'dark' } },
+    { nat: { diagnosticIntervalSec: 600 } },
+  ])(
+    'does not re-enable external checks from a stale patch: %j',
+    async (patch) => {
+      const root = await mkdtemp(path.join(tmpdir(), 'motrix-settings-race-'))
+      try {
+        const manager = new SettingsManager(path.join(root, 'settings.json'))
+        await manager.load()
+        await manager.update({
+          nat: {
+            natTypeDetectionEnabled: true,
+            portReachabilityCheckEnabled: true,
+            autoDiagnostic: true,
+          },
+        })
+        const update = buildCommandHandlers({
+          ...fakeCtx(),
+          settingsManager: manager,
+        } as unknown as CommandContext)[Commands.UpdateSettings]!
+
+        // Both requests read the enabled baseline before either queued write
+        // commits. Unrelated fields must not carry those old NAT flags.
+        await Promise.all([
+          update({
+            nat: {
+              natTypeDetectionEnabled: false,
+              portReachabilityCheckEnabled: false,
+            },
+          }),
+          update(patch),
+        ])
+
+        expect(manager.get().nat).toMatchObject({
+          natTypeDetectionEnabled: false,
+          portReachabilityCheckEnabled: false,
+        })
+        expect(manager.get()).toMatchObject(patch)
+      } finally {
+        await rm(root, { recursive: true, force: true })
+      }
+    }
+  )
+
+  it.each(['zh-CN', 'system'])(
+    'awaits locale application and permits retrying saved %s',
+    async (language) => {
+      const base = makeSettingsLike(PROXY_OFF)
+      const current = { ...base, app: { ...base.app, language } }
+      let rejectLocale!: (error: Error) => void
+      const applyLocale = vi
+        .fn()
+        .mockImplementationOnce(
+          () =>
+            new Promise<void>((_, reject) => {
+              rejectLocale = reject
+            })
+        )
+        .mockResolvedValue(undefined)
+      const baseCtx = fakeCtx()
+      const ctx = {
+        ...baseCtx,
+        applyLocale,
+        settingsManager: { ...baseCtx.settingsManager, get: vi.fn() },
+      }
+      vi.mocked(ctx.settingsManager.get).mockReturnValue(current as never)
+      vi.mocked(ctx.settingsManager.update).mockResolvedValue({
+        saved: true,
+        requiresRestart: false,
+        changedRestartKeys: [],
+        requiresAppRestart: false,
+        changedAppRestartKeys: [],
+      })
+      const update = buildCommandHandlers(ctx as unknown as CommandContext)[
+        Commands.UpdateSettings
+      ]!
+      let settled = false
+      const pending = update({ app: { language } }).then((value) => {
+        settled = true
+        return value
+      })
+      await vi.waitFor(() => expect(applyLocale).toHaveBeenCalledWith(language))
+      expect(settled).toBe(false)
+      rejectLocale(new Error('locale apply failed'))
+      await expect(pending).resolves.toMatchObject({
+        saved: true,
+        applicationFailed: true,
+      })
+      await expect(update({ app: { language } })).resolves.toMatchObject({
+        saved: true,
+      })
+      expect(applyLocale).toHaveBeenCalledTimes(2)
+    }
+  )
+
+  it('returns the canonical native directory identity for General favorite drafts', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'motrix-native-directory-'))
+    try {
+      const target = path.join(root, 'target')
+      const alias = path.join(root, 'alias')
+      await mkdir(target)
+      await symlink(target, alias)
+      fromWebContentsMock.mockReturnValue(null)
+      showOpenDialogMock.mockResolvedValueOnce({
+        canceled: false,
+        filePaths: [alias],
+      })
+      const pick = buildCommandHandlers(fakeCtx() as unknown as CommandContext)[
+        Commands.PickSaveDir
+      ]
+      expect(await pick?.({ id: 423 }, {})).toEqual({
+        path: await realpath(target),
+      })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('atomically saves General fields and directories and applies the submitted Desktop runtime fields', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'motrix-app-general-'))
+    try {
+      const manager = new SettingsManager(path.join(root, 'settings.json'))
+      await manager.load()
+      const ctx = { ...fakeCtx(), settingsManager: manager }
+      const save = buildCommandHandlers(ctx as unknown as CommandContext)[
+        Commands.SaveGeneralSettings
+      ]
+      const canonical = await realpath(root)
+      expect(
+        await save?.({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
+          app: {
+            defaultSaveDir: root,
+            launchAtStartup: true,
+            notifyOnComplete: false,
+          },
+          directories: {
+            addFavorites: [canonical],
+            removeFavorites: [],
+            removeRecent: [],
+          },
+        })
+      ).toMatchObject({
+        ok: true,
+        value: { directoryPreferences: { favorites: [canonical], recent: [] } },
+      })
+      expect(manager.getApp()).toMatchObject({
+        defaultSaveDir: canonical,
+        launchAtStartup: true,
+        notifyOnComplete: false,
+      })
+      expect(syncAutoLaunchMock).toHaveBeenCalledWith(true)
+      expect(
+        ctx.supervisor.applyDefaultSaveDir
+      ).toHaveBeenCalledExactlyOnceWith(canonical)
+      ctx.supervisor.applyDefaultSaveDir.mockClear()
+      syncAutoLaunchMock.mockClear()
+      const previousRevision = manager.getGeneralSettingsSnapshot().revision
+      expect(
+        await save?.({
+          expectedRevision: previousRevision,
+          app: { showMainWindowAtLogin: true },
+          directories: {
+            addFavorites: [],
+            removeFavorites: [],
+            removeRecent: [],
+          },
+        })
+      ).toMatchObject({
+        ok: true,
+        value: { app: { showMainWindowAtLogin: true } },
+      })
+      expect(manager.getApp().showMainWindowAtLogin).toBe(true)
+      expect(syncAutoLaunchMock).toHaveBeenCalledExactlyOnceWith(true)
+      expect(ctx.supervisor.applyDefaultSaveDir).not.toHaveBeenCalled()
+      syncAutoLaunchMock.mockClear()
+      expect(
+        await save?.({
+          expectedRevision: previousRevision,
+          app: { showMainWindowAtLogin: false },
+          directories: {
+            addFavorites: [],
+            removeFavorites: [],
+            removeRecent: [],
+          },
+        })
+      ).toMatchObject({
+        ok: false,
+        error: { code: 'conflict' },
+        snapshot: { app: { showMainWindowAtLogin: true } },
+      })
+      expect(syncAutoLaunchMock).not.toHaveBeenCalled()
+      const before = structuredClone(manager.getApp())
+      expect(
+        await save?.({
+          expectedRevision: manager.getGeneralSettingsSnapshot().revision,
+          app: {
+            defaultSaveDir: path.join(root, 'missing'),
+            launchAtStartup: false,
+            notifyOnComplete: true,
+          },
+          directories: {
+            addFavorites: [],
+            removeFavorites: [canonical],
+            removeRecent: [],
+          },
+        })
+      ).toEqual({ ok: false, error: { code: 'notFound' } })
+      expect(manager.getApp()).toEqual(before)
+      expect(ctx.supervisor.applyDefaultSaveDir).not.toHaveBeenCalled()
+      expect(syncAutoLaunchMock).not.toHaveBeenCalled()
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('keeps queued preferences through stale and malformed App updates using the real Desktop handler', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'motrix-app-preferences-'))
+    try {
+      const manager = new SettingsManager(path.join(root, 'settings.json'))
+      await manager.load()
+      const staleApp = manager.getApp()
+      const handlers = buildCommandHandlers({
+        ...fakeCtx(),
+        settingsManager: manager,
+      } as unknown as CommandContext)
+      expect(
+        await handlers[Commands.MutateDirectoryPreferences]?.({
+          action: 'addFavorite',
+          path: root,
+        })
+      ).toMatchObject({ ok: true })
+      const stored = manager.getApp().directoryPreferences
+      await handlers[Commands.UpdateSettings]?.({
+        app: { ...staleApp, theme: 'dark' },
+      })
+      await handlers[Commands.UpdateSettings]?.({
+        app: { directoryPreferences: 'invalid', notifyOnComplete: false },
+      })
+      expect(manager.getApp()).toMatchObject({
+        theme: 'dark',
+        notifyOnComplete: false,
+        directoryPreferences: stored,
+      })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
   // Namespaces come in as one named object, not as trailing positional
   // parameters: five defaulted `object` slots in a row means a call site can
   // silently put its override in the wrong namespace and still type-check.
@@ -1544,7 +1909,7 @@ describe('Commands.UpdateSettings', () => {
 
     await expect(
       handlers[Commands.UpdateSettings]?.({ proxy: PROXY_ON })
-    ).rejects.toThrow('RPC failed')
+    ).resolves.toMatchObject({ applicationFailed: true })
     expect(policy.snapshot()).toBeNull()
 
     await expect(
@@ -1666,7 +2031,7 @@ describe('Commands.UpdateSettings', () => {
         proxy,
         app: { browserBridgeEnabled: true },
       })
-    ).rejects.toThrow('bridge failed')
+    ).resolves.toMatchObject({ applicationFailed: true })
 
     expect(ctx.proxyApplier.applyAll).toHaveBeenCalledWith(proxy)
     expect(policy.snapshot()).toEqual({
@@ -1705,6 +2070,8 @@ describe('Commands.UpdateSettings', () => {
     expect(ctx.supervisor.applyDefaultSaveDir).toHaveBeenCalledExactlyOnceWith(
       '/downloads/new'
     )
+    expect(ctx.bridgeManager.restart).not.toHaveBeenCalled()
+    expect(ctx.bridgeManager.setEnabled).not.toHaveBeenCalled()
   })
 
   it('saves restart-required settings and publishes a reminder without restarting', async () => {
@@ -2387,5 +2754,64 @@ describe('Commands.RevertBuiltinToBundled', () => {
 
     expect(pluginHost.activate).not.toHaveBeenCalled()
     expect(result).toMatchObject({ ok: true, restartRequired: false })
+  })
+})
+
+describe('main finalize retry wiring', () => {
+  it.each([Commands.ReAddTask, Commands.RetryTasks])(
+    'routes %s to recovery for an interrupted finalize',
+    async (command) => {
+      const ctx = fakeCtx() as unknown as CommandContext
+      const task = makeDownloadTask({
+        id: 'interrupted-finalize',
+        type: TaskType.Bt,
+        status: TaskStatus.Error,
+        transitionPhase: TransitionPhase.Renaming,
+      })
+      vi.spyOn(ctx.taskManager, 'getById').mockReturnValue(task)
+      const recoverFinalization = vi.fn().mockResolvedValue(undefined)
+      const handlers = buildCommandHandlers({ ...ctx, recoverFinalization })
+      await handlers[command]?.(
+        command === Commands.ReAddTask ? task.id : [task.id]
+      )
+      expect(recoverFinalization).toHaveBeenCalledExactlyOnceWith(task.id)
+    }
+  )
+})
+
+describe('host-owned task directory history', () => {
+  it('returns an accepted magnet while the directory write is pending', async () => {
+    const ctx = fakeCtx()
+    let finish!: (value: unknown) => void
+    const record = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    ctx.settingsManager.mutateDirectoryPreferences = record as never
+    const handlers = buildCommandHandlers(
+      ctx as unknown as Parameters<typeof buildCommandHandlers>[0]
+    )
+    const request = {
+      type: 'bt',
+      payload: {
+        kind: 'magnet',
+        uri: 'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
+      },
+      selectedFiles: [],
+      saveDir: '/tmp',
+    }
+    await expect(handlers[Commands.CreateTask]?.(request)).resolves.toEqual({
+      ok: true,
+    })
+    const canonical = await realpath('/tmp')
+    await vi.waitFor(() =>
+      expect(record).toHaveBeenCalledExactlyOnceWith({
+        action: 'recordRecent',
+        path: canonical,
+      })
+    )
+    finish({ ok: true, value: { favorites: [], recent: [] } })
   })
 })

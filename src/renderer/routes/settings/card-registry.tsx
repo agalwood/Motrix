@@ -9,48 +9,52 @@ import { GeneralDialog } from './cards/general-dialog'
 import { IntegrationDialog } from './cards/integration/integration-dialog'
 import { NetworkDialog } from './cards/network-dialog'
 
-const iconGeneral1x = new URL('./icons/icon-general@1x.png', import.meta.url)
+const iconGeneral1x = new URL('./icons/icon-general@1x.webp', import.meta.url)
   .href
-const iconGeneral2x = new URL('./icons/icon-general@2x.png', import.meta.url)
+const iconGeneral2x = new URL('./icons/icon-general@2x.webp', import.meta.url)
   .href
 const iconAppearance1x = new URL(
-  './icons/icon-appearance@1x.png',
+  './icons/icon-appearance@1x.webp',
   import.meta.url
 ).href
 const iconAppearance2x = new URL(
-  './icons/icon-appearance@2x.png',
+  './icons/icon-appearance@2x.webp',
   import.meta.url
 ).href
-const iconDownloads1x = new URL('./icons/icon-download@1x.png', import.meta.url)
-  .href
-const iconDownloads2x = new URL('./icons/icon-download@2x.png', import.meta.url)
-  .href
+const iconDownloads1x = new URL(
+  './icons/icon-download@1x.webp',
+  import.meta.url
+).href
+const iconDownloads2x = new URL(
+  './icons/icon-download@2x.webp',
+  import.meta.url
+).href
 const iconBittorrent1x = new URL(
-  './icons/icon-bittorrent@1x.png',
+  './icons/icon-bittorrent@1x.webp',
   import.meta.url
 ).href
 const iconBittorrent2x = new URL(
-  './icons/icon-bittorrent@2x.png',
+  './icons/icon-bittorrent@2x.webp',
   import.meta.url
 ).href
 const iconIntegration1x = new URL(
-  './icons/icon-integration@1x.png',
+  './icons/icon-integration@1x.webp',
   import.meta.url
 ).href
 const iconIntegration2x = new URL(
-  './icons/icon-integration@2x.png',
+  './icons/icon-integration@2x.webp',
   import.meta.url
 ).href
-const iconNetwork1x = new URL('./icons/icon-network@1x.png', import.meta.url)
+const iconNetwork1x = new URL('./icons/icon-network@1x.webp', import.meta.url)
   .href
-const iconNetwork2x = new URL('./icons/icon-network@2x.png', import.meta.url)
+const iconNetwork2x = new URL('./icons/icon-network@2x.webp', import.meta.url)
   .href
-const iconAdvanced1x = new URL('./icons/icon-advanced@1x.png', import.meta.url)
+const iconAdvanced1x = new URL('./icons/icon-advanced@1x.webp', import.meta.url)
   .href
-const iconAdvanced2x = new URL('./icons/icon-advanced@2x.png', import.meta.url)
+const iconAdvanced2x = new URL('./icons/icon-advanced@2x.webp', import.meta.url)
   .href
-const iconAbout1x = new URL('./icons/icon-about@1x.png', import.meta.url).href
-const iconAbout2x = new URL('./icons/icon-about@2x.png', import.meta.url).href
+const iconAbout1x = new URL('./icons/icon-about@1x.webp', import.meta.url).href
+const iconAbout2x = new URL('./icons/icon-about@2x.webp', import.meta.url).href
 
 function createSettingsIcon(
   id: string,
@@ -61,6 +65,9 @@ function createSettingsIcon(
     <img
       src={src1x}
       srcSet={`${src1x} 1x, ${src2x} 2x`}
+      width={52}
+      height={52}
+      className="brightness-90 contrast-[1.12] saturate-[1.2] drop-shadow-[0_1px_1px_rgb(15_23_42/0.12)] dark:filter-none"
       alt={id}
       draggable={false}
     />

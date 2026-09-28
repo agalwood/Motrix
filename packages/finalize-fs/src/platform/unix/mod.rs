@@ -3,6 +3,7 @@
 mod copy;
 mod digest;
 mod metadata;
+mod publish;
 mod remove;
 mod rename;
 
@@ -19,7 +20,8 @@ use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::path::{Component, Path};
 
 pub(crate) use copy::copy_opened;
-pub(crate) use remove::remove_opened;
+pub(crate) use publish::{isolate_opened, link_opened_no_replace, validate_root_identity};
+pub(crate) use remove::{remove_opened, remove_opened_preserving};
 pub(crate) use rename::{rename_no_replace, rename_opened_no_replace};
 
 pub(crate) struct RootHandle(OwnedFd);
@@ -31,6 +33,7 @@ pub(crate) struct ArtifactHandle {
     device: libc::dev_t,
     inode: libc::ino_t,
     opened_stamp: ArtifactStamp,
+    opened_link_count: libc::nlink_t,
     opened_tree: Option<Vec<TreeEntrySnapshot>>,
     opened_file_sha256: Option<[u8; 32]>,
 }
@@ -201,6 +204,7 @@ fn open_artifact_internal(
         device: opened_stat.st_dev,
         inode: opened_stat.st_ino,
         opened_stamp: artifact_stamp(&opened_stat),
+        opened_link_count: opened_stat.st_nlink,
         opened_tree,
         opened_file_sha256,
     })

@@ -1,8 +1,59 @@
 import { createCipheriv } from 'node:crypto'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SegmentDecryptor } from './segment-decryptor'
 
 describe('SegmentDecryptor', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('rejects an ambiguous key redirect before requesting its target', async () => {
+    const fetch = vi.fn().mockResolvedValue(
+      new Response(null, {
+        status: 302,
+        headers: { location: 'https://cdn.test/dir\\key' },
+      })
+    )
+    vi.stubGlobal('fetch', fetch)
+    await expect(
+      new SegmentDecryptor().getKey('https://cdn.test/key')
+    ).rejects.toMatchObject({
+      code: 'TASK_SOURCE_INVALID',
+    })
+    expect(fetch).toHaveBeenCalledOnce()
+  })
+
+  it('validates relative key redirects and reads exactly 16 key bytes', async () => {
+    const key = new Uint8Array(16).fill(7)
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, { status: 302, headers: { location: '../key' } })
+      )
+      .mockResolvedValueOnce(new Response(key))
+    vi.stubGlobal('fetch', fetch)
+    await expect(
+      new SegmentDecryptor().getKey('https://cdn.test/dir/key')
+    ).resolves.toEqual(key)
+    expect(fetch).toHaveBeenLastCalledWith(
+      'https://cdn.test/key',
+      expect.objectContaining({ redirect: 'manual' })
+    )
+  })
+
+  it('cancels an oversized key body before reading the remaining stream', async () => {
+    const cancel = vi.fn()
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array(17))
+      },
+      cancel,
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(stream)))
+    await expect(
+      new SegmentDecryptor().getKey('https://cdn.test/key')
+    ).rejects.toThrow('Key must be 16 bytes')
+    expect(cancel).toHaveBeenCalledOnce()
+  })
+
   describe('decrypt with known AES-128-CBC vector', () => {
     it('decrypts PKCS7-padded ciphertext to plaintext', () => {
       const plaintext = Buffer.from('Hello, World! 1234')

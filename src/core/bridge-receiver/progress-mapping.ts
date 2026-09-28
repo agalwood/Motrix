@@ -7,6 +7,10 @@ import type {
 import type { GlobalStats } from '@shared/types/stats'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
+import {
+  getTransferMetrics,
+  isMediaProcessing,
+} from '@shared/utils/media-progress'
 import type { BridgeErrorCode } from './errors'
 
 /**
@@ -18,8 +22,8 @@ import type { BridgeErrorCode } from './errors'
  */
 
 /** Domain `TaskStatus` → the lossy 4-value `$/task/progress.phase` enum.
- *  (Distinct from the richer `MdxpTaskStatus` used by `task/get`.) Motrix has no
- *  `muxing` status in v1, so that value is never emitted. */
+ *  (Distinct from the richer `MdxpTaskStatus` used by `task/get`.) Media tasks
+ *  additionally project their processing phase in taskToProgressParams. */
 export function mapStatusToPhase(
   s: TaskStatus
 ): 'queued' | 'downloading' | 'muxing' | 'finalizing' {
@@ -50,10 +54,12 @@ export function taskToProgressParams(task: DownloadTask): TaskProgressParams {
   return {
     taskId: task.id,
     bytesDone: task.downloadedBytes,
-    bytesTotal: task.totalBytes > 0 ? task.totalBytes : null,
-    speedBps: task.downloadSpeed,
-    etaSec: task.etaSeconds > 0 ? task.etaSeconds : null,
-    phase: mapStatusToPhase(task.status),
+    ...getTransferMetrics(task),
+    phase: isMediaProcessing(task)
+      ? task.mediaProgress?.phase === 'muxing'
+        ? 'muxing'
+        : 'finalizing'
+      : mapStatusToPhase(task.status),
   }
 }
 

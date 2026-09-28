@@ -1,6 +1,7 @@
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
 import { applyTerminalTransition } from '../apply-terminal-transition'
+import { settleBtUpload } from '../bt-upload-settlement'
 import {
   commitTaskUpdate,
   getTaskOrWarn,
@@ -61,6 +62,13 @@ export async function stopSeedingTask(
     await reconcileTask(task, deps, { emitFallback: false })
     throw err
   }
+  let upload = 0
+  try {
+    upload = await deps.adapter.getUploadLength(task.engineTaskId)
+  } catch {
+    /* Keep the last observed total. */
+  }
+  settleBtUpload(optimistic, upload, false)
   // forceRemove success is the authoritative action result. Any immediate
   // engine snapshot can be stale Seeding or the short-lived aria2 Removed
   // lifecycle state; neither may overwrite the domain outcome Completed.

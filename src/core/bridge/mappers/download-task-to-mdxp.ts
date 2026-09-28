@@ -1,6 +1,11 @@
 import type { MdxpTask, MdxpTaskStatus, MdxpTaskType } from '@motrix/mdxp'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, TaskType } from '@shared/types/task'
+import {
+  getDownloadProgress,
+  getTransferMetrics,
+  isMediaProcessing,
+} from '@shared/utils/media-progress'
 
 /**
  * Pure projection of the host-domain `DownloadTask` onto the public
@@ -18,13 +23,13 @@ export function toMdxpTask(task: DownloadTask): MdxpTask {
     id: task.id,
     type: TASK_TYPE_MAP[task.type],
     name: task.name,
-    status: toMdxpTaskStatus(task.status),
-    // progress is identity — DownloadTask.progress is already a [0,1] fraction
-    progress: task.progress,
+    status: isMediaProcessing(task)
+      ? 'finalizing'
+      : toMdxpTaskStatus(task.status),
+    // Media progress remains the transfer fraction during post-processing.
+    progress: getDownloadProgress(task) ?? 0,
     bytesDone: task.downloadedBytes,
-    bytesTotal: task.totalBytes > 0 ? task.totalBytes : null,
-    speedBps: task.downloadSpeed,
-    etaSec: task.etaSeconds > 0 ? task.etaSeconds : null,
+    ...getTransferMetrics(task),
     saveDir: task.saveDir,
     // Recovery-path failures (e.g. a startup re-add mismatch) carry no raw
     // engine errorMessage, only an i18n errorDetailKey — fall back to that so

@@ -1,16 +1,20 @@
 import { randomUUID } from 'node:crypto'
-import { access, copyFile, mkdir, rename } from 'node:fs/promises'
+import { access, copyFile, mkdir, readFile, rename } from 'node:fs/promises'
 import path from 'node:path'
 import {
   extractAria2ProxyCredentials,
   stripAria2ProxyCredentials,
 } from '@core/proxy/aria2-proxy-routing'
 import type { Aria2ProxyOptions } from '@core/proxy/serializers'
+import { torrentRpcBodyLimitSchema } from '@shared/schemas/torrent-request-limits'
 import type { EngineSettings } from '@shared/types/settings'
+import writeFileAtomic from 'write-file-atomic'
 import { dnsModeToAsyncDns } from './dns-fallback'
 
 export interface Aria2ConfigBuilderOptions {
   rpcListenAll?: boolean
+  /** Server HTTP and engine RPC must use the same torrent upload budget. */
+  rpcMaxRequestSizeBytes?: number
 }
 
 export class Aria2ConfigBuilder {
@@ -20,6 +24,9 @@ export class Aria2ConfigBuilder {
   private readonly dhtFilePath: string
   private readonly dht6FilePath: string
   private readonly rpcListenAll: boolean
+  private readonly rpcMaxRequestSizeBytes?: number
+  private configuredInputFile = false
+  private runtimeConfPath: string
 
   constructor(
     private templatePath: string,
@@ -27,23 +34,44 @@ export class Aria2ConfigBuilder {
     options: Aria2ConfigBuilderOptions = {}
   ) {
     this.userConfPath = path.join(userConfigDir, 'aria2.conf')
+    this.runtimeConfPath = this.userConfPath
     this.defaultDbPath = path.join(userConfigDir, 'aria2.db')
     this.saveSessionPath = path.join(userConfigDir, 'aria2.session')
     this.dhtFilePath = path.join(userConfigDir, 'dht.dat')
     this.dht6FilePath = path.join(userConfigDir, 'dht6.dat')
     this.rpcListenAll = options.rpcListenAll ?? false
+    this.rpcMaxRequestSizeBytes =
+      options.rpcMaxRequestSizeBytes === undefined
+        ? undefined
+        : torrentRpcBodyLimitSchema.parse(options.rpcMaxRequestSizeBytes)
   }
 
   async ensureUserConfig(): Promise<string> {
     try {
       await access(this.userConfPath)
-      return this.userConfPath
     } catch {
       // File does not exist — copy from template
       await mkdir(this.userConfigDir, { recursive: true })
       await copyFile(this.templatePath, this.userConfPath)
-      return this.userConfPath
     }
+    const source = await readFile(this.userConfPath, 'utf8')
+    // Do not inherit a configured text session when this startup disables it.
+    this.configuredInputFile = /^\s*input-file\s*=/m.test(source)
+    // Application seeding time is task-local. A global time inherited from
+    // the advanced config cannot be cleared with a zero/empty RPC option.
+    // Preserve the user's file and all other settings in a runtime copy.
+    const filtered = source.replace(
+      /^[\t ]*seed-time[\t ]*=.*(?:\r?\n|$)/gm,
+      ''
+    )
+    if (filtered === source) {
+      this.runtimeConfPath = this.userConfPath
+    } else {
+      const runtimePath = path.join(this.userConfigDir, 'aria2.runtime.conf')
+      await writeFileAtomic(runtimePath, filtered, { mode: 0o600 })
+      this.runtimeConfPath = runtimePath
+    }
+    return this.runtimeConfPath
   }
 
   /**
@@ -153,7 +181,7 @@ export class Aria2ConfigBuilder {
     const args: string[] = []
 
     // ── L4 base conf ──
-    args.push(`--conf-path=${this.userConfPath}`)
+    args.push(`--conf-path=${this.runtimeConfPath}`)
 
     // ── L2 engine binding ──
     args.push(
@@ -182,6 +210,8 @@ export class Aria2ConfigBuilder {
     }
     if (loadTextSession && !sqliteActive) {
       args.push(`--input-file=${this.saveSessionPath}`)
+    } else if (this.configuredInputFile) {
+      args.push('--input-file=')
     }
     if (hasSqlitePersistence) {
       const dbPath = settings.sqlite3DbPath?.trim() || this.defaultDbPath
@@ -212,7 +242,6 @@ export class Aria2ConfigBuilder {
       `--bt-max-peers=${settings.btMaxPeers}`,
       `--bt-enable-lpd=${settings.btEnableLpd}`,
       `--seed-ratio=${settings.seedRatio}`,
-      `--seed-time=${settings.seedTime}`,
       `--file-allocation=${settings.fileAllocation}`,
       `--remote-time=${settings.remoteTime}`,
       `--disk-cache=${settings.diskCache}`,
@@ -242,6 +271,11 @@ export class Aria2ConfigBuilder {
     )
 
     // ── L1 product-contract invariants — DO NOT REMOVE without spec change ──
+    if (this.rpcMaxRequestSizeBytes !== undefined) {
+      args.push(
+        `--rpc-max-request-size=${this.rpcMaxRequestSizeBytes / (1024 * 1024)}M`
+      )
+    }
     args.push(
       '--bt-save-metadata=true',
       '--bt-metadata-only=false',

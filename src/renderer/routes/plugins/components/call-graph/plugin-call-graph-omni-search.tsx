@@ -1,3 +1,4 @@
+import { SearchIcon } from '@renderer/components/icons'
 import {
   Autocomplete,
   AutocompleteCollection,
@@ -12,7 +13,6 @@ import {
 } from '@renderer/components/ui/autocomplete'
 import { InputGroupAddon } from '@renderer/components/ui/input-group'
 import type { PluginCommandGraphEdge } from '@shared/types/plugin-command-graph'
-import { SearchIcon } from 'lucide-react'
 import { Fragment, useMemo, useState } from 'react'
 import type { CallGraphNodeModel } from '../../lib/call-graph-model'
 

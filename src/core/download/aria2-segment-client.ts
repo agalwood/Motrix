@@ -1,3 +1,4 @@
+import { admitDownloadSources } from '@core/task/source-admission'
 import type { SegmentAria2 } from './segment-downloader'
 
 interface Aria2Event {
@@ -71,6 +72,9 @@ export class Aria2SegmentClient implements SegmentAria2 {
       'retry-wait'?: number
     }
   ): Promise<string> {
+    uris = admitDownloadSources(uris, 'engine', ['http', 'https']).map(
+      (source) => source.requestUrl
+    )
     const options: Record<string, string | string[]> = {
       continue: 'false',
       dir: opts.dir,

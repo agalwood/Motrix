@@ -6,6 +6,55 @@ use super::{rename_no_replace, rename_opened_no_replace};
 use std::io;
 
 #[test]
+fn copy_staging_preserves_source_timestamps() {
+    let base = std::env::temp_dir().join(format!(
+        "motrix-finalize-fs-copy-times-{}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&base);
+    std::fs::create_dir_all(&base).unwrap();
+    let base = base.canonicalize().unwrap();
+    std::fs::write(base.join("source"), b"payload").unwrap();
+    std::fs::create_dir_all(base.join("tree/nested")).unwrap();
+    std::fs::write(base.join("tree/nested/leaf"), b"leaf").unwrap();
+    let past = std::time::SystemTime::now() - std::time::Duration::from_secs(86_400);
+    for path in [
+        base.join("source"),
+        base.join("tree"),
+        base.join("tree/nested"),
+    ] {
+        let handle = std::fs::File::options()
+            .write(true)
+            .open(&path)
+            .unwrap_or_else(|_| std::fs::OpenOptions::new().read(true).open(&path).unwrap());
+        handle
+            .set_times(std::fs::FileTimes::new().set_modified(past))
+            .unwrap();
+    }
+
+    let root = open_root(base.to_str().unwrap()).unwrap();
+    let file = open_artifact(&root, "source").unwrap();
+    super::copy_opened(&file, &root, "staged-file").unwrap();
+    let tree = open_artifact(&root, "tree").unwrap();
+    super::copy_opened(&tree, &root, "staged-tree").unwrap();
+
+    for path in [
+        base.join("staged-file"),
+        base.join("staged-tree"),
+        base.join("staged-tree/nested"),
+    ] {
+        let modified = std::fs::metadata(&path).unwrap().modified().unwrap();
+        assert_eq!(
+            modified,
+            past,
+            "copy staging must preserve the source mtime for {}",
+            path.display()
+        );
+    }
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+#[test]
 fn held_file_digest_uses_sha256() {
     let mut hash = Sha256State::new();
     hash.update(b"abc");
@@ -181,5 +230,159 @@ fn rename_only_handles_do_not_read_large_payloads_or_authorize_removal() {
         std::fs::metadata(base.join("target")).unwrap().len(),
         68 * 1024 * 1024 * 1024
     );
+    std::fs::remove_dir_all(base).unwrap();
+}
+
+#[test]
+fn private_isolation_checks_identity_permissions_and_resumes_removal() {
+    use std::os::unix::fs::PermissionsExt;
+    let base = std::env::temp_dir().join(format!("motrix-isolate-{}", std::process::id()));
+    std::fs::create_dir_all(base.join("private")).unwrap();
+    std::fs::set_permissions(base.join("private"), std::fs::Permissions::from_mode(0o700)).unwrap();
+    std::fs::write(base.join("source"), b"complete").unwrap();
+    let base = base.canonicalize().unwrap();
+    let source = open_root(base.to_str().unwrap()).unwrap();
+    let private = open_root(base.join("private").to_str().unwrap()).unwrap();
+    let artifact = super::open_artifact_for_rename(&source, "source").unwrap();
+    let stat = super::metadata::stat_opened(std::os::fd::AsRawFd::as_raw_fd(&private.0)).unwrap();
+    let id = format!("{}:{}", stat.st_dev, stat.st_ino);
+    assert!(super::isolate_opened(&artifact, &private, "payload", "wrong-id").is_err());
+    std::fs::write(base.join("private/payload"), b"unrelated").unwrap();
+    assert!(super::isolate_opened(&artifact, &private, "payload", &id).is_err());
+    assert_eq!(
+        std::fs::read(base.join("private/payload")).unwrap(),
+        b"unrelated"
+    );
+    std::fs::remove_file(base.join("private/payload")).unwrap();
+    for mode in [0o770, 0o707, 0o777, 0o500] {
+        std::fs::set_permissions(base.join("private"), std::fs::Permissions::from_mode(mode))
+            .unwrap();
+        assert!(super::isolate_opened(&artifact, &private, "payload", &id).is_err());
+        assert_eq!(std::fs::read(base.join("source")).unwrap(), b"complete");
+        assert!(!base.join("private/payload").exists());
+    }
+    // NTFS-3G without POSIX permissions synthesizes this mode on a umask=022
+    // mount, even when mkdir requests 0700. Only the owner can mutate names.
+    std::fs::set_permissions(base.join("private"), std::fs::Permissions::from_mode(0o755)).unwrap();
+    super::isolate_opened(&artifact, &private, "payload", &id).unwrap();
+    assert!(!base.join("source").exists());
+    drop(artifact);
+    let isolated = open_artifact(&private, "payload").unwrap();
+    remove_opened(&isolated, "payload", true).unwrap();
+    drop(isolated);
+    assert!(!base.join("private/payload").exists());
+    std::fs::remove_dir_all(base).unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn held_link_is_exclusive_and_preserves_the_source() {
+    let base = std::env::temp_dir().join(format!("motrix-link-{}", std::process::id()));
+    std::fs::create_dir_all(&base).unwrap();
+    let base = base.canonicalize().unwrap();
+    std::fs::write(base.join("source"), b"complete").unwrap();
+    std::fs::write(base.join("conflict"), b"unrelated").unwrap();
+    let root = open_root(base.to_str().unwrap()).unwrap();
+    let mut artifact = super::open_artifact_for_rename(&root, "source").unwrap();
+    assert_eq!(
+        super::link_opened_no_replace(&artifact, &root, "conflict")
+            .unwrap_err()
+            .kind(),
+        std::io::ErrorKind::AlreadyExists
+    );
+    super::link_opened_no_replace(&artifact, &root, "target").unwrap();
+    assert_eq!(std::fs::read(base.join("source")).unwrap(), b"complete");
+    assert_eq!(std::fs::read(base.join("target")).unwrap(), b"complete");
+    assert_eq!(std::fs::read(base.join("conflict")).unwrap(), b"unrelated");
+    // Model an inode timestamp tick shared by open and link. A real hard link
+    // changes nlink even when ctime does not advance; never sleep to force it.
+    let linked =
+        super::metadata::stat_opened(std::os::fd::AsRawFd::as_raw_fd(&artifact.artifact)).unwrap();
+    assert_eq!(linked.st_nlink, 2);
+    artifact.opened_stamp.changed_seconds = linked.st_ctime;
+    artifact.opened_stamp.changed_nanoseconds = linked.st_ctime_nsec;
+    assert_eq!(
+        super::link_opened_no_replace(&artifact, &root, "second")
+            .unwrap_err()
+            .kind(),
+        std::io::ErrorKind::InvalidData
+    );
+    assert!(!base.join("second").exists());
+    std::fs::remove_dir_all(base).unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+#[ignore = "requires MOTRIX_FINALIZE_NFS_ROOT pointing at a writable NFS mount"]
+fn nfs_supports_link_publication_and_private_removal() {
+    let parent = std::env::var("MOTRIX_FINALIZE_NFS_ROOT").expect("NFS test root");
+    check_mounted_link_publication(&parent, 0x6969, 0o700);
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+#[ignore = "requires MOTRIX_FINALIZE_NTFS_ROOT on NTFS-3G with umask=022 and no POSIX permissions"]
+fn ntfs_supports_link_publication_and_private_removal() {
+    let parent = std::env::var("MOTRIX_FINALIZE_NTFS_ROOT").expect("NTFS test root");
+    check_mounted_link_publication(&parent, 0x65735546, 0o755);
+}
+
+#[cfg(target_os = "linux")]
+fn check_mounted_link_publication(parent: &str, filesystem_type: u64, isolation_mode: u32) {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let base =
+        std::path::Path::new(parent).join(format!("motrix-mounted-{}-{nonce}", std::process::id()));
+    std::fs::create_dir(&base).unwrap();
+    let root = open_root(base.to_str().unwrap()).unwrap();
+    assert_eq!(
+        rustix::fs::fstatfs(&root.0).unwrap().f_type as u64,
+        filesystem_type,
+        "test root must use the requested filesystem"
+    );
+    std::fs::write(base.join("source.motrix"), b"complete download").unwrap();
+    let artifact = super::open_artifact_for_rename(&root, "source.motrix").unwrap();
+    let error = super::rename_opened_no_replace(&artifact, &root, "target").unwrap_err();
+    assert_eq!(crate::error::classify_error(&error), "rename_unsupported");
+    assert_eq!(crate::error::os_code(&error), Some(libc::EINVAL));
+    super::link_opened_no_replace(&artifact, &root, "target").unwrap();
+    drop(artifact);
+    assert_eq!(
+        std::fs::metadata(base.join("source.motrix")).unwrap().ino(),
+        std::fs::metadata(base.join("target")).unwrap().ino()
+    );
+    let source = super::open_artifact_for_rename(&root, "source.motrix").unwrap();
+    assert_eq!(
+        super::link_opened_no_replace(&source, &root, "target")
+            .unwrap_err()
+            .kind(),
+        std::io::ErrorKind::AlreadyExists
+    );
+    std::fs::create_dir(base.join("private")).unwrap();
+    std::fs::set_permissions(base.join("private"), std::fs::Permissions::from_mode(0o700)).unwrap();
+    let private = open_root(base.join("private").to_str().unwrap()).unwrap();
+    let metadata = std::fs::metadata(base.join("private")).unwrap();
+    assert_eq!(metadata.mode() & 0o777, isolation_mode);
+    super::isolate_opened(
+        &source,
+        &private,
+        "payload",
+        &format!("{}:{}", metadata.dev(), metadata.ino()),
+    )
+    .unwrap();
+    drop(source);
+    let isolated = open_artifact(&private, "payload").unwrap();
+    let survivor = super::open_artifact_for_rename(&root, "target").unwrap();
+    super::remove_opened_preserving(&isolated, "payload", true, &survivor).unwrap();
+    drop(isolated);
+    assert!(!base.join("source.motrix").exists());
+    assert_eq!(
+        std::fs::read(base.join("target")).unwrap(),
+        b"complete download"
+    );
+    drop(survivor);
     std::fs::remove_dir_all(base).unwrap();
 }

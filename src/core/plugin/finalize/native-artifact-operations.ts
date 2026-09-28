@@ -1,6 +1,7 @@
 import { constants } from 'node:fs'
-import { lstat, mkdir, open, readdir, stat } from 'node:fs/promises'
+import { lstat, mkdtemp, open, readdir, rmdir, stat } from 'node:fs/promises'
 import path from 'node:path'
+import { ensureDirectory } from '@core/fs/ensure-directory'
 import {
   type ArtifactIdentity,
   ArtifactIdentityCache,
@@ -9,7 +10,12 @@ import {
   readArtifactIdentity,
 } from './artifact-identity'
 import type { FinalizeFilesystemAdapter } from './filesystem-adapter'
-import type { FinalizeArtifactOperations } from './finalize-committer'
+import type {
+  FinalizeArtifactOperations,
+  FinalizeIsolation,
+  FinalizeRemovalIntent,
+  FinalizeRemovalSurvivor,
+} from './finalize-committer'
 
 /**
  * Production artifact operations. No-replace publication is delegated to the
@@ -35,6 +41,18 @@ export class NativeFinalizeArtifactOperations
       throw new Error(
         `finalize filesystem safety is unsupported on ${capabilities.platform}`
       )
+    }
+  }
+
+  async preflight(sourcePath: string, targetPath: string): Promise<void> {
+    await this.assertSupported()
+    await this.ensureSafeDirectory(path.dirname(targetPath))
+    await this.makeDurable(sourcePath)
+    const targetRoot = await this.adapter.openRoot(path.dirname(targetPath))
+    try {
+      await this.adapter.syncRoot(targetRoot)
+    } finally {
+      await this.adapter.close(targetRoot).catch(() => undefined)
     }
   }
 
@@ -83,12 +101,12 @@ export class NativeFinalizeArtifactOperations
       )
     }
     const sourceRoot = await this.adapter.openRoot(path.dirname(sourcePath))
-    const targetRoot = await this.adapter.openRoot(
-      path.dirname(privateTargetPath)
-    )
+    let targetRoot: Awaited<ReturnType<typeof this.adapter.openRoot>> | null =
+      null
     let artifact: Awaited<ReturnType<typeof this.adapter.openArtifact>> | null =
       null
     try {
+      targetRoot = await this.adapter.openRoot(path.dirname(privateTargetPath))
       artifact = await this.adapter.openArtifact(
         sourceRoot,
         path.basename(sourcePath)
@@ -102,7 +120,8 @@ export class NativeFinalizeArtifactOperations
     } finally {
       if (artifact) await this.adapter.close(artifact).catch(() => undefined)
       await this.adapter.close(sourceRoot).catch(() => undefined)
-      await this.adapter.close(targetRoot).catch(() => undefined)
+      if (targetRoot)
+        await this.adapter.close(targetRoot).catch(() => undefined)
     }
     const copied = await readArtifactIdentity(privateTargetPath, {
       cache: this.identityCache,
@@ -117,32 +136,60 @@ export class NativeFinalizeArtifactOperations
     expected: ArtifactIdentity,
     targetPath: string
   ): Promise<void> {
+    return this.publishOpened(sourcePath, expected, targetPath, 'rename')
+  }
+
+  async linkNoReplace(
+    sourcePath: string,
+    expected: ArtifactIdentity,
+    targetPath: string
+  ): Promise<void> {
+    return this.publishOpened(sourcePath, expected, targetPath, 'link')
+  }
+
+  private async publishOpened(
+    sourcePath: string,
+    expected: ArtifactIdentity,
+    targetPath: string,
+    method: 'rename' | 'link'
+  ): Promise<void> {
     await this.assertSupported()
     await this.requireIdentity(sourcePath, expected)
     await this.ensureSafeDirectory(path.dirname(targetPath))
     const sourceRoot = await this.adapter.openRoot(path.dirname(sourcePath))
-    const targetRoot = await this.adapter.openRoot(path.dirname(targetPath))
+    let targetRoot: Awaited<ReturnType<typeof this.adapter.openRoot>> | null =
+      null
     let artifact: Awaited<ReturnType<typeof this.adapter.openArtifact>> | null =
       null
     try {
+      targetRoot = await this.adapter.openRoot(path.dirname(targetPath))
       artifact = await this.adapter.openArtifact(
         sourceRoot,
         path.basename(sourcePath),
         'rename'
       )
       await this.requireIdentity(sourcePath, expected)
-      await this.adapter.renameOpenedNoReplace(
-        artifact,
-        targetRoot,
-        path.basename(targetPath)
-      )
+      if (method === 'link') {
+        await this.adapter.linkOpenedNoReplace(
+          artifact,
+          targetRoot,
+          path.basename(targetPath)
+        )
+      } else {
+        await this.adapter.renameOpenedNoReplace(
+          artifact,
+          targetRoot,
+          path.basename(targetPath)
+        )
+      }
       await this.adapter.syncRoot(sourceRoot)
       await this.adapter.syncRoot(targetRoot)
       await this.requireIdentity(targetPath, expected)
     } finally {
       if (artifact) await this.adapter.close(artifact).catch(() => undefined)
       await this.adapter.close(sourceRoot).catch(() => undefined)
-      await this.adapter.close(targetRoot).catch(() => undefined)
+      if (targetRoot)
+        await this.adapter.close(targetRoot).catch(() => undefined)
     }
   }
 
@@ -157,12 +204,186 @@ export class NativeFinalizeArtifactOperations
     }
   }
 
+  async prepareRemoval(
+    artifactPath: string,
+    identity: ArtifactIdentity,
+    quarantinePath: string
+  ): Promise<FinalizeRemovalIntent> {
+    await this.assertSupported()
+    if (process.platform === 'win32' || identity.kind !== 'file') {
+      return { artifactPath, identity, quarantinePath }
+    }
+    await this.assertSafeExistingParent(artifactPath)
+    const directory = await mkdtemp(`${quarantinePath}-`)
+    const value = await lstat(directory, { bigint: true })
+    const isolation = { directory, platformFileId: `${value.dev}:${value.ino}` }
+    const held = await this.adapter.openRoot(directory)
+    try {
+      await this.adapter.syncRoot(held)
+    } finally {
+      await this.adapter.close(held)
+    }
+    const parent = await this.adapter.openRoot(path.dirname(directory))
+    try {
+      await this.adapter.syncRoot(parent)
+    } finally {
+      await this.adapter.close(parent)
+    }
+    return {
+      artifactPath,
+      identity,
+      quarantinePath: path.join(directory, 'payload'),
+      isolation,
+    }
+  }
+
+  private async assertIsolation(
+    isolation: FinalizeIsolation
+  ): Promise<boolean> {
+    try {
+      const stat = await lstat(isolation.directory, { bigint: true })
+      if (
+        !stat.isDirectory() ||
+        stat.isSymbolicLink() ||
+        `${stat.dev}:${stat.ino}` !== isolation.platformFileId ||
+        // NTFS mount masks may expose read/execute bits despite mkdir(0700).
+        // Match the native isolation check: only the owner may mutate names.
+        (stat.mode & 0o700n) !== 0o700n ||
+        (stat.mode & 0o022n) !== 0n
+      ) {
+        throw new ArtifactIdentityError(
+          'artifact_mutated',
+          'private isolation directory changed'
+        )
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false
+      throw error
+    }
+    return true
+  }
+
+  private async removeIsolated(
+    artifactPath: string,
+    expected: ArtifactIdentity,
+    quarantinePath: string,
+    isolation: FinalizeIsolation,
+    survivor?: FinalizeRemovalSurvivor
+  ): Promise<void> {
+    if (
+      expected.kind !== 'file' ||
+      path.dirname(isolation.directory) !== path.dirname(artifactPath) ||
+      quarantinePath !== path.join(isolation.directory, 'payload')
+    ) {
+      throw new ArtifactIdentityError(
+        'artifact_unsafe_path',
+        'invalid private removal intent'
+      )
+    }
+    if (!(await this.assertIsolation(isolation))) {
+      if (await this.identity(artifactPath))
+        throw new ArtifactIdentityError(
+          'artifact_mutated',
+          'private removal directory is missing'
+        )
+      const parent = await this.adapter.openRoot(path.dirname(artifactPath))
+      try {
+        await this.adapter.syncRoot(parent)
+      } finally {
+        await this.adapter.close(parent)
+      }
+      return
+    }
+    const original = await this.identity(artifactPath)
+    const isolated = await this.identity(quarantinePath)
+    if (
+      (original && isolated) ||
+      (original && !artifactIdentityEquals(original, expected)) ||
+      (isolated && !artifactIdentityEquals(isolated, expected))
+    ) {
+      throw new ArtifactIdentityError(
+        'artifact_mutated',
+        'private removal identity mismatch'
+      )
+    }
+    const root = await this.adapter.openRoot(
+      isolation.directory,
+      isolation.platformFileId
+    )
+    try {
+      if (original) {
+        const sourceRoot = await this.adapter.openRoot(
+          path.dirname(artifactPath)
+        )
+        let artifact:
+          | Awaited<ReturnType<typeof this.adapter.openArtifact>>
+          | undefined
+        try {
+          artifact = await this.adapter.openArtifact(
+            sourceRoot,
+            path.basename(artifactPath),
+            'rename'
+          )
+          await this.requireIdentity(artifactPath, expected)
+          await this.adapter.isolateOpened(
+            artifact,
+            root,
+            'payload',
+            isolation.platformFileId
+          )
+        } finally {
+          if (artifact)
+            await this.adapter.close(artifact).catch(() => undefined)
+          await this.adapter.close(sourceRoot).catch(() => undefined)
+        }
+      }
+      if (original || isolated) {
+        const artifact = await this.adapter.openArtifact(root, 'payload')
+        try {
+          await this.requireIdentity(quarantinePath, expected)
+          await this.removeOpenedPreserving(artifact, 'payload', true, survivor)
+        } finally {
+          await this.adapter.close(artifact).catch(() => undefined)
+        }
+      }
+      await this.adapter.syncRoot(root)
+    } finally {
+      await this.adapter.close(root).catch(() => undefined)
+    }
+    if (
+      (await this.identity(artifactPath)) ||
+      (await this.identity(quarantinePath))
+    ) {
+      throw new ArtifactIdentityError(
+        'artifact_mutated',
+        'name survived private removal'
+      )
+    }
+    if (await this.assertIsolation(isolation)) await rmdir(isolation.directory)
+    const parent = await this.adapter.openRoot(path.dirname(artifactPath))
+    try {
+      await this.adapter.syncRoot(parent)
+    } finally {
+      await this.adapter.close(parent)
+    }
+  }
+
   async removeKnown(
     artifactPath: string,
     expected: ArtifactIdentity,
-    quarantinePath: string
+    quarantinePath: string,
+    isolation?: FinalizeIsolation,
+    survivor?: FinalizeRemovalSurvivor
   ): Promise<void> {
     await this.assertSupported()
+    if (isolation)
+      return this.removeIsolated(
+        artifactPath,
+        expected,
+        quarantinePath,
+        isolation,
+        survivor
+      )
     if (
       path.dirname(quarantinePath) !== path.dirname(artifactPath) ||
       path.basename(quarantinePath) === path.basename(artifactPath)
@@ -205,10 +426,11 @@ export class NativeFinalizeArtifactOperations
         path.basename(openedPath)
       )
       await this.requireIdentity(openedPath, expected)
-      await this.adapter.removeOpened(
+      await this.removeOpenedPreserving(
         artifact,
         path.basename(quarantinePath),
-        resumeIsolated
+        resumeIsolated,
+        survivor
       )
     } finally {
       if (artifact) await this.adapter.close(artifact).catch(() => undefined)
@@ -229,9 +451,55 @@ export class NativeFinalizeArtifactOperations
     }
   }
 
+  private async removeOpenedPreserving(
+    artifact: Parameters<FinalizeFilesystemAdapter['removeOpened']>[0],
+    quarantineRelative: string,
+    resumeIsolated: boolean,
+    survivor?: FinalizeRemovalSurvivor
+  ): Promise<void> {
+    if (!survivor) {
+      return this.adapter.removeOpened(
+        artifact,
+        quarantineRelative,
+        resumeIsolated
+      )
+    }
+    // Windows retains its handle-bound deletion contract. Unix additionally
+    // checks the held surviving name after hashing, immediately before unlink.
+    if (process.platform === 'win32') {
+      await this.requireIdentity(survivor.path, survivor.identity)
+      return this.adapter.removeOpened(
+        artifact,
+        quarantineRelative,
+        resumeIsolated
+      )
+    }
+    const root = await this.adapter.openRoot(path.dirname(survivor.path))
+    let held:
+      | Awaited<ReturnType<FinalizeFilesystemAdapter['openArtifact']>>
+      | undefined
+    try {
+      held = await this.adapter.openArtifact(
+        root,
+        path.basename(survivor.path),
+        'rename'
+      )
+      await this.requireIdentity(survivor.path, survivor.identity)
+      await this.adapter.removeOpened(
+        artifact,
+        quarantineRelative,
+        resumeIsolated,
+        held
+      )
+    } finally {
+      if (held) await this.adapter.close(held).catch(() => undefined)
+      await this.adapter.close(root).catch(() => undefined)
+    }
+  }
+
   private async ensureSafeDirectory(directoryPath: string): Promise<void> {
     await assertExistingAncestorsAreDirectories(directoryPath)
-    await mkdir(directoryPath, { recursive: true })
+    await ensureDirectory(directoryPath)
     const held = await this.adapter.openRoot(directoryPath)
     await this.adapter.close(held).catch(() => undefined)
   }

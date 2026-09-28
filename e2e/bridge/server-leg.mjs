@@ -24,7 +24,7 @@
 //   cd -
 //
 // (The `--config.dangerouslyAllowAllBuilds=true` install runs better-sqlite3's
-//  own build script under Node → Node ABI, and satisfies pnpm 11's deps-check
+//  own build script under Node → Node ABI, and satisfies pnpm 12's deps-check
 //  so `build:server` doesn't silently reinstall/revert the ABI.)
 //
 // ─── Run ────────────────────────────────────────────────────────────────

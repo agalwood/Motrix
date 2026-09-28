@@ -12,50 +12,35 @@ distribute.
 
 ---
 
-## Settings page icons (Iconly Pro — UI8)
+## Glassmorphism settings icons
 
-- **Author / Designer:** Iconly Pro
-- **Source:** UI8 marketplace — <https://ui8.net>
-- **License:** Proprietary. Licensed per the UI8 Standard License
-  (<https://ui8.net/licensing>). **Not MIT.** Not covered by the project's
-  LICENSE / `package.json` license field.
-- **Usage in this project:** Used as settings navigation icons, rendered by
-  `src/renderer/routes/settings/cards` and related components.
+The settings cards use Home, Setting and Star from the supplied Glassmorphism
+collection, recolored Download and Transfer derivatives, and newly modeled
+color-wheel, globe and puzzle derivatives using the collection's glass
+materials and studio lighting. The eight icons are rendered at 52px and 104px
+and encoded as lossless WebP in
+`src/renderer/routes/settings/icons/icon-*@1x.webp` and `icon-*@2x.webp`.
 
-### Affected files
+The supplied collection does not include an author attribution or license
+statement. Its license is recorded as `NOASSERTION`; these assets are not
+relicensed under Motrix’s MIT license.
 
-```
-src/renderer/routes/settings/icons/icon-about@1x.png
-src/renderer/routes/settings/icons/icon-about@2x.png
-src/renderer/routes/settings/icons/icon-advanced@1x.png
-src/renderer/routes/settings/icons/icon-advanced@2x.png
-src/renderer/routes/settings/icons/icon-appearance@1x.png
-src/renderer/routes/settings/icons/icon-appearance@2x.png
-src/renderer/routes/settings/icons/icon-bittorrent@1x.png
-src/renderer/routes/settings/icons/icon-bittorrent@2x.png
-src/renderer/routes/settings/icons/icon-download@1x.png
-src/renderer/routes/settings/icons/icon-download@2x.png
-src/renderer/routes/settings/icons/icon-general@1x.png
-src/renderer/routes/settings/icons/icon-general@2x.png
-src/renderer/routes/settings/icons/icon-integration@1x.png
-src/renderer/routes/settings/icons/icon-integration@2x.png
-src/renderer/routes/settings/icons/icon-network@1x.png
-src/renderer/routes/settings/icons/icon-network@2x.png
-```
+## Glassmorphism speed mode icons
 
-### What this means for downstream users
+The Dashboard speed mode tile uses newly modeled rabbit, turtle and squirrel
+geometry rendered with glass/satin materials and studio lighting derived from
+the supplied Glassmorphism collection's `Add File.blend`. The six lossless WebP
+assets are stored in `src/renderer/routes/dashboard/icons/speed-*@1x.webp` and
+`speed-*@2x.webp` at 52px and 104px. The supplied source has no verified author
+or license declaration; inherited materials and lighting remain `NOASSERTION`
+and are not relicensed under Motrix’s MIT license.
 
-- The MIT license on the Motrix source code **does not** grant you the
-  right to redistribute these PNG files.
-- If you build and ship a derivative (a fork, a private build, a
-  repackaging), you must either:
-  1. Hold your own valid UI8 / Iconly Pro license that covers the
-     redistribution, **or**
-  2. Replace these files with icons you are licensed to distribute (for
-     example, a set under an SPDX-compatible open-source license such as
-     `CC-BY-4.0` or `Apache-2.0`).
-- Embedding them inside an Electron `asar` bundle still counts as
-  redistribution.
+The round curled-tail squirrel silhouette follows a user-supplied reference
+image whose external author and license have not been verified.
+
+The previous Iconly Pro settings PNG assets have been removed from this
+version. Earlier versions containing those assets remain subject to their
+original UI8 license terms.
 
 ---
 
@@ -100,8 +85,8 @@ must obtain permission or replace the font before distributing the build.
 Desktop builds bundle an `aria2c` executable pinned by
 `scripts/engine.lock.json`:
 
-- **Version:** 1.37.0-motrix.14
-- **Source:** <https://github.com/motrixapp/aria2/tree/v1.37.0-motrix.14>
+- **Version:** 1.37.0-motrix.16
+- **Source:** <https://github.com/motrixapp/aria2/tree/v1.37.0-motrix.16>
 - **License:** GNU General Public License v2.0 or later (`GPL-2.0-or-later`)
 - **Full license text:** `THIRD_PARTY_LICENSES/aria2-COPYING`
 - **OpenSSL exception / notice:**
@@ -200,11 +185,13 @@ the Windows native executable builds.
 | Crate | Version | SPDX license expression | Repository |
 | --- | --- | --- | --- |
 | base64 | 0.22.1 | `MIT OR Apache-2.0` | <https://github.com/marshallpierce/rust-base64> |
+| bitflags | 2.13.1 | `MIT OR Apache-2.0` | <https://github.com/bitflags/bitflags> |
 | block-buffer | 0.10.4 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/utils> |
 | cfg-if | 1.0.4 | `MIT OR Apache-2.0` | <https://github.com/rust-lang/cfg-if> |
 | cpufeatures | 0.2.17 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/utils> |
 | crypto-common | 0.1.7 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/traits> |
 | digest | 0.10.7 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/traits> |
+| errno | 0.3.14 | `MIT OR Apache-2.0` | <https://github.com/lambda-fairy/rust-errno> |
 | generic-array | 0.14.7 | `MIT` | <https://github.com/fizyk20/generic-array> |
 | hkdf | 0.12.4 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/KDFs> |
 | hmac | 0.12.1 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/MACs> |
@@ -212,9 +199,11 @@ the Windows native executable builds.
 | humantime | 2.4.0 | `MIT OR Apache-2.0` | <https://github.com/chronotope/humantime> |
 | itoa | 1.0.18 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/itoa> |
 | libc | 0.2.189 | `MIT OR Apache-2.0` | <https://github.com/rust-lang/libc> |
+| linux-raw-sys | 0.12.1 | `Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT` | <https://github.com/sunfishcode/linux-raw-sys> |
 | memchr | 2.8.3 | `Unlicense OR MIT` | <https://github.com/BurntSushi/memchr> |
 | proc-macro2 | 1.0.107 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/proc-macro2> |
 | quote | 1.0.47 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/quote> |
+| rustix | 1.1.4 | `Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT` | <https://github.com/bytecodealliance/rustix> |
 | serde | 1.0.229 | `MIT OR Apache-2.0` | <https://github.com/serde-rs/serde> |
 | serde_core | 1.0.229 | `MIT OR Apache-2.0` | <https://github.com/serde-rs/serde> |
 | serde_derive | 1.0.229 | `MIT OR Apache-2.0` | <https://github.com/serde-rs/serde> |
@@ -238,6 +227,12 @@ crate-specific notices are preserved separately:
 - `THIRD_PARTY_LICENSES/rust-block-buffer-LICENSE-APACHE`
 - `THIRD_PARTY_LICENSES/rust-block-buffer-LICENSE-MIT`
 - `THIRD_PARTY_LICENSES/rust-cfg-if-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-bitflags-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-errno-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-linux-raw-sys-COPYRIGHT`
+- `THIRD_PARTY_LICENSES/rust-linux-raw-sys-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-rustix-COPYRIGHT`
+- `THIRD_PARTY_LICENSES/rust-rustix-LICENSE-MIT`
 - `THIRD_PARTY_LICENSES/rust-common-LICENSE-APACHE`
 - `THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT`
 - `THIRD_PARTY_LICENSES/rust-cpufeatures-LICENSE-MIT`

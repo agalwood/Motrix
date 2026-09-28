@@ -289,6 +289,28 @@ function interpolate(template, values) {
   })
 }
 
+// Which artifacts a component actually ships in. The Server runtime stages
+// bin/aria2c and builtin-plugins/, but never Electron, so its notices must not
+// carry Chromium's license set — by far the largest block in the bundle.
+const DISTRIBUTIONS = Object.freeze(['desktop', 'server'])
+
+function assertDistributions(component) {
+  const declared = component.distributions
+  if (!Array.isArray(declared) || declared.length === 0) {
+    throw new Error(
+      `external component ${component.id} must declare distributions`
+    )
+  }
+  for (const entry of declared) {
+    if (!DISTRIBUTIONS.includes(entry)) {
+      throw new Error(
+        `external component ${component.id} has an unknown distribution: ${entry}`
+      )
+    }
+  }
+  return [...declared]
+}
+
 async function collectExternalComponents(projectDir, config) {
   const components = []
   for (const component of config.externalComponents ?? []) {
@@ -371,6 +393,7 @@ async function collectExternalComponents(projectDir, config) {
       name,
       version,
       scope: component.scope,
+      distributions: assertDistributions(component),
       licenseDeclared: component.licenseDeclared,
       licenseConcluded: component.licenseConcluded ?? component.licenseDeclared,
       repository,
@@ -704,7 +727,11 @@ function renderSpdx({
 export async function buildThirdPartyBundle({
   projectDir = DEFAULT_PROJECT_DIR,
   configFile = DEFAULT_CONFIG_FILE,
+  distribution = 'desktop',
 } = {}) {
+  if (!DISTRIBUTIONS.includes(distribution)) {
+    throw new Error(`unknown distribution: ${distribution}`)
+  }
   const resolvedProjectDir = await realpath(projectDir)
   const config = await readJson(configFile)
   if (config.schemaVersion !== 1) {
@@ -716,21 +743,29 @@ export async function buildThirdPartyBundle({
     projectDir: resolvedProjectDir,
     packageOverrides: config.packageOverrides,
   })
-  const [externalComponents, manualAssets] = await Promise.all([
+  const [allExternalComponents, manualAssets] = await Promise.all([
     collectExternalComponents(resolvedProjectDir, config),
     collectManualAssets(resolvedProjectDir, config),
   ])
+  // Every declared component is validated regardless of distribution: the
+  // repository notices stay the full-project record, and an unreviewed license
+  // must fail the gate even when only one artifact ships it.
   await Promise.all([
     assertExternalComponentNotices(
       resolvedProjectDir,
       config,
-      externalComponents
+      allExternalComponents
     ),
     assertReviewedRepositoryLicenseFiles(resolvedProjectDir, config),
   ])
-  assertAllowedLicenses(config, graph.packages, externalComponents)
+  assertAllowedLicenses(config, graph.packages, allExternalComponents)
+
+  const externalComponents = allExternalComponents.filter((component) =>
+    component.distributions.includes(distribution)
+  )
 
   return {
+    distribution,
     packageCount: graph.packages.length,
     files: {
       'THIRD_PARTY_DEPENDENCIES.md': renderDependencyInventory({
@@ -765,6 +800,33 @@ export async function writeThirdPartyBundle({
   return bundle
 }
 
+// The desktop bundle stays at build/legal; the Server bundle lands in a
+// subdirectory so stage-server-app can stage the smaller set verbatim.
+export function distributionOutputDir(outputDir, distribution) {
+  return distribution === 'desktop'
+    ? outputDir
+    : path.join(outputDir, distribution)
+}
+
+export async function buildAllThirdPartyBundles({
+  outputDir = DEFAULT_OUTPUT_DIR,
+  check = false,
+  ...options
+} = {}) {
+  const bundles = []
+  for (const distribution of DISTRIBUTIONS) {
+    const bundle = check
+      ? await buildThirdPartyBundle({ ...options, distribution })
+      : await writeThirdPartyBundle({
+          ...options,
+          distribution,
+          outputDir: distributionOutputDir(outputDir, distribution),
+        })
+    bundles.push(bundle)
+  }
+  return bundles
+}
+
 function parseArgs(argv) {
   const args = { check: false, outputDir: DEFAULT_OUTPUT_DIR }
   for (let index = 0; index < argv.length; index += 1) {
@@ -785,12 +847,22 @@ function parseArgs(argv) {
 async function main() {
   const args = parseArgs(process.argv.slice(2))
   await access(path.join(DEFAULT_PROJECT_DIR, 'node_modules'), constants.R_OK)
-  const bundle = args.check
-    ? await buildThirdPartyBundle()
-    : await writeThirdPartyBundle({ outputDir: args.outputDir })
+  const bundles = await buildAllThirdPartyBundles({
+    outputDir: args.outputDir,
+    check: args.check,
+  })
   const action = args.check ? 'validated' : 'generated'
+  const summary = bundles
+    .map((bundle) => {
+      const bytes = Buffer.byteLength(
+        bundle.files['THIRD_PARTY_LICENSES.txt'],
+        'utf8'
+      )
+      return `${bundle.distribution}=${(bytes / 1024 / 1024).toFixed(1)}MiB`
+    })
+    .join(' ')
   process.stdout.write(
-    `[third-party-notices] ${action} ${bundle.packageCount} runtime packages\n`
+    `[third-party-notices] ${action} ${bundles[0].packageCount} runtime packages (licenses ${summary})\n`
   )
 }
 

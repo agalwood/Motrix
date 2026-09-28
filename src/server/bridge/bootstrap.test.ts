@@ -20,13 +20,19 @@ import type { ReadHandlerDeps } from '@core/bridge/handlers/read-handlers'
 import type { WriteHandlerDeps } from '@core/bridge/handlers/write-handlers'
 import { PairingService } from '@core/bridge/pairing-service'
 import { WebSocketBridgeServer } from '@core/bridge/web-socket-bridge-server'
+import { BridgeReceiver } from '@core/bridge-receiver/bridge-receiver'
 import { BridgeStreamSource } from '@core/bridge-receiver/bridge-stream-source'
 import { EventBus } from '@core/events/event-bus'
-import { Notifications } from '@motrix/mdxp'
+import { SettingsManager } from '@core/settings/settings-manager'
+import { Methods, Notifications } from '@motrix/mdxp'
 import { BridgeEvents, BridgeQueries } from '@shared/protocol/bridge'
 import { Events } from '@shared/protocol/events'
 import { EngineState } from '@shared/types/engine'
 import { TaskStatus } from '@shared/types/task'
+import {
+  makeBridgeReceiverDeps,
+  makeDirectSubmit,
+} from '@test-utils/bridge-receiver'
 import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -310,6 +316,80 @@ describe('bootstrapBridgeForServer', () => {
     await processLock.release()
     const reacquired = await acquireBridgeDataDirLock(bridgeDir)
     await reacquired.release()
+  })
+
+  it('applies changed settings through the same authenticated extension connection', async () => {
+    const oldDir = join(userDataDir, 'old')
+    const newDir = join(userDataDir, 'new')
+    const settings = new SettingsManager(join(userDataDir, 'settings.json'))
+    await settings.update({ app: { defaultSaveDir: oldDir } })
+    const eventBus = new EventBus()
+    const deps = makeBridgeReceiverDeps({
+      eventBus,
+      getDefaultSaveDir: () => settings.getApp().defaultSaveDir,
+    })
+    const createTask = vi.spyOn(deps, 'createTask')
+    const createExtensionReceiver = vi.fn(
+      ({ bridgeBus }: { bridgeBus: BridgeEventBus }) =>
+        new BridgeReceiver({ ...deps, bridgeBus })
+    )
+    runtime = await bootstrapBridgeForServer({
+      userDataDir,
+      host: '0.0.0.0',
+      port: 0,
+      motrixVersion: '2.0',
+      eventBus,
+      readHandlerDeps: readDeps(),
+      writeHandlerDeps: writeDeps(),
+      remoteExtensionConfig: parseRemoteExtensionConfig({
+        MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
+        MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'ws://motrix.example/bridge',
+        MOTRIX_PUBLIC_URL: 'https://motrix.example',
+      }),
+      createExtensionReceiver,
+    })
+    const extensionId = 'a'.repeat(32)
+    const handshake = await startPair({
+      port: runtime.port,
+      origin: `chrome-extension://${extensionId}`,
+      browser: 'chromium',
+      claimedExtensionId: extensionId,
+      routePrefix: '/bridge',
+      hostHeader: 'motrix.example',
+    })
+    const pending = (await runtime.bridgeQueryHandlers[
+      BridgeQueries.ListPendingPairRequests
+    ]()) as Array<{ code?: string }>
+    const code = pending[0]?.code
+    if (!code) throw new Error('pairing code missing')
+    const { channel } = await runPake(handshake, code)
+    await exchangeCredential(handshake, channel)
+    const connection = mdxpOverChannel(handshake.wire, channel)
+    try {
+      await connection.sendRequest(
+        Methods.MotrixInitialize,
+        initializeParams(extensionId)
+      )
+      await connection.sendNotification(
+        Notifications.MotrixInitialized,
+        undefined
+      )
+      await connection.sendRequest(
+        Methods.DownloadSubmit,
+        makeDirectSubmit('before-change')
+      )
+      await settings.update({ app: { defaultSaveDir: newDir } })
+      await connection.sendRequest(
+        Methods.DownloadSubmit,
+        makeDirectSubmit('after-change')
+      )
+      expect(createTask.mock.calls[0]?.[0]).toMatchObject({ saveDir: oldDir })
+      expect(createTask.mock.calls[1]?.[0]).toMatchObject({ saveDir: newDir })
+      expect(createExtensionReceiver).toHaveBeenCalledOnce()
+    } finally {
+      connection.dispose()
+      handshake.wire.ws.close()
+    }
   })
 
   it('serves the direct-LAN Extension routes across a persistent restart', async () => {

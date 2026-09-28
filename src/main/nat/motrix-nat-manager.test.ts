@@ -1,4 +1,10 @@
-import { type NatEvent, type NatManagerDeps, NatState } from '@motrix/nat'
+import {
+  type NatEvent,
+  type NatManagerDeps,
+  NatPortReachability,
+  NatState,
+  NatType,
+} from '@motrix/nat'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MotrixNatManager } from './motrix-nat-manager'
 
@@ -89,6 +95,7 @@ function makeHarness() {
   const manager = new MotrixNatManager(deps, () => engineReady)
 
   return {
+    deps,
     events,
     manager,
     networkMonitor,
@@ -167,5 +174,80 @@ describe('MotrixNatManager', () => {
     expect(harness.networkMonitor.stop).toHaveBeenCalledOnce()
     expect(harness.manager.getStatus().state).toBe(NatState.Active)
     await harness.manager.stop()
+  })
+})
+
+describe('Saved network diagnostic preferences', () => {
+  it('makes no outbound checks when both switches are disabled', async () => {
+    const { manager, deps } = makeHarness()
+    await manager.runDiagnostic()
+    expect(deps.stunClient.detectNatType).not.toHaveBeenCalled()
+    expect(deps.portChecker.checkPortReachable).not.toHaveBeenCalled()
+  })
+  it('checks the configured incoming port and does not reuse its TCP result for DHT', async () => {
+    const { manager, deps } = makeHarness()
+    const nat = deps.settingsProvider.getNat()
+    deps.settingsProvider.getNat = () => ({
+      ...nat,
+      natTypeDetectionEnabled: true,
+      stunServers: ['stun.example.com:3478'],
+      portReachabilityCheckEnabled: true,
+      portCheckerEndpoints: ['https://check.example.com'],
+    })
+    vi.mocked(deps.stunClient.detectNatType).mockResolvedValue({
+      ok: true,
+      value: { mappedIp: '203.0.113.2', mappedPort: 40000 },
+    })
+    vi.mocked(deps.portChecker.checkPortReachable).mockResolvedValue({
+      ok: true,
+      value: { reachable: true },
+    })
+    await manager.runDiagnostic()
+    expect(deps.portChecker.checkPortReachable).toHaveBeenCalledWith(
+      expect.objectContaining({
+        externalIp: '203.0.113.2',
+        port: 6881,
+        endpoints: ['https://check.example.com'],
+      })
+    )
+    expect(manager.getStatus().lastDiagnostic).toMatchObject({
+      natType: NatType.Unknown,
+      portReachability: {
+        btListenPort: NatPortReachability.Reachable,
+        dhtListenPort: NatPortReachability.Unknown,
+      },
+    })
+  })
+  it('does not submit a port check with an unknown external address', async () => {
+    const { manager, deps } = makeHarness()
+    const nat = deps.settingsProvider.getNat()
+    deps.settingsProvider.getNat = () => ({
+      ...nat,
+      portReachabilityCheckEnabled: true,
+      portCheckerEndpoints: ['https://check.example.com'],
+    })
+    await manager.runDiagnostic()
+    expect(deps.portChecker.checkPortReachable).not.toHaveBeenCalled()
+    expect(
+      manager.getStatus().lastDiagnostic?.portReachability.btListenPort
+    ).toBe(NatPortReachability.Unknown)
+  })
+  it('does not publish a diagnostic aborted during STUN detection', async () => {
+    const { manager, deps, events } = makeHarness()
+    const nat = deps.settingsProvider.getNat()
+    deps.settingsProvider.getNat = () => ({
+      ...nat,
+      natTypeDetectionEnabled: true,
+      stunServers: ['stun.example.com:3478'],
+    })
+    const controller = new AbortController()
+    vi.mocked(deps.stunClient.detectNatType).mockImplementation(async () => {
+      controller.abort()
+      return { ok: false }
+    })
+    await manager.runDiagnostic(controller.signal)
+    expect(
+      events.filter((event) => event.type === 'diagnostic-completed')
+    ).toHaveLength(0)
   })
 })

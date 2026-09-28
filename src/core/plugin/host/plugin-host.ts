@@ -907,7 +907,7 @@ export class PluginHost {
     return this.activeForUse(pluginId)?.bridge
   }
 
-  /** Plan C — worker accessor used by `newHookAbort` for the terminate path. */
+  /** Worker access for lifecycle diagnostics. */
   workerFor(pluginId: string): Worker | undefined {
     return this.active.get(pluginId)?.bridge.getWorker()
   }

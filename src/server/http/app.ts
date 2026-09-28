@@ -2,6 +2,7 @@ import type { EventBus } from '@core/events/event-bus'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
 import fastifyStatic from '@fastify/static'
 import websocket from '@fastify/websocket'
+import { Commands } from '@shared/protocol/commands'
 import {
   assertTaskInspectorActivityArguments,
   makeProtocolFailure,
@@ -14,15 +15,80 @@ import type {
   QueryHandlerMap,
 } from '@shared/protocol/handler-types'
 import { Queries } from '@shared/protocol/queries'
+import { DirectoryPreferencesResultSchema } from '@shared/schemas/directory-preferences'
+import { downloadsSettingsResultSchema } from '@shared/schemas/downloads-settings'
+import { GeneralSettingsResultSchema } from '@shared/schemas/general-settings'
+import {
+  CreateServerDirectoryResultSchema,
+  ListServerDirectoriesResultSchema,
+  ListServerDirectoryLocationsResultSchema,
+  ValidateServerDirectoryResultSchema,
+} from '@shared/schemas/server-directory'
 import { parseTaskInspectorActivitySnapshot } from '@shared/schemas/task-inspector-activity'
-import Fastify, { type FastifyInstance } from 'fastify'
+import { torrentRpcBodyLimitSchema } from '@shared/schemas/torrent-request-limits'
+import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify'
+import { bindEventHeartbeat } from './event-heartbeat'
 import { bindEventBroadcaster } from './events'
 import { type OperatorAuthOptions, registerOperatorAuth } from './operator-auth'
 import { ServiceUnavailableError } from './service-unavailable-error'
+import {
+  type CommandRequest,
+  RPC_BODY_LIMIT_BYTES,
+  registerTorrentCommandRoutes,
+} from './torrent-command-routes'
 
-export const RPC_BODY_LIMIT_BYTES = 2 * 1024 * 1024
+export { RPC_BODY_LIMIT_BYTES } from './torrent-command-routes'
+
+const directoryResultSchemas = {
+  [Commands.SaveDownloadsSettings]: downloadsSettingsResultSchema,
+  [Queries.GetDownloadsSettingsDraft]: downloadsSettingsResultSchema,
+  [Commands.MutateDirectoryPreferences]: DirectoryPreferencesResultSchema,
+  [Commands.SaveGeneralSettings]: GeneralSettingsResultSchema,
+  [Queries.GetGeneralSettingsDraft]: GeneralSettingsResultSchema,
+  [Queries.GetDirectoryPreferences]: DirectoryPreferencesResultSchema,
+  [Queries.ListServerDirectoryLocations]:
+    ListServerDirectoryLocationsResultSchema,
+  [Commands.CreateServerDirectory]: CreateServerDirectoryResultSchema,
+  [Queries.ListServerDirectories]: ListServerDirectoriesResultSchema,
+  [Queries.ValidateServerDirectory]: ValidateServerDirectoryResultSchema,
+}
+
+async function directoryRpc(
+  channel: string,
+  body: unknown,
+  handler: Handler
+): Promise<unknown> {
+  const schema =
+    directoryResultSchemas[channel as keyof typeof directoryResultSchemas]
+  const args =
+    typeof body === 'object' && body !== null && 'args' in body
+      ? body.args
+      : undefined
+  if (
+    !Array.isArray(args) ||
+    args.length !== 1 ||
+    Object.keys(body as object).some((key) => key !== 'args')
+  ) {
+    return { ok: false, error: { code: 'invalidPath' } }
+  }
+  try {
+    return schema.parse(await handler(args[0]))
+  } catch {
+    return {
+      ok: false,
+      error: {
+        code:
+          channel === Commands.CreateServerDirectory
+            ? 'creationOutcomeUnknown'
+            : 'unavailable',
+      },
+    }
+  }
+}
 
 export interface AppOptions {
+  /** Torrent-only RPC budget; defaults to 8 MiB, configurable from 2 to 64 MiB. */
+  torrentBodyLimitBytes?: number
   commandHandlers?: CommandHandlerMap
   queryHandlers?: QueryHandlerMap
   /**
@@ -51,11 +117,21 @@ export async function createApp(
   const app = Fastify({
     logger: false,
     bodyLimit: RPC_BODY_LIMIT_BYTES,
+    requestTimeout: 120_000,
   })
   // Register the deny-by-default operator gate FIRST so its onRequest hook runs
   // before every route (including /api/* added by the caller post-createApp and
   // the /rpc/events WS upgrade).
-  if (opts.operatorAuth) registerOperatorAuth(app, opts.operatorAuth)
+  const operatorSessions = opts.operatorAuth
+    ? registerOperatorAuth(app, opts.operatorAuth)
+    : undefined
+  if (!operatorSessions) {
+    app.get('/rpc/auth/status', async () => ({
+      authed: true,
+      mode: 'unrestricted',
+      canLogout: false,
+    }))
+  }
   const commands = opts.commandHandlers ?? {}
   const queries = opts.queryHandlers ?? {}
   const bridgeCommands = opts.bridgeCommandHandlers ?? {}
@@ -66,22 +142,40 @@ export async function createApp(
     return reply.code(health.ok ? 200 : 503).send(health)
   })
 
+  const dispatchCommand = async (
+    channel: string,
+    req: CommandRequest,
+    reply: FastifyReply
+  ) => {
+    const handler =
+      commands[channel as keyof typeof commands] ?? bridgeCommands[channel]
+    if (!handler) return reply.code(404).send({ error: 'unknown channel' })
+    if (
+      channel === Commands.CreateServerDirectory ||
+      channel === Commands.MutateDirectoryPreferences ||
+      channel === Commands.SaveGeneralSettings ||
+      channel === Commands.SaveDownloadsSettings
+    ) {
+      return directoryRpc(channel, req.body, handler)
+    }
+    try {
+      return await handler(...(req.body?.args ?? []))
+    } catch (err) {
+      req.log.error({ err }, 'command handler failed')
+      return reply
+        .code(err instanceof ServiceUnavailableError ? 503 : 500)
+        .send({ error: (err as Error).message })
+    }
+  }
+
+  await registerTorrentCommandRoutes(
+    app,
+    dispatchCommand,
+    torrentRpcBodyLimitSchema.parse(opts.torrentBodyLimitBytes)
+  )
   app.post<{ Params: { channel: string }; Body: { args?: unknown[] } }>(
     '/rpc/command/:channel',
-    async (req, reply) => {
-      const handler =
-        commands[req.params.channel as keyof typeof commands] ??
-        bridgeCommands[req.params.channel]
-      if (!handler) return reply.code(404).send({ error: 'unknown channel' })
-      try {
-        return await handler(...(req.body?.args ?? []))
-      } catch (err) {
-        req.log.error({ err }, 'command handler failed')
-        return reply
-          .code(err instanceof ServiceUnavailableError ? 503 : 500)
-          .send({ error: (err as Error).message })
-      }
-    }
+    (req, reply) => dispatchCommand(req.params.channel, req, reply)
   )
 
   app.post<{ Params: { channel: string }; Body: { args?: unknown[] } }>(
@@ -93,6 +187,16 @@ export async function createApp(
         queries[req.params.channel as keyof typeof queries] ??
         bridgeQueries[req.params.channel]
       if (!handler) return reply.code(404).send({ error: 'unknown channel' })
+      if (
+        req.params.channel === Queries.ListServerDirectories ||
+        req.params.channel === Queries.ValidateServerDirectory ||
+        req.params.channel === Queries.GetDirectoryPreferences ||
+        req.params.channel === Queries.GetGeneralSettingsDraft ||
+        req.params.channel === Queries.GetDownloadsSettingsDraft ||
+        req.params.channel === Queries.ListServerDirectoryLocations
+      ) {
+        return directoryRpc(req.params.channel, req.body, handler)
+      }
       try {
         const args = req.body?.args
         if (usesSharedEnvelope) {
@@ -128,9 +232,15 @@ export async function createApp(
       app.addHook('onClose', async () => unsubscribePluginLogs())
     }
     await app.register(websocket)
-    app.get('/rpc/events', { websocket: true }, (socket) => {
-      broadcaster.register(socket)
-      const cleanup = () => broadcaster.unregister(socket)
+    app.get('/rpc/events', { websocket: true }, (socket, request) => {
+      const session = operatorSessions?.bindSocket(request, socket)
+      broadcaster.register(socket, session?.eligible)
+      const stopHeartbeat = bindEventHeartbeat(socket)
+      const cleanup = () => {
+        stopHeartbeat()
+        broadcaster.unregister(socket)
+        session?.dispose()
+      }
       socket.on('close', cleanup)
       socket.on('error', cleanup)
     })

@@ -2,6 +2,10 @@ import { EventBus } from '@core/events/event-bus'
 import { MotrixDatabase } from '@core/session/motrix-database'
 import { Events } from '@shared/protocol/events'
 import type { AppNotification } from '@shared/types/notification'
+import {
+  getHiddenNotificationKinds,
+  NotificationKinds,
+} from '@shared/types/notification'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NotificationCenter, type NotifyInput } from './notification-center'
 import { makeDiagnosisOccurrence, makeLog } from './notification-test-fixtures'
@@ -278,5 +282,92 @@ describe('NotificationCenter read-only passthroughs', () => {
     expect(center.unreadCount()).toBe(2)
     expect(center.list()).toHaveLength(2)
     expect(center.list(1)).toHaveLength(1)
+  })
+})
+
+describe('desktop notification visibility', () => {
+  it('filters before the list limit, retains hidden rows and ledger, and leaves server views unchanged', () => {
+    const preferences = {
+      notifyInAppOnComplete: false,
+      notifyInAppOnError: true,
+    }
+    const emit = vi.fn()
+    const center = new NotificationCenter({
+      store: db,
+      emit,
+      log: makeLog(),
+      getHiddenKinds: () => getHiddenNotificationKinds(preferences),
+    })
+    center.notify(makeInput({ sourceKey: 'failure', createdAt: 1 }))
+    for (let index = 0; index < 120; index++) {
+      center.notify(
+        makeInput({
+          sourceKey: `complete-${index}`,
+          kind: NotificationKinds.TaskComplete,
+          severity: 'info',
+          createdAt: index + 2,
+        })
+      )
+    }
+    expect(center.list().map((row) => row.sourceKey)).toEqual(['failure'])
+    expect(center.unreadCount()).toBe(1)
+    expect(
+      emit.mock.calls.filter(
+        ([channel]) => channel === Events.NotificationAdded
+      )
+    ).toHaveLength(121)
+    const server = new NotificationCenter({
+      store: db,
+      emit: vi.fn(),
+      log: makeLog(),
+    })
+    expect(server.list()).toHaveLength(100)
+    expect(server.unreadCount()).toBe(121)
+    expect(center.markAllRead()).toBe(1)
+    expect(server.unreadCount()).toBe(120)
+    expect(center.clear()).toBe(1)
+    expect(server.list(500)).toHaveLength(120)
+    preferences.notifyInAppOnComplete = true
+    emit.mockClear()
+    expect(center.unreadCount()).toBe(120)
+    expect(center.list()).toHaveLength(100)
+    expect(emit).not.toHaveBeenCalled()
+    expect(center.notify(makeInput({ sourceKey: 'complete-0' }))).toEqual({
+      fresh: false,
+    })
+  })
+
+  it('keeps application alerts visible and upgrades diagnoses while task failures are hidden', () => {
+    const preferences = {
+      notifyInAppOnComplete: false,
+      notifyInAppOnError: false,
+    }
+    const center = new NotificationCenter({
+      store: db,
+      emit: vi.fn(),
+      log: makeLog(),
+      getHiddenKinds: () => getHiddenNotificationKinds(preferences),
+    })
+    center.notify(makeInput({ sourceKey: 'hidden-error' }))
+    const alerts = Object.values(NotificationKinds).filter(
+      (kind) =>
+        kind !== NotificationKinds.TaskError &&
+        kind !== NotificationKinds.TaskComplete
+    )
+    for (const kind of [...alerts, 'future-alert'])
+      center.notify(makeInput({ sourceKey: kind, kind }))
+    expect(center.unreadCount()).toBe(alerts.length + 1)
+    expect(
+      center.list().every((row) => row.kind !== NotificationKinds.TaskError)
+    ).toBe(true)
+    expect(
+      center.applyDiagnosisUpgrade(
+        makeDiagnosisOccurrence({ terminalOccurrenceId: 'hidden-error' })
+      )
+    ).toBe(true)
+    preferences.notifyInAppOnError = true
+    expect(
+      center.list().find((row) => row.sourceKey === 'hidden-error')?.bodyKey
+    ).toBe('task.error.reason.diskFull')
   })
 })

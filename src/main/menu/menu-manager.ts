@@ -193,7 +193,10 @@ export class MenuManager {
     }
     if (
       definition.contextBinding === 'selectedTask' &&
-      request.selectedTaskId !== this.deps.contextStore.get().selectedTaskId
+      (request.selectedTaskId !== this.deps.contextStore.get().selectedTaskId ||
+        (request.selectedTaskGeneration !== undefined &&
+          request.selectedTaskGeneration !==
+            this.deps.contextStore.get().selectedTaskGeneration))
     ) {
       throw new Error('Application menu command context is stale')
     }

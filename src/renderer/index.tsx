@@ -1,3 +1,4 @@
+import { ByteUnitSync } from '@renderer/components/byte-unit-sync'
 import { LanguageSync } from '@renderer/components/language-sync'
 import { LocaleDirectionProvider } from '@renderer/components/locale-direction-provider'
 import { OperatorUnlockGate } from '@renderer/components/operator-unlock-gate'
@@ -66,6 +67,7 @@ function Root({
     >
       <LocaleDirectionProvider>
         {syncSettings && <ThemeSync />}
+        {syncSettings && <ByteUnitSync />}
         <ReducedMotionSync syncSettings={syncSettings} />
         <LanguageSync windowId={windowId} />
         {children}
@@ -75,7 +77,7 @@ function Root({
 }
 
 async function startRenderer(rootContainer: HTMLElement): Promise<void> {
-  await bootstrapRendererLocale(windowId)
+  if (transport.platform !== 'web') await bootstrapRendererLocale(windowId)
   const root = createRoot(rootContainer)
 
   if (windowId === 'add-task') {
@@ -96,11 +98,11 @@ async function startRenderer(rootContainer: HTMLElement): Promise<void> {
     )
   } else {
     root.render(
-      <Root>
-        <OperatorUnlockGate>
+      <OperatorUnlockGate>
+        <Root>
           <RouterProvider router={router} />
-        </OperatorUnlockGate>
-      </Root>
+        </Root>
+      </OperatorUnlockGate>
     )
   }
 }

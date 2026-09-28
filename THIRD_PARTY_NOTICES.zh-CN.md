@@ -9,45 +9,30 @@ Motrix 采用 MIT 许可证发布（详见 `package.json` 与 `LICENSE`）。本
 
 ---
 
-## 设置页图标（Iconly Pro — UI8）
+## 玻璃质感设置图标（Glassmorphism settings icons）
 
-- **作者 / 设计师：** Iconly Pro
-- **来源：** UI8 素材市场 — <https://ui8.net>
-- **许可：** 专有授权，遵循 UI8 标准许可协议
-  (<https://ui8.net/licensing>)。**非 MIT。** 不受本项目的 `LICENSE` /
-  `package.json` 中的 license 字段覆盖。
-- **在项目中的用途：** 作为设置页的分类图标使用，在
-  `src/renderer/routes/settings/cards` 及相关组件中渲染。
+设置卡片使用所提供 Glassmorphism 素材集的 Home、Setting、Star，以及
+重新配色的 Download、Transfer 和新建的色环、地球、拼图衍生图标。
+衍生图标沿用素材集的玻璃材质和摄影棚灯光。八个图标以 52px 和 104px
+无损 WebP 保存于
+`src/renderer/routes/settings/icons/icon-*@1x.webp` 和 `icon-*@2x.webp`。
 
-### 涉及文件
+所提供的素材集未包含作者署名或许可证声明，因此许可证记录为 `NOASSERTION`；
+这些素材并未重新授权为 Motrix 的 MIT 许可。
 
-```
-src/renderer/routes/settings/icons/icon-about@1x.png
-src/renderer/routes/settings/icons/icon-about@2x.png
-src/renderer/routes/settings/icons/icon-advanced@1x.png
-src/renderer/routes/settings/icons/icon-advanced@2x.png
-src/renderer/routes/settings/icons/icon-appearance@1x.png
-src/renderer/routes/settings/icons/icon-appearance@2x.png
-src/renderer/routes/settings/icons/icon-bittorrent@1x.png
-src/renderer/routes/settings/icons/icon-bittorrent@2x.png
-src/renderer/routes/settings/icons/icon-download@1x.png
-src/renderer/routes/settings/icons/icon-download@2x.png
-src/renderer/routes/settings/icons/icon-general@1x.png
-src/renderer/routes/settings/icons/icon-general@2x.png
-src/renderer/routes/settings/icons/icon-integration@1x.png
-src/renderer/routes/settings/icons/icon-integration@2x.png
-src/renderer/routes/settings/icons/icon-network@1x.png
-src/renderer/routes/settings/icons/icon-network@2x.png
-```
+## 玻璃质感速度模式图标（Glassmorphism speed mode icons）
 
-### 对下游用户的影响
+Dashboard 速度模式卡片使用新建的兔子、乌龟和松鼠几何模型，玻璃、缎面材质
+和摄影棚灯光衍生自所提供 Glassmorphism 素材集的 `Add File.blend`。
+六个无损 WebP 资源以 52px 和 104px 保存于
+`src/renderer/routes/dashboard/icons/speed-*@1x.webp` 和 `speed-*@2x.webp`。
+所提供的源文件没有可确认的作者或许可证声明，继承的材质和灯光许可记录为
+`NOASSERTION`，未重新授权为 Motrix 的 MIT 许可。
 
-- Motrix 源代码上的 MIT 许可证**不授予**你分发上述 PNG 文件的权利。
-- 如果你构建并发布衍生版本（fork、私有构建、二次打包等），你必须：
-  1. 自行拥有有效的 UI8 / Iconly Pro 授权以覆盖该分发场景；**或**
-  2. 将这些文件替换为你有权分发的图标素材（例如以 `CC-BY-4.0`、
-     `Apache-2.0` 等 SPDX 兼容开源协议发布的资源）。
-- 将它们打包进 Electron `asar` 内部同样属于"分发"，不豁免此限制。
+圆卷尾松鼠的轮廓依据用户提供的参考图重建，该参考图的外部作者和许可尚未确认。
+
+本版本已移除旧版 Iconly Pro 设置图标 PNG。包含这些资源的历史版本仍遵循
+其原有的 UI8 许可条款。
 
 ---
 
@@ -88,8 +73,8 @@ src/renderer/routes/settings/icons/icon-network@2x.png
 
 桌面版随应用打包 `aria2c` 可执行文件，版本由 `scripts/engine.lock.json` 固定：
 
-- **版本：** 1.37.0-motrix.14
-- **对应源码：** <https://github.com/motrixapp/aria2/tree/v1.37.0-motrix.14>
+- **版本：** 1.37.0-motrix.16
+- **对应源码：** <https://github.com/motrixapp/aria2/tree/v1.37.0-motrix.16>
 - **许可证：** GNU General Public License v2.0 or later（`GPL-2.0-or-later`）
 - **完整许可证文本：** `THIRD_PARTY_LICENSES/aria2-COPYING`
 - **OpenSSL 例外条款 / 声明：**
@@ -175,11 +160,13 @@ npm 依赖清单根据根目录声明的运行时依赖，以及 `pnpm-lock.yaml
 | Crate | 版本 | SPDX 许可证表达式 | 源码仓库 |
 | --- | --- | --- | --- |
 | base64 | 0.22.1 | `MIT OR Apache-2.0` | <https://github.com/marshallpierce/rust-base64> |
+| bitflags | 2.13.1 | `MIT OR Apache-2.0` | <https://github.com/bitflags/bitflags> |
 | block-buffer | 0.10.4 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/utils> |
 | cfg-if | 1.0.4 | `MIT OR Apache-2.0` | <https://github.com/rust-lang/cfg-if> |
 | cpufeatures | 0.2.17 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/utils> |
 | crypto-common | 0.1.7 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/traits> |
 | digest | 0.10.7 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/traits> |
+| errno | 0.3.14 | `MIT OR Apache-2.0` | <https://github.com/lambda-fairy/rust-errno> |
 | generic-array | 0.14.7 | `MIT` | <https://github.com/fizyk20/generic-array> |
 | hkdf | 0.12.4 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/KDFs> |
 | hmac | 0.12.1 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/MACs> |
@@ -187,9 +174,11 @@ npm 依赖清单根据根目录声明的运行时依赖，以及 `pnpm-lock.yaml
 | humantime | 2.4.0 | `MIT OR Apache-2.0` | <https://github.com/chronotope/humantime> |
 | itoa | 1.0.18 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/itoa> |
 | libc | 0.2.189 | `MIT OR Apache-2.0` | <https://github.com/rust-lang/libc> |
+| linux-raw-sys | 0.12.1 | `Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT` | <https://github.com/sunfishcode/linux-raw-sys> |
 | memchr | 2.8.3 | `Unlicense OR MIT` | <https://github.com/BurntSushi/memchr> |
 | proc-macro2 | 1.0.107 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/proc-macro2> |
 | quote | 1.0.47 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/quote> |
+| rustix | 1.1.4 | `Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT` | <https://github.com/bytecodealliance/rustix> |
 | serde | 1.0.229 | `MIT OR Apache-2.0` | <https://github.com/serde-rs/serde> |
 | serde_core | 1.0.229 | `MIT OR Apache-2.0` | <https://github.com/serde-rs/serde> |
 | serde_derive | 1.0.229 | `MIT OR Apache-2.0` | <https://github.com/serde-rs/serde> |
@@ -212,6 +201,12 @@ npm 依赖清单根据根目录声明的运行时依赖，以及 `pnpm-lock.yaml
 - `THIRD_PARTY_LICENSES/rust-block-buffer-LICENSE-APACHE`
 - `THIRD_PARTY_LICENSES/rust-block-buffer-LICENSE-MIT`
 - `THIRD_PARTY_LICENSES/rust-cfg-if-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-bitflags-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-errno-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-linux-raw-sys-COPYRIGHT`
+- `THIRD_PARTY_LICENSES/rust-linux-raw-sys-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-rustix-COPYRIGHT`
+- `THIRD_PARTY_LICENSES/rust-rustix-LICENSE-MIT`
 - `THIRD_PARTY_LICENSES/rust-common-LICENSE-APACHE`
 - `THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT`
 - `THIRD_PARTY_LICENSES/rust-cpufeatures-LICENSE-MIT`

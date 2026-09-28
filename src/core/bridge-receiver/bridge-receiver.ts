@@ -53,7 +53,12 @@ export function serializeCookieHeader(
 }
 
 export interface BridgeReceiverDeps {
-  defaultSaveDir: string
+  mediaMetaStore: ConstructorParameters<
+    typeof MediaTaskCoordinator
+  >[0]['mediaMetaStore']
+  getDefaultSaveDir: AdapterDeps['getDefaultSaveDir']
+  resolveSaveDir?: AdapterDeps['resolveSaveDir']
+  recordDirectory?: (path: string) => Promise<unknown>
   pickName: AdapterDeps['pickName']
   createTask: ConstructorParameters<typeof DirectPipeline>[0]['createTask']
   removeTask: ConstructorParameters<typeof DirectPipeline>[0]['removeTask']
@@ -70,11 +75,12 @@ export interface BridgeReceiverDeps {
   }
   bridgeBus: BridgeEventBus
   localize: (code: BridgeErrorCode) => string
-  /** Path to ffmpeg binary. When null, hls/dash/mux submissions are rejected. */
+  /** Static fallback for shells without a live FFmpeg resolver. */
   ffmpegBinaryPath: string | null
   /**
-   * Live resolver used immediately before muxing. Defaults to the startup
-   * path for shells/tests that do not provide dynamic resolution.
+   * Live resolver used before accepting media and immediately before muxing.
+   * Providing it enables the pipeline even if FFmpeg is absent at startup.
+   * Defaults to the startup path for shells/tests without dynamic resolution.
    */
   resolveFfmpegBinaryPath?: () => Promise<string | null>
   taskManager: TaskManager
@@ -184,11 +190,15 @@ export class BridgeReceiver {
    * result instead of creating a duplicate task — dedup semantics live in
    * IdempotencyCache (failure eviction, settled-only capacity eviction).
    */
-  private readonly submitsByKey = new IdempotencyCache<{ taskId: string }>()
+  private readonly submitsByKey = new IdempotencyCache<{
+    taskId: string
+    requestedSaveDir?: string
+  }>()
 
   constructor(private readonly deps: BridgeReceiverDeps) {
     this.adapter = new SubmitDownloadAdapter({
-      defaultSaveDir: deps.defaultSaveDir,
+      getDefaultSaveDir: deps.getDefaultSaveDir,
+      resolveSaveDir: deps.resolveSaveDir,
       pickName: deps.pickName,
       mintTaskId: newTaskId,
     })
@@ -204,7 +214,18 @@ export class BridgeReceiver {
     })
     this.publisher = new ProgressPublisher(deps.bridgeBus, deps.localize)
 
-    if (deps.ffmpegBinaryPath !== null) {
+    if (deps.resolveFfmpegBinaryPath || deps.ffmpegBinaryPath !== null) {
+      const resolveFfmpegBinaryPath =
+        deps.resolveFfmpegBinaryPath ??
+        (() => Promise.resolve(deps.ffmpegBinaryPath))
+      const assertFfmpegAvailable = async () => {
+        if (!(await resolveFfmpegBinaryPath())) {
+          throw new BridgeReceiverError(
+            'unsupported-kind',
+            'ffmpeg is unavailable; configure it in Settings and retry'
+          )
+        }
+      }
       const eventBusWithEmit = deps.eventBus as {
         on(event: string, listener: (payload: unknown) => void): unknown
         off(event: string, listener: (payload: unknown) => void): unknown
@@ -212,14 +233,13 @@ export class BridgeReceiver {
       }
       const tmpRoot = deps.tmpRoot
       const coordinator = new MediaTaskCoordinator({
+        mediaMetaStore: deps.mediaMetaStore,
         taskManager: deps.taskManager,
         activityRecorder: deps.activityRecorder,
         eventBus: eventBusWithEmit,
         publishTaskUpdate: deps.publishTaskUpdate,
         publishTaskUpdateNow: deps.publishTaskUpdateNow,
-        resolveFfmpegBinaryPath:
-          deps.resolveFfmpegBinaryPath ??
-          (() => Promise.resolve(deps.ffmpegBinaryPath)),
+        resolveFfmpegBinaryPath,
         pickName: deps.pickName,
         persist: deps.persistTask,
         persistTaskWithOccurrence: deps.persistTaskWithOccurrence,
@@ -246,8 +266,9 @@ export class BridgeReceiver {
       this.hlsDash = new HlsDashPipeline({
         fetchManifest: resolvedFetchManifest,
         coordinator,
+        assertFfmpegAvailable,
       })
-      this.mux = new MuxPipeline({ coordinator })
+      this.mux = new MuxPipeline({ coordinator, assertFfmpegAvailable })
     }
   }
 
@@ -256,7 +277,8 @@ export class BridgeReceiver {
    * Add-Task path (main/index.ts createDeps) to reuse the same
    * coordinator/mux-pipeline instance — avoids the SP-1 phantom-task
    * bug that would arise from constructing a second coordinator.
-   * Undefined when ffmpeg is unavailable (mux pipeline not active).
+   * Undefined only when this shell provides no media runtime. Availability
+   * is checked from the live resolver on every dispatch.
    */
   get muxPipeline(): MuxPipeline | undefined {
     return this.mux
@@ -266,7 +288,7 @@ export class BridgeReceiver {
    * Active aria2 segment gids for a coordinator-managed media task (kind
    * Mux/Hls). These ARE real aria2 gids — unlike the task's empty engineTaskId
    * — so pause/resume can act on them. Returns [] when the task is unknown, is
-   * past the download phase, or ffmpeg (and thus the coordinator) is absent.
+   * past the download phase, or this shell has no media runtime.
    */
   getMediaSegmentGids(taskId: string): string[] {
     return this.coordinator?.getActiveSegmentGids(taskId) ?? []
@@ -290,10 +312,20 @@ export class BridgeReceiver {
     const key = params.idempotencyKey
     if (!key) return this.dispatchSubmit(params, identity)
 
-    return this.submitsByKey.run(
+    const result = await this.submitsByKey.run(
       JSON.stringify([clientKey(identity), key]),
-      () => this.dispatchSubmit(params, identity)
+      async () => ({
+        ...(await this.dispatchSubmit(params, identity)),
+        requestedSaveDir: params.saveDir,
+      })
     )
+    if (result.requestedSaveDir !== params.saveDir) {
+      throw makeMdxpError(
+        ErrorCodes.InvalidParams,
+        'Submission key was already used with another directory'
+      )
+    }
+    return { taskId: result.taskId }
   }
 
   private async dispatchSubmit(
@@ -311,6 +343,18 @@ export class BridgeReceiver {
       browser: identity.browser,
     })
 
+    const result = await this.dispatchAdapted(adapted, params)
+    // A history-write failure must never turn an accepted task into a retry.
+    void Promise.resolve()
+      .then(() => this.deps.recordDirectory?.(adapted.saveDir))
+      .catch(() => {})
+    return result
+  }
+
+  private async dispatchAdapted(
+    adapted: Awaited<ReturnType<SubmitDownloadAdapter['adapt']>>,
+    params: DownloadSubmitParams
+  ): Promise<{ taskId: string }> {
     // Submit-path pre-resolve: if the adapted result is a direct download and
     // a resolveToMux factory is wired (bootstrap only), call it. On a non-null
     // mux pair the direct submit is transparently re-routed to MuxPipeline.

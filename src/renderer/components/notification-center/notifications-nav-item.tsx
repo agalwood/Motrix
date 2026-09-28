@@ -1,8 +1,8 @@
+import { NotificationsIcon } from '@renderer/components/icons'
 import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@renderer/components/ui/sidebar'
-import { Bell } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router'
 import { useNotifications } from './use-notifications'
@@ -24,7 +24,7 @@ const UNREAD_DISPLAY_CAP = 99
  */
 export function NotificationsNavItem() {
   const { t } = useTranslation()
-  const { unreadCount } = useNotifications({ countOnly: true })
+  const { unreadCount, badgeStyle } = useNotifications({ countOnly: true })
   const badgeLabel =
     unreadCount > UNREAD_DISPLAY_CAP
       ? `${UNREAD_DISPLAY_CAP}+`
@@ -40,9 +40,17 @@ export function NotificationsNavItem() {
             tooltip={t('nav.notifications')}
             className="relative cursor-default"
           >
-            <Bell />
+            <NotificationsIcon />
             <span className="select-none">{t('nav.notifications')}</span>
-            {unreadCount > 0 && (
+            {unreadCount > 0 && badgeStyle === 'dot' && (
+              <span
+                data-testid="notification-badge-dot"
+                role="status"
+                aria-label={t('notification.center.unreadDotAria')}
+                className="ms-auto size-1.5 shrink-0 rounded-full bg-[#007aff] group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-1 group-data-[collapsible=icon]:end-1"
+              />
+            )}
+            {unreadCount > 0 && badgeStyle === 'count' && (
               <>
                 <span
                   data-testid="notification-badge"
@@ -50,14 +58,14 @@ export function NotificationsNavItem() {
                   aria-label={t('notification.center.unreadBadgeAria', {
                     count: unreadCount,
                   })}
-                  className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium leading-none text-white tabular-nums group-data-[collapsible=icon]:hidden"
+                  className="ms-auto flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-[#007aff] px-1 text-[11px] font-semibold leading-none text-white proportional-nums group-data-[collapsible=icon]:hidden"
                 >
                   {badgeLabel}
                 </span>
                 <span
                   data-testid="notification-badge-dot"
                   aria-hidden="true"
-                  className="absolute top-1 right-1 hidden size-1.5 rounded-full bg-destructive group-data-[collapsible=icon]:block"
+                  className="absolute top-1 end-1 hidden size-1.5 rounded-full bg-[#007aff] group-data-[collapsible=icon]:block"
                 />
               </>
             )}

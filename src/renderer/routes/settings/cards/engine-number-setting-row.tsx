@@ -5,37 +5,36 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from '@renderer/components/ui/form'
 import { Input } from '@renderer/components/ui/input'
 import type { UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import {
   type DownloadsFields,
-  ENGINE_DEFAULTS,
-  type EngineFields,
+  type EngineNumberField,
+  getEngineNumberRules,
 } from './downloads-form'
 
 export interface EngineNumberSettingRowProps {
   form: UseFormReturn<DownloadsFields>
-  name: keyof EngineFields
+  name: EngineNumberField
   labelKey: string
   descKey: string
-  bounds: { min?: number; max?: number; step?: number; scale?: number }
   presets?: { label: string; value: number }[]
 }
 
 // Compact numeric setting row shared by the performance and engine sections.
-// `bounds.scale` is the stored-per-displayed multiplier (for example MB).
+// Bounds and displayed units come from the shared validation rules.
 export function EngineNumberSettingRow({
   form,
   name,
   labelKey,
   descKey,
-  bounds,
   presets,
 }: EngineNumberSettingRowProps) {
   const { t } = useTranslation()
-  const scale = bounds.scale ?? 1
+  const { min, max, scale, hasUpperBound } = getEngineNumberRules(name)
   const scaledPresets = presets?.map((preset) => ({
     ...preset,
     value: preset.value * scale,
@@ -44,38 +43,42 @@ export function EngineNumberSettingRow({
   return (
     <FormField
       control={form.control}
-      name={`engine.${name}` as never}
+      name={`engine.${name}`}
       render={({ field }) => {
-        const stored = field.value as number
-        const displayed = scale === 1 ? stored : Math.round(stored / scale)
+        const displayed = Number.isFinite(field.value)
+          ? field.value / scale
+          : ''
         return (
           <FormItem className="space-y-2">
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-1">
                 <FormLabel>{t(labelKey)}</FormLabel>
                 <FormDescription className="text-xs">
-                  {t(descKey)}
+                  {t(descKey)}{' '}
+                  {t(
+                    hasUpperBound
+                      ? 'settings.validation.rangeHint'
+                      : 'settings.validation.minimum',
+                    { min, max }
+                  )}
                 </FormDescription>
               </div>
               <FormControl>
                 <Input
+                  {...field}
                   type="number"
-                  min={bounds.min}
-                  max={bounds.max}
-                  step={bounds.step}
+                  min={min}
+                  max={max}
+                  step={scale === 1 ? 1 : 'any'}
                   className="w-30 h-8"
                   value={displayed}
                   onChange={(event) => {
-                    const value = Number.parseInt(event.target.value, 10)
-                    field.onChange(
-                      Number.isFinite(value)
-                        ? value * scale
-                        : (ENGINE_DEFAULTS as never)[name]
-                    )
+                    field.onChange(event.target.valueAsNumber * scale)
                   }}
                 />
               </FormControl>
             </div>
+            <FormMessage className="text-xs" />
             {scaledPresets && (
               <PresetChips
                 name={`engine.${name}`}

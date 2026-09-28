@@ -38,3 +38,15 @@ describe('pickDirty', () => {
     ).toEqual({ proxy: { scopes: { download: true, updateApp: false } } })
   })
 })
+
+it('replaces edited arrays without turning their indices into object keys', () => {
+  expect(
+    pickDirty({ endpoints: ['new', 'unchanged'] }, { endpoints: { 0: true } })
+  ).toEqual({ endpoints: ['new', 'unchanged'] })
+  expect(pickDirty({ endpoints: [] }, { endpoints: { 0: true } })).toEqual({
+    endpoints: [],
+  })
+  expect(
+    pickDirty({ endpoints: ['unchanged'] }, { endpoints: { 0: false } })
+  ).toBeUndefined()
+})

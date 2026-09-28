@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest'
+import { DirectionProvider } from '@renderer/components/ui/direction'
 import { i18n } from '@renderer/lib/i18n'
 import { DownloadErrorCode } from '@shared/errors'
 import { TaskStatus } from '@shared/types/task'
@@ -299,54 +300,63 @@ describe('ActivityTimeline', () => {
     ).toHaveAttribute('type', 'button')
   })
 
-  it('provides keyboard-reachable overflow controls and edge fades', async () => {
-    const user = userEvent.setup()
-    const model = buildActivityTimelineModel({
-      events: Array.from({ length: 16 }, (_, index) =>
-        event(
-          index + 1,
-          index === 0
-            ? TaskHistoryEventKind.Added
-            : index % 2 === 0
-              ? TaskHistoryEventKind.Paused
-              : TaskHistoryEventKind.Resumed,
-          index % 2 === 0 ? TaskStatus.Paused : TaskStatus.Downloading
-        )
-      ),
-      task: makeDownloadTask({
-        id: 'task-1',
-        status: TaskStatus.Downloading,
-        updatedAt: 17_000,
-      }),
-      availableWidth: 220,
-    })
-
-    render(
-      <ActivityTimeline
-        model={model}
-        selectedNodeId={null}
-        onSelectNode={vi.fn()}
-      />
-    )
-
-    const scroller = screen.getByTestId('activity-timeline-scroller')
-    const scrollBy = vi.fn()
-    Object.defineProperty(scroller, 'scrollBy', { value: scrollBy })
-
-    expect(screen.getByTestId('activity-timeline-edge-start')).toBeVisible()
-    expect(screen.getByTestId('activity-timeline-edge-end')).toBeVisible()
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Show previous timeline events',
+  it.each(['ltr', 'rtl'] as const)(
+    'provides keyboard-reachable overflow controls in %s',
+    async (direction) => {
+      const user = userEvent.setup()
+      const model = buildActivityTimelineModel({
+        events: Array.from({ length: 16 }, (_, index) =>
+          event(
+            index + 1,
+            index === 0
+              ? TaskHistoryEventKind.Added
+              : index % 2 === 0
+                ? TaskHistoryEventKind.Paused
+                : TaskHistoryEventKind.Resumed,
+            index % 2 === 0 ? TaskStatus.Paused : TaskStatus.Downloading
+          )
+        ),
+        task: makeDownloadTask({
+          id: 'task-1',
+          status: TaskStatus.Downloading,
+          updatedAt: 17_000,
+        }),
+        availableWidth: 220,
       })
-    )
-    expect(scrollBy).toHaveBeenCalledWith({ left: -240 })
 
-    await user.click(
-      screen.getByRole('button', { name: 'Show next timeline events' })
-    )
-    expect(scrollBy).toHaveBeenCalledWith({ left: 240 })
-  })
+      render(
+        <DirectionProvider direction={direction}>
+          <ActivityTimeline
+            model={model}
+            selectedNodeId={null}
+            onSelectNode={vi.fn()}
+          />
+        </DirectionProvider>
+      )
+
+      const scroller = screen.getByTestId('activity-timeline-scroller')
+      const scrollBy = vi.fn()
+      Object.defineProperty(scroller, 'scrollBy', { value: scrollBy })
+
+      expect(screen.getByTestId('activity-timeline-edge-start')).toBeVisible()
+      expect(screen.getByTestId('activity-timeline-edge-end')).toBeVisible()
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Show previous timeline events',
+        })
+      )
+      expect(scrollBy).toHaveBeenCalledWith({
+        left: direction === 'rtl' ? 240 : -240,
+      })
+
+      await user.click(
+        screen.getByRole('button', { name: 'Show next timeline events' })
+      )
+      expect(scrollBy).toHaveBeenCalledWith({
+        left: direction === 'rtl' ? -240 : 240,
+      })
+    }
+  )
 
   it.each([
     {

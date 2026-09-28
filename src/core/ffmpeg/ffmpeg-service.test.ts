@@ -103,7 +103,7 @@ describe('FfmpegService', () => {
   it('(d) progress fraction from out_time_ms / duration', async () => {
     const child = fakeChild()
     const svc = new FfmpegService()
-    const seen: number[] = []
+    const seen: (number | null)[] = []
     const p = svc.run(
       VIDEO_ONLY_TS_JOB,
       (pr) => seen.push(pr.progress),
@@ -116,7 +116,77 @@ describe('FfmpegService', () => {
     )
     child.emit('close', 0)
     await p
-    expect(seen.at(-1)).toBeCloseTo(0.5, 1)
+    expect(seen).toEqual([0.5, 1])
+  })
+
+  it('parses fragmented lines and multiple records, but progress=end is not success', async () => {
+    const child = fakeChild()
+    const seen: (number | null)[] = []
+    const run = new FfmpegService().run(
+      VIDEO_ONLY_TS_JOB,
+      (p) => seen.push(p.progress),
+      (() => child) as never
+    )
+    child.stdout.emit('data', Buffer.from('out_time_'))
+    child.stdout.emit('data', Buffer.from('ms=2500000\nprogress=cont'))
+    child.stdout.emit(
+      'data',
+      Buffer.from('inue\nout_time_ms=10000000\nprogress=end\n')
+    )
+    expect(seen).toEqual([0.25, 0.9999])
+    child.emit('close', 1)
+    await expect(run).rejects.toThrow('mux-failed')
+    child.stdout.emit(
+      'data',
+      Buffer.from('out_time_ms=10000000\nprogress=end\n')
+    )
+    expect(seen).toEqual([0.25, 0.9999])
+  })
+
+  it.each([undefined, 0, Number.NaN, Number.POSITIVE_INFINITY])(
+    'shows indeterminate mux progress for duration %s until successful exit',
+    async (durationSec) => {
+      const child = fakeChild()
+      const seen: (number | null)[] = []
+      const run = new FfmpegService().run(
+        { ...VIDEO_ONLY_TS_JOB, durationSec },
+        (p) => seen.push(p.progress),
+        (() => child) as never
+      )
+      child.stdout.emit(
+        'data',
+        Buffer.from('out_time_ms=5000000\nprogress=end\n')
+      )
+      expect(seen).toEqual([null])
+      child.emit('close', 0)
+      await run
+      expect(seen).toEqual([null, 1])
+    }
+  )
+
+  it('drops overlong lines and ignores output after cancellation', async () => {
+    const child = fakeChild()
+    const seen: (number | null)[] = []
+    const svc = new FfmpegService()
+    const run = svc.run(
+      VIDEO_ONLY_TS_JOB,
+      (p) => seen.push(p.progress),
+      (() => child) as never
+    )
+    child.stdout.emit('data', Buffer.from(`out_time_ms=${'9'.repeat(10000)}`))
+    child.stdout.emit(
+      'data',
+      Buffer.from('\nout_time_ms=2500000\nprogress=continue\n')
+    )
+    expect(seen).toEqual([0.25])
+    svc.kill()
+    child.stdout.emit(
+      'data',
+      Buffer.from('out_time_ms=10000000\nprogress=end\n')
+    )
+    child.emit('close', 0)
+    await expect(run).rejects.toThrow('mux-aborted')
+    expect(seen).toEqual([0.25])
   })
 
   it('(e) non-zero exit rejects with mux-failed', async () => {

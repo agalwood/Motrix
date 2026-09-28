@@ -12,6 +12,7 @@ import { createExtensionIdentityResolver } from '@core/bridge/extension-identity
 import { FileRegistryStoreAdapter } from '@core/bridge/registry-store-adapter'
 import { TrustedExtensionRegistry } from '@core/bridge/trusted-extension-registry'
 import { BridgeReceiver } from '@core/bridge-receiver/bridge-receiver'
+import { createDownloadDirectories } from '@core/bridge-receiver/download-directories'
 import { Aria2SegmentClient } from '@core/download/aria2-segment-client'
 import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
 import { Aria2ConfigBuilder } from '@core/engine/aria2/aria2-config-builder'
@@ -95,6 +96,7 @@ import { handleCreateTask } from '@core/task/create-task-handler'
 import { DirectResourceValidatorService } from '@core/task/direct-resource-validator'
 import { FileCleanupServiceImpl } from '@core/task/file-cleanup-service'
 import { FinalNamePickerImpl } from '@core/task/final-name-picker'
+import { MediaMetaStoreImpl } from '@core/task/media-meta-store'
 import {
   hasEngineTaskDelta,
   mergeEngineTask,
@@ -150,7 +152,11 @@ import {
   createServerDownloadPathPolicy,
   resolveServerDefaultSaveDir,
 } from './download-path-policy'
-import { parseServerBoolean, parseServerPort } from './environment'
+import {
+  parseServerBoolean,
+  parseServerPort,
+  parseTorrentBodyLimit,
+} from './environment'
 import { createApp } from './http/app'
 import { buildServerCommandHandlers } from './ipc/commands'
 import { buildServerQueryHandlers } from './ipc/queries'
@@ -173,12 +179,14 @@ import { registerPluginUploadRoute } from './routes/plugin-uploads'
 import { registerTasksBulkRoutes } from './routes/tasks-bulk'
 import { prepareServerRuntimeDirectories } from './runtime-directories'
 import { serverHealthSnapshot } from './runtime-health'
+import { ServerDirectoryService } from './server-directory-service'
 import {
   createServerExitCoordinator,
   createServerShutdown,
   runServerStartup,
   type ServerShutdownActions,
 } from './shutdown'
+import { startServerEngine } from './start-engine'
 import { createServerPersistTask } from './task-persistence'
 
 let requestActiveServerExit: ((code: number) => Promise<void>) | null = null
@@ -187,6 +195,9 @@ async function main() {
   // ─── Logger ───────────────────────────────────────────────────
   initLogger(pino({ level: process.env.LOG_LEVEL ?? 'info' }))
   const log = getLogger('server')
+  const torrentBodyLimitBytes = parseTorrentBodyLimit(
+    process.env.MOTRIX_TORRENT_BODY_LIMIT_MIB
+  )
 
   // ─── Platform ─────────────────────────────────────────────────
   const platform = createNodePlatformServices()
@@ -311,6 +322,30 @@ async function main() {
       defaultSaveDir: configuredDefaultSaveDir,
       onChange: (old, updated) => {
         eventBus.emit(Events.SettingsChanged, { old, updated })
+        if (old.app.sidebarColor !== updated.app.sidebarColor) {
+          eventBus.emit(Events.SidebarColorChanged, {
+            sidebarColor: updated.app.sidebarColor,
+          })
+        }
+        if (old.app.liquidGlassEffect !== updated.app.liquidGlassEffect) {
+          eventBus.emit(Events.LiquidGlassChanged, {
+            liquidGlassEffect: updated.app.liquidGlassEffect,
+          })
+        }
+        if (old.app.byteUnitSystem !== updated.app.byteUnitSystem) {
+          eventBus.emit(Events.ByteUnitSystemChanged, {
+            byteUnitSystem: updated.app.byteUnitSystem,
+          })
+        }
+        if (
+          JSON.stringify(old.app.directoryPreferences) !==
+          JSON.stringify(updated.app.directoryPreferences)
+        ) {
+          eventBus.emit(
+            Events.DirectoryPreferencesChanged,
+            structuredClone(updated.app.directoryPreferences)
+          )
+        }
         if (old.app.reduceMotion !== updated.app.reduceMotion) {
           eventBus.emit(Events.ReducedMotionChanged, {
             reduceMotion: updated.app.reduceMotion,
@@ -435,6 +470,7 @@ async function main() {
         process.env.MOTRIX_ARIA2_RPC_LISTEN_ALL,
         'MOTRIX_ARIA2_RPC_LISTEN_ALL'
       ),
+      rpcMaxRequestSizeBytes: torrentBodyLimitBytes,
     }
   )
   const trustStore = new Aria2TrustStore(platform.userDataDir)
@@ -637,7 +673,9 @@ async function main() {
     protocol,
     engineSettings.rpcSecret
   )
-  const adapter = new Aria2Adapter(rpcClient)
+  const adapter = new Aria2Adapter(rpcClient, undefined, () =>
+    settingsManager.getEngine()
+  )
   shutdownActions.unsubscribeProducers = () => {
     let firstError: unknown
     for (const unsubscribe of pollingNotificationUnsubscribers.splice(0)) {
@@ -987,6 +1025,12 @@ async function main() {
   const torrentMetaStore = new TorrentMetaStoreImpl(
     runtimeDirectories.torrentsDir
   )
+  const mediaMetaStore = new MediaMetaStoreImpl(
+    path.join(platform.userDataDir, 'media')
+  )
+  await mediaMetaStore
+    .pruneOrphans(db.getAllTasks().map(({ task }) => task.motrixId))
+    .catch((err) => log.warn({ err }, 'Media metadata recovery failed'))
   const fileCleanupService = new FileCleanupServiceImpl({
     async removePathRecursive(absPath: string): Promise<void> {
       await fs.rm(absPath, { recursive: true, force: true })
@@ -1036,6 +1080,7 @@ async function main() {
   // its latch; registered on the occurrence dispatcher further down with
   // the other consumers. The retry fn is late-bound by
   // buildServerCommandHandlers to the ReAddTasks deps bundle.
+  let recoveryService: TaskRecoveryServiceImpl | undefined
   let dnsFallbackRetry: ((taskId: string) => Promise<unknown>) | undefined
   const dnsFallbackConsumer = createDnsFallbackConsumer({
     getDnsMode: () => settingsManager.get().engine.dnsMode,
@@ -1077,13 +1122,26 @@ async function main() {
   )
 
   // ─── HTTP App ─────────────────────────────────────────────────
+  const serverDirectoryService = new ServerDirectoryService(downloadPathPolicy)
   const commandHandlers = buildServerCommandHandlers({
+    mediaMetaStore,
+    serverDirectoryService,
     supervisor,
     settingsManager,
+    applyLocale: enqueueLocaleUpdate,
     geoipManager: activeGeoipManager,
     dnsFallback: dnsFallbackConsumer,
     bindTaskRetry: (fn) => {
       dnsFallbackRetry = fn
+    },
+    recoverFinalization: async (taskId) => {
+      if (!recoveryService) throw new Error('Task recovery is not ready')
+      try {
+        const report = await recoveryService.recoverTaskById(taskId)
+        if (report.errors.length > 0) throw new Error(report.errors[0].issue)
+      } finally {
+        publishTaskUpdateNow()
+      }
     },
     rpcClient,
     adapter,
@@ -1150,6 +1208,9 @@ async function main() {
     ])
   }
   const queryHandlers = buildServerQueryHandlers({
+    getResolvedLanguage: () => hostLanguage,
+    mediaMetaStore,
+    serverDirectoryService,
     taskManager,
     statsAggregator,
     speedHistoryStore,
@@ -1194,6 +1255,7 @@ async function main() {
   )
 
   const app = await createApp({
+    torrentBodyLimitBytes,
     commandHandlers,
     queryHandlers,
     bridgeCommandHandlers: bridgeManager.bridgeCommandHandlers,
@@ -1204,6 +1266,8 @@ async function main() {
     operatorAuth: {
       operatorToken: operator.token,
       publicUrl: process.env.MOTRIX_PUBLIC_URL,
+      onEventSocketRejected: (detail) =>
+        log.warn(detail, 'operator event connection rejected'),
     },
     healthCheck: () =>
       serverHealthSnapshot({
@@ -1434,6 +1498,7 @@ async function main() {
         operation: () => Promise<T>
       ) => taskInspectorActivityRuntime.runTaskMutation(taskIds, operation),
       log,
+      finalNamePicker,
       commitFinalizedArtifact: async (input: FinalizeArtifactCommitRequest) => {
         const post =
           input.occurrence?.type === 'terminal'
@@ -1483,13 +1548,9 @@ async function main() {
         durableFinalizeRuntime.recoverAll()
       )
 
-      try {
-        await pluginStartup.startEngine(() =>
-          supervisor.start(platform.aria2BinaryPath)
-        )
-      } catch (err) {
-        log.error({ err }, 'engine start failed')
-      }
+      await pluginStartup.startEngine(() =>
+        startServerEngine(supervisor, platform.aria2BinaryPath)
+      )
       if (!shellAsyncWork.isAccepting()) return
 
       await appliedDownloadProxyPolicy.runWithSnapshot(
@@ -1510,7 +1571,7 @@ async function main() {
       // Startup recovery: replay intent markers before polling/events
       // open so the renderer observes a self-healed state. See design
       // spec §6.6.
-      const recoveryService = new TaskRecoveryServiceImpl({
+      recoveryService = new TaskRecoveryServiceImpl({
         taskManager: {
           getAll: () => taskManager.getAll(),
           set: (id: string, task: DownloadTask) => taskManager.set(id, task),
@@ -1730,6 +1791,7 @@ async function main() {
         adapter,
         log,
         fileCleanupService,
+        mediaMetaStore,
         torrentMetaStore,
         eventBus,
         db,
@@ -1858,6 +1920,11 @@ async function main() {
       ) {
         throw new Error('Bridge data ownership is unavailable')
       }
+      const downloadDirectories = createDownloadDirectories({
+        getSettings: () => settingsManager.getApp(),
+        authorizeDirectory: async (path) =>
+          (await downloadPathPolicy.authorizeDirectory(path)).canonicalPath,
+      })
       const candidateBridgeRuntime = await bootstrapBridgeForServer({
         userDataDir: platform.userDataDir,
         host: mdxpHost,
@@ -1871,7 +1938,14 @@ async function main() {
         trustedExtensionRegistry,
         createExtensionReceiver: ({ bridgeBus }) =>
           new BridgeReceiver({
-            defaultSaveDir: settingsManager.getApp().defaultSaveDir,
+            mediaMetaStore,
+            getDefaultSaveDir: () => settingsManager.getApp().defaultSaveDir,
+            resolveSaveDir: downloadDirectories.resolveSelection,
+            recordDirectory: (path) =>
+              settingsManager.mutateDirectoryPreferences({
+                action: 'recordRecent',
+                path,
+              }),
             pickName: (saveDir, desired) =>
               finalNamePicker.pick(saveDir, desired),
             createTask: (request, _deps, options) =>
@@ -1923,7 +1997,12 @@ async function main() {
         // The web approval UI is a separate (Fastify) service; the operator points
         // device-code clients at it via MOTRIX_PUBLIC_URL. Unset → no URL printed.
         verificationUri: process.env.MOTRIX_PUBLIC_URL,
-        readHandlerDeps: { taskManager, statsAggregator, supervisor },
+        readHandlerDeps: {
+          taskManager,
+          statsAggregator,
+          supervisor,
+          getDownloadDirectories: downloadDirectories.list,
+        },
         writeHandlerDeps: {
           taskManager,
           pauseTask: (taskId) => pauseTaskAction(taskId, taskActionDeps),

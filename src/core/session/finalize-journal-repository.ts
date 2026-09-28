@@ -1,11 +1,15 @@
+import path from 'node:path'
+import { artifactIdentityEquals } from '@core/plugin/finalize/artifact-identity'
 import type {
   FinalizeJournalPhase,
   FinalizeJournalRecord,
   FinalizeJournalRepository,
 } from '@core/plugin/finalize/finalize-committer'
 import { finalizePathsEquivalent } from '@core/plugin/finalize/finalize-committer'
+import { isRetryableMoveQuarantine } from '@core/plugin/finalize/finalize-recovery'
 import { assertValidHookPlan } from '@core/plugin/finalize/hook-plan'
 import type Database from 'better-sqlite3'
+import { z } from 'zod'
 
 interface RawFinalizeJournal {
   plan_id: string
@@ -99,6 +103,7 @@ export class SqliteFinalizeJournalRepository
         | 'targetIdentity'
         | 'rollbackPath'
         | 'removalIntent'
+        | 'publicationIntent'
       >
     >
   ): Promise<void> {
@@ -108,6 +113,7 @@ export class SqliteFinalizeJournalRepository
         throw new Error(`cannot checkpoint terminal finalize journal`)
       }
       const next: FinalizeJournalRecord = { ...current, ...patch }
+      validateIntents(next)
       const changed = this.db
         .prepare(
           `UPDATE plugin_finalize_journals
@@ -201,19 +207,25 @@ export class SqliteFinalizeJournalRepository
     }
   }
 
-  async listRecoverable(): Promise<FinalizeJournalRecord[]> {
+  async listRecoverable(taskId?: string): Promise<FinalizeJournalRecord[]> {
     const rows = this.db
       .prepare(
         `SELECT * FROM plugin_finalize_journals
-         WHERE phase NOT IN ('cleaned','quarantined')
+         WHERE phase <> 'cleaned' AND (? IS NULL OR task_id=?)
          ORDER BY created_at, plan_id`
       )
-      .all() as RawFinalizeJournal[]
+      .all(taskId ?? null, taskId ?? null) as RawFinalizeJournal[]
     const records: FinalizeJournalRecord[] = []
     for (const row of rows) {
       try {
-        records.push(parseRecord(row))
+        if (row.phase === 'quarantined') {
+          const candidate = parseQuarantinedMove(row)
+          if (candidate) records.push(candidate)
+        } else {
+          records.push(parseRecord(row))
+        }
       } catch (error) {
+        if (row.phase === 'quarantined') continue
         await this.quarantine(
           row.plan_id,
           `invalid persisted finalize journal: ${errorMessage(error)}`
@@ -221,6 +233,22 @@ export class SqliteFinalizeJournalRepository
       }
     }
     return records
+  }
+
+  async resumeQuarantined(record: FinalizeJournalRecord): Promise<void> {
+    this.db.transaction(() => {
+      const raw = this.readRaw(record.journalId)
+      const candidate = raw && parseQuarantinedMove(raw)
+      if (!candidate || JSON.stringify(candidate) !== JSON.stringify(record)) {
+        throw new Error('quarantined finalize journal changed before recovery')
+      }
+      this.db
+        .prepare(
+          `UPDATE plugin_finalize_journals SET phase=?, quarantine_reason=NULL, updated_at=?
+         WHERE plan_id=? AND phase='quarantined'`
+        )
+        .run(candidate.phase, Math.max(1, this.now()), candidate.journalId)
+    })()
   }
 
   private requireRecord(journalId: string): FinalizeJournalRecord {
@@ -237,6 +265,29 @@ export class SqliteFinalizeJournalRepository
       .prepare('SELECT * FROM plugin_finalize_journals WHERE plan_id=?')
       .get(journalId) as RawFinalizeJournal | undefined
   }
+}
+
+function parseQuarantinedMove(
+  raw: RawFinalizeJournal
+): FinalizeJournalRecord | null {
+  if (
+    raw.phase !== 'quarantined' ||
+    !raw.quarantine_reason?.startsWith('compensation failed after ')
+  )
+    return null
+  const value: unknown = JSON.parse(raw.plan_json)
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    !('phase' in value) ||
+    (value.phase !== 'prepared' && value.phase !== 'target_installed')
+  )
+    return null
+  const record = {
+    ...parseRecord({ ...raw, phase: value.phase }),
+    quarantineReason: raw.quarantine_reason,
+  }
+  return isRetryableMoveQuarantine(record) ? record : null
 }
 
 function serializeRecord(record: FinalizeJournalRecord): string {
@@ -270,6 +321,7 @@ function parseRecord(raw: RawFinalizeJournal): FinalizeJournalRecord {
     throw new TypeError('journal move publication plan is invalid')
   }
   assertValidHookPlan(record.plan)
+  validateIntents(record)
   const sourceIdentity = JSON.stringify(record.plan.sourceIdentity)
   if (sourceIdentity !== JSON.stringify(JSON.parse(raw.source_identity_json))) {
     throw new TypeError('journal source identity column does not match plan')
@@ -282,6 +334,66 @@ function parseRecord(raw: RawFinalizeJournal): FinalizeJournalRecord {
     throw new TypeError('journal target identity column does not match record')
   }
   return record
+}
+
+const fileIdentitySchema = z.object({
+  kind: z.literal('file'),
+  size: z.number().int().nonnegative(),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/),
+  platformFileId: z.string().min(1),
+})
+const publicationIntentSchema = z
+  .object({
+    version: z.literal(1),
+    method: z.literal('hard_link'),
+    confirmed: z.literal(true).optional(),
+    sourcePath: z.string(),
+    identity: fileIdentitySchema,
+  })
+  .strict()
+const isolationSchema = z
+  .object({
+    directory: z.string(),
+    platformFileId: z.string().regex(/^\d+:\d+$/),
+  })
+  .strict()
+
+function validateIntents(record: FinalizeJournalRecord): void {
+  if (record.publicationIntent !== undefined) {
+    const intent = publicationIntentSchema.parse(record.publicationIntent)
+    const expectedPath =
+      record.publicationMode === 'move'
+        ? record.plan.sourcePath
+        : record.privateTargetPath
+    const expectedIdentity =
+      record.publicationMode === 'move'
+        ? record.plan.sourceIdentity
+        : record.privateTargetIdentity
+    if (
+      !expectedPath ||
+      !expectedIdentity ||
+      intent.sourcePath !== expectedPath ||
+      !artifactIdentityEquals(intent.identity, expectedIdentity) ||
+      finalizePathsEquivalent(intent.sourcePath, record.plan.targetPath)
+    ) {
+      throw new TypeError(
+        'journal publication intent does not match its installation source'
+      )
+    }
+  }
+  const removal = record.removalIntent
+  if (removal?.isolation !== undefined) {
+    const isolation = isolationSchema.parse(removal.isolation)
+    if (
+      !path.isAbsolute(isolation.directory) ||
+      path.dirname(isolation.directory) !==
+        path.dirname(removal.artifactPath) ||
+      removal.quarantinePath !== path.join(isolation.directory, 'payload') ||
+      removal.identity.kind !== 'file'
+    ) {
+      throw new TypeError('journal removal isolation is invalid')
+    }
+  }
 }
 
 function transitionAllowed(

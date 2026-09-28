@@ -1,3 +1,4 @@
+import type { MotrixIcon } from '@renderer/components/icons'
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -5,7 +6,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@renderer/components/ui/sidebar'
-import type { LucideIcon } from 'lucide-react'
 import type * as React from 'react'
 
 export function NavSecondary({
@@ -15,7 +15,7 @@ export function NavSecondary({
   items: {
     title: string
     url: string
-    icon: LucideIcon
+    icon: MotrixIcon
   }[]
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
   return (

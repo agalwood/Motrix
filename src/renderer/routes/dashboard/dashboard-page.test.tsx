@@ -156,6 +156,8 @@ describe('DashboardPage', () => {
         })
       if (channel === Commands.UpdateSettings && rejectUpdateSettings.current)
         return Promise.reject(new Error('write failed'))
+      if (channel === Commands.UpdateSettings)
+        return Promise.resolve({ saved: true })
       return Promise.resolve(null)
     })
   })

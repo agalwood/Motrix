@@ -27,8 +27,8 @@ describe('CurrentSummaryCard', () => {
 
     expect(screen.getByText('2.0 KB/s')).toBeInTheDocument()
     expect(screen.getByText('1.0 KB/s')).toBeInTheDocument()
-    expect(screen.getByText('3.0 KB/s')).toBeInTheDocument()
-    expect(screen.getByText('4.0 KB/s')).toBeInTheDocument()
+    expect(screen.getByText('3.1 KB/s')).toBeInTheDocument()
+    expect(screen.getByText('4.1 KB/s')).toBeInTheDocument()
     expect(screen.getByText('00:42')).toBeInTheDocument()
     expect(screen.queryByText(/Progress/i)).toBeNull()
     expect(screen.queryByText(/ETA/i)).toBeNull()

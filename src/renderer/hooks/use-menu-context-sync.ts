@@ -1,10 +1,12 @@
+import {
+  menuContextPatch,
+  subscribeMenuContext,
+} from '@renderer/features/application-menu/task-context'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import type { MenuContext } from '@shared/types/menu-context'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useSyncExternalStore } from 'react'
 import { useCurrentRoute } from './use-current-route'
-import { useSelectedTask } from './use-selected-task'
-import { useTaskList } from './use-task-list'
 
 type Patch = Partial<MenuContext>
 
@@ -14,7 +16,7 @@ function diff(prev: Patch, next: Patch): Patch {
   const out: Patch = {}
   let changed = false
   for (const key of Object.keys(next) as (keyof MenuContext)[]) {
-    if (prev[key] !== next[key]) {
+    if (JSON.stringify(prev[key]) !== JSON.stringify(next[key])) {
       ;(out as Record<string, unknown>)[key] = next[key]
       changed = true
     }
@@ -28,8 +30,9 @@ function diff(prev: Patch, next: Patch): Patch {
  * so the whole effect body is tree-shaken out of the bundle).
  */
 export function useMenuContextSync(): void {
-  const selected = useSelectedTask()
-  const list = useTaskList()
+  const signature = useSyncExternalStore(subscribeMenuContext, () =>
+    JSON.stringify(menuContextPatch())
+  )
   const route = useCurrentRoute()
   const acknowledged = useRef<Patch>({})
   const desired = useRef<Patch>({})
@@ -94,15 +97,9 @@ export function useMenuContextSync(): void {
     if (__MOTRIX_TARGET__ !== 'electron') return
 
     desired.current = {
-      selectedTaskId: selected.task?.id ?? null,
-      selectedTaskStatus: selected.task?.status ?? null,
-      selectedTaskAtTop: selected.atTop,
-      selectedTaskAtBottom: selected.atBottom,
-      hasAnyActiveTask: list.hasAnyActive,
-      hasAnyPausedTask: list.hasAnyPaused,
-      hasStoppedTasks: list.hasStopped,
+      ...JSON.parse(signature),
       currentRoute: route,
     }
     drainOutbox.current()
-  }, [selected, list, route])
+  }, [signature, route])
 }

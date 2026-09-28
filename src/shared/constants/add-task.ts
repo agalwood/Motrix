@@ -1,2 +1,2 @@
-export const ADD_TASK_COLLAPSED_HEIGHT = 374
+export const ADD_TASK_COLLAPSED_HEIGHT = 386
 export const ADD_TASK_MAX_HEIGHT = 760

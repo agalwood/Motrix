@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import path from 'node:path'
 import { TaskActivityService, TaskActivityStore } from '@core/activity'
+import { createDownloadDirectories } from '@core/bridge-receiver/download-directories'
 import { Aria2SegmentClient } from '@core/download/aria2-segment-client'
 import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
 import { Aria2ConfigBuilder } from '@core/engine/aria2/aria2-config-builder'
@@ -91,6 +92,7 @@ import { handleCreateTask } from '@core/task/create-task-handler'
 import { DirectResourceValidatorService } from '@core/task/direct-resource-validator'
 import { FileCleanupServiceImpl } from '@core/task/file-cleanup-service'
 import { FinalNamePickerImpl } from '@core/task/final-name-picker'
+import { MediaMetaStoreImpl } from '@core/task/media-meta-store'
 import {
   hasEngineTaskDelta,
   mergeEngineTask,
@@ -120,10 +122,19 @@ import {
 import type { NatManager } from '@motrix/nat'
 import { APP_ID } from '@shared/constants'
 import { DEFAULT_LOCALE, type SupportedLocale } from '@shared/constants/locales'
+import {
+  ALL_DOWNLOADS_ROUTE,
+  resolveTaskRoute,
+} from '@shared/lib/task-navigation'
 import { Events } from '@shared/protocol/events'
+import {
+  DEFAULT_BYTE_UNIT_PREFERENCE,
+  resolveByteUnitSystem,
+} from '@shared/schemas/byte-unit-system'
 import { REGISTRY_CACHE_FILENAME } from '@shared/schemas/registry'
 import { EngineState } from '@shared/types/engine'
 import type { AppNotification } from '@shared/types/notification'
+import { getHiddenNotificationKinds } from '@shared/types/notification'
 import type { AppSettings } from '@shared/types/settings'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskType } from '@shared/types/task'
@@ -137,14 +148,10 @@ import {
   shell,
   systemPreferences,
 } from 'electron'
-import { autoUpdater } from 'electron-updater'
 import { bootstrapBridge, createNativeMessagingInstaller } from './bridge'
 import { BridgeManager } from './bridge/bridge-manager'
 import { isPackagedLinuxFlatpak } from './bridge/flatpak-environment'
-import {
-  isElectronSelfUpdateSupported,
-  resolvePackagedLinuxSnapEnvironment,
-} from './bridge/snap-environment'
+import { resolvePackagedLinuxSnapEnvironment } from './bridge/snap-environment'
 import { CliToolService } from './cli/cli-tool-service'
 import { resolveExecutable } from './cli/shell-environment'
 import { CommandRegistry } from './commands/command-registry'
@@ -152,11 +159,11 @@ import { ContextStore } from './commands/context-store'
 import { registerAllCommands } from './commands/definitions'
 import { KeybindingRegistry } from './commands/keybindings/keybinding-registry'
 import type { CommandDeps } from './commands/types'
+import { createAppUpdateService } from './core/app-update-service'
 import {
   DevelopmentUpdateSimulator,
   shouldUseDevelopmentUpdateSimulator,
 } from './core/development-update-simulator'
-import { UpdateManager } from './core/update-manager'
 import { registerUpdateQuitPreparation } from './core/update-quit-preparation'
 import { setupExceptionHandler } from './exception-handler'
 import { registerApplicationMenuIpc } from './ipc/application-menu'
@@ -181,11 +188,15 @@ import { setupAppImageIntegration } from './platform/appimage-integration-host'
 import { syncAutoLaunch } from './platform/auto-launch'
 import { resolveDefaultSaveDirOptions } from './platform/default-save-dir'
 import { resolveDesktopBackgroundPolicy } from './platform/desktop-background-policy'
+import { resolveDistributionContext } from './platform/distribution-context'
 import { removePathRecursive, renameAtomic } from './platform/fs-helpers'
 import { setupNativeThemeSync } from './platform/native-theme-sync'
 import { setupPowerManager } from './platform/power-manager'
 import { createProtocolManager } from './platform/protocol-manager'
+import { isElectronSelfUpdateSupported } from './platform/self-update-policy'
 import { createElectronPlatformServices } from './platform/services'
+import { setupSystemAccentColorSync } from './platform/system-accent-color'
+import { removeTaskPath } from './platform/task-file-remover'
 import { setupTray } from './platform/tray'
 import { createElectronCapabilityHost } from './plugin/capability-host'
 import { startDevWatcher } from './plugin/dev-watcher'
@@ -213,7 +224,13 @@ import { resolveMainWindowStartupPlan } from './window/window-startup-plan'
 
 suppressMacOSAutomaticFullscreenMenuItem(process.platform, systemPreferences)
 
-if (process.platform === 'win32') {
+const distributionContext = resolveDistributionContext({
+  platform: process.platform,
+  isPackaged: app.isPackaged,
+  windowsStore: process.windowsStore,
+})
+
+if (process.platform === 'win32' && !distributionContext.isWindowsPackage) {
   app.setAppUserModelId(APP_ID)
 }
 
@@ -234,7 +251,7 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('password-store', 'basic')
 }
 
-const platform = createElectronPlatformServices()
+const platform = createElectronPlatformServices(distributionContext)
 const rendererUrlPolicy = initializeRendererUrlPolicy({
   isPackaged: app.isPackaged,
   appPath: app.getAppPath(),
@@ -324,12 +341,47 @@ const cliToolService = new CliToolService({
     !settingsFlatpakEnvironment && settingsSnapEnvironment === null,
 })
 const settingsManager = new SettingsManager(settingsPath, {
+  defaultByteUnitSystem: resolveByteUnitSystem(
+    DEFAULT_BYTE_UNIT_PREFERENCE,
+    process.platform
+  ),
   liquidGlassEffectDefault: shouldEnableLiquidGlassByDefault({
     isDev: platform.isDev,
   }),
   ...defaultSaveDirOptions,
   onChange: (old, updated) => {
     eventBus.emit(Events.SettingsChanged, { old, updated })
+    if (
+      old.app.notifyInAppOnComplete !== updated.app.notifyInAppOnComplete ||
+      old.app.notifyInAppOnError !== updated.app.notifyInAppOnError ||
+      old.app.notificationBadgeStyle !== updated.app.notificationBadgeStyle
+    ) {
+      eventBus.emit(Events.NotificationsChanged)
+    }
+    if (old.app.sidebarColor !== updated.app.sidebarColor) {
+      eventBus.emit(Events.SidebarColorChanged, {
+        sidebarColor: updated.app.sidebarColor,
+      })
+    }
+    if (old.app.liquidGlassEffect !== updated.app.liquidGlassEffect) {
+      eventBus.emit(Events.LiquidGlassChanged, {
+        liquidGlassEffect: updated.app.liquidGlassEffect,
+      })
+    }
+    if (old.app.byteUnitSystem !== updated.app.byteUnitSystem) {
+      eventBus.emit(Events.ByteUnitSystemChanged, {
+        byteUnitSystem: updated.app.byteUnitSystem,
+      })
+    }
+    if (
+      JSON.stringify(old.app.directoryPreferences) !==
+      JSON.stringify(updated.app.directoryPreferences)
+    ) {
+      eventBus.emit(
+        Events.DirectoryPreferencesChanged,
+        structuredClone(updated.app.directoryPreferences)
+      )
+    }
     if (old.app.reduceMotion !== updated.app.reduceMotion) {
       eventBus.emit(Events.ReducedMotionChanged, {
         reduceMotion: updated.app.reduceMotion,
@@ -415,8 +467,12 @@ const finalNamePicker = new FinalNamePickerImpl({
 const torrentMetaStore = new TorrentMetaStoreImpl(
   path.join(platform.userDataDir, 'torrents')
 )
+const mediaMetaStore = new MediaMetaStoreImpl(
+  path.join(platform.userDataDir, 'media')
+)
 const fileCleanupService = new FileCleanupServiceImpl({
-  removePathRecursive,
+  removePathRecursive: (absPath) =>
+    removeTaskPath(absPath, settingsManager.getApp().fileDeletionMode),
 })
 
 // ─── Late-Initialized (assigned in app.on('ready')) ─────
@@ -435,9 +491,11 @@ let notificationCenter: NotificationCenter
 // Constructed and registered in startEngineAndRestore; its task retry is
 // late-bound by buildCommandHandlers to the ReAddTasks deps bundle.
 let dnsFallbackConsumer: DnsFallbackConsumer | undefined
+let recoveryService: TaskRecoveryServiceImpl | undefined
 let dnsFallbackRetry: ((taskId: string) => Promise<unknown>) | undefined
 let trayHandle: ReturnType<typeof setupTray> | null = null
 let natManager: NatManager | null = null
+let stopNatDiagnostics: (() => Promise<void>) | null = null
 let trackerManager: TrackerManager | null = null
 let menuManager: MenuManager | null = null
 let osNotificationBridge: { dispose(): void } | null = null
@@ -547,7 +605,10 @@ function performCleanup(): Promise<void> {
       safely('magnet', () => magnetTracker?.stopAndDrain()),
       safely('speed-limit', () => speedLimitController?.stop()),
       safely('geoip', () => geoipManager?.stop()),
-      safely('nat', () => natManager?.stop()),
+      safely('nat', async () => {
+        await stopNatDiagnostics?.()
+        await natManager?.stop()
+      }),
     ])
     // Tracker edits pause active tasks while changing bt-tracker. Drain their
     // unconditional resume compensation while both Session persistence and
@@ -605,14 +666,18 @@ function loadWindowUrl(win: BrowserWindow, route: string) {
 function dispatchWhenReady(
   win: BrowserWindow,
   channel: string,
-  payload: unknown
+  payload: unknown,
+  resolvePayload?: () => unknown
 ) {
   const dispatchLog = getLogger('dispatch')
   const send = (reason: string) => {
     setTimeout(() => {
       if (!win.isDestroyed()) {
         dispatchLog.info({ channel, reason }, 'webContents.send firing')
-        win.webContents.send(channel, payload)
+        win.webContents.send(
+          channel,
+          resolvePayload ? resolvePayload() : payload
+        )
       } else {
         dispatchLog.warn({ channel, reason }, 'window destroyed before send')
       }
@@ -625,6 +690,21 @@ function dispatchWhenReady(
   } else {
     send('already-loaded')
   }
+}
+
+// Notifications and protocol links share the same last-moment availability
+// check, including the wait for a released main window to finish loading.
+function navigateToTask(taskId: string) {
+  runShellAsyncWork('task navigation', async () => {
+    // A cold-start link can arrive before the persisted tasks are restored.
+    await mainProcessWork.waitForStartup()
+    if (!mainProcessWork.isAccepting()) return
+    const win = windowManager?.get('main')
+    if (!win || win.isDestroyed()) return
+    dispatchWhenReady(win, Events.NavigateTo, ALL_DOWNLOADS_ROUTE, () =>
+      resolveTaskRoute(taskId, taskManager.getById(taskId)?.status)
+    )
+  })
 }
 
 // Each new add-task BrowserWindow gets a `closed` listener that resets
@@ -688,6 +768,11 @@ const protocolManager = createProtocolManager({
     const win = windowManager.get('main')
     if (!win || win.isDestroyed()) return
     dispatchWhenReady(win, Events.NavigateTo, `/plugins/${pluginId}`)
+  },
+  onOpenTaskDetail: (taskId) => {
+    if (!windowManager) return
+    windowManager.show('main')
+    navigateToTask(taskId)
   },
 })
 
@@ -1104,6 +1189,7 @@ function buildFinalizeDeps(adapter: Aria2Adapter) {
         ? taskInspectorActivityRuntime.runTaskMutation(taskIds, operation)
         : operation(),
     log,
+    finalNamePicker,
     commitFinalizedArtifact: async (input: FinalizeArtifactCommitRequest) => {
       if (!durableFinalizeRuntime) {
         throw new Error('durable finalize runtime is unavailable')
@@ -1261,7 +1347,7 @@ async function startEngineAndRestore(
     // renderer observes a self-healed state as soon as updates start
     // flowing. See design spec §6.6.
     const finalizeDepsFactory = () => buildFinalizeDeps(adapter)
-    const recoveryService = new TaskRecoveryServiceImpl({
+    recoveryService = new TaskRecoveryServiceImpl({
       taskManager: {
         getAll: () => taskManager.getAll(),
         set: (id: string, task: DownloadTask) => taskManager.set(id, task),
@@ -1587,30 +1673,41 @@ async function initializeMainProcess(): Promise<void> {
   // Apply the persisted theme before opening windows. Renderer-drawn Windows
   // controls inherit the same theme through CSS without native overlay sync.
   setupNativeThemeSync(eventBus, settingsManager)
+  const systemAccentSync = setupSystemAccentColorSync(eventBus)
+  app.once('will-quit', () => systemAccentSync.destroy())
   // Install forwarding before the onboarding window becomes interactive.
   // SetDisclaimerLanguage persists before its asynchronous locale transaction
   // completes; an immediate AcceptDisclaimer can open the main window in that
   // interval. Early forwarding guarantees the eventual LocaleChanged reaches
   // either the onboarding window or the newly-opened main window (whose
   // preload buffers it until React subscribes).
-  setupEventForwarding(eventBus, windowManager)
+  setupEventForwarding(eventBus, windowManager, () =>
+    getHiddenNotificationKinds(settingsManager.getApp())
+  )
 
-  // Best-effort OS notification bridge (Task 16, spec §6): windowManager and
-  // settingsManager are both live at this point, which is all it depends on
-  // — it subscribes directly to eventBus and doesn't need the engine or
-  // notificationCenter (constructed later, in Phase 2 below — see the F4
-  // hoist comment) to exist yet, since it only reacts to NotificationAdded
-  // once emitted.
+  // Subscribe before notification-center replay. Resolve task paths on click
+  // so notifications follow any output moves made after download completion.
+  const revealNotificationTask = createRevealInFolderHandler({
+    shell,
+    getTask: (taskId) => taskManager.getById(taskId),
+  })
   osNotificationBridge = createOsNotificationBridge({
     subscribe: (channel, listener) =>
       eventBus.on(channel, (...args: unknown[]) =>
         listener(args[0] as AppNotification)
       ),
     getMainWindow: () => windowManager?.get('main') ?? null,
+    showMainWindow: () => windowManager?.show('main'),
     getAppSettings: () => settingsManager.getApp(),
     translate: i18n.t.bind(i18n),
-    navigateToTask: (taskId) =>
-      eventBus.emit(Events.NavigateTo, `/downloads/all?task=${taskId}`),
+    getTaskStatus: (taskId) => taskManager.getById(taskId)?.status ?? null,
+    navigateToTask,
+    navigateToDownloads: () => {
+      const win = windowManager?.get('main')
+      if (!win || win.isDestroyed()) return
+      dispatchWhenReady(win, Events.NavigateTo, ALL_DOWNLOADS_ROUTE)
+    },
+    revealTaskInFolder: (taskId) => revealNotificationTask({ taskId }),
     log,
   })
 
@@ -1626,6 +1723,7 @@ async function initializeMainProcess(): Promise<void> {
     })
     const mainWindowPlan = resolveMainWindowStartupPlan({
       openedAtLogin: launcher.wasOpenedAtLogin,
+      showMainWindowAtLogin: settingsManager.getApp().showMainWindowAtLogin,
       runMode,
       releaseWhenHidden: backgroundPolicy.releaseMainWindowWhenHidden,
     })
@@ -1635,6 +1733,8 @@ async function initializeMainProcess(): Promise<void> {
   } else {
     const disposeDisclaimerIpc = registerDisclaimerIpc({
       gate,
+      getResolvedLanguage: () => resolvedApplicationLocale,
+      applyLocale: (language) => enqueueLocaleUpdate(language, true),
       settings: settingsManager,
       windowManager,
       canContinue: () => mainProcessWork.isAccepting(),
@@ -1678,7 +1778,9 @@ async function initializeMainProcess(): Promise<void> {
   // Use that window to set up IPC handlers and core services.
 
   rpcClient = new Aria2RpcClient(transport, protocol, engineSettings.rpcSecret)
-  aria2Adapter = new Aria2Adapter(rpcClient)
+  aria2Adapter = new Aria2Adapter(rpcClient, undefined, () =>
+    settingsManager.getEngine()
+  )
   const adapter = aria2Adapter
   proxyBridge = new ProxyBridgeManager()
   supervisor = new EngineSupervisor(
@@ -1719,6 +1821,10 @@ async function initializeMainProcess(): Promise<void> {
   )
 
   motrixDb.init()
+  await mediaMetaStore
+    .pruneOrphans(motrixDb.getAllTasks().map(({ task }) => task.motrixId))
+    .catch((err) => log.warn({ err }, 'Media metadata recovery failed'))
+
   const activityEnvironment = taskInspectorActivityEnvironment(process.env)
   const activeTaskInspectorActivityRuntime = new TaskInspectorActivityRuntime(
     new TaskInspectorActivityStore(motrixDb.database),
@@ -1997,6 +2103,8 @@ async function initializeMainProcess(): Promise<void> {
     isEngineReady: () => supervisor.getState() === EngineState.Ready,
   })
   natManager = natStack.manager
+  stopNatDiagnostics = natStack.stopDiagnostics
+  natStack.startDiagnostics()
   log.info('NatManager constructed')
 
   const startupGeoipManager = new GeoIPManager({
@@ -2070,14 +2178,15 @@ async function initializeMainProcess(): Promise<void> {
         onQuitAndInstall: () => app.quit(),
       })
     : null
-  const updateBackend = developmentUpdateSimulator ?? autoUpdater
   const updatesSupported =
-    updateSimulatorEnabled ||
-    isElectronSelfUpdateSupported({
-      hasUpdateMetadata,
-      isPackaged: app.isPackaged,
-      snapEnvironment: settingsSnapEnvironment,
-    })
+    !distributionContext.isWindowsPackage &&
+    (updateSimulatorEnabled ||
+      isElectronSelfUpdateSupported({
+        hasUpdateMetadata,
+        isPackaged: app.isPackaged,
+        isWindowsPackage: distributionContext.isWindowsPackage,
+        isSnap: settingsSnapEnvironment !== null,
+      }))
   if (developmentUpdateSimulator) {
     log.info('development update simulator enabled')
     registerUpdateQuitPreparation({
@@ -2087,13 +2196,18 @@ async function initializeMainProcess(): Promise<void> {
     })
   }
   if (!mainProcessWork.isAccepting()) return
-  const updateManager = new UpdateManager({
+  const updateManager = await createAppUpdateService({
     eventBus,
-    updater: updateBackend,
     currentVersion: app.getVersion(),
     channel: settingsManager.getApp().updateChannel,
+    isWindowsPackage: distributionContext.isWindowsPackage,
     supported: updatesSupported,
+    loadUpdater: async () =>
+      developmentUpdateSimulator ??
+      (await import('electron-updater')).default.autoUpdater,
+    getManagedMessage: () => i18n.t('settings.about.update.managedDescription'),
   })
+  if (!mainProcessWork.isAccepting()) return
 
   const trackerStorePath = path.join(platform.userDataDir, 'tracker.json')
   const trackerStore = new TrackerStore(trackerStorePath)
@@ -2317,6 +2431,7 @@ async function initializeMainProcess(): Promise<void> {
       adapter,
       log,
       fileCleanupService,
+      mediaMetaStore,
       torrentMetaStore,
       eventBus,
       db: motrixDb,
@@ -2380,7 +2495,6 @@ async function initializeMainProcess(): Promise<void> {
         },
         (candidate) => resolveExecutable(candidate, process.env)
       )
-    const ff = await resolveFfmpegLocation()
     const segmentAria2Client = new Aria2SegmentClient(rpcClient, adapter)
     segmentClient = segmentAria2Client
     const revealInFolder = createRevealInFolderHandler({
@@ -2394,10 +2508,14 @@ async function initializeMainProcess(): Promise<void> {
     }
     // mediaTmpDir / mediaTmpRoot were computed once at bootstrap (above) so
     // SessionManager.restore() and the poll loop share the exact same root.
+    const downloadDirectories = createDownloadDirectories({
+      getSettings: () => settingsManager.getApp(),
+    })
     return bootstrapBridge({
+      mediaMetaStore,
       getMainWindow: () => windowManager?.get('main') ?? null,
       motrixVersion: app.getVersion(),
-      ffmpegAvailable: ff.available,
+      ffmpegAvailable: async () => (await resolveFfmpegLocation()).available,
       enabled: true,
       // Read fresh on every factory invocation (including a hot restart from
       // BridgeManager.restart()), so a `bridge.fixedPort`/`instanceId` change
@@ -2426,8 +2544,15 @@ async function initializeMainProcess(): Promise<void> {
       isMagnetFileSelectionEnabled: () =>
         settingsManager.getApp().magnetFileSelection,
       finalNamePicker,
-      defaultSaveDir: settingsManager.getApp().defaultSaveDir,
+      getDefaultSaveDir: () => settingsManager.getApp().defaultSaveDir,
+      resolveSaveDir: downloadDirectories.resolveSelection,
+      recordDirectory: (path) =>
+        settingsManager.mutateDirectoryPreferences({
+          action: 'recordRecent',
+          path,
+        }),
       readHandlerDeps: {
+        getDownloadDirectories: downloadDirectories.list,
         taskManager,
         statsAggregator,
         supervisor,
@@ -2444,7 +2569,7 @@ async function initializeMainProcess(): Promise<void> {
           (await torrentParser.parse(base64)).files.length,
         revealTask: (taskId) => revealInFolder({ taskId }),
       },
-      ffmpegBinaryPath: ff.binaryPath,
+      ffmpegBinaryPath: null,
       resolveFfmpegBinaryPath: async () =>
         (await resolveFfmpegLocation()).binaryPath,
       publishTaskUpdate,
@@ -2472,8 +2597,10 @@ async function initializeMainProcess(): Promise<void> {
       pluginHost: pluginHost!,
     })
   }
-  bridgeManager = new BridgeManager(createBridgeRuntime, () =>
-    nativeMessagingInstaller.unregister()
+  bridgeManager = new BridgeManager(
+    createBridgeRuntime,
+    () => nativeMessagingInstaller.unregister(),
+    !nativeMessagingInstaller.preserveOnStartupFailure
   )
 
   const registryClient = new RegistryClient({
@@ -2531,6 +2658,7 @@ async function initializeMainProcess(): Promise<void> {
   notificationCenter = new NotificationCenter({
     store: motrixDb,
     emit: eventBus.emit.bind(eventBus),
+    getHiddenKinds: () => getHiddenNotificationKinds(settingsManager.getApp()),
     log,
   })
   const disposeNotificationIpc = registerNotificationIpc({
@@ -2548,14 +2676,25 @@ async function initializeMainProcess(): Promise<void> {
   })
 
   const disposeCommandHandlers = registerCommandHandlers({
+    mediaMetaStore,
     cliToolService,
     supervisor,
     dnsFallback: { reset: () => dnsFallbackConsumer?.reset() },
     bindTaskRetry: (fn) => {
       dnsFallbackRetry = fn
     },
+    recoverFinalization: async (taskId) => {
+      if (!recoveryService) throw new Error('Task recovery is not ready')
+      try {
+        const report = await recoveryService.recoverTaskById(taskId)
+        if (report.errors.length > 0) throw new Error(report.errors[0].issue)
+      } finally {
+        publishTaskUpdateNow()
+      }
+    },
     sessionManager,
     settingsManager,
+    applyLocale: (language) => enqueueLocaleUpdate(language, true),
     protocolManager,
     windowManager,
     natManager,
@@ -2616,6 +2755,8 @@ async function initializeMainProcess(): Promise<void> {
     overlayDir,
   })
   const disposeQueryHandlers = registerQueryHandlers({
+    getResolvedLanguage: () => resolvedApplicationLocale,
+    mediaMetaStore,
     cliToolService,
     taskManager,
     statsAggregator,
@@ -2770,7 +2911,7 @@ function beginShutdown(): void {
   // still-live renderer can react by invoking queries after their handlers
   // have been removed.
   windowManager?.destroyAll()
-  trayHandle?.destroy()
+  trayHandle?.prepareForQuit()
   menuManager?.dispose()
   osNotificationBridge?.dispose()
 
@@ -2796,11 +2937,13 @@ const quitController = new QuitController({
   beginShutdown,
 })
 
-registerUpdateQuitPreparation({
-  updater: nativeAutoUpdater,
-  markForceQuit: () => quitController.markForceQuit(),
-  setWillQuit: (value) => windowManager?.setWillQuit(value),
-})
+if (!distributionContext.isWindowsPackage) {
+  registerUpdateQuitPreparation({
+    updater: nativeAutoUpdater,
+    markForceQuit: () => quitController.markForceQuit(),
+    setWillQuit: (value) => windowManager?.setWillQuit(value),
+  })
+}
 
 const requestForcedQuit = (reason: string) => {
   log.info({ reason }, 'received forced quit request')

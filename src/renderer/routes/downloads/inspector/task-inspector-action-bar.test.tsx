@@ -1,8 +1,28 @@
+import { RemoveTasksDialogHost } from '@renderer/routes/downloads/inspector/remove-tasks-dialog-host'
+import { useRemoveTasksStore } from '@renderer/routes/downloads/inspector/remove-tasks-store'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, TaskType } from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  fireEvent,
+  render as renderBase,
+  screen,
+  waitFor,
+} from '@testing-library/react'
+import type { ReactElement } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+function render(element: ReactElement) {
+  return renderBase(
+    <>
+      <RemoveTasksDialogHost />
+      {element}
+    </>
+  )
+}
+beforeEach(() =>
+  useRemoveTasksStore.setState({ open: false, targets: [], busy: false })
+)
 
 vi.mock('@renderer/lib/transport', () => ({
   transport: { invoke: vi.fn().mockResolvedValue({ ok: true }) },
@@ -44,6 +64,60 @@ function makeTask(overrides: Partial<DownloadTask> = {}): DownloadTask {
 }
 
 describe('TaskInspectorActionBar', () => {
+  it('opens a completed file from the inspector and allows retry after failure', async () => {
+    vi.mocked(transport.invoke).mockClear()
+    let reject!: (error: Error) => void
+    vi.mocked(transport.invoke).mockReturnValueOnce(
+      new Promise((_resolve, fail) => {
+        reject = fail
+      })
+    )
+    render(
+      <TaskInspectorActionBar
+        selected={[makeTask({ status: TaskStatus.Completed })]}
+        onClose={vi.fn()}
+      />
+    )
+    const button = screen.getByRole('button', { name: 'Open file' })
+    fireEvent.click(button)
+    fireEvent.click(button)
+    expect(transport.invoke).toHaveBeenCalledTimes(1)
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.OpenTaskFile, {
+      taskId: 't1',
+    })
+    expect(button).toHaveProperty('disabled', true)
+    reject(new Error('File no longer exists'))
+    await waitFor(() =>
+      expect(toastAddMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Could not open file',
+          description: 'File no longer exists',
+          type: 'error',
+        })
+      )
+    )
+    await waitFor(() => expect(button).toHaveProperty('disabled', false))
+    fireEvent.click(button)
+    await waitFor(() => expect(transport.invoke).toHaveBeenCalledTimes(2))
+  })
+
+  it.each(
+    [
+      [makeTask({ status: TaskStatus.Downloading })],
+      [makeTask({ status: TaskStatus.Finalizing })],
+      [makeTask({ status: TaskStatus.Error })],
+      [makeTask({ status: TaskStatus.Completed, fileCount: 2 })],
+      [makeTask({ status: TaskStatus.Completed, finalPath: '', diskPath: '' })],
+      [
+        makeTask({ id: 'a', status: TaskStatus.Completed }),
+        makeTask({ id: 'b', status: TaskStatus.Completed }),
+      ],
+    ].map((selected) => ({ selected }))
+  )('hides Open file for ineligible selections: $selected', ({ selected }) => {
+    render(<TaskInspectorActionBar selected={selected} onClose={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: 'Open file' })).toBeNull()
+  })
+
   it('Downloading single: shows Pause + Copy URL + Remove', () => {
     render(
       <TaskInspectorActionBar
@@ -261,16 +335,24 @@ describe('TaskInspectorActionBar', () => {
     expect(screen.queryByText('(1)')).toBeNull()
   })
 
-  it('clicking Remove opens the confirmation dialog', () => {
-    render(
-      <TaskInspectorActionBar
-        selected={[makeTask({ status: TaskStatus.Downloading })]}
-        onClose={vi.fn()}
-      />
-    )
-    fireEvent.click(screen.getByRole('button', { name: /Remove/ }))
-    expect(screen.getByText(/Remove “sample”\?/)).toBeDefined()
-  })
+  it.each([false, true])(
+    'clicking Remove preserves Shift=%s in the confirmation dialog',
+    (shift) => {
+      render(
+        <TaskInspectorActionBar
+          selected={[makeTask({ status: TaskStatus.Downloading })]}
+          onClose={vi.fn()}
+        />
+      )
+      fireEvent.click(screen.getByRole('button', { name: /Remove/ }), {
+        shiftKey: shift,
+      })
+      expect(screen.getByText(/Remove “sample”\?/)).toBeDefined()
+      expect(screen.getByRole('checkbox').getAttribute('aria-checked')).toBe(
+        String(shift)
+      )
+    }
+  )
 
   describe('Copy URL', () => {
     beforeEach(() => {
@@ -295,7 +377,7 @@ describe('TaskInspectorActionBar', () => {
         />
       )
       const copyButton = screen.getByRole('button', { name: /Copy URL/ })
-      expect(copyButton.querySelector('.lucide-copy')).not.toBeNull()
+      expect(copyButton.querySelector('[data-icon="copy"]')).not.toBeNull()
 
       fireEvent.click(copyButton)
       await waitFor(() =>
@@ -303,7 +385,7 @@ describe('TaskInspectorActionBar', () => {
           'https://example.com/file.zip'
         )
       )
-      expect(copyButton.querySelector('.lucide-check')).not.toBeNull()
+      expect(copyButton.querySelector('[data-icon="check"]')).not.toBeNull()
     })
 
     it('BT task with infoHash copies a magnet URI carrying name + trackers', async () => {
@@ -419,8 +501,8 @@ describe('TaskInspectorActionBar', () => {
 
       await waitFor(() => expect(toastAddMock).toHaveBeenCalledTimes(1))
       expect(navigator.clipboard.writeText).not.toHaveBeenCalled()
-      expect(copyButton.querySelector('.lucide-copy')).not.toBeNull()
-      expect(copyButton.querySelector('.lucide-check')).toBeNull()
+      expect(copyButton.querySelector('[data-icon="copy"]')).not.toBeNull()
+      expect(copyButton.querySelector('[data-icon="check"]')).toBeNull()
     })
   })
 })

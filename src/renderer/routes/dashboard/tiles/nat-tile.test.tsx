@@ -5,6 +5,7 @@ import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
 import {
   NatPortReachability,
+  NatProtocol,
   NatState,
   type NatStatus,
   NatType,
@@ -126,33 +127,29 @@ describe('NatTile', () => {
     expect(screen.getByText('NAT')).toBeInTheDocument()
   })
 
-  it('shows the Active state label', () => {
+  it('uses a concise compact label and the Engine tile status dot in the footer', () => {
     natState.status = makeStatus({ state: NatState.Active })
     const { container } = render(<NatTile viewport={COMPACT} />)
-    const stateLabel = screen.getByText('Active')
+    const stateLabel = screen.getByText('Mapped')
     expect(stateLabel).toBeInTheDocument()
-    expect(stateLabel.parentElement).toHaveClass(
-      'h-8',
-      'text-[22px]',
-      'leading-none'
-    )
+    expect(stateLabel.parentElement).toHaveClass('text-[22px]', 'h-8')
     expect(stateLabel).toHaveClass('leading-[26px]')
-    expect(screen.getByTestId('nat-hero')).toContainElement(
+    expect(screen.getByTestId('nat-hero')).not.toContainElement(
       container.querySelector('[data-slot="status-dot"]')
     )
-    expect(
-      container.querySelector('[data-slot="status-dot"]')
-    ).not.toHaveAttribute('data-pulse')
+    expect(container.querySelector('[data-slot="status-dot"]')).toHaveAttribute(
+      'data-pulse',
+      'true'
+    )
   })
 
-  it('pulses only while NAT is transitioning', () => {
+  it('pulses while mapping and settles to a neutral dot after retries are exhausted', () => {
     natState.status = makeStatus({ state: NatState.Discovering })
     const { container, rerender } = render(<NatTile viewport={COMPACT} />)
-
+    expect(screen.getByText('Mapping')).toBeInTheDocument()
     const dot = container.querySelector('[data-slot="status-dot"]')
-    expect(dot).toHaveAttribute('data-bucket', 'settingUp')
+    expect(dot).toHaveClass('status-dot', 'bg-amber-500')
     expect(dot).toHaveAttribute('data-pulse', 'true')
-    expect(dot).toHaveClass('bg-blue-500')
 
     natState.status = makeStatus({
       state: NatState.Failed,
@@ -160,27 +157,36 @@ describe('NatTile', () => {
       maxRetries: 3,
     })
     rerender(<NatTile viewport={COMPACT} />)
-
-    expect(dot).toHaveAttribute('data-bucket', 'failed')
-    expect(dot).not.toHaveAttribute('data-pulse')
-    expect(dot).toHaveClass('bg-red-500')
+    const settledDot = container.querySelector('[data-slot="status-dot"]')
+    expect(settledDot).not.toHaveAttribute('data-pulse')
+    expect(settledDot).toHaveAttribute('data-bucket', 'failed')
+    expect(settledDot).toHaveClass('bg-muted-foreground/40')
+    expect(screen.getByText('Mapping')).toBeInTheDocument()
+    expect(screen.queryByText('Failed')).not.toBeInTheDocument()
   })
 
   it('localizes the state label to Chinese', async () => {
     await i18n.changeLanguage('zh-CN')
     natState.status = makeStatus({ state: NatState.Active })
     render(<NatTile viewport={COMPACT} />)
-    expect(screen.getByText('已激活')).toBeInTheDocument()
+    expect(screen.getByText('已映射')).toBeInTheDocument()
   })
 
-  it('shows the retry counter while retrying', () => {
+  it('keeps retries in the menu and does not offer another attempt while retrying', async () => {
     natState.status = makeStatus({
       state: NatState.Failed,
       retryAttempt: 2,
       maxRetries: 3,
     })
     render(<NatTile viewport={COMPACT} />)
-    expect(screen.getByText('Retrying 2/3')).toBeInTheDocument()
+    expect(screen.getByText('Mapping')).toBeInTheDocument()
+    expect(screen.queryByText(/Automatic retries/)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'NAT controls' }))
+    expect(await screen.findByText('Automatic retries (2/3)')).toBeVisible()
+    expect(
+      screen.queryByRole('menuitem', { name: 'Retry' })
+    ).not.toBeInTheDocument()
+    expect(mockInvoke).not.toHaveBeenCalled()
   })
 
   it('shows the Off label when NAT status is unavailable', () => {
@@ -214,9 +220,6 @@ describe('NatTile', () => {
     expect(summary).toHaveTextContent('Port restricted')
     expect(summary).toHaveTextContent('Mappings')
     expect(summary).toHaveTextContent('0 active')
-    const controls = screen.getByRole('group', { name: 'NAT controls' })
-    expect(screen.getByTestId('nat-hero')).toContainElement(controls)
-    expect(summary).not.toContainElement(controls)
     for (const item of [
       ...within(summary).getAllByRole('term'),
       ...within(summary).getAllByRole('definition'),
@@ -272,69 +275,112 @@ describe('NatTile', () => {
     expect(within(details).getAllByRole('term')).toHaveLength(5)
     expect(within(details).getAllByRole('definition')).toHaveLength(5)
     expect(screen.getByTestId('nat-metric-external-ip')).toHaveClass(
-      'col-span-2'
+      'col-span-full'
     )
   })
 
-  it('keeps the featured metric and two-column hierarchy when tall', () => {
+  it('stacks diagnostic fields in one column in the narrow tall presentation', () => {
     render(<NatTile viewport={TALL_DETAILED} />)
 
-    expect(screen.getByTestId('nat-details')).toHaveClass('grid-cols-2')
+    expect(screen.getByTestId('nat-details')).toHaveClass('grid-cols-1')
     expect(screen.getByTestId('nat-details')).toHaveAttribute(
       'data-orientation',
       'tall'
     )
     expect(screen.getByTestId('nat-metric-external-ip')).toHaveClass(
-      'col-span-2'
+      'col-span-full'
     )
   })
 
-  it('keeps only the toggle in compact and uses concise focus action text', () => {
-    const { rerender } = render(<NatTile viewport={COMPACT} />)
+  it.each([SUMMARY, TALL_DETAILED, SQUARE_DETAILED, FOCUS])(
+    'replaces stale diagnostic fields with a quiet empty state when off in $contentLevel',
+    (viewport) => {
+      natState.status = makeStatus({
+        enabled: false,
+        lastDiagnostic: {
+          runAt: Date.now(),
+          natType: NatType.Open,
+          gatewayInfo: null,
+          portReachability: {
+            btListenPort: NatPortReachability.Reachable,
+            dhtListenPort: NatPortReachability.Reachable,
+          },
+          protocolAvailability: { pcp: true, natpmp: true, upnp: true },
+          healthScore: 'good',
+          recommendations: [],
+        },
+      })
+      render(<NatTile viewport={viewport} />)
 
-    expect(screen.queryByTestId('nat-actions')).not.toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'Disable NAT' })
-    ).toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: 'Run diagnostic' })
-    ).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole('link', { name: 'NAT settings' })
-    ).not.toBeInTheDocument()
+      expect(screen.getByText('Off')).toBeInTheDocument()
+      expect(screen.getByTestId('nat-empty')).toHaveTextContent(
+        'BT port mapping is off.'
+      )
+      expect(screen.queryByText('Good')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('nat-details')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('nat-summary')).not.toBeInTheDocument()
+    }
+  )
+
+  it('adds protocol and port details only in the full-height presentation', () => {
+    natState.status = makeStatus({
+      activeMappings: [
+        {
+          purpose: 'bt-listen',
+          protocol: 'TCP',
+          method: NatProtocol.Upnp,
+          internalPort: 6881,
+          externalPort: 16881,
+          ttl: 3600,
+          expiresAt: Date.now() + 3600_000,
+          createdAt: Date.now(),
+          lastRenewedAt: Date.now(),
+        },
+      ],
+    })
+    const { rerender } = render(<NatTile viewport={SQUARE_DETAILED} />)
+    expect(screen.queryByTestId('nat-mapping-list')).not.toBeInTheDocument()
 
     rerender(<NatTile viewport={FOCUS} />)
-
-    expect(screen.getByTestId('nat-actions').children).toHaveLength(3)
+    const mappings = screen.getByRole('region', { name: 'Mapped ports' })
+    expect(within(mappings).getByText('BitTorrent')).toBeInTheDocument()
+    expect(within(mappings).getByText('TCP / UPnP')).toBeInTheDocument()
     expect(
-      screen.getByRole('group', { name: 'NAT controls' })
+      within(mappings).getByText('Internal 6881 to external 16881')
     ).toBeInTheDocument()
-    expect(
-      screen.getByRole('link', { name: 'NAT settings' })
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'Disable NAT' })
-    ).toHaveTextContent(/^Disable$/)
-    expect(
-      screen.getByRole('button', { name: 'Force remap' })
-    ).toHaveTextContent(/^Remap$/)
-    expect(
-      screen.getByRole('button', { name: 'Run diagnostic' })
-    ).toHaveTextContent(/^Diagnose$/)
   })
 
-  it('localizes concise focus action text without shortening accessible names', async () => {
-    await i18n.changeLanguage('zh-CN')
-    render(<NatTile viewport={FOCUS} />)
+  it.each([COMPACT, SUMMARY, TALL_DETAILED, SQUARE_DETAILED, FOCUS])(
+    'offers the same controls in $contentLevel presentations',
+    async (viewport) => {
+      render(<NatTile viewport={viewport} />)
+      expect(screen.queryByTestId('nat-actions')).not.toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'NAT controls' }))
+      expect(
+        await screen.findByRole('menuitem', { name: 'Network settings' })
+      ).toHaveAttribute('href', '/settings/network')
+      expect(
+        screen.getByRole('menuitem', { name: 'Network guide' })
+      ).toBeVisible()
+      expect(
+        screen.getByRole('menuitem', { name: 'Turn off NAT mapping' })
+      ).toBeVisible()
+      expect(
+        screen.queryByRole('menuitem', { name: 'Retry' })
+      ).not.toBeInTheDocument()
+      expect(
+        screen.getByText(/Helps other BT peers connect to you/)
+      ).toBeVisible()
+    }
+  )
 
-    expect(screen.getByRole('button', { name: '禁用 NAT' })).toHaveTextContent(
-      /^禁用$/
-    )
-    expect(
-      screen.getByRole('button', { name: '强制重映射' })
-    ).toHaveTextContent(/^重映射$/)
-    expect(screen.getByRole('button', { name: '运行诊断' })).toHaveTextContent(
-      /^诊断$/
+  it('localizes the shared menu and guide', async () => {
+    await i18n.changeLanguage('zh-CN')
+    render(<NatTile viewport={COMPACT} />)
+    fireEvent.click(screen.getByRole('button', { name: 'NAT 控制' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '优化网络' }))
+    expect(openExternalMock).toHaveBeenCalledWith(
+      EXTERNAL_URLS.motrix.manual.natTroubleshooting.zh
     )
   })
 
@@ -361,42 +407,73 @@ describe('NatTile', () => {
     expect(screen.getByText(ipv6)).toHaveAttribute('title', ipv6)
   })
 
-  it('runs a diagnostic when the diagnose action is clicked', () => {
-    render(<NatTile viewport={SQUARE_DETAILED} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Run diagnostic' }))
-    expect(mockInvoke).toHaveBeenCalledWith(Commands.RunNatDiagnostic)
-  })
-
-  it('forces a remap when the remap action is clicked', () => {
-    render(<NatTile viewport={SQUARE_DETAILED} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Force remap' }))
-    expect(mockInvoke).toHaveBeenCalledWith(Commands.ForceRemapNat)
-  })
-
-  it('disables NAT via the toggle when running', () => {
-    natState.status = makeStatus({ state: NatState.Active })
+  it('disables NAT from the menu when running', async () => {
     render(<NatTile viewport={COMPACT} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Disable NAT' }))
-    expect(mockInvoke).toHaveBeenCalledWith(Commands.DisableNat)
+    fireEvent.click(screen.getByRole('button', { name: 'NAT controls' }))
+    fireEvent.click(
+      await screen.findByRole('menuitem', { name: 'Turn off NAT mapping' })
+    )
+    expect(mockInvoke).toHaveBeenCalledExactlyOnceWith(Commands.DisableNat)
   })
 
-  it('enables NAT via the toggle when stopped', () => {
-    natState.status = makeStatus({ state: NatState.Stopped })
+  it('enables NAT from the menu when disabled even if the last state was active', async () => {
+    natState.status = makeStatus({ enabled: false })
     render(<NatTile viewport={COMPACT} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Enable NAT' }))
-    expect(mockInvoke).toHaveBeenCalledWith(Commands.EnableNat)
+    expect(screen.getByText('Off')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'NAT controls' }))
+    expect(
+      screen.queryByRole('menuitem', { name: 'Turn off NAT mapping' })
+    ).not.toBeInTheDocument()
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Enable NAT' }))
+    expect(mockInvoke).toHaveBeenCalledExactlyOnceWith(Commands.EnableNat)
   })
 
-  it('offers the official troubleshooting guide in the terminal failed state', () => {
+  it('waits for the status snapshot before offering an enable action', async () => {
+    natState.status = null
+    render(<NatTile viewport={COMPACT} />)
+    fireEvent.click(screen.getByRole('button', { name: 'NAT controls' }))
+    expect(
+      await screen.findByRole('menuitem', { name: 'Network settings' })
+    ).toBeVisible()
+    expect(
+      screen.queryByRole('menuitem', { name: 'Enable NAT' })
+    ).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['Retry', Commands.EnableNat],
+    ['Turn off NAT mapping', Commands.DisableNat],
+  ])(
+    'offers %s after the retry budget is exhausted',
+    async (action, command) => {
+      natState.status = makeStatus({
+        state: NatState.Failed,
+        retryAttempt: 3,
+        maxRetries: 3,
+      })
+      render(<NatTile viewport={COMPACT} />)
+      expect(mockInvoke).not.toHaveBeenCalled()
+      fireEvent.click(screen.getByRole('button', { name: 'NAT controls' }))
+      expect(
+        await screen.findByText('Automatic mapping unavailable')
+      ).toBeVisible()
+      expect(screen.getByText(/link downloads/)).toBeVisible()
+      expect(screen.getByText('Automatic retries (3/3)')).toBeVisible()
+      fireEvent.click(screen.getByRole('menuitem', { name: action }))
+      expect(mockInvoke).toHaveBeenCalledExactlyOnceWith(command)
+    }
+  )
+
+  it('offers the official troubleshooting guide in the terminal failed state', async () => {
     natState.status = makeStatus({
       state: NatState.Failed,
       retryAttempt: 3,
       maxRetries: 3,
     })
     render(<NatTile viewport={SQUARE_DETAILED} />)
-
+    fireEvent.click(screen.getByRole('button', { name: 'NAT controls' }))
     fireEvent.click(
-      screen.getByRole('button', { name: 'NAT troubleshooting guide' })
+      await screen.findByRole('menuitem', { name: 'Network guide' })
     )
     expect(openExternalMock).toHaveBeenCalledWith(
       EXTERNAL_URLS.motrix.manual.natTroubleshooting.en
@@ -406,7 +483,10 @@ describe('NatTile', () => {
   it('toasts when a command is rate limited', async () => {
     mockInvoke.mockResolvedValue({ ok: false, error: ErrorCode.IpcRateLimited })
     render(<NatTile viewport={SQUARE_DETAILED} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Run diagnostic' }))
+    fireEvent.click(screen.getByRole('button', { name: 'NAT controls' }))
+    fireEvent.click(
+      await screen.findByRole('menuitem', { name: 'Turn off NAT mapping' })
+    )
     await waitFor(() =>
       expect(toastAddMock).toHaveBeenCalledWith(
         expect.objectContaining({

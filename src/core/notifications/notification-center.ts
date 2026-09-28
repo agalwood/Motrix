@@ -30,6 +30,8 @@ export interface NotificationCenterDeps {
   // `EventBusOptions.onListenerError`).
   emit: (channel: EventChannel, payload?: unknown) => void
   now?: () => number
+  /** A shell-specific display policy. Omitted by the server to show all kinds. */
+  getHiddenKinds?: () => readonly string[]
   log: Pick<Logger, 'warn' | 'error'>
 }
 
@@ -104,7 +106,10 @@ export class NotificationCenter {
   }
 
   markAllRead(): number {
-    const count = this.deps.store.markAllNotificationsRead(this.now())
+    const count = this.deps.store.markAllNotificationsRead(
+      this.now(),
+      this.deps.getHiddenKinds?.()
+    )
     if (count > 0) this.deps.emit(Events.NotificationsChanged)
     return count
   }
@@ -116,18 +121,23 @@ export class NotificationCenter {
   }
 
   clear(): number {
-    const count = this.deps.store.clearNotifications()
+    const count = this.deps.store.clearNotifications(
+      this.deps.getHiddenKinds?.()
+    )
     if (count > 0) this.deps.emit(Events.NotificationsChanged)
     return count
   }
 
   list(limit?: number): AppNotification[] {
-    return limit === undefined
-      ? this.deps.store.listNotifications()
-      : this.deps.store.listNotifications(limit)
+    return this.deps.store.listNotifications(
+      limit,
+      this.deps.getHiddenKinds?.()
+    )
   }
 
   unreadCount(): number {
-    return this.deps.store.getUnreadNotificationCount()
+    return this.deps.store.getUnreadNotificationCount(
+      this.deps.getHiddenKinds?.()
+    )
   }
 }

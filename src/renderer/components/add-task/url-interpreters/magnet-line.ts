@@ -1,3 +1,4 @@
+import { infoHashToMagnetUri } from '@shared/schemas/magnet-input'
 import type { InterpretResult, UrlInputInterpreter } from './types'
 
 export const magnetLineInterpreter: UrlInputInterpreter = {
@@ -7,6 +8,16 @@ export const magnetLineInterpreter: UrlInputInterpreter = {
   tryInterpret(rawText): InterpretResult | null {
     const trimmed = rawText.trim()
     if (trimmed.includes('\n')) return null
+    const magnetUri = infoHashToMagnetUri(trimmed)
+    if (magnetUri) {
+      return {
+        urls: [magnetUri],
+        userNotice: {
+          kind: 'info',
+          messageKey: 'task.add.interpretedInfoHash',
+        },
+      }
+    }
     if (!trimmed.startsWith('magnet:?')) return null
     return {
       urls: [trimmed],

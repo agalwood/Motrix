@@ -28,28 +28,24 @@ import { useTranslation } from 'react-i18next'
  * un-coalesced per-row history always remains available on `/notifications`.
  */
 const FOCUSED_ERROR_TOAST_ID = 'notification-error'
+const FOCUSED_COMPLETE_TOAST_ID = 'notification-complete'
 
 /**
- * Focused-error toast subscriber (spec §7 boundary) that also owns the
+ * Foreground notification subscriber that also owns the
  * sticky engine-failure diagnostic toast — formerly a separate sticky-toast
  * hook that coordinated with this one through parallel
  * `Events.EngineStateChanged` tracking. Absorbing it here removes that
  * coordination: there is now exactly one place that decides when the sticky
  * toast shows and when it closes.
  *
- * Two distinct toast surfaces share this one hook:
+ * Three distinct toast surfaces share this one hook:
  *
  * 1. Generic error rows (`n.severity === 'error'`, any kind other than
  *    `engine-failure`) toast through `FOCUSED_ERROR_TOAST_ID`, gated on
  *    document foreground (see below) and coalesced via close-then-add
- *    (F9). This is the renderer half of an "exactly one track fires" split
- *    with the OS notification bridge (`src/main/notifications/os-bridge.ts`,
- *    Task 16): that bridge toasts natively only when the main window is NOT
- *    foreground (`!(win.isVisible() && win.isFocused())`); this hook toasts
- *    in-app only when the document IS foreground
- *    (`visibilityState === 'visible' && document.hasFocus()`) — the exact
- *    complement, so a given error surfaces exactly once across the two
- *    tracks, never zero times or twice.
+ *    (F9). Desktop event forwarding filters muted task outcomes before they
+ *    reach this hook. Native download notifications independently follow the
+ *    system preference, including while this document is in the foreground.
  *
  * 2. `kind === NotificationKinds.EngineFailure` rows toast through the
  *    STICKY `ENGINE_FAILURE_TOAST_ID` instead (`timeout: 0`, with an action
@@ -75,9 +71,11 @@ const FOCUSED_ERROR_TOAST_ID = 'notification-error'
  * failed query (transport not ready yet, etc.) is swallowed — a later
  * engine event or app reload will retry it.
  *
- * Only `severity === 'error'` rows and the engine-compatibility warning toast
- * at all — `task-complete`/info rows stay silent (they still land in the bell
- * badge / `/notifications` page via `useNotifications()`).
+ * 3. Desktop `task-complete` rows show a success toast when the document is
+ *    foreground. A separate stable id coalesces completion bursts without
+ *    replacing an error toast or adding one visible toast per finished task.
+ *    Server/Web completion rows keep their notification-center-only behavior.
+ *    Other non-error rows stay silent except for engine compatibility warnings.
  *
  * Mount exactly once at the top of the app tree (AppLayout), mirroring
  * `useToastEvents`/`usePairRequestPrompts`: `t` and `i18n` are threaded
@@ -86,12 +84,8 @@ const FOCUSED_ERROR_TOAST_ID = 'notification-error'
  * `usePairRequestPrompts`'s docstring) never tears down and re-subscribes
  * the transport listener.
  *
- * The generic-error track (vs. the OS bridge) gates on document/window
- * focus read at different instants — this hook at emit time, the OS bridge
- * at delivery time (post store-write) — so a focus change landing between
- * those two reads can make both fire or neither. That's an accepted
- * best-effort gap, not a bug to chase; see the OS bridge's own docstring for
- * its half of the same tradeoff.
+ * Non-task alerts retain the foreground/background split with the OS bridge.
+ * Their separate focus reads can race a focus change; delivery is best-effort.
  */
 export function useNotificationToasts(): void {
   const { t, i18n } = useTranslation()
@@ -176,7 +170,11 @@ export function useNotificationToasts(): void {
       const n = args[0] as AppNotification
       const isCompatibilityWarning =
         n.kind === NotificationKinds.EngineCompatibility
-      if (n.severity !== 'error' && !isCompatibilityWarning) return
+      const isTaskComplete =
+        transport.platform !== 'web' &&
+        n.kind === NotificationKinds.TaskComplete
+      if (n.severity !== 'error' && !isCompatibilityWarning && !isTaskComplete)
+        return
 
       // Bullet 1: engine-failure rows get the sticky action-bearing toast —
       // no foreground gate, no FOCUSED_ERROR_TOAST_ID coalescing.
@@ -201,13 +199,20 @@ export function useNotificationToasts(): void {
       // puts this toast back at the front (mirrors the sticky
       // engine-failure toast above). This toast has no `onClose` handler,
       // so close() firing one here is a no-op.
-      toast.close(FOCUSED_ERROR_TOAST_ID)
+      const toastId = isTaskComplete
+        ? FOCUSED_COMPLETE_TOAST_ID
+        : FOCUSED_ERROR_TOAST_ID
+      toast.close(toastId)
       toast.add({
-        id: FOCUSED_ERROR_TOAST_ID,
+        id: toastId,
         title: resolve(n.titleKey, n.titleParams),
         description:
           n.bodyKey != null ? resolve(n.bodyKey, n.bodyParams) : undefined,
-        type: isCompatibilityWarning ? 'warning' : 'error',
+        type: isTaskComplete
+          ? 'success'
+          : isCompatibilityWarning
+            ? 'warning'
+            : 'error',
       })
     }
 

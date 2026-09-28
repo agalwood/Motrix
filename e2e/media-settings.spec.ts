@@ -19,7 +19,13 @@ test.describe('media settings', () => {
     await detectionCard.scrollIntoViewIfNeeded()
     await expect(detectionCard).toBeVisible()
 
-    // 4. Change the binary path input.
+    // 4. Open the manual candidate editor and change the binary path.
+    await detectionCard
+      .getByRole('button', { name: 'Show detection details' })
+      .click()
+    await detectionCard
+      .getByRole('button', { name: 'Edit custom FFmpeg path' })
+      .click()
     const pathInput = mainWindow.locator(
       '[data-testid="media-binary-path-input"]'
     )

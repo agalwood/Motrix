@@ -1,6 +1,12 @@
 import type { TorrentMeta } from '@shared/types/torrent'
 
+// Product limits, not BitTorrent protocol limits. BEP 3/52 do not impose a
+// universal metainfo file size cap. Base64 expands each 3 bytes to 4 characters.
 export const MAX_TORRENT_BASE64_SIZE = 50 * 1024 * 1024
+export const MAX_TORRENT_FILE_SIZE = (MAX_TORRENT_BASE64_SIZE / 4) * 3
+// Leave room for the JSON envelope, selected files and per-task options.
+export const DEFAULT_TORRENT_RPC_BODY_LIMIT_BYTES = 8 * 1024 * 1024
+export const MAX_TORRENT_RPC_BODY_LIMIT_BYTES = 64 * 1024 * 1024
 
 export interface ParsedTorrentMetaInput {
   name?: string

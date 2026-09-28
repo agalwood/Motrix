@@ -1,6 +1,13 @@
 'use client'
 
 import {
+  FolderIcon,
+  MoreIcon,
+  type MotrixIcon,
+  RemoveIcon,
+  ShareIcon,
+} from '@renderer/components/icons'
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -16,13 +23,6 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@renderer/components/ui/sidebar'
-import {
-  Folder,
-  type LucideIcon,
-  MoreHorizontal,
-  Share,
-  Trash2,
-} from 'lucide-react'
 
 export function NavProjects({
   projects,
@@ -30,7 +30,7 @@ export function NavProjects({
   projects: {
     name: string
     url: string
-    icon: LucideIcon
+    icon: MotrixIcon
   }[]
 }) {
   const { isMobile } = useSidebar()
@@ -47,7 +47,7 @@ export function NavProjects({
             </SidebarMenuButton>
             <DropdownMenu>
               <DropdownMenuTrigger render={<SidebarMenuAction showOnHover />}>
-                <MoreHorizontal />
+                <MoreIcon />
                 <span className="sr-only">More</span>
               </DropdownMenuTrigger>
               <DropdownMenuContent
@@ -56,16 +56,16 @@ export function NavProjects({
                 align={isMobile ? 'end' : 'start'}
               >
                 <DropdownMenuItem>
-                  <Folder className="text-muted-foreground" />
+                  <FolderIcon className="text-muted-foreground" />
                   <span>View Project</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
-                  <Share className="text-muted-foreground" />
+                  <ShareIcon className="text-muted-foreground" />
                   <span>Share Project</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>
-                  <Trash2 className="text-muted-foreground" />
+                  <RemoveIcon className="text-muted-foreground" />
                   <span>Delete Project</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -74,7 +74,7 @@ export function NavProjects({
         ))}
         <SidebarMenuItem>
           <SidebarMenuButton>
-            <MoreHorizontal />
+            <MoreIcon />
             <span>More</span>
           </SidebarMenuButton>
         </SidebarMenuItem>

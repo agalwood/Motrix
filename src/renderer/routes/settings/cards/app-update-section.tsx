@@ -1,19 +1,23 @@
+import {
+  InstallIcon,
+  RefreshIcon,
+  RestartIcon,
+} from '@renderer/components/icons'
 import { Alert } from '@renderer/components/ui/alert'
 import { Button } from '@renderer/components/ui/button'
 import { Spinner } from '@renderer/components/ui/spinner'
 import { cn } from '@renderer/lib/utils'
 import type { AppUpdateState } from '@shared/types/app-update'
 import type { AppUpdateChannel } from '@shared/types/settings'
-import { DownloadIcon, RefreshCwIcon, RotateCwIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { UpdateChannelSetting } from './update-channel-setting'
-import { useAppUpdate } from './use-app-update'
+import type { AppUpdateController } from './use-app-update'
 
-export function AppUpdateSection() {
+export function AppUpdateSection({ update }: { update: AppUpdateController }) {
   const { t } = useTranslation()
-  const { state, check, download, install } = useAppUpdate()
+  const { state, loading, showControls, check, download, install } = update
   const betaWarningId = useId()
   const [channel, setChannel] = useState<AppUpdateChannel>('stable')
 
@@ -33,33 +37,37 @@ export function AppUpdateSection() {
             id="app-update-title"
             className="text-base leading-5 font-semibold tracking-[-0.01em]"
           >
-            {statusTitle(state, t)}
+            {loading ? t('common.loading') : statusTitle(state, t)}
           </h3>
-          <p className="mt-1 text-xs leading-normal text-muted-foreground">
-            {statusDescription(state, t)}
-          </p>
+          {!loading && (
+            <p className="mt-1 text-xs leading-normal text-muted-foreground">
+              {statusDescription(state, t)}
+            </p>
+          )}
         </div>
 
-        <UpdateChannelSetting
-          warningId={betaWarningId}
-          onChannelChanged={setChannel}
-          disabled={
-            state.phase === 'unsupported' ||
-            state.phase === 'checking' ||
-            state.phase === 'downloading' ||
-            state.phase === 'downloaded'
-          }
-        >
-          <UpdateActionButton
-            state={state}
-            check={check}
-            download={download}
-            install={install}
-          />
-        </UpdateChannelSetting>
+        {showControls && (
+          <UpdateChannelSetting
+            warningId={betaWarningId}
+            onChannelChanged={setChannel}
+            disabled={
+              state.phase === 'unsupported' ||
+              state.phase === 'checking' ||
+              state.phase === 'downloading' ||
+              state.phase === 'downloaded'
+            }
+          >
+            <UpdateActionButton
+              state={state}
+              check={check}
+              download={download}
+              install={install}
+            />
+          </UpdateChannelSetting>
+        )}
       </div>
 
-      {channel === 'beta' && (
+      {showControls && channel === 'beta' && (
         <Alert
           id={betaWarningId}
           className="mt-2 border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-4 text-amber-900 dark:text-amber-200"
@@ -149,11 +157,13 @@ function updateAction(
   t: ReturnType<typeof useTranslation>['t']
 ): UpdateAction | null {
   switch (state.phase) {
+    case 'managed':
+      return null
     case 'unsupported':
       return {
         label: t('settings.about.update.checkAction'),
         accessibleLabel: t('settings.about.update.check'),
-        icon: <RefreshCwIcon data-icon="inline-start" aria-hidden="true" />,
+        icon: <RefreshIcon data-icon="inline-start" aria-hidden="true" />,
         disabled: true,
         variant: 'default',
       }
@@ -167,7 +177,7 @@ function updateAction(
     case 'available':
       return {
         label: t('settings.about.update.download'),
-        icon: <DownloadIcon data-icon="inline-start" aria-hidden="true" />,
+        icon: <InstallIcon data-icon="inline-start" aria-hidden="true" />,
         variant: 'default',
         run: actions.download,
       }
@@ -175,14 +185,14 @@ function updateAction(
       return {
         label: <span className="tabular-nums">{progress}%</span>,
         accessibleLabel: `${t('settings.about.update.downloading')} ${progress}%`,
-        icon: <DownloadIcon data-icon="inline-start" aria-hidden="true" />,
+        icon: <InstallIcon data-icon="inline-start" aria-hidden="true" />,
         disabled: true,
         variant: 'default',
       }
     case 'downloaded':
       return {
         label: t('settings.about.update.restart'),
-        icon: <RotateCwIcon data-icon="inline-start" aria-hidden="true" />,
+        icon: <RestartIcon data-icon="inline-start" aria-hidden="true" />,
         variant: 'default',
         run: actions.install,
       }
@@ -190,7 +200,7 @@ function updateAction(
     case 'error':
       return {
         label: t('settings.about.update.retry'),
-        icon: <RefreshCwIcon data-icon="inline-start" aria-hidden="true" />,
+        icon: <RefreshIcon data-icon="inline-start" aria-hidden="true" />,
         variant: 'default',
         run: state.availableVersion ? actions.download : actions.check,
       }
@@ -198,7 +208,7 @@ function updateAction(
       return {
         label: t('settings.about.update.checkAction'),
         accessibleLabel: t('settings.about.update.check'),
-        icon: <RefreshCwIcon data-icon="inline-start" aria-hidden="true" />,
+        icon: <RefreshIcon data-icon="inline-start" aria-hidden="true" />,
         variant: 'default',
         run: actions.check,
       }
@@ -210,6 +220,8 @@ function statusTitle(
   t: ReturnType<typeof useTranslation>['t']
 ): string {
   switch (state.phase) {
+    case 'managed':
+      return t('settings.about.update.managedTitle')
     case 'unsupported':
       return t('settings.about.update.unsupportedTitle')
     case 'checking':
@@ -240,6 +252,8 @@ function statusDescription(
   t: ReturnType<typeof useTranslation>['t']
 ): string {
   switch (state.phase) {
+    case 'managed':
+      return t('settings.about.update.managedDescription')
     case 'unsupported':
       return t('settings.about.update.unsupported')
     case 'checking':

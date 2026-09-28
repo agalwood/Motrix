@@ -21,7 +21,7 @@ export function TileShell({
   return (
     <Card
       className={cn(
-        'dashboard-tile flex min-h-0 flex-col overflow-hidden shadow-md/5 border-none',
+        'dashboard-tile flex min-h-0 flex-col overflow-hidden shadow-md/5 border-none proportional-nums',
         'gap-0',
         'p-4',
         className

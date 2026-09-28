@@ -51,7 +51,7 @@ describe('TaskManager', () => {
     expect(manager.getAll()).toHaveLength(1)
   })
 
-  it.each([TaskStatus.Completed, TaskStatus.Error])(
+  it.each([TaskStatus.Finalizing, TaskStatus.Completed, TaskStatus.Error])(
     'set clears volatile runtime metrics for %s tasks',
     (status) => {
       const task = makeTask({

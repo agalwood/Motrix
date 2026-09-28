@@ -9,6 +9,7 @@ import { REGISTRY_PLUGIN_ID_RE } from '@shared/schemas/registry'
 import type { TorrentMeta } from '@shared/types/torrent'
 import type { BrowserWindow } from 'electron'
 import { app } from 'electron'
+import { z } from 'zod'
 
 export interface ProtocolManagerDeps {
   getWindow: () => BrowserWindow | null
@@ -37,6 +38,8 @@ export interface ProtocolManagerDeps {
   // marketplace detail route. Navigation-only by contract: the deeplink must
   // never carry or trigger an install (.claude/rules/plugin-registry.md).
   onOpenPluginDetail: (pluginId: string) => void
+  // motrix://tasks/<id> — open the existing task inspector, without changing it.
+  onOpenTaskDetail: (taskId: string) => void
 }
 
 export interface ProtocolRegistrationResult {
@@ -52,6 +55,7 @@ interface QueuedTorrent {
 }
 
 const RESOURCE_PREFIXES = ['magnet:', 'http:', 'https:', 'ftp:']
+const taskDeepLinkIdSchema = z.string().min(1).max(1024).regex(/^\S+$/u)
 
 function uriToAddTaskParams(url: string): AddTaskUrlParams | null {
   const lower = url.toLowerCase()
@@ -214,6 +218,24 @@ export function createProtocolManager(deps: ProtocolManagerDeps) {
       if (lower.startsWith('motrix://')) {
         try {
           const parsed = new URL(url)
+          if (parsed.hostname === 'tasks') {
+            const taskId = taskDeepLinkIdSchema.safeParse(
+              decodeURIComponent(parsed.pathname.replace(/^\//, ''))
+            )
+            if (
+              taskId.success &&
+              !parsed.username &&
+              !parsed.password &&
+              !parsed.port &&
+              !parsed.search &&
+              !parsed.hash
+            ) {
+              deps.onOpenTaskDetail(taskId.data)
+              return
+            }
+            log.warn('rejecting malformed task deeplink')
+            return
+          }
           if (
             parsed.hostname === 'new-task' &&
             parsed.searchParams.has('uri')

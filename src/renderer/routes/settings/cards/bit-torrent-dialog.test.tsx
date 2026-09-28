@@ -1,3 +1,4 @@
+import '@test-utils/dom-animations'
 // src/renderer/routes/settings/cards/bit-torrent-dialog.test.tsx
 
 import '@testing-library/jest-dom/vitest'
@@ -83,17 +84,17 @@ describe('<BitTorrentDialog>', () => {
     await waitFor(() => screen.getByDisplayValue('128'))
     expect(
       screen.queryByRole('spinbutton', {
-        name: 'File selection timeout (seconds)',
+        name: 'Time to choose files (s)',
       })
     ).toBeNull()
     const user = userEvent.setup()
     const toggle = screen.getByRole('switch', {
-      name: 'Download all files when selection times out',
+      name: 'Download all if no selection is made',
     })
     expect(toggle).not.toBeChecked()
     await user.click(toggle)
     const timeout = screen.getByRole('spinbutton', {
-      name: 'File selection timeout (seconds)',
+      name: 'Time to choose files (s)',
     })
     expect(timeout).toHaveValue(60)
     fireEvent.change(timeout, { target: { value: '120' } })
@@ -119,18 +120,18 @@ describe('<BitTorrentDialog>', () => {
     const user = userEvent.setup()
     await user.click(
       screen.getByRole('switch', {
-        name: 'Download all files when selection times out',
+        name: 'Download all if no selection is made',
       })
     )
     fireEvent.change(
       screen.getByRole('spinbutton', {
-        name: 'File selection timeout (seconds)',
+        name: 'Time to choose files (s)',
       }),
       { target: { value: '0' } }
     )
     await user.click(screen.getByRole('button', { name: /save/i }))
     expect(
-      screen.getByText('Enter a whole number from 10 to 3600 seconds.')
+      screen.getByText('Enter a whole number from 10 to 3600.')
     ).toBeInTheDocument()
     expect(transport.invoke).not.toHaveBeenCalledWith(
       Commands.UpdateSettings,
@@ -151,12 +152,12 @@ describe('<BitTorrentDialog>', () => {
     const user = userEvent.setup()
     await user.click(
       screen.getByRole('switch', {
-        name: 'Open file selection after magnet metadata loads',
+        name: 'Choose files before downloading',
       })
     )
     expect(
       screen.getByRole('switch', {
-        name: 'Download all files when selection times out',
+        name: 'Download all if no selection is made',
       })
     ).toHaveAttribute('aria-disabled', 'true')
   })
@@ -206,7 +207,56 @@ describe('<BitTorrentDialog>', () => {
     )
     await waitFor(() => screen.getByText(/blacklist/i))
     expect(
-      screen.getByText(/managed in the sidebar Trackers page/i)
+      screen.getByText(/Manage blocked trackers in Trackers/i)
     ).toBeInTheDocument()
+  })
+
+  it('keeps the dialog open when the GeoIP subform is invalid', async () => {
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.GetSettings)
+        return {
+          ...FIXTURE,
+          geoip: {
+            ...FIXTURE.geoip,
+            enabled: true,
+            source: 'custom',
+            customUrl: 'invalid address',
+          },
+        }
+      return { saved: true }
+    })
+    const onClose = vi.fn()
+    render(<BitTorrentDialog open onClose={onClose} labelKey="" descKey="" />)
+    await screen.findByDisplayValue('invalid address')
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(
+      await screen.findByText(
+        'Enter a full address starting with http:// or https://.'
+      )
+    ).toBeVisible()
+    expect(onClose).not.toHaveBeenCalled()
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
+  })
+  it('accepts a 900-second magnet timeout after moving it from Downloads', async () => {
+    render(<BitTorrentDialog open onClose={vi.fn()} labelKey="" descKey="" />)
+    const input = await screen.findByRole('spinbutton', {
+      name: 'Magnet loading timeout (s)',
+    })
+    await waitFor(() => expect(input).toBeEnabled())
+    fireEvent.change(input, { target: { value: '901' } })
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(
+      await screen.findByText('Enter a whole number from 30 to 900.')
+    ).toBeVisible()
+    fireEvent.change(input, { target: { value: '900' } })
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      engine: { magnetResolveTimeout: 900 },
+    })
   })
 })

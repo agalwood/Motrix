@@ -1,3 +1,4 @@
+import { admitHttpSource } from '@core/task/source-admission'
 export type Container = 'mpegts' | 'fmp4' | 'single'
 
 export interface ByteRange {
@@ -53,5 +54,22 @@ export function seqNumberIv(seq: number): Uint8Array {
 }
 
 export function resolveUri(base: string, ref: string): string {
-  return new URL(ref, base).toString()
+  base = admitHttpSource(base)
+  if (/^[a-z][a-z0-9+.-]*:/i.test(ref)) return admitHttpSource(ref)
+  // Validate reference characters before WHATWG can silently discard them.
+  const suffixAt = ref.search(/[?#]/)
+  const referencePath = suffixAt < 0 ? ref : ref.slice(0, suffixAt)
+  const suffix = suffixAt < 0 ? '' : ref.slice(suffixAt)
+  // Literal dot segments have an unambiguous meaning only with a known base.
+  // Encoded dots and all other parser rewrites still require correction.
+  const checkedPath = referencePath
+    .split('/')
+    .map((part) => (part === '.' || part === '..' ? 'segment' : part))
+    .join('/')
+  admitHttpSource(
+    ref.startsWith('//')
+      ? `https:${checkedPath}${suffix}`
+      : `https://reference.invalid/${checkedPath.replace(/^\/+/, '')}${suffix}`
+  )
+  return admitHttpSource(new URL(ref, base).toString())
 }

@@ -1,3 +1,6 @@
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
 import {
@@ -6,6 +9,7 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
+import { makeDownloadTask } from '@test-utils/task'
 import { directTaskUpdatePublication } from '@test-utils/task-update'
 import { describe, expect, it, vi } from 'vitest'
 import type { EngineAdapter } from '../../engine/engine-adapter'
@@ -13,6 +17,7 @@ import type { EventBus } from '../../events/event-bus'
 import type { Logger } from '../../logger'
 import type { MagnetTracker } from '../../torrent/magnet-tracker'
 import type { FileCleanupService } from '../file-cleanup-service'
+import { FileCleanupServiceImpl } from '../file-cleanup-service'
 import type { TaskManager } from '../task-manager'
 import type { TorrentMetaStore } from '../torrent-meta-store'
 import { type RemoveTaskDeps, removeTask } from './remove-task'
@@ -72,7 +77,95 @@ function makeDeps(overrides: Partial<RemoveTaskDeps> = {}): RemoveTaskDeps {
   return { ...base, ...directTaskUpdatePublication(base), ...overrides }
 }
 
+function mediaTaskWithMetadata() {
+  return makeDownloadTask({
+    engineTaskId: '',
+    saveDir: '/d',
+    diskPath: '/d/video.mp4',
+    instances: [
+      {
+        instanceId: 'video',
+        motrixId: 'task-1',
+        gid: null,
+        phase: TaskInstancePhase.HlsSegment,
+        status: TaskStatus.Downloading,
+        progress: 0,
+        totalBytes: 0,
+        downloadedBytes: 0,
+        uploadedBytes: 0,
+        diskPath: '/d/video.mp4',
+        transitionPhase: TransitionPhase.Idle,
+        uris: [],
+        uriHash: null,
+        createdAt: 0,
+        updatedAt: 0,
+        payload: { mediaMetaPath: '/metadata/media/task-1/files.json' },
+      },
+    ],
+  })
+}
+
 describe('removeTask', () => {
+  it('retains the task and torrent metadata when file cleanup fails', async () => {
+    const deps = makeDeps()
+    const task = makeDownloadTask({
+      status: TaskStatus.Completed,
+      type: TaskType.Bt,
+      diskPath: '/downloads/torrent',
+      saveDir: '/downloads',
+      torrentMetaPath: '/metadata/source.torrent',
+    })
+    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+    const error = new Error('Trash unavailable')
+    vi.mocked(deps.fileCleanupService.cleanup).mockRejectedValue(error)
+
+    await expect(
+      removeTask(task.id, { deleteWithFiles: true }, deps)
+    ).rejects.toBe(error)
+    expect(deps.torrentMetaStore.remove).not.toHaveBeenCalled()
+    expect(deps.db.deleteTask).not.toHaveBeenCalled()
+    expect(deps.taskManager.remove).not.toHaveBeenCalled()
+  })
+  it.each([false, true])(
+    'removes associated media metadata when deleteWithFiles=%s',
+    async (deleteWithFiles) => {
+      const mediaMetaStore = { remove: vi.fn(async () => {}) }
+      const deps = makeDeps({
+        mediaMetaStore,
+        cancelMedia: vi.fn(async () => {}),
+      })
+      const task = mediaTaskWithMetadata()
+      vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+      await removeTask(task.id, { deleteWithFiles }, deps)
+      expect(mediaMetaStore.remove).toHaveBeenCalledWith(
+        '/metadata/media/task-1/files.json'
+      )
+      expect(
+        vi.mocked(deps.cancelMedia!).mock.invocationCallOrder[0]
+      ).toBeLessThan(mediaMetaStore.remove.mock.invocationCallOrder[0])
+      expect(
+        vi.mocked(deps.db.deleteTask).mock.invocationCallOrder[0]
+      ).toBeLessThan(mediaMetaStore.remove.mock.invocationCallOrder[0])
+      expect(deps.fileCleanupService.cleanup).toHaveBeenCalledTimes(
+        deleteWithFiles ? 1 : 0
+      )
+    }
+  )
+
+  it('retains media metadata if the durable task delete fails', async () => {
+    const mediaMetaStore = { remove: vi.fn(async () => {}) }
+    const deps = makeDeps({ mediaMetaStore })
+    const task = mediaTaskWithMetadata()
+    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+    vi.mocked(deps.db.deleteTask).mockImplementation(() => {
+      throw new Error('disk full')
+    })
+    await expect(
+      removeTask(task.id, { deleteWithFiles: false }, deps)
+    ).rejects.toThrow('disk full')
+    expect(mediaMetaStore.remove).not.toHaveBeenCalled()
+  })
+
   it('tears down the coordinator for a media task and never calls the engine with an empty gid', async () => {
     // A coordinator-managed media task (Mux/Hls) has engineTaskId ''. Removing
     // it must abort the in-flight SegmentDownloaders + ffmpeg (via cancelMedia)
@@ -732,5 +825,170 @@ describe('removeTask with magnet_metadata_resolution primary instance', () => {
     expect(deps.taskManager.remove).toHaveBeenCalledWith('m-q')
     expect(deps.magnetTracker.markPendingUserDelete).toHaveBeenCalledWith('m-q')
     expect(deps.taskPersistence.runExclusivePersistence).toHaveBeenCalledOnce()
+  })
+})
+
+describe('direct BT output ownership during removal', () => {
+  function reservedTask(multiFile = false) {
+    const task = makeDownloadTask({
+      id: 'partial',
+      type: TaskType.Magnet,
+      status: TaskStatus.MetadataReady,
+      saveDir: '/downloads',
+      finalPath: '/downloads',
+      finalName: '',
+      diskPath: '/tmp/metadata',
+      torrentMetaPath: '/meta/partial.torrent',
+    })
+    task.instances = [
+      {
+        instanceId: 'meta:partial',
+        motrixId: task.id,
+        gid: 'old',
+        phase: TaskInstancePhase.MagnetMetadataResolution,
+        status: TaskStatus.MetadataReady,
+        progress: 0,
+        totalBytes: 0,
+        downloadedBytes: 0,
+        uploadedBytes: 0,
+        diskPath: task.diskPath,
+        transitionPhase: TransitionPhase.Idle,
+        uris: [],
+        uriHash: null,
+        payload: {
+          btOutputReservation: {
+            finalPath: '/downloads/partial',
+            infoHash: 'a'.repeat(40),
+            multiFile,
+          },
+        },
+        createdAt: 0,
+        updatedAt: 0,
+      },
+    ]
+    return task
+  }
+
+  it.each([false, true])(
+    'deletes failed magnet payload with multiFile=%s before its parent',
+    async (multiFile) => {
+      const deps = makeDeps()
+      const task = reservedTask(multiFile)
+      vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+      await removeTask(task.id, { deleteWithFiles: true }, deps)
+      expect(deps.fileCleanupService.cleanup).toHaveBeenCalledWith(
+        '/downloads/partial',
+        TaskType.Magnet,
+        !multiFile
+      )
+      expect(deps.torrentMetaStore.remove).toHaveBeenCalledWith(
+        task.torrentMetaPath
+      )
+      expect(
+        vi.mocked(deps.fileCleanupService.cleanup).mock.invocationCallOrder[0]
+      ).toBeLessThan(vi.mocked(deps.db.deleteTask).mock.invocationCallOrder[0])
+    }
+  )
+
+  it.each(['engine', 'files'])(
+    'retains a retryable parent when %s cleanup fails',
+    async (failure) => {
+      const deps = makeDeps()
+      const task = reservedTask()
+      vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+      if (failure === 'engine')
+        vi.mocked(deps.magnetTracker.cancel).mockResolvedValue('quarantined')
+      else
+        vi.mocked(deps.fileCleanupService.cleanup).mockRejectedValue(
+          new Error('busy')
+        )
+      await expect(
+        removeTask(task.id, { deleteWithFiles: true }, deps)
+      ).rejects.toThrow()
+      expect(deps.db.deleteTask).not.toHaveBeenCalled()
+      expect(deps.taskManager.remove).not.toHaveBeenCalled()
+      expect(deps.magnetTracker.markPendingUserDelete).not.toHaveBeenCalled()
+    }
+  )
+
+  it('refuses deletion when another task owns the failed output', async () => {
+    const deps = makeDeps()
+    const task = reservedTask()
+    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+    vi.mocked(deps.taskManager.getAll).mockReturnValue([
+      task,
+      makeDownloadTask({
+        id: 'other',
+        finalName: 'partial',
+        finalPath: '/downloads/partial',
+        diskPath: '/downloads/partial',
+      }),
+    ])
+    await expect(
+      removeTask(task.id, { deleteWithFiles: true }, deps)
+    ).rejects.toThrow()
+    expect(deps.fileCleanupService.cleanup).not.toHaveBeenCalled()
+    expect(deps.db.deleteTask).not.toHaveBeenCalled()
+  })
+
+  it('preserves failed output when deleting only the task', async () => {
+    const deps = makeDeps()
+    const task = reservedTask()
+    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+    await removeTask(task.id, { deleteWithFiles: false }, deps)
+    expect(deps.fileCleanupService.cleanup).not.toHaveBeenCalled()
+    expect(deps.eventBus.emit).toHaveBeenCalledWith(Events.ToastShow, {
+      key: 'task.remove.orphanToast',
+      params: { path: '/downloads/partial' },
+    })
+  })
+
+  it('preserves another completed payload named like a single-file control file', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'bt-remove-sidecar-'))
+    try {
+      const file = path.join(root, 'foo')
+      const otherFile = `${file}.aria2`
+      await writeFile(file, 'partial')
+      await writeFile(otherFile, 'other completed payload')
+      const deps = makeDeps({
+        fileCleanupService: new FileCleanupServiceImpl({
+          removePathRecursive: (p) => rm(p, { recursive: true, force: true }),
+        }),
+      })
+      const task = reservedTask()
+      task.type = TaskType.Bt
+      task.diskPath = task.finalPath = file
+      task.finalName = 'foo'
+      task.saveDir = root
+      task.instances[0].phase = TaskInstancePhase.BtDownload
+      task.instances[0].payload = {
+        btStorageLayout: {
+          version: 2,
+          strategy: 'direct',
+          torrentRootName: 'foo',
+          multiFile: false,
+          finalized: false,
+        },
+      }
+      vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+      vi.mocked(deps.taskManager.getAll).mockReturnValue([
+        task,
+        makeDownloadTask({
+          id: 'other',
+          status: TaskStatus.Completed,
+          finalName: 'foo.aria2',
+          finalPath: otherFile,
+          diskPath: otherFile,
+          saveDir: root,
+        }),
+      ])
+      await removeTask(task.id, { deleteWithFiles: true }, deps)
+      await expect(readFile(otherFile, 'utf8')).resolves.toBe(
+        'other completed payload'
+      )
+      await expect(readFile(file)).rejects.toMatchObject({ code: 'ENOENT' })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
   })
 })

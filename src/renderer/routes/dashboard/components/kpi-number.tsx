@@ -38,7 +38,7 @@ export function KpiNumber({
     <span
       title={String(value)}
       className={cn(
-        'inline-flex min-w-0 max-w-full items-baseline gap-1 font-semibold tabular-nums',
+        'inline-flex min-w-0 max-w-full items-baseline gap-1 font-semibold proportional-nums',
         SIZE[variant],
         className,
         // Keep the title-to-KPI rhythm stable. tailwind-merge treats an

@@ -164,6 +164,57 @@ function makeDeps(overrides: Partial<RecoveryDeps> = {}): RecoveryDeps {
 }
 
 describe('TaskRecoveryServiceImpl.recoverOnStartup', () => {
+  it.each([TransitionPhase.Idle, TransitionPhase.Renaming])(
+    'finishes direct BT completion in place after restart from %s',
+    async (phase) => {
+      const task = makeTask({
+        id: 'direct-bt',
+        type: TaskType.Bt,
+        status: TaskStatus.Seeding,
+        transitionPhase: phase,
+        diskPath: '/d/movie.iso',
+        finalPath: '/d/movie.iso',
+      })
+      task.instances = [
+        {
+          instanceId: 'primary',
+          motrixId: task.id,
+          gid: task.engineTaskId,
+          phase: TaskInstancePhase.BtDownload,
+          status: task.status,
+          progress: 100,
+          totalBytes: 1,
+          downloadedBytes: 1,
+          uploadedBytes: 0,
+          diskPath: task.diskPath,
+          transitionPhase: phase,
+          uris: [],
+          uriHash: null,
+          createdAt: 0,
+          updatedAt: 0,
+          payload: {
+            btStorageLayout: {
+              version: 2,
+              strategy: 'direct',
+              torrentRootName: 'movie.iso',
+              multiFile: false,
+              finalized: false,
+            },
+          },
+        },
+      ]
+      const deps = makeDeps({
+        taskManager: { getAll: () => [task], persist: vi.fn(async () => {}) },
+        fs: makeFs(new Set(['/d/movie.iso'])),
+      })
+      const report = await new TaskRecoveryServiceImpl(deps).recoverOnStartup()
+      expect(report.recovered).toEqual([
+        { taskId: task.id, action: RecoveryAction.ResumeFromRename },
+      ])
+      expect(deps.finalizeTask).toHaveBeenCalledWith(task.id)
+      expect(task.transitionPhase).toBe(phase)
+    }
+  )
   it('reports 0 scanned and 0 recovered when no in-flight tasks', async () => {
     const deps = makeDeps({
       taskManager: {
@@ -941,5 +992,67 @@ describe('TaskRecoveryService plugin-hook chain (Plan C / T15)', () => {
     const svc = new TaskRecoveryServiceImpl(deps)
     await expect(svc.recoverOnStartup()).resolves.toBeDefined()
     expect(task.status).toBe(TaskStatus.Error)
+  })
+})
+
+describe('targeted finalize recovery', () => {
+  it('recovers only the requested task', async () => {
+    const first = makeTask({
+      id: 'first',
+      transitionPhase: TransitionPhase.Renaming,
+      diskPath: '/d/first.part',
+      finalPath: '/d/first',
+    })
+    const other = makeTask({
+      id: 'other',
+      transitionPhase: TransitionPhase.Renaming,
+      diskPath: '/d/other.part',
+      finalPath: '/d/other',
+    })
+    const deps = makeDeps({
+      taskManager: {
+        getAll: () => [first, other],
+        persist: vi.fn(async () => {}),
+      },
+      fs: makeFs(new Set(['/d/first.part', '/d/other.part'])),
+    })
+    const report = await new TaskRecoveryServiceImpl(deps).recoverTaskById(
+      'first'
+    )
+    expect(report.totalScanned).toBe(1)
+    expect(deps.finalizeTask).toHaveBeenCalledExactlyOnceWith('first')
+  })
+
+  it('preserves the rename intent when output paths cannot be accessed', async () => {
+    let task = makeTask({
+      status: TaskStatus.Finalizing,
+      transitionPhase: TransitionPhase.Renaming,
+    })
+    const deps = makeDeps({
+      taskManager: {
+        getAll: () => [task],
+        set: (_id, next) => {
+          task = next
+        },
+        persist: vi.fn(async () => {}),
+      },
+      fs: {
+        ...makeFs(new Set()),
+        pathExists: vi.fn(async () => {
+          throw Object.assign(new Error('EACCES: permission denied'), {
+            code: 'EACCES',
+          })
+        }),
+      },
+    })
+    const report = await new TaskRecoveryServiceImpl(deps).recoverOnStartup()
+    expect(task).toMatchObject({
+      status: TaskStatus.Error,
+      transitionPhase: TransitionPhase.Renaming,
+      errorDetailKey: 'task.error.detail.recoveryFailed',
+    })
+    expect(report.errors[0].issue).toContain('EACCES')
+    expect(deps.finalizeTask).not.toHaveBeenCalled()
+    expect(deps.fs.removePathRecursive).not.toHaveBeenCalled()
   })
 })

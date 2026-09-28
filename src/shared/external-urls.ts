@@ -28,6 +28,10 @@ export const EXTERNAL_URLS = {
     releaseNotes: 'https://motrix.app/release-notes/',
     manual: {
       home: 'https://motrix.app/manual/',
+      downloadPerformance: {
+        en: 'https://motrix.app/manual/download-performance/',
+        zh: 'https://motrix.app/zh/manual/download-performance/',
+      },
       natTroubleshooting: {
         en: 'https://motrix.app/manual/port-mapping/',
         zh: 'https://motrix.app/zh/manual/port-mapping/',
@@ -41,4 +45,9 @@ export const EXTERNAL_URLS = {
 export function getNatTroubleshootingUrl(language: string): string {
   const locale = language.toLowerCase().startsWith('zh') ? 'zh' : 'en'
   return EXTERNAL_URLS.motrix.manual.natTroubleshooting[locale]
+}
+
+export function getDownloadPerformanceUrl(language: string): string {
+  const locale = language.toLowerCase().startsWith('zh') ? 'zh' : 'en'
+  return EXTERNAL_URLS.motrix.manual.downloadPerformance[locale]
 }

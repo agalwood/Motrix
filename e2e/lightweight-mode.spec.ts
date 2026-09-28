@@ -8,6 +8,7 @@ import {
   findAddTaskWindow,
   launchMotrix,
   test,
+  waitForEngineReady,
 } from './fixtures/electron-app'
 
 async function waitForMainWindow(
@@ -20,6 +21,7 @@ async function waitForMainWindow(
   const page = await pagePromise
   await page.waitForLoadState('domcontentloaded')
   await expect.poll(() => page.url()).toContain('w=main')
+  await waitForEngineReady(page)
   return page
 }
 
@@ -74,6 +76,7 @@ test.describe('lightweight mode', () => {
       JSON.stringify({
         version: CURRENT_SETTINGS_VERSION,
         onboarding: { disclaimerAccepted: true },
+        tracker: { autoSync: false },
         app: {
           lightweightMode: true,
           runMode: RunMode.TrayOnly,

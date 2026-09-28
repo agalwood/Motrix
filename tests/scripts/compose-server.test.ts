@@ -70,6 +70,9 @@ describe('NAS-importable Compose contract', () => {
         MOTRIX_ALLOWED_SAVE_DIRS: '/downloads',
         MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP: ALLOW_INSECURE_OPERATOR_HTTP,
         MOTRIX_ARIA2_RPC_LISTEN_ALL: ARIA2_RPC_LISTEN_ALL,
+        MOTRIX_TORRENT_BODY_LIMIT_MIB: interpolation(
+          'MOTRIX_TORRENT_BODY_LIMIT_MIB:-8'
+        ),
         MOTRIX_DATA_DIR: '/data',
         MOTRIX_DEFAULT_SAVE_DIR: '/downloads',
         MOTRIX_MDXP_HOST: '0.0.0.0',

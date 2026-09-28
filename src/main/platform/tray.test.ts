@@ -3,9 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   appDock,
+  iconProviderFactory,
   icon,
   iconProvider,
+  nativeThemeMock,
   speedometer,
+  systemPreferencesMock,
   trayConstructor,
   trayInstance,
 } = vi.hoisted(() => {
@@ -22,15 +25,22 @@ const {
 
   return {
     appDock: { hide: vi.fn(), show: vi.fn() },
+    iconProviderFactory: vi.fn(),
     icon: { kind: 'tray-icon' },
     iconProvider: {
       getIcon: vi.fn(),
       init: vi.fn(),
     },
+    nativeThemeMock: { on: vi.fn(), off: vi.fn() },
     speedometer: {
       destroy: vi.fn(),
       onSpeedChange: vi.fn(),
       setEnabled: vi.fn(),
+      setUnitSystem: vi.fn(),
+    },
+    systemPreferencesMock: {
+      getUserDefault: vi.fn(),
+      setUserDefault: vi.fn(),
     },
     trayConstructor: vi.fn(),
     trayInstance,
@@ -39,6 +49,8 @@ const {
 
 vi.mock('electron', () => ({
   app: { dock: appDock },
+  nativeTheme: nativeThemeMock,
+  systemPreferences: systemPreferencesMock,
   Tray: class {
     destroy = trayInstance.destroy
     on = trayInstance.on
@@ -60,7 +72,7 @@ vi.mock('@core/logger', () => ({
 }))
 
 vi.mock('./tray-icon', () => ({
-  createIconProvider: () => iconProvider,
+  createIconProvider: iconProviderFactory,
 }))
 
 vi.mock('./tray-speedometer', () => ({
@@ -69,29 +81,22 @@ vi.mock('./tray-speedometer', () => ({
 
 import { RunMode } from '@shared/constants'
 import { Events } from '@shared/protocol/events'
+import { DEFAULT_APP_SETTINGS } from '@shared/schemas'
+import type { MotrixAppSettings } from '@shared/types/settings'
 import { setupTray, type TrayDeps } from './tray'
 
 const originalPlatform = process.platform
 const trayMenu = { kind: 'tray-menu' }
 const toggleMainWindow = vi.fn()
 
-function createDeps(
-  appSettings: {
-    lightweightMode: boolean
-    runMode: RunMode
-    traySpeedometer: boolean
-  } = {
-    lightweightMode: false,
-    runMode: RunMode.Standard,
-    traySpeedometer: false,
-  }
-): TrayDeps {
+function createDeps(appSettings: Partial<MotrixAppSettings> = {}): TrayDeps {
+  const settings = { ...DEFAULT_APP_SETTINGS, ...appSettings }
   return {
     eventBus: {
       off: vi.fn(),
       on: vi.fn(),
     },
-    settingsManager: { getApp: () => appSettings },
+    settingsManager: { getApp: () => settings },
     menuManager: {
       getTrayMenu: () => trayMenu,
       onTrayRebuilt: vi.fn(),
@@ -114,9 +119,18 @@ function getTrayHandler(eventName: string): () => void {
   return handler as () => void
 }
 
+function getThemeUpdatedHandler(): () => Promise<void> {
+  const handler = nativeThemeMock.on.mock.calls.find(
+    ([event]) => event === 'updated'
+  )?.[1]
+  expect(handler).toBeTypeOf('function')
+  return handler as () => Promise<void>
+}
+
 describe('setupTray', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
+    iconProviderFactory.mockReturnValue(iconProvider)
     iconProvider.getIcon.mockReturnValue(icon)
     iconProvider.init.mockResolvedValue(undefined)
   })
@@ -149,6 +163,230 @@ describe('setupTray', () => {
       expect(trayConstructor).toHaveBeenCalledWith(icon)
     })
 
+    handle.destroy()
+  })
+
+  it('keeps the native macOS tray alive while preparing to quit', async () => {
+    Object.defineProperty(process, 'platform', { value: 'darwin' })
+    const deps = createDeps()
+    const handle = setupTray(deps)
+    await vi.waitFor(() => expect(trayConstructor).toHaveBeenCalledOnce())
+
+    handle.prepareForQuit()
+
+    expect(trayInstance.removeAllListeners).toHaveBeenCalledOnce()
+    expect(speedometer.destroy).toHaveBeenCalledOnce()
+    expect(trayInstance.destroy).not.toHaveBeenCalled()
+    expect(deps.eventBus.off).toHaveBeenCalledTimes(3)
+  })
+
+  it('does not finish creating a tray after shutdown starts', async () => {
+    let resolveInit: () => void = () => {}
+    iconProvider.init.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveInit = resolve
+        })
+    )
+    const handle = setupTray(createDeps())
+
+    handle.prepareForQuit()
+    resolveInit()
+    await Promise.resolve()
+
+    expect(iconProvider.init).toHaveBeenCalledOnce()
+    expect(trayConstructor).not.toHaveBeenCalled()
+  })
+
+  it('keeps Linux activity changes received while tray icons are loading', async () => {
+    Object.defineProperty(process, 'platform', { value: 'linux' })
+    const pending = Promise.withResolvers<void>()
+    iconProvider.init.mockReturnValueOnce(pending.promise)
+    const deps = createDeps()
+    const handle = setupTray(deps)
+    const activeChanged = vi
+      .mocked(deps.eventBus.on)
+      .mock.calls.find(([event]) => event === Events.EngineActiveChanged)?.[1]
+    activeChanged?.(true)
+    pending.resolve()
+    await vi.waitFor(() => expect(trayConstructor).toHaveBeenCalledOnce())
+    expect(iconProvider.getIcon).toHaveBeenLastCalledWith(true)
+    handle.destroy()
+  })
+
+  it.each(['win32', 'linux'])(
+    'destroys the native tray while preparing to quit on %s',
+    async (platform) => {
+      Object.defineProperty(process, 'platform', { value: platform })
+      const handle = setupTray(createDeps())
+      await vi.waitFor(() => expect(trayConstructor).toHaveBeenCalledOnce())
+
+      handle.prepareForQuit()
+
+      expect(trayInstance.destroy).toHaveBeenCalledOnce()
+    }
+  )
+
+  it.each([false, true])(
+    'refreshes Linux icons on theme changes and preserves active=%s',
+    async (active) => {
+      Object.defineProperty(process, 'platform', { value: 'linux' })
+      const deps = createDeps()
+      const handle = setupTray(deps)
+      await vi.waitFor(() => expect(trayConstructor).toHaveBeenCalledOnce())
+
+      const activeChanged = vi
+        .mocked(deps.eventBus.on)
+        .mock.calls.find(([event]) => event === Events.EngineActiveChanged)?.[1]
+      expect(activeChanged).toBeTypeOf('function')
+      activeChanged?.(active)
+      trayInstance.setImage.mockClear()
+
+      const updatedIcon = { kind: 'updated-theme-icon' }
+      iconProvider.getIcon.mockReturnValue(updatedIcon)
+      await getThemeUpdatedHandler()()
+
+      expect(iconProvider.init).toHaveBeenCalledTimes(2)
+      expect(iconProvider.getIcon).toHaveBeenLastCalledWith(active)
+      expect(trayInstance.setImage).toHaveBeenCalledExactlyOnceWith(updatedIcon)
+      expect(trayConstructor).toHaveBeenCalledOnce()
+      handle.destroy()
+    }
+  )
+
+  it.each(['linux', 'win32'])(
+    'updates activity on %s even with the default macOS speedometer preference',
+    async (platform) => {
+      Object.defineProperty(process, 'platform', { value: platform })
+      const deps = createDeps()
+      expect(deps.settingsManager.getApp().traySpeedometer).toBe(true)
+      const handle = setupTray(deps)
+      await vi.waitFor(() => expect(trayConstructor).toHaveBeenCalledOnce())
+      const activeChanged = vi
+        .mocked(deps.eventBus.on)
+        .mock.calls.find(([event]) => event === Events.EngineActiveChanged)?.[1]
+      for (const active of [true, false]) {
+        trayInstance.setImage.mockClear()
+        activeChanged?.(active)
+        expect(iconProvider.getIcon).toHaveBeenLastCalledWith(active)
+        expect(trayInstance.setImage).toHaveBeenCalledExactlyOnceWith(icon)
+      }
+      expect(speedometer.setEnabled).not.toHaveBeenCalled()
+      handle.destroy()
+    }
+  )
+
+  it('does not replace an enabled macOS speedometer on activity changes', async () => {
+    Object.defineProperty(process, 'platform', { value: 'darwin' })
+    const deps = createDeps()
+    const handle = setupTray(deps)
+    await vi.waitFor(() => expect(trayConstructor).toHaveBeenCalledOnce())
+    const activeChanged = vi
+      .mocked(deps.eventBus.on)
+      .mock.calls.find(([event]) => event === Events.EngineActiveChanged)?.[1]
+    activeChanged?.(true)
+    expect(speedometer.setEnabled).toHaveBeenCalledWith(true)
+    expect(trayInstance.setImage).not.toHaveBeenCalled()
+    handle.destroy()
+  })
+
+  it('applies Linux color changes immediately and resumes automatic theme updates', async () => {
+    Object.defineProperty(process, 'platform', { value: 'linux' })
+    const deps = createDeps()
+    const handle = setupTray(deps)
+    await vi.waitFor(() => expect(trayConstructor).toHaveBeenCalledOnce())
+    const activeChanged = vi
+      .mocked(deps.eventBus.on)
+      .mock.calls.find(([event]) => event === Events.EngineActiveChanged)?.[1]
+    const settingsChanged = vi
+      .mocked(deps.eventBus.on)
+      .mock.calls.find(([event]) => event === Events.SettingsChanged)?.[1]
+    activeChanged?.(true)
+    const getColor = iconProviderFactory.mock.calls[0]?.[2]
+    expect(getColor).toBeTypeOf('function')
+
+    for (const trayIconColor of ['light', 'dark', 'auto'] as const) {
+      const old = { app: { ...deps.settingsManager.getApp() } }
+      deps.settingsManager.getApp().trayIconColor = trayIconColor
+      trayInstance.setImage.mockClear()
+      settingsChanged?.({
+        old,
+        updated: { app: deps.settingsManager.getApp() },
+      })
+      await vi.waitFor(() =>
+        expect(trayInstance.setImage).toHaveBeenCalledExactlyOnceWith(icon)
+      )
+      expect(getColor()).toBe(trayIconColor)
+      expect(iconProvider.getIcon).toHaveBeenLastCalledWith(true)
+      expect(trayConstructor).toHaveBeenCalledOnce()
+
+      iconProvider.init.mockClear()
+      trayInstance.setImage.mockClear()
+      await getThemeUpdatedHandler()()
+      if (trayIconColor === 'auto') {
+        expect(iconProvider.init).toHaveBeenCalledOnce()
+        expect(trayInstance.setImage).toHaveBeenCalledExactlyOnceWith(icon)
+      } else {
+        expect(iconProvider.init).not.toHaveBeenCalled()
+        expect(trayInstance.setImage).not.toHaveBeenCalled()
+      }
+    }
+    handle.destroy()
+  })
+
+  it.each(['darwin', 'win32'])(
+    'does not reload native tray icons for theme changes on %s',
+    async (platform) => {
+      Object.defineProperty(process, 'platform', { value: platform })
+      const handle = setupTray(createDeps())
+      await vi.waitFor(() => expect(trayConstructor).toHaveBeenCalledOnce())
+
+      expect(nativeThemeMock.on).not.toHaveBeenCalled()
+      handle.destroy()
+      expect(nativeThemeMock.off).not.toHaveBeenCalled()
+    }
+  )
+
+  it('unsubscribes from theme updates when the Linux tray is destroyed', async () => {
+    Object.defineProperty(process, 'platform', { value: 'linux' })
+    const handle = setupTray(createDeps())
+    await vi.waitFor(() => expect(trayConstructor).toHaveBeenCalledOnce())
+    const onUpdated = getThemeUpdatedHandler()
+
+    handle.destroy()
+    expect(nativeThemeMock.off).toHaveBeenCalledExactlyOnceWith(
+      'updated',
+      onUpdated
+    )
+    await onUpdated()
+    expect(iconProvider.init).toHaveBeenCalledOnce()
+    expect(trayInstance.setImage).not.toHaveBeenCalled()
+  })
+
+  it('does not apply a pending theme refresh to a destroyed tray', async () => {
+    Object.defineProperty(process, 'platform', { value: 'linux' })
+    const handle = setupTray(createDeps())
+    await vi.waitFor(() => expect(trayConstructor).toHaveBeenCalledOnce())
+    const pending = Promise.withResolvers<void>()
+    iconProvider.init.mockReturnValueOnce(pending.promise)
+
+    const refresh = getThemeUpdatedHandler()()
+    handle.destroy()
+    pending.resolve()
+    await refresh
+
+    expect(trayInstance.setImage).not.toHaveBeenCalled()
+  })
+
+  it('keeps the existing icon if a Linux theme refresh fails', async () => {
+    Object.defineProperty(process, 'platform', { value: 'linux' })
+    const handle = setupTray(createDeps())
+    await vi.waitFor(() => expect(trayConstructor).toHaveBeenCalledOnce())
+    iconProvider.init.mockRejectedValueOnce(new Error('Image loading failed'))
+
+    await expect(getThemeUpdatedHandler()()).resolves.toBeUndefined()
+
+    expect(trayInstance.setImage).not.toHaveBeenCalled()
     handle.destroy()
   })
 
@@ -211,6 +449,56 @@ describe('setupTray', () => {
     expect(trayInstance.destroy).not.toHaveBeenCalled()
 
     handle.destroy()
+  })
+
+  it('preserves the macOS tray position while switching through Dock-only mode', async () => {
+    Object.defineProperty(process, 'platform', { value: 'darwin' })
+    systemPreferencesMock.getUserDefault.mockReturnValue(486.5)
+    const deps = createDeps()
+    const handle = setupTray(deps)
+    await vi.waitFor(() => expect(trayConstructor).toHaveBeenCalledOnce())
+    appDock.show.mockClear()
+    appDock.hide.mockClear()
+
+    const settingsChanged = vi
+      .mocked(deps.eventBus.on)
+      .mock.calls.find(([event]) => event === Events.SettingsChanged)?.[1]
+    expect(settingsChanged).toBeTypeOf('function')
+
+    settingsChanged?.({
+      old: { app: { lightweightMode: false, runMode: RunMode.Standard } },
+      updated: { app: { lightweightMode: false, runMode: RunMode.HideTray } },
+    })
+
+    expect(
+      systemPreferencesMock.getUserDefault
+    ).toHaveBeenCalledExactlyOnceWith(
+      'NSStatusItem Preferred Position 493f17b6-d4ac-48d3-8723-c3ac490b14cf',
+      'double'
+    )
+    expect(trayInstance.destroy).toHaveBeenCalledOnce()
+    expect(appDock.show).toHaveBeenCalledOnce()
+    expect(appDock.hide).not.toHaveBeenCalled()
+    expect(
+      systemPreferencesMock.setUserDefault
+    ).toHaveBeenCalledExactlyOnceWith(
+      'NSStatusItem Preferred Position 493f17b6-d4ac-48d3-8723-c3ac490b14cf',
+      'double',
+      486.5
+    )
+
+    settingsChanged?.({
+      old: { app: { lightweightMode: false, runMode: RunMode.HideTray } },
+      updated: { app: { lightweightMode: false, runMode: RunMode.TrayOnly } },
+    })
+    await vi.waitFor(() => expect(trayConstructor).toHaveBeenCalledTimes(2))
+
+    expect(appDock.hide).toHaveBeenCalledOnce()
+    expect(trayConstructor).toHaveBeenLastCalledWith(
+      icon,
+      '493f17b6-d4ac-48d3-8723-c3ac490b14cf'
+    )
+    handle.prepareForQuit()
   })
 
   it('toggles the main window without opening the menu on Windows left click', async () => {

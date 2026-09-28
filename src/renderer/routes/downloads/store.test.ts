@@ -1,7 +1,7 @@
 import type { DownloadTask } from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
-import { beforeEach, describe, expect, it } from 'vitest'
-import { useDownloadsSelection } from './store'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createDownloadsSortStore, useDownloadsSelection } from './store'
 
 function fakeTask(overrides: Partial<DownloadTask> = {}): DownloadTask {
   return makeDownloadTask({
@@ -54,5 +54,80 @@ describe('useDownloadsSelection', () => {
     expect(useDownloadsSelection.getState().selectedIds.has('task-b')).toBe(
       false
     )
+  })
+})
+
+describe('Downloads sort persistence', () => {
+  beforeEach(() => localStorage.clear())
+  afterEach(() => {
+    vi.restoreAllMocks()
+    localStorage.clear()
+  })
+
+  it('starts with the implicit default and restores a manual column and direction in a fresh store', () => {
+    const first = createDownloadsSortStore()
+    expect(first.getState().sort).toBeNull()
+    first.getState().toggleSort('size')
+    first.getState().toggleSort('size')
+    const restored = createDownloadsSortStore()
+    expect(restored.getState().sort).toEqual({
+      column: 'size',
+      direction: 'asc',
+    })
+    restored.getState().toggleSort('finishedAt')
+    expect(createDownloadsSortStore().getState().sort).toEqual({
+      column: 'finishedAt',
+      direction: 'desc',
+    })
+  })
+
+  it('removes the saved manual preference when returning to the default', () => {
+    const first = createDownloadsSortStore()
+    first.getState().toggleSort('name')
+    first.getState().toggleSort('name')
+    first.getState().resetSort()
+    expect(first.getState().sort).toBeNull()
+    expect(localStorage.getItem('motrix.downloads.sort')).toBeNull()
+    expect(createDownloadsSortStore().getState().sort).toBeNull()
+  })
+
+  it.each([
+    'not json',
+    'null',
+    '[]',
+    '{}',
+    '{"column":"obsolete","direction":"asc"}',
+    '{"column":"name","direction":"sideways"}',
+  ])(
+    'falls back to the default for an invalid saved preference: %s',
+    (saved) => {
+      localStorage.setItem('motrix.downloads.sort', saved)
+      const store = createDownloadsSortStore()
+      expect(store.getState().sort).toBeNull()
+      store.getState().toggleSort('createdAt')
+      expect(createDownloadsSortStore().getState().sort).toEqual({
+        column: 'createdAt',
+        direction: 'asc',
+      })
+    }
+  )
+
+  it('keeps sorting usable when storage reads or writes are blocked', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('Blocked storage')
+    })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('Blocked storage')
+    })
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new Error('Blocked storage')
+    })
+    const store = createDownloadsSortStore()
+    expect(store.getState().sort).toBeNull()
+    expect(() => store.getState().toggleSort('name')).not.toThrow()
+    expect(store.getState().sort).toEqual({ column: 'name', direction: 'asc' })
+    store.getState().toggleSort('name')
+    expect(() => store.getState().resetSort()).not.toThrow()
+    expect(store.getState().sort).toBeNull()
   })
 })

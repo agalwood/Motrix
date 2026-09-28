@@ -22,8 +22,8 @@ Motrix 是一款界面简洁、功能丰富的桌面下载管理器，可处理 
 ## 🧪 Beta 测试
 
 Motrix Turbo v2 目前仍处于 beta 阶段。剩余发布门禁通过后，请从 GitHub Releases
-下载 [v2.0.0-beta.34](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.34)，
-并在安装前阅读[完整发布说明](./docs/release-notes/2.0.0-beta.34.zh-CN.md)。
+下载 [v2.0.0-beta.41](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.41)，
+并在安装前阅读[完整发布说明](./docs/release-notes/2.0.0-beta.41.zh-CN.md)。
 
 测试前请备份现有 Motrix 数据和下载文件。Motrix v1 数据的迁移路径尚未经过
 验证，请勿让本 beta 使用您唯一一份 v1 数据。条件允许时，建议通过独立的系统
@@ -35,24 +35,24 @@ Motrix Turbo v2 目前仍处于 beta 阶段。剩余发布门禁通过后，请�
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-dashboard-cn-dark.webp">
-  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-dashboard-cn.webp">
-  <img alt="Motrix 仪表盘" src="./screenshots/motrix-dashboard-cn.webp">
+  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-dashboard-cn-light.webp">
+  <img alt="Motrix 仪表盘" src="./screenshots/motrix-dashboard-cn-light.webp">
 </picture>
 
 ### 下载任务
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-downloads-cn-dark.webp">
-  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-downloads-cn.webp">
-  <img alt="Motrix 下载任务" src="./screenshots/motrix-downloads-cn.webp">
+  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-downloads-cn-light.webp">
+  <img alt="Motrix 下载任务" src="./screenshots/motrix-downloads-cn-light.webp">
 </picture>
 
 ### 设置
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./screenshots/motrix-settings-cn-dark.webp">
-  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-settings-cn.webp">
-  <img alt="Motrix 设置" src="./screenshots/motrix-settings-cn.webp">
+  <source media="(prefers-color-scheme: light)" srcset="./screenshots/motrix-settings-cn-light.webp">
+  <img alt="Motrix 设置" src="./screenshots/motrix-settings-cn-light.webp">
 </picture>
 
 ## ✨ 主要功能
@@ -141,11 +141,15 @@ Motrix Extension 已上架官方浏览器扩展商店，配合 Motrix 2 使用�
 | Windows | `x64` | `.exe`（NSIS 安装包）/ `.zip` | 常规安装使用 `.exe`；`.zip` 可解压后手动运行 |
 | Linux | `x64`、`arm64` | `.AppImage` / `.deb` / `.rpm` | 任意发行版可使用便携的 `.AppImage`，Debian 或 Ubuntu 使用 `.deb`，Fedora 或 openSUSE 使用 `.rpm` |
 | Linux（Snap Store） | `amd64`、`arm64` | `latest/edge` | 使用 `sudo snap install motrix --edge` 安装严格限制的 beta |
+| Linux（Flatpak） | `x86_64`、`aarch64` | `.flatpak` | 从包含该格式的 Release 下载对应版本的安装包，详见 [Flatpak 安装指南](docs/flatpak.zh-CN.md) |
+| Arch Linux / Omarchy | `x64`、`arm64` | `.pacman` | 使用 `sudo pacman -U ./Motrix-<version>-<arch>.pacman` 安装原生 Arch 包，详见 [Arch 安装指南](docs/arch-linux.zh-CN.md) |
 
 `.AppImage` 首次启动时会询问是否把桌面入口和 URL scheme 处理程序注册到你的用户数据目录；拒绝则不改动系统。之后随时可以在「设置 → 集成」中启用或移除该桌面集成。
 Snap Store 安装包使用严格限制。已批准的 `personal-files` interface 允许 Motrix
 为支持的浏览器注册 Native Messaging host，不会授予常规 Snap interface
-之外的通用文件访问权限。Flatpak 会单独验证，不会随该版本 tag 发布。
+之外的通用文件访问权限。Release tag 会构建并验证两种架构的 Flatpak 主程序包，
+通过后再发布。beta.39 等旧版本仅包含 Flatpak Native Host 配套程序。
+这些单文件安装包需要手动升级，不会配置 Motrix 更新仓库。
 同时不提供 Windows `arm64` 和任何 32 位安装包。Windows `x64` 安装包未签名，
 可能触发 Windows SmartScreen 警告。
 
@@ -166,7 +170,7 @@ Beta 只发布不可变的版本 tag，不会更新 `latest`；仓库的 `compos
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.34'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.41'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait

@@ -9,9 +9,15 @@ const MAX_FRAME_BYTES: usize = 64 * 1024;
 #[serde(tag = "op", rename_all = "snake_case")]
 pub(crate) enum Request {
     Capabilities,
+    SanitizeName {
+        request_id: u64,
+        name: String,
+    },
     OpenRoot {
         request_id: u64,
         path: String,
+        #[serde(default)]
+        expected_identity: Option<String>,
     },
     OpenArtifact {
         request_id: u64,
@@ -21,6 +27,19 @@ pub(crate) enum Request {
         rename_only: bool,
     },
     RenameOpenedNoReplace {
+        request_id: u64,
+        artifact: u64,
+        target_root: u64,
+        target_relative: String,
+    },
+    LinkOpenedNoReplace {
+        request_id: u64,
+        artifact: u64,
+        target_root: u64,
+        target_relative: String,
+    },
+    IsolateOpened {
+        expected_root_identity: String,
         request_id: u64,
         artifact: u64,
         target_root: u64,
@@ -45,6 +64,13 @@ pub(crate) enum Request {
         quarantine_relative: String,
         resume_isolated: bool,
     },
+    RemoveOpenedPreserving {
+        request_id: u64,
+        artifact: u64,
+        quarantine_relative: String,
+        resume_isolated: bool,
+        survivor: u64,
+    },
     SyncRoot {
         request_id: u64,
         root: u64,
@@ -53,6 +79,26 @@ pub(crate) enum Request {
         request_id: u64,
         handle: u64,
     },
+}
+
+impl Request {
+    pub(crate) fn operation(&self) -> &'static str {
+        match self {
+            Self::Capabilities => "capabilities",
+            Self::SanitizeName { .. } => "sanitize_name",
+            Self::OpenRoot { .. } => "open_root",
+            Self::OpenArtifact { .. } => "open_artifact",
+            Self::RenameOpenedNoReplace { .. } => "rename_opened_no_replace",
+            Self::LinkOpenedNoReplace { .. } => "link_opened_no_replace",
+            Self::IsolateOpened { .. } => "isolate_opened",
+            Self::CopyOpened { .. } => "copy_opened",
+            Self::RenameNoReplace { .. } => "rename_no_replace",
+            Self::RemoveOpened { .. } => "remove_opened",
+            Self::RemoveOpenedPreserving { .. } => "remove_opened_preserving",
+            Self::SyncRoot { .. } => "sync_root",
+            Self::Close { .. } => "close",
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -68,6 +114,8 @@ pub(crate) struct Response<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) platform: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) sanitized_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) rename_no_replace: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) held_roots: Option<bool>,
@@ -75,6 +123,14 @@ pub(crate) struct Response<'a> {
     pub(crate) directory_sync: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) held_artifacts: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) operation: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) directory_sync_mode: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) os_error: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) nt_status: Option<String>,
 }
 
 impl<'a> Response<'a> {
@@ -86,11 +142,27 @@ impl<'a> Response<'a> {
             code: None,
             message: None,
             platform: None,
+            sanitized_name: None,
             rename_no_replace: None,
             held_roots: None,
             directory_sync: None,
             held_artifacts: None,
+            operation: None,
+            directory_sync_mode: None,
+            os_error: None,
+            nt_status: None,
         }
+    }
+
+    pub(crate) fn filesystem_error(request_id: u64, error: io::Error) -> Self {
+        let mut response = Self::error(
+            Some(request_id),
+            crate::error::classify_error(&error),
+            &error,
+        );
+        response.os_error = crate::error::os_code(&error);
+        response.nt_status = crate::error::nt_status(&error);
+        response
     }
 
     pub(crate) fn error(request_id: Option<u64>, code: &'a str, error: impl ToString) -> Self {

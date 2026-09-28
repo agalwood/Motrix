@@ -23,6 +23,12 @@ const rules = [
     dir: 'src/renderer/',
   },
   {
+    label: 'renderer must use semantic icons outside components/icons',
+    pattern: '[\'"`]lucide-react(/[^\'"`]*)?[\'"`]',
+    dir: 'src/renderer/',
+    exceptDirectories: ['src/renderer/components/icons/'],
+  },
+  {
     label: 'server must not import electron',
     pattern: `from ['"]electron['"]`,
     dir: 'src/server/',
@@ -52,12 +58,15 @@ const rules = [
 ]
 
 // grep -rn output lines are "path:line:content" — take the path prefix.
-function filterOutExceptions(stdout, except) {
-  if (!except || except.length === 0) return stdout
+function filterOutExceptions(stdout, except = [], exceptDirectories = []) {
+  if (except.length === 0 && exceptDirectories.length === 0) return stdout
   const lines = stdout.split('\n').filter(Boolean)
   const kept = lines.filter((line) => {
     const filePath = line.split(':', 1)[0]
-    return !except.some((suffix) => filePath.endsWith(suffix))
+    return (
+      !except.some((suffix) => filePath.endsWith(suffix)) &&
+      !exceptDirectories.some((directory) => filePath.startsWith(directory))
+    )
   })
   return kept.length > 0 ? `${kept.join('\n')}\n` : ''
 }
@@ -77,7 +86,11 @@ for (const rule of rules) {
     continue
   }
   if (res.status === 0) {
-    const filtered = filterOutExceptions(res.stdout, rule.except)
+    const filtered = filterOutExceptions(
+      res.stdout,
+      rule.except,
+      rule.exceptDirectories
+    )
     if (filtered === '') {
       console.log(`[PASS] ${rule.label}`)
       continue

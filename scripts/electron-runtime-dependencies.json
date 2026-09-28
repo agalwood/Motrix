@@ -8,6 +8,7 @@
     "win32-x64"
   ],
   "common": [
+    "@jitl/quickjs-wasmfile-release-sync",
     "@motrix/mdxp",
     "@motrix/nat",
     "@motrix/plugin-manifest-schema",
@@ -21,7 +22,7 @@
     "libsodium-wrappers",
     "mmdb-lib",
     "proxy-chain",
-    "quickjs-emscripten",
+    "quickjs-emscripten-core",
     "undici",
     "uuid",
     "vscode-jsonrpc",

@@ -1,4 +1,5 @@
 import { toast } from '@renderer/components/ui/toast'
+import { onSettingsSaved } from '@renderer/lib/settings-save'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
@@ -44,6 +45,7 @@ export function useEngineRestartRequiredToast(): void {
     }
 
     const onRestartRequired = () => {
+      if (reminderVisible) return
       reminderVisible = true
       toast.close(ENGINE_RESTART_REQUIRED_TOAST_ID)
       toast.add({
@@ -69,8 +71,12 @@ export function useEngineRestartRequiredToast(): void {
 
     transport.on(Events.EngineRestartRequired, onRestartRequired)
     transport.on(Events.EngineStateChanged, onEngineStateChanged)
+    const stopSettingsSync = onSettingsSaved((result) => {
+      if (result.requiresRestart) onRestartRequired()
+    })
     return () => {
       reminderVisible = false
+      stopSettingsSync()
       transport.off(Events.EngineRestartRequired, onRestartRequired)
       transport.off(Events.EngineStateChanged, onEngineStateChanged)
     }

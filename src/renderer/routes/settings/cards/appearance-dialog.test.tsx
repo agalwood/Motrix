@@ -1,5 +1,7 @@
+import '@test-utils/dom-animations'
 import '@testing-library/jest-dom/vitest'
 import { i18n } from '@renderer/lib/i18n'
+import { SUPPORTED_LOCALES } from '@shared/constants/locales'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { render, screen, waitFor } from '@testing-library/react'
@@ -27,6 +29,7 @@ class MockResizeObserver {
 const FIXTURE = {
   app: {
     theme: 'system',
+    sidebarColor: 'gray',
     language: 'en-US',
     traySpeedometer: false,
     runMode: 1, // RunMode.Standard — numeric enum
@@ -68,7 +71,7 @@ beforeEach(async () => {
 })
 
 describe('<AppearanceDialog>', () => {
-  it('renders hydrated select labels instead of raw values', async () => {
+  it('pins Follow system first and saves the preference only after confirmation', async () => {
     render(
       <AppearanceDialog
         open
@@ -77,40 +80,50 @@ describe('<AppearanceDialog>', () => {
         descKey="settings.cards.appearance.desc"
       />
     )
-
-    await waitFor(() => {
-      const [themeTrigger, languageTrigger, runModeTrigger] =
-        screen.getAllByRole('combobox')
-
-      expect(themeTrigger).toHaveTextContent(/^System$/)
-      expect(themeTrigger).not.toHaveTextContent(/^system$/)
-      expect(languageTrigger).toHaveTextContent(/^English$/)
-      expect(languageTrigger).not.toHaveTextContent(/^en-US$/)
-      expect(languageTrigger).toHaveClass('min-w-30', 'max-w-64')
-      expect(languageTrigger).not.toHaveClass('w-32')
-      expect(runModeTrigger).toHaveTextContent(/^Dock & Menu Bar$/)
-      expect(runModeTrigger).not.toHaveTextContent(/^1$/)
-    })
-
     const user = userEvent.setup({ pointerEventsCheck: 0 })
-    await user.click(
-      screen.getByRole('combobox', {
-        name: 'Show app in',
-      })
+    const select = await screen.findByRole('combobox', { name: 'Language' })
+    await waitFor(() => expect(select).toHaveTextContent('English'))
+    await user.click(select)
+    const options = await screen.findAllByRole('option')
+    expect(options.map((option) => option.textContent)).toEqual([
+      'Follow system',
+      ...SUPPORTED_LOCALES.map(({ nativeName }) => nativeName),
+    ])
+    await user.click(options[0]!)
+    expect(select).toHaveTextContent('Follow system')
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
     )
-    expect(
-      await screen.findByRole('option', { name: 'Dock & Menu Bar' })
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('option', { name: 'Menu Bar Only' })
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('option', { name: 'Dock Only' })
-    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      app: { language: 'system' },
+    })
   })
 
-  it.each(['win32', 'linux'] as const)(
-    'uses launch behavior labels on %s',
+  it('restores the saved system preference instead of displaying a resolved language', async () => {
+    vi.mocked(transport.invoke).mockResolvedValue({
+      ...FIXTURE,
+      app: { ...FIXTURE.app, language: 'system' },
+      resolvedLanguage: 'fr',
+    })
+    render(
+      <AppearanceDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+    await waitFor(() =>
+      expect(
+        screen.getByRole('combobox', { name: 'Language' })
+      ).toHaveTextContent('Follow system')
+    )
+  })
+
+  it.each(['darwin', 'win32', 'web'])(
+    'hides the Linux tray color selector on %s',
     async (platform) => {
       Object.defineProperty(transport, 'platform', {
         configurable: true,
@@ -124,27 +137,106 @@ describe('<AppearanceDialog>', () => {
           descKey="settings.cards.appearance.desc"
         />
       )
+      await screen.findByRole('combobox', { name: 'Theme' })
+      expect(
+        screen.queryByRole('combobox', { name: 'Tray icon color' })
+      ).toBeNull()
+    }
+  )
 
-      const runModeTrigger = await screen.findByRole('combobox', {
-        name: 'When opening Motrix',
+  it('lets Linux users save only the tray color without changing the application theme', async () => {
+    Object.defineProperty(transport, 'platform', {
+      configurable: true,
+      value: 'linux',
+    })
+    render(
+      <AppearanceDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+    const select = await screen.findByRole('combobox', {
+      name: 'Tray icon color',
+    })
+    expect(select).toHaveTextContent('Follow app theme')
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    await user.click(select)
+    await user.click(
+      await screen.findByRole('option', { name: 'Light icon (dark panel)' })
+    )
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      app: { trayIconColor: 'light' },
+    })
+  })
+
+  it('hydrates the saved Linux tray color and discards edits on cancel', async () => {
+    Object.defineProperty(transport, 'platform', {
+      configurable: true,
+      value: 'linux',
+    })
+    vi.mocked(transport.invoke).mockResolvedValue({
+      app: { ...FIXTURE.app, trayIconColor: 'dark' },
+    })
+    render(
+      <AppearanceDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+    const select = await screen.findByRole('combobox', {
+      name: 'Tray icon color',
+    })
+    await waitFor(() =>
+      expect(select).toHaveTextContent('Dark icon (light panel)')
+    )
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    await user.click(select)
+    await user.click(
+      await screen.findByRole('option', { name: 'Follow app theme' })
+    )
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
+  })
+  it.each(['darwin', 'win32', 'linux', 'web'])(
+    'uses the existing glass switch and saves only that preference on %s',
+    async (platform) => {
+      Object.defineProperty(transport, 'platform', {
+        configurable: true,
+        value: platform,
       })
-      expect(runModeTrigger).toHaveTextContent(/^Open Main Window$/)
-
-      const user = userEvent.setup({ pointerEventsCheck: 0 })
-      await user.click(runModeTrigger)
-      expect(
-        await screen.findByRole('option', { name: 'Open Main Window' })
-      ).toBeInTheDocument()
-      expect(
-        screen.getByRole('option', { name: 'Start in System Tray' })
-      ).toBeInTheDocument()
-      expect(screen.queryByRole('option', { name: 'Dock Only' })).toBeNull()
-
-      if (platform === 'linux') {
-        expect(
-          screen.getByText(/depend on your desktop environment/i)
-        ).toBeInTheDocument()
-      }
+      render(
+        <AppearanceDialog
+          open
+          onClose={vi.fn()}
+          labelKey="settings.cards.appearance.title"
+          descKey="settings.cards.appearance.desc"
+        />
+      )
+      const toggle = await screen.findByRole('switch', {
+        name: 'Liquid Glass',
+      })
+      const user = userEvent.setup()
+      await user.click(toggle)
+      expect(transport.invoke).not.toHaveBeenCalledWith(
+        Commands.UpdateSettings,
+        expect.anything()
+      )
+      await user.click(screen.getByRole('button', { name: /save/i }))
+      expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+        app: { liquidGlassEffect: true },
+      })
     }
   )
 
@@ -197,29 +289,6 @@ describe('<AppearanceDialog>', () => {
       app: { theme: 'dark' },
     })
     expect(onClose).toHaveBeenCalled()
-  })
-
-  it('hydrates and submits lightweight mode independently', async () => {
-    render(
-      <AppearanceDialog
-        open
-        onClose={vi.fn()}
-        labelKey="settings.cards.appearance.title"
-        descKey="settings.cards.appearance.desc"
-      />
-    )
-    const lightweight = await screen.findByRole('switch', {
-      name: 'Lightweight mode',
-    })
-    const user = userEvent.setup()
-
-    expect(lightweight).not.toBeChecked()
-    await user.click(lightweight)
-    await user.click(screen.getByRole('button', { name: /save/i }))
-
-    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
-      app: { lightweightMode: true },
-    })
   })
 
   it.each(['darwin', 'win32', 'linux', 'web'])(
@@ -281,7 +350,7 @@ describe('<AppearanceDialog>', () => {
     )
   })
 
-  it('waits for the host locale event after persisting a language change', async () => {
+  it('leaves language application to the mounted settings synchronizer', async () => {
     render(
       <AppearanceDialog
         open
@@ -302,5 +371,110 @@ describe('<AppearanceDialog>', () => {
       app: { language: 'zh-CN' },
     })
     expect(i18n.resolvedLanguage).toBe('en-US')
+  })
+})
+
+it('saves only the chosen unit system when Apply is clicked', async () => {
+  const user = userEvent.setup({ pointerEventsCheck: 0 })
+  render(
+    <AppearanceDialog
+      open
+      onClose={vi.fn()}
+      labelKey="settings.cards.appearance.title"
+      descKey="settings.cards.appearance.desc"
+    />
+  )
+  const select = await screen.findByRole('combobox', {
+    name: 'Size and speed units',
+  })
+  await user.click(select)
+  await user.click(
+    await screen.findByRole('option', { name: 'Binary (MiB, GiB · 1024)' })
+  )
+  expect(transport.invoke).not.toHaveBeenCalledWith(
+    Commands.UpdateSettings,
+    expect.anything()
+  )
+  await user.click(screen.getByRole('button', { name: /apply|save/i }))
+  expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+    app: { byteUnitSystem: 'binary' },
+  })
+})
+
+describe('sidebar color', () => {
+  it('previews a color and saves only its dirty preference', async () => {
+    const { useSidebarColorState } = await import('@renderer/lib/sidebar-color')
+    useSidebarColorState.setState({ saved: 'gray', preview: null, revision: 0 })
+    const close = vi.fn()
+    render(
+      <AppearanceDialog
+        open
+        onClose={close}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('radio', { name: 'Cyan' }))
+    expect(useSidebarColorState.getState().preview).toBe('cyan')
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      app: { sidebarColor: 'cyan' },
+    })
+    expect(useSidebarColorState.getState().saved).toBe('cyan')
+    expect(close).toHaveBeenCalledOnce()
+  })
+  it('hydrates a saved color and discards the preview when closed', async () => {
+    const { useSidebarColorState } = await import('@renderer/lib/sidebar-color')
+    vi.mocked(transport.invoke).mockResolvedValue({
+      app: { ...FIXTURE.app, sidebarColor: 'pink' },
+    })
+    const props = {
+      onClose: vi.fn(),
+      labelKey: 'settings.cards.appearance.title',
+      descKey: 'settings.cards.appearance.desc',
+    }
+    const { rerender } = render(<AppearanceDialog {...props} open />)
+    await waitFor(() =>
+      expect(screen.getByRole('radio', { name: 'Pink' })).toBeChecked()
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('radio', { name: 'Blue' }))
+    expect(useSidebarColorState.getState().preview).toBe('blue')
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    rerender(<AppearanceDialog {...props} open={false} />)
+    expect(useSidebarColorState.getState().preview).toBeNull()
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
+  })
+  it('keeps a failed save editable and supports keyboard selection', async () => {
+    const close = vi.fn()
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.GetSettings) return FIXTURE
+      throw new Error('save failed')
+    })
+    render(
+      <AppearanceDialog
+        open
+        onClose={close}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+    const user = userEvent.setup()
+    const gray = await screen.findByRole('radio', { name: 'Gray' })
+    gray.focus()
+    await user.keyboard('{ArrowLeft}')
+    expect(screen.getByRole('radio', { name: 'Cyan' })).toBeChecked()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByRole('alert')).toBeVisible()
+    expect(close).not.toHaveBeenCalled()
+    expect(screen.getByRole('radio', { name: 'Cyan' })).toBeEnabled()
   })
 })

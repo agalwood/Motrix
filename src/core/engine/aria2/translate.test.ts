@@ -1,8 +1,10 @@
+import { WINDOWS_MAX_PATH } from '@core/task/path-length'
 import { DownloadErrorCode } from '@shared/errors'
 import { TaskStatus, TaskType, TransitionPhase } from '@shared/types/task'
 import { describe, expect, it } from 'vitest'
 import {
   bitfieldProgress,
+  classifyTerminalError,
   decodeAria2PeerId,
   derivePathsFromRaw,
   translateErrorCode,
@@ -363,5 +365,84 @@ describe('translatePeer', () => {
     expect(peer.seeder).toBe(true)
     expect(peer.amChoking).toBe(true)
     expect(peer.peerChoking).toBe(false)
+  })
+})
+
+describe('classifyTerminalError', () => {
+  // The #2183 destination: 262 characters, which the engine now opens.
+  const ISSUE_2183 = String.raw`F:\Game\Dead Cells (2018).motrix\Dead Cells (2018)\Bonuses\Dead Cells - Demake Soundtrack\FLAC Yoann Laulan - Dead Cells - Soundtrack Part 2 (Demake) FLAC\Yoann Laulan - Dead Cells - Soundtrack Part 2 (Demake) - 21 The Time Keeper Formerly Known As Assassin.flac`
+  // Past even the extended-length limit.
+  const OVER_LIMIT = `F:\\${'a'.repeat(WINDOWS_MAX_PATH)}`
+
+  it('re-reads a file-open failure past the path limit as a path-length error', () => {
+    expect(
+      classifyTerminalError(
+        '16',
+        `Failed to open the file ${OVER_LIMIT}, cause: The filename or extension is too long.`,
+        'win32'
+      )
+    ).toEqual({
+      errorCode: DownloadErrorCode.PathTooLong,
+      errorDetailKey: 'task.error.detail.pathTooLong',
+      errorDetailParams: {
+        length: String(OVER_LIMIT.length),
+        limit: String(WINDOWS_MAX_PATH),
+        path: OVER_LIMIT,
+      },
+    })
+  })
+
+  it('no longer blames the length of a path over MAX_PATH', () => {
+    // aria2 opens such paths through the \\?\ namespace, so a failure there
+    // is a genuine write error (permissions, locks), not an overrun.
+    expect(
+      classifyTerminalError(
+        '16',
+        `Failed to open the file ${ISSUE_2183}, cause: Access is denied.`,
+        'win32'
+      ).errorCode
+    ).toBe(DownloadErrorCode.FileWriteError)
+  })
+
+  it('leaves a genuine write failure alone when the path fits', () => {
+    expect(
+      classifyTerminalError(
+        '16',
+        'Failed to open the file C:/d/a.bin, cause: Access is denied.',
+        'win32'
+      )
+    ).toEqual({
+      errorCode: DownloadErrorCode.FileWriteError,
+      errorDetailKey: null,
+      errorDetailParams: null,
+    })
+  })
+
+  it('does not reclassify on platforms without the MAX_PATH cap', () => {
+    expect(
+      classifyTerminalError(
+        '16',
+        `Failed to open the file ${OVER_LIMIT}, cause: nope`,
+        'darwin'
+      ).errorCode
+    ).toBe(DownloadErrorCode.FileWriteError)
+  })
+
+  it('does not reclassify an unrelated error code that mentions a long path', () => {
+    expect(
+      classifyTerminalError(
+        '6',
+        `Failed to open the file ${OVER_LIMIT}, cause: nope`,
+        'win32'
+      ).errorCode
+    ).toBe(DownloadErrorCode.NetworkError)
+  })
+
+  it('passes through when there is no error', () => {
+    expect(classifyTerminalError('0', null, 'win32')).toEqual({
+      errorCode: null,
+      errorDetailKey: null,
+      errorDetailParams: null,
+    })
   })
 })

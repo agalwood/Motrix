@@ -366,6 +366,47 @@ describe('QuickJS Worker Hook contract', () => {
     ])
   }, 20_000)
 
+  it('reports a deadline abort as a hook timeout, not a bare abort', async () => {
+    const spawned = await spawn('test.hook-sdk-2-0')
+    const staged = new StagedEffectStore()
+    const controller = new AbortController()
+    spawned.bridge.setHookContext({
+      fsTaskHost: FS_TASK_HOST,
+      taskId: TASK.id,
+      phase: 'beforeCreate',
+      staged,
+      role: 'enrich',
+      saveDir: TASK.saveDir,
+      pluginStorageRoot: '/plugins/test.hook-sdk-2-0',
+    })
+    const result = spawned.bridge.callHook(
+      'beforeCreate',
+      TASK.id,
+      controller.signal,
+      5_000,
+      beforeCreatePayload('abort'),
+      {},
+      scope('deadline')
+    )
+    await new Promise<void>((resolve) => setTimeout(resolve, 10))
+    // HookAbortBudget's deadline timer aborts with the literal reason
+    // 'timeout' (see @core/plugin/hooks/abort). The bridge must translate
+    // that into the precise timeout code rather than a generic abort.
+    controller.abort('timeout')
+    await expect(result).rejects.toMatchObject({
+      code: 'plugin.hook.timeout',
+      message: 'plugin hook timed out after 5000ms',
+    })
+    await new Promise<void>((resolve) => setTimeout(resolve, 20))
+
+    expect(
+      await spawned.callPlugin('test.hook-sdk-2-0.read', undefined)
+    ).toEqual([
+      { hook: 'onabort', aborted: true, reason: 'plugin hook timed out' },
+      { hook: 'abort-listener' },
+    ])
+  }, 20_000)
+
   it('keeps a retained timer bound to its completed invocation', async () => {
     const spawned = await spawn('test.hook-sdk-2-0')
     spawned.bridge.setHookContext({

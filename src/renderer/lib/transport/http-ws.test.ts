@@ -8,6 +8,7 @@ import {
 } from '@shared/protocol/errors'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
+import { WEB_EVENT_HEARTBEAT } from '@shared/schemas/web-event-stream'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { HttpWsTransport } from './http-ws'
 
@@ -236,5 +237,70 @@ describe('HttpWsTransport', () => {
     expect(healthy).toHaveBeenLastCalledWith({
       state: 'connected',
     })
+  })
+})
+
+describe('event stream liveness', () => {
+  it('times out a hung handshake and ignores its late open', () => {
+    vi.useFakeTimers()
+    const transport = new HttpWsTransport('http://example.test', {
+      WebSocketCtor: socketCtor(),
+      reconnectDelaysMs: [10],
+    })
+    const listener = vi.fn()
+    transport.on(Events.TaskUpdated, listener)
+    const first = FakeWebSocket.instances[0]
+    vi.advanceTimersByTime(10_000)
+    expect(first.close).toHaveBeenCalledOnce()
+    expect(transport.getConnectionState()).toBe('disconnected')
+    first.dispatch('open')
+    expect(transport.getConnectionState()).toBe('disconnected')
+    vi.advanceTimersByTime(10)
+    expect(FakeWebSocket.instances).toHaveLength(2)
+    transport.off(Events.TaskUpdated, listener)
+  })
+
+  it('retires a half-open stream after the advertised heartbeat stops', () => {
+    vi.useFakeTimers()
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    const transport = new HttpWsTransport('http://example.test', {
+      WebSocketCtor: socketCtor(),
+      reconnectDelaysMs: [10],
+    })
+    const listener = vi.fn()
+    transport.on(Events.TaskUpdated, listener)
+    const first = FakeWebSocket.instances[0]
+    first.dispatch('open')
+    first.message(WEB_EVENT_HEARTBEAT)
+    vi.advanceTimersByTime(30_000)
+    first.message(WEB_EVENT_HEARTBEAT)
+    vi.advanceTimersByTime(44_999)
+    expect(transport.getConnectionState()).toBe('connected')
+    vi.advanceTimersByTime(1)
+    expect(first.close).toHaveBeenCalledOnce()
+    expect(listener).not.toHaveBeenCalled()
+    transport.off(Events.TaskUpdated, listener)
+    vi.restoreAllMocks()
+  })
+
+  it('supports an older server without heartbeat frames and isolates listener failures', () => {
+    vi.useFakeTimers()
+    const transport = new HttpWsTransport('http://example.test', {
+      WebSocketCtor: socketCtor(),
+    })
+    const broken = () => {
+      throw new Error('consumer')
+    }
+    const healthy = vi.fn()
+    transport.on(Events.TaskUpdated, broken)
+    transport.on(Events.TaskUpdated, healthy)
+    const first = FakeWebSocket.instances[0]
+    first.dispatch('open')
+    vi.advanceTimersByTime(120_000)
+    expect(transport.getConnectionState()).toBe('connected')
+    first.message({ channel: Events.TaskUpdated, args: [[]] })
+    expect(healthy).toHaveBeenCalledWith([])
+    transport.off(Events.TaskUpdated, broken)
+    transport.off(Events.TaskUpdated, healthy)
   })
 })

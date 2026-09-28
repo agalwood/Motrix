@@ -28,6 +28,9 @@ export interface SelectionState<T> {
   moveFocus: (delta: number) => void
   focusedSelect: () => void
   shiftMoveFocus: (delta: number) => void
+  focus: (id: string) => void
+  extendSelection: (toIndex: number) => void
+  moveSelection: (delta: number, extend?: boolean) => void
 
   // Queries
   isSelected: (id: string) => boolean

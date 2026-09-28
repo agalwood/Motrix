@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
+import { sanitizeFinalizePath } from '@core/fs/finalize-path'
+import { getLogger } from '@core/logger'
 import {
   ArtifactIdentityError,
   artifactContentEquals,
@@ -12,7 +14,10 @@ import {
   FinalizeCommitter,
 } from '@core/plugin/finalize/finalize-committer'
 import { FinalizeRecovery } from '@core/plugin/finalize/finalize-recovery'
-import { freezeHookPlan } from '@core/plugin/finalize/hook-plan'
+import {
+  assertFinalizePaths,
+  freezeHookPlan,
+} from '@core/plugin/finalize/hook-plan'
 import type { StagedMetadataOp } from '@core/plugin/hooks/staged-effects'
 import type { PostDeliveryAdmission } from '@core/plugin/post/delivery-types'
 import type { DownloadTask } from '@shared/types/task'
@@ -55,8 +60,41 @@ export class DurableFinalizeRuntime {
   async commit(
     input: DurableFinalizeArtifactInput
   ): Promise<FinalizeCommitResult> {
+    // The final name can carry characters that Windows or exFAT volumes
+    // cannot reopen. Sanitize the final component once, before validation or
+    // identity capture, so journal, rebase and database all record the name
+    // the filesystem actually received.
+    const targetPath = sanitizeFinalizePath(input.targetPath)
+    if (targetPath !== input.targetPath) {
+      getLogger('finalize').info(
+        {
+          taskId: input.task.id,
+          requested: input.targetPath,
+          sanitized: targetPath,
+        },
+        'finalize_target_name_sanitized'
+      )
+    }
+    // Reject invalid output plans before quiescing writers or hashing large files.
+    try {
+      assertFinalizePaths(input.task.saveDir, input.sourcePath, targetPath)
+    } catch (err) {
+      getLogger('finalize').warn(
+        {
+          taskId: input.task.id,
+          phase: input.task.transitionPhase,
+          saveDir: input.task.saveDir,
+          sourcePath: input.sourcePath,
+          targetPath,
+          err,
+        },
+        'finalize_path_validation_failed'
+      )
+      throw err
+    }
     const lease = await this.leases.acquire(input.task.id)
     try {
+      await this.createRecovery().recoverTask(input.task.id, lease)
       // H8: identity capture is inside the mutation lease, after every
       // engine/Host writer has successfully quiesced.
       const sourceIdentity = await this.captureIdentity(input.sourcePath)
@@ -71,12 +109,19 @@ export class DurableFinalizeRuntime {
         taskId: input.task.id,
         saveDir: input.task.saveDir,
         sourcePath: input.sourcePath,
-        targetPath: input.targetPath,
+        targetPath,
         sourceIdentity,
         replacement,
         metadataOps: input.metadataOps,
         contributors: input.contributors,
       })
+
+      // Rebase paths must follow the sanitized final component when the
+      // requested target named the same file.
+      const fileRebase =
+        input.fileRebase && input.fileRebase.targetRoot === input.targetPath
+          ? { ...input.fileRebase, targetRoot: targetPath }
+          : input.fileRebase
 
       return await this.options.session.persistFinalizedArtifact(
         input.task,
@@ -85,7 +130,7 @@ export class DurableFinalizeRuntime {
           metadataOps: input.metadataOps,
           postDeliveries: input.postDeliveries,
           beforeCommit: input.beforeCommit,
-          fileRebase: input.fileRebase,
+          fileRebase,
         },
         async (commitDatabase) => {
           const repository = new SqliteFinalizeJournalRepository(
@@ -142,6 +187,10 @@ export class DurableFinalizeRuntime {
 
   /** Recover before task restore: committed rows clean up; uncommitted targets roll back. */
   async recoverAll(): Promise<void> {
+    await this.createRecovery().recoverAll()
+  }
+
+  private createRecovery(): FinalizeRecovery {
     const repository = new SqliteFinalizeJournalRepository(this.options.db, {
       now: this.now,
       commitTerminalBoundary: () => {
@@ -150,7 +199,7 @@ export class DurableFinalizeRuntime {
         )
       },
     })
-    const recovery = new FinalizeRecovery({
+    return new FinalizeRecovery({
       repository,
       leases: this.leases,
       fs: this.options.fs,
@@ -158,6 +207,5 @@ export class DurableFinalizeRuntime {
       sameContent: artifactContentEquals,
       rollForwardTargetInstalled: false,
     })
-    await recovery.recoverAll()
   }
 }

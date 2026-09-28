@@ -30,6 +30,15 @@ export class DirectPipeline {
   constructor(private readonly deps: DirectPipelineDeps) {}
 
   async dispatch(adapted: AdaptedDirect): Promise<{ taskId: string }> {
+    // Keep Referer in the same header path as the download and plugin hooks,
+    // so metadata discovery can reconstruct the request without passthrough
+    // engine options. A supplied header takes precedence over the page URL.
+    const headers = Object.entries(adapted.sanitizedHeaders).map(
+      ([name, value]) => ({ name, value })
+    )
+    if (!headers.some(({ name }) => name.toLowerCase() === 'referer')) {
+      headers.push({ name: 'Referer', value: adapted.pageUrl })
+    }
     const req = {
       type: 'http' as const,
       // uris is a top-level field on httpTaskRequestSchema; there is no
@@ -38,28 +47,17 @@ export class DirectPipeline {
       // submit ("uris: expected array, received undefined").
       uris: [adapted.primaryUrl],
       saveDir: adapted.saveDir,
-      filename: adapted.finalName,
+      ...(adapted.discoverFilename ? {} : { filename: adapted.finalName }),
       // Match manual tasks by leaving the per-task override unset. Aria2 then
       // inherits the app's global split and per-server connection settings.
-      headers: Object.entries(adapted.sanitizedHeaders).map(
-        ([name, value]) => ({ name, value })
-      ),
+      headers,
       proxy: undefined,
-    }
-    // Headers travel only via req.headers (→ params.headers). They used to be
-    // duplicated here as extraEngineOptions.header too, but Aria2Adapter
-    // applies extraEngineOptions LAST — so that copy clobbered options.header
-    // back to the original request headers, silently discarding any rewrite a
-    // beforeCreate plugin made to params.headers. Dropping the duplicate lets
-    // the plugin-mutable params.headers win.
-    const extraEngineOptions: Record<string, string | string[]> = {
-      referer: adapted.pageUrl,
     }
     const { taskId } = await this.deps.createTask(req, undefined, {
       source: 'bridge',
       sourceMeta: adapted.sourceMeta,
+      // Even [] requests an isolated task cookie jar in the engine.
       cookies: adapted.cookies,
-      extraEngineOptions,
     })
     return { taskId }
   }

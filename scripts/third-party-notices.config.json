@@ -25,7 +25,7 @@
   "packageOverrides": {
     "@resvg/resvg-wasm@2.6.2": {
       "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/MPL-2.0"],
-      "attribution": "Copyright (c) 2021-present, yisibl (一丝)"
+      "attribution": "Copyright (c) 2021-present, yisibl (\u4e00\u4e1d)"
     },
     "abstract-logging@2.0.1": {
       "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
@@ -75,6 +75,7 @@
       "id": "aria2",
       "name": "aria2",
       "scope": "bundled desktop engine",
+      "distributions": ["desktop", "server"],
       "metadataFile": "scripts/engine.lock.json",
       "nameField": "engine",
       "versionField": "version",
@@ -95,6 +96,7 @@
       "id": "electron",
       "name": "Electron",
       "scope": "desktop runtime",
+      "distributions": ["desktop"],
       "package": "electron",
       "licenseDeclared": "MIT",
       "packageLicenseFiles": ["dist/LICENSE", "dist/LICENSES.chromium.html"],
@@ -104,6 +106,7 @@
       "id": "builtin-filename-template",
       "name": "motrix.filename-template",
       "scope": "bundled first-party extension; standalone license pending upstream",
+      "distributions": ["desktop", "server"],
       "metadataFile": "scripts/builtins.lock.json",
       "metadataPath": ["plugins", "motrix.filename-template"],
       "versionField": "version",
@@ -112,20 +115,10 @@
       "noticeMarkers": ["motrix.filename-template"]
     },
     {
-      "id": "builtin-scraper-hook",
-      "name": "motrix.scraper-hook",
-      "scope": "bundled first-party extension; standalone license pending upstream",
-      "metadataFile": "scripts/builtins.lock.json",
-      "metadataPath": ["plugins", "motrix.scraper-hook"],
-      "versionField": "version",
-      "sourceTemplate": "https://github.com/{repo}/tree/{tag}",
-      "licenseDeclared": "NOASSERTION",
-      "noticeMarkers": ["motrix.scraper-hook"]
-    },
-    {
       "id": "builtin-url-resolver",
       "name": "motrix.url-resolver",
       "scope": "bundled first-party extension; standalone license pending upstream",
+      "distributions": ["desktop", "server"],
       "metadataFile": "scripts/builtins.lock.json",
       "metadataPath": ["plugins", "motrix.url-resolver"],
       "versionField": "version",
@@ -171,28 +164,43 @@
       ]
     },
     {
-      "id": "iconly-pro-settings-icons",
-      "name": "Iconly Pro settings icons",
-      "scope": "renderer assets",
-      "licenseDeclared": "LicenseRef-UI8-Standard-License",
-      "noticeMarker": "Iconly Pro",
+      "id": "glassmorphism-settings-icons",
+      "name": "Glassmorphism settings icons",
+      "scope": "renderer settings cards",
+      "licenseDeclared": "NOASSERTION",
+      "noticeMarker": "Glassmorphism settings icons",
       "paths": [
-        "src/renderer/routes/settings/icons/icon-about@1x.png",
-        "src/renderer/routes/settings/icons/icon-about@2x.png",
-        "src/renderer/routes/settings/icons/icon-advanced@1x.png",
-        "src/renderer/routes/settings/icons/icon-advanced@2x.png",
-        "src/renderer/routes/settings/icons/icon-appearance@1x.png",
-        "src/renderer/routes/settings/icons/icon-appearance@2x.png",
-        "src/renderer/routes/settings/icons/icon-bittorrent@1x.png",
-        "src/renderer/routes/settings/icons/icon-bittorrent@2x.png",
-        "src/renderer/routes/settings/icons/icon-download@1x.png",
-        "src/renderer/routes/settings/icons/icon-download@2x.png",
-        "src/renderer/routes/settings/icons/icon-general@1x.png",
-        "src/renderer/routes/settings/icons/icon-general@2x.png",
-        "src/renderer/routes/settings/icons/icon-integration@1x.png",
-        "src/renderer/routes/settings/icons/icon-integration@2x.png",
-        "src/renderer/routes/settings/icons/icon-network@1x.png",
-        "src/renderer/routes/settings/icons/icon-network@2x.png"
+        "src/renderer/routes/settings/icons/icon-about@1x.webp",
+        "src/renderer/routes/settings/icons/icon-about@2x.webp",
+        "src/renderer/routes/settings/icons/icon-advanced@1x.webp",
+        "src/renderer/routes/settings/icons/icon-advanced@2x.webp",
+        "src/renderer/routes/settings/icons/icon-appearance@1x.webp",
+        "src/renderer/routes/settings/icons/icon-appearance@2x.webp",
+        "src/renderer/routes/settings/icons/icon-bittorrent@1x.webp",
+        "src/renderer/routes/settings/icons/icon-bittorrent@2x.webp",
+        "src/renderer/routes/settings/icons/icon-download@1x.webp",
+        "src/renderer/routes/settings/icons/icon-download@2x.webp",
+        "src/renderer/routes/settings/icons/icon-general@1x.webp",
+        "src/renderer/routes/settings/icons/icon-general@2x.webp",
+        "src/renderer/routes/settings/icons/icon-integration@1x.webp",
+        "src/renderer/routes/settings/icons/icon-integration@2x.webp",
+        "src/renderer/routes/settings/icons/icon-network@1x.webp",
+        "src/renderer/routes/settings/icons/icon-network@2x.webp"
+      ]
+    },
+    {
+      "id": "glassmorphism-speed-mode-icons",
+      "name": "Glassmorphism speed mode icons",
+      "scope": "renderer dashboard speed mode tile",
+      "licenseDeclared": "NOASSERTION",
+      "noticeMarker": "Glassmorphism speed mode icons",
+      "paths": [
+        "src/renderer/routes/dashboard/icons/speed-standard@1x.webp",
+        "src/renderer/routes/dashboard/icons/speed-standard@2x.webp",
+        "src/renderer/routes/dashboard/icons/speed-limited@1x.webp",
+        "src/renderer/routes/dashboard/icons/speed-limited@2x.webp",
+        "src/renderer/routes/dashboard/icons/speed-auto@1x.webp",
+        "src/renderer/routes/dashboard/icons/speed-auto@2x.webp"
       ]
     },
     {

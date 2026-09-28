@@ -29,6 +29,7 @@ import {
   validateServerRuntimeContract,
   validateServerSizeBudgets,
 } from './server-package-utils.mjs'
+import { pruneBuildOnly } from './staged-package-pruning.mjs'
 
 const execFileAsync = promisify(execFile)
 const REPOSITORY_ROOT = path.resolve(
@@ -240,10 +241,9 @@ async function copyPath(source, destination, canonicalRepoRoot, options = {}) {
 }
 
 function packageCopyFilter(name, target) {
-  if (name !== 'better-sqlite3') return undefined
+  if (name !== 'better-sqlite3') return pruneBuildOnly()
   const selected = `prebuilds/${betterSqlite3PrebuildName(target)}`
-  return (relative) => {
-    if (relative.length === 0) return true
+  return pruneBuildOnly((relative) => {
     const portable = relative.replaceAll(path.sep, '/')
     return (
       portable === 'package.json' ||
@@ -253,7 +253,7 @@ function packageCopyFilter(name, target) {
       portable === 'prebuilds' ||
       portable === selected
     )
-  }
+  })
 }
 
 async function collectNativeModules(directory) {

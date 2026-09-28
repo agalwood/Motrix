@@ -1,7 +1,93 @@
 import { describe, expect, it } from 'vitest'
-import { appSettingsSchema, DEFAULT_APP_SETTINGS } from './app-settings'
+import {
+  appSettingsInputSchema,
+  appSettingsSchema,
+  DEFAULT_APP_SETTINGS,
+} from './app-settings'
 
 describe('appSettingsSchema', () => {
+  it('preserves system and explicit language preferences on load and write', () => {
+    for (const language of ['system', 'fr', 'en-US', 'zh-CN', 'zh-TW']) {
+      expect(appSettingsSchema.parse({ language }).language).toBe(language)
+      expect(
+        appSettingsInputSchema.partial().safeParse({ language }).success
+      ).toBe(true)
+    }
+    expect(
+      appSettingsInputSchema.partial().safeParse({ language: 'unknown' })
+        .success
+    ).toBe(false)
+    expect(DEFAULT_APP_SETTINGS.language).toBe('en-US')
+  })
+  it('preserves existing notification defaults, loads desktop choices, and rejects malformed writes', () => {
+    const defaults = {
+      notifyInAppOnComplete: true,
+      notifyInAppOnError: true,
+      notificationBadgeStyle: 'count',
+    }
+    expect(appSettingsSchema.parse({})).toMatchObject(defaults)
+    expect(
+      appSettingsSchema.parse({
+        notifyInAppOnComplete: 'false',
+        notifyInAppOnError: null,
+        notificationBadgeStyle: 'off',
+      })
+    ).toMatchObject(defaults)
+    for (const notificationBadgeStyle of ['count', 'dot', 'hidden']) {
+      const choices = {
+        notifyInAppOnComplete: false,
+        notifyInAppOnError: false,
+        notificationBadgeStyle,
+      }
+      expect(appSettingsSchema.parse(choices)).toMatchObject(choices)
+      expect(appSettingsInputSchema.partial().safeParse(choices).success).toBe(
+        true
+      )
+    }
+    for (const invalid of [
+      { notifyInAppOnComplete: 'false' },
+      { notifyInAppOnError: null },
+      { notificationBadgeStyle: 'off' },
+    ]) {
+      expect(appSettingsInputSchema.partial().safeParse(invalid).success).toBe(
+        false
+      )
+    }
+  })
+  it('defaults existing and invalid file deletion preferences to trash', () => {
+    expect(DEFAULT_APP_SETTINGS.fileDeletionMode).toBe('trash')
+    for (const fileDeletionMode of [undefined, null, 'delete', false]) {
+      expect(
+        appSettingsSchema.parse({ fileDeletionMode }).fileDeletionMode
+      ).toBe('trash')
+    }
+    for (const fileDeletionMode of ['trash', 'permanent']) {
+      expect(
+        appSettingsSchema.parse({ fileDeletionMode }).fileDeletionMode
+      ).toBe(fileDeletionMode)
+    }
+    expect(
+      appSettingsInputSchema.partial().safeParse({ fileDeletionMode: 'delete' })
+        .success
+    ).toBe(false)
+  })
+  it('defaults old or invalid tray colors to auto without resetting valid preferences', () => {
+    expect(DEFAULT_APP_SETTINGS.trayIconColor).toBe('auto')
+    for (const trayIconColor of [undefined, null, 'white', true]) {
+      expect(appSettingsSchema.parse({ trayIconColor }).trayIconColor).toBe(
+        'auto'
+      )
+    }
+    for (const trayIconColor of ['auto', 'light', 'dark']) {
+      expect(appSettingsSchema.parse({ trayIconColor }).trayIconColor).toBe(
+        trayIconColor
+      )
+    }
+    expect(
+      appSettingsInputSchema.partial().safeParse({ trayIconColor: 'white' })
+        .success
+    ).toBe(false)
+  })
   it('keeps selection timeout downloads opt-in with a 60 second default', () => {
     expect(DEFAULT_APP_SETTINGS.magnetFileSelectionAutoDownload).toBe(false)
     expect(DEFAULT_APP_SETTINGS.magnetFileSelectionTimeoutSeconds).toBe(60)
@@ -69,4 +155,31 @@ describe('appSettingsSchema', () => {
         .autofillClipboardLinks
     ).toBe(true)
   })
+})
+
+it('keeps login launches hidden for existing and invalid settings', () => {
+  for (const value of [undefined, null, 'true', false]) {
+    expect(
+      appSettingsSchema.parse({ showMainWindowAtLogin: value })
+        .showMainWindowAtLogin
+    ).toBe(false)
+  }
+  expect(
+    appSettingsSchema.parse({ showMainWindowAtLogin: true })
+      .showMainWindowAtLogin
+  ).toBe(true)
+})
+
+it('defaults byte units for old settings and preserves explicit choices', () => {
+  expect(DEFAULT_APP_SETTINGS.byteUnitSystem).toBe('system')
+  for (const byteUnitSystem of [undefined, null, 'MB', 1024]) {
+    expect(appSettingsSchema.parse({ byteUnitSystem }).byteUnitSystem).toBe(
+      'system'
+    )
+  }
+  for (const byteUnitSystem of ['system', 'decimal', 'binary']) {
+    expect(appSettingsSchema.parse({ byteUnitSystem }).byteUnitSystem).toBe(
+      byteUnitSystem
+    )
+  }
 })

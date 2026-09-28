@@ -6,7 +6,12 @@ import { ForwardableEvents } from './forwardable-events'
 describe('ForwardableEvents', () => {
   it('forwards the motion preference without exposing the full settings event', () => {
     expect(ForwardableEvents).toContain(Events.ReducedMotionChanged)
+    expect(ForwardableEvents).toContain(Events.SidebarColorChanged)
+    expect(ForwardableEvents).toContain(Events.SystemAccentColorChanged)
+    expect(ForwardableEvents).toContain(Events.LiquidGlassChanged)
+    expect(ForwardableEvents).toContain(Events.ByteUnitSystemChanged)
     expect(ForwardableEvents).not.toContain(Events.SettingsChanged)
+    expect(ForwardableEvents).toContain(Events.DirectoryPreferencesChanged)
   })
 
   it('contains TaskUpdated', () => {
@@ -17,11 +22,12 @@ describe('ForwardableEvents', () => {
     expect(ForwardableEvents).toContain(Events.EngineStateChanged)
     expect(ForwardableEvents).toContain(Events.NatStateChanged)
     expect(ForwardableEvents).toContain(Events.TrackerListUpdated)
+    expect(ForwardableEvents).toContain(Events.TrackerSyncStatusChanged)
     expect(ForwardableEvents).toContain(Events.UpdateAvailable)
   })
 
   it('has the expected number of forwardable events', () => {
-    expect(ForwardableEvents).toHaveLength(52)
+    expect(ForwardableEvents).toHaveLength(58)
   })
 
   it('includes the bridge approval events (web-shell pairing)', () => {

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { CommandIds } from '../commands-catalog'
 
 export const applicationMenuNodeTypeSchema = z.enum([
   'normal',
@@ -83,6 +84,7 @@ export const executeApplicationMenuItemRequestSchema = z
     itemId: menuItemIdSchema,
     revision: z.number().int().nonnegative(),
     trigger: z.literal('menu'),
+    selectedTaskGeneration: z.number().int().nonnegative().optional(),
     selectedTaskId: z.string().min(1).nullable(),
     modifiers: applicationMenuModifiersSchema.optional(),
   })
@@ -91,3 +93,18 @@ export const executeApplicationMenuItemRequestSchema = z
 export type ExecuteApplicationMenuItemRequest = z.infer<
   typeof executeApplicationMenuItemRequestSchema
 >
+
+export const rendererTaskMenuRequestSchema = z
+  .object({
+    commandId: z.enum([
+      CommandIds.TaskPause,
+      CommandIds.TaskResume,
+      CommandIds.TaskDelete,
+      CommandIds.TaskMoveUp,
+      CommandIds.TaskMoveDown,
+      CommandIds.TaskClearStopped,
+    ]),
+    taskIds: z.array(z.string().min(1)),
+    generation: z.number().int().nonnegative(),
+  })
+  .strict()

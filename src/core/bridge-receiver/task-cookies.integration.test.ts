@@ -89,7 +89,7 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
       })
       let serial = 0
       const adapter = new SubmitDownloadAdapter({
-        defaultSaveDir: root,
+        getDefaultSaveDir: () => root,
         pickName: async (_dir, name) => name,
         mintTaskId: () => `browser-cookie-${++serial}`,
       })

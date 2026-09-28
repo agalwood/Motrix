@@ -249,6 +249,62 @@ pub(crate) fn remove_opened(
     quarantine_relative: &str,
     resume_isolated: bool,
 ) -> io::Result<()> {
+    remove_with_survivor(artifact, quarantine_relative, resume_isolated, None)
+}
+
+pub(crate) fn remove_opened_preserving(
+    artifact: &ArtifactHandle,
+    quarantine_relative: &str,
+    resume_isolated: bool,
+    survivor: &ArtifactHandle,
+) -> io::Result<()> {
+    remove_with_survivor(
+        artifact,
+        quarantine_relative,
+        resume_isolated,
+        Some(survivor),
+    )
+}
+
+fn check_survivor(
+    artifact: &ArtifactHandle,
+    isolated_name: &CString,
+    survivor: Option<&ArtifactHandle>,
+) -> io::Result<()> {
+    let Some(survivor) = survivor else {
+        return Ok(());
+    };
+    let removed_parent = stat_opened(artifact.parent.as_raw_fd())?;
+    let survivor_parent = stat_opened(survivor.parent.as_raw_fd())?;
+    if removed_parent.st_dev == survivor_parent.st_dev
+        && removed_parent.st_ino == survivor_parent.st_ino
+        && isolated_name == &survivor.name
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "survivor names the artifact being removed",
+        ));
+    }
+    let current = ensure_same_entry(
+        survivor.artifact.as_raw_fd(),
+        survivor.parent.as_raw_fd(),
+        &survivor.name,
+    )?;
+    if !stamp_stable_across_rename(artifact_stamp(&current), survivor.opened_stamp) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "surviving artifact changed before removal",
+        ));
+    }
+    Ok(())
+}
+
+fn remove_with_survivor(
+    artifact: &ArtifactHandle,
+    quarantine_relative: &str,
+    resume_isolated: bool,
+    survivor: Option<&ArtifactHandle>,
+) -> io::Result<()> {
     if artifact.opened_tree.is_none() && artifact.opened_file_sha256.is_none() {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -278,6 +334,7 @@ pub(crate) fn remove_opened(
                 "opened directory is missing its held tree snapshot",
             )
         })?;
+        check_survivor(artifact, &isolated_name, survivor)?;
         remove_directory_contents(
             artifact.artifact.as_raw_fd(),
             artifact.opened_stamp,
@@ -288,6 +345,7 @@ pub(crate) fn remove_opened(
             artifact.parent.as_raw_fd(),
             &isolated_name,
         )?;
+        check_survivor(artifact, &isolated_name, survivor)?;
         if unsafe {
             libc::unlinkat(
                 artifact.parent.as_raw_fd(),
@@ -322,6 +380,7 @@ pub(crate) fn remove_opened(
                 "file content changed before removal",
             ));
         }
+        check_survivor(artifact, &isolated_name, survivor)?;
         if unsafe { libc::unlinkat(artifact.parent.as_raw_fd(), isolated_name.as_ptr(), 0) } < 0 {
             return Err(io::Error::last_os_error());
         }

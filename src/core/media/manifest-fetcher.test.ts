@@ -2,6 +2,51 @@ import { describe, expect, it, vi } from 'vitest'
 import { fetchManifest } from './manifest-fetcher'
 
 describe('fetchManifest', () => {
+  it('rejects a malformed redirect before following it', async () => {
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(null, {
+          status: 302,
+          headers: { location: 'https://other.test/a\\b' },
+        })
+    )
+    await expect(
+      fetchManifest('https://example.test/list', { fetchImpl })
+    ).rejects.toMatchObject({ code: 'TASK_SOURCE_INVALID' })
+    expect(fetchImpl).toHaveBeenCalledOnce()
+  })
+
+  it('drops credentials on a cross-origin redirect and excludes fragments', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: { location: 'https://cdn.test/list#view' },
+        })
+      )
+      .mockResolvedValueOnce(new Response('#EXTM3U'))
+    await fetchManifest('https://example.test/list', {
+      fetchImpl,
+      headers: { Authorization: 'secret', Cookie: 'sid=secret', Accept: '*/*' },
+    })
+    expect(fetchImpl).toHaveBeenLastCalledWith(
+      'https://cdn.test/list',
+      expect.objectContaining({
+        redirect: 'manual',
+        headers: { Accept: '*/*' },
+      })
+    )
+  })
+
+  it('limits the streamed UTF-8 byte count', async () => {
+    await expect(
+      fetchManifest('https://example.test/list', {
+        fetchImpl: vi.fn(async () => new Response('中文')),
+        maxBytes: 4,
+      })
+    ).rejects.toThrow('manifest too large')
+  })
   it('GETs with replayed headers and returns text', async () => {
     const fetchImpl = vi.fn(
       async () => new Response('#EXTM3U', { status: 200 })

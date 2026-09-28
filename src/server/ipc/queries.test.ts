@@ -7,6 +7,7 @@ import { NotificationCenter } from '@core/notifications/notification-center'
 import { MotrixDatabase } from '@core/session/motrix-database'
 import { ErrorCode } from '@shared/errors'
 import { Queries } from '@shared/protocol/queries'
+import { generalSettingsSnapshot } from '@test-utils/general-settings'
 import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildServerQueryHandlers, type ServerQueryContext } from './queries'
@@ -115,7 +116,10 @@ function makeCtx(over: Record<string, unknown> = {}) {
       get: vi.fn(() => ({ tracker: { sources: [] } })),
       getApp: vi.fn(() => ({ defaultSaveDir: '' })),
     },
-    trackerManager: { getCuratedList: vi.fn(() => []) },
+    trackerManager: {
+      getCuratedList: vi.fn(() => []),
+      getSyncStatus: vi.fn(() => 'probing'),
+    },
     engineAdapter: { getTaskBtTracker: vi.fn(), getTaskPeers: vi.fn() },
     geoipManager: {
       getStatus: vi.fn(() => ({
@@ -149,13 +153,67 @@ function makeCtx(over: Record<string, unknown> = {}) {
     downloadPathPolicy: {
       allowedSaveDirs: [],
       prepareSaveDir: vi.fn(),
+      authorizeDirectory: vi.fn(),
     },
+    serverDirectoryService: { list: vi.fn(), validate: vi.fn() },
     environment: {},
+    getResolvedLanguage: () => 'en-US',
     ...over,
   }
 }
 
 describe('buildServerQueryHandlers — allowed save directories', () => {
+  it('returns the same committed system locale for settings and onboarding', async () => {
+    const settings = { app: { language: 'system' } }
+    const handlers = buildServerQueryHandlers(
+      makeCtx({
+        settingsManager: { get: () => settings, getApp: () => settings.app },
+        getResolvedLanguage: () => 'fr',
+      }) as unknown as ServerQueryContext
+    )
+    await expect(handlers[Queries.GetSettings]?.()).resolves.toEqual({
+      ...settings,
+      resolvedLanguage: 'fr',
+    })
+    await expect(handlers[Queries.GetDisclaimerState]?.()).resolves.toEqual({
+      language: 'system',
+      resolvedLanguage: 'fr',
+    })
+  })
+
+  it('exposes the current tracker sync status to remote clients', async () => {
+    const ctx = makeCtx()
+    const handlers = buildServerQueryHandlers(ctx as never)
+    await expect(handlers[Queries.GetTrackerSyncStatus]?.()).resolves.toBe(
+      'probing'
+    )
+    expect(ctx.trackerManager.getSyncStatus).toHaveBeenCalledOnce()
+  })
+
+  it('delegates readonly directory requests to the service', async () => {
+    const service = {
+      list: vi
+        .fn()
+        .mockResolvedValue({ ok: false, error: { code: 'outsideRoots' } }),
+      validate: vi
+        .fn()
+        .mockResolvedValue({ ok: true, value: { path: '/downloads' } }),
+    }
+    const handlers = buildServerQueryHandlers(
+      makeCtx({ serverDirectoryService: service }) as never
+    )
+    const request = { path: '/downloads' }
+    expect(await handlers[Queries.ListServerDirectories]?.(request)).toEqual({
+      ok: false,
+      error: { code: 'outsideRoots' },
+    })
+    expect(await handlers[Queries.ValidateServerDirectory]?.(request)).toEqual({
+      ok: true,
+      value: { path: '/downloads' },
+    })
+    expect(service.list).toHaveBeenCalledExactlyOnceWith(request)
+    expect(service.validate).toHaveBeenCalledExactlyOnceWith(request)
+  })
   it('reports the proxy inherited by the Server process', async () => {
     const handlers = buildServerQueryHandlers(
       makeCtx({
@@ -656,5 +714,49 @@ describe('buildServerQueryHandlers — GetTaskInspectorActivity parity', () => {
       code: ErrorCode.TaskNotFound,
       message: 'Task not found: missing',
     })
+  })
+})
+
+describe('directory location query validation', () => {
+  it('returns one General draft snapshot and validates before reading it', async () => {
+    const snapshot = generalSettingsSnapshot({
+      favorites: ['/saved'],
+      recent: [],
+    })
+    const getGeneralSettingsSnapshot = vi.fn(() => snapshot)
+    const handlers = buildServerQueryHandlers({
+      settingsManager: { getGeneralSettingsSnapshot },
+    } as unknown as ServerQueryContext)
+    expect(
+      await handlers[Queries.GetGeneralSettingsDraft]?.({ extra: true })
+    ).toEqual({
+      ok: false,
+      error: { code: 'invalidPath' },
+    })
+    expect(getGeneralSettingsSnapshot).not.toHaveBeenCalled()
+    expect(await handlers[Queries.GetGeneralSettingsDraft]?.({})).toEqual({
+      ok: true,
+      value: snapshot,
+    })
+    expect(getGeneralSettingsSnapshot).toHaveBeenCalledOnce()
+  })
+
+  it('rejects invalid requests before reading settings or discovering filesystem locations', async () => {
+    const getApp = vi.fn()
+    const locations = vi.fn()
+    const handlers = buildServerQueryHandlers({
+      settingsManager: { getApp },
+      serverDirectoryService: { locations },
+    } as unknown as ServerQueryContext)
+    expect(
+      await handlers[Queries.ListServerDirectoryLocations]?.({
+        favorites: ['/outside'],
+      })
+    ).toEqual({ ok: false, error: { code: 'invalidPath' } })
+    expect(
+      await handlers[Queries.GetDirectoryPreferences]?.({ path: '/outside' })
+    ).toEqual({ ok: false, error: { code: 'invalidPath' } })
+    expect(getApp).not.toHaveBeenCalled()
+    expect(locations).not.toHaveBeenCalled()
   })
 })

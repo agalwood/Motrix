@@ -1,0 +1,24 @@
+[data-menu-density="compact"] [role^="menuitem"] {
+  min-height: 26px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  font-size: 12px;
+  line-height: 20px;
+}
+[data-menu-density="compact"] [data-slot="dropdown-menu-label"] {
+  padding-top: 3px;
+  padding-bottom: 3px;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+[data-menu-density="compact"] [role="separator"] {
+  margin-top: 3px;
+  margin-bottom: 3px;
+}
+[data-menu-density="compact"] [data-slot="dropdown-menu-shortcut"] {
+  margin-inline-start: auto;
+  padding-inline-start: 12px;
+  font-size: 11px;
+  line-height: inherit;
+  letter-spacing: normal;
+}

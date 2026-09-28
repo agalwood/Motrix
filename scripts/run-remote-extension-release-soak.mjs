@@ -409,7 +409,7 @@ export function runRemoteExtensionReleaseSoak({
   const runId = started.toISOString().replaceAll(':', '-').replaceAll('.', '-')
   const evidenceDirectory = resolve(
     env.MOTRIX_REMOTE_EXTENSION_SOAK_EVIDENCE_DIR ??
-      join('e2e/test-results/remote-extension-soak', runId)
+      join('output/playwright/soak/remote-extension', runId)
   )
   prepareEvidenceDirectory(evidenceDirectory)
   const reportPath = join(evidenceDirectory, 'playwright-report.json')

@@ -18,6 +18,9 @@ Use the existing three layers:
 Feature-specific composition stays with its route. Do not move domain behavior
 into `ui/`, and do not bypass an existing desktop/settings wrapper by cloning it.
 
+Use the semantic icon interface in `@renderer/components/icons`; follow
+`icons.md` for library isolation and adding or replacing glyphs.
+
 ## State and transport
 
 - Renderer code never imports `@core/`, `@main/`, or `@server/`. Use the

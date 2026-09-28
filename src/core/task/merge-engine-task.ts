@@ -1,6 +1,8 @@
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, TransitionPhase } from '@shared/types/task'
+import { shareRatio } from '@shared/utils/share-ratio'
 import { applyTerminalTransition } from './apply-terminal-transition'
+import { unsettledBtUpload } from './bt-upload-settlement'
 import { isCompletedDirectOutput } from './completed-direct-task-policy'
 import { nonZeroMerge } from './non-zero-merge'
 import { syncTerminalInstanceStatus } from './task-instance'
@@ -40,7 +42,12 @@ export function mergeEngineTask(
   // The persistent baseline lives on `existing` and is bumped only at
   // gid swap points (finalize reseed, restart reAdd) — never here.
   const uploadedBytes =
-    existing.uploadedBytesBaseline + engineTask.uploadedBytes
+    existing.uploadedBytesBaseline +
+    unsettledBtUpload(
+      existing.instances,
+      engineTask.engineTaskId,
+      engineTask.uploadedBytes
+    )
   // A non-idle transition phase means the application owns the lifecycle
   // state until its filesystem + persistence transaction commits. aria2 can
   // report Completed while HTTP finalize is still renaming `.motrix`, or a
@@ -61,6 +68,7 @@ export function mergeEngineTask(
     },
     now
   )
+  const bt = protected_.bt ?? existing.bt
   const merged: DownloadTask = {
     ...existing,
     ...terminalFields,
@@ -78,7 +86,9 @@ export function mergeEngineTask(
     fileCount: protected_.fileCount,
     infoHash: protected_.infoHash ?? existing.infoHash,
     uris: protected_.uris.length > 0 ? protected_.uris : existing.uris,
-    bt: protected_.bt ?? existing.bt,
+    bt: bt
+      ? { ...bt, ratio: shareRatio(uploadedBytes, protected_.totalBytes) }
+      : undefined,
     updatedAt: now,
   }
   if (

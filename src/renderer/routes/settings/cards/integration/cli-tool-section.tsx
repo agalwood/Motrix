@@ -1,4 +1,5 @@
 import { CopyButton } from '@renderer/components/desktop-kit/copy-button'
+import { ChevronRightIcon, StatusErrorIcon } from '@renderer/components/icons'
 import {
   Alert,
   AlertDescription,
@@ -40,7 +41,6 @@ import {
   CliToolReason,
   type CliToolStatus,
 } from '@shared/types/cli-tool'
-import { ChevronRight, CircleAlert } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useCliTool } from './use-cli-tool'
@@ -318,7 +318,7 @@ export function CliToolSection() {
               status.phase === CliToolPhase.Error ? 'destructive' : 'default'
             }
           >
-            <CircleAlert aria-hidden="true" />
+            <StatusErrorIcon aria-hidden="true" />
             <AlertTitle>
               {t('settings.integration.cli.tool.attentionTitle')}
             </AlertTitle>
@@ -337,7 +337,7 @@ export function CliToolSection() {
             <CollapsibleTrigger
               render={<Button type="button" variant="ghost" size="xs" />}
             >
-              <ChevronRight
+              <ChevronRightIcon
                 data-icon="inline-start"
                 aria-hidden="true"
                 className={cn(

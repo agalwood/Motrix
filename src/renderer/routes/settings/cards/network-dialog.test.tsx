@@ -1,8 +1,9 @@
+import '@test-utils/dom-animations'
 import '@testing-library/jest-dom/vitest'
 import { i18n } from '@renderer/lib/i18n'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -86,6 +87,10 @@ describe('<NetworkDialog>', () => {
     const user = userEvent.setup()
     const switches = screen.getAllByRole('switch')
     await user.click(switches[0])
+    await user.type(
+      screen.getByPlaceholderText('proxy.example.com'),
+      'proxy.example.com'
+    )
     await user.click(screen.getByRole('button', { name: /save/i }))
     await waitFor(() => {
       expect(transport.invoke).toHaveBeenCalledWith(
@@ -149,7 +154,7 @@ describe('<NetworkDialog>', () => {
     const dnsMode = await screen.findByRole('combobox', {
       name: 'DNS 解析方式',
     })
-    expect(dnsMode).toHaveTextContent('引擎内置解析器')
+    expect(dnsMode).toHaveTextContent('内置 DNS')
     expect(dnsMode).toHaveClass('min-w-30', 'max-w-64')
     expect(dnsMode).not.toHaveClass('w-35')
   })
@@ -258,20 +263,87 @@ describe('<NetworkDialog>', () => {
       await screen.findByRole('button', { name: /import from system/i })
     )
 
-    await waitFor(() => {
-      expect(
-        screen.getByText(
-          /BT proxy covers HTTP\(S\) only; peers, DHT, and UDP trackers stay direct/i
-        )
-      ).toBeInTheDocument()
-      expect(screen.getAllByRole('switch')[2]).not.toHaveAttribute(
-        'aria-disabled',
-        'true'
+    await waitFor(() =>
+      expect(screen.getByDisplayValue('127.0.0.1')).toBeInTheDocument()
+    )
+    await user.click(screen.getByRole('button', { name: 'Use proxy for' }))
+    expect(
+      await screen.findByRole('menuitemcheckbox', { name: 'File downloads' })
+    ).toHaveAttribute('aria-checked', 'true')
+    expect(
+      screen.getByText('BT peers, DHT and UDP trackers connect directly.')
+    ).toBeVisible()
+  })
+
+  it('shows an actionable error for an enabled proxy without a server', async () => {
+    const onClose = vi.fn()
+    render(<NetworkDialog open onClose={onClose} labelKey="" descKey="" />)
+    const user = userEvent.setup()
+    await user.click(
+      await screen.findByRole('switch', { name: 'Enable proxy' })
+    )
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(
+      await screen.findByText(
+        'Enter a server name or IP address, without http:// or a port.'
       )
-      expect(screen.getAllByRole('switch')[2]).toHaveAttribute(
-        'aria-checked',
-        'true'
-      )
+    ).toBeVisible()
+    expect(onClose).not.toHaveBeenCalled()
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
+  })
+
+  it('validates edits to saved STUN addresses and persists the corrected string array', async () => {
+    vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {
+      if (channel === Queries.GetSettings)
+        return {
+          ...FIXTURE,
+          nat: { ...FIXTURE.nat, stunServers: ['stun.example.com:3478'] },
+        }
+      return { saved: true }
     })
+    render(<NetworkDialog open onClose={vi.fn()} labelKey="" descKey="" />)
+    const input = await screen.findByDisplayValue('stun.example.com:3478')
+    fireEvent.change(input, { target: { value: 'stun.example.com:99999' } })
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByText(/Use host:port, such as/)).toBeVisible()
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
+    fireEvent.change(input, { target: { value: 'stun.example.com:19302' } })
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+        nat: { stunServers: ['stun.example.com:19302'] },
+      })
+    )
+  })
+
+  it('shows errors for an individual bypass entry instead of silently blocking Save', async () => {
+    vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {
+      if (channel === Queries.GetSettings)
+        return {
+          ...FIXTURE,
+          proxy: { ...FIXTURE.proxy, enabled: true, host: 'localhost' },
+        }
+      return { saved: true }
+    })
+    render(<NetworkDialog open onClose={vi.fn()} labelKey="" descKey="" />)
+    const input = await screen.findByPlaceholderText(/localhost/)
+    fireEvent.change(input, { target: { value: 'x'.repeat(254) } })
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(
+      await screen.findByText('Use 253 characters or fewer.')
+    ).toBeVisible()
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
   })
 })

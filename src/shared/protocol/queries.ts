@@ -1,11 +1,16 @@
 export const Queries = {
+  GetDownloadsSettingsDraft: 'query:getDownloadsSettingsDraft',
   GetDisclaimerState: 'query:getDisclaimerState',
   ListTasks: 'query:listTasks',
   GetTaskDetail: 'query:getTaskDetail',
   GetStats: 'query:getStats',
   GetTaskSpeedHistory: 'query:getTaskSpeedHistory',
   GetTaskInspectorActivity: 'query:getTaskInspectorActivity',
+  GetGeneralSettingsDraft: 'query:getGeneralSettingsDraft',
+  GetDirectoryPreferences: 'query:getDirectoryPreferences',
+  ListServerDirectoryLocations: 'query:listServerDirectoryLocations',
   GetSettings: 'query:getSettings',
+  GetSystemAccentColor: 'query:getSystemAccentColor',
   GetUpdateState: 'query:getUpdateState',
   GetSystemProxy: 'query:getSystemProxy',
   ListPlugins: 'query:listPlugins',
@@ -50,10 +55,13 @@ export const Queries = {
   GetTuningRecommendation: 'query:getTuningRecommendation',
   // Tracker
   GetTrackerList: 'query:getTrackerList',
+  GetTrackerSyncStatus: 'query:getTrackerSyncStatus',
   GetTrackerSources: 'query:getTrackerSources',
   GetTaskBtTracker: 'query:getTaskBtTracker',
   // Save directory allowlist (web degradation, electron returns unrestricted)
   ListAllowedSaveDirs: 'query:listAllowedSaveDirs',
+  ListServerDirectories: 'query:listServerDirectories',
+  ValidateServerDirectory: 'query:validateServerDirectory',
   // GeoIP
   GetGeoIPStatus: 'query:getGeoIPStatus',
   // FFmpeg detection
@@ -74,6 +82,7 @@ export const Queries = {
   // Linux AppImage desktop integration; returns `AppImageIntegrationView`
   // ({ supported: false } outside a packaged Linux AppImage).
   GetAppImageIntegrationStatus: 'query:getAppImageIntegrationStatus',
+  GetAppImageNativeHostStatus: 'query:getAppImageNativeHostStatus',
   GetLinuxDefaultAssociations: 'query:getLinuxDefaultAssociations',
   GetWindowsDefaultAssociations: 'query:getWindowsDefaultAssociations',
   GetApplicationMenu: 'query:getApplicationMenu',

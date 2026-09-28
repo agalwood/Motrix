@@ -1,3 +1,4 @@
+import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
 import { Button } from '@renderer/components/ui/button'
 import {
   FormControl,
@@ -5,6 +6,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from '@renderer/components/ui/form'
 import { Input } from '@renderer/components/ui/input'
 import { Separator } from '@renderer/components/ui/separator'
@@ -15,27 +17,23 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from '@renderer/components/ui/toggle-group'
-import { formatBytes } from '@renderer/lib/format'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
+
 import { transport } from '@renderer/lib/transport'
 import { Queries } from '@shared/protocol/queries'
-import { DEFAULT_SPEED_LIMIT_SETTINGS } from '@shared/schemas/speed-limit'
-import type { SpeedLimitSettings } from '@shared/types/settings'
 import type { SpeedPoint } from '@shared/types/stats'
-import { type ComponentProps, forwardRef, useEffect, useState } from 'react'
+import { type ComponentProps, forwardRef } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { CompactLimitInput } from './compact-limit-input'
-import { type DownloadsFields, KB, MBPS } from './downloads-form'
+import { type DownloadsFields, MBPS } from './downloads-form'
 
 const TIME_INPUT_CLS = 'h-8 w-24 bg-background font-mono tabular-nums'
 const TIME_24_PATTERN = '(?:[01]\\d|2[0-3]):[0-5]\\d'
 
 const TURTLE_STATES = ['off', 'on', 'auto'] as const
 const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
-const DEFAULT_RESERVED_PERCENT =
-  100 - DEFAULT_SPEED_LIMIT_SETTINGS.auto.adaptive.headroomPercent
 
-type Translate = ReturnType<typeof useTranslation>['t']
 type KbLimitName =
   | 'speedLimit.base.download'
   | 'speedLimit.base.upload'
@@ -81,12 +79,6 @@ const Time24Input = forwardRef<HTMLInputElement, Time24InputProps>(
     { value, onValueChange, onBlur, className, ...props },
     ref
   ) {
-    const [draft, setDraft] = useState(value)
-
-    useEffect(() => {
-      setDraft(value)
-    }, [value])
-
     return (
       <Input
         {...props}
@@ -99,22 +91,13 @@ const Time24Input = forwardRef<HTMLInputElement, Time24InputProps>(
         pattern={TIME_24_PATTERN}
         placeholder="HH:mm"
         className={`${TIME_INPUT_CLS} ${className ?? ''}`}
-        value={draft}
-        onChange={(event) => {
-          const nextDraft = sanitizeTimeDraft(event.target.value)
-          setDraft(nextDraft)
-          if (new RegExp(`^${TIME_24_PATTERN}$`).test(nextDraft)) {
-            onValueChange(nextDraft)
-          }
-        }}
+        value={value}
+        onChange={(event) =>
+          onValueChange(sanitizeTimeDraft(event.target.value))
+        }
         onBlur={(event) => {
-          const normalized = normalizeTime24(draft)
-          if (normalized) {
-            setDraft(normalized)
-            onValueChange(normalized)
-          } else {
-            setDraft(value)
-          }
+          const normalized = normalizeTime24(value)
+          if (normalized) onValueChange(normalized)
           onBlur?.(event)
         }}
       />
@@ -122,121 +105,10 @@ const Time24Input = forwardRef<HTMLInputElement, Time24InputProps>(
   }
 )
 
-function minCap(values: number[]): number {
-  let min = 0
-  for (const value of values) {
-    if (value <= 0) continue
-    if (min === 0 || value < min) min = value
-  }
-  return min
-}
-
-function formatLimit(value: number, t: Translate): string {
-  return value <= 0
-    ? t('settings.downloads.speedLimit.unlimited')
-    : `${formatBytes(value)}/s`
-}
-
-function crossesMidnight(from: string, to: string): boolean {
-  return to < from
-}
-
-function effectSummary(
-  settings: SpeedLimitSettings,
-  t: Translate
-): { primary: string; secondary?: string } {
-  const regularValues = {
-    download: formatLimit(settings.base.download, t),
-    upload: formatLimit(settings.base.upload, t),
-  }
-
-  if (settings.turtle === 'off') {
-    return {
-      primary: t(
-        'settings.downloads.speedLimit.effect.standard',
-        regularValues
-      ),
-    }
-  }
-
-  if (settings.turtle === 'on') {
-    return {
-      primary: t('settings.downloads.speedLimit.effect.lowSpeed', {
-        download: formatLimit(
-          minCap([settings.base.download, settings.alt.download]),
-          t
-        ),
-        upload: formatLimit(
-          minCap([settings.base.upload, settings.alt.upload]),
-          t
-        ),
-      }),
-    }
-  }
-
-  const rules: string[] = []
-  if (settings.auto.schedule.enabled) {
-    rules.push(
-      t('settings.downloads.speedLimit.effect.scheduleRule', {
-        from: settings.auto.schedule.from,
-        to: settings.auto.schedule.to,
-        nextDay: crossesMidnight(
-          settings.auto.schedule.from,
-          settings.auto.schedule.to
-        )
-          ? t('settings.downloads.speedLimit.effect.nextDay')
-          : '',
-      })
-    )
-  }
-  if (settings.auto.adaptive.enabled) {
-    const bandwidthReady =
-      settings.auto.adaptive.linkDown > 0 && settings.auto.adaptive.linkUp > 0
-    rules.push(
-      t(
-        bandwidthReady
-          ? 'settings.downloads.speedLimit.effect.adaptiveRule'
-          : 'settings.downloads.speedLimit.effect.adaptiveRulePending',
-        {
-          reserved: 100 - settings.auto.adaptive.headroomPercent,
-        }
-      )
-    )
-  }
-
-  if (rules.length === 0) {
-    return {
-      primary: t('settings.downloads.speedLimit.effect.noAutoRules'),
-      secondary: t(
-        'settings.downloads.speedLimit.effect.standardValues',
-        regularValues
-      ),
-    }
-  }
-
-  return {
-    primary: t('settings.downloads.speedLimit.effect.autoRules', {
-      rules: rules.join(
-        t('settings.downloads.speedLimit.effect.ruleSeparator')
-      ),
-    }),
-    secondary: t('settings.downloads.speedLimit.effect.lowerWins'),
-  }
-}
-
-function SectionIntro({
-  title,
-  description,
-}: {
-  title: string
-  description: string
-}) {
+function SectionIntro({ title }: { title: string }) {
   return (
     <div className="space-y-1">
-      <h4 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {title}
-      </h4>
-      <p className="text-xs text-muted-foreground">{description}</p>
+      <h4 className="text-xs font-medium text-muted-foreground">{title}</h4>
     </div>
   )
 }
@@ -246,17 +118,18 @@ export function SpeedLimitSection({
 }: {
   form: UseFormReturn<DownloadsFields>
 }) {
+  const { unitSystem } = useByteFormat()
+  const kiloByte = unitSystem === 'binary' ? 1024 : 1000
+
   const { t } = useTranslation()
   const settings = form.watch('speedLimit')
   const turtle = settings.turtle
   const scheduleEnabled = settings.auto.schedule.enabled
   const adaptiveEnabled = settings.auto.adaptive.enabled
-  const summary = effectSummary(settings, t)
 
   const kbLimitRow = (
     name: KbLimitName,
     labelKey: string,
-    descKey: string,
     zeroAction: 'unlimited' | 'inherit'
   ) => (
     <FormField
@@ -265,14 +138,30 @@ export function SpeedLimitSection({
       render={({ field }) => (
         <FormItem className="flex items-start justify-between gap-4">
           <div className="min-w-0 space-y-1">
-            <FormLabel>{t(labelKey)}</FormLabel>
-            <FormDescription className="text-xs">{t(descKey)}</FormDescription>
+            <FormLabel>
+              {t(labelKey)}
+              <span className="sr-only">
+                {' '}
+                —{' '}
+                {t(
+                  name.includes('.base.')
+                    ? 'settings.downloads.speedLimit.baseSection'
+                    : 'settings.downloads.speedLimit.altSection'
+                )}
+              </span>
+            </FormLabel>
+            <FormMessage className="text-xs" />
           </div>
           <FormControl>
             <CompactLimitInput
-              value={Math.round((field.value as number) / KB)}
-              onValueChange={(value) => field.onChange(value * KB)}
-              unit="KB/s"
+              name={field.name}
+              ref={field.ref}
+              onBlur={field.onBlur}
+              value={(field.value as number) / kiloByte}
+              onValueChange={(value) =>
+                field.onChange(Math.round(value * kiloByte))
+              }
+              unit={unitSystem === 'binary' ? 'KiB/s' : 'KB/s'}
               zeroAction={zeroAction}
               zeroLabel={t(
                 zeroAction === 'inherit'
@@ -291,11 +180,7 @@ export function SpeedLimitSection({
     />
   )
 
-  const mbpsLimitRow = (
-    name: MbpsLimitName,
-    labelKey: string,
-    descKey: string
-  ) => (
+  const mbpsLimitRow = (name: MbpsLimitName, labelKey: string) => (
     <FormField
       control={form.control}
       name={name}
@@ -303,26 +188,26 @@ export function SpeedLimitSection({
         <FormItem className="flex items-start justify-between gap-4">
           <div className="min-w-0 space-y-1">
             <FormLabel>{t(labelKey)}</FormLabel>
-            <FormDescription className="text-xs">{t(descKey)}</FormDescription>
+            <FormMessage className="text-xs" />
           </div>
           <div className="relative shrink-0">
             <FormControl>
               <Input
+                name={field.name}
+                ref={field.ref}
+                onBlur={field.onBlur}
                 type="number"
                 min={0}
                 step="any"
-                className="h-8 w-32 pr-14"
-                value={Math.round(((field.value as number) / MBPS) * 10) / 10}
+                className="h-8 w-32 pe-14"
+                value={Number.isFinite(field.value) ? field.value / MBPS : ''}
                 onChange={(event) => {
-                  const value = Number.parseFloat(event.target.value)
-                  field.onChange(
-                    Number.isFinite(value) ? Math.round(value * MBPS) : 0
-                  )
+                  field.onChange(Math.round(event.target.valueAsNumber * MBPS))
                 }}
               />
             </FormControl>
             <span
-              className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-[11px] text-muted-foreground"
+              className="pointer-events-none absolute inset-y-0 end-2.5 flex items-center text-[11px] text-muted-foreground"
               aria-hidden
             >
               Mbps
@@ -385,28 +270,15 @@ export function SpeedLimitSection({
         <h3 className="text-sm font-semibold text-foreground">
           {t('settings.downloads.speedLimit.title')}
         </h3>
-        <p className="text-xs text-muted-foreground">
-          {t('settings.downloads.speedLimit.titleDesc')}
-        </p>
       </div>
-
-      <SectionIntro
-        title={t('settings.downloads.speedLimit.modeSection')}
-        description={t('settings.downloads.speedLimit.modeSectionDesc')}
-      />
 
       <FormField
         control={form.control}
         name="speedLimit.turtle"
         render={({ field }) => (
-          <FormItem className="flex items-start justify-between gap-4">
+          <SettingsFormRow>
             <div className="min-w-0 space-y-1">
               <FormLabel>{t('settings.downloads.speedLimit.turtle')}</FormLabel>
-              <FormDescription className="text-xs">
-                {t(
-                  `settings.downloads.speedLimit.turtleDesc_${field.value as (typeof TURTLE_STATES)[number]}`
-                )}
-              </FormDescription>
             </div>
             <FormControl>
               <ToggleGroup
@@ -425,73 +297,55 @@ export function SpeedLimitSection({
                 ))}
               </ToggleGroup>
             </FormControl>
-          </FormItem>
+          </SettingsFormRow>
         )}
       />
 
       <Separator className="my-2" />
 
-      <SectionIntro
-        title={t('settings.downloads.speedLimit.baseSection')}
-        description={t('settings.downloads.speedLimit.baseSectionDesc')}
-      />
-      {kbLimitRow(
-        'speedLimit.base.download',
-        'settings.downloads.speedLimit.baseDownload',
-        'settings.downloads.speedLimit.baseDownloadDesc',
-        'unlimited'
-      )}
+      <SectionIntro title={t('settings.downloads.speedLimit.baseSection')} />
       {kbLimitRow(
         'speedLimit.base.upload',
         'settings.downloads.speedLimit.baseUpload',
-        'settings.downloads.speedLimit.baseUploadDesc',
+        'unlimited'
+      )}
+      {kbLimitRow(
+        'speedLimit.base.download',
+        'settings.downloads.speedLimit.baseDownload',
         'unlimited'
       )}
 
       <Separator className="my-2" />
 
-      <SectionIntro
-        title={t('settings.downloads.speedLimit.altSection')}
-        description={t('settings.downloads.speedLimit.altSectionDesc')}
-      />
-      {kbLimitRow(
-        'speedLimit.alt.download',
-        'settings.downloads.speedLimit.altDownload',
-        'settings.downloads.speedLimit.altDownloadDesc',
-        'inherit'
-      )}
+      <SectionIntro title={t('settings.downloads.speedLimit.altSection')} />
       {kbLimitRow(
         'speedLimit.alt.upload',
         'settings.downloads.speedLimit.altUpload',
-        'settings.downloads.speedLimit.altUploadDesc',
+        'inherit'
+      )}
+      {kbLimitRow(
+        'speedLimit.alt.download',
+        'settings.downloads.speedLimit.altDownload',
         'inherit'
       )}
 
-      {turtle === 'auto' && (
+      {(turtle === 'auto' || form.formState.errors.speedLimit?.auto) && (
         <>
           <Separator className="my-2" />
 
           <SectionIntro
             title={t('settings.downloads.speedLimit.autoSection')}
-            description={t('settings.downloads.speedLimit.autoSectionDesc')}
           />
-
-          <h5 className="text-xs font-medium text-foreground">
-            {t('settings.downloads.speedLimit.autoSchedule')}
-          </h5>
 
           <FormField
             control={form.control}
             name="speedLimit.auto.schedule.enabled"
             render={({ field }) => (
-              <FormItem className="flex items-start justify-between gap-4">
+              <SettingsFormRow>
                 <div className="min-w-0 space-y-1">
                   <FormLabel>
                     {t('settings.downloads.speedLimit.scheduleEnabled')}
                   </FormLabel>
-                  <FormDescription className="text-xs">
-                    {t('settings.downloads.speedLimit.scheduleEnabledDesc')}
-                  </FormDescription>
                 </div>
                 <FormControl>
                   <Switch
@@ -499,23 +353,27 @@ export function SpeedLimitSection({
                     onCheckedChange={field.onChange}
                   />
                 </FormControl>
-              </FormItem>
+              </SettingsFormRow>
             )}
           />
 
-          {scheduleEnabled && (
+          {(scheduleEnabled ||
+            form.formState.errors.speedLimit?.auto?.schedule) && (
             <>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pl-1">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 ps-1">
                 <FormField
                   control={form.control}
                   name="speedLimit.auto.schedule.from"
                   render={({ field }) => (
-                    <FormItem className="flex items-center gap-2">
+                    <SettingsFormRow className="flex items-center gap-2">
                       <FormLabel className="shrink-0 text-sm">
                         {t('settings.downloads.speedLimit.scheduleFrom')}
                       </FormLabel>
                       <FormControl>
                         <Time24Input
+                          ref={field.ref}
+                          name={field.name}
+                          onBlur={field.onBlur}
                           value={field.value as string}
                           onValueChange={field.onChange}
                           title={t(
@@ -523,19 +381,22 @@ export function SpeedLimitSection({
                           )}
                         />
                       </FormControl>
-                    </FormItem>
+                    </SettingsFormRow>
                   )}
                 />
                 <FormField
                   control={form.control}
                   name="speedLimit.auto.schedule.to"
                   render={({ field }) => (
-                    <FormItem className="flex items-center gap-2">
+                    <SettingsFormRow className="flex items-center gap-2">
                       <FormLabel className="shrink-0 text-sm">
                         {t('settings.downloads.speedLimit.scheduleTo')}
                       </FormLabel>
                       <FormControl>
                         <Time24Input
+                          ref={field.ref}
+                          name={field.name}
+                          onBlur={field.onBlur}
                           value={field.value as string}
                           onValueChange={field.onChange}
                           title={t(
@@ -543,12 +404,9 @@ export function SpeedLimitSection({
                           )}
                         />
                       </FormControl>
-                    </FormItem>
+                    </SettingsFormRow>
                   )}
                 />
-                <span className="text-xs text-muted-foreground">
-                  {t('settings.downloads.speedLimit.scheduleTimeFormat')}
-                </span>
               </div>
 
               <FormField
@@ -590,9 +448,10 @@ export function SpeedLimitSection({
                           </Toggle>
                         ))}
                       </div>
-                      <FormDescription className="text-xs text-muted-foreground">
+                      <FormDescription className="text-xs">
                         {t('settings.downloads.speedLimit.scheduleDaysHint')}
                       </FormDescription>
+                      <FormMessage className="basis-full text-xs" />
                     </FormItem>
                   )
                 }}
@@ -602,15 +461,11 @@ export function SpeedLimitSection({
 
           <Separator className="my-2" />
 
-          <h5 className="text-xs font-medium text-foreground">
-            {t('settings.downloads.speedLimit.autoAdaptive')}
-          </h5>
-
           <FormField
             control={form.control}
             name="speedLimit.auto.adaptive.enabled"
             render={({ field }) => (
-              <FormItem className="flex items-start justify-between gap-4">
+              <SettingsFormRow>
                 <div className="min-w-0 space-y-1">
                   <FormLabel>
                     {t('settings.downloads.speedLimit.adaptiveEnabled')}
@@ -625,24 +480,23 @@ export function SpeedLimitSection({
                     onCheckedChange={field.onChange}
                   />
                 </FormControl>
-              </FormItem>
+              </SettingsFormRow>
             )}
           />
 
-          {adaptiveEnabled && (
+          {(adaptiveEnabled ||
+            form.formState.errors.speedLimit?.auto?.adaptive) && (
             <>
               {mbpsLimitRow(
-                'speedLimit.auto.adaptive.linkDown',
-                'settings.downloads.speedLimit.linkDown',
-                'settings.downloads.speedLimit.linkDownDesc'
+                'speedLimit.auto.adaptive.linkUp',
+                'settings.downloads.speedLimit.linkUp'
               )}
               {mbpsLimitRow(
-                'speedLimit.auto.adaptive.linkUp',
-                'settings.downloads.speedLimit.linkUp',
-                'settings.downloads.speedLimit.linkUpDesc'
+                'speedLimit.auto.adaptive.linkDown',
+                'settings.downloads.speedLimit.linkDown'
               )}
 
-              <div className="flex items-center gap-2 pl-1">
+              <div className="flex items-center gap-2 ps-1">
                 <Button
                   type="button"
                   variant="outline"
@@ -651,9 +505,6 @@ export function SpeedLimitSection({
                 >
                   {t('settings.downloads.speedLimit.fillFromPeak')}
                 </Button>
-                <span className="text-xs text-muted-foreground">
-                  {t('settings.downloads.speedLimit.fillFromPeakHint')}
-                </span>
               </div>
 
               <FormField
@@ -670,36 +521,37 @@ export function SpeedLimitSection({
                         </FormLabel>
                         <FormDescription className="text-xs">
                           {t(
-                            'settings.downloads.speedLimit.headroomPercentDesc',
-                            {
-                              reserved: reservedPercent,
-                              motrix: motrixPercent,
-                            }
+                            settings.auto.adaptive.linkDown > 0 &&
+                              settings.auto.adaptive.linkUp > 0
+                              ? 'settings.downloads.speedLimit.bandwidthUsed'
+                              : 'settings.downloads.speedLimit.bandwidthPending',
+                            { motrix: motrixPercent }
                           )}
                         </FormDescription>
+                        <FormMessage className="text-xs" />
                       </div>
                       <div className="relative shrink-0">
                         <FormControl>
                           <Input
+                            name={field.name}
+                            ref={field.ref}
+                            onBlur={field.onBlur}
                             type="number"
                             min={0}
                             max={99}
-                            className="h-8 w-32 pr-8"
-                            value={reservedPercent}
+                            className="h-8 w-32 pe-8"
+                            value={
+                              Number.isFinite(reservedPercent)
+                                ? reservedPercent
+                                : ''
+                            }
                             onChange={(event) => {
-                              const value = Number.parseInt(
-                                event.target.value,
-                                10
-                              )
-                              const reserved = Number.isFinite(value)
-                                ? Math.min(99, Math.max(0, value))
-                                : DEFAULT_RESERVED_PERCENT
-                              field.onChange(100 - reserved)
+                              field.onChange(100 - event.target.valueAsNumber)
                             }}
                           />
                         </FormControl>
                         <span
-                          className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-[11px] text-muted-foreground"
+                          className="pointer-events-none absolute inset-y-0 end-2.5 flex items-center text-[11px] text-muted-foreground"
                           aria-hidden
                         >
                           %
@@ -714,21 +566,9 @@ export function SpeedLimitSection({
         </>
       )}
 
-      <div
-        className="space-y-1 rounded-md border border-border bg-muted/40 px-3 py-2.5"
-        aria-live="polite"
-        aria-atomic="true"
-      >
-        <p className="text-xs font-medium text-foreground">
-          {t('settings.downloads.speedLimit.effect.title')}
-        </p>
-        <p className="text-xs text-muted-foreground">{summary.primary}</p>
-        {summary.secondary ? (
-          <p className="text-[11px] text-muted-foreground/80">
-            {summary.secondary}
-          </p>
-        ) : null}
-      </div>
+      <p className="text-xs text-muted-foreground">
+        {t('settings.downloads.speedLimit.effect.lowerWins')}
+      </p>
     </>
   )
 }

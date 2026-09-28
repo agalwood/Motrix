@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { resolveReleaseMetadata } from './release-metadata.mjs'
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url)
 const require = createRequire(import.meta.url)
@@ -24,6 +26,8 @@ export function parseArgs(argv) {
     output: 'flatpak/app.motrix.native.ci.yml',
     archive: 'flatpak/motrix-source.tar.gz',
     ref: 'HEAD',
+    version: '',
+    'github-output': '',
   }
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -45,7 +49,7 @@ function requireRecord(value, label) {
   return value
 }
 
-export function replaceApplicationSource(manifest, archivePath) {
+export function replaceApplicationSource(manifest, archivePath, sha256) {
   const root = requireRecord(structuredClone(manifest), 'Flatpak manifest')
   if (!Array.isArray(root.modules)) {
     throw new Error('Flatpak manifest modules must be an array')
@@ -79,8 +83,18 @@ export function replaceApplicationSource(manifest, archivePath) {
     type: 'archive',
     path: archivePath,
     'strip-components': 0,
+    ...(sha256 ? { sha256 } : {}),
   }
   return root
+}
+
+function gitOutput(repoRoot, args) {
+  const result = spawnSync('git', args, { cwd: repoRoot, encoding: 'utf8' })
+  if (result.error) throw result.error
+  if (result.status !== 0) {
+    throw new Error(`git ${args[0]} failed: ${result.stderr.trim()}`)
+  }
+  return result.stdout.trim()
 }
 
 function createArchive(repoRoot, outputPath, ref) {
@@ -104,6 +118,34 @@ export async function prepareFlatpakProject(options, repoRoot = process.cwd()) {
   const outputDir = path.dirname(outputPath)
   const relativeArchive = path.relative(outputDir, archivePath)
 
+  // The manifest and dependency locks come from this checkout. Never pair
+  // those inputs with application source from another revision.
+  const revision = gitOutput(repoRoot, ['rev-parse', `${options.ref}^{commit}`])
+  if (revision !== gitOutput(repoRoot, ['rev-parse', 'HEAD'])) {
+    throw new Error('Flatpak source ref must match the checked-out commit')
+  }
+  const sourcePackage = JSON.parse(
+    gitOutput(repoRoot, ['show', `${revision}:package.json`])
+  )
+  const metadata = resolveReleaseMetadata({
+    eventName: 'workflow_dispatch',
+    packageVersion: sourcePackage.version,
+  })
+  if (options.version && options.version !== metadata.version) {
+    throw new Error(
+      `Flatpak source version ${metadata.version} does not match release version ${options.version}`
+    )
+  }
+  const metainfo = await readFile(
+    path.join(repoRoot, 'flatpak/app.motrix.native.metainfo.xml'),
+    'utf8'
+  )
+  if (
+    metainfo.match(/<release\s+version="([^"]+)"/)?.[1] !== metadata.version
+  ) {
+    throw new Error('Flatpak AppStream version must match the source version')
+  }
+
   if (
     relativeArchive === '' ||
     relativeArchive.startsWith(`..${path.sep}`) ||
@@ -113,13 +155,17 @@ export async function prepareFlatpakProject(options, repoRoot = process.cwd()) {
   }
 
   await mkdir(outputDir, { recursive: true })
-  createArchive(repoRoot, archivePath, options.ref)
+  createArchive(repoRoot, archivePath, revision)
 
   const manifest = yaml.load(await readFile(manifestPath, 'utf8'))
   const prepared = replaceApplicationSource(
     manifest,
-    relativeArchive.split(path.sep).join('/')
+    relativeArchive.split(path.sep).join('/'),
+    createHash('sha256')
+      .update(await readFile(archivePath))
+      .digest('hex')
   )
+  prepared.branch = metadata.channel
   await writeFile(
     outputPath,
     yaml.dump(prepared, {
@@ -130,7 +176,13 @@ export async function prepareFlatpakProject(options, repoRoot = process.cwd()) {
     }),
     'utf8'
   )
-  return { manifestPath: outputPath, archivePath }
+  if (options['github-output']) {
+    await appendFile(
+      options['github-output'],
+      `version=${metadata.version}\nbranch=${metadata.channel}\nrevision=${revision}\n`
+    )
+  }
+  return { manifestPath: outputPath, archivePath, ...metadata, revision }
 }
 
 async function main() {

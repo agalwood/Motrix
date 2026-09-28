@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import type { TorrentFileInfo } from '@shared/types/torrent'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { FileList } from './file-list'
 
@@ -44,6 +44,57 @@ const makeFiles = (): TorrentFileInfo[] => [
 ]
 
 describe('FileList', () => {
+  it('can hide column headers while keeping file types and selection controls', () => {
+    const onSelectionChange = vi.fn()
+    render(
+      <FileList
+        files={makeFiles()}
+        selectedIndices={[0]}
+        onSelectionChange={onSelectionChange}
+        showColumnHeaders={false}
+        headerSlot={<button type="button">Video</button>}
+      />
+    )
+
+    for (const label of ['File name', 'File type', 'Size']) {
+      expect(screen.queryByText(label)).not.toBeInTheDocument()
+    }
+    expect(screen.getByText('mp4')).toBeInTheDocument()
+    expect(screen.getByText(/1 file selected/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Video' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select all' }))
+    expect(onSelectionChange).toHaveBeenCalledWith([0, 1, 2, 3, 4])
+  })
+
+  it('shows file types from file names without requiring torrent metadata', () => {
+    const cases = [
+      ['folder/movie.MP4', 'mp4'],
+      ['archive.tar.gz', 'gz'],
+      ['C:\\folder\\photo.JPG', 'jpg'],
+      ['folder.v1/README', '—'],
+      ['folder.v1\\LICENSE', '—'],
+      ['.gitignore', '—'],
+      ['.env.local', 'local'],
+      ['trailing.', '—'],
+    ]
+    render(
+      <FileList
+        files={cases.map(([path], index) => ({ index, path, size: 10 }))}
+        selectedIndices={[]}
+        readOnly
+      />
+    )
+
+    expect(screen.getByText('File type')).toBeInTheDocument()
+    for (const [path, extension] of cases) {
+      const row = screen.getByText(path).parentElement!
+      expect(within(row).getByText(extension)).toHaveAttribute(
+        'title',
+        extension
+      )
+    }
+  })
+
   it('renders all file names', () => {
     render(
       <FileList<TorrentFileInfo>
@@ -156,9 +207,9 @@ describe('FileList', () => {
 
   it('formats file sizes correctly', () => {
     const files: TorrentFileInfo[] = [
-      { index: 0, path: 'big.mkv', size: 1_073_741_824, extension: '.mkv' }, // 1.0 GB
-      { index: 1, path: 'mid.mp3', size: 5_242_880, extension: '.mp3' }, // 5.0 MB
-      { index: 2, path: 'small.txt', size: 1_024, extension: '.txt' }, // 1.0 KB
+      { index: 0, path: 'big.mkv', size: 1_073_741_824, extension: '.mkv' }, // 1.07 GB
+      { index: 1, path: 'mid.mp3', size: 5_242_880, extension: '.mp3' }, // 5.24 MB
+      { index: 2, path: 'small.txt', size: 1_024, extension: '.txt' }, // 1.02 KB
     ]
     render(
       <FileList<TorrentFileInfo>
@@ -167,9 +218,9 @@ describe('FileList', () => {
         onSelectionChange={vi.fn()}
       />
     )
-    expect(screen.getByText('1.0 GB')).toBeDefined()
-    expect(screen.getByText('5.0 MB')).toBeDefined()
-    expect(screen.getByText('1.0 KB')).toBeDefined()
+    expect(screen.getByText('1.07 GB')).toBeDefined()
+    expect(screen.getByText('5.24 MB')).toBeDefined()
+    expect(screen.getByText('1.02 KB')).toBeDefined()
   })
 
   it('disables checkboxes in readOnly mode', () => {

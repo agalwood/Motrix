@@ -16,7 +16,7 @@ pub struct EndpointFile {
 }
 
 #[cfg(unix)]
-fn effective_user_id() -> u32 {
+pub(crate) fn effective_user_id() -> u32 {
     unsafe extern "C" {
         fn geteuid() -> u32;
     }

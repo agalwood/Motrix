@@ -100,6 +100,8 @@ interface IntegrationState {
   ordinaryCandidate: TaskTransferSample | null
   activeMsDelta: number
   downloadActiveMsDelta: number
+  seedingMsDelta: number
+  seedingUsRemainder: bigint
   activeUsRemainder: bigint
   downloadActiveUsRemainder: bigint
   downloadBytesDelta: bigint
@@ -563,6 +565,15 @@ export class TaskInspectorActivityService {
     )
     if (elapsedUs <= 0n) return
 
+    if (
+      start.status === TaskStatus.Seeding &&
+      end.status === TaskStatus.Seeding
+    ) {
+      const seedingTotal = state.seedingUsRemainder + elapsedUs
+      state.seedingMsDelta += Number(seedingTotal / 1_000n)
+      state.seedingUsRemainder = seedingTotal % 1_000n
+    }
+
     if (ACTIVE_STATUSES.has(start.status) && ACTIVE_STATUSES.has(end.status)) {
       const activeTotal = state.activeUsRemainder + elapsedUs
       state.activeMsDelta += Number(activeTotal / 1_000n)
@@ -852,6 +863,8 @@ export class TaskInspectorActivityService {
       ordinaryCandidate: null,
       activeMsDelta: 0,
       downloadActiveMsDelta: 0,
+      seedingMsDelta: 0,
+      seedingUsRemainder: 0n,
       activeUsRemainder: 0n,
       downloadActiveUsRemainder: 0n,
       downloadBytesDelta: 0n,
@@ -978,6 +991,7 @@ export class TaskInspectorActivityService {
       updatedAt: Math.max(state.latestPersistedWall, observedUpdatedAt),
       activeMsDelta: state.activeMsDelta,
       downloadActiveMsDelta: state.downloadActiveMsDelta,
+      seedingMsDelta: state.seedingMsDelta,
       estimatedDownloadBytesDelta: state.downloadBytesDelta,
       estimatedUploadBytesDelta: state.uploadBytesDelta,
       peakDownloadBps: state.peakDownloadBps,
@@ -1003,6 +1017,7 @@ export class TaskInspectorActivityService {
     state.uploadBytesDelta = 0n
     state.activeMsDelta = 0
     state.downloadActiveMsDelta = 0
+    state.seedingMsDelta = 0
     state.rawSampleCountDelta = 0
     state.coverageGapAt = null
     if (committedCoverageGapCandidate) {
@@ -1038,6 +1053,7 @@ export class TaskInspectorActivityService {
     return (
       state.activeMsDelta > 0 ||
       state.downloadActiveMsDelta > 0 ||
+      state.seedingMsDelta > 0 ||
       state.downloadBytesDelta > 0n ||
       state.uploadBytesDelta > 0n ||
       state.coverageGapAt !== null ||

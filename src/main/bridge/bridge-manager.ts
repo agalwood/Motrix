@@ -21,7 +21,8 @@ export class BridgeManager {
 
   constructor(
     private factory: BridgeRuntimeFactory,
-    private unregisterNativeMessaging?: NativeMessagingUnregister
+    private unregisterNativeMessaging?: NativeMessagingUnregister,
+    private readonly cleanupOnStartFailure = true
   ) {}
 
   get current(): BridgeRuntime | null {
@@ -70,7 +71,8 @@ export class BridgeManager {
     try {
       runtime = await this.factory()
     } catch (startError) {
-      if (!this.unregisterNativeMessaging) throw startError
+      if (!this.unregisterNativeMessaging || !this.cleanupOnStartFailure)
+        throw startError
       this.cleanupPending = true
       try {
         await this.unregisterNativeMessaging()
@@ -117,15 +119,6 @@ export class BridgeManager {
       this.cleanupPending = true
     }
 
-    let shutdownError: unknown
-    if (r) {
-      try {
-        await r.shutdown()
-      } catch (error) {
-        shutdownError = error
-      }
-    }
-
     let unregisterError: unknown
     if (shouldUnregister) {
       const pendingUnregister = this.pendingUnregister
@@ -140,6 +133,17 @@ export class BridgeManager {
         } catch (error) {
           unregisterError = error
         }
+      }
+    }
+
+    // Disable launch before stopping the listener; otherwise a browser could
+    // restart the application during the master-switch transition.
+    let shutdownError: unknown
+    if (r) {
+      try {
+        await r.shutdown()
+      } catch (error) {
+        shutdownError = error
       }
     }
 

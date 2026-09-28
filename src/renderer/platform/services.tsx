@@ -12,7 +12,13 @@ export interface PluginInstallFileCapability {
 export interface PlatformServices {
   readonly kind: 'electron' | 'web'
   readonly pluginInstallFile?: PluginInstallFileCapability
-  pickSaveDir(defaultPath?: string): Promise<string | null>
+  pickSaveDir(
+    defaultPath?: string,
+    options?: {
+      /** Draft forms keep application favorites behind their own Save boundary. */
+      allowFavoriteEditing?: boolean
+    }
+  ): Promise<string | null>
   closeHost(options?: {
     showMain?: boolean
     /**

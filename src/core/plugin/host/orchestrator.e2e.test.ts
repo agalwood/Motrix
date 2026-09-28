@@ -20,6 +20,7 @@ import {
   CookieJar,
   ensureCookieJarSchema,
 } from '@core/plugin/capabilities/http-cookies'
+import type { CapabilityHost } from '@core/plugin/capabilities/interface'
 import {
   ensureMetadataSchema,
   MetadataCapabilityHost,
@@ -38,6 +39,7 @@ import {
 import { freezeHookPlan } from '@core/plugin/finalize/hook-plan'
 import { NativeFinalizeArtifactOperations } from '@core/plugin/finalize/native-artifact-operations'
 import { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
+import { StagedEffectStore } from '@core/plugin/hooks/staged-effects'
 import { PluginRegistry } from '@core/plugin/plugin-registry'
 import { PluginStateStore } from '@core/plugin/state/plugin-state-store'
 import { migrate } from '@core/session/migrations'
@@ -47,8 +49,8 @@ import type {
   PluginHookTask,
 } from '@shared/types/plugin-hooks'
 import Database from 'better-sqlite3'
-import { Agent, type Dispatcher } from 'undici'
-import { afterEach, describe, expect, it } from 'vitest'
+import { Agent, type Dispatcher, MockAgent } from 'undici'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ActivationDispatcher } from './activation-dispatcher'
 import { PluginHost } from './plugin-host'
 import { makeStubCapabilityHost } from './test-helpers'
@@ -84,6 +86,7 @@ interface Harness {
 const cleanups: Array<() => Promise<void> | void> = []
 
 afterEach(async () => {
+  vi.useRealTimers()
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup()
 })
 
@@ -315,73 +318,185 @@ function beforeFinalize(input: {
 }
 
 describe('locked builtin bundles through PluginHost + QuickJS Hooks', () => {
-  it('scraper-hook performs real HEAD+GET and resolves a nested relative archive', async () => {
-    const requests: Array<{ method: string; host: string; path: string }> = []
-    const loopback = await createOriginPreservingLoopback(
-      (request, response) => {
-        requests.push({
-          method: request.method ?? '',
-          host: request.headers.host ?? '',
-          path: request.url ?? '',
-        })
-        if (
-          request.headers.host !== 'example.test' ||
-          request.url !== '/catalog/deep/page.html'
-        ) {
-          response.writeHead(421).end()
-          return
+  it('expires a queued Hook without aborting the invocation holding the plugin lane', async () => {
+    const dispatcher = new MockAgent()
+    dispatcher.disableNetConnect()
+    cleanups.push(() => dispatcher.close())
+    const requestStarted = Promise.withResolvers<void>()
+    const response = Promise.withResolvers<void>()
+    let requests = 0
+    dispatcher
+      .get('https://commons.wikimedia.org')
+      .intercept({
+        method: 'GET',
+        path: (value: string) => value.startsWith('/w/api.php'),
+      })
+      .reply(async () => {
+        requests += 1
+        requestStarted.resolve()
+        await response.promise
+        return {
+          statusCode: 200,
+          data: JSON.stringify({
+            query: {
+              pages: {
+                1: {
+                  imageinfo: [
+                    {
+                      url: 'https://upload.wikimedia.org/wikipedia/commons/example.jpg',
+                    },
+                  ],
+                },
+              },
+            },
+          }),
+          responseOptions: {
+            headers: { 'content-type': 'application/json' },
+          },
         }
-        response.setHeader('content-type', 'text/html; charset=utf-8')
-        if (request.method === 'HEAD') {
-          response.writeHead(200).end()
-          return
-        }
-        if (request.method === 'GET') {
-          response
-            .writeHead(200)
-            .end('<html><a href="../archives/release.zip">download</a></html>')
-          return
-        }
-        response.writeHead(405).end()
+      })
+      .persist()
+    const harness = await makeHarness({ dispatcher })
+    const pluginId = 'motrix.url-resolver'
+    enableOnly(harness, pluginId)
+    await harness.host.activate(pluginId)
+    const queuedEntry = Promise.withResolvers<void>()
+    const invokeHook = harness.host.invokeHook.bind(harness.host)
+    vi.spyOn(harness.host, 'invokeHook').mockImplementation(
+      (id, hook, args) => {
+        const result = invokeHook(id, hook, args)
+        if (args.taskId === 'queued') queuedEntry.resolve()
+        return result
       }
     )
-    cleanups.push(() => loopback.close())
+    const url = 'https://commons.wikimedia.org/wiki/File:Example.jpg'
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const active = harness.host.invokeHook(pluginId, 'beforeCreate', {
+        taskId: 'active',
+        signal: new AbortController().signal,
+        timeoutMs: 20_000,
+        ctxPayload: beforeCreate('active', url, harness.root),
+        context: {
+          fsTaskHost: {} as ReturnType<CapabilityHost['fsTaskFor']>,
+          taskId: 'active',
+          phase: 'beforeCreate',
+          staged: new StagedEffectStore(),
+          role: 'pre-resolve',
+          saveDir: harness.root,
+          pluginStorageRoot: path.join(harness.root, 'storage'),
+        },
+      })
+      const activeResult = active.then(
+        () => 'completed',
+        (error: Error) => error.message
+      )
+      await requestStarted.promise
+      const queued = harness.orchestrator.runBeforeCreateHttp(
+        beforeCreate('queued', url, harness.root),
+        'queued'
+      )
+      await queuedEntry.promise
+      expect(harness.host.laneState(pluginId)).toMatchObject({
+        running: 1,
+        queued: 1,
+      })
+      await vi.advanceTimersByTimeAsync(10_001)
+      expect(harness.host.bridgeFor(pluginId)?.operationState()).toMatchObject({
+        hookCalls: 1,
+        httpOperations: 1,
+      })
+      response.resolve()
+      expect(await activeResult).toBe('completed')
+      expect(await queued).toEqual({
+        aborted: true,
+        reason: `${pluginId}: plugin.runtime.entry_aborted`,
+      })
+      expect(requests).toBe(1)
+    } finally {
+      response.resolve()
+      vi.useRealTimers()
+    }
+  }, 20_000)
 
-    const harness = await makeHarness({
-      dispatcher: loopback.dispatcher,
-      config: {
-        'motrix.scraper-hook': { enabled: true, maxBodyBytes: 64 << 10 },
-      },
-    })
-    enableOnly(harness, 'motrix.scraper-hook')
-    const taskId = 'builtin-scraper-task'
-    const result = await harness.orchestrator.runBeforeCreateHttp(
-      beforeCreate(
-        taskId,
-        'https://example.test/catalog/deep/page.html',
-        harness.root
-      ),
-      taskId
-    )
-
-    if (result.aborted) throw new Error(result.reason)
-    expect(harness.logs.filter((entry) => entry.level === 'warn')).toEqual([])
-    expect(requests).toEqual([
-      {
-        method: 'HEAD',
-        host: 'example.test',
-        path: '/catalog/deep/page.html',
-      },
-      {
+  it('keeps a repeated plugin request alive across the previous Hook deadline', async () => {
+    const dispatcher = new MockAgent()
+    dispatcher.disableNetConnect()
+    cleanups.push(() => dispatcher.close())
+    const secondRequest = Promise.withResolvers<void>()
+    const response = Promise.withResolvers<void>()
+    let requests = 0
+    dispatcher
+      .get('https://commons.wikimedia.org')
+      .intercept({
         method: 'GET',
-        host: 'example.test',
-        path: '/catalog/deep/page.html',
-      },
-    ])
-    expect(result.final.uris).toEqual([
-      'https://example.test/catalog/archives/release.zip',
-    ])
-  }, 30_000)
+        path: (value: string) => value.startsWith('/w/api.php'),
+      })
+      .reply(async () => {
+        requests += 1
+        if (requests === 2) {
+          secondRequest.resolve()
+          await response.promise
+        }
+        return {
+          statusCode: 200,
+          data: JSON.stringify({
+            query: {
+              pages: {
+                1: {
+                  imageinfo: [
+                    {
+                      url: 'https://upload.wikimedia.org/wikipedia/commons/example.jpg',
+                    },
+                  ],
+                },
+              },
+            },
+          }),
+          responseOptions: {
+            headers: { 'content-type': 'application/json' },
+          },
+        }
+      })
+      .persist()
+    const harness = await makeHarness({ dispatcher })
+    enableOnly(harness, 'motrix.url-resolver')
+    await harness.host.activate('motrix.url-resolver')
+    const invokeHook = vi.spyOn(harness.host, 'invokeHook')
+    const url = 'https://commons.wikimedia.org/wiki/File:Example.jpg'
+    const saveDir = String.raw`C:\Users\tester\Downloads`
+    // The production 10-second budget runs on a controlled host clock;
+    // worker execution and the HTTP response are synchronized by promises.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const first = await harness.orchestrator.runBeforeCreateHttp(
+        beforeCreate('first', url, saveDir),
+        'first'
+      )
+      expect(first.aborted).not.toBe(true)
+      await vi.advanceTimersByTimeAsync(8_000)
+      const second = harness.orchestrator.runBeforeCreateHttp(
+        beforeCreate('second', url, saveDir),
+        'second'
+      )
+      await secondRequest.promise
+      await vi.advanceTimersByTimeAsync(2_001)
+      expect(invokeHook.mock.calls[1]?.[2].signal.aborted).toBe(false)
+      response.resolve()
+      const result = await second
+      expect(result.aborted).not.toBe(true)
+      if (result.aborted) throw new Error(result.reason)
+      expect(result.final.uris).toEqual([
+        'https://upload.wikimedia.org/wikipedia/commons/example.jpg',
+      ])
+      expect(result.final.saveDir).toBe(saveDir)
+      expect(requests).toBe(2)
+      expect(harness.logs.filter((entry) => entry.level === 'warn')).toEqual([])
+    } finally {
+      response.resolve()
+      vi.useRealTimers()
+    }
+  }, 20_000)
 
   it('url-resolver keeps the Commons API transport authorized and emits the API-selected upload URL', async () => {
     const requests: Array<{ method: string; host: string; path: string }> = []
@@ -448,6 +563,43 @@ describe('locked builtin bundles through PluginHost + QuickJS Hooks', () => {
       method: 'GET',
       host: 'commons.wikimedia.org',
     })
+  }, 30_000)
+
+  it('filename-template applies an updated date template to a completed browser download', async () => {
+    const config = { 'motrix.filename-template': { template: '{{title}}' } }
+    const harness = await makeHarness({ config })
+    enableOnly(harness, 'motrix.filename-template')
+    const taskId = 'browser-filename-date'
+    const source = path.join(harness.root, 'E__Downloads_BCUninstaller.7z')
+    await writeFile(source, 'payload')
+    const dto = beforeFinalize({
+      task: taskSnapshot({
+        id: taskId,
+        type: 'http',
+        kind: 'direct',
+        saveDir: harness.root,
+        filePath: source,
+      }),
+      sourceUrl: 'https://cdn.example/c-m9021',
+    })
+    dto.requestedAt = new Date(2026, 8, 17, 12).getTime()
+    const original = await harness.orchestrator.runBeforeFinalize(dto, taskId)
+    if (original.aborted) throw new Error(original.reason)
+    expect(original.final.filePath).toBe(source)
+
+    config['motrix.filename-template'].template = '{{date}}'
+    const dated = await harness.orchestrator.runBeforeFinalize(dto, taskId)
+    if (dated.aborted) throw new Error(dated.reason)
+    expect(dated.finalFilePath).toBe(path.join(harness.root, '2026-09-17.7z'))
+    expect(harness.logs).toContainEqual(
+      expect.objectContaining({
+        message: 'renaming via filename template',
+        fields: expect.objectContaining({
+          template: '{{date}}',
+          newName: '2026-09-17.7z',
+        }),
+      })
+    )
   }, 30_000)
 
   it('filename-template reads nested metadata and reactivates after idle disposal', async () => {

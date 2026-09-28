@@ -1,6 +1,7 @@
 import { DownloadErrorCode } from '@shared/errors'
 import type { DownloadTask, TaskInstance } from '@shared/types/task'
 import {
+  makeDefaultBtExtension,
   TaskInstancePhase,
   TaskStatus,
   TransitionPhase,
@@ -34,6 +35,28 @@ function instance(status: TaskStatus, index = 0): TaskInstance {
 }
 
 describe('mergeEngineTask', () => {
+  it.each([
+    ['gid1', 25, 125],
+    ['gid1', 30, 130],
+    ['reseed-gid', 10, 135],
+  ])(
+    'merges settled upload for %s without double counting',
+    (gid, upload, expected) => {
+      const primary = instance(TaskStatus.Error)
+      primary.payload.btFinalizeUpload = { gid: 'gid1', bytes: 25 }
+      const existing = baseTask({
+        uploadedBytesBaseline: 125,
+        transitionPhase: TransitionPhase.Renaming,
+        instances: [primary],
+      })
+      const merged = mergeEngineTask(
+        existing,
+        baseTask({ engineTaskId: gid, uploadedBytes: upload })
+      )
+      expect(merged.uploadedBytes).toBe(expected)
+    }
+  )
+
   it.each(
     [TaskStatus.Queued, TaskStatus.Downloading].flatMap((from) =>
       [TaskStatus.Error, TaskStatus.Completed].flatMap((to) =>
@@ -279,4 +302,23 @@ describe('mergeEngineTask', () => {
       finishedAt: null,
     })
   })
+})
+
+it('keeps share ratio cumulative when a new GID starts from zero upload', () => {
+  const existing = baseTask({
+    totalBytes: 1000,
+    uploadedBytesBaseline: 1500,
+    bt: makeDefaultBtExtension({ ratio: 1.5 }),
+  })
+  const incoming = baseTask({
+    totalBytes: 1000,
+    uploadedBytes: 200,
+    bt: makeDefaultBtExtension({ ratio: 0.2 }),
+  })
+  expect(mergeEngineTask(existing, incoming)).toMatchObject({
+    uploadedBytes: 1700,
+    bt: { ratio: 1.7 },
+  })
+  expect(existing.bt?.ratio).toBe(1.5)
+  expect(incoming.bt?.ratio).toBe(0.2)
 })

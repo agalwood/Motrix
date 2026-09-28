@@ -1,25 +1,28 @@
-import { TaskType } from '@shared/types/task'
 import {
-  FileDown,
-  Globe,
-  type LucideIcon,
-  Magnet,
-  Package,
-  Server,
-} from 'lucide-react'
+  HttpIcon,
+  MagnetIcon,
+  MetalinkIcon,
+  type MotrixIcon,
+  ServerIcon,
+  TorrentFileIcon,
+} from '@renderer/components/icons'
+import { TaskType } from '@shared/types/task'
 
 export interface TaskTypeMeta {
-  icon: LucideIcon
+  icon: MotrixIcon
   labelKey: string
 }
 
 export const TASK_TYPE_META: Record<TaskType, TaskTypeMeta> = {
-  [TaskType.Http]: { icon: Globe, labelKey: 'panel.downloads.type.http' },
-  [TaskType.Magnet]: { icon: Magnet, labelKey: 'panel.downloads.type.magnet' },
-  [TaskType.Bt]: { icon: FileDown, labelKey: 'panel.downloads.type.bt' },
-  [TaskType.Ftp]: { icon: Server, labelKey: 'panel.downloads.type.ftp' },
+  [TaskType.Http]: { icon: HttpIcon, labelKey: 'panel.downloads.type.http' },
+  [TaskType.Magnet]: {
+    icon: MagnetIcon,
+    labelKey: 'panel.downloads.type.magnet',
+  },
+  [TaskType.Bt]: { icon: TorrentFileIcon, labelKey: 'panel.downloads.type.bt' },
+  [TaskType.Ftp]: { icon: ServerIcon, labelKey: 'panel.downloads.type.ftp' },
   [TaskType.Metalink]: {
-    icon: Package,
+    icon: MetalinkIcon,
     labelKey: 'panel.downloads.type.metalink',
   },
 }

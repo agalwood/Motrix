@@ -1,0 +1,193 @@
+import { type CommandId, CommandIds } from './commands-catalog'
+import { EXTERNAL_URLS } from './external-urls'
+
+export interface ProductMenuItem {
+  id: string
+  commandId: CommandId
+  title: string
+  section: 'app' | 'task' | 'help'
+  group: string
+  order: number
+  scope: 'local' | 'selection' | 'list' | 'instance'
+}
+
+/** Product actions shared by native menus and the browser application menu. */
+export const PRODUCT_MENU_ITEMS: readonly ProductMenuItem[] = [
+  {
+    id: 'menubar.app.about',
+    commandId: CommandIds.AppShowAbout,
+    title: 'menu.app.about',
+    section: 'app',
+    group: '1_about',
+    order: 10,
+    scope: 'local',
+  },
+  {
+    id: 'menubar.app.preferences',
+    commandId: CommandIds.AppOpenPreferences,
+    title: 'menu.app.preferences',
+    section: 'app',
+    group: '2_prefs',
+    order: 10,
+    scope: 'local',
+  },
+  {
+    id: 'menubar.task.new',
+    commandId: CommandIds.TaskNew,
+    title: 'menu.task.newTask',
+    section: 'task',
+    group: '1_new',
+    order: 10,
+    scope: 'local',
+  },
+  {
+    id: 'menubar.task.newBt',
+    commandId: CommandIds.TaskNewBt,
+    title: 'menu.task.newBtTask',
+    section: 'task',
+    group: '1_new',
+    order: 20,
+    scope: 'local',
+  },
+  {
+    id: 'menubar.task.openFile',
+    commandId: CommandIds.TaskOpenFile,
+    title: 'menu.task.openFile',
+    section: 'task',
+    group: '1_new',
+    order: 30,
+    scope: 'local',
+  },
+  {
+    id: 'menubar.task.list',
+    commandId: CommandIds.NavigateTaskList,
+    title: 'menu.task.taskList',
+    section: 'task',
+    group: '2_primary',
+    order: 10,
+    scope: 'local',
+  },
+  {
+    id: 'menubar.task.pause',
+    commandId: CommandIds.TaskPause,
+    title: 'menu.task.pauseTask',
+    section: 'task',
+    group: '2_primary',
+    order: 20,
+    scope: 'selection',
+  },
+  {
+    id: 'menubar.task.resume',
+    commandId: CommandIds.TaskResume,
+    title: 'menu.task.resumeTask',
+    section: 'task',
+    group: '2_primary',
+    order: 30,
+    scope: 'selection',
+  },
+  {
+    id: 'menubar.task.delete',
+    commandId: CommandIds.TaskDelete,
+    title: 'menu.task.deleteTask',
+    section: 'task',
+    group: '2_primary',
+    order: 40,
+    scope: 'selection',
+  },
+  {
+    id: 'menubar.task.moveUp',
+    commandId: CommandIds.TaskMoveUp,
+    title: 'menu.task.moveTaskUp',
+    section: 'task',
+    group: '2_primary',
+    order: 50,
+    scope: 'selection',
+  },
+  {
+    id: 'menubar.task.moveDown',
+    commandId: CommandIds.TaskMoveDown,
+    title: 'menu.task.moveTaskDown',
+    section: 'task',
+    group: '2_primary',
+    order: 60,
+    scope: 'selection',
+  },
+  {
+    id: 'menubar.task.pauseAll',
+    commandId: CommandIds.TaskPauseAll,
+    title: 'menu.task.pauseAllTask',
+    section: 'task',
+    group: '3_bulk',
+    order: 10,
+    scope: 'instance',
+  },
+  {
+    id: 'menubar.task.resumeAll',
+    commandId: CommandIds.TaskResumeAll,
+    title: 'menu.task.resumeAllTask',
+    section: 'task',
+    group: '3_bulk',
+    order: 20,
+    scope: 'instance',
+  },
+  {
+    id: 'menubar.task.selectAll',
+    commandId: CommandIds.TaskSelectAll,
+    title: 'menu.task.selectAllTask',
+    section: 'task',
+    group: '3_bulk',
+    order: 30,
+    scope: 'list',
+  },
+  {
+    id: 'menubar.task.clearStopped',
+    commandId: CommandIds.TaskClearStopped,
+    title: 'menu.task.clearRecentTasks',
+    section: 'task',
+    group: '4_clear',
+    order: 10,
+    scope: 'instance',
+  },
+  {
+    id: 'menubar.help.website',
+    commandId: CommandIds.HelpOpenWebsite,
+    title: 'menu.help.officialWebsite',
+    section: 'help',
+    group: '1_links',
+    order: 10,
+    scope: 'local',
+  },
+  {
+    id: 'menubar.help.manual',
+    commandId: CommandIds.HelpOpenManual,
+    title: 'menu.help.manual',
+    section: 'help',
+    group: '1_links',
+    order: 20,
+    scope: 'local',
+  },
+  {
+    id: 'menubar.help.changelog',
+    commandId: CommandIds.HelpOpenChangelog,
+    title: 'menu.help.changelog',
+    section: 'help',
+    group: '1_links',
+    order: 30,
+    scope: 'local',
+  },
+  {
+    id: 'menubar.help.reportProblem',
+    commandId: CommandIds.HelpReportProblem,
+    title: 'menu.help.reportProblem',
+    section: 'help',
+    group: '2_report',
+    order: 10,
+    scope: 'local',
+  },
+]
+export const PRODUCT_MENU_LINKS: Partial<Record<CommandId, string>> = {
+  [CommandIds.HelpOpenWebsite]: EXTERNAL_URLS.motrix.home,
+  [CommandIds.HelpOpenManual]: EXTERNAL_URLS.motrix.manual.home,
+  [CommandIds.HelpOpenChangelog]: EXTERNAL_URLS.motrix.changelog,
+  [CommandIds.HelpReportProblem]: EXTERNAL_URLS.github.issues,
+}

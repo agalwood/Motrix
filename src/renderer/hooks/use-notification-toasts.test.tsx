@@ -1,4 +1,5 @@
 import '@renderer/lib/i18n'
+import { transport } from '@renderer/lib/transport'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
 import { EngineFailureReason, EngineState } from '@shared/types/engine'
@@ -16,6 +17,7 @@ const { transportInvokeMock } = vi.hoisted(() => ({
 
 vi.mock('@renderer/lib/transport', () => ({
   transport: {
+    platform: 'win32',
     on: vi.fn((ch: string, cb: (...args: unknown[]) => void) => {
       listeners[ch] = listeners[ch] ?? []
       listeners[ch].push(cb)
@@ -68,6 +70,7 @@ function notification(
 
 describe('useNotificationToasts', () => {
   beforeEach(() => {
+    transport.platform = 'win32'
     for (const k of Object.keys(listeners)) delete listeners[k]
     toastAddMock.mockReset()
     toastCloseMock.mockReset()
@@ -187,7 +190,57 @@ describe('useNotificationToasts', () => {
     expect(toastAddMock).not.toHaveBeenCalled()
   })
 
-  it('non-error severity never toasts, even when focused', () => {
+  it.each(['win32', 'darwin', 'linux'] as const)(
+    'shows a translated completion toast in the foreground on %s',
+    (platform) => {
+      transport.platform = platform
+      renderHook(() => useNotificationToasts())
+      act(() => {
+        fire(
+          Events.NotificationAdded,
+          notification({
+            severity: 'info',
+            kind: NotificationKinds.TaskComplete,
+            titleKey: 'notification.taskComplete.title',
+          })
+        )
+      })
+      expect(toastAddMock).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          id: 'notification-complete',
+          title: 'file.zip finished downloading',
+          type: 'success',
+        })
+      )
+    }
+  )
+
+  it.each([
+    ['web', 'visible', true],
+    ['win32', 'hidden', false],
+    ['win32', 'visible', false],
+  ] as const)(
+    'keeps completion toasts silent on %s / %s / focused=%s',
+    (platform, visibility, focused) => {
+      transport.platform = platform
+      vi.spyOn(document, 'visibilityState', 'get').mockReturnValue(visibility)
+      vi.spyOn(document, 'hasFocus').mockReturnValue(focused)
+      renderHook(() => useNotificationToasts())
+      act(() => {
+        fire(
+          Events.NotificationAdded,
+          notification({
+            severity: 'info',
+            kind: NotificationKinds.TaskComplete,
+            titleKey: 'notification.taskComplete.title',
+          })
+        )
+      })
+      expect(toastAddMock).not.toHaveBeenCalled()
+    }
+  )
+
+  it('other non-error notifications stay silent, even when focused', () => {
     renderHook(() => useNotificationToasts())
 
     act(() => {
@@ -195,8 +248,7 @@ describe('useNotificationToasts', () => {
         Events.NotificationAdded,
         notification({
           severity: 'info',
-          kind: 'task-complete',
-          titleKey: 'notification.taskComplete.title',
+          kind: 'unknown-info',
         })
       )
       fire(

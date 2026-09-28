@@ -1,17 +1,17 @@
+import {
+  DownloadActiveIcon,
+  FilesReadyIcon,
+  LoadingIcon,
+  PauseIcon,
+  QueuedIcon,
+  RemoveIcon,
+  SeedStatusIcon,
+  StatusCompleteIcon,
+  StatusErrorIcon,
+} from '@renderer/components/icons'
 import { cn } from '@renderer/lib/utils'
 import { TaskStatus } from '@shared/types/task'
 import { cva, type VariantProps } from 'class-variance-authority'
-import {
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  Download,
-  FileCheck2,
-  Loader2,
-  Pause,
-  Trash2,
-  Upload,
-} from 'lucide-react'
 import type { ComponentType, SVGProps } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -42,26 +42,26 @@ interface StatusStyle {
 }
 
 const STATUS_STYLES: Record<TaskStatus, StatusStyle> = {
-  [TaskStatus.Queued]: { variant: 'outline', icon: Clock },
+  [TaskStatus.Queued]: { variant: 'outline', icon: QueuedIcon },
   [TaskStatus.FetchingMetadata]: {
     variant: 'secondary',
-    icon: Loader2,
+    icon: LoadingIcon,
     spin: true,
   },
   // Distinct icon (FileCheck2) + non-spinning so the user can tell at
   // a glance that the row is *waiting on them*, not on the network.
-  [TaskStatus.MetadataReady]: { variant: 'secondary', icon: FileCheck2 },
-  [TaskStatus.Downloading]: { variant: 'default', icon: Download },
+  [TaskStatus.MetadataReady]: { variant: 'secondary', icon: FilesReadyIcon },
+  [TaskStatus.Downloading]: { variant: 'default', icon: DownloadActiveIcon },
   [TaskStatus.Finalizing]: {
     variant: 'secondary',
-    icon: Loader2,
+    icon: LoadingIcon,
     spin: true,
   },
-  [TaskStatus.Seeding]: { variant: 'default', icon: Upload },
-  [TaskStatus.Paused]: { variant: 'outline', icon: Pause },
-  [TaskStatus.Completed]: { variant: 'secondary', icon: CheckCircle2 },
-  [TaskStatus.Error]: { variant: 'destructive', icon: AlertCircle },
-  [TaskStatus.Removed]: { variant: 'outline', icon: Trash2 },
+  [TaskStatus.Seeding]: { variant: 'default', icon: SeedStatusIcon },
+  [TaskStatus.Paused]: { variant: 'outline', icon: PauseIcon },
+  [TaskStatus.Completed]: { variant: 'secondary', icon: StatusCompleteIcon },
+  [TaskStatus.Error]: { variant: 'destructive', icon: StatusErrorIcon },
+  [TaskStatus.Removed]: { variant: 'outline', icon: RemoveIcon },
 }
 
 export interface TaskStatusBadgeProps {

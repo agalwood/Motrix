@@ -18,7 +18,17 @@ function makeStatus(overrides: Partial<NatStatus> = {}): NatStatus {
 
 describe('natBucket', () => {
   it('maps a null status to the off bucket', () => {
-    expect(natBucket(null)).toEqual({ bucket: 'off', color: 'bg-gray-500' })
+    expect(natBucket(null)).toEqual({
+      bucket: 'off',
+      color: 'bg-muted-foreground',
+    })
+  })
+
+  it('treats a disabled setting as off even if the last lifecycle state was active', () => {
+    expect(natBucket(makeStatus({ enabled: false }))).toEqual({
+      bucket: 'off',
+      color: 'bg-muted-foreground',
+    })
   })
 
   it('maps Active to the active bucket (green)', () => {
@@ -28,7 +38,7 @@ describe('natBucket', () => {
     })
   })
 
-  it('maps Discovering/Mapping/Ready to the settingUp bucket (blue)', () => {
+  it('maps Discovering/Mapping/Ready to the settingUp bucket with a neutral indicator', () => {
     for (const state of [
       NatState.Discovering,
       NatState.Mapping,
@@ -36,7 +46,7 @@ describe('natBucket', () => {
     ]) {
       expect(natBucket(makeStatus({ state }))).toEqual({
         bucket: 'settingUp',
-        color: 'bg-blue-500',
+        color: 'bg-muted-foreground',
       })
     }
   })
@@ -46,15 +56,15 @@ describe('natBucket', () => {
       natBucket(
         makeStatus({ state: NatState.Failed, retryAttempt: 1, maxRetries: 3 })
       )
-    ).toEqual({ bucket: 'settingUp', color: 'bg-blue-500' })
+    ).toEqual({ bucket: 'settingUp', color: 'bg-muted-foreground' })
   })
 
-  it('maps dormant Failed (budget exhausted) to the failed bucket (red)', () => {
+  it('maps dormant Failed (budget exhausted) to the failed bucket with a neutral indicator', () => {
     expect(
       natBucket(
         makeStatus({ state: NatState.Failed, retryAttempt: 3, maxRetries: 3 })
       )
-    ).toEqual({ bucket: 'failed', color: 'bg-red-500' })
+    ).toEqual({ bucket: 'failed', color: 'bg-muted-foreground' })
   })
 
   it('maps Idle/Stopped/Stopping to the off bucket', () => {

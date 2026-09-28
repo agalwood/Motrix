@@ -22,7 +22,10 @@ async function buildWorker(): Promise<void> {
     format: 'cjs',
     target: 'node20',
     outfile: path.join(ROOT, 'dist-test/quick-js-worker.cjs'),
-    external: ['quickjs-emscripten'],
+    external: [
+      'quickjs-emscripten-core',
+      '@jitl/quickjs-wasmfile-release-sync',
+    ],
     sourcemap: 'inline',
     logLevel: 'silent',
   })

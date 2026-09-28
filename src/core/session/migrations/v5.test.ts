@@ -111,7 +111,7 @@ describe('task recovery migration v5', () => {
     expect(db.prepare('SELECT total_changes() AS count').get()).toEqual(changes)
     expect(
       db.prepare('SELECT version FROM schema_version ORDER BY version').all()
-    ).toEqual([1, 2, 3, 4, 5].map((version) => ({ version })))
+    ).toEqual([1, 2, 3, 4, 5, 6].map((version) => ({ version })))
     db.close()
   })
 })

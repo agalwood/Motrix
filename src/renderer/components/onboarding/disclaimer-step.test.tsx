@@ -1,3 +1,4 @@
+import '@test-utils/dom-animations'
 import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
 import { i18n } from '@renderer/lib/i18n'

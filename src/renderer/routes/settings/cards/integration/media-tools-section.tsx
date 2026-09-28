@@ -1,4 +1,14 @@
 import { CopyButton } from '@renderer/components/desktop-kit/copy-button'
+import {
+  CheckIcon,
+  ChevronRightIcon,
+  EditIcon,
+  InstallIcon,
+  RefreshIcon,
+  SecurityWarningIcon,
+  VerifiedToolIcon,
+} from '@renderer/components/icons'
+import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import {
@@ -12,22 +22,13 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from '@renderer/components/ui/form'
 import { Input } from '@renderer/components/ui/input'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Queries } from '@shared/protocol/queries'
-import { DEFAULT_MEDIA_SETTINGS } from '@shared/schemas'
-import {
-  BadgeCheck,
-  Check,
-  ChevronRight,
-  Download,
-  Pencil,
-  RefreshCw,
-  ShieldAlert,
-} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useFormContext } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -73,6 +74,8 @@ export function MediaToolsSection() {
   )
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [customPathEditing, setCustomPathEditing] = useState(false)
+  const pathError = form.formState.errors.media?.ffmpegBinaryPath
+  const editingPath = customPathEditing || Boolean(pathError)
 
   useEffect(() => {
     let cancelled = false
@@ -118,7 +121,12 @@ export function MediaToolsSection() {
     : hasUntrustedCandidate
       ? t('settings.integration.media.detection.untrustedDesc')
       : t('settings.integration.media.detection.unavailableDesc')
-  const candidateCount = detection?.candidates.length ?? 0
+  const candidates = detection?.candidates ?? []
+  const editableCandidates: FfmpegDetectionResultUI['candidates'] =
+    candidates.some((candidate) => candidate.kind === 'manual')
+      ? candidates
+      : [{ kind: 'manual', path: null, state: 'unconfigured' }, ...candidates]
+  const candidateCount = candidates.length
 
   return (
     <div className="space-y-4">
@@ -130,9 +138,9 @@ export function MediaToolsSection() {
           <div className="min-w-0 space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <div className="text-sm font-medium">{activeLabel}</div>
-              {detection?.active && <BadgeCheck className="size-4" />}
+              {detection?.active && <VerifiedToolIcon className="size-4" />}
               {hasUntrustedCandidate && (
-                <ShieldAlert className="size-4 text-destructive" />
+                <SecurityWarningIcon className="size-4 text-destructive" />
               )}
             </div>
             <div className="text-xs text-muted-foreground">
@@ -156,7 +164,10 @@ export function MediaToolsSection() {
               size="icon-sm"
               variant="ghost"
             >
-              <Download className="size-4 text-muted-foreground" aria-hidden />
+              <InstallIcon
+                className="size-4 text-muted-foreground"
+                aria-hidden
+              />
             </Button>
             <Button
               type="button"
@@ -165,12 +176,21 @@ export function MediaToolsSection() {
               aria-label={t('settings.integration.media.refresh')}
               onClick={refresh}
             >
-              <RefreshCw className="size-4 text-muted-foreground" />
+              <RefreshIcon className="size-4 text-muted-foreground" />
             </Button>
           </div>
         </div>
 
-        <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
+        {transport.platform !== 'web' && (
+          <p className="text-xs text-muted-foreground">
+            {t('settings.integration.media.applyHint')}
+          </p>
+        )}
+
+        <Collapsible
+          open={detailsOpen || Boolean(pathError)}
+          onOpenChange={setDetailsOpen}
+        >
           <div className="flex items-center justify-between gap-3 border-t border-border pt-2">
             <CollapsibleTrigger
               render={
@@ -183,11 +203,11 @@ export function MediaToolsSection() {
                       ? 'settings.integration.media.detection.hideDetails'
                       : 'settings.integration.media.detection.showDetails'
                   )}
-                  className="flex items-center justify-between flex-1 -ml-2 h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:bg-transparent dark:hover:bg-transparent hover:text-foreground"
+                  className="flex items-center justify-between flex-1 -ms-2 h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:bg-transparent dark:hover:bg-transparent hover:text-foreground"
                 />
               }
             >
-              <ChevronRight
+              <ChevronRightIcon
                 className={cn(
                   'size-3.5 transition-transform duration-150',
                   detailsOpen && 'rotate-90'
@@ -208,15 +228,15 @@ export function MediaToolsSection() {
                 <span>
                   {t('settings.integration.media.detection.location')}
                 </span>
-                <span className="text-right">
+                <span className="text-end">
                   {t('settings.integration.media.detection.result')}
                 </span>
               </div>
-              {detection?.candidates.map((c) => (
+              {editableCandidates.map((c) => (
                 <div
                   key={c.kind}
                   data-testid={`candidate-row-${c.kind}`}
-                  className="grid h-11 grid-cols-[10rem_minmax(0,1fr)_7rem] items-center gap-2 border-b border-border px-3 py-2 last:border-b-0"
+                  className="grid min-h-11 grid-cols-[10rem_minmax(0,1fr)_7rem] items-center gap-2 border-b border-border px-3 py-2 last:border-b-0"
                 >
                   <span className="font-medium text-foreground">
                     {t(`settings.integration.media.candidateKind.${c.kind}`)}
@@ -226,28 +246,35 @@ export function MediaToolsSection() {
                       control={form.control}
                       name="media.ffmpegBinaryPath"
                       render={({ field }) => (
-                        <div className="grid h-7 min-w-0 grid-cols-[minmax(0,1fr)_1.5rem] items-center gap-1">
-                          {customPathEditing ? (
-                            <Input
-                              {...field}
-                              autoFocus
-                              data-testid="media-binary-path-input"
-                              aria-label={t(
-                                'settings.integration.media.binaryPath'
-                              )}
-                              placeholder={t(
-                                'settings.integration.media.detection.notConfigured'
-                              )}
-                              className="h-7 min-w-0 px-2 font-mono text-xs text-foreground placeholder:text-xs md:text-xs md:placeholder:text-xs"
-                              onKeyDown={(event) => {
-                                if (event.key === 'Enter') {
-                                  event.preventDefault()
-                                  setCustomPathEditing(false)
-                                } else if (event.key === 'Escape') {
-                                  setCustomPathEditing(false)
-                                }
-                              }}
-                            />
+                        <FormItem className="grid min-h-7 min-w-0 grid-cols-[minmax(0,1fr)_1.5rem] items-center gap-1">
+                          {editingPath ? (
+                            <FormControl>
+                              <Input
+                                {...field}
+                                autoFocus
+                                data-testid="media-binary-path-input"
+                                aria-label={t(
+                                  'settings.integration.media.binaryPath'
+                                )}
+                                placeholder={t(
+                                  'settings.integration.media.detection.notConfigured'
+                                )}
+                                className="h-7 min-w-0 px-2 font-mono text-xs text-foreground placeholder:text-xs md:text-xs md:placeholder:text-xs"
+                                onKeyDown={async (event) => {
+                                  if (event.key === 'Enter') {
+                                    event.preventDefault()
+                                    if (
+                                      await form.trigger(
+                                        'media.ffmpegBinaryPath'
+                                      )
+                                    )
+                                      setCustomPathEditing(false)
+                                  } else if (event.key === 'Escape') {
+                                    setCustomPathEditing(false)
+                                  }
+                                }}
+                              />
+                            </FormControl>
                           ) : (
                             <span
                               className="min-w-0 flex-1 truncate font-mono text-muted-foreground"
@@ -265,26 +292,31 @@ export function MediaToolsSection() {
                             variant="ghost"
                             className="shrink-0 text-muted-foreground"
                             aria-label={t(
-                              customPathEditing
+                              editingPath
                                 ? 'settings.integration.media.detection.finishEditingCustomPath'
                                 : 'settings.integration.media.detection.editCustomPath'
                             )}
                             title={t(
-                              customPathEditing
+                              editingPath
                                 ? 'settings.integration.media.detection.finishEditingCustomPath'
                                 : 'settings.integration.media.detection.editCustomPath'
                             )}
-                            onClick={() =>
-                              setCustomPathEditing((editing) => !editing)
-                            }
+                            onClick={async () => {
+                              if (!editingPath) setCustomPathEditing(true)
+                              else if (
+                                await form.trigger('media.ffmpegBinaryPath')
+                              )
+                                setCustomPathEditing(false)
+                            }}
                           >
-                            {customPathEditing ? (
-                              <Check aria-hidden />
+                            {editingPath ? (
+                              <CheckIcon aria-hidden />
                             ) : (
-                              <Pencil aria-hidden />
+                              <EditIcon aria-hidden />
                             )}
                           </Button>
-                        </div>
+                          <FormMessage className="col-span-full text-xs" />
+                        </FormItem>
                       )}
                     />
                   ) : c.kind === 'userData' && c.path ? (
@@ -336,7 +368,7 @@ export function MediaToolsSection() {
         control={form.control}
         name="media.ffmpegStagingMB"
         render={({ field }) => (
-          <FormItem className="flex items-start justify-between gap-4">
+          <SettingsFormRow>
             <div className="space-y-1">
               <FormLabel>{t('settings.integration.media.stagingMB')}</FormLabel>
               <FormDescription className="text-xs">
@@ -345,23 +377,17 @@ export function MediaToolsSection() {
             </div>
             <FormControl>
               <Input
+                {...field}
                 type="number"
                 min={256}
                 max={65536}
                 data-testid="media-staging-mb-input"
                 className="w-30 h-8"
-                value={field.value}
-                onChange={(e) => {
-                  const n = Number.parseInt(e.target.value, 10)
-                  field.onChange(
-                    Number.isFinite(n)
-                      ? n
-                      : DEFAULT_MEDIA_SETTINGS.ffmpegStagingMB
-                  )
-                }}
+                value={Number.isFinite(field.value) ? field.value : ''}
+                onChange={(event) => field.onChange(event.target.valueAsNumber)}
               />
             </FormControl>
-          </FormItem>
+          </SettingsFormRow>
         )}
       />
 
@@ -369,7 +395,7 @@ export function MediaToolsSection() {
         control={form.control}
         name="media.ffmpegOpTimeoutSec"
         render={({ field }) => (
-          <FormItem className="flex items-start justify-between gap-4">
+          <SettingsFormRow>
             <div className="space-y-1">
               <FormLabel>
                 {t('settings.integration.media.opTimeoutSec')}
@@ -380,23 +406,17 @@ export function MediaToolsSection() {
             </div>
             <FormControl>
               <Input
+                {...field}
                 type="number"
                 min={60}
                 max={3600}
                 data-testid="media-op-timeout-sec-input"
                 className="w-30 h-8"
-                value={field.value}
-                onChange={(e) => {
-                  const n = Number.parseInt(e.target.value, 10)
-                  field.onChange(
-                    Number.isFinite(n)
-                      ? n
-                      : DEFAULT_MEDIA_SETTINGS.ffmpegOpTimeoutSec
-                  )
-                }}
+                value={Number.isFinite(field.value) ? field.value : ''}
+                onChange={(event) => field.onChange(event.target.valueAsNumber)}
               />
             </FormControl>
-          </FormItem>
+          </SettingsFormRow>
         )}
       />
     </div>

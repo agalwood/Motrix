@@ -1,5 +1,31 @@
 import { describe, expect, it } from 'vitest'
-import { parseServerBoolean, parseServerPort } from './environment'
+import {
+  parseServerBoolean,
+  parseServerPort,
+  parseTorrentBodyLimit,
+} from './environment'
+
+describe('parseTorrentBodyLimit', () => {
+  it.each([undefined, '', '  '])('defaults to 8 MiB for %s', (value) => {
+    expect(parseTorrentBodyLimit(value)).toBe(8 * 1024 * 1024)
+  })
+
+  it.each(['2', '16', ' 64 '])(
+    'accepts a configured budget of %s MiB',
+    (value) => {
+      expect(parseTorrentBodyLimit(value)).toBe(Number(value) * 1024 * 1024)
+    }
+  )
+
+  it.each(['0', '-1', '1', '65', '2.5', 'NaN', 'Infinity', '16M', 'no'])(
+    'rejects invalid configuration %s',
+    (value) => {
+      expect(() => parseTorrentBodyLimit(value)).toThrow(
+        'MOTRIX_TORRENT_BODY_LIMIT_MIB'
+      )
+    }
+  )
+})
 
 describe('parseServerBoolean', () => {
   it('uses the fallback when the variable is unset or blank', () => {

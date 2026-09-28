@@ -1,10 +1,16 @@
 import { NatState, type NatStatus } from '@shared/types/nat'
 
 // Shared NAT status semantics for the renderer. Both NatBadge (downloads
-// stats bar) and NatTile (dashboard) classify a NatStatus the same way; only
-// the i18n namespace they map the bucket to differs.
+// stats bar) and NatTile (dashboard) share wording and visual emphasis.
 
 export type NatBucket = 'active' | 'settingUp' | 'failed' | 'off'
+
+export const NAT_STATUS_TEXT_KEY: Record<NatBucket, string> = {
+  active: 'panel.downloads.stats.natActive',
+  settingUp: 'panel.downloads.stats.natSettingUp',
+  failed: 'panel.downloads.stats.natMapping',
+  off: 'panel.dashboard.nat.state.off',
+}
 
 export interface NatBucketDescriptor {
   bucket: NatBucket
@@ -16,12 +22,12 @@ export interface NatBucketDescriptor {
  * Classify a NatStatus into a coarse display bucket + dot color.
  *
  * Failed-with-retry-budget is deliberately reported as `settingUp` so the UI
- * does not flicker red↔blue between scheduled retry attempts; the retry
- * counter is surfaced separately via {@link isNatRetrying}.
+ * does not alternate between settled and busy between retry attempts; the retry
+ * counter is shown separately in the shared status menu.
  */
 export function natBucket(status: NatStatus | null): NatBucketDescriptor {
-  if (!status) {
-    return { bucket: 'off', color: 'bg-gray-500' }
+  if (!status?.enabled) {
+    return { bucket: 'off', color: 'bg-muted-foreground' }
   }
   switch (status.state) {
     case NatState.Active:
@@ -29,13 +35,13 @@ export function natBucket(status: NatStatus | null): NatBucketDescriptor {
     case NatState.Discovering:
     case NatState.Mapping:
     case NatState.Ready:
-      return { bucket: 'settingUp', color: 'bg-blue-500' }
+      return { bucket: 'settingUp', color: 'bg-muted-foreground' }
     case NatState.Failed:
       return status.retryAttempt < status.maxRetries
-        ? { bucket: 'settingUp', color: 'bg-blue-500' }
-        : { bucket: 'failed', color: 'bg-red-500' }
+        ? { bucket: 'settingUp', color: 'bg-muted-foreground' }
+        : { bucket: 'failed', color: 'bg-muted-foreground' }
     default:
-      return { bucket: 'off', color: 'bg-gray-500' }
+      return { bucket: 'off', color: 'bg-muted-foreground' }
   }
 }
 

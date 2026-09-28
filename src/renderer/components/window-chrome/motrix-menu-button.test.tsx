@@ -21,6 +21,14 @@ vi.mock('@renderer/lib/transport', () => ({
   },
 }))
 
+vi.mock('@renderer/features/application-menu/task-context', () => ({
+  captureTaskMenuIntent: () => ({
+    generation: 0,
+    ids: [],
+    selection: new Set(),
+  }),
+}))
+
 vi.mock('@renderer/hooks/use-application-menu', () => ({
   useApplicationMenu: mocks.useApplicationMenu,
 }))
@@ -152,8 +160,8 @@ describe('MotrixMenuButton', () => {
       'app-no-drag',
       'h-7',
       'w-[72px]',
-      'pl-2',
-      'pr-1'
+      'ps-2',
+      'pe-1'
     )
     const logo = trigger.querySelector('[data-slot="motrix-menu-logo"]')
     expect(logo).toHaveClass('h-2.5', 'w-11', 'bg-foreground')
@@ -241,6 +249,7 @@ describe('MotrixMenuButton', () => {
       itemId: 'app.about',
       revision: 7,
       trigger: 'menu',
+      selectedTaskGeneration: 0,
       selectedTaskId: null,
       modifiers: { alt: true, control: true, meta: false, shift: true },
     })

@@ -1,5 +1,5 @@
+import { ChevronDownIcon } from '@renderer/components/icons'
 import { cn } from '@renderer/lib/utils'
-import { ChevronDownIcon } from 'lucide-react'
 import type * as React from 'react'
 
 function NativeSelect({

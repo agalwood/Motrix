@@ -53,9 +53,12 @@ export interface AddTorrentParams {
    *  these are 1-based (matching aria2's `select-file`). The create path is
    *  responsible for converting its 0-based request indices before calling. */
   selectedFiles?: number[]
-  /** Optional per-file output mapping. The adapter translates indices and
-   * option syntax to the target engine. */
+  /** Optional per-file mapping relative to outputRoot, or saveDir when absent.
+   * The adapter translates indices and option syntax to the target engine. */
   outputFilePaths?: OutputFilePath[]
+  /** Trusted absolute payload root, independent of the engine metadata directory. */
+  outputRoot?: string
+  /** Seeding minutes; zero disables the time limit. Omitted uses current defaults. */
   seedTime?: number
   seedRatio?: number
   btSeedUnverified?: boolean
@@ -70,6 +73,7 @@ export interface AddTorrentParams {
    * torrent. Concrete adapters translate this product policy. */
   prioritizePreviewPieces?: boolean
   // ── create-path additions ──
+  /** Per-task limits in bytes per second; zero means unlimited. */
   dlLimit?: number
   ulLimit?: number
   /** Engine-agnostic passthrough for shell-supplied options. The adapter
@@ -119,6 +123,7 @@ export interface CreateDownloadParams {
   extraEngineOptions?: Record<string, string | string[]>
   priority?: number
   category?: string
+  /** Per-task limits in bytes per second; zero means unlimited. */
   dlLimit?: number
   ulLimit?: number
   pause?: boolean
@@ -251,6 +256,14 @@ export interface EngineAdapter {
   removeDownloadResult(engineTaskId: string): Promise<void>
 
   /**
+   * Whether the engine holds a resumable checkpoint for the download written
+   * to `outputPath`, answered from the store it actually reads (a control
+   * file, or aria2.db under sqlite3 persistence). Null when the engine
+   * cannot answer; callers then fall back to the `.aria2` control file.
+   */
+  getCheckpointStatus?(outputPath: string): Promise<'present' | 'absent' | null>
+
+  /**
    * Batch variant of {@link removeDownloadResult}, executed in bounded
    * chunks. Entries are attempted in array order and each outcome is
    * reported independently, `Promise.allSettled`-shaped — an already-gone
@@ -274,6 +287,8 @@ export interface EngineAdapter {
    * Used by TaskRecoveryService to match persisted tasks to aria2 state.
    */
   listActiveAndWaiting(): Promise<Array<{ gid: string; infoHash?: string }>>
+  /** Engine task IDs in scheduling order, including paused waiting tasks. */
+  listWaitingTaskIds(): Promise<string[]>
 
   /**
    * List all stopped (completed/errored/removed) tasks.

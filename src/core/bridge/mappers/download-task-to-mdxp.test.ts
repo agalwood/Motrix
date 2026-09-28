@@ -1,10 +1,13 @@
+import { taskToProgressParams } from '@core/bridge-receiver/progress-mapping'
 import { MdxpTaskSchema } from '@motrix/mdxp'
 import { DownloadErrorCode } from '@shared/errors'
 import {
   makeDefaultBtExtension,
+  TaskKind,
   TaskStatus,
   TaskType,
 } from '@shared/types/task'
+import { makeMediaProgress } from '@test-utils/media-progress'
 import { makeDownloadTask } from '@test-utils/task'
 import { describe, expect, it } from 'vitest'
 import { toMdxpTask, toMdxpTaskStatus } from './download-task-to-mdxp'
@@ -298,5 +301,68 @@ describe('toMdxpTask', () => {
     const dto = toMdxpTask(makeDownloadTask({ type: TaskType.Http }))
     expect(dto.bt).toBeUndefined()
     expectValidMdxpTask(dto)
+  })
+})
+
+describe('media query and push agreement', () => {
+  it.each(['decrypting', 'assembling', 'muxing', 'renaming'] as const)(
+    'projects %s as processing without changing the core lifecycle',
+    (phase) => {
+      const task = makeDownloadTask({
+        kind: TaskKind.Hls,
+        status: TaskStatus.Downloading,
+        progress: 1,
+        downloadSpeed: 500,
+        etaSeconds: 10,
+        totalBytes: 100,
+        mediaProgress: makeMediaProgress({
+          phase,
+          download: {
+            progress: 1,
+            completedParts: 1000,
+            totalParts: 1000,
+            totalBytes: null,
+          },
+          muxProgress: 0.4,
+        }),
+      })
+      const dto = toMdxpTask(task)
+      expectValidMdxpTask(dto)
+      expect(dto).toMatchObject({
+        status: 'finalizing',
+        progress: 1,
+        bytesTotal: null,
+        speedBps: 0,
+        etaSec: null,
+      })
+      expect(taskToProgressParams(task)).toMatchObject({
+        phase: phase === 'muxing' ? 'muxing' : 'finalizing',
+        bytesTotal: null,
+        speedBps: 0,
+        etaSec: null,
+      })
+      expect(task.status).toBe(TaskStatus.Downloading)
+      expect(toMdxpTask({ ...task, status: TaskStatus.Paused }).status).toBe(
+        'paused'
+      )
+      expect(toMdxpTask({ ...task, status: TaskStatus.Error }).status).toBe(
+        'error'
+      )
+    }
+  )
+
+  it('returns the fixed segment fraction even when completed bytes equal known bytes', () => {
+    const task = makeDownloadTask({
+      kind: TaskKind.Hls,
+      progress: 1,
+      totalBytes: 100,
+      downloadedBytes: 100,
+      mediaProgress: makeMediaProgress(),
+    })
+    expect(toMdxpTask(task)).toMatchObject({
+      progress: 0.001,
+      bytesTotal: null,
+    })
+    expect(taskToProgressParams(task).bytesTotal).toBeNull()
   })
 })

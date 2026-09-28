@@ -1,6 +1,7 @@
 import { networkInterfaces } from 'node:os'
 import type { EventBus } from '@core/events/event-bus'
 import { getLogger } from '@core/logger'
+import { DiagnosticScheduler } from '@core/nat/diagnostic-scheduler'
 import { SettingsNatProvider } from '@core/nat/settings-nat-provider'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import {
@@ -38,6 +39,8 @@ const NAT_ERROR_CODE_MAP = {
 export interface NatStack {
   manager: NatManager
   networkMonitor: NetworkMonitor
+  startDiagnostics: () => void
+  stopDiagnostics: () => Promise<void>
 }
 
 export function createNatManager(args: {
@@ -127,7 +130,25 @@ export function createNatManager(args: {
     isEngineReady
   )
 
-  return { manager, networkMonitor }
+  const diagnostics = new DiagnosticScheduler(
+    () => settingsManager.get().nat,
+    (signal) => manager.runDiagnostic(signal),
+    (error) =>
+      getLogger('nat').warn({ error }, 'automatic network check failed')
+  )
+  const refresh = () => diagnostics.refresh()
+  return {
+    manager,
+    networkMonitor,
+    startDiagnostics: () => {
+      eventBus.on(Events.SettingsChanged, refresh)
+      diagnostics.start()
+    },
+    stopDiagnostics: async () => {
+      eventBus.off(Events.SettingsChanged, refresh)
+      await diagnostics.stop()
+    },
+  }
 }
 
 function mapNatErrorCode(code: string): ErrorCode | string {

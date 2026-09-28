@@ -1,5 +1,9 @@
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
+import { useDownloadsSelection } from '@renderer/routes/downloads/store'
+import { useDownloadsView } from '@renderer/routes/downloads/view-preferences'
+import { Events } from '@shared/protocol/events'
+import { makeDownloadTask } from '@test-utils/task'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -22,15 +26,20 @@ function renderAppLayout(routeHandle?: Record<string, unknown>) {
         element: <AppLayout />,
         children: [
           { index: true, element: <div>INDEX_PAGE</div>, handle: routeHandle },
+          { path: 'downloads/all', element: <div>DOWNLOADS_PAGE</div> },
+          { path: 'plugins/:id', element: <div>PLUGIN_PAGE</div> },
         ],
       },
     ],
     { initialEntries: ['/'] }
   )
   render(<RouterProvider router={router} />)
+  return router
 }
 
 beforeEach(() => {
+  useDownloadsSelection.getState().clearSelection()
+  useDownloadsView.setState({ inspectorVisible: false })
   vi.stubGlobal(
     'window',
     Object.assign(window, {
@@ -80,6 +89,30 @@ beforeEach(() => {
 })
 
 describe('AppLayout', () => {
+  it.each([
+    ['/downloads/all', false],
+    ['/plugins/example', true],
+  ] as const)(
+    'clears stale task details only for the downloads fallback: %s',
+    async (path, keepsSelection) => {
+      const task = makeDownloadTask({ id: 'previous-task' })
+      useDownloadsSelection.getState().setItems([task])
+      useDownloadsSelection.getState().select(task.id)
+      useDownloadsView.setState({ inspectorVisible: true })
+      const router = renderAppLayout()
+      const handler = vi
+        .mocked(window.motrix.on)
+        .mock.calls.find(([channel]) => channel === Events.NavigateTo)?.[1]
+      expect(handler).toBeTypeOf('function')
+      await act(async () => handler?.(path))
+      expect(router.state.location.pathname).toBe(path)
+      expect([
+        ...useDownloadsSelection.getState().committedSelectedIds,
+      ]).toEqual(keepsSelection ? [task.id] : [])
+      expect(useDownloadsView.getState().inspectorVisible).toBe(keepsSelection)
+    }
+  )
+
   it('renders the renderer application menu in the Windows leading slot', async () => {
     Object.defineProperty(window.motrix, 'platform', {
       value: 'win32',

@@ -18,6 +18,9 @@ import {
 import type { RegistryClient } from '@core/plugin/registry/registry-client'
 import { parseElectronProxyChain } from '@core/proxy/system-proxy'
 import type { MotrixDatabase } from '@core/session/motrix-database'
+import { createDirectoryPreferencesHandlers } from '@core/settings/directory-preferences'
+import { createGetDownloadsSettingsDraftHandler } from '@core/settings/downloads-settings'
+import { createGetGeneralSettingsDraftHandler } from '@core/settings/general-settings'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import type { SpeedLimitController } from '@core/speed-limit/speed-limit-controller'
 import type {
@@ -28,10 +31,12 @@ import type {
 } from '@core/stats'
 import { createGetTaskPeersHandler } from '@core/task/get-task-peers'
 import { createGetTaskPiecesHandler } from '@core/task/get-task-pieces'
+import type { MediaMetaStore } from '@core/task/media-meta-store'
 import { slimTasksForBroadcast } from '@core/task/slim-task-for-broadcast'
 import type { TaskManager } from '@core/task/task-manager'
 import type { TrackerManager } from '@core/tracker'
 import type { NatManager } from '@motrix/nat'
+import type { SupportedLocale } from '@shared/constants/locales'
 import {
   assertTaskInspectorActivityArguments,
   makeProtocolFailure,
@@ -43,10 +48,12 @@ import { parseTaskInspectorActivitySnapshot } from '@shared/schemas/task-inspect
 import type { GetTransferStatsParams } from '@shared/types/stats'
 import type { GetTaskActivityParams } from '@shared/types/task-activity'
 import { ipcMain, session } from 'electron'
+import { getAppImageNativeHost } from '../bridge/appimage-native-host-electron'
 import type { CliToolService } from '../cli/cli-tool-service'
-import type { UpdateManager } from '../core/update-manager'
+import type { AppUpdateService } from '../core/app-update-service'
 import { getAppImageIntegrationView } from '../platform/appimage-integration-host'
 import { getLinuxDefaultAssociations } from '../platform/linux-default-apps'
+import { getSystemAccentColor } from '../platform/system-accent-color'
 import { getWindowsDefaultAssociations } from '../platform/windows-default-apps'
 import { makeElectronFfmpegDetect } from '../plugin/ffmpeg-detect-electron'
 import { createGetEngineTaskOptionsHandler } from './queries/get-engine-task-options'
@@ -58,6 +65,7 @@ const SYSTEM_PROXY_PROBE_PARTITION = 'motrix-system-proxy-probe'
 const SYSTEM_PROXY_PROBE_URL = 'https://example.com'
 
 export interface QueryContext {
+  getResolvedLanguage: () => SupportedLocale
   cliToolService: Pick<CliToolService, 'getStatus'>
   taskManager: TaskManager
   statsAggregator: StatsAggregator
@@ -75,6 +83,7 @@ export interface QueryContext {
   natManager: NatManager
   trackerManager: TrackerManager
   engineAdapter: EngineAdapter
+  mediaMetaStore: MediaMetaStore
   motrixDatabase: MotrixDatabase
   geoipManager: GeoIPManager
   pluginRegistry: PluginRegistry
@@ -85,7 +94,7 @@ export interface QueryContext {
   hostVersion: string
   userDataDir: string
   speedLimitController: SpeedLimitController
-  updateManager: UpdateManager
+  updateManager: AppUpdateService
 }
 
 export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
@@ -160,8 +169,19 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
       return taskInspectorActivityRuntime.snapshot(params)
     },
 
+    [Queries.GetDownloadsSettingsDraft]:
+      createGetDownloadsSettingsDraftHandler(settingsManager),
+    [Queries.GetGeneralSettingsDraft]:
+      createGetGeneralSettingsDraftHandler(settingsManager),
+    [Queries.GetDirectoryPreferences]:
+      createDirectoryPreferencesHandlers(settingsManager).get,
+
+    [Queries.GetSystemAccentColor]: async () => getSystemAccentColor(),
     [Queries.GetSettings]: async () => {
-      return settingsManager.get()
+      return {
+        ...settingsManager.get(),
+        resolvedLanguage: ctx.getResolvedLanguage(),
+      }
     },
 
     [Queries.GetUpdateState]: async () => updateManager.getState(),
@@ -188,6 +208,9 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
         getMagnetEnabled: () => settingsManager.getApp().protocols.magnet,
       }),
 
+    [Queries.GetAppImageNativeHostStatus]: async () =>
+      (await getAppImageNativeHost()?.inspect()) ?? { supported: false },
+
     [Queries.GetLinuxDefaultAssociations]: async () =>
       getLinuxDefaultAssociations(),
 
@@ -203,6 +226,7 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
     [Queries.GetSpeedLimitState]: async () => speedLimitController.getState(),
 
     [Queries.GetTaskFiles]: createGetTaskFilesHandler({
+      mediaMetaStore: ctx.mediaMetaStore,
       db: motrixDatabase,
       taskManager,
       engine: engineAdapter,
@@ -229,6 +253,8 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
     [Queries.GetTrackerList]: async () => {
       return trackerManager.getCuratedList()
     },
+
+    [Queries.GetTrackerSyncStatus]: async () => trackerManager.getSyncStatus(),
 
     [Queries.GetTrackerSources]: async () => {
       return settingsManager.get().tracker.sources

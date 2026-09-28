@@ -1,9 +1,14 @@
+import { makeMediaProgress } from '@test-utils/media-progress'
 import '@testing-library/jest-dom/vitest'
 
 import { vi } from 'vitest'
 
 vi.mock('@renderer/lib/transport', () => ({
-  transport: { invoke: vi.fn().mockResolvedValue({ ok: true }) },
+  transport: {
+    invoke: vi.fn().mockResolvedValue({ ok: true }),
+    on: vi.fn(),
+    off: vi.fn(),
+  },
 }))
 vi.mock('@renderer/lib/open-add-task-dialog', () => ({
   openAddTaskDialog: vi.fn().mockResolvedValue(undefined),
@@ -261,4 +266,29 @@ describe('OverviewTab', () => {
       ])
     })
   })
+})
+
+it('separates completed segment downloads from active mux progress and unknown output size', () => {
+  renderOverviewTab({
+    ...task,
+    kind: TaskKind.Hls,
+    type: TaskType.Http,
+    progress: 1,
+    mediaProgress: makeMediaProgress({
+      phase: 'muxing',
+      download: {
+        progress: 1,
+        completedParts: 1000,
+        totalParts: 1000,
+        totalBytes: null,
+      },
+      muxProgress: 0.42,
+    }),
+  })
+  expect(screen.getByText('100%')).toBeInTheDocument()
+  expect(screen.getByText('42%')).toBeInTheDocument()
+  expect(screen.getByText('1000 / 1000 segments')).toBeInTheDocument()
+  expect(screen.getByText('Merging')).toBeInTheDocument()
+  expect(screen.getByText('Output size').parentElement).toHaveTextContent('—')
+  expect(screen.getByText('Download ETA').parentElement).toHaveTextContent('—')
 })

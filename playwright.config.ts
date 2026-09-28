@@ -10,7 +10,13 @@ export default defineConfig({
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI
-    ? [['list'], ['html', { open: 'never' }]]
+    ? [
+        ['list'],
+        [
+          'html',
+          { open: 'never', outputFolder: 'output/playwright/reports/electron' },
+        ],
+      ]
     : [['list']],
   // Most assertions wait for UI; allow a generous default since the
   // first launch also boots aria2 and runs settings migration.
@@ -21,5 +27,5 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   globalSetup: './e2e/global-setup.ts',
-  outputDir: 'e2e/test-results',
+  outputDir: 'output/playwright/test-results/electron',
 })

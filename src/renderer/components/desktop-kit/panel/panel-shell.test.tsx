@@ -41,7 +41,7 @@ describe('PanelShell', () => {
       </PanelShell>
     )
     const input = screen.getByPlaceholderText('Filter…')
-    // The 28px compact row: h-8 input shrinks to h-7 and narrows so it
+    // The 28px compact row: h-9 input shrinks to h-7 and narrows so it
     // does not crowd the short header next to the window chrome.
     expect(input).toHaveClass('compact-header:h-7')
     expect(input).toHaveClass('compact-header:w-40')

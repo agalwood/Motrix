@@ -1,3 +1,7 @@
+import { zodResolver } from '@hookform/resolvers/zod'
+import { DirectoryPicker } from '@renderer/components/desktop-kit/directory-picker'
+import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
+import { useSettingsSubmit } from '@renderer/components/settings-kit/use-settings-form'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -7,117 +11,249 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@renderer/components/ui/dialog'
-import { Form } from '@renderer/components/ui/form'
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  useFormField,
+} from '@renderer/components/ui/form'
+import {
+  ScrollArea,
+  ScrollAreaContent,
+  ScrollAreaViewport,
+  ScrollBar,
+} from '@renderer/components/ui/scroll-area'
 import { Separator } from '@renderer/components/ui/separator'
-import { pickDirty } from '@renderer/lib/form-utils'
-import { transport } from '@renderer/lib/transport'
-import { Commands } from '@shared/protocol/commands'
-import { Queries } from '@shared/protocol/queries'
-import { DEFAULT_SPEED_LIMIT_SETTINGS } from '@shared/schemas/speed-limit'
-import type { AppSettings } from '@shared/types/settings'
-import { useEffect } from 'react'
+import { Switch } from '@renderer/components/ui/switch'
+import {
+  DirectoryPreferencesSection,
+  DirectoryPreferencesStatus,
+} from '@renderer/features/directory-preferences/directory-preferences-section'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
+import { createDefaultSpeedLimitSettings } from '@shared/schemas/speed-limit'
+import type { ComponentProps } from 'react'
+import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import type { SettingsCardDialogProps } from './card-types'
 import {
   DOWNLOADS_DEFAULTS,
   type DownloadsFields,
-  ENGINE_DEFAULTS,
+  downloadsFormSchema,
+  downloadsValidationError,
 } from './downloads-form'
-import { EngineTuningSection } from './engine-tuning-section'
+import { EngineTuningSection, UserAgentSection } from './engine-tuning-section'
 import { PerformanceSection } from './performance-section'
 import { SpeedLimitSection } from './speed-limit-section'
+import { useDownloadsSettingsDraft } from './use-downloads-settings-draft'
 
 // Form shape, defaults, and unit constants live in ./downloads-form.ts. The
-// compact sections are ordered by user intent: performance, limits, then
-// advanced engine behavior.
+// sections follow the task flow: destinations, new tasks, performance and
+// speed limits, then connection and file behavior.
 
 export function DownloadsDialog({
   open,
   onClose,
   labelKey,
-  descKey,
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
-  const form = useForm<DownloadsFields>({ defaultValues: DOWNLOADS_DEFAULTS })
+  const { unitSystem } = useByteFormat()
+  const form = useForm<DownloadsFields>({
+    defaultValues: {
+      ...DOWNLOADS_DEFAULTS,
+      speedLimit: createDefaultSpeedLimitSettings(unitSystem),
+    },
+    resolver: zodResolver(downloadsFormSchema, {
+      error: downloadsValidationError(t, unitSystem === 'binary' ? 1024 : 1000),
+    }),
+    mode: 'onBlur',
+  })
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: form is stable across renders; this is a mount-only fetch
-  useEffect(() => {
-    let cancelled = false
-    transport
-      .invoke(Queries.GetSettings)
-      .then((data) => {
-        if (cancelled) return
-        const all = data as AppSettings
-        form.reset({
-          engine: all?.engine
-            ? { ...ENGINE_DEFAULTS, ...all.engine }
-            : ENGINE_DEFAULTS,
-          speedLimit: all?.speedLimit
-            ? { ...DEFAULT_SPEED_LIMIT_SETTINGS, ...all.speedLimit }
-            : DEFAULT_SPEED_LIMIT_SETTINGS,
-        })
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const onSubmit = form.handleSubmit(async (values) => {
-    // pickDirty recurses the dirty-fields tree: if speedLimit.base.download
-    // is dirty, it returns { speedLimit: { base: { download: <new> } } }.
-    // We then spread the engine dirty patch back into { engine: ... } and pass
-    // the whole thing to UpdateSettings. SettingsManager deep-merges each
-    // top-level namespace, so partial patches for both engine and speedLimit
-    // are safe.
-    // biome-ignore lint/suspicious/noExplicitAny: dirtyFields shape doesn't fit DirtyTree; cast is safe
-    const dirty = pickDirty(values, form.formState.dirtyFields as any)
-    if (!dirty) {
-      onClose()
-      return
-    }
-    await transport.invoke(Commands.UpdateSettings, dirty)
-    onClose()
+  const directories = useDownloadsSettingsDraft(form)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [defaultPicking, setDefaultPicking] = useState(false)
+  const [favoritePicking, setFavoritePicking] = useState(false)
+  const busy = directories.saving || defaultPicking || favoritePicking
+  const disabled = busy || directories.loading || !directories.ready
+  const close = () => {
+    if (!busy) onClose()
+  }
+  const onSubmit = useSettingsSubmit(form, async () => {
+    if (disabled) return
+    contentRef.current?.focus({ preventScroll: true })
+    if (await directories.save()) onClose()
   })
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+    <Dialog
+      open={open}
+      onOpenChange={(v, details) => {
+        if (!v) {
+          if (busy) details.cancel()
+          else close()
+        }
+      }}
+    >
       <DialogContent
         className="flex max-h-[85vh] flex-col gap-0 p-0 sm:max-w-[700px]"
         initialFocus={false}
       >
         <DialogHeader className="shrink-0 px-6 pt-6">
           <DialogTitle>{t(labelKey)}</DialogTitle>
-          <DialogDescription>{t(descKey)}</DialogDescription>
+          <DialogDescription>
+            {t('settings.downloads.description')}
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-          <Form {...form}>
-            <form className="space-y-4">
-              <PerformanceSection form={form} />
-              <Separator className="my-4" />
-              <SpeedLimitSection form={form} />
-              <Separator className="my-4" />
-              <EngineTuningSection form={form} />
-            </form>
-          </Form>
-        </div>
+        <ScrollArea className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <ScrollAreaViewport
+            ref={contentRef}
+            tabIndex={-1}
+            className="min-h-0 flex-1 overscroll-contain"
+          >
+            <ScrollAreaContent
+              className="px-6 py-4"
+              style={{ minWidth: '100%' }}
+            >
+              <DirectoryPreferencesStatus
+                loading={directories.loading}
+                error={directories.error}
+                disabled={busy}
+                onRetry={() => void directories.refresh()}
+              />
+              <Form {...form}>
+                <form noValidate onSubmit={onSubmit}>
+                  <fieldset
+                    className="min-w-0 space-y-4"
+                    inert={disabled}
+                    disabled={disabled}
+                  >
+                    <h3 className="text-sm font-semibold">
+                      {t('settings.downloads.saveFolders')}
+                    </h3>
+                    <FormField
+                      control={form.control}
+                      name="app.defaultSaveDir"
+                      render={({ field }) => (
+                        <FormItem className="space-y-2">
+                          <FormLabel>
+                            {t('settings.downloads.defaultDownloadFolder')}
+                          </FormLabel>
+                          <SettingsDirectoryPicker
+                            disabled={disabled}
+                            recordRecent={false}
+                            allowFavoriteEditing={false}
+                            onPickingChange={setDefaultPicking}
+                            inputProps={{
+                              ref: field.ref,
+                              onBlur: field.onBlur,
+                            }}
+                          />
+                          <FormMessage className="text-xs" />
+                        </FormItem>
+                      )}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {t('directoryPreferences.description')}
+                    </p>
+                    <DirectoryPreferencesSection
+                      preferences={directories.preferences}
+                      onChange={directories.setPreferences}
+                      disabled={disabled}
+                      onPickingChange={setFavoritePicking}
+                    />
+                    <Separator className="my-4" />
+                    <h3 className="text-sm font-semibold">
+                      {t('settings.downloads.newTasks')}
+                    </h3>
+                    <FormField
+                      control={form.control}
+                      name="app.autofillClipboardLinks"
+                      render={({ field }) => (
+                        <SettingsFormRow>
+                          <div className="space-y-1">
+                            <FormLabel>
+                              {t('settings.downloads.autofillFromClipboard')}
+                            </FormLabel>
+                            <FormDescription className="text-xs">
+                              {t(
+                                'settings.downloads.fillInLinksWhenOpeningNewTask'
+                              )}
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              disabled={disabled}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </SettingsFormRow>
+                      )}
+                    />
+                    <UserAgentSection form={form} />
+                    <Separator className="my-4" />
+                    <PerformanceSection form={form} />
+                    <Separator className="my-4" />
+                    <SpeedLimitSection form={form} />
+                    <Separator className="my-4" />
+                    <EngineTuningSection form={form} />
+                  </fieldset>
+                </form>
+              </Form>
+            </ScrollAreaContent>
+          </ScrollAreaViewport>
+          <ScrollBar />
+        </ScrollArea>
 
         <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
-          <Button type="button" variant="outline" size="sm" onClick={onClose}>
+          {form.formState.errors.root?.save && (
+            <p role="alert" className="me-auto text-xs text-destructive">
+              {form.formState.errors.root.save.message}
+            </p>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={close}
+          >
             {t('common.cancel')}
           </Button>
           <Button
             type="button"
             size="sm"
             onClick={onSubmit}
-            disabled={form.formState.isSubmitting}
+            disabled={disabled || form.formState.isSubmitting}
           >
             {t('common.save')}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function SettingsDirectoryPicker({
+  inputProps,
+  ...props
+}: Omit<ComponentProps<typeof DirectoryPicker>, 'name'>) {
+  const { formItemId, formMessageId, formDescriptionId, error } = useFormField()
+  return (
+    <DirectoryPicker
+      {...props}
+      name="app.defaultSaveDir"
+      inputProps={{
+        ...inputProps,
+        id: formItemId,
+        'aria-invalid': Boolean(error),
+        'aria-describedby': `${formDescriptionId} ${formMessageId}`,
+      }}
+    />
   )
 }

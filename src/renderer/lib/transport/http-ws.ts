@@ -1,3 +1,7 @@
+import {
+  refreshOperatorSession,
+  useOperatorSession,
+} from '@renderer/lib/operator-auth'
 import { ErrorCode } from '@shared/errors'
 import { BridgeCommands, BridgeQueries } from '@shared/protocol/bridge'
 import {
@@ -7,6 +11,12 @@ import {
 } from '@shared/protocol/errors'
 import type { EventChannel } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
+import {
+  WEB_EVENT_CONNECT_TIMEOUT_MS,
+  WEB_EVENT_STALE_MS,
+  webEventFrameSchema,
+  webEventHeartbeatSchema,
+} from '@shared/schemas/web-event-stream'
 import type {
   AnyChannel,
   EventListener,
@@ -49,6 +59,26 @@ export class HttpWsTransport implements Transport {
   private reconnectAttempt = 0
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private socketEpoch = 0
+  private deadlineTimer: ReturnType<typeof setTimeout> | null = null
+  private lastMessageAt = 0
+  private supportsHeartbeat = false
+  private watchingForeground = false
+
+  private readonly onForeground = () => {
+    if (document.visibilityState === 'hidden') return
+    if (
+      this.socket &&
+      this.supportsHeartbeat &&
+      Date.now() - this.lastMessageAt >= WEB_EVENT_STALE_MS
+    ) {
+      this.retireSocket(this.socket, this.socketEpoch)
+    }
+    if (!this.socket) {
+      if (this.reconnectTimer !== null) clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+      this.ensureSocket()
+    }
+  }
 
   constructor(
     private readonly baseUrl: string,
@@ -58,6 +88,14 @@ export class HttpWsTransport implements Transport {
     this.WSCtor =
       opts.WebSocketCtor ??
       (typeof WebSocket !== 'undefined' ? WebSocket : undefined)
+    useOperatorSession.subscribe((state, previous) => {
+      if (state.state === 'locked') this.stopSocket()
+      else if (
+        state.state === 'authenticated' &&
+        previous.state !== 'authenticated'
+      )
+        this.ensureSocket()
+    })
     this.reconnectDelaysMs =
       opts.reconnectDelaysMs?.length === 0
         ? [0]
@@ -65,6 +103,9 @@ export class HttpWsTransport implements Transport {
   }
 
   async invoke(channel: AnyChannel, ...args: unknown[]): Promise<unknown> {
+    const session = useOperatorSession.getState()
+    if (session.state === 'locked' || session.state === 'logging-out')
+      throw new Error('Operator session is locked')
     const kind = rpcKindFor(channel)
     const isInspectorActivity = channel === Queries.GetTaskInspectorActivity
     const res = await this.fetchFn(
@@ -76,8 +117,11 @@ export class HttpWsTransport implements Transport {
         // default, but set it explicitly so the control-plane auth is obvious.
         credentials: 'same-origin',
         body: JSON.stringify({ args }),
+        // Reads may retry; a stalled fetch must release its network resources.
+        ...(kind === 'query' ? { signal: AbortSignal.timeout(15_000) } : {}),
       }
     )
+    if (res.status === 401) void refreshOperatorSession(session.epoch)
     if (!res.ok) {
       if (isInspectorActivity) {
         throw new TransportError(
@@ -111,6 +155,10 @@ export class HttpWsTransport implements Transport {
     if (!this.hasEventListeners()) this.stopSocket()
   }
 
+  getConnectionState(): TransportConnectionState {
+    return this.connectionState
+  }
+
   onConnectionChange(cb: TransportConnectionListener): () => void {
     this.connectionListeners.add(cb)
     return () => {
@@ -126,6 +174,8 @@ export class HttpWsTransport implements Transport {
 
   private ensureSocket(): void {
     if (
+      useOperatorSession.getState().state === 'locked' ||
+      useOperatorSession.getState().state === 'logging-out' ||
       this.socket ||
       this.reconnectTimer !== null ||
       !this.WSCtor ||
@@ -135,36 +185,108 @@ export class HttpWsTransport implements Transport {
     }
 
     const wsUrl = `${this.baseUrl.replace(/^http/, 'ws')}/rpc/events`
-    const socket = new this.WSCtor(wsUrl)
+    let socket: WebSocket
+    try {
+      socket = new this.WSCtor(wsUrl)
+    } catch {
+      this.publishConnectionState('disconnected')
+      this.scheduleReconnect()
+      return
+    }
     const epoch = ++this.socketEpoch
     this.socket = socket
+    this.supportsHeartbeat = false
+    this.lastMessageAt = Date.now()
+    if (!this.watchingForeground) {
+      this.watchingForeground = true
+      window.addEventListener('online', this.onForeground)
+      window.addEventListener('focus', this.onForeground)
+      document.addEventListener('visibilitychange', this.onForeground)
+    }
+    this.setDeadline(
+      () => this.retireSocket(socket, epoch),
+      WEB_EVENT_CONNECT_TIMEOUT_MS
+    )
     this.publishConnectionState('connecting')
 
     socket.addEventListener('open', () => {
       if (!this.isCurrentSocket(socket, epoch)) return
+      this.clearDeadline()
       this.reconnectAttempt = 0
       this.publishConnectionState('connected')
     })
     socket.addEventListener('message', (ev) => {
       if (!this.isCurrentSocket(socket, epoch)) return
       try {
-        const frame = JSON.parse(String(ev.data)) as {
-          channel: string
-          args: unknown[]
+        const data: unknown = JSON.parse(String(ev.data))
+        if (webEventHeartbeatSchema.safeParse(data).success) {
+          this.supportsHeartbeat = true
+          this.receivedMessage(socket, epoch)
+          return
         }
+        const parsed = webEventFrameSchema.safeParse(data)
+        if (!parsed.success) return
+        this.receivedMessage(socket, epoch)
+        const frame = parsed.data
         const set = this.listeners.get(frame.channel)
         if (!set) return
-        for (const cb of set) cb(...frame.args)
+        for (const cb of set) {
+          try {
+            cb(...frame.args)
+          } catch {
+            /* One consumer must not suppress the others. */
+          }
+        }
       } catch {
         // ignore malformed frames
       }
     })
     socket.addEventListener('close', () => {
       if (!this.isCurrentSocket(socket, epoch)) return
+      this.clearDeadline()
       this.socket = null
       this.publishConnectionState('disconnected')
+      void refreshOperatorSession()
       this.scheduleReconnect()
     })
+  }
+
+  private clearDeadline(): void {
+    if (this.deadlineTimer !== null) clearTimeout(this.deadlineTimer)
+    this.deadlineTimer = null
+  }
+
+  private setDeadline(callback: () => void, delay: number): void {
+    this.clearDeadline()
+    this.deadlineTimer = setTimeout(callback, delay)
+  }
+
+  private receivedMessage(socket: WebSocket, epoch: number): void {
+    this.lastMessageAt = Date.now()
+    if (!this.supportsHeartbeat) return
+    const check = () => {
+      if (!this.isCurrentSocket(socket, epoch)) return
+      if (document.visibilityState === 'hidden') {
+        this.setDeadline(check, WEB_EVENT_STALE_MS)
+        return
+      }
+      this.retireSocket(socket, epoch)
+    }
+    this.setDeadline(check, WEB_EVENT_STALE_MS)
+  }
+
+  private retireSocket(socket: WebSocket, epoch: number): void {
+    if (!this.isCurrentSocket(socket, epoch)) return
+    this.clearDeadline()
+    this.socket = null
+    this.socketEpoch++
+    try {
+      socket.close()
+    } catch {
+      /* The connection may still be opening. */
+    }
+    this.publishConnectionState('disconnected')
+    this.scheduleReconnect()
   }
 
   private hasEventListeners(): boolean {
@@ -199,6 +321,11 @@ export class HttpWsTransport implements Transport {
   }
 
   private stopSocket(): void {
+    this.clearDeadline()
+    this.watchingForeground = false
+    window.removeEventListener('online', this.onForeground)
+    window.removeEventListener('focus', this.onForeground)
+    document.removeEventListener('visibilitychange', this.onForeground)
     if (this.reconnectTimer !== null) {
       clearTimeout(this.reconnectTimer)
       this.reconnectTimer = null

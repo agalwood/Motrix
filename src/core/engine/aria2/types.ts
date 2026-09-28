@@ -129,6 +129,12 @@ export type Aria2RequeueStrategy =
   | 'serialized-text'
   | 'synthesized-magnet'
 
+/** `aria2.getCheckpointStatus` reply (aria2_motrix, checkpoint schema v3). */
+export interface Aria2CheckpointStatus {
+  exists: 'true' | 'false'
+  store: 'sqlite3' | 'control-file'
+}
+
 export interface Aria2RequeueResult {
   gid: string
   strategy: Aria2RequeueStrategy

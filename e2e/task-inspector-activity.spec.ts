@@ -1,5 +1,3 @@
-import { mkdir } from 'node:fs/promises'
-import path from 'node:path'
 import type { ElectronApplication, Page } from '@playwright/test'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
@@ -23,8 +21,6 @@ import {
   updateTaskInspectorAppearance,
 } from './fixtures/task-inspector-activity'
 import { getFreePort } from './helpers/free-port'
-
-const SCREENSHOT_DIR = path.resolve('e2e/test-results/task-inspector-activity')
 
 interface RuntimeTask {
   id: string
@@ -175,7 +171,7 @@ async function addLiveDownload(
 
 async function launchSeededApp(
   userDataDir: string,
-  options: { failAfterFirstQuery?: boolean } = {}
+  options: { failAfterFirstQuery?: boolean; initialTaskId?: string } = {}
 ): Promise<{ app: ElectronApplication; page: Page }> {
   const preparation = await launchMotrix({
     userDataDir,
@@ -201,6 +197,14 @@ async function launchSeededApp(
         : {}),
     },
   })
+  if (options.initialTaskId) {
+    await app.evaluate(
+      ({ app: electronApp }, url) => {
+        electronApp.emit('open-url', { preventDefault: () => undefined }, url)
+      },
+      `motrix://tasks/${encodeURIComponent(options.initialTaskId)}`
+    )
+  }
   const page = await firstWindow(app)
   const geometry = await configureTaskInspectorWindow(app, page, {
     width: 914,
@@ -224,15 +228,18 @@ async function openActivityForTask(
     await expect.poll(() => page.url()).toContain('#/downloads')
   }
   const openDrawer = page.getByRole('dialog', {
-    name: /^(Downloads|下载)$/i,
+    name: /^(Task Inspector|任务详情)$/i,
   })
   if (await openDrawer.isVisible().catch(() => false)) {
-    await page.keyboard.press('Escape')
+    await openDrawer.getByRole('button', { name: /^(Close|关闭)$/ }).click()
     await expect(openDrawer).toBeHidden()
   }
-  const row = page.getByRole('option', { name: new RegExp(taskName, 'i') })
+  const row = page.getByRole('row', { name: new RegExp(taskName, 'i') })
   await expect(row).toBeVisible()
   await row.click()
+  await page
+    .getByRole('button', { name: /^(Show Inspector|显示详情)$/ })
+    .click()
   const tabs = page.getByRole('tab')
   await expect(tabs.last()).toBeVisible()
   await tabs.last().click()
@@ -240,7 +247,6 @@ async function openActivityForTask(
 }
 
 async function capture(page: Page, name: string): Promise<void> {
-  await mkdir(SCREENSHOT_DIR, { recursive: true })
   // Interaction assertions intentionally leave focus on the control that
   // regained ownership. Visual-reference captures represent the resting
   // surface, so remove that transient focus-visible treatment first.
@@ -250,14 +256,14 @@ async function capture(page: Page, name: string): Promise<void> {
     }
   })
   await page.screenshot({
-    path: path.join(SCREENSHOT_DIR, name),
+    path: test.info().outputPath(name),
     animations: 'disabled',
   })
 }
 
 async function expectStatusPillContained(page: Page): Promise<void> {
   const drawer = page.getByRole('dialog', {
-    name: /^(Downloads|下载)$/i,
+    name: /^(Task Inspector|任务详情)$/i,
   })
   const statusPill = drawer.getByTestId('task-status-pill')
   await expect(statusPill).toBeVisible()
@@ -347,13 +353,140 @@ async function presentActiveReference(
 test.describe('Task Inspector Activity', () => {
   test.setTimeout(180_000)
 
-  test('fits Activity inside the minimum 914 by 672 window without vertical scrolling', async ({
+  test('opens the linked task details and restores them after recreating the main window', async ({
+    userDataDir,
+  }) => {
+    const { app, page } = await launchSeededApp(userDataDir, {
+      initialTaskId: TASK_INSPECTOR_ACTIVITY_IDS.rich,
+    })
+    const openTask = async (taskId: string) => {
+      await app.evaluate(
+        ({ app: electronApp }, url) => {
+          electronApp.emit('open-url', { preventDefault: () => undefined }, url)
+        },
+        `motrix://tasks/${encodeURIComponent(taskId)}`
+      )
+    }
+    const expectTaskDetails = async (
+      targetPage: Page,
+      taskId: string,
+      taskName: string
+    ) => {
+      await expect
+        .poll(() => targetPage.url())
+        .toContain(`#/downloads/all?task=${encodeURIComponent(taskId)}`)
+      const inspector = targetPage.getByRole('dialog', {
+        name: 'Task Inspector',
+        exact: true,
+      })
+      await expect(inspector).toBeVisible()
+      await expect(inspector.getByText(taskName, { exact: true })).toBeVisible()
+      await expect(
+        targetPage.getByRole('row', { name: new RegExp(taskName, 'i') })
+      ).toHaveAttribute('aria-selected', 'true')
+    }
+
+    try {
+      await expectTaskDetails(
+        page,
+        TASK_INSPECTOR_ACTIVITY_IDS.rich,
+        TASK_INSPECTOR_ACTIVITY_NAMES.rich
+      )
+      await openTask(TASK_INSPECTOR_ACTIVITY_IDS.error)
+      await expectTaskDetails(
+        page,
+        TASK_INSPECTOR_ACTIVITY_IDS.error,
+        TASK_INSPECTOR_ACTIVITY_NAMES.error
+      )
+
+      const inspector = page.getByRole('dialog', { name: 'Task Inspector' })
+      await inspector
+        .getByRole('button', { name: 'Close', exact: true })
+        .click()
+      await expect(inspector).toBeHidden()
+      await openTask(TASK_INSPECTOR_ACTIVITY_IDS.error)
+      await expectTaskDetails(
+        page,
+        TASK_INSPECTOR_ACTIVITY_IDS.error,
+        TASK_INSPECTOR_ACTIVITY_NAMES.error
+      )
+
+      const closed = page.waitForEvent('close')
+      await app.evaluate(({ BrowserWindow }) => {
+        const main = BrowserWindow.getAllWindows().find((window) =>
+          window.webContents.getURL().includes('w=main')
+        )
+        if (!main) throw new Error('Main window not found')
+        main.destroy()
+      })
+      await closed
+      const recreated = app.waitForEvent('window', {
+        predicate: async (candidate) => {
+          await candidate.waitForLoadState('domcontentloaded')
+          return candidate.url().includes('w=main')
+        },
+      })
+      await openTask(TASK_INSPECTOR_ACTIVITY_IDS.rich)
+      const restoredPage = await recreated
+      await restoredPage.waitForLoadState('domcontentloaded')
+      await expectTaskDetails(
+        restoredPage,
+        TASK_INSPECTOR_ACTIVITY_IDS.rich,
+        TASK_INSPECTOR_ACTIVITY_NAMES.rich
+      )
+
+      // A popup can retain a row after the App has already removed its task.
+      await restoredPage.evaluate(
+        async ({ command, taskId }) => {
+          const api = (
+            window as unknown as {
+              motrix: {
+                invoke: (channel: string, payload: unknown) => Promise<unknown>
+              }
+            }
+          ).motrix
+          await api.invoke(command, { taskId, deleteWithFiles: false })
+        },
+        {
+          command: Commands.RemoveTask,
+          taskId: TASK_INSPECTOR_ACTIVITY_IDS.rich,
+        }
+      )
+      for (const missingTaskId of [
+        TASK_INSPECTOR_ACTIVITY_IDS.rich,
+        'already-deleted-task',
+      ]) {
+        await openTask(TASK_INSPECTOR_ACTIVITY_IDS.error)
+        await expectTaskDetails(
+          restoredPage,
+          TASK_INSPECTOR_ACTIVITY_IDS.error,
+          TASK_INSPECTOR_ACTIVITY_NAMES.error
+        )
+        await openTask(missingTaskId)
+        await expect
+          .poll(() => new URL(restoredPage.url()).hash)
+          .toBe('#/downloads/all')
+        await expect(
+          restoredPage.getByRole('dialog', { name: 'Task Inspector' })
+        ).toBeHidden()
+      }
+    } finally {
+      await app.close().catch(() => {})
+    }
+  })
+
+  test('keeps Activity scrollable in an overlay inside the minimum 914 by 672 window', async ({
     userDataDir,
   }) => {
     const { app, page } = await launchSeededApp(userDataDir)
     try {
       const viewport = await setTaskInspectorContentSize(app, page, 914, 672)
       expect(viewport).toEqual({ width: 914, height: 672 })
+
+      await page.getByRole('link', { name: 'Downloads' }).click()
+      await expect(page.getByTestId('downloads-loading')).toHaveCount(0)
+      const list = page.getByTestId('virtual-list-container')
+      const listBox = await list.boundingBox()
 
       await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.rich)
 
@@ -387,7 +520,45 @@ test.describe('Task Inspector Activity', () => {
         })
 
       expect(geometry.overflowY).toBe('auto')
-      expect(geometry.scrollHeight).toBeLessThanOrEqual(geometry.clientHeight)
+      expect(geometry.clientHeight).toBeGreaterThan(0)
+      const drawer = page.getByRole('dialog', {
+        name: 'Task Inspector',
+        exact: true,
+      })
+      expect(await list.boundingBox()).toEqual(listBox)
+      // Every snap must expose the actual last content pixels, not just
+      // report scrollTop + clientHeight == scrollHeight offscreen.
+      const content = page.getByTestId('task-inspector-drawer-content')
+      const handle = drawer.getByRole('separator', { name: 'Resize Inspector' })
+      for (const key of ['Home', 'ArrowUp', 'End']) {
+        await handle.focus()
+        await handle.press(key)
+        await content.hover()
+        await page.mouse.wheel(0, 10_000)
+        await expect
+          .poll(() =>
+            content.evaluate((element) => {
+              const last = element.querySelector(
+                '[data-testid="task-inspector-activity-root"]'
+              )!
+              const bounds = element.getBoundingClientRect()
+              const end = last.getBoundingClientRect()
+              const hit = document.elementFromPoint(
+                end.left + 20,
+                end.bottom - 5
+              )
+              return (
+                bounds.bottom <= innerHeight &&
+                end.bottom <= bounds.bottom &&
+                last.contains(hit)
+              )
+            })
+          )
+          .toBe(true)
+      }
+      expect(
+        await page.evaluate(() => document.documentElement.scrollHeight)
+      ).toBeLessThanOrEqual(viewport.height)
       expect(geometry.chartFrameLeft).toBeCloseTo(geometry.surfaceInnerLeft, 0)
       expect(geometry.chartFrameRight).toBeCloseTo(
         geometry.surfaceInnerRight,

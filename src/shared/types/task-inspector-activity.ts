@@ -70,6 +70,8 @@ export interface TaskInspectorActivitySummary {
   lastEventOrdinal: number
   activeMs: number
   downloadActiveMs: number
+  /** Absent on older hosts, null when historical seeding was never observed. */
+  seeding?: { activeMs: number; trackingStartedAt: number } | null
   estimatedDownloadBytes: SerializedByteCount
   estimatedUploadBytes: SerializedByteCount
   peakDownloadBps: number
@@ -117,6 +119,7 @@ export interface TaskActivityCheckpoint {
   updatedAt: number
   activeMsDelta: number
   downloadActiveMsDelta: number
+  seedingMsDelta?: number
   estimatedDownloadBytesDelta: bigint
   estimatedUploadBytesDelta: bigint
   peakDownloadBps: number

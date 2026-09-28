@@ -2,7 +2,9 @@ import { randomBytes } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { createServer, type Server as HttpServer } from 'node:http'
 import type { Duplex } from 'node:stream'
+import { BridgeReceiverError } from '@core/bridge-receiver/errors'
 import { AsyncWorkTracker } from '@core/inspector-activity/async-work-tracker'
+import { DownloadSourceError } from '@core/task/source-admission'
 import {
   type DownloadCancelParams,
   DownloadCancelParamsSchema,
@@ -13,6 +15,7 @@ import {
   Methods,
   makeMdxpError,
   Notifications,
+  ResponseError,
   Tools,
 } from '@motrix/mdxp'
 import { AppError, ErrorCode } from '@shared/errors'
@@ -23,7 +26,6 @@ import {
   makeSessionKey,
   type PairRequestPayload,
 } from '@shared/protocol/bridge'
-import { ResponseError } from 'vscode-jsonrpc'
 import { type RawData, type WebSocket, WebSocketServer } from 'ws'
 import { BridgeConnection } from './bridge-connection'
 import type { Mbp1CredentialStore } from './credential-store'
@@ -73,7 +75,7 @@ export interface BridgeServerOptions {
   registry: TrustedExtensionRegistry
   motrixVersion: string
   runtime: 'electron' | 'server'
-  ffmpegAvailable: boolean
+  ffmpegAvailable: boolean | (() => Promise<boolean>)
   /**
    * Machine-owner Bearer token for the unary `POST /mdxp` transport. Generated
    * per bridge start, mirrored into `endpoint.json` (mode 0600). Held in memory
@@ -304,6 +306,7 @@ export type MethodHandlers = {
  * reachable only over the agent-facing unary `POST /mdxp` transport.
  */
 const EXTENSION_WS_CONTROL_PLANE = [
+  Methods.DownloadDirectories,
   Methods.TaskList,
   Methods.TaskGet,
   Methods.TaskPause,
@@ -599,6 +602,8 @@ export class WebSocketBridgeServer {
         runtime: opts.runtime,
         ffmpegAvailable: opts.ffmpegAvailable,
         supportsTaskReveal: () => this.dispatcher.has(Methods.TaskReveal),
+        supportsDownloadDirectories: () =>
+          this.dispatcher.has(Methods.DownloadDirectories),
       })
     )
     // Revocation/rotation must reach live SSE firehose streams, not just future
@@ -1072,10 +1077,28 @@ export class WebSocketBridgeServer {
   /** Register the shell's domain handlers. Call BEFORE the first connection. */
   setHandlers(handlers: MethodHandlers): void {
     if (handlers.submitDownload) {
+      const submit = handlers.submitDownload
       this.dispatcher.register(
         'download/submit',
         DownloadSubmitParamsSchema,
-        handlers.submitDownload
+        async (params, ctx) => {
+          try {
+            return await submit(params, ctx)
+          } catch (error) {
+            // This rejection occurs before a media task is created. Preserve
+            // its public MDXP code so clients can safely offer a retry.
+            if (
+              error instanceof BridgeReceiverError &&
+              error.code === 'unsupported-kind'
+            ) {
+              throw new ResponseError(
+                ErrorCodes.CapabilityNotSupported,
+                'Media selection is not supported'
+              )
+            }
+            throw error
+          }
+        }
       )
     }
     if (handlers.cancelDownload) {
@@ -2246,9 +2269,15 @@ export class WebSocketBridgeServer {
     params: unknown,
     ctx: MdxpSessionContext
   ): Promise<unknown> {
-    return this.requestWork.run(() =>
-      this.dispatcher.dispatch(method, params, ctx)
-    )
+    return this.requestWork
+      .run(() => this.dispatcher.dispatch(method, params, ctx))
+      .catch((error) => {
+        // Plain MDXP errors otherwise become InternalError in vscode-jsonrpc,
+        // making a pre-dispatch directory rejection look like an unknown submit.
+        if (isMdxpErrorShape(error))
+          throw new ResponseError(error.code, error.message, error.data)
+        throw error
+      })
   }
 }
 
@@ -2484,6 +2513,7 @@ function isMdxpErrorShape(
 function appErrorToMdxpCode(code: ErrorCode): number {
   switch (code) {
     case ErrorCode.IpcInvalidPayload:
+    case ErrorCode.TaskSourceInvalid:
     case ErrorCode.InvalidSelection:
     case ErrorCode.SettingsInvalid:
       return ErrorCodes.InvalidParams
@@ -2498,6 +2528,12 @@ function appErrorToMdxpCode(code: ErrorCode): number {
 
 /** Normalize any thrown value into an MDXP-shaped error for the unary response. */
 function normalizeUnaryError(err: unknown): NormalizedError {
+  if (err instanceof DownloadSourceError)
+    return {
+      code: ErrorCodes.InvalidParams,
+      message: err.message,
+      data: err.details,
+    }
   if (err instanceof AppError) {
     return { code: appErrorToMdxpCode(err.code), message: err.message }
   }

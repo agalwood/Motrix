@@ -2,7 +2,7 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { DownloadSubmitParams } from '@motrix/mdxp'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SubmitDownloadAdapter } from './submit-download-adapter'
 
 describe('SubmitDownloadAdapter.adapt', () => {
@@ -49,10 +49,36 @@ describe('SubmitDownloadAdapter.adapt', () => {
 
   const adapter = (overrides: Partial<{ defaultSaveDir: string }> = {}) =>
     new SubmitDownloadAdapter({
-      defaultSaveDir: overrides.defaultSaveDir ?? '/tmp/save',
+      getDefaultSaveDir: () => overrides.defaultSaveDir ?? '/tmp/save',
       pickName: async (_dir, n) => n,
       mintTaskId: () => 'task-1',
     })
+
+  it('validates an explicit destination before picking a filename and rejects unsupported overrides', async () => {
+    const params = { ...baseInput(), saveDir: '/favorite' }
+    await expect(
+      adapter().adapt(params, { extensionId: 'e', browser: 'chromium' })
+    ).rejects.toMatchObject({ code: -32005 })
+    const pickName = vi.fn(async (_path: string, name: string) => name)
+    const resolveSaveDir = vi.fn(async () => '/canonical/favorite')
+    const subject = new SubmitDownloadAdapter({
+      getDefaultSaveDir: () => '/default',
+      resolveSaveDir,
+      pickName,
+      mintTaskId: () => 'id',
+    })
+    expect(
+      (await subject.adapt(params, { extensionId: 'e', browser: 'chromium' }))
+        .saveDir
+    ).toBe('/canonical/favorite')
+    expect(pickName).toHaveBeenCalledWith('/canonical/favorite', 'demo.mp4')
+    resolveSaveDir.mockRejectedValueOnce(new Error('unavailable'))
+    pickName.mockClear()
+    await expect(
+      subject.adapt(params, { extensionId: 'e', browser: 'chromium' })
+    ).rejects.toThrow('unavailable')
+    expect(pickName).not.toHaveBeenCalled()
+  })
 
   it('keeps scoped cookies in memory without writing a jar', async () => {
     const result = await adapter().adapt(baseInput(), {
@@ -80,7 +106,20 @@ describe('SubmitDownloadAdapter.adapt', () => {
     expect(result.sourceMeta.sessionKey).toBe('chromium:e')
   })
 
-  it('rejects non-http(s) URL with invalid-url-scheme', async () => {
+  it('keeps the source fragment available to direct URL resolvers', async () => {
+    const input = baseInput()
+    if (input.selection.kind !== 'direct') throw new Error('expected direct')
+    input.selection.primary.url += '#episode-2'
+    const result = await adapter().adapt(input, {
+      extensionId: 'e',
+      browser: 'chromium',
+    })
+    expect(result).toMatchObject({
+      primaryUrl: 'http://example.com/file.mp4#episode-2',
+    })
+  })
+
+  it('rejects non-http(s) URL with a structured source error', async () => {
     const bad: DownloadSubmitParams = {
       ...baseInput(),
       selection: {
@@ -95,7 +134,13 @@ describe('SubmitDownloadAdapter.adapt', () => {
     }
     await expect(
       adapter().adapt(bad, { extensionId: 'e', browser: 'chromium' })
-    ).rejects.toMatchObject({ code: 'invalid-url-scheme' })
+    ).rejects.toMatchObject({
+      code: 'TASK_SOURCE_INVALID',
+      details: {
+        stage: 'input',
+        diagnostic: { reason: 'unsupportedProtocol' },
+      },
+    })
   })
 
   it('preserves domain scope and millisecond expiry while omitting browser-only fields', async () => {
@@ -121,7 +166,7 @@ describe('SubmitDownloadAdapter.adapt', () => {
     expect(result.cookies[0]?.value).toBe('1')
   })
 
-  it('sanitizes filename: control chars stripped, max 200', async () => {
+  it('extracts the filename before replacing forbidden characters', async () => {
     const input: DownloadSubmitParams = {
       ...baseInput(),
       meta: {
@@ -134,7 +179,53 @@ describe('SubmitDownloadAdapter.adapt', () => {
       browser: 'chromium',
     })
     if (result.kind !== 'direct') throw new Error('expected direct')
-    expect(result.finalName).toBe('a_b_c_d_e_f_g_h_i_j_k.mp4')
+    expect(result.finalName).toBe('c_d_e_f_g_h_i_j_k.mp4')
+  })
+
+  it.each([
+    String.raw`E:\Downloads\BCUninstaller_6.3.0_portable.7z`,
+    String.raw`\\server\share\BCUninstaller_6.3.0_portable.7z`,
+    '/home/user/Downloads/BCUninstaller_6.3.0_portable.7z',
+  ])('accepts only the leaf of a legacy client path: %s', async (name) => {
+    const input = baseInput()
+    input.meta.suggestedFilename = name
+    const result = await adapter().adapt(input, {
+      extensionId: 'e',
+      browser: 'chromium',
+    })
+    if (result.kind !== 'direct') throw new Error('expected direct')
+    expect(result.finalName).toBe('BCUninstaller_6.3.0_portable.7z')
+    expect(result).not.toHaveProperty('discoverFilename')
+  })
+
+  it.each(['', ' ', '.', '..'])(
+    'discovers a remote filename for an unusable hint: %s',
+    async (name) => {
+      const input = baseInput()
+      input.meta.suggestedFilename = name
+      const result = await adapter().adapt(input, {
+        extensionId: 'e',
+        browser: 'chromium',
+      })
+      expect(result).toMatchObject({
+        finalName: 'file.mp4',
+        discoverFilename: true,
+      })
+    }
+  )
+
+  it('bounds a multibyte browser filename without losing its extension', async () => {
+    const input = baseInput()
+    input.meta.suggestedFilename = `${'界'.repeat(240)}.7z`
+    const result = await adapter().adapt(input, {
+      extensionId: 'e',
+      browser: 'chromium',
+    })
+    if (result.kind !== 'direct') throw new Error('expected direct')
+    expect(result.finalName).toMatch(/\.7z$/)
+    expect(
+      Buffer.byteLength(`${result.finalName}.motrix`, 'utf8')
+    ).toBeLessThanOrEqual(255)
   })
 
   it('strips Cookie / Host / Content-Length from headers', async () => {
@@ -160,7 +251,7 @@ describe('SubmitDownloadAdapter.adapt', () => {
 
   it('adapts an hls selection (was unsupported-kind)', async () => {
     const a = new SubmitDownloadAdapter({
-      defaultSaveDir: '/tmp/save',
+      getDefaultSaveDir: () => '/tmp/save',
       pickName: async (_d, n) => n,
       mintTaskId: () => 't1',
     })
@@ -195,7 +286,7 @@ describe('SubmitDownloadAdapter.adapt', () => {
 
   it('adapts a dash selection', async () => {
     const a = new SubmitDownloadAdapter({
-      defaultSaveDir: '/tmp/save',
+      getDefaultSaveDir: () => '/tmp/save',
       pickName: async (_d, n) => n,
       mintTaskId: () => 't1',
     })
@@ -230,7 +321,7 @@ describe('SubmitDownloadAdapter.adapt', () => {
 
   it('adapts a mux selection into video/audio urls', async () => {
     const a = new SubmitDownloadAdapter({
-      defaultSaveDir: '/tmp/save',
+      getDefaultSaveDir: () => '/tmp/save',
       pickName: async (_d, n) => n,
       mintTaskId: () => 't1',
     })
@@ -265,7 +356,7 @@ describe('SubmitDownloadAdapter.adapt', () => {
   it('hls: appends the container extension BEFORE the dedup pick', async () => {
     const picked: string[] = []
     const a = new SubmitDownloadAdapter({
-      defaultSaveDir: '/tmp/save',
+      getDefaultSaveDir: () => '/tmp/save',
       pickName: async (_d, n) => {
         picked.push(n)
         return n
@@ -296,7 +387,7 @@ describe('SubmitDownloadAdapter.adapt', () => {
   it('mux: appends the container extension BEFORE the dedup pick (mkv)', async () => {
     const picked: string[] = []
     const a = new SubmitDownloadAdapter({
-      defaultSaveDir: '/tmp/save',
+      getDefaultSaveDir: () => '/tmp/save',
       pickName: async (_d, n) => {
         picked.push(n)
         return n
@@ -328,7 +419,7 @@ describe('SubmitDownloadAdapter.adapt', () => {
   it('mux: trusts an existing known media extension rather than double-appending', async () => {
     const picked: string[] = []
     const a = new SubmitDownloadAdapter({
-      defaultSaveDir: '/tmp/save',
+      getDefaultSaveDir: () => '/tmp/save',
       pickName: async (_d, n) => {
         picked.push(n)
         return n
@@ -363,7 +454,10 @@ describe('SubmitDownloadAdapter.adapt', () => {
         pageTitle: 'demo',
         detectedAt: 1,
       },
-      selection: { kind: 'magnet', uri: 'magnet:?xt=urn:btih:abc&dn=Movie' },
+      selection: {
+        kind: 'magnet',
+        uri: 'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc&dn=Movie',
+      },
       meta: { suggestedFilename: 'Movie', qualityLabel: 'file' },
     }
     const result = await adapter().adapt(input, {
@@ -372,7 +466,9 @@ describe('SubmitDownloadAdapter.adapt', () => {
     })
     expect(result.kind).toBe('magnet')
     if (result.kind === 'magnet') {
-      expect(result.uri).toBe('magnet:?xt=urn:btih:abc&dn=Movie')
+      expect(result.uri).toBe(
+        'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc&dn=Movie'
+      )
       expect(result.saveDir).toBe('/tmp/save')
       expect(result.sourceMeta.kind).toBe('magnet')
       expect(result.sourceMeta.sessionKey).toBe('chromium:e')
@@ -402,4 +498,89 @@ describe('SubmitDownloadAdapter.adapt', () => {
       durationSec: 360,
     })
   })
+})
+
+describe('per-submission directory snapshots', () => {
+  const primary = {
+    url: 'https://example.com/media',
+    headers: {},
+    cookies: [],
+    refererPolicy: 'strict-origin-when-cross-origin',
+  }
+  const selections: DownloadSubmitParams['selection'][] = [
+    { kind: 'direct', primary },
+    {
+      kind: 'magnet',
+      uri: 'magnet:?xt=urn:btih:0123456789012345678901234567890123456789',
+    },
+    { kind: 'hls', primary, container: 'mp4' },
+    { kind: 'dash', primary, container: 'mp4' },
+    { kind: 'mux', video: primary, audio: primary, container: 'mp4' },
+  ]
+  const params = (
+    selection: DownloadSubmitParams['selection']
+  ): DownloadSubmitParams => ({
+    source: {
+      pageUrl: 'https://example.com/',
+      pageTitle: 'Fixture',
+      detectedAt: 1,
+    },
+    meta: { suggestedFilename: 'media', qualityLabel: 'source' },
+    selection,
+  })
+  const input = { extensionId: 'test', browser: 'chromium' as const }
+
+  for (const selection of selections) {
+    it(`reads current settings for each ${selection.kind} submission`, async () => {
+      let currentDir = '/old'
+      const getDefaultSaveDir = vi.fn(() => currentDir)
+      const pickName = vi.fn(async (_dir: string, name: string) => name)
+      const adapter = new SubmitDownloadAdapter({
+        getDefaultSaveDir,
+        pickName,
+        mintTaskId: () => 'task',
+      })
+      expect(getDefaultSaveDir).not.toHaveBeenCalled()
+      for (const dir of ['/old', '/new', '/third']) {
+        currentDir = dir
+        const adapted = await adapter.adapt(params(selection), input)
+        expect(adapted.saveDir).toBe(dir)
+        if (selection.kind !== 'magnet') {
+          expect(pickName).toHaveBeenLastCalledWith(
+            dir,
+            selection.kind === 'direct' ? 'media' : 'media.mp4'
+          )
+        }
+      }
+      expect(getDefaultSaveDir).toHaveBeenCalledTimes(3)
+    })
+
+    if (selection.kind === 'magnet') continue
+    it(`keeps the ${selection.kind} directory stable while name selection is pending`, async () => {
+      let currentDir = '/old'
+      const getDefaultSaveDir = vi.fn(() => currentDir)
+      const gate = Promise.withResolvers<string>()
+      const pickName = vi
+        .fn(async (_dir: string, name: string) => name)
+        .mockImplementationOnce(() => gate.promise)
+      const adapter = new SubmitDownloadAdapter({
+        getDefaultSaveDir,
+        pickName,
+        mintTaskId: () => 'task',
+      })
+      const pending = adapter.adapt(params(selection), input)
+      expect(pickName).toHaveBeenCalledOnce()
+      currentDir = '/new'
+      gate.resolve('chosen.mp4')
+      expect(await pending).toMatchObject({
+        saveDir: '/old',
+        finalName: 'chosen.mp4',
+      })
+      expect(getDefaultSaveDir).toHaveBeenCalledOnce()
+      expect(await adapter.adapt(params(selection), input)).toMatchObject({
+        saveDir: '/new',
+      })
+      expect(getDefaultSaveDir).toHaveBeenCalledTimes(2)
+    })
+  }
 })

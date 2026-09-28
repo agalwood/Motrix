@@ -1,9 +1,28 @@
+import {
+  CheckIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  HistoryIcon,
+  MoreIcon,
+  PauseIcon,
+  RefreshIcon,
+  ResumeIcon,
+  StatusDotIcon,
+  WarningIcon,
+} from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
+import { useDirection } from '@renderer/components/ui/direction'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@renderer/components/ui/popover'
+import {
+  ScrollArea,
+  ScrollAreaContent,
+  ScrollAreaViewport,
+  ScrollBar,
+} from '@renderer/components/ui/scroll-area'
 import { resolveFailureReason } from '@renderer/lib/failure-reason'
 import { formatTime24Hour } from '@renderer/lib/format'
 import { cn } from '@renderer/lib/utils'
@@ -12,18 +31,6 @@ import {
   type TaskHistoryEvent,
   TaskHistoryEventKind,
 } from '@shared/types/task-inspector-activity'
-import {
-  AlertTriangle,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  Circle,
-  Ellipsis,
-  History,
-  Pause,
-  Play,
-  RefreshCw,
-} from 'lucide-react'
 import { type CSSProperties, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type {
@@ -38,26 +45,26 @@ export interface ActivityTimelineProps {
 }
 
 function nodeIcon(node: ActivityTimelineNode) {
-  if (node.presentation === 'truncated') return History
+  if (node.presentation === 'truncated') return HistoryIcon
   if (node.presentation === 'cluster' || node.presentation === 'repeated') {
-    return Ellipsis
+    return MoreIcon
   }
   switch (node.kind) {
     case TaskHistoryEventKind.Added:
     case TaskHistoryEventKind.Completed:
-      return Check
+      return CheckIcon
     case TaskHistoryEventKind.Started:
     case TaskHistoryEventKind.Resumed:
-      return Play
+      return ResumeIcon
     case TaskHistoryEventKind.Paused:
-      return Pause
+      return PauseIcon
     case TaskHistoryEventKind.Failed:
-      return AlertTriangle
+      return WarningIcon
     case TaskHistoryEventKind.StageChanged:
     case TaskHistoryEventKind.ObservedState:
-      return RefreshCw
+      return RefreshIcon
     default:
-      return Circle
+      return StatusDotIcon
   }
 }
 
@@ -168,40 +175,45 @@ function NodeDetails({
 }) {
   const { t } = useTranslation()
   return (
-    <div className="max-h-60 overflow-y-auto">
-      {node.presentation === 'truncated' && (
-        <div className="space-y-1 text-xs">
-          <p className="font-medium text-foreground">
-            {t('panel.downloads.inspector.activity.timeline.truncated', {
-              count: node.count,
-            })}
-          </p>
-          <p className="text-muted-foreground tabular-nums">
-            {t('panel.downloads.inspector.activity.timeline.truncatedAt', {
-              time: formatTimelineTime(node.occurredAt, locale),
-            })}
-          </p>
-        </div>
-      )}
-      <ol className="space-y-2">
-        {node.events.map((item) => (
-          <li
-            key={item.eventKey}
-            className="border-b border-border/60 pb-2 last:border-0 last:pb-0"
-          >
-            <div className="flex items-baseline justify-between gap-3 text-xs">
-              <span className="font-medium text-foreground">
-                {localizedEventLabel(item.kind, item.toStatus, t)}
-              </span>
-              <time className="shrink-0 text-muted-foreground tabular-nums">
-                {formatTimelineTime(item.occurredAt, locale)}
-              </time>
+    <ScrollArea>
+      <ScrollAreaViewport className="max-h-60">
+        <ScrollAreaContent>
+          {node.presentation === 'truncated' && (
+            <div className="space-y-1 text-xs">
+              <p className="font-medium text-foreground">
+                {t('panel.downloads.inspector.activity.timeline.truncated', {
+                  count: node.count,
+                })}
+              </p>
+              <p className="text-muted-foreground tabular-nums">
+                {t('panel.downloads.inspector.activity.timeline.truncatedAt', {
+                  time: formatTimelineTime(node.occurredAt, locale),
+                })}
+              </p>
             </div>
-            <HistoryEventError item={item} />
-          </li>
-        ))}
-      </ol>
-    </div>
+          )}
+          <ol className="space-y-2">
+            {node.events.map((item) => (
+              <li
+                key={item.eventKey}
+                className="border-b border-border/60 pb-2 last:border-0 last:pb-0"
+              >
+                <div className="flex items-baseline justify-between gap-3 text-xs">
+                  <span className="font-medium text-foreground">
+                    {localizedEventLabel(item.kind, item.toStatus, t)}
+                  </span>
+                  <time className="shrink-0 text-muted-foreground tabular-nums">
+                    {formatTimelineTime(item.occurredAt, locale)}
+                  </time>
+                </div>
+                <HistoryEventError item={item} />
+              </li>
+            ))}
+          </ol>
+        </ScrollAreaContent>
+      </ScrollAreaViewport>
+      <ScrollBar />
+    </ScrollArea>
   )
 }
 
@@ -320,13 +332,16 @@ export function ActivityTimeline({
   onSelectNode,
 }: ActivityTimelineProps) {
   const { t } = useTranslation()
+  const textDirection = useDirection()
   const scrollerRef = useRef<HTMLDivElement>(null)
   const minimumWidth = model.overflow.hasOverflow
     ? model.nodes.length * 96
     : undefined
 
   const scrollTimeline = (direction: -1 | 1) => {
-    scrollerRef.current?.scrollBy({ left: direction * 240 })
+    scrollerRef.current?.scrollBy({
+      left: direction * 240 * (textDirection === 'rtl' ? -1 : 1),
+    })
   }
 
   return (
@@ -347,70 +362,75 @@ export function ActivityTimeline({
             <div
               data-testid="activity-timeline-edge-start"
               aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-[linear-gradient(to_right,hsl(var(--background)),transparent)]"
+              className="pointer-events-none absolute inset-y-0 start-0 z-10 w-10 bg-[linear-gradient(to_right,hsl(var(--background)),transparent)] rtl:bg-[linear-gradient(to_left,hsl(var(--background)),transparent)]"
             />
             <div
               data-testid="activity-timeline-edge-end"
               aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-[linear-gradient(to_left,hsl(var(--background)),transparent)]"
+              className="pointer-events-none absolute inset-y-0 end-0 z-10 w-10 bg-[linear-gradient(to_left,hsl(var(--background)),transparent)] rtl:bg-[linear-gradient(to_right,hsl(var(--background)),transparent)]"
             />
             <Button
               type="button"
               variant="outline"
               size="icon-xs"
-              className="absolute left-0 top-0 z-20 bg-background motion-reduce:transition-none"
+              className="absolute start-0 top-0 z-20 bg-background motion-reduce:transition-none"
               aria-label={t(
                 'panel.downloads.inspector.activity.timeline.previous'
               )}
               onClick={() => scrollTimeline(-1)}
             >
-              <ChevronLeft aria-hidden="true" />
+              <ChevronLeftIcon aria-hidden="true" className="rtl:rotate-180" />
             </Button>
             <Button
               type="button"
               variant="outline"
               size="icon-xs"
-              className="absolute right-0 top-0 z-20 bg-background motion-reduce:transition-none"
+              className="absolute end-0 top-0 z-20 bg-background motion-reduce:transition-none"
               aria-label={t('panel.downloads.inspector.activity.timeline.next')}
               onClick={() => scrollTimeline(1)}
             >
-              <ChevronRight aria-hidden="true" />
+              <ChevronRightIcon aria-hidden="true" className="rtl:rotate-180" />
             </Button>
           </>
         )}
-        <div
-          ref={scrollerRef}
-          data-testid="activity-timeline-scroller"
-          className="overflow-x-auto overflow-y-hidden py-1"
-        >
-          <div
-            className="relative grid min-h-16 items-start gap-1 px-1"
-            style={{
-              gridTemplateColumns: `repeat(${Math.max(1, model.nodes.length)}, minmax(72px, 1fr))`,
-              minWidth: minimumWidth,
-            }}
+        <ScrollArea>
+          <ScrollAreaViewport
+            ref={scrollerRef}
+            data-testid="activity-timeline-scroller"
+            style={{ overflowX: 'auto', overflowY: 'hidden' }}
           >
-            {model.nodes.length > 1 && (
+            <ScrollAreaContent className="py-1">
               <div
-                aria-hidden="true"
-                className="pointer-events-none absolute left-[calc(50%/var(--activity-node-count))] right-[calc(50%/var(--activity-node-count))] top-2.5 border-t border-border"
-                style={
-                  {
-                    '--activity-node-count': model.nodes.length,
-                  } as CSSProperties
-                }
-              />
-            )}
-            {model.nodes.map((node) => (
-              <TimelineNodeView
-                key={node.id}
-                node={node}
-                selected={selectedNodeId === node.id}
-                onSelect={() => onSelectNode(node)}
-              />
-            ))}
-          </div>
-        </div>
+                className="relative grid min-h-16 items-start gap-1 px-1"
+                style={{
+                  gridTemplateColumns: `repeat(${Math.max(1, model.nodes.length)}, minmax(72px, 1fr))`,
+                  minWidth: minimumWidth,
+                }}
+              >
+                {model.nodes.length > 1 && (
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute left-[calc(50%/var(--activity-node-count))] right-[calc(50%/var(--activity-node-count))] top-2.5 border-t border-border"
+                    style={
+                      {
+                        '--activity-node-count': model.nodes.length,
+                      } as CSSProperties
+                    }
+                  />
+                )}
+                {model.nodes.map((node) => (
+                  <TimelineNodeView
+                    key={node.id}
+                    node={node}
+                    selected={selectedNodeId === node.id}
+                    onSelect={() => onSelectNode(node)}
+                  />
+                ))}
+              </div>
+            </ScrollAreaContent>
+          </ScrollAreaViewport>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
       </div>
     </section>
   )

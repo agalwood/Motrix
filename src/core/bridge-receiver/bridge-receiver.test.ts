@@ -1,10 +1,12 @@
 import { NOOP_TASK_ACTIVITY_RECORDER } from '@core/activity'
 import type { SegmentAria2 } from '@core/download/segment-downloader'
+import { MediaTaskCoordinator } from '@core/task/media-task-coordinator'
 import { TaskManager } from '@core/task/task-manager'
 import { ErrorCodes } from '@motrix/mdxp'
 import { Events } from '@shared/protocol/events'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
+import { makeMediaMetaStoreStub } from '@test-utils/media-meta-store'
 import { makeDownloadTask } from '@test-utils/task'
 import { describe, expect, it, vi } from 'vitest'
 import { BridgeReceiver } from './bridge-receiver'
@@ -23,7 +25,8 @@ function fakeDeps(
   over: Partial<ConstructorParameters<typeof BridgeReceiver>[0]> = {}
 ) {
   return {
-    defaultSaveDir: '/tmp/save',
+    mediaMetaStore: makeMediaMetaStoreStub(),
+    getDefaultSaveDir: () => '/tmp/save',
     pickName: async (_d: string, n: string) => n,
     createTask: vi.fn(async () => ({ gid: 'gid-1', taskId: 'task-abc' })),
     removeTask: vi.fn(async () => {}),
@@ -226,7 +229,10 @@ describe('BridgeReceiver', () => {
           pageTitle: 'P',
           detectedAt: 1,
         },
-        selection: { kind: 'magnet', uri: 'magnet:?xt=urn:btih:abc' },
+        selection: {
+          kind: 'magnet',
+          uri: 'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
+        },
         meta: { suggestedFilename: 'm', qualityLabel: 'file' },
       },
       {
@@ -236,7 +242,10 @@ describe('BridgeReceiver', () => {
     expect(out).toEqual({ taskId: 'mt1' })
     expect((createTask.mock.calls as unknown[][])[0]?.[0]).toMatchObject({
       type: 'bt',
-      payload: { kind: 'magnet', uri: 'magnet:?xt=urn:btih:abc' },
+      payload: {
+        kind: 'magnet',
+        uri: 'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
+      },
     })
   })
 
@@ -294,6 +303,82 @@ describe('BridgeReceiver', () => {
         browser: 'chromium' as const,
       },
     } as never
+
+    it.each(['hls', 'dash', 'mux', 'resolved-page', 'desktop-mux'] as const)(
+      'uses newly configured FFmpeg without rebuilding the %s pipeline',
+      async (kind) => {
+        let binaryPath: string | null = null
+        const deps = fakeDeps({
+          ffmpegBinaryPath: null,
+          resolveFfmpegBinaryPath: async () => binaryPath,
+          fetchManifest: vi.fn(
+            async () =>
+              '#EXTM3U\n#EXTINF:5,\nhttps://example.com/0.ts\n#EXT-X-ENDLIST'
+          ),
+          resolveToMux: async () => ({
+            videoUrl: 'https://example.com/v.mp4',
+            audioUrl: 'https://example.com/a.m4a',
+            container: 'mp4' as const,
+          }),
+        })
+        const receiver = new BridgeReceiver(deps as never)
+        const submit = vi
+          .spyOn(MediaTaskCoordinator.prototype, 'submit')
+          .mockResolvedValue({ taskId: 'accepted' })
+        try {
+          const attempt = () => {
+            if (kind === 'desktop-mux')
+              return receiver.muxPipeline!.dispatch({
+                kind: 'mux',
+                taskId: 'desktop',
+                saveDir: '/tmp/save',
+                finalName: 'out.mp4',
+                videoUrl: 'https://example.com/v.mp4',
+                audioUrl: 'https://example.com/a.m4a',
+                sanitizedHeaders: {},
+                container: 'mp4',
+                sourceMeta: {},
+              } as never)
+            const params =
+              kind === 'mux'
+                ? muxSubmitParams
+                : kind === 'resolved-page'
+                  ? {
+                      ...hlsSubmitParams,
+                      selection: {
+                        kind: 'direct',
+                        primary: hlsSubmitParams.selection.primary,
+                      },
+                    }
+                  : {
+                      ...hlsSubmitParams,
+                      selection: { ...hlsSubmitParams.selection, kind },
+                    }
+            return receiver.handle(params as never, extCtx)
+          }
+          expect(receiver.muxPipeline).toBeDefined()
+          await expect(attempt()).rejects.toMatchObject({
+            code: 'unsupported-kind',
+          })
+          expect(submit).not.toHaveBeenCalled()
+          expect(deps.fetchManifest).not.toHaveBeenCalled()
+          binaryPath = '/configured/ffmpeg'
+          if (kind === 'dash')
+            vi.mocked(deps.fetchManifest!).mockResolvedValue(
+              '<MPD type="static" mediaPresentationDuration="PT5S"><Period><AdaptationSet mimeType="video/mp4"><Representation id="v" bandwidth="1000"><BaseURL>https://example.com/v.mp4</BaseURL><SegmentList duration="5"><SegmentURL media="https://example.com/0.m4s" /></SegmentList></Representation></AdaptationSet></Period></MPD>'
+            )
+          await expect(attempt()).resolves.toEqual({ taskId: 'accepted' })
+          expect(submit).toHaveBeenCalledTimes(1)
+          binaryPath = null
+          await expect(attempt()).rejects.toMatchObject({
+            code: 'unsupported-kind',
+          })
+          expect(submit).toHaveBeenCalledTimes(1)
+        } finally {
+          submit.mockRestore()
+        }
+      }
+    )
 
     it('hls submit throws unsupported-kind when ffmpegBinaryPath is null', async () => {
       const deps = fakeDeps({ ffmpegBinaryPath: null })

@@ -7,8 +7,10 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
+import { createBtStoragePlan } from '@test-utils/legacy-bt-storage'
+import { makeMediaProgress } from '@test-utils/media-progress'
 import { describe, expect, it } from 'vitest'
-import { btStoragePayload, createBtStoragePlan } from './bt-storage-layout'
+import { btStoragePayload } from './bt-storage-layout'
 import { taskRowToDownloadTask } from './task-row-to-download-task'
 
 function makeTaskRow(overrides: Partial<TaskRow> = {}): TaskRow {
@@ -69,6 +71,66 @@ function makeInstance(phase: TaskInstancePhase): TaskInstanceRow {
 }
 
 describe('taskRowToDownloadTask', () => {
+  it('restores media progress from the phase payload even when instance order differs', () => {
+    const primary = makeInstance(TaskInstancePhase.HlsSegment)
+    primary.payload.mediaProgress = makeMediaProgress()
+    const task = taskRowToDownloadTask(
+      makeTaskRow({
+        kind: TaskKind.Hls,
+        totalBytes: 100,
+        downloadedBytes: 100,
+      }),
+      [makeInstance(TaskInstancePhase.FfmpegMux), primary]
+    )
+    expect(task.progress).toBe(0.001)
+    expect(task.totalBytes).toBe(0)
+    expect(task.sizeWhenDone).toBe(0)
+    expect(task.mediaProgress?.download.completedParts).toBe(1)
+  })
+
+  it.each([
+    undefined,
+    { version: 2 },
+    { version: 1, download: { progress: 1 } },
+  ])(
+    'does not restore false 100 percent from legacy/corrupt media bytes: %s',
+    (mediaProgress) => {
+      const primary = makeInstance(TaskInstancePhase.HlsSegment)
+      primary.payload.mediaProgress = mediaProgress
+      const task = taskRowToDownloadTask(
+        makeTaskRow({
+          kind: TaskKind.Hls,
+          totalBytes: 100,
+          downloadedBytes: 100,
+          sizeWhenDone: 100,
+        }),
+        [primary]
+      )
+      expect(task.mediaProgress).toBeUndefined()
+      expect(task.progress).toBe(0)
+      expect(task.totalBytes).toBe(0)
+      expect(task.sizeWhenDone).toBe(0)
+    }
+  )
+
+  it.each([
+    ['g1', 25, 125],
+    ['reseed-gid', 10, 135],
+  ])(
+    'restores settled upload for %s without double counting',
+    (gid, upload, expected) => {
+      const primary = makeInstance(TaskInstancePhase.BtDownload)
+      primary.gid = gid
+      primary.uploadedBytes = upload
+      primary.payload.btFinalizeUpload = { gid: 'g1', bytes: 25 }
+      const restored = taskRowToDownloadTask(
+        makeTaskRow({ uploadedBytesBaseline: 125 }),
+        [primary]
+      )
+      expect(restored.uploadedBytes).toBe(expected)
+    }
+  )
+
   it('uses the canonical persisted BT type', () => {
     const task = taskRowToDownloadTask(makeTaskRow(), [
       makeInstance(TaskInstancePhase.BtDownload),

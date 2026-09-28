@@ -1,5 +1,6 @@
 import type { SpeedPoint } from '@shared/types/stats'
-import { formatBytes } from './format'
+
+export { formatSpeed } from '@shared/utils/format-bytes'
 
 export const SPEED_CHART_MIN_POINTS = 24
 const DEFAULT_STEP_MS = 1_000
@@ -25,6 +26,62 @@ export function normalizeSpeedHistory(
   }))
 
   return [...padding, ...history]
+}
+
+/** Select observed points by triangle area, retaining endpoints and the peak. */
+export function sampleSpeedHistory(
+  history: readonly SpeedPoint[],
+  maxPoints: number,
+  direction: 'up' | 'down'
+): readonly SpeedPoint[] {
+  const limit = Math.max(3, Math.floor(maxPoints))
+  if (history.length <= limit) return history
+
+  const peakIndex = history.reduce(
+    (peak, point, index) =>
+      point[direction] > history[peak][direction] ? index : peak,
+    0
+  )
+  const bucketSize = (history.length - 2) / (limit - 2)
+  const sampled = [history[0]]
+  let previous = history[0]
+
+  for (let bucket = 0; bucket < limit - 2; bucket++) {
+    const start = Math.floor(bucket * bucketSize) + 1
+    const end = Math.floor((bucket + 1) * bucketSize) + 1
+    const nextEnd = Math.min(
+      Math.floor((bucket + 2) * bucketSize) + 1,
+      history.length
+    )
+    let averageTime = 0
+    let averageSpeed = 0
+    for (let index = end; index < nextEnd; index++) {
+      averageTime += history[index].t
+      averageSpeed += history[index][direction]
+    }
+    averageTime /= nextEnd - end
+    averageSpeed /= nextEnd - end
+
+    let selected = start
+    let largestArea = -1
+    for (let index = start; index < end; index++) {
+      const point = history[index]
+      const area = Math.abs(
+        (previous.t - averageTime) * (point[direction] - previous[direction]) -
+          (previous.t - point.t) * (averageSpeed - previous[direction])
+      )
+      if (area > largestArea) {
+        largestArea = area
+        selected = index
+      }
+    }
+    if (peakIndex >= start && peakIndex < end) selected = peakIndex
+    previous = history[selected]
+    sampled.push(previous)
+  }
+
+  sampled.push(history[history.length - 1])
+  return sampled
 }
 
 export function normalizeObservedSpeedHistory<T extends SpeedPoint>(
@@ -58,9 +115,4 @@ export function chartCeiling(value: number): number {
   const normalized = value / power
   const step = normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10
   return step * power
-}
-
-export function formatSpeed(bytesPerSecond: number): string {
-  if (!Number.isFinite(bytesPerSecond) || bytesPerSecond < 1) return '0 B/s'
-  return `${formatBytes(bytesPerSecond)}/s`
 }

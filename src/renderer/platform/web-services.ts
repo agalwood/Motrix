@@ -4,34 +4,59 @@ import type { PlatformServices } from './services'
 
 const SHA256_RE = /^[0-9a-f]{64}$/
 
-type PickRequest = { defaultPath?: string }
+export type PickRequest = {
+  id: number
+  defaultPath?: string
+  allowFavoriteEditing?: boolean
+  opener: HTMLElement | null
+}
 type PickListener = (req: PickRequest) => void
 
-class PathPickerBus {
+export class PathPickerBus {
   private listeners: Set<PickListener> = new Set()
-  private pending: ((v: string | null) => void) | null = null
+  private pending: { id: number; resolve: (v: string | null) => void } | null =
+    null
+  private latestId = 0
 
   subscribe(cb: PickListener): () => void {
     this.listeners.add(cb)
-    return () => this.listeners.delete(cb)
+    return () => {
+      this.listeners.delete(cb)
+      if (this.listeners.size === 0 && this.pending)
+        this.resolve(this.pending.id, null)
+    }
   }
 
-  request(req: PickRequest): Promise<string | null> {
+  request(req: {
+    defaultPath?: string
+    allowFavoriteEditing?: boolean
+  }): Promise<string | null> {
+    const id = ++this.latestId
+    const opener =
+      typeof document !== 'undefined' &&
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null
     if (this.pending) {
-      this.pending(null)
+      this.pending.resolve(null)
       this.pending = null
     }
+    if (this.listeners.size === 0) return Promise.resolve(null)
     return new Promise((resolve) => {
-      this.pending = resolve
-      for (const l of this.listeners) l(req)
+      this.pending = { id, resolve }
+      for (const l of this.listeners) l({ ...req, id, opener })
     })
   }
 
-  resolve(value: string | null): void {
-    if (this.pending) {
-      this.pending(value)
+  resolve(id: number, value: string | null): void {
+    if (this.pending?.id === id) {
+      this.pending.resolve(value)
       this.pending = null
     }
+  }
+
+  canRestoreFocus(id: number): boolean {
+    return this.latestId === id && this.pending === null
   }
 }
 
@@ -96,8 +121,8 @@ export function createWebServices(
       },
     },
 
-    pickSaveDir(defaultPath) {
-      return __webPathPickerBus.request({ defaultPath })
+    pickSaveDir(defaultPath, options) {
+      return __webPathPickerBus.request({ defaultPath, ...options })
     },
 
     closeHost() {
