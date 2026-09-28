@@ -1280,8 +1280,8 @@
       "lightweightModeDesc": "Ahorra memoria al cerrar la ventana. Las descargas continúan, pero volver a abrirla tarda más y se borran los datos sin guardar.",
       "byteUnitSystem": "Unidades de tamaño y velocidad",
       "byteUnitSystemDesc": "Elige cómo se muestran los tamaños de archivo y las velocidades.",
-      "byteUnitDecimal": "Decimal (MB, GB · 1000)",
-      "byteUnitBinary": "Binario (MiB, GiB · 1024)",
+      "byteUnitDecimal": "Decimal ({{megabyte}}, {{gigabyte}} · 1000)",
+      "byteUnitBinary": "Binario ({{megabyte}}, {{gigabyte}} · 1024)",
       "byteUnitSystemDefault": "Del sistema ({{units}})",
       "sidebarColor": "Color de acento",
       "sidebarColors": {
@@ -1517,7 +1517,7 @@
         "maxConnectionPerServerDesc": "Límite de conexiones a un servidor por archivo.",
         "split": "Máximo de conexiones por archivo",
         "splitDesc": "Conexiones usadas para descargar un archivo.",
-        "minSplitSize": "Tamaño mínimo de segmento (MiB)",
+        "minSplitSize": "Tamaño mínimo de segmento ({{unit}})",
         "minSplitSizeDesc": "Los segmentos menores que el doble de este tamaño no se dividen."
       },
       "reliability": {
@@ -1532,7 +1532,7 @@
         "maxTriesDesc": "Incluye el primer intento. 0 = sin límite.",
         "retryWait": "Espera entre reintentos (s)",
         "retryWaitDesc": "Tiempo de espera antes de volver a intentarlo.",
-        "lowestSpeedLimit": "Velocidad mínima de conexión (KiB/s)",
+        "lowestSpeedLimit": "Velocidad mínima de conexión ({{unit}})",
         "lowestSpeedLimitDesc": "Desconecta si la velocidad es inferior. 0 = desactivado."
       },
       "disk": {
@@ -1552,7 +1552,7 @@
         "modifiedTimeDesc": "Para las descargas HTTP y FTP completadas.",
         "modifiedTimeLocal": "Fecha de descarga",
         "modifiedTimeServer": "Fecha del servidor",
-        "diskCache": "Caché de disco (MiB)",
+        "diskCache": "Caché de disco ({{unit}})",
         "diskCacheDesc": "Memoria usada para almacenar archivos temporalmente antes de escribirlos en el disco.",
         "sessionSaveInterval": "Intervalo de guardado del progreso (s)",
         "sessionSaveIntervalDesc": "Guarda con más frecuencia para reducir el progreso perdido tras un fallo."
@@ -2808,5 +2808,23 @@
     },
     "manageAction": "Gestionar",
     "alreadyFavorite": "Ya está en favoritas"
+  },
+  "units": {
+    "bytes": {
+      "b": "B",
+      "kb": "KB",
+      "mb": "MB",
+      "gb": "GB",
+      "tb": "TB",
+      "pb": "PB",
+      "eb": "EB",
+      "kib": "KiB",
+      "mib": "MiB",
+      "gib": "GiB",
+      "tib": "TiB",
+      "pib": "PiB",
+      "eib": "EiB"
+    },
+    "perSecond": "{{value}}/s"
   }
 }

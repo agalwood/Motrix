@@ -1709,8 +1709,8 @@
       }
     },
     "appearance": {
-      "byteUnitBinary": "دودویی (MiB، GiB · 1024)",
-      "byteUnitDecimal": "ده‌دهی (MB، GB · 1000)",
+      "byteUnitBinary": "دودویی ({{megabyte}}، {{gigabyte}} · 1024)",
+      "byteUnitDecimal": "ده‌دهی ({{megabyte}}، {{gigabyte}} · 1000)",
       "byteUnitSystem": "واحدهای اندازه و سرعت",
       "byteUnitSystemDefault": "پیروی از سیستم ({{units}})",
       "byteUnitSystemDesc": "نحوهٔ نمایش اندازهٔ فایل‌ها و سرعت‌ها را انتخاب کنید.",
@@ -1900,7 +1900,7 @@
       "defaultDownloadFolder": "پوشهٔ دانلود پیش‌فرض",
       "description": "فایل‌ها، سرعت دانلود و اتصال‌ها",
       "disk": {
-        "diskCache": "حافظهٔ نهان دیسک (MiB)",
+        "diskCache": "حافظهٔ نهان دیسک ({{unit}})",
         "diskCacheDesc": "حافظهٔ مورد استفاده برای نگه‌داری موقت فایل‌ها پیش از نوشتن روی دیسک.",
         "fileAllocation": "رزرو فضای دیسک",
         "fileAllocationDesc": "پیش از دانلود فایل، فضا رزرو شود.",
@@ -1941,7 +1941,7 @@
           "minimum": "حداقل اندازهٔ بخش",
           "perServer": "حد هر سرور"
         },
-        "minSplitSize": "حداقل اندازهٔ بخش (MiB)",
+        "minSplitSize": "حداقل اندازهٔ بخش ({{unit}})",
         "minSplitSizeDesc": "بخش‌های کوچک‌تر از دو برابر این اندازه تقسیم نمی‌شوند.",
         "profile": "کارایی دانلود",
         "profileDesc": "میان سرعت دانلود و مصرف منابع تعادل برقرار کنید.",
@@ -1974,7 +1974,7 @@
       "reliability": {
         "connectTimeout": "مهلت اتصال (ثانیه)",
         "connectTimeoutDesc": "مدت انتظار برای برقراری اتصال.",
-        "lowestSpeedLimit": "حداقل سرعت اتصال (KiB/s)",
+        "lowestSpeedLimit": "حداقل سرعت اتصال ({{unit}})",
         "lowestSpeedLimitDesc": "زیر این سرعت، اتصال قطع شود. 0 = غیرفعال.",
         "maxTries": "حداکثر تلاش‌ها",
         "maxTriesDesc": "شامل تلاش اول است. 0 = نامحدود.",
@@ -2786,5 +2786,23 @@
     "preferences": "تنظیمات",
     "quit": "خروج",
     "showMotrix": "نمایش Motrix"
+  },
+  "units": {
+    "bytes": {
+      "b": "B",
+      "kb": "KB",
+      "mb": "MB",
+      "gb": "GB",
+      "tb": "TB",
+      "pb": "PB",
+      "eb": "EB",
+      "kib": "KiB",
+      "mib": "MiB",
+      "gib": "GiB",
+      "tib": "TiB",
+      "pib": "PiB",
+      "eib": "EiB"
+    },
+    "perSecond": "{{value}}/ثانیه"
   }
 }

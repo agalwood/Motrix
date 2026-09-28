@@ -1294,8 +1294,8 @@
       "lightweightModeDesc": "Oszczędzaj pamięć po zamknięciu okna. Pobieranie trwa nadal, ale ponowne otwarcie zajmuje więcej czasu i usuwa niezapisane dane.",
       "byteUnitSystem": "Jednostki rozmiaru i prędkości",
       "byteUnitSystemDesc": "Wybierz sposób wyświetlania rozmiarów plików i prędkości.",
-      "byteUnitDecimal": "Dziesiętne (MB, GB · 1000)",
-      "byteUnitBinary": "Binarne (MiB, GiB · 1024)",
+      "byteUnitDecimal": "Dziesiętne ({{megabyte}}, {{gigabyte}} · 1000)",
+      "byteUnitBinary": "Binarne ({{megabyte}}, {{gigabyte}} · 1024)",
       "byteUnitSystemDefault": "Zgodnie z systemem ({{units}})",
       "sidebarColor": "Kolor akcentu",
       "sidebarColors": {
@@ -1531,7 +1531,7 @@
         "maxConnectionPerServerDesc": "Limit połączeń jednego pliku z jednym serwerem.",
         "split": "Maks. liczba połączeń na plik",
         "splitDesc": "Połączenia używane do pobierania jednego pliku.",
-        "minSplitSize": "Min. rozmiar segmentu (MiB)",
+        "minSplitSize": "Min. rozmiar segmentu ({{unit}})",
         "minSplitSizeDesc": "Segmenty mniejsze niż dwukrotność tego rozmiaru nie są dzielone."
       },
       "reliability": {
@@ -1546,7 +1546,7 @@
         "maxTriesDesc": "Obejmuje pierwszą próbę. 0 = bez limitu.",
         "retryWait": "Odstęp między próbami (s)",
         "retryWaitDesc": "Czas oczekiwania przed kolejną próbą.",
-        "lowestSpeedLimit": "Minimalna prędkość połączenia (KiB/s)",
+        "lowestSpeedLimit": "Minimalna prędkość połączenia ({{unit}})",
         "lowestSpeedLimitDesc": "Rozłącz poniżej tej prędkości. 0 = wyłączone."
       },
       "disk": {
@@ -1566,7 +1566,7 @@
         "modifiedTimeDesc": "Dotyczy ukończonych pobrań HTTP i FTP.",
         "modifiedTimeLocal": "Czas pobrania",
         "modifiedTimeServer": "Czas z serwera",
-        "diskCache": "Pamięć podręczna dysku (MiB)",
+        "diskCache": "Pamięć podręczna dysku ({{unit}})",
         "diskCacheDesc": "Pamięć używana do buforowania plików przed zapisem na dysk.",
         "sessionSaveInterval": "Odstęp zapisywania postępu (s)",
         "sessionSaveIntervalDesc": "Zapisuj częściej, aby ograniczyć utratę postępu po awarii."
@@ -2830,5 +2830,23 @@
     },
     "manageAction": "Zarządzaj",
     "alreadyFavorite": "Już w ulubionych"
+  },
+  "units": {
+    "bytes": {
+      "b": "B",
+      "kb": "KB",
+      "mb": "MB",
+      "gb": "GB",
+      "tb": "TB",
+      "pb": "PB",
+      "eb": "EB",
+      "kib": "KiB",
+      "mib": "MiB",
+      "gib": "GiB",
+      "tib": "TiB",
+      "pib": "PiB",
+      "eib": "EiB"
+    },
+    "perSecond": "{{value}}/s"
   }
 }

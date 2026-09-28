@@ -8,6 +8,7 @@ import {
   FormMessage,
 } from '@renderer/components/ui/form'
 import { Input } from '@renderer/components/ui/input'
+import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import type { UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import {
@@ -34,6 +35,11 @@ export function EngineNumberSettingRow({
   presets,
 }: EngineNumberSettingRowProps) {
   const { t } = useTranslation()
+  const { formatByteUnit } = useByteFormat()
+  const unit =
+    name === 'lowestSpeedLimit'
+      ? formatByteUnit('KiB', true)
+      : formatByteUnit('MiB')
   const { min, max, scale, hasUpperBound } = getEngineNumberRules(name)
   const scaledPresets = presets?.map((preset) => ({
     ...preset,
@@ -52,7 +58,7 @@ export function EngineNumberSettingRow({
           <FormItem className="space-y-2">
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-1">
-                <FormLabel>{t(labelKey)}</FormLabel>
+                <FormLabel>{t(labelKey, { unit })}</FormLabel>
                 <FormDescription className="text-xs">
                   {t(descKey)}{' '}
                   {t(

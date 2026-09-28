@@ -1252,8 +1252,8 @@
       "lightweightModeDesc": "Tiết kiệm bộ nhớ khi đóng cửa sổ. Tải xuống vẫn tiếp tục, nhưng cửa sổ mở lại lâu hơn và nội dung chưa lưu sẽ bị xóa.",
       "byteUnitSystem": "Đơn vị kích thước và tốc độ",
       "byteUnitSystemDesc": "Chọn cách hiển thị kích thước tệp và tốc độ.",
-      "byteUnitDecimal": "Thập phân (MB, GB · 1000)",
-      "byteUnitBinary": "Nhị phân (MiB, GiB · 1024)",
+      "byteUnitDecimal": "Thập phân ({{megabyte}}, {{gigabyte}} · 1000)",
+      "byteUnitBinary": "Nhị phân ({{megabyte}}, {{gigabyte}} · 1024)",
       "byteUnitSystemDefault": "Theo hệ thống ({{units}})",
       "sidebarColor": "Màu nhấn",
       "sidebarColors": {
@@ -1489,7 +1489,7 @@
         "maxConnectionPerServerDesc": "Giới hạn kết nối cho một tệp từ một máy chủ.",
         "split": "Số kết nối tối đa mỗi tệp",
         "splitDesc": "Số kết nối dùng để tải xuống một tệp.",
-        "minSplitSize": "Kích thước đoạn tối thiểu (MiB)",
+        "minSplitSize": "Kích thước đoạn tối thiểu ({{unit}})",
         "minSplitSizeDesc": "Các đoạn nhỏ hơn 2× giá trị này sẽ không được chia nhỏ."
       },
       "reliability": {
@@ -1504,7 +1504,7 @@
         "maxTriesDesc": "Bao gồm lần thử đầu tiên. 0 = không giới hạn.",
         "retryWait": "Thời gian đợi trước khi thử lại (giây)",
         "retryWaitDesc": "Đợi khoảng thời gian này trước khi thử lại.",
-        "lowestSpeedLimit": "Tốc độ kết nối tối thiểu (KiB/s)",
+        "lowestSpeedLimit": "Tốc độ kết nối tối thiểu ({{unit}})",
         "lowestSpeedLimitDesc": "Ngắt kết nối khi tốc độ thấp hơn giá trị này. 0 = tắt."
       },
       "disk": {
@@ -1524,7 +1524,7 @@
         "modifiedTimeDesc": "Áp dụng cho các lượt tải xuống HTTP và FTP đã hoàn tất.",
         "modifiedTimeLocal": "Thời gian tải xuống",
         "modifiedTimeServer": "Thời gian từ máy chủ",
-        "diskCache": "Bộ nhớ đệm ổ đĩa (MiB)",
+        "diskCache": "Bộ nhớ đệm ổ đĩa ({{unit}})",
         "diskCacheDesc": "Bộ nhớ dùng để đệm dữ liệu tệp trước khi ghi vào ổ đĩa.",
         "sessionSaveInterval": "Khoảng thời gian lưu tiến độ (giây)",
         "sessionSaveIntervalDesc": "Lưu thường xuyên hơn để giảm lượng tiến độ bị mất khi ứng dụng gặp sự cố."
@@ -2764,5 +2764,23 @@
     },
     "manageAction": "Quản lý",
     "alreadyFavorite": "Đã có trong mục yêu thích"
+  },
+  "units": {
+    "bytes": {
+      "b": "B",
+      "kb": "KB",
+      "mb": "MB",
+      "gb": "GB",
+      "tb": "TB",
+      "pb": "PB",
+      "eb": "EB",
+      "kib": "KiB",
+      "mib": "MiB",
+      "gib": "GiB",
+      "tib": "TiB",
+      "pib": "PiB",
+      "eib": "EiB"
+    },
+    "perSecond": "{{value}}/giây"
   }
 }

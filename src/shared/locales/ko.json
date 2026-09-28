@@ -1252,8 +1252,8 @@
       "lightweightModeDesc": "창을 닫으면 메모리를 절약합니다. 다운로드는 계속되지만 창을 다시 여는 데 더 오래 걸리며 저장하지 않은 입력 내용은 지워집니다.",
       "byteUnitSystem": "크기 및 속도 단위",
       "byteUnitSystemDesc": "파일 크기와 속도의 표시 방식을 선택하세요.",
-      "byteUnitDecimal": "십진수(MB, GB · 1000)",
-      "byteUnitBinary": "이진수(MiB, GiB · 1024)",
+      "byteUnitDecimal": "십진수({{megabyte}}, {{gigabyte}} · 1000)",
+      "byteUnitBinary": "이진수({{megabyte}}, {{gigabyte}} · 1024)",
       "byteUnitSystemDefault": "시스템 설정 따르기({{units}})",
       "sidebarColor": "강조 색상",
       "sidebarColors": {
@@ -1489,7 +1489,7 @@
         "maxConnectionPerServerDesc": "한 서버에서 파일 하나를 다운로드할 때의 연결 수 제한입니다.",
         "split": "파일당 최대 연결 수",
         "splitDesc": "파일 하나를 다운로드하는 데 사용하는 연결 수입니다.",
-        "minSplitSize": "최소 세그먼트 크기(MiB)",
+        "minSplitSize": "최소 세그먼트 크기({{unit}})",
         "minSplitSizeDesc": "이 크기의 2배보다 작은 세그먼트는 분할하지 않습니다."
       },
       "reliability": {
@@ -1504,7 +1504,7 @@
         "maxTriesDesc": "첫 시도를 포함합니다. 0 = 무제한.",
         "retryWait": "재시도 대기 시간(초)",
         "retryWaitDesc": "다시 시도하기 전에 기다리는 시간입니다.",
-        "lowestSpeedLimit": "최소 연결 속도(KiB/s)",
+        "lowestSpeedLimit": "최소 연결 속도({{unit}})",
         "lowestSpeedLimitDesc": "속도가 이 값보다 낮으면 연결을 끊습니다. 0 = 사용 안 함."
       },
       "disk": {
@@ -1524,7 +1524,7 @@
         "modifiedTimeDesc": "완료된 HTTP 및 FTP 다운로드에 적용됩니다.",
         "modifiedTimeLocal": "다운로드 시간",
         "modifiedTimeServer": "서버에서 제공한 시간",
-        "diskCache": "디스크 캐시(MiB)",
+        "diskCache": "디스크 캐시({{unit}})",
         "diskCacheDesc": "디스크에 쓰기 전에 파일 데이터를 임시 보관하는 메모리입니다.",
         "sessionSaveInterval": "진행 상황 저장 간격(초)",
         "sessionSaveIntervalDesc": "자주 저장하면 비정상 종료 시 잃는 진행 상황을 줄일 수 있습니다."
@@ -2764,5 +2764,23 @@
     },
     "manageAction": "관리",
     "alreadyFavorite": "이미 즐겨찾기에 있음"
+  },
+  "units": {
+    "bytes": {
+      "b": "B",
+      "kb": "KB",
+      "mb": "MB",
+      "gb": "GB",
+      "tb": "TB",
+      "pb": "PB",
+      "eb": "EB",
+      "kib": "KiB",
+      "mib": "MiB",
+      "gib": "GiB",
+      "tib": "TiB",
+      "pib": "PiB",
+      "eib": "EiB"
+    },
+    "perSecond": "{{value}}/초"
   }
 }

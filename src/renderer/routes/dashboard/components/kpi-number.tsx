@@ -14,7 +14,8 @@ const SIZE: Record<NonNullable<KpiNumberProps['variant']>, string> = {
   compact: 'text-[18px]',
 }
 
-const VALUE_WITH_UNIT = /^(-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?)\s+(.+)$/
+const VALUE_WITH_UNIT =
+  /^(-?\p{Decimal_Number}+(?:[.,\u066b\u066c\u00a0\u202f]\p{Decimal_Number}+)*)\s+(.+)$/u
 
 function splitValueUnit(
   value: string | number

@@ -1266,8 +1266,8 @@
       "lightweightModeDesc": "Bei geschlossenem Fenster Arbeitsspeicher sparen. Downloads laufen weiter, aber das erneute Öffnen dauert länger und nicht gespeicherte Eingaben werden verworfen.",
       "byteUnitSystem": "Einheiten für Größe und Geschwindigkeit",
       "byteUnitSystemDesc": "Wählen Sie die Anzeigeeinheiten für Dateigrößen und Übertragungsgeschwindigkeiten.",
-      "byteUnitDecimal": "Dezimal (MB, GB · 1000)",
-      "byteUnitBinary": "Binär (MiB, GiB · 1024)",
+      "byteUnitDecimal": "Dezimal ({{megabyte}}, {{gigabyte}} · 1000)",
+      "byteUnitBinary": "Binär ({{megabyte}}, {{gigabyte}} · 1024)",
       "byteUnitSystemDefault": "Systemvorgabe ({{units}})",
       "sidebarColor": "Akzentfarbe",
       "sidebarColors": {
@@ -1503,7 +1503,7 @@
         "maxConnectionPerServerDesc": "Verbindungslimit je Datei zu einem Server.",
         "split": "Max. Verbindungen pro Datei",
         "splitDesc": "Verbindungen zum Herunterladen einer Datei.",
-        "minSplitSize": "Min. Segmentgröße (MiB)",
+        "minSplitSize": "Min. Segmentgröße ({{unit}})",
         "minSplitSizeDesc": "Segmente kleiner als das Doppelte dieses Werts werden nicht aufgeteilt."
       },
       "reliability": {
@@ -1518,7 +1518,7 @@
         "maxTriesDesc": "Einschließlich des ersten Versuchs. 0 = unbegrenzt.",
         "retryWait": "Wartezeit vor Wiederholung (s)",
         "retryWaitDesc": "So lange vor einem erneuten Versuch warten.",
-        "lowestSpeedLimit": "Minimale Verbindungsgeschwindigkeit (KiB/s)",
+        "lowestSpeedLimit": "Minimale Verbindungsgeschwindigkeit ({{unit}})",
         "lowestSpeedLimitDesc": "Verbindung unterhalb dieser Geschwindigkeit trennen. 0 = deaktiviert."
       },
       "disk": {
@@ -1538,7 +1538,7 @@
         "modifiedTimeDesc": "Für abgeschlossene HTTP- und FTP-Downloads.",
         "modifiedTimeLocal": "Download-Zeitpunkt",
         "modifiedTimeServer": "Zeitangabe des Servers",
-        "diskCache": "Datenträger-Cache (MiB)",
+        "diskCache": "Datenträger-Cache ({{unit}})",
         "diskCacheDesc": "Arbeitsspeicher zum Puffern von Dateien vor dem Schreiben auf den Datenträger.",
         "sessionSaveInterval": "Intervall zum Speichern des Fortschritts (s)",
         "sessionSaveIntervalDesc": "Häufiger speichern, um den Fortschrittsverlust bei einem Absturz zu verringern."
@@ -2786,5 +2786,23 @@
     },
     "manageAction": "Verwalten",
     "alreadyFavorite": "Bereits in den Favoriten"
+  },
+  "units": {
+    "bytes": {
+      "b": "B",
+      "kb": "KB",
+      "mb": "MB",
+      "gb": "GB",
+      "tb": "TB",
+      "pb": "PB",
+      "eb": "EB",
+      "kib": "KiB",
+      "mib": "MiB",
+      "gib": "GiB",
+      "tib": "TiB",
+      "pib": "PiB",
+      "eib": "EiB"
+    },
+    "perSecond": "{{value}}/s"
   }
 }

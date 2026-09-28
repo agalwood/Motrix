@@ -12,7 +12,6 @@ import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import type { TransferStatsState } from '@renderer/hooks/use-transfer-stats'
 import { cn } from '@renderer/lib/utils'
 import type { TransferRangeStats } from '@shared/types/stats'
-import { formatBytes as formatByteCount } from '@shared/utils/format-bytes'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { KpiNumber } from '../components/kpi-number'
@@ -282,7 +281,7 @@ export function TransferTile({
   viewport,
   className,
 }: TransferTileProps) {
-  const { unitSystem } = useByteFormat()
+  const { formatBytes } = useByteFormat()
 
   const { t, i18n } = useTranslation()
   const [scope, setScope] = useState<TransferScope>('today')
@@ -294,8 +293,7 @@ export function TransferTile({
   const range = snapshot?.[scope]
   const totalIsZero = range ? parseByteCount(range.totalBytes) === 0n : false
   const formattedTotal = range
-    ? formatByteCount(range.totalBytes, {
-        unitSystem,
+    ? formatBytes(range.totalBytes, {
         decimals: compact ? 1 : 2,
       })
     : null

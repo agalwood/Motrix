@@ -12,6 +12,8 @@ import { nativeImage, nativeTheme } from 'electron'
 
 // ─── formatSpeed (exported for testing) ─────────────────────
 
+// Fixed-width tray artwork uses an explicit font set without system glyph fallback.
+// Keep compact international symbols and ASCII numbers independent of UI locale.
 const UNITS = {
   decimal: ['KB/s', 'MB/s', 'GB/s', 'TB/s'],
   binary: ['KiB/s', 'MiB/s', 'GiB/s', 'TiB/s'],

@@ -1266,8 +1266,8 @@
       "lightweightModeDesc": "Save memory when the window is closed. Downloads continue, but reopening takes longer and clears unsaved input.",
       "byteUnitSystem": "Size and speed units",
       "byteUnitSystemDesc": "Choose how file sizes and speeds are displayed.",
-      "byteUnitDecimal": "Decimal (MB, GB · 1000)",
-      "byteUnitBinary": "Binary (MiB, GiB · 1024)",
+      "byteUnitDecimal": "Decimal ({{megabyte}}, {{gigabyte}} · 1000)",
+      "byteUnitBinary": "Binary ({{megabyte}}, {{gigabyte}} · 1024)",
       "byteUnitSystemDefault": "Follow system ({{units}})",
       "sidebarColor": "Accent color",
       "sidebarColors": {
@@ -1503,7 +1503,7 @@
         "maxConnectionPerServerDesc": "Per-file connection limit for one server.",
         "split": "Max connections per file",
         "splitDesc": "Connections used to download one file.",
-        "minSplitSize": "Min segment size (MiB)",
+        "minSplitSize": "Min segment size ({{unit}})",
         "minSplitSizeDesc": "Segments below 2× this size won’t split."
       },
       "reliability": {
@@ -1518,7 +1518,7 @@
         "maxTriesDesc": "Includes the first attempt. 0 = unlimited.",
         "retryWait": "Retry delay (s)",
         "retryWaitDesc": "Wait this long before trying again.",
-        "lowestSpeedLimit": "Minimum connection speed (KiB/s)",
+        "lowestSpeedLimit": "Minimum connection speed ({{unit}})",
         "lowestSpeedLimitDesc": "Disconnect below this speed. 0 = disabled."
       },
       "disk": {
@@ -1538,7 +1538,7 @@
         "modifiedTimeDesc": "For completed HTTP and FTP downloads.",
         "modifiedTimeLocal": "Download time",
         "modifiedTimeServer": "Time from server",
-        "diskCache": "Disk cache (MiB)",
+        "diskCache": "Disk cache ({{unit}})",
         "diskCacheDesc": "Memory used to buffer files before writing to disk.",
         "sessionSaveInterval": "Progress save interval (s)",
         "sessionSaveIntervalDesc": "Save more often to reduce progress lost after a crash."
@@ -2786,5 +2786,23 @@
     },
     "manageAction": "Manage",
     "alreadyFavorite": "Already in favorites"
+  },
+  "units": {
+    "bytes": {
+      "b": "B",
+      "kb": "KB",
+      "mb": "MB",
+      "gb": "GB",
+      "tb": "TB",
+      "pb": "PB",
+      "eb": "EB",
+      "kib": "KiB",
+      "mib": "MiB",
+      "gib": "GiB",
+      "tib": "TiB",
+      "pib": "PiB",
+      "eib": "EiB"
+    },
+    "perSecond": "{{value}}/s"
   }
 }

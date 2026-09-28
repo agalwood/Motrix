@@ -118,7 +118,7 @@ export function SpeedLimitSection({
 }: {
   form: UseFormReturn<DownloadsFields>
 }) {
-  const { unitSystem } = useByteFormat()
+  const { unitSystem, formatByteUnit } = useByteFormat()
   const kiloByte = unitSystem === 'binary' ? 1024 : 1000
 
   const { t } = useTranslation()
@@ -161,7 +161,10 @@ export function SpeedLimitSection({
               onValueChange={(value) =>
                 field.onChange(Math.round(value * kiloByte))
               }
-              unit={unitSystem === 'binary' ? 'KiB/s' : 'KB/s'}
+              unit={formatByteUnit(
+                unitSystem === 'binary' ? 'KiB' : 'KB',
+                true
+              )}
               zeroAction={zeroAction}
               zeroLabel={t(
                 zeroAction === 'inherit'

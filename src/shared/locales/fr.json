@@ -1728,8 +1728,8 @@
       }
     },
     "appearance": {
-      "byteUnitBinary": "Binaires (MiB, GiB · 1024)",
-      "byteUnitDecimal": "Décimales (MB, GB · 1000)",
+      "byteUnitBinary": "Binaires ({{megabyte}}, {{gigabyte}} · 1024)",
+      "byteUnitDecimal": "Décimales ({{megabyte}}, {{gigabyte}} · 1000)",
       "byteUnitSystem": "Unités de taille et de débit",
       "byteUnitSystemDefault": "Suivre le système ({{units}})",
       "byteUnitSystemDesc": "Choisissez les unités d’affichage des tailles de fichiers et des débits.",
@@ -1919,7 +1919,7 @@
       "defaultDownloadFolder": "Dossier de téléchargement par défaut",
       "description": "Fichiers, débit de téléchargement et connexions",
       "disk": {
-        "diskCache": "Cache disque (MiB)",
+        "diskCache": "Cache disque ({{unit}})",
         "diskCacheDesc": "Mémoire utilisée pour mettre les fichiers en tampon avant leur écriture sur le disque.",
         "fileAllocation": "Réserver l’espace disque",
         "fileAllocationDesc": "Réserver l’espace avant de télécharger un fichier.",
@@ -1960,7 +1960,7 @@
           "minimum": "Segment min.",
           "perServer": "Limite par serveur"
         },
-        "minSplitSize": "Taille minimale des segments (MiB)",
+        "minSplitSize": "Taille minimale des segments ({{unit}})",
         "minSplitSizeDesc": "Les segments inférieurs au double de cette taille ne sont pas divisés.",
         "profile": "Performances de téléchargement",
         "profileDesc": "Équilibrer le débit de téléchargement et l’utilisation des ressources.",
@@ -1993,7 +1993,7 @@
       "reliability": {
         "connectTimeout": "Délai de connexion (s)",
         "connectTimeoutDesc": "Durée maximale d’attente d’une connexion.",
-        "lowestSpeedLimit": "Débit minimal de connexion (KiB/s)",
+        "lowestSpeedLimit": "Débit minimal de connexion ({{unit}})",
         "lowestSpeedLimitDesc": "Déconnecter en dessous de ce débit. 0 = désactivé.",
         "maxTries": "Nombre maximal de tentatives",
         "maxTriesDesc": "Inclut la première tentative. 0 = illimité.",
@@ -2392,7 +2392,7 @@
         "restartHint": "Enregistré. Redémarrez Motrix pour que les extensions actives détectent les modifications.",
         "restartNow": "Redémarrer maintenant",
         "savedTitle": "Paramètres FFmpeg enregistrés",
-        "stagingMB": "Limite des fichiers temporaires (MB)",
+        "stagingMB": "Limite des fichiers temporaires (Mo)",
         "stagingMBDesc": "Espace pour les fichiers intermédiaires, par extension et par tâche.",
         "state": {
           "active": "Utilisé",
@@ -2808,5 +2808,23 @@
     "preferences": "Paramètres",
     "quit": "Quitter",
     "showMotrix": "Afficher Motrix"
+  },
+  "units": {
+    "bytes": {
+      "b": "o",
+      "kb": "ko",
+      "mb": "Mo",
+      "gb": "Go",
+      "tb": "To",
+      "pb": "Po",
+      "eb": "Eo",
+      "kib": "Kio",
+      "mib": "Mio",
+      "gib": "Gio",
+      "tib": "Tio",
+      "pib": "Pio",
+      "eib": "Eio"
+    },
+    "perSecond": "{{value}}/s"
   }
 }

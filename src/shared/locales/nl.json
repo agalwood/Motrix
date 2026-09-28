@@ -1709,8 +1709,8 @@
       }
     },
     "appearance": {
-      "byteUnitBinary": "Binair (MiB, GiB · 1024)",
-      "byteUnitDecimal": "Decimaal (MB, GB · 1000)",
+      "byteUnitBinary": "Binair ({{megabyte}}, {{gigabyte}} · 1024)",
+      "byteUnitDecimal": "Decimaal ({{megabyte}}, {{gigabyte}} · 1000)",
       "byteUnitSystem": "Eenheden voor grootte en snelheid",
       "byteUnitSystemDefault": "Systeem volgen ({{units}})",
       "byteUnitSystemDesc": "Kies hoe bestandsgroottes en snelheden worden weergegeven.",
@@ -1900,7 +1900,7 @@
       "defaultDownloadFolder": "Standaarddownloadmap",
       "description": "Bestanden, downloadsnelheid en verbindingen",
       "disk": {
-        "diskCache": "Schijfcache (MiB)",
+        "diskCache": "Schijfcache ({{unit}})",
         "diskCacheDesc": "Geheugen voor het bufferen van bestanden voordat ze naar schijf worden geschreven.",
         "fileAllocation": "Schijfruimte reserveren",
         "fileAllocationDesc": "Ruimte reserveren voordat een bestand wordt gedownload.",
@@ -1941,7 +1941,7 @@
           "minimum": "Min. segmentgrootte",
           "perServer": "Limiet per server"
         },
-        "minSplitSize": "Minimale segmentgrootte (MiB)",
+        "minSplitSize": "Minimale segmentgrootte ({{unit}})",
         "minSplitSizeDesc": "Segmenten kleiner dan 2× deze grootte worden niet gesplitst.",
         "profile": "Downloadprestaties",
         "profileDesc": "Vind een balans tussen downloadsnelheid en het gebruik van systeembronnen.",
@@ -1974,7 +1974,7 @@
       "reliability": {
         "connectTimeout": "Verbindingstime-out (s)",
         "connectTimeoutDesc": "Hoelang op een verbinding wordt gewacht.",
-        "lowestSpeedLimit": "Minimale verbindingssnelheid (KiB/s)",
+        "lowestSpeedLimit": "Minimale verbindingssnelheid ({{unit}})",
         "lowestSpeedLimitDesc": "Verbreek de verbinding onder deze snelheid. 0 = uitgeschakeld.",
         "maxTries": "Maximaal aantal pogingen",
         "maxTriesDesc": "Inclusief de eerste poging. 0 = onbeperkt.",
@@ -2786,5 +2786,23 @@
     "preferences": "Instellingen",
     "quit": "Afsluiten",
     "showMotrix": "Motrix tonen"
+  },
+  "units": {
+    "bytes": {
+      "b": "B",
+      "kb": "KB",
+      "mb": "MB",
+      "gb": "GB",
+      "tb": "TB",
+      "pb": "PB",
+      "eb": "EB",
+      "kib": "KiB",
+      "mib": "MiB",
+      "gib": "GiB",
+      "tib": "TiB",
+      "pib": "PiB",
+      "eib": "EiB"
+    },
+    "perSecond": "{{value}}/s"
   }
 }

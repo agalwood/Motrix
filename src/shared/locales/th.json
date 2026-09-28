@@ -1690,8 +1690,8 @@
       }
     },
     "appearance": {
-      "byteUnitBinary": "ฐานสอง (MiB, GiB · 1024)",
-      "byteUnitDecimal": "ฐานสิบ (MB, GB · 1000)",
+      "byteUnitBinary": "ฐานสอง ({{megabyte}}, {{gigabyte}} · 1024)",
+      "byteUnitDecimal": "ฐานสิบ ({{megabyte}}, {{gigabyte}} · 1000)",
       "byteUnitSystem": "หน่วยขนาดและความเร็ว",
       "byteUnitSystemDefault": "ตามระบบ ({{units}})",
       "byteUnitSystemDesc": "เลือกรูปแบบหน่วยที่ใช้แสดงขนาดไฟล์และความเร็ว",
@@ -1881,7 +1881,7 @@
       "defaultDownloadFolder": "โฟลเดอร์ดาวน์โหลดเริ่มต้น",
       "description": "ไฟล์ ความเร็วดาวน์โหลด และการเชื่อมต่อ",
       "disk": {
-        "diskCache": "แคชดิสก์ (MiB)",
+        "diskCache": "แคชดิสก์ ({{unit}})",
         "diskCacheDesc": "หน่วยความจำสำหรับพักข้อมูลไฟล์ก่อนเขียนลงดิสก์",
         "fileAllocation": "จองพื้นที่ดิสก์",
         "fileAllocationDesc": "จองพื้นที่ก่อนดาวน์โหลดไฟล์",
@@ -1922,7 +1922,7 @@
           "minimum": "ส่วนย่อยขั้นต่ำ",
           "perServer": "ขีดจำกัดต่อเซิร์ฟเวอร์"
         },
-        "minSplitSize": "ขนาดส่วนย่อยขั้นต่ำ (MiB)",
+        "minSplitSize": "ขนาดส่วนย่อยขั้นต่ำ ({{unit}})",
         "minSplitSizeDesc": "ส่วนย่อยที่เล็กกว่าสองเท่าของขนาดนี้จะไม่ถูกแบ่ง",
         "profile": "ประสิทธิภาพการดาวน์โหลด",
         "profileDesc": "ปรับสมดุลระหว่างความเร็วดาวน์โหลดกับการใช้ทรัพยากร",
@@ -1955,7 +1955,7 @@
       "reliability": {
         "connectTimeout": "เวลารอการเชื่อมต่อ (วินาที)",
         "connectTimeoutDesc": "ระยะเวลาที่รอให้เชื่อมต่อสำเร็จ",
-        "lowestSpeedLimit": "ความเร็วการเชื่อมต่อขั้นต่ำ (KiB/s)",
+        "lowestSpeedLimit": "ความเร็วการเชื่อมต่อขั้นต่ำ ({{unit}})",
         "lowestSpeedLimitDesc": "ตัดการเชื่อมต่อหากต่ำกว่าความเร็วนี้ 0 = ปิดใช้",
         "maxTries": "จำนวนครั้งที่ลองสูงสุด",
         "maxTriesDesc": "รวมครั้งแรก 0 = ไม่จำกัด",
@@ -2764,5 +2764,23 @@
     "preferences": "การตั้งค่า",
     "quit": "ออก",
     "showMotrix": "แสดง Motrix"
+  },
+  "units": {
+    "bytes": {
+      "b": "B",
+      "kb": "KB",
+      "mb": "MB",
+      "gb": "GB",
+      "tb": "TB",
+      "pb": "PB",
+      "eb": "EB",
+      "kib": "KiB",
+      "mib": "MiB",
+      "gib": "GiB",
+      "tib": "TiB",
+      "pib": "PiB",
+      "eib": "EiB"
+    },
+    "perSecond": "{{value}}/วินาที"
   }
 }

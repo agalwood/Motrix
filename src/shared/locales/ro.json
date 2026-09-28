@@ -1728,8 +1728,8 @@
       }
     },
     "appearance": {
-      "byteUnitBinary": "Binare (MiB, GiB · 1024)",
-      "byteUnitDecimal": "Zecimale (MB, GB · 1000)",
+      "byteUnitBinary": "Binare ({{megabyte}}, {{gigabyte}} · 1024)",
+      "byteUnitDecimal": "Zecimale ({{megabyte}}, {{gigabyte}} · 1000)",
       "byteUnitSystem": "Unități pentru dimensiune și viteză",
       "byteUnitSystemDefault": "Urmează sistemul ({{units}})",
       "byteUnitSystemDesc": "Alege cum sunt afișate dimensiunile fișierelor și vitezele.",
@@ -1919,7 +1919,7 @@
       "defaultDownloadFolder": "Dosar de descărcare implicit",
       "description": "Fișiere, viteză de descărcare și conexiuni",
       "disk": {
-        "diskCache": "Cache pe disc (MiB)",
+        "diskCache": "Cache pe disc ({{unit}})",
         "diskCacheDesc": "Memorie folosită pentru stocarea temporară a fișierelor înainte de scrierea pe disc.",
         "fileAllocation": "Rezervă spațiu pe disc",
         "fileAllocationDesc": "Rezervă spațiu înainte de descărcarea unui fișier.",
@@ -1960,7 +1960,7 @@
           "minimum": "Segment minim",
           "perServer": "Limită per server"
         },
-        "minSplitSize": "Dimensiunea minimă a segmentului (MiB)",
+        "minSplitSize": "Dimensiunea minimă a segmentului ({{unit}})",
         "minSplitSizeDesc": "Segmentele mai mici decât dublul acestei dimensiuni nu sunt împărțite.",
         "profile": "Performanța descărcării",
         "profileDesc": "Echilibrează viteza de descărcare și consumul de resurse.",
@@ -1993,7 +1993,7 @@
       "reliability": {
         "connectTimeout": "Timp-limită de conectare (s)",
         "connectTimeoutDesc": "Cât timp se așteaptă stabilirea conexiunii.",
-        "lowestSpeedLimit": "Viteza minimă a conexiunii (KiB/s)",
+        "lowestSpeedLimit": "Viteza minimă a conexiunii ({{unit}})",
         "lowestSpeedLimitDesc": "Deconectează sub această viteză. 0 = dezactivat.",
         "maxTries": "Număr maxim de încercări",
         "maxTriesDesc": "Include prima încercare. 0 = nelimitat.",
@@ -2392,7 +2392,7 @@
         "restartHint": "Salvat. Repornește Motrix pentru ca modulele active să detecteze modificările.",
         "restartNow": "Repornește acum",
         "savedTitle": "Setări FFmpeg salvate",
-        "stagingMB": "Limită pentru fișiere temporare (MB)",
+        "stagingMB": "Limită pentru fișiere temporare (MO)",
         "stagingMBDesc": "Spațiu pentru fișiere intermediare, per modul și sarcină.",
         "state": {
           "active": "În uz",
@@ -2646,7 +2646,7 @@
         "unsupportedInput": "Acest format de intrare nu a fost importat. Lipește un URL, date într-un format JSON acceptat sau o comandă cURL Bash acceptată.",
         "unsupportedProtocol": "Acest protocol URL nu este acceptat pentru această descărcare.",
         "unsupportedRequestOptions": "Antetele HTTP nu pot fi aplicate unei descărcări FTP.",
-        "urlTooLong": "URL-ul depășește limita de 16 KiB."
+        "urlTooLong": "URL-ul depășește limita de 16 KiO."
       },
       "sourceLine": "Linia {{line}}",
       "split": "Conexiuni",
@@ -2808,5 +2808,23 @@
     "preferences": "Setări",
     "quit": "Ieși",
     "showMotrix": "Arată Motrix"
+  },
+  "units": {
+    "bytes": {
+      "b": "O",
+      "kb": "kO",
+      "mb": "MO",
+      "gb": "GO",
+      "tb": "TO",
+      "pb": "PO",
+      "eb": "EO",
+      "kib": "KiO",
+      "mib": "MiO",
+      "gib": "GiO",
+      "tib": "TiO",
+      "pib": "PiO",
+      "eib": "EiO"
+    },
+    "perSecond": "{{value}}/s"
   }
 }

@@ -1280,8 +1280,8 @@
       "lightweightModeDesc": "Risparmia memoria quando la finestra è chiusa. I download continuano, ma la riapertura richiede più tempo e i dati non salvati vengono cancellati.",
       "byteUnitSystem": "Unità di dimensione e velocità",
       "byteUnitSystemDesc": "Scegli come visualizzare le dimensioni dei file e le velocità.",
-      "byteUnitDecimal": "Decimali (MB, GB · 1000)",
-      "byteUnitBinary": "Binarie (MiB, GiB · 1024)",
+      "byteUnitDecimal": "Decimali ({{megabyte}}, {{gigabyte}} · 1000)",
+      "byteUnitBinary": "Binarie ({{megabyte}}, {{gigabyte}} · 1024)",
       "byteUnitSystemDefault": "Segui il sistema ({{units}})",
       "sidebarColor": "Colore principale",
       "sidebarColors": {
@@ -1517,7 +1517,7 @@
         "maxConnectionPerServerDesc": "Limite di connessioni per file verso un singolo server.",
         "split": "Connessioni massime per file",
         "splitDesc": "Connessioni usate per scaricare un file.",
-        "minSplitSize": "Dimensione minima del segmento (MiB)",
+        "minSplitSize": "Dimensione minima del segmento ({{unit}})",
         "minSplitSizeDesc": "I segmenti più piccoli del doppio di questa dimensione non vengono suddivisi."
       },
       "reliability": {
@@ -1532,7 +1532,7 @@
         "maxTriesDesc": "Include il primo tentativo. 0 = illimitati.",
         "retryWait": "Attesa prima di riprovare (s)",
         "retryWaitDesc": "Attendi questo tempo prima di riprovare.",
-        "lowestSpeedLimit": "Velocità minima della connessione (KiB/s)",
+        "lowestSpeedLimit": "Velocità minima della connessione ({{unit}})",
         "lowestSpeedLimitDesc": "Interrompi la connessione sotto questa velocità. 0 = disattivato."
       },
       "disk": {
@@ -1552,7 +1552,7 @@
         "modifiedTimeDesc": "Per i download HTTP e FTP completati.",
         "modifiedTimeLocal": "Data del download",
         "modifiedTimeServer": "Data dal server",
-        "diskCache": "Cache disco (MiB)",
+        "diskCache": "Cache disco ({{unit}})",
         "diskCacheDesc": "Memoria usata per memorizzare temporaneamente i dati dei file prima di scriverli sul disco.",
         "sessionSaveInterval": "Intervallo di salvataggio dell’avanzamento (s)",
         "sessionSaveIntervalDesc": "Salva più spesso per ridurre i progressi persi dopo un arresto anomalo."
@@ -2808,5 +2808,23 @@
     },
     "manageAction": "Gestisci",
     "alreadyFavorite": "Già nei preferiti"
+  },
+  "units": {
+    "bytes": {
+      "b": "B",
+      "kb": "KB",
+      "mb": "MB",
+      "gb": "GB",
+      "tb": "TB",
+      "pb": "PB",
+      "eb": "EB",
+      "kib": "KiB",
+      "mib": "MiB",
+      "gib": "GiB",
+      "tib": "TiB",
+      "pib": "PiB",
+      "eib": "EiB"
+    },
+    "perSecond": "{{value}}/s"
   }
 }
