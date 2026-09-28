@@ -1257,15 +1257,16 @@
       "byteUnitSystemDefault": "Theo hệ thống ({{units}})",
       "sidebarColor": "Màu nhấn",
       "sidebarColors": {
+        "auto": "Tự động",
         "blue": "Xanh dương",
-        "violet": "Tím",
-        "pink": "Hồng",
-        "orange": "Cam",
-        "gold": "Vàng kim",
-        "green": "Xanh lá",
+        "cloud": "Trắng mây",
         "cyan": "Xanh lơ",
+        "gold": "Vàng kim",
         "gray": "Xám",
-        "auto": "Tự động"
+        "green": "Xanh lá",
+        "orange": "Cam",
+        "pink": "Hồng",
+        "violet": "Tím"
       },
       "themeAndEffects": "Chủ đề và hiệu ứng",
       "languageAndDisplay": "Ngôn ngữ và hiển thị",

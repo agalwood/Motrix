@@ -1257,15 +1257,16 @@
       "byteUnitSystemDefault": "システムに合わせる（{{units}}）",
       "sidebarColor": "アクセントカラー",
       "sidebarColors": {
+        "auto": "自動",
         "blue": "ブルー",
-        "violet": "バイオレット",
-        "pink": "ピンク",
-        "orange": "オレンジ",
-        "gold": "ゴールド",
-        "green": "グリーン",
+        "cloud": "クラウドホワイト",
         "cyan": "シアン",
+        "gold": "ゴールド",
         "gray": "グレー",
-        "auto": "自動"
+        "green": "グリーン",
+        "orange": "オレンジ",
+        "pink": "ピンク",
+        "violet": "バイオレット"
       },
       "themeAndEffects": "テーマとエフェクト",
       "languageAndDisplay": "言語と表示",

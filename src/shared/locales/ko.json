@@ -1257,15 +1257,16 @@
       "byteUnitSystemDefault": "시스템 설정 따르기({{units}})",
       "sidebarColor": "강조 색상",
       "sidebarColors": {
+        "auto": "자동",
         "blue": "파란색",
-        "violet": "보라색",
-        "pink": "분홍색",
-        "orange": "주황색",
-        "gold": "금색",
-        "green": "초록색",
+        "cloud": "클라우드 화이트",
         "cyan": "청록색",
+        "gold": "금색",
         "gray": "회색",
-        "auto": "자동"
+        "green": "초록색",
+        "orange": "주황색",
+        "pink": "분홍색",
+        "violet": "보라색"
       },
       "themeAndEffects": "테마 및 효과",
       "languageAndDisplay": "언어 및 표시",

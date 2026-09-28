@@ -1299,15 +1299,16 @@
       "byteUnitSystemDefault": "Как в системе ({{units}})",
       "sidebarColor": "Цвет акцента",
       "sidebarColors": {
+        "auto": "Автоматически",
         "blue": "Синий",
-        "violet": "Фиолетовый",
-        "pink": "Розовый",
-        "orange": "Оранжевый",
-        "gold": "Золотой",
-        "green": "Зелёный",
+        "cloud": "Облачный белый",
         "cyan": "Голубой",
+        "gold": "Золотой",
         "gray": "Серый",
-        "auto": "Автоматически"
+        "green": "Зелёный",
+        "orange": "Оранжевый",
+        "pink": "Розовый",
+        "violet": "Фиолетовый"
       },
       "themeAndEffects": "Тема и эффекты",
       "languageAndDisplay": "Язык и отображение",

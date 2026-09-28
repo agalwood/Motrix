@@ -1299,15 +1299,16 @@
       "byteUnitSystemDefault": "Zgodnie z systemem ({{units}})",
       "sidebarColor": "Kolor akcentu",
       "sidebarColors": {
+        "auto": "Automatyczny",
         "blue": "Niebieski",
-        "violet": "Fioletowy",
-        "pink": "Różowy",
-        "orange": "Pomarańczowy",
-        "gold": "Złoty",
-        "green": "Zielony",
+        "cloud": "Chmurowa biel",
         "cyan": "Cyjan",
+        "gold": "Złoty",
         "gray": "Szary",
-        "auto": "Automatyczny"
+        "green": "Zielony",
+        "orange": "Pomarańczowy",
+        "pink": "Różowy",
+        "violet": "Fioletowy"
       },
       "themeAndEffects": "Motyw i efekty",
       "languageAndDisplay": "Język i wyświetlanie",

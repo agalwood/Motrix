@@ -1257,15 +1257,16 @@
       "byteUnitSystemDefault": "Ikuti sistem ({{units}})",
       "sidebarColor": "Warna aksen",
       "sidebarColors": {
+        "auto": "Otomatis",
         "blue": "Biru",
-        "violet": "Ungu",
-        "pink": "Merah muda",
-        "orange": "Oranye",
-        "gold": "Emas",
-        "green": "Hijau",
+        "cloud": "Putih awan",
         "cyan": "Sian",
+        "gold": "Emas",
         "gray": "Abu-abu",
-        "auto": "Otomatis"
+        "green": "Hijau",
+        "orange": "Oranye",
+        "pink": "Merah muda",
+        "violet": "Ungu"
       },
       "themeAndEffects": "Tema dan efek",
       "languageAndDisplay": "Bahasa dan tampilan",

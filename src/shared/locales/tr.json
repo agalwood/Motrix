@@ -1271,15 +1271,16 @@
       "byteUnitSystemDefault": "Sistemi kullan ({{units}})",
       "sidebarColor": "Vurgu rengi",
       "sidebarColors": {
+        "auto": "Otomatik",
         "blue": "Mavi",
-        "violet": "Mor",
-        "pink": "Pembe",
-        "orange": "Turuncu",
-        "gold": "Altın",
-        "green": "Yeşil",
+        "cloud": "Bulut beyazı",
         "cyan": "Camgöbeği",
+        "gold": "Altın",
         "gray": "Gri",
-        "auto": "Otomatik"
+        "green": "Yeşil",
+        "orange": "Turuncu",
+        "pink": "Pembe",
+        "violet": "Mor"
       },
       "themeAndEffects": "Tema ve efektler",
       "languageAndDisplay": "Dil ve görüntüleme",
