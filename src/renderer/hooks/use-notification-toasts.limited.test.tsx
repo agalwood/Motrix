@@ -26,6 +26,7 @@ const listeners: Record<string, Array<(...args: unknown[]) => void>> = {}
 
 vi.mock('@renderer/lib/transport', () => ({
   transport: {
+    platform: 'win32',
     on: vi.fn((ch: string, cb: (...args: unknown[]) => void) => {
       listeners[ch] = listeners[ch] ?? []
       listeners[ch].push(cb)
@@ -132,5 +133,43 @@ describe('useNotificationToasts (F9, real toast manager + store)', () => {
     })
     const buriedFiller = result.current.toasts.find((t) => t.id === 'filler-0')
     expect(buriedFiller).toMatchObject({ limited: true })
+  })
+
+  it('coalesces a completion burst without hiding a task error, engine failure, or pairing prompt', () => {
+    const { result } = renderProbe()
+    act(() => {
+      toast.add({ id: 'pair-request', title: 'Pair browser', timeout: 0 })
+      fire(Events.NotificationAdded, notification())
+      fire(Events.NotificationAdded, notification({ kind: 'engine-failure' }))
+      for (let i = 0; i < 20; i++) {
+        fire(
+          Events.NotificationAdded,
+          notification({
+            id: `complete-${i}`,
+            kind: 'task-complete',
+            severity: 'info',
+            titleKey: 'notification.taskComplete.title',
+            titleParams: { name: `file-${i}.zip` },
+          })
+        )
+      }
+    })
+    expect(result.current.toasts).toHaveLength(4)
+    expect(
+      result.current.toasts.find((item) => item.id === 'notification-complete')
+    ).toMatchObject({
+      title: 'file-19.zip finished downloading',
+      type: 'success',
+      limited: false,
+    })
+    for (const id of [
+      'pair-request',
+      'notification-error',
+      'engine-start-failed',
+    ]) {
+      expect(
+        result.current.toasts.find((item) => item.id === id)
+      ).toMatchObject({ limited: false })
+    }
   })
 })

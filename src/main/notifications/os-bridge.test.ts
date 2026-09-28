@@ -6,6 +6,7 @@
 // import for the module under test because vitest.config.ts does not alias
 // @main (see CLAUDE.md gotchas); @shared/@core aliases still work in tests.
 
+import { EventEmitter } from 'node:events'
 import type { EventChannel } from '@shared/protocol/events'
 import { Events } from '@shared/protocol/events'
 import { DEFAULT_APP_SETTINGS } from '@shared/schemas/app-settings'
@@ -86,23 +87,24 @@ function makeWindow(
 interface FakeHandle extends OsNotificationHandle {
   opts: { title: string; body?: string }
   click(): Promise<void>
+  fail(error: string): void
 }
 
 function makeNotificationFactory() {
   const instances: FakeHandle[] = []
   const createNotification = vi.fn(
     (opts: { title: string; body?: string }): OsNotificationHandle => {
-      const clickListeners: Array<() => void | Promise<void>> = []
-      const handle: FakeHandle = {
+      const emitter = new EventEmitter()
+      const handle: FakeHandle = Object.assign(emitter, {
         opts,
         show: vi.fn(),
-        on: vi.fn((event: 'click', listener: () => void) => {
-          if (event === 'click') clickListeners.push(listener)
-        }),
         click: async () => {
-          for (const listener of clickListeners) await listener()
+          for (const listener of emitter.listeners('click')) await listener()
         },
-      }
+        fail: (error: string) => {
+          emitter.emit('failed', {}, error)
+        },
+      })
       instances.push(handle)
       return handle
     }
@@ -288,7 +290,11 @@ describe('createOsNotificationBridge — gating matrix', () => {
               createOsNotificationBridge(deps)
               deliver(makeNotification({ kind: kindCase.kind }))
 
-              const expectSend = !windowState.foreground && toggleOn
+              const isTaskOutcome =
+                kindCase.kind === NotificationKinds.TaskComplete ||
+                kindCase.kind === NotificationKinds.TaskError
+              const expectSend =
+                toggleOn && (isTaskOutcome || !windowState.foreground)
               if (expectSend) {
                 expect(createNotification).toHaveBeenCalledOnce()
               } else {
@@ -361,10 +367,10 @@ describe('createOsNotificationBridge — subscription', () => {
 // ---------------------------------------------------------------------------
 
 describe('createOsNotificationBridge — isSupported gate', () => {
-  it('isSupported() === false skips silently even when everything else says send', () => {
+  it('logs unavailable native notifications without attempting delivery', () => {
     const { createNotification } = makeNotificationFactory()
     const translate = vi.fn((key: string) => key)
-    const { deps, deliver } = baseDeps({
+    const { deps, deliver, log } = baseDeps({
       window: null,
       settings: makeSettings({ notifyOnComplete: true }),
       createNotification,
@@ -378,6 +384,14 @@ describe('createOsNotificationBridge — isSupported gate', () => {
     expect(createNotification).not.toHaveBeenCalled()
     // Short-circuits before doing any translation work.
     expect(translate).not.toHaveBeenCalled()
+    expect(log.warn).toHaveBeenCalledWith(
+      {
+        notificationId: 'n-1',
+        kind: NotificationKinds.TaskComplete,
+        taskId: null,
+      },
+      'os-notification-bridge: native notifications unavailable'
+    )
   })
 })
 
@@ -792,6 +806,36 @@ describe('createOsNotificationBridge — click behavior', () => {
 // ---------------------------------------------------------------------------
 
 describe('createOsNotificationBridge — throw isolation', () => {
+  it('logs asynchronous native failures and continues delivering later notifications', () => {
+    const { createNotification, instances } = makeNotificationFactory()
+    const { deps, deliver, log } = baseDeps({ createNotification })
+    createOsNotificationBridge(deps)
+    deliver(makeNotification({ taskId: 't-1' }))
+
+    instances[0].fail('WinAPI: Show failed, ERROR 0x80070490')
+    expect(log.warn).toHaveBeenCalledWith(
+      {
+        notificationId: 'n-1',
+        kind: NotificationKinds.TaskComplete,
+        taskId: 't-1',
+        error: 'WinAPI: Show failed, ERROR 0x80070490',
+      },
+      'os-notification-bridge: native notification failed'
+    )
+    deliver(makeNotification({ id: 'n-2' }))
+    expect(instances[1].show).toHaveBeenCalledOnce()
+  })
+
+  it('ignores late native failures after disposal', () => {
+    const { createNotification, instances } = makeNotificationFactory()
+    const { deps, deliver, log } = baseDeps({ createNotification })
+    const bridge = createOsNotificationBridge(deps)
+    deliver(makeNotification())
+    bridge.dispose()
+    instances[0].fail('late failure')
+    expect(log.warn).not.toHaveBeenCalled()
+  })
+
   it('createNotification throwing is caught, logged via log.warn, and not re-thrown', () => {
     const err = new Error('boom')
     const createNotification = vi.fn(() => {
