@@ -1196,6 +1196,8 @@
     "general": {
       "launchAtStartup": "Bei der Anmeldung öffnen",
       "launchAtStartupDesc": "Motrix bei der Anmeldung automatisch starten.",
+      "linuxAutostartDesc": "Verwalte den Autostart in deiner Desktop-Umgebung.",
+      "linuxAutostartGuide": "Einrichtungsanleitung öffnen",
       "showMainWindowAtLogin": "Fenster bei der Anmeldung anzeigen",
       "showMainWindowAtLoginDesc": "Bei „{{mode}}“ ausgeblendet.",
       "defaultSaveDir": "Standardordner für Downloads",

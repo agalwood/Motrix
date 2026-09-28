@@ -28,6 +28,10 @@ export const EXTERNAL_URLS = {
     releaseNotes: 'https://motrix.app/release-notes/',
     manual: {
       home: 'https://motrix.app/manual/',
+      linuxAutostart: {
+        en: 'https://motrix.app/manual/linux-autostart/',
+        zh: 'https://motrix.app/zh/manual/linux-autostart/',
+      },
       downloadPerformance: {
         en: 'https://motrix.app/manual/download-performance/',
         zh: 'https://motrix.app/zh/manual/download-performance/',
@@ -50,4 +54,9 @@ export function getNatTroubleshootingUrl(language: string): string {
 export function getDownloadPerformanceUrl(language: string): string {
   const locale = language.toLowerCase().startsWith('zh') ? 'zh' : 'en'
   return EXTERNAL_URLS.motrix.manual.downloadPerformance[locale]
+}
+
+export function getLinuxAutostartUrl(language: string): string {
+  const locale = language.toLowerCase().startsWith('zh') ? 'zh' : 'en'
+  return EXTERNAL_URLS.motrix.manual.linuxAutostart[locale]
 }

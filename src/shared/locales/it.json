@@ -1210,6 +1210,8 @@
     "general": {
       "launchAtStartup": "Apri al login",
       "launchAtStartupDesc": "Avvia Motrix automaticamente quando accedi al sistema.",
+      "linuxAutostartDesc": "Configura l’avvio all’accesso nel tuo ambiente desktop.",
+      "linuxAutostartGuide": "Visualizza la guida alla configurazione",
       "showMainWindowAtLogin": "Mostra finestra al login",
       "showMainWindowAtLoginDesc": "Nascosta con “{{mode}}”.",
       "defaultSaveDir": "Cartella download predefinita",

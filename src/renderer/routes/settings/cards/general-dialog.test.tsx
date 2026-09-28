@@ -1,7 +1,8 @@
 import '@test-utils/dom-animations'
 import '@testing-library/jest-dom/vitest'
-import '@renderer/lib/i18n'
+import { i18n } from '@renderer/lib/i18n'
 import { transport } from '@renderer/lib/transport'
+import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import {
@@ -17,7 +18,8 @@ vi.mock('@renderer/lib/transport', () => ({
   transport: { invoke: vi.fn(), on: vi.fn(), off: vi.fn(), platform: 'darwin' },
 }))
 let snapshot = generalSettingsSnapshot()
-beforeEach(() => {
+beforeEach(async () => {
+  await i18n.changeLanguage('en-US')
   vi.stubGlobal(
     'ResizeObserver',
     class {
@@ -93,32 +95,92 @@ describe('General settings', () => {
     expect(saves()).toHaveLength(0)
     expect(close).toHaveBeenCalledOnce()
   })
-  it('saves moved lifecycle fields and startup fields without touching directories', async () => {
+  it.each(['darwin', 'win32'] as const)(
+    'saves startup fields on %s without touching directories',
+    async (platform) => {
+      transport.platform = platform
+      await openGeneral()
+      const user = userEvent.setup()
+      expect(screen.queryByRole('textbox', { name: /folder/i })).toBeNull()
+      expect(
+        screen.getByRole('switch', { name: 'Show window at login' })
+      ).toHaveAttribute('aria-disabled', 'true')
+      await user.click(screen.getByRole('switch', { name: 'Open at login' }))
+      await user.click(
+        screen.getByRole('switch', { name: 'Show window at login' })
+      )
+      await user.click(
+        screen.getByRole('switch', {
+          name: 'Save memory when the window is closed',
+        })
+      )
+      await user.click(screen.getByRole('button', { name: 'Save' }))
+      expect(saves()[0]?.[1]).toEqual({
+        expectedRevision: TEST_GENERAL_REVISION,
+        app: {
+          launchAtStartup: true,
+          showMainWindowAtLogin: true,
+          lightweightMode: true,
+        },
+        directories: {
+          addFavorites: [],
+          removeFavorites: [],
+          removeRecent: [],
+        },
+      })
+      expect(
+        screen.queryByRole('link', { name: 'View setup guide' })
+      ).toBeNull()
+    }
+  )
+  it('replaces Linux login switches with a manual and preserves existing preferences on save', async () => {
+    transport.platform = 'linux'
+    snapshot.app.launchAtStartup = true
+    snapshot.app.showMainWindowAtLogin = true
     await openGeneral()
-    const user = userEvent.setup()
-    expect(screen.queryByRole('textbox', { name: /folder/i })).toBeNull()
+    expect(screen.queryByRole('switch', { name: 'Open at login' })).toBeNull()
     expect(
-      screen.getByRole('switch', { name: 'Show window at login' })
-    ).toHaveAttribute('aria-disabled', 'true')
-    await user.click(screen.getByRole('switch', { name: 'Open at login' }))
+      screen.queryByRole('switch', { name: 'Show window at login' })
+    ).toBeNull()
+    const guide = screen.getByRole('link', { name: 'View setup guide' })
+    expect(guide).toHaveAttribute(
+      'href',
+      EXTERNAL_URLS.motrix.manual.linuxAutostart.en
+    )
+    expect(guide).toHaveAttribute('target', '_blank')
+    expect(guide).toHaveAttribute('rel', 'noopener noreferrer')
+    const user = userEvent.setup()
     await user.click(
-      screen.getByRole('switch', { name: 'Show window at login' })
+      screen.getByRole('combobox', { name: 'When opening Motrix' })
     )
     await user.click(
-      screen.getByRole('switch', {
-        name: 'Save memory when the window is closed',
-      })
+      await screen.findByRole('option', { name: 'Start in System Tray' })
     )
     await user.click(screen.getByRole('button', { name: 'Save' }))
     expect(saves()[0]?.[1]).toEqual({
       expectedRevision: TEST_GENERAL_REVISION,
-      app: {
-        launchAtStartup: true,
-        showMainWindowAtLogin: true,
-        lightweightMode: true,
-      },
+      app: { runMode: 2 },
       directories: { addFavorites: [], removeFavorites: [], removeRecent: [] },
     })
+  })
+  it('links to the Chinese Linux setup guide for Chinese users', async () => {
+    transport.platform = 'linux'
+    await i18n.changeLanguage('zh-CN')
+    render(
+      <GeneralDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.general.title"
+        descKey="settings.cards.general.desc"
+      />
+    )
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '保存' })).toBeEnabled()
+    )
+    expect(screen.getByRole('link', { name: '查看设置指南' })).toHaveAttribute(
+      'href',
+      EXTERNAL_URLS.motrix.manual.linuxAutostart.zh
+    )
   })
   it.each(['win32', 'linux'])(
     'keeps desktop-specific run modes on %s',

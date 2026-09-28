@@ -1182,6 +1182,8 @@
     "general": {
       "launchAtStartup": "Mở khi đăng nhập",
       "launchAtStartupDesc": "Tự động khởi động Motrix khi bạn đăng nhập.",
+      "linuxAutostartDesc": "Thiết lập khởi động khi đăng nhập trong môi trường máy tính để bàn của bạn.",
+      "linuxAutostartGuide": "Xem hướng dẫn thiết lập",
       "showMainWindowAtLogin": "Hiện cửa sổ khi đăng nhập",
       "showMainWindowAtLoginDesc": "Ẩn khi chọn “{{mode}}”.",
       "defaultSaveDir": "Thư mục tải xuống mặc định",

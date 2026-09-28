@@ -1210,6 +1210,8 @@
     "general": {
       "launchAtStartup": "Abrir ao iniciar sessão",
       "launchAtStartupDesc": "Inicia o Motrix automaticamente quando você inicia uma sessão.",
+      "linuxAutostartDesc": "Configure a inicialização ao entrar na sessão no seu ambiente de desktop.",
+      "linuxAutostartGuide": "Ver guia de configuração",
       "showMainWindowAtLogin": "Mostrar janela ao iniciar sessão",
       "showMainWindowAtLoginDesc": "Oculta no modo “{{mode}}”.",
       "defaultSaveDir": "Pasta de download padrão",

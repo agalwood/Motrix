@@ -2185,6 +2185,8 @@
       "inAppNotificationsDesc": "اختر إشعارات التنزيل التي تريد إظهارها. تبقى تنبيهات التطبيق مفعّلة.",
       "launchAtStartup": "الفتح عند تسجيل الدخول",
       "launchAtStartupDesc": "تشغيل Motrix تلقائيًا عند تسجيل الدخول.",
+      "linuxAutostartDesc": "يمكنك إعداد التشغيل عند تسجيل الدخول من بيئة سطح المكتب.",
+      "linuxAutostartGuide": "عرض دليل الإعداد",
       "lightweightMode": "توفير الذاكرة عند إغلاق النافذة",
       "lightweightModeDesc": "تستمر التنزيلات. تصبح إعادة الفتح أبطأ وتُمسح المدخلات غير المحفوظة.",
       "notificationBadgeCount": "عدد",

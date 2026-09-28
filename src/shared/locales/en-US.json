@@ -1196,6 +1196,8 @@
     "general": {
       "launchAtStartup": "Open at login",
       "launchAtStartupDesc": "Start Motrix automatically when you log in.",
+      "linuxAutostartDesc": "Manage login startup in your desktop environment.",
+      "linuxAutostartGuide": "View setup guide",
       "showMainWindowAtLogin": "Show window at login",
       "showMainWindowAtLoginDesc": "Hidden with “{{mode}}”.",
       "defaultSaveDir": "Default download folder",

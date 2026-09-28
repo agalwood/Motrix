@@ -2109,6 +2109,8 @@
       "inAppNotificationsDesc": "Velg hvilke nedlastingsvarsler som skal vises. Appvarsler forblir på.",
       "launchAtStartup": "Åpne ved pålogging",
       "launchAtStartupDesc": "Start Motrix automatisk når du logger på.",
+      "linuxAutostartDesc": "Konfigurer oppstart ved innlogging i skrivebordsmiljøet ditt.",
+      "linuxAutostartGuide": "Se oppsettsveiledningen",
       "lightweightMode": "Spar minne når vinduet er lukket",
       "lightweightModeDesc": "Nedlastingene fortsetter. Det tar lengre tid å åpne vinduet igjen, og ulagrede inndata tømmes.",
       "notificationBadgeCount": "Antall",

@@ -2128,6 +2128,8 @@
       "inAppNotificationsDesc": "Alege notificările de descărcare afișate. Alertele aplicației rămân active.",
       "launchAtStartup": "Deschide la autentificare",
       "launchAtStartupDesc": "Pornește Motrix automat când te autentifici.",
+      "linuxAutostartDesc": "Configurați pornirea la autentificare în mediul desktop.",
+      "linuxAutostartGuide": "Consultați ghidul de configurare",
       "lightweightMode": "Economisește memorie când fereastra este închisă",
       "lightweightModeDesc": "Descărcările continuă. Redeschiderea durează mai mult, iar datele nesalvate sunt șterse.",
       "notificationBadgeCount": "Număr",

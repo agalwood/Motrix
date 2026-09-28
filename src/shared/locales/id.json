@@ -1182,6 +1182,8 @@
     "general": {
       "launchAtStartup": "Buka saat login",
       "launchAtStartupDesc": "Jalankan Motrix secara otomatis saat Anda login.",
+      "linuxAutostartDesc": "Atur peluncuran saat masuk melalui lingkungan desktop Anda.",
+      "linuxAutostartGuide": "Lihat panduan pengaturan",
       "showMainWindowAtLogin": "Tampilkan jendela saat login",
       "showMainWindowAtLoginDesc": "Disembunyikan dalam mode “{{mode}}”.",
       "defaultSaveDir": "Folder unduhan bawaan",

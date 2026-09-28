@@ -1224,6 +1224,8 @@
     "general": {
       "launchAtStartup": "Открывать при входе в систему",
       "launchAtStartupDesc": "Автоматически запускать Motrix при входе в систему.",
+      "linuxAutostartDesc": "Настройте запуск при входе в систему в окружении рабочего стола.",
+      "linuxAutostartGuide": "Открыть руководство по настройке",
       "showMainWindowAtLogin": "Показывать окно при входе",
       "showMainWindowAtLoginDesc": "Скрыто в режиме «{{mode}}».",
       "defaultSaveDir": "Папка загрузок по умолчанию",

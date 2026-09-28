@@ -1182,6 +1182,8 @@
     "general": {
       "launchAtStartup": "ログイン時に起動",
       "launchAtStartupDesc": "ログイン時に Motrix を自動で起動します。",
+      "linuxAutostartDesc": "ログイン時の自動起動はデスクトップ環境で設定してください。",
+      "linuxAutostartGuide": "設定ガイドを見る",
       "showMainWindowAtLogin": "ログイン時にウインドウを表示",
       "showMainWindowAtLoginDesc": "「{{mode}}」では非表示になります。",
       "defaultSaveDir": "既定のダウンロードフォルダー",
