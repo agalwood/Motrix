@@ -27,6 +27,34 @@ export function safariSignOptions(app, file, entitlements, fallback) {
   }
 }
 
+export function signSafariHelpers(options, entitlements) {
+  if (typeof options.identity !== 'string' || !options.identity.trim()) {
+    throw new Error('Safari helper signing requires the selected identity')
+  }
+  for (const relative of Object.keys(HELPERS)) {
+    const file = path.join(options.app, relative)
+    const helper = safariSignOptions(options.app, file, entitlements)
+    execFileSync(
+      '/usr/bin/codesign',
+      [
+        '--sign',
+        options.identity,
+        '--force',
+        ...(options.keychain ? ['--keychain', options.keychain] : []),
+        '--timestamp',
+        '--options',
+        'runtime',
+        `-r${helper.requirements}`,
+        ...helper.additionalArguments,
+        '--entitlements',
+        helper.entitlements,
+        file,
+      ],
+      { stdio: 'pipe' }
+    )
+  }
+}
+
 // Invoked only by electron-builder after identity selection. Resolve dependencies
 // from its isolated, lockfile-pinned runtime, never from the unsigned app payload.
 export default async function sign(options, packager) {
@@ -41,6 +69,10 @@ export default async function sign(options, packager) {
     process.env.ELECTRON_BUILDER_CLI ? 'signing-build-resources' : 'build',
     'entitlements.safari.plist'
   )
+  // Signing Contents/MacOS/Motrix also seals its enclosing bundle. osx-sign
+  // visits it before the same-depth registrar, whose x64 binary is unsigned.
+  // Sign both helpers first; the normal pass still signs and verifies everything.
+  signSafariHelpers(options, entitlements)
   await signElectron({
     ...options,
     optionsForFile: (file) =>

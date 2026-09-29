@@ -258,6 +258,7 @@ jobs:
       - name: Test and build Safari desktop helpers
         if: matrix.platform == 'darwin'
         run: |
+          pnpm exec vitest run tests/scripts/safari-desktop-package.test.ts
           swift test --package-path packages/safari-bootstrap
           pnpm run build:safari-bootstrap -- --arch ${{ matrix.arch }} --test
 
@@ -897,7 +898,7 @@ jobs:
           EXPECTED_COMMIT: ${{ github.sha }}
           EXPECTED_PLATFORM: ${{ matrix.platform }}
           # Updated only after reviewing the verifier source itself.
-          VERIFIER_SHA256: ac73a236208b8c5d0ca156f558d39812b86d00031f69ac886a50b4b88a5b0fa7
+          VERIFIER_SHA256: dc838f0ec84ef65118d60a47a0aae362cdd95588dd1e0cef705836ec1629cbd1
         run: |
           const crypto = require('node:crypto')
           const fs = require('node:fs')
