@@ -68,6 +68,15 @@
   </screenshots>
 
   <releases>
+    <release version="2.0.0-beta.42" date="2026-09-29">
+      <description>
+        <p>
+          Adds recoverable Tracker refreshes and task updates, fixes desktop
+          notification modes and Linux startup guidance, localizes information
+          units, and improves download controls and file completion reliability.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.41" date="2026-09-27">
       <description>
         <p>
