@@ -10,7 +10,9 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::canonical::base64url_decode;
-use crate::resolve::{ResolveDeps, ResolveError, ResolveResult, resolve_endpoint};
+use crate::resolve::{
+    ProbeError, ResolveDeps, ResolveError, ResolveResult, probe_endpoint, resolve_endpoint,
+};
 use crate::runtime::SystemResolveDeps;
 use crate::ticket::{TICKET_LIFETIME_SECONDS, TicketInputs, mint_ticket};
 use crate::user_data::{native_host_bridge_data_dir, native_host_user_data_dir};
@@ -31,7 +33,13 @@ fn error(code: &str) -> Value {
     json!({"error": code, "protocolVersion": 1})
 }
 
-fn resolve<D: ResolveDeps>(request: &[u8], deps: &mut D, now: Option<u64>) -> Value {
+fn resolve<D: ResolveDeps>(
+    request: &[u8],
+    deps: &mut D,
+    now: Option<u64>,
+    bridge_not_running: &mut bool,
+) -> Value {
+    *bridge_not_running = false;
     let Ok(request) = serde_json::from_slice::<Request>(request) else {
         return error("invalid-request");
     };
@@ -43,11 +51,22 @@ fn resolve<D: ResolveDeps>(request: &[u8], deps: &mut D, now: Option<u64>) -> Va
     if request.action != "bootstrap" || request.protocol_version != 1 {
         return error("invalid-request");
     }
-    let resolved = match resolve_endpoint(request.allow_launch, deps) {
-        Ok(resolved) => resolved,
-        Err(ResolveError::NotRunning) => return error("bootstrap-unavailable"),
-        Err(ResolveError::NotInstalled | ResolveError::LaunchFailed) => {
-            return error("launch-denied");
+    let resolved = if request.allow_launch {
+        // Preserve the original v1 ABI's explicit launch behavior.
+        match resolve_endpoint(true, deps) {
+            Ok(resolved) => resolved,
+            Err(ResolveError::NotRunning) => return error("bootstrap-unavailable"),
+            Err(ResolveError::NotInstalled | ResolveError::LaunchFailed) => {
+                return error("launch-denied");
+            }
+        }
+    } else {
+        match probe_endpoint(deps) {
+            Ok(resolved) => resolved,
+            Err(reason) => {
+                *bridge_not_running = reason == ProbeError::NotRunning;
+                return error("bootstrap-unavailable");
+            }
         }
     };
     // Missing owner-checked attestation material must never create an identity.
@@ -96,13 +115,38 @@ pub unsafe extern "C" fn motrix_safari_bootstrap_v1(
     response: *mut u8,
     response_capacity: usize,
 ) -> usize {
+    // SAFETY: the caller provides the same buffer contract as the v2 entry point.
+    unsafe { motrix_safari_bootstrap_v2(request, request_len, response, response_capacity) }
+        .response_len
+}
+
+/// Private desktop ABI metadata; the JSON/XPC response stays at protocol v1.
+#[repr(C)]
+#[derive(Default)]
+pub struct SafariBootstrapResult {
+    pub response_len: usize,
+    pub bridge_not_running: u8,
+}
+
+/// Resolve one request, preserving whether discovery found no running bridge.
+/// Only that state permits the Swift desktop owner to launch or poll again.
+///
+/// # Safety
+/// The input/output buffers must satisfy the same contract as `motrix_safari_bootstrap_v1`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn motrix_safari_bootstrap_v2(
+    request: *const u8,
+    request_len: usize,
+    response: *mut u8,
+    response_capacity: usize,
+) -> SafariBootstrapResult {
     if request.is_null()
         || response.is_null()
         || request_len == 0
         || request_len > MAX_BYTES
         || response_capacity < MAX_BYTES
     {
-        return 0;
+        return SafariBootstrapResult::default();
     }
     // SAFETY: the embedding service owns separate, valid buffers per the ABI.
     let request = unsafe { std::slice::from_raw_parts(request, request_len) };
@@ -113,16 +157,20 @@ pub unsafe extern "C" fn motrix_safari_bootstrap_v1(
         .duration_since(UNIX_EPOCH)
         .ok()
         .map(|time| time.as_secs());
-    let result = resolve(request, &mut deps, now);
+    let mut bridge_not_running = false;
+    let result = resolve(request, &mut deps, now, &mut bridge_not_running);
     let Ok(bytes) = serde_json::to_vec(&result) else {
-        return 0;
+        return SafariBootstrapResult::default();
     };
     if bytes.len() > MAX_BYTES {
-        return 0;
+        return SafariBootstrapResult::default();
     }
     // SAFETY: output has sufficient capacity and does not alias the input.
     unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), response, bytes.len()) };
-    bytes.len()
+    SafariBootstrapResult {
+        response_len: bytes.len(),
+        bridge_not_running: u8::from(bridge_not_running),
+    }
 }
 
 #[cfg(test)]
@@ -136,6 +184,7 @@ mod tests {
         endpoint: Option<EndpointFile>,
         nonce_calls: usize,
         launch_calls: usize,
+        nonce_available: bool,
     }
     impl ResolveDeps for Deps {
         fn read_endpoint(&mut self) -> Option<EndpointFile> {
@@ -146,7 +195,7 @@ mod tests {
         }
         fn fetch_nonce(&mut self, _: u16, _: Duration) -> Option<String> {
             self.nonce_calls += 1;
-            Some("nonce".into())
+            self.nonce_available.then(|| "nonce".into())
         }
         fn launch(&mut self) -> bool {
             self.launch_calls += 1;
@@ -168,13 +217,41 @@ mod tests {
             }),
             nonce_calls: 0,
             launch_calls: 0,
+            nonce_available: true,
         }
     }
     fn request() -> Value {
         json!({"action":"bootstrap", "protocolVersion":1, "bindingPub":base64url_encode(&[7;32]), "allowLaunch":false})
     }
     fn call(request: Value, deps: &mut Deps) -> Value {
-        resolve(&serde_json::to_vec(&request).unwrap(), deps, Some(1000))
+        resolve(
+            &serde_json::to_vec(&request).unwrap(),
+            deps,
+            Some(1000),
+            &mut false,
+        )
+    }
+
+    #[test]
+    fn nonce_refusal_is_terminal_while_missing_bridge_allows_wake() {
+        for missing in [false, true] {
+            let mut deps = deps();
+            deps.nonce_available = false;
+            if missing {
+                deps.endpoint = None;
+            }
+            let mut bridge_not_running = false;
+            let result = resolve(
+                &serde_json::to_vec(&request()).unwrap(),
+                &mut deps,
+                Some(1000),
+                &mut bridge_not_running,
+            );
+            assert_eq!(result, error("bootstrap-unavailable"));
+            assert_eq!(bridge_not_running, missing);
+            assert_eq!(deps.nonce_calls, usize::from(!missing));
+            assert_eq!(deps.launch_calls, 0);
+        }
     }
 
     #[test]

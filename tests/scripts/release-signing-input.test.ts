@@ -29,6 +29,9 @@ const COMMIT = 'a'.repeat(40)
 const temporaryDirectories: string[] = []
 const HASH_PINNED_TEXT_SOURCES = [
   'electron-builder.signing.json',
+  'scripts/sign-macos.mjs',
+  'build/entitlements.safari.plist',
+  'build/app.motrix.safari.bootstrap.plist',
   'build/entitlements.mac.plist',
   'build/installer.nsh',
   'scripts/release-signing-tool/package.json',
@@ -41,6 +44,15 @@ const HASH_PINNED_TEXT_SOURCES = [
   'scripts/verify-electron-package.mjs',
 ] as const
 const TRUSTED_FIXTURES = [
+  ['scripts/sign-macos.mjs', 'scripts/sign-macos.mjs'],
+  [
+    'build/entitlements.safari.plist',
+    'signing-build-resources/entitlements.safari.plist',
+  ],
+  [
+    'build/app.motrix.safari.bootstrap.plist',
+    'signing-build-resources/app.motrix.safari.bootstrap.plist',
+  ],
   ['electron-builder.signing.json', 'electron-builder.signing.json'],
   ['build/256x256.png', 'signing-build-resources/256x256.png'],
   ['build/background.tiff', 'signing-build-resources/background.tiff'],
@@ -348,6 +360,23 @@ describe('isolated release signing input', () => {
       /trusted signing input digest mismatch/
     )
   })
+
+  it.each([
+    'scripts/sign-macos.mjs',
+    'signing-build-resources/entitlements.safari.plist',
+    'signing-build-resources/app.motrix.safari.bootstrap.plist',
+  ])(
+    'rejects tampered Safari signing policy despite a rewritten manifest: %s',
+    async (relative) => {
+      const directory = await createFixture()
+      const file = path.join(directory, relative)
+      await writeFile(file, `${await readFile(file, 'utf8')}\n`)
+      await refreshManifest(directory)
+      await expect(verify(directory)).rejects.toThrow(
+        /trusted signing input digest mismatch/
+      )
+    }
+  )
 
   it('rejects a staged-dependency hook whose digest changed', async () => {
     const directory = await createFixture()

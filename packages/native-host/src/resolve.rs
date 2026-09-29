@@ -92,6 +92,23 @@ pub trait ResolveDeps {
     fn sleep(&mut self, duration: Duration);
 }
 
+/// Discovery-only failures retain whether a live bridge refused nonce issuance.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ProbeError {
+    NotRunning,
+    NonceUnavailable,
+}
+
+pub fn probe_endpoint<D: ResolveDeps>(deps: &mut D) -> Result<ResolvedEndpoint, ProbeError> {
+    let endpoint = deps.read_endpoint().ok_or(ProbeError::NotRunning)?;
+    if !deps.probe_liveness(endpoint.port, PROBE_TIMEOUT) {
+        return Err(ProbeError::NotRunning);
+    }
+    deps.fetch_nonce(endpoint.port, PROBE_TIMEOUT)
+        .map(|nonce| ResolvedEndpoint { endpoint, nonce })
+        .ok_or(ProbeError::NonceUnavailable)
+}
+
 /// Resolves the recorded endpoint, launching Motrix first when the caller
 /// allows it and the bridge is not already up.
 ///
@@ -115,13 +132,10 @@ pub fn resolve_endpoint<D: ResolveDeps>(
     allow_launch: bool,
     deps: &mut D,
 ) -> Result<ResolvedEndpoint, ResolveError> {
-    if let Some(endpoint) = deps.read_endpoint()
-        && deps.probe_liveness(endpoint.port, PROBE_TIMEOUT)
-    {
-        return deps
-            .fetch_nonce(endpoint.port, PROBE_TIMEOUT)
-            .map(|nonce| ResolvedEndpoint { endpoint, nonce })
-            .ok_or(ResolveError::NotRunning);
+    match probe_endpoint(deps) {
+        Ok(resolved) => return Ok(resolved),
+        Err(ProbeError::NonceUnavailable) => return Err(ResolveError::NotRunning),
+        Err(ProbeError::NotRunning) => {}
     }
 
     if !allow_launch {
