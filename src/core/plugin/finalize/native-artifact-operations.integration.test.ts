@@ -72,6 +72,33 @@ describe.runIf(existsSync(binary))(
       return { root, adapter, operations }
     }
 
+    it.each([false, true])(
+      'syncs rename directories in the native layer, retaining legacy fallback: %s',
+      async (legacy) => {
+        const { root, adapter, operations } = await setup()
+        const source = path.join(root, 'download.motrix')
+        const target = path.join(root, 'download')
+        await writeFile(source, 'complete')
+        const identity = await readArtifactIdentity(source)
+        const realRename = adapter.renameOpenedNoReplace.bind(adapter)
+        vi.spyOn(adapter, 'renameOpenedNoReplace').mockImplementation(
+          async (...args) => {
+            const result = await realRename(...args)
+            expect(result).toEqual({ directorySyncMode: 'directory_flushed' })
+            return legacy ? undefined : result
+          }
+        )
+        const sync = vi.spyOn(adapter, 'syncRoot')
+        try {
+          await operations.moveNoReplace(source, identity, target)
+          expect(sync).toHaveBeenCalledTimes(legacy ? 2 : 0)
+          expect(await readFile(target, 'utf8')).toBe('complete')
+        } finally {
+          await adapter.dispose()
+        }
+      }
+    )
+
     it('finalizes in an existing directory whose mkdir reports EPERM like a Windows drive root', async () => {
       const { root, adapter, operations } = await setup()
       const source = path.join(root, 'archive.zip.motrix')

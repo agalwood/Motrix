@@ -216,3 +216,32 @@ fn smb_share_supports_held_rename_copy_and_removal() {
     remove_opened(complete, ".remove-file", false).unwrap();
     assert_eq!(fs::read_dir(scratch.path()).unwrap().count(), 0);
 }
+
+#[test]
+fn rename_admission_waits_for_a_reader_that_denies_delete_sharing() {
+    use std::os::windows::fs::OpenOptionsExt;
+    use windows_sys::Win32::Storage::FileSystem::{FILE_SHARE_READ, FILE_SHARE_WRITE};
+
+    let scratch = Scratch::new("rename-admission-retry");
+    fs::write(scratch.path().join("source.motrix"), b"complete").unwrap();
+    let root = open_root(scratch.path().to_str().unwrap()).unwrap();
+    let reader = fs::OpenOptions::new()
+        .read(true)
+        .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE)
+        .open(scratch.path().join("source.motrix"))
+        .unwrap();
+    std::thread::scope(|scope| {
+        scope.spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(120));
+            drop(reader);
+        });
+        let artifact = super::open_artifact_for_rename(&root, "source.motrix").unwrap();
+        let outcome = rename_opened_no_replace(&artifact, &root, "complete.bin").unwrap();
+        assert_eq!(outcome.directory_sync_mode, "directory_flushed");
+    });
+    assert_eq!(
+        fs::read(scratch.path().join("complete.bin")).unwrap(),
+        b"complete"
+    );
+    assert!(!scratch.path().join("source.motrix").exists());
+}

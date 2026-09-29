@@ -386,3 +386,54 @@ fn check_mounted_link_publication(parent: &str, filesystem_type: u64, isolation_
     drop(survivor);
     std::fs::remove_dir_all(base).unwrap();
 }
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[test]
+fn competing_target_creation_never_overwrites_either_payload() {
+    use std::io::Write;
+    use std::sync::Barrier;
+    let base =
+        std::env::temp_dir().join(format!("motrix-rename-competition-{}", std::process::id()));
+    std::fs::create_dir_all(&base).unwrap();
+    let base = base.canonicalize().unwrap();
+    let root = open_root(base.to_str().unwrap()).unwrap();
+    for index in 0..16 {
+        let source = format!("source-{index}.motrix");
+        let target = format!("target-{index}");
+        std::fs::write(base.join(&source), b"download").unwrap();
+        let artifact = super::open_artifact_for_rename(&root, &source).unwrap();
+        let barrier = Barrier::new(2);
+        std::thread::scope(|scope| {
+            let creator = scope.spawn(|| {
+                barrier.wait();
+                match std::fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .open(base.join(&target))
+                {
+                    Ok(mut file) => {
+                        file.write_all(b"competitor").unwrap();
+                        true
+                    }
+                    Err(error) => {
+                        assert_eq!(error.kind(), std::io::ErrorKind::AlreadyExists);
+                        false
+                    }
+                }
+            });
+            barrier.wait();
+            let renamed = super::rename_opened_no_replace(&artifact, &root, &target);
+            if creator.join().unwrap() {
+                let error = renamed.unwrap_err();
+                assert_eq!(crate::error::classify_error(&error), "target_exists");
+                assert_eq!(std::fs::read(base.join(&source)).unwrap(), b"download");
+                assert_eq!(std::fs::read(base.join(&target)).unwrap(), b"competitor");
+            } else {
+                assert_eq!(renamed.unwrap().directory_sync_mode, "directory_flushed");
+                assert!(!base.join(&source).exists());
+                assert_eq!(std::fs::read(base.join(&target)).unwrap(), b"download");
+            }
+        });
+    }
+    std::fs::remove_dir_all(base).unwrap();
+}

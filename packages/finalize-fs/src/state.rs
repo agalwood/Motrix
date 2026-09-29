@@ -77,7 +77,20 @@ impl State {
                         response.handle = Some(handle);
                         response
                     }
-                    Err(error) => Response::filesystem_error(request_id, error),
+                    Err(error) => {
+                        let error =
+                            if rename_only && crate::error::operation_context(&error).is_none() {
+                                crate::error::operation_error(
+                                    error,
+                                    "open_source",
+                                    "not_attempted",
+                                    None,
+                                )
+                            } else {
+                                error
+                            };
+                        Response::filesystem_error(request_id, error)
+                    }
                 }
             }
             Request::RenameOpenedNoReplace {
@@ -96,7 +109,7 @@ impl State {
                         "unknown target root",
                     );
                 };
-                operation_response(
+                rename_response(
                     request_id,
                     rename_opened_no_replace(artifact, target, &target_relative),
                 )
@@ -172,7 +185,7 @@ impl State {
                         "unknown target root",
                     );
                 };
-                operation_response(
+                rename_response(
                     request_id,
                     rename_no_replace(source, &source_relative, target, &target_relative),
                 )
@@ -318,6 +331,22 @@ impl State {
         let handle = self.next_handle();
         self.artifacts.insert(handle, Some(artifact));
         handle
+    }
+}
+
+fn rename_response(
+    request_id: u64,
+    result: std::io::Result<crate::rename::RenameOutcome>,
+) -> Response<'static> {
+    match result {
+        Ok(outcome) => {
+            let mut response = Response::ok(Some(request_id));
+            response.stage = Some("complete");
+            response.mutation = Some("applied");
+            response.directory_sync_mode = Some(outcome.directory_sync_mode);
+            response
+        }
+        Err(error) => Response::filesystem_error(request_id, error),
     }
 }
 

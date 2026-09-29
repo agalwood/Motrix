@@ -25,7 +25,7 @@ pub(crate) fn rename_opened_no_replace(
     _artifact: &ArtifactHandle,
     _target: &RootHandle,
     target_relative: &str,
-) -> io::Result<()> {
+) -> io::Result<crate::rename::RenameOutcome> {
     validate_relative(target_relative)?;
     Err(io::Error::new(
         io::ErrorKind::Unsupported,
@@ -38,7 +38,7 @@ pub(crate) fn rename_no_replace(
     source_relative: &str,
     _target: &RootHandle,
     target_relative: &str,
-) -> io::Result<()> {
+) -> io::Result<crate::rename::RenameOutcome> {
     validate_relative(source_relative)?;
     validate_relative(target_relative)?;
     Err(io::Error::new(

@@ -75,7 +75,7 @@ describe.runIf(process.platform !== 'win32')(
             if (incoming.length < size + 4) return
             const request = JSON.parse(incoming.subarray(4, size + 4).toString())
             incoming = incoming.subarray(size + 4)
-            if (request.relative === 'crash') process.exit(23)
+            if (request.relative === 'crash' || request.target_relative === 'crash') process.exit(23)
             const send = () => {
               const payload = Buffer.from(JSON.stringify({
                 request_id: request.request_id, status: 'ok',
@@ -86,6 +86,17 @@ describe.runIf(process.platform !== 'win32')(
                 handle: request.op === 'open_root' ? 1 : 2,
                 platform: 'test', rename_no_replace: true, held_roots: true,
                 directory_sync: true, held_artifacts: true,
+                ...(request.target_relative === 'synced' ? {
+                  stage: 'complete', mutation: 'applied', directory_sync_mode: 'directory_flushed',
+                } : {}),
+                ...(request.target_relative === 'future-mode' ? {
+                  directory_sync_mode: 'future-unsupported-mode',
+                } : {}),
+                ...(request.target_relative === 'flush-failed' ? {
+                  status: 'error', code: 'io_error', os_error: 5,
+                  stage: 'sync_target_parent', mutation: 'applied',
+                  message: 'directory flush failed',
+                } : {}),
                 ...(request.relative === 'unsupported' ? {
                   status: 'error', code: 'unsupported',
                   operation: request.op, os_error: 1, nt_status: '0xc0000010',
@@ -196,6 +207,55 @@ describe.runIf(process.platform !== 'win32')(
             operation: 'open_artifact',
             osError: 1,
             ntStatus: '0xc0000010',
+          },
+        })
+      } finally {
+        await adapter.dispose()
+      }
+    })
+
+    it('reports native durability, keeps legacy responses compatible, and preserves post-rename failures', async () => {
+      const adapter = new NativeFinalizeFilesystemAdapter(await framedSidecar())
+      try {
+        const root = await adapter.openRoot('/tmp')
+        const artifact = await adapter.openArtifact(root, 'source', 'rename')
+        await expect(
+          adapter.renameOpenedNoReplace(artifact, root, 'synced')
+        ).resolves.toEqual({ directorySyncMode: 'directory_flushed' })
+        await expect(
+          adapter.renameOpenedNoReplace(artifact, root, 'legacy')
+        ).resolves.toBeUndefined()
+        await expect(
+          adapter.renameOpenedNoReplace(artifact, root, 'future-mode')
+        ).resolves.toBeUndefined()
+        await expect(
+          adapter.renameOpenedNoReplace(artifact, root, 'flush-failed')
+        ).rejects.toMatchObject({
+          code: 'io_error',
+          details: {
+            stage: 'sync_target_parent',
+            mutation: 'applied',
+            osError: 5,
+          },
+        })
+      } finally {
+        await adapter.dispose()
+      }
+    })
+
+    it('marks a lost rename response as unknown instead of assuming no mutation', async () => {
+      const adapter = new NativeFinalizeFilesystemAdapter(await framedSidecar())
+      try {
+        const root = await adapter.openRoot('/tmp')
+        const artifact = await adapter.openArtifact(root, 'source', 'rename')
+        await expect(
+          adapter.renameOpenedNoReplace(artifact, root, 'crash')
+        ).rejects.toMatchObject({
+          code: 'io_error',
+          details: {
+            operation: 'rename_opened_no_replace',
+            stage: 'transport',
+            mutation: 'unknown',
           },
         })
       } finally {

@@ -4,6 +4,7 @@ mod error;
 mod path;
 mod platform;
 mod protocol;
+mod rename;
 mod sanitize;
 mod state;
 

@@ -1,8 +1,8 @@
 //! Thin, checked wrappers around the Windows native handle APIs we need.
 
 use super::super::windows_policy::{
-    is_online_smb2, is_transient_rename_conflict, remote_directory_acknowledged,
-    rename_retry_delay_ms, unsupported_information,
+    RenameRetryBudget, case_sensitive_query, is_online_smb2, remote_directory_acknowledged,
+    unsupported_information,
 };
 use crate::error::{native_error, os_code};
 use std::ffi::{OsStr, c_void};
@@ -11,7 +11,6 @@ use std::mem::size_of;
 use std::os::windows::ffi::OsStrExt;
 use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
 use std::path::Path;
-use std::time::Duration;
 use windows_sys::Wdk::Foundation::OBJECT_ATTRIBUTES;
 use windows_sys::Wdk::Storage::FileSystem::{
     FILE_CREATE, FILE_DIRECTORY_FILE, FILE_DISPOSITION_DELETE,
@@ -273,7 +272,7 @@ fn nt_create(
         Length: u32::try_from(size_of::<OBJECT_ATTRIBUTES>()).expect("OBJECT_ATTRIBUTES size"),
         RootDirectory: parent.as_raw_handle(),
         ObjectName: &object_name,
-        Attributes: object_attributes(parent),
+        Attributes: object_attributes(parent)?,
         SecurityDescriptor: std::ptr::null(),
         SecurityQualityOfService: std::ptr::null(),
     };
@@ -301,7 +300,7 @@ fn nt_create(
     Ok(unsafe { OwnedHandle::from_raw_handle(handle) })
 }
 
-fn object_attributes(parent: &OwnedHandle) -> u32 {
+fn object_attributes(parent: &OwnedHandle) -> io::Result<u32> {
     const FILE_CS_FLAG_CASE_SENSITIVE_DIR: u32 = 1;
     let mut info = FILE_CASE_SENSITIVE_INFO::default();
     let result = unsafe {
@@ -313,11 +312,20 @@ fn object_attributes(parent: &OwnedHandle) -> u32 {
                 .expect("FILE_CASE_SENSITIVE_INFO size"),
         )
     };
-    if result != 0 && info.Flags & FILE_CS_FLAG_CASE_SENSITIVE_DIR != 0 {
+    let sensitive = case_sensitive_query(if result == 0 {
+        Err(native_error(
+            io::Error::last_os_error(),
+            "GetFileInformationByHandleEx(FileCaseSensitiveInfo)",
+            None,
+        ))
+    } else {
+        Ok(info.Flags & FILE_CS_FLAG_CASE_SENSITIVE_DIR != 0)
+    })?;
+    Ok(if sensitive {
         OBJ_DONT_REPARSE
     } else {
         OBJ_CASE_INSENSITIVE | OBJ_DONT_REPARSE
-    }
+    })
 }
 
 pub(super) fn rename_no_replace(
@@ -357,35 +365,16 @@ pub(super) fn rename_no_replace(
     )
 }
 
-/// Rename with surge-style exponential backoff. Antivirus scanners, search
-/// indexers and handles lingering after `Close()` returns can hold the
-/// artifact or target name with a sharing violation for a few milliseconds;
-/// only that error family (`ACCESS_DENIED`, `SHARING_VIOLATION`,
-/// `LOCK_VIOLATION`) is retried, five attempts with a 50 ms doubling base.
-/// Every other error — and exhaustion of the schedule — is reported
-/// immediately, so the host journal recovery path is unchanged.
+/// Retry only failed rename calls, sharing the admission wait budget.
 pub(super) fn rename_no_replace_with_retry(
     artifact: &OwnedHandle,
     target_parent: &OwnedHandle,
     target_name: &[u16],
+    budget: &RenameRetryBudget,
 ) -> io::Result<()> {
-    let mut attempt = 0_usize;
-    loop {
-        let error = match rename_no_replace(artifact, target_parent, target_name) {
-            Ok(()) => return Ok(()),
-            Err(error) => error,
-        };
-        let delay = is_transient_rename_conflict(os_code(&error))
-            .then(|| rename_retry_delay_ms(attempt))
-            .flatten();
-        match delay {
-            Some(delay) => {
-                std::thread::sleep(Duration::from_millis(delay));
-                attempt += 1;
-            }
-            None => return Err(error),
-        }
-    }
+    budget.run("rename", "unknown", || {
+        rename_no_replace(artifact, target_parent, target_name)
+    })
 }
 
 pub(super) fn mark_delete(artifact: &OwnedHandle) -> io::Result<()> {

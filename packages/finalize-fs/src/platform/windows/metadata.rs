@@ -18,7 +18,7 @@ use windows_sys::Win32::Storage::FileSystem::{
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-enum FileIdentity {
+pub(super) enum FileIdentity {
     Extended([u8; 16]),
     Legacy(u64),
 }
@@ -77,7 +77,7 @@ pub(super) fn query_stamp(handle: &OwnedHandle) -> io::Result<FileStamp> {
     })
 }
 
-fn query_identity(handle: &OwnedHandle) -> io::Result<(u64, FileIdentity)> {
+pub(super) fn query_identity(handle: &OwnedHandle) -> io::Result<(u64, FileIdentity)> {
     query_identity_with(handle, query::<FILE_ID_INFO>(handle, FileIdInfo))
 }
 

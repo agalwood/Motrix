@@ -1,6 +1,7 @@
 use std::io;
 
 pub(crate) fn classify_error(error: &io::Error) -> &'static str {
+    let error = underlying(error);
     if let Some(code) = error
         .get_ref()
         .and_then(|e| e.downcast_ref::<NativeError>())
@@ -72,6 +73,7 @@ pub(crate) fn native_error(
 }
 
 pub(crate) fn os_code(error: &io::Error) -> Option<i32> {
+    let error = underlying(error);
     error.raw_os_error().or_else(|| {
         error
             .get_ref()?
@@ -82,6 +84,7 @@ pub(crate) fn os_code(error: &io::Error) -> Option<i32> {
 }
 
 pub(crate) fn nt_status(error: &io::Error) -> Option<String> {
+    let error = underlying(error);
     error
         .get_ref()?
         .downcast_ref::<NativeError>()?
@@ -136,4 +139,52 @@ mod rename_tests {
             "rename_unsupported"
         );
     }
+}
+
+#[derive(Debug)]
+pub(crate) struct OperationError {
+    pub(crate) stage: &'static str,
+    // "unknown" includes syscall errors whose remote outcome cannot be inferred.
+    pub(crate) mutation: &'static str,
+    pub(crate) attempts: Option<usize>,
+    source: io::Error,
+}
+
+impl std::fmt::Display for OperationError {
+    fn fmt(&self, output: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(output, "{}: {}", self.stage, self.source)
+    }
+}
+impl std::error::Error for OperationError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.source)
+    }
+}
+
+pub(crate) fn operation_error(
+    source: io::Error,
+    stage: &'static str,
+    mutation: &'static str,
+    attempts: Option<usize>,
+) -> io::Error {
+    io::Error::new(
+        source.kind(),
+        OperationError {
+            stage,
+            mutation,
+            attempts,
+            source,
+        },
+    )
+}
+
+pub(crate) fn operation_context(error: &io::Error) -> Option<&OperationError> {
+    error.get_ref()?.downcast_ref::<OperationError>()
+}
+
+fn underlying(mut error: &io::Error) -> &io::Error {
+    while let Some(context) = operation_context(error) {
+        error = &context.source;
+    }
+    error
 }
