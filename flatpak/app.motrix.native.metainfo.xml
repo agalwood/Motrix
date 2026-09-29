@@ -68,6 +68,15 @@
   </screenshots>
 
   <releases>
+    <release version="2.0.0-beta.44" date="2026-09-29">
+      <description>
+        <p>
+          Distinguishes zero, unknown, and inapplicable download metrics,
+          fixes Safari helper signing order, and includes the Safari desktop
+          bootstrap with improved registration after macOS upgrades.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.43" date="2026-09-29">
       <description>
         <p>
