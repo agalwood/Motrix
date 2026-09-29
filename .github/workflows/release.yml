@@ -255,6 +255,12 @@ jobs:
           src/core/plugin/finalize/finalize-smb-recovery.integration.test.ts
           --reporter=verbose
 
+      - name: Test and build Safari desktop helpers
+        if: matrix.platform == 'darwin'
+        run: |
+          swift test --package-path packages/safari-bootstrap
+          pnpm run build:safari-bootstrap -- --arch ${{ matrix.arch }}
+
       # SQLite integration tests above use Node. Rebuild for Electron before
       # staging, so the packaged native dependency retains the correct ABI.
       - name: Build Electron application
@@ -891,7 +897,7 @@ jobs:
           EXPECTED_COMMIT: ${{ github.sha }}
           EXPECTED_PLATFORM: ${{ matrix.platform }}
           # Updated only after reviewing the verifier source itself.
-          VERIFIER_SHA256: 05d56166dedb2b862fca79659db59ae55bf31b2e761f5a3194482618e0e7a076
+          VERIFIER_SHA256: ac73a236208b8c5d0ca156f558d39812b86d00031f69ac886a50b4b88a5b0fa7
         run: |
           const crypto = require('node:crypto')
           const fs = require('node:fs')

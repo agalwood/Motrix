@@ -245,6 +245,21 @@ async function createFixture(
   await chmod(host, 0o755)
   await chmod(finalize, 0o755)
   await chmod(engine, 0o755)
+  if (target.platform === 'darwin') {
+    for (const relative of [
+      'Contents/MacOS/MotrixSafariRegistrar',
+      'Contents/Library/LaunchServices/MotrixSafariBootstrap',
+    ]) {
+      await chmod(await write(appDir, relative, executable), 0o755)
+    }
+    await write(
+      appDir,
+      'Contents/Library/LaunchAgents/app.motrix.safari.bootstrap.plist',
+      await readFile(
+        path.join(process.cwd(), 'build/app.motrix.safari.bootstrap.plist')
+      )
+    )
+  }
   for (const relativePath of LEGAL)
     await write(resources, relativePath, relativePath)
   await writeJson(
@@ -303,6 +318,17 @@ function failedCheck(report: Awaited<ReturnType<typeof verify>>, id: string) {
 }
 
 describe('post-package Electron verification', () => {
+  it.each([
+    'Contents/MacOS/MotrixSafariRegistrar',
+    'Contents/Library/LaunchServices/MotrixSafariBootstrap',
+    'Contents/Library/LaunchAgents/app.motrix.safari.bootstrap.plist',
+  ])('rejects missing or tampered Safari payload: %s', async (relative) => {
+    const fixture = await createFixture()
+    await writeFile(path.join(fixture.appDir, relative), 'untrusted')
+    const report = await verify(fixture)
+    expect(report.passed).toBe(false)
+  })
+
   it('normalizes Windows ASAR listings to portable archive paths', () => {
     expect(
       normalizeArchiveEntry(

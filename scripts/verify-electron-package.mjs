@@ -544,6 +544,42 @@ export async function verifyElectronPackage(options) {
     return 'single external resvg WASM matches stage'
   })
 
+  await check('safari-desktop-helpers', async () => {
+    if (target.platform !== 'darwin') return 'not applicable'
+    for (const relative of [
+      'MacOS/MotrixSafariRegistrar',
+      'Library/LaunchServices/MotrixSafariBootstrap',
+    ]) {
+      const file = path.join(resources, '..', relative)
+      const info = await lstat(file)
+      if (
+        !info.isFile() ||
+        !nativeTargetMatches(
+          detectNativeBinaryTarget(await readFile(file)),
+          'darwin',
+          target.arch,
+          false
+        )
+      ) {
+        throw new Error(`invalid Safari helper: ${relative}`)
+      }
+      await access(file, constants.X_OK)
+    }
+    const plist = path.join(
+      resources,
+      '../Library/LaunchAgents/app.motrix.safari.bootstrap.plist'
+    )
+    if (!(await lstat(plist)).isFile())
+      throw new Error('invalid Safari LaunchAgent')
+    const digest = sha256(await readFile(plist))
+    if (
+      digest !==
+      '27ad50100646b2696fd7a0cab8d5ce1f391730069350f6e3d76ace376e0ef696'
+    )
+      throw new Error('unexpected Safari LaunchAgent configuration')
+    return 'Safari helper architecture and LaunchAgent verified'
+  })
+
   await check('external-resources', async () => {
     const hostName =
       target.platform === 'win32'

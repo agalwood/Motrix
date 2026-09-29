@@ -456,6 +456,12 @@ jobs:
           src/core/plugin/finalize/finalize-nfs-recovery.integration.test.ts
           --reporter=verbose
 
+      - name: Test and build Safari desktop helpers
+        if: matrix.platform == 'darwin'
+        run: |
+          swift test --package-path packages/safari-bootstrap
+          pnpm run build:safari-bootstrap -- --arch ${{ matrix.arch }}
+
       # SQLite integration tests above use Node. Switch native modules to the
       # packaged Electron ABI only after those tests have finished.
       - name: Build Electron application

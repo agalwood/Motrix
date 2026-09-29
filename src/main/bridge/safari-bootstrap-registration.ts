@@ -53,7 +53,7 @@ export async function registerSafariBootstrap(
     (async (file, args) =>
       execute(file, [...args], {
         encoding: 'utf8',
-        timeout: 10_000,
+        timeout: 25_000,
         maxBuffer: 32 * 1024,
         windowsHide: true,
       }))

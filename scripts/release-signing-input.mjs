@@ -34,8 +34,14 @@ export const SIGNING_ARCHIVE_LIMITS = Object.freeze({
 })
 
 const TRUSTED_INPUT_SHA256 = Object.freeze({
+  'signing-build-resources/app.motrix.safari.bootstrap.plist':
+    '27ad50100646b2696fd7a0cab8d5ce1f391730069350f6e3d76ace376e0ef696',
+  'signing-build-resources/entitlements.safari.plist':
+    '9d8cee581ad890260639ec94839844cbd12abf3396131604b32820bf28328c4d',
+  'scripts/sign-macos.mjs':
+    'e5109fd4ef90aaaac74bc91b1b9470f163d61cff32ec241ce5b216318849375d',
   'electron-builder.signing.json':
-    'fb261dd746182ba6e374af6b5955a6f77d71f4aeb343485d0f69ee4e62bdd3d3',
+    'da0d66babef56e80e725fd62b7b7b659571809d01e0f4383f28f6623a21962aa',
   'signing-build-resources/256x256.png':
     '044d3b64a14aa512ca41469372d1ad630557daaeb2cb4e709d34f2d3c57d4c3b',
   'signing-build-resources/background.tiff':
@@ -69,7 +75,7 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
   'scripts/native-binary-target.mjs':
     '6f0a42eecf729eb6de2df28b5d7449993590e494deb4e309b99c367094045797',
   'scripts/verify-electron-package.mjs':
-    'ec160ddfa929242155e38d3e0cfdd752ca748a16a84c71eefd39d5b0cbfb9e8a',
+    '83e7a924c43b70def9440dc8561d9c0aa5dd15dc6044b24f3436215eb92e345c',
 })
 
 // Use electron-builder's default resource names so the restricted config can
@@ -84,6 +90,15 @@ const SOURCE_MAPPINGS = [
   ['THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_NOTICES.md'],
   ['THIRD_PARTY_NOTICES.zh-CN.md', 'THIRD_PARTY_NOTICES.zh-CN.md'],
   ['build/legal', 'build/legal'],
+  ['scripts/sign-macos.mjs', 'scripts/sign-macos.mjs'],
+  [
+    'build/entitlements.safari.plist',
+    'signing-build-resources/entitlements.safari.plist',
+  ],
+  [
+    'build/app.motrix.safari.bootstrap.plist',
+    'signing-build-resources/app.motrix.safari.bootstrap.plist',
+  ],
   ['build/256x256.png', 'signing-build-resources/256x256.png'],
   ['build/background.tiff', 'signing-build-resources/background.tiff'],
   [
@@ -161,6 +176,7 @@ function isAllowedSigningDataPath(relativePath) {
       'signing-policy/installer.nsh',
       'signing-tool/package.json',
       'signing-tool/package-lock.json',
+      'scripts/sign-macos.mjs',
       'scripts/before-build-use-staged-dependencies.mjs',
       'scripts/electron-package-size-budgets.json',
       'scripts/electron-package-utils.mjs',
@@ -176,6 +192,7 @@ function isAllowedSigningDataPath(relativePath) {
       'extra/',
       'packages/finalize-fs/dist/',
       'packages/native-host/dist/',
+      'packages/safari-bootstrap/dist/',
       'signing-build-resources/',
       'size-reports/',
     ].some((prefix) => relativePath.startsWith(prefix))
@@ -218,6 +235,7 @@ function isAllowedSigningDirectory(relativePath) {
     'extra',
     'packages/finalize-fs/dist',
     'packages/native-host/dist',
+    'packages/safari-bootstrap/dist',
   ]
   const flatRoots = [
     'signing-build-resources',
@@ -245,6 +263,8 @@ function isAllowedSigningBuildResource(relativePath) {
     'signing-build-resources/256x256.png',
     'signing-build-resources/background.tiff',
     'signing-build-resources/entitlements.mac.plist',
+    'signing-build-resources/entitlements.safari.plist',
+    'signing-build-resources/app.motrix.safari.bootstrap.plist',
     'signing-build-resources/icon.icns',
     'signing-build-resources/icon.ico',
     'signing-build-resources/torrent.icns',
@@ -583,6 +603,12 @@ export async function createSigningInput(options) {
   const targetKey = `${options.platform}-${options.arch}`
   for (const [sourcePath, destinationPath] of [
     ...SOURCE_MAPPINGS,
+    ...(options.platform === 'darwin'
+      ? ['MotrixSafariBootstrap', 'MotrixSafariRegistrar'].map((name) => {
+          const file = `packages/safari-bootstrap/dist/darwin-${options.arch}/${name}`
+          return [file, file]
+        })
+      : []),
     [
       targetResource(options.platform, options.arch),
       targetResource(options.platform, options.arch),
@@ -708,7 +734,7 @@ async function verifyRestrictedConfig(input) {
     config.nsis?.customNsisBinary !== null ||
     config.nsis?.customNsisResources !== null ||
     config.toolsets?.nsis !== undefined ||
-    config.mac?.sign !== undefined ||
+    config.mac?.sign !== './scripts/sign-macos.mjs' ||
     config.win?.signtoolOptions?.sign !== undefined
   ) {
     throw new Error('restricted signing config is not self-contained')

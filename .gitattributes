@@ -17,3 +17,6 @@ scripts/before-build-use-staged-dependencies.mjs text eol=lf
 scripts/native-binary-target.mjs text eol=lf
 scripts/release-signing-input.mjs text eol=lf
 scripts/verify-electron-package.mjs text eol=lf
+scripts/sign-macos.mjs text eol=lf
+build/entitlements.safari.plist text eol=lf
+build/app.motrix.safari.bootstrap.plist text eol=lf

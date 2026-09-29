@@ -37,7 +37,7 @@
     "generate:bridge-vectors": "node scripts/generate-bridge-pairing-vectors.mjs docs/bridge-pairing-protocol-vectors.json",
     "package:flatpak-native-host": "node packages/native-host/package-flatpak-companion.mjs",
     "build:snap:prepare": "node scripts/prepare-snap-project.mjs",
-    "build:mac-arm64": "pnpm run build:builtin && pnpm run build:native-host -- --platform darwin --arch arm64 && pnpm run build:finalize-fs -- --platform darwin --arch arm64 && pnpm run build:electron",
+    "build:mac-arm64": "pnpm run build:builtin && pnpm run build:native-host -- --platform darwin --arch arm64 && pnpm run build:finalize-fs -- --platform darwin --arch arm64 && pnpm run build:safari-bootstrap -- --arch arm64 && pnpm run build:electron",
     "prestart:server": "node scripts/ensure-native-abi.mjs node",
     "start:server": "MOTRIX_SKIP_ELECTRON_REBUILD=1 node dist/server/index.mjs",
     "check:boundaries": "node scripts/check-boundaries.mjs",
@@ -84,7 +84,8 @@
     "rebuild:for-electron": "electron-rebuild --force --only better-sqlite3",
     "pack:mac": "pnpm run check:third-party-notices && pnpm run build:mac-arm64 && pnpm run stage:electron -- --platform darwin --arch arm64 && CSC_IDENTITY_AUTO_DISCOVERY=false pnpm exec electron-builder --mac --arm64 -c.mac.target=dir && codesign --force --deep --sign - release/mac-arm64/Motrix.app",
     "dist:mac": "pnpm run check:third-party-notices && pnpm run build:mac-arm64 && pnpm run stage:electron -- --platform darwin --arch arm64 && CSC_IDENTITY_AUTO_DISCOVERY=false pnpm exec electron-builder --mac --arm64 --publish never",
-    "release:mac": "pnpm run check:third-party-notices && pnpm run build:mac-arm64 && pnpm run stage:electron -- --platform darwin --arch arm64 && pnpm exec electron-builder --mac --arm64 --publish never"
+    "release:mac": "pnpm run check:third-party-notices && pnpm run build:mac-arm64 && pnpm run stage:electron -- --platform darwin --arch arm64 && pnpm exec electron-builder --mac --arm64 --publish never",
+    "build:safari-bootstrap": "node packages/safari-bootstrap/build.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
