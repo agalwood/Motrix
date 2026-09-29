@@ -23,6 +23,7 @@ export const SUPPORTED_LOCALES = [
   { code: 'es', nativeName: 'Español', dir: 'ltr' },
   { code: 'fa', nativeName: 'فارسی', dir: 'rtl' },
   { code: 'fr', nativeName: 'Français', dir: 'ltr' },
+  { code: 'hu', nativeName: 'Magyar', dir: 'ltr' },
   { code: 'id', nativeName: 'Bahasa Indonesia', dir: 'ltr' },
   { code: 'it', nativeName: 'Italiano', dir: 'ltr' },
   { code: 'ja', nativeName: '日本語', dir: 'ltr' },
@@ -39,7 +40,6 @@ export const SUPPORTED_LOCALES = [
   { code: 'vi', nativeName: 'Tiếng Việt', dir: 'ltr' },
   { code: 'zh-CN', nativeName: '简体中文', dir: 'ltr' },
   { code: 'zh-TW', nativeName: '繁體中文', dir: 'ltr' },
-  { code: 'hu-HU', nativeName: 'Magyar', dir: 'ltr' },
 ] as const satisfies readonly LocaleDefinition[]
 
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number]['code']

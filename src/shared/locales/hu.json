@@ -1,9 +1,9 @@
 {
   "operatorUnlock": {
     "title": "Motrix feloldása",
-    "help": "Ehhez a szerverhez operátori token szükséges. A gazdagépen állítsd be a MOTRIX_OPERATOR_TOKEN értékét, vagy olvasd ki a tokent a <dataDir>/operator-token fájlból, majd illeszd be alább.",
-    "placeholder": "Operátori token",
-    "error": "Érvénytelen operátori token. Ellenőrizd a gazdagépen a MOTRIX_OPERATOR_TOKEN értékét vagy a <dataDir>/operator-token fájlt, majd próbáld újra.",
+    "help": "Ez a szerver üzemeltetői tokent kér. A szervert futtató gépen állítsd be a MOTRIX_OPERATOR_TOKEN környezeti változót, vagy másold ki a tokent a <dataDir>/operator-token fájlból, majd illeszd be alább.",
+    "placeholder": "Üzemeltetői token",
+    "error": "Érvénytelen üzemeltetői token. Ellenőrizd a MOTRIX_OPERATOR_TOKEN értékét vagy a <dataDir>/operator-token fájlt a szervert futtató gépen, majd próbáld újra.",
     "submit": "Feloldás"
   },
   "operatorAdmin": {
@@ -11,44 +11,44 @@
     "errorPrefix": "motrix-admin: {{message}}",
     "usageHint": "A használati útmutatóhoz futtasd a `motrix-admin --help` parancsot.",
     "pending": {
-      "none": "Nincsenek függőben lévő párosítási kérelmek.",
+      "none": "Nincsenek függőben lévő párosítási kérések.",
       "row": "{{userCode}}  {{clientName}}  {{clientVersion}}  lejár: {{ttl}} múlva",
       "ttl": "{{minutes}} p {{seconds}} mp"
     },
     "decision": {
-      "approve": "A(z) {{userCode}} kód jóváhagyva ehhez: {{clientName}} ({{clientVersion}}).",
-      "deny": "A(z) {{userCode}} kód elutasítva ehhez: {{clientName}} ({{clientVersion}})."
+      "approve": "A(z) {{userCode}} kódú párosítási kérés jóváhagyva: {{clientName}} ({{clientVersion}}).",
+      "deny": "A(z) {{userCode}} kódú párosítási kérés elutasítva: {{clientName}} ({{clientVersion}})."
     },
     "errors": {
       "usage": {
         "jsonRepeated": "A --json kapcsoló csak egyszer adható meg.",
         "unknownOption": "Ismeretlen parancssori kapcsoló.",
-        "pairingCommandRequired": "Párosítási parancs szükséges.",
+        "pairingCommandRequired": "A pairing parancs megadása szükséges.",
         "pairingOperationRequired": "A következők egyike szükséges: pairing pending, pairing approve CODE vagy pairing deny CODE.",
         "pairingCodeInvalid": "A párosítási kódnak nyolc ASCII-karakterből kell állnia, és nem tartalmazhat I, O, 0 vagy 1 karaktert.",
         "portInvalid": "A PORT értékének 1 és 65535 közötti egész számnak kell lennie."
       },
       "credential": {
-        "tokenHeaderInvalid": "A MOTRIX_OPERATOR_TOKEN nem használható HTTP-fejlécben.",
+        "tokenHeaderInvalid": "A MOTRIX_OPERATOR_TOKEN értéke nem használható HTTP-fejlécben.",
         "dataDirNotAbsolute": "A MOTRIX_DATA_DIR értékének abszolút elérési útnak kell lennie.",
-        "unavailable": "Az operátori hitelesítő adat nem érhető el. Állítsd be a MOTRIX_OPERATOR_TOKEN értékét, vagy ellenőrizd, hogy az operator-token fájl létezik-e az adatkönyvtárban.",
-        "notFile": "Az operátori hitelesítő adat elérési útja nem normál fájlra mutat.",
-        "unreadable": "Az operátori hitelesítő adat nem olvasható.",
-        "invalid": "Az operátori hitelesítő adat fájlja érvénytelen.",
-        "rejected": "A Motrix elutasította az operátori hitelesítő adatot."
+        "unavailable": "Az üzemeltetői token nem érhető el. Állítsd be a MOTRIX_OPERATOR_TOKEN értékét, vagy ellenőrizd, hogy az operator-token fájl létezik-e az adatkönyvtárban.",
+        "notFile": "Az üzemeltetői token elérési útja nem normál fájlra mutat.",
+        "unreadable": "Az üzemeltetői token nem olvasható.",
+        "invalid": "Az üzemeltetői tokent tartalmazó fájl érvénytelen.",
+        "rejected": "A Motrix elutasította az üzemeltetői tokent."
       },
       "server": {
-        "responseUnreadable": "A Motrix nem olvasható választ adott.",
-        "responseOversized": "A Motrix túl nagy választ adott.",
+        "responseUnreadable": "A Motrix olvashatatlan választ adott.",
+        "responseOversized": "A Motrix túl nagy méretű választ adott.",
         "responseInvalidJson": "A Motrix érvénytelen JSON-választ adott.",
-        "rpcHttp": "A Motrix párosítási RPC-hívása HTTP {{status}} hibával sikertelen volt.",
+        "rpcHttp": "A Motrix párosítási RPC-hívása sikertelen: HTTP {{status}}.",
         "approvalUnavailable": "A párosítás jóváhagyása nem érhető el a futó Motrix szerveren.",
-        "pendingResponseInvalid": "A Motrix érvénytelen választ adott a függőben lévő párosításokra.",
+        "pendingResponseInvalid": "A Motrix érvénytelen választ adott a függőben lévő párosítási kérések lekérdezésére.",
         "decisionOutcomeUnknown": "A párosítási döntés eredménye ismeretlen. Újrapróbálás előtt futtasd a pairing pending parancsot.",
         "decisionResponseInvalid": "A Motrix érvénytelen választ adott a párosítási döntésre.",
-        "requestNoLongerPending": "A párosítási kérelem már nincs függőben.",
-        "noMatchingRequest": "Nincs a(z) {{userCode}} kódnak megfelelő függőben lévő párosítási kérelem.",
-        "ambiguousRequest": "Egynél több függőben lévő párosítási kérelem felel meg a(z) {{userCode}} kódnak; a rendszer nem alkalmazott döntést.",
+        "requestNoLongerPending": "A párosítási kérés már nincs függőben.",
+        "noMatchingRequest": "Nincs a(z) {{userCode}} kódnak megfelelő függőben lévő párosítási kérés.",
+        "ambiguousRequest": "Több függőben lévő párosítási kérés is megfelel a(z) {{userCode}} kódnak; a rendszer nem alkalmazta a döntést.",
         "unexpected": "Váratlan motrix-admin hiba."
       },
       "unavailable": {
@@ -58,6 +58,7 @@
     }
   },
   "common": {
+    "clearSearch": "Keresés törlése",
     "download": "Letöltés",
     "cancel": "Mégse",
     "save": "Mentés",
@@ -70,9 +71,10 @@
     "apply": "Alkalmaz",
     "confirm": "Megerősítés",
     "status": {
-      "finalizing": "Befejezés…"
+      "finalizing": "Véglegesítés…"
     },
     "reset": "Visszaállítás",
+    "retry": "Újrapróbálás",
     "showPassword": "Jelszó megjelenítése",
     "hidePassword": "Jelszó elrejtése"
   },
@@ -80,9 +82,9 @@
     "confirm": {
       "message_one": "{{count}} letöltés még aktív.",
       "message_other": "{{count}} letöltés még aktív.",
-      "detail": "Ha most kilépsz, a letöltés szünetelni fog. Biztosan ki szeretnél lépni?",
+      "detail": "Kilépéskor a folyamatban lévő letöltések szünetelni fognak. Biztosan ki szeretnél lépni?",
       "quitButton": "Kilépés",
-      "dontAskAgain": "Ne kérdezze újra"
+      "dontAskAgain": "Ne kérdezzen újra"
     }
   },
   "nav": {
@@ -99,8 +101,10 @@
     "maximize": "Teljes méretre",
     "restore": "Visszaállítás",
     "close": "Bezárás",
-    "toggleSidebar": "Oldalsáv be-/kikapcsolása",
-    "newTask": "Új feladat"
+    "toggleSidebar": "Oldalsáv megjelenítése vagy elrejtése",
+    "newTask": "Új feladat",
+    "sidebarTitle": "Oldalsáv",
+    "sidebarDescription": "Navigáció az alkalmazásban."
   },
   "tray": {
     "newTask": "Új feladat",
@@ -113,129 +117,179 @@
     "quit": "Kilépés"
   },
   "panel": {
+    "connection": {
+      "polling": "Időszakos frissítés",
+      "reconnecting": "Újracsatlakozás a szerverhez…",
+      "unavailable": "A szerver nem érhető el",
+      "originMismatch": "Az elérési cím nem egyezik"
+    },
     "dashboard": {
       "title": "Áttekintés",
-        "engine": {
-          "title": "Motor",
-          "features": "Funkciók",
-          "startFailed": "Az aria2 motor nem indítható el",
-          "state": {
-            "ready": "Kész",
-            "starting": "Indítás…",
-            "reconnecting": "Újracsatlakozás…",
-            "failed": "Sikertelen",
-            "disconnected": "Nincs kapcsolat",
-            "stopped": "Leállítva"
+      "engine": {
+        "title": "Motor",
+        "features": "Funkciók",
+        "startFailed": "Az aria2 motor nem indítható el",
+        "state": {
+          "ready": "Kész",
+          "starting": "Indítás…",
+          "reconnecting": "Újracsatlakozás…",
+          "failed": "Sikertelen",
+          "disconnected": "Nincs kapcsolat",
+          "stopped": "Leállítva"
+        },
+        "name": "Aria2",
+        "version": "Verzió",
+        "rpcPort": "RPC-port",
+        "listenPort": "Figyelési port",
+        "diagnostics": {
+          "title": "Motor diagnosztikája",
+          "description": "Ellenőrzi a motort, azonosítja a Motrix RPC-portját használó folyamatot, és lehetővé teszi a biztonságos helyreállítást.",
+          "open": "Diagnosztika",
+          "checking": "A motor ellenőrzése folyamatban…",
+          "runAgain": "Újraellenőrzés",
+          "loadFailed": "Nem sikerült futtatni a motor diagnosztikáját.",
+          "currentStatus": "Jelenlegi állapot",
+          "lastChecked": "Ellenőrizve: {{time}}",
+          "checks": {
+            "binary": "Motor",
+            "features": "Funkciók",
+            "rpc": "RPC-port",
+            "process": "Folyamat",
+            "communication": "Kapcsolat"
           },
-          "name": "Aria2",
-          "version": "Verzió",
-          "rpcPort": "RPC-port",
-          "listenPort": "Figyelési port",
-          "diagnostics": {
-            "title": "Motor diagnosztikája",
-            "description": "Ellenőrzi a motort, azonosítja a Motrix RPC-portját használó folyamatot, és lehetővé teszi a biztonságos helyreállítást.",
-            "open": "Diagnosztika",
-            "checking": "A motor ellenőrzése folyamatban…",
-            "runAgain": "Újraellenőrzés",
-            "loadFailed": "Nem sikerült futtatni a motor diagnosztikáját.",
-            "currentStatus": "Jelenlegi állapot",
-            "lastChecked": "Ellenőrizve: {{time}}",
-            "checks": {
-              "binary": "Beépített aria2",
-              "features": "Motor funkciói",
-              "rpc": "Motrix RPC-port",
-              "process": "Folyamat azonosítása",
-              "communication": "Kommunikáció a motorral"
-            },
-            "binary": {
-              "available": "A(z) {{name}} {{version}} elérhető.",
-              "unavailable": "A(z) {{name}} hiányzik vagy nem indítható el."
-            },
-            "features": {
-              "none": "Az aria2 nem jelentett elérhető motorfunkciókat.",
-              "unavailable": "A motor funkcióira vonatkozó információ nem érhető el."
-            },
-            "rpc": {
-              "listening": "A Motrix aria2 megfelelően figyel a(z) {{port}} porton.",
-              "available": "A(z) {{port}} port szabad, és használható a Motrix aria2 számára.",
-              "occupied": "A(z) {{port}} port már használatban van."
-            },
-            "process": {
-              "none": "Egyetlen folyamat sem blokkolja az RPC-portot.",
-              "unidentified": "A portot használó folyamat nem azonosítható. A Motrix nem fogja leállítani.",
-              "current_app": "A(z) {{pid}} PID-ű ({{name}}) folyamatot ez a Motrix-munkamenet kezeli.",
-              "verified_orphan": "A(z) {{pid}} PID-ű ({{name}}) folyamat megfelel a Motrix beépített binárisának és privát indítási paramétereinek, ezért biztonságosan leállítható.",
-              "external_aria2": "A(z) {{pid}} PID-ű ({{name}}) folyamat aria2, de a Motrix nem tudja ellenőrizni, hogy hozzá tartozik-e. Nem lesz automatikusan leállítva.",
-              "other": "A(z) {{pid}} PID-ű ({{name}}) folyamat nem ellenőrzött Motrix aria2-folyamat, ezért nem lesz leállítva.",
-              "unknown": "A(z) {{pid}} PID-ű folyamat nem azonosítható, ezért nem lesz leállítva."
-            },
-            "communication": {
-              "ready": "A Motrix képes kommunikálni az aria2-vel."
-            },
-            "reason": {
-              "port_in_use": "A Motrix RPC-portja foglalt, ezért az aria2 motor nem indítható el.",
-              "binary_unavailable": "A beépített aria2 futtatható állománya hiányzik vagy nem érhető el.",
-              "spawn_failed": "Az aria2 folyamatot nem sikerült létrehozni.",
-              "rpc_unavailable": "Az aria2 motor elindult, de nem fogadja a Motrix RPC-kapcsolatait.",
-              "unexpected_exit": "Az aria2 motor váratlanul leállt.",
-              "health_check_failed": "Az aria2 nem válaszol a Motrixnak.",
-              "unknown": "Az aria2 motor ismeretlen okból nem indítható el."
-            },
-            "recommendation": {
-              "title": "Javasolt helyreállítás",
-              "retry": "A port szabad. Próbáld újra elindítani az aria2-t a beállítások módosítása nélkül.",
-              "force_terminate": "A folyamatról ellenőrizhető, hogy a Motrixhoz tartozik. Állítsd le kényszerítve a(z) {{pid}} PID-ű folyamatot, majd indítsd újra az aria2-t a Motrix {{rpcPort}} RPC-portján.",
-              "switch_port": "A folyamat nem állítható le biztonságosan. A(z) {{port}} portot csak tartalék megoldásként használd, vagy zárd be kézzel az ütközést okozó folyamatot."
-            },
-            "technicalDetails": "Technikai részletek",
-            "retry": "Újrapróbálás",
-            "restart": "Motor újraindítása",
-            "switchPort": "{{port}} port használata",
-            "forceRecover": "Kényszerített leállítás és helyreállítás",
-            "recovered": "Az aria2 motor ismét elérhető.",
-            "recoveredOnPort": "Az aria2 motor helyreállt a(z) {{port}} RPC-porton.",
-            "recoveryFailed": "A motor helyreállítása sikertelen. Futtasd újra a diagnosztikát a legfrissebb állapot megtekintéséhez.",
-            "fallback": {
-              "available": "A Motrix alapértelmezett {{port}} portja elérhető, és most visszaállítható.",
-              "verifiedOrphan": "Egy ellenőrzött, hátramaradt Motrix aria2-folyamat (PID: {{pid}}) használja az alapértelmezett {{port}} portot. A Motrix biztonságosan leállíthatja a port visszaállítása előtt.",
-              "blocked": "Az alapértelmezett {{port}} portot a(z) {{pid}} PID-ű ({{name}}) folyamat használja, de a Motrix nem tudja ellenőrizni, hogy hozzá tartozik-e. A folyamat nem lesz leállítva.",
-              "unidentified": "Az alapértelmezett {{port}} portot használó folyamat nem azonosítható. A Motrix továbbra is a jelenlegi portot fogja használni.",
-              "restore": "A Motrix alapértelmezett {{port}} portjának visszaállítása",
-              "restoring": "A Motrix alapértelmezett {{port}} portjának visszaállítása…",
-              "restoredDefault": "A Motrix alapértelmezett {{port}} RPC-portja visszaállítva.",
-              "confirm": {
-                "title": "Leállítod a hátramaradt folyamatot, és visszaállítod a(z) {{port}} portot?",
-                "description": "A(z) {{pid}} PID-ű folyamatról ellenőrizhető, hogy egy hátramaradt Motrix aria2-folyamat. A rendszer leállítja, menti az alapértelmezett {{port}} portot, majd újraindítja az aria2-t.",
-                "action": "Leállítás és a(z) {{port}} port visszaállítása"
-              }
-            },
-            "confirmForce": {
-              "title": "Kényszerítve leállítod a hátramaradt aria2-folyamatot?",
-              "description": "A(z) {{pid}} PID-ű folyamat megfelel a Motrix beépített binárisának, privát RPC-titkának és adatútvonalainak. A rendszer azonnal leállítja, majd újraindítja az aria2-t a Motrix RPC-portján.",
-              "action": "Kényszerített leállítás és helyreállítás"
+          "binary": {
+            "available": "{{name}} {{version}}",
+            "unavailable": "A(z) {{name}} hiányzik vagy nem indítható el."
+          },
+          "features": {
+            "none": "Nincs megadva",
+            "unavailable": "Nem érhető el"
+          },
+          "rpc": {
+            "listening": "{{port}} (Figyel)",
+            "available": "{{port}} (Szabad)",
+            "occupied": "{{port}} (Foglalt)"
+          },
+          "process": {
+            "none": "Nincs portütközés",
+            "unidentified": "Nem azonosítható; nem lesz leállítva",
+            "current_app": "PID {{pid}} ({{name}}), a Motrix kezeli",
+            "verified_orphan": "PID {{pid}} ({{name}}), ellenőrzött, hátramaradt Motrix-folyamat; biztonságosan leállítható",
+            "external_aria2": "PID {{pid}} ({{name}}), a Motrixhoz tartozása nem igazolt; nem lesz leállítva",
+            "other": "PID {{pid}} ({{name}}), a Motrixhoz tartozása nem igazolt; nem lesz leállítva",
+            "unknown": "PID {{pid}}, nem azonosítható; nem lesz leállítva"
+          },
+          "communication": {
+            "ready": "A Motrix képes kommunikálni az aria2-vel."
+          },
+          "reason": {
+            "port_in_use": "A Motrix RPC-portja foglalt, ezért az aria2 motor nem indítható el.",
+            "binary_unavailable": "A beépített aria2 futtatható állománya hiányzik vagy nem érhető el.",
+            "spawn_failed": "Az aria2 folyamatot nem sikerült létrehozni.",
+            "rpc_unavailable": "Az aria2 motor elindult, de nem fogadja a Motrix RPC-kapcsolatait.",
+            "unexpected_exit": "Az aria2 motor váratlanul leállt.",
+            "health_check_failed": "Az aria2 nem válaszol a Motrixnak.",
+            "unknown": "Az aria2 motor ismeretlen okból nem indítható el."
+          },
+          "recommendation": {
+            "title": "Javasolt helyreállítás",
+            "retry": "A port szabad. Próbáld újra elindítani az aria2-t a beállítások módosítása nélkül.",
+            "force_terminate": "Ez a folyamat igazoltan a Motrixhoz tartozik. Állítsd le kényszerítve a(z) {{pid}} PID-ű folyamatot, majd indítsd újra az aria2-t a Motrix {{rpcPort}} RPC-portján.",
+            "switch_port": "A folyamat nem állítható le biztonságosan. A(z) {{port}} portot csak tartalék megoldásként használd, vagy zárd be kézzel az ütközést okozó folyamatot."
+          },
+          "technicalDetails": "Technikai részletek",
+          "retry": "Újrapróbálás",
+          "restart": "Motor újraindítása",
+          "switchPort": "{{port}} port használata",
+          "forceRecover": "Kényszerített leállítás és helyreállítás",
+          "recovered": "Az aria2 motor ismét elérhető.",
+          "recoveredOnPort": "Az aria2 motor helyreállt a(z) {{port}} RPC-porton.",
+          "recoveryFailed": "A motor helyreállítása sikertelen. Futtasd újra a diagnosztikát a legfrissebb állapot megtekintéséhez.",
+          "fallback": {
+            "available": "A Motrix alapértelmezett {{port}} portja elérhető, és most visszaállítható.",
+            "verifiedOrphan": "Egy ellenőrzött, hátramaradt Motrix aria2-folyamat (PID: {{pid}}) használja az alapértelmezett {{port}} portot. A Motrix biztonságosan leállíthatja a port visszaállítása előtt.",
+            "blocked": "Az alapértelmezett {{port}} portot a(z) {{pid}} PID-ű ({{name}}) folyamat használja, de a Motrix nem tudja ellenőrizni, hogy hozzá tartozik-e. A folyamat nem lesz leállítva.",
+            "unidentified": "Az alapértelmezett {{port}} portot használó folyamat nem azonosítható. A Motrix továbbra is a jelenlegi portot fogja használni.",
+            "restore": "A Motrix alapértelmezett {{port}} portjának visszaállítása",
+            "restoring": "A Motrix alapértelmezett {{port}} portjának visszaállítása…",
+            "restoredDefault": "A Motrix alapértelmezett {{port}} RPC-portja visszaállítva.",
+            "confirm": {
+              "title": "Leállítod a hátramaradt folyamatot, és visszaállítod a(z) {{port}} portot?",
+              "description": "A(z) {{pid}} PID-ű folyamat igazoltan egy hátramaradt Motrix aria2-folyamat. A rendszer leállítja, menti az alapértelmezett {{port}} portot, majd újraindítja az aria2-t.",
+              "action": "Leállítás és a(z) {{port}} port visszaállítása"
             }
+          },
+          "confirmForce": {
+            "title": "Kényszerítve leállítod a hátramaradt aria2-folyamatot?",
+            "description": "A(z) {{pid}} PID-ű folyamat megfelel a Motrix beépített binárisának, privát RPC-titkának és adatútvonalainak. A rendszer azonnal leállítja, majd újraindítja az aria2-t a Motrix RPC-portján.",
+            "action": "Kényszerített leállítás és helyreállítás"
+          },
+          "details": "Diagnosztikai részletek",
+          "versionUnknown": "A verzió nem érhető el",
+          "copy": "Diagnosztikai adatok másolása",
+          "copied": "Másolva",
+          "copyFailed": "A diagnosztikai adatok másolása sikertelen. Próbáld újra.",
+          "refreshFailed": "A diagnosztikai adatok frissítése sikertelen. Alább az utolsó sikeres ellenőrzés eredménye látható.",
+          "summary": {
+            "ready": "A letöltőmotor megfelelően működik",
+            "starting": "A letöltőmotor indul",
+            "restarting": "A letöltőmotor helyreállítása folyamatban",
+            "stopped": "A letöltőmotor leállt",
+            "port_in_use": "A motor vezérlőportja foglalt",
+            "binary_unavailable": "A letöltőmotor nem érhető el",
+            "spawn_failed": "A letöltőmotor nem indítható el",
+            "rpc_unavailable": "A motor vezérlőkapcsolata nem érhető el",
+            "unexpected_exit": "A letöltőmotor váratlanul leállt",
+            "health_check_failed": "A letöltőmotor nem válaszol",
+            "unknown": "A letöltőmotor nem érhető el"
+          },
+          "impact": {
+            "failed": "A letöltések vezérlése nem érhető el. A feladatok állapota elavult lehet.",
+            "connecting": "A letöltések vezérlése elérhetővé válik, amint a motor készen áll.",
+            "stopped": "A letöltések indításához vagy kezeléséhez indítsd el a motort."
+          },
+          "runtime": {
+            "process": "Folyamat",
+            "running": "Fut",
+            "notRunning": "Nem fut",
+            "connection": "Kapcsolat",
+            "connected": "Csatlakoztatva",
+            "connecting": "Csatlakozás…",
+            "disconnected": "Nincs kapcsolat",
+            "unavailable": "Nem érhető el",
+            "connectionStatus": "{{transport}} ({{status}})"
+          },
+          "port": {
+            "available": "{{port}} (Szabad)",
+            "listening": "{{port}} (Figyel)",
+            "occupied": "{{port}} (Foglalt)"
+          },
+          "motrixEngine": "aria2 Motrix",
+          "transport": {
+            "websocket": "WebSocket"
           }
-        },
-        "speed": {
-          "up": "FELTÖLTÉS",
-          "down": "LETÖLTÉS",
-          "peak": "Csúcs: {{value}}",
-          "offline": "offline"
-        },
-        "speedUp": {
-          "title": "Feltöltési sebesség"
-        },
-        "speedDown": {
-          "title": "Letöltési sebesség"
-        },
-        "active": {
-          "title": "Aktív feladatok",
-          "downloading": "Letöltés",
-          "seeding": "Visszaosztás",
-          "waiting": "Várakozás",
-          "error": "Hiba",
-          "engineOffline": "a motor offline"
-        },
+        }
+      },
+      "speed": {
+        "up": "FELTÖLTÉS",
+        "down": "LETÖLTÉS",
+        "peak": "Csúcs: {{value}}",
+        "offline": "nincs kapcsolat"
+      },
+      "speedUp": {
+        "title": "Feltöltési sebesség"
+      },
+      "speedDown": {
+        "title": "Letöltési sebesség"
+      },
+      "active": {
+        "title": "Aktív feladatok",
+        "downloading": "Letöltés",
+        "seeding": "Visszaosztás",
+        "waiting": "Várakozás",
+        "error": "Hiba",
+        "engineOffline": "a motor nem érhető el"
+      },
       "transfer": {
         "title": "Adatforgalom",
         "rangeLabel": "Adatforgalmi időszak",
@@ -248,7 +302,7 @@
         "sinceTime": "Ekkortól: {{time}}",
         "sinceDate": "Ettől a dátumtól: {{date}}",
         "empty": {
-          "today": "Ma még nem volt adatforgalom.",
+          "today": "Ma még nincs rögzített adatforgalom.",
           "allTime": "Még nincs rögzített adatforgalom."
         },
         "loading": "Adatforgalmi adatok betöltése",
@@ -256,11 +310,11 @@
         "retry": "Újrapróbálás",
         "updated": "Frissítve: {{time}}",
         "outOfDate": "Az adatok elavultak lehetnek",
-        "totalLabel": "{{scope}} adatforgalom összesen: {{value}}"
+        "totalLabel": "Adatforgalom — {{scope}}: {{value}}"
       },
       "activity": {
         "title": "Aktivitás",
-        "loading": "Aktivitás betöltése",
+        "loading": "Aktivitási adatok betöltése",
         "unavailable": "Az aktivitási adatok nem érhetők el",
         "retry": "Újrapróbálás",
         "stale": "Az aktivitási adatok elavultak lehetnek",
@@ -283,12 +337,12 @@
           "submitted": "{{count}} hozzáadott",
           "recovered": "A helyreállítás során észlelt befejezett letöltést is tartalmaz",
           "recoveredCount": "{{count}} helyreállított",
-          "untracked": "Még nincs követve",
+          "untracked": "Még nem történt adatrögzítés",
           "noData": "Nincs aktivitási adat",
-          "noDataOnDate": "{{date}} napra nincs aktivitási adat",
+          "noDataOnDate": "Nincs aktivitási adat erre a napra: {{date}}",
           "completedOnDate": "{{date}}: {{count}} befejezett",
-          "partial": "A követés ekkor kezdődött: {{time}}",
-          "partialShort": "Részleges nap",
+          "partial": "Az adatrögzítés ekkor kezdődött: {{time}}",
+          "partialShort": "Hiányos napi adatok",
           "coverage": "Az adatok {{time}} óta hiányosak lehetnek",
           "coverageShort": "Az adatok hiányosak lehetnek",
           "today": "Ma, még frissül"
@@ -312,32 +366,33 @@
           "failed": "Nincsenek sikertelen feladatok",
           "recent": "Még nincs befejezett feladat"
         },
-        "offline": "A motor offline",
+        "offline": "A motor nem érhető el",
         "metric": {
           "fetching": "Lekérés",
           "ready": "Kész",
-          "finalizing": "Befejezés",
+          "finalizing": "Véglegesítés",
           "queued": "Sorban áll",
           "paused": "Szüneteltetve"
         },
         "secondary": {
           "metadata": "Metaadatok lekérése",
-          "chooseFiles": "Fájlok kiválasztása",
+          "chooseFiles": "Fájlkiválasztásra vár",
           "finalizing": "Letöltés befejezése",
           "waiting": "Indításra vár",
           "eta": "Hátralévő idő: {{time}}",
           "ratio": "Arány: {{ratio}}",
           "saved": "{{percent}}% mentve",
-          "offline": "Offline · utolsó ismert állapot",
+          "offline": "Nincs kapcsolat (utolsó ismert állapot)",
           "completed": "Befejezve: {{time}}",
           "failed": "Sikertelen: {{reason}}",
           "technicalDetail": "Technikai részletek: {{detail}}"
         },
-        "progressLabel": "{{name}} – folyamat"
+        "progressLabel": "{{name}} előrehaladása"
       },
       "configure": {
         "action": "Testreszabás",
         "addTile": "Hozzáadás",
+        "addTitle": "Csempe hozzáadása",
         "apply": "Alkalmaz",
         "cancel": "Mégse",
         "reset": "Visszaállítás",
@@ -348,6 +403,11 @@
         "size": "{{width}} × {{height}}",
         "currentSize": "Jelenlegi méret: {{width}} × {{height}}",
         "invalidCapacity": "Nincs elég hely ehhez a mérethez",
+        "availabilityHints": {
+          "space": "Csökkentsd egy másik csempe méretét, vagy távolítsd el.",
+          "bounds": "Előbb helyezd beljebb a csempét.",
+          "unsupported": "Válassz támogatott méretet."
+        },
         "sizeLabels": {
           "compact": "Kompakt",
           "wide": "Széles",
@@ -366,20 +426,16 @@
           "custom": "Egyéni",
           "undo": "Utolsó elrendezés visszavonása",
           "balanced": {
-            "title": "Kiegyensúlyozott",
-            "description": "Kiegyensúlyozott áttekintés az állapotról, a sebességről, az aktivitásról és a feladatokról."
+            "title": "Kiegyensúlyozott"
           },
           "taskFocus": {
-            "title": "Feladatközpontú",
-            "description": "A feladatok kapják a legtöbb helyet, miközben a fontos állapotinformációk is láthatók maradnak."
+            "title": "Feladatközpontú"
           },
           "speedFocus": {
-            "title": "Sebességközpontú",
-            "description": "A fel- és letöltési sebességek kerülnek előtérbe az aktív feladatok mellett."
+            "title": "Sebességközpontú"
           },
           "compact": {
-            "title": "Kompakt",
-            "description": "Az összes Áttekintés-csempe elfér a rögzített 4 × 3-as területen."
+            "title": "Kompakt"
           }
         },
         "saveFailed": "Az elrendezést nem sikerült menteni. Próbáld újra.",
@@ -414,13 +470,44 @@
       },
       "nat": {
         "title": "NAT",
+        "compact": {
+          "state": {
+            "active": "Leképezve",
+            "settingUp": "Leképezés",
+            "failed": "Leképezés",
+            "off": "Kikapcsolva"
+          },
+          "caption": {
+            "active_one": "{{count}} port",
+            "active_other": "{{count}} port",
+            "settingUp": "Csatlakozás…",
+            "failed": "Nem érhető el",
+            "off": "BT / DHT",
+            "waiting": "Betöltés…"
+          }
+        },
+        "internalIp": "Helyi IP-cím",
+        "gatewayIp": "Router",
+        "caption": {
+          "off": "A BT-portleképezés ki van kapcsolva.",
+          "settingUp": "Csatlakozás a routerhez…",
+          "failed": "Az automatikus portleképezés nem érhető el.",
+          "waiting": "Várakozás a hálózat állapotára…"
+        },
+        "mappingDetails": "Leképezett portok",
+        "mappingPurpose": {
+          "bt-listen": "BitTorrent",
+          "dht-listen": "DHT"
+        },
+        "portMapping": "Belső port: {{internal}} → külső port: {{external}}",
+        "noMappings": "Nincsenek aktív portleképezések.",
         "state": {
           "active": "Aktív",
           "settingUp": "Inicializálás",
           "failed": "Sikertelen",
           "off": "Kikapcsolva"
         },
-        "retrying": "Újra: {{attempt}}/{{max}}",
+        "retrying": "Újrapróbálás: {{attempt}}/{{max}}",
         "type": "Típus",
         "externalIp": "Külső IP-cím",
         "mappings": "Portleképezések",
@@ -448,7 +535,7 @@
           "group": "NAT-vezérlők",
           "enable": "NAT engedélyezése",
           "disable": "NAT letiltása",
-          "remap": "Portok újbóli leképezése",
+          "remap": "Portok újbóli leképezésének kényszerítése",
           "diagnose": "Diagnosztika futtatása",
           "troubleshoot": "NAT-hibaelhárítási útmutató",
           "short": {
@@ -470,7 +557,7 @@
     },
     "trackers": {
       "title": "Trackerek",
-      "desc": "Trackerek állapotának és forrásainak kezelés",
+      "desc": "Trackerek állapotának és forrásainak kezelése",
       "tab": {
         "effective": "Aktív",
         "blacklist": "Tiltólista"
@@ -478,29 +565,55 @@
       "searchPlaceholder": "Szűrés URL alapján…",
       "syncNow": "Szinkronizálás"
     },
-      "downloads": {
-        "title": "Letöltések",
-        "status": {
-          "queued": "Sorban áll",
-          "fetchingMetadata": "Lekérés",
-          "metadataReady": "Kész",
-          "downloading": "Letöltés",
-          "finalizing": "Befejezés",
-          "seeding": "Visszaosztás",
-          "paused": "Szüneteltetve",
-          "completed": "Befejezve",
-          "error": "Hiba"
-        },
-        "column": {
-          "name": "Név",
-          "size": "Méret",
-          "progress": "Folyamat",
-          "down": "↓",
-          "up": "↑",
-          "eta": "Hátralévő idő",
-          "connections": "Partnerek",
-          "status": "Állapot"
-        },
+    "downloads": {
+      "title": "Letöltések",
+      "heading": {
+        "all": "Összes letöltés",
+        "active": "Aktív letöltések",
+        "completed": "Befejezett letöltések",
+        "error": "Sikertelen letöltések"
+      },
+      "status": {
+        "queued": "Sorban áll",
+        "fetchingMetadata": "Lekérés",
+        "metadataReady": "Fájlkiválasztásra vár",
+        "downloading": "Letöltés",
+        "finalizing": "Véglegesítés",
+        "seeding": "Visszaosztás",
+        "paused": "Szüneteltetve",
+        "completed": "Befejezve",
+        "error": "Hiba"
+      },
+      "column": {
+        "name": "Név",
+        "size": "Méret",
+        "progress": "Előrehaladás",
+        "down": "Letöltési sebesség",
+        "up": "Feltöltési sebesség",
+        "eta": "Hátralévő idő",
+        "connections": "Partnerek",
+        "status": "Állapot",
+        "createdAt": "Létrehozás dátuma",
+        "finishedAt": "Befejezés dátuma"
+      },
+      "columnHeader": {
+        "down": "Letöltés",
+        "up": "Feltöltés"
+      },
+      "timestamp": {
+        "notRecorded": "Nincs rögzítve",
+        "notCompleted": "Még nincs befejezve",
+        "relativeDateTime": "{{date}}, {{time}}"
+      },
+      "sort": {
+        "down": "Letöltési sebesség",
+        "up": "Feltöltési sebesség",
+        "asc": "{{column}}: növekvő sorrend",
+        "desc": "{{column}}: csökkenő sorrend",
+        "sortAscending": "Rendezés növekvő sorrendbe: {{column}}",
+        "sortDescending": "Rendezés csökkenő sorrendbe: {{column}}",
+        "reset": "Alapértelmezett sorrend visszaállítása"
+      },
       "empty": {
         "noTasks": "Még nincsenek letöltések",
         "noTasksCta": "Új letöltéshez nyomd meg a + gombot",
@@ -524,20 +637,22 @@
         }
       },
       "stats": {
-        "downSpeed": "↓",
-        "upSpeed": "↑",
-        "counts": "Aktív {{active}} · Befejezett {{completed}} · Hibás {{error}}",
+        "downSpeed": "Letöltési sebesség",
+        "upSpeed": "Feltöltési sebesség",
         "engineOk": "Motor kész",
         "engineStarting": "Motor indítása",
-        "engineOffline": "A motor offline",
-        "natActive": "NAT aktív",
-        "natSettingUp": "NAT inicializálása",
-        "natRetrying": "NAT újrapróbálás ({{attempt}}/{{max}})",
-        "natFailed": "NAT-hiba",
-        "natOff": "NAT kikapcsolva",
-        "natEnable": "NAT engedélyezése",
-        "natDisable": "NAT letiltása",
-        "natHelp": "NAT-hibaelhárítás"
+        "engineOffline": "A motor nem érhető el",
+        "natActive": "NAT-portleképezés aktív",
+        "natActiveDesc": "Segíti, hogy más BT-partnerek kapcsolódhassanak hozzád.",
+        "natSettingUp": "NAT-portleképezés",
+        "natRetrying": "Automatikus újrapróbálás ({{attempt}}/{{max}})",
+        "natMapping": "NAT-portleképezés",
+        "natUnavailable": "Az automatikus portleképezés nem érhető el",
+        "natUnavailableDesc": "A közvetlen hivatkozásokról történő letöltést nem érinti. A BT-kapcsolatok korlátozottak lehetnek.",
+        "natRetry": "Újrapróbálás",
+        "natDisable": "NAT-portleképezés kikapcsolása",
+        "natSettings": "Hálózati beállítások",
+        "natHelp": "Hálózati útmutató"
       },
       "tab": {
         "all": "Összes",
@@ -548,11 +663,13 @@
       "inspector": {
         "overview": {
           "transfer": "Adatforgalom",
-          "progress": "Folyamat",
+          "progress": "Előrehaladás",
           "network": "Hálózat",
-          "metadata": "Metaadatok",
-          "downSpeed": "↓ sebesség",
-          "upSpeed": "↑ sebesség",
+          "general": "Általános",
+          "createdAt": "Létrehozva",
+          "finishedAt": "Befejezve",
+          "downSpeed": "Letöltési sebesség",
+          "upSpeed": "Feltöltési sebesség",
           "eta": "Hátralévő idő",
           "downloaded": "Letöltve",
           "totalSize": "Teljes méret",
@@ -563,66 +680,70 @@
           "type": "Típus",
           "infoHash": "Info hash",
           "private": "Privát",
-          "connections": "Kapcsolatok"
+          "connections": "Kapcsolatok",
+          "uploaded": "Feltöltve",
+          "seedingTime": "Visszaosztási idő",
+          "seedingRecordedSince": "Rögzítés kezdete: {{date}}. A szüneteltetés és a kapcsolat nélküli időszakok nem számítanak bele; a korábbi visszaosztási előzmények nem érhetők el.",
+          "seedingUnavailable": "Ehhez a feladathoz nincs rögzített visszaosztási idő."
         },
-          "activity": {
-            "transferTitle": {
-              "session": "Munkamenet adatforgalma",
-              "lifetime": "Összesített adatforgalom"
-            },
-            "download": "Letöltés",
-            "upload": "Feltöltés",
-            "loading": "Aktivitás betöltése…",
-            "collecting": "Adatforgalmi adatok gyűjtése…",
-            "noSessionHistory": "Ebben az alkalmazás-munkamenetben még nem történt adatforgalom.",
-            "lifetimeEmpty": "Még nem érhető el összesített előzmény.",
-            "noTraffic": "Jelenleg nincs hálózati adatforgalom.",
-            "unavailable": "Az összesített aktivitás nem érhető el.",
-            "coverageGap": "A követés megszakadt.",
-            "retry": "Újrapróbálás",
-            "notAvailable": "Nem érhető el",
-            "stale": {
-              "short": "Elavult adatok.",
-              "message": "Az adatok elavultak lehetnek. Utolsó frissítés: {{time}}."
-            },
-            "range": {
-              "label": "Adatforgalmi időszak",
-              "session": "Munkamenet (60 mp)",
-              "lifetime": "Összesen",
-              "latest": "Legutóbbi 60 másodperc",
-              "adaptive_one": "Adaptív felbontás · {{count}} minta",
-              "adaptive_other": "Adaptív felbontás · {{count}} minta"
-            },
-            "timeline": {
-              "title": "Feladatelőzmények",
-              "current": "Most: {{status}}",
-              "cluster_one": "+{{count}} esemény",
-              "cluster_other": "+{{count}} esemény",
-              "repeated": "{{label}} ×{{count}}",
-              "truncated_one": "A korábbi előzményekből {{count}} esemény nem látható",
-              "truncated_other": "A korábbi előzményekből {{count}} esemény nem látható",
-              "truncatedAt": "Legkorábbi csonkolás: {{time}}",
-              "timeRange": "{{start}}–{{end}}",
-              "detailTitle": "{{label}} részletei",
-              "destination": "{{event}} {{status}}",
-              "previous": "Korábbi események megjelenítése",
-              "next": "Későbbi események megjelenítése",
-              "event": {
-                "added": "Hozzáadva",
-                "started": "Elindítva",
-                "paused": "Szüneteltetve",
-                "resumed": "Folytatva",
-                "stage_changed": "Szakasz megváltozott",
-                "completed": "Befejezve",
-                "failed": "Sikertelen",
-                "observed_state": "Állapot helyreállítva"
+        "activity": {
+          "transferTitle": {
+            "session": "Munkamenet adatforgalma",
+            "lifetime": "Összesített adatforgalom"
+          },
+          "download": "Letöltés",
+          "upload": "Feltöltés",
+          "loading": "Aktivitási adatok betöltése…",
+          "collecting": "Adatforgalmi adatok gyűjtése…",
+          "noSessionHistory": "Ebben a munkamenetben még nincs rögzített adatforgalom.",
+          "lifetimeEmpty": "Még nem érhetők el a teljes időszak előzményei.",
+          "noTraffic": "Jelenleg nincs hálózati adatforgalom.",
+          "unavailable": "A teljes időszak aktivitási adatai nem érhetők el.",
+          "coverageGap": "Az adatrögzítés megszakadt.",
+          "retry": "Újrapróbálás",
+          "notAvailable": "Nem érhető el",
+          "stale": {
+            "short": "Elavult adatok.",
+            "message": "Az adatok elavultak lehetnek. Utolsó frissítés: {{time}}."
+          },
+          "range": {
+            "label": "Adatforgalmi időszak",
+            "session": "Munkamenet (60 mp)",
+            "lifetime": "Teljes időszak",
+            "latest": "Legutóbbi 60 másodperc",
+            "adaptive_one": "Adaptív felbontás · {{count}} minta",
+            "adaptive_other": "Adaptív felbontás · {{count}} minta"
+          },
+          "timeline": {
+            "title": "Feladatelőzmények",
+            "current": "Most: {{status}}",
+            "cluster_one": "+{{count}} esemény",
+            "cluster_other": "+{{count}} esemény",
+            "repeated": "{{label}} ×{{count}}",
+            "truncated_one": "A korábbi előzményekből {{count}} esemény nem látható",
+            "truncated_other": "A korábbi előzményekből {{count}} esemény nem látható",
+            "truncatedAt": "Legkorábbi csonkolás: {{time}}",
+            "timeRange": "{{start}}–{{end}}",
+            "detailTitle": "{{label}} részletei",
+            "destination": "{{event}} {{status}}",
+            "previous": "Korábbi események megjelenítése",
+            "next": "Későbbi események megjelenítése",
+            "event": {
+              "added": "Hozzáadva",
+              "started": "Elindítva",
+              "paused": "Szüneteltetve",
+              "resumed": "Folytatva",
+              "stage_changed": "Szakasz megváltozott",
+              "completed": "Befejezve",
+              "failed": "Sikertelen",
+              "observed_state": "Állapot helyreállítva"
             },
             "status": {
               "queued": "Sorban áll",
               "fetching_metadata": "Metaadatok lekérése",
               "metadata_ready": "Metaadatok készen",
               "downloading": "Letöltés",
-              "finalizing": "Befejezés",
+              "finalizing": "Véglegesítés",
               "seeding": "Visszaosztás",
               "paused": "Szüneteltetve",
               "completed": "Befejezve",
@@ -645,7 +766,7 @@
             "activeSeconds_other": "{{count}} másodperc",
             "sampleCount_one": "{{count}} minta",
             "sampleCount_other": "{{count}} minta",
-            "noDataQualityIssues": "Nincs követési figyelmeztetés."
+            "noDataQualityIssues": "Nincs adatrögzítési figyelmeztetés."
           }
         },
         "pieces": {
@@ -691,7 +812,7 @@
             "delete": "Tracker törlése"
           },
           "syncPrivateDisabled": "Privát torrenteknél a szinkronizálás nem érhető el.",
-          "saveFailed": "A trackerek frissítése sikertelen: {{reason}}",
+          "saveFailed": "A trackerek frississítése sikertelen: {{reason}}",
           "syncFailed": "A trackerek szinkronizálása sikertelen: {{reason}}",
           "deleteFailed": "A tracker eltávolítása sikertelen: {{reason}}",
           "invalidLines_one": "{{count}} érvénytelen sor kihagyva",
@@ -726,10 +847,22 @@
       },
       "action": {
         "pause": "Szüneteltetés",
+        "queueMoveFailed": "Nem sikerült frissíteni a várakozási sort.",
+        "queueTaskStarted": "A feladat már nincs a várakozási sorban.",
+        "queueMoveHint": "A várakozási sorban elfoglalt hely határozza meg, melyik letöltés indul el következőként. Az oszlopok rendezése ettől függetlenül kerül mentésre.",
+        "queueBoundary": "A kijelölés már a várakozási sor szélén van",
+        "queueMoved": "A várakozási sor frissítve",
+        "moveQueueDown": "Lejjebb a várakozási sorban",
+        "moveQueueUp": "Feljebb a várakozási sorban",
         "resume": "Folytatás",
         "retry": "Újrapróbálás",
         "openFolder": "Mappa megnyitása",
         "copyUrl": "URL másolása",
+        "copyUrls": "URL-ek másolása",
+        "copyPath": "Fájl elérési útjának másolása",
+        "copied": "Vágólapra másolva",
+        "copyFailed": "Nem sikerült a vágólapra másolni. Próbáld újra.",
+        "selectFilesFailed": "Nem sikerült megnyitni a fájlkiválasztást.",
         "copyUrlFailed": "A másolás sikertelen: nem sikerült betölteni a feladat hivatkozásának adatait. Próbáld újra.",
         "selectFiles": "Fájlok kiválasztása",
         "remove": "Eltávolítás",
@@ -755,8 +888,16 @@
         "removeAll_completed_Title": "Eltávolítod a(z) {{count}} befejezett feladatot?",
         "removeAll_error_Title": "Eltávolítod a(z) {{count}} sikertelen feladatot?",
         "removeAll_downloading_Title": "Eltávolítod a(z) {{count}} aktív feladatot?",
-        "removeMixedTitle": "Eltávolítod a(z) {{count}} feladatot?"
-      },
+        "removeMixedTitle": "Eltávolítod a(z) {{count}} feladatot?",
+        "openFile": "Fájl megnyitása",
+        "openFileFailed": "Nem sikerült megnyitni a fájlt",
+        "chooseFiles": "Fájlok kiválasztása…",
+        "queueOrder": "Letöltési sorrend",
+        "moveQueueTop": "A sor elejére",
+        "moveQueueBottom": "A sor végére",
+        "copyError": "Hibainformáció másolása",
+        "errorReport": "{{name}}\nFeladatazonosító: {{id}}\n{{details}}"
+      },      
       "titleCount": "{{shown}} megjelenítve · összesen {{total}}",
       "type": {
         "http": "HTTP",
@@ -767,6 +908,11 @@
       },
       "search": {
         "placeholder": "Letöltések keresése",
+        "activeTypeFilters": "Típusszűrő: {{types}}",
+        "filters": "Szűrők",
+        "resetFilters": "Szűrők alaphelyzetbe állítása",
+        "clearQuery": "Keresés törlése",
+        "activeQuery": "Keresés: {{query}}",
         "scopeLabel": "Típus",
         "clear": "Törlés",
         "empty": "Nincs megfelelő feladat",
@@ -774,6 +920,45 @@
       },
       "stale": {
         "banner": "A feladatlista elavult lehet — újracsatlakozás…"
+      },
+      "view": {
+        "title": "Listanézet",
+        "columns": "Oszlopok",
+        "resetColumns": "Alapértelmezett oszlopok visszaállítása",
+        "sortBy": "Rendezés",
+        "ascending": "Növekvő",
+        "descending": "Csökkenő",
+        "showInspector": "Részletező megjelenítése",
+        "hideInspector": "Részletező elrejtése",
+        "inspector": "Feladat részletei",
+        "resizeInspector": "Részletező átméretezése",
+        "selectToInspect": "Válassz egy feladatot a részleteinek megtekintéséhez.",
+        "resizeColumn": "{{column}} oszlop átméretezése",
+        "taskActions": "Továbbiak"
+      },
+      "speedLimit": {
+        "title": "Sebességmód",
+        "currentMode": "Sebességmód: {{mode}}",
+        "uploadLimit": "Feltöltési korlát: {{speed}}",
+        "downloadLimit": "Letöltési korlát: {{speed}}",
+        "saveFailed": "Nem sikerült módosítani a sebességmódot. Próbáld újra."
+      },
+      "media": {
+        "preparing": "Előkészítés",
+        "decrypting": "Visszafejtés",
+        "assembling": "Összeállítás",
+        "muxing": "Egyesítés",
+        "renaming": "Mentés",
+        "stage": "Szakasz",
+        "downloadProgress": "Letöltési előrehaladás",
+        "muxProgress": "Egyesítési előrehaladás",
+        "parts": "Szegmensek",
+        "partsFormat": "{{completed}} / {{total}} szegmens",
+        "downloadSize": "Letöltési méret",
+        "outputSize": "Kimeneti méret",
+        "downloadEta": "Letöltésből hátralévő idő",
+        "avgDownloadProgress": "Átlagos letöltési előrehaladás",
+        "processingTasks": "Feldolgozás"
       }
     }
   },
@@ -782,15 +967,19 @@
       "title": "Új feladat",
       "links": "Hivatkozások",
       "torrent": "Torrent",
-      "urlPlaceholder": "Adj meg URL-t vagy magnet hivatkozást…",
+      "urlPlaceholder": "Adj meg URL-t, magnet hivatkozást vagy BT info hash-t…",
       "dropTorrent": "Húzz ide egy .torrent fájlt, vagy kattints a kiválasztáshoz",
       "clearSelection": "Kijelölés törlése",
       "createFailed": "A letöltési feladat létrehozása sikertelen.",
       "createFailedWithReason": "A letöltési feladat létrehozása sikertelen: {{reason}}",
+      "createFailedByPlugin": "Nem sikerült létrehozni a feladatot: a(z) „{{pluginId}}” bővítmény leállította ({{detail}}). Tiltsd le ezt a bővítményt a Beállítások → Bővítmények alatt, majd próbáld újra.",
+      "createFailedPathTooLong": "Nem sikerült létrehozni a feladatot: a cél elérési útja {{length}} karakter hosszú, ami meghaladja a Windows {{limit}} karakteres korlátját. Válassz rövidebb mentési útvonalat vagy fájlnevet.",
       "parseFailed": "A torrentfájl feldolgozása sikertelen.",
       "urlsCount_one": "{{count}} URL",
       "urlsCount_other": "{{count}} URL",
       "urlsWithInvalid": "{{valid}} érvényes, {{invalid}} érvénytelen",
+      "validUrlCount": "{{count}} érvényes",
+      "invalidUrlCount": "{{count}} érvénytelen",
       "urlsLabel": "URL-ek",
       "advanced": "Speciális",
       "filename": "Fájlnév",
@@ -831,6 +1020,35 @@
       },
       "adding": "Hozzáadás…",
       "interpretedMagnet": "Magnet hivatkozás észlelve",
+      "interpretedInfoHash": "BT info hash átalakítva magnet hivatkozássá",
+      "unsupportedCurl": "Ez a cURL-parancs nem importálható pontosan. Másold be az URL-t vagy egy támogatott kapcsolókat használó Bash GET-parancsot.",
+      "invalidJson": "JSON-formátumú URL-karakterlánc vagy URL-karakterláncok tömbje szükséges.",
+      "interpretedJson": "URL-ek importálva JSON-ból",
+      "sourceLine": "{{line}}. sor",
+      "sourceCorrections": {
+        "useCanonicalUrl": "A kibontott URL használata",
+        "usePathSeparators": "Fordított perjelek kezelése útvonal-elválasztóként",
+        "encodeLiteralCharacters": "Kódolás szó szerinti karakterekként"
+      },
+      "sourceErrors": {
+        "missingScheme": "Add meg az URL protokollját is, például: https://.",
+        "invalidHost": "Az URL-ben szereplő gépnév hiányzik vagy érvénytelen.",
+        "invalidPort": "Az URL-ben szereplő port érvénytelen.",
+        "controlCharacter": "Távolítsd el a vezérlőkaraktereket az URL-ből.",
+        "invalidUnicode": "Az URL érvénytelen Unicode-ot tartalmaz.",
+        "ambiguousBackslash": "Egy fordított perjel miatt a gépnév vagy az útvonal többféleképpen értelmezhető. Válaszd ki az értelmezés módját.",
+        "invalidPercentEncoding": "A százalékjelet két hexadecimális számjegynek kell követnie.",
+        "credentialsInUrl": "Az URL helyett a hitelesítési mezőkben add meg a hitelesítési adatokat.",
+        "unsupportedProtocol": "Ez az URL-protokoll nem támogatott ennél a letöltésnél.",
+        "urlTooLong": "Az URL meghaladja a 16 KiB-os korlátot.",
+        "tooManySources": "A megadott hivatkozások száma vagy mérete meghaladja a megengedett korlátot.",
+        "ambiguousStructure": "Az URL-feldolgozó módosítaná ezt a címet. Ellenőrizd a kibontott URL-t.",
+        "unescapedCharacter": "A szóközöket és a fenntartott karaktereket kódolt formában add meg.",
+        "invalidMagnet": "A magnet hivatkozás xt paraméterének támogatott BT info hash-t kell tartalmaznia.",
+        "mixedProtocols": "Egy letöltés tükörforrásainak ugyanazt a protokollcsaládot kell használniuk.",
+        "unsupportedInput": "A megadott bemeneti formátum nem lett importálva. Illessz be egy URL-t, vagy használj támogatott JSON- vagy Bash cURL-formátumot.",
+        "unsupportedRequestOptions": "HTTP-fejlécek nem alkalmazhatók FTP-letöltéshez."
+      },
       "interpretedCurl": "cURL-parancs feldolgozva",
       "filterBy": {
         "video": "Videó",
@@ -847,13 +1065,20 @@
       "selectionTimeout": {
         "started": "A fájlválasztás időkorlátja lejárt: a(z) {{name}} összes fájljának letöltése megkezdődött",
         "failed": "A(z) {{name}} automatikus indítása sikertelen. Nyisd meg a feladat részleteit, válaszd ki a fájlokat, majd próbáld újra."
-      }
+      },
+      "undoCorrection": "URL-javítás visszavonása",
+      "submissionUnconfirmed": "Az eredmény nincs megerősítve. Újrapróbáláskor a rendszer ellenőrzi az eredeti kérést, mielőtt újabb feladatot hozna létre."
     },
     "detail": {
       "peers": "Partnerek: {{count}}",
-      "seeds": "Partnerek: {{count}}"
+      "seeds": "Seederek: {{count}}"
     },
     "torrent": {
+      "column": {
+        "name": "Fájlnév",
+        "type": "Fájltípus",
+        "size": "Méret"
+      },
       "fileSelected_one": "{{count}} fájl kiválasztva",
       "fileSelected_other": "{{count}} fájl kiválasztva",
       "selectAll": "Összes kijelölése",
@@ -869,11 +1094,11 @@
       "confirm": "Eltávolítás",
       "cancel": "Mégse",
       "orphanToast": "A feladat eltávolítva. A fájlok megmaradtak itt: {{path}}.",
-      "notAvailableDuringFinalize": "Várj, amíg a feladat befejezése lezárul."
+      "notAvailableDuringFinalize": "Várj, amíg a feladat véglegesítése befejeződik."
     },
     "recovery": {
       "toast": "{{count}} megszakadt feladat helyreállítva. Kattints az áttekintéshez.",
-      "finalizeRenameFailed": "A fájl átnevezése sikertelen. A letöltött fájl .motrix kiterjesztéssel maradt meg.",
+      "finalizeRenameFailed": "A fájl átnevezése sikertelen. A letöltött fájl .motrix utótaggal maradt meg.",
       "reseedFailed": "A letöltés befejeződött, de a visszaosztás nem indult el.",
       "metaMissing": "Hiányoznak a torrent metaadatai. A visszaosztás nem indítható el.",
       "startup": {
@@ -891,13 +1116,16 @@
     },
     "error": {
       "detail": {
+        "finalizeFailed": "Nem sikerült véglegesíteni a letöltést: {{cause}}",
+        "recoveryFailed": "Nem sikerült helyreállítani a letöltést: {{cause}}",
         "recoveryOutputConflict": "Az ideiglenes és a végleges fájl is létezik; mindkettő megmaradt kézi ellenőrzésre",
         "filesMissing": "Az alkalmazás újraindítása után egyes fájlok hiányoznak",
         "renameFileFailed": "Nem sikerült átnevezni a fájlt: {{cause}}",
         "renameDirFailed": "Nem sikerült átnevezni a mappát: {{cause}}",
         "pluginChainAborted": "A bővítménylánc megszakadt: {{cause}}",
         "magnetCleanupQuarantined": "A magnet-metaadatok törlése karanténba került",
-        "muxFailed": "A letöltött média multiplexelése sikertelen"
+        "muxFailed": "A letöltött média egyesítése sikertelen",
+        "pathTooLong": "Az elérési út {{length}} karakter hosszú; a Windows legfeljebb {{limit}} karaktert engedélyez"
       },
       "reason": {
         "unknown": "A letöltés sikertelen",
@@ -907,22 +1135,24 @@
         "timeout": "A letöltés időtúllépés miatt megszakadt",
         "diskFull": "A lemez megtelt",
         "fileWriteError": "Nem sikerült írni a fájlt",
+        "pathTooLong": "A fájl elérési útja túl hosszú a Windows számára",
         "checksumMismatch": "A fájl ellenőrzőösszege nem egyezik",
         "tooManyRedirects": "Túl sok átirányítás",
-        "serverError": "A kiszolgáló hibát jelzett",
+        "serverError": "A szerver hibát jelzett",
         "btMetadataFailed": "A torrent metaadatait nem sikerült lekérni",
         "btTrackerError": "Nem sikerült kapcsolódni a trackerhez",
         "generic": "A letöltés sikertelen"
       },
       "hint": {
         "diskFull": "Szabadíts fel lemezterületet, vagy válassz másik mentési mappát, majd próbáld újra",
-        "unauthorized": "Ellenőrizd a hitelesítési adatokat és a hozzáférési jogosultságokat, majd próbáld újra",
+        "unauthorized": "Ellenőrizd a hitelesítési adatokat vagy a hozzáférési jogosultságokat, majd próbáld újra",
         "networkError": "Ellenőrizd a hálózati kapcsolatot, majd próbáld újra",
         "timeout": "Ellenőrizd a kapcsolat sebességét és stabilitását, majd próbáld újra",
         "fileWriteError": "Ellenőrizd a mappa jogosultságait és a rendelkezésre álló lemezterületet, majd próbáld újra",
+        "pathTooLong": "Rövidítsd le a mentési mappa elérési útját vagy a fájlnevet, majd próbáld újra",
         "checksumMismatch": "A letöltött fájl sérült lehet; töltsd le újra az ellenőrzéshez",
         "tooManyRedirects": "A forráshivatkozás hibás lehet; próbálj másik hivatkozást",
-        "btMetadataFailed": "Ellenőrizd a magnet linket, vagy adj hozzá további trackereket, majd próbáld újra"
+        "btMetadataFailed": "Ellenőrizd a magnet hivatkozást, vagy adj hozzá további trackereket, majd próbáld újra"
       }
     }
   },
@@ -966,8 +1196,19 @@
     "general": {
       "launchAtStartup": "Indítás bejelentkezéskor",
       "launchAtStartupDesc": "A Motrix automatikus indítása bejelentkezéskor.",
+      "showMainWindowAtLogin": "Ablak megjelenítése bejelentkezéskor",
+      "showMainWindowAtLoginDesc": "„{{mode}}” módban rejtve marad.",
       "defaultSaveDir": "Alapértelmezett letöltési mappa",
       "defaultSaveDirDesc": "Az új letöltések alapértelmezés szerint ide kerülnek, hacsak feladatonként más mappát nem adsz meg.",
+      "inAppNotifications": "Alkalmazáson belüli értesítések",
+      "inAppNotificationsDesc": "Válaszd ki, mely letöltési értesítések jelenjenek meg. Az alkalmazás figyelmeztetései bekapcsolva maradnak.",
+      "notifyInAppOnComplete": "Befejezett letöltések megjelenítése",
+      "notifyInAppOnError": "Sikertelen letöltések megjelenítése",
+      "notificationBadgeStyle": "Olvasatlan értesítések jelzése",
+      "notificationBadgeCount": "Szám",
+      "notificationBadgeDot": "Pont",
+      "notificationBadgeHidden": "Rejtett",
+      "systemNotifications": "Rendszerértesítések",
       "notifyOnComplete": "Értesítés a letöltés befejezésekor",
       "notifyOnCompleteDesc": "Rendszerértesítés megjelenítése a feladat befejezésekor.",
       "autofillClipboardLinks": "Hivatkozás automatikus beillesztése a vágólapról",
@@ -975,7 +1216,25 @@
       "notifyOnError": "Értesítés sikertelen letöltéskor",
       "notifyOnErrorDesc": "Rendszerértesítés megjelenítése, ha egy letöltés sikertelen, miközben az ablak a háttérben van.",
       "warnBeforeQuit": "Megerősítés kilépés előtt",
-      "warnBeforeQuitDesc": "Megerősítés kérése kilépéskor, ha még vannak aktív letöltések."
+      "warnBeforeQuitDesc": "Megerősítés kérése kilépéskor, ha még vannak aktív letöltések.",
+      "notificationBadgeDesc": "Az értesítési központ ikonján jelenik meg.",
+      "notificationOff": "Kikapcsolva",
+      "notificationSystem": "Rendszerértesítések",
+      "notificationInApp": "Alkalmazáson belüli értesítések",
+      "notificationBoth": "Mindkettő",
+      "startupAndQuitting": "Indítás és kilépés",
+      "runMode": "Alkalmazás megjelenítése",
+      "runModeStandard": "Dock és menüsáv",
+      "runModeTray": "Csak menüsáv",
+      "runModeHideTray": "Csak Dock",
+      "lightweightMode": "Memóriamegtakarítás az ablak bezárásakor",
+      "lightweightModeDesc": "A letöltések folytatódnak. Az újbóli megnyitás lassabb, és a nem mentett bevitt adatok törlődnek.",
+      "notifications": "Értesítések",
+      "notificationsDesc": "Az alkalmazás hibaértesítései bekapcsolva maradnak.",
+      "downloadCompleted": "Letöltés befejezve",
+      "downloadFailed": "Sikertelen letöltés",
+      "description": "Indítás, kilépés és értesítések",
+      "desktopOnly": "Az indítási és értesítési beállítások az asztali alkalmazásban érhetők el."
     },
     "appearance": {
       "theme": "Téma",
@@ -983,41 +1242,77 @@
       "themeLight": "Világos",
       "themeDark": "Sötét",
       "language": "Nyelv",
-      "traySpeedometer": "Valós idejű sebesség megjelenítése a tálcán",
-      "traySpeedometerDesc": "Csak macOS-en — az aktuális sebesség megjelenítése a menüsor ikonjánál.",
+      "traySpeedometer": "Sebesség megjelenítése a menüsávban",
+      "traySpeedometerDesc": "Letöltési és feltöltési sebesség megjelenítése az alkalmazás ikonja mellett.",
+      "trayIconColor": "Tálcaikon színe",
+      "trayIconColorDesc": "Válassz olyan színt, amely jól látható a rendszer paneljén.",
+      "trayIconColorAuto": "Alkalmazástéma követése",
+      "trayIconColorLight": "Világos ikon (sötét panel)",
+      "trayIconColorDark": "Sötét ikon (világos panel)",
       "reduceMotion": "Mozgás csökkentése",
-      "reduceMotionDesc": "A felület animációinak csökkentése, beleértve a Letöltések oldal vizuális mozgáseffektusait is.",
-      "liquidGlassEffect": "Liquid Glass effektus engedélyezése",
-      "liquidGlassEffectDesc": "Csak macOS 26 alkalmazásban — módosításkor újra létrehozza a főablakot.",
+      "reduceMotionDesc": "Kevesebb animáció használata az alkalmazásban.",
+      "liquidGlassEffect": "Liquid Glass",
+      "liquidGlassEffectDesc": "Áttetsző üveghatás a letöltési eszköztáron.",
+      "liquidGlassEffectMacDesc": "macOS 26 vagy újabb rendszeren az ablakra is érvényes. Módosításkor az ablak újra megnyílik.",
       "runMode": "Alkalmazás megjelenítése",
-      "runModeStandard": "Dock és menüsor",
-      "runModeTray": "Csak menüsor",
+      "runModeStandard": "Dock és menüsáv",
+      "runModeTray": "Csak menüsáv",
       "runModeHideTray": "Csak Dock",
       "runModeLaunch": "A Motrix megnyitásakor",
       "runModeStandardDesktop": "Főablak megnyitása",
       "runModeTrayDesktop": "Indítás a rendszertálcán",
       "runModeLinuxDesc": "A rendszertálca elérhetősége és működése az asztali környezettől függ.",
       "lightweightMode": "Könnyített mód",
-      "lightweightModeDesc": "A főablak bezárásakor felszabadítja a felület által használt memóriát. A háttérben futó letöltések folytatódnak; Windows és Linux alatt a Motrix a rendszertálcáról újra megnyitható. Az újbóli megnyitás valamivel tovább tart, és a nem mentett felületállapot elvész."
+      "lightweightModeDesc": "Memóriamegtakarítás az ablak bezárásakor. A letöltések folytatódnak, de az újbóli megnyitás lassabb, és a nem mentett bevitt adatok törlődnek.",
+      "byteUnitSystem": "Méret és sebesség mértékegységei",
+      "byteUnitSystemDesc": "Válaszd ki, hogyan jelenjenek meg a fájlméretek és a sebességek.",
+      "byteUnitDecimal": "Decimális (MB, GB · 1000)",
+      "byteUnitBinary": "Bináris (MiB, GiB · 1024)",
+      "byteUnitSystemDefault": "Rendszer követése ({{units}})",
+      "sidebarColor": "Kiemelőszín",
+      "sidebarColors": {
+        "blue": "Kék",
+        "violet": "Lila",
+        "pink": "Rózsaszín",
+        "orange": "Narancssárga",
+        "gold": "Arany",
+        "green": "Zöld",
+        "cyan": "Cián",
+        "gray": "Szürke",
+        "auto": "Automatikus"
+      },
+      "themeAndEffects": "Téma és effektusok",
+      "languageAndDisplay": "Nyelv és megjelenítés",
+      "menuBar": "Menüsáv",
+      "description": "Téma, nyelv és megjelenítés",
+      "systemTray": "Rendszertálca",
+      "followSystem": "Rendszer követése"
     },
     "advanced": {
       "rpc": {
         "title": "RPC",
         "port": "RPC-port",
-        "portDesc": "Az aria2 RPC-szerver által figyelt TCP-port. Újraindítás szükséges.",
-        "secret": "RPC-titkos kulcs",
-        "secretDesc": "A klienseknek ezt a tokent kell elküldeniük a hitelesítéshez. Kattints a Generálás gombra egy erős véletlen érték létrehozásához."
+        "portDesc": "Módosítása után újraindítás szükséges.",
+        "secret": "RPC-token",
+        "secretDesc": "Az RPC-kapcsolatokhoz szükséges."
       },
       "persistence": {
-        "title": "SQLite-alapú adattárolás",
-        "enable": "SQLite-alapú adattárolás engedélyezése",
-        "enableDesc": "A munkamenetek, az előrehaladás és az előzmények tárolása egyetlen SQLite-adatbázisban. Kikapcsolásakor visszaáll az eredeti aria2 működésére (szöveges munkamenet + .aria2 kísérőfájlok).",
-        "dbPath": "Adatbázis elérési útja",
-        "dbPathDesc": "Hagyd üresen az alapértelmezett hely használatához, a többi motorkonfigurációs fájl mellett.",
-        "dbPathPlaceholder": "Alapértelmezett: <config>/aria2.db",
-        "historyLimit": "Előzmények megőrzése",
-        "historyLimitDesc": "A letöltési előzményekben megtartott sorok maximális száma. -1 = korlátlan; 0 = csak memóriában (nincs adatbázisba mentés)."
-      }
+        "title": "Előrehaladás és helyreállítás",
+        "enable": "Helyreállítási adatok mentése",
+        "enableDesc": "Az újraindítás utáni letöltésfolytatáshoz szükséges adatok megőrzése.",
+        "dbPath": "Helyreállítási adatfájl",
+        "dbPathDesc": "Hagyd üresen az alapértelmezett hely használatához.",
+        "dbPathPlaceholder": "Alapértelmezett hely",
+        "historyLimit": "Befejezett feladatok helyreállítási adatai",
+        "historyLimitDesc": "A letöltési listát és a letöltött fájlokat nem érinti.",
+        "historyKeepAll": "Összes bejegyzés",
+        "historyKeepRecent": "Legutóbbi bejegyzések…",
+        "historySessionOnly": "Ne őrizze meg",
+        "historyCount": "Megőrzendő bejegyzések száma",
+        "historyCountHint": "A régebbi helyreállítási bejegyzések törlődnek.",
+        "historyCountPositive": "Adj meg 0-nál nagyobb számot."
+      },
+      "description": "RPC, előrehaladás és helyreállítás"
     },
     "about": {
       "appIconAlt": "Motrix alkalmazásikon",
@@ -1029,8 +1324,10 @@
         "currentVersion": "Jelenlegi verzió: {{version}}",
         "idleTitle": "Tartsd naprakészen a Motrixot",
         "idle": "A(z) {{version}} verzió van telepítve. Ellenőrizd most, vagy engedd, hogy a Motrix induláskor automatikusan ellenőrizze.",
+        "managedTitle": "Frissítések a telepítés forrásából",
+        "managedDescription": "Ez a csomagolt Windows-kiadás az eredeti telepítési forráson keresztül frissül. Az alkalmazáson belüli frissítés nem érhető el.",
         "unsupportedTitle": "Az automatikus frissítés nem érhető el",
-        "unsupported": "A Motrix ezen buildje nem támogatja az automatikus frissítést. Töltsd le a legújabb kiadást a hivatalos weboldalról.",
+        "unsupported": "Ez a verzió nem frissíthető automatikusan. Töltsd le a legújabb verziót a hivatalos weboldalról.",
         "check": "Frissítések keresése",
         "checkAction": "Ellenőrzés",
         "checking": "Ellenőrzés…",
@@ -1049,7 +1346,7 @@
         "downloaded": "A Motrix {{version}} telepítésre kész.",
         "restart": "Újraindítás és telepítés",
         "cancelledTitle": "A letöltés megszakítva",
-        "cancelled": "A frissítés letöltése megszakadt.",
+        "cancelled": "A frissítés letöltése megszakítva.",
         "cancelledDescription": "Ha készen állsz, próbáld újra a letöltést.",
         "errorTitle": "A Motrix frissítése sikertelen",
         "errorDescription": "Ellenőrizd a kapcsolatot, majd próbáld újra.",
@@ -1059,10 +1356,10 @@
         "automaticChecksDescription": "A Motrix indulásakor",
         "automaticChecksError": "A beállítást nem sikerült menteni",
         "channelLabel": "Frissítési csatorna",
-        "channelDescription": "Válaszd ki, mely alkalmazáskiadásokat ellenőrizze a Motrix.",
+        "channelDescription": "Válaszd a stabil kiadásokat, vagy próbáld ki az új funkciókat a bétában.",
         "channelStable": "Stabil",
         "channelBeta": "Béta",
-        "channelBetaWarning": "A béta kiadások kevésbé megbízhatók lehetnek. Béta és későbbi stabil kiadásokat is kapsz. A Stabil csatornára visszaváltás leállítja a további béta frissítéseket, de régebbi verziót nem telepít automatikusan.",
+        "channelBetaWarning": "A béta kevésbé stabil lehet. Az újabb stabil kiadásokat is megkapod. A visszaváltás leállítja a béta frissítéseket, de nem állít vissza régebbi verziót.",
         "channelSaveError": "A frissítési csatornát nem sikerült menteni. Próbáld újra."
       },
       "details": {
@@ -1087,96 +1384,101 @@
     },
     "bittorrent": {
       "trackers": {
-        "autoSync": "Automatikus szinkronizálás",
-        "autoSyncDesc": "A trackerlista automatikus szinkronizálása ütemezés szerint",
-        "syncInterval": "Szinkronizálási időköz",
-        "syncIntervalDesc": "A trackerek szinkronizálásának gyakorisága (óra, 1–168)",
-        "enableProbe": "Ellenőrzés engedélyezése",
-        "enableProbeDesc": "A tracker állapotának ellenőrzése a torrenthez adás előtt",
-        "probeTimeout": "Ellenőrzési időkorlát",
-        "probeTimeoutDesc": "Az ellenőrzési válasz maximális várakozási ideje (ms, 1000–30000)",
-        "healthyThreshold": "Megbízhatósági küszöb",
-        "healthyThresholdDesc": "Az egészségesnek tekintett tracker maximális válaszideje (ms, 500–10000)",
+        "autoSync": "Trackerlista automatikus frissítése",
+        "autoSyncDesc": "A lista naprakészen tartása a megadott források alapján.",
+        "syncInterval": "Frissítési időköz (óra)",
+        "syncIntervalDesc": "1 és 168 óra között.",
+        "enableProbe": "Trackerek elérhetőségének ellenőrzése",
+        "enableProbeDesc": "A trackerek tesztelése a letöltésekhez való használat előtt.",
+        "probeTimeout": "Ellenőrzési időkorlát (ms)",
+        "probeTimeoutDesc": "Legfeljebb ennyi ideig vár a válaszra. 1 000–30 000 ms.",
+        "healthyThreshold": "Lassú válasz küszöbértéke (ms)",
+        "healthyThresholdDesc": "Az ennél hosszabb válaszidőt lassúnak jelöli. 500–10 000 ms.",
         "minSuccessRate": "Minimális sikerességi arány",
-        "minSuccessRateDesc": "A tracker megtartásához szükséges minimális sikerességi arány (0–1)",
-        "maxTrackerCount": "Trackerek maximális száma",
-        "maxTrackerCountDesc": "Torrentenként alkalmazható trackerek maximális száma (5–200)",
+        "minSuccessRateDesc": "Legalább ilyen sikerességi arányú trackerek használata. 0,5 = 50%.",
+        "maxTrackerCount": "Trackerek száma feladatonként",
+        "maxTrackerCountDesc": "Legfeljebb ennyi tracker használata. 5–200.",
         "title": "Trackerek",
-        "manageSourcesHint": "A trackerforrások listája a Trackerek oldalsávban kezelhető.",
-        "blacklistMovedInfo": "A tracker tiltólista mostantól az oldalsáv Trackerek oldalán, a Tiltólista fülön kezelhető."
+        "manageSourcesHint": "A források a Trackerek oldalon kezelhetők.",
+        "blacklistMovedInfo": "A letiltott trackerek a Trackerek → Tiltólista alatt kezelhetők."
       },
       "geoip": {
-        "title": "GeoIP-adatbázis",
-        "enable": "IP-címek ország szerinti feloldásának engedélyezése",
-        "enableDesc": "A partnerek IP-címeinek feloldása országkódokra a Partnerek fülön. Az adatbázis szükség esetén töltődik le, és a felhasználói adatkönyvtárban tárolódik.",
+        "title": "Partnerek helyadatai",
+        "enable": "Ország vagy régió megjelenítése",
+        "enableDesc": "Helyadatok megjelenítése a partnerlistában. Szükség esetén letölti a helyadatokat.",
         "lastUpdated": "Utolsó frissítés",
         "neverUpdated": "Soha",
         "updateNow": "Frissítés most",
         "updating": "Frissítés…",
-        "source": "Forrás",
-        "sourceDesc": "Válaszd ki, honnan töltse le a GeoLite2-Country.mmdb fájlt.",
+        "source": "Helyadatok forrása",
+        "sourceDesc": "Válaszd ki, honnan töltse le a helyadatokat.",
         "source.loyalsoldier": "Loyalsoldier (közösségi)",
         "source.p3terx": "P3TERX (közösségi tükör)",
         "source.maxmind": "MaxMind (hivatalos)",
         "source.custom": "Egyéni URL",
-        "maxmindUnsupported": "2.1-es fázis",
-        "customUrl": "Egyéni URL",
+        "maxmindUnsupported": "Még nem támogatott",
+        "customUrl": "Egyéni letöltési URL",
         "customUrlPlaceholder": "https://example.com/GeoLite2-Country.mmdb",
         "autoUpdate": "Automatikus frissítés",
-        "autoUpdateDesc": "Frissebb adatbázis keresése körülbelül hetente.",
-        "status.loaded": "Betöltve",
-        "status.notDownloaded": "Az adatbázis nincs letöltve",
+        "autoUpdateDesc": "Új helyadatok keresése körülbelül hetente.",
+        "status.loaded": "Kész",
+        "status.notDownloaded": "A helyadatok nincsenek letöltve",
         "status.downloading": "Letöltés…",
-        "status.error": "A frissítés sikertelen"
+        "status.error": "A frissítés sikertelen",
+        "customUrlDesc": "Hivatkozás egy .mmdb formátumú országadatbázisra.",
+        "saveBeforeUpdate": "A helyadatok frissítése előtt mentsd a módosításokat.",
+        "updateFailed": "Nem sikerült frissíteni a helyadatokat. Próbáld újra."
       },
       "listen": {
-        "title": "Figyelés",
+        "title": "Bejövő kapcsolatok",
         "listenPort": "BT figyelési port",
-        "listenPortDesc": "Az aria2 ezen a porton fogadja a bejövő partnerkapcsolatokat.",
+        "listenPortDesc": "Bejövő partnerkapcsolatok fogadása ezen a porton.",
         "dhtListenPort": "DHT figyelési port",
-        "dhtListenPortDesc": "Az aria2 ezt a portot használja a DHT-hoz.",
+        "dhtListenPortDesc": "Partnerek keresése DHT-n keresztül ezen a porton.",
         "dhtEnabled": "DHT engedélyezése",
-        "dhtEnabledDesc": "Elosztott hash-tábla tracker nélküli torrentekhez."
+        "dhtEnabledDesc": "Partnerek keresése tracker nélkül."
       },
       "peers": {
         "title": "Partnerek",
         "btMaxPeers": "Partnerek maximális száma torrentenként",
-        "btMaxPeersDesc": "Az egyidejű partnerkapcsolatok maximális száma.",
+        "btMaxPeersDesc": "Egy feladat egyszerre legfeljebb ennyi partnerhez kapcsolódhat.",
         "btEnableLpd": "Helyi partnerek felderítése",
-        "btEnableLpdDesc": "Partnerek keresése a helyi hálózaton.",
-        "magnetFileSelection": "Fájlválasztás megnyitása a magnet metaadatainak betöltése után",
-        "magnetFileSelectionDesc": "A magnet metaadatainak beérkezése után jelenjen meg a fájlválasztó.",
-        "magnetFileSelectionAutoDownload": "Az összes fájl letöltése, ha a fájlválasztás időtúllépés miatt megszakad",
-        "magnetFileSelectionAutoDownloadDesc": "Ha a fájlválasztást nem erősítik meg időben, az összes fájl letöltődik a feladat mentési mappájába akkor is, ha az ablak vagy a WebUI be van zárva.",
-        "magnetFileSelectionTimeoutSeconds": "Fájlválasztási időkorlát (másodperc)",
-        "magnetFileSelectionTimeoutSecondsDesc": "Az időszámítás a metaadatok elkészültétől indul. Az időkorlát módosítása a már fájlválasztásra váró feladatokra is érvényes.",
+        "btEnableLpdDesc": "Fájlokat megosztó partnerek keresése a helyi hálózaton.",
+        "magnetFileSelection": "Fájlok kiválasztása letöltés előtt",
+        "magnetFileSelectionDesc": "Fájlkiválasztás megjelenítése a magnet hivatkozás betöltése után.",
+        "magnetFileSelectionAutoDownload": "Összes fájl letöltése, ha nincs kiválasztás",
+        "magnetFileSelectionAutoDownloadDesc": "Az alábbi idő elteltével elindul, akkor is, ha az alkalmazás ablaka vagy a böngésző be van zárva.",
+        "magnetFileSelectionTimeoutSeconds": "Fájlkiválasztásra rendelkezésre álló idő (mp)",
+        "magnetFileSelectionTimeoutSecondsDesc": "Az időszámítás a fájllista elkészültekor indul. A módosítás a már várakozó feladatokra is érvényes.",
         "magnetFileSelectionTimeoutInvalid": "Adj meg egy {{min}} és {{max}} másodperc közötti egész számot."
       },
       "seeding": {
         "title": "Visszaosztás",
         "seedRatio": "Visszaosztási arány korlátja",
-        "seedRatioDesc": "A visszaosztás leállítása e fölötti aránynál. 0 = korlátlan.",
+        "seedRatioDesc": "Feltöltés ÷ letöltés. A visszaosztás ennél az aránynál leáll. 0 = korlátlan.",
         "seedTime": "Visszaosztási időkorlát (perc)",
-        "seedTimeDesc": "A visszaosztás leállítása ennyi perc után. 0 = korlátlan."
-      }
+        "seedTimeDesc": "0 = korlátlan. Új feladatokra és a visszaosztás újraindításakor érvényes."
+      },
+      "newMagnetTasks": "Új magnet feladatok",
+      "description": "Magnet hivatkozások, visszaosztás és trackerek"
     },
     "downloads": {
       "performance": {
         "title": "Teljesítmény",
-        "profile": "Teljesítményprofil",
-        "profileDesc": "Válaszd ki, milyen intenzíven töltsön le a Motrix.",
-        "baseline": "Alapértékek",
+        "profile": "Letöltési teljesítmény",
+        "profileDesc": "A letöltési sebesség és az erőforrás-használat egyensúlyának beállítása.",
+        "learnMore": "További információ",
         "metrics": {
-          "segments": "Szegmensek",
-          "perServer": "Szerverenként",
-          "minimum": "Minimum",
-          "cache": "Gyorsítótár"
+          "connections": "Max. kapcsolatszám",
+          "perServer": "Szerverenkénti korlát",
+          "minimum": "Min. szegmensméret",
+          "cache": "Lemezgyorsítótár"
         },
         "customParameters": "Egyéni teljesítményparaméterek",
         "profiles": {
           "auto": {
             "label": "Automatikus",
-            "desc": "A teljesítményt a letöltési meghajtóhoz igazítja."
+            "desc": "A meghajtóhoz és a fájlmérethez igazodik. Alább az alapértékek láthatók."
           },
           "balanced": {
             "label": "Kiegyensúlyozott",
@@ -1188,97 +1490,102 @@
           },
           "maximum": {
             "label": "Maximális",
-            "desc": "Maximális párhuzamosságot használ. Egyes szerverek ezt elutasíthatják."
+            "desc": "Több kapcsolatot használ. Egyes szerverek korlátozhatják ezeket."
           },
           "custom": {
             "label": "Egyéni",
-            "desc": "A kapcsolatok, szegmensek és a gyorsítótár kézi beállítása."
+            "desc": "A kapcsolatok, a szegmensméret és a gyorsítótár beállítása."
           }
         },
-        "maxConcurrentDownloads": "Párhuzamos letöltések maximális száma",
-        "maxConcurrentDownloadsDesc": "Az egyszerre letöltött feladatok száma.",
+        "maxConcurrentDownloads": "Párhuzamos letöltések",
+        "maxConcurrentDownloadsDesc": "A további feladatok a várólistára kerülnek.",
         "maxConnectionPerServer": "Szerverenkénti maximális kapcsolatszám",
-        "maxConnectionPerServerDesc": "Az egy kiszolgáló felé indított párhuzamos HTTP-kérések száma.",
-        "split": "Kapcsolatok száma fájlonként",
-        "splitDesc": "Egy fájl letöltéséhez használt szegmensek száma.",
-        "minSplitSize": "Minimális szegmensméret (MB)",
-        "minSplitSizeDesc": "Az ennél kisebb fájlokat ne bontsa szegmensekre."
-      },
+        "maxConnectionPerServerDesc": "Egy szerverhez indítható kapcsolatok fájlonkénti korlátja.",
+        "split": "Fájlonkénti maximális kapcsolatszám",
+        "splitDesc": "Egy fájl letöltéséhez használt kapcsolatok száma.",
+        "minSplitSize": "Minimális szegmensméret (MiB)",
+        "minSplitSizeDesc": "Az érték kétszeresénél kisebb szegmenseket nem bontja tovább."
+      },    
       "reliability": {
-        "title": "Hálózati megbízhatóság",
+        "title": "Kapcsolatok és újrapróbálkozások",
         "userAgent": "User-Agent",
-        "userAgentDesc": "A HTTP-kérésekkel elküldött azonosító.",
-        "connectTimeout": "Kapcsolódási időkorlát (s)",
-        "connectTimeoutDesc": "Mennyi ideig várjon TCP-kapcsolat létrejöttére.",
-        "socketTimeout": "Socket időkorlát (s)",
-        "socketTimeoutDesc": "Mennyi ideig várjon socket-adatokra.",
-        "maxTries": "Újrapróbálkozások maximális száma",
-        "maxTriesDesc": "0 = nincs újrapróbálkozás.",
-        "retryWait": "Várakozás újrapróbálkozás előtt (s)",
-        "retryWaitDesc": "Várakozási idő az újrapróbálkozások között.",
-        "lowestSpeedLimit": "Lassú kapcsolat küszöbértéke (KB/s)",
-        "lowestSpeedLimitDesc": "Az ennél kisebb sebességű kapcsolatokat bontsa. 0 = kikapcsolva."
+        "userAgentDesc": "Az alkalmazást azonosítja a webhelyek számára. Módosítsd, ha egy webhely más azonosítót igényel.",
+        "connectTimeout": "Kapcsolódási időkorlát (mp)",
+        "connectTimeoutDesc": "Mennyi ideig várjon a kapcsolat létrejöttére.",
+        "socketTimeout": "Adatvárakozási időkorlát (mp)",
+        "socketTimeoutDesc": "Mennyi ideig várjon, ha nem érkezik adat.",
+        "maxTries": "Próbálkozások maximális száma",
+        "maxTriesDesc": "Az első próbálkozást is tartalmazza. 0 = korlátlan.",
+        "retryWait": "Várakozás újrapróbálkozás előtt (mp)",
+        "retryWaitDesc": "Ennyi ideig várjon az újabb próbálkozás előtt.",
+        "lowestSpeedLimit": "Minimális kapcsolati sebesség (KiB/s)",
+        "lowestSpeedLimitDesc": "Az ennél kisebb sebességű kapcsolatokat bontja. 0 = kikapcsolva."
       },
       "disk": {
-        "title": "Lemez és munkamenet",
-        "fileAllocation": "Fájlhelyfoglalás",
-        "fileAllocationDesc": "Az aria2 így foglal le lemezterületet az új fájlok számára.",
-        "fileAllocationNone": "Nincs",
+        "title": "Lemez és fájlok",
+        "fileDeletionMode": "Feladatfájlok törlésekor",
+        "fileDeletionTrash": "Áthelyezés a lomtárba",
+        "fileDeletionPermanent": "Végleges törlés",
+        "fileDeletionTrashDesc": "A lemezterület a lomtár ürítésekor szabadul fel.",
+        "fileDeletionPermanentDesc": "A törölt fájlok nem állíthatók vissza a lomtárból.",
+        "fileAllocation": "Lemezterület lefoglalása",
+        "fileAllocationDesc": "Lemezterület lefoglalása a fájl letöltése előtt.",
+        "fileAllocationNone": "Ne foglaljon le",
         "fileAllocationPrealloc": "Előfoglalás",
-        "fileAllocationTrunc": "Trunc",
-        "fileAllocationFalloc": "Falloc",
+        "fileAllocationTrunc": "Fájlméret beállítása",
+        "fileAllocationFalloc": "Rendszer általi helyfoglalás",
         "modifiedTime": "Fájl módosítási ideje",
-        "modifiedTimeDesc": "Válaszd ki, melyik módosítási időt használják a befejezett HTTP- és FTP-letöltések.",
-        "modifiedTimeLocal": "Helyi",
-        "modifiedTimeServer": "Szerver",
-        "diskCache": "Lemezgyorsítótár (MB)",
-        "diskCacheDesc": "Memóriában tárolt írási gyorsítótár.",
-        "sessionSaveInterval": "Munkamenet mentési időköze (s)",
-        "sessionSaveIntervalDesc": "Az aria2 ilyen gyakran menti tartósan a letöltések állapotát."
+        "modifiedTimeDesc": "Befejezett HTTP- és FTP-letöltésekhez.",
+        "modifiedTimeLocal": "Letöltés ideje",
+        "modifiedTimeServer": "Szerver szerinti idő",
+        "diskCache": "Lemezgyorsítótár (MiB)",
+        "diskCacheDesc": "A fájladatok átmeneti tárolására használt memória a lemezre írás előtt.",
+        "sessionSaveInterval": "Előrehaladás mentési időköze (mp)",
+        "sessionSaveIntervalDesc": "Gyakoribb mentéssel csökkenthető az összeomláskor elvesző előrehaladás."
       },
       "magnet": {
         "title": "Magnet",
-        "magnetResolveTimeout": "Magnet feloldási időkorlát (s)",
-        "magnetResolveTimeoutDesc": "Mennyi ideig várjon a metaadatokra, mielőtt feladja."
+        "magnetResolveTimeout": "Magnet betöltési időkorlát (mp)",
+        "magnetResolveTimeoutDesc": "Mennyi ideig várjon a fájllistára."
       },
       "speedLimit": {
         "title": "Sebességkorlátok",
         "titleDesc": "Válaszd ki, hogyan használja a Motrix a kapcsolatot normál, alacsony sebességű és automatikus módban.",
         "modeSection": "Sebességmód",
         "modeSectionDesc": "Válaszd ki, hogyan használja a Motrix a kapcsolatot.",
-        "turtle": "Jelenlegi mód",
+        "turtle": "Sebességmód",
         "turtleDesc_off": "A normál sebességkorlátok használata.",
         "turtleDesc_on": "Az alacsony sebességű korlátok használata, hogy más alkalmazásoknak is maradjon sávszélesség.",
         "turtleDesc_auto": "A sebesség automatikus beállítása az idő és a kapcsolat sávszélessége alapján.",
         "turtle_off": "Normál",
         "turtle_on": "Alacsony sebesség",
         "turtle_auto": "Automatikus",
-        "baseSection": "Normál sebességkorlátok",
+        "baseSection": "Normál korlátok",
         "baseSectionDesc": "A mindennapi letöltésekhez használatosak, és minden mód figyelembe veszi őket.",
-        "baseDownload": "Normál letöltési korlát",
+        "baseDownload": "Letöltés",
         "baseDownloadDesc": "A mindennapi letöltések maximális sebessége.",
-        "baseUpload": "Normál feltöltési korlát",
+        "baseUpload": "Feltöltés",
         "baseUploadDesc": "A mindennapi feltöltések maximális sebessége.",
         "unlimited": "Korlátlan",
         "setUnlimited": "Korlátlanra állítás",
-        "standardLimit": "Normál korlát",
+        "standardLimit": "Normál használata",
         "useStandardLimit": "Normál korlát használata",
         "altSection": "Alacsony sebességű korlátok",
         "altSectionDesc": "Alacsony sebességű módban vagy ütemezett szabályoknál használatosak. Ezek a korlátok csak csökkenthetik a normál korlátokat.",
-        "altDownload": "Alacsony sebességű letöltési korlát",
-        "altDownloadDesc": "Az alacsony sebességű mód aktív állapotában érvényes maximális letöltési sebesség.",
-        "altUpload": "Alacsony sebességű feltöltési korlát",
-        "altUploadDesc": "Az alacsony sebességű mód aktív állapotában érvényes maximális feltöltési sebesség.",
+        "altDownload": "Letöltés",
+        "altDownloadDesc": "Az alacsony sebességű módban érvényes maximális letöltési sebesség.",
+        "altUpload": "Feltöltés",
+        "altUploadDesc": "Az alacsony sebességű módban érvényes maximális feltöltési sebesség.",
         "autoSection": "Automatikus szabályok",
         "autoSectionDesc": "Ezek a szabályok csak automatikus módban érvényesek.",
         "autoSchedule": "Ütemezett lassítás",
-        "scheduleEnabled": "Alacsony sebességű korlátok használata ütemezés szerint",
+        "scheduleEnabled": "Alacsony sebesség ütemezése",
         "scheduleEnabledDesc": "Átváltás az alacsony sebességű korlátokra a kiválasztott napokon és időpontokban.",
         "scheduleFrom": "Kezdés",
         "scheduleTo": "Befejezés",
         "scheduleTimeFormat": "24 órás formátum (HH:mm)",
-        "scheduleDays": "Aktív napok",
-        "scheduleDaysHint": "Ha nincs kiválasztva konkrét nap, az ütemezés minden nap érvényes. Ha a befejezési idő korábbi a kezdési időnél, a következő napra vonatkozik.",
+        "scheduleDays": "Napok",
+        "scheduleDaysHint": "Ha a befejezési idő korábbi a kezdési időnél, az ütemezés átnyúlik a következő napra.",
         "weekdays": {
           "sun": {
             "short": "V",
@@ -1310,15 +1617,15 @@
           }
         },
         "autoAdaptive": "Sávszélesség fenntartása más alkalmazásoknak",
-        "adaptiveEnabled": "A teljes kapcsolat kihasználásának elkerülése",
-        "adaptiveEnabledDesc": "A Motrix automatikus korlátozása a kapcsolat sávszélessége alapján.",
-        "linkDown": "Kapcsolat letöltési sávszélessége",
+        "adaptiveEnabled": "Sávszélesség fenntartása más alkalmazásoknak",
+        "adaptiveEnabledDesc": "A korlát kiszámításához add meg alább a kapcsolat sebességeit.",
+        "linkDown": "Kapcsolat letöltési sebessége",
         "linkDownDesc": "Az internetkapcsolat által elérhető letöltési sebesség.",
-        "linkUp": "Kapcsolat feltöltési sávszélessége",
+        "linkUp": "Kapcsolat feltöltési sebessége",
         "linkUpDesc": "Az internetkapcsolat által elérhető feltöltési sebesség.",
-        "fillFromPeak": "Becslés a legutóbbi sebességek alapján",
-        "fillFromPeakHint": "A Motrix által nemrég mért legnagyobb sebességet használja.",
-        "estimateEmpty": "Még nem érhető el sebességelőzmény. Fejezz be egy korlátlan letöltést, vagy add meg kézzel a sávszélességet.",
+        "fillFromPeak": "Kapcsolati sebesség becslése",
+        "fillFromPeakHint": "A legutóbbi letöltések és feltöltések legnagyobb sebessége alapján.",
+        "estimateEmpty": "Még nem érhető el sebességelőzmény. Fejezz be egy sebességkorlát nélküli letöltést, vagy add meg kézzel a sávszélességet.",
         "estimateSuccess": "A kapcsolat sávszélessége kitöltve a legutóbbi sebességek alapján.",
         "estimateError": "Nem sikerült beolvasni a legutóbbi sebességelőzményeket. Add meg kézzel a sávszélességet.",
         "headroomPercent": "Fenntartás más alkalmazásoknak",
@@ -1329,15 +1636,23 @@
           "lowSpeed": "Jelenleg az alacsony sebességű korlátok vannak érvényben: letöltés {{download}}, feltöltés {{upload}}.",
           "noAutoRules": "Nincsenek engedélyezett automatikus szabályok. Jelenleg a normál módnak megfelelően működik.",
           "standardValues": "Normál korlátok: letöltés {{download}}, feltöltés {{upload}}.",
-          "scheduleRule": "alacsony sebességű korlátokat használ {{from}} és {{to}} között{{nextDay}}",
-          "nextDay": ", a következő napig",
+          "scheduleRule": "alacsony sebességű korlátokat használ {{from}}-tól {{nextDay}}{{to}}-ig",
+          "nextDay": "másnap ",
           "adaptiveRule": "a sávszélesség {{reserved}}%-át fenntartja más alkalmazások számára",
           "adaptiveRulePending": "a sávszélesség {{reserved}}%-át fenntartja más alkalmazások számára a kapcsolat sávszélességének megadása után",
           "ruleSeparator": " és ",
           "autoRules": "A Motrix {{rules}}.",
-          "lowerWins": "Ha több korlát is érvényes, a Motrix az alacsonyabb értéket használja."
-        }
-      }
+          "lowerWins": "A legalacsonyabb aktív korlát érvényesül."
+        },
+        "bandwidthUsed": "A Motrix legfeljebb {{motrix}}%-ot használhat.",
+        "bandwidthPending": "A korlát alkalmazásához add meg mindkét kapcsolati sebességet."
+      },
+      "newTasks": "Új feladatok",
+      "defaultDownloadFolder": "Alapértelmezett letöltési mappa",
+      "autofillFromClipboard": "Hivatkozások automatikus beillesztése a vágólapról",
+      "fillInLinksWhenOpeningNewTask": "Másolt hivatkozások beillesztése új feladat megnyitásakor.",
+      "saveFolders": "Mentési mappák",
+      "description": "Fájlok, letöltési sebesség és kapcsolatok"
     },
     "network": {
       "dns": {
@@ -1351,62 +1666,71 @@
       "proxy": {
         "title": "Proxy",
         "enable": "Proxy engedélyezése",
-        "enableDesc": "A hálózati forgalom proxykiszolgálón keresztüli továbbítása.",
+        "enableDesc": "Proxy használata az alább kiválasztott kapcsolatokhoz.",
         "server": "Szerver",
         "protocol": "Protokoll",
-        "host": "Gazdagép",
+        "host": "Szerver címe",
         "hostPlaceholder": "proxy.example.com",
         "port": "Port",
-        "auth": "Hitelesítés",
-        "authDesc": "A bejelentkezést igénylő proxykhoz szükséges.",
+        "auth": "Proxybejelentkezés",
+        "authDesc": "Kapcsold be, ha a proxy felhasználónevet és jelszót igényel.",
         "user": "Felhasználónév",
         "password": "Jelszó",
         "showPassword": "Jelszó megjelenítése",
         "hidePassword": "Jelszó elrejtése",
-        "bypass": "Kivételek",
-        "bypassDesc": "Soronként egy pontos gazdagépnév vagy CIDR. Aldomainekhez használj kezdő pontot, például `.local` alakban (a gyökérdomaint ez nem érinti); a letöltéseknél a `*` helyettesítő karakter nem támogatott.",
-        "bypassScopeNote": "Csak letöltésekhez és alkalmazásfrissítéshez",
-        "scopes": "Alkalmazás erre",
+        "bypass": "Közvetlen kapcsolódás ezekhez",
+        "bypassDesc": "Soronként egy domain, IP-cím vagy CIDR-tartomány. Kezdő ponttal csak az aldomainekre illeszkedik. Fájlletöltésnél a * helyettesítő karakter nem támogatott.",
+        "bypassScopeNote": "Csak fájlletöltésekhez és alkalmazásfrissítésekhez",
+        "scopes": "Proxy használata ezekhez",
         "scopesDesc": "Válaszd ki, mely forgalomtípusok haladjanak át a proxyn.",
-        "scopeDownload": "Letöltések",
-        "scopeDownloadDesc": "A BitTorrent-proxy csak a HTTP(S) forgalomra vonatkozik; a partnerek, a DHT és az UDP-trackerek közvetlen kapcsolatot használnak.",
-        "scopeUpdateApp": "Alkalmazásfrissítések keresése",
-        "scopeUpdateAppDesc": "Az Electron automatikus frissítőjének HTTPS-hívásai.",
-        "scopeUpdateTrackers": "Trackerek szinkronizálása",
-        "scopeUpdateTrackersDesc": "Csak a trackerlisták szinkronizálására vonatkozik; a BitTorrent-forgalmat nem irányítja a proxyn keresztül.",
+        "scopeDownload": "Fájlletöltések",
+        "scopeDownloadDesc": "BitTorrent esetén csak a HTTP(S) forgalom használja a proxyt. A partnerek, a DHT és az UDP-trackerek közvetlenül kapcsolódnak.",
+        "scopeUpdateApp": "Alkalmazásfrissítések",
+        "scopeUpdateAppDesc": "Motrix-frissítések keresése a proxyn keresztül.",
+        "scopeUpdateTrackers": "Trackerlisták frissítése",
+        "scopeUpdateTrackersDesc": "Trackerlisták letöltése a proxyn keresztül; a BitTorrent-forgalmat nem érinti.",
         "importFromSystem": "Importálás a rendszerből",
         "importedToast": "Rendszerproxy importálva: {{host}}:{{port}}",
-        "noSystemProxy": "Nincs beállított rendszerproxy."
+        "noSystemProxy": "Nincs beállított rendszerproxy.",
+        "bypassPlaceholder": "localhost\n127.0.0.1\n.local",
+        "scopeHint": "A BitTorrent-partnerek, a DHT és az UDP-trackerek közvetlenül kapcsolódnak.",
+        "scopeNone": "Nincs kiválasztva",
+        "scopeChoose": "Kiválasztás…",
+        "scopeSeparator": ", "
       },
       "nat": {
-        "title": "NAT-portleképezés",
+        "title": "Portleképezés (NAT)",
         "enable": "Portleképezés engedélyezése",
-        "enableDesc": "A bejövő BitTorrent- és DHT-portok automatikus megnyitása a routeren.",
+        "enableDesc": "A router megkérése a BitTorrent beállításaiban megadott portok megnyitására.",
         "preferredProtocol": "Előnyben részesített protokoll",
-        "mappingTtl": "Leképezés TTL-je (másodperc)",
-        "btPortHint": "A leképezés a BitTorrent beállításaiban megadott BT/DHT-portokra vonatkozik."
+        "mappingTtl": "Leképezés időtartama (mp)",
+        "btPortHint": "A leképezés a BitTorrent beállításaiban megadott BT/DHT-portokra vonatkozik.",
+        "automatic": "Automatikus"
       },
       "stun": {
         "title": "NAT-típus felismerése",
-        "privacyHint": "Lekérdezéseket küld külső STUN-szervereknek.",
-        "enable": "Felismerés engedélyezése STUN használatával",
+        "privacyHint": "Külső STUN-szervereket használ.",
+        "enable": "NAT-típus felismerése",
         "servers": "STUN-szerverek",
-        "empty": "Nincsenek beállított STUN-szerverek.",
+        "empty": "Adj hozzá legalább egy STUN-szervert.",
         "addServer": "STUN-szerver hozzáadása"
       },
       "reachability": {
-        "title": "Port elérhetősége",
-        "privacyHint": "Próbakérést küld egy külső HTTPS-végpontra.",
-        "enable": "Port ellenőrzése külső szolgáltatással",
-        "endpoints": "Végpontok (HTTPS)",
-        "empty": "Nincsenek beállított elérhetőségi végpontok.",
-        "addEndpoint": "Végpont hozzáadása"
+        "title": "Bejövő portok ellenőrzése",
+        "privacyHint": "Külső szolgáltatással ellenőrzi az internet felőli elérhetőséget.",
+        "enable": "Bejövő portok ellenőrzése",
+        "endpoints": "Ellenőrző szolgáltatások (HTTPS)",
+        "empty": "Adj hozzá legalább egy ellenőrző szolgáltatást.",
+        "addEndpoint": "Ellenőrző szolgáltatás hozzáadása"
       },
       "diagnostic": {
-        "title": "Automatikus diagnosztika",
-        "enable": "Diagnosztika futtatása ütemezés szerint",
-        "interval": "Időköz (másodperc)"
-      }
+        "title": "Automatikus hálózati ellenőrzések",
+        "enable": "Automatikus ellenőrzések",
+        "interval": "Ellenőrzési időköz (mp)",
+        "enableDesc": "A fent engedélyezett ellenőrzések ismétlése."
+      },
+      "description": "Proxy, DNS és kapcsolati ellenőrzések",
+      "diagnostics": "Hálózati diagnosztika"
     },
     "common": {
       "browse": "Tallózás…",
@@ -1424,17 +1748,17 @@
     },
     "integration": {
       "system": {
-        "title": "Rendszerprotokollok",
+        "title": "Alapértelmezett alkalmazás",
         "protocolMagnet": "Magnet hivatkozások megnyitása a Motrixszal",
         "protocolMagnetDesc": "A böngészőből megnyitott magnet hivatkozások kezelése a Motrixszal.",
         "torrentAssociation": ".torrent fájlok megnyitása a Motrixszal",
-        "torrentAssociationDesc": "Beállítás után a .torrent fájlokra duplán kattintva azok a Motrixban nyílnak meg.",
+        "torrentAssociationDesc": "Kattints duplán egy .torrent fájlra a Motrixban való megnyitáshoz.",
         "torrentAssociationMacDesc": "A Finderben kattints jobb gombbal egy .torrent fájlra → Információk → Megnyitás ezzel → válaszd a Motrixot → Összes módosítása…",
         "defaultAssociationsWindows": "Alapértelmezett alkalmazás torrentekhez és magnet hivatkozásokhoz",
-        "defaultAssociationsWindowsDesc": "A Windows Alapértelmezett alkalmazások beállításában válaszd a Motrixot a .torrent fájlokhoz és a magnet hivatkozásokhoz. A Motrix a Motrix Setup telepítése után jelenik meg ott.",
+        "defaultAssociationsWindowsDesc": "A Windows beállításaiban válaszd a Motrixot a .torrent fájlokhoz és a magnet hivatkozásokhoz. Ehhez telepített Motrix szükséges.",
         "torrentFiles": ".torrent fájlok",
         "magnetLinks": "Magnet hivatkozások",
-        "associationStatusLabel": "Jelenlegi Windows alapértelmezett alkalmazás állapota",
+        "associationStatusLabel": "Az alapértelmezett alkalmazás jelenlegi állapota a Windowsban",
         "associationChecking": "Ellenőrzés…",
         "associationSetupRequired": "Beállítás szükséges",
         "associationDefault": "Alapértelmezett",
@@ -1442,13 +1766,13 @@
         "associationUnavailable": "Nem ellenőrizhető",
         "associationNotRegistered": "Nincs regisztrálva",
         "openWindowsSettings": "Windows-beállítások megnyitása",
-        "defaultAssociationsLinux": "Linux fájl- és hivatkozástársítások",
+        "defaultAssociationsLinux": "Fájl- és hivatkozástársítások Linuxon",
         "defaultAssociationsLinuxCheckingDesc": "A Linux-csomag és a jelenlegi asztali társítások ellenőrzése…",
         "defaultAssociationsLinuxUnavailableDesc": "Az asztali társítások állapota ebből az alkalmazáskörnyezetből nem érhető el.",
-        "defaultAssociationsLinuxDesc": "A Motrix beállíthatja magát alapértelmezett alkalmazásként a .torrent fájlokhoz telepített deb vagy rpm csomag esetén. A magnet társítás módosításai a párbeszédablak alkalmazásakor lépnek életbe.",
+        "defaultAssociationsLinuxDesc": "Telepített deb vagy rpm csomag esetén a Motrix beállíthatja magát alapértelmezett alkalmazásként a .torrent fájlokhoz. A magnet hivatkozások társításának módosításai a párbeszédablak beállításainak alkalmazásakor lépnek életbe.",
         "defaultAssociationsLinuxAppImageDesc": "Az alábbi Asztali integrációval biztonságosan regisztrálható vagy eltávolítható ez az AppImage. A Motrix a saját asztali bejegyzésének törlése előtt visszaállítja az ellenőrzött korábbi kezelőket.",
         "defaultAssociationsLinuxSandboxDesc": "Ez a csomag kezelőként regisztrálja a Motrixot, de az alapértelmezett alkalmazást az asztali környezet választja ki. A csomag eltávolítása nem feltétlenül állítja vissza automatikusan a korábbi alapértelmezettet.",
-        "associationStatusLabelLinux": "Jelenlegi Linux fájl- és hivatkozástársítási állapot",
+        "associationStatusLabelLinux": "A fájl- és hivatkozástársítások jelenlegi állapota Linuxon",
         "linuxPackageDetected": "Csomag: {{package}}",
         "linuxPackage": {
           "appimage": "AppImage",
@@ -1457,20 +1781,20 @@
           "snap": "Snap",
           "unknown": "Ismeretlen csomag"
         },
-        "protocolMagnetAppImageDesc": "Mentés után azonnal alkalmazásra kerül, ha az Asztali integráció engedélyezve van.",
-        "protocolMagnetSandboxDesc": "A Motrix mentéskor kéri a módosítást, de a sandbox vagy az asztali környezet kérheti az alapértelmezett alkalmazás kézi kiválasztását.",
-        "protocolMagnetApplyFailed": "A beállítás mentve lett, de az asztali társítást nem sikerült módosítani. Válaszd ki az alapértelmezett alkalmazást a rendszerbeállításokban.",
-        "setTorrentDefaultLinux": ".torrent alapértelmezett beállítása",
+        "protocolMagnetAppImageDesc": "Mentés után azonnal érvénybe lép, ha az Asztali integráció engedélyezve van.",
+        "protocolMagnetSandboxDesc": "A Motrix mentéskor kéri a módosítást, de az elkülönített futtatási környezet vagy az asztali környezet megkövetelheti az alapértelmezett alkalmazás kézi kiválasztását.",
+        "protocolMagnetApplyFailed": "A beállítás mentve, de az asztali társítást nem sikerült módosítani. Válaszd ki az alapértelmezett alkalmazást a rendszerbeállításokban.",
+        "setTorrentDefaultLinux": "Beállítás alapértelmezettként .torrent fájlokhoz",
         "repairLinuxAssociations": "Társítások javítása",
         "viewLinuxInstructions": "Beállítási lépések megtekintése",
         "linuxActionSet": "A Motrix mostantól a .torrent fájlok alapértelmezett alkalmazása.",
-        "linuxActionFallback": "Ehhez a csomaghoz nem érhető el automatikus beállítás. Helyette megnyíltak a beállítási útmutatások.",
+        "linuxActionFallback": "Ehhez a csomaghoz nem érhető el automatikus beállítás. Helyette megnyílt a beállítási útmutató.",
         "linuxActionFailed": "Nem sikerült módosítani a Linux alapértelmezett társítását. Ellenőrizd az asztali környezet beállításait."
       },
       "browser": {
         "title": "Böngészőbővítmények",
-        "masterSwitch": "Letöltések küldése böngészőbővítményekből",
-        "masterSwitchDesc": "A Motrix böngészőbővítmény telepítése után bármely weboldalról egy kattintással küldhetsz letöltéseket a Motrixba.",
+        "masterSwitch": "Böngészőbővítmények csatlakoztatása",
+        "masterSwitchDesc": "Weboldalak letöltéseinek küldése a Motrixnak a böngészőbővítménnyel.",
         "install": {
           "chrome": "Chrome",
           "edge": "Microsoft Edge",
@@ -1495,7 +1819,7 @@
           "addAction": "Hozzáadás"
         },
         "pairToast": {
-          "title": "A(z) {{browser}} bővítmény csatlakozni szeretne a Motrixhoz",
+          "title": "Egy {{browser}}-bővítmény csatlakozni szeretne a Motrixhoz",
           "extensionId": "Azonosító: {{id}}",
           "deny": "Tiltás",
           "pairCode": "Párosítási kód",
@@ -1506,12 +1830,12 @@
             "attested": "Ellenőrzött bővítmény",
             "unverified": "Nem ellenőrzött bővítmény"
           },
-          "identityUnverifiedWarning": "A bővítmény azonossága nem ellenőrizhető. Csak akkor folytasd, ha megbízol benne."
+          "identityUnverifiedWarning": "A bővítmény azonosságát nem sikerült ellenőrizni. Csak akkor folytasd, ha megbízol benne."
         },
         "pairUnavailable": "Ez a párosítási kérelem már nincs függőben — indítsd újra a párosítást a böngészőbővítményből.",
         "trustedExtensions": "Megbízható bővítmények",
         "trustedSummary": "Összesen: {{count}}",
-        "trustedGuidance": "Ha nem a hivatalos Motrix-bővítményt telepítetted, illeszd be ide a letöltési bővítmény által megadott bővítményazonosítót. Erre általában nincs szükség.",
+        "trustedGuidance": "Más megbízható bővítményekhez add meg a fejlesztő által biztosított azonosítót.",
         "trustedEmpty": "Még nincs hozzáadott bővítmény.",
         "headerId": "Bővítményazonosító",
         "headerBrowser": "Böngésző",
@@ -1523,19 +1847,19 @@
           "imported": "Importált"
         },
         "degradedPort": {
-          "title": "A híd tartalék porton fut",
-          "description": "A 16802–16806 portok nem voltak elérhetők, ezért a híd a(z) {{port}} portot használja. A böngészőbővítmények a szabványos porttartomány ellenőrzésével nem találják meg — párosíts natív üzenetküldéssel, vagy állíts be rögzített portot. A Motrix CLI-t és a natív gazdagépet ez nem érinti."
+          "title": "A kapcsolati híd tartalék porton fut",
+          "description": "A 16802–16806 portok nem voltak elérhetők, ezért a kapcsolati híd a(z) {{port}} portot használja. A böngészőbővítmények a szokásos porttartomány ellenőrzésével nem találják meg — párosíts natív üzenetküldéssel, vagy állíts be rögzített portot. A Motrix parancssori felületét és a natív közvetítőprogramot ez nem érinti."
         },
         "pairingStateDegraded": {
-          "title": "A bővítményhozzáférés ideiglenesen le van zárva",
-          "description": "A Motrix nem tudta biztonságosan frissíteni a párosított bővítmények adatait. A meglévő bővítménymunkamenetek lezárásra kerültek, és erre a futásra az új hozzáférések blokkolva vannak. Indítsd újra a Motrixot a javítás újbóli megkísérléséhez; addig ne hagyatkozz az alábbi listára."
+          "title": "A bővítmények hozzáférése ideiglenesen le van tiltva",
+          "description": "A Motrix nem tudta biztonságosan frissíteni a párosított bővítmények adatait. A meglévő bővítménymunkamenetek lezárultak, és az alkalmazás újraindításáig az új hozzáférések is tiltva maradnak. Indítsd újra a Motrixot a javítás újbóli megkísérléséhez; amíg ez az üzenet látható, ne hagyatkozz az alábbi listára."
         }
       },
       "cli": {
         "title": "Parancssori eszközök",
         "tool": {
           "title": "Motrix parancssori eszköz",
-          "description": "A Motrix vezérléséhez futtasd a `motrix` parancsot bármely terminálban.",
+          "description": "Az alkalmazás vezérléséhez futtasd a motrix parancsot egy terminálban.",
           "managerLabel": "Csomagkezelő",
           "commandLabel": "Telepítési parancs",
           "copyCommand": "Telepítési parancs másolása",
@@ -1568,7 +1892,7 @@
             "manager": "Telepítve ezzel",
             "unknown": "ismeretlen"
           },
-          "successGuidance": "Nyiss egy új terminált, majd futtasd a `motrix --help` parancsot.",
+          "successGuidance": "Nyiss egy új terminált, majd futtasd a motrix --help parancsot.",
           "diagnostics": {
             "show": "Részletek megjelenítése",
             "hide": "Részletek elrejtése"
@@ -1577,28 +1901,28 @@
             "nodeMissing": "Nem található Node.js 22 vagy újabb verzió. Telepítsd a Node.js-t, majd ellenőrizd újra.",
             "nodeTooOld": "Node.js 22 vagy újabb verzió szükséges. Észlelt verzió: {{version}}.",
             "managerMissing": "Nem található támogatott csomagkezelő. Telepíts npm, pnpm, Yarn Classic, Bun vagy Volta csomagkezelőt, majd ellenőrizd újra.",
-            "sandboxed": "Ebben a sandboxolt csomagban az egykattintásos telepítés nem érhető el. Másold ki a parancsot, és futtasd terminálban.",
-            "unsupportedWeb": "Az egykattintásos telepítés csak az asztali alkalmazásban érhető el. Másold ki a parancsot, és futtasd a Motrix gazdagépén.",
-            "permission": "A csomagkezelő nem tud írni a globális telepítési helyre. Használj Node.js-verziókezelőt vagy felhasználó által írható előtagot; ne használj sudo parancsot.",
-            "network": "A csomagkezelő nem tudta elérni a registryt. Ellenőrizd a hálózati vagy registry-beállításokat, majd próbáld újra.",
+            "sandboxed": "Ebben az elkülönített környezetben futó csomagban az egykattintásos telepítés nem érhető el. Másold ki a parancsot, és futtasd egy terminálban.",
+            "unsupportedWeb": "Az egykattintásos telepítés csak az asztali alkalmazásban érhető el. Másold ki a parancsot, és futtasd a Motrixot futtató gépen.",
+            "permission": "A csomagkezelő nem tud írni a globális telepítési helyre. Használj Node.js-verziókezelőt vagy olyan telepítési útvonalat, amelyhez van írási jogosultságod; ne használj sudo parancsot.",
+            "network": "A csomagkezelő nem tudta elérni a csomagtárat. Ellenőrizd a hálózat és a csomagtár beállításait, majd próbáld újra.",
             "timeout": "A telepítés túl sokáig tartott, ezért leállt. Ellenőrizd a hálózatot, majd próbáld újra.",
-            "pathMissing": "A csomag telepítve lett, de a `motrix` nincs a PATH-ban. Nyiss új terminált, vagy add hozzá a jelzett telepítési könyvtárat a PATH-hoz.",
-            "pathShadowed": "Egy másik `motrix` futtatható állomány korábban szerepel a PATH-ban. Távolítsd el a régebbi bejegyzést, vagy javítsd a PATH-ot, majd ellenőrizd újra.",
-            "verifyFailed": "A telepítő befejeződött, de a Motrix nem tudta ellenőrizni az aktív `motrix` futtatható állományt.",
-            "installFailed": "A csomagkezelő nem tudta telepíteni az `@motrix/cli` csomagot. Tekintsd át a részleteket, majd próbáld újra, vagy futtasd kézzel a parancsot.",
+            "pathMissing": "A csomag telepítve lett, de a motrix nem érhető el a PATH alapján. Nyiss új terminált, vagy add hozzá a jelzett telepítési mappát a PATH-hoz.",
+            "pathShadowed": "Egy másik motrix futtatható állomány előbb található meg a PATH alapján. Távolítsd el a régebbi bejegyzést, vagy javítsd a PATH-ot, majd ellenőrizd újra.",
+            "verifyFailed": "A telepítő befejezte a futást, de a Motrix nem tudta ellenőrizni az aktív motrix futtatható állományt.",
+            "installFailed": "A csomagkezelő nem tudta telepíteni az @motrix/cli csomagot. Tekintsd át a részleteket, majd próbáld újra, vagy futtasd kézzel a parancsot.",
             "unknown": "A Motrix nem tudta ellenőrizni a parancssori eszközt. Próbáld újra, vagy futtasd kézzel a kimásolt parancsot."
           }
         },
         "remote": {
           "title": "Párosított távoli eszközök",
-          "description": "A helyi CLI automatikusan csatlakozik, és nem igényel párosítást. A `motrix pair` parancsot csak távoli vagy grafikus felület nélküli Motrix-példányhoz használd.",
+          "description": "A helyi eszközök automatikusan csatlakoznak. Másik számítógéphez vagy szerverhez a motrix pair paranccsal kapcsolódhatsz.",
           "empty": "Nincsenek párosított távoli eszközök.",
           "lastActive": "Utolsó aktivitás",
           "neverActive": "Még nem volt használva",
-          "revoke": "Leválasztás"
+          "revoke": "Hozzáférés visszavonása"
         },
         "pairToast": {
-          "title": "A(z) {{name}} párosítani szeretne a Motrixszal",
+          "title": "A(z) {{name}} párosítást kezdeményez a Motrixszal",
           "code": "Ellenőrző kód: {{code}}",
           "allow": "Engedélyezés",
           "deny": "Tiltás"
@@ -1610,14 +1934,14 @@
           "deny": "Elutasítás",
           "expiresIn": "Lejár: {{time}} múlva"
         },
-        "pairUnavailable": "Ez a párosítási kérelem már nincs függőben — futtasd újra a `motrix pair` parancsot."
+        "pairUnavailable": "Ez a párosítási kérelem már nincs függőben — futtasd újra a motrix pair parancsot."
       },
       "media": {
         "title": "Médiaeszközök",
-        "desc": "Az FFmpeg elérhetőségének és a médiabővítmények korlátainak ellenőrzése",
+        "desc": "Médiafájlok egyesítése vagy átalakítása az FFmpeg segítségével.",
         "notDetected": "Az FFmpeg nem található",
         "refresh": "Frissítés",
-        "binaryPath": "Egyéni FFmpeg elérési út",
+        "binaryPath": "Az FFmpeg egyéni elérési útja",
         "browse": "Tallózás…",
         "download": {
           "action": "FFmpeg letöltése"
@@ -1636,16 +1960,16 @@
           "source": "Forrás",
           "location": "Ellenőrzött hely",
           "result": "Eredmény",
-          "copyManagedPath": "Motrix FFmpeg elérési út másolása",
-          "editCustomPath": "Egyéni FFmpeg elérési út szerkesztése",
-          "finishEditingCustomPath": "Egyéni FFmpeg elérési út szerkesztésének befejezése",
+          "copyManagedPath": "A Motrix által kezelt FFmpeg elérési útjának másolása",
+          "editCustomPath": "Az FFmpeg egyéni elérési útjának szerkesztése",
+          "finishEditingCustomPath": "Az FFmpeg egyéni elérési útja szerkesztésének befejezése",
           "notConfigured": "Nincs beállítva"
         },
         "candidateKind": {
           "manual": "Egyéni elérési út",
-          "userData": "Motrix adatkönyvtára",
+          "userData": "A Motrix adatmappája",
           "env": "MOTRIX_FFMPEG_BIN",
-          "path": "Rendszer PATH"
+          "path": "A rendszer PATH változója"
         },
         "state": {
           "active": "Használatban",
@@ -1655,41 +1979,107 @@
           "unconfigured": "Nincs beállítva",
           "version_mismatch": "Nem támogatott"
         },
-        "stagingMB": "Ideiglenes munkaterület korlátja (MB)",
-        "stagingMBDesc": "Bővítményenként és feladatonként. Az FFmpeg köztes fájljainak írásakor használatos. Alapértelmezett érték: 4096 MB.",
+        "stagingMB": "Ideiglenes fájlok méretkorlátja (MB)",
+        "stagingMBDesc": "A köztes fájlok számára rendelkezésre álló tárhely bővítményenként és feladatonként.",
         "opTimeoutSec": "FFmpeg időkorlát (másodperc)",
-        "opTimeoutSecDesc": "Egy FFmpeg-művelet maximális futási ideje. Alapértelmezés: 1800 másodperc (30 perc), maximum 3600.",
+        "opTimeoutSecDesc": "Egy médiaművelet maximális futási ideje, legfeljebb 3 600 másodperc.",
         "cleanupStaging": "Ideiglenes fájlok törlése",
-        "cleanupConfirm": "Eltávolítod az összes ideiglenes FFmpeg-könyvtárat?",
+        "cleanupConfirm": "Eltávolítod az összes ideiglenes FFmpeg-mappát?",
         "restartHint": "Mentve. Indítsd újra a Motrixot, hogy az aktív bővítmények észleljék a módosításokat.",
         "restartNow": "Újraindítás most",
         "validation": {
           "fileMissing": "Ezen az elérési úton nem létezik fájl."
-        }
+        },
+        "applyHint": "Mentsd a beállítást, hogy az új médialetöltések ezt az elérési utat használják. A támogatás frissítéséhez indíts új keresést a böngészőbővítményben.",
+        "savedTitle": "FFmpeg-beállítások mentve",
+        "desktopSavedHint": "Az új médialetöltések a mentett elérési utat használják. Indítsd újra a Motrixot, hogy az aktív bővítmények észleljék a módosítást.",
+        "pipelineUnavailable": "A médialetöltési támogatás nem érhető el.",
+        "ffmpegRequired": "Ehhez a letöltéshez FFmpeg szükséges. Állítsd be a Beállítások → Integráció → Médiaeszközök alatt, mentsd, majd próbáld újra."
       },
       "pairResolveFailed": "Nem sikerült elküldeni a döntést — próbáld újra.",
       "appimage": {
         "title": "Asztali integráció",
-        "desc": "A Motrix AppImage regisztrálása az asztali környezetben, hogy a böngészők és a magnet hivatkozások átadhassák neki a letöltéseket.",
+        "desc": "A Motrix AppImage regisztrálása az asztali környezetben, hogy a böngészőkből és magnet hivatkozásokkal indított letöltéseket át lehessen adni neki.",
         "enable": "Asztali integráció engedélyezése",
         "remove": "Asztali integráció eltávolítása",
         "prompt": {
-          "title": "Integrálod a Motrixot az asztali környezettel?",
+          "title": "Integrálod a Motrixot az asztali környezetbe?",
           "message": "Engedélyezed, hogy ez a Motrix AppImage regisztrálja magát az asztali környezetben?",
-          "detail": "A Motrix létrehoz egy asztali bejegyzést és ikont a felhasználói adatkönyvtárban, és regisztrálja magát a motrix: hivatkozások, magnet hivatkozások és .torrent fájlok kezelőjeként. Így a böngésző és a Motrix bővítmény elindíthatja a Motrixot, és átadhatja neki a letöltéseket. Az otthoni könyvtáron kívül semmit nem ír, és ez a Beállításokban bármikor visszavonható.",
+          "detail": "A Motrix létrehoz egy asztali bejegyzést és ikont a felhasználói adatmappában, és regisztrálja magát a motrix: hivatkozások, magnet hivatkozások és .torrent fájlok kezelőjeként. Így a böngésző és a Motrix-bővítmény elindíthatja a Motrixot, és átadhatja neki a letöltéseket. A saját mappádon kívül semmit nem ír, és az integráció a Beállításokban visszavonható.",
           "accept": "Integrálás",
           "decline": "Most nem"
         },
         "status": {
-          "healthy": "Integrálva ezzel az asztali környezettel.",
-          "notIntegrated": "Nincs integrálva ezzel az asztali környezettel.",
+          "healthy": "Integrálva az asztali környezetbe.",
+          "notIntegrated": "Nincs integrálva az asztali környezetbe.",
           "failedTitle": "Az asztali integráció nem teljes",
-          "failedDetail": "A Motrix nem tudta regisztrálni magát a hivatkozásai kezelőjeként. A böngészőből történő átadás nem biztos, hogy működik, amíg újra nem engedélyezed az asztali integrációt.",
-          "removeBlockedDetail": "A Motrix nem tudta biztonságosan visszaállítani a korábban ellenőrzött kezelőt, ezért megtartotta az asztali bejegyzését, hogy ne maradjon hibás alapértelmezett társítás. Válassz másik alapértelmezett alkalmazást az asztali környezet beállításaiban, majd próbáld meg újra eltávolítani az integrációt.",
+          "failedDetail": "A Motrix nem tudta regisztrálni magát a hivatkozásai kezelőjeként. A letöltések böngészőből történő átadása nem biztos, hogy működik, amíg újra nem engedélyezed az asztali integrációt.",
+          "removeBlockedDetail": "A Motrix nem tudta biztonságosan visszaállítani az ellenőrzött korábbi kezelőt, ezért megtartotta az asztali bejegyzését, hogy ne maradjon hibás alapértelmezett társítás. Válassz másik alapértelmezett alkalmazást az asztali környezet beállításaiban, majd próbáld meg újra eltávolítani az integrációt.",
           "externalManaged": "Az asztali integrációt egy másik Motrix-telepítés biztosítja."
         },
-        "movedHint": "Ha a Motrix bezárt állapotában áthelyezed az AppImage fájlt, a hivatkozások nem biztos, hogy el tudják indítani, amíg egyszer el nem indítod a Motrixot az új helyéről."
-      }
+        "movedHint": "Ha a Motrix bezárt állapotában áthelyezed az AppImage fájlt, a hivatkozások nem feltétlenül tudják elindítani a Motrixot, amíg egyszer el nem indítod az új helyéről."
+      },
+      "appimageHost": {
+        "title": "AppImage indítása böngészőből",
+        "desc": "Engedélyezi, hogy egy bővítmény elindítsa ezt az AppImage-et a Csatlakozás gombra kattintva. Használatához engedélyezd a böngészőintegrációt.",
+        "enable": "Böngészőből indítás engedélyezése",
+        "repair": "Javítás",
+        "useCurrent": "Ennek az AppImage-nek a használata",
+        "remove": "Böngészőből indítás eltávolítása",
+        "copyDiagnostics": "Diagnosztikai adatok másolása",
+        "status": {
+          "ready": "A helyi telepítés ellenőrzése sikeres. A működés ellenőrzéséhez csatlakozz a böngészőből.",
+          "disabled": "A böngészőből történő indítás le van tiltva.",
+          "conflict": "Ezek a fájlok egy másik telepítéshez tartoznak. Előbb távolítsd el annak böngészőintegrációját.",
+          "permissions": "Ellenőrizd, hogy a fájlok futtathatók-e, és csak a te felhasználói fiókod írhatja-e őket.",
+          "invalid": "A telepítési bejegyzés vagy a futtatható állomány érvénytelen.",
+          "sourceChanged": "Az AppImage megváltozott. Indítsd el a használni kívánt verziót, majd javítsd a telepítést.",
+          "missing": "Egy szükséges fájl hiányzik. Indítsd el az AppImage-et a jelenlegi helyéről, majd végezd el a javítást.",
+          "io": "A művelet sikertelen. Ellenőrizd a lemezhez való hozzáférést, majd próbáld meg a Javítást."
+        }
+      },
+      "description": "Böngészők, alapértelmezett alkalmazások és eszközök"
+    },
+    "validation": {
+      "rangeHint": "Tartomány: {{min}}–{{max}}.",
+      "range": "Adj meg egy {{min}} és {{max}} közötti számot.",
+      "integerRange": "Adj meg egy {{min}} és {{max}} közötti egész számot.",
+      "minimum": "Adj meg legalább {{min}} értéket.",
+      "maximum": "Adj meg legfeljebb {{max}} értéket.",
+      "integer": "Adj meg egy egész számot.",
+      "wholeBytes": "Használj kevesebb tizedesjegyet.",
+      "number": "Adj meg egy érvényes számot.",
+      "invalid": "Adj meg egy érvényes értéket.",
+      "selection": "Válassz egy elérhető lehetőséget.",
+      "textLength": "Legfeljebb {{max}} karaktert használj.",
+      "itemCount": "Legfeljebb {{max}} címet adj meg.",
+      "text": "Távolítsd el a sortöréseket és a rejtett vezérlőkaraktereket.",
+      "directory": "Válassz letöltési mappát.",
+      "proxyHost": "Adj meg egy szervernevet vagy IP-címet, http:// és portszám nélkül.",
+      "stunServer": "Használd a gépnév:port formátumot, például: stun.example.com:3478. A portszám 1 és 65535 között lehet.",
+      "httpsUrl": "Adj meg egy https:// kezdetű teljes címet.",
+      "httpUrl": "Adj meg egy http:// vagy https:// kezdetű teljes címet.",
+      "saveFailed": "Nem sikerült menteni a módosításokat. Próbáld újra.",
+      "address": "{{number}}. cím",
+      "addressDraft": "Új cím",
+      "required": "Előbb adj meg egy címet.",
+      "time": "Használj 24 órás időformátumot, például: 23:00.",
+      "loadFailed": "Nem sikerült betölteni a beállításokat. Próbáld újra."
+    },
+    "feedback": {
+      "syncFailedTitle": "Beállítások mentve; a felület frissítése sikertelen",
+      "syncFailedBody": "A beállítások mentve vannak. Próbáld újra a szinkronizálást az oldal frissítéséhez; nem szükséges újra mentened.",
+      "retrySync": "Szinkronizálás újrapróbálása",
+      "applyFailedTitle": "Beállítások mentve; egyes módosításokat nem sikerült alkalmazni",
+      "applyFailedBody": "A mentett beállítások megmaradnak. Ellenőrizd az alkalmazás naplóit, és a probléma megoldása után indítsd újra az érintett szolgáltatást.",
+      "appRestartTitle": "A beállítások alkalmazásához indítsd újra a Motrixot",
+      "appRestartBody": "A beállítások mentve vannak. Indítsd újra a Motrixot, amikor alkalmas."
+    },
+    "connection": {
+      "originMismatchTitle": "A szerver elérési címe nem egyezik.",
+      "originMismatchBody": "A valós idejű frissítések nem érhetők el. Használd a beállított szervercímet, vagy kérd meg a rendszergazdát a javítására.",
+      "disconnectedTitle": "A valós idejű frissítések kapcsolata megszakadt.",
+      "disconnectedBody": "Egyes információk késve jelenhetnek meg. Ha a probléma továbbra is fennáll, ellenőrizd a szerverkapcsolatot és a proxybeállításokat."
     }
   },
   "errors": {
@@ -1705,7 +2095,7 @@
       "title": "Motrix",
       "about": "A Motrix névjegye",
       "preferences": "Beállítások…",
-      "checkForUpdates": "Frissítések keresése…",
+      "checkForUpdates": "Frissítések keresése",
       "show": "Motrix megjelenítése",
       "hide": "Motrix elrejtése",
       "hideOthers": "A többi elrejtése",
@@ -1723,13 +2113,13 @@
       "taskList": "Feladatlista",
       "pauseTask": "Szüneteltetés",
       "resumeTask": "Folytatás",
-      "deleteTask": "Törlés",
-      "moveTaskUp": "Feljebb",
-      "moveTaskDown": "Lejjebb",
+      "deleteTask": "Feladatok eltávolítása…",
+      "moveTaskUp": "Feljebb a várólistán",
+      "moveTaskDown": "Lejjebb a várólistán",
       "pauseAllTask": "Összes szüneteltetése",
       "resumeAllTask": "Összes folytatása",
-      "selectAllTask": "Összes kijelölése",
-      "clearRecentTasks": "Legutóbbiak törlése"
+      "selectAllTask": "Összes feladat kijelölése",
+      "clearRecentTasks": "Leállított feladatok bejegyzéseinek törlése…"
     },
     "edit": {
       "title": "Szerkesztés",
@@ -1745,17 +2135,17 @@
       "title": "Ablak",
       "reload": "Újratöltés",
       "close": "Bezárás",
-      "minimize": "Kis méret",
+      "minimize": "Kis méretre",
       "zoom": "Nagyítás",
       "toggleFullscreen": "Teljes képernyő be-/kikapcsolása",
-      "front": "Összes előtérbe hozása"
+      "front": "Összes ablak előtérbe hozása"
     },
     "help": {
       "title": "Súgó",
-      "officialWebsite": "Hivatalos weboldal",
-      "manual": "Kézikönyv",
-      "changelog": "Változásnapló",
-      "reportProblem": "Hiba jelentése",
+      "officialWebsite": "Motrix weboldala",
+      "manual": "Motrix súgó",
+      "changelog": "Kiadási megjegyzések",
+      "reportProblem": "Probléma jelentése",
       "toggleDevTools": "Fejlesztői eszközök be-/kikapcsolása"
     }
   },
@@ -1763,8 +2153,8 @@
     "effective": {
       "enabled": "Gondozott trackerek hozzáadása",
       "enabledDesc": "A gondozott trackerlista hozzáadása minden BitTorrent-feladathoz.",
-      "disabled": "Kikapcsolva — kapcsold be az aktív trackerlista megtekintéséhez.",
-      "empty": "Még nincsenek aktív trackerek. Futtasd a szinkronizálást a lista feltöltéséhez.",
+      "disabled": "Letiltva — kapcsold be az aktív trackerlista megtekintéséhez.",
+      "empty": "Még nincsenek aktív trackerek. Futtass szinkronizálást a lista feltöltéséhez.",
       "column": {
         "url": "URL",
         "health": "Állapot",
@@ -1775,10 +2165,10 @@
     },
     "blacklist": {
       "enabled": "Tiltólista alkalmazása",
-      "enabledDesc": "A gyanús és hibás tracker-szerverekhez való kapcsolódás blokkolása.",
-      "disabled": "Kikapcsolva — kapcsold be a tiltólista megtekintéséhez.",
+      "enabledDesc": "A gyanús és hibás tracker-kiszolgálókhoz irányuló kapcsolatok blokkolása.",
+      "disabled": "Letiltva — kapcsold be a tiltólista megtekintéséhez.",
       "empty": "A tiltólista üres.",
-      "summary": "{{count}} URL van érvényben",
+      "summary": "{{count}} aktív URL",
       "column": {
         "url": "URL",
         "source": "Forrás"
@@ -1789,12 +2179,18 @@
       "addSourcePlaceholder": "https://example.com/list.txt",
       "addSource": "Hozzáadás",
       "removeSource": "Forrás eltávolítása",
-      "empty": "Nincs egyező forrás.",
+      "empty": "Nincs megfelelő forrás.",
       "builtinBadge": "beépített",
-      "cdnBadge": "CDN"
+      "cdnBadge": "CDN",
+      "directBadge": "Közvetlen"
     },
     "sync": {
-      "syncing": "Szinkronizálás…"
+      "syncing": "Szinkronizálás…",
+      "fetching": "Trackerlisták lekérése…",
+      "probing": "Trackerek elérhetőségének ellenőrzése…",
+      "applying": "Trackerlisták alkalmazása…",
+      "failed": "A szinkronizálás nem fejeződött be. Ellenőrizd a hálózatot vagy a forrásokat, majd próbáld újra.",
+      "unavailable": "A szinkronizálás állapota nem olvasható. Ellenőrizd a kapcsolatot, majd próbáld újra."
     }
   },
   "plugins": {
@@ -1808,22 +2204,22 @@
       "disabled": "Letiltva",
       "error": "Hiba"
     },
-      "install": {
-        "title": "Bővítmény hozzáadása",
+    "install": {
+      "title": "Bővítmény hozzáadása",
+      "github": "GitHub",
+      "github.spec": "GitHub-tároló (tulajdonos/tároló[@címke])",
+      "url": "URL",
+      "url.spec": "Bővítménycsomag URL-je (.moext)",
+      "local": "Helyi fájl",
+      "local.pick": ".moext fájl kiválasztása",
+      "lead": "Illessz be egy bővítménycímet, válassz egy .moext fájlt, vagy húzz egy fájlt a beviteli mezőre.",
+      "placeholder": "Illessz be egy GitHub-címet vagy URL-t, vagy válassz egy helyi .moext fájlt",
+      "detected": {
+        "auto": "Automatikus",
         "github": "GitHub",
-        "github.spec": "GitHub-tároló (tulajdonos/tároló[@címke])",
         "url": "URL",
-        "url.spec": "Bővítménycsomag URL-je (.moext)",
-        "local": "Helyi fájl",
-        "local.pick": ".moext fájl kiválasztása",
-        "lead": "Illessz be egy bővítménycímet, válassz egy .moext fájlt, vagy húzz egy fájlt a beviteli mezőre.",
-        "placeholder": "Illessz be egy GitHub-címet vagy URL-t, vagy válassz egy helyi .moext fájlt",
-        "detected": {
-          "auto": "Automatikus",
-          "github": "GitHub",
-          "url": "URL",
-          "local": "Fájl"
-        },
+        "local": "Fájl"
+      },
       "detectedRow": {
         "ok": "{{type}} típusként felismerve",
         "localSupported": "Helyi .moext fájl támogatott"
@@ -1836,28 +2232,28 @@
       "dropHint": "Húzz ide egy .moext fájlt a bővítmény ellenőrzéséhez",
       "dragDisabledHint": "A fogd és vidd művelet ebben a környezetben nem támogatott. Használj GitHub-címet vagy URL-t.",
       "warning": "Telepítés előtt: csak akkor folytasd, ha megbízol a szerzőben, és számítasz arra, hogy a bővítmény a fent felsorolt hozzáféréseket használja."
-      },
+    },
     "consent": {
       "installTitle": "Telepíted a(z) {{name}} {{version}} verzióját?",
       "upgradeTitle": "Frissíted a(z) {{name}} bővítményt a(z) {{version}} verzióra?",
-      "notVerified": "Ez a bővítmény nincs ellenőrizve. Csak megbízható forrásból származó bővítményt telepíts.",
+      "notVerified": "Ez a bővítmény nincs ellenőrizve. Csak megbízható forrásból telepíts bővítményeket.",
       "confirm": "Engedélyezés és telepítés",
       "permissions": "Szükséges engedélyek",
       "optionalPermissions": "Opcionális engedélyek",
       "hostPermissions": "Gazdagép-hozzáférés",
-      "invokesCommands": "Parancsokat hív más bővítményekben",
+      "invokesCommands": "Más bővítmények parancsainak meghívása",
       "calleeMissing": "Nincs telepítve",
       "source": "Forrás: {{type}} · {{url}}",
       "broadAccess": {
         "title": "Széles körű gazdagép-hozzáférés",
-        "body": "Ez a bővítmény bármely URL-ről származó letöltést olvashat és módosíthat. Csak akkor telepítsd, ha megbízol a forrásban.",
+        "body": "Ez a bővítmény bármely URL-ről származó letöltéseket olvashat és módosíthat. Csak akkor telepítsd, ha megbízol a forrásban.",
         "tag": "Széles körű"
       },
       "diff": {
         "title": "Változások az előző engedélyezés óta",
-        "permissions": "Hozzáadott engedélyek",
-        "optionalPermissions": "Hozzáadott opcionális engedélyek",
-        "hostPermissions": "Hozzáadott gazdagép-hozzáférés",
+        "permissions": "Új engedélyek",
+        "optionalPermissions": "Új opcionális engedélyek",
+        "hostPermissions": "Új gazdagép-hozzáférések",
         "invokesCommands": "Új bővítmények közötti parancshívások",
         "publicCommands": "Új nyilvános parancsok",
         "publicCommandsSchema": "A nyilvános parancsok sémája megváltozott",
@@ -1937,7 +2333,7 @@
       "emptyHint": "Az új bővítménytevékenységek automatikusan megjelennek itt.",
       "emptyFiltered": "Nincs ennek a szintnek megfelelő bejegyzés."
     },
-    "lead": "Adj új funkciókat a Motrixhoz. Tartsd meg azokat, amelyekben megbízol, a többit kapcsold ki.",
+    "lead": "Adj kisebb funkciókat a Motrixhoz. Tartsd meg azokat, amelyekben megbízol, a többit kapcsold ki.",
     "search": "Bővítmény keresése",
     "registry": {
       "availableTitle": "Elérhető bővítmények",
@@ -1945,19 +2341,19 @@
       "byAuthor": "Szerző: {{name}}",
       "requires": "Motrix {{range}} szükséges",
       "notInstalled": "Nincs telepítve",
-      "notFound": "A(z) „{{id}}” bővítmény nem található a nyilvántartásban",
+      "notFound": "A(z) „{{id}}” bővítmény nem található a bővítményjegyzékben",
       "viewOnWebsite": "Megtekintés a motrix.app oldalon",
       "updated": "frissítve: {{date}}",
       "featuresTitle": "Funkciók",
       "permissionsTitle": "Engedélyek",
-      "permissionsPreviewNote": "Ez csak a nyilvántartásban szereplő előnézet. A tényleges engedélykérés mindig a bővítménycsomagban található manifest alapján történik.",
+      "permissionsPreviewNote": "Ez a bővítményjegyzék bejegyzésének előnézete. A tényleges engedélykérés mindig a bővítménycsomagban található manifest alapján történik.",
       "optionalTag": "opcionális",
       "install": "Telepítés",
       "updateAvailable": "Frissítés érhető el",
       "updateTo": "Frissítés erre: v{{version}}",
       "refresh": "Frissítések keresése",
       "builtinUpdateTitle": "Beépített bővítmény frissítése",
-      "builtinConsentLead": "Ez a frissítés új hozzáféréseket kér:",
+      "builtinConsentLead": "Ez a frissítés új hozzáférést kér:",
       "revertToBundled": "Visszaállítás a beépített verzióra",
       "restartRequired": "A frissítés telepítve. Az alkalmazás befejezéséhez indítsd újra a Motrixot.",
       "updateInstalled": "A frissítés telepítve.",
@@ -1997,7 +2393,7 @@
           "title": "Csak megbízható bővítményeket adj hozzá",
           "body": "Megbízható forrásból telepíts, tekintsd át a kért hozzáféréseket, majd engedélyezd a bővítményt.",
           "safety": "Csak azokhoz a webhelyekhez adj hozzáférést, amelyeket a bővítménynek valóban kezelnie kell.",
-          "browse": "Bővítmények keresése a Motrix hivatalos bővítménypiacterén"
+          "browse": "Bővítmények felfedezése a Motrix hivatalos bővítménypiacterén"
         },
         "ongoing": "A bővítmény engedélyezése előtt tekintsd át a hozzáféréseit. Csak azokhoz a webhelyekhez adj hozzáférést, amelyeket valóban kezelnie kell."
       }
@@ -2203,7 +2599,7 @@
         "invalidUrlScheme": "Az URL-nek http: vagy https: sémájúnak kell lennie",
         "unsupportedKind": "A(z) {{kind}} típusú letöltéseket ez a Motrix-verzió nem támogatja",
         "unsupportedLive": "Élő közvetítések nem tölthetők le",
-        "unsupportedMaster": "A bővítmény fő lejátszási listát küldött; változatlista volt várható",
+        "unsupportedMaster": "A bővítmény master playlistet küldött; variant playlist volt várható",
         "unsupportedEncryption": "DRM-védett tartalom nem tölthető le",
         "authExpired": "A munkamenet lejárt — frissítsd az oldalt a böngészőben, majd próbáld újra",
         "notFound": "Az erőforrás nem található (404)",
@@ -2269,10 +2665,126 @@
       "clearAll": "Törlés",
       "empty": "Nincsenek értesítések",
       "emptyDesc": "A letöltési tevékenységek és a fontos alkalmazásértesítések itt jelennek meg",
+      "unreadDotAria": "Olvasatlan értesítések",
       "unreadBadgeAria_one": "{{count}} olvasatlan értesítés",
       "unreadBadgeAria_other": "{{count}} olvasatlan értesítés",
       "rowUnreadAria": "{{title}} (olvasatlan)",
-      "toastRegionAria": "Értesítések"
+      "toastRegionAria": "Értesítések",
+      "removeAria": "{{title}} eltávolítása",
+      "actionFailed": "Nem sikerült frissíteni az értesítéseket. Próbáld újra.",
+      "markRead": "Megjelölés olvasottként",
+      "viewTask": "Feladat megtekintése",
+      "taskRemoved": "A feladat eltávolítva",
+      "openTaskFailed": "Nem sikerült megnyitni a feladatot. Próbáld újra."
     }
+  },
+  "applicationMenu": {
+    "signOut": "Kijelentkezés…",
+    "back": "Vissza",
+    "serverUnavailable": "A szerver nem érhető el. A munkamenetből nem történt kijelentkezés.",
+    "retry": "Újrapróbálás",
+    "actionFailed": "A művelet nem hajtható végre. Ellenőrizd a kapcsolatot, majd próbáld újra.",
+    "clearTitle": "Törlöd a leállított feladatok rekordjait?",
+    "clearDescription": "Eltávolítja a párbeszédablak megnyitásakor rögzített befejezett, sikertelen és eltávolított feladatrekordokat. A letöltött fájlok a lemezen maradnak.",
+    "clearConfirm": "Rekordok törlése",
+    "logoutTitle": "Kijelentkezel erről a szerverről?",
+    "logoutDescription": "Ez kijelentkezteti a többi, ugyanazt a böngésző-munkamenetet használó lapot is. A letöltések a szerveren tovább futnak. Az ezekben a lapokban lévő nem mentett adatok elvesznek.",
+    "logoutConfirm": "Kijelentkezés",
+    "discardTitle": "Eldobod ezt a feladatpiszkozatot?",
+    "discardDescription": "A nem mentett hivatkozások, torrentkiválasztás és beállítások elvesznek.",
+    "discardConfirm": "Eldobás"
+  },
+  "directoryPicker": {
+    "title": "Szervermappa kiválasztása",
+    "description": "Az elérési utak a szerveren találhatók (Docker használatakor a konténeren belül).",
+    "back": "Vissza",
+    "forward": "Előre",
+    "up": "Egy szinttel feljebb",
+    "refresh": "Frissítés",
+    "goToFolder": "Ugrás mappához",
+    "location": "Hely",
+    "viewOptions": "Nézet beállításai",
+    "sortBy": "Rendezés szempontja",
+    "sortName": "Név",
+    "sortModified": "Módosítás dátuma",
+    "sortOrder": "Sorrend",
+    "sortAscending": "Növekvő",
+    "sortDescending": "Csökkenő",
+    "showHidden": "Rejtett mappák megjelenítése",
+    "folders": "Mappák",
+    "loading": "Mappák betöltése…",
+    "empty": "Nincsenek almappák",
+    "incomplete": "Ennek a mappának csak egy része látható. Másik mappa eléréséhez adj meg pontos elérési utat.",
+    "selectFolder": "Mappa kiválasztása",
+    "selectedPath": "Kiválasztott mappa",
+    "path": "Mappa elérési útja",
+    "go": "Ugrás",
+    "newFolder": "Új mappa",
+    "folderName": "Mappa neve",
+    "create": "Létrehozás",
+    "createHelp": "A létrehozott mappák akkor is megmaradnak a szerveren, ha megszakítod a kiválasztást.",
+    "fallback": "A kért mappa nem érhető el. Megjelenítve: {{path}}.",
+    "refreshAfterCreateFailed": "A mappa létrejött, de a listát nem sikerült frissíteni.",
+    "unknownOutcome": "A létrehozás eredménye nem erősíthető meg. Újabb mappa létrehozása előtt frissítsd a nézetet.",
+    "retry": "Újrapróbálás",
+    "errors": {
+      "invalidPath": "Adj meg érvényes abszolút mappaelérési utat.",
+      "outsideRoots": "Ez a mappa az engedélyezett helyeken kívül található.",
+      "notFound": "Ez a mappa már nem létezik.",
+      "notDirectory": "Ez az elérési út nem mappára mutat.",
+      "permissionDenied": "Nincs jogosultságod ennek a mappának a használatához.",
+      "alreadyExists": "Már létezik ilyen nevű fájl vagy mappa.",
+      "invalidName": "Adj meg érvényes mappanevet.",
+      "tooLarge": "Az elérési út vagy a mappanév túl hosszú.",
+      "unavailable": "A szerver nem tudta végrehajtani a kérést. Próbáld újra.",
+      "creationOutcomeUnknown": "A létrehozás eredménye nem erősíthető meg. Újabb mappa létrehozása előtt frissítsd a nézetet."
+    },
+    "places": {
+      "common": "Gyakori helyek",
+      "allowed": "Engedélyezett helyek",
+      "default": "Alapértelmezett mappa",
+      "home": "Saját mappa",
+      "desktop": "Asztal",
+      "documents": "Dokumentumok",
+      "downloads": "Letöltések",
+      "root": "Fájlrendszer",
+      "loadFailed": "Néhány mappahelyet nem sikerült betölteni."
+    }
+  },
+  "directoryPreferences": {
+    "sectionDescription": "Tartsd kéznél a gyakran használt mappákat.",
+    "manage": "Mappák kezelése",
+    "manageDescription": "Válassz kedvenc mappákat, és kezeld a legutóbb használt mappákat.",
+    "title": "Mappák kezelése",
+    "description": "Egy mappa eltávolítása ebből a listából nem törli sem a mappát, sem a benne lévő fájlokat.",
+    "favorites": "Kedvenc mappák",
+    "recent": "Legutóbbi mappák",
+    "addFavorite": "Hozzáadás a kedvencekhez",
+    "removeFavorite": "Eltávolítás a kedvencek közül",
+    "favoriteRecent": "Hozzáadás a kedvencekhez",
+    "removeRecent": "Eltávolítás a legutóbbiak közül",
+    "clearRecent": "Legutóbbi mappák törlése",
+    "emptyFavorites": "Nincsenek kedvenc mappák",
+    "emptyRecent": "Nincsenek legutóbbi mappák",
+    "loading": "Mappák betöltése…",
+    "retry": "Újrapróbálás",
+    "limitHint": "Legfeljebb {{count}} kedvenc mappát menthetsz.",
+    "pickerFailed": "A mappaválasztót nem sikerült megnyitni. Próbáld újra.",
+    "close": "Bezárás",
+    "history": "Mappaelőzmények",
+    "emptyHistory": "Még nincsenek kedvenc vagy legutóbbi mappák",
+    "errors": {
+      "conflict": "A beállítások egy másik ablakban megváltoztak. Tekintsd át a módosításaidat, majd mentsd újra.",
+      "invalidPath": "Adj meg érvényes abszolút mappaelérési utat.",
+      "outsideRoots": "Ez a mappa az engedélyezett helyeken kívül található.",
+      "notFound": "Ez a mappa már nem létezik.",
+      "notDirectory": "Ez az elérési út nem mappára mutat.",
+      "permissionDenied": "Nincs jogosultságod ennek a mappának a használatához.",
+      "tooLarge": "A mappa elérési útja túl hosszú.",
+      "unavailable": "A mappabejegyzéseket nem sikerült frissíteni. Frissítsd a nézetet az aktuális állapot ellenőrzéséhez.",
+      "limitReached": "Elérted a kedvenc mappák maximális számát. Új hozzáadása előtt távolíts el egyet."
+    },
+    "manageAction": "Kezelés",
+    "alreadyFavorite": "Már a kedvencek között"
   }
 }

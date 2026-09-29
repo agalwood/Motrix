@@ -8,6 +8,7 @@ import enUS from '@shared/locales/en-US.json'
 import es from '@shared/locales/es.json'
 import fa from '@shared/locales/fa.json'
 import fr from '@shared/locales/fr.json'
+import hu from '@shared/locales/hu.json'
 import id from '@shared/locales/id.json'
 import it from '@shared/locales/it.json'
 import ja from '@shared/locales/ja.json'
@@ -24,7 +25,6 @@ import uk from '@shared/locales/uk.json'
 import vi from '@shared/locales/vi.json'
 import zhCN from '@shared/locales/zh-CN.json'
 import zhTW from '@shared/locales/zh-TW.json'
-import huHU from '@shared/locales/hu-HU.json'
 
 export const I18N_RESOURCES = {
   ar: { translation: ar },
@@ -36,6 +36,7 @@ export const I18N_RESOURCES = {
   es: { translation: es },
   fa: { translation: fa },
   fr: { translation: fr },
+  hu: { translation: hu },
   id: { translation: id },
   it: { translation: it },
   ja: { translation: ja },
@@ -52,5 +53,4 @@ export const I18N_RESOURCES = {
   vi: { translation: vi },
   'zh-CN': { translation: zhCN },
   'zh-TW': { translation: zhTW },
-  'hu-HU': { translation: huHU },
 } satisfies Record<SupportedLocale, { translation: Record<string, unknown> }>
