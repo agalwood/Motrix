@@ -91,6 +91,8 @@ function makeFakeCtx() {
     rpcClient: {} as Aria2RpcClient,
     adapter: {} as EngineAdapter,
     trackerManager: {
+      applySelectionChange: vi.fn().mockResolvedValue(undefined),
+      syncAndCurate: vi.fn().mockResolvedValue(undefined),
       applySourcesChange: vi.fn().mockResolvedValue(undefined),
       applyBlacklistChange: vi.fn().mockResolvedValue(undefined),
       applySyncScheduleChange: vi.fn(),
@@ -206,6 +208,7 @@ function makeSettings(
     blacklistEnabled?: boolean
     autoSync?: boolean
     syncIntervalHours?: number
+    maxTrackerCount?: number
   } = {},
   engine: { dnsMode?: 'auto' | 'system' | 'engine'; split?: number } = {},
   app: { defaultSaveDir?: string; browserBridgeEnabled?: boolean } = {},
@@ -955,6 +958,32 @@ describe('server Commands.UpdateSettings', () => {
       after.engine
     )
     expect(ctx.notificationCenter.notify).not.toHaveBeenCalled()
+  })
+
+  it('reselects when the configured cap changes without fetching sources', async () => {
+    const ctx = makeFakeCtx()
+    const before = makeSettings(PROXY_OFF, { maxTrackerCount: 50 })
+    const after = makeSettings(PROXY_OFF, { maxTrackerCount: 10 })
+    const settingsManager = {
+      ...ctx.settingsManager,
+      get: vi.fn().mockReturnValueOnce(before).mockReturnValueOnce(after),
+      update: vi.fn().mockResolvedValue({
+        ok: true,
+        requiresRestart: false,
+        changedRestartKeys: [],
+      }),
+    }
+    const handlers = buildServerCommandHandlers({
+      ...ctx,
+      settingsManager,
+    } as unknown as ServerCommandContext)
+    await handlers[Commands.UpdateSettings]?.({
+      tracker: { maxTrackerCount: 10 },
+    })
+    expect(ctx.trackerManager.applySelectionChange).toHaveBeenCalledOnce()
+    expect(ctx.trackerManager.syncAndCurate).not.toHaveBeenCalled()
+    await handlers[Commands.RetryTrackerSources]?.()
+    expect(ctx.trackerManager.syncAndCurate).toHaveBeenCalledWith('retry')
   })
 
   it('calls trackerManager.applySourcesChange when sourcesEnabled changes', async () => {

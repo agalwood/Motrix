@@ -806,7 +806,18 @@
           "deleteFailed": "Không thể xóa máy chủ theo dõi: {{reason}}",
           "invalidLines_other": "Đã bỏ qua {{count}} dòng không hợp lệ",
           "editPlaceholder": "Mỗi dòng một URL máy chủ theo dõi. Chỉ hỗ trợ http(s)/udp/ws(s).",
-          "editHint": "Các máy chủ này thay thế danh sách bt-tracker đang áp dụng cho tác vụ. Các mục announce-list trong tệp .torrent không bị ảnh hưởng."
+          "editHint": "Các máy chủ này thay thế danh sách bt-tracker đang áp dụng cho tác vụ. Các mục announce-list trong tệp .torrent không bị ảnh hưởng.",
+          "preview": {
+            "title": "Cập nhật tracker của tác vụ",
+            "description": "Xem lại thay đổi của tracker bổ sung. Địa chỉ có sẵn trong torrent và địa chỉ thêm thủ công được giữ lại.",
+            "reconnect": "Tác vụ sẽ tạm dừng trong giây lát, kết nối lại rồi tự động tiếp tục.",
+            "added": "Thêm: {{count}}",
+            "removed": "Xóa: {{count}}",
+            "retained": "Giữ {{count}} tracker bổ sung hiện có. Các nhóm announce gốc không thay đổi.",
+            "excluded": "{{count}} tracker bạn đã xóa sẽ không được thêm lại khi cập nhật tự động.",
+            "apply": "Áp dụng cập nhật",
+            "changesPending": "Thay đổi đang chờ: {{count}}"
+          }
         },
         "multi": {
           "totals": "Tổng cộng",
@@ -2140,7 +2151,7 @@
   "trackers": {
     "effective": {
       "enabled": "Bổ sung máy chủ theo dõi được tuyển chọn",
-      "enabledDesc": "Thêm danh sách máy chủ theo dõi được tuyển chọn vào tất cả tác vụ BitTorrent.",
+      "enabledDesc": "Thêm tracker được chọn vào tác vụ BitTorrent công khai mới.",
       "disabled": "Đã tắt — bật để xem danh sách máy chủ theo dõi đang áp dụng.",
       "empty": "Chưa có máy chủ theo dõi đang áp dụng. Hãy đồng bộ để tạo danh sách.",
       "column": {
@@ -2178,7 +2189,57 @@
       "probing": "Đang kiểm tra khả năng kết nối máy chủ theo dõi…",
       "applying": "Đang áp dụng danh sách máy chủ theo dõi…",
       "failed": "Đồng bộ chưa hoàn tất. Hãy kiểm tra mạng hoặc các nguồn rồi thử lại.",
-      "unavailable": "Không thể đọc trạng thái đồng bộ. Hãy kiểm tra kết nối rồi thử lại."
+      "unavailable": "Không thể đọc trạng thái đồng bộ. Hãy kiểm tra kết nối rồi thử lại.",
+      "details": {
+        "title": "Update details",
+        "scope": "These defaults supplement new public BitTorrent tasks. Existing downloads keep their current trackers.",
+        "sources": "Source status",
+        "candidates": "Candidates",
+        "history": "Update history",
+        "disabled": "Disabled",
+        "noSources": "No enabled sources",
+        "attention": "{{count}} trackers · {{failed}} sources need attention",
+        "summary": "{{count}} trackers · Last successful update: {{time}}",
+        "lastAttempt": "Last check",
+        "nextCheck": "Next check",
+        "autoOff": "Automatic updates off",
+        "enginePending": "Saved; waiting to apply defaults to the download engine.",
+        "sourceResult": "{{count}} addresses · Last success: {{time}}",
+        "retryAt": "Next retry: {{time}}",
+        "evidence": "Connection checks are evidence of reachability, not a guarantee of peers or download speed.",
+        "firstSeen": "First seen: {{time}}",
+        "noCandidates": "No matching candidates",
+        "showMore": "Show more",
+        "run": "{{success}} sources succeeded · {{failed}} failed · +{{added}} / −{{removed}} selected",
+        "noHistory": "No update history",
+        "retry": "Retry failed sources",
+        "state": {
+          "fresh": "Up to date",
+          "cached": "Using last successful cache",
+          "expired": "Cache expired",
+          "pending": "Not checked yet",
+          "failed": "No usable cache"
+        },
+        "failure": {
+          "network": "Connection failed. The previous cache is retained for up to 7 days.",
+          "http": "The source returned an HTTP error.",
+          "invalid": "The response is not a valid tracker list.",
+          "limit": "The source exceeded the size or address limit.",
+          "missing-cache": "The source returned 304 without a usable cache."
+        },
+        "reason": {
+          "selected": "Selected",
+          "capacity": "Reserve",
+          "blacklisted": "Blacklisted",
+          "unsupported": "Unsupported protocol",
+          "cooldown": "Repeated connection failures"
+        },
+        "outcome": {
+          "success": "Completed",
+          "partial": "Partially completed",
+          "failed": "Failed"
+        }
+      }
     }
   },
   "plugins": {

@@ -1143,6 +1143,7 @@ export async function smokeServerImage(options) {
       throw new Error('BT output retained the duplicated torrent root')
     }
     await rpc(url, operatorToken, 'command', 'command:setTaskBtTracker', {
+      taskId: finalBtTask.id,
       engineGid: finalBtTask.engineTaskId,
       trackers: [trackerUrl],
     })

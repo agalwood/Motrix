@@ -22,6 +22,7 @@ export async function pauseTask(
 ): Promise<void> {
   const task = getTaskOrWarn(deps, taskId, 'pauseTask')
   if (!task) return
+  deps.onPauseRequested?.(taskId)
   const optimistic = {
     ...task,
     status: TaskStatus.Paused,

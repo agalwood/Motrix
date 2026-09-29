@@ -10,6 +10,7 @@ import { V3_SCHEMA_OBJECTS, v3 } from './v3'
 import { V4_SCHEMA_OBJECTS, v4 } from './v4'
 import { V5_TASK_SCHEMA_OBJECTS, v5 } from './v5'
 import { V6_SCHEMA_OBJECTS, v6 } from './v6'
+import { V7_SCHEMA_OBJECTS, v7 } from './v7'
 
 interface Migration {
   version: number
@@ -26,7 +27,7 @@ interface Migration {
 // persists the user-selected save directory independently of engine paths and
 // repairs stale instance statuses beneath terminal tasks. v6 adds independent
 // seeding-time counters without inventing pre-upgrade history.
-const MIGRATIONS: Migration[] = [v1, v2, v3, v4, v5, v6]
+const MIGRATIONS: Migration[] = [v1, v2, v3, v4, v5, v6, v7]
 
 const HIGHEST_KNOWN_VERSION = MIGRATIONS.reduce(
   (max, m) => (m.version > max ? m.version : max),
@@ -66,6 +67,7 @@ export class StaleSchemaError extends Error {
       | 'activity_schema_missing'
       | 'inspector_activity_schema_missing'
       | 'plugin_hook_schema_missing'
+      | 'task_tracker_schema_missing'
       | 'foreign_key_violation',
     public readonly dbPath: string
   ) {
@@ -93,7 +95,9 @@ export class StaleSchemaError extends Error {
                       'indexes) are invalid'
                     : reason === 'plugin_hook_schema_missing'
                       ? 'expected plugin finalize, post-delivery, or quota tables, constraints, and indexes are invalid'
-                      : 'the canonical schema contains foreign-key violations'
+                      : reason === 'task_tracker_schema_missing'
+                        ? 'expected task Tracker ownership journal schema is invalid'
+                        : 'the canonical schema contains foreign-key violations'
     super(
       `The versioned database schema is incompatible with this build: ` +
         `${detail}. ` +
@@ -281,6 +285,12 @@ function validateCanonicalTaskAndActivitySchema(db: Database.Database): void {
 }
 
 function validateCanonicalSchema(db: Database.Database): void {
+  if (
+    !hasExactSchemaObjects(db, V7_SCHEMA_OBJECTS) ||
+    !hasNoExplicitIndexesOrTriggers(db, ['task_tracker_state'])
+  ) {
+    throw new StaleSchemaError('task_tracker_schema_missing', db.name)
+  }
   if (
     !hasExactSchemaObjects(db, V6_SCHEMA_OBJECTS) ||
     !hasNoExplicitIndexesOrTriggers(db, ['task_seeding_activity'])

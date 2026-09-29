@@ -1090,7 +1090,18 @@
           "summary_one": "{{count}} rastrejador",
           "summary_other": "{{count}} rastrejadors",
           "syncFailed": "No s'han pogut sincronitzar els rastrejadors: {{reason}}",
-          "syncPrivateDisabled": "La sincronització no està disponible per als torrents privats."
+          "syncPrivateDisabled": "La sincronització no està disponible per als torrents privats.",
+          "preview": {
+            "title": "Actualitza els trackers de la tasca",
+            "description": "Revisa els canvis dels trackers addicionals. Es conserven les adreces del torrent i les afegides manualment.",
+            "reconnect": "La tasca es posarà en pausa breument, es reconnectarà i es reprendrà automàticament.",
+            "added": "Afegeix: {{count}}",
+            "removed": "Elimina: {{count}}",
+            "retained": "Es conserven {{count}} trackers addicionals existents. Els grups announce originals no canvien.",
+            "excluded": "Els {{count}} trackers que has eliminat no es tornaran a afegir en les actualitzacions automàtiques.",
+            "apply": "Aplica l’actualització",
+            "changesPending": "Canvis pendents: {{count}}"
+          }
         }
       },
       "media": {
@@ -2791,7 +2802,7 @@
       "disabled": "Desactivat; activeu-ho per veure la llista de rastrejadors efectius.",
       "empty": "Encara no hi ha rastrejadors efectius. Sincronitzeu per emplenar la llista.",
       "enabled": "Afegir rastrejadors seleccionats",
-      "enabledDesc": "Afegeix la llista de rastrejadors seleccionats a totes les tasques de BitTorrent."
+      "enabledDesc": "Afegeix els trackers seleccionats a les noves tasques públiques de BitTorrent."
     },
     "sync": {
       "applying": "S'estan aplicant les llistes de rastrejadors…",
@@ -2799,7 +2810,57 @@
       "fetching": "S'estan obtenint les llistes de rastrejadors…",
       "probing": "S'està comprovant la disponibilitat dels rastrejadors…",
       "syncing": "S'està sincronitzant…",
-      "unavailable": "No es pot llegir l'estat de sincronització. Comproveu la connexió i torneu-ho a provar."
+      "unavailable": "No es pot llegir l'estat de sincronització. Comproveu la connexió i torneu-ho a provar.",
+      "details": {
+        "title": "Update details",
+        "scope": "These defaults supplement new public BitTorrent tasks. Existing downloads keep their current trackers.",
+        "sources": "Source status",
+        "candidates": "Candidates",
+        "history": "Update history",
+        "disabled": "Disabled",
+        "noSources": "No enabled sources",
+        "attention": "{{count}} trackers · {{failed}} sources need attention",
+        "summary": "{{count}} trackers · Last successful update: {{time}}",
+        "lastAttempt": "Last check",
+        "nextCheck": "Next check",
+        "autoOff": "Automatic updates off",
+        "enginePending": "Saved; waiting to apply defaults to the download engine.",
+        "sourceResult": "{{count}} addresses · Last success: {{time}}",
+        "retryAt": "Next retry: {{time}}",
+        "evidence": "Connection checks are evidence of reachability, not a guarantee of peers or download speed.",
+        "firstSeen": "First seen: {{time}}",
+        "noCandidates": "No matching candidates",
+        "showMore": "Show more",
+        "run": "{{success}} sources succeeded · {{failed}} failed · +{{added}} / −{{removed}} selected",
+        "noHistory": "No update history",
+        "retry": "Retry failed sources",
+        "state": {
+          "fresh": "Up to date",
+          "cached": "Using last successful cache",
+          "expired": "Cache expired",
+          "pending": "Not checked yet",
+          "failed": "No usable cache"
+        },
+        "failure": {
+          "network": "Connection failed. The previous cache is retained for up to 7 days.",
+          "http": "The source returned an HTTP error.",
+          "invalid": "The response is not a valid tracker list.",
+          "limit": "The source exceeded the size or address limit.",
+          "missing-cache": "The source returned 304 without a usable cache."
+        },
+        "reason": {
+          "selected": "Selected",
+          "capacity": "Reserve",
+          "blacklisted": "Blacklisted",
+          "unsupported": "Unsupported protocol",
+          "cooldown": "Repeated connection failures"
+        },
+        "outcome": {
+          "success": "Completed",
+          "partial": "Partially completed",
+          "failed": "Failed"
+        }
+      }
     }
   },
   "tray": {

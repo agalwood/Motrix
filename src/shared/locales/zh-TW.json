@@ -806,7 +806,18 @@
           "deleteFailed": "無法移除 Tracker: {{reason}}",
           "invalidLines_other": "已略過 {{count}} 行無效內容",
           "editPlaceholder": "每行一個 Tracker URL，只支援 http(s)/udp/ws(s)。",
-          "editHint": "這些 Tracker 會取代任務有效的 bt-tracker 清單，不影響 .torrent 中 announce-list 的項目。"
+          "editHint": "這些 Tracker 會取代任務有效的 bt-tracker 清單，不影響 .torrent 中 announce-list 的項目。",
+          "preview": {
+            "title": "更新任務 Trackers",
+            "description": "確認補充 Tracker 的變更。種子自帶和手動新增的位址會保留。",
+            "reconnect": "此任務將短暫暫停並重新連線，隨後自動恢復。",
+            "added": "新增 {{count}} 個",
+            "removed": "移除 {{count}} 個",
+            "retained": "保留 {{count}} 個現有補充 Tracker，種子自帶的 announce 分組保持不變。",
+            "excluded": "你已移除的 {{count}} 個 Tracker 不會被自動重新加入。",
+            "apply": "套用更新",
+            "changesPending": "待更新 {{count}} 項"
+          }
         },
         "multi": {
           "totals": "總計",
@@ -2140,7 +2151,7 @@
   "trackers": {
     "effective": {
       "enabled": "插入精選 Tracker",
-      "enabledDesc": "將精選 Tracker 清單附加到所有 BitTorrent 任務。",
+      "enabledDesc": "為新建的公開 BT 任務補充精選 Tracker。",
       "disabled": "已停用，請開啟以檢視有效的 Tracker 清單。",
       "empty": "尚無有效的 Tracker。請執行同步來填入。",
       "column": {
@@ -2178,7 +2189,57 @@
       "probing": "正在檢測 Tracker 可用性…",
       "applying": "正在套用 Tracker 清單…",
       "failed": "同步未完成，請檢查網路或來源後重試。",
-      "unavailable": "無法取得同步狀態，請檢查連線後重試。"
+      "unavailable": "無法取得同步狀態，請檢查連線後重試。",
+      "details": {
+        "title": "更新詳細資訊",
+        "scope": "此清單用於補充新建的公開 BT 任務，現有下載保留目前的 Tracker。",
+        "sources": "來源狀態",
+        "candidates": "候選清單",
+        "history": "更新記錄",
+        "disabled": "已關閉",
+        "noSources": "沒有啟用的來源",
+        "attention": "{{count}} 個 Tracker · {{failed}} 個來源需要注意",
+        "summary": "{{count}} 個 Tracker · 最近成功：{{time}}",
+        "lastAttempt": "最近檢查",
+        "nextCheck": "下次檢查",
+        "autoOff": "自動更新已關閉",
+        "enginePending": "已儲存，等待套用至下載引擎。",
+        "sourceResult": "{{count}} 個位址 · 最近成功：{{time}}",
+        "retryAt": "下次重試：{{time}}",
+        "evidence": "連線檢查僅提供可達性參考，不代表一定能找到節點或取得下載速度。",
+        "firstSeen": "首次發現：{{time}}",
+        "noCandidates": "沒有符合的候選位址",
+        "showMore": "顯示更多",
+        "run": "{{success}} 個來源成功 · {{failed}} 個失敗 · 入選 +{{added}} / −{{removed}}",
+        "noHistory": "尚無更新記錄",
+        "retry": "重試失敗來源",
+        "state": {
+          "fresh": "已更新",
+          "cached": "使用上次成功快取",
+          "expired": "快取已過期",
+          "pending": "尚未檢查",
+          "failed": "無可用快取"
+        },
+        "failure": {
+          "network": "連線失敗，保留上次成功快取，最長 7 天。",
+          "http": "來源傳回 HTTP 錯誤。",
+          "invalid": "回應不是有效的 Tracker 清單。",
+          "limit": "來源超過大小或位址數量限制。",
+          "missing-cache": "來源傳回 304，但沒有可用快取。"
+        },
+        "reason": {
+          "selected": "已入選",
+          "capacity": "候補",
+          "blacklisted": "黑名單排除",
+          "unsupported": "不支援的協定",
+          "cooldown": "連續連線失敗"
+        },
+        "outcome": {
+          "success": "已完成",
+          "partial": "部分完成",
+          "failed": "失敗"
+        }
+      }
     }
   },
   "plugin": {

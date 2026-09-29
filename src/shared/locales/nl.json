@@ -1078,7 +1078,18 @@
           "summary_one": "{{count}} tracker",
           "summary_other": "{{count}} trackers",
           "syncFailed": "Trackers konden niet worden gesynchroniseerd: {{reason}}",
-          "syncPrivateDisabled": "Synchronisatie is niet beschikbaar voor privétorrents."
+          "syncPrivateDisabled": "Synchronisatie is niet beschikbaar voor privétorrents.",
+          "preview": {
+            "title": "Taaktrackers bijwerken",
+            "description": "Controleer de wijzigingen in aanvullende trackers. Adressen uit de torrent en handmatig toegevoegde adressen blijven behouden.",
+            "reconnect": "De taak wordt kort gepauzeerd, opnieuw verbonden en automatisch hervat.",
+            "added": "Toevoegen: {{count}}",
+            "removed": "Verwijderen: {{count}}",
+            "retained": "{{count}} bestaande aanvullende trackers behouden. De oorspronkelijke announce-groepen blijven ongewijzigd.",
+            "excluded": "De {{count}} door jou verwijderde trackers worden bij automatische updates niet opnieuw toegevoegd.",
+            "apply": "Update toepassen",
+            "changesPending": "Openstaande wijzigingen: {{count}}"
+          }
         }
       },
       "media": {
@@ -2769,7 +2780,7 @@
       "disabled": "Uitgeschakeld — schakel in om de gebruikte trackerlijst te bekijken.",
       "empty": "Nog geen trackers in gebruik. Synchroniseer om de lijst te vullen.",
       "enabled": "Geselecteerde trackers toevoegen",
-      "enabledDesc": "De samengestelde trackerlijst aan alle BitTorrent-taken toevoegen."
+      "enabledDesc": "Geselecteerde trackers toevoegen aan nieuwe openbare BitTorrent-taken."
     },
     "sync": {
       "applying": "Trackerlijsten toepassen…",
@@ -2777,7 +2788,57 @@
       "fetching": "Trackerlijsten ophalen…",
       "probing": "Beschikbaarheid van trackers controleren…",
       "syncing": "Synchroniseren…",
-      "unavailable": "De synchronisatiestatus kan niet worden gelezen. Controleer je verbinding en probeer het opnieuw."
+      "unavailable": "De synchronisatiestatus kan niet worden gelezen. Controleer je verbinding en probeer het opnieuw.",
+      "details": {
+        "title": "Update details",
+        "scope": "These defaults supplement new public BitTorrent tasks. Existing downloads keep their current trackers.",
+        "sources": "Source status",
+        "candidates": "Candidates",
+        "history": "Update history",
+        "disabled": "Disabled",
+        "noSources": "No enabled sources",
+        "attention": "{{count}} trackers · {{failed}} sources need attention",
+        "summary": "{{count}} trackers · Last successful update: {{time}}",
+        "lastAttempt": "Last check",
+        "nextCheck": "Next check",
+        "autoOff": "Automatic updates off",
+        "enginePending": "Saved; waiting to apply defaults to the download engine.",
+        "sourceResult": "{{count}} addresses · Last success: {{time}}",
+        "retryAt": "Next retry: {{time}}",
+        "evidence": "Connection checks are evidence of reachability, not a guarantee of peers or download speed.",
+        "firstSeen": "First seen: {{time}}",
+        "noCandidates": "No matching candidates",
+        "showMore": "Show more",
+        "run": "{{success}} sources succeeded · {{failed}} failed · +{{added}} / −{{removed}} selected",
+        "noHistory": "No update history",
+        "retry": "Retry failed sources",
+        "state": {
+          "fresh": "Up to date",
+          "cached": "Using last successful cache",
+          "expired": "Cache expired",
+          "pending": "Not checked yet",
+          "failed": "No usable cache"
+        },
+        "failure": {
+          "network": "Connection failed. The previous cache is retained for up to 7 days.",
+          "http": "The source returned an HTTP error.",
+          "invalid": "The response is not a valid tracker list.",
+          "limit": "The source exceeded the size or address limit.",
+          "missing-cache": "The source returned 304 without a usable cache."
+        },
+        "reason": {
+          "selected": "Selected",
+          "capacity": "Reserve",
+          "blacklisted": "Blacklisted",
+          "unsupported": "Unsupported protocol",
+          "cooldown": "Repeated connection failures"
+        },
+        "outcome": {
+          "success": "Completed",
+          "partial": "Partially completed",
+          "failed": "Failed"
+        }
+      }
     }
   },
   "tray": {

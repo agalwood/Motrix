@@ -115,6 +115,10 @@ import { REGISTRY_PLUGIN_ID_RE } from '@shared/schemas/registry'
 import { removeTaskPayloadSchema } from '@shared/schemas/remove-task'
 import { showAddTaskWindowSchema } from '@shared/schemas/show-add-task-window'
 import {
+  taskTrackerApplySchema,
+  taskTrackerEditSchema,
+} from '@shared/schemas/task-tracker'
+import {
   CLI_INSTALL_PACKAGE_MANAGERS,
   type CliInstallRequest,
 } from '@shared/types/cli-tool'
@@ -404,6 +408,10 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
   // Shared by the singular AND plural task command handlers below — one
   // deps bundle per action family so the two arities cannot drift.
   const pauseResumeDeps = {
+    onPauseRequested: (taskId: string) =>
+      trackerManager.noteTaskControl?.(taskId, true),
+    onResumeRequested: (taskId: string) =>
+      trackerManager.noteTaskControl?.(taskId, false),
     taskManager,
     adapter,
     eventBus,
@@ -1153,6 +1161,21 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
           }
 
           if (
+            JSON.stringify(oldFull.tracker.sources) !==
+              JSON.stringify(newFull.tracker.sources) ||
+            JSON.stringify(oldFull.tracker.blacklistSources) !==
+              JSON.stringify(newFull.tracker.blacklistSources) ||
+            oldFull.tracker.maxTrackerCount !==
+              newFull.tracker.maxTrackerCount ||
+            oldFull.tracker.probeEnabled !== newFull.tracker.probeEnabled ||
+            oldFull.tracker.minSuccessRate !== newFull.tracker.minSuccessRate ||
+            oldFull.tracker.healthyThresholdMs !==
+              newFull.tracker.healthyThresholdMs
+          ) {
+            await trackerManager.applySelectionChange()
+          }
+
+          if (
             oldFull.tracker.autoSync !== newFull.tracker.autoSync ||
             oldFull.tracker.syncIntervalHours !==
               newFull.tracker.syncIntervalHours
@@ -1477,6 +1500,9 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       return { ok: true }
     },
 
+    [Commands.RetryTrackerSources]: async () =>
+      trackerManager.syncAndCurate('retry'),
+
     [Commands.SyncTrackers]: async () => {
       log.info('syncTrackers: invoked')
       try {
@@ -1496,24 +1522,24 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       }
     },
 
-    [Commands.SetTaskBtTracker]: async (params: {
-      engineGid: string
-      trackers: string[]
-    }) => {
-      const task = taskManager.getByEngineTaskId(params.engineGid)
-      if (!task) return
-      await trackerManager.setBtTracker(
-        task.id,
-        params.engineGid,
-        params.trackers
-      )
+    [Commands.ApplyTaskTrackerPlan]: async (raw: unknown) => {
+      const { taskId, engineGid, fingerprint } =
+        taskTrackerApplySchema.parse(raw)
+      await trackerManager.applyTaskTrackerPlan(taskId, engineGid, fingerprint)
+    },
+
+    [Commands.SetTaskBtTracker]: async (raw: unknown) => {
+      const { taskId, engineGid, trackers } = taskTrackerEditSchema.parse(raw)
+      const task = taskManager.getByEngineTaskId(engineGid)
+      if (!task || task.id !== taskId) throw new Error('Tracker task changed')
+      await trackerManager.setBtTracker(taskId, engineGid, trackers)
     },
 
     [Commands.SyncTaskBtTracker]: async (params: { engineGid: string }) => {
       const task = taskManager.getByEngineTaskId(params.engineGid)
       if (!task) return
       const pair = motrixDatabase.getTask(task.id)
-      const isPrivate = pair?.task.isPrivate ?? false
+      const isPrivate = pair?.task.isPrivate ?? task.bt?.isPrivate ?? true
       await trackerManager.syncBtTracker(task.id, params.engineGid, isPrivate)
     },
 

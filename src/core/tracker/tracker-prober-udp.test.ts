@@ -10,18 +10,19 @@ import { TrackerProber } from './tracker-prober'
 class FakeSocket extends EventEmitter {
   closed = false
   sendCallback: ((error: Error | null) => void) | undefined
-  send = vi.fn(
-    (
-      _buffer: Buffer,
-      _offset: number,
-      _length: number,
-      _port: number,
-      _host: string,
-      callback: (error: Error | null) => void
-    ) => {
-      this.sendCallback = callback
-    }
+  request: Buffer = Buffer.alloc(16)
+  connect = vi.fn((_port: number, _host: string, callback: () => void) =>
+    callback()
   )
+  send = vi.fn((buffer: Buffer, callback: (error: Error | null) => void) => {
+    this.request = buffer
+    this.sendCallback = callback
+  })
+  reply() {
+    const reply = Buffer.alloc(16)
+    reply.writeUInt32BE(this.request.readUInt32BE(12), 4)
+    return reply
+  }
   close = vi.fn(() => {
     if (this.closed) {
       throw Object.assign(new Error('Not running'), {
@@ -72,7 +73,7 @@ describe('TrackerProber UDP lifecycle', () => {
     await vi.advanceTimersByTimeAsync(100)
     socket.sendCallback?.(null)
 
-    expect(() => socket.emit('message', Buffer.alloc(16))).not.toThrow()
+    expect(() => socket.emit('message', socket.reply())).not.toThrow()
     expect((await result)[0].status).toBe('unreachable')
     expect(socket.close).toHaveBeenCalledOnce()
     expect(socket.listenerCount('message')).toBe(0)
@@ -81,7 +82,7 @@ describe('TrackerProber UDP lifecycle', () => {
   it('closes a successful probe once and clears its deadline', async () => {
     const { result } = await startProbe()
     socket.sendCallback?.(null)
-    socket.emit('message', Buffer.alloc(16))
+    socket.emit('message', socket.reply())
 
     expect((await result)[0].status).toBe('healthy')
     await vi.advanceTimersByTimeAsync(100)
@@ -91,7 +92,7 @@ describe('TrackerProber UDP lifecycle', () => {
 
   it('handles a reply before the send callback completes', async () => {
     const { result } = await startProbe()
-    socket.emit('message', Buffer.alloc(16))
+    socket.emit('message', socket.reply())
     expect((await result)[0].status).toBe('healthy')
     expect(() =>
       socket.sendCallback?.(new Error('late send error'))
@@ -160,9 +161,42 @@ describe('TrackerProber UDP lifecycle', () => {
     socket.close.mockImplementationOnce(() => {
       throw new Error('unexpected close failure')
     })
-    expect(() => socket.emit('message', Buffer.alloc(16))).not.toThrow()
+    expect(() => socket.emit('message', socket.reply())).not.toThrow()
     expect((await result)[0].status).toBe('unreachable')
     await vi.advanceTimersByTimeAsync(100)
     expect(socket.close).toHaveBeenCalledOnce()
+  })
+  it('ignores incorrect transaction IDs, actions, and truncated responses', async () => {
+    const { result } = await startProbe()
+    const wrongId = socket.reply()
+    wrongId.writeUInt32BE((wrongId.readUInt32BE(4) + 1) >>> 0, 4)
+    socket.emit('message', wrongId)
+    const wrongAction = socket.reply()
+    wrongAction.writeUInt32BE(1, 0)
+    socket.emit('message', wrongAction)
+    socket.emit('message', socket.reply().subarray(0, 8))
+    expect(socket.close).not.toHaveBeenCalled()
+    socket.emit('message', socket.reply())
+    expect((await result)[0]).toMatchObject({
+      status: 'healthy',
+      evidence: 'udp',
+    })
+  })
+
+  it('treats a matching protocol error as failure', async () => {
+    const { result } = await startProbe()
+    const error = socket.reply()
+    error.writeUInt32BE(3, 0)
+    socket.emit('message', error)
+    expect((await result)[0].status).toBe('unreachable')
+  })
+
+  it('does not bypass a configured proxy for UDP', async () => {
+    const result = await prober.probe(['udp://tracker.example:80'], {
+      timeoutMs: 100,
+      proxy: { server: 'http://localhost:1234' },
+    })
+    expect(result[0].status).toBe('unknown')
+    expect(createSocket).not.toHaveBeenCalled()
   })
 })

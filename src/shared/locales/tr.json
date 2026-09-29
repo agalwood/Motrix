@@ -818,7 +818,18 @@
           "invalidLines_one": "{{count}} geçersiz satır atlandı",
           "invalidLines_other": "{{count}} geçersiz satır atlandı",
           "editPlaceholder": "Her satıra bir izleyici URL’si girin. Yalnızca http(s)/udp/ws(s).",
-          "editHint": "Bu izleyiciler, görevin kullanılan bt-tracker listesinin yerini alır. .torrent dosyasındaki announce-list kayıtları etkilenmez."
+          "editHint": "Bu izleyiciler, görevin kullanılan bt-tracker listesinin yerini alır. .torrent dosyasındaki announce-list kayıtları etkilenmez.",
+          "preview": {
+            "title": "Görev izleyicilerini güncelle",
+            "description": "Ek izleyici değişikliklerini inceleyin. Torrent adresleri ve elle eklenen adresler korunur.",
+            "reconnect": "Bu görev kısa süreliğine duraklatılacak, yeniden bağlanacak ve otomatik sürdürülecektir.",
+            "added": "Ekle: {{count}}",
+            "removed": "Kaldır: {{count}}",
+            "retained": "Mevcut {{count}} ek izleyici korunur. Torrentin announce grupları değişmez.",
+            "excluded": "Kaldırdığınız {{count}} izleyici otomatik güncellemelerle yeniden eklenmez.",
+            "apply": "Güncellemeyi uygula",
+            "changesPending": "Bekleyen değişiklikler: {{count}}"
+          }
         },
         "multi": {
           "totals": "Toplamlar",
@@ -2155,7 +2166,7 @@
   "trackers": {
     "effective": {
       "enabled": "Seçilmiş izleyicileri ekle",
-      "enabledDesc": "Seçilmiş izleyici listesini tüm BitTorrent görevlerine ekleyin.",
+      "enabledDesc": "Seçilen izleyicileri yeni herkese açık BitTorrent görevlerine ekle.",
       "disabled": "Devre dışı. Kullanılan izleyici listesini görmek için açın.",
       "empty": "Henüz kullanılan izleyici yok. Listeyi doldurmak için eşzamanlayın.",
       "column": {
@@ -2193,7 +2204,57 @@
       "probing": "İzleyicilerin kullanılabilirliği kontrol ediliyor…",
       "applying": "İzleyici listeleri uygulanıyor…",
       "failed": "Eşzamanlama tamamlanmadı. Ağınızı veya kaynakları kontrol edip tekrar deneyin.",
-      "unavailable": "Eşzamanlama durumu okunamıyor. Bağlantınızı kontrol edip tekrar deneyin."
+      "unavailable": "Eşzamanlama durumu okunamıyor. Bağlantınızı kontrol edip tekrar deneyin.",
+      "details": {
+        "title": "Update details",
+        "scope": "These defaults supplement new public BitTorrent tasks. Existing downloads keep their current trackers.",
+        "sources": "Source status",
+        "candidates": "Candidates",
+        "history": "Update history",
+        "disabled": "Disabled",
+        "noSources": "No enabled sources",
+        "attention": "{{count}} trackers · {{failed}} sources need attention",
+        "summary": "{{count}} trackers · Last successful update: {{time}}",
+        "lastAttempt": "Last check",
+        "nextCheck": "Next check",
+        "autoOff": "Automatic updates off",
+        "enginePending": "Saved; waiting to apply defaults to the download engine.",
+        "sourceResult": "{{count}} addresses · Last success: {{time}}",
+        "retryAt": "Next retry: {{time}}",
+        "evidence": "Connection checks are evidence of reachability, not a guarantee of peers or download speed.",
+        "firstSeen": "First seen: {{time}}",
+        "noCandidates": "No matching candidates",
+        "showMore": "Show more",
+        "run": "{{success}} sources succeeded · {{failed}} failed · +{{added}} / −{{removed}} selected",
+        "noHistory": "No update history",
+        "retry": "Retry failed sources",
+        "state": {
+          "fresh": "Up to date",
+          "cached": "Using last successful cache",
+          "expired": "Cache expired",
+          "pending": "Not checked yet",
+          "failed": "No usable cache"
+        },
+        "failure": {
+          "network": "Connection failed. The previous cache is retained for up to 7 days.",
+          "http": "The source returned an HTTP error.",
+          "invalid": "The response is not a valid tracker list.",
+          "limit": "The source exceeded the size or address limit.",
+          "missing-cache": "The source returned 304 without a usable cache."
+        },
+        "reason": {
+          "selected": "Selected",
+          "capacity": "Reserve",
+          "blacklisted": "Blacklisted",
+          "unsupported": "Unsupported protocol",
+          "cooldown": "Repeated connection failures"
+        },
+        "outcome": {
+          "success": "Completed",
+          "partial": "Partially completed",
+          "failed": "Failed"
+        }
+      }
     }
   },
   "plugins": {

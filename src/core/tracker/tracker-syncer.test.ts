@@ -89,7 +89,7 @@ describe('TrackerSyncer', () => {
     expect(result.trackers).toEqual(['udp://ok.com:80'])
     expect(result.sourceStatus.good.ok).toBe(true)
     expect(result.sourceStatus.bad.ok).toBe(false)
-    expect(result.sourceStatus.bad.error).toBe('network error')
+    expect(result.sourceStatus.bad.error).toBe('network')
   })
 
   it('uses undici fetch with an HTTP ProxyAgent and closes the agent', async () => {
@@ -127,12 +127,12 @@ describe('TrackerSyncer', () => {
 
   it('populates SourceFetchStatus.urls with per-source URLs on success', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response('udp://a/announce\nudp://b/announce\n')
+      new Response('udp://a:80/announce\nudp://b:80/announce\n')
     )
     const result = await syncer.fetch([source('src-1', 'http://x')])
     expect(result.sourceStatus['src-1'].urls).toEqual([
-      'udp://a/announce',
-      'udp://b/announce',
+      'udp://a:80/announce',
+      'udp://b:80/announce',
     ])
   })
 
@@ -158,13 +158,12 @@ describe('TrackerSyncer', () => {
       new Response(
         [
           'udp://ok.com:80',
-          'http://ok.com:80/announce',
+          'http://ok.com/announce',
           'https://ok.com/announce',
-          'ws://ok.com',
-          'wss://ok.com',
+          'ws://ok.com/',
+          'wss://ok.com/',
           'ftp://disallowed.com',
           'random text',
-          '<!DOCTYPE html>',
           'javascript:alert(1)',
         ].join('\n')
       )
@@ -172,10 +171,73 @@ describe('TrackerSyncer', () => {
     const result = await syncer.fetch([source('s1', 'http://list.com')])
     expect(result.trackers).toEqual([
       'udp://ok.com:80',
-      'http://ok.com:80/announce',
+      'http://ok.com/announce',
       'https://ok.com/announce',
-      'ws://ok.com',
-      'wss://ok.com',
+      'ws://ok.com/',
+      'wss://ok.com/',
     ])
+  })
+  it('uses conditional requests without altering signed source queries', async () => {
+    const url = 'https://list.test/file?token=secret&format=text'
+    const fetch = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(null, { status: 304 }))
+    const cached = {
+      id: 's1',
+      url,
+      kind: 'tracker' as const,
+      urls: ['udp://a:80'],
+      lastAttemptAt: 0,
+      lastSuccessAt: 0,
+      contentChangedAt: 0,
+      error: null,
+      failures: 0,
+      nextRetryAt: null,
+      etag: 'v1',
+    }
+    const result = await syncer.fetch([source('s1', url)], undefined, {
+      s1: cached,
+    })
+    expect(fetch).toHaveBeenCalledWith(
+      url,
+      expect.objectContaining({ headers: { 'If-None-Match': 'v1' } })
+    )
+    expect(result.sourceStatus.s1).toMatchObject({
+      ok: true,
+      urls: cached.urls,
+      notModified: true,
+    })
+  })
+
+  it.each([
+    [new Response('<html>Failure</html>'), 'invalid'],
+    [new Response('not a tracker list'), 'invalid'],
+    [new Response(null, { status: 304 }), 'missing-cache'],
+    [
+      new Response('udp://a:80', { headers: { 'content-length': '3000000' } }),
+      'limit',
+    ],
+  ])('rejects malformed or oversized responses', async (response, failure) => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(response as Response)
+    const result = await syncer.fetch([source('s1', 'https://list.test/')])
+    expect(result.sourceStatus.s1).toMatchObject({ ok: false, failure })
+  })
+
+  it('accepts a legitimate empty list and respects bounded Retry-After', async () => {
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response('# Empty list'))
+      .mockResolvedValueOnce(
+        new Response('', { status: 429, headers: { 'retry-after': '600' } })
+      )
+    const result = await syncer.fetch([
+      source('empty', 'https://empty.test/'),
+      source('busy', 'https://busy.test/'),
+    ])
+    expect(result.sourceStatus.empty).toMatchObject({ ok: true, urls: [] })
+    expect(result.sourceStatus.busy).toMatchObject({
+      ok: false,
+      failure: 'http',
+      retryAfterMs: 600_000,
+    })
   })
 })

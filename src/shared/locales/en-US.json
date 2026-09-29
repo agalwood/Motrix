@@ -818,7 +818,18 @@
           "invalidLines_one": "Skipped {{count}} invalid line",
           "invalidLines_other": "Skipped {{count}} invalid lines",
           "editPlaceholder": "One tracker URL per line. http(s)/udp/ws(s) only.",
-          "editHint": "These trackers replace the task’s effective bt-tracker list. Announce-list entries from the .torrent are unaffected."
+          "editHint": "These trackers replace the task’s effective bt-tracker list. Announce-list entries from the .torrent are unaffected.",
+          "preview": {
+            "title": "Update task trackers",
+            "description": "Review changes to supplemental trackers. Torrent trackers and manually added addresses are preserved.",
+            "reconnect": "This task will briefly pause and reconnect, then resume automatically.",
+            "added": "Add: {{count}}",
+            "removed": "Remove: {{count}}",
+            "retained": "Keep {{count}} existing supplemental trackers. Native announce tiers stay unchanged.",
+            "excluded": "{{count}} trackers you removed are excluded from automatic updates.",
+            "apply": "Apply update",
+            "changesPending": "Pending changes: {{count}}"
+          }
         },
         "multi": {
           "totals": "Totals",
@@ -2155,7 +2166,7 @@
   "trackers": {
     "effective": {
       "enabled": "Inject curated trackers",
-      "enabledDesc": "Append the curated tracker list to all BitTorrent tasks.",
+      "enabledDesc": "Add curated trackers to new public BitTorrent tasks.",
       "disabled": "Disabled — turn on to view the effective tracker list.",
       "empty": "No effective trackers yet. Run sync to populate.",
       "column": {
@@ -2193,7 +2204,57 @@
       "probing": "Checking tracker availability…",
       "applying": "Applying tracker lists…",
       "failed": "Sync incomplete. Check your network or sources and try again.",
-      "unavailable": "Can’t read sync status. Check your connection and try again."
+      "unavailable": "Can’t read sync status. Check your connection and try again.",
+      "details": {
+        "title": "Update details",
+        "scope": "These defaults supplement new public BitTorrent tasks. Existing downloads keep their current trackers.",
+        "sources": "Source status",
+        "candidates": "Candidates",
+        "history": "Update history",
+        "disabled": "Disabled",
+        "noSources": "No enabled sources",
+        "attention": "{{count}} trackers · {{failed}} sources need attention",
+        "summary": "{{count}} trackers · Last successful update: {{time}}",
+        "lastAttempt": "Last check",
+        "nextCheck": "Next check",
+        "autoOff": "Automatic updates off",
+        "enginePending": "Saved; waiting to apply defaults to the download engine.",
+        "sourceResult": "{{count}} addresses · Last success: {{time}}",
+        "retryAt": "Next retry: {{time}}",
+        "evidence": "Connection checks are evidence of reachability, not a guarantee of peers or download speed.",
+        "firstSeen": "First seen: {{time}}",
+        "noCandidates": "No matching candidates",
+        "showMore": "Show more",
+        "run": "{{success}} sources succeeded · {{failed}} failed · +{{added}} / −{{removed}} selected",
+        "noHistory": "No update history",
+        "retry": "Retry failed sources",
+        "state": {
+          "fresh": "Up to date",
+          "cached": "Using last successful cache",
+          "expired": "Cache expired",
+          "pending": "Not checked yet",
+          "failed": "No usable cache"
+        },
+        "failure": {
+          "network": "Connection failed. The previous cache is retained for up to 7 days.",
+          "http": "The source returned an HTTP error.",
+          "invalid": "The response is not a valid tracker list.",
+          "limit": "The source exceeded the size or address limit.",
+          "missing-cache": "The source returned 304 without a usable cache."
+        },
+        "reason": {
+          "selected": "Selected",
+          "capacity": "Reserve",
+          "blacklisted": "Blacklisted",
+          "unsupported": "Unsupported protocol",
+          "cooldown": "Repeated connection failures"
+        },
+        "outcome": {
+          "success": "Completed",
+          "partial": "Partially completed",
+          "failed": "Failed"
+        }
+      }
     }
   },
   "plugins": {

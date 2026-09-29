@@ -89,6 +89,10 @@ import { languagePreferenceSchema } from '@shared/schemas/locale'
 import { moveTasksPayloadSchema } from '@shared/schemas/move-tasks'
 import { checkPluginUpdatesPayloadSchema } from '@shared/schemas/plugin-update'
 import { removeTaskPayloadSchema } from '@shared/schemas/remove-task'
+import {
+  taskTrackerApplySchema,
+  taskTrackerEditSchema,
+} from '@shared/schemas/task-tracker'
 import { EngineRecoveryAction } from '@shared/types/engine'
 import type { ProxySettings } from '@shared/types/settings'
 import type { DownloadTask } from '@shared/types/task'
@@ -285,6 +289,10 @@ export function buildServerCommandHandlers(
   // Shared by the singular AND plural task command handlers below — one
   // deps bundle per action family so the two arities cannot drift.
   const pauseResumeDeps = {
+    onPauseRequested: (taskId: string) =>
+      trackerManager.noteTaskControl?.(taskId, true),
+    onResumeRequested: (taskId: string) =>
+      trackerManager.noteTaskControl?.(taskId, false),
     taskManager,
     adapter,
     eventBus,
@@ -848,6 +856,21 @@ export function buildServerCommandHandlers(
           }
 
           if (
+            JSON.stringify(oldFull.tracker.sources) !==
+              JSON.stringify(newFull.tracker.sources) ||
+            JSON.stringify(oldFull.tracker.blacklistSources) !==
+              JSON.stringify(newFull.tracker.blacklistSources) ||
+            oldFull.tracker.maxTrackerCount !==
+              newFull.tracker.maxTrackerCount ||
+            oldFull.tracker.probeEnabled !== newFull.tracker.probeEnabled ||
+            oldFull.tracker.minSuccessRate !== newFull.tracker.minSuccessRate ||
+            oldFull.tracker.healthyThresholdMs !==
+              newFull.tracker.healthyThresholdMs
+          ) {
+            await trackerManager.applySelectionChange()
+          }
+
+          if (
             oldFull.tracker.autoSync !== newFull.tracker.autoSync ||
             oldFull.tracker.syncIntervalHours !==
               newFull.tracker.syncIntervalHours
@@ -886,28 +909,28 @@ export function buildServerCommandHandlers(
 
     [Commands.RequestDefaultTorrentHandler]: async () => ({ ok: false }),
 
+    [Commands.RetryTrackerSources]: async () =>
+      trackerManager.syncAndCurate('retry'),
+
     [Commands.SyncTrackers]: async () => trackerManager.syncAndCurate(),
 
-    [Commands.SetTaskBtTracker]: async (params: {
-      engineGid: string
-      trackers: string[]
-    }) => {
-      const task = taskManager.getByEngineTaskId(params.engineGid)
-      if (!task) return
-      await trackerManager.setBtTracker(
-        task.id,
-        params.engineGid,
-        params.trackers
-      )
+    [Commands.ApplyTaskTrackerPlan]: async (raw: unknown) => {
+      const { taskId, engineGid, fingerprint } =
+        taskTrackerApplySchema.parse(raw)
+      await trackerManager.applyTaskTrackerPlan(taskId, engineGid, fingerprint)
+    },
+
+    [Commands.SetTaskBtTracker]: async (raw: unknown) => {
+      const { taskId, engineGid, trackers } = taskTrackerEditSchema.parse(raw)
+      const task = taskManager.getByEngineTaskId(engineGid)
+      if (!task || task.id !== taskId) throw new Error('Tracker task changed')
+      await trackerManager.setBtTracker(taskId, engineGid, trackers)
     },
 
     [Commands.SyncTaskBtTracker]: async (params: { engineGid: string }) => {
       const task = taskManager.getByEngineTaskId(params.engineGid)
       if (!task) return
-      // Server mode lacks db-backed isPrivate persistence; rely on the
-      // in-memory DownloadTask.bt.isPrivate (false in current server impl
-      // until proper persistence lands).
-      const isPrivate = task.bt?.isPrivate ?? false
+      const isPrivate = task.bt?.isPrivate ?? true
       await trackerManager.syncBtTracker(task.id, params.engineGid, isPrivate)
     },
 

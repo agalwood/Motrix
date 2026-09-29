@@ -28,6 +28,7 @@ import type { TuningContext } from '@shared/types/tuning'
 import { probeQuick } from '../../probe/disk-probe'
 import type {
   AddTorrentParams,
+  BtTrackerPolicy,
   CreateDownloadParams,
   DirectResourceMetadataProfile,
   DownloadCookie,
@@ -130,6 +131,41 @@ import {
 } from './translate'
 
 export class Aria2Adapter implements EngineAdapter {
+  private btTrackerPolicy?: BtTrackerPolicy
+  configureBtTrackerPolicy(policy: BtTrackerPolicy): void {
+    this.btTrackerPolicy = policy
+  }
+  async setTaskBtTracker(
+    engineTaskId: string,
+    trackers: string[]
+  ): Promise<void> {
+    await this.rpc.changeOption(engineTaskId, {
+      'bt-tracker': trackers.join(','),
+    })
+  }
+  private async applyBtTrackerPolicy(
+    options: Record<string, string | string[]>,
+    gid?: string,
+    metadata?: Uint8Array,
+    isPrivate?: boolean
+  ): Promise<void> {
+    if (!this.btTrackerPolicy) return
+    const raw = options['bt-tracker']
+    const manual = (Array.isArray(raw) ? raw : (raw ?? '').split(',')).filter(
+      Boolean
+    )
+    const policy = await this.btTrackerPolicy({
+      engineGid: gid,
+      metadata,
+      isPrivate,
+      manual,
+    })
+    options['bt-tracker'] = policy.trackers.join(',')
+    // Subscription exclusions select supplements; never exclude native trackers.
+    options['bt-exclude-tracker'] = ''
+    if (policy.isPrivate) options['enable-peer-exchange'] = 'false'
+  }
+
   private readonly log = getLogger('aria2-adapter')
   private capability: EngineCapability = {
     http: true,
@@ -550,6 +586,7 @@ export class Aria2Adapter implements EngineAdapter {
     // not halt the entire torrent before a healthy source sends any data.
     if (params.uris.some((uri) => /^magnet:/i.test(uri))) {
       options['max-file-not-found'] = '0'
+      await this.applyBtTrackerPolicy(options, requestedGid)
     }
 
     const actualGid = await this.addUriWithConnectionFallback(
@@ -772,11 +809,6 @@ export class Aria2Adapter implements EngineAdapter {
     if (params.checkIntegrity) {
       opts['check-integrity'] = 'true'
     }
-    if (params.isPrivate) {
-      // Private torrents must not announce to global trackers (BEP-27).
-      // Override aria2's engine-wide bt-tracker default with empty string.
-      opts['bt-tracker'] = ''
-    }
     if (params.prioritizePreviewPieces) {
       opts['bt-prioritize-piece'] = 'head=10M,tail=10M'
     }
@@ -793,6 +825,20 @@ export class Aria2Adapter implements EngineAdapter {
         }
         opts[k] = v
       }
+    }
+    await this.applyBtTrackerPolicy(
+      opts,
+      requestedGid,
+      params.metadata,
+      params.isPrivate
+    )
+    if (params.isPrivate) {
+      // Apply after extra options: private torrents keep their own trackers.
+      // A configured policy can restore explicitly owned private-task edits.
+      // Without that provenance, no supplemental option is trusted.
+      if (!this.btTrackerPolicy) opts['bt-tracker'] = ''
+      opts['bt-exclude-tracker'] = ''
+      opts['enable-peer-exchange'] = 'false'
     }
     if (requestedGid !== undefined) {
       opts.gid = requestedGid

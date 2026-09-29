@@ -1,15 +1,11 @@
+import type {
+  TrackerHealth as StoredTrackerHealth,
+  TrackerState,
+} from '../schemas/tracker-state'
+
 export type TrackerProtocol = 'http' | 'https' | 'udp' | 'ws' | 'wss'
 
-export interface TrackerHealth {
-  url: string
-  protocol: TrackerProtocol
-  status: 'healthy' | 'slow' | 'unreachable' | 'unknown'
-  lastProbeMs: number | null
-  lastProbeAt: number | null
-  successCount: number
-  failCount: number
-  successRate: number
-}
+export type TrackerHealth = StoredTrackerHealth
 
 export interface TrackerSource {
   id: string
@@ -20,14 +16,15 @@ export interface TrackerSource {
   cdn: boolean
 }
 
-export interface CuratedTrackerList {
-  effective: string[]
-  blacklist: string[]
-  healthMap: Record<string, TrackerHealth>
-  sourceMap: Record<string, string[]>
-  lastSyncAt: number | null
-  lastProbeAt: number | null
-}
+type LegacyTrackerKeys =
+  | 'effective'
+  | 'blacklist'
+  | 'healthMap'
+  | 'sourceMap'
+  | 'lastSyncAt'
+  | 'lastProbeAt'
+export type CuratedTrackerList = Pick<TrackerState, LegacyTrackerKeys> &
+  Partial<Omit<TrackerState, LegacyTrackerKeys>>
 
 export interface SyncResult {
   trackers: string[]
@@ -40,6 +37,11 @@ export interface SourceFetchStatus {
   elapsedMs: number
   error?: string
   urls?: string[]
+  notModified?: boolean
+  etag?: string
+  lastModified?: string
+  retryAfterMs?: number
+  failure?: 'network' | 'http' | 'invalid' | 'limit' | 'missing-cache'
 }
 
 export interface ProxyConfig {

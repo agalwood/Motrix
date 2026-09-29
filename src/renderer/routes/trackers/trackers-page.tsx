@@ -15,6 +15,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BlacklistTrackerPanel } from './components/blacklist-tracker-panel'
 import { EffectiveTrackerPanel } from './components/effective-tracker-panel'
+import { TrackerSyncDetails } from './components/tracker-sync-details'
 
 export function TrackersPage() {
   const { t } = useTranslation()
@@ -53,12 +54,18 @@ export function TrackersPage() {
               error && 'text-destructive'
             )}
           >
-            {syncMessage ??
-              (error === 'failed'
-                ? t('trackers.sync.failed')
-                : error === 'unavailable'
-                  ? t('trackers.sync.unavailable')
-                  : null)}
+            <TrackerSyncDetails
+              kind={tab}
+              busy={isSyncing}
+              message={
+                syncMessage ??
+                (error === 'failed'
+                  ? t('trackers.sync.failed')
+                  : error === 'unavailable'
+                    ? t('trackers.sync.unavailable')
+                    : undefined)
+              }
+            />
           </div>
           <Button
             type="button"

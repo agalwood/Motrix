@@ -119,6 +119,7 @@ import {
   TrackerStore,
   TrackerSyncer,
 } from '@core/tracker'
+import { TaskTrackerRepository } from '@core/tracker/task-tracker-repository'
 import type { NatManager } from '@motrix/nat'
 import { APP_ID } from '@shared/constants'
 import { DEFAULT_LOCALE, type SupportedLocale } from '@shared/constants/locales'
@@ -1713,6 +1714,7 @@ async function initializeMainProcess(): Promise<void> {
 
   // OS logout/shutdown: skip the quit dialog so session end is never blocked.
   powerMonitor.on('shutdown', prepareForSessionEnd)
+  powerMonitor.on('resume', () => trackerManager?.notifyWake())
 
   if (gate.isAccepted()) {
     const runMode = settingsManager.getApp().runMode
@@ -2221,6 +2223,8 @@ async function initializeMainProcess(): Promise<void> {
     trackerProber,
     trackerStore,
     {
+      runTaskMutation: (taskIds, operation) =>
+        activeTaskInspectorActivityRuntime.runTaskMutation(taskIds, operation),
       pauseTask: (taskId) =>
         pauseTaskAction(taskId, {
           taskManager,
@@ -2261,6 +2265,11 @@ async function initializeMainProcess(): Promise<void> {
         }),
     },
     (settings) => proxyBridge.resolveForFetch(settings)
+  )
+  trackerManager.configureTaskTracking(
+    adapter,
+    taskManager,
+    new TaskTrackerRepository(motrixDb.database)
   )
 
   const proxyApplier = createMainProxyApplier(
@@ -2462,6 +2471,10 @@ async function initializeMainProcess(): Promise<void> {
     // control-plane. getMediaSegmentGids is lazy over bridgeManager.current
     // (same as the IPC command path in commands.ts).
     const mediaActionDeps = {
+      onPauseRequested: (taskId: string) =>
+        trackerManager?.noteTaskControl(taskId, true),
+      onResumeRequested: (taskId: string) =>
+        trackerManager?.noteTaskControl(taskId, false),
       taskManager,
       adapter,
       eventBus,

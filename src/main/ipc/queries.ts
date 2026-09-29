@@ -45,6 +45,7 @@ import {
 import type { QueryHandlerMap } from '@shared/protocol/handler-types'
 import { Queries } from '@shared/protocol/queries'
 import { parseTaskInspectorActivitySnapshot } from '@shared/schemas/task-inspector-activity'
+import { taskTrackerRequestSchema } from '@shared/schemas/task-tracker'
 import type { GetTransferStatsParams } from '@shared/types/stats'
 import type { GetTaskActivityParams } from '@shared/types/task-activity'
 import { ipcMain, session } from 'electron'
@@ -249,6 +250,11 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
       natManager.getStatus().lastDiagnostic,
 
     [Queries.GetTuningRecommendation]: getTuningRecommendation,
+
+    [Queries.GetTaskTrackerPlan]: async (raw: unknown) => {
+      const { taskId, engineGid } = taskTrackerRequestSchema.parse(raw)
+      return trackerManager.getTaskTrackerPlan(taskId, engineGid)
+    },
 
     [Queries.GetTrackerList]: async () => {
       return trackerManager.getCuratedList()

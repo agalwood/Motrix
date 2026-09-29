@@ -201,6 +201,7 @@ function fakeCtx() {
       setChannel: vi.fn(),
     },
     trackerManager: {
+      applySelectionChange: vi.fn().mockResolvedValue(undefined),
       applySourcesChange: vi.fn().mockResolvedValue(undefined),
       applyBlacklistChange: vi.fn().mockResolvedValue(undefined),
       applySyncScheduleChange: vi.fn(),
@@ -1340,6 +1341,7 @@ describe('SetTaskBtTracker handler', () => {
       taskManager,
     } as unknown as CommandContext)
     await handlers[Commands.SetTaskBtTracker]?.({
+      taskId: 'task-1',
       engineGid: 'gid-1',
       trackers: ['http://a'],
     })
@@ -1350,7 +1352,7 @@ describe('SetTaskBtTracker handler', () => {
     )
   })
 
-  it('no-ops when task not found', async () => {
+  it('rejects a missing task without mutating trackers', async () => {
     const trackerManager = { setBtTracker: vi.fn() }
     const taskManager = {
       ...fakeCtx().taskManager,
@@ -1361,10 +1363,13 @@ describe('SetTaskBtTracker handler', () => {
       trackerManager,
       taskManager,
     } as unknown as CommandContext)
-    await handlers[Commands.SetTaskBtTracker]?.({
-      engineGid: 'gid-x',
-      trackers: [],
-    })
+    await expect(
+      handlers[Commands.SetTaskBtTracker]?.({
+        taskId: 'task-1',
+        engineGid: 'gid-x',
+        trackers: [],
+      })
+    ).rejects.toThrow('Tracker task changed')
     expect(trackerManager.setBtTracker).not.toHaveBeenCalled()
   })
 })
@@ -2134,6 +2139,36 @@ describe('Commands.UpdateSettings', () => {
     expect(ctx.notificationCenter.notify).not.toHaveBeenCalled()
   })
 
+  it('reselects when the configured cap changes without fetching sources', async () => {
+    const ctx = fakeCtx()
+    const before = makeSettingsLike(PROXY_OFF, {
+      tracker: { maxTrackerCount: 50 },
+    })
+    const after = makeSettingsLike(PROXY_OFF, {
+      tracker: { maxTrackerCount: 10 },
+    })
+    const settingsManager = {
+      ...ctx.settingsManager,
+      get: vi.fn().mockReturnValueOnce(before).mockReturnValueOnce(after),
+      update: vi.fn().mockResolvedValue({
+        ok: true,
+        requiresRestart: false,
+        changedRestartKeys: [],
+      }),
+    }
+    const handlers = buildCommandHandlers({
+      ...ctx,
+      settingsManager,
+    } as unknown as CommandContext)
+    await handlers[Commands.UpdateSettings]?.({
+      tracker: { maxTrackerCount: 10 },
+    })
+    expect(ctx.trackerManager.applySelectionChange).toHaveBeenCalledOnce()
+    expect(ctx.trackerManager.syncAndCurate).not.toHaveBeenCalled()
+    await handlers[Commands.RetryTrackerSources]?.()
+    expect(ctx.trackerManager.syncAndCurate).toHaveBeenCalledWith('retry')
+  })
+
   it('calls trackerManager.applySourcesChange when sourcesEnabled changes', async () => {
     const ctx = fakeCtx()
     const before = makeSettingsLike(PROXY_OFF, {
@@ -2375,7 +2410,7 @@ describe('SyncTaskBtTracker handler', () => {
     )
   })
 
-  it('defaults isPrivate to false when metadata not found', async () => {
+  it('blocks public supplementation when private metadata is unknown', async () => {
     const trackerManager = {
       syncBtTracker: vi.fn().mockResolvedValue(undefined),
     }
@@ -2396,7 +2431,7 @@ describe('SyncTaskBtTracker handler', () => {
     expect(trackerManager.syncBtTracker).toHaveBeenCalledWith(
       'task-1',
       'gid-1',
-      false
+      true
     )
   })
 })
