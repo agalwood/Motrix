@@ -137,18 +137,92 @@ describe('TaskRow', () => {
     expect(screen.getByText(/4\.70 GB/)).toBeInTheDocument()
   })
 
-  it('renders a dash for speeds when paused', () => {
+  it.each([
+    TaskStatus.Paused,
+    TaskStatus.Completed,
+    TaskStatus.Finalizing,
+    TaskStatus.Queued,
+    TaskStatus.MetadataReady,
+    TaskStatus.Error,
+    TaskStatus.Removed,
+  ])('leaves inactive metrics blank for %s despite stale values', (status) => {
     render(
       <TaskRow
-        task={fake({ status: TaskStatus.Paused, downloadSpeed: 0 })}
+        task={fake({ status, downloadSpeed: 100, uploadSpeed: 100 })}
         rowProps={rowProps}
+        columns={[
+          { id: 'down', width: 100, visible: true },
+          { id: 'up', width: 100, visible: true },
+          { id: 'eta', width: 100, visible: true },
+        ]}
       />
     )
-    expect(screen.getAllByText('—').length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByRole('gridcell').map((cell) => cell.textContent)
+    ).toEqual(['', '', ''])
+  })
+
+  it('distinguishes zero speed, inapplicable upload and unknown ETA', () => {
+    render(
+      <TaskRow
+        task={fake({ downloadSpeed: 0, etaSeconds: 0 })}
+        rowProps={rowProps}
+        columns={[
+          { id: 'down', width: 100, visible: true },
+          { id: 'up', width: 100, visible: true },
+          { id: 'eta', width: 100, visible: true },
+        ]}
+      />
+    )
+    expect(
+      screen.getAllByRole('gridcell').map((cell) => cell.textContent)
+    ).toEqual(['0 B/s', '', '–'])
+    expect(screen.getByText('–')).toHaveClass('text-muted-foreground')
+  })
+
+  it('retains upload speed while seeding and clears download metrics', () => {
+    render(
+      <TaskRow
+        task={fake({
+          type: TaskType.Bt,
+          status: TaskStatus.Seeding,
+          uploadSpeed: 1000,
+        })}
+        rowProps={rowProps}
+        columns={[
+          { id: 'down', width: 100, visible: true },
+          { id: 'up', width: 100, visible: true },
+          { id: 'eta', width: 100, visible: true },
+        ]}
+      />
+    )
+    expect(
+      screen.getAllByRole('gridcell').map((cell) => cell.textContent)
+    ).toEqual(['', '1.0 KB/s', ''])
+  })
+
+  it('clears transfer metrics while media is being merged', () => {
+    render(
+      <TaskRow
+        task={fake({
+          kind: TaskKind.Hls,
+          mediaProgress: makeMediaProgress({ phase: 'muxing' }),
+        })}
+        rowProps={rowProps}
+        columns={[
+          { id: 'down', width: 100, visible: true },
+          { id: 'up', width: 100, visible: true },
+          { id: 'eta', width: 100, visible: true },
+        ]}
+      />
+    )
+    expect(
+      screen.getAllByRole('gridcell').map((cell) => cell.textContent)
+    ).toEqual(['', '', ''])
   })
 
   it.each([TaskStatus.Paused, TaskStatus.Completed, TaskStatus.Finalizing])(
-    'renders a dash for stale ETA when a memoized task becomes %s',
+    'clears stale ETA when a memoized task becomes %s',
     (status) => {
       const downloading = fake({
         status: TaskStatus.Downloading,
@@ -164,7 +238,7 @@ describe('TaskRow', () => {
         <TaskRow task={{ ...downloading, status }} rowProps={rowProps} />
       )
 
-      expect(getEtaCell(container)).toHaveTextContent('—')
+      expect(getEtaCell(container)).toHaveTextContent(/^$/)
     }
   )
 
