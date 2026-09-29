@@ -206,7 +206,6 @@ describe('DirectResourceValidatorService', () => {
         headers: {
           accept: 'application/octet-stream',
           'accept-encoding': 'deflate, gzip',
-          authorization: '',
           cookie: '',
           'user-agent': 'Motrix/2.0',
           'want-digest': 'SHA-512;q=1, SHA-256;q=1, SHA;q=0.1',
@@ -267,7 +266,6 @@ describe('DirectResourceValidatorService', () => {
         headers: {
           accept: '*/*',
           'accept-encoding': 'deflate, gzip',
-          authorization: '',
           cookie: '',
           'want-digest': 'SHA-512;q=1, SHA-256;q=1, SHA;q=0.1',
         },
@@ -398,7 +396,6 @@ describe('DirectResourceValidatorService', () => {
         headers: {
           accept: '*/*',
           'accept-encoding': 'deflate, gzip',
-          authorization: '',
           cookie: '',
           'want-digest': 'SHA-512;q=1, SHA-256;q=1, SHA;q=0.1',
         },
@@ -519,7 +516,6 @@ describe('DirectResourceValidatorService', () => {
         headers: {
           accept: '*/*',
           'accept-encoding': 'deflate, gzip',
-          authorization: '',
           cookie: '',
           'user-agent': 'Motrix/2.0',
           'want-digest': 'SHA-512;q=1, SHA-256;q=1, SHA;q=0.1',

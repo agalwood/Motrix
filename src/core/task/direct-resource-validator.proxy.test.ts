@@ -26,6 +26,9 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { Server as ProxyServer } from 'proxy-chain'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { Aria2Adapter } from '../engine/aria2/aria2-adapter'
+import type { Aria2RpcClient } from '../engine/aria2/aria2-rpc-client'
+import { DIRECT_RESOURCE_METADATA_PROFILE } from '../engine/engine-adapter'
 import { DirectResourceValidatorService } from './direct-resource-validator'
 
 const LOOPBACK_HOST = '127.0.0.1'
@@ -271,6 +274,11 @@ describe('DirectResourceValidatorService proxy runtime', () => {
         return
       }
       if (request.url === '/artifacts/latest') {
+        if (request.headers.authorization === '') {
+          response.writeHead(400)
+          response.end()
+          return
+        }
         response.writeHead(200, {
           'Content-Disposition': `attachment; filename="${REMOTE_FILENAME}"`,
           'Content-Length': '4096',
@@ -380,6 +388,89 @@ describe('DirectResourceValidatorService proxy runtime', () => {
     expect(originHeaders[0]).not.toHaveProperty('accept-language')
     expect(originHeaders[0]).not.toHaveProperty('sec-fetch-mode')
   })
+
+  bundledAria2Test.each([
+    { headers: undefined, authorization: undefined },
+    {
+      headers: { aUtHoRiZaTiOn: 'Bearer explicit-task-token' },
+      authorization: 'Bearer explicit-task-token',
+    },
+  ])(
+    'probes and downloads artifacts without synthesizing Authorization ($authorization)',
+    async ({ headers, authorization }) => {
+      const outputDir = mkdtempSync(
+        path.join(os.tmpdir(), 'motrix-aria2-authorization-')
+      )
+      try {
+        const service = new DirectResourceValidatorService()
+        await expect(
+          service.probe(`${originUrl}/stable`, { headers })
+        ).resolves.toMatchObject({ filename: REMOTE_FILENAME })
+
+        const addUri = vi.fn<Aria2RpcClient['addUri']>(
+          async (uris, options = {}) => {
+            await new Promise<void>((resolve, reject) => {
+              execFile(
+                bundledAria2Path,
+                [
+                  '--no-conf=true',
+                  '--console-log-level=error',
+                  '--summary-interval=0',
+                  '--all-proxy=',
+                  '--http-proxy=',
+                  '--https-proxy=',
+                  ...Object.entries(options).flatMap(([name, value]) =>
+                    (Array.isArray(value) ? value : [value]).map(
+                      (entry) => `--${name}=${entry}`
+                    )
+                  ),
+                  ...uris,
+                ],
+                { timeout: 10_000 },
+                (error) => (error ? reject(error) : resolve())
+              )
+            })
+            return 'artifact-gid'
+          }
+        )
+        const adapter = new Aria2Adapter({
+          addUri,
+          onBtDownloadComplete: vi.fn(),
+          onDownloadComplete: vi.fn(),
+          onDownloadError: vi.fn(),
+        } as unknown as Aria2RpcClient)
+        adapter.setDirectResourceMetadataProfile(
+          DIRECT_RESOURCE_METADATA_PROFILE
+        )
+        await adapter.createDownload({
+          uris: [`${originUrl}/stable`],
+          saveDir: outputDir,
+          filename: 'artifact.zip',
+          headers,
+          directResourceMetadataProfile: DIRECT_RESOURCE_METADATA_PROFILE,
+        })
+
+        expect(readFileSync(path.join(outputDir, 'artifact.zip'))).toEqual(
+          Buffer.alloc(4096)
+        )
+        expect(originRequests).toEqual([
+          'GET /stable',
+          'GET /artifacts/latest',
+          'GET /stable',
+          'GET /artifacts/latest',
+        ])
+        for (const requestHeaders of originHeaders) {
+          if (authorization === undefined) {
+            expect(requestHeaders).not.toHaveProperty('authorization')
+          } else {
+            expect(requestHeaders.authorization).toBe(authorization)
+          }
+        }
+      } finally {
+        rmSync(outputDir, { recursive: true, force: true })
+      }
+    }
+  )
 
   it('honors aria2 CIDR bypass without touching the configured proxy', async () => {
     const globalFetch = vi
@@ -548,11 +639,7 @@ describe('DirectResourceValidatorService proxy runtime', () => {
         originRequests.length = 0
         originHeaders.length = 0
         await expect(
-          runAria2Sequence('pinned-empty-cookie', [
-            'Cookie: ',
-            'Authorization: ',
-            'Accept: */*',
-          ])
+          runAria2Sequence('pinned-empty-cookie', ['Cookie: ', 'Accept: */*'])
         ).resolves.toEqual(['baseline-variant', 'baseline-variant'])
         expect(originRequests).toEqual([
           'GET /cookie-start',
@@ -560,9 +647,9 @@ describe('DirectResourceValidatorService proxy runtime', () => {
           'GET /cookie-final',
         ])
         expect(originHeaders.at(-1)).toMatchObject({
-          authorization: '',
           cookie: '',
         })
+        expect(originHeaders.at(-1)).not.toHaveProperty('authorization')
       } finally {
         rmSync(outputDir, { recursive: true, force: true })
       }

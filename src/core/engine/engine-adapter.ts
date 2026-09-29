@@ -38,7 +38,7 @@ export type DownloadResumePolicy = 'none' | 'checkpoint' | 'sequential-prefix'
  * credentials.
  */
 export const DIRECT_RESOURCE_METADATA_PROFILE =
-  'aria2-http-baseline-v1' as const
+  'aria2-http-baseline-v2' as const
 export type DirectResourceMetadataProfile =
   typeof DIRECT_RESOURCE_METADATA_PROFILE
 
