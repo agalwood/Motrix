@@ -459,6 +459,7 @@ jobs:
       - name: Test and build Safari desktop helpers
         if: matrix.platform == 'darwin'
         run: |
+          pnpm exec vitest run tests/scripts/safari-desktop-package.test.ts
           swift test --package-path packages/safari-bootstrap
           pnpm run build:safari-bootstrap -- --arch ${{ matrix.arch }} --test
 
