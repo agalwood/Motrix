@@ -41,9 +41,9 @@ and packaged-file checks.
 - Project pnpm settings belong in `pnpm-workspace.yaml`. Keep `nodeLinker:
   hoisted` unless the Electron packaging smoke job proves isolated linking
   works.
-- Install-script permission is controlled by pnpm 11 `allowBuilds`. Keep
+- Install-script permission is controlled by pnpm 12 `allowBuilds`. Keep
   `electron` allowed for compatibility, but do not rely on `pnpm install` to
-  hydrate Electron 43: it exposes `install.js` as a package bin without a
+  hydrate Electron: it exposes `install.js` as a package bin without a
   `postinstall` script. Local workflows that consume Electron or its licenses
   must run `pnpm run ensure:electron-runtime` first; that command validates the
   entire payload and repairs partial installs safely. CI/container workflows
