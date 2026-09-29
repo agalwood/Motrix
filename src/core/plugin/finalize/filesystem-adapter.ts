@@ -15,6 +15,10 @@ export type FinalizeFsErrorCode =
   | 'symlink_rejected'
   | 'io_error'
 
+export interface FinalizeRenameResult {
+  directorySyncMode: 'directory_flushed' | 'remote_acknowledged'
+}
+
 export class FinalizeFsError extends Error {
   constructor(
     readonly code: FinalizeFsErrorCode,
@@ -23,6 +27,9 @@ export class FinalizeFsError extends Error {
       operation?: string
       osError?: number
       ntStatus?: string
+      stage?: string
+      mutation?: 'not_attempted' | 'applied' | 'unknown'
+      attempts?: number
     }
   ) {
     super(message)
@@ -47,6 +54,9 @@ interface WireResponse {
   operation?: string
   os_error?: number
   nt_status?: string
+  stage?: string
+  mutation?: 'not_attempted' | 'applied' | 'unknown'
+  attempts?: number
   directory_sync_mode?: 'directory_flushed' | 'remote_acknowledged'
   sanitized_name?: string
   platform?: string
@@ -91,7 +101,7 @@ export interface FinalizeFilesystemAdapter {
     artifact: FinalizeArtifactHandle,
     targetRoot: FinalizeRootHandle,
     targetRelative: string
-  ): Promise<void>
+  ): Promise<FinalizeRenameResult | undefined>
   linkOpenedNoReplace(
     artifact: FinalizeArtifactHandle,
     targetRoot: FinalizeRootHandle,
@@ -113,7 +123,7 @@ export interface FinalizeFilesystemAdapter {
     sourceRelative: string,
     targetRoot: FinalizeRootHandle,
     targetRelative: string
-  ): Promise<void>
+  ): Promise<FinalizeRenameResult | undefined>
   removeOpened(
     artifact: FinalizeArtifactHandle,
     quarantineRelative: string,
@@ -230,13 +240,19 @@ export class NativeFinalizeFilesystemAdapter
     artifact: FinalizeArtifactHandle,
     targetRoot: FinalizeRootHandle,
     targetRelative: string
-  ): Promise<void> {
-    await this.request({
+  ): Promise<FinalizeRenameResult | undefined> {
+    const response = await this.request({
       op: 'rename_opened_no_replace',
       artifact: this.nativeId(artifact),
       target_root: this.nativeId(targetRoot),
       target_relative: targetRelative,
     })
+    if (
+      response.directory_sync_mode === 'directory_flushed' ||
+      response.directory_sync_mode === 'remote_acknowledged'
+    ) {
+      return { directorySyncMode: response.directory_sync_mode }
+    }
   }
 
   async linkOpenedNoReplace(
@@ -311,14 +327,20 @@ export class NativeFinalizeFilesystemAdapter
     sourceRelative: string,
     targetRoot: FinalizeRootHandle,
     targetRelative: string
-  ): Promise<void> {
-    await this.request({
+  ): Promise<FinalizeRenameResult | undefined> {
+    const response = await this.request({
       op: 'rename_no_replace',
       source_root: this.nativeId(sourceRoot),
       source_relative: sourceRelative,
       target_root: this.nativeId(targetRoot),
       target_relative: targetRelative,
     })
+    if (
+      response.directory_sync_mode === 'directory_flushed' ||
+      response.directory_sync_mode === 'remote_acknowledged'
+    ) {
+      return { directorySyncMode: response.directory_sync_mode }
+    }
   }
 
   async removeOpened(
@@ -337,20 +359,10 @@ export class NativeFinalizeFilesystemAdapter
   }
 
   async syncRoot(root: FinalizeRootHandle): Promise<void> {
-    const response = await this.request({
+    await this.request({
       op: 'sync_root',
       root: this.nativeId(root),
     })
-    if (
-      response.directory_sync_mode === 'remote_acknowledged' &&
-      !this.remoteDurabilityReported
-    ) {
-      this.remoteDurabilityReported = true
-      getLogger('finalize').warn(
-        { durability: response.directory_sync_mode },
-        'SMB directory flush is unsupported; namespace durability depends on the remote server'
-      )
-    }
   }
 
   async close(
@@ -438,7 +450,35 @@ export class NativeFinalizeFilesystemAdapter
     child.stdin.write(frame, (error) => {
       if (error && this.child === child) this.markDead(error)
     })
-    const result = await response
+    const result = await response.catch((cause: unknown) => {
+      if (
+        body.op === 'rename_opened_no_replace' ||
+        body.op === 'rename_no_replace'
+      ) {
+        const error = new FinalizeFsError(
+          'io_error',
+          'rename response lost; filesystem recovery is required',
+          {
+            operation: String(body.op),
+            stage: 'transport',
+            mutation: 'unknown',
+          }
+        )
+        error.cause = cause
+        throw error
+      }
+      throw cause
+    })
+    if (
+      result.directory_sync_mode === 'remote_acknowledged' &&
+      !this.remoteDurabilityReported
+    ) {
+      this.remoteDurabilityReported = true
+      getLogger('finalize').warn(
+        { durability: result.directory_sync_mode },
+        'SMB directory flush is unsupported; namespace durability depends on the remote server'
+      )
+    }
     if (result.status === 'error') {
       throw new FinalizeFsError(
         result.code ?? 'io_error',
@@ -447,6 +487,9 @@ export class NativeFinalizeFilesystemAdapter
           operation: result.operation ?? String(body.op),
           osError: result.os_error,
           ntStatus: result.nt_status,
+          stage: result.stage,
+          mutation: result.mutation,
+          attempts: result.attempts,
         }
       )
     }

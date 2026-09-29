@@ -169,6 +169,7 @@ export class NativeFinalizeArtifactOperations
         'rename'
       )
       await this.requireIdentity(sourcePath, expected)
+      let directoriesSynced = false
       if (method === 'link') {
         await this.adapter.linkOpenedNoReplace(
           artifact,
@@ -176,14 +177,18 @@ export class NativeFinalizeArtifactOperations
           path.basename(targetPath)
         )
       } else {
-        await this.adapter.renameOpenedNoReplace(
+        const result = await this.adapter.renameOpenedNoReplace(
           artifact,
           targetRoot,
           path.basename(targetPath)
         )
+        directoriesSynced = result !== undefined
       }
-      await this.adapter.syncRoot(sourceRoot)
-      await this.adapter.syncRoot(targetRoot)
+      // Older sidecars and link publication still require caller-owned syncs.
+      if (!directoriesSynced) {
+        await this.adapter.syncRoot(sourceRoot)
+        await this.adapter.syncRoot(targetRoot)
+      }
       await this.requireIdentity(targetPath, expected)
     } finally {
       if (artifact) await this.adapter.close(artifact).catch(() => undefined)

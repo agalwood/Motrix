@@ -210,3 +210,31 @@ NTFS. The Linux recovery suite also covers a lost isolation response followed
 by restart with 0755 permissions, and preservation of both hard links when
 0777 permissions make cleanup unsafe. Windows uses its existing handle-based
 removal and SMB flush policy; these Unix permission checks do not apply there.
+
+## Rename completion and retries
+
+Rename responses add `stage`, `mutation`, and `directory_sync_mode`. On success,
+`mutation` is `applied` and both changed parent directories have been synced.
+Parents with the same held filesystem identity are synced once. The host skips
+its duplicate directory syncs only when the sidecar returns a sync mode; older
+sidecars retain the caller-owned fallback. File-content sync and journal
+checkpoints remain separate requirements.
+
+Failures before the syscall use `not_attempted`, syscall failures use the
+conservative `unknown`, and post-rename verification or sync failures use
+`applied`. A lost process response is also `unknown`. These fields are diagnostic:
+recovery must still inspect both names and their identities before deciding
+what to do. They do not authorize replaying an operation or skipping recovery.
+`remote_acknowledged` retains the weaker SMB acknowledgement contract and must
+not be described as a completed directory flush.
+
+On Windows, rename-only admission and rename share four possible waits of
+50, 100, 200, and 400 milliseconds. Only errors 5, 32, and 33 retry. Error 5
+is ambiguous and can be a permanent ACL denial; bounded retries never alter
+permissions or relax handle sharing. Exhaustion reports the failing stage,
+attempt count for that stage, OS code, and original NTSTATUS. The wait budget
+does not bound time spent inside a blocking filesystem call.
+
+Directory case-sensitivity queries fall back only on recognized unsupported
+information-class errors. Permission, sharing, transport, and I/O failures are
+propagated instead of silently switching to case-insensitive lookup.

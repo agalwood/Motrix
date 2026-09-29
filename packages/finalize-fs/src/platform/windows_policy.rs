@@ -16,11 +16,9 @@ pub(super) fn is_online_smb2(protocol: u32, major: u16, flags: u32) -> bool {
     protocol == 0x0002_0000 && major >= 2 && flags & 0x2 == 0
 }
 
-/// Rename errors that are transient in practice: antivirus scanners, search
-/// indexers and recently closed handles hold the artifact or target name for a
-/// few milliseconds. ACCESS_DENIED (5), SHARING_VIOLATION (32) and
-/// LOCK_VIOLATION (33) only — real permission settings, invalid paths,
-/// missing parents and cross-device moves are reported immediately.
+/// Sharing/lock violations can be transient. ACCESS_DENIED is ambiguous: it
+/// can mean either temporary interference or a permanent ACL denial. All three
+/// receive bounded retries; no retry changes permissions or sharing policy.
 pub(super) fn is_transient_rename_conflict(code: Option<i32>) -> bool {
     matches!(code, Some(5 | 32 | 33))
 }
@@ -39,9 +37,143 @@ pub(super) fn rename_retry_delay_ms(attempt: usize) -> Option<u64> {
     }
 }
 
+/// One wait budget follows a rename-only handle from admission through rename.
+/// Successful opens do not reset the budget. Total deliberate waiting is at
+/// most 750 ms; this does not impose a timeout on a blocking filesystem call.
+#[derive(Default)]
+pub(super) struct RenameRetryBudget(std::cell::Cell<usize>);
+
+impl RenameRetryBudget {
+    pub(super) fn run<T>(
+        &self,
+        stage: &'static str,
+        mutation: &'static str,
+        operation: impl FnMut() -> std::io::Result<T>,
+    ) -> std::io::Result<T> {
+        self.run_with_sleep(stage, mutation, operation, |ms| {
+            std::thread::sleep(std::time::Duration::from_millis(ms));
+        })
+    }
+
+    fn run_with_sleep<T>(
+        &self,
+        stage: &'static str,
+        mutation: &'static str,
+        mut operation: impl FnMut() -> std::io::Result<T>,
+        mut sleep: impl FnMut(u64),
+    ) -> std::io::Result<T> {
+        let mut attempts = 0;
+        loop {
+            attempts += 1;
+            let error = match operation() {
+                Ok(value) => return Ok(value),
+                Err(error) => error,
+            };
+            let delay = is_transient_rename_conflict(crate::error::os_code(&error))
+                .then(|| rename_retry_delay_ms(self.0.get()))
+                .flatten();
+            match delay {
+                Some(ms) => {
+                    self.0.set(self.0.get() + 1);
+                    sleep(ms);
+                }
+                None => {
+                    return Err(crate::error::operation_error(
+                        error,
+                        stage,
+                        mutation,
+                        Some(attempts),
+                    ));
+                }
+            }
+        }
+    }
+}
+
+/// A failed capability query must not turn an operational error into a change
+/// in path lookup semantics. Only known unsupported-information errors fall back.
+pub(super) fn case_sensitive_query(result: std::io::Result<bool>) -> std::io::Result<bool> {
+    match result {
+        Err(error) if unsupported_information(crate::error::os_code(&error)) => Ok(false),
+        result => result,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn case_query_only_falls_back_for_capability_errors() {
+        assert!(case_sensitive_query(Ok(true)).unwrap());
+        assert!(!case_sensitive_query(Ok(false)).unwrap());
+        for code in [1, 50, 87, 120, 124] {
+            assert!(!case_sensitive_query(Err(std::io::Error::from_raw_os_error(code))).unwrap());
+        }
+        for code in [5, 32, 53, 64, 1117] {
+            assert_eq!(
+                case_sensitive_query(Err(std::io::Error::from_raw_os_error(code)))
+                    .unwrap_err()
+                    .raw_os_error(),
+                Some(code)
+            );
+        }
+    }
+
+    #[test]
+    fn admission_and_rename_share_one_retry_budget() {
+        let budget = RenameRetryBudget::default();
+        let mut waits = Vec::new();
+        let mut opens = 0;
+        budget
+            .run_with_sleep(
+                "open_source",
+                "not_attempted",
+                || {
+                    opens += 1;
+                    if opens <= 2 {
+                        Err(std::io::Error::from_raw_os_error(32))
+                    } else {
+                        Ok(())
+                    }
+                },
+                |ms| waits.push(ms),
+            )
+            .unwrap();
+        let error = budget
+            .run_with_sleep::<()>(
+                "rename",
+                "unknown",
+                || Err(std::io::Error::from_raw_os_error(5)),
+                |ms| waits.push(ms),
+            )
+            .unwrap_err();
+        assert_eq!(waits, vec![50, 100, 200, 400]);
+        let context = crate::error::operation_context(&error).unwrap();
+        assert_eq!(context.stage, "rename");
+        assert_eq!(context.attempts, Some(3));
+        assert_eq!(crate::error::os_code(&error), Some(5));
+    }
+
+    #[test]
+    fn successful_mutations_and_non_conflict_errors_are_never_replayed() {
+        let budget = RenameRetryBudget::default();
+        budget.run("rename", "unknown", || Ok(())).unwrap();
+        for code in [17, 87, 112, 183, 64] {
+            let error = budget
+                .run_with_sleep::<()>(
+                    "rename",
+                    "unknown",
+                    || Err(std::io::Error::from_raw_os_error(code)),
+                    |_| panic!("permanent or ambiguous transport errors must not retry"),
+                )
+                .unwrap_err();
+            assert_eq!(
+                crate::error::operation_context(&error).unwrap().attempts,
+                Some(1)
+            );
+        }
+    }
 
     #[test]
     fn remote_acknowledgement_requires_online_smb2_or_newer() {

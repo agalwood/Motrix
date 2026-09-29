@@ -21,6 +21,10 @@ use std::path::{Component, Path, PathBuf, Prefix};
 pub(crate) use copy::copy_opened;
 pub(crate) use remove::remove_opened;
 
+use super::windows_policy::RenameRetryBudget;
+use crate::error::operation_error;
+use crate::rename::{RenameOutcome, sync_parents};
+
 pub(crate) struct RootHandle {
     handle: OwnedHandle,
 }
@@ -31,6 +35,7 @@ pub(crate) struct ArtifactHandle {
     name: Vec<u16>,
     snapshot: Option<ArtifactSnapshot>,
     stamp: metadata::FileStamp,
+    rename_budget: RenameRetryBudget,
 }
 
 pub(crate) fn open_root(path: &str) -> io::Result<RootHandle> {
@@ -79,7 +84,14 @@ fn open_artifact_internal(
 ) -> io::Result<ArtifactHandle> {
     let parts = validate_relative(relative)?;
     let (parent, name) = open_parent(&root.handle, &parts)?;
-    let handle = nt::open_existing(&parent, &name)?;
+    let rename_budget = RenameRetryBudget::default();
+    let handle = if snapshot {
+        nt::open_existing(&parent, &name)?
+    } else {
+        rename_budget.run("open_source", "not_attempted", || {
+            nt::open_existing(&parent, &name)
+        })?
+    };
     let stamp = query_stamp(&handle)?;
     let snapshot = if snapshot {
         Some(metadata::snapshot_opened(&handle)?)
@@ -93,6 +105,7 @@ fn open_artifact_internal(
         name,
         snapshot,
         stamp,
+        rename_budget,
     })
 }
 
@@ -100,28 +113,40 @@ pub(crate) fn rename_opened_no_replace(
     artifact: &ArtifactHandle,
     target: &RootHandle,
     target_relative: &str,
-) -> io::Result<()> {
-    if let Some(snapshot) = &artifact.snapshot {
-        ensure_snapshot(&artifact.handle, snapshot)?;
-    } else if query_stamp(&artifact.handle)? != artifact.stamp {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "opened Windows artifact changed before rename",
-        ));
-    }
-    ensure_named_entry(&artifact.handle, &artifact.parent, &artifact.name)?;
-    let parts = validate_relative(target_relative)?;
-    let (target_parent, target_name) = open_parent(&target.handle, &parts)?;
-    nt::rename_no_replace_with_retry(&artifact.handle, &target_parent, &target_name)?;
-    ensure_named_entry(&artifact.handle, &target_parent, &target_name)?;
-    assert_name_absent(&artifact.parent, &artifact.name)?;
-    // Match the Unix durability contract: flush both mutated directories
-    // before reporting success, instead of depending on the host to flush
-    // after the sidecar could have crashed. flush_directory keeps the SMB
-    // remote-acknowledgement policy for directory flushes.
-    nt::flush_directory(&target_parent).map(|_| ())?;
-    nt::flush_directory(&artifact.parent).map(|_| ())?;
-    Ok(())
+) -> io::Result<RenameOutcome> {
+    let (target_parent, target_name, same_parent) = (|| {
+        if let Some(snapshot) = &artifact.snapshot {
+            ensure_snapshot(&artifact.handle, snapshot)?;
+        } else if query_stamp(&artifact.handle)? != artifact.stamp {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "opened Windows artifact changed before rename",
+            ));
+        }
+        ensure_named_entry(&artifact.handle, &artifact.parent, &artifact.name)?;
+        let parts = validate_relative(target_relative)?;
+        let (target_parent, target_name) = open_parent(&target.handle, &parts)?;
+        let same_parent = metadata::query_identity(&artifact.parent)?
+            == metadata::query_identity(&target_parent)?;
+        Ok((target_parent, target_name, same_parent))
+    })()
+    .map_err(|e| operation_error(e, "validate_source", "not_attempted", None))?;
+    nt::rename_no_replace_with_retry(
+        &artifact.handle,
+        &target_parent,
+        &target_name,
+        &artifact.rename_budget,
+    )?;
+    ensure_named_entry(&artifact.handle, &target_parent, &target_name)
+        .and_then(|()| assert_name_absent(&artifact.parent, &artifact.name))
+        .map_err(|e| operation_error(e, "verify_target", "applied", None))?;
+    sync_parents(same_parent, |target| {
+        nt::flush_directory(if target {
+            &target_parent
+        } else {
+            &artifact.parent
+        })
+    })
 }
 
 pub(crate) fn rename_no_replace(
@@ -129,7 +154,7 @@ pub(crate) fn rename_no_replace(
     source_relative: &str,
     target: &RootHandle,
     target_relative: &str,
-) -> io::Result<()> {
+) -> io::Result<RenameOutcome> {
     let artifact = open_artifact(source, source_relative)?;
     rename_opened_no_replace(&artifact, target, target_relative)
 }

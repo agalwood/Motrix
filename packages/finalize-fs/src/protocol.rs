@@ -131,6 +131,12 @@ pub(crate) struct Response<'a> {
     pub(crate) os_error: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) nt_status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) stage: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) mutation: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) attempts: Option<usize>,
 }
 
 impl<'a> Response<'a> {
@@ -151,6 +157,9 @@ impl<'a> Response<'a> {
             directory_sync_mode: None,
             os_error: None,
             nt_status: None,
+            stage: None,
+            mutation: None,
+            attempts: None,
         }
     }
 
@@ -162,6 +171,11 @@ impl<'a> Response<'a> {
         );
         response.os_error = crate::error::os_code(&error);
         response.nt_status = crate::error::nt_status(&error);
+        if let Some(context) = crate::error::operation_context(&error) {
+            response.stage = Some(context.stage);
+            response.mutation = Some(context.mutation);
+            response.attempts = context.attempts;
+        }
         response
     }
 
@@ -207,6 +221,22 @@ mod tests {
     use super::{Request, Response, read_frame, write_frame};
     use serde_json::json;
     use std::io::Cursor;
+
+    #[test]
+    fn mutation_context_preserves_original_native_diagnostics() {
+        let native = crate::error::native_error(
+            std::io::Error::from_raw_os_error(5),
+            "NtSetInformationFile",
+            Some(0xc0000022_u32 as i32),
+        );
+        let error = crate::error::operation_error(native, "rename", "unknown", Some(3));
+        let value = serde_json::to_value(Response::filesystem_error(1, error)).unwrap();
+        assert_eq!(value["stage"], "rename");
+        assert_eq!(value["mutation"], "unknown");
+        assert_eq!(value["attempts"], 3);
+        assert_eq!(value["os_error"], 5);
+        assert_eq!(value["nt_status"], "0xc0000022");
+    }
 
     #[test]
     fn request_wire_remains_tagged_by_operation() {
