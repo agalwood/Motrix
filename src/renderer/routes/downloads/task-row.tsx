@@ -20,6 +20,8 @@ import {
   getTaskEta,
   getTaskSpeed,
   getTaskTimestamp,
+  isTaskEtaApplicable,
+  isTaskSpeedApplicable,
 } from './task-column-values'
 import { TaskProgress } from './task-progress'
 import { TaskTimestamp } from './task-timestamp'
@@ -67,6 +69,7 @@ function TaskRowBase({
     extensionIndex > 0 && task.name.length - extensionIndex <= 16
       ? task.name.slice(extensionIndex)
       : ''
+  const unknownMetric = <span className="text-muted-foreground">–</span>
   const cells: Record<TaskSortColumn, ReactNode> = {
     name: (
       <span
@@ -87,9 +90,21 @@ function TaskRowBase({
     size: outputSize === null ? '—' : formatBytes(outputSize),
     progress: <TaskProgress task={task} />,
     status: <StatusPill status={task.status} task={task} compact />,
-    down: downloadSpeed === null ? '—' : formatSpeed(downloadSpeed),
-    up: uploadSpeed === null ? '—' : formatSpeed(uploadSpeed),
-    eta: eta === null ? '—' : formatDurationHMS(eta),
+    down: !isTaskSpeedApplicable(task, 'downloadSpeed')
+      ? null
+      : downloadSpeed === null
+        ? unknownMetric
+        : formatSpeed(downloadSpeed),
+    up: !isTaskSpeedApplicable(task, 'uploadSpeed')
+      ? null
+      : uploadSpeed === null
+        ? unknownMetric
+        : formatSpeed(uploadSpeed),
+    eta: !isTaskEtaApplicable(task)
+      ? null
+      : eta === null
+        ? unknownMetric
+        : formatDurationHMS(eta),
     connections: getTaskConnections(task),
     createdAt: (
       <TaskTimestamp timestamp={getTaskTimestamp(task, 'createdAt')} />

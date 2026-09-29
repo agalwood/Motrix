@@ -145,6 +145,7 @@ describe('download sorting', () => {
       const tasks = [
         makeDownloadTask({
           id: 'high',
+          type: column === 'up' ? TaskType.Bt : TaskType.Http,
           sizeWhenDone: 1_000_000,
           totalBytes: 1,
           progress: 0.805,
@@ -155,6 +156,7 @@ describe('download sorting', () => {
         }),
         makeDownloadTask({
           id: 'low',
+          type: column === 'up' ? TaskType.Bt : TaskType.Http,
           sizeWhenDone: 2_000,
           totalBytes: 10_000_000,
           progress: 0.804,
@@ -224,18 +226,27 @@ describe('download sorting', () => {
         makeDownloadTask({
           id: 'completed',
           status: TaskStatus.Completed,
+          type: TaskType.Bt,
           downloadSpeed: 100_000,
           uploadSpeed: 100_000,
         }),
-        makeDownloadTask({ id: 'zero' }),
-        makeDownloadTask({ id: 'live', downloadSpeed: 100, uploadSpeed: 100 }),
+        makeDownloadTask({ id: 'zero', type: TaskType.Bt }),
+        makeDownloadTask({
+          id: 'live',
+          type: TaskType.Bt,
+          downloadSpeed: 100,
+          uploadSpeed: 100,
+        }),
       ]
       for (const direction of ['asc', 'desc'] as const) {
         expect(
           sortTasks(tasks, { column, direction }, 'en-US').map(
             (task) => task.id
           )
-        ).toEqual(['live', 'completed', 'zero'])
+        ).toEqual([
+          ...(direction === 'asc' ? ['zero', 'live'] : ['live', 'zero']),
+          'completed',
+        ])
       }
     }
   )
