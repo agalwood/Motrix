@@ -1576,3 +1576,90 @@ describe('PairSession', () => {
     })
   })
 })
+
+describe('Safari MBP1 identity and encrypted credential flow', () => {
+  const origin = 'safari-web-extension://12345678-90ab-cdef-1234-567890abcdef'
+  const callerId = 'app.motrix.safari.extension'
+  it.each(['none', 'valid', 'stale'] as const)(
+    'completes pairing with a %s ticket and the correct trust level',
+    async (mode) => {
+      const h = makeHarness({ browser: 'safari', verifiedOrigin: origin })
+      const ticket =
+        mode === 'none'
+          ? null
+          : mintTicket({
+              browser: 'safari',
+              callerId,
+              ...(mode === 'stale'
+                ? { serverGeneration: 'old-generation' }
+                : {}),
+            })
+      const options = {
+        browser: 'safari' as const,
+        verifiedOrigin: origin,
+        claimedExtensionId: callerId,
+        ticket,
+      }
+      const code = await openSession(
+        h,
+        new ClientDouble({ code: '00000000', ...options }).hello()
+      )
+      expect(h.dialogs[0].identity).toBe(
+        mode === 'valid' ? 'official' : 'unverified'
+      )
+      const client = new ClientDouble({ code, ...options })
+      await runHandshake(h, client)
+      expect(client.verifyConfirmB(h.lastSent())).toBe(true)
+      const channel = client.channel()
+      const offer = JSON.parse(
+        Buffer.from(channel.opener.open(h.binary[0])).toString('utf-8')
+      )
+      await h.session.handleBinary(
+        channel.sealer.seal(
+          utf8ToBytes(
+            JSON.stringify({
+              type: 'credentialAck',
+              credentialId: offer.credentialId,
+            })
+          )
+        )
+      )
+      expect(h.authenticated).not.toBeNull()
+      expect(h.offerProvisional).toHaveBeenCalledWith(
+        {
+          browser: 'safari',
+          verifiedOrigin: origin,
+          clientInstallationId: INSTALLATION_ID,
+        },
+        mode === 'valid' ? 'official' : 'unverified'
+      )
+      expect(
+        JSON.parse(
+          Buffer.from(channel.opener.open(h.binary[1])).toString('utf-8')
+        )
+      ).toEqual({ type: 'credentialCommitted' })
+    }
+  )
+  it('rejects transcript construction from an uppercase runtime UUID instead of the wire Origin', async () => {
+    const h = makeHarness({ browser: 'safari', verifiedOrigin: origin })
+    const options = {
+      browser: 'safari' as const,
+      claimedExtensionId: callerId,
+      verifiedOrigin: origin.replace(
+        '12345678-90ab-cdef-1234-567890abcdef',
+        '12345678-90AB-CDEF-1234-567890ABCDEF'
+      ),
+    }
+    const code = await openSession(
+      h,
+      new ClientDouble({ code: '00000000', ...options }).hello()
+    )
+    await runHandshake(h, new ClientDouble({ code, ...options }))
+    expect(h.lastSent()).toMatchObject({
+      type: 'pairError',
+      code: 'codeMismatch',
+    })
+    expect(h.authenticated).toBeNull()
+    expect(h.offerProvisional).not.toHaveBeenCalled()
+  })
+})

@@ -1,7 +1,12 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 import { mkdir, open as openFile, readFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import type { Browser } from '@shared/protocol/bridge'
+import {
+  type Browser,
+  BrowserSchema,
+  EXTENSION_ORIGIN_SCHEMES,
+  isBridgeBrowser,
+} from '@shared/protocol/bridge'
 import writeFileAtomic from 'write-file-atomic'
 import { z } from 'zod'
 import { normalizeExtensionIdentity } from './extension-identity-resolver'
@@ -23,8 +28,6 @@ const MAX_INSTALLATION_ID_LENGTH = 256
 const MAX_EXTENSION_ID_LENGTH = 256
 const UUID_V4_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u
-
-const BrowserSchema: z.ZodType<Browser> = z.enum(['chromium', 'firefox'])
 
 const CredentialPrincipalSchema = z
   .object({
@@ -796,7 +799,7 @@ function normalizeTransportIdentity(
   extensionId: string
 ): { browser: Browser; extensionId: string } | null {
   if (
-    (browser !== 'chromium' && browser !== 'firefox') ||
+    !isBridgeBrowser(browser) ||
     typeof extensionId !== 'string' ||
     extensionId.length === 0 ||
     extensionId.length > MAX_EXTENSION_ID_LENGTH ||
@@ -804,7 +807,7 @@ function normalizeTransportIdentity(
   ) {
     return null
   }
-  const scheme = browser === 'chromium' ? 'chrome-extension' : 'moz-extension'
+  const scheme = EXTENSION_ORIGIN_SCHEMES[browser]
   const normalized = normalizeExtensionIdentity({
     browser,
     verifiedOrigin: `${scheme}://${extensionId}`,
@@ -922,8 +925,7 @@ function principalMatchesExtensionIdentity(
   if (principal.browser !== browser) return false
   try {
     const origin = new URL(principal.verifiedOrigin)
-    const protocol =
-      browser === 'chromium' ? 'chrome-extension:' : 'moz-extension:'
+    const protocol = `${EXTENSION_ORIGIN_SCHEMES[browser]}:`
     return (
       origin.protocol === protocol && origin.host === extensionId.toLowerCase()
     )

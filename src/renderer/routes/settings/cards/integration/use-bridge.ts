@@ -5,6 +5,7 @@ import {
   BridgeEvents,
   BridgeQueries,
   type BridgeStatusInfo,
+  type Browser,
   type ClientIdentity,
   type PairedClientInfo,
   type PairRequestPayload,
@@ -80,7 +81,7 @@ export function useTrustedExtensions() {
   }, [refresh])
 
   const add = useCallback(
-    async (id: string, browser: 'chromium' | 'firefox', label?: string) => {
+    async (id: string, browser: Browser, label?: string) => {
       await transport.invoke(
         BridgeCommands.AddTrusted as unknown as CommandChannel,
         { id, browser, label }
@@ -91,7 +92,7 @@ export function useTrustedExtensions() {
   )
 
   const remove = useCallback(
-    async (id: string, browser: 'chromium' | 'firefox') => {
+    async (id: string, browser: Browser) => {
       await transport.invoke(
         BridgeCommands.RemoveTrusted as unknown as CommandChannel,
         { id, browser }

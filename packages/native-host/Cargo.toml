@@ -6,6 +6,10 @@ license = "MIT"
 publish = false
 default-run = "motrix-native-host"
 
+[features]
+default = []
+safari-bootstrap = []
+
 [[bin]]
 name = "motrix-native-host"
 path = "src/main.rs"

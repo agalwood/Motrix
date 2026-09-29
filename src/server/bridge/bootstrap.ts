@@ -35,6 +35,7 @@ import {
   BridgeEvents,
   BridgeQueries,
   type BridgeStatusInfo,
+  type Browser,
   type ClientIdentity,
   pairRequestKey,
   type ResolvePairParams,
@@ -351,7 +352,7 @@ export async function bootstrapBridgeForServer(
       },
       [BridgeCommands.AddTrusted]: async (params: {
         id: string
-        browser: 'chromium' | 'firefox'
+        browser: Browser
         label?: string
       }) => {
         await registry.add(
@@ -363,7 +364,7 @@ export async function bootstrapBridgeForServer(
       },
       [BridgeCommands.RemoveTrusted]: async (params: {
         id: string
-        browser: 'chromium' | 'firefox'
+        browser: Browser
       }) => {
         await registry.remove(params.id, params.browser)
       },

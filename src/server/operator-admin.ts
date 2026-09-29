@@ -9,6 +9,7 @@ import { I18N_RESOURCES } from '@shared/i18n-resources'
 import {
   BridgeCommands,
   BridgeQueries,
+  BrowserSchema,
   type PendingPairRequestInfo,
   type ResolvePairParams,
   type ResolvePairResult,
@@ -57,7 +58,7 @@ const pendingExtensionRequestSchema: z.ZodType<PendingExtensionRequest> = z
     kind: z.literal('extension'),
     pairingNonce: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/),
     extensionId: z.string().min(1).max(256),
-    browser: z.enum(['chromium', 'firefox']),
+    browser: BrowserSchema,
     identity: z.enum(['official', 'attested-non-official', 'unverified']),
     code: z.string().regex(WIRE_USER_CODE_PATTERN),
     verifiedOrigin: z.string().min(1).max(512).optional(),

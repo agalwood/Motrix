@@ -189,8 +189,8 @@ importers:
         specifier: ^0.32.0
         version: 0.32.0
       '@motrix/mdxp':
-        specifier: ^0.7.0
-        version: 0.7.0
+        specifier: ^0.8.0
+        version: 0.8.0
       '@motrix/nat':
         specifier: ^0.1.3
         version: 0.1.3
@@ -1106,8 +1106,8 @@ packages:
     engines: {node: '>=22.12'}
     hasBin: true
 
-  '@motrix/mdxp@0.7.0':
-    resolution: {integrity: sha512-usgS94FNEXQyt6wg5hA8UZfCuuf+5inAzhcEc6mNt88RwwOqgbrYDG/VvtD0yn94kNEsxNxZcPowJXqcaGx41w==}
+  '@motrix/mdxp@0.8.0':
+    resolution: {integrity: sha512-eZ1zexvJxpVP/xosaO4Bio3pOIlukO+jsaDSSJX6Ong0eohP7MTXuUfwDfrNBX3cZ/sOEKy8zJurZ551ryQLog==}
 
   '@motrix/nat@0.1.3':
     resolution: {integrity: sha512-qrMAkP/zkXQlYxAKwSm5xYSG8XwKWLECtkX25P1KrgNlK1dGhWpjj485xO3Pojvwztp6yhcPQ3z29fFymXJfvw==}
@@ -5468,7 +5468,7 @@ snapshots:
     dependencies:
       commander: 15.0.0
 
-  '@motrix/mdxp@0.7.0':
+  '@motrix/mdxp@0.8.0':
     dependencies:
       vscode-jsonrpc: 9.0.3
       zod: 4.6.5

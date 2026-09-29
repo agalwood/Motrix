@@ -11,6 +11,7 @@ import type { Browser } from '@shared/protocol/bridge'
 const BROWSER_DISPLAY_NAMES: Record<Browser, string> = {
   chromium: 'Chrome / Edge',
   firefox: 'Firefox',
+  safari: 'Safari',
 }
 
 export function browserDisplayName(browser: Browser): string {

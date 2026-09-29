@@ -308,6 +308,22 @@ jobs:
           cargo test --manifest-path packages/native-host/Cargo.toml --locked --all-targets
           cargo test --manifest-path packages/finalize-fs/Cargo.toml --locked --all-targets
 
+  safari-native-host:
+    name: Safari native host / macOS
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: 1.94.1
+          components: rustfmt, clippy
+      - name: Validate the macOS-only Safari FFI
+        run: |
+          cargo fmt --manifest-path packages/native-host/Cargo.toml --all -- --check
+          cargo clippy --manifest-path packages/native-host/Cargo.toml --all-targets --all-features --locked -- -D warnings
+          cargo test --manifest-path packages/native-host/Cargo.toml --all-targets --all-features --locked
+
   package-targets:
     name: Package smoke / ${{ matrix.target }}
     runs-on: ${{ matrix.os }}

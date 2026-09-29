@@ -1,4 +1,9 @@
 import { randomUUID } from 'node:crypto'
+import {
+  EXTENSION_ORIGIN_SCHEMES,
+  isBridgeBrowser,
+  isSafariExtensionOrigin,
+} from '@shared/protocol/bridge'
 import type { PairDialogRequest } from './mbp1/pair-session'
 
 export const PairingPromptTerminalOutcomes = Object.freeze({
@@ -182,6 +187,9 @@ function parseVerifiedIdentity(
   request: PairDialogRequest
 ): VerifiedPairingPromptIdentity | null {
   if (
+    !isBridgeBrowser(request.browser) ||
+    (request.browser === 'safari' &&
+      !isSafariExtensionOrigin(request.verifiedOrigin)) ||
     request.verifiedOrigin.length === 0 ||
     hasUnsafeOriginCharacter(request.verifiedOrigin) ||
     request.verifiedOrigin.includes('\\') ||
@@ -197,8 +205,7 @@ function parseVerifiedIdentity(
     return null
   }
 
-  const expectedProtocol =
-    request.browser === 'chromium' ? 'chrome-extension:' : 'moz-extension:'
+  const expectedProtocol = `${EXTENSION_ORIGIN_SCHEMES[request.browser]}:`
   if (
     parsed.protocol !== expectedProtocol ||
     parsed.host === '' ||

@@ -1,4 +1,8 @@
-import type { Browser } from '@shared/protocol/bridge'
+import {
+  type Browser,
+  EXTENSION_ORIGIN_SCHEMES,
+  isBridgeBrowser,
+} from '@shared/protocol/bridge'
 import {
   type CommittedExtensionCredentialSnapshot,
   type CommittedExtensionCredentialWitness,
@@ -734,7 +738,7 @@ function normalizeTransportIdentity(
   const candidate = value as Record<string, unknown>
   if (
     candidate.kind !== 'extension' ||
-    (candidate.browser !== 'chromium' && candidate.browser !== 'firefox') ||
+    !isBridgeBrowser(candidate.browser) ||
     typeof candidate.extensionId !== 'string' ||
     candidate.extensionId.length === 0 ||
     candidate.extensionId.length > MAX_EXTENSION_ID_LENGTH ||
@@ -742,8 +746,7 @@ function normalizeTransportIdentity(
   ) {
     return null
   }
-  const scheme =
-    candidate.browser === 'chromium' ? 'chrome-extension' : 'moz-extension'
+  const scheme = EXTENSION_ORIGIN_SCHEMES[candidate.browser]
   const normalized = normalizeExtensionIdentity({
     browser: candidate.browser,
     verifiedOrigin: `${scheme}://${candidate.extensionId}`,

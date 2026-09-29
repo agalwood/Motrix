@@ -11,6 +11,8 @@ pub mod probe;
 pub mod protocol;
 pub mod resolve;
 pub mod runtime;
+#[cfg(all(target_os = "macos", feature = "safari-bootstrap"))]
+pub mod safari_bootstrap;
 #[cfg(test)]
 pub(crate) mod test_vectors;
 pub mod ticket;

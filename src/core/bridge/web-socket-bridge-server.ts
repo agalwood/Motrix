@@ -23,6 +23,9 @@ import {
   type Browser,
   type ClientIdentity,
   clientKey,
+  EXTENSION_ORIGIN_SCHEMES,
+  isBridgeBrowser,
+  isSafariExtensionOrigin,
   makeSessionKey,
   type PairRequestPayload,
 } from '@shared/protocol/bridge'
@@ -451,7 +454,9 @@ function parseExtensionOrigin(origin: string): ExtensionPeer | null {
     ? 'chromium'
     : origin.startsWith('moz-extension://')
       ? 'firefox'
-      : null
+      : isSafariExtensionOrigin(origin)
+        ? 'safari'
+        : null
   if (browser === null) {
     return null
   }
@@ -472,15 +477,14 @@ function normalizeRevocationIdentity(
 ): ClientIdentity & { kind: 'extension' } {
   if (
     identity?.kind !== 'extension' ||
-    (identity.browser !== 'chromium' && identity.browser !== 'firefox') ||
+    !isBridgeBrowser(identity.browser) ||
     typeof identity.extensionId !== 'string' ||
     identity.extensionId.length === 0 ||
     identity.extensionId.length > 256
   ) {
     throw new Error('extension revocation identity rejected')
   }
-  const scheme =
-    identity.browser === 'chromium' ? 'chrome-extension' : 'moz-extension'
+  const scheme = EXTENSION_ORIGIN_SCHEMES[identity.browser]
   const parsed = parseExtensionOrigin(`${scheme}://${identity.extensionId}`)
   if (
     parsed === null ||
