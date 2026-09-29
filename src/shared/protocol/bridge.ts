@@ -1,7 +1,28 @@
 // src/shared/protocol/bridge.ts
 
-/** Browser families the bridge pairs with. Canonical home for the union. */
-export type Browser = 'chromium' | 'firefox'
+import { z } from 'zod'
+
+/** Browser families the bridge pairs with. Canonical runtime contract. */
+export const BrowserSchema = z.enum(['chromium', 'firefox', 'safari'])
+export type Browser = z.infer<typeof BrowserSchema>
+
+export const EXTENSION_ORIGIN_SCHEMES: Readonly<Record<Browser, string>> =
+  Object.freeze({
+    chromium: 'chrome-extension',
+    firefox: 'moz-extension',
+    safari: 'safari-web-extension',
+  })
+
+export function isBridgeBrowser(value: unknown): value is Browser {
+  return BrowserSchema.safeParse(value).success
+}
+
+/** Safari's lowercase UUID Origin identifies an installation, not a signed bundle. */
+export function isSafariExtensionOrigin(origin: string): boolean {
+  return /^safari-web-extension:\/\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
+    origin
+  )
+}
 
 /**
  * Compose the session/index key shared by the pairing store, the trusted

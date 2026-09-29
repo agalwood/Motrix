@@ -23,10 +23,16 @@ function validateId(id: string, browser: Browser): void {
     if (!CHROME_ID_RE.test(id)) {
       throw new Error(`invalid Chrome extension ID: ${id}`)
     }
-  } else {
+  } else if (browser === 'safari') {
+    if (id.length > 255 || !/^[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)+$/.test(id)) {
+      throw new Error('invalid Safari bundle identifier')
+    }
+  } else if (browser === 'firefox') {
     if (!FIREFOX_ID_RE.test(id)) {
       throw new Error(`invalid Firefox extension ID: ${id}`)
     }
+  } else {
+    throw new Error('invalid browser family')
   }
 }
 

@@ -22,7 +22,7 @@ import {
 import { browserDisplayName } from '@renderer/lib/browser-name'
 import { cn } from '@renderer/lib/utils'
 import { EXTERNAL_URLS } from '@shared/external-urls'
-import type { TrustedExtensionInfo } from '@shared/protocol/bridge'
+import type { Browser, TrustedExtensionInfo } from '@shared/protocol/bridge'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useTrustedExtensions } from './use-bridge'
@@ -32,8 +32,6 @@ const SOURCE_ORDER: Record<TrustedExtensionInfo['source'], number> = {
   'user-added': 1,
   imported: 2,
 }
-
-type Browser = 'chromium' | 'firefox'
 
 const OFFICIAL_EXTENSION_STORE_URLS = new Map([
   [
@@ -104,6 +102,7 @@ export function TrustedExtensionsSection({ disabled }: { disabled: boolean }) {
       value: 'firefox',
       label: t('settings.integration.browser.addTrusted.firefox'),
     },
+    { value: 'safari', label: browserDisplayName('safari') },
   ] satisfies ReadonlyArray<{ value: Browser; label: string }>
 
   const sorted = useMemo(
@@ -131,7 +130,11 @@ export function TrustedExtensionsSection({ disabled }: { disabled: boolean }) {
   }
 
   const idPlaceholder =
-    newBrowser === 'chromium' ? chromeIdHint() : firefoxIdHint()
+    newBrowser === 'safari'
+      ? 'app.example.extension'
+      : newBrowser === 'chromium'
+        ? chromeIdHint()
+        : firefoxIdHint()
 
   return (
     <div

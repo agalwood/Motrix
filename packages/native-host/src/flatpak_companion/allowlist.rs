@@ -10,6 +10,10 @@ const EMBEDDED_ALLOWLIST: &str =
 pub struct NativeMessagingAllowlist {
     pub chromium: Vec<String>,
     pub firefox: Vec<String>,
+    // Shared configuration also lists macOS Safari identities. Flatpak never
+    // creates Safari manifests or accepts Safari callers.
+    #[serde(default)]
+    pub safari: Vec<String>,
 }
 
 pub fn embedded_allowlist() -> Result<NativeMessagingAllowlist, CompanionError> {

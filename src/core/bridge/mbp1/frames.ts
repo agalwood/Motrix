@@ -32,7 +32,7 @@
 // Nothing here logs: `pairHello` carries a ticket and `credentialOffer`
 // carries key material (§11).
 
-import type { Browser } from '@shared/protocol/bridge'
+import { BrowserSchema } from '@shared/protocol/bridge'
 import { z } from 'zod'
 import { fromBase64Url } from './canonical'
 
@@ -90,7 +90,7 @@ const base64UrlBytes = (byteLength: number) =>
 
 const protocolVersionField = z.number().int().min(0).max(0xffff_ffff)
 
-const browserField: z.ZodType<Browser> = z.enum(['chromium', 'firefox'])
+const browserField = BrowserSchema
 
 /**
  * The `pairHello.nmTicket` wire shape (§9.2), used **only** to recover the

@@ -217,6 +217,8 @@ fn validates_exact_browser_caller_shapes_before_broker_access() {
         format!("chrome-extension://{CHROMIUM_ID}//"),
         "chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/".into(),
         format!("https://{CHROMIUM_ID}/"),
+        "safari-web-extension://12345678-90ab-cdef-1234-567890abcdef".into(),
+        "chrome-extension://app.motrix.safari.extension/".into(),
     ] {
         assert!(
             validate_browser_caller(&[invalid.into()], &allowlist, &paths).is_err(),
@@ -712,6 +714,13 @@ fn allowlist_file_is_strict_and_matches_manifest_contract() {
     let allowlist = embedded_allowlist().expect("embedded allowlist");
     assert_eq!(allowlist.chromium, [CHROMIUM_ID, EDGE_ID]);
     assert_eq!(allowlist.firefox, [FIREFOX_ID]);
+    assert_eq!(allowlist.safari, ["app.motrix.safari.extension"]);
+    let mut config: Value = serde_json::from_str(include_str!(
+        "../../../../src/shared/config/native-messaging-extensions.json"
+    ))
+    .expect("shared configuration");
+    config["unknown_browser"] = json!([]);
+    assert!(serde_json::from_value::<super::NativeMessagingAllowlist>(config).is_err());
     assert!(!super::is_chromium_extension_id(
         "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaA"
     ));

@@ -198,93 +198,116 @@ describe('remote Extension through a trusted WSS reverse proxy', () => {
     ).rejects.toMatchObject({ code: 'CERT_HAS_EXPIRED' })
   })
 
-  it('validates TLS hostname/CA, preserves Host/base path, pairs, and submits over WSS', async () => {
-    const fixtureRoot = join(process.cwd(), 'src/server/bridge/__fixtures__')
-    const [ca, cert, key] = await Promise.all([
-      readFile(join(fixtureRoot, 'test-ca.pem'), 'utf8'),
-      readFile(join(fixtureRoot, 'motrix.test-cert.pem'), 'utf8'),
-      readFile(join(fixtureRoot, 'motrix.test-key.pem'), 'utf8'),
-    ])
-    const extensionReceiver = receiver()
-    runtime = await bootstrapBridgeForServer({
-      userDataDir,
-      host: '127.0.0.1',
-      port: 0,
-      motrixVersion: '2.0',
-      eventBus: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
-      readHandlerDeps: readDeps(),
-      writeHandlerDeps: writeDeps(),
-      remoteExtensionConfig: parseRemoteExtensionConfig({
-        MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
-        MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'wss://motrix.test/bridge',
-        MOTRIX_PUBLIC_URL: 'https://motrix.test',
-      }),
-      createExtensionReceiver: () => extensionReceiver,
-    })
-    const proxy = await startTlsProxy({
-      upstreamPort: runtime.port,
-      key,
-      cert,
-    })
-    closeProxy = proxy.close
-
-    await expect(
-      getDiscovery({ port: proxy.port, servername: 'motrix.test' })
-    ).rejects.toBeDefined()
-    await expect(
-      getDiscovery({ port: proxy.port, ca, servername: 'wrong.test' })
-    ).rejects.toBeDefined()
-    await expect(
-      getDiscovery({ port: proxy.port, ca, servername: 'motrix.test' })
-    ).resolves.toMatchObject({
-      status: 200,
-      body: { runtime: 'server', extensionPairing: { protocol: 'mbp1' } },
-    })
-
-    const secureTransport = { ca, servername: 'motrix.test' }
-    const handshake = await startPair({
-      port: proxy.port,
+  it.each([
+    {
+      browser: 'chromium' as const,
+      extensionId: EXTENSION_ID,
       origin: `chrome-extension://${EXTENSION_ID}`,
-      browser: 'chromium',
-      claimedExtensionId: EXTENSION_ID,
-      routePrefix: '/bridge',
-      hostHeader: 'motrix.test',
-      secureTransport,
-    })
-    const pending = (await runtime.bridgeQueryHandlers[
-      'bridge:listPendingPairRequests'
-    ]()) as Array<{ code?: string }>
-    const code = pending[0]?.code
-    if (code === undefined) throw new Error('pairing code missing')
-    const { channel } = await runPake(handshake, code)
-    await exchangeCredential(handshake, channel)
-    const connection = mdxpOverChannel(handshake.wire, channel)
-    await connection.sendRequest(
-      'motrix/initialize',
-      initializeParams(EXTENSION_ID)
-    )
-    await expect(
-      connection.sendRequest('download/submit', {
-        source: {
-          pageUrl: 'https://example.com/watch',
-          pageTitle: 'WSS',
-          detectedAt: 1,
-        },
-        selection: {
-          kind: 'direct',
-          primary: {
-            url: 'https://cdn.example.com/video.mp4',
-            headers: {},
-            cookies: [],
-            refererPolicy: 'strict-origin-when-cross-origin',
-          },
-        },
-        meta: { suggestedFilename: 'video.mp4', qualityLabel: 'source' },
+      attestationClass: 'official',
+    },
+    {
+      browser: 'safari' as const,
+      extensionId: 'app.motrix.safari.extension',
+      origin: 'safari-web-extension://12345678-1234-4234-8234-123456789abc',
+      attestationClass: 'unverified',
+    },
+  ])(
+    'validates TLS hostname/CA and pairs/submits as $browser over a WSS base path',
+    async ({ browser, extensionId, origin, attestationClass }) => {
+      const fixtureRoot = join(process.cwd(), 'src/server/bridge/__fixtures__')
+      const [ca, cert, key] = await Promise.all([
+        readFile(join(fixtureRoot, 'test-ca.pem'), 'utf8'),
+        readFile(join(fixtureRoot, 'motrix.test-cert.pem'), 'utf8'),
+        readFile(join(fixtureRoot, 'motrix.test-key.pem'), 'utf8'),
+      ])
+      const extensionReceiver = receiver()
+      runtime = await bootstrapBridgeForServer({
+        userDataDir,
+        host: '127.0.0.1',
+        port: 0,
+        motrixVersion: '2.0',
+        eventBus: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
+        readHandlerDeps: readDeps(),
+        writeHandlerDeps: writeDeps(),
+        remoteExtensionConfig: parseRemoteExtensionConfig({
+          MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
+          MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'wss://motrix.test/bridge',
+          MOTRIX_PUBLIC_URL: 'https://motrix.test',
+        }),
+        createExtensionReceiver: () => extensionReceiver,
       })
-    ).resolves.toEqual({ taskId: 'wss-task' })
-    expect(extensionReceiver.handle).toHaveBeenCalledOnce()
-    connection.dispose()
-    handshake.wire.ws.close()
-    await handshake.wire.closed
-  })
+      const proxy = await startTlsProxy({
+        upstreamPort: runtime.port,
+        key,
+        cert,
+      })
+      closeProxy = proxy.close
+
+      await expect(
+        getDiscovery({ port: proxy.port, servername: 'motrix.test' })
+      ).rejects.toBeDefined()
+      await expect(
+        getDiscovery({ port: proxy.port, ca, servername: 'wrong.test' })
+      ).rejects.toBeDefined()
+      await expect(
+        getDiscovery({ port: proxy.port, ca, servername: 'motrix.test' })
+      ).resolves.toMatchObject({
+        status: 200,
+        body: { runtime: 'server', extensionPairing: { protocol: 'mbp1' } },
+      })
+
+      const secureTransport = { ca, servername: 'motrix.test' }
+      const handshake = await startPair({
+        port: proxy.port,
+        origin,
+        browser,
+        claimedExtensionId: extensionId,
+        routePrefix: '/bridge',
+        hostHeader: 'motrix.test',
+        secureTransport,
+      })
+      const pending = (await runtime.bridgeQueryHandlers[
+        'bridge:listPendingPairRequests'
+      ]()) as Array<{ code?: string }>
+      expect(pending).toHaveLength(1)
+      expect(pending[0]).toMatchObject({
+        verifiedOrigin: origin,
+        claimedExtensionId: extensionId,
+        attestationClass,
+        publicAuthority: 'motrix.test',
+      })
+      const code = pending[0]?.code
+      if (code === undefined) throw new Error('pairing code missing')
+      const { channel } = await runPake(handshake, code)
+      await exchangeCredential(handshake, channel)
+      const connection = mdxpOverChannel(handshake.wire, channel)
+      await connection.sendRequest(
+        'motrix/initialize',
+        initializeParams(extensionId, browser)
+      )
+      await expect(
+        connection.sendRequest('download/submit', {
+          source: {
+            pageUrl: 'https://example.com/watch',
+            pageTitle: 'WSS',
+            detectedAt: 1,
+          },
+          selection: {
+            kind: 'direct',
+            primary: {
+              url: 'https://cdn.example.com/video.mp4',
+              headers: {},
+              cookies: [],
+              refererPolicy: 'strict-origin-when-cross-origin',
+            },
+          },
+          meta: { suggestedFilename: 'video.mp4', qualityLabel: 'source' },
+        })
+      ).resolves.toEqual({ taskId: 'wss-task' })
+      expect(extensionReceiver.handle).toHaveBeenCalledOnce()
+      connection.dispose()
+      handshake.wire.ws.close()
+      await handshake.wire.closed
+    }
+  )
 })

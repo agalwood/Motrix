@@ -53,6 +53,7 @@ import {
   BridgeEvents,
   BridgeQueries,
   type BridgeStatusInfo,
+  type Browser,
   type ClientIdentity,
   type PairRequestPayload,
   pairRequestKey,
@@ -76,6 +77,7 @@ import {
   type SyncArgs,
 } from './native-messaging-installer'
 import { PairingDialogController } from './pairing-dialog-controller'
+import { registerSafariBootstrap } from './safari-bootstrap-registration'
 import {
   isValidSnapInstanceName,
   type PackagedLinuxSnapEnvironment,
@@ -849,6 +851,18 @@ export async function bootstrapBridge(args: {
       },
     })
 
+    const safariStatus = await registerSafariBootstrap({
+      platform: process.platform,
+      isPackaged: app.isPackaged,
+      executablePath: process.execPath,
+    })
+    if (safariStatus !== 'not-bundled') {
+      nativeMessagingLog.info(
+        { status: safariStatus },
+        'Safari bootstrap registration'
+      )
+    }
+
     const endpointWriter = new EndpointFileWriter(
       join(dataDir, 'endpoint.json')
     )
@@ -982,7 +996,7 @@ export async function bootstrapBridge(args: {
         _e,
         params: {
           id: string
-          browser: 'chromium' | 'firefox'
+          browser: Browser
           label?: string
         }
       ) => {
@@ -993,7 +1007,7 @@ export async function bootstrapBridge(args: {
     )
     installIpcHandler(
       BridgeCommands.RemoveTrusted,
-      async (_e, params: { id: string; browser: 'chromium' | 'firefox' }) => {
+      async (_e, params: { id: string; browser: Browser }) => {
         await updateTrustedExtensions(() =>
           registry.remove(params.id, params.browser)
         )

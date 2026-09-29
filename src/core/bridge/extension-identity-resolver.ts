@@ -1,7 +1,12 @@
 import nativeMessagingExtensions from '@shared/config/native-messaging-extensions.json' with {
   type: 'json',
 }
-import type { Browser } from '@shared/protocol/bridge'
+import {
+  type Browser,
+  EXTENSION_ORIGIN_SCHEMES,
+  isBridgeBrowser,
+  isSafariExtensionOrigin,
+} from '@shared/protocol/bridge'
 import type { IdentityTriState } from './credential-store'
 
 export interface OfficialExtensionEntry {
@@ -32,6 +37,10 @@ export const BUILTIN_OFFICIAL_EXTENSION_ENTRIES = freezeEntries([
     browser: 'firefox' as const,
     id,
   })),
+  ...nativeMessagingExtensions.safari.map((id) => ({
+    browser: 'safari' as const,
+    id,
+  })),
 ])
 
 export type ExtensionIdentityEnvironment = 'production' | 'non-production'
@@ -58,7 +67,7 @@ export type NormalizedExtensionIdentity =
       readonly verifiedExtensionId: string
     }
   | {
-      readonly browser: 'firefox'
+      readonly browser: 'firefox' | 'safari'
       readonly originHost: string
       readonly verifiedExtensionId: null
     }
@@ -96,7 +105,7 @@ export type ExtensionIdentityResolution =
       readonly ok: true
       readonly identity: IdentityTriState
       readonly evidence: ExtensionIdentityEvidence
-      /** A proven store/Gecko id, never the unverified pairHello claim. */
+      /** A proven store/Gecko/signed-bundle id, never the unverified pairHello claim. */
       readonly provenExtensionId: string | null
     }
   | ExtensionIdentityFailure
@@ -134,10 +143,7 @@ function deduplicateEntries(
 ): readonly OfficialExtensionEntry[] {
   const unique = new Map<string, OfficialExtensionEntry>()
   for (const entry of entries) {
-    if (
-      (entry.browser !== 'chromium' && entry.browser !== 'firefox') ||
-      entry.id.length === 0
-    ) {
+    if (!isBridgeBrowser(entry.browser) || entry.id.length === 0) {
       continue
     }
     const frozen = Object.freeze({ browser: entry.browser, id: entry.id })
@@ -159,13 +165,19 @@ function containsUnsafeOriginSyntax(value: string): boolean {
 
 /**
  * Normalize only transport-derived evidence. The claimed id is used once for
- * Chromium equality and is then discarded; Firefox claims prove nothing.
+ * Chromium equality and is then discarded; Firefox/Safari claims prove nothing.
  */
 export function normalizeExtensionIdentity(
   input: ExtensionIdentityInput
 ): ExtensionIdentityNormalizationResult {
-  const scheme =
-    input.browser === 'chromium' ? 'chrome-extension:' : 'moz-extension:'
+  if (!isBridgeBrowser(input.browser)) return INVALID_IDENTITY_RESULT
+  const scheme = `${EXTENSION_ORIGIN_SCHEMES[input.browser]}:`
+  if (
+    input.browser === 'safari' &&
+    !isSafariExtensionOrigin(input.verifiedOrigin)
+  ) {
+    return INVALID_IDENTITY_RESULT
+  }
   const prefix = `${scheme}//`
   if (
     input.verifiedOrigin.length === 0 ||
@@ -217,7 +229,7 @@ export function normalizeExtensionIdentity(
           verifiedExtensionId: parsed.hostname,
         })
       : Object.freeze({
-          browser: 'firefox',
+          browser: input.browser,
           originHost: parsed.hostname,
           verifiedExtensionId: null,
         })
@@ -280,11 +292,12 @@ export function resolveNormalizedExtensionIdentity(
   isOfficialId: IsOfficialExtensionId
 ): ExtensionIdentityResolution {
   if (
+    !isBridgeBrowser(identity.browser) ||
     identity.originHost.length === 0 ||
     (identity.browser === 'chromium' &&
       (identity.verifiedExtensionId.length === 0 ||
         identity.verifiedExtensionId !== identity.originHost)) ||
-    (identity.browser === 'firefox' && identity.verifiedExtensionId !== null)
+    (identity.browser !== 'chromium' && identity.verifiedExtensionId !== null)
   ) {
     return invalidResolution()
   }
@@ -307,7 +320,7 @@ export function resolveNormalizedExtensionIdentity(
     })
   }
 
-  if (identity.browser === 'firefox') {
+  if (identity.browser !== 'chromium') {
     return Object.freeze({
       ok: true,
       identity: 'unverified',
@@ -344,7 +357,7 @@ export function parseDevTrustedExtensions(
     const browser = trimmed.slice(0, colon).trim()
     const id = trimmed.slice(colon + 1).trim()
     if (!id) continue
-    if (browser !== 'chromium' && browser !== 'firefox') continue
+    if (!isBridgeBrowser(browser)) continue
     entries.push({ browser, id })
   }
   return freezeEntries(entries)

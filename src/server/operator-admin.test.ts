@@ -47,7 +47,7 @@ function extensionRequest(
   overrides: Partial<{
     pairingNonce: string
     extensionId: string
-    browser: 'chromium' | 'firefox'
+    browser: 'chromium' | 'firefox' | 'safari'
     identity: 'official' | 'attested-non-official' | 'unverified'
     code: string
     createdAt: number
@@ -281,7 +281,9 @@ describe('runOperatorAdmin', () => {
   it('validates the pending union but prints only CLI requests', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonResponse([extensionRequest(), request()]))
+      .mockResolvedValue(
+        jsonResponse([extensionRequest({ browser: 'safari' }), request()])
+      )
     const h = harness(fetchMock)
 
     await expect(
@@ -312,7 +314,9 @@ describe('runOperatorAdmin', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(
-        jsonResponse([extensionRequest({ browser: 'safari' as never })])
+        jsonResponse([
+          extensionRequest({ browser: 'unknown-browser' as never }),
+        ])
       )
     const h = harness(fetchMock)
 

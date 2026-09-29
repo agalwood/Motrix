@@ -1,3 +1,4 @@
+import type { Browser } from '@shared/protocol/bridge'
 import type { DownloadErrorCode } from '../errors'
 import type { MediaProgressSnapshot } from '../schemas/media-progress'
 
@@ -259,7 +260,7 @@ export type TaskSource = 'user' | 'bridge' | 'plugin'
 export interface BridgeSourceMeta {
   kind: 'direct' | 'hls' | 'dash' | 'mux' | 'magnet'
   extensionId: string
-  browser: 'chromium' | 'firefox'
+  browser: Browser
   sessionKey: string // `${browser}:${extensionId}`
   pageUrl: string
   pageTitle: string
