@@ -12,10 +12,16 @@ import { parseTrackerInput } from '@renderer/lib/trackers'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
 import { Commands } from '@shared/protocol/commands'
+import { Queries } from '@shared/protocol/queries'
+import {
+  type TaskTrackerPlan,
+  taskTrackerPlanSchema,
+} from '@shared/schemas/task-tracker'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { TaskTrackerDialog } from './task-tracker-dialog'
 
 interface TrackerRowData {
   url: string
@@ -38,6 +44,7 @@ export function TrackersTab({ task }: TrackersTabProps) {
     task.engineTaskId
   )
   const { list } = useTrackerList()
+  const [nativeUrls, setNativeUrls] = useState<string[] | null>(null)
 
   // announceList is projected out of the broadcast (option E); read the
   // static seed list on demand from the full per-task detail. Keyed on
@@ -46,9 +53,11 @@ export function TrackersTab({ task }: TrackersTabProps) {
   const detail = useTaskBtDetail(task.id, task.engineTaskId)
   const { announceList } = detail
   const detailReady = !detail.isLoading && detail.error === null
-  const announceFlat = useMemo(() => announceList.flat(), [announceList])
+  const announceFlat = useMemo(
+    () => nativeUrls ?? announceList.flat(),
+    [nativeUrls, announceList]
+  )
   const announceSet = useMemo(() => new Set(announceFlat), [announceFlat])
-  const effectiveSet = useMemo(() => new Set(effective), [effective])
   const isPrivate = task.bt?.isPrivate === true
   // Tasks that aria2 no longer holds (Completed-and-evicted, Error,
   // Removed) cannot accept SetTaskBtTracker / SyncTaskBtTracker —
@@ -78,12 +87,39 @@ export function TrackersTab({ task }: TrackersTabProps) {
     return out
   }, [announceFlat, announceSet, effective, detailReady])
 
-  const driftCount = useMemo(() => {
-    if (isPrivate) return 0
-    if (!isEditable) return 0
-    return list.effective.filter((u) => !effectiveSet.has(u)).length
-  }, [list.effective, effectiveSet, isPrivate, isEditable])
+  const planRequest = JSON.stringify({
+    taskId: task.id,
+    engineGid: task.engineTaskId,
+    effective,
+    selected: list.effective,
+  })
+  const [driftCount, setDriftCount] = useState(0)
+  useEffect(() => {
+    let disposed = false
+    setDriftCount(0)
+    if (!isEditable) return
+    const { taskId, engineGid } = JSON.parse(planRequest)
+    void transport
+      .invoke(Queries.GetTaskTrackerPlan, { taskId, engineGid })
+      .then((raw) => {
+        const result = taskTrackerPlanSchema.safeParse(raw)
+        if (!disposed && result.success) {
+          setNativeUrls(result.data.original)
+          setDriftCount(
+            isPrivate
+              ? 0
+              : result.data.added.length + result.data.removed.length
+          )
+        }
+      })
+      .catch(() => undefined)
+    return () => {
+      disposed = true
+    }
+  }, [planRequest, isEditable, isPrivate])
 
+  const [syncPlan, setSyncPlan] = useState<TaskTrackerPlan | null>(null)
+  const [planOpen, setPlanOpen] = useState(false)
   const [mode, setMode] = useState<'read' | 'edit'>('read')
   const [draft, setDraft] = useState('')
   const [isSaving, setIsSaving] = useState(false)
@@ -105,6 +141,9 @@ export function TrackersTab({ task }: TrackersTabProps) {
     setMode('read')
     setIsSaving(false)
     setIsSyncing(false)
+    setSyncPlan(null)
+    setNativeUrls(null)
+    setPlanOpen(false)
   }, [task.id, task.engineTaskId])
 
   // If a task transitions out of editable state mid-edit (e.g. polling
@@ -197,6 +236,7 @@ export function TrackersTab({ task }: TrackersTabProps) {
     setIsSaving(true)
     try {
       await transport.invoke(Commands.SetTaskBtTracker, {
+        taskId: task.id,
         engineGid: task.engineTaskId,
         trackers: valid,
       })
@@ -222,10 +262,15 @@ export function TrackersTab({ task }: TrackersTabProps) {
     const taskKey = taskKeyRef.current
     setIsSyncing(true)
     try {
-      await transport.invoke(Commands.SyncTaskBtTracker, {
-        engineGid: task.engineTaskId,
-      })
-      await refresh()
+      const plan = taskTrackerPlanSchema.parse(
+        await transport.invoke(Queries.GetTaskTrackerPlan, {
+          taskId: task.id,
+          engineGid: task.engineTaskId,
+        })
+      )
+      if (taskKeyRef.current !== taskKey) return
+      setSyncPlan(plan)
+      setPlanOpen(true)
     } catch (e) {
       if (taskKeyRef.current !== taskKey) return
       toast.add({
@@ -234,6 +279,34 @@ export function TrackersTab({ task }: TrackersTabProps) {
         }),
         type: 'error',
       })
+    } finally {
+      if (taskKeyRef.current === taskKey) setIsSyncing(false)
+    }
+  }
+
+  const applyPlan = async () => {
+    if (!syncPlan || isSyncing) return
+    const taskKey = taskKeyRef.current
+    setIsSyncing(true)
+    try {
+      await transport.invoke(Commands.ApplyTaskTrackerPlan, {
+        taskId: syncPlan.taskId,
+        engineGid: syncPlan.engineGid,
+        fingerprint: syncPlan.fingerprint,
+      })
+      await refresh()
+      if (taskKeyRef.current === taskKey) setPlanOpen(false)
+    } catch (error) {
+      if (taskKeyRef.current !== taskKey) return
+      toast.add({
+        title: t('panel.downloads.inspector.trackers.syncFailed', {
+          reason: error instanceof Error ? error.message : String(error),
+        }),
+        type: 'error',
+      })
+      // Refresh the diff after a stale preview or partial failure. Applying the
+      // newly computed plan still requires an explicit click.
+      await sync()
     } finally {
       if (taskKeyRef.current === taskKey) setIsSyncing(false)
     }
@@ -254,6 +327,7 @@ export function TrackersTab({ task }: TrackersTabProps) {
     const next = effective.filter((u) => u !== url)
     try {
       await transport.invoke(Commands.SetTaskBtTracker, {
+        taskId: task.id,
         engineGid: task.engineTaskId,
         trackers: next,
       })
@@ -273,6 +347,13 @@ export function TrackersTab({ task }: TrackersTabProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <TaskTrackerDialog
+        plan={syncPlan}
+        open={planOpen}
+        onOpenChange={setPlanOpen}
+        onApply={applyPlan}
+        busy={isSyncing}
+      />
       {isPrivate && (
         <Alert className="shrink-0 flex items-center gap-2">
           <LockedIcon className="size-3.5 shrink-0" />
@@ -291,9 +372,12 @@ export function TrackersTab({ task }: TrackersTabProps) {
             <>
               {' · '}
               <span className="text-foreground">
-                {t('panel.downloads.inspector.trackers.driftSuffix', {
-                  count: driftCount,
-                })}
+                {t(
+                  'panel.downloads.inspector.trackers.preview.changesPending',
+                  {
+                    count: driftCount,
+                  }
+                )}
               </span>
             </>
           )}
@@ -302,7 +386,12 @@ export function TrackersTab({ task }: TrackersTabProps) {
           {mode === 'read' ? (
             isEditable ? (
               <>
-                <Button size="xs" variant="outline" onClick={startEdit}>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={startEdit}
+                  disabled={isSyncing}
+                >
                   {t('panel.downloads.inspector.trackers.action.edit')}
                 </Button>
                 <Button

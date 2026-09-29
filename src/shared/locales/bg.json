@@ -1078,7 +1078,18 @@
           "summary_one": "{{count}} тракер",
           "summary_other": "{{count}} тракера",
           "syncFailed": "Списъкът с тракери не можа да бъде синхронизиран: {{reason}}",
-          "syncPrivateDisabled": "Синхронизирането е недостъпно за частни торенти."
+          "syncPrivateDisabled": "Синхронизирането е недостъпно за частни торенти.",
+          "preview": {
+            "title": "Обновяване на тракерите на задачата",
+            "description": "Прегледайте промените в допълнителните тракери. Адресите от торента и добавените ръчно се запазват.",
+            "reconnect": "Задачата ще бъде спряна за кратко, ще се свърже отново и ще продължи автоматично.",
+            "added": "Добавяне: {{count}}",
+            "removed": "Премахване: {{count}}",
+            "retained": "Запазване на {{count}} съществуващи допълнителни тракера. Оригиналните announce групи остават непроменени.",
+            "excluded": "Премахнатите от вас тракери ({{count}}) няма да се добавят отново при автоматично обновяване.",
+            "apply": "Прилагане на обновяването",
+            "changesPending": "Чакащи промени: {{count}}"
+          }
         }
       },
       "media": {
@@ -2769,7 +2780,7 @@
       "disabled": "Изключено — включете, за да видите действащия списък с тракери.",
       "empty": "Все още няма действащи тракери. Синхронизирайте, за да попълните списъка.",
       "enabled": "Добавяне на подбрани тракери",
-      "enabledDesc": "Добавя списъка с подбрани тракери към всички BitTorrent задачи."
+      "enabledDesc": "Добавяне на избраните тракери към нови публични BitTorrent задачи."
     },
     "sync": {
       "applying": "Прилагане на списъците с тракери…",
@@ -2777,7 +2788,57 @@
       "fetching": "Изтегляне на списъците с тракери…",
       "probing": "Проверка на достъпността на тракерите…",
       "syncing": "Синхронизиране…",
-      "unavailable": "Състоянието на синхронизирането не може да се прочете. Проверете връзката и опитайте отново."
+      "unavailable": "Състоянието на синхронизирането не може да се прочете. Проверете връзката и опитайте отново.",
+      "details": {
+        "title": "Update details",
+        "scope": "These defaults supplement new public BitTorrent tasks. Existing downloads keep their current trackers.",
+        "sources": "Source status",
+        "candidates": "Candidates",
+        "history": "Update history",
+        "disabled": "Disabled",
+        "noSources": "No enabled sources",
+        "attention": "{{count}} trackers · {{failed}} sources need attention",
+        "summary": "{{count}} trackers · Last successful update: {{time}}",
+        "lastAttempt": "Last check",
+        "nextCheck": "Next check",
+        "autoOff": "Automatic updates off",
+        "enginePending": "Saved; waiting to apply defaults to the download engine.",
+        "sourceResult": "{{count}} addresses · Last success: {{time}}",
+        "retryAt": "Next retry: {{time}}",
+        "evidence": "Connection checks are evidence of reachability, not a guarantee of peers or download speed.",
+        "firstSeen": "First seen: {{time}}",
+        "noCandidates": "No matching candidates",
+        "showMore": "Show more",
+        "run": "{{success}} sources succeeded · {{failed}} failed · +{{added}} / −{{removed}} selected",
+        "noHistory": "No update history",
+        "retry": "Retry failed sources",
+        "state": {
+          "fresh": "Up to date",
+          "cached": "Using last successful cache",
+          "expired": "Cache expired",
+          "pending": "Not checked yet",
+          "failed": "No usable cache"
+        },
+        "failure": {
+          "network": "Connection failed. The previous cache is retained for up to 7 days.",
+          "http": "The source returned an HTTP error.",
+          "invalid": "The response is not a valid tracker list.",
+          "limit": "The source exceeded the size or address limit.",
+          "missing-cache": "The source returned 304 without a usable cache."
+        },
+        "reason": {
+          "selected": "Selected",
+          "capacity": "Reserve",
+          "blacklisted": "Blacklisted",
+          "unsupported": "Unsupported protocol",
+          "cooldown": "Repeated connection failures"
+        },
+        "outcome": {
+          "success": "Completed",
+          "partial": "Partially completed",
+          "failed": "Failed"
+        }
+      }
     }
   },
   "tray": {

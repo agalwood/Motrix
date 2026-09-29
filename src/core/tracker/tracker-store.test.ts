@@ -50,7 +50,7 @@ describe('TrackerStore', () => {
     }
     await store.save(data)
     const loaded = await store.load()
-    expect(loaded).toEqual(data)
+    expect(loaded).toMatchObject({ ...data, version: 2 })
   })
 
   it('persists sourceMap', async () => {
@@ -75,6 +75,11 @@ describe('TrackerStore', () => {
         lastProbeMs: 50,
         lastProbeAt: 900,
         successCount: 3,
+        samples: [
+          { at: 700, ok: true },
+          { at: 800, ok: true },
+          { at: 900, ok: true },
+        ],
         failCount: 0,
         successRate: 1.0,
       },
@@ -105,5 +110,77 @@ describe('TrackerStore', () => {
     expect(merged['udp://a.com'].successCount).toBe(4)
     expect(merged['udp://a.com'].lastProbeMs).toBe(4000)
     expect(merged['http://b.com'].successCount).toBe(1)
+  })
+  it('backs up v1 state before the first atomic migration', async () => {
+    const legacy = JSON.stringify({
+      effective: ['udp://a:80'],
+      healthMap: {},
+      sourceMap: {},
+      blacklist: [],
+      lastSyncAt: 100,
+      lastProbeAt: null,
+    })
+    await fs.writeFile(filePath, legacy)
+    const loaded = await store.load()
+    await store.save(loaded)
+    expect(await fs.readFile(`${filePath}.v1.bak`, 'utf8')).toBe(legacy)
+    expect((await store.load()).version).toBe(2)
+  })
+
+  it('preserves an invalid original before recovery', async () => {
+    await fs.writeFile(filePath, '{broken')
+    const loaded = await store.load()
+    await store.save(loaded)
+    expect(await fs.readFile(`${filePath}.invalid.bak`, 'utf8')).toBe('{broken')
+  })
+
+  it('does not treat lifetime aggregates as recent timed samples', () => {
+    const old = {
+      url: 'udp://a:80',
+      protocol: 'udp' as const,
+      status: 'healthy' as const,
+      lastProbeMs: 1,
+      lastProbeAt: 1000,
+      successCount: 9999,
+      failCount: 0,
+      successRate: 1,
+    }
+    const merged = store.mergeHealth({ [old.url]: old }, [
+      { ...old, status: 'unreachable', lastProbeAt: 2000 },
+    ])
+    expect(merged[old.url]).toMatchObject({
+      successCount: 0,
+      failCount: 1,
+      successRate: 0,
+    })
+  })
+
+  it('drops old samples and separates network routes', () => {
+    const now = Date.now()
+    const old = {
+      url: 'udp://a:80',
+      protocol: 'udp' as const,
+      status: 'healthy' as const,
+      lastProbeMs: 1,
+      lastProbeAt: now,
+      successCount: 1,
+      failCount: 1,
+      successRate: 0.5,
+      routeKey: 'a',
+      samples: [
+        { at: now - 8 * 86_400_000, ok: false },
+        { at: now, ok: true },
+      ],
+    }
+    expect(
+      store.mergeHealth({ [old.url]: old }, [{ ...old, lastProbeAt: now + 1 }])[
+        old.url
+      ].successRate
+    ).toBe(1)
+    expect(
+      store.mergeHealth({ [old.url]: old }, [
+        { ...old, routeKey: 'b', status: 'unreachable', lastProbeAt: now + 1 },
+      ])[old.url].samples
+    ).toEqual([{ at: now + 1, ok: false }])
   })
 })

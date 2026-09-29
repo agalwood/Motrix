@@ -1,129 +1,141 @@
+import { randomBytes } from 'node:crypto'
+import { createSocket } from 'node:dgram'
+import { isIP } from 'node:net'
 import type {
   ProxyConfig,
   TrackerHealth,
   TrackerProtocol,
 } from '@shared/types/tracker'
-import { trackerLogger } from './logger'
 import {
   createTrackerHttpClient,
   type TrackerHttpClient,
 } from './tracker-http-client'
 
-const log = trackerLogger('prober')
-
 interface ProbeOptions {
   timeoutMs: number
   proxy?: ProxyConfig
   healthyThresholdMs?: number
+  signal?: AbortSignal
+  routeKey?: string
 }
 
 export class TrackerProber {
   async probe(urls: string[], opts: ProbeOptions): Promise<TrackerHealth[]> {
-    if (urls.length === 0) return []
-
-    const threshold = opts.healthyThresholdMs ?? 3000
-    const start = Date.now()
-    log.info(
-      {
-        urls: urls.length,
-        timeoutMs: opts.timeoutMs,
-        healthyThresholdMs: threshold,
-        proxy: Boolean(opts.proxy),
-      },
-      'probe start'
-    )
-    const httpClient = await createTrackerHttpClient(opts.proxy)
-    let results: PromiseSettledResult<number>[]
+    if (!urls.length) return []
+    const client = await createTrackerHttpClient(opts.proxy)
+    const groups = new Map<string, { url: string; index: number }[]>()
+    urls.forEach((url, index) => {
+      let host: string
+      try {
+        host = new URL(url).hostname
+      } catch {
+        host = url
+      }
+      const group = groups.get(host) ?? []
+      group.push({ url, index })
+      groups.set(host, group)
+    })
+    const queue = [...groups.values()]
+    const results: TrackerHealth[] = new Array(urls.length)
     try {
-      results = await Promise.allSettled(
-        urls.map((url) => this.probeOne(url, opts, httpClient))
+      await Promise.all(
+        Array.from({ length: Math.min(8, queue.length) }, async () => {
+          while (queue.length) {
+            const group = queue.shift()
+            if (!group) return
+            for (const { url, index } of group) {
+              if (opts.signal?.aborted) throw opts.signal.reason
+              const protocol = url.split(':', 1)[0] as TrackerProtocol
+              const record: TrackerHealth = {
+                url,
+                protocol,
+                status: 'unknown',
+                lastProbeMs: null,
+                lastProbeAt: Date.now(),
+                successCount: 0,
+                failCount: 0,
+                successRate: 0,
+                routeKey: opts.routeKey,
+                evidence: 'none',
+              }
+              // HTTP proxies cannot carry UDP announces; never silently bypass them.
+              if (
+                protocol !== 'ws' &&
+                protocol !== 'wss' &&
+                !(protocol === 'udp' && opts.proxy)
+              ) {
+                try {
+                  const ms = await this.probeOne(url, opts, client)
+                  record.status =
+                    ms <= (opts.healthyThresholdMs ?? 3000) ? 'healthy' : 'slow'
+                  record.lastProbeMs = ms
+                  record.successCount = 1
+                  record.successRate = 1
+                  record.evidence = protocol === 'udp' ? 'udp' : 'http'
+                } catch {
+                  if (opts.signal?.aborted) throw opts.signal.reason
+                  record.status = 'unreachable'
+                  record.failCount = 1
+                }
+              }
+              results[index] = record
+            }
+          }
+        })
       )
     } finally {
-      await httpClient.close()
+      await client.close()
     }
-
-    const mapped = results.map((r, i) => {
-      const url = urls[i]
-      const protocol = this.detectProtocol(url)
-      const now = Date.now()
-
-      if (r.status === 'fulfilled') {
-        const ms = r.value
-        const status = ms <= threshold ? 'healthy' : 'slow'
-        return {
-          url,
-          protocol,
-          status: status as 'healthy' | 'slow',
-          lastProbeMs: ms,
-          lastProbeAt: now,
-          successCount: 1,
-          failCount: 0,
-          successRate: 1.0,
-        }
-      }
-      return {
-        url,
-        protocol,
-        status: 'unreachable' as const,
-        lastProbeMs: null,
-        lastProbeAt: now,
-        successCount: 0,
-        failCount: 1,
-        successRate: 0,
-      }
-    })
-
-    const counts = { healthy: 0, slow: 0, unreachable: 0 }
-    for (const h of mapped) {
-      if (h.status === 'healthy') counts.healthy++
-      else if (h.status === 'slow') counts.slow++
-      else counts.unreachable++
-    }
-    log.info(
-      { total: mapped.length, ...counts, elapsedMs: Date.now() - start },
-      'probe done'
-    )
-    return mapped
+    return results
   }
 
   private async probeOne(
     url: string,
     opts: ProbeOptions,
-    httpClient: TrackerHttpClient
+    client: TrackerHttpClient
   ): Promise<number> {
-    const protocol = this.detectProtocol(url)
-    const start = Date.now()
-
-    if (protocol === 'udp') {
-      return this.probeUdp(url, opts.timeoutMs)
-    }
-
-    await httpClient.fetch(url, {
+    if (url.startsWith('udp:'))
+      return this.probeUdp(url, opts.timeoutMs, opts.signal)
+    const start = performance.now()
+    const response = await client.fetch(url, {
       method: 'HEAD',
-      signal: AbortSignal.timeout(opts.timeoutMs),
+      signal: opts.signal
+        ? AbortSignal.any([opts.signal, AbortSignal.timeout(opts.timeoutMs)])
+        : AbortSignal.timeout(opts.timeoutMs),
     })
-    return Date.now() - start
+    await response.body
+      ?.getReader()
+      .cancel()
+      .catch(() => undefined)
+    if ((response.status ?? 200) >= 500)
+      throw new Error('HTTP tracker unavailable')
+    // A 401/403/405 is still HTTP connectivity evidence, not announce success.
+    return Math.round(performance.now() - start)
   }
 
-  private async probeUdp(url: string, timeoutMs: number): Promise<number> {
-    const { createSocket } = await import('node:dgram')
+  private async probeUdp(
+    url: string,
+    timeoutMs: number,
+    signal?: AbortSignal
+  ): Promise<number> {
     const parsed = new URL(url)
+    const hostname = parsed.hostname.replace(/^\[|\]$/g, '')
+    const port = Number(parsed.port)
+    if (!port || port > 65535) throw new Error('Invalid tracker port')
     return new Promise((resolve, reject) => {
-      const start = Date.now()
-      const socket = createSocket('udp4')
+      const start = performance.now()
+      const socket = createSocket(isIP(hostname) === 6 ? 'udp6' : 'udp4')
+      const transaction = randomBytes(4).readUInt32BE()
       let settled = false
-
       const finish = (error?: Error) => {
-        // DNS/send callbacks can arrive after the deadline closed the socket.
-        // Every completion path must claim cleanup before calling close().
         if (settled) return
         settled = true
         clearTimeout(timer)
+        signal?.removeEventListener('abort', onAbort)
         socket.off('message', onMessage)
         try {
           socket.close()
         } catch (closeError) {
-          // A native socket may already be closed after a network failure.
           if (
             (closeError as NodeJS.ErrnoException).code !==
             'ERR_SOCKET_DGRAM_NOT_RUNNING'
@@ -133,41 +145,48 @@ export class TrackerProber {
           }
         }
         if (error) reject(error)
-        else resolve(Date.now() - start)
+        else resolve(Math.round(performance.now() - start))
       }
-      const onMessage = () => finish()
+      const onMessage = (message: Buffer) => {
+        if (message.length < 8 || message.readUInt32BE(4) !== transaction)
+          return
+        const action = message.readUInt32BE(0)
+        if (action === 3) finish(new Error('UDP tracker error'))
+        else if (action === 0 && message.length === 16) finish()
+      }
+      const onAbort = () => finish(new Error('Tracker probe cancelled'))
       const onError = (error: Error) => finish(error)
       const timer = setTimeout(
         () => finish(new Error('UDP probe timeout')),
         timeoutMs
       )
-
-      // Keep the error handler through close so in-flight network errors are
-      // contained by this probe instead of reaching uncaughtException.
       socket.on('error', onError)
       socket.once('close', () => socket.off('error', onError))
-      socket.once('message', onMessage)
-
+      socket.on('message', onMessage)
+      signal?.addEventListener('abort', onAbort, { once: true })
+      if (signal?.aborted) {
+        onAbort()
+        return
+      }
       try {
-        // Minimal BT UDP tracker connection request
-        const buf = Buffer.alloc(16)
-        buf.writeBigInt64BE(0x41727101980n, 0) // protocol_id
-        buf.writeInt32BE(0, 8) // action: connect
-        buf.writeInt32BE((Math.random() * 0x7fffffff) | 0, 12) // transaction_id
-        socket.send(buf, 0, 16, Number(parsed.port), parsed.hostname, (err) => {
-          if (err) finish(err)
+        // A connected UDP socket only accepts datagrams from this endpoint.
+        socket.connect(port, hostname, () => {
+          if (settled) return
+          const request = Buffer.alloc(16)
+          request.writeBigUInt64BE(0x41727101980n, 0)
+          request.writeUInt32BE(0, 8)
+          request.writeUInt32BE(transaction, 12)
+          try {
+            socket.send(request, (error) => {
+              if (error) finish(error)
+            })
+          } catch (error) {
+            finish(error as Error)
+          }
         })
       } catch (error) {
         finish(error as Error)
       }
     })
-  }
-
-  private detectProtocol(url: string): TrackerProtocol {
-    if (url.startsWith('udp://')) return 'udp'
-    if (url.startsWith('wss://')) return 'wss'
-    if (url.startsWith('ws://')) return 'ws'
-    if (url.startsWith('https://')) return 'https'
-    return 'http'
   }
 }

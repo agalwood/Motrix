@@ -1102,7 +1102,18 @@
           "summary_one": "{{count}} трекер",
           "summary_other": "{{count}} трекера",
           "syncFailed": "Не вдалося синхронізувати трекери: {{reason}}",
-          "syncPrivateDisabled": "Синхронізація недоступна для приватних торрентів."
+          "syncPrivateDisabled": "Синхронізація недоступна для приватних торрентів.",
+          "preview": {
+            "title": "Оновити трекери завдання",
+            "description": "Перевірте зміни додаткових трекерів. Адреси торента та додані вручну зберігаються.",
+            "reconnect": "Завдання ненадовго призупиниться, підключиться знову й автоматично продовжиться.",
+            "added": "Додати: {{count}}",
+            "removed": "Видалити: {{count}}",
+            "retained": "Зберігаються додаткові трекери: {{count}}. Початкові групи announce не змінюються.",
+            "excluded": "Видалені вами трекери ({{count}}) не додаватимуться під час автоматичного оновлення.",
+            "apply": "Застосувати оновлення",
+            "changesPending": "Очікувані зміни: {{count}}"
+          }
         }
       },
       "media": {
@@ -2813,7 +2824,7 @@
       "disabled": "Вимкнено — увімкніть, щоб переглянути діючий список трекерів.",
       "empty": "Діючих трекерів ще немає. Запустіть синхронізацію, щоб заповнити список.",
       "enabled": "Додавати відібрані трекери",
-      "enabledDesc": "Додавати відібраний список трекерів до всіх завдань BitTorrent."
+      "enabledDesc": "Додавати вибрані трекери до нових публічних завдань BitTorrent."
     },
     "sync": {
       "applying": "Застосування списків трекерів…",
@@ -2821,7 +2832,57 @@
       "fetching": "Отримання списків трекерів…",
       "probing": "Перевірка доступності трекерів…",
       "syncing": "Синхронізація…",
-      "unavailable": "Не вдалося прочитати стан синхронізації. Перевірте з'єднання та спробуйте ще раз."
+      "unavailable": "Не вдалося прочитати стан синхронізації. Перевірте з'єднання та спробуйте ще раз.",
+      "details": {
+        "title": "Update details",
+        "scope": "These defaults supplement new public BitTorrent tasks. Existing downloads keep their current trackers.",
+        "sources": "Source status",
+        "candidates": "Candidates",
+        "history": "Update history",
+        "disabled": "Disabled",
+        "noSources": "No enabled sources",
+        "attention": "{{count}} trackers · {{failed}} sources need attention",
+        "summary": "{{count}} trackers · Last successful update: {{time}}",
+        "lastAttempt": "Last check",
+        "nextCheck": "Next check",
+        "autoOff": "Automatic updates off",
+        "enginePending": "Saved; waiting to apply defaults to the download engine.",
+        "sourceResult": "{{count}} addresses · Last success: {{time}}",
+        "retryAt": "Next retry: {{time}}",
+        "evidence": "Connection checks are evidence of reachability, not a guarantee of peers or download speed.",
+        "firstSeen": "First seen: {{time}}",
+        "noCandidates": "No matching candidates",
+        "showMore": "Show more",
+        "run": "{{success}} sources succeeded · {{failed}} failed · +{{added}} / −{{removed}} selected",
+        "noHistory": "No update history",
+        "retry": "Retry failed sources",
+        "state": {
+          "fresh": "Up to date",
+          "cached": "Using last successful cache",
+          "expired": "Cache expired",
+          "pending": "Not checked yet",
+          "failed": "No usable cache"
+        },
+        "failure": {
+          "network": "Connection failed. The previous cache is retained for up to 7 days.",
+          "http": "The source returned an HTTP error.",
+          "invalid": "The response is not a valid tracker list.",
+          "limit": "The source exceeded the size or address limit.",
+          "missing-cache": "The source returned 304 without a usable cache."
+        },
+        "reason": {
+          "selected": "Selected",
+          "capacity": "Reserve",
+          "blacklisted": "Blacklisted",
+          "unsupported": "Unsupported protocol",
+          "cooldown": "Repeated connection failures"
+        },
+        "outcome": {
+          "success": "Completed",
+          "partial": "Partially completed",
+          "failed": "Failed"
+        }
+      }
     }
   },
   "tray": {

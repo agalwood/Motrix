@@ -830,7 +830,18 @@
           "invalidLines_other": "Ignorate {{count}} righe non valide",
           "invalidLines_many": "Ignorate {{count}} righe non valide",
           "editPlaceholder": "Un URL tracker per riga. Solo http(s)/udp/ws(s).",
-          "editHint": "Questi tracker sostituiscono l’elenco bt-tracker usato dall’attività. Le voci announce-list del file .torrent rimangono invariate."
+          "editHint": "Questi tracker sostituiscono l’elenco bt-tracker usato dall’attività. Le voci announce-list del file .torrent rimangono invariate.",
+          "preview": {
+            "title": "Aggiorna i tracker dell’attività",
+            "description": "Controlla le modifiche ai tracker aggiuntivi. Gli indirizzi del torrent e quelli aggiunti manualmente vengono mantenuti.",
+            "reconnect": "L’attività verrà sospesa brevemente, riconnessa e ripresa automaticamente.",
+            "added": "Aggiunte: {{count}}",
+            "removed": "Rimozioni: {{count}}",
+            "retained": "Mantieni {{count}} tracker aggiuntivi esistenti. I gruppi announce originali restano invariati.",
+            "excluded": "I {{count}} tracker rimossi non verranno aggiunti nuovamente dagli aggiornamenti automatici.",
+            "apply": "Applica aggiornamento",
+            "changesPending": "Modifiche in sospeso: {{count}}"
+          }
         },
         "multi": {
           "totals": "Totali",
@@ -2170,7 +2181,7 @@
   "trackers": {
     "effective": {
       "enabled": "Aggiungi tracker selezionati",
-      "enabledDesc": "Aggiungi l’elenco dei tracker selezionati a tutte le attività BitTorrent.",
+      "enabledDesc": "Aggiungi i tracker selezionati alle nuove attività BitTorrent pubbliche.",
       "disabled": "Disattivato: attiva per visualizzare l’elenco dei tracker effettivamente usati.",
       "empty": "Nessun tracker effettivamente in uso. Esegui la sincronizzazione per compilare l’elenco.",
       "column": {
@@ -2208,7 +2219,57 @@
       "probing": "Verifica della disponibilità dei tracker…",
       "applying": "Applicazione degli elenchi tracker…",
       "failed": "Sincronizzazione incompleta. Controlla la rete o le fonti e riprova.",
-      "unavailable": "Impossibile leggere lo stato della sincronizzazione. Controlla la connessione e riprova."
+      "unavailable": "Impossibile leggere lo stato della sincronizzazione. Controlla la connessione e riprova.",
+      "details": {
+        "title": "Update details",
+        "scope": "These defaults supplement new public BitTorrent tasks. Existing downloads keep their current trackers.",
+        "sources": "Source status",
+        "candidates": "Candidates",
+        "history": "Update history",
+        "disabled": "Disabled",
+        "noSources": "No enabled sources",
+        "attention": "{{count}} trackers · {{failed}} sources need attention",
+        "summary": "{{count}} trackers · Last successful update: {{time}}",
+        "lastAttempt": "Last check",
+        "nextCheck": "Next check",
+        "autoOff": "Automatic updates off",
+        "enginePending": "Saved; waiting to apply defaults to the download engine.",
+        "sourceResult": "{{count}} addresses · Last success: {{time}}",
+        "retryAt": "Next retry: {{time}}",
+        "evidence": "Connection checks are evidence of reachability, not a guarantee of peers or download speed.",
+        "firstSeen": "First seen: {{time}}",
+        "noCandidates": "No matching candidates",
+        "showMore": "Show more",
+        "run": "{{success}} sources succeeded · {{failed}} failed · +{{added}} / −{{removed}} selected",
+        "noHistory": "No update history",
+        "retry": "Retry failed sources",
+        "state": {
+          "fresh": "Up to date",
+          "cached": "Using last successful cache",
+          "expired": "Cache expired",
+          "pending": "Not checked yet",
+          "failed": "No usable cache"
+        },
+        "failure": {
+          "network": "Connection failed. The previous cache is retained for up to 7 days.",
+          "http": "The source returned an HTTP error.",
+          "invalid": "The response is not a valid tracker list.",
+          "limit": "The source exceeded the size or address limit.",
+          "missing-cache": "The source returned 304 without a usable cache."
+        },
+        "reason": {
+          "selected": "Selected",
+          "capacity": "Reserve",
+          "blacklisted": "Blacklisted",
+          "unsupported": "Unsupported protocol",
+          "cooldown": "Repeated connection failures"
+        },
+        "outcome": {
+          "success": "Completed",
+          "partial": "Partially completed",
+          "failed": "Failed"
+        }
+      }
     }
   },
   "plugins": {

@@ -93,6 +93,19 @@ describe('TrackersTab — read mode', () => {
         if (channel === Queries.GetTaskDetail) {
           return makeBtTask()
         }
+        if (channel === Queries.GetTaskTrackerPlan)
+          return {
+            taskId: 'task-1',
+            engineGid: 'gid-1',
+            fingerprint: 'a'.repeat(64),
+            added: ['http://global2'],
+            removed: [],
+            retained: [],
+            original: ['http://announce1', 'http://announce2'],
+            excluded: [],
+            requiresPause: true,
+            protected: false,
+          }
         return undefined
       }
     )
@@ -123,7 +136,7 @@ describe('TrackersTab — read mode', () => {
     render(<TrackersTab task={makeBtTask()} />)
     // 4 rows, 1 global URL not in effective (global2)
     expect(await screen.findByText(/4 trackers/)).toBeInTheDocument()
-    expect(screen.getByText(/1 not in global/)).toBeInTheDocument()
+    expect(screen.getByText(/Pending changes: 1/)).toBeInTheDocument()
   })
 
   it('shows private banner when isPrivate', async () => {
@@ -302,6 +315,7 @@ describe('TrackersTab — read mode', () => {
     ) as HTMLButtonElement
     await userEvent.click(trash)
     expect(transport.invoke).toHaveBeenCalledWith(Commands.SetTaskBtTracker, {
+      taskId: 'task-1',
       engineGid: 'gid-1',
       trackers: ['http://global1', 'http://announce1'], // effective minus 'http://effective-only'
     })
@@ -357,6 +371,7 @@ describe('TrackersTab — edit mode', () => {
     await userEvent.type(textarea, 'http://a\nhttps://b\nudp://c:80')
     await userEvent.click(screen.getByRole('button', { name: /save/i }))
     expect(transport.invoke).toHaveBeenCalledWith(Commands.SetTaskBtTracker, {
+      taskId: 'task-1',
       engineGid: 'gid-1',
       trackers: ['http://a', 'https://b', 'udp://c:80'],
     })
@@ -373,6 +388,7 @@ describe('TrackersTab — edit mode', () => {
       expect.objectContaining({ type: 'warning' })
     )
     expect(transport.invoke).toHaveBeenCalledWith(Commands.SetTaskBtTracker, {
+      taskId: 'task-1',
       engineGid: 'gid-1',
       trackers: ['http://ok'],
     })
@@ -480,25 +496,84 @@ describe('TrackersTab — Sync', () => {
     vi.clearAllMocks()
   })
 
-  it('Sync click invokes SyncTaskBtTracker', async () => {
-    ;(transport.invoke as ReturnType<typeof vi.fn>).mockImplementation(
-      async (channel) => {
-        if (channel === Queries.GetTaskBtTracker) return []
-        return undefined
-      }
-    )
+  it('previews additions and removals without writing, then applies the reviewed fingerprint', async () => {
+    const plan = {
+      taskId: 'task-1',
+      engineGid: 'gid-1',
+      fingerprint: 'a'.repeat(64),
+      added: ['https://new.example/announce'],
+      removed: ['udp://old.example:80'],
+      retained: ['https://manual.example/announce'],
+      original: ['https://native.example/announce'],
+      excluded: ['udp://excluded.example:80'],
+      requiresPause: true,
+      protected: false,
+    }
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.GetTaskBtTracker) return []
+      if (channel === Queries.GetTaskDetail) return makeBtTask()
+      if (channel === Queries.GetTaskTrackerPlan) return plan
+      return undefined
+    })
     render(<TrackersTab task={makeBtTask()} />)
     await userEvent.click(await screen.findByRole('button', { name: /sync/i }))
-    expect(transport.invoke).toHaveBeenCalledWith(Commands.SyncTaskBtTracker, {
-      engineGid: 'gid-1',
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByText(plan.added[0]!)).toBeInTheDocument()
+    expect(screen.getByText(plan.removed[0]!)).toBeInTheDocument()
+    expect(screen.getByText(/briefly pause and reconnect/)).toBeInTheDocument()
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.ApplyTaskTrackerPlan,
+      expect.anything()
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Apply update' }))
+    expect(transport.invoke).toHaveBeenCalledWith(
+      Commands.ApplyTaskTrackerPlan,
+      {
+        taskId: plan.taskId,
+        engineGid: plan.engineGid,
+        fingerprint: plan.fingerprint,
+      }
+    )
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  })
+
+  it('dismisses the preview on task switch without applying it', async () => {
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.GetTaskBtTracker) return []
+      if (channel === Queries.GetTaskDetail) return makeBtTask()
+      if (channel === Queries.GetTaskTrackerPlan)
+        return {
+          taskId: 'task-1',
+          engineGid: 'gid-1',
+          fingerprint: 'a'.repeat(64),
+          added: [],
+          removed: [],
+          retained: [],
+          original: [],
+          excluded: [],
+          requiresPause: false,
+          protected: false,
+        }
     })
+    const { rerender } = render(<TrackersTab task={makeBtTask()} />)
+    await userEvent.click(await screen.findByRole('button', { name: /sync/i }))
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Apply update' })).toBeDisabled()
+    rerender(
+      <TrackersTab task={makeBtTask({ id: 'task-2', engineTaskId: 'gid-2' })} />
+    )
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.ApplyTaskTrackerPlan,
+      expect.anything()
+    )
   })
 
   it('Sync error toasts', async () => {
     ;(transport.invoke as ReturnType<typeof vi.fn>).mockImplementation(
       async (channel) => {
         if (channel === Queries.GetTaskBtTracker) return []
-        if (channel === Commands.SyncTaskBtTracker) throw new Error('rpc fail')
+        if (channel === Queries.GetTaskTrackerPlan) throw new Error('rpc fail')
       }
     )
     render(<TrackersTab task={makeBtTask()} />)

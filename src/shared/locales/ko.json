@@ -806,7 +806,18 @@
           "deleteFailed": "트래커를 제거하지 못했습니다: {{reason}}",
           "invalidLines_other": "올바르지 않은 줄 {{count}}개를 건너뛰었습니다",
           "editPlaceholder": "한 줄에 트래커 URL 하나를 입력하세요. http(s)/udp/ws(s)만 지원합니다.",
-          "editHint": "이 트래커 목록은 작업에 적용되는 bt-tracker 목록을 대체합니다. .torrent의 announce-list 항목에는 영향을 주지 않습니다."
+          "editHint": "이 트래커 목록은 작업에 적용되는 bt-tracker 목록을 대체합니다. .torrent의 announce-list 항목에는 영향을 주지 않습니다.",
+          "preview": {
+            "title": "작업 트래커 업데이트",
+            "description": "보조 트래커 변경 사항을 확인하세요. 토렌트에 포함된 주소와 수동으로 추가한 주소는 유지됩니다.",
+            "reconnect": "이 작업은 잠시 일시 중지되어 다시 연결된 후 자동으로 재개됩니다.",
+            "added": "추가: {{count}}",
+            "removed": "제거: {{count}}",
+            "retained": "기존 보조 트래커 {{count}}개를 유지합니다. 토렌트의 announce 그룹은 변경되지 않습니다.",
+            "excluded": "삭제한 트래커 {{count}}개는 자동 업데이트 시 다시 추가되지 않습니다.",
+            "apply": "업데이트 적용",
+            "changesPending": "대기 중인 변경: {{count}}"
+          }
         },
         "multi": {
           "totals": "합계",
@@ -2140,7 +2151,7 @@
   "trackers": {
     "effective": {
       "enabled": "선별된 트래커 추가",
-      "enabledDesc": "모든 BitTorrent 작업에 선별된 트래커 목록을 추가합니다.",
+      "enabledDesc": "새 공개 BitTorrent 작업에 선정된 트래커를 추가합니다.",
       "disabled": "비활성화됨. 유효한 트래커 목록을 보려면 켜세요.",
       "empty": "아직 유효한 트래커가 없습니다. 동기화하여 목록을 채우세요.",
       "column": {
@@ -2178,7 +2189,57 @@
       "probing": "트래커 사용 가능 여부를 확인하는 중…",
       "applying": "트래커 목록을 적용하는 중…",
       "failed": "동기화가 완료되지 않았습니다. 네트워크 또는 소스를 확인하고 다시 시도하세요.",
-      "unavailable": "동기화 상태를 읽지 못했습니다. 연결을 확인하고 다시 시도하세요."
+      "unavailable": "동기화 상태를 읽지 못했습니다. 연결을 확인하고 다시 시도하세요.",
+      "details": {
+        "title": "Update details",
+        "scope": "These defaults supplement new public BitTorrent tasks. Existing downloads keep their current trackers.",
+        "sources": "Source status",
+        "candidates": "Candidates",
+        "history": "Update history",
+        "disabled": "Disabled",
+        "noSources": "No enabled sources",
+        "attention": "{{count}} trackers · {{failed}} sources need attention",
+        "summary": "{{count}} trackers · Last successful update: {{time}}",
+        "lastAttempt": "Last check",
+        "nextCheck": "Next check",
+        "autoOff": "Automatic updates off",
+        "enginePending": "Saved; waiting to apply defaults to the download engine.",
+        "sourceResult": "{{count}} addresses · Last success: {{time}}",
+        "retryAt": "Next retry: {{time}}",
+        "evidence": "Connection checks are evidence of reachability, not a guarantee of peers or download speed.",
+        "firstSeen": "First seen: {{time}}",
+        "noCandidates": "No matching candidates",
+        "showMore": "Show more",
+        "run": "{{success}} sources succeeded · {{failed}} failed · +{{added}} / −{{removed}} selected",
+        "noHistory": "No update history",
+        "retry": "Retry failed sources",
+        "state": {
+          "fresh": "Up to date",
+          "cached": "Using last successful cache",
+          "expired": "Cache expired",
+          "pending": "Not checked yet",
+          "failed": "No usable cache"
+        },
+        "failure": {
+          "network": "Connection failed. The previous cache is retained for up to 7 days.",
+          "http": "The source returned an HTTP error.",
+          "invalid": "The response is not a valid tracker list.",
+          "limit": "The source exceeded the size or address limit.",
+          "missing-cache": "The source returned 304 without a usable cache."
+        },
+        "reason": {
+          "selected": "Selected",
+          "capacity": "Reserve",
+          "blacklisted": "Blacklisted",
+          "unsupported": "Unsupported protocol",
+          "cooldown": "Repeated connection failures"
+        },
+        "outcome": {
+          "success": "Completed",
+          "partial": "Partially completed",
+          "failed": "Failed"
+        }
+      }
     }
   },
   "plugins": {

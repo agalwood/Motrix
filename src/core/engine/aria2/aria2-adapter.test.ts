@@ -2566,12 +2566,19 @@ describe('Aria2Adapter', () => {
         metadata: new Uint8Array([1, 2, 3]),
         saveDir: '/tmp',
         isPrivate: true,
+        extraEngineOptions: {
+          'bt-tracker': 'udp://public:80',
+          'bt-exclude-tracker': '*',
+          'enable-peer-exchange': 'true',
+        },
       })
       const opts = (rpc.addTorrent as Mock).mock.calls[0][2] as Record<
         string,
         string
       >
       expect(opts['bt-tracker']).toBe('')
+      expect(opts['bt-exclude-tracker']).toBe('')
+      expect(opts['enable-peer-exchange']).toBe('false')
     })
 
     it('omits bt-tracker override when isPrivate=false', async () => {

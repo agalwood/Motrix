@@ -63,6 +63,73 @@ describe('TrackersPage', () => {
     expect(screen.getByRole('button', { name: 'Filter by URL…' })).toHaveFocus()
   })
 
+  it('opens real update details and retries failed sources without moving the original controls', async () => {
+    const source = {
+      id: 's1',
+      label: 'Example source',
+      url: 'https://list.test',
+      enabled: true,
+      builtin: false,
+      cdn: false,
+    }
+    const now = Date.now()
+    vi.mocked(transport.invoke).mockImplementation(async (cmd) => {
+      if (cmd === Queries.GetSettings)
+        return {
+          tracker: {
+            ...SETTINGS_RESPONSE.tracker,
+            sources: [source],
+            autoSync: true,
+          },
+        }
+      if (cmd === Queries.GetTrackerSyncStatus) return 'idle'
+      if (cmd === Queries.GetTrackerList)
+        return {
+          ...TRACKER_LIST_RESPONSE,
+          effective: ['udp://a:80'],
+          candidates: [
+            {
+              url: 'udp://a:80',
+              sourceIds: ['s1'],
+              firstSeenAt: now,
+              reason: 'selected',
+            },
+          ],
+          snapshots: {
+            'tracker:s1': {
+              id: 's1',
+              url: source.url,
+              urls: ['udp://a:80'],
+              lastSuccessAt: now,
+              error: 'network',
+              nextRetryAt: now + 300_000,
+            },
+          },
+        }
+      return undefined
+    })
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    render(<TrackersPage />)
+    await waitFor(() => expect(screen.getByRole('switch')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Update details' }))
+    const dialog = screen.getByRole('dialog')
+    expect(
+      within(dialog).getByText('Using last successful cache')
+    ).toBeInTheDocument()
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Retry failed sources' })
+    )
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.RetryTrackerSources)
+    await user.click(within(dialog).getByRole('tab', { name: 'Candidates' }))
+    expect(within(dialog).getByText('Selected')).toBeInTheDocument()
+    expect(within(dialog).getByText(/First seen:/)).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    )
+    expect(screen.getByRole('button', { name: 'Update details' })).toHaveFocus()
+  })
+
   it('renders panel title and the two tabs', () => {
     render(<TrackersPage />)
     expect(screen.getByText('Trackers')).toBeInTheDocument()

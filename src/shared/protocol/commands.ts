@@ -80,8 +80,10 @@ export const Commands = {
   CheckForUpdates: 'command:checkForUpdates',
   DownloadUpdate: 'command:downloadUpdate',
   InstallUpdate: 'command:installUpdate',
+  ApplyTaskTrackerPlan: 'command:applyTaskTrackerPlan',
   // Tracker
   SyncTrackers: 'command:syncTrackers',
+  RetryTrackerSources: 'command:retryTrackerSources',
   SyncTaskBtTracker: 'command:syncTaskBtTracker',
   SetTaskBtTracker: 'command:setTaskBtTracker',
   // Window

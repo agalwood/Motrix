@@ -122,6 +122,7 @@ import {
   TrackerStore,
   TrackerSyncer,
 } from '@core/tracker'
+import { TaskTrackerRepository } from '@core/tracker/task-tracker-repository'
 import { resolveSupportedLocale } from '@shared/constants/locales'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
@@ -838,6 +839,8 @@ async function main() {
     trackerProber,
     trackerStore,
     {
+      runTaskMutation: (taskIds, operation) =>
+        taskInspectorActivityRuntime.runTaskMutation(taskIds, operation),
       pauseTask: (taskId) =>
         pauseTaskAction(taskId, {
           taskManager,
@@ -873,6 +876,12 @@ async function main() {
     },
     (settings) => proxyBridge.resolveForFetch(settings)
   )
+  trackerManager.configureTaskTracking(
+    adapter,
+    taskManager,
+    new TaskTrackerRepository(db.database)
+  )
+
   shutdownActions.disposeTracker = () => trackerManager.stopAndDrain()
 
   // ─── Proxy Applier ────────────────────────────────────────────
@@ -1853,6 +1862,10 @@ async function main() {
           }),
       }
       const taskActionDeps = {
+        onPauseRequested: (taskId: string) =>
+          trackerManager.noteTaskControl(taskId, true),
+        onResumeRequested: (taskId: string) =>
+          trackerManager.noteTaskControl(taskId, false),
         taskManager,
         adapter,
         eventBus,

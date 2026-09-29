@@ -42,6 +42,7 @@ import type { SupportedLocale } from '@shared/constants/locales'
 import type { QueryHandlerMap } from '@shared/protocol/handler-types'
 import { Queries } from '@shared/protocol/queries'
 import { ListServerDirectoryLocationsRequestSchema } from '@shared/schemas/server-directory'
+import { taskTrackerRequestSchema } from '@shared/schemas/task-tracker'
 import type { AppUpdateState } from '@shared/types/app-update'
 import type { AppImageIntegrationView } from '@shared/types/appimage-integration'
 import {
@@ -296,6 +297,11 @@ export function buildServerQueryHandlers(
       torrent: false,
       magnet: false,
     }),
+
+    [Queries.GetTaskTrackerPlan]: async (raw: unknown) => {
+      const { taskId, engineGid } = taskTrackerRequestSchema.parse(raw)
+      return trackerManager.getTaskTrackerPlan(taskId, engineGid)
+    },
 
     [Queries.GetTrackerList]: async () => trackerManager.getCuratedList(),
 

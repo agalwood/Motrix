@@ -20,6 +20,10 @@ import type { TaskManager } from '../task-manager'
  * siblings don't import from an unrelated peer just to reach the common type.
  */
 export interface TaskActionDeps {
+  /** Explicit controls supersede a temporary Tracker pause/recovery lease. */
+  onPauseRequested?: (taskId: string) => void
+  onResumeRequested?: (taskId: string) => void
+
   taskManager: TaskManager
   adapter: EngineAdapter
   eventBus: EventBus

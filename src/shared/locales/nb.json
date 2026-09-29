@@ -1078,7 +1078,18 @@
           "summary_one": "{{count}} tracker",
           "summary_other": "{{count}} trackere",
           "syncFailed": "Kunne ikke synkronisere trackere: {{reason}}",
-          "syncPrivateDisabled": "Synkronisering er utilgjengelig for private torrenter."
+          "syncPrivateDisabled": "Synkronisering er utilgjengelig for private torrenter.",
+          "preview": {
+            "title": "Oppdater oppgavens trackere",
+            "description": "Se gjennom endringene i ekstra trackere. Torrentens adresser og manuelt lagte adresser beholdes.",
+            "reconnect": "Oppgaven settes kort på pause, kobles til på nytt og fortsetter automatisk.",
+            "added": "Legg til: {{count}}",
+            "removed": "Fjern: {{count}}",
+            "retained": "Behold {{count}} eksisterende ekstra trackere. Torrentens announce-grupper forblir uendret.",
+            "excluded": "De {{count}} trackerne du fjernet, legges ikke til igjen ved automatiske oppdateringer.",
+            "apply": "Bruk oppdatering",
+            "changesPending": "Ventende endringer: {{count}}"
+          }
         }
       },
       "media": {
@@ -2769,7 +2780,7 @@
       "disabled": "Deaktivert — slå på for å se trackerlisten som brukes.",
       "empty": "Ingen trackere i bruk ennå. Kjør synkronisering for å fylle listen.",
       "enabled": "Legg til utvalgte trackere",
-      "enabledDesc": "Legg den utvalgte trackerlisten til i alle BitTorrent-oppgaver."
+      "enabledDesc": "Legg til utvalgte trackere i nye offentlige BitTorrent-oppgaver."
     },
     "sync": {
       "applying": "Tar i bruk trackerlister…",
@@ -2777,7 +2788,57 @@
       "fetching": "Henter trackerlister…",
       "probing": "Kontrollerer trackertilgjengelighet…",
       "syncing": "Synkroniserer…",
-      "unavailable": "Kan ikke lese synkroniseringsstatus. Kontroller tilkoblingen og prøv igjen."
+      "unavailable": "Kan ikke lese synkroniseringsstatus. Kontroller tilkoblingen og prøv igjen.",
+      "details": {
+        "title": "Update details",
+        "scope": "These defaults supplement new public BitTorrent tasks. Existing downloads keep their current trackers.",
+        "sources": "Source status",
+        "candidates": "Candidates",
+        "history": "Update history",
+        "disabled": "Disabled",
+        "noSources": "No enabled sources",
+        "attention": "{{count}} trackers · {{failed}} sources need attention",
+        "summary": "{{count}} trackers · Last successful update: {{time}}",
+        "lastAttempt": "Last check",
+        "nextCheck": "Next check",
+        "autoOff": "Automatic updates off",
+        "enginePending": "Saved; waiting to apply defaults to the download engine.",
+        "sourceResult": "{{count}} addresses · Last success: {{time}}",
+        "retryAt": "Next retry: {{time}}",
+        "evidence": "Connection checks are evidence of reachability, not a guarantee of peers or download speed.",
+        "firstSeen": "First seen: {{time}}",
+        "noCandidates": "No matching candidates",
+        "showMore": "Show more",
+        "run": "{{success}} sources succeeded · {{failed}} failed · +{{added}} / −{{removed}} selected",
+        "noHistory": "No update history",
+        "retry": "Retry failed sources",
+        "state": {
+          "fresh": "Up to date",
+          "cached": "Using last successful cache",
+          "expired": "Cache expired",
+          "pending": "Not checked yet",
+          "failed": "No usable cache"
+        },
+        "failure": {
+          "network": "Connection failed. The previous cache is retained for up to 7 days.",
+          "http": "The source returned an HTTP error.",
+          "invalid": "The response is not a valid tracker list.",
+          "limit": "The source exceeded the size or address limit.",
+          "missing-cache": "The source returned 304 without a usable cache."
+        },
+        "reason": {
+          "selected": "Selected",
+          "capacity": "Reserve",
+          "blacklisted": "Blacklisted",
+          "unsupported": "Unsupported protocol",
+          "cooldown": "Repeated connection failures"
+        },
+        "outcome": {
+          "success": "Completed",
+          "partial": "Partially completed",
+          "failed": "Failed"
+        }
+      }
     }
   },
   "tray": {

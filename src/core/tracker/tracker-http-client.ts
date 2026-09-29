@@ -3,9 +3,18 @@ import type { ProxyConfig } from '@shared/types/tracker'
 interface TrackerRequestInit {
   method?: string
   signal?: AbortSignal
+  headers?: Record<string, string>
 }
 
-interface TrackerResponse {
+export interface TrackerResponse {
+  status?: number
+  headers?: { get(name: string): string | null }
+  body?: {
+    getReader(): {
+      read(): Promise<{ done: boolean; value?: Uint8Array }>
+      cancel(): Promise<void>
+    }
+  } | null
   text(): Promise<string>
 }
 

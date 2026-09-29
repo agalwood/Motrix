@@ -24,6 +24,7 @@ export async function resumeTask(
 ): Promise<void> {
   const task = getTaskOrWarn(deps, taskId, 'resumeTask')
   if (!task) return
+  deps.onResumeRequested?.(taskId)
   const optimistic = {
     ...task,
     status: TaskStatus.Downloading,

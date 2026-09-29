@@ -142,7 +142,17 @@ export interface CreateDownloadParams {
   minSplitSize?: number
 }
 
+/** Host-owned policy, invoked after a durable GID owner exists and before dispatch. */
+export type BtTrackerPolicy = (input: {
+  engineGid?: string
+  metadata?: Uint8Array
+  manual: string[]
+  isPrivate?: boolean
+}) => Promise<{ trackers: string[]; isPrivate: boolean }>
+
 export interface EngineAdapter {
+  configureBtTrackerPolicy?(policy: BtTrackerPolicy): void
+  setTaskBtTracker(engineTaskId: string, trackers: string[]): Promise<void>
   connect(): Promise<void>
   disconnect(): Promise<void>
   getCapabilities(): EngineCapability
