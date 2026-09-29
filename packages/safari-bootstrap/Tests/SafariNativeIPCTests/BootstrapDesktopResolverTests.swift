@@ -14,9 +14,9 @@ private actor ResolverFixture {
         self.launchFails = launchFails
     }
 
-    func probe() -> Data {
+    func probe() -> BootstrapDesktopProbe {
         probes += 1
-        return probes > availableAfter ? ready : BootstrapIPCCodec.unavailable
+        return probes > availableAfter ? .response(ready) : .notRunning
     }
 
     func launch() throws {
@@ -92,11 +92,36 @@ final class BootstrapDesktopResolverTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(launches, 1)
     }
 
+    func testLiveBridgeFailureNeverLaunchesOrRetries() async throws {
+        let fixture = ResolverFixture(availableAfter: 0)
+        let result = try await BootstrapDesktopResolver().resolve(allowLaunch: true) {
+            _ = await fixture.probe()
+            return .response(BootstrapIPCCodec.unavailable)
+        } launch: { try await fixture.launch() }
+        XCTAssertEqual(result, BootstrapIPCCodec.unavailable)
+        let counts = await (fixture.probes, fixture.launches)
+        XCTAssertEqual(counts.0, 1)
+        XCTAssertEqual(counts.1, 0)
+    }
+
+    func testNonceRefusalAfterColdLaunchStopsPolling() async throws {
+        let fixture = ResolverFixture(availableAfter: 1)
+        let result = try await BootstrapDesktopResolver().resolve(allowLaunch: true) {
+            let probe = await fixture.probe()
+            if case .notRunning = probe { return .notRunning }
+            return .response(BootstrapIPCCodec.unavailable)
+        } launch: { try await fixture.launch() }
+        XCTAssertEqual(result, BootstrapIPCCodec.unavailable)
+        let counts = await (fixture.probes, fixture.launches)
+        XCTAssertEqual(counts.0, 2)
+        XCTAssertEqual(counts.1, 1)
+    }
+
     func testMalformedDiscoveryNeverTriggersLaunch() async throws {
         let fixture = ResolverFixture(availableAfter: 0)
         let malformed = Data("{\"error\":\"bootstrap-unavailable\",\"protocolVersion\":true}".utf8)
         let result = try await BootstrapDesktopResolver().resolve(allowLaunch: true) {
-            malformed
+            .response(malformed)
         } launch: { try await fixture.launch() }
         XCTAssertEqual(result, malformed)
         let launches = await fixture.launches

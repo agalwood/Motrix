@@ -11,7 +11,7 @@ its release cadence; the existing Safari bootstrap wire interface remains v1.
 On macOS with Xcode and the matching Rust target installed:
 
 ```sh
-pnpm run build:safari-bootstrap -- --arch arm64
+pnpm run build:safari-bootstrap -- --arch arm64 --test
 pnpm run build:safari-bootstrap -- --arch x64
 swift test --package-path packages/safari-bootstrap
 ```
@@ -24,6 +24,12 @@ executables in `dist/darwin-<arch>/`. Electron Builder embeds them at:
 - `Contents/Library/LaunchAgents/app.motrix.safari.bootstrap.plist`
 
 The existing CI and release macOS matrices build each architecture separately.
+`--test` runs eight loopback integration cases on the runner's native architecture,
+linking the production Swift adapter and Rust library. These cover successful,
+rate-limited (429), unavailable (503), cold-start and passive discovery paths.
+The private v2 C ABI preserves whether discovery found a running bridge; a live
+bridge refusing a nonce terminates the request without wake-up or retry. The
+existing v1 ABI and extension-facing JSON/XPC protocol remain compatible.
 The isolated signing job receives binaries as data and hash-pinned signing
 policy, not Swift/Rust source or a build hook. `scripts/sign-macos.mjs` runs with
 the existing pinned Electron Builder dependency closure and Developer ID

@@ -47,6 +47,19 @@ enum BootstrapDesktopLauncher {
     }
 }
 
+/// Private classification from the Rust ABI; never added to the extension's wire response.
+enum BootstrapDesktopProbe: Sendable {
+    case notRunning
+    case response(Data)
+
+    var response: Data {
+        switch self {
+        case .notRunning: BootstrapIPCCodec.unavailable
+        case .response(let data): data
+        }
+    }
+}
+
 /// Keep the native Rust resolver discovery-only; the signed host owns wake-up.
 actor BootstrapDesktopResolver {
     private var busy = false
@@ -60,7 +73,7 @@ actor BootstrapDesktopResolver {
 
     func resolve(
         allowLaunch: Bool,
-        probe: @Sendable () async throws -> Data,
+        probe: @Sendable () async throws -> BootstrapDesktopProbe,
         launch: @Sendable () async throws -> Void
     ) async throws -> Data {
         guard !busy else { return BootstrapIPCCodec.unavailable }
@@ -68,7 +81,7 @@ actor BootstrapDesktopResolver {
         busy = true
         defer { busy = false }
         let result = try await probe()
-        guard allowLaunch, Self.isUnavailable(result) else { return result }
+        guard allowLaunch, case .notRunning = result else { return result.response }
         try Task.checkCancellation()
         do { try await launch() }
         catch is CancellationError { throw CancellationError() }
@@ -77,16 +90,9 @@ actor BootstrapDesktopResolver {
         repeat {
             try Task.checkCancellation()
             let response = try await probe()
-            if !Self.isUnavailable(response) { return response }
+            if case .response(let data) = response { return data }
             try await Task.sleep(for: interval)
         } while ContinuousClock.now < deadline
         return BootstrapIPCCodec.unavailable
-    }
-
-    private static func isUnavailable(_ data: Data) -> Bool {
-        guard let object = try? BootstrapIPCCodec.object(data, response: true) else { return false }
-        return Set(object.keys) == ["error", "protocolVersion"]
-            && BootstrapIPCCodec.integer(object["protocolVersion"], in: 1...1)
-            && object["error"] as? String == "bootstrap-unavailable"
     }
 }

@@ -460,7 +460,7 @@ jobs:
         if: matrix.platform == 'darwin'
         run: |
           swift test --package-path packages/safari-bootstrap
-          pnpm run build:safari-bootstrap -- --arch ${{ matrix.arch }}
+          pnpm run build:safari-bootstrap -- --arch ${{ matrix.arch }} --test
 
       # SQLite integration tests above use Node. Switch native modules to the
       # packaged Electron ABI only after those tests have finished.

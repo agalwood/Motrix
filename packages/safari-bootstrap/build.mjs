@@ -3,10 +3,11 @@ import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
+import { testBootstrapIntegration } from './test-integration.mjs'
 
 const { values } = parseArgs({
   args: process.argv.slice(2).filter((arg) => arg !== '--'),
-  options: { arch: { type: 'string' } },
+  options: { arch: { type: 'string' }, test: { type: 'boolean' } },
 })
 const arch = values.arch ?? process.arch
 if (process.platform !== 'darwin' || !['arm64', 'x64'].includes(arch)) {
@@ -88,6 +89,7 @@ run('/usr/bin/xcrun', [
   ...common,
   '-import-objc-header',
   join(root, 'packages/native-host/include/motrix_safari_bootstrap.h'),
+  join(source, 'Native/NativeBootstrapResolver.swift'),
   join(source, 'Executables/BootstrapServiceMain.swift'),
   join(rustOutput, target, 'release/libmotrix_native_host.a'),
   '-o',
@@ -102,3 +104,20 @@ run('/usr/bin/xcrun', [
   join(output, 'MotrixSafariRegistrar'),
 ])
 console.log(`Built unsigned Safari desktop helpers for ${arch}`)
+
+if (values.test) {
+  if (arch !== process.arch)
+    throw new Error('Integration tests require the runner architecture')
+  const probe = join(intermediate, 'bootstrap-probe')
+  run('/usr/bin/xcrun', [
+    ...common,
+    '-import-objc-header',
+    join(root, 'packages/native-host/include/motrix_safari_bootstrap.h'),
+    join(source, 'Native/NativeBootstrapResolver.swift'),
+    join(source, 'Tests/FFI/BootstrapProbe.swift'),
+    join(rustOutput, target, 'release/libmotrix_native_host.a'),
+    '-o',
+    probe,
+  ])
+  await testBootstrapIntegration(probe)
+}

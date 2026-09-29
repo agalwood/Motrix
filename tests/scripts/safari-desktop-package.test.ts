@@ -79,7 +79,7 @@ describe('Safari desktop distribution', () => {
       )
       expect(workflow).toContain(
         // biome-ignore lint/suspicious/noTemplateCurlyInString: literal GitHub Actions expression
-        'pnpm run build:safari-bootstrap -- --arch ${{ matrix.arch }}'
+        'pnpm run build:safari-bootstrap -- --arch ${{ matrix.arch }} --test'
       )
     }
   })

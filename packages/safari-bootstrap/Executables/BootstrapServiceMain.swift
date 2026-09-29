@@ -1,35 +1,6 @@
 import Foundation
 import os
 
-/// The C ABI is linked statically; no subprocess, argv identity, or dynamic library is accepted.
-private actor NativeBootstrapResolver {
-    private let queue = DispatchQueue(label: "app.motrix.safari.rust-bootstrap")
-
-    func resolve(_ request: BootstrapIPCRequest) async throws -> Data {
-        try Task.checkCancellation()
-        let input = try JSONSerialization.data(withJSONObject: [
-            "action": "bootstrap", "protocolVersion": 1,
-            "bindingPub": request.bindingPublicKey, "allowLaunch": false,
-        ])
-        return await withCheckedContinuation { continuation in
-            queue.async {
-                var output = [UInt8](repeating: 0, count: 16 * 1024)
-                let written = input.withUnsafeBytes { inputBuffer in
-                    output.withUnsafeMutableBufferPointer { outputBuffer in
-                        motrix_safari_bootstrap_v1(
-                            inputBuffer.bindMemory(to: UInt8.self).baseAddress, inputBuffer.count,
-                            outputBuffer.baseAddress, outputBuffer.count
-                        )
-                    }
-                }
-                let result = written > 0 && written <= output.count
-                    ? Data(output.prefix(written)) : BootstrapIPCCodec.unavailable
-                continuation.resume(returning: result)
-            }
-        }
-    }
-}
-
 @main
 enum BootstrapServiceMain {
     static func main() {
