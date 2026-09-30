@@ -1827,6 +1827,7 @@
           "chrome": "Chrome",
           "edge": "Microsoft Edge",
           "firefox": "Firefox",
+          "safari": "Safari",
           "github": "GitHub",
           "store": "Installa",
           "development": "Sviluppo"

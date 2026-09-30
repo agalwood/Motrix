@@ -7,6 +7,7 @@ import edgeIcon from '../../icons/browser-edge.png'
 import firefoxIcon from '../../icons/browser-firefox.png'
 import githubIcon from '../../icons/browser-github.svg'
 import githubWhiteIcon from '../../icons/browser-github-white.svg'
+import safariIcon from '../../icons/browser-safari.webp'
 
 const INSTALL_OPTIONS = [
   {
@@ -28,6 +29,12 @@ const INSTALL_OPTIONS = [
     status: 'store',
   },
   {
+    id: 'safari',
+    icon: safariIcon,
+    href: EXTERNAL_URLS.browserExtension.safari,
+    status: 'store',
+  },
+  {
     id: 'github',
     icon: githubIcon,
     href: EXTERNAL_URLS.browserExtension.development,
@@ -39,7 +46,7 @@ export function BrowserExtensionInstalls() {
   const { t } = useTranslation()
 
   return (
-    <div className="grid w-full grid-cols-4 gap-2">
+    <div className="grid w-full grid-cols-3 gap-2 sm:grid-cols-5">
       {INSTALL_OPTIONS.map((option) => {
         const className = cn(
           buttonVariants({ variant: 'outline' }),

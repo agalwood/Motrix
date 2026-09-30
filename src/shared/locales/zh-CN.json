@@ -1799,6 +1799,7 @@
           "chrome": "Chrome",
           "edge": "Microsoft Edge",
           "firefox": "Firefox",
+          "safari": "Safari",
           "github": "GitHub",
           "store": "安装扩展",
           "development": "开发版"
