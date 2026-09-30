@@ -32,6 +32,7 @@ import {
   taskMatchesTab,
 } from './filter'
 import { GlobalStatsBar } from './global-stats-bar'
+import { resolveInspectorInset } from './inspector-inset'
 import { StatusTitleMenu } from './status-title-menu'
 import { useDownloadsSelection } from './store'
 import { TaskInspectorDrawer } from './task-inspector-drawer'
@@ -285,6 +286,66 @@ export function DownloadsPage() {
   ])
 
   const [container, setContainer] = useState<HTMLElement | null>(null)
+
+  // The inspector drawer overlays the page root without resizing the list, so
+  // the list must reserve scroll space for the band the drawer covers;
+  // otherwise rows in that band (typically the active ones, sorted last) can
+  // never scroll above the drawer's top edge.
+  const inspectorVisible = useDownloadsView((state) => state.inspectorVisible)
+  const inspectorSnap = useDownloadsView((state) => state.inspectorSnap)
+  const committedIds = useDownloadsSelection(
+    (state) => state.committedSelectedIds
+  )
+  // Mirror useTaskInspectorState's open condition so scroll space is only
+  // reserved while the drawer actually overlays the page.
+  const inspectorOpen = useMemo(
+    () =>
+      inspectorVisible &&
+      tasks.some(
+        (task) => committedIds.has(task.id) && isTaskAvailable(task.status)
+      ),
+    [committedIds, inspectorVisible, tasks]
+  )
+  const [inspectorMetrics, setInspectorMetrics] = useState({
+    page: 0,
+    footer: 0,
+    grid: 0,
+  })
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the list swaps between skeleton, grid, and empty states without resizing the page root; re-running re-queries the footer and grid elements
+  useEffect(() => {
+    if (!container) return
+    const measure = () => {
+      const page = container.getBoundingClientRect().height
+      const footer =
+        container
+          .querySelector<HTMLElement>('[data-slot="panel-shell-footer"]')
+          ?.getBoundingClientRect().height ?? 0
+      const grid =
+        container
+          .querySelector<HTMLElement>('[data-downloads-grid]')
+          ?.getBoundingClientRect().height ?? 0
+      setInspectorMetrics((previous) =>
+        previous.page === page &&
+        previous.footer === footer &&
+        previous.grid === grid
+          ? previous
+          : { page, footer, grid }
+      )
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [container, status, hasReadySnapshot, filtered.length])
+  const inspectorInset = resolveInspectorInset({
+    pageHeight: inspectorMetrics.page,
+    footerHeight: inspectorMetrics.footer,
+    gridHeight: inspectorMetrics.grid,
+    snap: inspectorSnap,
+    open: inspectorOpen,
+  })
+
   const taskList =
     status === 'loading' && !hasReadySnapshot ? (
       <TaskListSkeleton />
@@ -299,6 +360,7 @@ export function DownloadsPage() {
         filter={filter}
         search={query}
         onClearSearch={() => onQueryChange('')}
+        bottomInset={inspectorInset}
       />
     )
 

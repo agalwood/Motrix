@@ -10,7 +10,7 @@ import {
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 
 export type InspectorSnap = 'compact' | 'medium' | 'expanded'
-const SNAP_NAMES: InspectorSnap[] = ['compact', 'medium', 'expanded']
+export const SNAP_NAMES: InspectorSnap[] = ['compact', 'medium', 'expanded']
 
 export function getInspectorSnapHeights(availableHeight: number) {
   const maximum = Math.max(

@@ -96,7 +96,10 @@ export function PanelShell({
 
       {/* PanelShell footer */}
       {footer && (
-        <footer className="flex shrink-0 items-center justify-between gap-2 px-6 py-3">
+        <footer
+          data-slot="panel-shell-footer"
+          className="flex shrink-0 items-center justify-between gap-2 px-6 py-3"
+        >
           {footer}
         </footer>
       )}

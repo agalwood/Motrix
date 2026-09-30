@@ -74,6 +74,39 @@ describe('VirtualList', () => {
     expect(scrollContainer).not.toBeNull()
   })
 
+  it('appends the bottom inset as scroll space after the last row', () => {
+    const { container } = render(
+      <VirtualList<TestItem>
+        items={makeItems(10)}
+        getId={(item) => item.id}
+        rowHeight={40}
+        bottomInset={220}
+        renderRow={({ item }) => <div>{item.label}</div>}
+      />
+    )
+    const scrollContainer = container.querySelector(
+      '[data-testid="virtual-list-container"]'
+    ) as HTMLElement
+    const spacer = scrollContainer.lastElementChild as HTMLElement
+    expect(spacer.getAttribute('aria-hidden')).toBe('true')
+    expect(spacer.style.height).toBe('220px')
+  })
+
+  it('omits bottom inset scroll space when zero', () => {
+    const { container } = render(
+      <VirtualList<TestItem>
+        items={makeItems(10)}
+        getId={(item) => item.id}
+        rowHeight={40}
+        renderRow={({ item }) => <div>{item.label}</div>}
+      />
+    )
+    const scrollContainer = container.querySelector(
+      '[data-testid="virtual-list-container"]'
+    ) as HTMLElement
+    expect(scrollContainer.querySelector('[aria-hidden="true"]')).toBeNull()
+  })
+
   it.each(['native', 'custom'] as const)(
     'retains active options and viewport semantics with %s scrollbars',
     (scrollbar) => {
