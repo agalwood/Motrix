@@ -1215,6 +1215,18 @@
         "sortBy": "Sortează după",
         "taskActions": "Mai multe",
         "title": "Vizualizare listă"
+      },
+      "completionShutdown": {
+        "more": "Mai multe acțiuni de descărcare",
+        "enable": "Oprește după toate descărcările",
+        "disable": "Anulează oprirea după descărcări",
+        "waiting": "Se așteaptă finalizarea descărcărilor",
+        "countdown": "Oprire în {{seconds}} secunde",
+        "detail": "Se aplică o singură dată. Sarcinile întrerupte sau eșuate împiedică oprirea. Partajarea se încheie la oprire.",
+        "unavailable": "Oprirea automată nu este disponibilă sau permisiunea a fost refuzată.",
+        "failed": "Nu s-a putut pregăti sau solicita oprirea. Oprirea nu a fost forțată.",
+        "preparing": "Se pregătește oprirea…",
+        "requested": "Oprire solicitată"
       }
     },
     "trackers": {

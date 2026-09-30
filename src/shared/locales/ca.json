@@ -1215,6 +1215,18 @@
         "sortBy": "Ordenar per",
         "taskActions": "Més",
         "title": "Vista de llista"
+      },
+      "completionShutdown": {
+        "more": "Més accions de baixada",
+        "enable": "Apaga en acabar totes les baixades",
+        "disable": "Cancel·la l’apagada després de les baixades",
+        "waiting": "Esperant que acabin totes les baixades",
+        "countdown": "Apagada d’aquí a {{seconds}} segons",
+        "detail": "Només una vegada. Les tasques en pausa o fallides impedeixen l’apagada. La sembra acaba en apagar l’ordinador.",
+        "unavailable": "L’apagada automàtica no està disponible o s’ha denegat el permís.",
+        "failed": "No s’ha pogut preparar o sol·licitar l’apagada. No s’ha forçat l’apagada.",
+        "preparing": "S’està preparant l’apagada…",
+        "requested": "S’ha sol·licitat l’apagada"
       }
     },
     "trackers": {

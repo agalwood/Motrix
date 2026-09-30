@@ -10,6 +10,7 @@ export interface WindowMaximizedChangedPayload {
 }
 
 export const Events = {
+  CompletionShutdownChanged: 'event:completionShutdownChanged',
   TaskUpdated: 'event:taskUpdated',
   TaskFilesUpdated: 'event:taskFilesUpdated',
   TaskActivityUpdated: 'event:taskActivityUpdated',

@@ -138,7 +138,7 @@ import type { AppNotification } from '@shared/types/notification'
 import { getHiddenNotificationKinds } from '@shared/types/notification'
 import type { AppSettings } from '@shared/types/settings'
 import type { DownloadTask } from '@shared/types/task'
-import { TaskType } from '@shared/types/task'
+import { TaskStatus, TaskType } from '@shared/types/task'
 import type { TaskOccurrence } from '@shared/types/task-occurrence'
 import {
   app,
@@ -187,6 +187,7 @@ import { createOsNotificationBridge } from './notifications/os-bridge'
 import { DisclaimerGate } from './onboarding/disclaimer-gate'
 import { setupAppImageIntegration } from './platform/appimage-integration-host'
 import { syncAutoLaunch } from './platform/auto-launch'
+import { setupCompletionShutdown } from './platform/completion-shutdown'
 import { resolveDefaultSaveDirOptions } from './platform/default-save-dir'
 import { resolveDesktopBackgroundPolicy } from './platform/desktop-background-policy'
 import { resolveDistributionContext } from './platform/distribution-context'
@@ -2676,7 +2677,7 @@ async function initializeMainProcess(): Promise<void> {
   })
   const disposeNotificationIpc = registerNotificationIpc({
     notificationCenter,
-    trackAsyncWork: (operation) => mainProcessWork.run(operation),
+    trackAsyncWork: (operation) => mainProcessWork.run(operation, false),
   })
 
   // The main window can mount before the full IPC ingress is ready. The
@@ -2779,7 +2780,7 @@ async function initializeMainProcess(): Promise<void> {
     taskSpeedHistoryStore,
     taskInspectorActivityRuntime: activeTaskInspectorActivityQuery,
     waitForTasksReady: () => mainProcessWork.waitForStartup(),
-    trackAsyncWork: (operation) => mainProcessWork.run(operation),
+    trackAsyncWork: (operation) => mainProcessWork.run(operation, false),
     supervisor,
     settingsManager,
     natManager,
@@ -2797,7 +2798,34 @@ async function initializeMainProcess(): Promise<void> {
     speedLimitController,
     updateManager,
   })
+  const disposeCompletionShutdown = setupCompletionShutdown({
+    getMainWindow: () => windowManager.get('main') ?? null,
+    showMainWindow: () => windowManager.show('main'),
+    eventBus,
+    getTasks: () => taskManager.getAll(),
+    isReady: () =>
+      mainProcessWork.isAccepting() &&
+      supervisor.getState() === EngineState.Ready &&
+      rpcClient.isConnected(),
+    waitForReady: () => mainProcessWork.waitForStartup(),
+    prepare: () => mainProcessWork.prepareForPowerAction(),
+    save: async () => {
+      // Check the engine too: an in-flight or external add may not yet have a parent row.
+      const stats = await adapter.getGlobalStats()
+      const seeding = taskManager
+        .getAll()
+        .filter((task) => task.status === TaskStatus.Seeding).length
+      if (stats.waitingTasks > 0 || stats.activeTasks > seeding)
+        throw new Error('Engine still has unfinished downloads')
+      await sessionManager.save()
+    },
+    broadcast: (state) =>
+      windowManager.broadcast(Events.CompletionShutdownChanged, state),
+    translate: (key, params) => i18n.t(key, params),
+    logError: (err) => log.warn({ err }, 'completion shutdown failed'),
+  })
   disposeIpcIngress = () => {
+    disposeCompletionShutdown()
     disposeCommandHandlers()
     disposeQueryHandlers()
     disposeNotificationIpc()
@@ -2813,6 +2841,7 @@ async function initializeMainProcess(): Promise<void> {
   })
 
   setupPowerManager(eventBus)
+
   // menuManager is assigned and install()ed above — non-null by this point
   const activeMenuManager = menuManager as MenuManager
   trayHandle = setupTray({

@@ -92,6 +92,61 @@ function setup(over: Partial<WriteHandlerDeps> = {}) {
   return { d, deps }
 }
 
+describe('shell work admission', () => {
+  it('admits download/add before torrent parsing and drains the whole creation', async () => {
+    const admission = Promise.withResolvers<void>()
+    const parsing = Promise.withResolvers<number>()
+    let settled = false
+    const admitted = vi.fn()
+    const trackAsyncWork = async <T>(operation: () => Promise<T>) => {
+      admitted()
+      await admission.promise
+      const result = await operation()
+      settled = true
+      return result
+    }
+    const { d, deps } = setup({
+      trackAsyncWork,
+      parseTorrentFileCount: () => parsing.promise,
+    })
+    const pending = d.dispatch(
+      'download/add',
+      { kind: 'torrent', saveDir: '/dl', base64: 'Zm9v' },
+      cliCtx
+    )
+    expect(admitted).toHaveBeenCalledOnce()
+    expect(deps.createTask).not.toHaveBeenCalled()
+    admission.resolve()
+    await Promise.resolve()
+    expect(settled).toBe(false)
+    parsing.resolve(1)
+    await pending
+    expect(settled).toBe(true)
+    expect(deps.createTask).toHaveBeenCalledOnce()
+  })
+
+  it.each(['task/pause', 'task/resume', 'task/remove'])(
+    'gates %s before mutation',
+    async (method) => {
+      const admission = Promise.withResolvers<void>()
+      const admitted = vi.fn()
+      const trackAsyncWork = async <T>(operation: () => Promise<T>) => {
+        admitted()
+        await admission.promise
+        return operation()
+      }
+      const { d, deps } = setup({ trackAsyncWork })
+      const pending = d.dispatch(method, { taskId: 'task-1' }, cliCtx)
+      expect(admitted).toHaveBeenCalledOnce()
+      expect(deps.pauseTask).not.toHaveBeenCalled()
+      expect(deps.resumeTask).not.toHaveBeenCalled()
+      expect(deps.removeTask).not.toHaveBeenCalled()
+      admission.resolve()
+      await expect(pending).resolves.toEqual({ ok: true })
+    }
+  )
+})
+
 describe('task/pause', () => {
   it('delegates once by public task id', async () => {
     const { d, deps } = setup()

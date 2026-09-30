@@ -958,6 +958,18 @@
         "downloadEta": "다운로드 남은 시간",
         "avgDownloadProgress": "평균 다운로드 진행률",
         "processingTasks": "처리 중"
+      },
+      "completionShutdown": {
+        "more": "다운로드 추가 작업",
+        "enable": "모든 다운로드 완료 후 시스템 종료",
+        "disable": "다운로드 후 시스템 종료 취소",
+        "waiting": "모든 다운로드 완료 대기 중",
+        "countdown": "{{seconds}}초 후 시스템 종료",
+        "detail": "이번에만 적용됩니다. 일시 중지되거나 실패한 작업이 있으면 종료하지 않습니다. 시딩은 시스템 종료 시 끝납니다.",
+        "unavailable": "자동 종료를 사용할 수 없거나 권한이 거부되었습니다.",
+        "failed": "시스템 종료를 준비하거나 요청하지 못했습니다. 강제 종료는 수행하지 않았습니다.",
+        "preparing": "시스템 종료 준비 중…",
+        "requested": "시스템 종료 요청됨"
       }
     }
   },

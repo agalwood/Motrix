@@ -18,6 +18,7 @@ import { PairingService } from '@core/bridge/pairing-service'
 import { WebSocketBridgeServer } from '@core/bridge/web-socket-bridge-server'
 import { BridgeReceiver } from '@core/bridge-receiver/bridge-receiver'
 import { BridgeStreamSource } from '@core/bridge-receiver/bridge-stream-source'
+import { CompletionShutdownController } from '@core/task/completion-shutdown-controller'
 import * as taskCreation from '@core/task/create-task-handler'
 import {
   BridgeCommands,
@@ -25,11 +26,13 @@ import {
   type BridgeStatusInfo,
 } from '@shared/protocol/bridge'
 import { EngineState } from '@shared/types/engine'
+import { TaskStatus } from '@shared/types/task'
 import {
   makeDirectSubmit,
   makeExtensionContext,
 } from '@test-utils/bridge-receiver'
 import { makeMediaMetaStoreStub } from '@test-utils/media-meta-store'
+import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   computeManifestPaths,
@@ -96,6 +99,7 @@ vi.mock('../ipc/trusted-ipc', () => ({
   ) => electron.handle(channel, listener),
 }))
 
+import { MainProcessWorkCoordinator } from '../main-process-work-coordinator'
 import { bootstrapBridge } from './index'
 
 function args(): Parameters<typeof bootstrapBridge>[0] {
@@ -211,8 +215,100 @@ describe('desktop bridge bootstrap ownership', () => {
   })
 
   afterEach(async () => {
+    vi.useRealTimers()
     vi.restoreAllMocks()
     await rm(userDataDir, { recursive: true, force: true })
+  })
+
+  it('blocks shutdown while an extension submit is resolving before engine/task publication', async () => {
+    const coordinator = new MainProcessWorkCoordinator()
+    const name = Promise.withResolvers<string>()
+    const pick = vi.fn(() => name.promise)
+    const createTask = vi
+      .spyOn(taskCreation, 'handleCreateTask')
+      .mockResolvedValue({ outcome: 'created', gid: 'gid', taskId: 'task' })
+    const registration = vi.spyOn(
+      WebSocketBridgeServer.prototype,
+      'setHandlers'
+    )
+    const writes = vi.spyOn(
+      WebSocketBridgeServer.prototype,
+      'registerWriteMethods'
+    )
+    const runtime = await bootstrapBridge({
+      ...args(),
+      finalNamePicker: { pick },
+      trackAsyncWork: (operation) => coordinator.run(operation),
+    })
+    if (!runtime) throw new Error('bridge did not start')
+    const requestShutdown = vi.fn(async () => {})
+    const controller = new CompletionShutdownController({
+      supported: true,
+      getTasks: () => [makeDownloadTask({ status: TaskStatus.Seeding })],
+      isReady: () => true,
+      probe: async () => {},
+      prepare: () => coordinator.prepareForPowerAction(),
+      save: async () => {},
+      requestShutdown,
+      onState: () => {},
+      onError: () => {},
+    })
+    try {
+      expect(writes.mock.calls[0]?.[0].trackAsyncWork).toBeTypeOf('function')
+      const submit = registration.mock.calls[0]?.[0].submitDownload
+      if (!submit) throw new Error('submit handler missing')
+      vi.useFakeTimers()
+      await controller.setEnabled(true)
+      await vi.advanceTimersByTimeAsync(59_000)
+      const pending = submit(makeDirectSubmit(), makeExtensionContext())
+      await vi.advanceTimersByTimeAsync(0)
+      expect(pick).toHaveBeenCalledOnce()
+      expect(createTask).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(1_000)
+      expect(controller.getState().phase).toBe('preparing')
+      expect(requestShutdown).not.toHaveBeenCalled()
+      controller.cancel()
+      name.resolve('file.zip')
+      await pending
+      expect(createTask).toHaveBeenCalledOnce()
+      expect(requestShutdown).not.toHaveBeenCalled()
+    } finally {
+      controller.dispose()
+      vi.useRealTimers()
+      name.resolve('file.zip')
+      await runtime.shutdown()
+    }
+  })
+
+  it('holds extension submits arriving during a power action and invalidates that action', async () => {
+    const coordinator = new MainProcessWorkCoordinator()
+    const createTask = vi
+      .spyOn(taskCreation, 'handleCreateTask')
+      .mockResolvedValue({ outcome: 'created', gid: 'gid', taskId: 'task' })
+    const registration = vi.spyOn(
+      WebSocketBridgeServer.prototype,
+      'setHandlers'
+    )
+    const runtime = await bootstrapBridge({
+      ...args(),
+      trackAsyncWork: (operation) => coordinator.run(operation),
+    })
+    if (!runtime) throw new Error('bridge did not start')
+    const lease = coordinator.prepareForPowerAction()
+    try {
+      const submit = registration.mock.calls[0]?.[0].submitDownload
+      if (!submit) throw new Error('submit handler missing')
+      const pending = submit(makeDirectSubmit(), makeExtensionContext())
+      expect(lease.hasIncomingWork()).toBe(true)
+      await lease.drain()
+      expect(createTask).not.toHaveBeenCalled()
+      lease.release()
+      await pending
+      expect(createTask).toHaveBeenCalledOnce()
+    } finally {
+      lease.release()
+      await runtime.shutdown()
+    }
   })
 
   it('uses the current directory through the registered submit handler without restarting', async () => {

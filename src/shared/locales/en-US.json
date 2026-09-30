@@ -970,6 +970,18 @@
         "downloadEta": "Download ETA",
         "avgDownloadProgress": "Average download progress",
         "processingTasks": "Processing"
+      },
+      "completionShutdown": {
+        "more": "More download actions",
+        "enable": "Shut down after all downloads finish",
+        "disable": "Cancel shutdown after downloads",
+        "waiting": "Waiting for all downloads to finish",
+        "countdown": "Shutting down in {{seconds}} seconds",
+        "detail": "Applies once. Paused or failed tasks prevent shutdown. Seeding ends when the computer shuts down.",
+        "unavailable": "Automatic shutdown is unavailable or permission was denied.",
+        "failed": "Could not prepare or request shutdown. Your computer has not been forced to shut down.",
+        "preparing": "Preparing to shut down…",
+        "requested": "Shutdown requested"
       }
     }
   },

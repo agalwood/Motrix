@@ -970,6 +970,18 @@
         "downloadEta": "İndirme için kalan süre",
         "avgDownloadProgress": "Ortalama indirme ilerlemesi",
         "processingTasks": "İşleniyor"
+      },
+      "completionShutdown": {
+        "more": "Diğer indirme işlemleri",
+        "enable": "Tüm indirmeler bitince bilgisayarı kapat",
+        "disable": "İndirme sonrası kapatmayı iptal et",
+        "waiting": "Tüm indirmelerin bitmesi bekleniyor",
+        "countdown": "{{seconds}} saniye sonra kapatılacak",
+        "detail": "Yalnızca bir kez uygulanır. Duraklatılmış veya başarısız görevler kapatmayı engeller. Paylaşım, bilgisayar kapatılınca sona erer.",
+        "unavailable": "Otomatik kapatma kullanılamıyor veya izin reddedildi.",
+        "failed": "Kapatma hazırlanamadı veya istenemedi. Bilgisayar zorla kapatılmadı.",
+        "preparing": "Kapatmaya hazırlanıyor…",
+        "requested": "Kapatma istendi"
       }
     }
   },

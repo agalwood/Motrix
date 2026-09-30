@@ -455,7 +455,7 @@ export async function bootstrapBridge(args: {
   parentTaskCreated: BridgeReceiverDeps['parentTaskCreated']
   recordTransition: BridgeReceiverDeps['recordTransition']
   runTaskMutation: BridgeReceiverDeps['runTaskMutation']
-  /** Main-process shutdown gate/drain for renderer bridge IPC handlers. */
+  /** Main-process admission/drain for renderer IPC and incoming download work. */
   trackAsyncWork: <T>(operation: () => Promise<T>) => Promise<T>
   // Startup barrier: submits await this before any pipeline work reaches the
   // engine, so a submit racing SessionManager.restore() can't get clobbered
@@ -772,16 +772,19 @@ export async function bootstrapBridge(args: {
     // and system/ping are wired by the server itself; the dispatcher validates
     // params at the boundary, so these handlers receive already-typed values.
     server.setHandlers({
-      submitDownload: (params, ctx) => receiver.handle(params, ctx),
-      cancelDownload: async (params) => {
-        await receiver.cancel(params.taskId)
-      },
+      submitDownload: (params, ctx) =>
+        args.trackAsyncWork(() => receiver.handle(params, ctx)),
+      cancelDownload: (params) =>
+        args.trackAsyncWork(() => receiver.cancel(params.taskId)),
     })
     // v1 READ methods (task/list, task/get, stats/get, engine/status) — also
     // before start(), reachable via the unary POST /mdxp transport only.
     server.registerReadMethods(args.readHandlerDeps)
     // v1 WRITE methods (task/pause, task/resume, task/remove, download/add).
-    server.registerWriteMethods(args.writeHandlerDeps)
+    server.registerWriteMethods({
+      ...args.writeHandlerDeps,
+      trackAsyncWork: args.trackAsyncWork,
+    })
 
     const urlResolution = new UrlResolutionService(() =>
       Array.from(server.iterSessions())

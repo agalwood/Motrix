@@ -1,4 +1,5 @@
 export const Queries = {
+  GetCompletionShutdown: 'query:getCompletionShutdown',
   GetDownloadsSettingsDraft: 'query:getDownloadsSettingsDraft',
   GetDisclaimerState: 'query:getDisclaimerState',
   ListTasks: 'query:listTasks',

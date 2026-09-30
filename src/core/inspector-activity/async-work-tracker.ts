@@ -28,7 +28,7 @@ export class AsyncWorkTracker {
     return this.drainPromise
   }
 
-  private async drainAcceptedWork(): Promise<void> {
+  async drainAcceptedWork(): Promise<void> {
     while (this.inFlight.size > 0) {
       await Promise.allSettled([...this.inFlight])
     }

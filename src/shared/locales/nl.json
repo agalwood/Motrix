@@ -1203,6 +1203,18 @@
         "sortBy": "Sorteren op",
         "taskActions": "Meer",
         "title": "Lijstweergave"
+      },
+      "completionShutdown": {
+        "more": "Meer downloadacties",
+        "enable": "Afsluiten na alle downloads",
+        "disable": "Afsluiten na downloads annuleren",
+        "waiting": "Wachten totdat alle downloads klaar zijn",
+        "countdown": "Afsluiten over {{seconds}} seconden",
+        "detail": "Eenmalig. Gepauzeerde of mislukte taken voorkomen afsluiten. Seeden stopt bij het afsluiten.",
+        "unavailable": "Automatisch afsluiten is niet beschikbaar of toestemming is geweigerd.",
+        "failed": "Afsluiten kon niet worden voorbereid of aangevraagd. Afsluiten is niet geforceerd.",
+        "preparing": "Afsluiten voorbereiden…",
+        "requested": "Afsluiten aangevraagd"
       }
     },
     "trackers": {
