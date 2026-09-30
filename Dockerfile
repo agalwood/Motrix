@@ -12,7 +12,6 @@ FROM ${NODE_IMAGE} AS deps
 RUN apk add --no-cache python3 make g++
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-COPY patches ./patches
 COPY packages/native-host/package.json ./packages/native-host/package.json
 COPY scripts/postinstall.mjs ./scripts/postinstall.mjs
 COPY scripts/fetch-engine.mjs ./scripts/fetch-engine.mjs
@@ -31,7 +30,6 @@ FROM ${NODE_IMAGE} AS full-root-production-deps
 RUN apk add --no-cache python3 make g++
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-COPY patches ./patches
 COPY packages/native-host/package.json ./packages/native-host/package.json
 COPY scripts/postinstall.mjs ./scripts/postinstall.mjs
 COPY scripts/fetch-engine.mjs ./scripts/fetch-engine.mjs
