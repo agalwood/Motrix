@@ -818,7 +818,18 @@
           "invalidLines_one": "{{count}} érvénytelen sor kihagyva",
           "invalidLines_other": "{{count}} érvénytelen sor kihagyva",
           "editPlaceholder": "Soronként egy tracker-URL. Csak http(s)/udp/ws(s).",
-          "editHint": "Ezek a trackerek lecserélik a feladat tényleges bt-tracker listáját. A .torrent announce-list bejegyzései változatlanok maradnak."
+          "editHint": "Ezek a trackerek lecserélik a feladat tényleges bt-tracker listáját. A .torrent announce-list bejegyzései változatlanok maradnak.",
+          "preview": {
+            "title": "A feladat trackereinek frissítése",
+            "description": "Tekintsd át a kiegészítő trackerek változásait. A torrent trackerei és a kézzel hozzáadott címek megmaradnak.",
+            "reconnect": "A feladat rövid időre szünetel, majd újracsatlakozik és automatikusan folytatódik.",
+            "added": "Hozzáadás: {{count}}",
+            "removed": "Eltávolítás: {{count}}",
+            "retained": "{{count}} meglévő kiegészítő tracker megőrzése. A torrent eredeti announce-list csoportjai változatlanok maradnak.",
+            "excluded": "{{count}} általad eltávolított tracker kimarad az automatikus frissítésekből.",
+            "changesPending": "Függőben lévő változások: {{count}}",
+            "apply": "Frissítés alkalmazása"
+          }
         },
         "multi": {
           "totals": "Összesítés",
@@ -897,7 +908,7 @@
         "moveQueueBottom": "A sor végére",
         "copyError": "Hibainformáció másolása",
         "errorReport": "{{name}}\nFeladatazonosító: {{id}}\n{{details}}"
-      },      
+      },
       "titleCount": "{{shown}} megjelenítve · összesen {{total}}",
       "type": {
         "http": "HTTP",
@@ -1234,7 +1245,9 @@
       "downloadCompleted": "Letöltés befejezve",
       "downloadFailed": "Sikertelen letöltés",
       "description": "Indítás, kilépés és értesítések",
-      "desktopOnly": "Az indítási és értesítési beállítások az asztali alkalmazásban érhetők el."
+      "desktopOnly": "Az indítási és értesítési beállítások az asztali alkalmazásban érhetők el.",
+      "linuxAutostartDesc": "A bejelentkezéskori automatikus indítást az asztali környezetben kezelheted.",
+      "linuxAutostartGuide": "Beállítási útmutató megtekintése"
     },
     "appearance": {
       "theme": "Téma",
@@ -1266,8 +1279,8 @@
       "lightweightModeDesc": "Memóriamegtakarítás az ablak bezárásakor. A letöltések folytatódnak, de az újbóli megnyitás lassabb, és a nem mentett bevitt adatok törlődnek.",
       "byteUnitSystem": "Méret és sebesség mértékegységei",
       "byteUnitSystemDesc": "Válaszd ki, hogyan jelenjenek meg a fájlméretek és a sebességek.",
-      "byteUnitDecimal": "Decimális (MB, GB · 1000)",
-      "byteUnitBinary": "Bináris (MiB, GiB · 1024)",
+      "byteUnitDecimal": "Decimális ({{megabyte}}, {{gigabyte}} · 1000)",
+      "byteUnitBinary": "Bináris ({{megabyte}}, {{gigabyte}} · 1024)",
       "byteUnitSystemDefault": "Rendszer követése ({{units}})",
       "sidebarColor": "Kiemelőszín",
       "sidebarColors": {
@@ -1279,7 +1292,8 @@
         "green": "Zöld",
         "cyan": "Cián",
         "gray": "Szürke",
-        "auto": "Automatikus"
+        "auto": "Automatikus",
+        "cloud": "Felhőfehér"
       },
       "themeAndEffects": "Téma és effektusok",
       "languageAndDisplay": "Nyelv és megjelenítés",
@@ -1503,9 +1517,9 @@
         "maxConnectionPerServerDesc": "Egy szerverhez indítható kapcsolatok fájlonkénti korlátja.",
         "split": "Fájlonkénti maximális kapcsolatszám",
         "splitDesc": "Egy fájl letöltéséhez használt kapcsolatok száma.",
-        "minSplitSize": "Minimális szegmensméret (MiB)",
+        "minSplitSize": "Minimális szegmensméret ({{unit}})",
         "minSplitSizeDesc": "Az érték kétszeresénél kisebb szegmenseket nem bontja tovább."
-      },    
+      },
       "reliability": {
         "title": "Kapcsolatok és újrapróbálkozások",
         "userAgent": "User-Agent",
@@ -1518,7 +1532,7 @@
         "maxTriesDesc": "Az első próbálkozást is tartalmazza. 0 = korlátlan.",
         "retryWait": "Várakozás újrapróbálkozás előtt (mp)",
         "retryWaitDesc": "Ennyi ideig várjon az újabb próbálkozás előtt.",
-        "lowestSpeedLimit": "Minimális kapcsolati sebesség (KiB/s)",
+        "lowestSpeedLimit": "Minimális kapcsolati sebesség ({{unit}})",
         "lowestSpeedLimitDesc": "Az ennél kisebb sebességű kapcsolatokat bontja. 0 = kikapcsolva."
       },
       "disk": {
@@ -1538,7 +1552,7 @@
         "modifiedTimeDesc": "Befejezett HTTP- és FTP-letöltésekhez.",
         "modifiedTimeLocal": "Letöltés ideje",
         "modifiedTimeServer": "Szerver szerinti idő",
-        "diskCache": "Lemezgyorsítótár (MiB)",
+        "diskCache": "Lemezgyorsítótár ({{unit}})",
         "diskCacheDesc": "A fájladatok átmeneti tárolására használt memória a lemezre írás előtt.",
         "sessionSaveInterval": "Előrehaladás mentési időköze (mp)",
         "sessionSaveIntervalDesc": "Gyakoribb mentéssel csökkenthető az összeomláskor elvesző előrehaladás."
@@ -2190,7 +2204,57 @@
       "probing": "Trackerek elérhetőségének ellenőrzése…",
       "applying": "Trackerlisták alkalmazása…",
       "failed": "A szinkronizálás nem fejeződött be. Ellenőrizd a hálózatot vagy a forrásokat, majd próbáld újra.",
-      "unavailable": "A szinkronizálás állapota nem olvasható. Ellenőrizd a kapcsolatot, majd próbáld újra."
+      "unavailable": "A szinkronizálás állapota nem olvasható. Ellenőrizd a kapcsolatot, majd próbáld újra.",
+      "details": {
+        "title": "A frissítés részletei",
+        "summary": "{{count}} tracker · Utolsó sikeres frissítés: {{time}}",
+        "attention": "{{count}} tracker · {{failed}} forrás igényel figyelmet",
+        "scope": "Ezek az alapértelmezett trackerek az új nyilvános BitTorrent-feladatokat egészítik ki. A meglévő letöltések megtartják jelenlegi trackereiket.",
+        "evidence": "A kapcsolatellenőrzések az elérhetőséget igazolják, de nem garantálják a partnereket vagy a letöltési sebességet.",
+        "sources": "Források állapota",
+        "candidates": "Jelöltek",
+        "history": "Frissítési előzmények",
+        "retry": "Sikertelen források újrapróbálása",
+        "noSources": "Nincsenek engedélyezett források",
+        "noCandidates": "Nincs megfelelő jelölt",
+        "noHistory": "Nincsenek frissítési előzmények",
+        "showMore": "Továbbiak megjelenítése",
+        "sourceResult": "{{count}} cím · Utolsó siker: {{time}}",
+        "lastAttempt": "Utolsó ellenőrzés",
+        "nextCheck": "Következő ellenőrzés",
+        "autoOff": "Automatikus frissítések kikapcsolva",
+        "disabled": "Letiltva",
+        "enginePending": "Mentve; az alapértelmezett trackerek letöltőmotorban való alkalmazására vár.",
+        "firstSeen": "Első észlelés: {{time}}",
+        "retryAt": "Következő próbálkozás: {{time}}",
+        "run": "{{success}} sikeres forrás · {{failed}} sikertelen · +{{added}} / −{{removed}} kiválasztott tracker",
+        "state": {
+          "fresh": "Naprakész",
+          "cached": "Az utolsó sikeres gyorsítótár használata",
+          "expired": "A gyorsítótár lejárt",
+          "failed": "Nincs használható gyorsítótár",
+          "pending": "Még nem ellenőrizve"
+        },
+        "reason": {
+          "selected": "Kiválasztva",
+          "blacklisted": "Tiltólistán",
+          "unsupported": "Nem támogatott protokoll",
+          "cooldown": "Ismétlődő kapcsolódási hibák",
+          "capacity": "Tartalék"
+        },
+        "outcome": {
+          "success": "Befejezve",
+          "partial": "Részben befejezve",
+          "failed": "Sikertelen"
+        },
+        "failure": {
+          "network": "A kapcsolódás sikertelen. A korábbi gyorsítótár legfeljebb 7 napig megmarad.",
+          "http": "A forrás HTTP-hibát jelzett.",
+          "invalid": "A válasz nem érvényes trackerlista.",
+          "limit": "A forrás túllépte a méret- vagy címszámkorlátot.",
+          "missing-cache": "A forrás 304-es választ adott, de nincs használható gyorsítótár."
+        }
+      }
     }
   },
   "plugins": {
@@ -2786,5 +2850,23 @@
     },
     "manageAction": "Kezelés",
     "alreadyFavorite": "Már a kedvencek között"
+  },
+  "units": {
+    "bytes": {
+      "b": "B",
+      "kb": "KB",
+      "mb": "MB",
+      "gb": "GB",
+      "tb": "TB",
+      "pb": "PB",
+      "eb": "EB",
+      "kib": "KiB",
+      "mib": "MiB",
+      "gib": "GiB",
+      "tib": "TiB",
+      "pib": "PiB",
+      "eib": "EiB"
+    },
+    "perSecond": "{{value}}/s"
   }
 }
