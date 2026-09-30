@@ -1,0 +1,36 @@
+diff --git a/dist/schemas/resource.d.ts.map b/dist/schemas/resource.d.ts.map
+--- a/dist/schemas/resource.d.ts.map
++++ b/dist/schemas/resource.d.ts.map
+@@ -1 +1 @@
+-{"version":3,"file":"resource.d.ts","sourceRoot":"","sources":["../../src/schemas/resource.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,CAAC,EAAE,MAAM,KAAK,CAAA;AAIvB,eAAO,MAAM,YAAY;;;;;;;;;;;;;;iBAWvB,CAAA;AAEF,eAAO,MAAM,cAAc;;;;;;;;;;;;;;;;;;;iBAKzB,CAAA;AAEF,MAAM,MAAM,QAAQ,GAAG,CAAC,CAAC,KAAK,CAAC,OAAO,cAAc,CAAC,CAAA;AACrD,MAAM,MAAM,MAAM,GAAG,CAAC,CAAC,KAAK,CAAC,OAAO,YAAY,CAAC,CAAA"}
+\ No newline at end of file
++{"version":3,"file":"resource.d.ts","sourceRoot":"","sources":["../../src/schemas/resource.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,CAAC,EAAE,MAAM,KAAK,CAAA;AAQvB,eAAO,MAAM,YAAY;;;;;;;;;;;;;;iBAWvB,CAAA;AAEF,eAAO,MAAM,cAAc;;;;;;;;;;;;;;;;;;;iBAKzB,CAAA;AAEF,MAAM,MAAM,QAAQ,GAAG,CAAC,CAAC,KAAK,CAAC,OAAO,cAAc,CAAC,CAAA;AACrD,MAAM,MAAM,MAAM,GAAG,CAAC,CAAC,KAAK,CAAC,OAAO,YAAY,CAAC,CAAA"}
+\ No newline at end of file
+diff --git a/dist/schemas/resource.js b/dist/schemas/resource.js
+--- a/dist/schemas/resource.js
++++ b/dist/schemas/resource.js
+@@ -2 +2,5 @@
+-const HttpUrl = z.httpUrl({ message: 'URL must be http: or https:' });
++// Download hosts may be IP literals or local names; z.httpUrl requires a domain.
++const HttpUrl = z.url({
++    protocol: /^https?$/,
++    message: 'URL must be http: or https:',
++});
+diff --git a/dist/schemas/resource.js.map b/dist/schemas/resource.js.map
+--- a/dist/schemas/resource.js.map
++++ b/dist/schemas/resource.js.map
+@@ -1 +1 @@
+-{"version":3,"file":"resource.js","sourceRoot":"","sources":["../../src/schemas/resource.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,CAAC,EAAE,MAAM,KAAK,CAAA;AAEvB,MAAM,OAAO,GAAG,CAAC,CAAC,OAAO,CAAC,EAAE,OAAO,EAAE,6BAA6B,EAAE,CAAC,CAAA;AAErE,MAAM,CAAC,MAAM,YAAY,GAAG,CAAC,CAAC,MAAM,CAAC;IACnC,IAAI,EAAE,CAAC,CAAC,MAAM,EAAE;IAChB,KAAK,EAAE,CAAC,CAAC,MAAM,EAAE;IACjB,MAAM,EAAE,CAAC,CAAC,MAAM,EAAE;IAClB,IAAI,EAAE,CAAC,CAAC,MAAM,EAAE,CAAC,OAAO,CAAC,GAAG,CAAC;IAC7B,MAAM,EAAE,CAAC,CAAC,OAAO,EAAE,CAAC,OAAO,CAAC,KAAK,CAAC;IAClC,QAAQ,EAAE,CAAC,CAAC,OAAO,EAAE,CAAC,OAAO,CAAC,KAAK,CAAC;IACpC,QAAQ,EAAE,CAAC;SACR,IAAI,CAAC,CAAC,QAAQ,EAAE,KAAK,EAAE,MAAM,EAAE,aAAa,CAAC,CAAC;SAC9C,OAAO,CAAC,aAAa,CAAC;IACzB,SAAS,EAAE,CAAC,CAAC,MAAM,EAAE,CAAC,QAAQ,EAAE;CACjC,CAAC,CAAA;AAEF,MAAM,CAAC,MAAM,cAAc,GAAG,CAAC,CAAC,MAAM,CAAC;IACrC,GAAG,EAAE,OAAO;IACZ,OAAO,EAAE,CAAC,CAAC,MAAM,CAAC,CAAC,CAAC,MAAM,EAAE,EAAE,CAAC,CAAC,MAAM,EAAE,CAAC,CAAC,OAAO,CAAC,EAAE,CAAC;IACrD,OAAO,EAAE,CAAC,CAAC,KAAK,CAAC,YAAY,CAAC,CAAC,OAAO,CAAC,EAAE,CAAC;IAC1C,aAAa,EAAE,CAAC,CAAC,MAAM,EAAE,CAAC,OAAO,CAAC,iCAAiC,CAAC;CACrE,CAAC,CAAA"}
+\ No newline at end of file
++{"version":3,"file":"resource.js","sourceRoot":"","sources":["../../src/schemas/resource.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,CAAC,EAAE,MAAM,KAAK,CAAA;AAEvB,iFAAiF;AACjF,MAAM,OAAO,GAAG,CAAC,CAAC,GAAG,CAAC;IACpB,QAAQ,EAAE,UAAU;IACpB,OAAO,EAAE,6BAA6B;CACvC,CAAC,CAAA;AAEF,MAAM,CAAC,MAAM,YAAY,GAAG,CAAC,CAAC,MAAM,CAAC;IACnC,IAAI,EAAE,CAAC,CAAC,MAAM,EAAE;IAChB,KAAK,EAAE,CAAC,CAAC,MAAM,EAAE;IACjB,MAAM,EAAE,CAAC,CAAC,MAAM,EAAE;IAClB,IAAI,EAAE,CAAC,CAAC,MAAM,EAAE,CAAC,OAAO,CAAC,GAAG,CAAC;IAC7B,MAAM,EAAE,CAAC,CAAC,OAAO,EAAE,CAAC,OAAO,CAAC,KAAK,CAAC;IAClC,QAAQ,EAAE,CAAC,CAAC,OAAO,EAAE,CAAC,OAAO,CAAC,KAAK,CAAC;IACpC,QAAQ,EAAE,CAAC;SACR,IAAI,CAAC,CAAC,QAAQ,EAAE,KAAK,EAAE,MAAM,EAAE,aAAa,CAAC,CAAC;SAC9C,OAAO,CAAC,aAAa,CAAC;IACzB,SAAS,EAAE,CAAC,CAAC,MAAM,EAAE,CAAC,QAAQ,EAAE;CACjC,CAAC,CAAA;AAEF,MAAM,CAAC,MAAM,cAAc,GAAG,CAAC,CAAC,MAAM,CAAC;IACrC,GAAG,EAAE,OAAO;IACZ,OAAO,EAAE,CAAC,CAAC,MAAM,CAAC,CAAC,CAAC,MAAM,EAAE,EAAE,CAAC,CAAC,MAAM,EAAE,CAAC,CAAC,OAAO,CAAC,EAAE,CAAC;IACrD,OAAO,EAAE,CAAC,CAAC,KAAK,CAAC,YAAY,CAAC,CAAC,OAAO,CAAC,EAAE,CAAC;IAC1C,aAAa,EAAE,CAAC,CAAC,MAAM,EAAE,CAAC,OAAO,CAAC,iCAAiC,CAAC;CACrE,CAAC,CAAA"}
+\ No newline at end of file
+diff --git a/src/schemas/resource.ts b/src/schemas/resource.ts
+--- a/src/schemas/resource.ts
++++ b/src/schemas/resource.ts
+@@ -3 +3,5 @@
+-const HttpUrl = z.httpUrl({ message: 'URL must be http: or https:' })
++// Download hosts may be IP literals or local names; z.httpUrl requires a domain.
++const HttpUrl = z.url({
++  protocol: /^https?$/,
++  message: 'URL must be http: or https:',
++})

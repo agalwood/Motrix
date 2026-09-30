@@ -166,6 +166,9 @@ overrides:
   '@xmldom/xmldom@': 0.8.15
   qs@: 6.16.0
 
+patchedDependencies:
+  '@motrix/mdxp@0.8.0': 3d84e0f7ef0d9afea0dc1983c4bf5c47195505f79e901574edee29ac3d142eb4
+
 importers:
 
   .:
@@ -190,7 +193,7 @@ importers:
         version: 0.32.0
       '@motrix/mdxp':
         specifier: ^0.8.0
-        version: 0.8.0
+        version: 0.8.0(patch_hash=3d84e0f7ef0d9afea0dc1983c4bf5c47195505f79e901574edee29ac3d142eb4)
       '@motrix/nat':
         specifier: ^0.1.3
         version: 0.1.3
@@ -5466,7 +5469,7 @@ snapshots:
     dependencies:
       commander: 15.0.0
 
-  '@motrix/mdxp@0.8.0':
+  '@motrix/mdxp@0.8.0(patch_hash=3d84e0f7ef0d9afea0dc1983c4bf5c47195505f79e901574edee29ac3d142eb4)':
     dependencies:
       vscode-jsonrpc: 9.0.3
       zod: 4.6.5
