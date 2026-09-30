@@ -194,6 +194,104 @@ beforeEach(() => {
 })
 
 describe('DownloadsPage', () => {
+  it('updates inspector scroll space when the grid or footer resizes independently', () => {
+    const observers = new Set<{
+      targets: Set<Element>
+      callback: ResizeObserverCallback
+    }>()
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        targets = new Set<Element>()
+        constructor(readonly callback: ResizeObserverCallback) {
+          observers.add(this)
+        }
+        observe(target: Element) {
+          this.targets.add(target)
+        }
+        unobserve(target: Element) {
+          this.targets.delete(target)
+        }
+        disconnect() {
+          observers.delete(this)
+        }
+      }
+    )
+    let gridHeight = 382
+    let footerHeight = 44
+    const rect = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function (this: HTMLElement) {
+        const height = this.hasAttribute('data-downloads-grid')
+          ? gridHeight
+          : this.dataset.slot === 'panel-shell-footer'
+            ? footerHeight
+            : 500
+        return new DOMRect(0, 0, 700, height)
+      })
+    const notifyResize = (target: Element) => {
+      act(() => {
+        for (const observer of observers) {
+          if (observer.targets.has(target)) {
+            observer.callback(
+              [
+                { target, contentRect: target.getBoundingClientRect() },
+              ] as ResizeObserverEntry[],
+              observer as unknown as ResizeObserver
+            )
+          }
+        }
+      })
+    }
+    let view: ReturnType<typeof renderAt> | undefined
+    try {
+      setTaskList({ tasks: [task('a', TaskStatus.Paused)] })
+      useDownloadsView.setState({ inspectorSnap: 'expanded' })
+      view = renderAt('/downloads/all')
+      act(() => {
+        useDownloadsSelection.getState().select('a')
+        useDownloadsView.getState().setInspectorVisible(true)
+      })
+      const inset = () => {
+        const content = screen
+          .getByTestId('virtual-list-container')
+          .querySelector('[data-slot="scroll-area-content"]')
+        return (content?.lastElementChild as HTMLElement | undefined)?.style
+          .height
+      }
+      expect(inset()).toBe('310px')
+
+      // The compact header finishes animating after the page root stops resizing.
+      gridHeight = 418
+      const grid = screen.getByRole('grid', { name: 'Downloads' })
+      notifyResize(grid)
+      expect(inset()).toBe('331px')
+
+      footerHeight = 56
+      notifyResize(screen.getByRole('contentinfo'))
+      expect(inset()).toBe('319px')
+
+      // Type filters remount the keyed task panel even when its row count is unchanged.
+      fireEvent.click(screen.getByTestId('navigate-type'))
+      const replacementGrid = screen.getByRole('grid', { name: 'Downloads' })
+      expect(replacementGrid).not.toBe(grid)
+      gridHeight = 382
+      notifyResize(replacementGrid)
+      expect(inset()).toBe('310px')
+
+      view.unmount()
+      expect(
+        [...observers].some(
+          (observer) =>
+            observer.targets.has(grid) || observer.targets.has(replacementGrid)
+        )
+      ).toBe(false)
+    } finally {
+      view?.unmount()
+      rect.mockRestore()
+    }
+  })
+
   it('keeps the toolbar in sync with empty selection and requires an explicit reopen', async () => {
     setTaskList({
       tasks: [task('a', TaskStatus.Paused), task('b', TaskStatus.Paused)],

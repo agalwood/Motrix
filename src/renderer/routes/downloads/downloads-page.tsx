@@ -286,6 +286,7 @@ export function DownloadsPage() {
   ])
 
   const [container, setContainer] = useState<HTMLElement | null>(null)
+  const taskListKey = `${filter}:${serializeTypeParam(types)}`
 
   // The inspector drawer overlays the page root without resizing the list, so
   // the list must reserve scroll space for the band the drawer covers;
@@ -311,19 +312,19 @@ export function DownloadsPage() {
     footer: 0,
     grid: 0,
   })
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the list swaps between skeleton, grid, and empty states without resizing the page root; re-running re-queries the footer and grid elements
+  // biome-ignore lint/correctness/useExhaustiveDependencies: rebind when loading/empty states or the keyed task panel replace the observed elements without resizing the page root
   useEffect(() => {
     if (!container) return
+    const footerElement = container.querySelector<HTMLElement>(
+      '[data-slot="panel-shell-footer"]'
+    )
+    const gridElement = container.querySelector<HTMLElement>(
+      '[data-downloads-grid]'
+    )
     const measure = () => {
       const page = container.getBoundingClientRect().height
-      const footer =
-        container
-          .querySelector<HTMLElement>('[data-slot="panel-shell-footer"]')
-          ?.getBoundingClientRect().height ?? 0
-      const grid =
-        container
-          .querySelector<HTMLElement>('[data-downloads-grid]')
-          ?.getBoundingClientRect().height ?? 0
+      const footer = footerElement?.getBoundingClientRect().height ?? 0
+      const grid = gridElement?.getBoundingClientRect().height ?? 0
       setInspectorMetrics((previous) =>
         previous.page === page &&
         previous.footer === footer &&
@@ -336,8 +337,12 @@ export function DownloadsPage() {
     if (typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(measure)
     observer.observe(container)
+    // Header animations and footer content can resize the grid after the
+    // bounded page root has stopped resizing.
+    if (footerElement) observer.observe(footerElement)
+    if (gridElement) observer.observe(gridElement)
     return () => observer.disconnect()
-  }, [container, status, hasReadySnapshot, filtered.length])
+  }, [container, status, hasReadySnapshot, filtered.length, taskListKey])
   const inspectorInset = resolveInspectorInset({
     pageHeight: inspectorMetrics.page,
     footerHeight: inspectorMetrics.footer,
@@ -353,7 +358,7 @@ export function DownloadsPage() {
       <TaskListUnavailable onRetry={() => void retry()} />
     ) : (
       <TaskListPanel
-        key={`${filter}:${serializeTypeParam(types)}`}
+        key={taskListKey}
         tasks={filtered}
         hasAnyTasks={counts.all > 0}
         selection={useDownloadsSelection}
