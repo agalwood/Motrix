@@ -30,6 +30,9 @@ export interface TaskListPanelProps {
   filter: DownloadsTab
   search: string
   onClearSearch: () => void
+  /** Scroll space appended below the last row so the overlaying inspector
+   *  drawer never traps rows out of reach. */
+  bottomInset?: number
 }
 
 export function TaskListPanel({
@@ -39,6 +42,7 @@ export function TaskListPanel({
   filter,
   search,
   onClearSearch,
+  bottomInset = 0,
 }: TaskListPanelProps) {
   const { t, i18n } = useTranslation()
   const sort = useDownloadsSort((state) => state.sort)
@@ -292,6 +296,7 @@ export function TaskListPanel({
           ref={listRef}
           {...listProps}
           scrollbar="custom"
+          bottomInset={bottomInset}
           keepMountedIndex={
             focusedId
               ? displayed.findIndex((task) => task.id === focusedId)

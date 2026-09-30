@@ -14,6 +14,9 @@ export interface VirtualListProps<T> {
   renderRow: (props: RowRenderProps<T>) => ReactNode
   renderHeader?: () => ReactNode
   renderEmpty?: () => ReactNode
+  /** Scroll space appended below the last row so an overlaying element (such
+   *  as the inspector drawer) never traps rows out of reach. */
+  bottomInset?: number
   className?: string
   style?: CSSProperties
   /** Keep the active descendant mounted outside the visible range. */

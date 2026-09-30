@@ -33,6 +33,7 @@ function VirtualListInner<T>(
     keepMountedIndex,
     scrollbar = 'native',
     scrollRef,
+    bottomInset = 0,
     renderRow,
     renderHeader,
     renderEmpty,
@@ -71,6 +72,7 @@ function VirtualListInner<T>(
     getItemKey,
     scrollMargin: headerHeight,
     scrollPaddingStart: headerHeight,
+    scrollPaddingEnd: bottomInset,
     getScrollElement: () => containerRef.current,
     estimateSize: () => rowHeight,
     overscan,
@@ -130,6 +132,12 @@ function VirtualListInner<T>(
           })}
         </div>
       )}
+      {bottomInset > 0 ? (
+        <div
+          aria-hidden="true"
+          style={{ height: bottomInset, width: '100%' }}
+        />
+      ) : null}
     </>
   )
 
