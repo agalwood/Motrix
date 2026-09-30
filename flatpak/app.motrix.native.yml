@@ -161,7 +161,7 @@ modules:
         # Must track the electron version in package.json — generated-sources
         # unpacks that release's headers here, and electron-rebuild's gyp run
         # fails on a dangling path.
-        npm_config_nodedir: /run/build/motrix/flatpak-node/cache/node-gyp/44.4.5
+        npm_config_nodedir: /run/build/motrix/flatpak-node/cache/node-gyp/44.5.0
         npm_config_offline: 'true'
         CARGO_HOME: /run/build/motrix/cargo
         CARGO_NET_OFFLINE: 'true'
@@ -200,13 +200,13 @@ modules:
         pnpm_root=/run/build/motrix/flatpak-node/pnpm-cli/lib/node_modules/pnpm
         pnpm_native="$pnpm_root/node_modules/@pnpm/exe.linux-${npm_config_target_arch}"
         mkdir -p "$pnpm_native" flatpak-node/pnpm-cli/bin
-        tar -xzf flatpak-node/pnpm/pnpm-12.6.0.tgz \
+        tar -xzf flatpak-node/pnpm/pnpm-12.8.1.tgz \
           --strip-components=1 -C "$pnpm_root"
-        tar -xzf "flatpak-node/pnpm-tarballs/@pnpm__exe.linux-${npm_config_target_arch}-12.6.0.tgz" \
+        tar -xzf "flatpak-node/pnpm-tarballs/@pnpm__exe.linux-${npm_config_target_arch}-12.8.1.tgz" \
           --strip-components=1 -C "$pnpm_native"
         node "$pnpm_root/install.js"
         ln -s ../lib/node_modules/pnpm/pnpm flatpak-node/pnpm-cli/bin/pnpm
-        test "$(pnpm --version)" = '12.6.0'
+        test "$(pnpm --version)" = '12.8.1'
       # pnpm's supply-chain cooldown check fetches per-package publish times
       # from the registry even under --offline, and the sandbox has no
       # network. pnpm treats the setting as workspace-file-only (a
@@ -350,8 +350,8 @@ modules:
 
       # The Node generator prepares a pnpm store but not the pnpm CLI.
       - type: file
-        url: https://registry.npmjs.org/pnpm/-/pnpm-12.6.0.tgz
-        sha256: 05b7b921fbb31564505c967eabf825895a1cc18f50935c00be98815272cc9d56
+        url: https://registry.npmjs.org/pnpm/-/pnpm-12.8.1.tgz
+        sha256: 90762b8105e833164186b011efe5cde13841693ac8eaf784d2974a6e1c01fba3
         dest: flatpak-node/pnpm
 
       # Signed builtin plugins. fetch-builtins.mjs rechecks every locked
