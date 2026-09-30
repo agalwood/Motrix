@@ -1,4 +1,3 @@
-import { useCompactHeader } from '@renderer/components/desktop-kit/hooks/use-compact-header'
 import { PanelShell } from '@renderer/components/desktop-kit/panel/panel-shell'
 import { Button } from '@renderer/components/ui/button'
 import { Skeleton } from '@renderer/components/ui/skeleton'
@@ -110,7 +109,6 @@ function TaskListStaleBanner({ onRetry }: { onRetry(): void }) {
 }
 
 export function DownloadsPage() {
-  const compact = useCompactHeader()
   const { filter: rawFilter } = useParams<{ filter: string }>()
   const navigate = useNavigate()
   const location = useLocation()
@@ -332,7 +330,7 @@ export function DownloadsPage() {
             />
           }
           actionsPosition="end"
-          actionsDraggable={compact}
+          actionsDraggable
           headerClassName="compact-header:py-1"
           actionsClassName="min-w-0 flex-1"
           footer={<GlobalStatsBar />}

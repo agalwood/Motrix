@@ -29,7 +29,8 @@ Keep transport calls, route changes, filtering and action priority in the page.
 
 - Place the toolbar in `PanelShell.actions`, with `actionsDraggable` and
   `actionsClassName="min-w-0 flex-1"` when it should occupy the available width.
-  Groups remain non-draggable; blank space can move the window.
+  Groups remain non-draggable; blank space can move the window only in compact
+  headers (collapsed sidebar or narrow viewport).
 - `ToolbarButton.label` supplies both an accessible name and a tooltip. When
   composing a menu/popover that already owns its tooltip, pass `aria-label`
   instead. Button refs and Base UI `render` composition are supported.
