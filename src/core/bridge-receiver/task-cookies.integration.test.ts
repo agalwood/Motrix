@@ -95,8 +95,7 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
       })
       await Promise.all(
         ['account-A', 'account-B', null].map(async (account, index) => {
-          // Start at the typed core boundary so the fixture can use a
-          // loopback URL without MDXP's public-hostname restriction.
+          // Start at the typed core boundary to isolate per-task cookie handling.
           const input: DownloadSubmitParams = {
             source: {
               pageUrl: base,

@@ -407,6 +407,72 @@ describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
     paired.wire.ws.close()
   })
 
+  it('accepts IP and local download URLs on the paired wire', async () => {
+    const submitDownload = vi.fn(async () => ({ taskId: 'local-download' }))
+    server.setHandlers({ submitDownload })
+    const paired = await pairAndExchange({
+      port,
+      origin: ORIGIN,
+      browser: 'chromium',
+      claimedExtensionId: EXTENSION_ID,
+      code: () => mbp1.dialogs.latestCode(),
+    })
+    const conn = mdxpOverChannel(paired.wire, paired.channel)
+    const paramsFor = (url: string) => ({
+      source: {
+        pageUrl: 'http://172.16.50.14/',
+        pageTitle: 'Local downloads',
+        detectedAt: 0,
+      },
+      selection: {
+        kind: 'direct' as const,
+        primary: {
+          url,
+          headers: {},
+          cookies: [],
+          refererPolicy: 'strict-origin-when-cross-origin',
+        },
+      },
+      meta: { suggestedFilename: 'file.zip', qualityLabel: '' },
+    })
+    try {
+      await conn.sendRequest(
+        'motrix/initialize',
+        initializeParams(EXTENSION_ID)
+      )
+      conn.sendNotification('motrix/initialized', undefined)
+      const urls = [
+        'http://172.16.50.14/My%20Files/file.zip?token=a%2Bb',
+        'https://192.168.1.10:8443/file.zip',
+        'http://[::1]:8080/file.zip',
+        'http://localhost:8080/file.zip',
+        'http://nas/file.zip',
+      ]
+      for (const url of urls) {
+        await expect(
+          conn.sendRequest('download/submit', paramsFor(url))
+        ).resolves.toEqual({ taskId: 'local-download' })
+        expect(submitDownload).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            selection: expect.objectContaining({
+              primary: expect.objectContaining({ url }),
+            }),
+          }),
+          expect.anything()
+        )
+      }
+      for (const url of ['file:///tmp/file.zip', 'ftp://nas/file.zip']) {
+        await expect(
+          conn.sendRequest('download/submit', paramsFor(url))
+        ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams })
+      }
+      expect(submitDownload).toHaveBeenCalledTimes(urls.length)
+    } finally {
+      conn.dispose()
+      paired.wire.ws.close()
+    }
+  })
+
   it('preserves directory rejections and schema failures on the paired wire', async () => {
     const submitDownload = vi.fn(async () => {
       throw {
