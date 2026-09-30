@@ -2238,6 +2238,7 @@
           "development": "Développement",
           "edge": "Microsoft Edge",
           "firefox": "Firefox",
+          "safari": "Safari",
           "github": "GitHub",
           "store": "Installer"
         },

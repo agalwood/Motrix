@@ -2219,6 +2219,7 @@
           "development": "Разработка",
           "edge": "Microsoft Edge",
           "firefox": "Firefox",
+          "safari": "Safari",
           "github": "GitHub",
           "store": "Инсталиране"
         },

@@ -153,6 +153,14 @@
       "paths": ["src/renderer/routes/settings/icons/browser-firefox.png"]
     },
     {
+      "id": "browser-install-apple-safari",
+      "name": "Apple Safari",
+      "scope": "browser extension install cards",
+      "licenseDeclared": "LicenseRef-Apple-Trademark",
+      "noticeMarker": "Apple Safari",
+      "paths": ["src/renderer/routes/settings/icons/browser-safari.png"]
+    },
+    {
       "id": "browser-install-github",
       "name": "GitHub",
       "scope": "browser extension install cards",

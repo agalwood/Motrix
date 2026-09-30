@@ -2295,6 +2295,7 @@
           "development": "تطوير",
           "edge": "Microsoft Edge",
           "firefox": "Firefox",
+          "safari": "Safari",
           "github": "GitHub",
           "store": "تثبيت"
         },

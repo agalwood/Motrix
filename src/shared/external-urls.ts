@@ -10,6 +10,9 @@ export const EXTERNAL_URLS = {
       'https://chromewebstore.google.com/detail/motrix-extension/lggbokfckofcgjndaboioakcmincinpo',
     edge: 'https://microsoftedge.microsoft.com/addons/detail/motrix-extension/efcflljngohddnmfmebiamigoikmdfbf',
     firefox: 'https://addons.mozilla.org/en-US/firefox/addon/motrix-extension/',
+    // Safari packages use their own release tags; latest points to Chromium/Firefox.
+    safari:
+      'https://github.com/motrixapp/motrix-extension/releases?q=safari&expanded=true',
     development:
       'https://github.com/motrixapp/motrix-extension#manual-browser-workflow-development',
   },
