@@ -47,10 +47,10 @@ Dashboard 速度模式卡片使用新建的兔子、乌龟和松鼠几何模型�
 | Google Chrome | [Download](https://www.google.com/chrome/static/images/chrome-logo-m100.svg) | `browser-chrome.svg` |
 | Microsoft Edge | [Download](https://edgecdn-embza6g8cacagcbn.z01.azurefd.net/welcome/static/favicon.png) | `browser-edge.png` |
 | Firefox | [Download](https://www.firefox.com/media/img/favicons/firefox/browser/favicon-196x196.59e3822720be.png) | `browser-firefox.png` |
-| Apple Safari | [Safari](https://www.apple.com/safari/) | `browser-safari.png` |
+| Apple Safari | [Safari](https://www.apple.com/safari/) | `browser-safari.webp` |
 | GitHub | [Download](https://brand.github.com/GitHub_Logos.zip) | `browser-github.svg / browser-github-white.svg` |
 
-Safari 图标是从 macOS 27.0（26A428）自带的 Safari 27.0 中 `Safari.app/Contents/Resources/AppIconUpdated.icns` 提取的原始 128px 图像。
+Safari 图标是从 macOS 27.0（26A428）自带的 Safari 27.0 中 `Safari.app/Contents/Resources/AppIconUpdated.icns` 提取的 128px 图像，仅无损转换为 WebP。
 
 品牌资料：[Google](https://about.google/brand-resource-center/)、[Microsoft](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks)、[Mozilla](https://www.mozilla.org/foundation/trademarks/policy/)、[GitHub](https://brand.github.com/foundations/logo)。
 

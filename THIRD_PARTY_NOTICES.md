@@ -55,10 +55,10 @@ Files are under `src/renderer/routes/settings/icons/`.
 | Google Chrome | [Download](https://www.google.com/chrome/static/images/chrome-logo-m100.svg) | `browser-chrome.svg` |
 | Microsoft Edge | [Download](https://edgecdn-embza6g8cacagcbn.z01.azurefd.net/welcome/static/favicon.png) | `browser-edge.png` |
 | Firefox | [Download](https://www.firefox.com/media/img/favicons/firefox/browser/favicon-196x196.59e3822720be.png) | `browser-firefox.png` |
-| Apple Safari | [Safari](https://www.apple.com/safari/) | `browser-safari.png` |
+| Apple Safari | [Safari](https://www.apple.com/safari/) | `browser-safari.webp` |
 | GitHub | [Download](https://brand.github.com/GitHub_Logos.zip) | `browser-github.svg / browser-github-white.svg` |
 
-The Safari icon is the unchanged 128px representation extracted from `Safari.app/Contents/Resources/AppIconUpdated.icns`, Safari 27.0 on macOS 27.0 (26A428).
+The Safari icon is a lossless WebP conversion of the 128px representation extracted from `Safari.app/Contents/Resources/AppIconUpdated.icns`, Safari 27.0 on macOS 27.0 (26A428).
 
 Brand resources: [Google](https://about.google/brand-resource-center/), [Microsoft](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks), [Mozilla](https://www.mozilla.org/foundation/trademarks/policy/), [GitHub](https://brand.github.com/foundations/logo).
 

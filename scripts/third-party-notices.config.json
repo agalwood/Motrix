@@ -158,7 +158,7 @@
       "scope": "browser extension install cards",
       "licenseDeclared": "LicenseRef-Apple-Trademark",
       "noticeMarker": "Apple Safari",
-      "paths": ["src/renderer/routes/settings/icons/browser-safari.png"]
+      "paths": ["src/renderer/routes/settings/icons/browser-safari.webp"]
     },
     {
       "id": "browser-install-github",

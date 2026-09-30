@@ -7,7 +7,7 @@ import edgeIcon from '../../icons/browser-edge.png'
 import firefoxIcon from '../../icons/browser-firefox.png'
 import githubIcon from '../../icons/browser-github.svg'
 import githubWhiteIcon from '../../icons/browser-github-white.svg'
-import safariIcon from '../../icons/browser-safari.png'
+import safariIcon from '../../icons/browser-safari.webp'
 
 const INSTALL_OPTIONS = [
   {
