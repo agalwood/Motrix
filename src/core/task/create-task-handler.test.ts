@@ -2423,7 +2423,6 @@ describe('handleCreateTask plugin-hook chain (Plan C / T15)', () => {
       'X-Plugin: on',
       'User-Agent: rewritten',
       'Cookie: ',
-      'Authorization: ',
       'Accept: */*',
     ])
     expect(options['all-proxy']).toBe('http://proxy.example:1080')

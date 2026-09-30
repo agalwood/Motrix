@@ -573,7 +573,7 @@ describe('Aria2Adapter', () => {
         ['https://example.com/file'],
         [],
         expect.objectContaining({
-          header: expect.arrayContaining(['Cookie: ', 'Authorization: ']),
+          header: ['Cookie: ', 'Accept: */*'],
           'no-netrc': 'true',
         })
       )
@@ -613,7 +613,7 @@ describe('Aria2Adapter', () => {
       )
     })
 
-    it('adds empty Cookie and Authorization only for the safe profile', async () => {
+    it('isolates ambient credentials without synthesizing Authorization', async () => {
       const rpc = createMockRpc()
       vi.mocked(rpc.addUri).mockResolvedValue('profile-gid')
       const adapter = new Aria2Adapter(rpc)
@@ -628,7 +628,11 @@ describe('Aria2Adapter', () => {
       expect(rpc.addUri).toHaveBeenCalledWith(
         ['https://example.com/file'],
         expect.objectContaining({
-          header: ['Cookie: ', 'Authorization: ', 'Accept: */*'],
+          header: ['Cookie: ', 'Accept: */*'],
+          'no-netrc': 'true',
+          'http-user': '',
+          'http-passwd': '',
+          'http-auth-challenge': 'false',
         })
       )
     })

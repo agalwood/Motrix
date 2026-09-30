@@ -456,14 +456,12 @@ export class Aria2Adapter implements EngineAdapter {
     }
     const requestHeaders = Object.entries(params.headers ?? {})
     if (metadataProfile === DIRECT_RESOURCE_METADATA_PROFILE) {
-      // An empty custom field suppresses aria2's built-in Cookie/AuthConfig
-      // values while preserving the exact field presence mirrored by Undici.
-      // Explicit task values always win.
+      // An empty Cookie field suppresses aria2's process-wide CookieStorage.
+      // Authorization is omitted unless explicitly supplied: the scalar
+      // options below disable ambient credentials without sending an empty
+      // authentication header, which signed artifact URLs may reject.
       if (!hasRequestHeader(requestHeaders, 'cookie')) {
         requestHeaders.push(['Cookie', ''])
-      }
-      if (!hasRequestHeader(requestHeaders, 'authorization')) {
-        requestHeaders.push(['Authorization', ''])
       }
     }
     if (
