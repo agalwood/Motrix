@@ -47,7 +47,7 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
   'signing-build-resources/background.tiff':
     'f15290fe1a059a6b262466445fd24a63eabf0e2a4f734f9812dfe8ac0b9609c1',
   'signing-build-resources/entitlements.mac.plist':
-    '38e56782c6c54555ff3c19b344ce8887e0689d935770a45208883e37f6aec500',
+    '7520c54bdda9880a65e607a1539269ec69d60d97e54da36879d6ea089fb219dd',
   'signing-build-resources/icon.icns':
     'f9ff86f32c2110b21d71a49a346f4186c4ef2cf1aed3884eca9704cb77fb4ed7',
   'signing-build-resources/icon.ico':
@@ -67,7 +67,7 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
   'signing-tool/package-lock.json':
     '54d575e0b5d9ec9ebfdc4703cdcbd5c3a91dd51f0580df918875d7f3c4af8887',
   'scripts/electron-package-size-budgets.json':
-    'eb71ed3a44c8b2f0c94bb30316e29cca7c939a63d2f2592f6a1080cd5335180a',
+    '64e4646581c981632858d8b7fa4c0dbd248e9f3d9e6c3d929aadf682a07a6be7',
   'scripts/electron-package-utils.mjs':
     '9d408f9edc91182be5d5aed39f2c5a5d20f5523e08d9c08e630c23c66302daa8',
   'scripts/before-build-use-staged-dependencies.mjs':

@@ -1215,6 +1215,18 @@
         "sortBy": "Trier par",
         "taskActions": "Autres actions",
         "title": "Affichage de la liste"
+      },
+      "completionShutdown": {
+        "more": "Autres actions de téléchargement",
+        "enable": "Éteindre après tous les téléchargements",
+        "disable": "Annuler l’arrêt après les téléchargements",
+        "waiting": "En attente de la fin des téléchargements",
+        "countdown": "Arrêt dans {{seconds}} secondes",
+        "detail": "Valable une seule fois. Les tâches en pause ou en échec empêchent l’arrêt. Le partage se termine à l’arrêt.",
+        "unavailable": "L’arrêt automatique est indisponible ou l’autorisation a été refusée.",
+        "failed": "Impossible de préparer ou de demander l’arrêt. Aucun arrêt forcé n’a été effectué.",
+        "preparing": "Préparation de l’arrêt…",
+        "requested": "Arrêt demandé"
       }
     },
     "trackers": {

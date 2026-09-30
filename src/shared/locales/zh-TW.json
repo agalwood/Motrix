@@ -958,6 +958,18 @@
         "downloadEta": "下載剩餘時間",
         "avgDownloadProgress": "平均下載進度",
         "processingTasks": "處理中任務"
+      },
+      "completionShutdown": {
+        "more": "更多下載操作",
+        "enable": "全部下載完成後關機",
+        "disable": "取消下載完成後關機",
+        "waiting": "等待全部下載完成",
+        "countdown": "將在 {{seconds}} 秒後關機",
+        "detail": "僅本次有效。暫停或失敗的任務會阻止關機，做種將在關機時結束。",
+        "unavailable": "目前環境不支援自動關機，或未取得系統權限。",
+        "failed": "無法完成關機準備或請求關機，未強制關閉電腦。",
+        "preparing": "正在準備關機…",
+        "requested": "已請求系統關機"
       }
     }
   },

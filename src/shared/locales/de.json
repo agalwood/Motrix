@@ -970,6 +970,18 @@
         "downloadEta": "Download-Restzeit",
         "avgDownloadProgress": "Durchschnittlicher Download-Fortschritt",
         "processingTasks": "In Verarbeitung"
+      },
+      "completionShutdown": {
+        "more": "Weitere Download-Aktionen",
+        "enable": "Nach allen Downloads herunterfahren",
+        "disable": "Herunterfahren nach Downloads abbrechen",
+        "waiting": "Warten auf den Abschluss aller Downloads",
+        "countdown": "Herunterfahren in {{seconds}} Sekunden",
+        "detail": "Gilt einmalig. Pausierte oder fehlgeschlagene Aufgaben verhindern das Herunterfahren. Seeding endet beim Herunterfahren.",
+        "unavailable": "Automatisches Herunterfahren ist nicht verfügbar oder wurde nicht erlaubt.",
+        "failed": "Das Herunterfahren konnte nicht vorbereitet oder angefordert werden. Es wurde nicht erzwungen.",
+        "preparing": "Herunterfahren wird vorbereitet…",
+        "requested": "Herunterfahren angefordert"
       }
     }
   },

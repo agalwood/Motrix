@@ -982,6 +982,18 @@
         "downloadEta": "Tempo restante do download",
         "avgDownloadProgress": "Progresso médio dos downloads",
         "processingTasks": "Processando"
+      },
+      "completionShutdown": {
+        "more": "Mais ações de download",
+        "enable": "Desligar após todos os downloads",
+        "disable": "Cancelar desligamento após os downloads",
+        "waiting": "Aguardando a conclusão dos downloads",
+        "countdown": "Desligando em {{seconds}} segundos",
+        "detail": "Válido uma vez. Tarefas pausadas ou com falha impedem o desligamento. O compartilhamento termina ao desligar.",
+        "unavailable": "O desligamento automático está indisponível ou a permissão foi negada.",
+        "failed": "Não foi possível preparar ou solicitar o desligamento. Nenhum desligamento foi forçado.",
+        "preparing": "Preparando para desligar…",
+        "requested": "Desligamento solicitado"
       }
     }
   },

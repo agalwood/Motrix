@@ -982,6 +982,18 @@
         "downloadEta": "Tempo rimanente del download",
         "avgDownloadProgress": "Avanzamento medio del download",
         "processingTasks": "Elaborazione"
+      },
+      "completionShutdown": {
+        "more": "Altre azioni di download",
+        "enable": "Spegni al termine di tutti i download",
+        "disable": "Annulla lo spegnimento dopo i download",
+        "waiting": "In attesa del completamento dei download",
+        "countdown": "Spegnimento tra {{seconds}} secondi",
+        "detail": "Valido una sola volta. Le attività in pausa o non riuscite impediscono lo spegnimento. Il seeding termina allo spegnimento.",
+        "unavailable": "Lo spegnimento automatico non è disponibile o il permesso è stato negato.",
+        "failed": "Impossibile preparare o richiedere lo spegnimento. Lo spegnimento non è stato forzato.",
+        "preparing": "Preparazione allo spegnimento…",
+        "requested": "Spegnimento richiesto"
       }
     }
   },

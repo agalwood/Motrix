@@ -982,6 +982,18 @@
         "downloadEta": "Tiempo restante de descarga",
         "avgDownloadProgress": "Progreso medio de descarga",
         "processingTasks": "Procesando"
+      },
+      "completionShutdown": {
+        "more": "Más acciones de descarga",
+        "enable": "Apagar al finalizar todas las descargas",
+        "disable": "Cancelar el apagado tras las descargas",
+        "waiting": "Esperando a que finalicen las descargas",
+        "countdown": "Apagado en {{seconds}} segundos",
+        "detail": "Solo esta vez. Las tareas pausadas o fallidas impiden el apagado. La siembra termina al apagar el equipo.",
+        "unavailable": "El apagado automático no está disponible o se denegó el permiso.",
+        "failed": "No se pudo preparar o solicitar el apagado. No se ha forzado el apagado.",
+        "preparing": "Preparando el apagado…",
+        "requested": "Apagado solicitado"
       }
     }
   },

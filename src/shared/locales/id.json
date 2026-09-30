@@ -958,6 +958,18 @@
         "downloadEta": "Perkiraan sisa unduhan",
         "avgDownloadProgress": "Progres unduhan rata-rata",
         "processingTasks": "Memproses"
+      },
+      "completionShutdown": {
+        "more": "Tindakan unduhan lainnya",
+        "enable": "Matikan setelah semua unduhan selesai",
+        "disable": "Batalkan pematian setelah unduhan",
+        "waiting": "Menunggu semua unduhan selesai",
+        "countdown": "Mematikan dalam {{seconds}} detik",
+        "detail": "Berlaku sekali. Tugas yang dijeda atau gagal mencegah pematian. Seeding berakhir saat komputer dimatikan.",
+        "unavailable": "Pematian otomatis tidak tersedia atau izin ditolak.",
+        "failed": "Tidak dapat menyiapkan atau meminta pematian. Komputer tidak dimatikan secara paksa.",
+        "preparing": "Menyiapkan pematian…",
+        "requested": "Pematian diminta"
       }
     }
   },

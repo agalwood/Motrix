@@ -1203,6 +1203,18 @@
         "sortBy": "Sorter etter",
         "taskActions": "Mer",
         "title": "Listevisning"
+      },
+      "completionShutdown": {
+        "more": "Flere nedlastingshandlinger",
+        "enable": "Slå av når alle nedlastinger er ferdige",
+        "disable": "Avbryt avslåing etter nedlastinger",
+        "waiting": "Venter på at alle nedlastinger blir ferdige",
+        "countdown": "Slår av om {{seconds}} sekunder",
+        "detail": "Gjelder én gang. Pausede eller mislykkede oppgaver hindrer avslåing. Seeding avsluttes når maskinen slås av.",
+        "unavailable": "Automatisk avslåing er utilgjengelig eller tillatelse ble avslått.",
+        "failed": "Kunne ikke forberede eller be om avslåing. Ingen tvungen avslåing ble utført.",
+        "preparing": "Forbereder avslåing…",
+        "requested": "Avslåing forespurt"
       }
     },
     "trackers": {

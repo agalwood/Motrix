@@ -14,6 +14,54 @@ function deferred<T>() {
 }
 
 describe('MainProcessWorkCoordinator', () => {
+  it('queues read-only refreshes without invalidating the power action', async () => {
+    const coordinator = new MainProcessWorkCoordinator()
+    const lease = coordinator.prepareForPowerAction()
+    const read = vi.fn(async () => 'snapshot')
+    const query = coordinator.run(read, false)
+    await lease.drain()
+    expect(lease.hasIncomingWork()).toBe(false)
+    expect(read).not.toHaveBeenCalled()
+    lease.release()
+    await expect(query).resolves.toBe('snapshot')
+  })
+
+  it('holds new work, reports the arrival, and resumes it without dropping operations', async () => {
+    const coordinator = new MainProcessWorkCoordinator()
+    const prior = deferred<void>()
+    const original = coordinator.run(() => prior.promise)
+    const lease = coordinator.prepareForPowerAction()
+    const later = vi.fn(async () => 'accepted')
+    const queued = coordinator.run(later)
+    expect(lease.hasIncomingWork()).toBe(true)
+    let drained = false
+    const drain = lease.drain().then(() => {
+      drained = true
+    })
+    await Promise.resolve()
+    expect(drained).toBe(false)
+    expect(later).not.toHaveBeenCalled()
+    prior.resolve()
+    await Promise.all([original, drain])
+    expect(later).not.toHaveBeenCalled()
+    lease.release()
+    lease.release()
+    await expect(queued).resolves.toBe('accepted')
+    expect(later).toHaveBeenCalledOnce()
+  })
+
+  it('rejects held work after permanent shutdown rather than reopening admission', async () => {
+    const coordinator = new MainProcessWorkCoordinator()
+    const lease = coordinator.prepareForPowerAction()
+    const operation = vi.fn(async () => {})
+    const queued = coordinator.run(operation)
+    const rejected = expect(queued).rejects.toThrow('stopped')
+    await coordinator.stopAndDrain()
+    lease.release()
+    await rejected
+    expect(operation).not.toHaveBeenCalled()
+  })
+
   it('drains startup restore and a waiting query before Activity and SQLite close', async () => {
     const coordinator = new MainProcessWorkCoordinator()
     const restore = deferred<void>()

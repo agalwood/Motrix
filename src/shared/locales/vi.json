@@ -958,6 +958,18 @@
         "downloadEta": "Thời gian tải xuống còn lại",
         "avgDownloadProgress": "Tiến độ tải xuống trung bình",
         "processingTasks": "Đang xử lý"
+      },
+      "completionShutdown": {
+        "more": "Thao tác tải xuống khác",
+        "enable": "Tắt máy khi tải xuống hoàn tất",
+        "disable": "Hủy tắt máy sau khi tải xuống",
+        "waiting": "Đang chờ tất cả lượt tải hoàn tất",
+        "countdown": "Tắt máy sau {{seconds}} giây",
+        "detail": "Chỉ áp dụng một lần. Tác vụ tạm dừng hoặc thất bại sẽ ngăn tắt máy. Chia sẻ torrent kết thúc khi tắt máy.",
+        "unavailable": "Không hỗ trợ tắt máy tự động hoặc quyền đã bị từ chối.",
+        "failed": "Không thể chuẩn bị hoặc yêu cầu tắt máy. Máy tính chưa bị buộc tắt.",
+        "preparing": "Đang chuẩn bị tắt máy…",
+        "requested": "Đã yêu cầu tắt máy"
       }
     }
   },

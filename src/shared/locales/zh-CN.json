@@ -958,6 +958,18 @@
         "downloadEta": "下载剩余时间",
         "avgDownloadProgress": "平均下载进度",
         "processingTasks": "处理中任务"
+      },
+      "completionShutdown": {
+        "more": "更多下载操作",
+        "enable": "全部下载完成后关机",
+        "disable": "取消下载完成后关机",
+        "waiting": "等待全部下载完成",
+        "countdown": "将在 {{seconds}} 秒后关机",
+        "detail": "仅本次有效。暂停或失败的任务会阻止关机，做种将在关机时结束。",
+        "unavailable": "当前环境不支持自动关机，或未获得系统权限。",
+        "failed": "无法完成关机准备或请求关机，未强制关闭电脑。",
+        "preparing": "正在准备关机…",
+        "requested": "已请求系统关机"
       }
     }
   },

@@ -1,3 +1,4 @@
+import { DownloadsMoreMenu } from './downloads-more-menu'
 import { EngineBadge } from './engine-badge'
 import { NatBadge } from './nat-badge'
 import { SpeedLimitBadge } from './speed-limit-badge'
@@ -7,6 +8,7 @@ export function GlobalStatsBar() {
   return (
     <>
       <div className="flex min-w-0 items-center gap-2">
+        <DownloadsMoreMenu />
         <SpeedLimitBadge />
         <TransferSpeedBadge />
       </div>

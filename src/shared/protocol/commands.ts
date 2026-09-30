@@ -1,4 +1,5 @@
 export const Commands = {
+  SetCompletionShutdown: 'command:setCompletionShutdown',
   SaveDownloadsSettings: 'command:saveDownloadsSettings',
   PauseTask: 'command:pauseTask',
   ResumeTask: 'command:resumeTask',

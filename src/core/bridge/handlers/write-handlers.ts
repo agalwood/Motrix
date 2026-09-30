@@ -29,6 +29,8 @@ import type { MdxpDispatcher } from '../mdxp-dispatcher'
  * Electron-shell capability: the headless server deliberately omits it.
  */
 export interface WriteHandlerDeps {
+  /** Shell admission/drain; covers parsing and resolution before task publication. */
+  trackAsyncWork?: <T>(operation: () => Promise<T>) => Promise<T>
   taskManager: { getById(id: string): DownloadTask | undefined }
   pauseTask: (taskId: string) => Promise<void>
   resumeTask: (taskId: string) => Promise<void>
@@ -64,36 +66,41 @@ export function registerWriteHandlers(
   dispatcher: MdxpDispatcher,
   deps: WriteHandlerDeps
 ): void {
+  const run = <T>(operation: () => Promise<T>): Promise<T> =>
+    deps.trackAsyncWork ? deps.trackAsyncWork(operation) : operation()
   dispatcher.register(
     Methods.TaskPause,
     TaskPauseParamsSchema,
-    async (params): Promise<OkResult> => {
-      requireTask(deps, params.taskId)
-      await deps.pauseTask(params.taskId)
-      return OK
-    }
+    (params): Promise<OkResult> =>
+      run(async () => {
+        requireTask(deps, params.taskId)
+        await deps.pauseTask(params.taskId)
+        return OK
+      })
   )
 
   dispatcher.register(
     Methods.TaskResume,
     TaskResumeParamsSchema,
-    async (params): Promise<OkResult> => {
-      requireTask(deps, params.taskId)
-      await deps.resumeTask(params.taskId)
-      return OK
-    }
+    (params): Promise<OkResult> =>
+      run(async () => {
+        requireTask(deps, params.taskId)
+        await deps.resumeTask(params.taskId)
+        return OK
+      })
   )
 
   dispatcher.register(
     Methods.TaskRemove,
     TaskRemoveParamsSchema,
-    async (params): Promise<OkResult> => {
-      requireTask(deps, params.taskId)
-      await deps.removeTask(params.taskId, {
-        deleteFiles: params.deleteFiles ?? false,
+    (params): Promise<OkResult> =>
+      run(async () => {
+        requireTask(deps, params.taskId)
+        await deps.removeTask(params.taskId, {
+          deleteFiles: params.deleteFiles ?? false,
+        })
+        return OK
       })
-      return OK
-    }
   )
 
   if (deps.revealTask) {
@@ -101,23 +108,24 @@ export function registerWriteHandlers(
     dispatcher.register(
       Methods.TaskReveal,
       TaskRevealParamsSchema,
-      async (params): Promise<OkResult> => {
-        // Resolve the public id before crossing into the shell. The protocol
-        // never accepts a caller-supplied path; the Electron handler derives
-        // the destination from this trusted task record.
-        requireTask(deps, params.taskId)
-        try {
-          await revealTask(params.taskId)
-        } catch {
-          // Shell/OS errors can contain an absolute path. Keep that detail out
-          // of the remote response and expose only the capability-level fact.
-          throw makeMdxpError(
-            ErrorCodes.ResourceUnavailable,
-            'task output cannot be revealed'
-          )
-        }
-        return OK
-      }
+      (params): Promise<OkResult> =>
+        run(async () => {
+          // Resolve the public id before crossing into the shell. The protocol
+          // never accepts a caller-supplied path; the Electron handler derives
+          // the destination from this trusted task record.
+          requireTask(deps, params.taskId)
+          try {
+            await revealTask(params.taskId)
+          } catch {
+            // Shell/OS errors can contain an absolute path. Keep that detail out
+            // of the remote response and expose only the capability-level fact.
+            throw makeMdxpError(
+              ErrorCodes.ResourceUnavailable,
+              'task output cannot be revealed'
+            )
+          }
+          return OK
+        })
     )
   }
 
@@ -129,33 +137,37 @@ export function registerWriteHandlers(
   dispatcher.register(
     Methods.DownloadAdd,
     DownloadAddParamsSchema,
-    async (params, ctx): Promise<MdxpTask> => {
-      const createAndSnapshot = async (): Promise<MdxpTask> => {
-        const req = await buildCreateRequest(params, deps.parseTorrentFileCount)
-        if (req.type === 'http' && params.idempotencyKey) {
-          req.requestId = scopedCreateRequestId(
-            clientKey(ctx.identity),
-            params.idempotencyKey
+    (params, ctx): Promise<MdxpTask> =>
+      run(async () => {
+        const createAndSnapshot = async (): Promise<MdxpTask> => {
+          const req = await buildCreateRequest(
+            params,
+            deps.parseTorrentFileCount
           )
+          if (req.type === 'http' && params.idempotencyKey) {
+            req.requestId = scopedCreateRequestId(
+              clientKey(ctx.identity),
+              params.idempotencyKey
+            )
+          }
+          const { taskId } = await deps.createTask(req)
+          // handleCreateTask registers the task synchronously, so getById should
+          // resolve immediately; a miss means the create path is broken.
+          const task = deps.taskManager.getById(taskId)
+          if (!task) {
+            throw makeMdxpError(
+              ErrorCodes.AdapterError,
+              `created task not retrievable: ${taskId}`
+            )
+          }
+          return toMdxpTask(task)
         }
-        const { taskId } = await deps.createTask(req)
-        // handleCreateTask registers the task synchronously, so getById should
-        // resolve immediately; a miss means the create path is broken.
-        const task = deps.taskManager.getById(taskId)
-        if (!task) {
-          throw makeMdxpError(
-            ErrorCodes.AdapterError,
-            `created task not retrievable: ${taskId}`
-          )
-        }
-        return toMdxpTask(task)
-      }
-      const key = params.idempotencyKey
-      if (!key) return createAndSnapshot()
-      return addsByKey.run(
-        JSON.stringify([clientKey(ctx.identity), key]),
-        createAndSnapshot
-      )
-    }
+        const key = params.idempotencyKey
+        if (!key) return createAndSnapshot()
+        return addsByKey.run(
+          JSON.stringify([clientKey(ctx.identity), key]),
+          createAndSnapshot
+        )
+      })
   )
 }

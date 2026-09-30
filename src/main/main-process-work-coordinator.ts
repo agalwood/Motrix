@@ -1,4 +1,5 @@
 import { AsyncWorkTracker } from '@core/inspector-activity'
+import type { ShutdownPreparation } from '@core/task/completion-shutdown-controller'
 
 /**
  * Owns every main-process operation that may touch lifecycle-managed state.
@@ -14,6 +15,11 @@ export class MainProcessWorkCoordinator {
   private resolveStartupSettled!: () => void
   private startupWork: Promise<void> | null = null
   private startupDidSettle = false
+  private admissionHold: {
+    incoming: boolean
+    released: Promise<void>
+    release(): void
+  } | null = null
 
   constructor() {
     this.startupSettled = new Promise<void>((resolve) => {
@@ -41,8 +47,36 @@ export class MainProcessWorkCoordinator {
     return this.startupSettled
   }
 
-  run<T>(operation: () => Promise<T>): Promise<T> {
+  run<T>(operation: () => Promise<T>, blocksPowerAction = true): Promise<T> {
+    const hold = this.admissionHold
+    if (hold) {
+      hold.incoming ||= blocksPowerAction
+      return hold.released.then(() => this.run(operation, blocksPowerAction))
+    }
     return this.tracker.run(operation)
+  }
+
+  /** Queue arrivals temporarily. Mutating work invalidates a pending power action. */
+  prepareForPowerAction(): ShutdownPreparation {
+    if (this.admissionHold || !this.tracker.isAccepting())
+      throw new Error('Work admission is unavailable')
+    let resolve!: () => void
+    const hold = {
+      incoming: false,
+      released: new Promise<void>((done) => {
+        resolve = done
+      }),
+      release: () => {
+        if (this.admissionHold === hold) this.admissionHold = null
+        resolve()
+      },
+    }
+    this.admissionHold = hold
+    return {
+      drain: () => this.tracker.drainAcceptedWork(),
+      hasIncomingWork: () => hold.incoming,
+      release: hold.release,
+    }
   }
 
   isAccepting(): boolean {
@@ -50,6 +84,7 @@ export class MainProcessWorkCoordinator {
   }
 
   stopAndDrain(): Promise<void> {
+    this.admissionHold?.release()
     // Fatal cleanup can begin before app.whenReady starts restore. Release any
     // already-waiting request; its tracked wrapper will then drain or reject
     // before Activity/SQLite disposal.

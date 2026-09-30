@@ -970,6 +970,18 @@
         "downloadEta": "Letöltésből hátralévő idő",
         "avgDownloadProgress": "Átlagos letöltési előrehaladás",
         "processingTasks": "Feldolgozás"
+      },
+      "completionShutdown": {
+        "more": "További letöltési műveletek",
+        "enable": "Leállítás az összes letöltés befejezése után",
+        "disable": "Letöltés utáni leállítás megszakítása",
+        "waiting": "Várakozás az összes letöltés befejezésére",
+        "countdown": "Leállítás {{seconds}} másodperc múlva",
+        "detail": "Egyszeri művelet. A szüneteltetett vagy sikertelen feladatok megakadályozzák a leállítást. A visszaosztás a számítógép leállításakor véget ér.",
+        "unavailable": "Az automatikus leállítás nem érhető el, vagy az engedélyt megtagadták.",
+        "failed": "Nem sikerült előkészíteni vagy kérni a leállítást. A számítógép leállítása nem lett kényszerítve.",
+        "preparing": "Leállítás előkészítése…",
+        "requested": "Leállítás kérve"
       }
     }
   },

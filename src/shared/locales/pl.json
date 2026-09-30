@@ -994,6 +994,18 @@
         "downloadEta": "Pozostały czas pobierania",
         "avgDownloadProgress": "Średni postęp pobierania",
         "processingTasks": "Przetwarzanie"
+      },
+      "completionShutdown": {
+        "more": "Więcej działań pobierania",
+        "enable": "Wyłącz po zakończeniu wszystkich pobrań",
+        "disable": "Anuluj wyłączenie po pobieraniu",
+        "waiting": "Oczekiwanie na zakończenie pobierania",
+        "countdown": "Wyłączenie za {{seconds}} s",
+        "detail": "Tylko jeden raz. Wstrzymane i nieudane zadania blokują wyłączenie. Wysyłanie kończy się przy wyłączeniu komputera.",
+        "unavailable": "Automatyczne wyłączenie jest niedostępne lub odmówiono uprawnień.",
+        "failed": "Nie udało się przygotować ani zażądać wyłączenia. Nie wymuszono wyłączenia.",
+        "preparing": "Przygotowywanie do wyłączenia…",
+        "requested": "Zażądano wyłączenia"
       }
     }
   },
