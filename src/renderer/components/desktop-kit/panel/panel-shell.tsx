@@ -20,7 +20,7 @@ export interface PanelShellProps {
   children: React.ReactNode
   headerClassName?: string
   actionsClassName?: string
-  /** Let a toolbar with its own no-drag controls expose draggable blank space. */
+  /** Expose draggable blank space in compact headers; controls must use no-drag. */
   actionsDraggable?: boolean
   contentClassName?: string
 }
@@ -69,7 +69,8 @@ export function PanelShell({
           // z-50 modal layer so dialogs always cover background controls.
           className={cn(
             'relative z-40 flex min-h-9 shrink-0 items-center gap-2 compact-header:min-h-7',
-            actionsDraggable ? 'app-drag' : 'app-no-drag',
+            'app-no-drag',
+            actionsDraggable && 'compact-header:app-drag',
             actionsClassName
           )}
         >

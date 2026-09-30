@@ -32,6 +32,8 @@ test('Trackers and Plugins share expandable, keyboard-accessible panel toolbars'
     await setTaskInspectorContentSize(app, page, 1100, 780)
     await page.getByRole('link', { name: 'Trackers', exact: true }).click()
     const trackers = page.getByRole('toolbar', { name: 'Trackers' })
+    const actions = page.locator('[data-slot="panel-shell-actions"]')
+    await expect(actions).toHaveCSS('-webkit-app-region', 'no-drag')
     const trackerSearch = trackers.getByRole('button', {
       name: 'Filter by URL…',
     })
@@ -39,6 +41,19 @@ test('Trackers and Plugins share expandable, keyboard-accessible panel toolbars'
     await trackerSearch.click()
     const trackerInput = trackers.getByRole('textbox')
     await expect(trackerInput).toBeFocused()
+    await actions.click({ position: { x: 8, y: 8 } })
+    await expect(trackerInput).toHaveCount(0)
+    await page
+      .getByRole('button', { name: 'Toggle sidebar', exact: true })
+      .click()
+    await expect(actions).toHaveCSS('-webkit-app-region', 'drag')
+    await trackerSearch.click()
+    await expect(trackerInput).toBeFocused()
+    await page
+      .getByRole('button', { name: 'Toggle sidebar', exact: true })
+      .click()
+    await expect(actions).toHaveCSS('-webkit-app-region', 'no-drag')
+    await trackerSearch.click()
     await trackerInput.fill('tracker.example')
     await page.getByRole('tab', { name: /blacklist/i }).click()
     await expect(trackerInput).toHaveValue('tracker.example')
@@ -50,6 +65,7 @@ test('Trackers and Plugins share expandable, keyboard-accessible panel toolbars'
 
     await page.getByRole('link', { name: 'Plugins', exact: true }).click()
     const plugins = page.getByRole('toolbar', { name: 'Plugins' })
+    await expect(actions).toHaveCSS('-webkit-app-region', 'no-drag')
     await expect(plugins.locator('[data-slot="toolbar-glass"]')).toHaveCount(2)
     await expect(
       plugins.getByRole('button', { name: 'Add plugin' })
@@ -59,6 +75,9 @@ test('Trackers and Plugins share expandable, keyboard-accessible panel toolbars'
     await search.click()
     const input = plugins.getByRole('textbox', { name: 'Find a plugin' })
     await expect(input).toBeFocused()
+    await actions.click({ position: { x: 8, y: 8 } })
+    await expect(input).toHaveCount(0)
+    await search.click()
     await input.fill('example')
     await plugins.getByRole('button', { name: 'Clear search' }).click()
     await expect(input).toBeFocused()
@@ -78,6 +97,7 @@ test('Trackers and Plugins share expandable, keyboard-accessible panel toolbars'
       .getByRole('button', { name: 'Toggle sidebar', exact: true })
       .click()
     await expect(plugins).toHaveAttribute('data-density', 'compact')
+    await expect(actions).toHaveCSS('-webkit-app-region', 'drag')
     await search.click()
     await expect(input).toBeFocused()
     await updateTaskInspectorAppearance(page, 'dark', 'en-US')
