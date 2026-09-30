@@ -191,7 +191,7 @@
     "perMachine": false
   },
   "electronDist": "trusted/electron.zip",
-  "electronVersion": "44.4.5",
+  "electronVersion": "44.5.0",
   "npmRebuild": true,
   "beforeBuild": "./scripts/before-build-use-staged-dependencies.mjs",
   "detectUpdateChannel": true,

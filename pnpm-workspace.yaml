@@ -35,7 +35,7 @@ minimumReleaseAgeExclude:
   - '@noble/curves@2.4.0'
   - '@noble/hashes@2.4.0'
   - i18next@26.3.6
-  - lucide-react@1.24.0 || 1.31.0
+  - lucide-react@1.24.0 || 1.31.0 || 1.49.0
   - react-i18next@17.0.9 || 17.0.15
   - '@motrix/mdxp@0.1.0 || 0.3.0 || 0.4.0 || 0.5.0 || 0.6.0 || 0.7.0 || 0.8.0 || 0.8.1'
   - '@motrix/nat@0.1.0 || 0.1.1 || 0.1.3'
@@ -90,7 +90,7 @@ minimumReleaseAgeExclude:
   - '@biomejs/cli-linux-x64@2.5.8 || 2.5.9'
   - '@biomejs/cli-win32-arm64@2.5.8 || 2.5.9'
   - '@biomejs/cli-win32-x64@2.5.8 || 2.5.9'
-  - electron@43.4.0 || 44.1.1
+  - electron@43.4.0 || 44.1.1 || 44.5.0
   - shadcn@4.17.0 || 4.18.0 || 4.20.0 || 4.20.1
   - zustand@5.0.15
   - js-yaml@5.4.2
@@ -100,3 +100,4 @@ minimumReleaseAgeExclude:
   - '@vitest/mocker@5.0.1'
   - '@vitest/spy@5.0.1'
   - vitest@5.0.1
+  - '@types/ws@8.18.2'

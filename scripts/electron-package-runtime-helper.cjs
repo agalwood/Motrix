@@ -44,6 +44,10 @@ function runDatabaseSmoke(packagePath, databasePath) {
 
 function runQuickJsSmoke(workerPath) {
   return new Promise((resolve, reject) => {
+    const commandScope = {
+      commandInvocationId: 77,
+      callChain: { id: 'package-smoke', plugins: ['package.smoke'] },
+    }
     const worker = new Worker(workerPath)
     const timer = setTimeout(() => {
       void worker.terminate()
@@ -78,6 +82,7 @@ function runQuickJsSmoke(workerPath) {
         worker.postMessage({
           type: 'response',
           id: message.id,
+          commandScope,
           ok: true,
           result: digest,
         })
@@ -90,6 +95,7 @@ function runQuickJsSmoke(workerPath) {
           id: 77,
           commandId: 'package.smoke.hash',
           args: null,
+          commandScope,
         })
         return
       }

@@ -89,7 +89,9 @@ describe('Safari desktop distribution', () => {
       } finally {
         rmSync(root, { recursive: true, force: true })
       }
-    }
+    },
+    // Cold Xcode tool startup on CI can exceed the default five seconds.
+    30_000
   )
 
   it('gives only the exact helper paths their dedicated entitlements and identifiers', () => {
