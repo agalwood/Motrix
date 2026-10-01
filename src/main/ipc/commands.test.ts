@@ -28,6 +28,13 @@ import { WINDOWS_DEFAULT_APPS_SETTINGS_URL } from '../platform/windows-default-a
 import type { CommandContext } from './commands'
 import { buildCommandHandlers, registerCommandHandlers } from './commands'
 
+const installManagedFfmpegMock = vi.hoisted(() =>
+  vi.fn(async () => ({ ok: true, releaseVersion: '9.0.2-motrix.2' }))
+)
+vi.mock('../plugin/verified-ffmpeg-electron', () => ({
+  installManagedFfmpeg: installManagedFfmpegMock,
+}))
+
 const { resolveWindowsDefaultAppsSettingsUrlMock } = vi.hoisted(() => ({
   resolveWindowsDefaultAppsSettingsUrlMock: vi.fn(
     async () => 'ms-settings:defaultapps'
@@ -291,6 +298,26 @@ function fakeCtx() {
 }
 
 describe('buildCommandHandlers', () => {
+  it('installs FFmpeg only from the fixed service with no renderer-supplied URLs or keys', async () => {
+    const ctx = fakeCtx()
+    const handlers = buildCommandHandlers(ctx as unknown as CommandContext)
+    await expect(
+      handlers[Commands.InstallFfmpeg]?.({
+        url: 'https://evil.test',
+        publicKey: 'forged',
+      })
+    ).rejects.toThrow()
+    const before = installManagedFfmpegMock.mock.calls.length
+    await expect(handlers[Commands.InstallFfmpeg]?.()).resolves.toEqual({
+      ok: true,
+      releaseVersion: '9.0.2-motrix.2',
+    })
+    expect(installManagedFfmpegMock.mock.calls.length).toBe(before + 1)
+    expect(installManagedFfmpegMock).toHaveBeenLastCalledWith(
+      ctx.userDataDir,
+      expect.any(Function)
+    )
+  })
   it('delegates CLI installation to the shared singleton service', async () => {
     const ctx = fakeCtx()
     const status = { phase: 'installed', version: '0.4.0' }

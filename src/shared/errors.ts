@@ -76,6 +76,9 @@ export enum ErrorCode {
   GeoIPDownloadFailed = 'GEOIP_DOWNLOAD_FAILED',
   GeoIPSourceUnsupported = 'GEOIP_SOURCE_UNSUPPORTED',
   GeoIPDatabaseInvalid = 'GEOIP_DATABASE_INVALID',
+  FfmpegInstallBusy = 'FFMPEG_INSTALL_BUSY',
+  FfmpegInstallFailed = 'FFMPEG_INSTALL_FAILED',
+  FfmpegReleaseUnavailable = 'FFMPEG_RELEASE_UNAVAILABLE',
 }
 
 export enum DownloadErrorCode {

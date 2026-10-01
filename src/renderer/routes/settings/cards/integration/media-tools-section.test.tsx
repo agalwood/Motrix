@@ -6,6 +6,9 @@ import {
 } from '@renderer/components/settings-kit/use-settings-form'
 import { transport } from '@renderer/lib/transport'
 import { EXTERNAL_URLS } from '@shared/external-urls'
+import { Commands } from '@shared/protocol/commands'
+import { Events } from '@shared/protocol/events'
+import { Queries } from '@shared/protocol/queries'
 import { DEFAULT_MEDIA_SETTINGS } from '@shared/schemas'
 import {
   fireEvent,
@@ -23,6 +26,8 @@ import { MediaToolsSection } from './media-tools-section'
 vi.mock('@renderer/lib/transport', () => ({
   transport: {
     invoke: vi.fn(),
+    on: vi.fn(),
+    off: vi.fn(),
   },
 }))
 
@@ -50,12 +55,213 @@ function TestForm({
 }
 
 describe('MediaToolsSection', () => {
+  it.each(['darwin', 'linux'])(
+    'offers verified one-click install on %s only after consent',
+    async (platform) => {
+      Object.defineProperty(transport, 'platform', {
+        configurable: true,
+        value: platform,
+      })
+      vi.mocked(transport.invoke).mockImplementation(async (channel) =>
+        channel === Commands.InstallFfmpeg
+          ? { ok: true, releaseVersion: '9.0.2-motrix.2' }
+          : channel === Queries.GetFfmpegInstallStatus
+            ? {
+                phase: 'idle',
+                bytesReceived: 0,
+                bytesTotal: 0,
+                percent: null,
+                directory: null,
+                releaseVersion: null,
+                error: null,
+              }
+            : { active: null, candidates: [] }
+      )
+      render(<TestForm />)
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Download FFmpeg' })
+      )
+      expect(transport.invoke).not.toHaveBeenCalledWith(Commands.InstallFfmpeg)
+      expect(
+        screen.getByText(/GPL-licensed; included licenses/)
+      ).toBeInTheDocument()
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Download and verify' })
+      )
+      await waitFor(() =>
+        expect(screen.getByRole('status')).toHaveTextContent(
+          'Verified and installed.'
+        )
+      )
+    }
+  )
+  it('mirrors an in-flight download after reopening, shows byte progress, and prevents duplicate operations', async () => {
+    Object.defineProperty(transport, 'platform', {
+      configurable: true,
+      value: 'linux',
+    })
+    vi.mocked(transport.invoke).mockImplementation(async (channel) =>
+      channel === Queries.GetFfmpegInstallStatus
+        ? {
+            phase: 'downloading',
+            bytesReceived: 50,
+            bytesTotal: 100,
+            percent: 0.5,
+            directory: null,
+            releaseVersion: '9.0.2-motrix.2',
+            error: null,
+          }
+        : { active: null, candidates: [] }
+    )
+    render(<TestForm />)
+    expect(
+      await screen.findByRole('progressbar', {
+        name: 'FFmpeg download progress',
+      })
+    ).toHaveAttribute('aria-valuenow', '50')
+    expect(screen.getByText('50 / 100 bytes')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Verifying…' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Verifying…' }))
+    expect(transport.invoke).not.toHaveBeenCalledWith(Commands.InstallFfmpeg)
+    expect(transport.on).toHaveBeenCalledWith(
+      Events.FfmpegInstallStatusChanged,
+      expect.any(Function)
+    )
+  })
   beforeEach(() => {
     vi.clearAllMocks()
+    Object.defineProperty(transport, 'platform', {
+      configurable: true,
+      value: undefined,
+    })
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText: vi.fn().mockResolvedValue(undefined) },
     })
+  })
+
+  it('requires an explicit Windows install action and reports failed verification', async () => {
+    Object.defineProperty(transport, 'platform', {
+      configurable: true,
+      value: 'win32',
+    })
+    vi.mocked(transport.invoke).mockImplementation(async (channel) =>
+      channel === Commands.InstallFfmpeg
+        ? { ok: false, error: 'verification' }
+        : channel === Queries.GetFfmpegInstallStatus
+          ? {
+              phase: 'idle',
+              bytesReceived: 0,
+              bytesTotal: 0,
+              percent: null,
+              directory: null,
+              releaseVersion: null,
+              error: null,
+            }
+          : { active: null, candidates: [] }
+    )
+    render(<TestForm />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Download FFmpeg' })
+    )
+    expect(transport.invoke).not.toHaveBeenCalledWith(Commands.InstallFfmpeg)
+    expect(
+      screen.getByText(/no public Authenticode signature/)
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Download and verify' }))
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Download or verification failed'
+      )
+    )
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.InstallFfmpeg)
+    expect(
+      screen.queryByText('Verified and installed.')
+    ).not.toBeInTheDocument()
+  })
+
+  it('refreshes detection only after successful verified Windows installation', async () => {
+    Object.defineProperty(transport, 'platform', {
+      configurable: true,
+      value: 'win32',
+    })
+    vi.mocked(transport.invoke).mockImplementation(async (channel) =>
+      channel === Commands.InstallFfmpeg
+        ? { ok: true, releaseVersion: '9.0.2-motrix.2' }
+        : channel === Queries.GetFfmpegInstallStatus
+          ? {
+              phase: 'idle',
+              bytesReceived: 0,
+              bytesTotal: 0,
+              percent: null,
+              directory: null,
+              releaseVersion: null,
+              error: null,
+            }
+          : { active: null, candidates: [] }
+    )
+    render(<TestForm />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Download FFmpeg' })
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Download and verify' }))
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Verified and installed.'
+      )
+    )
+    expect(
+      vi
+        .mocked(transport.invoke)
+        .mock.calls.filter(
+          ([channel]) => channel === Queries.GetFfmpegDetection
+        )
+    ).toHaveLength(2)
+  })
+  it('keeps a successful install result when the separate detection refresh fails', async () => {
+    Object.defineProperty(transport, 'platform', {
+      configurable: true,
+      value: 'darwin',
+    })
+    let detections = 0
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Commands.InstallFfmpeg)
+        return { ok: true, releaseVersion: '9.0.2-motrix.8' }
+      if (channel === Queries.GetFfmpegInstallStatus)
+        return {
+          phase: 'idle',
+          bytesReceived: 0,
+          bytesTotal: 0,
+          percent: null,
+          directory: null,
+          releaseVersion: null,
+          error: null,
+        }
+      if (channel === Queries.GetFfmpegDetection && ++detections > 1)
+        throw new Error('detection refresh unavailable')
+      return { active: null, candidates: [] }
+    })
+    render(<TestForm />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Download FFmpeg' })
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Download and verify' }))
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Verified and installed.'
+      )
+    )
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Couldn’t refresh FFmpeg detection'
+    )
+    expect(
+      screen.getByText(
+        'Restart Motrix for active plugins to detect the installation.'
+      )
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText(/Download or verification failed/)
+    ).not.toBeInTheDocument()
   })
 
   it('places the FFmpeg download action before refresh without a separate card', async () => {

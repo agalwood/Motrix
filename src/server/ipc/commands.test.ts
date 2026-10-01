@@ -201,6 +201,21 @@ function makeFakeCtx() {
   }
 }
 
+describe('desktop-only FFmpeg installation boundary', () => {
+  it('does not install server executables through web commands', async () => {
+    const handlers = buildServerCommandHandlers(
+      makeFakeCtx() as ServerCommandContext
+    )
+    await expect(handlers[Commands.InstallFfmpeg]?.()).resolves.toEqual({
+      ok: false,
+      error: 'unsupported',
+    })
+    await expect(
+      handlers[Commands.InstallFfmpeg]?.({ url: 'https://evil.test' })
+    ).rejects.toThrow()
+  })
+})
+
 function makeSettings(
   proxy: typeof PROXY_OFF,
   tracker: {

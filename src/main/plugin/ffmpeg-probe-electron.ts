@@ -1,17 +1,25 @@
-// Electron-host FFmpeg probe with a non-executing macOS trust preflight.
-//
-// Candidate paths are resolved to an existing executable before any probe is
-// attempted. On macOS, quarantined binaries are assessed by Gatekeeper first,
-// so a rejected binary is never spawned merely to discover its version.
+// Resolve candidates and check trust before executing any version probe.
+// Managed macOS CLI tools require authenticated metadata, hashes and Apple's
+// online notarized code requirement. External quarantined paths keep their
+// existing Gatekeeper application assessment, without any fallback on denial.
 
 import path from 'node:path'
+import {
+  assertManagedFfmpegTrusted,
+  resolveManagedFfmpegCandidate,
+} from '@core/ffmpeg/verified-install'
 import {
   type FfmpegDetection,
   type FfmpegDetectionFailureReason,
   probeBinary,
 } from '@core/plugin/capabilities/ffmpeg-detect'
+import {
+  FFMPEG_REPOSITORY,
+  type FfmpegTarget,
+} from '@shared/schemas/ffmpeg-release'
 import { type RunCommand, runCommand } from '../cli/command-runner'
 import { resolveExecutable } from '../cli/shell-environment'
+import { verifyMacFfmpegTrust } from './ffmpeg-macos-trust'
 
 const XATTR_BIN = '/usr/bin/xattr'
 const SPCTL_BIN = '/usr/sbin/spctl'
@@ -35,6 +43,7 @@ type ProbeFfmpegBinary = (
 ) => Promise<ElectronFfmpegProbeResult>
 
 export interface ElectronFfmpegProbeOptions {
+  userDataDir?: string
   platform?: NodeJS.Platform
   env?: NodeJS.ProcessEnv
   run?: RunCommand
@@ -67,10 +76,27 @@ export function makeElectronFfmpegProbe(
 
   return async (candidate) => {
     let resolved: string | null
+    let managedTarget: FfmpegTarget | undefined
     try {
+      if (
+        options.userDataDir &&
+        ['darwin', 'linux', 'win32'].includes(platform)
+      ) {
+        candidate = resolveManagedFfmpegCandidate(
+          options.userDataDir,
+          candidate,
+          platform as 'darwin' | 'linux' | 'win32'
+        )
+      }
       resolved = await resolve(candidate, env, { platform })
+      if (options.userDataDir && resolved) {
+        managedTarget = assertManagedFfmpegTrusted(
+          options.userDataDir,
+          resolved
+        )
+      }
     } catch {
-      return unavailable('missing')
+      return unavailable(options.userDataDir ? 'untrusted' : 'missing')
     }
 
     if (!resolved || !pathApi.isAbsolute(resolved)) {
@@ -78,6 +104,20 @@ export function makeElectronFfmpegProbe(
     }
 
     if (platform !== 'darwin') return probe(resolved)
+
+    if (managedTarget) {
+      try {
+        await verifyMacFfmpegTrust(
+          path.dirname(resolved),
+          managedTarget,
+          `https://github.com/${FFMPEG_REPOSITORY}/releases/download/v${managedTarget.releaseVersion}/${managedTarget.archive}`,
+          run
+        )
+      } catch {
+        return unavailable('untrusted', resolved)
+      }
+      return probe(resolved)
+    }
 
     let quarantineResult: Awaited<ReturnType<RunCommand>>
     try {

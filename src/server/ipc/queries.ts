@@ -172,6 +172,15 @@ export function buildServerQueryHandlers(
   })
 
   return {
+    [Queries.GetFfmpegInstallStatus]: async () => ({
+      phase: 'idle',
+      bytesReceived: 0,
+      bytesTotal: 0,
+      percent: null,
+      releaseVersion: null,
+      directory: null,
+      error: 'unsupported',
+    }),
     [Queries.ListServerDirectoryLocations]: async (request: unknown) => {
       if (
         !ListServerDirectoryLocationsRequestSchema.safeParse(request).success

@@ -115,6 +115,7 @@ export const Commands = {
   DeleteNotification: 'command:deleteNotification',
   ClearNotifications: 'command:clearNotifications',
   InstallCliTool: 'command:installCliTool',
+  InstallFfmpeg: 'command:installFfmpeg',
 } as const
 
 export type CommandChannel = (typeof Commands)[keyof typeof Commands]

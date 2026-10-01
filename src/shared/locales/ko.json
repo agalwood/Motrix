@@ -1957,7 +1957,39 @@
         "binaryPath": "사용자 지정 FFmpeg 경로",
         "browse": "찾아보기…",
         "download": {
-          "action": "FFmpeg 다운로드"
+          "action": "FFmpeg 다운로드",
+          "verifyInstall": "다운로드 및 검증",
+          "installing": "검증 중…",
+          "installed": "검증 후 설치되었습니다.",
+          "failed": "다운로드 또는 검증에 실패했습니다. 기존 설치는 유지됩니다.",
+          "disclosure": "Motrix가 프로젝트 서명을 검증합니다. Windows 바이너리에 공인 Authenticode 서명이 없어 시스템 경고가 표시될 수 있습니다. FFmpeg는 GPL로 배포되며 라이선스 문서가 포함됩니다.",
+          "projectDisclosure": "Download the official Motrix FFmpeg build separately, verify its signature, and install it in Motrix’s data directory. FFmpeg is GPL-licensed; included licenses and corresponding sources apply.",
+          "macDisclosure": "macOS verifies the pinned Developer ID certificate and Apple’s online notarization ticket. Internet quarantine remains enabled; system protections aren’t bypassed.",
+          "progress": "FFmpeg download progress",
+          "bytes": "{{received}} / {{total}} bytes",
+          "directory": "Installed directory: {{path}}",
+          "detectionRefreshFailed": "Couldn’t refresh FFmpeg detection. Try Refresh again.",
+          "restartPluginHint": "Restart Motrix for active plugins to detect the installation.",
+          "phases": {
+            "idle": "Ready to download",
+            "metadata": "Checking the formal release…",
+            "downloading": "Downloading FFmpeg…",
+            "verifying": "Verifying the release signature…",
+            "extracting": "Verifying and extracting files…",
+            "systemTrust": "Checking macOS signing and notarization…",
+            "installing": "Installing FFmpeg…",
+            "installed": "Verified and installed.",
+            "failed": "Installation failed."
+          },
+          "errors": {
+            "unavailable": "No complete, immutable formal release is available yet.",
+            "unsupported": "One-click installation isn’t supported on this platform.",
+            "busy": "Another FFmpeg installation is already running.",
+            "download": "The download failed or timed out. Check the network and try again.",
+            "verification": "The signature, package layout, or file integrity check failed.",
+            "install": "Files couldn’t be installed. Check the data directory’s permissions and free space.",
+            "systemTrust": "macOS rejected the signing identity or notarization. System security checks weren’t bypassed."
+          }
         },
         "detection": {
           "readyTitle": "FFmpeg {{version}}",

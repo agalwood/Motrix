@@ -77,6 +77,28 @@ const UNAVAILABLE_DETECT: FfmpegDetection = {
   available: false,
 }
 
+describe('FFmpeg managed pre-spawn trust guard', () => {
+  it('does not spawn run or probe when a cached managed binary fails revalidation', async () => {
+    const spawnFn = vi.fn()
+    const validateBinaryPath = vi.fn(() => {
+      throw new Error('digest mismatch')
+    })
+    const host = new FfmpegCapabilityHost({
+      detect: AVAILABLE_DETECT,
+      spawnFn,
+      validateBinaryPath,
+    })
+    await expect(
+      host.run({ argv: [], outputPath: '/output' }).result
+    ).rejects.toThrow()
+    await expect(host.probe({ path: '/input' })).rejects.toThrow(
+      'integrity check'
+    )
+    expect(validateBinaryPath).toHaveBeenCalledTimes(2)
+    expect(spawnFn).not.toHaveBeenCalled()
+  })
+})
+
 // A valid ffmpeg progress stderr line.
 const PROGRESS_LINE =
   'frame=   42 fps=30.0 q=-0.0 size=N/A time=00:00:05.000 bitrate=N/A speed=1.50x'
