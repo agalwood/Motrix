@@ -1,9 +1,12 @@
 import {
+  type HttpRequestInput,
   type NatEvent,
   type NatManagerDeps,
   NatPortReachability,
   NatState,
   NatType,
+  type UdpMessageListener,
+  UpnpClient,
 } from '@motrix/nat'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MotrixNatManager } from './motrix-nat-manager'
@@ -174,6 +177,127 @@ describe('MotrixNatManager', () => {
     expect(harness.networkMonitor.stop).toHaveBeenCalledOnce()
     expect(harness.manager.getStatus().state).toBe(NatState.Active)
     await harness.manager.stop()
+  })
+})
+
+describe('Published UPnP dependency regression', () => {
+  it('maps and removes TCP/UDP ports for a Huawei AX3 with a Chinese friendly name', async () => {
+    const { manager, deps, setMappingSucceeds } = makeHarness()
+    // This router exposes UPnP only; PCP and NAT-PMP must not mask failures.
+    setMappingSucceeds(false)
+    const service = 'urn:schemas-upnp-org:service:WANIPConnection:1'
+    const description = `<?xml version="1.0" encoding="UTF-8"?>
+      <root xmlns="urn:schemas-upnp-org:device-1-0"><device>
+        <deviceType>urn:schemas-upnp-org:device:InternetGatewayDevice:1</deviceType>
+        <friendlyName>华为路由AX3</friendlyName>
+        <manufacturer>Huawei Technologies Co., Ltd.</manufacturer>
+        <modelName>WS7100-15</modelName>
+        <serviceList><service><serviceType>${service}</serviceType>
+          <controlURL>/upnp/control/WANIPConn1</controlURL>
+        </service></serviceList>
+      </device></root>`
+    const listeners = new Set<UdpMessageListener>()
+    const socket = {
+      bind: vi.fn(async () => {}),
+      addMembership: vi.fn(),
+      setMulticastTTL: vi.fn(),
+      setMulticastInterface: vi.fn(),
+      send: vi.fn(async () => {
+        const response = Buffer.from(
+          'HTTP/1.1 200 OK\r\n' +
+            'LOCATION: http://192.168.1.1:37215/upnpdev.xml\r\n' +
+            'ST: urn:schemas-upnp-org:device:InternetGatewayDevice:1\r\n' +
+            'SERVER: Linux UPnP/1.0 Huawei-ATP-IGD\r\n' +
+            'USN: uuid:ax3::urn:schemas-upnp-org:device:InternetGatewayDevice:1\r\n' +
+            'HILINK_EXT: 0\r\n\r\n'
+        )
+        for (const listener of listeners) {
+          listener(response, {
+            address: '192.168.1.1',
+            port: 1900,
+            size: response.length,
+          })
+        }
+      }),
+      onMessage: (listener: UdpMessageListener) => listeners.add(listener),
+      offMessage: (listener: UdpMessageListener) => listeners.delete(listener),
+      close: vi.fn(async () => {
+        listeners.clear()
+      }),
+      address: () => ({ address: '192.168.1.20', port: 12345 }),
+    }
+    const request = vi.fn(async (input: HttpRequestInput) => {
+      const action = input.headers?.SOAPAction?.split('#')[1]?.replaceAll(
+        '"',
+        ''
+      )
+      return {
+        ok: true as const,
+        value: {
+          statusCode: 200,
+          headers: {},
+          body:
+            input.method === 'GET'
+              ? description
+              : `<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+              <s:Body><u:${action}Response xmlns:u="${service}"/></s:Body>
+            </s:Envelope>`,
+        },
+      }
+    })
+    deps.upnpClient = new UpnpClient({
+      udpFactory: () => socket,
+      http: { request },
+    })
+    deps.settingsProvider.getEngine = () => ({
+      listenPort: 6881,
+      dhtListenPort: 6881,
+    })
+    try {
+      await manager.start()
+      expect(manager.getStatus()).toMatchObject({
+        state: NatState.Active,
+        gatewayInfo: {
+          manufacturer: 'Huawei Technologies Co., Ltd.',
+          modelName: 'WS7100-15',
+        },
+      })
+      expect(manager.getStatus().activeMappings).toHaveLength(2)
+      const additions = request.mock.calls
+        .map(([input]) => input)
+        .filter((input) =>
+          input.headers?.SOAPAction?.includes('#AddPortMapping')
+        )
+      expect(additions).toHaveLength(2)
+      for (const protocol of ['TCP', 'UDP']) {
+        expect(
+          additions.some((input) =>
+            input.body?.includes(`<NewProtocol>${protocol}</NewProtocol>`)
+          )
+        ).toBe(true)
+      }
+      expect(
+        additions.every((input) =>
+          input.body?.includes('<NewInternalPort>6881</NewInternalPort>')
+        )
+      ).toBe(true)
+    } finally {
+      await manager.stop()
+    }
+    const removals = request.mock.calls
+      .map(([input]) => input)
+      .filter((input) =>
+        input.headers?.SOAPAction?.includes('#DeletePortMapping')
+      )
+    expect(removals).toHaveLength(2)
+    for (const protocol of ['TCP', 'UDP']) {
+      expect(
+        removals.some((input) =>
+          input.body?.includes(`<NewProtocol>${protocol}</NewProtocol>`)
+        )
+      ).toBe(true)
+    }
+    expect(socket.close).toHaveBeenCalled()
   })
 })
 
