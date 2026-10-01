@@ -244,6 +244,77 @@ describe('DirectResourceValidatorService', () => {
     )
   })
 
+  it('preserves a browser Referer through cross-origin filename redirects', async () => {
+    const referer = 'https://origin.example/downloads'
+    const finalUrl =
+      'https://cdn.example/releases/Thunderbird%20Setup%20157.0.exe'
+    const fetchImpl = fetchSequence(
+      new Response(null, {
+        status: 302,
+        headers: { Location: 'https://mirror.example/latest' },
+      }),
+      new Response(null, {
+        status: 307,
+        headers: { Location: finalUrl },
+      }),
+      new Response(null, {
+        headers: { 'Content-Type': 'application/x-msdos-program' },
+      })
+    )
+    const service = new DirectResourceValidatorService(fetchImpl, 100)
+
+    await expect(
+      service.probe('https://download.example/?product=thunderbird', {
+        headers: { rEfErEr: referer, 'User-Agent': 'Mozilla/5.0' },
+      })
+    ).resolves.toEqual({
+      filename: 'Thunderbird Setup 157.0.exe',
+      validator: null,
+    })
+
+    expect(fetchImpl).toHaveBeenCalledTimes(3)
+    expect(String(fetchImpl.mock.calls[2]?.[0])).toBe(finalUrl)
+    for (const [, init] of fetchImpl.mock.calls) {
+      expect(init).toEqual(
+        expect.objectContaining({
+          method: 'GET',
+          redirect: 'manual',
+          headers: expect.objectContaining({
+            referer,
+            'user-agent': 'Mozilla/5.0',
+          }),
+        })
+      )
+    }
+  })
+
+  it.each([
+    ['Authorization', 'Bearer secret'],
+    ['Cookie', 'session=secret'],
+    ['X-Api-Key', 'secret'],
+  ])(
+    'still refuses cross-origin %s alongside a browser Referer',
+    async (name, value) => {
+      const fetchImpl = fetchSequence(
+        new Response(null, {
+          status: 302,
+          headers: { Location: 'https://cdn.example/release.zip' },
+        })
+      )
+      const service = new DirectResourceValidatorService(fetchImpl, 100)
+
+      await expect(
+        service.probe('https://download.example/latest', {
+          headers: {
+            Referer: 'https://origin.example/downloads',
+            [name]: value,
+          },
+        })
+      ).resolves.toBeNull()
+      expect(fetchImpl).toHaveBeenCalledOnce()
+    }
+  )
+
   it('cancels a metadata GET body and applies a Content-Type extension', async () => {
     const response = new Response(Uint8Array.of(1), {
       status: 200,

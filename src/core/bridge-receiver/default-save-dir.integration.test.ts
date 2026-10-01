@@ -42,7 +42,10 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
   () => {
     let root: string
     let server: Server
+    let mirrorServer: Server
     let baseUrl: string
+    let mirrorUrl: string
+    const mirrorReferers: Array<string | undefined> = []
     let engine: Aria2Handle
     let wired: Awaited<ReturnType<typeof connectAdapter>>
 
@@ -50,7 +53,26 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
       root = await realpath(
         await mkdtemp(path.join(tmpdir(), 'motrix-save-dir-engine-'))
       )
+      mirrorServer = createServer((request, response) => {
+        mirrorReferers.push(request.headers.referer)
+        response.setHeader('Content-Type', 'application/x-msdos-program')
+        response.end(`fixture:${request.url}`)
+      })
+      await new Promise<void>((resolve) =>
+        mirrorServer.listen(0, '127.0.0.1', resolve)
+      )
+      const mirrorAddress = mirrorServer.address()
+      if (!mirrorAddress || typeof mirrorAddress === 'string')
+        throw new Error('missing mirror HTTP address')
+      mirrorUrl = `http://127.0.0.1:${mirrorAddress.port}`
       server = createServer((request, response) => {
+        if (request.url?.startsWith('/?product=thunderbird')) {
+          response.writeHead(302, {
+            Location: `${mirrorUrl}/Thunderbird%20Setup%20157.0.exe`,
+          })
+          response.end()
+          return
+        }
         if (request.url?.startsWith('/filename-')) {
           response.setHeader(
             'Content-Disposition',
@@ -79,18 +101,28 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
       server?.closeAllConnections()
       if (server)
         await new Promise<void>((resolve) => server.close(() => resolve()))
+      mirrorServer?.closeAllConnections()
+      if (mirrorServer)
+        await new Promise<void>((resolve) =>
+          mirrorServer.close(() => resolve())
+        )
       if (root) await rm(root, { recursive: true, force: true })
     })
 
-    it('lands automatic, legacy Windows and right-click downloads under the response filename', async () => {
+    it('lands browser downloads under response or redirected URL filenames', async () => {
       const profile = await wired.adapter.inspectDirectResourceMetadataProfile()
       expect(profile).not.toBeNull()
       wired.adapter.setDirectResourceMetadataProfile(profile)
-      const filename = 'BCUninstaller_6.3.0_portable.7z'
-      for (const [origin, hint] of [
-        ['automatic', filename],
-        ['legacy', String.raw`E:\Downloads\BCUninstaller_6.3.0_portable.7z`],
-        ['right-click', ''],
+      const responseName = 'BCUninstaller_6.3.0_portable.7z'
+      for (const [origin, hint, filename] of [
+        ['automatic', responseName, responseName],
+        [
+          'legacy',
+          String.raw`E:\Downloads\BCUninstaller_6.3.0_portable.7z`,
+          responseName,
+        ],
+        ['right-click', '', responseName],
+        ['right-click-redirect', '', 'Thunderbird Setup 157.0.exe'],
       ]) {
         const dir = path.join(root, `filename-${origin}`)
         await mkdir(dir)
@@ -128,7 +160,10 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
         const params = makeDirectSubmit(`filename-${origin}`)
         if (params.selection.kind !== 'direct')
           throw new Error('expected direct')
-        params.selection.primary.url = `${baseUrl}/filename-${origin}`
+        params.selection.primary.url =
+          origin === 'right-click-redirect'
+            ? `${baseUrl}/?product=thunderbird`
+            : `${baseUrl}/filename-${origin}`
         params.meta.suggestedFilename = hint
         const { taskId } = await receiver.handle(params, makeExtensionContext())
         const task = deps.taskManager.getById(taskId)
@@ -161,11 +196,22 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
           log: { info: () => {}, warn: () => {}, error: () => {} },
         })
         expect(await readFile(path.join(dir, filename), 'utf8')).toBe(
-          `fixture:/filename-${origin}`
+          origin === 'right-click-redirect'
+            ? 'fixture:/Thunderbird%20Setup%20157.0.exe'
+            : `fixture:/filename-${origin}`
         )
         await expect(
           access(path.join(dir, `${filename}.motrix`))
         ).rejects.toThrow()
+        if (origin === 'right-click-redirect') {
+          // Both the metadata GET and the engine download reach the mirror
+          // with the same custom Referer and publish the decoded URL name.
+          expect(mirrorReferers.length).toBeGreaterThanOrEqual(2)
+          expect(
+            mirrorReferers.every((referer) => referer === params.source.pageUrl)
+          ).toBe(true)
+          await expect(access(path.join(dir, 'download'))).rejects.toThrow()
+        }
       }
     }, 30_000)
 
