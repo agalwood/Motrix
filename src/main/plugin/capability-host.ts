@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { locateFfmpeg } from '@core/ffmpeg/ffmpeg-locator'
+import { assertManagedFfmpegTrusted } from '@core/ffmpeg/verified-install'
 import { AppCapabilityHost } from '@core/plugin/capabilities/app'
 import { CommandsCapabilityHost } from '@core/plugin/capabilities/commands'
 import { ConfigCapabilityHost } from '@core/plugin/capabilities/config'
@@ -28,9 +29,9 @@ import { LibsodiumSecretStore } from '@core/plugin/secret-store-libsodium'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import type { SupportedLocale } from '@shared/constants/locales'
 import type Database from 'better-sqlite3'
-import { resolveExecutable } from '../cli/shell-environment'
 import { resolveElectronFfmpegEnvPath } from './ffmpeg-detect-electron'
 import { ElectronNotifyHost } from './notify-electron'
+import { resolveVerifiedFfmpeg } from './verified-ffmpeg-electron'
 
 export interface ElectronCapabilityHostOptions {
   appVersion: string
@@ -115,9 +116,12 @@ export async function createElectronCapabilityHost(
       platform: process.platform,
       envPath: resolveElectronFfmpegEnvPath(),
     },
-    (candidate) => resolveExecutable(candidate, process.env)
+    (candidate) => resolveVerifiedFfmpeg(opts.userDataDir, candidate)
   )
   const ffmpeg = new FfmpegCapabilityHost({
+    validateBinaryPath: (binaryPath) => {
+      assertManagedFfmpegTrusted(opts.userDataDir, binaryPath)
+    },
     detect: ffmpegLocation.binaryPath
       ? { available: true, binaryPath: ffmpegLocation.binaryPath }
       : { available: false },

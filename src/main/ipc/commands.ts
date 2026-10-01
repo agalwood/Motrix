@@ -153,6 +153,7 @@ import { syncAutoLaunch } from '../platform/auto-launch'
 import { setLinuxDefaultTorrentHandler } from '../platform/linux-default-apps'
 import type { createProtocolManager } from '../platform/protocol-manager'
 import { resolveWindowsDefaultAppsSettingsUrl } from '../platform/windows-default-apps'
+import { installManagedFfmpeg } from '../plugin/verified-ffmpeg-electron'
 import type { createMainProxyApplier } from '../proxy/wiring'
 import type { WindowManager } from '../window/window-manager'
 import { createOpenTaskFileHandler } from './commands/open-task-file'
@@ -656,6 +657,15 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       cliToolService.install(
         cliInstallRequestSchema.parse(payload) as CliInstallRequest
       ),
+
+    [Commands.InstallFfmpeg]: async (payload: unknown) => {
+      z.undefined().parse(payload)
+      const operation = () =>
+        installManagedFfmpeg(userDataDir, (status) =>
+          ctx.eventBus.emit(Events.FfmpegInstallStatusChanged, status)
+        )
+      return ctx.trackAsyncWork ? ctx.trackAsyncWork(operation) : operation()
+    },
 
     [Commands.ParseTorrent]: async ({ base64 }: { base64: string }) => {
       return torrentParser.parse(base64)

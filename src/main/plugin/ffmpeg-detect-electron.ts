@@ -37,7 +37,7 @@ export function makeElectronFfmpegDetect(
   opts: ElectronFfmpegDetectOptions
 ): () => Promise<FfmpegDetectionResult> {
   const userDataBinariesDir = path.join(opts.userDataDir, 'binaries')
-  const probe = makeElectronFfmpegProbe()
+  const probe = makeElectronFfmpegProbe({ userDataDir: opts.userDataDir })
   return async () =>
     detectInOrder(
       {

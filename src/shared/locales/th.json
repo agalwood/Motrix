@@ -2368,7 +2368,39 @@
           "usingSource": "กำลังใช้ {{source}}"
         },
         "download": {
-          "action": "ดาวน์โหลด FFmpeg"
+          "action": "ดาวน์โหลด FFmpeg",
+          "verifyInstall": "Download and verify",
+          "installing": "Verifying…",
+          "installed": "Verified and installed.",
+          "failed": "Download or verification failed. The previous installation was kept.",
+          "disclosure": "Motrix verifies its project signature. These Windows binaries have no public Authenticode signature; Windows warnings may remain. FFmpeg is GPL-licensed; license texts are included.",
+          "projectDisclosure": "Download the official Motrix FFmpeg build separately, verify its signature, and install it in Motrix’s data directory. FFmpeg is GPL-licensed; included licenses and corresponding sources apply.",
+          "macDisclosure": "macOS verifies the pinned Developer ID certificate and Apple’s online notarization ticket. Internet quarantine remains enabled; system protections aren’t bypassed.",
+          "progress": "FFmpeg download progress",
+          "bytes": "{{received}} / {{total}} bytes",
+          "directory": "Installed directory: {{path}}",
+          "detectionRefreshFailed": "Couldn’t refresh FFmpeg detection. Try Refresh again.",
+          "restartPluginHint": "Restart Motrix for active plugins to detect the installation.",
+          "phases": {
+            "idle": "Ready to download",
+            "metadata": "Checking the formal release…",
+            "downloading": "Downloading FFmpeg…",
+            "verifying": "Verifying the release signature…",
+            "extracting": "Verifying and extracting files…",
+            "systemTrust": "Checking macOS signing and notarization…",
+            "installing": "Installing FFmpeg…",
+            "installed": "Verified and installed.",
+            "failed": "Installation failed."
+          },
+          "errors": {
+            "unavailable": "No complete, immutable formal release is available yet.",
+            "unsupported": "One-click installation isn’t supported on this platform.",
+            "busy": "Another FFmpeg installation is already running.",
+            "download": "The download failed or timed out. Check the network and try again.",
+            "verification": "The signature, package layout, or file integrity check failed.",
+            "install": "Files couldn’t be installed. Check the data directory’s permissions and free space.",
+            "systemTrust": "macOS rejected the signing identity or notarization. System security checks weren’t bypassed."
+          }
         },
         "ffmpegRequired": "การดาวน์โหลดนี้ต้องใช้ FFmpeg ตั้งค่าใน การตั้งค่า → การผสานการทำงาน → เครื่องมือสื่อ บันทึก แล้วลองอีกครั้ง",
         "notDetected": "ตรวจไม่พบ FFmpeg",

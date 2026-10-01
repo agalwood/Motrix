@@ -146,6 +146,17 @@ function serializeCommandGraphRecords(): string {
 }
 
 describe('buildQueryHandlers', () => {
+  it('returns FFmpeg installation state without accepting renderer paths', async () => {
+    const handlers = buildQueryHandlers({
+      userDataDir: '/fixture',
+    } as QueryContext)
+    await expect(
+      handlers[Queries.GetFfmpegInstallStatus]?.()
+    ).resolves.toMatchObject({ phase: 'idle' })
+    await expect(
+      handlers[Queries.GetFfmpegInstallStatus]?.({ userDataDir: '/other' })
+    ).rejects.toThrow()
+  })
   it('returns one General draft snapshot and validates before reading it', async () => {
     const snapshot = generalSettingsSnapshot({
       favorites: ['/saved'],

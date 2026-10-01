@@ -1957,7 +1957,39 @@
         "binaryPath": "自定义 FFmpeg 路径",
         "browse": "浏览…",
         "download": {
-          "action": "下载 FFmpeg"
+          "action": "下载 FFmpeg",
+          "verifyInstall": "下载并验证",
+          "installing": "正在验证…",
+          "installed": "已验证并安装。",
+          "failed": "下载或验证失败，已保留原有安装。",
+          "disclosure": "Motrix 会校验项目签名。这些 Windows 二进制没有公共 Authenticode 签名，系统警告可能仍会出现。FFmpeg 按 GPL 分发，附带许可证文本。",
+          "projectDisclosure": "单独下载 Motrix 官方构建的 FFmpeg，验证签名后安装到 Motrix 数据目录。FFmpeg 按 GPL 分发，请遵循随附许可证和对应源码的使用条款。",
+          "macDisclosure": "macOS 会验证固定的 Developer ID 证书及 Apple 在线公证凭据。互联网隔离属性保持启用，不绕过系统保护。",
+          "progress": "FFmpeg 下载进度",
+          "bytes": "{{received}} / {{total}} 字节",
+          "directory": "安装目录：{{path}}",
+          "detectionRefreshFailed": "FFmpeg 检测状态刷新失败，请再次点击“刷新”。",
+          "restartPluginHint": "已启用的插件需要重启 Motrix 才能检测到此次安装。",
+          "phases": {
+            "idle": "准备下载",
+            "metadata": "正在检查正式发布…",
+            "downloading": "正在下载 FFmpeg…",
+            "verifying": "正在校验发布签名…",
+            "extracting": "正在校验并解压文件…",
+            "systemTrust": "正在检查 macOS 签名与公证…",
+            "installing": "正在安装 FFmpeg…",
+            "installed": "已验证并安装。",
+            "failed": "安装失败。"
+          },
+          "errors": {
+            "unavailable": "暂时没有完整且不可变的正式发布。",
+            "unsupported": "当前平台不支持一键安装。",
+            "busy": "另一项 FFmpeg 安装正在进行。",
+            "download": "下载失败或超时，请检查网络后重试。",
+            "verification": "签名、压缩包结构或文件完整性校验失败。",
+            "install": "无法安装文件，请检查数据目录的权限及剩余空间。",
+            "systemTrust": "macOS 拒绝了签名身份或公证状态，未绕过系统安全检查。"
+          }
         },
         "detection": {
           "readyTitle": "FFmpeg {{version}}",

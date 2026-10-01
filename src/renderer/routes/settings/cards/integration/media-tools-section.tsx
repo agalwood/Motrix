@@ -25,6 +25,8 @@ import {
   FormMessage,
 } from '@renderer/components/ui/form'
 import { Input } from '@renderer/components/ui/input'
+import { Progress } from '@renderer/components/ui/progress'
+import { useFfmpegInstall } from '@renderer/hooks/use-ffmpeg-install'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
 import { EXTERNAL_URLS } from '@shared/external-urls'
@@ -74,6 +76,21 @@ export function MediaToolsSection() {
   )
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [customPathEditing, setCustomPathEditing] = useState(false)
+  const [installPrompt, setInstallPrompt] = useState(false)
+  const {
+    status: installStatus,
+    installing,
+    install: installFfmpeg,
+  } = useFfmpegInstall()
+  const [installResult, setInstallResult] = useState<
+    'installed' | 'failed' | null
+  >(null)
+  const [installError, setInstallError] = useState<string | null>(null)
+  const [detectionRefreshFailed, setDetectionRefreshFailed] = useState(false)
+  const canInstall = ['darwin', 'linux', 'win32'].includes(transport.platform)
+  const visibleResult =
+    installResult ?? (installStatus?.phase === 'failed' ? 'failed' : null)
+  const visibleError = installError ?? installStatus?.error
   const pathError = form.formState.errors.media?.ffmpegBinaryPath
   const editingPath = customPathEditing || Boolean(pathError)
 
@@ -92,10 +109,31 @@ export function MediaToolsSection() {
   }, [])
 
   const refresh = async () => {
-    const r = (await transport.invoke(
-      Queries.GetFfmpegDetection
-    )) as FfmpegDetectionResultUI
-    setDetection(r)
+    try {
+      const r = (await transport.invoke(
+        Queries.GetFfmpegDetection
+      )) as FfmpegDetectionResultUI
+      setDetection(r)
+      setDetectionRefreshFailed(false)
+    } catch {
+      // Detection is independent of the already committed installation result.
+      setDetectionRefreshFailed(true)
+    }
+  }
+
+  const install = async () => {
+    setInstallResult(null)
+    setInstallError(null)
+    try {
+      const result = await installFfmpeg()
+      if (!result) return
+      setInstallResult(result.ok ? 'installed' : 'failed')
+      if (!result.ok) setInstallError(result.error)
+      if (result.ok) await refresh()
+    } catch {
+      setInstallResult('failed')
+      setInstallError('download')
+    }
   }
 
   const activeCandidate = detection?.candidates.find(
@@ -112,14 +150,22 @@ export function MediaToolsSection() {
         version: detection.active.version,
       })
     : hasUntrustedCandidate
-      ? t('settings.integration.media.detection.untrustedTitle')
+      ? t(
+          transport.platform === 'win32'
+            ? 'settings.integration.media.download.failed'
+            : 'settings.integration.media.detection.untrustedTitle'
+        )
       : t('settings.integration.media.detection.unavailableTitle')
   const activeDescription = detection?.active
     ? t('settings.integration.media.detection.usingSource', {
         source: activeSource,
       })
     : hasUntrustedCandidate
-      ? t('settings.integration.media.detection.untrustedDesc')
+      ? t(
+          transport.platform === 'win32'
+            ? 'settings.integration.media.download.disclosure'
+            : 'settings.integration.media.detection.untrustedDesc'
+        )
       : t('settings.integration.media.detection.unavailableDesc')
   const candidates = detection?.candidates ?? []
   const editableCandidates: FfmpegDetectionResultUI['candidates'] =
@@ -148,27 +194,43 @@ export function MediaToolsSection() {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <Button
-              render={
-                <a
-                  href={EXTERNAL_URLS.github.ffmpegStaticReleases}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={t('settings.integration.media.download.action')}
-                  title={t('settings.integration.media.download.action')}
-                  // biome-ignore lint/a11y/noRedundantRoles: Base UI Button applies button semantics unless this rendered anchor explicitly overrides them.
-                  role="link"
+            {canInstall ? (
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                disabled={installing}
+                aria-label={t('settings.integration.media.download.action')}
+                onClick={() => setInstallPrompt(true)}
+              >
+                <InstallIcon
+                  className="size-4 text-muted-foreground"
+                  aria-hidden
                 />
-              }
-              nativeButton={false}
-              size="icon-sm"
-              variant="ghost"
-            >
-              <InstallIcon
-                className="size-4 text-muted-foreground"
-                aria-hidden
-              />
-            </Button>
+              </Button>
+            ) : (
+              <Button
+                render={
+                  <a
+                    href={EXTERNAL_URLS.github.ffmpegStaticReleases}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={t('settings.integration.media.download.action')}
+                    title={t('settings.integration.media.download.action')}
+                    // biome-ignore lint/a11y/noRedundantRoles: Base UI Button applies button semantics unless this rendered anchor explicitly overrides them.
+                    role="link"
+                  />
+                }
+                nativeButton={false}
+                size="icon-sm"
+                variant="ghost"
+              >
+                <InstallIcon
+                  className="size-4 text-muted-foreground"
+                  aria-hidden
+                />
+              </Button>
+            )}
             <Button
               type="button"
               size="icon-sm"
@@ -180,6 +242,85 @@ export function MediaToolsSection() {
             </Button>
           </div>
         </div>
+
+        {(installPrompt || installing || visibleResult) && canInstall && (
+          <div className="space-y-2 text-xs text-muted-foreground">
+            <p>{t('settings.integration.media.download.projectDisclosure')}</p>
+            {transport.platform === 'win32' && (
+              <p>{t('settings.integration.media.download.disclosure')}</p>
+            )}
+            {transport.platform === 'darwin' && (
+              <p>{t('settings.integration.media.download.macDisclosure')}</p>
+            )}
+            <Button
+              type="button"
+              size="sm"
+              disabled={installing}
+              onClick={install}
+            >
+              {t(
+                `settings.integration.media.download.${installing ? 'installing' : 'verifyInstall'}`
+              )}
+            </Button>
+            {installing && installStatus && (
+              <div className="space-y-1" role="status" aria-live="polite">
+                <p>
+                  {t(
+                    `settings.integration.media.download.phases.${installStatus.phase}`
+                  )}
+                </p>
+                {installStatus.percent !== null && (
+                  <Progress
+                    value={installStatus.percent * 100}
+                    aria-label={t(
+                      'settings.integration.media.download.progress'
+                    )}
+                  />
+                )}
+                {installStatus.phase === 'downloading' && (
+                  <p>
+                    {t('settings.integration.media.download.bytes', {
+                      received: installStatus.bytesReceived.toLocaleString(),
+                      total: installStatus.bytesTotal.toLocaleString(),
+                    })}
+                  </p>
+                )}
+              </div>
+            )}
+            {visibleResult && (
+              <p role="status">
+                {t(`settings.integration.media.download.${visibleResult}`)}
+                {visibleError && (
+                  <span>
+                    {' '}
+                    {t(
+                      `settings.integration.media.download.errors.${visibleError}`
+                    )}
+                  </span>
+                )}
+              </p>
+            )}
+            {visibleResult === 'installed' && (
+              <p>
+                {t('settings.integration.media.download.restartPluginHint')}
+              </p>
+            )}
+            {installStatus?.directory && (
+              <p className="break-all">
+                {t('settings.integration.media.download.directory', {
+                  path: installStatus.directory,
+                })}
+              </p>
+            )}
+            {detectionRefreshFailed && (
+              <p role="alert">
+                {t(
+                  'settings.integration.media.download.detectionRefreshFailed'
+                )}
+              </p>
+            )}
+          </div>
+        )}
 
         {transport.platform !== 'web' && (
           <p className="text-xs text-muted-foreground">

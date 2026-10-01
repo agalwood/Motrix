@@ -221,6 +221,17 @@ jobs:
       - name: Type-check (root)
         run: pnpm exec tsc --noEmit
 
+      - name: Verified FFmpeg installation contracts
+        run: >-
+          pnpm exec vitest run
+          src/core/ffmpeg/verified-install.test.ts
+          src/core/plugin/capabilities/ffmpeg.test.ts
+          src/main/plugin/ffmpeg-fetch-electron.test.ts
+          src/main/plugin/ffmpeg-macos-trust.test.ts
+          src/main/plugin/ffmpeg-probe-managed.test.ts
+          src/main/plugin/ffmpeg-probe-electron.test.ts
+          src/renderer/routes/settings/cards/integration/media-tools-section.test.tsx
+
       - name: Tests (root)
         # Temporarily non-blocking. Known pre-existing failures (unrelated to
         # Plan G — all confirmed on main):

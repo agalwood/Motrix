@@ -3,6 +3,7 @@ import type { TaskActivityService } from '@core/activity'
 import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EngineSupervisor } from '@core/engine/engine-supervisor'
 import { getTuningRecommendation } from '@core/engine/get-tuning-recommendation'
+import { getFfmpegInstallStatus } from '@core/ffmpeg/verified-install'
 import type { GeoIPManager } from '@core/geoip/geo-ip-manager'
 import { createGetGeoIPStatusHandler } from '@core/geoip/get-geo-ip-status'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
@@ -273,6 +274,11 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
     }),
 
     [Queries.GetGeoIPStatus]: createGetGeoIPStatusHandler({ geoipManager }),
+    [Queries.GetFfmpegInstallStatus]: async (payload: unknown) => {
+      if (payload !== undefined)
+        throw new Error('Unexpected FFmpeg status payload')
+      return getFfmpegInstallStatus(userDataDir)
+    },
 
     [Queries.GetFfmpegDetection]: async () => detectFfmpeg(),
 

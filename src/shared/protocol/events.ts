@@ -85,6 +85,7 @@ export const Events = {
   // GeoIP database lifecycle
   GeoIPUpdateProgress: 'event:geoipUpdateProgress',
   GeoIPStatusChanged: 'event:geoipStatusChanged',
+  FfmpegInstallStatusChanged: 'event:ffmpegInstallStatusChanged',
   // Plugin config
   PluginConfigChanged: 'event:pluginConfigChanged',
   // Spec §I30 — optional-permission grants mutated; payload is `{pluginId}`.

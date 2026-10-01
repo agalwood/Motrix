@@ -154,7 +154,6 @@ import { BridgeManager } from './bridge/bridge-manager'
 import { isPackagedLinuxFlatpak } from './bridge/flatpak-environment'
 import { resolvePackagedLinuxSnapEnvironment } from './bridge/snap-environment'
 import { CliToolService } from './cli/cli-tool-service'
-import { resolveExecutable } from './cli/shell-environment'
 import { CommandRegistry } from './commands/command-registry'
 import { ContextStore } from './commands/context-store'
 import { registerAllCommands } from './commands/definitions'
@@ -208,6 +207,7 @@ import {
 } from './plugin/ffmpeg-detect-electron'
 import { resolvePluginHostLanguage } from './plugin/host-language'
 import { resolvePluginsDir } from './plugin/plugins-dir'
+import { resolveVerifiedFfmpeg } from './plugin/verified-ffmpeg-electron'
 import { createMainProxyApplier } from './proxy/wiring'
 import { QuitController } from './quit/quit-controller'
 import {
@@ -2507,7 +2507,7 @@ async function initializeMainProcess(): Promise<void> {
           platform: process.platform,
           envPath: resolveElectronFfmpegEnvPath(),
         },
-        (candidate) => resolveExecutable(candidate, process.env)
+        (candidate) => resolveVerifiedFfmpeg(platform.userDataDir, candidate)
       )
     const segmentAria2Client = new Aria2SegmentClient(rpcClient, adapter)
     segmentClient = segmentAria2Client

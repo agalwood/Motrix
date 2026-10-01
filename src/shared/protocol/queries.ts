@@ -70,6 +70,7 @@ export const Queries = {
   // Media settings: enriched ffmpeg detection (per-candidate state).
   // Consumed by the Media settings card to render the 4-row status table.
   GetFfmpegDetection: 'query:getFfmpegDetection',
+  GetFfmpegInstallStatus: 'query:getFfmpegInstallStatus',
   // Dashboard
   GetSpeedHistory: 'query:getSpeedHistory',
   GetTransferStats: 'query:getTransferStats',

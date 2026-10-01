@@ -87,6 +87,8 @@ export interface MediaInfo {
 
 export interface FfmpegCapabilityHostOptions {
   detect: FfmpegDetection
+  /** Revalidate managed binaries immediately before every spawn, including cached paths. */
+  validateBinaryPath?: (binaryPath: string) => void
   /**
    * Optional staging redirect. Primary callers (CapabilityBridge.gateFfmpegOutput)
    * pre-redirect the output before invoking run/transcode/etc., so this hook is
@@ -230,11 +232,15 @@ export class FfmpegCapabilityHost {
   private readonly detect: FfmpegDetection
   private readonly stagingPathFor: ((p: string) => string) | undefined
   private readonly spawnFn: typeof spawn
+  private readonly validateBinaryPath:
+    | ((binaryPath: string) => void)
+    | undefined
 
   constructor(opts: FfmpegCapabilityHostOptions) {
     this.detect = opts.detect
     this.stagingPathFor = opts.stagingPathFor
     this.spawnFn = opts.spawnFn ?? spawn
+    this.validateBinaryPath = opts.validateBinaryPath
   }
 
   get available(): boolean {
@@ -251,6 +257,11 @@ export class FfmpegCapabilityHost {
 
   run(opts: FfmpegRunOptions): FfmpegOpHandle<{ outputPath: string }> {
     if (!this.detect.available || !this.detect.binaryPath) {
+      return unavailableHandle(randomUUID())
+    }
+    try {
+      this.validateBinaryPath?.(this.detect.binaryPath)
+    } catch {
       return unavailableHandle(randomUUID())
     }
 
@@ -420,6 +431,17 @@ export class FfmpegCapabilityHost {
     const binaryPath = this.detect.binaryPath!
 
     return new Promise<MediaInfo>((resolve, reject) => {
+      try {
+        this.validateBinaryPath?.(binaryPath)
+      } catch {
+        reject(
+          new FfmpegError(
+            'plugin.ffmpeg.untrusted',
+            'FFmpeg integrity check failed'
+          )
+        )
+        return
+      }
       // `ffmpeg -i <input>` prints the container/stream metadata to stderr
       // during input analysis, then exits non-zero ("output file must be
       // specified") — we ignore the exit code. We deliberately do NOT append

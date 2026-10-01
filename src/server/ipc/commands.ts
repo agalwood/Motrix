@@ -397,6 +397,10 @@ export function buildServerCommandHandlers(
   })
 
   return {
+    [Commands.InstallFfmpeg]: async (payload: unknown) => {
+      z.undefined().parse(payload)
+      return { ok: false, error: 'unsupported' }
+    },
     [Commands.CreateServerDirectory]: async (request: unknown) =>
       ctx.serverDirectoryService.create(request),
     [Commands.SetDisclaimerLanguage]: async (payload: unknown) => {

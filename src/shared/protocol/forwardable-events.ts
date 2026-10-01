@@ -40,6 +40,7 @@ export const ForwardableEvents = [
   Events.UpdateError,
   Events.GeoIPUpdateProgress,
   Events.GeoIPStatusChanged,
+  Events.FfmpegInstallStatusChanged,
   Events.LocaleChanged,
   Events.ReducedMotionChanged,
   Events.LiquidGlassChanged,
