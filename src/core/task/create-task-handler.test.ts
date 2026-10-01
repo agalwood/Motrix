@@ -382,12 +382,18 @@ describe('browser direct download filenames', () => {
     'https://cdn.example/c-m9021?filename=BCUninstaller_6.3.0_portable.7z'
   const filename = 'BCUninstaller_6.3.0_portable.7z'
 
-  async function submit(suggestedFilename: string, response: Response | Error) {
+  async function submit(
+    suggestedFilename: string,
+    response: Response | Response[] | Error,
+    requestUrl = url
+  ) {
     const deps = makeDeps()
     const fetchMetadata = vi.fn(
       async (_url: string | URL, _init?: RequestInit) => {
         if (response instanceof Error) throw response
-        return response
+        const next = Array.isArray(response) ? response.shift() : response
+        if (!next) throw new Error('unexpected metadata request')
+        return next
       }
     )
     deps.directResourceValidator = new DirectResourceValidatorService(
@@ -408,7 +414,7 @@ describe('browser direct download filenames', () => {
         selection: {
           kind: 'direct',
           primary: {
-            url,
+            url: requestUrl,
             headers: {},
             cookies: [],
             refererPolicy: 'strict-origin-when-cross-origin',
@@ -482,6 +488,42 @@ describe('browser direct download filenames', () => {
     expect(fetchMetadata).toHaveBeenCalledOnce()
     expect(lastAddedTask(deps).finalName).toBe('c-m9021')
     expect(deps.addUriWithCookies).toHaveBeenCalledOnce()
+  })
+
+  it('pins the redirected URL filename for a right-click download without Content-Disposition', async () => {
+    const requestUrl = 'https://download.example/?product=thunderbird'
+    const remoteName = 'Thunderbird Setup 157.0.exe'
+    const finalUrl =
+      'https://cdn.example/releases/Thunderbird%20Setup%20157.0.exe'
+    const { deps, fetchMetadata } = await submit(
+      '',
+      [
+        new Response(null, {
+          status: 302,
+          headers: { Location: finalUrl },
+        }),
+        new Response(null, {
+          headers: { 'Content-Type': 'application/x-msdos-program' },
+        }),
+      ],
+      requestUrl
+    )
+
+    expect(lastAddedTask(deps)).toMatchObject({
+      finalName: remoteName,
+      finalPath: `/d/${remoteName}`,
+      diskPath: `/d/${remoteName}.motrix`,
+    })
+    expect(fetchMetadata).toHaveBeenCalledTimes(2)
+    expect(String(fetchMetadata.mock.calls[1]?.[0])).toBe(finalUrl)
+    expect(
+      new Headers(fetchMetadata.mock.calls[1]?.[1]?.headers).get('referer')
+    ).toBe('https://origin.example/page')
+    expect(deps.addUriWithCookies).toHaveBeenCalledWith(
+      [requestUrl],
+      [],
+      expect.objectContaining({ out: `${remoteName}.motrix` })
+    )
   })
 
   it('preserves a browser-selected name instead of replacing it with a header', async () => {

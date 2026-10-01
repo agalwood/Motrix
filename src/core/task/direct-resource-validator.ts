@@ -107,6 +107,8 @@ const REDIRECT_SAFE_HEADERS = new Set([
   'cache-control',
   'pragma',
   'range',
+  // aria2 forwards a task's custom Referer unchanged across redirect origins.
+  'referer',
   'user-agent',
   'want-digest',
 ])
