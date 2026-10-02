@@ -4,6 +4,13 @@ This feature requires a Motrix build containing the manual media merge interface
 and an enabled media merge plugin. Installing the plugin alone in an older build
 does not add the interface.
 
+The official plugin is `motrix.media-merge`, maintained in
+[builtin-plugins](https://github.com/motrixapp/builtin-plugins). It is installed
+separately and is not part of Motrix's default bundle. Its
+[directory listing](https://motrix.app/plugins/motrix.media-merge/) provides
+compatibility and package availability; a signed release is required for
+directory installation.
+
 Configure FFmpeg in **Settings → Integration → Media Tools**, then install the
 plugin's `.moext` package from the Plugins page. The plugin requests the `ffmpeg`
 permission. If you configure FFmpeg after activating the plugin, disable and

@@ -3,6 +3,12 @@
 此功能需要包含手动媒体合并界面的 Motrix 版本，以及已启用的音视频合并插件。
 仅在旧版本中安装插件，不会增加操作界面。
 
+官方插件 ID 为 `motrix.media-merge`，源码由
+[builtin-plugins](https://github.com/motrixapp/builtin-plugins) 维护。
+插件需要单独安装，不属于 Motrix 默认打包内容。
+[插件目录](https://motrix.app/zh/plugins/motrix.media-merge/)提供兼容版本和安装包状态；
+通过目录安装需要先发布正式签名包。
+
 先在 **设置 → 集成 → 媒体工具** 中配置 FFmpeg，再到插件页面安装插件的 `.moext`
 文件。插件需要 `ffmpeg` 权限。如果在插件启用后才配置 FFmpeg，请停用再启用插件，
 以刷新能力状态。
