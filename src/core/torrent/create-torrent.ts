@@ -160,10 +160,16 @@ export async function createTorrent(
   }
   hooks.onProgress?.(totalSize, totalSize)
 
+  // A zero-byte source yields zero pieces; BEP-3 metainfo then carries a
+  // zero-length 'pieces' string — hashing nothing would emit sha1('')
+  // (da39…), 20 bytes of data no other client produces.
+  const pieces =
+    pieceCount === 0 ? new Uint8Array(0) : new Uint8Array(hash.digest())
+
   const info: Record<string, BencodeValue> = {
     name,
     'piece length': pieceLength,
-    pieces: new Uint8Array(hash.digest()),
+    pieces,
   }
   if (files.length === 1) {
     info.length = files[0].size

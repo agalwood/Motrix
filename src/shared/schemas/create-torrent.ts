@@ -48,7 +48,8 @@ export const createTorrentResultSchema = z
     name: z.string().min(1),
     totalSize: z.number().nonnegative(),
     fileCount: z.number().int().positive(),
-    pieceCount: z.number().int().positive(),
+    // A zero-byte source legitimately produces zero pieces.
+    pieceCount: z.number().int().nonnegative(),
     pieceLength: z.number().int().positive(),
     // Suggested .torrent file name for the save dialog.
     suggestedSaveName: z.string().min(1),

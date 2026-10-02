@@ -176,6 +176,19 @@ describe('createTorrent', () => {
     expect(parsed.announce?.[0]).toBe('https://tracker.example/announce')
   })
 
+  it('handles a zero-byte file with an empty pieces string', async () => {
+    await writeFile(path.join(dir, 'empty.bin'), '')
+    const result = await createTorrent({
+      sourcePath: path.join(dir, 'empty.bin'),
+      pieceLength: 16 * 1024,
+    })
+    // Zero pieces → 'pieces' must be a zero-length byte string, not
+    // sha1('') — the empty digest would be 20 bytes of bogus data.
+    const raw = Buffer.from(result.bytes).toString('latin1')
+    expect(raw).toContain('6:pieces0:')
+    expect(result.pieceCount).toBe(0)
+  })
+
   it('rejects invalid piece lengths', async () => {
     await expect(
       createTorrent({
