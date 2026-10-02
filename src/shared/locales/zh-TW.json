@@ -519,7 +519,7 @@
         },
         "natType": {
           "open": "開放型",
-          "fullcone": "Full Cone",
+          "fullcone": "完全錐形",
           "restricted": "受限型",
           "port-restricted": "連接埠受限型",
           "symmetric": "對稱型",
@@ -1962,14 +1962,14 @@
           "installing": "正在驗證…",
           "installed": "已驗證並安裝。",
           "failed": "下載或驗證失敗，已保留原有安裝。",
-          "disclosure": "Motrix 會驗證專案簽章。這些 Windows 執行檔沒有公共 Authenticode 簽章，系統警告可能仍會出現。FFmpeg 依 GPL 分發，附帶授權條款。",
-          "projectDisclosure": "單獨下載 Motrix 官方建置的 FFmpeg，驗證簽章後安裝到 Motrix 資料目錄。FFmpeg 按 GPL 散布，請遵循隨附授權條款和對應原始碼的使用條款。",
-          "macDisclosure": "macOS 會驗證固定的 Developer ID 憑證及 Apple 線上公證憑據。網際網路隔離屬性維持啟用，不略過系統保護。",
+          "disclosure": "Motrix 會驗證專案簽章。這些 Windows 執行檔沒有公共 Authenticode 簽章，系統仍可能顯示安全警告。FFmpeg 依 GPL 散布，附帶授權條款。",
+          "projectDisclosure": "單獨下載 Motrix 官方建置的 FFmpeg，驗證簽章後安裝到 Motrix 資料目錄。FFmpeg 依 GPL 散布，請遵循隨附授權條款及對應原始碼的使用條款。",
+          "macDisclosure": "macOS 會驗證固定的 Developer ID 憑證及 Apple 線上公證憑據。保留網際網路下載檔案的隔離屬性，不略過系統保護。",
           "progress": "FFmpeg 下載進度",
           "bytes": "{{received}} / {{total}} 位元組",
           "directory": "安裝目錄：{{path}}",
-          "detectionRefreshFailed": "FFmpeg 偵測狀態更新失敗，請再次點擊「重新整理」。",
-          "restartPluginHint": "已啟用的外掛程式需要重新啟動 Motrix 才能偵測到此次安裝。",
+          "detectionRefreshFailed": "無法更新 FFmpeg 偵測結果，請再次點擊「重新整理」。",
+          "restartPluginHint": "請重新啟動 Motrix，讓已啟用的外掛程式偵測到此次安裝。",
           "phases": {
             "idle": "準備下載",
             "metadata": "正在檢查正式發布…",
@@ -1982,13 +1982,13 @@
             "failed": "安裝失敗。"
           },
           "errors": {
-            "unavailable": "暫時沒有完整且不可變的正式發布。",
+            "unavailable": "暫時沒有完整且發布後不可修改的正式版本。",
             "unsupported": "目前平台不支援一鍵安裝。",
             "busy": "另一項 FFmpeg 安裝正在進行。",
             "download": "下載失敗或逾時，請檢查網路後重試。",
-            "verification": "簽章、壓縮檔結構或檔案完整性檢查失敗。",
+            "verification": "簽章、壓縮檔結構或檔案完整性檢查未通過。",
             "install": "無法安裝檔案，請檢查資料目錄的權限及剩餘空間。",
-            "systemTrust": "macOS 拒絕了簽章身分或公證狀態，未略過系統安全檢查。"
+            "systemTrust": "macOS 拒絕了簽章身分或公證憑據，未略過系統安全檢查。"
           }
         },
         "detection": {

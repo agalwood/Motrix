@@ -1,9 +1,9 @@
 {
   "operatorUnlock": {
     "title": "解锁 Motrix",
-    "help": "此服务器需要 operator token。请在 host 上设置 MOTRIX_OPERATOR_TOKEN，或读取 <dataDir>/operator-token 中的 token，然后粘贴到下方。",
-    "placeholder": "Operator token",
-    "error": "operator token 无效。请核对 host 上的 MOTRIX_OPERATOR_TOKEN 或 <dataDir>/operator-token 后重试。",
+    "help": "此服务器需要管理员令牌。请在主机上设置 MOTRIX_OPERATOR_TOKEN，或读取 <dataDir>/operator-token 中的令牌，然后粘贴到下方。",
+    "placeholder": "管理员令牌",
+    "error": "管理员令牌无效。请核对主机上的 MOTRIX_OPERATOR_TOKEN 或 <dataDir>/operator-token 后重试。",
     "submit": "解锁"
   },
   "operatorAdmin": {
@@ -31,11 +31,11 @@
       "credential": {
         "tokenHeaderInvalid": "MOTRIX_OPERATOR_TOKEN 不能用于 HTTP 请求头。",
         "dataDirNotAbsolute": "MOTRIX_DATA_DIR 必须是绝对路径。",
-        "unavailable": "Operator 凭据不可用。请设置 MOTRIX_OPERATOR_TOKEN，或确保数据目录中存在 operator-token 文件。",
-        "notFile": "Operator 凭据路径不是普通文件。",
-        "unreadable": "无法读取 Operator 凭据。",
-        "invalid": "Operator 凭据文件无效。",
-        "rejected": "Motrix 拒绝了 Operator 凭据。"
+        "unavailable": "管理员凭据不可用。请设置 MOTRIX_OPERATOR_TOKEN，或确保数据目录中存在 operator-token 文件。",
+        "notFile": "管理员凭据路径不是普通文件。",
+        "unreadable": "无法读取管理员凭据。",
+        "invalid": "管理员凭据文件无效。",
+        "rejected": "Motrix 拒绝了管理员凭据。"
       },
       "server": {
         "responseUnreadable": "无法读取 Motrix 返回的响应。",
@@ -220,7 +220,7 @@
           },
           "confirmForce": {
             "title": "强制终止残留的 aria2 进程？",
-            "description": "PID {{pid}} 与 Motrix 内置 binary、私有 RPC secret 和数据路径一致。该进程会被立即终止，随后 aria2 将在 Motrix RPC 端口重新启动。",
+            "description": "PID {{pid}} 与 Motrix 内置可执行文件、私有 RPC 密钥和数据路径一致。该进程会被立即终止，随后 aria2 将在 Motrix RPC 端口重新启动。",
             "action": "强制终止并恢复"
           },
           "details": "诊断详情",
@@ -672,11 +672,11 @@
           "totalSize": "大小",
           "percent": "百分比",
           "peers": "节点",
-          "seeds": "Seeds",
-          "ratio": "Ratio",
+          "seeds": "做种节点",
+          "ratio": "分享率",
           "type": "类型",
           "infoHash": "InfoHash",
-          "private": "Private",
+          "private": "私有",
           "connections": "连接",
           "uploaded": "累计上传",
           "seedingTime": "做种时长",
@@ -766,10 +766,10 @@
           "legend": {
             "done": "已下载",
             "active": "下载中",
-            "endgame": "Endgame",
+            "endgame": "收尾阶段",
             "pending": "未开始"
           },
-          "empty": "无 pieces 数据",
+          "empty": "无分片数据",
           "pieceLength": "每片大小",
           "totalPieces": "总片数"
         },
@@ -801,7 +801,7 @@
         "tab": {
           "overview": "概览",
           "files": "文件",
-          "pieces": "Pieces",
+          "pieces": "分片",
           "peers": "节点",
           "trackers": "Trackers",
           "activity": "活动"
@@ -1081,7 +1081,7 @@
     },
     "detail": {
       "peers": "节点：{{count}}",
-      "seeds": "Seeds: {{count}}"
+      "seeds": "做种节点：{{count}}"
     },
     "torrent": {
       "column": {
@@ -1352,7 +1352,7 @@
         "author": "作者",
         "createdBy": "开发者",
         "license": "开源许可证",
-        "licenseValue": "{{license}} License"
+        "licenseValue": "{{license}} 许可证"
       },
       "resources": {
         "title": "相关资源",
@@ -1962,14 +1962,14 @@
           "installing": "正在验证…",
           "installed": "已验证并安装。",
           "failed": "下载或验证失败，已保留原有安装。",
-          "disclosure": "Motrix 会校验项目签名。这些 Windows 二进制没有公共 Authenticode 签名，系统警告可能仍会出现。FFmpeg 按 GPL 分发，附带许可证文本。",
-          "projectDisclosure": "单独下载 Motrix 官方构建的 FFmpeg，验证签名后安装到 Motrix 数据目录。FFmpeg 按 GPL 分发，请遵循随附许可证和对应源码的使用条款。",
-          "macDisclosure": "macOS 会验证固定的 Developer ID 证书及 Apple 在线公证凭据。互联网隔离属性保持启用，不绕过系统保护。",
+          "disclosure": "Motrix 会校验项目签名。这些 Windows 可执行文件没有公共 Authenticode 签名，系统仍可能显示安全警告。FFmpeg 按 GPL 分发，附带许可证文本。",
+          "projectDisclosure": "单独下载 Motrix 官方构建的 FFmpeg，校验签名后安装到 Motrix 数据目录。FFmpeg 按 GPL 分发，请遵循随附许可证及对应源码的使用条款。",
+          "macDisclosure": "macOS 会验证固定的 Developer ID 证书及 Apple 在线公证凭据。保留互联网下载文件的隔离属性，不绕过系统保护。",
           "progress": "FFmpeg 下载进度",
           "bytes": "{{received}} / {{total}} 字节",
           "directory": "安装目录：{{path}}",
-          "detectionRefreshFailed": "FFmpeg 检测状态刷新失败，请再次点击“刷新”。",
-          "restartPluginHint": "已启用的插件需要重启 Motrix 才能检测到此次安装。",
+          "detectionRefreshFailed": "无法刷新 FFmpeg 检测结果，请再次点击“刷新”。",
+          "restartPluginHint": "请重启 Motrix，让已启用的插件检测到此次安装。",
           "phases": {
             "idle": "准备下载",
             "metadata": "正在检查正式发布…",
@@ -1982,13 +1982,13 @@
             "failed": "安装失败。"
           },
           "errors": {
-            "unavailable": "暂时没有完整且不可变的正式发布。",
+            "unavailable": "暂时没有完整且发布后不可修改的正式版本。",
             "unsupported": "当前平台不支持一键安装。",
             "busy": "另一项 FFmpeg 安装正在进行。",
             "download": "下载失败或超时，请检查网络后重试。",
-            "verification": "签名、压缩包结构或文件完整性校验失败。",
+            "verification": "签名、压缩包结构或文件完整性校验未通过。",
             "install": "无法安装文件，请检查数据目录的权限及剩余空间。",
-            "systemTrust": "macOS 拒绝了签名身份或公证状态，未绕过系统安全检查。"
+            "systemTrust": "macOS 拒绝了签名身份或公证凭据，未绕过系统安全检查。"
           }
         },
         "detection": {
@@ -2500,11 +2500,11 @@
         },
         "filters": {
           "searchLabel": "搜索调用关系",
-          "searchPlaceholder": "查找 Plugin 或 Command",
+          "searchPlaceholder": "查找插件或命令",
           "clearSearch": "清除搜索",
-          "pluginsGroup": "Plugins",
-          "commandsGroup": "Commands",
-          "noSuggestions": "没有 Plugin 或 Command 建议"
+          "pluginsGroup": "插件",
+          "commandsGroup": "命令",
+          "noSuggestions": "没有插件或命令建议"
         },
         "refresh": "刷新",
         "refreshing": "正在刷新…",
@@ -2528,7 +2528,7 @@
         },
         "globalEmpty": {
           "title": "尚无成功的跨插件调用",
-          "description": "内置 Plugin 默认情况下可能不会产生跨 Plugin 流量。"
+          "description": "内置插件默认情况下可能不会产生跨插件流量。"
         },
         "filteredEmpty": "没有符合当前搜索的成功调用。",
         "errors": {
