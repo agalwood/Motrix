@@ -611,10 +611,15 @@ describe('FfmpegCapabilityHost — helpers', () => {
     expect(spawnMock).toHaveBeenCalledWith(
       '/usr/bin/ffmpeg',
       [
+        '-nostdin',
         '-i',
         '/v.mp4',
         '-i',
         '/a.mp3',
+        '-map',
+        '0:v:0',
+        '-map',
+        '1:a:0',
         '-c:v',
         'copy',
         '-c:a',

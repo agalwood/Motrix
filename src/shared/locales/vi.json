@@ -2396,7 +2396,9 @@
       "removeTitle": "Gỡ tiện ích",
       "removeDesc": "Gỡ tiện ích này cũng sẽ xóa dữ liệu của tiện ích được lưu trong Motrix.",
       "uninstallConfirmTitle": "Gỡ cài đặt {{name}}?",
-      "uninstallConfirmDesc": "Thao tác này sẽ xóa tiện ích và các cài đặt đã lưu của tiện ích khỏi Motrix."
+      "uninstallConfirmDesc": "Thao tác này sẽ xóa tiện ích và các cài đặt đã lưu của tiện ích khỏi Motrix.",
+      "operations": "Operations",
+      "operationsFailed": "The operation panel could not load. Try again."
     },
     "permissions": {
       "empty": "Tiện ích này không yêu cầu quyền nào.",
@@ -2611,7 +2613,8 @@
       },
       "ffmpeg": {
         "strong": "Dùng FFmpeg",
-        "plain": "Xử lý âm thanh hoặc video."
+        "plain": "Xử lý âm thanh hoặc video.",
+        "requirement": "Processes audio or video. First, <settings>install or select FFmpeg in Settings</settings>."
       },
       "notify": {
         "strong": "Gửi thông báo",
@@ -2825,7 +2828,9 @@
       "invalidName": "Nhập tên thư mục hợp lệ.",
       "tooLarge": "Đường dẫn hoặc tên thư mục này quá dài.",
       "unavailable": "Máy chủ không thể hoàn thành yêu cầu này. Hãy thử lại.",
-      "creationOutcomeUnknown": "Chưa xác nhận được việc tạo thư mục. Hãy làm mới để kiểm tra trước khi tạo thư mục khác tại đây."
+      "creationOutcomeUnknown": "Chưa xác nhận được việc tạo thư mục. Hãy làm mới để kiểm tra trước khi tạo thư mục khác tại đây.",
+      "notFile": "Select a readable regular file.",
+      "unsupportedFileType": "This file extension is not supported."
     },
     "places": {
       "common": "Vị trí thường dùng",
@@ -2837,6 +2842,33 @@
       "downloads": "Tải xuống",
       "root": "Hệ thống tệp",
       "loadFailed": "Không thể tải một số vị trí thư mục."
+    },
+    "openFileTitle": "Select a file",
+    "saveFileTitle": "Save a file",
+    "fileDescription": "Browse files on the Motrix server.",
+    "selectFile": "Select file",
+    "saveFile": "Use this filename",
+    "files": "Files and folders",
+    "fileName": "File name",
+    "emptyFiles": "This folder is empty.",
+    "fileErrors": {
+      "invalidPath": "Enter a valid absolute path.",
+      "outsideRoots": "This path is outside the allowed locations.",
+      "notFound": "This path no longer exists.",
+      "permissionDenied": "You do not have permission to use this path.",
+      "invalidName": "Enter a valid file name.",
+      "tooLarge": "This path or file name is too long."
+    },
+    "selectedFilePath": "Selected file",
+    "file": {
+      "chooseOnServer": "Choose a file on the server using this picker.",
+      "singleFile": "Choose one file at a time.",
+      "wrongType": "Choose a file with one of these extensions: {{extensions}}.",
+      "pathUnavailable": "This file’s location is unavailable. Click to choose it instead.",
+      "choose": "Choose a file",
+      "dropHint": "Drop a file here or click to choose",
+      "browseHint": "Click to browse files",
+      "change": "Click to replace"
     }
   },
   "directoryPreferences": {
@@ -2904,5 +2936,49 @@
     "waitingMerged": "Tác vụ đang chờ nay nằm trong Đang hoạt động. Đã mở chế độ xem này.",
     "stoppedSplit": "Tác vụ đã dừng được chia thành Hoàn tất và Lỗi. Đã mở tất cả bản tải xuống.",
     "invalidStatus": "Danh mục tải xuống không hợp lệ. Đã mở tất cả bản tải xuống."
+  },
+  "mediaMerge": {
+    "title": "Merge audio and video",
+    "description": "Combine two files without re-encoding. Original files are kept. Audio-only and video-only inputs are detected automatically.",
+    "videoInput": "Video file",
+    "audioInput": "Audio file",
+    "output": "Output file",
+    "provider": "Plugin",
+    "browse": "Browse…",
+    "browseField": "Browse {{field}}",
+    "required": "Choose a file or enter its full path.",
+    "outputHint": "Use a new .mp4 or .mkv filename. Existing files are never overwritten. If the codecs cannot be copied to MP4, try MKV.",
+    "noPlugin": "Install and enable a media merge plugin. FFmpeg must be configured in Settings > Integration > Media Tools.",
+    "serverPaths": "Select files on the Motrix server. Files on this computer are not uploaded.",
+    "start": "Merge",
+    "running": "Merging…",
+    "cancelling": "Cancelling…",
+    "completed": "Merged successfully",
+    "cancelled": "Merge cancelled",
+    "failed": "Merge failed",
+    "invalidSelection": "Select two completed, single-file downloads.",
+    "jobMissing": "This merge is no longer available.",
+    "busy": "Another merge is already running.",
+    "pluginUnavailable": "The media merge plugin is unavailable.",
+    "absolutePaths": "Enter full, absolute file paths.",
+    "invalidFiles": "Choose two non-empty media files.",
+    "sameInput": "Choose two different input files.",
+    "outputFormat": "Use an .mp4 or .mkv output filename.",
+    "outputExists": "The output already exists. Choose a new filename.",
+    "invalidOutput": "The plugin did not produce a valid output file.",
+    "again": "Merge another file",
+    "pluginDisabled": "Enable this plugin to merge files.",
+    "choose": {
+      "videoInput": "Choose video",
+      "audioInput": "Choose audio",
+      "output": "Choose a save location"
+    },
+    "hint": {
+      "videoInput": "The picture for your merged file",
+      "audioInput": "The sound for your merged file",
+      "output": "Save as MP4 or MKV"
+    },
+    "preserveOriginals": "Original files are kept",
+    "format": "Output format"
   }
 }

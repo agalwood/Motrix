@@ -5,6 +5,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CloseIcon,
+  DocumentIcon,
   EditIcon,
   FavoriteIcon,
   FolderIcon,
@@ -109,7 +110,10 @@ export function WebDirectoryPickerDialog() {
           setSession(null)
           __webPathPickerBus.resolve(request.id, value)
           restoreOpener(request)
-        }
+        },
+        undefined,
+        undefined,
+        request.file
       )
       current.current = { request, controller }
       setSession(current.current)
@@ -157,7 +161,11 @@ function PickerSession({ request, controller }: Session) {
   )
   const locked = state.busy !== null || state.editor !== null
   const creating = state.busy === 'create'
-  const target = state.selected ?? state.listing?.path
+  const target = controller.target
+  const errorText = (code: string) =>
+    t(
+      `directoryPicker.${request.file && !state.editor && ['invalidPath', 'outsideRoots', 'notFound', 'permissionDenied', 'invalidName', 'tooLarge'].includes(code) ? 'fileErrors' : 'errors'}.${code}`
+    )
   const unknown =
     !!state.listing && state.unknownParents.includes(state.listing.path)
   const groups = useMemo(() => {
@@ -391,7 +399,7 @@ function PickerSession({ request, controller }: Session) {
       (!mac && plain && event.key === 'Enter')
     ) {
       event.preventDefault()
-      if (!event.repeat && state.selected) controller.navigate(state.selected)
+      if (!event.repeat && state.selected) controller.openEntry(state.selected)
     } else if (mac && plain && event.key === 'Enter') {
       event.preventDefault()
       if (!event.repeat) void controller.confirm()
@@ -539,10 +547,20 @@ function PickerSession({ request, controller }: Session) {
         >
           <div className="relative shrink-0 space-y-0.5 px-3 pt-3 pb-2 pe-11">
             <DialogTitle className="text-[13px]">
-              {t('directoryPicker.title')}
+              {t(
+                request.file
+                  ? request.file.kind === 'open'
+                    ? 'directoryPicker.openFileTitle'
+                    : 'directoryPicker.saveFileTitle'
+                  : 'directoryPicker.title'
+              )}
             </DialogTitle>
             <DialogDescription className="sr-only">
-              {t('directoryPicker.description')}
+              {t(
+                request.file
+                  ? 'directoryPicker.fileDescription'
+                  : 'directoryPicker.description'
+              )}
             </DialogDescription>
             <DialogClose
               render={
@@ -1014,9 +1032,7 @@ function PickerSession({ request, controller }: Session) {
                     role="alert"
                     className="flex shrink-0 items-center gap-2 px-3 py-2 text-xs text-destructive"
                   >
-                    <p className="flex-1">
-                      {t(`directoryPicker.errors.${state.error}`)}
-                    </p>
+                    <p className="flex-1">{errorText(state.error)}</p>
                     <Button
                       variant="outline"
                       size="sm"
@@ -1059,6 +1075,36 @@ function PickerSession({ request, controller }: Session) {
             </ScrollAreaViewport>
             <ScrollBar />
           </ScrollArea>
+          {request.file?.kind === 'save' && (
+            <label
+              htmlFor={`${id}-file-name`}
+              className="flex shrink-0 items-center gap-2 border-t px-3 py-2 text-xs"
+            >
+              {t('directoryPicker.fileName')}
+              <Input
+                id={`${id}-file-name`}
+                value={state.fileName}
+                disabled={locked}
+                maxLength={255}
+                onChange={(event) => controller.setFileName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (
+                    event.key === 'Enter' &&
+                    !event.nativeEvent.isComposing &&
+                    !event.repeat &&
+                    !event.ctrlKey &&
+                    !event.metaKey &&
+                    !event.altKey
+                  ) {
+                    event.preventDefault()
+                    void controller.confirm()
+                  }
+                }}
+                dir="ltr"
+                className="h-8 min-w-0 flex-1"
+              />
+            </label>
+          )}
           <div className="flex min-w-0 shrink-0 items-start border-t px-3 pt-2 text-[11px]">
             <ScrollArea className="directory-picker-target min-w-0 flex-1">
               <ScrollAreaViewport
@@ -1067,7 +1113,11 @@ function PickerSession({ request, controller }: Session) {
               >
                 <ScrollAreaContent>
                   <output
-                    aria-label={t('directoryPicker.selectedPath')}
+                    aria-label={t(
+                      request.file
+                        ? 'directoryPicker.selectedFilePath'
+                        : 'directoryPicker.selectedPath'
+                    )}
                     dir="ltr"
                     className="block break-all whitespace-pre-wrap"
                     data-testid="directory-picker-target"
@@ -1105,7 +1155,13 @@ function PickerSession({ request, controller }: Session) {
                 disabled={locked || !target}
                 onClick={() => void controller.confirm()}
               >
-                {t('directoryPicker.selectFolder')}
+                {t(
+                  request.file
+                    ? request.file.kind === 'open'
+                      ? 'directoryPicker.selectFile'
+                      : 'directoryPicker.saveFile'
+                    : 'directoryPicker.selectFolder'
+                )}
               </Button>
             </div>
           </div>
@@ -1153,7 +1209,9 @@ const DirectoryEntries = memo(function DirectoryEntries({
       containerProps={{
         role: 'listbox',
         tabIndex: 0,
-        'aria-label': t('directoryPicker.folders'),
+        'aria-label': t(
+          controller.file ? 'directoryPicker.files' : 'directoryPicker.folders'
+        ),
         'aria-activedescendant':
           activeIndex >= 0 ? `${id}-option-${activeIndex}` : undefined,
         'aria-busy': !!busy,
@@ -1170,7 +1228,11 @@ const DirectoryEntries = memo(function DirectoryEntries({
           {busy
             ? t('directoryPicker.loading')
             : hasListing
-              ? t('directoryPicker.empty')
+              ? t(
+                  controller.file
+                    ? 'directoryPicker.emptyFiles'
+                    : 'directoryPicker.empty'
+                )
               : ''}
         </p>
       )}
@@ -1198,12 +1260,19 @@ const DirectoryEntries = memo(function DirectoryEntries({
             listRef.current?.focus({ preventScroll: true })
           }}
           onClick={() => controller.select(item.path)}
-          onDoubleClick={() => controller.navigate(item.path)}
+          onDoubleClick={() => controller.openEntry(item.path)}
         >
-          <FolderIcon
-            aria-hidden
-            className="size-4 shrink-0 text-muted-foreground"
-          />
+          {item.kind === 'file' ? (
+            <DocumentIcon
+              aria-hidden
+              className="size-4 shrink-0 text-muted-foreground"
+            />
+          ) : (
+            <FolderIcon
+              aria-hidden
+              className="size-4 shrink-0 text-muted-foreground"
+            />
+          )}
           <span dir="ltr" className="truncate whitespace-pre">
             {item.name}
           </span>

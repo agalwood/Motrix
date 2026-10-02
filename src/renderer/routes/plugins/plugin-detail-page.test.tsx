@@ -2,6 +2,7 @@ import '@test-utils/dom-animations'
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
+import { useMediaMergeSessions } from '@renderer/features/media-merge/media-merge-store'
 import {
   type PlatformServices,
   PlatformServicesProvider,
@@ -158,7 +159,10 @@ describe('PluginDetailPage', () => {
   beforeEach(() => {
     mockApplyStatus.mockClear()
     mockClearUpdate.mockClear()
-    mockInvoke.mockClear()
+    mockInvoke.mockReset().mockResolvedValue(undefined)
+    mockDetail.manifest.contributes = {}
+    mockDetail.manifest.permissions = ['storage']
+    useMediaMergeSessions.setState({ sessions: {} })
     mockSetRegistry.mockClear()
     mockSetUpdates.mockClear()
     toastAddMock.mockClear()
@@ -181,6 +185,94 @@ describe('PluginDetailPage', () => {
     expect(screen.getByRole('tab', { name: 'Overview' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Access' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Advanced/ })).toBeNull()
+  })
+
+  function enableOperations() {
+    mockDetail.manifest.permissions = ['ffmpeg']
+    mockDetail.manifest.contributes = {
+      commands: [{ id: 'test.demo.mergeStreams', public: true }],
+    }
+    mockInvoke.mockImplementation(async (command: string) =>
+      command === Commands.GetMediaMergeState
+        ? { providers: [{ pluginId: 'test.demo', title: 'Demo' }], job: null }
+        : undefined
+    )
+  }
+
+  it.each(['electron', 'web'] as const)(
+    'opens the operation form by default on %s and retains the draft across tabs',
+    async (kind) => {
+      enableOperations()
+      useMediaMergeSessions.getState().save('test.demo', {
+        values: {
+          pluginId: 'test.demo',
+          videoInput: '/video.mp4',
+          audioInput: '/audio.m4a',
+          output: '/merged.mp4',
+        },
+      })
+      const user = userEvent.setup()
+      renderAt('/plugins/test.demo', kind)
+      expect(screen.getByRole('tab', { name: 'Operations' })).toHaveAttribute(
+        'aria-selected',
+        'true'
+      )
+      await waitFor(() =>
+        expect(
+          screen.getByRole('button', { name: 'Browse Video file' })
+        ).toHaveAttribute('title', '/video.mp4')
+      )
+      expect(
+        screen.queryByRole('button', { name: 'Merge audio and video' })
+      ).toBeNull()
+      await user.click(screen.getByRole('tab', { name: 'Overview' }))
+      await waitFor(() =>
+        expect(screen.getByTitle('/video.mp4')).not.toBeVisible()
+      )
+      await user.click(screen.getByRole('tab', { name: 'Access' }))
+      await user.click(screen.getByRole('tab', { name: 'Operations' }))
+      expect(
+        screen.getByRole('button', { name: 'Browse Video file' })
+      ).toHaveAttribute('title', '/video.mp4')
+      expect(
+        screen.getByRole('button', { name: 'Browse Output file' })
+      ).toHaveAttribute('title', '/merged.mp4')
+      expect(
+        mockInvoke.mock.calls.filter(
+          ([channel]) => channel === Commands.GetMediaMergeState
+        )
+      ).toHaveLength(1)
+    }
+  )
+
+  it('honors an explicit Overview link for an operation plugin', () => {
+    enableOperations()
+    renderAt('/plugins/test.demo?tab=overview')
+    expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+  })
+
+  it('keeps the operation visible but unavailable for a disabled plugin', async () => {
+    enableOperations()
+    mockStore.list[0].enabled = false
+    renderAt('/plugins/test.demo')
+    await screen.findByText('Enable this plugin to merge files.')
+    expect(screen.getByRole('button', { name: 'Merge' })).toBeDisabled()
+  })
+
+  it('does not offer an operations tab for unsupported or private commands', () => {
+    mockDetail.manifest.permissions = ['ffmpeg']
+    mockDetail.manifest.contributes = {
+      commands: [{ id: 'test.demo.mergeStreams', public: false }],
+    }
+    renderAt('/plugins/test.demo?tab=operations')
+    expect(screen.queryByRole('tab', { name: 'Operations' })).toBeNull()
+    expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
   })
 
   it('Logs icon button switches to Logs content', async () => {

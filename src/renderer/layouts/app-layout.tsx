@@ -11,6 +11,7 @@ import { WindowChrome } from '@renderer/components/window-chrome/window-chrome'
 import { DesktopMenuActions } from '@renderer/features/application-menu/desktop-menu-actions'
 import { MenuNavigationFocus } from '@renderer/features/application-menu/navigation-focus'
 import { EngineDiagnosticsDialogHost } from '@renderer/features/engine-diagnostics/engine-diagnostics-dialog'
+import { MediaMergeDialogHost } from '@renderer/features/media-merge/media-merge-dialog'
 import { useEngineRestartRequiredToast } from '@renderer/hooks/use-engine-restart-required-toast'
 import { useIpcEvent } from '@renderer/hooks/use-ipc-event'
 import { useMenuContextSync } from '@renderer/hooks/use-menu-context-sync'
@@ -116,6 +117,7 @@ export function AppLayout() {
         {__MOTRIX_TARGET__ === 'electron' && <DesktopMenuContext />}
         <MenuNavigationFocus />
         <RemoveTasksDialogHost />
+        <MediaMergeDialogHost />
         <EngineDiagnosticsDialogHost />
         {__MOTRIX_TARGET__ === 'web' && <AddTaskDialogHost />}
       </PlatformServicesProvider>

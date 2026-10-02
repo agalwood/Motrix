@@ -79,6 +79,8 @@ export function sortDirectoryEntries(
 ): Entry[] {
   const direction = sort.direction === 'asc' ? 1 : -1
   return [...entries].sort((a, b) => {
+    const kindOrder = Number(a.kind === 'file') - Number(b.kind === 'file')
+    if (kindOrder) return kindOrder
     if (sort.by === 'name') return direction * compareName(a, b)
     const aTime = a.modifiedAt
     const bTime = b.modifiedAt

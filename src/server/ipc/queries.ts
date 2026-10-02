@@ -131,7 +131,7 @@ export interface ServerQueryContext {
   downloadPathPolicy: ServerDownloadPathPolicy
   serverDirectoryService: Pick<
     ServerDirectoryService,
-    'list' | 'validate' | 'locations'
+    'list' | 'validate' | 'validateFile' | 'locations'
   >
   environment: NodeJS.ProcessEnv
 }
@@ -194,6 +194,8 @@ export function buildServerQueryHandlers(
     },
     [Queries.ListServerDirectories]: async (request: unknown) =>
       ctx.serverDirectoryService.list(request),
+    [Queries.ValidateServerFile]: async (request: unknown) =>
+      ctx.serverDirectoryService.validateFile(request),
     [Queries.ValidateServerDirectory]: async (request: unknown) =>
       ctx.serverDirectoryService.validate(request),
     [Queries.GetDisclaimerState]: async () => ({

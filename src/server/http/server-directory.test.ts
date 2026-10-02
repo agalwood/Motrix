@@ -25,6 +25,7 @@ const TOKEN = 'directory-test-owner'
 const capabilities = [
   { kind: 'query', channel: Queries.ListServerDirectories },
   { kind: 'query', channel: Queries.ValidateServerDirectory },
+  { kind: 'query', channel: Queries.ValidateServerFile },
   { kind: 'command', channel: Commands.CreateServerDirectory },
 ] as const
 
@@ -45,6 +46,8 @@ describe('authenticated directory RPC', () => {
       queryHandlers: {
         [Queries.ListServerDirectories]: (request: unknown) =>
           service.list(request),
+        [Queries.ValidateServerFile]: (request: unknown) =>
+          service.validateFile(request),
         [Queries.ValidateServerDirectory]: (request: unknown) =>
           service.validate(request),
       },
@@ -69,7 +72,9 @@ describe('authenticated directory RPC', () => {
   const requestFor = (channel: string, root: string) =>
     channel === Commands.CreateServerDirectory
       ? { parentPath: root, name: 'new' }
-      : { path: root }
+      : channel === Queries.ValidateServerFile
+        ? { kind: 'save', parentPath: root, name: 'new.mp4' }
+        : { path: root }
 
   it.each(capabilities)(
     'gates $channel against anonymous and cross-origin requests and accepts same-origin sessions',
@@ -105,7 +110,9 @@ describe('authenticated directory RPC', () => {
           path:
             channel === Commands.CreateServerDirectory
               ? path.join(root, 'new')
-              : root,
+              : channel === Queries.ValidateServerFile
+                ? path.join(root, 'new.mp4')
+                : root,
         },
       })
     }
@@ -120,7 +127,9 @@ describe('authenticated directory RPC', () => {
           ? 'create'
           : channel === Queries.ListServerDirectories
             ? 'list'
-            : 'validate'
+            : channel === Queries.ValidateServerFile
+              ? 'validateFile'
+              : 'validate'
       )
       for (const payload of [
         {},
@@ -153,7 +162,9 @@ describe('authenticated directory RPC', () => {
           ? 'create'
           : channel === Queries.ListServerDirectories
             ? 'list'
-            : 'validate'
+            : channel === Queries.ValidateServerFile
+              ? 'validateFile'
+              : 'validate'
       const spy = vi.spyOn(service, method)
       const request = {
         method: 'POST' as const,

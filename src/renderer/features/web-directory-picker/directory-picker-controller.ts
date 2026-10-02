@@ -10,6 +10,7 @@ import type {
   DirectoryPreferences,
   DirectoryPreferencesErrorCode,
 } from '@shared/schemas/directory-preferences'
+import type { FilePickerOptions } from '@shared/schemas/file-picker'
 import {
   type AllowedSaveDirs,
   AllowedSaveDirsSchema,
@@ -19,6 +20,7 @@ import {
   ListServerDirectoriesResultSchema,
   type ServerDirectoryLocations,
   ValidateServerDirectoryResultSchema,
+  ValidateServerFileResultSchema,
 } from '@shared/schemas/server-directory'
 import type { z } from 'zod'
 import {
@@ -46,6 +48,7 @@ type Editor = {
   error: DirectoryErrorCode | null
 }
 export type PickerState = {
+  fileName: string
   locations: ServerDirectoryLocations | null
   locationsLoading: boolean
   locationsError: DirectoryErrorCode | null
@@ -85,6 +88,7 @@ type NavigateOptions = {
 /** One instance owns one bus request. Disposing invalidates every async continuation. */
 export class DirectoryPickerController {
   private state: PickerState = {
+    fileName: '',
     locations: null,
     locationsLoading: false,
     locationsError: null,
@@ -122,7 +126,8 @@ export class DirectoryPickerController {
       DirectoryPreferencesStore,
       'mutate' | 'getSnapshot'
     > = directoryPreferences,
-    private readonly sortPreferences: DirectorySortPreferences = directorySortPreferences
+    private readonly sortPreferences: DirectorySortPreferences = directorySortPreferences,
+    readonly file?: FilePickerOptions
   ) {
     this.state.sort = sortPreferences.get()
     this.locationsStore = new ServerDirectoryLocationsStore(transport, {
@@ -199,11 +204,20 @@ export class DirectoryPickerController {
   private errorCode(error: unknown): DirectoryErrorCode {
     return error instanceof DirectoryRequestError ? error.code : 'unavailable'
   }
-  private async list(path: string, showHidden: boolean) {
+  private async list(path: string, showHidden: boolean, initialFile = false) {
     const result = await this.request(
       Queries.ListServerDirectories,
       ListServerDirectoriesResultSchema,
-      { path, showHidden }
+      {
+        path,
+        showHidden,
+        ...(this.file
+          ? {
+              includeFiles: true,
+              ...(initialFile ? { initialFile: true } : {}),
+            }
+          : {}),
+      }
     )
     if (!result.ok) throw new DirectoryRequestError(result.error.code)
     return result.value
@@ -242,9 +256,19 @@ export class DirectoryPickerController {
       let lastError: DirectoryErrorCode = 'invalidPath'
       for (let index = 0; index < candidates.length; index++) {
         try {
-          const listing = await this.list(candidates[index], false)
+          const initialFile =
+            !!this.file && candidates[index] === this.defaultPath
+          const listing = await this.list(candidates[index], false, initialFile)
           if (!this.current(generation)) return
-          this.commitListing(listing, {}, false)
+          const selected = initialFile
+            ? listing.entries.find(
+                (entry) =>
+                  entry.name === listing.initialName && entry.kind === 'file'
+              )?.path
+            : undefined
+          this.commitListing(listing, { selected }, false)
+          if (this.file?.kind === 'save' && listing.initialName)
+            this.update({ fileName: listing.initialName })
           if (index > 0) this.update({ notice: 'fallback' })
           return
         } catch (error) {
@@ -263,7 +287,35 @@ export class DirectoryPickerController {
     return this.state.busy !== null || this.state.editor !== null
   }
   get target() {
+    if (this.file?.kind === 'open')
+      return (
+        this.state.listing?.entries.find(
+          (entry) => entry.path === this.state.selected && entry.kind === 'file'
+        )?.path ?? null
+      )
+    if (this.file?.kind === 'save') {
+      const directory = this.state.listing
+      if (!directory || !this.state.fileName) return null
+      const separator = directory.separator ?? '/'
+      return `${directory.path}${directory.path.endsWith(separator) ? '' : separator}${this.state.fileName}`
+    }
     return this.state.selected ?? this.state.listing?.path ?? null
+  }
+  setFileName(fileName: string) {
+    if (!this.live || this.locked) return
+    this.update({ fileName, error: null })
+  }
+  openEntry(path: string) {
+    if (!this.live || this.locked) return
+    const entry = this.state.listing?.entries.find(
+      (entry) => entry.path === path
+    )
+    if (!entry) return
+    if (entry.kind !== 'file') this.navigate(path)
+    else {
+      this.select(path)
+      if (this.file?.kind === 'open') void this.confirm()
+    }
   }
   get currentFavorite() {
     const path = this.state.listing?.path
@@ -322,6 +374,12 @@ export class DirectoryPickerController {
     )
       return
     this.update({ selected: path })
+    if (this.file?.kind === 'save') {
+      const entry = this.state.listing?.entries.find(
+        (entry) => entry.path === path && entry.kind === 'file'
+      )
+      if (entry) this.update({ fileName: entry.name, error: null })
+    }
   }
   private commitListing(
     listing: DirectoryListing,
@@ -623,11 +681,24 @@ export class DirectoryPickerController {
     const generation = ++this.generation
     this.update({ busy: 'validate', error: null })
     try {
-      const result = await this.request(
-        Queries.ValidateServerDirectory,
-        ValidateServerDirectoryResultSchema,
-        { path: target }
-      )
+      const result = this.file
+        ? await this.request(
+            Queries.ValidateServerFile,
+            ValidateServerFileResultSchema,
+            this.file.kind === 'open'
+              ? { kind: 'open', path: target, extensions: this.file.extensions }
+              : {
+                  kind: 'save',
+                  parentPath: this.state.listing?.path,
+                  name: this.state.fileName,
+                  extensions: this.file.extensions,
+                }
+          )
+        : await this.request(
+            Queries.ValidateServerDirectory,
+            ValidateServerDirectoryResultSchema,
+            { path: target }
+          )
       if (!this.current(generation) || this.target !== target) return
       if (!result.ok) throw new DirectoryRequestError(result.error.code)
       this.dispose()

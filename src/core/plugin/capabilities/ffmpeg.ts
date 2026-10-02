@@ -297,11 +297,12 @@ export class FfmpegCapabilityHost {
     // -----------------------------------------------------------------------
 
     let aborted = false
+    let settled = false
     let killTimer: ReturnType<typeof setTimeout> | undefined
     let timeoutTimer: ReturnType<typeof setTimeout>
 
     const abort = (): void => {
-      if (aborted) return
+      if (aborted || settled) return
       aborted = true
       clearTimeout(timeoutTimer)
       try {
@@ -368,8 +369,8 @@ export class FfmpegCapabilityHost {
     let stderrBuf = ''
     proc.stderr?.on('data', (chunk: Buffer) => {
       stderrBuf += chunk.toString()
-      const lines = stderrBuf.split('\n')
-      stderrBuf = lines.pop() ?? ''
+      const lines = stderrBuf.split(/[\r\n]/)
+      stderrBuf = (lines.pop() ?? '').slice(-8192)
       for (const line of lines) {
         const p = parseProgress(line, expectedDurationMs)
         if (p !== null) emitProgress(p)
@@ -382,6 +383,8 @@ export class FfmpegCapabilityHost {
 
     const result = new Promise<{ outputPath: string }>((resolve, reject) => {
       proc.on('error', (err: Error) => {
+        settled = true
+        opts.signal?.removeEventListener('abort', abort)
         clearTimeout(timeoutTimer)
         clearTimeout(killTimer)
         clearTimeout(keepAliveTimer)
@@ -395,12 +398,21 @@ export class FfmpegCapabilityHost {
       })
 
       proc.on('close', (code: number | null) => {
+        settled = true
+        opts.signal?.removeEventListener('abort', abort)
         clearTimeout(timeoutTimer)
         clearTimeout(killTimer)
         clearTimeout(keepAliveTimer)
         queue.close()
 
-        if (code === 0) {
+        if (aborted) {
+          reject(
+            new FfmpegError(
+              'plugin.ffmpeg.aborted',
+              'FFmpeg operation cancelled'
+            )
+          )
+        } else if (code === 0) {
           resolve({ outputPath: resolvedOutputPath })
         } else {
           reject(
@@ -420,7 +432,11 @@ export class FfmpegCapabilityHost {
   // probe
   // -------------------------------------------------------------------------
 
-  probe(input: { path: string }): Promise<MediaInfo> {
+  probe(input: {
+    path: string
+    signal?: AbortSignal
+    localOnly?: boolean
+  }): Promise<MediaInfo> {
     if (!this.detect.available || !this.detect.binaryPath) {
       return Promise.reject(
         new FfmpegError('plugin.capability.unavailable', 'ffmpeg not available')
@@ -448,9 +464,22 @@ export class FfmpegCapabilityHost {
       // `-f null -`: that forces a full decode of the entire file (minutes for
       // a multi-GB video, tripping the 30s timeout) yet produces nothing this
       // parser reads — duration/format/streams all come from the header block.
-      const proc = this.spawnFn(binaryPath, ['-i', input.path], {
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
+      input.signal?.throwIfAborted()
+      const proc = this.spawnFn(
+        binaryPath,
+        [
+          ...(input.localOnly
+            ? ['-nostdin', '-protocol_whitelist', 'file,crypto,data']
+            : []),
+          '-i',
+          input.path,
+        ],
+        {
+          stdio: ['ignore', 'pipe', 'pipe'],
+          signal: input.signal,
+          killSignal: 'SIGKILL',
+        }
+      )
 
       const timer = setTimeout(() => {
         try {
@@ -598,14 +627,26 @@ export class FfmpegCapabilityHost {
     videoInput: string
     audioInput: string
     output: string
+    expectedDurationMs?: number
+    localOnly?: boolean
     timeoutMs?: number
     signal?: AbortSignal
   }): FfmpegOpHandle<{ outputPath: string }> {
+    const inputOptions = opts.localOnly
+      ? ['-protocol_whitelist', 'file,crypto,data']
+      : []
     const argv = [
+      '-nostdin',
+      ...inputOptions,
       '-i',
       opts.videoInput,
+      ...inputOptions,
       '-i',
       opts.audioInput,
+      '-map',
+      '0:v:0',
+      '-map',
+      '1:a:0',
       '-c:v',
       'copy',
       '-c:a',
@@ -618,6 +659,7 @@ export class FfmpegCapabilityHost {
       outputPath: opts.output,
       timeoutMs: opts.timeoutMs,
       signal: opts.signal,
+      expectedDurationMs: opts.expectedDurationMs,
     })
   }
 

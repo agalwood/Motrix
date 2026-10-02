@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next'
 
 const DOT_COLOR: Record<PluginStatus, string> = {
   active: 'bg-emerald-500',
-  inactive: 'bg-amber-500',
+  inactive: 'bg-blue-500',
   disabled: 'bg-muted-foreground/60',
   error: 'bg-destructive',
 }

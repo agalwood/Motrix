@@ -15,7 +15,11 @@ import type { PluginRegistry } from '../plugin-registry'
 import type { PluginStateStore } from '../state/plugin-state-store'
 import { verifyBuiltinSignature } from '../update/signature'
 import type { HookName } from './bridge-protocol'
-import { CapabilityBridge, type HookContextArgs } from './capability-bridge'
+import {
+  CapabilityBridge,
+  type HookContextArgs,
+  type ManualMergeContext,
+} from './capability-bridge'
 import {
   type PluginCallChain,
   PluginLane,
@@ -255,7 +259,10 @@ export class PluginHost {
     pluginId: string,
     commandId: string,
     args: unknown,
-    options: { callChain?: PluginCallChain } = {}
+    options: {
+      callChain?: PluginCallChain
+      mediaMerge?: ManualMergeContext
+    } = {}
   ): Promise<unknown> {
     return this.laneFor(pluginId).run(
       () => {
@@ -267,6 +274,15 @@ export class PluginHost {
           )
         }
         a.lastActivityAt = Date.now()
+        if (options.mediaMerge) {
+          return a.bridge.callMediaMerge(commandId, args, {
+            ...options.mediaMerge,
+            signal: AbortSignal.any([
+              options.mediaMerge.signal,
+              a.admissionAbort.signal,
+            ]),
+          })
+        }
         return raceWithAdmissionAbort(
           a.bridge.callPlugin(commandId, args),
           a.admissionAbort.signal,

@@ -23,6 +23,7 @@ import {
   ListServerDirectoriesResultSchema,
   ListServerDirectoryLocationsResultSchema,
   ValidateServerDirectoryResultSchema,
+  ValidateServerFileResultSchema,
 } from '@shared/schemas/server-directory'
 import { parseTaskInspectorActivitySnapshot } from '@shared/schemas/task-inspector-activity'
 import { torrentRpcBodyLimitSchema } from '@shared/schemas/torrent-request-limits'
@@ -50,6 +51,7 @@ const directoryResultSchemas = {
     ListServerDirectoryLocationsResultSchema,
   [Commands.CreateServerDirectory]: CreateServerDirectoryResultSchema,
   [Queries.ListServerDirectories]: ListServerDirectoriesResultSchema,
+  [Queries.ValidateServerFile]: ValidateServerFileResultSchema,
   [Queries.ValidateServerDirectory]: ValidateServerDirectoryResultSchema,
 }
 
@@ -190,6 +192,7 @@ export async function createApp(
       if (
         req.params.channel === Queries.ListServerDirectories ||
         req.params.channel === Queries.ValidateServerDirectory ||
+        req.params.channel === Queries.ValidateServerFile ||
         req.params.channel === Queries.GetDirectoryPreferences ||
         req.params.channel === Queries.GetGeneralSettingsDraft ||
         req.params.channel === Queries.GetDownloadsSettingsDraft ||

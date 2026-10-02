@@ -1,4 +1,5 @@
 import { Alert } from '@renderer/components/ui/alert'
+import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import type { PluginListDTO, PluginManifestDTO } from '@shared/types/plugin'
 import { useTranslation } from 'react-i18next'
@@ -22,7 +23,7 @@ function MiniCard({ strong, value }: { strong: string; value: string }) {
       <strong className="text-[11px] font-medium uppercase text-muted-foreground">
         {strong}
       </strong>
-      <p className="mt-1 text-sm leading-5">{value}</p>
+      <p className="mt-1 text-xs leading-5">{value}</p>
     </div>
   )
 }
@@ -39,14 +40,21 @@ export function OverviewSection({ plugin, manifest, onJumpToLogs }: Props) {
   return (
     <div className="w-full space-y-4">
       <div className="rounded-lg border bg-card p-4 shadow-none space-y-2">
-        <div className="grid grid-cols-[54px_1fr] items-start gap-3">
-          <PluginAvatar plugin={manifest} size={54} />
-          <div>
-            <h3 className="text-base font-semibold">{manifest.name}</h3>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              v{manifest.version} · {manifest.id}
-            </p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="grid min-w-0 grid-cols-[54px_minmax(0,1fr)] items-start gap-3">
+            <PluginAvatar plugin={manifest} size={54} />
+            <div>
+              <h3 className="break-words text-base font-semibold">
+                {manifest.name}
+              </h3>
+              <p className="mt-0.5 break-all text-xs text-muted-foreground">
+                v{manifest.version} · {manifest.id}
+              </p>
+            </div>
           </div>
+          <Badge variant="outline" className="shrink-0">
+            {audience.heroHeadline}
+          </Badge>
         </div>
         <p className="text-sm">{manifest.description}</p>
         {manifest.author && (
@@ -72,9 +80,6 @@ export function OverviewSection({ plugin, manifest, onJumpToLogs }: Props) {
             </a>
           </div>
         )}
-        <h3 className="mt-6 text-base font-medium tracking-tight">
-          {audience.heroHeadline}
-        </h3>
         <p className="text-sm leading-none text-muted-foreground">
           {audience.plain}
         </p>
