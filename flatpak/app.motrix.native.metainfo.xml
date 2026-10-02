@@ -68,6 +68,16 @@
   </screenshots>
 
   <releases>
+    <release version="2.0.0-beta.46" date="2026-10-02">
+      <description>
+        <p>
+          Adds verified FFmpeg installation with button progress and clearer
+          executable paths, safe Motrix deep links, shutdown after downloads
+          finish, Hungarian localization, Safari extension discovery, and
+          download, NAT, and inspector fixes.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.45" date="2026-10-02">
       <description>
         <p>
