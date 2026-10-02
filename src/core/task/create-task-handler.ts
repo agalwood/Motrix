@@ -55,6 +55,11 @@ import { isTorrentLikeType } from '@shared/types/task-actions'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
 import type Database from 'better-sqlite3'
 import {
+  autoCategorizeSaveDir,
+  extensionFromName,
+  extensionFromTaskSource,
+} from './auto-categorize'
+import {
   acquireBtInfoHashAdmission,
   existingFilesConflict,
   extractMagnetInfoHash,
@@ -281,6 +286,17 @@ export async function handleCreateTask(
   )
 }
 
+// #1131 auto-categorization: extension → subfolder of the default download
+// directory. Only consulted when the task carries no explicit saveDir, so a
+// user-picked directory always wins.
+function categorizeDefaultSaveDir(
+  deps: CreateTaskDeps,
+  ext: string | null
+): string {
+  const app = deps.settingsManager.getApp()
+  return autoCategorizeSaveDir(app.autoCategorize, ext, app.defaultSaveDir)
+}
+
 async function createAdmittedTask(
   rawRequest: unknown,
   deps: CreateTaskDeps,
@@ -299,7 +315,11 @@ async function createAdmittedTask(
     // injection must disable metadata I/O instead of consulting newer,
     // potentially unapplied SettingsManager values.
     const requestedDir =
-      parsed.data.saveDir || deps.settingsManager.getApp().defaultSaveDir
+      parsed.data.saveDir ||
+      categorizeDefaultSaveDir(
+        deps,
+        extensionFromTaskSource(parsed.data.uris[0] ?? '')
+      )
     const preparedDir = deps.prepareSaveDir
       ? await deps.prepareSaveDir(requestedDir)
       : requestedDir
@@ -331,7 +351,15 @@ async function createAdmittedTask(
 
   const req = parsed.data
   const requestedSaveDir =
-    req.saveDir || deps.settingsManager.getApp().defaultSaveDir
+    req.saveDir ||
+    categorizeDefaultSaveDir(
+      deps,
+      req.displayName !== undefined
+        ? extensionFromName(req.displayName)
+        : req.payload.kind === 'magnet'
+          ? extensionFromTaskSource(req.payload.uri)
+          : null
+    )
   const preparedSaveDir = deps.prepareSaveDir
     ? await deps.prepareSaveDir(requestedSaveDir)
     : requestedSaveDir

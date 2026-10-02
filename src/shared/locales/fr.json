@@ -1965,6 +1965,18 @@
         "title": "Disque et fichiers"
       },
       "fillInLinksWhenOpeningNewTask": "Coller les liens copiés à l’ouverture d’une nouvelle tâche.",
+      "autoCategorize": {
+        "enable": "Ranger les nouveaux téléchargements dans des dossiers",
+        "enableDesc": "Les fichiers sont classés par extension dans un sous-dossier du dossier de téléchargement par défaut. S’applique uniquement aux tâches utilisant le dossier par défaut — un dossier choisi explicitement n’est jamais remplacé.",
+        "extensions": "Extensions",
+        "extensionsPlaceholder": "ex. mp4, mkv, webm",
+        "folder": "Sous-dossier",
+        "folderPlaceholder": "ex. Video",
+        "addRule": "Ajouter une règle",
+        "removeRule": "Supprimer la règle",
+        "needsExtension": "Ajoutez au moins une extension",
+        "invalidFolder": "Utilisez un nom de dossier simple sans / \\ : * ? \" < > | / \\ : * ? \" < > |"
+      },
       "magnet": {
         "magnetResolveTimeout": "Délai de chargement magnet (s)",
         "magnetResolveTimeoutDesc": "Durée maximale d’attente de la liste des fichiers.",

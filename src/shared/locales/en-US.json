@@ -1677,6 +1677,18 @@
       "defaultDownloadFolder": "Default download folder",
       "autofillFromClipboard": "Autofill links from clipboard",
       "fillInLinksWhenOpeningNewTask": "Paste copied links when opening a new task.",
+      "autoCategorize": {
+        "enable": "Sort new downloads into folders",
+        "enableDesc": "Files are routed by extension into a subfolder of the default download folder. Applies when a task uses the default folder — an explicitly picked folder is never overridden.",
+        "extensions": "Extensions",
+        "extensionsPlaceholder": "e.g. mp4, mkv, webm",
+        "folder": "Subfolder",
+        "folderPlaceholder": "e.g. Video",
+        "addRule": "Add rule",
+        "removeRule": "Remove rule",
+        "needsExtension": "Add at least one extension",
+        "invalidFolder": "Use a plain folder name without / \\ : * ? \" < > |"
+      },
       "saveFolders": "Save folders",
       "description": "Files, download speed and connections"
     },

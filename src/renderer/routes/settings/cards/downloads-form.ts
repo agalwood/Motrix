@@ -53,6 +53,7 @@ export const ENGINE_DEFAULTS: EngineFields = {
 export const DOWNLOADS_DEFAULTS: DownloadsFields = {
   app: {
     defaultSaveDir: DEFAULT_APP_SETTINGS.defaultSaveDir,
+    autoCategorize: DEFAULT_APP_SETTINGS.autoCategorize,
     autofillClipboardLinks: DEFAULT_APP_SETTINGS.autofillClipboardLinks,
     fileDeletionMode: DEFAULT_APP_SETTINGS.fileDeletionMode,
   },

@@ -1965,6 +1965,18 @@
         "title": "Disc i fitxers"
       },
       "fillInLinksWhenOpeningNewTask": "Enganxa els enllaços copiats en obrir una tasca nova.",
+      "autoCategorize": {
+        "enable": "Ordena les baixades noves en carpetes",
+        "enableDesc": "Els fitxers es dirigeixen per extensió a una subcarpeta de la carpeta de baixades predeterminada. S’aplica només a les tasques que usen la carpeta predeterminada — una carpeta triada explícitament mai no se sobreescriu.",
+        "extensions": "Extensions",
+        "extensionsPlaceholder": "p. ex. mp4, mkv, webm",
+        "folder": "Subcarpeta",
+        "folderPlaceholder": "p. ex. Video",
+        "addRule": "Afegeix una regla",
+        "removeRule": "Elimina la regla",
+        "needsExtension": "Afegeix almenys una extensió",
+        "invalidFolder": "Fes servir un nom de carpeta senzill sense / \\ : * ? \" < > | / \\ : * ? \" < > |"
+      },
       "magnet": {
         "magnetResolveTimeout": "Temps d'espera de càrrega del magnet (s)",
         "magnetResolveTimeoutDesc": "Quant de temps s'espera la llista de fitxers.",

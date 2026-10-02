@@ -1946,6 +1946,18 @@
         "title": "Disk og filer"
       },
       "fillInLinksWhenOpeningNewTask": "Lim inn kopierte lenker når en ny oppgave åpnes.",
+      "autoCategorize": {
+        "enable": "Sorter nye nedlastinger i mapper",
+        "enableDesc": "Filer plasseres etter filtype i en undermappe av standard nedlastingsmappe. Gjelder bare oppgaver som bruker standardmappen — en eksplisitt valgt mappe blir aldri overstyrt.",
+        "extensions": "Filtyper",
+        "extensionsPlaceholder": "f.eks. mp4, mkv, webm",
+        "folder": "Undermappe",
+        "folderPlaceholder": "f.eks. Video",
+        "addRule": "Legg til regel",
+        "removeRule": "Fjern regel",
+        "needsExtension": "Legg til minst én filtype",
+        "invalidFolder": "Bruk et enkelt mappenavn uten / \\ : * ? \" < > | / \\ : * ? \" < > |"
+      },
       "magnet": {
         "magnetResolveTimeout": "Tidsgrense for magnetinnlasting (s)",
         "magnetResolveTimeoutDesc": "Hvor lenge det skal ventes på fillisten.",

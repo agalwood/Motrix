@@ -2022,6 +2022,18 @@
         "title": "القرص والملفات"
       },
       "fillInLinksWhenOpeningNewTask": "لصق الروابط المنسوخة عند فتح مهمة جديدة.",
+      "autoCategorize": {
+        "enable": "تصنيف التنزيلات الجديدة في مجلدات",
+        "enableDesc": "يتم توجيه الملفات حسب الامتداد إلى مجلد فرعي داخل مجلد التنزيل الافتراضي. يُطبَّق فقط على المهام التي تستخدم المجلد الافتراضي — المجلد المحدد صراحةً لا يُستبدل أبدًا.",
+        "extensions": "الامتدادات",
+        "extensionsPlaceholder": "مثل mp4، mkv، webm",
+        "folder": "مجلد فرعي",
+        "folderPlaceholder": "مثل Video",
+        "addRule": "إضافة قاعدة",
+        "removeRule": "إزالة القاعدة",
+        "needsExtension": "أضف امتدادًا واحدًا على الأقل",
+        "invalidFolder": "استخدم اسم مجلد بسيطًا بدون / \\ : * ? \" < > | / \\ : * ? \" < > |"
+      },
       "magnet": {
         "magnetResolveTimeout": "مهلة تحميل magnet (ث)",
         "magnetResolveTimeoutDesc": "مدة انتظار قائمة الملفات.",

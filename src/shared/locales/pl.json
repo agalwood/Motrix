@@ -1705,6 +1705,18 @@
       "defaultDownloadFolder": "Domyślny folder pobierania",
       "autofillFromClipboard": "Automatycznie wstawiaj linki ze schowka",
       "fillInLinksWhenOpeningNewTask": "Wklejaj skopiowane linki przy otwieraniu nowego zadania.",
+      "autoCategorize": {
+        "enable": "Porządkuj nowe pobrania w folderach",
+        "enableDesc": "Pliki są rozdzielane według rozszerzenia do podfolderu domyślnego folderu pobierania. Dotyczy tylko zadań używających folderu domyślnego — jawnie wybrany folder nigdy nie jest zastępowany.",
+        "extensions": "Rozszerzenia",
+        "extensionsPlaceholder": "np. mp4, mkv, webm",
+        "folder": "Podfolder",
+        "folderPlaceholder": "np. Video",
+        "addRule": "Dodaj regułę",
+        "removeRule": "Usuń regułę",
+        "needsExtension": "Dodaj co najmniej jedno rozszerzenie",
+        "invalidFolder": "Użyj prostej nazwy folderu bez / \\ : * ? \" < > | / \\ : * ? \" < > |"
+      },
       "saveFolders": "Foldery zapisu",
       "description": "Pliki, prędkość pobierania i połączenia"
     },

@@ -1663,6 +1663,18 @@
       "defaultDownloadFolder": "既定のダウンロードフォルダー",
       "autofillFromClipboard": "クリップボードからリンクを自動入力",
       "fillInLinksWhenOpeningNewTask": "新規タスクを開くと、コピーしたリンクを貼り付けます。",
+      "autoCategorize": {
+        "enable": "新しいダウンロードをフォルダーに振り分け",
+        "enableDesc": "拡張子に応じて、既定のダウンロードフォルダー内のサブフォルダーへ保存します。既定フォルダーを使用するタスクにのみ適用され、明示的に指定したフォルダーは上書きされません。",
+        "extensions": "拡張子",
+        "extensionsPlaceholder": "例: mp4, mkv, webm",
+        "folder": "サブフォルダー",
+        "folderPlaceholder": "例: Video",
+        "addRule": "ルールを追加",
+        "removeRule": "ルールを削除",
+        "needsExtension": "拡張子を 1 つ以上追加してください",
+        "invalidFolder": "/ \\ : * ? \" < > | を含まない通常のフォルダー名を入力してください / \\ : * ? \" < > |"
+      },
       "saveFolders": "保存フォルダー",
       "description": "ファイル、ダウンロード速度、接続"
     },

@@ -1677,6 +1677,18 @@
       "defaultDownloadFolder": "Varsayılan indirme klasörü",
       "autofillFromClipboard": "Panodaki bağlantıları otomatik doldur",
       "fillInLinksWhenOpeningNewTask": "Yeni görev açılırken kopyalanan bağlantılar otomatik olarak yapıştırılır.",
+      "autoCategorize": {
+        "enable": "Yeni indirmeleri klasörlere ayır",
+        "enableDesc": "Dosyalar uzantıya göre varsayılan indirme klasörünün alt klasörlerine ayrılır. Yalnızca varsayılan klasörü kullanan görevler için geçerlidir — açıkça seçilen bir klasör asla değiştirilmez.",
+        "extensions": "Uzantılar",
+        "extensionsPlaceholder": "örn. mp4, mkv, webm",
+        "folder": "Alt klasör",
+        "folderPlaceholder": "örn. Video",
+        "addRule": "Kural ekle",
+        "removeRule": "Kuralı kaldır",
+        "needsExtension": "En az bir uzantı ekleyin",
+        "invalidFolder": "/ \\ : * ? \" < > | içermeyen düz bir klasör adı kullanın / \\ : * ? \" < > |"
+      },
       "saveFolders": "Kayıt klasörleri",
       "description": "Dosyalar, indirme hızı ve bağlantılar"
     },
