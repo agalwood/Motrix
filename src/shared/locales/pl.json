@@ -2957,5 +2957,17 @@
       "eib": "EiB"
     },
     "perSecond": "{{value}}/s"
+  },
+  "protocol": {
+    "title": "Motrix",
+    "deprecatedScheme": "Protokół mo:// został wycofany. Użyj motrix://.",
+    "deprecatedCommand": "Ta akcja odnośnika została wycofana. Użyj funkcji w Motrix.",
+    "unsupportedCommand": "To polecenie odnośnika nie jest obsługiwane.",
+    "unsupportedParameters": "Odnośnik zawiera nieobsługiwane parametry. Niczego nie otwarto ani nie zmieniono.",
+    "invalidLink": "Nieprawidłowy odnośnik Motrix.",
+    "invalidSource": "Odnośnik musi zawierać jeden prawidłowy adres HTTP, HTTPS, FTP lub Magnet.",
+    "waitingMerged": "Oczekujące zadania są teraz w Aktywnych. Otwarto ten widok.",
+    "stoppedSplit": "Zatrzymane zadania są podzielone na Ukończone i Błędy. Otwarto wszystkie pobrania.",
+    "invalidStatus": "Nieprawidłowa kategoria. Otwarto wszystkie pobrania."
   }
 }

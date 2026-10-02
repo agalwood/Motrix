@@ -2891,5 +2891,17 @@
       "eib": "EiB"
     },
     "perSecond": "{{value}}/초"
+  },
+  "protocol": {
+    "title": "Motrix",
+    "deprecatedScheme": "mo:// 프로토콜이 폐기되었습니다. motrix://를 사용하세요.",
+    "deprecatedCommand": "이 링크 동작은 폐기되었습니다. Motrix 내에서 조작하세요.",
+    "unsupportedCommand": "지원하지 않는 링크 명령입니다.",
+    "unsupportedParameters": "링크에 지원하지 않는 매개변수가 있습니다. 대상을 열거나 변경하지 않았습니다.",
+    "invalidLink": "유효하지 않은 Motrix 링크입니다.",
+    "invalidSource": "유효한 HTTP, HTTPS, FTP 또는 Magnet 주소 하나가 필요합니다.",
+    "waitingMerged": "대기 작업이 활성 작업에 통합되었습니다. 활성 작업을 열었습니다.",
+    "stoppedSplit": "중지된 작업은 완료 및 오류로 분류됩니다. 모든 다운로드를 열었습니다.",
+    "invalidStatus": "잘못된 다운로드 분류입니다. 모든 다운로드를 열었습니다."
   }
 }

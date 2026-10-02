@@ -8,6 +8,8 @@ const {
   mockSend,
   mockReadFile,
   mockParse,
+  mockLogInfo,
+  mockLogWarn,
 } = vi.hoisted(() => ({
   mockSetAsDefault: vi.fn(),
   mockRemoveDefault: vi.fn(),
@@ -16,6 +18,8 @@ const {
   mockSend: vi.fn(),
   mockReadFile: vi.fn(),
   mockParse: vi.fn(),
+  mockLogInfo: vi.fn(),
+  mockLogWarn: vi.fn(),
 }))
 
 vi.mock('electron', () => ({
@@ -36,8 +40,8 @@ vi.mock('node:fs/promises', () => ({
 
 vi.mock('@core/logger', () => ({
   getLogger: () => ({
-    info: vi.fn(),
-    warn: vi.fn(),
+    info: mockLogInfo,
+    warn: mockLogWarn,
     error: vi.fn(),
   }),
 }))
@@ -67,9 +71,14 @@ function makeDeps(magnetEnabled = true) {
   const deliverToAddTask = vi.fn()
   const onOpenPluginDetail = vi.fn()
   const onOpenTaskDetail = vi.fn()
+  const onShowMain = vi.fn(() => {
+    mockWindow.show()
+    mockWindow.focus()
+  })
+  const onNavigate = vi.fn()
+  const onNotice = vi.fn()
   mockParse.mockResolvedValue(defaultMeta)
   return {
-    getWindow: () => mockWindow as never,
     settingsManager: {
       getApp: () => ({ protocols: { magnet: magnetEnabled } }),
     } as unknown as SettingsManager,
@@ -78,6 +87,9 @@ function makeDeps(magnetEnabled = true) {
     deliverToAddTask,
     onOpenPluginDetail,
     onOpenTaskDetail,
+    onShowMain,
+    onNavigate,
+    onNotice,
     mockWindow,
   }
 }
@@ -95,24 +107,41 @@ describe('createProtocolManager', () => {
   })
 
   describe('register', () => {
+    it.each([true, false])(
+      'removes mo only when this installation owns it: %s',
+      (owned) => {
+        mockIsDefault.mockImplementation((scheme: string) =>
+          scheme === 'mo' ? owned : true
+        )
+        createProtocolManager({ ...makeDeps(), platform: 'darwin' }).register()
+        expect(mockSetAsDefault).not.toHaveBeenCalledWith('mo')
+        if (owned) expect(mockRemoveDefault).toHaveBeenCalledWith('mo')
+        else expect(mockRemoveDefault).not.toHaveBeenCalledWith('mo')
+      }
+    )
+
     it('registers motrix and magnet when magnet is enabled', () => {
       const {
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       } = makeDeps(true)
       const pm = createProtocolManager({
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       })
       expect(pm.register()).toEqual({ magnetMatchesSetting: true })
 
@@ -122,22 +151,26 @@ describe('createProtocolManager', () => {
 
     it('removes magnet when disabled', () => {
       const {
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       } = makeDeps(false)
       const pm = createProtocolManager({
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       })
       expect(pm.register()).toEqual({ magnetMatchesSetting: true })
 
@@ -148,22 +181,26 @@ describe('createProtocolManager', () => {
     it('skips registration in dev mode', () => {
       mockIsPackaged.value = false
       const {
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       } = makeDeps(true)
       const pm = createProtocolManager({
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       })
       expect(pm.register()).toEqual({ magnetMatchesSetting: null })
 
@@ -172,22 +209,26 @@ describe('createProtocolManager', () => {
 
     it('leaves Windows scheme registration to the installer', () => {
       const {
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       } = makeDeps(true)
       const pm = createProtocolManager({
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
         platform: 'win32',
       })
       expect(pm.register()).toEqual({ magnetMatchesSetting: null })
@@ -198,22 +239,26 @@ describe('createProtocolManager', () => {
 
     it('skips Electron scheme registration in an AppImage (integration owns it)', () => {
       const {
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       } = makeDeps(true)
       const pm = createProtocolManager({
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
         isAppImage: true,
       })
       expect(pm.register()).toEqual({ magnetMatchesSetting: null })
@@ -224,24 +269,28 @@ describe('createProtocolManager', () => {
 
     it('reports when the effective magnet default does not match the setting', () => {
       const {
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       } = makeDeps(true)
       mockSetAsDefault.mockReturnValue(false)
       mockIsDefault.mockReturnValue(false)
       const pm = createProtocolManager({
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       })
 
       expect(pm.register()).toEqual({ magnetMatchesSetting: false })
@@ -249,6 +298,77 @@ describe('createProtocolManager', () => {
   })
 
   describe('handle', () => {
+    it('keeps source URLs and rejected credential parameters out of protocol logs', () => {
+      const deps = makeDeps()
+      const manager = createProtocolManager(deps)
+      manager.handle(
+        'motrix://new-task?uri=https%3A%2F%2Fexample.com%2Fa%3Ftoken%3Dsecret-token'
+      )
+      manager.handle(
+        'motrix://new-task?cookie=secret-cookie&authorization=secret-auth'
+      )
+      const logs = JSON.stringify([
+        mockLogInfo.mock.calls,
+        mockLogWarn.mock.calls,
+      ])
+      expect(logs).not.toContain('secret-')
+      expect(logs).not.toContain('example.com')
+      expect(deps.onOpenAddTask).toHaveBeenCalledOnce()
+      expect(deps.onNotice).toHaveBeenCalledWith('unsupportedParameters')
+    })
+
+    it.each([
+      ['motrix://task-list', '/downloads/active'],
+      ['motrix://downloads/completed', '/downloads/completed'],
+      ['motrix://preferences', '/settings'],
+      ['motrix://about', '/settings/about'],
+    ])('dispatches safe navigation for %s', (url, route) => {
+      const deps = makeDeps()
+      createProtocolManager(deps).handle(url)
+      expect(deps.onNavigate).toHaveBeenCalledExactlyOnceWith(route)
+      expect(deps.onOpenAddTask).not.toHaveBeenCalled()
+      expect(deps.onNotice).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      ['mo://task-list', 'deprecatedScheme'],
+      ['motrix://pause-all-task', 'deprecatedCommand'],
+      ['motrix://resume-all-task', 'deprecatedCommand'],
+      ['motrix://reveal-in-folder?path=%2Ftmp%2Fa', 'deprecatedCommand'],
+      [
+        'motrix://new-task?uri=https%3A%2F%2Fexample.com&silent=1',
+        'unsupportedParameters',
+      ],
+      ['motrix://other', 'unsupportedCommand'],
+    ])('reports %s without dispatching any action', (url, notice) => {
+      const deps = makeDeps()
+      createProtocolManager(deps).handle(url)
+      expect(deps.onShowMain).toHaveBeenCalledOnce()
+      expect(deps.onNotice).toHaveBeenCalledExactlyOnceWith(notice)
+      expect(deps.onNavigate).not.toHaveBeenCalled()
+      expect(deps.onOpenAddTask).not.toHaveBeenCalled()
+      expect(deps.onOpenPluginDetail).not.toHaveBeenCalled()
+      expect(deps.onOpenTaskDetail).not.toHaveBeenCalled()
+      expect(deps.deliverToAddTask).not.toHaveBeenCalled()
+      expect(mockReadFile).not.toHaveBeenCalled()
+    })
+
+    it('explains a legacy status fallback after navigation', () => {
+      const deps = makeDeps()
+      createProtocolManager(deps).handle('motrix://task-list?status=waiting')
+      expect(deps.onNavigate).toHaveBeenCalledWith('/downloads/active')
+      expect(deps.onNotice).toHaveBeenCalledWith('waitingMerged')
+    })
+
+    it.each([
+      ['new-task', 'links'],
+      ['new-bt-task', 'torrent'],
+    ])('opens an empty %s draft', (command, mode) => {
+      const deps = makeDeps()
+      createProtocolManager(deps).handle(`motrix://${command}`)
+      expect(deps.onOpenAddTask).toHaveBeenCalledExactlyOnceWith({ mode })
+    })
+
     it.each(['task-123', '任务/一?#&%'])(
       'opens task details for encoded id %s',
       (id) => {
@@ -279,22 +399,26 @@ describe('createProtocolManager', () => {
 
     it('opens add-task window with magnet in links prefill', () => {
       const {
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       } = makeDeps()
       const pm = createProtocolManager({
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       })
       pm.handle('magnet:?xt=urn:btih:abc123')
 
@@ -306,22 +430,26 @@ describe('createProtocolManager', () => {
 
     it('opens add-task window with url prefill for http(s)/ftp', () => {
       const {
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       } = makeDeps()
       const pm = createProtocolManager({
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       })
       pm.handle('https://example.com/file.zip')
 
@@ -333,22 +461,26 @@ describe('createProtocolManager', () => {
 
     it('decodes motrix://new-task?uri=<http-url> and opens add-task', () => {
       const {
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       } = makeDeps()
       const pm = createProtocolManager({
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       })
       const encoded = encodeURIComponent('https://example.com/file.zip')
       pm.handle(`motrix://new-task?uri=${encoded}`)
@@ -361,51 +493,61 @@ describe('createProtocolManager', () => {
 
     it('decodes motrix://new-task?uri=<magnet> into links prefill', () => {
       const {
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       } = makeDeps()
       const pm = createProtocolManager({
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       })
-      const encoded = encodeURIComponent('magnet:?xt=urn:btih:abc')
+      const encoded = encodeURIComponent(
+        `magnet:?xt=urn:btih:${'a'.repeat(40)}`
+      )
       pm.handle(`motrix://new-task?uri=${encoded}`)
 
       expect(onOpenAddTask).toHaveBeenCalledWith({
         mode: 'links',
-        url: 'magnet:?xt=urn:btih:abc',
+        url: `magnet:?xt=urn:btih:${'a'.repeat(40)}`,
       })
     })
 
     it('shows window for bare motrix:// URL', () => {
       const {
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
         mockWindow,
       } = makeDeps()
       const pm = createProtocolManager({
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       })
       pm.handle('motrix://')
 
@@ -415,23 +557,27 @@ describe('createProtocolManager', () => {
 
     it('routes motrix://plugins/<id> to the plugin detail navigation', () => {
       const {
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
         mockWindow,
       } = makeDeps()
       const pm = createProtocolManager({
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       })
       pm.handle('motrix://plugins/example.archive-unpacker')
 
@@ -444,23 +590,27 @@ describe('createProtocolManager', () => {
 
     it('rejects malformed plugin deeplink ids and shows the window', () => {
       const {
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
         mockWindow,
       } = makeDeps()
       const pm = createProtocolManager({
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       })
       // No dot namespace / uppercase / traversal-looking ids are all refused.
       pm.handle('motrix://plugins/no-namespace')
@@ -477,22 +627,26 @@ describe('createProtocolManager', () => {
       mockReadFile.mockResolvedValue(Buffer.from('fake-torrent-data'))
 
       const {
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       } = makeDeps()
       const pm = createProtocolManager({
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       })
       await pm.handleTorrentFile('/path/to/test.torrent')
 
@@ -512,22 +666,26 @@ describe('createProtocolManager', () => {
 
     it('ignores non-torrent files', async () => {
       const {
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       } = makeDeps()
       const pm = createProtocolManager({
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       })
       await pm.handleTorrentFile('/path/to/file.txt')
 
@@ -542,22 +700,26 @@ describe('createProtocolManager', () => {
         .mockResolvedValueOnce(Buffer.from('torrent-2'))
 
       const {
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       } = makeDeps()
       const pm = createProtocolManager({
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       })
       await pm.handleTorrentFile('/path/to/a.torrent')
       await pm.handleTorrentFile('/path/to/b.torrent')
@@ -579,22 +741,26 @@ describe('createProtocolManager', () => {
         .mockResolvedValueOnce(Buffer.from('torrent-2'))
 
       const {
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       } = makeDeps()
       const pm = createProtocolManager({
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       })
       await pm.handleTorrentFile('/path/to/a.torrent')
       await pm.handleTorrentFile('/path/to/b.torrent')
@@ -641,22 +807,26 @@ describe('createProtocolManager', () => {
         .mockResolvedValueOnce(Buffer.from('torrent-2'))
 
       const {
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       } = makeDeps()
       const pm = createProtocolManager({
-        getWindow,
         settingsManager,
         torrentParser,
         onOpenAddTask,
         deliverToAddTask,
         onOpenPluginDetail,
         onOpenTaskDetail,
+        onShowMain,
+        onNavigate,
+        onNotice,
       })
       await pm.handleTorrentFile('/path/to/a.torrent')
       await pm.handleTorrentFile('/path/to/b.torrent')

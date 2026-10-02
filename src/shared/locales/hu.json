@@ -2913,5 +2913,17 @@
       "eib": "EiB"
     },
     "perSecond": "{{value}}/s"
+  },
+  "protocol": {
+    "title": "Motrix",
+    "deprecatedScheme": "A mo:// protokoll megszűnt. Használja a motrix:// protokollt.",
+    "deprecatedCommand": "Ez a hivatkozásművelet megszűnt. Használja a Motrix vezérlőit.",
+    "unsupportedCommand": "Ez a hivatkozásparancs nem támogatott.",
+    "unsupportedParameters": "A hivatkozás nem támogatott paramétereket tartalmaz. Semmi sem nyílt meg és nem változott.",
+    "invalidLink": "Érvénytelen Motrix-hivatkozás.",
+    "invalidSource": "A hivatkozásnak egyetlen érvényes HTTP-, HTTPS-, FTP- vagy Magnet-címet kell tartalmaznia.",
+    "waitingMerged": "A várakozó feladatok most az Aktív nézetben találhatók. Ez a nézet megnyílt.",
+    "stoppedSplit": "A leállított feladatok a Befejezett és Hiba csoportokba kerültek. Az összes letöltés megnyílt.",
+    "invalidStatus": "Érvénytelen letöltési kategória. Az összes letöltés megnyílt."
   }
 }

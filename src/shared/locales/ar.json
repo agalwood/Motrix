@@ -3001,5 +3001,17 @@
       "eib": "EiB"
     },
     "perSecond": "{{value}}/ث"
+  },
+  "protocol": {
+    "title": "Motrix",
+    "deprecatedScheme": "تم إيقاف بروتوكول mo://. استخدم motrix:// بدلاً منه.",
+    "deprecatedCommand": "تم إيقاف هذا الإجراء عبر الرابط. استخدم أدوات التحكم في Motrix.",
+    "unsupportedCommand": "أمر الرابط هذا غير مدعوم.",
+    "unsupportedParameters": "يحتوي الرابط على معلمات غير مدعومة. لم يتم فتح أو تغيير أي شيء.",
+    "invalidLink": "رابط Motrix هذا غير صالح.",
+    "invalidSource": "يجب أن يحتوي الرابط على عنوان HTTP أو HTTPS أو FTP أو Magnet صالح واحد.",
+    "waitingMerged": "تظهر المهام المنتظرة الآن ضمن النشطة. تم فتح هذا العرض.",
+    "stoppedSplit": "تُصنف المهام المتوقفة ضمن المكتملة والأخطاء. تم فتح جميع التنزيلات.",
+    "invalidStatus": "فئة التنزيل غير صالحة. تم فتح جميع التنزيلات."
   }
 }

@@ -2913,5 +2913,17 @@
       "eib": "EiB"
     },
     "perSecond": "{{value}}/s"
+  },
+  "protocol": {
+    "title": "Motrix",
+    "deprecatedScheme": "Het protocol mo:// is vervallen. Gebruik motrix://.",
+    "deprecatedCommand": "Deze linkactie is vervallen. Gebruik de bediening in Motrix.",
+    "unsupportedCommand": "Deze linkopdracht wordt niet ondersteund.",
+    "unsupportedParameters": "De link bevat niet-ondersteunde parameters. Er is niets geopend of gewijzigd.",
+    "invalidLink": "Deze Motrix-link is ongeldig.",
+    "invalidSource": "De link moet één geldig HTTP-, HTTPS-, FTP- of Magnet-adres bevatten.",
+    "waitingMerged": "Wachtende taken staan nu onder Actief. Deze weergave is geopend.",
+    "stoppedSplit": "Gestopte taken staan onder Voltooid en Fouten. Alle downloads zijn geopend.",
+    "invalidStatus": "Deze categorie is ongeldig. Alle downloads zijn geopend."
   }
 }

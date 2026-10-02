@@ -2913,5 +2913,17 @@
       "eib": "EiB"
     },
     "perSecond": "{{value}}/s"
+  },
+  "protocol": {
+    "title": "Motrix",
+    "deprecatedScheme": "Protokollen mo:// er avviklet. Bruk motrix://.",
+    "deprecatedCommand": "Denne lenkehandlingen er avviklet. Bruk kontrollene i Motrix.",
+    "unsupportedCommand": "Denne lenkekommandoen støttes ikke.",
+    "unsupportedParameters": "Lenken inneholder parametere som ikke støttes. Ingenting ble åpnet eller endret.",
+    "invalidLink": "Denne Motrix-lenken er ugyldig.",
+    "invalidSource": "Lenken må inneholde én gyldig HTTP-, HTTPS-, FTP- eller Magnet-adresse.",
+    "waitingMerged": "Ventende oppgaver vises nå under Aktive. Denne visningen er åpnet.",
+    "stoppedSplit": "Stoppede oppgaver er gruppert under Fullførte og Feil. Alle nedlastinger er åpnet.",
+    "invalidStatus": "Ugyldig nedlastingskategori. Alle nedlastinger er åpnet."
   }
 }

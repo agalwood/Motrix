@@ -2891,5 +2891,17 @@
       "eib": "EiB"
     },
     "perSecond": "{{value}}/dtk"
+  },
+  "protocol": {
+    "title": "Motrix",
+    "deprecatedScheme": "Protokol mo:// telah dihentikan. Gunakan motrix://.",
+    "deprecatedCommand": "Tindakan tautan ini telah dihentikan. Gunakan kontrol di Motrix.",
+    "unsupportedCommand": "Perintah tautan ini tidak didukung.",
+    "unsupportedParameters": "Tautan berisi parameter yang tidak didukung. Tidak ada yang dibuka atau diubah.",
+    "invalidLink": "Tautan Motrix ini tidak valid.",
+    "invalidSource": "Tautan harus berisi satu alamat HTTP, HTTPS, FTP, atau Magnet yang valid.",
+    "waitingMerged": "Tugas menunggu kini ditampilkan di Aktif. Tampilan Aktif telah dibuka.",
+    "stoppedSplit": "Tugas yang dihentikan dikelompokkan ke Selesai dan Galat. Semua unduhan telah dibuka.",
+    "invalidStatus": "Kategori unduhan tidak valid. Semua unduhan telah dibuka."
   }
 }

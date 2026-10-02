@@ -26,7 +26,7 @@ function renderAppLayout(routeHandle?: Record<string, unknown>) {
         element: <AppLayout />,
         children: [
           { index: true, element: <div>INDEX_PAGE</div>, handle: routeHandle },
-          { path: 'downloads/all', element: <div>DOWNLOADS_PAGE</div> },
+          { path: 'downloads/:filter', element: <div>DOWNLOADS_PAGE</div> },
           { path: 'plugins/:id', element: <div>PLUGIN_PAGE</div> },
         ],
       },
@@ -91,6 +91,9 @@ beforeEach(() => {
 describe('AppLayout', () => {
   it.each([
     ['/downloads/all', false],
+    ['/downloads/active', false],
+    ['/downloads/completed', false],
+    ['/downloads/error', false],
     ['/plugins/example', true],
   ] as const)(
     'clears stale task details only for the downloads fallback: %s',

@@ -2935,5 +2935,17 @@
       "eib": "EiO"
     },
     "perSecond": "{{value}}/s"
+  },
+  "protocol": {
+    "title": "Motrix",
+    "deprecatedScheme": "Protocolul mo:// a fost retras. Folosiți motrix://.",
+    "deprecatedCommand": "Această acțiune prin link a fost retrasă. Folosiți comenzile din Motrix.",
+    "unsupportedCommand": "Această comandă a linkului nu este acceptată.",
+    "unsupportedParameters": "Linkul conține parametri neacceptați. Nimic nu a fost deschis sau modificat.",
+    "invalidLink": "Acest link Motrix nu este valid.",
+    "invalidSource": "Linkul trebuie să conțină o singură adresă HTTP, HTTPS, FTP sau Magnet validă.",
+    "waitingMerged": "Sarcinile în așteptare apar acum în Active. Această vizualizare a fost deschisă.",
+    "stoppedSplit": "Sarcinile oprite sunt grupate în Finalizate și Erori. Au fost deschise toate descărcările.",
+    "invalidStatus": "Categoria nu este validă. Au fost deschise toate descărcările."
   }
 }

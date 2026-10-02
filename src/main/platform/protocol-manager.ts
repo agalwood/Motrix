@@ -3,16 +3,20 @@ import { basename, extname } from 'node:path'
 import { getLogger } from '@core/logger'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import type { TorrentParser } from '@core/torrent/torrent-parser'
+import { parseAppDeepLink } from '@shared/lib/app-deep-link'
 import { Events } from '@shared/protocol/events'
 import type { AddTaskUrlParams } from '@shared/schemas/add-task'
-import { REGISTRY_PLUGIN_ID_RE } from '@shared/schemas/registry'
+import type {
+  AppDeepLinkNotice,
+  AppDeepLinkRoute,
+} from '@shared/schemas/app-deep-link'
 import type { TorrentMeta } from '@shared/types/torrent'
-import type { BrowserWindow } from 'electron'
 import { app } from 'electron'
-import { z } from 'zod'
 
 export interface ProtocolManagerDeps {
-  getWindow: () => BrowserWindow | null
+  onShowMain: () => void
+  onNavigate: (route: AppDeepLinkRoute) => void
+  onNotice: (notice: AppDeepLinkNotice) => void
   settingsManager: SettingsManager
   torrentParser: TorrentParser
   // When running as a packaged Linux AppImage, the AppImage desktop
@@ -55,7 +59,6 @@ interface QueuedTorrent {
 }
 
 const RESOURCE_PREFIXES = ['magnet:', 'http:', 'https:', 'ftp:']
-const taskDeepLinkIdSchema = z.string().min(1).max(1024).regex(/^\S+$/u)
 
 function uriToAddTaskParams(url: string): AddTaskUrlParams | null {
   const lower = url.toLowerCase()
@@ -180,6 +183,10 @@ export function createProtocolManager(deps: ProtocolManagerDeps) {
 
       const magnetEnabled = deps.settingsManager.getApp().protocols.magnet
       try {
+        // Remove only an association that still points to this installation.
+        if (app.isDefaultProtocolClient('mo')) {
+          app.removeAsDefaultProtocolClient('mo')
+        }
         app.setAsDefaultProtocolClient('motrix')
         if (magnetEnabled) {
           app.setAsDefaultProtocolClient('magnet')
@@ -203,75 +210,43 @@ export function createProtocolManager(deps: ProtocolManagerDeps) {
     },
 
     handle(url: string) {
-      log.info({ url }, 'protocol url received')
+      // Links may contain signed URLs and credentials. Never log their content.
+      log.info('protocol url received')
       const lower = url.toLowerCase()
 
       if (RESOURCE_PREFIXES.some((p) => lower.startsWith(p))) {
         const params = uriToAddTaskParams(url)
-        if (params) {
-          log.info({ params }, 'opening add-task with prefill')
-          deps.onOpenAddTask(params)
-        }
+        if (params) deps.onOpenAddTask(params)
         return
       }
 
-      if (lower.startsWith('motrix://')) {
-        try {
-          const parsed = new URL(url)
-          if (parsed.hostname === 'tasks') {
-            const taskId = taskDeepLinkIdSchema.safeParse(
-              decodeURIComponent(parsed.pathname.replace(/^\//, ''))
-            )
-            if (
-              taskId.success &&
-              !parsed.username &&
-              !parsed.password &&
-              !parsed.port &&
-              !parsed.search &&
-              !parsed.hash
-            ) {
-              deps.onOpenTaskDetail(taskId.data)
-              return
-            }
-            log.warn('rejecting malformed task deeplink')
-            return
-          }
-          if (
-            parsed.hostname === 'new-task' &&
-            parsed.searchParams.has('uri')
-          ) {
-            const uri = parsed.searchParams.get('uri') ?? ''
-            const params = uriToAddTaskParams(uri)
-            if (params) {
-              log.info({ params }, 'opening add-task from motrix:// uri')
-              deps.onOpenAddTask(params)
-              return
-            }
-          }
-          if (parsed.hostname === 'plugins') {
-            const pluginId = decodeURIComponent(
-              parsed.pathname.replace(/^\//, '')
-            )
-            if (REGISTRY_PLUGIN_ID_RE.test(pluginId)) {
-              log.info({ pluginId }, 'opening plugin detail from motrix:// url')
-              deps.onOpenPluginDetail(pluginId)
-              return
-            }
-            log.warn({ pluginId }, 'rejecting malformed plugin deeplink id')
-          }
-        } catch {
-          /* invalid URL — fall through to show window */
-        }
-
-        const win = deps.getWindow()
-        if (win) {
-          win.show()
-          win.focus()
-        }
-        return
+      const intent = parseAppDeepLink(url)
+      log.info({ kind: intent.kind }, 'app deeplink parsed')
+      switch (intent.kind) {
+        case 'show':
+          deps.onShowMain()
+          break
+        case 'navigate':
+          deps.onNavigate(intent.route)
+          if (intent.notice) deps.onNotice(intent.notice)
+          break
+        case 'draft':
+          deps.onOpenAddTask({
+            mode: intent.mode,
+            ...(intent.url ? { url: intent.url } : {}),
+          })
+          break
+        case 'plugin':
+          deps.onOpenPluginDetail(intent.id)
+          break
+        case 'task':
+          deps.onOpenTaskDetail(intent.id)
+          break
+        case 'rejected':
+          deps.onShowMain()
+          deps.onNotice(intent.notice)
+          break
       }
-
-      log.warn({ url }, 'unrecognized protocol url')
     },
 
     handleTorrentFile(filePath: string) {

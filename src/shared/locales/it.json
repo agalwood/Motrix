@@ -2935,5 +2935,17 @@
       "eib": "EiB"
     },
     "perSecond": "{{value}}/s"
+  },
+  "protocol": {
+    "title": "Motrix",
+    "deprecatedScheme": "Il protocollo mo:// è stato ritirato. Usa motrix://.",
+    "deprecatedCommand": "Questa azione tramite link è stata ritirata. Usa i comandi di Motrix.",
+    "unsupportedCommand": "Questo comando del link non è supportato.",
+    "unsupportedParameters": "Il link contiene parametri non supportati. Non è stato aperto o modificato nulla.",
+    "invalidLink": "Questo link Motrix non è valido.",
+    "invalidSource": "Il link deve contenere un solo indirizzo HTTP, HTTPS, FTP o Magnet valido.",
+    "waitingMerged": "Le attività in attesa sono ora incluse in Attive. È stata aperta questa vista.",
+    "stoppedSplit": "Le attività arrestate sono raggruppate in Completate ed Errori. Sono stati aperti tutti i download.",
+    "invalidStatus": "La categoria non è valida. Sono stati aperti tutti i download."
   }
 }

@@ -2935,5 +2935,17 @@
       "eib": "EiB"
     },
     "perSecond": "{{value}}/s"
+  },
+  "protocol": {
+    "title": "Motrix",
+    "deprecatedScheme": "El protocol mo:// s’ha retirat. Fes servir motrix://.",
+    "deprecatedCommand": "Aquesta acció per enllaç s’ha retirat. Fes servir els controls del Motrix.",
+    "unsupportedCommand": "Aquesta ordre d’enllaç no és compatible.",
+    "unsupportedParameters": "L’enllaç conté paràmetres no compatibles. No s’ha obert ni canviat res.",
+    "invalidLink": "Aquest enllaç del Motrix no és vàlid.",
+    "invalidSource": "L’enllaç ha de contenir una única adreça HTTP, HTTPS, FTP o Magnet vàlida.",
+    "waitingMerged": "Les tasques en espera ara apareixen a Actives. S’ha obert aquesta vista.",
+    "stoppedSplit": "Les tasques aturades s’agrupen a Completades i Errors. S’han obert totes les baixades.",
+    "invalidStatus": "La categoria no és vàlida. S’han obert totes les baixades."
   }
 }

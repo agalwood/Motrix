@@ -33,6 +33,7 @@ vi.mock('@core/logger', () => ({
   }),
 }))
 
+import { MAX_PENDING_PROTOCOL_URLS } from '@shared/schemas/app-deep-link'
 import { setupLauncher } from './launcher'
 
 describe('setupLauncher', () => {
@@ -50,6 +51,60 @@ describe('setupLauncher', () => {
     callbacks.onProtocolUrl.mockClear()
     callbacks.onTorrentFile.mockClear()
     callbacks.onShowWindow.mockClear()
+  })
+
+  it.each(['linux', 'win32'])(
+    'forwards cold and warm app links on %s, including retired mo for feedback',
+    (platform) => {
+      const originalPlatform = process.platform
+      const originalArgv = process.argv
+      Object.defineProperty(process, 'platform', { value: platform })
+      process.argv = ['/opt/motrix', 'motrix://task-list']
+      try {
+        const handle = setupLauncher(callbacks)
+        expect(callbacks.onProtocolUrl).not.toHaveBeenCalled()
+        handle.flushDeferred()
+        expect(callbacks.onProtocolUrl).toHaveBeenCalledExactlyOnceWith(
+          'motrix://task-list'
+        )
+        const handler = mockOn.mock.calls.find(
+          ([name]) => name === 'second-instance'
+        )?.[1]
+        handler({}, ['/opt/motrix', 'mo://new-task?silent=1'])
+        expect(callbacks.onProtocolUrl).toHaveBeenLastCalledWith(
+          'mo://new-task?silent=1'
+        )
+      } finally {
+        process.argv = originalArgv
+        Object.defineProperty(process, 'platform', { value: originalPlatform })
+      }
+    }
+  )
+
+  it('bounds pending URL ingress and drains each entry only once', () => {
+    const handle = setupLauncher(callbacks)
+    const onUrl = mockOn.mock.calls.find(([name]) => name === 'open-url')?.[1]
+    for (let i = 0; i < MAX_PENDING_PROTOCOL_URLS + 10; i++) {
+      onUrl({ preventDefault: vi.fn() }, 'motrix://task-list')
+    }
+    handle.flushDeferred()
+    handle.flushDeferred()
+    expect(callbacks.onProtocolUrl).toHaveBeenCalledTimes(
+      MAX_PENDING_PROTOCOL_URLS
+    )
+  })
+
+  it('replaces oversized links with a bounded invalid request for feedback', () => {
+    const handle = setupLauncher(callbacks)
+    const onUrl = mockOn.mock.calls.find(([name]) => name === 'open-url')?.[1]
+    onUrl(
+      { preventDefault: vi.fn() },
+      `motrix://new-task?uri=${'a'.repeat(100_000)}`
+    )
+    handle.flushDeferred()
+    expect(callbacks.onProtocolUrl).toHaveBeenCalledExactlyOnceWith(
+      'motrix://invalid/#'
+    )
   })
 
   it('acquires single instance lock', () => {

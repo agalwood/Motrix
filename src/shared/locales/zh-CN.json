@@ -2891,5 +2891,17 @@
       "eib": "EiB"
     },
     "perSecond": "{{value}}/s"
+  },
+  "protocol": {
+    "title": "Motrix",
+    "deprecatedScheme": "mo:// 协议已停用，请改用 motrix://。",
+    "deprecatedCommand": "此链接操作已停用，请使用 Motrix 内的操作控件。",
+    "unsupportedCommand": "不支持此链接命令。",
+    "unsupportedParameters": "此链接包含不支持的参数，未打开相关内容或执行更改。",
+    "invalidLink": "此 Motrix 链接无效。",
+    "invalidSource": "链接必须包含一个有效的 HTTP、HTTPS、FTP 或 Magnet 地址。",
+    "waitingMerged": "等待中的任务现已归入活动任务，已打开活动任务列表。",
+    "stoppedSplit": "已停止的任务现按已完成和错误分类，已打开全部下载。",
+    "invalidStatus": "下载分类无效，已打开全部下载。"
   }
 }
