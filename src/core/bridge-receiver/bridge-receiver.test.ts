@@ -988,4 +988,81 @@ describe('BridgeReceiver', () => {
       expect(result.taskId).toBe('task-abc')
     })
   })
+
+  describe('confirmation gate (#995)', () => {
+    const submitCall = (overrides: Record<string, unknown> = {}) =>
+      ({
+        source: { pageUrl: 'http://x', pageTitle: 't', detectedAt: 1 },
+        selection: {
+          kind: 'direct',
+          primary: {
+            url: 'http://x/f.mp4',
+            headers: {},
+            cookies: [],
+            refererPolicy: 'strict-origin-when-cross-origin',
+          },
+        },
+        meta: { suggestedFilename: 'f.mp4', qualityLabel: 'q' },
+        ...overrides,
+      }) as never
+
+    const extensionCtx = {
+      identity: { kind: 'extension', browser: 'chromium', extensionId: 'e' },
+      startedAt: 0,
+      isReady: () => false,
+      markReady: () => {},
+      pendingPair: null,
+    } as never
+
+    it('dispatches immediately when the confirm deps are absent', async () => {
+      const deps = fakeDeps()
+      const r = new BridgeReceiver(deps as never)
+      await r.handle(submitCall(), extensionCtx)
+      expect(deps.createTask).toHaveBeenCalledTimes(1)
+    })
+
+    it('dispatches when the confirm callback resolves true', async () => {
+      const confirm = vi.fn(
+        async (_info: { name: string; origin: string }) => true
+      )
+      const deps = fakeDeps({
+        shouldConfirmBridgeDownloads: () => true,
+        confirmBridgeDownload: confirm,
+      })
+      const r = new BridgeReceiver(deps as never)
+      await r.handle(submitCall(), extensionCtx)
+      expect(confirm).toHaveBeenCalledTimes(1)
+      expect(confirm.mock.calls[0]?.[0]).toMatchObject({
+        name: 'f.mp4',
+        origin: 'http://x',
+      })
+      expect(deps.createTask).toHaveBeenCalledTimes(1)
+    })
+
+    it('throws cancelled and never creates the task when rejected', async () => {
+      const deps = fakeDeps({
+        shouldConfirmBridgeDownloads: () => true,
+        confirmBridgeDownload: vi.fn(
+          async (_i: { name: string; origin: string }) => false
+        ),
+      })
+      const r = new BridgeReceiver(deps as never)
+      await expect(r.handle(submitCall(), extensionCtx)).rejects.toThrow(
+        /rejected by user/i
+      )
+      expect(deps.createTask).not.toHaveBeenCalled()
+    })
+
+    it('skips the dialog when the setting is off', async () => {
+      const confirm = vi.fn(async () => false)
+      const deps = fakeDeps({
+        shouldConfirmBridgeDownloads: () => false,
+        confirmBridgeDownload: confirm,
+      })
+      const r = new BridgeReceiver(deps as never)
+      await r.handle(submitCall(), extensionCtx)
+      expect(confirm).not.toHaveBeenCalled()
+      expect(deps.createTask).toHaveBeenCalledTimes(1)
+    })
+  })
 })

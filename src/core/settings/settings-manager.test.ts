@@ -828,6 +828,7 @@ describe('SettingsManager', () => {
       expect(manager.get().bridge).toEqual({
         fixedPort: 16804,
         instanceId: 'stable-instance-id',
+        confirmDownloads: false,
       })
     })
 

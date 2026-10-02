@@ -468,6 +468,13 @@ export async function bootstrapBridge(args: {
   /** `bridge.fixedPort` (port policy, §4) + `bridge.instanceId` (the §4.1
    *  discovery routing hint) from persisted settings. */
   bridgeSettings: BridgeSettings
+  /** Live read of bridge.confirmDownloads (#995) — no restart needed on toggle. */
+  shouldConfirmBridgeDownloads: () => boolean
+  /** Native confirmation prompt for extension-submitted downloads. */
+  confirmBridgeDownload: (info: {
+    name: string
+    origin: string
+  }) => Promise<boolean>
   /** Electron single-instance ownership, acquired before bridge bootstrap. */
   bridgeDataDirLockRecoveryAuthority: BridgeDataDirLockRecoveryAuthority
   /** Test-only override for `sweepExpiredProvisionals()`'s cadence —
@@ -622,6 +629,8 @@ export async function bootstrapBridge(args: {
       segmentAria2: args.segmentAria2,
       tmpRoot: args.tmpRoot,
       resolveToMux: resolveToMuxFn,
+      shouldConfirmBridgeDownloads: args.shouldConfirmBridgeDownloads,
+      confirmBridgeDownload: args.confirmBridgeDownload,
       persistTask: args.persistTask,
       persistTaskWithOccurrence: args.persistTaskWithOccurrence,
       occurrenceDispatcher: args.occurrenceDispatcher,

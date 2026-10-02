@@ -2563,6 +2563,27 @@ async function initializeMainProcess(): Promise<void> {
       // BridgeManager.restart()), so a `bridge.fixedPort`/`instanceId` change
       // takes effect without a full app restart.
       bridgeSettings: settingsManager.get().bridge,
+      shouldConfirmBridgeDownloads: () =>
+        settingsManager.get().bridge.confirmDownloads,
+      confirmBridgeDownload: async (info: { name: string; origin: string }) => {
+        const { dialog } = await import('electron')
+        const win = windowManager?.get('main')
+        if (!win) return false
+        const { response } = await dialog.showMessageBox(win, {
+          type: 'question',
+          buttons: [
+            i18n.t('bridge.confirm.download'),
+            i18n.t('bridge.confirm.cancel'),
+          ],
+          defaultId: 0,
+          cancelId: 1,
+          title: i18n.t('bridge.confirm.title'),
+          message: i18n.t('bridge.confirm.message', { name: info.name }),
+          detail: i18n.t('bridge.confirm.detail', { origin: info.origin }),
+          noLink: true,
+        })
+        return response === 0
+      },
       bridgeDataDirLockRecoveryAuthority,
       eventBus,
       createTaskDeps,

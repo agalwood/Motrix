@@ -105,10 +105,17 @@ import { bootstrapBridge } from './index'
 function args(): Parameters<typeof bootstrapBridge>[0] {
   return {
     getMainWindow: () => null,
+    shouldConfirmBridgeDownloads: () => false,
+    confirmBridgeDownload: async () => true,
+
     motrixVersion: '2.0-test',
     ffmpegAvailable: false,
     enabled: true,
-    bridgeSettings: { fixedPort: 'auto', instanceId: 'test-instance-id' },
+    bridgeSettings: {
+      fixedPort: 'auto',
+      instanceId: 'test-instance-id',
+      confirmDownloads: false,
+    },
     bridgeDataDirLockRecoveryAuthority: {
       ownershipEpoch: 'T'.repeat(43),
       assertExclusiveProcessOwnership: () => true,
@@ -1514,7 +1521,11 @@ describe('desktop bridge bootstrap ownership', () => {
     it('reflects a pinned fixedPort and instanceId from persisted bridge settings', async () => {
       const runtime = await bootstrapBridge({
         ...args(),
-        bridgeSettings: { fixedPort: 18080, instanceId: 'pinned-instance' },
+        bridgeSettings: {
+          fixedPort: 18080,
+          instanceId: 'pinned-instance',
+          confirmDownloads: false,
+        },
       })
       expect(runtime).not.toBeNull()
       if (!runtime) return

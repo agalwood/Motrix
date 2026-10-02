@@ -1,6 +1,8 @@
 export const Commands = {
   SetCompletionShutdown: 'command:setCompletionShutdown',
   SaveDownloadsSettings: 'command:saveDownloadsSettings',
+  ConfirmBridgeDownload: 'command:confirmBridgeDownload',
+  CancelBridgeDownload: 'command:cancelBridgeDownload',
   PauseTask: 'command:pauseTask',
   ResumeTask: 'command:resumeTask',
   RemoveTask: 'command:removeTask',

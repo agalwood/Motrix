@@ -9,6 +9,15 @@ export interface WindowMaximizedChangedPayload {
   fullscreen: boolean
 }
 
+export interface BridgeDownloadConfirmationPayload {
+  taskId: string
+  /** Human-readable file name from the submission. */
+  name: string
+  /** Primary URL origin, e.g. https://shady.example. */
+  origin: string
+  totalSizeBytes?: number
+}
+
 export const Events = {
   CompletionShutdownChanged: 'event:completionShutdownChanged',
   TaskUpdated: 'event:taskUpdated',

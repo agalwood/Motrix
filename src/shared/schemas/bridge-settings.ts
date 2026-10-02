@@ -15,6 +15,9 @@ export const bridgeSettingsSchema = z.object({
   // routing hint the extension uses to pick which candidate port to try
   // first (docs/bridge-pairing-protocol.md §4.1) — NOT a security signal.
   instanceId: z.string().catch(''),
+  // When true, downloads submitted by browser extensions start PAUSED and a
+  // confirmation dialog is shown in the app before they run (#995/#651).
+  confirmDownloads: z.boolean().catch(false),
 })
 
 export type BridgeSettings = z.infer<typeof bridgeSettingsSchema>

@@ -127,6 +127,21 @@ export interface BridgeReceiverDeps {
     typeof MediaTaskCoordinator
   >[0]['runTaskMutation']
   /**
+   * When true (bridge.confirmDownloads), extension-submitted downloads wait
+   * for a user confirmation before the task is created (#995). Optional so
+   * tests and shells without the setting omit it.
+   */
+  shouldConfirmBridgeDownloads?: () => boolean
+  /**
+   * Native confirmation prompt shown before the task is created. Resolves
+   * true when the user accepts the download. Required whenever
+   * shouldConfirmBridgeDownloads can return true.
+   */
+  confirmBridgeDownload?: (info: {
+    name: string
+    origin: string
+  }) => Promise<boolean>
+  /**
    * Optional override for manifest fetching. Defaults to the real fetchManifest.
    * Inject a stub in tests to avoid network calls.
    */
@@ -173,6 +188,19 @@ export interface BridgeReceiverDeps {
  * progress / completion / error events flow asynchronously via
  * BridgeEventBus.
  */
+/** Best-effort origin extraction that tolerates every adapted shape. */
+function safeOrigin(adapted: Record<string, unknown>): string {
+  const url = (adapted.primaryUrl ?? adapted.videoUrl ?? adapted.pageUrl) as
+    | string
+    | undefined
+  if (!url) return ''
+  try {
+    return new URL(url).origin
+  } catch {
+    return ''
+  }
+}
+
 export class BridgeReceiver {
   private readonly adapter: SubmitDownloadAdapter
   private readonly direct: DirectPipeline
@@ -342,6 +370,25 @@ export class BridgeReceiver {
       extensionId: identity.extensionId,
       browser: identity.browser,
     })
+
+    // #995: with bridge.confirmDownloads on, ask before the task exists —
+    // a rejection surfaces to the extension as 'cancelled' and nothing is
+    // ever created, so there is no pause/resume race to police.
+    if (
+      this.deps.shouldConfirmBridgeDownloads?.() &&
+      this.deps.confirmBridgeDownload
+    ) {
+      const confirmed = await this.deps.confirmBridgeDownload({
+        name:
+          'finalName' in adapted
+            ? adapted.finalName
+            : params.meta.suggestedFilename,
+        origin: safeOrigin(adapted as unknown as Record<string, unknown>),
+      })
+      if (!confirmed) {
+        throw new BridgeReceiverError('cancelled', 'Download rejected by user')
+      }
+    }
 
     const result = await this.dispatchAdapted(adapted, params)
     // A history-write failure must never turn an accepted task into a retry.
