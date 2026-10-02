@@ -57,6 +57,7 @@ describe('disclaimer IPC', () => {
     await expect(handlers[Queries.GetDisclaimerState]?.()).resolves.toEqual({
       language: 'en-US',
       resolvedLanguage: 'en-US',
+      disclaimerAccepted: false,
     })
   })
 
@@ -87,6 +88,7 @@ describe('disclaimer IPC', () => {
     await expect(handlers[Queries.GetDisclaimerState]?.()).resolves.toEqual({
       language: 'system',
       resolvedLanguage: 'en-US',
+      disclaimerAccepted: false,
     })
     deps.applyLocale.mockRejectedValueOnce(
       new Error('locale application failed')
@@ -108,6 +110,28 @@ describe('disclaimer IPC', () => {
     expect(deps.gate.accept.mock.invocationCallOrder[0]).toBeLessThan(
       deps.windowManager.close.mock.invocationCallOrder[0] ?? 0
     )
+  })
+
+  it('waits for the legacy choice after persisted acceptance', async () => {
+    const deps = { ...createDeps(), onAccepted: vi.fn(async () => true) }
+    const handlers = buildDisclaimerHandlers(deps)
+    await expect(handlers[Commands.AcceptDisclaimer]?.()).resolves.toEqual({
+      ok: true,
+      legacyImportPending: true,
+    })
+    expect(deps.onAccepted).toHaveBeenCalledOnce()
+    expect(deps.gate.accept.mock.invocationCallOrder[0]).toBeLessThan(
+      deps.onAccepted.mock.invocationCallOrder[0] ?? 0
+    )
+    expect(deps.windowManager.open).not.toHaveBeenCalled()
+    expect(deps.windowManager.close).not.toHaveBeenCalled()
+  })
+
+  it('never detects sources when the agreement is declined', async () => {
+    const deps = { ...createDeps(), onAccepted: vi.fn(async () => true) }
+    await buildDisclaimerHandlers(deps)[Commands.DeclineDisclaimer]?.()
+    expect(deps.onAccepted).not.toHaveBeenCalled()
+    expect(deps.quitApp).toHaveBeenCalledOnce()
   })
 
   it('does not open main when shutdown starts during acceptance', async () => {

@@ -1,4 +1,7 @@
 export const Queries = {
+  DiscoverLegacyImport: 'query:discoverLegacyImport',
+  ScanLegacyImport: 'query:scanLegacyImport',
+  GetLegacyImportRun: 'query:getLegacyImportRun',
   GetCompletionShutdown: 'query:getCompletionShutdown',
   GetDownloadsSettingsDraft: 'query:getDownloadsSettingsDraft',
   GetDisclaimerState: 'query:getDisclaimerState',

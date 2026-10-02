@@ -72,7 +72,7 @@ export function canPause(t: DownloadTask): boolean {
 }
 
 export function canResume(t: DownloadTask): boolean {
-  return t.status === TaskStatus.Paused
+  return t.status === TaskStatus.Paused && !isLegacyImportInactive(t)
 }
 
 /** A completed task whose published output is a single file. */
@@ -112,6 +112,7 @@ export function canStopSeeding(t: DownloadTask): boolean {
 
 export function canReseed(t: DownloadTask): boolean {
   return (
+    !isLegacyImportInactive(t) &&
     t.status === TaskStatus.Completed &&
     isTorrentLikeType(t.type) &&
     t.torrentMetaPath != null
@@ -119,7 +120,10 @@ export function canReseed(t: DownloadTask): boolean {
 }
 
 export function canRetry(t: DownloadTask): boolean {
-  return t.status === TaskStatus.Error || t.status === TaskStatus.Removed
+  return (
+    !isLegacyImportInactive(t) &&
+    (t.status === TaskStatus.Error || t.status === TaskStatus.Removed)
+  )
 }
 
 export function canRemove(t: DownloadTask): boolean {
@@ -242,4 +246,12 @@ export function getTaskRetryKind(t: DownloadTask): TaskRetryKind | null {
  *  engine dispatch can be rebuilt from the persisted record. */
 export function canAttemptRetry(t: DownloadTask): boolean {
   return getTaskRetryKind(t) !== null
+}
+
+export function isLegacyImportInactive(
+  t: Pick<DownloadTask, 'instances'>
+): boolean {
+  return (t.instances ?? []).some((instance) =>
+    Object.hasOwn(instance.payload ?? {}, 'legacyImport')
+  )
 }

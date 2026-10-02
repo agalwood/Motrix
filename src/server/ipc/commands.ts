@@ -109,6 +109,7 @@ import type { ServerDownloadPathPolicy } from '../download-path-policy'
 import type { ServerPluginInstallService } from '../plugin/install-service'
 import type { createServerProxyApplier } from '../proxy/wiring'
 import type { ServerDirectoryService } from '../server-directory-service'
+import { unsupportedLegacyImportCommands } from './legacy-import'
 
 export interface ServerCommandContext {
   supervisor: EngineSupervisor
@@ -419,6 +420,7 @@ export function buildServerCommandHandlers(
       manualMediaMerge.get(value),
     [Commands.CancelMediaMerge]: async (value: unknown) =>
       manualMediaMerge.cancel(value),
+    ...unsupportedLegacyImportCommands(),
     [Commands.InstallFfmpeg]: async (payload: unknown) => {
       z.undefined().parse(payload)
       return { ok: false, error: 'unsupported' }

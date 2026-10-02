@@ -209,9 +209,30 @@ export const addTaskUrlParamsSchema = z.object({
 })
 export type AddTaskUrlParams = z.infer<typeof addTaskUrlParamsSchema>
 
-// ── Event payloads (reused from URL params + runtime validation) ─
+// A draft can be incomplete (including an explicitly empty torrent selection).
+// Submission still goes through addTaskFormSchema and taskCreateRequestSchema.
+export const addTaskPrefillSchema = z.discriminatedUnion('tab', [
+  linksTabSchema
+    .partial()
+    .extend({ tab: z.literal('links') })
+    .strict(),
+  z
+    .object({
+      ...torrentTabSchema.shape,
+      base64: z.string().max(MAX_TORRENT_BASE64_SIZE).optional(),
+      selectedFiles: z.array(z.number().int().nonnegative()).max(10000),
+    })
+    .partial()
+    .extend({ tab: z.literal('torrent') })
+    .strict(),
+])
 
-export const setAddTaskModeEventPayloadSchema = addTaskUrlParamsSchema
+// ── Event payloads (URL opens and validated in-app form drafts) ─
+
+export const setAddTaskModeEventPayloadSchema = z.union([
+  addTaskPrefillSchema,
+  addTaskUrlParamsSchema.strict(),
+])
 
 export const magnetFileSelectionPayloadSchema = z.object({
   // Plan B Task 3: motrixId of the persisted magnet_metadata_resolution
@@ -365,6 +386,14 @@ export function urlParamsToFormDefaults(
     urls: p.url ?? '',
     saveDir: p.saveDir,
   }
+}
+
+export function addTaskModeToFormDefaults(
+  payload: z.infer<typeof setAddTaskModeEventPayloadSchema>
+): Partial<AddTaskFormValues> {
+  return 'tab' in payload
+    ? payload
+    : (urlParamsToFormDefaults(payload) as Partial<AddTaskFormValues>)
 }
 
 export function encodeUrlParams(p: AddTaskUrlParams): Record<string, string> {

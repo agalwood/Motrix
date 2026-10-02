@@ -22,11 +22,11 @@ import {
 } from '@shared/constants/add-task'
 import { Events } from '@shared/protocol/events'
 import {
+  addTaskModeToFormDefaults,
   magnetFileSelectionPayloadSchema,
   magnetFileSelectionSettledPayloadSchema,
   protocolTorrentFilePayloadSchema,
   setAddTaskModeEventPayloadSchema,
-  urlParamsToFormDefaults,
 } from '@shared/schemas/add-task'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -141,7 +141,7 @@ export function AddTaskDialogHost() {
     const onSetMode = (...args: unknown[]) => {
       const p = setAddTaskModeEventPayloadSchema.safeParse(args[0])
       if (!p.success) return
-      openWith(urlParamsToFormDefaults(p.data))
+      openWith(addTaskModeToFormDefaults(p.data))
     }
 
     transport.on(Events.MagnetFileSelection, onMagnet)

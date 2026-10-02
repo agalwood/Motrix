@@ -24,12 +24,16 @@ import {
   TabsList,
   TabsTrigger,
 } from '@renderer/components/ui/tabs'
+import { LegacyFreshDownload } from '@renderer/features/legacy-import/legacy-fresh-download'
 import { createTaskInspectorActivitySnapshotCache } from '@renderer/hooks/use-task-inspector-activity'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskType } from '@shared/types/task'
-import { canInspectPieces } from '@shared/types/task-actions'
+import {
+  canInspectPieces,
+  isLegacyImportInactive,
+} from '@shared/types/task-actions'
 import { useCallback, useLayoutEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ActivityTab } from './inspector/activity-tab'
@@ -224,6 +228,12 @@ export function TaskInspectorDrawer({
                     </TabsTrigger>
                   </TabsList>
                   <TabsContent value="overview" className="min-h-0">
+                    {__MOTRIX_TARGET__ === 'electron' &&
+                      isLegacyImportInactive(single) && (
+                        <div className="mb-4">
+                          <LegacyFreshDownload task={single} />
+                        </div>
+                      )}
                     <OverviewTab
                       task={single}
                       snapshotCache={activitySnapshotCache}

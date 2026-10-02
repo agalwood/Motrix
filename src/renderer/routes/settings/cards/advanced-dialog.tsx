@@ -45,6 +45,7 @@ import {
 } from '@renderer/components/ui/select'
 import { Separator } from '@renderer/components/ui/separator'
 import { Switch } from '@renderer/components/ui/switch'
+import { LegacyImportDialog } from '@renderer/features/legacy-import/legacy-import-dialog'
 import { pickDirty } from '@renderer/lib/form-utils'
 import { saveSettings } from '@renderer/lib/settings-save'
 import { DEFAULT_ENGINE_SETTINGS } from '@shared/schemas'
@@ -82,6 +83,7 @@ export function AdvancedDialog({
   labelKey,
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
+  const [legacyImportOpen, setLegacyImportOpen] = useState(false)
   const [historyModeOverride, setHistoryModeOverride] =
     useState<HistoryRetentionMode | null>(null)
   const historyModeRef = useRef<HistoryRetentionMode | null>(null)
@@ -158,372 +160,405 @@ export function AdvancedDialog({
   const persistenceOn = form.watch('sqlite3Persistence')
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v, details) => {
-        if (!v) {
-          if (form.formState.isSubmitting) details.cancel()
-          else onClose()
-        }
-      }}
-    >
-      <DialogContent
-        className="flex max-h-[85vh] flex-col gap-0 p-0 sm:max-w-[700px]"
-        initialFocus={false}
+    <>
+      <Dialog
+        open={open}
+        onOpenChange={(v, details) => {
+          if (!v) {
+            if (form.formState.isSubmitting) details.cancel()
+            else onClose()
+          }
+        }}
       >
-        <DialogHeader className="shrink-0 px-6 pt-6">
-          <DialogTitle>{t(labelKey)}</DialogTitle>
-          <DialogDescription>
-            {t('settings.advanced.description')}
-          </DialogDescription>
-        </DialogHeader>
+        <DialogContent
+          className="flex max-h-[85vh] flex-col gap-0 p-0 sm:max-w-[700px]"
+          initialFocus={false}
+        >
+          <DialogHeader className="shrink-0 px-6 pt-6">
+            <DialogTitle>{t(labelKey)}</DialogTitle>
+            <DialogDescription>
+              {t('settings.advanced.description')}
+            </DialogDescription>
+          </DialogHeader>
 
-        <ScrollArea className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <ScrollAreaViewport
-            tabIndex={-1}
-            className="min-h-0 flex-1 overscroll-contain"
-          >
-            <ScrollAreaContent
-              className="px-6 py-4"
-              style={{ minWidth: '100%' }}
+          <ScrollArea className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <ScrollAreaViewport
+              tabIndex={-1}
+              className="min-h-0 flex-1 overscroll-contain"
             >
-              <SettingsLoadStatus {...load} />
-              <Form {...form}>
-                <form noValidate onSubmit={onSubmit}>
-                  <fieldset
-                    inert={!load.ready || form.formState.isSubmitting}
-                    disabled={!load.ready || form.formState.isSubmitting}
-                    className="min-w-0 space-y-4"
-                  >
-                    <h3 className="text-sm font-semibold text-foreground">
-                      {t('settings.advanced.rpc.title')}
-                    </h3>
+              <ScrollAreaContent
+                className="px-6 py-4"
+                style={{ minWidth: '100%' }}
+              >
+                <SettingsLoadStatus {...load} />
+                <Form {...form}>
+                  <form noValidate onSubmit={onSubmit}>
+                    <fieldset
+                      inert={!load.ready || form.formState.isSubmitting}
+                      disabled={!load.ready || form.formState.isSubmitting}
+                      className="min-w-0 space-y-4"
+                    >
+                      <h3 className="text-sm font-semibold text-foreground">
+                        {t('settings.advanced.rpc.title')}
+                      </h3>
 
-                    <FormField
-                      control={form.control}
-                      name="rpcPort"
-                      render={({ field }) => (
-                        <SettingsFormRow>
-                          <div className="space-y-1">
-                            <FormLabel>
-                              {t('settings.advanced.rpc.port')}
-                            </FormLabel>
-                            <FormDescription className="text-xs">
-                              {t('settings.advanced.rpc.portDesc')}
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              type="number"
-                              min={1024}
-                              max={65535}
-                              className="w-30 h-8"
-                              value={
-                                Number.isFinite(field.value) ? field.value : ''
-                              }
-                              onChange={(event) =>
-                                field.onChange(event.target.valueAsNumber)
-                              }
-                            />
-                          </FormControl>
-                        </SettingsFormRow>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="rpcSecret"
-                      render={({ field }) => (
-                        <FormItem className="space-y-2">
-                          <div className="space-y-1">
-                            <FormLabel>
-                              {t('settings.advanced.rpc.secret')}
-                            </FormLabel>
-                            <FormDescription className="text-xs">
-                              {t('settings.advanced.rpc.secretDesc')}
-                            </FormDescription>
-                          </div>
-                          <div className="flex gap-2">
+                      <FormField
+                        control={form.control}
+                        name="rpcPort"
+                        render={({ field }) => (
+                          <SettingsFormRow>
+                            <div className="space-y-1">
+                              <FormLabel>
+                                {t('settings.advanced.rpc.port')}
+                              </FormLabel>
+                              <FormDescription className="text-xs">
+                                {t('settings.advanced.rpc.portDesc')}
+                              </FormDescription>
+                            </div>
                             <FormControl>
-                              <PasswordInput
+                              <Input
                                 {...field}
-                                value={field.value}
-                                onChange={field.onChange}
-                                onBlur={field.onBlur}
-                                showPasswordLabel={t(
-                                  'settings.common.showSecret'
-                                )}
-                                hidePasswordLabel={t(
-                                  'settings.common.hideSecret'
-                                )}
-                                className="flex-1"
+                                type="number"
+                                min={1024}
+                                max={65535}
+                                className="w-30 h-8"
+                                value={
+                                  Number.isFinite(field.value)
+                                    ? field.value
+                                    : ''
+                                }
+                                onChange={(event) =>
+                                  field.onChange(event.target.valueAsNumber)
+                                }
                               />
                             </FormControl>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              aria-label={t('settings.common.generate')}
-                              onClick={() =>
-                                field.onChange(generateRpcSecret())
-                              }
-                            >
-                              <RandomizeIcon className="h-3 w-3" />
-                            </Button>
-                          </div>
-                          <FormMessage className="basis-full text-xs" />
-                        </FormItem>
-                      )}
-                    />
+                          </SettingsFormRow>
+                        )}
+                      />
 
-                    <Separator className="my-4" />
-
-                    <h3 className="text-sm font-semibold text-foreground">
-                      {t('settings.advanced.persistence.title')}
-                    </h3>
-
-                    <FormField
-                      control={form.control}
-                      name="sqlite3Persistence"
-                      render={({ field }) => (
-                        <SettingsFormRow>
-                          <div className="space-y-1">
-                            <FormLabel>
-                              {t('settings.advanced.persistence.enable')}
-                            </FormLabel>
-                            <FormDescription className="text-xs">
-                              {t('settings.advanced.persistence.enableDesc')}
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </SettingsFormRow>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="sqlite3DbPath"
-                      render={({ field }) => (
-                        <SettingsFormRow>
-                          <div className="space-y-1">
-                            <FormLabel>
-                              {t('settings.advanced.persistence.dbPath')}
-                            </FormLabel>
-                            <FormDescription className="text-xs">
-                              {t('settings.advanced.persistence.dbPathDesc')}
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              className="w-56 h-8"
-                              placeholder={t(
-                                'settings.advanced.persistence.dbPathPlaceholder'
-                              )}
-                              disabled={
-                                !persistenceOn &&
-                                !form.formState.errors.sqlite3DbPath
-                              }
-                              value={field.value}
-                              onChange={field.onChange}
-                            />
-                          </FormControl>
-                        </SettingsFormRow>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="sqlite3HistoryLimit"
-                      render={({ field, fieldState }) => {
-                        const disabled = !persistenceOn && !fieldState.error
-                        return (
-                          <FormItem className="space-y-3">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="space-y-1">
-                                <FormLabel>
-                                  {t(
-                                    'settings.advanced.persistence.historyLimit'
+                      <FormField
+                        control={form.control}
+                        name="rpcSecret"
+                        render={({ field }) => (
+                          <FormItem className="space-y-2">
+                            <div className="space-y-1">
+                              <FormLabel>
+                                {t('settings.advanced.rpc.secret')}
+                              </FormLabel>
+                              <FormDescription className="text-xs">
+                                {t('settings.advanced.rpc.secretDesc')}
+                              </FormDescription>
+                            </div>
+                            <div className="flex gap-2">
+                              <FormControl>
+                                <PasswordInput
+                                  {...field}
+                                  value={field.value}
+                                  onChange={field.onChange}
+                                  onBlur={field.onBlur}
+                                  showPasswordLabel={t(
+                                    'settings.common.showSecret'
                                   )}
-                                </FormLabel>
-                                <FormDescription className="text-xs">
-                                  {t(
-                                    'settings.advanced.persistence.historyLimitDesc'
+                                  hidePasswordLabel={t(
+                                    'settings.common.hideSecret'
                                   )}
-                                </FormDescription>
-                              </div>
-                              <Select
-                                items={historyModeOptions}
-                                value={historyMode}
-                                disabled={disabled}
-                                onValueChange={(
-                                  next: HistoryRetentionMode | null
-                                ) => {
-                                  if (!next) return
-                                  historyModeRef.current = next
-                                  setHistoryModeOverride(next)
-                                  form.setValue(
-                                    'sqlite3HistoryLimit',
-                                    next === 'all'
-                                      ? -1
-                                      : next === 'session'
-                                        ? 0
-                                        : lastHistoryCount.current,
-                                    {
-                                      shouldDirty: true,
-                                      shouldValidate: true,
-                                    }
-                                  )
-                                }}
+                                  className="flex-1"
+                                />
+                              </FormControl>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                aria-label={t('settings.common.generate')}
+                                onClick={() =>
+                                  field.onChange(generateRpcSecret())
+                                }
                               >
-                                <FormControl>
-                                  <SettingsSelectTrigger
-                                    ref={
-                                      historyMode === 'limited'
-                                        ? undefined
-                                        : field.ref
+                                <RandomizeIcon className="h-3 w-3" />
+                              </Button>
+                            </div>
+                            <FormMessage className="basis-full text-xs" />
+                          </FormItem>
+                        )}
+                      />
+
+                      <Separator className="my-4" />
+
+                      <h3 className="text-sm font-semibold text-foreground">
+                        {t('settings.advanced.persistence.title')}
+                      </h3>
+
+                      <FormField
+                        control={form.control}
+                        name="sqlite3Persistence"
+                        render={({ field }) => (
+                          <SettingsFormRow>
+                            <div className="space-y-1">
+                              <FormLabel>
+                                {t('settings.advanced.persistence.enable')}
+                              </FormLabel>
+                              <FormDescription className="text-xs">
+                                {t('settings.advanced.persistence.enableDesc')}
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </SettingsFormRow>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="sqlite3DbPath"
+                        render={({ field }) => (
+                          <SettingsFormRow>
+                            <div className="space-y-1">
+                              <FormLabel>
+                                {t('settings.advanced.persistence.dbPath')}
+                              </FormLabel>
+                              <FormDescription className="text-xs">
+                                {t('settings.advanced.persistence.dbPathDesc')}
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                className="w-56 h-8"
+                                placeholder={t(
+                                  'settings.advanced.persistence.dbPathPlaceholder'
+                                )}
+                                disabled={
+                                  !persistenceOn &&
+                                  !form.formState.errors.sqlite3DbPath
+                                }
+                                value={field.value}
+                                onChange={field.onChange}
+                              />
+                            </FormControl>
+                          </SettingsFormRow>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="sqlite3HistoryLimit"
+                        render={({ field, fieldState }) => {
+                          const disabled = !persistenceOn && !fieldState.error
+                          return (
+                            <FormItem className="space-y-3">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="space-y-1">
+                                  <FormLabel>
+                                    {t(
+                                      'settings.advanced.persistence.historyLimit'
+                                    )}
+                                  </FormLabel>
+                                  <FormDescription className="text-xs">
+                                    {t(
+                                      'settings.advanced.persistence.historyLimitDesc'
+                                    )}
+                                  </FormDescription>
+                                </div>
+                                <Select
+                                  items={historyModeOptions}
+                                  value={historyMode}
+                                  disabled={disabled}
+                                  onValueChange={(
+                                    next: HistoryRetentionMode | null
+                                  ) => {
+                                    if (!next) return
+                                    historyModeRef.current = next
+                                    setHistoryModeOverride(next)
+                                    form.setValue(
+                                      'sqlite3HistoryLimit',
+                                      next === 'all'
+                                        ? -1
+                                        : next === 'session'
+                                          ? 0
+                                          : lastHistoryCount.current,
+                                      {
+                                        shouldDirty: true,
+                                        shouldValidate: true,
+                                      }
+                                    )
+                                  }}
+                                >
+                                  <FormControl>
+                                    <SettingsSelectTrigger
+                                      ref={
+                                        historyMode === 'limited'
+                                          ? undefined
+                                          : field.ref
+                                      }
+                                      onBlur={field.onBlur}
+                                      className="shrink-0"
+                                    >
+                                      <SelectValue />
+                                    </SettingsSelectTrigger>
+                                  </FormControl>
+                                  <SelectContent position="popper" align="end">
+                                    <SelectGroup>
+                                      {historyModeOptions.map((option) => (
+                                        <SelectItem
+                                          key={option.value}
+                                          value={option.value}
+                                        >
+                                          {option.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectGroup>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              {historyMode === 'limited' && (
+                                <div className="flex items-start justify-between gap-4 border-s border-border/60 ps-4">
+                                  <div className="space-y-1">
+                                    <Label htmlFor={historyCountId}>
+                                      {t(
+                                        'settings.advanced.persistence.historyCount'
+                                      )}
+                                    </Label>
+                                    <p
+                                      id={historyCountHintId}
+                                      className="text-xs text-muted-foreground"
+                                    >
+                                      {t(
+                                        'settings.advanced.persistence.historyCountHint'
+                                      )}
+                                    </p>
+                                  </div>
+                                  <Input
+                                    id={historyCountId}
+                                    ref={field.ref}
+                                    name={field.name}
+                                    type="number"
+                                    min={1}
+                                    max={1000000}
+                                    step={1}
+                                    className="w-30 h-8 shrink-0"
+                                    disabled={disabled}
+                                    aria-invalid={Boolean(fieldState.error)}
+                                    aria-describedby={`${historyCountHintId}${fieldState.error ? ` ${historyErrorId}` : ''}`}
+                                    value={
+                                      Number.isFinite(field.value)
+                                        ? field.value
+                                        : ''
                                     }
                                     onBlur={field.onBlur}
-                                    className="shrink-0"
-                                  >
-                                    <SelectValue />
-                                  </SettingsSelectTrigger>
-                                </FormControl>
-                                <SelectContent position="popper" align="end">
-                                  <SelectGroup>
-                                    {historyModeOptions.map((option) => (
-                                      <SelectItem
-                                        key={option.value}
-                                        value={option.value}
-                                      >
-                                        {option.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectGroup>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            {historyMode === 'limited' && (
-                              <div className="flex items-start justify-between gap-4 border-s border-border/60 ps-4">
-                                <div className="space-y-1">
-                                  <Label htmlFor={historyCountId}>
-                                    {t(
-                                      'settings.advanced.persistence.historyCount'
-                                    )}
-                                  </Label>
-                                  <p
-                                    id={historyCountHintId}
-                                    className="text-xs text-muted-foreground"
-                                  >
-                                    {t(
-                                      'settings.advanced.persistence.historyCountHint'
-                                    )}
-                                  </p>
+                                    onChange={(event) => {
+                                      historyModeRef.current = 'limited'
+                                      setHistoryModeOverride('limited')
+                                      field.onChange(event.target.valueAsNumber)
+                                    }}
+                                  />
                                 </div>
-                                <Input
-                                  id={historyCountId}
-                                  ref={field.ref}
-                                  name={field.name}
-                                  type="number"
-                                  min={1}
-                                  max={1000000}
-                                  step={1}
-                                  className="w-30 h-8 shrink-0"
-                                  disabled={disabled}
-                                  aria-invalid={Boolean(fieldState.error)}
-                                  aria-describedby={`${historyCountHintId}${fieldState.error ? ` ${historyErrorId}` : ''}`}
-                                  value={
-                                    Number.isFinite(field.value)
-                                      ? field.value
-                                      : ''
-                                  }
-                                  onBlur={field.onBlur}
-                                  onChange={(event) => {
-                                    historyModeRef.current = 'limited'
-                                    setHistoryModeOverride('limited')
-                                    field.onChange(event.target.valueAsNumber)
-                                  }}
-                                />
-                              </div>
-                            )}
-                            {fieldState.error && (
-                              <div id={historyErrorId}>
-                                <FormMessage className="text-xs" />
-                              </div>
-                            )}
-                          </FormItem>
-                        )
-                      }}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="sessionSaveInterval"
-                      render={({ field }) => (
-                        <SettingsFormRow>
-                          <div className="space-y-1">
-                            <FormLabel>
-                              {t('settings.downloads.disk.sessionSaveInterval')}
-                            </FormLabel>
-                            <FormDescription className="text-xs">
-                              {t(
-                                'settings.downloads.disk.sessionSaveIntervalDesc'
                               )}
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              type="number"
-                              min={10}
-                              max={3600}
-                              className="w-30 h-8"
-                              onChange={(e) =>
-                                field.onChange(e.target.valueAsNumber)
-                              }
-                            />
-                          </FormControl>
-                        </SettingsFormRow>
-                      )}
-                    />
-                  </fieldset>
-                </form>
-              </Form>
-            </ScrollAreaContent>
-          </ScrollAreaViewport>
-          <ScrollBar />
-        </ScrollArea>
+                              {fieldState.error && (
+                                <div id={historyErrorId}>
+                                  <FormMessage className="text-xs" />
+                                </div>
+                              )}
+                            </FormItem>
+                          )
+                        }}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="sessionSaveInterval"
+                        render={({ field }) => (
+                          <SettingsFormRow>
+                            <div className="space-y-1">
+                              <FormLabel>
+                                {t(
+                                  'settings.downloads.disk.sessionSaveInterval'
+                                )}
+                              </FormLabel>
+                              <FormDescription className="text-xs">
+                                {t(
+                                  'settings.downloads.disk.sessionSaveIntervalDesc'
+                                )}
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                type="number"
+                                min={10}
+                                max={3600}
+                                className="w-30 h-8"
+                                onChange={(e) =>
+                                  field.onChange(e.target.valueAsNumber)
+                                }
+                              />
+                            </FormControl>
+                          </SettingsFormRow>
+                        )}
+                      />
+                    </fieldset>
+                  </form>
+                </Form>
+                {__MOTRIX_TARGET__ === 'electron' && (
+                  <>
+                    <Separator className="my-4" />
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <h3 className="text-sm font-medium">
+                          {t('legacyImport.settingsTitle')}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          {t('legacyImport.settingsDescription')}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setLegacyImportOpen(true)}
+                      >
+                        {t('legacyImport.settingsAction')}
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </ScrollAreaContent>
+            </ScrollAreaViewport>
+            <ScrollBar />
+          </ScrollArea>
 
-        <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
-          {form.formState.errors.root?.save && (
-            <p role="alert" className="me-auto text-xs text-destructive">
-              {form.formState.errors.root.save.message}
-            </p>
-          )}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={form.formState.isSubmitting}
-            onClick={onClose}
-          >
-            {t('common.cancel')}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            onClick={onSubmit}
-            disabled={!load.ready || form.formState.isSubmitting}
-          >
-            {t('common.save')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
+            {form.formState.errors.root?.save && (
+              <p role="alert" className="me-auto text-xs text-destructive">
+                {form.formState.errors.root.save.message}
+              </p>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={form.formState.isSubmitting}
+              onClick={onClose}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={onSubmit}
+              disabled={!load.ready || form.formState.isSubmitting}
+            >
+              {t('common.save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <LegacyImportDialog
+        open={legacyImportOpen}
+        onClose={() => setLegacyImportOpen(false)}
+      />
+    </>
   )
 }

@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { assertLegacyTaskNotActivated } from '@core/legacy-import/legacy-task-policy'
 import { newEngineTaskId } from '@core/lib/ids'
 import type { AppliedDownloadProxyPolicyReader } from '@core/proxy/applied-download-proxy-policy'
 import { admitDownloadSources } from '@core/task/source-admission'
@@ -482,6 +483,7 @@ export async function reAddTask(
   deps: ReAddTaskDeps
 ): Promise<void> {
   const task = deps.taskManager.getById(taskId)
+  if (task) assertLegacyTaskNotActivated(task)
   if (
     task &&
     (task.transitionPhase === TransitionPhase.Renaming ||

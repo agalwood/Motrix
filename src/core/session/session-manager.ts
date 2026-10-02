@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { isInactiveLegacyTask } from '@core/legacy-import/legacy-task-policy'
 import { newEngineTaskId, newTaskId } from '@core/lib/ids'
 import { getLogger } from '@core/logger'
 import type { StagedMetadataOp } from '@core/plugin/hooks/staged-effects'
@@ -658,6 +659,7 @@ export class SessionManager {
 
     for (const pair of persisted) {
       byMotrixId.set(pair.task.motrixId, pair)
+      if (isInactiveLegacyTask(pair)) continue
       if (pair.task.infoHash) {
         const infoHash = pair.task.infoHash.toLowerCase()
         const candidates = tasksByInfoHash.get(infoHash) ?? []
@@ -896,6 +898,13 @@ export class SessionManager {
     //   • Anything else: aria2 truly lost the task; re-add (BT via
     //     adapter.addTorrent with checkIntegrity, HTTP via createDownload).
     for (const pair of persisted) {
+      if (isInactiveLegacyTask(pair)) {
+        this.taskManager.set(
+          pair.task.motrixId,
+          taskRowToDownloadTask(pair.task, pair.instances)
+        )
+        continue
+      }
       if (consumedMotrixIds.has(pair.task.motrixId)) continue
       if (pair.instances.some((i) => i.gid && aria2GidSet.has(i.gid))) continue
 

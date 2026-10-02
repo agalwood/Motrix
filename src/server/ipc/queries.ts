@@ -57,6 +57,7 @@ import type { GetTaskActivityParams } from '@shared/types/task-activity'
 import type { ServerDownloadPathPolicy } from '../download-path-policy'
 import { makeServerFfmpegDetect } from '../plugin/ffmpeg-detect-server'
 import type { ServerDirectoryService } from '../server-directory-service'
+import { unsupportedLegacyImportQueries } from './legacy-import'
 
 const UNSUPPORTED_WEB_CLI_STATUS: CliToolStatus = {
   phase: CliToolPhase.ManualOnly,
@@ -172,6 +173,7 @@ export function buildServerQueryHandlers(
   })
 
   return {
+    ...unsupportedLegacyImportQueries(),
     [Queries.GetFfmpegInstallStatus]: async () => ({
       phase: 'idle',
       bytesReceived: 0,

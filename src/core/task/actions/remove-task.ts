@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { isInactiveLegacyTask } from '@core/legacy-import/legacy-task-policy'
 import { AppError, ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
 import {
@@ -117,6 +118,16 @@ async function removeTaskUnderMutation(
         publish()
       }
     })
+
+  // Imported paths belong to v1; every removal request is metadata-only.
+  if (isInactiveLegacyTask(task)) {
+    await deleteParentBarrier(() => {
+      deps.db.deleteTask(taskId)
+      deps.taskManager.remove(taskId)
+    })
+    deps.publishTaskUpdate()
+    return
+  }
 
   // Plan B Task 4: magnet metadata pending removal — delegate cleanup
   // to MagnetTracker which knows about the metadata temp dir and the

@@ -2,12 +2,12 @@ import { transport } from '@renderer/lib/transport'
 import { Events } from '@shared/protocol/events'
 import {
   type AddTaskFormValues,
+  addTaskModeToFormDefaults,
   magnetFileSelectionPayloadSchema,
   magnetFileSelectionSettledPayloadSchema,
   protocolTorrentFilePayloadSchema,
   setAddTaskModeEventPayloadSchema,
   torrentQueueSizeChangedPayloadSchema,
-  urlParamsToFormDefaults,
 } from '@shared/schemas/add-task'
 import { useEffect } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
@@ -94,7 +94,7 @@ export function useExternalHydration(
       const parsed = setAddTaskModeEventPayloadSchema.safeParse(args[0])
       if (!parsed.success) return
       onTorrentQueueChanged?.(null)
-      const defaults = urlParamsToFormDefaults(parsed.data)
+      const defaults = addTaskModeToFormDefaults(parsed.data)
       const refreshDefaultSaveDir =
         defaults.saveDir === undefined && !form.getFieldState('saveDir').isDirty
       // A mode switch without an explicit saveDir must not wipe whatever

@@ -12,7 +12,9 @@ import type { WindowManager } from '../window/window-manager'
 import { registerTrustedIpcHandler } from './trusted-ipc'
 
 export interface DisclaimerIpcDeps {
-  gate: Pick<DisclaimerGate, 'accept'>
+  gate: Pick<DisclaimerGate, 'accept'> &
+    Partial<Pick<DisclaimerGate, 'isAccepted'>>
+  onAccepted?: () => Promise<boolean>
   getResolvedLanguage: () => SupportedLocale
   applyLocale: (language: LanguagePreference) => Promise<void>
   settings: {
@@ -35,6 +37,7 @@ export function buildDisclaimerHandlers(
     [Queries.GetDisclaimerState]: async () => ({
       language: deps.settings.get().app.language,
       resolvedLanguage: deps.getResolvedLanguage(),
+      disclaimerAccepted: deps.gate.isAccepted?.() ?? false,
     }),
     [Commands.SetDisclaimerLanguage]: async (input: unknown) => {
       const language = languagePreferenceSchema.parse(input)
@@ -44,6 +47,8 @@ export function buildDisclaimerHandlers(
     },
     [Commands.AcceptDisclaimer]: async () => {
       await deps.gate.accept()
+      if (await deps.onAccepted?.())
+        return { ok: true, legacyImportPending: true }
       if (!deps.canContinue()) return { ok: true }
       deps.windowManager.close('onboarding')
       deps.windowManager.open('main', { show: true })
