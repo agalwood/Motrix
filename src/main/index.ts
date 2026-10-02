@@ -726,8 +726,36 @@ function hookAddTaskCloseReset(win: BrowserWindow) {
   })
 }
 
+let protocolNoticeActive = false
+
 const protocolManager = createProtocolManager({
-  getWindow: () => windowManager?.get('main') ?? null,
+  onShowMain: () => windowManager?.show('main'),
+  onNavigate: (route) => {
+    if (!windowManager) return
+    windowManager.show('main')
+    const win = windowManager.get('main')
+    if (!win || win.isDestroyed()) return
+    dispatchWhenReady(win, Events.NavigateTo, route)
+  },
+  onNotice: (notice) => {
+    // Native feedback also works before the renderer subscribes. Coalesce
+    // repeated external clicks while a notice is already on screen.
+    if (protocolNoticeActive) return
+    protocolNoticeActive = true
+    runShellAsyncWork('protocol notice', async () => {
+      try {
+        if (!mainProcessWork.isAccepting()) return
+        windowManager?.show('main')
+        await dialog.showMessageBox({
+          type: 'info',
+          title: i18n.t('protocol.title'),
+          message: i18n.t(`protocol.${notice}`),
+        })
+      } finally {
+        protocolNoticeActive = false
+      }
+    })
+  },
   settingsManager,
   torrentParser,
   // In an AppImage, appimage-integration owns the scheme defaults; don't let

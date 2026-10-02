@@ -2935,5 +2935,17 @@
       "eib": "Eio"
     },
     "perSecond": "{{value}}/s"
+  },
+  "protocol": {
+    "title": "Motrix",
+    "deprecatedScheme": "Le protocole mo:// a été retiré. Utilisez motrix://.",
+    "deprecatedCommand": "Cette action par lien a été retirée. Utilisez les commandes de Motrix.",
+    "unsupportedCommand": "Cette commande de lien n’est pas prise en charge.",
+    "unsupportedParameters": "Ce lien contient des paramètres non pris en charge. Rien n’a été ouvert ni modifié.",
+    "invalidLink": "Ce lien Motrix est invalide.",
+    "invalidSource": "Le lien doit contenir une seule adresse HTTP, HTTPS, FTP ou Magnet valide.",
+    "waitingMerged": "Les tâches en attente figurent désormais dans Actifs. Cette vue a été ouverte.",
+    "stoppedSplit": "Les tâches arrêtées sont classées dans Terminés et Erreurs. Tous les téléchargements ont été ouverts.",
+    "invalidStatus": "Cette catégorie est invalide. Tous les téléchargements ont été ouverts."
   }
 }

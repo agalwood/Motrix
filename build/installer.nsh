@@ -4,7 +4,18 @@
 !define MOTRIX_MAGNET_PROGID "Motrix.Url.Magnet"
 !define MOTRIX_PROTOCOL "motrix"
 
+!macro deleteRetiredMoProtocolHandler ROOT
+  ; Only remove the retired alias when this exact installation owns it.
+  ; Another application (or a separate Motrix install) may now own mo:.
+  ReadRegStr $0 ${ROOT} "Software\Classes\mo\shell\open\command" ""
+  ${if} $0 == '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" "%1"'
+    DeleteRegKey ${ROOT} "Software\Classes\mo"
+  ${endif}
+!macroend
+
 !macro deleteLegacyMotrixProtocolHandlers
+  !insertmacro deleteRetiredMoProtocolHandler HKCU
+  !insertmacro deleteRetiredMoProtocolHandler SHELL_CONTEXT
   ; Electron versions before installer-owned registration wrote URL handlers
   ; into HKCU at runtime. Remove the proprietary scheme unconditionally, then
   ; remove a legacy magnet command only when it names the Motrix executable.
@@ -61,6 +72,7 @@
 !macroend
 
 !macro deleteMotrixDefaultApps
+  !insertmacro deleteRetiredMoProtocolHandler SHELL_CONTEXT
   DeleteRegValue SHELL_CONTEXT "Software\RegisteredApplications" "${MOTRIX_REGISTERED_APP_NAME}"
   DeleteRegKey SHELL_CONTEXT "${MOTRIX_CAPABILITIES_KEY}"
   DeleteRegValue SHELL_CONTEXT "Software\Classes\.torrent\OpenWithProgids" "${MOTRIX_TORRENT_PROGID}"

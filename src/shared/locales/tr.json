@@ -2913,5 +2913,17 @@
       "eib": "EiB"
     },
     "perSecond": "{{value}}/sn"
+  },
+  "protocol": {
+    "title": "Motrix",
+    "deprecatedScheme": "mo:// protokolü kullanımdan kaldırıldı. motrix:// kullanın.",
+    "deprecatedCommand": "Bu bağlantı işlemi kaldırıldı. Motrix içindeki kontrolleri kullanın.",
+    "unsupportedCommand": "Bu bağlantı komutu desteklenmiyor.",
+    "unsupportedParameters": "Bağlantı desteklenmeyen parametreler içeriyor. Hiçbir şey açılmadı veya değiştirilmedi.",
+    "invalidLink": "Bu Motrix bağlantısı geçersiz.",
+    "invalidSource": "Bağlantı tek bir geçerli HTTP, HTTPS, FTP veya Magnet adresi içermelidir.",
+    "waitingMerged": "Bekleyen görevler artık Etkin altında gösteriliyor. Etkin görünümü açıldı.",
+    "stoppedSplit": "Durdurulan görevler Tamamlanan ve Hatalar altında gruplanır. Tüm indirmeler açıldı.",
+    "invalidStatus": "Geçersiz indirme kategorisi. Tüm indirmeler açıldı."
   }
 }

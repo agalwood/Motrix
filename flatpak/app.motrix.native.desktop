@@ -10,4 +10,4 @@ Icon=app.motrix.native
 Terminal=false
 StartupNotify=true
 StartupWMClass=Motrix
-MimeType=application/x-bittorrent;x-scheme-handler/magnet;x-scheme-handler/mo;x-scheme-handler/motrix;
+MimeType=application/x-bittorrent;x-scheme-handler/magnet;x-scheme-handler/motrix;

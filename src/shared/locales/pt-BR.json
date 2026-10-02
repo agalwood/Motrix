@@ -2935,5 +2935,17 @@
       "eib": "EiB"
     },
     "perSecond": "{{value}}/s"
+  },
+  "protocol": {
+    "title": "Motrix",
+    "deprecatedScheme": "O protocolo mo:// foi descontinuado. Use motrix://.",
+    "deprecatedCommand": "Esta ação por link foi descontinuada. Use os controles do Motrix.",
+    "unsupportedCommand": "Este comando de link não é compatível.",
+    "unsupportedParameters": "O link contém parâmetros incompatíveis. Nada foi aberto ou alterado.",
+    "invalidLink": "Este link do Motrix é inválido.",
+    "invalidSource": "O link deve conter um único endereço HTTP, HTTPS, FTP ou Magnet válido.",
+    "waitingMerged": "As tarefas em espera agora aparecem em Ativas. Essa visualização foi aberta.",
+    "stoppedSplit": "As tarefas paradas são agrupadas em Concluídas e Erros. Todos os downloads foram abertos.",
+    "invalidStatus": "A categoria é inválida. Todos os downloads foram abertos."
   }
 }

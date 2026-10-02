@@ -79,7 +79,7 @@
   "protocols": [
     {
       "name": "Motrix Protocol",
-      "schemes": ["motrix", "mo"]
+      "schemes": ["motrix"]
     },
     {
       "name": "Magnet Protocol",

@@ -1,6 +1,7 @@
 import type { CDPSession, ElectronApplication, Page } from '@playwright/test'
 import type { SupportedLocale } from '@shared/constants/locales'
-import { expect, test } from './fixtures/electron-app'
+import { Queries } from '@shared/protocol/queries'
+import { expect, test, waitForQueryHandlers } from './fixtures/electron-app'
 
 interface ActivitySpan {
   w: 1 | 2 | 3 | 4
@@ -267,7 +268,7 @@ async function seedRichActivityHistory(
 async function readActivityFixtureProfile(
   page: Page
 ): Promise<ActivityFixtureProfile> {
-  return page.evaluate(async () => {
+  return page.evaluate(async (channel) => {
     const api = (
       window as unknown as {
         motrix?: {
@@ -293,7 +294,7 @@ async function readActivityFixtureProfile(
         toMs: cursor.getTime(),
       })
     }
-    const snapshot = (await api.invoke('query:getTaskActivity', {
+    const snapshot = (await api.invoke(channel, {
       days,
     })) as {
       days: Array<{
@@ -321,7 +322,7 @@ async function readActivityFixtureProfile(
       else profile.depthDays[3] += 1
     }
     return profile
-  })
+  }, Queries.GetTaskActivity)
 }
 
 async function installDprChangeProbe(page: Page): Promise<void> {
@@ -929,6 +930,7 @@ test.describe('Activity Tile production renderer', () => {
   }, testInfo) => {
     test.setTimeout(300_000)
     await mainWindow.waitForLoadState('domcontentloaded')
+    await waitForQueryHandlers(mainWindow)
     await installDprChangeProbe(mainWindow)
     await electronApp.evaluate(({ BrowserWindow }) => {
       const main = BrowserWindow.getAllWindows().find(

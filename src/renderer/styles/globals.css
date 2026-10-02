@@ -554,16 +554,6 @@ body.is-dashboard-resizing * {
     0% 100%;
 }
 
-.blur-highlight[data-in-view="true"][data-highlight-direction="left"]
-  .blur-highlight-bit {
-  background-position:
-    0% center,
-    left center;
-  background-size:
-    200% 100%,
-    100% 100%;
-}
-
 .blur-highlight[data-highlight-direction="right"] .blur-highlight-bit {
   background-image:
     linear-gradient(
@@ -578,16 +568,6 @@ body.is-dashboard-resizing * {
   background-size:
     200% 100%,
     0% 100%;
-}
-
-.blur-highlight[data-in-view="true"][data-highlight-direction="right"]
-  .blur-highlight-bit {
-  background-position:
-    100% center,
-    right center;
-  background-size:
-    200% 100%,
-    100% 100%;
 }
 
 .blur-highlight[data-highlight-direction="top"] .blur-highlight-bit {
@@ -606,16 +586,6 @@ body.is-dashboard-resizing * {
     100% 0%;
 }
 
-.blur-highlight[data-in-view="true"][data-highlight-direction="top"]
-  .blur-highlight-bit {
-  background-position:
-    center 0%,
-    center top;
-  background-size:
-    100% 200%,
-    100% 100%;
-}
-
 .blur-highlight[data-highlight-direction="bottom"] .blur-highlight-bit {
   background-image:
     linear-gradient(
@@ -630,6 +600,36 @@ body.is-dashboard-resizing * {
   background-size:
     100% 200%,
     100% 0%;
+}
+
+.blur-highlight[data-in-view="true"][data-highlight-direction="left"]
+  .blur-highlight-bit {
+  background-position:
+    0% center,
+    left center;
+  background-size:
+    200% 100%,
+    100% 100%;
+}
+
+.blur-highlight[data-in-view="true"][data-highlight-direction="right"]
+  .blur-highlight-bit {
+  background-position:
+    100% center,
+    right center;
+  background-size:
+    200% 100%,
+    100% 100%;
+}
+
+.blur-highlight[data-in-view="true"][data-highlight-direction="top"]
+  .blur-highlight-bit {
+  background-position:
+    center 0%,
+    center top;
+  background-size:
+    100% 200%,
+    100% 100%;
 }
 
 .blur-highlight[data-in-view="true"][data-highlight-direction="bottom"]

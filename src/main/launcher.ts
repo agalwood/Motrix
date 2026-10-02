@@ -1,6 +1,10 @@
 import { randomBytes } from 'node:crypto'
 import type { BridgeDataDirLockRecoveryAuthority } from '@core/bridge/bridge-data-dir-lock'
 import { getLogger } from '@core/logger'
+import {
+  MAX_APP_DEEP_LINK_BYTES,
+  MAX_PENDING_PROTOCOL_URLS,
+} from '@shared/schemas/app-deep-link'
 import { app } from 'electron'
 
 export interface LauncherCallbacks {
@@ -16,14 +20,15 @@ export interface LauncherHandle {
   flushDeferred: () => void
 }
 
-const SUPPORTED_SCHEMES = ['http:', 'https:', 'ftp:', 'magnet:', 'motrix:']
+// mo: is ingress-only so stale OS associations get a retirement notice.
+const INGRESS_SCHEMES = ['http:', 'https:', 'ftp:', 'magnet:', 'motrix:', 'mo:']
 
 function extractUrlFromArgv(argv: string[]): string | undefined {
   for (let i = 1; i < argv.length; i++) {
     const arg = argv[i]
     if (arg.startsWith('--')) continue
     const lower = arg.toLowerCase()
-    if (SUPPORTED_SCHEMES.some((s) => lower.startsWith(s))) {
+    if (INGRESS_SCHEMES.some((s) => lower.startsWith(s))) {
       return arg
     }
   }
@@ -84,9 +89,16 @@ export function setupLauncher(callbacks: LauncherCallbacks): LauncherHandle {
   let flushed = false
 
   function dispatchUrl(url: string) {
+    if (
+      url.length > MAX_APP_DEEP_LINK_BYTES ||
+      new TextEncoder().encode(url).length > MAX_APP_DEEP_LINK_BYTES
+    ) {
+      // Preserve a bounded invalid request so the user receives feedback.
+      url = 'motrix://invalid/#'
+    }
     if (flushed) {
       callbacks.onProtocolUrl(url)
-    } else {
+    } else if (pendingUrls.length < MAX_PENDING_PROTOCOL_URLS) {
       pendingUrls.push(url)
     }
   }
@@ -111,7 +123,7 @@ export function setupLauncher(callbacks: LauncherCallbacks): LauncherHandle {
 
   // second-instance (Windows/Linux: second launch passes argv)
   app.on('second-instance', (_event, argv) => {
-    log.info({ argv }, 'second instance detected')
+    log.info('second instance detected')
     callbacks.onShowWindow()
 
     if (process.platform !== 'darwin' && argv.length > 1) {
@@ -130,7 +142,7 @@ export function setupLauncher(callbacks: LauncherCallbacks): LauncherHandle {
   // open-url (macOS: system fires this for registered protocol schemes)
   app.on('open-url', (event, url) => {
     event.preventDefault()
-    log.info({ url }, 'open-url event')
+    log.info('open-url event')
     dispatchUrl(url)
   })
 

@@ -8,6 +8,7 @@ import {
   _electron as electron,
   type Page,
 } from '@playwright/test'
+import { Queries } from '@shared/protocol/queries'
 import { CURRENT_SETTINGS_VERSION } from '../../src/core/settings/migrations'
 import { getFreePort } from '../helpers/free-port'
 import { type HttpFixture, startHttpFixture } from './http-server'
@@ -77,6 +78,38 @@ export const test = base.extend<MotrixFixtures>({
     }
   },
 })
+
+/**
+ * Wait for main-process query registration without waiting for engine startup.
+ * The status query is registered in the same batch as the activity query.
+ */
+export async function waitForQueryHandlers(
+  page: Page,
+  timeoutMs = 30_000
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const ready = await page.evaluate(async (channel) => {
+      const api = (
+        window as unknown as {
+          motrix?: { invoke: (channel: string) => Promise<unknown> }
+        }
+      ).motrix
+      if (!api) return false
+      try {
+        await api.invoke(channel)
+        return true
+      } catch (error) {
+        if (String(error).includes(`No handler registered for '${channel}'`))
+          return false
+        throw error
+      }
+    }, Queries.GetEngineStatus)
+    if (ready) return
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  throw new Error(`query handlers were not registered within ${timeoutMs}ms`)
+}
 
 /**
  * Polls the engine status query until the supervisor reports `Ready`.

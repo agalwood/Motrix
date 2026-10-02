@@ -2,6 +2,10 @@ import { TaskStatus } from '@shared/types/task'
 
 export const ALL_DOWNLOADS_ROUTE = '/downloads/all'
 
+export function isDownloadsListRoute(route: string): boolean {
+  return /^\/downloads\/(all|active|completed|error)$/.test(route)
+}
+
 export function isTaskAvailable(
   status: TaskStatus | null | undefined
 ): status is Exclude<TaskStatus, TaskStatus.Removed> {

@@ -2891,5 +2891,17 @@
       "eib": "EiB"
     },
     "perSecond": "{{value}}/秒"
+  },
+  "protocol": {
+    "title": "Motrix",
+    "deprecatedScheme": "mo:// プロトコルは廃止されました。motrix:// を使用してください。",
+    "deprecatedCommand": "このリンク操作は廃止されました。Motrix 内で操作してください。",
+    "unsupportedCommand": "このリンクコマンドはサポートされていません。",
+    "unsupportedParameters": "リンクに未対応のパラメーターがあります。対象を開いたり変更したりしていません。",
+    "invalidLink": "この Motrix リンクは無効です。",
+    "invalidSource": "有効な HTTP、HTTPS、FTP、または Magnet アドレスを1つ指定してください。",
+    "waitingMerged": "待機中のタスクはアクティブに統合されました。アクティブを開きました。",
+    "stoppedSplit": "停止済みタスクは完了とエラーに分類されます。すべてのダウンロードを開きました。",
+    "invalidStatus": "ダウンロードの分類が無効です。すべてのダウンロードを開きました。"
   }
 }

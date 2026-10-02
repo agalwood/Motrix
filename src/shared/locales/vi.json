@@ -2891,5 +2891,17 @@
       "eib": "EiB"
     },
     "perSecond": "{{value}}/giây"
+  },
+  "protocol": {
+    "title": "Motrix",
+    "deprecatedScheme": "Giao thức mo:// đã ngừng hỗ trợ. Hãy dùng motrix://.",
+    "deprecatedCommand": "Thao tác qua liên kết này đã ngừng hỗ trợ. Hãy dùng các điều khiển trong Motrix.",
+    "unsupportedCommand": "Lệnh liên kết này không được hỗ trợ.",
+    "unsupportedParameters": "Liên kết chứa tham số không được hỗ trợ. Không có nội dung nào được mở hoặc thay đổi.",
+    "invalidLink": "Liên kết Motrix không hợp lệ.",
+    "invalidSource": "Liên kết phải chứa một địa chỉ HTTP, HTTPS, FTP hoặc Magnet hợp lệ.",
+    "waitingMerged": "Tác vụ đang chờ nay nằm trong Đang hoạt động. Đã mở chế độ xem này.",
+    "stoppedSplit": "Tác vụ đã dừng được chia thành Hoàn tất và Lỗi. Đã mở tất cả bản tải xuống.",
+    "invalidStatus": "Danh mục tải xuống không hợp lệ. Đã mở tất cả bản tải xuống."
   }
 }

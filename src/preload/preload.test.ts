@@ -57,6 +57,22 @@ describe('preload latest-value replay buffers', () => {
     mocks.listeners.clear()
   })
 
+  it('replays cold-start protocol navigation exactly once to the first subscriber', async () => {
+    await import('./preload')
+    emit(Events.NavigateTo, '/downloads/active')
+    const callback = vi.fn()
+    mocks.exposed?.on(Events.NavigateTo, callback)
+    await Promise.resolve()
+    expect(callback).toHaveBeenCalledExactlyOnceWith('/downloads/active')
+    mocks.exposed?.off(Events.NavigateTo, callback)
+    const remounted = vi.fn()
+    mocks.exposed?.on(Events.NavigateTo, remounted)
+    await Promise.resolve()
+    expect(remounted).not.toHaveBeenCalled()
+    emit(Events.NavigateTo, '/settings/about')
+    expect(remounted).toHaveBeenCalledExactlyOnceWith('/settings/about')
+  })
+
   it('replays only the latest locale change before the renderer subscribes', async () => {
     await import('./preload')
     emit(Events.LocaleChanged, { language: 'zh-CN' })
