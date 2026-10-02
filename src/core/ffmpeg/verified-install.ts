@@ -126,7 +126,7 @@ const releaseApiSchema = z
   .passthrough()
 
 function rootFor(userDataDir: string) {
-  return path.resolve(userDataDir, 'ffmpeg-verified')
+  return path.resolve(userDataDir, 'binaries', 'ffmpeg-verified')
 }
 
 function assertManagedDirectory(directory: string, allowMissing = false) {
@@ -239,6 +239,7 @@ function hashBinary(
 
 function readInstalled(userDataDir: string) {
   const root = rootFor(userDataDir)
+  assertManagedDirectory(path.dirname(root))
   assertManagedDirectory(root)
   const receipt = receiptSchema.parse(
     JSON.parse(
@@ -754,6 +755,7 @@ export async function installVerifiedFfmpeg(options: {
   let staging: string | undefined
   let pointer: string | undefined
   try {
+    assertManagedDirectory(path.dirname(root), true)
     assertManagedDirectory(root, true)
     assertManagedDirectory(path.join(root, 'releases'), true)
     const latestRaw = JSON.parse(
@@ -842,6 +844,7 @@ export async function installVerifiedFfmpeg(options: {
       ),
       true
     )
+    await ensureManagedDirectory(path.dirname(root))
     await ensureManagedDirectory(root)
     await ensureManagedDirectory(path.join(root, 'releases'))
     publish({

@@ -73,6 +73,46 @@ function makeProbe(map: Record<string, FfmpegDetection>) {
 }
 
 describe('detectInOrder', () => {
+  it.each(['', '/custom/ffmpeg'])(
+    'reports the resolved managed path even when manual preference is %s',
+    async (manualPath) => {
+      const binaryPath =
+        '/data/binaries/ffmpeg-verified/releases/hash-darwin-arm64/ffmpeg'
+      const result = await detectInOrder(
+        {
+          manualPath,
+          userDataBinariesDir: '/data/binaries',
+          platform: 'darwin',
+          envPath: null,
+        },
+        makeProbe({
+          '/custom/ffmpeg': {
+            available: true,
+            binaryPath: '/custom/ffmpeg',
+            version: '9.0.1',
+          },
+          '/data/binaries/ffmpeg': {
+            available: true,
+            binaryPath,
+            version: '9.0.2',
+          },
+          ffmpeg: {
+            available: true,
+            binaryPath: '/opt/bin/ffmpeg',
+            version: '8.1.0',
+          },
+        })
+      )
+      expect(result.candidates[1]).toMatchObject({
+        kind: 'userData',
+        path: binaryPath,
+        state: manualPath ? 'available' : 'active',
+      })
+      expect(result.candidates[3].path).toBe('/opt/bin/ffmpeg')
+      expect(result.active?.path).toBe(manualPath || binaryPath)
+    }
+  )
+
   it('manual path wins when present and probes succeed', async () => {
     const probe = makeProbe({
       '/u/bin/ffmpeg': {

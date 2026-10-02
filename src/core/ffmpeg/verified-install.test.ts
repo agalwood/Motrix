@@ -1,11 +1,14 @@
 // @vitest-environment node
 import { sign } from 'node:crypto'
 import {
+  chmod,
   link,
+  lstat,
   mkdir,
   mkdtemp,
   readdir,
   readFile,
+  rename,
   rm,
   symlink,
   writeFile,
@@ -394,15 +397,73 @@ afterEach(async () => {
 })
 
 describe('verified FFmpeg releases', () => {
-  it.each(['root', 'releases', 'version'])(
+  it('creates the missing binaries directory and keeps the verified installation inside it', async () => {
+    const userDataDir = await temp()
+    const binaries = path.join(userDataDir, 'binaries')
+    await expect(lstat(binaries)).rejects.toMatchObject({ code: 'ENOENT' })
+    const release = fixture()
+    await installVerifiedFfmpeg({
+      userDataDir,
+      arch: 'x64',
+      fetcher: release.fetcher,
+    })
+    const info = await lstat(binaries)
+    expect(info.isDirectory()).toBe(true)
+    if (process.platform !== 'win32') expect(info.mode & 0o777).toBe(0o700)
+    expect(await readdir(userDataDir)).toEqual(['binaries'])
+    expect(await readdir(binaries)).toEqual(['ffmpeg-verified'])
+    expect(getFfmpegInstallStatus(userDataDir).directory).toBe(
+      path.join(
+        binaries,
+        'ffmpeg-verified',
+        'releases',
+        `${sha256(release.raw)}-win32-x64`
+      )
+    )
+  })
+  it('preserves existing manual tools when creating the verified installation beside them', async () => {
+    const userDataDir = await temp()
+    const binaries = path.join(userDataDir, 'binaries')
+    await mkdir(binaries, { mode: 0o755 })
+    const names = [
+      'ffmpeg',
+      'ffprobe',
+      'ffmpeg.exe',
+      'ffprobe.exe',
+      'other-tool',
+    ]
+    for (const name of names) {
+      await writeFile(path.join(binaries, name), `manual ${name}`)
+    }
+    const release = fixture()
+    await installVerifiedFfmpeg({
+      userDataDir,
+      arch: 'x64',
+      fetcher: release.fetcher,
+    })
+    for (const name of names) {
+      expect(await readFile(path.join(binaries, name), 'utf8')).toBe(
+        `manual ${name}`
+      )
+    }
+    expect((await readdir(binaries)).sort()).toEqual(
+      [...names, 'ffmpeg-verified'].sort()
+    )
+  })
+  it.each(['binaries', 'root', 'releases', 'version'])(
     'rejects a managed %s directory symlink before creating or writing its target',
     async (component) => {
       const userDataDir = await temp()
       const outside = await temp()
       const release = fixture()
-      const root = path.join(userDataDir, 'ffmpeg-verified')
-      let linkPath = root
-      if (component !== 'root') {
+      const binaries = path.join(userDataDir, 'binaries')
+      const root = path.join(userDataDir, 'binaries', 'ffmpeg-verified')
+      let linkPath = binaries
+      if (component !== 'binaries') {
+        await mkdir(binaries, { mode: 0o700 })
+        linkPath = root
+      }
+      if (component === 'releases' || component === 'version') {
         await mkdir(root, { mode: 0o700 })
         linkPath = path.join(root, 'releases')
       }
@@ -434,19 +495,104 @@ describe('verified FFmpeg releases', () => {
         ).toBe(false)
     }
   )
-  it('reports an invalid installation root as an install error, not a download failure', async () => {
+  it.each(['binaries', 'ffmpeg-verified'])(
+    'reports a non-directory %s as an install error before downloading',
+    async (component) => {
+      const userDataDir = await temp()
+      const binaries = path.join(userDataDir, 'binaries')
+      if (component !== 'binaries') await mkdir(binaries, { mode: 0o700 })
+      await writeFile(
+        component === 'binaries'
+          ? binaries
+          : path.join(binaries, 'ffmpeg-verified'),
+        'not a directory'
+      )
+      const fetcher = fixture().fetcher
+      await expect(
+        installVerifiedFfmpeg({ userDataDir, arch: 'x64', fetcher })
+      ).rejects.toThrow()
+      expect(getFfmpegInstallStatus(userDataDir).error).toBe('install')
+      expect(fetcher).not.toHaveBeenCalled()
+    }
+  )
+  it.skipIf(process.platform === 'win32')(
+    'rejects a group- or world-writable binaries directory before downloading',
+    async () => {
+      const userDataDir = await temp()
+      const binaries = path.join(userDataDir, 'binaries')
+      await mkdir(binaries)
+      const fetcher = fixture().fetcher
+      for (const mode of [0o770, 0o707]) {
+        await chmod(binaries, mode)
+        await expect(
+          installVerifiedFfmpeg({ userDataDir, arch: 'x64', fetcher })
+        ).rejects.toThrow()
+        expect(getFfmpegInstallStatus(userDataDir).error).toBe('install')
+        expect(await readdir(binaries)).toEqual([])
+      }
+      expect(fetcher).not.toHaveBeenCalled()
+    }
+  )
+  it('rejects a binaries parent replaced with a link before resolving or trusting installed code', async () => {
     const userDataDir = await temp()
-    await writeFile(
-      path.join(userDataDir, 'ffmpeg-verified'),
-      'not a directory'
+    const release = fixture()
+    await installVerifiedFfmpeg({
+      userDataDir,
+      arch: 'x64',
+      fetcher: release.fetcher,
+    })
+    const binaries = path.join(userDataDir, 'binaries')
+    const candidate = path.join(binaries, 'ffmpeg.exe')
+    const binary = resolveManagedFfmpegCandidate(
+      userDataDir,
+      candidate,
+      'win32'
     )
-    const fetcher = fixture().fetcher
+    const moved = path.join(userDataDir, 'moved-binaries')
+    await rename(binaries, moved)
+    await symlink(
+      moved,
+      binaries,
+      process.platform === 'win32' ? 'junction' : 'dir'
+    )
+    expect(() => assertManagedFfmpegTrusted(userDataDir, binary)).toThrow(
+      'Invalid managed FFmpeg directory'
+    )
+    expect(() =>
+      resolveManagedFfmpegCandidate(userDataDir, candidate, 'win32')
+    ).toThrow('Invalid managed FFmpeg directory')
+    release.fetcher.mockClear()
     await expect(
-      installVerifiedFfmpeg({ userDataDir, arch: 'x64', fetcher })
+      installVerifiedFfmpeg({
+        userDataDir,
+        arch: 'x64',
+        fetcher: release.fetcher,
+      })
     ).rejects.toThrow()
-    expect(getFfmpegInstallStatus(userDataDir).error).toBe('install')
-    expect(fetcher).not.toHaveBeenCalled()
+    expect(release.fetcher).not.toHaveBeenCalled()
   })
+  it.skipIf(process.platform === 'win32')(
+    'rechecks binaries parent permissions before trusting a cached managed binary',
+    async () => {
+      const userDataDir = await temp()
+      const release = fixture()
+      await installVerifiedFfmpeg({
+        userDataDir,
+        arch: 'x64',
+        fetcher: release.fetcher,
+      })
+      const binaries = path.join(userDataDir, 'binaries')
+      const binary = resolveManagedFfmpegCandidate(
+        userDataDir,
+        path.join(binaries, 'ffmpeg.exe'),
+        'win32'
+      )
+      await chmod(binaries, 0o777)
+      expect(() => assertManagedFfmpegTrusted(userDataDir, binary)).toThrow(
+        'Invalid managed FFmpeg directory'
+      )
+    }
+  )
   it('rejects a signed same-version replacement and tampered reused files without changing the pointer', async () => {
     const userDataDir = await temp()
     const release = fixture()
@@ -455,7 +601,12 @@ describe('verified FFmpeg releases', () => {
       arch: 'x64',
       fetcher: release.fetcher,
     })
-    const pointer = path.join(userDataDir, 'ffmpeg-verified', 'current.json')
+    const pointer = path.join(
+      userDataDir,
+      'binaries',
+      'ffmpeg-verified',
+      'current.json'
+    )
     const before = await readFile(pointer)
     const replacement = fixture(undefined, 'x64', 'win32', {
       extra: 'same version substitution',
@@ -472,6 +623,7 @@ describe('verified FFmpeg releases', () => {
       getFfmpegInstallStatus(userDataDir).directory ??
       path.join(
         userDataDir,
+        'binaries',
         'ffmpeg-verified',
         'releases',
         `${sha256(release.raw)}-win32-x64`
@@ -533,7 +685,12 @@ describe('verified FFmpeg releases', () => {
       fetcher: original.fetcher,
       systemTrust: async () => {},
     })
-    const pointer = path.join(userDataDir, 'ffmpeg-verified', 'current.json')
+    const pointer = path.join(
+      userDataDir,
+      'binaries',
+      'ffmpeg-verified',
+      'current.json'
+    )
     const before = await readFile(pointer)
     const next = fixture('9.0.2-motrix.9', 'arm64', 'darwin')
     await expect(
@@ -559,7 +716,12 @@ describe('verified FFmpeg releases', () => {
       systemTrust: firstTrust,
     })
     const installedDirectory = getFfmpegInstallStatus(userDataDir).directory
-    const pointer = path.join(userDataDir, 'ffmpeg-verified', 'current.json')
+    const pointer = path.join(
+      userDataDir,
+      'binaries',
+      'ffmpeg-verified',
+      'current.json'
+    )
     const before = await readFile(pointer)
     const reusedTrust = vi.fn(async (directory: string) => {
       if (directory === installedDirectory)
@@ -784,7 +946,12 @@ describe('verified FFmpeg releases', () => {
       arch: 'x64',
       fetcher: newer.fetcher,
     })
-    const pointer = path.join(userDataDir, 'ffmpeg-verified', 'current.json')
+    const pointer = path.join(
+      userDataDir,
+      'binaries',
+      'ffmpeg-verified',
+      'current.json'
+    )
     const before = await readFile(pointer)
     await expect(
       installVerifiedFfmpeg({

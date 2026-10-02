@@ -201,6 +201,7 @@ export function ffmpegCandidatesInOrder(
  *  - Probe succeeds and no active winner yet → `'active'`. The result's
  *    `active.path` is `probe.binaryPath ?? candidatePath` (PATH lookup may
  *    rewrite to an absolute path).
+ *    Candidate rows also report this resolved path, rather than the lookup alias.
  *  - Probe succeeds but a higher-priority candidate already won →
  *    `'available'` (still includes version).
  *  - Probe reports `failureReason: 'untrusted'` → `'untrusted'`.
@@ -225,22 +226,23 @@ export async function detectInOrder(
     }
     // eslint-disable-next-line no-await-in-loop
     const result = await probe(p)
+    const checkedPath = result.binaryPath ?? p
     if (result.available) {
       if (active === null) {
         active = {
-          path: result.binaryPath ?? p,
+          path: checkedPath,
           version: result.version ?? '',
         }
         candidates.push({
           kind: entry.kind,
-          path: p,
+          path: checkedPath,
           state: 'active',
           version: result.version,
         })
       } else {
         candidates.push({
           kind: entry.kind,
-          path: p,
+          path: checkedPath,
           state: 'available',
           version: result.version,
         })
@@ -248,7 +250,7 @@ export async function detectInOrder(
     } else {
       candidates.push({
         kind: entry.kind,
-        path: p,
+        path: checkedPath,
         state: result.failureReason === 'untrusted' ? 'untrusted' : 'missing',
       })
     }

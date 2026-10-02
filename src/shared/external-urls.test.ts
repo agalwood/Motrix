@@ -1,5 +1,29 @@
 import { describe, expect, it } from 'vitest'
-import { EXTERNAL_URLS, getNatTroubleshootingUrl } from './external-urls'
+import {
+  EXTERNAL_URLS,
+  getFfmpegManualUrl,
+  getNatTroubleshootingUrl,
+} from './external-urls'
+
+describe('getFfmpegManualUrl', () => {
+  it.each(['zh-CN', 'zh-TW', 'zh-Hant-TW', 'ZH-cn'])(
+    'uses the Chinese FFmpeg manual for %s',
+    (locale) => {
+      expect(getFfmpegManualUrl(locale)).toBe(
+        'https://motrix.app/zh/manual/ffmpeg/'
+      )
+    }
+  )
+
+  it.each(['en-US', 'de', 'ja', ''])(
+    'uses the English FFmpeg manual for %s',
+    (locale) => {
+      expect(getFfmpegManualUrl(locale)).toBe(
+        'https://motrix.app/manual/ffmpeg/'
+      )
+    }
+  )
+})
 
 describe('getNatTroubleshootingUrl', () => {
   it('points FFmpeg downloads at the standalone motrixapp project', () => {

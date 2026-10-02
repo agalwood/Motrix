@@ -67,6 +67,7 @@ async function checkedInstallation(
   expect(directory).toBe(
     path.join(
       userDataDir,
+      'binaries',
       'ffmpeg-verified',
       'releases',
       `${verified.manifestHash}-${platform}-${arch}`
@@ -232,6 +233,7 @@ describe.skipIf(!enabled || process.platform !== 'darwin')(
         )
         const pointer = path.join(
           userDataDir,
+          'binaries',
           'ffmpeg-verified',
           'current.json'
         )
