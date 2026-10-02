@@ -68,6 +68,15 @@
   </screenshots>
 
   <releases>
+    <release version="2.0.0-beta.45" date="2026-10-02">
+      <description>
+        <p>
+          Adds verified one-click FFmpeg installation, safe Motrix deep links,
+          shutdown after downloads finish, Hungarian localization, Safari
+          extension discovery, and download, NAT, and inspector fixes.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.44" date="2026-09-29">
       <description>
         <p>
