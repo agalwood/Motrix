@@ -25,7 +25,7 @@ export function RegistryPluginCard({ entry }: Props) {
       role="button"
       tabIndex={0}
       data-testid={`registry-card-${entry.id}`}
-      className="flex cursor-pointer flex-col gap-2.5 p-4 transition-colors hover:bg-muted/40"
+      className="flex cursor-pointer flex-col gap-2.5 p-4 transition-colors hover:bg-muted/40 shadow-none"
       onClick={() => navigate(`/plugins/${entry.id}`)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
