@@ -40,6 +40,7 @@ export enum ErrorCode {
   StunDetectionFailed = 'STUN_DETECTION_FAILED',
   // Torrent
   TorrentParseFailed = 'TORRENT_PARSE_FAILED',
+  TorrentCreateFailed = 'TORRENT_CREATE_FAILED',
   TorrentDuplicateConflict = 'TORRENT_DUPLICATE_CONFLICT',
   MagnetResolveFailed = 'MAGNET_RESOLVE_FAILED',
   MagnetResolveTimeout = 'MAGNET_RESOLVE_TIMEOUT',

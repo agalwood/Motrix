@@ -1,4 +1,5 @@
 import { AddTaskForm } from '@renderer/components/add-task/add-task-form'
+import { CreateTorrentDialog } from '@renderer/components/create-torrent/create-torrent-dialog'
 import {
   Dialog,
   DialogClose,
@@ -211,6 +212,7 @@ export function AddTaskDialogHost() {
         close={() => setDiscard(false)}
       />
       <WebDirectoryPickerDialog />
+      <CreateTorrentDialog />
     </>
   )
 }

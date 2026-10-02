@@ -7,6 +7,7 @@ export const ForwardableEvents = [
   Events.TaskActivityUpdated,
   Events.TaskInspectorActivityUpdated,
   Events.MagnetFileSelection,
+  Events.CreateTorrentProgress,
   Events.MagnetFileSelectionSettled,
   Events.StatsUpdated,
   Events.EngineDisconnected,
