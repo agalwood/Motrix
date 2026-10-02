@@ -18,7 +18,7 @@ vi.mock('./ffmpeg-macos-trust', () => ({
 
 const userDataDir = '/fixture/user-data'
 const managedBinary =
-  '/fixture/user-data/ffmpeg-verified/releases/verified-darwin-arm64/ffmpeg'
+  '/fixture/user-data/binaries/ffmpeg-verified/releases/verified-darwin-arm64/ffmpeg'
 const target = {
   platform: 'darwin',
   arch: 'arm64',
@@ -54,7 +54,7 @@ describe('authenticated managed macOS FFmpeg probing', () => {
       managedBinary
     )
     expect(guards.systemTrust).toHaveBeenCalledWith(
-      '/fixture/user-data/ffmpeg-verified/releases/verified-darwin-arm64',
+      '/fixture/user-data/binaries/ffmpeg-verified/releases/verified-darwin-arm64',
       target,
       'https://github.com/motrixapp/ffmpeg-static/releases/download/v9.0.2-motrix.8/ffmpeg-9.0.2-motrix.8-darwin-arm64.zip',
       run

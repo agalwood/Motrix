@@ -31,6 +31,10 @@ export const EXTERNAL_URLS = {
     releaseNotes: 'https://motrix.app/release-notes/',
     manual: {
       home: 'https://motrix.app/manual/',
+      ffmpeg: {
+        en: 'https://motrix.app/manual/ffmpeg/',
+        zh: 'https://motrix.app/zh/manual/ffmpeg/',
+      },
       linuxAutostart: {
         en: 'https://motrix.app/manual/linux-autostart/',
         zh: 'https://motrix.app/zh/manual/linux-autostart/',
@@ -48,6 +52,11 @@ export const EXTERNAL_URLS = {
     },
   },
 } as const
+
+export function getFfmpegManualUrl(language: string): string {
+  const locale = language.toLowerCase().startsWith('zh') ? 'zh' : 'en'
+  return EXTERNAL_URLS.motrix.manual.ffmpeg[locale]
+}
 
 export function getNatTroubleshootingUrl(language: string): string {
   const locale = language.toLowerCase().startsWith('zh') ? 'zh' : 'en'
