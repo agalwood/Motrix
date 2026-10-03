@@ -35,7 +35,7 @@ describe('migration failure isolation', () => {
         </MemoryRouter>
       )
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'This page could not be displayed.'
+        'Migration couldn’t open.'
       )
       expect(
         screen.getByText('Other navigation remains available')

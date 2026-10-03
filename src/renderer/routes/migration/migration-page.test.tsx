@@ -106,7 +106,7 @@ describe('retained migration page', () => {
     fireEvent.click(screen.getByText('Go migration'))
     expect(screen.getByRole('checkbox', { name: 'two.zip' })).not.toBeChecked()
     expect(screen.getByRole('button', { name: 'Import 1' })).toBeEnabled()
-    fireEvent.click(screen.getByRole('button', { name: 'Skip' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }))
     await waitFor(() =>
       expect(transport.invoke).toHaveBeenCalledWith(
         Commands.DismissLegacyImportInvitation

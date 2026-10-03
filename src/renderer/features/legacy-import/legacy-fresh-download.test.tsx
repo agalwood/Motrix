@@ -54,7 +54,7 @@ describe('legacy BT activation entry', () => {
       })
     )
     expect(
-      screen.getByRole('button', { name: 'Start a new download…' })
+      screen.getByRole('button', { name: 'Download again…' })
     ).toBeEnabled()
   })
   it('disables an unsupported engine and keeps the fresh download entry', async () => {
@@ -65,13 +65,13 @@ describe('legacy BT activation entry', () => {
     })
     render(<LegacyFreshDownload task={task} />)
     await screen.findByText(
-      'This download engine does not support verifying old downloads. You can download again into a new directory.'
+      'This version can’t resume the old files. You can download again in a new folder.'
     )
     expect(
       screen.getByRole('button', { name: 'Verify and continue' })
     ).toBeDisabled()
     expect(
-      screen.getByRole('button', { name: 'Start a new download…' })
+      screen.getByRole('button', { name: 'Download again…' })
     ).toBeEnabled()
   })
   it('guards activation double clicks and recovers after picker cancellation', async () => {

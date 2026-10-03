@@ -281,7 +281,7 @@ describe('AppLayout', () => {
     const router = renderAppLayout(undefined, '/settings/advanced')
     const port = await screen.findByDisplayValue('16800')
     fireEvent.change(port, { target: { value: '17000' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Import…' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open migration' }))
     await waitFor(() =>
       expect(router.state.location.pathname).toBe('/migration')
     )

@@ -77,7 +77,9 @@ describe('legacy import dialog', () => {
       screen.queryByRole('textbox', { name: 'Search downloads' })
     ).not.toBeInTheDocument()
     expect(
-      screen.getByText('Choose old downloads. Imported tasks stay paused.')
+      screen.getByText(
+        'Choose which Motrix v1 downloads to import. They won’t start automatically.'
+      )
     ).toBeVisible()
     fireEvent.click(action)
     await screen.findByText('Imported 1')
@@ -86,7 +88,7 @@ describe('legacy import dialog', () => {
       itemIds: [items[0].itemId],
     })
     expect(
-      screen.getByText('Attention and details').closest('details')
+      screen.getByText('View details').closest('details')
     ).not.toHaveAttribute('open')
   })
 
@@ -102,6 +104,78 @@ describe('legacy import dialog', () => {
       expect.anything()
     )
   })
+
+  it.each([
+    {
+      stage: 'completed',
+      outcome: 'skipped',
+      reason: 'already-imported',
+      title: 'No new downloads',
+      description: 'Open the details to see why each task was skipped.',
+      status: 'Skipped',
+      canRetry: false,
+    },
+    {
+      stage: 'cancelled',
+      outcome: 'unprocessed',
+      reason: 'stopped',
+      title: 'Migration stopped',
+      description:
+        'Downloads already imported are kept. You can import the rest when you’re ready.',
+      status: 'Not imported',
+      canRetry: true,
+    },
+    {
+      stage: 'failed',
+      outcome: 'failed',
+      reason: 'commit-failed',
+      title: 'Some downloads still need importing',
+      description:
+        'Downloads already imported are kept. Review the details and try importing the rest again.',
+      status: 'Failed',
+      canRetry: true,
+    },
+  ])(
+    'explains $stage / $outcome without claiming migration completed',
+    async (result) => {
+      vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+        if (channel === Queries.DiscoverLegacyImport)
+          return [{ sourceHandle, name: 'Motrix' }]
+        if (channel === Queries.ScanLegacyImport) return preview
+        if (channel === Commands.CommitLegacyImport)
+          return {
+            ...report,
+            stage: result.stage,
+            imported: 0,
+            items: [
+              {
+                ...items[0],
+                reason: result.reason,
+                outcome: result.outcome,
+                taskId: null,
+              },
+            ],
+          }
+        return { ok: true }
+      })
+      render(<LegacyImportDialog open presentation="page" onClose={vi.fn()} />)
+      fireEvent.click(await screen.findByRole('button', { name: 'Import 1' }))
+      expect(
+        await screen.findByRole('heading', { name: result.title })
+      ).toBeVisible()
+      expect(
+        screen.queryByRole('heading', { name: 'Migration complete' })
+      ).not.toBeInTheDocument()
+      expect(screen.getByText(result.description)).toBeVisible()
+      expect(
+        Boolean(screen.queryByRole('button', { name: 'Import remaining' }))
+      ).toBe(result.canRetry)
+      fireEvent.click(screen.getByText('View details'))
+      expect(
+        screen.getByText(result.status, { selector: 'span', exact: true })
+      ).toBeVisible()
+    }
+  )
 
   it('keeps a failed preflight on selection with its selected item', async () => {
     vi.mocked(transport.invoke).mockImplementation(async (channel) => {
@@ -123,7 +197,7 @@ describe('legacy import dialog', () => {
     const close = vi.fn()
     render(<LegacyImportDialog open invitation onClose={close} />)
     await screen.findByText('Downloads found: 1')
-    fireEvent.click(screen.getByRole('button', { name: 'Skip' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }))
     await waitFor(() => expect(close).toHaveBeenCalledOnce())
     expect(transport.invoke).toHaveBeenCalledWith(
       Commands.DismissLegacyImportInvitation

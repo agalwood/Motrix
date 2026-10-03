@@ -134,7 +134,17 @@ function LegacyImportDialogContent({
               item.outcome === 'failed' || item.outcome === 'unprocessed'
           )
         ? 'legacyImport.resultIncompleteTitle'
-        : 'legacyImport.resultTitle'
+        : report?.stage === 'completed' && report.imported === 0
+          ? 'legacyImport.page.resultEmptyTitle'
+          : 'legacyImport.resultTitle'
+  const resultDescriptionKey =
+    resultTitleKey === 'legacyImport.resultStoppedTitle'
+      ? 'legacyImport.page.resultStoppedDescription'
+      : resultTitleKey === 'legacyImport.resultIncompleteTitle'
+        ? 'legacyImport.page.resultIncompleteDescription'
+        : resultTitleKey === 'legacyImport.page.resultEmptyTitle'
+          ? 'legacyImport.page.resultEmptyDescription'
+          : 'legacyImport.resultDescription'
 
   const failure = useCallback(
     (cause: unknown) => {
@@ -381,9 +391,9 @@ function LegacyImportDialogContent({
         >
           <MiddleEllipsis
             text={item.name}
-            className="min-w-0 flex-1 font-sans! text-xs font-medium"
+            className="min-w-0 flex-1 font-sans! text-[13px] font-medium"
           />
-          <p className="shrink-0 text-[11px] text-muted-foreground">
+          <p className="shrink-0 text-xs leading-4 text-muted-foreground">
             {t(`legacyImport.reasons.${item.reason}`)}
           </p>
         </div>
@@ -435,7 +445,7 @@ function LegacyImportDialogContent({
     <DialogFooter
       className={
         presentation === 'page'
-          ? 'w-full shrink-0'
+          ? 'w-auto shrink-0'
           : 'shrink-0 border-t px-6 py-4'
       }
     >
@@ -565,7 +575,7 @@ function LegacyImportDialogContent({
                       count: preview?.items.length ?? 0,
                     })}
               </p>
-              <p className="mx-auto mt-3 max-w-sm text-xs leading-relaxed text-muted-foreground">
+              <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground">
                 {t(
                   page
                     ? 'legacyImport.page.discoveryDescription'
@@ -605,16 +615,19 @@ function LegacyImportDialogContent({
                   )}
                   <div className="min-w-0">
                     {page && (
-                      <p className="mb-1 text-[10px] font-medium text-muted-foreground">
-                        {t('legacyImport.page.sourceLabel')}
-                      </p>
+                      <h2 className="mb-1 text-sm font-medium">
+                        {t('legacyImport.page.selectionTitle')}
+                      </h2>
                     )}
                     <p
-                      className="truncate font-medium"
+                      className="truncate text-xs text-muted-foreground"
                       title={preview?.sourceName}
                     >
-                      {!page && `${t('legacyImport.source')}: `}
-                      {preview?.sourceName ?? t('legacyImport.noSource')}
+                      {preview
+                        ? t('legacyImport.page.sourceDescription', {
+                            name: preview.sourceName,
+                          })
+                        : t('legacyImport.noSource')}
                     </p>
                   </div>
                 </div>
@@ -625,7 +638,11 @@ function LegacyImportDialogContent({
                   disabled={busy}
                   onClick={pickSource}
                 >
-                  {t('legacyImport.changeSource')}
+                  {t(
+                    preview
+                      ? 'legacyImport.changeSource'
+                      : 'legacyImport.chooseDestination'
+                  )}
                 </Button>
               </div>
               {sources.length > 1 && (
@@ -733,7 +750,13 @@ function LegacyImportDialogContent({
                   visible.map(row)
                 ) : (
                   <p className="px-4 py-6 text-xs leading-relaxed text-muted-foreground">
-                    {t('legacyImport.empty')}
+                    {t(
+                      query.trim()
+                        ? 'legacyImport.page.searchEmpty'
+                        : !preview
+                          ? 'legacyImport.noSource'
+                          : 'legacyImport.empty'
+                    )}
                   </p>
                 )}
                 {skippedDetails}
@@ -807,21 +830,23 @@ function LegacyImportDialogContent({
               <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-muted">
                 {resultTitleKey === 'legacyImport.resultTitle' ? (
                   <CheckIcon aria-hidden="true" className="size-6" />
+                ) : resultTitleKey === 'legacyImport.page.resultEmptyTitle' ? (
+                  <DownloadLibraryIcon aria-hidden="true" className="size-6" />
                 ) : (
                   <WarningIcon aria-hidden="true" className="size-6" />
                 )}
               </div>
             )}
             {page && (
-              <h2 className="text-sm font-medium text-muted-foreground">
+              <h2 className="text-xl font-semibold tracking-tight">
                 {t(resultTitleKey)}
               </h2>
             )}
-            <p className="py-4 text-3xl font-semibold tracking-tight">
+            <p className="mt-2 text-sm font-medium tabular-nums">
               {t('legacyImport.importedCount', { count: report.imported })}
             </p>
-            <p className="text-xs leading-5 text-muted-foreground">
-              {t('legacyImport.resultDescription')}
+            <p className="mt-4 max-w-md text-sm leading-relaxed text-muted-foreground">
+              {t(resultDescriptionKey)}
             </p>
             <details className="mt-5 text-xs">
               <summary className="cursor-pointer">
@@ -829,18 +854,29 @@ function LegacyImportDialogContent({
               </summary>
               <div className="max-h-64 overflow-auto py-3">
                 {report.items.map((item) => (
-                  <p
-                    className="flex items-start justify-between gap-3 py-2"
+                  <div
+                    className="flex items-start justify-between gap-3 border-b border-border/50 py-3 last:border-0"
                     key={item.itemId}
                   >
-                    <MiddleEllipsis
-                      text={item.name}
-                      className="min-w-0 font-sans!"
-                    />
-                    <span className="shrink-0 text-muted-foreground">
-                      {t(`legacyImport.reasons.${item.reason}`)}
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <MiddleEllipsis
+                        text={item.name}
+                        className="font-sans! text-[13px] font-medium"
+                      />
+                      <p className="text-xs leading-relaxed text-muted-foreground">
+                        {t(`legacyImport.reasons.${item.reason}`)}
+                      </p>
+                    </div>
+                    <span
+                      className={
+                        item.outcome === 'failed'
+                          ? 'shrink-0 text-xs text-destructive'
+                          : 'shrink-0 text-xs text-muted-foreground'
+                      }
+                    >
+                      {t(`legacyImport.page.outcomes.${item.outcome}`)}
                     </span>
-                  </p>
+                  </div>
                 ))}
               </div>
               <Button

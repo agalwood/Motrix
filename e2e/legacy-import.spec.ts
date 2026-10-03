@@ -151,7 +151,7 @@ test.describe('v1 task import', () => {
         app: { language: 'zh-CN' },
       })
       await expect(
-        page.getByRole('heading', { name: '导入旧版下载任务', exact: true })
+        page.getByRole('heading', { name: '迁移', exact: true })
       ).toBeVisible()
       await expect(
         page.getByRole('checkbox', { name: 'partial.bin', exact: true })
@@ -219,7 +219,7 @@ test.describe('v1 task import', () => {
       await page.reload({ waitUntil: 'domcontentloaded' })
       await expect(page.locator('html')).toHaveClass(/dark/)
       await expect(
-        page.getByRole('heading', { name: '导入旧版下载任务', exact: true })
+        page.getByRole('heading', { name: '迁移', exact: true })
       ).toBeVisible()
       await page.screenshot({
         path: testInfo.outputPath('migration-dark.png'),
@@ -338,9 +338,11 @@ test.describe('v1 task import', () => {
       ).toHaveCount(0)
       await main.getByRole('link', { name: 'Settings', exact: true }).click()
       await main.getByText('Advanced', { exact: true }).first().click()
-      await main.getByRole('button', { name: 'Import…', exact: true }).click()
+      await main
+        .getByRole('button', { name: 'Open migration', exact: true })
+        .click()
       await expect(
-        main.getByRole('button', { name: 'Change…', exact: true })
+        main.getByRole('button', { name: 'Choose folder…', exact: true })
       ).toBeVisible()
       expect(
         app.windows().filter((window) => window.url().includes('w=onboarding'))
@@ -369,7 +371,7 @@ test.describe('v1 task import', () => {
       await entry.click()
       await expect(
         main.getByRole('heading', {
-          name: 'Import downloads from Motrix v1',
+          name: 'Migration',
           exact: true,
         })
       ).toBeVisible()
@@ -392,7 +394,7 @@ test.describe('v1 task import', () => {
     try {
       const page = await firstPage(app)
       await expect(page.getByText('Downloads found: 1')).toBeVisible()
-      await page.getByRole('button', { name: 'Skip', exact: true }).click()
+      await page.getByRole('button', { name: 'Not now', exact: true }).click()
       await expect(page.getByText('Downloads found: 1')).not.toBeVisible()
       await expect(
         page.getByRole('link', { name: 'Migration', exact: true })
@@ -415,7 +417,9 @@ test.describe('v1 task import', () => {
       await main.getByText('Advanced', { exact: true }).first().click()
       const port = main.getByRole('spinbutton').first()
       await port.fill('17000')
-      await main.getByRole('button', { name: 'Import…', exact: true }).click()
+      await main
+        .getByRole('button', { name: 'Open migration', exact: true })
+        .click()
       await expect(main.getByRole('button', { name: 'Import 1' })).toBeVisible()
       await main.getByRole('button', { name: 'Back', exact: true }).click()
       await expect(port).toHaveValue('17000')

@@ -138,16 +138,14 @@ function ImportOverview({
             `legacyImport.page.${stage === 'result' ? 'resultSummary' : stage === 'discovery' ? 'foundSummary' : 'selectionSummary'}`
           )}
         </h2>
-        <p className="mt-2 text-4xl font-semibold tracking-tight tabular-nums">
-          {stage === 'result'
-            ? (report?.imported ?? '—')
-            : preview
-              ? items.length
-              : '—'}
-          <span className="ms-2 text-xs font-normal tracking-normal text-muted-foreground">
-            {t('legacyImport.page.countUnit')}
-          </span>
-        </p>
+        {(stage === 'selection' || stage === 'progress') && (
+          <p className="mt-2 text-4xl font-semibold tracking-tight tabular-nums">
+            {preview ? items.length : '—'}
+            <span className="ms-2 text-xs font-normal tracking-normal text-muted-foreground">
+              {t('legacyImport.page.countUnit')}
+            </span>
+          </p>
+        )}
         <dl className="mt-4 space-y-2.5">
           {stage === 'result' && report ? (
             <>
@@ -241,8 +239,21 @@ export function ImportPageLayout({
 }) {
   const { t } = useTranslation()
   return (
-    <PanelShell title={title} footer={footer}>
+    <PanelShell
+      title={title}
+      footer={
+        <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-3">
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            {t('legacyImport.page.footerNote')}
+          </p>
+          <div className="ms-auto">{footer}</div>
+        </div>
+      }
+    >
       <div className="@container/import flex min-h-0 flex-1 flex-col">
+        <p className="shrink-0 px-6 pb-5 text-sm leading-relaxed text-muted-foreground">
+          {t('legacyImport.page.introduction')}
+        </p>
         <div className="shrink-0 px-6 pb-5 pt-1">
           <ImportSteps stage={stage} />
         </div>
@@ -257,10 +268,6 @@ export function ImportPageLayout({
             report={report}
           />
         </div>
-        <p className="flex shrink-0 items-center gap-2 px-6 pt-1 text-[11px] text-muted-foreground">
-          <LockedIcon aria-hidden="true" className="size-3 shrink-0" />
-          {t('legacyImport.page.footerNote')}
-        </p>
       </div>
     </PanelShell>
   )
