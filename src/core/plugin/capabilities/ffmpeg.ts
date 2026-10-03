@@ -33,6 +33,19 @@ import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import type { FfmpegDetection } from './ffmpeg-detect'
 
+// Manual merges accept standalone media, never playlists or demuxers that
+// discover other files. A file-only protocol allowlist alone still lets HLS,
+// DASH, concat and image sequences read paths the user never selected.
+// MOV external data references keep FFmpeg's disabled default; this API does
+// not accept demuxer options that could enable them. Apply this policy
+// before opening *each* input, for both probing and merging.
+const LOCAL_MEDIA_INPUT_OPTIONS = [
+  '-protocol_whitelist',
+  'file',
+  '-format_whitelist',
+  'mov,matroska,webm,avi,mpegts,mpegvideo,mpeg,aac,mp3,flac,ogg,wav,flv',
+]
+
 // ---------------------------------------------------------------------------
 // Error class
 // ---------------------------------------------------------------------------
@@ -469,25 +482,42 @@ export class FfmpegCapabilityHost {
         binaryPath,
         [
           ...(input.localOnly
-            ? ['-nostdin', '-protocol_whitelist', 'file,crypto,data']
+            ? ['-nostdin', ...LOCAL_MEDIA_INPUT_OPTIONS]
             : []),
           '-i',
           input.path,
         ],
         {
           stdio: ['ignore', 'pipe', 'pipe'],
-          signal: input.signal,
-          killSignal: 'SIGKILL',
         }
       )
 
-      const timer = setTimeout(() => {
+      let closed = false
+      let failure: FfmpegError | undefined
+      let killTimer: ReturnType<typeof setTimeout> | undefined
+      const stop = (error: FfmpegError) => {
+        if (closed || failure) return
+        failure = error
+        clearTimeout(timer)
         try {
           proc.kill('SIGTERM')
         } catch {
-          // ignore
+          // The child may already have exited; still wait for close.
         }
-        reject(
+        killTimer = setTimeout(() => {
+          try {
+            proc.kill('SIGKILL')
+          } catch {
+            // The child may already have exited.
+          }
+        }, SIGKILL_GRACE_MS)
+      }
+      const abort = () =>
+        stop(
+          new FfmpegError('plugin.ffmpeg.aborted', 'FFmpeg operation cancelled')
+        )
+      const timer = setTimeout(() => {
+        stop(
           new FfmpegError(
             'plugin.ffmpeg.probe_timeout',
             'ffmpeg probe timed out'
@@ -508,17 +538,23 @@ export class FfmpegCapabilityHost {
       })
 
       proc.on('error', (err: Error) => {
-        clearTimeout(timer)
-        reject(
-          new FfmpegError(
-            'plugin.ffmpeg.spawn_error',
-            `ffmpeg spawn error: ${err.message}`
-          )
+        // ChildProcess emits close after error, including spawn failure.
+        // Settling here would release the manual job while the child is alive.
+        failure ??= new FfmpegError(
+          'plugin.ffmpeg.spawn_error',
+          `ffmpeg spawn error: ${err.message}`
         )
       })
 
       proc.on('close', () => {
+        closed = true
         clearTimeout(timer)
+        clearTimeout(killTimer)
+        input.signal?.removeEventListener('abort', abort)
+        if (failure) {
+          reject(failure)
+          return
+        }
         // ffmpeg -i ... -f null - exits 1 for probe; we ignore the code.
         const durationMatch = DURATION_RE.exec(stderrCapture)
         const durationMs = durationMatch
@@ -547,6 +583,8 @@ export class FfmpegCapabilityHost {
 
         resolve({ durationMs, format, streams })
       })
+      input.signal?.addEventListener('abort', abort, { once: true })
+      if (input.signal?.aborted) abort()
     })
   }
 
@@ -632,9 +670,7 @@ export class FfmpegCapabilityHost {
     timeoutMs?: number
     signal?: AbortSignal
   }): FfmpegOpHandle<{ outputPath: string }> {
-    const inputOptions = opts.localOnly
-      ? ['-protocol_whitelist', 'file,crypto,data']
-      : []
+    const inputOptions = opts.localOnly ? LOCAL_MEDIA_INPUT_OPTIONS : []
     const argv = [
       '-nostdin',
       ...inputOptions,

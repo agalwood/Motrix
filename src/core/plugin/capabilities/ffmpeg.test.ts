@@ -177,6 +177,61 @@ describe('FfmpegCapabilityHost — probe', () => {
     spawnMock = vi.fn().mockReturnValue(proc)
   })
 
+  afterEach(() => vi.useRealTimers())
+
+  it.each(['cancel', 'timeout'] as const)(
+    'waits for probe close after %s and escalates to SIGKILL',
+    async (cause) => {
+      vi.useFakeTimers()
+      const controller = new AbortController()
+      const host = new FfmpegCapabilityHost({
+        detect: AVAILABLE_DETECT,
+        spawnFn:
+          spawnMock as unknown as typeof import('node:child_process').spawn,
+      })
+      const result = host.probe({
+        path: '/in.mp4',
+        signal: controller.signal,
+        localOnly: true,
+      })
+      let settled = false
+      const observed = result.catch((error: unknown) => {
+        settled = true
+        return error
+      })
+      if (cause === 'cancel') controller.abort()
+      else await vi.advanceTimersByTimeAsync(30_000)
+      expect(proc.kill).toHaveBeenCalledWith('SIGTERM')
+      await vi.advanceTimersByTimeAsync(5_000)
+      expect(proc.kill).toHaveBeenCalledWith('SIGKILL')
+      expect(settled).toBe(false)
+      proc._close(null)
+      expect(await observed).toMatchObject({
+        code:
+          cause === 'cancel'
+            ? 'plugin.ffmpeg.aborted'
+            : 'plugin.ffmpeg.probe_timeout',
+      })
+      expect(vi.getTimerCount()).toBe(0)
+    }
+  )
+
+  it('does not launch an already-cancelled probe', async () => {
+    const host = new FfmpegCapabilityHost({
+      detect: AVAILABLE_DETECT,
+      spawnFn:
+        spawnMock as unknown as typeof import('node:child_process').spawn,
+    })
+    await expect(
+      host.probe({
+        path: '/in.mp4',
+        signal: AbortSignal.abort(),
+        localOnly: true,
+      })
+    ).rejects.toThrow()
+    expect(spawnMock).not.toHaveBeenCalled()
+  })
+
   it('header-only probe (no -f null full decode) parses metadata', async () => {
     const host = new FfmpegCapabilityHost({
       detect: AVAILABLE_DETECT,
@@ -203,6 +258,25 @@ describe('FfmpegCapabilityHost — probe', () => {
     expect(info.durationMs).toBe(10_000)
     expect(info.format).toBe('mov')
     expect(info.streams[0]).toEqual({ type: 'video', codec: 'h264' })
+  })
+
+  it('restricts local probing before opening the input', async () => {
+    const host = new FfmpegCapabilityHost({
+      detect: AVAILABLE_DETECT,
+      spawnFn:
+        spawnMock as unknown as typeof import('node:child_process').spawn,
+    })
+    const pending = host.probe({ path: '/playlist.m3u8', localOnly: true })
+    const argv = spawnMock.mock.calls[0][1] as string[]
+    expect(argv.slice(0, argv.indexOf('-i'))).toEqual([
+      '-nostdin',
+      '-protocol_whitelist',
+      'file',
+      '-format_whitelist',
+      'mov,matroska,webm,avi,mpegts,mpegvideo,mpeg,aac,mp3,flac,ogg,wav,flv',
+    ])
+    proc._close(1)
+    await pending
   })
 })
 
@@ -629,6 +703,26 @@ describe('FfmpegCapabilityHost — helpers', () => {
       ],
       expect.any(Object)
     )
+  })
+
+  it('mergeStreams: constrains both local inputs independently', async () => {
+    const operation = host.mergeStreams({
+      videoInput: '/v.mp4',
+      audioInput: '/a.mp3',
+      output: '/out.mp4',
+      localOnly: true,
+    })
+    const argv = spawnMock.mock.calls[0][1] as string[]
+    const firstInput = argv.indexOf('-i')
+    const secondInput = argv.indexOf('-i', firstInput + 1)
+    const inputOptions = argv.slice(1, firstInput)
+    expect(argv.slice(firstInput + 2, secondInput)).toEqual(inputOptions)
+    expect(inputOptions).toContain('-format_whitelist')
+    expect(inputOptions[inputOptions.indexOf('-protocol_whitelist') + 1]).toBe(
+      'file'
+    )
+    proc._close(0)
+    await operation.result
   })
 
   it('generateThumbnail: has -ss and -frames:v 1', () => {

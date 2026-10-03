@@ -45,6 +45,12 @@ The plugin copies the encoded tracks without re-encoding them. It does not join
 clips end to end, align recordings with different start times, or adjust audio
 sync. MP4 cannot carry every codec; try MKV if the MP4 merge fails.
 
+Select standalone media files: MP4/MOV, MKV/WebM, AVI, MPEG/TS, FLV, AAC, MP3,
+FLAC, Ogg or WAV. HLS/DASH playlists, concat scripts and image sequences are not
+supported, even when they reference local files. Motrix restricts the input
+demuxers before probing or merging, so references inside a selected file cannot
+implicitly authorize another file. Renaming a playlist does not make it a video.
+
 Original files remain in place. Existing output files are never overwritten,
 including files created while the merge is running. A temporary directory beside
 the destination is removed after success, failure, or cancellation. Publication
@@ -90,9 +96,19 @@ and declaring a public command named `<plugin-id>.mergeStreams` with both argume
 and result schemas. This convention uses the existing manifest schema; it does
 not introduce new manifest keywords or a general-purpose command console.
 
+The `.mergeStreams` command name is reserved for host-authorized manual jobs.
+Its `public` flag enables provider discovery; it does not permit cross-plugin
+execution. Both cross-plugin calls and generic command invocations are rejected
+before the plugin runs. Always use the manual merge interface.
+
 The host passes `{ videoInput, audioInput, output }`, all absolute paths. `output`
 is a host-owned temporary path with the user's chosen extension. The command
 returns `{ outputPath: output }` only after its FFmpeg operation succeeds.
+Relative top-level paths are rejected instead of being resolved against the
+process working directory. The host resolves symlinks before applying the
+server's directory policy. Relative references *inside* a playlist would normally
+resolve from the playlist's directory, but those inputs are rejected altogether;
+they do not inherit the selected file's authorization.
 
 ```ts
 commands.register('example.media-merge.mergeStreams', async (args) => {
@@ -108,5 +124,7 @@ results against the manifest, runs the command in the plugin's FIFO lane, and
 holds the job until its processes have stopped. During this invocation, FFmpeg
 can probe only the two selected input paths and launch one merge into the reserved
 output. Other FFmpeg operations and nested plugin commands are rejected. Input
-protocols are restricted to local file processing. Progress and cancellation are
+protocols and demuxers are restricted to standalone local media. Probe cancellation
+and timeouts terminate the child and wait for its exit before releasing the job.
+Progress and cancellation are
 owned by the host; the plugin does not need a polling loop.

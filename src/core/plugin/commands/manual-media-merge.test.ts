@@ -1,10 +1,13 @@
 // @vitest-environment node
 import {
+  link,
+  mkdir,
   mkdtemp,
   readdir,
   readFile,
   realpath,
   rm,
+  symlink,
   writeFile,
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -275,6 +278,78 @@ describe('manual media merge', () => {
     ).rejects.toThrow('mediaMerge.outputFormat')
     await writeFile(args.audioInput, '')
     await expect(service.start(args)).rejects.toThrow('mediaMerge.invalidFiles')
+    expect(invoke).not.toHaveBeenCalled()
+  })
+
+  it.each(['videoInput', 'audioInput', 'output'] as const)(
+    'rejects relative %s instead of resolving it against the process cwd',
+    async (field) => {
+      await expect(
+        service.start({ ...args, [field]: '../file.mp4' })
+      ).rejects.toThrow('mediaMerge.absolutePaths')
+      expect(invoke).not.toHaveBeenCalled()
+    }
+  )
+
+  it('rejects hard-linked inputs and dangling output symlinks', async () => {
+    await rm(args.audioInput)
+    await link(args.videoInput, args.audioInput)
+    await expect(service.start(args)).rejects.toThrow('mediaMerge.sameInput')
+    await rm(args.audioInput)
+    await writeFile(args.audioInput, 'audio')
+    await symlink(path.join(dir, 'missing.mp4'), args.output)
+    await expect(service.start(args)).rejects.toThrow('mediaMerge.outputExists')
+    expect(invoke).not.toHaveBeenCalled()
+  })
+
+  it('authorizes canonical inputs and output directories, not symlink spellings', async () => {
+    const allowed = path.join(dir, 'allowed')
+    await mkdir(allowed)
+    const videoLink = path.join(allowed, 'video.mp4')
+    const outputLink = path.join(allowed, 'out')
+    await symlink(args.videoInput, videoLink)
+    await symlink(dir, outputLink, 'junction')
+    const authorizePath = vi.fn(async (file: string) => {
+      if (!file.startsWith(`${allowed}${path.sep}`))
+        throw new Error('outside allowed directory')
+    })
+    // Retain all other dependencies so rejection exercises the normal start path.
+    const authorized = new ManualMediaMerge({
+      createLog,
+      registry: {
+        list: () => [{ id: pluginId, name: 'Merger', enabled: true }],
+        get: () => ({
+          state: { enabled: true },
+          manifest: {
+            permissions: ['ffmpeg'],
+            contributes: { commands: [command] },
+          },
+        }),
+      } as unknown as PluginRegistry,
+      host: {
+        activate: vi.fn(),
+        invokeCommand: invoke,
+      } as unknown as PluginHost,
+      tasks: {} as TaskManager,
+      authorizePath,
+    })
+    await expect(
+      authorized.start({ ...args, videoInput: videoLink })
+    ).rejects.toThrow('outside allowed directory')
+    expect(authorizePath).toHaveBeenCalledWith(args.videoInput)
+    const safeVideo = path.join(allowed, 'safe.mp4')
+    const safeAudio = path.join(allowed, 'safe.m4a')
+    await writeFile(safeVideo, 'video')
+    await writeFile(safeAudio, 'audio')
+    await expect(
+      authorized.start({
+        ...args,
+        videoInput: safeVideo,
+        audioInput: safeAudio,
+        output: path.join(outputLink, 'new.mp4'),
+      })
+    ).rejects.toThrow('outside allowed directory')
+    expect(authorizePath).toHaveBeenCalledWith(path.join(dir, 'new.mp4'))
     expect(invoke).not.toHaveBeenCalled()
   })
 

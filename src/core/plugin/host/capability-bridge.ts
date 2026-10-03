@@ -16,6 +16,7 @@
 import { randomUUID } from 'node:crypto'
 import { Worker } from 'node:worker_threads'
 import type { SupportedLocale } from '@shared/constants/locales'
+import { MEDIA_MERGE_COMMAND } from '@shared/schemas/manual-media-merge'
 import {
   CapabilityCallMessageSchema,
   type CommandInvocationScopeV1,
@@ -1587,7 +1588,9 @@ export class CapabilityBridge {
             'Merge must use the selected files and reserved output once'
           )
       }
-      parsed.output = await this.gateFfmpegOutput(parsed.output)
+      // The manual output is already reserved by the host. Do not yield
+      // between checking the single-launch limit and registering its handle.
+      if (!manual) parsed.output = await this.gateFfmpegOutput(parsed.output)
       const handle = ffmpeg.mergeStreams({
         ...parsed,
         signal: manual?.context.signal,
@@ -1941,6 +1944,17 @@ export class CapabilityBridge {
     timeoutMs = 10_000,
     callChain?: PluginCallChain
   ): Promise<unknown> {
+    if (
+      commandId === `${this.opts.pluginId}.${MEDIA_MERGE_COMMAND}` &&
+      this.manualMerge?.invocationId !== this.nextCommandCallId
+    ) {
+      return Promise.reject(
+        new PluginCodedError(
+          'plugin.command.access_denied',
+          'Media merging requires a host-authorized selected-file job'
+        )
+      )
+    }
     const id = this.nextCommandCallId++
     const laneCallChain = callChain ?? currentPluginCallChain()
     const commandScope: CommandInvocationScopeV1 = {

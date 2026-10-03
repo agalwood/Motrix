@@ -18,6 +18,11 @@ commands.register('${commandId}', async (args) => {
   if (!ffmpeg.available) throw new Error('ffmpeg unavailable');
   if (args.probe) return await ffmpeg.probe({path: args.probe});
   if (args.transcode) return await (await ffmpeg.transcode({input: args.videoInput, output: args.output})).result;
+  if (args.parallel) {
+    const launches = await Promise.allSettled([ffmpeg.mergeStreams(args), ffmpeg.mergeStreams(args)]);
+    for (const launch of launches) if (launch.status === 'fulfilled') await launch.value.result;
+    return launches.map((launch) => launch.status);
+  }
   await ffmpeg.probe({path: args.videoInput});
   await (await ffmpeg.mergeStreams(args)).result;
   return {outputPath: args.output};
@@ -111,6 +116,75 @@ describe('manual merge through the real QuickJS worker', () => {
     expect(context.onProgress).toHaveBeenCalledWith(
       expect.objectContaining({ percent: 50 })
     )
+  })
+
+  it('rejects generic invocation of the merger before probing or writing', async () => {
+    const ffmpeg = fake()
+    const guest = await start(ffmpeg as unknown as FfmpegCapabilityHost)
+    await expect(
+      guest.callPlugin(commandId, {
+        videoInput: context.videoInput,
+        audioInput: context.audioInput,
+        output: context.output,
+      })
+    ).rejects.toMatchObject({ code: 'plugin.command.access_denied' })
+    expect(ffmpeg.probe).not.toHaveBeenCalled()
+    expect(ffmpeg.mergeStreams).not.toHaveBeenCalled()
+  })
+
+  it('admits only one launch even when the command attempts two concurrently', async () => {
+    const ffmpeg = fake()
+    const guest = await start(ffmpeg as unknown as FfmpegCapabilityHost)
+    await expect(
+      guest.callMediaMerge(
+        commandId,
+        {
+          videoInput: context.videoInput,
+          audioInput: context.audioInput,
+          output: context.output,
+          parallel: true,
+        },
+        context
+      )
+    ).resolves.toEqual(['fulfilled', 'rejected'])
+    expect(ffmpeg.mergeStreams).toHaveBeenCalledTimes(1)
+  })
+
+  it('drains a cancelled probe and rejects late capability calls', async () => {
+    const ffmpeg = fake()
+    let finishProbe: (() => void) | undefined
+    ffmpeg.probe.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishProbe = () =>
+            resolve({ streams: [{ type: 'video' }], durationMs: 1000 })
+        })
+    )
+    const guest = await start(ffmpeg as unknown as FfmpegCapabilityHost)
+    let settled = false
+    const result = guest
+      .callMediaMerge(
+        commandId,
+        {
+          videoInput: context.videoInput,
+          audioInput: context.audioInput,
+          output: context.output,
+        },
+        context
+      )
+      .catch((error: unknown) => {
+        settled = true
+        return error
+      })
+    await vi.waitFor(() => expect(ffmpeg.probe).toHaveBeenCalled())
+    controller.abort()
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    expect(settled).toBe(false)
+    finishProbe?.()
+    expect(await result).toMatchObject({ message: 'mediaMerge.cancelled' })
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    expect(ffmpeg.mergeStreams).not.toHaveBeenCalled()
+    expect(guest.operationState().ffmpegOperations).toBe(0)
   })
 
   it.each(['input', 'output', 'probe', 'transcode'])(
@@ -281,6 +355,12 @@ it.skipIf(
       bridge = spawned.bridge
       expect(spawned.errorCode).toBeUndefined()
       const args = { videoInput: audio, audioInput: video, output }
+      await writeFile(output, 'existing output')
+      await expect(
+        bridge.callPlugin(`${manifest.id}.mergeStreams`, args)
+      ).rejects.toMatchObject({ code: 'plugin.command.access_denied' })
+      expect(await readFile(output, 'utf8')).toBe('existing output')
+      await rm(output)
       await expect(
         bridge.callMediaMerge(`${manifest.id}.mergeStreams`, args, {
           ...args,
