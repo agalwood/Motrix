@@ -230,6 +230,91 @@ test.describe('v1 task import', () => {
     }
   })
 
+  test('keeps motion optional and selection immediate across input methods', async ({
+    userDataDir,
+    rpcPort,
+  }) => {
+    const source = await legacyProfile(userDataDir)
+    const app = await launchMotrix({
+      userDataDir,
+      rpcPort,
+      extraEnv: { MOTRIX_LEGACY_PROFILE: source },
+    })
+    try {
+      const page = await firstPage(app)
+      await page.emulateMedia({ reducedMotion: 'no-preference' })
+      await expect(page.getByText('Downloads found: 1')).toBeVisible()
+      const motion = page.locator('.migration-motion')
+      const cards = page.locator('.migration-task-card').first()
+      const restingCard = await cards.evaluate(
+        (element) => getComputedStyle(element).transform
+      )
+      await page.locator('.migration-transfer').hover()
+      await expect
+        .poll(() =>
+          cards.evaluate((element) => getComputedStyle(element).transform)
+        )
+        .not.toBe(restingCard)
+      // Preference changes cancel the currently hovered flourish immediately.
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      await expect(motion).toHaveAttribute('data-motion', 'off')
+      expect(
+        await cards.evaluate((element) => getComputedStyle(element).transform)
+      ).toBe(restingCard)
+      await page.getByRole('button', { name: 'Choose downloads' }).click()
+      const checkbox = page.getByRole('checkbox', {
+        name: 'archive.zip',
+        exact: true,
+      })
+      await checkbox.uncheck()
+      await expect(
+        page.getByRole('button', { name: 'Import 0', exact: true })
+      ).toBeDisabled()
+      const runningAnimations = () =>
+        motion.evaluate(
+          (element) =>
+            element
+              .getAnimations({ subtree: true })
+              .filter((animation) => animation.playState === 'running').length
+        )
+      expect(await runningAnimations()).toBe(0)
+      await page.emulateMedia({ reducedMotion: 'no-preference' })
+      await checkbox.press('Space')
+      await expect(checkbox).toBeChecked()
+      await expect(
+        page.getByRole('button', { name: 'Import 1', exact: true })
+      ).toBeEnabled()
+      expect(await runningAnimations()).toBe(0)
+      await checkbox.uncheck()
+      await checkbox.check()
+      await expect(motion).toHaveAttribute('data-motion', 'on')
+      // Wait for route commit before inspecting the retained, hidden page.
+      await page.getByRole('link', { name: 'Downloads', exact: true }).click()
+      await expect(motion).toBeHidden()
+      await expect(motion).toHaveAttribute('data-motion', 'off')
+      expect(await runningAnimations()).toBe(0)
+      await page.getByRole('link', { name: 'Migration', exact: true }).click()
+      await expect(checkbox).toBeChecked()
+      await invoke(page, Commands.UpdateSettings, {
+        app: { reduceMotion: true },
+      })
+      await expect(motion).toHaveAttribute('data-motion', 'off')
+      await checkbox.uncheck()
+      await checkbox.check()
+      expect(await runningAnimations()).toBe(0)
+      await page.getByRole('button', { name: 'Import 1', exact: true }).click()
+      await expect(page.getByText('Imported 1', { exact: true })).toBeVisible()
+      expect(await runningAnimations()).toBe(0)
+      const tasks = (await invoke(page, Queries.ListTasks)) as Array<{
+        status: string
+      }>
+      expect(tasks).toHaveLength(1)
+      expect(tasks[0].status).toBe('paused')
+    } finally {
+      await app.close().catch(() => {})
+    }
+  })
+
   test('opens migration in main only after consent and imports paused records without blocking the engine', async ({
     userDataDir,
     rpcPort,

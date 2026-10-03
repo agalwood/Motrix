@@ -1,0 +1,215 @@
+/* Motion stays local to migration; all state changes remain immediate. */
+.migration-motion {
+  --migration-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --migration-duration: 0ms;
+}
+
+.migration-motion[data-motion="on"] {
+  --migration-duration: 200ms;
+}
+
+.migration-step-circle,
+.migration-task-icon,
+.migration-transfer-tile,
+.migration-transfer-arrow,
+.migration-task-card {
+  transition:
+    transform var(--migration-duration) var(--migration-ease),
+    background-color var(--migration-duration) ease,
+    color var(--migration-duration) ease;
+}
+
+.migration-step-line {
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--migration-duration) var(--migration-ease);
+}
+
+.migration-step-line:dir(rtl) {
+  transform-origin: right;
+}
+
+.migration-step-line[data-complete="true"] {
+  transform: scaleX(1);
+}
+
+.migration-task-row {
+  position: relative;
+  isolation: isolate;
+}
+
+.migration-task-row::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--muted);
+  opacity: 0;
+  transition: opacity var(--migration-duration) ease;
+}
+
+.migration-task-row[data-selected="true"]::before {
+  opacity: 0.3;
+}
+
+.migration-task-icon {
+  transform: scale(0.94);
+}
+
+.migration-task-row[data-selected="true"] .migration-task-icon {
+  transform: translateY(-1px) scale(1);
+  color: var(--foreground);
+}
+
+.migration-transfer-stack {
+  position: relative;
+}
+
+.migration-task-card {
+  position: absolute;
+  top: -6px;
+  left: 14px;
+  width: 44px;
+  height: 51px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--background);
+  box-shadow: 0 2px 5px #00000008;
+  transform: translateY(-3px) rotate(-7deg);
+}
+
+.migration-task-card + .migration-task-card {
+  transform: translate(5px, 0) rotate(6deg);
+}
+
+.migration-task-card::before,
+.migration-task-card::after {
+  content: "";
+  position: absolute;
+  inset: 10px 9px auto;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--muted-foreground);
+  opacity: 0.25;
+}
+
+.migration-task-card::after {
+  top: 17px;
+  right: 16px;
+}
+
+.migration-transfer-tile {
+  position: relative;
+}
+
+.migration-progress-art {
+  position: relative;
+  width: 72px;
+  height: 72px;
+}
+
+.migration-progress-paper {
+  position: absolute;
+  top: 0;
+  left: 17px;
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  width: 38px;
+  height: 46px;
+  padding: 9px 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--background);
+}
+
+.migration-progress-paper > span {
+  height: 2px;
+  border-radius: 2px;
+  background: var(--muted-foreground);
+  opacity: 0.3;
+}
+
+.migration-progress-paper > span:last-child {
+  width: 60%;
+}
+
+.migration-progress-tray {
+  position: absolute;
+  inset: auto 8px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 46px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--muted);
+  box-shadow: 0 2px 4px #00000005;
+}
+
+/* Scale the real progress value instead of animating layout width. */
+.migration-motion .migration-progress-fill {
+  transform: scaleX(var(--migration-progress));
+  transform-origin: left;
+  transition: transform var(--migration-duration) linear;
+}
+
+.migration-progress-fill:dir(rtl) {
+  transform-origin: right;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .migration-transfer-arrow {
+    transition: translate var(--migration-duration) var(--migration-ease);
+  }
+
+  .migration-motion[data-motion="on"]
+    .migration-transfer:hover
+    .migration-task-card {
+    transform: translate(-5px, -13px) rotate(-14deg);
+  }
+
+  .migration-motion[data-motion="on"]
+    .migration-transfer:hover
+    .migration-task-card
+    + .migration-task-card {
+    transform: translate(8px, -10px) rotate(11deg);
+  }
+
+  .migration-motion[data-motion="on"]
+    .migration-transfer:hover
+    .migration-transfer-destination {
+    transform: translateY(-2px);
+  }
+
+  .migration-motion[data-motion="on"]
+    .migration-transfer:hover
+    .migration-transfer-arrow {
+    translate: 3px 0;
+  }
+
+  .migration-motion[data-motion="on"]
+    .migration-transfer:hover
+    .migration-transfer-arrow:dir(rtl) {
+    translate: -3px 0;
+  }
+
+  .migration-motion [data-slot="button"] {
+    transition:
+      transform var(--migration-duration) var(--migration-ease),
+      background-color var(--migration-duration) ease,
+      color var(--migration-duration) ease;
+  }
+
+  .migration-motion[data-motion="on"]
+    [data-slot="button"]:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+}
+
+.migration-motion[data-motion="off"] *,
+.migration-motion[data-motion="off"] *::before,
+.migration-motion[data-motion="off"] *::after {
+  animation: none;
+  transition-duration: 0ms;
+}

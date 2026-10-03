@@ -43,6 +43,7 @@ import {
 } from '@shared/schemas/legacy-import'
 import {
   Component,
+  type CSSProperties,
   type ReactNode,
   useCallback,
   useEffect,
@@ -51,6 +52,7 @@ import {
   useState,
 } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ImportProgressIllustration, ImportResultMark } from './import-motion'
 import {
   ImportPageLayout,
   type ImportStage,
@@ -359,10 +361,11 @@ function LegacyImportDialogContent({
       <div
         className={
           page
-            ? 'flex h-16 items-center gap-3 border-b border-border/50 px-4 transition-colors hover:bg-muted/35 motion-reduce:transition-none'
+            ? 'migration-task-row flex h-16 items-center gap-3 border-b border-border/50 px-4'
             : 'flex h-12 items-center gap-3 border-b border-border/60 px-1'
         }
         key={item.itemId}
+        data-selected={selected.has(item.itemId)}
       >
         <Checkbox
           aria-label={item.name}
@@ -378,7 +381,7 @@ function LegacyImportDialogContent({
           }
         />
         {page && (
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted/65 text-muted-foreground">
+          <span className="migration-task-icon flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted/65 text-muted-foreground">
             <Icon aria-hidden="true" className="size-4" />
           </span>
         )}
@@ -507,6 +510,7 @@ function LegacyImportDialogContent({
   return (
     <>
       <ImportSurface
+        active={active}
         page={page}
         preview={preview}
         selected={selected}
@@ -783,10 +787,7 @@ function LegacyImportDialogContent({
             }
           >
             {page && (
-              <DownloadLibraryIcon
-                aria-hidden="true"
-                className="mx-auto mb-6 size-9 text-muted-foreground"
-              />
+              <ImportProgressIllustration processed={report?.processed ?? 0} />
             )}
             <p
               className={
@@ -809,6 +810,22 @@ function LegacyImportDialogContent({
                   : undefined
               }
               aria-label={t('legacyImport.progress')}
+              indicatorClassName={
+                page && report ? 'migration-progress-fill w-full!' : undefined
+              }
+              style={
+                page && report
+                  ? ({
+                      '--migration-progress': Math.min(
+                        1,
+                        Math.max(
+                          0,
+                          report.processed / Math.max(report.total, 1)
+                        )
+                      ),
+                    } as CSSProperties)
+                  : undefined
+              }
             />
             <p className="mt-3 text-center text-xs tabular-nums text-muted-foreground">
               {t('legacyImport.processed', {
@@ -827,7 +844,9 @@ function LegacyImportDialogContent({
             }
           >
             {page && (
-              <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-muted">
+              <ImportResultMark
+                success={resultTitleKey === 'legacyImport.resultTitle'}
+              >
                 {resultTitleKey === 'legacyImport.resultTitle' ? (
                   <CheckIcon aria-hidden="true" className="size-6" />
                 ) : resultTitleKey === 'legacyImport.page.resultEmptyTitle' ? (
@@ -835,7 +854,7 @@ function LegacyImportDialogContent({
                 ) : (
                   <WarningIcon aria-hidden="true" className="size-6" />
                 )}
-              </div>
+              </ImportResultMark>
             )}
             {page && (
               <h2 className="text-xl font-semibold tracking-tight">
@@ -939,6 +958,7 @@ function LegacyImportDialogContent({
 }
 
 function ImportSurface({
+  active,
   page,
   preview,
   selected,
@@ -953,6 +973,7 @@ function ImportSurface({
   footer,
   children,
 }: {
+  active: boolean
   page: boolean
   preview: LegacyImportPreview | null
   selected: ReadonlySet<string>
@@ -970,6 +991,7 @@ function ImportSurface({
   if (page)
     return (
       <ImportPageLayout
+        active={active}
         title={title}
         stage={stage}
         preview={preview}

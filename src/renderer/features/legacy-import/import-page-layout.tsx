@@ -19,6 +19,12 @@ import type {
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import {
+  ImportCount,
+  ImportMotionScope,
+  ImportStageContent,
+} from './import-motion'
+
 export type ImportStage = 'discovery' | 'selection' | 'progress' | 'result'
 
 const steps = ['select', 'import', 'result'] as const
@@ -52,7 +58,7 @@ export function ImportSteps({ stage }: { stage: ImportStage }) {
             <span
               aria-hidden="true"
               className={cn(
-                'flex size-6 items-center justify-center rounded-full border text-[11px] tabular-nums transition-colors motion-reduce:transition-none',
+                'migration-step-circle flex size-6 items-center justify-center rounded-full border text-[11px] tabular-nums',
                 index === current &&
                   'border-primary bg-primary text-primary-foreground',
                 index < current &&
@@ -73,8 +79,13 @@ export function ImportSteps({ stage }: { stage: ImportStage }) {
           {index < 2 && (
             <span
               aria-hidden="true"
-              className="mx-3 h-px flex-1 bg-border/70"
-            />
+              className="relative mx-3 h-px flex-1 overflow-hidden bg-border/70"
+            >
+              <span
+                className="migration-step-line absolute inset-0 bg-foreground/35"
+                data-complete={index < current}
+              />
+            </span>
           )}
         </li>
       ))}
@@ -82,28 +93,32 @@ export function ImportSteps({ stage }: { stage: ImportStage }) {
   )
 }
 
-/** A quiet, static illustration; the process itself never moves source files. */
+/** Task cards hint at the imported records; source files stay in place. */
 export function ImportTransferIllustration() {
   const { t } = useTranslation()
   return (
     <div
       aria-hidden="true"
-      className="flex items-center justify-center gap-5 py-5"
+      className="migration-transfer flex items-center justify-center gap-5 py-5"
     >
       <div className="space-y-3 text-center">
-        <div className="flex size-18 items-center justify-center rounded-[22px] border border-border/70 bg-gradient-to-b from-background to-muted/70 shadow-sm">
-          <FolderIcon
-            className="size-8 text-muted-foreground"
-            strokeWidth={1.35}
-          />
+        <div className="migration-transfer-stack">
+          <span className="migration-task-card" />
+          <span className="migration-task-card" />
+          <div className="migration-transfer-tile flex size-18 items-center justify-center rounded-[22px] border border-border/70 bg-gradient-to-b from-background to-muted shadow-sm">
+            <FolderIcon
+              className="size-8 text-muted-foreground"
+              strokeWidth={1.35}
+            />
+          </div>
         </div>
         <span className="text-[11px] text-muted-foreground">
           {t('legacyImport.page.previousVersion')}
         </span>
       </div>
-      <ArrowRightIcon className="mb-6 size-5 text-muted-foreground/60 rtl:rotate-180" />
+      <ArrowRightIcon className="migration-transfer-arrow mb-6 size-5 text-muted-foreground/60 rtl:rotate-180" />
       <div className="space-y-3 text-center">
-        <div className="flex size-18 items-center justify-center rounded-[22px] border border-border/70 bg-background shadow-sm">
+        <div className="migration-transfer-tile migration-transfer-destination flex size-18 items-center justify-center rounded-[22px] border border-border/70 bg-background shadow-sm">
           <DownloadLibraryIcon className="size-8" strokeWidth={1.35} />
         </div>
         <span className="text-[11px] font-medium">
@@ -140,7 +155,7 @@ function ImportOverview({
         </h2>
         {(stage === 'selection' || stage === 'progress') && (
           <p className="mt-2 text-4xl font-semibold tracking-tight tabular-nums">
-            {preview ? items.length : '—'}
+            {preview ? <ImportCount value={items.length} /> : '—'}
             <span className="ms-2 text-xs font-normal tracking-normal text-muted-foreground">
               {t('legacyImport.page.countUnit')}
             </span>
@@ -180,7 +195,9 @@ function ImportOverview({
                   <dt className="flex-1 text-muted-foreground">
                     {t(`legacyImport.page.types.${type}`)}
                   </dt>
-                  <dd className="tabular-nums">{count}</dd>
+                  <dd className="tabular-nums">
+                    <ImportCount value={count} />
+                  </dd>
                 </div>
               )
             })
@@ -221,6 +238,7 @@ function SummaryRow({ label, value }: { label: string; value: number }) {
 }
 
 export function ImportPageLayout({
+  active,
   title,
   stage,
   preview,
@@ -229,6 +247,7 @@ export function ImportPageLayout({
   footer,
   children,
 }: {
+  active: boolean
   title: string
   stage: ImportStage
   preview: LegacyImportPreview | null
@@ -239,36 +258,38 @@ export function ImportPageLayout({
 }) {
   const { t } = useTranslation()
   return (
-    <PanelShell
-      title={title}
-      footer={
-        <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-3">
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            {t('legacyImport.page.footerNote')}
-          </p>
-          <div className="ms-auto">{footer}</div>
-        </div>
-      }
-    >
-      <div className="@container/import flex min-h-0 flex-1 flex-col">
-        <p className="shrink-0 px-6 pb-5 text-sm leading-relaxed text-muted-foreground">
-          {t('legacyImport.page.introduction')}
-        </p>
-        <div className="shrink-0 px-6 pb-5 pt-1">
-          <ImportSteps stage={stage} />
-        </div>
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 px-6 pb-3 @[660px]/import:grid-cols-[minmax(0,1fr)_184px]">
-          <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-background shadow-xs">
-            {children}
+    <ImportMotionScope active={active}>
+      <PanelShell
+        title={title}
+        footer={
+          <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-3">
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              {t('legacyImport.page.footerNote')}
+            </p>
+            <div className="ms-auto">{footer}</div>
           </div>
-          <ImportOverview
-            stage={stage}
-            preview={preview}
-            selected={selected}
-            report={report}
-          />
+        }
+      >
+        <div className="@container/import flex min-h-0 flex-1 flex-col">
+          <p className="shrink-0 px-6 pb-5 text-sm leading-relaxed text-muted-foreground">
+            {t('legacyImport.page.introduction')}
+          </p>
+          <div className="shrink-0 px-6 pb-5 pt-1">
+            <ImportSteps stage={stage} />
+          </div>
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 px-6 pb-3 @[660px]/import:grid-cols-[minmax(0,1fr)_184px]">
+            <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-background shadow-xs">
+              <ImportStageContent key={stage}>{children}</ImportStageContent>
+            </div>
+            <ImportOverview
+              stage={stage}
+              preview={preview}
+              selected={selected}
+              report={report}
+            />
+          </div>
         </div>
-      </div>
-    </PanelShell>
+      </PanelShell>
+    </ImportMotionScope>
   )
 }
