@@ -3230,6 +3230,7 @@
         "magnet": "Magnet links",
         "unknown": "Other tasks"
       },
+      "pathUnavailable": "Download location unavailable",
       "filesStayTitle": "Your files stay where they are",
       "filesStayDescription": "Migration won’t move or delete downloaded files.",
       "nextTitle": "Only your downloads",

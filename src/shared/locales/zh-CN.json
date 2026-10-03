@@ -3120,6 +3120,7 @@
         "magnet": "磁力链接",
         "unknown": "其他任务"
       },
+      "pathUnavailable": "下载位置未知",
       "filesStayTitle": "文件保留在原处",
       "filesStayDescription": "迁移不会移动或删除已下载的文件。",
       "nextTitle": "仅迁移下载任务",

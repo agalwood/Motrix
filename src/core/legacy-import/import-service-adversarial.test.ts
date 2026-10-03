@@ -105,6 +105,49 @@ afterEach(async () => {
 })
 
 describe('legacy import service adversarial acceptance', () => {
+  it('shows the original save directories in previews and persisted reports', async () => {
+    const f = await fixture(2)
+    const other = path.join(f.root, 'other-downloads')
+    await writeFile(
+      f.sessionPath,
+      [
+        'https://example.test/file-0.zip\n out=file-0.zip\n',
+        `https://example.test/file-1.zip\n out=file-1.zip\n dir=${other}\n`,
+        'https://example.test/invalid.zip\n out=invalid.zip\n dir=relative-folder\n',
+        `${path.join(f.root, 'outside.torrent')}\n`,
+      ].join('')
+    )
+    const preview = await f.service.scan(f.source.sourceHandle)
+    expect(preview.items.map((item) => item.saveDir)).toEqual([
+      f.downloads,
+      other,
+      null,
+      f.downloads,
+    ])
+    const run = await f.service.commit({
+      previewId: preview.previewId,
+      itemIds: preview.items
+        .filter((item) => item.selectable)
+        .map((item) => item.itemId),
+    })
+    const report = await completed(f.service, run.runId)
+    expect(report.imported).toBe(2)
+    expect(report.items.map((item) => item.saveDir)).toEqual([
+      f.downloads,
+      other,
+      null,
+      f.downloads,
+    ])
+    expect(
+      f.db
+        .getAllTasks()
+        .map(({ task }) => task.saveDir)
+        .sort()
+    ).toEqual([f.downloads, other].sort())
+    // Displaying a directory does not probe or create it.
+    await expect(stat(other)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
   it('retains committed batches and retries only the failed batch', async () => {
     const f = await fixture(101)
     const save = f.db.saveLegacyImportBatch.bind(f.db)

@@ -136,6 +136,14 @@ test.describe('v1 task import', () => {
         page.getByRole('checkbox', { name: 'partial.bin', exact: true })
       ).not.toBeChecked()
       await expect(page.getByRole('button', { name: 'Import 2' })).toBeEnabled()
+      await expect(
+        page
+          .locator('.migration-task-row')
+          .getByTitle(downloads, { exact: true })
+      ).toHaveCount(3)
+      await expect(
+        page.locator('.migration-task-row [data-slot="badge"]')
+      ).toHaveCount(3)
       expect(
         await page.evaluate(() => ({
           vertical:

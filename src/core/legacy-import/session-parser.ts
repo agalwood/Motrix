@@ -128,17 +128,16 @@ export function safeLegacyComponent(value: string): boolean {
   )
 }
 
-export function safeLegacyOutput(dir: string, name: string): string | null {
-  if (
-    !path.isAbsolute(dir) ||
-    dir.includes('\0') ||
-    dir.length > 4096 ||
-    !safeLegacyComponent(name)
-  )
+export function safeLegacyDirectory(dir: string): string | null {
+  if (!path.isAbsolute(dir) || dir.includes('\0') || dir.length > 4096)
     return null
   const root = path.resolve(dir)
-  if (root === path.parse(root).root) return null
-  return path.join(root, name)
+  return root === path.parse(root).root ? null : root
+}
+
+export function safeLegacyOutput(dir: string, name: string): string | null {
+  const root = safeLegacyDirectory(dir)
+  return root && safeLegacyComponent(name) ? path.join(root, name) : null
 }
 
 /** Validate bencode complexity before allowing a third-party decoder to recurse. */

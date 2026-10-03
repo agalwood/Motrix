@@ -15,6 +15,7 @@ import {
   MAX_LEGACY_BYTES,
   parseLegacySession,
   safeLegacyComponent,
+  safeLegacyDirectory,
   safeLegacyOutput,
   validateLegacyBencode,
 } from './session-parser'
@@ -279,6 +280,7 @@ export async function scanLegacySource(
     const item: LegacyImportItem = {
       itemId: entry.itemKey,
       name: entry.options.out || '—',
+      saveDir: safeLegacyDirectory(entry.options.dir ?? (system.dir as string)),
       type: 'unknown',
       selectable: true,
       reason: 'fresh-download-required',

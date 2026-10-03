@@ -1,0 +1,36 @@
+import { MiddleEllipsis } from '@renderer/components/desktop-kit/middle-ellipsis'
+import { Badge } from '@renderer/components/ui/badge'
+import type { LegacyImportItem } from '@shared/schemas/legacy-import'
+import { useTranslation } from 'react-i18next'
+
+/** The path describes the original save directory, not a new destination. */
+export function ImportTaskInfo({ item }: { item: LegacyImportItem }) {
+  const { t } = useTranslation()
+  const reason = t(`legacyImport.reasons.${item.reason}`)
+  return (
+    <div className="min-w-0 flex-1 space-y-1">
+      <div className="flex min-w-0 items-center gap-2">
+        <MiddleEllipsis
+          text={item.name}
+          className="min-w-0 flex-1 font-sans! text-[13px] font-medium"
+        />
+        <Badge variant="secondary">
+          {t(`legacyImport.page.types.${item.type}`)}
+        </Badge>
+      </div>
+      <p className="flex min-w-0 text-xs leading-4 text-muted-foreground">
+        {item.saveDir ? (
+          <MiddleEllipsis text={item.saveDir} className="font-sans!" />
+        ) : (
+          t('legacyImport.page.pathUnavailable')
+        )}
+      </p>
+      <p
+        title={reason}
+        className="truncate text-xs leading-4 text-muted-foreground"
+      >
+        {reason}
+      </p>
+    </div>
+  )
+}

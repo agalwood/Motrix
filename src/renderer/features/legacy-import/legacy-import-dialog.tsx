@@ -1,12 +1,8 @@
-import { MiddleEllipsis } from '@renderer/components/desktop-kit/middle-ellipsis'
 import { VirtualList } from '@renderer/components/desktop-kit/virtual-list/virtual-list'
 import {
   CheckIcon,
   DownloadLibraryIcon,
   FolderIcon,
-  HttpIcon,
-  MagnetIcon,
-  TorrentFileIcon,
   WarningIcon,
 } from '@renderer/components/icons'
 import {
@@ -58,6 +54,7 @@ import {
   type ImportStage,
   ImportTransferIllustration,
 } from './import-page-layout'
+import { ImportTaskInfo } from './import-task-info'
 
 interface Props {
   open: boolean
@@ -351,18 +348,12 @@ function LegacyImportDialogContent({
       )
     })
   const row = (item: LegacyImportItem) => {
-    const Icon =
-      item.type === 'bt'
-        ? TorrentFileIcon
-        : item.type === 'magnet'
-          ? MagnetIcon
-          : HttpIcon
     return (
       <div
         className={
           page
-            ? 'migration-task-row flex h-16 items-center gap-3 border-b border-border/50 px-4'
-            : 'flex h-12 items-center gap-3 border-b border-border/60 px-1'
+            ? 'migration-task-row flex h-22 items-center gap-3 border-b border-border/50 px-4'
+            : 'flex h-22 items-center gap-3 border-b border-border/60 px-1'
         }
         key={item.itemId}
         data-selected={selected.has(item.itemId)}
@@ -380,26 +371,7 @@ function LegacyImportDialogContent({
             })
           }
         />
-        {page && (
-          <span className="migration-task-icon flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted/65 text-muted-foreground">
-            <Icon aria-hidden="true" className="size-4" />
-          </span>
-        )}
-        <div
-          className={
-            page
-              ? 'min-w-0 flex-1 space-y-1'
-              : 'flex min-w-0 flex-1 items-center gap-3'
-          }
-        >
-          <MiddleEllipsis
-            text={item.name}
-            className="min-w-0 flex-1 font-sans! text-[13px] font-medium"
-          />
-          <p className="shrink-0 text-xs leading-4 text-muted-foreground">
-            {t(`legacyImport.reasons.${item.reason}`)}
-          </p>
-        </div>
+        <ImportTaskInfo item={item} />
       </div>
     )
   }
@@ -420,13 +392,7 @@ function LegacyImportDialogContent({
             className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-2"
             key={item.itemId}
           >
-            <MiddleEllipsis
-              text={item.name}
-              className="min-w-0 flex-1 font-sans!"
-            />
-            <span className="shrink-0 text-muted-foreground">
-              {t(`legacyImport.reasons.${item.reason}`)}
-            </span>
+            <ImportTaskInfo item={item} />
             {item.type === 'bt' && item.reason === 'metadata-required' && (
               <Button
                 type="button"
@@ -734,7 +700,7 @@ function LegacyImportDialogContent({
               <VirtualList
                 items={visible}
                 getId={(item) => item.itemId}
-                rowHeight={page ? 64 : 48}
+                rowHeight={88}
                 className={page ? 'min-h-0 flex-1' : 'min-h-0 flex-1 px-6'}
                 renderRow={({ item }) => row(item)}
               />
@@ -877,15 +843,7 @@ function LegacyImportDialogContent({
                     className="flex items-start justify-between gap-3 border-b border-border/50 py-3 last:border-0"
                     key={item.itemId}
                   >
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <MiddleEllipsis
-                        text={item.name}
-                        className="font-sans! text-[13px] font-medium"
-                      />
-                      <p className="text-xs leading-relaxed text-muted-foreground">
-                        {t(`legacyImport.reasons.${item.reason}`)}
-                      </p>
-                    </div>
+                    <ImportTaskInfo item={item} />
                     <span
                       className={
                         item.outcome === 'failed'

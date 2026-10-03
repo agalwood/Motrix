@@ -29,6 +29,8 @@ export type LegacyReason = z.infer<typeof legacyReasonSchema>
 export const legacyImportItemSchema = z.object({
   itemId: z.string().min(1).max(128),
   name: z.string().max(1024),
+  // Display-only original directory; optional for reports saved by older builds.
+  saveDir: z.string().max(4096).nullable().optional(),
   type: z.enum(['http', 'bt', 'magnet', 'unknown']),
   selectable: z.boolean(),
   reason: legacyReasonSchema,

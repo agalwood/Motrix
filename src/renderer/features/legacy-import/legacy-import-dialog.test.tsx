@@ -18,6 +18,7 @@ const items = [
   {
     itemId: 'gid:1111111111111111',
     name: 'archive.zip',
+    saveDir: '/Users/example/Downloads/Project files',
     type: 'http',
     selectable: true,
     reason: 'fresh-download-required',
@@ -90,6 +91,23 @@ describe('legacy import dialog', () => {
     expect(
       screen.getByText('View details').closest('details')
     ).not.toHaveAttribute('open')
+  })
+
+  it('keeps the original download path and task type visible through import', async () => {
+    render(<LegacyImportDialog open presentation="page" onClose={vi.fn()} />)
+    await screen.findByRole('checkbox', { name: 'archive.zip' })
+    expect(screen.getByTitle(items[0].saveDir)).toBeVisible()
+    expect(
+      screen.getByText('Direct links', { selector: '[data-slot="badge"]' })
+    ).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Import 1' }))
+    await screen.findByText('Imported 1')
+    fireEvent.click(screen.getByText('View details'))
+    expect(screen.getByTitle(items[0].saveDir)).toBeVisible()
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.CommitLegacyImport, {
+      previewId,
+      itemIds: [items[0].itemId],
+    })
   })
 
   it('disables empty selection and running-source commits', async () => {

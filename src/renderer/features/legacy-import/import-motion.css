@@ -9,7 +9,6 @@
 }
 
 .migration-step-circle,
-.migration-task-icon,
 .migration-transfer-tile,
 .migration-transfer-arrow,
 .migration-task-card {
@@ -50,15 +49,6 @@
 
 .migration-task-row[data-selected="true"]::before {
   opacity: 0.3;
-}
-
-.migration-task-icon {
-  transform: scale(0.94);
-}
-
-.migration-task-row[data-selected="true"] .migration-task-icon {
-  transform: translateY(-1px) scale(1);
-  color: var(--foreground);
 }
 
 .migration-transfer-stack {
