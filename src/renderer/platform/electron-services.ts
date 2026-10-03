@@ -8,6 +8,10 @@ import type { PlatformServices } from './services'
 export const electronServices: PlatformServices = {
   kind: 'electron',
 
+  getPathForFile(file) {
+    return window.motrix?.getPathForFile?.(file) || null
+  },
+
   pluginInstallFile: {
     mode: 'local-path',
     async prepare(file) {
@@ -21,6 +25,10 @@ export const electronServices: PlatformServices = {
         fileHash: await sha256File(file),
       }
     },
+  },
+
+  async pickFile(options) {
+    return (await transport.invoke(Commands.PickFile, options)) as string | null
   },
 
   async pickSaveDir(defaultPath) {

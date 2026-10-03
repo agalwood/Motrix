@@ -1,7 +1,8 @@
 import { Badge } from '@renderer/components/ui/badge'
 import { Switch } from '@renderer/components/ui/switch'
 import { cn } from '@renderer/lib/utils'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
+import { Link } from 'react-router'
 import { getAudienceTone, permissionAudience } from '../lib/audience'
 
 interface Props {
@@ -21,7 +22,21 @@ export function PermissionRow({ permission, granted, onToggle }: Props) {
           {audience.strong}
         </strong>
         <p className="text-xs leading-5 text-muted-foreground">
-          {audience.plain}
+          {permission === 'ffmpeg' ? (
+            <Trans
+              i18nKey="plugins.permission.ffmpeg.requirement"
+              components={{
+                settings: (
+                  <Link
+                    to="/settings/integration"
+                    className="text-primary underline underline-offset-4"
+                  />
+                ),
+              }}
+            />
+          ) : (
+            audience.plain
+          )}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-2">

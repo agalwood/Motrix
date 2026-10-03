@@ -3,6 +3,7 @@
 import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import type { MediaMergeJob } from '@shared/schemas/manual-media-merge'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createRevealInFolderHandler } from './reveal-in-folder'
 
@@ -26,6 +27,85 @@ beforeEach(() => {
 })
 
 describe('revealInFolder', () => {
+  const mediaMergeJobId = '04f56840-f5af-4960-884e-72b7cd15781a'
+  const completedMerge: MediaMergeJob = {
+    id: mediaMergeJobId,
+    pluginId: 'community.media-merge',
+    status: 'completed',
+    percent: 100,
+    output: '/downloads/merged.mp4',
+  }
+
+  it('reveals the completed merge output from host state, ignoring a supplied path', async () => {
+    const shell = { showItemInFolder: vi.fn(), openPath: vi.fn(async () => '') }
+    const getTask = vi.fn()
+    const getMediaMergeJob = vi.fn(() => completedMerge)
+    const handler = createRevealInFolderHandler({
+      shell,
+      getTask,
+      getMediaMergeJob,
+    })
+    const payload = { mediaMergeJobId, output: '/untrusted/output.mp4' }
+
+    await handler(payload)
+
+    expect(getMediaMergeJob).toHaveBeenCalledExactlyOnceWith(mediaMergeJobId)
+    expect(getTask).not.toHaveBeenCalled()
+    expect(shell.showItemInFolder).toHaveBeenCalledExactlyOnceWith(
+      completedMerge.output
+    )
+  })
+
+  it('opens the parent if the completed merge output was moved or deleted', async () => {
+    statMock
+      .mockRejectedValueOnce(missingPath())
+      .mockResolvedValueOnce(directoryStat)
+    const shell = { showItemInFolder: vi.fn(), openPath: vi.fn(async () => '') }
+    const handler = createRevealInFolderHandler({
+      shell,
+      getTask: () => undefined,
+      getMediaMergeJob: () => completedMerge,
+    })
+    await handler({ mediaMergeJobId })
+    expect(shell.openPath).toHaveBeenCalledExactlyOnceWith('/downloads')
+    expect(shell.showItemInFolder).not.toHaveBeenCalled()
+  })
+
+  it.each(['running', 'cancelling', 'cancelled', 'failed', 'missing'] as const)(
+    'rejects a %s merge without opening a folder',
+    async (status) => {
+      const shell = {
+        showItemInFolder: vi.fn(),
+        openPath: vi.fn(async () => ''),
+      }
+      const handler = createRevealInFolderHandler({
+        shell,
+        getTask: () => undefined,
+        getMediaMergeJob: () =>
+          status === 'missing' ? undefined : { ...completedMerge, status },
+      })
+      await expect(handler({ mediaMergeJobId })).rejects.toThrow(/not ready/)
+      expect(shell.showItemInFolder).not.toHaveBeenCalled()
+      expect(shell.openPath).not.toHaveBeenCalled()
+    }
+  )
+
+  it('rejects an invalid merge id before looking it up', async () => {
+    const shell = { showItemInFolder: vi.fn(), openPath: vi.fn(async () => '') }
+    const getMediaMergeJob = vi.fn(() => completedMerge)
+    const handler = createRevealInFolderHandler({
+      shell,
+      getTask: () => undefined,
+      getMediaMergeJob,
+    })
+    await expect(
+      handler({ mediaMergeJobId: '/downloads/merged.mp4' })
+    ).rejects.toThrow()
+    expect(getMediaMergeJob).not.toHaveBeenCalled()
+    expect(shell.showItemInFolder).not.toHaveBeenCalled()
+    expect(shell.openPath).not.toHaveBeenCalled()
+  })
+
   it('reveals the current path owned by the requested task', async () => {
     const shell = { showItemInFolder: vi.fn(), openPath: vi.fn(async () => '') }
     const handler = createRevealInFolderHandler({

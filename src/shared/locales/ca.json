@@ -84,7 +84,9 @@
       "outsideRoots": "Aquesta carpeta és fora de les ubicacions permeses.",
       "permissionDenied": "No teniu permís per utilitzar aquesta carpeta.",
       "tooLarge": "Aquest camí o nom de carpeta és massa llarg.",
-      "unavailable": "El servidor no ha pogut completar aquesta petició. Torneu-ho a provar."
+      "unavailable": "El servidor no ha pogut completar aquesta petició. Torneu-ho a provar.",
+      "notFile": "Select a readable regular file.",
+      "unsupportedFileType": "This file extension is not supported."
     },
     "fallback": "La carpeta sol·licitada no està disponible. Es mostra {{path}}.",
     "folderName": "Nom de la carpeta",
@@ -123,7 +125,34 @@
     "title": "Seleccionar una carpeta del servidor",
     "unknownOutcome": "No s'ha pogut confirmar la creació. Actualitzeu la llista per comprovar-ho abans de crear una altra carpeta aquí.",
     "up": "Pujar un nivell",
-    "viewOptions": "Opcions de visualització"
+    "viewOptions": "Opcions de visualització",
+    "openFileTitle": "Select a file",
+    "saveFileTitle": "Save a file",
+    "fileDescription": "Browse files on the Motrix server.",
+    "selectFile": "Select file",
+    "saveFile": "Use this filename",
+    "files": "Files and folders",
+    "fileName": "File name",
+    "emptyFiles": "This folder is empty.",
+    "fileErrors": {
+      "invalidPath": "Enter a valid absolute path.",
+      "outsideRoots": "This path is outside the allowed locations.",
+      "notFound": "This path no longer exists.",
+      "permissionDenied": "You do not have permission to use this path.",
+      "invalidName": "Enter a valid file name.",
+      "tooLarge": "This path or file name is too long."
+    },
+    "selectedFilePath": "Selected file",
+    "file": {
+      "chooseOnServer": "Choose a file on the server using this picker.",
+      "singleFile": "Choose one file at a time.",
+      "wrongType": "Choose a file with one of these extensions: {{extensions}}.",
+      "pathUnavailable": "This file’s location is unavailable. Click to choose it instead.",
+      "choose": "Choose a file",
+      "dropHint": "Drop a file here or click to choose",
+      "browseHint": "Click to browse files",
+      "change": "Click to replace"
+    }
   },
   "directoryPreferences": {
     "addFavorite": "Afegir una carpeta preferida",
@@ -1350,7 +1379,9 @@
       "uninstallConfirm": "Voleu desinstal·lar aquest connector? Se n'eliminaran les dades.",
       "uninstallConfirmDesc": "Això suprimirà el connector i la seva configuració desada del Motrix.",
       "uninstallConfirmTitle": "Voleu desinstal·lar {{name}}?",
-      "viewIssue": "Veure el problema"
+      "viewIssue": "Veure el problema",
+      "operations": "Operations",
+      "operationsFailed": "The operation panel could not load. Try again."
     },
     "diagnostics": {
       "callGraph": {
@@ -1546,7 +1577,8 @@
       },
       "ffmpeg": {
         "plain": "Processa àudio o vídeo.",
-        "strong": "Utilitzar l'FFmpeg"
+        "strong": "Utilitzar l'FFmpeg",
+        "requirement": "Processes audio or video. First, <settings>install or select FFmpeg in Settings</settings>."
       },
       "fs": {
         "storage": {
@@ -2950,6 +2982,50 @@
     "waitingMerged": "Les tasques en espera ara apareixen a Actives. S’ha obert aquesta vista.",
     "stoppedSplit": "Les tasques aturades s’agrupen a Completades i Errors. S’han obert totes les baixades.",
     "invalidStatus": "La categoria no és vàlida. S’han obert totes les baixades."
+  },
+  "mediaMerge": {
+    "title": "Merge audio and video",
+    "description": "Combine two files without re-encoding. Original files are kept. Audio-only and video-only inputs are detected automatically.",
+    "videoInput": "Video file",
+    "audioInput": "Audio file",
+    "output": "Output file",
+    "provider": "Plugin",
+    "browse": "Browse…",
+    "browseField": "Browse {{field}}",
+    "required": "Choose a file or enter its full path.",
+    "outputHint": "Use a new .mp4 or .mkv filename. Existing files are never overwritten. If the codecs cannot be copied to MP4, try MKV.",
+    "noPlugin": "Install and enable a media merge plugin. FFmpeg must be configured in Settings > Integration > Media Tools.",
+    "serverPaths": "Select files on the Motrix server. Files on this computer are not uploaded.",
+    "start": "Merge",
+    "running": "Merging…",
+    "cancelling": "Cancelling…",
+    "completed": "Merged successfully",
+    "cancelled": "Merge cancelled",
+    "failed": "Merge failed",
+    "invalidSelection": "Select two completed, single-file downloads.",
+    "jobMissing": "This merge is no longer available.",
+    "busy": "Another merge is already running.",
+    "pluginUnavailable": "The media merge plugin is unavailable.",
+    "absolutePaths": "Enter full, absolute file paths.",
+    "invalidFiles": "Choose two non-empty media files.",
+    "sameInput": "Choose two different input files.",
+    "outputFormat": "Use an .mp4 or .mkv output filename.",
+    "outputExists": "The output already exists. Choose a new filename.",
+    "invalidOutput": "The plugin did not produce a valid output file.",
+    "again": "Merge another file",
+    "pluginDisabled": "Enable this plugin to merge files.",
+    "choose": {
+      "videoInput": "Choose video",
+      "audioInput": "Choose audio",
+      "output": "Choose a save location"
+    },
+    "hint": {
+      "videoInput": "The picture for your merged file",
+      "audioInput": "The sound for your merged file",
+      "output": "Save as MP4 or MKV"
+    },
+    "preserveOriginals": "Original files are kept",
+    "format": "Output format"
   },
   "downloadConfirm": {
     "title": "Download confirmation",

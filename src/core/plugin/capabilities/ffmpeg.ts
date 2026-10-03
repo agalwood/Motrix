@@ -33,6 +33,19 @@ import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import type { FfmpegDetection } from './ffmpeg-detect'
 
+// Manual merges accept standalone media, never playlists or demuxers that
+// discover other files. A file-only protocol allowlist alone still lets HLS,
+// DASH, concat and image sequences read paths the user never selected.
+// MOV external data references keep FFmpeg's disabled default; this API does
+// not accept demuxer options that could enable them. Apply this policy
+// before opening *each* input, for both probing and merging.
+const LOCAL_MEDIA_INPUT_OPTIONS = [
+  '-protocol_whitelist',
+  'file',
+  '-format_whitelist',
+  'mov,matroska,webm,avi,mpegts,mpegvideo,mpeg,aac,mp3,flac,ogg,wav,flv',
+]
+
 // ---------------------------------------------------------------------------
 // Error class
 // ---------------------------------------------------------------------------
@@ -297,11 +310,12 @@ export class FfmpegCapabilityHost {
     // -----------------------------------------------------------------------
 
     let aborted = false
+    let settled = false
     let killTimer: ReturnType<typeof setTimeout> | undefined
     let timeoutTimer: ReturnType<typeof setTimeout>
 
     const abort = (): void => {
-      if (aborted) return
+      if (aborted || settled) return
       aborted = true
       clearTimeout(timeoutTimer)
       try {
@@ -368,8 +382,8 @@ export class FfmpegCapabilityHost {
     let stderrBuf = ''
     proc.stderr?.on('data', (chunk: Buffer) => {
       stderrBuf += chunk.toString()
-      const lines = stderrBuf.split('\n')
-      stderrBuf = lines.pop() ?? ''
+      const lines = stderrBuf.split(/[\r\n]/)
+      stderrBuf = (lines.pop() ?? '').slice(-8192)
       for (const line of lines) {
         const p = parseProgress(line, expectedDurationMs)
         if (p !== null) emitProgress(p)
@@ -382,6 +396,8 @@ export class FfmpegCapabilityHost {
 
     const result = new Promise<{ outputPath: string }>((resolve, reject) => {
       proc.on('error', (err: Error) => {
+        settled = true
+        opts.signal?.removeEventListener('abort', abort)
         clearTimeout(timeoutTimer)
         clearTimeout(killTimer)
         clearTimeout(keepAliveTimer)
@@ -395,12 +411,21 @@ export class FfmpegCapabilityHost {
       })
 
       proc.on('close', (code: number | null) => {
+        settled = true
+        opts.signal?.removeEventListener('abort', abort)
         clearTimeout(timeoutTimer)
         clearTimeout(killTimer)
         clearTimeout(keepAliveTimer)
         queue.close()
 
-        if (code === 0) {
+        if (aborted) {
+          reject(
+            new FfmpegError(
+              'plugin.ffmpeg.aborted',
+              'FFmpeg operation cancelled'
+            )
+          )
+        } else if (code === 0) {
           resolve({ outputPath: resolvedOutputPath })
         } else {
           reject(
@@ -420,7 +445,11 @@ export class FfmpegCapabilityHost {
   // probe
   // -------------------------------------------------------------------------
 
-  probe(input: { path: string }): Promise<MediaInfo> {
+  probe(input: {
+    path: string
+    signal?: AbortSignal
+    localOnly?: boolean
+  }): Promise<MediaInfo> {
     if (!this.detect.available || !this.detect.binaryPath) {
       return Promise.reject(
         new FfmpegError('plugin.capability.unavailable', 'ffmpeg not available')
@@ -448,17 +477,47 @@ export class FfmpegCapabilityHost {
       // `-f null -`: that forces a full decode of the entire file (minutes for
       // a multi-GB video, tripping the 30s timeout) yet produces nothing this
       // parser reads — duration/format/streams all come from the header block.
-      const proc = this.spawnFn(binaryPath, ['-i', input.path], {
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
+      input.signal?.throwIfAborted()
+      const proc = this.spawnFn(
+        binaryPath,
+        [
+          ...(input.localOnly
+            ? ['-nostdin', ...LOCAL_MEDIA_INPUT_OPTIONS]
+            : []),
+          '-i',
+          input.path,
+        ],
+        {
+          stdio: ['ignore', 'pipe', 'pipe'],
+        }
+      )
 
-      const timer = setTimeout(() => {
+      let closed = false
+      let failure: FfmpegError | undefined
+      let killTimer: ReturnType<typeof setTimeout> | undefined
+      const stop = (error: FfmpegError) => {
+        if (closed || failure) return
+        failure = error
+        clearTimeout(timer)
         try {
           proc.kill('SIGTERM')
         } catch {
-          // ignore
+          // The child may already have exited; still wait for close.
         }
-        reject(
+        killTimer = setTimeout(() => {
+          try {
+            proc.kill('SIGKILL')
+          } catch {
+            // The child may already have exited.
+          }
+        }, SIGKILL_GRACE_MS)
+      }
+      const abort = () =>
+        stop(
+          new FfmpegError('plugin.ffmpeg.aborted', 'FFmpeg operation cancelled')
+        )
+      const timer = setTimeout(() => {
+        stop(
           new FfmpegError(
             'plugin.ffmpeg.probe_timeout',
             'ffmpeg probe timed out'
@@ -479,17 +538,23 @@ export class FfmpegCapabilityHost {
       })
 
       proc.on('error', (err: Error) => {
-        clearTimeout(timer)
-        reject(
-          new FfmpegError(
-            'plugin.ffmpeg.spawn_error',
-            `ffmpeg spawn error: ${err.message}`
-          )
+        // ChildProcess emits close after error, including spawn failure.
+        // Settling here would release the manual job while the child is alive.
+        failure ??= new FfmpegError(
+          'plugin.ffmpeg.spawn_error',
+          `ffmpeg spawn error: ${err.message}`
         )
       })
 
       proc.on('close', () => {
+        closed = true
         clearTimeout(timer)
+        clearTimeout(killTimer)
+        input.signal?.removeEventListener('abort', abort)
+        if (failure) {
+          reject(failure)
+          return
+        }
         // ffmpeg -i ... -f null - exits 1 for probe; we ignore the code.
         const durationMatch = DURATION_RE.exec(stderrCapture)
         const durationMs = durationMatch
@@ -518,6 +583,8 @@ export class FfmpegCapabilityHost {
 
         resolve({ durationMs, format, streams })
       })
+      input.signal?.addEventListener('abort', abort, { once: true })
+      if (input.signal?.aborted) abort()
     })
   }
 
@@ -598,14 +665,24 @@ export class FfmpegCapabilityHost {
     videoInput: string
     audioInput: string
     output: string
+    expectedDurationMs?: number
+    localOnly?: boolean
     timeoutMs?: number
     signal?: AbortSignal
   }): FfmpegOpHandle<{ outputPath: string }> {
+    const inputOptions = opts.localOnly ? LOCAL_MEDIA_INPUT_OPTIONS : []
     const argv = [
+      '-nostdin',
+      ...inputOptions,
       '-i',
       opts.videoInput,
+      ...inputOptions,
       '-i',
       opts.audioInput,
+      '-map',
+      '0:v:0',
+      '-map',
+      '1:a:0',
       '-c:v',
       'copy',
       '-c:a',
@@ -618,6 +695,7 @@ export class FfmpegCapabilityHost {
       outputPath: opts.output,
       timeoutMs: opts.timeoutMs,
       signal: opts.signal,
+      expectedDurationMs: opts.expectedDurationMs,
     })
   }
 

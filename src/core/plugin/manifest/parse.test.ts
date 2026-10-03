@@ -1,6 +1,65 @@
 import { describe, expect, it } from 'vitest'
 import { PluginEngineVersionTooOld, PluginManifestInvalid } from './errors'
-import { parseManifest } from './parse'
+import { parseManifest, semverSatisfies } from './parse'
+
+describe('plugin engine version ranges', () => {
+  it.each([
+    ['2.0.0-beta.9', false],
+    ['2.0.0-beta.44', false],
+    ['2.0.0-beta.45', true],
+    ['2.0.0-beta.46', true],
+    ['2.0.0-beta.100', true],
+    ['2.0.0-alpha.99', false],
+    ['2.0.0-rc.1', true],
+    ['2.0.0', true],
+    ['2.0.1', true],
+    ['3.0.0', false],
+  ])('checks %s against a beta floor: %s', (version, expected) => {
+    expect(semverSatisfies(version, '>=2.0.0-beta.45 <3.0.0')).toBe(expected)
+  })
+
+  it.each([
+    ['2.0.0-beta.45', '>2.0.0-beta.45', false],
+    ['2.0.0-beta.46', '>2.0.0-beta.45', true],
+    ['2.0.0-beta.44', '<2.0.0-beta.45', true],
+    ['2.0.0-beta.45', '<2.0.0-beta.45', false],
+    ['2.0.0-beta.45', '<=2.0.0-beta.45', true],
+    ['2.0.0', '<=2.0.0-beta.45', false],
+    ['2.0.0-beta.45', '=2.0.0-beta.45', true],
+    ['2.0.0', '=2.0.0-beta.45', false],
+    ['2.0.0-beta.45+local.1', '2.0.0-beta.45+build.2', true],
+    ['2.0.0-beta.9', '^2.0.0-beta.10', false],
+    ['2.0.0', '^2.0.0-beta.45', true],
+    ['3.0.0', '^2.0.0-beta.45', false],
+    ['2.0.0-beta.44', '~2.0.0-beta.45', false],
+    ['2.0.1', '~2.0.0-beta.45', true],
+    ['2.1.0', '~2.0.0-beta.45', false],
+    ['2.0.0-beta.45', '>=2.0.0-beta.45 <2.0.0', true],
+    ['2.0.0', '>=2.0.0-beta.45 <2.0.0', false],
+    ['2.0.0-beta.45', '>=2.0.0 <=2.0.0-beta.46', false],
+  ])('%s satisfies %s: %s', (version, range, expected) => {
+    expect(semverSatisfies(version, range)).toBe(expected)
+  })
+
+  it('preserves the release-only API ranges used by existing builtin plugins', () => {
+    expect(semverSatisfies('2.0.0-beta.45', '>=2.0.0 <3.0.0')).toBe(true)
+    expect(semverSatisfies('2.0.0-beta.45', '>=2.0.1 <3.0.0')).toBe(false)
+    expect(semverSatisfies('3.0.0-beta.1', '>=2.0.0 <3.0.0')).toBe(false)
+    expect(semverSatisfies('2.0.0-beta.45', '*')).toBe(true)
+  })
+
+  it.each(['2.0', '2.0.0-beta.', '2.0.0-beta.045', '2.0.0.45', '2.0.0+'])(
+    'rejects malformed version %s instead of ignoring its suffix',
+    (version) => {
+      expect(() => semverSatisfies(version, '>=2.0.0-beta.45')).toThrow(
+        PluginManifestInvalid
+      )
+      expect(() => semverSatisfies('2.0.0-beta.45', `>=${version}`)).toThrow(
+        PluginManifestInvalid
+      )
+    }
+  )
+})
 
 const VALID_JSON = JSON.stringify({
   manifestVersion: 1,
@@ -25,6 +84,22 @@ describe('parseManifest', () => {
   it('throws PluginEngineVersionTooOld when host version below range', () => {
     expect(() => parseManifest(VALID_JSON, { hostVersion: '1.9.0' })).toThrow(
       PluginEngineVersionTooOld
+    )
+  })
+
+  it('enforces a beta minimum during manifest loading and accepts the final release', () => {
+    const manifest = JSON.stringify({
+      ...JSON.parse(VALID_JSON),
+      engines: { motrix: '>=2.0.0-beta.45' },
+    })
+    expect(() =>
+      parseManifest(manifest, { hostVersion: '2.0.0-beta.44' })
+    ).toThrow(PluginEngineVersionTooOld)
+    expect(
+      parseManifest(manifest, { hostVersion: '2.0.0-beta.45' }).manifest.id
+    ).toBe('alice.demo')
+    expect(parseManifest(manifest, { hostVersion: '2.0.0' }).manifest.id).toBe(
+      'alice.demo'
     )
   })
 

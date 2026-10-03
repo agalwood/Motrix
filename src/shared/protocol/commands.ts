@@ -1,4 +1,10 @@
 export const Commands = {
+  GetMediaMergeState: 'command:getMediaMergeState',
+  GetMediaMergeSelection: 'command:getMediaMergeSelection',
+  StartMediaMerge: 'command:startMediaMerge',
+  GetMediaMergeJob: 'command:getMediaMergeJob',
+  CancelMediaMerge: 'command:cancelMediaMerge',
+  PickFile: 'command:pickFile',
   SetCompletionShutdown: 'command:setCompletionShutdown',
   SaveDownloadsSettings: 'command:saveDownloadsSettings',
   PauseTask: 'command:pauseTask',

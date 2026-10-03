@@ -11,6 +11,7 @@ import { __webPathPickerBus } from '@renderer/platform/web-services'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
+import type { FilePickerOptions } from '@shared/schemas/file-picker'
 import {
   act,
   cleanup,
@@ -89,7 +90,13 @@ const directories = (path = '/downloads', names = ['Alpha', 'Beta']) => ({
   },
 })
 
-function Harness({ strict = false }: { strict?: boolean }) {
+function Harness({
+  strict = false,
+  file,
+}: {
+  strict?: boolean
+  file?: FilePickerOptions
+}) {
   const [pending, setPending] = useState(false)
   const [value, setValue] = useState('/downloads')
   const tree = (
@@ -104,6 +111,7 @@ function Harness({ strict = false }: { strict?: boolean }) {
               setPending(true)
               const path = await __webPathPickerBus.request({
                 defaultPath: value,
+                file,
               })
               if (path) setValue(path)
               setPending(false)
@@ -706,5 +714,81 @@ describe('WebDirectoryPickerDialog', () => {
       complete?.(directories())
     })
     expect(screen.queryByTestId('web-directory-picker')).not.toBeInTheDocument()
+  })
+})
+
+describe('file selection in the existing server browser', () => {
+  function withFiles() {
+    const base = vi.mocked(transport.invoke).getMockImplementation()!
+    vi.mocked(transport.invoke).mockImplementation(async (channel, ...args) => {
+      if (channel === Queries.ListServerDirectories)
+        return {
+          ...directories(),
+          value: {
+            ...directories().value,
+            separator: '/',
+            entries: [
+              { name: 'Folder', path: '/downloads/Folder', kind: 'directory' },
+              { name: 'video.mp4', path: '/downloads/video.mp4', kind: 'file' },
+            ],
+          },
+        }
+      if (channel === Queries.ValidateServerFile) {
+        const request = args[0] as { kind: string; path: string; name: string }
+        if (request.kind === 'save' && request.name === 'video.mp4')
+          return { ok: false, error: { code: 'alreadyExists' } }
+        return {
+          ok: true,
+          value: {
+            path:
+              request.kind === 'open'
+                ? request.path
+                : `/downloads/${request.name}`,
+          },
+        }
+      }
+      return base(channel, ...args)
+    })
+  }
+
+  it('navigates folders and confirms files by double-click without choosing a folder as an input', async () => {
+    withFiles()
+    render(<Harness file={{ kind: 'open' }} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Browse' }))
+    const folder = await screen.findByRole('option', { name: 'Folder' })
+    fireEvent.click(folder)
+    expect(screen.getByRole('button', { name: 'Select file' })).toBeDisabled()
+    fireEvent.doubleClick(screen.getByRole('option', { name: 'video.mp4' }))
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId('web-directory-picker')
+      ).not.toBeInTheDocument()
+    )
+    expect(screen.getByTestId('value')).toHaveTextContent(
+      '/downloads/video.mp4'
+    )
+  })
+
+  it('keeps the save dialog open on a collision and submits the revised filename', async () => {
+    withFiles()
+    render(<Harness file={{ kind: 'save', extensions: ['mp4', 'mkv'] }} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Browse' }))
+    fireEvent.click(await screen.findByRole('option', { name: 'video.mp4' }))
+    expect(screen.getByLabelText('File name')).toHaveValue('video.mp4')
+    fireEvent.click(screen.getByRole('button', { name: 'Use this filename' }))
+    await screen.findByRole('alert')
+    expect(screen.getByTestId('web-directory-picker')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('File name'), {
+      target: { value: 'merged.mkv' },
+    })
+    fireEvent.keyDown(screen.getByLabelText('File name'), { key: 'Enter' })
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId('web-directory-picker')
+      ).not.toBeInTheDocument()
+    )
+    expect(screen.getByTestId('value')).toHaveTextContent(
+      '/downloads/merged.mkv'
+    )
   })
 })

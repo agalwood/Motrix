@@ -3,6 +3,7 @@ import {
   DIRECTORY_FAVORITES_LIMIT,
   DIRECTORY_RECENT_LIMIT,
 } from './directory-preferences'
+import { fileExtensionsSchema } from './file-picker'
 
 export const SERVER_DIRECTORY_PATH_LIMIT = 4096
 export const SERVER_DIRECTORY_NAME_LIMIT = 255
@@ -14,6 +15,8 @@ export const DirectoryErrorCodeSchema = z.enum([
   'outsideRoots',
   'notFound',
   'notDirectory',
+  'notFile',
+  'unsupportedFileType',
   'permissionDenied',
   'alreadyExists',
   'invalidName',
@@ -32,6 +35,7 @@ const DirectoryEntrySchema = z
   .strict()
 const ListedDirectoryEntrySchema = DirectoryEntrySchema.extend({
   modifiedAt: z.number().finite().optional(),
+  kind: z.enum(['directory', 'file']).optional(),
 }).strict()
 const DirectoryFailureSchema = z
   .object({
@@ -41,7 +45,12 @@ const DirectoryFailureSchema = z
   .strict()
 
 export const ListServerDirectoriesRequestSchema = z
-  .object({ path: DirectoryPathSchema, showHidden: z.boolean().optional() })
+  .object({
+    path: DirectoryPathSchema,
+    showHidden: z.boolean().optional(),
+    includeFiles: z.boolean().optional(),
+    initialFile: z.boolean().optional(),
+  })
   .strict()
 export const ListServerDirectoriesResultSchema = z.discriminatedUnion('ok', [
   z
@@ -60,6 +69,8 @@ export const ListServerDirectoriesResultSchema = z.discriminatedUnion('ok', [
             .max(SERVER_DIRECTORY_ENTRY_LIMIT),
           truncated: z.boolean(),
           canCreate: z.boolean(),
+          separator: z.enum(['/', '\\']).optional(),
+          initialName: z.string().max(SERVER_DIRECTORY_PATH_LIMIT).optional(),
         })
         .strict(),
     })
@@ -78,6 +89,25 @@ export const ValidateServerDirectoryResultSchema = z.discriminatedUnion('ok', [
     .strict(),
   DirectoryFailureSchema,
 ])
+export const ValidateServerFileRequestSchema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('open'),
+      path: DirectoryPathSchema,
+      extensions: fileExtensionsSchema,
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('save'),
+      parentPath: DirectoryPathSchema,
+      name: z.string().min(1).max(SERVER_DIRECTORY_NAME_LIMIT),
+      extensions: fileExtensionsSchema,
+    })
+    .strict(),
+])
+export const ValidateServerFileResultSchema =
+  ValidateServerDirectoryResultSchema
 export const CreateServerDirectoryRequestSchema = z
   .object({
     parentPath: DirectoryPathSchema,

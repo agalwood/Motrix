@@ -40,6 +40,7 @@ export interface BridgeInitMessage {
   pluginId: string
   manifest: PluginManifest
   bundleSource: string // raw text of dist/plugin.js
+  ffmpeg?: { available: boolean; version?: string }
   app: {
     version: string
     platform: 'darwin' | 'win32' | 'linux'

@@ -63,6 +63,7 @@ export const Queries = {
   // Save directory allowlist (web degradation, electron returns unrestricted)
   ListAllowedSaveDirs: 'query:listAllowedSaveDirs',
   ListServerDirectories: 'query:listServerDirectories',
+  ValidateServerFile: 'query:validateServerFile',
   ValidateServerDirectory: 'query:validateServerDirectory',
   // GeoIP
   GetGeoIPStatus: 'query:getGeoIPStatus',

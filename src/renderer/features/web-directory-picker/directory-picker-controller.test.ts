@@ -3,6 +3,7 @@ import type { Transport } from '@renderer/lib/transport/types'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
+import type { FilePickerOptions } from '@shared/schemas/file-picker'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   DIRECTORY_OPERATION_TIMEOUT,
@@ -41,7 +42,10 @@ const failure = (code: string) => ({ ok: false, error: { code } })
 const flush = () => vi.advanceTimersByTimeAsync(0)
 const controllers: DirectoryPickerController[] = []
 
-function harness(defaultPath: string | undefined = '/downloads') {
+function harness(
+  defaultPath: string | undefined = '/downloads',
+  file?: FilePickerOptions
+) {
   const eventListeners = new Map<string, (payload: unknown) => void>()
   const preferences = {
     mutate: vi.fn<DirectoryPreferencesStore['mutate']>(async () => true),
@@ -95,7 +99,8 @@ function harness(defaultPath: string | undefined = '/downloads') {
     defaultPath,
     finish,
     preferences,
-    new DirectorySortPreferences(() => ({ getItem: () => null, setItem() {} }))
+    new DirectorySortPreferences(() => ({ getItem: () => null, setItem() {} })),
+    file
   )
   controllers.push(controller)
   return {
@@ -965,5 +970,80 @@ describe('DirectoryPickerController', () => {
     expect(current.controller.target).toBe('/downloads/Music')
     await current.controller.confirm()
     expect(current.finish).toHaveBeenCalledExactlyOnceWith('/downloads/Music')
+  })
+})
+
+describe('file modes of the directory controller', () => {
+  it('opens a selected file, revalidates it, and never confirms a directory as an input', async () => {
+    const h = harness('/downloads/video.mp4', { kind: 'open' })
+    h.queue(
+      Queries.ListServerDirectories,
+      success({
+        ...listing(),
+        initialName: 'video.mp4',
+        entries: [
+          { name: 'video.mp4', path: '/downloads/video.mp4', kind: 'file' },
+          { name: 'folder', path: '/downloads/folder', kind: 'directory' },
+        ],
+      })
+    )
+    await h.controller.start()
+    expect(h.invoke).toHaveBeenCalledWith(Queries.ListServerDirectories, {
+      path: '/downloads/video.mp4',
+      showHidden: false,
+      includeFiles: true,
+      initialFile: true,
+    })
+    expect(h.controller.target).toBe('/downloads/video.mp4')
+    h.controller.select('/downloads/folder')
+    expect(h.controller.target).toBeNull()
+    h.queue(Queries.ValidateServerFile, failure('notFound'))
+    h.controller.openEntry('/downloads/video.mp4')
+    await flush()
+    expect(h.finish).not.toHaveBeenCalled()
+    expect(h.controller.getSnapshot().error).toBe('notFound')
+    h.queue(
+      Queries.ValidateServerFile,
+      success({ path: '/downloads/video.mp4' })
+    )
+    await h.controller.confirm()
+    expect(h.finish).toHaveBeenCalledWith('/downloads/video.mp4')
+  })
+
+  it('uses server-provided path syntax and preserves the save filename while navigating', async () => {
+    const h = harness('D:\\Media\\merged.mp4', {
+      kind: 'save',
+      extensions: ['mp4', 'mkv'],
+    })
+    h.queue(
+      Queries.ListServerDirectories,
+      success({
+        ...listing('D:\\Media', []),
+        separator: '\\',
+        initialName: 'merged.mp4',
+      })
+    )
+    await h.controller.start()
+    expect(h.controller.target).toBe('D:\\Media\\merged.mp4')
+    h.queue(
+      Queries.ListServerDirectories,
+      success({ ...listing('D:\\Other', []), separator: '\\' })
+    )
+    h.controller.navigate('D:\\Other')
+    await flush()
+    expect(h.controller.target).toBe('D:\\Other\\merged.mp4')
+    h.queue(Queries.ValidateServerFile, failure('alreadyExists'))
+    await h.controller.confirm()
+    expect(h.finish).not.toHaveBeenCalled()
+    h.controller.setFileName('new.mkv')
+    h.queue(Queries.ValidateServerFile, success({ path: 'D:\\Other\\new.mkv' }))
+    await h.controller.confirm()
+    expect(h.invoke).toHaveBeenCalledWith(Queries.ValidateServerFile, {
+      kind: 'save',
+      parentPath: 'D:\\Other',
+      name: 'new.mkv',
+      extensions: ['mp4', 'mkv'],
+    })
+    expect(h.finish).toHaveBeenCalledWith('D:\\Other\\new.mkv')
   })
 })

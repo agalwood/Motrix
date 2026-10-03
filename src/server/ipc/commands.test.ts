@@ -1997,3 +1997,44 @@ describe('host-owned task directory history', () => {
     finish({ ok: true, value: { favorites: [], recent: [] } })
   })
 })
+
+describe('manual media merge logging', () => {
+  it('uses the existing plugin log capability for preparation failures', async () => {
+    const ctx = makeFakeCtx()
+    const error = vi.fn()
+    const createLog = vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error }))
+    const pluginId = 'test.merger'
+    const handlers = buildServerCommandHandlers({
+      ...ctx,
+      pluginRegistry: {
+        list: () => [{ id: pluginId, name: 'Merger', enabled: true }],
+        get: () => ({
+          manifest: {
+            permissions: ['ffmpeg'],
+            contributes: {
+              commands: [{ id: `${pluginId}.mergeStreams`, public: true }],
+            },
+          },
+        }),
+      },
+      capabilityHost: { createLog },
+    } as unknown as ServerCommandContext)
+    await expect(
+      handlers[Commands.StartMediaMerge]?.({
+        pluginId,
+        videoInput: 'relative.mp4',
+        audioInput: '/media/audio.mp4',
+        output: '/media/merged.mp4',
+      })
+    ).rejects.toThrow('mediaMerge.absolutePaths')
+    expect(createLog).toHaveBeenCalledWith(pluginId)
+    expect(error).toHaveBeenCalledWith(
+      'Media merge failed',
+      expect.objectContaining({
+        event: 'media-merge.failed',
+        stage: 'preparing',
+        reason: 'mediaMerge.absolutePaths',
+      })
+    )
+  })
+})

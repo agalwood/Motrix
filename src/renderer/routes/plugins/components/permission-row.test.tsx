@@ -1,10 +1,35 @@
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import { fireEvent, render, screen } from '@testing-library/react'
+import { MemoryRouter, Route, Routes } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 import { PermissionRow } from './permission-row'
 
 describe('PermissionRow', () => {
+  it('explains the FFmpeg requirement and links to integration settings', async () => {
+    render(
+      <MemoryRouter initialEntries={['/plugins/media-merge']}>
+        <Routes>
+          <Route
+            path="/plugins/media-merge"
+            element={<PermissionRow permission="ffmpeg" granted={true} />}
+          />
+          <Route
+            path="/settings/integration"
+            element={<h1>Integration settings</h1>}
+          />
+        </Routes>
+      </MemoryRouter>
+    )
+    expect(screen.getByText(/Processes audio or video. First,/)).toBeVisible()
+    fireEvent.click(
+      screen.getByRole('link', { name: 'install or select FFmpeg in Settings' })
+    )
+    expect(
+      await screen.findByRole('heading', { name: 'Integration settings' })
+    ).toBeVisible()
+  })
+
   it('renders strong + plain for storage permission', () => {
     render(<PermissionRow permission="storage" granted={true} />)
     expect(screen.getByText('Save settings')).toBeInTheDocument()

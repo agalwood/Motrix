@@ -16,6 +16,29 @@ describe('createWebServices', () => {
     expect(services.kind).toBe('web')
   })
 
+  it('routes file selection and save options through the existing browser picker bus', async () => {
+    const listener = vi.fn()
+    const unsubscribe = __webPathPickerBus.subscribe(listener)
+    const options = {
+      kind: 'save' as const,
+      defaultPath: '/downloads/new.mp4',
+      extensions: ['mp4', 'mkv'],
+    }
+    const pending = services.pickFile?.(options)
+    expect(listener).toHaveBeenCalledWith(
+      expect.objectContaining({
+        defaultPath: options.defaultPath,
+        file: options,
+      })
+    )
+    __webPathPickerBus.resolve(
+      listener.mock.calls[0][0].id,
+      '/downloads/new.mp4'
+    )
+    await expect(pending).resolves.toBe('/downloads/new.mp4')
+    unsubscribe()
+  })
+
   it('pickSaveDir emits on bus and resolves on response', async () => {
     const spy = vi.fn()
     const unsubscribe = __webPathPickerBus.subscribe(spy)

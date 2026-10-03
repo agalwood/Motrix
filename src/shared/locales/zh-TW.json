@@ -2498,7 +2498,9 @@
       "removeTitle": "移除外掛程式",
       "removeDesc": "移除此外掛程式也會刪除其儲存在 Motrix 的資料。",
       "uninstallConfirmTitle": "要解除安裝 {{name}} 嗎？",
-      "uninstallConfirmDesc": "這將從 Motrix 移除外掛程式及其已儲存的設定。"
+      "uninstallConfirmDesc": "這將從 Motrix 移除外掛程式及其已儲存的設定。",
+      "operations": "操作",
+      "operationsFailed": "操作介面載入失敗，請重試。"
     },
     "permissions": {
       "empty": "此外掛程式未要求任何權限。",
@@ -2713,7 +2715,8 @@
       },
       "ffmpeg": {
         "strong": "使用 FFmpeg",
-        "plain": "處理音訊或影片。"
+        "plain": "處理音訊或影片。",
+        "requirement": "用於處理音訊與影片，使用前請先<settings>在設定中安裝或選擇 FFmpeg</settings>。"
       },
       "notify": {
         "strong": "傳送通知",
@@ -2827,7 +2830,9 @@
       "invalidName": "請輸入有效的資料夾名稱。",
       "tooLarge": "路徑或資料夾名稱過長。",
       "unavailable": "伺服器無法完成要求，請再試一次。",
-      "creationOutcomeUnknown": "無法確認資料夾是否已建立。請先重新整理確認，再在此處建立其他資料夾。"
+      "creationOutcomeUnknown": "無法確認資料夾是否已建立。請先重新整理確認，再在此處建立其他資料夾。",
+      "notFile": "請選擇可讀取的一般檔案。",
+      "unsupportedFileType": "不支援此副檔名。"
     },
     "places": {
       "common": "常用位置",
@@ -2839,6 +2844,33 @@
       "downloads": "下載",
       "root": "檔案系統",
       "loadFailed": "部分目錄位置無法載入。"
+    },
+    "openFileTitle": "選擇檔案",
+    "saveFileTitle": "儲存檔案",
+    "fileDescription": "瀏覽 Motrix 伺服器上的檔案。",
+    "selectFile": "選擇檔案",
+    "saveFile": "使用此檔案名稱",
+    "files": "檔案和資料夾",
+    "fileName": "檔案名稱",
+    "emptyFiles": "此資料夾為空。",
+    "fileErrors": {
+      "invalidPath": "請輸入有效的絕對路徑。",
+      "outsideRoots": "此路徑不在允許的位置範圍內。",
+      "notFound": "此路徑已不存在。",
+      "permissionDenied": "你沒有使用此路徑的權限。",
+      "invalidName": "請輸入有效的檔案名稱。",
+      "tooLarge": "路徑或檔案名稱過長。"
+    },
+    "selectedFilePath": "所選檔案",
+    "file": {
+      "chooseOnServer": "請點擊選擇伺服器上的檔案。",
+      "singleFile": "請一次選擇一個檔案。",
+      "wrongType": "請選擇以下格式的檔案：{{extensions}}。",
+      "pathUnavailable": "無法讀取此檔案的位置，請點擊選擇。",
+      "choose": "選擇檔案",
+      "dropHint": "拖入檔案，或點擊選擇",
+      "browseHint": "點擊瀏覽檔案",
+      "change": "點擊更換檔案"
     }
   },
   "directoryPreferences": {
@@ -2906,6 +2938,50 @@
     "waitingMerged": "等待中的任務現已歸入活動任務，已開啟活動任務清單。",
     "stoppedSplit": "已停止的任務現按已完成和錯誤分類，已開啟全部下載。",
     "invalidStatus": "下載分類無效，已開啟全部下載。"
+  },
+  "mediaMerge": {
+    "title": "合併音訊與影片",
+    "description": "將影片畫面與音訊合為一個檔案，無需重新編碼。",
+    "videoInput": "影片檔案",
+    "audioInput": "音訊檔案",
+    "output": "輸出檔案",
+    "provider": "外掛",
+    "browse": "選擇…",
+    "browseField": "選擇{{field}}",
+    "required": "請選擇檔案或填寫完整路徑。",
+    "outputHint": "儲存為 MP4 或 MKV，並使用新檔名。MP4 不相容時可嘗試 MKV。",
+    "noPlugin": "請安裝並啟用音視訊合併擴充功能，並在「設定 → 整合 → 媒體工具」中設定 FFmpeg。",
+    "serverPaths": "選擇 Motrix 伺服器上的檔案；不會上傳本機檔案。",
+    "start": "合併",
+    "running": "正在合併…",
+    "cancelling": "正在取消…",
+    "completed": "合併成功",
+    "cancelled": "已取消合併",
+    "failed": "合併失敗",
+    "invalidSelection": "請選擇兩個已完成的單檔下載任務。",
+    "jobMissing": "此合併任務已無法使用。",
+    "busy": "已有另一個合併任務正在執行。",
+    "pluginUnavailable": "音訊與影片合併外掛無法使用。",
+    "absolutePaths": "請填寫完整的檔案絕對路徑。",
+    "invalidFiles": "請選擇兩個非空的媒體檔案。",
+    "sameInput": "請選擇兩個不同的輸入檔案。",
+    "outputFormat": "輸出檔名需以 .mp4 或 .mkv 結尾。",
+    "outputExists": "輸出檔案已存在，請使用新檔名。",
+    "invalidOutput": "外掛未產生有效的輸出檔案。",
+    "again": "再次合併",
+    "pluginDisabled": "啟用此擴充功能後即可合併檔案。",
+    "choose": {
+      "videoInput": "選擇影片",
+      "audioInput": "選擇音訊",
+      "output": "選擇儲存位置"
+    },
+    "hint": {
+      "videoInput": "提供合併後的畫面",
+      "audioInput": "提供合併後的聲音",
+      "output": "儲存為 MP4 或 MKV"
+    },
+    "preserveOriginals": "無損合併，保留原始檔案",
+    "format": "輸出格式"
   },
   "downloadConfirm": {
     "title": "下載確認",

@@ -1803,6 +1803,12 @@ function injectPluginApi(vm: QuickJSContext, init: BridgeInitMessage): void {
   //
   // probe: returns the result directly (not an op handle).
   const ffmpeg = vm.newObject()
+  vm.setProp(ffmpeg, 'available', init.ffmpeg?.available ? vm.true : vm.false)
+  if (init.ffmpeg?.version) {
+    const version = vm.newString(init.ffmpeg.version)
+    vm.setProp(ffmpeg, 'version', version)
+    version.dispose()
+  }
 
   function makeFfmpegHandle(opId: string): QuickJSHandle {
     const handleObj = vm.newObject()
@@ -1832,11 +1838,13 @@ function injectPluginApi(vm: QuickJSContext, init: BridgeInitMessage): void {
         vm.runtime.executePendingJobs()
       }
     )
-    resultDeferred.settled.then(() => vm.runtime.executePendingJobs())
+    resultDeferred.settled.then(() => {
+      vm.runtime.executePendingJobs()
+      resultDeferred.dispose()
+    })
     vm.setProp(handleObj, 'result', resultDeferred.handle)
-    // setProp increments the QuickJS ref-count on resultDeferred.handle; the
-    // JS-side wrapper can be disposed now without releasing the VM-side promise.
-    resultDeferred.dispose()
+    // Retain the deferred's resolve/reject handles until settlement. The
+    // object's reference retains the promise, but cannot settle it by itself.
 
     // pollProgress(): returns Promise<FfmpegProgress|null>
     const pollFn = vm.newFunction('pollProgress', () => {

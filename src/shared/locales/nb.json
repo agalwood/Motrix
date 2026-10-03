@@ -84,7 +84,9 @@
       "outsideRoots": "Denne mappen er utenfor de tillatte plasseringene.",
       "permissionDenied": "Du har ikke tillatelse til å bruke denne mappen.",
       "tooLarge": "Stien eller mappenavnet har for mange tegn.",
-      "unavailable": "Serveren kunne ikke fullføre denne forespørselen. Prøv igjen."
+      "unavailable": "Serveren kunne ikke fullføre denne forespørselen. Prøv igjen.",
+      "notFile": "Select a readable regular file.",
+      "unsupportedFileType": "This file extension is not supported."
     },
     "fallback": "Den forespurte mappen er utilgjengelig. Viser {{path}}.",
     "folderName": "Mappenavn",
@@ -123,7 +125,34 @@
     "title": "Velg servermappe",
     "unknownOutcome": "Opprettelsen kunne ikke bekreftes. Oppdater for å kontrollere før du oppretter en ny mappe her.",
     "up": "Opp ett nivå",
-    "viewOptions": "Visningsvalg"
+    "viewOptions": "Visningsvalg",
+    "openFileTitle": "Select a file",
+    "saveFileTitle": "Save a file",
+    "fileDescription": "Browse files on the Motrix server.",
+    "selectFile": "Select file",
+    "saveFile": "Use this filename",
+    "files": "Files and folders",
+    "fileName": "File name",
+    "emptyFiles": "This folder is empty.",
+    "fileErrors": {
+      "invalidPath": "Enter a valid absolute path.",
+      "outsideRoots": "This path is outside the allowed locations.",
+      "notFound": "This path no longer exists.",
+      "permissionDenied": "You do not have permission to use this path.",
+      "invalidName": "Enter a valid file name.",
+      "tooLarge": "This path or file name is too long."
+    },
+    "selectedFilePath": "Selected file",
+    "file": {
+      "chooseOnServer": "Choose a file on the server using this picker.",
+      "singleFile": "Choose one file at a time.",
+      "wrongType": "Choose a file with one of these extensions: {{extensions}}.",
+      "pathUnavailable": "This file’s location is unavailable. Click to choose it instead.",
+      "choose": "Choose a file",
+      "dropHint": "Drop a file here or click to choose",
+      "browseHint": "Click to browse files",
+      "change": "Click to replace"
+    }
   },
   "directoryPreferences": {
     "addFavorite": "Legg til favoritt",
@@ -1336,7 +1365,9 @@
       "uninstallConfirm": "Avinstallere dette programtillegget? Dataene blir fjernet.",
       "uninstallConfirmDesc": "Dette fjerner programtillegget og de lagrede innstillingene fra Motrix.",
       "uninstallConfirmTitle": "Avinstallere {{name}}?",
-      "viewIssue": "Vis problem"
+      "viewIssue": "Vis problem",
+      "operations": "Operations",
+      "operationsFailed": "The operation panel could not load. Try again."
     },
     "diagnostics": {
       "callGraph": {
@@ -1528,7 +1559,8 @@
       },
       "ffmpeg": {
         "plain": "Behandler lyd eller video.",
-        "strong": "Bruk FFmpeg"
+        "strong": "Bruk FFmpeg",
+        "requirement": "Processes audio or video. First, <settings>install or select FFmpeg in Settings</settings>."
       },
       "fs": {
         "storage": {
@@ -2928,6 +2960,50 @@
     "waitingMerged": "Ventende oppgaver vises nå under Aktive. Denne visningen er åpnet.",
     "stoppedSplit": "Stoppede oppgaver er gruppert under Fullførte og Feil. Alle nedlastinger er åpnet.",
     "invalidStatus": "Ugyldig nedlastingskategori. Alle nedlastinger er åpnet."
+  },
+  "mediaMerge": {
+    "title": "Merge audio and video",
+    "description": "Combine two files without re-encoding. Original files are kept. Audio-only and video-only inputs are detected automatically.",
+    "videoInput": "Video file",
+    "audioInput": "Audio file",
+    "output": "Output file",
+    "provider": "Plugin",
+    "browse": "Browse…",
+    "browseField": "Browse {{field}}",
+    "required": "Choose a file or enter its full path.",
+    "outputHint": "Use a new .mp4 or .mkv filename. Existing files are never overwritten. If the codecs cannot be copied to MP4, try MKV.",
+    "noPlugin": "Install and enable a media merge plugin. FFmpeg must be configured in Settings > Integration > Media Tools.",
+    "serverPaths": "Select files on the Motrix server. Files on this computer are not uploaded.",
+    "start": "Merge",
+    "running": "Merging…",
+    "cancelling": "Cancelling…",
+    "completed": "Merged successfully",
+    "cancelled": "Merge cancelled",
+    "failed": "Merge failed",
+    "invalidSelection": "Select two completed, single-file downloads.",
+    "jobMissing": "This merge is no longer available.",
+    "busy": "Another merge is already running.",
+    "pluginUnavailable": "The media merge plugin is unavailable.",
+    "absolutePaths": "Enter full, absolute file paths.",
+    "invalidFiles": "Choose two non-empty media files.",
+    "sameInput": "Choose two different input files.",
+    "outputFormat": "Use an .mp4 or .mkv output filename.",
+    "outputExists": "The output already exists. Choose a new filename.",
+    "invalidOutput": "The plugin did not produce a valid output file.",
+    "again": "Merge another file",
+    "pluginDisabled": "Enable this plugin to merge files.",
+    "choose": {
+      "videoInput": "Choose video",
+      "audioInput": "Choose audio",
+      "output": "Choose a save location"
+    },
+    "hint": {
+      "videoInput": "The picture for your merged file",
+      "audioInput": "The sound for your merged file",
+      "output": "Save as MP4 or MKV"
+    },
+    "preserveOriginals": "Original files are kept",
+    "format": "Output format"
   },
   "downloadConfirm": {
     "title": "Download confirmation",

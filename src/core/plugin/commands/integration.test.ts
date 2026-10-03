@@ -236,6 +236,36 @@ describe('FullCrossPluginInvoker', () => {
     await rm(tmp, { recursive: true, force: true })
   })
 
+  it('rejects a declared public merger without activating the callee', async () => {
+    const commandId = 'motrix.media-merge.mergeStreams'
+    const registry = makeRegistry([
+      { id: 'test.caller', invokesCommands: [commandId] },
+      { id: 'motrix.media-merge', publicCommands: [{ id: commandId }] },
+    ])
+    let invoked = false
+    const host = makeHost({
+      activate: async () => {
+        invoked = true
+      },
+      invokeCommand: async () => {
+        invoked = true
+      },
+    })
+    const h = buildHarness({ registry, host, auditFile })
+    await expect(
+      h.invoker.execute('test.caller', commandId, {
+        videoInput: '/video.mp4',
+        audioInput: '/audio.m4a',
+        output: '/existing.mp4',
+      })
+    ).rejects.toThrow('plugin.command.access_denied')
+    expect(invoked).toBe(false)
+    await h.audit.drain()
+    expect(await readAuditEntries(auditFile)).toEqual([
+      expect.objectContaining({ errorCode: 'plugin.command.access_denied' }),
+    ])
+  })
+
   it('rejects an A -> B -> A call cycle before the second enqueue', async () => {
     const registry = makeRegistry([
       {
