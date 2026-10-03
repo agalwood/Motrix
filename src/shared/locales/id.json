@@ -2325,7 +2325,11 @@
       "localPrepareFailed": "Berkas plugin ini tidak dapat disiapkan: {{detail}}",
       "dropHint": "Letakkan berkas .moext di sini untuk memeriksa plugin",
       "dragDisabledHint": "Seret dan lepas tidak didukung dalam lingkungan ini. Gunakan alamat GitHub atau URL.",
-      "warning": "Sebelum memasang: lanjutkan hanya jika Anda memercayai pembuatnya dan penggunaan akses yang tercantum di atas sesuai dengan yang Anda harapkan."
+      "warning": "Sebelum memasang: lanjutkan hanya jika Anda memercayai pembuatnya dan penggunaan akses yang tercantum di atas sesuai dengan yang Anda harapkan.",
+      "officialVerified": "Tanda tangan resmi Motrix terverifikasi",
+      "officialSignatureInvalid": "Tanda tangan resmi plugin tidak dapat diverifikasi. Coba segarkan katalog plugin.",
+      "officialBuiltinOnly": "Versi ini memerlukan hak akses plugin bawaan. Instal versi lebih baru yang mendukung instalasi opsional.",
+      "builtinAlreadyInstalled": "Plugin ini sudah menjadi bawaan. Gunakan tindakan pembaruannya."
     },
     "consent": {
       "installTitle": "Pasang {{name}} {{version}}?",

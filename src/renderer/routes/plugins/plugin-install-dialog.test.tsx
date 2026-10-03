@@ -63,7 +63,7 @@ beforeEach(() => {
   state.stagingId = null
   state.consent = null
   state.startInstall = vi.fn()
-  state.confirm = vi.fn()
+  state.confirm = vi.fn().mockResolvedValue(true)
   state.cancel = vi.fn()
 })
 

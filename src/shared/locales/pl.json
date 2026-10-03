@@ -2373,7 +2373,11 @@
       "localPrepareFailed": "Nie udało się przygotować tego pliku wtyczki: {{detail}}",
       "dropHint": "Upuść tutaj plik .moext, aby sprawdzić tę wtyczkę",
       "dragDisabledHint": "To środowisko nie obsługuje przeciągania i upuszczania. Użyj adresu GitHub lub adresu URL.",
-      "warning": "Przed instalacją: kontynuuj tylko wtedy, gdy ufasz autorowi i oczekujesz, że wtyczka będzie korzystać z wymienionych powyżej uprawnień."
+      "warning": "Przed instalacją: kontynuuj tylko wtedy, gdy ufasz autorowi i oczekujesz, że wtyczka będzie korzystać z wymienionych powyżej uprawnień.",
+      "officialVerified": "Oficjalny podpis Motrix zweryfikowany",
+      "officialSignatureInvalid": "Nie udało się zweryfikować oficjalnego podpisu wtyczki. Odśwież katalog.",
+      "officialBuiltinOnly": "Ta wersja wymaga uprawnień wbudowanej wtyczki. Zainstaluj nowszą wersję obsługującą opcjonalną instalację.",
+      "builtinAlreadyInstalled": "Ta wtyczka jest już wbudowana. Użyj jej funkcji aktualizacji."
     },
     "consent": {
       "installTitle": "Zainstalować {{name}} {{version}}?",

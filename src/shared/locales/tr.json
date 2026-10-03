@@ -2341,7 +2341,11 @@
       "localPrepareFailed": "Bu eklenti dosyası hazırlanamadı: {{detail}}",
       "dropHint": "Bu eklentiyi kontrol etmek için buraya bir .moext dosyası bırakın",
       "dragDisabledHint": "Bu ortamda sürükleyip bırakma desteklenmiyor. GitHub adresi veya URL kullanın.",
-      "warning": "Yüklemeden önce: yalnızca yazara güveniyorsanız ve eklentinin yukarıda belirtilen erişimleri kullanmasını bekliyorsanız devam edin."
+      "warning": "Yüklemeden önce: yalnızca yazara güveniyorsanız ve eklentinin yukarıda belirtilen erişimleri kullanmasını bekliyorsanız devam edin.",
+      "officialVerified": "Resmî Motrix imzası doğrulandı",
+      "officialSignatureInvalid": "Eklentinin resmî imzası doğrulanamadı. Eklenti mağazasını yenilemeyi deneyin.",
+      "officialBuiltinOnly": "Bu sürüm yerleşik eklenti yetkileri gerektirir. İsteğe bağlı kurulumu destekleyen daha yeni bir sürüm yükleyin.",
+      "builtinAlreadyInstalled": "Bu eklenti zaten yerleşiktir. Güncelleme işlevini kullanın."
     },
     "consent": {
       "installTitle": "{{name}} {{version}} yüklensin mi?",

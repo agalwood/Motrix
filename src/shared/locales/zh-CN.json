@@ -2325,7 +2325,11 @@
       "localPrepareFailed": "无法准备此插件文件：{{detail}}",
       "dropHint": "将 .moext 文件拖至此处以检查该插件",
       "dragDisabledHint": "当前环境不支持拖拽。请使用 GitHub 地址或链接。",
-      "warning": "安装前请注意：只有信任作者并预期它会使用上述权限时，才继续安装。"
+      "warning": "安装前请注意：只有信任作者并预期它会使用上述权限时，才继续安装。",
+      "officialVerified": "已验证 Motrix 官方签名",
+      "officialSignatureInvalid": "无法验证此插件的官方签名，请刷新插件市场后重试。",
+      "officialBuiltinOnly": "此版本需要内置插件专属权限，请安装支持可选安装的新版本。",
+      "builtinAlreadyInstalled": "此插件已内置，请使用插件的更新功能。"
     },
     "consent": {
       "installTitle": "安装 {{name}} {{version}}？",

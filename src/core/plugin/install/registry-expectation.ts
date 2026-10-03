@@ -16,6 +16,9 @@ export interface RegistryExpectation {
   hostPermissions: ReadonlyArray<string>
   /** Complete .moext digest verified by the registry download boundary. */
   packageSha256?: string
+  /** Metadata is only a claim; the installer must verify the archive itself. */
+  officialSignature?: string
+  requiresOfficialSignature?: boolean
 }
 
 export function buildRegistryExpectation(
@@ -30,6 +33,9 @@ export function buildRegistryExpectation(
     hostPermissions: entry.hostPermissions,
   }
   if (entry.package?.sha256) expectation.packageSha256 = entry.package.sha256
+  if (entry.package?.signature)
+    expectation.officialSignature = entry.package.signature
+  if (entry.origin === 'builtin') expectation.requiresOfficialSignature = true
   return expectation
 }
 

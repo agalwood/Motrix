@@ -33,6 +33,7 @@ export function scanForUpdates(
     const entry = byId.get(plugin.id)
     if (!entry?.compatible || !entry.package) continue
     if (!semverGt(entry.version, plugin.version)) continue
+    if (sourceType === 'official' && !entry.package.signature) continue
 
     if (sourceType === 'builtin' || sourceType === 'builtin-update') {
       // Builtin channel: only signed entries are ever offered — the

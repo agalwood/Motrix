@@ -2356,7 +2356,11 @@
       "localPrepareFailed": "No se pudo preparar este archivo de plugin: {{detail}}",
       "dropHint": "Arrastra aquí un archivo .moext para comprobar este plugin",
       "dragDisabledHint": "Este entorno no permite arrastrar y soltar. Usa una dirección de GitHub o una URL.",
-      "warning": "Antes de instalar: continúa solo si confías en el autor y esperas que el plugin use los accesos indicados arriba."
+      "warning": "Antes de instalar: continúa solo si confías en el autor y esperas que el plugin use los accesos indicados arriba.",
+      "officialVerified": "Firma oficial de Motrix verificada",
+      "officialSignatureInvalid": "No se pudo verificar la firma oficial del complemento. Actualiza el catálogo.",
+      "officialBuiltinOnly": "Esta versión requiere privilegios de un complemento integrado. Instala una versión más reciente que admita la instalación opcional.",
+      "builtinAlreadyInstalled": "Este complemento ya está integrado. Usa su opción de actualización."
     },
     "consent": {
       "installTitle": "¿Instalar {{name}} {{version}}?",

@@ -1540,7 +1540,11 @@
       "title": "Adaugă modul",
       "url": "URL",
       "url.spec": "URL pachet (.moext)",
-      "warning": "Înainte de instalare: continuă doar dacă ai încredere în autor și te aștepți ca modulul să folosească accesul indicat mai sus."
+      "warning": "Înainte de instalare: continuă doar dacă ai încredere în autor și te aștepți ca modulul să folosească accesul indicat mai sus.",
+      "officialVerified": "Semnătura oficială Motrix a fost verificată",
+      "officialSignatureInvalid": "Semnătura oficială a extensiei nu a putut fi verificată. Reîmprospătați catalogul.",
+      "officialBuiltinOnly": "Această versiune necesită privilegii de extensie integrată. Instalați o versiune mai nouă care acceptă instalarea opțională.",
+      "builtinAlreadyInstalled": "Această extensie este deja integrată. Utilizați funcția sa de actualizare."
     },
     "lead": "Adaugă funcții mici în Motrix. Păstrează active modulele în care ai încredere și dezactivează-le pe celelalte.",
     "logs": {

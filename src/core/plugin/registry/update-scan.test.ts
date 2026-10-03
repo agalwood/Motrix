@@ -157,3 +157,20 @@ describe('scanForUpdates', () => {
     ).toEqual([])
   })
 })
+
+describe('official optional updates', () => {
+  it('uses normal consent updates for signed packages and hides unsigned downgrades', () => {
+    const installed = { ...INSTALLED, source: { type: 'official' } }
+    expect(scanForUpdates([installed], [entry()])).toEqual([])
+    const signed = entry()
+    signed.package!.signature = 'signed-package'
+    expect(scanForUpdates([installed], [signed])).toEqual([
+      {
+        pluginId: INSTALLED.id,
+        currentVersion: '1.0.0',
+        latestVersion: '1.1.0',
+        channel: 'community',
+      },
+    ])
+  })
+})

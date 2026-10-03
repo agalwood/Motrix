@@ -2325,7 +2325,11 @@
       "localPrepareFailed": "Không thể chuẩn bị tệp tiện ích này: {{detail}}",
       "dropHint": "Thả tệp .moext vào đây để kiểm tra tiện ích",
       "dragDisabledHint": "Môi trường này không hỗ trợ kéo và thả. Hãy dùng địa chỉ GitHub hoặc URL.",
-      "warning": "Trước khi cài: chỉ tiếp tục nếu bạn tin tưởng tác giả và đồng ý với việc tiện ích sử dụng các quyền truy cập liệt kê ở trên."
+      "warning": "Trước khi cài: chỉ tiếp tục nếu bạn tin tưởng tác giả và đồng ý với việc tiện ích sử dụng các quyền truy cập liệt kê ở trên.",
+      "officialVerified": "Đã xác minh chữ ký chính thức của Motrix",
+      "officialSignatureInvalid": "Không thể xác minh chữ ký chính thức của tiện ích. Hãy làm mới danh mục.",
+      "officialBuiltinOnly": "Phiên bản này yêu cầu quyền của tiện ích tích hợp. Hãy cài phiên bản mới hơn hỗ trợ cài đặt tùy chọn.",
+      "builtinAlreadyInstalled": "Tiện ích này đã được tích hợp. Hãy dùng chức năng cập nhật của tiện ích."
     },
     "consent": {
       "installTitle": "Cài {{name}} {{version}}?",

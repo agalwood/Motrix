@@ -1523,7 +1523,11 @@
       "title": "Legg til programtillegg",
       "url": "URL",
       "url.spec": "Pakke-URL (.moext)",
-      "warning": "Før installering: Fortsett bare hvis du stoler på utvikleren og forventer at tillegget bruker tilgangen som er oppført ovenfor."
+      "warning": "Før installering: Fortsett bare hvis du stoler på utvikleren og forventer at tillegget bruker tilgangen som er oppført ovenfor.",
+      "officialVerified": "Offisiell Motrix-signatur bekreftet",
+      "officialSignatureInvalid": "Kunne ikke bekrefte den offisielle signaturen til programtillegget. Oppdater katalogen.",
+      "officialBuiltinOnly": "Denne versjonen krever rettigheter for innebygde programtillegg. Installer en nyere versjon som støtter valgfri installasjon.",
+      "builtinAlreadyInstalled": "Dette programtillegget er allerede innebygd. Bruk oppdateringsfunksjonen."
     },
     "lead": "Legg til små funksjoner i Motrix. Behold dem du stoler på, og slå av resten.",
     "logs": {

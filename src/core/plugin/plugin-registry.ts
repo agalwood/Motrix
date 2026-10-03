@@ -14,8 +14,11 @@ import type {
   PluginSource,
   PluginStateRecord,
 } from '@shared/types/plugin'
+import type { OfficialPackageProof } from '@shared/types/plugin-install'
 import { FfmpegStaging } from './hooks/staging-dir'
+import { readInstallRecord } from './install/install-record'
 import { readMoextEntry } from './install/moext-reader'
+import { loadOfficialPackage } from './install/official-package'
 import {
   flattenLocaleDict,
   type ManifestLocaleDict,
@@ -68,6 +71,8 @@ export interface IndexedPlugin {
    * can render a "Dev mode" badge.
    */
   dev?: boolean
+  /** Official optional packages retain community permission and hook policy. */
+  official?: OfficialPackageProof & { recordedAt: number }
   /**
    * Present when this builtin's effective code was earned from the
    * signature-verified <overlayDir>/<id> hot-update overlay rather than the
@@ -510,11 +515,38 @@ export class PluginRegistry {
             continue
           }
         }
-        const raw = await readFile(path.join(dir, 'motrix-plugin.json'), 'utf8')
+        const record =
+          origin === 'community' ? await readInstallRecord(dir) : null
+        const officialArchive = record?.official
+          ? await loadOfficialPackage(
+              dir,
+              record.official,
+              this.opts.signingPubkeys
+            )
+          : undefined
+        const manifestBytes = officialArchive
+          ? await readMoextEntry(officialArchive.bytes, 'motrix-plugin.json')
+          : undefined
+        if (officialArchive && !manifestBytes) {
+          throw new AppError(
+            ErrorCode.PluginManifestInvalid,
+            'plugin.install.official_signature_invalid'
+          )
+        }
+        const raw =
+          manifestBytes?.toString('utf8') ??
+          (await readFile(path.join(dir, 'motrix-plugin.json'), 'utf8'))
         const { manifest } = parseManifest(raw, {
           hostVersion: this.opts.hostVersion,
           origin,
+          official: officialArchive !== undefined,
         })
+        if (officialArchive && record?.pluginId !== manifest.id) {
+          throw new AppError(
+            ErrorCode.PluginManifestInvalid,
+            'plugin.install.official_signature_invalid'
+          )
+        }
         if (manifest.id !== name) {
           this.errors.push({
             pluginDir: dir,
@@ -533,9 +565,18 @@ export class PluginRegistry {
         }
         const resolved = await this.i18nResolve(manifest, dir)
         const state = this.getOrCreateState(resolved.id)
-        const executableDigest = await digestFile(
-          resolveInsidePluginDir(dir, resolved.main)
-        )
+        const signedExecutable = officialArchive
+          ? await readMoextEntry(officialArchive.bytes, resolved.main)
+          : undefined
+        if (officialArchive && !signedExecutable) {
+          throw new AppError(
+            ErrorCode.PluginManifestInvalid,
+            'plugin.install.official_signature_invalid'
+          )
+        }
+        const executableDigest = signedExecutable
+          ? digestBytes(signedExecutable)
+          : await digestFile(resolveInsidePluginDir(dir, resolved.main))
         this.byId.set(resolved.id, {
           manifestRaw: manifest,
           manifest: resolved,
@@ -543,6 +584,14 @@ export class PluginRegistry {
           rootDir: dir,
           executableDigest,
           state,
+          ...(record?.official
+            ? {
+                official: {
+                  ...record.official,
+                  recordedAt: record.source.recordedAt,
+                },
+              }
+            : {}),
         })
       } catch (e: unknown) {
         // For AppError (PluginManifestInvalid / PluginEngineVersionTooOld),
@@ -868,6 +917,7 @@ function executablePolicyFingerprint(entry: IndexedPlugin): string {
     manifest: entry.manifestRaw,
     origin: entry.origin,
     overlaySignature: entry.overlay?.signature ?? null,
+    official: entry.official ?? null,
     rootDir: entry.rootDir,
   })
 }
@@ -887,6 +937,13 @@ function digestBytes(bytes: Uint8Array): string {
 }
 
 function deriveListSource(p: IndexedPlugin): PluginSource | undefined {
+  if (p.official) {
+    return {
+      type: 'official',
+      url: `registry:${p.manifest.id}`,
+      recordedAt: p.official.recordedAt,
+    }
+  }
   if (p.origin === 'builtin') {
     return p.overlay
       ? {

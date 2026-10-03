@@ -2325,7 +2325,11 @@
       "localPrepareFailed": "이 플러그인 파일을 준비하지 못했습니다: {{detail}}",
       "dropHint": "이 플러그인을 확인하려면 .moext 파일을 여기에 끌어다 놓으세요",
       "dragDisabledHint": "이 환경에서는 끌어다 놓기를 지원하지 않습니다. GitHub 주소 또는 URL을 사용하세요.",
-      "warning": "설치 전 확인: 제작자를 신뢰하고 위에 나열된 접근 권한을 사용할 것으로 예상하는 경우에만 계속하세요."
+      "warning": "설치 전 확인: 제작자를 신뢰하고 위에 나열된 접근 권한을 사용할 것으로 예상하는 경우에만 계속하세요.",
+      "officialVerified": "Motrix 공식 서명 확인됨",
+      "officialSignatureInvalid": "플러그인의 공식 서명을 확인할 수 없습니다. 마켓을 새로 고침해 주세요.",
+      "officialBuiltinOnly": "이 버전은 내장 플러그인 전용 권한이 필요합니다. 선택 설치를 지원하는 최신 버전을 설치해 주세요.",
+      "builtinAlreadyInstalled": "이 플러그인은 이미 내장되어 있습니다. 플러그인 업데이트 기능을 사용해 주세요."
     },
     "consent": {
       "installTitle": "{{name}} {{version}}을(를) 설치하시겠습니까?",
