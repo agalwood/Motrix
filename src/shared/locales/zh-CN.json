@@ -3124,7 +3124,7 @@
       "filesStayDescription": "会备份任务信息。已下载的文件不复制、不搬动。",
       "nextTitle": "准备好后再继续下载",
       "nextDescription": "导入后，在任务详情中选择校验续传或重新下载。",
-      "footerNote": "导入后保持暂停，不会自动开始下载。",
+      "footerNote": "导入后不会自动下载。",
       "sourceLabel": "MOTRIX v1 配置",
       "discoveryDescription": "选择想保留的下载任务，导入后再决定如何继续。",
       "previousVersion": "Motrix v1",

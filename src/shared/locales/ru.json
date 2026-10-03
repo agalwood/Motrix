@@ -3190,7 +3190,7 @@
       "filesStayDescription": "Task information is backed up. Files stay in their original location.",
       "nextTitle": "Continue when you’re ready",
       "nextDescription": "Review each task after import to verify files or start a new download.",
-      "footerNote": "Imported tasks stay paused. Downloads never start automatically.",
+      "footerNote": "Importing won’t start downloads.",
       "sourceLabel": "MOTRIX v1 PROFILE",
       "discoveryDescription": "Choose the downloads you want to keep. You can decide how to continue each one after import.",
       "previousVersion": "Motrix v1",
