@@ -3210,6 +3210,35 @@
     "verifyDescription": "Verify files in the original directory and continue the saved file selection. Downloading may upload data or write shared pieces to unselected files. Completed files will not seed automatically.",
     "authorizeOriginalDirectory": "Choose the original download directory",
     "verifyReady": "The old task is preserved. Verify the original files to continue, or download again into a new directory.",
-    "trackersReadOnly": "Imported downloads keep their original trackers. Editing is unavailable."
+    "trackersReadOnly": "Imported downloads keep their original trackers. Editing is unavailable.",
+    "page": {
+      "stepsLabel": "Import steps",
+      "steps": {
+        "select": "Choose downloads",
+        "import": "Import",
+        "result": "Review"
+      },
+      "foundSummary": "Downloads found",
+      "selectionSummary": "Your selection",
+      "resultSummary": "Imported",
+      "countUnit": "total",
+      "notImported": "Needs attention",
+      "skippedSummary": "Skipped",
+      "types": {
+        "http": "Direct links",
+        "bt": "Torrents",
+        "magnet": "Magnet links",
+        "unknown": "Other tasks"
+      },
+      "filesStayTitle": "Your files stay in place",
+      "filesStayDescription": "Task information is backed up. Files stay in their original location.",
+      "nextTitle": "Continue when you’re ready",
+      "nextDescription": "Review each task after import to verify files or start a new download.",
+      "footerNote": "Imported tasks stay paused. Downloads never start automatically.",
+      "sourceLabel": "MOTRIX v1 PROFILE",
+      "discoveryDescription": "Choose the downloads you want to keep. You can decide how to continue each one after import.",
+      "previousVersion": "Motrix v1",
+      "currentVersion": "Motrix"
+    }
   }
 }

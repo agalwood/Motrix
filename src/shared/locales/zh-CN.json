@@ -3100,6 +3100,35 @@
     "verifyDescription": "校验原目录中的文件后，按原来的选择继续下载。下载时可能上传数据或写入未选文件的共享分片；完成后不自动做种。",
     "authorizeOriginalDirectory": "选择原下载目录",
     "verifyReady": "旧任务已保留。你可以校验原文件并继续下载，或在新目录重新下载。",
-    "trackersReadOnly": "导入任务保留旧任务的 Tracker，暂不支持修改。"
+    "trackersReadOnly": "导入任务保留旧任务的 Tracker，暂不支持修改。",
+    "page": {
+      "stepsLabel": "导入步骤",
+      "steps": {
+        "select": "选择任务",
+        "import": "导入任务",
+        "result": "查看结果"
+      },
+      "foundSummary": "发现的任务",
+      "selectionSummary": "本次选择",
+      "resultSummary": "已导入",
+      "countUnit": "项",
+      "notImported": "待处理",
+      "skippedSummary": "已跳过",
+      "types": {
+        "http": "链接下载",
+        "bt": "种子下载",
+        "magnet": "磁力链接",
+        "unknown": "其他任务"
+      },
+      "filesStayTitle": "原文件留在原处",
+      "filesStayDescription": "会备份任务信息。已下载的文件不复制、不搬动。",
+      "nextTitle": "准备好后再继续下载",
+      "nextDescription": "导入后，在任务详情中选择校验续传或重新下载。",
+      "footerNote": "导入后保持暂停，不会自动开始下载。",
+      "sourceLabel": "MOTRIX v1 配置",
+      "discoveryDescription": "选择想保留的下载任务，导入后再决定如何继续。",
+      "previousVersion": "Motrix v1",
+      "currentVersion": "Motrix"
+    }
   }
 }

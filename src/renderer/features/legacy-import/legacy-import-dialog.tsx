@@ -1,7 +1,14 @@
 import { MiddleEllipsis } from '@renderer/components/desktop-kit/middle-ellipsis'
-import { PanelShell } from '@renderer/components/desktop-kit/panel/panel-shell'
 import { VirtualList } from '@renderer/components/desktop-kit/virtual-list/virtual-list'
-import { DownloadLibraryIcon, WarningIcon } from '@renderer/components/icons'
+import {
+  CheckIcon,
+  DownloadLibraryIcon,
+  FolderIcon,
+  HttpIcon,
+  MagnetIcon,
+  TorrentFileIcon,
+  WarningIcon,
+} from '@renderer/components/icons'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -44,6 +51,11 @@ import {
   useState,
 } from 'react'
 import { useTranslation } from 'react-i18next'
+import {
+  ImportPageLayout,
+  type ImportStage,
+  ImportTransferIllustration,
+} from './import-page-layout'
 
 interface Props {
   open: boolean
@@ -53,7 +65,7 @@ interface Props {
   presentation?: 'dialog' | 'page'
   active?: boolean
 }
-type Stage = 'discovery' | 'selection' | 'progress' | 'result'
+type Stage = ImportStage
 
 class ImportErrorBoundary extends Component<
   { children: ReactNode; fallback: ReactNode },
@@ -88,6 +100,7 @@ function LegacyImportDialogContent({
   active = true,
 }: Props) {
   const { t } = useTranslation()
+  const page = presentation === 'page'
   const invitationRef = useRef(invitation)
   invitationRef.current = invitation
   const allSelectionId = useId()
@@ -325,42 +338,73 @@ function LegacyImportDialogContent({
           : 'progress'
       )
     })
-  const row = (item: LegacyImportItem) => (
-    <div
-      className="flex h-12 items-center gap-3 border-b border-border/60 px-1"
-      key={item.itemId}
-    >
-      <Checkbox
-        aria-label={item.name}
-        disabled={busy}
-        checked={selected.has(item.itemId)}
-        onCheckedChange={(checked) =>
-          setSelected((current) => {
-            const next = new Set(current)
-            if (checked) next.add(item.itemId)
-            else next.delete(item.itemId)
-            return next
-          })
+  const row = (item: LegacyImportItem) => {
+    const Icon =
+      item.type === 'bt'
+        ? TorrentFileIcon
+        : item.type === 'magnet'
+          ? MagnetIcon
+          : HttpIcon
+    return (
+      <div
+        className={
+          page
+            ? 'flex h-16 items-center gap-3 border-b border-border/50 px-4 transition-colors hover:bg-muted/35 motion-reduce:transition-none'
+            : 'flex h-12 items-center gap-3 border-b border-border/60 px-1'
         }
-      />
-      <MiddleEllipsis
-        text={item.name}
-        className="min-w-0 flex-1 font-sans! text-xs"
-      />
-      <span className="shrink-0 text-[11px] text-muted-foreground">
-        {t(`legacyImport.reasons.${item.reason}`)}
-      </span>
-    </div>
-  )
+        key={item.itemId}
+      >
+        <Checkbox
+          aria-label={item.name}
+          disabled={busy}
+          checked={selected.has(item.itemId)}
+          onCheckedChange={(checked) =>
+            setSelected((current) => {
+              const next = new Set(current)
+              if (checked) next.add(item.itemId)
+              else next.delete(item.itemId)
+              return next
+            })
+          }
+        />
+        {page && (
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted/65 text-muted-foreground">
+            <Icon aria-hidden="true" className="size-4" />
+          </span>
+        )}
+        <div
+          className={
+            page
+              ? 'min-w-0 flex-1 space-y-1'
+              : 'flex min-w-0 flex-1 items-center gap-3'
+          }
+        >
+          <MiddleEllipsis
+            text={item.name}
+            className="min-w-0 flex-1 font-sans! text-xs font-medium"
+          />
+          <p className="shrink-0 text-[11px] text-muted-foreground">
+            {t(`legacyImport.reasons.${item.reason}`)}
+          </p>
+        </div>
+      </div>
+    )
+  }
   const skippedDetails = skipped.length > 0 && (
-    <details className="py-4 text-xs">
+    <details
+      className={
+        page
+          ? 'border-t border-border/50 bg-muted/20 px-4 py-3 text-xs'
+          : 'py-4 text-xs'
+      }
+    >
       <summary className="cursor-pointer text-muted-foreground">
         {t('legacyImport.skipped', { count: skipped.length })}
       </summary>
       <div className="max-h-44 overflow-auto pt-2">
         {skipped.map((item) => (
           <div
-            className="flex items-center justify-between gap-3 py-2"
+            className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-2"
             key={item.itemId}
           >
             <MiddleEllipsis
@@ -453,7 +497,10 @@ function LegacyImportDialogContent({
   return (
     <>
       <ImportSurface
-        page={presentation === 'page'}
+        page={page}
+        preview={preview}
+        selected={selected}
+        report={report}
         open={open}
         stage={stage}
         busy={busy}
@@ -491,31 +538,86 @@ function LegacyImportDialogContent({
           </div>
         )}
         {stage === 'discovery' && (
-          <div className="min-h-0 overflow-auto px-6 pb-6 text-center">
-            <DownloadLibraryIcon
-              className="mx-auto my-6 size-12 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <p className="text-sm">
-              {busy
-                ? t('legacyImport.loading')
-                : t('legacyImport.discovery', {
-                    count: preview?.items.length ?? 0,
-                  })}
-            </p>
-            <p className="mt-3 text-xs leading-5 text-muted-foreground">
-              {t('legacyImport.preserveFiles')}
-            </p>
+          <div
+            className={
+              page
+                ? 'flex min-h-0 flex-1 flex-col overflow-auto px-6 py-6 text-center'
+                : 'min-h-0 overflow-auto px-6 pb-6 text-center'
+            }
+          >
+            <div className={page ? 'my-auto' : undefined}>
+              {page ? (
+                <ImportTransferIllustration />
+              ) : (
+                <DownloadLibraryIcon
+                  className="mx-auto my-6 size-12 text-muted-foreground"
+                  aria-hidden="true"
+                />
+              )}
+              <p
+                className={
+                  page ? 'mt-3 text-xl font-semibold tracking-tight' : 'text-sm'
+                }
+              >
+                {busy
+                  ? t('legacyImport.loading')
+                  : t('legacyImport.discovery', {
+                      count: preview?.items.length ?? 0,
+                    })}
+              </p>
+              <p className="mx-auto mt-3 max-w-sm text-xs leading-relaxed text-muted-foreground">
+                {t(
+                  page
+                    ? 'legacyImport.page.discoveryDescription'
+                    : 'legacyImport.preserveFiles'
+                )}
+              </p>
+              {page && preview && (
+                <p className="mx-auto mt-6 inline-flex max-w-full items-center gap-2 rounded-full bg-muted/70 px-3 py-1.5 text-[11px] text-muted-foreground">
+                  <FolderIcon
+                    aria-hidden="true"
+                    className="size-3.5 shrink-0"
+                  />
+                  <span className="truncate">{preview.sourceName}</span>
+                </p>
+              )}
+            </div>
           </div>
         )}
         {stage === 'selection' && (
           <>
-            <div className="shrink-0 space-y-3 px-6 pb-3">
+            <div
+              className={
+                page
+                  ? 'shrink-0 space-y-3 border-b border-border/70 bg-muted/15 px-4 py-4'
+                  : 'shrink-0 space-y-3 px-6 pb-3'
+              }
+            >
               <div className="flex items-center justify-between gap-3 text-xs">
-                <span className="truncate">
-                  {t('legacyImport.source')}:{' '}
-                  {preview?.sourceName ?? t('legacyImport.noSource')}
-                </span>
+                <div className="flex min-w-0 items-center gap-3">
+                  {page && (
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-background">
+                      <FolderIcon
+                        aria-hidden="true"
+                        className="size-4 text-muted-foreground"
+                      />
+                    </span>
+                  )}
+                  <div className="min-w-0">
+                    {page && (
+                      <p className="mb-1 text-[10px] font-medium text-muted-foreground">
+                        {t('legacyImport.page.sourceLabel')}
+                      </p>
+                    )}
+                    <p
+                      className="truncate font-medium"
+                      title={preview?.sourceName}
+                    >
+                      {!page && `${t('legacyImport.source')}: `}
+                      {preview?.sourceName ?? t('legacyImport.noSource')}
+                    </p>
+                  </div>
+                </div>
                 <Button
                   type="button"
                   variant="outline"
@@ -611,20 +713,26 @@ function LegacyImportDialogContent({
               <VirtualList
                 items={visible}
                 getId={(item) => item.itemId}
-                rowHeight={48}
-                className="min-h-0 flex-1 px-6"
+                rowHeight={page ? 64 : 48}
+                className={page ? 'min-h-0 flex-1' : 'min-h-0 flex-1 px-6'}
                 renderRow={({ item }) => row(item)}
               />
             ) : (
-              <div className="min-h-0 flex-1 overflow-auto px-6">
+              <div
+                className={
+                  page
+                    ? 'min-h-0 flex-1 overflow-auto'
+                    : 'min-h-0 flex-1 overflow-auto px-6'
+                }
+              >
                 {busy && !preview ? (
-                  <p className="py-6 text-xs text-muted-foreground">
+                  <p className="px-4 py-6 text-xs leading-relaxed text-muted-foreground">
                     {t('legacyImport.loading')}
                   </p>
                 ) : visible.length ? (
                   visible.map(row)
                 ) : (
-                  <p className="py-6 text-xs text-muted-foreground">
+                  <p className="px-4 py-6 text-xs leading-relaxed text-muted-foreground">
                     {t('legacyImport.empty')}
                   </p>
                 )}
@@ -632,16 +740,39 @@ function LegacyImportDialogContent({
               </div>
             )}
             {actionable.length > 100 && skipped.length > 0 && (
-              <div className="shrink-0 px-6">{skippedDetails}</div>
+              <div className={page ? 'shrink-0' : 'shrink-0 px-6'}>
+                {skippedDetails}
+              </div>
             )}
-            <p className="shrink-0 px-6 py-4 text-[11px] leading-5 text-muted-foreground">
-              {t('legacyImport.backupNote')}
-            </p>
+            {!page && (
+              <p className="shrink-0 px-6 py-4 text-[11px] leading-5 text-muted-foreground">
+                {t('legacyImport.backupNote')}
+              </p>
+            )}
           </>
         )}
         {stage === 'progress' && (
-          <div className="px-6 py-8">
-            <p className="mb-5 text-sm" aria-live="polite">
+          <div
+            className={
+              page
+                ? 'flex min-h-0 flex-1 flex-col justify-center overflow-auto px-8 py-8'
+                : 'px-6 py-8'
+            }
+          >
+            {page && (
+              <DownloadLibraryIcon
+                aria-hidden="true"
+                className="mx-auto mb-6 size-9 text-muted-foreground"
+              />
+            )}
+            <p
+              className={
+                page
+                  ? 'mb-6 text-center text-lg font-semibold tracking-tight'
+                  : 'mb-5 text-sm'
+              }
+              aria-live="polite"
+            >
               {t(
                 report?.stage === 'committing'
                   ? 'legacyImport.committing'
@@ -656,7 +787,7 @@ function LegacyImportDialogContent({
               }
               aria-label={t('legacyImport.progress')}
             />
-            <p className="mt-3 text-xs text-muted-foreground">
+            <p className="mt-3 text-center text-xs tabular-nums text-muted-foreground">
               {t('legacyImport.processed', {
                 done: report?.processed ?? 0,
                 total: report?.total ?? selected.size,
@@ -665,8 +796,28 @@ function LegacyImportDialogContent({
           </div>
         )}
         {stage === 'result' && report && (
-          <div className="min-h-0 overflow-auto px-6 pb-6">
-            <p className="py-4 text-3xl font-semibold">
+          <div
+            className={
+              page
+                ? 'min-h-0 flex-1 overflow-auto px-6 py-7'
+                : 'min-h-0 overflow-auto px-6 pb-6'
+            }
+          >
+            {page && (
+              <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-muted">
+                {resultTitleKey === 'legacyImport.resultTitle' ? (
+                  <CheckIcon aria-hidden="true" className="size-6" />
+                ) : (
+                  <WarningIcon aria-hidden="true" className="size-6" />
+                )}
+              </div>
+            )}
+            {page && (
+              <h2 className="text-sm font-medium text-muted-foreground">
+                {t(resultTitleKey)}
+              </h2>
+            )}
+            <p className="py-4 text-3xl font-semibold tracking-tight">
               {t('legacyImport.importedCount', { count: report.imported })}
             </p>
             <p className="text-xs leading-5 text-muted-foreground">
@@ -753,6 +904,9 @@ function LegacyImportDialogContent({
 
 function ImportSurface({
   page,
+  preview,
+  selected,
+  report,
   open,
   stage,
   busy,
@@ -764,6 +918,9 @@ function ImportSurface({
   children,
 }: {
   page: boolean
+  preview: LegacyImportPreview | null
+  selected: ReadonlySet<string>
+  report: LegacyImportReport | null
   open: boolean
   stage: Stage
   busy: boolean
@@ -776,15 +933,16 @@ function ImportSurface({
 }) {
   if (page)
     return (
-      <PanelShell title={title} footer={footer}>
-        <p className="shrink-0 px-6 pb-4 text-sm text-muted-foreground">
-          {description}
-        </p>
-        {subtitle && (
-          <h2 className="shrink-0 px-6 pb-2 text-lg font-medium">{subtitle}</h2>
-        )}
-        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
-      </PanelShell>
+      <ImportPageLayout
+        title={title}
+        stage={stage}
+        preview={preview}
+        selected={selected}
+        report={report}
+        footer={footer}
+      >
+        {children}
+      </ImportPageLayout>
     )
   return (
     <Dialog

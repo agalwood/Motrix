@@ -94,6 +94,13 @@ test.describe('v1 task import', () => {
         page.getByRole('link', { name: 'Migration', exact: true })
       ).toBeVisible()
       await expect.poll(() => page.url()).toContain('w=main')
+      await expect(
+        page.getByRole('button', { name: 'Choose downloads' })
+      ).toBeEnabled()
+      await page.screenshot({
+        path: testInfo.outputPath('migration-discovery.png'),
+        animations: 'disabled',
+      })
       await page.getByRole('button', { name: 'Choose downloads' }).click()
       await page
         .getByRole('checkbox', { name: 'partial.bin', exact: true })
@@ -178,6 +185,10 @@ test.describe('v1 task import', () => {
       await page.setViewportSize(initialViewport)
       await page.getByRole('button', { name: 'Import 2' }).click()
       await expect(page.getByText('Imported 2', { exact: true })).toBeVisible()
+      await page.screenshot({
+        path: testInfo.outputPath('migration-result.png'),
+        animations: 'disabled',
+      })
       await page.getByRole('link', { name: 'Downloads', exact: true }).click()
       await page.getByRole('link', { name: 'Migration', exact: true }).click()
       await expect(page.getByText('Imported 2', { exact: true })).toBeVisible()
@@ -200,6 +211,20 @@ test.describe('v1 task import', () => {
       ).toBeEnabled()
       expect(await invoke(main, Queries.ListTasks)).toHaveLength(2)
       expect(await readFile(torrentPath)).toEqual(original)
+      // Direct IPC updates bypass the local settings form refresh. Reload to
+      // verify persisted dark appearance, as other appearance fixtures do.
+      await invoke(page, Commands.UpdateSettings, {
+        app: { theme: 'dark', language: 'zh-CN' },
+      })
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await expect(page.locator('html')).toHaveClass(/dark/)
+      await expect(
+        page.getByRole('heading', { name: '导入旧版下载任务', exact: true })
+      ).toBeVisible()
+      await page.screenshot({
+        path: testInfo.outputPath('migration-dark.png'),
+        animations: 'disabled',
+      })
     } finally {
       await app.close().catch(() => {})
     }
