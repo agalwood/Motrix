@@ -73,6 +73,7 @@ const ipcHandleMock = vi.fn()
 const ipcRemoveHandlerMock = vi.fn()
 const openExternalMock = vi.fn()
 const showOpenDialogMock = vi.fn()
+const showSaveDialogMock = vi.fn()
 vi.mock('electron', () => ({
   BrowserWindow: {
     fromWebContents: (...args: unknown[]) => fromWebContentsMock(...args),
@@ -83,6 +84,7 @@ vi.mock('electron', () => ({
   },
   dialog: {
     showMessageBox: vi.fn(),
+    showSaveDialog: (...args: unknown[]) => showSaveDialogMock(...args),
     showOpenDialog: (...args: unknown[]) => showOpenDialogMock(...args),
   },
   shell: {
@@ -1070,6 +1072,51 @@ describe('buildCommandHandlers', () => {
       })
     ).rejects.toThrow('non-main window')
     expect(ctx.contextStore.merge).not.toHaveBeenCalled()
+  })
+
+  it('uses parented native file dialogs and validates generic picker options', async () => {
+    showOpenDialogMock.mockReset()
+    showSaveDialogMock.mockReset()
+    const sender = {} as never
+    const parent = { isDestroyed: () => false }
+    fromWebContentsMock.mockReturnValue(parent)
+    showOpenDialogMock.mockResolvedValueOnce({
+      canceled: false,
+      filePaths: ['/media/video.mp4'],
+    })
+    showSaveDialogMock
+      .mockResolvedValueOnce({ canceled: false, filePath: '/media/merged.mkv' })
+      .mockResolvedValueOnce({ canceled: true })
+    // @ts-expect-error partial ctx
+    const handlers = buildCommandHandlers(fakeCtx())
+    await expect(
+      handlers[Commands.PickFile]?.(sender, { kind: 'open' })
+    ).resolves.toBe('/media/video.mp4')
+    expect(showOpenDialogMock).toHaveBeenCalledWith(
+      parent,
+      expect.objectContaining({ properties: ['openFile'] })
+    )
+    await expect(
+      handlers[Commands.PickFile]?.(sender, {
+        kind: 'save',
+        extensions: ['mp4', 'mkv'],
+      })
+    ).resolves.toBe('/media/merged.mkv')
+    expect(showSaveDialogMock).toHaveBeenCalledWith(
+      parent,
+      expect.objectContaining({
+        filters: [{ name: expect.any(String), extensions: ['mp4', 'mkv'] }],
+      })
+    )
+    await expect(
+      handlers[Commands.PickFile]?.(sender, { kind: 'save' })
+    ).resolves.toBeNull()
+    await expect(
+      handlers[Commands.PickFile]?.(sender, {
+        kind: 'open',
+        extensions: ['../invalid'],
+      })
+    ).rejects.toThrow()
   })
 
   it('returns a picked save directory and handles cancellation', async () => {
@@ -2875,5 +2922,46 @@ describe('host-owned task directory history', () => {
       })
     )
     finish({ ok: true, value: { favorites: [], recent: [] } })
+  })
+})
+
+describe('manual media merge logging', () => {
+  it('uses the existing plugin log capability for preparation failures', async () => {
+    const ctx = fakeCtx()
+    const error = vi.fn()
+    const createLog = vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error }))
+    const pluginId = 'test.merger'
+    const handlers = buildCommandHandlers({
+      ...ctx,
+      pluginRegistry: {
+        list: () => [{ id: pluginId, name: 'Merger', enabled: true }],
+        get: () => ({
+          manifest: {
+            permissions: ['ffmpeg'],
+            contributes: {
+              commands: [{ id: `${pluginId}.mergeStreams`, public: true }],
+            },
+          },
+        }),
+      },
+      capabilityHost: { createLog },
+    } as unknown as CommandContext)
+    await expect(
+      handlers[Commands.StartMediaMerge]?.({
+        pluginId,
+        videoInput: 'relative.mp4',
+        audioInput: '/media/audio.mp4',
+        output: '/media/merged.mp4',
+      })
+    ).rejects.toThrow('mediaMerge.absolutePaths')
+    expect(createLog).toHaveBeenCalledWith(pluginId)
+    expect(error).toHaveBeenCalledWith(
+      'Media merge failed',
+      expect.objectContaining({
+        event: 'media-merge.failed',
+        stage: 'preparing',
+        reason: 'mediaMerge.absolutePaths',
+      })
+    )
   })
 })

@@ -1,5 +1,6 @@
 import { toast } from '@renderer/components/ui/toast'
 import { i18n } from '@renderer/lib/i18n'
+import type { FilePickerOptions } from '@shared/schemas/file-picker'
 import type { PlatformServices } from './services'
 
 const SHA256_RE = /^[0-9a-f]{64}$/
@@ -8,6 +9,7 @@ export type PickRequest = {
   id: number
   defaultPath?: string
   allowFavoriteEditing?: boolean
+  file?: FilePickerOptions
   opener: HTMLElement | null
 }
 type PickListener = (req: PickRequest) => void
@@ -30,6 +32,7 @@ export class PathPickerBus {
   request(req: {
     defaultPath?: string
     allowFavoriteEditing?: boolean
+    file?: FilePickerOptions
   }): Promise<string | null> {
     const id = ++this.latestId
     const opener =
@@ -119,6 +122,10 @@ export function createWebServices(
           fileHash: reference.fileHash,
         }
       },
+    },
+
+    pickFile(file) {
+      return __webPathPickerBus.request({ defaultPath: file.defaultPath, file })
     },
 
     pickSaveDir(defaultPath, options) {

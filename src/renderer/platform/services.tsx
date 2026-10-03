@@ -1,3 +1,4 @@
+import type { FilePickerOptions } from '@shared/schemas/file-picker'
 import { createContext, type ReactNode, useContext } from 'react'
 
 export type PluginInstallFileReference =
@@ -12,6 +13,9 @@ export interface PluginInstallFileCapability {
 export interface PlatformServices {
   readonly kind: 'electron' | 'web'
   readonly pluginInstallFile?: PluginInstallFileCapability
+  pickFile?(options: FilePickerOptions): Promise<string | null>
+  /** Resolve a user-dropped file on this host; absent for remote web sessions. */
+  getPathForFile?(file: File): string | null
   pickSaveDir(
     defaultPath?: string,
     options?: {

@@ -4,9 +4,12 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { FormProvider, useForm } from 'react-hook-form'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { DirectoryPicker } from './directory-picker'
+import { DirectoryPicker, type DirectoryPickerProps } from './directory-picker'
 
 const pickSaveDirMock = vi.fn()
+const pickFileMock = vi.fn()
+const getPathForFileMock = vi.fn()
+let localDrop = true
 const recordRecentMock = vi.fn().mockResolvedValue(undefined)
 vi.mock('@renderer/lib/directory-preferences', () => ({
   recordRecentDirectory: (...args: unknown[]) => recordRecentMock(...args),
@@ -23,7 +26,11 @@ vi.mock('./directory-history-menu', () => ({
   ),
 }))
 vi.mock('@renderer/platform/services', () => ({
-  usePlatformServices: () => ({ pickSaveDir: pickSaveDirMock }),
+  usePlatformServices: () => ({
+    pickSaveDir: pickSaveDirMock,
+    pickFile: pickFileMock,
+    getPathForFile: localDrop ? getPathForFileMock : undefined,
+  }),
 }))
 
 interface FormShape {
@@ -32,7 +39,8 @@ interface FormShape {
 
 function Wrapper(props: {
   initial: string
-  variant: 'compact' | 'input'
+  variant: 'compact' | 'input' | 'file'
+  options?: Partial<DirectoryPickerProps<FormShape>>
   showHistory?: boolean
   recordRecent?: boolean
   onPickingChange?: (picking: boolean) => void
@@ -41,6 +49,7 @@ function Wrapper(props: {
   return (
     <FormProvider {...form}>
       <DirectoryPicker
+        {...props.options}
         name="dir"
         variant={props.variant}
         showHistory={props.showHistory}
@@ -58,6 +67,9 @@ function Wrapper(props: {
 describe('<DirectoryPicker>', () => {
   beforeEach(() => {
     pickSaveDirMock.mockReset()
+    pickFileMock.mockReset()
+    getPathForFileMock.mockReset()
+    localDrop = true
     recordRecentMock.mockClear()
   })
 
@@ -172,5 +184,142 @@ describe('<DirectoryPicker>', () => {
     await userEvent.setup().click(browse)
     expect(screen.getByTestId('value').textContent).toBe('/picked ')
     expect(browse).toBeEnabled()
+  })
+  it('file card selects through the existing picker and keeps the full path', async () => {
+    pickFileMock
+      .mockResolvedValueOnce('/media/new.mp4')
+      .mockResolvedValueOnce(null)
+    render(
+      <Wrapper
+        initial="/media/old.mp4"
+        variant="file"
+        options={{ file: { kind: 'open' }, prefixLabel: 'Video' }}
+      />
+    )
+    const card = screen.getByRole('button', { name: 'Video' })
+    await userEvent.setup().click(card)
+    expect(pickFileMock).toHaveBeenCalledWith({
+      kind: 'open',
+      defaultPath: '/media/old.mp4',
+    })
+    expect(card).toHaveAttribute('title', '/media/new.mp4')
+    expect(screen.getByText('new.mp4')).toBeVisible()
+    expect(screen.getByTestId('dirty')).toHaveTextContent('true')
+    await userEvent.setup().click(card)
+    expect(card).toHaveAttribute('title', '/media/new.mp4')
+    expect(recordRecentMock).not.toHaveBeenCalled()
+  })
+
+  it('resolves a dropped file through the host and stops the global torrent drop handler', () => {
+    const dropped = new File(['clip'], 'clip.MP4')
+    getPathForFileMock.mockReturnValue('/media/clip.MP4')
+    const globalDrop = vi.fn()
+    window.addEventListener('drop', globalDrop)
+    try {
+      render(
+        <Wrapper
+          initial=""
+          variant="file"
+          options={{
+            file: { kind: 'open', extensions: ['mp4'] },
+            allowDrop: true,
+            prefixLabel: 'Video',
+          }}
+        />
+      )
+      fireEvent.drop(screen.getByRole('button', { name: 'Video' }), {
+        dataTransfer: { files: [dropped] },
+      })
+      expect(getPathForFileMock).toHaveBeenCalledWith(dropped)
+      expect(screen.getByTestId('value')).toHaveTextContent('/media/clip.MP4')
+      expect(screen.getByTestId('dirty')).toHaveTextContent('true')
+      expect(globalDrop).not.toHaveBeenCalled()
+      expect(pickFileMock).not.toHaveBeenCalled()
+      expect(recordRecentMock).not.toHaveBeenCalled()
+    } finally {
+      window.removeEventListener('drop', globalDrop)
+    }
+  })
+
+  it.each([
+    ['multiple files', [new File(['a'], 'a.mp4'), new File(['b'], 'b.mp4')]],
+    ['unsupported extension', [new File(['a'], 'a.txt')]],
+  ])('keeps the selection when dropping %s', (_label, files) => {
+    const onPickError = vi.fn()
+    render(
+      <Wrapper
+        initial="/media/keep.mp4"
+        variant="file"
+        options={{
+          file: { kind: 'open', extensions: ['mp4'] },
+          allowDrop: true,
+          prefixLabel: 'Video',
+          onPickError,
+        }}
+      />
+    )
+    fireEvent.drop(screen.getByRole('button', { name: 'Video' }), {
+      dataTransfer: { files },
+    })
+    expect(onPickError).toHaveBeenCalledWith(expect.any(Error))
+    expect(getPathForFileMock).not.toHaveBeenCalled()
+    expect(screen.getByTestId('value')).toHaveTextContent('/media/keep.mp4')
+  })
+
+  it('does not treat a browser file as a server path and still offers server selection', async () => {
+    localDrop = false
+    const onPickError = vi.fn()
+    pickFileMock.mockResolvedValue('/server/clip.mp4')
+    render(
+      <Wrapper
+        initial=""
+        variant="file"
+        options={{
+          file: { kind: 'open' },
+          allowDrop: true,
+          prefixLabel: 'Video',
+          onPickError,
+        }}
+      />
+    )
+    const card = screen.getByRole('button', { name: 'Video' })
+    expect(screen.queryByText(/Drop a file/)).not.toBeInTheDocument()
+    fireEvent.drop(card, {
+      dataTransfer: { files: [new File(['clip'], 'clip.mp4')] },
+    })
+    expect(onPickError).toHaveBeenCalledWith(
+      new Error('Choose a file on the server using this picker.')
+    )
+    expect(screen.getByTestId('value')).toBeEmptyDOMElement()
+    await userEvent.setup().click(card)
+    expect(screen.getByTestId('value')).toHaveTextContent('/server/clip.mp4')
+  })
+
+  it('ignores a disabled drop and reports a missing host path without erasing the selection', () => {
+    const onPickError = vi.fn()
+    const options = {
+      file: { kind: 'open' as const },
+      allowDrop: true,
+      prefixLabel: 'Video',
+      onPickError,
+    }
+    const view = render(
+      <Wrapper
+        initial="/keep.mp4"
+        variant="file"
+        options={{ ...options, disabled: true }}
+      />
+    )
+    const card = screen.getByRole('button', { name: 'Video' })
+    const event = { dataTransfer: { files: [new File(['clip'], 'clip.mp4')] } }
+    fireEvent.drop(card, event)
+    expect(getPathForFileMock).not.toHaveBeenCalled()
+    view.rerender(
+      <Wrapper initial="/keep.mp4" variant="file" options={options} />
+    )
+    getPathForFileMock.mockReturnValue(null)
+    fireEvent.drop(card, event)
+    expect(onPickError).toHaveBeenCalledWith(expect.any(Error))
+    expect(screen.getByTestId('value')).toHaveTextContent('/keep.mp4')
   })
 })

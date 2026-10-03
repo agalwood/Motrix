@@ -429,4 +429,19 @@ describe('RegistryClient', () => {
     ).toBe(true)
     expect(await client.get('example.unknown', '2.2.0')).toBeNull()
   })
+
+  it('marks a beta-gated listing incompatible on an earlier beta and compatible on stable', async () => {
+    const catalog = structuredClone(fixture)
+    const entry = catalog.plugins.find(
+      (plugin) => plugin.id === 'example.minimal'
+    )!
+    entry.engines.motrix = '>=2.0.0-beta.45 <3.0.0'
+    const { impl } = makeFetch([{ status: 200, body: catalog }])
+    const client = makeClient(impl)
+    expect((await client.get(entry.id, '2.0.0-beta.44'))?.compatible).toBe(
+      false
+    )
+    expect((await client.get(entry.id, '2.0.0-beta.45'))?.compatible).toBe(true)
+    expect((await client.get(entry.id, '2.0.0'))?.compatible).toBe(true)
+  })
 })

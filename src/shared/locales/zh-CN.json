@@ -2396,7 +2396,9 @@
       "removeTitle": "移除插件",
       "removeDesc": "移除该插件会同时删除它在 Motrix 中存储的数据。",
       "uninstallConfirmTitle": "确认卸载 {{name}}？",
-      "uninstallConfirmDesc": "这将从 Motrix 中移除该插件及其存储的设置。"
+      "uninstallConfirmDesc": "这将从 Motrix 中移除该插件及其存储的设置。",
+      "operations": "操作",
+      "operationsFailed": "操作界面加载失败，请重试。"
     },
     "permissions": {
       "empty": "此插件未请求任何权限。",
@@ -2611,7 +2613,8 @@
       },
       "ffmpeg": {
         "strong": "使用 FFmpeg",
-        "plain": "处理音频或视频。"
+        "plain": "处理音频或视频。",
+        "requirement": "用于处理音视频，使用前请先<settings>在设置中安装或选择 FFmpeg</settings>。"
       },
       "notify": {
         "strong": "发送通知",
@@ -2825,7 +2828,9 @@
       "invalidName": "请输入有效的文件夹名称。",
       "tooLarge": "路径或文件夹名称过长。",
       "unavailable": "服务器未能完成请求，请重试。",
-      "creationOutcomeUnknown": "无法确认文件夹是否已创建。请先刷新检查，再在此处创建其他文件夹。"
+      "creationOutcomeUnknown": "无法确认文件夹是否已创建。请先刷新检查，再在此处创建其他文件夹。",
+      "notFile": "请选择可读取的普通文件。",
+      "unsupportedFileType": "不支持此文件扩展名。"
     },
     "places": {
       "common": "常用位置",
@@ -2837,6 +2842,33 @@
       "downloads": "下载",
       "root": "文件系统",
       "loadFailed": "部分目录位置未能加载。"
+    },
+    "openFileTitle": "选择文件",
+    "saveFileTitle": "保存文件",
+    "fileDescription": "浏览 Motrix 服务器上的文件。",
+    "selectFile": "选择文件",
+    "saveFile": "使用此文件名",
+    "files": "文件和文件夹",
+    "fileName": "文件名",
+    "emptyFiles": "此文件夹为空。",
+    "fileErrors": {
+      "invalidPath": "请输入有效的绝对路径。",
+      "outsideRoots": "此路径不在允许的位置范围内。",
+      "notFound": "此路径已不存在。",
+      "permissionDenied": "你没有使用此路径的权限。",
+      "invalidName": "请输入有效的文件名。",
+      "tooLarge": "路径或文件名过长。"
+    },
+    "selectedFilePath": "所选文件",
+    "file": {
+      "chooseOnServer": "请点击选择服务器上的文件。",
+      "singleFile": "请一次选择一个文件。",
+      "wrongType": "请选择以下格式的文件：{{extensions}}。",
+      "pathUnavailable": "无法读取此文件的位置，请点击选择。",
+      "choose": "选择文件",
+      "dropHint": "拖入文件，或点击选择",
+      "browseHint": "点击浏览文件",
+      "change": "点击更换文件"
     }
   },
   "directoryPreferences": {
@@ -2904,5 +2936,49 @@
     "waitingMerged": "等待中的任务现已归入活动任务，已打开活动任务列表。",
     "stoppedSplit": "已停止的任务现按已完成和错误分类，已打开全部下载。",
     "invalidStatus": "下载分类无效，已打开全部下载。"
+  },
+  "mediaMerge": {
+    "title": "合并音频和视频",
+    "description": "将视频画面与音频合为一个文件，无需重新编码。",
+    "videoInput": "视频文件",
+    "audioInput": "音频文件",
+    "output": "输出文件",
+    "provider": "插件",
+    "browse": "选择…",
+    "browseField": "选择{{field}}",
+    "required": "请选择文件或填写完整路径。",
+    "outputHint": "保存为 MP4 或 MKV，并使用新文件名。MP4 不兼容时可尝试 MKV。",
+    "noPlugin": "请安装并启用音视频合并扩展，并在“设置 → 集成 → 媒体工具”中配置 FFmpeg。",
+    "serverPaths": "选择 Motrix 服务器上的文件；不会上传本机文件。",
+    "start": "合并",
+    "running": "正在合并…",
+    "cancelling": "正在取消…",
+    "completed": "合并成功",
+    "cancelled": "已取消合并",
+    "failed": "合并失败",
+    "invalidSelection": "请选择两个已完成的单文件下载任务。",
+    "jobMissing": "此合并任务已不可用。",
+    "busy": "已有另一个合并任务正在运行。",
+    "pluginUnavailable": "音视频合并插件不可用。",
+    "absolutePaths": "请填写完整的文件绝对路径。",
+    "invalidFiles": "请选择两个非空媒体文件。",
+    "sameInput": "请选择两个不同的输入文件。",
+    "outputFormat": "输出文件名需以 .mp4 或 .mkv 结尾。",
+    "outputExists": "输出文件已存在，请使用新文件名。",
+    "invalidOutput": "插件未生成有效的输出文件。",
+    "again": "再次合并",
+    "pluginDisabled": "启用此扩展后即可合并文件。",
+    "choose": {
+      "videoInput": "选择视频",
+      "audioInput": "选择音频",
+      "output": "选择保存位置"
+    },
+    "hint": {
+      "videoInput": "提供合并后的画面",
+      "audioInput": "提供合并后的声音",
+      "output": "保存为 MP4 或 MKV"
+    },
+    "preserveOriginals": "无损合并，保留源文件",
+    "format": "输出格式"
   }
 }

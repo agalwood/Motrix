@@ -638,3 +638,101 @@ describe('ServerDirectoryService locations', () => {
     expect(fs.mkdir).not.toHaveBeenCalled()
   })
 })
+
+describe('server file selection', () => {
+  it('keeps directory-only results stable and includes only readable authorized files on request', async () => {
+    const { root, downloads, service } = await fixture()
+    await mkdir(path.join(downloads, 'folder'))
+    await writeFile(path.join(downloads, 'video.mp4'), 'video')
+    await writeFile(path.join(downloads, '.hidden.mp4'), 'hidden')
+    await writeFile(path.join(root, 'private.mp4'), 'private')
+    await symlink(
+      path.join(root, 'private.mp4'),
+      path.join(downloads, 'escape.mp4')
+    )
+    await symlink(
+      path.join(downloads, 'video.mp4'),
+      path.join(downloads, 'alias.mp4')
+    )
+    const directories = await service.list({ path: downloads })
+    expect(
+      directories.ok && directories.value.entries.map((entry) => entry.name)
+    ).toEqual(['folder'])
+    const files = await service.list({ path: downloads, includeFiles: true })
+    expect(
+      files.ok && files.value.entries.map((entry) => [entry.name, entry.kind])
+    ).toEqual([
+      ['alias.mp4', 'file'],
+      ['folder', 'directory'],
+      ['video.mp4', 'file'],
+    ])
+    expect(
+      await service.validateFile({
+        kind: 'open',
+        path: path.join(downloads, 'escape.mp4'),
+      })
+    ).toEqual({ ok: false, error: { code: 'outsideRoots' } })
+    expect(
+      await service.validateFile({
+        kind: 'open',
+        path: path.join(downloads, 'alias.mp4'),
+      })
+    ).toEqual({ ok: true, value: { path: path.join(downloads, 'alias.mp4') } })
+  })
+
+  it('initializes file paths in their parent and revalidates deleted or non-file inputs', async () => {
+    const { downloads, service } = await fixture()
+    const file = path.join(downloads, 'video.mp4')
+    await writeFile(file, 'video')
+    expect(
+      await service.list({ path: file, includeFiles: true, initialFile: true })
+    ).toMatchObject({
+      ok: true,
+      value: { path: downloads, separator: path.sep, initialName: 'video.mp4' },
+    })
+    expect(
+      await service.validateFile({ kind: 'open', path: downloads })
+    ).toMatchObject({ ok: false })
+    await rm(file)
+    expect(await service.validateFile({ kind: 'open', path: file })).toEqual({
+      ok: false,
+      error: { code: 'notFound' },
+    })
+  })
+
+  it('validates new output names without creating files or replacing files and dangling links', async () => {
+    const { root, downloads, service } = await fixture()
+    const output = {
+      kind: 'save',
+      parentPath: downloads,
+      name: 'merged.mp4',
+      extensions: ['mp4', 'mkv'],
+    }
+    expect(await service.validateFile(output)).toEqual({
+      ok: true,
+      value: { path: path.join(downloads, output.name) },
+    })
+    expect(await readdir(downloads)).toEqual([])
+    await writeFile(path.join(downloads, output.name), 'keep')
+    expect(await service.validateFile(output)).toEqual({
+      ok: false,
+      error: { code: 'alreadyExists' },
+    })
+    await symlink(
+      path.join(root, 'missing'),
+      path.join(downloads, 'dangling.mp4')
+    )
+    expect(
+      await service.validateFile({ ...output, name: 'dangling.mp4' })
+    ).toEqual({ ok: false, error: { code: 'alreadyExists' } })
+    expect(await service.validateFile({ ...output, parentPath: root })).toEqual(
+      { ok: false, error: { code: 'outsideRoots' } }
+    )
+    expect(
+      await service.validateFile({ ...output, name: '../escape.mp4' })
+    ).toEqual({ ok: false, error: { code: 'invalidName' } })
+    expect(
+      await service.validateFile({ ...output, name: 'wrong.txt' })
+    ).toEqual({ ok: false, error: { code: 'unsupportedFileType' } })
+  })
+})

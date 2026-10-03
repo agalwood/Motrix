@@ -441,6 +441,29 @@ describe('UpdateManager', () => {
       expect(betaUpdater.allowDowngrade).toBe(false)
     })
 
+    it.each(['beta', 'stable'] as const)(
+      'allows a beta installation to accept the final release on the %s channel',
+      async (channel) => {
+        const backend = createFakeUpdater()
+        const betaManager = new UpdateManager({
+          eventBus: new EventBus(),
+          updater: backend,
+          currentVersion: '2.0.0-beta.45',
+          channel,
+        })
+        await expect(
+          backend.isUpdateSupported(supportInfo('2.0.0'))
+        ).resolves.toBe(true)
+        backend.fire('update-available', supportInfo('2.0.0'))
+        expect(betaManager.getState()).toMatchObject({
+          phase: 'available',
+          currentVersion: '2.0.0-beta.45',
+          availableVersion: '2.0.0',
+        })
+        expect(backend.allowDowngrade).toBe(false)
+      }
+    )
+
     it('reconfigures and clears a prior-channel available snapshot', () => {
       updater.fire('update-available', { version: '2.1.0' })
       expect(manager.getState().phase).toBe('available')

@@ -1,5 +1,5 @@
 import { constants } from 'node:fs'
-import { access, mkdir, opendir } from 'node:fs/promises'
+import { access, lstat, mkdir, opendir, realpath, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import path from 'node:path'
 import { AppError } from '@shared/errors'
@@ -21,6 +21,7 @@ import {
   ValidateServerDirectoryRequestSchema,
   type ValidateServerDirectoryResult,
   ValidateServerDirectoryResultSchema,
+  ValidateServerFileRequestSchema,
 } from '@shared/schemas/server-directory'
 import type { MotrixAppSettings } from '@shared/types/settings'
 import {
@@ -204,11 +205,66 @@ export class ServerDirectoryService {
     }
   }
 
+  private async readableFile(value: string) {
+    // Check both the user-visible parent and the resolved target's parent, so
+    // a symlink cannot expose a file outside the configured download roots.
+    const parent = await this.policy.authorizeDirectory(path.dirname(value))
+    const logicalPath = path.join(parent.path, path.basename(value))
+    const canonical = await realpath(logicalPath)
+    await this.policy.authorizeDirectory(path.dirname(canonical))
+    const info = await stat(canonical)
+    if (!info.isFile())
+      throw new DirectoryAuthorizationError('notFile', 'Not a regular file')
+    await this.fs.access(canonical, constants.R_OK)
+    return { path: logicalPath, modifiedAt: info.mtimeMs }
+  }
+
+  async validateFile(raw: unknown): Promise<ValidateServerDirectoryResult> {
+    const parsed = ValidateServerFileRequestSchema.safeParse(raw)
+    if (!parsed.success) return failure('invalidPath')
+    const request = parsed.data
+    try {
+      const name =
+        request.kind === 'open' ? path.basename(request.path) : request.name
+      if (!validName(name)) return failure('invalidName')
+      if (
+        request.extensions?.length &&
+        !request.extensions.some((ext) =>
+          name.toLowerCase().endsWith(`.${ext.toLowerCase()}`)
+        )
+      )
+        return failure('unsupportedFileType')
+      if (request.kind === 'open') {
+        const file = await this.readableFile(request.path)
+        return { ok: true, value: { path: file.path } }
+      }
+      const parent = await this.policy.authorizeDirectory(request.parentPath)
+      if (!(await this.writable(parent))) return failure('permissionDenied')
+      const output = path.join(parent.path, request.name)
+      if (output.length > SERVER_DIRECTORY_PATH_LIMIT)
+        return failure('tooLarge')
+      try {
+        await lstat(output)
+        return failure('alreadyExists')
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      }
+      // Validation never creates an output file. The merge service still owns
+      // atomic non-replacing publication if a name appears after selection.
+      return { ok: true, value: { path: output } }
+    } catch (error) {
+      return failure(errorCode(error))
+    }
+  }
+
   async list(raw: unknown): Promise<ListServerDirectoriesResult> {
     const request = ListServerDirectoriesRequestSchema.safeParse(raw)
     if (!request.success) return failure('invalidPath')
     try {
-      const directory = await this.policy.authorizeDirectory(request.data.path)
+      const initialFile = request.data.includeFiles && request.data.initialFile
+      const directory = await this.policy.authorizeDirectory(
+        initialFile ? path.dirname(request.data.path) : request.data.path
+      )
       await this.fs.access(
         directory.canonicalPath,
         constants.R_OK | constants.X_OK
@@ -229,17 +285,35 @@ export class ServerDirectoryService {
           if (!entry) break
           scanned++
           if (!request.data.showHidden && entry.name.startsWith('.')) continue
-          if (!entry.isDirectory() && !entry.isSymbolicLink()) continue
+          if (
+            !entry.isDirectory() &&
+            !entry.isSymbolicLink() &&
+            !(request.data.includeFiles && entry.isFile())
+          )
+            continue
           const childPath = path.join(directory.path, entry.name)
           if (childPath.length > SERVER_DIRECTORY_PATH_LIMIT) {
             truncated = true
             continue
           }
           try {
-            const child = await this.policy.authorizeDirectory(childPath)
+            let kind: 'directory' | 'file' = 'directory'
+            let child: { path: string; modifiedAt?: number }
+            try {
+              child = await this.policy.authorizeDirectory(childPath)
+            } catch (error) {
+              if (
+                !request.data.includeFiles ||
+                errorCode(error) !== 'notDirectory'
+              )
+                throw error
+              child = await this.readableFile(childPath)
+              kind = 'file'
+            }
             entries.push({
               name: entry.name,
               path: child.path,
+              ...(request.data.includeFiles ? { kind } : {}),
               ...(Number.isFinite(child.modifiedAt)
                 ? { modifiedAt: child.modifiedAt }
                 : {}),
@@ -254,6 +328,7 @@ export class ServerDirectoryService {
                 'outsideRoots',
                 'notFound',
                 'notDirectory',
+                'notFile',
                 'permissionDenied',
               ].includes(errorCode(error))
             )
@@ -281,6 +356,10 @@ export class ServerDirectoryService {
           entries,
           truncated,
           canCreate: await this.writable(directory),
+          ...(request.data.includeFiles ? { separator: path.sep } : {}),
+          ...(initialFile
+            ? { initialName: path.basename(request.data.path) }
+            : {}),
         },
       })
     } catch (error) {

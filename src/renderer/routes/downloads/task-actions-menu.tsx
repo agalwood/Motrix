@@ -22,6 +22,7 @@ import {
   menuActionEnabled,
   subscribeMenuContext,
 } from '@renderer/features/application-menu/task-context'
+import { useMediaMergeDialog } from '@renderer/features/media-merge/media-merge-store'
 import { openAddTaskDialog } from '@renderer/lib/open-add-task-dialog'
 import { openMagnetFileSelection } from '@renderer/lib/open-magnet-file-selection'
 import { transport } from '@renderer/lib/transport'
@@ -292,6 +293,23 @@ export function TaskActionsMenu({
                 }}
               >
                 {t('panel.downloads.action.openFolder')}
+              </DropdownMenuItem>
+            )}
+          {selected.length === 2 &&
+            selected.every(
+              (task) =>
+                task.status === TaskStatus.Completed &&
+                task.fileCount <= 1 &&
+                task.finalPath
+            ) && (
+              <DropdownMenuItem
+                onClick={() =>
+                  useMediaMergeDialog
+                    .getState()
+                    .openWith({ taskIds: selected.map((task) => task.id) })
+                }
+              >
+                {t('mediaMerge.title')}
               </DropdownMenuItem>
             )}
           <InspectorMenuItem

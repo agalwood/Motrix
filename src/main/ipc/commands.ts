@@ -14,6 +14,7 @@ import { getLogger } from '@core/logger'
 import { publishEngineRestartRequired } from '@core/notifications/engine-restart-required'
 import type { NotificationCenter } from '@core/notifications/notification-center'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
+import { ManualMediaMerge } from '@core/plugin/commands/manual-media-merge'
 import type { GrantsManager } from '@core/plugin/grants/grants-manager'
 import type { HookAuditLog } from '@core/plugin/hooks/audit-log'
 import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
@@ -109,6 +110,7 @@ import {
   taskIdsPayloadSchema,
 } from '@shared/schemas/bulk-task-command'
 import { closeCurrentWindowSchema } from '@shared/schemas/close-current-window'
+import { filePickerOptionsSchema } from '@shared/schemas/file-picker'
 import { moveTasksPayloadSchema } from '@shared/schemas/move-tasks'
 import { checkPluginUpdatesPayloadSchema } from '@shared/schemas/plugin-update'
 import { REGISTRY_PLUGIN_ID_RE } from '@shared/schemas/registry'
@@ -652,7 +654,69 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     runWork: ctx.trackAsyncWork,
   })
 
+  const manualMediaMerge = new ManualMediaMerge({
+    createLog: (pluginId) => capabilityHost.createLog(pluginId),
+    registry: pluginRegistry,
+    host: pluginHost,
+    tasks: taskManager,
+    runWork: ctx.trackAsyncWork,
+  })
+
   return {
+    [Commands.GetMediaMergeState]: async () => manualMediaMerge.state(),
+    [Commands.GetMediaMergeSelection]: async (value: unknown) =>
+      manualMediaMerge.selection(value),
+    [Commands.StartMediaMerge]: async (value: unknown) =>
+      manualMediaMerge.start(value),
+    [Commands.GetMediaMergeJob]: async (value: unknown) =>
+      manualMediaMerge.get(value),
+    [Commands.CancelMediaMerge]: async (value: unknown) =>
+      manualMediaMerge.cancel(value),
+    [Commands.PickFile]: async (sender: WebContents, value: unknown) => {
+      const params = filePickerOptionsSchema.parse(value)
+      if (saveDirPickersInFlight.has(sender)) return null
+      saveDirPickersInFlight.add(sender)
+      try {
+        const parent = BrowserWindow.fromWebContents(sender)
+        if (params.kind === 'save') {
+          const options = {
+            defaultPath: params.defaultPath,
+            filters: params.extensions?.length
+              ? [
+                  {
+                    name: i18n.t('directoryPicker.files'),
+                    extensions: params.extensions,
+                  },
+                ]
+              : undefined,
+          }
+          const result =
+            parent && !parent.isDestroyed()
+              ? await dialog.showSaveDialog(parent, options)
+              : await dialog.showSaveDialog(options)
+          return result.canceled ? null : (result.filePath ?? null)
+        }
+        const options: OpenDialogOptions = {
+          properties: ['openFile'],
+          defaultPath: params.defaultPath,
+          filters: params.extensions?.length
+            ? [
+                {
+                  name: i18n.t('directoryPicker.files'),
+                  extensions: params.extensions,
+                },
+              ]
+            : undefined,
+        }
+        const result =
+          parent && !parent.isDestroyed()
+            ? await dialog.showOpenDialog(parent, options)
+            : await dialog.showOpenDialog(options)
+        return result.canceled ? null : (result.filePaths[0] ?? null)
+      } finally {
+        saveDirPickersInFlight.delete(sender)
+      }
+    },
     [Commands.InstallCliTool]: async (payload: unknown) =>
       cliToolService.install(
         cliInstallRequestSchema.parse(payload) as CliInstallRequest
@@ -1483,6 +1547,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     [Commands.RevealInFolder]: createRevealInFolderHandler({
       shell,
       getTask: (taskId) => taskManager.getById(taskId),
+      getMediaMergeJob: (jobId) => manualMediaMerge.get(jobId),
     }),
     [Commands.OpenTaskFile]: createOpenTaskFileHandler({
       shell,
@@ -1888,6 +1953,7 @@ export function registerCommandHandlers(ctx: CommandContext): () => void {
       channel === Commands.MinimizeCurrentWindow ||
       channel === Commands.ToggleMaximizeCurrentWindow ||
       channel === Commands.PickSaveDir ||
+      channel === Commands.PickFile ||
       channel === Commands.ResizeWindow ||
       channel === Commands.UpdateMenuContext
     ) {

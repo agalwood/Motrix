@@ -1,5 +1,6 @@
 // src/core/plugin/manifest/parse.ts
 
+import { compareSemver } from '@shared/semver'
 import { PluginEngineVersionTooOld, PluginManifestInvalid } from './errors'
 import {
   type HookRole,
@@ -47,64 +48,84 @@ export interface ParseResult {
   warnings: ManifestWarning[]
 }
 
+const STRICT_SEMVER_PATTERN =
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/
+
+interface EngineVersion {
+  value: string
+  core: [number, number, number]
+  prerelease: boolean
+}
+
 export function semverSatisfies(version: string, range: string): boolean {
   if (range.trim() === '*') return true
-  const v = parseVer(version)
-  const clauses = range.trim().split(/\s+/)
-  for (const c of clauses) {
-    if (!testClause(v, c)) return false
-  }
-  return true
+  const host = parseVer(version, 'host_version_unparseable')
+  const clauses = range
+    .trim()
+    .split(/\s+/)
+    .map((clause) => {
+      const match = /^(>=|<=|>|<|=|\^|~)?(.+)$/.exec(clause)
+      if (!match) {
+        throw new PluginManifestInvalid(
+          'plugin.manifest.engines_unparseable',
+          `unparseable range clause: ${clause}`
+        )
+      }
+      return {
+        op: match[1] ?? '=',
+        target: parseVer(match[2], 'engines_unparseable'),
+      }
+    })
+  // Existing plugins, including signed builtin seeds, use release-only ranges
+  // to describe the host API line (e.g. >=2.0.0 <3.0.0 during the 2.0 beta).
+  // Preserve that contract. An explicit prerelease in any clause opts the whole
+  // range into full SemVer precedence, so a beta floor cannot be bypassed.
+  const comparedVersion = clauses.some(({ target }) => target.prerelease)
+    ? host.value
+    : host.core.join('.')
+  return clauses.every(({ op, target }) => {
+    const cmp = compareSemver(comparedVersion, target.value)
+    switch (op) {
+      case '>=':
+        return cmp >= 0
+      case '<=':
+        return cmp <= 0
+      case '>':
+        return cmp > 0
+      case '<':
+        return cmp < 0
+      case '=':
+        return cmp === 0
+      case '^':
+        return host.core[0] === target.core[0] && cmp >= 0
+      case '~':
+        return (
+          host.core[0] === target.core[0] &&
+          host.core[1] === target.core[1] &&
+          cmp >= 0
+        )
+      default:
+        return false
+    }
+  })
 }
 
-function parseVer(s: string): [number, number, number] {
-  const m = /^(\d+)\.(\d+)\.(\d+)/.exec(s)
-  if (!m)
+function parseVer(
+  value: string,
+  code: 'host_version_unparseable' | 'engines_unparseable'
+): EngineVersion {
+  const match = STRICT_SEMVER_PATTERN.exec(value)
+  if (!match) {
     throw new PluginManifestInvalid(
-      'plugin.manifest.host_version_unparseable',
-      `unparseable host version: ${s}`
+      `plugin.manifest.${code}`,
+      `unparseable version: ${value}`
     )
-  return [Number(m[1]), Number(m[2]), Number(m[3])]
-}
-
-function testClause(v: [number, number, number], clause: string): boolean {
-  const m = /^(>=|<=|>|<|=|\^|~)?(\d+)\.(\d+)\.(\d+)/.exec(clause)
-  if (!m)
-    throw new PluginManifestInvalid(
-      'plugin.manifest.engines_unparseable',
-      `unparseable range clause: ${clause}`
-    )
-  const op = m[1] ?? '='
-  const r: [number, number, number] = [Number(m[2]), Number(m[3]), Number(m[4])]
-  const cmp = cmpVer(v, r)
-  switch (op) {
-    case '>=':
-      return cmp >= 0
-    case '<=':
-      return cmp <= 0
-    case '>':
-      return cmp > 0
-    case '<':
-      return cmp < 0
-    case '=':
-      return cmp === 0
-    case '^':
-      return v[0] === r[0] && cmp >= 0
-    case '~':
-      return v[0] === r[0] && v[1] === r[1] && cmp >= 0
-    default:
-      return false
   }
-}
-
-function cmpVer(
-  a: [number, number, number],
-  b: [number, number, number]
-): number {
-  for (let i = 0; i < 3; i++) {
-    if (a[i] !== b[i]) return a[i] < b[i] ? -1 : 1
+  return {
+    value,
+    core: [Number(match[1]), Number(match[2]), Number(match[3])],
+    prerelease: match[4] !== undefined,
   }
-  return 0
 }
 
 function levenshtein(a: string, b: string): number {
