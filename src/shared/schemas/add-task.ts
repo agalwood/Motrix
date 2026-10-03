@@ -83,6 +83,8 @@ const httpTaskRequestSchema = z.object({
   saveDir: z.string().min(1),
   filename: z.string().optional(),
   connections: z.number().int().min(1).max(128).optional(),
+  // Per-task download limit in bytes per second; 0/absent = unlimited.
+  dlLimit: z.number().int().nonnegative().optional(),
   headers: z.array(httpHeaderSchema).default([]),
   proxy: z.string().optional(),
 })

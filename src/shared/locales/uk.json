@@ -2340,7 +2340,9 @@
         "trustedEmpty": "Тут поки порожньо.",
         "trustedExtensions": "Довірені розширення",
         "trustedGuidance": "Для інших довірених розширень додайте ID, наданий розробником.",
-        "trustedSummary": "Усього: {{count}}"
+        "trustedSummary": "Усього: {{count}}",
+        "confirmDownloads": "Запитувати перед завантаженням",
+        "confirmDownloadsDesc": "Показувати вікно підтвердження, коли розширення браузера передає завантаження до Motrix."
       },
       "cli": {
         "inbox": {
@@ -3046,5 +3048,20 @@
     },
     "preserveOriginals": "Original files are kept",
     "format": "Output format"
+  },
+  "downloadConfirm": {
+    "title": "Підтвердження завантаження",
+    "fileName": "Ім’я файлу",
+    "fileNameAuto": "Автоматична назва файлу",
+    "saveTo": "Папка збереження",
+    "torrentFile": "Торент-файл",
+    "progressTitle": "Прогрес завантаження",
+    "completed": "Завершено",
+    "transferOptions": "Параметри передавання",
+    "thisTaskOnly": "Тільки для цього завдання",
+    "speedLimit": "Обмеження швидкості",
+    "connections": "З'єднання",
+    "kibPerSecond": "КіБ/с",
+    "auto": "Авто"
   }
 }

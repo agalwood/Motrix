@@ -1894,7 +1894,9 @@
         "pairingStateDegraded": {
           "title": "Accesso delle estensioni temporaneamente chiuso",
           "description": "Motrix non ha potuto aggiornare in sicurezza i record delle estensioni associate. Le sessioni esistenti delle estensioni sono state chiuse e i nuovi accessi sono bloccati per questa esecuzione. Riavvia Motrix per riprovare la riparazione; non fare affidamento sull’elenco sottostante finché questo messaggio non scompare."
-        }
+        },
+        "confirmDownloads": "Chiedi prima di scaricare",
+        "confirmDownloadsDesc": "Mostra una finestra di conferma quando l’estensione del browser invia un download a Motrix."
       },
       "cli": {
         "title": "Strumenti da riga di comando",
@@ -3024,5 +3026,20 @@
     },
     "preserveOriginals": "Original files are kept",
     "format": "Output format"
+  },
+  "downloadConfirm": {
+    "title": "Conferma download",
+    "fileName": "Nome file",
+    "fileNameAuto": "Nome file automatico",
+    "saveTo": "Salva in",
+    "torrentFile": "File torrent",
+    "progressTitle": "Avanzamento download",
+    "completed": "Completato",
+    "transferOptions": "Opzioni di trasferimento",
+    "thisTaskOnly": "Vale solo per questa attività",
+    "speedLimit": "Limite di velocità",
+    "connections": "Connessioni",
+    "kibPerSecond": "KiB/s",
+    "auto": "Automatico"
   }
 }

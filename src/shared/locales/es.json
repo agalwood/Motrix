@@ -1894,7 +1894,9 @@
         "pairingStateDegraded": {
           "title": "El acceso de las extensiones está cerrado temporalmente",
           "description": "Motrix no pudo actualizar de forma segura sus registros de extensiones vinculadas. Se han cerrado las sesiones existentes de las extensiones y se bloquean los nuevos accesos durante esta ejecución. Reinicia Motrix para reintentar la reparación; no te fíes de la lista de abajo hasta que desaparezca este mensaje."
-        }
+        },
+        "confirmDownloads": "Preguntar antes de descargar",
+        "confirmDownloadsDesc": "Muestra una ventana de confirmación cuando la extensión del navegador envía una descarga a Motrix."
       },
       "cli": {
         "title": "Herramientas de línea de comandos",
@@ -3024,5 +3026,20 @@
     },
     "preserveOriginals": "Original files are kept",
     "format": "Output format"
+  },
+  "downloadConfirm": {
+    "title": "Confirmar descarga",
+    "fileName": "Nombre del archivo",
+    "fileNameAuto": "Nombre de archivo automático",
+    "saveTo": "Guardar en",
+    "torrentFile": "Archivo torrent",
+    "progressTitle": "Progreso de la descarga",
+    "completed": "Completado",
+    "transferOptions": "Opciones de transferencia",
+    "thisTaskOnly": "Se aplica solo a esta tarea",
+    "speedLimit": "Límite de velocidad",
+    "connections": "Conexiones",
+    "kibPerSecond": "KiB/s",
+    "auto": "Automático"
   }
 }

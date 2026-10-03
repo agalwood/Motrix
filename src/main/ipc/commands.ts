@@ -145,6 +145,7 @@ import type { CliToolService } from '../cli/cli-tool-service'
 import { MenuContextPatchSchema } from '../commands/context-schema'
 import type { ContextStore } from '../commands/context-store'
 import type { AppUpdateService } from '../core/app-update-service'
+import type { DownloadConfirmController } from '../download-confirm/download-confirm-controller'
 import { i18n } from '../lib/i18n'
 import {
   enableAppImageIntegrationFromSettings,
@@ -254,6 +255,11 @@ export interface CommandContext {
   /** Coalesced / immediate TaskUpdated publication (TaskUpdatePublisher). */
   publishTaskUpdate: TaskActionDeps['publishTaskUpdate']
   publishTaskUpdateNow: TaskActionDeps['publishTaskUpdateNow']
+  /**
+   * IDM-style confirmation gate for bridge adds; optional so test contexts
+   * can omit it (the ResolveDownloadConfirm handler then no-ops).
+   */
+  downloadConfirm?: DownloadConfirmController
 }
 
 function sendToAddTaskWindow(
@@ -1380,6 +1386,13 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
           // to the main React Router tree.
           eventBus.emit(Events.NavigateTo, options.navigateMainTo)
         }
+      } else {
+        // Multi-instance dialog windows (download confirmation) are not
+        // WindowIds; resolve them through the dialog channel.
+        const dialogKey = windowManager.getDialogKeyBySender(sender)
+        if (dialogKey) {
+          windowManager.closeDialog(dialogKey)
+        }
       }
       return { ok: true }
     },
@@ -1458,6 +1471,11 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
     [Commands.ShowMainWindow]: async () => {
       windowManager.show('main')
+      return { ok: true }
+    },
+
+    [Commands.ResolveDownloadConfirm]: async (rawPayload: unknown) => {
+      ctx.downloadConfirm?.resolveInput(rawPayload)
       return { ok: true }
     },
 

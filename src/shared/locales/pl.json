@@ -1908,7 +1908,9 @@
         "pairingStateDegraded": {
           "title": "Dostęp rozszerzeń jest tymczasowo zamknięty",
           "description": "Motrix nie mógł bezpiecznie zaktualizować zapisów sparowanych rozszerzeń. Istniejące sesje rozszerzeń zostały zamknięte, a nowy dostęp jest zablokowany do końca bieżącego uruchomienia. Uruchom Motrix ponownie, aby ponowić naprawę; nie polegaj na poniższej liście, dopóki ten komunikat nie zniknie."
-        }
+        },
+        "confirmDownloads": "Pytaj przed pobieraniem",
+        "confirmDownloadsDesc": "Pokazuje okno potwierdzenia, gdy rozszerzenie przeglądarki przekazuje pobieranie do Motrix."
       },
       "cli": {
         "title": "Narzędzia wiersza poleceń",
@@ -3046,5 +3048,20 @@
     },
     "preserveOriginals": "Original files are kept",
     "format": "Output format"
+  },
+  "downloadConfirm": {
+    "title": "Potwierdzenie pobierania",
+    "fileName": "Nazwa pliku",
+    "fileNameAuto": "Automatyczna nazwa pliku",
+    "saveTo": "Zapisz w",
+    "torrentFile": "Plik torrent",
+    "progressTitle": "Postęp pobierania",
+    "completed": "Ukończono",
+    "transferOptions": "Opcje transferu",
+    "thisTaskOnly": "Dotyczy tylko tego zadania",
+    "speedLimit": "Limit prędkości",
+    "connections": "Połączenia",
+    "kibPerSecond": "KiB/s",
+    "auto": "Automatycznie"
   }
 }
