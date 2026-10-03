@@ -517,7 +517,7 @@ export class LegacyImportService {
           this.assertNoConflicts(batch, snapshot.sourceId)
           const now = this.clock()
           const graphs = batch.map((candidate) =>
-            this.graph(candidate, snapshot.sourceId, backup, now)
+            this.graph(candidate, snapshot, backup, now)
           )
           const next: LegacyImportReport = structuredClone(report)
           for (let index = 0; index < batch.length; index++) {
@@ -607,7 +607,7 @@ export class LegacyImportService {
 
   private graph(
     candidate: LegacyCandidate,
-    sourceId: string,
+    snapshot: LegacySnapshot,
     backup: string,
     now: number
   ): TaskWithInstancesAndFiles {
@@ -623,10 +623,30 @@ export class LegacyImportService {
     const torrentMetaPath = candidate.torrentRelativePath
       ? path.join(backup, candidate.torrentRelativePath)
       : null
+    const sessionDigest = snapshot.files.find(
+      (file) => file.relativePath === 'download.session'
+    )?.digest
+    if (!sessionDigest) throw this.error('changedSource')
     const payload = {
       legacyImport: {
         version: 1,
-        sourceId,
+        sourceId: snapshot.sourceId,
+        origin: {
+          root: snapshot.source.root,
+          identity: snapshot.source.identity,
+          sessionDigest,
+          torrentDigest:
+            snapshot.files.find(
+              (file) => file.relativePath === candidate.torrentRelativePath
+            )?.digest ?? null,
+          profileFiles: snapshot.files
+            .filter((file) =>
+              ['download.session', 'user.json', 'system.json'].includes(
+                file.relativePath
+              )
+            )
+            .map(({ relativePath, digest }) => ({ relativePath, digest })),
+        },
         itemKey: candidate.entry.itemKey,
         activation: 'inactive',
         storagePolicy: 'legacy-read-only',

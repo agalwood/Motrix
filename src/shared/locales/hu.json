@@ -3019,6 +3019,7 @@
     "format": "Output format"
   },
   "legacyImport": {
+    "navigation": "Migration",
     "title": "Import downloads from Motrix v1",
     "pausedDescription": "Choose old downloads. Imported tasks stay paused.",
     "settingsTitle": "Import from Motrix v1",
@@ -3036,7 +3037,7 @@
     "loading": "Reading old downloads…",
     "empty": "No eligible downloads. Choose another profile or inspect skipped items.",
     "continueBefore": "Before continuing:",
-    "capabilityLimit": "This version imports task records. New downloads use a separate folder and preserve the original files.",
+    "capabilityLimit": "Imported downloads stay paused. Open a task to review what is needed to continue.",
     "running": "A process recorded by v1 is still running. Close v1, then recheck.",
     "recheck": "Recheck",
     "search": "Search downloads",
@@ -3053,7 +3054,7 @@
     "stopDescription": "Committed downloads stay paused. Remaining downloads can be imported later.",
     "resultTitle": "Downloads imported",
     "importedCount": "Imported {{count}}",
-    "resultDescription": "Imported downloads stay paused. Their old files are preserved. Choose a task to review the requirements before starting a new download.",
+    "resultDescription": "Imported downloads stay paused and keep their original files. Open a task to review what is needed to continue.",
     "details": "Attention and details",
     "exportReport": "Export report…",
     "retry": "Retry failed items",
@@ -3064,7 +3065,7 @@
     "chooseDestination": "Choose destination…",
     "reasons": {
       "fresh-download-required": "A new download is needed",
-      "verification-required": "Ready for a new download",
+      "verification-required": "Files need verification",
       "metadata-required": "Torrent metadata is needed",
       "selection-required": "File selection is needed",
       "unsupported-options": "Old request options need review",
@@ -3079,6 +3080,7 @@
       "commit-failed": "Import failed; retry is available"
     },
     "errors": {
+      "pageUnavailable": "This page could not be displayed. Restart Motrix to reopen it. Committed imports are preserved.",
       "failed": "Import could not finish. Your old files are preserved. Retry or choose another profile.",
       "consentRequired": "Accept the agreement before reading an old profile.",
       "invalidSource": "Choose a valid Motrix v1 profile containing user.json, system.json and download.session.",
@@ -3101,12 +3103,25 @@
       "mirrorsUnsupported": "This task has multiple mirror URLs. Copy its URLs and create a new task after choosing the source you want to use.",
       "stopping": "Motrix is shutting down. Reopen it before importing.",
       "desktopOnly": "Import old downloads in the Motrix desktop app.",
-      "metadataMismatch": "This torrent does not match the old task. Choose its original torrent file."
+      "metadataMismatch": "This torrent does not match the old task. Choose its original torrent file.",
+      "checkpointUnavailable": "This download engine does not support verifying old downloads. You can download again into a new directory.",
+      "activationSourceMissing": "The original task information is incomplete. Download again into a new directory.",
+      "selectionRequired": "The old file selection is unknown. Choose files when downloading again.",
+      "originalDirectoryRequired": "Choose the original directory shown here. Moving old files is not supported.",
+      "payloadMissing": "Some original files are missing, including files that were not selected. This engine requires the complete file set. Download again into a new directory.",
+      "payloadUnsafe": "The original files use links or unsafe write permissions. Keep them and download again into a new directory.",
+      "controlRequired": "The old download progress file is missing. Download again into a new directory.",
+      "activationUncertain": "The old download could not be safely matched to the engine. It remains protected; download again into a new directory if needed."
     },
     "resultIncompleteTitle": "Import incomplete",
     "resultStoppedTitle": "Import stopped",
     "activationRequired": "Start a new download in a separate folder. Your original files stay in place.",
     "chooseTorrent": "Choose torrent…",
-    "torrentFile": "Torrent file"
+    "torrentFile": "Torrent file",
+    "verifyAndContinue": "Verify and continue",
+    "verifyDescription": "Verify files in the original directory and continue the saved file selection. Downloading may upload data or write shared pieces to unselected files. Completed files will not seed automatically.",
+    "authorizeOriginalDirectory": "Choose the original download directory",
+    "verifyReady": "The old task is preserved. Verify the original files to continue, or download again into a new directory.",
+    "trackersReadOnly": "Imported downloads keep their original trackers. Editing is unavailable."
   }
 }

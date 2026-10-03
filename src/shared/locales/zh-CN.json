@@ -2997,6 +2997,7 @@
     "format": "输出格式"
   },
   "legacyImport": {
+    "navigation": "迁移",
     "title": "导入旧版下载任务",
     "pausedDescription": "选择旧版下载任务，导入后保持暂停。",
     "settingsTitle": "从 Motrix v1 导入",
@@ -3014,7 +3015,7 @@
     "loading": "正在读取旧版下载任务…",
     "empty": "没有可导入的任务。请选择其他配置目录，或查看已跳过的项目。",
     "continueBefore": "继续下载前：",
-    "capabilityLimit": "此版本仅导入任务记录。重新下载会使用新目录，并保留原文件。",
+    "capabilityLimit": "导入后保持暂停。打开任务查看继续下载所需条件。",
     "running": "v1 记录的进程仍在运行。请关闭 v1 后重新检查。",
     "recheck": "重新检查",
     "search": "搜索下载任务",
@@ -3031,7 +3032,7 @@
     "stopDescription": "已导入的下载任务会保持暂停。剩余任务可稍后继续导入。",
     "resultTitle": "下载任务已导入",
     "importedCount": "已导入 {{count}} 项",
-    "resultDescription": "下载任务会保持暂停，旧文件也会保留。选择任务可查看继续前的要求，并在新路径中开始下载。",
+    "resultDescription": "导入后保持暂停，原文件保持原样。打开任务查看继续下载所需条件。",
     "details": "注意事项与详情",
     "exportReport": "导出报告…",
     "retry": "重试失败项目",
@@ -3042,7 +3043,7 @@
     "chooseDestination": "选择保存位置…",
     "reasons": {
       "fresh-download-required": "需要重新下载",
-      "verification-required": "可重新下载",
+      "verification-required": "需要校验文件",
       "metadata-required": "需要 torrent 元数据",
       "selection-required": "需要选择文件",
       "unsupported-options": "旧请求选项需要确认",
@@ -3057,6 +3058,7 @@
       "commit-failed": "导入失败，可重试"
     },
     "errors": {
+      "pageUnavailable": "此页面无法显示。重启 Motrix 后可重新打开；已提交的导入会保留。",
       "failed": "导入未能完成，旧文件已保留。请重试或选择其他配置目录。",
       "consentRequired": "请先接受协议，再读取旧版配置。",
       "invalidSource": "请选择含有 user.json、system.json 和 download.session 的有效 Motrix v1 配置目录。",
@@ -3079,12 +3081,25 @@
       "mirrorsUnsupported": "此任务含有多个镜像 URL。请复制 URL，选择所需来源后创建新任务。",
       "stopping": "Motrix 正在退出，请重新打开后再导入。",
       "desktopOnly": "请在 Motrix 桌面应用中导入旧版下载任务。",
-      "metadataMismatch": "这个种子与旧任务不一致。请选择原来的种子文件。"
+      "metadataMismatch": "这个种子与旧任务不一致。请选择原来的种子文件。",
+      "checkpointUnavailable": "当前下载引擎不支持校验旧下载。你可以在新目录重新下载。",
+      "activationSourceMissing": "原任务信息不完整。请在新目录重新下载。",
+      "selectionRequired": "无法确定旧任务的文件选择。请重新下载并选择文件。",
+      "originalDirectoryRequired": "请选择这里显示的原目录。暂不支持移动旧文件后续传。",
+      "payloadMissing": "部分原文件缺失，包括未选文件。当前引擎需要完整文件集；请在新目录重新下载。",
+      "payloadUnsafe": "原文件包含链接或不安全的写入权限。请保留原文件，并在新目录重新下载。",
+      "controlRequired": "旧下载进度文件缺失。请在新目录重新下载。",
+      "activationUncertain": "无法安全确认旧任务与下载引擎的对应关系。原文件仍受保护；需要时可在新目录重新下载。"
     },
     "resultIncompleteTitle": "导入未完成",
     "resultStoppedTitle": "导入已停止",
     "activationRequired": "请使用新目录重新下载。原文件将保持原样。",
     "chooseTorrent": "选择种子…",
-    "torrentFile": "种子文件"
+    "torrentFile": "种子文件",
+    "verifyAndContinue": "校验并继续",
+    "verifyDescription": "校验原目录中的文件后，按原来的选择继续下载。下载时可能上传数据或写入未选文件的共享分片；完成后不自动做种。",
+    "authorizeOriginalDirectory": "选择原下载目录",
+    "verifyReady": "旧任务已保留。你可以校验原文件并继续下载，或在新目录重新下载。",
+    "trackersReadOnly": "导入任务保留旧任务的 Tracker，暂不支持修改。"
   }
 }

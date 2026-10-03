@@ -112,19 +112,26 @@ describe('disclaimer IPC', () => {
     )
   })
 
-  it('waits for the legacy choice after persisted acceptance', async () => {
-    const deps = { ...createDeps(), onAccepted: vi.fn(async () => true) }
+  it('opens main before starting background legacy detection, without awaiting it', async () => {
+    let release!: () => void
+    const pending = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const deps = { ...createDeps(), onAccepted: vi.fn(() => pending) }
     const handlers = buildDisclaimerHandlers(deps)
     await expect(handlers[Commands.AcceptDisclaimer]?.()).resolves.toEqual({
       ok: true,
-      legacyImportPending: true,
     })
     expect(deps.onAccepted).toHaveBeenCalledOnce()
     expect(deps.gate.accept.mock.invocationCallOrder[0]).toBeLessThan(
       deps.onAccepted.mock.invocationCallOrder[0] ?? 0
     )
-    expect(deps.windowManager.open).not.toHaveBeenCalled()
-    expect(deps.windowManager.close).not.toHaveBeenCalled()
+    expect(deps.windowManager.open).toHaveBeenCalledWith('main', { show: true })
+    expect(deps.windowManager.close).toHaveBeenCalledWith('onboarding')
+    expect(deps.windowManager.open.mock.invocationCallOrder[0]).toBeLessThan(
+      deps.onAccepted.mock.invocationCallOrder[0] ?? 0
+    )
+    release()
   })
 
   it('never detects sources when the agreement is declined', async () => {

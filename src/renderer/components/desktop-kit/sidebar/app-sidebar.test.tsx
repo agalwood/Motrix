@@ -2,10 +2,13 @@ import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import { SidebarProvider } from '@renderer/components/ui/sidebar'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
-import { render, screen } from '@testing-library/react'
+import { transport } from '@renderer/lib/transport'
+import { Events } from '@shared/protocol/events'
+import { Queries } from '@shared/protocol/queries'
+import { act, render, screen } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { MemoryRouter } from 'react-router'
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppSidebar } from './app-sidebar'
 
 // The footer's NotificationsNavItem (Task 17R) calls useNotifications(),
@@ -18,6 +21,17 @@ vi.mock('@renderer/lib/transport', () => ({
     off: vi.fn(),
   },
 }))
+
+beforeEach(() => {
+  vi.mocked(transport.on).mockClear()
+  vi.mocked(transport.invoke)
+    .mockReset()
+    .mockImplementation(async (channel) => {
+      if (channel === Queries.GetLegacyImportNavigation)
+        return { detected: false, invitationPending: false }
+      return []
+    })
+})
 
 // jsdom 29 + Node 25 do not provide a working window.localStorage.
 // SidebarProvider reads/writes SIDEBAR_STATE_KEY, so stub it here.
@@ -66,6 +80,58 @@ function wrap(ui: ReactElement, initialEntries: string[] = ['/']) {
 }
 
 describe('AppSidebar', () => {
+  it('keeps migration hidden when no v1 source was detected', async () => {
+    render(wrap(<AppSidebar />))
+    await act(async () => Promise.resolve())
+    expect(screen.queryByText('Migration')).not.toBeInTheDocument()
+  })
+
+  it('keeps detected migration available after an invitation was dismissed', async () => {
+    vi.mocked(transport.invoke).mockImplementation(async (channel) =>
+      channel === Queries.GetLegacyImportNavigation
+        ? { detected: true, invitationPending: false }
+        : []
+    )
+    render(wrap(<AppSidebar />, ['/migration']))
+    const link = (await screen.findByText('Migration')).closest('a')
+    expect(link).toHaveAttribute('href', '/migration')
+    expect(link).toHaveAttribute('aria-current', 'page')
+    expect(link?.querySelector('svg')).toHaveAttribute('data-icon', 'migration')
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Queries.DiscoverLegacyImport
+    )
+  })
+
+  it('refreshes navigation after desktop detection without reading profile paths', async () => {
+    render(wrap(<AppSidebar />))
+    await act(async () => Promise.resolve())
+    vi.mocked(transport.invoke).mockImplementation(async (channel) =>
+      channel === Queries.GetLegacyImportNavigation
+        ? { detected: true, invitationPending: true }
+        : []
+    )
+    const handler = vi
+      .mocked(transport.on)
+      .mock.calls.find(
+        ([event]) => event === Events.LegacyImportNavigationChanged
+      )?.[1]
+    expect(handler).toBeTypeOf('function')
+    await act(async () => handler?.())
+    expect(await screen.findByText('Migration')).toBeInTheDocument()
+    expect(transport.invoke).not.toHaveBeenCalledWith(Queries.ScanLegacyImport)
+  })
+
+  it('does not display a migration entry after a failed navigation snapshot', async () => {
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.GetLegacyImportNavigation)
+        throw new Error('Discovery unavailable')
+      return []
+    })
+    render(wrap(<AppSidebar />))
+    await act(async () => Promise.resolve())
+    expect(screen.queryByText('Migration')).not.toBeInTheDocument()
+  })
+
   it('renders four nav items with localized labels', () => {
     render(wrap(<AppSidebar />))
     expect(screen.getByText('Dashboard')).toBeInTheDocument()

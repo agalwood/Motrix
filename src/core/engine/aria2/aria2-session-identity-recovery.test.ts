@@ -20,7 +20,7 @@ const CHILD = '2222222222222222'
 const OTHER = '3333333333333333'
 const folders: string[] = []
 
-async function setup(state = 'paused', schemaVersion: 2 | 3 = 2) {
+async function setup(state = 'paused', schemaVersion: 2 | 3 | 4 | 5 = 2) {
   const root = await mkdtemp(path.join(tmpdir(), 'motrix-identity-'))
   folders.push(root)
   const file = path.join(root, 'aria2.db')
@@ -40,7 +40,7 @@ async function setup(state = 'paused', schemaVersion: 2 | 3 = 2) {
   // Schema v3 (aria2_motrix 1.37.0-motrix.15) addresses checkpoints by output
   // path and no longer cascades them from task.
   const progressTable =
-    schemaVersion === 3
+    schemaVersion >= 3
       ? 'CREATE TABLE task_progress(gid TEXT NOT NULL, bitfield BLOB, out_path TEXT UNIQUE);'
       : 'CREATE TABLE task_progress(gid TEXT PRIMARY KEY REFERENCES task(gid) ON DELETE CASCADE, bitfield BLOB);'
   db.exec(`
@@ -50,6 +50,14 @@ async function setup(state = 'paused', schemaVersion: 2 | 3 = 2) {
     CREATE TABLE task_cookie_context(gid TEXT PRIMARY KEY REFERENCES task(gid) ON DELETE CASCADE, secret TEXT);
     CREATE TABLE download_history(id INTEGER PRIMARY KEY, gid TEXT, status TEXT, followed_by TEXT);
   `)
+  if (schemaVersion >= 4)
+    db.exec(
+      'CREATE TABLE legacy_checkpoint_import(token TEXT PRIMARY KEY, gid TEXT, consumed INTEGER)'
+    )
+  if (schemaVersion === 5)
+    db.exec(
+      'CREATE TABLE legacy_torrent_metadata(token TEXT PRIMARY KEY, gid TEXT, metadata_digest TEXT)'
+    )
   const insert = db.prepare('INSERT INTO task VALUES (?, ?, ?, ?, NULL, 0, ?)')
   insert.run(PARENT, 'waiting', entry(PARENT), Buffer.from('parent-digest'), 0)
   insert.run(
@@ -294,29 +302,82 @@ describe('aria2 persisted task identity recovery', () => {
     }
   })
 
-  it('repairs a schema-v3 database and retires the ancestor checkpoint explicitly', async () => {
-    // v3 dropped the task→task_progress CASCADE, so retiring the metadata
-    // ancestor must delete its checkpoint itself or it would outlive the task.
-    const h = await setup('paused', 3)
-    try {
-      h.db
-        .prepare('INSERT INTO task_progress (gid, bitfield) VALUES (?, ?)')
-        .run(PARENT, Buffer.from([0xff]))
-      const result = await recoverAria2SessionIdentity(h.file)
-      expect(result?.repairedGids).toEqual([CHILD])
-      expect(result?.retiredMetadataGids).toEqual([PARENT])
-      expect(
-        h.db.prepare('SELECT gid, bitfield FROM task_progress').all()
-      ).toEqual([{ gid: CHILD, bitfield: Buffer.from([0xaa, 0xc0]) }])
-    } finally {
-      h.db.close()
+  it.each([3, 4, 5] as const)(
+    'repairs schema v%s and preserves unrelated migration claims',
+    async (schemaVersion) => {
+      // v3 dropped the task→task_progress CASCADE, so retiring the metadata
+      // ancestor must delete its checkpoint itself or it would outlive the task.
+      const h = await setup('paused', schemaVersion)
+      try {
+        h.db
+          .prepare('INSERT INTO task_progress (gid, bitfield) VALUES (?, ?)')
+          .run(PARENT, Buffer.from([0xff]))
+        if (schemaVersion >= 4)
+          h.db
+            .prepare('INSERT INTO legacy_checkpoint_import VALUES (?, ?, 1)')
+            .run('unchanged-token', OTHER)
+        if (schemaVersion === 5)
+          h.db
+            .prepare('INSERT INTO legacy_torrent_metadata VALUES (?, ?, ?)')
+            .run('unchanged-token', OTHER, 'unchanged-digest')
+        const result = await recoverAria2SessionIdentity(h.file)
+        expect(result?.repairedGids).toEqual([CHILD])
+        expect(result?.retiredMetadataGids).toEqual([PARENT])
+        if (schemaVersion >= 4)
+          expect(
+            h.db.prepare('SELECT * FROM legacy_checkpoint_import').all()
+          ).toEqual([{ token: 'unchanged-token', gid: OTHER, consumed: 1 }])
+        if (schemaVersion === 5)
+          expect(
+            h.db.prepare('SELECT * FROM legacy_torrent_metadata').all()
+          ).toEqual([
+            {
+              token: 'unchanged-token',
+              gid: OTHER,
+              metadata_digest: 'unchanged-digest',
+            },
+          ])
+        expect(
+          h.db.prepare('SELECT gid, bitfield FROM task_progress').all()
+        ).toEqual([{ gid: CHILD, bitfield: Buffer.from([0xaa, 0xc0]) }])
+      } finally {
+        h.db.close()
+      }
     }
-  })
+  )
+
+  it.each([PARENT, CHILD])(
+    'refuses repair involving a migration-owned GID %s',
+    async (gid) => {
+      const h = await setup('paused', 5)
+      try {
+        h.db
+          .prepare('INSERT INTO legacy_checkpoint_import VALUES (?, ?, 1)')
+          .run('owned-token', gid)
+        const before = h.rows()
+        const progress = h.db.prepare('SELECT * FROM task_progress').all()
+        await expect(recoverAria2SessionIdentity(h.file)).rejects.toThrow(
+          'legacy checkpoint identity is immutable'
+        )
+        expect(h.rows()).toEqual(before)
+        expect(h.db.prepare('SELECT * FROM task_progress').all()).toEqual(
+          progress
+        )
+        expect(
+          (await readdir(h.root)).filter((name) =>
+            name.includes('identity-recovery-')
+          )
+        ).toHaveLength(0)
+      } finally {
+        h.db.close()
+      }
+    }
+  )
 
   it('leaves an unfamiliar future schema unchanged', async () => {
     const h = await setup()
     try {
-      h.db.pragma('user_version = 4')
+      h.db.pragma('user_version = 6')
       const before = h.rows()
       expect(await recoverAria2SessionIdentity(h.file)).toBeNull()
       expect(h.rows()).toEqual(before)

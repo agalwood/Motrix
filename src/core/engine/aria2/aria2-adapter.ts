@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { access, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -37,6 +38,7 @@ import type {
   DirectResourceMetadataProfile,
   DownloadCookie,
   EngineAdapter,
+  LegacyBtBindingProof,
 } from '../engine-adapter'
 import { DIRECT_RESOURCE_METADATA_PROFILE } from '../engine-adapter'
 import { Aria2LegacyCheckpoint } from './aria2-legacy-checkpoint'
@@ -750,7 +752,56 @@ export class Aria2Adapter implements EngineAdapter {
     return translateGlobalStat(raw)
   }
 
+  async supportsLegacyBtActivation(): Promise<boolean> {
+    const report = await this.rpc.getVersion()
+    return (
+      report.enabledFeatures.includes('LegacyTorrentMetadataV1') &&
+      (await this.supportsLegacyCheckpointImport())
+    )
+  }
+
+  async verifyLegacyBtBinding(input: LegacyBtBindingProof): Promise<boolean> {
+    const task = await this.getTaskStatus(input.engineTaskId)
+    if (
+      !task ||
+      task.engineTaskId !== input.engineTaskId ||
+      task.infoHash?.toLowerCase() !== input.infoHash
+    )
+      return false
+    const [files, options, trackers] = await Promise.all([
+      this.getTaskFiles(input.engineTaskId),
+      this.getEngineTaskOptions(input.engineTaskId),
+      this.getTaskBtTracker(input.engineTaskId),
+    ])
+    const selected = new Set(input.selectedFiles)
+    return (
+      files.length === input.files.length &&
+      files.every(
+        (file, index) =>
+          file.index === index &&
+          file.path === input.files[index].path &&
+          file.size === input.files[index].length &&
+          file.selected === selected.has(index)
+      ) &&
+      options !== null &&
+      options.dir === input.saveDir &&
+      options['bt-seed-unverified'] === 'false' &&
+      options['bt-hash-check-seed'] === 'false' &&
+      Number(options['seed-time']) === 0 &&
+      Number(options['seed-ratio']) === 0 &&
+      options['bt-remove-unselected-file'] === 'false' &&
+      options['allow-overwrite'] === 'false' &&
+      options['auto-file-renaming'] === 'false' &&
+      options['remove-control-file'] === 'false' &&
+      options['check-integrity'] === 'true' &&
+      trackers.join(',') === input.trackers.join(',')
+    )
+  }
+
   async addTorrent(params: AddTorrentParams): Promise<string> {
+    const legacyMetadata = params.legacyCheckpointActivation
+      ? Buffer.from(params.metadata)
+      : null
     const extraGid = params.extraEngineOptions?.gid
     if (extraGid !== undefined && typeof extraGid !== 'string') {
       throw new TypeError(
@@ -829,13 +880,51 @@ export class Aria2Adapter implements EngineAdapter {
         opts[k] = v
       }
     }
-    await this.applyBtTrackerPolicy(
-      opts,
-      requestedGid,
-      params.metadata,
-      params.isPrivate
-    )
-    if (params.isPrivate) {
+    if (params.legacyCheckpointActivation) {
+      if (
+        !params.pause ||
+        !requestedGid ||
+        !params.selectedFiles?.length ||
+        params.outputRoot ||
+        params.outputFilePaths
+      )
+        throw new TypeError('Invalid legacy torrent activation')
+      const allowed = new Set(['bt-tracker'])
+      if (
+        Object.keys(params.extraEngineOptions ?? {}).some(
+          (key) => !allowed.has(key)
+        )
+      )
+        throw new TypeError('Unexpected legacy torrent options')
+      // Pin after extras so neither ambient settings nor global tracker policy can override consent.
+      Object.assign(opts, {
+        dir: params.saveDir,
+        pause: 'true',
+        'select-file': params.selectedFiles.join(','),
+        'allow-overwrite': 'false',
+        'auto-file-renaming': 'false',
+        'remove-control-file': 'false',
+        'check-integrity': 'true',
+        'bt-seed-unverified': 'false',
+        'bt-hash-check-seed': 'false',
+        'seed-time': '0',
+        'seed-ratio': '0.0',
+        'bt-remove-unselected-file': 'false',
+        'file-allocation': 'none',
+        'rpc-save-upload-metadata': 'false',
+        'bt-save-metadata': 'false',
+        'bt-exclude-tracker': '',
+        'enable-peer-exchange': 'false',
+        'bt-enable-lpd': 'false',
+      })
+    } else
+      await this.applyBtTrackerPolicy(
+        opts,
+        requestedGid,
+        params.metadata,
+        params.isPrivate
+      )
+    if (params.isPrivate && !params.legacyCheckpointActivation) {
       // Apply after extra options: private torrents keep their own trackers.
       // A configured policy can restore explicitly owned private-task edits.
       // Without that provenance, no supplemental option is trusted.
@@ -851,8 +940,60 @@ export class Aria2Adapter implements EngineAdapter {
     // Web Seed cannot abort peers or other Web Seeds before their first byte.
     opts['max-file-not-found'] = '0'
     if (params.outputRoot) await mkdir(params.saveDir, { recursive: true })
-    const b64 = Buffer.from(params.metadata).toString('base64')
-    const actualGid = await this.rpc.addTorrent(b64, [], opts)
+    const b64 = (legacyMetadata ?? Buffer.from(params.metadata)).toString(
+      'base64'
+    )
+    let actualGid: string
+    if (params.legacyCheckpointActivation) {
+      const context = params.legacyCheckpointActivation
+      const reference = params.durableMetadata
+      if (
+        !reference ||
+        !legacyMetadata ||
+        !/^[a-f0-9]{64}$/.test(reference.digest) ||
+        createHash('sha256').update(legacyMetadata).digest('hex') !==
+          reference.digest ||
+        !/^[A-Za-z0-9_-]{16,128}$/.test(context.token) ||
+        ![reference.path, context.targetPath, params.saveDir].every(
+          (value) =>
+            path.isAbsolute(value) &&
+            path.normalize(value) === value &&
+            Buffer.byteLength(value) <= 4096 &&
+            [...value].every(
+              (char) => char.charCodeAt(0) > 31 && char.charCodeAt(0) !== 127
+            )
+        )
+      )
+        throw new AppError(
+          ErrorCode.InvalidSelection,
+          'Invalid durable torrent reference'
+        )
+      if (!(await this.supportsLegacyBtActivation()))
+        throw new AppError(
+          ErrorCode.EngineFeatureUnavailable,
+          'legacyImport.errors.checkpointUnavailable'
+        )
+      const input = {
+        token: context.token,
+        targetPath: context.targetPath,
+        metadataFile: reference.path,
+        metadataDigest: reference.digest,
+        metadata: b64,
+        options: opts,
+      }
+      if (Buffer.byteLength(JSON.stringify(input)) > 2 * 1024 * 1024 - 4096)
+        throw new AppError(
+          ErrorCode.InvalidSelection,
+          'legacyImport.errors.tooLarge'
+        )
+      actualGid = await this.rpc.addLegacyTorrentV1(input)
+    } else {
+      if (params.durableMetadata)
+        throw new TypeError(
+          'Durable torrent reference requires legacy activation'
+        )
+      actualGid = await this.rpc.addTorrent(b64, [], opts)
+    }
     if (
       requestedGid !== undefined &&
       actualGid.toLowerCase() !== requestedGid.toLowerCase()

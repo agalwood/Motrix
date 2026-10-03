@@ -1,4 +1,6 @@
 import { isUriOnlyDirectReplay } from '@shared/schemas/direct-replay-recipe'
+import { legacyBtActivationSchema } from '@shared/schemas/legacy-bt-activation'
+import { legacyTaskMetadataSchema } from '@shared/schemas/legacy-import'
 import {
   type DownloadTask,
   TaskInstancePhase,
@@ -87,6 +89,7 @@ export function canOpenTaskFile(t: DownloadTask): boolean {
 /** Live multi-file downloads that accept a changed file selection. */
 export function canSelectTaskFiles(t: DownloadTask): boolean {
   return (
+    !hasLegacyImport(t) &&
     Boolean(t.engineTaskId) &&
     t.fileCount > 1 &&
     (isTorrentLike(t) || t.type === TaskType.Metalink) &&
@@ -112,7 +115,7 @@ export function canStopSeeding(t: DownloadTask): boolean {
 
 export function canReseed(t: DownloadTask): boolean {
   return (
-    !isLegacyImportInactive(t) &&
+    !hasLegacyImport(t) &&
     t.status === TaskStatus.Completed &&
     isTorrentLikeType(t.type) &&
     t.torrentMetaPath != null
@@ -121,7 +124,7 @@ export function canReseed(t: DownloadTask): boolean {
 
 export function canRetry(t: DownloadTask): boolean {
   return (
-    !isLegacyImportInactive(t) &&
+    !hasLegacyImport(t) &&
     (t.status === TaskStatus.Error || t.status === TaskStatus.Removed)
   )
 }
@@ -248,10 +251,35 @@ export function canAttemptRetry(t: DownloadTask): boolean {
   return getTaskRetryKind(t) !== null
 }
 
-export function isLegacyImportInactive(
-  t: Pick<DownloadTask, 'instances'>
-): boolean {
+export function hasLegacyImport(t: Pick<DownloadTask, 'instances'>): boolean {
   return (t.instances ?? []).some((instance) =>
     Object.hasOwn(instance.payload ?? {}, 'legacyImport')
   )
+}
+
+/** Unknown markers or an unconfirmed durable binding fail closed. */
+export function isLegacyImportInactive(
+  t: Pick<DownloadTask, 'instances'>
+): boolean {
+  return (t.instances ?? []).some((instance) => {
+    if (!Object.hasOwn(instance.payload ?? {}, 'legacyImport')) return false
+    const marker = legacyTaskMetadataSchema.safeParse(
+      instance.payload.legacyImport
+    )
+    const activation = legacyBtActivationSchema.safeParse(
+      instance.payload.legacyBtActivation
+    )
+    return (
+      !marker.success ||
+      marker.data.activation !== 'active' ||
+      marker.data.storagePolicy !== 'legacy-bt-in-place' ||
+      !activation.success ||
+      !['bound', 'active'].includes(activation.data.stage) ||
+      instance.gid !== activation.data.engineTaskId ||
+      !marker.data.selectionKnown ||
+      marker.data.origin?.torrentDigest !== activation.data.torrentDigest ||
+      marker.data.selectedFiles.join(',') !==
+        activation.data.selectedFiles.join(',')
+    )
+  })
 }

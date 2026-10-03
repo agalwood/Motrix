@@ -1,5 +1,13 @@
 import { z } from 'zod'
 
+export const legacyImportNavigationSchema = z.object({
+  detected: z.boolean(),
+  invitationPending: z.boolean(),
+})
+export type LegacyImportNavigationState = z.infer<
+  typeof legacyImportNavigationSchema
+>
+
 export const legacyReasonSchema = z.enum([
   'fresh-download-required',
   'verification-required',
@@ -90,11 +98,33 @@ export const legacyTaskMetadataSchema = z
     version: z.literal(1),
     sourceId: z.string(),
     itemKey: z.string(),
-    activation: z.literal('inactive'),
-    storagePolicy: z.literal('legacy-read-only'),
+    activation: z.enum(['inactive', 'activating', 'active']),
+    storagePolicy: z.enum(['legacy-read-only', 'legacy-bt-in-place']),
     reason: legacyReasonSchema,
     selectionKnown: z.boolean(),
     selectedFiles: z.array(z.number().int().nonnegative()).max(10000),
+    origin: z
+      .object({
+        root: z.string(),
+        identity: z.string(),
+        sessionDigest: z.string().regex(/^[a-f0-9]{64}$/),
+        torrentDigest: z
+          .string()
+          .regex(/^[a-f0-9]{64}$/)
+          .nullable(),
+        profileFiles: z
+          .array(
+            z
+              .object({
+                relativePath: z.string(),
+                digest: z.string().regex(/^[a-f0-9]{64}$/),
+              })
+              .strict()
+          )
+          .max(3),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
 export type LegacyTaskMetadata = z.infer<typeof legacyTaskMetadataSchema>

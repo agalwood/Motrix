@@ -5,6 +5,7 @@ export const Commands = {
   GetMediaMergeJob: 'command:getMediaMergeJob',
   CancelMediaMerge: 'command:cancelMediaMerge',
   PickFile: 'command:pickFile',
+  ActivateLegacyBt: 'command:activateLegacyBt',
   PickLegacyImportSource: 'command:pickLegacyImportSource',
   PickLegacyTorrentMetadata: 'command:pickLegacyTorrentMetadata',
   CommitLegacyImport: 'command:commitLegacyImport',

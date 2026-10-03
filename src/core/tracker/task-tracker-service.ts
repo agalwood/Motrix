@@ -4,7 +4,9 @@ import type {
   BtTrackerPolicy,
   EngineAdapter,
 } from '@core/engine/engine-adapter'
+import { hasLegacyImport } from '@core/legacy-import/legacy-task-policy'
 import type { TaskManager } from '@core/task/task-manager'
+import { AppError, ErrorCode } from '@shared/errors'
 import type {
   TaskTrackerOwnership,
   TaskTrackerPlan,
@@ -55,6 +57,16 @@ export class TaskTrackerService {
     return task
   }
 
+  private writable(taskId: string, gid: string): DownloadTask {
+    const task = this.current(taskId, gid)
+    if (hasLegacyImport(task))
+      throw new AppError(
+        ErrorCode.EngineFeatureUnavailable,
+        'legacyImport.trackersReadOnly'
+      )
+    return task
+  }
+
   private run<T>(taskId: string, operation: () => Promise<T>): Promise<T> {
     if (this.stopped)
       return Promise.reject(new Error('Tracker service stopped'))
@@ -79,6 +91,8 @@ export class TaskTrackerService {
   }
 
   noteTaskControl(taskId: string, paused: boolean): void {
+    const task = this.deps.tasks.getById(taskId)
+    if (task && hasLegacyImport(task)) return
     if (this.operations.has(taskId)) this.controlIntents.set(taskId, paused)
     const state = this.deps.repository.get(taskId)
     if (state?.pending)
@@ -113,6 +127,7 @@ export class TaskTrackerService {
       : undefined
     if (!task || task.engineTaskId !== engineGid)
       return { trackers: manual, isPrivate: privacy === true }
+    this.writable(task.id, engineGid)
     const saved = this.deps.repository.get(task.id)
     const retainedManual =
       privacy === true
@@ -247,6 +262,7 @@ export class TaskTrackerService {
 
   plan(taskId: string, gid: string): Promise<TaskTrackerPlan> {
     return this.run(taskId, async () => {
+      this.writable(taskId, gid)
       await this.recoverTask(taskId)
       return (await this.build(taskId, gid)).plan
     })
@@ -254,6 +270,7 @@ export class TaskTrackerService {
 
   apply(taskId: string, gid: string, fingerprint: string): Promise<void> {
     return this.run(taskId, async () => {
+      this.writable(taskId, gid)
       await this.recoverTask(taskId)
       const { plan, state, next, effective, after } = await this.build(
         taskId,
@@ -267,6 +284,7 @@ export class TaskTrackerService {
 
   edit(taskId: string, gid: string, urls: string[]): Promise<void> {
     return this.run(taskId, async () => {
+      this.writable(taskId, gid)
       await this.recoverTask(taskId)
       const { effective, state } = await this.read(taskId, gid)
       const requested = unique(urls)
@@ -305,9 +323,9 @@ export class TaskTrackerService {
     before: string[],
     after: string[]
   ): Promise<void> {
-    this.current(taskId, gid)
+    this.writable(taskId, gid)
     const task = await this.deps.adapter.getTaskStatus(gid)
-    this.current(taskId, gid)
+    this.writable(taskId, gid)
     if (!task || terminal(task))
       throw new Error('Tracker engine task unavailable')
     if (same(before, after)) {
@@ -329,7 +347,7 @@ export class TaskTrackerService {
     let phase: 'pause' | 'write' = 'pause'
     try {
       if (active(task)) await this.deps.actions.pauseTask(taskId)
-      this.current(taskId, gid)
+      this.writable(taskId, gid)
       if (
         this.current(taskId, gid).bt?.isPrivate === true &&
         next.isPrivate === false
@@ -337,7 +355,7 @@ export class TaskTrackerService {
         throw new Error('Torrent privacy changed')
       phase = 'write'
       await this.deps.adapter.setTaskBtTracker(gid, after)
-      this.current(taskId, gid)
+      this.writable(taskId, gid)
     } catch (error) {
       this.recordFailure(taskId, phase)
       throw error
@@ -374,7 +392,13 @@ export class TaskTrackerService {
     const pending = state?.pending
     if (!state || !pending) return
     const task = this.deps.tasks.getById(taskId)
-    if (!task || task.engineTaskId !== state.engineGid || terminal(task)) return
+    if (
+      !task ||
+      hasLegacyImport(task) ||
+      task.engineTaskId !== state.engineGid ||
+      terminal(task)
+    )
+      return
     const engineTask = await this.deps.adapter.getTaskStatus(state.engineGid)
     if (!engineTask)
       throw new Error('Tracker engine task unavailable; recovery pending')
@@ -399,7 +423,7 @@ export class TaskTrackerService {
       latest?.pending?.resumeRequired &&
       this.controlIntents.get(taskId) !== true
     ) {
-      const current = this.current(taskId, state.engineGid)
+      const current = this.writable(taskId, state.engineGid)
       if (
         current.status === TaskStatus.Paused ||
         engineTask.status === TaskStatus.Paused
@@ -429,7 +453,10 @@ export class TaskTrackerService {
         .getAll()
         .filter(
           (task) =>
-            task.bt && !terminal(task) && !this.deps.repository.get(task.id)
+            task.bt &&
+            !hasLegacyImport(task) &&
+            !terminal(task) &&
+            !this.deps.repository.get(task.id)
         )
         .map((task) => task.id),
     ])
@@ -446,7 +473,7 @@ export class TaskTrackerService {
               await this.recoverTask(id)
               if (this.deps.repository.get(id)) return
               const task = this.deps.tasks.getById(id)
-              if (!task || terminal(task)) return
+              if (!task || hasLegacyImport(task) || terminal(task)) return
               if (!(await this.deps.adapter.getTaskStatus(task.engineTaskId)))
                 return
               const { state } = await this.read(id, task.engineTaskId)

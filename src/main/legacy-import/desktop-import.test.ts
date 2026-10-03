@@ -13,6 +13,7 @@ import { Aria2ProcessInspector } from '@core/engine/aria2/aria2-process-inspecto
 import type { LegacyImportService } from '@core/legacy-import/import-service'
 import { TorrentParser } from '@core/torrent/torrent-parser'
 import { Commands } from '@shared/protocol/commands'
+import { Queries } from '@shared/protocol/queries'
 import {
   makeDownloadTask,
   TaskInstancePhase,
@@ -129,6 +130,100 @@ async function fixture() {
 }
 
 describe('desktop legacy import', () => {
+  it('waits for task restore before commit/retry and rechecks admission after shutdown', async () => {
+    let release!: () => void
+    const readiness = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let consent = true
+    const commit = vi.fn(async () => ({ ok: true }))
+    const retry = vi.fn(async () => ({ ok: true }))
+    registerLegacyImportIpc({
+      getService: () => ({ commit, retry }) as unknown as LegacyImportService,
+      hasConsent: () => consent,
+      getTask: () => undefined,
+      backupRoot: '/unused',
+      finishInvitation: vi.fn(),
+      waitForTasksReady: () => readiness,
+    })
+    const first = mocks.handlers.get(Commands.CommitLegacyImport)?.(
+      { sender: {} },
+      {}
+    )
+    const second = mocks.handlers.get(Commands.RetryLegacyImport)?.(
+      { sender: {} },
+      { runId: '33333333-3333-4333-8333-333333333333' }
+    )
+    await Promise.resolve()
+    expect(commit).not.toHaveBeenCalled()
+    expect(retry).not.toHaveBeenCalled()
+    consent = false
+    release()
+    await expect(first).rejects.toThrow('consentRequired')
+    await expect(second).rejects.toThrow('consentRequired')
+    expect(commit).not.toHaveBeenCalled()
+    expect(retry).not.toHaveBeenCalled()
+  })
+  it('rejects before waiting for startup when there is no consent', async () => {
+    const wait = vi.fn(() => new Promise<void>(() => {}))
+    const getService = vi.fn()
+    registerLegacyImportIpc({
+      getService,
+      hasConsent: () => false,
+      getTask: () => undefined,
+      backupRoot: '/unused',
+      finishInvitation: vi.fn(),
+      waitForTasksReady: wait,
+    })
+    for (const channel of [
+      Commands.CommitLegacyImport,
+      Commands.RetryLegacyImport,
+      Commands.ActivateLegacyBt,
+      Queries.GetLegacyBtActivationAvailability,
+      Queries.GetLegacyImportNavigation,
+    ])
+      await expect(
+        mocks.handlers.get(channel)?.({ sender: {} }, {})
+      ).rejects.toThrow('consentRequired')
+    expect(wait).not.toHaveBeenCalled()
+    expect(getService).not.toHaveBeenCalled()
+  })
+  it('keeps navigation/scan available before task readiness and admits commit only afterwards', async () => {
+    let release!: () => void
+    const readiness = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const scan = vi.fn(async () => ({ items: [] }))
+    const commit = vi.fn(async () => ({ ok: true }))
+    const detected = vi.fn()
+    registerLegacyImportIpc({
+      getService: () => ({ scan, commit }) as unknown as LegacyImportService,
+      hasConsent: () => true,
+      getTask: () => undefined,
+      backupRoot: '/unused',
+      finishInvitation: vi.fn(),
+      waitForTasksReady: () => readiness,
+      onSourceDetected: detected,
+      getNavigationState: () => ({ detected: true, invitationPending: false }),
+    })
+    await expect(
+      mocks.handlers.get(Queries.GetLegacyImportNavigation)?.({ sender: {} })
+    ).resolves.toEqual({ detected: true, invitationPending: false })
+    await mocks.handlers.get(Queries.ScanLegacyImport)?.(
+      { sender: {} },
+      { sourceHandle: '11111111-1111-4111-8111-111111111111' }
+    )
+    expect(detected).toHaveBeenCalledOnce()
+    const pending = mocks.handlers.get(Commands.CommitLegacyImport)?.(
+      { sender: {} },
+      {}
+    )
+    await Promise.resolve()
+    expect(commit).not.toHaveBeenCalled()
+    release()
+    await pending
+    expect(commit).toHaveBeenCalledOnce()
+  })
   it('creates a separate fresh directory and a single-source draft without reading or modifying old bytes', async () => {
     const { root, oldPath, task, event } = await fixture()
     const result = (await mocks.handlers.get(

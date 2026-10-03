@@ -1,7 +1,8 @@
 import path from 'node:path'
-import { isInactiveLegacyTask } from '@core/legacy-import/legacy-task-policy'
+import { hasLegacyImport } from '@core/legacy-import/legacy-task-policy'
 import { AppError, ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
+import { legacyBtActivationSchema } from '@shared/schemas/legacy-bt-activation'
 import {
   type DownloadTask,
   TaskInstancePhase,
@@ -120,7 +121,65 @@ async function removeTaskUnderMutation(
     })
 
   // Imported paths belong to v1; every removal request is metadata-only.
-  if (isInactiveLegacyTask(task)) {
+  if (hasLegacyImport(task)) {
+    const pair = deps.db.getTask(taskId)
+    const candidate = task.instances[0]?.payload.legacyBtActivation as
+      | { engineTaskId?: unknown }
+      | undefined
+    // Even an uncertain paused add belongs to this migration. Confirm its absence
+    // before deleting the sole durable owner; original payloads are never cleanup targets.
+    const gid =
+      typeof candidate?.engineTaskId === 'string' &&
+      /^[a-f0-9]{16}$/.test(candidate.engineTaskId)
+        ? candidate.engineTaskId
+        : task.engineTaskId
+    if (gid) {
+      const engine = await deps.adapter.getTaskStatus(gid)
+      if (engine) {
+        const intent = legacyBtActivationSchema.safeParse(candidate)
+        if (
+          !pair ||
+          !intent.success ||
+          !(await deps.adapter.verifyLegacyBtBinding?.({
+            engineTaskId: intent.data.engineTaskId,
+            saveDir: intent.data.saveDir,
+            infoHash: intent.data.expected.infoHash ?? '',
+            files: intent.data.files,
+            selectedFiles: intent.data.selectedFiles,
+            trackers: intent.data.trackers,
+            isPrivate: intent.data.isPrivate,
+          }))
+        )
+          throw new AppError(
+            ErrorCode.InvalidSelection,
+            'legacyImport.errors.activationUncertain'
+          )
+        if (!isStoppedTaskStatus(engine.status)) {
+          try {
+            await deps.adapter.forceRemoveTask(gid)
+          } catch (error) {
+            // Verification can finish between tellStatus and forceRemove. A
+            // stopped row is purged directly; a live/unknown owner is retained.
+            const stopped = await deps.adapter.getTaskStatus(gid)
+            if (
+              stopped &&
+              (!isStoppedTaskStatus(stopped.status) ||
+                !(await deps.adapter.verifyLegacyBtBinding?.({
+                  engineTaskId: intent.data.engineTaskId,
+                  saveDir: intent.data.saveDir,
+                  infoHash: intent.data.expected.infoHash ?? '',
+                  files: intent.data.files,
+                  selectedFiles: intent.data.selectedFiles,
+                  trackers: intent.data.trackers,
+                  isPrivate: intent.data.isPrivate,
+                })))
+            )
+              throw error
+          }
+        }
+        await deps.adapter.removeDownloadResult(gid)
+      }
+    }
     await deleteParentBarrier(() => {
       deps.db.deleteTask(taskId)
       deps.taskManager.remove(taskId)

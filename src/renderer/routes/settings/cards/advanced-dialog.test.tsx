@@ -7,6 +7,9 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+const navigate = vi.fn()
+vi.mock('react-router', () => ({ useNavigate: () => navigate }))
+
 vi.mock('@renderer/lib/transport', () => ({
   transport: {
     invoke: vi.fn(async () => undefined),
@@ -37,6 +40,7 @@ const SETTINGS_FIXTURE = {
 
 describe('<AdvancedDialog>', () => {
   beforeEach(() => {
+    navigate.mockClear()
     vi.stubGlobal('ResizeObserver', MockResizeObserver)
     vi.mocked(transport.invoke).mockReset()
     vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {

@@ -2,6 +2,7 @@ import { lstat, mkdir, mkdtemp, realpath } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { Aria2ProcessInspector } from '@core/engine/aria2/aria2-process-inspector'
+import type { LegacyBtActivationService } from '@core/legacy-import/bt-activation-service'
 import type { LegacyImportService } from '@core/legacy-import/import-service'
 import { isInactiveLegacyTask } from '@core/legacy-import/legacy-task-policy'
 import {
@@ -14,6 +15,7 @@ import { analyzeDownloadSource } from '@shared/lib/download-source'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import {
+  type LegacyImportNavigationState,
   legacyMetadataRequestSchema,
   legacyRunRequestSchema,
   legacyScanRequestSchema,
@@ -75,10 +77,15 @@ export async function legacyPidRunning(pid: number): Promise<boolean> {
 
 interface DesktopImportDeps {
   getService: () => LegacyImportService
+  getActivationService?: () => LegacyBtActivationService
   hasConsent: () => boolean
   getTask: (taskId: string) => DownloadTask | undefined
   backupRoot: string
   finishInvitation: () => void
+  getNavigationState?: () => LegacyImportNavigationState
+  onSourceDetected?: () => void
+  waitForTasksReady?: () => Promise<void>
+  runAcceptedMutation?: <T>(operation: () => Promise<T>) => Promise<T>
 }
 
 export function registerLegacyImportIpc(deps: DesktopImportDeps): () => void {
@@ -91,22 +98,76 @@ export function registerLegacyImportIpc(deps: DesktopImportDeps): () => void {
       )
     return deps.getService()
   }
+  const readyService = async () => {
+    service()
+    await deps.waitForTasksReady?.()
+    return service()
+  }
   const handlers: Record<
     string,
     (event: Electron.IpcMainInvokeEvent, input?: unknown) => Promise<unknown>
   > = {
+    [Queries.GetLegacyImportNavigation]: async () => {
+      service()
+      return (
+        deps.getNavigationState?.() ?? {
+          detected: false,
+          invitationPending: false,
+        }
+      )
+    },
+    [Queries.GetLegacyBtActivationAvailability]: async (_event, input) => {
+      await readyService()
+      if (!deps.getActivationService)
+        throw new AppError(
+          ErrorCode.EngineFeatureUnavailable,
+          'legacyImport.errors.checkpointUnavailable'
+        )
+      return deps
+        .getActivationService()
+        .availability(legacyTaskRequestSchema.parse(input).taskId)
+    },
+    [Commands.ActivateLegacyBt]: async (event, input) => {
+      await readyService()
+      const { taskId } = legacyTaskRequestSchema.parse(input)
+      const owner = BrowserWindow.fromWebContents(event.sender)
+      if (!owner || !deps.getActivationService)
+        throw new AppError(
+          ErrorCode.EngineFeatureUnavailable,
+          'legacyImport.errors.checkpointUnavailable'
+        )
+      return deps.getActivationService().activate(taskId, async (directory) => {
+        const result = await dialog.showOpenDialog(owner, {
+          title: i18n.t('legacyImport.authorizeOriginalDirectory'),
+          defaultPath: directory,
+          properties: ['openDirectory'],
+        })
+        return result.canceled || result.filePaths.length !== 1
+          ? null
+          : result.filePaths[0]
+      })
+    },
     [Queries.DiscoverLegacyImport]: async () =>
       service().discover(defaultLegacyRoots()),
-    [Queries.ScanLegacyImport]: async (_event, input) =>
-      service().scan(legacyScanRequestSchema.parse(input).sourceHandle),
+    [Queries.ScanLegacyImport]: async (_event, input) => {
+      const preview = await service().scan(
+        legacyScanRequestSchema.parse(input).sourceHandle
+      )
+      deps.onSourceDetected?.()
+      return preview
+    },
     [Queries.GetLegacyImportRun]: async (_event, input) =>
       service().getRun(legacyRunRequestSchema.parse(input).runId),
-    [Commands.CommitLegacyImport]: async (_event, input) =>
-      service().commit(input),
+    [Commands.CommitLegacyImport]: async (_event, input) => {
+      return (await readyService()).commit(input)
+    },
     [Commands.CancelLegacyImport]: async (_event, input) =>
       service().cancel(legacyRunRequestSchema.parse(input).runId),
-    [Commands.RetryLegacyImport]: async (_event, input) =>
-      service().retry(legacyRunRequestSchema.parse(input).runId),
+    [Commands.RetryLegacyImport]: async (_event, input) => {
+      return (await readyService()).retry(
+        legacyRunRequestSchema.parse(input).runId
+      )
+    },
     [Commands.DismissLegacyImportInvitation]: async () => {
       service().dismissInvitation()
       deps.finishInvitation()
@@ -184,8 +245,17 @@ export function registerLegacyImportIpc(deps: DesktopImportDeps): () => void {
       }
     },
   }
+  const taskMutations = new Set<string>([
+    Commands.CommitLegacyImport,
+    Commands.RetryLegacyImport,
+    Commands.ActivateLegacyBt,
+  ])
   for (const [channel, handler] of Object.entries(handlers))
-    registerTrustedIpcHandler(channel, handler)
+    registerTrustedIpcHandler(channel, (event, input) =>
+      taskMutations.has(channel) && deps.runAcceptedMutation
+        ? deps.runAcceptedMutation(() => handler(event, input))
+        : handler(event, input)
+    )
   return () => {
     for (const channel of Object.keys(handlers)) ipcMain.removeHandler(channel)
   }

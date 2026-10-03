@@ -1,4 +1,6 @@
 export const Queries = {
+  GetLegacyImportNavigation: 'query:getLegacyImportNavigation',
+  GetLegacyBtActivationAvailability: 'query:getLegacyBtActivationAvailability',
   DiscoverLegacyImport: 'query:discoverLegacyImport',
   ScanLegacyImport: 'query:scanLegacyImport',
   GetLegacyImportRun: 'query:getLegacyImportRun',

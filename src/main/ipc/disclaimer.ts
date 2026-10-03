@@ -14,7 +14,7 @@ import { registerTrustedIpcHandler } from './trusted-ipc'
 export interface DisclaimerIpcDeps {
   gate: Pick<DisclaimerGate, 'accept'> &
     Partial<Pick<DisclaimerGate, 'isAccepted'>>
-  onAccepted?: () => Promise<boolean>
+  onAccepted?: () => void
   getResolvedLanguage: () => SupportedLocale
   applyLocale: (language: LanguagePreference) => Promise<void>
   settings: {
@@ -47,11 +47,10 @@ export function buildDisclaimerHandlers(
     },
     [Commands.AcceptDisclaimer]: async () => {
       await deps.gate.accept()
-      if (await deps.onAccepted?.())
-        return { ok: true, legacyImportPending: true }
       if (!deps.canContinue()) return { ok: true }
       deps.windowManager.close('onboarding')
       deps.windowManager.open('main', { show: true })
+      deps.onAccepted?.()
       return { ok: true }
     },
     [Commands.DeclineDisclaimer]: async () => {

@@ -11,10 +11,11 @@ import { toast } from '@renderer/components/ui/toast'
 import { openAddTaskDialog } from '@renderer/lib/open-add-task-dialog'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
-import { legacyTaskMetadataSchema } from '@shared/schemas/legacy-import'
+import { Queries } from '@shared/protocol/queries'
+import { legacyBtAvailabilitySchema } from '@shared/schemas/legacy-bt-activation'
 import type { AddTaskPrefill } from '@shared/schemas/show-add-task-window'
 import type { DownloadTask } from '@shared/types/task'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 export function LegacyFreshDownload({ task }: { task: DownloadTask }) {
@@ -22,9 +23,46 @@ export function LegacyFreshDownload({ task }: { task: DownloadTask }) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const inFlight = useRef(false)
-  const marker = legacyTaskMetadataSchema.safeParse(
-    task.instances[0]?.payload.legacyImport
-  )
+  const [availability, setAvailability] = useState<ReturnType<
+    typeof legacyBtAvailabilitySchema.parse
+  > | null>(null)
+  useEffect(() => {
+    let current = true
+    setAvailability(null)
+    void transport
+      .invoke(Queries.GetLegacyBtActivationAvailability, { taskId: task.id })
+      .then((value) => {
+        if (current) setAvailability(legacyBtAvailabilitySchema.parse(value))
+      })
+      .catch(() => {
+        if (current)
+          setAvailability({
+            available: false,
+            reason: 'legacyImport.errors.checkpointUnavailable',
+            directory: task.saveDir,
+          })
+      })
+    return () => {
+      current = false
+    }
+  }, [task.id, task.saveDir])
+  const activate = async () => {
+    if (inFlight.current) return
+    inFlight.current = true
+    setBusy(true)
+    try {
+      await transport.invoke(Commands.ActivateLegacyBt, { taskId: task.id })
+    } catch (cause) {
+      const key = String(cause).match(/legacyImport\.errors\.[a-zA-Z]+/)?.[0]
+      toast.add({
+        title: key ? t(key) : t('legacyImport.errors.failed'),
+        type: 'error',
+      })
+    } finally {
+      inFlight.current = false
+      setBusy(false)
+    }
+  }
   const prepare = async () => {
     if (inFlight.current) return
     inFlight.current = true
@@ -53,11 +91,29 @@ export function LegacyFreshDownload({ task }: { task: DownloadTask }) {
     <>
       <div className="space-y-3 rounded-md border p-3">
         <p className="text-xs leading-5 text-muted-foreground">
-          {marker.success
-            ? t(`legacyImport.reasons.${marker.data.reason}`)
-            : t('legacyImport.capabilityLimit')}{' '}
-          {t('legacyImport.capabilityLimit')}
+          {task.type === 'bt'
+            ? availability?.available
+              ? t('legacyImport.verifyReady')
+              : t(availability?.reason ?? 'legacyImport.loading')
+            : t('legacyImport.capabilityLimit')}
         </p>
+        {task.type === 'bt' && (
+          <div className="space-y-2">
+            <p className="text-xs leading-5 text-muted-foreground">
+              {t('legacyImport.verifyDescription')}
+            </p>
+            <p className="break-all text-xs">
+              {availability?.directory ?? task.saveDir}
+            </p>
+            <Button
+              size="sm"
+              disabled={busy || !availability?.available}
+              onClick={() => void activate()}
+            >
+              {t('legacyImport.verifyAndContinue')}
+            </Button>
+          </div>
+        )}
         <Button
           size="sm"
           variant="outline"

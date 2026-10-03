@@ -398,6 +398,17 @@ export class Aria2RpcClient {
     return this.call('aria2.inspectLegacyCheckpointV1', [input])
   }
 
+  addLegacyTorrentV1(input: {
+    token: string
+    targetPath: string
+    metadataFile: string
+    metadataDigest: string
+    metadata: string
+    options: Record<string, string | string[]>
+  }): Promise<string> {
+    return this.call<string>('aria2.addLegacyTorrentV1', [input])
+  }
+
   importLegacyCheckpointV1(
     input: Aria2LegacyCheckpointImport
   ): Promise<unknown> {

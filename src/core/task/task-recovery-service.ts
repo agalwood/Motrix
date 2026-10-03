@@ -1,5 +1,6 @@
 import { access, rename, rm } from 'node:fs/promises'
 import type { EngineAdapter } from '@core/engine/engine-adapter'
+import { hasLegacyImport } from '@core/legacy-import/legacy-task-policy'
 import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import { DownloadErrorCode, ErrorCode } from '@shared/errors'
@@ -204,6 +205,7 @@ export class TaskRecoveryServiceImpl implements TaskRecoveryService {
     // them would sit on the awaited startup path.
     const inFlightPublished = publishedTasks.filter(
       (t) =>
+        !hasLegacyImport(t) &&
         (taskId === undefined || t.id === taskId) &&
         (t.transitionPhase !== TransitionPhase.Idle ||
           t.status === TaskStatus.Finalizing ||

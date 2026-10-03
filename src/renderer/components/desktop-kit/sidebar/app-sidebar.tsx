@@ -2,6 +2,7 @@ import type { MotrixIcon } from '@renderer/components/icons'
 import {
   DashboardIcon,
   DownloadLibraryIcon,
+  MigrationIcon,
   PluginIcon,
   SettingsIcon,
   TrackerIcon,
@@ -20,6 +21,8 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from '@renderer/components/ui/sidebar'
+import { useLegacyImportNavigation } from '@renderer/features/legacy-import/use-legacy-import-navigation'
+import { LEGACY_MIGRATION_ROUTE } from '@shared/lib/legacy-import-navigation'
 import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router'
 
@@ -44,6 +47,17 @@ const FOOTER_NAV_ITEMS: readonly NavItem[] = [
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { t } = useTranslation()
   const direction = useDirection()
+  const { detected } = useLegacyImportNavigation()
+  const items = detected
+    ? [
+        ...NAV_ITEMS,
+        {
+          to: LEGACY_MIGRATION_ROUTE,
+          icon: MigrationIcon,
+          labelKey: 'legacyImport.navigation',
+        },
+      ]
+    : NAV_ITEMS
 
   return (
     <Sidebar
@@ -60,7 +74,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {NAV_ITEMS.map((item) => {
+              {items.map((item) => {
                 const Icon = item.icon
                 return (
                   <SidebarMenuItem key={item.to}>

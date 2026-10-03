@@ -1,4 +1,5 @@
 import { ErrorCode } from '@shared/errors'
+import { Queries } from '@shared/protocol/queries'
 import { describe, expect, it } from 'vitest'
 import {
   unsupportedLegacyImportCommands,
@@ -11,8 +12,12 @@ describe('server legacy import boundary', () => {
       ...unsupportedLegacyImportCommands(),
       ...unsupportedLegacyImportQueries(),
     }
-    expect(Object.keys(handlers)).toHaveLength(12)
-    for (const handler of Object.values(handlers)) {
+    expect(Object.keys(handlers)).toHaveLength(15)
+    await expect(
+      handlers[Queries.GetLegacyImportNavigation]?.()
+    ).resolves.toEqual({ detected: false, invitationPending: false })
+    for (const [channel, handler] of Object.entries(handlers)) {
+      if (channel === Queries.GetLegacyImportNavigation) continue
       await expect(
         handler?.({ root: '/untrusted/path', sourceHandle: '../../etc/passwd' })
       ).rejects.toMatchObject({ code: ErrorCode.EngineNotSupported })

@@ -7,6 +7,7 @@ import {
   expect,
   launchMotrix,
   test,
+  waitForEngineReady,
   waitForQueryHandlers,
 } from './fixtures/electron-app'
 
@@ -50,7 +51,7 @@ async function invoke(
   )
 }
 
-async function invitation(app: ElectronApplication): Promise<Page> {
+async function firstPage(app: ElectronApplication): Promise<Page> {
   const page = await app.firstWindow()
   await page.waitForLoadState('domcontentloaded')
   return page
@@ -87,12 +88,21 @@ test.describe('v1 task import', () => {
       extraEnv: { MOTRIX_LEGACY_PROFILE: source },
     })
     try {
-      const page = await invitation(app)
+      const page = await firstPage(app)
       await expect(page.getByText('Downloads found: 3')).toBeVisible()
+      await expect(
+        page.getByRole('link', { name: 'Migration', exact: true })
+      ).toBeVisible()
+      await expect.poll(() => page.url()).toContain('w=main')
       await page.getByRole('button', { name: 'Choose downloads' }).click()
       await page
         .getByRole('checkbox', { name: 'partial.bin', exact: true })
         .uncheck()
+      await page.getByRole('link', { name: 'Downloads', exact: true }).click()
+      await page.getByRole('link', { name: 'Migration', exact: true }).click()
+      await expect(
+        page.getByRole('checkbox', { name: 'partial.bin', exact: true })
+      ).not.toBeChecked()
       await page.getByText('Skipped: 1', { exact: true }).click()
       const choose = page.getByRole('button', { name: 'Choose torrent…' })
       await expect(choose).toBeVisible()
@@ -119,14 +129,60 @@ test.describe('v1 task import', () => {
         page.getByRole('checkbox', { name: 'partial.bin', exact: true })
       ).not.toBeChecked()
       await expect(page.getByRole('button', { name: 'Import 2' })).toBeEnabled()
+      expect(
+        await page.evaluate(() => ({
+          vertical:
+            document.documentElement.scrollHeight <= window.innerHeight + 1,
+          horizontal:
+            document.documentElement.scrollWidth <= window.innerWidth + 1,
+        }))
+      ).toEqual({ vertical: true, horizontal: true })
       await page.screenshot({
         path: testInfo.outputPath('authorized-torrent.png'),
       })
+      await invoke(page, Commands.UpdateSettings, {
+        app: { language: 'zh-CN' },
+      })
+      await expect(
+        page.getByRole('heading', { name: '导入旧版下载任务', exact: true })
+      ).toBeVisible()
+      await expect(
+        page.getByRole('checkbox', { name: 'partial.bin', exact: true })
+      ).not.toBeChecked()
+      await page.screenshot({
+        path: testInfo.outputPath('migration-zh-CN.png'),
+      })
+      await invoke(page, Commands.UpdateSettings, {
+        app: { language: 'en-US' },
+      })
+      await expect(page.getByRole('button', { name: 'Import 2' })).toBeEnabled()
+      const initialViewport = await page.evaluate(() => ({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      }))
+      await page.setViewportSize({ width: 800, height: 540 })
+      await expect(
+        page.getByRole('button', { name: 'Import 2' })
+      ).toBeInViewport()
+      expect(
+        await page.evaluate(() => ({
+          vertical:
+            document.documentElement.scrollHeight <= window.innerHeight + 1,
+          horizontal:
+            document.documentElement.scrollWidth <= window.innerWidth + 1,
+        }))
+      ).toEqual({ vertical: true, horizontal: true })
+      await page.screenshot({
+        path: testInfo.outputPath('migration-short.png'),
+      })
+      await page.setViewportSize(initialViewport)
       await page.getByRole('button', { name: 'Import 2' }).click()
       await expect(page.getByText('Imported 2', { exact: true })).toBeVisible()
-      const opened = app.waitForEvent('window')
+      await page.getByRole('link', { name: 'Downloads', exact: true }).click()
+      await page.getByRole('link', { name: 'Migration', exact: true }).click()
+      await expect(page.getByText('Imported 2', { exact: true })).toBeVisible()
       await page.getByRole('button', { name: 'View downloads' }).click()
-      const main = await opened
+      const main = page
       await main.waitForLoadState('domcontentloaded')
       await waitForQueryHandlers(main)
       const tasks = (await invoke(main, Queries.ListTasks)) as Array<{
@@ -138,13 +194,18 @@ test.describe('v1 task import', () => {
       expect(
         tasks.every((task) => task.status === 'paused' && !task.engineTaskId)
       ).toBe(true)
+      await main.getByRole('link', { name: 'Migration', exact: true }).click()
+      await expect(
+        main.getByRole('button', { name: 'Import 1', exact: true })
+      ).toBeEnabled()
+      expect(await invoke(main, Queries.ListTasks)).toHaveLength(2)
       expect(await readFile(torrentPath)).toEqual(original)
     } finally {
       await app.close().catch(() => {})
     }
   })
 
-  test('keeps engine stopped through consent and invitation, imports paused records and preserves old bytes', async ({
+  test('opens migration in main only after consent and imports paused records without blocking the engine', async ({
     userDataDir,
     rpcPort,
   }) => {
@@ -156,25 +217,33 @@ test.describe('v1 task import', () => {
       extraEnv: { MOTRIX_LEGACY_PROFILE: source },
     })
     try {
-      const page = await invitation(app)
-      await expect(page.getByTestId('disclaimer-panel')).toBeVisible()
-      await expect(invoke(page, Queries.DiscoverLegacyImport)).rejects.toThrow(
-        /consentRequired/
-      )
-      await page.getByTestId('disclaimer-agree').click()
+      const disclaimer = await firstPage(app)
+      await expect(disclaimer.getByTestId('disclaimer-panel')).toBeVisible()
+      await expect(
+        invoke(disclaimer, Queries.DiscoverLegacyImport)
+      ).rejects.toThrow(/consentRequired/)
+      const opened = app.waitForEvent('window')
+      await disclaimer.getByTestId('disclaimer-agree').click()
+      const page = await opened
+      await page.waitForLoadState('domcontentloaded')
+      await expect.poll(() => page.url()).toContain('w=main')
       await expect(page.getByText('Downloads found: 1')).toBeVisible()
-      await expect(invoke(page, Queries.GetEngineStatus)).rejects.toThrow(
-        /No handler registered/
-      )
+      await expect(
+        page.getByRole('link', { name: 'Migration', exact: true })
+      ).toBeVisible()
+      await waitForEngineReady(page)
+      await page.getByRole('link', { name: 'Downloads', exact: true }).click()
+      await expect(page.getByText('Downloads found: 1')).not.toBeVisible()
+      await page.getByRole('link', { name: 'Migration', exact: true }).click()
+      await expect(page.getByText('Downloads found: 1')).toBeVisible()
       expect(
-        app.windows().some((window) => window.url().includes('w=main'))
-      ).toBe(false)
+        app.windows().filter((window) => window.url().includes('w=onboarding'))
+      ).toHaveLength(0)
       await page.getByRole('button', { name: 'Choose downloads' }).click()
       await page.getByRole('button', { name: 'Import 1' }).click()
       await expect(page.getByText('Imported 1', { exact: true })).toBeVisible()
-      const opened = app.waitForEvent('window')
       await page.getByRole('button', { name: 'View downloads' }).click()
-      const main = await opened
+      const main = page
       await main.waitForLoadState('domcontentloaded')
       await waitForQueryHandlers(main)
       const tasks = (await invoke(main, Queries.ListTasks)) as Array<{
@@ -231,33 +300,55 @@ test.describe('v1 task import', () => {
     }
   })
 
-  test('closing the invitation after acceptance terminates the app without a startup-drain deadlock', async ({
+  test('hides migration without a detected v1 profile and keeps manual import available', async ({
+    userDataDir,
+    rpcPort,
+  }) => {
+    const app = await launchMotrix({ userDataDir, rpcPort })
+    try {
+      const main = await firstPage(app)
+      await waitForEngineReady(main)
+      await expect(
+        main.getByRole('link', { name: 'Migration', exact: true })
+      ).toHaveCount(0)
+      await main.getByRole('link', { name: 'Settings', exact: true }).click()
+      await main.getByText('Advanced', { exact: true }).first().click()
+      await main.getByRole('button', { name: 'Import…', exact: true }).click()
+      await expect(
+        main.getByRole('button', { name: 'Change…', exact: true })
+      ).toBeVisible()
+      expect(
+        app.windows().filter((window) => window.url().includes('w=onboarding'))
+      ).toHaveLength(0)
+    } finally {
+      await app.close().catch(() => {})
+    }
+  })
+
+  test('retains a migration entry for a detected empty v1 profile', async ({
     userDataDir,
     rpcPort,
   }) => {
     const source = await legacyProfile(userDataDir)
+    await writeFile(path.join(source, 'download.session'), '')
     const app = await launchMotrix({
       userDataDir,
       rpcPort,
-      disclaimerAccepted: false,
       extraEnv: { MOTRIX_LEGACY_PROFILE: source },
     })
     try {
-      const page = await invitation(app)
-      await page.getByTestId('disclaimer-agree').click()
-      await expect(page.getByText('Downloads found: 1')).toBeVisible()
-      const closed = app.waitForEvent('close', { timeout: 15000 })
-      await app.evaluate(({ BrowserWindow }) => {
-        BrowserWindow.getAllWindows()
-          .find((window) =>
-            window.webContents.getURL().includes('w=onboarding')
-          )
-          ?.close()
-      })
-      await closed
-      expect(
-        await readFile(path.join(source, 'downloads', 'archive.zip'), 'utf8')
-      ).toBe('original v1 bytes')
+      const main = await firstPage(app)
+      await waitForEngineReady(main)
+      const entry = main.getByRole('link', { name: 'Migration', exact: true })
+      await expect(entry).toBeVisible()
+      await entry.click()
+      await expect(
+        main.getByRole('heading', {
+          name: 'Import downloads from Motrix v1',
+          exact: true,
+        })
+      ).toBeVisible()
+      expect(await invoke(main, Queries.ListTasks)).toEqual([])
     } finally {
       await app.close().catch(() => {})
     }
@@ -274,11 +365,13 @@ test.describe('v1 task import', () => {
       extraEnv: { MOTRIX_LEGACY_PROFILE: source },
     })
     try {
-      const page = await invitation(app)
+      const page = await firstPage(app)
       await expect(page.getByText('Downloads found: 1')).toBeVisible()
-      const opened = app.waitForEvent('window')
       await page.getByRole('button', { name: 'Skip', exact: true }).click()
-      await opened
+      await expect(page.getByText('Downloads found: 1')).not.toBeVisible()
+      await expect(
+        page.getByRole('link', { name: 'Migration', exact: true })
+      ).toBeVisible()
       await app.close()
       app = await launchMotrix({
         userDataDir,
@@ -289,6 +382,10 @@ test.describe('v1 task import', () => {
       await main.waitForLoadState('domcontentloaded')
       await expect.poll(() => main.url()).toContain('w=main')
       await waitForQueryHandlers(main)
+      await expect(
+        main.getByRole('link', { name: 'Migration', exact: true })
+      ).toBeVisible()
+      await expect(main.getByText('Downloads found: 1')).not.toBeVisible()
       await main.getByRole('link', { name: 'Settings', exact: true }).click()
       await main.getByText('Advanced', { exact: true }).first().click()
       const port = main.getByRole('spinbutton').first()

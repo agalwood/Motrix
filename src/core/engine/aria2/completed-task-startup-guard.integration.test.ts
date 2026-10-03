@@ -70,6 +70,7 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
             { timeout: 10000 }
           )
           const run = await wired.rpc.addUri([`${base}/slow-running.bin`])
+          const held = await wired.rpc.addUri([`${base}/slow-held.bin`])
           const paused = await wired.rpc.addUri([`${base}/slow-paused.bin`], {
             pause: 'true',
           })
@@ -78,16 +79,22 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
               expect((await wired.rpc.tellStatus(run)).status).toBe('active'),
             { timeout: 10000 }
           )
+          await vi.waitFor(
+            () => expect(counts.get('/slow-held.bin')).toBeGreaterThan(0),
+            { timeout: 10000 }
+          )
           await wired.rpc.saveSession()
           wired.disconnect()
           await handle.kill()
           await unlink(path.join(root, 'done.bin'))
           const requestsBefore = counts.get('/done.bin')
+          const heldRequestsBefore = counts.get('/slow-held.bin')
           const restartArgs = sqlite
             ? args
             : [...args, `--input-file=${session}`]
           const guard = new CompletedTaskStartupGuard({
             completedGids: () => new Set([done]),
+            heldGids: () => new Set([held]),
             get rpc() {
               return wired.rpc
             },
@@ -108,6 +115,8 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
             { timeout: 10000 }
           )
           expect((await wired.rpc.tellStatus(paused)).status).toBe('paused')
+          expect((await wired.rpc.tellStatus(held)).status).toBe('paused')
+          expect(counts.get('/slow-held.bin')).toBe(heldRequestsBefore)
           expect(counts.get('/done.bin')).toBe(requestsBefore)
           await expect(
             access(path.join(root, 'done.bin'))
@@ -179,6 +188,8 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
             /not found/i
           )
           expect(counts.get('/fresh.bin')).toBe(1)
+          expect((await wired.rpc.tellStatus(held)).status).toBe('paused')
+          expect(counts.get('/slow-held.bin')).toBe(heldRequestsBefore)
           await expect(
             access(path.join(root, 'fresh.bin'))
           ).rejects.toMatchObject({ code: 'ENOENT' })

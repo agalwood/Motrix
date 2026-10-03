@@ -16,6 +16,7 @@ async function desktopOnly(): Promise<never> {
 /** Server requests cannot select, read or write a local legacy profile. */
 export function unsupportedLegacyImportCommands(): CommandHandlerMap {
   return {
+    [Commands.ActivateLegacyBt]: desktopOnly,
     [Commands.PickLegacyImportSource]: desktopOnly,
     [Commands.PickLegacyTorrentMetadata]: desktopOnly,
     [Commands.CommitLegacyImport]: desktopOnly,
@@ -30,6 +31,11 @@ export function unsupportedLegacyImportCommands(): CommandHandlerMap {
 
 export function unsupportedLegacyImportQueries(): QueryHandlerMap {
   return {
+    [Queries.GetLegacyImportNavigation]: async () => ({
+      detected: false,
+      invitationPending: false,
+    }),
+    [Queries.GetLegacyBtActivationAvailability]: desktopOnly,
     [Queries.DiscoverLegacyImport]: desktopOnly,
     [Queries.ScanLegacyImport]: desktopOnly,
     [Queries.GetLegacyImportRun]: desktopOnly,

@@ -13,11 +13,7 @@ import { Commands } from '@shared/protocol/commands'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-export function DisclaimerStep({
-  onImportInvitation,
-}: {
-  onImportInvitation?: () => void
-} = {}) {
+export function DisclaimerStep() {
   const { i18n, t } = useTranslation()
   const language = i18n.resolvedLanguage ?? i18n.language
   const useCjkSpacing = isCjkLocale(language)
@@ -28,10 +24,7 @@ export function DisclaimerStep({
     setFailed(false)
     setBusy(true)
     try {
-      const result = (await transport.invoke(Commands.AcceptDisclaimer)) as {
-        legacyImportPending?: boolean
-      }
-      if (result?.legacyImportPending) onImportInvitation?.()
+      await transport.invoke(Commands.AcceptDisclaimer)
     } catch {
       setFailed(true)
     } finally {

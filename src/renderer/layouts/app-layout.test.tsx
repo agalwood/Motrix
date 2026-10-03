@@ -1,10 +1,13 @@
+import '@test-utils/dom-animations'
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import { useDownloadsSelection } from '@renderer/routes/downloads/store'
 import { useDownloadsView } from '@renderer/routes/downloads/view-preferences'
+import { SettingsPage } from '@renderer/routes/settings/settings-page'
 import { Events } from '@shared/protocol/events'
+import { Queries } from '@shared/protocol/queries'
 import { makeDownloadTask } from '@test-utils/task'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppLayout } from './app-layout'
@@ -17,7 +20,10 @@ function setWindowWidth(width: number) {
   })
 }
 
-function renderAppLayout(routeHandle?: Record<string, unknown>) {
+function renderAppLayout(
+  routeHandle?: Record<string, unknown>,
+  initialEntry = '/'
+) {
   // AppLayout uses useMatches() which only works under a data router.
   const router = createMemoryRouter(
     [
@@ -28,10 +34,16 @@ function renderAppLayout(routeHandle?: Record<string, unknown>) {
           { index: true, element: <div>INDEX_PAGE</div>, handle: routeHandle },
           { path: 'downloads/:filter', element: <div>DOWNLOADS_PAGE</div> },
           { path: 'plugins/:id', element: <div>PLUGIN_PAGE</div> },
+          { path: 'migration', element: null },
+          {
+            path: 'settings',
+            element: <SettingsPage />,
+            children: [{ path: ':cardId', element: null }],
+          },
         ],
       },
     ],
-    { initialEntries: ['/'] }
+    { initialEntries: [initialEntry] }
   )
   render(<RouterProvider router={router} />)
   return router
@@ -238,5 +250,48 @@ describe('AppLayout', () => {
     expect(screen.getByText('Settings')).toBeInTheDocument()
     // Outlet rendered
     expect(screen.getByText('INDEX_PAGE')).toBeInTheDocument()
+  })
+
+  it('mounts the initial non-settings outlet only once and does not scan while migration is hidden', async () => {
+    renderAppLayout()
+    expect(screen.getAllByText('INDEX_PAGE')).toHaveLength(1)
+    await act(async () => Promise.resolve())
+    expect(window.motrix.invoke).not.toHaveBeenCalledWith(
+      Queries.DiscoverLegacyImport
+    )
+  })
+
+  it('retains an Advanced draft and suppresses its dialog portal while visiting migration', async () => {
+    vi.mocked(window.motrix.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.GetSettings)
+        return {
+          engine: {
+            rpcPort: 16800,
+            rpcSecret: 'test-secret',
+            sqlite3Persistence: true,
+            sqlite3DbPath: '',
+            sqlite3HistoryLimit: -1,
+          },
+        }
+      if (channel === Queries.GetLegacyImportNavigation)
+        return { detected: false, invitationPending: false }
+      if (channel === Queries.DiscoverLegacyImport) return []
+      return {}
+    })
+    const router = renderAppLayout(undefined, '/settings/advanced')
+    const port = await screen.findByDisplayValue('16800')
+    fireEvent.change(port, { target: { value: '17000' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Import…' }))
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/migration')
+    )
+    expect(router.state.location.search).toBe('?from=settings')
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    fireEvent.click(await screen.findByRole('button', { name: 'Back' }))
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/settings/advanced')
+    )
+    expect(await screen.findByDisplayValue('17000')).toBeVisible()
+    expect(screen.getByRole('dialog')).toBeVisible()
   })
 })
