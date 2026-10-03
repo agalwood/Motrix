@@ -10,6 +10,10 @@ import {
 import { admitDownloadSources } from '@core/task/source-admission'
 import { AppError, ErrorCode } from '@shared/errors'
 import type {
+  LegacyCheckpointImport,
+  LegacyCheckpointReconcile,
+} from '@shared/schemas/legacy-checkpoint'
+import type {
   EngineCapability,
   EngineFeatureReport,
 } from '@shared/types/engine'
@@ -35,6 +39,7 @@ import type {
   EngineAdapter,
 } from '../engine-adapter'
 import { DIRECT_RESOURCE_METADATA_PROFILE } from '../engine-adapter'
+import { Aria2LegacyCheckpoint } from './aria2-legacy-checkpoint'
 import type { Aria2RpcClient } from './aria2-rpc-client'
 import { recommend } from './aria2-tuning'
 import { isConnectionLimitRangeError, isNotFoundError } from './error-utils'
@@ -896,6 +901,22 @@ export class Aria2Adapter implements EngineAdapter {
       }
       throw error
     }
+  }
+
+  supportsLegacyCheckpointImport(): Promise<boolean> {
+    return new Aria2LegacyCheckpoint(this.rpc).supported()
+  }
+
+  inspectLegacyCheckpoint(bytes: Uint8Array) {
+    return new Aria2LegacyCheckpoint(this.rpc).inspect(bytes)
+  }
+
+  importLegacyCheckpoint(input: LegacyCheckpointImport) {
+    return new Aria2LegacyCheckpoint(this.rpc).import(input)
+  }
+
+  reconcileLegacyCheckpoint(input: LegacyCheckpointReconcile) {
+    return new Aria2LegacyCheckpoint(this.rpc).reconcile(input)
   }
 
   async removeDownloadResult(engineTaskId: string): Promise<void> {

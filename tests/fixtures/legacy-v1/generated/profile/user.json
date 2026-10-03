@@ -1,0 +1,38 @@
+{
+  "all-proxy-backup": "",
+  "auto-check-update": true,
+  "auto-hide-window": false,
+  "auto-sync-tracker": true,
+  "enable-upnp": true,
+  "engine-max-connection-per-server": 64,
+  "favorite-directories": [],
+  "hide-app-menu": false,
+  "history-directories": [],
+  "keep-seeding": false,
+  "keep-window-state": false,
+  "last-check-update-time": 0,
+  "last-sync-tracker-time": 0,
+  "locale": "en-US",
+  "log-level": "warn",
+  "new-task-show-downloading": true,
+  "no-confirm-before-delete-task": false,
+  "open-at-login": false,
+  "protocols": {
+    "magnet": true,
+    "thunder": false
+  },
+  "resume-all-when-app-launched": false,
+  "run-mode": 1,
+  "show-progress-bar": true,
+  "task-notification": true,
+  "theme": "auto",
+  "tracker-source": [
+    "https://fastly.jsdelivr.net/gh/ngosang/trackerslist/trackers_best_ip.txt",
+    "https://fastly.jsdelivr.net/gh/ngosang/trackerslist/trackers_best.txt"
+  ],
+  "tray-theme": "auto",
+  "tray-speedometer": true,
+  "update-channel": "latest",
+  "use-proxy": false,
+  "window-state": {}
+}

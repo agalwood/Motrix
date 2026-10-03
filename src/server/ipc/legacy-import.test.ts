@@ -11,7 +11,7 @@ describe('server legacy import boundary', () => {
       ...unsupportedLegacyImportCommands(),
       ...unsupportedLegacyImportQueries(),
     }
-    expect(Object.keys(handlers)).toHaveLength(11)
+    expect(Object.keys(handlers)).toHaveLength(12)
     for (const handler of Object.values(handlers)) {
       await expect(
         handler?.({ root: '/untrusted/path', sourceHandle: '../../etc/passwd' })

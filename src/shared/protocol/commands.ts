@@ -6,6 +6,7 @@ export const Commands = {
   CancelMediaMerge: 'command:cancelMediaMerge',
   PickFile: 'command:pickFile',
   PickLegacyImportSource: 'command:pickLegacyImportSource',
+  PickLegacyTorrentMetadata: 'command:pickLegacyTorrentMetadata',
   CommitLegacyImport: 'command:commitLegacyImport',
   CancelLegacyImport: 'command:cancelLegacyImport',
   RetryLegacyImport: 'command:retryLegacyImport',

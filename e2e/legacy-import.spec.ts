@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { cp, mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { ElectronApplication, Page } from '@playwright/test'
 import { Commands } from '../src/shared/protocol/commands'
@@ -10,7 +10,7 @@ import {
   waitForQueryHandlers,
 } from './fixtures/electron-app'
 
-/** Synthetic aria2 session fixture; actual v1-generated release fixtures remain separate work. */
+/** Minimal synthetic source for the isolated consent and lifecycle cases. */
 async function legacyProfile(userDataDir: string): Promise<string> {
   const root = path.join(userDataDir, 'legacy-v1')
   const dir = path.join(root, 'downloads')
@@ -57,6 +57,93 @@ async function invitation(app: ElectronApplication): Promise<Page> {
 }
 
 test.describe('v1 task import', () => {
+  test('authorizes an external v1-generated torrent and preserves task selection', async ({
+    userDataDir,
+    rpcPort,
+  }, testInfo) => {
+    const root = path.join(userDataDir, 'generated-v1')
+    await cp('tests/fixtures/legacy-v1/generated', root, { recursive: true })
+    const source = path.join(root, 'profile')
+    const downloads = path.join(root, 'downloads')
+    for (const name of ['download.session', 'system.json']) {
+      const filename = path.join(source, name)
+      const content = await readFile(filename, 'utf8')
+      await writeFile(
+        filename,
+        content
+          .replaceAll('__FIXTURE_ROOT__', source)
+          .replaceAll('__FIXTURE_DOWNLOADS__', downloads)
+          .replaceAll('__FIXTURE_HTTP_PORT__', String(rpcPort))
+      )
+    }
+    const torrentPath = path.join(
+      downloads,
+      'a16dc78c94ce589ed4666ab32285f2d188edf26f.torrent'
+    )
+    const original = await readFile(torrentPath)
+    const app = await launchMotrix({
+      userDataDir,
+      rpcPort,
+      extraEnv: { MOTRIX_LEGACY_PROFILE: source },
+    })
+    try {
+      const page = await invitation(app)
+      await expect(page.getByText('Downloads found: 3')).toBeVisible()
+      await page.getByRole('button', { name: 'Choose downloads' }).click()
+      await page
+        .getByRole('checkbox', { name: 'partial.bin', exact: true })
+        .uncheck()
+      await page.getByText('Skipped: 1', { exact: true }).click()
+      const choose = page.getByRole('button', { name: 'Choose torrent…' })
+      await expect(choose).toBeVisible()
+      await page.screenshot({
+        path: testInfo.outputPath('external-torrent.png'),
+      })
+      await app.evaluate(({ dialog }) => {
+        dialog.showOpenDialog = async () => ({ canceled: true, filePaths: [] })
+      })
+      await choose.click()
+      await expect(choose).toBeEnabled()
+      await expect(page.getByRole('button', { name: 'Import 1' })).toBeEnabled()
+      await app.evaluate(({ dialog }, torrentPath) => {
+        dialog.showOpenDialog = async () => ({
+          canceled: false,
+          filePaths: [torrentPath],
+        })
+      }, torrentPath)
+      await choose.click()
+      await expect(
+        page.getByRole('checkbox', { name: 'fixture-bundle', exact: true })
+      ).toBeChecked()
+      await expect(
+        page.getByRole('checkbox', { name: 'partial.bin', exact: true })
+      ).not.toBeChecked()
+      await expect(page.getByRole('button', { name: 'Import 2' })).toBeEnabled()
+      await page.screenshot({
+        path: testInfo.outputPath('authorized-torrent.png'),
+      })
+      await page.getByRole('button', { name: 'Import 2' }).click()
+      await expect(page.getByText('Imported 2', { exact: true })).toBeVisible()
+      const opened = app.waitForEvent('window')
+      await page.getByRole('button', { name: 'View downloads' }).click()
+      const main = await opened
+      await main.waitForLoadState('domcontentloaded')
+      await waitForQueryHandlers(main)
+      const tasks = (await invoke(main, Queries.ListTasks)) as Array<{
+        name: string
+        status: string
+        engineTaskId: string
+      }>
+      expect(tasks).toHaveLength(2)
+      expect(
+        tasks.every((task) => task.status === 'paused' && !task.engineTaskId)
+      ).toBe(true)
+      expect(await readFile(torrentPath)).toEqual(original)
+    } finally {
+      await app.close().catch(() => {})
+    }
+  })
+
   test('keeps engine stopped through consent and invitation, imports paused records and preserves old bytes', async ({
     userDataDir,
     rpcPort,
@@ -75,7 +162,7 @@ test.describe('v1 task import', () => {
         /consentRequired/
       )
       await page.getByTestId('disclaimer-agree').click()
-      await expect(page.getByText('Found 1 downloads to import')).toBeVisible()
+      await expect(page.getByText('Downloads found: 1')).toBeVisible()
       await expect(invoke(page, Queries.GetEngineStatus)).rejects.toThrow(
         /No handler registered/
       )
@@ -83,7 +170,7 @@ test.describe('v1 task import', () => {
         app.windows().some((window) => window.url().includes('w=main'))
       ).toBe(false)
       await page.getByRole('button', { name: 'Choose downloads' }).click()
-      await page.getByRole('button', { name: 'Import 1 items' }).click()
+      await page.getByRole('button', { name: 'Import 1' }).click()
       await expect(page.getByText('Imported 1', { exact: true })).toBeVisible()
       const opened = app.waitForEvent('window')
       await page.getByRole('button', { name: 'View downloads' }).click()
@@ -158,7 +245,7 @@ test.describe('v1 task import', () => {
     try {
       const page = await invitation(app)
       await page.getByTestId('disclaimer-agree').click()
-      await expect(page.getByText('Found 1 downloads to import')).toBeVisible()
+      await expect(page.getByText('Downloads found: 1')).toBeVisible()
       const closed = app.waitForEvent('close', { timeout: 15000 })
       await app.evaluate(({ BrowserWindow }) => {
         BrowserWindow.getAllWindows()
@@ -188,7 +275,7 @@ test.describe('v1 task import', () => {
     })
     try {
       const page = await invitation(app)
-      await expect(page.getByText('Found 1 downloads to import')).toBeVisible()
+      await expect(page.getByText('Downloads found: 1')).toBeVisible()
       const opened = app.waitForEvent('window')
       await page.getByRole('button', { name: 'Skip', exact: true }).click()
       await opened
@@ -207,9 +294,7 @@ test.describe('v1 task import', () => {
       const port = main.getByRole('spinbutton').first()
       await port.fill('17000')
       await main.getByRole('button', { name: 'Import…', exact: true }).click()
-      await expect(
-        main.getByRole('button', { name: 'Import 1 items' })
-      ).toBeVisible()
+      await expect(main.getByRole('button', { name: 'Import 1' })).toBeVisible()
       await main.getByRole('button', { name: 'Back', exact: true }).click()
       await expect(port).toHaveValue('17000')
       expect(await invoke(main, Queries.ListTasks)).toEqual([])

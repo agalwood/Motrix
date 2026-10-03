@@ -17,6 +17,7 @@ async function desktopOnly(): Promise<never> {
 export function unsupportedLegacyImportCommands(): CommandHandlerMap {
   return {
     [Commands.PickLegacyImportSource]: desktopOnly,
+    [Commands.PickLegacyTorrentMetadata]: desktopOnly,
     [Commands.CommitLegacyImport]: desktopOnly,
     [Commands.CancelLegacyImport]: desktopOnly,
     [Commands.RetryLegacyImport]: desktopOnly,

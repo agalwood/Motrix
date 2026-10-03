@@ -14,6 +14,7 @@ import { analyzeDownloadSource } from '@shared/lib/download-source'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import {
+  legacyMetadataRequestSchema,
   legacyRunRequestSchema,
   legacyScanRequestSchema,
   legacyTaskMetadataSchema,
@@ -130,6 +131,29 @@ export function registerLegacyImportIpc(deps: DesktopImportDeps): () => void {
       })
       if (result.canceled || !result.filePaths[0]) return null
       return service().addSource(result.filePaths[0])
+    },
+    [Commands.PickLegacyTorrentMetadata]: async (event, input) => {
+      const request = legacyMetadataRequestSchema.parse(input)
+      const owner = BrowserWindow.fromWebContents(event.sender)
+      if (!owner)
+        throw new AppError(
+          ErrorCode.InvalidSelection,
+          'legacyImport.errors.sourceNotAuthorized'
+        )
+      return service().authorizeMetadata(request, async () => {
+        const result = await dialog.showOpenDialog(owner, {
+          title: i18n.t('legacyImport.chooseTorrent'),
+          properties: ['openFile'],
+          filters: [
+            {
+              name: i18n.t('legacyImport.torrentFile'),
+              extensions: ['torrent'],
+            },
+          ],
+        })
+        if (result.canceled || result.filePaths.length !== 1) return null
+        return result.filePaths[0]
+      })
     },
     [Commands.ExportLegacyImportReport]: async (event, input) => {
       const report = service().getRun(legacyRunRequestSchema.parse(input).runId)

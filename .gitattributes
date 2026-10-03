@@ -20,3 +20,8 @@ scripts/verify-electron-package.mjs text eol=lf
 scripts/sign-macos.mjs text eol=lf
 build/entitlements.safari.plist text eol=lf
 build/app.motrix.safari.bootstrap.plist text eol=lf
+
+# Old-engine fixture bytes are intentional. aria2 appends a TAB to mirror
+# URI lines; retain that serialized syntax and prevent checkout conversion.
+tests/fixtures/legacy-v1/generated/** -text
+tests/fixtures/legacy-v1/generated/profile/download.session whitespace=-blank-at-eol

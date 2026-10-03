@@ -241,6 +241,34 @@ function LegacyImportDialogContent({
       )
       await scan(source)
     })
+  const chooseTorrent = (item: LegacyImportItem) =>
+    void perform(async () => {
+      if (!preview) return
+      const generation = epoch.current
+      const result = await transport.invoke(
+        Commands.PickLegacyTorrentMetadata,
+        {
+          previewId: preview.previewId,
+          itemId: item.itemId,
+        }
+      )
+      if (!result || generation !== epoch.current) return
+      const next = legacyImportPreviewSchema.parse(result)
+      setPreview(next)
+      setSelected(
+        (current) =>
+          new Set(
+            next.items
+              .filter(
+                (entry) =>
+                  entry.selectable &&
+                  (current.has(entry.itemId) || entry.itemId === item.itemId)
+              )
+              .map((entry) => entry.itemId)
+          )
+      )
+      setQuery('')
+    })
   const leave = () =>
     void perform(async () => {
       if (invitation)
@@ -295,6 +323,7 @@ function LegacyImportDialogContent({
     >
       <Checkbox
         aria-label={item.name}
+        disabled={busy}
         checked={selected.has(item.itemId)}
         onCheckedChange={(checked) =>
           setSelected((current) => {
@@ -313,6 +342,40 @@ function LegacyImportDialogContent({
         {t(`legacyImport.reasons.${item.reason}`)}
       </span>
     </div>
+  )
+  const skippedDetails = skipped.length > 0 && (
+    <details className="py-4 text-xs">
+      <summary className="cursor-pointer text-muted-foreground">
+        {t('legacyImport.skipped', { count: skipped.length })}
+      </summary>
+      <div className="max-h-44 overflow-auto pt-2">
+        {skipped.map((item) => (
+          <div
+            className="flex items-center justify-between gap-3 py-2"
+            key={item.itemId}
+          >
+            <MiddleEllipsis
+              text={item.name}
+              className="min-w-0 flex-1 font-sans!"
+            />
+            <span className="shrink-0 text-muted-foreground">
+              {t(`legacyImport.reasons.${item.reason}`)}
+            </span>
+            {item.type === 'bt' && item.reason === 'metadata-required' && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busy || preview?.running}
+                onClick={() => chooseTorrent(item)}
+              >
+                {t('legacyImport.chooseTorrent')}
+              </Button>
+            )}
+          </div>
+        ))}
+      </div>
+    </details>
   )
 
   return (
@@ -339,12 +402,31 @@ function LegacyImportDialogContent({
             </DialogDescription>
           </DialogHeader>
           {error && (
-            <p
-              role="alert"
-              className="shrink-0 px-6 pb-3 text-xs text-destructive"
-            >
-              {error}
-            </p>
+            <div className="flex shrink-0 items-start justify-between gap-3 px-6 pb-3">
+              <p role="alert" className="text-xs text-destructive">
+                {error}
+              </p>
+              {stage === 'selection' && preview && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() =>
+                    void perform(() =>
+                      scan(
+                        {
+                          sourceHandle: preview.sourceHandle,
+                          name: preview.sourceName,
+                        },
+                        true
+                      )
+                    )
+                  }
+                >
+                  {t('legacyImport.recheck')}
+                </Button>
+              )}
+            </div>
           )}
           {stage === 'discovery' && (
             <div className="min-h-0 overflow-auto px-6 pb-6 text-center">
@@ -355,7 +437,9 @@ function LegacyImportDialogContent({
               <p className="text-sm">
                 {busy
                   ? t('legacyImport.loading')
-                  : t('legacyImport.discovery', { count: actionable.length })}
+                  : t('legacyImport.discovery', {
+                      count: preview?.items.length ?? 0,
+                    })}
               </p>
               <p className="mt-3 text-xs leading-5 text-muted-foreground">
                 {t('legacyImport.preserveFiles')}
@@ -448,6 +532,7 @@ function LegacyImportDialogContent({
                   >
                     <Checkbox
                       id={allSelectionId}
+                      disabled={busy}
                       checked={selected.size === actionable.length}
                       indeterminate={
                         selected.size > 0 && selected.size < actionable.length
@@ -485,35 +570,11 @@ function LegacyImportDialogContent({
                       {t('legacyImport.empty')}
                     </p>
                   )}
-                  {skipped.length > 0 && (
-                    <details className="py-4 text-xs">
-                      <summary className="cursor-pointer text-muted-foreground">
-                        {t('legacyImport.skipped', { count: skipped.length })}
-                      </summary>
-                      <div className="pt-2">
-                        {skipped.map((item) => (
-                          <p
-                            className="flex justify-between gap-3 py-2"
-                            key={item.itemId}
-                          >
-                            <MiddleEllipsis
-                              text={item.name}
-                              className="min-w-0 font-sans!"
-                            />
-                            <span className="shrink-0 text-muted-foreground">
-                              {t(`legacyImport.reasons.${item.reason}`)}
-                            </span>
-                          </p>
-                        ))}
-                      </div>
-                    </details>
-                  )}
+                  {skippedDetails}
                 </div>
               )}
               {actionable.length > 100 && skipped.length > 0 && (
-                <p className="shrink-0 px-6 py-2 text-xs text-muted-foreground">
-                  {t('legacyImport.skipped', { count: skipped.length })}
-                </p>
+                <div className="shrink-0 px-6">{skippedDetails}</div>
               )}
               <p className="shrink-0 px-6 py-4 text-[11px] leading-5 text-muted-foreground">
                 {t('legacyImport.backupNote')}

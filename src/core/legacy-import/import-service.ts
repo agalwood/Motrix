@@ -16,6 +16,7 @@ import {
   type LegacyImportSource,
   legacyCommitRequestSchema,
   legacyImportReportSchema,
+  legacyMetadataRequestSchema,
 } from '@shared/schemas/legacy-import'
 import {
   TaskInstancePhase,
@@ -26,9 +27,12 @@ import {
 } from '@shared/types/task'
 import {
   authorizeLegacySource,
+  authorizeLegacyTorrent,
+  isLegacyTorrentGrantValid,
   type LegacyCandidate,
   type LegacySnapshot,
   type LegacySource,
+  type LegacyTorrentGrant,
   scanLegacySource,
 } from './source-scanner'
 
@@ -56,6 +60,9 @@ export class LegacyImportService {
   private activeRun: string | null = null
   private runningJobs = new Map<string, Promise<void>>()
   private admissions = new Set<Promise<LegacyImportReport>>()
+  private metadataAdmissions = new Set<Promise<LegacyImportPreview | null>>()
+  private metadataGrants = new Map<string, Map<string, LegacyTorrentGrant>>()
+  private stopMetadataPicker: (() => void) | null = null
   private draining = false
   private clock: () => number
 
@@ -133,10 +140,50 @@ export class LegacyImportService {
     return result
   }
 
-  async scan(sourceHandle: string): Promise<LegacyImportPreview> {
+  async scan(
+    sourceHandle: string,
+    expectedDigest?: string
+  ): Promise<LegacyImportPreview> {
+    if (this.draining) throw this.error('busy')
     const source = this.sources.get(sourceHandle)
     if (!source) throw this.error('sourceNotAuthorized')
-    const snapshot = await scanLegacySource(source, this.deps.isProcessRunning)
+    let snapshot: LegacySnapshot
+    try {
+      snapshot = await this.scanSource(source)
+    } catch (error) {
+      const grants = this.metadataGrants.get(sourceHandle)
+      if (
+        expectedDigest ||
+        !grants?.size ||
+        !(error instanceof Error) ||
+        !/changedSource/.test(error.message)
+      )
+        throw error
+      const valid = new Map<string, LegacyTorrentGrant>()
+      for (const [digest, grant] of grants)
+        if (await isLegacyTorrentGrantValid(grant)) valid.set(digest, grant)
+      if (valid.size === grants.size) throw error
+      snapshot = await scanLegacySource(
+        source,
+        this.deps.isProcessRunning,
+        valid
+      )
+      if (this.draining) throw this.error('busy')
+      this.metadataGrants.set(sourceHandle, valid)
+      for (const [id, state] of this.previews)
+        if (state.dto.sourceHandle === sourceHandle) this.previews.delete(id)
+    }
+    if (this.draining) throw this.error('busy')
+    if (expectedDigest && snapshot.digest !== expectedDigest)
+      throw this.error('changedSource')
+    const grants = this.metadataGrants.get(sourceHandle)
+    if (grants) {
+      const currentEntries = new Set(
+        snapshot.candidates.map((candidate) => candidate.entry.digest)
+      )
+      for (const digest of grants.keys())
+        if (!currentEntries.has(digest)) grants.delete(digest)
+    }
     const claims = this.claimedPaths()
     const pendingPaths: string[] = []
     for (const candidate of snapshot.candidates) {
@@ -182,6 +229,121 @@ export class LegacyImportService {
     return dto
   }
 
+  authorizeMetadata(
+    input: unknown,
+    chooseFile: () => Promise<string | null>
+  ): Promise<LegacyImportPreview | null> {
+    if (this.draining || this.activeRun || this.metadataAdmissions.size)
+      return Promise.reject(this.error('busy'))
+    const admission = this.authorizeMetadataAdmission(input, chooseFile)
+    this.metadataAdmissions.add(admission)
+    void admission
+      .finally(() => this.metadataAdmissions.delete(admission))
+      .catch(() => {})
+    return admission
+  }
+
+  private async authorizeMetadataAdmission(
+    input: unknown,
+    chooseFile: () => Promise<string | null>
+  ): Promise<LegacyImportPreview | null> {
+    const { previewId, itemId } = legacyMetadataRequestSchema.parse(input)
+    const preview = this.previews.get(previewId)
+    const current = () => {
+      if (
+        !preview ||
+        this.previews.get(previewId) !== preview ||
+        preview.dto.expiresAt < this.clock()
+      )
+        throw this.error('expiredPreview')
+      if (this.draining || this.activeRun || preview.committedRunId)
+        throw this.error('busy')
+      const candidate = preview.snapshot.candidates.find(
+        (entry) => entry.item.itemId === itemId
+      )
+      if (
+        candidate?.item.type !== 'bt' ||
+        candidate.item.selectable ||
+        candidate.item.reason !== 'metadata-required' ||
+        !candidate.torrentReferencePath
+      )
+        throw this.error('invalidSelection')
+      return candidate
+    }
+    const candidate = current()
+    if (!preview) throw this.error('expiredPreview')
+    const unchanged = async () => {
+      current()
+      const snapshot = await this.scanSource(preview.snapshot.source)
+      current()
+      if (snapshot.digest !== preview.snapshot.digest)
+        throw this.error('changedSource')
+      if (snapshot.running) throw this.error('running')
+    }
+    await unchanged()
+    let selected: string | null
+    try {
+      selected = await Promise.race([
+        chooseFile(),
+        new Promise<null>((resolve) => {
+          this.stopMetadataPicker = () => resolve(null)
+        }),
+      ])
+    } finally {
+      this.stopMetadataPicker = null
+    }
+    if (!selected) return null
+    await unchanged()
+    const grant = await authorizeLegacyTorrent(
+      selected,
+      candidate.torrentReferencePath ?? ''
+    )
+    const previous =
+      this.metadataGrants.get(preview.dto.sourceHandle) ??
+      new Map<string, LegacyTorrentGrant>()
+    const trialGrants = new Map(previous)
+    trialGrants.set(candidate.entry.digest, grant)
+    const trial = await scanLegacySource(
+      preview.snapshot.source,
+      this.deps.isProcessRunning,
+      trialGrants
+    )
+    const resolved = trial.candidates.find(
+      (entry) => entry.entry.digest === candidate.entry.digest
+    )
+    if (!resolved?.torrent || !resolved.torrentRelativePath)
+      throw this.error('metadataMismatch')
+    await unchanged()
+    // Admission owns the single metadata mutation lane. No previous grant or
+    // preview changes until every chosen-file/source check has succeeded.
+    this.metadataGrants.set(preview.dto.sourceHandle, trialGrants)
+    try {
+      const refreshed = await this.scan(preview.dto.sourceHandle, trial.digest)
+      for (const [id, state] of this.previews)
+        if (
+          id !== refreshed.previewId &&
+          state.dto.sourceHandle === preview.dto.sourceHandle
+        )
+          this.previews.delete(id)
+      return refreshed
+    } catch (error) {
+      this.metadataGrants.set(preview.dto.sourceHandle, previous)
+      throw error
+    }
+  }
+
+  private scanSource(source: LegacySource): Promise<LegacySnapshot> {
+    const handle = [...this.sources].find(
+      ([, existing]) =>
+        existing.root === source.root && existing.identity === source.identity
+    )?.[0]
+    return scanLegacySource(
+      source,
+      this.deps.isProcessRunning,
+      handle ? this.metadataGrants.get(handle) : undefined
+    )
+  }
+
   commit(input: unknown): Promise<LegacyImportReport> {
     if (this.draining) return Promise.reject(this.error('busy'))
     const admission = this.commitAdmission(input)
@@ -198,7 +360,7 @@ export class LegacyImportService {
     if (!preview || preview.dto.expiresAt < this.clock())
       throw this.error('expiredPreview')
     if (preview.committedRunId) return this.getRun(preview.committedRunId)
-    if (this.activeRun) throw this.error('busy')
+    if (this.activeRun || this.metadataAdmissions.size) throw this.error('busy')
     const ids = new Set(request.itemIds)
     if (
       ids.size !== request.itemIds.length ||
@@ -214,10 +376,7 @@ export class LegacyImportService {
     const runId = randomUUID()
     this.activeRun = runId
     try {
-      const refreshed = await scanLegacySource(
-        preview.snapshot.source,
-        this.deps.isProcessRunning
-      )
+      const refreshed = await this.scanSource(preview.snapshot.source)
       if (refreshed.digest !== preview.snapshot.digest)
         throw this.error('changedSource')
       if (refreshed.running) throw this.error('running')
@@ -255,10 +414,7 @@ export class LegacyImportService {
         )
       const backup = await this.backup(preview.snapshot, runId)
       // The source and liveness guard must still hold after the potentially slow backup.
-      const afterBackup = await scanLegacySource(
-        preview.snapshot.source,
-        this.deps.isProcessRunning
-      )
+      const afterBackup = await this.scanSource(preview.snapshot.source)
       if (afterBackup.digest !== preview.snapshot.digest)
         throw this.error('changedSource')
       if (afterBackup.running) throw this.error('running')
@@ -312,10 +468,12 @@ export class LegacyImportService {
 
   async drain(): Promise<void> {
     this.draining = true
+    this.stopMetadataPicker?.()
     if (this.activeRun) this.cancelled.add(this.activeRun)
     // Backup and admission can still hold the database before a batch job exists.
     // Shutdown must wait for both phases before its caller closes the database.
     await Promise.allSettled(this.admissions)
+    await Promise.allSettled(this.metadataAdmissions)
     await Promise.allSettled(this.runningJobs.values())
   }
 
@@ -350,10 +508,7 @@ export class LegacyImportService {
         let committed = false
         let preflightPassed = false
         const commit = async () => {
-          const refreshed = await scanLegacySource(
-            snapshot.source,
-            this.deps.isProcessRunning
-          )
+          const refreshed = await this.scanSource(snapshot.source)
           if (refreshed.digest !== snapshot.digest)
             throw this.error('changedSource')
           if (refreshed.running) throw this.error('running')

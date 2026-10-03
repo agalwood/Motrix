@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { constants } from 'node:fs'
 import { lstat, open, realpath } from 'node:fs/promises'
 import path from 'node:path'
@@ -26,6 +27,15 @@ export interface LegacySnapshotFile {
   relativePath: string
   bytes: Buffer
   digest: string
+  identity?: string
+}
+/** An exact user-selected file; it never authorizes other files in its parent. */
+export interface LegacyTorrentGrant {
+  source: LegacySource
+  relativePath: string
+  identity: string
+  digest: string
+  referencePath: string
 }
 export interface LegacyCandidate {
   item: LegacyImportItem
@@ -33,6 +43,7 @@ export interface LegacyCandidate {
   outputPath: string | null
   torrent: TorrentMeta | null
   torrentRelativePath: string | null
+  torrentReferencePath?: string
   selectedFiles: number[]
   selectionKnown: boolean
   trackers: string[][]
@@ -116,7 +127,12 @@ export async function readLegacyFile(
       )
         throw new Error('legacyImport.changedSource')
       const content = bytes.subarray(0, bytesRead)
-      return { relativePath, bytes: content, digest: digestBytes(content) }
+      return {
+        relativePath,
+        bytes: content,
+        digest: digestBytes(content),
+        identity: `${opened.dev}:${opened.ino}`,
+      }
     } finally {
       await handle.close()
     }
@@ -125,6 +141,82 @@ export async function readLegacyFile(
       return null
     throw error
   }
+}
+
+export async function authorizeLegacyTorrent(
+  selectedFile: string,
+  referencePath: string
+): Promise<LegacyTorrentGrant> {
+  const selected = path.resolve(selectedFile)
+  const before = await lstat(selected)
+  if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1)
+    throw new Error('legacyImport.unsafeSource')
+  const canonical = await realpath(selected)
+  const source = await authorizeLegacySource(path.dirname(canonical))
+  const relativePath = path.basename(canonical)
+  const file = await readLegacyFile(source, relativePath)
+  if (!file || file.identity !== `${before.dev}:${before.ino}`)
+    throw new Error('legacyImport.changedSource')
+  try {
+    validateLegacyBencode(file.bytes)
+    const parsed = await parseTorrent(new Uint8Array(file.bytes))
+    const torrent = projectTorrentMeta(parsed)
+    await parseBtFileLayout(file.bytes)
+    if (
+      !torrent.files.length ||
+      torrent.files.length > 10000 ||
+      !safeLegacyComponent(torrent.name)
+    )
+      throw new Error('invalid')
+  } catch {
+    throw new Error('legacyImport.metadataMismatch')
+  }
+  const expected = /^([a-f\d]{40})\.torrent$/i.exec(
+    path.basename(referencePath)
+  )
+  if (expected) {
+    if (
+      createHash('sha1').update(file.bytes).digest('hex') !==
+      expected[1].toLowerCase()
+    )
+      throw new Error('legacyImport.metadataMismatch')
+  } else if (canonical !== path.resolve(referencePath)) {
+    // A human filename has no durable content identifier. Only the exact
+    // referenced file can be explicitly authorized; arbitrary replacements
+    // cannot be proved to describe the old task.
+    throw new Error('legacyImport.metadataMismatch')
+  }
+  return {
+    source,
+    relativePath,
+    identity: file.identity,
+    digest: file.digest,
+    referencePath,
+  }
+}
+
+export async function isLegacyTorrentGrantValid(
+  grant: LegacyTorrentGrant
+): Promise<boolean> {
+  try {
+    const file = await readLegacyFile(grant.source, grant.relativePath)
+    return file?.identity === grant.identity && file.digest === grant.digest
+  } catch {
+    return false
+  }
+}
+
+async function readGrantedTorrent(
+  grant: LegacyTorrentGrant,
+  entryDigest: string,
+  referencePath: string
+): Promise<LegacySnapshotFile> {
+  if (grant.referencePath !== referencePath)
+    throw new Error('legacyImport.changedSource')
+  const file = await readLegacyFile(grant.source, grant.relativePath)
+  if (!file || file.identity !== grant.identity || file.digest !== grant.digest)
+    throw new Error('legacyImport.changedSource')
+  return { ...file, relativePath: `authorized-torrents/${entryDigest}.torrent` }
 }
 
 function parseObject(file: LegacySnapshotFile): Record<string, unknown> {
@@ -154,7 +246,8 @@ function selection(
 
 export async function scanLegacySource(
   source: LegacySource,
-  isProcessRunning: (pid: number) => boolean | Promise<boolean>
+  isProcessRunning: (pid: number) => boolean | Promise<boolean>,
+  torrentGrants: ReadonlyMap<string, LegacyTorrentGrant> = new Map()
 ): Promise<LegacySnapshot> {
   const files: LegacySnapshotFile[] = []
   const required = async (name: string) => {
@@ -242,13 +335,22 @@ export async function scanLegacySource(
             'http-passwd',
             'all-proxy-user',
             'all-proxy-passwd',
+            'http-proxy',
+            'http-proxy-user',
+            'http-proxy-passwd',
+            'https-proxy',
+            'https-proxy-user',
+            'https-proxy-passwd',
             'load-cookies',
             'referer',
             'all-proxy',
           ].some(
             (key) =>
-              typeof system[key] === 'string' &&
-              (system[key] as string).trim() !== ''
+              system[key] !== undefined &&
+              system[key] !== null &&
+              system[key] !== '' &&
+              (!Array.isArray(system[key]) ||
+                (system[key] as unknown[]).length !== 0)
           )
         ) {
           item.selectable = false
@@ -270,19 +372,29 @@ export async function scanLegacySource(
         const resolved = path.isAbsolute(filename)
           ? path.resolve(filename)
           : path.resolve(source.root, filename)
-        const relative = path.relative(source.root, resolved)
-        if (
-          entry.uris.length !== 1 ||
-          !relative ||
-          relative.startsWith('..') ||
-          path.isAbsolute(relative) ||
-          !relative.endsWith('.torrent')
-        )
+        candidate.torrentReferencePath = resolved
+        let relative = path.relative(source.root, resolved)
+        if (entry.uris.length !== 1 || !relative.endsWith('.torrent'))
           throw new Error('unsafe')
+        const outsideGrant =
+          !relative || relative.startsWith('..') || path.isAbsolute(relative)
+        const explicitGrant = torrentGrants.get(entry.digest)
+        if (outsideGrant && !explicitGrant) {
+          // The session often references RPC-saved metadata in the user's
+          // separate downloads directory. That path does not grant access.
+          item.type = 'bt'
+          item.name = entry.options.out || path.basename(filename)
+          item.selectable = false
+          item.reason = 'metadata-required'
+          continue
+        }
         let file = torrentByPath.get(relative)
         if (!file) {
-          file = (await readLegacyFile(source, relative)) ?? undefined
+          file = explicitGrant
+            ? await readGrantedTorrent(explicitGrant, entry.digest, resolved)
+            : ((await readLegacyFile(source, relative)) ?? undefined)
           if (!file) throw new Error('invalid')
+          relative = file.relativePath
           snapshotBytes += file.bytes.length
           if (snapshotBytes > 64 * 1024 * 1024)
             throw new Error('legacyImport.tooLarge')
@@ -308,7 +420,12 @@ export async function scanLegacySource(
         candidate.torrentRelativePath = relative
         candidate.selectedFiles = selected.files
         candidate.selectionKnown = selected.known
-        candidate.trackers = (parsed.announce ?? []).map((tracker) => [tracker])
+        const additionalTrackers = entry.optionPairs
+          .filter(([key]) => key === 'bt-tracker')
+          .flatMap(([, value]) => value.split(',').filter(Boolean))
+        candidate.trackers = [
+          ...new Set([...(parsed.announce ?? []), ...additionalTrackers]),
+        ].map((tracker) => [tracker])
         item.type = 'bt'
         item.name = entry.options.out || torrent.name
         candidate.outputPath = safeLegacyOutput(dir, item.name)
@@ -332,11 +449,13 @@ export async function scanLegacySource(
                 .sort()
             : [...entry.uris].sort())
         entry.itemKey = `entry:${digestBytes(JSON.stringify([item.type, candidate.outputPath, content]))}`
-        item.itemId = entry.itemKey
+        if (!torrentGrants.has(entry.digest)) item.itemId = entry.itemKey
       }
     } catch (error) {
       if (error instanceof Error && error.message === 'legacyImport.tooLarge')
         throw error
+      if (torrentGrants.has(entry.digest))
+        throw new Error('legacyImport.changedSource')
       item.reason = 'invalid-record'
       item.selectable = false
     }
@@ -358,7 +477,9 @@ export async function scanLegacySource(
   const sourceId = digestBytes(`${source.root}\0${source.identity}`)
   const digest = digestBytes(
     files
-      .map((file) => `${file.relativePath}\0${file.digest}`)
+      .map(
+        (file) => `${file.relativePath}\0${file.digest}\0${file.identity ?? ''}`
+      )
       .sort()
       .join('\n')
   )

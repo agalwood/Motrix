@@ -1,5 +1,12 @@
 import type { EnginePerformanceProfile } from '@shared/constants/engine-performance-profiles'
 import type {
+  LegacyCheckpointImport,
+  LegacyCheckpointInspection,
+  LegacyCheckpointReceipt,
+  LegacyCheckpointReconcile,
+  LegacyCheckpointReconciliation,
+} from '@shared/schemas/legacy-checkpoint'
+import type {
   EngineCapability,
   EngineFeatureReport,
 } from '@shared/types/engine'
@@ -272,6 +279,21 @@ export interface EngineAdapter {
    * cannot answer; callers then fall back to the `.aria2` control file.
    */
   getCheckpointStatus?(outputPath: string): Promise<'present' | 'absent' | null>
+
+  /** Live capability check; compiled-in support alone does not authorize import. */
+  supportsLegacyCheckpointImport?(): Promise<boolean>
+  /** Inspect bounded opaque legacy bytes without opening or writing payloads. */
+  inspectLegacyCheckpoint?(
+    bytes: Uint8Array
+  ): Promise<LegacyCheckpointInspection>
+  /** Persist a native checkpoint and idempotent receipt without starting a task. */
+  importLegacyCheckpoint?(
+    input: LegacyCheckpointImport
+  ): Promise<LegacyCheckpointReceipt>
+  /** Reconcile an uncertain import, sealing invalid receipts so they cannot revive. */
+  reconcileLegacyCheckpoint?(
+    input: LegacyCheckpointReconcile
+  ): Promise<LegacyCheckpointReconciliation>
 
   /**
    * Batch variant of {@link removeDownloadResult}, executed in bounded

@@ -3006,7 +3006,7 @@
     "source": "来源",
     "changeSource": "更换…",
     "noSource": "尚未选择配置目录",
-    "discovery": "找到 {{count}} 项可导入的下载任务",
+    "discovery": "发现 {{count}} 个旧版下载任务",
     "preserveFiles": "旧文件会保留在原处。导入不会开始下载或做种。",
     "chooseTasks": "选择下载任务",
     "skip": "跳过",
@@ -3078,10 +3078,13 @@
       "unsafePath": "请选择可访问的保存位置。",
       "mirrorsUnsupported": "此任务含有多个镜像 URL。请复制 URL，选择所需来源后创建新任务。",
       "stopping": "Motrix 正在退出，请重新打开后再导入。",
-      "desktopOnly": "请在 Motrix 桌面应用中导入旧版下载任务。"
+      "desktopOnly": "请在 Motrix 桌面应用中导入旧版下载任务。",
+      "metadataMismatch": "这个种子与旧任务不一致。请选择原来的种子文件。"
     },
     "resultIncompleteTitle": "导入未完成",
     "resultStoppedTitle": "导入已停止",
-    "activationRequired": "请使用新目录重新下载。原文件将保持原样。"
+    "activationRequired": "请使用新目录重新下载。原文件将保持原样。",
+    "chooseTorrent": "选择种子…",
+    "torrentFile": "种子文件"
   }
 }

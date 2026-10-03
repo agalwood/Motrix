@@ -242,4 +242,53 @@ describe('desktop legacy import', () => {
     vi.stubEnv('MOTRIX_LEGACY_PROFILE', 'relative/path')
     expect(defaultLegacyRoots()).toEqual([])
   })
+
+  it('passes only a preview item to the service and authorizes one native-selected torrent path privately', async () => {
+    const f = await fixture()
+    const request = {
+      previewId: '11111111-1111-4111-8111-111111111111',
+      itemId: 'gid:0123456789abcdef',
+    }
+    let selected: string | null = null
+    const authorizeMetadata = vi.fn(
+      async (_input, chooseFile: () => Promise<string | null>) => {
+        selected = await chooseFile()
+        return { previewId: 'refreshed-preview' }
+      }
+    )
+    f.getService.mockReturnValue({
+      authorizeMetadata,
+    } as unknown as LegacyImportService)
+    const chosen = path.join(f.root, 'original.torrent')
+    mocks.pick.mockResolvedValue({ canceled: false, filePaths: [chosen] })
+    const result = await mocks.handlers.get(
+      Commands.PickLegacyTorrentMetadata
+    )?.(f.event, request)
+    expect(authorizeMetadata).toHaveBeenCalledWith(
+      request,
+      expect.any(Function)
+    )
+    expect(selected).toBe(chosen)
+    expect(result).toEqual({ previewId: 'refreshed-preview' })
+    expect(mocks.pick).toHaveBeenCalledWith(
+      mocks.owner,
+      expect.objectContaining({
+        properties: ['openFile'],
+        filters: [{ name: expect.any(String), extensions: ['torrent'] }],
+      })
+    )
+  })
+
+  it('rejects renderer-supplied metadata paths before invoking a native picker or service', async () => {
+    const f = await fixture()
+    await expect(
+      mocks.handlers.get(Commands.PickLegacyTorrentMetadata)?.(f.event, {
+        previewId: '11111111-1111-4111-8111-111111111111',
+        itemId: 'gid:0123456789abcdef',
+        filePath: '/untrusted/file.torrent',
+      })
+    ).rejects.toThrow()
+    expect(f.getService).not.toHaveBeenCalled()
+    expect(mocks.pick).not.toHaveBeenCalled()
+  })
 })

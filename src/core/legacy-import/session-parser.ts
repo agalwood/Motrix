@@ -26,6 +26,19 @@ const OPTIONS = new Set([
   'allow-overwrite',
   'auto-file-renaming',
   'file-allocation',
+  // Only explicit true is accepted: it disables ambient netrc credentials.
+  'no-netrc',
+  // Declarative options emitted by the v1.8.19 bundled engine even when the
+  // user did not customize a task. None is applied during scan or import.
+  'pause-metadata',
+  'user-agent',
+  'follow-torrent',
+  'follow-metalink',
+  'enable-peer-exchange',
+  'bt-enable-lpd',
+  'bt-force-encryption',
+  'bt-load-saved-metadata',
+  'bt-tracker',
 ])
 
 export interface LegacySessionEntry {
@@ -34,6 +47,7 @@ export interface LegacySessionEntry {
   gid: string | null
   uris: string[]
   options: Record<string, string>
+  optionPairs: Array<readonly [string, string]>
   reason: LegacyReason | null
 }
 
@@ -56,6 +70,7 @@ export function parseLegacySession(bytes: Uint8Array): LegacySessionEntry[] {
     const raw = lines.join('\n')
     const uris = lines[0].trim().split(/\t+/).filter(Boolean)
     const options: Record<string, string> = Object.create(null)
+    const optionPairs: Array<readonly [string, string]> = []
     let reason: LegacyReason | null =
       lines.some((line) => line.length > MAX_LINE) || uris.length > 16
         ? 'invalid-record'
@@ -67,7 +82,12 @@ export function parseLegacySession(bytes: Uint8Array): LegacySessionEntry[] {
         continue
       }
       if (!OPTIONS.has(match[1])) reason = 'unsupported-options'
-      else options[match[1]] = match[2]
+      else if (match[1] === 'no-netrc' && match[2].trim() !== 'true')
+        reason = 'unsupported-options'
+      else {
+        optionPairs.push([match[1], match[2]])
+        options[match[1]] = match[2]
+      }
     }
     const gid =
       options.gid && /^[a-f\d]{16}$/i.test(options.gid)
@@ -76,7 +96,7 @@ export function parseLegacySession(bytes: Uint8Array): LegacySessionEntry[] {
     if (options.gid && !gid) reason = 'invalid-record'
     const digest = digestBytes(raw)
     const itemKey = gid ? `gid:${gid}` : `entry:${digest}`
-    entries.push({ itemKey, digest, gid, uris, options, reason })
+    entries.push({ itemKey, digest, gid, uris, options, optionPairs, reason })
     lines = []
   }
   for (const line of text.split(/\r?\n/)) {

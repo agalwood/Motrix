@@ -72,7 +72,7 @@ describe('legacy import dialog', () => {
 
   it('imports selection directly, preserves the paused-state explanation and exposes details on demand', async () => {
     render(<LegacyImportDialog open onClose={vi.fn()} />)
-    const action = await screen.findByRole('button', { name: 'Import 1 items' })
+    const action = await screen.findByRole('button', { name: 'Import 1' })
     expect(
       screen.queryByRole('textbox', { name: 'Search downloads' })
     ).not.toBeInTheDocument()
@@ -96,9 +96,7 @@ describe('legacy import dialog', () => {
       name: 'archive.zip',
     })
     fireEvent.click(checkbox)
-    expect(
-      screen.getByRole('button', { name: 'Import 0 items' })
-    ).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Import 0' })).toBeDisabled()
     expect(transport.invoke).not.toHaveBeenCalledWith(
       Commands.CommitLegacyImport,
       expect.anything()
@@ -115,18 +113,16 @@ describe('legacy import dialog', () => {
       return undefined
     })
     render(<LegacyImportDialog open onClose={vi.fn()} />)
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Import 1 items' })
-    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Import 1' }))
     await screen.findByRole('alert')
     expect(screen.getByRole('checkbox', { name: 'archive.zip' })).toBeChecked()
-    expect(screen.getByRole('button', { name: 'Import 1 items' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Import 1' })).toBeEnabled()
   })
 
   it('skipping an invitation persists dismissal without a commit', async () => {
     const close = vi.fn()
     render(<LegacyImportDialog open invitation onClose={close} />)
-    await screen.findByText('Found 1 downloads to import')
+    await screen.findByText('Downloads found: 1')
     fireEvent.click(screen.getByRole('button', { name: 'Skip' }))
     await waitFor(() => expect(close).toHaveBeenCalledOnce())
     expect(transport.invoke).toHaveBeenCalledWith(
@@ -135,6 +131,126 @@ describe('legacy import dialog', () => {
     expect(transport.invoke).not.toHaveBeenCalledWith(
       Commands.CommitLegacyImport,
       expect.anything()
+    )
+  })
+
+  it('counts a torrent awaiting metadata in discovery and keeps its repair reachable', async () => {
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.DiscoverLegacyImport)
+        return [{ sourceHandle, name: 'Motrix' }]
+      if (channel === Queries.ScanLegacyImport)
+        return {
+          ...preview,
+          items: [
+            {
+              itemId: 'gid:2222222222222222',
+              name: 'saved.torrent',
+              type: 'bt',
+              selectable: false,
+              reason: 'metadata-required',
+            },
+          ],
+        }
+      return undefined
+    })
+    render(<LegacyImportDialog open invitation onClose={vi.fn()} />)
+    await screen.findByText('Downloads found: 1')
+    fireEvent.click(screen.getByRole('button', { name: 'Choose downloads' }))
+    expect(screen.getByRole('button', { name: 'Import 0' })).toBeDisabled()
+    fireEvent.click(screen.getByText('Skipped: 1'))
+    expect(
+      screen.getByRole('button', { name: 'Choose torrent…' })
+    ).toBeEnabled()
+  })
+
+  it('authorizes a skipped torrent in place, preserves deselected downloads and selects the repaired item', async () => {
+    const bt = {
+      itemId: 'gid:2222222222222222',
+      name: 'saved.torrent',
+      type: 'bt',
+      selectable: false,
+      reason: 'metadata-required',
+    }
+    const refreshedId = '44444444-4444-4444-8444-444444444444'
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.DiscoverLegacyImport)
+        return [{ sourceHandle, name: 'Motrix' }]
+      if (channel === Queries.ScanLegacyImport)
+        return { ...preview, items: [...items, bt] }
+      if (channel === Commands.PickLegacyTorrentMetadata)
+        return {
+          ...preview,
+          previewId: refreshedId,
+          items: [
+            ...items,
+            {
+              ...bt,
+              name: 'fixture-bundle',
+              selectable: true,
+              reason: 'verification-required',
+            },
+          ],
+        }
+      if (channel === Commands.CommitLegacyImport) return report
+      return undefined
+    })
+    render(<LegacyImportDialog open onClose={vi.fn()} />)
+    fireEvent.click(
+      await screen.findByRole('checkbox', { name: 'archive.zip' })
+    )
+    fireEvent.click(screen.getByText('Skipped: 1'))
+    fireEvent.click(screen.getByRole('button', { name: 'Choose torrent…' }))
+    const repaired = await screen.findByRole('checkbox', {
+      name: 'fixture-bundle',
+    })
+    expect(repaired).toBeChecked()
+    expect(
+      screen.getByRole('checkbox', { name: 'archive.zip' })
+    ).not.toBeChecked()
+    expect(transport.invoke).toHaveBeenCalledWith(
+      Commands.PickLegacyTorrentMetadata,
+      { previewId, itemId: bt.itemId }
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Import 1' }))
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith(
+        Commands.CommitLegacyImport,
+        { previewId: refreshedId, itemIds: [bt.itemId] }
+      )
+    )
+  })
+
+  it('retains the current selection and preview when torrent selection is cancelled', async () => {
+    const bt = {
+      itemId: 'gid:2222222222222222',
+      name: 'saved.torrent',
+      type: 'bt',
+      selectable: false,
+      reason: 'metadata-required',
+    }
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.DiscoverLegacyImport)
+        return [{ sourceHandle, name: 'Motrix' }]
+      if (channel === Queries.ScanLegacyImport)
+        return { ...preview, items: [...items, bt] }
+      if (channel === Commands.PickLegacyTorrentMetadata) return null
+      if (channel === Commands.CommitLegacyImport) return report
+      return undefined
+    })
+    render(<LegacyImportDialog open onClose={vi.fn()} />)
+    await screen.findByRole('checkbox', { name: 'archive.zip' })
+    fireEvent.click(screen.getByText('Skipped: 1'))
+    fireEvent.click(screen.getByRole('button', { name: 'Choose torrent…' }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Import 1' })).toBeEnabled()
+    )
+    expect(screen.getByRole('checkbox', { name: 'archive.zip' })).toBeChecked()
+    fireEvent.click(screen.getByRole('button', { name: 'Import 1' }))
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith(
+        Commands.CommitLegacyImport,
+        { previewId, itemIds: [items[0].itemId] }
+      )
     )
   })
 })

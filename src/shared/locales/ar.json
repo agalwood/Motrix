@@ -3116,7 +3116,7 @@
     "source": "Source",
     "changeSource": "Change…",
     "noSource": "No profile selected",
-    "discovery": "Found {{count}} downloads to import",
+    "discovery": "Downloads found: {{count}}",
     "preserveFiles": "Your old files stay in place. Importing starts no downloads or seeding.",
     "chooseTasks": "Choose downloads",
     "skip": "Skip",
@@ -3129,9 +3129,9 @@
     "recheck": "Recheck",
     "search": "Search downloads",
     "selectAll": "Select all",
-    "skipped": "{{count}} items skipped",
+    "skipped": "Skipped: {{count}}",
     "backupNote": "Task information is backed up before import. Downloaded files stay in place.",
-    "importSelected": "Import {{count}} items",
+    "importSelected": "Import {{count}}",
     "backingUp": "Backing up profile metadata…",
     "committing": "Importing paused downloads…",
     "progress": "Import progress",
@@ -3188,10 +3188,13 @@
       "unsafePath": "Choose an accessible destination.",
       "mirrorsUnsupported": "This task has multiple mirror URLs. Copy its URLs and create a new task after choosing the source you want to use.",
       "stopping": "Motrix is shutting down. Reopen it before importing.",
-      "desktopOnly": "Import old downloads in the Motrix desktop app."
+      "desktopOnly": "Import old downloads in the Motrix desktop app.",
+      "metadataMismatch": "This torrent does not match the old task. Choose its original torrent file."
     },
     "resultIncompleteTitle": "Import incomplete",
     "resultStoppedTitle": "Import stopped",
-    "activationRequired": "Start a new download in a separate folder. Your original files stay in place."
+    "activationRequired": "Start a new download in a separate folder. Your original files stay in place.",
+    "chooseTorrent": "Choose torrent…",
+    "torrentFile": "Torrent file"
   }
 }

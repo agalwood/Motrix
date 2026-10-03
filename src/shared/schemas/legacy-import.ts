@@ -71,6 +71,9 @@ export type LegacyImportReport = z.infer<typeof legacyImportReportSchema>
 export const legacyScanRequestSchema = z
   .object({ sourceHandle: z.uuid() })
   .strict()
+export const legacyMetadataRequestSchema = z
+  .object({ previewId: z.uuid(), itemId: z.string().min(1).max(128) })
+  .strict()
 export const legacyCommitRequestSchema = z
   .object({
     previewId: z.uuid(),

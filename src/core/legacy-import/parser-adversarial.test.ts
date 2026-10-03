@@ -28,6 +28,30 @@ describe('legacy session adversarial parsing', () => {
     expect(entry.reason).toBeNull()
   })
 
+  it.each(['false', '0', '1', ''])(
+    'does not enable ambient netrc credentials through no-netrc=%s',
+    (value) => {
+      const [entry] = parseLegacySession(
+        encode(`https://example.test/a\n no-netrc=${value}\n`)
+      )
+      expect(entry.reason).toBe('unsupported-options')
+    }
+  )
+
+  it('preserves cumulative tracker pairs while applying singleton last-value semantics', () => {
+    const [entry] = parseLegacySession(
+      encode(
+        'metadata.torrent\n bt-tracker=https://first.test/announce\n out=first\n bt-tracker=https://second.test/announce\n out=last\n'
+      )
+    )
+    expect(entry.options.out).toBe('last')
+    expect(entry.optionPairs.filter(([key]) => key === 'bt-tracker')).toEqual([
+      ['bt-tracker', 'https://first.test/announce'],
+      ['bt-tracker', 'https://second.test/announce'],
+    ])
+    expect(entry.reason).toBeNull()
+  })
+
   it.each([
     'on-download-complete=/tmp/run',
     'input-file=/tmp/other',
