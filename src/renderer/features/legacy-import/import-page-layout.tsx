@@ -147,7 +147,7 @@ function ImportOverview({
     ) ?? []
   return (
     <aside className="hidden min-h-0 flex-col gap-4 overflow-y-auto @[660px]/import:flex">
-      <section className="rounded-2xl bg-muted/45 p-4">
+      <section className="migration-summary rounded-lg border border-border bg-muted p-4">
         <h2 className="text-xs font-medium">
           {t(
             `legacyImport.page.${stage === 'result' ? 'resultSummary' : stage === 'discovery' ? 'foundSummary' : 'selectionSummary'}`
@@ -156,7 +156,7 @@ function ImportOverview({
         {(stage === 'selection' || stage === 'progress') && (
           <p className="mt-2 text-4xl font-semibold tracking-tight tabular-nums">
             {preview ? <ImportCount value={items.length} /> : '—'}
-            <span className="ms-2 text-xs font-normal tracking-normal text-muted-foreground">
+            <span className="ms-2 text-xs font-normal tracking-normal text-foreground/70">
               {t('legacyImport.page.countUnit')}
             </span>
           </p>
@@ -189,13 +189,13 @@ function ImportOverview({
               return (
                 <div key={type} className="flex items-center gap-2 text-xs">
                   <Icon
-                    className="size-3.5 text-muted-foreground"
+                    className="size-3.5 text-foreground/70"
                     aria-hidden="true"
                   />
-                  <dt className="flex-1 text-muted-foreground">
+                  <dt className="flex-1 text-foreground/80">
                     {t(`legacyImport.page.types.${type}`)}
                   </dt>
-                  <dd className="tabular-nums">
+                  <dd className="font-medium tabular-nums">
                     <ImportCount value={count} />
                   </dd>
                 </div>
@@ -212,7 +212,7 @@ function ImportOverview({
         <h2 className="text-xs font-medium">
           {t('legacyImport.page.filesStayTitle')}
         </h2>
-        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+        <p className="mt-2 text-xs leading-relaxed text-foreground/70">
           {t('legacyImport.page.filesStayDescription')}
         </p>
       </section>
@@ -220,7 +220,7 @@ function ImportOverview({
         <h2 className="text-xs font-medium">
           {t('legacyImport.page.nextTitle')}
         </h2>
-        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+        <p className="mt-2 text-xs leading-relaxed text-foreground/70">
           {t('legacyImport.page.nextDescription')}
         </p>
       </section>
@@ -231,8 +231,8 @@ function ImportOverview({
 function SummaryRow({ label, value }: { label: string; value: number }) {
   return (
     <div className="flex justify-between gap-2 text-xs">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="tabular-nums">{value}</dd>
+      <dt className="text-foreground/80">{label}</dt>
+      <dd className="font-medium tabular-nums">{value}</dd>
     </div>
   )
 }
@@ -278,7 +278,7 @@ export function ImportPageLayout({
             <ImportSteps stage={stage} />
           </div>
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 px-6 pb-3 @[660px]/import:grid-cols-[minmax(0,1fr)_184px]">
-            <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-background shadow-xs">
+            <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card text-card-foreground">
               <ImportStageContent key={stage}>{children}</ImportStageContent>
             </div>
             <ImportOverview

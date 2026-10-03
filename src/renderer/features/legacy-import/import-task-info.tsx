@@ -14,11 +14,11 @@ export function ImportTaskInfo({ item }: { item: LegacyImportItem }) {
           text={item.name}
           className="min-w-0 flex-1 font-sans! text-[13px] font-medium"
         />
-        <Badge variant="secondary">
+        <Badge variant="secondary" className="border-border">
           {t(`legacyImport.page.types.${item.type}`)}
         </Badge>
       </div>
-      <p className="flex min-w-0 text-xs leading-4 text-muted-foreground">
+      <p className="flex min-w-0 text-xs leading-4 text-foreground/70">
         {item.saveDir ? (
           <MiddleEllipsis text={item.saveDir} className="font-sans!" />
         ) : (
@@ -27,7 +27,7 @@ export function ImportTaskInfo({ item }: { item: LegacyImportItem }) {
       </p>
       <p
         title={reason}
-        className="truncate text-xs leading-4 text-muted-foreground"
+        className="truncate text-xs leading-4 text-foreground/70"
       >
         {reason}
       </p>

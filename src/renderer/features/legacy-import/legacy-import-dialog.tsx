@@ -352,7 +352,7 @@ function LegacyImportDialogContent({
       <div
         className={
           page
-            ? 'migration-task-row flex h-22 items-center gap-3 border-b border-border/50 px-4'
+            ? 'migration-task-row flex h-22 items-center gap-3 border-b border-border px-4'
             : 'flex h-22 items-center gap-3 border-b border-border/60 px-1'
         }
         key={item.itemId}
@@ -379,7 +379,7 @@ function LegacyImportDialogContent({
     <details
       className={
         page
-          ? 'border-t border-border/50 bg-muted/20 px-4 py-3 text-xs'
+          ? 'border-t border-border bg-muted/30 px-4 py-3 text-xs'
           : 'py-4 text-xs'
       }
     >
@@ -569,7 +569,7 @@ function LegacyImportDialogContent({
             <div
               className={
                 page
-                  ? 'shrink-0 space-y-3 border-b border-border/70 bg-muted/15 px-4 py-4'
+                  ? 'shrink-0 space-y-3 border-b border-border bg-muted/40 px-4 py-4'
                   : 'shrink-0 space-y-3 px-6 pb-3'
               }
             >
@@ -590,7 +590,7 @@ function LegacyImportDialogContent({
                       </h2>
                     )}
                     <p
-                      className="truncate text-xs text-muted-foreground"
+                      className="truncate text-xs text-foreground/70"
                       title={preview?.sourceName}
                     >
                       {preview

@@ -8,6 +8,11 @@
   --migration-duration: 200ms;
 }
 
+/* Keep the summary distinct from both the page and task card in either theme. */
+.migration-summary {
+  background-color: color-mix(in oklab, var(--muted) 96%, var(--foreground));
+}
+
 .migration-step-circle,
 .migration-transfer-tile,
 .migration-transfer-arrow,
@@ -42,13 +47,13 @@
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: var(--muted);
+  background: var(--foreground);
   opacity: 0;
   transition: opacity var(--migration-duration) ease;
 }
 
 .migration-task-row[data-selected="true"]::before {
-  opacity: 0.3;
+  opacity: 0.035;
 }
 
 .migration-transfer-stack {
