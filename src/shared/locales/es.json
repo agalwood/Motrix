@@ -1691,6 +1691,18 @@
       "defaultDownloadFolder": "Carpeta de descargas predeterminada",
       "autofillFromClipboard": "Rellenar enlaces desde el portapapeles",
       "fillInLinksWhenOpeningNewTask": "Pega los enlaces copiados al abrir una tarea nueva.",
+      "autoCategorize": {
+        "enable": "Clasificar las nuevas descargas en carpetas",
+        "enableDesc": "Los archivos se organizan por extensión en una subcarpeta de la carpeta de descarga predeterminada. Se aplica solo a las tareas que usan la carpeta predeterminada; una carpeta elegida explícitamente nunca se sobrescribe.",
+        "extensions": "Extensiones",
+        "extensionsPlaceholder": "p. ej., mp4, mkv, webm",
+        "folder": "Subcarpeta",
+        "folderPlaceholder": "p. ej., Video",
+        "addRule": "Añadir regla",
+        "removeRule": "Eliminar regla",
+        "needsExtension": "Añade al menos una extensión",
+        "invalidFolder": "Usa un nombre de carpeta simple sin / \\ : * ? \" < > | / \\ : * ? \" < > |"
+      },
       "saveFolders": "Carpetas de destino",
       "description": "Archivos, velocidad de descarga y conexiones"
     },

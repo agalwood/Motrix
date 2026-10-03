@@ -1663,6 +1663,18 @@
       "defaultDownloadFolder": "預設儲存位置",
       "autofillFromClipboard": "自動填入剪貼簿連結",
       "fillInLinksWhenOpeningNewTask": "新增任務時，自動填入已複製的連結。",
+      "autoCategorize": {
+        "enable": "將新下載分類到資料夾",
+        "enableDesc": "依副檔名將檔案路由到預設下載資料夾下的子資料夾。僅在使用預設資料夾時生效——手動選擇的資料夾不會被覆蓋。",
+        "extensions": "副檔名",
+        "extensionsPlaceholder": "例如 mp4、mkv、webm",
+        "folder": "子資料夾",
+        "folderPlaceholder": "例如 Video",
+        "addRule": "新增規則",
+        "removeRule": "移除規則",
+        "needsExtension": "請至少新增一個副檔名",
+        "invalidFolder": "請使用不含 / \\ : * ? \" < > |"
+      },
       "saveFolders": "儲存位置",
       "description": "檔案、下載速度與連線"
     },

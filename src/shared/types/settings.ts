@@ -8,6 +8,7 @@ import type { TrayIconColor } from '@shared/schemas/tray-icon-color'
 import type { RunMode } from '../constants'
 import type { EnginePerformanceProfile } from '../constants/engine-performance-profiles'
 import type { LanguagePreference } from '../constants/locales'
+import type { AutoCategorizeSettings } from '../schemas/auto-categorize'
 import type { BridgeSettings } from '../schemas/bridge-settings'
 import type { DirectoryPreferences } from '../schemas/directory-preferences'
 import type { GeoIPSettings } from './geoip'
@@ -242,6 +243,9 @@ export interface MotrixAppSettings {
    *  fills the URL field with any link(s) found — only when the field is
    *  empty. One-shot on open; never a background clipboard watcher. */
   autofillClipboardLinks: boolean
+  /** Extension → subfolder routing applied when a task is created without
+   *  an explicit saveDir. Shape in ../schemas/auto-categorize.ts. */
+  autoCategorize: AutoCategorizeSettings
   protocols: {
     magnet: boolean
   }

@@ -1663,6 +1663,18 @@
       "defaultDownloadFolder": "默认保存位置",
       "autofillFromClipboard": "自动填入剪贴板链接",
       "fillInLinksWhenOpeningNewTask": "新建任务时，自动填入已复制的链接。",
+      "autoCategorize": {
+        "enable": "将新下载按类型分类到文件夹",
+        "enableDesc": "按扩展名将文件路由到默认下载目录下的子文件夹。仅在使用默认目录时生效——手动指定的目录不会被覆盖。",
+        "extensions": "扩展名",
+        "extensionsPlaceholder": "例如 mp4、mkv、webm",
+        "folder": "子文件夹",
+        "folderPlaceholder": "例如 Video",
+        "addRule": "添加规则",
+        "removeRule": "删除规则",
+        "needsExtension": "请至少添加一个扩展名",
+        "invalidFolder": "请使用不含 / \\ : * ? \" < > |"
+      },
       "saveFolders": "保存位置",
       "description": "文件、下载速度与连接"
     },

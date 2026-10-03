@@ -1663,6 +1663,18 @@
       "defaultDownloadFolder": "기본 다운로드 폴더",
       "autofillFromClipboard": "클립보드에서 링크 자동 입력",
       "fillInLinksWhenOpeningNewTask": "새 작업을 열 때 복사한 링크를 붙여넣습니다.",
+      "autoCategorize": {
+        "enable": "새 다운로드를 폴더로 분류",
+        "enableDesc": "확장자에 따라 파일을 기본 다운로드 폴더의 하위 폴더로 정렬합니다. 기본 폴더를 사용하는 작업에만 적용되며, 직접 지정한 폴더는 덮어쓰지 않습니다.",
+        "extensions": "확장자",
+        "extensionsPlaceholder": "예: mp4, mkv, webm",
+        "folder": "하위 폴더",
+        "folderPlaceholder": "예: Video",
+        "addRule": "규칙 추가",
+        "removeRule": "규칙 삭제",
+        "needsExtension": "확장자를 1개 이상 추가하세요",
+        "invalidFolder": "/ \\ : * ? \" < > | 를 포함하지 않는 일반 폴더 이름을 사용하세요 / \\ : * ? \" < > |"
+      },
       "saveFolders": "저장 폴더",
       "description": "파일, 다운로드 속도 및 연결"
     },

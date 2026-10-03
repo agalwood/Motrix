@@ -1677,6 +1677,18 @@
       "defaultDownloadFolder": "Standard-Download-Ordner",
       "autofillFromClipboard": "Links aus der Zwischenablage automatisch einfügen",
       "fillInLinksWhenOpeningNewTask": "Kopierte Links beim Öffnen einer neuen Aufgabe einfügen.",
+      "autoCategorize": {
+        "enable": "Neue Downloads in Ordner einsortieren",
+        "enableDesc": "Dateien werden anhand der Erweiterung in einen Unterordner des Standard-Downloadordners einsortiert. Gilt nur für Tasks mit dem Standardordner – ein ausdrücklich gewählter Ordner wird nie überschrieben.",
+        "extensions": "Erweiterungen",
+        "extensionsPlaceholder": "z. B. mp4, mkv, webm",
+        "folder": "Unterordner",
+        "folderPlaceholder": "z. B. Video",
+        "addRule": "Regel hinzufügen",
+        "removeRule": "Regel entfernen",
+        "needsExtension": "Mindestens eine Erweiterung angeben",
+        "invalidFolder": "Einen einfachen Ordnernamen ohne / \\ : * ? \" < > | verwenden / \\ : * ? \" < > |"
+      },
       "saveFolders": "Speicherordner",
       "description": "Dateien, Download-Geschwindigkeit und Verbindungen"
     },

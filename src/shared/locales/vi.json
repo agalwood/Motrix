@@ -1663,6 +1663,18 @@
       "defaultDownloadFolder": "Thư mục tải xuống mặc định",
       "autofillFromClipboard": "Tự điền liên kết từ bảng nhớ tạm",
       "fillInLinksWhenOpeningNewTask": "Tự dán liên kết đã sao chép khi mở tác vụ mới.",
+      "autoCategorize": {
+        "enable": "Sắp xếp tải mới vào thư mục",
+        "enableDesc": "Tệp được điều hướng theo phần mở rộng vào thư mục con của thư mục tải mặc định. Chỉ áp dụng cho tác vụ dùng thư mục mặc định — thư mục được chọn rõ ràng không bao giờ bị ghi đè.",
+        "extensions": "Phần mở rộng",
+        "extensionsPlaceholder": "vd. mp4, mkv, webm",
+        "folder": "Thư mục con",
+        "folderPlaceholder": "vd. Video",
+        "addRule": "Thêm quy tắc",
+        "removeRule": "Xóa quy tắc",
+        "needsExtension": "Thêm ít nhất một phần mở rộng",
+        "invalidFolder": "Dùng tên thư mục đơn giản không chứa / \\ : * ? \" < > | / \\ : * ? \" < > |"
+      },
       "saveFolders": "Thư mục lưu",
       "description": "Tệp, tốc độ tải xuống và kết nối"
     },
