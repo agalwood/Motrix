@@ -1,4 +1,4 @@
-import { realpath } from 'node:fs/promises'
+import { realpath, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { BridgeReceiverError } from '@core/bridge-receiver/errors'
 import type { AdaptedMux } from '@core/bridge-receiver/submit-download-adapter'
@@ -86,6 +86,7 @@ import {
 import { createTaskDirectoryHistory } from '@core/task/task-directory-history'
 import type { TaskManager } from '@core/task/task-manager'
 import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
+import { createTorrent } from '@core/torrent/create-torrent'
 import { MagnetSelectionTimeout } from '@core/torrent/magnet-selection-timeout'
 import type { MagnetTracker } from '@core/torrent/magnet-tracker'
 import { swapMagnetMetadataForBt } from '@core/torrent/swap-magnet-metadata-for-bt'
@@ -109,6 +110,11 @@ import {
   taskIdsPayloadSchema,
 } from '@shared/schemas/bulk-task-command'
 import { closeCurrentWindowSchema } from '@shared/schemas/close-current-window'
+import {
+  type CreateTorrentProgressPayload,
+  createTorrentRequestSchema,
+  saveTorrentFileRequestSchema,
+} from '@shared/schemas/create-torrent'
 import { moveTasksPayloadSchema } from '@shared/schemas/move-tasks'
 import { checkPluginUpdatesPayloadSchema } from '@shared/schemas/plugin-update'
 import { REGISTRY_PLUGIN_ID_RE } from '@shared/schemas/registry'
@@ -134,6 +140,7 @@ import {
   dialog,
   ipcMain,
   type OpenDialogOptions,
+  type SaveDialogOptions,
   shell,
 } from 'electron'
 import { z } from 'zod'
@@ -643,6 +650,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     },
   })
   const saveDirPickersInFlight = new WeakSet<WebContents>()
+  let createTorrentInFlight = false
 
   const directoryPreferences =
     createDirectoryPreferencesHandlers(settingsManager)
@@ -1374,6 +1382,104 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       }
     },
 
+    [Commands.PickTorrentSource]: async (sender: WebContents) => {
+      const options: OpenDialogOptions = {
+        // Both kinds: a single file and a whole folder are valid sources.
+        properties: ['openFile', 'openDirectory'],
+      }
+      const parent = BrowserWindow.fromWebContents(sender)
+      const result =
+        parent && !parent.isDestroyed()
+          ? await dialog.showOpenDialog(parent, options)
+          : await dialog.showOpenDialog(options)
+      if (result.canceled || result.filePaths.length === 0) return null
+      const selected = await realpath(result.filePaths[0]).catch(() => null)
+      return selected ? { path: selected } : null
+    },
+
+    [Commands.SaveTorrentFile]: async (
+      sender: WebContents,
+      params: unknown
+    ) => {
+      const parsed = saveTorrentFileRequestSchema.parse(params)
+      const options: SaveDialogOptions = {
+        defaultPath: parsed.suggestedSaveName,
+        filters: [{ name: 'BitTorrent', extensions: ['torrent'] }],
+      }
+      const parent = BrowserWindow.fromWebContents(sender)
+      const result =
+        parent && !parent.isDestroyed()
+          ? await dialog.showSaveDialog(parent, options)
+          : await dialog.showSaveDialog(options)
+      if (result.canceled || !result.filePath) return null
+      await writeFile(
+        result.filePath,
+        Buffer.from(parsed.torrentBase64, 'base64')
+      )
+      const selected = await realpath(result.filePath).catch(() => null)
+      return { path: selected ?? result.filePath }
+    },
+
+    // Create-torrent hashing runs in the main process; the read loop yields
+    // per chunk so the shared event loop keeps servicing IPC meanwhile.
+    // One operation at a time — a second request while one runs is rejected.
+    [Commands.CreateTorrent]: async (payload: unknown) => {
+      if (createTorrentInFlight) {
+        throw new AppError(
+          ErrorCode.TorrentCreateFailed,
+          'A torrent is already being created'
+        )
+      }
+      const parsed = createTorrentRequestSchema.parse(payload)
+      const sourceStat = await realpath(parsed.sourcePath).catch(() => null)
+      if (!sourceStat) {
+        throw new AppError(
+          ErrorCode.TorrentCreateFailed,
+          'Source path does not exist'
+        )
+      }
+      createTorrentInFlight = true
+      let lastEmit = 0
+      try {
+        const result = await createTorrent(
+          {
+            sourcePath: sourceStat,
+            trackers: parsed.trackers,
+            webSeeds: parsed.webSeeds,
+            comment: parsed.comment,
+            private: parsed.private,
+            pieceLength: parsed.pieceLength,
+          },
+          {
+            onProgress: (processed, total) => {
+              const now = Date.now()
+              if (processed !== total && now - lastEmit < 400) return
+              lastEmit = now
+              const progress: CreateTorrentProgressPayload = {
+                operationId: 'create-torrent',
+                processedBytes: processed,
+                totalBytes: total,
+                fraction: total === 0 ? 1 : Math.min(1, processed / total),
+              }
+              ctx.eventBus.emit(Events.CreateTorrentProgress, progress)
+            },
+          }
+        )
+        return {
+          torrentBase64: Buffer.from(result.bytes).toString('base64'),
+          infoHash: result.infoHash,
+          name: result.name,
+          totalSize: result.totalSize,
+          fileCount: result.fileCount,
+          pieceCount: result.pieceCount,
+          pieceLength: result.pieceLength,
+          suggestedSaveName: `${result.name}.torrent`,
+        }
+      } finally {
+        createTorrentInFlight = false
+      }
+    },
+
     // ResizeWindow needs event.sender — the wrapper in registerCommandHandlers
     // passes sender as the first arg so this handler can resolve the BrowserWindow.
     [Commands.ResizeWindow]: async (
@@ -1888,6 +1994,8 @@ export function registerCommandHandlers(ctx: CommandContext): () => void {
       channel === Commands.MinimizeCurrentWindow ||
       channel === Commands.ToggleMaximizeCurrentWindow ||
       channel === Commands.PickSaveDir ||
+      channel === Commands.PickTorrentSource ||
+      channel === Commands.SaveTorrentFile ||
       channel === Commands.ResizeWindow ||
       channel === Commands.UpdateMenuContext
     ) {

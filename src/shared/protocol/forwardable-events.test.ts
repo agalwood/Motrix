@@ -27,7 +27,7 @@ describe('ForwardableEvents', () => {
   })
 
   it('has the expected number of forwardable events', () => {
-    expect(ForwardableEvents).toHaveLength(59)
+    expect(ForwardableEvents).toHaveLength(60)
   })
 
   it('includes the bridge approval events (web-shell pairing)', () => {
