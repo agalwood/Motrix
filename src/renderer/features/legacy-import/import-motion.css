@@ -8,8 +8,8 @@
   --migration-duration: 200ms;
 }
 
-/* Keep the summary distinct from both the page and task card in either theme. */
-.migration-summary {
+/* Preserve a stronger surface separation in the dark theme. */
+:where(.dark) .migration-summary {
   background-color: color-mix(in oklab, var(--muted) 96%, var(--foreground));
 }
 
