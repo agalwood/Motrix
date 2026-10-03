@@ -1880,7 +1880,9 @@
         "pairingStateDegraded": {
           "title": "A bővítmények hozzáférése ideiglenesen le van tiltva",
           "description": "A Motrix nem tudta biztonságosan frissíteni a párosított bővítmények adatait. A meglévő bővítménymunkamenetek lezárultak, és az alkalmazás újraindításáig az új hozzáférések is tiltva maradnak. Indítsd újra a Motrixot a javítás újbóli megkísérléséhez; amíg ez az üzenet látható, ne hagyatkozz az alábbi listára."
-        }
+        },
+        "confirmDownloads": "Ask before downloading",
+        "confirmDownloadsDesc": "Show a confirmation window when the browser extension hands a download to Motrix."
       },
       "cli": {
         "title": "Parancssori eszközök",
@@ -2926,5 +2928,20 @@
     "waitingMerged": "A várakozó feladatok most az Aktív nézetben találhatók. Ez a nézet megnyílt.",
     "stoppedSplit": "A leállított feladatok a Befejezett és Hiba csoportokba kerültek. Az összes letöltés megnyílt.",
     "invalidStatus": "Érvénytelen letöltési kategória. Az összes letöltés megnyílt."
+  },
+  "downloadConfirm": {
+    "title": "Download confirmation",
+    "fileName": "File name",
+    "fileNameAuto": "Automatic file name",
+    "saveTo": "Save to",
+    "torrentFile": "Torrent file",
+    "progressTitle": "Download progress",
+    "completed": "Completed",
+    "transferOptions": "Transfer options",
+    "thisTaskOnly": "Applies to this task only",
+    "speedLimit": "Speed limit",
+    "connections": "Connections",
+    "kibPerSecond": "KiB/s",
+    "auto": "Auto"
   }
 }

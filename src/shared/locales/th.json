@@ -2251,7 +2251,9 @@
         "trustedEmpty": "ยังไม่มีรายการ",
         "trustedExtensions": "ส่วนขยายที่เชื่อถือ",
         "trustedGuidance": "สำหรับส่วนขยายอื่นที่เชื่อถือ ให้เพิ่ม ID ที่ผู้พัฒนาให้มา",
-        "trustedSummary": "ทั้งหมด {{count}} รายการ"
+        "trustedSummary": "ทั้งหมด {{count}} รายการ",
+        "confirmDownloads": "Ask before downloading",
+        "confirmDownloadsDesc": "Show a confirmation window when the browser extension hands a download to Motrix."
       },
       "cli": {
         "inbox": {
@@ -2904,5 +2906,20 @@
     "waitingMerged": "งานที่รออยู่แสดงในหมวดกำลังทำงานแล้ว ได้เปิดมุมมองนี้แล้ว",
     "stoppedSplit": "งานที่หยุดแบ่งเป็นเสร็จสิ้นและข้อผิดพลาด ได้เปิดการดาวน์โหลดทั้งหมดแล้ว",
     "invalidStatus": "หมวดการดาวน์โหลดไม่ถูกต้อง ได้เปิดการดาวน์โหลดทั้งหมดแล้ว"
+  },
+  "downloadConfirm": {
+    "title": "Download confirmation",
+    "fileName": "File name",
+    "fileNameAuto": "Automatic file name",
+    "saveTo": "Save to",
+    "torrentFile": "Torrent file",
+    "progressTitle": "Download progress",
+    "completed": "Completed",
+    "transferOptions": "Transfer options",
+    "thisTaskOnly": "Applies to this task only",
+    "speedLimit": "Speed limit",
+    "connections": "Connections",
+    "kibPerSecond": "KiB/s",
+    "auto": "Auto"
   }
 }

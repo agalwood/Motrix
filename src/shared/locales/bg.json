@@ -2270,7 +2270,9 @@
         "trustedEmpty": "Все още няма записи.",
         "trustedExtensions": "Доверени разширения",
         "trustedGuidance": "За други доверени разширения добавете ID, предоставен от разработчика.",
-        "trustedSummary": "Общо {{count}}"
+        "trustedSummary": "Общо {{count}}",
+        "confirmDownloads": "Ask before downloading",
+        "confirmDownloadsDesc": "Show a confirmation window when the browser extension hands a download to Motrix."
       },
       "cli": {
         "inbox": {
@@ -2926,5 +2928,20 @@
     "waitingMerged": "Чакащите задачи вече са в Активни. Този изглед е отворен.",
     "stoppedSplit": "Спрените задачи са разделени на Завършени и Грешки. Отворени са всички изтегляния.",
     "invalidStatus": "Невалидна категория. Отворени са всички изтегляния."
+  },
+  "downloadConfirm": {
+    "title": "Download confirmation",
+    "fileName": "File name",
+    "fileNameAuto": "Automatic file name",
+    "saveTo": "Save to",
+    "torrentFile": "Torrent file",
+    "progressTitle": "Download progress",
+    "completed": "Completed",
+    "transferOptions": "Transfer options",
+    "thisTaskOnly": "Applies to this task only",
+    "speedLimit": "Speed limit",
+    "connections": "Connections",
+    "kibPerSecond": "KiB/s",
+    "auto": "Auto"
   }
 }

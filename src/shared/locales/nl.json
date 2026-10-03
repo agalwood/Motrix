@@ -2270,7 +2270,9 @@
         "trustedEmpty": "Hier staat nog niets.",
         "trustedExtensions": "Vertrouwde extensies",
         "trustedGuidance": "Voeg voor andere vertrouwde extensies de door de ontwikkelaar verstrekte ID toe.",
-        "trustedSummary": "{{count}} totaal"
+        "trustedSummary": "{{count}} totaal",
+        "confirmDownloads": "Vragen voor het downloaden",
+        "confirmDownloadsDesc": "Toont een bevestigingsvenster wanneer de browserextensie een download aan Motrix overdraagt."
       },
       "cli": {
         "inbox": {
@@ -2926,5 +2928,20 @@
     "waitingMerged": "Wachtende taken staan nu onder Actief. Deze weergave is geopend.",
     "stoppedSplit": "Gestopte taken staan onder Voltooid en Fouten. Alle downloads zijn geopend.",
     "invalidStatus": "Deze categorie is ongeldig. Alle downloads zijn geopend."
+  },
+  "downloadConfirm": {
+    "title": "Download bevestigen",
+    "fileName": "Bestandsnaam",
+    "fileNameAuto": "Automatische bestandsnaam",
+    "saveTo": "Opslaan in",
+    "torrentFile": "Torrentbestand",
+    "progressTitle": "Downloadvoortgang",
+    "completed": "Voltooid",
+    "transferOptions": "Overdrachtopties",
+    "thisTaskOnly": "Alleen voor deze taak",
+    "speedLimit": "Snelheidslimiet",
+    "connections": "Verbindingen",
+    "kibPerSecond": "KiB/s",
+    "auto": "Automatisch"
   }
 }

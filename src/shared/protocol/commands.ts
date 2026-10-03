@@ -63,6 +63,9 @@ export const Commands = {
   ToggleMaximizeCurrentWindow: 'command:toggleMaximizeCurrentWindow',
   ShowMainWindow: 'command:showMainWindow',
   ShowAddTaskWindow: 'command:showAddTaskWindow',
+  // Download-confirm window resolves the pending bridge add request.
+  // Payload: ResolveDownloadConfirmParams (@shared/schemas/download-confirm.ts).
+  ResolveDownloadConfirm: 'command:resolveDownloadConfirm',
   // Torrent
   ParseTorrent: 'command:parseTorrent',
   AddTorrentTask: 'command:addTorrentTask',

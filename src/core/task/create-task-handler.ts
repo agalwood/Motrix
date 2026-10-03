@@ -28,6 +28,7 @@ import {
   normalizeProxyUrl,
 } from '@core/proxy/aria2-proxy-routing'
 import type { SettingsManager } from '@core/settings/settings-manager'
+import { ErrorCodes, makeMdxpError } from '@motrix/mdxp'
 import { INCOMPLETE_SUFFIX } from '@shared/constants/incomplete'
 import { AppError, ErrorCode } from '@shared/errors'
 import type {
@@ -118,6 +119,26 @@ export interface CreateTaskDeps {
   eventBus: { emit(event: string, payload: unknown): void }
   /** Optional best-effort capture of a non-secret HTTP resource validator. */
   directResourceValidator?: CreateDirectResourceValidator
+  /**
+   * Optional IDM-style prompt for bridge-initiated creates
+   * (`opts.source === 'bridge'`). Receives the admitted request, resolves
+   * with the (possibly amended) request to proceed or null to decline —
+   * surfaced as RequestCancelled so the extension can fall back. The
+   * Electron shell wires the download-confirm window; the headless server
+   * deliberately omits it.
+   */
+  confirmIncoming?: (
+    request: TaskCreateRequest
+  ) => Promise<TaskCreateRequest | null>
+  /**
+   * Paired with `confirmIncoming`: notified with the created task's public
+   * id and the exact amended request object whenever a bridge create that
+   * went through the prompt succeeded (including dedup reuses). The
+   * download-confirm window attaches its progress view through this — the
+   * request reference lets the prompt owner match the notification to its
+   * own amended request.
+   */
+  onConfirmedTaskCreated?: (taskId: string, request: TaskCreateRequest) => void
   /**
    * Holds the engine's applied proxy generation stable from metadata discovery
    * through the matching aria2 addUri dispatch.
@@ -250,7 +271,24 @@ export async function handleCreateTask(
   deps: CreateTaskDeps,
   opts: CreateTaskOptions = {}
 ): Promise<TaskCreateSuccessResult> {
-  const request = admitTaskCreateRequest(rawRequest)
+  let request = admitTaskCreateRequest(rawRequest)
+  // Bridge-initiated creates (browser handoff) ask before starting. The UI
+  // form IS the user's confirmation and stays prompt-free; 'plugin' sources
+  // own their own consent surfaces.
+  let prompted = false
+  if (opts.source === 'bridge' && deps.confirmIncoming) {
+    const confirmed = await deps.confirmIncoming(request)
+    if (!confirmed) {
+      throw makeMdxpError(
+        ErrorCodes.RequestCancelled,
+        'bridge download declined in the confirmation prompt'
+      )
+    }
+    // The prompt may only amend saveDir/filename, so the shape the admission
+    // pass produced (headers defaulted) still holds.
+    request = confirmed as typeof request
+    prompted = true
+  }
   if (request.type === 'http' && request.uris[0].startsWith('ftp:')) {
     const reason = !deps.adapter.getCapabilities().ftp
       ? 'unsupportedProtocol'
@@ -273,12 +311,14 @@ export async function handleCreateTask(
           createRequestFingerprint: fingerprint,
         }
       : undefined
-  return runCreateRequest(
+  const result = await runCreateRequest(
     deps.taskManager,
     request.type === 'http' ? request.requestId : undefined,
     fingerprint,
     () => createAdmittedTask(request, deps, { ...opts, receipt })
   )
+  if (prompted) deps.onConfirmedTaskCreated?.(result.taskId, request)
+  return result
 }
 
 async function createAdmittedTask(
@@ -642,6 +682,7 @@ async function handleCreateTaskUnderAdmission(
       performanceProfile: engineSettings.performanceProfile,
       userAgent: engineSettings.userAgent,
       connections: clampedConnections,
+      dlLimit: req.dlLimit,
       headers: headersRecord,
       cookies: opts.cookies,
       proxy: req.proxy,

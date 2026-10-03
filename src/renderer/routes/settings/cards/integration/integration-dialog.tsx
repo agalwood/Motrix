@@ -50,6 +50,7 @@ export type IntegrationFormValues = z.infer<typeof integrationFormSchema>
 const DEFAULTS: IntegrationFormValues = {
   app: {
     browserBridgeEnabled: DEFAULT_APP_SETTINGS.browserBridgeEnabled,
+    confirmIncomingDownloads: DEFAULT_APP_SETTINGS.confirmIncomingDownloads,
     protocols: DEFAULT_APP_SETTINGS.protocols,
   },
   media: { ...DEFAULT_MEDIA_SETTINGS },
@@ -75,6 +76,7 @@ export function IntegrationDialog({
       form.reset({
         app: {
           browserBridgeEnabled: all.app.browserBridgeEnabled,
+          confirmIncomingDownloads: all.app.confirmIncomingDownloads,
           protocols: all.app.protocols,
         },
         media: { ...all.media },

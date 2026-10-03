@@ -1866,7 +1866,9 @@
         "pairingStateDegraded": {
           "title": "擴充功能存取已暫時關閉",
           "description": "Motrix 無法安全更新已配對擴充功能記錄。本次執行中的既有擴充功能工作階段已關閉，新存取也已封鎖。請重新啟動 Motrix 以重試修復；此提示消失前，請勿將下方清單視為完整記錄。"
-        }
+        },
+        "confirmDownloads": "下載前詢問",
+        "confirmDownloadsDesc": "瀏覽器擴充功能將下載交給 Motrix 時，先彈出確認視窗。"
       },
       "cli": {
         "title": "命令列工具",
@@ -2904,5 +2906,20 @@
     "waitingMerged": "等待中的任務現已歸入活動任務，已開啟活動任務清單。",
     "stoppedSplit": "已停止的任務現按已完成和錯誤分類，已開啟全部下載。",
     "invalidStatus": "下載分類無效，已開啟全部下載。"
+  },
+  "downloadConfirm": {
+    "title": "下載確認",
+    "fileName": "檔案名稱",
+    "fileNameAuto": "自動命名",
+    "saveTo": "儲存到",
+    "torrentFile": "種子檔案",
+    "progressTitle": "下載進度",
+    "completed": "已完成",
+    "transferOptions": "傳輸選項",
+    "thisTaskOnly": "僅此任務適用",
+    "speedLimit": "限速",
+    "connections": "下載執行緒數",
+    "kibPerSecond": "KiB/s",
+    "auto": "自動"
   }
 }

@@ -2289,7 +2289,9 @@
         "trustedEmpty": "Încă nu există nimic aici.",
         "trustedExtensions": "Extensii de încredere",
         "trustedGuidance": "Pentru alte extensii de încredere, adaugă ID-ul furnizat de dezvoltator.",
-        "trustedSummary": "Total: {{count}}"
+        "trustedSummary": "Total: {{count}}",
+        "confirmDownloads": "Ask before downloading",
+        "confirmDownloadsDesc": "Show a confirmation window when the browser extension hands a download to Motrix."
       },
       "cli": {
         "inbox": {
@@ -2948,5 +2950,20 @@
     "waitingMerged": "Sarcinile în așteptare apar acum în Active. Această vizualizare a fost deschisă.",
     "stoppedSplit": "Sarcinile oprite sunt grupate în Finalizate și Erori. Au fost deschise toate descărcările.",
     "invalidStatus": "Categoria nu este validă. Au fost deschise toate descărcările."
+  },
+  "downloadConfirm": {
+    "title": "Download confirmation",
+    "fileName": "File name",
+    "fileNameAuto": "Automatic file name",
+    "saveTo": "Save to",
+    "torrentFile": "Torrent file",
+    "progressTitle": "Download progress",
+    "completed": "Completed",
+    "transferOptions": "Transfer options",
+    "thisTaskOnly": "Applies to this task only",
+    "speedLimit": "Speed limit",
+    "connections": "Connections",
+    "kibPerSecond": "KiB/s",
+    "auto": "Auto"
   }
 }

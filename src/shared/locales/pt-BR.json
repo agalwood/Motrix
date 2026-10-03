@@ -1894,7 +1894,9 @@
         "pairingStateDegraded": {
           "title": "O acesso das extensões está temporariamente fechado",
           "description": "O Motrix não conseguiu atualizar com segurança os registros de extensões pareadas. As sessões existentes das extensões foram encerradas e novos acessos estão bloqueados nesta execução. Reinicie o Motrix para tentar o reparo novamente; não confie na lista abaixo até esta mensagem desaparecer."
-        }
+        },
+        "confirmDownloads": "Perguntar antes de baixar",
+        "confirmDownloadsDesc": "Mostra uma janela de confirmação quando a extensão do navegador envia um download para o Motrix."
       },
       "cli": {
         "title": "Ferramentas de linha de comando",
@@ -2948,5 +2950,20 @@
     "waitingMerged": "As tarefas em espera agora aparecem em Ativas. Essa visualização foi aberta.",
     "stoppedSplit": "As tarefas paradas são agrupadas em Concluídas e Erros. Todos os downloads foram abertos.",
     "invalidStatus": "A categoria é inválida. Todos os downloads foram abertos."
+  },
+  "downloadConfirm": {
+    "title": "Confirmar download",
+    "fileName": "Nome do arquivo",
+    "fileNameAuto": "Nome de arquivo automático",
+    "saveTo": "Salvar em",
+    "torrentFile": "Arquivo torrent",
+    "progressTitle": "Progresso do download",
+    "completed": "Concluído",
+    "transferOptions": "Opções de transferência",
+    "thisTaskOnly": "Aplica-se somente a esta tarefa",
+    "speedLimit": "Limite de velocidade",
+    "connections": "Conexões",
+    "kibPerSecond": "KiB/s",
+    "auto": "Automático"
   }
 }

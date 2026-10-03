@@ -1866,7 +1866,9 @@
         "pairingStateDegraded": {
           "title": "확장 프로그램 접근이 일시적으로 차단되었습니다",
           "description": "Motrix가 페어링된 확장 프로그램 기록을 안전하게 업데이트하지 못했습니다. 기존 확장 프로그램 세션은 종료되었으며 이번 실행에서는 새로운 접근이 차단됩니다. 복구를 다시 시도하려면 Motrix를 재시작하세요. 이 메시지가 사라질 때까지 아래 목록을 신뢰하지 마세요."
-        }
+        },
+        "confirmDownloads": "다운로드 전 확인",
+        "confirmDownloadsDesc": "브라우저 확장이 다운로드를 Motrix로 넘길 때 확인 창을 표시합니다."
       },
       "cli": {
         "title": "명령줄 도구",
@@ -2904,5 +2906,20 @@
     "waitingMerged": "대기 작업이 활성 작업에 통합되었습니다. 활성 작업을 열었습니다.",
     "stoppedSplit": "중지된 작업은 완료 및 오류로 분류됩니다. 모든 다운로드를 열었습니다.",
     "invalidStatus": "잘못된 다운로드 분류입니다. 모든 다운로드를 열었습니다."
+  },
+  "downloadConfirm": {
+    "title": "다운로드 확인",
+    "fileName": "파일 이름",
+    "fileNameAuto": "자동 파일 이름",
+    "saveTo": "저장 위치",
+    "torrentFile": "토렌트 파일",
+    "progressTitle": "다운로드 진행 상황",
+    "completed": "완료",
+    "transferOptions": "전송 옵션",
+    "thisTaskOnly": "이 작업에만 적용",
+    "speedLimit": "속도 제한",
+    "connections": "연결 수",
+    "kibPerSecond": "KiB/s",
+    "auto": "자동"
   }
 }

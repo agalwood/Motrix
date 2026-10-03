@@ -65,6 +65,36 @@ export function BrowserExtensionsSection() {
         )}
       />
 
+      <div
+        className={cn(
+          'space-y-4',
+          !enabled && 'opacity-50 pointer-events-none'
+        )}
+      >
+        <FormField
+          control={form.control}
+          name="app.confirmIncomingDownloads"
+          render={({ field }) => (
+            <SettingsFormRow>
+              <div className="space-y-1">
+                <FormLabel>
+                  {t('settings.integration.browser.confirmDownloads')}
+                </FormLabel>
+                <FormDescription className="text-xs">
+                  {t('settings.integration.browser.confirmDownloadsDesc')}
+                </FormDescription>
+              </div>
+              <FormControl>
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
+            </SettingsFormRow>
+          )}
+        />
+      </div>
+
       <BrowserExtensionInstalls />
 
       {status?.degraded && (

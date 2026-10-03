@@ -258,6 +258,9 @@ export interface MotrixAppSettings {
   /** Master switch for the WebSocket bridge that lets browser extensions
    *  hand downloads to Motrix. Default true. Changing requires app restart. */
   browserBridgeEnabled: boolean
+  /** IDM-style prompt: bridge-initiated downloads ask for confirmation
+   *  before the engine starts them. Read live per request — no restart. */
+  confirmIncomingDownloads: boolean
   liquidGlassEffect: boolean
   /** When true, quitting while downloads are active shows a confirmation
    *  dialog. Read live at quit time — no app restart. Default true. */

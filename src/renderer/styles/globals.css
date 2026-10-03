@@ -455,6 +455,102 @@
   }
 }
 
+/* Download-confirm popup: theme-hued glass cards. The tint follows
+   --sidebar-hue (the user's theme color), and when the app's
+   liquid-glass effect is on the cards turn translucent and an ambient
+   blob layer shines through from behind. */
+.glass-card {
+  border: 1px solid hsl(var(--sidebar-hue, 220) 45% 65% / 0.28);
+  background:
+    radial-gradient(
+      110% 90% at 88% -12%,
+      hsl(calc(var(--sidebar-hue, 220) + 84) 58% 58% / 0.16),
+      transparent 58%
+    ),
+    radial-gradient(
+      95% 85% at 8% 112%,
+      hsl(var(--sidebar-hue, 220) 55% 48% / 0.18),
+      transparent 62%
+    ),
+    var(--card);
+}
+
+:root.dark .glass-card {
+  border-color: hsl(var(--sidebar-hue, 220) 45% 62% / 0.3);
+  background:
+    radial-gradient(
+      110% 90% at 88% -12%,
+      hsl(calc(var(--sidebar-hue, 220) + 84) 48% 42% / 0.24),
+      transparent 58%
+    ),
+    radial-gradient(
+      95% 85% at 8% 112%,
+      hsl(var(--sidebar-hue, 220) 45% 34% / 0.26),
+      transparent 62%
+    ),
+    var(--card);
+}
+
+:root[data-liquid-glass="true"] .glass-card {
+  background:
+    radial-gradient(
+      110% 90% at 88% -12%,
+      hsl(calc(var(--sidebar-hue, 220) + 84) 58% 58% / 0.2),
+      transparent 58%
+    ),
+    radial-gradient(
+      95% 85% at 8% 112%,
+      hsl(var(--sidebar-hue, 220) 55% 48% / 0.22),
+      transparent 62%
+    ),
+    color-mix(in oklab, var(--card) 62%, transparent);
+  backdrop-filter: blur(22px) saturate(1.35);
+}
+
+.glass-ambient {
+  position: absolute;
+  inset: -18%;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      38% 42% at 78% 12%,
+      hsl(calc(var(--sidebar-hue, 220) + 84) 62% 55% / 0.5),
+      transparent 70%
+    ),
+    radial-gradient(
+      42% 46% at 12% 82%,
+      hsl(var(--sidebar-hue, 220) 60% 48% / 0.48),
+      transparent 70%
+    ),
+    radial-gradient(
+      30% 34% at 55% 55%,
+      hsl(calc(var(--sidebar-hue, 220) + 40) 55% 60% / 0.3),
+      transparent 70%
+    );
+  filter: blur(58px);
+  animation: glass-ambient-drift 16s ease-in-out infinite alternate;
+}
+
+@keyframes glass-ambient-drift {
+  0% {
+    transform: translate3d(-3%, -2%, 0) scale(1);
+  }
+
+  100% {
+    transform: translate3d(3%, 3%, 0) scale(1.08);
+  }
+}
+
+html[data-reduced-motion="true"] .glass-ambient {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-ambient {
+    animation: none;
+  }
+}
+
 html[data-reduced-motion="true"] .status-dot[data-pulse="true"]::after {
   animation: none;
   opacity: 0;

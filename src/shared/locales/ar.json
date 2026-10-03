@@ -2346,7 +2346,9 @@
         "trustedEmpty": "لا يوجد شيء هنا بعد.",
         "trustedExtensions": "الامتدادات الموثوقة",
         "trustedGuidance": "للامتدادات الموثوقة الأخرى، أضف المعرّف الذي يقدمه المطوّر.",
-        "trustedSummary": "الإجمالي: {{count}}"
+        "trustedSummary": "الإجمالي: {{count}}",
+        "confirmDownloads": "Ask before downloading",
+        "confirmDownloadsDesc": "Show a confirmation window when the browser extension hands a download to Motrix."
       },
       "cli": {
         "inbox": {
@@ -3014,5 +3016,20 @@
     "waitingMerged": "تظهر المهام المنتظرة الآن ضمن النشطة. تم فتح هذا العرض.",
     "stoppedSplit": "تُصنف المهام المتوقفة ضمن المكتملة والأخطاء. تم فتح جميع التنزيلات.",
     "invalidStatus": "فئة التنزيل غير صالحة. تم فتح جميع التنزيلات."
+  },
+  "downloadConfirm": {
+    "title": "Download confirmation",
+    "fileName": "File name",
+    "fileNameAuto": "Automatic file name",
+    "saveTo": "Save to",
+    "torrentFile": "Torrent file",
+    "progressTitle": "Download progress",
+    "completed": "Completed",
+    "transferOptions": "Transfer options",
+    "thisTaskOnly": "Applies to this task only",
+    "speedLimit": "Speed limit",
+    "connections": "Connections",
+    "kibPerSecond": "KiB/s",
+    "auto": "Auto"
   }
 }

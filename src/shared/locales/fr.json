@@ -2289,7 +2289,9 @@
         "trustedEmpty": "Aucun élément pour le moment.",
         "trustedExtensions": "Extensions de confiance",
         "trustedGuidance": "Pour les autres extensions de confiance, ajoutez l’ID fourni par leur développeur.",
-        "trustedSummary": "Total : {{count}}"
+        "trustedSummary": "Total : {{count}}",
+        "confirmDownloads": "Demander avant de télécharger",
+        "confirmDownloadsDesc": "Affiche une fenêtre de confirmation lorsque l’extension du navigateur transmet un téléchargement à Motrix."
       },
       "cli": {
         "inbox": {
@@ -2948,5 +2950,20 @@
     "waitingMerged": "Les tâches en attente figurent désormais dans Actifs. Cette vue a été ouverte.",
     "stoppedSplit": "Les tâches arrêtées sont classées dans Terminés et Erreurs. Tous les téléchargements ont été ouverts.",
     "invalidStatus": "Cette catégorie est invalide. Tous les téléchargements ont été ouverts."
+  },
+  "downloadConfirm": {
+    "title": "Confirmer le téléchargement",
+    "fileName": "Nom du fichier",
+    "fileNameAuto": "Nom de fichier automatique",
+    "saveTo": "Enregistrer sous",
+    "torrentFile": "Fichier torrent",
+    "progressTitle": "Progression du téléchargement",
+    "completed": "Terminé",
+    "transferOptions": "Options de transfert",
+    "thisTaskOnly": "S'applique uniquement à cette tâche",
+    "speedLimit": "Limite de vitesse",
+    "connections": "Connexions",
+    "kibPerSecond": "KiB/s",
+    "auto": "Automatique"
   }
 }

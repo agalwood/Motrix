@@ -1880,7 +1880,9 @@
         "pairingStateDegraded": {
           "title": "Extension access is temporarily closed",
           "description": "Motrix could not safely update its paired-extension records. Existing Extension sessions are closed and new access is blocked for this run. Restart Motrix to retry the repair; do not rely on the list below until this message clears."
-        }
+        },
+        "confirmDownloads": "Ask before downloading",
+        "confirmDownloadsDesc": "Show a confirmation window when the browser extension hands a download to Motrix."
       },
       "cli": {
         "title": "Command-line tools",
@@ -2926,5 +2928,20 @@
     "waitingMerged": "Waiting tasks are now shown in Active. The Active view has been opened.",
     "stoppedSplit": "Stopped tasks are now grouped under Completed and Error. All downloads have been opened.",
     "invalidStatus": "This download category is invalid. All downloads have been opened."
+  },
+  "downloadConfirm": {
+    "title": "Download confirmation",
+    "fileName": "File name",
+    "fileNameAuto": "Automatic file name",
+    "saveTo": "Save to",
+    "torrentFile": "Torrent file",
+    "progressTitle": "Download progress",
+    "completed": "Completed",
+    "transferOptions": "Transfer options",
+    "thisTaskOnly": "Applies to this task only",
+    "speedLimit": "Speed limit",
+    "connections": "Connections",
+    "kibPerSecond": "KiB/s",
+    "auto": "Auto"
   }
 }

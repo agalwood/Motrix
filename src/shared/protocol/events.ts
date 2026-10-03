@@ -56,6 +56,14 @@ export const Events = {
   // @shared/schemas/add-task.ts setAddTaskModeEventPayloadSchema.
   // The legacy `{ mode: 'links' | 'torrent' }` shape is a valid subset.
   SetAddTaskMode: 'event:setAddTaskMode',
+  // Payload: DownloadConfirmRequest (@shared/schemas/download-confirm.ts).
+  // Sent directly to the download-confirm window (never broadcast); buffered
+  // in preload like SetAddTaskMode because the window is code-split.
+  DownloadConfirmRequested: 'event:downloadConfirmRequested',
+  // Payload: { taskId: string }. Sent directly to the download-confirm window
+  // after an accepted bridge request finished creating its task — the window
+  // switches from the confirmation view to the IDM-style progress view.
+  DownloadProgressAttached: 'event:downloadProgressAttached',
   // NAT
   NatStateChanged: 'event:natStateChanged',
   NatMappingUpdated: 'event:natMappingUpdated',

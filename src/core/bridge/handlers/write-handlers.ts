@@ -37,6 +37,16 @@ export interface WriteHandlerDeps {
   removeTask: (taskId: string, opts: { deleteFiles: boolean }) => Promise<void>
   /** Create a native task (handleCreateTask, bound to the shell's deps). */
   createTask: (req: TaskCreateRequest) => Promise<{ taskId: string }>
+  /**
+   * Optional shell prompt before a bridge add creates a task (IDM-style
+   * confirmation). Resolves with the (possibly amended) request to proceed,
+   * or null when the user declined — surfaced as RequestCancelled, which the
+   * idempotency cache evicts so a retry prompts again. The headless server
+   * deliberately omits it.
+   */
+  confirmCreateRequest?: (
+    req: TaskCreateRequest
+  ) => Promise<TaskCreateRequest | null>
   /** File count of a base64 torrent — for the torrent select-all default. */
   parseTorrentFileCount: (base64: string) => Promise<number>
   /** Reveal a task-owned output in the platform file manager. */
@@ -140,15 +150,22 @@ export function registerWriteHandlers(
     (params, ctx): Promise<MdxpTask> =>
       run(async () => {
         const createAndSnapshot = async (): Promise<MdxpTask> => {
-          const req = await buildCreateRequest(
-            params,
-            deps.parseTorrentFileCount
-          )
+          let req = await buildCreateRequest(params, deps.parseTorrentFileCount)
           if (req.type === 'http' && params.idempotencyKey) {
             req.requestId = scopedCreateRequestId(
               clientKey(ctx.identity),
               params.idempotencyKey
             )
+          }
+          if (deps.confirmCreateRequest) {
+            const confirmed = await deps.confirmCreateRequest(req)
+            if (!confirmed) {
+              throw makeMdxpError(
+                ErrorCodes.RequestCancelled,
+                'download add declined in the confirmation prompt'
+              )
+            }
+            req = confirmed
           }
           const { taskId } = await deps.createTask(req)
           // handleCreateTask registers the task synchronously, so getById should

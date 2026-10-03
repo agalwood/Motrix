@@ -1866,7 +1866,9 @@
         "pairingStateDegraded": {
           "title": "扩展访问已暂时关闭",
           "description": "Motrix 无法安全更新已配对扩展记录。本次运行中的现有扩展会话已关闭，新访问也已阻止。请重启 Motrix 以重试修复；此提示消失前，不要将下方列表视为完整记录。"
-        }
+        },
+        "confirmDownloads": "下载前询问",
+        "confirmDownloadsDesc": "浏览器扩展将下载交给 Motrix 时，先弹出确认窗口。"
       },
       "cli": {
         "title": "命令行工具",
@@ -2904,5 +2906,20 @@
     "waitingMerged": "等待中的任务现已归入活动任务，已打开活动任务列表。",
     "stoppedSplit": "已停止的任务现按已完成和错误分类，已打开全部下载。",
     "invalidStatus": "下载分类无效，已打开全部下载。"
+  },
+  "downloadConfirm": {
+    "title": "下载确认",
+    "fileName": "文件名",
+    "fileNameAuto": "自动命名",
+    "saveTo": "保存到",
+    "torrentFile": "种子文件",
+    "progressTitle": "下载进度",
+    "completed": "已完成",
+    "transferOptions": "传输选项",
+    "thisTaskOnly": "仅此任务适用",
+    "speedLimit": "限速",
+    "connections": "下载线程数",
+    "kibPerSecond": "KiB/s",
+    "auto": "自动"
   }
 }
