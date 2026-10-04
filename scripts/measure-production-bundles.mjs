@@ -75,17 +75,25 @@ export async function measureProductionBundles() {
       (r) => r.output
     )
     const chunks = outputs.filter((item) => item.type === 'chunk')
+    // Vite emits dedicated browser Workers as assets, not application chunks.
+    // Include their code in total bytes so moving work off-thread cannot hide it.
+    const javascriptAssets = outputs.filter(
+      (item) => item.type === 'asset' && /\.[cm]?js$/.test(item.fileName)
+    )
+    const code = (item) => (item.type === 'chunk' ? item.code : item.source)
     const initial = initialChunks(chunks)
     const bytes = (items) =>
-      items.reduce((sum, item) => sum + Buffer.byteLength(item.code), 0)
+      items.reduce((sum, item) => sum + Buffer.byteLength(code(item)), 0)
     const gzipBytes = (items) =>
-      items.reduce((sum, item) => sum + gzipSync(item.code).length, 0)
+      items.reduce((sum, item) => sum + gzipSync(code(item)).length, 0)
     const allModules = moduleIds(chunks)
     const startupModules = moduleIds(initial)
     report[target] = {
       copiesPublicAssets,
-      totalBytes: bytes(chunks),
-      totalGzipBytes: gzipBytes(chunks),
+      totalBytes: bytes([...chunks, ...javascriptAssets]),
+      totalGzipBytes: gzipBytes([...chunks, ...javascriptAssets]),
+      javascriptAssetBytes: bytes(javascriptAssets),
+      javascriptAssetCount: javascriptAssets.length,
       initialBytes: bytes(initial),
       initialGzipBytes: gzipBytes(initial),
       initialChunks: initial.length,

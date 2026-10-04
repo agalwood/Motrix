@@ -1,10 +1,54 @@
 import type { ElkNode } from 'elkjs'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   type CallGraphNodeLayout,
   layoutCallGraphNodes,
 } from './call-graph-layout'
 import { buildCallGraphModel, type CallGraphModel } from './call-graph-model'
+
+const { createEngine } = vi.hoisted(() => ({ createEngine: vi.fn() }))
+vi.mock('./call-graph-engine', () => ({ createCallGraphEngine: createEngine }))
+
+describe('shared production layout engine', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    createEngine.mockReset().mockResolvedValue({
+      layout: async (graph: ElkNode) => validLayout(graph),
+    })
+  })
+
+  it('shares initialization across preloading and navigation', async () => {
+    const { preloadCallGraphLayout, layoutCallGraphNodes: layout } =
+      await import('./call-graph-layout')
+    const [first, second, result] = await Promise.all([
+      preloadCallGraphLayout(),
+      preloadCallGraphLayout(),
+      layout(model()),
+    ])
+    expect(first).toBeUndefined()
+    expect(second).toBeUndefined()
+    expect(Object.keys(result.positions)).toHaveLength(2)
+    expect(createEngine).toHaveBeenCalledOnce()
+  })
+
+  it('retries a failed speculative load when the graph is opened', async () => {
+    createEngine.mockRejectedValueOnce(new Error('Worker could not load'))
+    const { preloadCallGraphLayout, layoutCallGraphNodes: layout } =
+      await import('./call-graph-layout')
+    await expect(preloadCallGraphLayout()).resolves.toBeUndefined()
+    expect(Object.keys((await layout(model())).positions)).toHaveLength(2)
+    expect(createEngine).toHaveBeenCalledTimes(2)
+  })
+
+  it('replaces an engine that fails after successful initialization', async () => {
+    const { preloadCallGraphLayout, layoutCallGraphNodes: layout } =
+      await import('./call-graph-layout')
+    await preloadCallGraphLayout()
+    createEngine.mock.calls[0]?.[0]()
+    await layout(model())
+    expect(createEngine).toHaveBeenCalledTimes(2)
+  })
+})
 
 function model(calls = 3): CallGraphModel {
   return buildCallGraphModel(

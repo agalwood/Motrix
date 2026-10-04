@@ -23,6 +23,8 @@ interface BundleMetrics {
   bundledLocales: string[]
   initialElk: boolean
   bundledElk: boolean
+  javascriptAssetBytes: number
+  javascriptAssetCount: number
 }
 
 let report: Record<string, BundleMetrics>
@@ -63,6 +65,11 @@ describe('production bundle loading and size contracts', () => {
       if (target.name.startsWith('renderer')) {
         expect(result.initialElk).toBe(false)
         expect(result.bundledElk).toBe(true)
+        expect(result.javascriptAssetCount).toBe(1)
+        expect(result.javascriptAssetBytes).toBeGreaterThan(MIB)
+        expect(result.totalBytes).toBeGreaterThan(
+          result.initialBytes + result.javascriptAssetBytes
+        )
       }
     }
   )

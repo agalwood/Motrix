@@ -7,6 +7,7 @@ import { PRODUCTION_OUTPUT } from './scripts/vite-production-output'
 export default defineConfig({
   base: '/',
   plugins: [tailwindcss()],
+  worker: { rollupOptions: { output: PRODUCTION_OUTPUT } },
   define: {
     __MOTRIX_TARGET__: JSON.stringify('web'),
     __MOTRIX_PREVIEW_MAC_MENU__: JSON.stringify(false),

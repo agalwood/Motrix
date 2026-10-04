@@ -23,13 +23,25 @@ const ELK_LAYOUT_OPTIONS = {
 let productionElk: Promise<ElkLayoutAdapter> | undefined
 
 function loadProductionElk(): Promise<ElkLayoutAdapter> {
-  productionElk ??= import('elkjs/lib/elk.bundled.js')
-    .then(({ default: ELK }) => new ELK())
-    .catch((error) => {
-      productionElk = undefined
-      throw error
-    })
+  if (!productionElk) {
+    const reset = () => {
+      if (productionElk === loading) productionElk = undefined
+    }
+    const loading = import('./call-graph-engine')
+      .then(({ createCallGraphEngine }) => createCallGraphEngine(reset))
+      .catch((error) => {
+        reset()
+        throw error
+      })
+    productionElk = loading
+  }
   return productionElk
+}
+
+export async function preloadCallGraphLayout(): Promise<void> {
+  // Speculation must never surface an unhandled rejection. Actual navigation
+  // retries initialization and uses the graph's existing error/retry UI.
+  await loadProductionElk().catch(() => {})
 }
 
 function compareStrings(left: string, right: string): number {
