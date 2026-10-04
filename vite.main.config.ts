@@ -1,6 +1,7 @@
 import { builtinModules, createRequire } from 'node:module'
 import path from 'node:path'
 import { defineConfig } from 'vite'
+import { PRODUCTION_OUTPUT } from './scripts/vite-production-output'
 
 const require = createRequire(import.meta.url)
 const pkg = require('./package.json') as {
@@ -52,9 +53,12 @@ function isExternal(id: string): boolean {
 }
 
 export default defineConfig({
+  publicDir: false,
   build: {
     outDir: 'dist/main',
     emptyOutDir: true,
+    minify: 'oxc',
+    sourcemap: false,
     target: 'node20',
     lib: {
       entry: 'src/main/index.ts',
@@ -62,6 +66,7 @@ export default defineConfig({
       fileName: () => 'index.cjs',
     },
     rollupOptions: {
+      output: PRODUCTION_OUTPUT,
       external: isExternal,
     },
   },

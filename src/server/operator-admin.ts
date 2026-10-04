@@ -5,7 +5,7 @@ import {
   resolveSupportedLocale,
   SUPPORTED_LOCALE_CODES,
 } from '@shared/constants/locales'
-import { I18N_RESOURCES } from '@shared/i18n-resources'
+import { I18N_RESOURCES, loadI18nLocale } from '@shared/i18n-resources'
 import {
   BridgeCommands,
   BridgeQueries,
@@ -217,7 +217,10 @@ async function createTranslator(env: NodeJS.ProcessEnv): Promise<Translate> {
   const locale = resolveSupportedLocale(env.MOTRIX_HOST_LANGUAGE, env.LANG)
   const instance = createInstance()
   await instance.init({
-    resources: I18N_RESOURCES,
+    resources: {
+      ...I18N_RESOURCES,
+      [locale]: { translation: await loadI18nLocale(locale) },
+    },
     supportedLngs: SUPPORTED_LOCALE_CODES,
     lng: locale,
     fallbackLng: FALLBACK_LOCALE,

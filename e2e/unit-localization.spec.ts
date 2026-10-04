@@ -2,7 +2,7 @@ import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { expect, test, waitForEngineReady } from './fixtures/electron-app'
 
-test('language changes localize speed limits and preserve stored bytes', async ({
+test('offline language changes localize speed limits and preserve stored bytes', async ({
   mainWindow,
 }, testInfo) => {
   await waitForEngineReady(mainWindow)
@@ -17,6 +17,7 @@ test('language changes localize speed limits and preserve stored bytes', async (
     })
   }, Commands.UpdateSettings)
   const badge = mainWindow.locator('[data-slot="downloads-speed-limit"]')
+  await mainWindow.context().setOffline(true)
   for (const [locale, expected] of [
     ['fr', '1,5 Mio/s'],
     ['ru', '1,5 МиБ/с'],
@@ -32,6 +33,11 @@ test('language changes localize speed limits and preserve stored bytes', async (
       { channel: Commands.UpdateSettings, language: locale }
     )
     await badge.hover()
+    await expect(mainWindow.locator('html')).toHaveAttribute('lang', locale)
+    await expect(mainWindow.locator('html')).toHaveAttribute(
+      'dir',
+      locale === 'ar' ? 'rtl' : 'ltr'
+    )
     await expect(mainWindow.getByRole('tooltip')).toContainText(expected)
     await expect
       .poll(() =>
@@ -41,7 +47,7 @@ test('language changes localize speed limits and preserve stored bytes', async (
         )
       )
       .toMatchObject({
-        app: { byteUnitSystem: 'binary' },
+        app: { byteUnitSystem: 'binary', language: locale },
         speedLimit: { base: { upload: 1_048_576, download: 1_572_864 } },
       })
     await mainWindow.screenshot({

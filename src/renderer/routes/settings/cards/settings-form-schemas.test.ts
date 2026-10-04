@@ -1,5 +1,6 @@
 import { i18n } from '@renderer/lib/i18n'
 import { settingsValidationError } from '@renderer/lib/settings-validation'
+import { ensureI18nLocale } from '@shared/i18n-resources'
 import {
   DEFAULT_APP_SETTINGS,
   DEFAULT_ENGINE_SETTINGS,
@@ -171,7 +172,8 @@ describe('Settings form schemas', () => {
     ['en-US', 'Enter a whole number from 1024 to 65535.'],
     ['zh-CN', '请输入 1024–65535 之间的整数。'],
     ['zh-TW', '請輸入 1024–65535 之間的整數。'],
-  ])('explains numeric bounds in %s', (locale, message) => {
+  ] as const)('explains numeric bounds in %s', async (locale, message) => {
+    await ensureI18nLocale(i18n, locale)
     const result = advancedFormSchema.safeParse(
       { ...DEFAULT_ENGINE_SETTINGS, rpcPort: 1e100 },
       {

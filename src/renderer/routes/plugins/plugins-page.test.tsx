@@ -22,6 +22,10 @@ vi.mock('@renderer/lib/transport', () => ({
 }))
 
 const mockRefresh = vi.fn()
+const mockPreload = vi.fn()
+vi.mock('./hooks/use-call-graph-preload', () => ({
+  useCallGraphPreload: () => mockPreload,
+}))
 let mockRefreshing = false
 let mockList: PluginListDTO[] = []
 let mockRegistry: RegistryPluginDTO[] = []
@@ -125,6 +129,7 @@ describe('PluginsPage', () => {
   beforeEach(async () => {
     mockRefreshing = false
     mockRefresh.mockClear()
+    mockPreload.mockClear()
     mockList = []
     mockRegistry = []
     mockInvoke.mockClear()
@@ -156,6 +161,15 @@ describe('PluginsPage', () => {
   it('does not request the plugin command graph on the default route', () => {
     renderPage()
     expect(mockInvoke).not.toHaveBeenCalledWith(Queries.GetPluginCommandGraph)
+  })
+
+  it('prepares diagnostics on pointer and keyboard intent', () => {
+    renderPage()
+    const diagnostics = screen.getByRole('link', { name: 'Diagnostics' })
+    fireEvent.pointerEnter(diagnostics)
+    fireEvent.focus(diagnostics)
+    fireEvent.pointerDown(diagnostics)
+    expect(mockPreload).toHaveBeenCalledTimes(3)
   })
 
   it('uses the first-use guide as the empty state without a duplicate hero', () => {

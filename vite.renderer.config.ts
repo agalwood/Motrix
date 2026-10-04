@@ -2,12 +2,14 @@ import path from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
 import packageJson from './package.json' with { type: 'json' }
+import { PRODUCTION_OUTPUT } from './scripts/vite-production-output'
 
 export default defineConfig(({ command }) => ({
   // Electron file:// + asar needs relative asset paths; the default
   // '/' resolves to the filesystem root, not inside the asar.
   base: './',
   plugins: [tailwindcss()],
+  worker: { rollupOptions: { output: PRODUCTION_OUTPUT } },
   define: {
     __MOTRIX_TARGET__: JSON.stringify('electron'),
     __MOTRIX_PREVIEW_MAC_MENU__: JSON.stringify(
@@ -21,8 +23,12 @@ export default defineConfig(({ command }) => ({
     }),
   },
   build: {
+    cssMinify: 'lightningcss',
+    rollupOptions: { output: PRODUCTION_OUTPUT },
     outDir: 'dist/renderer',
     emptyOutDir: true,
+    minify: 'oxc',
+    sourcemap: false,
   },
   resolve: {
     alias: {
