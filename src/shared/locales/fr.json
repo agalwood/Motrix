@@ -1544,7 +1544,8 @@
       "officialVerified": "Signature officielle de Motrix vérifiée",
       "officialSignatureInvalid": "La signature officielle du plugin n’a pas pu être vérifiée. Actualisez le catalogue.",
       "officialBuiltinOnly": "Cette version nécessite les privilèges d’un plugin intégré. Installez une version plus récente prenant en charge l’installation facultative.",
-      "builtinAlreadyInstalled": "Ce plugin est déjà intégré. Utilisez son action de mise à jour."
+      "builtinAlreadyInstalled": "Ce plugin est déjà intégré. Utilisez son action de mise à jour.",
+      "hostIncompatible": "Ce plugin nécessite Motrix {{required}} ; version actuelle : {{current}}. Mettez à niveau ou passez à une version compatible de Motrix, puis réessayez."
     },
     "lead": "Ajoutez des fonctionnalités à Motrix. Gardez les extensions de confiance et désactivez les autres.",
     "logs": {

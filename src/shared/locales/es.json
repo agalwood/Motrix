@@ -2360,7 +2360,8 @@
       "officialVerified": "Firma oficial de Motrix verificada",
       "officialSignatureInvalid": "No se pudo verificar la firma oficial del complemento. Actualiza el catálogo.",
       "officialBuiltinOnly": "Esta versión requiere privilegios de un complemento integrado. Instala una versión más reciente que admita la instalación opcional.",
-      "builtinAlreadyInstalled": "Este complemento ya está integrado. Usa su opción de actualización."
+      "builtinAlreadyInstalled": "Este complemento ya está integrado. Usa su opción de actualización.",
+      "hostIncompatible": "Este complemento requiere Motrix {{required}}; versión actual: {{current}}. Actualiza o cambia a una versión compatible de Motrix e inténtalo de nuevo."
     },
     "consent": {
       "installTitle": "¿Instalar {{name}} {{version}}?",

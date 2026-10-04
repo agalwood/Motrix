@@ -85,6 +85,24 @@ describe('RegistryClient', () => {
     })
   }
 
+  it('annotates the media-merge beta requirement with the actual host version', async () => {
+    const body = structuredClone(fixture)
+    body.plugins[0].id = 'motrix.media-merge'
+    body.plugins[0].engines.motrix = '>=2.0.0-beta.47 <3.0.0'
+    const { impl } = makeFetch([{ status: 200, body }])
+    const client = makeClient(impl)
+    for (const [hostVersion, compatible] of [
+      ['2.0.0-beta.46', false],
+      ['2.0.0-beta.47', true],
+      ['2.0.0', true],
+      ['3.0.0', false],
+    ] as const) {
+      expect(await client.get('motrix.media-merge', hostVersion)).toMatchObject(
+        { hostVersion, compatible }
+      )
+    }
+  })
+
   it('rejects a legacy file envelope, fetches unconditionally, and overwrites in format 2', async () => {
     await writeFile(
       cachePath,

@@ -133,3 +133,11 @@ export interface ConsentPayload {
   diff: TrustSurfaceDiff | null
   ffmpegRuntime: ConsentPayloadFfmpegRuntime
 }
+
+/** Expected install failure, returned as data so both transports retain details. */
+export interface PluginInstallCompatibilityFailure {
+  incompatible: {
+    required: string
+    hostVersion: string
+  }
+}

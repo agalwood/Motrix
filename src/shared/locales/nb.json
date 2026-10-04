@@ -1527,7 +1527,8 @@
       "officialVerified": "Offisiell Motrix-signatur bekreftet",
       "officialSignatureInvalid": "Kunne ikke bekrefte den offisielle signaturen til programtillegget. Oppdater katalogen.",
       "officialBuiltinOnly": "Denne versjonen krever rettigheter for innebygde programtillegg. Installer en nyere versjon som støtter valgfri installasjon.",
-      "builtinAlreadyInstalled": "Dette programtillegget er allerede innebygd. Bruk oppdateringsfunksjonen."
+      "builtinAlreadyInstalled": "Dette programtillegget er allerede innebygd. Bruk oppdateringsfunksjonen.",
+      "hostIncompatible": "Dette programtillegget krever Motrix {{required}}; gjeldende versjon: {{current}}. Oppgrader eller bytt til en kompatibel Motrix-versjon og prøv igjen."
     },
     "lead": "Legg til små funksjoner i Motrix. Behold dem du stoler på, og slå av resten.",
     "logs": {

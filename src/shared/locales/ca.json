@@ -1544,7 +1544,8 @@
       "officialVerified": "Signatura oficial de Motrix verificada",
       "officialSignatureInvalid": "No s’ha pogut verificar la signatura oficial del connector. Actualitzeu el catàleg.",
       "officialBuiltinOnly": "Aquesta versió requereix privilegis de connector integrat. Instal·leu una versió més recent que admeti la instal·lació opcional.",
-      "builtinAlreadyInstalled": "Aquest connector ja està integrat. Feu servir la seva acció d’actualització."
+      "builtinAlreadyInstalled": "Aquest connector ja està integrat. Feu servir la seva acció d’actualització.",
+      "hostIncompatible": "Aquest complement requereix Motrix {{required}}; versió actual: {{current}}. Actualitza o canvia a una versió compatible de Motrix i torna-ho a provar."
     },
     "lead": "Afegiu petites funcions al Motrix. Manteniu els connectors de confiança i desactiveu la resta.",
     "logs": {

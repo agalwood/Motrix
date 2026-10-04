@@ -2361,7 +2361,8 @@
       "officialVerified": "Assinatura oficial do Motrix verificada",
       "officialSignatureInvalid": "Não foi possível verificar a assinatura oficial do plugin. Atualize o catálogo.",
       "officialBuiltinOnly": "Esta versão exige privilégios de plugin integrado. Instale uma versão mais recente que permita a instalação opcional.",
-      "builtinAlreadyInstalled": "Este plugin já está integrado. Use a função de atualização dele."
+      "builtinAlreadyInstalled": "Este plugin já está integrado. Use a função de atualização dele.",
+      "hostIncompatible": "Este plugin requer Motrix {{required}}; versão atual: {{current}}. Atualize ou mude para uma versão compatível do Motrix e tente novamente."
     },
     "consent": {
       "installTitle": "Instalar {{name}} {{version}}?",

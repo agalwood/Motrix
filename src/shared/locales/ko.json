@@ -2329,7 +2329,8 @@
       "officialVerified": "Motrix 공식 서명 확인됨",
       "officialSignatureInvalid": "플러그인의 공식 서명을 확인할 수 없습니다. 마켓을 새로 고침해 주세요.",
       "officialBuiltinOnly": "이 버전은 내장 플러그인 전용 권한이 필요합니다. 선택 설치를 지원하는 최신 버전을 설치해 주세요.",
-      "builtinAlreadyInstalled": "이 플러그인은 이미 내장되어 있습니다. 플러그인 업데이트 기능을 사용해 주세요."
+      "builtinAlreadyInstalled": "이 플러그인은 이미 내장되어 있습니다. 플러그인 업데이트 기능을 사용해 주세요.",
+      "hostIncompatible": "이 플러그인에는 Motrix {{required}}이(가) 필요합니다. 현재 버전: {{current}}. 호환되는 Motrix 버전으로 업그레이드하거나 변경한 후 다시 시도하세요."
     },
     "consent": {
       "installTitle": "{{name}} {{version}}을(를) 설치하시겠습니까?",

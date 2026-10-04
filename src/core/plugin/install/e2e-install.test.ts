@@ -1137,6 +1137,49 @@ describe('official optional plugin lifecycle', () => {
     )
   }
 
+  it.each([
+    ['2.0.0-beta.46', false],
+    ['2.0.0-beta.47', true],
+    ['2.0.0-beta.48', true],
+    ['2.0.0', true],
+    ['3.0.0', false],
+  ])(
+    'enforces the signed media-merge manifest requirement on host %s',
+    async (hostVersion, compatible) => {
+      installer = await makeInstaller({
+        hostVersion,
+        signingPubkeys: [signing.pem],
+        ffmpegDetect: async () => ({ available: true, version: '7.0.0' }),
+      })
+      const result = stage({
+        id: 'motrix.media-merge',
+        version: '0.1.0',
+        engines: { motrix: '>=2.0.0-beta.47 <3.0.0' },
+        permissions: ['ffmpeg'],
+        optionalPermissions: [],
+        categories: ['post-action'],
+      })
+      if (compatible) {
+        const staged = await result
+        expect(staged.committed).toBe(false)
+        expect(staged.consent.trustSurface.notVerified).toBe(false)
+        expect(staged.consent.trustSurface.enginesMotrix).toBe(
+          '>=2.0.0-beta.47 <3.0.0'
+        )
+        expect(staged.consent.ffmpegRuntime).toMatchObject({
+          available: true,
+          requiredByPlugin: 'required',
+        })
+      } else {
+        await expect(result).rejects.toMatchObject({
+          required: '>=2.0.0-beta.47 <3.0.0',
+          hostVersion,
+        })
+        expect(registry.list()).toEqual([])
+      }
+    }
+  )
+
   it('installs through the server registry boundary with consent, persists grants, rediscovers and uninstalls', async () => {
     const { entry, bytes } = await packageFor()
     const service = new ServerPluginInstallService({

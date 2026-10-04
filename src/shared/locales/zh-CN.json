@@ -2329,7 +2329,8 @@
       "officialVerified": "已验证 Motrix 官方签名",
       "officialSignatureInvalid": "无法验证此插件的官方签名，请刷新插件市场后重试。",
       "officialBuiltinOnly": "此版本需要内置插件专属权限，请安装支持可选安装的新版本。",
-      "builtinAlreadyInstalled": "此插件已内置，请使用插件的更新功能。"
+      "builtinAlreadyInstalled": "此插件已内置，请使用插件的更新功能。",
+      "hostIncompatible": "此插件需要 Motrix {{required}}，当前版本为 {{current}}。请升级或切换到满足要求的 Motrix 版本后重试。"
     },
     "consent": {
       "installTitle": "安装 {{name}} {{version}}？",

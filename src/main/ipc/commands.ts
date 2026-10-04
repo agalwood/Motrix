@@ -31,6 +31,7 @@ import {
 } from '@core/plugin/install/registry-expectation'
 import type { SourceInput } from '@core/plugin/install/source-resolver'
 import { downloadUrlMoext } from '@core/plugin/install/url-fetcher'
+import { PluginEngineVersionTooOld } from '@core/plugin/manifest/errors'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
 import type { RegistryClient } from '@core/plugin/registry/registry-client'
 import { downloadRegistryMoext } from '@core/plugin/registry/registry-fetcher'
@@ -125,6 +126,7 @@ import {
   type CliInstallRequest,
 } from '@shared/types/cli-tool'
 import { EngineRecoveryAction, EngineState } from '@shared/types/engine'
+import type { PluginInstallCompatibilityFailure } from '@shared/types/plugin-install'
 import type { ProxySettings } from '@shared/types/settings'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
@@ -1734,49 +1736,61 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     },
 
     [Commands.InstallPlugin]: async (payload: unknown) => {
-      const parsed = installPluginPayloadSchema.parse(payload)
-      let moextPath: string
-      let expect: RegistryExpectation | undefined
-      if (parsed.sourceType === 'registry') {
-        const entry = await registryClient.get(parsed.pluginId, hostVersion)
-        if (!entry) {
-          throw new AppError(
-            ErrorCode.PluginManifestInvalid,
-            'plugin.install.registry_entry_missing'
+      try {
+        const parsed = installPluginPayloadSchema.parse(payload)
+        let moextPath: string
+        let expect: RegistryExpectation | undefined
+        if (parsed.sourceType === 'registry') {
+          const entry = await registryClient.get(parsed.pluginId, hostVersion)
+          if (!entry) {
+            throw new AppError(
+              ErrorCode.PluginManifestInvalid,
+              'plugin.install.registry_entry_missing'
+            )
+          }
+          // The UI disables the button; main still enforces the gate
+          // (viewable-but-not-installable is a contract, not a style).
+          if (!entry.compatible) {
+            throw new PluginEngineVersionTooOld(
+              entry.engines.motrix,
+              hostVersion
+            )
+          }
+          moextPath = path.join(
+            userDataDir,
+            'plugin-downloads',
+            `registry-${parsed.pluginId}-${Date.now()}.moext`
           )
+          await downloadRegistryMoext(entry, moextPath)
+          expect = buildRegistryExpectation(entry)
+        } else {
+          moextPath = await materializeMoext(parsed)
         }
-        // The UI disables the button; main still enforces the gate
-        // (viewable-but-not-installable is a contract, not a style).
-        if (!entry.compatible) {
-          throw new AppError(
-            ErrorCode.PluginManifestInvalid,
-            'plugin.install.registry_incompatible'
-          )
-        }
-        moextPath = path.join(
-          userDataDir,
-          'plugin-downloads',
-          `registry-${parsed.pluginId}-${Date.now()}.moext`
+        const result = await pluginInstaller.stage(
+          moextPath,
+          toSourceInput(parsed),
+          { expect, runtimeHost: pluginHost }
         )
-        await downloadRegistryMoext(entry, moextPath)
-        expect = buildRegistryExpectation(entry)
-      } else {
-        moextPath = await materializeMoext(parsed)
+        if (result.committed && result.pluginId) {
+          eventBus.emit(Events.PluginInstalled, { pluginId: result.pluginId })
+        } else {
+          eventBus.emit(Events.PluginInstallConsentRequested, {
+            stagingId: result.stagingId,
+            consent: result.consent,
+          })
+        }
+        return result
+      } catch (error) {
+        if (error instanceof PluginEngineVersionTooOld) {
+          return {
+            incompatible: {
+              required: error.required,
+              hostVersion: error.hostVersion,
+            },
+          } satisfies PluginInstallCompatibilityFailure
+        }
+        throw error
       }
-      const result = await pluginInstaller.stage(
-        moextPath,
-        toSourceInput(parsed),
-        { expect, runtimeHost: pluginHost }
-      )
-      if (result.committed && result.pluginId) {
-        eventBus.emit(Events.PluginInstalled, { pluginId: result.pluginId })
-      } else {
-        eventBus.emit(Events.PluginInstallConsentRequested, {
-          stagingId: result.stagingId,
-          consent: result.consent,
-        })
-      }
-      return result
     },
 
     [Commands.CheckPluginUpdates]: async (payload: unknown) => {

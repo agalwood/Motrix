@@ -2429,7 +2429,8 @@
       "officialVerified": "已驗證 Motrix 官方簽章",
       "officialSignatureInvalid": "無法驗證此外掛的官方簽章，請重新整理外掛市集後再試。",
       "officialBuiltinOnly": "此版本需要內建外掛專屬權限，請安裝支援選用安裝的新版本。",
-      "builtinAlreadyInstalled": "此外掛已內建，請使用外掛的更新功能。"
+      "builtinAlreadyInstalled": "此外掛已內建，請使用外掛的更新功能。",
+      "hostIncompatible": "此擴充功能需要 Motrix {{required}}，目前版本為 {{current}}。請升級或切換至符合要求的 Motrix 版本後重試。"
     },
     "consent": {
       "installTitle": "要安裝 {{name}} {{version}} 嗎？",

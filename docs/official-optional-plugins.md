@@ -22,6 +22,29 @@ and upgrade consent as community plugins. Official signing allows the
 `pre-resolve`. Plugins bundled with the app continue to use the separate signed
 built-in update channel and cannot be replaced through optional installation.
 
+## Host compatibility
+
+`motrix.media-merge` is an official optional plugin. Its current manifest requires
+`>=2.0.0-beta.47 <3.0.0`: beta.46 is rejected; beta.47, later 2.0 betas, and
+compatible 2.x releases are accepted; 3.0.0 is rejected. Configure FFmpeg before
+installing it and review the required `ffmpeg` permission.
+
+An incompatible marketplace entry remains visible with installation disabled.
+Its detail page shows the full required range and the current host version,
+with guidance to upgrade or switch to a compatible version. The host checks the
+registry requirement before downloading, then independently checks the package
+manifest before requesting consent. Package imports also return the requirement
+and current version when manifest compatibility fails. Both desktop and server
+use the same localized message. No plugin is installed and no grants are saved
+on this failure. A range with an upper bound must not be shortened to “version+”.
+
+The screenshots below use local UI fixtures to illustrate the actual components;
+they do not indicate that a package has been published to the live marketplace.
+
+![Official optional plugin consent (Simplified Chinese)](../screenshots/motrix-official-plugin-consent-cn-light.png)
+
+![Media merge rejected on beta.46 (Simplified Chinese)](../screenshots/motrix-plugin-version-requirement-cn-light.png)
+
 ## Publishing requirements
 
 The registry v2 format is unchanged. An optional official entry supplies a

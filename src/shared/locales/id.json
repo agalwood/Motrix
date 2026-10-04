@@ -2329,7 +2329,8 @@
       "officialVerified": "Tanda tangan resmi Motrix terverifikasi",
       "officialSignatureInvalid": "Tanda tangan resmi plugin tidak dapat diverifikasi. Coba segarkan katalog plugin.",
       "officialBuiltinOnly": "Versi ini memerlukan hak akses plugin bawaan. Instal versi lebih baru yang mendukung instalasi opsional.",
-      "builtinAlreadyInstalled": "Plugin ini sudah menjadi bawaan. Gunakan tindakan pembaruannya."
+      "builtinAlreadyInstalled": "Plugin ini sudah menjadi bawaan. Gunakan tindakan pembaruannya.",
+      "hostIncompatible": "Plugin ini memerlukan Motrix {{required}}; versi saat ini: {{current}}. Tingkatkan atau beralih ke versi Motrix yang kompatibel, lalu coba lagi."
     },
     "consent": {
       "installTitle": "Pasang {{name}} {{version}}?",

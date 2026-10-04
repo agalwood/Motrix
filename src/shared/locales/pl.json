@@ -2377,7 +2377,8 @@
       "officialVerified": "Oficjalny podpis Motrix zweryfikowany",
       "officialSignatureInvalid": "Nie udało się zweryfikować oficjalnego podpisu wtyczki. Odśwież katalog.",
       "officialBuiltinOnly": "Ta wersja wymaga uprawnień wbudowanej wtyczki. Zainstaluj nowszą wersję obsługującą opcjonalną instalację.",
-      "builtinAlreadyInstalled": "Ta wtyczka jest już wbudowana. Użyj jej funkcji aktualizacji."
+      "builtinAlreadyInstalled": "Ta wtyczka jest już wbudowana. Użyj jej funkcji aktualizacji.",
+      "hostIncompatible": "Ta wtyczka wymaga Motrix {{required}}; bieżąca wersja: {{current}}. Zaktualizuj Motrix lub przejdź na zgodną wersję i spróbuj ponownie."
     },
     "consent": {
       "installTitle": "Zainstalować {{name}} {{version}}?",

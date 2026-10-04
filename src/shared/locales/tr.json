@@ -2345,7 +2345,8 @@
       "officialVerified": "Resmî Motrix imzası doğrulandı",
       "officialSignatureInvalid": "Eklentinin resmî imzası doğrulanamadı. Eklenti mağazasını yenilemeyi deneyin.",
       "officialBuiltinOnly": "Bu sürüm yerleşik eklenti yetkileri gerektirir. İsteğe bağlı kurulumu destekleyen daha yeni bir sürüm yükleyin.",
-      "builtinAlreadyInstalled": "Bu eklenti zaten yerleşiktir. Güncelleme işlevini kullanın."
+      "builtinAlreadyInstalled": "Bu eklenti zaten yerleşiktir. Güncelleme işlevini kullanın.",
+      "hostIncompatible": "Bu eklenti Motrix {{required}} gerektirir; mevcut sürüm: {{current}}. Motrix uygulamasını yükseltin veya uyumlu bir sürüme geçip yeniden deneyin."
     },
     "consent": {
       "installTitle": "{{name}} {{version}} yüklensin mi?",

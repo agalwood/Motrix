@@ -2345,7 +2345,8 @@
       "officialVerified": "Official Motrix signature verified",
       "officialSignatureInvalid": "The official plugin signature could not be verified. Try refreshing the marketplace.",
       "officialBuiltinOnly": "This version requires built-in privileges. Install a newer version that supports optional installation.",
-      "builtinAlreadyInstalled": "This plugin is already built in. Use its update action instead."
+      "builtinAlreadyInstalled": "This plugin is already built in. Use its update action instead.",
+      "hostIncompatible": "This plugin requires Motrix {{required}}; current version: {{current}}. Upgrade or switch to a compatible Motrix version and try again."
     },
     "consent": {
       "installTitle": "Install {{name}} {{version}}?",

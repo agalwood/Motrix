@@ -1,6 +1,10 @@
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
-import type { ConsentPayload, GrantsMap } from '@shared/types/plugin-install'
+import type {
+  ConsentPayload,
+  GrantsMap,
+  PluginInstallCompatibilityFailure,
+} from '@shared/types/plugin-install'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -49,10 +53,20 @@ export function usePluginInstall() {
     setPending(true)
     setError(null)
     try {
-      const r = (await transport.invoke(
-        Commands.InstallPlugin,
-        input
-      )) as InstallResult
+      const r = (await transport.invoke(Commands.InstallPlugin, input)) as
+        | InstallResult
+        | PluginInstallCompatibilityFailure
+      if ('incompatible' in r) {
+        setStagingId(null)
+        setConsent(null)
+        setError(
+          t('plugins.install.hostIncompatible', {
+            required: r.incompatible.required,
+            current: r.incompatible.hostVersion,
+          })
+        )
+        return false
+      }
       if (r.committed) {
         setStagingId(null)
         setConsent(null)

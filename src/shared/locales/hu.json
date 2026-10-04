@@ -2345,7 +2345,8 @@
       "officialVerified": "A hivatalos Motrix-aláírás ellenőrizve",
       "officialSignatureInvalid": "A bővítmény hivatalos aláírása nem ellenőrizhető. Frissítse a katalógust.",
       "officialBuiltinOnly": "Ez a verzió beépített bővítmény jogosultságait igényli. Telepítsen újabb, választható telepítést támogató verziót.",
-      "builtinAlreadyInstalled": "Ez a bővítmény már be van építve. Használja a frissítési műveletét."
+      "builtinAlreadyInstalled": "Ez a bővítmény már be van építve. Használja a frissítési műveletét.",
+      "hostIncompatible": "A bővítményhez Motrix {{required}} szükséges; jelenlegi verzió: {{current}}. Frissítsen vagy váltson kompatibilis Motrix-verzióra, és próbálja újra."
     },
     "consent": {
       "installTitle": "Telepíted a(z) {{name}} {{version}} verzióját?",

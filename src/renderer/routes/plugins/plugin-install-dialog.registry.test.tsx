@@ -33,6 +33,32 @@ beforeEach(() => {
 })
 
 describe('PluginInstallDialog with fixedSource', () => {
+  it('explains media-merge compatibility without showing consent or allowing commit', async () => {
+    mockInvoke.mockResolvedValueOnce({
+      incompatible: {
+        required: '>=2.0.0-beta.47 <3.0.0',
+        hostVersion: '2.0.0-beta.46',
+      },
+    })
+    const onOpenChange = vi.fn()
+    render(
+      <PluginInstallDialog
+        open
+        onOpenChange={onOpenChange}
+        fixedSource={{ sourceType: 'registry', pluginId: 'motrix.media-merge' }}
+      />
+    )
+    expect(
+      await screen.findByText(
+        /This plugin requires Motrix >=2.0.0-beta.47 <3.0.0; current version: 2.0.0-beta.46/
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByTestId('consent-panel')).toBeNull()
+    expect(screen.getByTestId('install-commit-btn')).toBeDisabled()
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(mockInvoke).toHaveBeenCalledTimes(1)
+  })
+
   it('auto-starts a registry install and hides the source picker', async () => {
     render(
       <PluginInstallDialog

@@ -116,6 +116,14 @@ export function RegistryDetailPanel({ entry }: Props) {
                     {t('plugins.registry.viewOnWebsite')}
                   </Button>
                 </div>
+                {!entry.compatible && entry.hostVersion && (
+                  <p role="status" className="text-sm text-muted-foreground">
+                    {t('plugins.install.hostIncompatible', {
+                      required: entry.engines.motrix,
+                      current: entry.hostVersion,
+                    })}
+                  </p>
+                )}
               </Card>
 
               {features.length > 0 && (

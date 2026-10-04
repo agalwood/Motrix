@@ -20,6 +20,7 @@ import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
 import type { ActivationDispatcher } from '@core/plugin/host/activation-dispatcher'
 import type { PluginHost } from '@core/plugin/host/plugin-host'
 import type { PluginInstaller } from '@core/plugin/install/plugin-installer'
+import { PluginEngineVersionTooOld } from '@core/plugin/manifest/errors'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
 import type { RegistryClient } from '@core/plugin/registry/registry-client'
 import { scanForUpdates } from '@core/plugin/registry/update-scan'
@@ -96,6 +97,7 @@ import {
   taskTrackerEditSchema,
 } from '@shared/schemas/task-tracker'
 import { EngineRecoveryAction } from '@shared/types/engine'
+import type { PluginInstallCompatibilityFailure } from '@shared/types/plugin-install'
 import type { ProxySettings } from '@shared/types/settings'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
@@ -1046,16 +1048,28 @@ export function buildServerCommandHandlers(
     },
 
     [Commands.InstallPlugin]: async (payload: unknown) => {
-      const result = await pluginInstallService.stage(payload, pluginHost)
-      if (result.committed && result.pluginId) {
-        eventBus.emit(Events.PluginInstalled, { pluginId: result.pluginId })
-      } else {
-        eventBus.emit(Events.PluginInstallConsentRequested, {
-          stagingId: result.stagingId,
-          consent: result.consent,
-        })
+      try {
+        const result = await pluginInstallService.stage(payload, pluginHost)
+        if (result.committed && result.pluginId) {
+          eventBus.emit(Events.PluginInstalled, { pluginId: result.pluginId })
+        } else {
+          eventBus.emit(Events.PluginInstallConsentRequested, {
+            stagingId: result.stagingId,
+            consent: result.consent,
+          })
+        }
+        return result
+      } catch (error) {
+        if (error instanceof PluginEngineVersionTooOld) {
+          return {
+            incompatible: {
+              required: error.required,
+              hostVersion: error.hostVersion,
+            },
+          } satisfies PluginInstallCompatibilityFailure
+        }
+        throw error
       }
-      return result
     },
 
     [Commands.ConfirmPluginInstall]: async (payload: unknown) => {
