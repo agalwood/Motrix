@@ -2425,7 +2425,12 @@
       "localPrepareFailed": "無法準備此外掛程式檔案：{{detail}}",
       "dropHint": "將 .moext 檔案拖放到這裡以檢查此外掛程式",
       "dragDisabledHint": "此環境不支援拖放。請使用 GitHub 位址或 URL。",
-      "warning": "安裝前請確認：只有在信任作者，且預期其使用上列權限時才繼續。"
+      "warning": "安裝前請確認：只有在信任作者，且預期其使用上列權限時才繼續。",
+      "officialVerified": "已驗證 Motrix 官方簽章",
+      "officialSignatureInvalid": "無法驗證此外掛的官方簽章，請重新整理外掛市集後再試。",
+      "officialBuiltinOnly": "此版本需要內建外掛專屬權限，請安裝支援選用安裝的新版本。",
+      "builtinAlreadyInstalled": "此外掛已內建，請使用外掛的更新功能。",
+      "hostIncompatible": "此擴充功能需要 Motrix {{required}}，目前版本為 {{current}}。請升級或切換至符合要求的 Motrix 版本後重試。"
     },
     "consent": {
       "installTitle": "要安裝 {{name}} {{version}} 嗎？",

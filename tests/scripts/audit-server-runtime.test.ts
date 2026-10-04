@@ -1,6 +1,8 @@
+import { execFileSync } from 'node:child_process'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { build, type UserConfig } from 'vite'
 import { afterEach, describe, expect, it } from 'vitest'
 import { auditServerRuntime } from '../../scripts/audit-server-runtime.mjs'
@@ -33,7 +35,7 @@ async function writeFixtureFile(
   await writeFile(target, content)
 }
 
-async function scanInMemoryBuild(config: UserConfig): Promise<string[]> {
+async function buildChunks(config: UserConfig) {
   const result = await build({
     ...config,
     configFile: false,
@@ -49,14 +51,17 @@ async function scanInMemoryBuild(config: UserConfig): Promise<string[]> {
     throw new Error('unexpected Vite watch build')
   }
 
-  const specifiers = new Set<string>()
   const outputs = Array.isArray(result) ? result : [result]
-  for (const output of outputs) {
-    for (const item of output.output) {
-      if (item.type !== 'chunk') continue
-      for (const specifier of scanStaticModuleSpecifiers(item.code)) {
-        specifiers.add(specifier)
-      }
+  return outputs.flatMap((output) =>
+    output.output.filter((item) => item.type === 'chunk')
+  )
+}
+
+async function scanInMemoryBuild(config: UserConfig): Promise<string[]> {
+  const specifiers = new Set<string>()
+  for (const chunk of await buildChunks(config)) {
+    for (const specifier of scanStaticModuleSpecifiers(chunk.code)) {
+      specifiers.add(specifier)
     }
   }
   return [...specifiers].sort()
@@ -333,6 +338,53 @@ describe('Server package contracts', () => {
 })
 
 describe('Server built external audit', () => {
+  it('strips source documentation while preserving legal notices, names, and runtime strings', async () => {
+    const root = await mkdtemp(
+      path.join(os.tmpdir(), 'motrix-server-comments-')
+    )
+    temporaryRoots.push(root)
+    const input = path.join(root, 'fixture.mjs')
+    await writeFile(
+      input,
+      [
+        '/*! @license fixture-license */',
+        '/** Build-only documentation marker. */',
+        'export function fixtureOperation(value) {',
+        '  return { value, text: "/** runtime string */" }',
+        '}',
+      ].join('\n')
+    )
+    const chunks = await buildChunks({
+      ...serverViteConfig,
+      build: {
+        ...serverViteConfig.build,
+        lib: { entry: input, formats: ['es'] },
+      },
+    })
+    expect(chunks).toHaveLength(1)
+    const code = chunks[0].code
+    expect(code).not.toContain('Build-only documentation marker')
+    expect(code).toContain('@license fixture-license')
+    const output = path.join(root, 'built.mjs')
+    await writeFile(output, code)
+    const result = execFileSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '--eval',
+        [
+          `import { fixtureOperation } from ${JSON.stringify(pathToFileURL(output).href)}`,
+          'console.log(JSON.stringify({ name: fixtureOperation.name, result: fixtureOperation(42) }))',
+        ].join('\n'),
+      ],
+      { encoding: 'utf8' }
+    )
+    expect(JSON.parse(result)).toEqual({
+      name: 'fixtureOperation',
+      result: { value: 42, text: '/** runtime string */' },
+    })
+  })
+
   it('matches the actual Server and worker build externals to runtime roots', async () => {
     const contract = validateServerRuntimeContract(
       JSON.parse(

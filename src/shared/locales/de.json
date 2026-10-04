@@ -2341,7 +2341,12 @@
       "localPrepareFailed": "Diese Plugin-Datei konnte nicht vorbereitet werden: {{detail}}",
       "dropHint": ".moext-Datei hier ablegen, um dieses Plugin zu prüfen",
       "dragDisabledHint": "Drag-and-drop wird in dieser Umgebung nicht unterstützt. Verwenden Sie eine GitHub-Adresse oder URL.",
-      "warning": "Vor der Installation: Fahren Sie nur fort, wenn Sie dem Autor vertrauen und die oben aufgeführten Zugriffe durch das Plugin erwarten."
+      "warning": "Vor der Installation: Fahren Sie nur fort, wenn Sie dem Autor vertrauen und die oben aufgeführten Zugriffe durch das Plugin erwarten.",
+      "officialVerified": "Offizielle Motrix-Signatur bestätigt",
+      "officialSignatureInvalid": "Die offizielle Signatur des Plugins konnte nicht bestätigt werden. Aktualisiere den Marktplatz.",
+      "officialBuiltinOnly": "Diese Version benötigt Berechtigungen eines integrierten Plugins. Installiere eine neuere Version, die eine optionale Installation unterstützt.",
+      "builtinAlreadyInstalled": "Dieses Plugin ist bereits integriert. Verwende seine Aktualisierungsfunktion.",
+      "hostIncompatible": "Dieses Plugin benötigt Motrix {{required}}. Aktuelle Version: {{current}}. Aktualisiere Motrix oder wechsle zu einer kompatiblen Version und versuche es erneut."
     },
     "consent": {
       "installTitle": "{{name}} {{version}} installieren?",

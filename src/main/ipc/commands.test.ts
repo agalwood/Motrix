@@ -4,6 +4,7 @@ import path from 'node:path'
 import { NOOP_TASK_ACTIVITY_RECORDER } from '@core/activity'
 import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
 import { EventBus } from '@core/events/event-bus'
+import { PluginEngineVersionTooOld } from '@core/plugin/manifest/errors'
 import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { SettingsManager } from '@core/settings/settings-manager'
 import { ErrorCode } from '@shared/errors'
@@ -300,6 +301,54 @@ function fakeCtx() {
 }
 
 describe('buildCommandHandlers', () => {
+  it('returns the exact media-merge version requirement before downloading or requesting consent', async () => {
+    const ctx = {
+      ...fakeCtx(),
+      hostVersion: '2.0.0-beta.46',
+      registryClient: {
+        get: vi.fn().mockResolvedValue({
+          compatible: false,
+          engines: { motrix: '>=2.0.0-beta.47 <3.0.0' },
+        }),
+      },
+    }
+    const handlers = buildCommandHandlers(ctx as unknown as CommandContext)
+    await expect(
+      handlers[Commands.InstallPlugin]?.({
+        sourceType: 'registry',
+        pluginId: 'motrix.media-merge',
+      })
+    ).resolves.toEqual({
+      incompatible: {
+        required: '>=2.0.0-beta.47 <3.0.0',
+        hostVersion: '2.0.0-beta.46',
+      },
+    })
+    expect(ctx.pluginInstaller.stage).not.toHaveBeenCalled()
+    expect(ctx.eventBus.emit).not.toHaveBeenCalled()
+  })
+
+  it('preserves version details for a local package without requesting consent', async () => {
+    const ctx = fakeCtx()
+    ctx.pluginInstaller.stage.mockRejectedValueOnce(
+      new PluginEngineVersionTooOld('>=2.0.0-beta.47 <3.0.0', '2.0.0-beta.46')
+    )
+    const handlers = buildCommandHandlers(ctx as unknown as CommandContext)
+    await expect(
+      handlers[Commands.InstallPlugin]?.({
+        sourceType: 'local',
+        absPath: '/tmp/fixture.moext',
+        fileHash: 'a'.repeat(64),
+      })
+    ).resolves.toEqual({
+      incompatible: {
+        required: '>=2.0.0-beta.47 <3.0.0',
+        hostVersion: '2.0.0-beta.46',
+      },
+    })
+    expect(ctx.eventBus.emit).not.toHaveBeenCalled()
+  })
+
   it('installs FFmpeg only from the fixed service with no renderer-supplied URLs or keys', async () => {
     const ctx = fakeCtx()
     const handlers = buildCommandHandlers(ctx as unknown as CommandContext)

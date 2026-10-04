@@ -46,6 +46,31 @@ function makeService(overrides: Record<string, unknown> = {}) {
 }
 
 describe('ServerPluginInstallService', () => {
+  it('rejects incompatible media-merge before downloading or staging its package', async () => {
+    const fetchImpl = vi.fn()
+    const { service, stage } = makeService({
+      hostVersion: '2.0.0-beta.46',
+      registryClient: {
+        get: vi.fn().mockResolvedValue({
+          compatible: false,
+          engines: { motrix: '>=2.0.0-beta.47 <3.0.0' },
+        }),
+      },
+      fetchImpl,
+    })
+    await expect(
+      service.stage({
+        sourceType: 'registry',
+        pluginId: 'motrix.media-merge',
+      })
+    ).rejects.toMatchObject({
+      required: '>=2.0.0-beta.47 <3.0.0',
+      hostVersion: '2.0.0-beta.46',
+    })
+    expect(fetchImpl).not.toHaveBeenCalled()
+    expect(stage).not.toHaveBeenCalled()
+  })
+
   it('accepts a local package only from an allowed import root', async () => {
     const packagePath = path.join(incomingDir, 'fixture.moext')
     await writeFile(packagePath, 'fixture')

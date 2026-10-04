@@ -84,6 +84,25 @@ describe('RegistryDetailPanel install affordance', () => {
     expect(screen.getByTestId('registry-install-btn')).toBeDisabled()
   })
 
+  it.each(['electron', 'web'] as const)(
+    'explains the required range and current host on %s',
+    (kind) => {
+      renderPanel(
+        kind,
+        entry({
+          id: 'motrix.media-merge',
+          compatible: false,
+          engines: { motrix: '>=2.0.0-beta.47 <3.0.0' },
+          hostVersion: '2.0.0-beta.46',
+        })
+      )
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'This plugin requires Motrix >=2.0.0-beta.47 <3.0.0; current version: 2.0.0-beta.46'
+      )
+      expect(screen.getByTestId('registry-install-btn')).toBeDisabled()
+    }
+  )
+
   it('shows the verified registry Install button on web', () => {
     renderPanel('web', entry())
     expect(screen.getByTestId('registry-install-btn')).toBeEnabled()

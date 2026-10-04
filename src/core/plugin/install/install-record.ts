@@ -19,6 +19,13 @@ export const InstallRecordSchema = z
   .object({
     version: z.literal(1),
     pluginId: z.string().min(1),
+    official: z
+      .object({
+        signature: z.string().min(1).max(256),
+        archiveSha256: Sha256Hex,
+      })
+      .strict()
+      .optional(),
     source: z
       .object({
         type: z.enum(INSTALL_SOURCE_TYPES),

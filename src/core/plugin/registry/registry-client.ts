@@ -124,6 +124,7 @@ export class RegistryClient {
         hostVersion,
         entries: file.plugins.map((entry) => ({
           ...entry,
+          hostVersion,
           compatible: semverSatisfies(hostVersion, entry.engines.motrix),
         })),
       }

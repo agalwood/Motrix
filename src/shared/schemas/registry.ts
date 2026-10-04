@@ -326,4 +326,6 @@ export function resolveRegistryListing(
 /** Registry entry annotated for the renderer with the host-version gate. */
 export interface RegistryPluginDTO extends RegistryPlugin {
   compatible: boolean
+  /** Supplied by the host; optional for renderers connected to older servers. */
+  hostVersion?: string
 }

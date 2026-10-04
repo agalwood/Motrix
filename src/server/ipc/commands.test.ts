@@ -12,6 +12,7 @@ import type { GrantsManager } from '@core/plugin/grants/grants-manager'
 import type { ActivationDispatcher } from '@core/plugin/host/activation-dispatcher'
 import type { PluginHost } from '@core/plugin/host/plugin-host'
 import type { PluginInstaller } from '@core/plugin/install/plugin-installer'
+import { PluginEngineVersionTooOld } from '@core/plugin/manifest/errors'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
 import type { RegistryClient } from '@core/plugin/registry/registry-client'
 import type { PluginStateStore } from '@core/plugin/state/plugin-state-store'
@@ -1727,6 +1728,30 @@ describe('server plugin enable/disable commands', () => {
 })
 
 describe('server plugin lifecycle commands', () => {
+  it('returns compatibility details without emitting consent or installation events', async () => {
+    const ctx = makeFakeCtx()
+    ;(
+      ctx.pluginInstallService.stage as ReturnType<typeof vi.fn>
+    ).mockRejectedValueOnce(
+      new PluginEngineVersionTooOld('>=2.0.0-beta.47 <3.0.0', '2.0.0-beta.46')
+    )
+    const handlers = buildServerCommandHandlers(
+      ctx as Parameters<typeof buildServerCommandHandlers>[0]
+    )
+    await expect(
+      handlers[Commands.InstallPlugin]?.({
+        sourceType: 'registry',
+        pluginId: 'motrix.media-merge',
+      })
+    ).resolves.toEqual({
+      incompatible: {
+        required: '>=2.0.0-beta.47 <3.0.0',
+        hostVersion: '2.0.0-beta.46',
+      },
+    })
+    expect(ctx.eventBus.emit).not.toHaveBeenCalled()
+  })
+
   it('stages an install and publishes the consent request', async () => {
     const ctx = makeFakeCtx()
     ;(

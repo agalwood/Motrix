@@ -17,12 +17,17 @@ import {
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import type { RegistryPluginDTO } from '@shared/schemas/registry'
+import { keypair } from '@test-utils/moext'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ServerPluginInstallService } from '../../../server/plugin/install-service'
 import type { CapabilityHost } from '../capabilities/interface'
+import { GrantsManager } from '../grants/grants-manager'
 import { PluginHost } from '../host/plugin-host'
 import { PluginRegistry } from '../plugin-registry'
 import { downloadRegistryMoext } from '../registry/registry-fetcher'
 import { PluginStateStore } from '../state/plugin-state-store'
+import { readInstallRecord } from './install-record'
+import { OFFICIAL_ARCHIVE_FILENAME } from './official-package'
 import {
   PluginInstaller,
   type PluginInstallerOptions,
@@ -234,6 +239,7 @@ async function makeInstaller(
     builtinDir: path.join(tmp, 'builtin-empty'),
     stateStore,
     hostVersion: '2.5.0',
+    signingPubkeys: extra.signingPubkeys,
   })
   calls = {
     deactivated: [],
@@ -1085,5 +1091,253 @@ describe('registry source install', () => {
         { expect: buildRegistryExpectation(lying) }
       )
     ).rejects.toThrowError(/registry_manifest_mismatch/)
+  })
+})
+
+describe('official optional plugin lifecycle', () => {
+  const id = 'motrix.optional-demo'
+  let signing: ReturnType<typeof keypair>
+
+  beforeEach(async () => {
+    signing = keypair()
+    installer = await makeInstaller({ signingPubkeys: [signing.pem] })
+  })
+
+  async function packageFor(over: Record<string, unknown> = {}) {
+    const manifest = JSON.parse(
+      manifestJSON({ id, optionalPermissions: ['notify'], ...over })
+    )
+    const file = await writeMoext(
+      path.join(inputDir, `${manifest.version}.moext`),
+      JSON.stringify(manifest)
+    )
+    const bytes = await readFile(file)
+    const entry: RegistryPluginDTO = {
+      ...manifest,
+      origin: 'builtin',
+      compatible: true,
+      optionalPermissions: manifest.optionalPermissions ?? [],
+      hostPermissions: manifest.hostPermissions ?? [],
+      package: {
+        url: 'https://dl.motrix.app/p/optional.moext',
+        size: bytes.length,
+        sha256: createHash('sha256').update(bytes).digest('hex'),
+        signature: signing.sign(bytes),
+      },
+    }
+    return { file, bytes, entry }
+  }
+
+  async function stage(over: Record<string, unknown> = {}) {
+    const { file, entry } = await packageFor(over)
+    return installer.stage(
+      file,
+      { type: 'registry', pluginId: entry.id },
+      { expect: buildRegistryExpectation(entry) }
+    )
+  }
+
+  it.each([
+    ['2.0.0-beta.46', false],
+    ['2.0.0-beta.47', true],
+    ['2.0.0-beta.48', true],
+    ['2.0.0', true],
+    ['3.0.0', false],
+  ])(
+    'enforces the signed media-merge manifest requirement on host %s',
+    async (hostVersion, compatible) => {
+      installer = await makeInstaller({
+        hostVersion,
+        signingPubkeys: [signing.pem],
+        ffmpegDetect: async () => ({ available: true, version: '7.0.0' }),
+      })
+      const result = stage({
+        id: 'motrix.media-merge',
+        version: '0.1.0',
+        engines: { motrix: '>=2.0.0-beta.47 <3.0.0' },
+        permissions: ['ffmpeg'],
+        optionalPermissions: [],
+        categories: ['post-action'],
+      })
+      if (compatible) {
+        const staged = await result
+        expect(staged.committed).toBe(false)
+        expect(staged.consent.trustSurface.notVerified).toBe(false)
+        expect(staged.consent.trustSurface.enginesMotrix).toBe(
+          '>=2.0.0-beta.47 <3.0.0'
+        )
+        expect(staged.consent.ffmpegRuntime).toMatchObject({
+          available: true,
+          requiredByPlugin: 'required',
+        })
+      } else {
+        await expect(result).rejects.toMatchObject({
+          required: '>=2.0.0-beta.47 <3.0.0',
+          hostVersion,
+        })
+        expect(registry.list()).toEqual([])
+      }
+    }
+  )
+
+  it('installs through the server registry boundary with consent, persists grants, rediscovers and uninstalls', async () => {
+    const { entry, bytes } = await packageFor()
+    const service = new ServerPluginInstallService({
+      installer,
+      registryClient: { get: async () => entry } as never,
+      pluginsDir,
+      hostVersion: '2.5.0',
+      fetchImpl: (async () => new Response(bytes)) as typeof fetch,
+    })
+    const result = await service.stage({ sourceType: 'registry', pluginId: id })
+    expect(result.committed).toBe(false)
+    expect(result.consent.trustSurface.notVerified).toBe(false)
+    await installer.commit(result.stagingId, { notify: 'denied' })
+    expect(registry.get(id)?.origin).toBe('community')
+    expect(registry.list()[0].source?.type).toBe('official')
+    const grants = new GrantsManager({ registry })
+    expect(await grants.effectivePermissionsFor(id)).not.toContain('notify')
+    await grants.updateGrants(id, { notify: 'granted' })
+    expect(await grants.effectivePermissionsFor(id)).toContain('notify')
+    const dir = path.join(pluginsDir, id)
+    // Extracted files are not the source of trusted metadata or executable code.
+    await writeFile(
+      path.join(dir, 'motrix-plugin.json'),
+      manifestJSON({ id, permissions: ['http'] })
+    )
+    await writeFile(path.join(dir, 'dist/plugin.js'), 'tampered')
+    await registry.discover()
+    expect(registry.get(id)?.manifest.permissions).toEqual([])
+    expect(registry.get(id)?.executableDigest).toBe(
+      createHash('sha256').update('console.log(1);').digest('hex')
+    )
+    expect(await grants.getGrants(id)).toEqual({ notify: 'granted' })
+    await installer.uninstall(id)
+    expect(registry.get(id)).toBeUndefined()
+    expect(existsSync(dir)).toBe(false)
+  })
+
+  it.each(['missing', 'wrong-key', 'tampered'])(
+    'rejects %s signatures before offering consent',
+    async (kind) => {
+      const { file, entry } = await packageFor()
+      if (kind === 'missing') delete entry.package!.signature
+      if (kind === 'wrong-key')
+        entry.package!.signature = keypair().sign(await readFile(file))
+      if (kind === 'tampered')
+        await writeFile(
+          file,
+          Buffer.concat([await readFile(file), Buffer.from('changed')])
+        )
+      await expect(
+        installer.stage(
+          file,
+          { type: 'registry', pluginId: id },
+          { expect: buildRegistryExpectation(entry) }
+        )
+      ).rejects.toThrow('official_signature_invalid')
+      expect(registry.get(id)).toBeUndefined()
+    }
+  )
+
+  it('does not grant official identity to an unsigned local reserved-id package', async () => {
+    const { file, entry } = await packageFor()
+    await expect(
+      installer.stage(file, {
+        type: 'local',
+        absPath: file,
+        fileHash: entry.package!.sha256,
+      })
+    ).rejects.toThrow('publisher name is reserved')
+  })
+
+  it('rejects built-in-only hooks even with an authentic official signature', async () => {
+    await expect(
+      stage({
+        hostPermissions: ['*://*/*'],
+        contributes: { hooks: { beforeCreate: { role: 'pre-resolve' } } },
+      })
+    ).rejects.toThrow('official_builtin_hook')
+  })
+
+  it('keeps other reserved publishers unavailable to optional official packages', async () => {
+    await expect(stage({ id: 'system.optional-demo' })).rejects.toThrow(
+      'publisher name is reserved'
+    )
+  })
+
+  it('preserves registry manifest consistency after signature verification', async () => {
+    const { file, entry } = await packageFor()
+    entry.version = '9.0.0'
+    await expect(
+      installer.stage(
+        file,
+        { type: 'registry', pluginId: id },
+        { expect: buildRegistryExpectation(entry) }
+      )
+    ).rejects.toThrow('registry_manifest_mismatch')
+  })
+
+  it('updates without new consent only for an unchanged trust surface', async () => {
+    const first = await stage()
+    await installer.commit(first.stagingId, { notify: 'denied' })
+    expect((await stage({ version: '1.0.1' })).committed).toBe(true)
+    expect(registry.get(id)?.manifest.version).toBe('1.0.1')
+    const expanded = await stage({ version: '1.1.0', permissions: ['storage'] })
+    expect(expanded.committed).toBe(false)
+    expect(expanded.consent.diff?.permissionsAdded).toEqual(['storage'])
+    await installer.commit(expanded.stagingId, { notify: 'denied' })
+    expect(registry.get(id)?.manifest.version).toBe('1.1.0')
+  })
+
+  it('does not accept tampered archives at commit or rediscovery', async () => {
+    const first = await stage()
+    const stagedPath = path.join(
+      pluginsDir,
+      '_staging',
+      first.stagingId,
+      'archive.moext'
+    )
+    await writeFile(
+      stagedPath,
+      Buffer.concat([await readFile(stagedPath), Buffer.from('changed')])
+    )
+    await expect(installer.commit(first.stagingId, {})).rejects.toThrow(
+      'official_signature_invalid'
+    )
+    await installer.cancel(first.stagingId)
+    const second = await stage()
+    await installer.commit(second.stagingId, {})
+    const archive = path.join(pluginsDir, id, OFFICIAL_ARCHIVE_FILENAME)
+    await writeFile(
+      archive,
+      Buffer.concat([await readFile(archive), Buffer.from('changed')])
+    )
+    await registry.discover()
+    expect(registry.get(id)).toBeUndefined()
+    expect(registry.loadErrors()[0].message).toContain(
+      'official_signature_invalid'
+    )
+  })
+
+  it('rejects a forged proof and never installs over an existing builtin', async () => {
+    const first = await stage()
+    await installer.commit(first.stagingId, {})
+    const dir = path.join(pluginsDir, id)
+    const record = (await readInstallRecord(dir))!
+    record.official!.signature = keypair().sign(Buffer.from('other'))
+    await writeFile(path.join(dir, '_install.json'), JSON.stringify(record))
+    await registry.discover()
+    expect(registry.get(id)).toBeUndefined()
+    const builtinDir = path.join(tmp, 'builtin-empty', id)
+    await mkdir(path.join(builtinDir, 'dist'), { recursive: true })
+    await writeFile(
+      path.join(builtinDir, 'motrix-plugin.json'),
+      manifestJSON({ id })
+    )
+    await writeFile(path.join(builtinDir, 'dist/plugin.js'), 'console.log(1)')
+    await registry.discover()
+    expect(registry.get(id)?.origin).toBe('builtin')
+    await expect(stage()).rejects.toThrow('builtin_already_installed')
   })
 })

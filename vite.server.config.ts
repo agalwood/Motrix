@@ -41,6 +41,9 @@ export default defineConfig({
       output: {
         entryFileNames: '[name].mjs',
         chunkFileNames: 'chunks/[name]-[hash].mjs',
+        // Source documentation is not runtime payload. Preserve legal notices
+        // and optimization annotations without minifying names or code.
+        comments: { jsdoc: false, legal: true, annotation: true },
       },
     },
   },

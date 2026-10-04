@@ -13,6 +13,8 @@ import { AppCapabilityHost } from '../capabilities/app'
 import { I18nCapabilityHost } from '../capabilities/i18n'
 import type { CapabilityHost } from '../capabilities/interface'
 import { LogCapabilityHost } from '../capabilities/log'
+import { writeInstallRecord } from '../install/install-record'
+import { OFFICIAL_ARCHIVE_FILENAME } from '../install/official-package'
 import { PluginRegistry } from '../plugin-registry'
 import { PluginStateStore } from '../state/plugin-state-store'
 import { ActivationDispatcher } from './activation-dispatcher'
@@ -1636,112 +1638,167 @@ describe('PluginHost.activate — builtin overlay bundle read path', () => {
     rmSync(root, { recursive: true, force: true })
   })
 
-  it('sends the BUNDLE dist/plugin.js to the worker, not the tampered tree copy', async () => {
-    const builtinDir = path.join(root, 'builtin')
-    const overlayDir = path.join(root, 'builtin-updates')
+  it.each(['builtin', 'official'] as const)(
+    '%s executes the signed bundle rather than the tampered tree',
+    async (mode) => {
+      const builtinDir = path.join(root, 'builtin')
+      const overlayDir = path.join(root, 'builtin-updates')
 
-    // Seed at v1.0.0 (read-only app resources, in this fixture just a plain
-    // dir). The overlay below is v1.1.0, so arbitration picks the overlay.
-    plantPlugin(builtinDir, OVERLAY_ID)
+      // Seed at v1.0.0 (read-only app resources, in this fixture just a plain
+      // dir). The overlay below is v1.1.0, so arbitration picks the overlay.
+      if (mode === 'builtin') plantPlugin(builtinDir, OVERLAY_ID)
 
-    const { pem, sign: signFn } = keypair()
-    const overlayEntryDir = path.join(overlayDir, OVERLAY_ID)
-    mkdirSync(path.join(overlayEntryDir, 'dist'), { recursive: true })
-    const manifestJSON = JSON.stringify({
-      manifestVersion: 1,
-      id: OVERLAY_ID,
-      name: OVERLAY_ID,
-      version: '1.1.0',
-      description: 'd',
-      categories: ['integration'],
-      engines: { motrix: '>=2.0.0' },
-      main: 'dist/plugin.js',
-      permissions: [],
-      activationEvents: ['onStartup'],
-      contributes: {},
-    })
-    writeFileSync(
-      path.join(overlayEntryDir, 'motrix-plugin.json'),
-      manifestJSON
-    )
-    // Tree copy carries a TAMPERED marker — must never reach the worker once
-    // the overlay's signature is verified.
-    writeFileSync(
-      path.join(overlayEntryDir, 'dist', 'plugin.js'),
-      'globalThis.__MOTRIX_TEST_SOURCE__ = "TREE_TAMPERED"'
-    )
-
-    const bundleBytes = makeZip([
-      { name: 'motrix-plugin.json', data: Buffer.from(manifestJSON) },
-      {
-        name: 'dist/plugin.js',
-        data: Buffer.from(
-          'globalThis.__MOTRIX_TEST_SOURCE__ = "BUNDLE_VERIFIED"'
-        ),
-      },
-    ])
-    writeFileSync(path.join(overlayEntryDir, 'bundle.moext'), bundleBytes)
-    writeFileSync(
-      path.join(overlayEntryDir, '_overlay.json'),
-      JSON.stringify({
-        version: 1,
-        packageUrl: 'https://dl.motrix.app/p/overlay-demo.moext',
-        sha256: createHash('sha256').update(bundleBytes).digest('hex'),
-        signature: signFn(bundleBytes),
-        recordedAt: 1700000000000,
-      })
-    )
-
-    const registry = new PluginRegistry({
-      pluginsDir: path.join(root, 'plugins'),
-      builtinDir,
-      overlayDir,
-      stateStore,
-      hostVersion: '2.5.0',
-      signingPubkeys: [pem],
-    })
-    await registry.discover()
-    // Sanity: the entry really is overlay-backed before we assert on it.
-    expect(registry.get(OVERLAY_ID)?.overlay).toBeDefined()
-    expect(registry.get(OVERLAY_ID)?.manifest.version).toBe('1.1.0')
-
-    const host = new PluginHost({
-      registry,
-      stateStore,
-      capabilityHost: capHost,
-      workerScriptPath: workerPath,
-      appVersion: '2.5.0',
-      runtime: 'server',
-      hostLanguage: 'en-US',
-      // Same ephemeral test key the registry above verified the overlay
-      // against — production omits this and falls back to the pinned
-      // build-time key, same as PluginRegistryOptions.signingPubkeys.
-      signingPubkeys: [pem],
-    })
-
-    // Seam: CapabilityBridge sends the manifest+bundleSource to the worker
-    // via `this.worker.postMessage({ type: 'init', ..., bundleSource })`.
-    // Spying on the real Worker class's prototype (both this file and
-    // CapabilityBridge import the same 'node:worker_threads' module) lets us
-    // observe the exact string handed to the sandbox without needing the
-    // stub worker to echo anything back.
-    const postSpy = vi.spyOn(Worker.prototype, 'postMessage')
-    try {
-      await host.activate(OVERLAY_ID)
-
-      const initCall = postSpy.mock.calls.find(
-        ([msg]) => (msg as { type?: string } | undefined)?.type === 'init'
+      const { pem, sign: signFn } = keypair()
+      const overlayEntryDir = path.join(
+        mode === 'builtin' ? overlayDir : path.join(root, 'plugins'),
+        OVERLAY_ID
       )
-      expect(initCall).toBeDefined()
-      const bundleSource = (initCall as [{ bundleSource: string }])[0]
-        .bundleSource
-      expect(bundleSource).toContain('BUNDLE_VERIFIED')
-      expect(bundleSource).not.toContain('TREE_TAMPERED')
-    } finally {
-      postSpy.mockRestore()
-      await host.shutdown()
+      mkdirSync(path.join(overlayEntryDir, 'dist'), { recursive: true })
+      const manifestJSON = JSON.stringify({
+        manifestVersion: 1,
+        id: OVERLAY_ID,
+        name: OVERLAY_ID,
+        version: '1.1.0',
+        description: 'd',
+        categories: ['integration'],
+        engines: { motrix: '>=2.0.0' },
+        main: 'dist/plugin.js',
+        permissions: [],
+        activationEvents: ['onStartup'],
+        contributes: {},
+      })
+      writeFileSync(
+        path.join(overlayEntryDir, 'motrix-plugin.json'),
+        manifestJSON
+      )
+      // Tree copy carries a TAMPERED marker — must never reach the worker once
+      // the overlay's signature is verified.
+      writeFileSync(
+        path.join(overlayEntryDir, 'dist', 'plugin.js'),
+        'globalThis.__MOTRIX_TEST_SOURCE__ = "TREE_TAMPERED"'
+      )
+
+      const bundleBytes = makeZip([
+        { name: 'motrix-plugin.json', data: Buffer.from(manifestJSON) },
+        {
+          name: 'dist/plugin.js',
+          data: Buffer.from(
+            'globalThis.__MOTRIX_TEST_SOURCE__ = "BUNDLE_VERIFIED"'
+          ),
+        },
+      ])
+      writeFileSync(
+        path.join(
+          overlayEntryDir,
+          mode === 'builtin' ? 'bundle.moext' : OFFICIAL_ARCHIVE_FILENAME
+        ),
+        bundleBytes
+      )
+      writeFileSync(
+        path.join(overlayEntryDir, '_overlay.json'),
+        JSON.stringify({
+          version: 1,
+          packageUrl: 'https://dl.motrix.app/p/overlay-demo.moext',
+          sha256: createHash('sha256').update(bundleBytes).digest('hex'),
+          signature: signFn(bundleBytes),
+          recordedAt: 1700000000000,
+        })
+      )
+
+      if (mode === 'official') {
+        await writeInstallRecord(overlayEntryDir, {
+          version: 1,
+          pluginId: OVERLAY_ID,
+          source: {
+            type: 'registry',
+            url: `registry:${OVERLAY_ID}`,
+            bundleSha256: 'a'.repeat(64),
+            recordedAt: 0,
+          },
+          grants: {},
+          consentSnapshot: {
+            permissions: [],
+            optionalPermissions: [],
+            hostPermissions: [],
+            invokesCommands: [],
+            publicCommands: {},
+            requestedHeapMB: 32,
+            enginesMotrix: '>=2.0.0',
+          },
+          official: {
+            signature: signFn(bundleBytes),
+            archiveSha256: createHash('sha256')
+              .update(bundleBytes)
+              .digest('hex'),
+          },
+        })
+      }
+
+      const registry = new PluginRegistry({
+        pluginsDir: path.join(root, 'plugins'),
+        builtinDir,
+        overlayDir,
+        stateStore,
+        hostVersion: '2.5.0',
+        signingPubkeys: [pem],
+      })
+      await registry.discover()
+      // Discovery must establish the selected signed-package identity.
+      expect(
+        mode === 'builtin'
+          ? registry.get(OVERLAY_ID)?.overlay
+          : registry.get(OVERLAY_ID)?.official
+      ).toBeDefined()
+      expect(registry.get(OVERLAY_ID)?.manifest.version).toBe('1.1.0')
+
+      const host = new PluginHost({
+        registry,
+        stateStore,
+        capabilityHost: capHost,
+        workerScriptPath: workerPath,
+        appVersion: '2.5.0',
+        runtime: 'server',
+        hostLanguage: 'en-US',
+        // Same ephemeral test key the registry above verified the overlay
+        // against — production omits this and falls back to the pinned
+        // build-time key, same as PluginRegistryOptions.signingPubkeys.
+        signingPubkeys: [pem],
+      })
+
+      // Seam: CapabilityBridge sends the manifest+bundleSource to the worker
+      // via `this.worker.postMessage({ type: 'init', ..., bundleSource })`.
+      // Spying on the real Worker class's prototype (both this file and
+      // CapabilityBridge import the same 'node:worker_threads' module) lets us
+      // observe the exact string handed to the sandbox without needing the
+      // stub worker to echo anything back.
+      const postSpy = vi.spyOn(Worker.prototype, 'postMessage')
+      try {
+        await host.activate(OVERLAY_ID)
+
+        const initCall = postSpy.mock.calls.find(
+          ([msg]) => (msg as { type?: string } | undefined)?.type === 'init'
+        )
+        expect(initCall).toBeDefined()
+        const bundleSource = (initCall as [{ bundleSource: string }])[0]
+          .bundleSource
+        expect(bundleSource).toContain('BUNDLE_VERIFIED')
+        expect(bundleSource).not.toContain('TREE_TAMPERED')
+        if (mode === 'official') {
+          await host.deactivate(OVERLAY_ID)
+          writeFileSync(
+            path.join(overlayEntryDir, OFFICIAL_ARCHIVE_FILENAME),
+            Buffer.concat([bundleBytes, Buffer.from('tampered')])
+          )
+          await expect(host.activate(OVERLAY_ID)).rejects.toThrow(
+            'official_signature_invalid'
+          )
+        }
+      } finally {
+        postSpy.mockRestore()
+        await host.shutdown()
+      }
     }
-  })
+  )
 
   // Negative counterpart to the read-path test above: the overlay's
   // bundle.moext bytes are tampered with AFTER the signature was computed

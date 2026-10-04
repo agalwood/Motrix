@@ -11,10 +11,14 @@ separately and is not part of Motrix's default bundle. Its
 compatibility and package availability; a signed release is required for
 directory installation.
 
+The plugin requires `Motrix >=2.0.0-beta.47 <3.0.0`. Older hosts show the required
+range and current version and block installation before permission confirmation.
+
 Configure FFmpeg in **Settings → Integration → Media Tools**, then install the
-plugin's `.moext` package from the Plugins page. The plugin requests the `ffmpeg`
-permission. If you configure FFmpeg after activating the plugin, disable and
-re-enable the plugin to refresh its capability snapshot.
+signed official package from the plugin marketplace once it is available. See
+[official optional plugins](official-optional-plugins.md). The plugin requests the
+`ffmpeg` permission. If you configure FFmpeg after activating the plugin, disable
+and re-enable the plugin to refresh its capability snapshot.
 
 There are two entry points:
 

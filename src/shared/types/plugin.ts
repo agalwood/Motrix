@@ -23,6 +23,7 @@ export type PluginSourceType =
   // <userData>/builtin-updates overlay rather than the read-only seed.
   | 'builtin-update'
   | 'registry'
+  | 'official'
 
 export interface PluginSource {
   type: PluginSourceType

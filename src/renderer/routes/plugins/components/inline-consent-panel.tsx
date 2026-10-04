@@ -36,6 +36,12 @@ export function InlineConsentPanel({ consent, grants, onGrantsChange }: Props) {
         <PluginAudienceBadge tone={isBroadHost ? 'review' : 'safe'} />
       </div>
 
+      {consent.trustSurface.notVerified === false && (
+        <p className="text-xs text-muted-foreground">
+          {t('plugins.install.officialVerified')}
+        </p>
+      )}
+
       <div className="grid gap-2">
         {consent.trustSurface.permissions.map((p) => (
           <PermissionRow key={p.name} permission={p.name} granted={true} />

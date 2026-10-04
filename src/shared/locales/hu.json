@@ -2341,7 +2341,12 @@
       "localPrepareFailed": "A bővítményfájlt nem sikerült előkészíteni: {{detail}}",
       "dropHint": "Húzz ide egy .moext fájlt a bővítmény ellenőrzéséhez",
       "dragDisabledHint": "A fogd és vidd művelet ebben a környezetben nem támogatott. Használj GitHub-címet vagy URL-t.",
-      "warning": "Telepítés előtt: csak akkor folytasd, ha megbízol a szerzőben, és számítasz arra, hogy a bővítmény a fent felsorolt hozzáféréseket használja."
+      "warning": "Telepítés előtt: csak akkor folytasd, ha megbízol a szerzőben, és számítasz arra, hogy a bővítmény a fent felsorolt hozzáféréseket használja.",
+      "officialVerified": "A hivatalos Motrix-aláírás ellenőrizve",
+      "officialSignatureInvalid": "A bővítmény hivatalos aláírása nem ellenőrizhető. Frissítse a katalógust.",
+      "officialBuiltinOnly": "Ez a verzió beépített bővítmény jogosultságait igényli. Telepítsen újabb, választható telepítést támogató verziót.",
+      "builtinAlreadyInstalled": "Ez a bővítmény már be van építve. Használja a frissítési műveletét.",
+      "hostIncompatible": "A bővítményhez Motrix {{required}} szükséges; jelenlegi verzió: {{current}}. Frissítsen vagy váltson kompatibilis Motrix-verzióra, és próbálja újra."
     },
     "consent": {
       "installTitle": "Telepíted a(z) {{name}} {{version}} verzióját?",

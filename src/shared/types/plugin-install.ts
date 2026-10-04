@@ -53,6 +53,13 @@ export interface InstallRecord {
   /** optionalPermission name → state at last consent confirmation */
   grants: GrantsMap
   consentSnapshot: ConsentSnapshot
+  /** Signature over the retained archive, rechecked at discovery and activation. */
+  official?: OfficialPackageProof
+}
+
+export interface OfficialPackageProof {
+  signature: string
+  archiveSha256: string
 }
 
 export interface TrustSurfaceDiff {
@@ -106,8 +113,8 @@ export interface ConsentPayloadTrustSurface {
   publicCommandsExposed: ReadonlyArray<ConsentPayloadPublicCommand>
   requestedHeapMB?: number
   enginesMotrix: string
-  /** Always `true` in Phase 1A — there is no signing yet. */
-  notVerified: true
+  /** False only after verification against the pinned official signing keys. */
+  notVerified: boolean
 }
 
 export interface ConsentPayloadFfmpegRuntime {
@@ -125,4 +132,12 @@ export interface ConsentPayload {
   /** `null` for a fresh install; non-null for an upgrade */
   diff: TrustSurfaceDiff | null
   ffmpegRuntime: ConsentPayloadFfmpegRuntime
+}
+
+/** Expected install failure, returned as data so both transports retain details. */
+export interface PluginInstallCompatibilityFailure {
+  incompatible: {
+    required: string
+    hostVersion: string
+  }
 }

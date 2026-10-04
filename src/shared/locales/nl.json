@@ -1523,7 +1523,12 @@
       "title": "Plug-in toevoegen",
       "url": "URL",
       "url.spec": "Bundel-URL (.moext)",
-      "warning": "Vóór installatie: ga alleen door als je de auteur vertrouwt en verwacht dat de plug-in de hierboven vermelde toegang gebruikt."
+      "warning": "Vóór installatie: ga alleen door als je de auteur vertrouwt en verwacht dat de plug-in de hierboven vermelde toegang gebruikt.",
+      "officialVerified": "Officiële Motrix-handtekening geverifieerd",
+      "officialSignatureInvalid": "De officiële handtekening van de plug-in kon niet worden geverifieerd. Vernieuw de catalogus.",
+      "officialBuiltinOnly": "Deze versie vereist rechten van een ingebouwde plug-in. Installeer een nieuwere versie die optionele installatie ondersteunt.",
+      "builtinAlreadyInstalled": "Deze plug-in is al ingebouwd. Gebruik de bijbehorende updatefunctie.",
+      "hostIncompatible": "Deze plug-in vereist Motrix {{required}}; huidige versie: {{current}}. Werk Motrix bij of schakel over naar een compatibele versie en probeer het opnieuw."
     },
     "lead": "Voeg kleine functies toe aan Motrix. Laat de plug-ins die je vertrouwt ingeschakeld en schakel de rest uit.",
     "logs": {

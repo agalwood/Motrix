@@ -92,7 +92,12 @@ export function PluginInstallDialog({
     if (!fixedSource || startedRef.current) return
     startedRef.current = true
     setGrants({})
-    void install.startInstall(fixedSource)
+    void install.startInstall(fixedSource).then((committed) => {
+      if (!committed) return
+      if (fixedSource.sourceType === 'registry')
+        clearUpdate(fixedSource.pluginId)
+      onOpenChange(false)
+    })
   }, [open, fixedSource])
 
   function close() {
@@ -107,7 +112,7 @@ export function PluginInstallDialog({
 
   async function onInstall() {
     if (!install.consent) return
-    await install.confirm(grants)
+    if (!(await install.confirm(grants))) return
     // A successful commit means the registry entry's version is now
     // installed — drop the "Update to vX" affordance immediately rather
     // than waiting for the next CheckPluginUpdates poll to re-offer a
@@ -129,7 +134,7 @@ export function PluginInstallDialog({
       await install.cancel()
     }
     setGrants({})
-    await install.startInstall(args)
+    if (await install.startInstall(args)) close()
   }
 
   const ffmpegBlocking =

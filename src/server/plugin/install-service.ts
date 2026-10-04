@@ -15,6 +15,7 @@ import {
   type RegistryExpectation,
 } from '@core/plugin/install/registry-expectation'
 import type { SourceInput } from '@core/plugin/install/source-resolver'
+import { PluginEngineVersionTooOld } from '@core/plugin/manifest/errors'
 import type { RegistryClient } from '@core/plugin/registry/registry-client'
 import { downloadRegistryMoext } from '@core/plugin/registry/registry-fetcher'
 import { AppError, ErrorCode } from '@shared/errors'
@@ -248,9 +249,9 @@ export class ServerPluginInstallService {
           )
         }
         if (!entry.compatible) {
-          throw new AppError(
-            ErrorCode.PluginManifestInvalid,
-            'plugin.install.registry_incompatible'
+          throw new PluginEngineVersionTooOld(
+            entry.engines.motrix,
+            this.options.hostVersion
           )
         }
         const target = this.downloadPath('registry')

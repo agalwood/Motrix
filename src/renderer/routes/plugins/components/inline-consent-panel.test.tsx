@@ -53,6 +53,24 @@ describe('InlineConsentPanel', () => {
     expect(screen.getByText(/Before installing/)).toBeInTheDocument()
   })
 
+  it('shows verified official identity without skipping permission review', () => {
+    render(
+      <InlineConsentPanel
+        consent={{
+          ...baseConsent,
+          trustSurface: { ...baseConsent.trustSurface, notVerified: false },
+        }}
+        grants={{}}
+        onGrantsChange={() => {}}
+      />
+    )
+    expect(
+      screen.getByText('Official Motrix signature verified')
+    ).toBeInTheDocument()
+    expect(screen.getByText(/Before installing/)).toBeInTheDocument()
+    expect(screen.getByText('Send notifications')).toBeInTheDocument()
+  })
+
   it('renders one PermissionRow per permission (required + optional)', () => {
     render(
       <InlineConsentPanel

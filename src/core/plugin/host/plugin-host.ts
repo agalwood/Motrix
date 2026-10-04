@@ -10,6 +10,7 @@ import type { CapabilityHost } from '../capabilities/interface'
 import type { GrantsManager } from '../grants/grants-manager'
 import { ffmpegSatisfies } from '../install/ffmpeg-semver'
 import { readMoextEntry } from '../install/moext-reader'
+import { loadOfficialPackage } from '../install/official-package'
 import { resolveInsidePluginDir } from '../manifest/path-safety'
 import type { PluginRegistry } from '../plugin-registry'
 import type { PluginStateStore } from '../state/plugin-state-store'
@@ -452,7 +453,34 @@ export class PluginHost {
     }
 
     let bundleSource: string
-    if (indexed.overlay) {
+    if (indexed.official) {
+      const archive = await this.awaitActivation(
+        pluginId,
+        attempt,
+        loadOfficialPackage(
+          indexed.rootDir,
+          indexed.official,
+          this.opts.signingPubkeys
+        )
+      )
+      const entryBytes = await this.awaitActivation(
+        pluginId,
+        attempt,
+        readMoextEntry(archive.bytes, indexed.manifest.main)
+      )
+      if (!entryBytes) {
+        throw new AppError(
+          ErrorCode.PluginManifestInvalid,
+          'plugin.install.official_signature_invalid'
+        )
+      }
+      this.assertExecutableDigest(
+        pluginId,
+        indexed.executableDigest,
+        entryBytes
+      )
+      bundleSource = entryBytes.toString('utf8')
+    } else if (indexed.overlay) {
       // Firefox packed-XPI model (2026-07-18 design §4): a builtin
       // hot-update overlay's EXECUTED CODE comes from the signature-verified
       // bundle.moext, never the separately-tamperable extracted tree — an

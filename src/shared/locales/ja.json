@@ -2325,7 +2325,12 @@
       "localPrepareFailed": "このプラグインファイルを準備できませんでした：{{detail}}",
       "dropHint": "ここに .moext ファイルをドロップしてプラグインを確認",
       "dragDisabledHint": "この環境ではドラッグ＆ドロップに対応していません。GitHub のアドレスまたは URL を使用してください。",
-      "warning": "インストール前に：作者を信頼でき、上記のアクセス権の使用を想定している場合にのみ続行してください。"
+      "warning": "インストール前に：作者を信頼でき、上記のアクセス権の使用を想定している場合にのみ続行してください。",
+      "officialVerified": "Motrix の公式署名を検証済み",
+      "officialSignatureInvalid": "プラグインの公式署名を検証できませんでした。マーケットを更新してください。",
+      "officialBuiltinOnly": "このバージョンには内蔵プラグイン専用の権限が必要です。任意インストールに対応した新しいバージョンをインストールしてください。",
+      "builtinAlreadyInstalled": "このプラグインはすでに内蔵されています。プラグインの更新機能を使用してください。",
+      "hostIncompatible": "このプラグインには Motrix {{required}} が必要です。現在のバージョンは {{current}} です。対応する Motrix バージョンに更新または切り替えて、再試行してください。"
     },
     "consent": {
       "installTitle": "{{name}} {{version}} をインストールしますか？",

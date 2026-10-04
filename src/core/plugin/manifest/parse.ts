@@ -36,6 +36,8 @@ export interface ParseManifestOptions {
   // publishers (motrix.*); community plugins discovered or installed at
   // runtime always default to 'community'.
   origin?: 'community' | 'builtin'
+  /** Host-only result of checking the package against pinned official keys. */
+  official?: boolean
 }
 
 export interface ManifestWarning {
@@ -188,10 +190,14 @@ export function parseManifest(
 
   // Step 3: Enforce reserved-publisher invariant. Community plugins must not
   // claim a reserved publisher (motrix.*, verified.*, official.*, system.*).
-  // Built-ins shipped inside the app bundle are exempt — they originate from
-  // <resourcesDir>/builtin-plugins/ and the registry passes origin='builtin'.
+  // Official optional packages earn only the motrix.* namespace through
+  // signature verification. Bundled builtins keep their separate origin gate.
   const origin = opts.origin ?? 'community'
-  if (origin !== 'builtin' && isReservedPublisher(result.data.id)) {
+  if (
+    origin !== 'builtin' &&
+    isReservedPublisher(result.data.id) &&
+    !(opts.official && result.data.id.startsWith('motrix.'))
+  ) {
     throw new PluginManifestInvalid(
       'plugin.manifest.id_reserved_publisher',
       `publisher name is reserved: "${result.data.id}"`,
@@ -271,6 +277,12 @@ export function parseManifest(
       if (!entry) continue
       const role = entry.role as HookRole
       if (role === 'pre-resolve' && origin !== 'builtin') {
+        if (opts.official) {
+          throw new PluginManifestInvalid(
+            'plugin.install.official_builtin_hook',
+            'plugin.install.official_builtin_hook'
+          )
+        }
         throw new PluginManifestInvalid(
           'plugin.manifest.role.requires_builtin',
           `contributes.hooks.${hookName}.role "pre-resolve" is reserved for built-in plugins`,
