@@ -50,12 +50,22 @@ export async function measureProductionBundles() {
   }
   const report = {}
   for (const target of TARGETS) {
+    let copiesPublicAssets = false
     const result = await build({
       root: ROOT,
       configFile: path.join(ROOT, `vite.${target}.config.ts`),
       mode: 'production',
       logLevel: 'silent',
       build: { write: false },
+      plugins: [
+        {
+          name: 'measure-production-assets',
+          configResolved(config) {
+            copiesPublicAssets =
+              Boolean(config.publicDir) && config.build.copyPublicDir
+          },
+        },
+      ],
     })
     if (!Array.isArray(result) && 'close' in result) {
       await result.close()
@@ -73,6 +83,7 @@ export async function measureProductionBundles() {
     const allModules = moduleIds(chunks)
     const startupModules = moduleIds(initial)
     report[target] = {
+      copiesPublicAssets,
       totalBytes: bytes(chunks),
       totalGzipBytes: gzipBytes(chunks),
       initialBytes: bytes(initial),

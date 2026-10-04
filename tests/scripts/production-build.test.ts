@@ -14,6 +14,7 @@ const TARGETS = [
 ]
 
 interface BundleMetrics {
+  copiesPublicAssets: boolean
   totalBytes: number
   initialBytes: number
   initialChunks: number
@@ -48,6 +49,7 @@ describe('production bundle loading and size contracts', () => {
     '$name keeps deferred resources out of startup and fits its JS budgets',
     (target) => {
       const result = report[target.name]
+      expect(result.copiesPublicAssets).toBe(target.name.startsWith('renderer'))
       expect(result.initialChunks).toBeGreaterThan(0)
       expect(result.initialBytes).toBeLessThanOrEqual(target.initial)
       expect(result.totalBytes).toBeLessThanOrEqual(target.total)

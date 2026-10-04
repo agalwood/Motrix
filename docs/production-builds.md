@@ -12,6 +12,8 @@ Their Vite configurations share `scripts/vite-production-output.ts`.
   JavaScript. Legal comments and the packaged third-party notices are retained.
 - Published builds do not emit source maps. The server preserves function and
   class names for diagnostics; runtime logging remains available.
+- Only renderer builds copy `public/` icons and images. Host, preload and worker
+  builds exclude these browser assets to avoid duplicate packaged files.
 - Main, preload, and worker entry points remain CommonJS `.cjs` files. Server
   and CLI entry points remain ES `.mjs` files. Native modules and external
   dependencies continue to use the existing packaging rules.
@@ -56,7 +58,8 @@ independently compressed chunks and do not represent an installer size.
 
 CI checks startup and total JavaScript budgets, includes all 26 languages,
 excludes deferred languages and ELK from initial chunks, and rejects emitted
-source maps. The server fixture test also checks that source documentation is
-removed while legal attribution, diagnostic names, and executable behavior
-survive compression. Platform package verification and runtime smoke tests
-remain the authority for installed sizes and native runtime compatibility.
+source maps or public assets copied into host builds. The server fixture test
+also checks that source documentation is removed while legal attribution,
+diagnostic names, and executable behavior survive compression. Platform package
+verification and runtime smoke tests remain the authority for installed sizes
+and native runtime compatibility.

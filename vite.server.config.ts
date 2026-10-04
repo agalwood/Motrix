@@ -25,6 +25,7 @@ function isExternal(id: string): boolean {
 }
 
 export default defineConfig({
+  publicDir: false,
   build: {
     outDir: 'dist/server',
     emptyOutDir: true,

@@ -6,6 +6,7 @@ import { PRODUCTION_OUTPUT } from './scripts/vite-production-output'
 const nodeExternals = builtinModules.flatMap((m) => [m, `node:${m}`])
 
 export default defineConfig({
+  publicDir: false,
   build: {
     outDir: 'dist/preload',
     emptyOutDir: true,
