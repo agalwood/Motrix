@@ -1,6 +1,7 @@
 import { builtinModules, createRequire } from 'node:module'
 import path from 'node:path'
 import { defineConfig } from 'vite'
+import { PRODUCTION_OUTPUT } from './scripts/vite-production-output'
 
 const require = createRequire(import.meta.url)
 const pkg = require('./package.json') as {
@@ -29,6 +30,8 @@ export default defineConfig({
   build: {
     outDir: 'dist/core/plugin/host',
     emptyOutDir: true,
+    minify: 'oxc',
+    sourcemap: false,
     target: 'node20',
     lib: {
       entry: 'src/core/plugin/host/quick-js-worker.ts',
@@ -36,6 +39,7 @@ export default defineConfig({
       fileName: () => 'quick-js-worker.cjs',
     },
     rollupOptions: {
+      output: PRODUCTION_OUTPUT,
       external: isExternal,
     },
   },

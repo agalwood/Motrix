@@ -59,6 +59,7 @@ jobs:
           pnpm exec vitest run
           src/shared/constants/locales.test.ts
           src/shared/i18n-resources.test.ts
+          src/shared/i18n-resource-loading.test.ts
           src/shared/schemas/locale.test.ts
           src/shared/protocol/forwardable-events.test.ts
           src/core/i18n/locale-coordinator.test.ts
@@ -205,6 +206,7 @@ jobs:
           tests/scripts/snap-store-channel.test.ts
           tests/scripts/stage-electron-app.test.ts
           tests/scripts/audit-server-runtime.test.ts
+          tests/scripts/production-build.test.ts
           tests/scripts/docker-server-runtime.test.ts
           tests/scripts/server-runtime-workflow.test.ts
           tests/scripts/smoke-server-package.test.ts

@@ -2,6 +2,7 @@ import path from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
 import packageJson from './package.json' with { type: 'json' }
+import { PRODUCTION_OUTPUT } from './scripts/vite-production-output'
 
 export default defineConfig({
   base: '/',
@@ -17,8 +18,12 @@ export default defineConfig({
     }),
   },
   build: {
+    cssMinify: 'lightningcss',
+    rollupOptions: { output: PRODUCTION_OUTPUT },
     outDir: 'dist/renderer-web',
     emptyOutDir: true,
+    minify: 'oxc',
+    sourcemap: false,
   },
   resolve: {
     alias: {

@@ -1,6 +1,5 @@
 import type { XYPosition } from '@xyflow/react'
 import type { ElkNode } from 'elkjs'
-import ELK from 'elkjs/lib/elk.bundled.js'
 import type { CallGraphModel } from './call-graph-model'
 
 export interface CallGraphNodeLayout {
@@ -21,7 +20,17 @@ const ELK_LAYOUT_OPTIONS = {
   'elk.layered.spacing.nodeNodeBetweenLayers': '180',
 } as const
 
-const productionElk: ElkLayoutAdapter = new ELK()
+let productionElk: Promise<ElkLayoutAdapter> | undefined
+
+function loadProductionElk(): Promise<ElkLayoutAdapter> {
+  productionElk ??= import('elkjs/lib/elk.bundled.js')
+    .then(({ default: ELK }) => new ELK())
+    .catch((error) => {
+      productionElk = undefined
+      throw error
+    })
+  return productionElk
+}
 
 function compareStrings(left: string, right: string): number {
   if (left < right) return -1
@@ -119,7 +128,7 @@ function toElkGraph(
 export async function layoutCallGraphNodes(
   model: Pick<CallGraphModel, 'nodes' | 'pairEdges' | 'signature'>,
   previousLayout: CallGraphNodeLayout | null = null,
-  elk: ElkLayoutAdapter = productionElk
+  elk?: ElkLayoutAdapter
 ): Promise<CallGraphNodeLayout> {
   if (
     previousLayout?.structuralSignature === model.signature &&
@@ -128,7 +137,8 @@ export async function layoutCallGraphNodes(
     return previousLayout
   }
 
-  const laidOut = await elk.layout(toElkGraph(model))
+  const layout = elk ?? (await loadProductionElk())
+  const laidOut = await layout.layout(toElkGraph(model))
   const positions = mapElkPositions(model.nodes, laidOut.children ?? [])
 
   return {

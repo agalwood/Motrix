@@ -1,6 +1,6 @@
 import { SUPPORTED_LOCALE_CODES } from '@shared/constants/locales'
-import { I18N_RESOURCES } from '@shared/i18n-resources'
 import type { ByteUnitSystem } from '@shared/schemas/byte-unit-system'
+import { I18N_RESOURCES } from '@test-utils/i18n-resources'
 import { createInstance } from 'i18next'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { createLocalizedByteFormatter } from './localized-byte-format'

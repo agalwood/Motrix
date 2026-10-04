@@ -174,7 +174,7 @@ import { setupEventForwarding } from './ipc/events'
 import { registerNotificationIpc } from './ipc/notifications'
 import { registerQueryHandlers } from './ipc/queries'
 import { setupLauncher } from './launcher'
-import { i18n } from './lib/i18n'
+import { applyMainLocale, i18n } from './lib/i18n'
 import { setupLogger } from './logger'
 import { MainProcessWorkCoordinator } from './main-process-work-coordinator'
 import { installAllMenubarContributions } from './menu/contributions'
@@ -1595,19 +1595,19 @@ async function initializeMainProcess(): Promise<void> {
       if (targets) {
         await targets.registry.setHostLanguageTransaction(locale, {
           beforeCommit: async () => {
-            await i18n.changeLanguage(locale)
+            await applyMainLocale(locale)
           },
           commitHostLocale: () => {
             targets.capabilityHost.setLocale(locale)
           },
           rollbackHostLocale: async (previousLanguage) => {
             targets.capabilityHost.setLocale(previousLanguage)
-            await i18n.changeLanguage(previousLanguage)
+            await applyMainLocale(previousLanguage)
           },
           shouldCommit: isCurrent,
         })
       } else {
-        await i18n.changeLanguage(locale)
+        await applyMainLocale(locale)
       }
       if (!isCurrent()) return
       localeContextStore?.merge({ locale })
