@@ -70,8 +70,7 @@ export class WindowManager {
     id = this.resolveOpenTarget(id)
     const existing = this.windows.get(id)
     if (existing && !existing.isDestroyed()) {
-      existing.show()
-      existing.focus()
+      this.focusWindow(id, existing)
       return existing
     }
 
@@ -127,8 +126,7 @@ export class WindowManager {
       }
     }
 
-    win.show()
-    win.focus()
+    this.focusWindow(id, win)
 
     if (options && id === 'add-task') {
       setTimeout(() => {
@@ -147,11 +145,10 @@ export class WindowManager {
       return
     }
 
-    if (win.isVisible() && win.isFocused()) {
+    if (!win.isMinimized() && win.isVisible() && win.isFocused()) {
       this.close(id)
     } else {
-      win.show()
-      win.focus()
+      this.focusWindow(id, win)
     }
   }
 
@@ -305,6 +302,13 @@ export class WindowManager {
   }
 
   // ─── Private ──────────────────────────────────────────
+
+  private focusWindow(id: WindowId, win: BrowserWindow): void {
+    this.lastFocusRequested = id
+    if (win.isMinimized()) win.restore()
+    win.show()
+    win.focus()
+  }
 
   private resolveOpenTarget(id: WindowId): WindowId {
     return this.deps.resolveOpenTarget?.(id) ?? id

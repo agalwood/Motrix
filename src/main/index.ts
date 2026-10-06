@@ -1761,6 +1761,7 @@ async function initializeMainProcess(): Promise<void> {
     if (mainWindowPlan.create) {
       windowManager.open('main', { show: mainWindowPlan.show })
     }
+    launcher.markWindowReady()
   } else {
     const disposeDisclaimerIpc = registerDisclaimerIpc({
       gate,
@@ -1780,6 +1781,9 @@ async function initializeMainProcess(): Promise<void> {
       }
     })
 
+    // A second launch must also be able to restore a minimized onboarding
+    // window while download ingress is still waiting for legal acceptance.
+    launcher.markWindowReady()
     const decision = await gate.waitForDecision()
     disposeDisclaimerIpc()
     if (disposeIpcIngress === disposeDisclaimerIpc) {
