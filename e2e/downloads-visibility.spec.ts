@@ -1101,10 +1101,17 @@ test('marquee selection survives row feedback, data updates and blank-space drag
         elements.map((element) => element.getAttribute('data-task-id'))
       )
   const beforeScrollbar = await selectionAtTop()
-  const thumb = grid.locator(
-    '[data-slot="scroll-area-scrollbar"][data-orientation="vertical"] [data-slot="scroll-area-thumb"]'
+  const scrollbar = grid.locator(
+    '[data-slot="scroll-area-scrollbar"][data-orientation="vertical"]'
   )
+  const thumb = scrollbar.locator('[data-slot="scroll-area-thumb"]')
   await thumb.hover()
+  const headerBox = (await viewport.getByRole('row').first().boundingBox())!
+  const scrollbarBox = (await scrollbar.boundingBox())!
+  expect(scrollbarBox.y).toBeCloseTo(headerBox.y + headerBox.height, 0)
+  await grid.screenshot({
+    path: testInfo.outputPath('scrollbar-below-header.png'),
+  })
   const thumbBox = (await thumb.boundingBox())!
   await mainWindow.mouse.move(
     thumbBox.x + thumbBox.width / 2,
