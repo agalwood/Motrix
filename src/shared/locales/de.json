@@ -1880,7 +1880,9 @@
         "pairingStateDegraded": {
           "title": "Zugriff für Erweiterungen vorübergehend gesperrt",
           "description": "Motrix konnte die Einträge gekoppelter Erweiterungen nicht sicher aktualisieren. Bestehende Erweiterungssitzungen wurden geschlossen, und neuer Zugriff ist für diese Sitzung gesperrt. Starten Sie Motrix neu, um die Reparatur erneut zu versuchen. Verlassen Sie sich nicht auf die Liste unten, solange diese Meldung angezeigt wird."
-        }
+        },
+        "confirmDownloads": "Vor dem Download nachfragen",
+        "confirmDownloadsDesc": "Zeigt ein Bestätigungsfenster, wenn eine Browser-Erweiterung einen Download an Motrix überträgt."
       },
       "cli": {
         "title": "Befehlszeilenwerkzeuge",
@@ -3007,5 +3009,20 @@
     },
     "preserveOriginals": "Original files are kept",
     "format": "Output format"
+  },
+  "downloadConfirm": {
+    "title": "Download bestätigen",
+    "fileName": "Dateiname",
+    "fileNameAuto": "Automatischer Dateiname",
+    "saveTo": "Speichern unter",
+    "torrentFile": "Torrent-Datei",
+    "progressTitle": "Download-Fortschritt",
+    "completed": "Abgeschlossen",
+    "transferOptions": "Übertragungsoptionen",
+    "thisTaskOnly": "Gilt nur für diese Aufgabe",
+    "speedLimit": "Tempo-Limit",
+    "connections": "Verbindungen",
+    "kibPerSecond": "KiB/s",
+    "auto": "Automatisch"
   }
 }

@@ -1880,7 +1880,9 @@
         "pairingStateDegraded": {
           "title": "Uzantı erişimi geçici olarak kapalı",
           "description": "Motrix, eşleştirilmiş uzantı kayıtlarını güvenle güncelleyemedi. Mevcut uzantı oturumları kapatıldı ve bu çalıştırmada yeni erişim engellendi. Onarımı yeniden denemek için Motrix’i yeniden başlatın; bu ileti kaybolana kadar aşağıdaki listeye güvenmeyin."
-        }
+        },
+        "confirmDownloads": "İndirmeden önce sor",
+        "confirmDownloadsDesc": "Tarayıcı uzantısı bir indirmeyi Motrix’e devrettiğinde onay penceresi gösterir."
       },
       "cli": {
         "title": "Komut satırı araçları",
@@ -3007,5 +3009,20 @@
     },
     "preserveOriginals": "Original files are kept",
     "format": "Output format"
+  },
+  "downloadConfirm": {
+    "title": "İndirme onayı",
+    "fileName": "Dosya adı",
+    "fileNameAuto": "Otomatik dosya adı",
+    "saveTo": "Kaydetme konumu",
+    "torrentFile": "Torrent dosyası",
+    "progressTitle": "İndirme ilerlemesi",
+    "completed": "Tamamlandı",
+    "transferOptions": "Aktarım seçenekleri",
+    "thisTaskOnly": "Yalnızca bu görev için geçerlidir",
+    "speedLimit": "Hız sınırı",
+    "connections": "Bağlantılar",
+    "kibPerSecond": "KiB/s",
+    "auto": "Otomatik"
   }
 }

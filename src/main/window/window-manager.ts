@@ -194,6 +194,9 @@ export class WindowManager {
     const config = WINDOW_CONFIGS[id]
     if (
       config.closeBehavior === 'destroy' &&
+      // Demand-created prompts are never prewarmed: an idle confirmation
+      // window would be a phantom dialog waiting for a request.
+      id !== 'download-confirm' &&
       (id !== 'add-task' || this.shouldPrewarmAddTask())
     ) {
       this.precreate(id)
@@ -246,6 +249,11 @@ export class WindowManager {
         result.push(win)
       }
     }
+    for (const win of this.dialogs.values()) {
+      if (win && !win.isDestroyed()) {
+        result.push(win)
+      }
+    }
     return result
   }
 
@@ -258,8 +266,71 @@ export class WindowManager {
     return null
   }
 
+  // ─── Multi-instance dialogs ──────────────────────────
+  // Demand-created windows that can coexist in several instances at once
+  // (download confirmation). Each instance key is caller-owned; all
+  // instances share the 'download-confirm' window config and one persisted
+  // bounds record, so resizing one sizes them all.
+
+  private dialogs = new Map<string, BrowserWindow>()
+
+  openDialog(instanceKey: string): BrowserWindow {
+    const existing = this.dialogs.get(instanceKey)
+    if (existing && !existing.isDestroyed()) {
+      existing.show()
+      existing.focus()
+      return existing
+    }
+    const config = WINDOW_CONFIGS['download-confirm']
+    const win = this.createBrowserWindow(config, true)
+    this.dialogs.set(instanceKey, win)
+    if (config.liquidGlass) {
+      this.deps.liquidGlass?.attach('download-confirm', win)
+    }
+    this.setupWindowStateTracking(win)
+    this.deps.loadUrl(win, config.route)
+    this.setupCloseHandler('download-confirm', win)
+    this.setupBoundsTracking('download-confirm', win)
+    this.restoreBounds('download-confirm', win)
+    win.once('closed', () => {
+      if (this.dialogs.get(instanceKey) === win) {
+        this.dialogs.delete(instanceKey)
+      }
+    })
+    return win
+  }
+
+  getDialog(instanceKey: string): BrowserWindow | null {
+    const win = this.dialogs.get(instanceKey) ?? null
+    if (win?.isDestroyed()) {
+      this.dialogs.delete(instanceKey)
+      return null
+    }
+    return win
+  }
+
+  getDialogKeyBySender(sender: Electron.WebContents): string | null {
+    for (const [key, win] of this.dialogs.entries()) {
+      if (win && !win.isDestroyed() && win.webContents === sender) {
+        return key
+      }
+    }
+    return null
+  }
+
+  closeDialog(instanceKey: string): void {
+    const win = this.dialogs.get(instanceKey)
+    if (!win || win.isDestroyed()) return
+    this.saveBounds('download-confirm', win)
+    win.destroy()
+    this.dialogs.delete(instanceKey)
+  }
+
   broadcast(channel: string, ...args: unknown[]): void {
-    for (const win of this.windows.values()) {
+    // Multi-instance dialogs are part of the broadcast surface: progress
+    // views subscribe to TaskUpdated like any other window.
+    const windows = [...this.windows.values(), ...this.dialogs.values()]
+    for (const win of windows) {
       if (!win || win.isDestroyed()) continue
       try {
         win.webContents.send(channel, ...args)
@@ -286,18 +357,26 @@ export class WindowManager {
       }
       this.windows.set(id, null)
     }
+    for (const win of this.dialogs.values()) {
+      if (win && !win.isDestroyed()) {
+        win.webContents.removeAllListeners()
+        win.removeAllListeners()
+        win.destroy()
+      }
+    }
+    this.dialogs.clear()
   }
 
-  saveBounds(id: WindowId): void {
+  saveBounds(id: WindowId, win?: BrowserWindow): void {
     const config = WINDOW_CONFIGS[id]
     if (!config.persistBounds) return
 
-    const win = this.windows.get(id)
-    if (!win || win.isDestroyed()) return
+    const target = win ?? this.windows.get(id)
+    if (!target || target.isDestroyed()) return
 
     const state: WindowState = {
-      ...win.getNormalBounds(),
-      maximized: this.pendingMaximize.has(win) || win.isMaximized(),
+      ...target.getNormalBounds(),
+      maximized: this.pendingMaximize.has(target) || target.isMaximized(),
     }
     this.deps.settingsManager
       .update({ windowState: { [id]: state } })
@@ -418,6 +497,13 @@ export class WindowManager {
 
     if (config.minWidth && config.minHeight) {
       win.setMinimumSize(config.minWidth, config.minHeight)
+    }
+
+    // Modal-style prompts (download confirmation) stay above every window —
+    // including the always-on-top candidate windows of other apps — until
+    // answered. Only meaningful for configs that opt in.
+    if (config.alwaysOnTop) {
+      win.setAlwaysOnTop(true, 'floating')
     }
 
     // Route target="_blank" / window.open to the system browser for
@@ -573,7 +659,7 @@ export class WindowManager {
       if (existing) clearTimeout(existing)
       this.boundsTimers.set(
         id,
-        setTimeout(() => this.saveBounds(id), 500)
+        setTimeout(() => this.saveBounds(id, win), 500)
       )
     }
 

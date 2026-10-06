@@ -8,7 +8,11 @@ import {
 } from '@shared/constants/locales'
 import { Queries } from '@shared/protocol/queries'
 
-export type RendererWindowId = 'main' | 'add-task' | 'onboarding'
+export type RendererWindowId =
+  | 'main'
+  | 'add-task'
+  | 'onboarding'
+  | 'download-confirm'
 
 interface LanguageState {
   language?: unknown

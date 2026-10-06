@@ -1866,7 +1866,9 @@
         "pairingStateDegraded": {
           "title": "Akses ekstensi ditutup sementara",
           "description": "Motrix tidak dapat memperbarui catatan ekstensi yang dipasangkan dengan aman. Sesi ekstensi yang ada ditutup dan akses baru diblokir selama aplikasi berjalan kali ini. Mulai ulang Motrix untuk mencoba perbaikan lagi; jangan mengandalkan daftar di bawah hingga pesan ini hilang."
-        }
+        },
+        "confirmDownloads": "Tanya sebelum mengunduh",
+        "confirmDownloadsDesc": "Menampilkan jendela konfirmasi saat ekstensi browser menyerahkan unduhan ke Motrix."
       },
       "cli": {
         "title": "Alat baris perintah",
@@ -2985,5 +2987,20 @@
     },
     "preserveOriginals": "Original files are kept",
     "format": "Output format"
+  },
+  "downloadConfirm": {
+    "title": "Konfirmasi unduhan",
+    "fileName": "Nama file",
+    "fileNameAuto": "Nama file otomatis",
+    "saveTo": "Simpan ke",
+    "torrentFile": "File torrent",
+    "progressTitle": "Progres unduhan",
+    "completed": "Selesai",
+    "transferOptions": "Opsi transfer",
+    "thisTaskOnly": "Hanya berlaku untuk tugas ini",
+    "speedLimit": "Batas kecepatan",
+    "connections": "Koneksi",
+    "kibPerSecond": "KiB/s",
+    "auto": "Otomatis"
   }
 }

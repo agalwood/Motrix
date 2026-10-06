@@ -19,6 +19,8 @@ export interface WindowConfig {
   vibrancy: boolean
   liquidGlass: boolean
   transparent?: boolean
+  /** Keep the window above others while it is open (modal-style prompts). */
+  alwaysOnTop?: boolean
 }
 
 export const WINDOW_CONFIGS: Record<WindowId, WindowConfig> = {
@@ -65,5 +67,22 @@ export const WINDOW_CONFIGS: Record<WindowId, WindowConfig> = {
     vibrancy: false,
     liquidGlass: true,
     transparent: false,
+  },
+  'download-confirm': {
+    id: 'download-confirm',
+    title: 'Motrix',
+    width: 720,
+    height: 460,
+    minWidth: 560,
+    minHeight: 400,
+    resizable: true,
+    route: WindowRoutes['download-confirm'],
+    closeBehavior: 'destroy',
+    persistBounds: true,
+    maximizable: false,
+    vibrancy: false,
+    liquidGlass: false,
+    transparent: false,
+    alwaysOnTop: true,
   },
 }

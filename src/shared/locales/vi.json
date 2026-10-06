@@ -1866,7 +1866,9 @@
         "pairingStateDegraded": {
           "title": "Tạm thời đóng quyền truy cập của tiện ích mở rộng",
           "description": "Motrix không thể cập nhật an toàn các bản ghi tiện ích mở rộng đã ghép đôi. Các phiên tiện ích mở rộng hiện có đã bị đóng và quyền truy cập mới bị chặn trong lần chạy này. Khởi động lại Motrix để thử sửa lại; không dựa vào danh sách bên dưới cho đến khi thông báo này biến mất."
-        }
+        },
+        "confirmDownloads": "Hỏi trước khi tải",
+        "confirmDownloadsDesc": "Hiện cửa sổ xác nhận khi tiện ích trình duyệt chuyển tải xuống cho Motrix."
       },
       "cli": {
         "title": "Công cụ dòng lệnh",
@@ -2985,5 +2987,20 @@
     },
     "preserveOriginals": "Original files are kept",
     "format": "Output format"
+  },
+  "downloadConfirm": {
+    "title": "Xác nhận tải xuống",
+    "fileName": "Tên tệp",
+    "fileNameAuto": "Tên tệp tự động",
+    "saveTo": "Lưu vào",
+    "torrentFile": "Tệp torrent",
+    "progressTitle": "Tiến trình tải xuống",
+    "completed": "Hoàn tất",
+    "transferOptions": "Tùy chọn truyền tải",
+    "thisTaskOnly": "Chỉ áp dụng cho tác vụ này",
+    "speedLimit": "Giới hạn tốc độ",
+    "connections": "Kết nối",
+    "kibPerSecond": "KiB/s",
+    "auto": "Tự động"
   }
 }

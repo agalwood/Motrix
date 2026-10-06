@@ -1866,7 +1866,9 @@
         "pairingStateDegraded": {
           "title": "拡張機能からのアクセスを一時的に停止しています",
           "description": "Motrix はペアリング済み拡張機能の記録を安全に更新できませんでした。既存の拡張機能セッションは終了し、今回の起動中は新しいアクセスをブロックします。Motrix を再起動して修復を再試行してください。このメッセージが消えるまでは、以下の一覧を信頼しないでください。"
-        }
+        },
+        "confirmDownloads": "ダウンロード前に確認",
+        "confirmDownloadsDesc": "ブラウザー拡張機能がダウンロードを Motrix に渡すときに確認ウィンドウを表示します。"
       },
       "cli": {
         "title": "コマンドラインツール",
@@ -2985,5 +2987,20 @@
     },
     "preserveOriginals": "Original files are kept",
     "format": "Output format"
+  },
+  "downloadConfirm": {
+    "title": "ダウンロードの確認",
+    "fileName": "ファイル名",
+    "fileNameAuto": "自動ファイル名",
+    "saveTo": "保存先",
+    "torrentFile": "Torrent ファイル",
+    "progressTitle": "ダウンロードの進行状況",
+    "completed": "完了",
+    "transferOptions": "転送オプション",
+    "thisTaskOnly": "このタスクのみに適用",
+    "speedLimit": "速度制限",
+    "connections": "接続数",
+    "kibPerSecond": "KiB/s",
+    "auto": "自動"
   }
 }

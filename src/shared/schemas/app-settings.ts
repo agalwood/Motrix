@@ -65,6 +65,11 @@ export const appSettingsSchema = z.object({
   magnetFileSelectionTimeoutSeconds:
     magnetFileSelectionTimeoutSecondsSchema.catch(60),
   browserBridgeEnabled: z.boolean().catch(true),
+  // IDM-style prompt: bridge-initiated downloads (browser extension
+  // handoff) open a confirmation window before the engine starts. Covers
+  // only adds that arrive while nobody is looking at a form — UI-created
+  // tasks are their own confirmation.
+  confirmIncomingDownloads: z.boolean().catch(true),
   liquidGlassEffect: z.boolean().catch(false),
   warnBeforeQuit: z.boolean().catch(true),
   checkForUpdatesOnLaunch: z.boolean().catch(true),

@@ -72,6 +72,7 @@ function assertEventChannel(channel: string): void {
 // listener so subsequent events flow normally through the wrapper.
 const BUFFERED_CHANNELS = new Set<string>([
   Events.SetAddTaskMode,
+  Events.DownloadConfirmRequested,
   Events.ProtocolTorrentFile,
   Events.MagnetFileSelection,
   Events.TorrentQueueSizeChanged,

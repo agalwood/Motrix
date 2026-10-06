@@ -77,6 +77,7 @@ export const bitTorrentFormSchema = z.object({
 export const integrationFormSchema = z.object({
   app: appSettingsInputSchema.pick({
     browserBridgeEnabled: true,
+    confirmIncomingDownloads: true,
     protocols: true,
   }),
   media: mediaSettingsInputSchema,

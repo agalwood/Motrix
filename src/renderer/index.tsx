@@ -24,6 +24,12 @@ const AddTaskWindow = lazy(() =>
   }))
 )
 
+const DownloadConfirmWindow = lazy(() =>
+  import('./windows/download-confirm-window').then((m) => ({
+    default: m.DownloadConfirmWindow,
+  }))
+)
+
 const OnboardingWindow = lazy(() =>
   import('./windows/onboarding-window').then((module) => ({
     default: module.OnboardingWindow,
@@ -42,7 +48,9 @@ const windowId: RendererWindowId =
     ? 'add-task'
     : windowParam === 'onboarding'
       ? 'onboarding'
-      : 'main'
+      : windowParam === 'download-confirm'
+        ? 'download-confirm'
+        : 'main'
 
 document.documentElement.classList.add(`platform-${transport.platform}`)
 document.documentElement.classList.add(`window-${windowId}`)
@@ -85,6 +93,14 @@ async function startRenderer(rootContainer: HTMLElement): Promise<void> {
       <Root>
         <Suspense>
           <AddTaskWindow />
+        </Suspense>
+      </Root>
+    )
+  } else if (windowId === 'download-confirm') {
+    root.render(
+      <Root>
+        <Suspense>
+          <DownloadConfirmWindow />
         </Suspense>
       </Root>
     )

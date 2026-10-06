@@ -128,6 +128,7 @@ import {
   resolveTaskRoute,
 } from '@shared/lib/task-navigation'
 import { Events } from '@shared/protocol/events'
+import type { TaskCreateRequest } from '@shared/schemas/add-task'
 import {
   DEFAULT_BYTE_UNIT_PREFERENCE,
   resolveByteUnitSystem,
@@ -165,6 +166,7 @@ import {
   shouldUseDevelopmentUpdateSimulator,
 } from './core/development-update-simulator'
 import { registerUpdateQuitPreparation } from './core/update-quit-preparation'
+import { DownloadConfirmController } from './download-confirm/download-confirm-controller'
 import { setupExceptionHandler } from './exception-handler'
 import { registerApplicationMenuIpc } from './ipc/application-menu'
 import { registerCommandHandlers } from './ipc/commands'
@@ -198,6 +200,7 @@ import { isElectronSelfUpdateSupported } from './platform/self-update-policy'
 import { createElectronPlatformServices } from './platform/services'
 import { setupSystemAccentColorSync } from './platform/system-accent-color'
 import { removeTaskPath } from './platform/task-file-remover'
+import { setupTaskbarProgress } from './platform/taskbar-progress'
 import { setupTray } from './platform/tray'
 import { createElectronCapabilityHost } from './plugin/capability-host'
 import { startDevWatcher } from './plugin/dev-watcher'
@@ -1700,6 +1703,10 @@ async function initializeMainProcess(): Promise<void> {
       prewarmAddTask: () => !settingsManager.getApp().lightweightMode,
     },
   })
+  const downloadConfirmController = new DownloadConfirmController({
+    windowManager,
+    settingsManager,
+  })
   // Apply the persisted theme before opening windows. Renderer-drawn Windows
   // controls inherit the same theme through CSS without native overlay sync.
   setupNativeThemeSync(eventBus, settingsManager)
@@ -2421,6 +2428,10 @@ async function initializeMainProcess(): Promise<void> {
       adapter,
       directResourceValidator: new DirectResourceValidatorService(),
       directResourceProxyPolicy: appliedDownloadProxyPolicy,
+      confirmIncoming: (req: TaskCreateRequest) =>
+        downloadConfirmController.confirm(req),
+      onConfirmedTaskCreated: (taskId: string, request: TaskCreateRequest) =>
+        downloadConfirmController.attachProgress(taskId, request),
       settingsManager,
       finalNamePicker,
       torrentMetaStore,
@@ -2607,6 +2618,7 @@ async function initializeMainProcess(): Promise<void> {
         removeTask: (taskId: string, { deleteFiles }) =>
           removeTask(taskId, { deleteWithFiles: deleteFiles }, removeTaskDeps),
         createTask: (req) => handleCreateTask(req, createTaskDeps),
+        confirmCreateRequest: (req) => downloadConfirmController.confirm(req),
         parseTorrentFileCount: async (base64: string) =>
           (await torrentParser.parse(base64)).files.length,
         revealTask: (taskId) => revealInFolder({ taskId }),
@@ -2721,6 +2733,7 @@ async function initializeMainProcess(): Promise<void> {
     mediaMetaStore,
     cliToolService,
     supervisor,
+    downloadConfirm: downloadConfirmController,
     dnsFallback: { reset: () => dnsFallbackConsumer?.reset() },
     bindTaskRetry: (fn) => {
       dnsFallbackRetry = fn
@@ -2880,6 +2893,7 @@ async function initializeMainProcess(): Promise<void> {
     extraResourceDir: platform.extraResourceDir,
     toggleMainWindow: () => windowManager.toggle('main'),
   })
+  setupTaskbarProgress({ eventBus, windowManager })
 
   launcher.flushDeferred()
 
