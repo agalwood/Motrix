@@ -2672,6 +2672,16 @@
         "noAccess": "Nonaktif",
         "grant": "Izinkan"
       }
+    },
+    "security": {
+      "blocked": "Diblokir demi keamanan",
+      "pending": "Hubungkan ke internet dan periksa pembaruan sebelum mengaktifkan plugin ini.",
+      "unavailable": "Kebijakan keamanan tidak dapat diverifikasi. Periksa pembaruan untuk mencoba lagi.",
+      "malware": "Plugin ini teridentifikasi berbahaya.",
+      "vulnerability": "Versi plugin ini memiliki kerentanan keamanan.",
+      "compromised": "Saluran distribusi plugin ini telah disusupi.",
+      "fixedVersion": "Perbaikan tersedia pada versi {{version}}.",
+      "details": "Lihat pemberitahuan keamanan"
     }
   },
   "plugin": {

@@ -254,6 +254,34 @@ describe('HookOrchestrator', () => {
     )
   })
 
+  it('does not count security cancellation as a plugin failure or change the enabled preference', async () => {
+    const { host } = makeMockHost([
+      {
+        id: 'revoked',
+        role: 'resolve',
+        hooks: ['beforeCreate'],
+        handler: () => {
+          throw new Error('bridge disposed')
+        },
+      },
+    ])
+    host.isSecurityRestricted = () => true
+    const breaker = { success: vi.fn(), failure: vi.fn(), isOpen: () => false }
+    const orchestrator = new HookOrchestrator({
+      host,
+      breaker,
+      hookTimeoutMs: TIMEOUTS,
+      ...ORCH_OPTS_BASE,
+    })
+    const result = await orchestrator.runBeforeCreateHttp(
+      makeBeforeCreateDto(),
+      'task-1'
+    )
+    expect(result.aborted).toBe(true)
+    expect(breaker.failure).not.toHaveBeenCalled()
+    expect(host.disable).not.toHaveBeenCalled()
+  })
+
   it('discovers an inactive registry candidate and activates it on Hook demand', async () => {
     const plugin: FixturePlugin = {
       id: 'idle-plugin',

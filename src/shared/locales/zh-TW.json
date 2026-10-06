@@ -2772,6 +2772,16 @@
         "noAccess": "關閉",
         "grant": "允許"
       }
+    },
+    "security": {
+      "blocked": "已因安全風險停用",
+      "pending": "請連線檢查更新後再啟用此外掛。",
+      "unavailable": "無法驗證安全原則，請檢查更新後重試。",
+      "malware": "此外掛已被確認為惡意外掛。",
+      "vulnerability": "此外掛版本存在安全漏洞。",
+      "compromised": "此外掛的散布管道已遭入侵。",
+      "fixedVersion": "修復版本：{{version}}。",
+      "details": "檢視安全公告"
     }
   },
   "applicationMenu": {

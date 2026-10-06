@@ -1680,6 +1680,16 @@
       "optional": "Accès facultatif",
       "review": "À vérifier",
       "safe": "Semble sûr"
+    },
+    "security": {
+      "blocked": "Bloqué pour raisons de sécurité",
+      "pending": "Connectez-vous à Internet et recherchez les mises à jour avant d’activer ce plugin.",
+      "unavailable": "La politique de sécurité n’a pas pu être vérifiée. Recherchez les mises à jour pour réessayer.",
+      "malware": "Ce plugin a été identifié comme malveillant.",
+      "vulnerability": "Cette version du plugin présente une faille de sécurité.",
+      "compromised": "La distribution de ce plugin a été compromise.",
+      "fixedVersion": "Un correctif est disponible dans la version {{version}}.",
+      "details": "Voir l’avis de sécurité"
     }
   },
   "quit": {

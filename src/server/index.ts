@@ -67,6 +67,7 @@ import { RegistryClient } from '@core/plugin/registry/registry-client'
 import type { PluginHookRuntime } from '@core/plugin/runtime/plugin-hook-runtime'
 import { createPluginRuntime } from '@core/plugin/runtime/runtime-factory'
 import { PluginRuntimeStartupCoordinator } from '@core/plugin/runtime/startup-coordinator'
+import { PluginSecurityService } from '@core/plugin/security/security-service'
 import { PluginStateStore } from '@core/plugin/state/plugin-state-store'
 import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { ProxyBridgeManager } from '@core/proxy/proxy-bridge-manager'
@@ -535,7 +536,12 @@ async function main() {
   if (!shellAsyncWork.isAccepting()) return
   const pluginStateStore = new PluginStateStore(db.database)
   const devPath = process.env.MOTRIX_PLUGIN_DEV_PATH
+  const pluginSecurity = new PluginSecurityService({
+    cachePath: path.join(platform.userDataDir, 'plugin-security.json'),
+  })
+  await pluginSecurity.initialize()
   const pluginRegistry = new PluginRegistry({
+    security: pluginSecurity,
     pluginsDir,
     builtinDir,
     stateStore: pluginStateStore,
@@ -585,6 +591,11 @@ async function main() {
   const detectPluginFfmpeg = async () =>
     projectActiveToLegacy(await detectServerFfmpeg())
   const pluginHost = new PluginHost({
+    security: pluginSecurity,
+    onSecurityChanged: () => {
+      eventBus.emit(Events.PluginSecurityChanged)
+      eventBus.emit(Events.ContributionIndexChanged)
+    },
     registry: pluginRegistry,
     stateStore: pluginStateStore,
     capabilityHost: pluginCapHost,
@@ -621,6 +632,7 @@ async function main() {
     cachePath: path.join(platform.userDataDir, REGISTRY_CACHE_FILENAME),
   })
   const pluginInstaller = new PluginInstaller({
+    security: pluginSecurity,
     pluginsDir,
     registry: pluginRegistry,
     stateStore: pluginStateStore,
@@ -785,6 +797,8 @@ async function main() {
     },
   })
   pluginHookRuntime = pluginRuntime.hooks
+  await pluginHost.enforceSecurityPolicy()
+  pluginSecurity.start()
   const hookAuditLog = pluginRuntime.auditLog
   const hookOrchestrator = pluginRuntime.orchestrator
   const postDeliveryAbortController = new AbortController()
@@ -1519,7 +1533,10 @@ async function main() {
         await durableFinalizeRuntime.commit({
           ...input,
           postDeliveries: post.postDeliveries,
-          beforeCommit: post.beforeCommit,
+          beforeCommit: () => {
+            input.beforeCommit?.()
+            post.beforeCommit()
+          },
         })
       },
     })

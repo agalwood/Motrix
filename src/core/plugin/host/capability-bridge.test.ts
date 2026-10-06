@@ -189,6 +189,16 @@ function validBeforeCreatePayload() {
 }
 
 describe('CapabilityBridge', () => {
+  it('security teardown preempts an ordinary disposal without sending guest cleanup', async () => {
+    const { bridge } = makeBridge()
+    const worker = bridge.getWorker()
+    const post = vi.spyOn(worker, 'postMessage')
+    const ordinary = bridge.dispose()
+    await bridge.dispose(true)
+    expect(worker.threadId).toBe(-1)
+    await ordinary
+    expect(post).not.toHaveBeenCalledWith({ type: 'event', event: 'shutdown' })
+  })
   it('routes a worker log call to the LogCapabilityHost', async () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'mbr-'))
     const workerPath = writeStubWorker(dir)

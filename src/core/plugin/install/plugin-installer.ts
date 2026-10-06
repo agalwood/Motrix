@@ -39,6 +39,7 @@ import { parseManifest } from '../manifest/parse'
 import { resolveInsidePluginDir } from '../manifest/path-safety'
 import type { PluginRegistry } from '../plugin-registry'
 import type { PluginExecutableIdentity } from '../post/delivery-types'
+import type { PluginSecurityService } from '../security/security-service'
 import type { PluginStateStore } from '../state/plugin-state-store'
 import { buildConsentPayload } from './consent-payload'
 import { ffmpegSatisfies } from './ffmpeg-semver'
@@ -106,6 +107,7 @@ export interface PluginInstallerRetentionSink {
 }
 
 export interface PluginInstallerOptions {
+  security?: PluginSecurityService
   pluginsDir: string
   registry: PluginRegistry
   stateStore: PluginStateStore
@@ -327,7 +329,19 @@ export class PluginInstaller {
       type: normalized.type,
       url: normalized.url,
       bundleSha256,
+      archiveSha256: loadedMoext.archiveSha256,
       recordedAt: Date.now(),
+    }
+    try {
+      await this.opts.security?.refreshIfStale()
+      this.opts.security?.assertAllowed({
+        pluginId: parsedManifest.id,
+        version: parsedManifest.version,
+        archiveSha256: loadedMoext.archiveSha256,
+      })
+    } catch (error) {
+      await rm(stagingDir, { recursive: true, force: true })
+      throw error
     }
     const finalDir = resolvePluginInstallDir(
       this.opts.pluginsDir,
@@ -525,6 +539,7 @@ export class PluginInstaller {
           version: 1,
           pluginId: staged.pluginId,
           source: staged.source,
+          securityReviewed: !this.opts.security?.configured,
           grants,
           consentSnapshot: {
             permissions: staged.newManifest.permissions,
@@ -547,6 +562,11 @@ export class PluginInstaller {
         let supersededExecutable: PluginExecutableIdentity | undefined
 
         try {
+          this.opts.security?.assertAllowed({
+            pluginId: staged.pluginId,
+            version: staged.newManifest.version,
+            archiveSha256: staged.archiveSha256,
+          })
           // Never commit the long-lived staging tree: it was visible while the
           // consent dialog was open. Re-read through one file descriptor, verify
           // the staged archive digest, then extract those exact bytes into the
@@ -592,6 +612,11 @@ export class PluginInstaller {
 
           this.installCommandSchemas(staged.pluginId, staged.newManifest)
           await this.opts.registry.discover()
+          this.opts.security?.assertAllowed({
+            pluginId: staged.pluginId,
+            version: staged.newManifest.version,
+            archiveSha256: staged.archiveSha256,
+          })
           if (
             staged.official &&
             !this.opts.registry.get(staged.pluginId)?.official

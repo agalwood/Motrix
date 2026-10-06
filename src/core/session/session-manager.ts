@@ -426,17 +426,17 @@ export class SessionManager {
    */
   persistTaskWithPluginMetadata(
     task: DownloadTask,
-    operations: readonly StagedMetadataOp[]
+    operations: readonly StagedMetadataOp[],
+    beforeCommit?: () => void
   ): Promise<void> {
     if (this.stopping) {
       return Promise.reject(new Error('SessionManager is stopping'))
     }
     return this.runExclusivePersistence(async () => {
       if (task.status === TaskStatus.Removed) return
-      this.db.persistTaskWithPluginMetadata(
-        await this.buildTaskPayload(task, Date.now()),
-        operations
-      )
+      const payload = await this.buildTaskPayload(task, Date.now())
+      beforeCommit?.()
+      this.db.persistTaskWithPluginMetadata(payload, operations)
     })
   }
 

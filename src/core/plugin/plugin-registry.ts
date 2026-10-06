@@ -7,6 +7,10 @@ import {
   type SupportedLocale,
 } from '@shared/constants/locales'
 import { AppError, ErrorCode } from '@shared/errors'
+import type {
+  PluginSecurityDecision,
+  PluginSecurityIdentity,
+} from '@shared/schemas/plugin-security'
 import { semverGt } from '@shared/semver'
 import type {
   PluginListDTO,
@@ -26,12 +30,18 @@ import {
 } from './manifest/i18n-resolve'
 import { parseManifest } from './manifest/parse'
 import { resolveInsidePluginDir } from './manifest/path-safety'
+import {
+  hasSecurityAdmission,
+  recordSecurityAdmission,
+} from './security/admission-receipts'
+import type { PluginSecurityService } from './security/security-service'
 import type { PluginStateStore } from './state/plugin-state-store'
 import { verifyBuiltinSignature } from './update/signature'
 
 const log = getLogger('plugin:registry')
 
 export interface PluginRegistryOptions {
+  security?: PluginSecurityService
   pluginsDir: string // community: <userDataDir>/plugins
   builtinDir: string // built-in: <resourcesDir>/builtin-plugins
   stateStore: PluginStateStore
@@ -57,6 +67,8 @@ export interface PluginRegistryOptions {
 }
 
 export interface IndexedPlugin {
+  archiveSha256?: string
+  securityPending?: boolean
   manifestRaw: PluginManifest
   manifest: PluginManifest
   origin: 'community' | 'builtin'
@@ -583,6 +595,14 @@ export class PluginRegistry {
           origin,
           rootDir: dir,
           executableDigest,
+          archiveSha256:
+            record?.official?.archiveSha256 ?? record?.source.archiveSha256,
+          securityPending:
+            record?.securityReviewed === false &&
+            !(await hasSecurityAdmission(
+              this.opts.pluginsDir,
+              record.source.archiveSha256
+            )),
           state,
           ...(record?.official
             ? {
@@ -757,6 +777,7 @@ export class PluginRegistry {
           origin: 'builtin',
           rootDir: dir,
           executableDigest: digestBytes(executable),
+          archiveSha256: digestBytes(bundle),
           state,
           overlay: {
             packageUrl: meta.packageUrl,
@@ -832,7 +853,7 @@ export class PluginRegistry {
     return {
       pluginId,
       generation: this.policyGenerationFor(pluginId),
-      enabled: entry.state.enabled,
+      enabled: entry.state.enabled && !this.securityDecision(pluginId),
       version: entry.manifest.version,
       rootDir: entry.rootDir,
       executableDigest: entry.executableDigest,
@@ -860,7 +881,7 @@ export class PluginRegistry {
       out.push({
         manifest: p.manifest,
         origin: p.origin,
-        enabled: p.state.enabled,
+        enabled: p.state.enabled && !this.securityDecision(p.manifest.id),
         executableDigest: p.executableDigest,
       })
     }
@@ -882,6 +903,7 @@ export class PluginRegistry {
         errorCount: p.state.errorCount,
         lastError: p.state.lastError,
         source: deriveListSource(p),
+        security: this.securityDecision(p.manifest.id),
       })
     }
     return out
@@ -889,6 +911,60 @@ export class PluginRegistry {
 
   loadErrors(): ReadonlyArray<LoadError> {
     return this.errors
+  }
+
+  securityIdentity(pluginId: string): PluginSecurityIdentity | undefined {
+    const entry = this.byId.get(pluginId)
+    return entry
+      ? {
+          pluginId,
+          version: entry.manifest.version,
+          archiveSha256: entry.archiveSha256,
+        }
+      : undefined
+  }
+
+  securityDecision(pluginId: string): PluginSecurityDecision | undefined {
+    const identity = this.securityIdentity(pluginId)
+    if (!identity) return undefined
+    const decision = this.opts.security?.decision(identity)
+    if (decision) return decision
+    if (
+      this.byId.get(pluginId)?.securityPending &&
+      this.opts.security &&
+      !this.opts.security.isFresh()
+    ) {
+      return { blocked: true, reason: 'pending', advisoryIds: [] }
+    }
+    return undefined
+  }
+
+  assertSecurityAllowed(pluginId: string): void {
+    const decision = this.securityDecision(pluginId)
+    if (decision)
+      throw new AppError(
+        decision.reason === 'pending'
+          ? ErrorCode.PluginSecurityPending
+          : ErrorCode.PluginSecurityBlocked,
+        decision.reason === 'pending'
+          ? 'plugins.security.pending'
+          : 'plugins.security.blocked'
+      )
+  }
+
+  async recordSecurityAdmission(pluginId: string): Promise<void> {
+    this.assertSecurityAllowed(pluginId)
+    const entry = this.byId.get(pluginId)
+    if (!entry?.securityPending) return
+    if (!entry.archiveSha256) {
+      throw new AppError(
+        ErrorCode.PluginSecurityPending,
+        'plugins.security.pending'
+      )
+    }
+    await recordSecurityAdmission(this.opts.pluginsDir, entry.archiveSha256)
+    this.assertSecurityAllowed(pluginId)
+    if (this.byId.get(pluginId) === entry) entry.securityPending = false
   }
 }
 

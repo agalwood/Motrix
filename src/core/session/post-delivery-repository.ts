@@ -546,7 +546,7 @@ export class SqlitePostDeliveryRepository
 
   async terminalizePlugin(input: {
     pluginId: string
-    reason: 'disabled' | 'uninstalled' | 'quarantined'
+    reason: 'disabled' | 'uninstalled' | 'quarantined' | 'security_revoked'
     at: number
   }): Promise<number> {
     return this.terminalizeWhere(

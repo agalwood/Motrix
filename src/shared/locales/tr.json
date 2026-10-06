@@ -2693,6 +2693,16 @@
         "noAccess": "Kapalı",
         "grant": "İzin ver"
       }
+    },
+    "security": {
+      "blocked": "Güvenlik nedeniyle engellendi",
+      "pending": "Bu eklentiyi etkinleştirmeden önce internete bağlanıp güncellemeleri denetleyin.",
+      "unavailable": "Güvenlik ilkesi doğrulanamadı. Yeniden denemek için güncellemeleri denetleyin.",
+      "malware": "Bu eklenti kötü amaçlı olarak tanımlandı.",
+      "vulnerability": "Bu eklenti sürümünde bir güvenlik açığı var.",
+      "compromised": "Bu eklentinin dağıtım kanalı ele geçirildi.",
+      "fixedVersion": "Düzeltme {{version}} sürümünde mevcut.",
+      "details": "Güvenlik duyurusunu görüntüle"
     }
   },
   "plugin": {
