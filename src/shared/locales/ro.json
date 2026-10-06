@@ -1680,6 +1680,16 @@
       "optional": "Acces opțional",
       "review": "Necesită verificare",
       "safe": "Pare sigur"
+    },
+    "security": {
+      "blocked": "Blocat din motive de securitate",
+      "pending": "Conectați-vă la internet și căutați actualizări înainte de a activa acest plugin.",
+      "unavailable": "Politica de securitate nu a putut fi verificată. Căutați din nou actualizări.",
+      "malware": "Acest plugin a fost identificat ca fiind rău intenționat.",
+      "vulnerability": "Această versiune a pluginului are o vulnerabilitate de securitate.",
+      "compromised": "Canalul de distribuție al acestui plugin a fost compromis.",
+      "fixedVersion": "O remediere este disponibilă în versiunea {{version}}.",
+      "details": "Vedeți anunțul de securitate"
     }
   },
   "quit": {

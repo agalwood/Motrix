@@ -1662,6 +1662,16 @@
       "optional": "Valgfri tilgang",
       "review": "Krever gjennomgang",
       "safe": "Ser trygt ut"
+    },
+    "security": {
+      "blocked": "Blokkert av sikkerhetsgrunner",
+      "pending": "Koble til internett og se etter oppdateringer før du aktiverer denne utvidelsen.",
+      "unavailable": "Sikkerhetspolicyen kunne ikke bekreftes. Se etter oppdateringer for å prøve igjen.",
+      "malware": "Denne utvidelsen er identifisert som skadelig.",
+      "vulnerability": "Denne versjonen av utvidelsen har en sikkerhetssårbarhet.",
+      "compromised": "Distribusjonen av denne utvidelsen er kompromittert.",
+      "fixedVersion": "En rettelse er tilgjengelig i versjon {{version}}.",
+      "details": "Vis sikkerhetsvarsel"
     }
   },
   "quit": {

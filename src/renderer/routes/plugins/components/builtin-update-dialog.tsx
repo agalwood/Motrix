@@ -122,7 +122,13 @@ export function BuiltinUpdateDialog({ pluginId, open, onOpenChange }: Props) {
 
         {phase.kind === 'error' && (
           <Alert variant="destructive">
-            <span className="text-xs">{phase.message}</span>
+            <span className="text-xs">
+              {phase.message.endsWith('plugins.security.blocked')
+                ? t('plugins.security.blocked')
+                : phase.message.endsWith('plugins.security.pending')
+                  ? t('plugins.security.pending')
+                  : phase.message}
+            </span>
           </Alert>
         )}
         {phase.kind === 'consent' && (

@@ -41,6 +41,34 @@ describe('StagedEffectStore', () => {
 
   // ── 2. HTTP patch merge ──────────────────────────────────────────────────────
 
+  it('rejects revoked returned results before the transaction callback or metadata write', () => {
+    const db = makeDb()
+    let revoked = false
+    store.bindPolicyCheck('plugin-a', () => {
+      if (revoked) throw new Error('security revoked')
+    })
+    store.appendMeta({
+      pluginId: 'plugin-a',
+      op: 'set',
+      key: 'result',
+      value: true,
+    })
+    store.assertPolicyCurrent()
+    // Taking finalize staging must retain the policy fence for the later commit.
+    store.takeAllStagings()
+    revoked = true
+    const commit = vi.fn()
+    expect(() => store.commitMetadata(db, 'task-1', commit)).toThrow(
+      'security revoked'
+    )
+    expect(commit).not.toHaveBeenCalled()
+    expect(allRows(db, 'task-1')).toEqual([])
+    store.removeFromPlugin('plugin-a')
+    expect(() => store.commitMetadata(db, 'task-1', commit)).not.toThrow()
+    expect(commit).toHaveBeenCalledOnce()
+    db.close()
+  })
+
   it('multiple plugins append HTTP patches; latestStagedFields returns post-merge view', () => {
     store.appendHttp('plugin-a', 'resolve', {
       uris: ['https://cdn.example.com/file.zip'],

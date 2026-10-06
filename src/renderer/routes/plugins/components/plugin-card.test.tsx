@@ -8,11 +8,16 @@ import type { PluginListDTO } from '@shared/types/plugin'
 import { usePluginsStore } from '../store'
 import { PluginCard } from './plugin-card'
 
-const { mockInvoke } = vi.hoisted(() => ({
+const { mockInvoke, openExternal } = vi.hoisted(() => ({
+  openExternal: vi.fn(),
   mockInvoke: vi.fn().mockResolvedValue(undefined),
 }))
 vi.mock('@renderer/lib/transport', () => ({
   transport: { invoke: mockInvoke, on: vi.fn(), off: vi.fn() },
+}))
+
+vi.mock('@renderer/platform/services', () => ({
+  usePlatformServices: () => ({ openExternal }),
 }))
 
 function makePlugin(overrides: Partial<PluginListDTO> = {}): PluginListDTO {
@@ -96,6 +101,39 @@ describe('PluginCard', () => {
     expect(
       screen.getByText('Adds a few download preferences.')
     ).toBeInTheDocument()
+  })
+
+  it('shows the security reason and blocks the enable switch without offering Turn on', () => {
+    renderCard(
+      makePlugin({
+        enabled: false,
+        security: {
+          blocked: true,
+          reason: 'malware',
+          advisoryIds: ['MTX-TEST-1'],
+          fixedVersion: '1.2.0',
+          url: 'https://motrix.app/security/MTX-TEST-1',
+        },
+      })
+    )
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'false')
+    expect(
+      screen.queryByRole('button', { name: 'Turn on' })
+    ).not.toBeInTheDocument()
+    expect(screen.getByText('MTX-TEST-1')).toBeInTheDocument()
+    expect(
+      screen.getByText('A fix is available in version 1.2.0.')
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('switch'))
+    expect(mockInvoke).not.toHaveBeenCalled()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'View security advisory' })
+    )
+    expect(openExternal).toHaveBeenCalledWith(
+      'https://motrix.app/security/MTX-TEST-1'
+    )
+    expect(screen.queryByTestId('detail-route')).not.toBeInTheDocument()
   })
 
   it('safe tone: shows Looks safe badge', () => {

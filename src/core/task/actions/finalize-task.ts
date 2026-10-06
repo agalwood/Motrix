@@ -169,6 +169,7 @@ export interface FinalizeArtifactCommitRequest {
   replacement?: { pluginId: string; stagedPath: string }
   metadataOps: readonly StagedMetadataOp[]
   contributors: readonly string[]
+  beforeCommit?: () => void
   fileRebase?: { sourceRoot: string; targetRoot: string }
 }
 
@@ -331,6 +332,7 @@ async function finalizeHttp(
   }
 
   try {
+    finalizeOutcome.beforeCommit?.()
     await deps.fs.renameAtomic(renameSource, desiredFinalPath)
   } catch (e) {
     const cause = (e as Error).message
@@ -417,6 +419,7 @@ async function commitHttpArtifactDurably(
     replacement: finalizeOutcome.replacement,
     metadataOps: finalizeOutcome.metadataOps,
     contributors: finalizeOutcome.contributors,
+    beforeCommit: finalizeOutcome.beforeCommit,
     fileRebase: {
       sourceRoot: renameSource,
       targetRoot: desiredFinalPath,
@@ -633,6 +636,7 @@ async function finalizeBt(
         replacement: finalizeOutcome.replacement,
         metadataOps: finalizeOutcome.metadataOps,
         contributors: finalizeOutcome.contributors,
+        beforeCommit: finalizeOutcome.beforeCommit,
         fileRebase: {
           sourceRoot: renameSource,
           targetRoot: publishedFinalPath,
@@ -654,6 +658,7 @@ async function finalizeBt(
     }
   } else {
     try {
+      finalizeOutcome.beforeCommit?.()
       await deps.fs.renameAtomic(renameSource, publishedFinalPath)
     } catch (e) {
       const cause = (e as Error).message
@@ -1043,11 +1048,14 @@ async function finalizeBtInPlace(
       targetPath: task.finalPath,
       metadataOps: outcome.metadataOps,
       contributors: outcome.contributors,
+      beforeCommit: outcome.beforeCommit,
     })
     deps.taskManager.set(task.id, structuredClone(task))
     await recordTaskTransition(task, previousStatus, deps, completedAt)
     if (occurrence) await deps.occurrenceDispatcher?.dispatch(occurrence)
   } else {
+    // A policy check alone needs no file mutation lease. The commit still
+    // revalidates it while the unchanged engine identity continues seeding.
     outcome.commit(() => {})
     await persistTaskTransition(task, previousStatus, deps, completedAt)
   }
@@ -1288,6 +1296,7 @@ interface BeforeFinalizeOutcomeCommit {
   replacement?: { pluginId: string; stagedPath: string }
   metadataOps: readonly StagedMetadataOp[]
   contributors: readonly string[]
+  beforeCommit?: () => void
   /**
    * Runs the staged metadata commit (if a db handle is wired) wrapping the
    * supplied sync callback inside the same SQLite transaction. When no db
@@ -1349,10 +1358,15 @@ async function runBeforeFinalize(
   })
   const db = deps.db
   const staged = result.staged
+  const beforeCommit = staged.hasPolicyChecks
+    ? staged.assertPolicyCurrent.bind(staged)
+    : undefined
+  beforeCommit?.()
   return {
     aborted: false,
     finalFilePath: result.finalFilePath,
     replacement: result.replacement,
+    beforeCommit,
     metadataOps:
       typeof result.staged.allMetadataOps === 'function'
         ? result.staged.allMetadataOps()
@@ -1368,6 +1382,7 @@ async function runBeforeFinalize(
       ]),
     ].sort(),
     commit: (cb: () => void) => {
+      beforeCommit?.()
       if (db) {
         staged.commitMetadata(db, task.id, cb)
       } else {

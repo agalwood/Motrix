@@ -2672,6 +2672,16 @@
         "noAccess": "꺼짐",
         "grant": "허용"
       }
+    },
+    "security": {
+      "blocked": "보안상의 이유로 차단됨",
+      "pending": "이 플러그인을 활성화하기 전에 인터넷에 연결하여 업데이트를 확인하세요.",
+      "unavailable": "보안 정책을 확인할 수 없습니다. 업데이트를 확인하고 다시 시도하세요.",
+      "malware": "이 플러그인은 악성으로 확인되었습니다.",
+      "vulnerability": "이 플러그인 버전에 보안 취약점이 있습니다.",
+      "compromised": "이 플러그인의 배포 경로가 침해되었습니다.",
+      "fixedVersion": "수정된 버전: {{version}}.",
+      "details": "보안 공지 보기"
     }
   },
   "plugin": {

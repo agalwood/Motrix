@@ -32,6 +32,8 @@ export interface InstallRecordSource {
   type: InstallSourceType
   url: string
   bundleSha256: string
+  /** Exact .moext digest, distinct from the executable entry digest. */
+  archiveSha256?: string
   recordedAt: number
 }
 
@@ -55,6 +57,8 @@ export interface InstallRecord {
   consentSnapshot: ConsentSnapshot
   /** Signature over the retained archive, rechecked at discovery and activation. */
   official?: OfficialPackageProof
+  /** False until the first activation has a recent trusted security policy. */
+  securityReviewed?: boolean
 }
 
 export interface OfficialPackageProof {

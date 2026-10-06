@@ -1,6 +1,8 @@
 // src/shared/types/plugin.ts
 // Phase 1A DTO-only types. Manifest schema lives in @core/plugin/manifest/schema.ts.
 
+import type { PluginSecurityDecision } from '@shared/schemas/plugin-security'
+
 export type PluginStatus =
   | 'inactive' // installed + enabled, VM not running
   | 'active' // VM running
@@ -128,6 +130,7 @@ export interface PluginListDTO {
   source?: PluginSource
   errorCount: number
   lastError?: string
+  security?: PluginSecurityDecision
 }
 
 export interface PluginManifestDTO extends PluginManifest {

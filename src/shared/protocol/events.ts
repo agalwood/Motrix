@@ -22,6 +22,7 @@ export const Events = {
   PluginError: 'event:pluginError',
   PluginTimeout: 'event:pluginTimeout',
   PluginStatusChanged: 'event:pluginStatusChanged',
+  PluginSecurityChanged: 'event:pluginSecurityChanged',
   PluginInstalled: 'event:pluginInstalled',
   PluginUninstalled: 'event:pluginUninstalled',
   PluginInstallConsentRequested: 'event:pluginInstallConsentRequested',

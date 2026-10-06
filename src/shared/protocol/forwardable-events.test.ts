@@ -27,7 +27,7 @@ describe('ForwardableEvents', () => {
   })
 
   it('has the expected number of forwardable events', () => {
-    expect(ForwardableEvents).toHaveLength(59)
+    expect(ForwardableEvents).toHaveLength(60)
   })
 
   it('includes the bridge approval events (web-shell pairing)', () => {
@@ -66,6 +66,7 @@ describe('ForwardableEvents', () => {
     expect(ForwardableEvents).toContain(Events.PluginError)
     expect(ForwardableEvents).toContain(Events.PluginTimeout)
     expect(ForwardableEvents).toContain(Events.PluginStatusChanged)
+    expect(ForwardableEvents).toContain(Events.PluginSecurityChanged)
     expect(ForwardableEvents).toContain(Events.PluginConfigChanged)
     expect(ForwardableEvents).toContain(Events.PluginGrantsChanged)
     expect(ForwardableEvents).toContain(Events.PluginEvicted)

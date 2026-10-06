@@ -19,6 +19,7 @@ export const InstallRecordSchema = z
   .object({
     version: z.literal(1),
     pluginId: z.string().min(1),
+    securityReviewed: z.boolean().optional(),
     official: z
       .object({
         signature: z.string().min(1).max(256),
@@ -31,6 +32,7 @@ export const InstallRecordSchema = z
         type: z.enum(INSTALL_SOURCE_TYPES),
         url: z.string().min(1),
         bundleSha256: Sha256Hex,
+        archiveSha256: Sha256Hex.optional(),
         recordedAt: z.number().int(),
       })
       .strict(),

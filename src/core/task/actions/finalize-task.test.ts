@@ -1,3 +1,4 @@
+import { StagedEffectStore } from '@core/plugin/hooks/staged-effects'
 import { Events } from '@shared/protocol/events'
 import type { DownloadTask, TaskInstance } from '@shared/types/task'
 import {
@@ -1939,9 +1940,7 @@ describe('finalizeTask plugin-hook chain (Plan C / T15)', () => {
   function makeBeforeFinalizeCommit(
     overrides: {
       finalFilePath?: string
-      staged?: {
-        commitMetadata: ReturnType<typeof vi.fn>
-      }
+      staged?: StagedEffectStore | { commitMetadata: ReturnType<typeof vi.fn> }
     } = {}
   ) {
     return {
@@ -1976,6 +1975,85 @@ describe('finalizeTask plugin-hook chain (Plan C / T15)', () => {
       log: vi.fn(async () => {}),
     } as unknown as FinalizeTaskDeps['auditLog']
   }
+
+  function makeDirectBtFinalize(policyCheck: () => void) {
+    const task = makeBtTask({
+      diskPath: '/d/movie.iso',
+      finalPath: '/d/movie.iso',
+      instances: [
+        makePrimaryInstance({
+          phase: TaskInstancePhase.BtDownload,
+          diskPath: '/d/movie.iso',
+          payload: {
+            btStorageLayout: {
+              version: 2,
+              strategy: 'direct',
+              torrentRootName: 'original.iso',
+              multiFile: false,
+              finalized: false,
+            },
+          },
+        }),
+      ],
+    })
+    const staged = new StagedEffectStore()
+    staged.bindPolicyCheck('test.before-finalize', policyCheck)
+    const deps = makeDeps({
+      orchestrator: makeOrchestrator(makeBeforeFinalizeCommit({ staged })),
+      commitFinalizedArtifact: vi.fn(async () => {
+        throw new Error('engine writer is still active')
+      }),
+    })
+    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+    return { task, deps }
+  }
+
+  it.each([TaskStatus.Seeding, TaskStatus.Completed])(
+    'BT: policy checks alone finalize direct output in place with status %s',
+    async (status) => {
+      const policyCheck = vi.fn()
+      const { task, deps } = makeDirectBtFinalize(policyCheck)
+      vi.mocked(deps.adapter.getTaskStatus).mockResolvedValue(
+        makeBtTask({ status })
+      )
+      const gid = task.engineTaskId
+
+      await expect(finalizeTask(task.id, deps)).resolves.toBeUndefined()
+
+      expect(policyCheck).toHaveBeenCalled()
+      expect(task.status).toBe(status)
+      expect(task.engineTaskId).toBe(gid)
+      expect(task.instances[0].payload.btStorageLayout).toMatchObject({
+        finalized: true,
+      })
+      expect(deps.commitFinalizedArtifact).not.toHaveBeenCalled()
+      expect(deps.fs.renameAtomic).not.toHaveBeenCalled()
+      expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
+      expect(deps.adapter.addTorrent).not.toHaveBeenCalled()
+    }
+  )
+
+  it('BT: rejects a revoked policy after refreshing direct output state', async () => {
+    let revoked = false
+    const { task, deps } = makeDirectBtFinalize(() => {
+      if (revoked) throw new Error('plugin security policy changed')
+    })
+    vi.mocked(deps.adapter.getTaskStatus).mockResolvedValue(
+      makeBtTask({ status: TaskStatus.Seeding })
+    )
+    vi.mocked(deps.adapter.getTaskFiles).mockImplementation(async () => {
+      revoked = true
+      return []
+    })
+
+    await expect(finalizeTask(task.id, deps)).rejects.toThrow(
+      'plugin security policy changed'
+    )
+
+    expect(task.status).toBe(TaskStatus.Error)
+    expect(deps.commitFinalizedArtifact).not.toHaveBeenCalled()
+    expect(deps.activityRecorder.recordDownloadCompleted).not.toHaveBeenCalled()
+  })
 
   it('HTTP: chain commit leaves afterComplete to durable delivery', async () => {
     const orchestrator = makeOrchestrator(makeBeforeFinalizeCommit())

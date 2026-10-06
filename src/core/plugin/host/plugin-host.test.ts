@@ -230,6 +230,106 @@ describe('PluginHost', () => {
     rmSync(root, { recursive: true, force: true })
   })
 
+  it('revokes a running guest without executing guest cleanup or changing user preference', async () => {
+    let revoked = false
+    vi.spyOn(registry, 'securityDecision').mockImplementation((id) =>
+      revoked && id === 'alice.demo'
+        ? { blocked: true, reason: 'malware', advisoryIds: ['MTX-TEST-1'] }
+        : undefined
+    )
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: workerPath,
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+    })
+    const unavailable = vi.fn().mockResolvedValue(1)
+    host.bindPluginUnavailable(unavailable)
+    try {
+      await host.activate('alice.demo')
+      await host.activate('bob.demo')
+      const bridge = host.bridgeFor('alice.demo')!
+      const guestCleanup = vi.spyOn(bridge, 'runDeactivate')
+      const checkReturnedResult = host.capturePolicyCheck('alice.demo')
+      checkReturnedResult()
+      const lease = host.acquirePolicyLease(
+        'alice.demo',
+        registry.policyGenerationFor('alice.demo')
+      )
+      revoked = true
+      const stopping = host.enforceSecurityPolicy()
+      expect(lease.signal.aborted).toBe(true)
+      expect(checkReturnedResult).toThrow(
+        expect.objectContaining({ code: ErrorCode.PluginSecurityBlocked })
+      )
+      expect(host.isActive('alice.demo')).toBe(false)
+      await expect(host.activate('alice.demo')).rejects.toMatchObject({
+        code: ErrorCode.PluginSecurityBlocked,
+      })
+      await stopping
+      expect(guestCleanup).not.toHaveBeenCalled()
+      expect(unavailable).toHaveBeenCalledWith(
+        'alice.demo',
+        'security_revoked',
+        expect.any(Number)
+      )
+      expect(stateStore.get('alice.demo')?.enabled).toBe(true)
+      expect(host.isQuiescent('alice.demo')).toBe(true)
+      expect(host.isActive('bob.demo')).toBe(true)
+      expect(
+        registry.entries().find((entry) => entry.manifest.id === 'alice.demo')
+          ?.enabled
+      ).toBe(false)
+      lease.release()
+    } finally {
+      await host.shutdown()
+    }
+  })
+
+  it('does not reopen a revoked plugin when durable retention fails', async () => {
+    vi.spyOn(registry, 'securityDecision').mockReturnValue({
+      blocked: true,
+      reason: 'vulnerability',
+      advisoryIds: ['MTX-TEST-1'],
+    })
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: workerPath,
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+    })
+    host.bindPluginUnavailable(async () => {
+      throw new Error('database unavailable')
+    })
+    try {
+      await expect(host.enforceSecurityPolicy()).rejects.toThrow(
+        'database unavailable'
+      )
+      await expect(host.activate('alice.demo')).rejects.toMatchObject({
+        code: ErrorCode.PluginSecurityBlocked,
+      })
+      expect(() =>
+        host.acquirePolicyLease(
+          'alice.demo',
+          registry.policyGenerationFor('alice.demo')
+        )
+      ).toThrow()
+      expect(stateStore.get('alice.demo')?.enabled).toBe(true)
+      await new ActivationDispatcher(registry, host).dispatch({
+        kind: 'startup',
+      })
+      expect(host.activeIds()).toEqual([])
+    } finally {
+      await host.shutdown()
+    }
+  })
+
   it('activates a plugin and marks it active', async () => {
     const host = new PluginHost({
       registry,

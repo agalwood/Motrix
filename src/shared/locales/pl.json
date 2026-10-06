@@ -2735,6 +2735,16 @@
         "noAccess": "Wyłączone",
         "grant": "Zezwól"
       }
+    },
+    "security": {
+      "blocked": "Zablokowano ze względów bezpieczeństwa",
+      "pending": "Połącz się z internetem i sprawdź aktualizacje przed włączeniem tej wtyczki.",
+      "unavailable": "Nie udało się zweryfikować zasad bezpieczeństwa. Sprawdź aktualizacje ponownie.",
+      "malware": "Ta wtyczka została uznana za złośliwą.",
+      "vulnerability": "Ta wersja wtyczki zawiera lukę w zabezpieczeniach.",
+      "compromised": "Kanał dystrybucji tej wtyczki został naruszony.",
+      "fixedVersion": "Poprawka jest dostępna w wersji {{version}}.",
+      "details": "Wyświetl komunikat bezpieczeństwa"
     }
   },
   "plugin": {

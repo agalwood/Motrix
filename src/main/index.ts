@@ -60,6 +60,7 @@ import { RegistryClient } from '@core/plugin/registry/registry-client'
 import type { PluginHookRuntime } from '@core/plugin/runtime/plugin-hook-runtime'
 import { createPluginRuntime } from '@core/plugin/runtime/runtime-factory'
 import { PluginRuntimeStartupCoordinator } from '@core/plugin/runtime/startup-coordinator'
+import { PluginSecurityService } from '@core/plugin/security/security-service'
 import { PluginStateStore } from '@core/plugin/state/plugin-state-store'
 import { BuiltinUpdater } from '@core/plugin/update/builtin-updater'
 import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
@@ -1234,7 +1235,10 @@ function buildFinalizeDeps(adapter: Aria2Adapter) {
       await durableFinalizeRuntime.commit({
         ...input,
         postDeliveries: post.postDeliveries,
-        beforeCommit: post.beforeCommit,
+        beforeCommit: () => {
+          input.beforeCommit?.()
+          post.beforeCommit()
+        },
       })
     },
   }
@@ -1743,7 +1747,10 @@ async function initializeMainProcess(): Promise<void> {
 
   // OS logout/shutdown: skip the quit dialog so session end is never blocked.
   powerMonitor.on('shutdown', prepareForSessionEnd)
-  powerMonitor.on('resume', () => trackerManager?.notifyWake())
+  powerMonitor.on('resume', () => {
+    trackerManager?.notifyWake()
+    pluginHost?.notifySecurityWake()
+  })
 
   if (gate.isAccepted()) {
     const runMode = settingsManager.getApp().runMode
@@ -1907,7 +1914,12 @@ async function initializeMainProcess(): Promise<void> {
   // manifest resolution.
   const overlayDir = path.join(platform.userDataDir, 'builtin-updates')
   const devPath = process.env.MOTRIX_PLUGIN_DEV_PATH
+  const pluginSecurity = new PluginSecurityService({
+    cachePath: path.join(platform.userDataDir, 'plugin-security.json'),
+  })
+  await pluginSecurity.initialize()
   const pluginRegistry = new PluginRegistry({
+    security: pluginSecurity,
     pluginsDir,
     builtinDir,
     overlayDir,
@@ -1956,6 +1968,11 @@ async function initializeMainProcess(): Promise<void> {
   const detectPluginFfmpeg = async () =>
     projectActiveToLegacy(await detectElectronFfmpeg())
   const activePluginHost = new PluginHost({
+    security: pluginSecurity,
+    onSecurityChanged: () => {
+      eventBus.emit(Events.PluginSecurityChanged)
+      eventBus.emit(Events.ContributionIndexChanged)
+    },
     registry: pluginRegistry,
     stateStore: pluginStateStore,
     capabilityHost: pluginCapHost,
@@ -2022,6 +2039,7 @@ async function initializeMainProcess(): Promise<void> {
   }
 
   const pluginInstaller = new PluginInstaller({
+    security: pluginSecurity,
     pluginsDir,
     registry: pluginRegistry,
     stateStore: pluginStateStore,
@@ -2645,10 +2663,13 @@ async function initializeMainProcess(): Promise<void> {
     !nativeMessagingInstaller.preserveOnStartupFailure
   )
 
+  await activePluginHost.enforceSecurityPolicy()
+  pluginSecurity.start()
   const registryClient = new RegistryClient({
     cachePath: path.join(platform.userDataDir, REGISTRY_CACHE_FILENAME),
   })
   const builtinUpdater = new BuiltinUpdater({
+    security: pluginSecurity,
     overlayDir,
     hostVersion: app.getVersion(),
   })

@@ -18,6 +18,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import type { RegistryPluginDTO } from '@shared/schemas/registry'
 import { keypair } from '@test-utils/moext'
+import { securityFixture } from '@test-utils/plugin-security'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ServerPluginInstallService } from '../../../server/plugin/install-service'
 import type { CapabilityHost } from '../capabilities/interface'
@@ -25,6 +26,7 @@ import { GrantsManager } from '../grants/grants-manager'
 import { PluginHost } from '../host/plugin-host'
 import { PluginRegistry } from '../plugin-registry'
 import { downloadRegistryMoext } from '../registry/registry-fetcher'
+import { PluginSecurityService } from '../security/security-service'
 import { PluginStateStore } from '../state/plugin-state-store'
 import { readInstallRecord } from './install-record'
 import { OFFICIAL_ARCHIVE_FILENAME } from './official-package'
@@ -240,6 +242,7 @@ async function makeInstaller(
     stateStore,
     hostVersion: '2.5.0',
     signingPubkeys: extra.signingPubkeys,
+    security: extra.security,
   })
   calls = {
     deactivated: [],
@@ -1339,5 +1342,133 @@ describe('official optional plugin lifecycle', () => {
     await registry.discover()
     expect(registry.get(id)?.origin).toBe('builtin')
     await expect(stage()).rejects.toThrow('builtin_already_installed')
+  })
+})
+
+describe('security gates across installation and first activation', () => {
+  it('blocks an exact third-party archive even when its ID is not listed', async () => {
+    const fixture = securityFixture()
+    const now = Date.now()
+    const moext = await writeMoext(
+      path.join(inputDir, 'blocked.moext'),
+      manifestJSON()
+    )
+    const archiveSha256 = createHash('sha256')
+      .update(await readFile(moext))
+      .digest('hex')
+    const policy = fixture.policy(now, {
+      advisories: [
+        {
+          id: 'MTX-TEST-1',
+          status: 'active',
+          reason: 'malware',
+          affected: [{ kind: 'archive', sha256: archiveSha256 }],
+        },
+      ],
+    })
+    const security = new PluginSecurityService({
+      cachePath: path.join(tmp, 'security.json'),
+      trust: fixture.trust,
+      fetchImpl: async () => new Response(fixture.sign(policy)),
+    })
+    await security.refresh()
+    installer = await makeInstaller({ security })
+    try {
+      await expect(
+        installer.stage(moext, { type: 'github', spec: 'example/test' })
+      ).rejects.toMatchObject({ code: 'PLUGIN_SECURITY_BLOCKED' })
+      expect(registry.get('example.test')).toBeUndefined()
+    } finally {
+      await security.stop()
+    }
+  })
+
+  it('rechecks policy after consent and rejects a newly revoked package', async () => {
+    const fixture = securityFixture()
+    let now = Date.now()
+    let policy = fixture.policy(now, { advisories: [] })
+    const security = new PluginSecurityService({
+      cachePath: path.join(tmp, 'security.json'),
+      trust: fixture.trust,
+      now: () => now,
+      fetchImpl: async () => new Response(fixture.sign(policy)),
+    })
+    installer = await makeInstaller({ security })
+    try {
+      const moext = await writeMoext(
+        path.join(inputDir, 'consent.moext'),
+        manifestJSON()
+      )
+      const staged = await installer.stage(moext, {
+        type: 'github',
+        spec: 'example/test',
+      })
+      now += 60_000
+      policy = fixture.policy(now, {
+        revision: 2,
+        advisories: [
+          {
+            id: 'MTX-TEST-2',
+            status: 'active',
+            reason: 'malware',
+            affected: [{ kind: 'plugin', pluginId: 'example.test' }],
+          },
+        ],
+      })
+      await security.refresh(true)
+      await expect(
+        installer.commit(staged.stagingId, {})
+      ).rejects.toMatchObject({ code: 'PLUGIN_SECURITY_BLOCKED' })
+      expect(registry.get('example.test')).toBeUndefined()
+    } finally {
+      await security.stop()
+    }
+  })
+
+  it('installs offline but holds first admission until a fresh policy, then preserves that receipt offline', async () => {
+    const fixture = securityFixture()
+    let now = Date.now()
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockRejectedValue(new Error('offline'))
+    const security = new PluginSecurityService({
+      cachePath: path.join(tmp, 'security.json'),
+      trust: fixture.trust,
+      now: () => now,
+      fetchImpl,
+    })
+    installer = await makeInstaller({ security })
+    try {
+      const moext = await writeMoext(
+        path.join(inputDir, 'offline.moext'),
+        manifestJSON()
+      )
+      const staged = await installer.stage(moext, {
+        type: 'github',
+        spec: 'example/test',
+      })
+      await installer.commit(staged.stagingId, {})
+      expect(registry.securityDecision('example.test')?.reason).toBe('pending')
+      await expect(
+        registry.recordSecurityAdmission('example.test')
+      ).rejects.toMatchObject({ code: 'PLUGIN_SECURITY_PENDING' })
+      now += 60_000
+      fetchImpl.mockResolvedValue(
+        new Response(fixture.sign(fixture.policy(now, { advisories: [] })))
+      )
+      await security.refresh(true)
+      await registry.recordSecurityAdmission('example.test')
+      now += 26 * 60 * 60_000
+      expect(security.isFresh()).toBe(false)
+      await registry.discover()
+      expect(registry.securityDecision('example.test')).toBeUndefined()
+      const record = await readInstallRecord(
+        path.join(pluginsDir, 'example.test')
+      )
+      expect(record?.source.archiveSha256).toMatch(/^[a-f0-9]{64}$/)
+      expect(record?.grants).toEqual({})
+    } finally {
+      await security.stop()
+    }
   })
 })

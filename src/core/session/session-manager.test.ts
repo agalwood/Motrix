@@ -608,6 +608,19 @@ describe('SessionManager', () => {
       )
     })
 
+    it('rejects revoked plugin results after payload preparation and before database persistence', async () => {
+      const candidate = createTask({ id: 'plugin-revoked-candidate' })
+      const beforeCommit = vi.fn(() => {
+        throw new Error('security revoked')
+      })
+      await expect(
+        session.persistTaskWithPluginMetadata(candidate, [], beforeCommit)
+      ).rejects.toThrow('security revoked')
+      expect(beforeCommit).toHaveBeenCalledOnce()
+      expect(db.persistTaskWithPluginMetadata).not.toHaveBeenCalled()
+      expect(taskManager.getById(candidate.id)).toBeUndefined()
+    })
+
     it('emits a stable admission-rejected event after the terminal transaction commits', async () => {
       const task = createTask({
         id: 'm-post-rejected',
