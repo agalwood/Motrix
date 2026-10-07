@@ -25,8 +25,10 @@ export function ImportPageLayout({
         contentClassName="overflow-hidden"
         footer={<div className="w-full py-1">{footer}</div>}
       >
-        <div className="@container/import mx-auto flex min-h-0 w-full max-w-180 flex-1 flex-col px-[clamp(1.5rem,8%,5rem)]">
-          <ImportStageContent key={stage}>{children}</ImportStageContent>
+        <div className="@container/import flex min-h-0 flex-1 flex-col px-6">
+          <div className="mx-auto flex min-h-0 w-full max-w-120 flex-1 flex-col">
+            <ImportStageContent key={stage}>{children}</ImportStageContent>
+          </div>
         </div>
       </PanelShell>
     </ImportMotionScope>
