@@ -73,10 +73,17 @@ afterEach(async () => {
 describe('legacy import UI adversarial state', () => {
   it('preserves the active run when the user changes language', async () => {
     render(<LegacyImportDialog open onClose={vi.fn()} />)
+    const continueButton = await screen.findByRole('button', {
+      name: 'Continue',
+    })
+    await waitFor(() => expect(continueButton).toBeEnabled())
+    fireEvent.click(continueButton)
     expect(
-      await screen.findByRole('checkbox', { name: 'Select all' })
+      await screen.findByRole('checkbox', { name: 'Select Direct links' })
     ).toBeChecked()
-    fireEvent.click(await screen.findByRole('button', { name: /Import 1/ }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Migrate 1 task' })
+    )
     await screen.findByRole('progressbar')
     await act(async () => {
       await i18n.changeLanguage('zh-CN')
@@ -113,6 +120,11 @@ describe('legacy import UI adversarial state', () => {
     await act(async () => {
       resolveFirst([])
     })
+    const continueButton = await screen.findByRole('button', {
+      name: 'Continue',
+    })
+    await waitFor(() => expect(continueButton).toBeEnabled())
+    fireEvent.click(continueButton)
     expect(
       await screen.findByRole('checkbox', { name: 'archive.zip' })
     ).toBeChecked()

@@ -39,7 +39,7 @@ export function MigrationPage({ active }: { active: boolean }) {
   return (
     <MigrationBoundary
       fallback={
-        <PanelShell title={t('legacyImport.title')}>
+        <PanelShell title={t('legacyImport.page.assistantTitle')}>
           <div role="alert" className="space-y-4 p-6">
             <p className="text-sm text-muted-foreground">
               {t('legacyImport.errors.pageUnavailable')}

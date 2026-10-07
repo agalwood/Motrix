@@ -1,10 +1,5 @@
-import { VirtualList } from '@renderer/components/desktop-kit/virtual-list/virtual-list'
-import {
-  CheckIcon,
-  DownloadLibraryIcon,
-  FolderIcon,
-  WarningIcon,
-} from '@renderer/components/icons'
+import { CheckIcon, FolderIcon, WarningIcon } from '@renderer/components/icons'
+import { Alert, AlertDescription } from '@renderer/components/ui/alert'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -14,17 +9,19 @@ import {
   AlertDialogTitle,
 } from '@renderer/components/ui/alert-dialog'
 import { Button } from '@renderer/components/ui/button'
-import { Checkbox } from '@renderer/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@renderer/components/ui/dialog'
-import { Input } from '@renderer/components/ui/input'
 import { Progress } from '@renderer/components/ui/progress'
+import { Spinner } from '@renderer/components/ui/spinner'
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from '@renderer/components/ui/toggle-group'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
@@ -43,18 +40,21 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
-  useId,
   useRef,
   useState,
 } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ImportProgressIllustration, ImportResultMark } from './import-motion'
+import { ImportMotionScope, ImportResultMark } from './import-motion'
 import {
   ImportPageLayout,
   type ImportStage,
-  ImportTransferIllustration,
+  ImportStageHeading,
 } from './import-page-layout'
-import { ImportTaskInfo } from './import-task-info'
+import { ImportResultDetails } from './import-result-details'
+import {
+  ImportTaskSelection,
+  initialExpandedGroups,
+} from './import-task-selection'
 
 interface Props {
   open: boolean
@@ -64,7 +64,8 @@ interface Props {
   presentation?: 'dialog' | 'page'
   active?: boolean
 }
-type Stage = ImportStage
+const terminal = (report: LegacyImportReport) =>
+  ['completed', 'cancelled', 'failed'].includes(report.stage)
 
 class ImportErrorBoundary extends Component<
   { children: ReactNode; fallback: ReactNode },
@@ -100,15 +101,16 @@ function LegacyImportDialogContent({
 }: Props) {
   const { t } = useTranslation()
   const page = presentation === 'page'
-  const invitationRef = useRef(invitation)
-  invitationRef.current = invitation
-  const allSelectionId = useId()
-  const [stage, setStage] = useState<Stage>(
-    invitation ? 'discovery' : 'selection'
-  )
+  const [stage, setStage] = useState<ImportStage>('discovery')
   const [preview, setPreview] = useState<LegacyImportPreview | null>(null)
+  const previewRef = useRef<LegacyImportPreview | null>(null)
   const [sources, setSources] = useState<LegacyImportSource[]>([])
+  const [sourceHandle, setSourceHandle] = useState<string | null>(null)
+  const sourceHandleRef = useRef<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [expanded, setExpanded] = useState<Set<LegacyImportItem['type']>>(
+    new Set()
+  )
   const [report, setReport] = useState<LegacyImportReport | null>(null)
   const [busy, setBusy] = useState(false)
   const busyRef = useRef(false)
@@ -116,14 +118,8 @@ function LegacyImportDialogContent({
   const [query, setQuery] = useState('')
   const [confirmStop, setConfirmStop] = useState(false)
   const epoch = useRef(0)
-  const actionable = preview?.items.filter((item) => item.selectable) ?? []
-  const skipped = preview?.items.filter((item) => !item.selectable) ?? []
-  const visible = actionable.filter((item) =>
-    item.name.toLocaleLowerCase().includes(query.toLocaleLowerCase())
-  )
   const runId = report?.runId
-  const finished =
-    report && ['completed', 'cancelled', 'failed'].includes(report.stage)
+  const finished = report ? terminal(report) : false
   const resultTitleKey =
     report?.stage === 'cancelled'
       ? 'legacyImport.resultStoppedTitle'
@@ -163,33 +159,6 @@ function LegacyImportDialogContent({
     failureRef.current = failure
   }, [failure])
 
-  const scan = useCallback(
-    async (source: LegacyImportSource, preserve = false) => {
-      const generation = epoch.current
-      const next = legacyImportPreviewSchema.parse(
-        await transport.invoke(Queries.ScanLegacyImport, {
-          sourceHandle: source.sourceHandle,
-        })
-      )
-      if (generation !== epoch.current) return
-      setPreview(next)
-      setSelected(
-        (current) =>
-          new Set(
-            next.items
-              .filter(
-                (item) =>
-                  item.selectable && (!preserve || current.has(item.itemId))
-              )
-              .map((item) => item.itemId)
-          )
-      )
-      setQuery('')
-      setError(null)
-    },
-    []
-  )
-
   const perform = useCallback(async (operation: () => Promise<void>) => {
     if (busyRef.current) return
     const generation = epoch.current
@@ -208,28 +177,91 @@ function LegacyImportDialogContent({
     }
   }, [])
 
+  const scan = useCallback(
+    async (source: LegacyImportSource, refresh = false) => {
+      const generation = epoch.current
+      const sameSource = source.sourceHandle === sourceHandleRef.current
+      const preserveSelection = sameSource && previewRef.current !== null
+      if (sameSource && previewRef.current && !refresh) return
+      sourceHandleRef.current = source.sourceHandle
+      setSourceHandle(source.sourceHandle)
+      if (!sameSource) {
+        previewRef.current = null
+        setPreview(null)
+        setSelected(new Set())
+        setExpanded(new Set())
+        setQuery('')
+      }
+      const next = legacyImportPreviewSchema.parse(
+        await transport.invoke(Queries.ScanLegacyImport, {
+          sourceHandle: source.sourceHandle,
+        })
+      )
+      if (generation !== epoch.current) return
+      previewRef.current = next
+      setPreview(next)
+      setSelected(
+        (current) =>
+          new Set(
+            next.items
+              .filter(
+                (item) =>
+                  item.selectable &&
+                  (!preserveSelection || current.has(item.itemId))
+              )
+              .map((item) => item.itemId)
+          )
+      )
+      if (!preserveSelection) setExpanded(initialExpandedGroups(next.items))
+      setError(null)
+    },
+    []
+  )
+
+  const discover = useCallback(async () => {
+    const generation = epoch.current
+    const result = await transport.invoke(Queries.DiscoverLegacyImport)
+    if (generation !== epoch.current) return
+    const found = (result as unknown[]).map((source) =>
+      legacyImportSourceSchema.parse(source)
+    )
+    setSources(found)
+    if (found[0]) await scan(found[0])
+  }, [scan])
+
   useEffect(() => {
     if (!open) return
-    const generation = ++epoch.current
-    setStage(invitationRef.current ? 'discovery' : 'selection')
+    ++epoch.current
+    setStage('discovery')
+    previewRef.current = null
+    sourceHandleRef.current = null
     setPreview(null)
+    setSourceHandle(null)
     setSources([])
     setReport(null)
     setSelected(new Set())
-    void perform(async () => {
-      const result = await transport.invoke(Queries.DiscoverLegacyImport)
-      if (generation !== epoch.current) return
-      const found = (result as unknown[]).map((source) =>
-        legacyImportSourceSchema.parse(source)
-      )
-      setSources(found)
-      if (found[0]) await scan(found[0])
-    })
+    setExpanded(new Set())
+    setQuery('')
+    setConfirmStop(false)
+    void perform(discover)
     return () => {
       epoch.current++
       busyRef.current = false
     }
-  }, [open, perform, scan])
+  }, [open, perform, discover])
+
+  const receiveReport = useCallback((next: LegacyImportReport) => {
+    setReport((current) => {
+      if (
+        current?.runId === next.runId &&
+        ((terminal(current) && !terminal(next)) ||
+          current.processed > next.processed)
+      )
+        return current
+      return next
+    })
+    if (terminal(next)) setStage('result')
+  }, [])
 
   useEffect(() => {
     if (!open || !runId || finished) return
@@ -238,16 +270,12 @@ function LegacyImportDialogContent({
     const poll = async () => {
       try {
         const next = legacyImportReportSchema.parse(
-          await transport.invoke(Queries.GetLegacyImportRun, {
-            runId,
-          })
+          await transport.invoke(Queries.GetLegacyImportRun, { runId })
         )
         if (disposed) return
-        setReport(next)
-        if (['completed', 'cancelled', 'failed'].includes(next.stage)) {
-          setStage('result')
-          return
-        }
+        receiveReport(next)
+        if (terminal(next)) return
+        setError(null)
       } catch (cause) {
         if (!disposed) failure(cause)
       }
@@ -258,12 +286,13 @@ function LegacyImportDialogContent({
       disposed = true
       if (timer) clearTimeout(timer)
     }
-  }, [open, runId, finished, failure])
+  }, [open, runId, finished, failure, receiveReport])
 
   const pickSource = () =>
     void perform(async () => {
+      const generation = epoch.current
       const result = await transport.invoke(Commands.PickLegacyImportSource)
-      if (!result) return
+      if (!result || generation !== epoch.current) return
       const source = legacyImportSourceSchema.parse(result)
       setSources((current) =>
         current.some((entry) => entry.sourceHandle === source.sourceHandle)
@@ -272,19 +301,25 @@ function LegacyImportDialogContent({
       )
       await scan(source)
     })
+  const recheck = () =>
+    void perform(async () => {
+      const source = sources.find(
+        (entry) => entry.sourceHandle === sourceHandle
+      )
+      if (source) await scan(source, true)
+      else await discover()
+    })
   const chooseTorrent = (item: LegacyImportItem) =>
     void perform(async () => {
       if (!preview) return
       const generation = epoch.current
       const result = await transport.invoke(
         Commands.PickLegacyTorrentMetadata,
-        {
-          previewId: preview.previewId,
-          itemId: item.itemId,
-        }
+        { previewId: preview.previewId, itemId: item.itemId }
       )
       if (!result || generation !== epoch.current) return
       const next = legacyImportPreviewSchema.parse(result)
+      previewRef.current = next
       setPreview(next)
       setSelected(
         (current) =>
@@ -298,24 +333,24 @@ function LegacyImportDialogContent({
               .map((entry) => entry.itemId)
           )
       )
-      setQuery('')
     })
   const leave = () =>
     void perform(async () => {
-      if (invitation) {
+      const generation = epoch.current
+      if (invitation)
         await transport.invoke(Commands.DismissLegacyImportInvitation)
-        setStage('selection')
-      }
-      onClose()
+      if (generation === epoch.current) onClose()
     })
   const viewTasks = () =>
     void perform(async () => {
+      const generation = epoch.current
       await transport.invoke(Commands.FinishLegacyImportInvitation)
-      ;(onViewTasks ?? onClose)()
+      if (generation === epoch.current) (onViewTasks ?? onClose)()
     })
   const startImport = () =>
     void perform(async () => {
-      if (!preview || selected.size === 0) return
+      if (!preview || !selected.size || preview.running) return
+      const generation = epoch.current
       setStage('progress')
       try {
         const next = legacyImportReportSchema.parse(
@@ -324,10 +359,10 @@ function LegacyImportDialogContent({
             itemIds: [...selected],
           })
         )
-        setReport(next)
-        if (['completed', 'cancelled', 'failed'].includes(next.stage))
-          setStage('result')
+        if (generation !== epoch.current) return
+        receiveReport(next)
       } catch (cause) {
+        if (generation !== epoch.current) return
         setStage('selection')
         throw cause
       }
@@ -335,434 +370,280 @@ function LegacyImportDialogContent({
   const retry = () =>
     void perform(async () => {
       if (!report) return
+      const generation = epoch.current
       const next = legacyImportReportSchema.parse(
         await transport.invoke(Commands.RetryLegacyImport, {
           runId: report.runId,
         })
       )
+      if (generation !== epoch.current) return
       setReport(next)
-      setStage(
-        ['completed', 'cancelled', 'failed'].includes(next.stage)
-          ? 'result'
-          : 'progress'
-      )
+      setStage(terminal(next) ? 'result' : 'progress')
     })
-  const row = (item: LegacyImportItem) => {
-    return (
-      <div
-        className={
-          page
-            ? 'migration-task-row flex h-22 items-center gap-3 border-b border-border px-4'
-            : 'flex h-22 items-center gap-3 border-b border-border/60 px-1'
-        }
-        key={item.itemId}
-        data-selected={selected.has(item.itemId)}
-      >
-        <Checkbox
-          aria-label={item.name}
-          disabled={busy}
-          checked={selected.has(item.itemId)}
-          onCheckedChange={(checked) =>
-            setSelected((current) => {
-              const next = new Set(current)
-              if (checked) next.add(item.itemId)
-              else next.delete(item.itemId)
-              return next
-            })
-          }
-        />
-        <ImportTaskInfo item={item} />
-      </div>
-    )
+  const onBack = () => {
+    if (busyRef.current || stage === 'progress') return
+    if (stage === 'selection') setStage('discovery')
+    else if (stage === 'result') viewTasks()
+    else leave()
   }
-  const skippedDetails = skipped.length > 0 && (
-    <details
-      className={
-        page
-          ? 'border-t border-border bg-muted/30 px-4 py-3 text-xs'
-          : 'py-4 text-xs'
-      }
-    >
-      <summary className="cursor-pointer text-muted-foreground">
-        {t('legacyImport.skipped', { count: skipped.length })}
-      </summary>
-      <div className="max-h-44 overflow-auto pt-2">
-        {skipped.map((item) => (
-          <div
-            className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-2"
-            key={item.itemId}
-          >
-            <ImportTaskInfo item={item} />
-            {item.type === 'bt' && item.reason === 'metadata-required' && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={busy || preview?.running}
-                onClick={() => chooseTorrent(item)}
-              >
-                {t('legacyImport.chooseTorrent')}
-              </Button>
-            )}
-          </div>
-        ))}
-      </div>
-    </details>
-  )
-
+  const primaryClass = 'migration-primary min-w-28'
   const footer = (
-    <DialogFooter
-      className={
-        presentation === 'page'
-          ? 'w-auto shrink-0'
-          : 'shrink-0 border-t px-6 py-4'
-      }
-    >
-      {stage === 'discovery' && (
+    <div className="flex w-full items-center justify-between gap-3">
+      {(stage === 'discovery' || stage === 'selection') && (
         <>
-          <Button size="sm" variant="outline" disabled={busy} onClick={leave}>
+          <Button size="sm" variant="ghost" disabled={busy} onClick={leave}>
             {t('legacyImport.skip')}
           </Button>
-          <Button
-            size="sm"
-            disabled={busy || !preview}
-            onClick={() => setStage('selection')}
-          >
-            {t('legacyImport.chooseTasks')}
-          </Button>
-        </>
-      )}
-      {stage === 'selection' && (
-        <>
-          <Button size="sm" variant="outline" disabled={busy} onClick={leave}>
-            {t(invitation ? 'legacyImport.skip' : 'legacyImport.back')}
-          </Button>
-          <Button
-            size="sm"
-            disabled={busy || selected.size === 0 || preview?.running}
-            onClick={startImport}
-          >
-            {t('legacyImport.importSelected', { count: selected.size })}
-          </Button>
+          {stage === 'discovery' ? (
+            <Button
+              size="sm"
+              className={primaryClass}
+              disabled={
+                busy || !preview || preview.sourceHandle !== sourceHandle
+              }
+              onClick={() => setStage('selection')}
+            >
+              {t('legacyImport.page.continue')}
+            </Button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={onBack}
+              >
+                {t('legacyImport.page.backToSource')}
+              </Button>
+              <Button
+                size="sm"
+                className={primaryClass}
+                disabled={busy || !selected.size || preview?.running}
+                onClick={(event) => {
+                  // A double-click on Continue must not commit the next stage.
+                  if (event.detail < 2) startImport()
+                }}
+              >
+                {t('legacyImport.importSelected', { count: selected.size })}
+              </Button>
+            </div>
+          )}
         </>
       )}
       {stage === 'progress' && (
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!report || busy}
-          onClick={() => setConfirmStop(true)}
-        >
-          {t('legacyImport.stop')}
-        </Button>
+        <>
+          <span className="text-xs text-muted-foreground">
+            {t('legacyImport.page.footerNote')}
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!report || busy}
+            onClick={() => setConfirmStop(true)}
+          >
+            {t('legacyImport.stop')}
+          </Button>
+        </>
       )}
       {stage === 'result' && (
         <>
           {report?.items.some(
             (item) =>
               item.outcome === 'failed' || item.outcome === 'unprocessed'
-          ) && (
+          ) ? (
             <Button size="sm" variant="outline" disabled={busy} onClick={retry}>
               {t('legacyImport.retry')}
             </Button>
+          ) : (
+            <span />
           )}
-          <Button size="sm" disabled={busy} onClick={viewTasks}>
+          <Button
+            size="sm"
+            className={primaryClass}
+            disabled={busy}
+            onClick={viewTasks}
+          >
             {t('legacyImport.viewTasks')}
           </Button>
         </>
       )}
-    </DialogFooter>
+    </div>
   )
-  return (
+  const errorNotice = error && (
+    <Alert
+      variant="destructive"
+      className="mx-auto mb-3 w-full max-w-160 shrink-0"
+    >
+      <AlertDescription className="flex flex-wrap items-center justify-between gap-3 text-xs">
+        <p className="min-w-0 flex-1">{error}</p>
+        {(stage === 'discovery' || stage === 'selection') && (
+          <Button variant="outline" size="sm" disabled={busy} onClick={recheck}>
+            {t('legacyImport.recheck')}
+          </Button>
+        )}
+      </AlertDescription>
+    </Alert>
+  )
+  const content = (
     <>
-      <ImportSurface
-        active={active}
-        page={page}
-        preview={preview}
-        selected={selected}
-        report={report}
-        open={open}
-        stage={stage}
-        busy={busy}
-        onLeave={leave}
-        title={t('legacyImport.title')}
-        subtitle={stage === 'result' ? t(resultTitleKey) : undefined}
-        description={t('legacyImport.pausedDescription')}
-        footer={footer}
-      >
-        {error && (
-          <div className="flex shrink-0 items-start justify-between gap-3 px-6 pb-3">
-            <p role="alert" className="text-xs text-destructive">
-              {error}
-            </p>
-            {stage === 'selection' && preview && (
+      {stage === 'discovery' && (
+        <>
+          <ImportStageHeading
+            title={t('legacyImport.page.sourceTitle')}
+            description={t('legacyImport.page.sourceIntroduction')}
+          />
+          {errorNotice}
+          <div className="mx-auto min-h-0 w-full max-w-160 flex-1 overflow-auto py-3">
+            {sources.length > 0 && (
+              <ToggleGroup
+                multiple={false}
+                orientation="vertical"
+                value={sourceHandle ? [sourceHandle] : []}
+                onValueChange={(values) => {
+                  const source = sources.find(
+                    (entry) => entry.sourceHandle === values[0]
+                  )
+                  if (source) void perform(() => scan(source))
+                }}
+                aria-label={t('legacyImport.source')}
+                className="w-full flex-col gap-3 bg-transparent p-0"
+              >
+                {sources.map((source) => (
+                  <ToggleGroupItem
+                    key={source.sourceHandle}
+                    value={source.sourceHandle}
+                    disabled={busy}
+                    aria-label={source.name}
+                    className="migration-source min-h-22 w-full shrink-0 justify-start gap-4 rounded-lg border border-border/80 px-5 py-4 text-start whitespace-normal data-pressed:shadow-none"
+                  >
+                    <FolderIcon
+                      aria-hidden="true"
+                      className="size-8 text-muted-foreground"
+                      strokeWidth={1.4}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">
+                        {source.name}
+                      </span>
+                      <span className="mt-1 block text-xs font-normal text-muted-foreground">
+                        {t('legacyImport.page.sourceKind')}
+                      </span>
+                    </span>
+                    {sourceHandle === source.sourceHandle && (
+                      <CheckIcon aria-hidden="true" className="size-5" />
+                    )}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            )}
+            {busy ? (
+              <p
+                role="status"
+                className="flex items-center gap-2 py-4 text-xs text-muted-foreground"
+              >
+                <Spinner
+                  aria-label={t('legacyImport.loading')}
+                  className="size-3.5"
+                />
+                {t('legacyImport.loading')}
+              </p>
+            ) : preview ? (
+              <p className="py-4 text-xs text-muted-foreground">
+                {t(
+                  preview.items.length
+                    ? 'legacyImport.discovery'
+                    : 'legacyImport.empty',
+                  { count: preview.items.length }
+                )}
+              </p>
+            ) : (
+              !sources.length && (
+                <p className="py-5 text-sm leading-relaxed text-muted-foreground">
+                  {t('legacyImport.page.noSourceDescription')}
+                </p>
+              )
+            )}
+            <div className="flex py-2">
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 disabled={busy}
-                onClick={() =>
-                  void perform(() =>
-                    scan(
-                      {
-                        sourceHandle: preview.sourceHandle,
-                        name: preview.sourceName,
-                      },
-                      true
-                    )
-                  )
-                }
+                onClick={pickSource}
               >
-                {t('legacyImport.recheck')}
+                <FolderIcon aria-hidden="true" className="size-4" />
+                {t('legacyImport.chooseDestination')}
               </Button>
-            )}
-          </div>
-        )}
-        {stage === 'discovery' && (
-          <div
-            className={
-              page
-                ? 'flex min-h-0 flex-1 flex-col overflow-auto px-6 py-6 text-center'
-                : 'min-h-0 overflow-auto px-6 pb-6 text-center'
-            }
-          >
-            <div className={page ? 'my-auto' : undefined}>
-              {page ? (
-                <ImportTransferIllustration />
-              ) : (
-                <DownloadLibraryIcon
-                  className="mx-auto my-6 size-12 text-muted-foreground"
-                  aria-hidden="true"
-                />
-              )}
-              <p
-                className={
-                  page ? 'mt-3 text-xl font-semibold tracking-tight' : 'text-sm'
-                }
-              >
-                {busy
-                  ? t('legacyImport.loading')
-                  : t('legacyImport.discovery', {
-                      count: preview?.items.length ?? 0,
-                    })}
-              </p>
-              <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground">
-                {t(
-                  page
-                    ? 'legacyImport.page.discoveryDescription'
-                    : 'legacyImport.preserveFiles'
-                )}
-              </p>
-              {page && preview && (
-                <p className="mx-auto mt-6 inline-flex max-w-full items-center gap-2 rounded-full bg-muted/70 px-3 py-1.5 text-[11px] text-muted-foreground">
-                  <FolderIcon
-                    aria-hidden="true"
-                    className="size-3.5 shrink-0"
-                  />
-                  <span className="truncate">{preview.sourceName}</span>
-                </p>
-              )}
             </div>
+            <p className="mt-3 max-w-md text-xs leading-relaxed text-muted-foreground">
+              {t('legacyImport.page.sourceHelp')}
+            </p>
           </div>
-        )}
-        {stage === 'selection' && (
-          <>
-            <div
-              className={
-                page
-                  ? 'shrink-0 space-y-3 border-b border-border bg-muted/40 px-4 py-4'
-                  : 'shrink-0 space-y-3 px-6 pb-3'
-              }
-            >
-              <div className="flex items-center justify-between gap-3 text-xs">
-                <div className="flex min-w-0 items-center gap-3">
-                  {page && (
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-background">
-                      <FolderIcon
-                        aria-hidden="true"
-                        className="size-4 text-muted-foreground"
-                      />
-                    </span>
-                  )}
-                  <div className="min-w-0">
-                    {page && (
-                      <h2 className="mb-1 text-sm font-medium">
-                        {t('legacyImport.page.selectionTitle')}
-                      </h2>
-                    )}
-                    <p
-                      className="truncate text-xs text-foreground/70"
-                      title={preview?.sourceName}
-                    >
-                      {preview
-                        ? t('legacyImport.page.sourceDescription', {
-                            name: preview.sourceName,
-                          })
-                        : t('legacyImport.noSource')}
-                    </p>
-                  </div>
-                </div>
+        </>
+      )}
+      {stage === 'selection' && (
+        <>
+          <ImportStageHeading
+            title={t('legacyImport.page.selectionTitle')}
+            description={t('legacyImport.page.introduction')}
+            source={
+              preview
+                ? t('legacyImport.page.sourceDescription', {
+                    name: preview.sourceName,
+                  })
+                : undefined
+            }
+          />
+          {errorNotice}
+          {preview?.running && (
+            <Alert className="mx-auto mb-3 w-full max-w-160 shrink-0">
+              <WarningIcon aria-hidden="true" />
+              <AlertDescription className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                <span className="min-w-0 flex-1">
+                  {t('legacyImport.running')}
+                </span>
                 <Button
-                  type="button"
-                  variant="outline"
                   size="sm"
+                  variant="outline"
                   disabled={busy}
-                  onClick={pickSource}
+                  onClick={recheck}
                 >
-                  {t(
-                    preview
-                      ? 'legacyImport.changeSource'
-                      : 'legacyImport.chooseDestination'
-                  )}
+                  {t('legacyImport.recheck')}
                 </Button>
-              </div>
-              {sources.length > 1 && (
-                <div className="flex flex-wrap gap-2">
-                  {sources.map((source) => (
-                    <Button
-                      key={source.sourceHandle}
-                      variant="outline"
-                      size="sm"
-                      disabled={
-                        busy || preview?.sourceHandle === source.sourceHandle
-                      }
-                      onClick={() => void perform(() => scan(source))}
-                    >
-                      {source.name}
-                    </Button>
-                  ))}
-                </div>
-              )}
-              {preview?.running && (
-                <div
-                  role="alert"
-                  className="flex items-start justify-between gap-3 rounded-md border p-3 text-xs"
-                >
-                  <span>
-                    <WarningIcon
-                      className="me-2 inline size-4"
-                      aria-hidden="true"
-                    />
-                    {t('legacyImport.running')}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() =>
-                      void perform(() =>
-                        scan(
-                          {
-                            sourceHandle: preview.sourceHandle,
-                            name: preview.sourceName,
-                          },
-                          true
-                        )
-                      )
-                    }
-                  >
-                    {t('legacyImport.recheck')}
-                  </Button>
-                </div>
-              )}
-              {actionable.length > 20 && (
-                <Input
-                  aria-label={t('legacyImport.search')}
-                  placeholder={t('legacyImport.search')}
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                />
-              )}
-              {actionable.length > 0 && (
-                <label
-                  htmlFor={allSelectionId}
-                  className="flex items-center gap-3 text-xs"
-                >
-                  <Checkbox
-                    id={allSelectionId}
-                    disabled={busy}
-                    checked={selected.size === actionable.length}
-                    indeterminate={
-                      selected.size > 0 && selected.size < actionable.length
-                    }
-                    onCheckedChange={(checked) =>
-                      setSelected(
-                        new Set(
-                          checked ? actionable.map((item) => item.itemId) : []
-                        )
-                      )
-                    }
-                  />
-                  {t('legacyImport.selectAll')}
-                </label>
-              )}
-            </div>
-            {actionable.length > 100 ? (
-              <VirtualList
-                items={visible}
-                getId={(item) => item.itemId}
-                rowHeight={88}
-                className={page ? 'min-h-0 flex-1' : 'min-h-0 flex-1 px-6'}
-                renderRow={({ item }) => row(item)}
-              />
-            ) : (
-              <div
-                className={
-                  page
-                    ? 'min-h-0 flex-1 overflow-auto'
-                    : 'min-h-0 flex-1 overflow-auto px-6'
-                }
-              >
-                {busy && !preview ? (
-                  <p className="px-4 py-6 text-xs leading-relaxed text-muted-foreground">
-                    {t('legacyImport.loading')}
-                  </p>
-                ) : visible.length ? (
-                  visible.map(row)
-                ) : (
-                  <p className="px-4 py-6 text-xs leading-relaxed text-muted-foreground">
-                    {t(
-                      query.trim()
-                        ? 'legacyImport.page.searchEmpty'
-                        : !preview
-                          ? 'legacyImport.noSource'
-                          : 'legacyImport.empty'
-                    )}
-                  </p>
-                )}
-                {skippedDetails}
-              </div>
-            )}
-            {actionable.length > 100 && skipped.length > 0 && (
-              <div className={page ? 'shrink-0' : 'shrink-0 px-6'}>
-                {skippedDetails}
-              </div>
-            )}
-            {!page && (
-              <p className="shrink-0 px-6 py-4 text-[11px] leading-5 text-muted-foreground">
-                {t('legacyImport.backupNote')}
-              </p>
-            )}
-          </>
-        )}
-        {stage === 'progress' && (
-          <div
-            className={
-              page
-                ? 'flex min-h-0 flex-1 flex-col justify-center overflow-auto px-8 py-8'
-                : 'px-6 py-8'
-            }
-          >
-            {page && (
-              <ImportProgressIllustration processed={report?.processed ?? 0} />
-            )}
-            <p
-              className={
-                page
-                  ? 'mb-6 text-center text-lg font-semibold tracking-tight'
-                  : 'mb-5 text-sm'
-              }
-              aria-live="polite"
-            >
+              </AlertDescription>
+            </Alert>
+          )}
+          <ImportTaskSelection
+            items={preview?.items ?? []}
+            selected={selected}
+            setSelected={setSelected}
+            expanded={expanded}
+            setExpanded={setExpanded}
+            query={query}
+            setQuery={setQuery}
+            busy={busy}
+            running={preview?.running ?? false}
+            chooseTorrent={chooseTorrent}
+          />
+          <div className="migration-selection-note mx-auto w-full max-w-160 shrink-0 py-4 text-xs leading-relaxed">
+            <p>
+              {t('legacyImport.page.selectedNote', { count: selected.size })}
+            </p>
+            <p className="mt-2 text-muted-foreground">
+              {t('legacyImport.page.footerNote')}
+            </p>
+          </div>
+        </>
+      )}
+      {stage === 'progress' && (
+        <>
+          <ImportStageHeading
+            title={t('legacyImport.page.progressTitle')}
+            description={t('legacyImport.page.progressDescription')}
+          />
+          {errorNotice}
+          <div className="mx-auto flex min-h-0 w-full max-w-160 flex-1 flex-col pt-5 pb-12">
+            <p className="mb-3 text-sm font-medium" aria-live="polite">
               {t(
                 report?.stage === 'committing'
                   ? 'legacyImport.committing'
@@ -777,10 +658,10 @@ function LegacyImportDialogContent({
               }
               aria-label={t('legacyImport.progress')}
               indicatorClassName={
-                page && report ? 'migration-progress-fill w-full!' : undefined
+                report ? 'migration-progress-fill w-full!' : 'bg-foreground'
               }
               style={
-                page && report
+                report
                   ? ({
                       '--migration-progress': Math.min(
                         1,
@@ -793,87 +674,94 @@ function LegacyImportDialogContent({
                   : undefined
               }
             />
-            <p className="mt-3 text-center text-xs tabular-nums text-muted-foreground">
+            <p
+              className="mt-3 text-xs tabular-nums text-muted-foreground"
+              aria-live="polite"
+            >
               {t('legacyImport.processed', {
                 done: report?.processed ?? 0,
                 total: report?.total ?? selected.size,
               })}
             </p>
           </div>
-        )}
-        {stage === 'result' && report && (
-          <div
-            className={
-              page
-                ? 'min-h-0 flex-1 overflow-auto px-6 py-7'
-                : 'min-h-0 overflow-auto px-6 pb-6'
-            }
-          >
-            {page && (
+        </>
+      )}
+      {stage === 'result' && report && (
+        <>
+          <ImportStageHeading
+            title={t(resultTitleKey)}
+            description={t(resultDescriptionKey)}
+          />
+          {errorNotice}
+          <div className="mx-auto flex min-h-0 w-full max-w-160 flex-1 flex-col pb-5">
+            <div className="flex shrink-0 flex-col items-start py-3">
               <ImportResultMark
                 success={resultTitleKey === 'legacyImport.resultTitle'}
               >
                 {resultTitleKey === 'legacyImport.resultTitle' ? (
                   <CheckIcon aria-hidden="true" className="size-6" />
-                ) : resultTitleKey === 'legacyImport.page.resultEmptyTitle' ? (
-                  <DownloadLibraryIcon aria-hidden="true" className="size-6" />
                 ) : (
                   <WarningIcon aria-hidden="true" className="size-6" />
                 )}
               </ImportResultMark>
-            )}
-            {page && (
-              <h2 className="text-xl font-semibold tracking-tight">
-                {t(resultTitleKey)}
-              </h2>
-            )}
-            <p className="mt-2 text-sm font-medium tabular-nums">
-              {t('legacyImport.importedCount', { count: report.imported })}
-            </p>
-            <p className="mt-4 max-w-md text-sm leading-relaxed text-muted-foreground">
-              {t(resultDescriptionKey)}
-            </p>
-            <details className="mt-5 text-xs">
-              <summary className="cursor-pointer">
-                {t('legacyImport.details')}
-              </summary>
-              <div className="max-h-64 overflow-auto py-3">
-                {report.items.map((item) => (
-                  <div
-                    className="flex items-start justify-between gap-3 border-b border-border/50 py-3 last:border-0"
-                    key={item.itemId}
-                  >
-                    <ImportTaskInfo item={item} />
-                    <span
-                      className={
-                        item.outcome === 'failed'
-                          ? 'shrink-0 text-xs text-destructive'
-                          : 'shrink-0 text-xs text-muted-foreground'
-                      }
-                    >
-                      {t(`legacyImport.page.outcomes.${item.outcome}`)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={busy}
-                onClick={() =>
-                  void perform(async () => {
-                    await transport.invoke(Commands.ExportLegacyImportReport, {
-                      runId: report.runId,
-                    })
+              <p className="text-sm font-medium tabular-nums">
+                {t('legacyImport.importedCount', { count: report.imported })}
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {t('legacyImport.page.footerNote')}
+              </p>
+            </div>
+            <ImportResultDetails
+              report={report}
+              busy={busy}
+              exportReport={() =>
+                void perform(async () => {
+                  await transport.invoke(Commands.ExportLegacyImportReport, {
+                    runId: report.runId,
                   })
-                }
-              >
-                {t('legacyImport.exportReport')}
-              </Button>
-            </details>
+                })
+              }
+            />
           </div>
-        )}
-      </ImportSurface>
+        </>
+      )}
+    </>
+  )
+  return (
+    <>
+      {page ? (
+        <ImportPageLayout active={active} stage={stage} footer={footer}>
+          {content}
+        </ImportPageLayout>
+      ) : (
+        <Dialog
+          open={open}
+          onOpenChange={(next, details) => {
+            if (!next) {
+              if (stage === 'progress' || busy) details.cancel()
+              else leave()
+            }
+          }}
+        >
+          <DialogContent
+            className="flex h-[min(680px,85vh)] flex-col gap-0 p-0 sm:max-w-[720px]"
+            initialFocus={false}
+          >
+            <DialogHeader className="sr-only">
+              <DialogTitle>{t('legacyImport.page.assistantTitle')}</DialogTitle>
+              <DialogDescription>
+                {t('legacyImport.pausedDescription')}
+              </DialogDescription>
+            </DialogHeader>
+            <ImportMotionScope active={active}>
+              <div className="flex h-full min-h-0 flex-col px-6">
+                {content}
+                <div className="shrink-0 py-4">{footer}</div>
+              </div>
+            </ImportMotionScope>
+          </DialogContent>
+        </Dialog>
+      )}
       <AlertDialog open={confirmStop && active} onOpenChange={setConfirmStop}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -886,22 +774,26 @@ function LegacyImportDialogContent({
             <Button
               size="sm"
               variant="outline"
+              disabled={busy}
               onClick={() => setConfirmStop(false)}
             >
               {t('common.cancel')}
             </Button>
             <Button
               size="sm"
+              className={primaryClass}
+              disabled={busy}
               onClick={() =>
                 void perform(async () => {
-                  if (report)
-                    setReport(
-                      legacyImportReportSchema.parse(
-                        await transport.invoke(Commands.CancelLegacyImport, {
-                          runId: report.runId,
-                        })
-                      )
-                    )
+                  if (!report) return
+                  const generation = epoch.current
+                  const next = legacyImportReportSchema.parse(
+                    await transport.invoke(Commands.CancelLegacyImport, {
+                      runId: report.runId,
+                    })
+                  )
+                  if (generation !== epoch.current) return
+                  receiveReport(next)
                   setConfirmStop(false)
                 })
               }
@@ -912,75 +804,5 @@ function LegacyImportDialogContent({
         </AlertDialogContent>
       </AlertDialog>
     </>
-  )
-}
-
-function ImportSurface({
-  active,
-  page,
-  preview,
-  selected,
-  report,
-  open,
-  stage,
-  busy,
-  onLeave,
-  title,
-  subtitle,
-  description,
-  footer,
-  children,
-}: {
-  active: boolean
-  page: boolean
-  preview: LegacyImportPreview | null
-  selected: ReadonlySet<string>
-  report: LegacyImportReport | null
-  open: boolean
-  stage: Stage
-  busy: boolean
-  onLeave: () => void
-  title: string
-  subtitle?: string
-  description: string
-  footer: ReactNode
-  children: ReactNode
-}) {
-  if (page)
-    return (
-      <ImportPageLayout
-        active={active}
-        title={title}
-        stage={stage}
-        preview={preview}
-        selected={selected}
-        report={report}
-        footer={footer}
-      >
-        {children}
-      </ImportPageLayout>
-    )
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(next, details) => {
-        if (!next) {
-          if (stage === 'progress' || busy) details.cancel()
-          else onLeave()
-        }
-      }}
-    >
-      <DialogContent
-        className={`flex max-h-[85vh] flex-col gap-0 p-0 ${stage === 'selection' ? 'h-[min(660px,85vh)] sm:max-w-[780px]' : stage === 'discovery' ? 'sm:max-w-[480px]' : 'sm:max-w-[520px]'}`}
-        initialFocus={false}
-      >
-        <DialogHeader className="shrink-0 px-6 pt-6 pb-4">
-          <DialogTitle className="text-xl">{subtitle ?? title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        {children}
-        {footer}
-      </DialogContent>
-    </Dialog>
   )
 }

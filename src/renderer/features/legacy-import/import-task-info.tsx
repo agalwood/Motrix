@@ -8,11 +8,11 @@ export function ImportTaskInfo({ item }: { item: LegacyImportItem }) {
   const { t } = useTranslation()
   const reason = t(`legacyImport.reasons.${item.reason}`)
   return (
-    <div className="min-w-0 flex-1 space-y-1">
+    <div className="min-w-0 flex-1 space-y-0.5">
       <div className="flex min-w-0 items-center gap-2">
         <MiddleEllipsis
           text={item.name}
-          className="min-w-0 flex-1 font-sans! text-[13px] font-medium"
+          className="min-w-0 font-sans! text-[13px] font-medium"
         />
         <Badge variant="secondary" className="border-border">
           {t(`legacyImport.page.types.${item.type}`)}

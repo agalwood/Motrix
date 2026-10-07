@@ -100,12 +100,12 @@ describe('retained migration page', () => {
     )
     await screen.findByText('Downloads found: 2')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Choose downloads' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
     fireEvent.click(await screen.findByRole('checkbox', { name: 'two.zip' }))
     fireEvent.click(screen.getByText('Go downloads'))
     fireEvent.click(screen.getByText('Go migration'))
     expect(screen.getByRole('checkbox', { name: 'two.zip' })).not.toBeChecked()
-    expect(screen.getByRole('button', { name: 'Import 1' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Migrate 1 task' })).toBeEnabled()
     fireEvent.click(screen.getByRole('button', { name: 'Not now' }))
     await waitFor(() =>
       expect(transport.invoke).toHaveBeenCalledWith(
@@ -114,9 +114,9 @@ describe('retained migration page', () => {
     )
     fireEvent.click(screen.getByText('Go migration'))
     expect(
-      screen.queryByRole('button', { name: 'Choose downloads' })
+      screen.queryByRole('button', { name: 'Continue' })
     ).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Back' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Back to source' })).toBeVisible()
     expect(
       vi
         .mocked(transport.invoke)
@@ -140,8 +140,10 @@ describe('retained migration page', () => {
         <Host />
       </MemoryRouter>
     )
+    await screen.findByText('Downloads found: 2')
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
     fireEvent.click(await screen.findByRole('checkbox', { name: 'two.zip' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Import 1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Migrate 1 task' }))
     fireEvent.click(screen.getByText('Go downloads'))
     fireEvent.click(screen.getByText('Go migration'))
     expect(screen.getByRole('progressbar')).toBeVisible()
@@ -174,8 +176,11 @@ describe('retained migration page', () => {
     )
     fireEvent.click(screen.getByText('Go migration'))
     expect(
-      await screen.findByRole('button', { name: 'Import 1' })
+      await screen.findByRole('button', { name: 'Continue' })
     ).toBeVisible()
+    await screen.findByText('Downloads found: 2')
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    expect(screen.getByRole('button', { name: 'Migrate 1 task' })).toBeVisible()
     expect(screen.queryByText('Imported 1')).not.toBeInTheDocument()
     expect(
       vi

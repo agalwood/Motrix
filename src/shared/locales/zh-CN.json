@@ -3013,7 +3013,7 @@
     "skip": "暂不迁移",
     "back": "返回",
     "loading": "正在查找旧版任务…",
-    "empty": "此文件夹中没有可导入的任务。",
+    "empty": "此文件夹中没有可迁移的任务。",
     "continueBefore": "继续下载前：",
     "capabilityLimit": "此任务需要重新下载。请选择新的保存位置，以保留原文件。",
     "running": "Motrix v1 可能仍在运行，请退出旧版后重新检查。",
@@ -3022,20 +3022,19 @@
     "selectAll": "全选",
     "skipped": "已跳过 {{count}} 项",
     "backupNote": "导入前会备份任务列表，已下载的文件保留在原处。",
-    "importSelected": "导入 {{count}} 项",
     "backingUp": "正在备份任务列表…",
     "committing": "正在导入任务…",
-    "progress": "导入进度",
+    "progress": "迁移进度",
     "processed": "已处理 {{done}} / {{total}} 项",
-    "stop": "停止导入",
-    "stopTitle": "停止导入？",
+    "stop": "停止迁移",
+    "stopTitle": "停止迁移？",
     "stopDescription": "已导入的任务会保留，剩余任务可以稍后再导入。",
     "resultTitle": "迁移完成",
     "importedCount": "已导入 {{count}} 项任务",
     "resultDescription": "已导入的任务可在“下载”中查看。",
     "details": "查看明细",
     "exportReport": "保存报告…",
-    "retry": "导入剩余任务",
+    "retry": "迁移剩余任务",
     "viewTasks": "查看下载",
     "freshDownload": "重新下载…",
     "freshDescription": "选择新的保存位置后，Motrix 会创建单独的文件夹，并打开下载窗口供你确认。本次将从头下载，原文件会保留。",
@@ -3059,7 +3058,7 @@
     },
     "errors": {
       "pageUnavailable": "迁移页面无法打开，请重启 Motrix 后重试。已导入的任务会保留。",
-      "failed": "导入未能完成，原文件未受影响。请重试或选择其他数据文件夹。",
+      "failed": "操作未能完成，请重试。",
       "consentRequired": "请先同意使用协议，再打开迁移。",
       "invalidSource": "未找到旧版数据，请选择 Motrix v1 原来的数据文件夹。",
       "unsafeSource": "无法安全读取此文件夹，请选择 Motrix v1 原来的数据文件夹。",
@@ -3091,7 +3090,7 @@
       "controlRequired": "找不到旧版保存的下载进度，请换一个文件夹重新下载。",
       "activationUncertain": "暂时无法安全恢复此任务，原文件仍受保护。你可以换一个文件夹重新下载。"
     },
-    "resultIncompleteTitle": "还有任务未导入",
+    "resultIncompleteTitle": "迁移尚未完成",
     "resultStoppedTitle": "迁移已停止",
     "activationRequired": "请选择新的文件夹重新下载，原文件会保留。",
     "chooseTorrent": "选择种子文件…",
@@ -3115,22 +3114,22 @@
       "notImported": "尚未导入",
       "skippedSummary": "已跳过",
       "types": {
-        "http": "链接下载",
-        "bt": "种子下载",
-        "magnet": "磁力链接",
-        "unknown": "其他任务"
+        "http": "链接",
+        "bt": "种子",
+        "magnet": "磁力",
+        "unknown": "其他"
       },
       "pathUnavailable": "下载位置未知",
       "filesStayTitle": "文件保留在原处",
       "filesStayDescription": "迁移不会移动或删除已下载的文件。",
       "nextTitle": "仅迁移下载任务",
       "nextDescription": "应用设置保持不变。",
-      "footerNote": "导入后不会自动下载。",
+      "footerNote": "迁移后，任务将保持暂停。",
       "discoveryDescription": "选择要保留的任务。部分任务需要重新下载，或先检查已有文件。",
       "previousVersion": "Motrix v1",
       "currentVersion": "Motrix",
-      "introduction": "导入 Motrix v1 的下载任务。",
-      "selectionTitle": "选择要导入的任务",
+      "introduction": "从 Motrix v1 导入下载任务。",
+      "selectionTitle": "选择要迁移的内容",
       "searchEmpty": "没有找到匹配的任务。",
       "resultEmptyTitle": "没有新增任务",
       "resultEmptyDescription": "展开明细，查看每项任务未导入的原因。",
@@ -3142,7 +3141,39 @@
         "failed": "导入失败",
         "unprocessed": "尚未导入"
       },
-      "sourceDescription": "来源：{{name}}"
-    }
+      "sourceDescription": "来源：{{name}}",
+      "assistantTitle": "迁移助手",
+      "backToSource": "返回来源",
+      "continue": "继续",
+      "sourceTitle": "从哪里迁移？",
+      "sourceIntroduction": "选择 Motrix v1 的数据，开始迁移。",
+      "sourceKind": "Motrix v1 数据",
+      "sourceHelp": "选择 Motrix v1 使用的数据文件夹。已下载的文件会保留在原处。",
+      "noSourceDescription": "这台电脑上没有找到 Motrix v1 数据。请选择原来的数据文件夹。",
+      "progressTitle": "正在迁移下载任务",
+      "progressDescription": "正在备份任务列表，并将任务添加到 Motrix。",
+      "selectGroup": "选择{{name}}",
+      "phases": {
+        "discovery": "选择来源",
+        "selection": "选择内容",
+        "progress": "正在迁移",
+        "result": "迁移结果"
+      },
+      "groups": {
+        "http": "链接下载",
+        "bt": "种子下载",
+        "magnet": "磁力链接",
+        "unknown": "其他任务"
+      },
+      "groupDescriptions": {
+        "http": "需要重新下载",
+        "bt": "继续前会检查已有文件",
+        "magnet": "需要原种子文件",
+        "unknown": "查看任务信息"
+      },
+      "groupCount_other": "{{count}} 项",
+      "selectedNote_other": "已选择 {{count}} 项 · 已下载的文件保留在原处。"
+    },
+    "importSelected_other": "迁移 {{count}} 项"
   }
 }

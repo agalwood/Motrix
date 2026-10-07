@@ -1,4 +1,3 @@
-import { DownloadLibraryIcon } from '@renderer/components/icons'
 import { useReducedMotion } from '@renderer/lib/reduced-motion'
 import {
   createContext,
@@ -42,7 +41,7 @@ export function ImportMotionScope({
   return (
     <MotionContext value={enabled}>
       <div
-        className="migration-motion h-full min-h-0"
+        className="migration-motion h-full min-h-0 bg-background text-foreground"
         data-motion={enabled ? 'on' : 'off'}
         onKeyDownCapture={() => setKeyboard(true)}
         onPointerDownCapture={() => setKeyboard(false)}
@@ -113,26 +112,6 @@ export function ImportStageContent({ children }: { children: ReactNode }) {
   return (
     <div ref={ref} className="flex min-h-0 flex-1 flex-col">
       {children}
-    </div>
-  )
-}
-
-export function ImportProgressIllustration({
-  processed,
-}: {
-  processed: number
-}) {
-  const ref = useImportFeedback(processed, 'task')
-  return (
-    <div aria-hidden="true" className="migration-progress-art mx-auto mb-6">
-      <span ref={ref} className="migration-progress-paper">
-        <span />
-        <span />
-        <span />
-      </span>
-      <span className="migration-progress-tray">
-        <DownloadLibraryIcon className="size-7" strokeWidth={1.4} />
-      </span>
     </div>
   )
 }
