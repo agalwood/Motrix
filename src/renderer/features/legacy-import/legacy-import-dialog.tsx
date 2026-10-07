@@ -44,6 +44,7 @@ import {
   useState,
 } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ImportIllustration } from './import-illustration'
 import { ImportMotionScope, ImportResultMark } from './import-motion'
 import {
   ImportPageLayout,
@@ -586,6 +587,7 @@ function LegacyImportDialogContent({
           <ImportStageHeading
             title={t('legacyImport.page.selectionTitle')}
             description={t('legacyImport.page.introduction')}
+            illustration={<ImportIllustration />}
             source={
               preview
                 ? t('legacyImport.page.sourceDescription', {

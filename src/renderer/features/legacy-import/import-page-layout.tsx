@@ -1,4 +1,5 @@
 import { PanelShell } from '@renderer/components/desktop-kit/panel/panel-shell'
+import { cn } from '@renderer/lib/utils'
 import { type ReactNode, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ImportMotionScope, ImportStageContent } from './import-motion'
@@ -36,10 +37,12 @@ export function ImportStageHeading({
   title,
   description,
   source,
+  illustration,
 }: {
   title: string
   description: string
   source?: string
+  illustration?: ReactNode
 }) {
   const heading = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
@@ -48,7 +51,17 @@ export function ImportStageHeading({
       heading.current.focus({ preventScroll: true })
   }, [])
   return (
-    <div className="migration-stage-heading mx-auto w-full max-w-160 shrink-0 py-5 text-start">
+    <div
+      className={cn(
+        'migration-stage-heading mx-auto w-full max-w-160 shrink-0 py-5 text-start',
+        illustration && 'migration-stage-heading-illustrated'
+      )}
+    >
+      {illustration && (
+        <div className="migration-stage-illustration mb-5 size-24" aria-hidden>
+          {illustration}
+        </div>
+      )}
       <h2
         ref={heading}
         tabIndex={-1}

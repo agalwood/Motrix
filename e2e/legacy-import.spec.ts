@@ -200,6 +200,18 @@ test.describe('v1 task import', () => {
         animations: 'disabled',
       })
       await page.getByRole('button', { name: 'Continue', exact: true }).click()
+      await expect
+        .poll(() =>
+          page
+            .locator('[data-slot="migration-import-illustration"]')
+            .evaluate(
+              (node) =>
+                node instanceof HTMLImageElement &&
+                node.complete &&
+                node.naturalWidth > 0
+            )
+        )
+        .toBe(true)
       await expandTaskGroups(page)
       await page
         .getByRole('checkbox', { name: 'partial.bin', exact: true })

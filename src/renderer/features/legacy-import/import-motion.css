@@ -53,6 +53,18 @@
   transform-origin: right;
 }
 
+@media (max-height: 760px) {
+  .migration-stage-heading-illustrated {
+    padding-block: 12px;
+  }
+
+  .migration-stage-illustration {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 12px;
+  }
+}
+
 @media (max-height: 650px) {
   .migration-stage-heading {
     padding-block: 12px;
@@ -64,6 +76,12 @@
 
   .migration-selection-note {
     padding-block: 10px;
+  }
+
+  .migration-stage-illustration {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 8px;
   }
 }
 

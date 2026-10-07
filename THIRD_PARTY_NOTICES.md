@@ -38,6 +38,17 @@ and are not relicensed under Motrix’s MIT license.
 The round curled-tail squirrel silhouette follows a user-supplied reference
 image whose external author and license have not been verified.
 
+## Glassmorphism migration import icon
+
+The migration assistant uses newly modeled rounded transfer plates and a
+downward import arrow, rendered in Blender with glass/satin materials and
+studio lighting derived from the supplied Glassmorphism collection's
+`Add File.blend`. The front-view, transparent lossless WebP assets are stored
+in `src/renderer/features/legacy-import/icons/icon-import@1x.webp` and
+`icon-import@2x.webp` at 96px and 192px. The supplied source has no verified
+author or license declaration; inherited materials and lighting remain
+`NOASSERTION` and are not relicensed under Motrix’s MIT license.
+
 The previous Iconly Pro settings PNG assets have been removed from this
 version. Earlier versions containing those assets remain subject to their
 original UI8 license terms.
