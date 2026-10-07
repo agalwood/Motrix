@@ -1,4 +1,9 @@
-import { CheckIcon, FolderIcon, WarningIcon } from '@renderer/components/icons'
+import { MiddleEllipsis } from '@renderer/components/desktop-kit/middle-ellipsis'
+import {
+  CheckIcon,
+  RevealFolderIcon,
+  WarningIcon,
+} from '@renderer/components/icons'
 import { Alert, AlertDescription } from '@renderer/components/ui/alert'
 import {
   AlertDialog,
@@ -16,12 +21,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@renderer/components/ui/dialog'
+import { Label } from '@renderer/components/ui/label'
 import { Progress } from '@renderer/components/ui/progress'
+import { RadioGroup, RadioGroupItem } from '@renderer/components/ui/radio-group'
 import { Spinner } from '@renderer/components/ui/spinner'
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from '@renderer/components/ui/toggle-group'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
@@ -40,6 +43,7 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
 } from 'react'
@@ -102,6 +106,7 @@ function LegacyImportDialogContent({
 }: Props) {
   const { t } = useTranslation()
   const page = presentation === 'page'
+  const sourceGroupId = useId()
   const [stage, setStage] = useState<ImportStage>('discovery')
   const [preview, setPreview] = useState<LegacyImportPreview | null>(null)
   const previewRef = useRef<LegacyImportPreview | null>(null)
@@ -178,21 +183,25 @@ function LegacyImportDialogContent({
     }
   }, [])
 
+  const selectSource = useCallback((source: LegacyImportSource) => {
+    if (source.sourceHandle === sourceHandleRef.current) return
+    sourceHandleRef.current = source.sourceHandle
+    setSourceHandle(source.sourceHandle)
+    previewRef.current = null
+    setPreview(null)
+    setSelected(new Set())
+    setExpanded(new Set())
+    setQuery('')
+    setError(null)
+  }, [])
+
   const scan = useCallback(
     async (source: LegacyImportSource, refresh = false) => {
       const generation = epoch.current
       const sameSource = source.sourceHandle === sourceHandleRef.current
       const preserveSelection = sameSource && previewRef.current !== null
       if (sameSource && previewRef.current && !refresh) return
-      sourceHandleRef.current = source.sourceHandle
-      setSourceHandle(source.sourceHandle)
-      if (!sameSource) {
-        previewRef.current = null
-        setPreview(null)
-        setSelected(new Set())
-        setExpanded(new Set())
-        setQuery('')
-      }
+      selectSource(source)
       const next = legacyImportPreviewSchema.parse(
         await transport.invoke(Queries.ScanLegacyImport, {
           sourceHandle: source.sourceHandle,
@@ -216,7 +225,7 @@ function LegacyImportDialogContent({
       if (!preserveSelection) setExpanded(initialExpandedGroups(next.items))
       setError(null)
     },
-    []
+    [selectSource]
   )
 
   const discover = useCallback(async () => {
@@ -227,8 +236,8 @@ function LegacyImportDialogContent({
       legacyImportSourceSchema.parse(source)
     )
     setSources(found)
-    if (found[0]) await scan(found[0])
-  }, [scan])
+    if (found[0]) selectSource(found[0])
+  }, [selectSource])
 
   useEffect(() => {
     if (!open) return
@@ -300,8 +309,32 @@ function LegacyImportDialogContent({
           ? current
           : [...current, source]
       )
-      await scan(source)
+      selectSource(source)
     })
+  const continueToSelection = () =>
+    void perform(async () => {
+      const source = sources.find(
+        (entry) => entry.sourceHandle === sourceHandleRef.current
+      )
+      if (!source) return
+      const generation = epoch.current
+      await scan(source)
+      if (
+        generation === epoch.current &&
+        previewRef.current?.sourceHandle === source.sourceHandle
+      )
+        setStage('selection')
+    })
+  const revealSource = async (handle: string) => {
+    const generation = epoch.current
+    try {
+      await transport.invoke(Commands.RevealLegacyImportSource, {
+        sourceHandle: handle,
+      })
+    } catch (cause) {
+      if (generation === epoch.current) failureRef.current(cause)
+    }
+  }
   const recheck = () =>
     void perform(async () => {
       const source = sources.find(
@@ -399,10 +432,8 @@ function LegacyImportDialogContent({
             <Button
               size="sm"
               className={primaryClass}
-              disabled={
-                busy || !preview || preview.sourceHandle !== sourceHandle
-              }
-              onClick={() => setStage('selection')}
+              disabled={busy || !sourceHandle}
+              onClick={continueToSelection}
             >
               {t('legacyImport.page.continue')}
             </Button>
@@ -490,57 +521,76 @@ function LegacyImportDialogContent({
       {stage === 'discovery' && (
         <>
           <ImportStageHeading
-            title={t('legacyImport.page.sourceTitle')}
+            title={t('legacyImport.page.welcomeTitle')}
             description={t('legacyImport.page.sourceIntroduction')}
+            illustration={<ImportIllustration />}
           />
           {errorNotice}
-          <div className="mx-auto min-h-0 w-full max-w-160 flex-1 overflow-auto py-3">
+          <div className="migration-source-options mx-auto min-h-0 w-full max-w-160 flex-1 overflow-auto pt-8 pb-4">
+            <h3 id={sourceGroupId} className="mb-5 text-sm font-medium">
+              {t('legacyImport.page.sourceTitle')}
+            </h3>
             {sources.length > 0 && (
-              <ToggleGroup
-                multiple={false}
-                orientation="vertical"
-                value={sourceHandle ? [sourceHandle] : []}
-                onValueChange={(values) => {
+              <RadioGroup
+                value={sourceHandle}
+                disabled={busy}
+                onValueChange={(value) => {
                   const source = sources.find(
-                    (entry) => entry.sourceHandle === values[0]
+                    (entry) => entry.sourceHandle === value
                   )
-                  if (source) void perform(() => scan(source))
+                  if (source) selectSource(source)
                 }}
-                aria-label={t('legacyImport.source')}
-                className="w-full flex-col gap-3 bg-transparent p-0"
+                aria-labelledby={sourceGroupId}
+                className="gap-4"
               >
                 {sources.map((source) => (
-                  <ToggleGroupItem
+                  <div
                     key={source.sourceHandle}
-                    value={source.sourceHandle}
-                    disabled={busy}
-                    aria-label={source.name}
-                    className="migration-source min-h-22 w-full shrink-0 justify-start gap-4 rounded-lg border border-border/80 px-5 py-4 text-start whitespace-normal data-pressed:shadow-none"
+                    className="flex min-w-0 items-center gap-1.5"
                   >
-                    <FolderIcon
-                      aria-hidden="true"
-                      className="size-8 text-muted-foreground"
-                      strokeWidth={1.4}
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">
-                        {source.name}
+                    <Label
+                      className="group flex min-w-0 items-center gap-3 py-2 font-normal leading-normal"
+                      data-disabled={busy}
+                    >
+                      <RadioGroupItem
+                        value={source.sourceHandle}
+                        aria-labelledby={`${sourceGroupId}-${source.sourceHandle}-path`}
+                        className="border-foreground/35 text-foreground shadow-none data-checked:border-foreground"
+                      />
+                      <span
+                        id={`${sourceGroupId}-${source.sourceHandle}-path`}
+                        className="min-w-0"
+                      >
+                        <MiddleEllipsis
+                          text={source.dataPath}
+                          className="font-sans text-sm"
+                        />
                       </span>
-                      <span className="mt-1 block text-xs font-normal text-muted-foreground">
-                        {t('legacyImport.page.sourceKind')}
-                      </span>
-                    </span>
-                    {sourceHandle === source.sourceHandle && (
-                      <CheckIcon aria-hidden="true" className="size-5" />
-                    )}
-                  </ToggleGroupItem>
+                    </Label>
+                    <Button
+                      type="button"
+                      size="icon-xs"
+                      variant="ghost"
+                      disabled={busy}
+                      aria-label={t('legacyImport.page.revealSource')}
+                      aria-describedby={`${sourceGroupId}-${source.sourceHandle}-path`}
+                      title={t('legacyImport.page.revealSource')}
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => void revealSource(source.sourceHandle)}
+                    >
+                      <RevealFolderIcon
+                        aria-hidden="true"
+                        className="size-3.5"
+                      />
+                    </Button>
+                  </div>
                 ))}
-              </ToggleGroup>
+              </RadioGroup>
             )}
             {busy ? (
               <p
                 role="status"
-                className="flex items-center gap-2 py-4 text-xs text-muted-foreground"
+                className="flex items-center gap-2 py-3 text-xs text-muted-foreground"
               >
                 <Spinner
                   aria-label={t('legacyImport.loading')}
@@ -548,37 +598,25 @@ function LegacyImportDialogContent({
                 />
                 {t('legacyImport.loading')}
               </p>
-            ) : preview ? (
-              <p className="py-4 text-xs text-muted-foreground">
-                {t(
-                  preview.items.length
-                    ? 'legacyImport.discovery'
-                    : 'legacyImport.empty',
-                  { count: preview.items.length }
-                )}
-              </p>
             ) : (
               !sources.length && (
-                <p className="py-5 text-sm leading-relaxed text-muted-foreground">
+                <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
                   {t('legacyImport.page.noSourceDescription')}
                 </p>
               )
             )}
-            <div className="flex py-2">
+            <div className="mt-5 flex">
               <Button
                 type="button"
-                variant="outline"
+                variant="link"
                 size="sm"
                 disabled={busy}
                 onClick={pickSource}
+                className="h-auto px-0 py-1 text-xs font-normal text-muted-foreground underline-offset-4 hover:text-foreground"
               >
-                <FolderIcon aria-hidden="true" className="size-4" />
                 {t('legacyImport.chooseDestination')}
               </Button>
             </div>
-            <p className="mt-3 max-w-md text-xs leading-relaxed text-muted-foreground">
-              {t('legacyImport.page.sourceHelp')}
-            </p>
           </div>
         </>
       )}
@@ -587,14 +625,7 @@ function LegacyImportDialogContent({
           <ImportStageHeading
             title={t('legacyImport.page.selectionTitle')}
             description={t('legacyImport.page.introduction')}
-            illustration={<ImportIllustration />}
-            source={
-              preview
-                ? t('legacyImport.page.sourceDescription', {
-                    name: preview.sourceName,
-                  })
-                : undefined
-            }
+            className="pt-4 pb-5"
           />
           {errorNotice}
           {preview?.running && (
@@ -627,14 +658,9 @@ function LegacyImportDialogContent({
             running={preview?.running ?? false}
             chooseTorrent={chooseTorrent}
           />
-          <div className="migration-selection-note mx-auto w-full max-w-160 shrink-0 py-4 text-xs leading-relaxed">
-            <p>
-              {t('legacyImport.page.selectedNote', { count: selected.size })}
-            </p>
-            <p className="mt-2 text-muted-foreground">
-              {t('legacyImport.page.footerNote')}
-            </p>
-          </div>
+          <p className="migration-selection-note mx-auto w-full max-w-160 shrink-0 py-3 text-xs leading-relaxed text-muted-foreground">
+            {t('legacyImport.page.selectedNote', { count: selected.size })}
+          </p>
         </>
       )}
       {stage === 'progress' && (

@@ -1,7 +1,8 @@
+import type { LegacyImportSource } from '@shared/schemas/legacy-import'
 import { describe, expect, it, vi } from 'vitest'
 import { LegacyImportNavigation } from './navigation-state'
 
-function fixture(sources: Array<{ sourceHandle: string; name: string }> = []) {
+function fixture(sources: LegacyImportSource[] = []) {
   const service = {
     discover: vi.fn(async () => sources),
     invitationDismissed: vi.fn(() => false),
@@ -23,7 +24,9 @@ describe('legacy main navigation state', () => {
     expect(f.service.discover).not.toHaveBeenCalled()
   })
   it('keeps an empty detected v1 source visible after skip or completed invitation', async () => {
-    const f = fixture([{ sourceHandle: 'old', name: 'Motrix' }])
+    const f = fixture([
+      { sourceHandle: 'old', name: 'Motrix', dataPath: '/old' },
+    ])
     expect(await f.navigation.detect()).toEqual({
       detected: true,
       invitationPending: true,
@@ -33,7 +36,9 @@ describe('legacy main navigation state', () => {
       detected: true,
       invitationPending: false,
     })
-    const next = fixture([{ sourceHandle: 'old', name: 'Motrix' }])
+    const next = fixture([
+      { sourceHandle: 'old', name: 'Motrix', dataPath: '/old' },
+    ])
     next.service.invitationDismissed.mockReturnValue(true)
     expect(await next.navigation.detect()).toEqual({
       detected: true,
@@ -65,7 +70,7 @@ describe('legacy main navigation state', () => {
   })
   it('does not publish a discovery result during shutdown', async () => {
     const f = fixture()
-    let done!: (sources: Array<{ sourceHandle: string; name: string }>) => void
+    let done!: (sources: LegacyImportSource[]) => void
     f.service.discover.mockReturnValueOnce(
       new Promise((resolve) => {
         done = resolve
@@ -73,7 +78,7 @@ describe('legacy main navigation state', () => {
     )
     const pending = f.navigation.detect()
     f.deps.hasConsent.mockReturnValue(false)
-    done([{ sourceHandle: 'old', name: 'Motrix' }])
+    done([{ sourceHandle: 'old', name: 'Motrix', dataPath: '/old' }])
     expect(await pending).toEqual({ detected: false, invitationPending: false })
     expect(f.deps.changed).not.toHaveBeenCalled()
   })

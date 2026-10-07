@@ -81,7 +81,13 @@ beforeEach(() => {
     .mockReset()
     .mockImplementation(async (channel) => {
       if (channel === Queries.DiscoverLegacyImport)
-        return [{ sourceHandle, name: 'Motrix' }]
+        return [
+          {
+            sourceHandle,
+            name: 'Motrix',
+            dataPath: '/Users/example/Library/Application Support/Motrix',
+          },
+        ]
       if (channel === Queries.ScanLegacyImport) return preview
       if (
         channel === Commands.CommitLegacyImport ||
@@ -98,7 +104,9 @@ describe('retained migration page', () => {
         <Host />
       </MemoryRouter>
     )
-    await screen.findByText('Downloads found: 2')
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+    )
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
     fireEvent.click(await screen.findByRole('checkbox', { name: 'two.zip' }))
@@ -127,7 +135,13 @@ describe('retained migration page', () => {
     let complete!: (value: typeof finished) => void
     vi.mocked(transport.invoke).mockImplementation(async (channel) => {
       if (channel === Queries.DiscoverLegacyImport)
-        return [{ sourceHandle, name: 'Motrix' }]
+        return [
+          {
+            sourceHandle,
+            name: 'Motrix',
+            dataPath: '/Users/example/Library/Application Support/Motrix',
+          },
+        ]
       if (channel === Queries.ScanLegacyImport) return preview
       if (channel === Commands.CommitLegacyImport)
         return new Promise((resolve) => {
@@ -140,7 +154,9 @@ describe('retained migration page', () => {
         <Host />
       </MemoryRouter>
     )
-    await screen.findByText('Downloads found: 2')
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
     fireEvent.click(await screen.findByRole('checkbox', { name: 'two.zip' }))
     fireEvent.click(screen.getByRole('button', { name: 'Migrate 1 task' }))
@@ -159,7 +175,13 @@ describe('retained migration page', () => {
     expect(screen.getByText('Imported 1')).toBeVisible()
     vi.mocked(transport.invoke).mockImplementation(async (channel) => {
       if (channel === Queries.DiscoverLegacyImport)
-        return [{ sourceHandle, name: 'Motrix' }]
+        return [
+          {
+            sourceHandle,
+            name: 'Motrix',
+            dataPath: '/Users/example/Library/Application Support/Motrix',
+          },
+        ]
       if (channel === Queries.ScanLegacyImport)
         return {
           ...preview,
@@ -178,9 +200,13 @@ describe('retained migration page', () => {
     expect(
       await screen.findByRole('button', { name: 'Continue' })
     ).toBeVisible()
-    await screen.findByText('Downloads found: 2')
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
-    expect(screen.getByRole('button', { name: 'Migrate 1 task' })).toBeVisible()
+    expect(
+      await screen.findByRole('button', { name: 'Migrate 1 task' })
+    ).toBeVisible()
     expect(screen.queryByText('Imported 1')).not.toBeInTheDocument()
     expect(
       vi

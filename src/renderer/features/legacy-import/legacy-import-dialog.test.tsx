@@ -53,6 +53,7 @@ async function continueFromSource() {
   })
   await waitFor(() => expect(button).toBeEnabled())
   fireEvent.click(button)
+  await screen.findByRole('heading', { name: 'Choose what to migrate' })
   for (const group of document.querySelectorAll<HTMLButtonElement>(
     '[data-import-group] button[aria-expanded="false"]'
   ))
@@ -72,7 +73,13 @@ describe('legacy import dialog', () => {
       .mockReset()
       .mockImplementation(async (channel) => {
         if (channel === Queries.DiscoverLegacyImport)
-          return [{ sourceHandle, name: 'Motrix' }]
+          return [
+            {
+              sourceHandle,
+              name: 'Motrix',
+              dataPath: '/Users/example/Library/Application Support/Motrix',
+            },
+          ]
         if (channel === Queries.ScanLegacyImport) return preview
         if (
           channel === Commands.CommitLegacyImport ||
@@ -90,14 +97,37 @@ describe('legacy import dialog', () => {
         name: 'Where would you like to migrate from?',
       })
     ).toBeVisible()
-    await screen.findByText('Downloads found: 1')
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+    )
     expect(
       screen.queryByRole('checkbox', { name: 'archive.zip' })
     ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('radio', {
+        name: '/Users/example/Library/Application Support/Motrix',
+      })
+    ).toBeVisible()
+    expect(screen.queryByText('Downloads found: 1')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Downloads from the previous version')
+    ).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Show in folder' }))
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith(
+        Commands.RevealLegacyImportSource,
+        { sourceHandle }
+      )
+    )
+    expect(screen.getByRole('radio', { name: /Motrix/ })).toBeChecked()
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Queries.ScanLegacyImport,
+      expect.anything()
+    )
     await continueFromSource()
     fireEvent.click(screen.getByRole('checkbox', { name: 'archive.zip' }))
     fireEvent.click(screen.getByRole('button', { name: 'Back to source' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Motrix' }))
+    fireEvent.click(screen.getByRole('radio', { name: /Motrix/ }))
     await continueFromSource()
     expect(
       screen.getByRole('checkbox', { name: 'archive.zip' })
@@ -116,11 +146,19 @@ describe('legacy import dialog', () => {
     const other = {
       sourceHandle: '55555555-5555-4555-8555-555555555555',
       name: 'Backup',
+      dataPath: '/Volumes/Backup/Motrix',
     }
     let backupScans = 0
     vi.mocked(transport.invoke).mockImplementation(async (channel, payload) => {
       if (channel === Queries.DiscoverLegacyImport)
-        return [{ sourceHandle, name: 'Motrix' }, other]
+        return [
+          {
+            sourceHandle,
+            name: 'Motrix',
+            dataPath: '/Users/example/Library/Application Support/Motrix',
+          },
+          other,
+        ]
       if (channel === Queries.ScanLegacyImport) {
         if (
           (payload as { sourceHandle: string }).sourceHandle ===
@@ -143,13 +181,14 @@ describe('legacy import dialog', () => {
     await continueFromSource()
     fireEvent.click(screen.getByRole('checkbox', { name: 'archive.zip' }))
     fireEvent.click(screen.getByRole('button', { name: 'Back to source' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Backup' }))
+    fireEvent.click(screen.getByRole('radio', { name: /Backup/ }))
+    expect(backupScans).toBe(0)
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
     await screen.findByRole('alert')
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
     expect(
       screen.queryByRole('button', { name: /Migrate/ })
     ).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Check again' }))
     await continueFromSource()
     expect(screen.getByRole('checkbox', { name: 'backup.zip' })).toBeChecked()
     expect(
@@ -165,17 +204,28 @@ describe('legacy import dialog', () => {
     vi.mocked(transport.invoke).mockImplementation(async (channel) => {
       if (channel === Queries.DiscoverLegacyImport) return []
       if (channel === Commands.PickLegacyImportSource)
-        return { sourceHandle, name: 'Picked folder' }
+        return {
+          sourceHandle,
+          name: 'Picked folder',
+          dataPath: '/Volumes/Backup/Motrix',
+        }
       if (channel === Queries.ScanLegacyImport)
         return { ...preview, sourceName: 'Picked folder' }
       return undefined
     })
     render(<LegacyImportDialog open presentation="page" onClose={vi.fn()} />)
     await screen.findByText(
-      'No Motrix v1 data was found on this computer. Choose its data folder to continue.'
+      'No downloads from the previous version of Motrix were found. Choose another location to look for them.'
     )
     expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
-    fireEvent.click(screen.getByRole('button', { name: 'Choose folder…' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Choose another location…' })
+    )
+    await screen.findByRole('radio', { name: '/Volumes/Backup/Motrix' })
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Queries.ScanLegacyImport,
+      expect.anything()
+    )
     await continueFromSource()
     expect(screen.getByRole('checkbox', { name: 'archive.zip' })).toBeChecked()
     expect(transport.invoke).toHaveBeenCalledWith(Queries.ScanLegacyImport, {
@@ -183,15 +233,20 @@ describe('legacy import dialog', () => {
     })
   })
 
-  it('explains an empty source and keeps migration disabled', async () => {
+  it('shows an empty source path and keeps migration disabled', async () => {
     vi.mocked(transport.invoke).mockImplementation(async (channel) => {
       if (channel === Queries.DiscoverLegacyImport)
-        return [{ sourceHandle, name: 'Motrix' }]
+        return [
+          {
+            sourceHandle,
+            name: 'Motrix',
+            dataPath: '/Users/example/Library/Application Support/Motrix',
+          },
+        ]
       if (channel === Queries.ScanLegacyImport) return { ...preview, items: [] }
       return undefined
     })
     render(<LegacyImportDialog open presentation="page" onClose={vi.fn()} />)
-    await screen.findByText('There are no tasks to migrate from this folder.')
     await continueFromSource()
     expect(
       screen.getByRole('button', { name: 'Migrate 0 tasks' })
@@ -206,7 +261,11 @@ describe('legacy import dialog', () => {
     expect(
       screen.queryByRole('textbox', { name: 'Search downloads' })
     ).not.toBeInTheDocument()
-    expect(screen.getByText('Imported tasks will stay paused.')).toBeVisible()
+    expect(
+      screen.getByText(
+        'Selected 1 task. After migration, tasks will stay paused and downloaded files will remain in place.'
+      )
+    ).toBeVisible()
     fireEvent.click(action)
     await screen.findByText('Imported 1')
     expect(transport.invoke).toHaveBeenCalledWith(Commands.CommitLegacyImport, {
@@ -287,7 +346,13 @@ describe('legacy import dialog', () => {
     async (result) => {
       vi.mocked(transport.invoke).mockImplementation(async (channel) => {
         if (channel === Queries.DiscoverLegacyImport)
-          return [{ sourceHandle, name: 'Motrix' }]
+          return [
+            {
+              sourceHandle,
+              name: 'Motrix',
+              dataPath: '/Users/example/Library/Application Support/Motrix',
+            },
+          ]
         if (channel === Queries.ScanLegacyImport) return preview
         if (channel === Commands.CommitLegacyImport)
           return {
@@ -330,7 +395,13 @@ describe('legacy import dialog', () => {
   it('keeps a failed preflight on selection with its selected item', async () => {
     vi.mocked(transport.invoke).mockImplementation(async (channel) => {
       if (channel === Queries.DiscoverLegacyImport)
-        return [{ sourceHandle, name: 'Motrix' }]
+        return [
+          {
+            sourceHandle,
+            name: 'Motrix',
+            dataPath: '/Users/example/Library/Application Support/Motrix',
+          },
+        ]
       if (channel === Queries.ScanLegacyImport) return preview
       if (channel === Commands.CommitLegacyImport)
         throw new Error('legacyImport.errors.changedSource')
@@ -349,7 +420,9 @@ describe('legacy import dialog', () => {
   it('skipping an invitation persists dismissal without a commit', async () => {
     const close = vi.fn()
     render(<LegacyImportDialog open invitation onClose={close} />)
-    await screen.findByText('Downloads found: 1')
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Not now' }))
     await waitFor(() => expect(close).toHaveBeenCalledOnce())
     expect(transport.invoke).toHaveBeenCalledWith(
@@ -361,10 +434,16 @@ describe('legacy import dialog', () => {
     )
   })
 
-  it('counts a torrent awaiting metadata in discovery and keeps its repair reachable', async () => {
+  it('keeps a torrent awaiting metadata reachable from its source', async () => {
     vi.mocked(transport.invoke).mockImplementation(async (channel) => {
       if (channel === Queries.DiscoverLegacyImport)
-        return [{ sourceHandle, name: 'Motrix' }]
+        return [
+          {
+            sourceHandle,
+            name: 'Motrix',
+            dataPath: '/Users/example/Library/Application Support/Motrix',
+          },
+        ]
       if (channel === Queries.ScanLegacyImport)
         return {
           ...preview,
@@ -381,10 +460,12 @@ describe('legacy import dialog', () => {
       return undefined
     })
     render(<LegacyImportDialog open invitation onClose={vi.fn()} />)
-    await screen.findByText('Downloads found: 1')
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
     expect(
-      screen.getByRole('button', { name: 'Migrate 0 tasks' })
+      await screen.findByRole('button', { name: 'Migrate 0 tasks' })
     ).toBeDisabled()
     expect(
       screen.getByRole('button', { name: 'Choose torrent…' })
@@ -402,7 +483,13 @@ describe('legacy import dialog', () => {
     const refreshedId = '44444444-4444-4444-8444-444444444444'
     vi.mocked(transport.invoke).mockImplementation(async (channel) => {
       if (channel === Queries.DiscoverLegacyImport)
-        return [{ sourceHandle, name: 'Motrix' }]
+        return [
+          {
+            sourceHandle,
+            name: 'Motrix',
+            dataPath: '/Users/example/Library/Application Support/Motrix',
+          },
+        ]
       if (channel === Queries.ScanLegacyImport)
         return { ...preview, items: [...items, bt] }
       if (channel === Commands.PickLegacyTorrentMetadata)
@@ -458,7 +545,13 @@ describe('legacy import dialog', () => {
     }
     vi.mocked(transport.invoke).mockImplementation(async (channel) => {
       if (channel === Queries.DiscoverLegacyImport)
-        return [{ sourceHandle, name: 'Motrix' }]
+        return [
+          {
+            sourceHandle,
+            name: 'Motrix',
+            dataPath: '/Users/example/Library/Application Support/Motrix',
+          },
+        ]
       if (channel === Queries.ScanLegacyImport)
         return { ...preview, items: [...items, bt] }
       if (channel === Commands.PickLegacyTorrentMetadata) return null

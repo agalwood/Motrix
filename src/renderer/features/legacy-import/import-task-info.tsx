@@ -25,12 +25,14 @@ export function ImportTaskInfo({ item }: { item: LegacyImportItem }) {
           t('legacyImport.page.pathUnavailable')
         )}
       </p>
-      <p
-        title={reason}
-        className="truncate text-xs leading-4 text-foreground/70"
-      >
-        {reason}
-      </p>
+      {item.reason !== 'metadata-required' && (
+        <p
+          title={reason}
+          className="truncate text-xs leading-4 text-foreground/70"
+        >
+          {reason}
+        </p>
+      )}
     </div>
   )
 }

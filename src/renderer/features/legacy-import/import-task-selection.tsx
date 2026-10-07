@@ -98,10 +98,9 @@ export function ImportTaskSelection({
           data-import-task={item.itemId}
           data-import-row={item.itemId}
           data-selected={selected.has(item.itemId)}
-          className="migration-task-row flex h-16 items-center gap-3 border-b border-border/70 py-1 pe-4 ps-12 last:border-b-0"
+          className="migration-task-row flex h-14 items-center gap-2 py-0.5 pe-3 ps-11"
         >
           <Checkbox
-            className="migration-checkbox size-5 rounded-[5px]"
             aria-label={item.name}
             disabled={busy || !item.selectable}
             checked={item.selectable && selected.has(item.itemId)}
@@ -137,13 +136,13 @@ export function ImportTaskSelection({
         key={row.type}
         data-import-group={row.type}
         data-import-row={`group:${row.type}`}
-        className="flex h-16 items-center gap-3 border-b border-border/70 px-4 last:border-b-0"
+        className="flex h-14 items-center gap-2 px-3"
       >
         <Button
           type="button"
           variant="ghost"
           size="icon-xs"
-          className="-ms-1 shrink-0 rounded-full"
+          className="shrink-0"
           aria-label={title}
           aria-expanded={isOpen}
           disabled={Boolean(search)}
@@ -167,7 +166,6 @@ export function ImportTaskSelection({
         </Button>
         <Checkbox
           id={groupId}
-          className="migration-checkbox size-5 rounded-[5px]"
           aria-labelledby={`${groupId}-label`}
           disabled={busy || eligible.length === 0}
           checked={eligible.length > 0 && count === eligible.length}
@@ -183,9 +181,6 @@ export function ImportTaskSelection({
         </span>
         <label htmlFor={groupId} className="min-w-0 flex-1 cursor-pointer">
           <span className="block text-[13px] font-medium">{title}</span>
-          <span className="mt-1 block text-xs text-muted-foreground">
-            {t(`legacyImport.page.groupDescriptions.${row.type}`)}
-          </span>
         </label>
         <span className="shrink-0 text-xs tabular-nums text-foreground/80">
           {t('legacyImport.page.groupCount', { count: row.items.length })}
@@ -206,8 +201,8 @@ export function ImportTaskSelection({
         </div>
       )}
       <div
-        className="mx-auto flex min-h-0 w-full max-w-160 flex-1 flex-col overflow-hidden rounded-lg border border-border/80"
-        style={{ maxHeight: rows.length ? rows.length * 64 : 120 }}
+        className="mx-auto flex min-h-0 w-full max-w-160 flex-1 flex-col overflow-hidden border border-border"
+        style={{ maxHeight: rows.length ? rows.length * 56 : 120 }}
       >
         {items.length > 100 ? (
           <VirtualList
@@ -215,7 +210,7 @@ export function ImportTaskSelection({
             getId={(row) =>
               row.kind === 'group' ? `group:${row.type}` : row.item.itemId
             }
-            rowHeight={64}
+            rowHeight={56}
             keepMountedIndex={rows.findIndex(
               (row) =>
                 (row.kind === 'group'

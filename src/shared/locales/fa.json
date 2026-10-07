@@ -3061,7 +3061,7 @@
     "freshDownload": "Download again…",
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
-    "chooseDestination": "Choose folder…",
+    "chooseDestination": "Choose another location…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
@@ -3150,7 +3150,7 @@
       "discoveryDescription": "Choose what to add to your download list. Some tasks need a new download or a check of the existing files.",
       "previousVersion": "Motrix v1",
       "currentVersion": "Motrix",
-      "introduction": "Import download tasks from Motrix v1.",
+      "introduction": "Choose the downloads you’d like to add to Motrix.",
       "selectionTitle": "Choose what to migrate",
       "searchEmpty": "No matching downloads.",
       "resultEmptyTitle": "No new downloads",
@@ -3167,11 +3167,13 @@
       "assistantTitle": "Migration Assistant",
       "backToSource": "Back to source",
       "continue": "Continue",
+      "revealSource": "Show in folder",
+      "welcomeTitle": "Migrate your downloads",
       "sourceTitle": "Where would you like to migrate from?",
-      "sourceIntroduction": "Choose your Motrix v1 data to get started.",
-      "sourceKind": "Motrix v1 data",
+      "sourceIntroduction": "Import your download tasks from the previous version of Motrix. You can choose what to migrate next. Your downloaded files will stay where they are.",
+      "sourceKind": "Downloads from the previous version",
       "sourceHelp": "Choose the data folder used by Motrix v1. Your downloaded files stay where they are.",
-      "noSourceDescription": "No Motrix v1 data was found on this computer. Choose its data folder to continue.",
+      "noSourceDescription": "No downloads from the previous version of Motrix were found. Choose another location to look for them.",
       "progressTitle": "Migrating your downloads",
       "progressDescription": "Your task list is being backed up and added to Motrix.",
       "selectGroup": "Select {{name}}",
@@ -3194,9 +3196,9 @@
         "unknown": "Review the task details"
       },
       "groupCount_one": "{{count}} task",
-      "selectedNote_one": "Selected {{count}} task · Downloaded files stay in place.",
+      "selectedNote_one": "Selected {{count}} task. After migration, tasks will stay paused and downloaded files will remain in place.",
       "groupCount_other": "{{count}} tasks",
-      "selectedNote_other": "Selected {{count}} tasks · Downloaded files stay in place."
+      "selectedNote_other": "Selected {{count}} tasks. After migration, tasks will stay paused and downloaded files will remain in place."
     },
     "importSelected_one": "Migrate {{count}} task",
     "importSelected_other": "Migrate {{count}} tasks"

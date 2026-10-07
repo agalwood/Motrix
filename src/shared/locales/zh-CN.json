@@ -3039,7 +3039,7 @@
     "freshDownload": "重新下载…",
     "freshDescription": "选择新的保存位置后，Motrix 会创建单独的文件夹，并打开下载窗口供你确认。本次将从头下载，原文件会保留。",
     "freshDestination": "选择新下载的保存位置",
-    "chooseDestination": "选择文件夹…",
+    "chooseDestination": "选择其他位置…",
     "reasons": {
       "fresh-download-required": "需要重新下载",
       "verification-required": "需要检查已有文件",
@@ -3128,7 +3128,7 @@
       "discoveryDescription": "选择要保留的任务。部分任务需要重新下载，或先检查已有文件。",
       "previousVersion": "Motrix v1",
       "currentVersion": "Motrix",
-      "introduction": "从 Motrix v1 导入下载任务。",
+      "introduction": "选择要添加到 Motrix 的下载任务。",
       "selectionTitle": "选择要迁移的内容",
       "searchEmpty": "没有找到匹配的任务。",
       "resultEmptyTitle": "没有新增任务",
@@ -3145,11 +3145,13 @@
       "assistantTitle": "迁移助手",
       "backToSource": "返回来源",
       "continue": "继续",
+      "revealSource": "在文件夹中显示",
+      "welcomeTitle": "迁移下载任务",
       "sourceTitle": "从哪里迁移？",
-      "sourceIntroduction": "选择 Motrix v1 的数据，开始迁移。",
-      "sourceKind": "Motrix v1 数据",
+      "sourceIntroduction": "将旧版 Motrix 的下载任务导入到这里。接下来，你可以选择要迁移的内容，已下载的文件会保留在原处。",
+      "sourceKind": "旧版下载任务",
       "sourceHelp": "选择 Motrix v1 使用的数据文件夹。已下载的文件会保留在原处。",
-      "noSourceDescription": "这台电脑上没有找到 Motrix v1 数据。请选择原来的数据文件夹。",
+      "noSourceDescription": "没有找到旧版 Motrix 的下载任务。你可以选择其他位置继续查找。",
       "progressTitle": "正在迁移下载任务",
       "progressDescription": "正在备份任务列表，并将任务添加到 Motrix。",
       "selectGroup": "选择{{name}}",
@@ -3172,7 +3174,7 @@
         "unknown": "查看任务信息"
       },
       "groupCount_other": "{{count}} 项",
-      "selectedNote_other": "已选择 {{count}} 项 · 已下载的文件保留在原处。"
+      "selectedNote_other": "已选择 {{count}} 项任务。迁移后任务保持暂停，已下载的文件保留在原处。"
     },
     "importSelected_other": "迁移 {{count}} 项"
   }

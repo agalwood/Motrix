@@ -33,6 +33,7 @@ import {
   type LegacySnapshot,
   type LegacySource,
   type LegacyTorrentGrant,
+  probeLegacySource,
   scanLegacySource,
 } from './source-scanner'
 
@@ -111,25 +112,32 @@ export class LegacyImportService {
 
   async addSource(root: string): Promise<LegacyImportSource> {
     const source = await authorizeLegacySource(root)
+    await probeLegacySource(source)
     for (const [handle, existing] of this.sources) {
       if (
         existing.root === source.root &&
         existing.identity === source.identity
       )
-        return { sourceHandle: handle, name: path.basename(source.root) }
+        return {
+          sourceHandle: handle,
+          name: path.basename(source.root),
+          dataPath: source.root,
+        }
     }
     if (this.sources.size >= 16) throw this.error('tooManySources')
     const sourceHandle = randomUUID()
     this.sources.set(sourceHandle, source)
-    return { sourceHandle, name: path.basename(source.root) }
+    return {
+      sourceHandle,
+      name: path.basename(source.root),
+      dataPath: source.root,
+    }
   }
 
   async discover(roots: readonly string[]): Promise<LegacyImportSource[]> {
     const result: LegacyImportSource[] = []
     for (const root of roots) {
       try {
-        const source = await authorizeLegacySource(root)
-        await scanLegacySource(source, this.deps.isProcessRunning)
         const dto = await this.addSource(root)
         if (!result.some((entry) => entry.sourceHandle === dto.sourceHandle))
           result.push(dto)
@@ -138,6 +146,12 @@ export class LegacyImportService {
       }
     }
     return result
+  }
+
+  getSourcePath(sourceHandle: string): string {
+    const source = this.sources.get(sourceHandle)
+    if (!source) throw this.error('sourceNotAuthorized')
+    return source.root
   }
 
   async scan(

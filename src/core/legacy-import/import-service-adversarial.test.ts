@@ -105,6 +105,49 @@ afterEach(async () => {
 })
 
 describe('legacy import service adversarial acceptance', () => {
+  it('returns the authorized data path for discovered and reused sources', async () => {
+    const f = await fixture()
+    expect(f.source.dataPath).toBe(f.sourceRoot)
+    expect(f.service.getSourcePath(f.source.sourceHandle)).toBe(f.sourceRoot)
+    expect(() => f.service.getSourcePath('unknown')).toThrow(
+      'sourceNotAuthorized'
+    )
+    expect(await f.service.addSource(f.sourceRoot)).toEqual(f.source)
+    expect(await f.service.discover([f.sourceRoot])).toEqual([f.source])
+  })
+
+  it('discovers and reauthorizes a large malformed session without parsing tasks or checking a PID', async () => {
+    const running = vi.fn(() => false)
+    const f = await fixture(1, { isProcessRunning: running })
+    await writeFile(f.sessionPath, Buffer.alloc(4 * 1024 * 1024))
+    await writeFile(path.join(f.sourceRoot, 'engine.pid'), '123')
+    running.mockClear()
+    expect(await f.service.discover([f.sourceRoot])).toEqual([f.source])
+    expect(await f.service.addSource(f.sourceRoot)).toEqual(f.source)
+    expect(running).not.toHaveBeenCalled()
+    await expect(f.service.scan(f.source.sourceHandle)).rejects.toThrow(
+      'legacyImport.invalidSource'
+    )
+    expect(running).toHaveBeenCalledWith(123)
+  })
+
+  it('does not discover or authorize a missing or symlinked profile file', async () => {
+    const f = await fixture()
+    const user = path.join(f.sourceRoot, 'user.json')
+    await rm(user)
+    expect(await f.service.discover([f.sourceRoot])).toEqual([])
+    await expect(f.service.addSource(f.sourceRoot)).rejects.toThrow(
+      'legacyImport.invalidSource'
+    )
+    const outside = path.join(f.root, 'outside-user.json')
+    await writeFile(outside, '{"theme":"auto"}')
+    await symlink(outside, user)
+    expect(await f.service.discover([f.sourceRoot])).toEqual([])
+    await expect(f.service.addSource(f.sourceRoot)).rejects.toThrow(
+      'legacyImport.unsafeSource'
+    )
+  })
+
   it('shows the original save directories in previews and persisted reports', async () => {
     const f = await fixture(2)
     const other = path.join(f.root, 'other-downloads')

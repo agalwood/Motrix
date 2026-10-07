@@ -7,6 +7,7 @@ export const Commands = {
   PickFile: 'command:pickFile',
   ActivateLegacyBt: 'command:activateLegacyBt',
   PickLegacyImportSource: 'command:pickLegacyImportSource',
+  RevealLegacyImportSource: 'command:revealLegacyImportSource',
   PickLegacyTorrentMetadata: 'command:pickLegacyTorrentMetadata',
   CommitLegacyImport: 'command:commitLegacyImport',
   CancelLegacyImport: 'command:cancelLegacyImport',

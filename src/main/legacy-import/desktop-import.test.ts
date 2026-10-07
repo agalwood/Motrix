@@ -28,12 +28,14 @@ const mocks = vi.hoisted(() => ({
   handlers: new Map<string, (...args: unknown[]) => Promise<unknown>>(),
   pick: vi.fn(),
   save: vi.fn(),
+  reveal: vi.fn(),
   owner: {},
 }))
 vi.mock('electron', () => ({
   app: { isPackaged: false },
   BrowserWindow: { fromWebContents: () => mocks.owner },
   dialog: { showOpenDialog: mocks.pick, showSaveDialog: mocks.save },
+  shell: { showItemInFolder: mocks.reveal },
   ipcMain: {
     removeHandler: (channel: string) => mocks.handlers.delete(channel),
   },
@@ -326,6 +328,40 @@ describe('desktop legacy import', () => {
     ).rejects.toThrow('consentRequired')
     expect(getService).not.toHaveBeenCalled()
     expect(mocks.pick).not.toHaveBeenCalled()
+    await expect(
+      mocks.handlers.get(Commands.RevealLegacyImportSource)?.(
+        {},
+        { sourceHandle: '11111111-1111-4111-8111-111111111111' }
+      )
+    ).rejects.toThrow('consentRequired')
+    expect(mocks.reveal).not.toHaveBeenCalled()
+  })
+
+  it('reveals only the authorized source path resolved by the service', async () => {
+    const sourceHandle = '11111111-1111-4111-8111-111111111111'
+    const getSourcePath = vi.fn(() => '/authorized/Motrix')
+    registerLegacyImportIpc({
+      getService: () => ({ getSourcePath }) as unknown as LegacyImportService,
+      hasConsent: () => true,
+      getTask: () => undefined,
+      backupRoot: '',
+      finishInvitation: vi.fn(),
+    })
+    const reveal = mocks.handlers.get(Commands.RevealLegacyImportSource)
+    await expect(
+      reveal?.({}, { sourceHandle, path: '/untrusted' })
+    ).rejects.toThrow()
+    expect(mocks.reveal).not.toHaveBeenCalled()
+    await reveal?.({}, { sourceHandle })
+    expect(getSourcePath).toHaveBeenCalledWith(sourceHandle)
+    expect(mocks.reveal).toHaveBeenCalledExactlyOnceWith('/authorized/Motrix')
+    getSourcePath.mockImplementationOnce(() => {
+      throw new Error('sourceNotAuthorized')
+    })
+    await expect(reveal?.({}, { sourceHandle })).rejects.toThrow(
+      'sourceNotAuthorized'
+    )
+    expect(mocks.reveal).toHaveBeenCalledTimes(1)
   })
 
   it('isolates unpackaged tests from real profile paths', () => {

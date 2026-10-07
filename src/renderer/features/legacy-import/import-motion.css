@@ -8,18 +8,6 @@
   --migration-duration: 180ms;
 }
 
-.migration-motion .migration-checkbox {
-  border-color: color-mix(in oklab, var(--foreground) 35%, transparent);
-  background-color: transparent;
-  color: var(--background);
-}
-
-.migration-motion .migration-checkbox:is([data-checked], [data-indeterminate]) {
-  border-color: var(--foreground);
-  background-color: var(--foreground);
-  color: var(--background);
-}
-
 .migration-motion .migration-primary {
   background: var(--foreground);
   color: var(--background);
@@ -27,11 +15,6 @@
 
 .migration-motion .migration-primary:hover:not(:disabled) {
   background: color-mix(in oklab, var(--foreground) 85%, var(--background));
-}
-
-.migration-motion .migration-source[data-pressed] {
-  border-color: var(--foreground);
-  background: var(--muted);
 }
 
 .migration-task-row {
@@ -66,6 +49,10 @@
 }
 
 @media (max-height: 650px) {
+  .migration-source-options {
+    padding-top: 12px;
+  }
+
   .migration-stage-heading {
     padding-block: 12px;
   }

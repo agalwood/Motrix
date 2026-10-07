@@ -22,6 +22,7 @@ vi.mock('@renderer/lib/transport', () => ({
 const source = {
   sourceHandle: '11111111-1111-4111-8111-111111111111',
   name: 'Motrix',
+  dataPath: '/Users/example/Library/Application Support/Motrix',
 }
 const item = {
   itemId: 'record',
@@ -71,6 +72,46 @@ afterEach(async () => {
 })
 
 describe('legacy import UI adversarial state', () => {
+  it('defers full scanning until Continue and prevents duplicate scans while waiting', async () => {
+    let resolveScan!: (value: unknown) => void
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.DiscoverLegacyImport) return [source]
+      if (channel === Queries.ScanLegacyImport)
+        return new Promise((resolve) => {
+          resolveScan = resolve
+        })
+      return { ok: true }
+    })
+    render(<LegacyImportDialog open presentation="page" onClose={vi.fn()} />)
+    const button = await screen.findByRole('button', { name: 'Continue' })
+    await waitFor(() => expect(button).toBeEnabled())
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Queries.ScanLegacyImport,
+      expect.anything()
+    )
+    fireEvent.click(button)
+    fireEvent.click(button)
+    expect(button).toBeDisabled()
+    expect(
+      screen.getByRole('radio', { name: source.dataPath })
+    ).toHaveAttribute('aria-disabled', 'true')
+    expect(
+      screen.getByRole('button', { name: 'Choose another location…' })
+    ).toBeDisabled()
+    expect(
+      screen.queryByRole('heading', { name: 'Choose what to migrate' })
+    ).not.toBeInTheDocument()
+    await act(async () => resolveScan(preview))
+    expect(
+      await screen.findByRole('heading', { name: 'Choose what to migrate' })
+    ).toBeVisible()
+    expect(
+      vi
+        .mocked(transport.invoke)
+        .mock.calls.filter(([channel]) => channel === Queries.ScanLegacyImport)
+    ).toHaveLength(1)
+  })
+
   it('preserves the active run when the user changes language', async () => {
     render(<LegacyImportDialog open onClose={vi.fn()} />)
     const continueButton = await screen.findByRole('button', {

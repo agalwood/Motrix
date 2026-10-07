@@ -51,6 +51,7 @@ export type LegacyImportPreview = z.infer<typeof legacyImportPreviewSchema>
 export const legacyImportSourceSchema = z.object({
   sourceHandle: z.uuid(),
   name: z.string(),
+  dataPath: z.string().min(1),
 })
 export type LegacyImportSource = z.infer<typeof legacyImportSourceSchema>
 

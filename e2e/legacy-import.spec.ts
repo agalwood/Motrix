@@ -199,7 +199,34 @@ test.describe('v1 task import', () => {
         path: testInfo.outputPath('migration-discovery.png'),
         animations: 'disabled',
       })
-      await page.getByRole('button', { name: 'Continue', exact: true }).click()
+      await expect(
+        page.getByRole('radio', { name: source, exact: true })
+      ).toBeChecked()
+      await expect(
+        page.getByRole('button', { name: 'Show in folder', exact: true })
+      ).toBeVisible()
+      const sourceViewport = await page.evaluate(() => ({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      }))
+      await page.setViewportSize({ width: 800, height: 540 })
+      await expect(
+        page.getByRole('button', { name: 'Continue', exact: true })
+      ).toBeInViewport()
+      await expect(
+        page.getByRole('radio', { name: source, exact: true })
+      ).toBeInViewport()
+      expect(
+        await page.evaluate(
+          () =>
+            document.documentElement.scrollWidth <= innerWidth &&
+            document.documentElement.scrollHeight <= innerHeight
+        )
+      ).toBe(true)
+      await page.screenshot({
+        path: testInfo.outputPath('migration-source-short.png'),
+      })
+      await page.setViewportSize(sourceViewport)
       await expect
         .poll(() =>
           page
@@ -212,6 +239,16 @@ test.describe('v1 task import', () => {
             )
         )
         .toBe(true)
+      await page.getByRole('button', { name: 'Continue', exact: true }).click()
+      await expect(
+        page.getByRole('heading', { name: 'Choose what to migrate' })
+      ).toBeVisible()
+      await expect(
+        page.locator('[data-slot="migration-import-illustration"]')
+      ).toHaveCount(0)
+      await page.screenshot({
+        path: testInfo.outputPath('migration-selection.png'),
+      })
       await expandTaskGroups(page)
       await page
         .getByRole('checkbox', { name: 'partial.bin', exact: true })
@@ -560,7 +597,10 @@ test.describe('v1 task import', () => {
         .getByRole('button', { name: 'Open migration', exact: true })
         .click()
       await expect(
-        main.getByRole('button', { name: 'Choose folder…', exact: true })
+        main.getByRole('button', {
+          name: 'Choose another location…',
+          exact: true,
+        })
       ).toBeVisible()
       expect(
         app.windows().filter((window) => window.url().includes('w=onboarding'))

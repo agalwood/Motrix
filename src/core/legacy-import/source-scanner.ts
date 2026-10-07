@@ -67,6 +67,38 @@ export async function authorizeLegacySource(
   return { root, identity: `${stat.dev}:${stat.ino}` }
 }
 
+/** Recognize a profile with fixed metadata stats; content validation belongs to scan. */
+export async function probeLegacySource(source: LegacySource): Promise<void> {
+  const checkRoot = async () => {
+    const root = await lstat(source.root)
+    if (
+      !root.isDirectory() ||
+      root.isSymbolicLink() ||
+      `${root.dev}:${root.ino}` !== source.identity
+    )
+      throw new Error('legacyImport.changedSource')
+  }
+  try {
+    await checkRoot()
+    for (const name of ['user.json', 'system.json', 'download.session']) {
+      const file = await lstat(path.join(source.root, name))
+      if (
+        !file.isFile() ||
+        file.isSymbolicLink() ||
+        file.nlink !== 1 ||
+        file.size > MAX_LEGACY_BYTES
+      )
+        throw new Error('legacyImport.unsafeSource')
+    }
+    // The metadata checks do not grant a replacement directory at this path.
+    await checkRoot()
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT')
+      throw new Error('legacyImport.invalidSource')
+    throw error
+  }
+}
+
 /** Fixed metadata reads only; payloads and control files outside this grant are never opened. */
 export async function readLegacyFile(
   source: LegacySource,

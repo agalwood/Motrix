@@ -25,7 +25,7 @@ import {
 import type { AddTaskPrefill } from '@shared/schemas/show-add-task-window'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskType } from '@shared/types/task'
-import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import writeFileAtomic from 'write-file-atomic'
 import { registerTrustedIpcHandler } from '../ipc/trusted-ipc'
 import { i18n } from '../lib/i18n'
@@ -149,6 +149,11 @@ export function registerLegacyImportIpc(deps: DesktopImportDeps): () => void {
     },
     [Queries.DiscoverLegacyImport]: async () =>
       service().discover(defaultLegacyRoots()),
+    [Commands.RevealLegacyImportSource]: async (_event, input) => {
+      const current = service()
+      const { sourceHandle } = legacyScanRequestSchema.parse(input)
+      shell.showItemInFolder(current.getSourcePath(sourceHandle))
+    },
     [Queries.ScanLegacyImport]: async (_event, input) => {
       const preview = await service().scan(
         legacyScanRequestSchema.parse(input).sourceHandle

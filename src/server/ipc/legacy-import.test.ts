@@ -12,7 +12,7 @@ describe('server legacy import boundary', () => {
       ...unsupportedLegacyImportCommands(),
       ...unsupportedLegacyImportQueries(),
     }
-    expect(Object.keys(handlers)).toHaveLength(15)
+    expect(Object.keys(handlers)).toHaveLength(16)
     await expect(
       handlers[Queries.GetLegacyImportNavigation]?.()
     ).resolves.toEqual({ detected: false, invitationPending: false })

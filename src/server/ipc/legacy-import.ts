@@ -18,6 +18,7 @@ export function unsupportedLegacyImportCommands(): CommandHandlerMap {
   return {
     [Commands.ActivateLegacyBt]: desktopOnly,
     [Commands.PickLegacyImportSource]: desktopOnly,
+    [Commands.RevealLegacyImportSource]: desktopOnly,
     [Commands.PickLegacyTorrentMetadata]: desktopOnly,
     [Commands.CommitLegacyImport]: desktopOnly,
     [Commands.CancelLegacyImport]: desktopOnly,

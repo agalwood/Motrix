@@ -38,11 +38,13 @@ export function ImportStageHeading({
   description,
   source,
   illustration,
+  className,
 }: {
   title: string
   description: string
   source?: string
   illustration?: ReactNode
+  className?: string
 }) {
   const heading = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
@@ -54,7 +56,8 @@ export function ImportStageHeading({
     <div
       className={cn(
         'migration-stage-heading mx-auto w-full max-w-160 shrink-0 py-5 text-start',
-        illustration && 'migration-stage-heading-illustrated'
+        illustration && 'migration-stage-heading-illustrated',
+        className
       )}
     >
       {illustration && (
