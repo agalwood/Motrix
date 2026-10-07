@@ -33,12 +33,14 @@ Dashboard 速度模式卡片使用新建的兔子、乌龟和松鼠几何模型�
 
 ## 玻璃质感导入图标（Glassmorphism migration import icon）
 
-迁移助手使用新建的圆角迁移面板与向下导入箭头，在 Blender 中沿用所提供
-Glassmorphism 素材集 `Add File.blend` 的玻璃、缎面材质和摄影棚灯光渲染。
-正面视角的透明无损 WebP 资源以 96px 和 192px 保存于
+迁移助手使用新建的紫色玻璃文件夹，以及从左侧进入、指向右侧的箭头，在 Blender 中沿用所提供
+Glassmorphism 素材集 `File.blend` 的玻璃、缎面材质和摄影棚灯光渲染。
+透明无损 WebP 资源以 96px 和 192px 保存于
 `src/renderer/features/legacy-import/icons/icon-import@1x.webp` 和
 `icon-import@2x.webp`。所提供的源文件没有可确认的作者或许可证声明，
 继承的材质和灯光许可记录为 `NOASSERTION`，未重新授权为 Motrix 的 MIT 许可。
+
+文件夹与箭头的轮廓依据用户提供的参考图重建，该参考图的外部作者和许可尚未确认。
 
 本版本已移除旧版 Iconly Pro 设置图标 PNG。包含这些资源的历史版本仍遵循
 其原有的 UI8 许可条款。

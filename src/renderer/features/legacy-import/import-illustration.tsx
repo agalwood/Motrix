@@ -13,7 +13,7 @@ export function ImportIllustration() {
       width={96}
       height={96}
       alt=""
-      className="size-full object-contain"
+      className="size-full object-contain brightness-90 contrast-[1.12] saturate-[1.2] drop-shadow-[0_1px_1px_rgb(15_23_42/0.12)] dark:filter-none"
       draggable={false}
     />
   )
