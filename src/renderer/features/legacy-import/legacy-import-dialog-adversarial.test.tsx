@@ -122,9 +122,7 @@ describe('legacy import UI adversarial state', () => {
     expect(
       await screen.findByRole('checkbox', { name: 'Select Direct links' })
     ).toBeChecked()
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Migrate 1 task' })
-    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Migrate' }))
     await screen.findByRole('progressbar')
     await act(async () => {
       await i18n.changeLanguage('zh-CN')

@@ -3238,8 +3238,6 @@
       "groupCount_other": "{{count}} tasks",
       "selectedNote_other": "Selected {{count}} tasks. After migration, tasks will stay paused and downloaded files will remain in place."
     },
-    "importSelected_one": "Migrate {{count}} task",
-    "importSelected_many": "Migrate {{count}} tasks",
-    "importSelected_other": "Migrate {{count}} tasks"
+    "importSelected": "Migrate"
   }
 }

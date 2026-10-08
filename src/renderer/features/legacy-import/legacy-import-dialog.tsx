@@ -527,7 +527,7 @@ function LegacyImportDialogContent({
     else if (stage === 'result') viewTasks()
     else leave()
   }
-  const primaryClass = 'migration-primary min-w-28'
+  const primaryClass = 'migration-primary'
   const sourceError =
     stage === 'discovery'
       ? error?.sourceAction
@@ -581,7 +581,7 @@ function LegacyImportDialogContent({
                   if (event.detail < 2) startImport()
                 }}
               >
-                {t('legacyImport.importSelected', { count: selected.size })}
+                {t('legacyImport.importSelected')}
               </Button>
             </div>
           )}

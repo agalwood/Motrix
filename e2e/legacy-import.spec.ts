@@ -172,7 +172,7 @@ test.describe('v1 task import', () => {
       await disclosure.click()
       await expect(disclosure).toHaveAttribute('aria-expanded', 'false')
       await expect(
-        page.getByRole('button', { name: /^Migrate 1 tasks?$/ })
+        page.getByRole('button', { name: /^Migrate$/ })
       ).toBeEnabled()
       await disclosure.press('Enter')
       await expect(archive).not.toBeChecked()
@@ -183,7 +183,7 @@ test.describe('v1 task import', () => {
       ).toBeChecked()
       await groupCheckbox.press('Space')
       await expect(
-        page.getByRole('button', { name: /^Migrate 0 tasks?$/ })
+        page.getByRole('button', { name: /^Migrate$/ })
       ).toBeDisabled()
       await archive.check()
       await page
@@ -203,7 +203,7 @@ test.describe('v1 task import', () => {
       await expect(
         page.getByRole('checkbox', { name: 'second.zip', exact: true })
       ).not.toBeChecked()
-      await page.getByRole('button', { name: /^Migrate 1 tasks?$/ }).click()
+      await page.getByRole('button', { name: /^Migrate$/ }).click()
       await expect(page.getByText('Imported 1', { exact: true })).toBeVisible()
       expect(await invoke(page, Queries.ListTasks)).toEqual([
         expect.objectContaining({
@@ -340,7 +340,7 @@ test.describe('v1 task import', () => {
       await choose.click()
       await expect(choose).toBeEnabled()
       await expect(
-        page.getByRole('button', { name: /^Migrate 1 tasks?$/ })
+        page.getByRole('button', { name: /^Migrate$/ })
       ).toBeEnabled()
       await app.evaluate(({ dialog }, torrentPath) => {
         dialog.showOpenDialog = async () => ({
@@ -356,7 +356,7 @@ test.describe('v1 task import', () => {
         page.getByRole('checkbox', { name: 'partial.bin', exact: true })
       ).not.toBeChecked()
       await expect(
-        page.getByRole('button', { name: /^Migrate 2 tasks?$/ })
+        page.getByRole('button', { name: /^Migrate$/ })
       ).toBeEnabled()
       await expect(
         page
@@ -393,7 +393,7 @@ test.describe('v1 task import', () => {
         app: { language: 'en-US' },
       })
       await expect(
-        page.getByRole('button', { name: /^Migrate 2 tasks?$/ })
+        page.getByRole('button', { name: /^Migrate$/ })
       ).toBeEnabled()
       const initialViewport = await page.evaluate(() => ({
         width: window.innerWidth,
@@ -401,7 +401,7 @@ test.describe('v1 task import', () => {
       }))
       await page.setViewportSize({ width: 800, height: 540 })
       await expect(
-        page.getByRole('button', { name: /^Migrate 2 tasks?$/ })
+        page.getByRole('button', { name: /^Migrate$/ })
       ).toBeInViewport()
       expect(
         await page.evaluate(() => ({
@@ -415,7 +415,7 @@ test.describe('v1 task import', () => {
         path: testInfo.outputPath('migration-short.png'),
       })
       await page.setViewportSize(initialViewport)
-      await page.getByRole('button', { name: /^Migrate 2 tasks?$/ }).click()
+      await page.getByRole('button', { name: /^Migrate$/ }).click()
       await expect(page.getByText('Imported 2', { exact: true })).toBeVisible()
       await page.screenshot({
         path: testInfo.outputPath('migration-result.png'),
@@ -440,7 +440,7 @@ test.describe('v1 task import', () => {
       await main.getByRole('link', { name: 'Migration', exact: true }).click()
       await main.getByRole('button', { name: 'Continue', exact: true }).click()
       await expect(
-        main.getByRole('button', { name: /^Migrate 1 tasks?$/, exact: true })
+        main.getByRole('button', { name: /^Migrate$/, exact: true })
       ).toBeEnabled()
       expect(await invoke(main, Queries.ListTasks)).toHaveLength(2)
       expect(await readFile(torrentPath)).toEqual(original)
@@ -492,7 +492,7 @@ test.describe('v1 task import', () => {
       })
       await checkbox.uncheck()
       await expect(
-        page.getByRole('button', { name: /^Migrate 0 tasks?$/, exact: true })
+        page.getByRole('button', { name: /^Migrate$/, exact: true })
       ).toBeDisabled()
       const runningAnimations = () =>
         motion.evaluate(
@@ -506,7 +506,7 @@ test.describe('v1 task import', () => {
       await checkbox.press('Space')
       await expect(checkbox).toBeChecked()
       await expect(
-        page.getByRole('button', { name: /^Migrate 1 tasks?$/, exact: true })
+        page.getByRole('button', { name: /^Migrate$/, exact: true })
       ).toBeEnabled()
       expect(await runningAnimations()).toBe(0)
       await checkbox.uncheck()
@@ -526,9 +526,7 @@ test.describe('v1 task import', () => {
       await checkbox.uncheck()
       await checkbox.check()
       expect(await runningAnimations()).toBe(0)
-      await page
-        .getByRole('button', { name: /^Migrate 1 tasks?$/, exact: true })
-        .click()
+      await page.getByRole('button', { name: /^Migrate$/, exact: true }).click()
       await expect(page.getByText('Imported 1', { exact: true })).toBeVisible()
       expect(await runningAnimations()).toBe(0)
       const tasks = (await invoke(page, Queries.ListTasks)) as Array<{
@@ -583,7 +581,7 @@ test.describe('v1 task import', () => {
       ).toHaveLength(0)
       await page.getByRole('button', { name: 'Continue', exact: true }).click()
       await expandTaskGroups(page)
-      await page.getByRole('button', { name: /^Migrate 1 tasks?$/ }).click()
+      await page.getByRole('button', { name: /^Migrate$/ }).click()
       await expect(page.getByText('Imported 1', { exact: true })).toBeVisible()
       await page.getByRole('button', { name: 'View downloads' }).click()
       const main = page

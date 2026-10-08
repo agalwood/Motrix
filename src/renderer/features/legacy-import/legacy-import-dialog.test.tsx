@@ -132,9 +132,7 @@ describe('legacy import dialog', () => {
     expect(
       screen.getByRole('checkbox', { name: 'archive.zip' })
     ).not.toBeChecked()
-    expect(
-      screen.getByRole('button', { name: 'Migrate 0 tasks' })
-    ).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Migrate' })).toBeDisabled()
     expect(
       vi
         .mocked(transport.invoke)
@@ -257,16 +255,14 @@ describe('legacy import dialog', () => {
     })
     render(<LegacyImportDialog open presentation="page" onClose={vi.fn()} />)
     await continueFromSource()
-    expect(
-      screen.getByRole('button', { name: 'Migrate 0 tasks' })
-    ).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Migrate' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Back to source' })).toBeEnabled()
   })
 
   it('imports selection directly, preserves the paused-state explanation and exposes details on demand', async () => {
     render(<LegacyImportDialog open onClose={vi.fn()} />)
     await continueFromSource()
-    const action = await screen.findByRole('button', { name: 'Migrate 1 task' })
+    const action = await screen.findByRole('button', { name: 'Migrate' })
     expect(
       screen.queryByRole('textbox', { name: 'Search downloads' })
     ).not.toBeInTheDocument()
@@ -294,7 +290,7 @@ describe('legacy import dialog', () => {
     expect(
       screen.getByText('Link', { selector: '[data-slot="badge"]' })
     ).toBeVisible()
-    fireEvent.click(screen.getByRole('button', { name: 'Migrate 1 task' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Migrate' }))
     await screen.findByText('Imported 1')
     fireEvent.click(screen.getByText('View details'))
     expect(screen.getByTitle(items[0].saveDir)).toBeVisible()
@@ -311,9 +307,7 @@ describe('legacy import dialog', () => {
       name: 'archive.zip',
     })
     fireEvent.click(checkbox)
-    expect(
-      screen.getByRole('button', { name: 'Migrate 0 tasks' })
-    ).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Migrate' })).toBeDisabled()
     expect(transport.invoke).not.toHaveBeenCalledWith(
       Commands.CommitLegacyImport,
       expect.anything()
@@ -381,9 +375,7 @@ describe('legacy import dialog', () => {
       })
       render(<LegacyImportDialog open presentation="page" onClose={vi.fn()} />)
       await continueFromSource()
-      fireEvent.click(
-        await screen.findByRole('button', { name: 'Migrate 1 task' })
-      )
+      fireEvent.click(await screen.findByRole('button', { name: 'Migrate' }))
       expect(
         await screen.findByRole('heading', { name: result.title })
       ).toBeVisible()
@@ -418,12 +410,10 @@ describe('legacy import dialog', () => {
     })
     render(<LegacyImportDialog open onClose={vi.fn()} />)
     await continueFromSource()
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Migrate 1 task' })
-    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Migrate' }))
     await screen.findByRole('alert')
     expect(screen.getByRole('checkbox', { name: 'archive.zip' })).toBeChecked()
-    expect(screen.getByRole('button', { name: 'Migrate 1 task' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Migrate' })).toBeEnabled()
   })
 
   it('skipping an invitation persists dismissal without a commit', async () => {
@@ -474,7 +464,7 @@ describe('legacy import dialog', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
     expect(
-      await screen.findByRole('button', { name: 'Migrate 0 tasks' })
+      await screen.findByRole('button', { name: 'Migrate' })
     ).toBeDisabled()
     expect(
       screen.getByRole('button', { name: 'Choose torrent…' })
@@ -535,7 +525,7 @@ describe('legacy import dialog', () => {
       Commands.PickLegacyTorrentMetadata,
       { previewId, itemId: bt.itemId }
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Migrate 1 task' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Migrate' }))
     await waitFor(() =>
       expect(transport.invoke).toHaveBeenCalledWith(
         Commands.CommitLegacyImport,
@@ -572,12 +562,10 @@ describe('legacy import dialog', () => {
     await screen.findByRole('checkbox', { name: 'archive.zip' })
     fireEvent.click(screen.getByRole('button', { name: 'Choose torrent…' }))
     await waitFor(() =>
-      expect(
-        screen.getByRole('button', { name: 'Migrate 1 task' })
-      ).toBeEnabled()
+      expect(screen.getByRole('button', { name: 'Migrate' })).toBeEnabled()
     )
     expect(screen.getByRole('checkbox', { name: 'archive.zip' })).toBeChecked()
-    fireEvent.click(screen.getByRole('button', { name: 'Migrate 1 task' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Migrate' }))
     await waitFor(() =>
       expect(transport.invoke).toHaveBeenCalledWith(
         Commands.CommitLegacyImport,

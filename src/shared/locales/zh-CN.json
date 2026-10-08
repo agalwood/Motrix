@@ -3190,6 +3190,6 @@
       "groupCount_other": "{{count}} 项",
       "selectedNote_other": "已选择 {{count}} 项任务。迁移后任务保持暂停，已下载的文件保留在原处。"
     },
-    "importSelected_other": "迁移 {{count}} 项"
+    "importSelected": "迁移"
   }
 }
