@@ -34,6 +34,25 @@ describe('migration run feedback', () => {
     expect(screen.queryByText('Backup saved')).not.toBeInTheDocument()
   })
 
+  it('keeps the empty fill initialized while backup changes to a determinate run', () => {
+    const view = render(<ImportRunProgress report={null} />)
+    const progress = screen.getByRole('progressbar')
+    const fill = progress.querySelector('.migration-progress-fill')
+    expect(fill).toBeInTheDocument()
+    expect(progress.style.getPropertyValue('--migration-progress')).toBe('0')
+    expect(fill).toHaveClass('animate-none')
+    view.rerender(
+      <ImportRunProgress report={{ ...report, processed: 0, imported: 0 }} />
+    )
+    expect(progress.querySelector('.migration-progress-fill')).toBe(fill)
+    expect(progress.style.getPropertyValue('--migration-progress')).toBe('0')
+    expect(progress).toHaveAttribute('aria-valuenow', '0')
+    view.rerender(<ImportRunProgress report={report} />)
+    expect(progress.style.getPropertyValue('--migration-progress')).toBe(
+      String(1 / 3)
+    )
+  })
+
   it('uses actual processed work, rather than imported work, for progress', () => {
     render(<ImportRunProgress report={{ ...report, processed: 2 }} />)
     expect(screen.getByRole('progressbar')).toHaveAttribute(

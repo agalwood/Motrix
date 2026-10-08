@@ -98,6 +98,43 @@ beforeEach(() => {
     })
 })
 describe('retained migration page', () => {
+  it.each([
+    ['/migration?invitation=1', 'source'],
+    ['/migration?invitation=1', 'selection'],
+    ['/migration', 'source'],
+    ['/migration', 'selection'],
+    ['/migration?from=settings', 'source'],
+    ['/migration?from=settings', 'selection'],
+  ])('returns to Dashboard when skipping %s from %s', async (entry, stage) => {
+    render(
+      <MemoryRouter initialEntries={[entry]}>
+        <Host />
+      </MemoryRouter>
+    )
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+    )
+    if (stage === 'selection') {
+      fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+      await screen.findByRole('checkbox', { name: 'one.zip' })
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }))
+    await waitFor(() =>
+      expect(screen.getByTestId('route').textContent).toBe('/')
+    )
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.CommitLegacyImport,
+      expect.anything()
+    )
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.FinishLegacyImportInvitation
+    )
+    if (entry.includes('invitation=1'))
+      expect(transport.invoke).toHaveBeenCalledWith(
+        Commands.DismissLegacyImportInvitation
+      )
+  })
+
   it('retains invitation and individual choices across navigation, then persists explicit skip', async () => {
     render(
       <MemoryRouter initialEntries={['/migration?invitation=1']}>
@@ -113,7 +150,7 @@ describe('retained migration page', () => {
     fireEvent.click(screen.getByText('Go downloads'))
     fireEvent.click(screen.getByText('Go migration'))
     expect(screen.getByRole('checkbox', { name: 'two.zip' })).not.toBeChecked()
-    expect(screen.getByRole('button', { name: 'Migrate 1 task' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Migrate' })).toBeEnabled()
     fireEvent.click(screen.getByRole('button', { name: 'Not now' }))
     await waitFor(() =>
       expect(transport.invoke).toHaveBeenCalledWith(
@@ -159,7 +196,7 @@ describe('retained migration page', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
     fireEvent.click(await screen.findByRole('checkbox', { name: 'two.zip' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Migrate 1 task' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Migrate' }))
     fireEvent.click(screen.getByText('Go downloads'))
     fireEvent.click(screen.getByText('Go migration'))
     expect(screen.getByRole('progressbar')).toBeVisible()
@@ -169,10 +206,12 @@ describe('retained migration page', () => {
         .mock.calls.filter(([c]) => c === Commands.CommitLegacyImport)
     ).toHaveLength(1)
     await act(async () => complete(finished))
-    await screen.findByText('Imported 1')
+    await screen.findByRole('heading', { name: 'Migration complete' })
     fireEvent.click(screen.getByText('Go downloads'))
     fireEvent.click(screen.getByText('Go migration'))
-    expect(screen.getByText('Imported 1')).toBeVisible()
+    expect(
+      screen.getByRole('heading', { name: 'Migration complete' })
+    ).toBeVisible()
     vi.mocked(transport.invoke).mockImplementation(async (channel) => {
       if (channel === Queries.DiscoverLegacyImport)
         return [
@@ -204,10 +243,10 @@ describe('retained migration page', () => {
       expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
     )
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    expect(await screen.findByRole('button', { name: 'Migrate' })).toBeVisible()
     expect(
-      await screen.findByRole('button', { name: 'Migrate 1 task' })
-    ).toBeVisible()
-    expect(screen.queryByText('Imported 1')).not.toBeInTheDocument()
+      screen.queryByRole('heading', { name: 'Migration complete' })
+    ).not.toBeInTheDocument()
     expect(
       vi
         .mocked(transport.invoke)

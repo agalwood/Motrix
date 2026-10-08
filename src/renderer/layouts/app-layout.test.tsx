@@ -261,7 +261,7 @@ describe('AppLayout', () => {
     )
   })
 
-  it('retains an Advanced draft and suppresses its dialog portal while visiting migration', async () => {
+  it('retains an Advanced draft across migration dismissal to Dashboard', async () => {
     vi.mocked(window.motrix.invoke).mockImplementation(async (channel) => {
       if (channel === Queries.GetSettings)
         return {
@@ -287,10 +287,12 @@ describe('AppLayout', () => {
     )
     expect(router.state.location.search).toBe('?from=settings')
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    fireEvent.click(await screen.findByRole('button', { name: 'Back' }))
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe('/settings/advanced')
-    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Not now' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    await act(async () => {
+      await router.navigate('/settings/advanced')
+    })
     expect(await screen.findByDisplayValue('17000')).toBeVisible()
     expect(screen.getByRole('dialog')).toBeVisible()
   })

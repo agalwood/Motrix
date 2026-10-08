@@ -720,7 +720,7 @@ test.describe('v1 task import', () => {
     }
   })
 
-  test('dismissal survives restart, and manual import preserves the Advanced draft when going back', async ({
+  test('skip returns to Dashboard from every entry and preserves dismissal and the Advanced draft', async ({
     userDataDir,
     rpcPort,
   }) => {
@@ -742,6 +742,9 @@ test.describe('v1 task import', () => {
       await expect(
         page.getByRole('link', { name: 'Migration', exact: true })
       ).toBeVisible()
+      await expect(
+        page.getByRole('heading', { name: 'Dashboard', exact: true })
+      ).toBeVisible()
       await app.close()
       app = await launchMotrix({
         userDataDir,
@@ -758,6 +761,30 @@ test.describe('v1 task import', () => {
       await expect(
         main.getByRole('heading', { name: sourceTitle })
       ).not.toBeVisible()
+      await main.getByRole('link', { name: 'Migration', exact: true }).click()
+      await main.getByRole('button', { name: 'Continue', exact: true }).click()
+      await expect(
+        main.getByRole('button', { name: 'Migrate', exact: true })
+      ).toBeEnabled()
+      const selection = main.locator('[data-slot="migration-task-selection"]')
+      await expect
+        .poll(() =>
+          selection.evaluate(
+            (element) => element.getBoundingClientRect().height
+          )
+        )
+        .toBeGreaterThanOrEqual(120)
+      await expect
+        .poll(() =>
+          selection
+            .locator(':scope > div')
+            .evaluate((element) => element.scrollHeight - element.clientHeight)
+        )
+        .toBe(0)
+      await main.getByRole('button', { name: 'Not now', exact: true }).click()
+      await expect(
+        main.getByRole('heading', { name: 'Dashboard', exact: true })
+      ).toBeVisible()
       await main.getByRole('link', { name: 'Settings', exact: true }).click()
       await main.getByText('Advanced', { exact: true }).first().click()
       const port = main.getByRole('spinbutton').first()
@@ -766,9 +793,22 @@ test.describe('v1 task import', () => {
         .getByRole('button', { name: 'Open migration', exact: true })
         .click()
       await expect(
-        main.getByRole('heading', { name: sourceTitle })
+        main.getByRole('heading', {
+          name: 'Choose what to migrate',
+          exact: true,
+        })
       ).toBeVisible()
       await main.getByRole('button', { name: 'Not now', exact: true }).click()
+      await expect(
+        main.getByRole('heading', { name: 'Dashboard', exact: true })
+      ).toBeVisible()
+      // Returning through history reopens the retained card; opening Settings
+      // from the sidebar intentionally closes it first.
+      await main.goBack()
+      await expect(
+        main.getByRole('button', { name: 'Not now', exact: true })
+      ).toBeVisible()
+      await main.goBack()
       await expect(port).toHaveValue('17000')
       expect(await invoke(main, Queries.ListTasks)).toEqual([])
     } finally {

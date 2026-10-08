@@ -35,7 +35,6 @@ export function MigrationPage({ active }: { active: boolean }) {
         setInvitation(true)
     }
   }, [active, location.search])
-  const params = new URLSearchParams(location.search)
   return (
     <MigrationBoundary
       fallback={
@@ -63,11 +62,7 @@ export function MigrationPage({ active }: { active: boolean }) {
         invitation={invitation}
         onClose={() => {
           setInvitation(false)
-          navigate(
-            params.get('from') === 'settings'
-              ? '/settings/advanced'
-              : ALL_DOWNLOADS_ROUTE
-          )
+          navigate('/')
         }}
         onViewTasks={() => {
           setInvitation(false)

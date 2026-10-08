@@ -39,7 +39,7 @@ export function ImportResultDetails({
   const row = (item: LegacyImportReport['items'][number]) => (
     <div
       data-import-result={item.itemId}
-      className="flex h-16 items-center justify-between gap-3 border-t border-border/70 px-4 py-1"
+      className={`flex h-16 items-center justify-between gap-3 border-border/70 px-4 py-1 ${item.itemId === items[0]?.itemId ? '' : 'border-t'}`}
       key={item.itemId}
     >
       <ImportTaskInfo item={item} showReason={item.outcome !== 'imported'} />
@@ -71,7 +71,7 @@ export function ImportResultDetails({
           <ChevronRightIcon aria-hidden="true" className="rtl:rotate-180" />
         )}
       </CollapsibleTrigger>
-      <CollapsibleContent className="mt-3 flex max-h-80 min-h-0 flex-1 flex-col overflow-hidden border-x border-b border-border/70">
+      <CollapsibleContent className="mt-3 flex max-h-80 min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border/70">
         {open && (
           <>
             {items.length > 100 ? (

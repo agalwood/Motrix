@@ -60,7 +60,7 @@ export function ImportRunProgress({
   const { t } = useTranslation()
   const committing = report?.stage === 'committing'
   const fraction =
-    report && report.total > 0
+    committing && report.total > 0
       ? Math.min(1, Math.max(0, report.processed / report.total))
       : 0
   return (
@@ -108,9 +108,9 @@ export function ImportRunProgress({
                   })
                 : t('legacyImport.backingUp')
             }
-            indicatorClassName={
-              committing ? 'migration-progress-fill w-full!' : 'invisible'
-            }
+            // Keep scaleX(0) from the first paint. Adding the transform only
+            // after backup would animate from the default full-width scale.
+            indicatorClassName="migration-progress-fill w-full! animate-none"
             style={{ '--migration-progress': fraction } as CSSProperties}
           />
         </RunStep>
