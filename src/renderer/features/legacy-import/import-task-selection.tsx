@@ -201,7 +201,7 @@ export function ImportTaskSelection({
         </div>
       )}
       <div
-        className="mx-auto flex min-h-0 w-full max-w-160 flex-1 flex-col overflow-hidden border border-border"
+        className="mx-auto flex min-h-0 w-full max-w-160 flex-1 flex-col overflow-hidden rounded-lg border border-border"
         style={{ maxHeight: rows.length ? rows.length * 56 : 120 }}
       >
         {items.length > 100 ? (
