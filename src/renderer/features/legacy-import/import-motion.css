@@ -36,6 +36,17 @@
   transform-origin: right;
 }
 
+@media (min-height: 760px) {
+  .migration-page-column:is([data-stage="discovery"], [data-stage="selection"])
+    > div {
+    justify-content: center;
+  }
+
+  .migration-page-column[data-stage="discovery"] .migration-source-options {
+    flex: 0 1 auto;
+  }
+}
+
 @media (max-height: 760px) {
   .migration-stage-heading-illustrated {
     padding-block: 12px;
@@ -51,6 +62,15 @@
 @media (max-height: 650px) {
   .migration-source-options {
     padding-top: 12px;
+  }
+
+  .migration-page-column[data-stage="discovery"] > div {
+    overflow-y: auto;
+  }
+
+  .migration-page-column[data-stage="discovery"] .migration-source-options {
+    flex: 0 0 auto;
+    overflow: visible;
   }
 
   .migration-stage-heading {

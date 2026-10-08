@@ -196,7 +196,19 @@ export function registerLegacyImportIpc(deps: DesktopImportDeps): () => void {
         properties: ['openDirectory'],
       })
       if (result.canceled || !result.filePaths[0]) return null
-      return service().addSource(result.filePaths[0])
+      const current = service()
+      const dataPath = result.filePaths[0]
+      try {
+        return await current.addSource(dataPath)
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : String(cause)
+        const errorCode =
+          message.match(
+            /legacyImport\.(?:errors\.)?(invalidSource|unsafeSource|changedSource|tooManySources)\b/
+          )?.[1] ?? 'failed'
+        // A rejected native selection is display-only and carries no source grant.
+        return { dataPath, errorCode }
+      }
     },
     [Commands.PickLegacyTorrentMetadata]: async (event, input) => {
       const request = legacyMetadataRequestSchema.parse(input)

@@ -132,6 +132,57 @@ async function fixture() {
 }
 
 describe('desktop legacy import', () => {
+  it.each([
+    'invalidSource',
+    'unsafeSource',
+    'changedSource',
+    'tooManySources',
+    'failed',
+  ])(
+    'returns only the native selected path and a safe error code for %s',
+    async (code) => {
+      const { root, event, getService } = await fixture()
+      const addSource = vi
+        .fn()
+        .mockRejectedValue(
+          new Error(
+            code === 'failed'
+              ? 'private diagnostics'
+              : `legacyImport.errors.${code}`
+          )
+        )
+      getService.mockReturnValue({
+        addSource,
+      } as unknown as LegacyImportService)
+      await expect(
+        mocks.handlers.get(Commands.PickLegacyImportSource)?.(event)
+      ).resolves.toEqual({
+        dataPath: root,
+        errorCode: code,
+      })
+      expect(addSource).toHaveBeenCalledWith(root)
+    }
+  )
+
+  it('preserves authorized source results and does not authorize a cancelled selection', async () => {
+    const { root, event, getService } = await fixture()
+    const source = {
+      sourceHandle: '11111111-1111-4111-8111-111111111111',
+      name: 'Motrix',
+      dataPath: root,
+    }
+    const addSource = vi.fn().mockResolvedValue(source)
+    getService.mockReturnValue({ addSource } as unknown as LegacyImportService)
+    await expect(
+      mocks.handlers.get(Commands.PickLegacyImportSource)?.(event)
+    ).resolves.toEqual(source)
+    mocks.pick.mockResolvedValue({ canceled: true, filePaths: [] })
+    await expect(
+      mocks.handlers.get(Commands.PickLegacyImportSource)?.(event)
+    ).resolves.toBeNull()
+    expect(addSource).toHaveBeenCalledOnce()
+  })
+
   it('waits for task restore before commit/retry and rechecks admission after shutdown', async () => {
     let release!: () => void
     const readiness = new Promise<void>((resolve) => {

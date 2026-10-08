@@ -142,7 +142,7 @@ describe('legacy import dialog', () => {
     ).toHaveLength(1)
   })
 
-  it('invalidates the old preview on source change, exposes scan retry, and selects only the new source tasks', async () => {
+  it('invalidates the old preview on source change and reauthorizes an unreadable source before scanning it again', async () => {
     const other = {
       sourceHandle: '55555555-5555-4555-8555-555555555555',
       name: 'Backup',
@@ -175,6 +175,7 @@ describe('legacy import dialog', () => {
         }
         return preview
       }
+      if (channel === Commands.PickLegacyImportSource) return other
       return undefined
     })
     render(<LegacyImportDialog open presentation="page" onClose={vi.fn()} />)
@@ -185,10 +186,18 @@ describe('legacy import dialog', () => {
     expect(backupScans).toBe(0)
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
     await screen.findByRole('alert')
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+    expect(
+      screen.queryByRole('button', { name: 'Continue' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Choose another location…' })
+    ).toBeEnabled()
     expect(
       screen.queryByRole('button', { name: /Migrate/ })
     ).not.toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Choose another location…' })
+    )
     await continueFromSource()
     expect(screen.getByRole('checkbox', { name: 'backup.zip' })).toBeChecked()
     expect(

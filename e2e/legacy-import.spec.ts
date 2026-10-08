@@ -69,6 +69,69 @@ async function expandTaskGroups(page: Page) {
 }
 
 test.describe('v1 task import', () => {
+  test('retains invalid source paths and recovers through the native folder picker', async ({
+    userDataDir,
+    rpcPort,
+  }) => {
+    const source = await legacyProfile(userDataDir)
+    const systemPath = path.join(source, 'system.json')
+    const originalSystem = await readFile(systemPath, 'utf8')
+    await writeFile(systemPath, '{}')
+    const rejected = path.join(userDataDir, 'not-a-profile')
+    await mkdir(rejected)
+    const app = await launchMotrix({
+      userDataDir,
+      rpcPort,
+      extraEnv: { MOTRIX_LEGACY_PROFILE: source },
+    })
+    try {
+      const page = await firstPage(app)
+      await page.getByRole('button', { name: 'Continue', exact: true }).click()
+      await expect(page.getByRole('alert')).toContainText(
+        'Unable to read downloads from this location'
+      )
+      await expect(page.getByRole('radio', { name: source })).toBeDisabled()
+      await expect(
+        page.getByRole('button', { name: 'Check again', exact: true })
+      ).toHaveCount(0)
+      const choose = page.getByRole('button', {
+        name: 'Choose another location…',
+        exact: true,
+      })
+      await app.evaluate(({ dialog }, dataPath) => {
+        dialog.showOpenDialog = async () => ({
+          canceled: false,
+          filePaths: [dataPath],
+        })
+      }, rejected)
+      await choose.click()
+      await expect(page.getByRole('radio', { name: rejected })).toBeDisabled()
+      await expect(page.getByRole('radio', { name: source })).toBeDisabled()
+      await app.evaluate(({ dialog }) => {
+        dialog.showOpenDialog = async () => ({ canceled: true, filePaths: [] })
+      })
+      await choose.click()
+      await expect(choose).toBeEnabled()
+      await expect(page.getByRole('alert')).toBeVisible()
+      await writeFile(systemPath, originalSystem)
+      await app.evaluate(({ dialog }, dataPath) => {
+        dialog.showOpenDialog = async () => ({
+          canceled: false,
+          filePaths: [dataPath],
+        })
+      }, source)
+      await choose.click()
+      await expect(page.getByRole('radio', { name: source })).toBeEnabled()
+      await page.getByRole('button', { name: 'Continue', exact: true }).click()
+      await expect(
+        page.getByRole('heading', { name: 'Choose what to migrate' })
+      ).toBeVisible()
+      expect(await invoke(page, Queries.ListTasks)).toEqual([])
+    } finally {
+      await app.close().catch(() => {})
+    }
+  })
+
   test('keeps group selection and disclosure independent across source navigation', async ({
     userDataDir,
     rpcPort,

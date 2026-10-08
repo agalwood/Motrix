@@ -26,7 +26,10 @@ export function ImportPageLayout({
         footer={<div className="w-full py-1">{footer}</div>}
       >
         <div className="@container/import flex min-h-0 flex-1 flex-col px-6">
-          <div className="mx-auto flex min-h-0 w-full max-w-120 flex-1 flex-col">
+          <div
+            data-stage={stage}
+            className="migration-page-column mx-auto flex min-h-0 w-full max-w-120 flex-1 flex-col @[56rem]/import:max-w-140"
+          >
             <ImportStageContent key={stage}>{children}</ImportStageContent>
           </div>
         </div>

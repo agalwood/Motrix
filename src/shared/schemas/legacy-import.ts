@@ -55,6 +55,22 @@ export const legacyImportSourceSchema = z.object({
 })
 export type LegacyImportSource = z.infer<typeof legacyImportSourceSchema>
 
+export const legacyImportSourceSelectionSchema = z.union([
+  legacyImportSourceSchema,
+  z
+    .object({
+      dataPath: z.string().min(1),
+      errorCode: z.enum([
+        'invalidSource',
+        'unsafeSource',
+        'changedSource',
+        'tooManySources',
+        'failed',
+      ]),
+    })
+    .strict(),
+])
+
 export const legacyImportReportSchema = z.object({
   runId: z.uuid(),
   stage: z.enum([
