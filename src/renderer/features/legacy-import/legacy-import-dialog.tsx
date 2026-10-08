@@ -1,9 +1,5 @@
 import { MiddleEllipsis } from '@renderer/components/desktop-kit/middle-ellipsis'
-import {
-  CheckIcon,
-  RevealFolderIcon,
-  WarningIcon,
-} from '@renderer/components/icons'
+import { RevealFolderIcon, WarningIcon } from '@renderer/components/icons'
 import { Alert, AlertDescription } from '@renderer/components/ui/alert'
 import {
   AlertDialog,
@@ -22,7 +18,6 @@ import {
   DialogTitle,
 } from '@renderer/components/ui/dialog'
 import { Label } from '@renderer/components/ui/label'
-import { Progress } from '@renderer/components/ui/progress'
 import { RadioGroup, RadioGroupItem } from '@renderer/components/ui/radio-group'
 import { Spinner } from '@renderer/components/ui/spinner'
 import { transport } from '@renderer/lib/transport'
@@ -40,7 +35,6 @@ import {
 } from '@shared/schemas/legacy-import'
 import {
   Component,
-  type CSSProperties,
   type ReactNode,
   useCallback,
   useEffect,
@@ -50,13 +44,13 @@ import {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ImportIllustration } from './import-illustration'
-import { ImportMotionScope, ImportResultMark } from './import-motion'
+import { ImportMotionScope } from './import-motion'
 import {
   ImportPageLayout,
   type ImportStage,
   ImportStageHeading,
 } from './import-page-layout'
-import { ImportResultDetails } from './import-result-details'
+import { ImportRunProgress, ImportRunResult } from './import-run-content'
 import { ImportSourceFeedback } from './import-source-feedback'
 import {
   ImportTaskSelection,
@@ -151,27 +145,6 @@ function LegacyImportDialogContent({
   const epoch = useRef(0)
   const runId = report?.runId
   const finished = report ? terminal(report) : false
-  const resultTitleKey =
-    report?.stage === 'cancelled'
-      ? 'legacyImport.resultStoppedTitle'
-      : report?.stage === 'failed' ||
-          report?.items.some(
-            (item) =>
-              item.outcome === 'failed' || item.outcome === 'unprocessed'
-          )
-        ? 'legacyImport.resultIncompleteTitle'
-        : report?.stage === 'completed' && report.imported === 0
-          ? 'legacyImport.page.resultEmptyTitle'
-          : 'legacyImport.resultTitle'
-  const resultDescriptionKey =
-    resultTitleKey === 'legacyImport.resultStoppedTitle'
-      ? 'legacyImport.page.resultStoppedDescription'
-      : resultTitleKey === 'legacyImport.resultIncompleteTitle'
-        ? 'legacyImport.page.resultIncompleteDescription'
-        : resultTitleKey === 'legacyImport.page.resultEmptyTitle'
-          ? 'legacyImport.page.resultEmptyDescription'
-          : 'legacyImport.resultDescription'
-
   const failure = useCallback(
     (cause: unknown, sourceAction?: SourceAction) => {
       const message = cause instanceof Error ? cause.message : String(cause)
@@ -603,7 +576,7 @@ function LegacyImportDialogContent({
         </>
       )}
       {stage === 'result' && (
-        <>
+        <div className="ms-auto flex items-center gap-2">
           {report?.items.some(
             (item) =>
               item.outcome === 'failed' || item.outcome === 'unprocessed'
@@ -622,7 +595,7 @@ function LegacyImportDialogContent({
           >
             {t('legacyImport.viewTasks')}
           </Button>
-        </>
+        </div>
       )}
     </div>
   )
@@ -891,94 +864,21 @@ function LegacyImportDialogContent({
         </>
       )}
       {stage === 'progress' && (
-        <>
-          <ImportStageHeading
-            title={t('legacyImport.page.progressTitle')}
-            description={t('legacyImport.page.progressDescription')}
-          />
-          {errorNotice}
-          <div className="mx-auto flex min-h-0 w-full max-w-160 flex-1 flex-col pt-5 pb-12">
-            <p className="mb-3 text-sm font-medium" aria-live="polite">
-              {t(
-                report?.stage === 'committing'
-                  ? 'legacyImport.committing'
-                  : 'legacyImport.backingUp'
-              )}
-            </p>
-            <Progress
-              value={
-                report
-                  ? (report.processed / Math.max(report.total, 1)) * 100
-                  : undefined
-              }
-              aria-label={t('legacyImport.progress')}
-              indicatorClassName={
-                report ? 'migration-progress-fill w-full!' : 'bg-foreground'
-              }
-              style={
-                report
-                  ? ({
-                      '--migration-progress': Math.min(
-                        1,
-                        Math.max(
-                          0,
-                          report.processed / Math.max(report.total, 1)
-                        )
-                      ),
-                    } as CSSProperties)
-                  : undefined
-              }
-            />
-            <p
-              className="mt-3 text-xs tabular-nums text-muted-foreground"
-              aria-live="polite"
-            >
-              {t('legacyImport.processed', {
-                done: report?.processed ?? 0,
-                total: report?.total ?? selected.size,
-              })}
-            </p>
-          </div>
-        </>
+        <ImportRunProgress report={report} notice={errorNotice} />
       )}
       {stage === 'result' && report && (
-        <>
-          <ImportStageHeading
-            title={t(resultTitleKey)}
-            description={t(resultDescriptionKey)}
-          />
-          {errorNotice}
-          <div className="mx-auto flex min-h-0 w-full max-w-160 flex-1 flex-col pb-5">
-            <div className="flex shrink-0 flex-col items-start py-3">
-              <ImportResultMark
-                success={resultTitleKey === 'legacyImport.resultTitle'}
-              >
-                {resultTitleKey === 'legacyImport.resultTitle' ? (
-                  <CheckIcon aria-hidden="true" className="size-6" />
-                ) : (
-                  <WarningIcon aria-hidden="true" className="size-6" />
-                )}
-              </ImportResultMark>
-              <p className="text-sm font-medium tabular-nums">
-                {t('legacyImport.importedCount', { count: report.imported })}
-              </p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {t('legacyImport.page.footerNote')}
-              </p>
-            </div>
-            <ImportResultDetails
-              report={report}
-              busy={busy}
-              exportReport={() =>
-                void perform(async () => {
-                  await transport.invoke(Commands.ExportLegacyImportReport, {
-                    runId: report.runId,
-                  })
-                })
-              }
-            />
-          </div>
-        </>
+        <ImportRunResult
+          report={report}
+          busy={busy}
+          notice={errorNotice}
+          exportReport={() =>
+            void perform(async () => {
+              await transport.invoke(Commands.ExportLegacyImportReport, {
+                runId: report.runId,
+              })
+            })
+          }
+        />
       )}
     </>
   )

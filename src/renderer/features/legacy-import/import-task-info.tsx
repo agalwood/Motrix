@@ -4,7 +4,13 @@ import type { LegacyImportItem } from '@shared/schemas/legacy-import'
 import { useTranslation } from 'react-i18next'
 
 /** The path describes the original save directory, not a new destination. */
-export function ImportTaskInfo({ item }: { item: LegacyImportItem }) {
+export function ImportTaskInfo({
+  item,
+  showReason = true,
+}: {
+  item: LegacyImportItem
+  showReason?: boolean
+}) {
   const { t } = useTranslation()
   const reason = t(`legacyImport.reasons.${item.reason}`)
   return (
@@ -25,7 +31,7 @@ export function ImportTaskInfo({ item }: { item: LegacyImportItem }) {
           t('legacyImport.page.pathUnavailable')
         )}
       </p>
-      {item.reason !== 'metadata-required' && (
+      {showReason && item.reason !== 'metadata-required' && (
         <p
           title={reason}
           className="truncate text-xs leading-4 text-foreground/70"

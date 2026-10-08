@@ -272,7 +272,7 @@ describe('legacy import dialog', () => {
       )
     ).toBeVisible()
     fireEvent.click(action)
-    await screen.findByText('Imported 1')
+    await screen.findByRole('heading', { name: 'Migration complete' })
     expect(transport.invoke).toHaveBeenCalledWith(Commands.CommitLegacyImport, {
       previewId,
       itemIds: [items[0].itemId],
@@ -291,7 +291,7 @@ describe('legacy import dialog', () => {
       screen.getByText('Link', { selector: '[data-slot="badge"]' })
     ).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Migrate' }))
-    await screen.findByText('Imported 1')
+    await screen.findByRole('heading', { name: 'Migration complete' })
     fireEvent.click(screen.getByText('View details'))
     expect(screen.getByTitle(items[0].saveDir)).toBeVisible()
     expect(transport.invoke).toHaveBeenCalledWith(Commands.CommitLegacyImport, {
@@ -329,8 +329,7 @@ describe('legacy import dialog', () => {
       outcome: 'unprocessed',
       reason: 'stopped',
       title: 'Migration stopped',
-      description:
-        'Downloads already imported are kept. You can import the rest when you’re ready.',
+      description: 'No tasks were added. You can try again when you’re ready.',
       status: 'Not imported',
       canRetry: true,
     },
@@ -339,8 +338,7 @@ describe('legacy import dialog', () => {
       outcome: 'failed',
       reason: 'commit-failed',
       title: 'Migration is incomplete',
-      description:
-        'Downloads already imported are kept. Review the details and try importing the rest again.',
+      description: 'No tasks were added. Review the details, then try again.',
       status: 'Failed',
       canRetry: true,
     },

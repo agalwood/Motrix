@@ -112,3 +112,38 @@
   animation: none;
   transition-duration: 0ms;
 }
+
+/* Run stages share a quiet, centered column; expanded details own the scroll. */
+.migration-page-column:is([data-stage="progress"], [data-stage="result"])
+> div {
+  justify-content: center;
+}
+
+.migration-run-step:not(:last-child)::after {
+  position: absolute;
+  top: 28px;
+  bottom: -24px;
+  inset-inline-start: 11.5px;
+  width: 1px;
+  background: var(--border);
+  content: "";
+}
+
+@media (max-height: 650px) {
+  .migration-run-content {
+    padding-block: 12px;
+  }
+  .migration-run-content .migration-stage-heading {
+    padding-top: 0;
+    padding-bottom: 20px;
+  }
+}
+
+@media (max-height: 650px) {
+  .migration-run-content dl > div {
+    padding-block: 10px;
+  }
+  .migration-run-content .migration-result-details {
+    margin-top: 12px;
+  }
+}

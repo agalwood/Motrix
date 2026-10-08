@@ -204,7 +204,11 @@ test.describe('v1 task import', () => {
         page.getByRole('checkbox', { name: 'second.zip', exact: true })
       ).not.toBeChecked()
       await page.getByRole('button', { name: /^Migrate$/ }).click()
-      await expect(page.getByText('Imported 1', { exact: true })).toBeVisible()
+      await expect(
+        page
+          .getByLabel('Migration summary')
+          .getByText('1 task', { exact: true })
+      ).toBeVisible()
       expect(await invoke(page, Queries.ListTasks)).toEqual([
         expect.objectContaining({
           name: 'archive.zip',
@@ -416,14 +420,22 @@ test.describe('v1 task import', () => {
       })
       await page.setViewportSize(initialViewport)
       await page.getByRole('button', { name: /^Migrate$/ }).click()
-      await expect(page.getByText('Imported 2', { exact: true })).toBeVisible()
+      await expect(
+        page
+          .getByLabel('Migration summary')
+          .getByText('2 tasks', { exact: true })
+      ).toBeVisible()
       await page.screenshot({
         path: testInfo.outputPath('migration-result.png'),
         animations: 'disabled',
       })
       await page.getByRole('link', { name: 'Downloads', exact: true }).click()
       await page.getByRole('link', { name: 'Migration', exact: true }).click()
-      await expect(page.getByText('Imported 2', { exact: true })).toBeVisible()
+      await expect(
+        page
+          .getByLabel('Migration summary')
+          .getByText('2 tasks', { exact: true })
+      ).toBeVisible()
       await page.getByRole('button', { name: 'View downloads' }).click()
       const main = page
       await main.waitForLoadState('domcontentloaded')
@@ -527,7 +539,11 @@ test.describe('v1 task import', () => {
       await checkbox.check()
       expect(await runningAnimations()).toBe(0)
       await page.getByRole('button', { name: /^Migrate$/, exact: true }).click()
-      await expect(page.getByText('Imported 1', { exact: true })).toBeVisible()
+      await expect(
+        page
+          .getByLabel('Migration summary')
+          .getByText('1 task', { exact: true })
+      ).toBeVisible()
       expect(await runningAnimations()).toBe(0)
       const tasks = (await invoke(page, Queries.ListTasks)) as Array<{
         status: string
@@ -582,7 +598,11 @@ test.describe('v1 task import', () => {
       await page.getByRole('button', { name: 'Continue', exact: true }).click()
       await expandTaskGroups(page)
       await page.getByRole('button', { name: /^Migrate$/ }).click()
-      await expect(page.getByText('Imported 1', { exact: true })).toBeVisible()
+      await expect(
+        page
+          .getByLabel('Migration summary')
+          .getByText('1 task', { exact: true })
+      ).toBeVisible()
       await page.getByRole('button', { name: 'View downloads' }).click()
       const main = page
       await main.waitForLoadState('domcontentloaded')

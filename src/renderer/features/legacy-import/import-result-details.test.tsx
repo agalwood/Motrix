@@ -59,6 +59,43 @@ describe('migration report details', () => {
     expect(report.items[0].outcome).toBe('imported')
   })
 
+  it('prioritizes unfinished tasks and excludes tasks the user did not select', () => {
+    const source = {
+      ...report,
+      items: [
+        report.items[0],
+        {
+          ...report.items[0],
+          itemId: 'failed',
+          name: 'failed.zip',
+          outcome: 'failed' as const,
+          reason: 'commit-failed' as const,
+        },
+        {
+          ...report.items[0],
+          itemId: 'unselected',
+          name: 'unselected.zip',
+          outcome: 'skipped' as const,
+          reason: 'not-selected' as const,
+        },
+      ],
+    }
+    render(
+      <ImportResultDetails
+        report={source}
+        busy={false}
+        exportReport={() => {}}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'View details' }))
+    const rows = document.querySelectorAll('[data-import-result]')
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toHaveAttribute('data-import-result', 'failed')
+    expect(screen.queryByTitle('unselected.zip')).not.toBeInTheDocument()
+    expect(source.items).toHaveLength(3)
+    expect(source.items[0].itemId).toBe('one')
+  })
+
   it('virtualizes large reports instead of building every hidden row', () => {
     const large = {
       ...report,

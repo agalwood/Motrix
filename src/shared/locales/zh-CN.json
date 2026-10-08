@@ -3188,7 +3188,20 @@
         "unknown": "查看任务信息"
       },
       "groupCount_other": "{{count}} 项",
-      "selectedNote_other": "已选择 {{count}} 项任务。迁移后任务保持暂停，已下载的文件保留在原处。"
+      "selectedNote_other": "已选择 {{count}} 项任务。迁移后任务保持暂停，已下载的文件保留在原处。",
+      "run": {
+        "backup": "备份任务列表",
+        "backupActive": "正在保存旧版任务列表的备份…",
+        "backupDone": "备份已保存",
+        "add": "添加下载任务",
+        "waiting": "等待备份完成",
+        "completeDescription": "任务已添加到“下载”中，保持暂停，等待你继续。",
+        "partialDescription": "已迁移的任务保持暂停。你可以重试剩余任务，或先查看下载。",
+        "stoppedEmptyDescription": "尚未添加任何任务，你可以在准备好后重新迁移。",
+        "failedEmptyDescription": "尚未添加任何任务。请查看明细后重试。",
+        "imported": "已迁移",
+        "remaining": "尚未迁移"
+      }
     },
     "importSelected": "迁移"
   }
