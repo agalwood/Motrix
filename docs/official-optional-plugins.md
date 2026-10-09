@@ -1,7 +1,11 @@
 # Official optional plugins
 
-Official optional plugins are installed from the plugin marketplace. Choose a
-plugin, select **Install**, review its permissions, then confirm. Optional
+Official optional installation requires a Motrix build with signed optional
+plugin support. The published `2.0.0-beta.46` and earlier builds do not include
+this support; publishing a plugin does not add it to an older application.
+
+On a supported build, official optional plugins are installed from the plugin
+marketplace. Choose a plugin, select **Install**, review its permissions, then confirm. Optional
 permissions remain off until granted. Installed plugins can be disabled,
 updated, or uninstalled from their detail page in both the desktop and server
 applications.
@@ -54,10 +58,13 @@ remain supported: identity is established by signature verification. An entry
 marked `builtin` must have a valid official signature to enter optional
 installation when it is not bundled with the app.
 
-The manifest must support non-bundled execution. In particular, the retired
-`motrix.scraper-hook` 1.0.0 package uses `pre-resolve` and remains unavailable for
-optional installation. Publish and list the revised `enrich` implementation
-before offering it again. Updating the app alone does not publish that package.
+The manifest must support non-bundled execution. `motrix.scraper-hook` 1.1.0 is
+published in the marketplace and uses `enrich`, making it suitable for optional
+installation on a supported host. Its older 1.0.0 package uses the built-in-only
+`pre-resolve` role and cannot be installed as an optional plugin. Existing
+bundled instances use the signed built-in update channel to receive 1.1.0;
+optional installation does not replace them.
+
 Unsigned local files or arbitrary download URLs cannot claim official identity;
 this installation channel obtains the detached signature from the registry.
 
