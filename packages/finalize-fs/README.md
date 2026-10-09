@@ -238,3 +238,22 @@ does not bound time spent inside a blocking filesystem call.
 Directory case-sensitivity queries fall back only on recognized unsupported
 information-class errors. Permission, sharing, transport, and I/O failures are
 propagated instead of silently switching to case-insensitive lookup.
+
+## Windows FAT-family directory roots
+
+Directory traversal validates directory type and rejects reparse points without
+requiring a file identity. Some volume roots, including exFAT roots, report a
+zero legacy file index. Their held handles remain usable for relative opens and
+directory flushes. Parent flush deduplication requires two matching, nonzero IDs;
+when either ID is empty, both parents are flushed. Real query failures still
+propagate. Artifact admission, snapshots and name-to-handle checks continue to
+reject empty IDs; zero IDs are never treated as evidence that files are equal.
+
+The Windows workflow creates a disposable exFAT VHD and tests both the volume
+root and a nested directory, including target conflicts and successful removal
+of the `.motrix` suffix. To run the same native test against a disposable exFAT
+volume, set `MOTRIX_FINALIZE_EXFAT_ROOT` to its drive root and run:
+
+```sh
+cargo test --manifest-path packages/finalize-fs/Cargo.toml --locked -- --ignored --exact platform::windows::tests::exfat_volume_root_and_nested_directory_support_no_replace_rename
+```

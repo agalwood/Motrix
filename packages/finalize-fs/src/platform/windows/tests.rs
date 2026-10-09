@@ -245,3 +245,76 @@ fn rename_admission_waits_for_a_reader_that_denies_delete_sharing() {
     );
     assert!(!scratch.path().join("source.motrix").exists());
 }
+
+#[test]
+#[ignore = "requires MOTRIX_FINALIZE_EXFAT_ROOT on a disposable exFAT volume"]
+fn exfat_volume_root_and_nested_directory_support_no_replace_rename() {
+    use std::io::Write;
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Storage::FileSystem::GetVolumeInformationByHandleW;
+
+    let volume =
+        PathBuf::from(std::env::var("MOTRIX_FINALIZE_EXFAT_ROOT").expect("exFAT volume root"));
+    let (_, parts) = super::split_absolute_root(&volume).unwrap();
+    assert!(parts.is_empty(), "test must include the volume root itself");
+    let root = open_root(volume.to_str().unwrap()).expect("admit exFAT root without a file ID");
+    let mut filesystem = [0_u16; 32];
+    let result = unsafe {
+        GetVolumeInformationByHandleW(
+            root.handle.as_raw_handle(),
+            std::ptr::null_mut(),
+            0,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            filesystem.as_mut_ptr(),
+            filesystem.len() as u32,
+        )
+    };
+    assert_ne!(
+        result,
+        0,
+        "query exFAT volume: {}",
+        std::io::Error::last_os_error()
+    );
+    let end = filesystem.iter().position(|value| *value == 0).unwrap();
+    assert!(String::from_utf16_lossy(&filesystem[..end]).eq_ignore_ascii_case("exfat"));
+
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let prefix = format!("motrix-exfat-{}-{nonce}", std::process::id());
+    let scratch = Scratch(volume.join(&prefix));
+    fs::create_dir(scratch.path()).unwrap();
+    fs::create_dir(scratch.path().join("nested")).unwrap();
+    for directory in [volume, scratch.path().join("nested")] {
+        let root = open_root(directory.to_str().unwrap()).unwrap();
+        let source = format!("{prefix}.rar.motrix");
+        let target = format!("{prefix}.rar");
+        for (name, bytes) in [
+            (&source, b"download".as_slice()),
+            (&target, b"existing".as_slice()),
+        ] {
+            let mut file = fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(directory.join(name))
+                .unwrap();
+            file.write_all(bytes).unwrap();
+            file.sync_all().unwrap();
+        }
+        let artifact = super::open_artifact_for_rename(&root, &source).unwrap();
+        assert!(rename_opened_no_replace(&artifact, &root, &target).is_err());
+        assert_eq!(fs::read(directory.join(&target)).unwrap(), b"existing");
+        assert_eq!(fs::read(directory.join(&source)).unwrap(), b"download");
+        fs::remove_file(directory.join(&target)).unwrap();
+        let result = rename_opened_no_replace(&artifact, &root, &target).unwrap();
+        assert_eq!(result.directory_sync_mode, "directory_flushed");
+        sync_root(&root).unwrap();
+        drop(artifact);
+        assert!(!directory.join(&source).exists());
+        assert_eq!(fs::read(directory.join(&target)).unwrap(), b"download");
+        fs::remove_file(directory.join(target)).unwrap();
+    }
+}
