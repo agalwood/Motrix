@@ -2339,6 +2339,8 @@
       "local": "File locale",
       "local.pick": "Scegli un file .moext",
       "lead": "Incolla l’indirizzo di un plugin, scegli un file .moext o trascina un file nel campo.",
+      "reviewLead": "Controlla i permessi del plugin prima di installarlo.",
+      "preparing": "Preparazione…",
       "placeholder": "Incolla un indirizzo GitHub o un URL oppure scegli un file .moext locale",
       "detected": {
         "auto": "Automatico",
@@ -2362,7 +2364,10 @@
       "officialSignatureInvalid": "Impossibile verificare la firma ufficiale del plugin. Aggiorna il catalogo.",
       "officialBuiltinOnly": "Questa versione richiede privilegi di un plugin integrato. Installa una versione più recente che supporti l’installazione facoltativa.",
       "builtinAlreadyInstalled": "Questo plugin è già integrato. Usa la sua funzione di aggiornamento.",
-      "hostIncompatible": "Questo plugin richiede Motrix {{required}}; versione attuale: {{current}}. Aggiorna o passa a una versione compatibile di Motrix e riprova."
+      "hostIncompatible": "Questo plugin richiede Motrix {{required}}; versione attuale: {{current}}. Aggiorna o passa a una versione compatibile di Motrix e riprova.",
+      "installed": "Installato",
+      "optionalHint": "Disattivati per impostazione predefinita; attivali se servono",
+      "optionalLater": "Puoi modificare i permessi facoltativi nelle impostazioni del plugin dopo l’installazione."
     },
     "consent": {
       "installTitle": "Installare {{name}} {{version}}?",
@@ -2713,6 +2718,10 @@
         "allowed": "Consentito",
         "noAccess": "Disattivato",
         "grant": "Consenti"
+      },
+      "metadata": {
+        "strong": "Leggere e scrivere i metadati delle attività",
+        "plain": "Salva le informazioni generate da questo plugin per le attività di download."
       }
     },
     "security": {

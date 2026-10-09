@@ -1531,6 +1531,8 @@
       "github.spec": "Dépôt GitHub (owner/repo[@tag])",
       "install": "Installer l’extension",
       "lead": "Collez l’adresse d’une extension, choisissez un fichier .moext ou déposez un fichier dans le champ.",
+      "reviewLead": "Vérifiez les autorisations du plugin avant de l’installer.",
+      "preparing": "Préparation…",
       "local": "Fichier local",
       "local.pick": "Choisir un fichier .moext",
       "localPrepareFailed": "Impossible de préparer ce fichier d’extension : {{detail}}",
@@ -1545,7 +1547,10 @@
       "officialSignatureInvalid": "La signature officielle du plugin n’a pas pu être vérifiée. Actualisez le catalogue.",
       "officialBuiltinOnly": "Cette version nécessite les privilèges d’un plugin intégré. Installez une version plus récente prenant en charge l’installation facultative.",
       "builtinAlreadyInstalled": "Ce plugin est déjà intégré. Utilisez son action de mise à jour.",
-      "hostIncompatible": "Ce plugin nécessite Motrix {{required}} ; version actuelle : {{current}}. Mettez à niveau ou passez à une version compatible de Motrix, puis réessayez."
+      "hostIncompatible": "Ce plugin nécessite Motrix {{required}} ; version actuelle : {{current}}. Mettez à niveau ou passez à une version compatible de Motrix, puis réessayez.",
+      "installed": "Installé",
+      "optionalHint": "Désactivées par défaut ; à activer au besoin",
+      "optionalLater": "Vous pouvez modifier les autorisations facultatives dans les paramètres du plugin après l’installation."
     },
     "lead": "Ajoutez des fonctionnalités à Motrix. Gardez les extensions de confiance et désactivez les autres.",
     "logs": {
@@ -1635,6 +1640,10 @@
       },
       "unknown": {
         "plain": "Autorisation inconnue."
+      },
+      "metadata": {
+        "strong": "Lire et écrire les métadonnées des tâches",
+        "plain": "Enregistre les informations générées par ce plugin pour les tâches de téléchargement."
       }
     },
     "permissions": {

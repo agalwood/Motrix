@@ -2,14 +2,19 @@ import '@test-utils/dom-animations'
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import { Commands } from '@shared/protocol/commands'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { mockInvoke } = vi.hoisted(() => ({
   mockInvoke: vi.fn().mockResolvedValue({
     stagingId: 's_1',
     consent: {
-      manifest: { name: 'Speed Boost', description: 'x' },
+      manifest: {
+        id: 'acme.speed-boost',
+        name: 'Speed Boost',
+        version: '1.0.0',
+        description: 'x',
+      },
       ffmpegRuntime: { requiredByPlugin: 'none', available: false },
     },
   }),
@@ -28,11 +33,174 @@ import { PluginInstallDialog } from './plugin-install-dialog'
 import { usePluginsStore } from './store'
 
 beforeEach(() => {
-  mockInvoke.mockClear()
+  mockInvoke.mockReset().mockResolvedValue(preparedInstall('s_1'))
   usePluginsStore.setState({ updates: {} })
 })
 
+function preparedInstall(stagingId: string) {
+  return {
+    stagingId,
+    committed: false,
+    consent: {
+      manifest: {
+        id: 'acme.speed-boost',
+        name: 'Speed Boost',
+        version: '1.0.0',
+        description: 'x',
+      },
+      ffmpegRuntime: { requiredByPlugin: 'none', available: false },
+    },
+  }
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((done) => {
+    resolve = done
+  })
+  return { promise, resolve }
+}
+
 describe('PluginInstallDialog with fixedSource', () => {
+  it('shows download and verification progress until the consent is ready', async () => {
+    const download = deferred<ReturnType<typeof preparedInstall>>()
+    mockInvoke.mockReturnValueOnce(download.promise)
+    render(
+      <PluginInstallDialog
+        open
+        onOpenChange={vi.fn()}
+        fixedSource={{ sourceType: 'registry', pluginId: 'acme.speed-boost' }}
+      />
+    )
+    expect(
+      screen.getByRole('heading', { name: 'Install plugin' })
+    ).toBeVisible()
+    expect(screen.getByRole('status')).toHaveTextContent('Preparing…')
+    expect(screen.queryByText(/Paste a plugin address/)).toBeNull()
+    expect(screen.queryByTestId('plugin-input-group')).toBeNull()
+    expect(screen.queryByTestId('consent-panel')).toBeNull()
+    expect(screen.queryByTestId('install-commit-btn')).toBeNull()
+
+    await act(async () => download.resolve(preparedInstall('s_ready')))
+    expect(await screen.findByTestId('consent-panel')).toBeVisible()
+    expect(screen.queryByRole('status')).toBeNull()
+    expect(screen.getByTestId('install-commit-btn')).toBeEnabled()
+    expect(mockInvoke).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers retry after a download fails without returning to manual source entry', async () => {
+    mockInvoke.mockRejectedValueOnce(new Error('Download failed'))
+    render(
+      <PluginInstallDialog
+        open
+        onOpenChange={vi.fn()}
+        fixedSource={{ sourceType: 'registry', pluginId: 'acme.speed-boost' }}
+      />
+    )
+    expect(await screen.findByText('Download failed')).toBeVisible()
+    expect(screen.queryByRole('status')).toBeNull()
+    expect(screen.queryByTestId('install-commit-btn')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(await screen.findByTestId('consent-panel')).toBeVisible()
+    expect(screen.queryByText('Download failed')).toBeNull()
+    expect(screen.queryByTestId('plugin-input-group')).toBeNull()
+    expect(mockInvoke).toHaveBeenCalledTimes(2)
+  })
+
+  it('discards a dismissed download when it finishes after reopening', async () => {
+    const previous = deferred<ReturnType<typeof preparedInstall>>()
+    const current = deferred<ReturnType<typeof preparedInstall>>()
+    mockInvoke.mockReturnValueOnce(previous.promise)
+    const onOpenChange = vi.fn()
+    const source = {
+      sourceType: 'registry' as const,
+      pluginId: 'acme.speed-boost',
+    }
+    const { rerender } = render(
+      <PluginInstallDialog
+        open
+        onOpenChange={onOpenChange}
+        fixedSource={source}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+    rerender(
+      <PluginInstallDialog
+        open={false}
+        onOpenChange={onOpenChange}
+        fixedSource={source}
+      />
+    )
+    mockInvoke.mockReturnValueOnce(current.promise)
+    rerender(
+      <PluginInstallDialog
+        open
+        onOpenChange={onOpenChange}
+        fixedSource={source}
+      />
+    )
+
+    await act(async () => previous.resolve(preparedInstall('s_dismissed')))
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith(Commands.CancelPluginInstall, {
+        stagingId: 's_dismissed',
+      })
+    )
+    expect(screen.queryByTestId('consent-panel')).toBeNull()
+    expect(screen.getByRole('status')).toBeVisible()
+
+    await act(async () => current.resolve(preparedInstall('s_current')))
+    expect(await screen.findByTestId('consent-panel')).toBeVisible()
+    fireEvent.click(screen.getByTestId('install-commit-btn'))
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith(Commands.ConfirmPluginInstall, {
+        stagingId: 's_current',
+        grants: {},
+      })
+    )
+  })
+
+  it('cancels staged consent when dismissed with the close button', async () => {
+    const onOpenChange = vi.fn()
+    render(
+      <PluginInstallDialog
+        open
+        onOpenChange={onOpenChange}
+        fixedSource={{ sourceType: 'registry', pluginId: 'acme.speed-boost' }}
+      />
+    )
+    await screen.findByTestId('consent-panel')
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith(Commands.CancelPluginInstall, {
+        stagingId: 's_1',
+      })
+    )
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+  })
+
+  it('keeps the dialog open while the confirmed installation is committing', async () => {
+    const commit = deferred<undefined>()
+    const onOpenChange = vi.fn()
+    render(
+      <PluginInstallDialog
+        open
+        onOpenChange={onOpenChange}
+        fixedSource={{ sourceType: 'registry', pluginId: 'acme.speed-boost' }}
+      />
+    )
+    await screen.findByTestId('consent-panel')
+    mockInvoke.mockReturnValueOnce(commit.promise)
+    fireEvent.click(screen.getByTestId('install-commit-btn'))
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    expect(onOpenChange).not.toHaveBeenCalled()
+    await act(async () => commit.resolve(undefined))
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+  })
+
   it('explains media-merge compatibility without showing consent or allowing commit', async () => {
     mockInvoke.mockResolvedValueOnce({
       incompatible: {
@@ -54,7 +222,7 @@ describe('PluginInstallDialog with fixedSource', () => {
       )
     ).toBeInTheDocument()
     expect(screen.queryByTestId('consent-panel')).toBeNull()
-    expect(screen.getByTestId('install-commit-btn')).toBeDisabled()
+    expect(screen.queryByTestId('install-commit-btn')).toBeNull()
     expect(onOpenChange).not.toHaveBeenCalled()
     expect(mockInvoke).toHaveBeenCalledTimes(1)
   })
@@ -157,7 +325,7 @@ describe('PluginInstallDialog with fixedSource', () => {
     expect(
       await screen.findByText(/This version requires built-in privileges/)
     ).toBeInTheDocument()
-    expect(screen.getByTestId('install-commit-btn')).toBeDisabled()
+    expect(screen.queryByTestId('install-commit-btn')).toBeNull()
   })
 
   it('closes after a trust-equivalent upgrade commits during staging', async () => {

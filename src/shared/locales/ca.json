@@ -1531,6 +1531,8 @@
       "github.spec": "Repositori de GitHub (owner/repo[@tag])",
       "install": "Instal·lar el connector",
       "lead": "Enganxeu l'adreça d'un connector, trieu un fitxer .moext o deixeu anar un fitxer al camp d'entrada.",
+      "reviewLead": "Revisa els permisos del complement abans d’instal·lar-lo.",
+      "preparing": "S’està preparant…",
       "local": "Fitxer local",
       "local.pick": "Triar un fitxer .moext",
       "localPrepareFailed": "No s'ha pogut preparar aquest fitxer de connector: {{detail}}",
@@ -1545,7 +1547,10 @@
       "officialSignatureInvalid": "No s’ha pogut verificar la signatura oficial del connector. Actualitzeu el catàleg.",
       "officialBuiltinOnly": "Aquesta versió requereix privilegis de connector integrat. Instal·leu una versió més recent que admeti la instal·lació opcional.",
       "builtinAlreadyInstalled": "Aquest connector ja està integrat. Feu servir la seva acció d’actualització.",
-      "hostIncompatible": "Aquest complement requereix Motrix {{required}}; versió actual: {{current}}. Actualitza o canvia a una versió compatible de Motrix i torna-ho a provar."
+      "hostIncompatible": "Aquest complement requereix Motrix {{required}}; versió actual: {{current}}. Actualitza o canvia a una versió compatible de Motrix i torna-ho a provar.",
+      "installed": "Instal·lat",
+      "optionalHint": "Desactivats per defecte; activeu-los si cal",
+      "optionalLater": "Podeu canviar els permisos opcionals a la configuració del connector després d’instal·lar-lo."
     },
     "lead": "Afegiu petites funcions al Motrix. Manteniu els connectors de confiança i desactiveu la resta.",
     "logs": {
@@ -1635,6 +1640,10 @@
       },
       "unknown": {
         "plain": "Permís desconegut."
+      },
+      "metadata": {
+        "strong": "Llegir i escriure metadades de tasques",
+        "plain": "Desa la informació generada per aquest connector per a les tasques de baixada."
       }
     },
     "permissions": {

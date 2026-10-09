@@ -2307,6 +2307,8 @@
       "local": "本地文件",
       "local.pick": "选择 .moext 文件",
       "lead": "粘贴插件地址、选择 .moext 文件，或将文件拖到输入区。",
+      "reviewLead": "安装前，请检查插件申请的权限。",
+      "preparing": "准备中…",
       "placeholder": "粘贴 GitHub 地址、链接，或选择本地 .moext 文件",
       "detected": {
         "auto": "自动",
@@ -2330,7 +2332,10 @@
       "officialSignatureInvalid": "无法验证此插件的官方签名，请刷新插件市场后重试。",
       "officialBuiltinOnly": "此版本需要内置插件专属权限，请安装支持可选安装的新版本。",
       "builtinAlreadyInstalled": "此插件已内置，请使用插件的更新功能。",
-      "hostIncompatible": "此插件需要 Motrix {{required}}，当前版本为 {{current}}。请升级或切换到满足要求的 Motrix 版本后重试。"
+      "hostIncompatible": "此插件需要 Motrix {{required}}，当前版本为 {{current}}。请升级或切换到满足要求的 Motrix 版本后重试。",
+      "installed": "已安装",
+      "optionalHint": "默认关闭，按需开启",
+      "optionalLater": "安装后，可在插件设置中更改可选权限。"
     },
     "consent": {
       "installTitle": "安装 {{name}} {{version}}？",
@@ -2671,6 +2676,10 @@
         "allowed": "已允许",
         "noAccess": "关闭",
         "grant": "允许"
+      },
+      "metadata": {
+        "strong": "读写任务元数据",
+        "plain": "为下载任务保存此插件生成的信息。"
       }
     },
     "security": {

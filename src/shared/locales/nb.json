@@ -1514,6 +1514,8 @@
       "github.spec": "GitHub-kodelager (owner/repo[@tag])",
       "install": "Installer programtillegg",
       "lead": "Lim inn en adresse til et programtillegg, velg en .moext-fil eller slipp en fil i inndatafeltet.",
+      "reviewLead": "Se gjennom tillatelsene til programtillegget før installasjon.",
+      "preparing": "Klargjør…",
       "local": "Lokal fil",
       "local.pick": "Velg en .moext-fil",
       "localPrepareFailed": "Kunne ikke klargjøre denne programtilleggsfilen: {{detail}}",
@@ -1528,7 +1530,10 @@
       "officialSignatureInvalid": "Kunne ikke bekrefte den offisielle signaturen til programtillegget. Oppdater katalogen.",
       "officialBuiltinOnly": "Denne versjonen krever rettigheter for innebygde programtillegg. Installer en nyere versjon som støtter valgfri installasjon.",
       "builtinAlreadyInstalled": "Dette programtillegget er allerede innebygd. Bruk oppdateringsfunksjonen.",
-      "hostIncompatible": "Dette programtillegget krever Motrix {{required}}; gjeldende versjon: {{current}}. Oppgrader eller bytt til en kompatibel Motrix-versjon og prøv igjen."
+      "hostIncompatible": "Dette programtillegget krever Motrix {{required}}; gjeldende versjon: {{current}}. Oppgrader eller bytt til en kompatibel Motrix-versjon og prøv igjen.",
+      "installed": "Installert",
+      "optionalHint": "Av som standard; slå på ved behov",
+      "optionalLater": "Du kan endre valgfrie tillatelser i utvidelsens innstillinger etter installasjon."
     },
     "lead": "Legg til små funksjoner i Motrix. Behold dem du stoler på, og slå av resten.",
     "logs": {
@@ -1617,6 +1622,10 @@
       },
       "unknown": {
         "plain": "Ukjent tillatelse."
+      },
+      "metadata": {
+        "strong": "Lese og skrive oppgavemetadata",
+        "plain": "Lagrer informasjon som denne utvidelsen lager for nedlastingsoppgaver."
       }
     },
     "permissions": {

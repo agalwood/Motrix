@@ -1531,6 +1531,8 @@
       "github.spec": "Depozit GitHub (owner/repo[@tag])",
       "install": "Instalează modulul",
       "lead": "Lipește adresa unui modul, alege un fișier .moext sau trage un fișier în câmpul de introducere.",
+      "reviewLead": "Verifică permisiunile extensiei înainte de instalare.",
+      "preparing": "Se pregătește…",
       "local": "Fișier local",
       "local.pick": "Alege un fișier .moext",
       "localPrepareFailed": "Acest fișier de modul nu a putut fi pregătit: {{detail}}",
@@ -1545,7 +1547,10 @@
       "officialSignatureInvalid": "Semnătura oficială a extensiei nu a putut fi verificată. Reîmprospătați catalogul.",
       "officialBuiltinOnly": "Această versiune necesită privilegii de extensie integrată. Instalați o versiune mai nouă care acceptă instalarea opțională.",
       "builtinAlreadyInstalled": "Această extensie este deja integrată. Utilizați funcția sa de actualizare.",
-      "hostIncompatible": "Acest plugin necesită Motrix {{required}}; versiunea curentă: {{current}}. Actualizează sau treci la o versiune compatibilă de Motrix și încearcă din nou."
+      "hostIncompatible": "Acest plugin necesită Motrix {{required}}; versiunea curentă: {{current}}. Actualizează sau treci la o versiune compatibilă de Motrix și încearcă din nou.",
+      "installed": "Instalat",
+      "optionalHint": "Dezactivate implicit; activați la nevoie",
+      "optionalLater": "Puteți schimba permisiunile opționale în setările extensiei după instalare."
     },
     "lead": "Adaugă funcții mici în Motrix. Păstrează active modulele în care ai încredere și dezactivează-le pe celelalte.",
     "logs": {
@@ -1635,6 +1640,10 @@
       },
       "unknown": {
         "plain": "Permisiune necunoscută."
+      },
+      "metadata": {
+        "strong": "Citirea și scrierea metadatelor sarcinilor",
+        "plain": "Salvează informațiile generate de această extensie pentru sarcinile de descărcare."
       }
     },
     "permissions": {

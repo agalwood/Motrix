@@ -2307,6 +2307,8 @@
       "local": "로컬 파일",
       "local.pick": ".moext 파일 선택",
       "lead": "플러그인 주소를 붙여넣거나 .moext 파일을 선택하거나 입력란에 파일을 끌어다 놓으세요.",
+      "reviewLead": "설치하기 전에 플러그인의 권한을 확인하세요.",
+      "preparing": "준비 중…",
       "placeholder": "GitHub 주소 또는 URL을 붙여넣거나 로컬 .moext 파일을 선택하세요",
       "detected": {
         "auto": "자동",
@@ -2330,7 +2332,10 @@
       "officialSignatureInvalid": "플러그인의 공식 서명을 확인할 수 없습니다. 마켓을 새로 고침해 주세요.",
       "officialBuiltinOnly": "이 버전은 내장 플러그인 전용 권한이 필요합니다. 선택 설치를 지원하는 최신 버전을 설치해 주세요.",
       "builtinAlreadyInstalled": "이 플러그인은 이미 내장되어 있습니다. 플러그인 업데이트 기능을 사용해 주세요.",
-      "hostIncompatible": "이 플러그인에는 Motrix {{required}}이(가) 필요합니다. 현재 버전: {{current}}. 호환되는 Motrix 버전으로 업그레이드하거나 변경한 후 다시 시도하세요."
+      "hostIncompatible": "이 플러그인에는 Motrix {{required}}이(가) 필요합니다. 현재 버전: {{current}}. 호환되는 Motrix 버전으로 업그레이드하거나 변경한 후 다시 시도하세요.",
+      "installed": "설치됨",
+      "optionalHint": "기본적으로 꺼짐; 필요할 때 활성화",
+      "optionalLater": "설치 후 플러그인 설정에서 선택 권한을 변경할 수 있습니다."
     },
     "consent": {
       "installTitle": "{{name}} {{version}}을(를) 설치하시겠습니까?",
@@ -2671,6 +2676,10 @@
         "allowed": "허용됨",
         "noAccess": "꺼짐",
         "grant": "허용"
+      },
+      "metadata": {
+        "strong": "작업 메타데이터 읽기 및 쓰기",
+        "plain": "이 플러그인이 생성한 정보를 다운로드 작업에 저장합니다."
       }
     },
     "security": {

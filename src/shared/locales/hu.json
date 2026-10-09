@@ -2323,6 +2323,8 @@
       "local": "Helyi fájl",
       "local.pick": ".moext fájl kiválasztása",
       "lead": "Illessz be egy bővítménycímet, válassz egy .moext fájlt, vagy húzz egy fájlt a beviteli mezőre.",
+      "reviewLead": "Telepítés előtt ellenőrizze a bővítmény engedélyeit.",
+      "preparing": "Előkészítés…",
       "placeholder": "Illessz be egy GitHub-címet vagy URL-t, vagy válassz egy helyi .moext fájlt",
       "detected": {
         "auto": "Automatikus",
@@ -2346,7 +2348,10 @@
       "officialSignatureInvalid": "A bővítmény hivatalos aláírása nem ellenőrizhető. Frissítse a katalógust.",
       "officialBuiltinOnly": "Ez a verzió beépített bővítmény jogosultságait igényli. Telepítsen újabb, választható telepítést támogató verziót.",
       "builtinAlreadyInstalled": "Ez a bővítmény már be van építve. Használja a frissítési műveletét.",
-      "hostIncompatible": "A bővítményhez Motrix {{required}} szükséges; jelenlegi verzió: {{current}}. Frissítsen vagy váltson kompatibilis Motrix-verzióra, és próbálja újra."
+      "hostIncompatible": "A bővítményhez Motrix {{required}} szükséges; jelenlegi verzió: {{current}}. Frissítsen vagy váltson kompatibilis Motrix-verzióra, és próbálja újra.",
+      "installed": "Telepítve",
+      "optionalHint": "Alapból kikapcsolva; szükség szerint engedélyezhető",
+      "optionalLater": "A választható engedélyek a telepítés után a bővítmény beállításaiban módosíthatók."
     },
     "consent": {
       "installTitle": "Telepíted a(z) {{name}} {{version}} verzióját?",
@@ -2692,6 +2697,10 @@
         "allowed": "Engedélyezve",
         "noAccess": "Kikapcsolva",
         "grant": "Engedélyezés"
+      },
+      "metadata": {
+        "strong": "Feladatok metaadatainak olvasása és írása",
+        "plain": "Menti a bővítmény által a letöltési feladatokhoz létrehozott adatokat."
       }
     },
     "security": {

@@ -32,7 +32,9 @@ test('Trackers and Plugins share expandable, keyboard-accessible panel toolbars'
     await setTaskInspectorContentSize(app, page, 1100, 780)
     await page.getByRole('link', { name: 'Trackers', exact: true }).click()
     const trackers = page.getByRole('toolbar', { name: 'Trackers' })
-    const actions = page.locator('[data-slot="panel-shell-actions"]')
+    const actions = page
+      .locator('[data-slot="panel-shell-actions"]')
+      .filter({ has: page.getByRole('toolbar') })
     await expect(actions).toHaveCSS('-webkit-app-region', 'no-drag')
     const trackerSearch = trackers.getByRole('button', {
       name: 'Filter by URL…',

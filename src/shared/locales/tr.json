@@ -2323,6 +2323,8 @@
       "local": "Yerel dosya",
       "local.pick": "Bir .moext dosyası seçin",
       "lead": "Eklenti adresi yapıştırın, bir .moext dosyası seçin veya giriş alanına bir dosya bırakın.",
+      "reviewLead": "Yüklemeden önce eklentinin izinlerini inceleyin.",
+      "preparing": "Hazırlanıyor…",
       "placeholder": "GitHub adresi veya URL yapıştırın ya da yerel bir .moext dosyası seçin",
       "detected": {
         "auto": "Otomatik",
@@ -2346,7 +2348,10 @@
       "officialSignatureInvalid": "Eklentinin resmî imzası doğrulanamadı. Eklenti mağazasını yenilemeyi deneyin.",
       "officialBuiltinOnly": "Bu sürüm yerleşik eklenti yetkileri gerektirir. İsteğe bağlı kurulumu destekleyen daha yeni bir sürüm yükleyin.",
       "builtinAlreadyInstalled": "Bu eklenti zaten yerleşiktir. Güncelleme işlevini kullanın.",
-      "hostIncompatible": "Bu eklenti Motrix {{required}} gerektirir; mevcut sürüm: {{current}}. Motrix uygulamasını yükseltin veya uyumlu bir sürüme geçip yeniden deneyin."
+      "hostIncompatible": "Bu eklenti Motrix {{required}} gerektirir; mevcut sürüm: {{current}}. Motrix uygulamasını yükseltin veya uyumlu bir sürüme geçip yeniden deneyin.",
+      "installed": "Yüklendi",
+      "optionalHint": "Varsayılan olarak kapalı; gerektiğinde açın",
+      "optionalLater": "Kurulumdan sonra isteğe bağlı izinleri eklenti ayarlarından değiştirebilirsiniz."
     },
     "consent": {
       "installTitle": "{{name}} {{version}} yüklensin mi?",
@@ -2692,6 +2697,10 @@
         "allowed": "İzin verildi",
         "noAccess": "Kapalı",
         "grant": "İzin ver"
+      },
+      "metadata": {
+        "strong": "Görev meta verilerini okuma ve yazma",
+        "plain": "Bu eklentinin indirme görevleri için ürettiği bilgileri kaydeder."
       }
     },
     "security": {

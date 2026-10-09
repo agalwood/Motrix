@@ -9,8 +9,8 @@ import type { RegistryPluginDTO } from '@shared/schemas/registry'
 import { render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../plugin-install-dialog', () => ({
-  PluginInstallDialog: () => null,
+vi.mock('@renderer/lib/transport', () => ({
+  transport: { invoke: vi.fn(), on: vi.fn(), off: vi.fn() },
 }))
 
 import { RegistryDetailPanel } from './registry-detail-panel'

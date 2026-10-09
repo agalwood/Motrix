@@ -418,7 +418,12 @@ describe('PluginDetailPage', () => {
     renderAt('/plugins/test.demo')
     await user.click(screen.getByTestId('plugin-update-btn'))
 
-    expect(await screen.findByText('Add plugin')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith(Commands.InstallPlugin, {
+        sourceType: 'registry',
+        pluginId: 'test.demo',
+      })
+    )
     expect(screen.queryByText('Update builtin plugin')).toBeNull()
   })
 

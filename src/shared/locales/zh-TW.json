@@ -2407,6 +2407,8 @@
       "local": "本機檔案",
       "local.pick": "選擇 .moext 檔案",
       "lead": "貼上外掛程式位址、選擇 .moext 檔案，或將檔案拖放至輸入欄位。",
+      "reviewLead": "安裝前，請檢查外掛程式要求的權限。",
+      "preparing": "準備中…",
       "placeholder": "貼上 GitHub 位址、URL，或選擇本機 .moext 檔案",
       "detected": {
         "auto": "自動",
@@ -2430,7 +2432,10 @@
       "officialSignatureInvalid": "無法驗證此外掛的官方簽章，請重新整理外掛市集後再試。",
       "officialBuiltinOnly": "此版本需要內建外掛專屬權限，請安裝支援選用安裝的新版本。",
       "builtinAlreadyInstalled": "此外掛已內建，請使用外掛的更新功能。",
-      "hostIncompatible": "此擴充功能需要 Motrix {{required}}，目前版本為 {{current}}。請升級或切換至符合要求的 Motrix 版本後重試。"
+      "hostIncompatible": "此擴充功能需要 Motrix {{required}}，目前版本為 {{current}}。請升級或切換至符合要求的 Motrix 版本後重試。",
+      "installed": "已安裝",
+      "optionalHint": "預設關閉，依需要開啟",
+      "optionalLater": "安裝後，可在外掛設定中變更選用權限。"
     },
     "consent": {
       "installTitle": "要安裝 {{name}} {{version}} 嗎？",
@@ -2771,6 +2776,10 @@
         "allowed": "已允許",
         "noAccess": "關閉",
         "grant": "允許"
+      },
+      "metadata": {
+        "strong": "讀寫工作中繼資料",
+        "plain": "為下載工作儲存此外掛產生的資訊。"
       }
     },
     "security": {

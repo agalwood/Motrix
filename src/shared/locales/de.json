@@ -2323,6 +2323,8 @@
       "local": "Lokale Datei",
       "local.pick": ".moext-Datei auswählen",
       "lead": "Fügen Sie eine Plugin-Adresse ein, wählen Sie eine .moext-Datei oder ziehen Sie eine Datei in das Eingabefeld.",
+      "reviewLead": "Prüfe vor der Installation die Berechtigungen des Plugins.",
+      "preparing": "Wird vorbereitet…",
       "placeholder": "GitHub-Adresse oder URL einfügen oder eine lokale .moext-Datei auswählen",
       "detected": {
         "auto": "Automatisch",
@@ -2346,7 +2348,10 @@
       "officialSignatureInvalid": "Die offizielle Signatur des Plugins konnte nicht bestätigt werden. Aktualisiere den Marktplatz.",
       "officialBuiltinOnly": "Diese Version benötigt Berechtigungen eines integrierten Plugins. Installiere eine neuere Version, die eine optionale Installation unterstützt.",
       "builtinAlreadyInstalled": "Dieses Plugin ist bereits integriert. Verwende seine Aktualisierungsfunktion.",
-      "hostIncompatible": "Dieses Plugin benötigt Motrix {{required}}. Aktuelle Version: {{current}}. Aktualisiere Motrix oder wechsle zu einer kompatiblen Version und versuche es erneut."
+      "hostIncompatible": "Dieses Plugin benötigt Motrix {{required}}. Aktuelle Version: {{current}}. Aktualisiere Motrix oder wechsle zu einer kompatiblen Version und versuche es erneut.",
+      "installed": "Installiert",
+      "optionalHint": "Standardmäßig aus; bei Bedarf aktivieren",
+      "optionalLater": "Optionale Berechtigungen lassen sich nach der Installation in den Plugin-Einstellungen ändern."
     },
     "consent": {
       "installTitle": "{{name}} {{version}} installieren?",
@@ -2692,6 +2697,10 @@
         "allowed": "Erlaubt",
         "noAccess": "Aus",
         "grant": "Erlauben"
+      },
+      "metadata": {
+        "strong": "Aufgabenmetadaten lesen und schreiben",
+        "plain": "Speichert vom Plugin erzeugte Informationen zu Download-Aufgaben."
       }
     },
     "security": {

@@ -2307,6 +2307,8 @@
       "local": "ローカルファイル",
       "local.pick": ".moext ファイルを選択",
       "lead": "プラグインのアドレスを貼り付けるか、.moext ファイルを選択するか、入力欄にファイルをドロップしてください。",
+      "reviewLead": "インストール前にプラグインの権限を確認してください。",
+      "preparing": "準備中…",
       "placeholder": "GitHub のアドレスや URL を貼り付けるか、ローカルの .moext ファイルを選択",
       "detected": {
         "auto": "自動",
@@ -2330,7 +2332,10 @@
       "officialSignatureInvalid": "プラグインの公式署名を検証できませんでした。マーケットを更新してください。",
       "officialBuiltinOnly": "このバージョンには内蔵プラグイン専用の権限が必要です。任意インストールに対応した新しいバージョンをインストールしてください。",
       "builtinAlreadyInstalled": "このプラグインはすでに内蔵されています。プラグインの更新機能を使用してください。",
-      "hostIncompatible": "このプラグインには Motrix {{required}} が必要です。現在のバージョンは {{current}} です。対応する Motrix バージョンに更新または切り替えて、再試行してください。"
+      "hostIncompatible": "このプラグインには Motrix {{required}} が必要です。現在のバージョンは {{current}} です。対応する Motrix バージョンに更新または切り替えて、再試行してください。",
+      "installed": "インストール済み",
+      "optionalHint": "初期状態はオフ。必要に応じて有効化",
+      "optionalLater": "インストール後、プラグイン設定で任意の権限を変更できます。"
     },
     "consent": {
       "installTitle": "{{name}} {{version}} をインストールしますか？",
@@ -2671,6 +2676,10 @@
         "allowed": "許可済み",
         "noAccess": "オフ",
         "grant": "許可"
+      },
+      "metadata": {
+        "strong": "タスクのメタデータの読み書き",
+        "plain": "このプラグインが生成した情報をダウンロードタスクに保存します。"
       }
     },
     "security": {

@@ -2307,6 +2307,8 @@
       "local": "Tệp cục bộ",
       "local.pick": "Chọn tệp .moext",
       "lead": "Dán địa chỉ tiện ích, chọn tệp .moext hoặc thả tệp vào ô nhập.",
+      "reviewLead": "Kiểm tra quyền của tiện ích trước khi cài đặt.",
+      "preparing": "Đang chuẩn bị…",
       "placeholder": "Dán địa chỉ GitHub, URL hoặc chọn tệp .moext cục bộ",
       "detected": {
         "auto": "Tự động",
@@ -2330,7 +2332,10 @@
       "officialSignatureInvalid": "Không thể xác minh chữ ký chính thức của tiện ích. Hãy làm mới danh mục.",
       "officialBuiltinOnly": "Phiên bản này yêu cầu quyền của tiện ích tích hợp. Hãy cài phiên bản mới hơn hỗ trợ cài đặt tùy chọn.",
       "builtinAlreadyInstalled": "Tiện ích này đã được tích hợp. Hãy dùng chức năng cập nhật của tiện ích.",
-      "hostIncompatible": "Plugin này yêu cầu Motrix {{required}}; phiên bản hiện tại: {{current}}. Hãy nâng cấp hoặc chuyển sang phiên bản Motrix tương thích rồi thử lại."
+      "hostIncompatible": "Plugin này yêu cầu Motrix {{required}}; phiên bản hiện tại: {{current}}. Hãy nâng cấp hoặc chuyển sang phiên bản Motrix tương thích rồi thử lại.",
+      "installed": "Đã cài đặt",
+      "optionalHint": "Mặc định tắt; bật khi cần",
+      "optionalLater": "Bạn có thể thay đổi các quyền tùy chọn trong cài đặt tiện ích sau khi cài đặt."
     },
     "consent": {
       "installTitle": "Cài {{name}} {{version}}?",
@@ -2671,6 +2676,10 @@
         "allowed": "Đã cho phép",
         "noAccess": "Tắt",
         "grant": "Cho phép"
+      },
+      "metadata": {
+        "strong": "Đọc và ghi siêu dữ liệu tác vụ",
+        "plain": "Lưu thông tin do tiện ích này tạo cho các tác vụ tải xuống."
       }
     },
     "security": {

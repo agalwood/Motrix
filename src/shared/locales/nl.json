@@ -1514,6 +1514,8 @@
       "github.spec": "GitHub-repository (owner/repo[@tag])",
       "install": "Plug-in installeren",
       "lead": "Plak een plug-inadres, kies een .moext-bestand of sleep een bestand naar het invoerveld.",
+      "reviewLead": "Controleer de machtigingen van de plug-in vóór de installatie.",
+      "preparing": "Voorbereiden…",
       "local": "Lokaal bestand",
       "local.pick": "Kies een .moext-bestand",
       "localPrepareFailed": "Dit plug-inbestand kon niet worden voorbereid: {{detail}}",
@@ -1528,7 +1530,10 @@
       "officialSignatureInvalid": "De officiële handtekening van de plug-in kon niet worden geverifieerd. Vernieuw de catalogus.",
       "officialBuiltinOnly": "Deze versie vereist rechten van een ingebouwde plug-in. Installeer een nieuwere versie die optionele installatie ondersteunt.",
       "builtinAlreadyInstalled": "Deze plug-in is al ingebouwd. Gebruik de bijbehorende updatefunctie.",
-      "hostIncompatible": "Deze plug-in vereist Motrix {{required}}; huidige versie: {{current}}. Werk Motrix bij of schakel over naar een compatibele versie en probeer het opnieuw."
+      "hostIncompatible": "Deze plug-in vereist Motrix {{required}}; huidige versie: {{current}}. Werk Motrix bij of schakel over naar een compatibele versie en probeer het opnieuw.",
+      "installed": "Geïnstalleerd",
+      "optionalHint": "Standaard uit; schakel in indien nodig",
+      "optionalLater": "Je kunt optionele machtigingen na installatie wijzigen in de plugininstellingen."
     },
     "lead": "Voeg kleine functies toe aan Motrix. Laat de plug-ins die je vertrouwt ingeschakeld en schakel de rest uit.",
     "logs": {
@@ -1617,6 +1622,10 @@
       },
       "unknown": {
         "plain": "Onbekende machtiging."
+      },
+      "metadata": {
+        "strong": "Taakmetadata lezen en schrijven",
+        "plain": "Slaat informatie op die deze plugin voor downloadtaken genereert."
       }
     },
     "permissions": {

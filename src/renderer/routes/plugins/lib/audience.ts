@@ -113,6 +113,10 @@ const PERMISSION_AUDIENCE: Record<
     tone: 'optional',
     toneLabelKey: 'plugins.permission.accessTone.required',
   },
+  metadata: {
+    tone: 'optional',
+    toneLabelKey: 'plugins.permission.accessTone.required',
+  },
   storage: {
     tone: 'optional',
     toneLabelKey: 'plugins.permission.accessTone.required',

@@ -2338,6 +2338,8 @@
       "local": "Archivo local",
       "local.pick": "Seleccionar archivo .moext",
       "lead": "Pega la dirección de un plugin, elige un archivo .moext o arrastra un archivo al campo.",
+      "reviewLead": "Revisa los permisos del complemento antes de instalarlo.",
+      "preparing": "Preparando…",
       "placeholder": "Pega una dirección de GitHub, una URL o elige un archivo .moext local",
       "detected": {
         "auto": "Automático",
@@ -2361,7 +2363,10 @@
       "officialSignatureInvalid": "No se pudo verificar la firma oficial del complemento. Actualiza el catálogo.",
       "officialBuiltinOnly": "Esta versión requiere privilegios de un complemento integrado. Instala una versión más reciente que admita la instalación opcional.",
       "builtinAlreadyInstalled": "Este complemento ya está integrado. Usa su opción de actualización.",
-      "hostIncompatible": "Este complemento requiere Motrix {{required}}; versión actual: {{current}}. Actualiza o cambia a una versión compatible de Motrix e inténtalo de nuevo."
+      "hostIncompatible": "Este complemento requiere Motrix {{required}}; versión actual: {{current}}. Actualiza o cambia a una versión compatible de Motrix e inténtalo de nuevo.",
+      "installed": "Instalado",
+      "optionalHint": "Desactivados por defecto; actívalos si los necesitas",
+      "optionalLater": "Puedes cambiar los permisos opcionales en los ajustes del complemento después de instalarlo."
     },
     "consent": {
       "installTitle": "¿Instalar {{name}} {{version}}?",
@@ -2712,6 +2717,10 @@
         "allowed": "Permitido",
         "noAccess": "Desactivado",
         "grant": "Permitir"
+      },
+      "metadata": {
+        "strong": "Leer y escribir metadatos de tareas",
+        "plain": "Guarda información generada por este complemento para las tareas de descarga."
       }
     },
     "errors_many": "{{count}} errores",
