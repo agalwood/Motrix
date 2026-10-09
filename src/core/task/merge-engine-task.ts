@@ -1,3 +1,4 @@
+import { hasLegacyImport } from '@core/legacy-import/legacy-task-policy'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, TransitionPhase } from '@shared/types/task'
 import { shareRatio } from '@shared/utils/share-ratio'
@@ -23,7 +24,9 @@ export function mergeEngineTask(
   // direct history. Explicit re-add changes ownership/state before merging.
   if (
     existing.engineTaskId === engineTask.engineTaskId &&
-    isCompletedDirectOutput(existing)
+    (isCompletedDirectOutput(existing) ||
+      (hasLegacyImport(existing) &&
+        [TaskStatus.Completed, TaskStatus.Error].includes(existing.status)))
   ) {
     return existing
   }
@@ -87,7 +90,18 @@ export function mergeEngineTask(
     infoHash: protected_.infoHash ?? existing.infoHash,
     uris: protected_.uris.length > 0 ? protected_.uris : existing.uris,
     bt: bt
-      ? { ...bt, ratio: shareRatio(uploadedBytes, protected_.totalBytes) }
+      ? {
+          ...bt,
+          ...(hasLegacyImport(existing)
+            ? {
+                isPrivate: existing.bt?.isPrivate ?? false,
+                selectedFiles: existing.bt?.selectedFiles ?? [],
+                announceList: existing.bt?.announceList ?? [],
+                trackers: existing.bt?.trackers ?? [],
+              }
+            : {}),
+          ratio: shareRatio(uploadedBytes, protected_.totalBytes),
+        }
       : undefined,
     updatedAt: now,
   }

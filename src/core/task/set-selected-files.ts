@@ -1,5 +1,6 @@
 import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EventBus } from '@core/events/event-bus'
+import { hasLegacyImport } from '@core/legacy-import/legacy-task-policy'
 import { getLogger } from '@core/logger'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { TaskManager } from '@core/task/task-manager'
@@ -37,6 +38,11 @@ export function createSetSelectedFilesHandler(deps: Deps) {
         throw new AppError(ErrorCode.TaskNotFound, `Task ${taskId} not found`)
       }
 
+      if (hasLegacyImport(task))
+        throw new AppError(
+          ErrorCode.InvalidSelection,
+          'legacyImport.activationRequired'
+        )
       await deps.engine.changeOption(task.engineTaskId, {
         'select-file': formatRange(indices),
       })

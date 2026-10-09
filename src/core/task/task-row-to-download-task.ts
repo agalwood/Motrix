@@ -1,4 +1,5 @@
 import type { TaskInstanceRow, TaskRow } from '@core/session/motrix-database'
+import { legacyTaskMetadataSchema } from '@shared/schemas/legacy-import'
 import {
   type DownloadTask,
   makeDefaultBtExtension,
@@ -43,6 +44,11 @@ export function taskRowToDownloadTask(
         isPrivate: task.isPrivate,
       })
     : undefined
+
+  const legacy = legacyTaskMetadataSchema.safeParse(
+    primary?.payload.legacyImport
+  )
+  if (bt && legacy.success) bt.selectedFiles = legacy.data.selectedFiles
 
   return restoreMediaProgress({
     id: task.motrixId,

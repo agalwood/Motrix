@@ -152,9 +152,9 @@ test.describe('disclaimer startup gate', () => {
       await expect(
         main.getByRole('button', { name: 'Syncing...' })
       ).toBeDisabled()
-      await expect(main.getByRole('status')).toHaveText(
-        'Fetching tracker lists…'
-      )
+      await expect(
+        main.getByRole('status').filter({ hasText: 'Fetching tracker lists…' })
+      ).toHaveText('Fetching tracker lists…')
       await expect(main.getByRole('tabpanel')).toContainText(
         'Fetching tracker lists…'
       )

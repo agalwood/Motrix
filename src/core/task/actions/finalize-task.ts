@@ -1,10 +1,16 @@
 import path from 'node:path'
+import type { EngineAdapter } from '@core/engine/engine-adapter'
+import {
+  hasLegacyImport,
+  isInactiveLegacyTask,
+} from '@core/legacy-import/legacy-task-policy'
 import { newEngineTaskId } from '@core/lib/ids'
 import type { HookAuditLog } from '@core/plugin/hooks/audit-log'
 import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
 import type { StagedMetadataOp } from '@core/plugin/hooks/staged-effects'
 import { AppError, DownloadErrorCode, ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
+import { legacyBtActivationSchema } from '@shared/schemas/legacy-bt-activation'
 import type {
   BeforeFinalizeContextDTO,
   PluginHookTask,
@@ -94,6 +100,7 @@ export interface FinalizeTaskDeps {
   publishTaskUpdate: () => void
   publishTaskUpdateNow: () => void
   adapter: {
+    verifyLegacyBtBinding?: EngineAdapter['verifyLegacyBtBinding']
     removeDownloadResult(engineTaskId: string): Promise<void>
     forceRemoveTask(engineTaskId: string): Promise<void>
     getUploadLength(engineTaskId: string): Promise<number>
@@ -190,6 +197,49 @@ async function finalizeTaskSerialized(
   const publishedTask = getTaskOrWarn(deps, taskId, 'finalizeTask')
   if (!publishedTask) return
   const task = structuredClone(publishedTask)
+  if (hasLegacyImport(task)) {
+    if (isInactiveLegacyTask(task)) return
+    // An authorized in-place task never renames, deletes unselected files, or
+    // creates a seeding replacement. Keep its original GID and provenance.
+    const live = await deps.adapter.getTaskStatus(task.engineTaskId)
+    if (
+      !live ||
+      live.status !== TaskStatus.Completed ||
+      live.engineTaskId !== task.engineTaskId ||
+      live.infoHash !== task.infoHash ||
+      live.totalBytes <= 0 ||
+      live.downloadedBytes < live.totalBytes
+    )
+      return
+    const intent = legacyBtActivationSchema.safeParse(
+      task.instances[0]?.payload.legacyBtActivation
+    )
+    if (
+      !intent.success ||
+      task.engineTaskId !== intent.data.engineTaskId ||
+      task.finalPath !== intent.data.targetPath ||
+      !(await deps.adapter.verifyLegacyBtBinding?.({
+        engineTaskId: intent.data.engineTaskId,
+        saveDir: intent.data.saveDir,
+        infoHash: intent.data.expected.infoHash ?? '',
+        files: intent.data.files,
+        selectedFiles: intent.data.selectedFiles,
+        trackers: intent.data.trackers,
+        isPrivate: intent.data.isPrivate,
+      }))
+    )
+      return
+    const previous = task.status
+    Object.assign(task, applyTerminalTransition(task, TaskStatus.Completed))
+    task.downloadedBytes = live.downloadedBytes
+    task.totalBytes = live.totalBytes
+    task.progress = 1
+    for (const instance of task.instances)
+      instance.status = TaskStatus.Completed
+    await persistTaskTransition(task, previous, deps)
+    deps.publishTaskUpdateNow()
+    return
+  }
 
   const alreadyOutputReady =
     getBtDirectStorageLayout(task)?.finalized !== false &&

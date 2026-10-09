@@ -36,6 +36,12 @@ import {
   TaskInspectorActivityStore,
   taskInspectorActivityEnvironment,
 } from '@core/inspector-activity'
+import { LegacyBtActivationService } from '@core/legacy-import/bt-activation-service'
+import { LegacyImportService } from '@core/legacy-import/import-service'
+import {
+  getLegacyQuarantinedGids,
+  hasLegacyImport,
+} from '@core/legacy-import/legacy-task-policy'
 import { newTaskId } from '@core/lib/ids'
 import { getLogger } from '@core/logger'
 import { registerEngineCompatibilitySubscriber } from '@core/notifications/engine-compatibility-subscriber'
@@ -124,6 +130,7 @@ import { TaskTrackerRepository } from '@core/tracker/task-tracker-repository'
 import type { NatManager } from '@motrix/nat'
 import { APP_ID } from '@shared/constants'
 import { DEFAULT_LOCALE, type SupportedLocale } from '@shared/constants/locales'
+import { LEGACY_MIGRATION_INVITATION_ROUTE } from '@shared/lib/legacy-import-navigation'
 import {
   ALL_DOWNLOADS_ROUTE,
   resolveTaskRoute,
@@ -175,6 +182,12 @@ import { setupEventForwarding } from './ipc/events'
 import { registerNotificationIpc } from './ipc/notifications'
 import { registerQueryHandlers } from './ipc/queries'
 import { setupLauncher } from './launcher'
+import {
+  defaultLegacyRoots,
+  legacyPidRunning,
+  registerLegacyImportIpc,
+} from './legacy-import/desktop-import'
+import { LegacyImportNavigation } from './legacy-import/navigation-state'
 import { applyMainLocale, i18n } from './lib/i18n'
 import { setupLogger } from './logger'
 import { MainProcessWorkCoordinator } from './main-process-work-coordinator'
@@ -516,6 +529,8 @@ let bridgeManager: BridgeManager | null = null
 let magnetTracker: MagnetTracker | null = null
 let segmentClient: Aria2SegmentClient | null = null
 let disposeIpcIngress: (() => void) | null = null
+let legacyImportService: LegacyImportService | null = null
+let legacyBtActivationService: LegacyBtActivationService | null = null
 let pendingDisclaimerGate: DisclaimerGate | null = null
 const mainProcessWork = new MainProcessWorkCoordinator()
 const pollingNotificationUnsubscribers: Array<() => void> = []
@@ -568,6 +583,7 @@ function performCleanup(): Promise<void> {
     // synchronously. Cancellation-capable teardown must begin before awaiting
     // the drain: startup can be blocked on the engine/plugin/session that only
     // those teardown operations can release.
+    void legacyBtActivationService?.drain()
     const acceptedWorkDrain = mainProcessWork.stopAndDrain()
     postDeliveryAbortController?.abort()
     await ingressClose
@@ -641,6 +657,10 @@ function performCleanup(): Promise<void> {
         log.warn('transfer statistics final checkpoint failed')
       }
     })
+    await safely('legacy-bt-activation', () =>
+      legacyBtActivationService?.drain()
+    )
+    await safely('legacy-import', () => legacyImportService?.drain())
     await safely('database', () => {
       if (motrixDb?.database.open) motrixDb.close()
     })
@@ -1349,6 +1369,7 @@ async function startEngineAndRestore(
   try {
     await appliedDownloadProxyPolicy.runWithSnapshot(
       async (_snapshot, lease) => {
+        await legacyBtActivationService?.recover()
         await sessionManager.restore(lease.assertCurrent, (snapshot) =>
           completedEngineTaskCleanup.observe(snapshot)
         )
@@ -1519,7 +1540,11 @@ async function startEngineAndRestore(
           if (!task) return
           // BT tasks emit `onDownloadComplete` again after seeding finishes;
           // route only HTTP/FTP here. BT finalize runs via onBtDownloadComplete.
-          if (task.type !== TaskType.Http && task.type !== TaskType.Ftp) {
+          if (
+            task.type !== TaskType.Http &&
+            task.type !== TaskType.Ftp &&
+            !hasLegacyImport(task)
+          ) {
             return
           }
           if (shouldSkipEngineCompletionFinalize(task)) return
@@ -1752,6 +1777,113 @@ async function initializeMainProcess(): Promise<void> {
     pluginHost?.notifySecurityWake()
   })
 
+  const legacyBackupRoot = path.join(
+    platform.userDataDir,
+    'legacy-import-backups'
+  )
+  const getLegacyImportService = () => {
+    if (!gate.isAccepted())
+      throw new Error('legacyImport.errors.consentRequired')
+    if (!legacyImportService) {
+      motrixDb.init()
+      legacyImportService = new LegacyImportService({
+        db: motrixDb,
+        taskManager,
+        backupRoot: legacyBackupRoot,
+        isProcessRunning: legacyPidRunning,
+        publishTasks: publishTaskUpdateNow,
+      })
+    }
+    return legacyImportService
+  }
+  const legacyNavigation = new LegacyImportNavigation({
+    hasConsent: () => gate.isAccepted() && mainProcessWork.isAccepting(),
+    getService: getLegacyImportService,
+    roots: defaultLegacyRoots,
+    changed: () => {
+      const mainWindow = windowManager?.get('main')
+      if (mainWindow)
+        dispatchWhenReady(
+          mainWindow,
+          Events.LegacyImportNavigationChanged,
+          undefined
+        )
+    },
+  })
+  const navigateToMigration = () => {
+    const mainWindow = windowManager?.get('main')
+    if (mainWindow)
+      dispatchWhenReady(
+        mainWindow,
+        Events.NavigateTo,
+        LEGACY_MIGRATION_INVITATION_ROUTE
+      )
+  }
+  const finishLegacyChoice = () => {
+    legacyNavigation.finishInvitation()
+  }
+  const getLegacyBtActivationService = () => {
+    if (!legacyBtActivationService) {
+      getLegacyImportService()
+      legacyBtActivationService = new LegacyBtActivationService({
+        db: motrixDb,
+        taskManager,
+        adapter,
+        backupRoot: legacyBackupRoot,
+        isProcessRunning: legacyPidRunning,
+        publishTasks: publishTaskUpdateNow,
+        runTaskMutation: (taskIds, operation) =>
+          taskInspectorActivityRuntime
+            ? taskInspectorActivityRuntime.runTaskMutation(taskIds, operation)
+            : operation(),
+        runExclusivePersistence: (operation) =>
+          sessionManager
+            ? sessionManager.runExclusivePersistence(operation)
+            : Promise.resolve().then(operation),
+      })
+    }
+    return legacyBtActivationService
+  }
+  const disposeLegacyImportIpc = registerLegacyImportIpc({
+    getActivationService: getLegacyBtActivationService,
+    getService: getLegacyImportService,
+    hasConsent: () => gate.isAccepted() && mainProcessWork.isAccepting(),
+    getTask: (taskId) => taskManager.getById(taskId),
+    backupRoot: legacyBackupRoot,
+    finishInvitation: finishLegacyChoice,
+    getNavigationState: () => legacyNavigation.getState(),
+    onSourceDetected: () => legacyNavigation.sourceDetected(),
+    waitForTasksReady: () => mainProcessWork.waitForStartup(),
+    runAcceptedMutation: (operation) => mainProcessWork.run(operation),
+  })
+  const beginLegacyInvitation = (): void => {
+    runShellAsyncWork('legacy-import-discovery', async () => {
+      const state = await legacyNavigation.detect()
+      if (
+        !state.invitationPending ||
+        !gate.isAccepted() ||
+        !mainProcessWork.isAccepting()
+      )
+        return
+      windowManager?.open('main', { show: true })
+      navigateToMigration()
+    })
+  }
+  const disposeDisclaimerIpc = registerDisclaimerIpc({
+    gate,
+    onAccepted: beginLegacyInvitation,
+    getResolvedLanguage: () => resolvedApplicationLocale,
+    applyLocale: (language) => enqueueLocaleUpdate(language, true),
+    settings: settingsManager,
+    windowManager,
+    canContinue: () => mainProcessWork.isAccepting(),
+    quitApp: () => requestForcedQuit('disclaimer-declined'),
+  })
+  disposeIpcIngress = () => {
+    disposeDisclaimerIpc()
+    disposeLegacyImportIpc()
+  }
+
   if (gate.isAccepted()) {
     const runMode = settingsManager.getApp().runMode
     const backgroundPolicy = resolveDesktopBackgroundPolicy({
@@ -1765,42 +1897,25 @@ async function initializeMainProcess(): Promise<void> {
       runMode,
       releaseWhenHidden: backgroundPolicy.releaseMainWindowWhenHidden,
     })
-    if (mainWindowPlan.create) {
+    if (mainWindowPlan.create)
       windowManager.open('main', { show: mainWindowPlan.show })
-    }
     launcher.markWindowReady()
+    beginLegacyInvitation()
   } else {
-    const disposeDisclaimerIpc = registerDisclaimerIpc({
-      gate,
-      getResolvedLanguage: () => resolvedApplicationLocale,
-      applyLocale: (language) => enqueueLocaleUpdate(language, true),
-      settings: settingsManager,
-      windowManager,
-      canContinue: () => mainProcessWork.isAccepting(),
-      quitApp: () => requestForcedQuit('disclaimer-declined'),
-    })
-    disposeIpcIngress = disposeDisclaimerIpc
-
     const onboardingWindow = windowManager.open('onboarding')
     onboardingWindow.once('closed', () => {
-      if (!gate.isAccepted()) {
-        requestForcedQuit('disclaimer-window-closed')
-      }
+      if (!gate.isAccepted()) requestForcedQuit('onboarding-window-closed')
     })
 
     // A second launch must also be able to restore a minimized onboarding
     // window while download ingress is still waiting for legal acceptance.
     launcher.markWindowReady()
-    const decision = await gate.waitForDecision()
-    disposeDisclaimerIpc()
-    if (disposeIpcIngress === disposeDisclaimerIpc) {
-      disposeIpcIngress = null
-    }
-    if (pendingDisclaimerGate === gate) {
-      pendingDisclaimerGate = null
-    }
-    if (decision !== 'accepted' || !mainProcessWork.isAccepting()) return
   }
+  const decision = await gate.waitForDecision()
+  if (decision !== 'accepted' || !mainProcessWork.isAccepting()) return
+  if (!mainProcessWork.isAccepting()) return
+  disposeDisclaimerIpc()
+  if (pendingDisclaimerGate === gate) pendingDisclaimerGate = null
 
   if (!mainProcessWork.isAccepting()) return
   syncAutoLaunch(settingsManager.getApp().launchAtStartup)
@@ -1862,7 +1977,13 @@ async function initializeMainProcess(): Promise<void> {
     }
   )
 
-  motrixDb.init()
+  if (!legacyImportService) motrixDb.init()
+  getLegacyBtActivationService()
+  legacyImportService?.setPersistenceLane((operation) =>
+    sessionManager
+      ? sessionManager.runExclusivePersistence(operation)
+      : Promise.resolve().then(operation)
+  )
   await mediaMetaStore
     .pruneOrphans(motrixDb.getAllTasks().map(({ task }) => task.motrixId))
     .catch((err) => log.warn({ err }, 'Media metadata recovery failed'))
@@ -2092,6 +2213,12 @@ async function initializeMainProcess(): Promise<void> {
   supervisor.setStartupGuard(
     new CompletedTaskStartupGuard({
       completedGids: () => sessionManager.getCompletedDirectEngineTaskIds(),
+      heldGids: () =>
+        new Set(
+          motrixDb
+            .getAllTasks()
+            .flatMap((pair) => [...getLegacyQuarantinedGids(pair)])
+        ),
       rpc: rpcClient,
       removeResult: (gid) => adapter.removeDownloadResult(gid),
     })
@@ -2878,6 +3005,7 @@ async function initializeMainProcess(): Promise<void> {
     logError: (err) => log.warn({ err }, 'completion shutdown failed'),
   })
   disposeIpcIngress = () => {
+    disposeLegacyImportIpc()
     disposeCompletionShutdown()
     disposeCommandHandlers()
     disposeQueryHandlers()

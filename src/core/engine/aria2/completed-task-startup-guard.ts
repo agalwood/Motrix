@@ -142,7 +142,7 @@ async function readRunIntent(
 }
 
 /**
- * A targeted startup barrier for durable completed GIDs. Other downloads keep
+ * A targeted startup barrier for completed and explicitly held GIDs. Other downloads keep
  * the engine's original run intent, including engine-only and paused tasks.
  * A small durable journal preserves that intent if a paused boot is interrupted.
  */
@@ -150,6 +150,8 @@ export class CompletedTaskStartupGuard implements EngineStartupGuard {
   constructor(
     private readonly deps: {
       completedGids: () => ReadonlySet<string>
+      /** Pending ownership reconciliation: pause at boot, never purge or auto-resume. */
+      heldGids?: () => ReadonlySet<string>
       rpc: Pick<
         Aria2RpcClient,
         'tellStatus' | 'forceRemove' | 'unpause' | 'changeGlobalOption'
@@ -183,17 +185,25 @@ export class CompletedTaskStartupGuard implements EngineStartupGuard {
       if (!missing(error)) throw error
     }
     const completed = this.deps.completedGids()
-    if (!previous && completed.size === 0) return null
+    const held = new Set(this.deps.heldGids?.())
+    if (!previous && completed.size === 0 && held.size === 0) return null
     const intent = await readRunIntent(
       source,
       sqlite,
-      (gids) => previous !== null || gids.some((gid) => completed.has(gid))
+      (gids) =>
+        previous !== null ||
+        gids.some((gid) => completed.has(gid) || held.has(gid))
     )
-    const targets = [...intent.keys()].filter((gid) => completed.has(gid))
-    if (!previous && targets.length === 0) return null
-    const resume = previous
-      ? previous.resume.filter((gid) => intent.has(gid))
-      : [...intent].filter(([, run]) => run).map(([gid]) => gid)
+    const targets = [...intent.keys()].filter(
+      (gid) => completed.has(gid) && !held.has(gid)
+    )
+    const hasHeldTask = [...intent.keys()].some((gid) => held.has(gid))
+    if (!previous && targets.length === 0 && !hasHeldTask) return null
+    const resume = (
+      previous
+        ? previous.resume.filter((gid) => intent.has(gid))
+        : [...intent].filter(([, run]) => run).map(([gid]) => gid)
+    ).filter((gid) => !held.has(gid))
     await writeFileAtomic(
       journalPath,
       JSON.stringify({ version: 1, source, resume }),
@@ -208,6 +218,7 @@ export class CompletedTaskStartupGuard implements EngineStartupGuard {
       reconcile: async (isStopping) => {
         for (const gid of targets) {
           if (isStopping()) return
+          if (this.deps.heldGids?.().has(gid)) continue
           let state: string | undefined
           try {
             state = (await this.deps.rpc.tellStatus(gid)).status
@@ -215,13 +226,15 @@ export class CompletedTaskStartupGuard implements EngineStartupGuard {
             if (!isNotFoundError(error)) throw error
           }
           if (state && !['complete', 'error', 'removed'].includes(state)) {
+            if (this.deps.heldGids?.().has(gid)) continue
             try {
               await this.deps.rpc.forceRemove(gid)
             } catch (error) {
               if (!isNotFoundError(error)) throw error
             }
           }
-          await this.deps.removeResult(gid)
+          if (!this.deps.heldGids?.().has(gid))
+            await this.deps.removeResult(gid)
         }
         // Do not release any remaining task if even one required purge failed.
         if (isStopping()) return
@@ -229,9 +242,12 @@ export class CompletedTaskStartupGuard implements EngineStartupGuard {
         const completedNow = this.deps.completedGids()
         for (const gid of resume) {
           if (isStopping()) return
-          if (completedNow.has(gid)) continue
+          if (completedNow.has(gid) || this.deps.heldGids?.().has(gid)) continue
           try {
-            if ((await this.deps.rpc.tellStatus(gid)).status === 'paused')
+            if (
+              (await this.deps.rpc.tellStatus(gid)).status === 'paused' &&
+              !this.deps.heldGids?.().has(gid)
+            )
               await this.deps.rpc.unpause(gid)
           } catch (error) {
             if (!isNotFoundError(error)) throw error

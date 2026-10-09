@@ -34,8 +34,9 @@ describe('OnboardingWindow', () => {
     )
     render(<OnboardingWindow />)
 
-    expect(transport.invoke).toHaveBeenCalledExactlyOnceWith(
-      Queries.GetDisclaimerState
+    expect(transport.invoke).toHaveBeenCalledWith(Queries.GetDisclaimerState)
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Queries.DiscoverLegacyImport
     )
     expect(screen.getByTestId('disclaimer-panel')).toBeVisible()
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()

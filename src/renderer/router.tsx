@@ -36,6 +36,8 @@ const routes = [
       },
       { path: 'plugins/:id', element: <PluginDetailPage /> },
       { path: 'notifications', element: <NotificationsPage /> },
+      // MigrationPage is retained by AppLayout across navigation.
+      { path: 'migration', element: null },
       {
         path: 'settings',
         element: <SettingsPage />,

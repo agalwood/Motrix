@@ -1,3 +1,4 @@
+import { assertLegacyTaskNotActivated } from '@core/legacy-import/legacy-task-policy'
 import { TaskStatus } from '@shared/types/task'
 import {
   commitTaskUpdate,
@@ -22,6 +23,7 @@ export async function pauseTask(
 ): Promise<void> {
   const task = getTaskOrWarn(deps, taskId, 'pauseTask')
   if (!task) return
+  assertLegacyTaskNotActivated(task)
   deps.onPauseRequested?.(taskId)
   const optimistic = {
     ...task,

@@ -45,6 +45,10 @@ import {
   TaskInspectorActivityStore,
   taskInspectorActivityEnvironment,
 } from '@core/inspector-activity'
+import {
+  getLegacyQuarantinedGids,
+  hasLegacyImport,
+} from '@core/legacy-import/legacy-task-policy'
 import { newTaskId } from '@core/lib/ids'
 import { getLogger, initLogger } from '@core/logger'
 import { registerEngineCompatibilitySubscriber } from '@core/notifications/engine-compatibility-subscriber'
@@ -745,6 +749,12 @@ async function main() {
   supervisor.setStartupGuard(
     new CompletedTaskStartupGuard({
       completedGids: () => sessionManager.getCompletedDirectEngineTaskIds(),
+      heldGids: () =>
+        new Set(
+          db
+            .getAllTasks()
+            .flatMap((pair) => [...getLegacyQuarantinedGids(pair)])
+        ),
       rpc: rpcClient,
       removeResult: (gid) => adapter.removeDownloadResult(gid),
     })
@@ -1679,7 +1689,11 @@ async function main() {
           runShellAsyncWork('HTTP finalize', async () => {
             const task = taskManager.getByEngineTaskId(engineTaskId)
             if (!task) return
-            if (task.type !== TaskType.Http && task.type !== TaskType.Ftp) {
+            if (
+              task.type !== TaskType.Http &&
+              task.type !== TaskType.Ftp &&
+              !hasLegacyImport(task)
+            ) {
               return
             }
             if (shouldSkipEngineCompletionFinalize(task)) return

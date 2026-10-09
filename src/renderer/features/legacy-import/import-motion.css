@@ -1,0 +1,145 @@
+/* Migration feedback is immediate; motion only follows an actual state change. */
+.migration-motion {
+  --migration-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --migration-duration: 0ms;
+}
+
+.migration-motion[data-motion="on"] {
+  --migration-duration: 180ms;
+}
+
+.migration-motion .migration-primary {
+  background: var(--foreground);
+  color: var(--background);
+}
+
+.migration-motion .migration-primary:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--foreground) 85%, var(--background));
+}
+
+.migration-task-row {
+  transition: background-color var(--migration-duration) ease;
+}
+
+.migration-task-row[data-selected="true"] {
+  background: color-mix(in oklab, var(--foreground) 2%, var(--background));
+}
+
+.migration-motion .migration-progress-fill {
+  background: var(--foreground);
+  transform: scaleX(var(--migration-progress));
+  transform-origin: left;
+  transition: transform var(--migration-duration) linear;
+}
+
+.migration-progress-fill:dir(rtl) {
+  transform-origin: right;
+}
+
+@media (min-height: 760px) {
+  .migration-page-column:is([data-stage="discovery"], [data-stage="selection"])
+    > div {
+    justify-content: center;
+  }
+
+  .migration-page-column[data-stage="discovery"] .migration-source-options {
+    flex: 0 1 auto;
+  }
+}
+
+@media (max-height: 760px) {
+  .migration-stage-heading-illustrated {
+    padding-block: 12px;
+  }
+
+  .migration-stage-illustration {
+    margin-bottom: 12px;
+  }
+}
+
+@media (max-height: 650px) {
+  .migration-source-options {
+    padding-top: 12px;
+  }
+
+  .migration-page-column[data-stage="discovery"] > div {
+    overflow-y: auto;
+  }
+
+  .migration-page-column[data-stage="discovery"] .migration-source-options {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  .migration-stage-heading {
+    padding-block: 12px;
+  }
+
+  .migration-stage-heading > p {
+    margin-top: 8px;
+  }
+
+  .migration-selection-note {
+    padding-block: 10px;
+  }
+
+  .migration-stage-illustration {
+    margin-bottom: 8px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .migration-motion [data-slot="button"] {
+    transition:
+      transform var(--migration-duration) var(--migration-ease),
+      background-color var(--migration-duration) ease,
+      color var(--migration-duration) ease;
+  }
+
+  .migration-motion[data-motion="on"]
+    [data-slot="button"]:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+}
+
+.migration-motion[data-motion="off"] *,
+.migration-motion[data-motion="off"] *::before,
+.migration-motion[data-motion="off"] *::after {
+  animation: none;
+  transition-duration: 0ms;
+}
+
+/* Run stages share a quiet, centered column; expanded details own the scroll. */
+.migration-page-column:is([data-stage="progress"], [data-stage="result"])
+> div {
+  justify-content: center;
+}
+
+.migration-run-step:not(:last-child)::after {
+  position: absolute;
+  top: 28px;
+  bottom: -24px;
+  inset-inline-start: 11.5px;
+  width: 1px;
+  background: var(--border);
+  content: "";
+}
+
+@media (max-height: 650px) {
+  .migration-run-content {
+    padding-block: 12px;
+  }
+  .migration-run-content .migration-stage-heading {
+    padding-top: 0;
+    padding-bottom: 20px;
+  }
+}
+
+@media (max-height: 650px) {
+  .migration-run-content dl > div {
+    padding-block: 10px;
+  }
+  .migration-run-content .migration-result-details {
+    margin-top: 12px;
+  }
+}

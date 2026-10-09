@@ -264,6 +264,66 @@ describe('useExternalHydration', () => {
     ).toBe('/override')
   })
 
+  it('preserves a typed HTTP fresh-download draft including its exclusive directory', () => {
+    const { result } = renderHook(() =>
+      useForm<AddTaskFormValues>({
+        defaultValues: { tab: 'links', urls: '', saveDir: '/old' },
+      })
+    )
+    renderHook(() => useExternalHydration(result.current, true))
+    const draft = {
+      tab: 'links',
+      urls: 'https://example.invalid/a.zip',
+      filename: 'a.zip',
+      saveDir: '/new/exclusive',
+    }
+    act(() => fire(Events.SetAddTaskMode, draft))
+    expect(result.current.getValues()).toEqual(draft)
+  })
+
+  it('preserves retained torrent metadata and an explicitly empty selection', () => {
+    const { result } = renderHook(() =>
+      useForm<AddTaskFormValues>({
+        defaultValues: { tab: 'links', urls: '', saveDir: '/old' },
+      })
+    )
+    renderHook(() => useExternalHydration(result.current, true))
+    const draft = {
+      tab: 'torrent',
+      source: 'file',
+      base64: 'dG9ycmVudA==',
+      saveDir: '/new/exclusive',
+      torrentMeta: {
+        name: 't',
+        infoHash: 'a'.repeat(40),
+        totalSize: 1,
+        files: [{ index: 0, path: 'a.mp4', size: 1, extension: '.mp4' }],
+      },
+      selectedFiles: [],
+    }
+    act(() => fire(Events.SetAddTaskMode, draft))
+    expect(result.current.getValues()).toEqual(draft)
+    act(() => fire(Events.SetAddTaskMode, { ...draft, selectedFiles: [0] }))
+    expect(result.current.getValues('selectedFiles')).toEqual([0])
+  })
+
+  it('rejects invalid typed drafts without falling back to a URL-mode reset', () => {
+    const { result } = renderHook(() =>
+      useForm<AddTaskFormValues>({
+        defaultValues: {
+          tab: 'links',
+          urls: 'https://old.example/a',
+          saveDir: '/old',
+        },
+      })
+    )
+    renderHook(() => useExternalHydration(result.current, true))
+    act(() =>
+      fire(Events.SetAddTaskMode, { tab: 'torrent', selectedFiles: [-1] })
+    )
+    expect(result.current.getValues('urls')).toBe('https://old.example/a')
+  })
+
   it('ignores invalid payloads silently', () => {
     const { result } = renderHook(() =>
       useForm({ defaultValues: { tab: 'links', urls: '', saveDir: '/d' } })

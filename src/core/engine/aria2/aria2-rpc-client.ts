@@ -1,5 +1,6 @@
 import type { EngineConnectionSnapshot } from '@shared/schemas/engine-connection'
 import type { DownloadCookie } from '../engine-adapter'
+import type { Aria2LegacyCheckpointImport } from './aria2-legacy-checkpoint'
 import { Aria2PauseState } from './aria2-pause-state'
 import type { JsonRpcProtocol } from './json-rpc-protocol'
 import type {
@@ -391,6 +392,34 @@ export class Aria2RpcClient {
     return this.call<Aria2CheckpointStatus>('aria2.getCheckpointStatus', [
       outputPath,
     ])
+  }
+
+  inspectLegacyCheckpointV1(input: { controlFile: string }): Promise<unknown> {
+    return this.call('aria2.inspectLegacyCheckpointV1', [input])
+  }
+
+  addLegacyTorrentV1(input: {
+    token: string
+    targetPath: string
+    metadataFile: string
+    metadataDigest: string
+    metadata: string
+    options: Record<string, string | string[]>
+  }): Promise<string> {
+    return this.call<string>('aria2.addLegacyTorrentV1', [input])
+  }
+
+  importLegacyCheckpointV1(
+    input: Aria2LegacyCheckpointImport
+  ): Promise<unknown> {
+    return this.call('aria2.importLegacyCheckpointV1', [input])
+  }
+
+  reconcileLegacyCheckpointV1(input: {
+    token: string
+    targetPath: string
+  }): Promise<unknown> {
+    return this.call('aria2.reconcileLegacyCheckpointV1', [input])
   }
 
   exportSession(filePath: string): Promise<'OK'> {

@@ -1,5 +1,12 @@
 import type { EnginePerformanceProfile } from '@shared/constants/engine-performance-profiles'
 import type {
+  LegacyCheckpointImport,
+  LegacyCheckpointInspection,
+  LegacyCheckpointReceipt,
+  LegacyCheckpointReconcile,
+  LegacyCheckpointReconciliation,
+} from '@shared/schemas/legacy-checkpoint'
+import type {
   EngineCapability,
   EngineFeatureReport,
 } from '@shared/types/engine'
@@ -43,6 +50,10 @@ export type DirectResourceMetadataProfile =
   typeof DIRECT_RESOURCE_METADATA_PROFILE
 
 export interface AddTorrentParams {
+  /** Internal migration path: keeps original trackers and pins verification/no-seeding options. */
+  legacyCheckpointActivation?: { token: string; targetPath: string }
+  /** Read-only durable metadata source for an authorized legacy BT task. */
+  durableMetadata?: { path: string; digest: string }
   metadata: Uint8Array
   saveDir: string
   /** Optional caller-reserved aria2 GID. aria2 accepts exactly 16
@@ -150,7 +161,18 @@ export type BtTrackerPolicy = (input: {
   isPrivate?: boolean
 }) => Promise<{ trackers: string[]; isPrivate: boolean }>
 
+export interface LegacyBtBindingProof {
+  engineTaskId: string
+  saveDir: string
+  infoHash: string
+  files: Array<{ path: string; length: number }>
+  selectedFiles: number[]
+  trackers: string[]
+  isPrivate: boolean
+}
 export interface EngineAdapter {
+  /** Prove exact native BT ownership, selection and safe restoration options. */
+  verifyLegacyBtBinding?(input: LegacyBtBindingProof): Promise<boolean>
   configureBtTrackerPolicy?(policy: BtTrackerPolicy): void
   setTaskBtTracker(engineTaskId: string, trackers: string[]): Promise<void>
   connect(): Promise<void>
@@ -272,6 +294,23 @@ export interface EngineAdapter {
    * cannot answer; callers then fall back to the `.aria2` control file.
    */
   getCheckpointStatus?(outputPath: string): Promise<'present' | 'absent' | null>
+
+  /** Live capability check; compiled-in support alone does not authorize import. */
+  supportsLegacyCheckpointImport?(): Promise<boolean>
+  /** Both checkpoint import and read-only torrent restoration are available live. */
+  supportsLegacyBtActivation?(): Promise<boolean>
+  /** Inspect bounded opaque legacy bytes without opening or writing payloads. */
+  inspectLegacyCheckpoint?(
+    bytes: Uint8Array
+  ): Promise<LegacyCheckpointInspection>
+  /** Persist a native checkpoint and idempotent receipt without starting a task. */
+  importLegacyCheckpoint?(
+    input: LegacyCheckpointImport
+  ): Promise<LegacyCheckpointReceipt>
+  /** Reconcile an uncertain import, sealing invalid receipts so they cannot revive. */
+  reconcileLegacyCheckpoint?(
+    input: LegacyCheckpointReconcile
+  ): Promise<LegacyCheckpointReconciliation>
 
   /**
    * Batch variant of {@link removeDownloadResult}, executed in bounded

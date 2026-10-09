@@ -7,7 +7,9 @@
 // on platforms that do not ship the binary.
 
 import { type ChildProcess, spawn, spawnSync } from 'node:child_process'
+import { randomBytes } from 'node:crypto'
 import { accessSync } from 'node:fs'
+import { createServer } from 'node:net'
 import path from 'node:path'
 import { aria2BinaryName } from '@shared/platform/aria2'
 import { Aria2Adapter } from '../core/engine/aria2/aria2-adapter'
@@ -94,8 +96,8 @@ export function canBindLoopbackTcp(): boolean {
 export async function spawnAria2ForTest(
   opts: SpawnAria2Options
 ): Promise<Aria2Handle> {
-  const port = opts.port ?? 16800 + Math.floor(Math.random() * 2000)
-  const secret = opts.secret ?? 'test_secret'
+  const port = opts.port ?? (await availablePort())
+  const secret = opts.secret ?? randomBytes(24).toString('hex')
   const bin = opts.binaryPath ?? resolveBundledAria2()
 
   const proc = spawn(
@@ -121,14 +123,28 @@ export async function spawnAria2ForTest(
     { stdio: ['ignore', 'pipe', 'pipe'] }
   )
 
-  // Swallow stdout/stderr so test output stays clean. If a spawn fails we
-  // still see the exit code / signal from `proc` itself.
-  proc.stdout?.on('data', () => {})
-  proc.stderr?.on('data', () => {})
+  // Keep bounded diagnostics for startup failures without noisy passing tests.
+  let startupOutput = ''
+  const collectOutput = (chunk: Buffer) => {
+    startupOutput = (startupOutput + chunk.toString()).slice(-4096)
+  }
+  proc.stdout?.on('data', collectOutput)
+  proc.stderr?.on('data', collectOutput)
+  let spawnError: Error | undefined
+  proc.once('error', (error) => {
+    spawnError = error
+  })
+  const failure = () =>
+    spawnError ??
+    (proc.exitCode !== null || proc.signalCode !== null
+      ? new Error(
+          `Test aria2 exited before its authenticated RPC was ready (exit=${proc.exitCode}, signal=${proc.signalCode}): ${startupOutput.trim()}`
+        )
+      : undefined)
 
   if (opts.waitForHttpRpc !== false) {
     try {
-      await waitForRpc(port, 5000)
+      await waitForRpc(port, 5000, secret, failure)
     } catch (err) {
       // Bail out cleanly if RPC never comes up.
       if (!proc.killed) proc.kill('SIGKILL')
@@ -141,10 +157,10 @@ export async function spawnAria2ForTest(
     port,
     secret,
     kill: async () => {
-      if (proc.killed || proc.exitCode !== null) return
+      if (proc.exitCode !== null || proc.signalCode !== null) return
       await new Promise<void>((resolve) => {
         const hardKill = setTimeout(() => {
-          if (!proc.killed && proc.exitCode === null) {
+          if (proc.exitCode === null && proc.signalCode === null) {
             proc.kill('SIGKILL')
           }
         }, 1000)
@@ -159,29 +175,67 @@ export async function spawnAria2ForTest(
   }
 }
 
+async function availablePort(): Promise<number> {
+  const server = createServer()
+  server.unref()
+  return new Promise((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address()
+      server.close((error) => {
+        if (error) reject(error)
+        else if (address && typeof address !== 'string') resolve(address.port)
+        else reject(new Error('Unable to reserve a test aria2 port'))
+      })
+    })
+  })
+}
+
 /**
  * Poll aria2's RPC endpoint until it responds or the timeout elapses.
  * Uses HTTP POST (simpler than WebSocket for readiness probing).
  */
 export async function waitForRpc(
   port: number,
-  timeoutMs: number
+  timeoutMs: number,
+  secret?: string,
+  processFailure?: () => Error | undefined
 ): Promise<void> {
   const start = Date.now()
   let lastErr: unknown = null
   while (Date.now() - start < timeoutMs) {
+    const failure = processFailure?.()
+    if (failure) throw failure
     try {
       const res = await fetch(`http://127.0.0.1:${port}/jsonrpc`, {
         method: 'POST',
+        signal: AbortSignal.timeout(
+          Math.max(1, Math.min(500, timeoutMs - (Date.now() - start)))
+        ),
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           jsonrpc: '2.0',
           id: 'probe',
-          method: 'system.listMethods',
-          params: [],
+          method: secret ? 'aria2.getVersion' : 'system.listMethods',
+          params: secret ? [`token:${secret}`] : [],
         }),
       })
-      if (res.ok) return
+      if (res.ok) {
+        const body = (await res.json()) as {
+          result?: { version?: unknown }
+          error?: unknown
+        }
+        if (
+          !body.error &&
+          (secret
+            ? typeof body.result?.version === 'string'
+            : Array.isArray(body.result))
+        ) {
+          const failure = processFailure?.()
+          if (failure) throw failure
+          return
+        }
+      }
     } catch (err) {
       lastErr = err
     }

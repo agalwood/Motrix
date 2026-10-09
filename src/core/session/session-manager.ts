@@ -1,5 +1,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import {
+  hasLegacyImport,
+  isInactiveLegacyTask,
+} from '@core/legacy-import/legacy-task-policy'
 import { newEngineTaskId, newTaskId } from '@core/lib/ids'
 import { getLogger } from '@core/logger'
 import type { StagedMetadataOp } from '@core/plugin/hooks/staged-effects'
@@ -14,6 +18,7 @@ import {
   DownloadSourceError,
 } from '@core/task/source-admission'
 import { parseDirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
+import { legacyBtActivationSchema } from '@shared/schemas/legacy-bt-activation'
 import type { DownloadTask } from '@shared/types/task'
 import {
   makeDefaultBtExtension,
@@ -655,10 +660,30 @@ export class SessionManager {
       Array<{ motrixId: string; instance: TaskInstanceRow }>
     >()
     const tasksByInfoHash = new Map<string, TaskWithInstances[]>()
+    const migrationGids = new Set<string>()
 
     for (const pair of persisted) {
       byMotrixId.set(pair.task.motrixId, pair)
-      if (pair.task.infoHash) {
+      for (const instance of pair.instances) {
+        const activation = legacyBtActivationSchema.safeParse(
+          instance.payload.legacyBtActivation
+        )
+        if (isInactiveLegacyTask(pair)) {
+          const raw = instance.payload.legacyBtActivation as
+            | { engineTaskId?: unknown }
+            | undefined
+          if (instance.gid) migrationGids.add(instance.gid)
+          if (activation.success)
+            migrationGids.add(activation.data.engineTaskId)
+          else if (
+            typeof raw?.engineTaskId === 'string' &&
+            /^[a-f0-9]{16}$/.test(raw.engineTaskId)
+          )
+            migrationGids.add(raw.engineTaskId)
+        }
+      }
+      if (isInactiveLegacyTask(pair)) continue
+      if (pair.task.infoHash && !hasLegacyImport(pair)) {
         const infoHash = pair.task.infoHash.toLowerCase()
         const candidates = tasksByInfoHash.get(infoHash) ?? []
         candidates.push(pair)
@@ -671,7 +696,7 @@ export class SessionManager {
             instance: inst,
           })
         }
-        if (inst.uriHash) {
+        if (inst.uriHash && !hasLegacyImport(pair)) {
           const candidates = instancesByUriHash.get(inst.uriHash) ?? []
           candidates.push({
             motrixId: pair.task.motrixId,
@@ -730,6 +755,7 @@ export class SessionManager {
 
     // Pass 1 — drive from aria2 rows.
     for (const aria2 of aria2Tasks) {
+      if (migrationGids.has(aria2.gid)) continue
       // Media segments are ephemeral children of a coordinator task. Older
       // versions left them in aria2's durable store, so hide AND evict them;
       // skipping adoption alone made the restarted downloads invisible.
@@ -810,6 +836,20 @@ export class SessionManager {
         if (parent.instances.some(isMagnetCleanupTombstoneHidden)) {
           // A quarantined metadata GID may still be live in aria2. It is a
           // hidden cleanup tombstone, not a download to merge or adopt.
+          consumedMotrixIds.add(parent.task.motrixId)
+          continue
+        }
+        if (
+          hasLegacyImport(parent) &&
+          [TaskStatus.Completed, TaskStatus.Error].includes(
+            parent.task.aggStatus
+          )
+        ) {
+          // Native migration records restart paused. Durable terminal history
+          // cannot be reopened by that replay. Retain the engine row for explicit
+          // deletion, which verifies the full migration binding before cleanup.
+          const task = taskRowToDownloadTask(parent.task, parent.instances)
+          this.taskManager.set(task.id, task)
           consumedMotrixIds.add(parent.task.motrixId)
           continue
         }
@@ -896,10 +936,29 @@ export class SessionManager {
     //   • Anything else: aria2 truly lost the task; re-add (BT via
     //     adapter.addTorrent with checkIntegrity, HTTP via createDownload).
     for (const pair of persisted) {
+      if (isInactiveLegacyTask(pair)) {
+        this.taskManager.set(
+          pair.task.motrixId,
+          taskRowToDownloadTask(pair.task, pair.instances)
+        )
+        continue
+      }
       if (consumedMotrixIds.has(pair.task.motrixId)) continue
       if (pair.instances.some((i) => i.gid && aria2GidSet.has(i.gid))) continue
 
       const primary = pair.instances[0]
+      if (hasLegacyImport(pair)) {
+        // A migrated task can be recovered only by its durable token/GID service.
+        // Preserve its identity and originals when the engine loses its bound row.
+        const task = taskRowToDownloadTask(pair.task, pair.instances)
+        task.status = [TaskStatus.Completed, TaskStatus.Error].includes(
+          pair.task.aggStatus
+        )
+          ? pair.task.aggStatus
+          : TaskStatus.Paused
+        this.taskManager.set(task.id, task)
+        continue
+      }
       const isHiddenMagnetTombstone = pair.instances.some(
         isMagnetCleanupTombstoneHidden
       )

@@ -78,6 +78,11 @@ diagnostic names, and executable behavior survive compression. Platform package
 verification and runtime smoke tests remain the authority for installed sizes
 and native runtime compatibility.
 
+The migration assistant brings the complete main-process JavaScript output to
+approximately 5.09 MiB, including its services and translations in all 26
+languages. Its total budget is 5.25 MiB; the startup budget remains 2 MiB.
+Budgets for the other five targets are unchanged.
+
 ## Desktop navigation comparison
 
 Build each revision with `pnpm build:electron` in a separate checkout with its

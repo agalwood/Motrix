@@ -319,6 +319,7 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
           )
           expect(args).toContain('--input-file=')
           handle = await spawnAria2ForTest({
+            secret: settings.rpcSecret,
             baseDir: root,
             port,
             extraArgs: ['--no-conf=false', ...args],

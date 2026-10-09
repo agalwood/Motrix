@@ -612,6 +612,23 @@ export class MotrixDatabase {
     this.lastPersistedSig.set(payload.task.motrixId, signature)
   }
 
+  /** Publish paused import graphs and their durable ledger in one transaction. */
+  saveLegacyImportBatch(
+    graphs: TaskWithInstancesAndFiles[],
+    writeLedger: () => void
+  ): void {
+    this.db.transaction(() => {
+      for (const graph of graphs) {
+        this.writeRow(graph)
+        this.writeTaskFiles(graph.task.motrixId, graph.files)
+      }
+      writeLedger()
+    })()
+    for (const graph of graphs) {
+      this.lastPersistedSig.set(graph.task.motrixId, this.rowSignature(graph))
+    }
+  }
+
   saveTasksBatch(payloads: TaskWithInstances[]): void {
     const tx = this.db.transaction((rows: TaskWithInstances[]) => {
       for (const row of rows) {

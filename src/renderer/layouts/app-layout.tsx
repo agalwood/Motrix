@@ -26,10 +26,13 @@ import type { RouteHandle } from '@renderer/router-types'
 import { RemoveTasksDialogHost } from '@renderer/routes/downloads/inspector/remove-tasks-dialog-host'
 import { useDownloadsSelection } from '@renderer/routes/downloads/store'
 import { useDownloadsView } from '@renderer/routes/downloads/view-preferences'
+import { MigrationPage } from '@renderer/routes/migration/migration-page'
 import { usePairRequestPrompts } from '@renderer/routes/settings/cards/integration/use-pair-request-prompts'
+import { LEGACY_MIGRATION_ROUTE } from '@shared/lib/legacy-import-navigation'
 import { isDownloadsListRoute } from '@shared/lib/task-navigation'
 import { Events } from '@shared/protocol/events'
-import { Outlet, useMatches, useNavigate } from 'react-router'
+import { type ReactNode, useRef } from 'react'
+import { useLocation, useMatches, useNavigate, useOutlet } from 'react-router'
 
 const platformServices =
   __MOTRIX_TARGET__ === 'electron' ? electronServices : webServices
@@ -47,6 +50,12 @@ export function AppLayout() {
   useNotificationToasts()
 
   const navigate = useNavigate()
+  const location = useLocation()
+  const outlet = useOutlet()
+  const migrationActive = location.pathname === LEGACY_MIGRATION_ROUTE
+  const settingsActive = /^\/settings(?:\/|$)/.test(location.pathname)
+  const retainedSettings = useRef<ReactNode>(null)
+  if (settingsActive) retainedSettings.current = outlet
   const matches = useMatches()
   const transparentInset = matches.some(
     (m) => (m.handle as RouteHandle | undefined)?.transparentInset
@@ -109,7 +118,18 @@ export function AppLayout() {
             )}
           >
             <div className="min-h-0 flex-1 overflow-hidden">
-              <Outlet />
+              <div hidden={!migrationActive} className="h-full min-h-0">
+                <MigrationPage active={migrationActive} />
+              </div>
+              <div hidden={!settingsActive} className="h-full min-h-0">
+                {retainedSettings.current}
+              </div>
+              <div
+                hidden={migrationActive || settingsActive}
+                className="h-full min-h-0"
+              >
+                {!settingsActive && outlet}
+              </div>
             </div>
             <WebConnectionNotice />
           </SidebarInset>

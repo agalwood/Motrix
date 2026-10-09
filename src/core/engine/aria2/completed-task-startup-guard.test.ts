@@ -104,6 +104,70 @@ describe('CompletedTaskStartupGuard', () => {
     expect(await h.guard.prepare(h.args)).toBeNull()
   })
 
+  it.each([false, true])(
+    'holds pending ownership without purging it or changing other run intent (sqlite=%s)',
+    async (sqlite) => {
+      const h = await setup(sqlite)
+      const guard = new CompletedTaskStartupGuard({
+        completedGids: () => new Set(),
+        heldGids: () => new Set([RUN]),
+        rpc: h.rpc,
+        removeResult: h.removeResult,
+      })
+      const prepared = await guard.prepare(h.args)
+      expect(prepared?.args).toContain('--pause=true')
+      expect(JSON.parse(await readFile(h.journal, 'utf8')).resume).toEqual([
+        DONE,
+      ])
+      await prepared?.reconcile(() => false)
+      expect(h.rpc.unpause).toHaveBeenCalledExactlyOnceWith(DONE)
+      expect(h.rpc.forceRemove).not.toHaveBeenCalled()
+      expect(h.removeResult).not.toHaveBeenCalled()
+    }
+  )
+
+  it('removes a newly held GID from an interrupted journal even if its hold later resolves', async () => {
+    const h = await setup()
+    await h.guard.prepare(h.args)
+    await writeFile(
+      h.source,
+      entry(DONE, true) + entry(RUN, true) + entry(PAUSED, true)
+    )
+    const held = new Set([RUN])
+    const guard = new CompletedTaskStartupGuard({
+      completedGids: () => new Set([DONE]),
+      heldGids: () => held,
+      rpc: h.rpc,
+      removeResult: h.removeResult,
+    })
+    const prepared = await guard.prepare(h.args)
+    expect(JSON.parse(await readFile(h.journal, 'utf8')).resume).toEqual([DONE])
+    held.clear()
+    await prepared?.reconcile(() => false)
+    expect(h.rpc.unpause).not.toHaveBeenCalled()
+    expect(h.removeResult).toHaveBeenCalledExactlyOnceWith(DONE)
+  })
+
+  it('rechecks a new hold after awaiting status and never purges overlapping held/completed GIDs', async () => {
+    const h = await setup()
+    const held = new Set([DONE])
+    const guard = new CompletedTaskStartupGuard({
+      completedGids: () => new Set([DONE]),
+      heldGids: () => held,
+      rpc: h.rpc,
+      removeResult: h.removeResult,
+    })
+    const prepared = await guard.prepare(h.args)
+    h.rpc.tellStatus.mockImplementation(async (gid) => {
+      if (gid === RUN) held.add(RUN)
+      return { status: 'paused' } as never
+    })
+    await prepared?.reconcile(() => false)
+    expect(h.rpc.unpause).not.toHaveBeenCalled()
+    expect(h.rpc.forceRemove).not.toHaveBeenCalled()
+    expect(h.removeResult).not.toHaveBeenCalled()
+  })
+
   it('preserves original run intent after a crash in a paused startup', async () => {
     const h = await setup()
     await h.guard.prepare(h.args)

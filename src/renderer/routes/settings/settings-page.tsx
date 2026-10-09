@@ -1,12 +1,14 @@
 import { PanelShell } from '@renderer/components/desktop-kit/panel/panel-shell'
 import { useTranslation } from 'react-i18next'
-import { useNavigate, useParams } from 'react-router'
+import { useLocation, useNavigate, useParams } from 'react-router'
 import { findCard, SETTINGS_CARDS } from './card-registry'
 import { SettingsCard } from './cards/settings-card'
 
 export function SettingsPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const location = useLocation()
+  const visible = /^\/settings(?:\/|$)/.test(location.pathname)
   const { cardId } = useParams<{ cardId: string }>()
   const activeCard = findCard(cardId)
   const columnsPerRow = 3
@@ -33,7 +35,7 @@ export function SettingsPage() {
       </div>
       {activeCard && (
         <activeCard.Dialog
-          open
+          open={visible}
           onClose={closeDialog}
           labelKey={activeCard.labelKey}
           descKey={activeCard.descKey}

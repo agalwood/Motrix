@@ -1,0 +1,85 @@
+{
+  "tag": "v1.8.19",
+  "commit": "a0a1fe90f7e9f6d305ed2b512f62c8d36c2fb95a",
+  "binaryPath": "extra/darwin/arm64/engine/aria2c",
+  "binarySha256": "1527c4d071c16c1266880e93750e385cdd4e9d2a950d7f56cb5a21125e3bd311",
+  "binaryGitObject": "f4a274061acbbc22c6eb1ab487ffdc0e80ad1b71",
+  "version": "aria2 version 1.36.0",
+  "sourceConfigSha256": "73f99096443c733ac31ab506ae720be02bd97deb6187ac9812b97b9341803106",
+  "generation": "The tagged v1 bundled engine generated download.session, .aria2 control files and saved RPC .torrent files. Config JSON is source-derived ConfigManager defaults, not a full old Electron application run.",
+  "normalization": "Only profile/download path prefixes and HTTP port in text files are replaced with fixture placeholders. Downloads are siblings of the profile, as in a normal installation. Control and torrent bytes are unmodified. Saved partial HTTP payload is gzip-compressed without altering its uncompressed bytes.",
+  "safety": "Disposable profile, local range HTTP server and tracker only; DHT, PEX and LPD disabled. No real user profiles or external download endpoints.",
+  "http": {
+    "gid": "0123456789abcdef",
+    "completedLengthAtPauseRequest": "1638400",
+    "totalLength": "4194304",
+    "payloadSha256": "a117210941a0b00dcb2d8577e680d84b6fa0eaf760d2afc654c953b9859d54fa",
+    "payloadRecipe": "4194304 bytes; byte at zero-based index i is i % 251",
+    "checkpointStatus": {
+      "completedLength": "1638400",
+      "totalLength": "4194304",
+      "pieceLength": "1048576",
+      "numPieces": "4",
+      "bitfield": "80",
+      "files": [
+        {
+          "index": "1",
+          "path": "__FIXTURE_DOWNLOADS__/partial.bin",
+          "length": "4194304",
+          "completedLength": "1048576",
+          "selected": "true"
+        }
+      ]
+    },
+    "savedPayloadBytes": 1638400,
+    "savedPayloadSha256": "2615f2219789224649954ea05e34824ca109727e10a9f1710a852357732a69f1",
+    "savedPayloadGzip": "downloads/partial.bin.gz"
+  },
+  "bt": {
+    "gid": "fedcba9876543210",
+    "infoHash": "45c7c651e500cc0ceaa544d6fbafcb21b8cd52f8",
+    "metadataFilename": "a16dc78c94ce589ed4666ab32285f2d188edf26f.torrent",
+    "selectedFiles": [1],
+    "private": true,
+    "checkpointStatus": {
+      "completedLength": "0",
+      "totalLength": "16384",
+      "pieceLength": "16384",
+      "numPieces": "2",
+      "bitfield": "00",
+      "files": [
+        {
+          "index": "1",
+          "path": "__FIXTURE_DOWNLOADS__/fixture-bundle/first.bin",
+          "length": "16384",
+          "completedLength": "0",
+          "selected": "true"
+        },
+        {
+          "index": "2",
+          "path": "__FIXTURE_DOWNLOADS__/fixture-bundle/second.bin",
+          "length": "16384",
+          "completedLength": "0",
+          "selected": "false"
+        }
+      ]
+    }
+  },
+  "files": [
+    {
+      "path": "downloads/a16dc78c94ce589ed4666ab32285f2d188edf26f.torrent",
+      "sha256": "76dc89394c6ebc46b5f863e526e037e3f3da37f0ee3e5a7069d73017bc90f10b",
+      "bytes": 245
+    },
+    {
+      "path": "downloads/fixture-bundle.aria2",
+      "sha256": "9eca779c68d5814eea38b1f4b2c7d73e528a88993f8ade862ca8db90adc5b7eb",
+      "bytes": 59
+    },
+    {
+      "path": "downloads/partial.bin.aria2",
+      "sha256": "40a6f7572e913ad63f0b2e867f26367e30c0cad754389963cb2f2645088dc7c7",
+      "bytes": 59
+    }
+  ]
+}

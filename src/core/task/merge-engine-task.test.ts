@@ -35,6 +35,25 @@ function instance(status: TaskStatus, index = 0): TaskInstance {
 }
 
 describe('mergeEngineTask', () => {
+  it.each([TaskStatus.Completed, TaskStatus.Error])(
+    'preserves imported %s history against a late paused replay',
+    (status) => {
+      const primary = instance(status)
+      primary.payload = { legacyImport: { version: 99 } }
+      const existing = baseTask({
+        status,
+        progress: 1,
+        finishedAt: 100,
+        instances: [primary],
+      })
+      const late = baseTask({
+        status: TaskStatus.Paused,
+        progress: 0,
+        finishedAt: null,
+      })
+      expect(mergeEngineTask(existing, late)).toBe(existing)
+    }
+  )
   it.each([
     ['gid1', 25, 125],
     ['gid1', 30, 130],

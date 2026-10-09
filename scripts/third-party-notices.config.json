@@ -212,6 +212,17 @@
       ]
     },
     {
+      "id": "glassmorphism-migration-import-icon",
+      "name": "Glassmorphism migration import icon",
+      "scope": "renderer migration assistant",
+      "licenseDeclared": "NOASSERTION",
+      "noticeMarker": "Glassmorphism migration import icon",
+      "paths": [
+        "src/renderer/features/legacy-import/icons/icon-import@1x.webp",
+        "src/renderer/features/legacy-import/icons/icon-import@2x.webp"
+      ]
+    },
+    {
       "id": "apple-sfns-tray-font",
       "name": "Apple San Francisco tray font",
       "scope": "macOS tray renderer",

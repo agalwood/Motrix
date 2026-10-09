@@ -1,7 +1,12 @@
 import type { EngineAdapter } from '@core/engine/engine-adapter'
 import { TaskManager } from '@core/task/task-manager'
 import type { TaskTrackerState } from '@shared/schemas/task-tracker'
-import { makeDefaultBtExtension, TaskStatus } from '@shared/types/task'
+import {
+  makeDefaultBtExtension,
+  TaskInstancePhase,
+  TaskStatus,
+  TransitionPhase,
+} from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
 import parseTorrent from 'parse-torrent'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -95,6 +100,67 @@ beforeEach(() => {
 })
 
 describe('task tracker ownership and journal', () => {
+  it.each([TaskStatus.Paused, TaskStatus.Downloading])(
+    'keeps imported %s tasks outside tracker edit, sync, creation, and pending recovery',
+    async (status) => {
+      const f = fixture()
+      f.task.status = status
+      f.task.instances = [
+        {
+          instanceId: 'legacy',
+          motrixId: f.task.id,
+          gid: f.task.engineTaskId,
+          phase: TaskInstancePhase.BtDownload,
+          status,
+          progress: 0,
+          totalBytes: 0,
+          downloadedBytes: 0,
+          uploadedBytes: 0,
+          diskPath: '/legacy',
+          transitionPhase: TransitionPhase.Idle,
+          uris: [],
+          uriHash: null,
+          createdAt: 0,
+          updatedAt: 0,
+          payload: { legacyImport: { version: 99, activation: 'active' } },
+        },
+      ]
+      const state = f.state()!
+      f.setState({
+        ...state,
+        pending: {
+          before: [a, b],
+          after: [c],
+          next: state,
+          resumeRequired: true,
+        },
+      })
+      f.tasks.set(f.task.id, f.task)
+      await expect(f.plan()).rejects.toThrow('legacyImport.trackersReadOnly')
+      await expect(
+        f.service.apply(f.task.id, f.task.engineTaskId, 'old')
+      ).rejects.toThrow('legacyImport.trackersReadOnly')
+      await expect(
+        f.service.edit(f.task.id, f.task.engineTaskId, [c])
+      ).rejects.toThrow('legacyImport.trackersReadOnly')
+      await expect(
+        f.service.prepareCreation({
+          engineGid: f.task.engineTaskId,
+          manual: [c],
+          isPrivate: false,
+        })
+      ).rejects.toThrow('legacyImport.trackersReadOnly')
+      f.service.noteTaskControl(f.task.id, false)
+      await f.service.recover()
+      expect(f.adapter.getTaskStatus).not.toHaveBeenCalled()
+      expect(f.adapter.getTaskBtTracker).not.toHaveBeenCalled()
+      expect(f.adapter.setTaskBtTracker).not.toHaveBeenCalled()
+      expect(f.actions.pauseTask).not.toHaveBeenCalled()
+      expect(f.actions.resumeTask).not.toHaveBeenCalled()
+      expect(f.repository.save).not.toHaveBeenCalled()
+      expect(f.state()?.pending?.resumeRequired).toBe(true)
+    }
+  )
   it('previews only managed removal, preserves manual and native overlap, then resumes', async () => {
     const f = fixture([a, b, native])
     const plan = await f.plan()

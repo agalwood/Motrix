@@ -4,7 +4,12 @@ import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import type { BtExtension, DownloadTask } from '@shared/types/task'
-import { TaskStatus, TaskType } from '@shared/types/task'
+import {
+  TaskInstancePhase,
+  TaskStatus,
+  TaskType,
+  TransitionPhase,
+} from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -130,6 +135,51 @@ describe('TrackersTab — read mode', () => {
     expect(
       effectiveRow?.querySelector('button[aria-label="Delete tracker"]')
     ).not.toBeNull()
+  })
+
+  it('keeps imported tracker rows readable without edit, sync, or delete controls', async () => {
+    const task = makeBtTask()
+    task.instances = [
+      {
+        instanceId: 'legacy',
+        motrixId: task.id,
+        gid: task.engineTaskId,
+        phase: TaskInstancePhase.BtDownload,
+        status: task.status,
+        progress: 0,
+        totalBytes: 0,
+        downloadedBytes: 0,
+        uploadedBytes: 0,
+        diskPath: '/legacy',
+        transitionPhase: TransitionPhase.Idle,
+        uris: [],
+        uriHash: null,
+        createdAt: 0,
+        updatedAt: 0,
+        payload: { legacyImport: { version: 99 } },
+      },
+    ]
+    render(<TrackersTab task={task} />)
+    expect(await screen.findByText('http://effective-only')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'This download keeps its original trackers. They can’t be changed here.'
+      )
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Edit' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Sync' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Delete tracker' })
+    ).not.toBeInTheDocument()
+    expect(
+      vi
+        .mocked(transport.invoke)
+        .mock.calls.some(([channel]) => channel === Queries.GetTaskTrackerPlan)
+    ).toBe(false)
   })
 
   it('header summary shows "{N} trackers · {M} not in global"', async () => {
