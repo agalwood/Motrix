@@ -87,7 +87,7 @@ jobs:
               "select vdisk file=`"$vhd`"",
               'attach vdisk',
               'create partition primary',
-              'format fs=exfat quick label=MotrixFinalize',
+              'format fs=exfat quick label=MotrixTest',
               'assign letter=R'
             ) | Set-Content -LiteralPath $script -Encoding ASCII
             diskpart /s $script
