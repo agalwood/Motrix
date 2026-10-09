@@ -48,6 +48,7 @@ describe('setupLauncher', () => {
     mockOn.mockReset()
     mockRequestLock.mockReturnValue(true)
     mockHasSingleInstanceLock.mockReturnValue(true)
+    mockGetLoginItemSettings.mockReturnValue({ wasOpenedAtLogin: false })
     callbacks.onProtocolUrl.mockClear()
     callbacks.onTorrentFile.mockClear()
     callbacks.onShowWindow.mockClear()
@@ -118,11 +119,13 @@ describe('setupLauncher', () => {
     expect(mockExit).toHaveBeenCalledWith(0)
     expect(handle.bridgeDataDirLockRecoveryAuthority).toBeNull()
     expect(mockOn).not.toHaveBeenCalled()
+    expect(() => handle.markWindowReady()).not.toThrow()
   })
 
-  it('returns handle with wasOpenedAtLogin and flushDeferred', () => {
+  it('returns separate window and download ingress readiness handles', () => {
     const handle = setupLauncher(callbacks)
     expect(typeof handle.wasOpenedAtLogin).toBe('boolean')
+    expect(typeof handle.markWindowReady).toBe('function')
     expect(typeof handle.flushDeferred).toBe('function')
     expect(handle.bridgeDataDirLockRecoveryAuthority).toEqual({
       ownershipEpoch: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/u),
@@ -167,6 +170,76 @@ describe('setupLauncher', () => {
     expect(registeredEvents).toContain('open-file')
   })
 
+  describe.each(['win32', 'linux'])('%s window activation', (platform) => {
+    function emitSecondInstance(argv: string[] = ['Motrix.exe']) {
+      const handler = mockOn.mock.calls.find(
+        ([name]) => name === 'second-instance'
+      )?.[1]
+      expect(handler).toBeTypeOf('function')
+      handler({}, argv)
+    }
+
+    beforeEach(() => {
+      const originalPlatform = process.platform
+      const originalArgv = process.argv
+      Object.defineProperty(process, 'platform', { value: platform })
+      process.argv = ['Motrix.exe']
+      return () => {
+        Object.defineProperty(process, 'platform', { value: originalPlatform })
+        process.argv = originalArgv
+      }
+    })
+
+    it('replays early shortcut launches once after windows are ready', () => {
+      const handle = setupLauncher(callbacks)
+      emitSecondInstance()
+      emitSecondInstance()
+      expect(callbacks.onShowWindow).not.toHaveBeenCalled()
+
+      handle.markWindowReady()
+      expect(callbacks.onShowWindow).toHaveBeenCalledOnce()
+      handle.markWindowReady()
+      handle.flushDeferred()
+      expect(callbacks.onShowWindow).toHaveBeenCalledOnce()
+
+      emitSecondInstance()
+      expect(callbacks.onShowWindow).toHaveBeenCalledTimes(2)
+    })
+
+    it('can reopen onboarding while download ingress remains deferred', () => {
+      const handle = setupLauncher(callbacks)
+      handle.markWindowReady()
+      emitSecondInstance(['Motrix.exe', 'magnet:?xt=urn:btih:pending'])
+      expect(callbacks.onShowWindow).toHaveBeenCalledOnce()
+      expect(callbacks.onProtocolUrl).not.toHaveBeenCalled()
+
+      handle.flushDeferred()
+      expect(callbacks.onProtocolUrl).toHaveBeenCalledExactlyOnceWith(
+        'magnet:?xt=urn:btih:pending'
+      )
+      expect(callbacks.onShowWindow).toHaveBeenCalledOnce()
+      expect(callbacks.onShowWindow.mock.invocationCallOrder[0]).toBeLessThan(
+        callbacks.onProtocolUrl.mock.invocationCallOrder[0]
+      )
+    })
+
+    it('does not reveal a background launch without a second launch', () => {
+      const handle = setupLauncher(callbacks)
+      handle.markWindowReady()
+      handle.flushDeferred()
+      expect(callbacks.onShowWindow).not.toHaveBeenCalled()
+    })
+
+    it('does not discard a pending activation when download ingress flushes', () => {
+      const handle = setupLauncher(callbacks)
+      emitSecondInstance()
+      handle.flushDeferred()
+      expect(callbacks.onShowWindow).not.toHaveBeenCalled()
+      handle.markWindowReady()
+      expect(callbacks.onShowWindow).toHaveBeenCalledOnce()
+    })
+  })
+
   it('flushDeferred drains pending URLs', () => {
     mockOn.mockImplementation(((
       event: string,
@@ -191,6 +264,7 @@ describe('setupLauncher', () => {
     Object.defineProperty(process, 'platform', { value: 'linux' })
     try {
       const handle = setupLauncher(callbacks)
+      handle.markWindowReady()
       const secondInstanceHandler = mockOn.mock.calls.find(
         (call: unknown[]) => call[0] === 'second-instance'
       )?.[1] as ((_event: unknown, argv: string[]) => void) | undefined
@@ -218,6 +292,7 @@ describe('setupLauncher', () => {
     Object.defineProperty(process, 'platform', { value: 'linux' })
     try {
       const handle = setupLauncher(callbacks)
+      handle.markWindowReady()
       const secondInstanceHandler = mockOn.mock.calls.find(
         (call: unknown[]) => call[0] === 'second-instance'
       )?.[1] as ((_event: unknown, argv: string[]) => void) | undefined
@@ -245,6 +320,7 @@ describe('setupLauncher', () => {
     Object.defineProperty(process, 'platform', { value: 'linux' })
     try {
       const handle = setupLauncher(callbacks)
+      handle.markWindowReady()
       handle.flushDeferred()
       const secondInstanceHandler = mockOn.mock.calls.find(
         (call: unknown[]) => call[0] === 'second-instance'

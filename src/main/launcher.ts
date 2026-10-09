@@ -17,6 +17,8 @@ export interface LauncherHandle {
   wasOpenedAtLogin: boolean
   /** OS-level process ownership proof used only for bridge crash recovery. */
   bridgeDataDirLockRecoveryAuthority: BridgeDataDirLockRecoveryAuthority | null
+  /** Enable window activation independently of deferred download ingress. */
+  markWindowReady: () => void
   flushDeferred: () => void
 }
 
@@ -60,6 +62,7 @@ export function setupLauncher(callbacks: LauncherCallbacks): LauncherHandle {
     return {
       wasOpenedAtLogin: false,
       bridgeDataDirLockRecoveryAuthority: null,
+      markWindowReady: () => undefined,
       flushDeferred: () => undefined,
     }
   }
@@ -87,6 +90,8 @@ export function setupLauncher(callbacks: LauncherCallbacks): LauncherHandle {
   const pendingUrls: string[] = []
   const pendingFiles: string[] = []
   let flushed = false
+  let windowReady = false
+  let pendingShowWindow = false
 
   function dispatchUrl(url: string) {
     if (
@@ -124,7 +129,14 @@ export function setupLauncher(callbacks: LauncherCallbacks): LauncherHandle {
   // second-instance (Windows/Linux: second launch passes argv)
   app.on('second-instance', (_event, argv) => {
     log.info('second instance detected')
-    callbacks.onShowWindow()
+    if (windowReady) {
+      callbacks.onShowWindow()
+    } else {
+      // A desktop shortcut can be opened while settings and windows are still
+      // initializing. Retain that intent instead of losing it to an absent
+      // WindowManager; repeated launches need only one eventual activation.
+      pendingShowWindow = true
+    }
 
     if (process.platform !== 'darwin' && argv.length > 1) {
       const url = extractUrlFromArgv(argv)
@@ -156,6 +168,13 @@ export function setupLauncher(callbacks: LauncherCallbacks): LauncherHandle {
   return {
     wasOpenedAtLogin,
     bridgeDataDirLockRecoveryAuthority,
+    markWindowReady() {
+      windowReady = true
+      if (pendingShowWindow) {
+        pendingShowWindow = false
+        callbacks.onShowWindow()
+      }
+    },
     flushDeferred() {
       flushed = true
       for (const url of pendingUrls) {

@@ -13,6 +13,7 @@ vi.mock('electron', () => {
       setWindowOpenHandler: ReturnType<typeof vi.fn>
     }
     private _destroyed = false
+    private _minimized = false
     private _visible: boolean
     private _bounds: { x: number; y: number; width: number; height: number }
 
@@ -55,6 +56,13 @@ vi.mock('electron', () => {
     isVisible = vi.fn(() => this._visible)
     isFocused = vi.fn(() => true)
     isMaximized = vi.fn(() => false)
+    isMinimized = vi.fn(() => this._minimized)
+    minimize = vi.fn(() => {
+      this._minimized = true
+    })
+    restore = vi.fn(() => {
+      this._minimized = false
+    })
     isFullScreen = vi.fn(() => false)
     getBounds = vi.fn(() => ({ ...this._bounds }))
     getNormalBounds = vi.fn(() => ({ ...this._bounds }))
@@ -143,6 +151,51 @@ describe('WindowManager', () => {
     ).shouldUseDarkColors = false
     vi.clearAllMocks()
   })
+
+  it.each(['show', 'open', 'toggle'] as const)(
+    '%s restores a minimized Windows window instead of dismissing it',
+    (action) => {
+      const wm = new WindowManager({
+        settingsManager: createMockSettingsManager(),
+        platform: 'win32',
+        preloadPath: '/fake/preload.cjs',
+        loadUrl: vi.fn(),
+      })
+      const win = wm.open('main')
+      win.show()
+      win.minimize()
+      expect(win.isMinimized()).toBe(true)
+
+      wm[action]('main')
+
+      expect(wm.get('main')).toBe(win)
+      expect(win.isMinimized()).toBe(false)
+      expect(win.isVisible()).toBe(true)
+      expect(win.focus).toHaveBeenCalledOnce()
+      expect(win.hide).not.toHaveBeenCalled()
+      expect(win.destroy).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each(['show', 'open', 'toggle'] as const)(
+    '%s preserves an existing maximized window',
+    (action) => {
+      const wm = new WindowManager({
+        settingsManager: createMockSettingsManager(),
+        platform: 'win32',
+        preloadPath: '/fake/preload.cjs',
+        loadUrl: vi.fn(),
+      })
+      const win = wm.open('main', { show: false })
+      vi.mocked(win.isMaximized).mockReturnValue(true)
+
+      wm[action]('main')
+
+      expect(win.restore).not.toHaveBeenCalled()
+      expect(win.isVisible()).toBe(true)
+      expect(win.focus).toHaveBeenCalledOnce()
+    }
+  )
 
   it('opens a window with correct config', () => {
     const sm = createMockSettingsManager()
