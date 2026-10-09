@@ -177,6 +177,84 @@ describe('isolated release signing input', () => {
     })
   })
 
+  it.each(['arm64', 'x64'] as const)(
+    'preserves shutdown permission metadata through isolated macOS signing: %s',
+    async (arch) => {
+      const { directory } = await createGeneratedSigningInput(
+        [
+          [`extra/darwin/${arch}/aria2c`, 'aria2'],
+          [
+            `packages/native-host/dist/darwin-${arch}/motrix-native-host`,
+            'native host',
+          ],
+          [
+            `packages/finalize-fs/dist/darwin-${arch}/motrix-finalize-fs`,
+            'finalize filesystem sidecar',
+          ],
+          [
+            `packages/safari-bootstrap/dist/darwin-${arch}/MotrixSafariBootstrap`,
+            'Safari bootstrap',
+          ],
+          [
+            `packages/safari-bootstrap/dist/darwin-${arch}/MotrixSafariRegistrar`,
+            'Safari registrar',
+          ],
+          [`release/size-reports/darwin-${arch}.json`, '{}'],
+        ],
+        [],
+        { platform: 'darwin', arch }
+      )
+
+      await expect(
+        verifySigningInput({
+          mode: 'verify',
+          directory,
+          platform: 'darwin',
+          arch,
+          commit: COMMIT,
+        })
+      ).resolves.toMatchObject({ target: { key: `darwin-${arch}` } })
+
+      const config = JSON.parse(
+        await readFile(
+          path.join(directory, 'electron-builder.signing.json'),
+          'utf8'
+        )
+      )
+      require('app-builder-lib')
+      const { MacPackager } = require('app-builder-lib/out/macPackager')
+      const appPlist: Record<string, unknown> = {}
+      // Exercise electron-builder's Info.plist generation from staged policy.
+      await MacPackager.prototype.applyCommonInfo.call(
+        {
+          platformSpecificBuildOptions: config.mac,
+          config,
+          appInfo: {
+            productFilename: 'Motrix',
+            productName: 'Motrix',
+            version: '2.0.0',
+            buildVersion: '2.0.1',
+          },
+          getIconPath: async () => null,
+        },
+        appPlist,
+        path.join(directory, 'Motrix.app/Contents')
+      )
+      expect(appPlist.NSAppleEventsUsageDescription).toBe(
+        'Motrix requests permission to shut down your Mac when all downloads finish, only when you enable this action.'
+      )
+      const { parse } = require('plist')
+      for (const key of ['entitlements', 'entitlementsInherit']) {
+        const entitlements = parse(
+          await readFile(path.join(directory, config.mac[key]), 'utf8')
+        )
+        expect(entitlements['com.apple.security.automation.apple-events']).toBe(
+          true
+        )
+      }
+    }
+  )
+
   it.each([
     { name: 'both images', header: true, sidebar: true },
     { name: 'missing header', header: false, sidebar: true },
@@ -363,10 +441,11 @@ describe('isolated release signing input', () => {
 
   it.each([
     'scripts/sign-macos.mjs',
+    'signing-build-resources/entitlements.mac.plist',
     'signing-build-resources/entitlements.safari.plist',
     'signing-build-resources/app.motrix.safari.bootstrap.plist',
   ])(
-    'rejects tampered Safari signing policy despite a rewritten manifest: %s',
+    'rejects tampered macOS signing policy despite a rewritten manifest: %s',
     async (relative) => {
       const directory = await createFixture()
       const file = path.join(directory, relative)
@@ -536,7 +615,11 @@ async function createFixture(
 
 async function createGeneratedSigningInput(
   files: Array<[string, string]>,
-  omittedSources: string[] = []
+  omittedSources: string[] = [],
+  target: { platform: 'darwin' | 'win32'; arch: 'arm64' | 'x64' } = {
+    platform: 'win32',
+    arch: 'x64',
+  }
 ): Promise<{ directory: string; sourceRoot: string }> {
   const sourceRoot = await realpath(
     await temporaryDirectory('motrix-signing-source-')
@@ -583,9 +666,9 @@ async function createGeneratedSigningInput(
       '--directory',
       directory,
       '--platform',
-      'win32',
+      target.platform,
       '--arch',
-      'x64',
+      target.arch,
       '--commit',
       COMMIT,
       '--archive',
