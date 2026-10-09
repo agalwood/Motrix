@@ -119,7 +119,7 @@ function PluginInstallSession({
   const callbacksRef = useRef({ open, onOpenChange, onInstalled })
   callbacksRef.current = { open, onOpenChange, onInstalled }
   const pluginId = fixedSource?.pluginId
-  const { startInstall, cancel } = install
+  const { startInstall, cancel, resetPresentation } = install
   useEffect(
     () => () => {
       startedRef.current = false
@@ -134,6 +134,10 @@ function PluginInstallSession({
       wasOpenRef.current = false
       return
     }
+    if (!wasOpenRef.current) {
+      resetPresentation()
+      setGrants({})
+    }
     wasOpenRef.current = true
     if (!pluginId || startedRef.current) return
     startedRef.current = true
@@ -146,10 +150,9 @@ function PluginInstallSession({
         callbacksRef.current.onOpenChange(false)
       }
     )
-  }, [open, pluginId, startInstall, cancel, clearUpdate])
+  }, [open, pluginId, startInstall, cancel, clearUpdate, resetPresentation])
 
   function close() {
-    setGrants({})
     onOpenChange(false)
   }
 
@@ -222,7 +225,16 @@ function PluginInstallSession({
         cancel: () => void onCancel(),
         retry: () => void retry(),
       })}
-      <Dialog open={dialogOpen} onOpenChange={(v) => !v && void onCancel()}>
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(v) => !v && void onCancel()}
+        onOpenChangeComplete={(next) => {
+          if (!next && !callbacksRef.current.open) {
+            resetPresentation()
+            setGrants({})
+          }
+        }}
+      >
         <DialogContent
           showCloseButton={!committing}
           initialFocus={install.consent ? cancelButtonRef : undefined}

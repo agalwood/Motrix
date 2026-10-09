@@ -195,6 +195,43 @@ describe('RegistryInstallAction', () => {
     })
   })
 
+  it('retains consent through dismissal and resets grants on reopening', async () => {
+    const exit = deferred<Animation>()
+    const animation = { finished: exit.promise } as Animation
+    const animations = vi
+      .spyOn(Element.prototype, 'getAnimations')
+      .mockImplementation(function (this: Element) {
+        return this.getAttribute('data-slot') === 'dialog-content' &&
+          this.hasAttribute('data-closed')
+          ? [animation]
+          : []
+      })
+    try {
+      render(<RegistryInstallAction pluginId="acme.smart-link" />)
+      start()
+      const popup = await screen.findByRole('dialog')
+      const toggle = screen.getByRole('switch', {
+        name: 'Send notifications',
+      })
+      fireEvent.click(toggle)
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+
+      await waitFor(() => expect(popup).toHaveAttribute('data-closed'))
+      expect(popup).toBeInTheDocument()
+      expect(popup).toHaveTextContent('Install Smart Link 1.0.0?')
+      expect(toggle).toHaveAttribute('aria-checked', 'true')
+
+      await act(async () => exit.resolve(animation))
+      await waitFor(() => expect(popup).not.toBeInTheDocument())
+      start()
+      expect(
+        await screen.findByRole('switch', { name: 'Send notifications' })
+      ).toHaveAttribute('aria-checked', 'false')
+    } finally {
+      animations.mockRestore()
+    }
+  })
+
   it('locks confirmation and grants until the commit completes', async () => {
     const commit = deferred<undefined>()
     render(<RegistryInstallAction pluginId="acme.smart-link" />)

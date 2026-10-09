@@ -16,6 +16,7 @@ interface MockInstallState {
   startInstall: ReturnType<typeof vi.fn>
   confirm: ReturnType<typeof vi.fn>
   cancel: ReturnType<typeof vi.fn>
+  resetPresentation: ReturnType<typeof vi.fn>
 }
 
 const state: MockInstallState = {
@@ -26,6 +27,7 @@ const state: MockInstallState = {
   startInstall: vi.fn(),
   confirm: vi.fn(),
   cancel: vi.fn(),
+  resetPresentation: vi.fn(),
 }
 
 vi.mock('./hooks/use-plugin-install', () => ({
@@ -65,6 +67,7 @@ beforeEach(() => {
   state.startInstall = vi.fn()
   state.confirm = vi.fn().mockResolvedValue(true)
   state.cancel = vi.fn()
+  state.resetPresentation = vi.fn()
 })
 
 describe('PluginInstallDialog', () => {
