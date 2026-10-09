@@ -105,6 +105,7 @@
       }
     ],
     "extendInfo": {
+      "NSAppleEventsUsageDescription": "Motrix requests permission to shut down your Mac when all downloads finish, only when you enable this action.",
       "NSLocalNetworkUsageDescription": "Motrix uses the local network for UPnP port mapping and discovering download peers."
     },
     "sign": "./scripts/sign-macos.mjs",
