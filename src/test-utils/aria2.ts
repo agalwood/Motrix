@@ -123,10 +123,13 @@ export async function spawnAria2ForTest(
     { stdio: ['ignore', 'pipe', 'pipe'] }
   )
 
-  // Swallow stdout/stderr so test output stays clean. If a spawn fails we
-  // still see the exit code / signal from `proc` itself.
-  proc.stdout?.on('data', () => {})
-  proc.stderr?.on('data', () => {})
+  // Keep bounded diagnostics for startup failures without noisy passing tests.
+  let startupOutput = ''
+  const collectOutput = (chunk: Buffer) => {
+    startupOutput = (startupOutput + chunk.toString()).slice(-4096)
+  }
+  proc.stdout?.on('data', collectOutput)
+  proc.stderr?.on('data', collectOutput)
   let spawnError: Error | undefined
   proc.once('error', (error) => {
     spawnError = error
@@ -134,7 +137,9 @@ export async function spawnAria2ForTest(
   const failure = () =>
     spawnError ??
     (proc.exitCode !== null || proc.signalCode !== null
-      ? new Error('Test aria2 exited before its authenticated RPC was ready')
+      ? new Error(
+          `Test aria2 exited before its authenticated RPC was ready (exit=${proc.exitCode}, signal=${proc.signalCode}): ${startupOutput.trim()}`
+        )
       : undefined)
 
   if (opts.waitForHttpRpc !== false) {

@@ -45,7 +45,7 @@ right-pointing arrow entering from the left, rendered in Blender with
 glass/satin materials and studio lighting derived from the supplied
 Glassmorphism collection's `File.blend`. The transparent lossless WebP assets are stored
 in `src/renderer/features/legacy-import/icons/icon-import@1x.webp` and
-`icon-import@2x.webp` at 96px and 192px. The supplied source has no verified
+`icon-import@2x.webp` at 128px and 256px. The supplied source has no verified
 author or license declaration; inherited materials and lighting remain
 `NOASSERTION` and are not relicensed under Motrix’s MIT license.
 

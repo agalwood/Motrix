@@ -35,7 +35,7 @@ Dashboard 速度模式卡片使用新建的兔子、乌龟和松鼠几何模型�
 
 迁移助手使用新建的紫色玻璃文件夹，以及从左侧进入、指向右侧的箭头，在 Blender 中沿用所提供
 Glassmorphism 素材集 `File.blend` 的玻璃、缎面材质和摄影棚灯光渲染。
-透明无损 WebP 资源以 96px 和 192px 保存于
+透明无损 WebP 资源以 128px 和 256px 保存于
 `src/renderer/features/legacy-import/icons/icon-import@1x.webp` 和
 `icon-import@2x.webp`。所提供的源文件没有可确认的作者或许可证声明，
 继承的材质和灯光许可记录为 `NOASSERTION`，未重新授权为 Motrix 的 MIT 许可。

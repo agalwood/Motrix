@@ -163,7 +163,7 @@ describe('TrackersTab — read mode', () => {
     expect(await screen.findByText('http://effective-only')).toBeInTheDocument()
     expect(
       screen.getByText(
-        'Imported downloads keep their original trackers. Editing is unavailable.'
+        'This download keeps its original trackers. They can’t be changed here.'
       )
     ).toBeInTheDocument()
     expect(

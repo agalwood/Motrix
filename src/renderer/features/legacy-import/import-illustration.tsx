@@ -10,8 +10,8 @@ export function ImportIllustration() {
       data-slot="migration-import-illustration"
       src={illustration1x}
       srcSet={`${illustration1x} 1x, ${illustration2x} 2x`}
-      width={96}
-      height={96}
+      width={128}
+      height={128}
       alt=""
       className="size-full object-contain brightness-90 contrast-[1.12] saturate-[1.2] drop-shadow-[0_1px_1px_rgb(15_23_42/0.12)] dark:filter-none"
       draggable={false}
