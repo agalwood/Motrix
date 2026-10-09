@@ -47,6 +47,24 @@ async function parentSubmissions(page: Page) {
   )
 }
 
+async function directoryCalls(page: Page) {
+  return page.evaluate(
+    (channels) =>
+      window.directoryPickerFixture.calls.filter((call) =>
+        channels.includes(call.channel)
+      ),
+    [
+      Queries.GetDirectoryPreferences,
+      Queries.ListAllowedSaveDirs,
+      Queries.ListServerDirectoryLocations,
+      Queries.ListServerDirectories,
+      Queries.ValidateServerDirectory,
+      Commands.CreateServerDirectory,
+      Commands.MutateDirectoryPreferences,
+    ] as string[]
+  )
+}
+
 async function settleFrames(page: Page) {
   await page.evaluate(
     () =>
@@ -110,9 +128,7 @@ test('favorite updates preserve picker geometry, list state and request budget',
   const list = picker.getByRole('listbox', { name: 'Folders', exact: true })
   await picker.getByRole('option', { name: 'Folder 0000', exact: true }).click()
   // The sorted display array must stay memoized across preference updates too.
-  const sortCalls = await page.evaluate(
-    () => window.directoryPickerFixture.calls
-  )
+  const sortCalls = await directoryCalls(page)
   await picker
     .getByRole('button', { name: 'View options', exact: true })
     .click()
@@ -125,9 +141,7 @@ test('favorite updates preserve picker geometry, list state and request budget',
   await expect(
     list.getByRole('option', { name: 'Folder 0000', exact: true })
   ).toHaveAttribute('aria-posinset', '800')
-  expect(
-    await page.evaluate(() => window.directoryPickerFixture.calls)
-  ).toEqual(sortCalls)
+  expect(await directoryCalls(page)).toEqual(sortCalls)
   await list.evaluate((element) => {
     element.scrollTop = 12000
   })
@@ -250,11 +264,18 @@ test('favorite updates preserve picker geometry, list state and request budget',
   }
 })
 
+function defaultFolder(manager: Locator) {
+  return manager.getByRole('textbox', {
+    name: 'Default download folder',
+    exact: true,
+  })
+}
+
 async function openSettingsManager(page: Page) {
   await page
-    .getByRole('button', { name: 'Open General settings', exact: true })
+    .getByRole('button', { name: 'Open Downloads settings', exact: true })
     .click()
-  const manager = page.getByRole('dialog', { name: 'General', exact: true })
+  const manager = page.getByRole('dialog', { name: 'Downloads', exact: true })
   await expect(manager).toHaveCSS('opacity', '1')
   return { manager }
 }
@@ -417,6 +438,7 @@ async function preferenceWrites(page: Page) {
       ),
     [
       Commands.SaveGeneralSettings,
+      Commands.SaveDownloadsSettings,
       Commands.MutateDirectoryPreferences,
       Commands.UpdateSettings,
     ]
@@ -430,7 +452,7 @@ async function expandRecent(manager: Locator) {
     await trigger.click()
 }
 
-test('General directory and ordinary setting drafts cancel without any preference command', async ({
+test('Downloads directory and ordinary setting drafts cancel without any preference command', async ({
   page,
 }) => {
   await seed(page)
@@ -444,12 +466,9 @@ test('General directory and ordinary setting drafts cancel without any preferenc
     window.directoryPickerFixture.getSettings()
   )
   const { manager } = await openSettingsManager(page)
-  await expect(manager.getByRole('textbox')).toHaveValue('/downloads')
-  await expect(manager.getByRole('textbox')).toHaveAttribute(
-    'title',
-    '/downloads'
-  )
-  await expect(manager.getByRole('textbox')).toHaveCSS('direction', 'ltr')
+  await expect(defaultFolder(manager)).toHaveValue('/downloads')
+  await expect(defaultFolder(manager)).toHaveAttribute('title', '/downloads')
+  await expect(defaultFolder(manager)).toHaveCSS('direction', 'ltr')
   await expect(
     manager.getByRole('button', {
       name: 'Remove favorite /downloads/Movies',
@@ -458,7 +477,7 @@ test('General directory and ordinary setting drafts cancel without any preferenc
   ).toBeVisible()
   await settlePanel(page, manager)
   await manager.screenshot({
-    path: test.info().outputPath('general-directory-fields-wide-light.png'),
+    path: test.info().outputPath('downloads-directory-fields-wide-light.png'),
   })
   await expandRecent(manager)
   await manager
@@ -478,7 +497,7 @@ test('General directory and ordinary setting drafts cancel without any preferenc
     .click()
   await manager
     .getByRole('switch', {
-      name: 'Notify when download completes',
+      name: 'Autofill links from clipboard',
       exact: true,
     })
     .click()
@@ -519,17 +538,17 @@ test('General directory and ordinary setting drafts cancel without any preferenc
   ).toBeVisible()
 })
 
-test('General Save atomically commits settings and directory intent against concurrent new records', async ({
+test('Downloads Save atomically commits settings and directory intent against concurrent new records', async ({
   page,
 }) => {
   await seed(page)
   const { manager } = await openSettingsManager(page)
   await expandRecent(manager)
-  const notification = manager.getByRole('switch', {
-    name: 'Notify when download completes',
+  const autofill = manager.getByRole('switch', {
+    name: 'Autofill links from clipboard',
     exact: true,
   })
-  const initialNotification = await notification.isChecked()
+  const initialAutofill = await autofill.isChecked()
   await manager
     .getByRole('button', {
       name: 'Remove recent folder /downloads/Movies',
@@ -542,10 +561,10 @@ test('General Save atomically commits settings and directory intent against conc
       exact: true,
     })
     .click()
-  await notification.click()
+  await autofill.click()
   await page.evaluate((channel) => {
     window.directoryPickerFixture.holdChannel = channel
-  }, Commands.SaveGeneralSettings)
+  }, Commands.SaveDownloadsSettings)
   await manager.getByRole('button', { name: 'Save', exact: true }).click()
   await expect.poll(() => preferenceWrites(page)).toHaveLength(1)
   await page.evaluate(() =>
@@ -556,8 +575,8 @@ test('General Save atomically commits settings and directory intent against conc
   )
   expect(
     (await page.evaluate(() => window.directoryPickerFixture.getSettings())).app
-      .notifyOnComplete
-  ).toBe(initialNotification)
+      .autofillClipboardLinks
+  ).toBe(initialAutofill)
   await page.evaluate(() => {
     window.directoryPickerFixture.holdChannel = null
     window.directoryPickerFixture.releaseRequest?.()
@@ -567,11 +586,11 @@ test('General Save atomically commits settings and directory intent against conc
   expect(writes).toHaveLength(2)
   for (const write of writes) {
     expect(write).toEqual({
-      channel: Commands.SaveGeneralSettings,
+      channel: Commands.SaveDownloadsSettings,
       args: [
         {
           expectedRevision: expect.any(String),
-          app: { notifyOnComplete: !initialNotification },
+          settings: { app: { autofillClipboardLinks: !initialAutofill } },
           directories: {
             addFavorites: ['/downloads/Music'],
             removeFavorites: [],
@@ -594,11 +613,11 @@ test('General Save atomically commits settings and directory intent against conc
   })
   expect(
     (await page.evaluate(() => window.directoryPickerFixture.getSettings())).app
-      .notifyOnComplete
-  ).toBe(!initialNotification)
+      .autofillClipboardLinks
+  ).toBe(!initialAutofill)
 })
 
-test('General failed Save keeps both committed settings and preferences unchanged and preserves the draft', async ({
+test('Downloads failed Save keeps both committed settings and preferences unchanged and preserves the draft', async ({
   page,
 }) => {
   await seed(page)
@@ -610,11 +629,11 @@ test('General failed Save keeps both committed settings and preferences unchange
   await manager
     .getByRole('button', { name: 'Remove recent folder /missing', exact: true })
     .click()
-  const notification = manager.getByRole('switch', {
-    name: 'Notify when download completes',
+  const autofill = manager.getByRole('switch', {
+    name: 'Autofill links from clipboard',
     exact: true,
   })
-  await notification.click()
+  await autofill.click()
   await page.evaluate(() => {
     window.directoryPickerFixture.mutationFailure = true
   })
@@ -623,8 +642,8 @@ test('General failed Save keeps both committed settings and preferences unchange
   expect(
     await page.evaluate(() => window.directoryPickerFixture.getSettings())
   ).toEqual(original)
-  await expect(notification).toBeChecked({
-    checked: !original.app.notifyOnComplete,
+  await expect(autofill).toBeChecked({
+    checked: !original.app.autofillClipboardLinks,
   })
   await expect(
     manager.getByRole('button', {
@@ -774,7 +793,7 @@ test('history manager Save commits its directory-only draft and restores the his
 })
 
 for (const app of [false, true]) {
-  test(`General Browse stages its default and favorites without recording recent use (${app ? 'App service' : 'Web'})`, async ({
+  test(`Downloads Browse stages its default and favorites without recording recent use (${app ? 'App service' : 'Web'})`, async ({
     page,
   }) => {
     await seed(page, app ? '?transportPlatform=linux&nativePicker=1' : '')
@@ -806,12 +825,12 @@ for (const app of [false, true]) {
     }
     await manager.getByRole('button', { name: 'Browse…', exact: true }).click()
     await chooseMovies()
-    await expect(manager.getByRole('textbox')).toHaveValue('/downloads/Movies')
-    await expect(manager.getByRole('textbox')).toHaveAttribute(
+    await expect(defaultFolder(manager)).toHaveValue('/downloads/Movies')
+    await expect(defaultFolder(manager)).toHaveAttribute(
       'title',
       '/downloads/Movies'
     )
-    await expect(manager.getByRole('textbox')).toHaveCSS('direction', 'ltr')
+    await expect(defaultFolder(manager)).toHaveCSS('direction', 'ltr')
     await manager
       .getByRole('button', { name: 'Add favorite', exact: true })
       .click()
@@ -910,7 +929,7 @@ test('unrestricted common places, root breadcrumb and Mac jumps stay available w
   })
 })
 
-test('Web star saves the browsed directory and accepted AddTask updates shared recent history', async ({
+test('Web star saves the browsed directory and only accepted AddTask updates shared recent history', async ({
   page,
 }) => {
   await seed(page)
@@ -946,6 +965,26 @@ test('Web star saves the browsed directory and accepted AddTask updates shared r
     menu.getByRole('menuitem', { name: '/downloads', exact: true })
   ).toBeVisible()
   await page.keyboard.press('Escape')
+  const recent = await page.evaluate(
+    () => window.directoryPickerFixture.getPreferences().recent
+  )
+  await page.evaluate(() => {
+    window.directoryPickerFixture.taskCreateFailure = true
+  })
+  await parent.getByRole('button', { name: 'Download', exact: true }).click()
+  await expect(
+    parent.getByText('The fixture rejected this download.', { exact: false })
+  ).toBeVisible()
+  await expect(parent).toBeVisible()
+  expect(await parentSubmissions(page)).toHaveLength(1)
+  expect(
+    await page.evaluate(
+      () => window.directoryPickerFixture.getPreferences().recent
+    )
+  ).toEqual(recent)
+  await page.evaluate(() => {
+    window.directoryPickerFixture.taskCreateFailure = false
+  })
   await parent.getByRole('button', { name: 'Download', exact: true }).click()
   await expect(parent).not.toBeVisible()
   await expect
@@ -955,10 +994,17 @@ test('Web star saves the browsed directory and accepted AddTask updates shared r
       )
     )
     .toBe('/downloads')
-  expect(await parentSubmissions(page)).toHaveLength(1)
+  const submissions = await parentSubmissions(page)
+  expect(submissions).toHaveLength(2)
+  for (const submission of submissions)
+    expect(submission.args[0]).toMatchObject({
+      type: 'http',
+      uris: ['https://example.com/archive.zip'],
+      saveDir: '/downloads',
+    })
 })
 
-test('narrow General directory fields stay compact with centered rows, full path titles and a visible footer', async ({
+test('narrow Downloads directory fields stay compact with centered rows, full path titles and a visible footer', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 620 })
@@ -979,12 +1025,9 @@ test('narrow General directory fields stay compact with centered rows, full path
   const recent = manager.getByRole('button', { name: /^Recent folders/ })
   await expect(recent).toHaveAttribute('aria-expanded', 'false')
   const path = manager.getByTitle(paths[0], { exact: true })
-  await expect(manager.getByRole('textbox')).toHaveValue('/downloads')
-  await expect(manager.getByRole('textbox')).toHaveAttribute(
-    'title',
-    '/downloads'
-  )
-  await expect(manager.getByRole('textbox')).toHaveCSS('direction', 'ltr')
+  await expect(defaultFolder(manager)).toHaveValue('/downloads')
+  await expect(defaultFolder(manager)).toHaveAttribute('title', '/downloads')
+  await expect(defaultFolder(manager)).toHaveCSS('direction', 'ltr')
   await expect(path).toBeVisible()
   const row = path.locator('..')
   const layout = await row.evaluate((element) => {
@@ -1027,7 +1070,7 @@ test('narrow General directory fields stay compact with centered rows, full path
     manager.getByRole('button', { name: 'Cancel', exact: true })
   ).toBeInViewport({ ratio: 1 })
   await manager.screenshot({
-    path: test.info().outputPath('general-directory-fields-narrow-dark.png'),
+    path: test.info().outputPath('downloads-directory-fields-narrow-dark.png'),
   })
   await expandRecent(manager)
   await manager
@@ -1152,7 +1195,7 @@ test('a no-op Save fences a timed-out original even when its delayed validation 
   await page.clock.install()
   await page.evaluate((channel) => {
     window.directoryPickerFixture.holdChannel = channel
-  }, Commands.SaveGeneralSettings)
+  }, Commands.SaveDownloadsSettings)
   await manager.getByRole('button', { name: 'Save', exact: true }).click()
   await expect.poll(() => preferenceWrites(page)).toHaveLength(1)
   await page.clock.fastForward(20_001)

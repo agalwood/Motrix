@@ -1951,9 +1951,6 @@ test('context actions open files, select download files, reorder the queue and c
   await expect(
     mainWindow.getByRole('menuitem', { name: 'Move to Front', exact: true })
   ).toBeVisible()
-  await mainWindow.screenshot({
-    path: testInfo.outputPath('queue-submenu.png'),
-  })
   await mainWindow
     .getByRole('menuitem', { name: 'Move to Front', exact: true })
     .click()

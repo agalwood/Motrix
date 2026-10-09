@@ -2,6 +2,7 @@ import type { Transport } from '@renderer/lib/transport/types'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
+import { taskCreateRequestSchema } from '@shared/schemas/add-task'
 import { DEFAULT_APP_SETTINGS } from '@shared/schemas/app-settings'
 import {
   type DirectoryPreferences,
@@ -9,6 +10,11 @@ import {
   GetDirectoryPreferencesRequestSchema,
   MutateDirectoryPreferencesRequestSchema,
 } from '@shared/schemas/directory-preferences'
+import {
+  downloadsSettingsSchema,
+  saveDownloadsSettingsRequestSchema,
+} from '@shared/schemas/downloads-settings'
+import { DEFAULT_ENGINE_SETTINGS } from '@shared/schemas/engine-settings'
 import {
   GeneralSettingsAppSchema,
   GetGeneralSettingsDraftRequestSchema,
@@ -19,6 +25,7 @@ import {
   ListServerDirectoriesRequestSchema,
   ValidateServerDirectoryRequestSchema,
 } from '@shared/schemas/server-directory'
+import { createDefaultSpeedLimitSettings } from '@shared/schemas/speed-limit'
 
 const folders = new Map<string, string[]>([
   ['/', ['archive', 'downloads', 'home']],
@@ -46,10 +53,12 @@ for (const name of folders.get('/archive') ?? [])
 
 const settings = {
   app: {
-    ...DEFAULT_APP_SETTINGS,
+    ...structuredClone(DEFAULT_APP_SETTINGS),
     defaultSaveDir: '/downloads',
     autofillClipboardLinks: false,
   },
+  engine: structuredClone(DEFAULT_ENGINE_SETTINGS),
+  speedLimit: createDefaultSpeedLimitSettings('binary'),
 }
 
 const unrestricted = new URLSearchParams(location.search).has('unrestricted')
@@ -66,9 +75,16 @@ const generalSnapshot = () => ({
   app: GeneralSettingsAppSchema.parse(settings.app),
   directoryPreferences: preferences(),
 })
+const downloadsSnapshot = () => ({
+  revision: generalRevision,
+  settings: downloadsSettingsSchema.parse(settings),
+  directoryPreferences: preferences(),
+})
 const preferences = () => structuredClone(settings.app.directoryPreferences)
 function setPreferences(value: DirectoryPreferences) {
-  settings.app.directoryPreferences = DirectoryPreferencesSchema.parse(value)
+  const next = DirectoryPreferencesSchema.parse(value)
+  if (JSON.stringify(next) === JSON.stringify(preferences())) return
+  settings.app.directoryPreferences = next
   generalRevision = crypto.randomUUID()
   for (const listener of listeners.get(Events.DirectoryPreferencesChanged) ??
     [])
@@ -96,6 +112,7 @@ export const fixtureState = {
     stack?: string
   }[],
   createFailure: false,
+  taskCreateFailure: false,
   mutationFailure: false,
   nativePickerResult: null as string | null,
   nativePickerCalls: 0,
@@ -107,6 +124,23 @@ export const fixtureState = {
 }
 
 const error = (code: string) => ({ ok: false, error: { code } })
+
+function mergePatch<T extends object>(current: T, patch: object): T {
+  const merged = { ...current } as Record<string, unknown>
+  for (const [key, value] of Object.entries(patch)) {
+    const original = merged[key]
+    merged[key] =
+      value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      original &&
+      typeof original === 'object' &&
+      !Array.isArray(original)
+        ? mergePatch(original, value)
+        : value
+  }
+  return merged as T
+}
 
 // Only RPC data and unrelated transport events are replaced. The browser runs
 // the actual add-task form, picker, Base UI dialogs, and their keyboard handlers.
@@ -134,7 +168,9 @@ export const transport: Transport = {
     }
     switch (channel) {
       case Queries.GetSettings:
-        return settings
+        return structuredClone(settings)
+      case Queries.ListTasks:
+        return []
       case Queries.ListAllowedSaveDirs:
         return {
           paths: unrestricted
@@ -146,6 +182,9 @@ export const transport: Transport = {
       case Queries.GetGeneralSettingsDraft:
         GetGeneralSettingsDraftRequestSchema.parse(args[0])
         return { ok: true, value: generalSnapshot() }
+      case Queries.GetDownloadsSettingsDraft:
+        GetGeneralSettingsDraftRequestSchema.parse(args[0])
+        return { ok: true, value: downloadsSnapshot() }
       case Queries.GetDirectoryPreferences:
         GetDirectoryPreferencesRequestSchema.parse(args[0])
         return { ok: true, value: preferences() }
@@ -237,6 +276,45 @@ export const transport: Transport = {
         generalRevision = crypto.randomUUID()
         return { ok: true, value: generalSnapshot() }
       }
+      case Commands.SaveDownloadsSettings: {
+        const parsed = saveDownloadsSettingsRequestSchema.safeParse(args[0])
+        if (!parsed.success) return error('invalidPath')
+        if (fixtureState.mutationFailure) return error('unavailable')
+        const { settings: patch, directories, expectedRevision } = parsed.data
+        if (expectedRevision !== generalRevision)
+          return { ...error('conflict'), snapshot: downloadsSnapshot() }
+        if (
+          (patch.app?.defaultSaveDir !== undefined &&
+            !canVisit(patch.app.defaultSaveDir)) ||
+          directories.addFavorites.some((path) => !canVisit(path))
+        )
+          return error('notFound')
+        const current = preferences()
+        const next = {
+          favorites: [
+            ...new Set([
+              ...current.favorites.filter(
+                (path) => !directories.removeFavorites.includes(path)
+              ),
+              ...directories.addFavorites,
+            ]),
+          ],
+          recent: current.recent.filter(
+            (path) => !directories.removeRecent.includes(path)
+          ),
+        }
+        if (next.favorites.length > 20) return error('limitReached')
+        Object.assign(settings, mergePatch(settings, patch))
+        if (JSON.stringify(current) !== JSON.stringify(next))
+          setPreferences(next)
+        // Even an empty committed draft fences a timed-out predecessor.
+        generalRevision = crypto.randomUUID()
+        return {
+          ok: true,
+          value: downloadsSnapshot(),
+          update: { saved: true, requiresRestart: false },
+        }
+      }
       case Queries.ListServerDirectories: {
         const { path, showHidden } = ListServerDirectoriesRequestSchema.parse(
           args[0]
@@ -311,8 +389,30 @@ export const transport: Transport = {
         }
         return { saved: true, requiresRestart: false, changedRestartKeys: [] }
       }
-      case Commands.CreateTask:
-        return { outcome: 'created', taskId: 'unexpected-parent-submit' }
+      case Commands.CreateTask: {
+        const request = taskCreateRequestSchema.parse(args[0])
+        if (fixtureState.taskCreateFailure)
+          throw new Error('The fixture rejected this download.')
+        if (!canVisit(request.saveDir))
+          throw new Error('The download folder is unavailable.')
+        // Both hosts record an accepted request's saveDir and broadcast the
+        // shared preferences event; rejected submissions never write history.
+        if (!fixtureState.mutationFailure) {
+          const current = preferences()
+          setPreferences({
+            ...current,
+            recent: [
+              request.saveDir,
+              ...current.recent.filter((path) => path !== request.saveDir),
+            ].slice(0, 10),
+          })
+        }
+        return {
+          outcome: 'created',
+          gid: '0123456789abcdef',
+          taskId: 'fixture-created-task',
+        }
+      }
       default:
         throw new Error(`Unhandled harness RPC: ${channel}`)
     }

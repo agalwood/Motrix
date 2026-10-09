@@ -773,10 +773,49 @@ test.describe('Task Inspector Activity', () => {
       ).toBeVisible()
       await capture(page, 'completed-en-US-light-914.png')
 
+      const historyDroppedCount = await app.evaluate(
+        ({ app }, fixture: { userDataDir: string; taskId: string }) => {
+          const { createRequire } = process.getBuiltinModule('module')
+          const path = process.getBuiltinModule('path')
+          const requireFromApp = createRequire(
+            path.join(app.getAppPath(), 'package.json')
+          )
+          const Database = requireFromApp(
+            'better-sqlite3'
+          ) as typeof import('better-sqlite3')
+          const database = new Database(
+            path.join(fixture.userDataDir, 'motrix.db'),
+            { readonly: true, fileMustExist: true }
+          )
+          try {
+            const summary = database
+              .prepare(
+                'SELECT history_dropped_count AS historyDroppedCount FROM task_inspector_activity WHERE motrix_id = ?'
+              )
+              .get(fixture.taskId) as
+              | { historyDroppedCount: number }
+              | undefined
+            if (!summary)
+              throw new Error('Truncated fixture summary is missing')
+            return summary.historyDroppedCount
+          } finally {
+            database.close()
+          }
+        },
+        { userDataDir, taskId: TASK_INSPECTOR_ACTIVITY_IDS.truncated }
+      )
+      expect(historyDroppedCount).toBeGreaterThan(0)
       await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.truncated)
       await expect(
+        page
+          .getByRole('dialog', { name: 'Task Inspector', exact: true })
+          .getByText(TASK_INSPECTOR_ACTIVITY_NAMES.truncated, { exact: true })
+      ).toBeVisible()
+      await expect(
         transfer.getByRole('img', {
-          name: /Earlier history truncated 2 events/,
+          name: new RegExp(
+            `Earlier history truncated ${historyDroppedCount} ${historyDroppedCount === 1 ? 'event' : 'events'}\\b`
+          ),
         })
       ).toBeVisible()
       await capture(page, 'truncated-en-US-light-914.png')
