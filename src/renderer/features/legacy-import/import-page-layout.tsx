@@ -66,7 +66,10 @@ export function ImportStageHeading({
       )}
     >
       {illustration && (
-        <div className="migration-stage-illustration mb-5 size-24" aria-hidden>
+        <div
+          className="migration-stage-illustration mb-5 -ml-5 size-32"
+          aria-hidden
+        >
           {illustration}
         </div>
       )}

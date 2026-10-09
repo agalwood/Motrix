@@ -202,7 +202,7 @@ export function ImportTaskSelection({
       )}
       <div
         data-slot="migration-task-selection"
-        className="mx-auto flex min-h-30 w-full max-w-160 flex-1 flex-col overflow-hidden rounded-lg border border-border"
+        className="mx-auto flex min-h-30 w-full max-w-160 flex-1 flex-col overflow-hidden rounded-md border border-border"
         // Include both borders so a fitting list does not scroll by two pixels.
         style={{ maxHeight: Math.max(120, rows.length * 56 + 2) }}
       >

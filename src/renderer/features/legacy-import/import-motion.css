@@ -53,8 +53,6 @@
   }
 
   .migration-stage-illustration {
-    width: 64px;
-    height: 64px;
     margin-bottom: 12px;
   }
 }
@@ -86,8 +84,6 @@
   }
 
   .migration-stage-illustration {
-    width: 48px;
-    height: 48px;
     margin-bottom: 8px;
   }
 }
