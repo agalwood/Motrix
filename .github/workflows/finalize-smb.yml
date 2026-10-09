@@ -64,3 +64,45 @@ jobs:
             if ($created) { Remove-SmbShare -Name $shareName -Force }
             Remove-Item -LiteralPath $shareRoot -Recurse -Force
           }
+
+  windows-exfat:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: 1.94.1
+      - name: Exercise an isolated exFAT virtual disk
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Get-PSDrive -Name R -ErrorAction SilentlyContinue) { throw 'Test drive letter R is already in use' }
+          $vhd = Join-Path $env:RUNNER_TEMP "motrix-exfat-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT.vhd"
+          $script = Join-Path $env:RUNNER_TEMP "motrix-exfat-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT.txt"
+          if (Test-Path -LiteralPath $vhd) { throw 'Test VHD already exists' }
+          try {
+            @(
+              "create vdisk file=`"$vhd`" maximum=128 type=expandable",
+              "select vdisk file=`"$vhd`"",
+              'attach vdisk',
+              'create partition primary',
+              'format fs=exfat quick label=MotrixTest',
+              'assign letter=R'
+            ) | Set-Content -LiteralPath $script -Encoding ASCII
+            diskpart /s $script
+            if ($LASTEXITCODE -ne 0) { throw 'Creating exFAT test VHD failed' }
+            $disk = Get-DiskImage -ImagePath $vhd | Get-Disk
+            $volume = Get-Partition -DiskNumber $disk.Number | Get-Volume | Where-Object DriveLetter -eq R
+            if (!$volume -or $volume.FileSystem -ne 'exFAT') { throw 'R is not the newly created exFAT test volume' }
+            $env:MOTRIX_FINALIZE_EXFAT_ROOT = 'R:\'
+            cargo test --manifest-path packages/finalize-fs/Cargo.toml --locked -- --ignored --exact platform::windows::tests::exfat_volume_root_and_nested_directory_support_no_replace_rename
+            if ($LASTEXITCODE -ne 0) { throw 'exFAT finalization contract failed' }
+          } finally {
+            Remove-Item Env:MOTRIX_FINALIZE_EXFAT_ROOT -ErrorAction SilentlyContinue
+            if (Test-Path -LiteralPath $vhd) {
+              Dismount-DiskImage -ImagePath $vhd -ErrorAction Continue
+              Remove-Item -LiteralPath $vhd -Force -ErrorAction Continue
+            }
+            Remove-Item -LiteralPath $script -Force -ErrorAction SilentlyContinue
+          }

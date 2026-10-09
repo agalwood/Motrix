@@ -42,13 +42,7 @@ pub(crate) fn open_root(path: &str) -> io::Result<RootHandle> {
     let requested = Path::new(path);
     let (anchor, components) = split_absolute_root(requested)?;
     let mut current = nt::open_anchor(&anchor, components.is_empty())?;
-    let anchor_stamp = query_stamp(&current)?;
-    if !anchor_stamp.directory {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "Windows root anchor is not a directory",
-        ));
-    }
+    metadata::ensure_directory(&current)?;
     let component_count = components.len();
     for (index, component) in components.into_iter().enumerate() {
         current = if index + 1 == component_count {
@@ -56,12 +50,7 @@ pub(crate) fn open_root(path: &str) -> io::Result<RootHandle> {
         } else {
             nt::open_existing_directory(&current, &component)?
         };
-        if !query_stamp(&current)?.directory {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "Windows root component is not a directory",
-            ));
-        }
+        metadata::ensure_directory(&current)?;
     }
     Ok(RootHandle { handle: current })
 }
@@ -126,8 +115,7 @@ pub(crate) fn rename_opened_no_replace(
         ensure_named_entry(&artifact.handle, &artifact.parent, &artifact.name)?;
         let parts = validate_relative(target_relative)?;
         let (target_parent, target_name) = open_parent(&target.handle, &parts)?;
-        let same_parent = metadata::query_identity(&artifact.parent)?
-            == metadata::query_identity(&target_parent)?;
+        let same_parent = metadata::same_parent_directory(&artifact.parent, &target_parent)?;
         Ok((target_parent, target_name, same_parent))
     })()
     .map_err(|e| operation_error(e, "validate_source", "not_attempted", None))?;
@@ -172,12 +160,7 @@ fn open_parent(root: &OwnedHandle, parts: &[&str]) -> io::Result<(OwnedHandle, V
     let mut current = root.try_clone()?;
     for component in &parts[..parts.len().saturating_sub(1)] {
         current = nt::open_mutable_directory(&current, &nt::wide_name(component)?)?;
-        if !query_stamp(&current)?.directory {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "Windows path component is not a directory",
-            ));
-        }
+        metadata::ensure_directory(&current)?;
     }
     Ok((
         current,
