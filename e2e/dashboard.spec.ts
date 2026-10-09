@@ -1,13 +1,3 @@
-// e2e/dashboard.spec.ts
-// Dashboard v1 golden-path e2e tests.
-//
-// Note on infrastructure gaps:
-// - Test 2 (window narrow / fold behavior): requires programmatic window resize.
-//   The app exposes Commands.ResizeWindow via IPC, but there is no e2e helper
-//   that drives the Electron window size from outside. This test is skipped.
-// - Test 3 (engine offline/recovery): requires killing and restarting the aria2
-//   subprocess. No e2e helper exists for this. This test is skipped.
-//   Both are documented below with test.skip.
 import { expect, test } from './fixtures/electron-app'
 import { setTaskInspectorContentSize } from './fixtures/task-inspector-activity'
 
@@ -22,7 +12,9 @@ test.describe('Dashboard v1', () => {
       name: 'Toggle sidebar',
       exact: true,
     })
-    const header = mainWindow.locator('[data-slot="panel-shell-header"]')
+    const header = mainWindow.locator(
+      '[data-slot="panel-shell-header"]:visible'
+    )
     const headerHeight = () =>
       header.evaluate((element) => element.getBoundingClientRect().height)
 
@@ -145,25 +137,5 @@ test.describe('Dashboard v1', () => {
       .getByRole('button', { name: 'Cancel', exact: true })
       .click()
     await expectSquareTile()
-  })
-
-  test.skip('window narrows below 904px → Tasks falls beneath grid', async () => {
-    // SKIPPED: No e2e helper exists to programmatically resize the Electron
-    // BrowserWindow to a specific pixel width from outside the process.
-    // Commands.ResizeWindow is an IPC command but it is not wired to a
-    // helper that updates the window dimensions before assertion.
-    // To implement: add a resizeMainWindow(page, width, height) helper in
-    // e2e/helpers/ that calls electronApp.evaluate() to call win.setSize().
-  })
-
-  test.skip('engine offline → Engine card shows Disconnected; recovery restores Ready', async () => {
-    // SKIPPED: No e2e helper exists to kill and restart the aria2 subprocess
-    // from outside the Electron process during a test. The EngineSupervisor
-    // manages aria2's lifetime; there is no IPC command that deliberately
-    // stops it without a full app quit.
-    // To implement: add a helper that calls electronApp.evaluate() to reach
-    // into the EngineSupervisor singleton and call .kill() / .start().
-    // Alternatively, send SIGKILL to the aria2 PID obtained via
-    // Queries.GetEngineStatus.featureReport and wait for EngineStateChanged.
   })
 })

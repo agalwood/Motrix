@@ -43,9 +43,9 @@ const ROOT = process.cwd()
 const WORKFLOW_DIRECTORY = path.join(ROOT, '.github/workflows')
 const require = createRequire(import.meta.url)
 const parseYaml = require('js-yaml').load as (source: string) => unknown
-const PNPM_VERSION = '12.8.1'
+const PNPM_VERSION = '12.10.1'
 const PNPM_PACKAGE_MANAGER =
-  'pnpm@12.8.1+sha512.f64ba907507f5ceafe06c8d38e6052d0179444580ec1279ddd5bfc11cb48aa8a2644b66598e07e761da84872a9fc57d5f902b87fa49d024198d558612aabbe45'
+  'pnpm@12.10.1+sha512.ba40a37eb1a370d60fea8c4cf1d364c13bcccef518e98ad2bcee954f539d38da37458e58261a3fa55e06523450ea0ffff9f497b135be41f2c15c1642bacace6c'
 const ELECTRON_BUILDER_CUSTOM_DIR_ENVIRONMENT_VARIABLES = [
   'NPM_CONFIG_ELECTRON_BUILDER_BINARIES_CUSTOM_DIR',
   'npm_config_electron_builder_binaries_custom_dir',
@@ -1459,7 +1459,7 @@ describe('release workflow publication contract', () => {
         asRecord(packageJson.devDependencies, 'dev dependencies'),
         'electron-builder'
       )
-    ).toBe('26.15.7')
+    ).toBe('26.17.0')
   })
 
   it('publishes required Flatpak companions outside updater manifests', () => {
@@ -1977,7 +1977,7 @@ describe('release workflow publication contract', () => {
       'utf8'
     )
     expect(macCodeSignSource).toContain(
-      '["set-key-partition-list", "-S", "apple-tool:,apple:", "-s", "-k", password, keychainFile]'
+      '["set-key-partition-list", "-S", "apple-tool:,apple:", "-s", "-k", keychainPassword, keychainFile]'
     )
     expect(macPackagerSource).toContain('process.env.CSC_KEYCHAIN || null')
 
@@ -2218,12 +2218,12 @@ describe('release workflow publication contract', () => {
     }
   })
 
-  it('uses the locked 26.15.7 hook to preserve staged dependency placements', async () => {
+  it('uses the locked 26.17.0 hook to preserve staged dependency placements', async () => {
     const packageMetadata = asRecord(
       require('app-builder-lib/package.json') as unknown,
       'app-builder-lib package metadata'
     )
-    expect(stringField(packageMetadata, 'version')).toBe('26.15.7')
+    expect(stringField(packageMetadata, 'version')).toBe('26.17.0')
     const signingConfig = asRecord(
       JSON.parse(signingConfigSource) as unknown,
       'restricted signing config'
@@ -2494,7 +2494,7 @@ describe('release workflow publication contract', () => {
     }
   })
 
-  it('restores canonical 26.15.7 NSIS URLs after custom directories are unset', async () => {
+  it('restores canonical 26.17.0 NSIS URLs after custom directories are unset', async () => {
     const signingToolPackages = asRecord(
       asRecord(
         JSON.parse(signingToolLockSource) as unknown,
@@ -2506,13 +2506,13 @@ describe('release workflow publication contract', () => {
       signingToolPackages['node_modules/app-builder-lib'],
       'locked app-builder-lib package'
     )
-    expect(stringField(lockedAppBuilder, 'version')).toBe('26.15.7')
+    expect(stringField(lockedAppBuilder, 'version')).toBe('26.17.0')
 
     const packageMetadata = asRecord(
       require('app-builder-lib/package.json') as unknown,
       'app-builder-lib package metadata'
     )
-    expect(stringField(packageMetadata, 'version')).toBe('26.15.7')
+    expect(stringField(packageMetadata, 'version')).toBe('26.17.0')
 
     const electronGetPath = require.resolve(
       'app-builder-lib/out/util/electronGet.js'
@@ -2671,7 +2671,7 @@ describe('release workflow publication contract', () => {
       stringField(asRecord(config.directories, 'signing directories'), 'app')
     ).toBe('dist/electron-app')
     expect(stringField(config, 'electronDist')).toBe('trusted/electron.zip')
-    expect(stringField(config, 'electronVersion')).toBe('44.5.0')
+    expect(stringField(config, 'electronVersion')).toBe('44.7.0')
     expect(signingInputSource).toContain(
       "config.directories?.app !== 'dist/electron-app'"
     )
@@ -2696,7 +2696,7 @@ describe('release workflow publication contract', () => {
         asRecord(tool.dependencies, 'signing tool dependencies'),
         'electron-builder'
       )
-    ).toBe('26.15.7')
+    ).toBe('26.17.0')
     const lock = asRecord(
       JSON.parse(signingToolLockSource) as unknown,
       'signing tool lock'
@@ -2737,7 +2737,7 @@ describe('release workflow publication contract', () => {
       asRecord(metadata.devDependencies, 'dev dependencies'),
       'electron'
     )
-    expect(version).toBe('44.5.0')
+    expect(version).toBe('44.7.0')
     expect(
       stringField(
         asRecord(

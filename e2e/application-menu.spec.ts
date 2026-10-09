@@ -106,6 +106,12 @@ test.describe('application menu', () => {
       exact: true,
     })
     await input.fill('Menu task')
+    await expect(
+      mainWindow.getByRole('button', {
+        name: 'Filters · Search: Menu task',
+        exact: true,
+      })
+    ).toBeVisible()
     await input.press(`${modifier}+a`)
     await expect
       .poll(() =>

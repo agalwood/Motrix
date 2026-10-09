@@ -7,7 +7,7 @@ import { inflateRawSync } from 'node:zlib'
 import { parseStrictSemVer } from './release-metadata.mjs'
 
 export const APPIMAGE_TOOLSET_VERSION = '1.0.3'
-export const ELECTRON_BUILDER_VERSION = '26.15.7'
+export const ELECTRON_BUILDER_VERSION = '26.17.0'
 
 const APPIMAGE_ARCH = Object.freeze({
   x64: { artifact: 'x86_64', machine: 0x3e },

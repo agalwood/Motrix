@@ -127,7 +127,14 @@ export class TaskTrackerService {
       : undefined
     if (!task || task.engineTaskId !== engineGid)
       return { trackers: manual, isPrivate: privacy === true }
-    this.writable(task.id, engineGid)
+    // A re-add keeps the reserved owner's terminal status until the engine
+    // accepts its new GID. Creation owns that GID; live-edit eligibility does
+    // not apply, but imported tasks still cannot acquire tracker ownership.
+    if (hasLegacyImport(task))
+      throw new AppError(
+        ErrorCode.EngineFeatureUnavailable,
+        'legacyImport.trackersReadOnly'
+      )
     const saved = this.deps.repository.get(task.id)
     const retainedManual =
       privacy === true

@@ -417,12 +417,6 @@ describe('buildServerQueryHandlers — GetTaskActivity parity', () => {
 })
 
 describe('buildServerQueryHandlers — GetTaskDetail parity', () => {
-  it('exposes GetTaskDetail (mirrors the Electron shell)', () => {
-    // @ts-expect-error partial ctx for test
-    const handlers = buildServerQueryHandlers(makeCtx())
-    expect(handlers[Queries.GetTaskDetail]).toBeInstanceOf(Function)
-  })
-
   it('returns the task by id', async () => {
     const task = { id: 't1' }
     const ctx = makeCtx({

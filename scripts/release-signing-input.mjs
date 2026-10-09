@@ -19,8 +19,8 @@ const REPOSITORY_ROOT = path.resolve(
   '..'
 )
 const SCHEMA_VERSION = 2
-const ELECTRON_BUILDER_VERSION = '26.15.7'
-const ELECTRON_VERSION = '44.5.0'
+const ELECTRON_BUILDER_VERSION = '26.17.0'
+const ELECTRON_VERSION = '44.7.0'
 const PLATFORMS = new Set(['darwin', 'win32'])
 const ARCHES = new Set(['arm64', 'x64'])
 
@@ -41,7 +41,7 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
   'scripts/sign-macos.mjs':
     '98bda5c77dce2a3e5d9c9a2f8211f4d5594d060bf9d2839326db50dc41f8c58b',
   'electron-builder.signing.json':
-    '5f6d211847a0317701dc284e33ef278b5722d35499d1319a73b016320c4a2249',
+    '33831fd485494061fe26de6b2a3aa4d1b67d4ae4821316f8f3b4d06831ff7e19',
   'signing-build-resources/256x256.png':
     '044d3b64a14aa512ca41469372d1ad630557daaeb2cb4e709d34f2d3c57d4c3b',
   'signing-build-resources/background.tiff':
@@ -63,9 +63,9 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
   'signing-policy/installer.nsh':
     '33874b474fb9ee173950babee212a9bb0efe4bb0c8ddee451593531129dee27a',
   'signing-tool/package.json':
-    'b8ddd0e1bb90198d99628eb8b5b8c3c2b8cbda4a3aee48f118a36244467fac51',
+    'f2330647466ec2eed340157ce141235a1311d6febe27784af2f9cd320958c05c',
   'signing-tool/package-lock.json':
-    '8fa0825cd7a7605cab5cfc4d77357b3f29452b12abe64e51851796d04406b1e6',
+    '359d233c92ee582748bde268af57dbca239c3391753e072263fa1a1180fc362f',
   'scripts/electron-package-size-budgets.json':
     '331910aee89b894acb3587387763f05f0a9179290a88cf6ad7ced1d9560bb9c7',
   'scripts/electron-package-utils.mjs':

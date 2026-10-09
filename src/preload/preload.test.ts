@@ -104,6 +104,19 @@ describe('preload latest-value replay buffers', () => {
     expect(callback).toHaveBeenCalledTimes(1)
   })
 
+  it('cancels queued cold-start replay when the subscriber unmounts', async () => {
+    await import('./preload')
+    emit(Events.NavigateTo, '/downloads/active')
+    const callback = vi.fn()
+
+    mocks.exposed?.on(Events.NavigateTo, callback)
+    mocks.exposed?.off(Events.NavigateTo, callback)
+    await Promise.resolve()
+    emit(Events.NavigateTo, '/settings/about')
+
+    expect(callback).not.toHaveBeenCalled()
+  })
+
   it('replays only the latest window state before chrome subscribes', async () => {
     await import('./preload')
     emit(Events.WindowMaximizedChanged, {
@@ -182,7 +195,7 @@ describe('preload IPC channel allowlist', () => {
     await import('./preload')
   })
 
-  it('forwards every declared command and query, including CLI install', () => {
+  it('forwards each declared invoke channel with its arguments and result intact', async () => {
     const channels = [
       ...Object.values(Commands),
       ...Object.values(Queries),
@@ -190,22 +203,18 @@ describe('preload IPC channel allowlist', () => {
       ...Object.values(BridgeQueries),
     ]
 
-    for (const channel of channels) {
-      mocks.exposed?.invoke(channel, 'argument')
+    mocks.invoke.mockImplementation(async (channel, ...args) => ({
+      channel,
+      args,
+    }))
+    for (const [index, channel] of channels.entries()) {
+      await expect(
+        mocks.exposed?.invoke(channel, { index }, 'argument')
+      ).resolves.toEqual({ channel, args: [{ index }, 'argument'] })
     }
 
-    expect(mocks.invoke).toHaveBeenCalledTimes(channels.length)
-    expect(mocks.invoke).toHaveBeenCalledWith(
-      Commands.InstallCliTool,
-      'argument'
-    )
-    expect(mocks.invoke).toHaveBeenCalledWith(
-      Commands.ExecuteApplicationMenuItem,
-      'argument'
-    )
-    expect(mocks.invoke).toHaveBeenCalledWith(
-      Queries.GetApplicationMenu,
-      'argument'
+    expect(mocks.invoke.mock.calls).toEqual(
+      channels.map((channel, index) => [channel, { index }, 'argument'])
     )
   })
 
@@ -216,20 +225,38 @@ describe('preload IPC channel allowlist', () => {
     expect(mocks.invoke).not.toHaveBeenCalled()
   })
 
-  it('registers every declared app and bridge event', () => {
-    const callback = vi.fn()
+  it('propagates an invoke failure back to the renderer', async () => {
+    const error = new Error('engine unavailable')
+    mocks.invoke.mockRejectedValueOnce(error)
+
+    await expect(mocks.exposed?.invoke(Queries.GetEngineStatus)).rejects.toBe(
+      error
+    )
+    expect(mocks.invoke).toHaveBeenCalledExactlyOnceWith(
+      Queries.GetEngineStatus
+    )
+  })
+
+  it('delivers each declared event only to its subscriber and stops after off', () => {
     const channels = [...Object.values(Events), ...Object.values(BridgeEvents)]
+    const callbacks = channels.map(() => vi.fn())
 
-    for (const channel of channels) {
-      mocks.exposed?.on(channel, callback)
+    for (const [index, channel] of channels.entries()) {
+      mocks.exposed?.on(channel, callbacks[index])
     }
 
-    for (const channel of channels) {
-      expect(mocks.listeners.get(channel)?.size).toBeGreaterThan(0)
+    for (const [index, channel] of channels.entries()) {
+      emit(channel, { index }, 'event-payload')
     }
-    expect(
-      mocks.listeners.get(Events.ApplicationMenuChanged)?.size
-    ).toBeGreaterThan(0)
+    for (const [index, channel] of channels.entries()) {
+      expect(callbacks[index]).toHaveBeenCalledExactlyOnceWith(
+        { index },
+        'event-payload'
+      )
+      mocks.exposed?.off(channel, callbacks[index])
+      emit(channel, 'after-unsubscribe')
+      expect(callbacks[index]).toHaveBeenCalledOnce()
+    }
   })
 
   it('allows valid plugin log channels and rejects malformed events', () => {

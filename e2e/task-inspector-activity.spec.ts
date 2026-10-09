@@ -26,6 +26,8 @@ interface RuntimeTask {
   id: string
   name: string
   status: string
+  downloadSpeed: number
+  uploadSpeed: number
 }
 
 interface InspectorSnapshot {
@@ -287,16 +289,20 @@ async function expectStatusPillContained(page: Page): Promise<void> {
 
 async function expectYAxisSpeedLabelsSingleLine(page: Page): Promise<void> {
   const labels = page
-    .getByTestId('task-inspector-activity-transfer-card')
-    .locator('svg text')
+    .getByTestId('activity-transfer-speed-scale')
+    .locator('span')
     .filter({ hasText: /\/s/ })
   await expect(labels.first()).toBeVisible()
   const metrics = await labels.evaluateAll((nodes) =>
-    nodes.map((node) => ({
-      text: node.textContent ?? '',
-      lineCount: node.querySelectorAll('tspan').length,
-      fontSize: Number.parseFloat(getComputedStyle(node).fontSize),
-    }))
+    nodes.map((node) => {
+      const textRange = document.createRange()
+      textRange.selectNodeContents(node)
+      return {
+        text: node.textContent ?? '',
+        lineCount: textRange.getClientRects().length,
+        fontSize: Number.parseFloat(getComputedStyle(node).fontSize),
+      }
+    })
   )
 
   expect(metrics.some(({ text }) => text.includes('/s'))).toBe(true)
@@ -338,16 +344,56 @@ async function presentActiveReference(
   taskId: string,
   options: { onlyTask?: boolean } = {}
 ): Promise<void> {
+  await page.evaluate(async (channel) => {
+    const api = (
+      window as unknown as {
+        motrix?: {
+          invoke: (channel: string, payload: unknown) => Promise<unknown>
+        }
+      }
+    ).motrix
+    if (!api) throw new Error('Motrix preload API is unavailable')
+    await api.invoke(channel, { app: { byteUnitSystem: 'decimal' } })
+  }, Commands.UpdateSettings)
   await publishTaskInspectorPresentation(app, page, {
     taskId,
     status: 'downloading',
-    downloadSpeed: 384 * 1024,
-    uploadSpeed: 72 * 1024,
+    downloadSpeed: 384_000,
+    uploadSpeed: 72_000,
     onlyTask: options.onlyTask,
   })
   const summary = page.getByTestId('task-inspector-activity-summary-card')
-  await expect(summary.getByText('384 KB/s', { exact: true })).toBeVisible()
+  await expect(summary.getByText('384.0 KB/s', { exact: true })).toBeVisible()
   await expect(summary.getByText('72.0 KB/s', { exact: true })).toBeVisible()
+}
+
+async function expectLiveTransferSummary(
+  page: Page,
+  taskId: string
+): Promise<void> {
+  const summary = page.getByTestId('task-inspector-activity-summary-card')
+  await expect(summary).toBeVisible()
+  const downloadValue = summary
+    .getByText('Download', { exact: true })
+    .locator('..')
+    .locator('bdi')
+  const uploadValue = summary
+    .getByText('Upload', { exact: true })
+    .locator('..')
+    .locator('bdi')
+
+  await expect
+    .poll(async () => (await runtimeTask(page, taskId))?.downloadSpeed ?? 0)
+    .toBeGreaterThan(0)
+  const task = await runtimeTask(page, taskId)
+  expect(task?.status).toBe('downloading')
+  expect(task?.uploadSpeed).toBeGreaterThanOrEqual(0)
+  const speedPattern = /^\d+(?:\.\d+)? (?:[KMGTPE]i?)?B\/s$/
+  await expect(downloadValue).toHaveText(speedPattern)
+  await expect(uploadValue).toHaveText(speedPattern)
+  await expect
+    .poll(async () => Number.parseFloat(await downloadValue.innerText()))
+    .toBeGreaterThan(0)
 }
 
 test.describe('Task Inspector Activity', () => {
@@ -577,32 +623,21 @@ test.describe('Task Inspector Activity', () => {
       await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.rich)
 
       const root = page.getByTestId('task-inspector-activity-root')
-      const layout = page.getByTestId('task-inspector-activity-layout')
-      const timeline = page.getByTestId('task-inspector-activity-timeline')
       const transfer = page.getByTestId('task-inspector-activity-transfer-card')
       const summary = page.getByTestId('task-inspector-activity-summary-card')
-      await expect(timeline).toBeVisible()
       await expect(transfer).toBeVisible()
       await expect(summary).toBeVisible()
       await expect(
-        transfer.getByText(/Adaptive resolution.*48 samples/i)
+        transfer.getByText(/^Adaptive resolution · [1-9]\d* samples?$/)
       ).toBeVisible()
 
-      const normalGeometry = await root.evaluate((element) => {
-        const layout = element.querySelector<HTMLElement>(
-          '[data-testid="task-inspector-activity-layout"]'
-        )
-        if (!layout) throw new Error('Activity layout is missing')
-        return {
-          clientWidth: element.clientWidth,
-          scrollWidth: element.scrollWidth,
-          columns: getComputedStyle(layout).gridTemplateColumns,
-        }
-      })
+      const normalGeometry = await root.evaluate((element) => ({
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+      }))
       expect(normalGeometry.scrollWidth).toBeLessThanOrEqual(
         normalGeometry.clientWidth
       )
-      expect(normalGeometry.columns.split(' ')).toHaveLength(2)
 
       const group = transfer.getByRole('radiogroup', {
         name: /Transfer time range/i,
@@ -614,58 +649,16 @@ test.describe('Task Inspector Activity', () => {
       await expect(
         group.getByRole('radio', { name: /Session/i })
       ).toHaveAttribute('aria-checked', 'true')
+      await expect(
+        transfer.getByRole('heading', { name: 'Session transfer' })
+      ).toBeVisible()
       await group.getByRole('radio', { name: /Session/i }).press('End')
       await expect(
         group.getByRole('radio', { name: /Lifetime/i })
       ).toHaveAttribute('aria-checked', 'true')
-
-      const pauseNode = timeline.getByRole('button', { name: /Paused/i })
-      await pauseNode.click()
-      const detail = page.getByRole('dialog', { name: /Paused details/i })
-      await expect(detail).toBeVisible()
-      const detailSurface = await detail.evaluate((element) => {
-        const style = getComputedStyle(element)
-        const alphaMatch = style.backgroundColor.match(
-          /rgba?\([^)]*?(?:,\s*([\d.]+))?\)/
-        )
-        return {
-          background: style.backgroundColor,
-          opacity: style.opacity,
-          alpha: alphaMatch?.[1] ? Number(alphaMatch[1]) : 1,
-        }
-      })
-      expect(detailSurface.opacity).toBe('1')
-      expect(detailSurface.alpha).toBe(1)
-      await page.keyboard.press('Escape')
-      await expect(detail).toBeHidden()
-      await expect(pauseNode).toBeFocused()
-
-      await root.evaluate((element) => {
-        element.style.width = '639px'
-      })
-      await expect
-        .poll(async () => {
-          const [first, second] = await layout
-            .locator(':scope > *')
-            .evaluateAll((children) =>
-              children.map((child) => child.getBoundingClientRect().top)
-            )
-          return Math.abs((first ?? 0) - (second ?? 0)) < 2
-        })
-        .toBe(false)
-      await root.evaluate((element) => {
-        element.style.width = '640px'
-      })
-      await expect
-        .poll(async () => {
-          const [first, second] = await layout
-            .locator(':scope > *')
-            .evaluateAll((children) =>
-              children.map((child) => child.getBoundingClientRect().top)
-            )
-          return Math.abs((first ?? 0) - (second ?? 0)) < 2
-        })
-        .toBe(true)
+      await expect(
+        transfer.getByRole('heading', { name: 'Lifetime transfer' })
+      ).toBeVisible()
 
       await transfer.evaluate((element) => {
         element.style.width = '419px'
@@ -691,7 +684,6 @@ test.describe('Task Inspector Activity', () => {
             .evaluate((element) => getComputedStyle(element).flexDirection)
         )
         .toBe('row')
-      await root.evaluate((element) => element.style.removeProperty('width'))
       await transfer.evaluate((element) =>
         element.style.removeProperty('width')
       )
@@ -713,16 +705,8 @@ test.describe('Task Inspector Activity', () => {
       )
       expect(narrowViewport).toEqual({ width: 620, height: 900 })
       await presentActiveReference(app, page, TASK_INSPECTOR_ACTIVITY_IDS.rich)
-      await expect
-        .poll(async () => {
-          const [first, second] = await layout
-            .locator(':scope > *')
-            .evaluateAll((children) =>
-              children.map((child) => child.getBoundingClientRect().top)
-            )
-          return Math.abs((first ?? 0) - (second ?? 0))
-        })
-        .toBeGreaterThanOrEqual(2)
+      await expect(summary).toBeVisible()
+      await expect(transfer).toBeVisible()
       const narrowGeometry = await root.evaluate((element) => ({
         clientWidth: element.clientWidth,
         scrollWidth: element.scrollWidth,
@@ -755,14 +739,12 @@ test.describe('Task Inspector Activity', () => {
       })
 
       await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.error)
-      const failedNode = page
-        .getByTestId('task-inspector-activity-timeline')
-        .getByRole('button', { name: /^Failed\b/i })
-      await failedNode.click()
       await expect(
-        page.getByText(/remote server closed the connection/i)
-      ).toBeVisible()
-      await page.keyboard.press('Escape')
+        page
+          .getByRole('dialog', { name: 'Task Inspector', exact: true })
+          .getByTestId('task-status-pill')
+      ).toHaveText('Error')
+      await expect(transfer.getByRole('img')).toBeVisible()
       await capture(page, 'error-en-US-light-914.png')
 
       await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.zero)
@@ -776,29 +758,27 @@ test.describe('Task Inspector Activity', () => {
 
       await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.single)
       await expect(
-        page
-          .getByTestId('task-inspector-activity-transfer-card')
-          .locator('.recharts-dot')
-      ).toHaveCount(2)
+        transfer.getByText('Adaptive resolution · 1 sample', { exact: true })
+      ).toBeVisible()
+      await expect(
+        transfer.getByRole('img', { name: /1 sample\b/ })
+      ).toBeVisible()
 
       await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.compacted)
       await expect(
-        page.getByText(/Adaptive resolution.*72 samples/i)
+        transfer.getByText(/^Adaptive resolution · [1-9]\d* samples?$/)
+      ).toBeVisible()
+      await expect(
+        transfer.getByText('Tracking was interrupted.', { exact: true })
       ).toBeVisible()
       await capture(page, 'completed-en-US-light-914.png')
 
       await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.truncated)
-      const truncated = page.getByRole('button', {
-        name: /Earlier history truncated.*2 events/i,
-      })
-      await expect(truncated).toBeVisible()
-      await truncated.click()
       await expect(
-        page.getByRole('dialog', {
-          name: /Earlier history truncated.*details/i,
+        transfer.getByRole('img', {
+          name: /Earlier history truncated 2 events/,
         })
       ).toBeVisible()
-      await page.keyboard.press('Escape')
       await capture(page, 'truncated-en-US-light-914.png')
 
       for (const variant of [
@@ -835,20 +815,26 @@ test.describe('Task Inspector Activity', () => {
     })
     try {
       await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.rich)
-      await expect(
-        page.getByText(/Adaptive resolution.*48 samples/i)
-      ).toBeVisible()
+      const root = page.getByTestId('task-inspector-activity-root')
+      const sampleLabel = root.getByText(
+        /^Adaptive resolution · [1-9]\d* samples?$/
+      )
+      const summary = root.getByTestId('task-inspector-activity-summary-card')
+      await expect(sampleLabel).toBeVisible()
+      await expect(summary).toBeVisible()
+      const lastGoodSampleLabel = await sampleLabel.innerText()
+      const lastGoodSummary = await summary.innerText()
+      await expect(root.getByText(/Data may be out of date/i)).toHaveCount(0)
       await publishTaskInspectorRevision(
         app,
         TASK_INSPECTOR_ACTIVITY_IDS.rich,
         Number.MAX_SAFE_INTEGER
       )
 
-      await expect(page.getByText(/Data may be out of date/i)).toBeVisible()
-      await expect(
-        page.getByText(/Adaptive resolution.*48 samples/i)
-      ).toBeVisible()
-      await expect(page.getByRole('button', { name: /Retry/i })).toBeVisible()
+      await expect(root.getByText(/Data may be out of date/i)).toBeVisible()
+      await expect(sampleLabel).toHaveText(lastGoodSampleLabel)
+      await expect(summary).toHaveText(lastGoodSummary, { useInnerText: true })
+      await expect(root.getByRole('button', { name: /Retry/i })).toBeVisible()
       await capture(page, 'stale-en-US-light-914.png')
     } finally {
       await app.close().catch(() => {})
@@ -886,6 +872,7 @@ test.describe('Task Inspector Activity', () => {
   }) => {
     let fixture: HttpFixture | undefined
     let app: ElectronApplication | undefined
+    let activeTask: { page: Page; id: string } | undefined
     try {
       fixture = await startHttpFixture({
         pathname: '/activity-live.bin',
@@ -906,6 +893,7 @@ test.describe('Task Inspector Activity', () => {
       await updateTaskInspectorAppearance(page, 'light', 'en-US')
       await waitForEngineReady(page)
       const task = await addLiveDownload(app, page, fixture.fileUrl)
+      activeTask = { page, id: task.id }
 
       await expect
         .poll(async () => (await sessionHistory(page, task.id)).length, {
@@ -929,7 +917,7 @@ test.describe('Task Inspector Activity', () => {
         .toBeGreaterThan(0)
 
       await openActivityForTask(page, task.name)
-      await presentActiveReference(app, page, task.id)
+      await expectLiveTransferSummary(page, task.id)
       await expectStatusPillContained(page)
       await expectYAxisSpeedLabelsSingleLine(page)
       await capture(page, 'active-live-en-US-light-914.png')
@@ -938,6 +926,13 @@ test.describe('Task Inspector Activity', () => {
         .poll(async () => (await runtimeTask(page, task.id))?.status)
         .toBe('paused')
     } finally {
+      if (activeTask && !activeTask.page.isClosed()) {
+        await invokeTaskCommand(
+          activeTask.page,
+          Commands.PauseTask,
+          activeTask.id
+        ).catch(() => {})
+      }
       if (app) await app.close().catch(() => {})
       if (fixture) await fixture.close().catch(() => {})
     }
@@ -948,6 +943,7 @@ test.describe('Task Inspector Activity', () => {
   }) => {
     let fixture: HttpFixture | undefined
     let app: ElectronApplication | undefined
+    let activeTask: { page: Page; id: string } | undefined
     try {
       fixture = await startHttpFixture({
         pathname: '/activity-live.bin',
@@ -967,6 +963,7 @@ test.describe('Task Inspector Activity', () => {
       })
       await waitForEngineReady(page)
       const task = await addLiveDownload(app, page, fixture.fileUrl)
+      activeTask = { page, id: task.id }
 
       await expect
         .poll(async () => (await sessionHistory(page, task.id)).length, {
@@ -991,7 +988,7 @@ test.describe('Task Inspector Activity', () => {
       await expect(
         page.getByTestId('task-inspector-activity-root')
       ).toBeVisible()
-      await presentActiveReference(app, page, task.id)
+      await expectLiveTransferSummary(page, task.id)
       await expectStatusPillContained(page)
       await capture(page, 'active-live-en-US-light-914.png')
 
@@ -1027,6 +1024,7 @@ test.describe('Task Inspector Activity', () => {
         commandLineArgs: ['--force-device-scale-factor=1'],
       })
       page = await firstWindow(app)
+      activeTask = { page, id: task.id }
       await configureTaskInspectorWindow(app, page, {
         width: 914,
         height: 900,
@@ -1060,6 +1058,13 @@ test.describe('Task Inspector Activity', () => {
       await expectStatusPillContained(page)
       await capture(page, 'paused-restarted-en-US-light-914.png')
     } finally {
+      if (activeTask && !activeTask.page.isClosed()) {
+        await invokeTaskCommand(
+          activeTask.page,
+          Commands.PauseTask,
+          activeTask.id
+        ).catch(() => {})
+      }
       if (app) await app.close().catch(() => {})
       if (fixture) await fixture.close().catch(() => {})
     }

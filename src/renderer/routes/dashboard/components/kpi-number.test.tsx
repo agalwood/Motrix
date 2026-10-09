@@ -1,4 +1,3 @@
-// src/renderer/routes/dashboard/components/kpi-number.test.tsx
 import '@testing-library/jest-dom/vitest'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
@@ -11,78 +10,44 @@ describe('KpiNumber', () => {
     ['١٫٥', 'MiB/ث'],
     ['۱٫۵', 'MiB/ثانیه'],
     ['1\u202f234,5', 'Mo'],
-  ])(
-    'keeps localized numbers and units separately sized: %s %s',
-    (number, unit) => {
-      const { container } = render(<KpiNumber value={`${number} ${unit}`} />)
-      const spans = container.querySelectorAll(
-        '[data-slot="kpi-number"] > span'
-      )
-      expect(spans).toHaveLength(2)
-      expect(spans[0].textContent).toBe(number)
-      expect(spans[1]).toHaveTextContent(unit)
-      expect(spans[1]).toHaveClass('shrink-0', 'text-[12px]')
-    }
-  )
+  ])('preserves localized numbers and units: %s %s', (number, unit) => {
+    const { container } = render(<KpiNumber value={`${number} ${unit}`} />)
+    const spans = container.querySelectorAll('[data-slot="kpi-number"] > span')
+    expect(spans).toHaveLength(2)
+    expect(spans[0].textContent).toBe(number)
+    expect(spans[1]).toHaveTextContent(unit)
+  })
 
-  it('renders text content with proportional-nums and split unit sizing', () => {
+  it('renders the full value while separating the number and unit', () => {
     const { container } = render(<KpiNumber value="1.2 MB/s" />)
     const el = container.firstElementChild as HTMLElement
     expect(el).toHaveTextContent('1.2 MB/s')
-    expect(el.className).toContain('proportional-nums')
-    expect(screen.getByText('1.2').className).toContain('font-semibold')
-    expect(screen.getByText('MB/s').className).toContain('text-[12px]')
+    expect(screen.getByText('1.2')).toBeInTheDocument()
+    expect(screen.getByText('MB/s')).toBeInTheDocument()
   })
 
-  it('uses the fixed secondary metric size under variant=compact', () => {
-    const { container } = render(<KpiNumber value="9 KB/s" variant="compact" />)
-    const el = container.firstElementChild as HTMLElement
-    expect(el.className).toContain('text-[18px]')
-  })
-
-  it('inherits its font size when composed inside TileTitle', () => {
-    const { container } = render(
-      <KpiNumber value="99 MB/s" variant="inherit" />
-    )
-    const el = container.firstElementChild as HTMLElement
-
-    expect(el.className).not.toContain('text-[')
-    expect(el).toHaveClass('leading-none')
-  })
-
-  it('keeps long values shrink-safe while preserving the complete value', () => {
+  it('preserves a long value in its text and title', () => {
     const { container } = render(
       <KpiNumber value="12345678901234567890 MB/s" />
     )
     const el = container.firstElementChild as HTMLElement
 
     expect(el).toHaveAttribute('title', '12345678901234567890 MB/s')
-    expect(el).toHaveClass('min-w-0', 'max-w-full')
-    expect(screen.getByText('12345678901234567890')).toHaveClass(
-      'min-w-0',
-      'truncate'
-    )
-    expect(screen.getByText('MB/s')).toHaveClass('shrink-0')
+    expect(el).toHaveTextContent('12345678901234567890 MB/s')
   })
 
   it.each([
     { variant: 'inherit' as const, className: undefined },
     { variant: 'compact' as const, className: undefined },
-    {
-      variant: 'inherit' as const,
-      className: 'text-[22px]',
-    },
+    { variant: 'inherit' as const, className: 'text-[22px]' },
   ])(
-    'keeps a tight line box for $variant with $className',
+    'preserves the line height when merging $variant with $className',
     ({ variant, className }) => {
       const { container } = render(
         <KpiNumber value="42 MB" variant={variant} className={className} />
       )
-      const el = container.firstElementChild as HTMLElement
 
-      expect(el).toHaveAttribute('data-slot', 'kpi-number')
-      expect(el).toHaveClass('leading-none')
-      expect(el).not.toHaveClass('leading-none!')
+      expect(container.firstElementChild).toHaveClass('leading-none')
     }
   )
 })

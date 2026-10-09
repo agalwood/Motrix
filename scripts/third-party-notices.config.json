@@ -12,6 +12,7 @@
     "ISC",
     "MIT",
     "MIT AND ISC",
+    "(MIT OR CC0-1.0)",
     "MPL-2.0",
     "NOASSERTION",
     "OFL-1.1",
@@ -23,6 +24,9 @@
     "THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL": "e05998a2537cddad682fb240371fbf859966ff8d9b34e55f2ebe55ecaef4333f"
   },
   "packageOverrides": {
+    "type-fest@4.41.0": {
+      "licenseConcluded": "MIT"
+    },
     "@resvg/resvg-wasm@2.6.2": {
       "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/MPL-2.0"],
       "attribution": "Copyright (c) 2021-present, yisibl (\u4e00\u4e1d)"
