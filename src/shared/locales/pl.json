@@ -2355,6 +2355,8 @@
       "local": "Plik lokalny",
       "local.pick": "Wybierz plik .moext",
       "lead": "Wklej adres wtyczki, wybierz plik .moext lub upuść plik w polu.",
+      "reviewLead": "Sprawdź uprawnienia wtyczki przed instalacją.",
+      "preparing": "Przygotowywanie…",
       "placeholder": "Wklej adres GitHub, adres URL lub wybierz lokalny plik .moext",
       "detected": {
         "auto": "Automatycznie",
@@ -2378,7 +2380,10 @@
       "officialSignatureInvalid": "Nie udało się zweryfikować oficjalnego podpisu wtyczki. Odśwież katalog.",
       "officialBuiltinOnly": "Ta wersja wymaga uprawnień wbudowanej wtyczki. Zainstaluj nowszą wersję obsługującą opcjonalną instalację.",
       "builtinAlreadyInstalled": "Ta wtyczka jest już wbudowana. Użyj jej funkcji aktualizacji.",
-      "hostIncompatible": "Ta wtyczka wymaga Motrix {{required}}; bieżąca wersja: {{current}}. Zaktualizuj Motrix lub przejdź na zgodną wersję i spróbuj ponownie."
+      "hostIncompatible": "Ta wtyczka wymaga Motrix {{required}}; bieżąca wersja: {{current}}. Zaktualizuj Motrix lub przejdź na zgodną wersję i spróbuj ponownie.",
+      "installed": "Zainstalowano",
+      "optionalHint": "Domyślnie wyłączone; włącz w razie potrzeby",
+      "optionalLater": "Po instalacji możesz zmienić opcjonalne uprawnienia w ustawieniach wtyczki."
     },
     "consent": {
       "installTitle": "Zainstalować {{name}} {{version}}?",
@@ -2734,6 +2739,10 @@
         "allowed": "Dozwolone",
         "noAccess": "Wyłączone",
         "grant": "Zezwól"
+      },
+      "metadata": {
+        "strong": "Odczyt i zapis metadanych zadań",
+        "plain": "Zapisuje informacje generowane przez tę wtyczkę dla zadań pobierania."
       }
     },
     "security": {

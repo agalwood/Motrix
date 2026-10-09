@@ -4,7 +4,7 @@ import {
   type PlatformServices,
   PlatformServicesProvider,
 } from '@renderer/platform/services'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PluginInputGroup } from './plugin-input-group'
 
@@ -89,9 +89,9 @@ describe('PluginInputGroup', () => {
     expect(fileBtn).toBeDisabled()
   })
 
-  it('disables Check while pending', () => {
+  it('shows preparation inside the disabled Check button while pending', () => {
     renderGroup(vi.fn(), true)
-    expect(screen.getByLabelText('Check this plugin')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Preparing…' })).toBeDisabled()
   })
 
   it('auto-triggers onCheck when a local moext file is picked', async () => {
@@ -156,5 +156,71 @@ describe('PluginInputGroup', () => {
       target: { value: 'plugin.moext' },
     })
     expect(screen.queryByLabelText('Check this plugin')).toBeNull()
+  })
+  it('ignores an upload result after its input is unmounted', async () => {
+    let finish!: (value: {
+      sourceType: 'upload'
+      uploadId: string
+      fileHash: string
+    }) => void
+    prepareFile.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve
+      })
+    )
+    const onCheck = vi.fn()
+    const view = renderGroup(onCheck)
+    const input = view.container.querySelector(
+      'input[type="file"]'
+    ) as HTMLInputElement
+    fireEvent.change(input, {
+      target: { files: [new File(['x'], 'foo.moext')] },
+    })
+    expect(screen.getByRole('button', { name: 'Preparing…' })).toBeDisabled()
+    expect(screen.getByRole('textbox')).toBeDisabled()
+    view.unmount()
+    await act(async () =>
+      finish({
+        sourceType: 'upload',
+        uploadId: 'old',
+        fileHash: 'a'.repeat(64),
+      })
+    )
+    expect(onCheck).not.toHaveBeenCalled()
+  })
+
+  it('accepts only one file while an upload is in flight', async () => {
+    let finish!: (value: {
+      sourceType: 'upload'
+      uploadId: string
+      fileHash: string
+    }) => void
+    prepareFile.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve
+      })
+    )
+    const onCheck = vi.fn()
+    const view = renderGroup(onCheck)
+    const input = view.container.querySelector(
+      'input[type="file"]'
+    ) as HTMLInputElement
+    fireEvent.change(input, {
+      target: { files: [new File(['x'], 'first.moext')] },
+    })
+    fireEvent.change(input, {
+      target: { files: [new File(['x'], 'second.moext')] },
+    })
+    expect(prepareFile).toHaveBeenCalledTimes(1)
+    await act(async () =>
+      finish({
+        sourceType: 'upload',
+        uploadId: 'first',
+        fileHash: 'a'.repeat(64),
+      })
+    )
+    expect(onCheck).toHaveBeenCalledWith(
+      expect.objectContaining({ uploadId: 'first' })
+    )
   })
 })

@@ -2307,6 +2307,8 @@
       "local": "Berkas lokal",
       "local.pick": "Pilih berkas .moext",
       "lead": "Tempelkan alamat plugin, pilih berkas .moext, atau letakkan berkas pada kolom isian.",
+      "reviewLead": "Tinjau izin plugin sebelum memasang.",
+      "preparing": "Menyiapkan…",
       "placeholder": "Tempelkan alamat GitHub, URL, atau pilih berkas .moext lokal",
       "detected": {
         "auto": "Otomatis",
@@ -2330,7 +2332,10 @@
       "officialSignatureInvalid": "Tanda tangan resmi plugin tidak dapat diverifikasi. Coba segarkan katalog plugin.",
       "officialBuiltinOnly": "Versi ini memerlukan hak akses plugin bawaan. Instal versi lebih baru yang mendukung instalasi opsional.",
       "builtinAlreadyInstalled": "Plugin ini sudah menjadi bawaan. Gunakan tindakan pembaruannya.",
-      "hostIncompatible": "Plugin ini memerlukan Motrix {{required}}; versi saat ini: {{current}}. Tingkatkan atau beralih ke versi Motrix yang kompatibel, lalu coba lagi."
+      "hostIncompatible": "Plugin ini memerlukan Motrix {{required}}; versi saat ini: {{current}}. Tingkatkan atau beralih ke versi Motrix yang kompatibel, lalu coba lagi.",
+      "installed": "Terpasang",
+      "optionalHint": "Nonaktif secara default; aktifkan jika perlu",
+      "optionalLater": "Anda dapat mengubah izin opsional di pengaturan plugin setelah pemasangan."
     },
     "consent": {
       "installTitle": "Pasang {{name}} {{version}}?",
@@ -2671,6 +2676,10 @@
         "allowed": "Diizinkan",
         "noAccess": "Nonaktif",
         "grant": "Izinkan"
+      },
+      "metadata": {
+        "strong": "Membaca dan menulis metadata tugas",
+        "plain": "Menyimpan informasi yang dibuat plugin ini untuk tugas unduhan."
       }
     },
     "security": {

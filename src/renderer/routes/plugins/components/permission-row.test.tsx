@@ -50,7 +50,7 @@ describe('PermissionRow', () => {
     expect(screen.getByText('Unknown permission.')).toBeInTheDocument()
   })
 
-  it('renders an unchecked Switch labelled "Grant" when not granted', () => {
+  it('renders an unchecked Switch labelled with its permission when not granted', () => {
     const onToggle = vi.fn()
     render(
       <PermissionRow
@@ -59,13 +59,13 @@ describe('PermissionRow', () => {
         onToggle={onToggle}
       />
     )
-    const sw = screen.getByRole('switch', { name: 'Allow' })
+    const sw = screen.getByRole('switch', { name: 'Send notifications' })
     expect(sw).toHaveAttribute('aria-checked', 'false')
     fireEvent.click(sw)
     expect(onToggle).toHaveBeenCalledOnce()
   })
 
-  it('renders a checked Switch labelled "Allowed" when granted', () => {
+  it('renders a checked Switch labelled with its permission when granted', () => {
     render(
       <PermissionRow
         permission="notifications"
@@ -73,7 +73,7 @@ describe('PermissionRow', () => {
         onToggle={() => {}}
       />
     )
-    const sw = screen.getByRole('switch', { name: 'Allowed' })
+    const sw = screen.getByRole('switch', { name: 'Send notifications' })
     expect(sw).toHaveAttribute('aria-checked', 'true')
   })
 
