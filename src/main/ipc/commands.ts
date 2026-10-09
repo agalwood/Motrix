@@ -1634,6 +1634,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     }),
 
     [Commands.EnablePlugin]: async (id: string) => {
+      pluginRegistry.assertSecurityAllowed?.(id)
       pluginStateStore.setEnabled(id, true)
       // Sync the in-memory IndexedPlugin.state so Queries.ListPlugins and
       // downstream gating (PluginHost.activate, ActivationDispatcher,
@@ -1795,6 +1796,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
     [Commands.CheckPluginUpdates]: async (payload: unknown) => {
       const parsed = checkPluginUpdatesPayloadSchema.parse(payload)
+      await pluginHost.refreshSecurityPolicy?.(parsed?.force)
       if (parsed?.force) await registryClient.refresh()
       const entries = await registryClient.list(hostVersion)
       return scanForUpdates(pluginRegistry.list(), entries)

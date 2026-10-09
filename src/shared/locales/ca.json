@@ -1680,6 +1680,16 @@
       "optional": "Accés opcional",
       "review": "Cal revisar-lo",
       "safe": "Sembla segur"
+    },
+    "security": {
+      "blocked": "Bloquejat per motius de seguretat",
+      "pending": "Connecteu-vos a Internet i cerqueu actualitzacions abans d’activar aquest connector.",
+      "unavailable": "No s’ha pogut verificar la política de seguretat. Torneu a cercar actualitzacions.",
+      "malware": "Aquest connector s’ha identificat com a maliciós.",
+      "vulnerability": "Aquesta versió del connector té una vulnerabilitat de seguretat.",
+      "compromised": "La distribució d’aquest connector s’ha vist compromesa.",
+      "fixedVersion": "Hi ha una correcció disponible a la versió {{version}}.",
+      "details": "Mostra l’avís de seguretat"
     }
   },
   "quit": {

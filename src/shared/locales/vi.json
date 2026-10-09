@@ -2672,6 +2672,16 @@
         "noAccess": "Tắt",
         "grant": "Cho phép"
       }
+    },
+    "security": {
+      "blocked": "Bị chặn vì lý do bảo mật",
+      "pending": "Kết nối internet và kiểm tra bản cập nhật trước khi bật tiện ích này.",
+      "unavailable": "Không thể xác minh chính sách bảo mật. Hãy kiểm tra bản cập nhật để thử lại.",
+      "malware": "Tiện ích này đã được xác định là độc hại.",
+      "vulnerability": "Phiên bản tiện ích này có lỗ hổng bảo mật.",
+      "compromised": "Kênh phân phối tiện ích này đã bị xâm phạm.",
+      "fixedVersion": "Bản sửa lỗi có trong phiên bản {{version}}.",
+      "details": "Xem thông báo bảo mật"
     }
   },
   "plugin": {

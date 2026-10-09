@@ -2693,6 +2693,16 @@
         "noAccess": "Off",
         "grant": "Allow"
       }
+    },
+    "security": {
+      "blocked": "Blocked for security reasons",
+      "pending": "Connect to the internet and check for updates before enabling this plugin.",
+      "unavailable": "The security policy could not be verified. Check for updates to retry.",
+      "malware": "This plugin was identified as malicious.",
+      "vulnerability": "This plugin version has a security vulnerability.",
+      "compromised": "This plugin’s distribution was compromised.",
+      "fixedVersion": "A fix is available in version {{version}}.",
+      "details": "View security advisory"
     }
   },
   "plugin": {

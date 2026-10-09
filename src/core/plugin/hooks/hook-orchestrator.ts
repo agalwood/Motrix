@@ -206,6 +206,8 @@ export class HookOrchestrator {
       const abort = newHookAbort(timeout)
 
       try {
+        const check = this.opts.host.capturePolicyCheck?.(entry.id)
+        if (check) staged.bindPolicyCheck(entry.id, check)
         const metadataSnapshot = await this.metadataSnapshot(taskId, entry.id)
         await this.opts.host.invokeHook(entry.id, 'beforeCreate', {
           taskId,
@@ -231,8 +233,7 @@ export class HookOrchestrator {
         this.breaker.success(entry.id, 'beforeCreate')
       } catch (e) {
         if (e instanceof DownloadSourceError) throw e
-        this.breaker.failure(entry.id, 'beforeCreate')
-        await this.maybeDisable(entry.id, 'beforeCreate')
+        await this.recordPluginFailure(entry.id, 'beforeCreate')
         const message = (e as Error).message
         await this.opts.auditLog?.log({
           type: 'chain.plugin_error',
@@ -293,6 +294,7 @@ export class HookOrchestrator {
       contributors: merged.contributors,
     })
 
+    staged.assertPolicyCurrent()
     return { final, contributors: merged.contributors, staged }
   }
 
@@ -355,6 +357,8 @@ export class HookOrchestrator {
 
       const abort = newHookAbort(timeout)
       try {
+        const check = this.opts.host.capturePolicyCheck?.(entry.id)
+        if (check) staged.bindPolicyCheck(entry.id, check)
         const metadataSnapshot = await this.metadataSnapshot(taskId, entry.id)
         await this.opts.host.invokeHook(entry.id, 'beforeFinalize', {
           taskId,
@@ -387,8 +391,7 @@ export class HookOrchestrator {
         }
         this.breaker.success(entry.id, 'beforeFinalize')
       } catch (e) {
-        this.breaker.failure(entry.id, 'beforeFinalize')
-        await this.maybeDisable(entry.id, 'beforeFinalize')
+        await this.recordPluginFailure(entry.id, 'beforeFinalize')
         const message = (e as Error).message
         await this.opts.auditLog?.log({
           type: 'chain.plugin_error',
@@ -453,6 +456,7 @@ export class HookOrchestrator {
       stagingBytesDiscarded: 0,
     })
 
+    staged.assertPolicyCurrent()
     return { final, finalFilePath, replacement, staged }
   }
 
@@ -503,8 +507,7 @@ export class HookOrchestrator {
         })
         this.breaker.success(entry.id, hook)
       } catch (e) {
-        this.breaker.failure(entry.id, hook)
-        await this.maybeDisable(entry.id, hook)
+        await this.recordPluginFailure(entry.id, hook)
         await this.opts.auditLog?.log({
           type: 'chain.plugin_error',
           hook,
@@ -627,6 +630,17 @@ export class HookOrchestrator {
       // swallowed — the breaker keeps the plugin closed for future chains
       // and the chain's own fail-mode handling continues normally.
     }
+  }
+
+  private async recordPluginFailure(
+    pluginId: string,
+    hook: AnyHook
+  ): Promise<void> {
+    // Host-enforced cancellation must not trip the plugin's error breaker or
+    // overwrite the user's enabled preference.
+    if (this.opts.host.isSecurityRestricted?.(pluginId)) return
+    this.breaker.failure(pluginId, hook)
+    await this.maybeDisable(pluginId, hook)
   }
 
   private metadataSnapshot(

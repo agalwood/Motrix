@@ -2714,7 +2714,17 @@
         "grant": "Permitir"
       }
     },
-    "errors_many": "{{count}} errores"
+    "errors_many": "{{count}} errores",
+    "security": {
+      "blocked": "Bloqueado por motivos de seguridad",
+      "pending": "Conéctate a Internet y busca actualizaciones antes de activar este complemento.",
+      "unavailable": "No se pudo verificar la política de seguridad. Busca actualizaciones para volver a intentarlo.",
+      "malware": "Este complemento se ha identificado como malicioso.",
+      "vulnerability": "Esta versión del complemento tiene una vulnerabilidad de seguridad.",
+      "compromised": "La distribución de este complemento se ha visto comprometida.",
+      "fixedVersion": "Hay una corrección disponible en la versión {{version}}.",
+      "details": "Ver aviso de seguridad"
+    }
   },
   "plugin": {
     "ffmpeg": {

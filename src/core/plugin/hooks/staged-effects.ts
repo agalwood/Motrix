@@ -32,6 +32,20 @@ export class StagedEffectStore {
   private metaOps: StagedMetadataOp[] = []
   private finalizePath: string | undefined
   private stagings: Map<string, FfmpegStaging> = new Map()
+  private policyChecks = new Map<string, () => void>()
+
+  bindPolicyCheck(pluginId: string, check: () => void): void {
+    this.policyChecks.set(pluginId, check)
+  }
+
+  get hasPolicyChecks(): boolean {
+    return this.policyChecks.size > 0
+  }
+
+  /** Revalidate returned guest results at the host's commit boundary. */
+  assertPolicyCurrent(): void {
+    for (const check of this.policyChecks.values()) check()
+  }
 
   appendHttp(pluginId: string, role: RoleBand, patch: StagedHttpPatch): void {
     // Shallow-clone at the boundary so later caller mutations don't leak in.
@@ -117,6 +131,7 @@ export class StagedEffectStore {
     )
 
     db.transaction(() => {
+      this.assertPolicyCurrent()
       tx()
       const serialized = validateStagedMetadataQuota(db, taskId, this.metaOps)
       const now = Date.now()
@@ -150,6 +165,7 @@ export class StagedEffectStore {
     this.metaOps = []
     this.finalizePath = undefined
     this.stagings.clear()
+    this.policyChecks.clear()
   }
 
   /**
@@ -165,6 +181,7 @@ export class StagedEffectStore {
     this.httpPatches = this.httpPatches.filter((e) => e.pluginId !== pluginId)
     this.metaOps = this.metaOps.filter((o) => o.pluginId !== pluginId)
     this.stagings.delete(pluginId)
+    this.policyChecks.delete(pluginId)
   }
 }
 

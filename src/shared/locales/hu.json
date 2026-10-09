@@ -2693,6 +2693,16 @@
         "noAccess": "Kikapcsolva",
         "grant": "Engedélyezés"
       }
+    },
+    "security": {
+      "blocked": "Biztonsági okokból letiltva",
+      "pending": "A bővítmény engedélyezése előtt csatlakozzon az internethez, és keressen frissítéseket.",
+      "unavailable": "A biztonsági szabályzat nem ellenőrizhető. Keressen ismét frissítéseket.",
+      "malware": "Ez a bővítmény rosszindulatúnak bizonyult.",
+      "vulnerability": "A bővítmény ezen verziója biztonsági rést tartalmaz.",
+      "compromised": "A bővítmény terjesztési csatornáját feltörték.",
+      "fixedVersion": "Javítás érhető el a(z) {{version}} verzióban.",
+      "details": "Biztonsági közlemény megtekintése"
     }
   },
   "plugin": {

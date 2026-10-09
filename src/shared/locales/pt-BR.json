@@ -2714,6 +2714,16 @@
         "noAccess": "Desativado",
         "grant": "Permitir"
       }
+    },
+    "security": {
+      "blocked": "Bloqueado por motivos de segurança",
+      "pending": "Conecte-se à internet e verifique se há atualizações antes de ativar este plugin.",
+      "unavailable": "Não foi possível verificar a política de segurança. Verifique se há atualizações para tentar novamente.",
+      "malware": "Este plugin foi identificado como malicioso.",
+      "vulnerability": "Esta versão do plugin tem uma vulnerabilidade de segurança.",
+      "compromised": "A distribuição deste plugin foi comprometida.",
+      "fixedVersion": "Uma correção está disponível na versão {{version}}.",
+      "details": "Ver aviso de segurança"
     }
   },
   "plugin": {

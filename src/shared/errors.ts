@@ -27,6 +27,8 @@ export enum ErrorCode {
   PluginCircuitOpen = 'PLUGIN_CIRCUIT_OPEN',
   PluginRuntimeFault = 'PLUGIN_RUNTIME_FAULT',
   PluginDirNotConfigured = 'PLUGIN_DIR_NOT_CONFIGURED',
+  PluginSecurityBlocked = 'PLUGIN_SECURITY_BLOCKED',
+  PluginSecurityPending = 'PLUGIN_SECURITY_PENDING',
   // NAT Manager
   NatDiscoveryFailed = 'NAT_DISCOVERY_FAILED',
   NatMappingFailed = 'NAT_MAPPING_FAILED',

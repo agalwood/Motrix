@@ -82,7 +82,7 @@ export class ActivationDispatcher {
         skipped.push({ id: dto.id, reason: 'no registry entry' })
         continue
       }
-      if (!reg.state.enabled) {
+      if (!reg.state.enabled || dto.security) {
         skipped.push({ id: dto.id, reason: 'disabled' })
         continue
       }

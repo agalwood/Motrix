@@ -36,6 +36,8 @@ export function usePluginInstall() {
   function showError(e: unknown): void {
     const message = e instanceof Error ? e.message : String(e)
     const messages = {
+      'plugins.security.blocked': 'plugins.security.blocked',
+      'plugins.security.pending': 'plugins.security.pending',
       'plugin.install.official_signature_invalid':
         'plugins.install.officialSignatureInvalid',
       'plugin.install.official_builtin_hook':

@@ -60,6 +60,7 @@ export class DurableFinalizeRuntime {
   async commit(
     input: DurableFinalizeArtifactInput
   ): Promise<FinalizeCommitResult> {
+    input.beforeCommit?.()
     // The final name can carry characters that Windows or exFAT volumes
     // cannot reopen. Sanitize the final component once, before validation or
     // identity capture, so journal, rebase and database all record the name
@@ -167,6 +168,7 @@ export class DurableFinalizeRuntime {
             exactIdentity: artifactIdentityEquals,
             sameContent: artifactContentEquals,
           })
+          input.beforeCommit?.()
           return committer.commit(plan, lease)
         }
       )

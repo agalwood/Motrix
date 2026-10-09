@@ -16,6 +16,7 @@ import {
 import { usePluginsStore } from '../store'
 import { PluginAudienceBadge } from './plugin-audience-badge'
 import { PluginAvatar } from './plugin-avatar'
+import { PluginSecurityNotice } from './plugin-security-notice'
 import { PluginStatusDot } from './plugin-status-dot'
 
 interface Props {
@@ -57,7 +58,13 @@ export function PluginCard({ plugin, hasSchema }: Props) {
     applyStatus(plugin.id, next ? 'inactive' : 'disabled', undefined, next)
   }
 
-  function handleCardClick() {
+  function handleCardClick(event: ReactMouseEvent) {
+    // Disabled switches do not dispatch their own click handler.
+    if (
+      event.target instanceof Element &&
+      event.target.closest('[role="switch"]')
+    )
+      return
     navigate(`/plugins/${plugin.id}`)
   }
 
@@ -85,7 +92,10 @@ export function PluginCard({ plugin, hasSchema }: Props) {
         <div className="min-w-0">
           <h3 className="flex items-center gap-2 truncate text-sm font-medium leading-5">
             {plugin.name}
-            <PluginStatusDot status={plugin.status} enabled={plugin.enabled} />
+            <PluginStatusDot
+              status={plugin.status}
+              enabled={plugin.enabled && !plugin.security}
+            />
             {update && (
               <Badge variant="secondary" className="shrink-0">
                 {t('plugins.registry.updateAvailable')}
@@ -99,7 +109,8 @@ export function PluginCard({ plugin, hasSchema }: Props) {
         </div>
 
         <Switch
-          checked={plugin.enabled}
+          checked={plugin.enabled && !plugin.security}
+          disabled={!!plugin.security}
           aria-label={t('plugins.detail.enabled')}
           onClick={stopPropagation}
           onCheckedChange={toggleEnabled}
@@ -107,17 +118,22 @@ export function PluginCard({ plugin, hasSchema }: Props) {
       </div>
 
       <p className="line-clamp-2 text-xs text-muted-foreground">{oneLine}</p>
-      {audience.tone !== 'safe' && audience.tone !== 'off' && (
-        <p className="line-clamp-2 text-xs text-muted-foreground">
-          {audience.plain}
-        </p>
-      )}
+      {plugin.security && <PluginSecurityNotice decision={plugin.security} />}
+      {!plugin.security &&
+        audience.tone !== 'safe' &&
+        audience.tone !== 'off' && (
+          <p className="line-clamp-2 text-xs text-muted-foreground">
+            {audience.plain}
+          </p>
+        )}
 
       <div className="flex flex-wrap items-center gap-2 border-t pt-3">
         <Button variant="outline" size="sm" onClick={handlePrimary}>
           {audience.primaryAction.label}
         </Button>
-        {plugin.enabled && <PluginAudienceBadge tone={audience.tone} />}
+        {plugin.enabled && !plugin.security && (
+          <PluginAudienceBadge tone={audience.tone} />
+        )}
         {plugin.errorCount > 0 && (
           <Badge variant="destructive">
             {t('plugins.errors', { count: plugin.errorCount })}

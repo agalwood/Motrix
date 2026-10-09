@@ -19,6 +19,7 @@ export const ForwardableEvents = [
   Events.PluginError,
   Events.PluginTimeout,
   Events.PluginStatusChanged,
+  Events.PluginSecurityChanged,
   Events.PluginInstalled,
   Events.PluginUninstalled,
   Events.NatStateChanged,

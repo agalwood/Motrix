@@ -45,6 +45,7 @@ import {
   hasPluginOperations,
   PluginOperations,
 } from './components/plugin-operations'
+import { PluginSecurityNotice } from './components/plugin-security-notice'
 import { PluginSettingsForm } from './components/plugin-settings-form'
 import { PluginStatusDot } from './components/plugin-status-dot'
 import { RegistryDetailPanel } from './components/registry-detail-panel'
@@ -182,7 +183,7 @@ export function PluginDetailPage() {
             <span className="shrink-0">
               <PluginStatusDot
                 status={listEntry.status}
-                enabled={listEntry.enabled}
+                enabled={listEntry.enabled && !listEntry.security}
               />
             </span>
           </div>
@@ -196,13 +197,15 @@ export function PluginDetailPage() {
             <Switch
               id="plugin-detail-enabled"
               aria-label={t('plugins.detail.enabled')}
-              checked={listEntry.enabled}
+              checked={listEntry.enabled && !listEntry.security}
+              disabled={!!listEntry.security}
               onCheckedChange={toggleEnabled}
             />
           </div>
         }
         contentClassName="min-h-0 px-6 pb-6"
       >
+        <PluginSecurityNotice decision={listEntry.security} />
         <Tabs
           value={tab}
           onValueChange={(v) => setTab(v as DetailTab)}

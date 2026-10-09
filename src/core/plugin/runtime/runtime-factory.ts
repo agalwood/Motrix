@@ -68,7 +68,8 @@ export interface PluginRuntimeAssembly {
   finalizeFilesystem: NativeFinalizeFilesystemAdapter
   persistTaskWithPluginMetadata(
     task: DownloadTask,
-    operations: readonly StagedMetadataOp[]
+    operations: readonly StagedMetadataOp[],
+    beforeCommit?: () => void
   ): Promise<void>
 }
 
@@ -176,7 +177,11 @@ export async function createPluginRuntime(
     hooks,
     finalize,
     finalizeFilesystem,
-    persistTaskWithPluginMetadata: (task, operations) =>
-      options.session.persistTaskWithPluginMetadata(task, operations),
+    persistTaskWithPluginMetadata: (task, operations, beforeCommit) =>
+      options.session.persistTaskWithPluginMetadata(
+        task,
+        operations,
+        beforeCommit
+      ),
   }
 }

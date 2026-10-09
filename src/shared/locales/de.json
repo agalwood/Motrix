@@ -2693,6 +2693,16 @@
         "noAccess": "Aus",
         "grant": "Erlauben"
       }
+    },
+    "security": {
+      "blocked": "Aus Sicherheitsgründen gesperrt",
+      "pending": "Stellen Sie eine Internetverbindung her und suchen Sie nach Updates, bevor Sie dieses Plugin aktivieren.",
+      "unavailable": "Die Sicherheitsrichtlinie konnte nicht überprüft werden. Suchen Sie erneut nach Updates.",
+      "malware": "Dieses Plugin wurde als schädlich eingestuft.",
+      "vulnerability": "Diese Plugin-Version weist eine Sicherheitslücke auf.",
+      "compromised": "Der Vertriebsweg dieses Plugins wurde kompromittiert.",
+      "fixedVersion": "Eine Korrektur ist in Version {{version}} verfügbar.",
+      "details": "Sicherheitshinweis anzeigen"
     }
   },
   "plugin": {

@@ -379,6 +379,7 @@ export class CapabilityBridge {
   private readonly worker: Worker
   private readonly log: ReturnType<CapabilityHost['createLog']>
   private disposed = false
+  private forceDisposing = false
 
   // Per-plugin lazy instances (constructed once on first use).
   private pluginHttpHost: HttpCapabilityHost | null = null
@@ -505,6 +506,7 @@ export class CapabilityBridge {
   }
 
   private async onMessage(msg: WorkerToHost): Promise<void> {
+    if (this.disposed) return
     if (msg.type === 'ready') {
       this.events.onReady?.()
       return
@@ -2211,8 +2213,12 @@ export class CapabilityBridge {
     for (const [opId] of matches) this.ffmpegOps.delete(opId)
   }
 
-  async dispose(): Promise<void> {
-    if (this.disposed) return
+  async dispose(force = false): Promise<void> {
+    if (force) this.forceDisposing = true
+    if (this.disposed) {
+      if (force) await this.worker.terminate()
+      return
+    }
     this.disposed = true
     this.failPendingHook('plugin.runtime.bridge_disposed', 'bridge disposed')
     const httpCalls = this.abortHttpCalls(() => true)
@@ -2221,8 +2227,11 @@ export class CapabilityBridge {
       entry.handle.abort()
     }
     this.ffmpegOps.clear()
-    await Promise.allSettled(httpCalls.map((entry) => entry.settled))
-    this.worker.postMessage({ type: 'event', event: 'shutdown' })
+    if (!force) {
+      await Promise.allSettled(httpCalls.map((entry) => entry.settled))
+      if (!this.forceDisposing)
+        this.worker.postMessage({ type: 'event', event: 'shutdown' })
+    }
     await this.worker.terminate()
   }
 

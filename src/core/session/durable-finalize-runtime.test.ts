@@ -108,6 +108,61 @@ describe('DurableFinalizeRuntime', () => {
     expect(events).toEqual(['quiesce', 'materialize', 'release'])
     db.close()
   })
+
+  it('rejects revocation while preparing identities before any output mutation', async () => {
+    const root = await mkdtemp(
+      path.join(os.tmpdir(), 'motrix-revoked-finalize-')
+    )
+    roots.push(root)
+    const sourcePath = path.join(root, 'source.part')
+    const targetPath = path.join(root, 'target.bin')
+    await writeFile(sourcePath, 'original')
+    const db = new Database(':memory:')
+    migrate(db)
+    let revoked = false
+    const fs = {
+      identity: async (artifactPath: string) => {
+        const identity = await readArtifactIdentity(artifactPath)
+        revoked = true
+        return identity
+      },
+      sameFilesystem: vi.fn(),
+      materializePrivate: vi.fn(),
+      makeDurable: vi.fn(),
+      moveNoReplace: vi.fn(),
+      removeKnown: vi.fn(),
+    } satisfies FinalizeArtifactOperations
+    const commitDatabase = vi.fn()
+    const runtime = new DurableFinalizeRuntime({
+      db,
+      fs,
+      session: {
+        persistFinalizedArtifact: async (_task, _occurrence, _input, commit) =>
+          commit(commitDatabase),
+      },
+    })
+    try {
+      await expect(
+        runtime.commit({
+          task: makeDownloadTask({ id: 'revoked', saveDir: root }),
+          occurrence: null,
+          sourcePath,
+          targetPath,
+          metadataOps: [],
+          contributors: ['example.test'],
+          postDeliveries: [],
+          beforeCommit: () => {
+            if (revoked) throw new Error('security revoked')
+          },
+        })
+      ).rejects.toThrow('security revoked')
+      expect(fs.materializePrivate).not.toHaveBeenCalled()
+      expect(fs.moveNoReplace).not.toHaveBeenCalled()
+      expect(commitDatabase).not.toHaveBeenCalled()
+    } finally {
+      db.close()
+    }
+  })
 })
 
 it('rejects an invalid target before acquiring leases or reading file identities', async () => {

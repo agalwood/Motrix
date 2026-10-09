@@ -2672,6 +2672,16 @@
         "noAccess": "关闭",
         "grant": "允许"
       }
+    },
+    "security": {
+      "blocked": "已因安全风险禁用",
+      "pending": "请联网检查更新后再启用此插件。",
+      "unavailable": "无法验证安全策略，请检查更新后重试。",
+      "malware": "此插件已被确认为恶意插件。",
+      "vulnerability": "此插件版本存在安全漏洞。",
+      "compromised": "此插件的分发渠道已遭入侵。",
+      "fixedVersion": "修复版本：{{version}}。",
+      "details": "查看安全公告"
     }
   },
   "plugin": {
