@@ -155,7 +155,6 @@ export function usePluginInstall() {
         stagingRef.current = null
         if (mountedRef.current) {
           setStagingId(null)
-          setConsent(null)
         }
         return true
       } catch (e) {
@@ -196,8 +195,6 @@ export function usePluginInstall() {
       stagingRef.current = null
       if (mountedRef.current) {
         setStagingId(null)
-        setConsent(null)
-        setError(null)
       }
       return true
     } catch (e) {
@@ -211,5 +208,21 @@ export function usePluginInstall() {
     }
   }, [showError])
 
-  return { stagingId, consent, pending, error, startInstall, confirm, cancel }
+  // Keep the reviewed content intact while its dialog animates out. Starting
+  // another install also resets it, independently of animation completion.
+  const resetPresentation = useCallback(() => {
+    setConsent(null)
+    setError(null)
+  }, [])
+
+  return {
+    stagingId,
+    consent,
+    pending,
+    error,
+    startInstall,
+    confirm,
+    cancel,
+    resetPresentation,
+  }
 }
