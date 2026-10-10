@@ -68,6 +68,16 @@
   </screenshots>
 
   <releases>
+    <release version="2.0.0-beta.47" date="2026-10-10">
+      <description>
+        <p>
+          Adds the desktop v1 Migration Assistant, signed official optional
+          plugin installation, and manual media merging with a separate plugin.
+          Improves permission review, download finalization and storage recovery,
+          window restoration, diagnostic logs, and bundles aria2 motrix.17.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.46" date="2026-10-02">
       <description>
         <p>
