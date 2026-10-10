@@ -374,6 +374,14 @@ describe('CI and release target matrix contract', () => {
           : step.name === 'Upload target release input'
       )
       const uploadInputs = asRecord(upload?.with, `${label} report upload`)
+      if (label === 'CI') {
+        // A failed verifier still writes a report; preserve it without masking
+        // the failure or trying to upload files after an earlier build failure.
+        expect(stringField(upload as LooseRecord, 'if')).toBe(
+          `\${{ !cancelled() && hashFiles('release/size-reports/*.json') != '' }}`
+        )
+        expect(steps[verifierIndex]?.['continue-on-error']).not.toBe(true)
+      }
       expect(stringField(uploadInputs, 'path')).toContain(
         `release/size-reports/\${{ matrix.target }}.json`
       )
