@@ -1538,7 +1538,7 @@
     "lead": "Voeg kleine functies toe aan Motrix. Laat de plug-ins die je vertrouwt ingeschakeld en schakel de rest uit.",
     "logs": {
       "clear": "Wissen",
-      "copy": "Kopiëren",
+      "copy": "Geredigeerde logboeken kopiëren",
       "empty": "Nog geen logboekvermeldingen",
       "emptyFiltered": "Geen vermeldingen op dit niveau.",
       "emptyHint": "Nieuwe plug-inactiviteit verschijnt hier automatisch.",

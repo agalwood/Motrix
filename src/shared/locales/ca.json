@@ -1555,7 +1555,7 @@
     "lead": "Afegiu petites funcions al Motrix. Manteniu els connectors de confiança i desactiveu la resta.",
     "logs": {
       "clear": "Esborrar",
-      "copy": "Copiar",
+      "copy": "Copia els registres amb dades ocultes",
       "empty": "Encara no hi ha entrades al registre",
       "emptyFiltered": "No hi ha entrades d'aquest nivell.",
       "emptyHint": "L'activitat nova del connector apareixerà aquí automàticament.",

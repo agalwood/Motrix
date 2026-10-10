@@ -113,6 +113,7 @@ import {
 import { closeCurrentWindowSchema } from '@shared/schemas/close-current-window'
 import { filePickerOptionsSchema } from '@shared/schemas/file-picker'
 import { moveTasksPayloadSchema } from '@shared/schemas/move-tasks'
+import { PluginLogVerboseRequestSchema } from '@shared/schemas/plugin-logs'
 import { checkPluginUpdatesPayloadSchema } from '@shared/schemas/plugin-update'
 import { REGISTRY_PLUGIN_ID_RE } from '@shared/schemas/registry'
 import { removeTaskPayloadSchema } from '@shared/schemas/remove-task'
@@ -1918,11 +1919,9 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     },
 
     [Commands.SetPluginLogVerbose]: async (payload: unknown) => {
-      const parsed = z
-        .object({ pluginId: z.string().min(1), verbose: z.boolean() })
-        .parse(payload)
+      const parsed = PluginLogVerboseRequestSchema.parse(payload)
       capabilityHost.setLogVerbose(parsed.pluginId, parsed.verbose)
-      return { ok: true }
+      return capabilityHost.getLogState(parsed.pluginId)
     },
   }
 }

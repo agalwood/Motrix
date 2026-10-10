@@ -156,6 +156,7 @@ function makeHost(calls: CascadeCalls): CapabilityHost {
     clearLog: () => {},
     setLogVerbose: () => {},
     isLogVerbose: () => false,
+    getLogState: () => ({ verbose: false, expiresAt: null }),
     subscribeLog: () => noop,
     appSnapshot: () => ({
       version: '2.5.0',

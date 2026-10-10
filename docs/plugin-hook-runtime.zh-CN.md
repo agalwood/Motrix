@@ -740,6 +740,29 @@ pending/delivering/delivered/dead-letter 数量、attempt latency、retry 次数
 Electron 与 Server 使用相同事件名和字段含义。测试必须断言两套装配，而不
 只是测试 core factory。
 
+### HTTP URL 诊断
+
+每个参与 HTTP `beforeCreate` 的插件都会收到宿主记录的 `beforeCreate.input`、
+`beforeCreate.output` 和 `engine.dispatch` 日志，通过 `taskId` 关联。
+dispatch 记录表示参数已经交给引擎适配器，不代表网络请求成功。Hook 失败且由
+调用链处理时，还会记录 `beforeCreate.error`。
+
+日常应用日志和插件日志保留 `id`、`export`、`confirm` 等普通查询参数。
+统一的凭据名称规则会将 `token`、`sig`、`signature`、`X-Amz-Credential` 等
+参数值替换为 `[redacted]`，并移除 URL 中的用户名、密码和 fragment。
+未遮蔽参数的顺序、重复项、空值和百分号编码保持原样。这些转换只作用于日志
+副本，Hook 上下文与引擎请求中的原始 URL 字节保持不变。
+
+插件日志页的**详细模式**为该插件开启一小时的原始诊断记录。宿主在每次写入
+时检查有效期，关闭页面也会到期；重新打开页面只读取已有状态，不会续期。
+关闭模式仅影响后续记录。**清空**只清除界面缓冲区，之前捕获的内容仍保留
+在本地日志文件中。
+
+**复制脱敏日志**会再次处理所选记录，包括详细模式产生的记录：隐藏全部 URL
+查询参数值，移除 URL 用户名、密码和 fragment，省略结构化 header 与 body。
+通用规则无法识别插件任意文本或 URL 路径中的所有秘密，公开前仍应检查内容。
+这套机制无需维护站点规则，也不需要修改插件 SDK API。
+
 ## 16. Electron 与 Server 装配
 
 每个外壳按以下顺序执行：

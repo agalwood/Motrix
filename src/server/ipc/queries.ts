@@ -41,6 +41,7 @@ import type { TrackerManager } from '@core/tracker'
 import type { SupportedLocale } from '@shared/constants/locales'
 import type { QueryHandlerMap } from '@shared/protocol/handler-types'
 import { Queries } from '@shared/protocol/queries'
+import { PluginLogRequestSchema } from '@shared/schemas/plugin-logs'
 import { ListServerDirectoryLocationsRequestSchema } from '@shared/schemas/server-directory'
 import { taskTrackerRequestSchema } from '@shared/schemas/task-tracker'
 import type { AppUpdateState } from '@shared/types/app-update'
@@ -352,6 +353,11 @@ export function buildServerQueryHandlers(
       readCommandGraph(
         path.join(pluginsDir, '_audit', 'command-invokes.ndjson')
       ),
+
+    [Queries.GetPluginLogState]: async (payload: unknown) => {
+      const { pluginId } = PluginLogRequestSchema.parse(payload)
+      return capabilityHost.getLogState(pluginId)
+    },
 
     [Queries.GetPluginLogs]: async (params: {
       pluginId: string

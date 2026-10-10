@@ -2464,7 +2464,7 @@
         "error": "Errore",
         "fatal": "Critico"
       },
-      "copy": "Copia",
+      "copy": "Copia log oscurati",
       "clear": "Cancella",
       "output": "Output in tempo reale",
       "entryCount_one": "{{count}} voce",

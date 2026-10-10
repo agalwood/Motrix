@@ -2482,7 +2482,7 @@
         "error": "Błąd",
         "fatal": "Błąd krytyczny"
       },
-      "copy": "Kopiuj",
+      "copy": "Kopiuj logi z ukrytymi danymi",
       "clear": "Wyczyść",
       "output": "Bieżące wpisy",
       "entryCount_one": "{{count}} wpis",

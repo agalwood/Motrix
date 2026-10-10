@@ -765,7 +765,9 @@ describe('handleCreateTask', () => {
       | undefined
     expect(dispatchFields?.gid).toMatch(/^[0-9a-f]{16}$/)
     expect(dispatchFields).not.toHaveProperty('params')
-    expect(dispatchFields).not.toHaveProperty('uris')
+    expect(dispatchFields).toHaveProperty('uris', [
+      'https://example.com/file.zip?token=[redacted]',
+    ])
     expect(dispatchFields).not.toHaveProperty('headers')
     expect(dispatchFields).not.toHaveProperty('proxy')
     expect(dispatchFields).not.toHaveProperty('extraEngineOptions')

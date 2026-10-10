@@ -1538,7 +1538,7 @@
     "lead": "Legg til små funksjoner i Motrix. Behold dem du stoler på, og slå av resten.",
     "logs": {
       "clear": "Tøm",
-      "copy": "Kopier",
+      "copy": "Kopier sladdede logger",
       "empty": "Ingen loggoppføringer ennå",
       "emptyFiltered": "Ingen oppføringer samsvarer med dette nivået.",
       "emptyHint": "Ny aktivitet fra programtillegget vises automatisk her.",

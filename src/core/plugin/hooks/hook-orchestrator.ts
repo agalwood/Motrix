@@ -1,3 +1,4 @@
+import type { CreateDownloadParams } from '@core/engine/engine-adapter'
 import {
   admitDownloadSources,
   DownloadSourceError,
@@ -73,6 +74,7 @@ export interface OrchestratorOptions {
   pluginStorageRootFor: (pluginId: string) => string
   /** Production task-filesystem and metadata context for every Hook. */
   capabilityHost?: Pick<CapabilityHost, 'fsTaskFor' | 'metadata'>
+  createLog?: CapabilityHost['createLog']
   /** ffmpeg per-(plugin, task) staging quota in bytes. */
   ffmpegStagingQuotaBytes?: number
   /** Optional NDJSON audit log; T15 wires the real instance. */
@@ -91,6 +93,8 @@ export interface BeforeCreateHttpResult {
   aborted?: false
   /** Merged DTO ready for engine handoff. */
   final: BeforeCreateHttpContextDTO
+  /** Bound to this invocation's participants; no task-global diagnostic state. */
+  recordEngineDispatch?: (params: CreateDownloadParams) => void
   /** Plugin attribution for the final headers / proxy / uris choices. */
   contributors: MergedHttp['contributors']
   /** Caller (TaskManager) commits this store inside its DB transaction. */
@@ -154,6 +158,24 @@ export class HookOrchestrator {
     this.breaker = opts.breaker ?? new RealCircuitBreaker()
   }
 
+  private recordHttpDiagnostic(
+    pluginId: string,
+    taskId: string,
+    stage: string,
+    fields: Record<string, unknown>
+  ): void {
+    try {
+      this.opts.createLog?.(pluginId).info(`HTTP task: ${stage}`, {
+        ...fields,
+        taskId,
+        stage,
+        source: 'host',
+      })
+    } catch {
+      // Diagnostic capture must never change hook or download behavior.
+    }
+  }
+
   // -------------------------------------------------------------------------
   // beforeCreate (HTTP)
   // -------------------------------------------------------------------------
@@ -187,6 +209,7 @@ export class HookOrchestrator {
     const staged = new StagedEffectStore()
     const timeout = this.opts.hookTimeoutMs.series
     let working = cloneBeforeCreate(initial)
+    const diagnosticPluginIds: string[] = []
 
     for (const entry of chain) {
       if (this.breaker.isOpen(entry.id, 'beforeCreate')) {
@@ -204,6 +227,13 @@ export class HookOrchestrator {
       }
 
       const abort = newHookAbort(timeout)
+      diagnosticPluginIds.push(entry.id)
+      this.recordHttpDiagnostic(entry.id, taskId, 'beforeCreate.input', {
+        sourceUrl: working.sourceUrl,
+        uris: working.uris,
+        headers: working.headers,
+        proxy: working.proxy,
+      })
 
       try {
         const check = this.opts.host.capturePolicyCheck?.(entry.id)
@@ -230,11 +260,19 @@ export class HookOrchestrator {
           'http',
           'https',
         ]).map((source) => source.sourceUrl)
+        this.recordHttpDiagnostic(entry.id, taskId, 'beforeCreate.output', {
+          uris: working.uris,
+          headers: working.headers,
+          proxy: working.proxy,
+        })
         this.breaker.success(entry.id, 'beforeCreate')
       } catch (e) {
         if (e instanceof DownloadSourceError) throw e
         await this.recordPluginFailure(entry.id, 'beforeCreate')
         const message = (e as Error).message
+        this.recordHttpDiagnostic(entry.id, taskId, 'beforeCreate.error', {
+          error: message,
+        })
         await this.opts.auditLog?.log({
           type: 'chain.plugin_error',
           hook: 'beforeCreate',
@@ -295,7 +333,21 @@ export class HookOrchestrator {
     })
 
     staged.assertPolicyCurrent()
-    return { final, contributors: merged.contributors, staged }
+    return {
+      final,
+      contributors: merged.contributors,
+      staged,
+      recordEngineDispatch: (params) => {
+        for (const pluginId of diagnosticPluginIds) {
+          this.recordHttpDiagnostic(pluginId, taskId, 'engine.dispatch', {
+            uris: params.uris,
+            headers: params.headers,
+            proxy: params.proxy,
+            gid: params.gid,
+          })
+        }
+      },
+    }
   }
 
   // -------------------------------------------------------------------------

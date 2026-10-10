@@ -1,6 +1,7 @@
 // src/core/plugin/capabilities/interface.ts
 
 import type { SupportedLocale } from '@shared/constants/locales'
+import type { PluginLogState } from '@shared/schemas/plugin-logs'
 import type { PluginLogEntry } from '@shared/types/plugin'
 import type { ManifestLocaleDict } from '../manifest/i18n-resolve'
 import type { CommandsCapabilityHost } from './commands'
@@ -56,6 +57,7 @@ export interface CapabilityHost {
   clearLog(pluginId: string): void
   setLogVerbose(pluginId: string, verbose: boolean): void
   isLogVerbose(pluginId: string): boolean
+  getLogState(pluginId: string): PluginLogState
   subscribeLog(listener: LogStreamListener): () => void
   appSnapshot(): AppCapabilitySnapshot
   i18nSnapshot(pluginId: string): I18nSnapshot

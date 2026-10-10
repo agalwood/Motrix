@@ -23,9 +23,11 @@ import {
 import { Separator } from '@renderer/components/ui/separator'
 import { Switch } from '@renderer/components/ui/switch'
 import { transport } from '@renderer/lib/transport'
+import { serializePluginLogsForExport } from '@shared/lib/plugin-log-export'
 import { Commands } from '@shared/protocol/commands'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { usePluginLogState } from '../hooks/use-plugin-log-state'
 import { usePluginLogStream } from '../hooks/use-plugin-log-stream'
 import { PluginLogRow } from './plugin-log-row'
 
@@ -42,7 +44,7 @@ const LEVELS = [
 export function PluginLogTab({ pluginId }: { pluginId: string }) {
   const { t } = useTranslation()
   const [level, setLevel] = useState<(typeof LEVELS)[number]>('all')
-  const [verbose, setVerbose] = useState(false)
+  const { verbose, pending, setVerbose } = usePluginLogState(pluginId)
   const { entries, setEntries } = usePluginLogStream(pluginId)
   const levelOptions = LEVELS.map((value) => ({
     value,
@@ -51,14 +53,6 @@ export function PluginLogTab({ pluginId }: { pluginId: string }) {
 
   const filtered =
     level === 'all' ? entries : entries.filter((e) => e.level === level)
-
-  async function onVerboseChange(v: boolean) {
-    setVerbose(v)
-    await transport.invoke(Commands.SetPluginLogVerbose, {
-      pluginId,
-      verbose: v,
-    })
-  }
 
   async function onClear() {
     await transport.invoke(Commands.ClearPluginLogs, { pluginId })
@@ -102,7 +96,8 @@ export function PluginLogTab({ pluginId }: { pluginId: string }) {
             id="plugin-log-verbose"
             size="sm"
             checked={verbose}
-            onCheckedChange={onVerboseChange}
+            onCheckedChange={setVerbose}
+            disabled={pending}
           />
           <span>{t('plugins.logs.verbose')}</span>
         </label>
@@ -114,7 +109,7 @@ export function PluginLogTab({ pluginId }: { pluginId: string }) {
             size="xs"
             variant="ghost"
             disabled={filtered.length === 0}
-            content={JSON.stringify(filtered, null, 2)}
+            content={() => serializePluginLogsForExport(filtered)}
             className="active:scale-[0.97] motion-reduce:transform-none"
           >
             {t('plugins.logs.copy')}

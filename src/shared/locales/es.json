@@ -2463,7 +2463,7 @@
         "error": "Error",
         "fatal": "Crítico"
       },
-      "copy": "Copiar",
+      "copy": "Copiar registros censurados",
       "clear": "Borrar",
       "output": "Salida en tiempo real",
       "entryCount_one": "{{count}} entrada",

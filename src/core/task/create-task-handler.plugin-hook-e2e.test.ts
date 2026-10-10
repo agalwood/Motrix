@@ -16,10 +16,11 @@
 // user-supplied URL. After the wiring fix in commands.ts, that scenario
 // cannot occur in production.
 
-import { cpSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
+import { LogCapabilityHost } from '@core/plugin/capabilities/log'
 import { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
 import { PluginHost } from '@core/plugin/host/plugin-host'
 import { PluginRegistry } from '@core/plugin/plugin-registry'
@@ -57,6 +58,7 @@ function buildCapHost(_rootDir: string): CapabilityHost {
     clearLog: () => {},
     setLogVerbose: () => {},
     isLogVerbose: () => false,
+    getLogState: () => ({ verbose: false, expiresAt: null }),
     subscribeLog: () => noop,
     appSnapshot: () => ({
       version: '2.5.0',
@@ -106,13 +108,17 @@ vi.mock('node:fs/promises', async () => {
 
 interface BootedStack {
   host: PluginHost
+  logs: LogCapabilityHost
   orchestrator: HookOrchestrator
   rootDir: string
   pluginsDir: string
   shutdown(): Promise<void>
 }
 
-async function bootStack(fixtureId: string): Promise<BootedStack> {
+async function bootStack(
+  fixtureId: string,
+  rewrittenUri?: string
+): Promise<BootedStack> {
   const rootDir = mkdtempSync(path.join(tmpdir(), 'mhe-hook-e2e-'))
   const pluginsDir = path.join(rootDir, 'plugins')
   mkdirSync(pluginsDir, { recursive: true })
@@ -120,6 +126,23 @@ async function bootStack(fixtureId: string): Promise<BootedStack> {
     recursive: true,
   })
 
+  if (rewrittenUri) {
+    writeFileSync(
+      path.join(pluginsDir, fixtureId, 'dist/plugin.js'),
+      `
+      import { hooks } from 'motrix:plugin-api';
+      hooks.beforeCreate(async (ctx) => {
+        if (ctx.sourceUrl !== ${JSON.stringify(SOURCE_URL)} || ctx.uris[0] !== ${JSON.stringify(SOURCE_URL)}) {
+          throw new Error('source query changed before hook');
+        }
+        ctx.update({ uris: [${JSON.stringify(rewrittenUri)}] });
+      });
+    `
+    )
+  }
+  const logs = new LogCapabilityHost({
+    pluginLogsDir: path.join(rootDir, 'logs'),
+  })
   const db = new Database(':memory:')
   migrate(db)
   const stateStore = new PluginStateStore(db)
@@ -146,6 +169,7 @@ async function bootStack(fixtureId: string): Promise<BootedStack> {
 
   const orchestrator = new HookOrchestrator({
     host,
+    createLog: (id) => logs.create(id),
     hookTimeoutMs: { series: 10_000, parallel: 30_000 },
     pluginsDir,
     pluginStorageRootFor: (id) => path.join(pluginsDir, id, 'storage'),
@@ -153,11 +177,13 @@ async function bootStack(fixtureId: string): Promise<BootedStack> {
 
   return {
     host,
+    logs,
     orchestrator,
     rootDir,
     pluginsDir,
     async shutdown() {
       await host.shutdown()
+      await logs.flush()
       db.close()
       rmSync(rootDir, { recursive: true, force: true })
     },
@@ -258,6 +284,51 @@ describe('handleCreateTask + beforeCreate hook wiring', () => {
       stack = null
     }
   })
+
+  it.each([
+    ['https://httpbin.org/get?a=1', false],
+    [
+      'https://drive.usercontent.google.com/download?id=test-ID&export=download&confirm=t',
+      false,
+    ],
+    [
+      'https://cdn.example.com/download?item=a%2fb+X&item=2&empty=&sig=private-signature',
+      false,
+    ],
+    [
+      'https://cdn.example.com/download?item=a%2fb+X&item=2&empty=&sig=private-signature',
+      true,
+    ],
+  ])(
+    'preserves %s through QuickJS and aria2 while recording scoped diagnostics (verbose=%s)',
+    async (uri, verbose) => {
+      stack = await bootStack('test.resolve-band', uri as string)
+      stack.logs.setVerbose('test.resolve-band', verbose as boolean)
+      const saveDir = path.join(stack.rootDir, 'save')
+      const deps = makeBaseDeps(saveDir)
+      await handleCreateTask(
+        { type: 'http', uris: [SOURCE_URL], saveDir, headers: [] },
+        { ...deps, orchestrator: stack.orchestrator }
+      )
+      expect(deps.addUri.mock.calls[0][0]).toEqual([uri])
+      const records = stack.logs.getTail('test.resolve-band', 10)
+      expect(records.map((record) => record.stage)).toEqual([
+        'beforeCreate.input',
+        'beforeCreate.output',
+        'engine.dispatch',
+      ])
+      expect(records[0].uris).toEqual([SOURCE_URL])
+      const logged = verbose
+        ? uri
+        : (uri as string).replace('sig=private-signature', 'sig=[redacted]')
+      expect(records[1].uris).toEqual([logged])
+      expect(records[2].uris).toEqual([logged])
+      expect(records[2].gid).toBe(deps.addUri.mock.calls[0][1].gid)
+      expect(new Set(records.map((record) => record.taskId)).size).toBe(1)
+      expect(stack.logs.getTail('other.plugin', 10)).toEqual([])
+    },
+    30_000
+  )
 
   it('rewrites the source URL when the orchestrator is wired', async () => {
     stack = await bootStack('test.resolve-band')
