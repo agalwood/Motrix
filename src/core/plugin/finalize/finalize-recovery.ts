@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { getLogger } from '@core/logger'
 import type {
   ArtifactMutationLease,
   ArtifactMutationLeaseCoordinator,
@@ -12,6 +13,10 @@ import {
   prepareRemovalIntent,
   publishReserved,
 } from './finalize-committer'
+import {
+  FinalizeRecoveryDeferredError,
+  isUnavailableArtifactError,
+} from './finalize-recovery-errors'
 import {
   linkPublicationConfirmed,
   selectRemovalSurvivor,
@@ -45,6 +50,13 @@ export class FinalizeRecovery {
       try {
         await this.recover(record)
       } catch (error) {
+        if (isUnavailableArtifactError(error)) {
+          getLogger('finalize').warn(
+            { journalId: record.journalId, err: error },
+            'finalize recovery deferred until artifacts are available'
+          )
+          continue
+        }
         if (!(error instanceof FinalizeQuarantinedError)) failures.push(error)
       }
     }
@@ -111,6 +123,14 @@ export class FinalizeRecovery {
         ? await this.options.fs.identity(record.plan.replacement.stagedPath)
         : null
 
+      // An unmounted disk or unavailable share can look exactly like ENOENT.
+      // Absence alone is not evidence of a conflicting identity. Keep the
+      // durable checkpoint so reconnecting the storage can resume recovery.
+      if (!source && !target && !rollback && !privateTarget)
+        throw new FinalizeRecoveryDeferredError(
+          'finalize artifacts are unavailable; retry recovery'
+        )
+
       const linked =
         record.publicationIntent?.method === 'hard_link'
           ? record.publicationIntent
@@ -147,7 +167,11 @@ export class FinalizeRecovery {
       }
 
       if (record.phase === 'db_committed') {
-        if (!target || !this.options.exactIdentity(target, installed)) {
+        if (!target)
+          throw new FinalizeRecoveryDeferredError(
+            'committed target is unavailable; retry recovery'
+          )
+        if (!this.options.exactIdentity(target, installed)) {
           await this.quarantine(record, 'committed target identity mismatch')
         }
         await this.cleanup(record, source, rollback, privateTarget, replacement)

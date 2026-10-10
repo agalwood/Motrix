@@ -94,6 +94,7 @@ export interface FinalizeJournalRepository {
     patch: Partial<
       Pick<
         FinalizeJournalRecord,
+        | 'publicationMode'
         | 'privateTargetPath'
         | 'privateTargetIdentity'
         | 'targetIdentity'
@@ -265,12 +266,36 @@ export class FinalizeCommitter {
     } else if (movesSource) {
       // moveNoReplace validates the expected source identity while holding the
       // artifact and both roots. Avoid hashing large artifacts once more here.
-      publishedIdentity = await this.publish(
-        record,
-        plan.sourcePath,
-        plan.sourceIdentity,
-        plan.targetPath
-      )
+      try {
+        publishedIdentity = await this.publish(
+          record,
+          plan.sourcePath,
+          plan.sourceIdentity,
+          plan.targetPath
+        )
+      } catch (error) {
+        // st_dev is only a hint: bind mounts and OverlayFS can return EXDEV
+        // even when both paths report the same device. Reconcile the names
+        // before durably switching to the existing private-copy protocol.
+        if (
+          !(error instanceof FinalizeFsError) ||
+          error.code !== 'cross_device' ||
+          error.details?.mutation === 'applied' ||
+          record.publicationIntent
+        )
+          throw error
+        await this.requireExactIdentity(
+          plan.sourcePath,
+          plan.sourceIdentity,
+          record
+        )
+        if (await this.options.fs.identity(plan.targetPath)) throw error
+        await this.options.repository.checkpoint(record.journalId, {
+          publicationMode: 'copy',
+        })
+        record.publicationMode = 'copy'
+        return this.commitPrepared(record, _lease)
+      }
       await this.options.fs.makeDurable(plan.targetPath)
     } else {
       if (samePath) {

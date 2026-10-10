@@ -6,6 +6,7 @@ import type {
   FinalizeRemovalSurvivor,
 } from './finalize-committer'
 import { finalizePathsEquivalent } from './finalize-committer'
+import { FinalizeRecoveryDeferredError } from './finalize-recovery-errors'
 
 /** A recorded intention cannot establish ownership of a public hard link. */
 export function linkPublicationConfirmed(
@@ -61,14 +62,26 @@ export async function selectRemovalSurvivor(
             ]
           : []),
       ]
+  let observedConflict = false
+  let checkedSurvivor = false
   for (const candidate of candidates) {
     if (removes(candidate.path)) continue
+    checkedSurvivor = true
     const before = await fs.identity(candidate.path)
-    if (!before || !exactIdentity(before, candidate.identity)) continue
+    if (!before) continue
+    if (!exactIdentity(before, candidate.identity)) {
+      observedConflict = true
+      continue
+    }
     await fs.makeDurable(candidate.path)
     const after = await fs.identity(candidate.path)
     if (after && exactIdentity(after, candidate.identity)) return candidate
+    if (after) observedConflict = true
   }
+  if (checkedSurvivor && !observedConflict)
+    throw new FinalizeRecoveryDeferredError(
+      'removal survivor is unavailable; retry recovery'
+    )
   return committed
     ? 'committed target identity mismatch'
     : 'rollback survivor is missing or changed'

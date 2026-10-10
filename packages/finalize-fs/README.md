@@ -94,6 +94,44 @@ retain the journal and return an error. `rustix` supplies the safe Unix syscall
 wrappers; `sha2` supplies the shared digest implementation. Neither replaces
 the application's durable transaction and recovery rules.
 
+## Cross-mount publication and Linux coverage
+
+Device numbers are an optimization hint, not proof that rename can succeed.
+Linux bind mounts can share `st_dev` while rename returns `EXDEV`; OverlayFS
+can also return `EXDEV` for a lower-layer directory. After an actual
+cross-device error, the host revalidates the source and target absence, then
+durably switches a still-prepared move journal to copy mode before creating
+anything. The existing private-copy, exclusive publication, database commit,
+and survivor-checked cleanup protocol handles the rest. An applied mutation,
+publication intent, permission failure, or generic I/O failure cannot trigger
+this switch. The repository rejects mode changes after staging or publication.
+
+The Linux matrix in `finalize-filesystems.yml` formats only newly created
+image files and runs the real native sidecar with a local SQLite journal on
+ext4, Btrfs, XFS, F2FS, FAT32, exFAT, NTFS3, NTFS-3G, tmpfs, and OverlayFS.
+It checks empty files, Unicode and long names, existing targets, case-sensitive
+and case-insensitive conflicts, real cross-device copies, bind mounts with
+equal device numbers, unavailable paths, and restart after a lost response.
+Storage disappearance is modeled by moving the scratch directory out of the
+recorded path; it is not a hardware unplug or power-loss test. OverlayFS tests
+create downloads in the writable upper layer. NTFS-3G's unsupported exclusive
+directory rename is explicitly tested as a refusal that preserves the source,
+not as successful directory publication. Lost hard-link acknowledgements still
+preserve both names for reconciliation.
+
+To run one matrix entry on Linux with the listed formatter installed and
+passwordless mount privileges:
+
+```sh
+cargo build --manifest-path packages/finalize-fs/Cargo.toml --locked
+bash .github/scripts/finalize-filesystems.sh ext4
+```
+
+The matrix supplements the NFS, Windows SMB/FAT-family, and macOS exFAT suites;
+it does not assert support for every FUSE driver, network server, kernel, or
+mount configuration. Synchronization success remains subject to the storage
+implementation; tmpfs, in particular, is volatile across system restart.
+
 ## macOS local exFAT
 
 Some FSKit exFAT volumes reject exclusive rename with `ENOTSUP` (45), which
@@ -218,6 +256,16 @@ class. Existing protocol consumers can ignore the additive fields.
 ## Recovery
 
 New I/O failures keep the last journal checkpoint available for retry.
+Missing artifacts alone also keep the checkpoint retryable: an unmounted disk
+or unavailable share can present as `ENOENT`. This includes a missing committed
+target and a temporarily unavailable survivor during pending cleanup. A changed
+identity remains a conflict, and no file is removed while its required survivor
+is unavailable. A reconnect still has to pass the existing identity checks;
+this does not infer ownership from matching content on a different volume.
+Startup logs and defers these journals, including recognized stale-mount and
+disconnection errors, while allowing other tasks to restore. An explicit task
+retry still fails until storage is available. Generic I/O, permission, database,
+and programming errors are not silently converted into storage deferrals.
 Successful rollback closes the journal only after identity and durability
 checks. Startup recovery and an explicit finalize retry use the same rollback
 implementation under the task's mutation lease.

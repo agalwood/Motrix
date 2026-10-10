@@ -106,6 +106,7 @@ export class SqliteFinalizeJournalRepository
     patch: Partial<
       Pick<
         FinalizeJournalRecord,
+        | 'publicationMode'
         | 'privateTargetPath'
         | 'privateTargetIdentity'
         | 'targetIdentity'
@@ -120,6 +121,18 @@ export class SqliteFinalizeJournalRepository
       if (current.phase === 'cleaned') {
         throw new Error(`cannot checkpoint terminal finalize journal`)
       }
+      if (
+        patch.publicationMode !== undefined &&
+        (patch.publicationMode !== 'copy' ||
+          current.publicationMode !== 'move' ||
+          current.phase !== 'prepared' ||
+          current.publicationIntent ||
+          current.privateTargetPath ||
+          current.rollbackPath ||
+          current.targetIdentity ||
+          current.removalIntent)
+      )
+        throw new Error('cannot change publication mode after mutation')
       const next: FinalizeJournalRecord = { ...current, ...patch }
       validateIntents(next)
       const changed = this.db

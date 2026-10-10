@@ -16,6 +16,36 @@ describe('SqliteFinalizeJournalRepository', () => {
 
   afterEach(() => db.close())
 
+  it('persists a prepared move-to-copy switch and rejects switching after mutation', async () => {
+    const repository = new SqliteFinalizeJournalRepository(db, {
+      commitTerminalBoundary: vi.fn(),
+    })
+    const record = { ...makeRecord(), publicationMode: 'move' as const }
+    await repository.prepare(record)
+    await repository.checkpoint(record.journalId, { publicationMode: 'copy' })
+    expect((await repository.listRecoverable())[0].publicationMode).toBe('copy')
+    await expect(
+      repository.checkpoint(record.journalId, { publicationMode: 'move' })
+    ).rejects.toThrow('after mutation')
+  })
+
+  it.each(['target_staged', 'target_installed', 'db_committed'] as const)(
+    'rejects a mode switch in %s',
+    async (phase) => {
+      const repository = new SqliteFinalizeJournalRepository(db, {
+        commitTerminalBoundary: vi.fn(),
+      })
+      const record = { ...makeRecord(), publicationMode: 'move' as const }
+      await repository.prepare(record)
+      db.prepare(
+        'UPDATE plugin_finalize_journals SET phase=?, plan_json=?'
+      ).run(phase, JSON.stringify({ ...record, phase }))
+      await expect(
+        repository.checkpoint(record.journalId, { publicationMode: 'copy' })
+      ).rejects.toThrow('after mutation')
+    }
+  )
+
   it('syncs critical journal writes and restores the connection setting after a failed commit', async () => {
     db.pragma('synchronous = NORMAL')
     db.pragma('fullfsync = OFF')
