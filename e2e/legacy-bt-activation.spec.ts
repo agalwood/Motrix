@@ -1,6 +1,6 @@
 import { cp, mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import type { Page } from '@playwright/test'
+import type { ElectronApplication, Page } from '@playwright/test'
 import { CURRENT_SETTINGS_VERSION } from '../src/core/settings/migrations'
 import { Commands } from '../src/shared/protocol/commands'
 import { Queries } from '../src/shared/protocol/queries'
@@ -26,6 +26,23 @@ async function invoke(page: Page, channel: string, input?: unknown) {
     },
     { channel, input }
   )
+}
+
+async function mainPage(app: ElectronApplication): Promise<Page> {
+  await expect
+    .poll(() =>
+      app
+        .windows()
+        .find((page) => page.url().includes('w=main'))
+        ?.url()
+    )
+    .toContain('w=main')
+  const page = app
+    .windows()
+    .find((candidate) => candidate.url().includes('w=main'))
+  if (!page) throw new Error('Main window was not created')
+  await page.waitForLoadState('domcontentloaded')
+  return page
 }
 
 test('verifies imported BT files through the desktop UI and preserves them after removal', async ({
@@ -83,14 +100,28 @@ test('verifies imported BT files through the desktop UI and preserves them after
     extraEnv: { MOTRIX_LEGACY_PROFILE: source },
   })
   try {
-    const invitation = await app.firstWindow()
-    await invitation.waitForLoadState('domcontentloaded')
-    await invitation.getByRole('button', { name: 'Choose downloads' }).click()
-    // Deselect every selectable row, then authorize precisely the old torrent.
-    for (const box of await invitation.getByRole('checkbox').all())
-      if ((await box.isEnabled()) && (await box.isChecked()))
-        await box.uncheck()
-    await invitation.getByText('Skipped: 1', { exact: true }).click()
+    const invitation = await mainPage(app)
+    await expect(
+      invitation.getByRole('heading', {
+        name: 'Where would you like to migrate from?',
+      })
+    ).toBeVisible()
+    await invitation
+      .getByRole('button', { name: 'Continue', exact: true })
+      .click()
+    await expect(invitation.locator('[data-import-group="http"]')).toBeVisible()
+    for (const type of ['http', 'bt', 'magnet', 'unknown']) {
+      const disclosure = invitation.locator(
+        `[data-import-group="${type}"] button[aria-expanded="false"]`
+      )
+      if (await disclosure.count()) await disclosure.click()
+    }
+    // Select only the old torrent; group controls can reselect child rows.
+    for (const name of ['partial.bin', 'fixture-magnet']) {
+      const checkbox = invitation.getByRole('checkbox', { name, exact: true })
+      await checkbox.uncheck()
+      await expect(checkbox).not.toBeChecked()
+    }
     await app.evaluate(({ dialog }, filename) => {
       dialog.showOpenDialog = async () => ({
         canceled: false,
@@ -102,10 +133,12 @@ test('verifies imported BT files through the desktop UI and preserves them after
       invitation.getByRole('checkbox', { name: 'fixture-bundle', exact: true })
     ).toBeChecked()
     await invitation
-      .getByRole('button', { name: 'Import 1', exact: true })
+      .getByRole('button', { name: 'Migrate', exact: true })
       .click()
     await expect(
-      invitation.getByText('Imported 1', { exact: true })
+      invitation
+        .getByLabel('Migration summary')
+        .getByText('1 task', { exact: true })
     ).toBeVisible()
     await invitation.getByRole('button', { name: 'View downloads' }).click()
     let main = invitation
@@ -163,8 +196,7 @@ test('verifies imported BT files through the desktop UI and preserves them after
       rpcPort,
       extraEnv: { MOTRIX_LEGACY_PROFILE: source },
     })
-    main = await app.firstWindow()
-    await main.waitForLoadState('domcontentloaded')
+    main = await mainPage(app)
     await waitForEngineReady(main)
     await expect
       .poll(() => invoke(main, Queries.ListTasks))
