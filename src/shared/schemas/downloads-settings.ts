@@ -16,6 +16,7 @@ import { speedLimitSettingsInputSchema } from './speed-limit'
 export const downloadsSettingsSchema = z.object({
   app: appSettingsInputSchema.pick({
     defaultSaveDir: true,
+    autoCategorize: true,
     autofillClipboardLinks: true,
     fileDeletionMode: true,
   }),

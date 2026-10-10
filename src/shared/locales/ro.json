@@ -2021,6 +2021,18 @@
         "title": "Disc și fișiere"
       },
       "fillInLinksWhenOpeningNewTask": "Lipește linkurile copiate la deschiderea unei sarcini noi.",
+      "autoCategorize": {
+        "enable": "Sortează descărcările noi în dosare",
+        "enableDesc": "Fișierele sunt dirijate după extensie într-un subdosar al dosarului implicit de descărcare. Se aplică doar sarcinilor care folosesc dosarul implicit — un dosar ales explicit nu este niciodată înlocuit.",
+        "extensions": "Extensii",
+        "extensionsPlaceholder": "ex. mp4, mkv, webm",
+        "folder": "Subdosar",
+        "folderPlaceholder": "ex. Video",
+        "addRule": "Adaugă regulă",
+        "removeRule": "Elimină regula",
+        "needsExtension": "Adaugă cel puțin o extensie",
+        "invalidFolder": "Folosește un nume de dosar simplu fără / \\ : * ? \" < > | / \\ : * ? \" < > |"
+      },
       "magnet": {
         "magnetResolveTimeout": "Timp-limită pentru încărcarea magnetului (s)",
         "magnetResolveTimeoutDesc": "Cât timp se așteaptă lista fișierelor.",

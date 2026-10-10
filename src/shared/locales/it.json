@@ -1691,6 +1691,18 @@
       "defaultDownloadFolder": "Cartella download predefinita",
       "autofillFromClipboard": "Compila automaticamente i link dagli appunti",
       "fillInLinksWhenOpeningNewTask": "I link copiati vengono inseriti automaticamente all’apertura di una nuova attività.",
+      "autoCategorize": {
+        "enable": "Ordina i nuovi download in cartelle",
+        "enableDesc": "I file vengono instradati per estensione in una sottocartella della cartella di download predefinita. Si applica solo alle attività che usano la cartella predefinita — una cartella scelta esplicitamente non viene mai sostituita.",
+        "extensions": "Estensioni",
+        "extensionsPlaceholder": "es. mp4, mkv, webm",
+        "folder": "Sottocartella",
+        "folderPlaceholder": "es. Video",
+        "addRule": "Aggiungi regola",
+        "removeRule": "Rimuovi regola",
+        "needsExtension": "Aggiungi almeno un’estensione",
+        "invalidFolder": "Usa un nome cartella semplice senza / \\ : * ? \" < > | / \\ : * ? \" < > |"
+      },
       "saveFolders": "Cartelle di salvataggio",
       "description": "File, velocità di download e connessioni"
     },

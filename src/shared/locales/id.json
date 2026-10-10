@@ -1663,6 +1663,18 @@
       "defaultDownloadFolder": "Folder unduhan bawaan",
       "autofillFromClipboard": "Isi tautan dari papan klip secara otomatis",
       "fillInLinksWhenOpeningNewTask": "Tautan yang disalin akan diisi secara otomatis saat membuka tugas baru.",
+      "autoCategorize": {
+        "enable": "Urutkan unduhan baru ke dalam folder",
+        "enableDesc": "File diarahkan berdasarkan ekstensi ke subfolder folder unduhan bawaan. Berlaku hanya untuk tugas yang memakai folder bawaan — folder yang dipilih secara eksplisit tidak pernah ditimpa.",
+        "extensions": "Ekstensi",
+        "extensionsPlaceholder": "mis. mp4, mkv, webm",
+        "folder": "Subfolder",
+        "folderPlaceholder": "mis. Video",
+        "addRule": "Tambah aturan",
+        "removeRule": "Hapus aturan",
+        "needsExtension": "Tambahkan setidaknya satu ekstensi",
+        "invalidFolder": "Gunakan nama folder biasa tanpa / \\ : * ? \" < > | / \\ : * ? \" < > |"
+      },
       "saveFolders": "Folder penyimpanan",
       "description": "Berkas, kecepatan unduh, dan koneksi"
     },

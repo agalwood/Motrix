@@ -2002,6 +2002,18 @@
         "title": "Schijf en bestanden"
       },
       "fillInLinksWhenOpeningNewTask": "Gekopieerde links plakken bij het openen van een nieuwe taak.",
+      "autoCategorize": {
+        "enable": "Nieuwe downloads in mappen sorteren",
+        "enableDesc": "Bestanden worden op extensie in een submap van de standaard downloadmap geplaatst. Geldt alleen voor taken die de standaardmap gebruiken — een expliciet gekozen map wordt nooit overschreven.",
+        "extensions": "Extensies",
+        "extensionsPlaceholder": "bijv. mp4, mkv, webm",
+        "folder": "Submap",
+        "folderPlaceholder": "bijv. Video",
+        "addRule": "Regel toevoegen",
+        "removeRule": "Regel verwijderen",
+        "needsExtension": "Voeg ten minste één extensie toe",
+        "invalidFolder": "Gebruik een eenvoudige mapnaam zonder / \\ : * ? \" < > | / \\ : * ? \" < > |"
+      },
       "magnet": {
         "magnetResolveTimeout": "Time-out voor laden van magnetlinks (s)",
         "magnetResolveTimeoutDesc": "Hoelang op de bestandslijst wordt gewacht.",

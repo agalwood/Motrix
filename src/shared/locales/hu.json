@@ -1677,6 +1677,18 @@
       "defaultDownloadFolder": "Alapértelmezett letöltési mappa",
       "autofillFromClipboard": "Hivatkozások automatikus beillesztése a vágólapról",
       "fillInLinksWhenOpeningNewTask": "Másolt hivatkozások beillesztése új feladat megnyitásakor.",
+      "autoCategorize": {
+        "enable": "Új letöltések mappákba rendezése",
+        "enableDesc": "A fájlok kiterjesztés szerint a letöltési alapmappa almappájába kerülnek. Csak az alapmappát használó feladatokra érvényes – a kifejezetten megadott mappát soha nem írja felül.",
+        "extensions": "Kiterjesztések",
+        "extensionsPlaceholder": "pl. mp4, mkv, webm",
+        "folder": "Almappa",
+        "folderPlaceholder": "pl. Video",
+        "addRule": "Szabály hozzáadása",
+        "removeRule": "Szabály eltávolítása",
+        "needsExtension": "Adj meg legalább egy kiterjesztést",
+        "invalidFolder": "Használjon / \\ : * ? \" < > | jeleket nem tartalmazó egyszerű mappanevet / \\ : * ? \" < > |"
+      },
       "saveFolders": "Mentési mappák",
       "description": "Fájlok, letöltési sebesség és kapcsolatok"
     },

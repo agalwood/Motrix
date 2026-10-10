@@ -1691,6 +1691,18 @@
       "defaultDownloadFolder": "Pasta de download padrão",
       "autofillFromClipboard": "Preencher links da área de transferência",
       "fillInLinksWhenOpeningNewTask": "Cola os links copiados ao abrir uma nova tarefa.",
+      "autoCategorize": {
+        "enable": "Organizar novos downloads em pastas",
+        "enableDesc": "Os arquivos são organizados por extensão em uma subpasta da pasta de download padrão. Aplica-se apenas a tarefas que usam a pasta padrão — uma pasta escolhida explicitamente nunca é substituída.",
+        "extensions": "Extensões",
+        "extensionsPlaceholder": "ex.: mp4, mkv, webm",
+        "folder": "Subpasta",
+        "folderPlaceholder": "ex.: Video",
+        "addRule": "Adicionar regra",
+        "removeRule": "Remover regra",
+        "needsExtension": "Adicione pelo menos uma extensão",
+        "invalidFolder": "Use um nome de pasta simples sem / \\ : * ? \" < > | / \\ : * ? \" < > |"
+      },
       "saveFolders": "Pastas de destino",
       "description": "Arquivos, velocidade de download e conexões"
     },
