@@ -16,7 +16,9 @@ const PLAYWRIGHT_CACHE_PREFIX = 'flatpak-node/cache/ms-playwright/'
 export function biomeFormatJson(filePath) {
   const result = spawnSync(
     'pnpm',
-    ['exec', 'biome', 'format', '--write', filePath],
+    // CI generates into RUNNER_TEMP, outside the Git root. Formatting this
+    // explicit artifact needs the repository format config, not Git ignores.
+    ['exec', 'biome', 'format', '--write', '--vcs-enabled=false', filePath],
     { stdio: 'inherit' }
   )
   if (result.status !== 0) {

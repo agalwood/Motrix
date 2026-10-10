@@ -100,7 +100,12 @@ beforeEach(() => {
 })
 
 describe('task tracker ownership and journal', () => {
-  it.each([TaskStatus.Paused, TaskStatus.Downloading])(
+  it.each([
+    TaskStatus.Paused,
+    TaskStatus.Downloading,
+    TaskStatus.Completed,
+    TaskStatus.Error,
+  ])(
     'keeps imported %s tasks outside tracker edit, sync, creation, and pending recovery',
     async (status) => {
       const f = fixture()
@@ -136,13 +141,17 @@ describe('task tracker ownership and journal', () => {
         },
       })
       f.tasks.set(f.task.id, f.task)
-      await expect(f.plan()).rejects.toThrow('legacyImport.trackersReadOnly')
+      const editError =
+        status === TaskStatus.Completed || status === TaskStatus.Error
+          ? 'Tracker task changed'
+          : 'legacyImport.trackersReadOnly'
+      await expect(f.plan()).rejects.toThrow(editError)
       await expect(
         f.service.apply(f.task.id, f.task.engineTaskId, 'old')
-      ).rejects.toThrow('legacyImport.trackersReadOnly')
+      ).rejects.toThrow(editError)
       await expect(
         f.service.edit(f.task.id, f.task.engineTaskId, [c])
-      ).rejects.toThrow('legacyImport.trackersReadOnly')
+      ).rejects.toThrow(editError)
       await expect(
         f.service.prepareCreation({
           engineGid: f.task.engineTaskId,

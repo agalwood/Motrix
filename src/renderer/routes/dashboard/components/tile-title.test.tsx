@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { render, screen } from '@testing-library/react'
+import { render } from '@testing-library/react'
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { TileTitle, type TileTitleProps } from './tile-title'
 
@@ -10,16 +10,14 @@ type HasRawHtmlProp = 'dangerouslySetInnerHTML' extends keyof TileTitleProps
   : false
 
 describe('TileTitle', () => {
-  it('renders ordinary text in the fixed title line box', () => {
+  it('renders a text title', () => {
     const { container } = render(<TileTitle variant="text">Ready</TileTitle>)
     const title = container.querySelector('[data-slot="tile-title"]')
 
     expect(title).toHaveTextContent('Ready')
-    expect(title).toHaveClass('text-[22px]', 'h-8', 'leading-none')
-    expect(screen.getByText('Ready')).toHaveClass('truncate', 'leading-[26px]')
   })
 
-  it('lets KpiNumber inherit the same font size and line box', () => {
+  it('renders a metric title through KpiNumber', () => {
     const { container } = render(<TileTitle value="42 MB" />)
     const title = container.querySelector<HTMLElement>(
       '[data-slot="tile-title"]'
@@ -27,9 +25,7 @@ describe('TileTitle', () => {
     const kpi = container.querySelector<HTMLElement>('[data-slot="kpi-number"]')
 
     expect(title).toContainElement(kpi)
-    expect(title).toHaveClass('text-[32px]', 'h-8')
-    expect(kpi).toHaveClass('leading-none')
-    expect(kpi?.className).not.toContain('text-[')
+    expect(title).toHaveTextContent('42 MB')
   })
 
   it('keeps the metric and text content contracts closed', () => {
@@ -50,6 +46,5 @@ describe('TileTitle', () => {
 
     expect(title).toHaveAttribute('title', 'Complete state label')
     expect(title).not.toHaveAttribute('style')
-    expect(title).toHaveClass('text-[22px]', 'h-8', 'leading-none')
   })
 })

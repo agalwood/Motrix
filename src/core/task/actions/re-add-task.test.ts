@@ -1,9 +1,13 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
+import type { Aria2RpcClient } from '@core/engine/aria2/aria2-rpc-client'
 import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
+import { TaskTrackerService } from '@core/tracker/task-tracker-service'
 import { ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
+import type { TaskTrackerState } from '@shared/schemas/task-tracker'
 import type { DownloadTask } from '@shared/types/task'
 import {
   makeDefaultBtExtension,
@@ -26,14 +30,24 @@ import { reAddTask } from './re-add-task'
 
 const RESERVED_GID = '0123456789abcdef'
 
-function buildSingleFileTorrent(name: string): Uint8Array {
+function buildSingleFileTorrent(
+  name: string,
+  options?: { tracker: string; isPrivate: boolean }
+): Uint8Array {
   const nameField = `4:name${Buffer.byteLength(name, 'utf8')}:${name}`
+  const announce = options
+    ? `8:announce${Buffer.byteLength(options.tracker, 'utf8')}:${options.tracker}`
+    : ''
   const prefix = Buffer.from(
-    `d4:infod6:lengthi1024e${nameField}12:piece lengthi16384e6:pieces20:`,
+    `d${announce}4:infod6:lengthi1024e${nameField}12:piece lengthi16384e6:pieces20:`,
     'utf8'
   )
   return new Uint8Array(
-    Buffer.concat([prefix, Buffer.alloc(20), Buffer.from('ee')])
+    Buffer.concat([
+      prefix,
+      Buffer.alloc(20),
+      Buffer.from(options?.isPrivate ? '7:privatei1eee' : 'ee'),
+    ])
   )
 }
 
@@ -869,6 +883,100 @@ describe('reAddTask (HTTP path)', () => {
 })
 
 describe('reAddTask reserved GID ownership', () => {
+  it.each([
+    { status: TaskStatus.Completed, isPrivate: false },
+    { status: TaskStatus.Error, isPrivate: false },
+    { status: TaskStatus.Completed, isPrivate: true },
+  ])(
+    'prepares trackers for the reserved $status owner before engine dispatch (private: $isPrivate)',
+    async ({ status, isPrivate }) => {
+      const native = 'https://native.example/announce'
+      const manual = 'https://manual.example/announce?passkey=Secret'
+      const excluded = 'udp://excluded.example:80/announce'
+      const managed = 'udp://managed.example:80/announce'
+      const task = withPrimaryInstance(
+        makeBtTask({ status, bt: makeDefaultBtExtension({ isPrivate }) })
+      )
+      const taskManager = new TaskManager()
+      taskManager.add(task)
+      const deps = makeDeps(task)
+      deps.taskManager = taskManager
+      vi.mocked(deps.torrentMetaStore.read).mockResolvedValue(
+        buildSingleFileTorrent('sample', { tracker: native, isPrivate })
+      )
+      let state: TaskTrackerState = {
+        engineGid: task.engineTaskId,
+        revision: 1,
+        original: [native],
+        manual: [manual],
+        managed: [],
+        excluded: [excluded],
+        isPrivate,
+        pending: null,
+      }
+      const expectedTrackers = isPrivate ? [manual] : [manual, managed]
+      const rpc = {
+        onBtDownloadComplete: vi.fn(),
+        onDownloadComplete: vi.fn(),
+        onDownloadError: vi.fn(),
+        forceRemove: vi.fn(async () => undefined),
+        tellStatus: vi.fn(async () => ({ uploadLength: '0' })),
+        addTorrent: vi.fn(
+          async (
+            _metadata: string,
+            _uris: string[],
+            options: Record<string, string | string[]>
+          ) => {
+            expect(taskManager.getByEngineTaskId(RESERVED_GID)?.status).toBe(
+              status
+            )
+            expect(taskManager.isEngineTaskIdRetired(RESERVED_GID)).toBe(true)
+            expect(state).toMatchObject({
+              engineGid: RESERVED_GID,
+              original: [native],
+              manual: [manual],
+              managed: isPrivate ? [] : [managed],
+              excluded: [excluded],
+              isPrivate,
+              pending: { after: expectedTrackers, resumeRequired: false },
+            })
+            expect(options).toMatchObject({
+              gid: RESERVED_GID,
+              'bt-tracker': expectedTrackers.join(','),
+              'check-integrity': 'true',
+            })
+            return RESERVED_GID
+          }
+        ),
+      }
+      const adapter = new Aria2Adapter(rpc as unknown as Aria2RpcClient)
+      deps.adapter = adapter
+      const service = new TaskTrackerService({
+        adapter,
+        tasks: taskManager,
+        repository: {
+          get: () => structuredClone(state),
+          save: (_id, value) => {
+            state = structuredClone(value)
+          },
+          pendingTaskIds: () => (state.pending ? [task.id] : []),
+        },
+        selected: () => [native, excluded, managed],
+        actions: { pauseTask: vi.fn(), resumeTask: vi.fn() },
+      })
+      adapter.configureBtTrackerPolicy(service.prepareCreation)
+
+      await reAddTask(task.id, deps)
+
+      expect(rpc.addTorrent).toHaveBeenCalledOnce()
+      expect(taskManager.getById(task.id)).toMatchObject({
+        engineTaskId: RESERVED_GID,
+        status: TaskStatus.Seeding,
+      })
+      expect(taskManager.isEngineTaskIdRetired(RESERVED_GID)).toBe(false)
+    }
+  )
+
   it('installs the reserved owner before awaiting durability so queued auto-save cannot restore the old gid', async () => {
     let releaseAdd!: () => void
     let markAddStarted!: () => void

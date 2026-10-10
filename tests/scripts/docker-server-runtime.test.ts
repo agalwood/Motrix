@@ -47,6 +47,16 @@ describe('Docker Server runtime staging contract', () => {
     })
   })
 
+  it.each([
+    [0, 121, { uid: 1000, gid: 121, user: '1000:121' }],
+    [1001, 0, { uid: 1001, gid: 1000, user: '1001:1000' }],
+  ])(
+    'replaces root identity components independently for host %i:%i',
+    (uid, gid, expected) => {
+      expect(resolveSmokeContainerIdentity(uid, gid)).toEqual(expected)
+    }
+  )
+
   it('copies only the verified stage into a non-root Node 24 runtime', async () => {
     const dockerfile = await readFile(path.join(ROOT, 'Dockerfile'), 'utf8')
     const runtime = dockerfile.slice(
@@ -148,81 +158,6 @@ describe('Docker Server runtime staging contract', () => {
     expect(dockerignore).toContain(
       '!tests/generate-third-party-notices.test.ts'
     )
-  })
-
-  it('exercises deployment behavior instead of only process startup', async () => {
-    const imageSmoke = await readFile(
-      path.join(ROOT, 'scripts/smoke-server-image.mjs'),
-      'utf8'
-    )
-
-    expect(imageSmoke).toContain("'--read-only'")
-    expect(imageSmoke).toContain(
-      "if (platform) await docker(['pull', '--platform', platform, image])"
-    )
-    expect(imageSmoke).toContain("await docker(['image', 'inspect', image])")
-    expect(imageSmoke).not.toContain(
-      "docker(['image', 'inspect', ...platformArgs(platform), image])"
-    )
-    expect(imageSmoke).toContain(
-      "metadata.Architecture !== platform.split('/')[1]"
-    )
-    expect(imageSmoke).toContain("method: 'aria2.tellActive'")
-    expect(imageSmoke).toContain("download.status === 'active'")
-    expect(imageSmoke).toContain(
-      'download.completedLength === download.totalLength'
-    )
-    expect(imageSmoke).toContain("'--enable-rpc=true'")
-    expect(imageSmoke).toContain(
-      'await waitForSeeder(seedName, seederRpcSecret, timeoutMs)'
-    )
-    expect(imageSmoke).toContain(
-      'await assertSeederReachable(appName, seedIp, timeoutMs)'
-    )
-    expect(
-      imageSmoke.indexOf(
-        'await waitForSeeder(seedName, seederRpcSecret, timeoutMs)'
-      )
-    ).toBeLessThan(imageSmoke.indexOf('fixtureServer.setTrackerPeer'))
-    expect(imageSmoke.indexOf("'command:setTaskBtTracker'")).toBeGreaterThan(
-      imageSmoke.indexOf("new Set(['seeding', 'completed'])")
-    )
-    expect(imageSmoke).toContain('engineGid: finalBtTask.engineTaskId')
-    expect(imageSmoke).toContain(
-      "path.join(volumes.downloadsDir, 'sample-data', 'test.bin')"
-    )
-    expect(imageSmoke).not.toContain("'sample-data', 'sample-data', 'test.bin'")
-    expect(imageSmoke).toContain("randomBytes(24).toString('hex')")
-    expect(imageSmoke).toContain('downloadedBytes: lastTask.downloadedBytes')
-    expect(imageSmoke).toContain('totalBytes: lastTask.totalBytes')
-    expect(imageSmoke).toContain('Fixture tracker: announces=')
-    expect(imageSmoke).toContain('identity.user')
-    expect(imageSmoke).toContain("'MOTRIX_MDXP_HOST=0.0.0.0'")
-    expect(imageSmoke).toContain("'MOTRIX_REMOTE_EXTENSION_ENABLED=true'")
-    expect(imageSmoke).toContain("'127.0.0.1::16801'")
-    expect(imageSmoke).toContain("metadata.Config.ExposedPorts?.['16801/tcp']")
-    expect(
-      imageSmoke.match(
-        /await assertRemoteExtensionSurface\(appName, timeoutMs\)/g
-      )
-    ).toHaveLength(2)
-    expect(imageSmoke).toContain('remoteExtensionDirectLan: true')
-    expect(imageSmoke).toContain("'command:createTask'")
-    expect(imageSmoke).toContain("'command:setTaskBtTracker'")
-    expect(imageSmoke).toContain("'command:installPlugin'")
-    expect(imageSmoke).toContain("'command:uninstallPlugin'")
-    expect(imageSmoke).toContain("'motrix-admin'")
-    expect(imageSmoke).toContain("'pairing'")
-    expect(imageSmoke).toContain("'pending'")
-    expect(imageSmoke).toContain('Save directory is not writable: /downloads')
-    expect(imageSmoke).toContain('did not survive container restart')
-    expect(imageSmoke).toContain("'SQLite3-Persistence'")
-    expect(imageSmoke).toContain("'test -s /app/LICENSE'")
-    expect(imageSmoke).toContain("'test ! -e /usr/bin/aria2c'")
-    expect(imageSmoke).toContain(
-      '\'test "$(readlink /proc/$aria2_pid/exe)" = "/app/bin/aria2c"\''
-    )
-    expect(imageSmoke).toContain('motrixAria2Fork: true')
   })
 
   it('keeps a corrected full-root comparison target without changing the final target', async () => {

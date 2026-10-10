@@ -424,14 +424,6 @@ describe('buildCommandHandlers', () => {
     )
   })
 
-  it('returns a map keyed by Commands channels', () => {
-    // @ts-expect-error — fake ctx is partial; handler map keys are what we care about
-    const handlers = buildCommandHandlers(fakeCtx())
-    expect(handlers[Commands.ParseTorrent]).toBeInstanceOf(Function)
-    expect(handlers[Commands.AddTorrentTask]).toBeInstanceOf(Function)
-    expect(handlers[Commands.AddMagnetTask]).toBeInstanceOf(Function)
-  })
-
   it('routes RetryTasks for unresolved magnet metadata to MagnetTracker', async () => {
     const ctx = fakeCtx()
     vi.mocked(ctx.taskManager.getById).mockReturnValue({

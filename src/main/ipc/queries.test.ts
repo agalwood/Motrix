@@ -12,7 +12,9 @@ import {
   EngineRecoveryRecommendation,
   EngineState,
 } from '@shared/types/engine'
+import { makeDefaultBtExtension, TaskType } from '@shared/types/task'
 import { generalSettingsSnapshot } from '@test-utils/general-settings'
+import { makeDownloadTask } from '@test-utils/task'
 import { makeTaskInspectorActivitySnapshot } from '@test-utils/task-inspector-activity'
 import { ipcMain } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -242,24 +244,35 @@ describe('buildQueryHandlers', () => {
     expect(cliToolService.getStatus).toHaveBeenCalledOnce()
   })
 
-  it('exposes ListTasks as a handler', async () => {
-    const ctx = {
-      taskManager: { getAll: vi.fn(() => [{ id: 't1' }]) },
-      statsAggregator: { getStats: vi.fn(() => ({ down: 0, up: 0 })) },
-      supervisor: {
-        getStatus: vi.fn(),
-        diagnose: vi.fn(),
-        getFeatureReport: vi.fn(),
+  it('hydrates a slim task list while preserving full details for the inspector', async () => {
+    const bt = makeDefaultBtExtension({
+      trackers: ['udp://tracker.example:80/announce'],
+      announceList: [['udp://tracker.example:80/announce']],
+      magnetUri: 'magnet:?xt=urn:btih:abc',
+      peers: 7,
+    })
+    const task = makeDownloadTask({ id: 't1', type: TaskType.Bt, bt })
+    const original = structuredClone(task)
+    const handlers = buildQueryHandlers({
+      taskManager: {
+        getAll: () => [task],
+        getById: (id: string) => (id === task.id ? task : undefined),
       },
-      settingsManager: { get: vi.fn(() => ({})) },
-      natManager: { getStatus: vi.fn() },
-      trackerManager: { getCuratedList: vi.fn(() => []) },
-    }
-    // @ts-expect-error partial ctx
-    const handlers = buildQueryHandlers(ctx)
-    expect(handlers[Queries.ListTasks]).toBeInstanceOf(Function)
-    expect(await handlers[Queries.ListTasks]?.()).toEqual([{ id: 't1' }])
-    expect(ctx.taskManager.getAll).toHaveBeenCalled()
+    } as unknown as QueryContext)
+
+    await expect(handlers[Queries.ListTasks]?.()).resolves.toEqual([
+      {
+        ...task,
+        bt: { ...bt, trackers: [], announceList: [], magnetUri: null },
+      },
+    ])
+    await expect(handlers[Queries.GetTaskDetail]?.('t1')).resolves.toEqual(
+      original
+    )
+    expect(task).toEqual(original)
+    await expect(
+      handlers[Queries.GetTaskDetail]?.('missing')
+    ).resolves.toBeNull()
   })
 
   it('waits for startup recovery before reading tasks', async () => {
@@ -319,53 +332,6 @@ describe('buildQueryHandlers', () => {
       resolvedLanguage: 'zh-CN',
     })
     expect(settings).toEqual({ app: { language: 'system' } })
-  })
-
-  it('returns a map with all query channels', () => {
-    const ctx = {
-      taskManager: { getAll: vi.fn(), getById: vi.fn() },
-      statsAggregator: { getStats: vi.fn() },
-      speedHistoryStore: { snapshot: vi.fn(() => []) },
-      transferStats: {
-        snapshot: vi.fn(() => TRANSFER_SNAPSHOT),
-      },
-      taskSpeedHistoryStore: { snapshot: vi.fn(() => []) },
-      supervisor: {
-        getStatus: vi.fn(),
-        diagnose: vi.fn(),
-        getFeatureReport: vi.fn(),
-      },
-      settingsManager: { get: vi.fn(() => ({ tracker: { sources: [] } })) },
-      natManager: { getStatus: vi.fn(() => ({ lastDiagnostic: null })) },
-      trackerManager: { getCuratedList: vi.fn(() => []) },
-    }
-    // @ts-expect-error partial ctx
-    const handlers = buildQueryHandlers(ctx)
-    expect(handlers[Queries.ListTasks]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetTaskDetail]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetStats]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetSpeedHistory]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetTransferStats]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetTaskActivity]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetTaskSpeedHistory]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetTaskInspectorActivity]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetSettings]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetUpdateState]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetEngineStatus]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetEngineDiagnostics]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetLinuxDefaultAssociations]).toBeInstanceOf(
-      Function
-    )
-    expect(handlers[Queries.GetWindowsDefaultAssociations]).toBeInstanceOf(
-      Function
-    )
-    expect(handlers[Queries.GetTaskFiles]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetNatStatus]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetNatDiagnostic]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetTuningRecommendation]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetTrackerList]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetTrackerSources]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetTaskBtTracker]).toBeInstanceOf(Function)
   })
 
   it('returns task speed history with the requested limit', async () => {
@@ -845,14 +811,6 @@ describe('GetFfmpegDetection handler', () => {
       settingsManager,
       userDataDir: '/data',
     })
-  })
-
-  it('registers GetFfmpegDetection as a handler', () => {
-    const handlers = buildQueryHandlers({
-      settingsManager: { get: vi.fn() },
-      userDataDir: '/d',
-    } as unknown as QueryContext)
-    expect(handlers[Queries.GetFfmpegDetection]).toBeInstanceOf(Function)
   })
 })
 

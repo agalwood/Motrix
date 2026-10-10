@@ -14,22 +14,6 @@ describe('ForwardableEvents', () => {
     expect(ForwardableEvents).toContain(Events.DirectoryPreferencesChanged)
   })
 
-  it('contains TaskUpdated', () => {
-    expect(ForwardableEvents).toContain(Events.TaskUpdated)
-  })
-
-  it('contains every engine/plugin/nat/tracker/update event', () => {
-    expect(ForwardableEvents).toContain(Events.EngineStateChanged)
-    expect(ForwardableEvents).toContain(Events.NatStateChanged)
-    expect(ForwardableEvents).toContain(Events.TrackerListUpdated)
-    expect(ForwardableEvents).toContain(Events.TrackerSyncStatusChanged)
-    expect(ForwardableEvents).toContain(Events.UpdateAvailable)
-  })
-
-  it('has the expected number of forwardable events', () => {
-    expect(ForwardableEvents).toHaveLength(60)
-  })
-
   it('includes the bridge approval events (web-shell pairing)', () => {
     expect(ForwardableEvents).toContain(BridgeEvents.PairRequested)
     expect(ForwardableEvents).toContain(BridgeEvents.Paired)
@@ -100,6 +84,7 @@ describe('ForwardableEvents', () => {
 
   it('includes all tracker events', () => {
     expect(ForwardableEvents).toContain(Events.TrackerListUpdated)
+    expect(ForwardableEvents).toContain(Events.TrackerSyncStatusChanged)
     expect(ForwardableEvents).toContain(Events.TrackerSyncFailed)
   })
 

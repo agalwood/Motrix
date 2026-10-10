@@ -42,37 +42,31 @@ describe('VirtualList', () => {
     expect(screen.getByTestId('header')).toBeDefined()
   })
 
-  it('exposes handle via ref', () => {
-    const ref = createRef<VirtualListHandle>()
-    render(
-      <VirtualList<TestItem>
-        ref={ref}
-        items={makeItems(10)}
-        getId={(item) => item.id}
-        rowHeight={40}
-        renderRow={({ item }) => <div>{item.label}</div>}
-      />
-    )
-    expect(ref.current).not.toBeNull()
-    expect(typeof ref.current?.scrollToIndex).toBe('function')
-    expect(typeof ref.current?.getScrollOffset).toBe('function')
-    expect(typeof ref.current?.getContainerRef).toBe('function')
-  })
+  it.each(['native', 'custom'] as const)(
+    'exposes the actual %s viewport and its scroll position through the handle',
+    (scrollbar) => {
+      const ref = createRef<VirtualListHandle>()
+      const scrollRef = createRef<HTMLDivElement>()
+      render(
+        <VirtualList<TestItem>
+          ref={ref}
+          scrollRef={scrollRef}
+          scrollbar={scrollbar}
+          items={makeItems(100)}
+          getId={(item) => item.id}
+          rowHeight={40}
+          renderRow={({ item }) => <div>{item.label}</div>}
+        />
+      )
+      const viewport = screen.getByTestId('virtual-list-container')
+      expect(ref.current?.getContainerRef()).toBe(viewport)
+      expect(scrollRef.current).toBe(viewport)
+      expect(ref.current?.getScrollOffset()).toBe(0)
 
-  it('renders the scroll container div', () => {
-    const { container } = render(
-      <VirtualList<TestItem>
-        items={makeItems(100)}
-        getId={(item) => item.id}
-        rowHeight={40}
-        renderRow={({ item }) => <div>{item.label}</div>}
-      />
-    )
-    const scrollContainer = container.querySelector(
-      '[data-testid="virtual-list-container"]'
-    )
-    expect(scrollContainer).not.toBeNull()
-  })
+      fireEvent.scroll(viewport, { target: { scrollTop: 120 } })
+      expect(ref.current?.getScrollOffset()).toBe(120)
+    }
+  )
 
   it('appends the bottom inset as scroll space after the last row', () => {
     const { container } = render(

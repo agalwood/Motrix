@@ -734,46 +734,6 @@ describe('Aria2ConfigBuilder', () => {
   })
 
   describe('incomplete-suffix required defaults', () => {
-    it('sets bt-save-metadata=true', () => {
-      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
-        download: 0,
-        upload: 0,
-      })
-      expect(args).toContain('--bt-save-metadata=true')
-    })
-
-    it('sets bt-metadata-only=false', () => {
-      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
-        download: 0,
-        upload: 0,
-      })
-      expect(args).toContain('--bt-metadata-only=false')
-    })
-
-    it('sets auto-file-renaming=false', () => {
-      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
-        download: 0,
-        upload: 0,
-      })
-      expect(args).toContain('--auto-file-renaming=false')
-    })
-
-    it('sets allow-overwrite=false', () => {
-      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
-        download: 0,
-        upload: 0,
-      })
-      expect(args).toContain('--allow-overwrite=false')
-    })
-
-    it('sets rpc-save-upload-metadata=true', () => {
-      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
-        download: 0,
-        upload: 0,
-      })
-      expect(args).toContain('--rpc-save-upload-metadata=true')
-    })
-
     it('emits the required defaults regardless of hasSqlitePersistence', () => {
       const argsWith = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, {
         download: 0,

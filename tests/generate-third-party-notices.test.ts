@@ -41,13 +41,18 @@ afterEach(async () => {
 })
 
 describe('third-party notice generator', () => {
-  it('follows runtime declarations without scanning unrelated files', async () => {
+  it('uses root runtime declarations despite an existing staged manifest', async () => {
     const root = await createFixture()
     await writeJson(path.join(root, 'package.json'), {
       name: 'fixture-app',
       version: '1.0.0',
       dependencies: { alpha: '1.0.0' },
       devDependencies: { buildOnly: '1.0.0' },
+    })
+    await writeJson(path.join(root, 'dist/electron-app/package.json'), {
+      name: 'staged-app',
+      version: '9.9.9',
+      dependencies: { buildOnly: '1.0.0' },
     })
     await writePackage(root, 'node_modules/alpha', {
       name: 'alpha',
@@ -74,6 +79,8 @@ describe('third-party notice generator', () => {
 
     const graph = await collectRuntimePackages({ projectDir: root })
 
+    expect(graph.root).toEqual({ name: 'fixture-app', version: '1.0.0' })
+    expect(graph.rootDependencies).toEqual(['alpha@1.0.0'])
     expect(graph.packages.map((pkg) => pkg.key)).toEqual([
       'alpha@1.0.0',
       'beta@2.0.0',
@@ -173,7 +180,15 @@ describe('third-party notice generator', () => {
     )
     expect(sbom.spdxVersion).toBe('SPDX-2.3')
     expect(sbom.packages).toContainEqual(
-      expect.objectContaining({ name: 'Electron', versionInfo: '44.5.0' })
+      expect.objectContaining({ name: 'Electron', versionInfo: '44.7.0' })
+    )
+    expect(sbom.packages).toContainEqual(
+      expect.objectContaining({
+        name: 'type-fest',
+        versionInfo: '4.41.0',
+        licenseDeclared: '(MIT OR CC0-1.0)',
+        licenseConcluded: 'MIT',
+      })
     )
     expect(
       sbom.packages.every(

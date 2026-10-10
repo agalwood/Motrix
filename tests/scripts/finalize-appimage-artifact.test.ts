@@ -24,7 +24,7 @@ describe('finalizeAppImageArtifact', () => {
     )
 
     await finalizeAppImageArtifact(event, {
-      getBuilderVersion: () => '26.15.7',
+      getBuilderVersion: () => '26.17.0',
       inspectRuntime: async () => ({ runtime: Buffer.alloc(0) }),
       assertMetadata,
       stripBlockmap: async (_file: string, size: number) => {
@@ -68,7 +68,7 @@ describe('finalizeAppImageArtifact', () => {
     const event = makeEvent('2.0.0', 3, 'arm64', 12)
     const updates: string[] = []
     await finalizeAppImageArtifact(event, {
-      getBuilderVersion: () => '26.15.7',
+      getBuilderVersion: () => '26.17.0',
       inspectRuntime: async () => ({}),
       assertMetadata: () => {},
       stripBlockmap: async () => {},
@@ -92,13 +92,13 @@ describe('finalizeAppImageArtifact', () => {
     const event = makeEvent('2.0.0', 1, 'x86_64', 12)
     event.packager.config.toolsets.appimage = '0.0.0'
     await expect(
-      finalizeAppImageArtifact(event, { getBuilderVersion: () => '26.15.7' })
+      finalizeAppImageArtifact(event, { getBuilderVersion: () => '26.17.0' })
     ).rejects.toThrow('AppImage toolset must be 1.0.3')
 
     event.packager.config.toolsets.appimage = '1.0.3'
     await expect(
       finalizeAppImageArtifact(event, { getBuilderVersion: () => '27.0.0' })
-    ).rejects.toThrow('requires electron-builder 26.15.7')
+    ).rejects.toThrow('requires electron-builder 26.17.0')
   })
 
   it('ignores non-AppImage artifact events', async () => {
