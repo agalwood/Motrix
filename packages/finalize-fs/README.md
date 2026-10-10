@@ -1,7 +1,9 @@
 # Finalize filesystem service
 
 The sidecar performs handle-relative, identity-checked file publication and
-removal. Renames never replace an existing destination. Reparse points and
+removal. No-replace operations never replace an existing destination. The
+separate macOS exFAT compatibility operation replaces a journaled reservation
+under the ownership assumptions below. Reparse points and
 unsafe path components remain rejected on Windows.
 
 ## Filename sanitization
@@ -84,13 +86,122 @@ and unlink another against unrestricted external writers. A crash before the
 removal checkpoint can leave an empty private directory, but cannot remove
 source data.
 
-Public targets are never overwritten. Permissions, target conflicts, I/O and
+The hard-link fallback never overwrites public targets. Permissions, target conflicts, I/O and
 sync errors remain errors. Directory publication and same-path plugin
 replacement still require native no-replace rename; they do not use the file
 fallback. Filesystems without hard links or a usable Linux `/proc/self/fd`
 retain the journal and return an error. `rustix` supplies the safe Unix syscall
 wrappers; `sha2` supplies the shared digest implementation. Neither replaces
 the application's durable transaction and recovery rules.
+
+## Cross-mount publication and Linux coverage
+
+Device numbers are an optimization hint, not proof that rename can succeed.
+Linux bind mounts can share `st_dev` while rename returns `EXDEV`; OverlayFS
+can also return `EXDEV` for a lower-layer directory. After an actual
+cross-device error, the host revalidates the source and target absence, then
+durably switches a still-prepared move journal to copy mode before creating
+anything. The existing private-copy, exclusive publication, database commit,
+and survivor-checked cleanup protocol handles the rest. An applied mutation,
+publication intent, permission failure, or generic I/O failure cannot trigger
+this switch. The repository rejects mode changes after staging or publication.
+
+The Linux matrix in `finalize-filesystems.yml` formats only newly created
+image files and runs the real native sidecar with a local SQLite journal on
+ext4, Btrfs, XFS, F2FS, FAT32, exFAT, NTFS3, NTFS-3G, tmpfs, and OverlayFS.
+It checks empty files, Unicode and long names, existing targets, case-sensitive
+and case-insensitive conflicts, real cross-device copies, bind mounts with
+equal device numbers, unavailable paths, and restart after a lost response.
+Storage disappearance is modeled by moving the scratch directory out of the
+recorded path; it is not a hardware unplug or power-loss test. OverlayFS tests
+create downloads in the writable upper layer. NTFS-3G's unsupported exclusive
+directory rename is explicitly tested as a refusal that preserves the source,
+not as successful directory publication. Lost hard-link acknowledgements still
+preserve both names for reconciliation.
+
+To run one matrix entry on Linux with the listed formatter installed and
+passwordless mount privileges:
+
+```sh
+cargo build --manifest-path packages/finalize-fs/Cargo.toml --locked
+bash .github/scripts/finalize-filesystems.sh ext4
+```
+
+The matrix supplements the NFS, Windows SMB/FAT-family, and macOS exFAT suites;
+it does not assert support for every FUSE driver, network server, kernel, or
+mount configuration. Synchronization success remains subject to the storage
+implementation; tmpfs, in particular, is volatile across system restart.
+
+## macOS local exFAT
+
+Some FSKit exFAT volumes reject exclusive rename with `ENOTSUP` (45), which
+differs from `EOPNOTSUPP` (102) on Darwin, and do not support hard links.
+Ordinary download suffix removal can use `reserve_exfat_target` followed by
+`rename_opened_reserved`. The original no-replace operation keeps its strict
+contract. This compatibility route requires a regular file, the same parent,
+an exact `.motrix` suffix removal, a local exFAT mount, and no plugin replacement
+or staged metadata. Permission, space, I/O and other errors do not enable it.
+
+The host durably journals a version-3 intent containing a random reservation
+token and the volume UUID before creating the final name with
+`O_CREAT|O_EXCL|O_NOFOLLOW`. The small, nonempty marker contains the token;
+its contents establish ownership across remounts, including a lost creation
+response before the reservation identity checkpoint. An existing target is
+accepted only if it contains the exact journaled marker. A partial marker or
+unrelated file is preserved as a conflict. The sidecar retains the source and
+reservation descriptors, rechecks both names and marker contents before
+ordinary rename, binds the installed name to the held source, and flushes the
+parent before replying. The final name may briefly contain the marker; task
+completion waits for the database transaction.
+
+Recovery probes the persisted volume UUID before reading file identities.
+Missing or different volumes leave the journal pending for reconnection.
+Nonempty files must still match their inode and complete content digest;
+only their mount-specific device number may change. Legacy version-2 empty
+reservations retain their exact-identity checks because they have no token.
+
+This is an application-owned-name contract, not atomic no-replace: an unrelated
+writer can replace the reservation between the final check and `renameat`.
+Holding its descriptor does not prevent POSIX unlink/replacement. Shared and
+unknown filesystems, directory publication, and plugin replacement do not use
+this route. Do not describe it as protection against unrestricted concurrent
+external writers.
+
+FSKit may change an empty file's inode during rename. The response reports its
+actual installed identity, proven through the held descriptor. Synthetic inode
+values use Node BigIntStats' signed 64-bit representation on this wire path.
+An unacknowledged changed identity cannot be recovered from an empty digest;
+recovery retains the file and quarantines the journal instead of guessing.
+
+Critical journal writes use a synchronous `FULL` transaction and enable
+SQLite `fullfsync` on macOS, restoring the connection's previous settings
+afterward. Native reservation and macOS root syncs use Rust `File::sync_all`,
+which requests `F_FULLFSYNC` with std's fallback when unsupported. `WAL` with
+`NORMAL` alone does not make each intent durable against system failure. Database task completion and
+the journal commit remain one transaction. Durability depends on the volume
+and device honoring their synchronization operations.
+
+Before task restore, recovery validates reservations and installed files but
+does not roll a reserved publication back through unsupported exclusive rename.
+Task recovery routes unfinished journals through the normal finalizer, which
+resumes with the task/effects commit boundary. A reservation created before its
+identity checkpoint is not automatically removed. A known installed target
+rolls forward; conflicting or unknown identities preserve all surviving files.
+Older sidecars cannot execute this operation. Older applications reject the
+version-3 intent and may quarantine it without deleting its files.
+
+`finalize-exfat.yml` provisions a disposable macOS exFAT image and exercises the
+native reservation contract plus real sidecar/SQLite recovery, including host
+`SIGKILL` after marker creation, after rename, and before the terminal database
+commit. Remount/offline tests run only when `MOTRIX_FINALIZE_EXFAT_TEST_IMAGE`
+identifies the disposable image backing the test root; they never detach a
+volume supplied through the root variable alone. To run against
+an existing disposable volume, set `MOTRIX_FINALIZE_EXFAT_ROOT` and run:
+
+```sh
+cargo test --manifest-path packages/finalize-fs/Cargo.toml --locked -- --ignored --exact platform::unix::reserved::tests::exfat_reservations_preserve_conflicts_and_publish_held_files
+pnpm exec vitest run src/core/plugin/finalize/finalize-exfat.integration.test.ts
+```
 
 ## Windows and SMB
 
@@ -145,6 +256,16 @@ class. Existing protocol consumers can ignore the additive fields.
 ## Recovery
 
 New I/O failures keep the last journal checkpoint available for retry.
+Missing artifacts alone also keep the checkpoint retryable: an unmounted disk
+or unavailable share can present as `ENOENT`. This includes a missing committed
+target and a temporarily unavailable survivor during pending cleanup. A changed
+identity remains a conflict, and no file is removed while its required survivor
+is unavailable. A reconnect still has to pass the existing identity checks;
+this does not infer ownership from matching content on a different volume.
+Startup logs and defers these journals, including recognized stale-mount and
+disconnection errors, while allowing other tasks to restore. An explicit task
+retry still fails until storage is available. Generic I/O, permission, database,
+and programming errors are not silently converted into storage deferrals.
 Successful rollback closes the journal only after identity and durability
 checks. Startup recovery and an explicit finalize retry use the same rollback
 implementation under the task's mutation lease.

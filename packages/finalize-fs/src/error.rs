@@ -94,10 +94,10 @@ pub(crate) fn nt_status(error: &io::Error) -> Option<String> {
 
 #[cfg(unix)]
 pub(crate) fn rename_error(error: io::Error, regular_file: bool) -> io::Error {
-    let unsupported = matches!(
-        error.raw_os_error(),
-        Some(libc::EINVAL | libc::ENOSYS | libc::EOPNOTSUPP)
-    );
+    // ENOTSUP and EOPNOTSUPP have different values on Darwin.
+    let unsupported = error.raw_os_error().is_some_and(|code| {
+        [libc::EINVAL, libc::ENOSYS, libc::EOPNOTSUPP, libc::ENOTSUP].contains(&code)
+    });
     let code = (unsupported && regular_file).then_some("rename_unsupported");
     io::Error::new(
         error.kind(),
@@ -116,7 +116,7 @@ mod rename_tests {
 
     #[test]
     fn rename_capability_errors_keep_the_original_errno() {
-        for code in [libc::EINVAL, libc::ENOSYS, libc::EOPNOTSUPP] {
+        for code in [libc::EINVAL, libc::ENOSYS, libc::EOPNOTSUPP, libc::ENOTSUP] {
             let error = rename_error(io::Error::from_raw_os_error(code), true);
             assert_eq!(classify_error(&error), "rename_unsupported");
             assert_eq!(os_code(&error), Some(code));

@@ -1,3 +1,4 @@
+import { constants } from 'node:os'
 import { describe, expect, it, vi } from 'vitest'
 import {
   type ArtifactIdentity,
@@ -5,6 +6,7 @@ import {
   artifactIdentityEquals,
 } from './artifact-identity'
 import { ArtifactMutationLeaseCoordinator } from './artifact-mutation-lease'
+import { FinalizeFsError } from './filesystem-adapter'
 import type {
   FinalizeArtifactOperations,
   FinalizeJournalRecord,
@@ -94,10 +96,171 @@ function fixture(
     sameContent: artifactContentEquals,
     rollForwardTargetInstalled: options.rollForwardTargetInstalled,
   })
-  return { artifacts, phases, quarantines, recovery }
+  return { artifacts, phases, quarantines, recovery, fs, repository }
 }
 
 describe('FinalizeRecovery', () => {
+  it.each([
+    'ENOENT',
+    'ENODEV',
+    'ESTALE',
+    'ENOTCONN',
+    'ECONNRESET',
+    'ETIMEDOUT',
+  ])('defers startup for %s while explicit retry still fails', async (code) => {
+    const pending = record('prepared')
+    const state = fixture({}, { recoverable: [pending] })
+    state.fs.identity = async () => {
+      throw Object.assign(new Error('storage unavailable'), { code })
+    }
+    await expect(state.recovery.recoverAll()).resolves.toBeUndefined()
+    await expect(state.recovery.recover(pending)).rejects.toThrow(
+      'storage unavailable'
+    )
+    expect(state.quarantines).toEqual([])
+    expect(state.phases).toEqual([])
+  })
+
+  it.skipIf(process.platform === 'win32')(
+    'defers a native stale mount error without discarding its journal',
+    async () => {
+      const pending = record('prepared')
+      const state = fixture({}, { recoverable: [pending] })
+      state.fs.identity = async () => {
+        throw new FinalizeFsError('io_error', 'stale mount', {
+          osError: constants.errno.ESTALE,
+        })
+      }
+      await expect(state.recovery.recoverAll()).resolves.toBeUndefined()
+      expect(state.phases).toEqual([])
+    }
+  )
+
+  it.each(['EIO', 'EACCES', 'EBADF', 'SQLITE_IOERR'])(
+    'does not hide unrelated %s failures during startup',
+    async (code) => {
+      const pending = record('prepared')
+      const state = fixture({}, { recoverable: [pending] })
+      state.fs.identity = async () => {
+        throw Object.assign(new Error('real failure'), { code })
+      }
+      await expect(state.recovery.recoverAll()).rejects.toThrow(
+        'one or more finalize journals failed'
+      )
+    }
+  )
+
+  it.each([
+    'prepared',
+    'target_staged',
+    'target_installed',
+    'db_committed',
+  ] as const)(
+    'keeps %s retryable while all artifacts are unavailable',
+    async (phase) => {
+      const pending = record(phase)
+      pending.publicationMode = 'move'
+      const state = fixture({}, { recoverable: [pending] })
+      await expect(state.recovery.recover(pending)).rejects.toThrow(
+        'unavailable'
+      )
+      await expect(state.recovery.recoverAll()).resolves.toBeUndefined()
+      expect(state.quarantines).toEqual([])
+      expect(state.phases).toEqual([])
+    }
+  )
+
+  it('resumes committed cleanup when its surviving target returns', async () => {
+    const pending = record('db_committed')
+    pending.removalIntent = {
+      artifactPath: '/save/source',
+      quarantinePath: '/save/.remove',
+      identity: sourceIdentity,
+    }
+    const state = fixture({ '/save/source': sourceIdentity })
+    await expect(state.recovery.recover(pending)).rejects.toThrow(
+      'survivor is unavailable'
+    )
+    expect(state.quarantines).toEqual([])
+    expect(state.artifacts.get('/save/source')).toBe(sourceIdentity)
+    state.artifacts.set('/save/target', targetIdentity)
+    await state.recovery.recover(pending)
+    expect([...state.artifacts.keys()]).toEqual(['/save/target'])
+    expect(state.phases).toEqual(['cleaned'])
+  })
+
+  function reservedRecord(): FinalizeJournalRecord {
+    const pending = record('prepared')
+    pending.plan.sourcePath = '/save/target.motrix'
+    pending.publicationMode = 'move'
+    pending.targetIdentity = undefined
+    pending.publicationIntent = {
+      version: 3,
+      method: 'reserved_rename',
+      sourcePath: pending.plan.sourcePath,
+      identity:
+        sourceIdentity as import('./artifact-identity').FileArtifactIdentity,
+      ownership: { volumeId: 'a'.repeat(32), token: 'b'.repeat(64) },
+    }
+    return pending
+  }
+
+  it.each([null, 'f'.repeat(32)])(
+    'defers an unavailable or different reserved volume (%s)',
+    async (volume) => {
+      const pending = reservedRecord()
+      const state = fixture({ '/save/target': targetIdentity })
+      state.fs.reservedVolumeIdentity = async () => volume
+      const identity = vi.spyOn(state.fs, 'identity')
+      await state.recovery.recover(pending)
+      expect(identity).not.toHaveBeenCalled()
+      expect(state.quarantines).toEqual([])
+      expect(state.phases).toEqual([])
+    }
+  )
+
+  it('does not quarantine a volume detached between the probe and file reads', async () => {
+    const state = fixture({})
+    state.fs.reservedVolumeIdentity = vi
+      .fn()
+      .mockResolvedValueOnce('a'.repeat(32))
+      .mockResolvedValue(null)
+    await state.recovery.recover(reservedRecord())
+    expect(state.quarantines).toEqual([])
+    expect(state.phases).toEqual([])
+  })
+
+  it('accepts a changed mount device only with the same volume, inode and content', async () => {
+    const pending = reservedRecord()
+    const current = { ...sourceIdentity, platformFileId: '9:1' }
+    const state = fixture({ '/save/target': current })
+    state.fs.reservedVolumeIdentity = async () => 'a'.repeat(32)
+    await state.recovery.recover(pending)
+    expect(state.quarantines).toEqual([])
+    expect(pending.targetIdentity).toEqual(current)
+    expect(state.phases).toEqual([
+      'target_installed',
+      'db_committed',
+      'cleaned',
+    ])
+  })
+
+  it.each([
+    { ...sourceIdentity, platformFileId: '9:2' },
+    { ...sourceIdentity, platformFileId: '9:1', sha256: 'c'.repeat(64) },
+  ])(
+    'quarantines a foreign installed file on the expected volume: %j',
+    async (foreign) => {
+      const state = fixture({ '/save/target': foreign })
+      state.fs.reservedVolumeIdentity = async () => 'a'.repeat(32)
+      await expect(state.recovery.recover(reservedRecord())).rejects.toThrow(
+        'quarantined'
+      )
+      expect(state.artifacts.get('/save/target')).toEqual(foreign)
+      expect(state.phases).toEqual([])
+    }
+  )
+
   it('finishes the atomic DB transaction from a verified installed target', async () => {
     const state = fixture({
       '/save/source': sourceIdentity,
@@ -261,7 +424,9 @@ describe('FinalizeRecovery', () => {
       staged.privateTargetIdentity = targetIdentity
       const state = fixture(source ? { '/save/source': source } : {})
       await expect(state.recovery.recover(staged)).rejects.toThrow(
-        'source changed before install recovery'
+        source
+          ? 'source changed before install recovery'
+          : 'artifacts are unavailable'
       )
       expect(state.phases).not.toContain('cleaned')
       if (source) expect(state.artifacts.get('/save/source')).toBe(source)

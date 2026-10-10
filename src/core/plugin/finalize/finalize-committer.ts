@@ -1,14 +1,24 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import path from 'node:path'
-import type { ArtifactIdentity } from './artifact-identity'
+import type {
+  ArtifactIdentity,
+  FileArtifactIdentity,
+} from './artifact-identity'
 import type {
   ArtifactMutationLease,
   ArtifactMutationLeaseCoordinator,
 } from './artifact-mutation-lease'
-import { FinalizeFsError } from './filesystem-adapter'
+import {
+  FinalizeFsError,
+  type FinalizeReservationOwnership,
+} from './filesystem-adapter'
 import { FinalizeRecovery } from './finalize-recovery'
 import { selectRemovalSurvivor } from './finalize-removal-safety'
-import { assertValidHookPlan, type HookPlan } from './hook-plan'
+import {
+  assertValidHookPlan,
+  type HookPlan,
+  isOrdinarySuffixRemoval,
+} from './hook-plan'
 
 export type FinalizeJournalPhase =
   | 'prepared'
@@ -33,7 +43,7 @@ export interface FinalizeJournalRecord {
   quarantineReason?: string
 }
 
-export interface FinalizePublicationIntent {
+export interface FinalizeLinkIntent {
   /** Written only after the native exclusive link call returns success. */
   confirmed?: true
   version: 1
@@ -41,6 +51,24 @@ export interface FinalizePublicationIntent {
   sourcePath: string
   identity: ArtifactIdentity
 }
+
+interface FinalizeReservedRenameBase {
+  method: 'reserved_rename'
+  confirmed?: never
+  sourcePath: string
+  identity: FileArtifactIdentity
+  reservationIdentity?: FileArtifactIdentity
+}
+
+export type FinalizeReservedRenameIntent = FinalizeReservedRenameBase &
+  (
+    | { version: 2; ownership?: never }
+    | { version: 3; ownership: FinalizeReservationOwnership }
+  )
+
+export type FinalizePublicationIntent =
+  | FinalizeLinkIntent
+  | FinalizeReservedRenameIntent
 
 export interface FinalizeIsolation {
   directory: string
@@ -66,6 +94,7 @@ export interface FinalizeJournalRepository {
     patch: Partial<
       Pick<
         FinalizeJournalRecord,
+        | 'publicationMode'
         | 'privateTargetPath'
         | 'privateTargetIdentity'
         | 'targetIdentity'
@@ -96,6 +125,16 @@ export interface FinalizeJournalRepository {
 }
 
 export interface FinalizeArtifactOperations {
+  reservedRenameSupported?(): Promise<boolean>
+  reservedVolumeIdentity?(directoryPath: string): Promise<string | null>
+  publishReserved?(
+    sourcePath: string,
+    expected: FileArtifactIdentity,
+    targetPath: string,
+    checkpoint: (reservation: FileArtifactIdentity) => Promise<void>,
+    reservation?: FileArtifactIdentity,
+    ownership?: FinalizeReservationOwnership
+  ): Promise<FileArtifactIdentity>
   /** Validate the actual roots and flush source data before journaled mutation. */
   preflight?(sourcePath: string, targetPath: string): Promise<void>
   identity(artifactPath: string): Promise<ArtifactIdentity | null>
@@ -215,6 +254,7 @@ export class FinalizeCommitter {
     const selectedIdentity = plan.replacement?.identity ?? plan.sourceIdentity
     const samePath = finalizePathsEquivalent(plan.sourcePath, plan.targetPath)
     const movesSource = record.publicationMode === 'move'
+    let publishedIdentity: ArtifactIdentity | undefined
 
     if (samePath && !plan.replacement) {
       await this.requireExactIdentity(
@@ -226,12 +266,36 @@ export class FinalizeCommitter {
     } else if (movesSource) {
       // moveNoReplace validates the expected source identity while holding the
       // artifact and both roots. Avoid hashing large artifacts once more here.
-      await this.publish(
-        record,
-        plan.sourcePath,
-        plan.sourceIdentity,
-        plan.targetPath
-      )
+      try {
+        publishedIdentity = await this.publish(
+          record,
+          plan.sourcePath,
+          plan.sourceIdentity,
+          plan.targetPath
+        )
+      } catch (error) {
+        // st_dev is only a hint: bind mounts and OverlayFS can return EXDEV
+        // even when both paths report the same device. Reconcile the names
+        // before durably switching to the existing private-copy protocol.
+        if (
+          !(error instanceof FinalizeFsError) ||
+          error.code !== 'cross_device' ||
+          error.details?.mutation === 'applied' ||
+          record.publicationIntent
+        )
+          throw error
+        await this.requireExactIdentity(
+          plan.sourcePath,
+          plan.sourceIdentity,
+          record
+        )
+        if (await this.options.fs.identity(plan.targetPath)) throw error
+        await this.options.repository.checkpoint(record.journalId, {
+          publicationMode: 'copy',
+        })
+        record.publicationMode = 'copy'
+        return this.commitPrepared(record, _lease)
+      }
       await this.options.fs.makeDurable(plan.targetPath)
     } else {
       if (samePath) {
@@ -289,11 +353,10 @@ export class FinalizeCommitter {
       await this.options.fs.makeDurable(plan.targetPath)
     }
 
-    // A same-filesystem rename preserves the platform file identity and the
-    // move operation already verifies the installed target. Persist that
-    // identity directly, then retain the final pre-DB verification below.
+    // Compatibility publication returns the actual installed identity: FSKit
+    // exFAT may change an empty file's ID while the source descriptor stays open.
     const targetIdentity = movesSource
-      ? plan.sourceIdentity
+      ? (publishedIdentity ?? plan.sourceIdentity)
       : await this.requireExactIdentity(
           plan.targetPath,
           samePath && !plan.replacement
@@ -316,7 +379,10 @@ export class FinalizeCommitter {
     record.phase = 'db_committed'
     let cleanupPending = false
     try {
-      if (!samePath && (!movesSource || record.publicationIntent)) {
+      if (
+        !samePath &&
+        (!movesSource || record.publicationIntent?.method === 'hard_link')
+      ) {
         await this.requireExactIdentity(
           plan.sourcePath,
           plan.sourceIdentity,
@@ -324,7 +390,10 @@ export class FinalizeCommitter {
         )
         await this.removeTracked(record, plan.sourcePath, plan.sourceIdentity)
       }
-      if (record.publicationIntent && record.privateTargetPath) {
+      if (
+        record.publicationIntent?.method === 'hard_link' &&
+        record.privateTargetPath
+      ) {
         await this.removeTracked(
           record,
           record.privateTargetPath,
@@ -375,19 +444,45 @@ export class FinalizeCommitter {
     sourcePath: string,
     identity: ArtifactIdentity,
     targetPath: string
-  ): Promise<void> {
+  ): Promise<ArtifactIdentity | undefined> {
     try {
       await this.options.fs.moveNoReplace(sourcePath, identity, targetPath)
     } catch (error) {
       if (
         !(error instanceof FinalizeFsError) ||
         error.code !== 'rename_unsupported' ||
-        identity.kind !== 'file' ||
-        !this.options.fs.linkNoReplace
+        identity.kind !== 'file'
       )
         throw error
       await this.requireExactIdentity(sourcePath, identity, record)
       if (await this.options.fs.identity(targetPath)) throw error
+      if (
+        record.publicationMode === 'move' &&
+        isOrdinarySuffixRemoval(record.plan) &&
+        error.details?.operation === 'rename_opened_no_replace' &&
+        (error.details.osError === 45 || error.details.osError === 102) &&
+        this.options.fs.publishReserved &&
+        this.options.fs.reservedVolumeIdentity &&
+        (await this.options.fs.reservedRenameSupported?.())
+      ) {
+        const volumeId = await this.options.fs.reservedVolumeIdentity(
+          path.dirname(sourcePath)
+        )
+        if (!volumeId) throw error
+        const publicationIntent: FinalizeReservedRenameIntent = {
+          version: 3,
+          ownership: { token: randomBytes(32).toString('hex'), volumeId },
+          method: 'reserved_rename',
+          sourcePath,
+          identity,
+        }
+        await this.options.repository.checkpoint(record.journalId, {
+          publicationIntent,
+        })
+        record.publicationIntent = publicationIntent
+        return publishReserved(record, this.options.fs, this.options.repository)
+      }
+      if (!this.options.fs.linkNoReplace) throw error
       const publicationIntent: FinalizePublicationIntent = {
         version: 1,
         method: 'hard_link',
@@ -512,6 +607,33 @@ export class FinalizeCommitter {
     await this.options.repository.quarantine(record.journalId, reason)
     throw new FinalizeQuarantinedError(record.journalId, reason)
   }
+}
+
+/** Persist ownership before replacing a reservation; keep uncertainty recoverable. */
+export async function publishReserved(
+  record: FinalizeJournalRecord,
+  fs: FinalizeArtifactOperations,
+  repository: FinalizeJournalRepository
+): Promise<FileArtifactIdentity> {
+  const intent = record.publicationIntent
+  if (intent?.method !== 'reserved_rename' || !fs.publishReserved)
+    throw new Error('reserved publication is unsupported')
+  const installed = await fs.publishReserved(
+    intent.sourcePath,
+    intent.identity,
+    record.plan.targetPath,
+    async (reservationIdentity) => {
+      const publicationIntent = { ...intent, reservationIdentity }
+      await repository.checkpoint(record.journalId, { publicationIntent })
+      record.publicationIntent = publicationIntent
+    },
+    intent.reservationIdentity,
+    intent.ownership
+  )
+  // Capture a changed file ID before any subsequent host sync can fail.
+  await repository.checkpoint(record.journalId, { targetIdentity: installed })
+  record.targetIdentity = installed
+  return installed
 }
 
 export async function prepareRemovalIntent(

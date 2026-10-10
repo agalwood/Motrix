@@ -1,3 +1,5 @@
+import path from 'node:path'
+import { getLogger } from '@core/logger'
 import type {
   ArtifactMutationLease,
   ArtifactMutationLeaseCoordinator,
@@ -9,12 +11,20 @@ import {
   FinalizeQuarantinedError,
   finalizePathsEquivalent,
   prepareRemovalIntent,
+  publishReserved,
 } from './finalize-committer'
-
+import {
+  FinalizeRecoveryDeferredError,
+  isUnavailableArtifactError,
+} from './finalize-recovery-errors'
 import {
   linkPublicationConfirmed,
   selectRemovalSurvivor,
 } from './finalize-removal-safety'
+import {
+  reservationMatches,
+  reservedArtifactMatches,
+} from './reserved-identity'
 
 export interface FinalizeRecoveryOptions {
   repository: FinalizeJournalRepository
@@ -40,6 +50,13 @@ export class FinalizeRecovery {
       try {
         await this.recover(record)
       } catch (error) {
+        if (isUnavailableArtifactError(error)) {
+          getLogger('finalize').warn(
+            { journalId: record.journalId, err: error },
+            'finalize recovery deferred until artifacts are available'
+          )
+          continue
+        }
         if (!(error instanceof FinalizeQuarantinedError)) failures.push(error)
       }
     }
@@ -86,6 +103,10 @@ export class FinalizeRecovery {
         await this.options.repository.resumeQuarantined(record)
         record.quarantineReason = undefined
       }
+      if (record.publicationIntent?.method === 'reserved_rename') {
+        await this.recoverReserved(record)
+        return
+      }
       await this.resumeRemovalIntent(record)
       const selected =
         record.plan.replacement?.identity ?? record.plan.sourceIdentity
@@ -102,7 +123,18 @@ export class FinalizeRecovery {
         ? await this.options.fs.identity(record.plan.replacement.stagedPath)
         : null
 
-      const linked = record.publicationIntent
+      // An unmounted disk or unavailable share can look exactly like ENOENT.
+      // Absence alone is not evidence of a conflicting identity. Keep the
+      // durable checkpoint so reconnecting the storage can resume recovery.
+      if (!source && !target && !rollback && !privateTarget)
+        throw new FinalizeRecoveryDeferredError(
+          'finalize artifacts are unavailable; retry recovery'
+        )
+
+      const linked =
+        record.publicationIntent?.method === 'hard_link'
+          ? record.publicationIntent
+          : undefined
       if (linked && target && !linkPublicationConfirmed(record)) {
         await this.quarantine(
           record,
@@ -135,7 +167,11 @@ export class FinalizeRecovery {
       }
 
       if (record.phase === 'db_committed') {
-        if (!target || !this.options.exactIdentity(target, installed)) {
+        if (!target)
+          throw new FinalizeRecoveryDeferredError(
+            'committed target is unavailable; retry recovery'
+          )
+        if (!this.options.exactIdentity(target, installed)) {
           await this.quarantine(record, 'committed target identity mismatch')
         }
         await this.cleanup(record, source, rollback, privateTarget, replacement)
@@ -269,6 +305,103 @@ export class FinalizeRecovery {
     }
   }
 
+  private async recoverReserved(record: FinalizeJournalRecord): Promise<void> {
+    let intent = record.publicationIntent
+    if (intent?.method !== 'reserved_rename')
+      throw new Error('invalid reserved journal')
+    const ownership = intent.ownership
+    const sourceDirectory = path.dirname(intent.sourcePath)
+    const volumeAvailable = async () => {
+      if (!this.options.fs.reservedVolumeIdentity) return !ownership
+      const id = await this.options.fs.reservedVolumeIdentity(sourceDirectory)
+      return ownership ? id === ownership.volumeId : id !== null
+    }
+    if (!(await volumeAvailable())) return
+    const quarantine = async (reason: string) => {
+      // Recheck after IO: detaching between the volume probe and stat is retryable.
+      if (await volumeAvailable()) await this.quarantine(record, reason)
+    }
+    const matches: FinalizeRecoveryIdentityComparator = ownership
+      ? (actual, expected) =>
+          reservedArtifactMatches(actual, expected, ownership)
+      : this.options.exactIdentity
+    const source = await this.options.fs.identity(intent.sourcePath)
+    let target = await this.options.fs.identity(record.plan.targetPath)
+    if (source) {
+      if (record.phase !== 'prepared' || !matches(source, intent.identity))
+        return quarantine('reserved source identity or phase mismatch')
+      if (
+        target &&
+        (ownership
+          ? !reservationMatches(target, ownership.token)
+          : !intent.reservationIdentity ||
+            !this.options.exactIdentity(target, intent.reservationIdentity))
+      )
+        return quarantine('reserved target ownership is unconfirmed')
+      // Startup has no task/effects commit boundary. Preserve both names until
+      // explicit retry enters SessionManager's serialized terminal transaction.
+      if (this.options.rollForwardTargetInstalled === false) return
+      if (!target && intent.reservationIdentity) {
+        intent = { ...intent, reservationIdentity: undefined }
+        await this.options.repository.checkpoint(record.journalId, {
+          publicationIntent: intent,
+        })
+        record.publicationIntent = intent
+      }
+      target = await publishReserved(
+        record,
+        this.options.fs,
+        this.options.repository
+      )
+    } else if (
+      !target ||
+      !matches(target, record.targetIdentity ?? intent.identity)
+    ) {
+      // An empty exFAT file may acquire a new ID. Without an acknowledged
+      // identity transition, an equal empty digest cannot establish ownership.
+      return quarantine('reserved installed target identity is unconfirmed')
+    }
+    if (!target) return quarantine('reserved target is missing')
+    if (
+      record.targetIdentity &&
+      !this.options.exactIdentity(target, record.targetIdentity)
+    ) {
+      await this.options.repository.checkpoint(record.journalId, {
+        targetIdentity: target,
+      })
+      record.targetIdentity = target
+    }
+    await this.options.fs.makeDurable(record.plan.targetPath)
+    const verifyInstalled = async () => {
+      const current = await this.options.fs.identity(record.plan.targetPath)
+      if (!current || !this.options.exactIdentity(current, target)) {
+        if (!(await volumeAvailable()))
+          throw new Error('reserved volume is unavailable')
+        await this.quarantine(record, 'reserved target changed before commit')
+      }
+    }
+    await verifyInstalled()
+    if (record.phase === 'prepared') {
+      await this.options.repository.advance(
+        record.journalId,
+        'target_installed',
+        { targetIdentity: target }
+      )
+      record.targetIdentity = target
+      record.phase = 'target_installed'
+    }
+    if (record.phase === 'target_installed') {
+      if (this.options.rollForwardTargetInstalled === false) return
+      await verifyInstalled()
+      await this.options.repository.commitTerminal(record)
+      record.phase = 'db_committed'
+    }
+    if (record.phase === 'db_committed') {
+      await this.options.repository.advance(record.journalId, 'cleaned')
+      record.phase = 'cleaned'
+    }
+  }
+
   private async restore(
     record: FinalizeJournalRecord,
     target: Awaited<ReturnType<FinalizeArtifactOperations['identity']>>,
@@ -339,7 +472,7 @@ export class FinalizeRecovery {
     if (
       record.publicationMode === 'move' &&
       source &&
-      !record.publicationIntent
+      record.publicationIntent?.method !== 'hard_link'
     ) {
       await this.quarantine(
         record,
@@ -347,7 +480,8 @@ export class FinalizeRecovery {
       )
     }
     if (
-      (record.publicationMode !== 'move' || record.publicationIntent) &&
+      (record.publicationMode !== 'move' ||
+        record.publicationIntent?.method === 'hard_link') &&
       source &&
       !finalizePathsEquivalent(record.plan.sourcePath, record.plan.targetPath)
     ) {
@@ -408,7 +542,7 @@ export class FinalizeRecovery {
     if (
       source &&
       target &&
-      record.publicationIntent &&
+      record.publicationIntent?.method === 'hard_link' &&
       this.options.exactIdentity(source, record.plan.sourceIdentity) &&
       this.options.exactIdentity(target, record.publicationIntent.identity)
     ) {

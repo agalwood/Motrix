@@ -1,5 +1,8 @@
 //! Compile-time platform facade for handle-bound filesystem operations.
 
+#[cfg(target_os = "macos")]
+pub(crate) use unix::{exfat_volume_identity, rename_opened_reserved, reserve_exfat_target};
+
 #[cfg(unix)]
 mod unix;
 #[cfg(not(any(unix, windows)))]

@@ -164,6 +164,50 @@ function makeDeps(overrides: Partial<RecoveryDeps> = {}): RecoveryDeps {
 }
 
 describe('TaskRecoveryServiceImpl.recoverOnStartup', () => {
+  it.each(['both', 'final-only'])(
+    'routes a journaled %s output through the durable finalizer',
+    async (state) => {
+      const task = makeTask({ type: TaskType.Http })
+      const deps = makeDeps({
+        taskManager: { getAll: () => [task], persist: vi.fn() },
+        fs: makeFs(
+          new Set(
+            state === 'both'
+              ? [task.diskPath, task.finalPath]
+              : [task.finalPath]
+          )
+        ),
+        hasPendingFinalization: vi.fn(async () => true),
+      })
+      const report = await new TaskRecoveryServiceImpl(deps).recoverOnStartup()
+      expect(deps.finalizeTask).toHaveBeenCalledExactlyOnceWith(task.id)
+      expect(deps.fs.pathExists).not.toHaveBeenCalled()
+      expect(deps.taskManager.persist).not.toHaveBeenCalled()
+      expect(report.errors).toEqual([])
+      expect(report.recovered).toEqual([
+        { taskId: task.id, action: RecoveryAction.ResumeFromRename },
+      ])
+    }
+  )
+
+  it('does not mark a quarantined journal complete from the final path alone', async () => {
+    const task = makeTask({ type: TaskType.Http, status: TaskStatus.Error })
+    const deps = makeDeps({
+      taskManager: { getAll: () => [task], persist: vi.fn() },
+      fs: makeFs(new Set([task.finalPath])),
+      hasPendingFinalization: async () => true,
+      finalizeTask: vi.fn(async () => {
+        throw new Error('publication ownership is unconfirmed')
+      }),
+    })
+    const report = await new TaskRecoveryServiceImpl(deps).recoverTaskById(
+      task.id
+    )
+    expect(report.recovered).toEqual([])
+    expect(report.errors).toHaveLength(1)
+    expect(task.status).toBe(TaskStatus.Error)
+    expect(deps.taskManager.persist).not.toHaveBeenCalled()
+  })
   it.each([TransitionPhase.Idle, TransitionPhase.Renaming])(
     'finishes direct BT completion in place after restart from %s',
     async (phase) => {

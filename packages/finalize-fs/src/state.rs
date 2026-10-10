@@ -126,6 +126,136 @@ impl State {
                 &target_relative,
                 crate::platform::link_opened_no_replace,
             ),
+            Request::ExfatVolumeIdentity { request_id, root } => {
+                #[cfg(target_os = "macos")]
+                {
+                    let Some(root) = self.roots.get(&root) else {
+                        return Response::error(Some(request_id), "invalid_handle", "unknown root");
+                    };
+                    match crate::platform::exfat_volume_identity(root) {
+                        Ok(id) => {
+                            let mut response = Response::ok(Some(request_id));
+                            response.volume_id = id;
+                            response
+                        }
+                        Err(error) => Response::filesystem_error(request_id, error),
+                    }
+                }
+                #[cfg(not(target_os = "macos"))]
+                {
+                    let _ = root;
+                    Response::error(
+                        Some(request_id),
+                        "unsupported",
+                        "exFAT volume identity requires macOS",
+                    )
+                }
+            }
+            Request::ReserveExfatTarget {
+                request_id,
+                artifact,
+                target_root,
+                target_relative,
+                expected_identity,
+                token,
+                volume_id,
+            } => {
+                #[cfg(target_os = "macos")]
+                {
+                    let Some(source) = self.artifacts.get(&artifact).and_then(Option::as_ref)
+                    else {
+                        return Response::error(
+                            Some(request_id),
+                            "invalid_handle",
+                            "unknown artifact",
+                        );
+                    };
+                    let Some(root) = self.roots.get(&target_root) else {
+                        return Response::error(Some(request_id), "invalid_handle", "unknown root");
+                    };
+                    if token.is_some() != volume_id.is_some() {
+                        return Response::error(
+                            Some(request_id),
+                            "invalid_request",
+                            "incomplete reservation ownership",
+                        );
+                    }
+                    match crate::platform::reserve_exfat_target(
+                        source,
+                        root,
+                        &target_relative,
+                        expected_identity.as_deref(),
+                        token.as_deref().zip(volume_id.as_deref()),
+                    ) {
+                        Ok((reservation, identity)) => {
+                            let handle = self.insert_artifact(reservation);
+                            let mut response = Response::ok(Some(request_id));
+                            response.handle = Some(handle);
+                            response.platform_file_id = Some(identity);
+                            response
+                        }
+                        Err(error) => Response::filesystem_error(request_id, error),
+                    }
+                }
+                #[cfg(not(target_os = "macos"))]
+                {
+                    let _ = (
+                        artifact,
+                        target_root,
+                        target_relative,
+                        expected_identity,
+                        token,
+                        volume_id,
+                    );
+                    Response::error(
+                        Some(request_id),
+                        "unsupported",
+                        "reserved exFAT rename requires macOS",
+                    )
+                }
+            }
+            Request::RenameOpenedReserved {
+                request_id,
+                artifact,
+                reservation,
+            } => {
+                #[cfg(target_os = "macos")]
+                {
+                    let Some(source) = self.artifacts.get(&artifact).and_then(Option::as_ref)
+                    else {
+                        return Response::error(
+                            Some(request_id),
+                            "invalid_handle",
+                            "unknown artifact",
+                        );
+                    };
+                    let Some(reserved) = self.artifacts.get(&reservation).and_then(Option::as_ref)
+                    else {
+                        return Response::error(
+                            Some(request_id),
+                            "invalid_handle",
+                            "unknown reservation",
+                        );
+                    };
+                    match crate::platform::rename_opened_reserved(source, reserved) {
+                        Ok((outcome, identity)) => {
+                            let mut response = rename_response(request_id, Ok(outcome));
+                            response.platform_file_id = Some(identity);
+                            response
+                        }
+                        Err(error) => Response::filesystem_error(request_id, error),
+                    }
+                }
+                #[cfg(not(target_os = "macos"))]
+                {
+                    let _ = (artifact, reservation);
+                    Response::error(
+                        Some(request_id),
+                        "unsupported",
+                        "reserved exFAT rename requires macOS",
+                    )
+                }
+            }
             Request::IsolateOpened {
                 request_id,
                 artifact,
@@ -312,6 +442,8 @@ impl State {
         response.held_roots = Some(cfg!(any(unix, windows)));
         response.directory_sync = Some(cfg!(any(unix, windows)));
         response.held_artifacts = Some(cfg!(any(unix, windows)));
+        response.reserved_exfat_rename = Some(cfg!(target_os = "macos"));
+        response.token_exfat_reservation = Some(cfg!(target_os = "macos"));
         response
     }
 

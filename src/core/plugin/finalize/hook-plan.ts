@@ -28,6 +28,18 @@ export interface HookPlan {
   contributors: readonly string[]
 }
 
+/** The exFAT compatibility contract is limited to unmodified download names. */
+export function isOrdinarySuffixRemoval(plan: HookPlan): boolean {
+  return (
+    plan.sourceIdentity.kind === 'file' &&
+    !plan.replacement &&
+    plan.contributors.length === 0 &&
+    plan.metadataOps.length === 0 &&
+    plan.sourcePath === `${plan.targetPath}.motrix` &&
+    path.dirname(plan.sourcePath) === path.dirname(plan.targetPath)
+  )
+}
+
 export function assertFinalizePaths(
   saveDir: string,
   sourcePath: string,

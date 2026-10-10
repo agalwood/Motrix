@@ -1608,6 +1608,8 @@ async function main() {
       // open so the renderer observes a self-healed state. See design
       // spec §6.6.
       recoveryService = new TaskRecoveryServiceImpl({
+        hasPendingFinalization: (taskId) =>
+          durableFinalizeRuntime.hasPendingFinalization(taskId),
         taskManager: {
           getAll: () => taskManager.getAll(),
           set: (id: string, task: DownloadTask) => taskManager.set(id, task),

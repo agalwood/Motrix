@@ -1,4 +1,6 @@
+import { createHash } from 'node:crypto'
 import type { FinalizeJournalRecord } from '@core/plugin/finalize/finalize-committer'
+import { reservationMarker } from '@core/plugin/finalize/reserved-identity'
 import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SqliteFinalizeJournalRepository } from './finalize-journal-repository'
@@ -13,6 +15,215 @@ describe('SqliteFinalizeJournalRepository', () => {
   })
 
   afterEach(() => db.close())
+
+  it('persists a prepared move-to-copy switch and rejects switching after mutation', async () => {
+    const repository = new SqliteFinalizeJournalRepository(db, {
+      commitTerminalBoundary: vi.fn(),
+    })
+    const record = { ...makeRecord(), publicationMode: 'move' as const }
+    await repository.prepare(record)
+    await repository.checkpoint(record.journalId, { publicationMode: 'copy' })
+    expect((await repository.listRecoverable())[0].publicationMode).toBe('copy')
+    await expect(
+      repository.checkpoint(record.journalId, { publicationMode: 'move' })
+    ).rejects.toThrow('after mutation')
+  })
+
+  it.each(['target_staged', 'target_installed', 'db_committed'] as const)(
+    'rejects a mode switch in %s',
+    async (phase) => {
+      const repository = new SqliteFinalizeJournalRepository(db, {
+        commitTerminalBoundary: vi.fn(),
+      })
+      const record = { ...makeRecord(), publicationMode: 'move' as const }
+      await repository.prepare(record)
+      db.prepare(
+        'UPDATE plugin_finalize_journals SET phase=?, plan_json=?'
+      ).run(phase, JSON.stringify({ ...record, phase }))
+      await expect(
+        repository.checkpoint(record.journalId, { publicationMode: 'copy' })
+      ).rejects.toThrow('after mutation')
+    }
+  )
+
+  it('syncs critical journal writes and restores the connection setting after a failed commit', async () => {
+    db.pragma('synchronous = NORMAL')
+    db.pragma('fullfsync = OFF')
+    const flushes: number[] = []
+    db.function('observe_fullfsync', (level) => {
+      flushes.push(level as number)
+      return 1
+    })
+    const writes: number[] = []
+    db.function('observe_sync', (level) => {
+      writes.push(level as number)
+      return 1
+    })
+    db.exec(`
+      CREATE TRIGGER observe_insert BEFORE INSERT ON plugin_finalize_journals BEGIN SELECT observe_sync(synchronous) FROM pragma_synchronous; SELECT observe_fullfsync(fullfsync) FROM pragma_fullfsync; END;
+      CREATE TRIGGER observe_update BEFORE UPDATE ON plugin_finalize_journals BEGIN SELECT observe_sync(synchronous) FROM pragma_synchronous; SELECT observe_fullfsync(fullfsync) FROM pragma_fullfsync; END;
+    `)
+    const repository = new SqliteFinalizeJournalRepository(db, {
+      commitTerminalBoundary: () => {
+        expect(db.pragma('synchronous', { simple: true })).toBe(2)
+        expect(db.pragma('fullfsync', { simple: true })).toBe(
+          process.platform === 'darwin' ? 1 : 0
+        )
+        throw new Error('terminal transaction failed')
+      },
+    })
+    const record = { ...makeRecord(), publicationMode: 'move' as const }
+    await repository.prepare(record)
+    await repository.checkpoint(record.journalId, {
+      targetIdentity: record.plan.sourceIdentity,
+    })
+    await repository.advance(record.journalId, 'target_installed')
+    await expect(repository.commitTerminal(record)).rejects.toThrow(
+      'terminal transaction failed'
+    )
+    expect(writes).toEqual([2, 2, 2])
+    expect(flushes).toEqual(
+      Array(3).fill(process.platform === 'darwin' ? 1 : 0)
+    )
+    expect(db.pragma('fullfsync', { simple: true })).toBe(0)
+    expect(db.pragma('synchronous', { simple: true })).toBe(1)
+    expect((await repository.listRecoverable())[0].phase).toBe(
+      'target_installed'
+    )
+  })
+
+  it('preserves stronger caller durability settings', async () => {
+    db.pragma('synchronous = EXTRA')
+    db.pragma('fullfsync = ON')
+    const repository = new SqliteFinalizeJournalRepository(db, {
+      commitTerminalBoundary: vi.fn(),
+    })
+    await repository.prepare(makeRecord())
+    expect(db.pragma('synchronous', { simple: true })).toBe(3)
+    expect(db.pragma('fullfsync', { simple: true })).toBe(1)
+  })
+
+  it('does not claim a durable checkpoint inside a caller-owned transaction', async () => {
+    const repository = new SqliteFinalizeJournalRepository(db, {
+      commitTerminalBoundary: vi.fn(),
+    })
+    db.exec('BEGIN')
+    try {
+      await expect(repository.prepare(makeRecord())).rejects.toThrow(
+        'outermost transaction'
+      )
+    } finally {
+      db.exec('ROLLBACK')
+    }
+    expect(await repository.listRecoverable()).toEqual([])
+  })
+
+  it('validates reserved publication scope and the exact empty placeholder contract', async () => {
+    const repository = new SqliteFinalizeJournalRepository(db, {
+      commitTerminalBoundary: vi.fn(),
+    })
+    const record = { ...makeRecord(), publicationMode: 'move' as const }
+    record.plan.sourcePath = `${record.plan.targetPath}.motrix`
+    const identity = {
+      kind: 'file' as const,
+      size: 4,
+      sha256: 'a'.repeat(64),
+      platformFileId: '1:1',
+    }
+    record.plan.sourceIdentity = identity
+    await repository.prepare(record)
+    const publicationIntent = {
+      version: 2 as const,
+      method: 'reserved_rename' as const,
+      sourcePath: record.plan.sourcePath,
+      identity,
+    }
+    await repository.checkpoint(record.journalId, { publicationIntent })
+    const reservationIdentity = {
+      ...identity,
+      size: 0,
+      platformFileId: '1:2',
+      sha256:
+        'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    }
+    await repository.checkpoint(record.journalId, {
+      publicationIntent: { ...publicationIntent, reservationIdentity },
+    })
+    expect((await repository.listRecoverable())[0].publicationIntent).toEqual({
+      ...publicationIntent,
+      reservationIdentity,
+    })
+    await expect(
+      repository.checkpoint(record.journalId, {
+        publicationIntent: {
+          ...publicationIntent,
+          reservationIdentity: identity,
+        },
+      })
+    ).rejects.toThrow()
+    await expect(
+      repository.checkpoint(record.journalId, {
+        privateTargetPath: '/downloads/private',
+      })
+    ).rejects.toThrow('ordinary suffix removal')
+  })
+
+  it('persists token ownership before reservation creation and rejects unrelated markers', async () => {
+    const repository = new SqliteFinalizeJournalRepository(db, {
+      commitTerminalBoundary: vi.fn(),
+    })
+    const record = { ...makeRecord(), publicationMode: 'move' as const }
+    record.plan.sourcePath = `${record.plan.targetPath}.motrix`
+    const identity = {
+      kind: 'file' as const,
+      size: 4,
+      sha256: 'a'.repeat(64),
+      platformFileId: '1:1',
+    }
+    record.plan.sourceIdentity = identity
+    await repository.prepare(record)
+    const ownership = { volumeId: 'c'.repeat(32), token: 'd'.repeat(64) }
+    const publicationIntent = {
+      version: 3 as const,
+      method: 'reserved_rename' as const,
+      sourcePath: record.plan.sourcePath,
+      identity,
+      ownership,
+    }
+    await repository.checkpoint(record.journalId, { publicationIntent })
+    expect((await repository.listRecoverable())[0].publicationIntent).toEqual(
+      publicationIntent
+    )
+    const marker = reservationMarker(ownership.token)
+    const reservationIdentity = {
+      ...identity,
+      platformFileId: '1:2',
+      size: marker.length,
+      sha256: createHash('sha256').update(marker).digest('hex'),
+    }
+    await repository.checkpoint(record.journalId, {
+      publicationIntent: { ...publicationIntent, reservationIdentity },
+    })
+    await expect(
+      repository.checkpoint(record.journalId, {
+        publicationIntent: {
+          ...publicationIntent,
+          reservationIdentity: {
+            ...reservationIdentity,
+            sha256: '0'.repeat(64),
+          },
+        },
+      })
+    ).rejects.toThrow('persisted token')
+    await repository.checkpoint(record.journalId, {
+      targetIdentity: { ...identity, platformFileId: '9:1' },
+    })
+    await expect(
+      repository.checkpoint(record.journalId, {
+        targetIdentity: { ...identity, platformFileId: '9:2' },
+      })
+    ).rejects.toThrow('downloaded content')
+  })
 
   it('persists and validates the installation source of a hard-link intent', async () => {
     const repository = new SqliteFinalizeJournalRepository(db, {

@@ -17,6 +17,7 @@ import { FinalizeRecovery } from '@core/plugin/finalize/finalize-recovery'
 import {
   assertFinalizePaths,
   freezeHookPlan,
+  isOrdinarySuffixRemoval,
 } from '@core/plugin/finalize/hook-plan'
 import type { StagedMetadataOp } from '@core/plugin/hooks/staged-effects'
 import type { PostDeliveryAdmission } from '@core/plugin/post/delivery-types'
@@ -96,26 +97,43 @@ export class DurableFinalizeRuntime {
     const lease = await this.leases.acquire(input.task.id)
     try {
       await this.createRecovery().recoverTask(input.task.id, lease)
+      const pending = (
+        await this.createRepository().listRecoverable(input.task.id)
+      ).find((record) => record.publicationIntent?.method === 'reserved_rename')
+      if (
+        pending &&
+        (!isOrdinarySuffixRemoval(pending.plan) ||
+          pending.plan.sourcePath !== input.sourcePath ||
+          pending.plan.targetPath !== targetPath ||
+          input.replacement ||
+          input.contributors.length > 0 ||
+          input.metadataOps.length > 0)
+      )
+        throw new Error('pending reserved publication does not match the retry')
       // H8: identity capture is inside the mutation lease, after every
       // engine/Host writer has successfully quiesced.
-      const sourceIdentity = await this.captureIdentity(input.sourcePath)
+      const sourceIdentity =
+        pending?.plan.sourceIdentity ??
+        (await this.captureIdentity(input.sourcePath))
       const replacement = input.replacement
         ? {
             ...input.replacement,
             identity: await this.captureIdentity(input.replacement.stagedPath),
           }
         : undefined
-      const plan = freezeHookPlan({
-        planId: randomUUID(),
-        taskId: input.task.id,
-        saveDir: input.task.saveDir,
-        sourcePath: input.sourcePath,
-        targetPath,
-        sourceIdentity,
-        replacement,
-        metadataOps: input.metadataOps,
-        contributors: input.contributors,
-      })
+      const plan =
+        pending?.plan ??
+        freezeHookPlan({
+          planId: randomUUID(),
+          taskId: input.task.id,
+          saveDir: input.task.saveDir,
+          sourcePath: input.sourcePath,
+          targetPath,
+          sourceIdentity,
+          replacement,
+          metadataOps: input.metadataOps,
+          contributors: input.contributors,
+        })
 
       // Rebase paths must follow the sanitized final component when the
       // requested target named the same file.
@@ -151,6 +169,35 @@ export class DurableFinalizeRuntime {
               },
             }
           )
+          if (pending) {
+            input.beforeCommit?.()
+            try {
+              await new FinalizeRecovery({
+                repository,
+                leases: this.leases,
+                fs: this.options.fs,
+                exactIdentity: artifactIdentityEquals,
+                sameContent: artifactContentEquals,
+              }).recover(pending, lease)
+            } catch (error) {
+              // Match live publication: a cleanup failure cannot undo the
+              // already committed task. Startup will close the journal later.
+              if (pending.phase !== 'db_committed') throw error
+            }
+            if (
+              !pending.targetIdentity ||
+              (pending.phase !== 'cleaned' && pending.phase !== 'db_committed')
+            )
+              throw new Error('reserved publication recovery did not commit')
+            return {
+              journalId: pending.journalId,
+              targetPath: pending.plan.targetPath,
+              targetIdentity: pending.targetIdentity,
+              ...(pending.phase === 'db_committed'
+                ? { cleanupPending: true }
+                : {}),
+            }
+          }
           const committer = new FinalizeCommitter({
             leases: this.leases,
             repository,
@@ -187,27 +234,41 @@ export class DurableFinalizeRuntime {
     return identity
   }
 
-  /** Recover before task restore: committed rows clean up; uncommitted targets roll back. */
+  /** Strict moves roll back; reserved targets wait for the task's commit boundary. */
   async recoverAll(): Promise<void> {
     await this.createRecovery().recoverAll()
   }
 
+  /** A filesystem-only recovery decision cannot override an unfinished journal. */
+  async hasPendingFinalization(taskId: string): Promise<boolean> {
+    return (
+      this.options.db
+        .prepare(
+          "SELECT 1 FROM plugin_finalize_journals WHERE task_id=? AND phase <> 'cleaned'"
+        )
+        .get(taskId) !== undefined
+    )
+  }
+
   private createRecovery(): FinalizeRecovery {
-    const repository = new SqliteFinalizeJournalRepository(this.options.db, {
+    return new FinalizeRecovery({
+      repository: this.createRepository(),
+      leases: this.leases,
+      fs: this.options.fs,
+      exactIdentity: artifactIdentityEquals,
+      sameContent: artifactContentEquals,
+      rollForwardTargetInstalled: false,
+    })
+  }
+
+  private createRepository(): SqliteFinalizeJournalRepository {
+    return new SqliteFinalizeJournalRepository(this.options.db, {
       now: this.now,
       commitTerminalBoundary: () => {
         throw new Error(
           'startup recovery is configured to roll back uncommitted targets'
         )
       },
-    })
-    return new FinalizeRecovery({
-      repository,
-      leases: this.leases,
-      fs: this.options.fs,
-      exactIdentity: artifactIdentityEquals,
-      sameContent: artifactContentEquals,
-      rollForwardTargetInstalled: false,
     })
   }
 }

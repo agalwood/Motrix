@@ -7,15 +7,24 @@ import {
   ArtifactIdentityCache,
   ArtifactIdentityError,
   artifactIdentityEquals,
+  type FileArtifactIdentity,
   readArtifactIdentity,
 } from './artifact-identity'
-import type { FinalizeFilesystemAdapter } from './filesystem-adapter'
+import {
+  type FinalizeFilesystemAdapter,
+  FinalizeFsError,
+  type FinalizeReservationOwnership,
+} from './filesystem-adapter'
 import type {
   FinalizeArtifactOperations,
   FinalizeIsolation,
   FinalizeRemovalIntent,
   FinalizeRemovalSurvivor,
 } from './finalize-committer'
+import {
+  reservationMatches,
+  reservedArtifactMatches,
+} from './reserved-identity'
 
 /**
  * Production artifact operations. No-replace publication is delegated to the
@@ -29,6 +38,109 @@ export class NativeFinalizeArtifactOperations
   private readonly identityCache = new ArtifactIdentityCache()
 
   constructor(private readonly adapter: FinalizeFilesystemAdapter) {}
+
+  async reservedRenameSupported(): Promise<boolean> {
+    const capabilities = await this.adapter.capabilities()
+    return (
+      capabilities.platform === 'macos' &&
+      capabilities.reservedExfatRename === true &&
+      capabilities.tokenExfatReservation === true &&
+      this.adapter.exfatVolumeIdentity !== undefined &&
+      this.adapter.reserveExfatTarget !== undefined &&
+      this.adapter.renameOpenedReserved !== undefined
+    )
+  }
+
+  async reservedVolumeIdentity(directoryPath: string): Promise<string | null> {
+    if (!this.adapter.exfatVolumeIdentity) return null
+    let root:
+      | Awaited<ReturnType<FinalizeFilesystemAdapter['openRoot']>>
+      | undefined
+    try {
+      root = await this.adapter.openRoot(directoryPath)
+      return await this.adapter.exfatVolumeIdentity(root)
+    } catch (error) {
+      if (error instanceof FinalizeFsError && error.code === 'not_found')
+        return null
+      throw error
+    } finally {
+      if (root) await this.adapter.close(root).catch(() => undefined)
+    }
+  }
+
+  async publishReserved(
+    sourcePath: string,
+    expected: FileArtifactIdentity,
+    targetPath: string,
+    checkpoint: (reservation: FileArtifactIdentity) => Promise<void>,
+    reservation?: FileArtifactIdentity,
+    ownership?: FinalizeReservationOwnership
+  ): Promise<FileArtifactIdentity> {
+    if (
+      !(await this.reservedRenameSupported()) ||
+      !this.adapter.reserveExfatTarget ||
+      !this.adapter.renameOpenedReserved
+    )
+      throw new Error('reserved exFAT publication is unsupported')
+    const root = await this.adapter.openRoot(path.dirname(sourcePath))
+    let source:
+      | Awaited<ReturnType<FinalizeFilesystemAdapter['openArtifact']>>
+      | undefined
+    let reserved:
+      | Awaited<ReturnType<FinalizeFilesystemAdapter['openArtifact']>>
+      | undefined
+    try {
+      if (
+        ownership &&
+        (await this.adapter.exfatVolumeIdentity?.(root)) !== ownership.volumeId
+      )
+        throw new Error('reserved volume is unavailable')
+      const requireSource = async () => {
+        const current = await this.identity(sourcePath)
+        if (!current || !reservedArtifactMatches(current, expected, ownership))
+          throw new Error('reserved source identity changed')
+      }
+      await requireSource()
+      if (path.dirname(sourcePath) !== path.dirname(targetPath))
+        throw new Error('reserved publication requires the same directory')
+      source = await this.adapter.openArtifact(
+        root,
+        path.basename(sourcePath),
+        'rename'
+      )
+      await requireSource()
+      if (reservation && !ownership)
+        await this.requireIdentity(targetPath, reservation)
+      const created = await this.adapter.reserveExfatTarget(
+        source,
+        root,
+        path.basename(targetPath),
+        reservation?.platformFileId,
+        ownership
+      )
+      reserved = created.handle
+      const reservedIdentity = await this.identity(targetPath)
+      if (
+        reservedIdentity?.kind !== 'file' ||
+        (ownership
+          ? !reservationMatches(reservedIdentity, ownership.token)
+          : reservedIdentity.size !== 0) ||
+        reservedIdentity.platformFileId !== created.platformFileId
+      )
+        throw new Error(
+          `reservation identity mismatch: ${reservedIdentity?.platformFileId} != ${created.platformFileId}`
+        )
+      await checkpoint(reservedIdentity)
+      const result = await this.adapter.renameOpenedReserved(source, reserved)
+      const installed = { ...expected, platformFileId: result.platformFileId }
+      await this.requireIdentity(targetPath, installed)
+      return installed
+    } finally {
+      if (reserved) await this.adapter.close(reserved).catch(() => undefined)
+      if (source) await this.adapter.close(source).catch(() => undefined)
+      await this.adapter.close(root).catch(() => undefined)
+    }
+  }
 
   async assertSupported(): Promise<void> {
     const capabilities = await this.adapter.capabilities()
