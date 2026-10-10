@@ -54,6 +54,15 @@ jobs:
         env:
           MOTRIX_SKIP_ELECTRON_REBUILD: '1'
           MOTRIX_SKIP_ENGINE_FETCH: '1'
+      - name: Install and load optional filesystem drivers
+        if: contains(fromJSON('["f2fs", "exfat", "ntfs3"]'), matrix.filesystem)
+        env:
+          MATRIX_FILESYSTEM: ${{ matrix.filesystem }}
+        run: |
+          # Formatting tools do not provide the Azure runner's kernel drivers.
+          # Match the running kernel rather than installing a newer meta-package.
+          sudo apt-get install --yes --no-install-recommends "linux-modules-extra-$(uname -r)"
+          sudo modprobe "$MATRIX_FILESYSTEM"
       - name: Build native sidecar
         run: cargo build --manifest-path packages/finalize-fs/Cargo.toml --locked
       - name: Test publication and recovery on a disposable volume

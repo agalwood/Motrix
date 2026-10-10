@@ -33,6 +33,8 @@ import { reservationMarker } from './reserved-identity'
 const volume = process.env.MOTRIX_FINALIZE_EXFAT_ROOT
 // Set only by the disposable-image harness; never detach a user-supplied volume.
 const image = process.env.MOTRIX_FINALIZE_EXFAT_TEST_IMAGE
+// Disk Arbitration can take several seconds per attach/detach on CI runners.
+const diskImageCommandOptions = { timeout: 20_000 }
 const binary = path.resolve(
   process.env.MOTRIX_FINALIZE_FS_TEST_BIN ??
     'packages/finalize-fs/target/debug/motrix-finalize-fs'
@@ -475,14 +477,12 @@ describe.runIf(
       await expect(s.runtime.commit(s.input)).rejects.toThrow()
       const volumeId = await s.fs.reservedVolumeIdentity(s.root)
       await s.adapter.dispose()
-      execFileSync('hdiutil', ['detach', volume!])
-      execFileSync('hdiutil', [
-        'attach',
-        image!,
-        '-mountpoint',
-        volume!,
-        '-nobrowse',
-      ])
+      execFileSync('hdiutil', ['detach', volume!], diskImageCommandOptions)
+      execFileSync(
+        'hdiutil',
+        ['attach', image!, '-mountpoint', volume!, '-nobrowse'],
+        diskImageCommandOptions
+      )
       await s.restart()
       expect(await s.connection.fs.reservedVolumeIdentity(s.root)).toBe(
         volumeId
@@ -495,7 +495,8 @@ describe.runIf(
         'complete download'
       )
       expect(existsSync(s.input.sourcePath)).toBe(false)
-    }
+    },
+    60_000
   )
 
   it.runIf(Boolean(image))(
@@ -508,7 +509,7 @@ describe.runIf(
       )
       await expect(s.runtime.commit(s.input)).rejects.toThrow()
       await s.adapter.dispose()
-      execFileSync('hdiutil', ['detach', volume!])
+      execFileSync('hdiutil', ['detach', volume!], diskImageCommandOptions)
       try {
         await s.restart()
         await s.connection.runtime.recoverAll()
@@ -516,20 +517,19 @@ describe.runIf(
         await expect(s.connection.runtime.commit(s.input)).rejects.toThrow()
         expect(s.row()?.phase).toBe('prepared')
       } finally {
-        execFileSync('hdiutil', [
-          'attach',
-          image!,
-          '-mountpoint',
-          volume!,
-          '-nobrowse',
-        ])
+        execFileSync(
+          'hdiutil',
+          ['attach', image!, '-mountpoint', volume!, '-nobrowse'],
+          diskImageCommandOptions
+        )
       }
       await s.recoverViaTaskService()
       expect(s.row()?.phase).toBe('cleaned')
       expect(await readFile(s.input.targetPath, 'utf8')).toBe(
         'complete download'
       )
-    }
+    },
+    60_000
   )
 
   it('rejects a changed marker even when its size is unchanged', async () => {
