@@ -2464,7 +2464,7 @@
         "error": "Erro",
         "fatal": "Fatal"
       },
-      "copy": "Copiar",
+      "copy": "Copiar logs com dados ocultos",
       "clear": "Limpar",
       "output": "Saída em tempo real",
       "entryCount_one": "{{count}} registro",

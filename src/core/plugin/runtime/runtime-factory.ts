@@ -99,6 +99,7 @@ export async function createPluginRuntime(
     },
   })
   const orchestrator = new HookOrchestrator({
+    createLog: (pluginId) => options.capabilityHost.createLog(pluginId),
     host: options.host,
     activationDispatcher: options.activation,
     breaker,

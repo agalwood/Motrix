@@ -855,3 +855,24 @@ describe('GetFfmpegDetection handler', () => {
     expect(handlers[Queries.GetFfmpegDetection]).toBeInstanceOf(Function)
   })
 })
+
+describe('plugin diagnostic state query', () => {
+  it('returns host expiry and rejects invalid plugin requests', async () => {
+    const state = { verbose: true, expiresAt: 3_610_000 }
+    const getLogState = vi.fn(() => state)
+    const handlers = buildQueryHandlers({
+      capabilityHost: { getLogState },
+    } as unknown as QueryContext)
+    await expect(
+      handlers[Queries.GetPluginLogState]?.({ pluginId: 'alice.demo' })
+    ).resolves.toEqual(state)
+    expect(getLogState).toHaveBeenCalledWith('alice.demo')
+    getLogState.mockClear()
+    for (const payload of [null, {}, { pluginId: '' }]) {
+      await expect(
+        handlers[Queries.GetPluginLogState]?.(payload)
+      ).rejects.toThrow()
+    }
+    expect(getLogState).not.toHaveBeenCalled()
+  })
+})

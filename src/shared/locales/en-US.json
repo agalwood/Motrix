@@ -2446,7 +2446,7 @@
         "error": "Error",
         "fatal": "Fatal"
       },
-      "copy": "Copy",
+      "copy": "Copy redacted logs",
       "clear": "Clear",
       "output": "Live output",
       "entryCount_one": "{{count}} entry",

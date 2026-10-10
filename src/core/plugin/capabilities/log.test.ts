@@ -1,11 +1,12 @@
 import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LogEntry } from './interface'
 import { LogCapabilityHost } from './log'
 
 describe('LogCapabilityHost', () => {
+  afterEach(() => vi.useRealTimers())
   let dir: string
   let host: LogCapabilityHost
 
@@ -36,14 +37,14 @@ describe('LogCapabilityHost', () => {
     await host.flush()
 
     expect(host.getTail('alice.demo', 1)[0]).toMatchObject({
-      url: 'https://api.example.com/data',
+      url: 'https://api.example.com/data?token=[redacted]',
       path: 'file.txt',
     })
     expect(host.getTail('alice.demo', 1)[0]).not.toHaveProperty('headers')
 
     const file = path.join(dir, 'alice.demo', 'logs', 'current.ndjson')
     const entry = JSON.parse(readFileSync(file, 'utf8').trim())
-    expect(entry.url).toBe('https://api.example.com/data')
+    expect(entry.url).toBe('https://api.example.com/data?token=[redacted]')
     expect(entry.path).toBe('file.txt')
     expect(entry.headers).toBeUndefined()
     expect(JSON.stringify(entry)).not.toContain('secret')
@@ -204,5 +205,39 @@ describe('LogCapabilityHost', () => {
     host.create('p').info('x')
     expect(bad).toHaveBeenCalledTimes(1)
     expect(good).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('verbose diagnostic lifetime', () => {
+  afterEach(() => vi.useRealTimers())
+  it('expires at one hour for previously created loggers without a UI timer', () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'mlog-expiry-'))
+    const host = new LogCapabilityHost({ pluginLogsDir: dir })
+    const cap = host.create('alice.demo')
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(10_000)
+    host.setVerbose('alice.demo', true)
+    expect(host.getState('alice.demo')).toEqual({
+      verbose: true,
+      expiresAt: 3_610_000,
+    })
+    cap.info('raw', { url: 'https://example.com/?token=secret' })
+    expect(host.getTail('alice.demo', 1)[0].url).toContain('token=secret')
+    vi.setSystemTime(3_610_000)
+    cap.info('expired', { url: 'https://example.com/?id=public&token=secret' })
+    expect(host.getState('alice.demo')).toEqual({
+      verbose: false,
+      expiresAt: null,
+    })
+    expect(host.getTail('alice.demo', 1)[0].url).toBe(
+      'https://example.com/?id=public&token=[redacted]'
+    )
+    expect(host.isVerbose('bob.other')).toBe(false)
+    host.setVerbose('alice.demo', true)
+    host.setVerbose('alice.demo', false)
+    expect(host.getState('alice.demo')).toEqual({
+      verbose: false,
+      expiresAt: null,
+    })
   })
 })

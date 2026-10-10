@@ -839,6 +839,35 @@ dead-letter counts, attempt latency, retries, and oldest pending age.
 Electron and Server use the same event names and field meanings. Tests assert
 both assembly paths, not merely the core factory.
 
+### HTTP URL diagnostics
+
+For each participating HTTP `beforeCreate` plugin, its log includes host
+records for `beforeCreate.input`, `beforeCreate.output`, and `engine.dispatch`,
+correlated by `taskId`. The dispatch record describes the parameters handed to
+the engine adapter, not a successful network request. Failed Hooks also record
+`beforeCreate.error` when the chain handles the failure.
+
+Normal application and plugin logs preserve ordinary query parameters such as
+`id`, `export`, and `confirm`. A provider-independent credential-name policy masks
+values such as `token`, `sig`, `signature`, and `X-Amz-Credential` with
+`[redacted]`; URL credentials and fragments are removed. Query ordering,
+duplicate parameters, empty values, and percent encoding are preserved for
+unmasked parameters. These transformations affect log copies only: the Hook
+context and engine request retain the original URL bytes.
+
+The plugin log tab's **Verbose mode** enables raw diagnostic capture for that
+plugin for one hour. The host enforces expiry on every log write, even with the
+tab closed; reopening the tab retrieves the existing expiry without renewing
+it. Disabling the mode affects future entries. **Clear** empties the displayed
+buffer; previously captured entries remain in the local log file.
+
+**Copy redacted logs** sanitizes the selected entries again, including entries
+captured in verbose mode: all URL query values are masked, URL credentials and
+fragments are removed, and structured headers and bodies are omitted. This
+generic policy cannot identify every secret in arbitrary plugin text or URL
+paths; review the result before publishing it. No per-site rules or plugin SDK
+API changes are required.
+
 ## 16. Electron and Server assembly
 
 Each shell performs this order:

@@ -2446,7 +2446,7 @@
         "error": "Fehler",
         "fatal": "Schwerwiegend"
       },
-      "copy": "Kopieren",
+      "copy": "Bereinigte Protokolle kopieren",
       "clear": "Leeren",
       "output": "Live-Ausgabe",
       "entryCount_one": "{{count}} Eintrag",

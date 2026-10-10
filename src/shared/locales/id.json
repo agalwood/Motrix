@@ -2428,7 +2428,7 @@
         "error": "Kesalahan",
         "fatal": "Fatal"
       },
-      "copy": "Salin",
+      "copy": "Salin log tersamarkan",
       "clear": "Hapus",
       "output": "Keluaran langsung",
       "entryCount_other": "{{count}} entri",

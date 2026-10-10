@@ -71,6 +71,7 @@ function buildAllcapsHost(): CapabilityHost {
     clearLog: (_pluginId: string) => {},
     setLogVerbose: (_pluginId: string, _verbose: boolean) => {},
     isLogVerbose: (_pluginId: string) => false,
+    getLogState: () => ({ verbose: false, expiresAt: null }),
     subscribeLog: () => () => {},
     appSnapshot: () => ({
       version: '2.5.0',

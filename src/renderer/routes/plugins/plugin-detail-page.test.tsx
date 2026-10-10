@@ -285,7 +285,9 @@ describe('PluginDetailPage', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('Live output')).toBeInTheDocument()
     expect(screen.getByText('0 entries')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Copy' })).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: 'Copy redacted logs' })
+    ).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Clear' })).toBeDisabled()
   })
 

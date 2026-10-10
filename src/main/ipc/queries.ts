@@ -45,6 +45,7 @@ import {
 } from '@shared/protocol/errors'
 import type { QueryHandlerMap } from '@shared/protocol/handler-types'
 import { Queries } from '@shared/protocol/queries'
+import { PluginLogRequestSchema } from '@shared/schemas/plugin-logs'
 import { parseTaskInspectorActivitySnapshot } from '@shared/schemas/task-inspector-activity'
 import { taskTrackerRequestSchema } from '@shared/schemas/task-tracker'
 import type { GetTransferStatsParams } from '@shared/types/stats'
@@ -304,6 +305,11 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
       readCommandGraph(
         path.join(pluginsDir, '_audit', 'command-invokes.ndjson')
       ),
+
+    [Queries.GetPluginLogState]: async (payload: unknown) => {
+      const { pluginId } = PluginLogRequestSchema.parse(payload)
+      return capabilityHost.getLogState(pluginId)
+    },
 
     [Queries.GetPluginLogs]: async (params: {
       pluginId: string

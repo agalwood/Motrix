@@ -3014,3 +3014,37 @@ describe('manual media merge logging', () => {
     )
   })
 })
+
+describe('plugin diagnostic mode command', () => {
+  it.each([true, false])(
+    'returns authoritative state after setting verbose=%s',
+    async (verbose) => {
+      const state = { verbose, expiresAt: verbose ? 3_610_000 : null }
+      const setLogVerbose = vi.fn()
+      const getLogState = vi.fn(() => state)
+      const handlers = buildCommandHandlers({
+        ...fakeCtx(),
+        capabilityHost: { setLogVerbose, getLogState },
+      } as unknown as CommandContext)
+      await expect(
+        handlers[Commands.SetPluginLogVerbose]?.({
+          pluginId: 'alice.demo',
+          verbose,
+        })
+      ).resolves.toEqual(state)
+      expect(setLogVerbose).toHaveBeenCalledWith('alice.demo', verbose)
+      expect(getLogState).toHaveBeenCalledWith('alice.demo')
+      setLogVerbose.mockClear()
+      for (const payload of [
+        null,
+        {},
+        { pluginId: 'alice.demo', verbose: 'true' },
+      ]) {
+        await expect(
+          handlers[Commands.SetPluginLogVerbose]?.(payload)
+        ).rejects.toThrow()
+      }
+      expect(setLogVerbose).not.toHaveBeenCalled()
+    }
+  )
+})

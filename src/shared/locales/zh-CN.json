@@ -2428,7 +2428,7 @@
         "error": "错误",
         "fatal": "严重"
       },
-      "copy": "复制",
+      "copy": "复制脱敏日志",
       "clear": "清空",
       "output": "实时输出",
       "entryCount_other": "{{count}} 条日志",

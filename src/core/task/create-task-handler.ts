@@ -580,6 +580,9 @@ async function handleCreateTaskUnderAdmission(
   // incomplete suffix. BT uses its final output directory and no `out`;
   // parsed torrents additionally carry per-file output mappings. The adapter
   // is responsible for the aria2 wire shape.
+  let recordPluginEngineDispatch:
+    | ((params: CreateDownloadParams) => void)
+    | undefined
   let pluginMetadataOps: readonly StagedMetadataOp[] = []
   let assertPluginPolicyCurrent: (() => void) | undefined
   let dispatchEngine: (reservedGid: string) => Promise<string>
@@ -600,6 +603,7 @@ async function handleCreateTaskUnderAdmission(
         {
           method: 'createDownload',
           uriCount: params.uris.length,
+          uris: params.uris,
           gid: reservedGid,
           saveDir: params.saveDir,
           filename: params.filename,
@@ -607,6 +611,7 @@ async function handleCreateTaskUnderAdmission(
         },
         'dispatching to engine'
       )
+      recordPluginEngineDispatch?.(params)
       return deps.adapter.createDownload(params)
     }
 
@@ -767,6 +772,7 @@ async function handleCreateTaskUnderAdmission(
         {
           taskId,
           aborted: result.aborted === true,
+          rewrittenUris: result.aborted ? undefined : result.final.uris,
           rewrittenUriCount: result.aborted
             ? undefined
             : result.final.uris.length,
@@ -786,6 +792,7 @@ async function handleCreateTaskUnderAdmission(
           `plugin chain aborted: ${result.reason}`
         )
       }
+      recordPluginEngineDispatch = result.recordEngineDispatch
       if (result.staged.hasPolicyChecks) {
         assertPluginPolicyCurrent = () => result.staged.assertPolicyCurrent()
         assertPluginPolicyCurrent()

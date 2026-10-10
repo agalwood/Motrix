@@ -396,6 +396,31 @@ describe('HookOrchestrator', () => {
       expect(result.contributors.headers).toContain('plugin-enrich')
     })
 
+    it('keeps hook results and engine dispatch usable when diagnostic logging fails', async () => {
+      const createLog = vi.fn(() => {
+        throw new Error('log destination unavailable')
+      })
+      const orch = new HookOrchestrator({
+        host,
+        createLog,
+        hookTimeoutMs: TIMEOUTS,
+        ...ORCH_OPTS_BASE,
+      })
+      const result = await orch.runBeforeCreateHttp(
+        makeBeforeCreateDto(),
+        'task-1'
+      )
+      if (result.aborted) throw new Error('expected non-aborted result')
+      expect(result.final.uris).toEqual(['https://cdn.example.com/file.zip'])
+      expect(() =>
+        result.recordEngineDispatch?.({
+          uris: result.final.uris,
+          saveDir: '/downloads',
+        })
+      ).not.toThrow()
+      expect(createLog).toHaveBeenCalled()
+    })
+
     it('passes each accepted patch into the next plugin working context', async () => {
       let laterPayload: Record<string, unknown> | undefined
       const { host } = makeMockHost([

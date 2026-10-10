@@ -124,6 +124,7 @@ export async function createServerCapabilityHost(
     clearLog: (id) => log.clear(id),
     setLogVerbose: (id, v) => log.setVerbose(id, v),
     isLogVerbose: (id) => log.isVerbose(id),
+    getLogState: (id) => log.getState(id),
     subscribeLog: (listener) => log.subscribe(listener),
     appSnapshot: () => ({
       ...appCap.snapshot(),

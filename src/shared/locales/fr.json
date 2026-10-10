@@ -1555,7 +1555,7 @@
     "lead": "Ajoutez des fonctionnalités à Motrix. Gardez les extensions de confiance et désactivez les autres.",
     "logs": {
       "clear": "Effacer",
-      "copy": "Copier",
+      "copy": "Copier les journaux expurgés",
       "empty": "Aucune entrée dans le journal pour le moment",
       "emptyFiltered": "Aucune entrée ne correspond à ce niveau.",
       "emptyHint": "Les nouvelles activités de l’extension apparaîtront ici automatiquement.",

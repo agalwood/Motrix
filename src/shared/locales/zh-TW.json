@@ -2528,7 +2528,7 @@
         "error": "錯誤",
         "fatal": "嚴重錯誤"
       },
-      "copy": "複製",
+      "copy": "複製已遮蔽的日誌",
       "clear": "清除",
       "output": "即時輸出",
       "entryCount_other": "{{count}} 筆項目",

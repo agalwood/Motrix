@@ -2428,7 +2428,7 @@
         "error": "エラー",
         "fatal": "致命的"
       },
-      "copy": "コピー",
+      "copy": "機密情報を除いてログをコピー",
       "clear": "クリア",
       "output": "リアルタイム出力",
       "entryCount_other": "{{count}} 件",

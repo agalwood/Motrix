@@ -1555,7 +1555,7 @@
     "lead": "Adaugă funcții mici în Motrix. Păstrează active modulele în care ai încredere și dezactivează-le pe celelalte.",
     "logs": {
       "clear": "Șterge",
-      "copy": "Copiază",
+      "copy": "Copiază jurnalele cu date mascate",
       "empty": "Încă nu există înregistrări în jurnal",
       "emptyFiltered": "Nicio înregistrare nu corespunde acestui nivel.",
       "emptyHint": "Activitatea nouă a modulului va apărea aici automat.",

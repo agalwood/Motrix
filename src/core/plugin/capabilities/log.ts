@@ -1,5 +1,13 @@
 import path from 'node:path'
-import { redactLogFields, truncateLogText } from '@core/log-redact'
+import {
+  redactLogFields,
+  redactLogText,
+  truncateLogText,
+} from '@core/log-redact'
+import {
+  PLUGIN_LOG_VERBOSE_TTL_MS,
+  type PluginLogState,
+} from '@shared/schemas/plugin-logs'
 import pino, { type DestinationStream, type Logger } from 'pino'
 import type { LogEntry, PluginLogCapability } from './interface'
 
@@ -23,7 +31,7 @@ interface Per {
    */
   opened: Promise<boolean>
   ring: LogEntry[]
-  verbose: boolean
+  verboseUntil: number | null
 }
 
 /**
@@ -83,7 +91,7 @@ export class LogCapabilityHost {
       dest.once('ready', () => resolve(true))
       dest.once('error', () => resolve(false))
     })
-    entry = { logger, dest, opened, ring: [], verbose: false }
+    entry = { logger, dest, opened, ring: [], verboseUntil: null }
     this.per.set(pluginId, entry)
     return entry
   }
@@ -99,14 +107,15 @@ export class LogCapabilityHost {
       // storage value. The per-plugin verbose flag (set via SetPluginLogVerbose
       // IPC + LogCapabilityHost.setVerbose) bypasses privacy-value redaction
       // for diagnostic capture, while structural limits and host metadata
-      // integrity remain enforced; the UI shows a red banner while active.
+      // integrity remain enforced; the UI shows a warning while active.
+      const verbose = this.isVerbose(pluginId)
       const safe = fields
         ? redactLogFields(fields, {
             profile: 'plugin',
-            verbose: per.verbose,
+            verbose,
           })
         : (fields ?? {})
-      const safeMessage = truncateLogText(msg)
+      const safeMessage = verbose ? truncateLogText(msg) : redactLogText(msg)
       const entry: LogEntry = {
         ...safe,
         ts: Date.now(),
@@ -147,11 +156,23 @@ export class LogCapabilityHost {
   }
 
   setVerbose(pluginId: string, verbose: boolean): void {
-    this.getOrCreate(pluginId).verbose = verbose
+    this.getOrCreate(pluginId).verboseUntil = verbose
+      ? Date.now() + PLUGIN_LOG_VERBOSE_TTL_MS
+      : null
   }
 
   isVerbose(pluginId: string): boolean {
-    return this.per.get(pluginId)?.verbose ?? false
+    return this.getState(pluginId).verbose
+  }
+
+  getState(pluginId: string): PluginLogState {
+    const per = this.per.get(pluginId)
+    const expiresAt = per?.verboseUntil ?? null
+    if (expiresAt === null || expiresAt <= Date.now()) {
+      if (per) per.verboseUntil = null
+      return { verbose: false, expiresAt: null }
+    }
+    return { verbose: true, expiresAt }
   }
 
   subscribe(listener: LogStreamListener): () => void {

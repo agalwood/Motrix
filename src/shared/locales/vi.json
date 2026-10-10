@@ -2428,7 +2428,7 @@
         "error": "Lỗi",
         "fatal": "Lỗi nghiêm trọng"
       },
-      "copy": "Sao chép",
+      "copy": "Sao chép nhật ký đã che dữ liệu",
       "clear": "Xóa",
       "output": "Đầu ra trực tiếp",
       "entryCount_other": "{{count}} mục",

@@ -2428,7 +2428,7 @@
         "error": "오류",
         "fatal": "치명적 오류"
       },
-      "copy": "복사",
+      "copy": "민감 정보를 가린 로그 복사",
       "clear": "지우기",
       "output": "실시간 출력",
       "entryCount_other": "항목 {{count}}개",
