@@ -67,9 +67,10 @@ jobs:
           }
           trap cleanup EXIT
           mkdir "$scratch/volume"
-          hdiutil create -size 128m -fs ExFAT -volname MotrixFinalize "$scratch/test.dmg"
+          hdiutil create -size 128m -fs ExFAT -volname MotrixTest "$scratch/test.dmg"
           hdiutil attach "$scratch/test.dmg" -mountpoint "$scratch/volume" -nobrowse
           mounted=true
           export MOTRIX_FINALIZE_EXFAT_ROOT="$scratch/volume"
+          export MOTRIX_FINALIZE_EXFAT_TEST_IMAGE="$scratch/test.dmg"
           cargo test --manifest-path packages/finalize-fs/Cargo.toml --locked -- --ignored --exact platform::unix::reserved::tests::exfat_reservations_preserve_conflicts_and_publish_held_files
           pnpm exec vitest run src/core/plugin/finalize/finalize-exfat.integration.test.ts

@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import path from 'node:path'
 import type {
   ArtifactIdentity,
@@ -8,7 +8,10 @@ import type {
   ArtifactMutationLease,
   ArtifactMutationLeaseCoordinator,
 } from './artifact-mutation-lease'
-import { FinalizeFsError } from './filesystem-adapter'
+import {
+  FinalizeFsError,
+  type FinalizeReservationOwnership,
+} from './filesystem-adapter'
 import { FinalizeRecovery } from './finalize-recovery'
 import { selectRemovalSurvivor } from './finalize-removal-safety'
 import {
@@ -49,14 +52,19 @@ export interface FinalizeLinkIntent {
   identity: ArtifactIdentity
 }
 
-export interface FinalizeReservedRenameIntent {
-  version: 2
+interface FinalizeReservedRenameBase {
   method: 'reserved_rename'
   confirmed?: never
   sourcePath: string
   identity: FileArtifactIdentity
   reservationIdentity?: FileArtifactIdentity
 }
+
+export type FinalizeReservedRenameIntent = FinalizeReservedRenameBase &
+  (
+    | { version: 2; ownership?: never }
+    | { version: 3; ownership: FinalizeReservationOwnership }
+  )
 
 export type FinalizePublicationIntent =
   | FinalizeLinkIntent
@@ -117,12 +125,14 @@ export interface FinalizeJournalRepository {
 
 export interface FinalizeArtifactOperations {
   reservedRenameSupported?(): Promise<boolean>
+  reservedVolumeIdentity?(directoryPath: string): Promise<string | null>
   publishReserved?(
     sourcePath: string,
     expected: FileArtifactIdentity,
     targetPath: string,
     checkpoint: (reservation: FileArtifactIdentity) => Promise<void>,
-    reservation?: FileArtifactIdentity
+    reservation?: FileArtifactIdentity,
+    ownership?: FinalizeReservationOwnership
   ): Promise<FileArtifactIdentity>
   /** Validate the actual roots and flush source data before journaled mutation. */
   preflight?(sourcePath: string, targetPath: string): Promise<void>
@@ -427,10 +437,16 @@ export class FinalizeCommitter {
         error.details?.operation === 'rename_opened_no_replace' &&
         (error.details.osError === 45 || error.details.osError === 102) &&
         this.options.fs.publishReserved &&
+        this.options.fs.reservedVolumeIdentity &&
         (await this.options.fs.reservedRenameSupported?.())
       ) {
+        const volumeId = await this.options.fs.reservedVolumeIdentity(
+          path.dirname(sourcePath)
+        )
+        if (!volumeId) throw error
         const publicationIntent: FinalizeReservedRenameIntent = {
-          version: 2,
+          version: 3,
+          ownership: { token: randomBytes(32).toString('hex'), volumeId },
           method: 'reserved_rename',
           sourcePath,
           identity,
@@ -586,7 +602,8 @@ export async function publishReserved(
       await repository.checkpoint(record.journalId, { publicationIntent })
       record.publicationIntent = publicationIntent
     },
-    intent.reservationIdentity
+    intent.reservationIdentity,
+    intent.ownership
   )
   // Capture a changed file ID before any subsequent host sync can fail.
   await repository.checkpoint(record.journalId, { targetIdentity: installed })

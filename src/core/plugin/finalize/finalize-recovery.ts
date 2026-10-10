@@ -1,3 +1,4 @@
+import path from 'node:path'
 import type {
   ArtifactMutationLease,
   ArtifactMutationLeaseCoordinator,
@@ -11,11 +12,14 @@ import {
   prepareRemovalIntent,
   publishReserved,
 } from './finalize-committer'
-
 import {
   linkPublicationConfirmed,
   selectRemovalSurvivor,
 } from './finalize-removal-safety'
+import {
+  reservationMatches,
+  reservedArtifactMatches,
+} from './reserved-identity'
 
 export interface FinalizeRecoveryOptions {
   repository: FinalizeJournalRepository
@@ -281,26 +285,35 @@ export class FinalizeRecovery {
     let intent = record.publicationIntent
     if (intent?.method !== 'reserved_rename')
       throw new Error('invalid reserved journal')
+    const ownership = intent.ownership
+    const sourceDirectory = path.dirname(intent.sourcePath)
+    const volumeAvailable = async () => {
+      if (!this.options.fs.reservedVolumeIdentity) return !ownership
+      const id = await this.options.fs.reservedVolumeIdentity(sourceDirectory)
+      return ownership ? id === ownership.volumeId : id !== null
+    }
+    if (!(await volumeAvailable())) return
+    const quarantine = async (reason: string) => {
+      // Recheck after IO: detaching between the volume probe and stat is retryable.
+      if (await volumeAvailable()) await this.quarantine(record, reason)
+    }
+    const matches: FinalizeRecoveryIdentityComparator = ownership
+      ? (actual, expected) =>
+          reservedArtifactMatches(actual, expected, ownership)
+      : this.options.exactIdentity
     const source = await this.options.fs.identity(intent.sourcePath)
     let target = await this.options.fs.identity(record.plan.targetPath)
     if (source) {
-      if (
-        record.phase !== 'prepared' ||
-        !this.options.exactIdentity(source, intent.identity)
-      )
-        return this.quarantine(
-          record,
-          'reserved source identity or phase mismatch'
-        )
+      if (record.phase !== 'prepared' || !matches(source, intent.identity))
+        return quarantine('reserved source identity or phase mismatch')
       if (
         target &&
-        (!intent.reservationIdentity ||
-          !this.options.exactIdentity(target, intent.reservationIdentity))
+        (ownership
+          ? !reservationMatches(target, ownership.token)
+          : !intent.reservationIdentity ||
+            !this.options.exactIdentity(target, intent.reservationIdentity))
       )
-        return this.quarantine(
-          record,
-          'reserved target ownership is unconfirmed'
-        )
+        return quarantine('reserved target ownership is unconfirmed')
       // Startup has no task/effects commit boundary. Preserve both names until
       // explicit retry enters SessionManager's serialized terminal transaction.
       if (this.options.rollForwardTargetInstalled === false) return
@@ -318,24 +331,30 @@ export class FinalizeRecovery {
       )
     } else if (
       !target ||
-      !this.options.exactIdentity(
-        target,
-        record.targetIdentity ?? intent.identity
-      )
+      !matches(target, record.targetIdentity ?? intent.identity)
     ) {
       // An empty exFAT file may acquire a new ID. Without an acknowledged
       // identity transition, an equal empty digest cannot establish ownership.
-      return this.quarantine(
-        record,
-        'reserved installed target identity is unconfirmed'
-      )
+      return quarantine('reserved installed target identity is unconfirmed')
     }
-    if (!target) return this.quarantine(record, 'reserved target is missing')
+    if (!target) return quarantine('reserved target is missing')
+    if (
+      record.targetIdentity &&
+      !this.options.exactIdentity(target, record.targetIdentity)
+    ) {
+      await this.options.repository.checkpoint(record.journalId, {
+        targetIdentity: target,
+      })
+      record.targetIdentity = target
+    }
     await this.options.fs.makeDurable(record.plan.targetPath)
     const verifyInstalled = async () => {
       const current = await this.options.fs.identity(record.plan.targetPath)
-      if (!current || !this.options.exactIdentity(current, target))
+      if (!current || !this.options.exactIdentity(current, target)) {
+        if (!(await volumeAvailable()))
+          throw new Error('reserved volume is unavailable')
         await this.quarantine(record, 'reserved target changed before commit')
+      }
     }
     await verifyInstalled()
     if (record.phase === 'prepared') {

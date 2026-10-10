@@ -104,14 +104,23 @@ contract. This compatibility route requires a regular file, the same parent,
 an exact `.motrix` suffix removal, a local exFAT mount, and no plugin replacement
 or staged metadata. Permission, space, I/O and other errors do not enable it.
 
-The host persists a versioned intent before the sidecar creates an empty final
-name with `O_CREAT|O_EXCL|O_NOFOLLOW`. The sidecar retains the source and
-reservation descriptors. The host synchronously commits the reservation's
-identity before authorizing ordinary rename. The native operation rechecks
-both names, binds the installed name to the continuously held source, and
-flushes the parent before replying. Existing targets are conflicts. The final
-name may briefly contain an empty placeholder; task completion waits for the
-database transaction.
+The host durably journals a version-3 intent containing a random reservation
+token and the volume UUID before creating the final name with
+`O_CREAT|O_EXCL|O_NOFOLLOW`. The small, nonempty marker contains the token;
+its contents establish ownership across remounts, including a lost creation
+response before the reservation identity checkpoint. An existing target is
+accepted only if it contains the exact journaled marker. A partial marker or
+unrelated file is preserved as a conflict. The sidecar retains the source and
+reservation descriptors, rechecks both names and marker contents before
+ordinary rename, binds the installed name to the held source, and flushes the
+parent before replying. The final name may briefly contain the marker; task
+completion waits for the database transaction.
+
+Recovery probes the persisted volume UUID before reading file identities.
+Missing or different volumes leave the journal pending for reconnection.
+Nonempty files must still match their inode and complete content digest;
+only their mount-specific device number may change. Legacy version-2 empty
+reservations retain their exact-identity checks because they have no token.
 
 This is an application-owned-name contract, not atomic no-replace: an unrelated
 writer can replace the reservation between the final check and `renameat`.
@@ -126,9 +135,11 @@ values use Node BigIntStats' signed 64-bit representation on this wire path.
 An unacknowledged changed identity cannot be recovered from an empty digest;
 recovery retains the file and quarantines the journal instead of guessing.
 
-Critical journal writes use a synchronous `FULL` transaction, restoring the
-connection's previous setting afterward. `WAL` with `NORMAL` alone does not
-make each intent durable against system failure. Database task completion and
+Critical journal writes use a synchronous `FULL` transaction and enable
+SQLite `fullfsync` on macOS, restoring the connection's previous settings
+afterward. Native reservation and macOS root syncs use Rust `File::sync_all`,
+which requests `F_FULLFSYNC` with std's fallback when unsupported. `WAL` with
+`NORMAL` alone does not make each intent durable against system failure. Database task completion and
 the journal commit remain one transaction. Durability depends on the volume
 and device honoring their synchronization operations.
 
@@ -139,10 +150,14 @@ resumes with the task/effects commit boundary. A reservation created before its
 identity checkpoint is not automatically removed. A known installed target
 rolls forward; conflicting or unknown identities preserve all surviving files.
 Older sidecars cannot execute this operation. Older applications reject the
-version-2 intent and may quarantine it without deleting its files.
+version-3 intent and may quarantine it without deleting its files.
 
 `finalize-exfat.yml` provisions a disposable macOS exFAT image and exercises the
-native reservation contract plus real sidecar/SQLite recovery. To run against
+native reservation contract plus real sidecar/SQLite recovery, including host
+`SIGKILL` after marker creation, after rename, and before the terminal database
+commit. Remount/offline tests run only when `MOTRIX_FINALIZE_EXFAT_TEST_IMAGE`
+identifies the disposable image backing the test root; they never detach a
+volume supplied through the root variable alone. To run against
 an existing disposable volume, set `MOTRIX_FINALIZE_EXFAT_ROOT` and run:
 
 ```sh

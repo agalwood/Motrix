@@ -1,3 +1,5 @@
+// @vitest-environment node
+import { execFileSync, spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import {
   mkdtemp,
@@ -19,14 +21,18 @@ import {
 import { TaskStatus, TransitionPhase } from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
 import Database from 'better-sqlite3'
+import { build } from 'esbuild'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   FinalizeFsError,
   NativeFinalizeFilesystemAdapter,
 } from './filesystem-adapter'
 import { NativeFinalizeArtifactOperations } from './native-artifact-operations'
+import { reservationMarker } from './reserved-identity'
 
 const volume = process.env.MOTRIX_FINALIZE_EXFAT_ROOT
+// Set only by the disposable-image harness; never detach a user-supplied volume.
+const image = process.env.MOTRIX_FINALIZE_EXFAT_TEST_IMAGE
 const binary = path.resolve(
   process.env.MOTRIX_FINALIZE_FS_TEST_BIN ??
     'packages/finalize-fs/target/debug/motrix-finalize-fs'
@@ -139,7 +145,7 @@ describe.runIf(
       )
     const restart = async () => {
       await s.adapter.dispose()
-      s.db.close()
+      if (s.db.open) s.db.close()
       Object.assign(s, connect())
     }
     const recoverViaTaskService = async () => {
@@ -165,6 +171,8 @@ describe.runIf(
       ...s,
       connection: s,
       root,
+      local,
+      dbPath,
       input,
       row,
       restart,
@@ -223,7 +231,7 @@ describe.runIf(
     expect(await readFile(s.input.sourcePath, 'utf8')).toBe('complete download')
   })
 
-  it('retains an unacknowledged reservation and never guesses ownership', async () => {
+  it('recovers a lost reservation response using its pre-journaled token', async () => {
     const s = await setup()
     s.requireCompatibility()
     const real = s.adapter.reserveExfatTarget.bind(s.adapter)
@@ -234,9 +242,16 @@ describe.runIf(
       }
     )
     await expect(s.runtime.commit(s.input)).rejects.toThrow()
-    expect(s.row()?.phase).toBe('quarantined')
-    expect(await readFile(s.input.targetPath)).toHaveLength(0)
-    expect(await readFile(s.input.sourcePath, 'utf8')).toBe('complete download')
+    expect(s.row()?.phase).toBe('prepared')
+    const intent = JSON.parse(s.row()!.plan_json).publicationIntent
+    expect(await readFile(s.input.targetPath)).toEqual(
+      reservationMarker(intent.ownership.token)
+    )
+    await s.restart()
+    await s.recoverViaTaskService()
+    expect(s.row()?.phase).toBe('cleaned')
+    expect(await readFile(s.input.targetPath, 'utf8')).toBe('complete download')
+    expect(existsSync(s.input.sourcePath)).toBe(false)
   })
 
   it('resumes a journaled reservation after reopening the database and sidecar', async () => {
@@ -327,7 +342,11 @@ describe.runIf(
     await expect(s.runtime.commit(s.input)).rejects.toThrow()
     expect(renameReserved).not.toHaveBeenCalled()
     expect(existsSync(s.input.sourcePath)).toBe(true)
-    expect(await readFile(s.input.targetPath)).toHaveLength(0)
+    expect(await readFile(s.input.targetPath)).toEqual(
+      reservationMarker(
+        JSON.parse(s.row()!.plan_json).publicationIntent.ownership.token
+      )
+    )
   })
 
   it('preserves a target created between the unsupported rename and reservation', async () => {
@@ -445,4 +464,164 @@ describe.runIf(
     expect(s.commits()).toBe(1)
     expect(await readFile(s.input.targetPath, 'utf8')).toBe('complete download')
   })
+  it.runIf(Boolean(image))(
+    'resumes the owned reservation after an exFAT remount',
+    async () => {
+      const s = await setup()
+      s.requireCompatibility()
+      vi.spyOn(s.adapter, 'renameOpenedReserved').mockRejectedValue(
+        new Error('stopped before rename')
+      )
+      await expect(s.runtime.commit(s.input)).rejects.toThrow()
+      const volumeId = await s.fs.reservedVolumeIdentity(s.root)
+      await s.adapter.dispose()
+      execFileSync('hdiutil', ['detach', volume!])
+      execFileSync('hdiutil', [
+        'attach',
+        image!,
+        '-mountpoint',
+        volume!,
+        '-nobrowse',
+      ])
+      await s.restart()
+      expect(await s.connection.fs.reservedVolumeIdentity(s.root)).toBe(
+        volumeId
+      )
+      await s.connection.runtime.recoverAll()
+      expect(s.row()?.phase).toBe('prepared')
+      await s.recoverViaTaskService()
+      expect(s.row()?.phase).toBe('cleaned')
+      expect(await readFile(s.input.targetPath, 'utf8')).toBe(
+        'complete download'
+      )
+      expect(existsSync(s.input.sourcePath)).toBe(false)
+    }
+  )
+
+  it.runIf(Boolean(image))(
+    'waits for an offline volume and completes after reconnection',
+    async () => {
+      const s = await setup()
+      s.requireCompatibility()
+      vi.spyOn(s.adapter, 'renameOpenedReserved').mockRejectedValue(
+        new Error('stopped before rename')
+      )
+      await expect(s.runtime.commit(s.input)).rejects.toThrow()
+      await s.adapter.dispose()
+      execFileSync('hdiutil', ['detach', volume!])
+      try {
+        await s.restart()
+        await s.connection.runtime.recoverAll()
+        expect(s.row()?.phase).toBe('prepared')
+        await expect(s.connection.runtime.commit(s.input)).rejects.toThrow()
+        expect(s.row()?.phase).toBe('prepared')
+      } finally {
+        execFileSync('hdiutil', [
+          'attach',
+          image!,
+          '-mountpoint',
+          volume!,
+          '-nobrowse',
+        ])
+      }
+      await s.recoverViaTaskService()
+      expect(s.row()?.phase).toBe('cleaned')
+      expect(await readFile(s.input.targetPath, 'utf8')).toBe(
+        'complete download'
+      )
+    }
+  )
+
+  it('rejects a changed marker even when its size is unchanged', async () => {
+    const s = await setup()
+    s.requireCompatibility()
+    vi.spyOn(s.adapter, 'renameOpenedReserved').mockRejectedValue(
+      new Error('stopped before rename')
+    )
+    await expect(s.runtime.commit(s.input)).rejects.toThrow()
+    const foreign = reservationMarker('f'.repeat(64))
+    await writeFile(s.input.targetPath, foreign)
+    await s.restart()
+    await s.connection.runtime.recoverAll()
+    expect(s.row()?.phase).toBe('quarantined')
+    expect(await readFile(s.input.targetPath)).toEqual(foreign)
+    expect(await readFile(s.input.sourcePath, 'utf8')).toBe('complete download')
+  })
+
+  it.each([
+    'reservation-created',
+    'target-installed',
+    'before-terminal-commit',
+  ])(
+    'recovers after SIGKILL at %s without running compensation',
+    async (cut) => {
+      const s = await setup()
+      await s.adapter.dispose()
+      s.db.close()
+      const childPath = path.join(s.local, 'crash-child.cjs')
+      await build({
+        entryPoints: ['src/test-utils/finalize-crash-child.ts'],
+        outfile: childPath,
+        bundle: true,
+        platform: 'node',
+        format: 'cjs',
+        packages: 'external',
+        banner: {
+          js: `require = require('node:module').createRequire(${JSON.stringify(path.join(process.cwd(), 'package.json'))});`,
+        },
+      })
+      const child = spawn(
+        process.execPath,
+        [childPath, s.dbPath, binary, cut, JSON.stringify(s.input)],
+        { stdio: ['ignore', 'pipe', 'pipe'] }
+      )
+      let stderr = ''
+      child.stderr.on('data', (chunk) => {
+        stderr += chunk
+      })
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(
+            () => reject(new Error(`crash child timed out: ${stderr}`)),
+            15_000
+          )
+          let output = ''
+          child.once('error', (error) => {
+            clearTimeout(timer)
+            reject(error)
+          })
+          child.once('exit', (code) => {
+            clearTimeout(timer)
+            reject(new Error(`crash child exited ${code}: ${stderr}`))
+          })
+          child.stdout.on('data', (chunk) => {
+            output += chunk
+            if (output.includes('FINALIZE_CRASH_CUT')) {
+              clearTimeout(timer)
+              resolve()
+            }
+          })
+        })
+        const killed = new Promise<string | null>((resolve) =>
+          child.once('close', (_code, signal) => resolve(signal))
+        )
+        child.kill('SIGKILL')
+        expect(await killed).toBe('SIGKILL')
+      } finally {
+        if (child.exitCode === null && child.signalCode === null)
+          child.kill('SIGKILL')
+      }
+      await s.restart()
+      await s.connection.runtime.recoverAll()
+      expect(s.row()?.phase).not.toBe('quarantined')
+      await s.recoverViaTaskService()
+      expect(s.row()?.phase).toBe('cleaned')
+      expect(await readFile(s.input.targetPath, 'utf8')).toBe(
+        'complete download'
+      )
+      expect(existsSync(s.input.sourcePath)).toBe(false)
+      expect(s.commits()).toBe(1)
+    },
+    30_000
+  )
 })

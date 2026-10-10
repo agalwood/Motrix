@@ -10,13 +10,21 @@ import {
   type FileArtifactIdentity,
   readArtifactIdentity,
 } from './artifact-identity'
-import type { FinalizeFilesystemAdapter } from './filesystem-adapter'
+import {
+  type FinalizeFilesystemAdapter,
+  FinalizeFsError,
+  type FinalizeReservationOwnership,
+} from './filesystem-adapter'
 import type {
   FinalizeArtifactOperations,
   FinalizeIsolation,
   FinalizeRemovalIntent,
   FinalizeRemovalSurvivor,
 } from './finalize-committer'
+import {
+  reservationMatches,
+  reservedArtifactMatches,
+} from './reserved-identity'
 
 /**
  * Production artifact operations. No-replace publication is delegated to the
@@ -36,9 +44,28 @@ export class NativeFinalizeArtifactOperations
     return (
       capabilities.platform === 'macos' &&
       capabilities.reservedExfatRename === true &&
+      capabilities.tokenExfatReservation === true &&
+      this.adapter.exfatVolumeIdentity !== undefined &&
       this.adapter.reserveExfatTarget !== undefined &&
       this.adapter.renameOpenedReserved !== undefined
     )
+  }
+
+  async reservedVolumeIdentity(directoryPath: string): Promise<string | null> {
+    if (!this.adapter.exfatVolumeIdentity) return null
+    let root:
+      | Awaited<ReturnType<FinalizeFilesystemAdapter['openRoot']>>
+      | undefined
+    try {
+      root = await this.adapter.openRoot(directoryPath)
+      return await this.adapter.exfatVolumeIdentity(root)
+    } catch (error) {
+      if (error instanceof FinalizeFsError && error.code === 'not_found')
+        return null
+      throw error
+    } finally {
+      if (root) await this.adapter.close(root).catch(() => undefined)
+    }
   }
 
   async publishReserved(
@@ -46,7 +73,8 @@ export class NativeFinalizeArtifactOperations
     expected: FileArtifactIdentity,
     targetPath: string,
     checkpoint: (reservation: FileArtifactIdentity) => Promise<void>,
-    reservation?: FileArtifactIdentity
+    reservation?: FileArtifactIdentity,
+    ownership?: FinalizeReservationOwnership
   ): Promise<FileArtifactIdentity> {
     if (
       !(await this.reservedRenameSupported()) ||
@@ -54,7 +82,6 @@ export class NativeFinalizeArtifactOperations
       !this.adapter.renameOpenedReserved
     )
       throw new Error('reserved exFAT publication is unsupported')
-    await this.requireIdentity(sourcePath, expected)
     const root = await this.adapter.openRoot(path.dirname(sourcePath))
     let source:
       | Awaited<ReturnType<FinalizeFilesystemAdapter['openArtifact']>>
@@ -63,6 +90,17 @@ export class NativeFinalizeArtifactOperations
       | Awaited<ReturnType<FinalizeFilesystemAdapter['openArtifact']>>
       | undefined
     try {
+      if (
+        ownership &&
+        (await this.adapter.exfatVolumeIdentity?.(root)) !== ownership.volumeId
+      )
+        throw new Error('reserved volume is unavailable')
+      const requireSource = async () => {
+        const current = await this.identity(sourcePath)
+        if (!current || !reservedArtifactMatches(current, expected, ownership))
+          throw new Error('reserved source identity changed')
+      }
+      await requireSource()
       if (path.dirname(sourcePath) !== path.dirname(targetPath))
         throw new Error('reserved publication requires the same directory')
       source = await this.adapter.openArtifact(
@@ -70,19 +108,23 @@ export class NativeFinalizeArtifactOperations
         path.basename(sourcePath),
         'rename'
       )
-      await this.requireIdentity(sourcePath, expected)
-      if (reservation) await this.requireIdentity(targetPath, reservation)
+      await requireSource()
+      if (reservation && !ownership)
+        await this.requireIdentity(targetPath, reservation)
       const created = await this.adapter.reserveExfatTarget(
         source,
         root,
         path.basename(targetPath),
-        reservation?.platformFileId
+        reservation?.platformFileId,
+        ownership
       )
       reserved = created.handle
       const reservedIdentity = await this.identity(targetPath)
       if (
         reservedIdentity?.kind !== 'file' ||
-        reservedIdentity.size !== 0 ||
+        (ownership
+          ? !reservationMatches(reservedIdentity, ownership.token)
+          : reservedIdentity.size !== 0) ||
         reservedIdentity.platformFileId !== created.platformFileId
       )
         throw new Error(

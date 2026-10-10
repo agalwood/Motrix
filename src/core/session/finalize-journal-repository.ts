@@ -11,6 +11,10 @@ import {
   assertValidHookPlan,
   isOrdinarySuffixRemoval,
 } from '@core/plugin/finalize/hook-plan'
+import {
+  reservationMatches,
+  reservedArtifactMatches,
+} from '@core/plugin/finalize/reserved-identity'
 import type Database from 'better-sqlite3'
 import { z } from 'zod'
 
@@ -263,11 +267,19 @@ export class SqliteFinalizeJournalRepository
     const previous = this.db.pragma('synchronous', { simple: true }) as number
     // Keep stronger caller settings; change this connection only, outside a
     // transaction. No awaits or unrelated writes can enter this sync boundary.
-    if (previous < 2) this.db.pragma('synchronous = FULL')
+    const previousFull =
+      process.platform === 'darwin'
+        ? (this.db.pragma('fullfsync', { simple: true }) as number)
+        : undefined
     try {
+      // SQLite's FULL synchronous level alone uses fsync on macOS. The WAL
+      // must reach stable storage before a mutation on a separate download disk.
+      if (previousFull === 0) this.db.pragma('fullfsync = ON')
+      if (previous < 2) this.db.pragma('synchronous = FULL')
       return this.db.transaction(run)()
     } finally {
       if (previous < 2) this.db.pragma(`synchronous = ${previous}`)
+      if (previousFull === 0) this.db.pragma('fullfsync = OFF')
     }
   }
 
@@ -387,9 +399,20 @@ const reservedIntentSchema = z
       .optional(),
   })
   .strict()
-const publicationIntentSchema = z.discriminatedUnion('method', [
+const tokenReservedIntentSchema = reservedIntentSchema.extend({
+  version: z.literal(3),
+  ownership: z
+    .object({
+      token: z.string().regex(/^[a-f0-9]{64}$/),
+      volumeId: z.string().regex(/^[a-f0-9]{32}$/),
+    })
+    .strict(),
+  reservationIdentity: fileIdentitySchema.optional(),
+})
+const publicationIntentSchema = z.union([
   linkIntentSchema,
   reservedIntentSchema,
+  tokenReservedIntentSchema,
 ])
 const isolationSchema = z
   .object({
@@ -401,6 +424,13 @@ const isolationSchema = z
 function validateIntents(record: FinalizeJournalRecord): void {
   if (record.publicationIntent !== undefined) {
     const intent = publicationIntentSchema.parse(record.publicationIntent)
+    if (
+      intent.method === 'reserved_rename' &&
+      intent.version === 3 &&
+      intent.reservationIdentity &&
+      !reservationMatches(intent.reservationIdentity, intent.ownership.token)
+    )
+      throw new TypeError('reservation does not match its persisted token')
     if (intent.method === 'reserved_rename' && record.targetIdentity) {
       const installed = record.targetIdentity
       if (
@@ -408,7 +438,11 @@ function validateIntents(record: FinalizeJournalRecord): void {
         installed.size !== intent.identity.size ||
         installed.sha256 !== intent.identity.sha256 ||
         (installed.size !== 0 &&
-          installed.platformFileId !== intent.identity.platformFileId)
+          !reservedArtifactMatches(
+            installed,
+            intent.identity,
+            intent.version === 3 ? intent.ownership : undefined
+          ))
       )
         throw new TypeError(
           'reserved target identity does not match the downloaded content'

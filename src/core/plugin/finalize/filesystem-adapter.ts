@@ -44,6 +44,7 @@ export interface FinalizeFsCapabilities {
   directorySync: boolean
   heldArtifacts: boolean
   reservedExfatRename?: boolean
+  tokenExfatReservation?: boolean
 }
 
 interface WireResponse {
@@ -66,6 +67,8 @@ interface WireResponse {
   directory_sync?: boolean
   held_artifacts?: boolean
   reserved_exfat_rename?: boolean
+  token_exfat_reservation?: boolean
+  volume_id?: string
   platform_file_id?: string
 }
 
@@ -92,13 +95,20 @@ export interface FinalizeReservation {
   platformFileId: string
 }
 
+export interface FinalizeReservationOwnership {
+  token: string
+  volumeId: string
+}
+
 export interface FinalizeFilesystemAdapter {
+  exfatVolumeIdentity?(root: FinalizeRootHandle): Promise<string | null>
   capabilities(): Promise<FinalizeFsCapabilities>
   reserveExfatTarget?(
     artifact: FinalizeArtifactHandle,
     targetRoot: FinalizeRootHandle,
     targetRelative: string,
-    expectedIdentity?: string
+    expectedIdentity?: string,
+    ownership?: FinalizeReservationOwnership
   ): Promise<FinalizeReservation>
   renameOpenedReserved?(
     artifact: FinalizeArtifactHandle,
@@ -234,14 +244,27 @@ export class NativeFinalizeFilesystemAdapter
       directorySync: response.directory_sync === true,
       heldArtifacts: response.held_artifacts === true,
       reservedExfatRename: response.reserved_exfat_rename === true,
+      tokenExfatReservation: response.token_exfat_reservation === true,
     }
+  }
+
+  async exfatVolumeIdentity(root: FinalizeRootHandle): Promise<string | null> {
+    const response = await this.request({
+      op: 'exfat_volume_identity',
+      root: this.nativeId(root),
+    })
+    if (response.volume_id === undefined) return null
+    if (!/^[a-f0-9]{32}$/.test(response.volume_id))
+      throw new Error('invalid volume identity')
+    return response.volume_id
   }
 
   async reserveExfatTarget(
     artifact: FinalizeArtifactHandle,
     targetRoot: FinalizeRootHandle,
     targetRelative: string,
-    expectedIdentity?: string
+    expectedIdentity?: string,
+    ownership?: FinalizeReservationOwnership
   ): Promise<FinalizeReservation> {
     const generation = this.generation
     const response = await this.request({
@@ -250,6 +273,8 @@ export class NativeFinalizeFilesystemAdapter
       target_root: this.nativeId(targetRoot),
       target_relative: targetRelative,
       expected_identity: expectedIdentity,
+      token: ownership?.token,
+      volume_id: ownership?.volumeId,
     })
     if (response.handle === undefined || !response.platform_file_id)
       throw new Error('sidecar omitted reservation identity')
