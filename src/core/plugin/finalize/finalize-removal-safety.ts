@@ -29,7 +29,7 @@ export async function selectRemovalSurvivor(
     finalizePathsEquivalent(candidate, intent.artifactPath) ||
     finalizePathsEquivalent(candidate, intent.quarantinePath)
   if (
-    record.publicationIntent &&
+    record.publicationIntent?.method === 'hard_link' &&
     removes(record.plan.targetPath) &&
     !linkPublicationConfirmed(record)
   )

@@ -14,6 +14,104 @@ describe('SqliteFinalizeJournalRepository', () => {
 
   afterEach(() => db.close())
 
+  it('syncs critical journal writes and restores the connection setting after a failed commit', async () => {
+    db.pragma('synchronous = NORMAL')
+    const writes: number[] = []
+    db.function('observe_sync', (level) => {
+      writes.push(level as number)
+      return 1
+    })
+    db.exec(`
+      CREATE TRIGGER observe_insert BEFORE INSERT ON plugin_finalize_journals BEGIN SELECT observe_sync(synchronous) FROM pragma_synchronous; END;
+      CREATE TRIGGER observe_update BEFORE UPDATE ON plugin_finalize_journals BEGIN SELECT observe_sync(synchronous) FROM pragma_synchronous; END;
+    `)
+    const repository = new SqliteFinalizeJournalRepository(db, {
+      commitTerminalBoundary: () => {
+        expect(db.pragma('synchronous', { simple: true })).toBe(2)
+        throw new Error('terminal transaction failed')
+      },
+    })
+    const record = { ...makeRecord(), publicationMode: 'move' as const }
+    await repository.prepare(record)
+    await repository.checkpoint(record.journalId, {
+      targetIdentity: record.plan.sourceIdentity,
+    })
+    await repository.advance(record.journalId, 'target_installed')
+    await expect(repository.commitTerminal(record)).rejects.toThrow(
+      'terminal transaction failed'
+    )
+    expect(writes).toEqual([2, 2, 2])
+    expect(db.pragma('synchronous', { simple: true })).toBe(1)
+    expect((await repository.listRecoverable())[0].phase).toBe(
+      'target_installed'
+    )
+  })
+
+  it('does not claim a durable checkpoint inside a caller-owned transaction', async () => {
+    const repository = new SqliteFinalizeJournalRepository(db, {
+      commitTerminalBoundary: vi.fn(),
+    })
+    db.exec('BEGIN')
+    try {
+      await expect(repository.prepare(makeRecord())).rejects.toThrow(
+        'outermost transaction'
+      )
+    } finally {
+      db.exec('ROLLBACK')
+    }
+    expect(await repository.listRecoverable()).toEqual([])
+  })
+
+  it('validates reserved publication scope and the exact empty placeholder contract', async () => {
+    const repository = new SqliteFinalizeJournalRepository(db, {
+      commitTerminalBoundary: vi.fn(),
+    })
+    const record = { ...makeRecord(), publicationMode: 'move' as const }
+    record.plan.sourcePath = `${record.plan.targetPath}.motrix`
+    const identity = {
+      kind: 'file' as const,
+      size: 4,
+      sha256: 'a'.repeat(64),
+      platformFileId: '1:1',
+    }
+    record.plan.sourceIdentity = identity
+    await repository.prepare(record)
+    const publicationIntent = {
+      version: 2 as const,
+      method: 'reserved_rename' as const,
+      sourcePath: record.plan.sourcePath,
+      identity,
+    }
+    await repository.checkpoint(record.journalId, { publicationIntent })
+    const reservationIdentity = {
+      ...identity,
+      size: 0,
+      platformFileId: '1:2',
+      sha256:
+        'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    }
+    await repository.checkpoint(record.journalId, {
+      publicationIntent: { ...publicationIntent, reservationIdentity },
+    })
+    expect((await repository.listRecoverable())[0].publicationIntent).toEqual({
+      ...publicationIntent,
+      reservationIdentity,
+    })
+    await expect(
+      repository.checkpoint(record.journalId, {
+        publicationIntent: {
+          ...publicationIntent,
+          reservationIdentity: identity,
+        },
+      })
+    ).rejects.toThrow()
+    await expect(
+      repository.checkpoint(record.journalId, {
+        privateTargetPath: '/downloads/private',
+      })
+    ).rejects.toThrow('ordinary suffix removal')
+  })
+
   it('persists and validates the installation source of a hard-link intent', async () => {
     const repository = new SqliteFinalizeJournalRepository(db, {
       commitTerminalBoundary: vi.fn(),

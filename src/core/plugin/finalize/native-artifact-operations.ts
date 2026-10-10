@@ -7,6 +7,7 @@ import {
   ArtifactIdentityCache,
   ArtifactIdentityError,
   artifactIdentityEquals,
+  type FileArtifactIdentity,
   readArtifactIdentity,
 } from './artifact-identity'
 import type { FinalizeFilesystemAdapter } from './filesystem-adapter'
@@ -29,6 +30,75 @@ export class NativeFinalizeArtifactOperations
   private readonly identityCache = new ArtifactIdentityCache()
 
   constructor(private readonly adapter: FinalizeFilesystemAdapter) {}
+
+  async reservedRenameSupported(): Promise<boolean> {
+    const capabilities = await this.adapter.capabilities()
+    return (
+      capabilities.platform === 'macos' &&
+      capabilities.reservedExfatRename === true &&
+      this.adapter.reserveExfatTarget !== undefined &&
+      this.adapter.renameOpenedReserved !== undefined
+    )
+  }
+
+  async publishReserved(
+    sourcePath: string,
+    expected: FileArtifactIdentity,
+    targetPath: string,
+    checkpoint: (reservation: FileArtifactIdentity) => Promise<void>,
+    reservation?: FileArtifactIdentity
+  ): Promise<FileArtifactIdentity> {
+    if (
+      !(await this.reservedRenameSupported()) ||
+      !this.adapter.reserveExfatTarget ||
+      !this.adapter.renameOpenedReserved
+    )
+      throw new Error('reserved exFAT publication is unsupported')
+    await this.requireIdentity(sourcePath, expected)
+    const root = await this.adapter.openRoot(path.dirname(sourcePath))
+    let source:
+      | Awaited<ReturnType<FinalizeFilesystemAdapter['openArtifact']>>
+      | undefined
+    let reserved:
+      | Awaited<ReturnType<FinalizeFilesystemAdapter['openArtifact']>>
+      | undefined
+    try {
+      if (path.dirname(sourcePath) !== path.dirname(targetPath))
+        throw new Error('reserved publication requires the same directory')
+      source = await this.adapter.openArtifact(
+        root,
+        path.basename(sourcePath),
+        'rename'
+      )
+      await this.requireIdentity(sourcePath, expected)
+      if (reservation) await this.requireIdentity(targetPath, reservation)
+      const created = await this.adapter.reserveExfatTarget(
+        source,
+        root,
+        path.basename(targetPath),
+        reservation?.platformFileId
+      )
+      reserved = created.handle
+      const reservedIdentity = await this.identity(targetPath)
+      if (
+        reservedIdentity?.kind !== 'file' ||
+        reservedIdentity.size !== 0 ||
+        reservedIdentity.platformFileId !== created.platformFileId
+      )
+        throw new Error(
+          `reservation identity mismatch: ${reservedIdentity?.platformFileId} != ${created.platformFileId}`
+        )
+      await checkpoint(reservedIdentity)
+      const result = await this.adapter.renameOpenedReserved(source, reserved)
+      const installed = { ...expected, platformFileId: result.platformFileId }
+      await this.requireIdentity(targetPath, installed)
+      return installed
+    } finally {
+      if (reserved) await this.adapter.close(reserved).catch(() => undefined)
+      if (source) await this.adapter.close(source).catch(() => undefined)
+      await this.adapter.close(root).catch(() => undefined)
+    }
+  }
 
   async assertSupported(): Promise<void> {
     const capabilities = await this.adapter.capabilities()

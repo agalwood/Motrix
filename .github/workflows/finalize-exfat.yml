@@ -1,0 +1,75 @@
+name: Finalize macOS exFAT
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/finalize-fs/**'
+      - 'src/core/plugin/finalize/**'
+      - 'src/core/session/*finalize*'
+      - 'src/core/task/task-recovery-service*'
+      - '.github/workflows/finalize-exfat.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/finalize-fs/**'
+      - 'src/core/plugin/finalize/**'
+      - 'src/core/session/*finalize*'
+      - 'src/core/task/task-recovery-service*'
+      - '.github/workflows/finalize-exfat.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: finalize-exfat-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos-exfat:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.8.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: 1.94.1
+          components: clippy
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          MOTRIX_SKIP_ELECTRON_REBUILD: '1'
+          MOTRIX_SKIP_ENGINE_FETCH: '1'
+      - name: Validate and build the macOS sidecar
+        run: |
+          cargo clippy --manifest-path packages/finalize-fs/Cargo.toml --all-targets --locked -- -D warnings
+          cargo test --manifest-path packages/finalize-fs/Cargo.toml --all-targets --locked
+          cargo build --manifest-path packages/finalize-fs/Cargo.toml --locked
+      - name: Exercise a disposable exFAT image
+        shell: bash
+        run: |
+          set -euo pipefail
+          scratch=$(mktemp -d "$RUNNER_TEMP/motrix-exfat-XXXXXX")
+          mounted=false
+          cleanup() {
+            if [ "$mounted" = true ]; then
+              hdiutil detach "$scratch/volume" || return 1
+            fi
+            rm -rf "$scratch"
+          }
+          trap cleanup EXIT
+          mkdir "$scratch/volume"
+          hdiutil create -size 128m -fs ExFAT -volname MotrixFinalize "$scratch/test.dmg"
+          hdiutil attach "$scratch/test.dmg" -mountpoint "$scratch/volume" -nobrowse
+          mounted=true
+          export MOTRIX_FINALIZE_EXFAT_ROOT="$scratch/volume"
+          cargo test --manifest-path packages/finalize-fs/Cargo.toml --locked -- --ignored --exact platform::unix::reserved::tests::exfat_reservations_preserve_conflicts_and_publish_held_files
+          pnpm exec vitest run src/core/plugin/finalize/finalize-exfat.integration.test.ts

@@ -1403,6 +1403,8 @@ async function startEngineAndRestore(
     // flowing. See design spec §6.6.
     const finalizeDepsFactory = () => buildFinalizeDeps(adapter)
     recoveryService = new TaskRecoveryServiceImpl({
+      hasPendingFinalization: async (taskId) =>
+        (await durableFinalizeRuntime?.hasPendingFinalization(taskId)) ?? false,
       taskManager: {
         getAll: () => taskManager.getAll(),
         set: (id: string, task: DownloadTask) => taskManager.set(id, task),

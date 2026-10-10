@@ -143,6 +143,64 @@ function makeCommitter(
 }
 
 describe('FinalizeCommitter', () => {
+  it.each([
+    { code: 'permission_denied', osError: 13 },
+    { code: 'io_error', osError: 5 },
+    { code: 'rename_unsupported', osError: 22 },
+    { code: 'rename_unsupported', osError: 38 },
+  ] as const)(
+    'does not relax publication on $code/$osError',
+    async ({ code, osError }) => {
+      const fs = new FakeFilesystem()
+      const plan = { ...makePlan(), targetPath: '/save/source' }
+      fs.artifacts.set(plan.sourcePath, sourceIdentity)
+      const publishReserved = vi.fn()
+      Object.assign(fs, {
+        publishReserved,
+        reservedRenameSupported: async () => true,
+      })
+      vi.spyOn(fs, 'moveNoReplace').mockRejectedValue(
+        new FinalizeFsError(code, 'original failure', {
+          operation: 'rename_opened_no_replace',
+          osError,
+        })
+      )
+      const { repository } = makeRepository()
+      await expect(makeCommitter(fs, repository).commit(plan)).rejects.toThrow(
+        'original failure'
+      )
+      expect(publishReserved).not.toHaveBeenCalled()
+      expect(fs.artifacts.get(plan.sourcePath)).toBe(sourceIdentity)
+    }
+  )
+
+  it.each(['plugin', 'renamed-target', 'missing-capability'])(
+    'keeps strict publication for %s',
+    async (scenario) => {
+      const fs = new FakeFilesystem()
+      const plan = { ...makePlan(), targetPath: '/save/source' }
+      if (scenario === 'plugin') plan.contributors = ['example.plugin']
+      if (scenario === 'renamed-target') plan.targetPath = '/save/different'
+      fs.artifacts.set(plan.sourcePath, sourceIdentity)
+      const publishReserved = vi.fn()
+      Object.assign(fs, {
+        publishReserved,
+        reservedRenameSupported: async () => scenario !== 'missing-capability',
+      })
+      vi.spyOn(fs, 'moveNoReplace').mockRejectedValue(
+        new FinalizeFsError(
+          'rename_unsupported',
+          'exclusive rename unsupported',
+          { operation: 'rename_opened_no_replace', osError: 45 }
+        )
+      )
+      const { repository } = makeRepository()
+      await expect(makeCommitter(fs, repository).commit(plan)).rejects.toThrow(
+        'exclusive rename unsupported'
+      )
+      expect(publishReserved).not.toHaveBeenCalled()
+    }
+  )
   it('does not compensate a different journal when prepare rejects the retry', async () => {
     const fs = new FakeFilesystem()
     const plan = makePlan()

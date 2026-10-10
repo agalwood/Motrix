@@ -13,7 +13,12 @@ mod tests;
 use crate::path::validate_relative;
 use digest::hash_opened_file;
 use metadata::artifact_stamp;
+
+#[cfg(target_os = "macos")]
+mod reserved;
 use remove::snapshot_directory;
+#[cfg(target_os = "macos")]
+pub(crate) use reserved::{rename_opened_reserved, reserve_exfat_target};
 use std::ffi::CString;
 use std::io;
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};

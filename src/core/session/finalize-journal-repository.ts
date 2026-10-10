@@ -7,7 +7,10 @@ import type {
 } from '@core/plugin/finalize/finalize-committer'
 import { finalizePathsEquivalent } from '@core/plugin/finalize/finalize-committer'
 import { isRetryableMoveQuarantine } from '@core/plugin/finalize/finalize-recovery'
-import { assertValidHookPlan } from '@core/plugin/finalize/hook-plan'
+import {
+  assertValidHookPlan,
+  isOrdinarySuffixRemoval,
+} from '@core/plugin/finalize/hook-plan'
 import type Database from 'better-sqlite3'
 import { z } from 'zod'
 
@@ -50,11 +53,12 @@ export class SqliteFinalizeJournalRepository
       throw new Error('new finalize journal must start prepared')
     }
     assertValidHookPlan(record.plan)
+    validateIntents(record)
     if (record.journalId !== record.plan.planId) {
       throw new Error('finalize journal id must match plan id')
     }
     const now = Math.max(1, this.now())
-    this.db.transaction(() => {
+    this.durableTransaction(() => {
       const prior = this.db
         .prepare(
           `SELECT plan_id, phase FROM plugin_finalize_journals WHERE task_id=?`
@@ -90,7 +94,7 @@ export class SqliteFinalizeJournalRepository
           now,
           now
         )
-    })()
+    })
   }
 
   async checkpoint(
@@ -107,7 +111,7 @@ export class SqliteFinalizeJournalRepository
       >
     >
   ): Promise<void> {
-    this.db.transaction(() => {
+    this.durableTransaction(() => {
       const current = this.requireRecord(journalId)
       if (current.phase === 'cleaned') {
         throw new Error(`cannot checkpoint terminal finalize journal`)
@@ -128,7 +132,7 @@ export class SqliteFinalizeJournalRepository
           current.phase
         ).changes
       if (changed !== 1) throw new Error('finalize journal checkpoint lost CAS')
-    })()
+    })
   }
 
   async advance(
@@ -145,7 +149,7 @@ export class SqliteFinalizeJournalRepository
       >
     > = {}
   ): Promise<void> {
-    this.db.transaction(() => {
+    this.durableTransaction(() => {
       const current = this.requireRecord(journalId)
       if (current.phase === phase) return
       if (!transitionAllowed(current, phase)) {
@@ -154,6 +158,7 @@ export class SqliteFinalizeJournalRepository
         )
       }
       const next: FinalizeJournalRecord = { ...current, ...patch, phase }
+      validateIntents(next)
       const changed = this.db
         .prepare(
           `UPDATE plugin_finalize_journals
@@ -169,11 +174,11 @@ export class SqliteFinalizeJournalRepository
           current.phase
         ).changes
       if (changed !== 1) throw new Error('finalize journal transition lost CAS')
-    })()
+    })
   }
 
   async commitTerminal(record: FinalizeJournalRecord): Promise<void> {
-    this.db.transaction(() => {
+    this.durableTransaction(() => {
       const durable = this.requireRecord(record.journalId)
       if (durable.phase === 'db_committed') return
       if (durable.phase !== 'target_installed') {
@@ -186,7 +191,7 @@ export class SqliteFinalizeJournalRepository
           'terminal boundary returned without atomically committing journal'
         )
       }
-    })()
+    })
   }
 
   async quarantine(journalId: string, reason: string): Promise<void> {
@@ -236,7 +241,7 @@ export class SqliteFinalizeJournalRepository
   }
 
   async resumeQuarantined(record: FinalizeJournalRecord): Promise<void> {
-    this.db.transaction(() => {
+    this.durableTransaction(() => {
       const raw = this.readRaw(record.journalId)
       const candidate = raw && parseQuarantinedMove(raw)
       if (!candidate || JSON.stringify(candidate) !== JSON.stringify(record)) {
@@ -248,7 +253,22 @@ export class SqliteFinalizeJournalRepository
          WHERE plan_id=? AND phase='quarantined'`
         )
         .run(candidate.phase, Math.max(1, this.now()), candidate.journalId)
-    })()
+    })
+  }
+
+  /** Critical filesystem intents must reach the WAL before native mutation. */
+  private durableTransaction<T>(run: () => T): T {
+    if (this.db.inTransaction)
+      throw new Error('finalize durability requires an outermost transaction')
+    const previous = this.db.pragma('synchronous', { simple: true }) as number
+    // Keep stronger caller settings; change this connection only, outside a
+    // transaction. No awaits or unrelated writes can enter this sync boundary.
+    if (previous < 2) this.db.pragma('synchronous = FULL')
+    try {
+      return this.db.transaction(run)()
+    } finally {
+      if (previous < 2) this.db.pragma(`synchronous = ${previous}`)
+    }
   }
 
   private requireRecord(journalId: string): FinalizeJournalRecord {
@@ -342,7 +362,7 @@ const fileIdentitySchema = z.object({
   sha256: z.string().regex(/^[a-f0-9]{64}$/),
   platformFileId: z.string().min(1),
 })
-const publicationIntentSchema = z
+const linkIntentSchema = z
   .object({
     version: z.literal(1),
     method: z.literal('hard_link'),
@@ -351,6 +371,26 @@ const publicationIntentSchema = z
     identity: fileIdentitySchema,
   })
   .strict()
+const reservedIntentSchema = z
+  .object({
+    version: z.literal(2),
+    method: z.literal('reserved_rename'),
+    sourcePath: z.string(),
+    identity: fileIdentitySchema,
+    reservationIdentity: fileIdentitySchema
+      .extend({
+        size: z.literal(0),
+        sha256: z.literal(
+          'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+        ),
+      })
+      .optional(),
+  })
+  .strict()
+const publicationIntentSchema = z.discriminatedUnion('method', [
+  linkIntentSchema,
+  reservedIntentSchema,
+])
 const isolationSchema = z
   .object({
     directory: z.string(),
@@ -361,6 +401,35 @@ const isolationSchema = z
 function validateIntents(record: FinalizeJournalRecord): void {
   if (record.publicationIntent !== undefined) {
     const intent = publicationIntentSchema.parse(record.publicationIntent)
+    if (intent.method === 'reserved_rename' && record.targetIdentity) {
+      const installed = record.targetIdentity
+      if (
+        installed.kind !== 'file' ||
+        installed.size !== intent.identity.size ||
+        installed.sha256 !== intent.identity.sha256 ||
+        (installed.size !== 0 &&
+          installed.platformFileId !== intent.identity.platformFileId)
+      )
+        throw new TypeError(
+          'reserved target identity does not match the downloaded content'
+        )
+    }
+    if (
+      intent.method === 'reserved_rename' &&
+      (record.publicationMode !== 'move' ||
+        !isOrdinarySuffixRemoval(record.plan) ||
+        record.privateTargetPath !== undefined ||
+        record.privateTargetIdentity !== undefined ||
+        record.rollbackPath !== undefined ||
+        record.removalIntent !== undefined ||
+        (record.phase !== 'prepared' &&
+          record.phase !== 'target_installed' &&
+          record.phase !== 'db_committed' &&
+          record.phase !== 'cleaned'))
+    )
+      throw new TypeError(
+        'reserved publication requires an ordinary suffix removal'
+      )
     const expectedPath =
       record.publicationMode === 'move'
         ? record.plan.sourcePath

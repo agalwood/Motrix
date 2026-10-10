@@ -43,6 +43,7 @@ export interface FinalizeFsCapabilities {
   heldRoots: boolean
   directorySync: boolean
   heldArtifacts: boolean
+  reservedExfatRename?: boolean
 }
 
 interface WireResponse {
@@ -64,6 +65,8 @@ interface WireResponse {
   held_roots?: boolean
   directory_sync?: boolean
   held_artifacts?: boolean
+  reserved_exfat_rename?: boolean
+  platform_file_id?: string
 }
 
 interface PendingRequest {
@@ -84,8 +87,23 @@ export interface FinalizeArtifactHandle {
   readonly id: number
 }
 
+export interface FinalizeReservation {
+  handle: FinalizeArtifactHandle
+  platformFileId: string
+}
+
 export interface FinalizeFilesystemAdapter {
   capabilities(): Promise<FinalizeFsCapabilities>
+  reserveExfatTarget?(
+    artifact: FinalizeArtifactHandle,
+    targetRoot: FinalizeRootHandle,
+    targetRelative: string,
+    expectedIdentity?: string
+  ): Promise<FinalizeReservation>
+  renameOpenedReserved?(
+    artifact: FinalizeArtifactHandle,
+    reservation: FinalizeArtifactHandle
+  ): Promise<FinalizeRenameResult & { platformFileId: string }>
   /** Map a final-name candidate onto the shared cross-platform domain. */
   sanitizeName?(name: string): Promise<string>
   openRoot(
@@ -215,6 +233,49 @@ export class NativeFinalizeFilesystemAdapter
       heldRoots: response.held_roots === true,
       directorySync: response.directory_sync === true,
       heldArtifacts: response.held_artifacts === true,
+      reservedExfatRename: response.reserved_exfat_rename === true,
+    }
+  }
+
+  async reserveExfatTarget(
+    artifact: FinalizeArtifactHandle,
+    targetRoot: FinalizeRootHandle,
+    targetRelative: string,
+    expectedIdentity?: string
+  ): Promise<FinalizeReservation> {
+    const generation = this.generation
+    const response = await this.request({
+      op: 'reserve_exfat_target',
+      artifact: this.nativeId(artifact),
+      target_root: this.nativeId(targetRoot),
+      target_relative: targetRelative,
+      expected_identity: expectedIdentity,
+    })
+    if (response.handle === undefined || !response.platform_file_id)
+      throw new Error('sidecar omitted reservation identity')
+    return {
+      handle: this.heldHandle(response.handle, generation),
+      platformFileId: response.platform_file_id,
+    }
+  }
+
+  async renameOpenedReserved(
+    artifact: FinalizeArtifactHandle,
+    reservation: FinalizeArtifactHandle
+  ): Promise<FinalizeRenameResult & { platformFileId: string }> {
+    const response = await this.request({
+      op: 'rename_opened_reserved',
+      artifact: this.nativeId(artifact),
+      reservation: this.nativeId(reservation),
+    })
+    if (
+      !response.platform_file_id ||
+      response.directory_sync_mode !== 'directory_flushed'
+    )
+      throw new Error('sidecar omitted reserved publication result')
+    return {
+      platformFileId: response.platform_file_id,
+      directorySyncMode: response.directory_sync_mode,
     }
   }
 
@@ -453,7 +514,9 @@ export class NativeFinalizeFilesystemAdapter
     const result = await response.catch((cause: unknown) => {
       if (
         body.op === 'rename_opened_no_replace' ||
-        body.op === 'rename_no_replace'
+        body.op === 'rename_no_replace' ||
+        body.op === 'rename_opened_reserved' ||
+        body.op === 'reserve_exfat_target'
       ) {
         const error = new FinalizeFsError(
           'io_error',
