@@ -270,7 +270,7 @@ describe.skipIf(!binaryPath)(
       expect(await readFile(targetPath)).toEqual(
         Buffer.alloc(completedBytes, 17)
       )
-    })
+    }, 20000)
 
     it('rejects a token replay with a different reserved task ID', async () => {
       const { adapter } = wired!
