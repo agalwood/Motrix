@@ -63,22 +63,22 @@ const EXPECTED_ACTION_PINS = new Map([
   [
     'actions/setup-node',
     {
-      sha: '820762786026740c76f36085b0efc47a31fe5020',
-      comment: 'v7.0.0',
+      sha: '949feb2413d6458794dcd2491c4babbbce0c15c1',
+      comment: 'v7.1.0',
     },
   ],
   [
     'actions/upload-artifact',
     {
-      sha: '043fb46d1a93c77aae656e7c1c64a875d1fc6a0a',
-      comment: 'v7.0.1',
+      sha: 'cf430e030ddbb5b0abf93d22962f4752f3646cd9',
+      comment: 'v7.0.2',
     },
   ],
   [
     'actions/download-artifact',
     {
-      sha: '3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c',
-      comment: 'v8.0.1',
+      sha: '9000827ccba6bdab643e8b6fd33ac0654aef8333',
+      comment: 'v8.0.2',
     },
   ],
   [
@@ -91,15 +91,15 @@ const EXPECTED_ACTION_PINS = new Map([
   [
     'dtolnay/rust-toolchain',
     {
-      sha: '4cda84d5c5c54efe2404f9d843567869ab1699d4',
+      sha: '686976e191b89faba57d3206551f0f330d8cb249',
       comment: 'stable',
     },
   ],
   [
     'softprops/action-gh-release',
     {
-      sha: '3d0d9888cb7fd7b750713d6e236d1fcb99157228',
-      comment: 'v3.0.2',
+      sha: 'efb35369e0ad2afab669f228072c1b0d510eae64',
+      comment: 'v3.0.3',
     },
   ],
   [
@@ -112,8 +112,8 @@ const EXPECTED_ACTION_PINS = new Map([
   [
     'flatpak/flatpak-github-actions/flatpak-builder',
     {
-      sha: '401fe28a8384095fc1531b9d320b292f0ee45adb',
-      comment: 'v6.7',
+      sha: '79327416609af08178ad73b352877e51450790b3',
+      comment: 'v6.8',
     },
   ],
   [
@@ -126,8 +126,8 @@ const EXPECTED_ACTION_PINS = new Map([
   [
     'docker/setup-buildx-action',
     {
-      sha: 'bb05f3f5519dd87d3ba754cc423b652a5edd6d2c',
-      comment: 'v4.2.0',
+      sha: 'f87e5991a6d7451dcb8d9637bfbc97413f497069',
+      comment: 'v4.4.1',
     },
   ],
   [
@@ -140,8 +140,8 @@ const EXPECTED_ACTION_PINS = new Map([
   [
     'docker/build-push-action',
     {
-      sha: '53b7df96c91f9c12dcc8a07bcb9ccacbed38856a',
-      comment: 'v7.3.0',
+      sha: 'c3c9e263c25d99ce0380d002d59b67737d91b0dc',
+      comment: 'v7.4.0',
     },
   ],
   [

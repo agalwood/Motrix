@@ -38,7 +38,7 @@ const RUST_SOURCES = Object.freeze({
   }),
 })
 
-const FLATPAK_BUILDER_ACTION_COMMIT = '401fe28a8384095fc1531b9d320b292f0ee45adb'
+const FLATPAK_BUILDER_ACTION_COMMIT = '79327416609af08178ad73b352877e51450790b3'
 const FLATPAK_BUILDER_IMAGE =
   'ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08@sha256:e3d9fbd75c7e5ce6241fb9114f59dce2156315f5977b594ea75fc97c3d364dfa'
 const FLATPAK_BROKER_COMMAND = 'motrix-native-host-broker'
