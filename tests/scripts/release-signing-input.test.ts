@@ -444,8 +444,9 @@ describe('isolated release signing input', () => {
     'signing-build-resources/entitlements.mac.plist',
     'signing-build-resources/entitlements.safari.plist',
     'signing-build-resources/app.motrix.safari.bootstrap.plist',
+    'scripts/electron-package-size-budgets.json',
   ])(
-    'rejects tampered macOS signing policy despite a rewritten manifest: %s',
+    'rejects tampered signing policy despite a rewritten manifest: %s',
     async (relative) => {
       const directory = await createFixture()
       const file = path.join(directory, relative)
