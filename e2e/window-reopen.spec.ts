@@ -10,11 +10,14 @@ import {
   waitForQueryHandlers,
 } from './fixtures/electron-app'
 
-async function secondLaunch(app: ElectronApplication): Promise<void> {
+async function secondLaunch(
+  app: ElectronApplication,
+  args: string[] = []
+): Promise<void> {
   // Exercise the Windows/Linux desktop shortcut event, including on macOS CI.
-  await app.evaluate(({ app: electronApp }) => {
-    electronApp.emit('second-instance', {}, ['Motrix.exe'], '', {})
-  })
+  await app.evaluate(({ app: electronApp }, argv) => {
+    electronApp.emit('second-instance', {}, ['Motrix.exe', ...argv], '', {})
+  }, args)
 }
 
 async function windowState(app: ElectronApplication, id = 'main') {
@@ -78,6 +81,11 @@ for (const lightweightMode of [false, true]) {
       await expect
         .poll(() => windowState(app))
         .toEqual(lightweightMode ? null : { visible: false, minimized: false })
+
+      await secondLaunch(app, ['--opened-at-login=1'])
+      expect(await windowState(app)).toEqual(
+        lightweightMode ? null : { visible: false, minimized: false }
+      )
 
       await secondLaunch(app)
       await expect

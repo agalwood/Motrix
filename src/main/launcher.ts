@@ -129,13 +129,17 @@ export function setupLauncher(callbacks: LauncherCallbacks): LauncherHandle {
   // second-instance (Windows/Linux: second launch passes argv)
   app.on('second-instance', (_event, argv) => {
     log.info('second instance detected')
-    if (windowReady) {
-      callbacks.onShowWindow()
-    } else {
-      // A desktop shortcut can be opened while settings and windows are still
-      // initializing. Retain that intent instead of losing it to an absent
-      // WindowManager; repeated launches need only one eventual activation.
-      pendingShowWindow = true
+    // A login item can run after another instance has already started. It is
+    // not an explicit activation and must preserve that instance's visibility.
+    if (!argv.includes('--opened-at-login=1')) {
+      if (windowReady) {
+        callbacks.onShowWindow()
+      } else {
+        // A desktop shortcut can be opened while settings and windows are still
+        // initializing. Retain that intent instead of losing it to an absent
+        // WindowManager; repeated launches need only one eventual activation.
+        pendingShowWindow = true
+      }
     }
 
     if (process.platform !== 'darwin' && argv.length > 1) {

@@ -18,33 +18,39 @@ describe('syncAutoLaunch', () => {
     vi.clearAllMocks()
   })
 
-  it('enables login item with --opened-at-login arg', () => {
-    const originalPlatform = process.platform
-    Object.defineProperty(process, 'platform', { value: 'darwin' })
+  it.each(['darwin', 'win32'])(
+    'enables %s login item with --opened-at-login arg',
+    (platform) => {
+      const originalPlatform = process.platform
+      Object.defineProperty(process, 'platform', { value: platform })
 
-    syncAutoLaunch(true)
+      syncAutoLaunch(true)
 
-    expect(mockSetLoginItemSettings).toHaveBeenCalledWith({
-      openAtLogin: true,
-      args: ['--opened-at-login=1'],
-    })
+      expect(mockSetLoginItemSettings).toHaveBeenCalledWith({
+        openAtLogin: true,
+        args: ['--opened-at-login=1'],
+      })
 
-    Object.defineProperty(process, 'platform', { value: originalPlatform })
-  })
+      Object.defineProperty(process, 'platform', { value: originalPlatform })
+    }
+  )
 
-  it('disables login item with empty args', () => {
-    const originalPlatform = process.platform
-    Object.defineProperty(process, 'platform', { value: 'darwin' })
+  it.each(['darwin', 'win32'])(
+    'disables %s login item with empty args',
+    (platform) => {
+      const originalPlatform = process.platform
+      Object.defineProperty(process, 'platform', { value: platform })
 
-    syncAutoLaunch(false)
+      syncAutoLaunch(false)
 
-    expect(mockSetLoginItemSettings).toHaveBeenCalledWith({
-      openAtLogin: false,
-      args: [],
-    })
+      expect(mockSetLoginItemSettings).toHaveBeenCalledWith({
+        openAtLogin: false,
+        args: [],
+      })
 
-    Object.defineProperty(process, 'platform', { value: originalPlatform })
-  })
+      Object.defineProperty(process, 'platform', { value: originalPlatform })
+    }
+  )
 
   it('skips on linux', () => {
     const originalPlatform = process.platform
