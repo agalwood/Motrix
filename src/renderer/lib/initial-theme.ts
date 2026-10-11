@@ -44,9 +44,9 @@ export function applyInitialRendererTheme(
   root.classList.remove(theme === 'dark' ? 'light' : 'dark')
   root.classList.add(theme)
   root.style.colorScheme = theme
-  // The inline head style protects the blank document before the renderer
-  // bundle loads. Once the semantic stylesheet and theme class are ready it
-  // must be removed so platform rules such as macOS transparency can win.
+  // The inline style keeps startup transparent and the logo legible before
+  // the renderer bundle loads. Remove it once the semantic stylesheet and
+  // theme class are ready so each window's normal background can take over.
   document.getElementById('motrix-theme-bootstrap')?.remove()
   return theme
 }
