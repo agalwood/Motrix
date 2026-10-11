@@ -7,7 +7,6 @@ import { Events } from '@shared/protocol/events'
 import { Component, type ReactNode, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
-import { RendererRecoveryStatus } from './renderer-recovery-notice'
 
 export class RendererBoundary extends Component<
   { children: ReactNode },
@@ -28,7 +27,7 @@ export function RendererReady() {
   useEffect(() => {
     setRendererSurface('app')
   }, [])
-  return <RendererRecoveryStatus />
+  return null
 }
 export function RootRouteFailure() {
   const navigate = useNavigate()

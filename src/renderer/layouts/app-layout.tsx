@@ -1,8 +1,10 @@
 import { AddTaskDialogHost } from '@renderer/components/add-task-dialog/add-task-dialog-host'
 import { AppSidebar } from '@renderer/components/desktop-kit/sidebar/app-sidebar'
-import { RendererSubmissionNotice } from '@renderer/components/renderer-recovery-notice'
+import {
+  RendererSubmissionNotice,
+  RendererToaster,
+} from '@renderer/components/renderer-recovery-notice'
 import { SidebarInset, SidebarProvider } from '@renderer/components/ui/sidebar'
-import { Toaster } from '@renderer/components/ui/toast'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
 import { WebConnectionNotice } from '@renderer/components/web-connection-notice'
 import { AddTaskTriggerButton } from '@renderer/components/window-chrome/add-task-trigger-button'
@@ -146,7 +148,7 @@ export function AppLayout() {
         <EngineDiagnosticsDialogHost />
         {__MOTRIX_TARGET__ === 'web' && <AddTaskDialogHost />}
       </PlatformServicesProvider>
-      <Toaster />
+      <RendererToaster />
     </TooltipProvider>
   )
 }

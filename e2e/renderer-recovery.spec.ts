@@ -69,10 +69,14 @@ test('manual recovery keeps the application and engine alive and opens downloads
   await waitForEngineReady(restored)
   expect(electronApp.process().pid).toBe(pid)
   await expect(
-    restored.getByRole('status').filter({ hasText: 'Interface restored' })
+    restored
+      .getByLabel('Notifications')
+      .getByText('Interface restored', { exact: true })
   ).toBeVisible()
   await expect(
-    restored.getByRole('status').filter({ hasText: 'Interface restored' })
+    restored
+      .getByLabel('Notifications')
+      .getByText('Interface restored', { exact: true })
   ).toHaveCount(0)
 })
 
@@ -280,6 +284,11 @@ test('recovering onboarding preserves the legal gate and does not quit', async (
     await expect(page.getByTestId('disclaimer-agree')).toBeVisible()
     const restored = await recover(app, page)
     await expect(restored.getByTestId('disclaimer-agree')).toBeVisible()
+    await expect(
+      restored
+        .getByLabel('Notifications')
+        .getByText('Interface restored', { exact: true })
+    ).toBeVisible()
     expect(
       app.windows().some((candidate) => candidate.url().includes('w=main'))
     ).toBe(false)
@@ -305,6 +314,11 @@ test('add-task recovery restores a delivered link after its renderer acknowledge
   await expect(page.getByRole('textbox', { name: 'URLs' })).toHaveValue(url)
   const restored = await recover(electronApp, page)
   await expect(restored.getByRole('textbox', { name: 'URLs' })).toHaveValue(url)
+  await expect(
+    restored
+      .getByLabel('Notifications')
+      .getByText('Interface restored', { exact: true })
+  ).toBeVisible()
 })
 
 test('recovery preserves the current torrent and queue position', async ({

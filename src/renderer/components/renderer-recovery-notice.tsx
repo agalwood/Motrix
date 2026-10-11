@@ -1,57 +1,41 @@
-import { CheckIcon, CloseIcon, InfoIcon } from '@renderer/components/icons'
+import { CloseIcon, InfoIcon } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
+import { Toaster, toast } from '@renderer/components/ui/toast'
 import { rendererSession } from '@renderer/lib/renderer-health'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
 import { Commands } from '@shared/protocol/commands'
+import type { RendererSession } from '@shared/schemas/renderer-health'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import './renderer-recovery.css'
 
-/** Completion feedback has no actions and never takes focus from the task. */
-export function RendererRecoveryStatus() {
+// A session belongs to this document. Remounts and locale changes must not
+// repeat feedback after the toast has expired or the user has closed it.
+const notifiedSessions = new WeakSet<RendererSession>()
+
+/** Mount the host before publishing recovery feedback to its toast manager. */
+export function RendererToaster() {
   const { t } = useTranslation()
-  const session = rendererSession()
-  const recovered = Boolean(
-    session?.recovered && !session.submissionNeedsReview
-  )
-  const [phase, setPhase] = useState<'visible' | 'leaving' | 'dismissed'>(
-    'visible'
-  )
-  const dismissed = phase === 'dismissed'
 
   useEffect(() => {
-    if (!recovered || dismissed) return
-    let leaveTimer: ReturnType<typeof setTimeout>
-    let dismissTimer: ReturnType<typeof setTimeout>
-    const schedule = () => {
-      clearTimeout(leaveTimer)
-      clearTimeout(dismissTimer)
-      if (document.hidden) return
-      leaveTimer = setTimeout(() => setPhase('leaving'), 3_000)
-      dismissTimer = setTimeout(() => setPhase('dismissed'), 3_200)
+    const session = rendererSession()
+    if (!session?.recovered || session.submissionNeedsReview) return
+    const notify = () => {
+      if (document.hidden || notifiedSessions.has(session)) return
+      toast.add({
+        title: t('rendererRecovery.restored'),
+        type: 'success',
+        priority: 'low',
+        timeout: 3_000,
+      })
+      notifiedSessions.add(session)
     }
-    schedule()
-    document.addEventListener('visibilitychange', schedule)
-    return () => {
-      clearTimeout(leaveTimer)
-      clearTimeout(dismissTimer)
-      document.removeEventListener('visibilitychange', schedule)
-    }
-  }, [recovered, dismissed])
+    notify()
+    document.addEventListener('visibilitychange', notify)
+    return () => document.removeEventListener('visibilitychange', notify)
+  }, [t])
 
-  if (!recovered || phase === 'dismissed') return null
-  return (
-    <div
-      role="status"
-      aria-hidden={phase === 'leaving' || undefined}
-      data-state={phase}
-      className="renderer-recovery-status pointer-events-none fixed start-1/2 top-13 z-50 flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-full border border-border/60 bg-popover/90 px-3.5 py-2 text-xs font-medium text-popover-foreground shadow-sm backdrop-blur-xl rtl:translate-x-1/2"
-    >
-      <CheckIcon aria-hidden="true" className="size-3.5 shrink-0" />
-      {t('rendererRecovery.restored')}
-    </div>
-  )
+  return <Toaster />
 }
 
 /** Submission uncertainty stays beside the form until explicitly dismissed. */
