@@ -210,6 +210,8 @@ export async function launchMotrix(
     path.join(opts.userDataDir, 'settings.json'),
     JSON.stringify({
       version: CURRENT_SETTINGS_VERSION,
+      // Isolated test windows must not import the user's real clipboard.
+      app: { autofillClipboardLinks: false },
       tracker: { autoSync: false },
       onboarding: {
         disclaimerAccepted: opts.disclaimerAccepted ?? true,

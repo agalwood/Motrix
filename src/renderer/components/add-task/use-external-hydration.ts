@@ -1,3 +1,4 @@
+import { registerRendererCapability } from '@renderer/lib/renderer-health'
 import { transport } from '@renderer/lib/transport'
 import { Events } from '@shared/protocol/events'
 import {
@@ -121,7 +122,10 @@ export function useExternalHydration(
     transport.on(Events.SetAddTaskMode, onSetMode)
     transport.on(Events.TorrentQueueSizeChanged, onTorrentQueueSizeChanged)
 
+    const dispose = registerRendererCapability('add-task-hydration')
+
     return () => {
+      dispose()
       transport.off(Events.MagnetFileSelection, onMagnet)
       transport.off(Events.MagnetFileSelectionSettled, onSettled)
       transport.off(Events.ProtocolTorrentFile, onProtocol)

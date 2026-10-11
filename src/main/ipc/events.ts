@@ -5,36 +5,11 @@ import type { AppNotification } from '@shared/types/notification'
 import type { WindowId } from '@shared/types/window'
 import type { WindowManager } from '../window/window-manager'
 
-function sendToWindowWhenReady(
-  windowManager: WindowManager,
-  id: WindowId,
-  channel: EventChannel,
-  args: unknown[]
-): void {
-  windowManager.show(id)
-  const win = windowManager.get(id)
-  if (!win || win.isDestroyed()) return
-
-  const send = () => {
-    setTimeout(() => {
-      if (!win.isDestroyed()) {
-        win.webContents.send(channel, ...args)
-      }
-    }, 100)
-  }
-
-  if (win.webContents.isLoading()) {
-    win.webContents.once('did-finish-load', send)
-    return
-  }
-
-  send()
-}
-
 export function setupEventForwarding(
   eventBus: EventBus,
   windowManager: WindowManager,
-  getHiddenNotificationKinds: () => readonly string[] = () => []
+  getHiddenNotificationKinds: () => readonly string[] = () => [],
+  deliver?: (id: WindowId, channel: EventChannel, payload: unknown) => void
 ): void {
   subscribeForwardableEvents(eventBus, (channel, args) => {
     // Keep the durable event available to the native OS bridge. Only the
@@ -53,7 +28,13 @@ export function setupEventForwarding(
   eventBus.on(
     Events.NavigateTo as Parameters<typeof eventBus.on>[0],
     (...args) => {
-      sendToWindowWhenReady(windowManager, 'main', Events.NavigateTo, args)
+      windowManager.show('main')
+      if (deliver) deliver('main', Events.NavigateTo, args[0])
+      else {
+        const win = windowManager.get('main')
+        if (win && !win.isDestroyed())
+          win.webContents.send(Events.NavigateTo, ...args)
+      }
     }
   )
 
@@ -61,12 +42,13 @@ export function setupEventForwarding(
   eventBus.on(
     Events.MagnetFileSelection as Parameters<typeof eventBus.on>[0],
     (...args) => {
-      sendToWindowWhenReady(
-        windowManager,
-        'add-task',
-        Events.MagnetFileSelection,
-        args
-      )
+      windowManager.show('add-task')
+      if (deliver) deliver('add-task', Events.MagnetFileSelection, args[0])
+      else {
+        const win = windowManager.get('add-task')
+        if (win && !win.isDestroyed())
+          win.webContents.send(Events.MagnetFileSelection, ...args)
+      }
     }
   )
 }

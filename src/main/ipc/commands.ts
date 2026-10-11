@@ -117,6 +117,7 @@ import { PluginLogVerboseRequestSchema } from '@shared/schemas/plugin-logs'
 import { checkPluginUpdatesPayloadSchema } from '@shared/schemas/plugin-update'
 import { REGISTRY_PLUGIN_ID_RE } from '@shared/schemas/registry'
 import { removeTaskPayloadSchema } from '@shared/schemas/remove-task'
+import { rendererSubmissionSchema } from '@shared/schemas/renderer-submission'
 import { showAddTaskWindowSchema } from '@shared/schemas/show-add-task-window'
 import {
   taskTrackerApplySchema,
@@ -160,6 +161,7 @@ import type { createProtocolManager } from '../platform/protocol-manager'
 import { resolveWindowsDefaultAppsSettingsUrl } from '../platform/windows-default-apps'
 import { installManagedFfmpeg } from '../plugin/verified-ffmpeg-electron'
 import type { createMainProxyApplier } from '../proxy/wiring'
+import type { createRendererRecoveryRuntime } from '../window/renderer-recovery-runtime'
 import type { WindowManager } from '../window/window-manager'
 import { createOpenTaskFileHandler } from './commands/open-task-file'
 import { createRevealInFolderHandler } from './commands/reveal-in-folder'
@@ -173,6 +175,7 @@ const cliInstallRequestSchema = z
   .strict()
 
 export interface CommandContext {
+  rendererRecovery?: ReturnType<typeof createRendererRecoveryRuntime>
   cliToolService: Pick<CliToolService, 'install'>
   supervisor: EngineSupervisor
   /** Session latch of the auto DNS fallback — reset when dnsMode changes. */
@@ -260,18 +263,22 @@ export interface CommandContext {
 }
 
 function sendToAddTaskWindow(
-  windowManager: WindowManager,
+  ctx: CommandContext,
   channel: string,
   ...args: unknown[]
 ): void {
-  windowManager.open('add-task')
-  const win = windowManager.get('add-task')
-  if (win && !win.isDestroyed()) {
-    // Delay to ensure window renderer has attached event listeners
-    setTimeout(() => {
-      win.webContents.send(channel, ...args)
-    }, 100)
-  }
+  ctx.windowManager.open('add-task')
+  if (
+    ctx.rendererRecovery?.intents.deliver(
+      'add-task',
+      channel,
+      undefined,
+      () => args[0]
+    )
+  )
+    return
+  const win = ctx.windowManager.get('add-task')
+  if (win && !win.isDestroyed()) win.webContents.send(channel, ...args)
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: sender is typed at registration
@@ -774,7 +781,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       name: string
     }) => {
       const meta = await torrentParser.parse(base64)
-      sendToAddTaskWindow(windowManager, Events.ProtocolTorrentFile, {
+      sendToAddTaskWindow(ctx, Events.ProtocolTorrentFile, {
         payload: { name, dataBase64: base64 },
         meta,
       })
@@ -1466,18 +1473,11 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
     [Commands.ShowAddTaskWindow]: async (rawPayload: unknown) => {
       const { prefill } = showAddTaskWindowSchema.parse(rawPayload ?? {})
-      const win = windowManager.open('add-task')
-      const showPayload = prefill ?? { mode: 'links' }
-      const sendShow = () => {
-        if (!win.isDestroyed()) {
-          win.webContents.send(Events.SetAddTaskMode, showPayload)
-        }
-      }
-      if (win.webContents.isLoading()) {
-        win.webContents.once('did-finish-load', sendShow)
-      } else {
-        sendShow()
-      }
+      sendToAddTaskWindow(
+        ctx,
+        Events.SetAddTaskMode,
+        prefill ?? { mode: 'links' }
+      )
       return { ok: true }
     },
 
@@ -1961,6 +1961,27 @@ export function registerCommandHandlers(ctx: CommandContext): () => void {
     selectionTimeout.start()
   }
 
+  if (ctx.rendererRecovery) {
+    const recovery = ctx.rendererRecovery
+    channels.push(Commands.ExecuteRendererSubmission)
+    registerTrustedIpcHandler(
+      Commands.ExecuteRendererSubmission,
+      (event, raw: unknown) => {
+        const request = rendererSubmissionSchema.parse(raw)
+        const id = recovery.supervisor.validate(
+          event.sender,
+          request.generation
+        )
+        const handler = handlers[request.channel]
+        if (!handler) throw new Error('Submission handler is unavailable')
+        return recovery.submissions.execute(id, request, () => {
+          recovery.intents.clear(id)
+          return invoke(() => handler(...request.args))
+        })
+      }
+    )
+  }
+
   for (const [channel, handler] of Object.entries(handlers)) {
     // Window-bound commands need event.sender — pass it as the first arg.
     if (
@@ -1972,12 +1993,16 @@ export function registerCommandHandlers(ctx: CommandContext): () => void {
       channel === Commands.ResizeWindow ||
       channel === Commands.UpdateMenuContext
     ) {
-      registerTrustedIpcHandler(channel, (event, ...args) =>
-        invoke(() =>
+      registerTrustedIpcHandler(channel, (event, ...args) => {
+        const leaveModal =
+          channel === Commands.PickSaveDir || channel === Commands.PickFile
+            ? ctx.rendererRecovery?.supervisor.enterModal()
+            : undefined
+        return invoke(() =>
           // biome-ignore lint/suspicious/noExplicitAny: sender forwarded explicitly
           (handler as any)(event.sender, ...args)
-        )
-      )
+        ).finally(() => leaveModal?.())
+      })
     } else {
       registerTrustedIpcHandler(channel, async (_event, ...args) =>
         invoke(() => handler(...args))

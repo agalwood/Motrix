@@ -20,6 +20,7 @@ import type { WindowManager } from '../window/window-manager'
 import type { WhenExpr } from './when'
 
 export interface CommandDeps {
+  recoverInterface?: () => void
   taskManager: TaskManager
   settingsManager: SettingsManager
   adapter: EngineAdapter

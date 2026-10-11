@@ -1,4 +1,11 @@
 export const Commands = {
+  ExecuteRendererSubmission: 'command:executeRendererSubmission',
+  AcknowledgeRendererIntent: 'command:acknowledgeRendererIntent',
+  ReportRendererSurface: 'command:reportRendererSurface',
+  AcknowledgeRendererProbe: 'command:acknowledgeRendererProbe',
+  ReportRendererFailure: 'command:reportRendererFailure',
+  RecoverCurrentRenderer: 'command:recoverCurrentRenderer',
+  OpenRendererDiagnostics: 'command:openRendererDiagnostics',
   GetMediaMergeState: 'command:getMediaMergeState',
   GetMediaMergeSelection: 'command:getMediaMergeSelection',
   StartMediaMerge: 'command:startMediaMerge',

@@ -3213,5 +3213,18 @@
       }
     },
     "importSelected": "Migrate"
+  },
+  "rendererRecovery": {
+    "title": "介面需要復原",
+    "description": "下載仍在背景繼續。未儲存的表單內容可能遺失。",
+    "recovering": "正在復原介面…",
+    "recover": "復原介面",
+    "diagnostics": "開啟診斷記錄",
+    "downloads": "開啟下載清單",
+    "failed": "暫時無法復原，請透過應用程式選單重試。",
+    "restored": "介面已恢復",
+    "wait": "繼續等待",
+    "routeTitle": "此頁面暫時無法顯示",
+    "submissionNotice": "上次提交可能已經完成，請先檢查下載清單，避免重複建立任務。"
   }
 }

@@ -103,6 +103,8 @@ for (const channel of BUFFERED_CHANNELS) {
       bucket = []
       replayBuffer.set(channel, bucket)
     }
+    // Transitional consumers are bounded even before their first subscription.
+    if (bucket.length >= 32) bucket.shift()
     bucket.push(args)
   }
   eagerListeners.set(channel, eager)

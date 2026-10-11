@@ -6,6 +6,7 @@
  * Using reverse-DNS style: motrix.<domain>.<verb>.
  */
 export const CommandIds = {
+  AppRecoverInterface: 'app.recoverInterface',
   // App
   AppShowAbout: 'motrix.app.showAbout',
   AppOpenPreferences: 'motrix.app.openPreferences',

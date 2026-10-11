@@ -3261,5 +3261,18 @@
       }
     },
     "importSelected": "Migrate"
+  },
+  "rendererRecovery": {
+    "title": "L’interface doit être restaurée",
+    "description": "Les téléchargements continuent en arrière-plan. Les modifications non enregistrées du formulaire peuvent être perdues.",
+    "recovering": "Restauration de l’interface…",
+    "recover": "Restaurer l’interface",
+    "diagnostics": "Ouvrir les journaux de diagnostic",
+    "downloads": "Ouvrir les téléchargements",
+    "failed": "La restauration est indisponible. Réessayez depuis le menu de l’application.",
+    "restored": "Interface rétablie",
+    "wait": "Continuer à attendre",
+    "routeTitle": "Impossible d’afficher cette page",
+    "submissionNotice": "L’envoi précédent a peut-être abouti. Vérifiez les téléchargements avant de recréer la même tâche."
   }
 }

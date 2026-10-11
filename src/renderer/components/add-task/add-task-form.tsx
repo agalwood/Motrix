@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { RendererSubmissionNotice } from '@renderer/components/renderer-recovery-notice'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -723,6 +724,7 @@ export function AddTaskForm({
               )}
               style={{ minWidth: '100%' }}
             >
+              <RendererSubmissionNotice className="mb-3 mt-1" />
               <TabsSection
                 onTorrentFilesLoaded={handleLocalTorrentFilesLoaded}
               />

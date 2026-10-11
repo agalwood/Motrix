@@ -1,0 +1,32 @@
+.renderer-recovery-status {
+  animation: renderer-recovery-appear 180ms ease-out;
+  transition: opacity 180ms ease-out;
+}
+
+.renderer-recovery-status[data-state="leaving"] {
+  opacity: 0;
+}
+
+@keyframes renderer-recovery-appear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .renderer-recovery-status {
+    animation: none;
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .renderer-recovery-status {
+    background: var(--popover);
+    border-color: var(--foreground);
+    backdrop-filter: none;
+  }
+}

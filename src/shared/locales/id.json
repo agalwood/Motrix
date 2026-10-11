@@ -3213,5 +3213,18 @@
       }
     },
     "importSelected": "Migrate"
+  },
+  "rendererRecovery": {
+    "title": "Antarmuka perlu dipulihkan",
+    "description": "Unduhan terus berjalan di latar belakang. Perubahan formulir yang belum disimpan mungkin hilang.",
+    "recovering": "Memulihkan antarmuka…",
+    "recover": "Pulihkan antarmuka",
+    "diagnostics": "Buka log diagnostik",
+    "downloads": "Buka unduhan",
+    "failed": "Pemulihan tidak tersedia. Coba lagi melalui menu aplikasi.",
+    "restored": "Antarmuka dipulihkan",
+    "wait": "Terus menunggu",
+    "routeTitle": "Halaman ini tidak dapat ditampilkan",
+    "submissionNotice": "Pengiriman sebelumnya mungkin telah selesai. Periksa unduhan sebelum membuat tugas yang sama lagi."
   }
 }

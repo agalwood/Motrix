@@ -1,5 +1,6 @@
+import { registerRendererCapability } from '@renderer/lib/renderer-health'
 import { transport } from '@renderer/lib/transport'
-import type { EventChannel } from '@shared/protocol/events'
+import { type EventChannel, Events } from '@shared/protocol/events'
 import { useEffect, useRef } from 'react'
 
 /** Subscribes to a motrix IPC event, auto-cleans up on unmount. */
@@ -15,6 +16,13 @@ export function useIpcEvent(
   useEffect(() => {
     const listener = (...args: unknown[]) => handlerRef.current(...args)
     transport.on(event, listener)
-    return () => transport.off(event, listener)
+    const dispose =
+      event === Events.NavigateTo
+        ? registerRendererCapability('navigation')
+        : undefined
+    return () => {
+      dispose?.()
+      transport.off(event, listener)
+    }
   }, [event])
 }

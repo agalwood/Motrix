@@ -3213,5 +3213,18 @@
       }
     },
     "importSelected": "迁移"
+  },
+  "rendererRecovery": {
+    "title": "界面需要恢复",
+    "description": "下载仍在后台继续。未保存的表单内容可能丢失。",
+    "recovering": "正在恢复界面…",
+    "recover": "恢复界面",
+    "diagnostics": "打开诊断日志",
+    "downloads": "打开下载列表",
+    "failed": "暂时无法恢复，请通过应用菜单重试。",
+    "restored": "界面已恢复",
+    "wait": "继续等待",
+    "routeTitle": "此页面暂时无法显示",
+    "submissionNotice": "上次提交可能已经完成，请先检查下载列表，避免重复创建任务。"
   }
 }

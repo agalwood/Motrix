@@ -3237,5 +3237,18 @@
       }
     },
     "importSelected": "Migrate"
+  },
+  "rendererRecovery": {
+    "title": "A felületet helyre kell állítani",
+    "description": "A letöltések a háttérben folytatódnak. Az űrlap nem mentett módosításai elveszhetnek.",
+    "recovering": "Felület helyreállítása…",
+    "recover": "Felület helyreállítása",
+    "diagnostics": "Diagnosztikai naplók megnyitása",
+    "downloads": "Letöltések megnyitása",
+    "failed": "A helyreállítás nem érhető el. Próbálja újra az alkalmazás menüjéből.",
+    "restored": "A felület helyreállt",
+    "wait": "Várakozás folytatása",
+    "routeTitle": "Az oldal nem jeleníthető meg",
+    "submissionNotice": "Az előző beküldés már befejeződhetett. Ugyanazon feladat újbóli létrehozása előtt ellenőrizze a letöltéseket."
   }
 }

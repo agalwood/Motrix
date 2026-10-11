@@ -4,6 +4,14 @@ import type { MenuRegistry } from '../menu-registry'
 
 export function contributeApplicationMenubar(menuReg: MenuRegistry): void {
   menuReg.appendItem({
+    id: MenuItemIds.AppRecoverInterface,
+    type: 'normal',
+    menuId: MenuIds.MenubarApp,
+    group: '2_prefs',
+    order: 40,
+    commandId: CommandIds.AppRecoverInterface,
+  })
+  menuReg.appendItem({
     id: MenuItemIds.AppAbout,
     type: 'normal',
     menuId: MenuIds.MenubarApp,

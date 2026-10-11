@@ -3261,5 +3261,18 @@
       }
     },
     "importSelected": "Migrate"
+  },
+  "rendererRecovery": {
+    "title": "Cal recuperar la interfície",
+    "description": "Les baixades continuen en segon pla. Es poden perdre els canvis no desats del formulari.",
+    "recovering": "S’està recuperant la interfície…",
+    "recover": "Recupera la interfície",
+    "diagnostics": "Obre els registres de diagnòstic",
+    "downloads": "Obre les baixades",
+    "failed": "La recuperació no està disponible. Torna-ho a provar des del menú de l’aplicació.",
+    "restored": "Interfície restaurada",
+    "wait": "Continua esperant",
+    "routeTitle": "No s’ha pogut mostrar aquesta pàgina",
+    "submissionNotice": "L’enviament anterior pot haver finalitzat. Comprova les baixades abans de tornar a crear la mateixa tasca."
   }
 }

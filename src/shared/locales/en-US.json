@@ -3237,5 +3237,18 @@
       }
     },
     "importSelected": "Migrate"
+  },
+  "rendererRecovery": {
+    "title": "The interface needs to recover",
+    "description": "Downloads continue in the background. Unsaved form changes may be lost.",
+    "recovering": "Recovering the interface…",
+    "recover": "Recover interface",
+    "diagnostics": "Open diagnostic logs",
+    "downloads": "Open downloads",
+    "failed": "Recovery is unavailable. Use the application menu to try again.",
+    "restored": "Interface restored",
+    "wait": "Keep waiting",
+    "routeTitle": "This page could not be displayed",
+    "submissionNotice": "The previous submission may have completed. Check Downloads before creating the same task again."
   }
 }

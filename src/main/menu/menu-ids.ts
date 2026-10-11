@@ -11,6 +11,8 @@ export const MenuIds = {
 export type MenuId = (typeof MenuIds)[keyof typeof MenuIds]
 
 export const MenuItemIds = {
+  AppRecoverInterface: 'app.recoverInterface',
+  TrayRecoverInterface: 'tray.recoverInterface',
   AppAbout: 'menubar.app.about',
   AppPreferences: 'menubar.app.preferences',
   AppCheckForUpdates: 'menubar.app.checkForUpdates',

@@ -1,4 +1,5 @@
 import { createHashRouter, Navigate, type RouteObject } from 'react-router'
+import { RootRouteFailure, RouteFailure } from './components/renderer-boundary'
 import { AppLayout } from './layouts/app-layout'
 import type { RouteHandle } from './router-types'
 import { DashboardPage } from './routes/dashboard/dashboard-page'
@@ -13,6 +14,7 @@ import { TrackersPage } from './routes/trackers/trackers-page'
 const routes = [
   {
     path: '/',
+    errorElement: <RootRouteFailure />,
     element: <AppLayout />,
     children: [
       {
@@ -46,5 +48,8 @@ const routes = [
     ],
   },
 ] satisfies RouteObject[]
+
+for (const route of routes[0].children)
+  Object.assign(route, { errorElement: <RouteFailure /> })
 
 export const router = createHashRouter(routes)
