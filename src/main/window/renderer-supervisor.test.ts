@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events'
+import { normalizeRendererRoute } from '@shared/lib/renderer-route'
 import { Events } from '@shared/protocol/events'
 import type { BrowserWindow } from 'electron'
 import { describe, expect, it, vi } from 'vitest'
@@ -27,6 +28,7 @@ function fixture(
     recreate: vi.fn(),
     report: vi.fn(),
     prompt: vi.fn(),
+    normalizeRoute: normalizeRendererRoute,
   }
   const supervisor = new RendererSupervisor(deps)
   supervisor.created('main', win, initiallyVisible)
@@ -70,6 +72,45 @@ function fixture(
 }
 
 describe('RendererSupervisor', () => {
+  it('keeps the recovery route current for same-document navigation without changing generation', () => {
+    const f = fixture()
+    f.ready()
+    const generation = f.session().generation
+    f.supervisor.reportSurface(f.win.webContents, {
+      generation,
+      surface: 'app',
+      capabilities: ['navigation'],
+      documentVisible: true,
+      route: '/settings/downloads',
+    })
+    for (const [fragment, expected] of [
+      ['#/settings', '/settings'],
+      ['#/trackers', '/trackers'],
+      [
+        '#/downloads/all?task=task-1&token=secret',
+        '/downloads/all?task=task-1',
+      ],
+      ['', '/'],
+    ]) {
+      f.wc.emit(
+        'did-navigate-in-page',
+        {},
+        `file:///app/index.html?w=main${fragment}`,
+        true
+      )
+      expect(f.session()).toMatchObject({ route: expected, generation })
+    }
+    f.wc.emit(
+      'did-navigate-in-page',
+      {},
+      'file:///app/index.html?w=main#/settings/advanced',
+      false
+    )
+    expect(f.session().route).toBe('/')
+    f.supervisor.dispose()
+    expect(f.wc.listenerCount('did-navigate-in-page')).toBe(0)
+  })
+
   it('waits for the mounted consumer and rejects stale generations and probes', () => {
     const f = fixture()
     f.supervisor.reportSurface(f.win.webContents, {

@@ -76,6 +76,80 @@ test('manual recovery keeps the application and engine alive and opens downloads
   ).toHaveCount(0)
 })
 
+test('native reload preserves the current page after leaving a settings dialog', async ({
+  electronApp,
+  mainWindow,
+}) => {
+  await waitForEngineReady(mainWindow)
+  await expect(
+    mainWindow.getByRole('link', { name: 'Settings', exact: true })
+  ).toBeVisible()
+  await mainWindow.evaluate(() => {
+    location.hash = '/settings/downloads'
+  })
+  await expect(mainWindow.getByRole('dialog')).toBeVisible()
+  await expect
+    .poll(() =>
+      mainWindow.evaluate(async (query) => {
+        const session = (await window.motrix.invoke(query)) as {
+          route?: string
+        }
+        return session.route
+      }, Queries.GetRendererSession)
+    )
+    .toBe('/settings/downloads')
+  await mainWindow.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await mainWindow.getByRole('link', { name: 'Trackers', exact: true }).click()
+  await expect(mainWindow).toHaveURL(/#\/trackers$/)
+  await expect(mainWindow.getByRole('dialog')).toHaveCount(0)
+  await expect
+    .poll(() =>
+      mainWindow.evaluate(async (query) => {
+        const session = (await window.motrix.invoke(query)) as {
+          route?: string
+        }
+        return session.route
+      }, Queries.GetRendererSession)
+    )
+    .toBe('/trackers')
+
+  // Even a late surface report must not override the URL on a normal reload.
+  await mainWindow.evaluate(
+    async ({ query, command }) => {
+      const session = (await window.motrix.invoke(query)) as {
+        generation: string
+      }
+      await window.motrix.invoke(command, {
+        generation: session.generation,
+        surface: 'app',
+        capabilities: ['navigation'],
+        documentVisible: true,
+        route: '/settings/downloads',
+      })
+    },
+    {
+      query: Queries.GetRendererSession,
+      command: Commands.ReportRendererSurface,
+    }
+  )
+
+  const navigation = mainWindow.waitForEvent('domcontentloaded')
+  await electronApp.evaluate(({ BrowserWindow }) => {
+    const main = BrowserWindow.getAllWindows().find((win) =>
+      win.webContents.getURL().includes('w=main')
+    )
+    if (!main) throw new Error('Main window missing')
+    // The native Reload menu role used by Cmd+R reloads this webContents.
+    main.webContents.reload()
+  })
+  await navigation
+  await expect(
+    mainWindow.getByRole('heading', { name: 'Trackers', exact: true })
+  ).toBeVisible()
+  await expect(mainWindow).toHaveURL(/#\/trackers$/)
+  await expect(mainWindow.getByRole('dialog')).toHaveCount(0)
+})
+
 test('confirmed renderer crash can recover through native UI without an IPC-capable page', async ({
   electronApp,
   mainWindow,

@@ -142,6 +142,17 @@ export class RendererSupervisor implements WindowLifecycle {
     ) => {
       if (mainFrame && !inPlace && this.current(slot)) this.beginDocument(slot)
     }
+    const onInPageNavigation = (
+      _event: unknown,
+      url: string,
+      mainFrame: boolean
+    ) => {
+      if (id !== 'main' || !mainFrame || !this.current(slot)) return
+      // React Router uses pushState/replaceState, which do not emit hashchange.
+      // Electron observes these committed navigations as well as back/forward.
+      const route = new URL(url).hash.slice(1) || '/'
+      slot.route = this.deps.normalizeRoute?.(route)
+    }
     const onGone = (
       _event: unknown,
       details: { reason: string; exitCode: number }
@@ -178,6 +189,7 @@ export class RendererSupervisor implements WindowLifecycle {
       this.clearProbe(slot)
     }
     wc.on('did-start-navigation', onNavigation)
+    wc.on('did-navigate-in-page', onInPageNavigation)
     wc.on('render-process-gone', onGone)
     wc.on('did-fail-load', onLoadFailure)
     wc.on('preload-error', onPreload)
@@ -190,6 +202,7 @@ export class RendererSupervisor implements WindowLifecycle {
     win.on('minimize', onHide)
     slot.cleanup.push(() => {
       wc.off('did-start-navigation', onNavigation)
+      wc.off('did-navigate-in-page', onInPageNavigation)
       wc.off('render-process-gone', onGone)
       wc.off('did-fail-load', onLoadFailure)
       wc.off('preload-error', onPreload)

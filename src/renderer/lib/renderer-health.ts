@@ -115,7 +115,9 @@ export async function startRendererHealth(): Promise<void> {
     }),
   ]).finally(() => clearTimeout(sessionDeadline))
   session = rendererSessionSchema.parse(raw)
-  if (session.route && session.windowId === 'main')
+  // A normal reload already carries the current route in its URL. Only a
+  // fresh window/load without a fragment needs the main-owned restore route.
+  if (session.route && session.windowId === 'main' && !location.hash)
     location.hash = session.route
   document.addEventListener('visibilitychange', report)
   window.addEventListener('hashchange', report)
