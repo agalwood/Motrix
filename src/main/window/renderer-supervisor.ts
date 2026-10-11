@@ -58,6 +58,7 @@ interface Slot {
   manual: boolean
   recovered: boolean
   promptShown: boolean
+  hangReported: boolean
   nativeFallback: boolean
   cleanup: (() => void)[]
 }
@@ -128,6 +129,7 @@ export class RendererSupervisor implements WindowLifecycle {
       manual: previous?.manual ?? false,
       recovered: previous?.recovered ?? false,
       promptShown: false,
+      hangReported: false,
       nativeFallback: false,
       route: previous?.route,
       cleanup: [],
@@ -253,7 +255,7 @@ export class RendererSupervisor implements WindowLifecycle {
     slot.documentVisible = true
     if (slot.phase === 'deferred') {
       this.scheduleRecovery(slot)
-    } else if (slot.phase === 'blocked') {
+    } else if (slot.phase === 'blocked' && slot.nativeFallback) {
       this.prompt(slot)
     } else if (slot.phase === 'ready' || slot.phase === 'suspect') {
       this.probe(slot)
@@ -306,10 +308,7 @@ export class RendererSupervisor implements WindowLifecycle {
           )))
     ) {
       if (slot.phase === 'booting' || slot.phase === 'suspect') {
-        slot.phase = 'ready'
-        slot.stableSince = this.eligible(slot) ? this.now() : undefined
-        this.clearProbe(slot)
-        slot.nextProbe = this.now() + timing.probeInterval
+        this.markReady(slot)
       }
     } else if (report.surface === 'fatal-fallback') {
       this.block(slot, 'render-failed', false)
@@ -336,11 +335,10 @@ export class RendererSupervisor implements WindowLifecycle {
       report.rootPresent &&
       (report.surface === 'app' || report.surface === 'route-error')
     ) {
-      if (slot.phase === 'blocked') return
-      slot.phase = 'ready'
-      slot.stableSince ??= this.now()
-      this.clearProbe(slot)
-      slot.nextProbe = this.now() + timing.probeInterval
+      if (slot.phase !== 'ready' && slot.phase !== 'suspect') return
+      const changed = slot.phase !== 'ready'
+      this.markReady(slot)
+      if (changed) this.deps.capabilitiesChanged?.(id)
     } else if (report.surface === 'fatal-fallback') {
       this.block(slot, 'render-failed', false)
     } else if (slot.phase !== 'booting') {
@@ -477,8 +475,13 @@ export class RendererSupervisor implements WindowLifecycle {
         slot.phase === 'suspect' &&
         slot.misses >= 3 &&
         now - (slot.suspectSince ?? now) >= timing.suspect
-      )
+      ) {
+        if (!slot.hangReported) {
+          slot.hangReported = true
+          this.emit(slot, 'unresponsive')
+        }
         this.prompt(slot)
+      }
       if (
         (slot.phase === 'ready' || slot.phase === 'suspect') &&
         now >= slot.nextProbe
@@ -568,6 +571,7 @@ export class RendererSupervisor implements WindowLifecycle {
     slot.capabilities.clear()
     slot.documentVisible = true
     slot.promptShown = false
+    slot.hangReported = false
     slot.nativeFallback = false
     slot.stableSince = undefined
     slot.recoveryDue = undefined
@@ -580,18 +584,21 @@ export class RendererSupervisor implements WindowLifecycle {
     if (
       slot.phase === 'recovering' ||
       slot.phase === 'deferred' ||
-      slot.phase === 'blocked'
+      (slot.phase === 'blocked' && slot.nativeFallback)
     )
       return
     slot.incidentId = randomUUID()
     slot.reason = reason
+    slot.surface = 'missing'
     slot.capabilities.clear()
     slot.promptShown = false
     this.clearProbe(slot)
     this.deps.capabilitiesChanged?.(slot.id)
     const classification = classifyRendererExit(reason)
     if (classification === 'memory') this.memoryPressure = true
-    if (classification === 'block' || slot.manual) {
+    // A root failure remains manual even if its fallback renderer then exits.
+    // Its DOM controls are gone, so native feedback must take over.
+    if (slot.phase === 'blocked' || classification === 'block' || slot.manual) {
       this.block(slot, reason)
     } else if (!this.foreground(slot)) {
       slot.phase = 'deferred'
@@ -643,9 +650,31 @@ export class RendererSupervisor implements WindowLifecycle {
 
   private suspect(slot: Slot): void {
     if (slot.phase !== 'ready' && slot.phase !== 'suspect') return
+    if (slot.phase === 'ready') {
+      slot.incidentId = randomUUID()
+      slot.reason = 'unresponsive'
+      slot.promptShown = false
+      slot.hangReported = false
+    }
     slot.phase = 'suspect'
     slot.suspectSince ??= this.now()
     slot.stableSince = undefined
+  }
+
+  private markReady(slot: Slot): void {
+    if (slot.phase === 'suspect') {
+      // Waiting may let the same document recover. Retire that incident so a
+      // late dialog response cannot act on a subsequent failure.
+      slot.incidentId = randomUUID()
+      slot.reason = ''
+      slot.promptShown = false
+      slot.hangReported = false
+    }
+    slot.phase = 'ready'
+    if (this.eligible(slot)) slot.stableSince ??= this.now()
+    else slot.stableSince = undefined
+    this.clearProbe(slot)
+    slot.nextProbe = this.now() + timing.probeInterval
   }
 
   private clearProbe(slot: Slot): void {
@@ -656,14 +685,14 @@ export class RendererSupervisor implements WindowLifecycle {
 
   private block(slot: Slot, reason: string, native = true): void {
     if (!this.current(slot)) return
-    const alreadyBlocked = slot.phase === 'blocked'
+    const changed = slot.phase !== 'blocked' || slot.nativeFallback !== native
     slot.phase = 'blocked'
     slot.nativeFallback = native
     slot.reason = reason
     slot.recoveryDue = undefined
     slot.capabilities.clear()
     this.clearProbe(slot)
-    if (!alreadyBlocked) this.emit(slot, reason)
+    if (changed) this.emit(slot, reason)
     if (native) this.prompt(slot)
     this.deps.capabilitiesChanged?.(slot.id)
   }

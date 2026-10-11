@@ -150,7 +150,68 @@ test('native reload preserves the current page after leaving a settings dialog',
   await expect(mainWindow.getByRole('dialog')).toHaveCount(0)
 })
 
-test('confirmed renderer crash can recover through native UI without an IPC-capable page', async ({
+for (const surface of ['app', 'fatal-fallback'] as const) {
+  test(`a crashed ${surface} renderer recovers through native UI without an IPC-capable page`, async ({
+    electronApp,
+    mainWindow,
+  }) => {
+    await waitForEngineReady(mainWindow)
+    await expect(
+      mainWindow.getByRole('button', { name: 'New task' })
+    ).toBeVisible()
+    if (surface === 'fatal-fallback') {
+      await mainWindow.evaluate(
+        async ({ query, command }) => {
+          const session = (await window.motrix.invoke(query)) as {
+            generation: string
+          }
+          await window.motrix.invoke(command, {
+            generation: session.generation,
+            surface: 'fatal-fallback',
+            capabilities: [],
+            documentVisible: true,
+          })
+        },
+        {
+          query: Queries.GetRendererSession,
+          command: Commands.ReportRendererSurface,
+        }
+      )
+    }
+    const next = electronApp.waitForEvent('window', {
+      predicate: (candidate) => candidate !== mainWindow,
+    })
+    await electronApp.evaluate(({ BrowserWindow, dialog }) => {
+      dialog.showMessageBox = async () => ({
+        response: 1,
+        checkboxChecked: false,
+      })
+      const main = BrowserWindow.getAllWindows().find((win) =>
+        win.webContents.getURL().includes('w=main')
+      )
+      if (!main) throw new Error('Main window missing')
+      main.webContents.forcefullyCrashRenderer()
+    })
+    await next
+    await expect
+      .poll(() =>
+        electronApp
+          .windows()
+          .some((page) => page !== mainWindow && page.url().includes('w=main'))
+      )
+      .toBe(true)
+    const restored = electronApp
+      .windows()
+      .find((page) => page !== mainWindow && page.url().includes('w=main'))
+    if (!restored) throw new Error('Main window missing')
+    await expect(
+      restored.getByRole('heading', { name: 'All Downloads' })
+    ).toBeVisible()
+    await waitForEngineReady(restored)
+  })
+}
+
+test('navigation queued during a transient hang reaches the same document after its probe reply', async ({
   electronApp,
   mainWindow,
 }) => {
@@ -158,36 +219,51 @@ test('confirmed renderer crash can recover through native UI without an IPC-capa
   await expect(
     mainWindow.getByRole('button', { name: 'New task' })
   ).toBeVisible()
-  const next = electronApp.waitForEvent('window', {
-    predicate: (candidate) => candidate !== mainWindow,
+  const before = await mainWindow.evaluate(
+    async ({ query, command }) => {
+      const session = (await window.motrix.invoke(query)) as {
+        generation: string
+      }
+      await window.motrix.invoke(command, {
+        generation: session.generation,
+        surface: 'app',
+        capabilities: ['navigation'],
+        documentVisible: true,
+      })
+      return session
+    },
+    {
+      query: Queries.GetRendererSession,
+      command: Commands.ReportRendererSurface,
+    }
+  )
+  await electronApp.evaluate(
+    ({ BrowserWindow, app, ipcMain }, surfaceCommand) => {
+      const main = BrowserWindow.getAllWindows().find((win) =>
+        win.webContents.getURL().includes('w=main')
+      )
+      if (!main) throw new Error('Main window missing')
+      // Isolate the probe recovery path: a visibility/capability surface report
+      // would otherwise heal the suspect phase and mask a missing probe flush.
+      ipcMain.removeHandler(surfaceCommand)
+      ipcMain.handle(surfaceCommand, () => {})
+      // Queue navigation before the main-world probe can reply.
+      main.webContents.emit('unresponsive')
+      app.emit(
+        'open-url',
+        { preventDefault() {} },
+        'motrix://plugins/motrix.review'
+      )
+    },
+    Commands.ReportRendererSurface
+  )
+  await expect(mainWindow).toHaveURL(/#\/plugins\/motrix\.review$/, {
+    timeout: 20_000,
   })
-  await electronApp.evaluate(({ BrowserWindow, dialog }) => {
-    dialog.showMessageBox = async () => ({
-      response: 1,
-      checkboxChecked: false,
-    })
-    const main = BrowserWindow.getAllWindows().find((win) =>
-      win.webContents.getURL().includes('w=main')
-    )
-    if (!main) throw new Error('Main window missing')
-    main.webContents.forcefullyCrashRenderer()
-  })
-  await next
-  await expect
-    .poll(() =>
-      electronApp
-        .windows()
-        .some((page) => page !== mainWindow && page.url().includes('w=main'))
-    )
-    .toBe(true)
-  const restored = electronApp
-    .windows()
-    .find((page) => page !== mainWindow && page.url().includes('w=main'))
-  if (!restored) throw new Error('Main window missing')
-  await expect(
-    restored.getByRole('heading', { name: 'All Downloads' })
-  ).toBeVisible()
-  await waitForEngineReady(restored)
+  const after = await mainWindow.evaluate(async (query) => {
+    return window.motrix.invoke(query) as Promise<{ generation: string }>
+  }, Queries.GetRendererSession)
+  expect(after.generation).toBe(before.generation)
 })
 
 test('recovering onboarding preserves the legal gate and does not quit', async ({

@@ -24,6 +24,7 @@ import type { WindowManager } from './window-manager'
 export function createRendererRecoveryRuntime(deps: {
   windows(): WindowManager
   logDirectory: string
+  isMagnetSelectionPending(taskId: string): boolean
 }) {
   const submissions = new RendererSubmissions()
   const diagnostics = new RendererDiagnostics(deps.logDirectory)
@@ -91,6 +92,7 @@ export function createRendererRecoveryRuntime(deps: {
     window: (id) => deps.windows().get(id),
     session: (sender) => supervisor.session(sender),
     ready: (id, capability) => supervisor.hasCapability(id, capability),
+    isMagnetSelectionPending: deps.isMagnetSelectionPending,
   })
   const handlers = {
     [Queries.GetRendererSession]: (event: Electron.IpcMainInvokeEvent) => ({

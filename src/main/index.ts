@@ -1679,6 +1679,8 @@ async function initializeMainProcess(): Promise<void> {
   rendererRecovery = createRendererRecoveryRuntime({
     windows: () => windowManager,
     logDirectory: logDir,
+    isMagnetSelectionPending: (taskId) =>
+      taskManager.getById(taskId)?.status === TaskStatus.MetadataReady,
   })
   windowManager = new WindowManager({
     lifecycle: rendererRecovery.supervisor,
@@ -1734,9 +1736,7 @@ async function initializeMainProcess(): Promise<void> {
     eventBus,
     windowManager,
     () => getHiddenNotificationKinds(settingsManager.getApp()),
-    (id, channel, payload) => {
-      rendererRecovery?.intents.deliver(id, channel, payload, () => payload)
-    }
+    rendererRecovery.intents
   )
 
   // Subscribe before notification-center replay. Resolve task paths on click

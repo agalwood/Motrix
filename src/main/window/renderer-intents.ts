@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { Events } from '@shared/protocol/events'
+import { magnetFileSelectionPayloadSchema } from '@shared/schemas/add-task'
 import type { RendererCapability } from '@shared/schemas/renderer-health'
 import {
   type RendererIntentChannel,
@@ -13,12 +14,18 @@ interface Intent {
   channel: RendererIntentChannel
   payload: () => unknown
   generation?: string
+  magnetTaskId?: string
 }
 interface IntentDeps {
   window(id: WindowId): BrowserWindow | null
   session(sender: WebContents): { generation: string }
   ready(id: WindowId, capability: RendererCapability): boolean
+  isMagnetSelectionPending(taskId: string): boolean
 }
+
+const magnetSelectionIdentitySchema = magnetFileSelectionPayloadSchema.pick({
+  taskId: true,
+})
 
 /** Coalesces navigation and retains the latest add-task descriptor across documents. */
 export class RendererIntents {
@@ -33,6 +40,13 @@ export class RendererIntents {
   ): boolean {
     const parsed = rendererIntentChannelSchema.safeParse(channel)
     if (!parsed.success) return false
+    let magnetTaskId: string | undefined
+    if (channel === Events.MagnetFileSelection) {
+      const selection = magnetSelectionIdentitySchema.safeParse(payload)
+      if (!selection.success) return true
+      magnetTaskId = selection.data.taskId
+      if (!this.deps.isMagnetSelectionPending(magnetTaskId)) return true
+    }
     // Only bounded URL/form descriptors may be copied into the queue.
     if (
       !resolve &&
@@ -56,6 +70,7 @@ export class RendererIntents {
       id: randomUUID(),
       channel: parsed.data,
       payload: resolve ?? (() => payload),
+      magnetTaskId,
     })
     this.flush(id)
     return true
@@ -67,7 +82,17 @@ export class RendererIntents {
     const capability = id === 'main' ? 'navigation' : 'add-task-hydration'
     if (!this.deps.ready(id, capability)) return
     const { generation } = this.deps.session(win.webContents)
-    for (const intent of this.pending.get(id)?.values() ?? []) {
+    const bucket = this.pending.get(id)
+    for (const [key, intent] of bucket ?? []) {
+      // Background timeout, another client or removal can settle the task
+      // without a live renderer to receive the corresponding event.
+      if (
+        intent.magnetTaskId &&
+        !this.deps.isMagnetSelectionPending(intent.magnetTaskId)
+      ) {
+        bucket?.delete(key)
+        continue
+      }
       if (intent.generation === generation) continue
       const payload = intent.payload()
       if (payload === undefined) continue
@@ -99,5 +124,10 @@ export class RendererIntents {
 
   clear(id: WindowId): void {
     this.pending.delete(id)
+  }
+
+  settleMagnetSelection(taskId: string): void {
+    const bucket = this.pending.get('add-task')
+    if (bucket?.get('form')?.magnetTaskId === taskId) bucket.delete('form')
   }
 }

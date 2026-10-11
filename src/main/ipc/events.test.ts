@@ -150,7 +150,10 @@ describe('setupEventForwarding', () => {
       const mainWin = createFakeWindow(false, true)
       const wm = createWindowManager(mainWin)
       const deliver = vi.fn()
-      setupEventForwarding(eventBus, wm, () => [], deliver)
+      setupEventForwarding(eventBus, wm, () => [], {
+        deliver,
+        settleMagnetSelection: vi.fn(),
+      })
       eventBus.emit(Events.NavigateTo, '/downloads/all')
       expect(deliver).toHaveBeenCalledWith(
         'main',
@@ -188,18 +191,17 @@ describe('setupEventForwarding', () => {
       const eventBus = new EventBus()
       const win = createFakeWindow(false, true)
       const deliver = vi.fn()
-      setupEventForwarding(
-        eventBus,
-        createWindowManager(null, win),
-        () => [],
-        deliver
-      )
+      setupEventForwarding(eventBus, createWindowManager(null, win), () => [], {
+        deliver,
+        settleMagnetSelection: vi.fn(),
+      })
       const payload = { magnetUri: 'magnet:?xt=urn:btih:abc123' }
       eventBus.emit(Events.MagnetFileSelection, payload)
       expect(deliver).toHaveBeenCalledWith(
         'add-task',
         Events.MagnetFileSelection,
-        payload
+        payload,
+        expect.any(Function)
       )
       expect(win.webContents.send).not.toHaveBeenCalled()
     })
