@@ -206,6 +206,59 @@ describe('setupLauncher', () => {
       expect(callbacks.onShowWindow).toHaveBeenCalledTimes(2)
     })
 
+    it.each([false, true])(
+      'detects login metadata on cold start: %s',
+      (openedAtLogin) => {
+        if (openedAtLogin) process.argv.push('--opened-at-login=1')
+        expect(setupLauncher(callbacks).wasOpenedAtLogin).toBe(openedAtLogin)
+      }
+    )
+
+    it.each([false, true])(
+      'keeps repeated login launches in the background when window readiness is %s',
+      (ready) => {
+        process.argv.push('--opened-at-login=1')
+        const handle = setupLauncher(callbacks)
+        if (ready) handle.markWindowReady()
+
+        emitSecondInstance(['Motrix.exe', '--opened-at-login=1'])
+        emitSecondInstance(['Motrix.exe', '--opened-at-login=1'])
+        handle.markWindowReady()
+        handle.flushDeferred()
+        expect(callbacks.onShowWindow).not.toHaveBeenCalled()
+
+        // A later desktop shortcut still represents an explicit show request.
+        emitSecondInstance()
+        expect(callbacks.onShowWindow).toHaveBeenCalledOnce()
+      }
+    )
+
+    it('preserves pending manual activation across a login launch', () => {
+      const handle = setupLauncher(callbacks)
+      emitSecondInstance()
+      emitSecondInstance(['Motrix.exe', '--opened-at-login=1'])
+      handle.markWindowReady()
+      expect(callbacks.onShowWindow).toHaveBeenCalledOnce()
+    })
+
+    it.each(['magnet:?xt=urn:btih:pending', 'C:/downloads/test.torrent'])(
+      'preserves download ingress on a login launch: %s',
+      (input) => {
+        const handle = setupLauncher(callbacks)
+        emitSecondInstance(['Motrix.exe', '--opened-at-login=1', input])
+        handle.markWindowReady()
+        expect(callbacks.onShowWindow).not.toHaveBeenCalled()
+        expect(callbacks.onProtocolUrl).not.toHaveBeenCalled()
+        expect(callbacks.onTorrentFile).not.toHaveBeenCalled()
+
+        handle.flushDeferred()
+        const callback = input.startsWith('magnet:')
+          ? callbacks.onProtocolUrl
+          : callbacks.onTorrentFile
+        expect(callback).toHaveBeenCalledExactlyOnceWith(input)
+      }
+    )
+
     it('can reopen onboarding while download ingress remains deferred', () => {
       const handle = setupLauncher(callbacks)
       handle.markWindowReady()
