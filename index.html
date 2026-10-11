@@ -4,8 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="color-scheme" content="light dark" />
     <script>
-      if (new URLSearchParams(location.search).get("w") === "add-task") {
-        document.documentElement.classList.add("window-add-task");
+      const windowId = new URLSearchParams(location.search).get("w") ?? "main";
+      if (windowId === "main") {
+        document.documentElement.classList.add("window-main");
       }
     </script>
     <style id="motrix-theme-bootstrap">
@@ -28,13 +29,13 @@
       #renderer-boot {
         position: fixed;
         inset: 0;
-        display: grid;
+        display: none;
         place-content: center;
         pointer-events: none;
       }
 
-      .window-add-task #renderer-boot {
-        display: none;
+      .window-main #renderer-boot {
+        display: grid;
       }
 
       #renderer-boot::before {
