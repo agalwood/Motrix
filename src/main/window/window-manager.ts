@@ -16,13 +16,20 @@ import {
 } from './renderer-url-policy'
 import type { WindowId } from './window-configs'
 import { WINDOW_CONFIGS } from './window-configs'
+import type { WindowLifecycle, WindowLifecycleReason } from './window-lifecycle'
 
 const log = getLogger('window')
 
 export interface WindowManagerDeps {
   settingsManager: SettingsManager
   preloadPath: string
-  loadUrl: (win: BrowserWindow, route: string) => void
+  loadUrl: (win: BrowserWindow, route: string) => Promise<void> | void
+  lifecycle?: WindowLifecycle
+  onUserDismiss?: (id: WindowId) => void
+  canPrewarm?: () => boolean
+  deliverAddTask?: (
+    options: AddTaskUrlParams | { mode?: 'links' | 'torrent' }
+  ) => void
   liquidGlass?: LiquidGlassController
   /**
    * Platform for window chrome decisions; defaults to process.platform.
@@ -51,6 +58,7 @@ export class WindowManager {
   private windows = new Map<WindowId, BrowserWindow | null>()
   private deps: WindowManagerDeps
   private willQuit = false
+  private loadRevisions = new WeakMap<BrowserWindow, number>()
   private pendingMaximize = new WeakSet<BrowserWindow>()
   private boundsTimers = new Map<WindowId, ReturnType<typeof setTimeout>>()
   private rendererUrlPolicy: RendererUrlPolicy
@@ -86,6 +94,7 @@ export class WindowManager {
 
   precreate(id: WindowId): void {
     id = this.resolveOpenTarget(id)
+    if (id === 'add-task' && !this.shouldPrewarmAddTask()) return
     const existing = this.windows.get(id)
     if (existing && !existing.isDestroyed()) return
 
@@ -129,11 +138,7 @@ export class WindowManager {
     this.focusWindow(id, win)
 
     if (options && id === 'add-task') {
-      setTimeout(() => {
-        if (!win.isDestroyed()) {
-          win.webContents.send(Events.SetAddTaskMode, options)
-        }
-      }, 100)
+      this.deps.deliverAddTask?.(options)
     }
   }
 
@@ -160,6 +165,7 @@ export class WindowManager {
   }
 
   close(id: WindowId): void {
+    this.notifyDismissed(id)
     const win = this.windows.get(id)
     if (!win || win.isDestroyed()) return
 
@@ -169,12 +175,13 @@ export class WindowManager {
       this.saveBounds(id)
       win.hide()
     } else {
-      this.release(id)
+      this.release(id, 'user-dismiss')
     }
     this.restoreDockAfterDismiss(id)
   }
 
-  release(id: WindowId): void {
+  release(id: WindowId, reason: WindowLifecycleReason = 'retention'): void {
+    this.deps.lifecycle?.released(id, reason)
     const win = this.windows.get(id)
     if (!win || win.isDestroyed()) return
 
@@ -190,6 +197,7 @@ export class WindowManager {
     this.close(id)
     const config = WINDOW_CONFIGS[id]
     if (
+      !this.willQuit &&
       config.closeBehavior === 'destroy' &&
       (id !== 'add-task' || this.shouldPrewarmAddTask())
     ) {
@@ -212,19 +220,39 @@ export class WindowManager {
     }
   }
 
-  recreate(id: WindowId): BrowserWindow {
+  recreate(
+    id: WindowId,
+    reason: WindowLifecycleReason = 'configuration'
+  ): BrowserWindow {
     id = this.resolveOpenTarget(id)
     const existing = this.get(id)
     const shouldShow = existing?.isVisible() ?? true
+    const bounds = existing?.getNormalBounds()
+    const maximized = existing?.isMaximized() ?? false
+    const fullscreen = existing?.isFullScreen() ?? false
+    const minimized = existing?.isMinimized() ?? false
+    const inactive = reason === 'recovery' && !existing?.isFocused()
 
-    if (existing) {
-      this.release(id)
-    }
+    if (existing) this.release(id, reason)
 
-    const win = this.registerWindow(id, shouldShow)
+    const win = this.registerWindow(id, shouldShow && !minimized, inactive)
     this.setupBoundsTracking(id, win)
-    this.restoreBounds(id, win)
+    if (bounds) win.setBounds(bounds)
+    else this.restoreBounds(id, win)
+    if (maximized || fullscreen || minimized) {
+      win.once('ready-to-show', () => {
+        if (win.isDestroyed() || this.willQuit) return
+        if (maximized && shouldShow && !minimized) win.maximize()
+        if (fullscreen) win.setFullScreen(true)
+        if (minimized) win.minimize()
+      })
+    }
     return win
+  }
+
+  reload(id: WindowId): void {
+    const win = this.get(id)
+    if (win && !this.willQuit) this.loadRenderer(id, win)
   }
 
   get(id: WindowId): BrowserWindow | null {
@@ -274,15 +302,8 @@ export class WindowManager {
   }
 
   destroyAll(): void {
-    for (const [id, win] of this.windows.entries()) {
-      this.clearBoundsTimer(id)
-      if (win && !win.isDestroyed()) {
-        win.webContents.removeAllListeners()
-        win.removeAllListeners()
-        win.destroy()
-      }
-      this.windows.set(id, null)
-    }
+    this.willQuit = true
+    for (const id of this.windows.keys()) this.release(id, 'shutdown')
   }
 
   saveBounds(id: WindowId): void {
@@ -308,15 +329,20 @@ export class WindowManager {
     if (win.isMinimized()) win.restore()
     win.show()
     win.focus()
+    this.deps.lifecycle?.shown(id)
   }
 
   private resolveOpenTarget(id: WindowId): WindowId {
     return this.deps.resolveOpenTarget?.(id) ?? id
   }
 
-  private registerWindow(id: WindowId, show: boolean): BrowserWindow {
+  private registerWindow(
+    id: WindowId,
+    show: boolean,
+    inactive = false
+  ): BrowserWindow {
     const config = WINDOW_CONFIGS[id]
-    const win = this.createBrowserWindow(config, show)
+    const win = this.createBrowserWindow(config, show, inactive)
     const previewMacMenu =
       id === 'main' &&
       (this.deps.platform ?? process.platform) === 'darwin' &&
@@ -334,9 +360,14 @@ export class WindowManager {
       win.setWindowButtonVisibility(false)
     }
     this.setupWindowStateTracking(win)
-    this.deps.loadUrl(win, config.route)
+    this.deps.lifecycle?.created(id, win, show)
+    this.loadRenderer(id, win)
     this.setupCloseHandler(id, win)
     win.once('closed', () => {
+      this.deps.lifecycle?.released(
+        id,
+        this.willQuit ? 'shutdown' : 'user-dismiss'
+      )
       this.clearBoundsTimer(id)
       if (this.windows.get(id) === win) {
         this.windows.set(id, null)
@@ -344,6 +375,27 @@ export class WindowManager {
     })
 
     return win
+  }
+
+  private notifyDismissed(id: WindowId): void {
+    if (this.willQuit) return
+    this.deps.lifecycle?.dismissed(id)
+    this.deps.onUserDismiss?.(id)
+  }
+
+  private loadRenderer(id: WindowId, win: BrowserWindow): void {
+    const revision = (this.loadRevisions.get(win) ?? 0) + 1
+    this.loadRevisions.set(win, revision)
+    try {
+      const loading = this.deps.loadUrl(win, WINDOW_CONFIGS[id].route)
+      void Promise.resolve(loading).catch(() => {
+        if (this.get(id) === win && this.loadRevisions.get(win) === revision) {
+          this.deps.lifecycle?.loadFailed(id, win)
+        }
+      })
+    } catch {
+      this.deps.lifecycle?.loadFailed(id, win)
+    }
   }
 
   private clearBoundsTimer(id: WindowId): void {
@@ -362,7 +414,10 @@ export class WindowManager {
   }
 
   private shouldPrewarmAddTask(): boolean {
-    return this.deps.retentionPolicy?.prewarmAddTask() ?? true
+    return (
+      (this.deps.canPrewarm?.() ?? true) &&
+      (this.deps.retentionPolicy?.prewarmAddTask() ?? true)
+    )
   }
 
   private restoreDockAfterDismiss(id: WindowId): void {
@@ -381,7 +436,8 @@ export class WindowManager {
 
   private createBrowserWindow(
     config: (typeof WINDOW_CONFIGS)[WindowId],
-    show: boolean
+    show: boolean,
+    inactive = false
   ): BrowserWindow {
     const platform = this.deps.platform ?? process.platform
     const liquidGlass =
@@ -447,14 +503,14 @@ export class WindowManager {
 
     if (show) {
       win.once('ready-to-show', () => {
-        if (win.isDestroyed()) return
+        if (win.isDestroyed() || this.willQuit) return
         // Cold-start race: main + add-task can both have pending
         // `ready-to-show` events when the app launches via magnet/
         // torrent. Whichever finishes loading last would otherwise
         // steal focus. If the user has since asked for a different
         // window to be in front, show this one in the background.
         const front = this.lastFocusRequested
-        if (front !== null && front !== config.id) {
+        if (inactive || (front !== null && front !== config.id)) {
           win.showInactive()
         } else {
           win.show()
@@ -517,6 +573,7 @@ export class WindowManager {
     const config = WINDOW_CONFIGS[id]
 
     win.on('close', (event) => {
+      if (!this.willQuit) this.notifyDismissed(id)
       if (config.closeBehavior === 'hide' && !this.willQuit) {
         this.saveBounds(id)
         if (this.shouldReleaseOnDismiss(id)) {

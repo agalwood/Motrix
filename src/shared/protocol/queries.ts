@@ -1,4 +1,5 @@
 export const Queries = {
+  GetRendererSession: 'query:getRendererSession',
   GetLegacyImportNavigation: 'query:getLegacyImportNavigation',
   GetLegacyBtActivationAvailability: 'query:getLegacyBtActivationAvailability',
   DiscoverLegacyImport: 'query:discoverLegacyImport',

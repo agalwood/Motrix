@@ -3237,5 +3237,18 @@
       }
     },
     "importSelected": "Migrate"
+  },
+  "rendererRecovery": {
+    "title": "Die Oberfläche muss wiederhergestellt werden",
+    "description": "Downloads laufen im Hintergrund weiter. Nicht gespeicherte Formulareingaben können verloren gehen.",
+    "recovering": "Oberfläche wird wiederhergestellt…",
+    "recover": "Oberfläche wiederherstellen",
+    "diagnostics": "Diagnoseprotokolle öffnen",
+    "downloads": "Downloads öffnen",
+    "failed": "Wiederherstellung derzeit nicht verfügbar. Versuche es über das Anwendungsmenü erneut.",
+    "restored": "Oberfläche wiederhergestellt",
+    "wait": "Weiter warten",
+    "routeTitle": "Diese Seite konnte nicht angezeigt werden",
+    "submissionNotice": "Der vorherige Auftrag wurde möglicherweise ausgeführt. Prüfe die Downloads, bevor du ihn erneut erstellst."
   }
 }

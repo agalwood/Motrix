@@ -3237,5 +3237,18 @@
       }
     },
     "importSelected": "Migrate"
+  },
+  "rendererRecovery": {
+    "title": "Arayüzün kurtarılması gerekiyor",
+    "description": "İndirmeler arka planda devam eder. Kaydedilmemiş form değişiklikleri kaybolabilir.",
+    "recovering": "Arayüz kurtarılıyor…",
+    "recover": "Arayüzü kurtar",
+    "diagnostics": "Tanılama günlüklerini aç",
+    "downloads": "İndirmeleri aç",
+    "failed": "Kurtarma kullanılamıyor. Uygulama menüsünden tekrar deneyin.",
+    "restored": "Arayüz geri yüklendi",
+    "wait": "Beklemeye devam et",
+    "routeTitle": "Bu sayfa görüntülenemedi",
+    "submissionNotice": "Önceki gönderim tamamlanmış olabilir. Aynı görevi yeniden oluşturmadan önce indirmeleri kontrol edin."
   }
 }

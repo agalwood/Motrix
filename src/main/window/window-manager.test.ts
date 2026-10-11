@@ -1058,28 +1058,56 @@ describe('WindowManager', () => {
     expect(mainWin.showInactive).not.toHaveBeenCalled()
   })
 
-  it('show with mode=torrent sends SetAddTaskMode IPC event to the window', () => {
-    vi.useFakeTimers()
-    const sm = createMockSettingsManager()
+  it('delivers add-task options through the readiness coordinator', () => {
+    const deliverAddTask = vi.fn()
     const wm = new WindowManager({
-      settingsManager: sm,
+      settingsManager: createMockSettingsManager(),
       preloadPath: '/fake/preload.cjs',
       loadUrl: vi.fn(),
+      deliverAddTask,
     })
-
-    wm.open('add-task')
-    const win = wm.get('add-task')
-    expect(win).not.toBeNull()
-    if (!win) return
-    const sendMock = win.webContents.send as ReturnType<typeof vi.fn>
-    sendMock.mockClear()
-
     wm.show('add-task', { mode: 'torrent' })
-    vi.advanceTimersByTime(100)
-
-    expect(sendMock).toHaveBeenCalledWith(Events.SetAddTaskMode, {
-      mode: 'torrent',
+    expect(deliverAddTask).toHaveBeenCalledWith({ mode: 'torrent' })
+  })
+  it('suppresses direct prewarming under memory pressure', () => {
+    const loadUrl = vi.fn()
+    const wm = new WindowManager({
+      settingsManager: createMockSettingsManager(),
+      preloadPath: '/fake/preload.cjs',
+      loadUrl,
+      canPrewarm: () => false,
     })
-    vi.useRealTimers()
+    wm.precreate('add-task')
+    expect(loadUrl).not.toHaveBeenCalled()
+    wm.show('add-task')
+    expect(loadUrl).toHaveBeenCalledOnce()
+  })
+
+  it('ignores rejected loads from superseded navigation but reports the current failure', async () => {
+    const failures: ((error: Error) => void)[] = []
+    const lifecycle = {
+      created: vi.fn(),
+      released: vi.fn(),
+      dismissed: vi.fn(),
+      shown: vi.fn(),
+      loadFailed: vi.fn(),
+    }
+    const wm = new WindowManager({
+      settingsManager: createMockSettingsManager(),
+      preloadPath: '/fake/preload.cjs',
+      lifecycle,
+      loadUrl: () =>
+        new Promise<void>((_resolve, reject) => {
+          failures.push(reject)
+        }),
+    })
+    const win = wm.open('main')
+    wm.reload('main')
+    failures[0](new Error('superseded'))
+    await Promise.resolve()
+    expect(lifecycle.loadFailed).not.toHaveBeenCalled()
+    failures[1](new Error('current load failed'))
+    await Promise.resolve()
+    expect(lifecycle.loadFailed).toHaveBeenCalledWith('main', win)
   })
 })

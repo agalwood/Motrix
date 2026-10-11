@@ -814,22 +814,21 @@ describe('buildCommandHandlers', () => {
     expect(ctx.eventBus.emit).not.toHaveBeenCalled()
   })
 
-  it('ShowAddTaskWindow opens the add-task window', async () => {
+  it('ShowAddTaskWindow delivers its default mode through the readiness coordinator', async () => {
     const ctx = fakeCtx()
-    const send = vi.fn()
-    ;(ctx.windowManager as any).open = vi.fn(() => ({
-      isDestroyed: vi.fn(() => false),
-      webContents: {
-        isLoading: vi.fn(() => false),
-        once: vi.fn(),
-        send,
-      },
-    }))
+    const deliver = vi.fn().mockReturnValue(true)
+    Object.assign(ctx, { rendererRecovery: { intents: { deliver } } })
     // @ts-expect-error partial ctx
     const handlers = buildCommandHandlers(ctx)
     const result = await handlers[Commands.ShowAddTaskWindow]?.()
     expect(ctx.windowManager.open).toHaveBeenCalledWith('add-task')
-    expect(send).toHaveBeenCalledWith(Events.SetAddTaskMode, { mode: 'links' })
+    expect(deliver).toHaveBeenCalledWith(
+      'add-task',
+      Events.SetAddTaskMode,
+      undefined,
+      expect.any(Function)
+    )
+    expect(deliver.mock.calls[0][3]()).toEqual({ mode: 'links' })
     expect(result).toEqual({ ok: true })
   })
 
@@ -1278,29 +1277,15 @@ describe('buildCommandHandlers', () => {
     }
   })
 
-  it('forwards add-task prefill only after the window finishes loading', async () => {
-    let didFinishLoad: (() => void) | undefined
-    const send = vi.fn()
+  it('retains add-task prefill for the mounted hydration consumer', async () => {
     const ctx = fakeCtx()
-    ctx.windowManager.open.mockReturnValue({
-      isDestroyed: vi.fn(() => false),
-      webContents: {
-        isLoading: vi.fn(() => true),
-        once: vi.fn((_event: string, handler: () => void) => {
-          didFinishLoad = handler
-        }),
-        send,
-      },
-    })
+    const deliver = vi.fn().mockReturnValue(true)
+    Object.assign(ctx, { rendererRecovery: { intents: { deliver } } })
     // @ts-expect-error partial ctx
     const handlers = buildCommandHandlers(ctx)
     const prefill = { url: 'https://example.com/file.zip' }
-
     await handlers[Commands.ShowAddTaskWindow]?.({ prefill })
-
-    expect(send).not.toHaveBeenCalled()
-    didFinishLoad?.()
-    expect(send).toHaveBeenCalledWith(Events.SetAddTaskMode, prefill)
+    expect(deliver.mock.calls[0][3]()).toEqual(prefill)
   })
 
   it.each([

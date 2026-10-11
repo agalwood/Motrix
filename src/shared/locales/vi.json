@@ -3213,5 +3213,18 @@
       }
     },
     "importSelected": "Migrate"
+  },
+  "rendererRecovery": {
+    "title": "Giao diện cần được khôi phục",
+    "description": "Các lượt tải vẫn tiếp tục trong nền. Những thay đổi chưa lưu trong biểu mẫu có thể bị mất.",
+    "recovering": "Đang khôi phục giao diện…",
+    "recover": "Khôi phục giao diện",
+    "diagnostics": "Mở nhật ký chẩn đoán",
+    "downloads": "Mở danh sách tải xuống",
+    "failed": "Chưa thể khôi phục. Hãy thử lại từ menu ứng dụng.",
+    "restored": "Đã khôi phục giao diện",
+    "wait": "Tiếp tục chờ",
+    "routeTitle": "Không thể hiển thị trang này",
+    "submissionNotice": "Lần gửi trước có thể đã hoàn tất. Kiểm tra danh sách tải xuống trước khi tạo lại cùng một tác vụ."
   }
 }

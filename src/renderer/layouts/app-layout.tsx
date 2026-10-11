@@ -1,7 +1,10 @@
 import { AddTaskDialogHost } from '@renderer/components/add-task-dialog/add-task-dialog-host'
 import { AppSidebar } from '@renderer/components/desktop-kit/sidebar/app-sidebar'
+import {
+  RendererSubmissionNotice,
+  RendererToaster,
+} from '@renderer/components/renderer-recovery-notice'
 import { SidebarInset, SidebarProvider } from '@renderer/components/ui/sidebar'
-import { Toaster } from '@renderer/components/ui/toast'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
 import { WebConnectionNotice } from '@renderer/components/web-connection-notice'
 import { AddTaskTriggerButton } from '@renderer/components/window-chrome/add-task-trigger-button'
@@ -68,7 +71,7 @@ export function AppLayout() {
       useDownloadsView.getState().setInspectorVisible(false)
       useDownloadsSelection.getState().clearSelection()
     }
-    navigate(path)
+    return navigate(path)
   })
 
   return (
@@ -117,6 +120,10 @@ export function AppLayout() {
                 'bg-transparent shadow-none md:peer-data-[variant=inset]:shadow-none'
             )}
           >
+            <RendererSubmissionNotice
+              className="mx-4 mb-2 mt-12"
+              onOpenDownloads={() => void navigate('/downloads/all')}
+            />
             <div className="min-h-0 flex-1 overflow-hidden">
               <div hidden={!migrationActive} className="h-full min-h-0">
                 <MigrationPage active={migrationActive} />
@@ -141,7 +148,7 @@ export function AppLayout() {
         <EngineDiagnosticsDialogHost />
         {__MOTRIX_TARGET__ === 'web' && <AddTaskDialogHost />}
       </PlatformServicesProvider>
-      <Toaster />
+      <RendererToaster />
     </TooltipProvider>
   )
 }

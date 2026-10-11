@@ -3237,5 +3237,18 @@
       }
     },
     "importSelected": "Migrate"
+  },
+  "rendererRecovery": {
+    "title": "De interface moet worden hersteld",
+    "description": "Downloads gaan op de achtergrond door. Niet-opgeslagen formulierwijzigingen kunnen verloren gaan.",
+    "recovering": "Interface herstellen…",
+    "recover": "Interface herstellen",
+    "diagnostics": "Diagnoselogboeken openen",
+    "downloads": "Downloads openen",
+    "failed": "Herstel is niet beschikbaar. Probeer het opnieuw via het toepassingsmenu.",
+    "restored": "Interface hersteld",
+    "wait": "Blijven wachten",
+    "routeTitle": "Deze pagina kon niet worden weergegeven",
+    "submissionNotice": "De vorige aanvraag is mogelijk voltooid. Controleer de downloads voordat je dezelfde taak opnieuw aanmaakt."
   }
 }

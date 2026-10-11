@@ -3261,5 +3261,18 @@
       }
     },
     "importSelected": "Migrate"
+  },
+  "rendererRecovery": {
+    "title": "L’interfaccia deve essere ripristinata",
+    "description": "I download continuano in background. Le modifiche non salvate del modulo potrebbero andare perse.",
+    "recovering": "Ripristino dell’interfaccia…",
+    "recover": "Ripristina interfaccia",
+    "diagnostics": "Apri i registri diagnostici",
+    "downloads": "Apri i download",
+    "failed": "Il ripristino non è disponibile. Riprova dal menu dell’applicazione.",
+    "restored": "Interfaccia ripristinata",
+    "wait": "Continua ad attendere",
+    "routeTitle": "Impossibile visualizzare questa pagina",
+    "submissionNotice": "L’invio precedente potrebbe essere stato completato. Controlla i download prima di creare di nuovo la stessa attività."
   }
 }

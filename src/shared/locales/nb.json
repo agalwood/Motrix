@@ -3237,5 +3237,18 @@
       }
     },
     "importSelected": "Migrate"
+  },
+  "rendererRecovery": {
+    "title": "Grensesnittet må gjenopprettes",
+    "description": "Nedlastinger fortsetter i bakgrunnen. Ulagrede endringer i skjemaet kan gå tapt.",
+    "recovering": "Gjenoppretter grensesnittet…",
+    "recover": "Gjenopprett grensesnitt",
+    "diagnostics": "Åpne diagnoselogger",
+    "downloads": "Åpne nedlastinger",
+    "failed": "Gjenoppretting er ikke tilgjengelig. Prøv igjen fra appmenyen.",
+    "restored": "Grensesnittet er gjenopprettet",
+    "wait": "Fortsett å vente",
+    "routeTitle": "Denne siden kunne ikke vises",
+    "submissionNotice": "Forrige innsending kan være fullført. Sjekk nedlastingene før du oppretter samme oppgave på nytt."
   }
 }

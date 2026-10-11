@@ -3261,5 +3261,18 @@
       }
     },
     "importSelected": "Migrate"
+  },
+  "rendererRecovery": {
+    "title": "A interface precisa ser recuperada",
+    "description": "Os downloads continuam em segundo plano. Alterações não salvas no formulário podem ser perdidas.",
+    "recovering": "Recuperando a interface…",
+    "recover": "Recuperar interface",
+    "diagnostics": "Abrir registros de diagnóstico",
+    "downloads": "Abrir downloads",
+    "failed": "A recuperação não está disponível. Tente novamente pelo menu do aplicativo.",
+    "restored": "Interface restaurada",
+    "wait": "Continuar aguardando",
+    "routeTitle": "Não foi possível exibir esta página",
+    "submissionNotice": "O envio anterior pode ter sido concluído. Verifique os downloads antes de criar a mesma tarefa novamente."
   }
 }

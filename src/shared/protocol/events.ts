@@ -10,6 +10,8 @@ export interface WindowMaximizedChangedPayload {
 }
 
 export const Events = {
+  RendererIntent: 'event:rendererIntent',
+  RendererHealthProbe: 'event:rendererHealthProbe',
   LegacyImportNavigationChanged: 'event:legacyImportNavigationChanged',
   CompletionShutdownChanged: 'event:completionShutdownChanged',
   TaskUpdated: 'event:taskUpdated',

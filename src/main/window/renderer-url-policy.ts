@@ -16,7 +16,7 @@ export interface RendererUrlPolicy {
   readonly devServerOrigin: string | null
   readonly isDevelopmentServer: boolean
   isTrustedUrl(rawUrl: string): boolean
-  loadWindow(win: BrowserWindow, route: string): void
+  loadWindow(win: BrowserWindow, route: string): Promise<void>
 }
 
 function parseDevServerOrigin(rawUrl: string): URL {
@@ -100,10 +100,9 @@ export function createRendererUrlPolicy(
     loadWindow(win, route) {
       const search = parseRendererRoute(route)
       if (devServerOrigin) {
-        void win.loadURL(`${devServerOrigin}/${search}`)
-        return
+        return win.loadURL(`${devServerOrigin}/${search}`)
       }
-      void win.loadFile(rendererFilePath, { search })
+      return win.loadFile(rendererFilePath, { search })
     },
   })
 }

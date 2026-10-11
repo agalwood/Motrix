@@ -145,31 +145,22 @@ describe('setupEventForwarding', () => {
       expect(mainWin.webContents.send).not.toHaveBeenCalled()
     })
 
-    it('waits for a newly-created main renderer before navigation', () => {
-      vi.useFakeTimers()
+    it('delegates cold navigation to the consumer readiness coordinator', () => {
       const eventBus = new EventBus()
       const mainWin = createFakeWindow(false, true)
       const wm = createWindowManager(mainWin)
-
-      setupEventForwarding(eventBus, wm)
-      eventBus.emit(
-        Events.NavigateTo as Parameters<typeof eventBus.emit>[0],
-        '/downloads'
-      )
-
-      expect(mainWin.webContents.send).not.toHaveBeenCalled()
-      const didFinishLoad = mainWin.webContents.once.mock.calls.find(
-        ([event]) => event === 'did-finish-load'
-      )?.[1] as (() => void) | undefined
-      expect(didFinishLoad).toBeInstanceOf(Function)
-
-      didFinishLoad?.()
-      vi.advanceTimersByTime(100)
-      expect(mainWin.webContents.send).toHaveBeenCalledExactlyOnceWith(
+      const deliver = vi.fn()
+      setupEventForwarding(eventBus, wm, () => [], {
+        deliver,
+        settleMagnetSelection: vi.fn(),
+      })
+      eventBus.emit(Events.NavigateTo, '/downloads/all')
+      expect(deliver).toHaveBeenCalledWith(
+        'main',
         Events.NavigateTo,
-        '/downloads'
+        '/downloads/all'
       )
-      vi.useRealTimers()
+      expect(mainWin.webContents.send).not.toHaveBeenCalled()
     })
   })
 
@@ -196,35 +187,23 @@ describe('setupEventForwarding', () => {
       vi.useRealTimers()
     })
 
-    it('waits for add-task did-finish-load before sending magnet selection', () => {
-      vi.useFakeTimers()
+    it('delegates magnet hydration to the consumer readiness coordinator', () => {
       const eventBus = new EventBus()
-      const addTaskWin = createFakeWindow(false, true)
-      const wm = createWindowManager(null, addTaskWin)
-
-      setupEventForwarding(eventBus, wm)
-      eventBus.emit(
-        Events.MagnetFileSelection as Parameters<typeof eventBus.emit>[0],
-        { magnetUri: 'magnet:?xt=urn:btih:abc123' }
-      )
-
-      expect(wm.show).toHaveBeenCalledWith('add-task')
-      expect(addTaskWin.webContents.send).not.toHaveBeenCalled()
-
-      const didFinishLoad = addTaskWin.webContents.once.mock.calls.find(
-        ([event]) => event === 'did-finish-load'
-      )?.[1] as (() => void) | undefined
-      expect(didFinishLoad).toBeInstanceOf(Function)
-
-      didFinishLoad?.()
-      vi.advanceTimersByTime(100)
-
-      expect(addTaskWin.webContents.send).toHaveBeenCalledWith(
+      const win = createFakeWindow(false, true)
+      const deliver = vi.fn()
+      setupEventForwarding(eventBus, createWindowManager(null, win), () => [], {
+        deliver,
+        settleMagnetSelection: vi.fn(),
+      })
+      const payload = { magnetUri: 'magnet:?xt=urn:btih:abc123' }
+      eventBus.emit(Events.MagnetFileSelection, payload)
+      expect(deliver).toHaveBeenCalledWith(
+        'add-task',
         Events.MagnetFileSelection,
-        { magnetUri: 'magnet:?xt=urn:btih:abc123' }
+        payload,
+        expect.any(Function)
       )
-
-      vi.useRealTimers()
+      expect(win.webContents.send).not.toHaveBeenCalled()
     })
   })
 })

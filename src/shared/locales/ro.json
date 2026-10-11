@@ -3261,5 +3261,18 @@
       }
     },
     "importSelected": "Migrate"
+  },
+  "rendererRecovery": {
+    "title": "Interfața trebuie recuperată",
+    "description": "Descărcările continuă în fundal. Modificările nesalvate ale formularului se pot pierde.",
+    "recovering": "Se recuperează interfața…",
+    "recover": "Recuperează interfața",
+    "diagnostics": "Deschide jurnalele de diagnostic",
+    "downloads": "Deschide descărcările",
+    "failed": "Recuperarea nu este disponibilă. Încearcă din nou din meniul aplicației.",
+    "restored": "Interfață restabilită",
+    "wait": "Continuă așteptarea",
+    "routeTitle": "Această pagină nu a putut fi afișată",
+    "submissionNotice": "Trimiterea anterioară poate fi finalizată. Verifică descărcările înainte de a crea din nou aceeași sarcină."
   }
 }

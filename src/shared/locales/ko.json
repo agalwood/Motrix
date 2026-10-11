@@ -3213,5 +3213,18 @@
       }
     },
     "importSelected": "Migrate"
+  },
+  "rendererRecovery": {
+    "title": "화면을 복구해야 합니다",
+    "description": "다운로드는 백그라운드에서 계속됩니다. 저장하지 않은 입력 내용은 손실될 수 있습니다.",
+    "recovering": "화면 복구 중…",
+    "recover": "화면 복구",
+    "diagnostics": "진단 로그 열기",
+    "downloads": "다운로드 열기",
+    "failed": "지금은 복구할 수 없습니다. 앱 메뉴에서 다시 시도하세요.",
+    "restored": "화면이 복원되었습니다",
+    "wait": "계속 기다리기",
+    "routeTitle": "이 페이지를 표시할 수 없습니다",
+    "submissionNotice": "이전 제출이 완료되었을 수 있습니다. 같은 작업을 다시 만들기 전에 다운로드를 확인하세요."
   }
 }

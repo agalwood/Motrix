@@ -3261,5 +3261,18 @@
       }
     },
     "importSelected": "Migrate"
+  },
+  "rendererRecovery": {
+    "title": "Es necesario recuperar la interfaz",
+    "description": "Las descargas continúan en segundo plano. Los cambios sin guardar del formulario pueden perderse.",
+    "recovering": "Recuperando la interfaz…",
+    "recover": "Recuperar interfaz",
+    "diagnostics": "Abrir registros de diagnóstico",
+    "downloads": "Abrir descargas",
+    "failed": "La recuperación no está disponible. Inténtalo de nuevo desde el menú de la aplicación.",
+    "restored": "Interfaz restaurada",
+    "wait": "Seguir esperando",
+    "routeTitle": "No se ha podido mostrar esta página",
+    "submissionNotice": "El envío anterior puede haberse completado. Revisa las descargas antes de volver a crear la misma tarea."
   }
 }

@@ -281,6 +281,17 @@ export function createProtocolManager(deps: ProtocolManagerDeps) {
       return result
     },
 
+    getCurrentTorrentSnapshot() {
+      const torrent = torrentQueue[0]
+      if (!torrent || !currentTorrentDelivered) return undefined
+      return {
+        payload: torrent.payload,
+        meta: torrent.meta,
+        queuePosition: totalSent,
+        queueTotal: getKnownQueueTotal(),
+      }
+    },
+
     nextTorrent() {
       torrentQueue.shift()
       currentTorrentDelivered = false
