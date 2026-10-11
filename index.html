@@ -3,6 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="color-scheme" content="light dark" />
+    <script>
+      if (new URLSearchParams(location.search).get("w") === "add-task") {
+        document.documentElement.classList.add("window-add-task");
+      }
+    </script>
     <style id="motrix-theme-bootstrap">
       html,
       body {
@@ -26,6 +31,10 @@
         display: grid;
         place-content: center;
         pointer-events: none;
+      }
+
+      .window-add-task #renderer-boot {
+        display: none;
       }
 
       #renderer-boot::before {
