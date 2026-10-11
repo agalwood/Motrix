@@ -1143,8 +1143,9 @@ describe('official optional plugin lifecycle', () => {
 
   it.each([
     ['2.0.0-beta.46', false],
-    ['2.0.0-beta.47', true],
+    ['2.0.0-beta.47', false],
     ['2.0.0-beta.48', true],
+    ['2.0.0-beta.49', true],
     ['2.0.0', true],
     ['3.0.0', false],
   ])(
@@ -1158,7 +1159,7 @@ describe('official optional plugin lifecycle', () => {
       const result = stage({
         id: 'motrix.media-merge',
         version: '0.1.0',
-        engines: { motrix: '>=2.0.0-beta.47 <3.0.0' },
+        engines: { motrix: '>=2.0.0-beta.48 <3.0.0' },
         permissions: ['ffmpeg'],
         optionalPermissions: [],
         categories: ['post-action'],
@@ -1168,7 +1169,7 @@ describe('official optional plugin lifecycle', () => {
         expect(staged.committed).toBe(false)
         expect(staged.consent.trustSurface.notVerified).toBe(false)
         expect(staged.consent.trustSurface.enginesMotrix).toBe(
-          '>=2.0.0-beta.47 <3.0.0'
+          '>=2.0.0-beta.48 <3.0.0'
         )
         expect(staged.consent.ffmpegRuntime).toMatchObject({
           available: true,
@@ -1176,7 +1177,7 @@ describe('official optional plugin lifecycle', () => {
         })
       } else {
         await expect(result).rejects.toMatchObject({
-          required: '>=2.0.0-beta.47 <3.0.0',
+          required: '>=2.0.0-beta.48 <3.0.0',
           hostVersion,
         })
         expect(registry.list()).toEqual([])

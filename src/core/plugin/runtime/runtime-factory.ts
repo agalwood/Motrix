@@ -24,6 +24,7 @@ import type { SessionManager } from '@core/session/session-manager'
 import type { DownloadTask } from '@shared/types/task'
 import type { TaskOccurrence } from '@shared/types/task-occurrence'
 import type Database from 'better-sqlite3'
+import { OperationService } from '../operations/operation-service'
 import {
   PluginHookRuntime,
   type PluginTerminalPersistenceInput,
@@ -50,6 +51,11 @@ export interface PluginRuntimeFactoryOptions {
     occurrence: TaskOccurrence,
     input: PluginTerminalPersistenceInput
   ): Promise<void>
+  getTask?(id: string): DownloadTask | undefined
+  authorizeOperationPath?(
+    candidate: string,
+    mode: 'input' | 'output'
+  ): Promise<void>
   pluginsDir: string
   auditLogPath: string
   finalizeSidecarPath: string
@@ -61,6 +67,7 @@ export interface PluginRuntimeFactoryOptions {
 }
 
 export interface PluginRuntimeAssembly {
+  operations: OperationService
   auditLog: HookAuditLog
   orchestrator: HookOrchestrator
   hooks: PluginHookRuntime
@@ -172,7 +179,19 @@ export async function createPluginRuntime(
   options.session.bindTerminalOccurrencePersistence((task, occurrence) =>
     hooks.persistTerminal(task, occurrence)
   )
+  const operations = new OperationService({
+    registry: options.registry,
+    host: options.host,
+    capabilities: options.capabilityHost,
+    binary: options.finalizeSidecarPath,
+    storage: path.join(path.dirname(options.auditLogPath), 'operations'),
+    getTask: options.getTask ?? (() => undefined),
+    authorizePath: options.authorizeOperationPath,
+  })
+  await operations.initialize()
+  options.host.bindOperationsShutdown(() => operations.shutdown())
   return {
+    operations,
     auditLog,
     orchestrator,
     hooks,

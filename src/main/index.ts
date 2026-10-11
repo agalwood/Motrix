@@ -2219,6 +2219,7 @@ async function initializeMainProcess(): Promise<void> {
     sessionManager.purgeEphemeralMediaRows()
   )
   const pluginRuntime = await createPluginRuntime({
+    getTask: (id) => taskManager.getById(id),
     activation: pluginActivation,
     registry: pluginRegistry,
     grants: pluginGrants,
@@ -2864,6 +2865,7 @@ async function initializeMainProcess(): Promise<void> {
 
   const disposeCommandHandlers = registerCommandHandlers({
     rendererRecovery,
+    operationService: pluginRuntime.operations,
     mediaMetaStore,
     cliToolService,
     supervisor,

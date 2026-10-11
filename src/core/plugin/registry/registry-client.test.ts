@@ -88,12 +88,14 @@ describe('RegistryClient', () => {
   it('annotates the media-merge beta requirement with the actual host version', async () => {
     const body = structuredClone(fixture)
     body.plugins[0].id = 'motrix.media-merge'
-    body.plugins[0].engines.motrix = '>=2.0.0-beta.47 <3.0.0'
+    body.plugins[0].engines.motrix = '>=2.0.0-beta.48 <3.0.0'
     const { impl } = makeFetch([{ status: 200, body }])
     const client = makeClient(impl)
     for (const [hostVersion, compatible] of [
       ['2.0.0-beta.46', false],
-      ['2.0.0-beta.47', true],
+      ['2.0.0-beta.47', false],
+      ['2.0.0-beta.48', true],
+      ['2.0.0-beta.49', true],
       ['2.0.0', true],
       ['3.0.0', false],
     ] as const) {

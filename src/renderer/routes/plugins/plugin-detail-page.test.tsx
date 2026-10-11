@@ -2,13 +2,18 @@ import '@test-utils/dom-animations'
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
-import { useMediaMergeSessions } from '@renderer/features/media-merge/media-merge-store'
+import {
+  operationSessionKey,
+  useOperationSessions,
+} from '@renderer/features/plugin-operations/operation-store'
 import {
   type PlatformServices,
   PlatformServicesProvider,
 } from '@renderer/platform/services'
 import { Commands } from '@shared/protocol/commands'
+import type { OperationDescriptor } from '@shared/schemas/plugin-operations'
 import type { PluginListDTO } from '@shared/types/plugin'
+import { textOperationManifest } from '@test-utils/plugin-operation-fixture'
 import { render, screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
@@ -162,7 +167,7 @@ describe('PluginDetailPage', () => {
     mockInvoke.mockReset().mockResolvedValue(undefined)
     mockDetail.manifest.contributes = {}
     mockDetail.manifest.permissions = ['storage']
-    useMediaMergeSessions.setState({ sessions: {} })
+    useOperationSessions.setState({ sessions: {} })
     mockSetRegistry.mockClear()
     mockSetUpdates.mockClear()
     toastAddMock.mockClear()
@@ -188,28 +193,42 @@ describe('PluginDetailPage', () => {
   })
 
   function enableOperations() {
-    mockDetail.manifest.permissions = ['ffmpeg']
-    mockDetail.manifest.contributes = {
-      commands: [{ id: 'test.demo.mergeStreams', public: true }],
-    }
+    const manifest = textOperationManifest('test.demo')
+    mockDetail.manifest.permissions = [...manifest.permissions]
+    mockDetail.manifest.contributes = manifest.contributes
+    const descriptor = {
+      pluginId: 'test.demo',
+      pluginName: 'Demo',
+      pluginVersion: '1.0.0',
+      descriptorRevision: 'a'.repeat(64),
+      definition: manifest.contributes.operations?.items[0],
+      argsSchema: manifest.contributes.commands?.[0].argsSchema,
+      resultSchema: manifest.contributes.commands?.[0].resultSchema,
+    } as OperationDescriptor
     mockInvoke.mockImplementation(async (command: string) =>
-      command === Commands.GetMediaMergeState
-        ? { providers: [{ pluginId: 'test.demo', title: 'Demo' }], job: null }
+      command === Commands.GetPluginOperations
+        ? { descriptors: [descriptor], jobs: [] }
         : undefined
     )
+    return descriptor
   }
-
   it.each(['electron', 'web'] as const)(
-    'opens the operation form by default on %s and retains the draft across tabs',
+    'retains a declarative operation draft across tabs on %s',
     async (kind) => {
-      enableOperations()
-      useMediaMergeSessions.getState().save('test.demo', {
-        values: {
-          pluginId: 'test.demo',
-          videoInput: '/video.mp4',
-          audioInput: '/audio.m4a',
-          output: '/merged.mp4',
+      const descriptor = enableOperations()
+      const request = {
+        pluginId: 'test.demo',
+        operationId: 'test.demo.deduplicate',
+      }
+      useOperationSessions.getState().save(operationSessionKey(request), {
+        draft: {
+          id: '00000000-0000-4000-8000-000000000001',
+          descriptor,
+          args: { ignoreCase: false },
+          files: {},
+          expiresAt: Date.now() + 60_000,
         },
+        values: { ignoreCase: true },
       })
       const user = userEvent.setup()
       renderAt('/plugins/test.demo', kind)
@@ -217,31 +236,12 @@ describe('PluginDetailPage', () => {
         'aria-selected',
         'true'
       )
-      await waitFor(() =>
-        expect(
-          screen.getByRole('button', { name: 'Browse Video file' })
-        ).toHaveAttribute('title', '/video.mp4')
-      )
       expect(
-        screen.queryByRole('button', { name: 'Merge audio and video' })
-      ).toBeNull()
+        await screen.findByRole('switch', { name: 'Ignore case' })
+      ).toBeChecked()
       await user.click(screen.getByRole('tab', { name: 'Overview' }))
-      await waitFor(() =>
-        expect(screen.getByTitle('/video.mp4')).not.toBeVisible()
-      )
-      await user.click(screen.getByRole('tab', { name: 'Access' }))
       await user.click(screen.getByRole('tab', { name: 'Operations' }))
-      expect(
-        screen.getByRole('button', { name: 'Browse Video file' })
-      ).toHaveAttribute('title', '/video.mp4')
-      expect(
-        screen.getByRole('button', { name: 'Browse Output file' })
-      ).toHaveAttribute('title', '/merged.mp4')
-      expect(
-        mockInvoke.mock.calls.filter(
-          ([channel]) => channel === Commands.GetMediaMergeState
-        )
-      ).toHaveLength(1)
+      expect(screen.getByRole('switch', { name: 'Ignore case' })).toBeChecked()
     }
   )
 
@@ -258,8 +258,7 @@ describe('PluginDetailPage', () => {
     enableOperations()
     mockStore.list[0].enabled = false
     renderAt('/plugins/test.demo')
-    await screen.findByText('Enable this plugin to merge files.')
-    expect(screen.getByRole('button', { name: 'Merge' })).toBeDisabled()
+    await screen.findByText('Enable this plugin to use its operations.')
   })
 
   it('does not offer an operations tab for unsupported or private commands', () => {

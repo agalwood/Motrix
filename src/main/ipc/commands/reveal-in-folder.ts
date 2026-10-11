@@ -1,10 +1,6 @@
 import { stat } from 'node:fs/promises'
 import path from 'node:path'
 import { AppError, ErrorCode } from '@shared/errors'
-import {
-  type MediaMergeJob,
-  mediaMergeJobIdSchema,
-} from '@shared/schemas/manual-media-merge'
 import type { DownloadTask } from '@shared/types/task'
 
 export interface RevealInFolderDeps {
@@ -15,12 +11,9 @@ export interface RevealInFolderDeps {
   getTask: (
     taskId: string
   ) => Pick<DownloadTask, 'diskPath' | 'finalPath'> | undefined
-  getMediaMergeJob?: (jobId: string) => MediaMergeJob | undefined
 }
 
-export type RevealInFolderPayload =
-  | { taskId: string }
-  | { mediaMergeJobId: string }
+export type RevealInFolderPayload = { taskId: string }
 
 function isWindowsDeviceNamespace(value: string): boolean {
   const normalized = value.replaceAll('\\', '/')
@@ -36,17 +29,6 @@ function resolveOutputPath(
   deps: RevealInFolderDeps,
   payload: RevealInFolderPayload
 ): string {
-  if (payload && 'mediaMergeJobId' in payload) {
-    const jobId = mediaMergeJobIdSchema.parse(payload.mediaMergeJobId)
-    const job = deps.getMediaMergeJob?.(jobId)
-    if (job?.status !== 'completed') {
-      throw new AppError(
-        ErrorCode.IpcInvalidPayload,
-        'revealInFolder: merge output is not ready'
-      )
-    }
-    return job.output
-  }
   const taskId = payload?.taskId
   if (typeof taskId !== 'string' || taskId.trim() === '') {
     throw new AppError(

@@ -1,3 +1,4 @@
+import type { OperationExecution } from '../operations/operation-files'
 // src/core/plugin/host/capability-bridge.ts
 // dispatch table for all Phase 1A capabilities; per-plugin scoping closures;
 // ffmpeg op handle map; hook ctx slot for Plan C.
@@ -16,7 +17,6 @@
 import { randomUUID } from 'node:crypto'
 import { Worker } from 'node:worker_threads'
 import type { SupportedLocale } from '@shared/constants/locales'
-import { MEDIA_MERGE_COMMAND } from '@shared/schemas/manual-media-merge'
 import {
   CapabilityCallMessageSchema,
   type CommandInvocationScopeV1,
@@ -367,14 +367,6 @@ export interface CapabilityBridgeOperationState {
 // CapabilityBridge
 // ---------------------------------------------------------------------------
 
-export interface ManualMergeContext {
-  videoInput: string
-  audioInput: string
-  output: string
-  signal: AbortSignal
-  onProgress: (progress: FfmpegProgress) => void
-}
-
 export class CapabilityBridge {
   private readonly worker: Worker
   private readonly log: ReturnType<CapabilityHost['createLog']>
@@ -412,14 +404,7 @@ export class CapabilityBridge {
 
   // ffmpeg running op registry
   private readonly ffmpegOps = new Map<string, FfmpegOpEntry>()
-  private manualMerge:
-    | {
-        context: ManualMergeContext
-        invocationId: number
-        handles: Set<FfmpegOpHandle<{ outputPath: string }>>
-        probes: Set<Promise<unknown>>
-      }
-    | undefined
+  private operation?: { context: OperationExecution; invocationId: number }
   private readonly httpCalls = new Map<number, HttpCallEntry>()
   private inFlightCapabilityCalls = 0
 
@@ -695,11 +680,11 @@ export class CapabilityBridge {
       return
     }
 
-    if (this.manualMerge && msg.capability === 'commands') {
+    if (this.operation && msg.capability === 'commands') {
       this.sendError(
         msg,
         'plugin.command.access_denied',
-        'Nested commands are unavailable during a manual merge'
+        'Nested commands are unavailable during an operation'
       )
       return
     }
@@ -737,6 +722,39 @@ export class CapabilityBridge {
     try {
       let result: unknown
       switch (msg.capability) {
+        case 'operation': {
+          const operation = this.operation
+          const scope = commandScopeFromMessage(msg)
+          if (
+            !operation ||
+            scope?.commandInvocationId !== operation.invocationId
+          )
+            throw new PluginCodedError(
+              'plugin.command.access_denied',
+              'Operation context is unavailable'
+            )
+          const permissions =
+            this.currentEffectivePermissions ??
+            this.opts.effectivePermissions ??
+            new Set(this.opts.manifest.permissions)
+          const required =
+            msg.method === 'probe'
+              ? ['ffmpeg', 'files.selected.read']
+              : msg.method === 'mergeStreams'
+                ? ['ffmpeg', 'files.selected.read', 'files.selected.write']
+                : msg.method === 'readText'
+                  ? ['files.selected.read']
+                  : msg.method === 'writeText'
+                    ? ['files.selected.write']
+                    : []
+          if (required.some((permission) => !permissions.has(permission)))
+            throw new PluginCodedError(
+              'plugin.capability.unavailable',
+              'Operation permission is unavailable'
+            )
+          result = await operation.context.dispatch(msg.method, msg.args)
+          break
+        }
         case 'log':
           result = await this.dispatchLog(msg)
           break
@@ -1337,8 +1355,6 @@ export class CapabilityBridge {
   private registerFfmpegHandle(
     handle: FfmpegOpHandle<{ outputPath: string }>
   ): string {
-    const manual = this.manualMerge
-    manual?.handles.add(handle)
     // The command may fail before guest code awaits the operation result.
     void handle.result.catch(() => undefined)
     const opId = handle.id
@@ -1358,7 +1374,6 @@ export class CapabilityBridge {
           if (e) {
             e.lastProgress = p
             e.lastEmitTs = Date.now()
-            manual?.context.onProgress(p)
           }
         }
       } catch {
@@ -1423,38 +1438,15 @@ export class CapabilityBridge {
   }
 
   private async dispatchFfmpeg(msg: BridgeCallMessage): Promise<unknown> {
+    if (
+      this.opts.manifest.contributes.operations &&
+      this.currentPhase === 'idle'
+    )
+      throw new PluginCodedError(
+        'plugin.command.access_denied',
+        'Selected-file access requires an operation context'
+      )
     const ffmpeg = this.opts.capabilityHost.ffmpeg
-    const manual = this.manualMerge
-    if (manual) {
-      const scope = commandScopeFromMessage(msg)
-      if (scope?.commandInvocationId !== manual.invocationId)
-        throw new PluginCodedError(
-          'plugin.command.access_denied',
-          'FFmpeg is reserved for the manual merge'
-        )
-      manual.context.signal.throwIfAborted()
-      if (
-        ![
-          'probe',
-          'mergeStreams',
-          'op.result.await',
-          'op.progress.pull',
-          'op.abort',
-        ].includes(msg.method)
-      )
-        throw new PluginCodedError(
-          'plugin.command.access_denied',
-          'Only probing and merging selected files is allowed'
-        )
-      if (
-        msg.method.startsWith('op.') &&
-        ![...manual.handles].some((handle) => handle.id === msg.args[0])
-      )
-        throw new PluginCodedError(
-          'plugin.command.access_denied',
-          'Operation is outside the manual merge'
-        )
-    }
 
     // ── op lifecycle methods ───────────────────────────────────────────────
     if (msg.method === 'op.result.await') {
@@ -1522,24 +1514,7 @@ export class CapabilityBridge {
       const [opts] = msg.args
       const parsed = ffmpegProbeSchema.parse(opts)
       // probe returns a Promise<MediaInfo> directly, not an op handle.
-      if (manual) {
-        if (
-          ![manual.context.videoInput, manual.context.audioInput].includes(
-            parsed.path
-          )
-        )
-          throw new PluginCodedError(
-            'plugin.command.access_denied',
-            'Input is outside the selected files'
-          )
-        const probe = ffmpeg.probe({
-          ...parsed,
-          signal: manual.context.signal,
-          localOnly: true,
-        })
-        manual.probes.add(probe)
-        return probe
-      }
+
       return ffmpeg.probe(parsed)
     }
 
@@ -1573,31 +1548,9 @@ export class CapabilityBridge {
     if (msg.method === 'mergeStreams') {
       const [opts] = msg.args
       const parsed = ffmpegMergeStreamsSchema.parse(opts)
-      if (manual) {
-        const inputs = new Set([
-          manual.context.videoInput,
-          manual.context.audioInput,
-        ])
-        if (
-          !inputs.has(parsed.videoInput) ||
-          !inputs.has(parsed.audioInput) ||
-          parsed.videoInput === parsed.audioInput ||
-          parsed.output !== manual.context.output ||
-          manual.handles.size > 0
-        )
-          throw new PluginCodedError(
-            'plugin.command.access_denied',
-            'Merge must use the selected files and reserved output once'
-          )
-      }
-      // The manual output is already reserved by the host. Do not yield
-      // between checking the single-launch limit and registering its handle.
-      if (!manual) parsed.output = await this.gateFfmpegOutput(parsed.output)
-      const handle = ffmpeg.mergeStreams({
-        ...parsed,
-        signal: manual?.context.signal,
-        localOnly: !!manual,
-      })
+
+      parsed.output = await this.gateFfmpegOutput(parsed.output)
+      const handle = ffmpeg.mergeStreams(parsed)
       const opId = this.registerFfmpegHandle(handle)
       return { opId }
     }
@@ -1891,43 +1844,38 @@ export class CapabilityBridge {
     )
   }
 
-  /** Run a user-selected merge in the existing FIFO lane with a bounded file scope. */
-  async callMediaMerge(
+  async callOperation(
     commandId: string,
     args: unknown,
-    context: ManualMergeContext
+    context: OperationExecution
   ): Promise<unknown> {
     context.signal.throwIfAborted()
-    if (this.manualMerge) throw new Error('A manual merge is already running')
+    if (this.operation) throw new Error('Operation already running')
     const invocationId = this.nextCommandCallId
-    const scope = {
-      context,
-      invocationId,
-      handles: new Set<FfmpegOpHandle<{ outputPath: string }>>(),
-      probes: new Set<Promise<unknown>>(),
-    }
-    this.manualMerge = scope
+    this.operation = { context, invocationId }
     const abort = () => {
+      context.seal()
+      this.worker.postMessage({
+        type: 'event',
+        event: 'operationAbort',
+        jobId: context.jobId,
+      } satisfies HostToWorker)
       const pending = this.pendingCommandCalls.get(invocationId)
       this.pendingCommandCalls.delete(invocationId)
-      pending?.reject(new Error('mediaMerge.cancelled'))
-      for (const handle of scope.handles) handle.abort()
+      pending?.reject(new Error('pluginOperations.cancelled'))
     }
     context.signal.addEventListener('abort', abort, { once: true })
     try {
       const result = await this.callPlugin(commandId, args, 60 * 60_000)
-      await Promise.all([...scope.handles].map((handle) => handle.result))
+      await context.drain()
       context.signal.throwIfAborted()
       return result
+    } catch (error) {
+      context.seal()
+      throw error
     } finally {
       context.signal.removeEventListener('abort', abort)
-      for (const handle of scope.handles) handle.abort()
-      await Promise.allSettled(
-        [...scope.handles].map((handle) => handle.result)
-      )
-      await Promise.allSettled(scope.probes)
-      for (const handle of scope.handles) this.ffmpegOps.delete(handle.id)
-      this.manualMerge = undefined
+      this.operation = undefined
     }
   }
 
@@ -1947,16 +1895,18 @@ export class CapabilityBridge {
     callChain?: PluginCallChain
   ): Promise<unknown> {
     if (
-      commandId === `${this.opts.pluginId}.${MEDIA_MERGE_COMMAND}` &&
-      this.manualMerge?.invocationId !== this.nextCommandCallId
-    ) {
+      this.opts.manifest.contributes.commands?.some(
+        (command) =>
+          command.id === commandId && command.execution === 'operation'
+      ) &&
+      this.operation?.invocationId !== this.nextCommandCallId
+    )
       return Promise.reject(
         new PluginCodedError(
           'plugin.command.access_denied',
-          'Media merging requires a host-authorized selected-file job'
+          'Operation requires host authorization'
         )
       )
-    }
     const id = this.nextCommandCallId++
     const laneCallChain = callChain ?? currentPluginCallChain()
     const commandScope: CommandInvocationScopeV1 = {
@@ -2001,6 +1951,9 @@ export class CapabilityBridge {
         commandId,
         args,
         commandScope,
+        ...(this.operation?.invocationId === id
+          ? { operation: { jobId: this.operation.context.jobId } }
+          : {}),
       }
       this.worker.postMessage(msg)
     })

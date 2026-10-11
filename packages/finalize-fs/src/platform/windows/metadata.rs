@@ -27,7 +27,7 @@ pub(super) enum FileIdentity {
 pub(super) struct FileStamp {
     volume: u64,
     file_id: FileIdentity,
-    size: i64,
+    pub(super) size: i64,
     last_write: i64,
     attributes: u32,
     pub(super) directory: bool,

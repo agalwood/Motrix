@@ -770,6 +770,12 @@ async function main() {
       ? pluginHookRuntime.persistTerminal(task, occurrence)
       : sessionManager.persistTaskWithOccurrence(task, occurrence)
   const pluginRuntime = await createPluginRuntime({
+    getTask: (id) => taskManager.getById(id),
+    authorizeOperationPath: async (candidate) => {
+      await new ServerDirectoryService(
+        downloadPathPolicy
+      ).resolvePreferenceDirectory(path.dirname(candidate))
+    },
     activation: pluginActivation,
     registry: pluginRegistry,
     grants: pluginGrants,
@@ -1157,6 +1163,7 @@ async function main() {
   // ─── HTTP App ─────────────────────────────────────────────────
   const serverDirectoryService = new ServerDirectoryService(downloadPathPolicy)
   const commandHandlers = buildServerCommandHandlers({
+    operationService: pluginRuntime.operations,
     mediaMetaStore,
     serverDirectoryService,
     supervisor,

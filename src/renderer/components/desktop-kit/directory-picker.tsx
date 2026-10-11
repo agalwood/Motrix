@@ -29,6 +29,9 @@ import { useTranslation } from 'react-i18next'
 import { DirectoryHistoryMenu } from './directory-history-menu'
 
 export interface DirectoryPickerProps<TFields extends FieldValues> {
+  dropOverride?: (path: string) => Promise<string | null>
+  pickOverride?: () => Promise<string | null>
+  displayValue?: string
   name: FieldPath<TFields>
   variant?: 'compact' | 'input' | 'file'
   prefixLabel?: string
@@ -51,6 +54,9 @@ export interface DirectoryPickerProps<TFields extends FieldValues> {
 
 export function DirectoryPicker<TFields extends FieldValues>({
   name,
+  pickOverride,
+  dropOverride,
+  displayValue,
   variant = 'input',
   prefixLabel,
   placeholder,
@@ -80,10 +86,12 @@ export function DirectoryPicker<TFields extends FieldValues>({
     }
   }, [])
   const { setValue, control } = useFormContext<TFields>()
-  const current = (useWatch({ control, name }) ?? '') as string
+  const watched = useWatch({ control, name })
+  const current = displayValue ?? ((watched ?? '') as string)
   const pickInFlight = useRef(false)
   const [isPicking, setIsPicking] = useState(false)
-  const pickerDisabled = disabled || isPicking || (!!file && !pickFile)
+  const pickerDisabled =
+    disabled || isPicking || (!!file && !pickFile && !pickOverride)
 
   const reportError = (error: unknown) => {
     if (onPickError) onPickError(error)
@@ -118,7 +126,25 @@ export function DirectoryPicker<TFields extends FieldValues>({
           )
         const picked = getPathForFile(selected)
         if (!picked) throw new Error(t('directoryPicker.file.pathUnavailable'))
-        updatePath(picked)
+        if (dropOverride) {
+          pickInFlight.current = true
+          setIsPicking(true)
+          onPickingChange?.(true)
+          void dropOverride(picked)
+            .then((ref) => {
+              if (mounted.current && ref) updatePath(ref)
+            })
+            .catch((error) => {
+              if (mounted.current) reportError(error)
+            })
+            .finally(() => {
+              pickInFlight.current = false
+              if (mounted.current) {
+                setIsPicking(false)
+                onPickingChange?.(false)
+              }
+            })
+        } else updatePath(picked)
       } catch (error) {
         reportError(error)
       }
@@ -132,13 +158,15 @@ export function DirectoryPicker<TFields extends FieldValues>({
     setIsPicking(true)
     onPickingChange?.(true)
     try {
-      const picked = file
-        ? await pickFile?.({ ...file, defaultPath: current || undefined })
-        : allowFavoriteEditing
-          ? await pickSaveDir(current || undefined)
-          : await pickSaveDir(current || undefined, {
-              allowFavoriteEditing: false,
-            })
+      const picked = pickOverride
+        ? await pickOverride()
+        : file
+          ? await pickFile?.({ ...file, defaultPath: current || undefined })
+          : allowFavoriteEditing
+            ? await pickSaveDir(current || undefined)
+            : await pickSaveDir(current || undefined, {
+                allowFavoriteEditing: false,
+              })
       if (!mounted.current) return
       if (picked) {
         updatePath(picked)
@@ -178,6 +206,17 @@ export function DirectoryPicker<TFields extends FieldValues>({
     const filename = current.slice(divider + 1)
     const directory = current.slice(0, divider + 1)
     const save = file?.kind === 'save'
+    const actionLabel = t(
+      current
+        ? 'directoryPicker.file.change'
+        : canDrop
+          ? 'directoryPicker.file.dropHint'
+          : 'directoryPicker.file.browseHint'
+    )
+    const description =
+      directory ||
+      fileHint ||
+      (save ? t('directoryPicker.file.browseHint') : '')
     return (
       <button
         type="button"
@@ -226,7 +265,7 @@ export function DirectoryPicker<TFields extends FieldValues>({
           )}
         </span>
         <span className="min-w-0 flex-1 space-y-1">
-          {save && (
+          {save && prefixLabel && (
             <span className="block text-xs font-medium text-muted-foreground">
               {prefixLabel}
             </span>
@@ -237,18 +276,14 @@ export function DirectoryPicker<TFields extends FieldValues>({
           >
             {filename || placeholder || t('directoryPicker.file.choose')}
           </span>
-          <span
-            dir={current ? 'ltr' : undefined}
-            className="block truncate text-xs leading-5 text-muted-foreground"
-          >
-            {directory ||
-              fileHint ||
-              t(
-                canDrop
-                  ? 'directoryPicker.file.dropHint'
-                  : 'directoryPicker.file.browseHint'
-              )}
-          </span>
+          {description && (save || description !== actionLabel) && (
+            <span
+              dir={current ? 'ltr' : undefined}
+              className="block truncate text-xs leading-5 text-muted-foreground"
+            >
+              {description}
+            </span>
+          )}
         </span>
         {save ? (
           <ChevronRightIcon
@@ -257,13 +292,7 @@ export function DirectoryPicker<TFields extends FieldValues>({
           />
         ) : (
           <span className="text-xs font-medium text-foreground">
-            {t(
-              current
-                ? 'directoryPicker.file.change'
-                : canDrop
-                  ? 'directoryPicker.file.dropHint'
-                  : 'directoryPicker.file.choose'
-            )}
+            {actionLabel}
           </span>
         )}
       </button>

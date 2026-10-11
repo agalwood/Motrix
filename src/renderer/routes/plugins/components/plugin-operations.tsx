@@ -1,51 +1,18 @@
 import { Button } from '@renderer/components/ui/button'
-import { MediaMergeForm } from '@renderer/features/media-merge/media-merge-form'
-import { MEDIA_MERGE_COMMAND } from '@shared/schemas/manual-media-merge'
+import { OperationSkeleton } from '@renderer/features/plugin-operations/operation-skeleton'
+import { useOperationState } from '@renderer/features/plugin-operations/use-operation-state'
+import { lazy, Suspense, useState } from 'react'
+
+const OperationForm = lazy(
+  () => import('@renderer/features/plugin-operations/operation-form')
+)
+
+import { OperationsBoundary } from '@renderer/features/plugin-operations/operation-boundary'
 import type { PluginManifestDTO } from '@shared/types/plugin'
-import { Component, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
-/** Host-rendered operation panels opt in through a supported public command. */
 export function hasPluginOperations(manifest: PluginManifestDTO): boolean {
-  return (
-    manifest.permissions.includes('ffmpeg') &&
-    !!manifest.contributes.commands?.some(
-      (command) =>
-        command.public && command.id === `${manifest.id}.${MEDIA_MERGE_COMMAND}`
-    )
-  )
-}
-
-class OperationsBoundary extends Component<
-  {
-    children: ReactNode
-    message: string
-    retry: string
-  },
-  { failed: boolean }
-> {
-  state = { failed: false }
-
-  static getDerivedStateFromError() {
-    return { failed: true }
-  }
-
-  render() {
-    if (this.state.failed)
-      return (
-        <div role="alert" className="space-y-3 rounded-lg border p-4 text-sm">
-          <p>{this.props.message}</p>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => this.setState({ failed: false })}
-          >
-            {this.props.retry}
-          </Button>
-        </div>
-      )
-    return this.props.children
-  }
+  return !!manifest.contributes.operations?.items.length
 }
 
 export function PluginOperations({
@@ -56,29 +23,60 @@ export function PluginOperations({
   enabled: boolean
 }) {
   const { t } = useTranslation()
+  const { snapshot, failed } = useOperationState()
+  const items = (snapshot?.descriptors ?? []).filter(
+    (item) =>
+      item.pluginId === pluginId &&
+      item.definition.entries.some((entry) => entry.surface === 'plugin-detail')
+  )
+  const [activeId, setActiveId] = useState<string>()
   return (
-    <OperationsBoundary
-      key={pluginId}
-      message={t('plugins.detail.operationsFailed')}
-      retry={t('common.retry')}
-    >
-      <section className="mx-auto w-full max-w-2xl py-2">
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <h2 className="text-lg font-semibold tracking-tight">
-              {t('mediaMerge.title')}
-            </h2>
-            <p className="text-xs leading-5 text-muted-foreground">
-              {t('mediaMerge.description')}
-            </p>
-          </div>
-          <MediaMergeForm
-            key={pluginId}
-            pluginId={pluginId}
-            enabled={enabled}
-          />
+    <section className="mx-auto w-full max-w-2xl space-y-6 py-2">
+      {!snapshot && !failed && <OperationSkeleton />}
+      {failed && <p role="alert">{t('plugins.detail.operationsFailed')}</p>}
+      {items.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {items.map((item) => (
+            <Button
+              key={item.definition.id}
+              size="sm"
+              variant={
+                (activeId ?? items[0]?.definition.id) === item.definition.id
+                  ? 'default'
+                  : 'outline'
+              }
+              onClick={() => setActiveId(item.definition.id)}
+            >
+              {item.definition.title}
+            </Button>
+          ))}
         </div>
-      </section>
-    </OperationsBoundary>
+      )}
+      {items
+        .filter(
+          (item) => item.definition.id === (activeId ?? items[0]?.definition.id)
+        )
+        .map((item) => (
+          <OperationsBoundary
+            key={item.definition.id}
+            message={t('plugins.detail.operationsFailed')}
+            retry={t('common.retry')}
+          >
+            {item.unavailable || !enabled ? (
+              <div>
+                <h3>{item.definition.title}</h3>
+                <p>{t(`pluginOperations.${item.unavailable ?? 'disabled'}`)}</p>
+              </div>
+            ) : (
+              <Suspense fallback={<OperationSkeleton />}>
+                <OperationForm
+                  pluginId={pluginId}
+                  operationId={item.definition.id}
+                />
+              </Suspense>
+            )}
+          </OperationsBoundary>
+        ))}
+    </section>
   )
 }

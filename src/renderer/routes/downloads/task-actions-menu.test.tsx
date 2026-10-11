@@ -35,6 +35,10 @@ beforeEach(() =>
   useRemoveTasksStore.setState({ open: false, targets: [], busy: false })
 )
 
+vi.mock('@renderer/features/plugin-operations/operation-task-menu', () => ({
+  OperationTaskMenuItems: () => null,
+}))
+
 vi.mock('@renderer/lib/transport', () => ({
   transport: {
     invoke: vi.fn().mockResolvedValue({ failed: [] }),

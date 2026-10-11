@@ -10,7 +10,6 @@
 // and never reaches this invoker. We do not re-check that invariant here.
 
 import { AppError, ErrorCode } from '@shared/errors'
-import { MEDIA_MERGE_COMMAND } from '@shared/schemas/manual-media-merge'
 import type { CrossPluginInvoker } from '../capabilities/commands'
 import {
   currentPluginCallChain,
@@ -55,6 +54,7 @@ export interface CrossPluginInvokerOptions {
 
 interface PublicCommand {
   id: string
+  execution?: 'operation'
   public?: boolean
 }
 
@@ -200,15 +200,9 @@ export class FullCrossPluginInvoker implements CrossPluginInvoker {
       const publicCmds = (callee?.manifest.contributes.commands ??
         []) as ReadonlyArray<PublicCommand>
       const cmd = publicCmds.find((c) => c.id === commandId)
-      if (!cmd?.public) {
-        auditFail('plugin.command.not_public')
-      }
-
-      // Public is used for provider discovery, not permission to borrow the
-      // callee's FFmpeg access. Only the host can authorize a selected-file job.
-      if (commandId === `${calleePluginId}.${MEDIA_MERGE_COMMAND}`) {
+      if (cmd?.execution === 'operation')
         auditFail('plugin.command.access_denied')
-      }
+      if (!cmd?.public) auditFail('plugin.command.not_public')
 
       // 5d. caller_throttled
       if (this.throttle.isBlocked(callerId)) {

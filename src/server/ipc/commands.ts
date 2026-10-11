@@ -1,4 +1,3 @@
-import path from 'node:path'
 import type { Aria2RpcClient } from '@core/engine/aria2/aria2-rpc-client'
 import type { DnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
 import { dnsModeToAsyncDns } from '@core/engine/aria2/dns-fallback'
@@ -12,7 +11,6 @@ import { getLogger } from '@core/logger'
 import { publishEngineRestartRequired } from '@core/notifications/engine-restart-required'
 import type { NotificationCenter } from '@core/notifications/notification-center'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
-import { ManualMediaMerge } from '@core/plugin/commands/manual-media-merge'
 import { pluginSecretFields } from '@core/plugin/configuration-schema'
 import type { GrantsManager } from '@core/plugin/grants/grants-manager'
 import type { HookAuditLog } from '@core/plugin/hooks/audit-log'
@@ -21,6 +19,8 @@ import type { ActivationDispatcher } from '@core/plugin/host/activation-dispatch
 import type { PluginHost } from '@core/plugin/host/plugin-host'
 import type { PluginInstaller } from '@core/plugin/install/plugin-installer'
 import { PluginEngineVersionTooOld } from '@core/plugin/manifest/errors'
+import { operationHandlers } from '@core/plugin/operations/operation-handlers'
+import type { OperationService } from '@core/plugin/operations/operation-service'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
 import type { RegistryClient } from '@core/plugin/registry/registry-client'
 import { scanForUpdates } from '@core/plugin/registry/update-scan'
@@ -113,6 +113,7 @@ import type { ServerDirectoryService } from '../server-directory-service'
 import { unsupportedLegacyImportCommands } from './legacy-import'
 
 export interface ServerCommandContext {
+  operationService?: OperationService
   supervisor: EngineSupervisor
   settingsManager: SettingsManager
   applyLocale?: (language: string) => Promise<void>
@@ -402,25 +403,8 @@ export function buildServerCommandHandlers(
       directoryPreferences.mutate({ action: 'recordRecent', path }),
   })
 
-  const manualMediaMerge = new ManualMediaMerge({
-    createLog: (pluginId) => capabilityHost.createLog(pluginId),
-    registry: pluginRegistry,
-    host: pluginHost,
-    tasks: taskManager,
-    authorizePath: (file) =>
-      ctx.serverDirectoryService.resolvePreferenceDirectory(path.dirname(file)),
-  })
-
   return {
-    [Commands.GetMediaMergeState]: async () => manualMediaMerge.state(),
-    [Commands.GetMediaMergeSelection]: async (value: unknown) =>
-      manualMediaMerge.selection(value),
-    [Commands.StartMediaMerge]: async (value: unknown) =>
-      manualMediaMerge.start(value),
-    [Commands.GetMediaMergeJob]: async (value: unknown) =>
-      manualMediaMerge.get(value),
-    [Commands.CancelMediaMerge]: async (value: unknown) =>
-      manualMediaMerge.cancel(value),
+    ...(ctx.operationService ? operationHandlers(ctx.operationService) : {}),
     ...unsupportedLegacyImportCommands(),
     [Commands.InstallFfmpeg]: async (payload: unknown) => {
       z.undefined().parse(payload)

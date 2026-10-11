@@ -84,3 +84,19 @@ pub(crate) fn open_artifact_for_rename(
 ) -> io::Result<ArtifactHandle> {
     open_artifact(root, relative)
 }
+
+pub(crate) fn root_identity(_: &RootHandle) -> io::Result<String> {
+    Err(io::Error::from(io::ErrorKind::Unsupported))
+}
+pub(crate) fn create_private_root(_: &RootHandle, _: &str) -> io::Result<RootHandle> {
+    Err(io::Error::from(io::ErrorKind::Unsupported))
+}
+pub(crate) fn remove_private_root(_: &RootHandle, _: &str, _: &RootHandle) -> io::Result<()> {
+    Err(io::Error::from(io::ErrorKind::Unsupported))
+}
+pub(crate) fn open_selected_file(_: &RootHandle, _: &str) -> io::Result<ArtifactHandle> {
+    Err(io::Error::from(io::ErrorKind::Unsupported))
+}
+pub(crate) fn copy_selected_file(_: &ArtifactHandle, _: &RootHandle, _: &str) -> io::Result<()> {
+    Err(io::Error::from(io::ErrorKind::Unsupported))
+}
