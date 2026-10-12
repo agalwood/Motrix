@@ -296,7 +296,6 @@ export async function runFirefoxStoreExtension({
         url: identity.popupUrl,
         wait: 'complete',
       })
-      await session.command('browsingContext.activate', { context })
       if ((await evaluate('browser.runtime.id')) !== EXTENSION_ID)
         fail('firefox-extension-identity')
     }
@@ -452,6 +451,18 @@ export async function runFirefoxStoreExtension({
     // failed teardown even when it never returned a session to this caller.
     remoteCleanupFailed = error?.code === 'browser-cleanup-failed'
     report.failureCode = firefoxExtensionFailure(stage)
+    if (
+      [
+        'unknown-command',
+        'unsupported-operation',
+        'invalid-argument',
+        'no-such-frame',
+        'unknown-error',
+        'other',
+      ].includes(error?.commandErrorKind)
+    ) {
+      report.commandErrorKind = error.commandErrorKind
+    }
   } finally {
     try {
       if (remoteCleanupFailed) fail('firefox-extension-cleanup')
