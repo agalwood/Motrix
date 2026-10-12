@@ -250,7 +250,12 @@ try {
     if ($TestNativeAlias) {
         $stage = 'installed-native-alias'
         $aliasReport = Join-Path $output 'native-alias-test.json'
-        $node = (Get-Command node -CommandType Application -ErrorAction Stop).Source
+        # Use the actual runtime path, not CommandInfo's source/module label.
+        $node = (& node -p 'process.execPath').Trim()
+        if ($LASTEXITCODE -ne 0 -or -not [IO.Path]::IsPathFullyQualified($node)) { throw 'Cannot resolve the active Node executable.' }
+        $nodeFile = Get-Item -LiteralPath $node -Force -ErrorAction Stop
+        if ($nodeFile -isnot [IO.FileInfo] -or $nodeFile.Name -ine 'node.exe' -or ($nodeFile.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'The active Node runtime must be a regular executable.' }
+        $report.nodeRuntimeFileVerified = $true
         Invoke-Tool $node @((Join-Path $PSScriptRoot 'test-windows-store-native-messaging-alias.mjs'), '--prepared', $prepared, '--expected-package-version', $metadata.packageVersion, '--report', $aliasReport)
         $alias = Read-Json $aliasReport
         if ($alias.ok -ne $true -or $alias.sourceCommit -cne $metadata.source.commit -or $alias.aliasActivationVerified -ne $true -or $alias.packageIdentityVerified -ne $true -or $alias.browserNativeMessagingVerified -ne $false -or $alias.mbp1Verified -ne $false) { throw 'Alias observation did not pass its bounded contract.' }
