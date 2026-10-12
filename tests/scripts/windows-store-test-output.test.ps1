@@ -35,7 +35,8 @@ $invalid = @(
     @($association.Replace('"magnet":null', '"magnet":null,"path":"private-fixture-data"'), 'associations_query'),
     @($association, 'startup_query'),
     @($association, 'startup_enable'),
-    @('{"version":1,"ok":true,"packageIdentityPresent":true,"taskId":"MotrixStartup","state":"future"}', 'startup_query')
+    @('{"version":1,"ok":true,"packageIdentityPresent":true,"taskId":"MotrixStartup","state":"future"}', 'startup_query'),
+    @('{"version":1,"ok":true,"packageIdentityPresent":true,"taskId":true,"state":"disabled"}', 'startup_query')
 )
 foreach ($case in $invalid) {
     $rejected = $false
