@@ -14,6 +14,71 @@ const fail = (code) => {
   throw new Error(code)
 }
 
+// Older branded Firefox may not expose the vendor list command. Read the same
+// metadata through the existing Remote Agent's owned browser context instead;
+// do not enable preferences, change permissions, or invent an extension UUID.
+export async function readFirefoxExtensionInventory(
+  session,
+  observe = () => {}
+) {
+  try {
+    const result = await session.command('webExtension.moz:listExtensions', {})
+    observe({ method: 'bidi-list', ok: true })
+    return result
+  } catch (error) {
+    const kind =
+      error?.commandErrorKind === 'unknown-command'
+        ? 'unknown-command'
+        : 'other'
+    observe({ method: 'bidi-list', ok: false, errorKind: kind })
+    if (kind !== 'unknown-command') fail('firefox-extension-inventory')
+  }
+  const tree = await session.command('browsingContext.getTree', {
+    'moz:scope': 'chrome',
+  })
+  const contexts = tree?.contexts?.filter(
+    (entry) =>
+      entry?.url === 'chrome://browser/content/browser.xhtml' &&
+      typeof entry.context === 'string'
+  )
+  if (!Array.isArray(contexts) || contexts.length !== 1)
+    fail('firefox-extension-browser-context')
+  const expression = `(async () => {
+    const { AddonManager } = ChromeUtils.importESModule('resource://gre/modules/AddonManager.sys.mjs');
+    const addon = await AddonManager.getAddonByID('motrix-extension@motrix.app');
+    const policy = WebExtensionPolicy.getByID('motrix-extension@motrix.app');
+    return JSON.stringify({ extensions: addon ? [{
+      id: addon.id, isActive: addon.isActive, isSystem: addon.isSystem,
+      hidden: addon.hidden, manifestVersion: addon.manifestVersion,
+      version: addon.version, temporarilyInstalled: addon.temporarilyInstalled,
+      sourceURL: addon.sourceURI?.spec ?? null,
+      policy: policy ? { uuid: policy.mozExtensionHostname,
+        baseURL: policy.baseURL, extensionURL: policy.getURL('') } : null
+    }] : [] });
+  })()`
+  const response = await session.command('script.evaluate', {
+    expression,
+    target: { context: contexts[0].context },
+    awaitPromise: true,
+    resultOwnership: 'none',
+  })
+  if (
+    response?.type !== 'success' ||
+    response.result?.type !== 'string' ||
+    typeof response.result.value !== 'string' ||
+    Buffer.byteLength(response.result.value) > 16384
+  )
+    fail('firefox-extension-inventory')
+  let result
+  try {
+    result = JSON.parse(response.result.value)
+  } catch {
+    fail('firefox-extension-inventory')
+  }
+  observe({ method: 'readonly-addon-api', ok: true })
+  return result
+}
+
 /** Use the observed runtime UUID, never a profile preference seeded by a test. */
 export function validateFirefoxExtensionIdentity(
   result,
@@ -185,7 +250,9 @@ export async function runFirefoxStoreExtension({
     if (loaded.extension !== EXTENSION_ID) fail('firefox-extension-identity')
     stage = 'extension-identity'
     const identity = validateFirefoxExtensionIdentity(
-      await session.command('webExtension.moz:listExtensions', {}),
+      await readFirefoxExtensionInventory(session, (value) => {
+        report.installationIdentityCommandObservation = value
+      }),
       pathToFileURL(`${extensionDirectory}${path.sep}`).href,
       manifest.version,
       (value) => {

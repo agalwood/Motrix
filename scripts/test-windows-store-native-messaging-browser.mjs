@@ -803,6 +803,20 @@ async function unusedPort() {
   return port
 }
 
+/** Retain public error vocabulary only, excluding message, stack and data. */
+export function firefoxCommandErrorKind(value) {
+  const kinds = {
+    'unknown command': 'unknown-command',
+    'unsupported operation': 'unsupported-operation',
+    'invalid argument': 'invalid-argument',
+    'no such frame': 'no-such-frame',
+    'unknown error': 'unknown-error',
+  }
+  return typeof value === 'string' && Object.hasOwn(kinds, value)
+    ? kinds[value]
+    : 'other'
+}
+
 // The branded Firefox Remote Agent uses BiDi, not Playwright's patched Firefox.
 export async function openFirefoxRemote({ inventory, profileDirectory }) {
   const { default: WebSocket } = await import('ws')
@@ -856,9 +870,13 @@ export async function openFirefoxRemote({ inventory, profileDirectory }) {
           clearTimeout(timer)
           resolve(result)
         },
-        reject: () => {
+        reject: (commandErrorKind) => {
           clearTimeout(timer)
-          reject(new BrowserCheckError(failure ?? 'browser-protocol-failed'))
+          const error = new BrowserCheckError(
+            failure ?? 'browser-protocol-failed'
+          )
+          if (commandErrorKind) error.commandErrorKind = commandErrorKind
+          reject(error)
         },
       })
       socket.send(JSON.stringify({ id, method, params }))
@@ -908,7 +926,7 @@ export async function openFirefoxRemote({ inventory, profileDirectory }) {
         if (!waiter) return
         pending.delete(message.id)
         if (message.type === 'success') waiter.resolve(message.result)
-        else waiter.reject()
+        else waiter.reject(firefoxCommandErrorKind(message.error))
       } catch {
         failure = 'browser-protocol-failed'
         socket.terminate()

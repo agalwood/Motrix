@@ -3,11 +3,12 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { JSDOM } from 'jsdom'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fingerprintExtensionBuild } from '../../scripts/test-windows-store-extension-runtime.mjs'
 import {
   firefoxExtensionFailure,
   firefoxUiTargetExpression,
+  readFirefoxExtensionInventory,
   runFirefoxStoreExtension,
   validateFirefoxExtensionIdentity,
 } from '../../scripts/test-windows-store-firefox-extension.mjs'
@@ -131,6 +132,82 @@ describe('observed Firefox temporary installation identity', () => {
     expect(() =>
       validateFirefoxExtensionIdentity({ extensions: {} }, source, '0.1.14')
     ).toThrow('firefox-extension-identity')
+  })
+})
+
+describe('Firefox inventory command compatibility', () => {
+  it('uses the vendor inventory without inspecting unrelated browser contexts', async () => {
+    const command = vi.fn(async () => identity())
+    expect(await readFirefoxExtensionInventory({ command })).toEqual(identity())
+    expect(command).toHaveBeenCalledOnce()
+  })
+  it('reads the same actual addon metadata only after an unknown vendor command', async () => {
+    const command = vi.fn(async (method: string, params: any) => {
+      if (method === 'webExtension.moz:listExtensions')
+        throw Object.assign(new Error('private path'), {
+          commandErrorKind: 'unknown-command',
+        })
+      if (method === 'browsingContext.getTree')
+        return {
+          contexts: [
+            {
+              context: 'owned-root',
+              url: 'chrome://browser/content/browser.xhtml',
+            },
+          ],
+        }
+      expect(method).toBe('script.evaluate')
+      expect(params.target.context).toBe('owned-root')
+      expect(params.expression).toContain(
+        "getAddonByID('motrix-extension@motrix.app')"
+      )
+      expect(params.expression).not.toMatch(
+        /install|setPref|write|permissions\.add/
+      )
+      return {
+        type: 'success',
+        result: { type: 'string', value: JSON.stringify(identity()) },
+      }
+    })
+    const observations: any[] = []
+    const result = await readFirefoxExtensionInventory({ command }, (value) =>
+      observations.push(value)
+    )
+    expect(
+      validateFirefoxExtensionIdentity(result, source, '0.1.14').extensionId
+    ).toBe('motrix-extension@motrix.app')
+    expect(observations).toEqual([
+      { method: 'bidi-list', ok: false, errorKind: 'unknown-command' },
+      { method: 'readonly-addon-api', ok: true },
+    ])
+    expect(JSON.stringify(observations)).not.toContain('private path')
+  })
+  it('does not fall back for permission errors or malformed browser contexts', async () => {
+    const denied = vi.fn(async () => {
+      throw Object.assign(new Error('private'), {
+        commandErrorKind: 'unsupported-operation',
+      })
+    })
+    await expect(
+      readFirefoxExtensionInventory({ command: denied })
+    ).rejects.toThrow('firefox-extension-inventory')
+    expect(denied).toHaveBeenCalledOnce()
+    const duplicate = vi.fn(async (method: string) => {
+      if (method === 'webExtension.moz:listExtensions')
+        throw Object.assign(new Error('private'), {
+          commandErrorKind: 'unknown-command',
+        })
+      return {
+        contexts: [
+          { context: 'one', url: 'chrome://browser/content/browser.xhtml' },
+          { context: 'two', url: 'chrome://browser/content/browser.xhtml' },
+        ],
+      }
+    })
+    await expect(
+      readFirefoxExtensionInventory({ command: duplicate })
+    ).rejects.toThrow('firefox-extension-browser-context')
+    expect(duplicate).toHaveBeenCalledTimes(2)
   })
 })
 
