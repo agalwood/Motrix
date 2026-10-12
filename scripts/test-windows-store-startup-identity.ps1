@@ -53,20 +53,28 @@ function Invoke-ReadonlyNativeQuery([string]$File, [string]$Operation, [string]$
     $started = $false
     $outPump = $null; $errPump = $null
     try {
+        $report.nativeQueryPhase = 'process-start'
         $started = $child.Start()
         if (-not $started) { throw 'Owned native query did not start.' }
         $stdout = [MotrixStoreTest.BoundedOutput]::new(16384)
         $stderr = [MotrixStoreTest.BoundedOutput]::new(16384)
         $outPump = $stdout.PumpAsync($child.StandardOutput.BaseStream)
         $errPump = $stderr.PumpAsync($child.StandardError.BaseStream)
+        $report.nativeQueryPhase = 'write-request'
         $child.StandardInput.WriteLine((@{ version = 1; op = $Operation } | ConvertTo-Json -Compress))
         $child.StandardInput.Close()
+        $report.nativeQueryPhase = 'wait-exit'
         if (-not $child.WaitForExit(5000)) { throw 'Owned native query exceeded its deadline.' }
+        $report.nativeProcessExitCode = $child.ExitCode
+        $report.nativeQueryPhase = 'wait-output'
         if (-not $outPump.Wait(1000) -or -not $errPump.Wait(1000) -or $stdout.Truncated -or $stderr.Truncated) { throw 'Owned native query exceeded its output bounds.' }
+        $report.nativeQueryPhase = 'decode-response'
         $reply = $stdout.Snapshot() | ConvertFrom-Json
         $report.nativeQueryFailureCode = Get-StoreNativeQueryFailureCode $reply
         if ($child.ExitCode -ne 0) { throw 'Owned native query failed.' }
+        $report.nativeQueryPhase = 'validate-response'
         Assert-StoreNativeQueryReply $reply $Operation $MainAumid
+        $report.nativeQueryPhase = $null
         return $reply
     } finally {
         try {
@@ -148,6 +156,7 @@ $report = [ordered]@{
     startupFailureCode = $null; naturalMainExitCode = $null; failureType = $null
     nativeQueriesVerified = $false; actualStartupMutationVerified = $false; defaultAppsUiVerified = $false
     nativeQueryFailureCode = $null
+    nativeQueryPhase = $null; nativeProcessExitCode = $null; nativeErrorHresult = $null; nativeWin32ErrorCode = $null
 }
 try {
     $certificateAttempted = $true
@@ -262,7 +271,17 @@ try {
     $report.installedRejectionVerified = $cases.Count -eq 3 -and $caseResults[1].failureCode -ceq 'identity_mismatch'
     $report.recoveryUpgradeVerified = $cases.Count -eq 3 -and $caseResults[2].mainPreflightVerified
     $report.nativeQueriesVerified = @($caseResults | Where-Object { $_.expectedStartup -ceq 'accepted' -and $null -eq $_.nativeObservation }).Count -eq 0
-} catch { $failureStage = $stage; $report.failureType = $_.Exception.GetType().Name }
+} catch {
+    $failureStage = $stage; $report.failureType = $_.Exception.GetType().Name
+    if ($stage.StartsWith('native-', [StringComparison]::Ordinal)) {
+        $exception = $_.Exception
+        for ($depth = 0; $depth -lt 4 -and $null -ne $exception; $depth++) {
+            $report.nativeErrorHresult = '0x' + $exception.HResult.ToString('X8')
+            if ($exception -is [ComponentModel.Win32Exception]) { $report.nativeWin32ErrorCode = $exception.NativeErrorCode }
+            $exception = $exception.InnerException
+        }
+    }
+}
 finally {
     if ($null -ne $main) {
         try {
