@@ -1,8 +1,30 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { decodeFirefoxWebDriverResponse } from '../../scripts/windows-store-firefox-webdriver.mjs'
+import {
+  decodeFirefoxWebDriverResponse,
+  firefoxDriverArguments,
+  firefoxSessionCapabilities,
+} from '../../scripts/windows-store-firefox-webdriver.mjs'
 
 describe('normal Firefox WebDriver response boundary', () => {
+  it('keeps browser UI access at the driver boundary, outside forbidden session args', () => {
+    const args = firefoxDriverArguments(41234)
+    expect(args).toContain('--allow-system-access')
+    expect(args).not.toContain('--allow-origins')
+    const body = firefoxSessionCapabilities(
+      'C:\\Firefox\\firefox.exe',
+      'C:\\owned\\profile'
+    )
+    expect(body.capabilities.alwaysMatch['moz:firefoxOptions'].args).toEqual([
+      '--headless',
+      '--profile',
+      'C:\\owned\\profile',
+    ])
+    expect(JSON.stringify(body)).not.toMatch(
+      /remote-allow|signatures|permissions|webdriverClick/
+    )
+    expect(() => firefoxDriverArguments(0)).toThrow('firefox-webdriver-failed')
+  })
   it('returns ordinary successful response values including a null close result', () => {
     expect(
       decodeFirefoxWebDriverResponse(

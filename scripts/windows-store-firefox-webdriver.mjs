@@ -11,6 +11,33 @@ const fail = () => {
 }
 const EXTENSION_ID = 'motrix-extension@motrix.app'
 
+export function firefoxDriverArguments(port) {
+  if (!Number.isInteger(port) || port < 1 || port > 65535) fail()
+  return [
+    '--host',
+    '127.0.0.1',
+    '--port',
+    String(port),
+    '--log',
+    'fatal',
+    '--allow-system-access',
+  ]
+}
+
+export function firefoxSessionCapabilities(binary, profileDirectory) {
+  return {
+    capabilities: {
+      alwaysMatch: {
+        browserName: 'firefox',
+        'moz:firefoxOptions': {
+          binary,
+          args: ['--headless', '--profile', profileDirectory],
+        },
+      },
+    },
+  }
+}
+
 export function decodeFirefoxWebDriverResponse(ok, bytes) {
   if (!Buffer.isBuffer(bytes) || bytes.length > 65536) fail()
   let payload
@@ -73,11 +100,11 @@ export async function openFirefoxWebDriver({
   })
   const port = listener.address().port
   await new Promise((resolve) => listener.close(resolve))
-  const child = spawn(
-    driverExecutable,
-    ['--host', '127.0.0.1', '--port', String(port), '--log', 'fatal'],
-    { shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }
-  )
+  const child = spawn(driverExecutable, firefoxDriverArguments(port), {
+    shell: false,
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   progress('driver-start')
   let outputBytes = 0
   let outputFailure = false
@@ -174,22 +201,11 @@ export async function openFirefoxWebDriver({
     }
     if (!ready) fail()
     progress('session-new')
-    const created = await request('POST', '/session', {
-      capabilities: {
-        alwaysMatch: {
-          browserName: 'firefox',
-          'moz:firefoxOptions': {
-            binary: inventory.executable,
-            args: [
-              '--headless',
-              '--profile',
-              profileDirectory,
-              '--remote-allow-system-access',
-            ],
-          },
-        },
-      },
-    })
+    const created = await request(
+      'POST',
+      '/session',
+      firefoxSessionCapabilities(inventory.executable, profileDirectory)
+    )
     progress('session-identity')
     sessionId = created?.sessionId
     if (
