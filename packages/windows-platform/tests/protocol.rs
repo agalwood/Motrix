@@ -70,3 +70,32 @@ fn non_windows_never_claims_package_identity_or_startup_state() {
         );
     }
 }
+
+#[cfg(windows)]
+#[test]
+fn unpackaged_windows_executable_rejects_all_operations() {
+    use windows::Win32::Foundation::APPMODEL_ERROR_NO_PACKAGE;
+    use windows::Win32::Storage::Packaging::Appx::GetCurrentPackageFullName;
+
+    // Verify the fixture before attempting enable/disable or activation. These
+    // negative operations must never run from an installed application's context.
+    let mut length = 0;
+    assert_eq!(
+        unsafe { GetCurrentPackageFullName(&mut length, None) },
+        APPMODEL_ERROR_NO_PACKAGE,
+        "Windows negative test requires an unpackaged process"
+    );
+    for op in [
+        "startup_query",
+        "startup_enable",
+        "startup_disable",
+        "associations_query",
+        "main_launch",
+    ] {
+        let input = format!("{{\"version\":1,\"op\":\"{op}\"}}");
+        assert_eq!(
+            invoke(input.as_bytes(), &[]),
+            serde_json::json!({"version":1,"ok":false,"code":"no_package_identity"})
+        );
+    }
+}
