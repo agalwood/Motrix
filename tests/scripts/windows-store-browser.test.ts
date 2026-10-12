@@ -20,12 +20,15 @@ import {
   validateInstalledProbeState,
 } from '../../scripts/test-windows-store-native-messaging-alias.mjs'
 import {
+  browserInventory,
+  browserInventoryQuery,
   browserTerminationOptions,
   buildBrowserRegistrationArguments,
   createBrowserOutputDirectory,
   runBrowserNativeMessagingChecks,
   runChromiumProbeCase,
   runFirefoxOperation,
+  safeBrowserInventoryDiagnostic,
   safeBrowserProbeObservation,
   stopBrowserProcess,
   validateBrowserInventory,
@@ -352,6 +355,67 @@ describe('browser observations are parsed messages, never raw stdio evidence', (
 })
 
 describe('branded browser inventory', () => {
+  const diagnostic = {
+    schemaVersion: 1,
+    scope: 'windows-branded-browser-inventory',
+    ok: false,
+    operation: 'candidates',
+    candidateCount: 0,
+    signatureStatusCode: null,
+    hresult: -2146233087,
+  }
+  it('retains only bounded operations and numeric failures', async () => {
+    expect(safeBrowserInventoryDiagnostic(diagnostic)).toEqual({
+      operation: 'candidates',
+      candidateCount: 0,
+      signatureStatusCode: null,
+      hresult: -2146233087,
+    })
+    await expect(
+      browserInventory('chrome', async () => diagnostic)
+    ).rejects.toMatchObject({
+      message: 'browser-inventory-failed',
+      inventoryDiagnostic: safeBrowserInventoryDiagnostic(diagnostic),
+    })
+  })
+  it.each([
+    { operation: PRIVATE_PATH },
+    { candidateCount: 3 },
+    { candidateCount: '1' },
+    { signatureStatusCode: PRIVATE_PATH },
+    { signatureStatusCode: 7 },
+    { hresult: PRIVATE_PATH },
+    { hresult: 2147483648 },
+    { exception: PRIVATE_PATH },
+    { schemaVersion: 2 },
+    { ok: true },
+  ])('refuses unbounded or private inventory diagnostics %j', (override) => {
+    expect(
+      safeBrowserInventoryDiagnostic({ ...diagnostic, ...override })
+    ).toBeNull()
+  })
+  it('reports inventory failure before loading a browser or registering a host', async () => {
+    const lab = await harness()
+    lab.deps.browserInventory.mockImplementation(async (browser) =>
+      browserInventory(browser, async () => diagnostic)
+    )
+    const report = await runBrowserNativeMessagingChecks(lab.input, lab.deps)
+    expect(report.ok).toBe(false)
+    expect(report.browsers[0].checks[0]).toMatchObject({
+      name: 'inventory',
+      ok: false,
+      code: 'browser-inventory-failed',
+      inventoryDiagnostic: safeBrowserInventoryDiagnostic(diagnostic),
+    })
+    expect(lab.deps.openBrowser).not.toHaveBeenCalled()
+    expect(lab.deps.registration).not.toHaveBeenCalled()
+    expect(JSON.stringify(report)).not.toContain(PRIVATE_PATH)
+  })
+  it('keeps script generation restricted to fixed brands', () => {
+    expect(() => browserInventoryQuery(PRIVATE_PATH)).toThrow(
+      'invalid-arguments'
+    )
+  })
   it.each(['chrome', 'edge', 'firefox'])(
     'accepts official %s without exposing its private executable path',
     (browser) => {

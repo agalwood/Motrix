@@ -69,7 +69,7 @@ describe('Windows SDK validation workflow boundaries', () => {
       )
         continue
       if (
-        /^\$\{\{ runner\.temp \}\}\/(?:motrix-store-browser-registration-contracts|motrix-store-firefox-relay-contracts|motrix-store-firefox-relay\/(?:build-report|relay-contracts)|motrix-store-startup-identity\/browser\/browser-report)\.json$/.test(
+        /^\$\{\{ runner\.temp \}\}\/(?:motrix-store-browser-inventory|motrix-store-browser-registration-contracts|motrix-store-firefox-relay-contracts|motrix-store-firefox-relay\/(?:build-report|relay-contracts)|motrix-store-startup-identity\/browser\/browser-report)\.json$/.test(
           path
         )
       )

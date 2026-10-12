@@ -110,6 +110,31 @@ jobs:
           MOTRIX_SKIP_ELECTRON_REBUILD: '1'
           MOTRIX_SKIP_ENGINE_FETCH: '1'
 
+      - name: Inspect branded browser inputs before building
+        if: github.event_name == 'workflow_dispatch' && inputs.test_native_alias && inputs.test_native_browsers
+        run: |
+          $env:MOTRIX_STORE_INVENTORY_REPORT = Join-Path $env:RUNNER_TEMP 'motrix-store-browser-inventory.json'
+          @'
+          import { writeFile } from 'node:fs/promises'
+          import { browserInventory, validateBrowserInventory, safeBrowserInventoryDiagnostic } from './scripts/test-windows-store-native-messaging-browser.mjs'
+          const report = { schemaVersion: 1, scope: 'windows-branded-browser-preflight', ok: true, browsers: [], browserLaunched: false, registryModified: false, windows11AcceptanceVerified: false }
+          for (const browser of ['chrome', 'edge', 'firefox']) {
+            try {
+              const observed = await browserInventory(browser)
+              report.browsers.push({ browser, ok: true, ...validateBrowserInventory({ browser, inventory: observed }) })
+            } catch (error) {
+              report.ok = false
+              const code = ['browser-inventory-failed', 'browser-brand-mismatch'].includes(error?.code) ? error.code : 'internal-error'
+              const diagnostic = safeBrowserInventoryDiagnostic({ schemaVersion: 1, scope: 'windows-branded-browser-inventory', ok: false, ...error?.inventoryDiagnostic })
+              report.browsers.push({ browser, ok: false, code, ...(diagnostic ? { inventoryDiagnostic: diagnostic } : {}) })
+            }
+          }
+          await writeFile(process.env.MOTRIX_STORE_INVENTORY_REPORT, JSON.stringify(report, null, 2) + '\n', { flag: 'wx' })
+          process.stdout.write(JSON.stringify(report) + '\n')
+          if (!report.ok) process.exitCode = 1
+          '@ | & node --input-type=module
+          if ($LASTEXITCODE -ne 0) { throw 'Branded browser preflight failed; see the fixed JSON report.' }
+
       - name: Packaging contracts
         run: >-
           pnpm exec vitest run
@@ -269,5 +294,6 @@ jobs:
             ${{ runner.temp }}/motrix-store-firefox-relay/build-report.json
             ${{ runner.temp }}/motrix-store-firefox-relay/relay-contracts.json
             ${{ runner.temp }}/motrix-store-startup-identity/browser/browser-report.json
+            ${{ runner.temp }}/motrix-store-browser-inventory.json
           if-no-files-found: warn
           retention-days: 14

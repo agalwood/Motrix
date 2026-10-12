@@ -341,28 +341,95 @@ async function encodedQuery(script) {
   }
 }
 
-export async function browserInventory(browser) {
+export function browserInventoryQuery(browser) {
   // Browser names are a closed enum; no user-supplied PowerShell is interpolated.
+  if (!Object.hasOwn(BRANDS, browser)) fail('invalid-arguments')
   const relative = {
     chrome: 'Google\\Chrome\\Application\\chrome.exe',
     edge: 'Microsoft\\Edge\\Application\\msedge.exe',
     firefox: 'Mozilla Firefox\\firefox.exe',
   }[browser]
   if (!relative) fail('invalid-arguments')
-  return encodedQuery(String.raw`
+  return String.raw`
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+$operation = 'roots'
+$candidateCount = $null
+$signatureStatusCode = $null
 try {
   $roots = @([Environment]::GetFolderPath('ProgramFiles'), [Environment]::GetFolderPath('ProgramFilesX86')) | Select-Object -Unique
+  $operation = 'candidates'
   $files = @($roots | ForEach-Object { $candidate = Join-Path $_ '${relative}'; if (Test-Path -LiteralPath $candidate -PathType Leaf) { Get-Item -LiteralPath $candidate } })
-  if ($files.Count -ne 1 -or ($files[0].Attributes -band [IO.FileAttributes]::ReparsePoint)) { exit 1 }
+  $candidateCount = $files.Count
+  if ($files.Count -ne 1 -or ($files[0].Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Invalid browser candidates' }
   $file = $files[0]
+  $operation = 'signature'
   $signature = Get-AuthenticodeSignature -LiteralPath $file.FullName
+  $signatureStatusCode = [int]$signature.Status
+  $operation = 'version'
   $version = [regex]::Match($file.VersionInfo.ProductVersion, '^\d+(?:\.\d+){1,3}').Value
-  [ordered]@{ product = $file.VersionInfo.ProductName; fileVersion = $version; executable = $file.FullName; executableSha256 = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant(); signatureStatus = $signature.Status.ToString(); signer = $signature.SignerCertificate.GetNameInfo([Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false) } | ConvertTo-Json -Compress
-} catch { exit 1 }
-`)
+  if ([string]::IsNullOrEmpty($version)) { throw 'Invalid browser version' }
+  $operation = 'hash'
+  $digest = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+  $operation = 'signer'
+  if ($null -eq $signature.SignerCertificate) { throw 'Browser signer is unavailable' }
+  $signer = $signature.SignerCertificate.GetNameInfo([Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)
+  [ordered]@{ product = $file.VersionInfo.ProductName; fileVersion = $version; executable = $file.FullName; executableSha256 = $digest; signatureStatus = $signature.Status.ToString(); signer = $signer } | ConvertTo-Json -Compress
+} catch {
+  # No exception text, executable path, certificate content or process output.
+  [ordered]@{ schemaVersion = 1; scope = 'windows-branded-browser-inventory'; ok = $false; operation = $operation; candidateCount = $candidateCount; signatureStatusCode = $signatureStatusCode; hresult = $_.Exception.HResult } | ConvertTo-Json -Compress
+}
+`
+}
+
+export function safeBrowserInventoryDiagnostic(value) {
+  if (
+    !exactKeys(value, [
+      'schemaVersion',
+      'scope',
+      'ok',
+      'operation',
+      'candidateCount',
+      'signatureStatusCode',
+      'hresult',
+    ]) ||
+    value.schemaVersion !== 1 ||
+    value.scope !== 'windows-branded-browser-inventory' ||
+    value.ok !== false ||
+    !['roots', 'candidates', 'signature', 'version', 'hash', 'signer'].includes(
+      value.operation
+    ) ||
+    (value.candidateCount !== null &&
+      (!Number.isInteger(value.candidateCount) ||
+        value.candidateCount < 0 ||
+        value.candidateCount > 2)) ||
+    (value.signatureStatusCode !== null &&
+      (!Number.isInteger(value.signatureStatusCode) ||
+        value.signatureStatusCode < 0 ||
+        value.signatureStatusCode > 6)) ||
+    !Number.isInteger(value.hresult) ||
+    value.hresult < -2147483648 ||
+    value.hresult > 2147483647
+  )
+    return null
+  return {
+    operation: value.operation,
+    candidateCount: value.candidateCount,
+    signatureStatusCode: value.signatureStatusCode,
+    hresult: value.hresult,
+  }
+}
+
+export async function browserInventory(browser, query = encodedQuery) {
+  const result = await query(browserInventoryQuery(browser))
+  const diagnostic = safeBrowserInventoryDiagnostic(result)
+  if (diagnostic) {
+    const error = new BrowserCheckError('browser-inventory-failed')
+    error.inventoryDiagnostic = diagnostic
+    throw error
+  }
+  return result
 }
 
 /** The report associates checked-in source and actual PE bytes; it is not a signature. */
@@ -1278,6 +1345,9 @@ export async function runBrowserNativeMessagingChecks(
           name: browserStep,
           ok: false,
           code: codeOf(error),
+          ...(error instanceof BrowserCheckError && error.inventoryDiagnostic
+            ? { inventoryDiagnostic: error.inventoryDiagnostic }
+            : {}),
           ...(CASES.includes(browserStep)
             ? { operation: browserOperation }
             : {}),
