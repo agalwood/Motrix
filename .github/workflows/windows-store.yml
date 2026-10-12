@@ -77,12 +77,15 @@ jobs:
 
       - name: Parse SDK scripts with PowerShell
         run: |
-          foreach ($script in @('scripts/get-windows-store-family-name.ps1', 'scripts/test-windows-store-startup-identity.ps1', 'scripts/pack-windows-store-test.ps1', 'tests/scripts/windows-store-pri.test.ps1')) {
+          foreach ($script in @('scripts/get-windows-store-family-name.ps1', 'scripts/test-windows-store-startup-identity.ps1', 'scripts/windows-store-test-output.ps1', 'tests/scripts/windows-store-test-output.test.ps1', 'scripts/pack-windows-store-test.ps1', 'tests/scripts/windows-store-pri.test.ps1')) {
             $tokens = $null
             $errors = $null
             [Management.Automation.Language.Parser]::ParseFile((Join-Path $pwd $script), [ref]$tokens, [ref]$errors) | Out-Null
             if ($errors.Count -ne 0) { throw "PowerShell parse failed: $script" }
           }
+
+      - name: Test bounded startup diagnostics
+        run: ./tests/scripts/windows-store-test-output.test.ps1
 
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile

@@ -7,6 +7,7 @@ param(
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'windows-store-test-output.ps1')
 
 # This experiment owns a disposable hosted machine and a fixed test identity.
 # It never exports a private key or captures profiles, endpoints or pairing data.
@@ -67,6 +68,10 @@ $keyProvider = $null
 $trustAttempted = $false
 $installAttempted = $false
 $main = $null
+$stdoutCapture = $null
+$stderrCapture = $null
+$stdoutPump = $null
+$stderrPump = $null
 $certificateAttempted = $false
 $stage = 'create-certificate'
 $failureStage = $null
@@ -76,6 +81,8 @@ $report = [ordered]@{
     signatureKind = 'ephemeral-self-signed-test'; privateKeyExported = $false; windows11Verified = $false
     storeFlightVerified = $false; browserVerified = $false; firstRunConsentBypassed = $false
     mainPreflightVerified = $false; parentAndChildPackageIdentityMatched = $false; cleanupVerified = $false; ok = $false
+    mainProcessStarted = $false; startupReportFound = $false; stdoutLinesIgnored = 0
+    startupFailureCode = $null; naturalMainExitCode = $null; failureType = $null
 }
 try {
     $certificateAttempted = $true
@@ -111,24 +118,52 @@ try {
         $row = @($layout.payload | Where-Object { $_.path -ceq $relative })
         if ($row.Count -ne 1 -or (Get-Hash (Join-Path $package.InstallLocation $name)) -cne $row[0].sha256) { throw 'Installed payload digest differs.' }
     }
-    $stage = 'main-startup-preflight'
+    $stage = 'main-process-start'
     $settings = [Diagnostics.ProcessStartInfo]::new((Join-Path $package.InstallLocation 'app/Motrix.exe'))
     $settings.UseShellExecute = $false; $settings.RedirectStandardOutput = $true; $settings.RedirectStandardError = $true
     $main = [Diagnostics.Process]::new(); $main.StartInfo = $settings
     if (-not $main.Start()) { throw 'Owned main executable did not start.' }
-    $discardError = $main.StandardError.BaseStream.CopyToAsync([IO.Stream]::Null)
-    $line = $main.StandardOutput.ReadLineAsync()
-    if (-not $line.Wait(30000)) { throw 'Startup identity report was not produced.' }
-    $value = $line.GetAwaiter().GetResult()
-    if ($null -eq $value -or $value.Length -gt 32768) { throw 'Invalid startup report length.' }
-    $startup = $value | ConvertFrom-Json
+    $report.mainProcessStarted = $true
+    $stdoutCapture = [MotrixStoreTest.BoundedOutput]::new(65536)
+    $stderrCapture = [MotrixStoreTest.BoundedOutput]::new(16384)
+    $stdoutPump = $stdoutCapture.PumpAsync($main.StandardOutput.BaseStream)
+    $stderrPump = $stderrCapture.PumpAsync($main.StandardError.BaseStream)
+    $stage = 'main-report-wait'
+    $timer = [Diagnostics.Stopwatch]::StartNew()
+    $startup = $null
+    $consumed = 0
+    while ($timer.ElapsedMilliseconds -lt 30000 -and $null -eq $startup) {
+        if ($main.HasExited) { $null = $stdoutPump.Wait(1000); $null = $stderrPump.Wait(1000) }
+        $lines = $stdoutCapture.Snapshot().Split("`n")
+        while ($consumed -lt $lines.Length - 1) {
+            $value = $lines[$consumed++].TrimEnd("`r")
+            if ($value.Length -gt 32768 -or $consumed -gt 32) { $stage = 'main-output-limit'; throw 'Startup output exceeded its bounds.' }
+            try { $candidate = $value | ConvertFrom-Json; if ($candidate.scope -ceq 'windows-package-startup-identity') { $startup = $candidate; break } } catch { }
+            $report.stdoutLinesIgnored++
+        }
+        if ($null -ne $startup) { break }
+        if ($stdoutCapture.Truncated) { $stage = 'main-output-limit'; throw 'Startup output exceeded its bounds.' }
+        if ($main.HasExited) { $stage = 'main-exited-before-report'; throw 'Owned main exited without an identity report.' }
+        Start-Sleep -Milliseconds 100
+    }
+    if ($null -eq $startup) { $stage = 'main-report-timeout'; throw 'Startup identity report was not produced.' }
+    $report.startupReportFound = $true
+    $stage = 'main-report-source'
     if ($startup.version -ne 1 -or $startup.scope -cne 'windows-package-startup-identity' -or $startup.sourceCommit -cne $metadata.source.commit -or $startup.productVersion -cne $metadata.productVersion) { throw 'Startup identity report differs.' }
+    $stage = 'main-report-identity'
     if ($startup.identity.publisher -cne $package.Publisher -or $startup.identity.familyName -ine $package.PackageFamilyName -or $startup.identity.fullName -ine $package.PackageFullName -or $startup.identity.version -cne $package.Version.ToString() -or $startup.identity.architecture -cne 'x64') { throw 'Parent and child package identities differ.' }
     $report.mainPreflightVerified = $true; $report.parentAndChildPackageIdentityMatched = $true
-} catch { $failureStage = $stage }
+} catch { $failureStage = $stage; $report.failureType = $_.Exception.GetType().Name }
 finally {
     if ($null -ne $main) {
-        try { if (-not $main.HasExited) { $main.Kill($true); $main.WaitForExit() } } catch { $cleanupErrors.Add('owned-process') }
+        try {
+            if ($report.mainProcessStarted) {
+                if ($main.HasExited) { $report.naturalMainExitCode = $main.ExitCode } else { $main.Kill($true); $main.WaitForExit() }
+                if ($null -ne $stdoutPump) { if (-not $stdoutPump.Wait(5000)) { throw 'Owned stdout pump did not close.' } }
+                if ($null -ne $stderrPump) { if (-not $stderrPump.Wait(5000)) { throw 'Owned stderr pump did not close.' } }
+                if ($null -ne $stderrCapture) { $report.startupFailureCode = [MotrixStoreTest.BoundedOutput]::StartupFailureCode($stderrCapture.Snapshot()) }
+            }
+        } catch { $cleanupErrors.Add('owned-process') }
         $main.Dispose()
     }
     if ($installAttempted) {
