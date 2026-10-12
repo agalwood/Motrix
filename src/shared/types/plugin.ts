@@ -1,6 +1,7 @@
 // src/shared/types/plugin.ts
 // Phase 1A DTO-only types. Manifest schema lives in @core/plugin/manifest/schema.ts.
 
+import type { OperationsContribution } from '@motrix/plugin-manifest-schema'
 import type { PluginSecurityDecision } from '@shared/schemas/plugin-security'
 
 export type PluginStatus =
@@ -61,11 +62,13 @@ export interface PluginManifest {
 
 // Loose contributes shape for Core Runtime. Plan C/D/G tighten each inner schema.
 export interface ManifestContributes {
+  operations?: OperationsContribution
   commands?: ReadonlyArray<{
     id: string
     title: string
     icon?: string
     public?: boolean
+    execution?: 'operation'
     // Plan D: bounded JSON Schema subset, validated by the Zod manifest
     // parser. Required when `public: true`. Compiled into Ajv validators
     // by SchemaCache at install time; never reaches the plugin VM.

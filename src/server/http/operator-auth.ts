@@ -175,6 +175,9 @@ interface SessionSocket {
 }
 
 export interface OperatorSessionPolicy {
+  principal(
+    req: FastifyRequest
+  ): { id: string; eligible(): boolean } | undefined
   bindSocket(
     req: FastifyRequest,
     socket: SessionSocket
@@ -337,6 +340,20 @@ export function registerOperatorAuth(
   })
 
   return {
+    principal(req) {
+      const mode = authenticate(req)
+      if (mode === 'bearer')
+        return {
+          id: `bearer:${sha256(opts.operatorToken).toString('hex')}`,
+          eligible: () => true,
+        }
+      const id = parseCookies(req.headers.cookie)[COOKIE]
+      if (mode !== 'cookie' || !id) return undefined
+      return {
+        id: `session:${sha256(id).toString('hex')}`,
+        eligible: () => validSession(id, false),
+      }
+    },
     bindSocket(req, socket) {
       const mode = authenticate(req)
       const id =

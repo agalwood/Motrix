@@ -83,6 +83,7 @@ export interface NativeFinalizeFilesystemAdapterOptions {
 }
 
 export interface FinalizeRootHandle {
+  readonly identity?: string
   readonly id: number
 }
 
@@ -213,8 +214,12 @@ export class NativeFinalizeFilesystemAdapter
     )
   }
 
-  private heldHandle(id: number, generation: number): FinalizeRootHandle {
-    const handle = Object.freeze({ id })
+  private heldHandle(
+    id: number,
+    generation: number,
+    identity?: string
+  ): FinalizeRootHandle {
+    const handle = Object.freeze({ id, ...(identity ? { identity } : {}) })
     this.handleGenerations.set(handle, generation)
     return handle
   }
@@ -246,6 +251,86 @@ export class NativeFinalizeFilesystemAdapter
       reservedExfatRename: response.reserved_exfat_rename === true,
       tokenExfatReservation: response.token_exfat_reservation === true,
     }
+  }
+
+  async createPrivateRoot(
+    parent: FinalizeRootHandle,
+    name: string
+  ): Promise<FinalizeRootHandle> {
+    const generation = this.generation
+    const result = await this.request({
+      op: 'create_private_root',
+      root: this.nativeId(parent),
+      name,
+    })
+    if (result.handle === undefined || !result.platform_file_id)
+      throw new Error('sidecar omitted private root identity')
+    return this.heldHandle(result.handle, generation, result.platform_file_id)
+  }
+
+  async removePrivateRoot(
+    parent: FinalizeRootHandle,
+    name: string,
+    root: FinalizeRootHandle
+  ): Promise<void> {
+    await this.request({
+      op: 'remove_private_root',
+      parent: this.nativeId(parent),
+      name,
+      root: this.nativeId(root),
+    })
+  }
+
+  async openSelectedFile(
+    root: FinalizeRootHandle,
+    relative: string
+  ): Promise<FinalizeArtifactHandle> {
+    const generation = this.generation
+    const result = await this.request({
+      op: 'open_selected_file',
+      root: this.nativeId(root),
+      relative,
+    })
+    if (result.handle === undefined)
+      throw new Error('sidecar omitted selected file handle')
+    return this.heldHandle(result.handle, generation)
+  }
+
+  async copySelectedFile(
+    file: FinalizeArtifactHandle,
+    target: FinalizeRootHandle,
+    relative: string
+  ): Promise<void> {
+    await this.request({
+      op: 'copy_selected_file',
+      artifact: this.nativeId(file),
+      target_root: this.nativeId(target),
+      target_relative: relative,
+    })
+  }
+
+  /** Dedicated operation sidecars can be killed without interrupting downloads. */
+  async abort(): Promise<void> {
+    this.disposed = true
+    const child = this.child
+    if (child.exitCode !== null || child.signalCode !== null) return
+    await new Promise<void>((resolve, reject) => {
+      const kill = setTimeout(() => child.kill('SIGKILL'), 5000)
+      const stuck = setTimeout(() => {
+        detach()
+        reject(new Error('operation filesystem process did not exit'))
+      }, 10000)
+      const detach = () => {
+        clearTimeout(kill)
+        clearTimeout(stuck)
+      }
+      child.once('close', () => {
+        detach()
+        resolve()
+      })
+      this.markDead(new Error('operation filesystem work cancelled'))
+      child.kill('SIGTERM')
+    })
   }
 
   async exfatVolumeIdentity(root: FinalizeRootHandle): Promise<string | null> {
@@ -392,7 +477,8 @@ export class NativeFinalizeFilesystemAdapter
 
   async openRoot(
     rootPath: string,
-    expectedIdentity?: string
+    expectedIdentity?: string,
+    readOnly = false
   ): Promise<FinalizeRootHandle> {
     if (!path.isAbsolute(rootPath)) {
       throw new FinalizeFsError('invalid_path', 'root path must be absolute')
@@ -400,12 +486,17 @@ export class NativeFinalizeFilesystemAdapter
     const generation = this.generation
     const response = await this.request({
       op: 'open_root',
+      read_only: readOnly,
       path: normalizeSidecarRootPath(rootPath),
       expected_identity: expectedIdentity,
     })
     if (response.handle === undefined)
       throw new Error('sidecar omitted root handle')
-    return this.heldHandle(response.handle, generation)
+    return this.heldHandle(
+      response.handle,
+      generation,
+      response.platform_file_id
+    )
   }
 
   async renameNoReplace(

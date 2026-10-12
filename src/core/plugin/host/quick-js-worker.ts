@@ -85,6 +85,8 @@ const registeredHooks = new Map<string, QuickJSHandle>()
 
 // Registered command handlers (stored as duplicated QuickJS handles).
 // Populated by commands.register(id, fn) during activation.
+const registeredOperations = new Map<string, QuickJSHandle>()
+const operationSignals = new Map<string, QuickJSHandle>()
 const registeredCommands = new Map<string, QuickJSHandle>()
 
 // Registered lifecycle.onDeactivate handlers.
@@ -310,6 +312,16 @@ port.on('message', (msg: HostToWorker) => {
       } else if (msg.event === 'abort') {
         const parsed = HookAbortMessageSchema.safeParse(msg)
         if (parsed.success) handleHookAbort(parsed.data)
+      } else if (msg.event === 'operationAbort') {
+        const vm = vmRef
+        const signal = operationSignals.get(msg.jobId)
+        if (vm && signal) {
+          const abort = vm.getProp(signal, '__abort')
+          const result = vm.callFunction(abort, signal)
+          if (result.error) result.error.dispose()
+          else result.value.dispose()
+          abort.dispose()
+        }
       } else if (msg.event === 'executeCommand') {
         const parsed = BridgeExecuteCommandSchema.safeParse(msg)
         if (parsed.success) handleExecuteCommand(parsed.data)
@@ -675,6 +687,7 @@ function handleExecuteCommand(message: {
   commandId: string
   args: unknown
   commandScope: CommandInvocationScopeV1
+  operation?: { jobId: string }
 }): void {
   const { id, commandId, args, commandScope } = message
   const vm = vmRef
@@ -691,7 +704,9 @@ function handleExecuteCommand(message: {
     return
   }
 
-  const handler = registeredCommands.get(commandId)
+  const handler = (
+    message.operation ? registeredOperations : registeredCommands
+  ).get(commandId)
   if (!handler) {
     send({
       type: 'event',
@@ -714,9 +729,13 @@ function handleExecuteCommand(message: {
     hook: null,
     command: commandScope,
   }
+  const context = message.operation
+    ? makeOperationContext(vm, message.operation.jobId)
+    : vm.undefined
   const callResult = withGuestCallbackScope(callbackScope, () =>
-    vm.callFunction(handler, vm.undefined, argsHandle)
+    vm.callFunction(handler, vm.undefined, argsHandle, context)
   )
+  if (message.operation) context.dispose()
   argsHandle.dispose()
 
   if (callResult.error) {
@@ -1475,6 +1494,43 @@ function makeEffectfulNs(
   return ns
 }
 
+function makeOperationContext(
+  vm: QuickJSContext,
+  jobId: string
+): QuickJSHandle {
+  const context = makeEffectfulNs(vm, 'operation', ['progress'])
+  const media = makeEffectfulNs(vm, 'operation', ['probe', 'mergeStreams'])
+  const files = makeEffectfulNs(vm, 'operation', ['readText', 'writeText'])
+  vm.setProp(context, 'media', media)
+  media.dispose()
+  vm.setProp(context, 'files', files)
+  files.dispose()
+  const id = vm.newString(jobId)
+  vm.setProp(context, 'jobId', id)
+  id.dispose()
+  const fail = vm.newFunction('fail', (code) => ({
+    error: vm.newError(`operation.error.${String(vm.dump(code)).slice(0, 64)}`),
+  }))
+  vm.setProp(context, 'fail', fail)
+  fail.dispose()
+  const signal = vm.evalCode(`(() => {
+    const listeners = new Set(); let aborted = false;
+    return Object.freeze({ get aborted() { return aborted }, get reason() { return aborted ? 'Operation cancelled' : undefined },
+      throwIfAborted() { if (aborted) throw new Error('Operation cancelled') },
+      addEventListener(type, listener) { if (type === 'abort' && typeof listener === 'function' && listeners.size < 32) listeners.add(listener) },
+      removeEventListener(type, listener) { if (type === 'abort') listeners.delete(listener) },
+      __abort() { if (aborted) return; aborted = true; for (const listener of listeners) { try { listener({type: 'abort'}) } catch {} } listeners.clear() }
+    })
+  })()`)
+  if (signal.error) {
+    signal.error.dispose()
+    throw new Error('Cannot create operation signal')
+  }
+  operationSignals.set(jobId, signal.value)
+  vm.setProp(context, 'signal', signal.value)
+  return context
+}
+
 // --- Plugin API injection ----------------------------------------------
 
 function injectPluginApi(vm: QuickJSContext, init: BridgeInitMessage): void {
@@ -1577,6 +1633,22 @@ function injectPluginApi(vm: QuickJSContext, init: BridgeInitMessage): void {
   // before any local handler or Host queue can run; cross-plugin calls bridge
   // through the Host-owned command graph and its immutable call chain.
   const commands = vm.newObject()
+
+  const operationRegister = vm.newFunction('registerOperation', (idH, fnH) => {
+    const id = vm.dump(idH) as string
+    if (
+      !init.manifest.contributes.commands?.some(
+        (command) => command.id === id && command.execution === 'operation'
+      )
+    )
+      return { error: vm.newError('Operation command is not declared') }
+    registeredOperations.get(id)?.dispose()
+    registeredOperations.set(id, fnH.dup())
+    send({ type: 'register', kind: 'command', key: id })
+    return vm.undefined
+  })
+  vm.setProp(commands, 'registerOperation', operationRegister)
+  operationRegister.dispose()
 
   const regF = vm.newFunction('register', (idH, fnH) => {
     const id = vm.dump(idH) as string

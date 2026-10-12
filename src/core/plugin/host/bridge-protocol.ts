@@ -90,6 +90,7 @@ export const BridgeExecuteCommandSchema = z.strictObject({
   commandId: z.string().min(1).max(256),
   args: z.unknown(),
   commandScope: CommandInvocationScopeV1Schema,
+  operation: z.strictObject({ jobId: z.string().uuid() }).optional(),
 })
 export type BridgeExecuteCommand = z.infer<typeof BridgeExecuteCommandSchema>
 
@@ -109,6 +110,7 @@ export interface BridgeDeactivateComplete {
 
 // Host → worker (one-way events).
 export type BridgeEventMessage =
+  | { type: 'event'; event: 'operationAbort'; jobId: string }
   | {
       type: 'event'
       event: 'localeChange'

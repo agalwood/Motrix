@@ -1,3 +1,8 @@
+import {
+  boundedOperationJson,
+  mapOperationUiText,
+  OperationsContributionSchema,
+} from '@motrix/plugin-manifest-schema'
 import type {
   JsonSchemaNode,
   ManifestContributes,
@@ -77,11 +82,83 @@ function walkContributes(
 ): ManifestContributes {
   const out: ManifestContributes = { ...c }
   if (c.commands) {
-    out.commands = c.commands.map((cmd) =>
-      typeof cmd.title === 'string'
-        ? { ...cmd, title: resolveOne(cmd.title, opts) }
-        : cmd
-    )
+    out.commands = c.commands.map((cmd) => ({
+      ...cmd,
+      ...(cmd.title ? { title: resolveOne(cmd.title, opts) } : {}),
+      ...(cmd.execution === 'operation' && cmd.argsSchema
+        ? { argsSchema: walkSchemaNode(cmd.argsSchema, opts) }
+        : {}),
+      ...(cmd.execution === 'operation' && cmd.resultSchema
+        ? { resultSchema: walkSchemaNode(cmd.resultSchema, opts) }
+        : {}),
+    }))
+  }
+  if (c.operations) {
+    out.operations = {
+      ...c.operations,
+      items: c.operations.items.map((operation) => ({
+        ...operation,
+        title: resolveOne(operation.title, opts),
+        ...(operation.ui
+          ? {
+              ui: mapOperationUiText(operation.ui, (text) =>
+                resolveOne(text, opts)
+              ),
+            }
+          : {}),
+        ...(operation.description
+          ? { description: resolveOne(operation.description, opts) }
+          : {}),
+        fields: operation.fields.map((field) => ({
+          ...field,
+          ...(field.appearance
+            ? {
+                appearance: {
+                  ...field.appearance,
+                  ...(field.appearance.placeholder
+                    ? {
+                        placeholder: resolveOne(
+                          field.appearance.placeholder,
+                          opts
+                        ),
+                      }
+                    : {}),
+                  ...(field.appearance.browseLabel
+                    ? {
+                        browseLabel: resolveOne(
+                          field.appearance.browseLabel,
+                          opts
+                        ),
+                      }
+                    : {}),
+                },
+              }
+            : {}),
+          ...(field.label ? { label: resolveOne(field.label, opts) } : {}),
+          ...(field.help ? { help: resolveOne(field.help, opts) } : {}),
+          ...(field.optionLabels
+            ? {
+                optionLabels: Object.fromEntries(
+                  Object.entries(field.optionLabels).map(([key, text]) => [
+                    key,
+                    resolveOne(text, opts),
+                  ])
+                ),
+              }
+            : {}),
+        })),
+        ...(operation.errors
+          ? {
+              errors: Object.fromEntries(
+                Object.entries(operation.errors).map(([key, text]) => [
+                  key,
+                  resolveOne(text, opts),
+                ])
+              ),
+            }
+          : {}),
+      })),
+    }
   }
   if (c.configuration) {
     const cfg = { ...c.configuration }
@@ -111,5 +188,24 @@ export function resolveManifestI18n(
     }
   }
   out.contributes = walkContributes(manifest.contributes, opts)
+  const operations = out.contributes.operations
+  if (
+    operations &&
+    (!OperationsContributionSchema.safeParse(operations).success ||
+      operations.items.some(
+        (operation) => !boundedOperationJson(operation, 8192)
+      ) ||
+      out.contributes.commands?.some(
+        (command) =>
+          command.execution === 'operation' &&
+          (!boundedOperationJson(command.argsSchema, 8192, 18) ||
+            !boundedOperationJson(command.resultSchema, 8192, 18))
+      ))
+  ) {
+    throw new PluginManifestInvalid(
+      'plugin.manifest.operation',
+      'Localized operation presentation exceeds protocol limits'
+    )
+  }
   return out
 }

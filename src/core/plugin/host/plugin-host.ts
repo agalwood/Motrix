@@ -12,16 +12,13 @@ import { ffmpegSatisfies } from '../install/ffmpeg-semver'
 import { readMoextEntry } from '../install/moext-reader'
 import { loadOfficialPackage } from '../install/official-package'
 import { resolveInsidePluginDir } from '../manifest/path-safety'
+import type { OperationExecution } from '../operations/operation-files'
 import type { PluginRegistry } from '../plugin-registry'
 import type { PluginSecurityService } from '../security/security-service'
 import type { PluginStateStore } from '../state/plugin-state-store'
 import { verifyBuiltinSignature } from '../update/signature'
 import type { HookName } from './bridge-protocol'
-import {
-  CapabilityBridge,
-  type HookContextArgs,
-  type ManualMergeContext,
-} from './capability-bridge'
+import { CapabilityBridge, type HookContextArgs } from './capability-bridge'
 import {
   type PluginCallChain,
   PluginLane,
@@ -273,7 +270,7 @@ export class PluginHost {
     args: unknown,
     options: {
       callChain?: PluginCallChain
-      mediaMerge?: ManualMergeContext
+      operation?: OperationExecution
     } = {}
   ): Promise<unknown> {
     return this.laneFor(pluginId).run(
@@ -286,15 +283,19 @@ export class PluginHost {
           )
         }
         a.lastActivityAt = Date.now()
-        if (options.mediaMerge) {
-          return a.bridge.callMediaMerge(commandId, args, {
-            ...options.mediaMerge,
+        if (options.operation) {
+          const context = {
+            ...options.operation,
             signal: AbortSignal.any([
-              options.mediaMerge.signal,
+              options.operation.signal,
               a.admissionAbort.signal,
             ]),
-          })
+          }
+          return a.bridge
+            .callOperation(commandId, args, context)
+            .finally(() => this.teardownActive(pluginId, a, true))
         }
+
         return raceWithAdmissionAbort(
           a.bridge.callPlugin(commandId, args),
           a.admissionAbort.signal,
@@ -1246,7 +1247,12 @@ export class PluginHost {
     this.opts.registry.refreshState(pluginId)
   }
 
+  private operationsShutdown?: () => Promise<void>
+  bindOperationsShutdown(shutdown: () => Promise<void>) {
+    this.operationsShutdown = shutdown
+  }
   async shutdown(): Promise<void> {
+    await this.operationsShutdown?.()
     this.shuttingDown = true
     this.unsubscribeSecurity()
     await this.opts.security?.stop()

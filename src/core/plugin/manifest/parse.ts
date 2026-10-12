@@ -9,7 +9,12 @@ import {
   type ManifestZodOutput,
 } from './schema'
 
-const KNOWN_CONTRIBUTES_KEYS = ['commands', 'hooks', 'configuration'] as const
+const KNOWN_CONTRIBUTES_KEYS = [
+  'commands',
+  'hooks',
+  'configuration',
+  'operations',
+] as const
 const TYPO_DISTANCE_THRESHOLD = 2
 
 // Spec §2 L331-345 — Phase 1A activation event vocabulary. Unknown tokens

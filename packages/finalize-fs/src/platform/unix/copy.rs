@@ -26,7 +26,7 @@ fn copy_timestamps(source: RawFd, target: RawFd) -> io::Result<()> {
         .map_err(|error| native_error(error.into(), "futimens(copy_timestamps)", None))
 }
 
-fn copy_file_contents(source: RawFd, target: RawFd) -> io::Result<()> {
+pub(super) fn copy_file_contents(source: RawFd, target: RawFd) -> io::Result<()> {
     if unsafe { libc::lseek(source, 0, libc::SEEK_SET) } < 0 {
         return Err(io::Error::last_os_error());
     }

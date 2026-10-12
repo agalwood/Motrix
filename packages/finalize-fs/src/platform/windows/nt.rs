@@ -153,6 +153,17 @@ pub(super) fn open_anchor(path: &Path, mutable: bool) -> io::Result<OwnedHandle>
     Ok(unsafe { OwnedHandle::from_raw_handle(handle) })
 }
 
+pub(super) fn open_selected(parent: &OwnedHandle, name: &[u16]) -> io::Result<OwnedHandle> {
+    nt_create(
+        parent,
+        name,
+        FILE_READ_DATA | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+        SHARE_HELD_ARTIFACT,
+        FILE_OPEN,
+        OPEN_COMMON | FILE_NON_DIRECTORY_FILE,
+    )
+}
+
 pub(super) fn open_existing(parent: &OwnedHandle, name: &[u16]) -> io::Result<OwnedHandle> {
     match nt_create(
         parent,
@@ -251,6 +262,88 @@ fn nt_create(
     disposition: u32,
     options: u32,
 ) -> io::Result<OwnedHandle> {
+    nt_create_with_security(
+        parent,
+        name,
+        desired_access,
+        share_access,
+        disposition,
+        options,
+        std::ptr::null(),
+    )
+}
+
+// Protected, inheritable DACL grants the owner and SYSTEM access from creation.
+// No permissive-directory interval exists before copying selected input data.
+pub(super) fn create_private_directory(
+    parent: &OwnedHandle,
+    name: &[u16],
+) -> io::Result<OwnedHandle> {
+    use windows_sys::Win32::Foundation::LocalFree;
+    use windows_sys::Win32::Security::Authorization::ConvertStringSecurityDescriptorToSecurityDescriptorW;
+    use windows_sys::Win32::Storage::FileSystem::GetVolumeInformationByHandleW;
+    use windows_sys::Win32::System::SystemServices::FILE_PERSISTENT_ACLS;
+    let mut flags = 0;
+    if unsafe {
+        GetVolumeInformationByHandleW(
+            parent.as_raw_handle(),
+            std::ptr::null_mut(),
+            0,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            &mut flags,
+            std::ptr::null_mut(),
+            0,
+        )
+    } == 0
+    {
+        return Err(io::Error::last_os_error());
+    }
+    if flags & FILE_PERSISTENT_ACLS == 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "operation staging requires persistent ACLs",
+        ));
+    }
+    let sddl: Vec<u16> = "D:P(A;OICI;FA;;;OW)(A;OICI;FA;;;SY)\0"
+        .encode_utf16()
+        .collect();
+    let mut descriptor: *mut c_void = std::ptr::null_mut();
+    if unsafe {
+        ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            sddl.as_ptr(),
+            1,
+            &mut descriptor,
+            std::ptr::null_mut(),
+        )
+    } == 0
+    {
+        return Err(io::Error::last_os_error());
+    }
+    let result = nt_create_with_security(
+        parent,
+        name,
+        TARGET_DIRECTORY_ACCESS,
+        SHARE_HELD_ARTIFACT,
+        FILE_CREATE,
+        OPEN_COMMON | FILE_DIRECTORY_FILE,
+        descriptor,
+    );
+    unsafe {
+        LocalFree(descriptor);
+    }
+    result
+}
+
+fn nt_create_with_security(
+    parent: &OwnedHandle,
+    name: &[u16],
+    desired_access: FILE_ACCESS_RIGHTS,
+    share_access: u32,
+    disposition: u32,
+    options: u32,
+    security_descriptor: *const c_void,
+) -> io::Result<OwnedHandle> {
     if name.is_empty() || name.len() > (u16::MAX as usize / size_of::<u16>()) {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -273,7 +366,7 @@ fn nt_create(
         RootDirectory: parent.as_raw_handle(),
         ObjectName: &object_name,
         Attributes: object_attributes(parent)?,
-        SecurityDescriptor: std::ptr::null(),
+        SecurityDescriptor: security_descriptor.cast(),
         SecurityQualityOfService: std::ptr::null(),
     };
     let mut handle: HANDLE = std::ptr::null_mut();

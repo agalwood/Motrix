@@ -40,6 +40,7 @@ interface PluginSpec {
     argsSchema?: unknown
     resultSchema?: unknown
     public?: boolean
+    execution?: 'operation'
   }>
 }
 
@@ -51,6 +52,7 @@ function makeRegistry(plugins: PluginSpec[]): PluginRegistry {
         id: c.id,
         title: c.id,
         public: c.public ?? true,
+        execution: c.execution,
       })),
     }
     const manifest: PluginManifest = {
@@ -158,6 +160,7 @@ function buildHarness(opts: {
       argsSchema?: unknown
       resultSchema?: unknown
       public?: boolean
+      execution?: 'operation'
     }>
   >
 }): Harness {
@@ -236,11 +239,14 @@ describe('FullCrossPluginInvoker', () => {
     await rm(tmp, { recursive: true, force: true })
   })
 
-  it('rejects a declared public merger without activating the callee', async () => {
-    const commandId = 'motrix.media-merge.mergeStreams'
+  it('rejects an operation command even with a forged public flag', async () => {
+    const commandId = 'community.text-tools.deduplicate'
     const registry = makeRegistry([
       { id: 'test.caller', invokesCommands: [commandId] },
-      { id: 'motrix.media-merge', publicCommands: [{ id: commandId }] },
+      {
+        id: 'community.text-tools',
+        publicCommands: [{ id: commandId, execution: 'operation' }],
+      },
     ])
     let invoked = false
     const host = makeHost({

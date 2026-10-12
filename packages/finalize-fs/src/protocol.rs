@@ -9,6 +9,28 @@ const MAX_FRAME_BYTES: usize = 64 * 1024;
 #[serde(tag = "op", rename_all = "snake_case")]
 pub(crate) enum Request {
     Capabilities,
+    CreatePrivateRoot {
+        request_id: u64,
+        root: u64,
+        name: String,
+    },
+    RemovePrivateRoot {
+        request_id: u64,
+        parent: u64,
+        name: String,
+        root: u64,
+    },
+    OpenSelectedFile {
+        request_id: u64,
+        root: u64,
+        relative: String,
+    },
+    CopySelectedFile {
+        request_id: u64,
+        artifact: u64,
+        target_root: u64,
+        target_relative: String,
+    },
     SanitizeName {
         request_id: u64,
         name: String,
@@ -18,6 +40,8 @@ pub(crate) enum Request {
         path: String,
         #[serde(default)]
         expected_identity: Option<String>,
+        #[serde(default)]
+        read_only: bool,
     },
     OpenArtifact {
         request_id: u64,
@@ -106,6 +130,10 @@ impl Request {
     pub(crate) fn operation(&self) -> &'static str {
         match self {
             Self::Capabilities => "capabilities",
+            Self::CreatePrivateRoot { .. } => "create_private_root",
+            Self::RemovePrivateRoot { .. } => "remove_private_root",
+            Self::OpenSelectedFile { .. } => "open_selected_file",
+            Self::CopySelectedFile { .. } => "copy_selected_file",
             Self::SanitizeName { .. } => "sanitize_name",
             Self::OpenRoot { .. } => "open_root",
             Self::OpenArtifact { .. } => "open_artifact",

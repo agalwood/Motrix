@@ -1,4 +1,8 @@
 //! Unix handle ownership and descriptor-relative artifact admission.
+mod operations;
+pub(crate) use operations::{
+    copy_selected_file, create_private_root, open_selected_file, remove_private_root, root_identity,
+};
 
 mod copy;
 mod digest;
@@ -169,7 +173,7 @@ fn open_artifact_internal(
         libc::openat(
             parent.as_raw_fd(),
             name.as_ptr(),
-            libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+            libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK,
         )
     };
     if fd < 0 {

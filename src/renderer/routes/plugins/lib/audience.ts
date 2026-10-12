@@ -101,6 +101,14 @@ const PERMISSION_AUDIENCE: Record<
     tone: 'off',
     toneLabelKey: 'plugins.permission.accessTone.offByDefault',
   },
+  'files.selected.read': {
+    tone: 'review',
+    toneLabelKey: 'plugins.permission.accessTone.required',
+  },
+  'files.selected.write': {
+    tone: 'review',
+    toneLabelKey: 'plugins.permission.accessTone.required',
+  },
   'fs.task.read': {
     tone: 'optional',
     toneLabelKey: 'plugins.permission.accessTone.required',

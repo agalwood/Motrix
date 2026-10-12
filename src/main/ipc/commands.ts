@@ -14,7 +14,6 @@ import { getLogger } from '@core/logger'
 import { publishEngineRestartRequired } from '@core/notifications/engine-restart-required'
 import type { NotificationCenter } from '@core/notifications/notification-center'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
-import { ManualMediaMerge } from '@core/plugin/commands/manual-media-merge'
 import type { GrantsManager } from '@core/plugin/grants/grants-manager'
 import type { HookAuditLog } from '@core/plugin/hooks/audit-log'
 import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
@@ -32,6 +31,7 @@ import {
 import type { SourceInput } from '@core/plugin/install/source-resolver'
 import { downloadUrlMoext } from '@core/plugin/install/url-fetcher'
 import { PluginEngineVersionTooOld } from '@core/plugin/manifest/errors'
+import type { OperationService } from '@core/plugin/operations/operation-service'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
 import type { RegistryClient } from '@core/plugin/registry/registry-client'
 import { downloadRegistryMoext } from '@core/plugin/registry/registry-fetcher'
@@ -100,6 +100,7 @@ import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import type { CommandHandlerMap } from '@shared/protocol/handler-types'
+import { OPERATION_CHANNELS } from '@shared/protocol/operation-channels'
 import {
   type TaskCreateCommandResult,
   taskCreateRequestSchema,
@@ -159,6 +160,7 @@ import { syncAutoLaunch } from '../platform/auto-launch'
 import { setLinuxDefaultTorrentHandler } from '../platform/linux-default-apps'
 import type { createProtocolManager } from '../platform/protocol-manager'
 import { resolveWindowsDefaultAppsSettingsUrl } from '../platform/windows-default-apps'
+import { desktopOperationHandlers } from '../plugin/operation-commands'
 import { installManagedFfmpeg } from '../plugin/verified-ffmpeg-electron'
 import type { createMainProxyApplier } from '../proxy/wiring'
 import type { createRendererRecoveryRuntime } from '../window/renderer-recovery-runtime'
@@ -176,6 +178,7 @@ const cliInstallRequestSchema = z
 
 export interface CommandContext {
   rendererRecovery?: ReturnType<typeof createRendererRecoveryRuntime>
+  operationService?: OperationService
   cliToolService: Pick<CliToolService, 'install'>
   supervisor: EngineSupervisor
   /** Session latch of the auto DNS fallback — reset when dnsMode changes. */
@@ -664,24 +667,10 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     runWork: ctx.trackAsyncWork,
   })
 
-  const manualMediaMerge = new ManualMediaMerge({
-    createLog: (pluginId) => capabilityHost.createLog(pluginId),
-    registry: pluginRegistry,
-    host: pluginHost,
-    tasks: taskManager,
-    runWork: ctx.trackAsyncWork,
-  })
-
   return {
-    [Commands.GetMediaMergeState]: async () => manualMediaMerge.state(),
-    [Commands.GetMediaMergeSelection]: async (value: unknown) =>
-      manualMediaMerge.selection(value),
-    [Commands.StartMediaMerge]: async (value: unknown) =>
-      manualMediaMerge.start(value),
-    [Commands.GetMediaMergeJob]: async (value: unknown) =>
-      manualMediaMerge.get(value),
-    [Commands.CancelMediaMerge]: async (value: unknown) =>
-      manualMediaMerge.cancel(value),
+    ...(ctx.operationService
+      ? desktopOperationHandlers(ctx.operationService)
+      : {}),
     [Commands.PickFile]: async (sender: WebContents, value: unknown) => {
       const params = filePickerOptionsSchema.parse(value)
       if (saveDirPickersInFlight.has(sender)) return null
@@ -1550,7 +1539,6 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     [Commands.RevealInFolder]: createRevealInFolderHandler({
       shell,
       getTask: (taskId) => taskManager.getById(taskId),
-      getMediaMergeJob: (jobId) => manualMediaMerge.get(jobId),
     }),
     [Commands.OpenTaskFile]: createOpenTaskFileHandler({
       shell,
@@ -1989,6 +1977,7 @@ export function registerCommandHandlers(ctx: CommandContext): () => void {
       channel === Commands.MinimizeCurrentWindow ||
       channel === Commands.ToggleMaximizeCurrentWindow ||
       channel === Commands.PickSaveDir ||
+      OPERATION_CHANNELS.has(channel) ||
       channel === Commands.PickFile ||
       channel === Commands.ResizeWindow ||
       channel === Commands.UpdateMenuContext

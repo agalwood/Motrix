@@ -1,5 +1,10 @@
 //! Windows handle-relative filesystem operations with fail-closed reparse handling.
 
+mod operations;
+pub(crate) use operations::{
+    copy_selected_file, create_private_root, open_selected_file, remove_private_root,
+    root_identity, validate_root_identity,
+};
 mod copy;
 mod digest;
 mod metadata;
@@ -39,13 +44,16 @@ pub(crate) struct ArtifactHandle {
 }
 
 pub(crate) fn open_root(path: &str) -> io::Result<RootHandle> {
+    open_root_with_access(path, true)
+}
+pub(crate) fn open_root_with_access(path: &str, mutable: bool) -> io::Result<RootHandle> {
     let requested = Path::new(path);
     let (anchor, components) = split_absolute_root(requested)?;
-    let mut current = nt::open_anchor(&anchor, components.is_empty())?;
+    let mut current = nt::open_anchor(&anchor, mutable && components.is_empty())?;
     metadata::ensure_directory(&current)?;
     let component_count = components.len();
     for (index, component) in components.into_iter().enumerate() {
-        current = if index + 1 == component_count {
+        current = if mutable && index + 1 == component_count {
             nt::open_mutable_directory(&current, &component)?
         } else {
             nt::open_existing_directory(&current, &component)?
