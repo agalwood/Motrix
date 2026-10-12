@@ -85,6 +85,7 @@ jobs:
       - name: Packaging contracts
         run: >-
           pnpm exec vitest run
+          --no-file-parallelism --testTimeout=30000 --hookTimeout=30000
           tests/scripts/windows-store-metadata.test.ts
           tests/scripts/verify-windows-store-source.test.ts
           tests/scripts/windows-store-builder-config.test.ts

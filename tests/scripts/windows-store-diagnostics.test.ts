@@ -202,7 +202,14 @@ afterEach(async () => {
     await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')
   vi.mocked(cp).mockReset().mockImplementation(actual.cp)
   await Promise.all(
-    roots.splice(0).map((root) => rm(root, { recursive: true, force: true }))
+    roots.splice(0).map((root) =>
+      rm(root, {
+        recursive: true,
+        force: true,
+        maxRetries: 5,
+        retryDelay: 200,
+      })
+    )
   )
 })
 
