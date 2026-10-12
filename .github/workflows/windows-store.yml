@@ -30,7 +30,7 @@ on:
   workflow_dispatch:
     inputs:
       test_startup_identity:
-        description: 'Install an ephemeral self-signed test package and verify main startup identity'
+        description: 'Verify signed test startup identity and read-only Windows integration'
         type: boolean
         required: false
         default: false

@@ -44,6 +44,42 @@ function Invoke-Tool([string]$File, [string[]]$Arguments) {
     } finally { $child.Dispose() }
 }
 
+function Invoke-ReadonlyNativeQuery([string]$File, [string]$Operation, [string]$MainAumid) {
+    if (@('startup_query', 'associations_query') -cnotcontains $Operation) { throw 'Only fixed read-only native operations are accepted.' }
+    $settings = [Diagnostics.ProcessStartInfo]::new($File)
+    $settings.UseShellExecute = $false; $settings.CreateNoWindow = $true
+    $settings.RedirectStandardInput = $true; $settings.RedirectStandardOutput = $true; $settings.RedirectStandardError = $true
+    $child = [Diagnostics.Process]::new(); $child.StartInfo = $settings
+    $started = $false
+    $outPump = $null; $errPump = $null
+    try {
+        $started = $child.Start()
+        if (-not $started) { throw 'Owned native query did not start.' }
+        $stdout = [MotrixStoreTest.BoundedOutput]::new(16384)
+        $stderr = [MotrixStoreTest.BoundedOutput]::new(16384)
+        $outPump = $stdout.PumpAsync($child.StandardOutput.BaseStream)
+        $errPump = $stderr.PumpAsync($child.StandardError.BaseStream)
+        $child.StandardInput.WriteLine((@{ version = 1; op = $Operation } | ConvertTo-Json -Compress))
+        $child.StandardInput.Close()
+        if (-not $child.WaitForExit(5000)) { throw 'Owned native query exceeded its deadline.' }
+        if (-not $outPump.Wait(1000) -or -not $errPump.Wait(1000) -or $stdout.Truncated -or $stderr.Truncated) { throw 'Owned native query exceeded its output bounds.' }
+        $reply = $stdout.Snapshot() | ConvertFrom-Json
+        $report.nativeQueryFailureCode = Get-StoreNativeQueryFailureCode $reply
+        if ($child.ExitCode -ne 0) { throw 'Owned native query failed.' }
+        Assert-StoreNativeQueryReply $reply $Operation $MainAumid
+        return $reply
+    } finally {
+        try {
+            if ($started -and -not $child.HasExited) { $child.Kill($true); if (-not $child.WaitForExit(5000)) { throw 'Owned native process did not exit.' } }
+            if ($null -ne $outPump -and -not $outPump.Wait(1000)) { throw 'Owned native stdout pump did not close.' }
+            if ($null -ne $errPump -and -not $errPump.Wait(1000)) { throw 'Owned native stderr pump did not close.' }
+        } catch {
+            $cleanupErrors.Add('owned-native-process')
+            throw 'Owned native process cleanup failed.'
+        } finally { $child.Dispose() }
+    }
+}
+
 $prepared = [IO.Path]::GetFullPath($PreparedDirectory).TrimEnd('\', '/')
 $output = [IO.Path]::GetFullPath($OutputDirectory).TrimEnd('\', '/')
 $temporary = [IO.Path]::GetFullPath($env:RUNNER_TEMP).TrimEnd('\', '/')
@@ -110,6 +146,8 @@ $report = [ordered]@{
     mainPreflightVerified = $false; parentAndChildPackageIdentityMatched = $false; cleanupVerified = $false; ok = $false
     mainProcessStarted = $false; startupReportFound = $false; stdoutLinesIgnored = 0
     startupFailureCode = $null; naturalMainExitCode = $null; failureType = $null
+    nativeQueriesVerified = $false; actualStartupMutationVerified = $false; defaultAppsUiVerified = $false
+    nativeQueryFailureCode = $null
 }
 try {
     $certificateAttempted = $true
@@ -132,6 +170,7 @@ try {
         $report.mainPreflightVerified = $false; $report.parentAndChildPackageIdentityMatched = $false
         $report.mainProcessStarted = $false; $report.startupReportFound = $false; $report.stdoutLinesIgnored = 0
         $report.startupFailureCode = $null; $report.naturalMainExitCode = $null
+        $nativeObservation = $null
         $stage = 'sign-test-copy'
         [IO.File]::Copy($sdk.package.path, $signed, $false)
         if ((Get-Hash $signed) -cne $sdk.package.sha256) { throw 'Test copy differs before signing.' }
@@ -203,12 +242,26 @@ try {
         if (-not $main.HasExited) { $main.Kill($true); $main.WaitForExit() }
         if (-not $stdoutPump.Wait(5000) -or -not $stderrPump.Wait(5000)) { throw 'Owned process output did not close.' }
         $failureCode = [MotrixStoreTest.BoundedOutput]::StartupFailureCode($stderrCapture.Snapshot())
-        $caseResults.Add([ordered]@{ label = $case.Label; packageVersion = $metadata.packageVersion; expectedStartup = $case.ExpectedStartup; installedIdentityVerified = $true; installedPayloadHashesVerified = $true; mainPreflightVerified = $report.mainPreflightVerified; startupReportFound = $report.startupReportFound; failureCode = $failureCode; naturalExitCode = $naturalExit; stdoutLinesIgnored = $report.stdoutLinesIgnored; ownedProcessStopped = $true })
+        $caseResults.Add([ordered]@{ label = $case.Label; packageVersion = $metadata.packageVersion; expectedStartup = $case.ExpectedStartup; installedIdentityVerified = $true; installedPayloadHashesVerified = $true; mainPreflightVerified = $report.mainPreflightVerified; startupReportFound = $report.startupReportFound; failureCode = $failureCode; naturalExitCode = $naturalExit; stdoutLinesIgnored = $report.stdoutLinesIgnored; ownedProcessStopped = $true; nativeObservation = $null })
         $main.Dispose(); $main = $null; $stdoutPump = $null; $stderrPump = $null
+        if ($case.ExpectedStartup -ceq 'accepted') {
+            $helper = Join-Path $package.InstallLocation 'app/resources/bin/motrix-windows-platform.exe'
+            $mainAumid = $knownFamily + '!Motrix'
+            $stage = 'native-startup-query-before'
+            $before = Invoke-ReadonlyNativeQuery $helper 'startup_query' $mainAumid
+            $stage = 'native-associations-query'
+            $associations = Invoke-ReadonlyNativeQuery $helper 'associations_query' $mainAumid
+            $stage = 'native-startup-query-after'
+            $after = Invoke-ReadonlyNativeQuery $helper 'startup_query' $mainAumid
+            if ($before.state -cne $after.state) { throw 'Startup state changed during read-only observations.' }
+            $nativeObservation = [ordered]@{ packageVersion = $metadata.packageVersion; startupStateBefore = $before.state; startupStateAfter = $after.state; mainAppAumid = $mainAumid; torrent = $associations.torrent; magnet = $associations.magnet; readOnlyVerified = $true }
+        }
+        $caseResults[$caseResults.Count - 1]['nativeObservation'] = $nativeObservation
     }
     $report.cases = @($caseResults.ToArray())
     $report.installedRejectionVerified = $cases.Count -eq 3 -and $caseResults[1].failureCode -ceq 'identity_mismatch'
     $report.recoveryUpgradeVerified = $cases.Count -eq 3 -and $caseResults[2].mainPreflightVerified
+    $report.nativeQueriesVerified = @($caseResults | Where-Object { $_.expectedStartup -ceq 'accepted' -and $null -eq $_.nativeObservation }).Count -eq 0
 } catch { $failureStage = $stage; $report.failureType = $_.Exception.GetType().Name }
 finally {
     if ($null -ne $main) {
@@ -249,7 +302,7 @@ finally {
     $report.cleanupErrors = @($cleanupErrors.ToArray())
     $report.failureStage = $failureStage
     $report.completedCases = @($caseResults.ToArray())
-    $report.ok = $null -eq $failureStage -and $report.cleanupVerified -and $report.mainPreflightVerified
+    $report.ok = $null -eq $failureStage -and $report.cleanupVerified -and $report.mainPreflightVerified -and $report.nativeQueriesVerified
     [IO.File]::WriteAllText((Join-Path $output 'startup-identity-test.json'), ($report | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
 }
 if (-not $report.ok) { throw 'Signed test startup identity verification failed; inspect the redacted JSON report.' }

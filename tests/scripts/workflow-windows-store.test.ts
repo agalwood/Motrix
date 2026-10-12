@@ -120,4 +120,32 @@ describe('Windows SDK validation workflow boundaries', () => {
       /secrets\.|New-SelfSignedCertificate|Add-AppxPackage|signtool\s+sign|git\s+tag|gh\s+release/
     )
   })
+
+  it('keeps installed native observations read-only and separate from user acceptance', async () => {
+    const source = await readFile(
+      'scripts/test-windows-store-startup-identity.ps1',
+      'utf8'
+    )
+    expect(source).toContain(
+      "@('startup_query', 'associations_query') -cnotcontains $Operation"
+    )
+    expect(source).toContain(
+      "$before = Invoke-ReadonlyNativeQuery $helper 'startup_query'"
+    )
+    expect(source).toContain(
+      "$associations = Invoke-ReadonlyNativeQuery $helper 'associations_query'"
+    )
+    expect(source).toContain(
+      "$after = Invoke-ReadonlyNativeQuery $helper 'startup_query'"
+    )
+    expect(source).toContain(
+      'actualStartupMutationVerified = $false; defaultAppsUiVerified = $false'
+    )
+    expect(source).toContain(
+      'Assert-StoreNativeQueryReply $reply $Operation $MainAumid'
+    )
+    expect(source).not.toMatch(
+      /op\s*=\s*['"](?:startup_enable|startup_disable|main_launch)['"]|Invoke-ReadonlyNativeQuery[^\n]+['"](?:startup_enable|startup_disable|main_launch)['"]/
+    )
+  })
 })

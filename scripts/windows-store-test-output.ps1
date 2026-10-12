@@ -42,3 +42,30 @@ namespace MotrixStoreTest {
     }
 }
 '@
+
+# Only these public fields may leave the in-memory native observation.
+function Assert-StoreNativeQueryReply([object]$Reply, [string]$Operation, [string]$MainAumid) {
+    $properties = if ($Operation -ceq 'startup_query') { @('version', 'ok', 'packageIdentityPresent', 'taskId', 'state') }
+        elseif ($Operation -ceq 'associations_query') { @('version', 'ok', 'packageIdentityPresent', 'mainAppAumid', 'torrent', 'magnet') }
+        else { throw 'Only read-only native operations are accepted.' }
+    if ($null -eq $Reply -or @(Compare-Object $properties @($Reply.PSObject.Properties.Name) -CaseSensitive).Count -ne 0) { throw 'Unexpected native query fields.' }
+    if ($Reply.version -isnot [long] -and $Reply.version -isnot [int]) { throw 'Unexpected native query version type.' }
+    if ($Reply.version -ne 1 -or $Reply.ok -isnot [bool] -or -not $Reply.ok -or $Reply.packageIdentityPresent -isnot [bool] -or -not $Reply.packageIdentityPresent) { throw 'Native query did not verify package identity.' }
+    if ($Operation -ceq 'startup_query') {
+        if ($Reply.taskId -cne 'MotrixStartup' -or $Reply.state -isnot [string] -or @('disabled', 'disabled_by_user', 'enabled', 'disabled_by_policy', 'enabled_by_policy') -cnotcontains $Reply.state) { throw 'Unexpected native startup state.' }
+    } else {
+        if ($Reply.mainAppAumid -isnot [string] -or $Reply.mainAppAumid -ine $MainAumid -or -not $Reply.mainAppAumid.EndsWith('!Motrix', [StringComparison]::Ordinal)) { throw 'Native association query selected a different application.' }
+        if (($null -ne $Reply.torrent -and $Reply.torrent -isnot [bool]) -or ($null -ne $Reply.magnet -and $Reply.magnet -isnot [bool])) { throw 'Unexpected native default verdict.' }
+    }
+}
+
+function Get-StoreNativeQueryFailureCode([object]$Reply) {
+    if ($null -eq $Reply) { return $null }
+    $properties = @($Reply.PSObject.Properties | ForEach-Object { $_.Name })
+    foreach ($name in @('version', 'ok', 'code')) { if ($properties -cnotcontains $name) { return $null } }
+    foreach ($name in $properties) { if (@('version', 'ok', 'code', 'hresult') -cnotcontains $name) { return $null } }
+    if (($Reply.version -isnot [long] -and $Reply.version -isnot [int]) -or $Reply.version -ne 1 -or $Reply.ok -isnot [bool] -or $Reply.ok) { return $null }
+    if ($properties -ccontains 'hresult' -and ($Reply.hresult -isnot [string] -or $Reply.hresult -cnotmatch '^0x[0-9a-fA-F]{8}$')) { return $null }
+    if (@('invalid_request', 'no_package_identity', 'task_unavailable', 'winrt_failed', 'unknown_state', 'main_app_unavailable') -ccontains $Reply.code) { return $Reply.code }
+    return $null
+}

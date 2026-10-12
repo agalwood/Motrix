@@ -13,6 +13,7 @@ import { transport } from '@renderer/lib/transport'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
+import { WindowsDefaultAssociationsSchema } from '@shared/schemas/windows-default-apps'
 import type { LinuxDefaultAssociations } from '@shared/types/linux-default-apps'
 import type { WindowsDefaultAssociations } from '@shared/types/windows-default-apps'
 import { useEffect, useState } from 'react'
@@ -49,6 +50,10 @@ function associationDisplayState(
 ): AssociationDisplayState {
   if (!status) return 'checking'
   if (!status.supported) return 'unavailable'
+  if ('authority' in status && status.authority === 'windows-package') {
+    if (status.mainAppAumid === null || isDefault === null) return 'unavailable'
+    return isDefault ? 'default' : 'notDefault'
+  }
   if (status.registered === null) return 'unavailable'
   if (!status.registered) return 'setupRequired'
   if (isDefault === null) return 'unavailable'
@@ -79,10 +84,24 @@ export function SystemProtocolsSection({
     retryOnce: true,
     load: async (stale) => {
       if (!isWindows) return
-      const status = (await transport.invoke(
-        Queries.GetWindowsDefaultAssociations
-      )) as WindowsDefaultAssociations
-      if (!stale()) setWindowsAssociations(status)
+      try {
+        const status = WindowsDefaultAssociationsSchema.parse(
+          await transport.invoke(Queries.GetWindowsDefaultAssociations)
+        )
+        if (!stale()) setWindowsAssociations(status)
+      } catch (error) {
+        if (!stale())
+          setWindowsAssociations({
+            supported: true,
+            registered: null,
+            scope: null,
+            torrent: null,
+            magnet: null,
+          })
+        // Let the mirror perform its one bounded retry, while clearing any
+        // stale successful status immediately when a query cannot be trusted.
+        throw error
+      }
     },
   })
   const { refresh: refreshLinuxAssociations } = useTransportMirror({
