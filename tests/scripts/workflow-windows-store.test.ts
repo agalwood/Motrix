@@ -69,7 +69,7 @@ describe('Windows SDK validation workflow boundaries', () => {
       )
         continue
       if (
-        /^\$\{\{ runner\.temp \}\}\/(?:motrix-store-browser-inventory|motrix-store-browser-registration-contracts|motrix-store-firefox-relay-contracts|motrix-store-firefox-relay\/(?:build-report|relay-contracts)|motrix-store-startup-identity\/browser\/browser-report)\.json$/.test(
+        /^\$\{\{ runner\.temp \}\}\/(?:motrix-store-browser-inventory|motrix-store-browser-registration-contracts|motrix-store-firefox-relay-contracts|motrix-store-firefox-relay\/(?:build-report|relay-contracts)|motrix-store-startup-identity\/(?:browser\/browser-report|main-runtime-report))\.json$/.test(
           path
         )
       )
@@ -210,6 +210,49 @@ describe('Windows SDK validation workflow boundaries', () => {
     if (!upload) throw new Error('Upload step missing')
     expect((upload.with as { path: string }).path).not.toMatch(
       /registration\/|receipt|host-manifest|profile|\.exe|\.zip|\.png|\.mp4|\.webm/
+    )
+  })
+
+  it('requires an explicit main-runtime mode and pins verified real extension builds', async () => {
+    const source = await readFile(workflowPath, 'utf8')
+    const workflow = load(source)
+    expect(
+      workflow.on.workflow_dispatch.inputs.test_main_runtime
+    ).toMatchObject({ type: 'boolean', default: false })
+    const checkout = workflow.jobs['package-test'].steps.find(
+      (step) => step.name === 'Check out current Store extension source'
+    )
+    expect(checkout?.if).toBe(
+      "github.event_name == 'workflow_dispatch' && inputs.test_main_runtime"
+    )
+    expect(checkout?.with).toMatchObject({
+      repository: 'motrixapp/motrix-extension',
+      ref: 'b7dfcc88743e36170a22f598d84109da46259042',
+      'persist-credentials': false,
+    })
+    const build = workflow.jobs['package-test'].steps.find(
+      (step) => step.name === 'Build and verify current Store extension'
+    )
+    expect(build?.run).toContain('pnpm install --frozen-lockfile')
+    expect(build?.run).toContain('pnpm build:webstore')
+    expect(build?.run).toContain('pnpm build:firefox')
+    expect(source).toContain(
+      "throw 'Main runtime checks require the native alias mode.'"
+    )
+    const wrapper = await readFile(
+      'scripts/test-windows-store-startup-identity.ps1',
+      'utf8'
+    )
+    expect(wrapper).toContain('$TestMainRuntime -and (-not $TestNativeAlias')
+    expect(wrapper).toContain("$stage = 'native-main-runtime'")
+    expect(wrapper).toContain(
+      '$firefox.signedPersistentInstallationVerified -ne $false'
+    )
+    expect(wrapper).toContain(
+      '$extension.serviceWorkerRestartReconnectVerified -ne $true'
+    )
+    expect(wrapper).toContain(
+      '$protocol.protocolCancellationVerified -ne $true'
     )
   })
 })

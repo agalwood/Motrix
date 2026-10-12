@@ -44,6 +44,11 @@ on:
         type: boolean
         required: false
         default: false
+      test_main_runtime:
+        description: 'Verify normal first-run, actual extension pairing/restarts and protocol consent (requires test_native_alias)'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -56,7 +61,7 @@ jobs:
   package-test:
     name: Windows SDK / test package checks
     runs-on: windows-2025
-    timeout-minutes: 35
+    timeout-minutes: 45
     defaults:
       run:
         shell: pwsh
@@ -87,7 +92,7 @@ jobs:
 
       - name: Parse SDK scripts with PowerShell
         run: |
-          foreach ($script in @('scripts/get-windows-store-family-name.ps1', 'scripts/test-windows-store-startup-identity.ps1', 'scripts/windows-store-test-output.ps1', 'tests/scripts/windows-store-test-output.test.ps1', 'scripts/pack-windows-store-test.ps1', 'tests/scripts/windows-store-pri.test.ps1', 'scripts/build-windows-store-native-messaging-probe.ps1', 'tests/scripts/windows-store-native-messaging-probe.test.ps1', 'scripts/windows-store-browser-registration.ps1', 'tests/scripts/windows-store-browser-registration.test.ps1', 'scripts/build-windows-store-firefox-alias-relay.ps1', 'tests/scripts/windows-store-firefox-alias-relay.test.ps1')) {
+          foreach ($script in @('scripts/get-windows-store-family-name.ps1', 'scripts/test-windows-store-startup-identity.ps1', 'scripts/windows-store-test-output.ps1', 'tests/scripts/windows-store-test-output.test.ps1', 'scripts/pack-windows-store-test.ps1', 'tests/scripts/windows-store-pri.test.ps1', 'scripts/build-windows-store-native-messaging-probe.ps1', 'tests/scripts/windows-store-native-messaging-probe.test.ps1', 'scripts/windows-store-browser-registration.ps1', 'tests/scripts/windows-store-browser-registration.test.ps1', 'scripts/build-windows-store-firefox-alias-relay.ps1', 'tests/scripts/windows-store-firefox-alias-relay.test.ps1', 'scripts/query-windows-store-main-process.ps1', 'scripts/confirm-windows-store-browser-protocol.ps1')) {
             $tokens = $null
             $errors = $null
             [Management.Automation.Language.Parser]::ParseFile((Join-Path $pwd $script), [ref]$tokens, [ref]$errors) | Out-Null
@@ -111,7 +116,7 @@ jobs:
           MOTRIX_SKIP_ENGINE_FETCH: '1'
 
       - name: Inspect branded browser inputs before building
-        if: github.event_name == 'workflow_dispatch' && inputs.test_native_alias && inputs.test_native_browsers
+        if: github.event_name == 'workflow_dispatch' && inputs.test_native_alias && (inputs.test_native_browsers || inputs.test_main_runtime)
         run: |
           $env:MOTRIX_STORE_INVENTORY_REPORT = Join-Path $env:RUNNER_TEMP 'motrix-store-browser-inventory.json'
           @'
@@ -152,14 +157,45 @@ jobs:
           tests/scripts/workflow-windows-store.test.ts
           tests/scripts/windows-store-alias.test.ts
           tests/scripts/windows-store-browser.test.ts
+          tests/scripts/windows-store-main-runtime.test.ts
+          tests/scripts/windows-store-extension-runtime.test.ts
+          tests/scripts/windows-store-firefox-extension.test.ts
           src/main/platform/windows-package-identity.test.ts
           src/main/platform/windows-package-startup.test.ts
           tests/scripts/windows-store-runtime-identity.test.ts
+
+      - name: Check out current Store extension source
+        if: github.event_name == 'workflow_dispatch' && inputs.test_main_runtime
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: motrixapp/motrix-extension
+          ref: b7dfcc88743e36170a22f598d84109da46259042
+          path: output/playwright/manual/store-extension-source
+          persist-credentials: false
+
+      - name: Build and verify current Store extension
+        if: github.event_name == 'workflow_dispatch' && inputs.test_main_runtime
+        working-directory: output/playwright/manual/store-extension-source
+        run: |
+          $expected = 'b7dfcc88743e36170a22f598d84109da46259042'
+          $actual = (& git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actual -cne $expected) { throw 'Extension source mismatch.' }
+          pnpm install --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { throw 'Extension dependency installation failed.' }
+          pnpm build:webstore
+          if ($LASTEXITCODE -ne 0) { throw 'Chromium extension verification failed.' }
+          pnpm build:firefox
+          if ($LASTEXITCODE -ne 0) { throw 'Firefox extension verification failed.' }
+          if (@(& git status --porcelain).Count -ne 0) { throw 'Extension source changed during build.' }
+          "MOTRIX_STORE_EXTENSION_DIRECTORY=$(Join-Path $pwd 'dist/webstore')" >> $env:GITHUB_ENV
+          "MOTRIX_STORE_FIREFOX_EXTENSION_DIRECTORY=$(Join-Path $pwd 'dist/firefox')" >> $env:GITHUB_ENV
+          "MOTRIX_STORE_EXTENSION_COMMIT=$expected" >> $env:GITHUB_ENV
 
       - name: Prepare fixed test build inputs
         run: |
           if ('${{ inputs.test_native_alias }}' -ceq 'true' -and '${{ inputs.test_startup_identity }}' -ceq 'true') { throw 'Select one signed diagnostic mode.' }
           if ('${{ inputs.test_native_browsers }}' -ceq 'true' -and '${{ inputs.test_native_alias }}' -cne 'true') { throw 'Browser diagnostics require the native alias mode.' }
+          if ('${{ inputs.test_main_runtime }}' -ceq 'true' -and '${{ inputs.test_native_alias }}' -cne 'true') { throw 'Main runtime checks require the native alias mode.' }
           $root = Join-Path $env:RUNNER_TEMP 'motrix-windows-store'
           New-Item -ItemType Directory -Path $root | Out-Null
           $commit = (& git rev-parse HEAD).Trim()
@@ -272,6 +308,7 @@ jobs:
           if ('${{ inputs.test_startup_identity }}' -ceq 'true') { $arguments.CaseDirectory = $env:MOTRIX_STORE_IDENTITY_CASES }
           if ('${{ inputs.test_native_alias }}' -ceq 'true') { $arguments.TestNativeAlias = $true }
           if ('${{ inputs.test_native_browsers }}' -ceq 'true') { $arguments.TestNativeBrowsers = $true; $arguments.FirefoxRelayBuildDirectory = $env:MOTRIX_STORE_FIREFOX_RELAY }
+          if ('${{ inputs.test_main_runtime }}' -ceq 'true') { $arguments.TestMainRuntime = $true }
           ./scripts/test-windows-store-startup-identity.ps1 @arguments
 
       - name: Upload SDK text evidence
@@ -295,5 +332,6 @@ jobs:
             ${{ runner.temp }}/motrix-store-firefox-relay/relay-contracts.json
             ${{ runner.temp }}/motrix-store-startup-identity/browser/browser-report.json
             ${{ runner.temp }}/motrix-store-browser-inventory.json
+            ${{ runner.temp }}/motrix-store-startup-identity/main-runtime-report.json
           if-no-files-found: warn
           retention-days: 14

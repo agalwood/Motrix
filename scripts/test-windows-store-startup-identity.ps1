@@ -7,6 +7,7 @@ param(
     [string]$CaseDirectory,
     [switch]$TestNativeAlias,
     [switch]$TestNativeBrowsers,
+    [switch]$TestMainRuntime,
     [string]$FirefoxRelayBuildDirectory
 )
 Set-StrictMode -Version Latest
@@ -28,7 +29,7 @@ function Read-Json([string]$File) {
 }
 function Get-Hash([string]$File) { return (Get-FileHash -LiteralPath $File -Algorithm SHA256).Hash.ToLowerInvariant() }
 function Invoke-Tool([string]$File, [string[]]$Arguments, [int]$TimeoutMs = 120000) {
-    if ($TimeoutMs -lt 1 -or $TimeoutMs -gt 420000) { throw 'Invalid bounded tool deadline.' }
+    if ($TimeoutMs -lt 1 -or $TimeoutMs -gt 900000) { throw 'Invalid bounded tool deadline.' }
     $settings = [Diagnostics.ProcessStartInfo]::new($File)
     $settings.UseShellExecute = $false
     $settings.CreateNoWindow = $true
@@ -95,6 +96,7 @@ if (-not [string]::IsNullOrEmpty($CaseDirectory)) {
 }
 if ($TestNativeAlias -and (-not [string]::IsNullOrEmpty($CaseDirectory) -or $metadata.testDiagnostics -cne 'native-messaging-probe-v1')) { throw 'Alias diagnostics require their explicit test mode and no upgrade cases.' }
 if ($TestNativeBrowsers -and (-not $TestNativeAlias -or [string]::IsNullOrEmpty($FirefoxRelayBuildDirectory))) { throw 'Browser diagnostics require the native alias mode and its fixed relay build.' }
+if ($TestMainRuntime -and (-not $TestNativeAlias -or [string]::IsNullOrEmpty($env:MOTRIX_STORE_EXTENSION_DIRECTORY) -or [string]::IsNullOrEmpty($env:MOTRIX_STORE_FIREFOX_EXTENSION_DIRECTORY) -or $env:MOTRIX_STORE_EXTENSION_COMMIT -cnotmatch '^[0-9a-f]{40}$')) { throw 'Main runtime checks require explicit alias mode and both verified extension builds.' }
 New-Item -ItemType Directory -Path $output | Out-Null
 $signed = Join-Path $output 'owned-test-signed.appx'
 $publicCertificate = Join-Path $output 'owned-test-public.cer'
@@ -125,6 +127,7 @@ $report = [ordered]@{
     startupFailureCode = $null; naturalMainExitCode = $null; failureType = $null
     nativeQueriesVerified = $false; actualStartupMutationVerified = $false; defaultAppsUiVerified = $false
     nativeAliasVerified = $false
+    sourceBuiltExtensionRuntimeVerified = $false
     nativeQueryFailureCode = $null
     nativeQueryPhase = $null; nativeProcessExitCode = $null; nativeErrorHresult = $null; nativeWin32ErrorCode = $null
     toolPhase = $null; toolProcessExitCode = $null
@@ -272,6 +275,22 @@ try {
             $browser = Read-Json (Join-Path $browserOutput 'browser-report.json')
             if ($browser.ok -ne $true -or $browser.sourceCommit -cne $metadata.source.commit -or $browser.cleanupVerified -ne $true -or $browser.browserNativeMessagingVerified -ne $true -or $browser.diagnosticProbeOnly -ne $true -or $browser.mbp1Verified -ne $false -or $browser.windows11AcceptanceVerified -ne $false) { throw 'Browser diagnostics did not pass their bounded contract.' }
             $report.diagnosticBrowserNativeMessagingVerified = $true
+        }
+        if ($TestMainRuntime) {
+            $stage = 'native-main-runtime'
+            $mainRuntimeReport = Join-Path $output 'main-runtime-report.json'
+            Invoke-Tool $node @((Join-Path $PSScriptRoot 'test-windows-store-main-runtime.mjs'), '--prepared', $prepared, '--expected-package-version', $metadata.packageVersion, '--report', $mainRuntimeReport) 900000
+            $observed = Read-Json $mainRuntimeReport
+            if ($observed.ok -ne $true -or $observed.scope -cne 'windows-installed-main-bridge-startup' -or $observed.sourceCommit -cne $metadata.source.commit -or $observed.mainBridgeEndpointVerified -ne $true -or $observed.installedMbp1TransportVerified -ne $true -or $observed.installedBootstrapTicketProofVerified -ne $true -or $observed.mbp1ClientCleanupVerified -ne $true -or $observed.coldLaunchVerified -ne $true -or $observed.packageUriLaunchVerified -ne $true -or $observed.windows11AcceptanceVerified -ne $false -or $observed.storeReady -ne $false) { throw 'Installed main runtime evidence is incomplete.' }
+            foreach ($brand in @('chrome', 'edge')) {
+                $extension = $observed.runtime.extensionRuntimes.$brand
+                if ($extension.ok -ne $true -or $extension.sourceCommit -cne $env:MOTRIX_STORE_EXTENSION_COMMIT -or $extension.firstPairVerified -ne $true -or $extension.browserRestartReconnectVerified -ne $true -or $extension.serviceWorkerRestartReconnectVerified -ne $true -or $extension.cleanupVerified -ne $true -or $extension.windows11AcceptanceVerified -ne $false) { throw 'Source-built Chromium extension evidence is incomplete.' }
+            }
+            $firefox = $observed.runtime.firefoxExtensionRuntime
+            if ($firefox.ok -ne $true -or $firefox.sourceCommit -cne $env:MOTRIX_STORE_EXTENSION_COMMIT -or $firefox.firstPairVerified -ne $true -or $firefox.popupReopenReconnectVerified -ne $true -or $firefox.temporaryInstallationVerified -ne $true -or $firefox.runtimeIdentityVerified -ne $true -or $firefox.cleanupVerified -ne $true -or $firefox.signedPersistentInstallationVerified -ne $false) { throw 'Source-built Firefox temporary-extension evidence is incomplete.' }
+            $protocol = $observed.runtime.extensionRuntimes.edge
+            if ($observed.runtime.protocolBrowser -cne 'edge' -or $protocol.protocolActivationVerified -ne $true -or $protocol.protocolCancellationVerified -ne $true -or $protocol.protocolConfirmation.confirmed -ne $true -or $protocol.protocolCancellation.cancelled -ne $true) { throw 'Normal browser protocol consent evidence is incomplete.' }
+            $report.sourceBuiltExtensionRuntimeVerified = $true
         }
     }
 
