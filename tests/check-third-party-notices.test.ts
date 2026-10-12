@@ -14,6 +14,10 @@ const FINALIZE_FS_CARGO_LOCK = path.join(
   ROOT,
   'packages/finalize-fs/Cargo.lock'
 )
+const WINDOWS_PLATFORM_CARGO_LOCK = path.join(
+  ROOT,
+  'packages/windows-platform/Cargo.lock'
+)
 const NOTICE_GATE_COMMAND = 'pnpm run check:third-party-notices'
 const FLATPAK_NOTICE_GATE_COMMAND =
   'pnpm --config.verify-deps-before-run=false run check:third-party-notices'
@@ -236,12 +240,86 @@ const RUST_FINALIZE_ADDITIONAL_CRATES: RustCrateNotice[] = [
   },
 ]
 
+const RUST_WINDOWS_PLATFORM_ADDITIONAL_CRATES: RustCrateNotice[] = [
+  {
+    name: 'syn',
+    version: '2.0.119',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/dtolnay/syn',
+  },
+  {
+    name: 'windows',
+    version: '0.62.2',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/microsoft/windows-rs',
+  },
+  {
+    name: 'windows-collections',
+    version: '0.3.2',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/microsoft/windows-rs',
+  },
+  {
+    name: 'windows-core',
+    version: '0.62.2',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/microsoft/windows-rs',
+  },
+  {
+    name: 'windows-future',
+    version: '0.3.2',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/microsoft/windows-rs',
+  },
+  {
+    name: 'windows-implement',
+    version: '0.60.2',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/microsoft/windows-rs',
+  },
+  {
+    name: 'windows-interface',
+    version: '0.59.3',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/microsoft/windows-rs',
+  },
+  {
+    name: 'windows-numerics',
+    version: '0.3.1',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/microsoft/windows-rs',
+  },
+  {
+    name: 'windows-result',
+    version: '0.4.1',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/microsoft/windows-rs',
+  },
+  {
+    name: 'windows-strings',
+    version: '0.5.1',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/microsoft/windows-rs',
+  },
+  {
+    name: 'windows-threading',
+    version: '0.2.1',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/microsoft/windows-rs',
+  },
+]
+
 const RUST_NATIVE_CRATES = [
   ...RUST_NATIVE_HOST_CRATES,
   ...RUST_FINALIZE_ADDITIONAL_CRATES,
+  ...RUST_WINDOWS_PLATFORM_ADDITIONAL_CRATES,
 ]
 
 const RUST_LICENSE_FILES = [
+  {
+    file: 'rust-windows-rs-LICENSE-APACHE',
+    sha256: 'c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b',
+  },
   {
     file: 'rust-rustix-COPYRIGHT',
     sha256: '377c2e7c53250cc5905c0b0532d35973392af16ffb9596a41d99d202cf3617c9',
@@ -493,10 +571,25 @@ describe('third-party graph dependency notices', () => {
     ).toEqual([])
   })
 
+  it('keeps the Windows platform helper inside the reviewed Rust inventory', async () => {
+    const cargoLock = await readFile(WINDOWS_PLATFORM_CARGO_LOCK, 'utf8')
+    const reviewed = new Set(
+      RUST_NATIVE_CRATES.map(({ name, version }) => `${name}@${version}`)
+    )
+    expect(
+      registryPackagesFromCargoLock(cargoLock).filter(
+        ({ name, version }) => !reviewed.has(`${name}@${version}`)
+      )
+    ).toEqual([])
+  })
+
   it.each(['THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_NOTICES.zh-CN.md'])(
     '%s records every reviewed native crate and SPDX expression',
     async (noticeFile) => {
       const notice = await readFile(path.join(ROOT, noticeFile), 'utf8')
+
+      expect(notice).toContain('motrix-windows-platform')
+      expect(notice).toContain('packages/windows-platform/Cargo.lock')
 
       for (const crate of RUST_NATIVE_CRATES) {
         expect(notice).toContain(

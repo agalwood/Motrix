@@ -187,6 +187,7 @@ jobs:
           tests/scripts/app-deep-link-registration.test.ts
           tests/scripts/appimage-artifact.test.ts
           tests/scripts/before-pack-verify.test.ts
+          tests/scripts/build-windows-platform.test.ts
           tests/scripts/compose-server.test.ts
           tests/scripts/container-platform-metadata.test.ts
           tests/scripts/container-publication-state.test.ts
@@ -311,16 +312,19 @@ jobs:
         run: |
           cargo fmt --manifest-path packages/native-host/Cargo.toml --all -- --check
           cargo fmt --manifest-path packages/finalize-fs/Cargo.toml --all -- --check
+          cargo fmt --manifest-path packages/windows-platform/Cargo.toml --all -- --check
 
       - name: Clippy
         run: |
           cargo clippy --manifest-path packages/native-host/Cargo.toml --all-targets --locked -- -D warnings
           cargo clippy --manifest-path packages/finalize-fs/Cargo.toml --all-targets --locked -- -D warnings
+          cargo clippy --manifest-path packages/windows-platform/Cargo.toml --all-targets --locked -- -D warnings
 
       - name: Tests
         run: |
           cargo test --manifest-path packages/native-host/Cargo.toml --locked --all-targets
           cargo test --manifest-path packages/finalize-fs/Cargo.toml --locked --all-targets
+          cargo test --manifest-path packages/windows-platform/Cargo.toml --locked --all-targets
 
   safari-native-host:
     name: Safari native host / macOS
@@ -436,6 +440,17 @@ jobs:
           --all-targets
           --target ${{ matrix.rust_target }}
 
+      - name: Tests (Windows platform helper)
+        if: matrix.platform == 'win32'
+        env:
+          RUST_BACKTRACE: full
+        run: >-
+          cargo test
+          --manifest-path packages/windows-platform/Cargo.toml
+          --locked
+          --all-targets
+          --target ${{ matrix.rust_target }}
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
         env:
@@ -458,6 +473,18 @@ jobs:
           pnpm run build:builtin
           pnpm run build:native-host -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
           pnpm run build:finalize-fs -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
+
+      - name: Build Windows platform helper
+        if: matrix.platform == 'win32'
+        run: pnpm run build:windows-platform
+
+      - name: Verify Windows platform runtime imports
+        if: matrix.platform == 'win32'
+        shell: pwsh
+        run: >-
+          ./scripts/verify-windows-native-host-dependencies.ps1
+          -Binary
+          packages/windows-platform/dist/win32-x64/motrix-windows-platform.exe
 
       - name: Finalize filesystem runtime integration
         env:

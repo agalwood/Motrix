@@ -199,6 +199,8 @@ crate inventory. Versions are locked in `packages/native-host/Cargo.lock` and
 this inventory. Windows-only crates are listed because they are included in
 the Windows native executable builds.
 
+The `motrix-windows-platform` packaged system helper also uses the reviewed inventory below, locked in `packages/windows-platform/Cargo.lock`.
+
 | Crate | Version | SPDX license expression | Repository |
 | --- | --- | --- | --- |
 | base64 | 0.22.1 | `MIT OR Apache-2.0` | <https://github.com/marshallpierce/rust-base64> |
@@ -227,12 +229,23 @@ the Windows native executable builds.
 | serde_json | 1.0.151 | `MIT OR Apache-2.0` | <https://github.com/serde-rs/json> |
 | sha2 | 0.10.9 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/hashes> |
 | subtle | 2.6.1 | `BSD-3-Clause` | <https://github.com/dalek-cryptography/subtle> |
+| syn | 2.0.119 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/syn> |
 | syn | 3.0.3 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/syn> |
 | typenum | 1.20.1 | `MIT OR Apache-2.0` | <https://github.com/paholg/typenum> |
 | unicode-ident | 1.0.24 | `(MIT OR Apache-2.0) AND Unicode-3.0` | <https://github.com/dtolnay/unicode-ident> |
 | version_check | 0.9.5 | `MIT/Apache-2.0` | <https://github.com/SergioBenitez/version_check> |
+| windows | 0.62.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-collections | 0.3.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-core | 0.62.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-future | 0.3.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-implement | 0.60.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-interface | 0.59.3 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
 | windows-link | 0.2.1 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-numerics | 0.3.1 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-result | 0.4.1 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-strings | 0.5.1 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
 | windows-sys | 0.61.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-threading | 0.2.1 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
 | zmij | 1.0.23 | `MIT` | <https://github.com/dtolnay/zmij> |
 
 Each license file below is copied byte-for-byte from a locked crate source.
@@ -269,6 +282,7 @@ crate-specific notices are preserved separately:
 - `THIRD_PARTY_LICENSES/rust-typenum-LICENSE-MIT`
 - `THIRD_PARTY_LICENSES/rust-unicode-ident-LICENSE-UNICODE`
 - `THIRD_PARTY_LICENSES/rust-version_check-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-windows-rs-LICENSE-APACHE`
 - `THIRD_PARTY_LICENSES/rust-windows-rs-LICENSE-MIT`
 
 ---
