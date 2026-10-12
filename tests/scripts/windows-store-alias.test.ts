@@ -14,6 +14,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  probeProcessEnvironment,
   runBoundedProbeProcess,
   runInstalledAliasChecks,
   validateAliasProbeReply,
@@ -147,6 +148,59 @@ afterEach(async () => {
   await Promise.all(
     roots.splice(0).map((root) => rm(root, { recursive: true, force: true }))
   )
+})
+
+describe('Windows PowerShell child module environment', () => {
+  it('removes all inherited module-path spellings only for the WinPS child', () => {
+    const inherited = Object.freeze({
+      PSModulePath: 'private PS7 modules',
+      psmodulepath: 'private other modules',
+      Path: 'fixed tool path',
+      OTHER: 'unchanged',
+      MOTRIX_USER_DATA: 'existing profile',
+    })
+    expect(
+      probeProcessEnvironment({ inherited, windowsPowerShell: true })
+    ).toEqual({
+      Path: 'fixed tool path',
+      OTHER: 'unchanged',
+      MOTRIX_USER_DATA: 'existing profile',
+    })
+    expect(inherited.PSModulePath).toBe('private PS7 modules')
+    expect(probeProcessEnvironment({ inherited })).toBeUndefined()
+  })
+  it('preserves profile isolation while clearing only the child module path', () => {
+    const env = probeProcessEnvironment({
+      inherited: {
+        PSModulePath: 'private',
+        motrix_user_data: 'private old profile',
+        MOTRIX_BRIDGE_DATA_DIR: 'private bridge',
+        OTHER: 'unchanged',
+      },
+      windowsPowerShell: true,
+      profileEnvironment: {
+        MOTRIX_USER_DATA: null,
+        MOTRIX_BRIDGE_DATA_DIR: null,
+      },
+    })
+    expect(env).toEqual({ OTHER: 'unchanged' })
+  })
+  it('retains module paths for native alias processes with explicit profile controls', () => {
+    expect(
+      probeProcessEnvironment({
+        inherited: { PSModulePath: 'unchanged', MOTRIX_USER_DATA: 'old' },
+        profileEnvironment: {
+          MOTRIX_USER_DATA: null,
+          MOTRIX_BRIDGE_DATA_DIR: null,
+        },
+      })
+    ).toEqual({ PSModulePath: 'unchanged' })
+  })
+  it('rejects using the WinPS environment option for an arbitrary executable', async () => {
+    await safeProcessFailure(
+      node('process.exit(0)', { windowsPowerShell: true })
+    )
+  })
 })
 
 describe('installed diagnostic alias state contract', () => {

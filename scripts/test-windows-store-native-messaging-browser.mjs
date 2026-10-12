@@ -331,6 +331,7 @@ async function encodedQuery(script) {
     ],
     maxStdoutBytes: 32768,
     maxStderrBytes: 1024,
+    windowsPowerShell: true,
   })
   if (result.exitCode !== 0 || result.stderr.length !== 0)
     fail('browser-inventory-failed')
@@ -561,6 +562,7 @@ async function registration(input) {
     args: buildBrowserRegistrationArguments(input),
     maxStdoutBytes: 32768,
     maxStderrBytes: 1024,
+    windowsPowerShell: true,
   })
   let parsed
   try {

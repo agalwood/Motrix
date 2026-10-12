@@ -283,6 +283,24 @@ export function validateInstalledProbeReply({
 }
 
 /** Internal testable runner; CLI callers cannot override its fixed limits. */
+export function probeProcessEnvironment({
+  profileEnvironment,
+  windowsPowerShell = false,
+  inherited = process.env,
+}) {
+  if (profileEnvironment === undefined && !windowsPowerShell) return undefined
+  const env = Object.fromEntries(
+    Object.entries(inherited).filter(
+      ([key]) =>
+        !(windowsPowerShell && key.toUpperCase() === 'PSMODULEPATH') &&
+        !Object.hasOwn(profileEnvironment ?? {}, key.toUpperCase())
+    )
+  )
+  for (const [key, value] of Object.entries(profileEnvironment ?? {}))
+    if (value !== null) env[key] = value
+  return env
+}
+
 export function runBoundedProbeProcess({
   executable,
   args = [],
@@ -291,6 +309,7 @@ export function runBoundedProbeProcess({
   maxStdoutBytes = 4100,
   maxStderrBytes = 1024,
   profileEnvironment,
+  windowsPowerShell = false,
 }) {
   if (
     typeof executable !== 'string' ||
@@ -311,6 +330,9 @@ export function runBoundedProbeProcess({
     !Number.isInteger(maxStderrBytes) ||
     maxStderrBytes < 1 ||
     maxStderrBytes > 1024 ||
+    typeof windowsPowerShell !== 'boolean' ||
+    (windowsPowerShell &&
+      path.win32.basename(executable).toLowerCase() !== 'powershell.exe') ||
     (profileEnvironment !== undefined &&
       (!exactKeys(profileEnvironment, [
         'MOTRIX_USER_DATA',
@@ -329,18 +351,14 @@ export function runBoundedProbeProcess({
   return new Promise((resolve, reject) => {
     let child
     try {
-      let env
-      if (profileEnvironment !== undefined) {
-        // Windows environment names are case-insensitive. Clear inherited
-        // spellings before applying this test's explicit profile inputs.
-        env = Object.fromEntries(
-          Object.entries(process.env).filter(
-            ([key]) => !Object.hasOwn(profileEnvironment, key.toUpperCase())
-          )
-        )
-        for (const [key, value] of Object.entries(profileEnvironment))
-          if (value !== null) env[key] = value
-      }
+      // PS7 -> Node -> Windows PowerShell otherwise inherits incompatible PS7
+      // modules. Remove only the child's search variable; WinPS reconstructs
+      // its defaults. Machine/user environment and signature policy are intact.
+      // https://learn.microsoft.com/powershell/module/microsoft.powershell.core/about/about_psmodulepath
+      const env = probeProcessEnvironment({
+        profileEnvironment,
+        windowsPowerShell,
+      })
       child = spawn(executable, args, {
         shell: false,
         windowsHide: true,
@@ -514,6 +532,7 @@ export async function queryInstalledState() {
       Buffer.from(OS_QUERY, 'utf16le').toString('base64'),
     ],
     maxStdoutBytes: 32768,
+    windowsPowerShell: true,
   })
   if (result.exitCode !== 0 || result.stderr.length !== 0)
     fail('os-query-failed')
