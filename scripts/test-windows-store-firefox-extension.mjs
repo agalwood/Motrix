@@ -8,6 +8,7 @@ import {
   openFirefoxRemote,
   validateBrowserInventory,
 } from './test-windows-store-native-messaging-browser.mjs'
+import { openFirefoxWebDriver } from './windows-store-firefox-webdriver.mjs'
 
 const EXTENSION_ID = 'motrix-extension@motrix.app'
 const fail = (code) => {
@@ -245,7 +246,17 @@ export async function runFirefoxStoreExtension({
     const inventory = await browserInventory('firefox')
     report.browser = validateBrowserInventory({ browser: 'firefox', inventory })
     stage = 'browser-launch'
-    session = await openFirefoxRemote({ inventory, profileDirectory })
+    session = process.env.MOTRIX_STORE_GECKODRIVER
+      ? await openFirefoxWebDriver({
+          inventory,
+          profileDirectory,
+          driverExecutable: process.env.MOTRIX_STORE_GECKODRIVER,
+        })
+      : await openFirefoxRemote({ inventory, profileDirectory })
+    report.automationMode = session.driverSha256
+      ? 'webdriver-classic'
+      : 'firefox-bidi'
+    if (session.driverSha256) report.driverSha256 = session.driverSha256
     report.browser = validateBrowserInventory({
       browser: 'firefox',
       inventory,

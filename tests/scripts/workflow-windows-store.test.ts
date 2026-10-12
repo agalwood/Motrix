@@ -254,5 +254,18 @@ describe('Windows SDK validation workflow boundaries', () => {
     expect(wrapper).toContain(
       '$protocol.protocolCancellationVerified -ne $true'
     )
+    const driver = workflow.jobs['package-test'].steps.find(
+      (step) => step.name === 'Prepare pinned Mozilla WebDriver'
+    )
+    expect(driver?.if).toBe(
+      "github.event_name == 'workflow_dispatch' && inputs.test_main_runtime"
+    )
+    expect(driver?.run).toContain('geckodriver-v0.37.1-win64.zip')
+    expect(driver?.run).toContain(
+      'dfed9315abe8d2fbc1b6161a2ee8002452e79cf05ee92fdc653a4e26bc35edd8'
+    )
+    expect(driver?.run).not.toMatch(
+      /secrets\.|ExecutionPolicy|Set-ItemProperty/
+    )
   })
 })

@@ -160,6 +160,7 @@ jobs:
           tests/scripts/windows-store-main-runtime.test.ts
           tests/scripts/windows-store-extension-runtime.test.ts
           tests/scripts/windows-store-firefox-extension.test.ts
+          tests/scripts/windows-store-firefox-webdriver.test.ts
           src/main/platform/windows-package-identity.test.ts
           src/main/platform/windows-package-startup.test.ts
           tests/scripts/windows-store-runtime-identity.test.ts
@@ -190,6 +191,19 @@ jobs:
           "MOTRIX_STORE_EXTENSION_DIRECTORY=$(Join-Path $pwd 'dist/webstore')" >> $env:GITHUB_ENV
           "MOTRIX_STORE_FIREFOX_EXTENSION_DIRECTORY=$(Join-Path $pwd 'dist/firefox')" >> $env:GITHUB_ENV
           "MOTRIX_STORE_EXTENSION_COMMIT=$expected" >> $env:GITHUB_ENV
+
+      - name: Prepare pinned Mozilla WebDriver
+        if: github.event_name == 'workflow_dispatch' && inputs.test_main_runtime
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'motrix-store-geckodriver'
+          New-Item -ItemType Directory -Path $root | Out-Null
+          $archive = Join-Path $root 'geckodriver.zip'
+          Invoke-WebRequest -Uri 'https://github.com/mozilla/geckodriver/releases/download/v0.37.1/geckodriver-v0.37.1-win64.zip' -OutFile $archive
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -cne 'dfed9315abe8d2fbc1b6161a2ee8002452e79cf05ee92fdc653a4e26bc35edd8') { throw 'Mozilla WebDriver archive digest mismatch.' }
+          Expand-Archive -LiteralPath $archive -DestinationPath (Join-Path $root 'driver')
+          $executable = Join-Path $root 'driver/geckodriver.exe'
+          if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) { throw 'Mozilla WebDriver is missing.' }
+          "MOTRIX_STORE_GECKODRIVER=$executable" >> $env:GITHUB_ENV
 
       - name: Prepare fixed test build inputs
         run: |
