@@ -2,6 +2,8 @@
 import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { describe, expect, it } from 'vitest'
+// @ts-expect-error -- JavaScript engine CLI intentionally has no declarations
+import { parseArgs } from '../../scripts/fetch-engine.mjs'
 
 const require = createRequire(import.meta.url)
 const load = require('js-yaml').load as (source: string) => {
@@ -11,6 +13,23 @@ const load = require('js-yaml').load as (source: string) => {
 const workflowPath = '.github/workflows/windows-store.yml'
 
 describe('Windows SDK validation workflow boundaries', () => {
+  it('passes the locked engine target through its actual CLI parser', async () => {
+    const workflow = load(await readFile(workflowPath, 'utf8'))
+    const step = workflow.jobs['package-test'].steps.find(
+      (step) => step.name === 'Fetch locked Windows engine'
+    )
+    const command = step?.run
+    expect(typeof command).toBe('string')
+    if (typeof command !== 'string') throw new Error('Engine command missing')
+    const argv = command.trim().split(/\s+/)
+    expect(argv.slice(0, 3)).toEqual(['pnpm', 'run', 'fetch:engine'])
+    const parsed = parseArgs(argv.slice(3))
+    expect(parsed.platform).toBe('win32')
+    expect(parsed.arch).toBe('x64')
+    expect(parsed.writeLock).toBe(false)
+    expect(parsed.force).toBe(false)
+  })
+
   it('keeps uploaded evidence confined to bounded text file types', async () => {
     const workflow = load(await readFile(workflowPath, 'utf8'))
     const uploads = workflow.jobs['package-test'].steps.filter(
