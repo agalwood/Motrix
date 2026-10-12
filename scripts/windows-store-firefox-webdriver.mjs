@@ -36,7 +36,14 @@ export async function openFirefoxWebDriver({
   inventory,
   profileDirectory,
   driverExecutable,
+  observe = () => {},
 }) {
+  let phase = 'driver-file'
+  const progress = (value) => {
+    phase = value
+    observe({ phase })
+  }
+  progress(phase)
   if (
     process.platform !== 'win32' ||
     !path.isAbsolute(driverExecutable) ||
@@ -58,6 +65,7 @@ export async function openFirefoxWebDriver({
   )
     fail()
   const digest = createHash('sha256').update(driver).digest('hex')
+  progress('driver-port')
   const listener = createServer()
   await new Promise((resolve, reject) => {
     listener.once('error', reject)
@@ -70,6 +78,7 @@ export async function openFirefoxWebDriver({
     ['--host', '127.0.0.1', '--port', String(port), '--log', 'fatal'],
     { shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }
   )
+  progress('driver-start')
   let outputBytes = 0
   let outputFailure = false
   child.on('error', () => {
@@ -100,6 +109,7 @@ export async function openFirefoxWebDriver({
       if (bytes > 65536) fail()
       chunks.push(Buffer.from(chunk))
     }
+    if (!response.ok) observe({ phase, httpStatus: response.status })
     return decodeFirefoxWebDriverResponse(response.ok, Buffer.concat(chunks))
   }
   const route = (suffix) => `/session/${sessionId}${suffix}`
@@ -152,6 +162,7 @@ export async function openFirefoxWebDriver({
       })
   }
   try {
+    progress('driver-ready')
     let ready = false
     for (let i = 0; i < 50; i++) {
       try {
@@ -162,6 +173,7 @@ export async function openFirefoxWebDriver({
       await delay(200)
     }
     if (!ready) fail()
+    progress('session-new')
     const created = await request('POST', '/session', {
       capabilities: {
         alwaysMatch: {
@@ -178,6 +190,7 @@ export async function openFirefoxWebDriver({
         },
       },
     })
+    progress('session-identity')
     sessionId = created?.sessionId
     if (
       typeof sessionId !== 'string' ||
@@ -185,6 +198,7 @@ export async function openFirefoxWebDriver({
       created.capabilities?.browserName !== 'firefox'
     )
       fail()
+    progress('session-ready')
     return {
       version: created.capabilities.browserVersion,
       driverSha256: digest,
@@ -236,6 +250,7 @@ export async function openFirefoxWebDriver({
       },
     }
   } catch {
+    observe({ phase, failed: true })
     await close()
     fail()
   }

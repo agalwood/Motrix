@@ -251,6 +251,9 @@ export async function runFirefoxStoreExtension({
           inventory,
           profileDirectory,
           driverExecutable: process.env.MOTRIX_STORE_GECKODRIVER,
+          observe: (value) => {
+            report.driverStartupObservation = value
+          },
         })
       : await openFirefoxRemote({ inventory, profileDirectory })
     report.automationMode = session.driverSha256
