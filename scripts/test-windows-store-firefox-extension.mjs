@@ -153,7 +153,11 @@ export function firefoxExtensionFailure(stage) {
 
 // Only coordinates or a boolean state projection leave the extension page.
 // Input is delivered by normal BiDi pointer/key actions, not internal UI handlers.
-export function firefoxUiTargetExpression(action, appPort) {
+export function firefoxUiTargetExpression(
+  action,
+  appPort,
+  diagnostics = false
+) {
   const selectors = {
     backend: 'button[aria-label^="Choose Motrix backend:"]',
     store: '[role="menuitemradio"]',
@@ -178,7 +182,11 @@ export function firefoxUiTargetExpression(action, appPort) {
     let elements = [...document.querySelectorAll(${JSON.stringify(selectors[action])})];
     ${labels[action] ? `elements = elements.filter(e => e.textContent.trim() === ${JSON.stringify(labels[action])});` : ''}
     ${action === 'candidate' ? `elements = elements.filter(e => [...e.querySelectorAll('*')].some(n => n.textContent.trim() === 'Port ${appPort}')).flatMap(e => [...e.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Choose'));` : ''}
+    const totalMatches = elements.length;
+    const disabledMatches = elements.filter(e => e.disabled || e.getAttribute('aria-disabled') === 'true').length;
+    const hiddenMatches = elements.filter(e => !e.getClientRects().length).length;
     elements = elements.filter(e => !e.disabled && e.getAttribute('aria-disabled') !== 'true' && e.getClientRects().length);
+    ${diagnostics ? `return JSON.stringify({action:${JSON.stringify(action)},totalMatches:Math.min(totalMatches,100),disabledMatches:Math.min(disabledMatches,100),hiddenMatches:Math.min(hiddenMatches,100),visibleMatches:Math.min(elements.length,100),windowsHint:/Windows NT/i.test(navigator.userAgent),documentFocused:document.hasFocus()});` : ''}
     if (elements.length !== 1) return 'null';
     const e = elements[0]; const r = e.getBoundingClientRect();
     const x = Math.floor(r.x + r.width / 2), y = Math.floor(r.y + r.height / 2);
@@ -288,11 +296,42 @@ export async function runFirefoxStoreExtension({
         url: identity.popupUrl,
         wait: 'complete',
       })
+      await session.command('browsingContext.activate', { context })
       if ((await evaluate('browser.runtime.id')) !== EXTENSION_ID)
         fail('firefox-extension-identity')
     }
     async function click(action) {
+      report.uiAction = action
       for (let attempt = 0; attempt < 40; attempt++) {
+        const observation = JSON.parse(
+          await evaluate(firefoxUiTargetExpression(action, appPort, true))
+        )
+        if (
+          observation?.action !== action ||
+          ![
+            'totalMatches',
+            'disabledMatches',
+            'hiddenMatches',
+            'visibleMatches',
+          ].every(
+            (k) =>
+              Number.isInteger(observation[k]) &&
+              observation[k] >= 0 &&
+              observation[k] <= 100
+          ) ||
+          typeof observation.windowsHint !== 'boolean' ||
+          typeof observation.documentFocused !== 'boolean'
+        )
+          fail('firefox-extension-ui-observation')
+        report.uiTargetObservation = {
+          action,
+          totalMatches: observation.totalMatches,
+          disabledMatches: observation.disabledMatches,
+          hiddenMatches: observation.hiddenMatches,
+          visibleMatches: observation.visibleMatches,
+          windowsHint: observation.windowsHint,
+          documentFocused: observation.documentFocused,
+        }
         const point = JSON.parse(
           await evaluate(firefoxUiTargetExpression(action, appPort))
         )

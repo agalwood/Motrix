@@ -232,6 +232,40 @@ describe('Firefox normal popup input targeting', () => {
   it('locates an enabled exact normal pairing action without retaining text', () => {
     expect(target('<button>Pair</button>', 'pair')).toEqual({ x: 30, y: 20 })
   })
+  it('reports only fixed action/count/capability/focus data, never text', () => {
+    const dom = new JSDOM(
+      '<button disabled>Pair</button><p>private pairing text</p>'
+    )
+    try {
+      const evaluate = dom.window.Function(
+        'document',
+        'navigator',
+        'return ' + firefoxUiTargetExpression('pair', 16800, true)
+      )
+      const result = JSON.parse(
+        evaluate(dom.window.document, { userAgent: 'Windows NT 10.0' })
+      )
+      expect(result).toMatchObject({
+        action: 'pair',
+        totalMatches: 1,
+        disabledMatches: 1,
+        visibleMatches: 0,
+        windowsHint: true,
+      })
+      expect(Object.keys(result).sort()).toEqual([
+        'action',
+        'disabledMatches',
+        'documentFocused',
+        'hiddenMatches',
+        'totalMatches',
+        'visibleMatches',
+        'windowsHint',
+      ])
+      expect(JSON.stringify(result)).not.toContain('private pairing text')
+    } finally {
+      dom.window.close()
+    }
+  })
   it.each([
     '<button disabled>Pair</button>',
     '<button>Pair again</button>',
