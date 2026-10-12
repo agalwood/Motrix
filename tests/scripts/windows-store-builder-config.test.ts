@@ -75,13 +75,16 @@ describe('Windows Store directory builder configuration', () => {
       'asar',
       'asarUnpack',
       'files',
-      'extraResources',
       'electronFuses',
       'beforePack',
       'beforeBuild',
     ]) {
       expect(config[key], key).toEqual(base[key])
     }
+    expect(config.extraResources).toEqual([
+      ...base.extraResources,
+      { from: './LICENSE', to: './LICENSE' },
+    ])
     expect(config.win.extraResources).toEqual([
       ...base.win.extraResources,
       {

@@ -27,6 +27,10 @@ export function createWindowsStoreBuilderConfig(base, { outputDirectory }) {
     throw new Error('Windows Store payload requires Windows runtime resources')
   }
 
+  if (!Array.isArray(base.extraResources)) {
+    throw new Error('Windows Store payload requires existing legal resources')
+  }
+
   const config = structuredClone(base)
   // Disable automatic config inheritance and global/Windows update publishers.
   // The caller must also invoke electron-builder with --win --x64 --publish never.
@@ -40,6 +44,7 @@ export function createWindowsStoreBuilderConfig(base, { outputDirectory }) {
   config.win.publish = null
   // Store signs the outer package. Preserve EXE resource editing and all fuses.
   config.win.signExecutable = false
+  config.extraResources.push({ from: './LICENSE', to: './LICENSE' })
   config.win.extraResources.push({
     from: 'packages/windows-platform/dist/win32-x64/motrix-windows-platform.exe',
     to: 'bin/motrix-windows-platform.exe',
