@@ -291,9 +291,12 @@ describe('Server package contracts', () => {
       'index.mjs',
       'motrix-admin.mjs',
     ])
-    expect(contract.resourceInputs.map((entry) => entry.source)).toEqual([
+    expect(
+      contract.resourceInputs
+        .map((entry) => entry.source)
+        .filter((source) => !source.startsWith('THIRD_PARTY_LICENSES/'))
+    ).toEqual([
       'LICENSE',
-      'THIRD_PARTY_LICENSES',
       'THIRD_PARTY_NOTICES.md',
       'THIRD_PARTY_NOTICES.zh-CN.md',
       'build/legal/server/THIRD_PARTY_DEPENDENCIES.md',

@@ -16,7 +16,8 @@
     "MPL-2.0",
     "NOASSERTION",
     "OFL-1.1",
-    "Python-2.0"
+    "Python-2.0",
+    "Zlib"
   ],
   "reviewedRepositoryLicenseFiles": {
     "THIRD_PARTY_LICENSES/MPL-2.0": "5eba353fe5076ac3432177f8ab1cf75e3afcd0584251e37c3bfead5f447d040e",
@@ -95,16 +96,7 @@
       "licenseDeclared": "GPL-2.0-or-later",
       "licenseFiles": [
         "THIRD_PARTY_LICENSES/aria2-COPYING",
-        "THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL",
-        "THIRD_PARTY_LICENSES/aria2-win32-x64/README.md",
-        "THIRD_PARTY_LICENSES/aria2-win32-x64/openssl-LICENSE.txt",
-        "THIRD_PARTY_LICENSES/aria2-win32-x64/expat-COPYING",
-        "THIRD_PARTY_LICENSES/aria2-win32-x64/sqlite-LICENSE.md",
-        "THIRD_PARTY_LICENSES/aria2-win32-x64/sqlite-main.c-public-domain.txt",
-        "THIRD_PARTY_LICENSES/aria2-win32-x64/zlib-LICENSE",
-        "THIRD_PARTY_LICENSES/aria2-win32-x64/c-ares-LICENSE.md",
-        "THIRD_PARTY_LICENSES/aria2-win32-x64/libssh2-COPYING",
-        "THIRD_PARTY_LICENSES/aria2-win32-x64/wslay-COPYING"
+        "THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL"
       ],
       "noticeMarkers": [
         "aria2",
@@ -146,6 +138,111 @@
       "sourceTemplate": "https://github.com/{repo}/tree/{tag}",
       "licenseDeclared": "NOASSERTION",
       "noticeMarkers": ["motrix.url-resolver"]
+    },
+    {
+      "id": "aria2-win32-x64-c-ares",
+      "name": "c-ares",
+      "scope": "selected Windows x64 aria2 linked component",
+      "distributions": ["desktop"],
+      "metadataFile": "THIRD_PARTY_LICENSES/aria2-win32-x64/components.json",
+      "metadataPath": ["components", 0],
+      "nameField": "name",
+      "versionField": "version",
+      "sourceTemplate": "https://github.com/c-ares/c-ares/blob/c7a3138dcfe3bb0eaaf10c0c24c36dc66dc790ab/LICENSE.md",
+      "licenseDeclared": "MIT",
+      "licenseFiles": [
+        "THIRD_PARTY_LICENSES/aria2-win32-x64/c-ares-LICENSE.md"
+      ],
+      "noticeMarkers": ["THIRD_PARTY_LICENSES/aria2-win32-x64", "{version}"]
+    },
+    {
+      "id": "aria2-win32-x64-expat",
+      "name": "Expat",
+      "scope": "selected Windows x64 aria2 linked component",
+      "distributions": ["desktop"],
+      "metadataFile": "THIRD_PARTY_LICENSES/aria2-win32-x64/components.json",
+      "metadataPath": ["components", 1],
+      "nameField": "name",
+      "versionField": "version",
+      "sourceTemplate": "https://github.com/libexpat/libexpat/blob/92810461043fce37e70079b37ab1f04490a8f039/expat/COPYING",
+      "licenseDeclared": "MIT",
+      "licenseFiles": ["THIRD_PARTY_LICENSES/aria2-win32-x64/expat-COPYING"],
+      "noticeMarkers": ["THIRD_PARTY_LICENSES/aria2-win32-x64", "{version}"]
+    },
+    {
+      "id": "aria2-win32-x64-libssh2",
+      "name": "libssh2",
+      "scope": "selected Windows x64 aria2 linked component",
+      "distributions": ["desktop"],
+      "metadataFile": "THIRD_PARTY_LICENSES/aria2-win32-x64/components.json",
+      "metadataPath": ["components", 2],
+      "nameField": "name",
+      "versionField": "version",
+      "sourceTemplate": "https://github.com/libssh2/libssh2/blob/a312b43325e3383c865a87bb1d26cb52e3292641/COPYING",
+      "licenseDeclared": "BSD-3-Clause",
+      "licenseFiles": ["THIRD_PARTY_LICENSES/aria2-win32-x64/libssh2-COPYING"],
+      "noticeMarkers": ["THIRD_PARTY_LICENSES/aria2-win32-x64", "{version}"]
+    },
+    {
+      "id": "aria2-win32-x64-openssl",
+      "name": "OpenSSL",
+      "scope": "selected Windows x64 aria2 linked component",
+      "distributions": ["desktop"],
+      "metadataFile": "THIRD_PARTY_LICENSES/aria2-win32-x64/components.json",
+      "metadataPath": ["components", 3],
+      "nameField": "name",
+      "versionField": "version",
+      "sourceTemplate": "https://github.com/openssl/openssl/blob/f4dc4d58b48d346a8270183f89acf826d459b0ca/LICENSE.txt",
+      "licenseDeclared": "Apache-2.0",
+      "licenseFiles": [
+        "THIRD_PARTY_LICENSES/aria2-win32-x64/openssl-LICENSE.txt"
+      ],
+      "noticeMarkers": ["THIRD_PARTY_LICENSES/aria2-win32-x64", "{version}"]
+    },
+    {
+      "id": "aria2-win32-x64-sqlite",
+      "name": "SQLite",
+      "scope": "selected Windows x64 aria2 linked component",
+      "distributions": ["desktop"],
+      "metadataFile": "THIRD_PARTY_LICENSES/aria2-win32-x64/components.json",
+      "metadataPath": ["components", 4],
+      "nameField": "name",
+      "versionField": "version",
+      "sourceTemplate": "https://github.com/sqlite/sqlite/blob/b09c88c14082339b66c7b7158d609a771e64ca69/LICENSE.md",
+      "licenseDeclared": "NOASSERTION",
+      "licenseFiles": [
+        "THIRD_PARTY_LICENSES/aria2-win32-x64/sqlite-LICENSE.md",
+        "THIRD_PARTY_LICENSES/aria2-win32-x64/sqlite-main.c-public-domain.txt"
+      ],
+      "noticeMarkers": ["THIRD_PARTY_LICENSES/aria2-win32-x64", "{version}"]
+    },
+    {
+      "id": "aria2-win32-x64-wslay",
+      "name": "wslay",
+      "scope": "selected Windows x64 aria2 linked component",
+      "distributions": ["desktop"],
+      "metadataFile": "THIRD_PARTY_LICENSES/aria2-win32-x64/components.json",
+      "metadataPath": ["components", 5],
+      "nameField": "name",
+      "versionField": "version",
+      "sourceTemplate": "https://github.com/motrixapp/aria2/blob/479425df8fb4057d9d2b0370c36ca70ed776114d/deps/wslay/COPYING",
+      "licenseDeclared": "MIT",
+      "licenseFiles": ["THIRD_PARTY_LICENSES/aria2-win32-x64/wslay-COPYING"],
+      "noticeMarkers": ["THIRD_PARTY_LICENSES/aria2-win32-x64", "{version}"]
+    },
+    {
+      "id": "aria2-win32-x64-zlib",
+      "name": "zlib",
+      "scope": "selected Windows x64 aria2 linked component",
+      "distributions": ["desktop"],
+      "metadataFile": "THIRD_PARTY_LICENSES/aria2-win32-x64/components.json",
+      "metadataPath": ["components", 6],
+      "nameField": "name",
+      "versionField": "version",
+      "sourceTemplate": "https://github.com/madler/zlib/blob/da607da739fa6047df13e66a2af6b8bec7c2a498/LICENSE",
+      "licenseDeclared": "Zlib",
+      "licenseFiles": ["THIRD_PARTY_LICENSES/aria2-win32-x64/zlib-LICENSE"],
+      "noticeMarkers": ["THIRD_PARTY_LICENSES/aria2-win32-x64", "{version}"]
     }
   ],
   "manualAssets": [

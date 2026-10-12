@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
+import { readdir, readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -570,6 +570,7 @@ describe('third-party graph dependency notices', () => {
       }
       components: Array<{
         id: string
+        licenseDeclared: string
         licenseFiles: string[]
         licenseSources: Array<{ file: string; sha256: string }>
       }>
@@ -589,7 +590,14 @@ describe('third-party graph dependency notices', () => {
       )
     ) as {
       reviewedRepositoryLicenseFiles: Record<string, string>
-      externalComponents: Array<{ id: string; licenseFiles?: string[] }>
+      externalComponents: Array<{
+        id: string
+        licenseDeclared: string
+        licenseFiles?: string[]
+        distributions: string[]
+        metadataFile: string
+        metadataPath?: Array<string | number>
+      }>
     }
 
     expect(manifest.schemaVersion).toBe(1)
@@ -616,11 +624,16 @@ describe('third-party graph dependency notices', () => {
       'wslay',
       'zlib',
     ])
-    const retained = config.externalComponents.find(
-      (component) => component.id === 'aria2'
-    )?.licenseFiles
-    expect(retained).toContain(`${directory}/README.md`)
-    for (const component of manifest.components) {
+    for (const [index, component] of manifest.components.entries()) {
+      const declaration = config.externalComponents.find(
+        (entry) => entry.id === `aria2-win32-x64-${component.id}`
+      )
+      expect(declaration).toMatchObject({
+        licenseDeclared: component.licenseDeclared,
+        distributions: ['desktop'],
+        metadataFile: `${directory}/components.json`,
+        metadataPath: ['components', index],
+      })
       expect(component.licenseSources.map(({ file }) => file).sort()).toEqual(
         [...component.licenseFiles].sort()
       )
@@ -632,8 +645,42 @@ describe('third-party graph dependency notices', () => {
         expect(bytes.length).toBeGreaterThan(0)
         expect(digest).toBe(source.sha256)
         expect(config.reviewedRepositoryLicenseFiles[relativePath]).toBe(digest)
-        expect(retained).toContain(relativePath)
+        expect(declaration?.licenseFiles).toContain(relativePath)
       }
+    }
+  })
+
+  it('retains every shared original license in the server without the Windows collection', async () => {
+    const config = JSON.parse(
+      await readFile(
+        path.join(ROOT, 'scripts/server-runtime-dependencies.json'),
+        'utf8'
+      )
+    ) as {
+      resourceInputs: Array<{
+        source: string
+        destination: string
+        type: string
+      }>
+    }
+    const legalInputs = config.resourceInputs.filter((input) =>
+      input.source.startsWith('THIRD_PARTY_LICENSES')
+    )
+    const sharedFiles = (
+      await readdir(path.join(ROOT, 'THIRD_PARTY_LICENSES'), {
+        withFileTypes: true,
+      })
+    )
+      .filter((entry) => entry.isFile())
+      .map((entry) => `THIRD_PARTY_LICENSES/${entry.name}`)
+      .sort()
+    expect(legalInputs.map((input) => input.source).sort()).toEqual(sharedFiles)
+    for (const input of legalInputs) {
+      expect(input).toEqual({
+        source: input.source,
+        destination: input.source,
+        type: 'file',
+      })
     }
   })
 
@@ -764,7 +811,8 @@ describe('third-party graph dependency notices', () => {
       'LICENSE',
       'THIRD_PARTY_NOTICES.md',
       'THIRD_PARTY_NOTICES.zh-CN.md',
-      'THIRD_PARTY_LICENSES',
+      'THIRD_PARTY_LICENSES/aria2-COPYING',
+      'THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL',
     ]) {
       const contract = JSON.parse(
         await readFile(

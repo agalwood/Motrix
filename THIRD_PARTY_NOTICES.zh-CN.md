@@ -100,8 +100,9 @@ Safari 图标是从 macOS 27.0（26A428）自带的 Safari 27.0 中 `Safari.app/
 
 ### Windows x64 链接组件声明
 
-固定的 `win32-x64` 引擎所选依赖声明与原始许可文本见
-[`THIRD_PARTY_LICENSES/aria2-win32-x64`](THIRD_PARTY_LICENSES/aria2-win32-x64/README.zh-CN.md)。
+固定的 `win32-x64` 引擎所选依赖声明与原始许可文本保存在仓库的
+`THIRD_PARTY_LICENSES/aria2-win32-x64` 目录。桌面包随附该集合；Server 运行时
+保留共享许可文本与生成的 Server 清单，不打包 Windows 专属集合。
 清单将压缩包和可执行文件摘要绑定到精确的引擎源码及 Windows 发布构建，涵盖
 c-ares 1.34.8、Expat 2.8.3、附带记录补丁的 libssh2 1.11.1、OpenSSL 3.5.8、
 SQLite 3.53.4、wslay 1.1.1 和 zlib 1.3.2。
