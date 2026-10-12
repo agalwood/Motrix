@@ -2,10 +2,12 @@ import { createHash } from 'node:crypto'
 import { lstat, mkdir, readFile, realpath, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { WINDOWS_PACKAGE_IDENTITY_FILE } from '../src/shared/schemas/windows-package-identity.ts'
 import { verifyWindowsStoreSource } from './verify-windows-store-source.mjs'
 import { createWindowsStoreBuilderConfig } from './windows-store-builder-config.mjs'
 import { validateWindowsStoreMetadata } from './windows-store-metadata.mjs'
 import { resolveWindowsStoreOutput } from './windows-store-output.mjs'
+import { createWindowsStoreRuntimeIdentity } from './windows-store-runtime-identity.mjs'
 
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex')
@@ -26,8 +28,12 @@ export async function prepareWindowsStoreBuild({
   repoRoot,
   metadata: raw,
   outputDirectory,
+  packageFamilyName,
 }) {
   const { metadata } = validateWindowsStoreMetadata(raw)
+  const runtimeIdentityBytes = json(
+    createWindowsStoreRuntimeIdentity(metadata, packageFamilyName)
+  )
   if (typeof repoRoot !== 'string' || !repoRoot) {
     throw new Error('repoRoot must be an explicit checkout directory')
   }
@@ -77,6 +83,7 @@ export async function prepareWindowsStoreBuild({
       builderConfigSha256: digest(configBytes),
       baseBuilderConfigSha256: digest(baseBytes),
       dependencyLockSha256: digest(lockBytes),
+      runtimeIdentitySha256: digest(runtimeIdentityBytes),
     },
     // Argument arrays are instructions, never interpolated into a shell here.
     builder: { command: 'pnpm', args: builderArgs, cwd: 'source-checkout' },
@@ -100,6 +107,11 @@ export async function prepareWindowsStoreBuild({
   await writeFile(path.join(output, 'source-report.json'), json(sourceReport), {
     flag: 'wx',
   })
+  await writeFile(
+    path.join(output, WINDOWS_PACKAGE_IDENTITY_FILE),
+    runtimeIdentityBytes,
+    { flag: 'wx' }
+  )
   // Completion marker is written last.
   await writeFile(path.join(output, 'build-plan.json'), json(plan), {
     flag: 'wx',
@@ -108,7 +120,12 @@ export async function prepareWindowsStoreBuild({
 }
 
 function parseArgs(argv) {
-  const allowed = ['--repo-root', '--metadata', '--out']
+  const allowed = [
+    '--repo-root',
+    '--metadata',
+    '--out',
+    '--package-family-name',
+  ]
   const options = {}
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index]
@@ -122,7 +139,7 @@ function parseArgs(argv) {
   }
   if (allowed.some((key) => !options[key])) {
     throw new Error(
-      'Required: --repo-root <checkout> --metadata <file> --out <absolute-directory>'
+      'Required: --repo-root <checkout> --metadata <file> --out <absolute-directory> --package-family-name <family>'
     )
   }
   return options
@@ -138,6 +155,7 @@ if (
       repoRoot: options['--repo-root'],
       metadata: JSON.parse(await readFile(options['--metadata'], 'utf8')),
       outputDirectory: options['--out'],
+      packageFamilyName: options['--package-family-name'],
     })
     process.stdout.write(json(plan))
   } catch (error) {

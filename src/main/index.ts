@@ -213,6 +213,7 @@ import { createElectronPlatformServices } from './platform/services'
 import { setupSystemAccentColorSync } from './platform/system-accent-color'
 import { removeTaskPath } from './platform/task-file-remover'
 import { setupTray } from './platform/tray'
+import { verifyWindowsPackageStartup } from './platform/windows-package-startup'
 import { createElectronCapabilityHost } from './plugin/capability-host'
 import { startDevWatcher } from './plugin/dev-watcher'
 import {
@@ -246,6 +247,21 @@ const distributionContext = resolveDistributionContext({
   isPackaged: app.isPackaged,
   windowsStore: process.windowsStore,
 })
+
+if (distributionContext.isWindowsPackage) {
+  // Check the actual process package before opening settings, the database,
+  // bridge credentials, profile directories or an engine ownership record.
+  const identity = verifyWindowsPackageStartup({
+    resourcesPath: process.resourcesPath,
+    productVersion: app.getVersion(),
+  })
+  if (!identity.ok) {
+    process.stderr.write(
+      `Windows package identity validation failed (${identity.code})\n`
+    )
+    process.exit(1)
+  }
+}
 
 if (process.platform === 'win32' && !distributionContext.isWindowsPackage) {
   app.setAppUserModelId(APP_ID)

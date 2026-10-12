@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import {
   lstat,
   mkdir,
@@ -55,6 +56,7 @@ async function fixture() {
   git(root, 'commit', '-m', 'fixture')
   return {
     repoRoot: root,
+    packageFamilyName: 'Motrix.Store.Test_123456789abcd',
     outputDirectory: path.join(directory, 'prepared'),
     metadata: {
       schemaVersion: 1,
@@ -99,6 +101,7 @@ describe('Windows Store build preparation', () => {
       'electron-builder.json',
       'release-metadata.json',
       'source-report.json',
+      'windows-package-identity.json',
     ])
     const config = JSON.parse(
       await readFile(
@@ -132,6 +135,15 @@ describe('Windows Store build preparation', () => {
     expect(git(options.repoRoot, 'status', '--porcelain')).toBe('')
     for (const hash of Object.values(plan.inputs))
       expect(hash).toMatch(/^[0-9a-f]{64}$/)
+    const runtimeBytes = await readFile(
+      path.join(options.outputDirectory, 'windows-package-identity.json')
+    )
+    expect(plan.inputs.runtimeIdentitySha256).toBe(
+      createHash('sha256').update(runtimeBytes).digest('hex')
+    )
+    expect(JSON.parse(runtimeBytes.toString()).expected.familyName).toBe(
+      options.packageFamilyName
+    )
   })
 
   it('never overwrites a previous preparation', async () => {
@@ -223,6 +235,8 @@ describe('Windows Store build preparation', () => {
       options.repoRoot,
       '--out',
       options.outputDirectory,
+      '--package-family-name',
+      options.packageFamilyName,
     ]
     const output = execFileSync(process.execPath, args, {
       env,

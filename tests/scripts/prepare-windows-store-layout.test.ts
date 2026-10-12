@@ -17,6 +17,7 @@ import {
   createWindowsStorePayloadFixture,
   WINDOWS_STORE_PAYLOAD_METADATA,
   windowsPeHeader,
+  writeWindowsStoreRuntimeIdentityFixture,
 } from '../helpers/windows-store-payload-fixture'
 
 vi.mock('node:fs/promises', async (importOriginal) => {
@@ -55,7 +56,7 @@ async function fixture() {
   })
   git(repoRoot, 'add', '.')
   git(repoRoot, 'commit', '-m', 'fixture')
-  return {
+  const options = {
     repoRoot,
     appDir: payload.appDir,
     outputDirectory: path.join(payload.root, 'prepared'),
@@ -66,6 +67,11 @@ async function fixture() {
       source: { commit: git(repoRoot, 'rev-parse', 'HEAD') },
     },
   }
+  await writeWindowsStoreRuntimeIdentityFixture(
+    payload.appDir,
+    options.metadata
+  )
+  return options
 }
 afterEach(async () => {
   const actual =

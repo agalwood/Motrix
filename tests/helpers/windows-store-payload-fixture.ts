@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, realpath, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { createPackageWithOptions } from '@electron/asar'
+import { createWindowsStoreRuntimeIdentity } from '../../scripts/windows-store-runtime-identity.mjs'
 
 const OUTPUTS = [
   'dist/core/plugin/host/quick-js-worker.cjs',
@@ -65,6 +66,22 @@ export async function writePayloadFixtureFile(
   await writeFile(destination, bytes)
 }
 
+export async function writeWindowsStoreRuntimeIdentityFixture(
+  appDir: string,
+  metadata: { identity: { name: string } } = WINDOWS_STORE_PAYLOAD_METADATA
+) {
+  await writePayloadFixtureFile(
+    appDir,
+    'resources/windows-package-identity.json',
+    JSON.stringify(
+      createWindowsStoreRuntimeIdentity(
+        metadata,
+        `${metadata.identity.name}_123456789abcd`
+      )
+    )
+  )
+}
+
 export async function createWindowsStorePayloadFixture(
   mutate?: (source: string) => Promise<void>
 ) {
@@ -74,6 +91,7 @@ export async function createWindowsStorePayloadFixture(
   const source = path.join(root, 'source')
   const appDir = path.join(root, 'payload')
   const asar = path.join(appDir, 'resources/app.asar')
+  await writeWindowsStoreRuntimeIdentityFixture(appDir)
   await mkdir(source)
   await writePayloadFixtureFile(
     source,

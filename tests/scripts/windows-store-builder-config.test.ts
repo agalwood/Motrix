@@ -84,6 +84,10 @@ describe('Windows Store directory builder configuration', () => {
     expect(config.extraResources).toEqual([
       ...base.extraResources,
       { from: './LICENSE', to: './LICENSE' },
+      {
+        from: path.join(outputDirectory, '..', 'windows-package-identity.json'),
+        to: 'windows-package-identity.json',
+      },
     ])
     expect(config.win.extraResources).toEqual([
       ...base.win.extraResources,

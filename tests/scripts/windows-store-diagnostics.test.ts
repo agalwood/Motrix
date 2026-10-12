@@ -24,6 +24,7 @@ import {
   createWindowsStorePayloadFixture,
   payloadFixtureSha256 as hash,
   WINDOWS_STORE_PAYLOAD_METADATA,
+  writeWindowsStoreRuntimeIdentityFixture,
 } from '../helpers/windows-store-payload-fixture'
 
 vi.mock('node:fs/promises', async (importOriginal) => {
@@ -139,7 +140,7 @@ async function fixture() {
       },
     })
   )
-  return {
+  const options = {
     root: payload.root,
     repoRoot,
     appDir: payload.appDir,
@@ -153,9 +154,24 @@ async function fixture() {
       testDiagnostics: MODE,
     },
   }
+  await writeWindowsStoreRuntimeIdentityFixture(
+    payload.appDir,
+    options.metadata
+  )
+  return options
 }
 
 type Fixture = Awaited<ReturnType<typeof fixture>>
+async function copyVersionedPayload(
+  input: Fixture,
+  metadata: Fixture['metadata'] & { previousPackageVersions?: string[] },
+  label: string
+) {
+  const appDir = path.join(input.root, label)
+  await cp(input.appDir, appDir, { recursive: true })
+  await writeWindowsStoreRuntimeIdentityFixture(appDir, metadata)
+  return { ...input, appDir, metadata }
+}
 async function editJson(file: string, change: (record: any) => void) {
   const record = JSON.parse(await readFile(file, 'utf8'))
   change(record)
@@ -214,12 +230,13 @@ afterEach(async () => {
 })
 
 describe('Windows Store diagnostic layout contract', () => {
-  it('prepares an increasing package version from the same payload without changing the baseline', async () => {
+  it('prepares version-bound identity inputs while preserving the baseline payload', async () => {
     const input = await fixture()
-    const a = {
-      ...input,
-      metadata: { ...input.metadata, packageVersion: '1.0.0.0' },
-    }
+    const a = await copyVersionedPayload(
+      input,
+      { ...input.metadata, packageVersion: '1.0.0.0' },
+      'payload-a'
+    )
     const aReport = await prepareWindowsStoreLayout(a)
     const aBytes = await readFile(completion(a))
     const aManifest = await readFile(
@@ -235,8 +252,29 @@ describe('Windows Store diagnostic layout contract', () => {
         previousPackageVersions: ['1.0.0.0'],
       },
     }
+    b.appDir = (
+      await copyVersionedPayload(input, b.metadata, 'payload-b')
+    ).appDir
     const bReport = await prepareWindowsStoreLayout(b)
-    expect(bReport.payload).toEqual(aReport.payload)
+    const identityPath = 'resources/windows-package-identity.json'
+    expect(
+      bReport.payload.filter(
+        (file: { path: string }) => file.path !== identityPath
+      )
+    ).toEqual(
+      aReport.payload.filter(
+        (file: { path: string }) => file.path !== identityPath
+      )
+    )
+    expect(
+      bReport.payload.find(
+        (file: { path: string }) => file.path === identityPath
+      )?.sha256
+    ).not.toBe(
+      aReport.payload.find(
+        (file: { path: string }) => file.path === identityPath
+      )?.sha256
+    )
     expect(bReport.diagnostics).toEqual(aReport.diagnostics)
     expect(bReport.sourceCommit).toBe(aReport.sourceCommit)
     expect(bReport.productVersion).toBe(aReport.productVersion)
@@ -562,6 +600,9 @@ describe('Windows Store diagnostic layout contract', () => {
       outputDirectory: path.join(input.root, 'prepared-next'),
       metadata: { ...input.metadata, packageVersion: '4.5.7.0' },
     }
+    next.appDir = (
+      await copyVersionedPayload(input, next.metadata, 'payload-next')
+    ).appDir
     const second = await prepareWindowsStoreLayout(next)
     const secondManifest = await readFile(
       path.join(baseline(next), 'AppxManifest.xml'),

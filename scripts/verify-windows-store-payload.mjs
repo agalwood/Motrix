@@ -5,9 +5,14 @@ import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { getRawHeader, uncache } from '@electron/asar'
+import {
+  WINDOWS_PACKAGE_IDENTITY_FILE,
+  WindowsPackageRuntimeIdentitySchema,
+} from '../src/shared/schemas/windows-package-identity.ts'
 import { detectNativeBinaryTarget } from './native-binary-target.mjs'
 import { verifyElectronPackage } from './verify-electron-package.mjs'
 import { validateWindowsStoreMetadata } from './windows-store-metadata.mjs'
+import { createWindowsStoreRuntimeIdentity } from './windows-store-runtime-identity.mjs'
 
 const ALLOWED_EXECUTABLES = new Set([
   'Motrix.exe',
@@ -456,6 +461,30 @@ export async function verifyWindowsStorePayload({
         throw new Error(
           'ASAR product version does not match metadata.productVersion'
         )
+    }))
+  )
+    return report
+
+  if (
+    !(await check('runtime-identity', async () => {
+      const file = path.join(root, 'resources', WINDOWS_PACKAGE_IDENTITY_FILE)
+      const handle = await openRegular(file)
+      try {
+        const info = await handle.stat()
+        if (info.size > 32 * 1024)
+          throw new Error('Runtime identity exceeds its limit')
+        const runtime = WindowsPackageRuntimeIdentitySchema.parse(
+          JSON.parse(await handle.readFile('utf8'))
+        )
+        const expected = createWindowsStoreRuntimeIdentity(
+          metadata,
+          runtime.expected.familyName
+        )
+        if (JSON.stringify(runtime) !== JSON.stringify(expected))
+          throw new Error('Runtime identity does not match build metadata')
+      } finally {
+        await handle.close()
+      }
     }))
   )
     return report

@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { WINDOWS_PACKAGE_IDENTITY_FILE } from '../src/shared/schemas/windows-package-identity.ts'
 
 /**
  * Prepare only the directory payload for later Windows SDK packaging.
@@ -45,6 +46,10 @@ export function createWindowsStoreBuilderConfig(base, { outputDirectory }) {
   // Store signs the outer package. Preserve EXE resource editing and all fuses.
   config.win.signExecutable = false
   config.extraResources.push({ from: './LICENSE', to: './LICENSE' })
+  config.extraResources.push({
+    from: path.join(outputDirectory, '..', WINDOWS_PACKAGE_IDENTITY_FILE),
+    to: WINDOWS_PACKAGE_IDENTITY_FILE,
+  })
   config.win.extraResources.push({
     from: 'packages/windows-platform/dist/win32-x64/motrix-windows-platform.exe',
     to: 'bin/motrix-windows-platform.exe',

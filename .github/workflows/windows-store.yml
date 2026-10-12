@@ -71,7 +71,7 @@ jobs:
 
       - name: Parse SDK scripts with PowerShell
         run: |
-          foreach ($script in @('scripts/pack-windows-store-test.ps1', 'tests/scripts/windows-store-pri.test.ps1')) {
+          foreach ($script in @('scripts/get-windows-store-family-name.ps1', 'scripts/pack-windows-store-test.ps1', 'tests/scripts/windows-store-pri.test.ps1')) {
             $tokens = $null
             $errors = $null
             [Management.Automation.Language.Parser]::ParseFile((Join-Path $pwd $script), [ref]$tokens, [ref]$errors) | Out-Null
@@ -99,6 +99,8 @@ jobs:
           tests/scripts/verify-windows-store-layout.test.ts
           tests/scripts/workflow-windows-store.test.ts
           src/main/platform/windows-package-identity.test.ts
+          src/main/platform/windows-package-startup.test.ts
+          tests/scripts/windows-store-runtime-identity.test.ts
 
       - name: Prepare fixed test build inputs
         run: |
@@ -118,7 +120,8 @@ jobs:
           [IO.File]::WriteAllText($inputFile, ($metadata | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
           $build = Join-Path $root 'build'
           $layout = Join-Path $root 'prepared'
-          & node scripts/prepare-windows-store-build.mjs --repo-root . --metadata $inputFile --out $build
+          $family = & ./scripts/get-windows-store-family-name.ps1 -Name $metadata.identity.name -Publisher $metadata.identity.publisher
+          & node scripts/prepare-windows-store-build.mjs --repo-root . --metadata $inputFile --out $build --package-family-name $family
           if ($LASTEXITCODE -ne 0) { throw 'Build preparation failed' }
           "MOTRIX_STORE_BUILD=$build" >> $env:GITHUB_ENV
           "MOTRIX_STORE_LAYOUT=$layout" >> $env:GITHUB_ENV

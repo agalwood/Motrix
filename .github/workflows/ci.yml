@@ -184,6 +184,7 @@ jobs:
           src/main/bridge/native-messaging-extensions.test.ts
           src/main/bridge/snap-environment.test.ts
           src/main/platform/windows-package-identity.test.ts
+          src/main/platform/windows-package-startup.test.ts
           tests/scripts/assemble-release-artifacts.test.ts
           tests/scripts/app-deep-link-registration.test.ts
           tests/scripts/appimage-artifact.test.ts

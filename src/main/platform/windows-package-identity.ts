@@ -27,7 +27,7 @@ export function createWindowsPackageIdentityClient(
 /**
  * Match OS query data against an independently supplied package expectation.
  * This pure comparison does not prove delivery from the Microsoft Store.
- * Application startup does not consume this matcher yet.
+ * Startup uses this matcher after validating the bundled expectation resource.
  */
 export function matchWindowsPackageIdentity(
   expected: unknown,

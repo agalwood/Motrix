@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+export const WINDOWS_PACKAGE_IDENTITY_FILE = 'windows-package-identity.json'
+
 // Package strings and publisher IDs are ASCII; their ordinal comparisons are
 // case-insensitive. The publisher's certificate subject remains case-sensitive.
 // https://learn.microsoft.com/windows/apps/desktop/modernize/package-identity-overview
@@ -115,3 +117,25 @@ export const WindowsPackageIdentityResponseSchema = z.union([
 export type WindowsPackageIdentity = z.infer<
   typeof WindowsPackageIdentitySchema
 >
+
+export const WindowsPackageRuntimeIdentitySchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    profile: z.enum(['test', 'store']),
+    productVersion: z.string().min(1).max(128),
+    sourceCommit: z.string().regex(/^[0-9a-f]{40}$/),
+    expected: WindowsPackageExpectationSchema,
+  })
+  .strict()
+  .refine(
+    (value) =>
+      value.profile !== 'store' ||
+      (/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(
+        value.productVersion
+      ) &&
+        value.expected.version.endsWith('.0')),
+    {
+      message:
+        'Store runtime identity requires a stable product and revision-zero build input',
+    }
+  )

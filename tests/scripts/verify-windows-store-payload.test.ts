@@ -91,6 +91,37 @@ afterEach(async () => {
 })
 
 describe('Windows Store directory payload verification', () => {
+  it.each([
+    'missing',
+    'publisher',
+    'source',
+    'version',
+    'profile',
+    'oversized',
+  ])(
+    'rejects a missing or misbound runtime identity resource: %s',
+    async (change) => {
+      const input = await fixture()
+      const file = path.join(
+        input.appDir,
+        'resources/windows-package-identity.json'
+      )
+      if (change === 'missing') await unlink(file)
+      else if (change === 'oversized') await writeFile(file, 'x'.repeat(32769))
+      else {
+        const value = JSON.parse(await readFile(file, 'utf8'))
+        if (change === 'publisher') value.expected.publisher = 'CN=Other'
+        if (change === 'source') value.sourceCommit = 'b'.repeat(40)
+        if (change === 'version') value.expected.version = '4.5.7.0'
+        if (change === 'profile') value.profile = 'test'
+        await writeFile(file, JSON.stringify(value))
+      }
+      failed(
+        await verifyWindowsStorePayload({ appDir: input.appDir, metadata }),
+        'runtime-identity'
+      )
+    }
+  )
   it('rejects a payload missing the Windows startup helper', async () => {
     const input = await fixture()
     await unlink(
