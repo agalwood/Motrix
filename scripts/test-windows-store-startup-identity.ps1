@@ -4,7 +4,8 @@ param(
     [Parameter(Mandatory = $true)][string]$PreparedDirectory,
     [Parameter(Mandatory = $true)][string]$SdkBinDirectory,
     [Parameter(Mandatory = $true)][string]$OutputDirectory,
-    [string]$CaseDirectory
+    [string]$CaseDirectory,
+    [switch]$TestNativeAlias
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -82,6 +83,7 @@ if (-not [string]::IsNullOrEmpty($CaseDirectory)) {
         $cases.Add(@{ Label = $label; Metadata = $nextMetadata; Sdk = $nextSdk; Layout = $nextLayout; Runtime = $nextRuntime; ExpectedStartup = $outcome })
     }
 }
+if ($TestNativeAlias -and (-not [string]::IsNullOrEmpty($CaseDirectory) -or $metadata.testDiagnostics -cne 'native-messaging-probe-v1')) { throw 'Alias diagnostics require their explicit test mode and no upgrade cases.' }
 New-Item -ItemType Directory -Path $output | Out-Null
 $signed = Join-Path $output 'owned-test-signed.appx'
 $publicCertificate = Join-Path $output 'owned-test-public.cer'
@@ -111,6 +113,7 @@ $report = [ordered]@{
     mainProcessStarted = $false; startupReportFound = $false; stdoutLinesIgnored = 0
     startupFailureCode = $null; naturalMainExitCode = $null; failureType = $null
     nativeQueriesVerified = $false; actualStartupMutationVerified = $false; defaultAppsUiVerified = $false
+    nativeAliasVerified = $false
     nativeQueryFailureCode = $null
     nativeQueryPhase = $null; nativeProcessExitCode = $null; nativeErrorHresult = $null; nativeWin32ErrorCode = $null
 }
@@ -235,6 +238,17 @@ try {
     $report.installedRejectionVerified = $cases.Count -eq 3 -and $caseResults[1].failureCode -ceq 'identity_mismatch'
     $report.recoveryUpgradeVerified = $cases.Count -eq 3 -and $caseResults[2].mainPreflightVerified
     $report.nativeQueriesVerified = @($caseResults | Where-Object { $_.expectedStartup -ceq 'accepted' -and $null -eq $_.nativeObservation }).Count -eq 0
+    $report.nativeAliasVerified = $false
+    if ($TestNativeAlias) {
+        $stage = 'installed-native-alias'
+        $aliasReport = Join-Path $output 'native-alias-test.json'
+        $node = (Get-Command node -CommandType Application -ErrorAction Stop).Source
+        Invoke-Tool $node @((Join-Path $PSScriptRoot 'test-windows-store-native-messaging-alias.mjs'), '--prepared', $prepared, '--expected-package-version', $metadata.packageVersion, '--report', $aliasReport)
+        $alias = Read-Json $aliasReport
+        if ($alias.ok -ne $true -or $alias.sourceCommit -cne $metadata.source.commit -or $alias.aliasActivationVerified -ne $true -or $alias.packageIdentityVerified -ne $true -or $alias.browserNativeMessagingVerified -ne $false -or $alias.mbp1Verified -ne $false) { throw 'Alias observation did not pass its bounded contract.' }
+        $report.nativeAliasVerified = $true
+    }
+
 } catch {
     $failureStage = $stage; $report.failureType = $_.Exception.GetType().Name
     if ($stage.StartsWith('native-', [StringComparison]::Ordinal)) {

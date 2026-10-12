@@ -62,6 +62,12 @@ describe('Windows SDK validation workflow boundaries', () => {
         )
       )
         continue
+      if (
+        /^\$\{\{ runner\.temp \}\}\/(?:motrix-store-startup-identity\/native-alias-test|motrix-native-alias-probe\/unpackaged-probe)\.json$/.test(
+          path
+        )
+      )
+        continue
       expect(path).toMatch(
         /^\$\{\{ runner\.temp \}\}\/motrix-windows-store\/(?:build|prepared|prepared\.sdk-output)\/\*\.(?:json|xml|log)$/
       )
@@ -85,7 +91,7 @@ describe('Windows SDK validation workflow boundaries', () => {
     )
     expect(installation).toHaveLength(1)
     expect(installation[0].if).toBe(
-      "github.event_name == 'workflow_dispatch' && inputs.test_startup_identity"
+      "github.event_name == 'workflow_dispatch' && (inputs.test_startup_identity || inputs.test_native_alias)"
     )
     const script = await readFile(
       'scripts/test-windows-store-startup-identity.ps1',
@@ -113,7 +119,7 @@ describe('Windows SDK validation workflow boundaries', () => {
       'scripts/prepare-windows-store-build.mjs --repo-root .'
     )
     expect(runs).toContain(
-      'scripts/prepare-windows-store-layout.mjs --repo-root .'
+      "'scripts/prepare-windows-store-layout.mjs', '--repo-root', '.'"
     )
     expect(runs).toContain('--win --x64 --publish never')
     expect(source).not.toMatch(
@@ -139,5 +145,23 @@ describe('Windows SDK validation workflow boundaries', () => {
     expect(probe).toContain("deps.requestStartup('startup_query')")
     expect(probe).toContain('await deps.queryAssociations()')
     expect(probe).not.toMatch(/startup_enable|startup_disable|main_launch/)
+  })
+  it('requires explicit alias diagnostics, rejects combined signed modes and keeps them out of ordinary builds', async () => {
+    const source = await readFile(workflowPath, 'utf8')
+    const workflow = load(source)
+    expect(
+      workflow.on.workflow_dispatch.inputs.test_native_alias
+    ).toMatchObject({ type: 'boolean', default: false })
+    const step = workflow.jobs['package-test'].steps.find(
+      (s) => s.name === 'Build fixed native alias diagnostics'
+    )
+    expect(step?.if).toBe(
+      "github.event_name == 'workflow_dispatch' && inputs.test_native_alias"
+    )
+    expect(source).toContain("throw 'Select one signed diagnostic mode.'")
+    expect(source).toContain(
+      "$metadata['testDiagnostics'] = 'native-messaging-probe-v1'"
+    )
+    expect(source).toContain("@('--probe-build-dir', $env:MOTRIX_STORE_PROBE)")
   })
 })

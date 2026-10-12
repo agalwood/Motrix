@@ -34,6 +34,11 @@ on:
         type: boolean
         required: false
         default: false
+      test_native_alias:
+        description: 'Verify a signed diagnostic package alias preserves binary stdin/stdout'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -77,7 +82,7 @@ jobs:
 
       - name: Parse SDK scripts with PowerShell
         run: |
-          foreach ($script in @('scripts/get-windows-store-family-name.ps1', 'scripts/test-windows-store-startup-identity.ps1', 'scripts/windows-store-test-output.ps1', 'tests/scripts/windows-store-test-output.test.ps1', 'scripts/pack-windows-store-test.ps1', 'tests/scripts/windows-store-pri.test.ps1')) {
+          foreach ($script in @('scripts/get-windows-store-family-name.ps1', 'scripts/test-windows-store-startup-identity.ps1', 'scripts/windows-store-test-output.ps1', 'tests/scripts/windows-store-test-output.test.ps1', 'scripts/pack-windows-store-test.ps1', 'tests/scripts/windows-store-pri.test.ps1', 'scripts/build-windows-store-native-messaging-probe.ps1', 'tests/scripts/windows-store-native-messaging-probe.test.ps1')) {
             $tokens = $null
             $errors = $null
             [Management.Automation.Language.Parser]::ParseFile((Join-Path $pwd $script), [ref]$tokens, [ref]$errors) | Out-Null
@@ -108,12 +113,14 @@ jobs:
           tests/scripts/prepare-windows-store-layout.test.ts
           tests/scripts/verify-windows-store-layout.test.ts
           tests/scripts/workflow-windows-store.test.ts
+          tests/scripts/windows-store-alias.test.ts
           src/main/platform/windows-package-identity.test.ts
           src/main/platform/windows-package-startup.test.ts
           tests/scripts/windows-store-runtime-identity.test.ts
 
       - name: Prepare fixed test build inputs
         run: |
+          if ('${{ inputs.test_native_alias }}' -ceq 'true' -and '${{ inputs.test_startup_identity }}' -ceq 'true') { throw 'Select one signed diagnostic mode.' }
           $root = Join-Path $env:RUNNER_TEMP 'motrix-windows-store'
           New-Item -ItemType Directory -Path $root | Out-Null
           $commit = (& git rev-parse HEAD).Trim()
@@ -126,6 +133,7 @@ jobs:
             identity = @{ name = 'Motrix.Store.Test'; publisher = 'CN=Motrix Store Test'; publisherDisplayName = 'Motrix Store Test' }
             previousPackageVersions = @()
           }
+          if ('${{ inputs.test_native_alias }}' -ceq 'true') { $metadata['testDiagnostics'] = 'native-messaging-probe-v1' }
           $inputFile = Join-Path $root 'input.json'
           [IO.File]::WriteAllText($inputFile, ($metadata | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
           $build = Join-Path $root 'build'
@@ -159,6 +167,15 @@ jobs:
           pnpm run stage:electron -- --platform win32 --arch x64
           if ($LASTEXITCODE -ne 0) { throw 'Electron staging failed' }
 
+      - name: Build fixed native alias diagnostics
+        if: github.event_name == 'workflow_dispatch' && inputs.test_native_alias
+        run: |
+          $probe = Join-Path $env:RUNNER_TEMP 'motrix-native-alias-probe'
+          ./scripts/build-windows-store-native-messaging-probe.ps1 -OutputDirectory $probe
+          ./scripts/build-windows-store-native-messaging-probe.ps1 -OutputDirectory (Join-Path $probe 'registry') -Kind registry
+          ./tests/scripts/windows-store-native-messaging-probe.test.ps1 -ProbePath (Join-Path $probe 'motrix-store-p0-probe.exe') -ReportPath (Join-Path $probe 'unpackaged-probe.json')
+          "MOTRIX_STORE_PROBE=$probe" >> $env:GITHUB_ENV
+
       - name: Build isolated Windows directory
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
@@ -169,7 +186,9 @@ jobs:
 
       - name: Verify and assemble test layout
         run: |
-          & node scripts/prepare-windows-store-layout.mjs --repo-root . --app-dir "$env:MOTRIX_STORE_BUILD/payload/win-unpacked" --metadata "$env:MOTRIX_STORE_BUILD/release-metadata.json" --out $env:MOTRIX_STORE_LAYOUT
+          $arguments = @('scripts/prepare-windows-store-layout.mjs', '--repo-root', '.', '--app-dir', "$env:MOTRIX_STORE_BUILD/payload/win-unpacked", '--metadata', "$env:MOTRIX_STORE_BUILD/release-metadata.json", '--out', $env:MOTRIX_STORE_LAYOUT)
+          if ('${{ inputs.test_native_alias }}' -ceq 'true') { $arguments += @('--probe-build-dir', $env:MOTRIX_STORE_PROBE) }
+          & node @arguments
           if ($LASTEXITCODE -ne 0) { throw 'Layout preparation failed' }
 
       - name: Pack and verify with Windows SDK
@@ -200,13 +219,12 @@ jobs:
           "MOTRIX_STORE_IDENTITY_CASES=$root" >> $env:GITHUB_ENV
 
       - name: Verify signed test startup identity
-        if: github.event_name == 'workflow_dispatch' && inputs.test_startup_identity
-        run: >-
-          ./scripts/test-windows-store-startup-identity.ps1
-          -PreparedDirectory $env:MOTRIX_STORE_LAYOUT
-          -CaseDirectory $env:MOTRIX_STORE_IDENTITY_CASES
-          -SdkBinDirectory $env:MOTRIX_STORE_SDK_BIN
-          -OutputDirectory (Join-Path $env:RUNNER_TEMP 'motrix-store-startup-identity')
+        if: github.event_name == 'workflow_dispatch' && (inputs.test_startup_identity || inputs.test_native_alias)
+        run: |
+          $arguments = @{ PreparedDirectory = $env:MOTRIX_STORE_LAYOUT; SdkBinDirectory = $env:MOTRIX_STORE_SDK_BIN; OutputDirectory = (Join-Path $env:RUNNER_TEMP 'motrix-store-startup-identity') }
+          if ('${{ inputs.test_startup_identity }}' -ceq 'true') { $arguments.CaseDirectory = $env:MOTRIX_STORE_IDENTITY_CASES }
+          if ('${{ inputs.test_native_alias }}' -ceq 'true') { $arguments.TestNativeAlias = $true }
+          ./scripts/test-windows-store-startup-identity.ps1 @arguments
 
       - name: Upload SDK text evidence
         if: always()
@@ -221,5 +239,7 @@ jobs:
             ${{ runner.temp }}/motrix-windows-store/prepared.sdk-output/*.log
             ${{ runner.temp }}/motrix-store-startup-identity/startup-identity-test.json
             ${{ runner.temp }}/motrix-store-identity-cases/identity-cases.json
+            ${{ runner.temp }}/motrix-store-startup-identity/native-alias-test.json
+            ${{ runner.temp }}/motrix-native-alias-probe/unpackaged-probe.json
           if-no-files-found: warn
           retention-days: 14
