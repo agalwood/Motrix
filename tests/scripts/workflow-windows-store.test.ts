@@ -126,26 +126,18 @@ describe('Windows SDK validation workflow boundaries', () => {
       'scripts/test-windows-store-startup-identity.ps1',
       'utf8'
     )
-    expect(source).toContain(
-      "@('startup_query', 'associations_query') -cnotcontains $Operation"
-    )
-    expect(source).toContain(
-      "$before = Invoke-ReadonlyNativeQuery $helper 'startup_query'"
-    )
-    expect(source).toContain(
-      "$associations = Invoke-ReadonlyNativeQuery $helper 'associations_query'"
-    )
-    expect(source).toContain(
-      "$after = Invoke-ReadonlyNativeQuery $helper 'startup_query'"
-    )
+    expect(source).toContain("'windows-package-readonly-integration'")
+    expect(source).toContain("$stage = 'main-child-native-probe'")
     expect(source).toContain(
       'actualStartupMutationVerified = $false; defaultAppsUiVerified = $false'
     )
-    expect(source).toContain(
-      'Assert-StoreNativeQueryReply $reply $Operation $MainAumid'
+    expect(source).not.toContain('Invoke-ReadonlyNativeQuery')
+    const probe = await readFile(
+      'src/main/platform/windows-package-readonly-probe.ts',
+      'utf8'
     )
-    expect(source).not.toMatch(
-      /op\s*=\s*['"](?:startup_enable|startup_disable|main_launch)['"]|Invoke-ReadonlyNativeQuery[^\n]+['"](?:startup_enable|startup_disable|main_launch)['"]/
-    )
+    expect(probe).toContain("deps.requestStartup('startup_query')")
+    expect(probe).toContain('await deps.queryAssociations()')
+    expect(probe).not.toMatch(/startup_enable|startup_disable|main_launch/)
   })
 })

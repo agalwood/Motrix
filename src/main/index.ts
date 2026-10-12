@@ -213,6 +213,7 @@ import { createElectronPlatformServices } from './platform/services'
 import { setupSystemAccentColorSync } from './platform/system-accent-color'
 import { removeTaskPath } from './platform/task-file-remover'
 import { setupTray } from './platform/tray'
+import { probeWindowsPackageReadonlyIntegration } from './platform/windows-package-readonly-probe'
 import { verifyWindowsPackageStartup } from './platform/windows-package-startup'
 import { createElectronCapabilityHost } from './plugin/capability-host'
 import { startDevWatcher } from './plugin/dev-watcher'
@@ -273,6 +274,11 @@ if (distributionContext.isWindowsPackage) {
         identity: identity.identity,
       })}\n`
     )
+    void probeWindowsPackageReadonlyIntegration({
+      sourceCommit: identity.runtime.sourceCommit,
+      familyName: identity.identity.familyName,
+      resourcesPath: process.resourcesPath,
+    }).then((report) => process.stdout.write(`${JSON.stringify(report)}\n`))
   }
 }
 

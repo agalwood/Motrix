@@ -44,50 +44,6 @@ function Invoke-Tool([string]$File, [string[]]$Arguments) {
     } finally { $child.Dispose() }
 }
 
-function Invoke-ReadonlyNativeQuery([string]$File, [string]$Operation, [string]$MainAumid) {
-    if (@('startup_query', 'associations_query') -cnotcontains $Operation) { throw 'Only fixed read-only native operations are accepted.' }
-    $settings = [Diagnostics.ProcessStartInfo]::new($File)
-    $settings.UseShellExecute = $false; $settings.CreateNoWindow = $true
-    $settings.RedirectStandardInput = $true; $settings.RedirectStandardOutput = $true; $settings.RedirectStandardError = $true
-    $child = [Diagnostics.Process]::new(); $child.StartInfo = $settings
-    $started = $false
-    $outPump = $null; $errPump = $null
-    try {
-        $report.nativeQueryPhase = 'process-start'
-        $started = $child.Start()
-        if (-not $started) { throw 'Owned native query did not start.' }
-        $stdout = [MotrixStoreTest.BoundedOutput]::new(16384)
-        $stderr = [MotrixStoreTest.BoundedOutput]::new(16384)
-        $outPump = $stdout.PumpAsync($child.StandardOutput.BaseStream)
-        $errPump = $stderr.PumpAsync($child.StandardError.BaseStream)
-        $report.nativeQueryPhase = 'write-request'
-        $child.StandardInput.WriteLine((@{ version = 1; op = $Operation } | ConvertTo-Json -Compress))
-        $child.StandardInput.Close()
-        $report.nativeQueryPhase = 'wait-exit'
-        if (-not $child.WaitForExit(5000)) { throw 'Owned native query exceeded its deadline.' }
-        $report.nativeProcessExitCode = $child.ExitCode
-        $report.nativeQueryPhase = 'wait-output'
-        if (-not $outPump.Wait(1000) -or -not $errPump.Wait(1000) -or $stdout.Truncated -or $stderr.Truncated) { throw 'Owned native query exceeded its output bounds.' }
-        $report.nativeQueryPhase = 'decode-response'
-        $reply = $stdout.Snapshot() | ConvertFrom-Json
-        $report.nativeQueryFailureCode = Get-StoreNativeQueryFailureCode $reply
-        if ($child.ExitCode -ne 0) { throw 'Owned native query failed.' }
-        $report.nativeQueryPhase = 'validate-response'
-        Assert-StoreNativeQueryReply $reply $Operation $MainAumid
-        $report.nativeQueryPhase = $null
-        return $reply
-    } finally {
-        try {
-            if ($started -and -not $child.HasExited) { $child.Kill($true); if (-not $child.WaitForExit(5000)) { throw 'Owned native process did not exit.' } }
-            if ($null -ne $outPump -and -not $outPump.Wait(1000)) { throw 'Owned native stdout pump did not close.' }
-            if ($null -ne $errPump -and -not $errPump.Wait(1000)) { throw 'Owned native stderr pump did not close.' }
-        } catch {
-            $cleanupErrors.Add('owned-native-process')
-            throw 'Owned native process cleanup failed.'
-        } finally { $child.Dispose() }
-    }
-}
-
 $prepared = [IO.Path]::GetFullPath($PreparedDirectory).TrimEnd('\', '/')
 $output = [IO.Path]::GetFullPath($OutputDirectory).TrimEnd('\', '/')
 $temporary = [IO.Path]::GetFullPath($env:RUNNER_TEMP).TrimEnd('\', '/')
@@ -213,18 +169,22 @@ try {
         $stderrPump = $stderrCapture.PumpAsync($main.StandardError.BaseStream)
         $stage = 'main-report-wait'
         $timer = [Diagnostics.Stopwatch]::StartNew()
-        $startup = $null
+        $startup = $null; $nativeProbe = $null
         $consumed = 0
-        while ($timer.ElapsedMilliseconds -lt 30000 -and $null -eq $startup) {
+        while ($timer.ElapsedMilliseconds -lt 30000 -and ($null -eq $startup -or ($case.ExpectedStartup -ceq 'accepted' -and $null -eq $nativeProbe))) {
             if ($main.HasExited) { $null = $stdoutPump.Wait(1000); $null = $stderrPump.Wait(1000) }
             $lines = $stdoutCapture.Snapshot().Split("`n")
             while ($consumed -lt $lines.Length - 1) {
                 $value = $lines[$consumed++].TrimEnd("`r")
                 if ($value.Length -gt 32768 -or $consumed -gt 32) { $stage = 'main-output-limit'; throw 'Startup output exceeded its bounds.' }
-                try { $candidate = $value | ConvertFrom-Json; if ($candidate.scope -ceq 'windows-package-startup-identity') { $startup = $candidate; break } } catch { }
+                try {
+                    $candidate = $value | ConvertFrom-Json
+                    if ($candidate.scope -ceq 'windows-package-startup-identity') { $startup = $candidate; continue }
+                    if ($candidate.scope -ceq 'windows-package-readonly-integration') { $nativeProbe = $candidate; continue }
+                } catch { }
                 $report.stdoutLinesIgnored++
             }
-            if ($null -ne $startup) { break }
+            if ($null -ne $startup -and ($case.ExpectedStartup -ceq 'identity_mismatch' -or $null -ne $nativeProbe)) { break }
             if ($stdoutCapture.Truncated) { $stage = 'main-output-limit'; throw 'Startup output exceeded its bounds.' }
             if ($main.HasExited) {
                 if ($case.ExpectedStartup -ceq 'identity_mismatch') {
@@ -254,16 +214,20 @@ try {
         $caseResults.Add([ordered]@{ label = $case.Label; packageVersion = $metadata.packageVersion; expectedStartup = $case.ExpectedStartup; installedIdentityVerified = $true; installedPayloadHashesVerified = $true; mainPreflightVerified = $report.mainPreflightVerified; startupReportFound = $report.startupReportFound; failureCode = $failureCode; naturalExitCode = $naturalExit; stdoutLinesIgnored = $report.stdoutLinesIgnored; ownedProcessStopped = $true; nativeObservation = $null })
         $main.Dispose(); $main = $null; $stdoutPump = $null; $stderrPump = $null
         if ($case.ExpectedStartup -ceq 'accepted') {
-            $helper = Join-Path $package.InstallLocation 'app/resources/bin/motrix-windows-platform.exe'
-            $mainAumid = $knownFamily + '!Motrix'
-            $stage = 'native-startup-query-before'
-            $before = Invoke-ReadonlyNativeQuery $helper 'startup_query' $mainAumid
-            $stage = 'native-associations-query'
-            $associations = Invoke-ReadonlyNativeQuery $helper 'associations_query' $mainAumid
-            $stage = 'native-startup-query-after'
-            $after = Invoke-ReadonlyNativeQuery $helper 'startup_query' $mainAumid
-            if ($before.state -cne $after.state) { throw 'Startup state changed during read-only observations.' }
-            $nativeObservation = [ordered]@{ packageVersion = $metadata.packageVersion; startupStateBefore = $before.state; startupStateAfter = $after.state; mainAppAumid = $mainAumid; torrent = $associations.torrent; magnet = $associations.magnet; readOnlyVerified = $true }
+            $stage = 'main-child-native-probe'
+            if ($null -eq $nativeProbe -or $nativeProbe.sourceCommit -cne $metadata.source.commit -or $nativeProbe.version -ne 1 -or $nativeProbe.scope -cne 'windows-package-readonly-integration') { throw 'Main child observation is missing or has a different source.' }
+            if ($nativeProbe.ok -isnot [bool] -or -not $nativeProbe.ok) {
+                $report.nativeQueryPhase = 'main-child-probe'
+                if ($nativeProbe.PSObject.Properties.Name -ccontains 'code') { $report.nativeQueryFailureCode = Get-StoreNativeQueryFailureCode ([pscustomobject]@{version=1;ok=$false;code=$nativeProbe.code}) }
+                throw 'Main child native observation failed.'
+            }
+            $value = $nativeProbe.observation
+            if ($value.readOnlyVerified -ne $true -or $value.startupStateBefore -cne $value.startupStateAfter -or $value.mainAppAumid -ine ($knownFamily + '!Motrix')) { throw 'Main child observation differs from the installed package.' }
+            $startupReply = [pscustomobject]@{version=1;ok=$true;packageIdentityPresent=$true;taskId='MotrixStartup';state=$value.startupStateBefore}
+            Assert-StoreNativeQueryReply $startupReply 'startup_query' ($knownFamily + '!Motrix')
+            $associationReply = [pscustomobject]@{version=1;ok=$true;packageIdentityPresent=$true;mainAppAumid=$value.mainAppAumid;torrent=$value.torrent;magnet=$value.magnet}
+            Assert-StoreNativeQueryReply $associationReply 'associations_query' ($knownFamily + '!Motrix')
+            $nativeObservation = [ordered]@{ packageVersion = $metadata.packageVersion; startupStateBefore = $value.startupStateBefore; startupStateAfter = $value.startupStateAfter; mainAppAumid = $knownFamily + '!Motrix'; torrent = $value.torrent; magnet = $value.magnet; readOnlyVerified = $true }
         }
         $caseResults[$caseResults.Count - 1]['nativeObservation'] = $nativeObservation
     }

@@ -66,6 +66,6 @@ function Get-StoreNativeQueryFailureCode([object]$Reply) {
     foreach ($name in $properties) { if (@('version', 'ok', 'code', 'hresult') -cnotcontains $name) { return $null } }
     if (($Reply.version -isnot [long] -and $Reply.version -isnot [int]) -or $Reply.version -ne 1 -or $Reply.ok -isnot [bool] -or $Reply.ok) { return $null }
     if ($properties -ccontains 'hresult' -and ($Reply.hresult -isnot [string] -or $Reply.hresult -cnotmatch '^0x[0-9a-fA-F]{8}$')) { return $null }
-    if (@('invalid_request', 'no_package_identity', 'task_unavailable', 'winrt_failed', 'unknown_state', 'main_app_unavailable') -ccontains $Reply.code) { return $Reply.code }
+    if (@('invalid_request', 'no_package_identity', 'task_unavailable', 'winrt_failed', 'unknown_state', 'main_app_unavailable', 'helper_unavailable', 'helper_failed', 'helper_timeout', 'output_limit', 'invalid_response', 'identity_mismatch', 'startup_state_changed') -ccontains $Reply.code) { return $Reply.code }
     return $null
 }
