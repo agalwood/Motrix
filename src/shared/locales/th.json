@@ -2208,7 +2208,19 @@
       "startupAndQuitting": "การเริ่มต้นและการออก",
       "systemNotifications": "การแจ้งเตือนของระบบ",
       "warnBeforeQuit": "ยืนยันก่อนออก",
-      "warnBeforeQuitDesc": "ถามก่อนออกหากยังมีการดาวน์โหลดทำงานอยู่"
+      "warnBeforeQuitDesc": "ถามก่อนออกหากยังมีการดาวน์โหลดทำงานอยู่",
+      "startupLoading": "กำลังตรวจสอบการตั้งค่าแอปเริ่มต้นของ Windows…",
+      "startupUnavailable": "บันทึกการตั้งค่าแล้ว แต่ไม่สามารถตรวจสอบหรือนำการตั้งค่าการเริ่มต้นไปใช้ได้ โปรดลองอีกครั้ง",
+      "startupNotApplied": "บันทึกการตั้งค่าแล้ว แต่ Windows ไม่ได้นำการเปลี่ยนแปลงการเริ่มต้นไปใช้ โปรดตรวจสอบการตั้งค่าแอปเริ่มต้นของ Windows",
+      "startupStateUnavailable": "ไม่สามารถตรวจสอบสถานะการเริ่มต้นใน Windows ได้ โปรดลองอีกครั้ง",
+      "startupUnsupported": "รุ่นนี้ไม่รองรับการเปิดเมื่อเข้าสู่ระบบ",
+      "startupDisabled": "ปิดใช้งานใน Windows",
+      "startupDisabledByUser": "ปิดใช้งานในการตั้งค่าแอปเริ่มต้นของ Windows โปรดเปิดใช้งานที่นั่นเพื่ออนุญาตให้เปิดเมื่อเข้าสู่ระบบ",
+      "startupEnabled": "เปิดใช้งานใน Windows",
+      "startupDisabledByPolicy": "องค์กรของคุณปิดใช้งานการเปิดเมื่อเข้าสู่ระบบ",
+      "startupEnabledByPolicy": "องค์กรของคุณกำหนดให้เปิดเมื่อเข้าสู่ระบบ",
+      "startupOpenSettings": "เปิดการตั้งค่าแอปเริ่มต้นของ Windows",
+      "startupOpenSettingsFailed": "ไม่สามารถเปิดการตั้งค่าแอปเริ่มต้นของ Windows ได้"
     },
     "integration": {
       "appimage": {

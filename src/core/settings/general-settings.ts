@@ -1,6 +1,6 @@
 import { constants } from 'node:fs'
 import { access } from 'node:fs/promises'
-import { AppError } from '@shared/errors'
+import { AppError, ErrorCode } from '@shared/errors'
 import {
   type GeneralSettingsResult,
   GeneralSettingsResultSchema,
@@ -84,6 +84,22 @@ export function createSaveGeneralSettingsHandler(
       await apply
       return GeneralSettingsResultSchema.parse(result)
     } catch (error) {
+      if (
+        error instanceof AppError &&
+        (error.code === ErrorCode.AutoLaunchFailed ||
+          error.code === ErrorCode.AutoLaunchNotApplied)
+      ) {
+        return {
+          ok: false,
+          error: {
+            code:
+              error.code === ErrorCode.AutoLaunchFailed
+                ? 'startupUnavailable'
+                : 'startupNotApplied',
+          },
+          ...(committed ? { snapshot: committed } : {}),
+        }
+      }
       const failure = directoryPreferenceFailure(
         error instanceof AppError && error.cause ? error.cause : error
       )

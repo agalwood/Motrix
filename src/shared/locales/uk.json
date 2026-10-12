@@ -2265,7 +2265,19 @@
       "startupAndQuitting": "Запуск і вихід",
       "systemNotifications": "Системні сповіщення",
       "warnBeforeQuit": "Підтверджувати вихід",
-      "warnBeforeQuitDesc": "Запитувати перед виходом, якщо завантаження ще тривають."
+      "warnBeforeQuitDesc": "Запитувати перед виходом, якщо завантаження ще тривають.",
+      "startupLoading": "Перевірка параметрів автозавантаження Windows…",
+      "startupUnavailable": "Налаштування збережено, але не вдалося перевірити або застосувати параметр автозавантаження. Спробуйте ще раз.",
+      "startupNotApplied": "Налаштування збережено, але Windows не застосувала зміну автозавантаження. Перевірте параметри автозавантаження Windows.",
+      "startupStateUnavailable": "Стан автозавантаження Windows недоступний. Спробуйте ще раз.",
+      "startupUnsupported": "Запуск під час входу в систему недоступний у цій збірці.",
+      "startupDisabled": "Вимкнено у Windows",
+      "startupDisabledByUser": "Вимкнено в параметрах автозавантаження Windows. Увімкніть там цей параметр, щоб дозволити запуск під час входу в систему.",
+      "startupEnabled": "Увімкнено у Windows",
+      "startupDisabledByPolicy": "Ваша організація вимкнула запуск під час входу в систему.",
+      "startupEnabledByPolicy": "Ваша організація вимагає запуску під час входу в систему.",
+      "startupOpenSettings": "Відкрити параметри автозавантаження Windows",
+      "startupOpenSettingsFailed": "Не вдалося відкрити параметри автозавантаження Windows."
     },
     "integration": {
       "appimage": {

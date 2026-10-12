@@ -2227,7 +2227,19 @@
       "startupAndQuitting": "Стартиране и изход",
       "systemNotifications": "Системни известия",
       "warnBeforeQuit": "Потвърждение преди изход",
-      "warnBeforeQuitDesc": "Иска потвърждение преди изход, ако все още има активни изтегляния."
+      "warnBeforeQuitDesc": "Иска потвърждение преди изход, ако все още има активни изтегляния.",
+      "startupLoading": "Проверка на настройките за стартиране на Windows…",
+      "startupUnavailable": "Настройките са запазени, но настройката за стартиране не можа да бъде проверена или приложена. Опитайте отново.",
+      "startupNotApplied": "Настройките са запазени, но Windows не приложи промяната за стартиране. Проверете настройките за стартиране на Windows.",
+      "startupStateUnavailable": "Състоянието на стартиране в Windows не е налично. Опитайте отново.",
+      "startupUnsupported": "Отварянето при влизане не е налично в тази версия.",
+      "startupDisabled": "Изключено в Windows",
+      "startupDisabledByUser": "Изключено в настройките за стартиране на Windows. Включете го там, за да разрешите отварянето при влизане.",
+      "startupEnabled": "Включено в Windows",
+      "startupDisabledByPolicy": "Вашата организация е изключила отварянето при влизане.",
+      "startupEnabledByPolicy": "Вашата организация изисква отваряне при влизане.",
+      "startupOpenSettings": "Отваряне на настройките за стартиране на Windows",
+      "startupOpenSettingsFailed": "Настройките за стартиране на Windows не можаха да бъдат отворени."
     },
     "integration": {
       "appimage": {

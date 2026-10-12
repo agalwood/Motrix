@@ -1,4 +1,5 @@
 export const Commands = {
+  OpenStartupSettings: 'command:openStartupSettings',
   ExecuteRendererSubmission: 'command:executeRendererSubmission',
   AcknowledgeRendererIntent: 'command:acknowledgeRendererIntent',
   ReportRendererSurface: 'command:reportRendererSurface',

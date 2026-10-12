@@ -175,6 +175,7 @@ export function buildServerQueryHandlers(
 
   return {
     ...unsupportedLegacyImportQueries(),
+    [Queries.GetAutoLaunchStatus]: async () => ({ authority: 'unsupported' }),
     [Queries.GetFfmpegInstallStatus]: async () => ({
       phase: 'idle',
       bytesReceived: 0,

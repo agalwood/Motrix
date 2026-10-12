@@ -1056,11 +1056,8 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       settingsManager,
       {
         applySavedApp: async (patch) => {
-          if (
-            patch.launchAtStartup !== undefined ||
-            patch.showMainWindowAtLogin !== undefined
-          ) {
-            syncAutoLaunch(settingsManager.getApp().launchAtStartup)
+          if (patch.launchAtStartup !== undefined) {
+            await syncAutoLaunch(settingsManager.getApp().launchAtStartup)
           }
           if (patch.defaultSaveDir !== undefined) {
             await supervisor.applyDefaultSaveDir(
@@ -1073,6 +1070,9 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
     [Commands.UpdateSettings]: async (partial: unknown) => {
       const oldFull = settingsManager.get()
+      const startupPreferenceSubmitted =
+        typeof (partial as { app?: { launchAtStartup?: unknown } })?.app
+          ?.launchAtStartup === 'boolean'
 
       // Apply privacy gate on the incoming partial before merging.
       const simulated = mergePartialForGate(oldFull, partial)
@@ -1170,8 +1170,9 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
             updateManager.setChannel(newFull.app.updateChannel)
           }
 
-          if (oldFull.app.launchAtStartup !== newFull.app.launchAtStartup) {
-            syncAutoLaunch(newFull.app.launchAtStartup)
+          if (startupPreferenceSubmitted) {
+            // General settings may commit while preceding proxy effects await.
+            await syncAutoLaunch(settingsManager.getApp().launchAtStartup)
           }
           if (
             oldFull.app.browserBridgeEnabled !==
@@ -1503,6 +1504,16 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       removeAppImageIntegrationFromSettings({
         getMagnetEnabled: () => settingsManager.getApp().protocols.magnet,
       }),
+
+    [Commands.OpenStartupSettings]: async () => {
+      if (process.platform !== 'win32') return { ok: false }
+      try {
+        await shell.openExternal('ms-settings:startupapps')
+        return { ok: true }
+      } catch {
+        return { ok: false }
+      }
+    },
 
     [Commands.RequestDefaultTorrentHandler]: async () => {
       if (process.platform === 'darwin') {

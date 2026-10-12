@@ -2246,7 +2246,19 @@
       "startupAndQuitting": "Démarrage et fermeture",
       "systemNotifications": "Notifications système",
       "warnBeforeQuit": "Confirmer avant de quitter",
-      "warnBeforeQuitDesc": "Demander confirmation avant de quitter si des téléchargements sont en cours."
+      "warnBeforeQuitDesc": "Demander confirmation avant de quitter si des téléchargements sont en cours.",
+      "startupLoading": "Vérification des paramètres de démarrage de Windows…",
+      "startupUnavailable": "Les paramètres ont été enregistrés, mais le paramètre de démarrage n’a pas pu être vérifié ou appliqué. Réessayez.",
+      "startupNotApplied": "Les paramètres ont été enregistrés, mais Windows n’a pas appliqué la modification du démarrage. Vérifiez les paramètres de démarrage de Windows.",
+      "startupStateUnavailable": "L’état du démarrage dans Windows est indisponible. Réessayez.",
+      "startupUnsupported": "Le lancement à la connexion est indisponible dans cette version.",
+      "startupDisabled": "Désactivé dans Windows",
+      "startupDisabledByUser": "Désactivé dans les paramètres de démarrage de Windows. Activez-le dans ces paramètres pour autoriser le lancement à la connexion.",
+      "startupEnabled": "Activé dans Windows",
+      "startupDisabledByPolicy": "Votre organisation a désactivé le lancement à la connexion.",
+      "startupEnabledByPolicy": "Votre organisation impose le lancement à la connexion.",
+      "startupOpenSettings": "Ouvrir les paramètres de démarrage de Windows",
+      "startupOpenSettingsFailed": "Impossible d’ouvrir les paramètres de démarrage de Windows."
     },
     "integration": {
       "appimage": {

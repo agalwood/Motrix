@@ -1939,7 +1939,9 @@ async function initializeMainProcess(): Promise<void> {
   if (pendingDisclaimerGate === gate) pendingDisclaimerGate = null
 
   if (!mainProcessWork.isAccepting()) return
-  syncAutoLaunch(settingsManager.getApp().launchAtStartup)
+  runShellAsyncWork('startup status', () =>
+    syncAutoLaunch(settingsManager.getApp().launchAtStartup, 'startup')
+  )
   protocolManager.register()
 
   // Linux AppImage self-integration (desktop entry, icon, URL-scheme handlers).

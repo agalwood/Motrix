@@ -1245,7 +1245,19 @@
       "downloadCompleted": "下载完成",
       "downloadFailed": "下载失败",
       "description": "启动、退出与通知",
-      "desktopOnly": "启动和通知偏好可在桌面应用中设置。"
+      "desktopOnly": "启动和通知偏好可在桌面应用中设置。",
+      "startupLoading": "正在检查 Windows 启动设置…",
+      "startupUnavailable": "设置已保存，但无法检查或应用登录启动设置。请重试。",
+      "startupNotApplied": "设置已保存，但 Windows 未应用登录启动更改。请检查 Windows 启动设置。",
+      "startupStateUnavailable": "无法获取 Windows 中的实际启动状态。请重试。",
+      "startupUnsupported": "此版本不支持登录时启动。",
+      "startupDisabled": "已在 Windows 中禁用",
+      "startupDisabledByUser": "已在 Windows 启动设置中禁用。请前往启用，以允许登录时启动。",
+      "startupEnabled": "已在 Windows 中启用",
+      "startupDisabledByPolicy": "你的组织已禁用登录时启动。",
+      "startupEnabledByPolicy": "你的组织要求登录时启动。",
+      "startupOpenSettings": "打开 Windows 启动设置",
+      "startupOpenSettingsFailed": "无法打开 Windows 启动设置。"
     },
     "appearance": {
       "theme": "主题",

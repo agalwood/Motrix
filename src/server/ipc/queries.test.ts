@@ -775,3 +775,10 @@ describe('plugin diagnostic state query', () => {
     expect(getLogState).not.toHaveBeenCalled()
   })
 })
+
+it('reports startup authority as unsupported on the web server', async () => {
+  const handlers = buildServerQueryHandlers(makeCtx() as never)
+  await expect(handlers[Queries.GetAutoLaunchStatus]?.()).resolves.toEqual({
+    authority: 'unsupported',
+  })
+})

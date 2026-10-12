@@ -1287,7 +1287,19 @@
       "downloadCompleted": "Pobieranie ukończone",
       "downloadFailed": "Pobieranie nieudane",
       "description": "Uruchamianie, kończenie i powiadomienia",
-      "desktopOnly": "Ustawienia uruchamiania i powiadomień są dostępne w aplikacji komputerowej."
+      "desktopOnly": "Ustawienia uruchamiania i powiadomień są dostępne w aplikacji komputerowej.",
+      "startupLoading": "Sprawdzanie ustawień uruchamiania systemu Windows…",
+      "startupUnavailable": "Ustawienia zostały zapisane, ale nie udało się sprawdzić ani zastosować ustawienia uruchamiania. Spróbuj ponownie.",
+      "startupNotApplied": "Ustawienia zostały zapisane, ale system Windows nie zastosował zmiany uruchamiania. Sprawdź ustawienia uruchamiania systemu Windows.",
+      "startupStateUnavailable": "Stan uruchamiania w systemie Windows jest niedostępny. Spróbuj ponownie.",
+      "startupUnsupported": "Uruchamianie przy logowaniu jest niedostępne w tej wersji.",
+      "startupDisabled": "Wyłączone w systemie Windows",
+      "startupDisabledByUser": "Wyłączone w ustawieniach uruchamiania systemu Windows. Włącz tę opcję tam, aby zezwolić na uruchamianie przy logowaniu.",
+      "startupEnabled": "Włączone w systemie Windows",
+      "startupDisabledByPolicy": "Twoja organizacja wyłączyła uruchamianie przy logowaniu.",
+      "startupEnabledByPolicy": "Twoja organizacja wymaga uruchamiania przy logowaniu.",
+      "startupOpenSettings": "Otwórz ustawienia uruchamiania systemu Windows",
+      "startupOpenSettingsFailed": "Nie udało się otworzyć ustawień uruchamiania systemu Windows."
     },
     "appearance": {
       "theme": "Motyw",
