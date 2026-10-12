@@ -35,13 +35,20 @@ function Invoke-Tool([string]$File, [string[]]$Arguments) {
     $child = [Diagnostics.Process]::new()
     $child.StartInfo = $settings
     try {
+        $report.toolPhase = 'process-start'
         if (-not $child.Start()) { throw 'Test tool did not start.' }
+        $report.toolPhase = 'output-pumps'
         $stdout = $child.StandardOutput.BaseStream.CopyToAsync([IO.Stream]::Null)
         $stderr = $child.StandardError.BaseStream.CopyToAsync([IO.Stream]::Null)
+        $report.toolPhase = 'wait-exit'
         if (-not $child.WaitForExit(120000)) { $child.Kill($true); $child.WaitForExit(); throw 'Test tool exceeded its deadline.' }
+        $report.toolProcessExitCode = $child.ExitCode
+        $report.toolPhase = 'drain-output'
         $null = $stdout.GetAwaiter().GetResult()
         $null = $stderr.GetAwaiter().GetResult()
+        $report.toolPhase = 'exit-result'
         if ($child.ExitCode -ne 0) { throw 'Test tool returned a failure.' }
+        $report.toolPhase = $null
     } finally { $child.Dispose() }
 }
 
@@ -116,6 +123,7 @@ $report = [ordered]@{
     nativeAliasVerified = $false
     nativeQueryFailureCode = $null
     nativeQueryPhase = $null; nativeProcessExitCode = $null; nativeErrorHresult = $null; nativeWin32ErrorCode = $null
+    toolPhase = $null; toolProcessExitCode = $null
 }
 try {
     $certificateAttempted = $true
@@ -251,7 +259,7 @@ try {
 
 } catch {
     $failureStage = $stage; $report.failureType = $_.Exception.GetType().Name
-    if ($stage.StartsWith('native-', [StringComparison]::Ordinal)) {
+    if ($stage.StartsWith('native-', [StringComparison]::Ordinal) -or $stage -ceq 'installed-native-alias') {
         $exception = $_.Exception
         for ($depth = 0; $depth -lt 4 -and $null -ne $exception; $depth++) {
             $report.nativeErrorHresult = '0x' + $exception.HResult.ToString('X8')
