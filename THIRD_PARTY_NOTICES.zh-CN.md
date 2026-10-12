@@ -98,6 +98,17 @@ Safari 图标是从 macOS 27.0（26A428）自带的 Safari 27.0 中 `Safari.app/
 发布的二进制文件履行 GPL 的源码提供和声明保留义务；如果自行构建，还应核对构建
 产物所链接的其他库及其许可要求。
 
+### Windows x64 链接组件声明
+
+固定的 `win32-x64` 引擎所选依赖声明与原始许可文本见
+[`THIRD_PARTY_LICENSES/aria2-win32-x64`](THIRD_PARTY_LICENSES/aria2-win32-x64/README.zh-CN.md)。
+清单将压缩包和可执行文件摘要绑定到精确的引擎源码及 Windows 发布构建，涵盖
+c-ares 1.34.8、Expat 2.8.3、附带记录补丁的 libssh2 1.11.1、OpenSSL 3.5.8、
+SQLite 3.53.4、wslay 1.1.1 和 zlib 1.3.2。
+
+本次所选组件清单不代表完整运行库 SBOM、GPL 兼容性、完整对应源码提供工作或
+其他平台覆盖已经完成；这些分发义务仍须分别处理。
+
 ---
 
 ## GeoIP 数据库（用户自行启用、自行下载）

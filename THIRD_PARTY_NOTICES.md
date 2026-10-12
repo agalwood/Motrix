@@ -114,6 +114,20 @@ bundled binaries. Redistributors must continue to meet the GPL source-code and
 notice obligations for the exact binaries they ship, including any additional
 libraries linked into their own builds.
 
+### Windows x64 linked-component notices
+
+For the locked `win32-x64` engine, the selected dependency declarations and
+original license texts are in
+[`THIRD_PARTY_LICENSES/aria2-win32-x64`](THIRD_PARTY_LICENSES/aria2-win32-x64/README.md).
+The inventory binds the archive and executable digests to the exact engine
+source and Windows release build. It covers c-ares 1.34.8, Expat 2.8.3,
+libssh2 1.11.1 with the recorded patches, OpenSSL 3.5.8, SQLite 3.53.4,
+wslay 1.1.1 and zlib 1.3.2.
+
+This selected inventory does not establish a complete runtime SBOM, GPL
+compatibility, complete corresponding-source provision or coverage of other
+platforms. Those distribution obligations remain separate.
+
 ---
 
 ## GeoIP database (opt-in, downloaded by the user)
