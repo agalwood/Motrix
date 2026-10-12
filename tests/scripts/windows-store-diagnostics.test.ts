@@ -11,7 +11,6 @@ import {
   unlink,
   writeFile,
 } from 'node:fs/promises'
-import { devNull } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { prepareWindowsStoreLayout } from '../../scripts/prepare-windows-store-layout.mjs'
@@ -44,11 +43,11 @@ const env = {
     )
   ),
   GIT_CONFIG_NOSYSTEM: '1',
-  GIT_CONFIG_GLOBAL: devNull,
+  GIT_CONFIG_GLOBAL: '/dev/null',
 }
 
 function git(root: string, ...args: string[]) {
-  return execFileSync('git', ['-c', `core.hooksPath=${devNull}`, ...args], {
+  return execFileSync('git', ['-c', 'core.hooksPath=/dev/null', ...args], {
     cwd: root,
     env,
     encoding: 'utf8',

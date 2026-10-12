@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { execFile, execFileSync } from 'node:child_process'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { devNull, tmpdir } from 'node:os'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // @ts-expect-error -- JavaScript packaging script intentionally has no declarations
@@ -23,7 +23,7 @@ const env = {
 }
 
 function git(root: string, ...args: string[]) {
-  return execFileSync('git', ['-c', `core.hooksPath=${devNull}`, ...args], {
+  return execFileSync('git', ['-c', 'core.hooksPath=/dev/null', ...args], {
     cwd: root,
     encoding: 'utf8',
     env,

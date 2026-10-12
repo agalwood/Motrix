@@ -10,7 +10,7 @@ import {
   symlink,
   writeFile,
 } from 'node:fs/promises'
-import { devNull, tmpdir } from 'node:os'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { prepareWindowsStoreBuild } from '../../scripts/prepare-windows-store-build.mjs'
@@ -27,7 +27,7 @@ const env = {
   GIT_CONFIG_GLOBAL: '/dev/null',
 }
 function git(root: string, ...args: string[]) {
-  return execFileSync('git', ['-c', `core.hooksPath=${devNull}`, ...args], {
+  return execFileSync('git', ['-c', 'core.hooksPath=/dev/null', ...args], {
     cwd: root,
     env,
     encoding: 'utf8',

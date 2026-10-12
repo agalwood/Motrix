@@ -11,7 +11,6 @@ import {
   unlink,
   writeFile,
 } from 'node:fs/promises'
-import { devNull } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { prepareWindowsStoreLayout } from '../../scripts/prepare-windows-store-layout.mjs'
@@ -38,7 +37,7 @@ const env = {
   GIT_CONFIG_GLOBAL: '/dev/null',
 }
 function git(root: string, ...args: string[]) {
-  return execFileSync('git', ['-c', `core.hooksPath=${devNull}`, ...args], {
+  return execFileSync('git', ['-c', 'core.hooksPath=/dev/null', ...args], {
     cwd: root,
     env,
     encoding: 'utf8',
@@ -158,16 +157,18 @@ describe('Windows Store layout content verification', () => {
       expect(
         await readFile(path.join(input.preparedDirectory, 'layout-report.json'))
       ).toEqual(before)
-      expect(await readdir(input.preparedDirectory)).toEqual([
-        'TEST-ONLY.txt',
-        'layout',
-        'layout-report.json',
-        'payload-report.json',
-        'pri-root',
-        'priconfig.xml',
-        'release-metadata.json',
-        'source-report.json',
-      ])
+      expect((await readdir(input.preparedDirectory)).sort()).toEqual(
+        [
+          'TEST-ONLY.txt',
+          'layout',
+          'layout-report.json',
+          'payload-report.json',
+          'pri-root',
+          'priconfig.xml',
+          'release-metadata.json',
+          'source-report.json',
+        ].sort()
+      )
       expect(JSON.stringify(report)).not.toContain(input.root)
     }
   )
