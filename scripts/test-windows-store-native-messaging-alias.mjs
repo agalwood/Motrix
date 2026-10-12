@@ -10,6 +10,7 @@ import { loadPreparedWindowsStoreDiagnostic } from './windows-store-diagnostics.
 import { renderWindowsStoreManifest } from './windows-store-manifest.mjs'
 import {
   WINDOWS_STORE_NATIVE_MESSAGING_DIAGNOSTIC as DIAGNOSTIC,
+  WINDOWS_STORE_NATIVE_HOST_PROFILE_DIAGNOSTIC as NATIVE_HOST,
   validateWindowsStoreMetadata,
 } from './windows-store-metadata.mjs'
 
@@ -533,6 +534,8 @@ function emptyReport() {
     context: null,
     aliasActivationVerified: false,
     packageIdentityVerified: false,
+    nativeHostAliasVerified: false,
+    nativeHostProfileParityVerified: false,
     browserNativeMessagingVerified: false,
     mbp1Verified: false,
     windows11AcceptanceVerified: false,
@@ -543,7 +546,13 @@ function emptyReport() {
 
 /** Core OS interactions are injectable for local tests; the CLI uses only defaults. */
 export async function runInstalledAliasChecks(
-  { metadata: raw, diagnostic, manifestBytes, expectedPackageVersion },
+  {
+    metadata: raw,
+    diagnostic,
+    manifestBytes,
+    expectedPackageVersion,
+    nativeHost,
+  },
   dependencies = {}
 ) {
   const query = dependencies.queryInstalledState ?? queryInstalledState
@@ -568,6 +577,17 @@ export async function runInstalledAliasChecks(
     report.packageVersion = metadata.packageVersion
     report.sourceCommit = metadata.source.commit
     report.executableSha256 = diagnostic.executable.sha256
+    if (
+      nativeHost !== undefined &&
+      (!exactKeys(nativeHost, ['path', 'bytes', 'sha256', 'peMachine']) ||
+        nativeHost.path !== NATIVE_HOST.executable.slice('app/'.length) ||
+        !Number.isSafeInteger(nativeHost.bytes) ||
+        nativeHost.bytes < 256 ||
+        nativeHost.bytes > 8 * 1024 * 1024 ||
+        !/^[0-9a-f]{64}$/.test(nativeHost.sha256) ||
+        nativeHost.peMachine !== 'x64')
+    )
+      fail('invalid-diagnostic-record')
     async function checkInstalledContent(state) {
       const root = state.package.installLocation
       const manifest = await read(
@@ -586,6 +606,18 @@ export async function runInstalledAliasChecks(
         hash(executable) !== diagnostic.executable.sha256
       )
         fail('installed-executable-mismatch')
+      if (nativeHost !== undefined) {
+        const host = await read(
+          path.win32.join(root, NATIVE_HOST.executable),
+          8 * 1024 * 1024
+        )
+        if (
+          !Buffer.isBuffer(host) ||
+          host.length !== nativeHost.bytes ||
+          hash(host) !== nativeHost.sha256
+        )
+          fail('installed-executable-mismatch')
+      }
     }
     step = 'installed-state-before'
     const before = validateInstalledProbeState({
@@ -642,6 +674,77 @@ export async function runInstalledAliasChecks(
       report.identity ??= identityDigests(before)
       report.testCount += 1
     }
+    if (nativeHost !== undefined) {
+      const hostAlias = path.win32.join(
+        before.localApplicationData,
+        'Microsoft/WindowsApps',
+        NATIVE_HOST.alias
+      )
+      // No endpoint or consent marker is seeded. The packaged main was stopped
+      // before first-run approval, so both real-host requests must refuse a
+      // bridge without launching the application or minting an NM ticket.
+      const requests = [
+        ['legacy', { allowLaunch: false }],
+        [
+          'bootstrap',
+          {
+            action: 'bootstrap',
+            protocolVersion: 1,
+            bindingPub: Buffer.alloc(32, 7).toString('base64url'),
+            allowLaunch: false,
+          },
+        ],
+      ]
+      for (const [kind, request] of requests) {
+        step = `native-host-${kind}-no-launch`
+        const body = Buffer.from(JSON.stringify(request), 'utf8')
+        const header = Buffer.alloc(4)
+        header.writeUInt32LE(body.length)
+        const result = await run({
+          executable: hostAlias,
+          args: [],
+          input: Buffer.concat([header, body]),
+          timeoutMs: 15000,
+          maxStdoutBytes: 4100,
+          maxStderrBytes: 1024,
+          profileEnvironment: {
+            MOTRIX_USER_DATA: null,
+            MOTRIX_BRIDGE_DATA_DIR: null,
+          },
+        })
+        const check = {
+          name: step,
+          ok: false,
+          exitCode: Number.isInteger(result?.exitCode) ? result.exitCode : null,
+          stdoutBytes: Buffer.isBuffer(result?.stdout)
+            ? result.stdout.length
+            : null,
+          stderrBytes: Buffer.isBuffer(result?.stderr)
+            ? result.stderr.length
+            : null,
+          callerEvidence: 'none',
+        }
+        report.checks.push(check)
+        if (
+          result?.exitCode !== 0 ||
+          !Buffer.isBuffer(result?.stderr) ||
+          result.stderr.length !== 0
+        )
+          fail('invalid-reply-process')
+        const expected = Buffer.from('{"error":"motrix-not-running"}', 'utf8')
+        const prefix = Buffer.alloc(4)
+        prefix.writeUInt32LE(expected.length)
+        if (
+          !Buffer.isBuffer(result?.stdout) ||
+          !result.stdout.equals(Buffer.concat([prefix, expected]))
+        )
+          fail('invalid-reply-frame')
+        check.ok = true
+        check.frameCount = 1
+        report.testCount += 1
+      }
+      report.nativeHostExecutableSha256 = nativeHost.sha256
+    }
     step = 'installed-state-after'
     const after = validateInstalledProbeState({
       state: await query(),
@@ -656,6 +759,7 @@ export async function runInstalledAliasChecks(
     report.ok = true
     report.aliasActivationVerified = true
     report.packageIdentityVerified = true
+    report.nativeHostAliasVerified = nativeHost !== undefined
   } catch (error) {
     const last = report.checks.at(-1)
     if (last?.name === step && last.ok === false) last.code = errorCode(error)
@@ -755,11 +859,25 @@ async function main(args) {
       renderWindowsStoreManifest(metadata),
       'utf8'
     )
+    const layoutReport = JSON.parse(
+      utf8(
+        await readInstalledFile(
+          path.join(preparedDirectory, 'layout-report.json'),
+          1024 * 1024
+        )
+      )
+    )
+    const hosts = layoutReport.payload?.filter(
+      (entry) => entry.path === NATIVE_HOST.executable.slice('app/'.length)
+    )
+    if (!Array.isArray(hosts) || hosts.length !== 1)
+      fail('invalid-diagnostic-record')
     report = await runInstalledAliasChecks({
       metadata,
       diagnostic,
       manifestBytes,
       expectedPackageVersion: options['--expected-package-version'],
+      nativeHost: hosts[0],
     })
     if (report.ok) {
       const finalLayout = await verifyWindowsStoreLayout({
@@ -773,6 +891,7 @@ async function main(args) {
     report.ok = false
     report.aliasActivationVerified = false
     report.packageIdentityVerified = false
+    report.nativeHostAliasVerified = false
     report.checks.push({
       name: 'input-or-prepared-layout',
       ok: false,
@@ -786,6 +905,7 @@ async function main(args) {
       report.ok = false
       report.aliasActivationVerified = false
       report.packageIdentityVerified = false
+      report.nativeHostAliasVerified = false
       report.checks.push({
         name: 'report-output',
         ok: false,

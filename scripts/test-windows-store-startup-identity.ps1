@@ -258,7 +258,7 @@ try {
         $report.nodeRuntimeFileVerified = $true
         Invoke-Tool $node @((Join-Path $PSScriptRoot 'test-windows-store-native-messaging-alias.mjs'), '--prepared', $prepared, '--expected-package-version', $metadata.packageVersion, '--report', $aliasReport)
         $alias = Read-Json $aliasReport
-        if ($alias.ok -ne $true -or $alias.sourceCommit -cne $metadata.source.commit -or $alias.aliasActivationVerified -ne $true -or $alias.packageIdentityVerified -ne $true -or $alias.browserNativeMessagingVerified -ne $false -or $alias.mbp1Verified -ne $false) { throw 'Alias observation did not pass its bounded contract.' }
+        if ($alias.ok -ne $true -or $alias.sourceCommit -cne $metadata.source.commit -or $alias.aliasActivationVerified -ne $true -or $alias.packageIdentityVerified -ne $true -or $alias.nativeHostAliasVerified -ne $true -or $alias.nativeHostProfileParityVerified -ne $false -or $alias.browserNativeMessagingVerified -ne $false -or $alias.mbp1Verified -ne $false) { throw 'Alias observation did not pass its bounded contract.' }
         $report.nativeAliasVerified = $true
     }
 

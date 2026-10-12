@@ -406,6 +406,9 @@ function expectSanitizedReport(report: Record<string, any>) {
     'identity',
     'aliasActivationVerified',
     'packageIdentityVerified',
+    'nativeHostAliasVerified',
+    'nativeHostProfileParityVerified',
+    'nativeHostExecutableSha256',
     'browserNativeMessagingVerified',
     'mbp1Verified',
     'windows11AcceptanceVerified',
@@ -465,6 +468,7 @@ function expectSanitizedReport(report: Record<string, any>) {
     windows11AcceptanceVerified: false,
     signatureVerified: false,
     packageInstallationPerformed: false,
+    nativeHostProfileParityVerified: false,
   })
 }
 
@@ -608,6 +612,151 @@ describe('installed alias check report with synthetic dependencies', () => {
         stderrBytes: 0,
       })
     )
+    expectSanitizedReport(report)
+  })
+})
+
+function nativeHostChecksFixture() {
+  const input = aliasChecksFixture()
+  const hostBytes = Buffer.alloc(512, 7)
+  const options = {
+    ...input.options,
+    nativeHost: {
+      path: 'resources/bin/motrix-native-host.exe',
+      bytes: hostBytes.length,
+      sha256: createHash('sha256').update(hostBytes).digest('hex'),
+      peMachine: 'x64',
+    },
+  }
+  input.deps.readInstalledFile.mockImplementation(async (file) => {
+    if (file.endsWith('AppxManifest.xml')) return input.manifestBytes
+    if (file.endsWith('motrix-native-host.exe')) return hostBytes
+    return input.executableBytes
+  })
+  const diagnosticRun = input.deps.runProcess.getMockImplementation()!
+  const runProcess = vi.fn(async (request: any) => {
+    if (request.executable.endsWith('motrix-store-p0-profile-host.exe'))
+      return {
+        stdout: frame({ error: 'motrix-not-running' }),
+        stderr: Buffer.alloc(0),
+        exitCode: 0,
+      }
+    return diagnosticRun(request)
+  })
+  return { ...input, options, hostBytes, deps: { ...input.deps, runProcess } }
+}
+
+describe('actual packaged native host no-launch experiment contracts', () => {
+  it('binds the real executable before and after two bounded requests without claiming profile or browser acceptance', async () => {
+    const input = nativeHostChecksFixture()
+    const report = await runInstalledAliasChecks(input.options, input.deps)
+    expect(report).toMatchObject({
+      ok: true,
+      testCount: 5,
+      nativeHostAliasVerified: true,
+      nativeHostExecutableSha256: input.options.nativeHost.sha256,
+      nativeHostProfileParityVerified: false,
+      browserNativeMessagingVerified: false,
+      mbp1Verified: false,
+    })
+    const calls = input.deps.runProcess.mock.calls
+      .slice(3)
+      .map(([call]) => call)
+    expect(calls).toHaveLength(2)
+    for (const call of calls) {
+      expect(call.executable).toBe(
+        path.win32.join(
+          state().localApplicationData,
+          'Microsoft/WindowsApps/motrix-store-p0-profile-host.exe'
+        )
+      )
+      expect(call).toMatchObject({
+        args: [],
+        timeoutMs: 15000,
+        maxStdoutBytes: 4100,
+        maxStderrBytes: 1024,
+        profileEnvironment: {
+          MOTRIX_USER_DATA: null,
+          MOTRIX_BRIDGE_DATA_DIR: null,
+        },
+      })
+      expect(call.input.readUInt32LE(0)).toBe(call.input.length - 4)
+      expect(
+        JSON.parse(call.input.subarray(4).toString('utf8')).allowLaunch
+      ).toBe(false)
+    }
+    expect(
+      input.deps.readInstalledFile.mock.calls.filter(([file]) =>
+        file.endsWith('motrix-native-host.exe')
+      )
+    ).toHaveLength(2)
+    expectSanitizedReport(report)
+  })
+
+  it.each(['wrong-path', 'wrong-hash', 'wrong-architecture', 'extra-field'])(
+    'refuses invalid source-bound host inputs before process launch: %s',
+    async (kind) => {
+      const input = nativeHostChecksFixture()
+      if (kind === 'wrong-path') input.options.nativeHost.path = '../other.exe'
+      if (kind === 'wrong-hash')
+        input.options.nativeHost.sha256 = '0'.repeat(64)
+      if (kind === 'wrong-architecture')
+        input.options.nativeHost.peMachine = 'arm64'
+      if (kind === 'extra-field')
+        Object.assign(input.options.nativeHost, { secret: PRIVATE_ARG })
+      const report = await runInstalledAliasChecks(input.options, input.deps)
+      expect(report.ok).toBe(false)
+      expect(input.deps.runProcess).not.toHaveBeenCalled()
+      expectSanitizedReport(report)
+    }
+  )
+
+  it.each(['ticket', 'extra-frame', 'stderr', 'nonzero', 'malformed'])(
+    'rejects unexpected host responses without retaining raw data: %s',
+    async (kind) => {
+      const input = nativeHostChecksFixture()
+      const original = input.deps.runProcess.getMockImplementation()!
+      input.deps.runProcess.mockImplementation(async (request) => {
+        if (!request.executable.endsWith('motrix-store-p0-profile-host.exe'))
+          return original(request)
+        const result = {
+          stdout: frame({ error: 'motrix-not-running' }),
+          stderr: Buffer.alloc(0),
+          exitCode: 0,
+        }
+        if (kind === 'ticket')
+          result.stdout = frame({
+            action: 'requestPair',
+            nonce: PRIVATE_ARG,
+            nmTicket: PRIVATE_ARG,
+          })
+        if (kind === 'extra-frame')
+          result.stdout = Buffer.concat([result.stdout, result.stdout])
+        if (kind === 'stderr') result.stderr = Buffer.from(PRIVATE_ARG)
+        if (kind === 'nonzero') result.exitCode = 1
+        if (kind === 'malformed') result.stdout = Buffer.from(PRIVATE_ARG)
+        return result
+      })
+      const report = await runInstalledAliasChecks(input.options, input.deps)
+      expect(report).toMatchObject({
+        ok: false,
+        nativeHostAliasVerified: false,
+      })
+      expectSanitizedReport(report)
+    }
+  )
+
+  it('rejects a real executable changed after activation', async () => {
+    const input = nativeHostChecksFixture()
+    const original = input.deps.readInstalledFile.getMockImplementation()!
+    let hostReads = 0
+    input.deps.readInstalledFile.mockImplementation(async (file) => {
+      if (file.endsWith('motrix-native-host.exe') && ++hostReads > 1)
+        return Buffer.alloc(512, 8)
+      return original(file)
+    })
+    const report = await runInstalledAliasChecks(input.options, input.deps)
+    expect(report).toMatchObject({ ok: false, nativeHostAliasVerified: false })
     expectSanitizedReport(report)
   })
 })
