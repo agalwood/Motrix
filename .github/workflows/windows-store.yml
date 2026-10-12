@@ -39,6 +39,11 @@ on:
         type: boolean
         required: false
         default: false
+      test_native_browsers:
+        description: 'Add branded browser diagnostic Native Messaging checks (requires test_native_alias)'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -51,7 +56,7 @@ jobs:
   package-test:
     name: Windows SDK / test package checks
     runs-on: windows-2025
-    timeout-minutes: 25
+    timeout-minutes: 35
     defaults:
       run:
         shell: pwsh
@@ -82,7 +87,7 @@ jobs:
 
       - name: Parse SDK scripts with PowerShell
         run: |
-          foreach ($script in @('scripts/get-windows-store-family-name.ps1', 'scripts/test-windows-store-startup-identity.ps1', 'scripts/windows-store-test-output.ps1', 'tests/scripts/windows-store-test-output.test.ps1', 'scripts/pack-windows-store-test.ps1', 'tests/scripts/windows-store-pri.test.ps1', 'scripts/build-windows-store-native-messaging-probe.ps1', 'tests/scripts/windows-store-native-messaging-probe.test.ps1')) {
+          foreach ($script in @('scripts/get-windows-store-family-name.ps1', 'scripts/test-windows-store-startup-identity.ps1', 'scripts/windows-store-test-output.ps1', 'tests/scripts/windows-store-test-output.test.ps1', 'scripts/pack-windows-store-test.ps1', 'tests/scripts/windows-store-pri.test.ps1', 'scripts/build-windows-store-native-messaging-probe.ps1', 'tests/scripts/windows-store-native-messaging-probe.test.ps1', 'scripts/windows-store-browser-registration.ps1', 'tests/scripts/windows-store-browser-registration.test.ps1', 'scripts/build-windows-store-firefox-alias-relay.ps1', 'tests/scripts/windows-store-firefox-alias-relay.test.ps1')) {
             $tokens = $null
             $errors = $null
             [Management.Automation.Language.Parser]::ParseFile((Join-Path $pwd $script), [ref]$tokens, [ref]$errors) | Out-Null
@@ -91,6 +96,13 @@ jobs:
 
       - name: Test bounded startup diagnostics
         run: ./tests/scripts/windows-store-test-output.test.ps1
+
+      - name: Test temporary browser registration ownership
+        shell: powershell
+        run: ./tests/scripts/windows-store-browser-registration.test.ps1 -ReportPath (Join-Path $env:RUNNER_TEMP 'motrix-store-browser-registration-contracts.json')
+
+      - name: Test fixed Firefox diagnostic relay contracts
+        run: ./tests/scripts/windows-store-firefox-alias-relay.test.ps1 -ReportPath (Join-Path $env:RUNNER_TEMP 'motrix-store-firefox-relay-contracts.json')
 
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
@@ -114,6 +126,7 @@ jobs:
           tests/scripts/verify-windows-store-layout.test.ts
           tests/scripts/workflow-windows-store.test.ts
           tests/scripts/windows-store-alias.test.ts
+          tests/scripts/windows-store-browser.test.ts
           src/main/platform/windows-package-identity.test.ts
           src/main/platform/windows-package-startup.test.ts
           tests/scripts/windows-store-runtime-identity.test.ts
@@ -121,6 +134,7 @@ jobs:
       - name: Prepare fixed test build inputs
         run: |
           if ('${{ inputs.test_native_alias }}' -ceq 'true' -and '${{ inputs.test_startup_identity }}' -ceq 'true') { throw 'Select one signed diagnostic mode.' }
+          if ('${{ inputs.test_native_browsers }}' -ceq 'true' -and '${{ inputs.test_native_alias }}' -cne 'true') { throw 'Browser diagnostics require the native alias mode.' }
           $root = Join-Path $env:RUNNER_TEMP 'motrix-windows-store'
           New-Item -ItemType Directory -Path $root | Out-Null
           $commit = (& git rev-parse HEAD).Trim()
@@ -176,6 +190,14 @@ jobs:
           ./tests/scripts/windows-store-native-messaging-probe.test.ps1 -ProbePath (Join-Path $probe 'motrix-store-p0-probe.exe') -ReportPath (Join-Path $probe 'unpackaged-probe.json')
           "MOTRIX_STORE_PROBE=$probe" >> $env:GITHUB_ENV
 
+      - name: Build fixed Firefox diagnostic relay
+        if: github.event_name == 'workflow_dispatch' && inputs.test_native_alias && inputs.test_native_browsers
+        run: |
+          $relay = Join-Path $env:RUNNER_TEMP 'motrix-store-firefox-relay'
+          ./scripts/build-windows-store-firefox-alias-relay.ps1 -OutputDirectory $relay
+          ./tests/scripts/windows-store-firefox-alias-relay.test.ps1 -RelayPath (Join-Path $relay 'motrix-store-p0-firefox-relay.exe') -ReportPath (Join-Path $relay 'relay-contracts.json')
+          "MOTRIX_STORE_FIREFOX_RELAY=$relay" >> $env:GITHUB_ENV
+
       - name: Build isolated Windows directory
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
@@ -224,6 +246,7 @@ jobs:
           $arguments = @{ PreparedDirectory = $env:MOTRIX_STORE_LAYOUT; SdkBinDirectory = $env:MOTRIX_STORE_SDK_BIN; OutputDirectory = (Join-Path $env:RUNNER_TEMP 'motrix-store-startup-identity') }
           if ('${{ inputs.test_startup_identity }}' -ceq 'true') { $arguments.CaseDirectory = $env:MOTRIX_STORE_IDENTITY_CASES }
           if ('${{ inputs.test_native_alias }}' -ceq 'true') { $arguments.TestNativeAlias = $true }
+          if ('${{ inputs.test_native_browsers }}' -ceq 'true') { $arguments.TestNativeBrowsers = $true; $arguments.FirefoxRelayBuildDirectory = $env:MOTRIX_STORE_FIREFOX_RELAY }
           ./scripts/test-windows-store-startup-identity.ps1 @arguments
 
       - name: Upload SDK text evidence
@@ -241,5 +264,10 @@ jobs:
             ${{ runner.temp }}/motrix-store-identity-cases/identity-cases.json
             ${{ runner.temp }}/motrix-store-startup-identity/native-alias-test.json
             ${{ runner.temp }}/motrix-native-alias-probe/unpackaged-probe.json
+            ${{ runner.temp }}/motrix-store-browser-registration-contracts.json
+            ${{ runner.temp }}/motrix-store-firefox-relay-contracts.json
+            ${{ runner.temp }}/motrix-store-firefox-relay/build-report.json
+            ${{ runner.temp }}/motrix-store-firefox-relay/relay-contracts.json
+            ${{ runner.temp }}/motrix-store-startup-identity/browser/browser-report.json
           if-no-files-found: warn
           retention-days: 14

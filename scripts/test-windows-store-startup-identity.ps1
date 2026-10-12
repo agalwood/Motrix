@@ -5,7 +5,9 @@ param(
     [Parameter(Mandatory = $true)][string]$SdkBinDirectory,
     [Parameter(Mandatory = $true)][string]$OutputDirectory,
     [string]$CaseDirectory,
-    [switch]$TestNativeAlias
+    [switch]$TestNativeAlias,
+    [switch]$TestNativeBrowsers,
+    [string]$FirefoxRelayBuildDirectory
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -25,7 +27,8 @@ function Read-Json([string]$File) {
     return [IO.File]::ReadAllText($File) | ConvertFrom-Json
 }
 function Get-Hash([string]$File) { return (Get-FileHash -LiteralPath $File -Algorithm SHA256).Hash.ToLowerInvariant() }
-function Invoke-Tool([string]$File, [string[]]$Arguments) {
+function Invoke-Tool([string]$File, [string[]]$Arguments, [int]$TimeoutMs = 120000) {
+    if ($TimeoutMs -lt 1 -or $TimeoutMs -gt 420000) { throw 'Invalid bounded tool deadline.' }
     $settings = [Diagnostics.ProcessStartInfo]::new($File)
     $settings.UseShellExecute = $false
     $settings.CreateNoWindow = $true
@@ -41,7 +44,7 @@ function Invoke-Tool([string]$File, [string[]]$Arguments) {
         $stdout = $child.StandardOutput.BaseStream.CopyToAsync([IO.Stream]::Null)
         $stderr = $child.StandardError.BaseStream.CopyToAsync([IO.Stream]::Null)
         $report.toolPhase = 'wait-exit'
-        if (-not $child.WaitForExit(120000)) { $child.Kill($true); $child.WaitForExit(); throw 'Test tool exceeded its deadline.' }
+        if (-not $child.WaitForExit($TimeoutMs)) { $child.Kill($true); $child.WaitForExit(); throw 'Test tool exceeded its deadline.' }
         $report.toolProcessExitCode = $child.ExitCode
         $report.toolPhase = 'drain-output'
         $null = $stdout.GetAwaiter().GetResult()
@@ -91,6 +94,7 @@ if (-not [string]::IsNullOrEmpty($CaseDirectory)) {
     }
 }
 if ($TestNativeAlias -and (-not [string]::IsNullOrEmpty($CaseDirectory) -or $metadata.testDiagnostics -cne 'native-messaging-probe-v1')) { throw 'Alias diagnostics require their explicit test mode and no upgrade cases.' }
+if ($TestNativeBrowsers -and (-not $TestNativeAlias -or [string]::IsNullOrEmpty($FirefoxRelayBuildDirectory))) { throw 'Browser diagnostics require the native alias mode and its fixed relay build.' }
 New-Item -ItemType Directory -Path $output | Out-Null
 $signed = Join-Path $output 'owned-test-signed.appx'
 $publicCertificate = Join-Path $output 'owned-test-public.cer'
@@ -247,6 +251,7 @@ try {
     $report.recoveryUpgradeVerified = $cases.Count -eq 3 -and $caseResults[2].mainPreflightVerified
     $report.nativeQueriesVerified = @($caseResults | Where-Object { $_.expectedStartup -ceq 'accepted' -and $null -eq $_.nativeObservation }).Count -eq 0
     $report.nativeAliasVerified = $false
+    $report.diagnosticBrowserNativeMessagingVerified = $false
     if ($TestNativeAlias) {
         $stage = 'installed-native-alias'
         $aliasReport = Join-Path $output 'native-alias-test.json'
@@ -260,6 +265,14 @@ try {
         $alias = Read-Json $aliasReport
         if ($alias.ok -ne $true -or $alias.sourceCommit -cne $metadata.source.commit -or $alias.aliasActivationVerified -ne $true -or $alias.packageIdentityVerified -ne $true -or $alias.nativeHostAliasVerified -ne $true -or $alias.nativeHostProfileParityVerified -ne $false -or $alias.browserNativeMessagingVerified -ne $false -or $alias.mbp1Verified -ne $false) { throw 'Alias observation did not pass its bounded contract.' }
         $report.nativeAliasVerified = $true
+        if ($TestNativeBrowsers) {
+            $stage = 'native-branded-browsers'
+            $browserOutput = Join-Path $output 'browser'
+            Invoke-Tool $node @((Join-Path $PSScriptRoot 'test-windows-store-native-messaging-browser.mjs'), '--prepared', $prepared, '--expected-package-version', $metadata.packageVersion, '--output-directory', $browserOutput, '--firefox-relay-build-dir', $FirefoxRelayBuildDirectory) 420000
+            $browser = Read-Json (Join-Path $browserOutput 'browser-report.json')
+            if ($browser.ok -ne $true -or $browser.sourceCommit -cne $metadata.source.commit -or $browser.cleanupVerified -ne $true -or $browser.browserNativeMessagingVerified -ne $true -or $browser.diagnosticProbeOnly -ne $true -or $browser.mbp1Verified -ne $false -or $browser.windows11AcceptanceVerified -ne $false) { throw 'Browser diagnostics did not pass their bounded contract.' }
+            $report.diagnosticBrowserNativeMessagingVerified = $true
+        }
     }
 
 } catch {

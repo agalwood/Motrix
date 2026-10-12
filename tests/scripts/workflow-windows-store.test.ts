@@ -68,6 +68,12 @@ describe('Windows SDK validation workflow boundaries', () => {
         )
       )
         continue
+      if (
+        /^\$\{\{ runner\.temp \}\}\/(?:motrix-store-browser-registration-contracts|motrix-store-firefox-relay-contracts|motrix-store-firefox-relay\/(?:build-report|relay-contracts)|motrix-store-startup-identity\/browser\/browser-report)\.json$/.test(
+          path
+        )
+      )
+        continue
       expect(path).toMatch(
         /^\$\{\{ runner\.temp \}\}\/motrix-windows-store\/(?:build|prepared|prepared\.sdk-output)\/\*\.(?:json|xml|log)$/
       )
@@ -163,5 +169,47 @@ describe('Windows SDK validation workflow boundaries', () => {
       "$metadata['testDiagnostics'] = 'native-messaging-probe-v1'"
     )
     expect(source).toContain("@('--probe-build-dir', $env:MOTRIX_STORE_PROBE)")
+  })
+
+  it('requires opt-in alias mode for browser fixtures and uploads no registration receipts or profiles', async () => {
+    const source = await readFile(workflowPath, 'utf8')
+    const workflow = load(source)
+    expect(
+      workflow.on.workflow_dispatch.inputs.test_native_browsers
+    ).toMatchObject({
+      type: 'boolean',
+      default: false,
+    })
+    const relay = workflow.jobs['package-test'].steps.find(
+      (step) => step.name === 'Build fixed Firefox diagnostic relay'
+    )
+    expect(relay?.if).toBe(
+      "github.event_name == 'workflow_dispatch' && inputs.test_native_alias && inputs.test_native_browsers"
+    )
+    expect(source).toContain(
+      "throw 'Browser diagnostics require the native alias mode.'"
+    )
+    const installation = await readFile(
+      'scripts/test-windows-store-startup-identity.ps1',
+      'utf8'
+    )
+    expect(installation).toContain(
+      '$TestNativeBrowsers -and (-not $TestNativeAlias'
+    )
+    expect(installation).toContain("$stage = 'native-branded-browsers'")
+    expect(installation).toContain('$browser.diagnosticProbeOnly -ne $true')
+    expect(installation).toContain('$browser.mbp1Verified -ne $false')
+    expect(installation).toContain(
+      '$browser.windows11AcceptanceVerified -ne $false'
+    )
+    const upload = workflow.jobs['package-test'].steps.find(
+      (step) =>
+        typeof step.uses === 'string' &&
+        step.uses.startsWith('actions/upload-artifact@')
+    )
+    if (!upload) throw new Error('Upload step missing')
+    expect((upload.with as { path: string }).path).not.toMatch(
+      /registration\/|receipt|host-manifest|profile|\.exe|\.zip|\.png|\.mp4|\.webm/
+    )
   })
 })
