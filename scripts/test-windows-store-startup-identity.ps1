@@ -3,7 +3,8 @@
 param(
     [Parameter(Mandatory = $true)][string]$PreparedDirectory,
     [Parameter(Mandatory = $true)][string]$SdkBinDirectory,
-    [Parameter(Mandatory = $true)][string]$OutputDirectory
+    [Parameter(Mandatory = $true)][string]$OutputDirectory,
+    [string]$CaseDirectory
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -58,9 +59,35 @@ if ($runtime.profile -cne 'test' -or $runtime.sourceCommit -cne $metadata.source
 if ((Get-Hash $sdk.package.path) -cne $sdk.package.sha256) { throw 'The unsigned package digest differs from its SDK report.' }
 $unsigned = Join-Path ($prepared + '.sdk-output') "Motrix-Store-Test-$($metadata.packageVersion)-x64.appx"
 if ([IO.Path]::GetFullPath($sdk.package.path) -ine [IO.Path]::GetFullPath($unsigned)) { throw 'Only the expected SDK output package is accepted.' }
+$knownFamily = $runtime.expected.familyName
+$cases = [Collections.Generic.List[object]]::new()
+$cases.Add(@{ Label = 'baseline'; Metadata = $metadata; Sdk = $sdk; Layout = $layout; Runtime = $runtime; ExpectedStartup = 'accepted' })
+if (-not [string]::IsNullOrEmpty($CaseDirectory)) {
+    $caseRoot = [IO.Path]::GetFullPath($CaseDirectory)
+    $casePlan = Read-Json (Join-Path $caseRoot 'identity-cases.json')
+    if ($casePlan.scope -cne 'fixed-test-identity-upgrade-cases' -or $casePlan.sourceCommit -cne $metadata.source.commit -or $casePlan.packageFamilyName -ine $knownFamily -or @($casePlan.cases).Count -ne 2) { throw 'Invalid fixed case plan.' }
+    foreach ($index in @(0, 1)) {
+        $row = $casePlan.cases[$index]
+        $label = @('rejected-family', 'recovered')[$index]
+        $version = @('1.0.1.0', '1.0.2.0')[$index]
+        $outcome = @('identity_mismatch', 'accepted')[$index]
+        if ($row.label -cne $label -or $row.packageVersion -cne $version -or $row.expectedStartup -cne $outcome -or $row.preparedDirectory -cne "$label/prepared" -or -not $row.unchangedApplicationPayloadVerified) { throw 'Unexpected identity case.' }
+        $directory = Join-Path $caseRoot "$label/prepared"
+        $nextMetadata = Read-Json (Join-Path $directory 'release-metadata.json')
+        $nextSdk = Read-Json ($directory + '.sdk-output/sdk-result.json')
+        $nextLayout = Read-Json (Join-Path $directory 'layout-report.json')
+        $nextRuntime = Read-Json (Join-Path $directory 'layout/app/resources/windows-package-identity.json')
+        if ($nextMetadata.profile -cne 'test' -or $nextMetadata.identity.name -cne 'Motrix.Store.Test' -or $nextMetadata.identity.publisher -cne $metadata.identity.publisher -or $nextMetadata.source.commit -cne $metadata.source.commit -or $nextMetadata.packageVersion -cne $version -or $nextSdk.status -cne 'completed' -or $nextSdk.signed -or $nextSdk.installed -or (Get-Hash $nextSdk.package.path) -cne $nextSdk.package.sha256) { throw 'Case inputs differ from the fixed source.' }
+        if ((Get-Hash (Join-Path $directory 'layout/app/resources/windows-package-identity.json')) -cne $row.runtimeIdentitySha256) { throw 'Case expectation digest differs.' }
+        $cases.Add(@{ Label = $label; Metadata = $nextMetadata; Sdk = $nextSdk; Layout = $nextLayout; Runtime = $nextRuntime; ExpectedStartup = $outcome })
+    }
+}
 New-Item -ItemType Directory -Path $output | Out-Null
 $signed = Join-Path $output 'owned-test-signed.appx'
 $publicCertificate = Join-Path $output 'owned-test-public.cer'
+$signedCopies = [Collections.Generic.List[string]]::new()
+$installedVersions = [Collections.Generic.List[string]]::new()
+$caseResults = [Collections.Generic.List[object]]::new()
 $certificate = $null
 $thumbprint = $null
 $keyName = $null
@@ -98,61 +125,90 @@ try {
     if (Test-Path "Cert:\LocalMachine\TrustedPeople\$thumbprint") { throw 'Generated public trust already exists.' }
     $trustAttempted = $true
     $null = Import-Certificate -FilePath $publicCertificate -CertStoreLocation 'Cert:\LocalMachine\TrustedPeople'
-    $stage = 'sign-test-copy'
-    [IO.File]::Copy($sdk.package.path, $signed, $false)
-    if ((Get-Hash $signed) -cne $sdk.package.sha256) { throw 'Test copy differs before signing.' }
-    $signTool = Join-Path $SdkBinDirectory 'signtool.exe'
-    Invoke-Tool $signTool @('sign', '/sha1', $thumbprint, '/s', 'My', '/fd', 'SHA256', $signed)
-    Invoke-Tool $signTool @('verify', '/pa', $signed)
-    $report.signedTestCopyVerified = $true
-    $report.signedPackageSha256 = Get-Hash $signed
-    $stage = 'install-test-copy'
-    $installAttempted = $true
-    Add-AppxPackage -Path $signed
-    $packages = @(Get-AppxPackage -Name 'Motrix.Store.Test')
-    if ($packages.Count -ne 1) { throw 'Expected one owned package.' }
-    $package = $packages[0]
-    if ($package.Publisher -cne $metadata.identity.publisher -or $package.PackageFamilyName -ine $runtime.expected.familyName -or $package.Version.ToString() -cne $metadata.packageVersion) { throw 'Installed identity differs.' }
-    foreach ($name in @('app/Motrix.exe', 'app/resources/app.asar', 'app/resources/bin/motrix-windows-platform.exe', 'app/resources/windows-package-identity.json')) {
-        $relative = $name.Substring(4)
-        $row = @($layout.payload | Where-Object { $_.path -ceq $relative })
-        if ($row.Count -ne 1 -or (Get-Hash (Join-Path $package.InstallLocation $name)) -cne $row[0].sha256) { throw 'Installed payload digest differs.' }
-    }
-    $stage = 'main-process-start'
-    $settings = [Diagnostics.ProcessStartInfo]::new((Join-Path $package.InstallLocation 'app/Motrix.exe'))
-    $settings.UseShellExecute = $false; $settings.RedirectStandardOutput = $true; $settings.RedirectStandardError = $true
-    $main = [Diagnostics.Process]::new(); $main.StartInfo = $settings
-    if (-not $main.Start()) { throw 'Owned main executable did not start.' }
-    $report.mainProcessStarted = $true
-    $stdoutCapture = [MotrixStoreTest.BoundedOutput]::new(65536)
-    $stderrCapture = [MotrixStoreTest.BoundedOutput]::new(16384)
-    $stdoutPump = $stdoutCapture.PumpAsync($main.StandardOutput.BaseStream)
-    $stderrPump = $stderrCapture.PumpAsync($main.StandardError.BaseStream)
-    $stage = 'main-report-wait'
-    $timer = [Diagnostics.Stopwatch]::StartNew()
-    $startup = $null
-    $consumed = 0
-    while ($timer.ElapsedMilliseconds -lt 30000 -and $null -eq $startup) {
-        if ($main.HasExited) { $null = $stdoutPump.Wait(1000); $null = $stderrPump.Wait(1000) }
-        $lines = $stdoutCapture.Snapshot().Split("`n")
-        while ($consumed -lt $lines.Length - 1) {
-            $value = $lines[$consumed++].TrimEnd("`r")
-            if ($value.Length -gt 32768 -or $consumed -gt 32) { $stage = 'main-output-limit'; throw 'Startup output exceeded its bounds.' }
-            try { $candidate = $value | ConvertFrom-Json; if ($candidate.scope -ceq 'windows-package-startup-identity') { $startup = $candidate; break } } catch { }
-            $report.stdoutLinesIgnored++
+    foreach ($case in $cases) {
+        $metadata = $case.Metadata; $sdk = $case.Sdk; $layout = $case.Layout; $runtime = $case.Runtime
+        $signed = Join-Path $output ("owned-test-" + $case.Label + '.appx')
+        $signedCopies.Add($signed)
+        $report.mainPreflightVerified = $false; $report.parentAndChildPackageIdentityMatched = $false
+        $report.mainProcessStarted = $false; $report.startupReportFound = $false; $report.stdoutLinesIgnored = 0
+        $report.startupFailureCode = $null; $report.naturalMainExitCode = $null
+        $stage = 'sign-test-copy'
+        [IO.File]::Copy($sdk.package.path, $signed, $false)
+        if ((Get-Hash $signed) -cne $sdk.package.sha256) { throw 'Test copy differs before signing.' }
+        $signTool = Join-Path $SdkBinDirectory 'signtool.exe'
+        Invoke-Tool $signTool @('sign', '/sha1', $thumbprint, '/s', 'My', '/fd', 'SHA256', $signed)
+        Invoke-Tool $signTool @('verify', '/pa', $signed)
+        $report.signedTestCopyVerified = $true
+        $report.signedPackageSha256 = Get-Hash $signed
+        $stage = 'install-test-copy'
+        $installAttempted = $true
+        $installedVersions.Add($metadata.packageVersion)
+        Add-AppxPackage -Path $signed
+        $packages = @(Get-AppxPackage -Name 'Motrix.Store.Test')
+        if ($packages.Count -ne 1) { throw 'Expected one owned package.' }
+        $package = $packages[0]
+        if ($package.Publisher -cne $metadata.identity.publisher -or $package.PackageFamilyName -ine $knownFamily -or $package.Version.ToString() -cne $metadata.packageVersion) { throw 'Installed identity differs.' }
+        foreach ($name in @('app/Motrix.exe', 'app/resources/app.asar', 'app/resources/bin/motrix-windows-platform.exe', 'app/resources/windows-package-identity.json')) {
+            $relative = $name.Substring(4)
+            $row = @($layout.payload | Where-Object { $_.path -ceq $relative })
+            if ($row.Count -ne 1 -or (Get-Hash (Join-Path $package.InstallLocation $name)) -cne $row[0].sha256) { throw 'Installed payload digest differs.' }
         }
-        if ($null -ne $startup) { break }
-        if ($stdoutCapture.Truncated) { $stage = 'main-output-limit'; throw 'Startup output exceeded its bounds.' }
-        if ($main.HasExited) { $stage = 'main-exited-before-report'; throw 'Owned main exited without an identity report.' }
-        Start-Sleep -Milliseconds 100
+        $stage = 'main-process-start'
+        $settings = [Diagnostics.ProcessStartInfo]::new((Join-Path $package.InstallLocation 'app/Motrix.exe'))
+        $settings.UseShellExecute = $false; $settings.RedirectStandardOutput = $true; $settings.RedirectStandardError = $true
+        $main = [Diagnostics.Process]::new(); $main.StartInfo = $settings
+        if (-not $main.Start()) { throw 'Owned main executable did not start.' }
+        $report.mainProcessStarted = $true
+        $stdoutCapture = [MotrixStoreTest.BoundedOutput]::new(65536)
+        $stderrCapture = [MotrixStoreTest.BoundedOutput]::new(16384)
+        $stdoutPump = $stdoutCapture.PumpAsync($main.StandardOutput.BaseStream)
+        $stderrPump = $stderrCapture.PumpAsync($main.StandardError.BaseStream)
+        $stage = 'main-report-wait'
+        $timer = [Diagnostics.Stopwatch]::StartNew()
+        $startup = $null
+        $consumed = 0
+        while ($timer.ElapsedMilliseconds -lt 30000 -and $null -eq $startup) {
+            if ($main.HasExited) { $null = $stdoutPump.Wait(1000); $null = $stderrPump.Wait(1000) }
+            $lines = $stdoutCapture.Snapshot().Split("`n")
+            while ($consumed -lt $lines.Length - 1) {
+                $value = $lines[$consumed++].TrimEnd("`r")
+                if ($value.Length -gt 32768 -or $consumed -gt 32) { $stage = 'main-output-limit'; throw 'Startup output exceeded its bounds.' }
+                try { $candidate = $value | ConvertFrom-Json; if ($candidate.scope -ceq 'windows-package-startup-identity') { $startup = $candidate; break } } catch { }
+                $report.stdoutLinesIgnored++
+            }
+            if ($null -ne $startup) { break }
+            if ($stdoutCapture.Truncated) { $stage = 'main-output-limit'; throw 'Startup output exceeded its bounds.' }
+            if ($main.HasExited) {
+                if ($case.ExpectedStartup -ceq 'identity_mismatch') {
+                    $code = [MotrixStoreTest.BoundedOutput]::StartupFailureCode($stderrCapture.Snapshot())
+                    if ($main.ExitCode -eq 1 -and $code -ceq 'identity_mismatch') { break }
+                }
+                $stage = 'main-exited-before-report'; throw 'Owned main exited without the expected result.'
+            }
+            Start-Sleep -Milliseconds 100
+        }
+        if ($case.ExpectedStartup -ceq 'identity_mismatch') {
+            $stage = 'main-rejection-result'
+            if ($null -ne $startup -or -not $main.HasExited -or $main.ExitCode -ne 1 -or [MotrixStoreTest.BoundedOutput]::StartupFailureCode($stderrCapture.Snapshot()) -cne 'identity_mismatch') { throw 'The misbound installed package was not rejected.' }
+        } else {
+        if ($null -eq $startup) { $stage = 'main-report-timeout'; throw 'Startup identity report was not produced.' }
+        $report.startupReportFound = $true
+        $stage = 'main-report-source'
+        if ($startup.version -ne 1 -or $startup.scope -cne 'windows-package-startup-identity' -or $startup.sourceCommit -cne $metadata.source.commit -or $startup.productVersion -cne $metadata.productVersion) { throw 'Startup identity report differs.' }
+        $stage = 'main-report-identity'
+        if ($startup.identity.publisher -cne $package.Publisher -or $startup.identity.familyName -ine $package.PackageFamilyName -or $startup.identity.fullName -ine $package.PackageFullName -or $startup.identity.version -cne $package.Version.ToString() -or $startup.identity.architecture -cne 'x64') { throw 'Parent and child package identities differ.' }
+        $report.mainPreflightVerified = $true; $report.parentAndChildPackageIdentityMatched = $true
+        }
+        $naturalExit = if ($main.HasExited) { $main.ExitCode } else { $null }
+        if (-not $main.HasExited) { $main.Kill($true); $main.WaitForExit() }
+        if (-not $stdoutPump.Wait(5000) -or -not $stderrPump.Wait(5000)) { throw 'Owned process output did not close.' }
+        $failureCode = [MotrixStoreTest.BoundedOutput]::StartupFailureCode($stderrCapture.Snapshot())
+        $caseResults.Add([ordered]@{ label = $case.Label; packageVersion = $metadata.packageVersion; expectedStartup = $case.ExpectedStartup; installedIdentityVerified = $true; installedPayloadHashesVerified = $true; mainPreflightVerified = $report.mainPreflightVerified; startupReportFound = $report.startupReportFound; failureCode = $failureCode; naturalExitCode = $naturalExit; stdoutLinesIgnored = $report.stdoutLinesIgnored; ownedProcessStopped = $true })
+        $main.Dispose(); $main = $null; $stdoutPump = $null; $stderrPump = $null
     }
-    if ($null -eq $startup) { $stage = 'main-report-timeout'; throw 'Startup identity report was not produced.' }
-    $report.startupReportFound = $true
-    $stage = 'main-report-source'
-    if ($startup.version -ne 1 -or $startup.scope -cne 'windows-package-startup-identity' -or $startup.sourceCommit -cne $metadata.source.commit -or $startup.productVersion -cne $metadata.productVersion) { throw 'Startup identity report differs.' }
-    $stage = 'main-report-identity'
-    if ($startup.identity.publisher -cne $package.Publisher -or $startup.identity.familyName -ine $package.PackageFamilyName -or $startup.identity.fullName -ine $package.PackageFullName -or $startup.identity.version -cne $package.Version.ToString() -or $startup.identity.architecture -cne 'x64') { throw 'Parent and child package identities differ.' }
-    $report.mainPreflightVerified = $true; $report.parentAndChildPackageIdentityMatched = $true
+    $report.cases = @($caseResults.ToArray())
+    $report.installedRejectionVerified = $cases.Count -eq 3 -and $caseResults[1].failureCode -ceq 'identity_mismatch'
+    $report.recoveryUpgradeVerified = $cases.Count -eq 3 -and $caseResults[2].mainPreflightVerified
 } catch { $failureStage = $stage; $report.failureType = $_.Exception.GetType().Name }
 finally {
     if ($null -ne $main) {
@@ -169,7 +225,7 @@ finally {
     if ($installAttempted) {
         try {
             foreach ($package in @(Get-AppxPackage -Name 'Motrix.Store.Test')) {
-                if ($package.Publisher -cne $metadata.identity.publisher -or $package.Version.ToString() -cne $metadata.packageVersion -or $package.PackageFamilyName -ine $runtime.expected.familyName) { throw 'Unfamiliar package is never removed.' }
+                if ($package.Publisher -cne $metadata.identity.publisher -or -not $installedVersions.Contains($package.Version.ToString()) -or $package.PackageFamilyName -ine $knownFamily) { throw 'Unfamiliar package is never removed.' }
                 Remove-AppxPackage -Package $package.PackageFullName
             }
             if (@(Get-AppxPackage -Name 'Motrix.Store.Test').Count -ne 0) { throw 'Owned package remains.' }
@@ -188,10 +244,11 @@ finally {
         $certificate.Dispose()
     }
     elseif ($certificateAttempted) { $cleanupErrors.Add('certificate-creation-not-confirmed') }
-    foreach ($file in @($signed, $publicCertificate)) { try { if (Test-Path -LiteralPath $file) { Remove-Item -LiteralPath $file }; if (Test-Path -LiteralPath $file) { throw 'Transient file remains.' } } catch { $cleanupErrors.Add('transient-test-file') } }
+    foreach ($file in @($signedCopies.ToArray()) + @($publicCertificate)) { try { if (Test-Path -LiteralPath $file) { Remove-Item -LiteralPath $file }; if (Test-Path -LiteralPath $file) { throw 'Transient file remains.' } } catch { $cleanupErrors.Add('transient-test-file') } }
     $report.cleanupVerified = $cleanupErrors.Count -eq 0
     $report.cleanupErrors = @($cleanupErrors.ToArray())
     $report.failureStage = $failureStage
+    $report.completedCases = @($caseResults.ToArray())
     $report.ok = $null -eq $failureStage -and $report.cleanupVerified -and $report.mainPreflightVerified
     [IO.File]::WriteAllText((Join-Path $output 'startup-identity-test.json'), ($report | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
 }

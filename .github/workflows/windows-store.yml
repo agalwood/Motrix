@@ -101,6 +101,7 @@ jobs:
           tests/scripts/verify-windows-store-source.test.ts
           tests/scripts/windows-store-builder-config.test.ts
           tests/scripts/prepare-windows-store-build.test.ts
+          tests/scripts/prepare-windows-store-identity-cases.test.ts
           tests/scripts/windows-store-manifest.test.ts
           tests/scripts/windows-store-diagnostics.test.ts
           tests/scripts/verify-windows-store-payload.test.ts
@@ -186,11 +187,24 @@ jobs:
       - name: PRI rejection contracts
         run: ./tests/scripts/windows-store-pri.test.ps1 -PreparedDirectory $env:MOTRIX_STORE_LAYOUT
 
+      - name: Prepare rejection and recovery upgrade packages
+        if: github.event_name == 'workflow_dispatch' && inputs.test_startup_identity
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'motrix-store-identity-cases'
+          $runtime = Get-Content "$env:MOTRIX_STORE_BUILD/windows-package-identity.json" -Raw | ConvertFrom-Json
+          & node scripts/prepare-windows-store-identity-cases.mjs --repo-root . --app-dir "$env:MOTRIX_STORE_BUILD/payload/win-unpacked" --metadata "$env:MOTRIX_STORE_BUILD/release-metadata.json" --package-family-name $runtime.expected.familyName --out $root
+          if ($LASTEXITCODE -ne 0) { throw 'Identity-case preparation failed' }
+          foreach ($label in @('rejected-family', 'recovered')) {
+            ./scripts/pack-windows-store-test.ps1 -PreparedDirectory (Join-Path $root "$label/prepared") -SdkBinDirectory $env:MOTRIX_STORE_SDK_BIN
+          }
+          "MOTRIX_STORE_IDENTITY_CASES=$root" >> $env:GITHUB_ENV
+
       - name: Verify signed test startup identity
         if: github.event_name == 'workflow_dispatch' && inputs.test_startup_identity
         run: >-
           ./scripts/test-windows-store-startup-identity.ps1
           -PreparedDirectory $env:MOTRIX_STORE_LAYOUT
+          -CaseDirectory $env:MOTRIX_STORE_IDENTITY_CASES
           -SdkBinDirectory $env:MOTRIX_STORE_SDK_BIN
           -OutputDirectory (Join-Path $env:RUNNER_TEMP 'motrix-store-startup-identity')
 
@@ -206,5 +220,6 @@ jobs:
             ${{ runner.temp }}/motrix-windows-store/prepared.sdk-output/*.xml
             ${{ runner.temp }}/motrix-windows-store/prepared.sdk-output/*.log
             ${{ runner.temp }}/motrix-store-startup-identity/startup-identity-test.json
+            ${{ runner.temp }}/motrix-store-identity-cases/identity-cases.json
           if-no-files-found: warn
           retention-days: 14

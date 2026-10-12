@@ -56,6 +56,12 @@ describe('Windows SDK validation workflow boundaries', () => {
         )
       )
         continue
+      if (
+        /^\$\{\{ runner\.temp \}\}\/motrix-store-identity-cases\/identity-cases\.json$/.test(
+          path
+        )
+      )
+        continue
       expect(path).toMatch(
         /^\$\{\{ runner\.temp \}\}\/motrix-windows-store\/(?:build|prepared|prepared\.sdk-output)\/\*\.(?:json|xml|log)$/
       )
