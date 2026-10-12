@@ -69,7 +69,7 @@ function buildFixtureSource(fixtureRoot: string): string {
 }
 
 describe('@motrix/plugin-api compatibility fixtures', () => {
-  it('type-checks the legacy 2.0 source fixture against the current 2.1 package', () => {
+  it('type-checks the legacy 2.0 source fixture against the pinned 2.1 package', () => {
     const installed = JSON.parse(
       readFileSync(LEGACY_FIXTURE_PACKAGE_JSON, 'utf8')
     ) as {
@@ -87,7 +87,7 @@ describe('@motrix/plugin-api compatibility fixtures', () => {
     expectFixtureToTypeCheck(LEGACY_SDK_FIXTURE_ROOT)
   })
 
-  it('type-checks the delivery fixture against the current 2.1 feature API', () => {
+  it('type-checks the delivery fixture against the current 2.2 feature API', () => {
     const installed = JSON.parse(
       readFileSync(CURRENT_PLUGIN_API_PACKAGE_JSON, 'utf8')
     ) as {
@@ -96,7 +96,7 @@ describe('@motrix/plugin-api compatibility fixtures', () => {
     }
     expect(installed).toMatchObject({
       name: '@motrix/plugin-api',
-      version: '2.1.0',
+      version: '2.2.0',
     })
     expectFixtureToTypeCheck(DELIVERY_SDK_FIXTURE_ROOT)
   })
