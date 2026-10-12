@@ -746,6 +746,7 @@ function navigateToTask(taskId: string) {
 let protocolNoticeActive = false
 
 const protocolManager = createProtocolManager({
+  isWindowsPackage: distributionContext.isWindowsPackage,
   onShowMain: () => windowManager?.show('main'),
   onNavigate: (route) => {
     if (!windowManager) return

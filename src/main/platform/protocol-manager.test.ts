@@ -106,6 +106,85 @@ describe('createProtocolManager', () => {
     })
   })
 
+  describe('Windows package-only UI activation', () => {
+    it.each(['motrix-store://open', 'MOTRIX-STORE://OPEN/'])(
+      'opens only the main window for %s',
+      (url) => {
+        const deps = makeDeps()
+        createProtocolManager({
+          ...deps,
+          platform: 'win32',
+          isWindowsPackage: true,
+        }).handle(url)
+        expect(deps.onShowMain).toHaveBeenCalledOnce()
+        for (const callback of [
+          deps.onNavigate,
+          deps.onNotice,
+          deps.onOpenAddTask,
+          deps.onOpenTaskDetail,
+          deps.onOpenPluginDetail,
+          deps.deliverToAddTask,
+        ])
+          expect(callback).not.toHaveBeenCalled()
+      }
+    )
+    it.each([
+      ['win32', false],
+      ['win32', undefined],
+      ['darwin', true],
+      ['linux', true],
+    ] as const)(
+      'ignores package activation on %s with package=%s',
+      (platform, isWindowsPackage) => {
+        const deps = makeDeps()
+        createProtocolManager({ ...deps, platform, isWindowsPackage }).handle(
+          'motrix-store://open'
+        )
+        expect(deps.onShowMain).not.toHaveBeenCalled()
+        expect(deps.onOpenAddTask).not.toHaveBeenCalled()
+      }
+    )
+    it.each([
+      'motrix-store:open',
+      'motrix-store:///open',
+      'motrix-store://open//',
+      'motrix-store://open/.',
+      'motrix-store://open/a/..',
+      'motrix-store://open/%2e',
+      'motrix-store://%6fpen',
+      'motrix-store://user@open',
+      'motrix-store://open:80',
+      'motrix-store://open?',
+      'motrix-store://open#',
+      'motrix-store://open?uri=https://example.com/file.torrent',
+      'motrix-store://open?nonce=untrusted',
+      'motrix-store://tasks/task-1',
+      'motrix-store://plugins/example.plugin',
+      'motrix-store://new-task?uri=magnet:test',
+      ' motrix-store://open',
+      'motrix-store://open\n',
+      'motrix-store://op\ten',
+      'motrix-store://open\\',
+    ])('rejects data or normalized variations in %j', (url) => {
+      const deps = makeDeps()
+      createProtocolManager({
+        ...deps,
+        platform: 'win32',
+        isWindowsPackage: true,
+      }).handle(url)
+      for (const callback of [
+        deps.onShowMain,
+        deps.onNavigate,
+        deps.onNotice,
+        deps.onOpenAddTask,
+        deps.onOpenTaskDetail,
+        deps.onOpenPluginDetail,
+        deps.deliverToAddTask,
+      ])
+        expect(callback).not.toHaveBeenCalled()
+    })
+  })
+
   describe('register', () => {
     it.each([true, false])(
       'removes mo only when this installation owns it: %s',
