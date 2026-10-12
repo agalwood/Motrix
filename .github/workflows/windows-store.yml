@@ -28,6 +28,12 @@ on:
       - 'build/**'
       - 'src/main/**'
   workflow_dispatch:
+    inputs:
+      test_startup_identity:
+        description: 'Install an ephemeral self-signed test package and verify main startup identity'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -71,7 +77,7 @@ jobs:
 
       - name: Parse SDK scripts with PowerShell
         run: |
-          foreach ($script in @('scripts/get-windows-store-family-name.ps1', 'scripts/pack-windows-store-test.ps1', 'tests/scripts/windows-store-pri.test.ps1')) {
+          foreach ($script in @('scripts/get-windows-store-family-name.ps1', 'scripts/test-windows-store-startup-identity.ps1', 'scripts/pack-windows-store-test.ps1', 'tests/scripts/windows-store-pri.test.ps1')) {
             $tokens = $null
             $errors = $null
             [Management.Automation.Language.Parser]::ParseFile((Join-Path $pwd $script), [ref]$tokens, [ref]$errors) | Out-Null
@@ -172,9 +178,18 @@ jobs:
             Select-Object -First 1
           if ($null -eq $sdk) { throw 'Windows SDK tools not found' }
           ./scripts/pack-windows-store-test.ps1 -PreparedDirectory $env:MOTRIX_STORE_LAYOUT -SdkBinDirectory (Join-Path $sdk.FullName 'x64')
+          "MOTRIX_STORE_SDK_BIN=$(Join-Path $sdk.FullName 'x64')" >> $env:GITHUB_ENV
 
       - name: PRI rejection contracts
         run: ./tests/scripts/windows-store-pri.test.ps1 -PreparedDirectory $env:MOTRIX_STORE_LAYOUT
+
+      - name: Verify signed test startup identity
+        if: github.event_name == 'workflow_dispatch' && inputs.test_startup_identity
+        run: >-
+          ./scripts/test-windows-store-startup-identity.ps1
+          -PreparedDirectory $env:MOTRIX_STORE_LAYOUT
+          -SdkBinDirectory $env:MOTRIX_STORE_SDK_BIN
+          -OutputDirectory (Join-Path $env:RUNNER_TEMP 'motrix-store-startup-identity')
 
       - name: Upload SDK text evidence
         if: always()
@@ -187,5 +202,6 @@ jobs:
             ${{ runner.temp }}/motrix-windows-store/prepared.sdk-output/*.json
             ${{ runner.temp }}/motrix-windows-store/prepared.sdk-output/*.xml
             ${{ runner.temp }}/motrix-windows-store/prepared.sdk-output/*.log
+            ${{ runner.temp }}/motrix-store-startup-identity/startup-identity-test.json
           if-no-files-found: warn
           retention-days: 14

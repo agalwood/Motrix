@@ -261,6 +261,19 @@ if (distributionContext.isWindowsPackage) {
     )
     process.exit(1)
   }
+  if (identity.runtime.profile === 'test') {
+    // Test packages expose public identity evidence before persistent services.
+    // This contains no paths, bridge discovery, credentials or consent state.
+    process.stdout.write(
+      `${JSON.stringify({
+        version: 1,
+        scope: 'windows-package-startup-identity',
+        sourceCommit: identity.runtime.sourceCommit,
+        productVersion: identity.runtime.productVersion,
+        identity: identity.identity,
+      })}\n`
+    )
+  }
 }
 
 if (process.platform === 'win32' && !distributionContext.isWindowsPackage) {

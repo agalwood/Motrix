@@ -7,6 +7,11 @@ import { parseArgs } from '../../scripts/fetch-engine.mjs'
 
 const require = createRequire(import.meta.url)
 const load = require('js-yaml').load as (source: string) => {
+  on: {
+    workflow_dispatch: {
+      inputs: Record<string, { type: string; default: boolean }>
+    }
+  }
   permissions: Record<string, string>
   jobs: Record<string, { steps: Array<Record<string, unknown>> }>
 }
@@ -45,12 +50,48 @@ describe('Windows SDK validation workflow boundaries', () => {
     const paths = settings.path.trim().split('\n')
     expect(paths.length).toBeGreaterThan(0)
     for (const path of paths) {
+      if (
+        /^\$\{\{ runner\.temp \}\}\/motrix-store-startup-identity\/startup-identity-test\.json$/.test(
+          path
+        )
+      )
+        continue
       expect(path).toMatch(
         /^\$\{\{ runner\.temp \}\}\/motrix-windows-store\/(?:build|prepared|prepared\.sdk-output)\/\*\.(?:json|xml|log)$/
       )
     }
     expect(settings['retention-days']).toBe(14)
     expect(workflow.permissions).toEqual({ contents: 'read' })
+  })
+
+  it('allows ephemeral test installation only through an explicit manual input', async () => {
+    const workflow = load(await readFile(workflowPath, 'utf8'))
+    expect(
+      workflow.on.workflow_dispatch.inputs.test_startup_identity
+    ).toMatchObject({ type: 'boolean', default: false })
+    const steps = workflow.jobs['package-test'].steps.filter(
+      (step) =>
+        typeof step.run === 'string' &&
+        step.run.includes('test-windows-store-startup-identity.ps1')
+    )
+    const installation = steps.filter(
+      (step) => step.name === 'Verify signed test startup identity'
+    )
+    expect(installation).toHaveLength(1)
+    expect(installation[0].if).toBe(
+      "github.event_name == 'workflow_dispatch' && inputs.test_startup_identity"
+    )
+    const script = await readFile(
+      'scripts/test-windows-store-startup-identity.ps1',
+      'utf8'
+    )
+    expect(script).toContain("$env:GITHUB_EVENT_NAME -cne 'workflow_dispatch'")
+    expect(script).toContain("$env:RUNNER_ENVIRONMENT -cne 'github-hosted'")
+    expect(script).toContain('-KeyExportPolicy NonExportable')
+    expect(script).toContain('-DeleteKey')
+    expect(script).not.toMatch(
+      /Export-(?:PfxCertificate|Pkcs12)|Set-(?:ExecutionPolicy|ItemProperty)|MOTRIX_BRIDGE_DATA_DIR|MOTRIX_USER_DATA/
+    )
   })
 
   it('uses test identity, clean-checkout preparation and nonpublishing build commands', async () => {
