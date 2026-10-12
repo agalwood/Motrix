@@ -20,6 +20,7 @@ use crate::associations::{
     PackageApplications, query_aumid,
 };
 use crate::main_launch::{LAUNCH_OPERATION_TIMEOUT, MainLaunchBackend, wait_for_operation};
+use crate::package_identity::{PackageIdentity, PackageIdentityBackend};
 use crate::protocol::{ErrorCode, TASK_ID};
 use crate::startup_task::{StartupBackend, StartupError};
 
@@ -311,6 +312,54 @@ impl StartupBackend for WindowsBackend {
 
     fn disable(&mut self) -> Result<(), StartupError> {
         self.task()?.Disable().map_err(winrt_error)
+    }
+}
+
+impl PackageIdentityBackend for WindowsBackend {
+    fn require_package_identity(&mut self) -> Result<(), StartupError> {
+        StartupBackend::require_package_identity(self)
+    }
+
+    fn package_identity(&mut self) -> Result<PackageIdentity, StartupError> {
+        self.ensure_apartment()?;
+        // Read the current process's package, never an installation path or a
+        // caller-selected PackageManager result. Presence is not Store provenance.
+        // https://learn.microsoft.com/uwp/api/windows.applicationmodel.package.current
+        // https://learn.microsoft.com/uwp/api/windows.applicationmodel.packageid
+        let id = Package::Current()
+            .and_then(|package| package.Id())
+            .map_err(winrt_error)?;
+        let read = |value: windows::core::Result<HSTRING>| -> Result<String, StartupError> {
+            let value = value.map_err(winrt_error)?;
+            if value.len() > 8192 {
+                return Err(StartupError::new(ErrorCode::PackageIdentityUnavailable));
+            }
+            String::from_utf16(&value)
+                .map_err(|_| StartupError::new(ErrorCode::PackageIdentityUnavailable))
+        };
+        let version = id.Version().map_err(winrt_error)?;
+        let architecture = match id.Architecture().map_err(winrt_error)?.0 {
+            0 => "x86",
+            5 => "arm",
+            9 => "x64",
+            11 => "neutral",
+            12 => "arm64",
+            14 => "x86a64",
+            _ => return Err(StartupError::new(ErrorCode::PackageIdentityUnavailable)),
+        };
+        Ok(PackageIdentity {
+            name: read(id.Name())?,
+            publisher: read(id.Publisher())?,
+            publisher_id: read(id.PublisherId())?,
+            family_name: read(id.FamilyName())?,
+            full_name: read(id.FullName())?,
+            resource_id: read(id.ResourceId())?,
+            version: format!(
+                "{}.{}.{}.{}",
+                version.Major, version.Minor, version.Build, version.Revision
+            ),
+            architecture: architecture.into(),
+        })
     }
 }
 

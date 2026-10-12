@@ -13,6 +13,7 @@ on:
       - 'packages/native-host/**'
       - 'packages/finalize-fs/**'
       - 'src/shared/config/windows-package.json'
+      - 'src/shared/schemas/windows-*'
       - 'scripts/*electron*'
       - 'scripts/*third-party*'
       - 'scripts/before-*'
@@ -97,6 +98,7 @@ jobs:
           tests/scripts/prepare-windows-store-layout.test.ts
           tests/scripts/verify-windows-store-layout.test.ts
           tests/scripts/workflow-windows-store.test.ts
+          src/main/platform/windows-package-identity.test.ts
 
       - name: Prepare fixed test build inputs
         run: |

@@ -8,6 +8,9 @@ mod windows;
 pub fn execute(operation: Operation) -> Result<OperationResult, StartupError> {
     let mut backend = windows::WindowsBackend::default();
     match operation {
+        Operation::PackageIdentityQuery => {
+            crate::package_identity::execute(&mut backend).map(OperationResult::PackageIdentity)
+        }
         Operation::MainLaunch => {
             crate::main_launch::execute(&mut backend).map(|()| OperationResult::MainLaunch)
         }

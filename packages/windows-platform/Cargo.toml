@@ -13,6 +13,7 @@ serde_json = "1"
 windows = { version = "=0.62.2", features = [
   "ApplicationModel",
   "ApplicationModel_Core",
+  "System",
   "Win32_Foundation",
   "Win32_Storage_Packaging_Appx",
   "Win32_System_WinRT",

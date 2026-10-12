@@ -57,6 +57,7 @@ fn oversized_input_is_rejected() {
 #[test]
 fn non_windows_never_claims_package_identity_or_startup_state() {
     for op in [
+        "package_identity_query",
         "startup_query",
         "startup_enable",
         "startup_disable",
@@ -86,6 +87,7 @@ fn unpackaged_windows_executable_rejects_all_operations() {
         "Windows negative test requires an unpackaged process"
     );
     for op in [
+        "package_identity_query",
         "startup_query",
         "startup_enable",
         "startup_disable",

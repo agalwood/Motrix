@@ -144,7 +144,11 @@ mod tests {
 
     #[test]
     fn non_startup_requests_cannot_be_misrouted_to_startup() {
-        for operation in [Operation::AssociationsQuery, Operation::MainLaunch] {
+        for operation in [
+            Operation::PackageIdentityQuery,
+            Operation::AssociationsQuery,
+            Operation::MainLaunch,
+        ] {
             let mut backend = FakeBackend::new(0);
             assert_eq!(
                 execute(&mut backend, operation).unwrap_err().code,

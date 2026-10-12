@@ -3,6 +3,7 @@ use std::io::{self, Read, Write};
 use serde::{Deserialize, Serialize};
 
 use crate::associations::AssociationStatus;
+use crate::package_identity::PackageIdentity;
 use crate::startup_task::{StartupError, StartupState};
 
 pub const MAX_REQUEST_BYTES: usize = 4096;
@@ -11,6 +12,7 @@ pub const TASK_ID: &str = "MotrixStartup";
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum Operation {
+    PackageIdentityQuery,
     StartupQuery,
     StartupEnable,
     StartupDisable,
@@ -30,6 +32,7 @@ struct Request {
 pub enum ErrorCode {
     InvalidRequest,
     NoPackageIdentity,
+    PackageIdentityUnavailable,
     TaskUnavailable,
     WinrtFailed,
     UnknownState,
@@ -39,6 +42,7 @@ pub enum ErrorCode {
 }
 
 pub enum OperationResult {
+    PackageIdentity(PackageIdentity),
     Startup(StartupState),
     Associations(AssociationStatus),
     MainLaunch,
@@ -47,6 +51,13 @@ pub enum OperationResult {
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
 pub enum Response {
+    PackageIdentity {
+        version: u8,
+        ok: bool,
+        #[serde(rename = "packageIdentityPresent")]
+        package_identity_present: bool,
+        identity: PackageIdentity,
+    },
     Success {
         version: u8,
         ok: bool,
@@ -85,6 +96,12 @@ pub enum Response {
 impl Response {
     pub fn from_operation_result(result: Result<OperationResult, StartupError>) -> Self {
         match result {
+            Ok(OperationResult::PackageIdentity(identity)) => Self::PackageIdentity {
+                version: 1,
+                ok: true,
+                package_identity_present: true,
+                identity,
+            },
             Ok(OperationResult::MainLaunch) => Self::MainLaunch {
                 version: 1,
                 ok: true,
@@ -170,8 +187,9 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn accepts_only_the_five_operations_and_version_one() {
+    fn accepts_only_the_six_operations_and_version_one() {
         for (name, op) in [
+            ("package_identity_query", Operation::PackageIdentityQuery),
             ("startup_query", Operation::StartupQuery),
             ("startup_enable", Operation::StartupEnable),
             ("startup_disable", Operation::StartupDisable),
@@ -197,6 +215,7 @@ mod tests {
             r#"{"version":1.0,"op":"startup_query"}"#,
             r#"{"version":"1","op":"startup_query"}"#,
             r#"{"version":1,"op":"launch"}"#,
+            r#"{"version":1,"op":"package_identity_query","publisher":"CN=Other"}"#,
             r#"{"version":1,"op":"associations_enable"}"#,
             r#"{"version":1,"op":"associations_query","extension":".exe"}"#,
             r#"{"version":1,"op":"associations_query","mainAppAumid":"Other!App"}"#,
