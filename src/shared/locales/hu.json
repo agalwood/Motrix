@@ -637,6 +637,7 @@
         }
       },
       "stats": {
+        "title": "Átviteli állapot",
         "downSpeed": "Letöltési sebesség",
         "upSpeed": "Feltöltési sebesség",
         "engineOk": "Motor kész",

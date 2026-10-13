@@ -640,6 +640,7 @@
         }
       },
       "stats": {
+        "title": "Stato dei trasferimenti",
         "downSpeed": "Velocità di download",
         "upSpeed": "Velocità di caricamento",
         "engineOk": "Motore pronto",

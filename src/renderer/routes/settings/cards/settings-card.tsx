@@ -21,20 +21,21 @@ export function SettingsCard({
   return (
     <button
       type="button"
+      data-slot="settings-card"
       onClick={onClick}
       className={cn(
-        'group flex h-full min-h-33 select-none flex-col items-start px-5 py-3 text-start min-[914px]:min-h-[170px] min-[914px]:px-6 min-[914px]:py-4',
+        'group flex min-w-0 min-h-20 select-none items-center gap-3 px-2 py-3 text-start @min-[400px]/settings:min-h-33 @min-[400px]/settings:flex-col @min-[400px]/settings:items-start @min-[400px]/settings:gap-0 @min-[400px]/settings:px-5 @min-[600px]/settings:min-h-[170px] @min-[600px]/settings:px-6 @min-[600px]/settings:py-4',
         className
       )}
     >
-      <div className="flex max-h-18 flex-1 items-center justify-center transition-[filter] group-active:grayscale-50 min-[914px]:max-h-none [&_img]:max-h-16 [&_img]:w-auto min-[914px]:[&_img]:max-h-none">
+      <div className="flex size-10 shrink-0 items-center justify-center transition-[filter] group-active:grayscale-50 @min-[400px]/settings:h-auto @min-[400px]/settings:max-h-18 @min-[400px]/settings:w-auto @min-[400px]/settings:flex-1 @min-[600px]/settings:max-h-none [&_img]:max-h-full [&_img]:max-w-full [&_img]:w-auto @min-[400px]/settings:[&_img]:max-h-16 @min-[600px]/settings:[&_img]:max-h-none">
         {Icon}
       </div>
-      <div className="min-h-14 pt-3 ps-1 min-[914px]:min-h-22.5 min-[914px]:pt-6">
-        <div className="text-sm font-semibold text-foreground">
+      <div className="min-w-0 flex-1 @min-[400px]/settings:min-h-14 @min-[400px]/settings:flex-none @min-[400px]/settings:pt-3 @min-[400px]/settings:ps-1 @min-[600px]/settings:min-h-22.5 @min-[600px]/settings:pt-6">
+        <div className="break-words text-sm font-semibold text-foreground">
           {t(labelKey)}
         </div>
-        <div className="line-clamp-2 pt-1.5 text-xs text-gray-400 min-[914px]:pt-2">
+        <div className="line-clamp-2 break-words pt-1.5 text-xs text-gray-400 @min-[600px]/settings:pt-2">
           {t(descKey)}
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { Events } from '@shared/protocol/events'
+import type { MotrixAppSettings } from '@shared/types/settings'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('electron', () => {
@@ -134,9 +135,10 @@ initializeRendererUrlPolicy({
 })
 
 function createMockSettingsManager(
-  windowState: Record<string, unknown> = {}
+  windowState: Record<string, unknown> = {},
+  app: Partial<MotrixAppSettings> = {}
 ): SettingsManager {
-  const settings = { windowState }
+  const settings = { windowState, app }
   return {
     get: vi.fn(() => settings),
     update: vi.fn().mockResolvedValue({ saved: true }),
@@ -209,6 +211,69 @@ describe('WindowManager', () => {
     expect(win).toBeDefined()
     expect(wm.get('main')).toBe(win)
   })
+
+  it.each([
+    [undefined, undefined, 914, 672],
+    [320, 240, 320, 240],
+    [0, 240, 0, 240],
+    [320, 0, 320, 0],
+    [0, 0, 0, 0],
+    [1200, 800, 1200, 800],
+  ])(
+    'applies main-window limits %s × %s at creation',
+    (mainWindowMinWidth, mainWindowMinHeight, minWidth, minHeight) => {
+      const wm = new WindowManager({
+        settingsManager: createMockSettingsManager(
+          {},
+          {
+            mainWindowMinWidth,
+            mainWindowMinHeight,
+          }
+        ),
+        preloadPath: '/fake/preload.cjs',
+        loadUrl: vi.fn(),
+      })
+      const win = wm.open('main')
+      expect(
+        (win as unknown as { options: Record<string, unknown> }).options
+      ).toMatchObject({
+        minWidth,
+        minHeight,
+        width: Math.max(914, minWidth!),
+        height: Math.max(672, minHeight!),
+      })
+      expect(win.setMinimumSize).toHaveBeenCalledWith(minWidth, minHeight)
+      for (const id of ['add-task', 'onboarding'] as const) {
+        expect(wm.open(id).setMinimumSize).not.toHaveBeenCalled()
+      }
+      expect(WINDOW_CONFIGS.main.minWidth).toBe(914)
+      expect(WINDOW_CONFIGS.main.minHeight).toBe(672)
+    }
+  )
+
+  it.each([
+    [0, 0, 40, 40],
+    [320, 240, 320, 240],
+    [914, 672, 914, 672],
+  ])(
+    'restores compact saved bounds subject to configured limits %s × %s',
+    (mainWindowMinWidth, mainWindowMinHeight, width, height) => {
+      const wm = new WindowManager({
+        settingsManager: createMockSettingsManager(
+          { main: { x: 100, y: 100, width: 40, height: 40 } },
+          { mainWindowMinWidth, mainWindowMinHeight }
+        ),
+        preloadPath: '/fake/preload.cjs',
+        loadUrl: vi.fn(),
+      })
+      expect(wm.open('main').setBounds).toHaveBeenCalledWith({
+        x: 100,
+        y: 100,
+        width,
+        height,
+      })
+    }
+  )
 
   it('creates a hidden Windows title bar for renderer-drawn controls', () => {
     const wm = new WindowManager({

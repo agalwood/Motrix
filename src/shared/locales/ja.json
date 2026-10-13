@@ -634,6 +634,7 @@
         }
       },
       "stats": {
+        "title": "転送状況",
         "downSpeed": "ダウンロード速度",
         "upSpeed": "アップロード速度",
         "engineOk": "エンジンの準備完了",

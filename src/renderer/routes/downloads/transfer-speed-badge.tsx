@@ -10,7 +10,11 @@ import { useGlobalStats } from '@renderer/hooks/use-global-stats'
 import { cn } from '@renderer/lib/utils'
 import { useTranslation } from 'react-i18next'
 
-export function TransferSpeedBadge() {
+export function TransferSpeedBadge({
+  expanded = false,
+}: {
+  expanded?: boolean
+}) {
   const { formatSpeed } = useByteFormat()
   const { t } = useTranslation()
   const { stats } = useGlobalStats()
@@ -26,6 +30,27 @@ export function TransferSpeedBadge() {
       speed: stats?.totalDownloadSpeed,
     },
   ] as const
+
+  if (expanded) {
+    return (
+      <dl
+        data-slot="downloads-transfer-rates"
+        className="grid min-w-0 grid-cols-1 gap-3 @min-[200px]/downloads-status:grid-cols-2"
+      >
+        {rates.map(({ key, icon: Icon, speed }) => (
+          <div key={key} className="min-w-0 space-y-1">
+            <dt className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Icon aria-hidden="true" className="size-3 shrink-0" />
+              {t(`panel.downloads.stats.${key}`)}
+            </dt>
+            <dd dir="ltr" className="text-sm font-medium tabular-nums">
+              {speed == null ? '—' : formatSpeed(speed)}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    )
+  }
 
   return (
     <Badge

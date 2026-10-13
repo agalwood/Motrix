@@ -634,6 +634,7 @@
         }
       },
       "stats": {
+        "title": "Trạng thái truyền",
         "downSpeed": "Tốc độ tải xuống",
         "upSpeed": "Tốc độ tải lên",
         "engineOk": "Bộ máy sẵn sàng",

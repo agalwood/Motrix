@@ -637,6 +637,7 @@
         }
       },
       "stats": {
+        "title": "Aktarım durumu",
         "downSpeed": "İndirme hızı",
         "upSpeed": "Gönderme hızı",
         "engineOk": "Motor hazır",

@@ -643,6 +643,7 @@
         }
       },
       "stats": {
+        "title": "Stan transferu",
         "downSpeed": "Prędkość pobierania",
         "upSpeed": "Prędkość wysyłania",
         "engineOk": "Silnik gotowy",

@@ -634,6 +634,7 @@
         }
       },
       "stats": {
+        "title": "传输状态",
         "downSpeed": "下载速度",
         "upSpeed": "上传速度",
         "engineOk": "引擎就绪",

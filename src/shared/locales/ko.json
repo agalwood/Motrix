@@ -634,6 +634,7 @@
         }
       },
       "stats": {
+        "title": "전송 상태",
         "downSpeed": "다운로드 속도",
         "upSpeed": "업로드 속도",
         "engineOk": "엔진 준비됨",

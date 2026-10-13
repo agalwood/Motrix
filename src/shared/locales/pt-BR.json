@@ -640,6 +640,7 @@
         }
       },
       "stats": {
+        "title": "Status da transferência",
         "downSpeed": "Velocidade de download",
         "upSpeed": "Velocidade de upload",
         "engineOk": "Mecanismo pronto",

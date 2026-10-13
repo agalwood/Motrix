@@ -634,6 +634,7 @@
         }
       },
       "stats": {
+        "title": "Status transfer",
         "downSpeed": "Kecepatan unduh",
         "upSpeed": "Kecepatan unggah",
         "engineOk": "Mesin siap",

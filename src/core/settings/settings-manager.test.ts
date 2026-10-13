@@ -67,6 +67,38 @@ describe('SettingsManager', () => {
     manager = new SettingsManager(TEST_PATH, { onChange })
   })
 
+  it('preserves manual window limits and compact bounds through unrelated saves and reloads', async () => {
+    mockReadFile.mockResolvedValue(
+      JSON.stringify({
+        version: CURRENT_SETTINGS_VERSION,
+        app: { mainWindowMinWidth: 0, mainWindowMinHeight: 100 },
+        windowState: { main: { x: 10, y: 20, width: 180, height: 120 } },
+      })
+    )
+    await manager.load()
+    await manager.update({ app: { theme: 'dark' } })
+    const saved = mockWriteFileAtomic.mock.lastCall![1]
+    mockReadFile.mockResolvedValue(saved)
+    const reloaded = new SettingsManager(TEST_PATH)
+    await reloaded.load()
+    expect(reloaded.get()).toMatchObject({
+      app: { mainWindowMinWidth: 0, mainWindowMinHeight: 100, theme: 'dark' },
+      windowState: { main: { width: 180, height: 120 } },
+    })
+  })
+
+  it('reports an app restart only when window limits change', async () => {
+    const app = { mainWindowMinWidth: 320, mainWindowMinHeight: 0 }
+    expect(await manager.update({ app })).toMatchObject({
+      requiresAppRestart: true,
+      changedAppRestartKeys: ['mainWindowMinWidth', 'mainWindowMinHeight'],
+    })
+    expect(await manager.update({ app })).toMatchObject({
+      requiresAppRestart: false,
+      changedAppRestartKeys: [],
+    })
+  })
+
   describe('directory preferences', () => {
     beforeEach(() => {
       mockWriteFileAtomic.mockResolvedValue(undefined)

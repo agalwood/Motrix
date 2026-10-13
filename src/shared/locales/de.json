@@ -637,6 +637,7 @@
         }
       },
       "stats": {
+        "title": "Übertragungsstatus",
         "downSpeed": "Download-Geschwindigkeit",
         "upSpeed": "Upload-Geschwindigkeit",
         "engineOk": "Engine bereit",

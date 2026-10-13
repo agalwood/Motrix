@@ -14,7 +14,7 @@ import {
   getRendererUrlPolicy,
   type RendererUrlPolicy,
 } from './renderer-url-policy'
-import type { WindowId } from './window-configs'
+import type { WindowConfig, WindowId } from './window-configs'
 import { WINDOW_CONFIGS } from './window-configs'
 import type { WindowLifecycle, WindowLifecycleReason } from './window-lifecycle'
 
@@ -336,12 +336,23 @@ export class WindowManager {
     return this.deps.resolveOpenTarget?.(id) ?? id
   }
 
+  private getWindowConfig(id: WindowId): WindowConfig {
+    const config = WINDOW_CONFIGS[id]
+    if (id !== 'main') return config
+    const settings = this.deps.settingsManager.get().app
+    return {
+      ...config,
+      minWidth: settings?.mainWindowMinWidth ?? config.minWidth,
+      minHeight: settings?.mainWindowMinHeight ?? config.minHeight,
+    }
+  }
+
   private registerWindow(
     id: WindowId,
     show: boolean,
     inactive = false
   ): BrowserWindow {
-    const config = WINDOW_CONFIGS[id]
+    const config = this.getWindowConfig(id)
     const win = this.createBrowserWindow(config, show, inactive)
     const previewMacMenu =
       id === 'main' &&
@@ -451,8 +462,8 @@ export class WindowManager {
 
     const win = new BrowserWindow({
       title: config.title,
-      width: config.width,
-      height: config.height,
+      width: Math.max(config.width, config.minWidth ?? 0),
+      height: Math.max(config.height, config.minHeight ?? 0),
       minWidth: config.minWidth,
       minHeight: config.minHeight,
       resizable: config.resizable,
@@ -476,7 +487,7 @@ export class WindowManager {
       win.setMenuBarVisibility(false)
     }
 
-    if (config.minWidth && config.minHeight) {
+    if (config.minWidth != null && config.minHeight != null) {
       win.setMinimumSize(config.minWidth, config.minHeight)
     }
 
@@ -643,7 +654,7 @@ export class WindowManager {
   }
 
   private restoreBounds(id: WindowId, win: BrowserWindow): void {
-    const config = WINDOW_CONFIGS[id]
+    const config = this.getWindowConfig(id)
     if (!config.persistBounds) return
 
     const settings = this.deps.settingsManager.get()
@@ -653,7 +664,12 @@ export class WindowManager {
       return
     }
 
-    const { maximized = false, ...bounds } = saved
+    const { maximized = false, ...savedBounds } = saved
+    const bounds = {
+      ...savedBounds,
+      width: Math.max(savedBounds.width, config.minWidth ?? 0),
+      height: Math.max(savedBounds.height, config.minHeight ?? 0),
+    }
     if (this.isBoundsVisible(bounds)) {
       win.setBounds(bounds)
     } else {
@@ -688,7 +704,10 @@ export class WindowManager {
         Math.min(bounds.y + bounds.height, db.y + db.height) -
         Math.max(bounds.y, db.y)
 
-      if (overlapX >= MARGIN && overlapY >= MARGIN) {
+      if (
+        overlapX >= Math.min(MARGIN, bounds.width) &&
+        overlapY >= Math.min(MARGIN, bounds.height)
+      ) {
         return true
       }
     }

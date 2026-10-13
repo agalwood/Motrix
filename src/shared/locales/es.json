@@ -640,6 +640,7 @@
         }
       },
       "stats": {
+        "title": "Estado de transferencia",
         "downSpeed": "Velocidad de descarga",
         "upSpeed": "Velocidad de subida",
         "engineOk": "Motor listo",
