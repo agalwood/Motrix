@@ -24,7 +24,7 @@ export function SettingsPage() {
     >
       <div
         data-slot="settings-grid"
-        className="grid min-h-0 flex-1 grid-cols-1 content-start items-stretch overflow-y-auto border-t-[0.5px] px-2 py-2 @min-[400px]/settings:grid-cols-2 @min-[400px]/settings:px-6 @min-[400px]/settings:py-4 @min-[600px]/settings:grid-cols-3"
+        className="grid min-h-0 flex-1 grid-cols-1 content-start items-stretch overflow-y-auto border-t-[0.5px] px-2 py-2 min-[914px]:content-stretch @min-[400px]/settings:grid-cols-2 @min-[400px]/settings:px-6 @min-[400px]/settings:py-4 @min-[600px]/settings:grid-cols-3"
       >
         {SETTINGS_CARDS.map((card, index) => (
           <SettingsCard
