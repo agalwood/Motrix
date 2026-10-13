@@ -14,6 +14,27 @@ import {
 } from './validators'
 
 describe('windowStateSchema', () => {
+  it('keeps window sizes below the former 200-pixel floor', () => {
+    expect(
+      windowStateSchema.parse({
+        main: { x: 10, y: 20, width: 120, height: 80 },
+      })
+    ).toEqual({
+      main: { x: 10, y: 20, width: 120, height: 80, maximized: false },
+    })
+  })
+
+  it.each([0, -1, 1.5, Infinity, 2_147_483_648])(
+    'rejects invalid saved window dimension %s',
+    (width) => {
+      expect(
+        windowStateSchema.parse({
+          main: { x: 10, y: 20, width, height: 80 },
+        })
+      ).toEqual({})
+    }
+  )
+
   it('migrates legacy bounds to a non-maximized saved state', () => {
     expect(
       windowStateSchema.parse({
@@ -267,6 +288,30 @@ describe('validateEngineSettings', () => {
 })
 
 describe('validateAppSettings', () => {
+  it.each([-1, 1.5, Infinity, 2_147_483_648, '320', null])(
+    'recovers invalid window limit %s independently',
+    (invalid) => {
+      const settings = validateAppSettings({
+        mainWindowMinWidth: invalid,
+        mainWindowMinHeight: 240,
+      } as unknown as MotrixAppSettings)
+      expect(settings.mainWindowMinWidth).toBe(914)
+      expect(settings.mainWindowMinHeight).toBe(240)
+    }
+  )
+
+  it('accepts zero as an explicit removal of a window limit', () => {
+    expect(
+      validateAppSettings({
+        mainWindowMinWidth: 0,
+        mainWindowMinHeight: 0,
+      } as MotrixAppSettings)
+    ).toMatchObject({
+      mainWindowMinWidth: 0,
+      mainWindowMinHeight: 0,
+    })
+  })
+
   it('returns defaults for empty object', () => {
     const result = validateAppSettings({} as MotrixAppSettings)
     expect(result).toEqual(DEFAULT_APP_SETTINGS)

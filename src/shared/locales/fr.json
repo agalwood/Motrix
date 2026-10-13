@@ -1176,6 +1176,7 @@
         "banner": "La liste des tâches peut être obsolète. Reconnexion…"
       },
       "stats": {
+        "title": "État des transferts",
         "downSpeed": "Débit de réception",
         "engineOffline": "Moteur hors ligne",
         "engineOk": "Moteur prêt",

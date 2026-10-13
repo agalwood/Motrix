@@ -11,6 +11,7 @@ import { languagePreferenceSchema } from './locale'
 import { settingsInputObject } from './settings-input'
 import { sidebarColorSchema } from './sidebar-color'
 import { DEFAULT_TRAY_ICON_COLOR, trayIconColorSchema } from './tray-icon-color'
+import { windowMinimumDimensionSchema } from './window-bounds'
 
 export const appUpdateChannelSchema = z.enum(['stable', 'beta'])
 export const fileDeletionModeSchema = z.enum(['trash', 'permanent'])
@@ -31,6 +32,8 @@ export const magnetFileSelectionTimeoutSecondsSchema = z
 export const appSettingsSchema = z.object({
   launchAtStartup: z.boolean().catch(false),
   showMainWindowAtLogin: z.boolean().catch(false),
+  mainWindowMinWidth: windowMinimumDimensionSchema.catch(914),
+  mainWindowMinHeight: windowMinimumDimensionSchema.catch(672),
   theme: z.enum(['system', 'light', 'dark']).catch('system'),
   sidebarColor: sidebarColorSchema.catch('cyan'),
   reduceMotion: z.boolean().catch(false),

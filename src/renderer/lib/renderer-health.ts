@@ -12,6 +12,7 @@ import {
 } from '@shared/schemas/renderer-health'
 import { rendererIntentSchema } from '@shared/schemas/renderer-intent'
 import { applyRendererIntent } from './renderer-intents'
+import recoveryStyles from './renderer-recovery.css?inline'
 import { ElectronTransport } from './transport/electron'
 
 // Kept outside the React/provider graph so failures there cannot remove recovery.
@@ -133,16 +134,26 @@ export function showRendererFailure(scope: 'bootstrap' | 'root'): void {
   const panel = document.createElement('section')
   panel.id = 'renderer-recovery'
   panel.setAttribute('role', 'alert')
-  panel.style.cssText =
-    'position:fixed;inset:0;z-index:2147483647;display:grid;place-content:center;gap:16px;padding:32px;background:Canvas;color:CanvasText;font:14px system-ui;-webkit-app-region:no-drag;color-scheme:light dark'
+  panel.setAttribute('aria-labelledby', 'renderer-recovery-title')
+  panel.dataset.desktop = String(__MOTRIX_TARGET__ !== 'web')
+  const style = document.createElement('style')
+  style.textContent = recoveryStyles
+  const content = document.createElement('div')
+  content.className = 'recovery-content'
+  const brand = document.createElement('p')
+  brand.className = 'recovery-brand'
+  brand.textContent = 'Motrix'
   const title = document.createElement('h1')
+  title.id = 'renderer-recovery-title'
   title.textContent = copy.title
-  title.style.fontSize = '20px'
   const description = document.createElement('p')
+  description.className = 'recovery-description'
   description.textContent = copy.description
   const actions = document.createElement('div')
-  actions.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap'
+  actions.className = 'recovery-actions'
   const recover = document.createElement('button')
+  recover.type = 'button'
+  recover.dataset.primary = ''
   recover.textContent = copy.recover
   recover.onclick = () => {
     if (__MOTRIX_TARGET__ === 'web') {
@@ -150,6 +161,7 @@ export function showRendererFailure(scope: 'bootstrap' | 'root'): void {
       return
     }
     recover.disabled = true
+    recover.setAttribute('aria-busy', 'true')
     description.textContent = copy.recovering
     void wire
       .invoke(Commands.RecoverCurrentRenderer, {
@@ -158,17 +170,20 @@ export function showRendererFailure(scope: 'bootstrap' | 'root'): void {
       .then((ok) => {
         if (!ok) {
           recover.disabled = false
+          recover.removeAttribute('aria-busy')
           description.textContent = copy.failed
         }
       })
       .catch(() => {
         recover.disabled = false
+        recover.removeAttribute('aria-busy')
         description.textContent = copy.failed
       })
   }
   actions.append(recover)
   if (__MOTRIX_TARGET__ !== 'web') {
     const diagnostics = document.createElement('button')
+    diagnostics.type = 'button'
     diagnostics.textContent = copy.diagnostics
     diagnostics.onclick = () => {
       void wire
@@ -181,7 +196,8 @@ export function showRendererFailure(scope: 'bootstrap' | 'root'): void {
     }
     actions.append(diagnostics)
   }
-  panel.append(title, description, actions)
+  content.append(brand, title, description, actions)
+  panel.append(style, content)
   document.body.append(panel)
   fallback = panel
   recover.focus()

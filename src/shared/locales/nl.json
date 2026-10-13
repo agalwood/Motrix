@@ -1170,6 +1170,7 @@
         "banner": "De taaklijst is mogelijk verouderd — opnieuw verbinden…"
       },
       "stats": {
+        "title": "Overdrachtsstatus",
         "downSpeed": "Downloadsnelheid",
         "engineOffline": "Engine offline",
         "engineOk": "Engine gereed",

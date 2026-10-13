@@ -1170,6 +1170,7 @@
         "banner": "Oppgavelisten kan være utdatert — kobler til på nytt…"
       },
       "stats": {
+        "title": "Overføringsstatus",
         "downSpeed": "Nedlastingshastighet",
         "engineOffline": "Motor frakoblet",
         "engineOk": "Motoren er klar",

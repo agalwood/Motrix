@@ -8,6 +8,7 @@ import {
 } from './fixtures/task-inspector-activity'
 
 test('fresh low-speed presets match the unit system and survive unit changes', async ({
+  electronApp,
   mainWindow,
 }, testInfo) => {
   await waitForEngineReady(mainWindow)
@@ -37,6 +38,8 @@ test('fresh low-speed presets match the unit system and survive unit changes', a
   await expect(mainWindow.getByRole('menu')).toHaveCount(0)
   await expect(badge).toHaveAccessibleName('Speed mode: Low speed')
   await expect(badge).toBeEnabled()
+  const main = await electronApp.browserWindow(mainWindow)
+  await main.evaluate((window) => window.focus())
   await mainWindow
     .getByRole('heading', { name: 'All Downloads', exact: true })
     .hover()
@@ -156,12 +159,26 @@ test('Downloads speed badge changes the existing mode and preserves its limits',
   await updateTaskInspectorAppearance(mainWindow, 'dark', 'zh-CN')
   await expect(badge).toHaveAccessibleName('速度模式：低速')
   await setTaskInspectorContentSize(electronApp, mainWindow, 600, 650)
+  const statusTrigger = mainWindow.locator(
+    '[data-slot="downloads-status-trigger"]'
+  )
+  await expect(statusTrigger).toHaveCount(0)
+  await expect(badge).toBeVisible()
+  await setTaskInspectorContentSize(electronApp, mainWindow, 375, 650)
+  await expect(statusTrigger).toHaveAccessibleName('传输状态')
+  await statusTrigger.click()
+  const status = mainWindow.getByRole('dialog', {
+    name: '传输状态',
+    exact: true,
+  })
+  await expect(status).toBeVisible()
+  await expect(status.getByRole('term')).toHaveText(['上传速度', '下载速度'])
   await badge.click()
   const chineseMenu = mainWindow.getByRole('menu', { name: '速度模式' })
   await expect(chineseMenu).toBeVisible()
   const narrowBox = (await badge.boundingBox())!
   expect(narrowBox.x).toBeGreaterThanOrEqual(0)
-  expect(narrowBox.x + narrowBox.width).toBeLessThanOrEqual(600)
+  expect(narrowBox.x + narrowBox.width).toBeLessThanOrEqual(375)
   await mainWindow.screenshot({
     path: testInfo.outputPath('compact-chinese-speed-menu.png'),
   })
@@ -176,4 +193,13 @@ test('Downloads speed badge changes the existing mode and preserves its limits',
     base: { upload: 1_000_000, download: 2_000_000 },
     alt: { upload: 80_000, download: 500_000 },
   })
+  await expect(chineseMenu).toHaveCount(0)
+  await expect(status).toBeVisible()
+  await badge.press('Escape')
+  await expect(status).toHaveCount(0)
+  await expect(statusTrigger).toBeFocused()
+  await setTaskInspectorContentSize(electronApp, mainWindow, 376, 650)
+  await expect(statusTrigger).toHaveCount(0)
+  await expect(badge).toHaveCount(1)
+  await expect(badge).toHaveAccessibleName('速度模式：常规')
 })

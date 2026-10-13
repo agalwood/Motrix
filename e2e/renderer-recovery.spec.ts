@@ -11,6 +11,7 @@ import {
   waitForEngineReady,
 } from './fixtures/electron-app'
 import { startHttpFixture } from './fixtures/http-server'
+import { setTaskInspectorContentSize } from './fixtures/task-inspector-activity'
 
 async function recover(app: ElectronApplication, page: Page): Promise<Page> {
   const windowId = new URL(page.url()).searchParams.get('w')
@@ -52,6 +53,58 @@ async function recover(app: ElectronApplication, page: Page): Promise<Page> {
   await restored.waitForLoadState('domcontentloaded')
   return restored
 }
+
+test('bootstrap recovery works without the application bundle or stylesheet', async ({
+  electronApp,
+  mainWindow,
+}, testInfo) => {
+  await waitForEngineReady(mainWindow)
+  const pid = electronApp.process().pid
+  await mainWindow.route('**/assets/app-root-*', (route) => route.abort())
+  await mainWindow.reload({ waitUntil: 'domcontentloaded' })
+  const fallback = mainWindow.getByRole('alert', {
+    name: 'The interface needs to recover',
+  })
+  await expect(fallback).toBeVisible()
+  await mainWindow.evaluate(() => {
+    for (const stylesheet of document.querySelectorAll(
+      'link[rel="stylesheet"]'
+    ))
+      stylesheet.remove()
+  })
+  await expect(mainWindow.locator('#root')).toBeEmpty()
+  for (const width of [600, 375, 176]) {
+    await setTaskInspectorContentSize(electronApp, mainWindow, width, 450)
+    const button = fallback.getByRole('button', { name: 'Recover interface' })
+    await button.scrollIntoViewIfNeeded()
+    await expect(button).toBeInViewport()
+    expect(
+      await fallback.evaluate(
+        (element) => element.scrollWidth > element.clientWidth
+      )
+    ).toBe(false)
+  }
+  await mainWindow.screenshot({
+    path: testInfo.outputPath('standalone-recovery.png'),
+  })
+  await fallback.getByRole('button', { name: 'Recover interface' }).click()
+  await expect
+    .poll(() =>
+      electronApp
+        .windows()
+        .some((page) => page !== mainWindow && page.url().includes('w=main'))
+    )
+    .toBe(true)
+  const restored = electronApp
+    .windows()
+    .find((page) => page !== mainWindow && page.url().includes('w=main'))
+  if (!restored) throw new Error('Restored window missing')
+  await expect(
+    restored.getByRole('heading', { name: 'All Downloads' })
+  ).toBeVisible()
+  await waitForEngineReady(restored)
+  expect(electronApp.process().pid).toBe(pid)
+})
 
 test('manual recovery keeps the application and engine alive and opens downloads', async ({
   electronApp,

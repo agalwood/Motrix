@@ -1,4 +1,5 @@
 import { ADD_TASK_COLLAPSED_HEIGHT } from '@shared/constants/add-task'
+import { DEFAULT_APP_SETTINGS } from '@shared/schemas/app-settings'
 import type { WindowId } from '@shared/types/window'
 import { WindowRoutes } from '@shared/types/window'
 
@@ -27,8 +28,8 @@ export const WINDOW_CONFIGS: Record<WindowId, WindowConfig> = {
     title: 'Motrix',
     width: 914,
     height: 672,
-    minWidth: 914,
-    minHeight: 672,
+    minWidth: DEFAULT_APP_SETTINGS.mainWindowMinWidth,
+    minHeight: DEFAULT_APP_SETTINGS.mainWindowMinHeight,
     resizable: true,
     route: WindowRoutes.main,
     closeBehavior: 'hide',

@@ -223,6 +223,10 @@ export interface EngineSettings {
 export interface MotrixAppSettings {
   launchAtStartup: boolean
   showMainWindowAtLogin: boolean
+  /** Desktop main-window limits, applied when creating the window; 0 removes
+   * the application minimum for that dimension. */
+  mainWindowMinWidth: number
+  mainWindowMinHeight: number
   theme: 'system' | 'light' | 'dark'
   sidebarColor: SidebarColor
   reduceMotion: boolean

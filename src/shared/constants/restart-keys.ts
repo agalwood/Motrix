@@ -23,8 +23,10 @@ export const ENGINE_RESTART_REQUIRED_KEYS: ReadonlySet<keyof EngineSettings> =
 // shell command handlers. Settings forms always save first; shells own any
 // follow-up restart notice or action.
 //
-// Currently empty: launchAtStartup is hot-applied via syncAutoLaunch();
-// browserBridgeEnabled is hot-applied via BridgeManager.setEnabled().
-// Add a key here only if its effect genuinely cannot be applied at runtime.
+// Main-window limits are read at window creation. Restarting ensures existing
+// windows use the new limits too.
 export const APP_RESTART_REQUIRED_KEYS: ReadonlySet<keyof MotrixAppSettings> =
-  new Set<keyof MotrixAppSettings>()
+  new Set<keyof MotrixAppSettings>([
+    'mainWindowMinWidth',
+    'mainWindowMinHeight',
+  ])

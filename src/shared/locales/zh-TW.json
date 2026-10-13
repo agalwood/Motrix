@@ -634,6 +634,7 @@
         }
       },
       "stats": {
+        "title": "傳輸狀態",
         "downSpeed": "下載速度",
         "upSpeed": "上傳速度",
         "engineOk": "引擎已就緒",

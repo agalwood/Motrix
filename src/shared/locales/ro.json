@@ -1182,6 +1182,7 @@
         "banner": "Lista sarcinilor poate fi învechită — se reconectează…"
       },
       "stats": {
+        "title": "Starea transferului",
         "downSpeed": "Viteză de descărcare",
         "engineOffline": "Motor offline",
         "engineOk": "Motor pregătit",

@@ -1182,6 +1182,7 @@
         "banner": "La llista de tasques podria estar desactualitzada; s'està tornant a connectar…"
       },
       "stats": {
+        "title": "Estat de la transferència",
         "downSpeed": "Velocitat de baixada",
         "engineOffline": "Motor sense connexió",
         "engineOk": "Motor preparat",
