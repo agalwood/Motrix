@@ -66,6 +66,7 @@ import {
   parsePluginIdleDisposeMs,
 } from '@core/plugin/host/plugin-host'
 import { PluginInstaller } from '@core/plugin/install/plugin-installer'
+import { PluginHttpClient } from '@core/plugin/network/plugin-http-client'
 import { PluginRegistry } from '@core/plugin/plugin-registry'
 import { RegistryClient } from '@core/plugin/registry/registry-client'
 import type { PluginHookRuntime } from '@core/plugin/runtime/plugin-hook-runtime'
@@ -377,6 +378,10 @@ async function main() {
     }
   )
   await settingsManager.load()
+  const pluginHttpClient = new PluginHttpClient(() =>
+    settingsManager.getProxy()
+  )
+  shutdownActions.closePluginNetwork = () => pluginHttpClient.close()
   if (!shellAsyncWork.isAccepting()) return
   const activeGeoipManager = new GeoIPManager({
     settingsManager,
@@ -541,6 +546,7 @@ async function main() {
   const pluginStateStore = new PluginStateStore(db.database)
   const devPath = process.env.MOTRIX_PLUGIN_DEV_PATH
   const pluginSecurity = new PluginSecurityService({
+    fetchImpl: pluginHttpClient.fetch,
     cachePath: path.join(platform.userDataDir, 'plugin-security.json'),
   })
   await pluginSecurity.initialize()
@@ -633,6 +639,7 @@ async function main() {
 
   const hostVersion = appVersion
   const registryClient = new RegistryClient({
+    fetchImpl: pluginHttpClient.fetch,
     cachePath: path.join(platform.userDataDir, REGISTRY_CACHE_FILENAME),
   })
   const pluginInstaller = new PluginInstaller({
@@ -651,6 +658,7 @@ async function main() {
   await pluginUploadStore.cleanupExpired()
   shutdownActions.closeIngress = () => pluginUploadStore.dispose()
   const pluginInstallService = new ServerPluginInstallService({
+    fetchImpl: pluginHttpClient.fetch,
     installer: pluginInstaller,
     registryClient,
     hostVersion,

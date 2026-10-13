@@ -1690,6 +1690,20 @@
       "compromised": "De distributie van deze plug-in is gecompromitteerd.",
       "fixedVersion": "Een oplossing is beschikbaar in versie {{version}}.",
       "details": "Beveiligingsmelding bekijken"
+    },
+    "network": {
+      "timeout": "Verbinding verlopen",
+      "dns": "DNS-opzoeking mislukt",
+      "proxyAuth": "Proxyverificatie mislukt",
+      "proxyConnect": "Kan geen verbinding maken met de proxy",
+      "certificate": "Certificaat- of TLS-fout",
+      "http": "HTTP {{status}}",
+      "cancelled": "Verzoek geannuleerd",
+      "network": "Netwerkverzoek mislukt",
+      "cached": "Vernieuwen mislukt; plugins uit de cache worden getoond",
+      "unavailable": "Kan de plugincatalogus niet laden",
+      "direct": "Directe verbinding met {{host}} mislukt: {{reason}}",
+      "viaProxy": "Verbinding met {{host}} via proxy {{proxy}} mislukt: {{reason}}"
     }
   },
   "quit": {
@@ -2590,7 +2604,7 @@
         "bypass": "Rechtstreeks verbinden met",
         "bypassDesc": "Eén domein, IP-adres of CIDR per regel. Begin met . om alleen subdomeinen te selecteren. Bestandsdownloads ondersteunen geen *-jokertekens.",
         "bypassPlaceholder": "localhost\n127.0.0.1\n.local",
-        "bypassScopeNote": "Alleen bestandsdownloads en appupdates",
+        "bypassScopeNote": "Alleen downloads, plugins en app-updates",
         "enable": "Proxy inschakelen",
         "enableDesc": "Een proxy gebruiken voor de hieronder geselecteerde verbindingen.",
         "hidePassword": "Wachtwoord verbergen",
@@ -2617,7 +2631,9 @@
         "server": "Server",
         "showPassword": "Wachtwoord tonen",
         "title": "Proxy",
-        "user": "Gebruikersnaam"
+        "user": "Gebruikersnaam",
+        "scopePlugins": "Plugins installeren en bijwerken",
+        "scopePluginsDesc": "Gebruik de proxy voor de plugincatalogus, pakketten, updates en beveiligingsbeleid."
       },
       "reachability": {
         "addEndpoint": "Controledienst toevoegen",

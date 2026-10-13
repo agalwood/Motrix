@@ -1707,7 +1707,7 @@
         "hidePassword": "Hide password",
         "bypass": "Connect directly to",
         "bypassDesc": "One domain, IP or CIDR per line. Start with . to match subdomains only. File downloads don’t support * wildcards.",
-        "bypassScopeNote": "File downloads and app updates only",
+        "bypassScopeNote": "Downloads, plugins, and app updates only",
         "scopes": "Use proxy for",
         "scopesDesc": "Choose which kinds of traffic go through the proxy.",
         "scopeDownload": "File downloads",
@@ -1723,7 +1723,9 @@
         "scopeHint": "BT peers, DHT and UDP trackers connect directly.",
         "scopeNone": "None selected",
         "scopeChoose": "Select…",
-        "scopeSeparator": ", "
+        "scopeSeparator": ", ",
+        "scopePlugins": "Plugin installation and updates",
+        "scopePluginsDesc": "Use the proxy for the plugin catalog, installation packages, updates, and security policy requests."
       },
       "nat": {
         "title": "Port mapping (NAT)",
@@ -2721,6 +2723,20 @@
       "compromised": "This plugin’s distribution was compromised.",
       "fixedVersion": "A fix is available in version {{version}}.",
       "details": "View security advisory"
+    },
+    "network": {
+      "timeout": "Connection timed out",
+      "dns": "DNS lookup failed",
+      "proxyAuth": "Proxy authentication failed",
+      "proxyConnect": "Could not connect to the proxy",
+      "certificate": "Certificate or TLS error",
+      "http": "HTTP {{status}}",
+      "cancelled": "Request cancelled",
+      "network": "Network request failed",
+      "cached": "Refresh failed; showing cached plugins",
+      "unavailable": "Could not load the plugin catalog",
+      "direct": "Direct connection to {{host}} failed: {{reason}}",
+      "viaProxy": "Connection to {{host}} via proxy {{proxy}} failed: {{reason}}"
     }
   },
   "plugin": {

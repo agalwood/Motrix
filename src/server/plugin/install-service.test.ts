@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import {
   mkdir,
   mkdtemp,
@@ -46,6 +47,50 @@ function makeService(overrides: Record<string, unknown> = {}) {
 }
 
 describe('ServerPluginInstallService', () => {
+  it('uses the injected transport for registry and GitHub installation', async () => {
+    const bytes = new Uint8Array([1, 2, 3])
+    const entry = {
+      id: 'acme.plugin',
+      version: '1.0.0',
+      compatible: true,
+      engines: { motrix: '^2.0.0' },
+      permissions: [],
+      optionalPermissions: [],
+      hostPermissions: [],
+      package: {
+        url: 'https://github.com/acme/plugin/package.moext',
+        size: 3,
+        sha256: createHash('sha256').update(bytes).digest('hex'),
+      },
+    }
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(bytes))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            tag_name: 'v1',
+            assets: [
+              { name: 'plugin.moext', browser_download_url: entry.package.url },
+            ],
+          })
+        )
+      )
+      .mockResolvedValueOnce(new Response(bytes))
+    const { service, stage } = makeService({
+      fetchImpl,
+      registryClient: { get: vi.fn().mockResolvedValue(entry) },
+    })
+    await service.stage({ sourceType: 'registry', pluginId: 'acme.plugin' })
+    await service.stage({ sourceType: 'github', spec: 'acme/plugin' })
+    expect(fetchImpl).toHaveBeenCalledTimes(3)
+    expect(String(fetchImpl.mock.calls[0]?.[0])).toBe(entry.package.url)
+    expect(fetchImpl.mock.calls[1]?.[0]).toBe(
+      'https://api.github.com/repos/acme/plugin/releases/latest'
+    )
+    expect(stage).toHaveBeenCalledTimes(2)
+  })
+
   it('rejects incompatible media-merge before downloading or staging its package', async () => {
     const fetchImpl = vi.fn()
     const { service, stage } = makeService({

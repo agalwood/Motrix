@@ -73,7 +73,12 @@ function createMockSettingsManager() {
       user: '',
       password: '',
       bypass: [],
-      scopes: { download: false, updateApp: false, updateTrackers: false },
+      scopes: {
+        download: false,
+        updateApp: false,
+        updateTrackers: false,
+        plugins: false,
+      },
     }),
   }
 }
@@ -587,7 +592,12 @@ describe('TrackerManager', () => {
       user: '',
       password: '',
       bypass: [],
-      scopes: { download: false, updateApp: false, updateTrackers: true },
+      scopes: {
+        download: false,
+        updateApp: false,
+        updateTrackers: true,
+        plugins: false,
+      },
     })
     await manager.syncAndCurate()
     expect(syncer.fetch).toHaveBeenCalledWith(
@@ -617,7 +627,12 @@ describe('TrackerManager', () => {
       user: '',
       password: '',
       bypass: [],
-      scopes: { download: false, updateApp: false, updateTrackers: true },
+      scopes: {
+        download: false,
+        updateApp: false,
+        updateTrackers: true,
+        plugins: false,
+      },
     })
     const resolveProxyUrl = vi.fn().mockResolvedValue('http://127.0.0.1:43123')
     const bridgedManager = new TrackerManager(

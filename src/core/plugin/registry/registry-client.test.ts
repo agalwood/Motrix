@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import fixture from '@shared/schemas/registry.fixture.json'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { PluginNetworkError } from '../network/plugin-network-error'
 import {
   MAX_REGISTRY_BYTES,
   RegistryClient,
@@ -84,6 +85,34 @@ describe('RegistryClient', () => {
       ...options,
     })
   }
+
+  it('reports network failure without losing the last-good cache and clears status on recovery', async () => {
+    const failure = {
+      reason: 'timeout' as const,
+      route: 'proxy' as const,
+      targetHost: 'dl.motrix.app',
+      proxyEndpoint: '127.0.0.1:7897',
+    }
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockRejectedValueOnce(new PluginNetworkError(failure))
+      .mockResolvedValueOnce(new Response(JSON.stringify(fixture)))
+      .mockRejectedValueOnce(new PluginNetworkError(failure))
+      .mockResolvedValueOnce(new Response(null, { status: 304 }))
+    const client = makeClient(fetcher)
+    expect(await client.load()).toBeNull()
+    expect(client.status()).toEqual({
+      cached: false,
+      lastSuccessAt: null,
+      error: failure,
+    })
+    expect(await client.refresh()).not.toBeNull()
+    expect(client.status().error).toBeNull()
+    expect(await client.refresh()).not.toBeNull()
+    expect(client.status()).toMatchObject({ cached: true, error: failure })
+    await client.refresh()
+    expect(client.status().error).toBeNull()
+  })
 
   it('annotates the media-merge beta requirement with the actual host version', async () => {
     const body = structuredClone(fixture)
@@ -386,17 +415,21 @@ describe('RegistryClient', () => {
       return new Promise<Response>(() => {})
     }) as unknown as typeof fetch
 
-    const pending = makeClient(impl, {
+    const client = makeClient(impl, {
       statImpl: async () => {
         throw new Error('no cache')
       },
-    }).load()
+    })
+    const pending = client.load()
     await vi.advanceTimersByTimeAsync(0)
     expect(impl).toHaveBeenCalledTimes(1)
     await vi.advanceTimersByTimeAsync(15_000)
 
     expect(await pending).toBeNull()
     expect(signal?.aborted).toBe(true)
+    expect(client.status().error?.reason).toBe('timeout')
+    // A consumer deadline must not misreport a proxied fetch as direct.
+    expect(client.status().error?.route).toBeUndefined()
   })
 
   it('cancels a late response from a fetch implementation that ignores abort', async () => {

@@ -4,11 +4,7 @@ import path from 'node:path'
 import { Readable } from 'node:stream'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// Stub undici.request before importing the SUT.
 const mockRequest = vi.fn()
-vi.mock('undici', () => ({
-  request: (...a: unknown[]) => mockRequest(...a),
-}))
 
 const { downloadGithubMoext, parseGithubSpec } = await import(
   './github-fetcher'
@@ -19,17 +15,16 @@ let tmp: string
 beforeEach(async () => {
   tmp = await mkdtemp(path.join(tmpdir(), 'motrix-gh-'))
   mockRequest.mockReset()
+  vi.stubGlobal('fetch', mockRequest)
 })
 
 afterEach(async () => {
+  vi.unstubAllGlobals()
   await rm(tmp, { recursive: true, force: true })
 })
 
 function jsonResponse(payload: unknown, statusCode = 200) {
-  return {
-    statusCode,
-    body: { json: async () => payload },
-  }
+  return new Response(JSON.stringify(payload), { status: statusCode })
 }
 
 function streamResponse(
@@ -37,7 +32,7 @@ function streamResponse(
   statusCode = 200,
   headers: Record<string, string> = {}
 ) {
-  return { statusCode, body: Readable.from(bytes), headers }
+  return new Response(Uint8Array.from(bytes), { status: statusCode, headers })
 }
 
 describe('parseGithubSpec', () => {
@@ -149,8 +144,8 @@ describe('downloadGithubMoext', () => {
   it('rejects when GitHub returns non-200', async () => {
     const destroy = vi.fn()
     mockRequest.mockResolvedValueOnce({
-      statusCode: 404,
-      body: { json: async () => ({ message: 'not found' }), destroy },
+      status: 404,
+      body: { cancel: async () => destroy() },
     })
     await expect(
       downloadGithubMoext(
@@ -163,26 +158,14 @@ describe('downloadGithubMoext', () => {
     expect(destroy).toHaveBeenCalledOnce()
   })
 
-  it('cancels the metadata body when JSON decoding fails', async () => {
-    const destroy = vi.fn()
-    mockRequest.mockResolvedValueOnce({
-      statusCode: 200,
-      body: {
-        json: async () => {
-          throw new SyntaxError('invalid JSON')
-        },
-        destroy,
-      },
-    })
-
+  it('rejects invalid metadata JSON after consuming its bounded body', async () => {
+    mockRequest.mockResolvedValueOnce(new Response('invalid JSON'))
     await expect(
       downloadGithubMoext(
         { owner: 'acme', repo: 'widget' },
         path.join(tmp, 'x.moext')
       )
-    ).rejects.toThrow('invalid JSON')
-
-    expect(destroy).toHaveBeenCalledOnce()
+    ).rejects.toBeInstanceOf(SyntaxError)
   })
 
   it('rejects when no asset ends with .moext', async () => {
@@ -206,9 +189,8 @@ describe('downloadGithubMoext', () => {
   })
 
   it('rejects when asset download itself fails', async () => {
-    const failedBody = Readable.from(Buffer.alloc(0))
-    const once = vi.spyOn(failedBody, 'once')
-    const destroy = vi.spyOn(failedBody, 'destroy')
+    const destroy = vi.fn()
+    const failedBody = new ReadableStream({ cancel: destroy })
     mockRequest
       .mockResolvedValueOnce(
         jsonResponse({
@@ -221,7 +203,7 @@ describe('downloadGithubMoext', () => {
           ],
         })
       )
-      .mockResolvedValueOnce({ statusCode: 500, body: failedBody, headers: {} })
+      .mockResolvedValueOnce(new Response(failedBody, { status: 500 }))
     await expect(
       downloadGithubMoext(
         { owner: 'acme', repo: 'widget' },
@@ -230,11 +212,7 @@ describe('downloadGithubMoext', () => {
     ).rejects.toMatchObject({
       message: 'plugin.install.gh_asset_download_failed: 500',
     })
-    expect(once).toHaveBeenCalledWith('error', expect.any(Function))
     expect(destroy).toHaveBeenCalledOnce()
-    expect(once.mock.invocationCallOrder[0]).toBeLessThan(
-      destroy.mock.invocationCallOrder[0] as number
-    )
   })
 
   it('cancels a failing asset stream and removes any destination file', async () => {
@@ -260,11 +238,9 @@ describe('downloadGithubMoext', () => {
           ],
         })
       )
-      .mockResolvedValueOnce({
-        statusCode: 200,
-        body: failedBody,
-        headers: {},
-      })
+      .mockResolvedValueOnce(
+        new Response(Readable.toWeb(failedBody) as ReadableStream<Uint8Array>)
+      )
     const destination = path.join(tmp, 'x.moext')
 
     await expect(

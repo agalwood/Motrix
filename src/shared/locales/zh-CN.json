@@ -1693,7 +1693,7 @@
         "hidePassword": "隐藏密码",
         "bypass": "不使用代理的地址",
         "bypassDesc": "每行填写一个域名、IP 或 CIDR。开头加 . 仅匹配子域名。文件下载不支持 * 通配符。",
-        "bypassScopeNote": "仅下载文件和更新应用",
+        "bypassScopeNote": "仅下载文件、插件和更新应用",
         "scopes": "代理用途",
         "scopesDesc": "选择哪些流量通过代理。",
         "scopeDownload": "下载文件",
@@ -1709,7 +1709,9 @@
         "scopeHint": "BT 节点、DHT 和 UDP Tracker 仍直接连接。",
         "scopeNone": "未选择",
         "scopeChoose": "选择…",
-        "scopeSeparator": "、"
+        "scopeSeparator": "、",
+        "scopePlugins": "插件安装与更新",
+        "scopePluginsDesc": "为插件市场、安装包、插件更新和安全策略请求使用代理。"
       },
       "nat": {
         "title": "端口映射（NAT）",
@@ -2700,6 +2702,20 @@
       "compromised": "此插件的分发渠道已遭入侵。",
       "fixedVersion": "修复版本：{{version}}。",
       "details": "查看安全公告"
+    },
+    "network": {
+      "timeout": "连接超时",
+      "dns": "DNS 解析失败",
+      "proxyAuth": "代理认证失败",
+      "proxyConnect": "无法连接代理",
+      "certificate": "证书或 TLS 错误",
+      "http": "HTTP {{status}}",
+      "cancelled": "请求已取消",
+      "network": "网络请求失败",
+      "cached": "刷新失败，正在显示缓存的插件",
+      "unavailable": "无法加载插件市场",
+      "direct": "直连 {{host}} 失败：{{reason}}",
+      "viaProxy": "通过代理 {{proxy}} 连接 {{host}} 失败：{{reason}}"
     }
   },
   "plugin": {

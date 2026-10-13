@@ -1721,7 +1721,7 @@
         "hidePassword": "Ocultar contraseña",
         "bypass": "Conectar directamente a",
         "bypassDesc": "Un dominio, una IP o un bloque CIDR por línea. Empieza por . para incluir solo subdominios. Las descargas de archivos no admiten comodines *.",
-        "bypassScopeNote": "Solo descargas de archivos y actualizaciones de la aplicación",
+        "bypassScopeNote": "Solo descargas, plugins y actualizaciones de la aplicación",
         "scopes": "Usar proxy para",
         "scopesDesc": "Elige qué tipos de tráfico pasan por el proxy.",
         "scopeDownload": "Descargas de archivos",
@@ -1737,7 +1737,9 @@
         "scopeHint": "Los pares BT, DHT y los trackers UDP se conectan directamente.",
         "scopeNone": "Ninguno seleccionado",
         "scopeChoose": "Seleccionar…",
-        "scopeSeparator": ", "
+        "scopeSeparator": ", ",
+        "scopePlugins": "Instalación y actualización de plugins",
+        "scopePluginsDesc": "Usar el proxy para el catálogo, los paquetes, las actualizaciones y las políticas de seguridad de los plugins."
       },
       "nat": {
         "title": "Redirección de puertos (NAT)",
@@ -2742,6 +2744,20 @@
       "compromised": "La distribución de este complemento se ha visto comprometida.",
       "fixedVersion": "Hay una corrección disponible en la versión {{version}}.",
       "details": "Ver aviso de seguridad"
+    },
+    "network": {
+      "timeout": "Tiempo de conexión agotado",
+      "dns": "Error de resolución DNS",
+      "proxyAuth": "Error de autenticación del proxy",
+      "proxyConnect": "No se pudo conectar al proxy",
+      "certificate": "Error de certificado o TLS",
+      "http": "HTTP {{status}}",
+      "cancelled": "Solicitud cancelada",
+      "network": "Error de solicitud de red",
+      "cached": "Error al actualizar; se muestran los plugins en caché",
+      "unavailable": "No se pudo cargar el catálogo de plugins",
+      "direct": "Error de conexión directa a {{host}}: {{reason}}",
+      "viaProxy": "Error de conexión a {{host}} mediante el proxy {{proxy}}: {{reason}}"
     }
   },
   "plugin": {

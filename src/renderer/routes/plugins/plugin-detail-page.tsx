@@ -50,6 +50,7 @@ import { PluginSettingsForm } from './components/plugin-settings-form'
 import { PluginStatusDot } from './components/plugin-status-dot'
 import { RegistryDetailPanel } from './components/registry-detail-panel'
 import { RegistryInstallAction } from './components/registry-install-action'
+import { RegistryNetworkNotice } from './components/registry-network-notice'
 import { UninstallSection } from './components/uninstall-section'
 import { usePluginDetail } from './hooks/use-plugin-detail'
 import { usePlugins } from './hooks/use-plugins'
@@ -98,8 +99,12 @@ export function PluginDetailPage() {
   // installed list nor the registry do we bounce to the list with a toast.
   const { checked: registryChecked, entry: registryEntry } =
     useRegistryEntry(id)
+  const registryFailure = usePluginsStore(
+    (state) => state.registryStatus?.error
+  )
   useEffect(() => {
     if (pluginsLoaded && !listEntry && registryChecked && !registryEntry) {
+      if (registryFailure) return
       toast.add({ title: t('plugins.registry.notFound', { id }) })
       navigate('/plugins', { replace: true })
     }
@@ -107,6 +112,7 @@ export function PluginDetailPage() {
     pluginsLoaded,
     listEntry,
     registryChecked,
+    registryFailure,
     registryEntry,
     navigate,
     t,
@@ -114,6 +120,8 @@ export function PluginDetailPage() {
   ])
 
   if (!detail || !listEntry) {
+    if (registryFailure && !registryEntry)
+      return <RegistryNetworkNotice retry={refresh} pending={refreshing} />
     if (pluginsLoaded && !listEntry && registryEntry) {
       return <RegistryDetailPanel entry={registryEntry} />
     }

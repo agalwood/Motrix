@@ -1,5 +1,6 @@
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
+import type { PluginNetworkFailureResult } from '@shared/schemas/plugin-network'
 import type {
   ConsentPayload,
   GrantsMap,
@@ -7,6 +8,7 @@ import type {
 } from '@shared/types/plugin-install'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { formatPluginNetworkFailure } from '../lib/network-error'
 
 // Wire shape mirrors installPluginPayloadSchema in src/main/ipc/commands.ts.
 // `fileHash` is the SHA-256 hex digest of the .moext file content — it
@@ -96,6 +98,12 @@ export function usePluginInstall() {
         const r = (await transport.invoke(Commands.InstallPlugin, input)) as
           | InstallResult
           | PluginInstallCompatibilityFailure
+          | PluginNetworkFailureResult
+        if ('networkError' in r) {
+          if (request === requestRef.current && mountedRef.current)
+            setError(formatPluginNetworkFailure(t, r.networkError))
+          return false
+        }
         // A dismissed download may finish after another install has started.
         // Dispose its staging result without replacing the new dialog's state.
         if (request !== requestRef.current || !mountedRef.current) {

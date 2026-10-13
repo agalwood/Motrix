@@ -341,6 +341,8 @@ export function buildServerQueryHandlers(
     [Queries.ListPlugins]: async () => pluginRegistry.list(),
 
     // Parity with the Electron shell: remote-registry directory reads.
+    [Queries.GetRegistryStatus]: async () => registryClient.status(),
+
     [Queries.ListRegistryPlugins]: async () => registryClient.list(hostVersion),
 
     [Queries.GetRegistryPlugin]: async (id: string) =>

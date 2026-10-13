@@ -31,11 +31,21 @@ describe('proxyApplier.apply', () => {
     const result = await applier.apply(
       {
         ...baseProxy,
-        scopes: { download: false, updateApp: false, updateTrackers: false },
+        scopes: {
+          download: false,
+          updateApp: false,
+          updateTrackers: false,
+          plugins: false,
+        },
       },
       {
         ...baseProxy,
-        scopes: { download: true, updateApp: false, updateTrackers: false },
+        scopes: {
+          download: true,
+          updateApp: false,
+          updateTrackers: false,
+          plugins: false,
+        },
       }
     )
     expect(deps.engineSupervisor.applyProxyChange).toHaveBeenCalledWith({
@@ -54,11 +64,21 @@ describe('proxyApplier.apply', () => {
     await applier.apply(
       {
         ...baseProxy,
-        scopes: { download: true, updateApp: false, updateTrackers: false },
+        scopes: {
+          download: true,
+          updateApp: false,
+          updateTrackers: false,
+          plugins: false,
+        },
       },
       {
         ...baseProxy,
-        scopes: { download: false, updateApp: false, updateTrackers: false },
+        scopes: {
+          download: false,
+          updateApp: false,
+          updateTrackers: false,
+          plugins: false,
+        },
       }
     )
     expect(deps.engineSupervisor.applyProxyChange).toHaveBeenCalledWith(null)
@@ -75,12 +95,22 @@ describe('proxyApplier.apply', () => {
     const result = await applier.apply(
       {
         ...baseProxy,
-        scopes: { download: false, updateApp: false, updateTrackers: false },
+        scopes: {
+          download: false,
+          updateApp: false,
+          updateTrackers: false,
+          plugins: false,
+        },
       },
       {
         ...baseProxy,
         protocol: 'socks5',
-        scopes: { download: true, updateApp: false, updateTrackers: false },
+        scopes: {
+          download: true,
+          updateApp: false,
+          updateTrackers: false,
+          plugins: false,
+        },
       }
     )
 
@@ -102,7 +132,12 @@ describe('proxyApplier.apply', () => {
     const applier = createProxyApplier(deps)
     const both = {
       ...baseProxy,
-      scopes: { download: true, updateApp: false, updateTrackers: false },
+      scopes: {
+        download: true,
+        updateApp: false,
+        updateTrackers: false,
+        plugins: false,
+      },
     }
     const result = await applier.apply(both, both)
     expect(deps.engineSupervisor.applyProxyChange).not.toHaveBeenCalled()
@@ -115,11 +150,21 @@ describe('proxyApplier.apply', () => {
     await applier.apply(
       {
         ...baseProxy,
-        scopes: { download: false, updateApp: false, updateTrackers: false },
+        scopes: {
+          download: false,
+          updateApp: false,
+          updateTrackers: false,
+          plugins: false,
+        },
       },
       {
         ...baseProxy,
-        scopes: { download: false, updateApp: true, updateTrackers: false },
+        scopes: {
+          download: false,
+          updateApp: true,
+          updateTrackers: false,
+          plugins: false,
+        },
       }
     )
     expect(deps.applyUpdateAppProxy).toHaveBeenCalled()
@@ -140,11 +185,21 @@ describe('proxyApplier.apply', () => {
     await applier.apply(
       {
         ...baseProxy,
-        scopes: { download: false, updateApp: false, updateTrackers: false },
+        scopes: {
+          download: false,
+          updateApp: false,
+          updateTrackers: false,
+          plugins: false,
+        },
       },
       {
         ...baseProxy,
-        scopes: { download: false, updateApp: true, updateTrackers: false },
+        scopes: {
+          download: false,
+          updateApp: true,
+          updateTrackers: false,
+          plugins: false,
+        },
       }
     )
   })
@@ -155,11 +210,21 @@ describe('proxyApplier.apply', () => {
     await applier.apply(
       {
         ...baseProxy,
-        scopes: { download: false, updateApp: false, updateTrackers: false },
+        scopes: {
+          download: false,
+          updateApp: false,
+          updateTrackers: false,
+          plugins: false,
+        },
       },
       {
         ...baseProxy,
-        scopes: { download: false, updateApp: false, updateTrackers: true },
+        scopes: {
+          download: false,
+          updateApp: false,
+          updateTrackers: true,
+          plugins: false,
+        },
       }
     )
     expect(deps.trackerManager.invalidateProxyCache).toHaveBeenCalled()
@@ -172,14 +237,24 @@ describe('proxyApplier.apply', () => {
       ...baseProxy,
       protocol: 'socks5' as const,
       enabled: false,
-      scopes: { download: false, updateApp: false, updateTrackers: false },
+      scopes: {
+        download: false,
+        updateApp: false,
+        updateTrackers: false,
+        plugins: false,
+      },
     }
 
     await applier.apply(
       {
         ...baseProxy,
         protocol: 'socks5',
-        scopes: { download: false, updateApp: false, updateTrackers: true },
+        scopes: {
+          download: false,
+          updateApp: false,
+          updateTrackers: true,
+          plugins: false,
+        },
       },
       next
     )
@@ -194,7 +269,12 @@ describe('proxyApplier.apply', () => {
     const applier = createProxyApplier(deps)
     await applier.applyAll({
       ...baseProxy,
-      scopes: { download: true, updateApp: true, updateTrackers: true },
+      scopes: {
+        download: true,
+        updateApp: true,
+        updateTrackers: true,
+        plugins: false,
+      },
     })
     expect(deps.engineSupervisor.applyProxyChange).toHaveBeenCalled()
     expect(deps.applyUpdateAppProxy).toHaveBeenCalled()
@@ -211,6 +291,7 @@ describe('proxyApplier.apply', () => {
         download: false,
         updateApp: false,
         updateTrackers: false,
+        plugins: false,
       },
     })
 
@@ -233,11 +314,21 @@ describe('proxyApplier.apply', () => {
     const result = await applier.apply(
       {
         ...baseProxy,
-        scopes: { download: false, updateApp: false, updateTrackers: false },
+        scopes: {
+          download: false,
+          updateApp: false,
+          updateTrackers: false,
+          plugins: false,
+        },
       },
       {
         ...baseProxy,
-        scopes: { download: true, updateApp: false, updateTrackers: false },
+        scopes: {
+          download: true,
+          updateApp: false,
+          updateTrackers: false,
+          plugins: false,
+        },
       }
     )
 

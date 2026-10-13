@@ -61,6 +61,7 @@ import {
   parsePluginIdleDisposeMs,
 } from '@core/plugin/host/plugin-host'
 import { PluginInstaller } from '@core/plugin/install/plugin-installer'
+import { PluginHttpClient } from '@core/plugin/network/plugin-http-client'
 import { PluginRegistry } from '@core/plugin/plugin-registry'
 import { RegistryClient } from '@core/plugin/registry/registry-client'
 import type { PluginHookRuntime } from '@core/plugin/runtime/plugin-hook-runtime'
@@ -499,6 +500,7 @@ const fileCleanupService = new FileCleanupServiceImpl({
 
 let rpcClient: Aria2RpcClient
 let supervisor: EngineSupervisor
+let pluginHttpClient: PluginHttpClient | undefined
 let proxyBridge: ProxyBridgeManager
 let speedLimitController: SpeedLimitController
 let sessionManager: SessionManager
@@ -610,6 +612,7 @@ function performCleanup(): Promise<void> {
         devWatcherHandle = null
         await handle?.close()
       }),
+      safely('plugin-network', () => pluginHttpClient?.close()),
       safely('plugin-host', async () => {
         await postDeliveryLoop
         postDeliveryLoop = null
@@ -1574,6 +1577,7 @@ async function initializeMainProcess(): Promise<void> {
   // settings (for window bounds/run mode) and WindowManager.
 
   await settingsManager.load()
+  pluginHttpClient = new PluginHttpClient(() => settingsManager.getProxy())
   if (!mainProcessWork.isAccepting()) return
 
   let pluginLocaleTargets: {
@@ -2032,6 +2036,7 @@ async function initializeMainProcess(): Promise<void> {
   const overlayDir = path.join(platform.userDataDir, 'builtin-updates')
   const devPath = process.env.MOTRIX_PLUGIN_DEV_PATH
   const pluginSecurity = new PluginSecurityService({
+    fetchImpl: pluginHttpClient.fetch,
     cachePath: path.join(platform.userDataDir, 'plugin-security.json'),
   })
   await pluginSecurity.initialize()
@@ -2791,9 +2796,11 @@ async function initializeMainProcess(): Promise<void> {
   await activePluginHost.enforceSecurityPolicy()
   pluginSecurity.start()
   const registryClient = new RegistryClient({
+    fetchImpl: pluginHttpClient.fetch,
     cachePath: path.join(platform.userDataDir, REGISTRY_CACHE_FILENAME),
   })
   const builtinUpdater = new BuiltinUpdater({
+    fetchImpl: pluginHttpClient.fetch,
     security: pluginSecurity,
     overlayDir,
     hostVersion: app.getVersion(),
@@ -2940,6 +2947,7 @@ async function initializeMainProcess(): Promise<void> {
     publishTaskUpdate,
     publishTaskUpdateNow,
     registryClient,
+    pluginFetch: pluginHttpClient.fetch,
     hostVersion: app.getVersion(),
     builtinUpdater,
     overlayDir,

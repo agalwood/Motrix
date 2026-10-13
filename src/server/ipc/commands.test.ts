@@ -53,7 +53,12 @@ const PROXY_OFF = {
   user: '',
   password: '',
   bypass: [] as string[],
-  scopes: { download: false, updateApp: false, updateTrackers: false },
+  scopes: {
+    download: false,
+    updateApp: false,
+    updateTrackers: false,
+    plugins: false,
+  },
 }
 const PROXY_ON = { ...PROXY_OFF, enabled: true, host: 'p.example', port: 80 }
 
@@ -766,11 +771,21 @@ describe('server Commands.UpdateSettings', () => {
     const policy = new AppliedDownloadProxyPolicy({ noProxy: '' })
     const proxyA = {
       ...PROXY_ON,
-      scopes: { download: true, updateApp: false, updateTrackers: false },
+      scopes: {
+        download: true,
+        updateApp: false,
+        updateTrackers: false,
+        plugins: false,
+      },
     }
     const proxyB = {
       ...proxyA,
-      scopes: { download: true, updateApp: true, updateTrackers: false },
+      scopes: {
+        download: true,
+        updateApp: true,
+        updateTrackers: false,
+        plugins: false,
+      },
     }
     const before = makeSettings(PROXY_OFF)
     const afterA = makeSettings(proxyA)

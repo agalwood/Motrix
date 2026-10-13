@@ -1707,7 +1707,7 @@
         "hidePassword": "Jelszó elrejtése",
         "bypass": "Közvetlen kapcsolódás ezekhez",
         "bypassDesc": "Soronként egy domain, IP-cím vagy CIDR-tartomány. Kezdő ponttal csak az aldomainekre illeszkedik. Fájlletöltésnél a * helyettesítő karakter nem támogatott.",
-        "bypassScopeNote": "Csak fájlletöltésekhez és alkalmazásfrissítésekhez",
+        "bypassScopeNote": "Csak letöltések, bővítmények és alkalmazásfrissítések",
         "scopes": "Proxy használata ezekhez",
         "scopesDesc": "Válaszd ki, mely forgalomtípusok haladjanak át a proxyn.",
         "scopeDownload": "Fájlletöltések",
@@ -1723,7 +1723,9 @@
         "scopeHint": "A BitTorrent-partnerek, a DHT és az UDP-trackerek közvetlenül kapcsolódnak.",
         "scopeNone": "Nincs kiválasztva",
         "scopeChoose": "Kiválasztás…",
-        "scopeSeparator": ", "
+        "scopeSeparator": ", ",
+        "scopePlugins": "Bővítmények telepítése és frissítése",
+        "scopePluginsDesc": "Proxy használata a bővítménykatalógushoz, csomagokhoz, frissítésekhez és biztonsági szabályzatokhoz."
       },
       "nat": {
         "title": "Portleképezés (NAT)",
@@ -2721,6 +2723,20 @@
       "compromised": "A bővítmény terjesztési csatornáját feltörték.",
       "fixedVersion": "Javítás érhető el a(z) {{version}} verzióban.",
       "details": "Biztonsági közlemény megtekintése"
+    },
+    "network": {
+      "timeout": "A kapcsolat időtúllépése",
+      "dns": "Sikertelen DNS-feloldás",
+      "proxyAuth": "Sikertelen proxyhitelesítés",
+      "proxyConnect": "Nem lehet kapcsolódni a proxyhoz",
+      "certificate": "Tanúsítvány- vagy TLS-hiba",
+      "http": "HTTP {{status}}",
+      "cancelled": "Kérés megszakítva",
+      "network": "Sikertelen hálózati kérés",
+      "cached": "Sikertelen frissítés; gyorsítótárazott bővítmények láthatók",
+      "unavailable": "A bővítménykatalógus nem tölthető be",
+      "direct": "Sikertelen közvetlen kapcsolat: {{host}}: {{reason}}",
+      "viaProxy": "Sikertelen kapcsolat: {{host}}, proxy: {{proxy}}: {{reason}}"
     }
   },
   "plugin": {

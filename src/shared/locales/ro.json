@@ -1708,6 +1708,20 @@
       "compromised": "Canalul de distribuție al acestui plugin a fost compromis.",
       "fixedVersion": "O remediere este disponibilă în versiunea {{version}}.",
       "details": "Vedeți anunțul de securitate"
+    },
+    "network": {
+      "timeout": "Conexiunea a expirat",
+      "dns": "Rezolvarea DNS a eșuat",
+      "proxyAuth": "Autentificarea proxy a eșuat",
+      "proxyConnect": "Nu se poate conecta la proxy",
+      "certificate": "Eroare de certificat sau TLS",
+      "http": "HTTP {{status}}",
+      "cancelled": "Cerere anulată",
+      "network": "Cererea de rețea a eșuat",
+      "cached": "Actualizarea a eșuat; se afișează extensiile din cache",
+      "unavailable": "Catalogul de extensii nu a putut fi încărcat",
+      "direct": "Conexiunea directă la {{host}} a eșuat: {{reason}}",
+      "viaProxy": "Conexiunea la {{host}} prin proxy-ul {{proxy}} a eșuat: {{reason}}"
     }
   },
   "quit": {
@@ -2610,7 +2624,7 @@
         "bypass": "Conectează direct la",
         "bypassDesc": "Un domeniu, IP sau CIDR pe linie. Începe cu . pentru a include doar subdomenii. Descărcările de fișiere nu acceptă metacaracterul *.",
         "bypassPlaceholder": "localhost\n127.0.0.1\n.local",
-        "bypassScopeNote": "Doar descărcări de fișiere și actualizări ale aplicației",
+        "bypassScopeNote": "Doar descărcări, extensii și actualizări ale aplicației",
         "enable": "Activează proxy-ul",
         "enableDesc": "Folosește un proxy pentru conexiunile selectate mai jos.",
         "hidePassword": "Ascunde parola",
@@ -2637,7 +2651,9 @@
         "server": "Server",
         "showPassword": "Arată parola",
         "title": "Proxy",
-        "user": "Nume de utilizator"
+        "user": "Nume de utilizator",
+        "scopePlugins": "Instalarea și actualizarea extensiilor",
+        "scopePluginsDesc": "Folosește proxy-ul pentru catalog, pachete, actualizări și politicile de securitate ale extensiilor."
       },
       "reachability": {
         "addEndpoint": "Adaugă serviciu de verificare",

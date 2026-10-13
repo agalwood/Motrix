@@ -296,6 +296,8 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
     [Queries.GetPluginManifest]: async (id: string) =>
       pluginRegistry.get(id)?.manifest ?? null,
 
+    [Queries.GetRegistryStatus]: async () => registryClient.status(),
+
     [Queries.ListRegistryPlugins]: async () => registryClient.list(hostVersion),
 
     [Queries.GetRegistryPlugin]: async (id: string) =>

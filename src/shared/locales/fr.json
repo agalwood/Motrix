@@ -1708,6 +1708,20 @@
       "compromised": "La distribution de ce plugin a été compromise.",
       "fixedVersion": "Un correctif est disponible dans la version {{version}}.",
       "details": "Voir l’avis de sécurité"
+    },
+    "network": {
+      "timeout": "Délai de connexion dépassé",
+      "dns": "Échec de la résolution DNS",
+      "proxyAuth": "Échec de l’authentification du proxy",
+      "proxyConnect": "Connexion au proxy impossible",
+      "certificate": "Erreur de certificat ou TLS",
+      "http": "HTTP {{status}}",
+      "cancelled": "Requête annulée",
+      "network": "Échec de la requête réseau",
+      "cached": "Actualisation impossible ; plugins en cache affichés",
+      "unavailable": "Impossible de charger le catalogue des plugins",
+      "direct": "Échec de la connexion directe à {{host}} : {{reason}}",
+      "viaProxy": "Échec de la connexion à {{host}} via le proxy {{proxy}} : {{reason}}"
     }
   },
   "quit": {
@@ -2610,7 +2624,7 @@
         "bypass": "Connexion directe à",
         "bypassDesc": "Un domaine, une IP ou un CIDR par ligne. Commencez par . pour ne cibler que les sous-domaines. Les téléchargements de fichiers ne prennent pas en charge le caractère générique *.",
         "bypassPlaceholder": "localhost\n127.0.0.1\n.local",
-        "bypassScopeNote": "Téléchargements de fichiers et mises à jour de l’application uniquement",
+        "bypassScopeNote": "Téléchargements, plugins et mises à jour de l’application uniquement",
         "enable": "Activer le proxy",
         "enableDesc": "Utiliser un proxy pour les connexions sélectionnées ci-dessous.",
         "hidePassword": "Masquer le mot de passe",
@@ -2637,7 +2651,9 @@
         "server": "Serveur",
         "showPassword": "Afficher le mot de passe",
         "title": "Proxy",
-        "user": "Nom d’utilisateur"
+        "user": "Nom d’utilisateur",
+        "scopePlugins": "Installation et mise à jour des plugins",
+        "scopePluginsDesc": "Utiliser le proxy pour le catalogue, les paquets, les mises à jour et les règles de sécurité des plugins."
       },
       "reachability": {
         "addEndpoint": "Ajouter un service de vérification",

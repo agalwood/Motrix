@@ -1,5 +1,6 @@
 import { readFile, stat } from 'node:fs/promises'
 import { getLogger } from '@core/logger'
+import type { RegistryStatus } from '@shared/schemas/plugin-network'
 import {
   REGISTRY_URL,
   type RegistryFile,
@@ -9,6 +10,7 @@ import {
 import writeFileAtomic from 'write-file-atomic'
 import { z } from 'zod'
 import { semverSatisfies } from '../manifest/parse'
+import { networkFailure } from '../network/plugin-network-error'
 
 const DEFAULT_TTL_MS = 6 * 60 * 60 * 1000
 const FETCH_TIMEOUT_MS = 15_000
@@ -72,6 +74,7 @@ export class RegistryClient {
   private readonly readFileImpl: RegistryReadFile
   private readonly log = getLogger('plugin-registry')
 
+  private lastError: RegistryStatus['error'] = null
   private cache: CacheState | null = null
   private diskLoadPromise: Promise<void> | null = null
   private inflight: Promise<RegistryFile | null> | null = null
@@ -92,6 +95,14 @@ export class RegistryClient {
     this.statImpl = options.statImpl ?? stat
     this.readFileImpl =
       options.readFileImpl ?? ((cachePath) => readFile(cachePath, 'utf8'))
+  }
+
+  status(): RegistryStatus {
+    return {
+      cached: this.cache !== null,
+      lastSuccessAt: this.cache?.fetchedAt ?? null,
+      error: this.lastError,
+    }
   }
 
   /** Last-good registry, refreshed over the network only when stale. */
@@ -150,7 +161,10 @@ export class RegistryClient {
     let timer: ReturnType<typeof setTimeout> | undefined
     const deadline = new Promise<never>((_resolve, reject) => {
       timer = setTimeout(() => {
-        const error = new Error('registry request timed out')
+        const error = new DOMException(
+          'registry request timed out',
+          'TimeoutError'
+        )
         controller.abort(error)
         reject(error)
       }, FETCH_TIMEOUT_MS)
@@ -179,6 +193,7 @@ export class RegistryClient {
         await cancelResponseBody(res)
         this.cache = { ...this.cache, fetchedAt: this.now() }
         await this.persist()
+        this.lastError = null
         return this.cache.file
       }
       if (!res.ok) {
@@ -200,9 +215,16 @@ export class RegistryClient {
         file,
       }
       await this.persist()
+      this.lastError = null
       return file
     } catch (error) {
-      this.log.warn({ error }, 'registry refresh failed; keeping last-good')
+      this.lastError = networkFailure(error, {
+        targetHost: new URL(this.url).hostname,
+      })
+      this.log.warn(
+        { failure: this.lastError },
+        'registry refresh failed; keeping last-good'
+      )
       return this.cache?.file ?? null
     } finally {
       if (timer !== undefined) clearTimeout(timer)

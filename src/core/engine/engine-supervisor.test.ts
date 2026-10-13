@@ -91,7 +91,12 @@ function createMockSettingsManager(): SettingsManager {
       user: '',
       password: '',
       bypass: [],
-      scopes: { download: false, updateApp: false, updateTrackers: false },
+      scopes: {
+        download: false,
+        updateApp: false,
+        updateTrackers: false,
+        plugins: false,
+      },
     })),
     update: vi.fn().mockResolvedValue(undefined),
   } as unknown as SettingsManager
@@ -355,6 +360,7 @@ describe('EngineSupervisor', () => {
           download: true,
           updateApp: false,
           updateTrackers: false,
+          plugins: false,
         },
       }
       const after = { ...before, host: 'after.example' }
