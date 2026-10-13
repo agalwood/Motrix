@@ -1693,7 +1693,7 @@
         "hidePassword": "隱藏密碼",
         "bypass": "不使用代理的位址",
         "bypassDesc": "每行填寫一個網域、IP 或 CIDR。開頭加 . 僅比對子網域。檔案下載不支援 * 萬用字元。",
-        "bypassScopeNote": "僅下載檔案和更新應用程式",
+        "bypassScopeNote": "僅下載檔案、外掛和更新應用程式",
         "scopes": "代理用途",
         "scopesDesc": "選擇哪些流量要通過 Proxy。",
         "scopeDownload": "下載檔案",
@@ -1709,7 +1709,9 @@
         "scopeHint": "BT 節點、DHT 和 UDP Tracker 仍直接連線。",
         "scopeNone": "未選取",
         "scopeChoose": "選擇…",
-        "scopeSeparator": "、"
+        "scopeSeparator": "、",
+        "scopePlugins": "外掛安裝與更新",
+        "scopePluginsDesc": "為外掛市集、安裝套件、外掛更新和安全性原則請求使用代理。"
       },
       "nat": {
         "title": "連接埠對映（NAT）",
@@ -2800,6 +2802,20 @@
       "compromised": "此外掛的散布管道已遭入侵。",
       "fixedVersion": "修復版本：{{version}}。",
       "details": "檢視安全公告"
+    },
+    "network": {
+      "timeout": "連線逾時",
+      "dns": "DNS 解析失敗",
+      "proxyAuth": "代理驗證失敗",
+      "proxyConnect": "無法連線至代理",
+      "certificate": "憑證或 TLS 錯誤",
+      "http": "HTTP {{status}}",
+      "cancelled": "請求已取消",
+      "network": "網路請求失敗",
+      "cached": "重新整理失敗，正在顯示快取的外掛",
+      "unavailable": "無法載入外掛市集",
+      "direct": "直接連線至 {{host}} 失敗：{{reason}}",
+      "viaProxy": "透過代理 {{proxy}} 連線至 {{host}} 失敗：{{reason}}"
     }
   },
   "applicationMenu": {

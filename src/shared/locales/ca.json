@@ -1708,6 +1708,20 @@
       "compromised": "La distribució d’aquest connector s’ha vist compromesa.",
       "fixedVersion": "Hi ha una correcció disponible a la versió {{version}}.",
       "details": "Mostra l’avís de seguretat"
+    },
+    "network": {
+      "timeout": "S’ha esgotat el temps de connexió",
+      "dns": "Error de resolució DNS",
+      "proxyAuth": "Error d’autenticació del servidor intermediari",
+      "proxyConnect": "No s’ha pogut connectar al servidor intermediari",
+      "certificate": "Error de certificat o TLS",
+      "http": "HTTP {{status}}",
+      "cancelled": "Sol·licitud cancel·lada",
+      "network": "Error de sol·licitud de xarxa",
+      "cached": "No s’ha pogut actualitzar; es mostren els connectors de la memòria cau",
+      "unavailable": "No s’ha pogut carregar el catàleg de connectors",
+      "direct": "Ha fallat la connexió directa a {{host}}: {{reason}}",
+      "viaProxy": "Ha fallat la connexió a {{host}} mitjançant el servidor intermediari {{proxy}}: {{reason}}"
     }
   },
   "quit": {
@@ -2610,7 +2624,7 @@
         "bypass": "Connectar directament a",
         "bypassDesc": "Un domini, una IP o un CIDR per línia. Comenceu amb . per incloure només els subdominis. Les baixades de fitxers no admeten comodins *.",
         "bypassPlaceholder": "localhost\n127.0.0.1\n.local",
-        "bypassScopeNote": "Només baixades de fitxers i actualitzacions de l'aplicació",
+        "bypassScopeNote": "Només baixades, connectors i actualitzacions de l’aplicació",
         "enable": "Activar el servidor intermediari",
         "enableDesc": "Utilitza un servidor intermediari per a les connexions seleccionades a continuació.",
         "hidePassword": "Amagar la contrasenya",
@@ -2637,7 +2651,9 @@
         "server": "Servidor",
         "showPassword": "Mostrar la contrasenya",
         "title": "Servidor intermediari",
-        "user": "Nom d'usuari"
+        "user": "Nom d'usuari",
+        "scopePlugins": "Instal·lació i actualització de connectors",
+        "scopePluginsDesc": "Utilitza el servidor intermediari per al catàleg, els paquets, les actualitzacions i les polítiques de seguretat dels connectors."
       },
       "reachability": {
         "addEndpoint": "Afegir un servei de comprovació",

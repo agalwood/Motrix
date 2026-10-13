@@ -1693,7 +1693,7 @@
         "hidePassword": "Sembunyikan kata sandi",
         "bypass": "Hubungkan langsung ke",
         "bypassDesc": "Satu domain, IP, atau CIDR per baris. Awali dengan . untuk mencocokkan subdomain saja. Unduhan berkas tidak mendukung karakter pengganti *.",
-        "bypassScopeNote": "Hanya unduhan berkas dan pembaruan aplikasi",
+        "bypassScopeNote": "Hanya unduhan, plugin, dan pembaruan aplikasi",
         "scopes": "Gunakan proxy untuk",
         "scopesDesc": "Pilih jenis lalu lintas yang melalui proxy.",
         "scopeDownload": "Unduhan berkas",
@@ -1709,7 +1709,9 @@
         "scopeHint": "Peer BT, DHT, dan pelacak UDP terhubung langsung.",
         "scopeNone": "Belum ada yang dipilih",
         "scopeChoose": "Pilih…",
-        "scopeSeparator": ", "
+        "scopeSeparator": ", ",
+        "scopePlugins": "Instalasi dan pembaruan plugin",
+        "scopePluginsDesc": "Gunakan proksi untuk katalog, paket, pembaruan, dan permintaan kebijakan keamanan plugin."
       },
       "nat": {
         "title": "Pemetaan port (NAT)",
@@ -2700,6 +2702,20 @@
       "compromised": "Saluran distribusi plugin ini telah disusupi.",
       "fixedVersion": "Perbaikan tersedia pada versi {{version}}.",
       "details": "Lihat pemberitahuan keamanan"
+    },
+    "network": {
+      "timeout": "Waktu koneksi habis",
+      "dns": "Pencarian DNS gagal",
+      "proxyAuth": "Autentikasi proksi gagal",
+      "proxyConnect": "Tidak dapat terhubung ke proksi",
+      "certificate": "Kesalahan sertifikat atau TLS",
+      "http": "HTTP {{status}}",
+      "cancelled": "Permintaan dibatalkan",
+      "network": "Permintaan jaringan gagal",
+      "cached": "Penyegaran gagal; menampilkan plugin dari cache",
+      "unavailable": "Tidak dapat memuat katalog plugin",
+      "direct": "Koneksi langsung ke {{host}} gagal: {{reason}}",
+      "viaProxy": "Koneksi ke {{host}} melalui proksi {{proxy}} gagal: {{reason}}"
     }
   },
   "plugin": {

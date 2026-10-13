@@ -1693,7 +1693,7 @@
         "hidePassword": "パスワードを非表示",
         "bypass": "直接接続する宛先",
         "bypassDesc": "ドメイン、IP、CIDR を 1 行に 1 件入力してください。先頭に . を付けるとサブドメインのみが対象になります。ファイルのダウンロードでは * ワイルドカードは使用できません。",
-        "bypassScopeNote": "ファイルのダウンロードとアプリのアップデートのみ",
+        "bypassScopeNote": "ダウンロード、プラグイン、アプリ更新のみ",
         "scopes": "プロキシの適用対象",
         "scopesDesc": "プロキシを経由する通信の種類を選択します。",
         "scopeDownload": "ファイルのダウンロード",
@@ -1709,7 +1709,9 @@
         "scopeHint": "BT ピア、DHT、UDP トラッカーには直接接続します。",
         "scopeNone": "未選択",
         "scopeChoose": "選択…",
-        "scopeSeparator": "、"
+        "scopeSeparator": "、",
+        "scopePlugins": "プラグインのインストールと更新",
+        "scopePluginsDesc": "プラグイン一覧、インストールパッケージ、更新、安全性ポリシーの取得にプロキシを使用します。"
       },
       "nat": {
         "title": "ポートマッピング（NAT）",
@@ -2700,6 +2702,20 @@
       "compromised": "このプラグインの配布元が侵害されました。",
       "fixedVersion": "修正済みバージョン：{{version}}。",
       "details": "セキュリティ情報を表示"
+    },
+    "network": {
+      "timeout": "接続がタイムアウトしました",
+      "dns": "DNS 名前解決に失敗しました",
+      "proxyAuth": "プロキシ認証に失敗しました",
+      "proxyConnect": "プロキシに接続できません",
+      "certificate": "証明書または TLS エラー",
+      "http": "HTTP {{status}}",
+      "cancelled": "リクエストをキャンセルしました",
+      "network": "ネットワークリクエストに失敗しました",
+      "cached": "更新に失敗したため、キャッシュしたプラグインを表示しています",
+      "unavailable": "プラグイン一覧を読み込めません",
+      "direct": "{{host}} への直接接続に失敗しました：{{reason}}",
+      "viaProxy": "プロキシ {{proxy}} 経由での {{host}} への接続に失敗しました：{{reason}}"
     }
   },
   "plugin": {

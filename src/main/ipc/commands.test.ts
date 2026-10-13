@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { access, mkdir, mkdtemp, realpath, rm, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -5,6 +6,7 @@ import { NOOP_TASK_ACTIVITY_RECORDER } from '@core/activity'
 import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
 import { EventBus } from '@core/events/event-bus'
 import { PluginEngineVersionTooOld } from '@core/plugin/manifest/errors'
+import { PluginNetworkError } from '@core/plugin/network/plugin-network-error'
 import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { SettingsManager } from '@core/settings/settings-manager'
 import { ErrorCode } from '@shared/errors'
@@ -301,6 +303,60 @@ function fakeCtx() {
 }
 
 describe('buildCommandHandlers', () => {
+  it('downloads registry packages through the injected plugin transport and serializes failures', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'plugin-network-command-'))
+    try {
+      const bytes = new Uint8Array([1, 2, 3])
+      const fetcher = vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(new Response(bytes))
+      const entry = {
+        id: 'acme.plugin',
+        version: '1.0.0',
+        compatible: true,
+        engines: { motrix: '^2.0.0' },
+        permissions: [],
+        optionalPermissions: [],
+        hostPermissions: [],
+        package: {
+          url: 'https://github.com/acme/plugin/package.moext',
+          size: 3,
+          sha256: createHash('sha256').update(bytes).digest('hex'),
+        },
+      }
+      const ctx = {
+        ...fakeCtx(),
+        userDataDir: dir,
+        pluginFetch: fetcher,
+        registryClient: { get: vi.fn().mockResolvedValue(entry) },
+      }
+      ctx.pluginInstaller.stage.mockResolvedValue({
+        committed: true,
+        pluginId: 'acme.plugin',
+      })
+      const handler = buildCommandHandlers(ctx as unknown as CommandContext)[
+        Commands.InstallPlugin
+      ]
+      await handler?.({ sourceType: 'registry', pluginId: 'acme.plugin' })
+      expect(fetcher).toHaveBeenCalledOnce()
+      expect(String(fetcher.mock.calls[0]?.[0])).toBe(entry.package.url)
+      expect(ctx.pluginInstaller.stage).toHaveBeenCalledOnce()
+      const failure = {
+        reason: 'proxyAuth' as const,
+        route: 'proxy' as const,
+        proxyEndpoint: '127.0.0.1:7897',
+        targetHost: 'github.com',
+      }
+      fetcher.mockRejectedValueOnce(new PluginNetworkError(failure))
+      await expect(
+        handler?.({ sourceType: 'registry', pluginId: 'acme.plugin' })
+      ).resolves.toEqual({ networkError: failure })
+      expect(ctx.pluginInstaller.stage).toHaveBeenCalledOnce()
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
   it('returns the exact media-merge version requirement before downloading or requesting consent', async () => {
     const ctx = {
       ...fakeCtx(),
@@ -1779,7 +1835,12 @@ describe('Commands.UpdateSettings', () => {
     user: '',
     password: '',
     bypass: [],
-    scopes: { download: false, updateApp: false, updateTrackers: false },
+    scopes: {
+      download: false,
+      updateApp: false,
+      updateTrackers: false,
+      plugins: false,
+    },
   }
   const PROXY_ON = { ...PROXY_OFF, enabled: true, host: 'p.example', port: 80 }
 
@@ -2034,11 +2095,21 @@ describe('Commands.UpdateSettings', () => {
     const policy = new AppliedDownloadProxyPolicy({ noProxy: '' })
     const proxyA = {
       ...PROXY_ON,
-      scopes: { download: true, updateApp: false, updateTrackers: false },
+      scopes: {
+        download: true,
+        updateApp: false,
+        updateTrackers: false,
+        plugins: false,
+      },
     }
     const proxyB = {
       ...proxyA,
-      scopes: { download: true, updateApp: true, updateTrackers: false },
+      scopes: {
+        download: true,
+        updateApp: true,
+        updateTrackers: false,
+        plugins: false,
+      },
     }
     const before = makeSettingsLike(PROXY_OFF)
     const afterA = makeSettingsLike(proxyA)
@@ -2097,7 +2168,12 @@ describe('Commands.UpdateSettings', () => {
     const policy = new AppliedDownloadProxyPolicy({ noProxy: '' })
     const proxy = {
       ...PROXY_ON,
-      scopes: { download: true, updateApp: false, updateTrackers: false },
+      scopes: {
+        download: true,
+        updateApp: false,
+        updateTrackers: false,
+        plugins: false,
+      },
     }
     const before = makeSettingsLike(PROXY_OFF, {
       app: { browserBridgeEnabled: false },

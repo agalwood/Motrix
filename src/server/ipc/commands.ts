@@ -19,6 +19,7 @@ import type { ActivationDispatcher } from '@core/plugin/host/activation-dispatch
 import type { PluginHost } from '@core/plugin/host/plugin-host'
 import type { PluginInstaller } from '@core/plugin/install/plugin-installer'
 import { PluginEngineVersionTooOld } from '@core/plugin/manifest/errors'
+import { PluginNetworkError } from '@core/plugin/network/plugin-network-error'
 import { operationHandlers } from '@core/plugin/operations/operation-handlers'
 import type { OperationService } from '@core/plugin/operations/operation-service'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
@@ -1049,6 +1050,8 @@ export function buildServerCommandHandlers(
         }
         return result
       } catch (error) {
+        if (error instanceof PluginNetworkError)
+          return { networkError: error.failure }
         if (error instanceof PluginEngineVersionTooOld) {
           return {
             incompatible: {

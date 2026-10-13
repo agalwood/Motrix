@@ -1721,7 +1721,7 @@
         "hidePassword": "Ocultar senha",
         "bypass": "Conectar diretamente a",
         "bypassDesc": "Um domínio, IP ou CIDR por linha. Comece com . para corresponder apenas a subdomínios. Downloads de arquivos não aceitam curingas *.",
-        "bypassScopeNote": "Somente downloads de arquivos e atualizações do aplicativo",
+        "bypassScopeNote": "Somente downloads, plugins e atualizações do aplicativo",
         "scopes": "Usar proxy para",
         "scopesDesc": "Escolha quais tipos de tráfego passam pelo proxy.",
         "scopeDownload": "Downloads de arquivos",
@@ -1737,7 +1737,9 @@
         "scopeHint": "Pares BT, DHT e rastreadores UDP se conectam diretamente.",
         "scopeNone": "Nenhum selecionado",
         "scopeChoose": "Selecionar…",
-        "scopeSeparator": ", "
+        "scopeSeparator": ", ",
+        "scopePlugins": "Instalação e atualização de plugins",
+        "scopePluginsDesc": "Usar o proxy para o catálogo, pacotes, atualizações e políticas de segurança dos plugins."
       },
       "nat": {
         "title": "Mapeamento de portas (NAT)",
@@ -2742,6 +2744,20 @@
       "compromised": "A distribuição deste plugin foi comprometida.",
       "fixedVersion": "Uma correção está disponível na versão {{version}}.",
       "details": "Ver aviso de segurança"
+    },
+    "network": {
+      "timeout": "Tempo de conexão esgotado",
+      "dns": "Falha na resolução de DNS",
+      "proxyAuth": "Falha na autenticação do proxy",
+      "proxyConnect": "Não foi possível conectar ao proxy",
+      "certificate": "Erro de certificado ou TLS",
+      "http": "HTTP {{status}}",
+      "cancelled": "Solicitação cancelada",
+      "network": "Falha na solicitação de rede",
+      "cached": "Falha ao atualizar; exibindo plugins em cache",
+      "unavailable": "Não foi possível carregar o catálogo de plugins",
+      "direct": "Falha na conexão direta com {{host}}: {{reason}}",
+      "viaProxy": "Falha na conexão com {{host}} pelo proxy {{proxy}}: {{reason}}"
     }
   },
   "plugin": {

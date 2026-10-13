@@ -1707,7 +1707,7 @@
         "hidePassword": "Passwort ausblenden",
         "bypass": "Direkt verbinden mit",
         "bypassDesc": "Eine Domain, IP-Adresse oder CIDR-Angabe pro Zeile. Mit . beginnen, um nur Subdomains zu erfassen. Datei-Downloads unterstützen keine *-Platzhalter.",
-        "bypassScopeNote": "Nur Datei-Downloads und App-Updates",
+        "bypassScopeNote": "Nur Downloads, Plugins und App-Updates",
         "scopes": "Proxy verwenden für",
         "scopesDesc": "Wählen Sie aus, welcher Datenverkehr über den Proxy läuft.",
         "scopeDownload": "Datei-Downloads",
@@ -1723,7 +1723,9 @@
         "scopeHint": "BT-Peers, DHT und UDP-Tracker verbinden sich direkt.",
         "scopeNone": "Nichts ausgewählt",
         "scopeChoose": "Auswählen…",
-        "scopeSeparator": ", "
+        "scopeSeparator": ", ",
+        "scopePlugins": "Plugin-Installation und Updates",
+        "scopePluginsDesc": "Proxy für den Plugin-Katalog, Installationspakete, Updates und Sicherheitsrichtlinien verwenden."
       },
       "nat": {
         "title": "Portweiterleitung (NAT)",
@@ -2721,6 +2723,20 @@
       "compromised": "Der Vertriebsweg dieses Plugins wurde kompromittiert.",
       "fixedVersion": "Eine Korrektur ist in Version {{version}} verfügbar.",
       "details": "Sicherheitshinweis anzeigen"
+    },
+    "network": {
+      "timeout": "Zeitüberschreitung beim Verbindungsaufbau",
+      "dns": "DNS-Auflösung fehlgeschlagen",
+      "proxyAuth": "Proxy-Authentifizierung fehlgeschlagen",
+      "proxyConnect": "Verbindung zum Proxy nicht möglich",
+      "certificate": "Zertifikats- oder TLS-Fehler",
+      "http": "HTTP {{status}}",
+      "cancelled": "Anfrage abgebrochen",
+      "network": "Netzwerkanfrage fehlgeschlagen",
+      "cached": "Aktualisierung fehlgeschlagen; zwischengespeicherte Plugins werden angezeigt",
+      "unavailable": "Plugin-Katalog konnte nicht geladen werden",
+      "direct": "Direkte Verbindung zu {{host}} fehlgeschlagen: {{reason}}",
+      "viaProxy": "Verbindung zu {{host}} über Proxy {{proxy}} fehlgeschlagen: {{reason}}"
     }
   },
   "plugin": {

@@ -1693,7 +1693,7 @@
         "hidePassword": "Ẩn mật khẩu",
         "bypass": "Kết nối trực tiếp đến",
         "bypassDesc": "Mỗi dòng một tên miền, IP hoặc CIDR. Bắt đầu bằng dấu . để chỉ khớp tên miền con. Tải tệp không hỗ trợ ký tự đại diện *.",
-        "bypassScopeNote": "Chỉ áp dụng cho tải tệp và cập nhật ứng dụng",
+        "bypassScopeNote": "Chỉ tải xuống, tiện ích và cập nhật ứng dụng",
         "scopes": "Dùng proxy cho",
         "scopesDesc": "Chọn các loại lưu lượng đi qua proxy.",
         "scopeDownload": "Tải tệp",
@@ -1709,7 +1709,9 @@
         "scopeHint": "Máy ngang hàng BT, DHT và máy chủ theo dõi UDP kết nối trực tiếp.",
         "scopeNone": "Chưa chọn",
         "scopeChoose": "Chọn…",
-        "scopeSeparator": ", "
+        "scopeSeparator": ", ",
+        "scopePlugins": "Cài đặt và cập nhật tiện ích",
+        "scopePluginsDesc": "Dùng proxy cho danh mục, gói cài đặt, bản cập nhật và yêu cầu chính sách bảo mật của tiện ích."
       },
       "nat": {
         "title": "Ánh xạ cổng (NAT)",
@@ -2700,6 +2702,20 @@
       "compromised": "Kênh phân phối tiện ích này đã bị xâm phạm.",
       "fixedVersion": "Bản sửa lỗi có trong phiên bản {{version}}.",
       "details": "Xem thông báo bảo mật"
+    },
+    "network": {
+      "timeout": "Kết nối hết thời gian chờ",
+      "dns": "Tra cứu DNS thất bại",
+      "proxyAuth": "Xác thực proxy thất bại",
+      "proxyConnect": "Không thể kết nối tới proxy",
+      "certificate": "Lỗi chứng chỉ hoặc TLS",
+      "http": "HTTP {{status}}",
+      "cancelled": "Yêu cầu đã bị hủy",
+      "network": "Yêu cầu mạng thất bại",
+      "cached": "Làm mới thất bại; đang hiển thị tiện ích đã lưu đệm",
+      "unavailable": "Không thể tải danh mục tiện ích",
+      "direct": "Kết nối trực tiếp tới {{host}} thất bại: {{reason}}",
+      "viaProxy": "Kết nối tới {{host}} qua proxy {{proxy}} thất bại: {{reason}}"
     }
   },
   "plugin": {

@@ -1693,7 +1693,7 @@
         "hidePassword": "비밀번호 숨기기",
         "bypass": "직접 연결할 대상",
         "bypassDesc": "한 줄에 도메인, IP 또는 CIDR 하나를 입력하세요. 하위 도메인만 일치시키려면 .으로 시작하세요. 파일 다운로드에서는 * 와일드카드를 지원하지 않습니다.",
-        "bypassScopeNote": "파일 다운로드 및 앱 업데이트에만 적용",
+        "bypassScopeNote": "다운로드, 플러그인 및 앱 업데이트에만 적용",
         "scopes": "프록시 적용 대상",
         "scopesDesc": "프록시를 거칠 트래픽 유형을 선택하세요.",
         "scopeDownload": "파일 다운로드",
@@ -1709,7 +1709,9 @@
         "scopeHint": "BT 피어, DHT 및 UDP 트래커는 직접 연결합니다.",
         "scopeNone": "선택한 항목 없음",
         "scopeChoose": "선택…",
-        "scopeSeparator": ", "
+        "scopeSeparator": ", ",
+        "scopePlugins": "플러그인 설치 및 업데이트",
+        "scopePluginsDesc": "플러그인 목록, 설치 패키지, 업데이트 및 보안 정책 요청에 프록시를 사용합니다."
       },
       "nat": {
         "title": "포트 매핑(NAT)",
@@ -2700,6 +2702,20 @@
       "compromised": "이 플러그인의 배포 경로가 침해되었습니다.",
       "fixedVersion": "수정된 버전: {{version}}.",
       "details": "보안 공지 보기"
+    },
+    "network": {
+      "timeout": "연결 시간 초과",
+      "dns": "DNS 조회 실패",
+      "proxyAuth": "프록시 인증 실패",
+      "proxyConnect": "프록시에 연결할 수 없음",
+      "certificate": "인증서 또는 TLS 오류",
+      "http": "HTTP {{status}}",
+      "cancelled": "요청 취소됨",
+      "network": "네트워크 요청 실패",
+      "cached": "새로고침 실패, 캐시된 플러그인 표시 중",
+      "unavailable": "플러그인 목록을 불러올 수 없음",
+      "direct": "{{host}} 직접 연결 실패: {{reason}}",
+      "viaProxy": "프록시 {{proxy}} 경유 {{host}} 연결 실패: {{reason}}"
     }
   },
   "plugin": {

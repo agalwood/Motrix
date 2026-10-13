@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { mkdir, realpath, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, realpath, rm, stat } from 'node:fs/promises'
 import path from 'node:path'
 import {
   downloadGithubMoext,
@@ -15,15 +15,15 @@ import {
   type RegistryExpectation,
 } from '@core/plugin/install/registry-expectation'
 import type { SourceInput } from '@core/plugin/install/source-resolver'
+import { downloadUrlMoext } from '@core/plugin/install/url-fetcher'
 import { PluginEngineVersionTooOld } from '@core/plugin/manifest/errors'
+import { PluginNetworkError } from '@core/plugin/network/plugin-network-error'
 import type { RegistryClient } from '@core/plugin/registry/registry-client'
 import { downloadRegistryMoext } from '@core/plugin/registry/registry-fetcher'
 import { AppError, ErrorCode } from '@shared/errors'
 import { REGISTRY_PLUGIN_ID_RE } from '@shared/schemas/registry'
 import { z } from 'zod'
 import type { PluginUploadStore } from './upload-store'
-
-const MAX_PLUGIN_PACKAGE_BYTES = 5 * 1024 * 1024
 
 export const serverInstallPluginPayloadSchema = z.discriminatedUnion(
   'sourceType',
@@ -71,68 +71,6 @@ function pathIsInside(root: string, candidate: string): boolean {
   )
 }
 
-async function cancelResponseBody(response: Response): Promise<void> {
-  try {
-    await response.body?.cancel()
-  } catch {
-    // Preserve the install error if cancellation races a closed/erroring body.
-  }
-}
-
-async function cancelReader(
-  reader: ReadableStreamDefaultReader<Uint8Array>
-): Promise<void> {
-  try {
-    await reader.cancel()
-  } catch {
-    // Cancellation is best-effort and must not mask the bounded-read error.
-  }
-}
-
-async function readResponseBounded(response: Response): Promise<Buffer> {
-  const declaredLength = Number(response.headers.get('content-length'))
-  if (
-    Number.isFinite(declaredLength) &&
-    declaredLength > MAX_PLUGIN_PACKAGE_BYTES
-  ) {
-    await cancelResponseBody(response)
-    throw new AppError(
-      ErrorCode.PluginManifestInvalid,
-      'plugin.install.package_too_large'
-    )
-  }
-  if (!response.body) {
-    throw new AppError(
-      ErrorCode.PluginManifestInvalid,
-      'plugin.install.url_download_failed: empty body'
-    )
-  }
-
-  const chunks: Uint8Array[] = []
-  let total = 0
-  const reader = response.body.getReader()
-  try {
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      total += value.byteLength
-      if (total > MAX_PLUGIN_PACKAGE_BYTES) {
-        throw new AppError(
-          ErrorCode.PluginManifestInvalid,
-          'plugin.install.package_too_large'
-        )
-      }
-      chunks.push(value)
-    }
-  } catch (cause) {
-    await cancelReader(reader)
-    throw cause
-  } finally {
-    reader.releaseLock()
-  }
-  return Buffer.concat(chunks, total)
-}
-
 export class ServerPluginInstallService {
   private readonly downloadsDir: string
   private readonly allowedLocalRoots: readonly string[]
@@ -177,7 +115,7 @@ export class ServerPluginInstallService {
       case 'github': {
         const spec = parseGithubSpec(payload.spec)
         const target = this.downloadPath('github')
-        await downloadGithubMoext(spec, target)
+        await downloadGithubMoext(spec, target, this.fetchImpl)
         return {
           moextPath: target,
           source: { type: 'github', spec: payload.spec },
@@ -186,18 +124,8 @@ export class ServerPluginInstallService {
       }
       case 'url': {
         const url = this.parseHttpUrl(payload.url)
-        const response = await this.fetchImpl(url, { redirect: 'follow' })
-        if (!response.ok) {
-          await cancelResponseBody(response)
-          throw new AppError(
-            ErrorCode.PluginManifestInvalid,
-            `plugin.install.url_download_failed: ${response.status}`
-          )
-        }
         const target = this.downloadPath('url')
-        await writeFile(target, await readResponseBounded(response), {
-          mode: 0o600,
-        })
+        await downloadUrlMoext(url.toString(), target, this.fetchImpl)
         return {
           moextPath: target,
           source: { type: 'url', url: payload.url },
@@ -243,6 +171,8 @@ export class ServerPluginInstallService {
           this.options.hostVersion
         )
         if (!entry) {
+          const failure = this.options.registryClient.status().error
+          if (failure) throw new PluginNetworkError(failure)
           throw new AppError(
             ErrorCode.PluginManifestInvalid,
             'plugin.install.registry_entry_missing'

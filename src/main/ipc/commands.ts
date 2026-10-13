@@ -31,6 +31,7 @@ import {
 import type { SourceInput } from '@core/plugin/install/source-resolver'
 import { downloadUrlMoext } from '@core/plugin/install/url-fetcher'
 import { PluginEngineVersionTooOld } from '@core/plugin/manifest/errors'
+import { PluginNetworkError } from '@core/plugin/network/plugin-network-error'
 import type { OperationService } from '@core/plugin/operations/operation-service'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
 import type { RegistryClient } from '@core/plugin/registry/registry-client'
@@ -224,6 +225,7 @@ export interface CommandContext {
   pluginStateStore: PluginStateStore
   pluginHost: PluginHost
   pluginInstaller: PluginInstaller
+  pluginFetch: typeof fetch
   registryClient: RegistryClient
   hostVersion: string
   builtinUpdater: BuiltinUpdater
@@ -320,6 +322,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     pluginStateStore,
     pluginHost,
     pluginInstaller,
+    pluginFetch,
     registryClient,
     hostVersion,
     builtinUpdater,
@@ -580,12 +583,12 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
           downloadDir,
           `${spec.owner}-${spec.repo}-${Date.now()}.moext`
         )
-        await downloadGithubMoext(spec, target)
+        await downloadGithubMoext(spec, target, pluginFetch)
         return target
       }
       case 'url': {
         const target = path.join(downloadDir, `download-${Date.now()}.moext`)
-        await downloadUrlMoext(p.url, target)
+        await downloadUrlMoext(p.url, target, pluginFetch)
         return target
       }
       case 'local':
@@ -1733,6 +1736,8 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         if (parsed.sourceType === 'registry') {
           const entry = await registryClient.get(parsed.pluginId, hostVersion)
           if (!entry) {
+            const failure = registryClient.status().error
+            if (failure) throw new PluginNetworkError(failure)
             throw new AppError(
               ErrorCode.PluginManifestInvalid,
               'plugin.install.registry_entry_missing'
@@ -1751,7 +1756,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
             'plugin-downloads',
             `registry-${parsed.pluginId}-${Date.now()}.moext`
           )
-          await downloadRegistryMoext(entry, moextPath)
+          await downloadRegistryMoext(entry, moextPath, pluginFetch)
           expect = buildRegistryExpectation(entry)
         } else {
           moextPath = await materializeMoext(parsed)
@@ -1771,6 +1776,8 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         }
         return result
       } catch (error) {
+        if (error instanceof PluginNetworkError)
+          return { networkError: error.failure }
         if (error instanceof PluginEngineVersionTooOld) {
           return {
             incompatible: {
@@ -1792,38 +1799,48 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     },
 
     [Commands.InstallBuiltinUpdate]: async (payload: unknown) => {
-      const parsed = builtinUpdatePayloadSchema.parse(payload)
-      const entry = await registryClient.get(parsed.pluginId, hostVersion)
-      if (entry?.origin !== 'builtin') {
-        throw new AppError(
-          ErrorCode.PluginManifestInvalid,
-          'plugin.update.builtin_entry_missing'
+      try {
+        const parsed = builtinUpdatePayloadSchema.parse(payload)
+        const entry = await registryClient.get(parsed.pluginId, hostVersion)
+        if (!entry) {
+          const failure = registryClient.status().error
+          if (failure) throw new PluginNetworkError(failure)
+        }
+        if (entry?.origin !== 'builtin') {
+          throw new AppError(
+            ErrorCode.PluginManifestInvalid,
+            'plugin.update.builtin_entry_missing'
+          )
+        }
+        const effective = pluginRegistry.get(parsed.pluginId)?.manifest
+        if (!effective) {
+          throw new AppError(
+            ErrorCode.PluginManifestInvalid,
+            'plugin.update.builtin_entry_missing'
+          )
+        }
+        const staged = await builtinUpdater.stage(entry, effective)
+        if (staged.trustChanged) {
+          return { needsConsent: true, ...staged }
+        }
+        const wasActive = pluginHost.isActive(parsed.pluginId)
+        await builtinUpdater.commit(staged.stagingId)
+        const restartRequired = await reactivateBuiltin(
+          parsed.pluginId,
+          wasActive
         )
+        // Same event ConfirmPluginInstall emits after a community install
+        // commits: usePlugins.onLifecycle refetches ListPlugins so the
+        // plugin's version/status/source.type (builtin -> builtin-update)
+        // update live, without a remount. Only on the committed path — a
+        // needsConsent return above has not touched disk yet.
+        eventBus.emit(Events.PluginInstalled, { pluginId: parsed.pluginId })
+        return { ok: true, restartRequired }
+      } catch (error) {
+        if (error instanceof PluginNetworkError)
+          return { networkError: error.failure }
+        throw error
       }
-      const effective = pluginRegistry.get(parsed.pluginId)?.manifest
-      if (!effective) {
-        throw new AppError(
-          ErrorCode.PluginManifestInvalid,
-          'plugin.update.builtin_entry_missing'
-        )
-      }
-      const staged = await builtinUpdater.stage(entry, effective)
-      if (staged.trustChanged) {
-        return { needsConsent: true, ...staged }
-      }
-      const wasActive = pluginHost.isActive(parsed.pluginId)
-      await builtinUpdater.commit(staged.stagingId)
-      const restartRequired = await reactivateBuiltin(
-        parsed.pluginId,
-        wasActive
-      )
-      // Same event ConfirmPluginInstall emits after a community install
-      // commits: usePlugins.onLifecycle refetches ListPlugins so the
-      // plugin's version/status/source.type (builtin -> builtin-update)
-      // update live, without a remount. Only on the committed path — a
-      // needsConsent return above has not touched disk yet.
-      eventBus.emit(Events.PluginInstalled, { pluginId: parsed.pluginId })
-      return { ok: true, restartRequired }
     },
 
     [Commands.ConfirmBuiltinUpdate]: async (payload: unknown) => {

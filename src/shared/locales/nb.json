@@ -1690,6 +1690,20 @@
       "compromised": "Distribusjonen av denne utvidelsen er kompromittert.",
       "fixedVersion": "En rettelse er tilgjengelig i versjon {{version}}.",
       "details": "Vis sikkerhetsvarsel"
+    },
+    "network": {
+      "timeout": "Tidsavbrudd for tilkoblingen",
+      "dns": "DNS-oppslag mislyktes",
+      "proxyAuth": "Proxyautentisering mislyktes",
+      "proxyConnect": "Kunne ikke koble til proxyen",
+      "certificate": "Sertifikat- eller TLS-feil",
+      "http": "HTTP {{status}}",
+      "cancelled": "Forespørselen ble avbrutt",
+      "network": "Nettverksforespørselen mislyktes",
+      "cached": "Oppdatering mislyktes; viser mellomlagrede programtillegg",
+      "unavailable": "Kunne ikke laste katalogen for programtillegg",
+      "direct": "Direkte tilkobling til {{host}} mislyktes: {{reason}}",
+      "viaProxy": "Tilkobling til {{host}} via proxy {{proxy}} mislyktes: {{reason}}"
     }
   },
   "quit": {
@@ -2590,7 +2604,7 @@
         "bypass": "Koble direkte til",
         "bypassDesc": "Ett domene, én IP-adresse eller ett CIDR-område per linje. Start med . for bare å samsvare med underdomener. Filnedlastinger støtter ikke jokertegnet *.",
         "bypassPlaceholder": "localhost\n127.0.0.1\n.local",
-        "bypassScopeNote": "Bare filnedlastinger og appoppdateringer",
+        "bypassScopeNote": "Bare nedlastinger, programtillegg og appoppdateringer",
         "enable": "Aktiver mellomtjener",
         "enableDesc": "Bruk en mellomtjener for tilkoblingene som er valgt nedenfor.",
         "hidePassword": "Skjul passord",
@@ -2617,7 +2631,9 @@
         "server": "Server",
         "showPassword": "Vis passord",
         "title": "Mellomtjener",
-        "user": "Brukernavn"
+        "user": "Brukernavn",
+        "scopePlugins": "Installasjon og oppdatering av programtillegg",
+        "scopePluginsDesc": "Bruk proxy for katalogen, pakker, oppdateringer og sikkerhetsregler for programtillegg."
       },
       "reachability": {
         "addEndpoint": "Legg til kontrolltjeneste",

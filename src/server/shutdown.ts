@@ -8,6 +8,7 @@ export interface ServerShutdownActions {
    * the emit-coalescing design; runs before every ingress teardown.
    */
   flushTaskUpdates?: ShutdownAction
+  closePluginNetwork?: ShutdownAction
   stopPolling: ShutdownAction
   closeIngress: ShutdownAction
   closeBridge: ShutdownAction
@@ -74,6 +75,7 @@ export function createServerShutdown(
         safely('rpc-notifications', actions.unsubscribeProducers),
         safely('dev-watcher', actions.drainDevWatcher),
         safely('plugin-host', actions.drainPluginHost),
+        safely('plugin-network', () => actions.closePluginNetwork?.()),
         safely('magnet', actions.drainMagnet),
         safely('geoip', actions.stopGeoIP),
         safely('speed-limit', actions.stopSpeedLimit),

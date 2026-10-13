@@ -311,5 +311,6 @@ export interface ProxySettings {
     download: boolean
     updateApp: boolean
     updateTrackers: boolean
+    plugins: boolean
   }
 }

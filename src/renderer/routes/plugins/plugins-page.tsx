@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { PluginCard } from './components/plugin-card'
 import { PluginGuidance } from './components/plugin-guidance'
+import { RegistryNetworkNotice } from './components/registry-network-notice'
 import { RegistryPluginCard } from './components/registry-plugin-card'
 import { useCallGraphPreload } from './hooks/use-call-graph-preload'
 import { usePlugins } from './hooks/use-plugins'
@@ -144,6 +145,7 @@ export function PluginsPage() {
               </div>
             ) : (
               <div className="flex w-full flex-col gap-4">
+                <RegistryNetworkNotice retry={refresh} pending={refreshing} />
                 <PluginGuidance hasUserManagedPlugin={hasUserManagedPlugin} />
 
                 {plugins.length === 0 ? null : filtered.length === 0 ? (

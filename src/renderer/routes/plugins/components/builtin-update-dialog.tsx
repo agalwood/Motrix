@@ -10,8 +10,10 @@ import {
 } from '@renderer/components/ui/dialog'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
+import type { PluginNetworkFailure } from '@shared/schemas/plugin-network'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { formatPluginNetworkFailure } from '../lib/network-error'
 import { usePluginsStore } from '../store'
 
 interface Props {
@@ -44,11 +46,19 @@ export function BuiltinUpdateDialog({ pluginId, open, onOpenChange }: Props) {
       .invoke(Commands.InstallBuiltinUpdate, { pluginId })
       .then((resp) => {
         const r = resp as {
+          networkError?: PluginNetworkFailure
           needsConsent?: boolean
           stagingId?: string
           added?: string[]
           newVersion?: string
           restartRequired?: boolean
+        }
+        if (r.networkError) {
+          setPhase({
+            kind: 'error',
+            message: formatPluginNetworkFailure(t, r.networkError),
+          })
+          return
         }
         if (r.needsConsent && r.stagingId) {
           setPhase({
@@ -73,7 +83,7 @@ export function BuiltinUpdateDialog({ pluginId, open, onOpenChange }: Props) {
           message: e instanceof Error ? e.message : String(e),
         })
       })
-  }, [open, pluginId, clearUpdate])
+  }, [open, pluginId, clearUpdate, t])
 
   async function confirm() {
     if (phase.kind !== 'consent') return

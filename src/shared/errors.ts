@@ -14,6 +14,7 @@ export enum ErrorCode {
   TaskPathTooLong = 'TASK_PATH_TOO_LONG',
   SessionRestoreFailed = 'SESSION_RESTORE_FAILED',
   SettingsInvalid = 'SETTINGS_INVALID',
+  PluginNetworkFailed = 'PLUGIN_NETWORK_FAILED',
   PluginTimeout = 'PLUGIN_TIMEOUT',
   PluginExecutionFailed = 'PLUGIN_EXECUTION_FAILED',
   PluginLoadFailed = 'PLUGIN_LOAD_FAILED',

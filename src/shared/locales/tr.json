@@ -1707,7 +1707,7 @@
         "hidePassword": "Parolayı gizle",
         "bypass": "Doğrudan bağlanılacak adresler",
         "bypassDesc": "Her satıra bir alan adı, IP veya CIDR girin. Yalnızca alt alan adlarını eşleştirmek için . ile başlayın. Dosya indirmeleri * joker karakterini desteklemez.",
-        "bypassScopeNote": "Yalnızca dosya indirmeleri ve uygulama güncellemeleri",
+        "bypassScopeNote": "Yalnızca indirmeler, eklentiler ve uygulama güncellemeleri",
         "scopes": "Vekil sunucunun kullanılacağı işlemler",
         "scopesDesc": "Vekil sunucudan geçecek trafik türlerini seçin.",
         "scopeDownload": "Dosya indirmeleri",
@@ -1723,7 +1723,9 @@
         "scopeHint": "BT eşleri, DHT ve UDP izleyicileri doğrudan bağlanır.",
         "scopeNone": "Hiçbiri seçilmedi",
         "scopeChoose": "Seç…",
-        "scopeSeparator": ", "
+        "scopeSeparator": ", ",
+        "scopePlugins": "Eklenti kurulumu ve güncellemeleri",
+        "scopePluginsDesc": "Eklenti kataloğu, paketleri, güncellemeleri ve güvenlik ilkesi istekleri için proxy kullanın."
       },
       "nat": {
         "title": "Bağlantı noktası eşlemesi (NAT)",
@@ -2721,6 +2723,20 @@
       "compromised": "Bu eklentinin dağıtım kanalı ele geçirildi.",
       "fixedVersion": "Düzeltme {{version}} sürümünde mevcut.",
       "details": "Güvenlik duyurusunu görüntüle"
+    },
+    "network": {
+      "timeout": "Bağlantı zaman aşımına uğradı",
+      "dns": "DNS çözümlemesi başarısız",
+      "proxyAuth": "Proxy kimlik doğrulaması başarısız",
+      "proxyConnect": "Proxy sunucusuna bağlanılamadı",
+      "certificate": "Sertifika veya TLS hatası",
+      "http": "HTTP {{status}}",
+      "cancelled": "İstek iptal edildi",
+      "network": "Ağ isteği başarısız",
+      "cached": "Yenileme başarısız; önbellekteki eklentiler gösteriliyor",
+      "unavailable": "Eklenti kataloğu yüklenemedi",
+      "direct": "{{host}} doğrudan bağlantısı başarısız: {{reason}}",
+      "viaProxy": "{{proxy}} proxy sunucusu üzerinden {{host}} bağlantısı başarısız: {{reason}}"
     }
   },
   "plugin": {

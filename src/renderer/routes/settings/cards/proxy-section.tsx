@@ -43,13 +43,19 @@ import { useTranslation } from 'react-i18next'
 import type { NetworkFields } from './network-dialog'
 
 type ProxyScope = keyof ProxySettings['scopes']
-const PROXY_SCOPES: ProxyScope[] = ['download', 'updateApp', 'updateTrackers']
+const PROXY_SCOPES: ProxyScope[] = [
+  'download',
+  'plugins',
+  'updateApp',
+  'updateTrackers',
+]
 
 export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
   const { t } = useTranslation()
   const scopes = form.watch('proxy.scopes')
   const scopeLabels: Record<ProxyScope, string> = {
     download: t('settings.network.proxy.scopeDownload'),
+    plugins: t('settings.network.proxy.scopePlugins'),
     updateApp: t('settings.network.proxy.scopeUpdateApp'),
     updateTrackers: t('settings.network.proxy.scopeUpdateTrackers'),
   }
@@ -433,6 +439,8 @@ export function ProxySection({ form }: { form: UseFormReturn<NetworkFields> }) {
                       ))}
                       <DropdownMenuSeparator />
                       <p className="px-2 py-1.5 text-xs leading-relaxed text-muted-foreground">
+                        {t('settings.network.proxy.scopePluginsDesc')}
+                        <br />
                         {t('settings.network.proxy.scopeHint')}
                       </p>
                     </DropdownMenuContent>

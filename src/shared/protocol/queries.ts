@@ -39,6 +39,7 @@ export const Queries = {
   // Entries come back annotated with a `compatible` host-version flag.
   // Contract: .claude/rules/plugin-registry.md.
   ListRegistryPlugins: 'query:listRegistryPlugins',
+  GetRegistryStatus: 'query:getRegistryStatus',
   GetRegistryPlugin: 'query:getRegistryPlugin',
   // Spec §10 L2877 — aggregate snapshot of all enabled plugins'
   // contributions (commands, hooks, configurations). Drives the renderer's

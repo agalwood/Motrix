@@ -1721,7 +1721,7 @@
         "hidePassword": "Nascondi password",
         "bypass": "Connetti direttamente a",
         "bypassDesc": "Un dominio, IP o CIDR per riga. Inizia con . per includere solo i sottodomini. I download di file non supportano il carattere jolly *.",
-        "bypassScopeNote": "Solo download di file e aggiornamenti dell’app",
+        "bypassScopeNote": "Solo download, plugin e aggiornamenti dell’app",
         "scopes": "Usa proxy per",
         "scopesDesc": "Scegli quali tipi di traffico passano attraverso il proxy.",
         "scopeDownload": "Download di file",
@@ -1737,7 +1737,9 @@
         "scopeHint": "Peer BT, DHT e tracker UDP si connettono direttamente.",
         "scopeNone": "Nessuna selezione",
         "scopeChoose": "Seleziona…",
-        "scopeSeparator": ", "
+        "scopeSeparator": ", ",
+        "scopePlugins": "Installazione e aggiornamento dei plugin",
+        "scopePluginsDesc": "Usa il proxy per il catalogo, i pacchetti, gli aggiornamenti e le politiche di sicurezza dei plugin."
       },
       "nat": {
         "title": "Mappatura delle porte (NAT)",
@@ -2742,6 +2744,20 @@
       "compromised": "La distribuzione di questo plugin è stata compromessa.",
       "fixedVersion": "Una correzione è disponibile nella versione {{version}}.",
       "details": "Visualizza avviso di sicurezza"
+    },
+    "network": {
+      "timeout": "Connessione scaduta",
+      "dns": "Risoluzione DNS non riuscita",
+      "proxyAuth": "Autenticazione del proxy non riuscita",
+      "proxyConnect": "Impossibile connettersi al proxy",
+      "certificate": "Errore di certificato o TLS",
+      "http": "HTTP {{status}}",
+      "cancelled": "Richiesta annullata",
+      "network": "Richiesta di rete non riuscita",
+      "cached": "Aggiornamento non riuscito; vengono mostrati i plugin in cache",
+      "unavailable": "Impossibile caricare il catalogo dei plugin",
+      "direct": "Connessione diretta a {{host}} non riuscita: {{reason}}",
+      "viaProxy": "Connessione a {{host}} tramite il proxy {{proxy}} non riuscita: {{reason}}"
     }
   },
   "plugin": {

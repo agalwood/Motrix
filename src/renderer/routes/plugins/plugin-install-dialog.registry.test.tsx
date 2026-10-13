@@ -88,6 +88,32 @@ describe('PluginInstallDialog with fixedSource', () => {
     expect(mockInvoke).toHaveBeenCalledTimes(1)
   })
 
+  it('renders a structured proxy timeout without exposing an IPC error', async () => {
+    mockInvoke.mockResolvedValueOnce({
+      networkError: {
+        reason: 'timeout',
+        route: 'proxy',
+        proxyEndpoint: '127.0.0.1:7897',
+        targetHost: 'github.com',
+      },
+    })
+    render(
+      <PluginInstallDialog
+        open
+        onOpenChange={vi.fn()}
+        fixedSource={{ sourceType: 'registry', pluginId: 'acme.speed-boost' }}
+      />
+    )
+    expect(
+      await screen.findByText(
+        'Connection to github.com via proxy 127.0.0.1:7897 failed: Connection timed out'
+      )
+    ).toBeVisible()
+    expect(screen.queryByTestId('consent-panel')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(await screen.findByTestId('consent-panel')).toBeVisible()
+  })
+
   it('offers retry after a download fails without returning to manual source entry', async () => {
     mockInvoke.mockRejectedValueOnce(new Error('Download failed'))
     render(

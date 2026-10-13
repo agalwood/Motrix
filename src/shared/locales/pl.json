@@ -1735,7 +1735,7 @@
         "hidePassword": "Ukryj hasło",
         "bypass": "Łącz bezpośrednio z",
         "bypassDesc": "Jedna domena, adres IP lub CIDR w wierszu. Zacznij od ., aby dopasować tylko subdomeny. Pobieranie plików nie obsługuje symbolu wieloznacznego *.",
-        "bypassScopeNote": "Tylko pobieranie plików i aktualizacje aplikacji",
+        "bypassScopeNote": "Tylko pobieranie, wtyczki i aktualizacje aplikacji",
         "scopes": "Używaj proxy do",
         "scopesDesc": "Wybierz, które rodzaje ruchu przechodzą przez proxy.",
         "scopeDownload": "Pobieranie plików",
@@ -1751,7 +1751,9 @@
         "scopeHint": "Peery BT, DHT i trackery UDP łączą się bezpośrednio.",
         "scopeNone": "Nic nie wybrano",
         "scopeChoose": "Wybierz…",
-        "scopeSeparator": ", "
+        "scopeSeparator": ", ",
+        "scopePlugins": "Instalacja i aktualizacja wtyczek",
+        "scopePluginsDesc": "Używaj proxy do katalogu, pakietów, aktualizacji i zasad bezpieczeństwa wtyczek."
       },
       "nat": {
         "title": "Mapowanie portów (NAT)",
@@ -2763,6 +2765,20 @@
       "compromised": "Kanał dystrybucji tej wtyczki został naruszony.",
       "fixedVersion": "Poprawka jest dostępna w wersji {{version}}.",
       "details": "Wyświetl komunikat bezpieczeństwa"
+    },
+    "network": {
+      "timeout": "Przekroczono czas połączenia",
+      "dns": "Błąd rozpoznawania DNS",
+      "proxyAuth": "Błąd uwierzytelniania proxy",
+      "proxyConnect": "Nie można połączyć się z proxy",
+      "certificate": "Błąd certyfikatu lub TLS",
+      "http": "HTTP {{status}}",
+      "cancelled": "Żądanie anulowane",
+      "network": "Błąd żądania sieciowego",
+      "cached": "Aktualizacja nie powiodła się; wyświetlono wtyczki z pamięci podręcznej",
+      "unavailable": "Nie można wczytać katalogu wtyczek",
+      "direct": "Błąd bezpośredniego połączenia z {{host}}: {{reason}}",
+      "viaProxy": "Błąd połączenia z {{host}} przez proxy {{proxy}}: {{reason}}"
     }
   },
   "plugin": {
