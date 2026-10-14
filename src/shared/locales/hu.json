@@ -1587,6 +1587,7 @@
         "turtle_off": "Normál",
         "turtle_on": "Alacsony sebesség",
         "turtle_auto": "Automatikus",
+        "unitFor": "{{field}} mértékegysége",
         "baseSection": "Normál korlátok",
         "baseSectionDesc": "A mindennapi letöltésekhez használatosak, és minden mód figyelembe veszi őket.",
         "baseDownload": "Letöltés",

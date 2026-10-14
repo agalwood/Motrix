@@ -1573,6 +1573,7 @@
         "turtle_off": "표준",
         "turtle_on": "저속",
         "turtle_auto": "자동",
+        "unitFor": "{{field}} 단위",
         "baseSection": "표준 제한",
         "baseSectionDesc": "일반적인 다운로드에 사용하며 모든 모드에서 이 제한을 준수합니다.",
         "baseDownload": "다운로드",

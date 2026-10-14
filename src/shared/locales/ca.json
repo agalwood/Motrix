@@ -2126,6 +2126,7 @@
         "bandwidthUsed": "El Motrix pot utilitzar fins al {{motrix}}%.",
         "baseDownload": "Baixada",
         "baseDownloadDesc": "Velocitat màxima de baixada per a l'ús habitual.",
+        "unitFor": "Unitat de {{field}}",
         "baseSection": "Límits estàndard",
         "baseSectionDesc": "S'utilitzen per a les baixades habituals i es respecten en tots els modes.",
         "baseUpload": "Pujada",

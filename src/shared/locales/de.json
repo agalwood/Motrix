@@ -1587,6 +1587,7 @@
         "turtle_off": "Standard",
         "turtle_on": "Langsam",
         "turtle_auto": "Automatisch",
+        "unitFor": "Einheit für {{field}}",
         "baseSection": "Standardlimits",
         "baseSectionDesc": "Für alltägliche Downloads; gelten in jedem Modus.",
         "baseDownload": "Download",

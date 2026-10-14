@@ -2183,6 +2183,7 @@
         "bandwidthUsed": "يمكن لـ Motrix استخدام {{motrix}}% كحد أقصى.",
         "baseDownload": "تنزيل",
         "baseDownloadDesc": "أقصى سرعة تنزيل للاستخدام اليومي.",
+        "unitFor": "وحدة {{field}}",
         "baseSection": "الحدود القياسية",
         "baseSectionDesc": "تُستخدم للتنزيلات اليومية وتبقى سارية في كل الأوضاع.",
         "baseUpload": "الرفع",

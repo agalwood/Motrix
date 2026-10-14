@@ -6,6 +6,27 @@ import {
 } from './app-settings'
 
 describe('appSettingsSchema', () => {
+  it('recovers missing or damaged speed limit units without losing valid choices', () => {
+    expect(appSettingsSchema.parse({}).speedLimitUnits).toEqual({
+      baseUpload: 'kilo',
+      baseDownload: 'kilo',
+      altUpload: 'kilo',
+      altDownload: 'kilo',
+    })
+    expect(
+      appSettingsSchema.parse({
+        speedLimitUnits: { baseUpload: 'mega', baseDownload: 'GB' },
+      }).speedLimitUnits
+    ).toEqual({
+      baseUpload: 'mega',
+      baseDownload: 'kilo',
+      altUpload: 'kilo',
+      altDownload: 'kilo',
+    })
+    expect(
+      appSettingsSchema.parse({ speedLimitUnits: null }).speedLimitUnits
+    ).toEqual(DEFAULT_APP_SETTINGS.speedLimitUnits)
+  })
   it('preserves system and explicit language preferences on load and write', () => {
     for (const language of ['system', 'fr', 'en-US', 'zh-CN', 'zh-TW']) {
       expect(appSettingsSchema.parse({ language }).language).toBe(language)

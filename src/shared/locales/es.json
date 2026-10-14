@@ -1601,6 +1601,7 @@
         "turtle_off": "Estándar",
         "turtle_on": "Baja velocidad",
         "turtle_auto": "Automático",
+        "unitFor": "Unidad de {{field}}",
         "baseSection": "Límites estándar",
         "baseSectionDesc": "Se usan en las descargas habituales y se respetan en todos los modos.",
         "baseDownload": "Descarga",

@@ -2126,6 +2126,7 @@
         "bandwidthUsed": "Motrix poate folosi până la {{motrix}}%.",
         "baseDownload": "Descărcare",
         "baseDownloadDesc": "Viteza maximă obișnuită de descărcare.",
+        "unitFor": "Unitate pentru {{field}}",
         "baseSection": "Limite standard",
         "baseSectionDesc": "Folosite pentru descărcările obișnuite și respectate în toate modurile.",
         "baseUpload": "Încărcare",

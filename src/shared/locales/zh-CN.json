@@ -1573,6 +1573,7 @@
         "turtle_off": "常规",
         "turtle_on": "低速",
         "turtle_auto": "自动",
+        "unitFor": "{{field}}的单位",
         "baseSection": "常规限速",
         "baseSectionDesc": "日常下载使用；所有模式都会遵循这里的上限。",
         "baseDownload": "下载",

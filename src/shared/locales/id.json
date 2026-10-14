@@ -1573,6 +1573,7 @@
         "turtle_off": "Standar",
         "turtle_on": "Kecepatan rendah",
         "turtle_auto": "Otomatis",
+        "unitFor": "Satuan untuk {{field}}",
         "baseSection": "Batas standar",
         "baseSectionDesc": "Digunakan untuk unduhan sehari-hari dan dipatuhi dalam semua mode.",
         "baseDownload": "Unduh",
