@@ -5,7 +5,7 @@ import { useTaskActions } from './use-task-actions'
 const EMPTY = [] as const
 
 /**
- * 重新下载覆盖确认对话框的全局 Host 组件
+ * Global host for the re-download confirmation dialog.
  */
 export function RedownloadOverwriteDialogHost() {
   const state = useRedownloadOverwriteStore()

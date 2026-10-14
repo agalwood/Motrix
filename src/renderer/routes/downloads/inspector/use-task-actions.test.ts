@@ -253,7 +253,7 @@ describe('useTaskActions', () => {
       makeTask({ id: 'd', status: TaskStatus.Completed, kind: TaskKind.Mux }),
     ]
     const { result } = renderHook(() => useTaskActions(tasks))
-    expect(result.current.redownloadCount).toBe(1) // 仅 a 符合条件
+    expect(result.current.redownloadCount).toBe(1) // Only task a is eligible.
   })
 
   it('onRedownload({ alt: true }) opens dialog with prefilled parameters', async () => {
@@ -301,7 +301,7 @@ describe('useTaskActions', () => {
       expect.anything()
     )
 
-    // 用户在弹窗中确认覆盖重新下载
+    // The user confirms re-downloading in the dialog.
     await result.current.confirmRedownloadOverwrite()
     expect(transport.invoke).toHaveBeenCalledWith(
       Commands.CreateTask,
@@ -311,6 +311,39 @@ describe('useTaskActions', () => {
     )
     expect(useRedownloadOverwriteStore.getState().open).toBe(false)
   })
+
+  it.each(['direct', 'confirm', 'edit'])(
+    'uses the saved directory when engine options are unavailable: %s',
+    async (mode) => {
+      const task = makeTask({ status: TaskStatus.Completed })
+      vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+        if (channel === Queries.CheckTaskFileExists) {
+          return { exists: mode === 'confirm' }
+        }
+        if (channel === Queries.GetEngineTaskOptions) return null
+        return { ok: true }
+      })
+      const { result } = renderHook(() => useTaskActions([task]))
+
+      await result.current.onRedownload({ alt: mode === 'edit' })
+      if (mode === 'confirm') {
+        await result.current.confirmRedownloadOverwrite()
+      }
+
+      const expected = expect.objectContaining({
+        saveDir: '/tmp',
+        filename: 'sample',
+      })
+      if (mode === 'edit') {
+        expect(openAddTaskDialog).toHaveBeenCalledWith(expected)
+      } else {
+        expect(transport.invoke).toHaveBeenCalledWith(
+          Commands.CreateTask,
+          expected
+        )
+      }
+    }
+  )
 
   it('onRedownload directly creates task when output file does not exist', async () => {
     const task = makeTask({ id: 'comp', status: TaskStatus.Completed })
@@ -338,7 +371,7 @@ describe('useTaskActions', () => {
   })
 
   it('onRedownload warns and falls back to dialog if original credentials expired', async () => {
-    // 构造一个标记为需要认证凭证的任务（非 uri-only）
+    // This task requires credentials and cannot be replayed from its URI alone.
     const task = makeTask({
       id: 'comp-cred',
       status: TaskStatus.Completed,
@@ -376,7 +409,7 @@ describe('useTaskActions', () => {
           return { exists: false }
         }
         if (channel === Queries.GetEngineTaskOptions) {
-          return null // 模拟引擎重启或凭证丢失
+          return null // Simulate an engine restart or expired credentials.
         }
         return { ok: true }
       }

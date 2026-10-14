@@ -133,6 +133,12 @@ Inactive -> Activating -> Active -> Quiescing -> Inactive
 `pre-resolve`、`resolve` 和 `post-process` 失败会中止链；`enrich` 与
 `audit` 失败会被隔离，链继续执行。`audit` 插件不能产生变更效果。
 
+激活失败与 Hook 调用失败遵循相同的隔离策略；熔断器打开时直接跳过激活。
+内置文件名模板的 `beforeFinalize` Hook 是可选步骤：`pre-resolve` 角色用于
+控制执行顺序，Worker 启动失败、崩溃、超时或 Hook 报错时，会丢弃该插件的
+效果并保留此前接受的目标文件名。收尾继续执行原有的路径校验和重名处理。
+必要的解析与后处理 Hook 仍在失败时中止链。
+
 ### 5.3 任务终态与 post-Hook 顺序
 
 ```text

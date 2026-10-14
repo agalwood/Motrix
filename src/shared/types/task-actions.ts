@@ -122,7 +122,7 @@ export function canReseed(t: DownloadTask): boolean {
   )
 }
 
-/** 判定任务是否可以重新下载（已完成的常规下载任务） */
+/** Completed regular downloads can be downloaded again. */
 export function canRedownload(t: DownloadTask): boolean {
   return (
     !hasLegacyImport(t) &&

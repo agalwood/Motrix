@@ -330,6 +330,116 @@ describe('HookOrchestrator', () => {
     expect(invokeHook).toHaveBeenCalledOnce()
   })
 
+  describe('demand activation failure isolation', () => {
+    it.each([
+      ['beforeCreate', 'enrich', 'optional.enrich', false],
+      ['beforeCreate', 'audit', 'optional.audit', false],
+      ['beforeCreate', 'resolve', 'required.resolve', true],
+      ['beforeCreate', 'pre-resolve', 'motrix.filename-template', true],
+      ['beforeFinalize', 'enrich', 'optional.enrich', false],
+      ['beforeFinalize', 'pre-resolve', 'motrix.filename-template', false],
+      ['beforeFinalize', 'pre-resolve', 'required.prepare', true],
+      ['beforeFinalize', 'post-process', 'required.merge', true],
+    ] as const)(
+      '%s handles %s activation failure for %s (abort=%s)',
+      async (hook, role, id, aborts) => {
+        const plugins: FixturePlugin[] = [
+          { id, role, hooks: [hook] },
+          { id: 'z.healthy', role: 'audit', hooks: [hook] },
+        ]
+        const { host, extras } = makeMockHost(plugins)
+        const healthy = host.allActive().filter((entry) => entry.id !== id)
+        vi.spyOn(host, 'allActive').mockReturnValue(healthy)
+        const activateForHook = vi.fn(async (pluginId: string) => {
+          if (pluginId === id) throw new Error('worker unavailable')
+        })
+        const breaker: CircuitBreaker = {
+          success: vi.fn(),
+          failure: vi.fn(),
+          isOpen: vi.fn(() => false),
+        }
+        const orch = new HookOrchestrator({
+          host,
+          activationDispatcher: {
+            candidatesForHook: () =>
+              plugins.map((plugin) => ({
+                id: plugin.id,
+                role: plugin.role,
+                manifest: makeManifest(plugin),
+                generation: 1,
+                executableDigest: 'a'.repeat(64),
+              })),
+            activateForHook,
+          },
+          breaker,
+          hookTimeoutMs: TIMEOUTS,
+          ...ORCH_OPTS_BASE,
+        })
+
+        const result =
+          hook === 'beforeCreate'
+            ? await orch.runBeforeCreateHttp(makeBeforeCreateDto(), 'task-1')
+            : await orch.runBeforeFinalize(makeBeforeFinalizeDto(), 'task-1')
+
+        expect(Boolean(result.aborted)).toBe(aborts)
+        expect(breaker.failure).toHaveBeenCalledWith(id, hook)
+        expect(extras.invocations).toEqual(
+          aborts ? [] : [{ pluginId: 'z.healthy', hook }]
+        )
+        if (!result.aborted && hook === 'beforeFinalize') {
+          expect(result.final).toMatchObject(makeBeforeFinalizeDto())
+          expect(result.staged.allMetadataOps()).toEqual([])
+          expect(result.staged.hasPolicyChecks).toBe(false)
+        }
+
+        vi.mocked(breaker.isOpen).mockImplementation(
+          (pluginId) => pluginId === id
+        )
+        activateForHook.mockClear()
+        if (hook === 'beforeCreate') {
+          await orch.runBeforeCreateHttp(makeBeforeCreateDto(), 'task-2')
+        } else {
+          await orch.runBeforeFinalize(makeBeforeFinalizeDto(), 'task-2')
+        }
+        expect(activateForHook).not.toHaveBeenCalledWith(id, hook)
+      }
+    )
+
+    it.each(['afterComplete', 'onError'] as const)(
+      '%s continues other plugins when one worker cannot start',
+      async (hook) => {
+        const plugins: FixturePlugin[] = [
+          { id: 'broken', role: 'audit', hooks: [hook] },
+          { id: 'healthy', role: 'audit', hooks: [hook] },
+        ]
+        const { host, extras } = makeMockHost(plugins)
+        const orch = new HookOrchestrator({
+          host,
+          activationDispatcher: {
+            candidatesForHook: () =>
+              plugins.map((plugin) => ({
+                id: plugin.id,
+                role: plugin.role,
+                manifest: makeManifest(plugin),
+                generation: 1,
+                executableDigest: 'a'.repeat(64),
+              })),
+            activateForHook: async (id) => {
+              if (id === 'broken') throw new Error('worker unavailable')
+            },
+          },
+          hookTimeoutMs: TIMEOUTS,
+          ...ORCH_OPTS_BASE,
+        })
+
+        await expect(
+          orch.runParallel(hook, {} as never, 'task-1')
+        ).resolves.toBeUndefined()
+        expect(extras.invocations).toEqual([{ pluginId: 'healthy', hook }])
+      }
+    )
+  })
+
   describe('runBeforeCreateHttp — happy path', () => {
     let host: PluginHost
     let bridges: Map<string, MockBridge>
@@ -812,6 +922,66 @@ describe('HookOrchestrator', () => {
       expect(result.reason).toContain('plugin-resolve')
       expect(result.reason).toContain('resolve crash')
     })
+
+    it.each(['crash', 'timeout'])(
+      'discards filename template effects after %s and keeps the original target',
+      async (failure) => {
+        let laterPayload: Record<string, unknown> | undefined
+        const { host } = makeMockHost([
+          {
+            id: 'motrix.filename-template',
+            role: 'pre-resolve',
+            hooks: ['beforeFinalize'],
+            handler: async ({ bridge, signal }) => {
+              const ctx = bridge.setHookContext.mock.calls[0]?.[0]
+              ctx.staged.setFinalizePath('/downloads/partial.zip')
+              ctx.staged.appendMeta({
+                pluginId: 'motrix.filename-template',
+                op: 'set',
+                key: 'partial',
+                value: true,
+              })
+              if (failure === 'crash') throw new Error('worker crashed')
+              await new Promise<void>((_resolve, reject) => {
+                signal.addEventListener(
+                  'abort',
+                  () => reject(new Error('hook timed out')),
+                  { once: true }
+                )
+              })
+            },
+          },
+          {
+            id: 'healthy',
+            role: 'audit',
+            hooks: ['beforeFinalize'],
+            handler: ({ ctxPayload }) => {
+              laterPayload = ctxPayload
+            },
+          },
+        ])
+        const policyCheck = vi.fn()
+        host.capturePolicyCheck = () => policyCheck
+        const orch = new HookOrchestrator({
+          host,
+          hookTimeoutMs: TIMEOUTS,
+          ...ORCH_OPTS_BASE,
+        })
+        const initial = makeBeforeFinalizeDto()
+
+        const result = await orch.runBeforeFinalize(initial, 'task-1')
+
+        expect(result.aborted).toBeFalsy()
+        if (result.aborted) throw new Error(result.reason)
+        expect(result.final).toMatchObject(initial)
+        expect(result.finalFilePath).toBeUndefined()
+        expect(result.replacement).toBeUndefined()
+        expect(result.staged.allMetadataOps()).toEqual([])
+        expect(laterPayload).toMatchObject(initial)
+        // Only the successful audit plugin retains a commit-boundary policy check.
+        expect(policyCheck).toHaveBeenCalledOnce()
+      }
+    )
 
     it('does not recursively discard unjournaled bytes during abort', async () => {
       const discardSpy = vi

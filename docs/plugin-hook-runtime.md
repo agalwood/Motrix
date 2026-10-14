@@ -144,6 +144,14 @@ context or an uncommitted effect from a failed plugin.
 `enrich` and `audit` failures are isolated and the chain continues. An `audit`
 plugin cannot produce mutating effects.
 
+Activation failures use the same isolation policy as Hook invocation failures,
+and an open circuit breaker skips activation entirely. The built-in filename
+template's `beforeFinalize` Hook is optional: its `pre-resolve` role controls
+ordering, but a worker startup failure, crash, timeout, or Hook error discards
+its effects and preserves the previously accepted target name. Finalization
+continues with the ordinary path validation and collision handling. Required
+resolver and post-processing Hooks retain their abort-on-failure policy.
+
 ### 5.3 Terminal task and post-Hook sequence
 
 ```text

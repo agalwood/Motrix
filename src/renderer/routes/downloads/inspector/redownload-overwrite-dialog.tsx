@@ -21,7 +21,7 @@ export interface RedownloadOverwriteDialogProps {
 }
 
 /**
- * 重新下载时，当目标文件已存在时的确认弹窗
+ * Confirm re-downloading when the destination file already exists.
  */
 export function RedownloadOverwriteDialog({
   open,

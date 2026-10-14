@@ -107,7 +107,7 @@ function buildPrefillFromTask(
   return {
     tab: 'links' as const,
     urls: task.uris.join('\n'),
-    saveDir: (opts?.dir as string | undefined) || task.diskPath,
+    saveDir: (opts?.dir as string | undefined) || task.saveDir,
     filename: task.finalName,
     split:
       opts?.split && typeof opts.split === 'string'
@@ -397,7 +397,7 @@ export function useTaskActions(
 
   const executeRedownload = useCallback(
     async (task: DownloadTask) => {
-      // 检查原任务是否只依赖纯 URI
+      // Check whether the original task can be replayed from its URI alone.
       const primary = task.instances.find(
         (instance) => instance.phase === TaskInstancePhase.HttpDownload
       )
@@ -413,7 +413,7 @@ export function useTaskActions(
         opts = null
       }
 
-      // 若任务原本需要认证凭证（Cookie/Headers/Proxy等），但由于引擎重启或过期导致取不回参数，则引导弹出编辑弹层
+      // Let the user restore credentials when the engine no longer has them.
       if (!isUriOnly && !opts) {
         toast.add({
           title: t('panel.downloads.action.redownloadCredentialsExpired'),
@@ -456,13 +456,13 @@ export function useTaskActions(
       if (!targets.length) return
       const task = targets[0]
 
-      // 若按住 Alt 键，直接唤起 Add Task 弹层供用户修改参数
+      // Alt-click opens the task dialog for editing before re-downloading.
       if (modifier?.alt) {
         await altReAddSingle(task)
         return
       }
 
-      // 直接点击：首先检测磁盘上目标文件是否仍存在
+      // A regular click first checks whether the destination still exists.
       const exists = await checkFileExists(task)
       if (exists) {
         useRedownloadOverwriteStore.setState({
@@ -473,7 +473,7 @@ export function useTaskActions(
         return
       }
 
-      // 文件已被删除，直接执行重新下载
+      // Start immediately when the output file is missing.
       await executeRedownload(task)
     },
     [selected, readyToWrite, altReAddSingle, checkFileExists, executeRedownload]

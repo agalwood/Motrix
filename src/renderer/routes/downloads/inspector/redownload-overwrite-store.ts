@@ -3,7 +3,7 @@ import type { DownloadTask } from '@shared/types/task'
 import { create } from 'zustand'
 
 /**
- * 重新下载时的覆盖确认弹窗状态管理
+ * Shared state for the re-download confirmation dialog.
  */
 export const useRedownloadOverwriteStore = create<{
   open: boolean

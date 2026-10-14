@@ -858,22 +858,22 @@ describe('CheckTaskFileExists query', () => {
       taskManager,
     } as unknown as QueryContext)
 
-    // 文件存在
+    // The output file still exists.
     await expect(
       handlers[Queries.CheckTaskFileExists]?.({ taskId: 't-exists' })
     ).resolves.toEqual({ exists: true })
 
-    // 文件已被删除
+    // The output file has been deleted.
     await expect(
       handlers[Queries.CheckTaskFileExists]?.({ taskId: 't-missing' })
     ).resolves.toEqual({ exists: false })
 
-    // 任务不存在
+    // The task does not exist.
     await expect(
       handlers[Queries.CheckTaskFileExists]?.({ taskId: 't-unknown' })
     ).resolves.toEqual({ exists: false })
 
-    // 参数格式错误
+    // The request payload is invalid.
     await expect(
       handlers[Queries.CheckTaskFileExists]?.({ taskId: '' })
     ).rejects.toThrow()
