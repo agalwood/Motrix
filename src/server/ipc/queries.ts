@@ -4,6 +4,7 @@ import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EngineSupervisor } from '@core/engine/engine-supervisor'
 import { createGetEngineTaskOptionsHandler } from '@core/engine/get-engine-task-options'
 import { getTuningRecommendation } from '@core/engine/get-tuning-recommendation'
+import { pathExists } from '@core/fs/path-exists'
 import type { GeoIPManager } from '@core/geoip/geo-ip-manager'
 import { createGetGeoIPStatusHandler } from '@core/geoip/get-geo-ip-status'
 import type { NotificationCenter } from '@core/notifications/notification-center'
@@ -41,6 +42,7 @@ import type { TrackerManager } from '@core/tracker'
 import type { SupportedLocale } from '@shared/constants/locales'
 import type { QueryHandlerMap } from '@shared/protocol/handler-types'
 import { Queries } from '@shared/protocol/queries'
+import { checkTaskFileExistsPayloadSchema } from '@shared/schemas/check-task-file'
 import { PluginLogRequestSchema } from '@shared/schemas/plugin-logs'
 import { ListServerDirectoryLocationsRequestSchema } from '@shared/schemas/server-directory'
 import { taskTrackerRequestSchema } from '@shared/schemas/task-tracker'
@@ -401,6 +403,16 @@ export function buildServerQueryHandlers(
 
     [Queries.GetUnreadNotificationCount]: async () =>
       notificationCenter.unreadCount(),
+
+    [Queries.CheckTaskFileExists]: async (payload: unknown) => {
+      const { taskId } = checkTaskFileExistsPayloadSchema.parse(payload)
+      const task = taskManager.getById(taskId)
+      if (!task) return { exists: false }
+      const outputPath = task.finalPath || task.diskPath
+      if (!outputPath || typeof outputPath !== 'string')
+        return { exists: false }
+      return { exists: await pathExists(outputPath) }
+    },
 
     // NAT, tuning, and history queries are intentionally omitted in server
     // mode — those subsystems are Electron-only or not wired here yet.

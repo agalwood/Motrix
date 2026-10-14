@@ -14,6 +14,7 @@ import {
   canInspectPieces,
   canPause,
   canRebuildTaskInputs,
+  canRedownload,
   canRemove,
   canReseed,
   canResume,
@@ -588,5 +589,46 @@ describe('canAttemptRetry', () => {
 
     expect(canRetryMagnetMetadata(task)).toBe(false)
     expect(getTaskRetryKind(task)).toBeNull()
+  })
+
+  describe('canRedownload', () => {
+    it('returns true for completed direct and torrent-like tasks', () => {
+      const httpTask = makeTask({
+        kind: TaskKind.Direct,
+        type: TaskType.Http,
+        status: TaskStatus.Completed,
+      })
+      const btTask = makeTask({
+        kind: TaskKind.Bt,
+        type: TaskType.Bt,
+        status: TaskStatus.Completed,
+      })
+      expect(canRedownload(httpTask)).toBe(true)
+      expect(canRedownload(btTask)).toBe(true)
+    })
+
+    it('returns false for non-completed statuses', () => {
+      expect(canRedownload(makeTask({ status: TaskStatus.Downloading }))).toBe(
+        false
+      )
+      expect(canRedownload(makeTask({ status: TaskStatus.Paused }))).toBe(false)
+      expect(canRedownload(makeTask({ status: TaskStatus.Error }))).toBe(false)
+      expect(canRedownload(makeTask({ status: TaskStatus.Finalizing }))).toBe(
+        false
+      )
+    })
+
+    it('returns false for coordinator media tasks', () => {
+      const muxTask = makeTask({
+        kind: TaskKind.Mux,
+        status: TaskStatus.Completed,
+      })
+      const hlsTask = makeTask({
+        kind: TaskKind.Hls,
+        status: TaskStatus.Completed,
+      })
+      expect(canRedownload(muxTask)).toBe(false)
+      expect(canRedownload(hlsTask)).toBe(false)
+    })
   })
 })

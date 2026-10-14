@@ -504,5 +504,36 @@ describe('TaskInspectorActionBar', () => {
       expect(copyButton.querySelector('[data-icon="copy"]')).not.toBeNull()
       expect(copyButton.querySelector('[data-icon="check"]')).toBeNull()
     })
+
+    it('renders Re-download button for completed task and triggers re-download on click', async () => {
+      const task = makeTask({
+        id: 'completed-1',
+        status: TaskStatus.Completed,
+      })
+      ;(transport.invoke as ReturnType<typeof vi.fn>).mockImplementation(
+        async (channel) => {
+          if (channel === Queries.CheckTaskFileExists) {
+            return { exists: false }
+          }
+          return { ok: true }
+        }
+      )
+
+      render(<TaskInspectorActionBar selected={[task]} onClose={vi.fn()} />)
+
+      const redownloadButton = screen.getByRole('button', {
+        name: /Re-download/,
+      })
+      expect(redownloadButton).toBeDefined()
+
+      fireEvent.click(redownloadButton)
+
+      await waitFor(() => {
+        expect(transport.invoke).toHaveBeenCalledWith(
+          Queries.CheckTaskFileExists,
+          { taskId: 'completed-1' }
+        )
+      })
+    })
   })
 })

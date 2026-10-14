@@ -834,3 +834,50 @@ describe('plugin diagnostic state query', () => {
     expect(getLogState).not.toHaveBeenCalled()
   })
 })
+
+describe('CheckTaskFileExists query', () => {
+  it('checks output file existence through taskManager', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'motrix-check-file-test-'))
+    const existingFile = path.join(root, 'exists.txt')
+    await writeFile(existingFile, 'hello')
+    const missingFile = path.join(root, 'missing.txt')
+
+    const taskManager = {
+      getById: vi.fn((id: string) => {
+        if (id === 't-exists') {
+          return makeDownloadTask({ id: 't-exists', finalPath: existingFile })
+        }
+        if (id === 't-missing') {
+          return makeDownloadTask({ id: 't-missing', finalPath: missingFile })
+        }
+        return undefined
+      }),
+    }
+
+    const handlers = buildQueryHandlers({
+      taskManager,
+    } as unknown as QueryContext)
+
+    // 文件存在
+    await expect(
+      handlers[Queries.CheckTaskFileExists]?.({ taskId: 't-exists' })
+    ).resolves.toEqual({ exists: true })
+
+    // 文件已被删除
+    await expect(
+      handlers[Queries.CheckTaskFileExists]?.({ taskId: 't-missing' })
+    ).resolves.toEqual({ exists: false })
+
+    // 任务不存在
+    await expect(
+      handlers[Queries.CheckTaskFileExists]?.({ taskId: 't-unknown' })
+    ).resolves.toEqual({ exists: false })
+
+    // 参数格式错误
+    await expect(
+      handlers[Queries.CheckTaskFileExists]?.({ taskId: '' })
+    ).rejects.toThrow()
+
+    await rm(root, { recursive: true, force: true })
+  })
+})

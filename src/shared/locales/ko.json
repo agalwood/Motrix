@@ -896,7 +896,14 @@
         "moveQueueTop": "맨 앞으로 이동",
         "moveQueueBottom": "맨 뒤로 이동",
         "copyError": "오류 정보 복사",
-        "errorReport": "{{name}}\n작업 ID: {{id}}\n{{details}}"
+        "errorReport": "{{name}}\n작업 ID: {{id}}\n{{details}}",
+        "redownload": "Re-download",
+        "redownloadWithDialog": "Re-download with options... (Alt+Click)",
+        "redownloadTooltipBatch": "Re-download {{n}} of {{total}} selected",
+        "redownloadOverwriteTitle": "File Already Exists",
+        "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
+        "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
+        "redownloadStarted": "Re-download started"
       },
       "titleCount": "{{shown}}개 표시 · 전체 {{total}}개",
       "type": {

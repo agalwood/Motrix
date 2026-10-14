@@ -882,7 +882,14 @@
         "selectFilesFailed": "Impossible d’ouvrir la sélection des fichiers.",
         "singleTaskFailed": "{{name}} : {{reason}}",
         "stopSeeding": "Arrêter le partage",
-        "stopSeedingTooltipBatch": "Arrêter le partage de {{n}} des {{total}} tâches sélectionnées"
+        "stopSeedingTooltipBatch": "Arrêter le partage de {{n}} des {{total}} tâches sélectionnées",
+        "redownload": "Re-download",
+        "redownloadWithDialog": "Re-download with options... (Alt+Click)",
+        "redownloadTooltipBatch": "Re-download {{n}} of {{total}} selected",
+        "redownloadOverwriteTitle": "File Already Exists",
+        "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
+        "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
+        "redownloadStarted": "Re-download started"
       },
       "column": {
         "connections": "Pairs",

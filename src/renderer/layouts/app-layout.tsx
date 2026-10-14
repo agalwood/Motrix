@@ -26,6 +26,7 @@ import { electronServices } from '@renderer/platform/electron-services'
 import { PlatformServicesProvider } from '@renderer/platform/services'
 import { webServices } from '@renderer/platform/web-services'
 import type { RouteHandle } from '@renderer/router-types'
+import { RedownloadOverwriteDialogHost } from '@renderer/routes/downloads/inspector/redownload-overwrite-dialog-host'
 import { RemoveTasksDialogHost } from '@renderer/routes/downloads/inspector/remove-tasks-dialog-host'
 import { useDownloadsSelection } from '@renderer/routes/downloads/store'
 import { useDownloadsView } from '@renderer/routes/downloads/view-preferences'
@@ -144,6 +145,7 @@ export function AppLayout() {
         {__MOTRIX_TARGET__ === 'electron' && <DesktopMenuContext />}
         <MenuNavigationFocus />
         <RemoveTasksDialogHost />
+        <RedownloadOverwriteDialogHost />
         <OperationDialogHost />
         <EngineDiagnosticsDialogHost />
         {__MOTRIX_TARGET__ === 'web' && <AddTaskDialogHost />}

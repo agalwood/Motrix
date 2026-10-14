@@ -122,6 +122,15 @@ export function canReseed(t: DownloadTask): boolean {
   )
 }
 
+/** 判定任务是否可以重新下载（已完成的常规下载任务） */
+export function canRedownload(t: DownloadTask): boolean {
+  return (
+    !hasLegacyImport(t) &&
+    !isMediaKind(t.kind) &&
+    t.status === TaskStatus.Completed
+  )
+}
+
 export function canRetry(t: DownloadTask): boolean {
   return (
     !hasLegacyImport(t) &&
