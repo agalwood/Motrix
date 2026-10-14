@@ -4,6 +4,7 @@ import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EngineSupervisor } from '@core/engine/engine-supervisor'
 import { getTuningRecommendation } from '@core/engine/get-tuning-recommendation'
 import { getFfmpegInstallStatus } from '@core/ffmpeg/verified-install'
+import { pathExists } from '@core/fs/path-exists'
 import type { GeoIPManager } from '@core/geoip/geo-ip-manager'
 import { createGetGeoIPStatusHandler } from '@core/geoip/get-geo-ip-status'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
@@ -45,6 +46,7 @@ import {
 } from '@shared/protocol/errors'
 import type { QueryHandlerMap } from '@shared/protocol/handler-types'
 import { Queries } from '@shared/protocol/queries'
+import { checkTaskFileExistsPayloadSchema } from '@shared/schemas/check-task-file'
 import { PluginLogRequestSchema } from '@shared/schemas/plugin-logs'
 import { parseTaskInspectorActivitySnapshot } from '@shared/schemas/task-inspector-activity'
 import { taskTrackerRequestSchema } from '@shared/schemas/task-tracker'
@@ -346,6 +348,16 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
         params.pluginId,
         params.hook
       ),
+
+    [Queries.CheckTaskFileExists]: async (payload: unknown) => {
+      const { taskId } = checkTaskFileExistsPayloadSchema.parse(payload)
+      const task = taskManager.getById(taskId)
+      if (!task) return { exists: false }
+      const outputPath = task.finalPath || task.diskPath
+      if (!outputPath || typeof outputPath !== 'string')
+        return { exists: false }
+      return { exists: await pathExists(outputPath) }
+    },
   }
 }
 

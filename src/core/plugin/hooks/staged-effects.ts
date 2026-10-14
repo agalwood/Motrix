@@ -170,12 +170,10 @@ export class StagedEffectStore {
 
   /**
    * Plan C fail-open isolation — drop every staged contribution from the named
-   * plugin. Called by the HookOrchestrator when an enrich/audit plugin throws
-   * mid-chain so its partial effects are not committed alongside the
-   * succeeding plugins'. The finalize path is intentionally NOT cleared here:
-   * it is only ever set by resolve/post-process plugins (audit/enrich cannot
-   * touch it per the matrix), so removing one of their meta/http stages should
-   * not roll back a separate plugin's finalize decision.
+   * plugin. Called by the HookOrchestrator when an optional plugin fails so
+   * its partial effects are not committed alongside succeeding plugins'.
+   * The caller separately restores the previous finalize path, preserving
+   * any target accepted before this plugin ran.
    */
   removeFromPlugin(pluginId: string): void {
     this.httpPatches = this.httpPatches.filter((e) => e.pluginId !== pluginId)

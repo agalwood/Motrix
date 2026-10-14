@@ -611,6 +611,7 @@ describe('organized task menu and keyboard actions', () => {
     )
     expect(groups).toEqual([
       ['Open file', 'Open folder', 'Show Inspector'],
+      ['Re-download'],
       ['Copy URL', 'Copy file path'],
       ['New Task…'],
       ['Remove'],

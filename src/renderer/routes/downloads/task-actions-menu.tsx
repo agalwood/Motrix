@@ -124,6 +124,7 @@ export function TaskActionsMenu({
       actions.resumeCount +
       actions.retryCount +
       actions.reseedCount +
+      actions.redownloadCount +
       actions.stopSeedingCount >
       0 ||
     single?.status === TaskStatus.MetadataReady ||
@@ -328,8 +329,19 @@ export function TaskActionsMenu({
             </DropdownMenuItem>
           )}
           {actions.retryCount > 0 && (
-            <DropdownMenuItem onClick={() => void actions.onRetry()}>
+            <DropdownMenuItem
+              onClick={(event) => void actions.onRetry({ alt: event.altKey })}
+            >
               {t('panel.downloads.action.retry')}
+            </DropdownMenuItem>
+          )}
+          {actions.redownloadCount > 0 && (
+            <DropdownMenuItem
+              onClick={(event) =>
+                void actions.onRedownload({ alt: event.altKey })
+              }
+            >
+              {t('panel.downloads.action.redownload')}
             </DropdownMenuItem>
           )}
           {actions.reseedCount > 0 && (

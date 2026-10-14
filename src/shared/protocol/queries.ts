@@ -98,6 +98,7 @@ export const Queries = {
   GetLinuxDefaultAssociations: 'query:getLinuxDefaultAssociations',
   GetWindowsDefaultAssociations: 'query:getWindowsDefaultAssociations',
   GetApplicationMenu: 'query:getApplicationMenu',
+  CheckTaskFileExists: 'query:checkTaskFileExists',
 } as const
 
 export type QueryChannel = (typeof Queries)[keyof typeof Queries]

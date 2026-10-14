@@ -4,6 +4,7 @@ import {
   OpenFileIcon,
   PauseIcon,
   RemoveIcon,
+  RestartIcon,
   ResumeIcon,
   RetryIcon,
   RevealFolderIcon,
@@ -258,6 +259,24 @@ export function TaskInspectorActionBar({
           })}
           icon={<RetryIcon />}
           onClick={(e) => void actions.onRetry({ alt: e.altKey })}
+        />
+      )}
+      {actions.redownloadCount > 0 && (
+        <CountedButton
+          label={t('panel.downloads.action.redownload')}
+          total={actions.total}
+          count={actions.redownloadCount}
+          tooltipSingle={
+            alt && actions.total === 1
+              ? t('panel.downloads.action.redownloadWithDialog')
+              : t('panel.downloads.action.redownload')
+          }
+          tooltipBatch={t('panel.downloads.action.redownloadTooltipBatch', {
+            n: actions.redownloadCount,
+            total: actions.total,
+          })}
+          icon={<RestartIcon />}
+          onClick={(e) => void actions.onRedownload({ alt: e.altKey })}
         />
       )}
       {actions.reseedCount > 0 && (

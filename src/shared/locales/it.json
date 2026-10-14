@@ -920,7 +920,14 @@
         "moveQueueTop": "Sposta all’inizio",
         "moveQueueBottom": "Sposta alla fine",
         "copyError": "Copia informazioni sull’errore",
-        "errorReport": "{{name}}\nID attività: {{id}}\n{{details}}"
+        "errorReport": "{{name}}\nID attività: {{id}}\n{{details}}",
+        "redownload": "Re-download",
+        "redownloadWithDialog": "Re-download with options... (Alt+Click)",
+        "redownloadTooltipBatch": "Re-download {{n}} of {{total}} selected",
+        "redownloadOverwriteTitle": "File Already Exists",
+        "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
+        "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
+        "redownloadStarted": "Re-download started"
       },
       "titleCount": "Visualizzati: {{shown}} · Totale: {{total}}",
       "type": {

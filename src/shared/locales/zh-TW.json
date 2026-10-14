@@ -896,7 +896,14 @@
         "moveQueueTop": "移至佇列最前",
         "moveQueueBottom": "移至佇列最後",
         "copyError": "複製錯誤資訊",
-        "errorReport": "{{name}}\n任務 ID：{{id}}\n{{details}}"
+        "errorReport": "{{name}}\n任務 ID：{{id}}\n{{details}}",
+        "redownload": "重新下載",
+        "redownloadWithDialog": "編輯參數後重新下載…（Alt+Click）",
+        "redownloadTooltipBatch": "重新下載所選中的 {{n}} / {{total}}",
+        "redownloadOverwriteTitle": "檔案已存在",
+        "redownloadOverwriteDescription": "檔案「{{name}}」已存在於下載路徑中。重新下載將覆蓋或重命名該檔案，是否繼續？",
+        "redownloadCredentialsExpired": "原始下載參數已失效，請確認後提交",
+        "redownloadStarted": "已重新發起下載"
       },
       "titleCount": "顯示 {{shown}} 項 · 共 {{total}} 項",
       "type": {

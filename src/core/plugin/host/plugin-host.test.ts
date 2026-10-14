@@ -534,6 +534,58 @@ describe('PluginHost', () => {
     await host.shutdown()
   })
 
+  it.each(['missing worker', 'worker crash', 'worker fatal'])(
+    'preserves the activation failure for coalesced callers: %s',
+    async (failure) => {
+      const failedWorkerPath = path.join(root, 'FailedWorker.cjs')
+      const message =
+        failure === 'missing worker'
+          ? `Cannot find module '${failedWorkerPath}'`
+          : 'plugin activation failed'
+      if (failure === 'worker crash') {
+        writeFileSync(failedWorkerPath, `throw new Error('${message}')`)
+      } else if (failure === 'worker fatal') {
+        writeFileSync(
+          failedWorkerPath,
+          `const { parentPort } = require('node:worker_threads')
+parentPort.on('message', (msg) => {
+  if (msg.type === 'init') {
+    parentPort.postMessage({ type: 'fatal', code: 'plugin.bundle.parse_error', message: '${message}' })
+  }
+})`
+        )
+      }
+      const host = new PluginHost({
+        registry,
+        stateStore,
+        capabilityHost: capHost,
+        workerScriptPath: failedWorkerPath,
+        deactivateBudgetMs: 20,
+        appVersion: '2.5.0',
+        runtime: 'server',
+        hostLanguage: 'en-US',
+      })
+
+      try {
+        await Promise.all([
+          expect(host.activate('alice.demo')).rejects.toMatchObject({
+            code: ErrorCode.PluginRuntimeFault,
+            message,
+          }),
+          expect(host.activate('alice.demo')).rejects.toMatchObject({
+            code: ErrorCode.PluginRuntimeFault,
+            message,
+          }),
+        ])
+        await host.deactivate('alice.demo')
+        expect(host.isQuiescent('alice.demo')).toBe(true)
+        expect(host.workerFor('alice.demo')).toBeUndefined()
+      } finally {
+        await host.shutdown()
+      }
+    }
+  )
+
   it('cancels activation blocked on bundle read without a late worker', async () => {
     let markReadStarted!: () => void
     const readStarted = new Promise<void>((resolve) => {

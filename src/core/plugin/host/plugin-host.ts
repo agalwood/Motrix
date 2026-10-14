@@ -143,7 +143,7 @@ interface ActivationAttempt {
   epoch: number
   cancelled: boolean
   cancellation: Promise<never>
-  cancel(): void
+  cancel(reason?: Error): void
   promise: Promise<void>
 }
 
@@ -367,10 +367,10 @@ export class PluginHost {
       epoch,
       cancelled: false,
       cancellation,
-      cancel: () => {
+      cancel: (reason = this.activationSupersededError(pluginId)) => {
         if (attempt.cancelled) return
         attempt.cancelled = true
-        rejectCancellation(this.activationSupersededError(pluginId))
+        rejectCancellation(reason)
       },
       promise: Promise.resolve(),
     }
@@ -656,7 +656,11 @@ export class PluginHost {
           }
           this.opts.stateStore.recordError(pluginId, `${code}: ${message}`)
           this.opts.registry.refreshState(pluginId)
-          rejectReady(new AppError(ErrorCode.PluginRuntimeFault, message))
+          const error = new AppError(ErrorCode.PluginRuntimeFault, message)
+          rejectReady(error)
+          // Teardown cancels activation synchronously. Preserve the worker
+          // failure even if cancellation wins the nested readiness race.
+          attempt.cancel(error)
           void this.deactivate(pluginId).catch(() => undefined)
         },
       }

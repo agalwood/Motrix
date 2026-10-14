@@ -879,7 +879,14 @@
         "selectFilesFailed": "باز کردن انتخاب فایل ممکن نشد.",
         "singleTaskFailed": "{{name}}: {{reason}}",
         "stopSeeding": "توقف توزیع",
-        "stopSeedingTooltipBatch": "توقف توزیع {{n}} مورد از {{total}} مورد انتخاب‌شده"
+        "stopSeedingTooltipBatch": "توقف توزیع {{n}} مورد از {{total}} مورد انتخاب‌شده",
+        "redownload": "Re-download",
+        "redownloadWithDialog": "Re-download with options... (Alt+Click)",
+        "redownloadTooltipBatch": "Re-download {{n}} of {{total}} selected",
+        "redownloadOverwriteTitle": "File Already Exists",
+        "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
+        "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
+        "redownloadStarted": "Re-download started"
       },
       "column": {
         "connections": "همتاها",

@@ -26,6 +26,7 @@ import { openAddTaskDialog } from '@renderer/lib/open-add-task-dialog'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
+import { useRedownloadOverwriteStore } from './redownload-overwrite-store'
 import { useTaskActions } from './use-task-actions'
 
 // Kept overrides: id:'t1' (≠ 'task-1'), name:'sample' (≠ 'task'),
@@ -242,5 +243,190 @@ describe('useTaskActions', () => {
     const { result } = renderHook(() => useTaskActions(tasks))
     result.current.onRemove({ shift: false })
     expect(transport.invoke).not.toHaveBeenCalled()
+  })
+
+  it('correctly counts redownload-eligible completed tasks', () => {
+    const tasks = [
+      makeTask({ id: 'a', status: TaskStatus.Completed }),
+      makeTask({ id: 'b', status: TaskStatus.Downloading }),
+      makeTask({ id: 'c', status: TaskStatus.Error }),
+      makeTask({ id: 'd', status: TaskStatus.Completed, kind: TaskKind.Mux }),
+    ]
+    const { result } = renderHook(() => useTaskActions(tasks))
+    expect(result.current.redownloadCount).toBe(1) // Only task a is eligible.
+  })
+
+  it('onRedownload({ alt: true }) opens dialog with prefilled parameters', async () => {
+    const task = makeTask({ id: 'comp', status: TaskStatus.Completed })
+    ;(transport.invoke as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      dir: '/downloads',
+      header: ['Cookie: session=123'],
+    })
+    const { result } = renderHook(() => useTaskActions([task]))
+    await result.current.onRedownload({ alt: true })
+
+    expect(transport.invoke).toHaveBeenCalledWith(
+      Queries.GetEngineTaskOptions,
+      'gid-1'
+    )
+    expect(openAddTaskDialog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tab: 'links',
+        cookie: 'session=123',
+        saveDir: '/downloads',
+      })
+    )
+  })
+
+  it('onRedownload opens overwrite confirm dialog when output file exists', async () => {
+    const task = makeTask({ id: 'comp', status: TaskStatus.Completed })
+    ;(transport.invoke as ReturnType<typeof vi.fn>).mockImplementation(
+      async (channel) => {
+        if (channel === Queries.CheckTaskFileExists) {
+          return { exists: true }
+        }
+        return { ok: true }
+      }
+    )
+    const { result } = renderHook(() => useTaskActions([task]))
+    await result.current.onRedownload({ alt: false })
+
+    expect(transport.invoke).toHaveBeenCalledWith(Queries.CheckTaskFileExists, {
+      taskId: 'comp',
+    })
+    expect(useRedownloadOverwriteStore.getState().open).toBe(true)
+    expect(useRedownloadOverwriteStore.getState().target?.id).toBe('comp')
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.CreateTask,
+      expect.anything()
+    )
+
+    // The user confirms re-downloading in the dialog.
+    await result.current.confirmRedownloadOverwrite()
+    expect(transport.invoke).toHaveBeenCalledWith(
+      Commands.CreateTask,
+      expect.objectContaining({
+        uris: ['http://example.com/x'],
+      })
+    )
+    expect(useRedownloadOverwriteStore.getState().open).toBe(false)
+  })
+
+  it.each(['direct', 'confirm', 'edit'])(
+    'uses the saved directory when engine options are unavailable: %s',
+    async (mode) => {
+      const task = makeTask({ status: TaskStatus.Completed })
+      vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+        if (channel === Queries.CheckTaskFileExists) {
+          return { exists: mode === 'confirm' }
+        }
+        if (channel === Queries.GetEngineTaskOptions) return null
+        return { ok: true }
+      })
+      const { result } = renderHook(() => useTaskActions([task]))
+
+      await result.current.onRedownload({ alt: mode === 'edit' })
+      if (mode === 'confirm') {
+        await result.current.confirmRedownloadOverwrite()
+      }
+
+      const expected = expect.objectContaining({
+        saveDir: '/tmp',
+        filename: 'sample',
+      })
+      if (mode === 'edit') {
+        expect(openAddTaskDialog).toHaveBeenCalledWith(expected)
+      } else {
+        expect(transport.invoke).toHaveBeenCalledWith(
+          Commands.CreateTask,
+          expected
+        )
+      }
+    }
+  )
+
+  it('onRedownload directly creates task when output file does not exist', async () => {
+    const task = makeTask({ id: 'comp', status: TaskStatus.Completed })
+    ;(transport.invoke as ReturnType<typeof vi.fn>).mockImplementation(
+      async (channel) => {
+        if (channel === Queries.CheckTaskFileExists) {
+          return { exists: false }
+        }
+        return { ok: true }
+      }
+    )
+    const { result } = renderHook(() => useTaskActions([task]))
+    await result.current.onRedownload({ alt: false })
+
+    expect(transport.invoke).toHaveBeenCalledWith(Queries.CheckTaskFileExists, {
+      taskId: 'comp',
+    })
+    expect(useRedownloadOverwriteStore.getState().open).toBe(false)
+    expect(transport.invoke).toHaveBeenCalledWith(
+      Commands.CreateTask,
+      expect.objectContaining({
+        uris: ['http://example.com/x'],
+      })
+    )
+  })
+
+  it('onRedownload warns and falls back to dialog if original credentials expired', async () => {
+    // This task requires credentials and cannot be replayed from its URI alone.
+    const task = makeTask({
+      id: 'comp-cred',
+      status: TaskStatus.Completed,
+      instances: [
+        {
+          instanceId: 'inst-1',
+          motrixId: 'comp-cred',
+          gid: 'gid-cred',
+          phase: TaskInstancePhase.HttpDownload,
+          status: TaskStatus.Completed,
+          progress: 100,
+          totalBytes: 1000,
+          downloadedBytes: 1000,
+          uploadedBytes: 0,
+          diskPath: '/tmp/sample',
+          transitionPhase: TransitionPhase.Idle,
+          uris: ['http://example.com/file'],
+          uriHash: null,
+          payload: {
+            directReplay: {
+              version: 1,
+              requestModifiers: ['cookies'],
+              replayability: 'requires-credentials',
+            },
+          },
+          createdAt: 1,
+          updatedAt: 2,
+        },
+      ],
+    })
+
+    ;(transport.invoke as ReturnType<typeof vi.fn>).mockImplementation(
+      async (channel) => {
+        if (channel === Queries.CheckTaskFileExists) {
+          return { exists: false }
+        }
+        if (channel === Queries.GetEngineTaskOptions) {
+          return null // Simulate an engine restart or expired credentials.
+        }
+        return { ok: true }
+      }
+    )
+
+    const { result } = renderHook(() => useTaskActions([task]))
+    await result.current.onRedownload({ alt: false })
+
+    expect(toastAddMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'warning',
+      })
+    )
+    expect(openAddTaskDialog).toHaveBeenCalled()
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.CreateTask,
+      expect.anything()
+    )
   })
 })

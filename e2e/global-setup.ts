@@ -11,6 +11,7 @@ const ROOT = process.cwd()
 const REQUIRED_ARTIFACTS = [
   'dist/main/index.cjs',
   'dist/preload/preload.cjs',
+  'dist/core/plugin/host/quick-js-worker.cjs',
   'dist/renderer/index.html',
 ]
 
