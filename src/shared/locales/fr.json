@@ -2126,6 +2126,7 @@
         "bandwidthUsed": "Motrix peut utiliser jusqu’à {{motrix}} %.",
         "baseDownload": "Réception",
         "baseDownloadDesc": "Débit maximal de réception au quotidien.",
+        "unitFor": "Unité pour {{field}}",
         "baseSection": "Limites standard",
         "baseSectionDesc": "Utilisées au quotidien et respectées dans tous les modes.",
         "baseUpload": "Envoi",

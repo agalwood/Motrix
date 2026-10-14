@@ -17,7 +17,6 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from '@renderer/components/ui/toggle-group'
-import { useByteFormat } from '@renderer/hooks/use-byte-format'
 
 import { transport } from '@renderer/lib/transport'
 import { Queries } from '@shared/protocol/queries'
@@ -33,8 +32,14 @@ const TIME_24_PATTERN = '(?:[01]\\d|2[0-3]):[0-5]\\d'
 
 const TURTLE_STATES = ['off', 'on', 'auto'] as const
 const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
+const LIMIT_UNIT_FIELDS = {
+  'speedLimit.base.upload': 'app.speedLimitUnits.baseUpload',
+  'speedLimit.base.download': 'app.speedLimitUnits.baseDownload',
+  'speedLimit.alt.upload': 'app.speedLimitUnits.altUpload',
+  'speedLimit.alt.download': 'app.speedLimitUnits.altDownload',
+} as const
 
-type KbLimitName =
+type LimitName =
   | 'speedLimit.base.download'
   | 'speedLimit.base.upload'
   | 'speedLimit.alt.download'
@@ -118,17 +123,14 @@ export function SpeedLimitSection({
 }: {
   form: UseFormReturn<DownloadsFields>
 }) {
-  const { unitSystem, formatByteUnit } = useByteFormat()
-  const kiloByte = unitSystem === 'binary' ? 1024 : 1000
-
   const { t } = useTranslation()
   const settings = form.watch('speedLimit')
   const turtle = settings.turtle
   const scheduleEnabled = settings.auto.schedule.enabled
   const adaptiveEnabled = settings.auto.adaptive.enabled
 
-  const kbLimitRow = (
-    name: KbLimitName,
+  const limitRow = (
+    name: LimitName,
     labelKey: string,
     zeroAction: 'unlimited' | 'inherit'
   ) => (
@@ -157,14 +159,23 @@ export function SpeedLimitSection({
               name={field.name}
               ref={field.ref}
               onBlur={field.onBlur}
-              value={(field.value as number) / kiloByte}
-              onValueChange={(value) =>
-                field.onChange(Math.round(value * kiloByte))
+              value={field.value as number}
+              onValueChange={field.onChange}
+              magnitude={form.watch(LIMIT_UNIT_FIELDS[name])}
+              onMagnitudeChange={(value) =>
+                form.setValue(LIMIT_UNIT_FIELDS[name], value, {
+                  shouldDirty: true,
+                  shouldTouch: true,
+                  shouldValidate: true,
+                })
               }
-              unit={formatByteUnit(
-                unitSystem === 'binary' ? 'KiB' : 'KB',
-                true
-              )}
+              unitLabel={t('settings.downloads.speedLimit.unitFor', {
+                field: `${t(labelKey)} (${t(
+                  name.includes('.base.')
+                    ? 'settings.downloads.speedLimit.baseSection'
+                    : 'settings.downloads.speedLimit.altSection'
+                )})`,
+              })}
               zeroAction={zeroAction}
               zeroLabel={t(
                 zeroAction === 'inherit'
@@ -307,12 +318,12 @@ export function SpeedLimitSection({
       <Separator className="my-2" />
 
       <SectionIntro title={t('settings.downloads.speedLimit.baseSection')} />
-      {kbLimitRow(
+      {limitRow(
         'speedLimit.base.upload',
         'settings.downloads.speedLimit.baseUpload',
         'unlimited'
       )}
-      {kbLimitRow(
+      {limitRow(
         'speedLimit.base.download',
         'settings.downloads.speedLimit.baseDownload',
         'unlimited'
@@ -321,12 +332,12 @@ export function SpeedLimitSection({
       <Separator className="my-2" />
 
       <SectionIntro title={t('settings.downloads.speedLimit.altSection')} />
-      {kbLimitRow(
+      {limitRow(
         'speedLimit.alt.upload',
         'settings.downloads.speedLimit.altUpload',
         'inherit'
       )}
-      {kbLimitRow(
+      {limitRow(
         'speedLimit.alt.download',
         'settings.downloads.speedLimit.altDownload',
         'inherit'

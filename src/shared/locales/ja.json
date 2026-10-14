@@ -1573,6 +1573,7 @@
         "turtle_off": "標準",
         "turtle_on": "低速",
         "turtle_auto": "自動",
+        "unitFor": "{{field}}の単位",
         "baseSection": "標準の制限",
         "baseSectionDesc": "通常のダウンロードに使用し、どのモードでもこの上限を守ります。",
         "baseDownload": "ダウンロード",

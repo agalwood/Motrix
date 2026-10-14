@@ -1587,6 +1587,7 @@
         "turtle_off": "Standart",
         "turtle_on": "Düşük hız",
         "turtle_auto": "Otomatik",
+        "unitFor": "{{field}} birimi",
         "baseSection": "Standart sınırlar",
         "baseSectionDesc": "Günlük indirmelerde kullanılır ve her modda geçerlidir.",
         "baseDownload": "İndirme",

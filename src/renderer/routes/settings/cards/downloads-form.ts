@@ -55,6 +55,7 @@ export const DOWNLOADS_DEFAULTS: DownloadsFields = {
     defaultSaveDir: DEFAULT_APP_SETTINGS.defaultSaveDir,
     autofillClipboardLinks: DEFAULT_APP_SETTINGS.autofillClipboardLinks,
     fileDeletionMode: DEFAULT_APP_SETTINGS.fileDeletionMode,
+    speedLimitUnits: DEFAULT_APP_SETTINGS.speedLimitUnits,
   },
   engine: ENGINE_DEFAULTS,
   // Source of truth: src/shared/schemas/speed-limit.ts (DEFAULT_SPEED_LIMIT_SETTINGS).

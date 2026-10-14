@@ -31,6 +31,38 @@ async function fixture() {
   return { root, file, change, manager, request }
 }
 describe('Downloads atomic settings save', () => {
+  it('persists independent unit preferences across reloads without changing byte limits', async () => {
+    const { manager, file, request } = await fixture()
+    const limits = structuredClone(manager.get().speedLimit)
+    const save = createSaveDownloadsSettingsHandler(manager)
+    expect(
+      await save({
+        ...request(),
+        settings: {
+          app: { speedLimitUnits: { baseUpload: 'mega', altDownload: 'mega' } },
+        },
+      })
+    ).toMatchObject({ ok: true })
+    expect(
+      await save({
+        ...request(),
+        settings: { app: { speedLimitUnits: { baseDownload: 'mega' } } },
+      })
+    ).toMatchObject({ ok: true })
+    await manager.update({ app: { byteUnitSystem: 'binary' } })
+    const restored = new SettingsManager(file)
+    await restored.load()
+    expect(restored.getApp().speedLimitUnits).toEqual({
+      baseUpload: 'mega',
+      baseDownload: 'mega',
+      altUpload: 'kilo',
+      altDownload: 'mega',
+    })
+    expect(restored.get().speedLimit).toEqual(limits)
+    expect(
+      restored.getDownloadsSettingsSnapshot().settings.app.speedLimitUnits
+    ).toEqual(restored.getApp().speedLimitUnits)
+  })
   it('durably commits folders, clipboard, performance and nested speed edits together', async () => {
     const { root, file, change, manager, request } = await fixture()
     const folder = path.join(root, 'downloads ')
@@ -152,6 +184,9 @@ describe('Downloads atomic settings save', () => {
     { speedLimit: { base: { download: undefined } } },
     { app: { runMode: 2 } },
     { engine: { split: 129 } },
+    { app: { speedLimitUnits: { baseUpload: 'GB' } } },
+    { app: { speedLimitUnits: { altDownload: undefined } } },
+    { app: { speedLimitUnits: { unknown: 'mega' } } },
   ])(
     'rejects invalid or out-of-scope patches without changing state: %j',
     async (settings) => {

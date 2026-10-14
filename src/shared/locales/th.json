@@ -2088,6 +2088,7 @@
         "bandwidthUsed": "Motrix ใช้ได้สูงสุด {{motrix}}%",
         "baseDownload": "ดาวน์โหลด",
         "baseDownloadDesc": "ความเร็วดาวน์โหลดสูงสุดสำหรับการใช้งานทั่วไป",
+        "unitFor": "หน่วยของ {{field}}",
         "baseSection": "ขีดจำกัดมาตรฐาน",
         "baseSectionDesc": "ใช้สำหรับการดาวน์โหลดทั่วไปและมีผลในทุกโหมด",
         "baseUpload": "อัปโหลด",

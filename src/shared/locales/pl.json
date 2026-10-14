@@ -1615,6 +1615,7 @@
         "turtle_off": "Standardowy",
         "turtle_on": "Niska prędkość",
         "turtle_auto": "Automatyczny",
+        "unitFor": "Jednostka dla {{field}}",
         "baseSection": "Standardowe limity",
         "baseSectionDesc": "Używane do codziennego pobierania i przestrzegane w każdym trybie.",
         "baseDownload": "Pobieranie",

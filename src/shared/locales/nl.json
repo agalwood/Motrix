@@ -2107,6 +2107,7 @@
         "bandwidthUsed": "Motrix kan maximaal {{motrix}}% gebruiken.",
         "baseDownload": "Download",
         "baseDownloadDesc": "De maximale downloadsnelheid voor dagelijks gebruik.",
+        "unitFor": "Eenheid voor {{field}}",
         "baseSection": "Standaardlimieten",
         "baseSectionDesc": "Voor dagelijkse downloads; worden in elke modus gerespecteerd.",
         "baseUpload": "Upload",

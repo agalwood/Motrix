@@ -4,6 +4,7 @@ import type {
 } from '@shared/schemas/app-settings'
 import type { ByteUnitPreference } from '@shared/schemas/byte-unit-system'
 import type { SidebarColor } from '@shared/schemas/sidebar-color'
+import type { SpeedLimitUnits } from '@shared/schemas/speed-limit-units'
 import type { TrayIconColor } from '@shared/schemas/tray-icon-color'
 import type { RunMode } from '../constants'
 import type { EnginePerformanceProfile } from '../constants/engine-performance-profiles'
@@ -231,6 +232,7 @@ export interface MotrixAppSettings {
   sidebarColor: SidebarColor
   reduceMotion: boolean
   byteUnitSystem: ByteUnitPreference
+  speedLimitUnits: SpeedLimitUnits
   language: LanguagePreference
   directoryPreferences: DirectoryPreferences
   defaultSaveDir: string

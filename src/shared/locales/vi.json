@@ -1573,6 +1573,7 @@
         "turtle_off": "Tiêu chuẩn",
         "turtle_on": "Tốc độ thấp",
         "turtle_auto": "Tự động",
+        "unitFor": "Đơn vị cho {{field}}",
         "baseSection": "Giới hạn tiêu chuẩn",
         "baseSectionDesc": "Dùng cho các lượt tải xuống hằng ngày và được tuân thủ trong mọi chế độ.",
         "baseDownload": "Tải xuống",
