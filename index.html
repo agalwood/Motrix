@@ -38,14 +38,43 @@
         display: grid;
       }
 
-      #renderer-boot::before {
-        content: "";
+      #renderer-boot-logo {
+        position: relative;
         width: 62px;
         height: 14px;
+        overflow: hidden;
         background: currentColor;
         opacity: 0.7;
         mask: url("./mo-logo.svg") center / contain no-repeat;
         -webkit-mask: url("./mo-logo.svg") center / contain no-repeat;
+      }
+
+      @media (prefers-reduced-motion: no-preference) {
+        #renderer-boot-logo {
+          background: color-mix(in srgb, currentColor 60%, transparent);
+        }
+
+        #renderer-boot-logo::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            110deg,
+            transparent 20%,
+            rgb(255 255 255 / 80%) 50%,
+            transparent 80%
+          );
+          animation: renderer-boot-shimmer 1.25s linear infinite;
+        }
+      }
+
+      @keyframes renderer-boot-shimmer {
+        from {
+          transform: translateX(-100%);
+        }
+        to {
+          transform: translateX(100%);
+        }
       }
     </style>
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
@@ -53,7 +82,9 @@
     <title>Motrix</title>
   </head>
   <body>
-    <div id="renderer-boot" role="progressbar" aria-label="Motrix"></div>
+    <div id="renderer-boot" role="progressbar" aria-label="Motrix">
+      <span id="renderer-boot-logo" aria-hidden="true"></span>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/renderer/index.tsx"></script>
   </body>
