@@ -276,6 +276,21 @@ describe('third-party notice generator', () => {
     )
     expect(desktopLicenses).toMatch(/^Components:.*\bElectron@/m)
     expect(serverLicenses).not.toMatch(/^Components:.*\bElectron@/m)
+    expect(desktopLicenses).toContain(
+      'repository:THIRD_PARTY_LICENSES/aria2-win32-x64/openssl-LICENSE.txt'
+    )
+    expect(serverLicenses).not.toContain(
+      'repository:THIRD_PARTY_LICENSES/aria2-win32-x64/'
+    )
+    const desktopSbom = JSON.parse(desktop.files['sbom.spdx.json']) as {
+      packages: Array<{ name: string; licenseDeclared: string }>
+    }
+    expect(desktopSbom.packages).toContainEqual(
+      expect.objectContaining({
+        name: 'OpenSSL',
+        licenseDeclared: 'Apache-2.0',
+      })
+    )
 
     // Everything the Server does ship keeps its notice.
     for (const licenses of [desktopLicenses, serverLicenses]) {

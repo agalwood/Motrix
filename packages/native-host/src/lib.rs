@@ -17,6 +17,8 @@ pub mod safari_bootstrap;
 pub(crate) mod test_vectors;
 pub mod ticket;
 pub mod user_data;
+pub mod windows_launch;
+pub mod windows_package;
 
 use serde_json::Value;
 

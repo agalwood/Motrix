@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import type { BridgeDataDirLockRecoveryAuthority } from '@core/bridge/bridge-data-dir-lock'
 import { getLogger } from '@core/logger'
+import windowsPackage from '@shared/config/windows-package.json'
 import {
   MAX_APP_DEEP_LINK_BYTES,
   MAX_PENDING_PROTOCOL_URLS,
@@ -23,7 +24,15 @@ export interface LauncherHandle {
 }
 
 // mo: is ingress-only so stale OS associations get a retirement notice.
-const INGRESS_SCHEMES = ['http:', 'https:', 'ftp:', 'magnet:', 'motrix:', 'mo:']
+const INGRESS_SCHEMES = [
+  'http:',
+  'https:',
+  'ftp:',
+  'magnet:',
+  'motrix:',
+  'mo:',
+  `${windowsPackage.launchScheme}:`,
+]
 
 function extractUrlFromArgv(argv: string[]): string | undefined {
   for (let i = 1; i < argv.length; i++) {

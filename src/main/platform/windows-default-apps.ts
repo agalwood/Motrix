@@ -2,7 +2,17 @@ import { execFile } from 'node:child_process'
 import { release } from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
+import {
+  type WindowsAssociationsResult,
+  WindowsAssociationsResultSchema,
+} from '@shared/schemas/windows-default-apps'
 import type { WindowsDefaultAssociations } from '@shared/types/windows-default-apps'
+import { app } from 'electron'
+import {
+  type DistributionContextInput,
+  resolveDistributionContext,
+} from './distribution-context'
+import { queryWindowsAssociations } from './windows-associations'
 
 const execFileAsync = promisify(execFile)
 
@@ -36,17 +46,43 @@ interface ReadWindowsUserChoiceDeps {
 
 export type WindowsRegistrationScope = 'user' | 'machine'
 
-interface ResolveWindowsDefaultAppsSettingsUrlDeps {
+interface WindowsPackageAssociationsDeps {
+  getContext?: () => DistributionContextInput
+  readPackagedAssociations?: () => Promise<WindowsAssociationsResult>
+}
+
+interface ResolveWindowsDefaultAppsSettingsUrlDeps
+  extends WindowsPackageAssociationsDeps {
   osRelease?: string
   hasRegistration?: (scope: WindowsRegistrationScope) => Promise<boolean | null>
 }
 
-interface GetWindowsDefaultAssociationsDeps {
+interface GetWindowsDefaultAssociationsDeps
+  extends WindowsPackageAssociationsDeps {
   platform?: NodeJS.Platform
   hasRegistration?: (scope: WindowsRegistrationScope) => Promise<boolean | null>
   readUserChoice?: (
     association: WindowsAssociation
   ) => Promise<WindowsUserChoiceResult>
+}
+
+function getRuntimeContext(): DistributionContextInput {
+  return {
+    platform: process.platform,
+    isPackaged: app.isPackaged,
+    windowsStore: process.windowsStore,
+  }
+}
+
+async function readPackagedAssociations(deps: WindowsPackageAssociationsDeps) {
+  try {
+    const parsed = WindowsAssociationsResultSchema.safeParse(
+      await (deps.readPackagedAssociations ?? queryWindowsAssociations)()
+    )
+    return parsed.success && parsed.data.ok ? parsed.data : null
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -144,13 +180,29 @@ export async function readWindowsUserChoice(
 export async function getWindowsDefaultAssociations(
   deps: GetWindowsDefaultAssociationsDeps = {}
 ): Promise<WindowsDefaultAssociations> {
-  if ((deps.platform ?? process.platform) !== 'win32') {
+  const context = (deps.getContext ?? getRuntimeContext)()
+  if ((deps.platform ?? context.platform) !== 'win32') {
     return {
       supported: false,
       registered: false,
       scope: null,
       torrent: false,
       magnet: false,
+    }
+  }
+
+  if (resolveDistributionContext(context).isWindowsPackage) {
+    const result = await readPackagedAssociations(deps)
+    return {
+      authority: 'windows-package',
+      supported: true,
+      // Do not treat an AppListEntry as evidence of an NSIS registration or
+      // a file/protocol extension. Only the resolved default is reported.
+      registered: null,
+      scope: null,
+      mainAppAumid: result?.mainAppAumid ?? null,
+      torrent: result?.torrent ?? null,
+      magnet: result?.magnet ?? null,
     }
   }
 
@@ -195,6 +247,14 @@ export async function resolveWindowsDefaultAppsSettingsUrl(
 ): Promise<string> {
   if (!supportsRegisteredAppDefaultAppsQuery(deps.osRelease ?? release())) {
     return WINDOWS_DEFAULT_APPS_SETTINGS_URL
+  }
+
+  const context = (deps.getContext ?? getRuntimeContext)()
+  if (resolveDistributionContext(context).isWindowsPackage) {
+    const result = await readPackagedAssociations(deps)
+    return result
+      ? `${WINDOWS_DEFAULT_APPS_SETTINGS_URL}?registeredAUMID=${encodeURIComponent(result.mainAppAumid)}`
+      : WINDOWS_DEFAULT_APPS_SETTINGS_URL
   }
 
   const hasRegistration = deps.hasRegistration ?? hasWindowsRegistration

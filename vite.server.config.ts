@@ -2,6 +2,7 @@ import { builtinModules, createRequire } from 'node:module'
 import path from 'node:path'
 import { defineConfig } from 'vite'
 import { PRODUCTION_OUTPUT } from './scripts/vite-production-output'
+import { omitWindowsStartupLocales } from './scripts/vite-windows-startup-locales'
 
 const require = createRequire(import.meta.url)
 const pkg = require('./package.json') as {
@@ -25,6 +26,7 @@ function isExternal(id: string): boolean {
 }
 
 export default defineConfig({
+  plugins: [omitWindowsStartupLocales()],
   publicDir: false,
   build: {
     outDir: 'dist/server',

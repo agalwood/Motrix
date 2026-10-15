@@ -214,6 +214,8 @@ import { createElectronPlatformServices } from './platform/services'
 import { setupSystemAccentColorSync } from './platform/system-accent-color'
 import { removeTaskPath } from './platform/task-file-remover'
 import { setupTray } from './platform/tray'
+import { probeWindowsPackageReadonlyIntegration } from './platform/windows-package-readonly-probe'
+import { verifyWindowsPackageStartup } from './platform/windows-package-startup'
 import { createElectronCapabilityHost } from './plugin/capability-host'
 import { startDevWatcher } from './plugin/dev-watcher'
 import {
@@ -247,6 +249,39 @@ const distributionContext = resolveDistributionContext({
   isPackaged: app.isPackaged,
   windowsStore: process.windowsStore,
 })
+
+if (distributionContext.isWindowsPackage) {
+  // Check the actual process package before opening settings, the database,
+  // bridge credentials, profile directories or an engine ownership record.
+  const identity = verifyWindowsPackageStartup({
+    resourcesPath: process.resourcesPath,
+    productVersion: app.getVersion(),
+  })
+  if (!identity.ok) {
+    process.stderr.write(
+      `Windows package identity validation failed (${identity.code})\n`
+    )
+    process.exit(1)
+  }
+  if (identity.runtime.profile === 'test') {
+    // Test packages expose public identity evidence before persistent services.
+    // This contains no paths, bridge discovery, credentials or consent state.
+    process.stdout.write(
+      `${JSON.stringify({
+        version: 1,
+        scope: 'windows-package-startup-identity',
+        sourceCommit: identity.runtime.sourceCommit,
+        productVersion: identity.runtime.productVersion,
+        identity: identity.identity,
+      })}\n`
+    )
+    void probeWindowsPackageReadonlyIntegration({
+      sourceCommit: identity.runtime.sourceCommit,
+      familyName: identity.identity.familyName,
+      resourcesPath: process.resourcesPath,
+    }).then((report) => process.stdout.write(`${JSON.stringify(report)}\n`))
+  }
+}
 
 if (process.platform === 'win32' && !distributionContext.isWindowsPackage) {
   app.setAppUserModelId(APP_ID)
@@ -720,6 +755,7 @@ function navigateToTask(taskId: string) {
 let protocolNoticeActive = false
 
 const protocolManager = createProtocolManager({
+  isWindowsPackage: distributionContext.isWindowsPackage,
   onShowMain: () => windowManager?.show('main'),
   onNavigate: (route) => {
     if (!windowManager) return
@@ -1914,7 +1950,9 @@ async function initializeMainProcess(): Promise<void> {
   if (pendingDisclaimerGate === gate) pendingDisclaimerGate = null
 
   if (!mainProcessWork.isAccepting()) return
-  syncAutoLaunch(settingsManager.getApp().launchAtStartup)
+  runShellAsyncWork('startup status', () =>
+    syncAutoLaunch(settingsManager.getApp().launchAtStartup, 'startup')
+  )
   protocolManager.register()
 
   // Linux AppImage self-integration (desktop entry, icon, URL-scheme handlers).

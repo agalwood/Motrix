@@ -3,10 +3,11 @@ import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
 import packageJson from './package.json' with { type: 'json' }
 import { PRODUCTION_OUTPUT } from './scripts/vite-production-output'
+import { omitWindowsStartupLocales } from './scripts/vite-windows-startup-locales'
 
 export default defineConfig({
   base: '/',
-  plugins: [tailwindcss()],
+  plugins: [omitWindowsStartupLocales(), tailwindcss()],
   worker: { rollupOptions: { output: PRODUCTION_OUTPUT } },
   define: {
     __MOTRIX_TARGET__: JSON.stringify('web'),

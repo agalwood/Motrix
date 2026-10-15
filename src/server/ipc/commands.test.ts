@@ -2071,3 +2071,10 @@ describe('plugin diagnostic mode command', () => {
     }
   )
 })
+
+it('does not open Windows startup settings from the web server', async () => {
+  const handlers = buildServerCommandHandlers(makeFakeCtx() as never)
+  await expect(handlers[Commands.OpenStartupSettings]?.()).resolves.toEqual({
+    ok: false,
+  })
+})

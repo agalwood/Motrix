@@ -2250,7 +2250,19 @@
       "startupAndQuitting": "Oppstart og avslutning",
       "systemNotifications": "Systemvarsler",
       "warnBeforeQuit": "Bekreft før avslutning",
-      "warnBeforeQuitDesc": "Spør før avslutning hvis nedlastinger fortsatt pågår."
+      "warnBeforeQuitDesc": "Spør før avslutning hvis nedlastinger fortsatt pågår.",
+      "startupLoading": "Kontrollerer oppstartsinnstillingene i Windows…",
+      "startupUnavailable": "Innstillingene ble lagret, men oppstartsinnstillingen kunne ikke kontrolleres eller tas i bruk. Prøv igjen.",
+      "startupNotApplied": "Innstillingene ble lagret, men Windows tok ikke oppstartsendringen i bruk. Kontroller oppstartsinnstillingene i Windows.",
+      "startupStateUnavailable": "Oppstartsstatusen i Windows er utilgjengelig. Prøv igjen.",
+      "startupUnsupported": "Åpning ved pålogging er ikke tilgjengelig i denne versjonen.",
+      "startupDisabled": "Deaktivert i Windows",
+      "startupDisabledByUser": "Deaktivert i oppstartsinnstillingene i Windows. Aktiver det der for å tillate åpning ved pålogging.",
+      "startupEnabled": "Aktivert i Windows",
+      "startupDisabledByPolicy": "Organisasjonen din har deaktivert åpning ved pålogging.",
+      "startupEnabledByPolicy": "Organisasjonen din krever åpning ved pålogging.",
+      "startupOpenSettings": "Åpne oppstartsinnstillingene i Windows",
+      "startupOpenSettingsFailed": "Kunne ikke åpne oppstartsinnstillingene i Windows."
     },
     "integration": {
       "appimage": {

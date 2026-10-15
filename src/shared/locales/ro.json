@@ -2269,7 +2269,19 @@
       "startupAndQuitting": "Pornire și ieșire",
       "systemNotifications": "Notificări de sistem",
       "warnBeforeQuit": "Confirmă înainte de ieșire",
-      "warnBeforeQuitDesc": "Cere confirmare la ieșire dacă există descărcări active."
+      "warnBeforeQuitDesc": "Cere confirmare la ieșire dacă există descărcări active.",
+      "startupLoading": "Se verifică setările de pornire din Windows…",
+      "startupUnavailable": "Setările au fost salvate, dar setarea de pornire nu a putut fi verificată sau aplicată. Încearcă din nou.",
+      "startupNotApplied": "Setările au fost salvate, dar Windows nu a aplicat modificarea de pornire. Verifică setările de pornire din Windows.",
+      "startupStateUnavailable": "Starea pornirii din Windows nu este disponibilă. Încearcă din nou.",
+      "startupUnsupported": "Deschiderea la conectare nu este disponibilă în această versiune.",
+      "startupDisabled": "Dezactivat în Windows",
+      "startupDisabledByUser": "Dezactivat în setările de pornire din Windows. Activează opțiunea acolo pentru a permite deschiderea la conectare.",
+      "startupEnabled": "Activat în Windows",
+      "startupDisabledByPolicy": "Organizația ta a dezactivat deschiderea la conectare.",
+      "startupEnabledByPolicy": "Organizația ta impune deschiderea la conectare.",
+      "startupOpenSettings": "Deschide setările de pornire din Windows",
+      "startupOpenSettingsFailed": "Setările de pornire din Windows nu au putut fi deschise."
     },
     "integration": {
       "appimage": {

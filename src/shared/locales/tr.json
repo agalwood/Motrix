@@ -1267,7 +1267,19 @@
       "downloadCompleted": "İndirme tamamlandı",
       "downloadFailed": "İndirme başarısız oldu",
       "description": "Başlangıç, çıkış ve bildirimler",
-      "desktopOnly": "Başlangıç ve bildirim tercihleri masaüstü uygulamasında kullanılabilir."
+      "desktopOnly": "Başlangıç ve bildirim tercihleri masaüstü uygulamasında kullanılabilir.",
+      "startupLoading": "Windows başlangıç ayarları denetleniyor…",
+      "startupUnavailable": "Ayarlar kaydedildi, ancak başlangıç ayarı denetlenemedi veya uygulanamadı. Yeniden deneyin.",
+      "startupNotApplied": "Ayarlar kaydedildi, ancak Windows başlangıç değişikliğini uygulamadı. Windows başlangıç ayarlarını gözden geçirin.",
+      "startupStateUnavailable": "Windows başlangıç durumu kullanılamıyor. Yeniden deneyin.",
+      "startupUnsupported": "Bu derlemede oturum açıldığında başlatma kullanılamaz.",
+      "startupDisabled": "Windows’ta devre dışı",
+      "startupDisabledByUser": "Windows başlangıç ayarlarında devre dışı. Oturum açıldığında başlatmaya izin vermek için oradan etkinleştirin.",
+      "startupEnabled": "Windows’ta etkin",
+      "startupDisabledByPolicy": "Kuruluşunuz oturum açıldığında başlatmayı devre dışı bıraktı.",
+      "startupEnabledByPolicy": "Kuruluşunuz oturum açıldığında başlatmayı zorunlu kılıyor.",
+      "startupOpenSettings": "Windows başlangıç ayarlarını aç",
+      "startupOpenSettingsFailed": "Windows başlangıç ayarları açılamadı."
     },
     "appearance": {
       "theme": "Tema",

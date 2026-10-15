@@ -67,9 +67,179 @@
       "type": "file"
     },
     {
-      "source": "THIRD_PARTY_LICENSES",
-      "destination": "THIRD_PARTY_LICENSES",
-      "type": "directory"
+      "source": "THIRD_PARTY_LICENSES/MPL-2.0",
+      "destination": "THIRD_PARTY_LICENSES/MPL-2.0",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/aria2-COPYING",
+      "destination": "THIRD_PARTY_LICENSES/aria2-COPYING",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL",
+      "destination": "THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-base64-LICENSE-APACHE",
+      "destination": "THIRD_PARTY_LICENSES/rust-base64-LICENSE-APACHE",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-base64-LICENSE-MIT",
+      "destination": "THIRD_PARTY_LICENSES/rust-base64-LICENSE-MIT",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-bitflags-LICENSE-MIT",
+      "destination": "THIRD_PARTY_LICENSES/rust-bitflags-LICENSE-MIT",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-block-buffer-LICENSE-APACHE",
+      "destination": "THIRD_PARTY_LICENSES/rust-block-buffer-LICENSE-APACHE",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-block-buffer-LICENSE-MIT",
+      "destination": "THIRD_PARTY_LICENSES/rust-block-buffer-LICENSE-MIT",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-cfg-if-LICENSE-MIT",
+      "destination": "THIRD_PARTY_LICENSES/rust-cfg-if-LICENSE-MIT",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-common-LICENSE-APACHE",
+      "destination": "THIRD_PARTY_LICENSES/rust-common-LICENSE-APACHE",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT",
+      "destination": "THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-cpufeatures-LICENSE-MIT",
+      "destination": "THIRD_PARTY_LICENSES/rust-cpufeatures-LICENSE-MIT",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-crypto-common-LICENSE-MIT",
+      "destination": "THIRD_PARTY_LICENSES/rust-crypto-common-LICENSE-MIT",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-digest-LICENSE-MIT",
+      "destination": "THIRD_PARTY_LICENSES/rust-digest-LICENSE-MIT",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-errno-LICENSE-MIT",
+      "destination": "THIRD_PARTY_LICENSES/rust-errno-LICENSE-MIT",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-generic-array-LICENSE-MIT",
+      "destination": "THIRD_PARTY_LICENSES/rust-generic-array-LICENSE-MIT",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-hkdf-LICENSE-APACHE",
+      "destination": "THIRD_PARTY_LICENSES/rust-hkdf-LICENSE-APACHE",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-hkdf-LICENSE-MIT",
+      "destination": "THIRD_PARTY_LICENSES/rust-hkdf-LICENSE-MIT",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-humantime-LICENSE-MIT",
+      "destination": "THIRD_PARTY_LICENSES/rust-humantime-LICENSE-MIT",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-libc-LICENSE-MIT",
+      "destination": "THIRD_PARTY_LICENSES/rust-libc-LICENSE-MIT",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-linux-raw-sys-COPYRIGHT",
+      "destination": "THIRD_PARTY_LICENSES/rust-linux-raw-sys-COPYRIGHT",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-linux-raw-sys-LICENSE-MIT",
+      "destination": "THIRD_PARTY_LICENSES/rust-linux-raw-sys-LICENSE-MIT",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-memchr-COPYING",
+      "destination": "THIRD_PARTY_LICENSES/rust-memchr-COPYING",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-memchr-LICENSE-MIT",
+      "destination": "THIRD_PARTY_LICENSES/rust-memchr-LICENSE-MIT",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-memchr-UNLICENSE",
+      "destination": "THIRD_PARTY_LICENSES/rust-memchr-UNLICENSE",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-rustix-COPYRIGHT",
+      "destination": "THIRD_PARTY_LICENSES/rust-rustix-COPYRIGHT",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-rustix-LICENSE-MIT",
+      "destination": "THIRD_PARTY_LICENSES/rust-rustix-LICENSE-MIT",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-sha2-LICENSE-MIT",
+      "destination": "THIRD_PARTY_LICENSES/rust-sha2-LICENSE-MIT",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-subtle-LICENSE",
+      "destination": "THIRD_PARTY_LICENSES/rust-subtle-LICENSE",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-typenum-LICENSE-APACHE",
+      "destination": "THIRD_PARTY_LICENSES/rust-typenum-LICENSE-APACHE",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-typenum-LICENSE-MIT",
+      "destination": "THIRD_PARTY_LICENSES/rust-typenum-LICENSE-MIT",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-unicode-ident-LICENSE-UNICODE",
+      "destination": "THIRD_PARTY_LICENSES/rust-unicode-ident-LICENSE-UNICODE",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-version_check-LICENSE-MIT",
+      "destination": "THIRD_PARTY_LICENSES/rust-version_check-LICENSE-MIT",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-windows-rs-LICENSE-APACHE",
+      "destination": "THIRD_PARTY_LICENSES/rust-windows-rs-LICENSE-APACHE",
+      "type": "file"
+    },
+    {
+      "source": "THIRD_PARTY_LICENSES/rust-windows-rs-LICENSE-MIT",
+      "destination": "THIRD_PARTY_LICENSES/rust-windows-rs-LICENSE-MIT",
+      "type": "file"
     },
     {
       "source": "THIRD_PARTY_NOTICES.md",

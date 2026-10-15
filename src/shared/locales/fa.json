@@ -2250,7 +2250,19 @@
       "startupAndQuitting": "راه‌اندازی و خروج",
       "systemNotifications": "اعلان‌های سیستم",
       "warnBeforeQuit": "تأیید پیش از خروج",
-      "warnBeforeQuitDesc": "اگر دانلودها هنوز در حال اجرا هستند، پیش از خروج پرسیده شود."
+      "warnBeforeQuitDesc": "اگر دانلودها هنوز در حال اجرا هستند، پیش از خروج پرسیده شود.",
+      "startupLoading": "در حال بررسی تنظیمات راه‌اندازی Windows…",
+      "startupUnavailable": "تنظیمات ذخیره شد، اما بررسی یا اعمال تنظیم راه‌اندازی ممکن نبود. دوباره تلاش کنید.",
+      "startupNotApplied": "تنظیمات ذخیره شد، اما Windows تغییر راه‌اندازی را اعمال نکرد. تنظیمات راه‌اندازی Windows را بررسی کنید.",
+      "startupStateUnavailable": "وضعیت راه‌اندازی در Windows در دسترس نیست. دوباره تلاش کنید.",
+      "startupUnsupported": "باز شدن هنگام ورود در این نسخه در دسترس نیست.",
+      "startupDisabled": "در Windows غیرفعال است",
+      "startupDisabledByUser": "در تنظیمات راه‌اندازی Windows غیرفعال است. برای اجازه دادن به باز شدن هنگام ورود، آن را در همان‌جا فعال کنید.",
+      "startupEnabled": "در Windows فعال است",
+      "startupDisabledByPolicy": "سازمان شما باز شدن هنگام ورود را غیرفعال کرده است.",
+      "startupEnabledByPolicy": "سازمان شما باز شدن هنگام ورود را الزامی کرده است.",
+      "startupOpenSettings": "باز کردن تنظیمات راه‌اندازی Windows",
+      "startupOpenSettingsFailed": "باز کردن تنظیمات راه‌اندازی Windows ممکن نبود."
     },
     "integration": {
       "appimage": {

@@ -1,0 +1,7 @@
+{
+  "manifest_version": 3,
+  "name": "Motrix Store diagnostic browser fixture",
+  "version": "0.1.0",
+  "permissions": ["nativeMessaging"],
+  "action": { "default_popup": "probe.html" }
+}

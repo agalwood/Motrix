@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
+import { readdir, readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -13,6 +13,10 @@ const NATIVE_HOST_CARGO_LOCK = path.join(
 const FINALIZE_FS_CARGO_LOCK = path.join(
   ROOT,
   'packages/finalize-fs/Cargo.lock'
+)
+const WINDOWS_PLATFORM_CARGO_LOCK = path.join(
+  ROOT,
+  'packages/windows-platform/Cargo.lock'
 )
 const NOTICE_GATE_COMMAND = 'pnpm run check:third-party-notices'
 const FLATPAK_NOTICE_GATE_COMMAND =
@@ -236,12 +240,86 @@ const RUST_FINALIZE_ADDITIONAL_CRATES: RustCrateNotice[] = [
   },
 ]
 
+const RUST_WINDOWS_PLATFORM_ADDITIONAL_CRATES: RustCrateNotice[] = [
+  {
+    name: 'syn',
+    version: '2.0.119',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/dtolnay/syn',
+  },
+  {
+    name: 'windows',
+    version: '0.62.2',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/microsoft/windows-rs',
+  },
+  {
+    name: 'windows-collections',
+    version: '0.3.2',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/microsoft/windows-rs',
+  },
+  {
+    name: 'windows-core',
+    version: '0.62.2',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/microsoft/windows-rs',
+  },
+  {
+    name: 'windows-future',
+    version: '0.3.2',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/microsoft/windows-rs',
+  },
+  {
+    name: 'windows-implement',
+    version: '0.60.2',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/microsoft/windows-rs',
+  },
+  {
+    name: 'windows-interface',
+    version: '0.59.3',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/microsoft/windows-rs',
+  },
+  {
+    name: 'windows-numerics',
+    version: '0.3.1',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/microsoft/windows-rs',
+  },
+  {
+    name: 'windows-result',
+    version: '0.4.1',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/microsoft/windows-rs',
+  },
+  {
+    name: 'windows-strings',
+    version: '0.5.1',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/microsoft/windows-rs',
+  },
+  {
+    name: 'windows-threading',
+    version: '0.2.1',
+    license: 'MIT OR Apache-2.0',
+    repository: 'https://github.com/microsoft/windows-rs',
+  },
+]
+
 const RUST_NATIVE_CRATES = [
   ...RUST_NATIVE_HOST_CRATES,
   ...RUST_FINALIZE_ADDITIONAL_CRATES,
+  ...RUST_WINDOWS_PLATFORM_ADDITIONAL_CRATES,
 ]
 
 const RUST_LICENSE_FILES = [
+  {
+    file: 'rust-windows-rs-LICENSE-APACHE',
+    sha256: 'c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b',
+  },
   {
     file: 'rust-rustix-COPYRIGHT',
     sha256: '377c2e7c53250cc5905c0b0532d35973392af16ffb9596a41d99d202cf3617c9',
@@ -470,6 +548,142 @@ describe('third-party graph dependency notices', () => {
     }
   )
 
+  it('binds Windows engine dependency notices to the locked binary and original texts', async () => {
+    const directory = 'THIRD_PARTY_LICENSES/aria2-win32-x64'
+    const manifest = JSON.parse(
+      await readFile(path.join(ROOT, directory, 'components.json'), 'utf8')
+    ) as {
+      schemaVersion: number
+      engine: {
+        repository: string
+        tag: string
+        version: string
+        target: string
+        archiveSha256: string
+        binarySha256: string
+      }
+      scope: {
+        completeRuntimeSbom: boolean
+        gplCompatibilityDetermined: boolean
+        sourceProvisionComplete: boolean
+        otherTargetsCovered: boolean
+      }
+      components: Array<{
+        id: string
+        licenseDeclared: string
+        licenseFiles: string[]
+        licenseSources: Array<{ file: string; sha256: string }>
+      }>
+    }
+    const lock = JSON.parse(
+      await readFile(path.join(ROOT, 'scripts/engine.lock.json'), 'utf8')
+    ) as {
+      repo: string
+      tag: string
+      version: string
+      assets: Record<string, { archiveSha256: string; binarySha256: string }>
+    }
+    const config = JSON.parse(
+      await readFile(
+        path.join(ROOT, 'scripts/third-party-notices.config.json'),
+        'utf8'
+      )
+    ) as {
+      reviewedRepositoryLicenseFiles: Record<string, string>
+      externalComponents: Array<{
+        id: string
+        licenseDeclared: string
+        licenseFiles?: string[]
+        distributions: string[]
+        metadataFile: string
+        metadataPath?: Array<string | number>
+      }>
+    }
+
+    expect(manifest.schemaVersion).toBe(1)
+    expect(manifest.scope).toMatchObject({
+      completeRuntimeSbom: false,
+      gplCompatibilityDetermined: false,
+      sourceProvisionComplete: false,
+      otherTargetsCovered: false,
+    })
+    expect(manifest.engine).toMatchObject({
+      repository: lock.repo,
+      tag: lock.tag,
+      version: lock.version,
+      target: 'win32-x64',
+      archiveSha256: lock.assets['win32-x64']?.archiveSha256,
+      binarySha256: lock.assets['win32-x64']?.binarySha256,
+    })
+    expect(manifest.components.map(({ id }) => id).sort()).toEqual([
+      'c-ares',
+      'expat',
+      'libssh2',
+      'openssl',
+      'sqlite',
+      'wslay',
+      'zlib',
+    ])
+    for (const [index, component] of manifest.components.entries()) {
+      const declaration = config.externalComponents.find(
+        (entry) => entry.id === `aria2-win32-x64-${component.id}`
+      )
+      expect(declaration).toMatchObject({
+        licenseDeclared: component.licenseDeclared,
+        distributions: ['desktop'],
+        metadataFile: `${directory}/components.json`,
+        metadataPath: ['components', index],
+      })
+      expect(component.licenseSources.map(({ file }) => file).sort()).toEqual(
+        [...component.licenseFiles].sort()
+      )
+      for (const source of component.licenseSources) {
+        expect(path.basename(source.file)).toBe(source.file)
+        const relativePath = `${directory}/${source.file}`
+        const bytes = await readFile(path.join(ROOT, relativePath))
+        const digest = createHash('sha256').update(bytes).digest('hex')
+        expect(bytes.length).toBeGreaterThan(0)
+        expect(digest).toBe(source.sha256)
+        expect(config.reviewedRepositoryLicenseFiles[relativePath]).toBe(digest)
+        expect(declaration?.licenseFiles).toContain(relativePath)
+      }
+    }
+  })
+
+  it('retains every shared original license in the server without the Windows collection', async () => {
+    const config = JSON.parse(
+      await readFile(
+        path.join(ROOT, 'scripts/server-runtime-dependencies.json'),
+        'utf8'
+      )
+    ) as {
+      resourceInputs: Array<{
+        source: string
+        destination: string
+        type: string
+      }>
+    }
+    const legalInputs = config.resourceInputs.filter((input) =>
+      input.source.startsWith('THIRD_PARTY_LICENSES')
+    )
+    const sharedFiles = (
+      await readdir(path.join(ROOT, 'THIRD_PARTY_LICENSES'), {
+        withFileTypes: true,
+      })
+    )
+      .filter((entry) => entry.isFile())
+      .map((entry) => `THIRD_PARTY_LICENSES/${entry.name}`)
+      .sort()
+    expect(legalInputs.map((input) => input.source).sort()).toEqual(sharedFiles)
+    for (const input of legalInputs) {
+      expect(input).toEqual({
+        source: input.source,
+        destination: input.source,
+        type: 'file',
+      })
+    }
+  })
+
   it('tracks every registry crate locked into the native host', async () => {
     const cargoLock = await readFile(NATIVE_HOST_CARGO_LOCK, 'utf8')
     const expected = RUST_NATIVE_HOST_CRATES.map(({ name, version }) => ({
@@ -493,10 +707,25 @@ describe('third-party graph dependency notices', () => {
     ).toEqual([])
   })
 
+  it('keeps the Windows platform helper inside the reviewed Rust inventory', async () => {
+    const cargoLock = await readFile(WINDOWS_PLATFORM_CARGO_LOCK, 'utf8')
+    const reviewed = new Set(
+      RUST_NATIVE_CRATES.map(({ name, version }) => `${name}@${version}`)
+    )
+    expect(
+      registryPackagesFromCargoLock(cargoLock).filter(
+        ({ name, version }) => !reviewed.has(`${name}@${version}`)
+      )
+    ).toEqual([])
+  })
+
   it.each(['THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_NOTICES.zh-CN.md'])(
     '%s records every reviewed native crate and SPDX expression',
     async (noticeFile) => {
       const notice = await readFile(path.join(ROOT, noticeFile), 'utf8')
+
+      expect(notice).toContain('motrix-windows-platform')
+      expect(notice).toContain('packages/windows-platform/Cargo.lock')
 
       for (const crate of RUST_NATIVE_CRATES) {
         expect(notice).toContain(
@@ -582,7 +811,8 @@ describe('third-party graph dependency notices', () => {
       'LICENSE',
       'THIRD_PARTY_NOTICES.md',
       'THIRD_PARTY_NOTICES.zh-CN.md',
-      'THIRD_PARTY_LICENSES',
+      'THIRD_PARTY_LICENSES/aria2-COPYING',
+      'THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL',
     ]) {
       const contract = JSON.parse(
         await readFile(

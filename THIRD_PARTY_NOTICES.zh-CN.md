@@ -98,6 +98,18 @@ Safari 图标是从 macOS 27.0（26A428）自带的 Safari 27.0 中 `Safari.app/
 发布的二进制文件履行 GPL 的源码提供和声明保留义务；如果自行构建，还应核对构建
 产物所链接的其他库及其许可要求。
 
+### Windows x64 链接组件声明
+
+固定的 `win32-x64` 引擎所选依赖声明与原始许可文本保存在仓库的
+`THIRD_PARTY_LICENSES/aria2-win32-x64` 目录。桌面包随附该集合；Server 运行时
+保留共享许可文本与生成的 Server 清单，不打包 Windows 专属集合。
+清单将压缩包和可执行文件摘要绑定到精确的引擎源码及 Windows 发布构建，涵盖
+c-ares 1.34.8、Expat 2.8.3、附带记录补丁的 libssh2 1.11.1、OpenSSL 3.5.8、
+SQLite 3.53.4、wslay 1.1.1 和 zlib 1.3.2。
+
+本次所选组件清单不代表完整运行库 SBOM、GPL 兼容性、完整对应源码提供工作或
+其他平台覆盖已经完成；这些分发义务仍须分别处理。
+
 ---
 
 ## GeoIP 数据库（用户自行启用、自行下载）
@@ -171,6 +183,8 @@ npm 依赖清单根据根目录声明的运行时依赖，以及 `pnpm-lock.yaml
 锁文件必须始终是这份清单的子集。Windows-only crate 也列在表中，因为 Windows
 原生可执行文件构建会包含它们。
 
+`motrix-windows-platform` 包模式系统 helper 的依赖也包含在下列清单中，版本固定于 `packages/windows-platform/Cargo.lock`。
+
 | Crate | 版本 | SPDX 许可证表达式 | 源码仓库 |
 | --- | --- | --- | --- |
 | base64 | 0.22.1 | `MIT OR Apache-2.0` | <https://github.com/marshallpierce/rust-base64> |
@@ -199,12 +213,23 @@ npm 依赖清单根据根目录声明的运行时依赖，以及 `pnpm-lock.yaml
 | serde_json | 1.0.151 | `MIT OR Apache-2.0` | <https://github.com/serde-rs/json> |
 | sha2 | 0.10.9 | `MIT OR Apache-2.0` | <https://github.com/RustCrypto/hashes> |
 | subtle | 2.6.1 | `BSD-3-Clause` | <https://github.com/dalek-cryptography/subtle> |
+| syn | 2.0.119 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/syn> |
 | syn | 3.0.3 | `MIT OR Apache-2.0` | <https://github.com/dtolnay/syn> |
 | typenum | 1.20.1 | `MIT OR Apache-2.0` | <https://github.com/paholg/typenum> |
 | unicode-ident | 1.0.24 | `(MIT OR Apache-2.0) AND Unicode-3.0` | <https://github.com/dtolnay/unicode-ident> |
 | version_check | 0.9.5 | `MIT/Apache-2.0` | <https://github.com/SergioBenitez/version_check> |
+| windows | 0.62.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-collections | 0.3.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-core | 0.62.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-future | 0.3.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-implement | 0.60.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-interface | 0.59.3 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
 | windows-link | 0.2.1 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-numerics | 0.3.1 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-result | 0.4.1 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-strings | 0.5.1 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
 | windows-sys | 0.61.2 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
+| windows-threading | 0.2.1 | `MIT OR Apache-2.0` | <https://github.com/microsoft/windows-rs> |
 | zmij | 1.0.23 | `MIT` | <https://github.com/dtolnay/zmij> |
 
 下列许可证文件均从锁定版本的 crate 源码逐字节复制。仅当许可证条款一致时
@@ -240,6 +265,7 @@ npm 依赖清单根据根目录声明的运行时依赖，以及 `pnpm-lock.yaml
 - `THIRD_PARTY_LICENSES/rust-typenum-LICENSE-MIT`
 - `THIRD_PARTY_LICENSES/rust-unicode-ident-LICENSE-UNICODE`
 - `THIRD_PARTY_LICENSES/rust-version_check-LICENSE-MIT`
+- `THIRD_PARTY_LICENSES/rust-windows-rs-LICENSE-APACHE`
 - `THIRD_PARTY_LICENSES/rust-windows-rs-LICENSE-MIT`
 
 ---

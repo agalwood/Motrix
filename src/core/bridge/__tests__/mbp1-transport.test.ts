@@ -616,6 +616,37 @@ describe('§5 identity tri-state', () => {
     expect(h.dialogs.latest().pairingNonce).toBe(hs.pairNonce)
     hs.wire.ws.close()
   })
+
+  it('consumes a supplied native-host nonce without requesting another nonce', async () => {
+    const pairNonce = await fetchNonce(h.port)
+    const issue = vi.spyOn(h.server, 'issuePairNonce')
+    const hs = await startPair({
+      port: h.port,
+      origin: OFFICIAL_ORIGIN,
+      browser: 'chromium',
+      claimedExtensionId: OFFICIAL_ID,
+      pairNonce,
+    })
+    expect(hs.pairNonce).toBe(pairNonce)
+    expect(h.dialogs.latest().pairingNonce).toBe(pairNonce)
+    expect(issue).not.toHaveBeenCalled()
+    hs.wire.ws.close()
+  })
+
+  it('refuses a malformed supplied nonce before opening a route or issuing another', async () => {
+    const issue = vi.spyOn(h.server, 'issuePairNonce')
+    await expect(
+      startPair({
+        port: h.port,
+        origin: OFFICIAL_ORIGIN,
+        browser: 'chromium',
+        claimedExtensionId: OFFICIAL_ID,
+        pairNonce: 'invalid-native-nonce',
+      })
+    ).rejects.toThrow('invalid pairing nonce')
+    expect(issue).not.toHaveBeenCalled()
+    expect(h.dialogs.requests).toHaveLength(0)
+  })
 })
 
 // ---------------------------------------------------------------------------

@@ -1,0 +1,351 @@
+name: Windows Store package check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/windows-store.yml'
+      - 'scripts/*windows-store*'
+      - 'tests/scripts/*windows-store*'
+      - 'tests/helpers/windows-store-payload-fixture.ts'
+      - 'tests/fixtures/windows-store-native-messaging/**'
+      - 'packages/windows-platform/**'
+      - 'packages/native-host/**'
+      - 'packages/finalize-fs/**'
+      - 'src/shared/config/windows-package.json'
+      - 'src/shared/schemas/windows-*'
+      - 'scripts/*electron*'
+      - 'scripts/*third-party*'
+      - 'scripts/before-*'
+      - 'scripts/engine.lock.json'
+      - 'THIRD_PARTY_LICENSES/**'
+      - 'THIRD_PARTY_NOTICES*.md'
+      - 'LICENSE'
+      - 'electron-builder.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'build/**'
+      - 'src/main/**'
+  workflow_dispatch:
+    inputs:
+      test_startup_identity:
+        description: 'Verify signed test startup identity and read-only Windows integration'
+        type: boolean
+        required: false
+        default: false
+      test_native_alias:
+        description: 'Verify a signed diagnostic package alias preserves binary stdin/stdout'
+        type: boolean
+        required: false
+        default: false
+      test_native_browsers:
+        description: 'Add branded browser diagnostic Native Messaging checks (requires test_native_alias)'
+        type: boolean
+        required: false
+        default: false
+      test_main_runtime:
+        description: 'Verify normal first-run, actual extension pairing/restarts and protocol consent (requires test_native_alias)'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-store-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package-test:
+    name: Windows SDK / test package checks
+    runs-on: windows-2025
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Configure deterministic checkout line endings
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.10.1
+          run_install: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
+        with:
+          toolchain: 1.94.1
+          components: rustfmt, clippy
+          targets: x86_64-pc-windows-msvc
+
+      - name: Parse SDK scripts with PowerShell
+        run: |
+          foreach ($script in @('scripts/get-windows-store-family-name.ps1', 'scripts/test-windows-store-startup-identity.ps1', 'scripts/windows-store-test-output.ps1', 'tests/scripts/windows-store-test-output.test.ps1', 'scripts/pack-windows-store-test.ps1', 'tests/scripts/windows-store-pri.test.ps1', 'scripts/build-windows-store-native-messaging-probe.ps1', 'tests/scripts/windows-store-native-messaging-probe.test.ps1', 'scripts/windows-store-browser-registration.ps1', 'tests/scripts/windows-store-browser-registration.test.ps1', 'scripts/build-windows-store-firefox-alias-relay.ps1', 'tests/scripts/windows-store-firefox-alias-relay.test.ps1', 'scripts/query-windows-store-main-process.ps1', 'scripts/confirm-windows-store-browser-protocol.ps1')) {
+            $tokens = $null
+            $errors = $null
+            [Management.Automation.Language.Parser]::ParseFile((Join-Path $pwd $script), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -ne 0) { throw "PowerShell parse failed: $script" }
+          }
+
+      - name: Test bounded startup diagnostics
+        run: ./tests/scripts/windows-store-test-output.test.ps1
+
+      - name: Test temporary browser registration ownership
+        shell: powershell
+        run: ./tests/scripts/windows-store-browser-registration.test.ps1 -ReportPath (Join-Path $env:RUNNER_TEMP 'motrix-store-browser-registration-contracts.json')
+
+      - name: Test fixed Firefox diagnostic relay contracts
+        run: ./tests/scripts/windows-store-firefox-alias-relay.test.ps1 -ReportPath (Join-Path $env:RUNNER_TEMP 'motrix-store-firefox-relay-contracts.json')
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          MOTRIX_SKIP_ELECTRON_REBUILD: '1'
+          MOTRIX_SKIP_ENGINE_FETCH: '1'
+
+      - name: Inspect branded browser inputs before building
+        if: github.event_name == 'workflow_dispatch' && inputs.test_native_alias && (inputs.test_native_browsers || inputs.test_main_runtime)
+        run: |
+          $env:MOTRIX_STORE_INVENTORY_REPORT = Join-Path $env:RUNNER_TEMP 'motrix-store-browser-inventory.json'
+          @'
+          import { writeFile } from 'node:fs/promises'
+          import { browserInventory, validateBrowserInventory, safeBrowserInventoryDiagnostic } from './scripts/test-windows-store-native-messaging-browser.mjs'
+          const report = { schemaVersion: 1, scope: 'windows-branded-browser-preflight', ok: true, browsers: [], browserLaunched: false, registryModified: false, windows11AcceptanceVerified: false }
+          for (const browser of ['chrome', 'edge', 'firefox']) {
+            try {
+              const observed = await browserInventory(browser)
+              report.browsers.push({ browser, ok: true, ...validateBrowserInventory({ browser, inventory: observed }) })
+            } catch (error) {
+              report.ok = false
+              const code = ['browser-inventory-failed', 'browser-brand-mismatch'].includes(error?.code) ? error.code : 'internal-error'
+              const diagnostic = safeBrowserInventoryDiagnostic({ schemaVersion: 1, scope: 'windows-branded-browser-inventory', ok: false, ...error?.inventoryDiagnostic })
+              report.browsers.push({ browser, ok: false, code, ...(diagnostic ? { inventoryDiagnostic: diagnostic } : {}) })
+            }
+          }
+          await writeFile(process.env.MOTRIX_STORE_INVENTORY_REPORT, JSON.stringify(report, null, 2) + '\n', { flag: 'wx' })
+          process.stdout.write(JSON.stringify(report) + '\n')
+          if (!report.ok) process.exitCode = 1
+          '@ | & node --input-type=module
+          if ($LASTEXITCODE -ne 0) { throw 'Branded browser preflight failed; see the fixed JSON report.' }
+
+      - name: Packaging contracts
+        run: >-
+          pnpm exec vitest run
+          --no-file-parallelism --testTimeout=30000 --hookTimeout=30000
+          tests/scripts/windows-store-metadata.test.ts
+          tests/scripts/verify-windows-store-source.test.ts
+          tests/scripts/windows-store-builder-config.test.ts
+          tests/scripts/prepare-windows-store-build.test.ts
+          tests/scripts/prepare-windows-store-identity-cases.test.ts
+          tests/scripts/windows-store-manifest.test.ts
+          tests/scripts/windows-store-diagnostics.test.ts
+          tests/scripts/verify-windows-store-payload.test.ts
+          tests/scripts/prepare-windows-store-layout.test.ts
+          tests/scripts/verify-windows-store-layout.test.ts
+          tests/scripts/workflow-windows-store.test.ts
+          tests/scripts/windows-store-alias.test.ts
+          tests/scripts/windows-store-browser.test.ts
+          tests/scripts/windows-store-main-runtime.test.ts
+          tests/scripts/windows-store-extension-runtime.test.ts
+          tests/scripts/windows-store-firefox-extension.test.ts
+          tests/scripts/windows-store-firefox-webdriver.test.ts
+          src/main/platform/windows-package-identity.test.ts
+          src/main/platform/windows-package-startup.test.ts
+          tests/scripts/windows-store-runtime-identity.test.ts
+
+      - name: Check out current Store extension source
+        if: github.event_name == 'workflow_dispatch' && inputs.test_main_runtime
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: motrixapp/motrix-extension
+          ref: b7dfcc88743e36170a22f598d84109da46259042
+          path: output/playwright/manual/store-extension-source
+          persist-credentials: false
+
+      - name: Build and verify current Store extension
+        if: github.event_name == 'workflow_dispatch' && inputs.test_main_runtime
+        working-directory: output/playwright/manual/store-extension-source
+        run: |
+          $expected = 'b7dfcc88743e36170a22f598d84109da46259042'
+          $actual = (& git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actual -cne $expected) { throw 'Extension source mismatch.' }
+          pnpm install --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { throw 'Extension dependency installation failed.' }
+          pnpm build:webstore
+          if ($LASTEXITCODE -ne 0) { throw 'Chromium extension verification failed.' }
+          pnpm build:firefox
+          if ($LASTEXITCODE -ne 0) { throw 'Firefox extension verification failed.' }
+          if (@(& git status --porcelain).Count -ne 0) { throw 'Extension source changed during build.' }
+          "MOTRIX_STORE_EXTENSION_DIRECTORY=$(Join-Path $pwd 'dist/webstore')" >> $env:GITHUB_ENV
+          "MOTRIX_STORE_FIREFOX_EXTENSION_DIRECTORY=$(Join-Path $pwd 'dist/firefox')" >> $env:GITHUB_ENV
+          "MOTRIX_STORE_EXTENSION_COMMIT=$expected" >> $env:GITHUB_ENV
+
+      - name: Prepare pinned Mozilla WebDriver
+        if: github.event_name == 'workflow_dispatch' && inputs.test_main_runtime
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'motrix-store-geckodriver'
+          New-Item -ItemType Directory -Path $root | Out-Null
+          $archive = Join-Path $root 'geckodriver.zip'
+          Invoke-WebRequest -Uri 'https://github.com/mozilla/geckodriver/releases/download/v0.37.1/geckodriver-v0.37.1-win64.zip' -OutFile $archive
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -cne 'dfed9315abe8d2fbc1b6161a2ee8002452e79cf05ee92fdc653a4e26bc35edd8') { throw 'Mozilla WebDriver archive digest mismatch.' }
+          Expand-Archive -LiteralPath $archive -DestinationPath (Join-Path $root 'driver')
+          $executable = Join-Path $root 'driver/geckodriver.exe'
+          if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) { throw 'Mozilla WebDriver is missing.' }
+          "MOTRIX_STORE_GECKODRIVER=$executable" >> $env:GITHUB_ENV
+
+      - name: Prepare fixed test build inputs
+        run: |
+          if ('${{ inputs.test_native_alias }}' -ceq 'true' -and '${{ inputs.test_startup_identity }}' -ceq 'true') { throw 'Select one signed diagnostic mode.' }
+          if ('${{ inputs.test_native_browsers }}' -ceq 'true' -and '${{ inputs.test_native_alias }}' -cne 'true') { throw 'Browser diagnostics require the native alias mode.' }
+          if ('${{ inputs.test_main_runtime }}' -ceq 'true' -and '${{ inputs.test_native_alias }}' -cne 'true') { throw 'Main runtime checks require the native alias mode.' }
+          $root = Join-Path $env:RUNNER_TEMP 'motrix-windows-store'
+          New-Item -ItemType Directory -Path $root | Out-Null
+          $commit = (& git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve checkout commit' }
+          $product = Get-Content package.json -Raw | ConvertFrom-Json
+          $metadata = [ordered]@{
+            schemaVersion = 1; profile = 'test'; architecture = 'x64'
+            productVersion = $product.version; packageVersion = '1.0.0.0'
+            source = @{ commit = $commit }
+            identity = @{ name = 'Motrix.Store.Test'; publisher = 'CN=Motrix Store Test'; publisherDisplayName = 'Motrix Store Test' }
+            previousPackageVersions = @()
+          }
+          if ('${{ inputs.test_native_alias }}' -ceq 'true') { $metadata['testDiagnostics'] = 'native-messaging-probe-v1' }
+          $inputFile = Join-Path $root 'input.json'
+          [IO.File]::WriteAllText($inputFile, ($metadata | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
+          $build = Join-Path $root 'build'
+          $layout = Join-Path $root 'prepared'
+          $family = & ./scripts/get-windows-store-family-name.ps1 -Name $metadata.identity.name -Publisher $metadata.identity.publisher
+          & node scripts/prepare-windows-store-build.mjs --repo-root . --metadata $inputFile --out $build --package-family-name $family
+          if ($LASTEXITCODE -ne 0) { throw 'Build preparation failed' }
+          "MOTRIX_STORE_BUILD=$build" >> $env:GITHUB_ENV
+          "MOTRIX_STORE_LAYOUT=$layout" >> $env:GITHUB_ENV
+
+      - name: Ensure Electron runtime
+        run: pnpm run ensure:electron-runtime
+
+      - name: Fetch locked Windows engine
+        run: pnpm run fetch:engine --platform win32 --arch x64
+
+      - name: Build verified package inputs
+        run: |
+          pnpm run build:builtin
+          if ($LASTEXITCODE -ne 0) { throw 'Builtin build failed' }
+          pnpm run build:native-host -- --platform win32 --arch x64
+          if ($LASTEXITCODE -ne 0) { throw 'Native host build failed' }
+          pnpm run build:finalize-fs -- --platform win32 --arch x64
+          if ($LASTEXITCODE -ne 0) { throw 'Filesystem helper build failed' }
+          pnpm run build:windows-platform
+          if ($LASTEXITCODE -ne 0) { throw 'Windows helper build failed' }
+          pnpm run check:third-party-notices
+          if ($LASTEXITCODE -ne 0) { throw 'Notice contract failed' }
+          pnpm run build:electron
+          if ($LASTEXITCODE -ne 0) { throw 'Electron build failed' }
+          pnpm run stage:electron -- --platform win32 --arch x64
+          if ($LASTEXITCODE -ne 0) { throw 'Electron staging failed' }
+
+      - name: Build fixed native alias diagnostics
+        if: github.event_name == 'workflow_dispatch' && inputs.test_native_alias
+        run: |
+          $probe = Join-Path $env:RUNNER_TEMP 'motrix-native-alias-probe'
+          ./scripts/build-windows-store-native-messaging-probe.ps1 -OutputDirectory $probe
+          ./scripts/build-windows-store-native-messaging-probe.ps1 -OutputDirectory (Join-Path $probe 'registry') -Kind registry
+          ./tests/scripts/windows-store-native-messaging-probe.test.ps1 -ProbePath (Join-Path $probe 'motrix-store-p0-probe.exe') -ReportPath (Join-Path $probe 'unpackaged-probe.json')
+          "MOTRIX_STORE_PROBE=$probe" >> $env:GITHUB_ENV
+
+      - name: Build fixed Firefox diagnostic relay
+        if: github.event_name == 'workflow_dispatch' && inputs.test_native_alias && inputs.test_native_browsers
+        run: |
+          $relay = Join-Path $env:RUNNER_TEMP 'motrix-store-firefox-relay'
+          ./scripts/build-windows-store-firefox-alias-relay.ps1 -OutputDirectory $relay
+          ./tests/scripts/windows-store-firefox-alias-relay.test.ps1 -RelayPath (Join-Path $relay 'motrix-store-p0-firefox-relay.exe') -ReportPath (Join-Path $relay 'relay-contracts.json')
+          "MOTRIX_STORE_FIREFOX_RELAY=$relay" >> $env:GITHUB_ENV
+
+      - name: Build isolated Windows directory
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: >-
+          pnpm exec electron-builder
+          --config "$env:MOTRIX_STORE_BUILD/electron-builder.json"
+          --win --x64 --publish never
+
+      - name: Verify and assemble test layout
+        run: |
+          $arguments = @('scripts/prepare-windows-store-layout.mjs', '--repo-root', '.', '--app-dir', "$env:MOTRIX_STORE_BUILD/payload/win-unpacked", '--metadata', "$env:MOTRIX_STORE_BUILD/release-metadata.json", '--out', $env:MOTRIX_STORE_LAYOUT)
+          if ('${{ inputs.test_native_alias }}' -ceq 'true') { $arguments += @('--probe-build-dir', $env:MOTRIX_STORE_PROBE) }
+          & node @arguments
+          if ($LASTEXITCODE -ne 0) { throw 'Layout preparation failed' }
+
+      - name: Pack and verify with Windows SDK
+        run: |
+          $kits = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10/bin'
+          $sdk = Get-ChildItem -LiteralPath $kits -Directory |
+            Where-Object { $_.Name -match '^10\.0\.\d+\.\d+$' } |
+            Sort-Object { [version]$_.Name } -Descending |
+            Where-Object { (Test-Path (Join-Path $_.FullName 'x64/makepri.exe')) -and (Test-Path (Join-Path $_.FullName 'x64/makeappx.exe')) } |
+            Select-Object -First 1
+          if ($null -eq $sdk) { throw 'Windows SDK tools not found' }
+          ./scripts/pack-windows-store-test.ps1 -PreparedDirectory $env:MOTRIX_STORE_LAYOUT -SdkBinDirectory (Join-Path $sdk.FullName 'x64')
+          "MOTRIX_STORE_SDK_BIN=$(Join-Path $sdk.FullName 'x64')" >> $env:GITHUB_ENV
+
+      - name: PRI rejection contracts
+        run: ./tests/scripts/windows-store-pri.test.ps1 -PreparedDirectory $env:MOTRIX_STORE_LAYOUT
+
+      - name: Prepare rejection and recovery upgrade packages
+        if: github.event_name == 'workflow_dispatch' && inputs.test_startup_identity
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'motrix-store-identity-cases'
+          $runtime = Get-Content "$env:MOTRIX_STORE_BUILD/windows-package-identity.json" -Raw | ConvertFrom-Json
+          & node scripts/prepare-windows-store-identity-cases.mjs --repo-root . --app-dir "$env:MOTRIX_STORE_BUILD/payload/win-unpacked" --metadata "$env:MOTRIX_STORE_BUILD/release-metadata.json" --package-family-name $runtime.expected.familyName --out $root
+          if ($LASTEXITCODE -ne 0) { throw 'Identity-case preparation failed' }
+          foreach ($label in @('rejected-family', 'recovered')) {
+            ./scripts/pack-windows-store-test.ps1 -PreparedDirectory (Join-Path $root "$label/prepared") -SdkBinDirectory $env:MOTRIX_STORE_SDK_BIN
+          }
+          "MOTRIX_STORE_IDENTITY_CASES=$root" >> $env:GITHUB_ENV
+
+      - name: Verify signed test startup identity
+        if: github.event_name == 'workflow_dispatch' && (inputs.test_startup_identity || inputs.test_native_alias)
+        run: |
+          $arguments = @{ PreparedDirectory = $env:MOTRIX_STORE_LAYOUT; SdkBinDirectory = $env:MOTRIX_STORE_SDK_BIN; OutputDirectory = (Join-Path $env:RUNNER_TEMP 'motrix-store-startup-identity') }
+          if ('${{ inputs.test_startup_identity }}' -ceq 'true') { $arguments.CaseDirectory = $env:MOTRIX_STORE_IDENTITY_CASES }
+          if ('${{ inputs.test_native_alias }}' -ceq 'true') { $arguments.TestNativeAlias = $true }
+          if ('${{ inputs.test_native_browsers }}' -ceq 'true') { $arguments.TestNativeBrowsers = $true; $arguments.FirefoxRelayBuildDirectory = $env:MOTRIX_STORE_FIREFOX_RELAY }
+          if ('${{ inputs.test_main_runtime }}' -ceq 'true') { $arguments.TestMainRuntime = $true }
+          ./scripts/test-windows-store-startup-identity.ps1 @arguments
+
+      - name: Upload SDK text evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-store-sdk-evidence
+          path: |
+            ${{ runner.temp }}/motrix-windows-store/build/*.json
+            ${{ runner.temp }}/motrix-windows-store/prepared/*.json
+            ${{ runner.temp }}/motrix-windows-store/prepared.sdk-output/*.json
+            ${{ runner.temp }}/motrix-windows-store/prepared.sdk-output/*.xml
+            ${{ runner.temp }}/motrix-windows-store/prepared.sdk-output/*.log
+            ${{ runner.temp }}/motrix-store-startup-identity/startup-identity-test.json
+            ${{ runner.temp }}/motrix-store-identity-cases/identity-cases.json
+            ${{ runner.temp }}/motrix-store-startup-identity/native-alias-test.json
+            ${{ runner.temp }}/motrix-native-alias-probe/unpackaged-probe.json
+            ${{ runner.temp }}/motrix-store-browser-registration-contracts.json
+            ${{ runner.temp }}/motrix-store-firefox-relay-contracts.json
+            ${{ runner.temp }}/motrix-store-firefox-relay/build-report.json
+            ${{ runner.temp }}/motrix-store-firefox-relay/relay-contracts.json
+            ${{ runner.temp }}/motrix-store-startup-identity/browser/browser-report.json
+            ${{ runner.temp }}/motrix-store-browser-inventory.json
+            ${{ runner.temp }}/motrix-store-startup-identity/main-runtime-report.json
+          if-no-files-found: warn
+          retention-days: 14

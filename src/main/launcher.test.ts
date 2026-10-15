@@ -393,3 +393,33 @@ describe('setupLauncher', () => {
     }
   })
 })
+
+it('queues package activation during a cold start and forwards a warm activation without rewriting it', () => {
+  const originalPlatform = process.platform
+  const originalArgv = process.argv
+  Object.defineProperty(process, 'platform', { value: 'win32' })
+  process.argv = ['Motrix.exe', 'motrix-store://open']
+  const callbacks = {
+    onProtocolUrl: vi.fn(),
+    onTorrentFile: vi.fn(),
+    onShowWindow: vi.fn(),
+  }
+  try {
+    const handle = setupLauncher(callbacks)
+    expect(callbacks.onProtocolUrl).not.toHaveBeenCalled()
+    handle.flushDeferred()
+    expect(callbacks.onProtocolUrl).toHaveBeenCalledExactlyOnceWith(
+      'motrix-store://open'
+    )
+    const onSecond = mockOn.mock.calls.find(
+      ([name]) => name === 'second-instance'
+    )?.[1]
+    onSecond({}, ['Motrix.exe', 'MOTRIX-STORE://OPEN/'])
+    expect(callbacks.onProtocolUrl).toHaveBeenLastCalledWith(
+      'MOTRIX-STORE://OPEN/'
+    )
+  } finally {
+    process.argv = originalArgv
+    Object.defineProperty(process, 'platform', { value: originalPlatform })
+  }
+})

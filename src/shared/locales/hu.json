@@ -1267,7 +1267,19 @@
       "description": "Indítás, kilépés és értesítések",
       "desktopOnly": "Az indítási és értesítési beállítások az asztali alkalmazásban érhetők el.",
       "linuxAutostartDesc": "A bejelentkezéskori automatikus indítást az asztali környezetben kezelheted.",
-      "linuxAutostartGuide": "Beállítási útmutató megtekintése"
+      "linuxAutostartGuide": "Beállítási útmutató megtekintése",
+      "startupLoading": "A Windows indítási beállításainak ellenőrzése…",
+      "startupUnavailable": "A beállításokat mentettük, de az automatikus indítást nem sikerült ellenőrizni vagy módosítani. Próbálja újra.",
+      "startupNotApplied": "A beállításokat mentettük, de a Windows nem alkalmazta az indítás módosítását. Ellenőrizze a Windows indítási beállításait.",
+      "startupStateUnavailable": "A Windows indítási állapota nem érhető el. Próbálja újra.",
+      "startupUnsupported": "A bejelentkezéskori indítás ebben a verzióban nem érhető el.",
+      "startupDisabled": "Letiltva a Windowsban",
+      "startupDisabledByUser": "Letiltva a Windows indítási beállításaiban. Az automatikus indításhoz engedélyezze ott.",
+      "startupEnabled": "Engedélyezve a Windowsban",
+      "startupDisabledByPolicy": "A szervezete letiltotta a bejelentkezéskori indítást.",
+      "startupEnabledByPolicy": "A szervezete kötelezővé tette a bejelentkezéskori indítást.",
+      "startupOpenSettings": "A Windows indítási beállításainak megnyitása",
+      "startupOpenSettingsFailed": "A Windows indítási beállításait nem sikerült megnyitni."
     },
     "appearance": {
       "theme": "Téma",

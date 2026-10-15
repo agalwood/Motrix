@@ -23,6 +23,11 @@ import { makeElectronFfmpegDetect } from '../plugin/ffmpeg-detect-electron'
 import type { QueryContext } from './queries'
 import { buildQueryHandlers, registerQueryHandlers } from './queries'
 
+const startupStatusMock = vi.hoisted(() => vi.fn())
+vi.mock('../platform/auto-launch', () => ({
+  getAutoLaunchStatus: startupStatusMock,
+}))
+
 const ipcMocks = vi.hoisted(() => ({
   handle: vi.fn(),
   removeHandler: vi.fn(),
@@ -148,6 +153,19 @@ function serializeCommandGraphRecords(): string {
 }
 
 describe('buildQueryHandlers', () => {
+  it('returns package startup authority without accepting renderer helper paths', async () => {
+    const status = {
+      authority: 'windows-package',
+      result: { version: 1, ok: false, code: 'helper_unavailable' },
+    }
+    startupStatusMock.mockResolvedValueOnce(status)
+    const handlers = buildQueryHandlers({} as QueryContext)
+    await expect(
+      handlers[Queries.GetAutoLaunchStatus]?.({ resourcesPath: '/untrusted' })
+    ).resolves.toBe(status)
+    expect(startupStatusMock).toHaveBeenCalledExactlyOnceWith()
+  })
+
   it('returns FFmpeg installation state without accepting renderer paths', async () => {
     const handlers = buildQueryHandlers({
       userDataDir: '/fixture',

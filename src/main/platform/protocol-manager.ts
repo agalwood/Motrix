@@ -3,6 +3,7 @@ import { basename, extname } from 'node:path'
 import { getLogger } from '@core/logger'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import type { TorrentParser } from '@core/torrent/torrent-parser'
+import windowsPackage from '@shared/config/windows-package.json'
 import { parseAppDeepLink } from '@shared/lib/app-deep-link'
 import { Events } from '@shared/protocol/events'
 import type { AddTaskUrlParams } from '@shared/schemas/add-task'
@@ -30,6 +31,8 @@ export interface ProtocolManagerDeps {
   // Windows associations are installer-owned so they can participate in the
   // protected Default Apps UI and be removed reliably on uninstall/update.
   platform?: NodeJS.Platform
+  // Main validates the package identity before assembling this consumer.
+  isWindowsPackage?: boolean
   // Open (or focus) the add-task window with URL prefill. Wired in
   // main/index.ts to open the window + dispatch SetAddTaskMode once the
   // renderer's first paint + useEffect have completed.
@@ -213,6 +216,19 @@ export function createProtocolManager(deps: ProtocolManagerDeps) {
       // Links may contain signed URLs and credentials. Never log their content.
       log.info('protocol url received')
       const lower = url.toLowerCase()
+
+      if (lower.trimStart().startsWith(`${windowsPackage.launchScheme}:`)) {
+        // Compare the raw URI. This route only opens the verified package UI;
+        // it carries no credentials, pairing intent, navigation or downloads.
+        const launch = `${windowsPackage.launchScheme}://open`
+        if (
+          deps.isWindowsPackage &&
+          (deps.platform ?? process.platform) === 'win32' &&
+          (lower === launch || lower === `${launch}/`)
+        )
+          deps.onShowMain()
+        return
+      }
 
       if (RESOURCE_PREFIXES.some((p) => lower.startsWith(p))) {
         const params = uriToAddTaskParams(url)
