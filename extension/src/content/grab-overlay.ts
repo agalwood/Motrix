@@ -1,5 +1,6 @@
 import { send } from '@/background/MessageBus'
 import { extensionBrowser as browser } from '@/shared/browser'
+import { newDownloadOperationId } from '@/shared/integration'
 import type { MessageResponse } from '@/shared/messages'
 
 /**
@@ -68,14 +69,6 @@ function itemDescription(item: GrabItem): string {
   if (size) parts.push(size)
   if (parts.length === 0 && item.mimeType) parts.push(item.mimeType)
   return parts.join(' · ')
-}
-
-function newIdempotencyKey(): string {
-  try {
-    return crypto.randomUUID()
-  } catch {
-    return `grab-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-  }
 }
 
 /** The video worth anchoring to: playing beats paused, visible area breaks ties. */
@@ -389,7 +382,7 @@ export function installGrabOverlay(): void {
     try {
       await send('bg.grabberSubmit', {
         mediaKey: item.key,
-        idempotencyKey: newIdempotencyKey(),
+        idempotencyKey: newDownloadOperationId(),
       })
       panelOpen = false
       showToast(t('grabberSent', 'Sent to Motrix'))
@@ -414,7 +407,7 @@ export function installGrabOverlay(): void {
     render()
     try {
       await send('bg.resolvePageDownload', {
-        idempotencyKey: newIdempotencyKey(),
+        idempotencyKey: newDownloadOperationId(),
       })
       panelOpen = false
       showToast(t('grabberSent', 'Sent to Motrix'))
