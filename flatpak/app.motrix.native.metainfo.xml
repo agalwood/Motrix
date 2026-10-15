@@ -68,6 +68,15 @@
   </screenshots>
 
   <releases>
+    <release version="2.0.0-beta.48" date="2026-10-15">
+      <description>
+        <p>
+          Adds declarative plugin operations, task re-download, renderer
+          recovery, compact layouts, persistent speed-limit units, plugin
+          proxy support, and improved download diagnostics.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.47" date="2026-10-10">
       <description>
         <p>
