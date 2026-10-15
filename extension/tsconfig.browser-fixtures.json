@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "rootDir": "." },
+  "include": [
+    "scripts/fixtures/*.ts",
+    "src/vite-env.d.ts",
+    "src/shared/browser-types.d.ts"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "appName": {
+    "message": "Motrix-bővítmény",
+    "description": "Extension name shown in the browser and in store listings."
+  },
+  "appDescription": {
+    "message": "Hivatalos Motrix-böngészőbővítmény. Letöltések küldése a Motrixnak.",
+    "description": "Short summary shown under the name in the browser and in store listings."
+  },
+  "grabberButtonLabel": {
+    "message": "Download video",
+    "description": "Label of the floating in-page button that offers detected media."
+  },
+  "grabberPanelTitle": {
+    "message": "Download with Motrix",
+    "description": "Heading of the in-page panel listing detected media."
+  },
+  "grabberSent": {
+    "message": "Sent to Motrix",
+    "description": "Toast shown after a detected item was accepted by Motrix."
+  },
+  "grabberFailed": {
+    "message": "Could not send to Motrix",
+    "description": "Toast shown when a detected item could not be sent to Motrix."
+  }
+}

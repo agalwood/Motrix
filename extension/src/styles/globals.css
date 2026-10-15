@@ -1,0 +1,200 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-tab-background: var(--tab-background);
+  --color-surface-page: var(--surface-page);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-speed-upload: var(--speed-upload);
+  --color-speed-download: var(--speed-download);
+  --color-connection-paired: var(--connection-paired);
+  --color-connection-online: var(--connection-online);
+  --color-connection-pending: var(--connection-pending);
+  --color-connection-offline: var(--connection-offline);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-heading: var(--font-sans);
+  --font-sans: "Inter Variable", sans-serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  color-scheme: light;
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --tab-background: oklch(0.95 0 0);
+  /* Layered neutral surfaces (brainwave-inspired): page < sunken < card */
+  --surface-page: oklch(0.96 0 0);
+  --surface-sunken: oklch(0.975 0 0);
+  /* Top inner highlight that gives sunken panels a physical, light-catching edge */
+  --panel-highlight: rgba(255, 255, 255, 0.7);
+  --speed-upload: #5d55fc;
+  --speed-download: #16bbe9;
+  --connection-paired: #3b82f6;
+  --connection-online: #5bc660;
+  --connection-pending: #e5a52b;
+  --connection-offline: var(--destructive);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  color-scheme: dark;
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --tab-background: oklch(0.269 0 0);
+  /* Dark mirrors light (page < sunken < card): the sunken panel recesses below the card */
+  --surface-page: oklch(0.12 0 0);
+  --surface-sunken: oklch(0.17 0 0);
+  --panel-highlight: rgba(255, 255, 255, 0.06);
+  --speed-upload: #7771ff;
+  --speed-download: #24c7ee;
+  --connection-paired: #60a5fa;
+  --connection-online: #69d36e;
+  --connection-pending: #f2b94b;
+  --connection-offline: var(--destructive);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+@utility shadow-popover {
+  box-shadow:
+    0 153px 61px 0 #00000003,
+    0 86px 52px 0 #0000000a,
+    0 38px 38px 0 #0000000f,
+    0 10px 21px 0 #00000012;
+}
+
+/* Soft, tightly-stacked drop used for small floating chips (e.g. the app icon) */
+@utility shadow-depth {
+  box-shadow:
+    0 6px 3px 0 #00000003,
+    0 3px 3px 0 #00000005,
+    0 1px 1px 0 #00000005;
+}
+
+/* The signature brainwave panel: top inner highlight + a faint layered drop */
+@utility shadow-inset-panel {
+  box-shadow:
+    inset 0 2px 2px 0 var(--panel-highlight),
+    0 6px 3px 0 #00000005,
+    0 3px 3px 0 #00000008,
+    0 1px 1px 0 #00000008;
+}
+
+/* Resting elevation for a content card floating on the page (between depth and popover) */
+@utility shadow-card {
+  box-shadow:
+    0 1px 2px 0 #0000000a,
+    0 4px 8px -6px #00000014,
+    0 12px 28px -14px #0000001f;
+}

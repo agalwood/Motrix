@@ -1,0 +1,26 @@
+{
+  "appName": {
+    "message": "Motrix 擴充功能",
+    "description": "Extension name shown in the browser and in store listings."
+  },
+  "appDescription": {
+    "message": "Motrix 官方瀏覽器擴充功能，將下載交給 Motrix。",
+    "description": "Short summary shown under the name in the browser and in store listings."
+  },
+  "grabberButtonLabel": {
+    "message": "下載影片",
+    "description": "Label of the floating in-page button that offers detected media."
+  },
+  "grabberPanelTitle": {
+    "message": "用 Motrix 下載",
+    "description": "Heading of the in-page panel listing detected media."
+  },
+  "grabberSent": {
+    "message": "已傳送至 Motrix",
+    "description": "Toast shown after a detected item was accepted by Motrix."
+  },
+  "grabberFailed": {
+    "message": "無法傳送至 Motrix",
+    "description": "Toast shown when a detected item could not be sent to Motrix."
+  }
+}

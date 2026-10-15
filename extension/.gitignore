@@ -1,0 +1,84 @@
+# Dependencies
+/node_modules/
+/.pnpm-store/
+
+# Build and browser-extension packages
+/dist/
+/dist-ssr/
+/artifacts/
+/web-ext-artifacts/
+/web-ext-profile/
+/chrome-profile/
+/firefox-profile/
+/.web-extension-id
+*.crx
+*.xpi
+*.pem
+*.key
+*.p12
+*.pfx
+/motrix-extension-*.zip
+/SHA256SUMS.txt
+*.tsbuildinfo
+
+# Test output
+/coverage/
+/.nyc_output/
+/.vitest/
+/.playwright-cli/
+/output/playwright/
+*.lcov
+__pycache__/
+
+# Vite, tools, and temporary files
+/.cache/
+/.vite/
+/.vite-inspect/
+/.tmp/
+/temp/
+/tmp/
+vite.config.*.timestamp-*
+vitest.config.*.timestamp-*
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+*.log
+debug.log*
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local environment overrides
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Editors
+/.vscode/
+/.idea/
+/.fleet/
+/.zed/
+/.history/
+*.swp
+*.swo
+
+# Operating-system metadata
+.DS_Store
+._*
+.AppleDouble
+.LSOverride
+Thumbs.db
+Desktop.ini
+
+# Repository-local worktrees
+/.worktrees/
+
+# Local agent skills
+/.agents/skills/
+/.claude/skills/
+/.codex/skills/
+/skills-lock.json

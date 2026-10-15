@@ -1,0 +1,28 @@
+overrides:
+  '@dotenvx/dotenvx>undici': '7.29.0'
+  'shadcn>postcss': '8.5.26'
+  'shadcn>undici': '7.29.0'
+minimumReleaseAgeExclude:
+  - '@biomejs/biome@2.5.1'
+  - '@biomejs/cli-darwin-arm64@2.5.1'
+  - '@biomejs/cli-darwin-x64@2.5.1'
+  - '@biomejs/cli-linux-arm64-musl@2.5.1'
+  - '@biomejs/cli-linux-arm64@2.5.1'
+  - '@biomejs/cli-linux-x64-musl@2.5.1'
+  - '@biomejs/cli-linux-x64@2.5.1'
+  - '@biomejs/cli-win32-arm64@2.5.1'
+  - '@biomejs/cli-win32-x64@2.5.1'
+  - '@vitejs/plugin-react@6.0.3'
+  - vite@8.1.0
+  - '@motrix/mdxp@0.1.0 || 0.3.0 || 0.6.0 || 0.7.0 || 0.8.0 || 0.8.1'
+  - '@types/node@26.2.0'
+  - react-hook-form@7.85.0
+  - ws@8.21.3
+  - lucide-react@1.38.0 || 1.47.0
+  - shadcn@4.19.1
+  - tailwind-merge@3.7.0
+  - zod@4.6.4
+patchedDependencies:
+  # Vite 8/Rolldown IIFE option migration; re-review with any CRXJS upgrade.
+  '@crxjs/vite-plugin@2.7.1': patches/@crxjs__vite-plugin@2.7.1.patch
+  '@wxt-dev/browser@0.3.0': patches/@wxt-dev__browser@0.3.0.patch

@@ -1,0 +1,26 @@
+{
+  "appName": {
+    "message": "Motrix-extensie",
+    "description": "Extension name shown in the browser and in store listings."
+  },
+  "appDescription": {
+    "message": "Officiële Motrix-browserextensie. Verzend downloads naar Motrix.",
+    "description": "Short summary shown under the name in the browser and in store listings."
+  },
+  "grabberButtonLabel": {
+    "message": "Video downloaden",
+    "description": "Label of the floating in-page button that offers detected media."
+  },
+  "grabberPanelTitle": {
+    "message": "Downloaden met Motrix",
+    "description": "Heading of the in-page panel listing detected media."
+  },
+  "grabberSent": {
+    "message": "Verzonden naar Motrix",
+    "description": "Toast shown after a detected item was accepted by Motrix."
+  },
+  "grabberFailed": {
+    "message": "Kon niet naar Motrix worden verzonden",
+    "description": "Toast shown when a detected item could not be sent to Motrix."
+  }
+}

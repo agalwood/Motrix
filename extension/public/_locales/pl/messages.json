@@ -1,0 +1,26 @@
+{
+  "appName": {
+    "message": "Rozszerzenie Motrix",
+    "description": "Extension name shown in the browser and in store listings."
+  },
+  "appDescription": {
+    "message": "Oficjalne rozszerzenie Motrix do przeglądarki. Wysyłaj pobieranie do Motrix.",
+    "description": "Short summary shown under the name in the browser and in store listings."
+  },
+  "grabberButtonLabel": {
+    "message": "Pobierz wideo",
+    "description": "Label of the floating in-page button that offers detected media."
+  },
+  "grabberPanelTitle": {
+    "message": "Pobierz przez Motrix",
+    "description": "Heading of the in-page panel listing detected media."
+  },
+  "grabberSent": {
+    "message": "Wysłano do Motrix",
+    "description": "Toast shown after a detected item was accepted by Motrix."
+  },
+  "grabberFailed": {
+    "message": "Nie udało się wysłać do Motrix",
+    "description": "Toast shown when a detected item could not be sent to Motrix."
+  }
+}

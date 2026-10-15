@@ -1,0 +1,26 @@
+{
+  "appName": {
+    "message": "Tiện ích Motrix",
+    "description": "Extension name shown in the browser and in store listings."
+  },
+  "appDescription": {
+    "message": "Tiện ích trình duyệt chính thức của Motrix. Gửi nội dung tải xuống đến Motrix.",
+    "description": "Short summary shown under the name in the browser and in store listings."
+  },
+  "grabberButtonLabel": {
+    "message": "Tải video",
+    "description": "Label of the floating in-page button that offers detected media."
+  },
+  "grabberPanelTitle": {
+    "message": "Tải xuống bằng Motrix",
+    "description": "Heading of the in-page panel listing detected media."
+  },
+  "grabberSent": {
+    "message": "Đã gửi tới Motrix",
+    "description": "Toast shown after a detected item was accepted by Motrix."
+  },
+  "grabberFailed": {
+    "message": "Không thể gửi tới Motrix",
+    "description": "Toast shown when a detected item could not be sent to Motrix."
+  }
+}

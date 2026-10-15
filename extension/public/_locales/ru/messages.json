@@ -1,0 +1,26 @@
+{
+  "appName": {
+    "message": "Расширение Motrix",
+    "description": "Extension name shown in the browser and in store listings."
+  },
+  "appDescription": {
+    "message": "Официальное расширение Motrix для браузера. Отправляйте загрузки в Motrix.",
+    "description": "Short summary shown under the name in the browser and in store listings."
+  },
+  "grabberButtonLabel": {
+    "message": "Скачать видео",
+    "description": "Label of the floating in-page button that offers detected media."
+  },
+  "grabberPanelTitle": {
+    "message": "Скачать через Motrix",
+    "description": "Heading of the in-page panel listing detected media."
+  },
+  "grabberSent": {
+    "message": "Отправлено в Motrix",
+    "description": "Toast shown after a detected item was accepted by Motrix."
+  },
+  "grabberFailed": {
+    "message": "Не удалось отправить в Motrix",
+    "description": "Toast shown when a detected item could not be sent to Motrix."
+  }
+}

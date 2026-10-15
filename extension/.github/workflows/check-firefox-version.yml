@@ -1,0 +1,59 @@
+name: Check Firefox submission status
+run-name: "Check Firefox ${{ inputs.tag }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Submitted release tag (vX.Y.Z); read-only, never uploads
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: github.repository == 'motrixapp/motrix-extension' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: store-firefox
+    steps:
+      - name: Read existing AMO version
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          FIREFOX_JWT_ISSUER: ${{ secrets.FIREFOX_JWT_ISSUER }}
+          FIREFOX_JWT_SECRET: ${{ secrets.FIREFOX_JWT_SECRET }}
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { createHmac, randomUUID } from 'node:crypto';
+          import { appendFileSync } from 'node:fs';
+          const { RELEASE_TAG: tag, FIREFOX_JWT_ISSUER: issuer, FIREFOX_JWT_SECRET: secret } = process.env;
+          if (!/^v\d+\.\d+\.\d+$/.test(tag) || !issuer || !secret) throw new Error('Missing or invalid configuration');
+          const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
+          const now = Math.floor(Date.now() / 1000);
+          const message = `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ iss: issuer, jti: randomUUID(), iat: now, exp: now + 60 })}`;
+          const token = `${message}.${createHmac('sha256', secret).update(message).digest('base64url')}`;
+          const response = await fetch(`https://addons.mozilla.org/api/v5/addons/addon/motrix-extension@motrix.app/versions/${tag.slice(1)}/`, {
+            headers: { Authorization: `JWT ${token}` },
+            redirect: 'error',
+            signal: AbortSignal.timeout(30000),
+          });
+          if (!response.ok) throw new Error(`AMO status request failed: HTTP ${response.status}`);
+          const version = await response.json();
+          const result = {
+            version: version.version,
+            channel: version.channel,
+            status: version.file?.status,
+            fileId: version.file?.id,
+            hasSource: Boolean(version.source),
+            disabled: version.is_disabled,
+            compatibility: version.compatibility,
+          };
+          console.log(JSON.stringify(result, null, 2));
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### Firefox ${tag}\n\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\`\n`);
+          if (version.version !== tag.slice(1) || version.channel !== 'listed' || !version.source || version.is_disabled || !['public', 'unreviewed'].includes(version.file?.status)) {
+            throw new Error('The version is not an active listed submission with sources; inspect AMO before retrying');
+          }
+          NODE

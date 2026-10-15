@@ -1,0 +1,26 @@
+{
+  "appName": {
+    "message": "Motrix 확장 프로그램",
+    "description": "Extension name shown in the browser and in store listings."
+  },
+  "appDescription": {
+    "message": "Motrix 공식 브라우저 확장 프로그램. 다운로드를 Motrix로 보냅니다.",
+    "description": "Short summary shown under the name in the browser and in store listings."
+  },
+  "grabberButtonLabel": {
+    "message": "동영상 다운로드",
+    "description": "Label of the floating in-page button that offers detected media."
+  },
+  "grabberPanelTitle": {
+    "message": "Motrix로 다운로드",
+    "description": "Heading of the in-page panel listing detected media."
+  },
+  "grabberSent": {
+    "message": "Motrix로 전송됨",
+    "description": "Toast shown after a detected item was accepted by Motrix."
+  },
+  "grabberFailed": {
+    "message": "Motrix로 전송하지 못했습니다",
+    "description": "Toast shown when a detected item could not be sent to Motrix."
+  }
+}

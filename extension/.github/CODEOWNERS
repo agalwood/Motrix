@@ -1,0 +1,8 @@
+# Solo-maintainer ownership. The solo ruleset does not require self-approval.
+/.github/ @agalwood
+/scripts/ @agalwood
+/package.json @agalwood
+/pnpm-lock.yaml @agalwood
+/pnpm-workspace.yaml @agalwood
+/patches/ @agalwood
+/src/__tests__/store-submission.test.ts @agalwood

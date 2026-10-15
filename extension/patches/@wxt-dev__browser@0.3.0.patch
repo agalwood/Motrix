@@ -1,0 +1,21 @@
+diff --git a/src/gen/index.d.ts b/src/gen/index.d.ts
+index fb8c631f90488c900b38f50d79543b8e1170b264..045faa36433d6123b6a3b1c1489d4290cbbe7082 100644
+--- a/src/gen/index.d.ts
++++ b/src/gen/index.d.ts
+@@ -18,14 +18,14 @@ interface Window {
+      * Cross-browser alias of {@link chrome}.
+      * @since Chrome 148 (Chrome 152 for extensions declaring a `devtools_page` in manifest)
+      */
+-    browser: typeof chrome;
++    browser: typeof Browser;
+ }
+
+ /**
+  * Cross-browser alias of {@link chrome}.
+  * @since Chrome 148 (Chrome 152 for extensions declaring a `devtools_page` in manifest)
+  */
+-declare var browser: typeof chrome;
++declare var browser: typeof Browser;
+
+ export namespace Browser {
+     ////////////////////

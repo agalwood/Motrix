@@ -1,0 +1,201 @@
+name: Safari direct distribution
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: 'Unique Safari build number (1–65535); use a new number for each release'
+        required: true
+        type: string
+      publish:
+        description: 'Create a draft GitHub Release after signing and notarization'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: safari-direct-release
+  cancel-in-progress: false
+
+env:
+  SAFARI_TEAM_ID: 7VMB56CA56
+
+jobs:
+  build:
+    name: Build without signing credentials
+    runs-on: macos-26
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+      build: ${{ steps.metadata.outputs.build }}
+      digest: ${{ steps.pack.outputs.digest }}
+      artifact: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - name: Require trusted main workflow
+        env:
+          BUILD_NUMBER: ${{ inputs.build_number }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = motrixapp/motrix-extension
+          test "$GITHUB_REF" = refs/heads/main
+          [[ "$BUILD_NUMBER" =~ ^[1-9][0-9]{0,4}$ ]]
+          test "$BUILD_NUMBER" -le 65535
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate metadata
+        id: metadata
+        env:
+          BUILD_NUMBER: ${{ inputs.build_number }}
+        run: |
+          set -euo pipefail
+          version="$(/usr/bin/plutil -extract version raw package.json)"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "DEVELOPER_DIR=$(xcode-select -p)" >> "$GITHUB_ENV"
+          xcodebuild -version
+      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+        with:
+          runtime: node@24.18.0
+          cache: true
+          install: false
+      - run: pnpm install --frozen-lockfile
+      - name: Quality checks
+        run: |
+          set -euo pipefail
+          pnpm run lint
+          pnpm test
+          node --test scripts/__tests__/*.test.mjs
+          python3 -I scripts/__tests__/safari_release_test.py
+          swift test --package-path native/safari --scratch-path .cache/safari-native-tests
+      - name: Build universal unsigned archive
+        env:
+          MOTRIX_SAFARI_RELEASE: '1'
+          MOTRIX_SAFARI_TEAM_ID: ${{ env.SAFARI_TEAM_ID }}
+          MOTRIX_SAFARI_BUILD_NUMBER: ${{ steps.metadata.outputs.build }}
+        run: |
+          set -euo pipefail
+          pnpm run build:safari
+          node scripts/safari-native.mjs --build --archive --unsigned-archive --bootstrap-client-only
+      - name: Package data-only signing input
+        id: pack
+        env:
+          VERSION: ${{ steps.metadata.outputs.version }}
+          BUILD_NUMBER: ${{ steps.metadata.outputs.build }}
+        run: |
+          set -euo pipefail
+          app=".cache/safari-ci/archives/Motrix Extension for Safari-$BUILD_NUMBER.xcarchive/Products/Applications/Motrix Extension for Safari.app"
+          digest="$(python3 -I scripts/safari-release.py pack --input "$app" --output "$RUNNER_TEMP/safari-unsigned.zip" --commit "$GITHUB_SHA" --version "$VERSION" --build "$BUILD_NUMBER" --team "$SAFARI_TEAM_ID")"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Upload unsigned input
+        id: upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: safari-unsigned-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/safari-unsigned.zip
+          if-no-files-found: error
+          retention-days: 3
+
+  sign:
+    name: Sign and notarize verified app
+    needs: build
+    runs-on: macos-26
+    timeout-minutes: 50
+    environment: safari-direct-release
+    outputs:
+      artifact: ${{ steps.upload.outputs.artifact-id }}
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      BUILD_NUMBER: ${{ needs.build.outputs.build }}
+      INPUT_DIGEST: ${{ needs.build.outputs.digest }}
+    steps:
+      # No project checkout, package install, build hooks, or artifact-provided scripts.
+      - name: Fetch signer from immutable workflow commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = motrixapp/motrix-extension
+          test "$GITHUB_REF" = refs/heads/main
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/contents/scripts/safari-release.py?ref=$GITHUB_SHA" --jq .content | base64 --decode > "$RUNNER_TEMP/safari-release.py"
+          test -s "$RUNNER_TEMP/safari-release.py"
+          echo "DEVELOPER_DIR=$(xcode-select -p)" >> "$GITHUB_ENV"
+      - name: Download exact artifact from this run
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact }}
+          path: ${{ runner.temp }}/safari-input
+          merge-multiple: true
+      - name: Verify input before exposing secrets
+        run: |
+          python3 -I "$RUNNER_TEMP/safari-release.py" verify \
+            --input "$RUNNER_TEMP/safari-input/safari-unsigned.zip" --digest "$INPUT_DIGEST" \
+            --commit "$GITHUB_SHA" --version "$VERSION" --build "$BUILD_NUMBER" --team "$SAFARI_TEAM_ID" --native
+      - name: Sign, notarize, staple and assess
+        env:
+          MAC_CERTS: ${{ secrets.MAC_CERTS }}
+          MAC_CERTS_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
+          API_KEY: ${{ secrets.API_KEY }}
+          API_KEY_ID: ${{ secrets.API_KEY_ID }}
+          API_KEY_ISSUER_ID: ${{ secrets.API_KEY_ISSUER_ID }}
+        run: |
+          python3 -I "$RUNNER_TEMP/safari-release.py" sign \
+            --input "$RUNNER_TEMP/safari-input/safari-unsigned.zip" --digest "$INPUT_DIGEST" \
+            --commit "$GITHUB_SHA" --version "$VERSION" --build "$BUILD_NUMBER" --team "$SAFARI_TEAM_ID" \
+            --output "$RUNNER_TEMP/safari-signed"
+      - name: Upload verified distribution assets
+        id: upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: safari-signed-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/safari-signed/*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Create draft Safari release
+    if: inputs.publish
+    needs: [build, sign]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: github-release
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      BUILD_NUMBER: ${{ needs.build.outputs.build }}
+      INPUT_DIGEST: ${{ needs.build.outputs.digest }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.sign.outputs.artifact }}
+          path: ${{ runner.temp }}/safari-release
+          merge-multiple: true
+      - name: Verify final checksum and create draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: ${{ runner.temp }}/safari-release
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = motrixapp/motrix-extension
+          test "$GITHUB_REF" = refs/heads/main
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$BUILD_NUMBER" =~ ^[1-9][0-9]{0,4}$ ]]
+          asset="motrix-extension-$VERSION-safari-macos-universal.zip"
+          expected="$(jq -er --arg sha "$GITHUB_SHA" --arg version "$VERSION" --arg build "$BUILD_NUMBER" --arg team "$SAFARI_TEAM_ID" --arg digest "$INPUT_DIGEST" '. | select(.schema == 1 and .commit == $sha and .version == $version and .build == $build and .team == $team and .input_sha256 == $digest and .status == "Accepted") | .zip_sha256' safari-release-receipt.json)"
+          [[ "$expected" =~ ^[0-9a-f]{64}$ ]]
+          test "$(sha256sum "$asset" | cut -d ' ' -f 1)" = "$expected"
+          # A dedicated tag avoids colliding with Chromium/Firefox releases.
+          tag="safari-v$VERSION-build.$BUILD_NUMBER"
+          # Atomically create the ref. Existing tags and API errors fail closed.
+          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f "ref=refs/tags/$tag" -f "sha=$GITHUB_SHA" > /dev/null
+          printf 'Developer ID signed and Apple notarized Safari extension.\n\nSource: %s\nBuild: %s\nArchitectures: arm64, x86_64\n\nInstall the app in Applications, open it, and enable Motrix Extension in Safari settings.\n' "$GITHUB_SHA" "$BUILD_NUMBER" > "$RUNNER_TEMP/safari-release-notes.md"
+          gh release create "$tag" "$asset" SHA256SUMS-safari.txt safari-release-receipt.json safari-notarization-log.json \
+            --repo "$GITHUB_REPOSITORY" --verify-tag --target "$GITHUB_SHA" --draft \
+            --title "Motrix Extension for Safari $VERSION ($BUILD_NUMBER)" \
+            --notes-file "$RUNNER_TEMP/safari-release-notes.md"

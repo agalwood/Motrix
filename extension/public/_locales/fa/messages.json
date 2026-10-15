@@ -1,0 +1,26 @@
+{
+  "appName": {
+    "message": "افزونهٔ Motrix",
+    "description": "Extension name shown in the browser and in store listings."
+  },
+  "appDescription": {
+    "message": "افزونهٔ رسمی Motrix برای مرورگر. دانلودها را به Motrix بفرستید.",
+    "description": "Short summary shown under the name in the browser and in store listings."
+  },
+  "grabberButtonLabel": {
+    "message": "دانلود ویدیو",
+    "description": "Label of the floating in-page button that offers detected media."
+  },
+  "grabberPanelTitle": {
+    "message": "دانلود با Motrix",
+    "description": "Heading of the in-page panel listing detected media."
+  },
+  "grabberSent": {
+    "message": "به Motrix ارسال شد",
+    "description": "Toast shown after a detected item was accepted by Motrix."
+  },
+  "grabberFailed": {
+    "message": "ارسال به Motrix ممکن نیست",
+    "description": "Toast shown when a detected item could not be sent to Motrix."
+  }
+}

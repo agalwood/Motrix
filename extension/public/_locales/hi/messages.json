@@ -1,0 +1,26 @@
+{
+  "appName": {
+    "message": "Motrix एक्सटेंशन",
+    "description": "Extension name shown in the browser and in store listings."
+  },
+  "appDescription": {
+    "message": "Motrix का आधिकारिक ब्राउज़र एक्सटेंशन. डाउनलोड Motrix को भेजें.",
+    "description": "Short summary shown under the name in the browser and in store listings."
+  },
+  "grabberButtonLabel": {
+    "message": "वीडियो डाउनलोड करें",
+    "description": "Label of the floating in-page button that offers detected media."
+  },
+  "grabberPanelTitle": {
+    "message": "Motrix के साथ डाउनलोड करें",
+    "description": "Heading of the in-page panel listing detected media."
+  },
+  "grabberSent": {
+    "message": "Motrix को भेजा गया",
+    "description": "Toast shown after a detected item was accepted by Motrix."
+  },
+  "grabberFailed": {
+    "message": "Motrix को नहीं भेज सका",
+    "description": "Toast shown when a detected item could not be sent to Motrix."
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "skipLibCheck": false,
+    "lib": ["ES2022", "DOM"],
+    "types": []
+  },
+  "include": [
+    "src/shared/browser.ts",
+    "src/shared/browser-types.d.ts",
+    "src/__tests__/browser-api.test-d.ts"
+  ],
+  "exclude": []
+}

@@ -1,0 +1,157 @@
+name: Release browser extension
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag (for example, v0.1.2)
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and verify release assets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      tag: ${{ steps.metadata.outputs.tag }}
+      version: ${{ steps.metadata.outputs.version }}
+    steps:
+      - name: Require the release tag workflow revision
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          test "$GITHUB_REPOSITORY" = motrixapp/motrix-extension
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$GITHUB_REF" = "refs/tags/$RELEASE_TAG"
+      - name: Check out the release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Require a release commit already merged into main
+        run: |
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor HEAD FETCH_HEAD
+
+      - name: Validate release metadata
+        id: metadata
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          package_version="$(node -p "require('./package.json').version")"
+
+          if [[ ! "$package_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "package.json version must use X.Y.Z format: $package_version" >&2
+            exit 1
+          fi
+
+          if [[ "$RELEASE_TAG" != "v$package_version" ]]; then
+            echo "Release tag $RELEASE_TAG does not match package.json version v$package_version" >&2
+            exit 1
+          fi
+
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$package_version" >> "$GITHUB_OUTPUT"
+          echo "VERSION=$package_version" >> "$GITHUB_ENV"
+
+      - name: Install pnpm and Node.js
+        uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+        with:
+          runtime: node@24.18.0
+          cache: true
+          install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run quality checks
+        run: |
+          pnpm lint
+          pnpm test
+
+      - name: Build Chrome and Edge package
+        run: pnpm build:webstore
+
+      - name: Build Firefox package
+        run: pnpm build:firefox
+
+      - name: Verify packaged versions
+        run: node scripts/verify-release-version.mjs "$VERSION"
+
+      - name: Create release archives and checksums
+        run: |
+          mkdir -p artifacts
+          (
+            cd dist/webstore
+            zip -9 -X -q -r "../../artifacts/motrix-extension-$VERSION-chrome-edge.zip" .
+          )
+          (
+            cd dist/firefox
+            zip -9 -X -q -r "../../artifacts/motrix-extension-$VERSION-firefox.zip" .
+          )
+          git archive \
+            --format=zip \
+            --output="artifacts/motrix-extension-$VERSION-source.zip" \
+            HEAD
+          cd artifacts
+          sha256sum ./*.zip > SHA256SUMS.txt
+
+      - name: Upload verified release assets
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-assets-${{ steps.metadata.outputs.version }}
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      attestations: write
+      id-token: write
+    steps:
+      - name: Download verified release assets
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-assets-${{ needs.build.outputs.version }}
+          path: release-assets
+
+      - name: Verify checksums
+        working-directory: release-assets
+        run: sha256sum --check SHA256SUMS.txt
+
+      # Signing runs separately from dependency installation and builds.
+      - name: Attest release archives and checksum manifest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: release-assets/*
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          gh release create "$RELEASE_TAG" release-assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --draft \
+            --generate-notes \
+            --title "Motrix Extension $RELEASE_VERSION"
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false

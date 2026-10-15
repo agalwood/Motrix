@@ -1,0 +1,63 @@
+diff --git a/dist/index.mjs b/dist/index.mjs
+index c998e41214e4a14c9554f7ef0712abb409251e5d..bb691b3e5a9f2062c5e9cb09e9b9a4ebc8a51843 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -120,13 +120,14 @@
+ function defineClientValues(code, config) {
+-  let options = config.server.hmr;
++  let options = config.server.ws;
+   options = options && typeof options !== "boolean" ? options : {};
+   const host = options.host || null;
+   const protocol = options.protocol || null;
+   const timeout = options.timeout || 3e4;
+-  const overlay = options.overlay !== false;
++  const hmrOptions = config.server.hmr;
++  const overlay = typeof hmrOptions !== "object" || hmrOptions.overlay !== false;
+   let hmrPort;
+-  if (isObject(config.server.hmr)) {
+-    hmrPort = config.server.hmr.clientPort || config.server.hmr.port;
++  if (isObject(config.server.ws)) {
++    hmrPort = config.server.ws.clientPort || config.server.ws.port;
+   }
+   if (config.server.middlewareMode) {
+     hmrPort = String(hmrPort || 24678);
+@@ -715,12 +716,12 @@ async function bundleIife(server, script, fileName) {
+       // Don't generate Vite manifest
+       rollupOptions: {
+         input,
+         output: {
+           format: "iife",
+           name: getIifeGlobalName(fileName),
+           entryFileNames: fileName,
+-          inlineDynamicImports: true,
+-          // Required for IIFE format
++          codeSplitting: false,
++          // Keep the content script self-contained
+           sourcemap
+         }
+       },
+@@ -1421,8 +1422,8 @@ function createIifeConfig(parentConfig, entryPath, outputFileName) {
+       rollupOptions: {
+         output: {
+           entryFileNames: outputFileName,
+           // Ensure all dependencies are inlined
+-          inlineDynamicImports: true
++          codeSplitting: false
+         }
+       },
+       // Match parent config settings
+@@ -1979,12 +1980,8 @@ const pluginHMR = () => {
+       async config({ server = {}, ...config2 }) {
+         const opts = await getOptions({ ...config2, server });
+         liveReload = opts.liveReload !== false;
+-        if (server.hmr === false)
++        if (server.ws === false)
+           return;
+-        if (server.hmr === true)
+-          server.hmr = {};
+-        server.hmr = server.hmr ?? {};
+-        server.hmr.host = "localhost";
+-        return { server };
++        return { server: { ws: { ...server.ws, host: "localhost" } } };
+       },
+       // server should ignore outdir
