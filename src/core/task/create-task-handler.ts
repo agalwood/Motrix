@@ -15,6 +15,7 @@ import { DIRECT_RESOURCE_METADATA_PROFILE } from '@core/engine/engine-adapter'
 import { ensureDirectory } from '@core/fs/ensure-directory'
 import { newEngineTaskId, newTaskId } from '@core/lib/ids'
 import { getLogger } from '@core/logger'
+import type { MediaResolver } from '@core/media/ytdlp/media-resolver'
 import type { HookAuditLog } from '@core/plugin/hooks/audit-log'
 import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
 import type { StagedMetadataOp } from '@core/plugin/hooks/staged-effects'
@@ -185,26 +186,19 @@ export interface CreateTaskDeps {
     operation: () => Promise<T>
   ) => Promise<T>
   /**
-   * Optional YouTube/bilibili pre-resolver. When present and the HTTP URL
-   * resolves to a mux pair (video + audio), the download is routed to the
-   * MuxPipeline instead of the normal HTTP engine path. Both deps must be
-   * present for the seam to fire; absence of either → unchanged HTTP path.
+   * Optional media pre-resolver (installed site-resolver plugins, then the
+   * yt-dlp fallback). When present and the HTTP URL resolves to a mux pair
+   * (video + audio), the download is routed to the MuxPipeline instead of
+   * the normal HTTP engine path. A single-stream resolution instead rewrites
+   * the request URL and headers, and the unchanged HTTP path runs.
    * Errors are owned by the factory (returns null → HTTP fallback).
    * The optional cookieHeader arg is for bilibili HD (desktop Add-Task path
    * passes no cookies — only the extension submit path forwards them).
    */
-  resolveToMux?: (
-    url: string,
-    cookieHeader?: string
-  ) => Promise<{
-    videoUrl: string
-    audioUrl: string
-    container: 'mp4' | 'mkv'
-    headers?: Record<string, string>
-    title?: string
-  } | null>
-  /** Dispatch an AdaptedMux to the shared MuxPipeline. Must be paired with
-   *  resolveToMux — both present or both absent. */
+  resolveMedia?: MediaResolver
+  /** Dispatch an AdaptedMux to the shared MuxPipeline. Paired with a mux
+   *  resolution; a mux result without it is surfaced as an engine error
+   *  rather than a doomed HTTP attempt. */
   dispatchMux?: (adapted: AdaptedMux) => Promise<{ taskId: string }>
   /** Re-adds a terminal BT task against its final layout with integrity
    * checking. Shell command handlers inject the existing reAddTask action. */
@@ -667,7 +661,7 @@ async function handleCreateTaskUnderAdmission(
     }
 
     // 3.4. Mux pre-resolve seam (desktop Add-Task path).
-    // When both resolveToMux and dispatchMux are wired (bridge enabled +
+    // When both resolveMedia and dispatchMux are wired (bridge enabled +
     // youtube/bilibili URL), call the resolver BEFORE beforeCreate fires.
     // On a non-null mux pair, build an AdaptedMux reusing the already-computed
     // taskId/saveDir/finalName, then delegate to MuxPipeline and return — the
@@ -675,11 +669,43 @@ async function handleCreateTaskUnderAdmission(
     // On null (non-resolver URL, bridge disabled, plugin not enabled) → fall
     // through to the unchanged HTTP path. No try/catch here: the factory owns
     // error handling (returns null on failure).
-    if (deps.resolveToMux && deps.dispatchMux) {
+    if (deps.resolveMedia) {
       const uri = params.uris[0]
       if (uri) {
-        const muxResult = await deps.resolveToMux(uri)
-        if (muxResult) {
+        const resolution = await deps.resolveMedia(uri)
+        if (resolution?.kind === 'direct') {
+          // Single-stream media site: swap the page URL for the real stream
+          // URL and let the unchanged HTTP path download it. Resolved headers
+          // (Referer / User-Agent the CDN checks) go in first, so a header the
+          // user set explicitly still wins.
+          const resolvedUrl = admitHttpSource(resolution.url)
+          const resolvedHeaders = resolution.headers
+            ? stripHopByHopHeaders(resolution.headers)
+            : {}
+          log.info(
+            {
+              taskId,
+              streamHost: safeHost(resolvedUrl),
+              headerKeys: Object.keys(resolvedHeaders),
+            },
+            'direct media resolve result'
+          )
+          params.uris = [resolvedUrl, ...params.uris.slice(1)]
+          params.headers = { ...resolvedHeaders, ...(params.headers ?? {}) }
+          const directBase = resolution.filename ?? resolution.title
+          if (directBase) {
+            const desired = sanitizeFilename(directBase).trim()
+            if (desired) await pickHttpName(desired)
+          }
+        } else if (resolution?.kind === 'mux') {
+          const dispatchMux = deps.dispatchMux
+          if (!dispatchMux) {
+            throw new AppError(
+              ErrorCode.EngineFeatureUnavailable,
+              'mux media resolution requires the media pipeline (FFmpeg)'
+            )
+          }
+          const muxResult = resolution
           const sanitizedHeaders = muxResult.headers
             ? stripHopByHopHeaders(muxResult.headers)
             : {}
@@ -725,7 +751,7 @@ async function handleCreateTaskUnderAdmission(
             sourceMeta: null,
             receipt: opts.receipt,
           }
-          const muxDispatchResult = await deps.dispatchMux(adaptedMux)
+          const muxDispatchResult = await dispatchMux(adaptedMux)
           return {
             outcome: 'created',
             gid: muxDispatchResult.taskId,

@@ -132,6 +132,10 @@ function fakeCtx() {
   // tests (addUri/addTorrent/remove + the three on* subscriptions).
   const adapter = new Aria2Adapter(rpcClient as never)
   const base = {
+    // The desktop fallback resolver. Returning null here mirrors the real
+    // ytdlpResolveMedia finding nothing, so the chain falls through to the
+    // direct download path these tests assert on.
+    ytdlpResolveMedia: vi.fn(async () => null),
     cliToolService: {
       install: vi.fn().mockResolvedValue({ phase: 'installed' }),
     },

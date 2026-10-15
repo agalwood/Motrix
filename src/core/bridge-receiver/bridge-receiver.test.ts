@@ -315,7 +315,8 @@ describe('BridgeReceiver', () => {
             async () =>
               '#EXTM3U\n#EXTINF:5,\nhttps://example.com/0.ts\n#EXT-X-ENDLIST'
           ),
-          resolveToMux: async () => ({
+          resolveMedia: async () => ({
+            kind: 'mux' as const,
             videoUrl: 'https://example.com/v.mp4',
             audioUrl: 'https://example.com/a.m4a',
             container: 'mp4' as const,
@@ -488,10 +489,10 @@ describe('BridgeReceiver', () => {
   })
 
   // ---------------------------------------------------------------------------
-  // resolveToMux seam tests (Task 5 — submit-path pre-resolve)
+  // resolveMedia seam tests (Task 5 — submit-path pre-resolve)
   // ---------------------------------------------------------------------------
 
-  describe('resolveToMux seam', () => {
+  describe('resolveMedia seam', () => {
     const directParams = {
       source: {
         pageUrl: 'https://www.youtube.com/watch?v=abc',
@@ -518,9 +519,10 @@ describe('BridgeReceiver', () => {
       },
     } as never
 
-    it('resolveToMux returning a mux pair routes direct submit to MuxPipeline (not DirectPipeline)', async () => {
-      // Set up resolveToMux to return a mux pair
-      const resolveToMux = vi.fn(async (_url: string) => ({
+    it('resolveMedia returning a mux pair routes direct submit to MuxPipeline (not DirectPipeline)', async () => {
+      // Set up resolveMedia to return a mux pair
+      const resolveMedia = vi.fn(async (_url: string) => ({
+        kind: 'mux' as const,
         videoUrl: 'https://rr1.googlevideo.com/video.mp4',
         audioUrl: 'https://rr1.googlevideo.com/audio.mp4',
         container: 'mp4' as const,
@@ -532,7 +534,7 @@ describe('BridgeReceiver', () => {
         fetchManifest: vi.fn(async () => ''),
         taskManager: new TaskManager(),
         segmentAria2: fakeSegmentAria2,
-        resolveToMux,
+        resolveMedia,
       })
       const r = new BridgeReceiver(deps as never)
 
@@ -577,7 +579,8 @@ describe('BridgeReceiver', () => {
     })
 
     it('re-picks the resolver title WITH its container extension (dedup runs on the on-disk name)', async () => {
-      const resolveToMux = vi.fn(async () => ({
+      const resolveMedia = vi.fn(async () => ({
+        kind: 'mux' as const,
         videoUrl: 'https://v/v.mp4',
         audioUrl: 'https://a/a.m4a',
         container: 'mp4' as const,
@@ -589,7 +592,7 @@ describe('BridgeReceiver', () => {
         fetchManifest: vi.fn(async () => ''),
         taskManager: new TaskManager(),
         segmentAria2: fakeSegmentAria2,
-        resolveToMux,
+        resolveMedia,
         pickName: async (_d: string, n: string) => {
           picked.push(n)
           return n
@@ -615,28 +618,28 @@ describe('BridgeReceiver', () => {
       expect(muxArg.finalName).toBe('Human Title.mp4')
     })
 
-    it('resolveToMux returning null falls through to direct dispatch (no regression)', async () => {
-      const resolveToMux = vi.fn(async (_url: string) => null)
+    it('resolveMedia returning null falls through to direct dispatch (no regression)', async () => {
+      const resolveMedia = vi.fn(async (_url: string) => null)
 
       const deps = fakeDeps({
-        resolveToMux,
+        resolveMedia,
       })
       const r = new BridgeReceiver(deps as never)
 
       const result = await r.handle(directParams, extCtx)
 
-      // resolveToMux returned null → direct pipeline; createTask was called
+      // resolveMedia returned null → direct pipeline; createTask was called
       expect(result.taskId).toBeDefined()
       expect(deps.createTask).toHaveBeenCalledTimes(1)
       // Empty cookies → cookieHeader is undefined (not forwarded)
-      expect(resolveToMux).toHaveBeenCalledWith(
+      expect(resolveMedia).toHaveBeenCalledWith(
         'https://www.youtube.com/watch?v=abc',
         undefined
       )
     })
 
-    it('resolveToMux absent (undefined) falls through to direct dispatch (full no-regression)', async () => {
-      // When resolveToMux is not set at all, direct submit proceeds as before
+    it('resolveMedia absent (undefined) falls through to direct dispatch (full no-regression)', async () => {
+      // When resolveMedia is not set at all, direct submit proceeds as before
       const deps = fakeDeps()
       const r = new BridgeReceiver(deps as never)
 
@@ -679,7 +682,7 @@ describe('BridgeReceiver', () => {
   // BridgeReceiver cookie seam tests (BIL-HD)
   // ---------------------------------------------------------------------------
 
-  describe('cookie seam: resolveToMux receives cookieHeader', () => {
+  describe('cookie seam: resolveMedia receives cookieHeader', () => {
     const bilibiliPageParams = {
       source: {
         pageUrl: 'https://www.bilibili.com/video/BV1xx411c7mD',
@@ -725,19 +728,19 @@ describe('BridgeReceiver', () => {
       },
     } as never
 
-    it('direct submit with cookies → resolveToMux called with serialized cookie header as 2nd arg', async () => {
-      const resolveToMux = vi.fn(async () => null)
-      const deps = fakeDeps({ resolveToMux })
+    it('direct submit with cookies → resolveMedia called with serialized cookie header as 2nd arg', async () => {
+      const resolveMedia = vi.fn(async () => null)
+      const deps = fakeDeps({ resolveMedia })
       const r = new BridgeReceiver(deps as never)
       await r.handle(bilibiliPageParams, extCtx)
-      expect(resolveToMux).toHaveBeenCalledWith(
+      expect(resolveMedia).toHaveBeenCalledWith(
         'https://www.bilibili.com/video/BV1xx411c7mD',
         'SESSDATA=abc; bili_jct=x'
       )
     })
 
-    it('direct submit with empty cookies → resolveToMux called with url only (2nd arg undefined)', async () => {
-      const resolveToMux = vi.fn(async () => null)
+    it('direct submit with empty cookies → resolveMedia called with url only (2nd arg undefined)', async () => {
+      const resolveMedia = vi.fn(async () => null)
       const paramsNoCookies = {
         ...bilibiliPageParams,
         selection: {
@@ -748,11 +751,11 @@ describe('BridgeReceiver', () => {
           },
         },
       }
-      const deps = fakeDeps({ resolveToMux })
+      const deps = fakeDeps({ resolveMedia })
       const r = new BridgeReceiver(deps as never)
       await r.handle(paramsNoCookies, extCtx)
       // 2nd arg should be undefined (empty cookies → no cookie forwarding)
-      expect(resolveToMux).toHaveBeenCalledWith(
+      expect(resolveMedia).toHaveBeenCalledWith(
         'https://www.bilibili.com/video/BV1xx411c7mD',
         undefined
       )

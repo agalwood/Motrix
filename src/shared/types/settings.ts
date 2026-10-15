@@ -299,6 +299,14 @@ export interface MediaSettings {
   ffmpegStagingMB: number
   // Hard timeout (seconds) for a single ffmpeg invocation.
   ffmpegOpTimeoutSec: number
+  // Master switch for yt-dlp backed media resolution.
+  ytdlpEnabled: boolean
+  // Path to yt-dlp; empty string means auto-detect.
+  ytdlpBinaryPath: string
+  // yt-dlp `-f` selector; empty string means the built-in default.
+  ytdlpFormat: string
+  // Resolve every HTTP URL with yt-dlp, not only known media sites.
+  ytdlpAllUrls: boolean
 }
 
 export interface ProxySettings {

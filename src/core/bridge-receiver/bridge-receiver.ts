@@ -10,7 +10,12 @@ import { newTaskId } from '@core/lib/ids'
 import { fetchManifest } from '@core/media/manifest-fetcher'
 import { assembleSegments } from '@core/media/segment-assembler'
 import { SegmentDecryptor } from '@core/media/segment-decryptor'
+import type {
+  DirectResolution,
+  MediaResolver,
+} from '@core/media/ytdlp/media-resolver'
 import { MediaTaskCoordinator } from '@core/task/media-task-coordinator'
+import { admitHttpSource } from '@core/task/source-admission'
 import type { TaskManager } from '@core/task/task-manager'
 import {
   type DownloadSubmitParams,
@@ -40,6 +45,37 @@ import {
   SubmitDownloadAdapter,
   sanitizeFilename,
 } from './submit-download-adapter'
+
+/**
+ * Point an adapted direct submit at a resolved single-stream media URL.
+ *
+ * The submitted URL is a page or an expired CDN link; the resolver hands back
+ * the stream URL plus the headers the CDN checks (Referer, User-Agent).
+ * Resolved headers are written first so any header the extension already sent
+ * keeps priority. Returns the input unchanged when there is nothing to swap.
+ */
+function rewriteDirectAdapted(
+  adapted: Extract<
+    Awaited<ReturnType<SubmitDownloadAdapter['adapt']>>,
+    { kind: 'direct' }
+  >,
+  resolved: DirectResolution
+): typeof adapted {
+  const resolvedUrl = admitHttpSource(resolved.url)
+  if (resolvedUrl === adapted.primaryUrl && !resolved.headers) return adapted
+  const resolvedHeaders = resolved.headers
+    ? stripHopByHopHeaders(resolved.headers)
+    : {}
+  const desired = resolved.filename
+    ? sanitizeFilename(resolved.filename).trim()
+    : ''
+  return {
+    ...adapted,
+    primaryUrl: resolvedUrl,
+    sanitizedHeaders: { ...resolvedHeaders, ...adapted.sanitizedHeaders },
+    ...(desired ? { finalName: desired, discoverFilename: undefined } : {}),
+  }
+}
 
 /**
  * Serialize a list of Cookie objects (from @motrix/mdxp Resource.cookies) into
@@ -143,16 +179,7 @@ export interface BridgeReceiverDeps {
    * An optional cookieHeader (2nd arg) is forwarded when the submit carries
    * cookies (bilibili HD path). Omitted for YouTube and desktop submits.
    */
-  resolveToMux?: (
-    url: string,
-    cookieHeader?: string
-  ) => Promise<{
-    videoUrl: string
-    audioUrl: string
-    container: 'mp4' | 'mkv'
-    headers?: Record<string, string>
-    title?: string
-  } | null>
+  resolveMedia?: MediaResolver
   /**
    * Optional startup gate awaited before any submit reaches a pipeline.
    * The bootstrap resolves it once engine start + SessionManager.restore()
@@ -356,23 +383,31 @@ export class BridgeReceiver {
     params: DownloadSubmitParams
   ): Promise<{ taskId: string }> {
     // Submit-path pre-resolve: if the adapted result is a direct download and
-    // a resolveToMux factory is wired (bootstrap only), call it. On a non-null
+    // a resolveMedia factory is wired (bootstrap only), call it. On a non-null
     // mux pair the direct submit is transparently re-routed to MuxPipeline.
-    // resolveToMux owns its own error handling (catches → null), so we never
+    // resolveMedia owns its own error handling (catches → null), so we never
     // wrap this in try/catch here — a null means "proceed as direct".
     //
     // Cookie handoff (bilibili HD): when the extension submits a direct download
     // with cookies (e.g. SESSDATA for bilibili), serialize them into a Cookie
-    // header string and pass it as the 2nd arg to resolveToMux. The resolver
+    // header string and pass it as the 2nd arg to resolveMedia. The resolver
     // attaches the header ONLY to api.bilibili.com calls — never to CDN URLs.
-    if (adapted.kind === 'direct' && this.deps.resolveToMux) {
+    if (adapted.kind === 'direct' && this.deps.resolveMedia) {
       const rawCookies =
         params.selection.kind === 'direct'
           ? params.selection.primary.cookies
           : []
       const serialized = serializeCookieHeader(rawCookies)
       const cookieHeader = serialized || undefined
-      const m = await this.deps.resolveToMux(adapted.primaryUrl, cookieHeader)
+      const resolved = await this.deps.resolveMedia(
+        adapted.primaryUrl,
+        cookieHeader
+      )
+      const rewritten =
+        resolved?.kind === 'direct'
+          ? rewriteDirectAdapted(adapted, resolved)
+          : adapted
+      const m = resolved?.kind === 'mux' ? resolved : null
       if (m) {
         if (!this.mux) {
           throw new BridgeReceiverError(
@@ -395,8 +430,8 @@ export class BridgeReceiver {
           taskId: adapted.taskId,
           saveDir: adapted.saveDir,
           finalName,
-          videoUrl: m.videoUrl,
-          audioUrl: m.audioUrl,
+          videoUrl: admitHttpSource(m.videoUrl),
+          audioUrl: admitHttpSource(m.audioUrl),
           sanitizedHeaders: m.headers
             ? stripHopByHopHeaders(m.headers)
             : adapted.sanitizedHeaders,
@@ -407,6 +442,9 @@ export class BridgeReceiver {
             : {}),
         }
         return this.mux.dispatch(muxAdapted)
+      }
+      if (rewritten !== adapted) {
+        return this.direct.dispatch(rewritten)
       }
     }
 

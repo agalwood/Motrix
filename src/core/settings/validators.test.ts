@@ -609,6 +609,10 @@ describe('mediaSettingsSchema', () => {
       ffmpegBinaryPath: '',
       ffmpegStagingMB: 4096,
       ffmpegOpTimeoutSec: 1800,
+      ytdlpEnabled: true,
+      ytdlpBinaryPath: '',
+      ytdlpFormat: '',
+      ytdlpAllUrls: false,
     })
   })
 
@@ -626,11 +630,19 @@ describe('mediaSettingsSchema', () => {
         ffmpegBinaryPath: '/u/bin/ffmpeg',
         ffmpegStagingMB: 2048,
         ffmpegOpTimeoutSec: 600,
+        ytdlpEnabled: false,
+        ytdlpBinaryPath: '/u/bin/yt-dlp',
+        ytdlpFormat: 'bv*+ba/b',
+        ytdlpAllUrls: true,
       })
     ).toEqual({
       ffmpegBinaryPath: '/u/bin/ffmpeg',
       ffmpegStagingMB: 2048,
       ffmpegOpTimeoutSec: 600,
+      ytdlpEnabled: false,
+      ytdlpBinaryPath: '/u/bin/yt-dlp',
+      ytdlpFormat: 'bv*+ba/b',
+      ytdlpAllUrls: true,
     })
   })
 })
