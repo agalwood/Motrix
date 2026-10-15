@@ -3,11 +3,11 @@
   "protocol": "MDXP-over-MBP1",
   "extension": {
     "repository": "motrix-extension",
-    "commit": "c37da616eef7c1423a647710d79b33b8d6d309bb"
+    "commit": "34065322f3d6f25fa2f2628324f756e15d3c575a"
   },
   "motrix": {
     "repository": "motrix-app",
-    "commit": "39c281a81ad456619868ca11d98200165c23ac6c"
+    "commit": "88dc46b2ed97686b5ce7df606f9f4329965071fb"
   },
   "e2e": {
     "browserCases": 5,
