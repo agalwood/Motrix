@@ -62,6 +62,17 @@ describe('ytdlpCandidatesInOrder', () => {
     })
     expect(candidates.filter((c) => c === 'yt-dlp')).toHaveLength(1)
   })
+
+  it('includes standard fallback paths such as ~/.local/bin/yt-dlp', () => {
+    const candidates = ytdlpCandidatesInOrder({
+      env: { HOME: '/home/testuser' },
+      platform: 'linux',
+      homeDir: '/home/testuser',
+    })
+    expect(candidates).toContain('/home/testuser/.local/bin/yt-dlp')
+    expect(candidates).toContain('/usr/local/bin/yt-dlp')
+    expect(candidates).toContain('/usr/bin/yt-dlp')
+  })
 })
 
 describe('probeYtdlp', () => {

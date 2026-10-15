@@ -19,7 +19,11 @@ import {
   useState,
 } from 'react'
 import { useTranslation } from 'react-i18next'
+import { send } from '@/background/MessageBus'
 import { Button } from '@/components/ui/button'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import type { MediaFormatsResult, QualityLabel } from '@/shared/mediaFormats'
+import { isErrorResponse } from '@/shared/messages'
 import {
   Empty,
   EmptyDescription,
@@ -554,21 +558,52 @@ function ResolvablePageAction({
   site: 'bilibili' | 'youtube'
   canSubmit: boolean
   pairIfNeeded: boolean
-  onResolve: () => Promise<{ taskId: string }>
+  onResolve: (qualityLabel?: QualityLabel) => Promise<{ taskId: string }>
 }): React.ReactElement {
   const { t } = useTranslation()
   const disabledDescriptionId = useId()
   const [submitting, setSubmitting] = useState(false)
   const [taskId, setTaskId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [formats, setFormats] = useState<MediaFormatsResult | null>(null)
+  const [formatsLoading, setFormatsLoading] = useState(false)
+  const [selectedQuality, setSelectedQuality] = useState<QualityLabel>('auto')
   const discanSubmitReason = t('popup.integration.pairingUnavailable')
 
-  const submit = async (): Promise<void> => {
+  useEffect(() => {
+    let cancelled = false
+    setFormatsLoading(true)
+    void send('bg.grabberFormats', undefined)
+      .then((res) => {
+        if (!cancelled && !isErrorResponse(res) && res.formats) {
+          setFormats(res.formats)
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setFormatsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [site])
+
+  const videoEntries = useMemo(
+    () => (formats?.entries ?? []).filter((e) => e.kind === 'video'),
+    [formats]
+  )
+  const audioEntries = useMemo(
+    () => (formats?.entries ?? []).filter((e) => e.kind === 'audio'),
+    [formats]
+  )
+  const hasMp3 = audioEntries.some((e) => e.key === 'mp3')
+
+  const submit = async (quality?: QualityLabel): Promise<void> => {
     setSubmitting(true)
     setTaskId(null)
     setError(null)
     try {
-      const result = await onResolve()
+      const result = await onResolve(quality ?? selectedQuality)
       setTaskId(result.taskId)
     } catch (error) {
       setError(t(downloadErrorKey(error)))
@@ -577,30 +612,98 @@ function ResolvablePageAction({
     }
   }
 
+  const hasOfferings =
+    formats?.available && (videoEntries.length > 0 || audioEntries.length > 0)
+
   return (
     <div className="flex shrink-0 flex-col items-start gap-2 border-b border-border p-3">
-      <Button
-        type="button"
-        size="xs"
-        variant="secondary"
-        disabled={!canSubmit || submitting || taskId !== null}
-        title={!canSubmit ? discanSubmitReason : undefined}
-        aria-describedby={!canSubmit ? disabledDescriptionId : undefined}
-        onClick={() => void submit()}
-      >
-        {submitting ? (
-          <Spinner data-icon="inline-start" />
-        ) : taskId ? (
-          <Check data-icon="inline-start" aria-hidden="true" />
+      <div className="flex w-full flex-wrap items-center gap-2">
+        {hasOfferings ? (
+          <>
+            <NativeSelect
+              size="sm"
+              value={selectedQuality}
+              disabled={!canSubmit || submitting || taskId !== null}
+              onChange={(e) => setSelectedQuality(e.target.value as QualityLabel)}
+              className="flex-1 min-w-[120px]"
+              aria-label={t('popup.sniffer.selectQuality', 'Select quality')}
+            >
+              <NativeSelectOption value="auto">
+                {t('popup.sniffer.qualityAuto', 'Auto (Best)')}
+              </NativeSelectOption>
+              {videoEntries.map((entry) => (
+                <NativeSelectOption key={entry.key} value={entry.key}>
+                  {entry.label} {entry.fps && entry.fps > 30 ? `${entry.fps}fps ` : ''}{entry.ext ? `(${entry.ext})` : ''}
+                </NativeSelectOption>
+              ))}
+              {audioEntries.map((entry) => (
+                <NativeSelectOption key={entry.key} value={entry.key}>
+                  {entry.key === 'mp3' ? 'MP3 (Audio only)' : entry.label}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+            <Button
+              type="button"
+              size="xs"
+              variant="secondary"
+              disabled={!canSubmit || submitting || taskId !== null}
+              title={!canSubmit ? discanSubmitReason : undefined}
+              aria-describedby={!canSubmit ? disabledDescriptionId : undefined}
+              onClick={() => void submit(selectedQuality)}
+            >
+              {submitting ? (
+                <Spinner data-icon="inline-start" />
+              ) : taskId ? (
+                <Check data-icon="inline-start" aria-hidden="true" />
+              ) : (
+                <Download data-icon="inline-start" aria-hidden="true" />
+              )}
+              {t(
+                pairIfNeeded
+                  ? 'contextMenu.pairThenDownload'
+                  : 'popup.sniffer.download',
+                { defaultValue: 'Download' }
+              )}
+            </Button>
+            {hasMp3 && selectedQuality !== 'mp3' && (
+              <Button
+                type="button"
+                size="xs"
+                variant="outline"
+                disabled={!canSubmit || submitting || taskId !== null}
+                title={t('popup.sniffer.downloadMp3', 'Download as MP3')}
+                onClick={() => void submit('mp3')}
+              >
+                <FileAudio data-icon="inline-start" aria-hidden="true" />
+                MP3
+              </Button>
+            )}
+          </>
         ) : (
-          <Send data-icon="inline-start" aria-hidden="true" />
+          <Button
+            type="button"
+            size="xs"
+            variant="secondary"
+            disabled={!canSubmit || submitting || taskId !== null}
+            title={!canSubmit ? discanSubmitReason : undefined}
+            aria-describedby={!canSubmit ? disabledDescriptionId : undefined}
+            onClick={() => void submit()}
+          >
+            {submitting || formatsLoading ? (
+              <Spinner data-icon="inline-start" />
+            ) : taskId ? (
+              <Check data-icon="inline-start" aria-hidden="true" />
+            ) : (
+              <Send data-icon="inline-start" aria-hidden="true" />
+            )}
+            {t(
+              pairIfNeeded
+                ? 'contextMenu.pairThenDownload'
+                : `popup.sniffer.pageAction.${site}`
+            )}
+          </Button>
         )}
-        {t(
-          pairIfNeeded
-            ? 'contextMenu.pairThenDownload'
-            : `popup.sniffer.pageAction.${site}`
-        )}
-      </Button>
+      </div>
       <span
         role={error ? 'alert' : 'status'}
         className={cn(

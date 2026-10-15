@@ -342,7 +342,24 @@ export function createPopupDownloadHandlers(deps: PopupDownloadDeps) {
     _request,
     sender
   ) => {
-    const tab = assertGrabberSender(sender)
+    let tab: (Browser.tabs.Tab & { id: number; url: string }) | undefined
+    if (
+      isExtensionPageSender(sender, deps.extensionId, deps.extensionBaseUrl)
+    ) {
+      const [activeTab] = await getActiveTabs()
+      if (
+        typeof activeTab?.id === 'number' &&
+        activeTab.url &&
+        /^https?:/i.test(activeTab.url)
+      ) {
+        tab = activeTab as Browser.tabs.Tab & { id: number; url: string }
+      }
+    } else {
+      tab = assertGrabberSender(sender)
+    }
+    if (!tab) {
+      throw new Error(MEDIA_SUBMIT_ERROR.invalidRequest)
+    }
     const unavailable = (reason: string): MediaFormatsResult => ({
       available: false,
       reason,

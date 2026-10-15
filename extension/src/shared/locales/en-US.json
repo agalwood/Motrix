@@ -311,6 +311,7 @@
     "sniffer": {
       "clearFilters": "Clear filters",
       "detected": "{{count}} items",
+      "download": "Download",
       "downloadCount": "Download {{count}}",
       "downloadSelected": "Download selected",
       "downloadedResource": "Sent {{name}}",

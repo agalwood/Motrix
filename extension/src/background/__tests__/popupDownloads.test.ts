@@ -241,6 +241,23 @@ describe('bg.grabberFormats', () => {
     })
   })
 
+  it('lists active tab formats when called by the popup (extension page sender)', async () => {
+    const f = await fixture()
+    await goOnline(f)
+    f.manager.request.mockResolvedValue({
+      available: true,
+      entries: [{ key: '1080p', kind: 'video', label: '1080p' }],
+    })
+    const result = await f.handlers.grabberFormats({}, sender)
+    expect(result).toEqual({
+      connected: true,
+      formats: {
+        available: true,
+        entries: [{ key: '1080p', kind: 'video', label: '1080p' }],
+      },
+    })
+  })
+
   it('answers not-connected without waking anything when capabilities are absent', async () => {
     const f = await fixture()
     const result = await f.handlers.grabberFormats(

@@ -395,7 +395,7 @@ export interface MessageMap {
   // `{ connected, formats: { available: false, ... } }` so the overlay can
   // fall back to its sniffed rows.
   'bg.grabberFormats': {
-    request: { url: string }
+    request: { url?: string } | undefined
     response: {
       connected: boolean
       formats: import('@/shared/mediaFormats').MediaFormatsResult

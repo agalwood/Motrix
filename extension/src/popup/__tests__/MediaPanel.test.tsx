@@ -1180,4 +1180,94 @@ describe('MediaPanel resource rows', () => {
       ).toHaveLength(2)
     )
   })
+
+  it('displays quality selector and MP3 button when formats are available for a video page', async () => {
+    tabsQuery.mockResolvedValue([
+      { url: 'https://www.youtube.com/watch?v=motrix' },
+    ])
+    send.mockImplementation(async (kind: string) => {
+      if (kind === 'bg.scanActiveTab') {
+        return { media: [], selectionKinds: ['direct'] }
+      }
+      if (kind === 'bg.grabberFormats') {
+        return {
+          connected: true,
+          formats: {
+            available: true,
+            entries: [
+              { key: '1080p', kind: 'video', label: '1080p', ext: 'mp4' },
+              { key: '720p', kind: 'video', label: '720p', ext: 'mp4' },
+              { key: 'mp3', kind: 'audio', label: 'MP3' },
+            ],
+          },
+        }
+      }
+      if (kind === 'bg.resolvePageDownload') {
+        return { taskId: 'task-yt-1080' }
+      }
+      return {}
+    })
+
+    render(<MediaPanel active connected />)
+
+    const select = await screen.findByRole('combobox', {
+      name: i18n.t('popup.sniffer.selectQuality', {
+        defaultValue: 'Select quality',
+      }),
+    })
+    expect(select).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'MP3' })).toBeTruthy()
+
+    fireEvent.change(select, { target: { value: '1080p' } })
+    const downloadBtn = screen.getByRole('button', {
+      name: i18n.t('popup.sniffer.download', { defaultValue: 'Download' }),
+    })
+    fireEvent.click(downloadBtn)
+
+    await waitFor(() => {
+      expect(send).toHaveBeenCalledWith('bg.resolvePageDownload', {
+        idempotencyKey: expect.any(String),
+        qualityLabel: '1080p',
+      })
+    })
+  })
+
+  it('downloads MP3 directly when MP3 button is clicked', async () => {
+    tabsQuery.mockResolvedValue([
+      { url: 'https://www.youtube.com/watch?v=motrix' },
+    ])
+    send.mockImplementation(async (kind: string) => {
+      if (kind === 'bg.scanActiveTab') {
+        return { media: [], selectionKinds: ['direct'] }
+      }
+      if (kind === 'bg.grabberFormats') {
+        return {
+          connected: true,
+          formats: {
+            available: true,
+            entries: [
+              { key: '1080p', kind: 'video', label: '1080p' },
+              { key: 'mp3', kind: 'audio', label: 'MP3' },
+            ],
+          },
+        }
+      }
+      if (kind === 'bg.resolvePageDownload') {
+        return { taskId: 'task-mp3' }
+      }
+      return {}
+    })
+
+    render(<MediaPanel active connected />)
+
+    const mp3Btn = await screen.findByRole('button', { name: 'MP3' })
+    fireEvent.click(mp3Btn)
+
+    await waitFor(() => {
+      expect(send).toHaveBeenCalledWith('bg.resolvePageDownload', {
+        idempotencyKey: expect.any(String),
+        qualityLabel: 'mp3',
+      })
+    })
+  })
 })

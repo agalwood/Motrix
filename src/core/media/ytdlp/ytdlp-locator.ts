@@ -40,6 +40,10 @@ export type SpawnLike = (
   kill(signal?: string): void
 }
 
+import { existsSync } from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+
 export const YTDLP_ENV_VAR = 'MOTRIX_YT_DLP_PATH'
 
 /** Bare command names tried against PATH when nothing is configured. */
@@ -48,16 +52,67 @@ export const YTDLP_PATH_COMMANDS: readonly string[] =
     ? ['yt-dlp.exe', 'yt-dlp', 'youtube-dl.exe', 'youtube-dl']
     : ['yt-dlp', 'youtube-dl']
 
+export interface YtdlpCandidateOptions {
+  configuredPath?: string
+  env?: Record<string, string | undefined>
+  platform?: NodeJS.Platform
+  homeDir?: string
+}
+
+/** Standard install directories where package managers and install scripts place yt-dlp. */
+export function standardYtdlpLocations(options?: {
+  platform?: NodeJS.Platform
+  homeDir?: string
+  env?: Record<string, string | undefined>
+}): string[] {
+  const platform = options?.platform ?? process.platform
+  const env = options?.env ?? process.env
+  let home = options?.homeDir ?? env.HOME ?? env.USERPROFILE
+  if (!home) {
+    try {
+      home = os.homedir()
+    } catch {
+      home = undefined
+    }
+  }
+
+  const list: string[] = []
+  if (platform === 'win32') {
+    const localAppData = env.LOCALAPPDATA
+    if (localAppData) {
+      list.push(path.join(localAppData, 'Programs', 'yt-dlp', 'yt-dlp.exe'))
+    }
+    if (home) {
+      list.push(path.join(home, 'yt-dlp.exe'))
+    }
+  } else {
+    if (home) {
+      list.push(path.join(home, '.local', 'bin', 'yt-dlp'))
+      list.push(path.join(home, '.local', 'bin', 'youtube-dl'))
+    }
+    if (platform === 'darwin') {
+      list.push('/opt/homebrew/bin/yt-dlp')
+      list.push('/usr/local/bin/yt-dlp')
+      list.push('/opt/homebrew/bin/youtube-dl')
+      list.push('/usr/local/bin/youtube-dl')
+    } else {
+      list.push('/usr/local/bin/yt-dlp')
+      list.push('/usr/bin/yt-dlp')
+      list.push('/usr/local/bin/youtube-dl')
+      list.push('/usr/bin/youtube-dl')
+    }
+  }
+  return list
+}
+
 /**
  * Candidate executable paths in resolution order:
  *   1. user setting (Settings → Media → yt-dlp path)
  *   2. MOTRIX_YT_DLP_PATH environment variable
  *   3. bare command names resolved against PATH by the OS
+ *   4. standard user/system install locations (e.g. ~/.local/bin/yt-dlp)
  */
-export function ytdlpCandidatesInOrder(input: {
-  configuredPath?: string
-  env?: Record<string, string | undefined>
-}): string[] {
+export function ytdlpCandidatesInOrder(input: YtdlpCandidateOptions): string[] {
   const candidates: string[] = []
   const configured = input.configuredPath?.trim()
   if (configured) candidates.push(configured)
@@ -65,6 +120,9 @@ export function ytdlpCandidatesInOrder(input: {
   if (fromEnv && !candidates.includes(fromEnv)) candidates.push(fromEnv)
   for (const command of YTDLP_PATH_COMMANDS) {
     if (!candidates.includes(command)) candidates.push(command)
+  }
+  for (const standard of standardYtdlpLocations(input)) {
+    if (!candidates.includes(standard)) candidates.push(standard)
   }
   return candidates
 }
@@ -84,12 +142,12 @@ export function probeYtdlp(
   timeoutMs = PROBE_TIMEOUT_MS
 ): Promise<YtdlpProbe> {
   const isPathLike = binaryPath.includes('/') || binaryPath.includes('\\')
-  if (isPathLike) {
-    return import('node:fs').then(({ existsSync }) =>
-      existsSync(binaryPath)
-        ? runProbe(binaryPath, spawnImpl, timeoutMs)
-        : { available: false, version: null, failureReason: 'missing' as const }
-    )
+  if (isPathLike && !existsSync(binaryPath)) {
+    return Promise.resolve({
+      available: false,
+      version: null,
+      failureReason: 'missing' as const,
+    })
   }
   return runProbe(binaryPath, spawnImpl, timeoutMs)
 }

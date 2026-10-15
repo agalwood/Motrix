@@ -225,7 +225,8 @@ export function installGrabOverlay(): void {
   toast.hidden = true
   toast.setAttribute('role', 'status')
 
-  const hasContent = (): boolean => items.length > 0 || hasPlayingVideo()
+  const hasContent = (): boolean =>
+    items.length > 0 || hasPlayingVideo() || pickTargetVideo() !== null
 
   const videoEntries = (): FormatEntry[] =>
     (formats?.entries ?? []).filter((entry) => entry.kind === 'video')
@@ -531,7 +532,7 @@ export function installGrabOverlay(): void {
       formats = response.formats
       formatsForUrl = location.href
       formatsFetchedAt = Date.now()
-      connected = response.connected && connected
+      connected = response.connected
     } catch (error) {
       if (isContextInvalidated(error)) {
         teardown()
@@ -571,9 +572,10 @@ export function installGrabOverlay(): void {
     items = next
     if (changed || panelOpen) render()
     schedulePosition()
-    // Auto-fetch qualities for a playing video so the picker is ready by
-    // the time the user opens the panel (fetchFormats dedupes via TTL).
-    if (connected && hasPlayingVideo()) void fetchFormats()
+    // Auto-fetch qualities for any page the overlay would show (playing video
+    // OR sniffed media) so the picker is populated by the time the panel
+    // opens. fetchFormats dedupes via the URL-keyed TTL cache.
+    if (connected && hasContent()) void fetchFormats()
   }
 
   const resizeObserver =

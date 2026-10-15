@@ -8,6 +8,7 @@ import {
   mediaStorageKey,
   mediaTabStorageKey,
 } from '@/shared/media'
+import type { MediaFormatsResult, QualityLabel } from '@/shared/mediaFormats'
 import { isErrorResponse } from '@/shared/messages'
 
 type ActiveTab = { id?: number; url?: string }
@@ -217,7 +218,7 @@ export function usePageMedia(
   download: (m: DetectedMedia) => Promise<void>
   getThumbnail: (m: DetectedMedia) => Promise<string | null>
   resolvableSite: 'bilibili' | 'youtube' | null
-  resolvePageDownload: () => Promise<{ taskId: string }>
+  resolvePageDownload: (qualityLabel?: QualityLabel) => Promise<{ taskId: string }>
 } {
   const [media, setMedia] = useState<DetectedMedia[]>([])
   const [selectionKinds, setKinds] = useState<string[]>(['direct'])
@@ -383,30 +384,32 @@ export function usePageMedia(
     []
   )
 
-  const resolvePageDownload = useCallback(async (): Promise<{
-    taskId: string
-  }> => {
-    syncSubmissionKey()
-    const scope = submissionKeyRef.current
-    await hydratePendingKeys(scope)
-    const idempotencyKey =
-      pageIdempotencyKey.current ?? newDownloadOperationId()
-    pageIdempotencyKey.current = idempotencyKey
-    await rememberPageSubmission(scope, idempotencyKey)
-    const r = await send('bg.resolvePageDownload', {
-      idempotencyKey,
-      ...(pairIfNeeded ? { pairIfNeeded: true } : {}),
-    })
-    if (isErrorResponse(r)) throw new Error(r.error)
-    if (
-      submissionKeyRef.current === scope &&
-      pageIdempotencyKey.current === idempotencyKey
-    ) {
-      pageIdempotencyKey.current = null
-    }
-    await clearPageSubmission(scope, idempotencyKey)
-    return r
-  }, [hydratePendingKeys, syncSubmissionKey, pairIfNeeded])
+  const resolvePageDownload = useCallback(
+    async (qualityLabel?: QualityLabel): Promise<{ taskId: string }> => {
+      syncSubmissionKey()
+      const scope = submissionKeyRef.current
+      await hydratePendingKeys(scope)
+      const idempotencyKey =
+        pageIdempotencyKey.current ?? newDownloadOperationId()
+      pageIdempotencyKey.current = idempotencyKey
+      await rememberPageSubmission(scope, idempotencyKey)
+      const r = await send('bg.resolvePageDownload', {
+        idempotencyKey,
+        ...(qualityLabel ? { qualityLabel } : {}),
+        ...(pairIfNeeded ? { pairIfNeeded: true } : {}),
+      })
+      if (isErrorResponse(r)) throw new Error(r.error)
+      if (
+        submissionKeyRef.current === scope &&
+        pageIdempotencyKey.current === idempotencyKey
+      ) {
+        pageIdempotencyKey.current = null
+      }
+      await clearPageSubmission(scope, idempotencyKey)
+      return r
+    },
+    [hydratePendingKeys, syncSubmissionKey, pairIfNeeded]
+  )
 
   return {
     media,
