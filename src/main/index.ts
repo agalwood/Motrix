@@ -2548,7 +2548,11 @@ async function initializeMainProcess(): Promise<void> {
   const shellYtdlpResolver = createShellYtdlpResolver({
     getMediaSettings: () => settingsManager.getMedia(),
     getProxySettings: () => settingsManager.getProxy(),
-    isMuxAvailable: () => bridgeManager?.current?.muxPipeline != null,
+    isMuxAvailable: async () => {
+      const pipeline = bridgeManager?.current?.muxPipeline
+      if (!pipeline) return false
+      return pipeline.isAvailable()
+    },
   })
   const ytdlpResolveMedia: MediaResolver = (url, cookieHeader, options) =>
     shellYtdlpResolver.resolve(url, cookieHeader, options)

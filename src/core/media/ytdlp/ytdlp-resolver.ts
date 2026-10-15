@@ -61,6 +61,7 @@ interface RawInfo {
   url?: string
   vcodec?: string
   acodec?: string
+  protocol?: string
   http_headers?: Record<string, string>
   requested_formats?: RawFormat[]
   format_id?: string
@@ -152,11 +153,15 @@ export function mapYtdlpInfo(info: RawInfo): MediaResolution | null {
       }
       return mux
     }
+    // When multiple streams were selected, an unsupported pair must be declined;
+    // requested[0] is typically video-only and would silently discard audio.
+    return null
   }
 
-  const single = requested[0]
+  const single = requested.length === 1 ? requested[0] : undefined
+  const protocol = single?.protocol ?? info.protocol
   const url = single?.url ?? info.url
-  if (!url || !isDirectProtocol(single?.protocol)) return null
+  if (!url || !isDirectProtocol(protocol)) return null
   const ext = single?.ext ?? info.ext
   const direct: DirectResolution = {
     kind: 'direct',
@@ -331,7 +336,7 @@ export interface YtdlpResolverDeps {
    * resolver asks yt-dlp for a single progressive stream instead, so the
    * caller still gets a file rather than a mux task it cannot run.
    */
-  isMuxAvailable?: () => boolean
+  isMuxAvailable?: () => boolean | Promise<boolean>
   spawnImpl?: SpawnLike
 }
 
@@ -395,7 +400,7 @@ export function createYtdlpMediaResolver(
     if (!options.allUrls && !isMediaSite(url)) return null
     const binaryPath = await deps.resolveBinaryPath()
     if (!binaryPath) return null
-    const muxAvailable = deps.isMuxAvailable?.() ?? true
+    const muxAvailable = (await deps.isMuxAvailable?.()) ?? true
     const hint = resolverOptions?.qualityHint
     const format = hint
       ? buildQualityFormat(hint, muxAvailable)

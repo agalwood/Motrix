@@ -3064,3 +3064,45 @@ describe('plugin diagnostic mode command', () => {
     }
   )
 })
+
+describe('CreateTask media resolution fallback', () => {
+  it('does not invoke ytdlpResolveMedia when live bridge resolveMedia returns null', async () => {
+    const ctx = fakeCtx()
+    const bridgeResolveMedia = vi.fn().mockResolvedValue(null)
+    ctx.bridgeManager.current = {
+      resolveMedia: bridgeResolveMedia,
+    } as never
+
+    const handlers = buildCommandHandlers(ctx as unknown as CommandContext)
+    await handlers[Commands.CreateTask]?.({
+      type: 'http',
+      uris: ['https://example.com/unsupported-video'],
+      saveDir: '/downloads',
+      headers: [],
+    })
+
+    expect(bridgeResolveMedia).toHaveBeenCalledWith(
+      'https://example.com/unsupported-video',
+      undefined
+    )
+    expect(ctx.ytdlpResolveMedia).not.toHaveBeenCalled()
+  })
+
+  it('invokes standalone ytdlpResolveMedia only when bridge is unavailable', async () => {
+    const ctx = fakeCtx()
+    ctx.bridgeManager.current = null
+
+    const handlers = buildCommandHandlers(ctx as unknown as CommandContext)
+    await handlers[Commands.CreateTask]?.({
+      type: 'http',
+      uris: ['https://example.com/video'],
+      saveDir: '/downloads',
+      headers: [],
+    })
+
+    expect(ctx.ytdlpResolveMedia).toHaveBeenCalledWith(
+      'https://example.com/video',
+      undefined
+    )
+  })
+})

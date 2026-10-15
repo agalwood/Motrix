@@ -122,4 +122,18 @@ describe('createYtdlpMediaResolver quality hint', () => {
     ).toBeNull()
     expect(seen).toHaveLength(0)
   })
+
+  it('selects progressive format when async isMuxAvailable resolves to false', async () => {
+    const seen: string[][] = []
+    const resolve = createYtdlpMediaResolver(
+      {
+        ...RESOLVER_DEPS,
+        isMuxAvailable: async () => false,
+        spawnImpl: spawnCapture(seen),
+      },
+      () => true
+    )
+    await resolve('https://x.example/watch?v=1', undefined)
+    expect(seen[0]?.join(' ')).toContain('--format b[ext=mp4]/b')
+  })
 })

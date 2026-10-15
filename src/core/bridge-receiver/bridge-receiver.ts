@@ -316,6 +316,11 @@ export class BridgeReceiver {
     return this.mux
   }
 
+  async isMuxAvailable(): Promise<boolean> {
+    if (!this.mux) return false
+    return this.mux.isAvailable()
+  }
+
   /**
    * Active aria2 segment gids for a coordinator-managed media task (kind
    * Mux/Hls). These ARE real aria2 gids — unlike the task's empty engineTaskId

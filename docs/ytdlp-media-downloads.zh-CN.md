@@ -41,12 +41,10 @@ Vimeo、bilibili 等数百个站点）的链接解析成真实的流地址，再
 
 ## 抓取网页中的视频（浏览器扩展）
 
-本仓库附带的浏览器扩展（`extension/`）包含媒体嗅探器和页内抓取浮层：
+独立维护的配套浏览器扩展（[motrixapp/motrix-extension](https://github.com/motrixapp/motrix-extension)，详见 PR [motrixapp/motrix-extension#56](https://github.com/motrixapp/motrix-extension/pull/56)）包含媒体嗅探器和页内抓取浮层：
 
-1. 构建扩展：`cd extension && pnpm install && pnpm run build:chromium`。
-2. 在 Chrome 或 Edge 中以未打包扩展的形式加载 `extension/dist/chromium`
-   （Firefox 请使用 `pnpm run build:firefox` 构建），然后在扩展弹窗中与
-   桌面应用配对。
+1. 从 [motrixapp/motrix-extension](https://github.com/motrixapp/motrix-extension) 克隆或安装扩展。
+2. 在 Chrome、Edge 或 Firefox 中加载构建好的扩展，然后在扩展弹窗中与桌面应用配对。
 3. 在任意页面播放视频。嗅探器检测到后，点击页面上出现的抓取按钮（或打开
    弹窗查看完整列表）。
 4. 选择一项即可发送给 Motrix。直接流会立即下载；HLS/DASH 页面和 watch 页面

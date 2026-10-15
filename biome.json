@@ -6,8 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "ignoreUnknown": true,
-    "includes": ["**", "!!**/extension"]
+    "ignoreUnknown": true
   },
   "assist": {
     "enabled": true,

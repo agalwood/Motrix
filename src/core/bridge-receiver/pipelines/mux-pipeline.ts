@@ -35,6 +35,16 @@ export interface AdaptedAudioExtract {
 export class MuxPipeline {
   constructor(private readonly deps: MuxPipelineDeps) {}
 
+  async isAvailable(): Promise<boolean> {
+    if (!this.deps.assertFfmpegAvailable) return true
+    try {
+      await this.deps.assertFfmpegAvailable()
+      return true
+    } catch {
+      return false
+    }
+  }
+
   async dispatch(adapted: AdaptedMux): Promise<{ taskId: string }> {
     await this.deps.assertFfmpegAvailable?.()
     const job: MediaJob = {

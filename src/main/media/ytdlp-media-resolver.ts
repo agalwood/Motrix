@@ -50,7 +50,7 @@ export interface YtdlpShellDeps {
   getMediaSettings: () => MediaSettings
   getProxySettings: () => ProxySettings
   /** Whether a mux task can be dispatched (FFmpeg + media pipeline live). */
-  isMuxAvailable: () => boolean
+  isMuxAvailable: () => boolean | Promise<boolean>
   env?: Record<string, string | undefined>
   locate?: typeof locateYtdlp
 }

@@ -12,10 +12,12 @@ import { z } from 'zod'
  */
 export const MEDIA_FORMATS_METHOD = 'media/formats'
 
-const mediaFormatCookieSchema = z.object({
-  name: z.string().min(1),
-  value: z.string(),
-})
+const mediaFormatCookieSchema = z
+  .object({
+    name: z.string(),
+    value: z.string(),
+  })
+  .passthrough()
 
 export const MediaFormatsParamsSchema = z.object({
   /** Page (watch-page or direct media) URL whose formats should be listed. */

@@ -397,11 +397,10 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     // the app has no browser session, so desktop paste gets the site's
     // public-quality streams.
     resolveMedia: async (url: string, cookieHeader?: string) => {
-      const viaBridge = await bridgeManager.current?.resolveMedia(
-        url,
-        cookieHeader
-      )
-      if (viaBridge) return viaBridge
+      const bridge = bridgeManager.current
+      if (bridge?.resolveMedia) {
+        return bridge.resolveMedia(url, cookieHeader)
+      }
       return ytdlpResolveMedia(url, cookieHeader)
     },
     // Share the receiver's live FFmpeg check with desktop submissions.

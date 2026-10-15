@@ -144,6 +144,41 @@ describe('mapYtdlpInfo', () => {
       })
     ).toBeNull()
   })
+
+  it('returns null for top-level m3u8_native protocol without requested_formats', () => {
+    expect(
+      mapYtdlpInfo({
+        title: 'HLS clip',
+        ext: 'mp4',
+        url: 'https://cdn.example/video.m3u8',
+        protocol: 'm3u8_native',
+      })
+    ).toBeNull()
+  })
+
+  it('declines multi-stream result when one stream has an unsupported protocol (does not drop audio)', () => {
+    expect(
+      mapYtdlpInfo({
+        title: 'Multi clip',
+        requested_formats: [
+          {
+            url: 'https://video.example/137.mp4',
+            ext: 'mp4',
+            vcodec: 'avc1',
+            acodec: 'none',
+            protocol: 'https',
+          },
+          {
+            url: 'https://audio.example/140.m3u8',
+            ext: 'm4a',
+            vcodec: 'none',
+            acodec: 'mp4a',
+            protocol: 'm3u8_native',
+          },
+        ],
+      })
+    ).toBeNull()
+  })
 })
 
 describe('looksUnsupported', () => {

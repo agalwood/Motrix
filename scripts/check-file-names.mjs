@@ -14,7 +14,7 @@ const kebabCaseExtensions = new Set([
   '.tsx',
 ])
 const snakeCaseExtensions = new Set(['.py', '.rs'])
-const excludedPrefixes = ['docs/', 'graphify-out/', 'extension/']
+const excludedPrefixes = ['docs/', 'graphify-out/']
 
 const output = execFileSync(
   'git',

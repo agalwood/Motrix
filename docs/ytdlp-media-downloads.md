@@ -49,12 +49,12 @@ downloads behave exactly as before.
 
 ## Grabbing videos from a web page (browser extension)
 
-The browser extension bundled in this repository (`extension/`) includes a
-media sniffer and an in-page grab overlay:
+The companion browser extension maintained in [motrixapp/motrix-extension](https://github.com/motrixapp/motrix-extension)
+(see PR [motrixapp/motrix-extension#56](https://github.com/motrixapp/motrix-extension/pull/56))
+includes a media sniffer and an in-page grab overlay:
 
-1. Build the extension: `cd extension && pnpm install && pnpm run build:chromium`.
-2. Load `extension/dist/chromium` as an unpacked extension in Chrome or Edge
-   (or build with `pnpm run build:firefox` for Firefox), then pair it with the
+1. Clone or install the extension from [motrixapp/motrix-extension](https://github.com/motrixapp/motrix-extension).
+2. Load the built extension in Chrome, Edge, or Firefox, then pair it with the
    desktop app from the extension popup.
 3. Play a video on any page. When the sniffer detects it, click the grab
    button the extension overlays on the page (or open the popup for the full

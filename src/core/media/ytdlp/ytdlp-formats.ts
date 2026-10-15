@@ -1,4 +1,5 @@
 import { spawn as nodeSpawn } from 'node:child_process'
+import { getLogger } from '@core/logger'
 import type {
   MediaFormatEntry,
   MediaFormatsResult,
@@ -208,17 +209,42 @@ async function runFormatList(
   proxy: string | undefined,
   spawnImpl: SpawnLike
 ): Promise<ListOutcome> {
-  const args = buildYtdlpFormatsArgs(req.url, {
-    ...(proxy ? { proxy } : {}),
-    ...(req.cookieHeader ? { cookieHeader: req.cookieHeader } : {}),
-  })
-  let result: { code: number | null; stdout: string; stderr: string }
-  try {
-    result = await spawnResolve(binaryPath, args, FORMAT_TIMEOUT_MS, spawnImpl)
-  } catch {
+  const log = getLogger('ytdlp-formats')
+  const execute = async (cookieHeader?: string) => {
+    const args = buildYtdlpFormatsArgs(req.url, {
+      ...(proxy ? { proxy } : {}),
+      ...(cookieHeader ? { cookieHeader } : {}),
+    })
+    try {
+      return await spawnResolve(binaryPath, args, FORMAT_TIMEOUT_MS, spawnImpl)
+    } catch (err) {
+      log.warn({ url: req.url, err }, 'yt-dlp format spawn failed')
+      return null
+    }
+  }
+
+  let result = await execute(req.cookieHeader)
+  // If listing failed while using browser cookies, retry without cookies:
+  // many extractors succeed publicly without session cookies that may trigger bot challenges.
+  if (result?.code !== 0 && req.cookieHeader) {
+    log.info(
+      { url: req.url, code: result?.code, stderr: result?.stderr },
+      'yt-dlp format listing failed with cookies; retrying without cookies'
+    )
+    const fallback = await execute(undefined)
+    if (fallback && fallback.code === 0) {
+      result = fallback
+    }
+  }
+
+  if (!result) {
     return { status: 'failed' }
   }
   if (result.code !== 0) {
+    log.warn(
+      { url: req.url, code: result.code, stderr: result.stderr },
+      'yt-dlp format listing failed'
+    )
     return {
       status: looksUnsupported(result.stderr) ? 'unsupported' : 'failed',
     }
@@ -233,7 +259,8 @@ async function runFormatList(
         ? { durationSec: info.duration }
         : {}),
     }
-  } catch {
+  } catch (err) {
+    log.warn({ url: req.url, err }, 'yt-dlp format listing stdout was not JSON')
     return { status: 'failed' }
   }
 }
@@ -293,9 +320,10 @@ export function createYtdlpFormatLister(
       }
     })().then(
       (result) => {
-        // Cache every outcome — including failures — so a page the desktop
-        // cannot list does not respawn yt-dlp on every poll tick.
-        cache.set(key, { at: now(), result })
+        // Cache successful outcomes for the full TTL. Failures are cached for
+        // only 2 seconds so subsequent requests or user retries can recover quickly.
+        const effectiveAt = result.available ? now() : now() - (ttlMs - 2000)
+        cache.set(key, { at: effectiveAt, result })
         inFlight.delete(key)
         return result
       },

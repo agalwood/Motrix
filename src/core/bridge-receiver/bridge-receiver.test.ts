@@ -358,12 +358,14 @@ describe('BridgeReceiver', () => {
             return receiver.handle(params as never, extCtx)
           }
           expect(receiver.muxPipeline).toBeDefined()
+          expect(await receiver.isMuxAvailable()).toBe(false)
           await expect(attempt()).rejects.toMatchObject({
             code: 'unsupported-kind',
           })
           expect(submit).not.toHaveBeenCalled()
           expect(deps.fetchManifest).not.toHaveBeenCalled()
           binaryPath = '/configured/ffmpeg'
+          expect(await receiver.isMuxAvailable()).toBe(true)
           if (kind === 'dash')
             vi.mocked(deps.fetchManifest!).mockResolvedValue(
               '<MPD type="static" mediaPresentationDuration="PT5S"><Period><AdaptationSet mimeType="video/mp4"><Representation id="v" bandwidth="1000"><BaseURL>https://example.com/v.mp4</BaseURL><SegmentList duration="5"><SegmentURL media="https://example.com/0.m4s" /></SegmentList></Representation></AdaptationSet></Period></MPD>'
