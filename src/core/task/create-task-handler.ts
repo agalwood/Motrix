@@ -651,6 +651,11 @@ async function handleCreateTaskUnderAdmission(
       extraEngineOptions: opts.extraEngineOptions,
     }
     let currentHttpDesiredName = desiredName
+    // A media resolver reports a real title, so its derived name is as
+    // authoritative as a user-supplied one. Without this, the HTTP fallback
+    // below rebases the name onto the resolved CDN URL and a YouTube audio
+    // stream lands as "videoplayback" with no extension.
+    let mediaNameResolved = false
     const pickHttpName = async (nextDesiredName: string): Promise<void> => {
       if (nextDesiredName === currentHttpDesiredName) return
       finalName = await pickHttpFinalName(nextDesiredName)
@@ -695,7 +700,10 @@ async function handleCreateTaskUnderAdmission(
           const directBase = resolution.filename ?? resolution.title
           if (directBase) {
             const desired = sanitizeFilename(directBase).trim()
-            if (desired) await pickHttpName(desired)
+            if (desired) {
+              await pickHttpName(desired)
+              mediaNameResolved = true
+            }
           }
         } else if (resolution?.kind === 'mux') {
           const dispatchMux = deps.dispatchMux
@@ -889,8 +897,9 @@ async function handleCreateTaskUnderAdmission(
 
     // The hook may replace the source URI. Rebase the non-explicit fallback
     // name onto that final URI before probing, so a failed/empty metadata
-    // response cannot resurrect the original request's basename.
-    if (!req.filename?.trim()) {
+    // response cannot resurrect the original request's basename. A name the
+    // media resolver already chose is explicit and must survive.
+    if (!req.filename?.trim() && !mediaNameResolved) {
       await pickHttpName(uriBasename(params.uris[0]) ?? 'download')
     }
 
@@ -919,7 +928,7 @@ async function handleCreateTaskUnderAdmission(
           const remoteName = resourceMetadata?.filename
             ? sanitizeRemoteFilename(resourceMetadata.filename)
             : null
-          if (remoteName) await pickHttpName(remoteName)
+          if (remoteName && !mediaNameResolved) await pickHttpName(remoteName)
         } catch {
           // Fetch/proxy errors may echo signed URLs or credentials. Keep the
           // optional fallback diagnostic limited to the non-secret host.
