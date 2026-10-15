@@ -129,6 +129,8 @@ Motrix Extension is available from the official browser stores for use with Motr
 
 For installation and pairing, see the [browser extension guide](https://motrix.app/manual/browser-extension/). Development builds remain available from the [extension repository](https://github.com/motrixapp/motrix-extension#manual-browser-workflow-development).
 
+This repository also vendors the extension in [`extension/`](extension/), including the media sniffer and an in-page grab overlay that detects videos playing on a page and sends them to Motrix in one click. To try it, build with `cd extension && pnpm install && pnpm run build:chromium`, then load `extension/dist/chromium` as an unpacked extension and pair it with the desktop app. Videos resolved from a pasted link or from the grab overlay can be extracted with yt-dlp; see [yt-dlp media downloads](docs/ytdlp-media-downloads.md) for setup.
+
 ##  📦  Installation
 
 ### Desktop app
