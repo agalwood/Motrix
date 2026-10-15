@@ -22,5 +22,13 @@
   "grabberFailed": {
     "message": "Motrix로 전송하지 못했습니다",
     "description": "Toast shown when a detected item could not be sent to Motrix."
+  },
+  "grabberNotConnected": {
+    "message": "Motrix에 연결되지 않았습니다 — 앱을 여세요",
+    "description": "Panel heading shown when the desktop app is not paired or reachable."
+  },
+  "grabberPageMeta": {
+    "message": "이 페이지",
+    "description": "Meta label of the row that submits the page URL for server-side resolution."
   }
 }

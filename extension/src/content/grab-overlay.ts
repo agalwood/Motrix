@@ -6,19 +6,29 @@ import type { MessageResponse } from '@/shared/messages'
  * In-page grab overlay — the IDM / Neat-style "download this video" affordance.
  *
  * The generic sniffer already finds media (network + DOM); this script only
- * presents it: a floating pill that lists the tab's detected media and hands a
- * chosen item to the background, which submits it to Motrix through the same
- * path the popup uses.
+ * presents it: a pill anchored to the top-right corner of the page's playing
+ * <video> element that lists the tab's detected media and hands a chosen item
+ * to the background, which submits it to Motrix through the same path the
+ * popup uses. Pages whose sniffer finds nothing (e.g. YouTube watch pages)
+ * still get a single row that submits the page URL for server-side resolution.
  *
  * Rendering lives in a closed shadow root so page CSS cannot restyle it and
  * the page's own layout cannot be disturbed. Every value that reaches the DOM
  * comes from the background projection (label, height, size) — never the
  * stored stream URL — and is inserted via `textContent`.
+ *
+ * If the extension is reloaded or updated while this script is alive, every
+ * message call throws "Extension context invalidated". The overlay detects
+ * that and removes itself so no dead button is left behind on the page.
  */
 
 const POLL_INTERVAL_MS = 2_000
 const MAX_VISIBLE_ITEMS = 6
+const EDGE_INSET = 12
 const HOST_ID = 'motrix-grab-overlay'
+/** Videos smaller than this (CSS px) are treated as decorative, not content. */
+const MIN_VIDEO_WIDTH = 120
+const MIN_VIDEO_HEIGHT = 80
 
 type Snapshot = MessageResponse<'bg.grabberSnapshot'>
 type GrabItem = Snapshot['media'][number]
@@ -32,6 +42,11 @@ function t(key: string, fallback: string): string {
   } catch {
     return fallback
   }
+}
+
+function isContextInvalidated(error: unknown): boolean {
+  const message = (error as Error)?.message ?? ''
+  return /context invalidated/i.test(message)
 }
 
 function formatBytes(sizeBytes?: number): string {
@@ -63,6 +78,37 @@ function newIdempotencyKey(): string {
   }
 }
 
+/** The video worth anchoring to: playing beats paused, visible area breaks ties. */
+function pickTargetVideo(): HTMLVideoElement | null {
+  const videos = document.querySelectorAll('video')
+  let best: HTMLVideoElement | null = null
+  let bestScore = 0
+  for (const video of videos) {
+    const rect = video.getBoundingClientRect()
+    if (rect.width < MIN_VIDEO_WIDTH || rect.height < MIN_VIDEO_HEIGHT) continue
+    const visibleWidth =
+      Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0)
+    const visibleHeight =
+      Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0)
+    if (visibleWidth <= 0 || visibleHeight <= 0) continue
+    const playing = !video.paused && !video.ended && video.readyState >= 2
+    const score = visibleWidth * visibleHeight * (playing ? 4 : 1)
+    if (score > bestScore) {
+      bestScore = score
+      best = video
+    }
+  }
+  return best
+}
+
+function hasPlayingVideo(): boolean {
+  const videos = document.querySelectorAll('video')
+  for (const video of videos) {
+    if (!video.paused && !video.ended && video.readyState >= 2) return true
+  }
+  return false
+}
+
 function ensureHost(): HostElement {
   const existing = document.getElementById(HOST_ID)
   if (existing) return existing as HostElement
@@ -71,7 +117,7 @@ function ensureHost(): HostElement {
   // The host itself is position:fixed and invisible to hit-testing; the shadow
   // root paints. `display:none`-safe: the page may hide unknown top-level divs.
   host.style.cssText =
-    'position:fixed;inset:auto 0 0 0;z-index:2147483647;pointer-events:none;'
+    'position:fixed;top:0;left:0;width:0;height:0;z-index:2147483647;pointer-events:none;'
   const shadow = host.attachShadow({ mode: 'closed' })
   ;(host as HostElement).__motrixGrabShadow = shadow
   ;(document.body ?? document.documentElement).appendChild(host)
@@ -81,12 +127,13 @@ function ensureHost(): HostElement {
 const STYLE = `
   :host { all: initial; }
   .wrap {
-    position: fixed; right: 16px; bottom: 16px;
+    position: fixed; left: 0; top: 0;
     display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     font-size: 13px; color: #fff; direction: ltr;
     pointer-events: auto;
   }
+  .wrap[hidden] { display: none; }
   .pill {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 8px 14px; border-radius: 999px; border: 0; cursor: pointer;
@@ -126,10 +173,6 @@ const STYLE = `
     direction: ltr;
   }
   .meta { color: #9aa2c4; font-size: 11px; white-space: nowrap; }
-  .kind {
-    font-size: 10px; font-weight: 700; letter-spacing: .04em;
-    color: #9aa2c4; text-transform: uppercase;
-  }
   .toast {
     padding: 8px 12px; border-radius: 10px; background: #1f2230;
     color: #fff; box-shadow: 0 8px 20px rgba(0,0,0,.35); font-size: 12px;
@@ -158,28 +201,54 @@ export function installGrabOverlay(): void {
   let panelOpen = false
   let busy = false
   let toastTimer: ReturnType<typeof setTimeout> | null = null
+  let pillElement: HTMLElement | null = null
 
   const toast = document.createElement('div')
   toast.className = 'toast'
   toast.hidden = true
   toast.setAttribute('role', 'status')
 
+  const hasContent = (): boolean => items.length > 0 || hasPlayingVideo()
+
   const render = (): void => {
     wrap.replaceChildren()
-    if (items.length === 0) return
+    pillElement = null
+    if (!hasContent()) {
+      wrap.hidden = true
+      return
+    }
+    wrap.hidden = false
 
     if (panelOpen) {
       const panel = document.createElement('div')
       panel.className = 'panel'
       const heading = document.createElement('h2')
-      heading.textContent = t(
-        'grabberPanelTitle',
-        connected ? 'Download with Motrix' : 'Motrix is not connected'
-      )
+      heading.textContent = connected
+        ? t('grabberPanelTitle', 'Download with Motrix')
+        : t('grabberNotConnected', 'Motrix is not connected — open the app')
       panel.appendChild(heading)
 
       const list = document.createElement('div')
       list.className = 'list'
+      if (items.length === 0) {
+        // Nothing sniffed (common on watch pages) but Motrix can resolve the
+        // page URL itself — offer the page-level download like the popup does.
+        const row = document.createElement('button')
+        row.type = 'button'
+        row.className = 'row'
+        row.disabled = busy || !connected
+        const text = document.createElement('span')
+        text.className = 'label'
+        text.textContent = t('grabberButtonLabel', 'Download video')
+        const meta = document.createElement('span')
+        meta.className = 'meta'
+        meta.textContent = t('grabberPageMeta', 'this page')
+        row.append(text, meta)
+        row.addEventListener('click', () => {
+          void resolvePage()
+        })
+        list.appendChild(row)
+      }
       for (const item of items.slice(0, MAX_VISIBLE_ITEMS)) {
         const row = document.createElement('button')
         row.type = 'button'
@@ -228,7 +297,65 @@ export function installGrabOverlay(): void {
       render()
     })
     wrap.appendChild(pill)
+    pillElement = pill
     wrap.appendChild(toast)
+    position()
+  }
+
+  /**
+   * Anchor the pill to the playing video's top-right corner (IDM/Neat style),
+   * shifting up when the open panel would push it out of view. Falls back to
+   * the screen corner when the page has no anchorable <video>. The whole wrap
+   * is hidden while the anchor video is scrolled off-screen.
+   */
+  const position = (): void => {
+    const video = pickTargetVideo()
+    const wrapWidth = wrap.offsetWidth
+    const wrapHeight = wrap.offsetHeight
+    const pillHeight = pillElement?.offsetHeight ?? 36
+    if (!video) {
+      wrap.hidden = !hasContent()
+      wrap.style.left = ''
+      wrap.style.top = ''
+      wrap.style.right = `${EDGE_INSET + 4}px`
+      wrap.style.bottom = `${EDGE_INSET + 4}px`
+      return
+    }
+    const rect = video.getBoundingClientRect()
+    const offscreen =
+      rect.bottom < pillHeight + 2 * EDGE_INSET ||
+      rect.top > window.innerHeight - EDGE_INSET ||
+      rect.right < EDGE_INSET ||
+      rect.left > window.innerWidth - EDGE_INSET
+    wrap.hidden = offscreen || !hasContent()
+    if (offscreen) return
+    let top = rect.top + EDGE_INSET
+    if (panelOpen) top -= wrapHeight - pillHeight + 8
+    top = Math.max(
+      EDGE_INSET,
+      Math.min(top, window.innerHeight - pillHeight - EDGE_INSET)
+    )
+    const left = Math.max(
+      EDGE_INSET,
+      Math.min(
+        rect.right - EDGE_INSET - wrapWidth,
+        window.innerWidth - wrapWidth - EDGE_INSET
+      )
+    )
+    wrap.style.right = ''
+    wrap.style.bottom = ''
+    wrap.style.left = `${Math.round(left)}px`
+    wrap.style.top = `${Math.round(top)}px`
+  }
+
+  let positionScheduled = false
+  const schedulePosition = (): void => {
+    if (positionScheduled) return
+    positionScheduled = true
+    requestAnimationFrame(() => {
+      positionScheduled = false
+      position()
+    })
   }
 
   const showToast = (
@@ -245,6 +372,16 @@ export function installGrabOverlay(): void {
     if (!items.length) render()
   }
 
+  const teardown = (): void => {
+    clearInterval(pollTimer)
+    window.removeEventListener('scroll', schedulePosition, true)
+    window.removeEventListener('resize', schedulePosition)
+    document.removeEventListener('play', onVideoEvent, true)
+    document.removeEventListener('pause', onVideoEvent, true)
+    resizeObserver?.disconnect()
+    host.remove()
+  }
+
   const submit = async (item: GrabItem): Promise<void> => {
     if (busy) return
     busy = true
@@ -257,6 +394,35 @@ export function installGrabOverlay(): void {
       panelOpen = false
       showToast(t('grabberSent', 'Sent to Motrix'))
     } catch (error) {
+      if (isContextInvalidated(error)) {
+        teardown()
+        return
+      }
+      showToast(
+        `${t('grabberFailed', 'Could not send to Motrix')}: ${(error as Error)?.message ?? ''}`.trim(),
+        'error'
+      )
+    } finally {
+      busy = false
+      render()
+    }
+  }
+
+  const resolvePage = async (): Promise<void> => {
+    if (busy) return
+    busy = true
+    render()
+    try {
+      await send('bg.resolvePageDownload', {
+        idempotencyKey: newIdempotencyKey(),
+      })
+      panelOpen = false
+      showToast(t('grabberSent', 'Sent to Motrix'))
+    } catch (error) {
+      if (isContextInvalidated(error)) {
+        teardown()
+        return
+      }
       showToast(
         `${t('grabberFailed', 'Could not send to Motrix')}: ${(error as Error)?.message ?? ''}`.trim(),
         'error'
@@ -271,7 +437,11 @@ export function installGrabOverlay(): void {
     let snapshot: Snapshot | null = null
     try {
       snapshot = await send('bg.grabberSnapshot', undefined)
-    } catch {
+    } catch (error) {
+      if (isContextInvalidated(error)) {
+        teardown()
+        return
+      }
       // Service worker asleep or the extension was reloaded; retry on the
       // next tick rather than tearing down the overlay.
       return
@@ -284,12 +454,31 @@ export function installGrabOverlay(): void {
     connected = snapshot.connected
     items = next
     if (changed || panelOpen) render()
+    schedulePosition()
   }
 
-  void refresh()
-  setInterval(() => {
+  const resizeObserver =
+    typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(schedulePosition)
+      : null
+  const onVideoEvent = (): void => {
+    schedulePosition()
     void refresh()
+  }
+
+  window.addEventListener('scroll', schedulePosition, true)
+  window.addEventListener('resize', schedulePosition)
+  // 'play' and 'pause' do not bubble, but they are observable in the capture
+  // phase — that is how the overlay notices a video starting after load.
+  document.addEventListener('play', onVideoEvent, true)
+  document.addEventListener('pause', onVideoEvent, true)
+  const pollTimer = setInterval(() => {
+    void refresh()
+    schedulePosition()
   }, POLL_INTERVAL_MS)
+
+  render()
+  void refresh()
 }
 
 installGrabOverlay()

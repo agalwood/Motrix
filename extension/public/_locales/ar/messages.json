@@ -22,5 +22,13 @@
   "grabberFailed": {
     "message": "تعذر الإرسال إلى Motrix",
     "description": "Toast shown when a detected item could not be sent to Motrix."
+  },
+  "grabberNotConnected": {
+    "message": "غير متصل بـ Motrix — افتح التطبيق",
+    "description": "Panel heading shown when the desktop app is not paired or reachable."
+  },
+  "grabberPageMeta": {
+    "message": "هذه الصفحة",
+    "description": "Meta label of the row that submits the page URL for server-side resolution."
   }
 }
