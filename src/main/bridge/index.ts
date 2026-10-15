@@ -40,10 +40,14 @@ import {
   WebSocketBridgeServer,
 } from '@core/bridge/web-socket-bridge-server'
 import type { BridgeReceiverDeps } from '@core/bridge-receiver/bridge-receiver'
-import { BridgeReceiver } from '@core/bridge-receiver/bridge-receiver'
+import {
+  BridgeReceiver,
+  serializeCookieHeader,
+} from '@core/bridge-receiver/bridge-receiver'
 import { BridgeStreamSource } from '@core/bridge-receiver/bridge-stream-source'
 import { getLogger } from '@core/logger'
 import type { MediaResolver } from '@core/media/ytdlp/media-resolver'
+import type { YtdlpFormatLister } from '@core/media/ytdlp/ytdlp-formats'
 import { urlMatchesHostPermissions } from '@core/plugin/hooks/eligibility'
 import type { PluginHost } from '@core/plugin/host/plugin-host'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
@@ -62,6 +66,10 @@ import {
   type ResolvePairResult,
 } from '@shared/protocol/bridge'
 import type { BridgeSettings } from '@shared/schemas/bridge-settings'
+import type {
+  MediaFormatsParams,
+  MediaFormatsResult,
+} from '@shared/schemas/media-formats'
 import type { PluginManifest } from '@shared/types/plugin'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
 import { app, ipcMain } from 'electron'
@@ -128,7 +136,7 @@ export function makeResolveMedia(
   pluginHost: PluginHost,
   fallback?: MediaResolver
 ): MediaResolver {
-  return async (url: string, cookieHeader?: string) => {
+  return async (url: string, cookieHeader?: string, options?) => {
     const candidates = pluginRegistry
       .entries()
       .filter(
@@ -189,7 +197,7 @@ export function makeResolveMedia(
         // resolver failed → try the next candidate
       }
     }
-    return fallback ? fallback(url, cookieHeader) : null
+    return fallback ? fallback(url, cookieHeader, options) : null
   }
 }
 
@@ -457,6 +465,8 @@ export async function bootstrapBridge(args: {
   pluginHost: PluginHost
   /** yt-dlp fallback resolver; runs after every plugin has declined the URL. */
   ytdlpResolveMedia?: MediaResolver
+  /** yt-dlp format listing — backend for the grab overlay's quality picker. */
+  ytdlpListFormats?: YtdlpFormatLister
   /** `bridge.fixedPort` (port policy, §4) + `bridge.instanceId` (the §4.1
    *  discovery routing hint) from persisted settings. */
   bridgeSettings: BridgeSettings
@@ -764,11 +774,31 @@ export async function bootstrapBridge(args: {
     // the server is listening but handlers aren't yet registered. motrix/initialize
     // and system/ping are wired by the server itself; the dispatcher validates
     // params at the boundary, so these handlers receive already-typed values.
+    const listFormats = args.ytdlpListFormats
     server.setHandlers({
       submitDownload: (params, ctx) =>
         args.trackAsyncWork(() => receiver.handle(params, ctx)),
       cancelDownload: (params) =>
         args.trackAsyncWork(() => receiver.cancel(params.taskId)),
+      ...(listFormats
+        ? {
+            listMediaFormats: async (
+              params: MediaFormatsParams
+            ): Promise<MediaFormatsResult> => {
+              const ffmpegAvailable =
+                typeof args.ffmpegAvailable === 'function'
+                  ? await args.ffmpegAvailable()
+                  : args.ffmpegAvailable
+              const cookieHeader =
+                serializeCookieHeader(params.cookies ?? []) || undefined
+              return listFormats({
+                url: params.url,
+                ...(cookieHeader ? { cookieHeader } : {}),
+                audioExtractAvailable: ffmpegAvailable,
+              })
+            },
+          }
+        : {}),
     })
     // v1 READ methods (task/list, task/get, stats/get, engine/status) — also
     // before start(), reachable via the unary POST /mdxp transport only.

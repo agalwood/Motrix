@@ -1,6 +1,10 @@
 import type { MediaResolver } from '@core/media/ytdlp/media-resolver'
 import { isLikelyMediaSite } from '@core/media/ytdlp/media-site-allowlist'
 import {
+  createYtdlpFormatLister,
+  type YtdlpFormatLister,
+} from '@core/media/ytdlp/ytdlp-formats'
+import {
   locateYtdlp,
   type YtdlpLocation,
 } from '@core/media/ytdlp/ytdlp-locator'
@@ -53,6 +57,8 @@ export interface YtdlpShellDeps {
 
 export interface ShellYtdlpResolver {
   resolve: MediaResolver
+  /** List the qualities a URL offers — the grab overlay's picker backend. */
+  listFormats: YtdlpFormatLister
   /** Drop the cached binary location; used after Settings change. */
   invalidate: () => void
   /** Current probe result, for the Settings "detected" indicator. */
@@ -85,12 +91,14 @@ export function createShellYtdlpResolver(
     return location
   }
 
+  const resolveBinaryPath = async (): Promise<string | null> => {
+    const media = deps.getMediaSettings()
+    const location = await probe(media.ytdlpBinaryPath)
+    return location.binaryPath
+  }
+
   const resolverDeps: YtdlpResolverDeps = {
-    resolveBinaryPath: async () => {
-      const media = deps.getMediaSettings()
-      const location = await probe(media.ytdlpBinaryPath)
-      return location.binaryPath
-    },
+    resolveBinaryPath,
     readOptions: () => {
       const media = deps.getMediaSettings()
       const proxy = proxyUrlForDownload(deps.getProxySettings())
@@ -106,10 +114,29 @@ export function createShellYtdlpResolver(
     isMuxAvailable: deps.isMuxAvailable,
   }
 
+  // Same policy gates and probe as the resolver — a URL the submit path
+  // would decline is also a URL this lister declines (and vice versa), so
+  // the picker never promises a quality the submit would refuse.
+  const formatLister = createYtdlpFormatLister({
+    resolveBinaryPath,
+    readOptions: () => {
+      const media = deps.getMediaSettings()
+      const proxy = proxyUrlForDownload(deps.getProxySettings())
+      return {
+        enabled: media.ytdlpEnabled,
+        allUrls: media.ytdlpAllUrls,
+        ...(proxy ? { proxy } : {}),
+      }
+    },
+    isMediaSite: isLikelyMediaSite,
+  })
+
   return {
     resolve: createYtdlpMediaResolver(resolverDeps, isLikelyMediaSite),
+    listFormats: formatLister,
     invalidate: () => {
       cache = null
+      formatLister.clearCache()
     },
     location: () => probe(deps.getMediaSettings().ytdlpBinaryPath),
   }

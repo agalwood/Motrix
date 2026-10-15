@@ -2,7 +2,9 @@ import { spawn as nodeSpawn } from 'node:child_process'
 import { getLogger } from '@core/logger'
 import type {
   DirectResolution,
+  MediaQualityHint,
   MediaResolution,
+  MediaResolveOptions,
   MuxResolution,
 } from './media-resolver'
 import type { SpawnLike } from './ytdlp-locator'
@@ -173,7 +175,7 @@ export function mapYtdlpInfo(info: RawInfo): MediaResolution | null {
   return direct
 }
 
-function spawnResolve(
+export function spawnResolve(
   binaryPath: string,
   args: readonly string[],
   timeoutMs: number,
@@ -245,7 +247,16 @@ export function looksUnsupported(stderr: string): boolean {
 }
 
 /**
- * Ask yt-dlp for the stream URLs behind `url`.
+ * Extract the JSON blob from yt-dlp stdout. yt-dlp may emit a warning line
+ * before the payload; the blob starts at the first `{`.
+ */
+export function parseYtdlpStdout<T>(stdout: string): T {
+  const start = stdout.indexOf('{')
+  if (start < 0) throw new Error('no JSON object on stdout')
+  return JSON.parse(stdout.slice(start)) as T
+}
+
+/** Ask yt-dlp for the stream URLs behind `url`.
  *
  * Returns an outcome rather than throwing so both desktop and bridge callers
  * can log the reason and fall through to their unchanged download path.
@@ -281,11 +292,7 @@ export async function resolveWithYtdlp(
   }
   let info: RawInfo
   try {
-    // yt-dlp may emit a warning line before the JSON blob; the blob is the
-    // last brace-balanced payload on stdout.
-    const start = result.stdout.indexOf('{')
-    if (start < 0) throw new Error('no JSON object on stdout')
-    info = JSON.parse(result.stdout.slice(start)) as RawInfo
+    info = parseYtdlpStdout<RawInfo>(result.stdout)
   } catch (cause) {
     log.warn({ url, elapsedMs, err: cause }, 'yt-dlp output was not JSON')
     return { status: 'failed', reason: `unparseable output: ${String(cause)}` }
@@ -331,12 +338,48 @@ export interface YtdlpResolverDeps {
 const PROGRESSIVE_FORMAT = 'b[ext=mp4]/b'
 
 /**
+ * Map a submitter's quality hint onto a yt-dlp `-f` selector.
+ *
+ * - audioOnly → best audio stream, single format (never a mux pair), which
+ *   the receiver routes to MP3 extraction after the download.
+ * - height    → best stream at or below the cap. mp4/m4a is preferred while
+ *   it exists so the mux lands in an mp4 container without a transcode; the
+ *   trailing `/b` keeps a below-cap pick from failing outright when every
+ *   available format is taller than the request.
+ * - no hint   → the settings default (or the progressive fallback when no
+ *   mux pipeline can run).
+ */
+export function buildQualityFormat(
+  hint: MediaQualityHint,
+  muxAvailable: boolean
+): string {
+  if (hint.audioOnly) return 'bestaudio/best'
+  const height = hint.height
+  if (!height) {
+    return muxAvailable ? DEFAULT_YTDLP_FORMAT : PROGRESSIVE_FORMAT
+  }
+  if (muxAvailable) {
+    return [
+      `bv*[height<=${height}][ext=mp4]+ba[ext=m4a]`,
+      `bv*[height<=${height}]+ba`,
+      `b[height<=${height}][ext=mp4]`,
+      `b[height<=${height}]`,
+      'b',
+    ].join('/')
+  }
+  return [`b[height<=${height}][ext=mp4]`, `b[height<=${height}]`, 'b'].join(
+    '/'
+  )
+}
+
+/**
  * Build a `MediaResolver` backed by yt-dlp.
  *
  * Returns null (no resolution) whenever yt-dlp is unavailable, disabled in
  * Settings, or the URL is not a media site under the current policy — so
  * composing this last in the resolver chain leaves every other download
- * untouched.
+ * untouched. A submitter quality hint overrides the Settings format so the
+ * picker's choice wins over the default.
  */
 export function createYtdlpMediaResolver(
   deps: YtdlpResolverDeps,
@@ -344,7 +387,8 @@ export function createYtdlpMediaResolver(
 ) {
   return async (
     url: string,
-    cookieHeader?: string
+    cookieHeader?: string,
+    resolverOptions?: MediaResolveOptions
   ): Promise<MediaResolution | null> => {
     const options = deps.readOptions?.() ?? { enabled: true }
     if (!options.enabled) return null
@@ -352,9 +396,11 @@ export function createYtdlpMediaResolver(
     const binaryPath = await deps.resolveBinaryPath()
     if (!binaryPath) return null
     const muxAvailable = deps.isMuxAvailable?.() ?? true
-    const format =
-      options.format?.trim() ||
-      (muxAvailable ? DEFAULT_YTDLP_FORMAT : PROGRESSIVE_FORMAT)
+    const hint = resolverOptions?.qualityHint
+    const format = hint
+      ? buildQualityFormat(hint, muxAvailable)
+      : options.format?.trim() ||
+        (muxAvailable ? DEFAULT_YTDLP_FORMAT : PROGRESSIVE_FORMAT)
     const outcome = await resolveWithYtdlp(url, {
       binaryPath,
       format,

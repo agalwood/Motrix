@@ -2550,8 +2550,8 @@ async function initializeMainProcess(): Promise<void> {
     getProxySettings: () => settingsManager.getProxy(),
     isMuxAvailable: () => bridgeManager?.current?.muxPipeline != null,
   })
-  const ytdlpResolveMedia: MediaResolver = (url, cookieHeader) =>
-    shellYtdlpResolver.resolve(url, cookieHeader)
+  const ytdlpResolveMedia: MediaResolver = (url, cookieHeader, options) =>
+    shellYtdlpResolver.resolve(url, cookieHeader, options)
   const createBridgeRuntime = async () => {
     const bridgeReAddDeps = {
       taskManager,
@@ -2718,6 +2718,7 @@ async function initializeMainProcess(): Promise<void> {
     return bootstrapBridge({
       mediaMetaStore,
       ytdlpResolveMedia,
+      ytdlpListFormats: shellYtdlpResolver.listFormats,
       getMainWindow: () => windowManager?.get('main') ?? null,
       motrixVersion: app.getVersion(),
       ffmpegAvailable: async () => (await resolveFfmpegLocation()).available,

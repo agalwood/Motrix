@@ -14,6 +14,7 @@ import type {
   DirectResolution,
   MediaResolver,
 } from '@core/media/ytdlp/media-resolver'
+import { parseQualityHint } from '@core/media/ytdlp/quality-hint'
 import { MediaTaskCoordinator } from '@core/task/media-task-coordinator'
 import { admitHttpSource } from '@core/task/source-admission'
 import type { TaskManager } from '@core/task/task-manager'
@@ -32,7 +33,10 @@ import { stripHopByHopHeaders } from './header-replay'
 import { DirectPipeline } from './pipelines/direct-pipeline'
 import { HlsDashPipeline } from './pipelines/hls-dash-pipeline'
 import { MagnetPipeline } from './pipelines/magnet-pipeline'
-import { ensureMediaExtension } from './pipelines/media-final-name'
+import {
+  ensureMediaExtension,
+  ensureMp3Extension,
+} from './pipelines/media-final-name'
 import { MuxPipeline } from './pipelines/mux-pipeline'
 import {
   dispatchTaskUpdates,
@@ -40,6 +44,7 @@ import {
 } from './progress-mapping'
 import { ProgressPublisher } from './progress-publisher'
 import {
+  type AdaptedDirect,
   type AdaptedMux,
   type AdapterDeps,
   SubmitDownloadAdapter,
@@ -392,6 +397,22 @@ export class BridgeReceiver {
     // with cookies (e.g. SESSDATA for bilibili), serialize them into a Cookie
     // header string and pass it as the 2nd arg to resolveMedia. The resolver
     // attaches the header ONLY to api.bilibili.com calls — never to CDN URLs.
+    //
+    // Quality selection: the grab overlay's picked format rides the existing
+    // meta.qualityLabel field ('1080p', 'mp3'). A recognized hint means the
+    // client chose from THIS url's own format list, so an unresolvable URL
+    // must abort with a retriable capability error — falling through would
+    // download the page document instead of the media.
+    const qualityHint =
+      adapted.kind === 'direct'
+        ? parseQualityHint(params.meta.qualityLabel)
+        : undefined
+    if (qualityHint && !this.deps.resolveMedia) {
+      throw new BridgeReceiverError(
+        'unsupported-kind',
+        'quality selection requires the media resolver'
+      )
+    }
     if (adapted.kind === 'direct' && this.deps.resolveMedia) {
       const rawCookies =
         params.selection.kind === 'direct'
@@ -401,8 +422,18 @@ export class BridgeReceiver {
       const cookieHeader = serialized || undefined
       const resolved = await this.deps.resolveMedia(
         adapted.primaryUrl,
-        cookieHeader
+        cookieHeader,
+        qualityHint ? { qualityHint } : undefined
       )
+      if (!resolved && qualityHint) {
+        throw new BridgeReceiverError(
+          'unsupported-kind',
+          'requested quality is unavailable for this url'
+        )
+      }
+      if (qualityHint?.audioOnly && resolved?.kind === 'direct') {
+        return this.dispatchAudioExtract(adapted, resolved)
+      }
       const rewritten =
         resolved?.kind === 'direct'
           ? rewriteDirectAdapted(adapted, resolved)
@@ -470,6 +501,45 @@ export class BridgeReceiver {
       return this.mux.dispatch(adapted)
     }
     return this.direct.dispatch(adapted)
+  }
+
+  /**
+   * Route an `mp3` quality selection: the resolver handed back a single
+   * best-audio stream, which downloads through the media coordinator like
+   * any other single-segment job and is re-encoded to `.mp3` in the mux
+   * phase. The output name prefers the resolver's title (the page URL /
+   * suggested filename rarely names audio) and is deduplicated on disk
+   * before dispatch, exactly like the mux path.
+   */
+  private async dispatchAudioExtract(
+    adapted: AdaptedDirect,
+    resolved: DirectResolution
+  ): Promise<{ taskId: string }> {
+    if (!this.mux) {
+      throw new BridgeReceiverError(
+        'unsupported-kind',
+        'ffmpeg unavailable — mp3 extraction not active'
+      )
+    }
+    const titleBase = resolved.title
+      ? sanitizeFilename(resolved.title).trim()
+      : ''
+    const finalName = await this.deps.pickName(
+      adapted.saveDir,
+      ensureMp3Extension(titleBase || adapted.finalName)
+    )
+    const durationSec = resolved.durationSec ?? adapted.sourceMeta.durationSec
+    return this.mux.dispatchExtract({
+      taskId: adapted.taskId,
+      saveDir: adapted.saveDir,
+      finalName,
+      audioUrl: admitHttpSource(resolved.url),
+      sanitizedHeaders: resolved.headers
+        ? stripHopByHopHeaders(resolved.headers)
+        : adapted.sanitizedHeaders,
+      sourceMeta: adapted.sourceMeta,
+      ...(durationSec != null ? { durationSec } : {}),
+    })
   }
 
   private readonly sink: TaskNotificationSink = {

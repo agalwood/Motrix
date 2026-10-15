@@ -761,6 +761,7 @@ bus.on('bg.submitMedia', popupDownloads.submitMedia)
 bus.on('bg.resolvePageDownload', popupDownloads.resolvePageDownload)
 bus.on('bg.grabberSnapshot', popupDownloads.grabberSnapshot)
 bus.on('bg.grabberSubmit', popupDownloads.grabberSubmit)
+bus.on('bg.grabberFormats', popupDownloads.grabberFormats)
 
 bus.attach()
 

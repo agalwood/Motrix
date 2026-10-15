@@ -30,5 +30,25 @@
   "grabberPageMeta": {
     "message": "本页面",
     "description": "Meta label of the row that submits the page URL for server-side resolution."
+  },
+  "grabberSectionVideo": {
+    "message": "视频",
+    "description": "Section heading listing video quality rows in the grab panel."
+  },
+  "grabberSectionAudio": {
+    "message": "音频",
+    "description": "Section heading listing audio-only rows in the grab panel."
+  },
+  "grabberMp3": {
+    "message": "MP3 音频",
+    "description": "Row label for downloading the audio track extracted as MP3."
+  },
+  "grabberFormatsLoading": {
+    "message": "正在获取格式列表…",
+    "description": "Panel row shown while yt-dlp is fetching the page's format list."
+  },
+  "grabberFormatsUnavailable": {
+    "message": "无法获取格式列表",
+    "description": "Panel row shown when the format list could not be fetched."
   }
 }

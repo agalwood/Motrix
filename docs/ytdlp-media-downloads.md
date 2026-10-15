@@ -62,6 +62,14 @@ media sniffer and an in-page grab overlay:
 4. Choose an item to send it to Motrix. Direct streams download immediately;
    HLS/DASH pages and watch-page URLs are resolved server-side, using yt-dlp
    when enabled, exactly like a pasted link.
+5. When yt-dlp is enabled, the overlay additionally lists the page's own
+   qualities: a **Video** section with one row per resolution (e.g. `1080p`,
+   `720p`) and an **Audio** section with an **MP3** row when FFmpeg is
+   configured. Picking a resolution downloads the best stream at or below it;
+   picking **MP3** downloads the best audio stream and converts it to a
+   `.mp3` file. The list is fetched from the desktop app automatically when a
+   video starts playing (refreshed at most once a minute), so ordinary sniffed
+   items keep their own rows alongside it.
 
 The overlay only runs in the top frame of `http(s)` pages and shows a thin
 label (filename or resolution) — page code never sees the stored stream URL or
@@ -76,3 +84,7 @@ cookies.
   Configure **Settings → Integration → Media Tools**, then re-download.
 - **yt-dlp version errors** — update yt-dlp regularly; video sites change
   frequently and old extractor versions break.
+- **The overlay shows no quality rows** — the desktop app could not list the
+  page (yt-dlp disabled, missing, or the site is not allowed). The overlay then
+  falls back to the sniffed items and the this-page row; check the yt-dlp
+  settings and that the app is connected.

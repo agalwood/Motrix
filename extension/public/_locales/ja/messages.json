@@ -30,5 +30,25 @@
   "grabberPageMeta": {
     "message": "このページ",
     "description": "Meta label of the row that submits the page URL for server-side resolution."
+  },
+  "grabberSectionVideo": {
+    "message": "動画",
+    "description": "Section heading listing video quality rows in the grab panel."
+  },
+  "grabberSectionAudio": {
+    "message": "音声",
+    "description": "Section heading listing audio-only rows in the grab panel."
+  },
+  "grabberMp3": {
+    "message": "MP3 オーディオ",
+    "description": "Row label for downloading the audio track extracted as MP3."
+  },
+  "grabberFormatsLoading": {
+    "message": "フォーマットを取得中…",
+    "description": "Panel row shown while yt-dlp is fetching the page's format list."
+  },
+  "grabberFormatsUnavailable": {
+    "message": "フォーマット一覧を取得できません",
+    "description": "Panel row shown when the format list could not be fetched."
   }
 }

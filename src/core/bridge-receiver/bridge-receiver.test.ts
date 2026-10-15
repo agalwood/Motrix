@@ -508,7 +508,7 @@ describe('BridgeReceiver', () => {
           refererPolicy: 'strict-origin-when-cross-origin' as const,
         },
       },
-      meta: { suggestedFilename: 'vid.mp4', qualityLabel: '1080p' },
+      meta: { suggestedFilename: 'vid.mp4', qualityLabel: 'auto' },
     }
 
     const extCtx = {
@@ -631,9 +631,11 @@ describe('BridgeReceiver', () => {
       // resolveMedia returned null → direct pipeline; createTask was called
       expect(result.taskId).toBeDefined()
       expect(deps.createTask).toHaveBeenCalledTimes(1)
-      // Empty cookies → cookieHeader is undefined (not forwarded)
+      // Empty cookies → cookieHeader is undefined (not forwarded); no
+      // quality hint → the options arg stays undefined too.
       expect(resolveMedia).toHaveBeenCalledWith(
         'https://www.youtube.com/watch?v=abc',
+        undefined,
         undefined
       )
     })
@@ -717,7 +719,7 @@ describe('BridgeReceiver', () => {
           refererPolicy: 'strict-origin-when-cross-origin' as const,
         },
       },
-      meta: { suggestedFilename: 'vid', qualityLabel: '1080p' },
+      meta: { suggestedFilename: 'vid', qualityLabel: 'auto' },
     }
 
     const extCtx = {
@@ -735,7 +737,8 @@ describe('BridgeReceiver', () => {
       await r.handle(bilibiliPageParams, extCtx)
       expect(resolveMedia).toHaveBeenCalledWith(
         'https://www.bilibili.com/video/BV1xx411c7mD',
-        'SESSDATA=abc; bili_jct=x'
+        'SESSDATA=abc; bili_jct=x',
+        undefined
       )
     })
 
@@ -757,8 +760,146 @@ describe('BridgeReceiver', () => {
       // 2nd arg should be undefined (empty cookies → no cookie forwarding)
       expect(resolveMedia).toHaveBeenCalledWith(
         'https://www.bilibili.com/video/BV1xx411c7mD',
+        undefined,
         undefined
       )
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // quality picker routing (meta.qualityLabel → resolver hint / MP3 extract)
+  // ---------------------------------------------------------------------------
+
+  describe('quality hint routing', () => {
+    const extCtx = {
+      identity: {
+        kind: 'extension' as const,
+        extensionId: 'e',
+        browser: 'chromium' as const,
+      },
+    } as never
+
+    const pageParams = (qualityLabel: string) => ({
+      source: {
+        pageUrl: 'https://x.example/watch?v=1',
+        pageTitle: 't',
+        detectedAt: 1,
+      },
+      selection: {
+        kind: 'direct' as const,
+        primary: {
+          url: 'https://x.example/watch?v=1',
+          headers: {},
+          cookies: [],
+          refererPolicy: 'strict-origin-when-cross-origin' as const,
+        },
+      },
+      meta: { suggestedFilename: 'vid', qualityLabel },
+    })
+
+    it('forwards a parsed height hint to resolveMedia as the options arg', async () => {
+      const resolveMedia = vi.fn(async () => null)
+      const deps = fakeDeps({ resolveMedia })
+      const r = new BridgeReceiver(deps as never)
+      await expect(r.handle(pageParams('1080p'), extCtx)).rejects.toMatchObject(
+        { name: 'BridgeReceiverError', code: 'unsupported-kind' }
+      )
+      expect(resolveMedia).toHaveBeenCalledWith(
+        'https://x.example/watch?v=1',
+        undefined,
+        { qualityHint: { height: 1080 } }
+      )
+    })
+
+    it('aborts with unsupported-kind when a picked quality cannot be resolved', async () => {
+      // A picker row only exists because the desktop listed this URL's own
+      // formats; null now means the pick went stale, and falling through
+      // would download the page document instead of the media.
+      const resolveMedia = vi.fn(async () => null)
+      const deps = fakeDeps({ resolveMedia })
+      const r = new BridgeReceiver(deps as never)
+      await expect(r.handle(pageParams('720p'), extCtx)).rejects.toMatchObject({
+        name: 'BridgeReceiverError',
+        code: 'unsupported-kind',
+      })
+      expect(deps.createTask).not.toHaveBeenCalled()
+    })
+
+    it('aborts when a quality pick arrives without a wired resolver', async () => {
+      const deps = fakeDeps()
+      const r = new BridgeReceiver(deps as never)
+      await expect(r.handle(pageParams('mp3'), extCtx)).rejects.toMatchObject({
+        name: 'BridgeReceiverError',
+        code: 'unsupported-kind',
+      })
+      expect(deps.createTask).not.toHaveBeenCalled()
+    })
+
+    it("'auto' keeps today's fallthrough: null resolution dispatches direct", async () => {
+      const resolveMedia = vi.fn(async () => null)
+      const deps = fakeDeps({ resolveMedia })
+      const r = new BridgeReceiver(deps as never)
+      const result = await r.handle(pageParams('auto'), extCtx)
+      expect(result.taskId).toBeDefined()
+      expect(deps.createTask).toHaveBeenCalledTimes(1)
+    })
+
+    it('an mp3 pick routes a resolved audio stream to MuxPipeline.dispatchExtract', async () => {
+      const resolveMedia = vi.fn(async () => ({
+        kind: 'direct' as const,
+        url: 'https://cdn.example/best.m4a',
+        title: 'Human Title',
+        durationSec: 42,
+      }))
+      const deps = fakeDeps({
+        ffmpegBinaryPath: '/usr/bin/ffmpeg',
+        taskManager: new TaskManager(),
+        segmentAria2: fakeSegmentAria2,
+        resolveMedia,
+      })
+      const r = new BridgeReceiver(deps as never)
+      const mux = (
+        r as unknown as {
+          mux: {
+            dispatchExtract: (...a: unknown[]) => Promise<{ taskId: string }>
+          }
+        }
+      ).mux
+      expect(mux).toBeDefined()
+      const extractSpy = vi
+        .spyOn(mux, 'dispatchExtract')
+        .mockResolvedValue({ taskId: 'mp3-task-1' })
+
+      const result = await r.handle(pageParams('mp3'), extCtx)
+
+      expect(result).toEqual({ taskId: 'mp3-task-1' })
+      expect(extractSpy).toHaveBeenCalledTimes(1)
+      const arg = extractSpy.mock.calls[0]?.[0] as {
+        audioUrl: string
+        finalName: string
+        durationSec?: number
+      }
+      expect(resolveMedia).toHaveBeenCalledWith(
+        'https://x.example/watch?v=1',
+        undefined,
+        { qualityHint: { audioOnly: true } }
+      )
+      expect(arg.audioUrl).toBe('https://cdn.example/best.m4a')
+      expect(arg.finalName).toBe('Human Title.mp3')
+      expect(arg.durationSec).toBe(42)
+    })
+
+    it('an mp3 pick without FFmpeg aborts as unsupported-kind', async () => {
+      const resolveMedia = vi.fn(async () => ({
+        kind: 'direct' as const,
+        url: 'https://cdn.example/best.m4a',
+      }))
+      const deps = fakeDeps({ resolveMedia })
+      const r = new BridgeReceiver(deps as never)
+      await expect(r.handle(pageParams('mp3'), extCtx)).rejects.toMatchObject({
+        name: 'BridgeReceiverError',
+        code: 'unsupported-kind',
+      })
     })
   })
 

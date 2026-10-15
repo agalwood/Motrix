@@ -69,6 +69,12 @@ export interface MediaJob {
   durationSec?: number
   /** Pipeline kind — used to set the correct TaskKind on the DownloadTask. */
   kind?: 'hls' | 'dash' | 'mux'
+  /**
+   * MP3 extraction instead of a copy-remux: `video` carries the downloaded
+   * best-audio stream, there is no `audio` leg, and the mux phase re-encodes
+   * with FFmpeg to `finalName` (an .mp3).
+   */
+  extractAudio?: boolean
 }
 
 export interface MediaCoordinatorDeps {
@@ -755,6 +761,7 @@ export class MediaTaskCoordinator {
           format: muxerForOutputName(finalName),
           fromMpegts: job.video.container === 'mpegts',
           durationSec: job.durationSec,
+          ...(job.extractAudio ? { extractAudio: true } : {}),
         },
         (p) => {
           if (state.cancelled) return

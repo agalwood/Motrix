@@ -21,13 +21,18 @@ import {
   isResolvableVideoPage,
   mediaStorageKey,
 } from '@/shared/media'
+import {
+  isPickerQualityHint,
+  type MediaFormatsResult,
+  normalizeQualityLabel,
+} from '@/shared/mediaFormats'
 import { MEDIA_SUBMIT_ERROR } from '@/shared/messages'
 
 /** The overlay offers a short list; the popup remains the full browser. */
 const MAX_GRAB_ITEMS = 6
 
 interface PopupDownloadDeps {
-  manager: Pick<ConnectionManager, 'getServerCapabilities'>
+  manager: Pick<ConnectionManager, 'getServerCapabilities' | 'request'>
   submissions: Pick<DownloadSubmissionService, 'run'>
   mediaStore: MediaStore
   mediaCredentialStore: MediaCredentialStore
@@ -66,7 +71,7 @@ export function createPopupDownloadHandlers(deps: PopupDownloadDeps) {
    */
   const assertGrabberSender = (
     sender: Browser.runtime.MessageSender
-  ): Browser.tabs.Tab & { id: number } => {
+  ): Browser.tabs.Tab & { id: number; url: string } => {
     const tab = sender.tab
     if (typeof tab?.id !== 'number' || !tab.url) {
       throw new Error(MEDIA_SUBMIT_ERROR.invalidRequest)
@@ -74,7 +79,35 @@ export function createPopupDownloadHandlers(deps: PopupDownloadDeps) {
     if (!/^https?:/i.test(tab.url)) {
       throw new Error(MEDIA_SUBMIT_ERROR.invalidRequest)
     }
-    return tab as Browser.tabs.Tab & { id: number }
+    return tab as Browser.tabs.Tab & { id: number; url: string }
+  }
+  /**
+   * bg.resolvePageDownload is sent by the popup/options pages AND by the
+   * grab overlay's page-submit rows (quality picker / this-page fallback) —
+   * the extension's own content script on an http(s) tab. Both originate
+   * from this extension (sender.id === extensionId; a web page can never
+   * send runtime messages), and the submission always targets the ACTIVE
+   * tab with a re-verified URL, so the content-script path adds no new
+   * authority over what a page could already trigger via the overlay.
+   */
+  const assertPageSubmitSender = (
+    sender: Browser.runtime.MessageSender
+  ): void => {
+    if (
+      isExtensionPageSender(sender, deps.extensionId, deps.extensionBaseUrl)
+    ) {
+      return
+    }
+    const tab = sender.tab
+    if (
+      sender.id === deps.extensionId &&
+      typeof tab?.id === 'number' &&
+      tab.url &&
+      /^https?:/i.test(tab.url)
+    ) {
+      return
+    }
+    throw new Error(MEDIA_SUBMIT_ERROR.invalidRequest)
   }
   /**
    * Submit one stored media item of `queryTab`'s tab.
@@ -192,19 +225,27 @@ export function createPopupDownloadHandlers(deps: PopupDownloadDeps) {
   const resolvePageDownload: MessageBusHandler<
     'bg.resolvePageDownload'
   > = async (request, sender) => {
-    assertSender(sender)
+    assertPageSubmitSender(sender)
     try {
       const [tab] = await getActiveTabs()
       if (!tab?.url) throw new Error('no active tab')
       const pageUrl = tab.url
+      const qualityLabel = normalizeQualityLabel(request.qualityLabel)
       const check = isResolvableVideoPage(pageUrl, webStore)
-      if (!check.resolvable) throw new Error('page not resolvable')
+      // A REAL picker choice ('1080p' / 'mp3') only exists for pages the
+      // desktop's yt-dlp has already listed formats for, so it also unlocks
+      // the page submit on sites outside the resolveToMux allowlist. 'auto'
+      // never relaxes the gate.
+      if (!check.resolvable && !isPickerQualityHint(qualityLabel)) {
+        throw new Error('page not resolvable')
+      }
       return await submissions.run(
         {
           idempotencyKey: request.idempotencyKey,
           pairIfNeeded: request.pairIfNeeded === true,
           source: 'page',
-          resourceKey: JSON.stringify([tab.id, pageUrl]),
+          // Distinct qualities are distinct submissions.
+          resourceKey: JSON.stringify([tab.id, pageUrl, qualityLabel]),
         },
         async ({ assertCurrent }) => {
           assertCurrent()
@@ -238,6 +279,7 @@ export function createPopupDownloadHandlers(deps: PopupDownloadDeps) {
             buildMediaSubmitParams(media, cookies, headers),
             request
           )
+          params.meta.qualityLabel = qualityLabel
           assertCurrent()
           return params
         }
@@ -288,11 +330,56 @@ export function createPopupDownloadHandlers(deps: PopupDownloadDeps) {
     return submitMediaForTab(async () => tab, request)
   }
 
+  /**
+   * bg.grabberFormats: list the yt-dlp qualities the sender tab's page URL
+   * offers (fork-local `media/formats` method). Never rejects — a
+   * disconnected desktop or any transport/listing failure degrades to
+   * `{ available: false }` so the overlay falls back to its sniffed rows.
+   * The URL always comes from the browser-authenticated sender tab, never
+   * from the request payload.
+   */
+  const grabberFormats: MessageBusHandler<'bg.grabberFormats'> = async (
+    _request,
+    sender
+  ) => {
+    const tab = assertGrabberSender(sender)
+    const unavailable = (reason: string): MediaFormatsResult => ({
+      available: false,
+      reason,
+      entries: [],
+    })
+    if (manager.getServerCapabilities() === null) {
+      return { connected: false, formats: unavailable('not-connected') }
+    }
+    try {
+      const cookies = await capturePageCookies({
+        url: tab.url,
+        ...(tab.cookieStoreId ? { storeId: tab.cookieStoreId } : {}),
+        browser: browserKind,
+        api: cookieApi,
+      })
+      const formats = await manager.request('media/formats', {
+        url: tab.url,
+        ...(cookies.length ? { cookies } : {}),
+      })
+      return { connected: true, formats }
+    } catch {
+      // Transport failure → desktop is effectively gone; a structured
+      // error (e.g. method unsupported by an older desktop) keeps
+      // connected: true with an unavailable result.
+      return {
+        connected: manager.getServerCapabilities() !== null,
+        formats: unavailable('failed'),
+      }
+    }
+  }
+
   return {
     submitMedia,
     resolvePageDownload,
     grabberSnapshot,
     grabberSubmit,
+    grabberFormats,
   }
 }
 

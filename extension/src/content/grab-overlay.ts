@@ -1,6 +1,7 @@
 import { send } from '@/background/MessageBus'
 import { extensionBrowser as browser } from '@/shared/browser'
 import { newDownloadOperationId } from '@/shared/integration'
+import type { QualityLabel } from '@/shared/mediaFormats'
 import type { MessageResponse } from '@/shared/messages'
 
 /**
@@ -27,12 +28,16 @@ const POLL_INTERVAL_MS = 2_000
 const MAX_VISIBLE_ITEMS = 6
 const EDGE_INSET = 12
 const HOST_ID = 'motrix-grab-overlay'
+/** Format listings are stable for a while — refetch at most this often. */
+const FORMATS_TTL_MS = 60_000
 /** Videos smaller than this (CSS px) are treated as decorative, not content. */
 const MIN_VIDEO_WIDTH = 120
 const MIN_VIDEO_HEIGHT = 80
 
 type Snapshot = MessageResponse<'bg.grabberSnapshot'>
 type GrabItem = Snapshot['media'][number]
+type FormatEntry =
+  MessageResponse<'bg.grabberFormats'>['formats']['entries'][number]
 
 type HostElement = HTMLElement & { __motrixGrabShadow?: ShadowRoot }
 
@@ -68,6 +73,14 @@ function itemDescription(item: GrabItem): string {
   const size = formatBytes(item.sizeBytes)
   if (size) parts.push(size)
   if (parts.length === 0 && item.mimeType) parts.push(item.mimeType)
+  return parts.join(' · ')
+}
+
+function formatEntryDescription(entry: FormatEntry): string {
+  const parts: string[] = []
+  if (entry.ext) parts.push(entry.ext)
+  const size = formatBytes(entry.sizeBytes)
+  if (size) parts.push(size)
   return parts.join(' · ')
 }
 
@@ -166,6 +179,12 @@ const STYLE = `
     direction: ltr;
   }
   .meta { color: #9aa2c4; font-size: 11px; white-space: nowrap; }
+  .section {
+    padding: 7px 12px 5px; font-size: 11px; font-weight: 600;
+    color: #9aa2c4; background: #191c28; border-top: 1px solid #2c3043;
+  }
+  .note { opacity: .65; cursor: default; }
+  .note:hover { background: transparent; }
   .toast {
     padding: 8px 12px; border-radius: 10px; background: #1f2230;
     color: #fff; box-shadow: 0 8px 20px rgba(0,0,0,.35); font-size: 12px;
@@ -195,6 +214,11 @@ export function installGrabOverlay(): void {
   let busy = false
   let toastTimer: ReturnType<typeof setTimeout> | null = null
   let pillElement: HTMLElement | null = null
+  // Last yt-dlp format listing, valid for the URL it was fetched for.
+  let formats: MessageResponse<'bg.grabberFormats'>['formats'] | null = null
+  let formatsForUrl: string | null = null
+  let formatsFetchedAt = 0
+  let formatsFlight = false
 
   const toast = document.createElement('div')
   toast.className = 'toast'
@@ -202,6 +226,11 @@ export function installGrabOverlay(): void {
   toast.setAttribute('role', 'status')
 
   const hasContent = (): boolean => items.length > 0 || hasPlayingVideo()
+
+  const videoEntries = (): FormatEntry[] =>
+    (formats?.entries ?? []).filter((entry) => entry.kind === 'video')
+  const audioEntries = (): FormatEntry[] =>
+    (formats?.entries ?? []).filter((entry) => entry.kind === 'audio')
 
   const render = (): void => {
     wrap.replaceChildren()
@@ -211,6 +240,8 @@ export function installGrabOverlay(): void {
       return
     }
     wrap.hidden = false
+    const qualityVideos = videoEntries()
+    const qualityAudio = audioEntries()
 
     if (panelOpen) {
       const panel = document.createElement('div')
@@ -223,46 +254,92 @@ export function installGrabOverlay(): void {
 
       const list = document.createElement('div')
       list.className = 'list'
-      if (items.length === 0) {
-        // Nothing sniffed (common on watch pages) but Motrix can resolve the
-        // page URL itself — offer the page-level download like the popup does.
+      const appendNote = (text: string): void => {
+        const note = document.createElement('div')
+        note.className = 'row note'
+        const label = document.createElement('span')
+        label.className = 'label'
+        label.textContent = text
+        note.append(label)
+        list.appendChild(note)
+      }
+      const appendRow = (
+        label: string,
+        meta: string,
+        onClick: () => void
+      ): void => {
         const row = document.createElement('button')
         row.type = 'button'
         row.className = 'row'
         row.disabled = busy || !connected
         const text = document.createElement('span')
         text.className = 'label'
-        text.textContent = t('grabberButtonLabel', 'Download video')
-        const meta = document.createElement('span')
-        meta.className = 'meta'
-        meta.textContent = t('grabberPageMeta', 'this page')
-        row.append(text, meta)
-        row.addEventListener('click', () => {
-          void resolvePage()
-        })
+        text.textContent = label
+        text.title = label
+        const metaSpan = document.createElement('span')
+        metaSpan.className = 'meta'
+        metaSpan.textContent = meta
+        row.append(text, metaSpan)
+        row.addEventListener('click', onClick)
         list.appendChild(row)
       }
+      const appendSection = (key: string, fallback: string): void => {
+        const section = document.createElement('div')
+        section.className = 'section'
+        section.textContent = t(key, fallback)
+        list.appendChild(section)
+      }
+
+      // yt-dlp quality rows: the desktop's own view of what this page
+      // offers. The row's key echoes back as meta.qualityLabel on submit.
+      if (qualityVideos.length > 0) {
+        appendSection('grabberSectionVideo', 'Video')
+        for (const entry of qualityVideos) {
+          appendRow(entry.label, formatEntryDescription(entry), () => {
+            void resolvePage(entry.key as QualityLabel)
+          })
+        }
+      }
+      if (qualityAudio.length > 0) {
+        appendSection('grabberSectionAudio', 'Audio')
+        for (const entry of qualityAudio) {
+          const label =
+            entry.key === 'mp3'
+              ? t('grabberMp3', 'MP3 (audio only)')
+              : entry.label
+          appendRow(label, formatEntryDescription(entry), () => {
+            void resolvePage(entry.key as QualityLabel)
+          })
+        }
+      }
+      if (connected && formatsFlight) {
+        appendNote(t('grabberFormatsLoading', 'Loading qualities…'))
+      } else if (
+        formats &&
+        !formats.available &&
+        formatsForUrl === location.href &&
+        qualityVideos.length === 0 &&
+        qualityAudio.length === 0
+      ) {
+        appendNote(t('grabberFormatsUnavailable', 'No downloadable qualities'))
+      }
+
+      // Sniffed media (network + DOM) always keeps its rows.
+      if (items.length === 0 && qualityVideos.length === 0) {
+        // Nothing sniffed and no quality rows (common on watch pages) but
+        // Motrix can still resolve the page URL itself.
+        appendRow(
+          t('grabberButtonLabel', 'Download video'),
+          t('grabberPageMeta', 'this page'),
+          () => {
+            void resolvePage()
+          }
+        )
+      }
       for (const item of items.slice(0, MAX_VISIBLE_ITEMS)) {
-        const row = document.createElement('button')
-        row.type = 'button'
-        row.className = 'row'
-        row.disabled = busy || !connected
-
-        const text = document.createElement('span')
-        text.className = 'label'
-        text.textContent = item.label
-        text.title = item.label
-
-        const meta = document.createElement('span')
-        meta.className = 'meta'
-        const description = itemDescription(item)
-        meta.textContent = description || item.kind
-
-        row.append(text, meta)
-        row.addEventListener('click', () => {
+        appendRow(item.label, itemDescription(item) || item.kind, () => {
           void submit(item)
         })
-        list.appendChild(row)
       }
       panel.appendChild(list)
       wrap.appendChild(panel)
@@ -279,15 +356,17 @@ export function installGrabOverlay(): void {
     const label = document.createElement('span')
     label.textContent = t('grabberButtonLabel', 'Download video')
     pill.append(icon, label)
-    if (items.length > 1) {
+    const offerCount = items.length + qualityVideos.length + qualityAudio.length
+    if (offerCount > 1) {
       const count = document.createElement('span')
       count.className = 'count'
-      count.textContent = String(items.length)
+      count.textContent = String(offerCount)
       pill.appendChild(count)
     }
     pill.addEventListener('click', () => {
       panelOpen = !panelOpen
       render()
+      if (panelOpen) void fetchFormats()
     })
     wrap.appendChild(pill)
     pillElement = pill
@@ -401,13 +480,14 @@ export function installGrabOverlay(): void {
     }
   }
 
-  const resolvePage = async (): Promise<void> => {
+  const resolvePage = async (qualityLabel?: QualityLabel): Promise<void> => {
     if (busy) return
     busy = true
     render()
     try {
       await send('bg.resolvePageDownload', {
         idempotencyKey: newDownloadOperationId(),
+        ...(qualityLabel ? { qualityLabel } : {}),
       })
       panelOpen = false
       showToast(t('grabberSent', 'Sent to Motrix'))
@@ -422,6 +502,44 @@ export function installGrabOverlay(): void {
       )
     } finally {
       busy = false
+      render()
+    }
+  }
+
+  /**
+   * Ask the desktop for this page's yt-dlp format list (quality picker).
+   * Auto-runs when a video starts playing and when the panel opens; the
+   * URL-keyed TTL keeps polling cheap. Never throws — a disconnected
+   * desktop or a listing failure simply leaves the sniffed rows as the
+   * only offering (the background answers `{ available: false }`).
+   */
+  const fetchFormats = async (): Promise<void> => {
+    if (formatsFlight || !connected) return
+    if (
+      formatsForUrl === location.href &&
+      formats &&
+      Date.now() - formatsFetchedAt < FORMATS_TTL_MS
+    ) {
+      return
+    }
+    formatsFlight = true
+    if (panelOpen) render()
+    try {
+      const response = await send('bg.grabberFormats', {
+        url: location.href,
+      })
+      formats = response.formats
+      formatsForUrl = location.href
+      formatsFetchedAt = Date.now()
+      connected = response.connected && connected
+    } catch (error) {
+      if (isContextInvalidated(error)) {
+        teardown()
+        return
+      }
+      // Transient failure — retry on the next trigger (play / open / poll).
+    } finally {
+      formatsFlight = false
       render()
     }
   }
@@ -444,10 +562,18 @@ export function installGrabOverlay(): void {
     const changed =
       next.length !== items.length ||
       next.some((item, index) => item.key !== items[index]?.key)
+    // SPA navigation invalidates the previous page's listing.
+    if (formatsForUrl !== null && formatsForUrl !== location.href) {
+      formats = null
+      formatsFetchedAt = 0
+    }
     connected = snapshot.connected
     items = next
     if (changed || panelOpen) render()
     schedulePosition()
+    // Auto-fetch qualities for a playing video so the picker is ready by
+    // the time the user opens the panel (fetchFormats dedupes via TTL).
+    if (connected && hasPlayingVideo()) void fetchFormats()
   }
 
   const resizeObserver =

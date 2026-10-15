@@ -29,6 +29,12 @@ import {
   makeSessionKey,
   type PairRequestPayload,
 } from '@shared/protocol/bridge'
+import {
+  MEDIA_FORMATS_METHOD,
+  type MediaFormatsParams,
+  MediaFormatsParamsSchema,
+  type MediaFormatsResult,
+} from '@shared/schemas/media-formats'
 import { type RawData, type WebSocket, WebSocketServer } from 'ws'
 import { BridgeConnection } from './bridge-connection'
 import type { Mbp1CredentialStore } from './credential-store'
@@ -298,6 +304,15 @@ export type MethodHandlers = {
     params: DownloadCancelParams,
     ctx: MdxpSessionContext
   ) => Promise<void>
+  /**
+   * Fork-local `media/formats` (see @shared/schemas/media-formats): list the
+   * yt-dlp qualities a URL offers. Extension WS only — never registered on
+   * the agent-facing unary transport.
+   */
+  listMediaFormats?: (
+    params: MediaFormatsParams,
+    ctx: MdxpSessionContext
+  ) => Promise<MediaFormatsResult>
 }
 
 /**
@@ -1113,6 +1128,25 @@ export class WebSocketBridgeServer {
         async (params, ctx) => {
           await cancel(params, ctx)
           return { ok: true }
+        }
+      )
+    }
+    if (handlers.listMediaFormats) {
+      const list = handlers.listMediaFormats
+      this.dispatcher.register(
+        MEDIA_FORMATS_METHOD,
+        MediaFormatsParamsSchema,
+        async (params, ctx) => {
+          // Defence in depth, mirroring download/submit: the WS wiring below
+          // already requires an authorized session, and the unary transport
+          // never reaches this method (no Tools entry).
+          if (ctx.identity.kind !== 'extension') {
+            throw makeMdxpError(
+              ErrorCodes.CapabilityNotSupported,
+              `${MEDIA_FORMATS_METHOD} is not available to ${ctx.identity.kind} clients`
+            )
+          }
+          return list(params, ctx)
         }
       )
     }
@@ -2243,6 +2277,16 @@ export class WebSocketBridgeServer {
       conn.onRequest(
         'download/cancel',
         (params) => authorizedDispatch('download/cancel', params) as never
+      )
+    }
+    // Fork-local media/formats: reachable over the paired extension WS only.
+    // It is absent from EXTENSION_WS_CONTROL_PLANE because that list is typed
+    // to published MDXP methods; the dispatcher gate + authorizedDispatch are
+    // the same additive contract the download/* methods use.
+    if (this.dispatcher.has(MEDIA_FORMATS_METHOD)) {
+      conn.onRequest(
+        MEDIA_FORMATS_METHOD,
+        (params) => authorizedDispatch(MEDIA_FORMATS_METHOD, params) as never
       )
     }
     // Control-plane over WS: a paired session may drive task management + read

@@ -30,5 +30,25 @@
   "grabberPageMeta": {
     "message": "cette page",
     "description": "Meta label of the row that submits the page URL for server-side resolution."
+  },
+  "grabberSectionVideo": {
+    "message": "Video",
+    "description": "Section heading listing video quality rows in the grab panel."
+  },
+  "grabberSectionAudio": {
+    "message": "Audio",
+    "description": "Section heading listing audio-only rows in the grab panel."
+  },
+  "grabberMp3": {
+    "message": "MP3 audio",
+    "description": "Row label for downloading the audio track extracted as MP3."
+  },
+  "grabberFormatsLoading": {
+    "message": "Fetching formats…",
+    "description": "Panel row shown while yt-dlp is fetching the page's format list."
+  },
+  "grabberFormatsUnavailable": {
+    "message": "No format list available",
+    "description": "Panel row shown when the format list could not be fetched."
   }
 }

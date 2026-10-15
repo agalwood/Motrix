@@ -358,8 +358,12 @@ export interface MessageMap {
   // popup → background → motrix: resolve and submit the current tab's watch-page URL.
   // Used for bilibili/youtube watch pages that the generic sniffer cannot detect;
   // Motrix's resolveToMux seam handles the actual resolution server-side.
+  // `qualityLabel` carries the grab overlay's format choice ('1080p' / 'mp3');
+  // 'auto' and absent mean the desktop default format.
   'bg.resolvePageDownload': {
-    request: CallerIdempotencyRequest
+    request: CallerIdempotencyRequest & {
+      qualityLabel?: import('@/shared/mediaFormats').QualityLabel
+    }
     response: import('@motrix/mdxp').DownloadSubmitResult
   }
 
@@ -383,6 +387,19 @@ export interface MessageMap {
   'bg.grabberSubmit': {
     request: { mediaKey: string } & CallerIdempotencyRequest
     response: import('@motrix/mdxp').DownloadSubmitResult
+  }
+
+  // in-page grab overlay → background → motrix: list the yt-dlp qualities a
+  // page URL offers (fork-local `media/formats` method). Never rejects —
+  // a disconnected desktop or a listing failure comes back as
+  // `{ connected, formats: { available: false, ... } }` so the overlay can
+  // fall back to its sniffed rows.
+  'bg.grabberFormats': {
+    request: { url: string }
+    response: {
+      connected: boolean
+      formats: import('@/shared/mediaFormats').MediaFormatsResult
+    }
   }
 }
 

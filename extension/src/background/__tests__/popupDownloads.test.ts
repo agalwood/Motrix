@@ -59,6 +59,10 @@ async function fixture() {
         return { taskId: 'task-1' }
       }
     ),
+    request: vi.fn(async (_method: string, _params: unknown) => ({
+      available: true,
+      entries: [],
+    })),
   }
   const submissions = new DownloadSubmissionService({
     manager,
@@ -199,5 +203,157 @@ describe('production popup download handlers', () => {
     expect(f.getActiveTabs).not.toHaveBeenCalled()
     expect(f.manager.ensureReady).not.toHaveBeenCalled()
     expect(f.manager.clearGateAndStart).not.toHaveBeenCalled()
+  })
+})
+
+/** Bring the fixture's manager online (resolves the readiness gate). */
+async function goOnline(f: Awaited<ReturnType<typeof fixture>>) {
+  const waking = f.manager.ensureReady()
+  f.ready.resolve()
+  await waking
+}
+
+describe('bg.grabberFormats', () => {
+  const grabberSender = {
+    id: 'extension-id',
+    tab: { id: 4, url: 'https://www.youtube.com/watch?v=motrix' },
+  } as Browser.runtime.MessageSender
+
+  it('lists the sender tab URL formats via the media/formats method', async () => {
+    const f = await fixture()
+    await goOnline(f)
+    const entries = [
+      { key: '1080p', kind: 'video', label: '1080p', height: 1080 },
+      { key: 'mp3', kind: 'audio', label: 'MP3' },
+    ]
+    f.manager.request.mockResolvedValue({ available: true, entries })
+    const result = await f.handlers.grabberFormats(
+      // The request URL is ignored — the tab URL is browser-authenticated.
+      { url: 'https://ignored.example/page' },
+      grabberSender
+    )
+    expect(result).toEqual({
+      connected: true,
+      formats: { available: true, entries },
+    })
+    expect(f.manager.request).toHaveBeenCalledWith('media/formats', {
+      url: 'https://www.youtube.com/watch?v=motrix',
+    })
+  })
+
+  it('answers not-connected without waking anything when capabilities are absent', async () => {
+    const f = await fixture()
+    const result = await f.handlers.grabberFormats(
+      { url: 'https://www.youtube.com/watch?v=motrix' },
+      grabberSender
+    )
+    expect(result).toEqual({
+      connected: false,
+      formats: { available: false, reason: 'not-connected', entries: [] },
+    })
+    expect(f.manager.request).not.toHaveBeenCalled()
+    expect(f.manager.ensureReady).not.toHaveBeenCalled()
+  })
+
+  it('degrades to a failed result instead of throwing on transport errors', async () => {
+    const f = await fixture()
+    await goOnline(f)
+    f.manager.request.mockRejectedValue(new Error('socket closed'))
+    await expect(
+      f.handlers.grabberFormats(
+        { url: 'https://www.youtube.com/watch?v=motrix' },
+        grabberSender
+      )
+    ).resolves.toEqual({
+      connected: true,
+      formats: { available: false, reason: 'failed', entries: [] },
+    })
+  })
+
+  it('rejects a non-http sender tab', async () => {
+    const f = await fixture()
+    await expect(
+      f.handlers.grabberFormats(
+        { url: 'https://www.youtube.com/watch?v=motrix' },
+        {
+          id: 'extension-id',
+          tab: { id: 4, url: 'chrome://extensions' },
+        } as Browser.runtime.MessageSender
+      )
+    ).rejects.toThrow('media-submit.invalid-request')
+  })
+})
+
+describe('bg.resolvePageDownload quality selection', () => {
+  const exampleTab = [
+    {
+      id: 4,
+      url: 'https://example.com/watch/1',
+      title: 'E',
+    } as Browser.tabs.Tab,
+  ]
+
+  it('a real quality hint unlocks non-allowlisted pages and rides meta.qualityLabel', async () => {
+    const f = await fixture()
+    f.getActiveTabs.mockResolvedValue(exampleTab)
+    const operation = f.handlers.resolvePageDownload(
+      {
+        idempotencyKey: newDownloadOperationId(),
+        qualityLabel: '1080p',
+      },
+      sender
+    )
+    await vi.waitFor(() => expect(f.manager.ensureReady).toHaveBeenCalledOnce())
+    f.ready.resolve()
+    await expect(operation).resolves.toEqual({ taskId: 'task-1' })
+    const submitted = f.manager.submitDownload.mock
+      .calls[0]?.[0] as DownloadSubmitParams
+    expect(submitted.meta.qualityLabel).toBe('1080p')
+    expect(submitted.source.pageUrl).toBe('https://example.com/watch/1')
+  })
+
+  it("'auto' keeps the resolvability gate closed for non-allowlisted pages", async () => {
+    const f = await fixture()
+    f.getActiveTabs.mockResolvedValue(exampleTab)
+    await expect(
+      f.handlers.resolvePageDownload(
+        { idempotencyKey: newDownloadOperationId(), qualityLabel: 'auto' },
+        sender
+      )
+    ).rejects.toThrow('media-submit.submit-failed')
+    expect(f.manager.ensureReady).not.toHaveBeenCalled()
+    expect(f.manager.submitDownload).not.toHaveBeenCalled()
+  })
+
+  it('an extension content script on an http tab may submit the page download', async () => {
+    const f = await fixture()
+    const operation = f.handlers.resolvePageDownload(
+      { idempotencyKey: newDownloadOperationId(), qualityLabel: 'mp3' },
+      {
+        id: 'extension-id',
+        tab: { id: 4, url: 'https://www.youtube.com/watch?v=motrix' },
+      } as Browser.runtime.MessageSender
+    )
+    await vi.waitFor(() => expect(f.manager.ensureReady).toHaveBeenCalledOnce())
+    f.ready.resolve()
+    await expect(operation).resolves.toEqual({ taskId: 'task-1' })
+    const submitted = f.manager.submitDownload.mock
+      .calls[0]?.[0] as DownloadSubmitParams
+    expect(submitted.meta.qualityLabel).toBe('mp3')
+  })
+
+  it('an unrecognized label degrades to auto instead of failing', async () => {
+    const f = await fixture()
+    f.getActiveTabs.mockResolvedValue(exampleTab)
+    await expect(
+      f.handlers.resolvePageDownload(
+        {
+          idempotencyKey: newDownloadOperationId(),
+          qualityLabel: 'bv*[height<=720]' as 'auto',
+        },
+        sender
+      )
+    ).rejects.toThrow('media-submit.submit-failed')
+    expect(f.manager.ensureReady).not.toHaveBeenCalled()
   })
 })
