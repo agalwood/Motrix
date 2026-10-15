@@ -10,6 +10,7 @@ import { Queries } from '@shared/protocol/queries'
 import { generalSettingsSnapshot } from '@test-utils/general-settings'
 import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { makeServerFfmpegDetect } from '../plugin/ffmpeg-detect-server'
 import { buildServerQueryHandlers, type ServerQueryContext } from './queries'
 
 vi.mock('../plugin/ffmpeg-detect-server', () => ({
@@ -773,5 +774,40 @@ describe('plugin diagnostic state query', () => {
       ).rejects.toThrow()
     }
     expect(getLogState).not.toHaveBeenCalled()
+  })
+})
+
+describe('server FFmpeg detection refresh', () => {
+  it('updates the operation capability after explicit detection and when FFmpeg disappears', async () => {
+    const updateDetection = vi.fn()
+    const detected = {
+      active: { path: '/media/ffmpeg', version: '8.0' },
+      candidates: [],
+    }
+    vi.mocked(makeServerFfmpegDetect).mockReturnValueOnce(async () => detected)
+    const handlers = buildServerQueryHandlers(
+      makeCtx({
+        capabilityHost: { ffmpeg: { updateDetection } },
+      }) as unknown as ServerQueryContext
+    )
+    await expect(handlers[Queries.GetFfmpegDetection]?.()).resolves.toEqual(
+      detected
+    )
+    expect(updateDetection).toHaveBeenLastCalledWith({
+      available: true,
+      binaryPath: '/media/ffmpeg',
+      version: '8.0',
+    })
+    vi.mocked(makeServerFfmpegDetect).mockReturnValueOnce(async () => ({
+      active: null,
+      candidates: [],
+    }))
+    const missing = buildServerQueryHandlers(
+      makeCtx({
+        capabilityHost: { ffmpeg: { updateDetection } },
+      }) as unknown as ServerQueryContext
+    )
+    await missing[Queries.GetFfmpegDetection]?.()
+    expect(updateDetection).toHaveBeenLastCalledWith({ available: false })
   })
 })

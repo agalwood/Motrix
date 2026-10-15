@@ -2736,9 +2736,13 @@
         "title": "Kebutuhan FFmpeg",
         "notInstalled": "FFmpeg belum terpasang pada sistem ini.",
         "versionMismatch": "FFmpeg {{version}} terpasang.",
-        "requiredByPlugin": "Plugin ini memerlukan ffmpeg. Pasang dan coba lagi.",
+        "requiredByPlugin": "Anda dapat memasang plugin sekarang. Konfigurasikan FFmpeg yang kompatibel sebelum mengaktifkan atau menjalankan plugin.",
         "optionalDegraded": "Fitur media plugin ini tidak tersedia hingga ffmpeg dipasang."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg tidak tersedia. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "Versi FFmpeg tidak memenuhi persyaratan plugin ini. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "bridge": {

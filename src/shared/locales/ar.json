@@ -1322,10 +1322,14 @@
       "ffmpeg": {
         "notInstalled": "FFmpeg غير مثبّت على هذا النظام.",
         "optionalDegraded": "لن تتوفر ميزات الوسائط في هذه الإضافة حتى تثبيت ffmpeg.",
-        "requiredByPlugin": "تتطلب هذه الإضافة ffmpeg. ثبّته وحاول مجددًا.",
+        "requiredByPlugin": "يمكنك تثبيت الإضافة الآن. اضبط إصدارًا متوافقًا من FFmpeg قبل تفعيلها أو تشغيلها.",
         "title": "متطلبات FFmpeg",
         "versionMismatch": "FFmpeg {{version}} مثبّت."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg غير متاح. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "إصدار FFmpeg لا يفي بمتطلبات هذه الإضافة. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "plugins": {

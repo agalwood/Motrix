@@ -799,7 +799,9 @@ describe('GetFfmpegDetection handler', () => {
     const settingsManager = {
       get: vi.fn(() => ({ media: { ffmpegBinaryPath: '/u/ffmpeg' } })),
     }
+    const updateDetection = vi.fn()
     const ctx = {
+      capabilityHost: { ffmpeg: { updateDetection } },
       settingsManager,
       userDataDir: '/data',
     } as unknown as QueryContext
@@ -807,6 +809,11 @@ describe('GetFfmpegDetection handler', () => {
     const handlers = buildQueryHandlers(ctx)
     const result = await handlers[Queries.GetFfmpegDetection]?.()
     expect(result).toEqual(fakeDetection)
+    expect(updateDetection).toHaveBeenCalledWith({
+      available: true,
+      binaryPath: fakeDetection.active.path,
+      version: fakeDetection.active.version,
+    })
     expect(mockedFfmpegFactory).toHaveBeenCalledWith({
       settingsManager,
       userDataDir: '/data',

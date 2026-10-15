@@ -42,7 +42,6 @@ import type { PluginExecutableIdentity } from '../post/delivery-types'
 import type { PluginSecurityService } from '../security/security-service'
 import type { PluginStateStore } from '../state/plugin-state-store'
 import { buildConsentPayload } from './consent-payload'
-import { ffmpegSatisfies } from './ffmpeg-semver'
 import {
   diffTrustSurface,
   readInstallRecord,
@@ -130,9 +129,8 @@ export interface PluginInstallerOptions {
     prevRecord: InstallRecord | null
   ) => { ok: boolean; reason?: string }
   /**
-   * Snapshots ffmpeg availability at install time. Required when manifests
-   * declaring `ffmpeg` permission/optionalPermission are installed; optional
-   * otherwise (the gate becomes a no-op).
+   * Advisory availability snapshot for consent. Runtime dependencies are
+   * enforced when enabling/activating the plugin, never while installing it.
    */
   ffmpegDetect?: () => Promise<FfmpegDetection>
 }
@@ -411,35 +409,10 @@ export class PluginInstaller {
 
     let ffmpegDetection: FfmpegDetection = { available: false }
     if (needsFfmpeg && this.opts.ffmpegDetect) {
-      ffmpegDetection = await this.opts.ffmpegDetect()
-    }
-
-    if (parsedManifest.permissions.includes('ffmpeg')) {
-      const range = parsedManifest.engines.ffmpeg ?? null
-      if (!ffmpegDetection.available) {
-        await rm(stagingDir, { recursive: true, force: true })
-        throw new AppError(
-          ErrorCode.PluginManifestInvalid,
-          'plugin.manifest.permissions.unsupported_on_runtime'
-        )
-      }
-      if (range && !ffmpegSatisfies(ffmpegDetection.version ?? '', range)) {
-        await rm(stagingDir, { recursive: true, force: true })
-        throw Object.assign(
-          new AppError(
-            ErrorCode.PluginManifestInvalid,
-            'plugin.manifest.engines.ffmpeg_too_old'
-          ),
-          {
-            details: {
-              required: range,
-              detected: ffmpegDetection.version,
-            },
-            message: `ffmpeg ${ffmpegDetection.version} below required ${range}`,
-          }
-        ) as AppError & {
-          details: { required: string; detected: string | undefined }
-        }
+      try {
+        ffmpegDetection = await this.opts.ffmpegDetect()
+      } catch {
+        // A failed probe must not prevent storing a valid, consented package.
       }
     }
 

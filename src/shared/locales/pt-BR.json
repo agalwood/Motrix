@@ -2778,9 +2778,13 @@
         "title": "Requisito do FFmpeg",
         "notInstalled": "O FFmpeg não está instalado neste sistema.",
         "versionMismatch": "O FFmpeg {{version}} está instalado.",
-        "requiredByPlugin": "Este plugin exige o ffmpeg. Instale-o e tente novamente.",
+        "requiredByPlugin": "Você pode instalar o plugin agora. Configure uma versão compatível do FFmpeg antes de ativá-lo ou executá-lo.",
         "optionalDegraded": "Os recursos de mídia deste plugin ficarão indisponíveis até que o ffmpeg seja instalado."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "O FFmpeg não está disponível. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "A versão do FFmpeg não atende aos requisitos deste plugin. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "bridge": {

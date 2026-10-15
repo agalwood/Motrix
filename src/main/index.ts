@@ -2087,8 +2087,11 @@ async function initializeMainProcess(): Promise<void> {
     settingsManager,
     userDataDir: app.getPath('userData'),
   })
-  const detectPluginFfmpeg = async () =>
-    projectActiveToLegacy(await detectElectronFfmpeg())
+  const detectPluginFfmpeg = async () => {
+    const detection = projectActiveToLegacy(await detectElectronFfmpeg())
+    pluginCapHost.ffmpeg.updateDetection(detection)
+    return detection
+  }
   const activePluginHost = new PluginHost({
     security: pluginSecurity,
     onSecurityChanged: () => {

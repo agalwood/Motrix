@@ -388,6 +388,44 @@ export class PluginHost {
     return promise
   }
 
+  /** Check dependencies without enabling a plugin or executing guest code. */
+  async assertRuntimeRequirements(pluginId: string): Promise<void> {
+    const indexed = this.opts.registry.get(pluginId)
+    if (!indexed) {
+      throw new AppError(
+        ErrorCode.PluginManifestInvalid,
+        `unknown plugin: ${pluginId}`
+      )
+    }
+    await this.checkRuntimeRequirements(indexed.manifest)
+  }
+
+  private async checkRuntimeRequirements(
+    manifest: PluginManifest
+  ): Promise<boolean> {
+    const required = manifest.permissions.includes('ffmpeg')
+    const optional = manifest.optionalPermissions?.includes('ffmpeg')
+    if ((!required && !optional) || !this.opts.ffmpegDetect) return true
+    let detection: FfmpegDetection = { available: false }
+    try {
+      detection = await this.opts.ffmpegDetect()
+    } catch {
+      // A probe failure is an unavailable runtime dependency, not a bad package.
+    }
+    const satisfied =
+      detection.available &&
+      ffmpegSatisfies(detection.version ?? '', manifest.engines.ffmpeg ?? null)
+    if (required && !satisfied) {
+      throw new AppError(
+        ErrorCode.PluginCapabilityUnavailable,
+        detection.available
+          ? 'plugin.runtime.ffmpegIncompatible'
+          : 'plugin.runtime.ffmpegUnavailable'
+      )
+    }
+    return satisfied
+  }
+
   private async doActivate(
     pluginId: string,
     attempt: ActivationAttempt
@@ -420,40 +458,23 @@ export class PluginHost {
       )
     }
 
-    const needsFfmpeg =
-      indexed.manifest.permissions.includes('ffmpeg') ||
-      (indexed.manifest.optionalPermissions ?? []).includes('ffmpeg')
-
-    let ffmpegDetection: FfmpegDetection = { available: false }
-    if (needsFfmpeg && this.opts.ffmpegDetect) {
-      ffmpegDetection = await this.awaitActivation(
+    let ffmpegAdvertised: boolean
+    try {
+      ffmpegAdvertised = await this.awaitActivation(
         pluginId,
         attempt,
-        this.opts.ffmpegDetect()
+        this.checkRuntimeRequirements(indexed.manifest)
       )
+    } catch (error) {
+      if (
+        error instanceof AppError &&
+        error.code === ErrorCode.PluginCapabilityUnavailable
+      ) {
+        this.opts.stateStore.recordError(pluginId, error.message)
+        this.opts.registry.refreshState(pluginId)
+      }
+      throw error
     }
-
-    const ffmpegSatisfied =
-      !this.opts.ffmpegDetect ||
-      (ffmpegDetection.available &&
-        ffmpegSatisfies(
-          ffmpegDetection.version ?? '',
-          indexed.manifest.engines.ffmpeg ?? null
-        ))
-
-    if (indexed.manifest.permissions.includes('ffmpeg') && !ffmpegSatisfied) {
-      this.opts.stateStore.recordError(
-        pluginId,
-        'plugin.manifest.engines.ffmpeg_too_old'
-      )
-      this.opts.registry.refreshState(pluginId)
-      throw new AppError(
-        ErrorCode.PluginManifestInvalid,
-        'plugin.manifest.engines.ffmpeg_too_old'
-      )
-    }
-
-    const ffmpegAdvertised = !needsFfmpeg || ffmpegSatisfied
 
     // manifest.main is only length-validated by the schema; contain it to the
     // plugin's own dir so "../../x" can't make us read+eval a file elsewhere.

@@ -8,6 +8,7 @@ import { pathExists } from '@core/fs/path-exists'
 import type { GeoIPManager } from '@core/geoip/geo-ip-manager'
 import { createGetGeoIPStatusHandler } from '@core/geoip/get-geo-ip-status'
 import type { NotificationCenter } from '@core/notifications/notification-center'
+import { projectActiveToLegacy } from '@core/plugin/capabilities/ffmpeg-detect'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
 import { readCommandGraph } from '@core/plugin/commands/command-graph'
 import type { GrantsManager } from '@core/plugin/grants/grants-manager'
@@ -338,7 +339,11 @@ export function buildServerQueryHandlers(
     [Queries.GetTaskBtTracker]: async ({ engineGid }: { engineGid: string }) =>
       engineAdapter.getTaskBtTracker(engineGid),
 
-    [Queries.GetFfmpegDetection]: async () => detectFfmpeg(),
+    [Queries.GetFfmpegDetection]: async () => {
+      const detection = await detectFfmpeg()
+      capabilityHost.ffmpeg.updateDetection(projectActiveToLegacy(detection))
+      return detection
+    },
 
     [Queries.ListPlugins]: async () => pluginRegistry.list(),
 

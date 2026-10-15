@@ -242,7 +242,7 @@ function unavailableHandle(id: string): FfmpegOpHandle<{ outputPath: string }> {
 }
 
 export class FfmpegCapabilityHost {
-  private readonly detect: FfmpegDetection
+  private detect: FfmpegDetection
   private readonly stagingPathFor: ((p: string) => string) | undefined
   private readonly spawnFn: typeof spawn
   private readonly validateBinaryPath:
@@ -262,6 +262,11 @@ export class FfmpegCapabilityHost {
 
   get version(): string | undefined {
     return this.detect.version
+  }
+
+  /** Refresh future calls after an explicit host probe; running children keep their binary. */
+  updateDetection(detection: FfmpegDetection): void {
+    this.detect = { ...detection }
   }
 
   // -------------------------------------------------------------------------

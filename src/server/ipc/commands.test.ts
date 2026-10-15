@@ -150,6 +150,7 @@ function makeFakeCtx() {
       get: vi.fn().mockReturnValue(undefined),
     } as unknown as PluginStateStore,
     pluginHost: {
+      assertRuntimeRequirements: vi.fn().mockResolvedValue(undefined),
       deactivate: vi.fn().mockResolvedValue(undefined),
       disable: vi.fn(async (id: string) => {
         setEnabled(id, false)
@@ -1659,6 +1660,26 @@ describe('server Commands.UpdatePluginConfig', () => {
 })
 
 describe('server plugin enable/disable commands', () => {
+  it('keeps a plugin disabled when a runtime dependency is missing', async () => {
+    const ctx = makeFakeCtx()
+    vi.spyOn(ctx.pluginHost, 'assertRuntimeRequirements').mockRejectedValueOnce(
+      new Error('plugin.runtime.ffmpegUnavailable')
+    )
+    const handlers = buildServerCommandHandlers(
+      ctx as Parameters<typeof buildServerCommandHandlers>[0]
+    )
+    await expect(
+      handlers[Commands.EnablePlugin]?.('test-plugin')
+    ).rejects.toThrow('plugin.runtime.ffmpegUnavailable')
+    expect(ctx.pluginStateStore.setEnabled).not.toHaveBeenCalled()
+    expect(ctx.eventBus.emit).not.toHaveBeenCalled()
+    await handlers[Commands.EnablePlugin]?.('test-plugin')
+    expect(ctx.pluginStateStore.setEnabled).toHaveBeenCalledWith(
+      'test-plugin',
+      true
+    )
+  })
+
   it('emits contribution index changes when enabling a plugin', async () => {
     const ctx = makeFakeCtx()
     const handlers = buildServerCommandHandlers(

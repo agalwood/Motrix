@@ -1626,6 +1626,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     }),
 
     [Commands.EnablePlugin]: async (id: string) => {
+      await pluginHost.assertRuntimeRequirements(id)
       pluginRegistry.assertSecurityAllowed?.(id)
       pluginStateStore.setEnabled(id, true)
       // Sync the in-memory IndexedPlugin.state so Queries.ListPlugins and

@@ -2736,9 +2736,13 @@
         "title": "Yêu cầu FFmpeg",
         "notInstalled": "Chưa cài FFmpeg trên hệ thống này.",
         "versionMismatch": "Đã cài FFmpeg {{version}}.",
-        "requiredByPlugin": "Tiện ích này cần ffmpeg. Hãy cài đặt rồi thử lại.",
+        "requiredByPlugin": "Bạn có thể cài đặt plugin ngay. Hãy cấu hình phiên bản FFmpeg tương thích trước khi bật hoặc chạy plugin.",
         "optionalDegraded": "Các tính năng đa phương tiện của tiện ích này sẽ không khả dụng cho đến khi cài ffmpeg."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg hiện không khả dụng. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "Phiên bản FFmpeg không đáp ứng yêu cầu của plugin này. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "bridge": {

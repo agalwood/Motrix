@@ -1286,10 +1286,14 @@
       "ffmpeg": {
         "notInstalled": "L'FFmpeg no està instal·lat en aquest sistema.",
         "optionalDegraded": "Les funcions multimèdia d'aquest connector no estaran disponibles fins que s'instal·li l'ffmpeg.",
-        "requiredByPlugin": "Aquest connector necessita l'ffmpeg. Instal·leu-lo i torneu-ho a provar.",
+        "requiredByPlugin": "Pots instal·lar el complement ara. Configura una versió compatible de FFmpeg abans d’activar-lo o executar-lo.",
         "title": "Requisit d'FFmpeg",
         "versionMismatch": "L'FFmpeg {{version}} està instal·lat."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg no està disponible. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "La versió de FFmpeg no compleix els requisits d’aquest complement. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "plugins": {

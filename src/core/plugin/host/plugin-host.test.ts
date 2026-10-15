@@ -1615,7 +1615,7 @@ describe('PluginHost.activate — ffmpeg snapshot', () => {
     await host.shutdown()
   })
 
-  it('required + missing → throws ffmpeg_too_old; plugin stays inactive', async () => {
+  it('required dependencies are checked again on enable and activation', async () => {
     plantPlugin(path.join(root, 'plugins'), 'req.miss', {
       permissions: ['ffmpeg'],
     })
@@ -1626,6 +1626,7 @@ describe('PluginHost.activate — ffmpeg snapshot', () => {
       hostVersion: '2.5.0',
     })
     await registry.discover()
+    let available = false
     const host = new PluginHost({
       registry,
       stateStore,
@@ -1634,19 +1635,38 @@ describe('PluginHost.activate — ffmpeg snapshot', () => {
       appVersion: '2.5.0',
       runtime: 'server',
       hostLanguage: 'en-US',
-      ffmpegDetect: async () => ({ available: false }),
+      ffmpegDetect: async () => ({ available, version: '7.1' }),
     })
+    stateStore.setEnabled('req.miss', false)
+    registry.refreshState('req.miss')
+    await expect(
+      host.assertRuntimeRequirements('req.miss')
+    ).rejects.toMatchObject({
+      code: ErrorCode.PluginCapabilityUnavailable,
+      message: 'plugin.runtime.ffmpegUnavailable',
+    })
+    expect(stateStore.get('req.miss')?.enabled).toBe(false)
+    expect(host.isActive('req.miss')).toBe(false)
+    stateStore.setEnabled('req.miss', true)
+    registry.refreshState('req.miss')
     await expect(host.activate('req.miss')).rejects.toMatchObject({
-      message: 'plugin.manifest.engines.ffmpeg_too_old',
+      message: 'plugin.runtime.ffmpegUnavailable',
     })
     expect(host.isActive('req.miss')).toBe(false)
     expect(stateStore.get('req.miss')?.lastError).toContain(
-      'plugin.manifest.engines.ffmpeg_too_old'
+      'plugin.runtime.ffmpegUnavailable'
     )
+    available = true
+    await expect(
+      host.assertRuntimeRequirements('req.miss')
+    ).resolves.toBeUndefined()
+    expect(host.isActive('req.miss')).toBe(false)
+    await host.activate('req.miss')
+    expect(host.isActive('req.miss')).toBe(true)
     await host.shutdown()
   })
 
-  it('required + version below range → throws ffmpeg_too_old', async () => {
+  it('required + version below range → reports an incompatible runtime', async () => {
     plantPlugin(path.join(root, 'plugins'), 'req.below', {
       permissions: ['ffmpeg'],
       engines: { motrix: '>=2.0.0', ffmpeg: '>=4.4' },
@@ -1673,7 +1693,7 @@ describe('PluginHost.activate — ffmpeg snapshot', () => {
       }),
     })
     await expect(host.activate('req.below')).rejects.toMatchObject({
-      message: 'plugin.manifest.engines.ffmpeg_too_old',
+      message: 'plugin.runtime.ffmpegIncompatible',
     })
     await host.shutdown()
   })

@@ -142,7 +142,7 @@ describe('PluginInstallDialog — ffmpegRuntime block', () => {
     expect(screen.getByTestId('install-commit-btn')).toBeEnabled()
   })
 
-  it('renders red ABORT block when required + !satisfies; disables commit', () => {
+  it('warns about a missing required runtime but still allows installation', () => {
     state.consent = withFfmpeg({
       available: false,
       satisfiesRange: false,
@@ -150,10 +150,12 @@ describe('PluginInstallDialog — ffmpegRuntime block', () => {
     })
     state.stagingId = 's1'
     render(<PluginInstallDialog open onOpenChange={vi.fn()} />)
-    expect(screen.getByTestId('ffmpeg-runtime-block')).toHaveClass(
-      /destructive/
+    expect(screen.getByTestId('ffmpeg-runtime-block')).not.toHaveClass(
+      'text-destructive'
     )
-    expect(screen.getByTestId('install-commit-btn')).toBeDisabled()
+    expect(screen.getByTestId('install-commit-btn')).toBeEnabled()
+    fireEvent.click(screen.getByTestId('install-commit-btn'))
+    expect(state.confirm).toHaveBeenCalled()
   })
 
   it('renders yellow notice when optional + !available; commit enabled', () => {

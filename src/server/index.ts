@@ -598,8 +598,11 @@ async function main() {
     settingsManager,
     userDataDir: platform.userDataDir,
   })
-  const detectPluginFfmpeg = async () =>
-    projectActiveToLegacy(await detectServerFfmpeg())
+  const detectPluginFfmpeg = async () => {
+    const detection = projectActiveToLegacy(await detectServerFfmpeg())
+    pluginCapHost.ffmpeg.updateDetection(detection)
+    return detection
+  }
   const pluginHost = new PluginHost({
     security: pluginSecurity,
     onSecurityChanged: () => {
