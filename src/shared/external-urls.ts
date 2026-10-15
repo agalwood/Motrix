@@ -22,6 +22,7 @@ export const EXTERNAL_URLS = {
     issues: 'https://github.com/agalwood/Motrix/issues/',
     ffmpegStaticReleases:
       'https://github.com/motrixapp/ffmpeg-static/releases/latest',
+    ytdlpReleases: 'https://github.com/yt-dlp/yt-dlp/releases/latest',
   },
   motrix: {
     home: 'https://motrix.app/',

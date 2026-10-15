@@ -2050,7 +2050,27 @@
         "savedTitle": "FFmpeg の設定を保存しました",
         "desktopSavedHint": "新しいメディアダウンロードでは保存したパスを使用します。有効なプラグインに変更を反映するには Motrix を再起動してください。",
         "pipelineUnavailable": "メディアのダウンロード機能を利用できません。",
-        "ffmpegRequired": "このダウンロードには FFmpeg が必要です。「設定」→「連携」→「メディアツール」で設定を保存してから、再試行してください。"
+        "ffmpegRequired": "このダウンロードには FFmpeg が必要です。「設定」→「連携」→「メディアツール」で設定を保存してから、再試行してください。",
+        "ytdlp": {
+          "title": "yt-dlp media extractor",
+          "description": "Turns links from video sites (YouTube, Vimeo, bilibili and hundreds more) into real stream URLs that Motrix downloads with its own engine.",
+          "refresh": "Re-detect yt-dlp",
+          "detected": "yt-dlp {{version}}",
+          "enabled": "Extract media links with yt-dlp",
+          "enabledDesc": "When a pasted link points at a video site, Motrix asks yt-dlp for the stream URLs before downloading. Other downloads are untouched.",
+          "binaryPath": "yt-dlp path",
+          "binaryPathDesc": "Leave empty to use yt-dlp from your PATH. macOS users may need the full path to Homebrew’s binary.",
+          "binaryPathPlaceholder": "Auto-detect from PATH",
+          "editPath": "Edit yt-dlp path",
+          "finishEditing": "Save yt-dlp path",
+          "format": "Format selector",
+          "formatDesc": "Passed to yt-dlp as -f. Leave empty for the best video plus the best audio.",
+          "allUrls": "Try every link",
+          "allUrlsDesc": "Also run the extractor on links that do not look like a video page. Slower for ordinary downloads, so it is off by default.",
+          "installHelp": "Where do I get yt-dlp?",
+          "installHelpBody": "Download the yt-dlp build for your system from its releases page, put it somewhere permanent, then point the path above at it — or install it with your package manager so it is found on PATH.",
+          "download": "Open yt-dlp releases"
+        }
       },
       "pairResolveFailed": "選択内容を送信できませんでした。もう一度お試しください。",
       "appimage": {
