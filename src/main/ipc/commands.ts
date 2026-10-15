@@ -1626,20 +1626,15 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     }),
 
     [Commands.EnablePlugin]: async (id: string) => {
-      await pluginHost.assertRuntimeRequirements(id)
-      pluginRegistry.assertSecurityAllowed?.(id)
-      pluginStateStore.setEnabled(id, true)
-      // Sync the in-memory IndexedPlugin.state so Queries.ListPlugins and
-      // downstream gating (PluginHost.activate, ActivationDispatcher,
-      // CrossPluginInvoker) see the new enabled flag without a process
-      // restart.
-      pluginRegistry.refreshState(id)
+      await pluginHost.enable(id)
       const state = pluginStateStore.get(id)
-      eventBus.emit(Events.PluginStatusChanged, {
-        id,
-        status: state?.status ?? 'inactive',
-        enabled: true,
-      })
+      if (state) {
+        eventBus.emit(Events.PluginStatusChanged, {
+          id,
+          status: state.status,
+          enabled: state.enabled,
+        })
+      }
       eventBus.emit(Events.ContributionIndexChanged)
       return { ok: true }
     },

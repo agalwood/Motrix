@@ -290,7 +290,7 @@ describe('PluginDetailPage', () => {
     expect(screen.getByRole('button', { name: 'Clear' })).toBeDisabled()
   })
 
-  it('Switch toggles plugin enabled state through command and local store', async () => {
+  it('Switch sends its command without overwriting host status events', async () => {
     const user = userEvent.setup()
     renderAt('/plugins/test.demo')
 
@@ -300,12 +300,7 @@ describe('PluginDetailPage', () => {
       'command:disablePlugin',
       'test.demo'
     )
-    expect(mockApplyStatus).toHaveBeenCalledWith(
-      'test.demo',
-      'disabled',
-      undefined,
-      false
-    )
+    expect(mockApplyStatus).not.toHaveBeenCalled()
   })
 
   it('renders Uninstall icon button beside Logs', () => {

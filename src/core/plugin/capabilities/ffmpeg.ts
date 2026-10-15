@@ -31,7 +31,11 @@
 
 import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import type { FfmpegDetection } from './ffmpeg-detect'
+import {
+  type FfmpegDetection,
+  type FfmpegDetectionResult,
+  projectActiveToLegacy,
+} from './ffmpeg-detect'
 
 // Manual merges accept standalone media, never playlists or demuxers that
 // discover other files. A file-only protocol allowlist alone still lets HLS,
@@ -243,6 +247,7 @@ function unavailableHandle(id: string): FfmpegOpHandle<{ outputPath: string }> {
 
 export class FfmpegCapabilityHost {
   private detect: FfmpegDetection
+  private detectionGeneration = 0
   private readonly stagingPathFor: ((p: string) => string) | undefined
   private readonly spawnFn: typeof spawn
   private readonly validateBinaryPath:
@@ -266,7 +271,25 @@ export class FfmpegCapabilityHost {
 
   /** Refresh future calls after an explicit host probe; running children keep their binary. */
   updateDetection(detection: FfmpegDetection): void {
+    this.detectionGeneration++
     this.detect = { ...detection }
+  }
+
+  /** Older probes may finish last, but cannot overwrite the newest requested snapshot. */
+  async refreshDetection(
+    probe: () => Promise<FfmpegDetectionResult>
+  ): Promise<FfmpegDetectionResult> {
+    const generation = ++this.detectionGeneration
+    try {
+      const result = await probe()
+      if (generation === this.detectionGeneration)
+        this.detect = projectActiveToLegacy(result)
+      return result
+    } catch (error) {
+      if (generation === this.detectionGeneration)
+        this.detect = { available: false }
+      throw error
+    }
   }
 
   // -------------------------------------------------------------------------

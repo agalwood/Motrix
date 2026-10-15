@@ -33,7 +33,7 @@ export class LegacyImportNavigation {
           'legacyImport.errors.consentRequired'
         )
       )
-    if (this.discovery) return this.discovery
+    if (this.discovery) return this.discovery.then(() => this.getState())
     this.discovery = (async () => {
       const service = this.deps.getService()
       const sources = await service.discover(this.deps.roots())

@@ -69,6 +69,18 @@ describe('legacy main navigation state', () => {
     restarted.sourceDetected()
     expect(restarted.getState().detected).toBe(true)
   })
+  it('does not return a consumed invitation from its cached discovery', async () => {
+    const f = fixture([
+      { sourceHandle: 'old', name: 'Motrix', dataPath: '/old' },
+    ])
+    await f.navigation.detect()
+    f.navigation.finishInvitation()
+    expect(await f.navigation.detect()).toEqual({
+      detected: true,
+      invitationPending: false,
+    })
+  })
+
   it('does not consume the invitation when no v1 source is found', async () => {
     const f = fixture()
     await f.navigation.detect()

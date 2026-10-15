@@ -388,8 +388,9 @@ export class PluginHost {
     return promise
   }
 
-  /** Check dependencies without enabling a plugin or executing guest code. */
-  async assertRuntimeRequirements(pluginId: string): Promise<void> {
+  /** Probe dependencies, then publish enabled state only if admission stayed current. */
+  async enable(pluginId: string): Promise<void> {
+    const checkPolicy = this.capturePolicyCheck(pluginId)
     const indexed = this.opts.registry.get(pluginId)
     if (!indexed) {
       throw new AppError(
@@ -397,7 +398,16 @@ export class PluginHost {
         `unknown plugin: ${pluginId}`
       )
     }
+    if (this.shuttingDown) throw laneAdmissionClosed(pluginId)
     await this.checkRuntimeRequirements(indexed.manifest)
+    checkPolicy()
+    if (this.shuttingDown) throw laneAdmissionClosed(pluginId)
+    // No await between the final policy check and publishing enabled state.
+    // A disable, upgrade, uninstall or grant change supersedes the old probe.
+    if (!this.opts.stateStore.get(pluginId)?.enabled) {
+      this.opts.stateStore.setEnabled(pluginId, true)
+      this.opts.registry.refreshState(pluginId)
+    }
   }
 
   private async checkRuntimeRequirements(

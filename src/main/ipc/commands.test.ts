@@ -257,7 +257,7 @@ function fakeCtx() {
       saveTaskWithInstances: vi.fn(),
     },
     pluginHost: {
-      assertRuntimeRequirements: vi.fn().mockResolvedValue(undefined),
+      enable: vi.fn().mockResolvedValue(undefined),
       allActive: vi.fn(() => []),
       deactivate: vi.fn().mockResolvedValue(undefined),
       isQuiescent: vi.fn(() => true),
@@ -2750,13 +2750,19 @@ describe('plugin enable/disable commands', () => {
       ...fakeCtx(),
       pluginStateStore: {
         setEnabled,
-        get: vi.fn().mockReturnValue(undefined),
+        get: vi.fn(() => ({
+          status: 'inactive',
+          enabled: Boolean(setEnabled.mock.calls.at(-1)?.[1]),
+        })),
       },
       pluginRegistry: {
         refreshState,
       },
       pluginHost: {
-        assertRuntimeRequirements: vi.fn().mockResolvedValue(undefined),
+        enable: vi.fn(async (id: string) => {
+          setEnabled(id, true)
+          refreshState(id)
+        }),
         deactivate: vi.fn().mockResolvedValue(undefined),
         disable: vi.fn(async (id: string) => {
           setEnabled(id, false)
@@ -2774,7 +2780,7 @@ describe('plugin enable/disable commands', () => {
 
   it('keeps a plugin disabled when a runtime dependency is missing', async () => {
     const ctx = makePluginLifecycleCtx()
-    ctx.pluginHost.assertRuntimeRequirements.mockRejectedValueOnce(
+    ctx.pluginHost.enable.mockRejectedValueOnce(
       new Error('plugin.runtime.ffmpegUnavailable')
     )
     const handlers = buildCommandHandlers(ctx as unknown as CommandContext)

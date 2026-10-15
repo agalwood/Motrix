@@ -7,7 +7,6 @@ import { getFfmpegInstallStatus } from '@core/ffmpeg/verified-install'
 import { pathExists } from '@core/fs/path-exists'
 import type { GeoIPManager } from '@core/geoip/geo-ip-manager'
 import { createGetGeoIPStatusHandler } from '@core/geoip/get-geo-ip-status'
-import { projectActiveToLegacy } from '@core/plugin/capabilities/ffmpeg-detect'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
 import { readCommandGraph } from '@core/plugin/commands/command-graph'
 import type { GrantsManager } from '@core/plugin/grants/grants-manager'
@@ -284,11 +283,8 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
       return getFfmpegInstallStatus(userDataDir)
     },
 
-    [Queries.GetFfmpegDetection]: async () => {
-      const detection = await detectFfmpeg()
-      capabilityHost.ffmpeg.updateDetection(projectActiveToLegacy(detection))
-      return detection
-    },
+    [Queries.GetFfmpegDetection]: async () =>
+      capabilityHost.ffmpeg.refreshDetection(detectFfmpeg),
 
     [Queries.GetTaskBtTracker]: createGetTaskBtTrackerHandler({
       engineAdapter,

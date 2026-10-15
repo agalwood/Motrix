@@ -147,10 +147,16 @@ function makeFakeCtx() {
     hostVersion: '2.0',
     pluginStateStore: {
       setEnabled,
-      get: vi.fn().mockReturnValue(undefined),
+      get: vi.fn(() => ({
+        status: 'inactive',
+        enabled: Boolean(setEnabled.mock.calls.at(-1)?.[1]),
+      })),
     } as unknown as PluginStateStore,
     pluginHost: {
-      assertRuntimeRequirements: vi.fn().mockResolvedValue(undefined),
+      enable: vi.fn(async (id: string) => {
+        setEnabled(id, true)
+        refreshState(id)
+      }),
       deactivate: vi.fn().mockResolvedValue(undefined),
       disable: vi.fn(async (id: string) => {
         setEnabled(id, false)
@@ -1662,7 +1668,7 @@ describe('server Commands.UpdatePluginConfig', () => {
 describe('server plugin enable/disable commands', () => {
   it('keeps a plugin disabled when a runtime dependency is missing', async () => {
     const ctx = makeFakeCtx()
-    vi.spyOn(ctx.pluginHost, 'assertRuntimeRequirements').mockRejectedValueOnce(
+    vi.spyOn(ctx.pluginHost, 'enable').mockRejectedValueOnce(
       new Error('plugin.runtime.ffmpegUnavailable')
     )
     const handlers = buildServerCommandHandlers(

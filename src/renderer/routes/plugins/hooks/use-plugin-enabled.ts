@@ -3,7 +3,6 @@ import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { usePluginsStore } from '../store'
 
 const runtimeMessages = [
   'plugin.runtime.ffmpegUnavailable',
@@ -15,7 +14,6 @@ const runtimeMessages = [
 /** Both plugin surfaces preserve the current switch state on admission failure. */
 export function usePluginEnabled(pluginId: string) {
   const { t } = useTranslation()
-  const applyStatus = usePluginsStore((state) => state.applyStatus)
   const inFlight = useRef(false)
   const [pending, setPending] = useState(false)
   const toggleEnabled = useCallback(
@@ -28,12 +26,13 @@ export function usePluginEnabled(pluginId: string) {
           next ? Commands.EnablePlugin : Commands.DisablePlugin,
           pluginId
         )
-        applyStatus(pluginId, next ? 'inactive' : 'disabled', undefined, next)
+        // usePlugins mirrors authoritative status events. A delayed response
+        // must not overwrite a newer disable/uninstall event with local intent.
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        const key = runtimeMessages.find((candidate) =>
-          message.endsWith(candidate)
-        )
+        const key = message.includes('plugin.runtime.admission_closed:')
+          ? 'pluginOperations.blocked'
+          : runtimeMessages.find((candidate) => message.endsWith(candidate))
         toast.add({
           type: 'error',
           title: key ? t(key) : t('common.error'),
@@ -44,7 +43,7 @@ export function usePluginEnabled(pluginId: string) {
         setPending(false)
       }
     },
-    [applyStatus, pluginId, t]
+    [pluginId, t]
   )
   return { toggleEnabled, pending }
 }

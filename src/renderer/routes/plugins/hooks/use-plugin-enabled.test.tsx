@@ -64,7 +64,7 @@ describe('plugin enable runtime feedback', () => {
     expect(applyStatus).not.toHaveBeenCalled()
   })
 
-  it('serializes repeated clicks and updates state only after enabling succeeds', async () => {
+  it('serializes repeated clicks without overwriting authoritative status on completion', async () => {
     let resolve!: () => void
     invoke.mockReturnValueOnce(
       new Promise<void>((done) => {
@@ -83,12 +83,7 @@ describe('plugin enable runtime feedback', () => {
     await act(async () => {
       resolve()
     })
-    expect(applyStatus).toHaveBeenCalledWith(
-      'community.test',
-      'inactive',
-      undefined,
-      true
-    )
+    expect(applyStatus).not.toHaveBeenCalled()
     expect(result.current.pending).toBe(false)
   })
 })
