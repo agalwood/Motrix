@@ -2757,9 +2757,13 @@
         "title": "FFmpeg gereksinimi",
         "notInstalled": "Bu sistemde FFmpeg yüklü değil.",
         "versionMismatch": "FFmpeg {{version}} yüklü.",
-        "requiredByPlugin": "Bu eklenti ffmpeg gerektirir. Yükleyip tekrar deneyin.",
+        "requiredByPlugin": "Eklentiyi şimdi yükleyebilirsiniz. Etkinleştirmeden veya çalıştırmadan önce uyumlu bir FFmpeg sürümü yapılandırın.",
         "optionalDegraded": "ffmpeg yüklenene kadar bu eklentinin medya özellikleri kullanılamayacak."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg kullanılamıyor. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "FFmpeg sürümü bu eklentinin gereksinimlerini karşılamıyor. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "bridge": {

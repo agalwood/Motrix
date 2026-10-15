@@ -1286,10 +1286,14 @@
       "ffmpeg": {
         "notInstalled": "FFmpeg nu este instalat pe acest sistem.",
         "optionalDegraded": "Funcțiile media ale acestui modul nu vor fi disponibile până la instalarea ffmpeg.",
-        "requiredByPlugin": "Acest modul necesită ffmpeg. Instalează-l și încearcă din nou.",
+        "requiredByPlugin": "Puteți instala pluginul acum. Configurați o versiune compatibilă de FFmpeg înainte de activare sau rulare.",
         "title": "Cerință FFmpeg",
         "versionMismatch": "Este instalat FFmpeg {{version}}."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg nu este disponibil. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "Versiunea FFmpeg nu îndeplinește cerințele acestui plugin. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "plugins": {

@@ -1274,10 +1274,14 @@
       "ffmpeg": {
         "notInstalled": "FFmpeg не е инсталиран на тази система.",
         "optionalDegraded": "Мултимедийните функции на тази приставка няма да са достъпни, докато не бъде инсталиран ffmpeg.",
-        "requiredByPlugin": "Тази приставка изисква ffmpeg. Инсталирайте го и опитайте отново.",
+        "requiredByPlugin": "Можете да инсталирате приставката сега. Преди да я активирате или стартирате, настройте съвместима версия на FFmpeg.",
         "title": "Изискване за FFmpeg",
         "versionMismatch": "Инсталиран е FFmpeg {{version}}."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg не е достъпен. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "Версията на FFmpeg не отговаря на изискванията на тази приставка. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "plugins": {

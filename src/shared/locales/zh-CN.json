@@ -2736,9 +2736,13 @@
         "title": "FFmpeg 要求",
         "notInstalled": "本机未安装 FFmpeg。",
         "versionMismatch": "已安装 FFmpeg {{version}}。",
-        "requiredByPlugin": "此插件必须 ffmpeg。安装后再试。",
+        "requiredByPlugin": "可以先安装插件，启用或运行前再配置兼容的 FFmpeg。",
         "optionalDegraded": "此插件的媒体功能在装 ffmpeg 前不可用。"
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg 当前不可用。 请在设置 → 集成 → 媒体工具中配置 FFmpeg。",
+      "ffmpegIncompatible": "FFmpeg 版本不满足此插件的要求。 请在设置 → 集成 → 媒体工具中配置 FFmpeg。"
     }
   },
   "bridge": {

@@ -257,6 +257,7 @@ function fakeCtx() {
       saveTaskWithInstances: vi.fn(),
     },
     pluginHost: {
+      enable: vi.fn().mockResolvedValue(undefined),
       allActive: vi.fn(() => []),
       deactivate: vi.fn().mockResolvedValue(undefined),
       isQuiescent: vi.fn(() => true),
@@ -2749,12 +2750,19 @@ describe('plugin enable/disable commands', () => {
       ...fakeCtx(),
       pluginStateStore: {
         setEnabled,
-        get: vi.fn().mockReturnValue(undefined),
+        get: vi.fn(() => ({
+          status: 'inactive',
+          enabled: Boolean(setEnabled.mock.calls.at(-1)?.[1]),
+        })),
       },
       pluginRegistry: {
         refreshState,
       },
       pluginHost: {
+        enable: vi.fn(async (id: string) => {
+          setEnabled(id, true)
+          refreshState(id)
+        }),
         deactivate: vi.fn().mockResolvedValue(undefined),
         disable: vi.fn(async (id: string) => {
           setEnabled(id, false)
@@ -2769,6 +2777,24 @@ describe('plugin enable/disable commands', () => {
       },
     }
   }
+
+  it('keeps a plugin disabled when a runtime dependency is missing', async () => {
+    const ctx = makePluginLifecycleCtx()
+    ctx.pluginHost.enable.mockRejectedValueOnce(
+      new Error('plugin.runtime.ffmpegUnavailable')
+    )
+    const handlers = buildCommandHandlers(ctx as unknown as CommandContext)
+    await expect(
+      handlers[Commands.EnablePlugin]?.('test-plugin')
+    ).rejects.toThrow('plugin.runtime.ffmpegUnavailable')
+    expect(ctx.pluginStateStore.setEnabled).not.toHaveBeenCalled()
+    expect(ctx.eventBus.emit).not.toHaveBeenCalled()
+    await handlers[Commands.EnablePlugin]?.('test-plugin')
+    expect(ctx.pluginStateStore.setEnabled).toHaveBeenCalledWith(
+      'test-plugin',
+      true
+    )
+  })
 
   it('emits contribution index changes when enabling a plugin', async () => {
     const ctx = makePluginLifecycleCtx()

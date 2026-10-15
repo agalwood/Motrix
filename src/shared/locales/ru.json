@@ -2799,9 +2799,13 @@
         "title": "Требования к FFmpeg",
         "notInstalled": "FFmpeg не установлен в этой системе.",
         "versionMismatch": "Установлен FFmpeg {{version}}.",
-        "requiredByPlugin": "Этому плагину требуется ffmpeg. Установите его и повторите попытку.",
+        "requiredByPlugin": "Плагин можно установить сейчас. Перед включением или запуском настройте совместимую версию FFmpeg.",
         "optionalDegraded": "Функции работы с медиа в этом плагине будут недоступны до установки ffmpeg."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg недоступен. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "Версия FFmpeg не соответствует требованиям этого плагина. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "bridge": {

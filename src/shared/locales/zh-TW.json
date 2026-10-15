@@ -2309,9 +2309,13 @@
         "title": "FFmpeg 需求",
         "notInstalled": "此系統未安裝 FFmpeg。",
         "versionMismatch": "已安裝 FFmpeg {{version}}。",
-        "requiredByPlugin": "此外掛程式需要 ffmpeg。請安裝後再試一次。",
+        "requiredByPlugin": "可以先安裝外掛，啟用或執行前再設定相容的 FFmpeg。",
         "optionalDegraded": "安裝 ffmpeg 前，此外掛程式的媒體功能無法使用。"
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg 目前無法使用。 Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "FFmpeg 版本不符合此外掛的需求。 Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "bridge": {

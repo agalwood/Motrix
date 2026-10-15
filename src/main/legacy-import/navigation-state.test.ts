@@ -3,9 +3,13 @@ import { describe, expect, it, vi } from 'vitest'
 import { LegacyImportNavigation } from './navigation-state'
 
 function fixture(sources: LegacyImportSource[] = []) {
+  let dismissed = false
   const service = {
     discover: vi.fn(async () => sources),
-    invitationDismissed: vi.fn(() => false),
+    invitationDismissed: vi.fn(() => dismissed),
+    dismissInvitation: vi.fn(() => {
+      dismissed = true
+    }),
   }
   const deps = {
     hasConsent: vi.fn(() => true),
@@ -44,6 +48,54 @@ describe('legacy main navigation state', () => {
       detected: true,
       invitationPending: false,
     })
+  })
+  it('persists the first invitation even if the user leaves without choosing', async () => {
+    const f = fixture([
+      { sourceHandle: 'old', name: 'Motrix', dataPath: '/old' },
+    ])
+    expect(await f.navigation.detect()).toEqual({
+      detected: true,
+      invitationPending: true,
+    })
+    await f.navigation.detect()
+    expect(f.service.dismissInvitation).toHaveBeenCalledTimes(1)
+    // A new navigation instance models restarting with the same persisted flag.
+    const restarted = new LegacyImportNavigation(f.deps)
+    expect(await restarted.detect()).toEqual({
+      detected: true,
+      invitationPending: false,
+    })
+    expect(f.service.dismissInvitation).toHaveBeenCalledTimes(1)
+    restarted.sourceDetected()
+    expect(restarted.getState().detected).toBe(true)
+  })
+  it('does not return a consumed invitation from its cached discovery', async () => {
+    const f = fixture([
+      { sourceHandle: 'old', name: 'Motrix', dataPath: '/old' },
+    ])
+    await f.navigation.detect()
+    f.navigation.finishInvitation()
+    expect(await f.navigation.detect()).toEqual({
+      detected: true,
+      invitationPending: false,
+    })
+  })
+
+  it('does not consume the invitation when no v1 source is found', async () => {
+    const f = fixture()
+    await f.navigation.detect()
+    expect(f.service.dismissInvitation).not.toHaveBeenCalled()
+  })
+  it('does not invite until its consumed state can be persisted', async () => {
+    const f = fixture([
+      { sourceHandle: 'old', name: 'Motrix', dataPath: '/old' },
+    ])
+    f.service.dismissInvitation.mockImplementationOnce(() => {
+      throw new Error('storage unavailable')
+    })
+    await expect(f.navigation.detect()).rejects.toThrow('storage unavailable')
+    expect(f.navigation.getState().invitationPending).toBe(false)
+    expect((await f.navigation.detect()).invitationPending).toBe(true)
   })
   it('does not pretend a failed detection found v1 and permits a later retry', async () => {
     const f = fixture()

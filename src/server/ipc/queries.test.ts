@@ -4,12 +4,14 @@ import path from 'node:path'
 import { TaskActivityService, type TaskActivityStore } from '@core/activity'
 import { createTaskInspectorActivityQuery } from '@core/inspector-activity'
 import { NotificationCenter } from '@core/notifications/notification-center'
+import { FfmpegCapabilityHost } from '@core/plugin/capabilities/ffmpeg'
 import { MotrixDatabase } from '@core/session/motrix-database'
 import { ErrorCode } from '@shared/errors'
 import { Queries } from '@shared/protocol/queries'
 import { generalSettingsSnapshot } from '@test-utils/general-settings'
 import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { makeServerFfmpegDetect } from '../plugin/ffmpeg-detect-server'
 import { buildServerQueryHandlers, type ServerQueryContext } from './queries'
 
 vi.mock('../plugin/ffmpeg-detect-server', () => ({
@@ -773,5 +775,37 @@ describe('plugin diagnostic state query', () => {
       ).rejects.toThrow()
     }
     expect(getLogState).not.toHaveBeenCalled()
+  })
+})
+
+describe('server FFmpeg detection refresh', () => {
+  it('updates the operation capability after explicit detection and when FFmpeg disappears', async () => {
+    const ffmpeg = new FfmpegCapabilityHost({ detect: { available: false } })
+    const detected = {
+      active: { path: '/media/ffmpeg', version: '8.0' },
+      candidates: [],
+    }
+    vi.mocked(makeServerFfmpegDetect).mockReturnValueOnce(async () => detected)
+    const handlers = buildServerQueryHandlers(
+      makeCtx({
+        capabilityHost: { ffmpeg },
+      }) as unknown as ServerQueryContext
+    )
+    await expect(handlers[Queries.GetFfmpegDetection]?.()).resolves.toEqual(
+      detected
+    )
+    expect(ffmpeg.available).toBe(true)
+    expect(ffmpeg.version).toBe('8.0')
+    vi.mocked(makeServerFfmpegDetect).mockReturnValueOnce(async () => ({
+      active: null,
+      candidates: [],
+    }))
+    const missing = buildServerQueryHandlers(
+      makeCtx({
+        capabilityHost: { ffmpeg },
+      }) as unknown as ServerQueryContext
+    )
+    await missing[Queries.GetFfmpegDetection]?.()
+    expect(ffmpeg.available).toBe(false)
   })
 })

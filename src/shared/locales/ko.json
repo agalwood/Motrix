@@ -2736,9 +2736,13 @@
         "title": "FFmpeg 요구 사항",
         "notInstalled": "이 시스템에 FFmpeg가 설치되어 있지 않습니다.",
         "versionMismatch": "설치된 FFmpeg 버전: {{version}}.",
-        "requiredByPlugin": "이 플러그인에는 ffmpeg가 필요합니다. 설치한 후 다시 시도하세요.",
+        "requiredByPlugin": "플러그인은 지금 설치할 수 있습니다. 활성화하거나 실행하기 전에 호환되는 FFmpeg를 설정하세요.",
         "optionalDegraded": "ffmpeg를 설치하기 전까지 이 플러그인의 미디어 기능을 사용할 수 없습니다."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg를 사용할 수 없습니다. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "FFmpeg 버전이 이 플러그인의 요구 사항을 충족하지 않습니다. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "bridge": {

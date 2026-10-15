@@ -2736,9 +2736,13 @@
         "title": "FFmpeg の要件",
         "notInstalled": "このシステムに FFmpeg がインストールされていません。",
         "versionMismatch": "FFmpeg {{version}} がインストールされています。",
-        "requiredByPlugin": "このプラグインには ffmpeg が必要です。インストールしてから、もう一度お試しください。",
+        "requiredByPlugin": "プラグインは今すぐインストールできます。有効化または実行する前に、互換性のある FFmpeg を設定してください。",
         "optionalDegraded": "ffmpeg をインストールするまで、このプラグインのメディア機能は利用できません。"
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg を利用できません。 Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "FFmpeg のバージョンがこのプラグインの要件を満たしていません。 Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "bridge": {

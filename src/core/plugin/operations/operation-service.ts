@@ -747,7 +747,10 @@ export class OperationService {
           ? undefined
           : business && draft.view.descriptor.definition.errors?.[business]
             ? `operation.error.${business}`
-            : /^pluginOperations\.[A-Za-z]+$/.test(message)
+            : /^pluginOperations\.[A-Za-z]+$/.test(message) ||
+                /^plugin\.runtime\.ffmpeg(?:Unavailable|Incompatible)$/.test(
+                  message
+                )
               ? message
               : committed
                 ? 'pluginOperations.publicationUncertain'

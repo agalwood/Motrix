@@ -14,7 +14,7 @@ export class LegacyImportNavigation {
       hasConsent: () => boolean
       getService: () => Pick<
         LegacyImportService,
-        'discover' | 'invitationDismissed'
+        'discover' | 'invitationDismissed' | 'dismissInvitation'
       >
       roots: () => string[]
       changed: () => void
@@ -33,14 +33,20 @@ export class LegacyImportNavigation {
           'legacyImport.errors.consentRequired'
         )
       )
-    if (this.discovery) return this.discovery
+    if (this.discovery) return this.discovery.then(() => this.getState())
     this.discovery = (async () => {
       const service = this.deps.getService()
       const sources = await service.discover(this.deps.roots())
       if (!this.deps.hasConsent()) return this.getState()
+      const invitationPending =
+        sources.length > 0 && !service.invitationDismissed()
+      // Consume the automatic invitation before publishing it. Closing the
+      // app or leaving the page without choosing import/skip must not invite
+      // again on the next launch. Manual migration remains available.
+      if (invitationPending) service.dismissInvitation()
       this.state = {
         detected: this.state.detected || sources.length > 0,
-        invitationPending: sources.length > 0 && !service.invitationDismissed(),
+        invitationPending,
       }
       this.deps.changed()
       return this.getState()

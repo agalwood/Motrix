@@ -1298,10 +1298,14 @@
       "ffmpeg": {
         "notInstalled": "FFmpeg не встановлено в цій системі.",
         "optionalDegraded": "Медіафункції цього плагіна будуть недоступні, доки не буде встановлено ffmpeg.",
-        "requiredByPlugin": "Для цього плагіна потрібен ffmpeg. Встановіть його й спробуйте ще раз.",
+        "requiredByPlugin": "Плагін можна встановити зараз. Перед увімкненням або запуском налаштуйте сумісну версію FFmpeg.",
         "title": "Вимоги до FFmpeg",
         "versionMismatch": "Встановлено FFmpeg {{version}}."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg недоступний. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "Версія FFmpeg не відповідає вимогам цього плагіна. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "plugins": {
