@@ -850,6 +850,8 @@
         "moveQueueUp": "Monter dans la file",
         "openFile": "Ouvrir le fichier",
         "openFileFailed": "Impossible d’ouvrir le fichier",
+        "openFileAppFailed": "Le système n’a pas pu ouvrir ce fichier. Vérifiez que l’application par défaut est toujours installée ou ouvrez le dossier pour choisir une autre application.",
+        "openFileFailedHint": "Vérifiez que le fichier existe toujours et que vous avez l’autorisation de l’ouvrir.",
         "openFolder": "Ouvrir le dossier",
         "pause": "Mettre en pause",
         "pauseTooltipBatch": "Mettre en pause {{n}} des {{total}} tâches sélectionnées",
@@ -1286,10 +1288,14 @@
       "ffmpeg": {
         "notInstalled": "FFmpeg n’est pas installé sur ce système.",
         "optionalDegraded": "Les fonctions multimédias de cette extension seront indisponibles tant que ffmpeg ne sera pas installé.",
-        "requiredByPlugin": "Cette extension nécessite ffmpeg. Installez-le et réessayez.",
+        "requiredByPlugin": "Vous pouvez installer le plugin maintenant. Configurez une version compatible de FFmpeg avant de l’activer ou de l’exécuter.",
         "title": "Exigence FFmpeg",
         "versionMismatch": "FFmpeg {{version}} est installé."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg est indisponible. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "La version de FFmpeg ne répond pas aux exigences de ce plugin. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "plugins": {

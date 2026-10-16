@@ -927,6 +927,8 @@
         "removeMixedTitle": "Usunąć zadania z listy ({{count}})?",
         "openFile": "Otwórz plik",
         "openFileFailed": "Nie udało się otworzyć pliku",
+        "openFileAppFailed": "System nie mógł otworzyć tego pliku. Sprawdź, czy domyślna aplikacja jest nadal zainstalowana, lub otwórz folder, aby wybrać inną aplikację.",
+        "openFileFailedHint": "Sprawdź, czy plik nadal istnieje i czy masz uprawnienia do jego otwarcia.",
         "chooseFiles": "Wybierz pliki…",
         "queueOrder": "Kolejność pobierania",
         "moveQueueTop": "Przesuń na początek",
@@ -2819,9 +2821,13 @@
         "title": "Wymagania FFmpeg",
         "notInstalled": "FFmpeg nie jest zainstalowany w tym systemie.",
         "versionMismatch": "Zainstalowano FFmpeg {{version}}.",
-        "requiredByPlugin": "Ta wtyczka wymaga ffmpeg. Zainstaluj go i spróbuj ponownie.",
+        "requiredByPlugin": "Możesz teraz zainstalować wtyczkę. Przed jej włączeniem lub uruchomieniem skonfiguruj zgodną wersję FFmpeg.",
         "optionalDegraded": "Funkcje multimedialne tej wtyczki będą niedostępne, dopóki nie zainstalujesz ffmpeg."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg jest niedostępny. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "Wersja FFmpeg nie spełnia wymagań tej wtyczki. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "bridge": {

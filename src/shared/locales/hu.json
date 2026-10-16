@@ -903,6 +903,8 @@
         "removeMixedTitle": "Eltávolítod a(z) {{count}} feladatot?",
         "openFile": "Fájl megnyitása",
         "openFileFailed": "Nem sikerült megnyitni a fájlt",
+        "openFileAppFailed": "A rendszer nem tudta megnyitni ezt a fájlt. Ellenőrizze, hogy az alapértelmezett alkalmazás még telepítve van-e, vagy nyissa meg a mappát, és válasszon másik alkalmazást.",
+        "openFileFailedHint": "Ellenőrizze, hogy a fájl még létezik-e, és van-e jogosultsága megnyitni.",
         "chooseFiles": "Fájlok kiválasztása…",
         "queueOrder": "Letöltési sorrend",
         "moveQueueTop": "A sor elejére",
@@ -2777,9 +2779,13 @@
         "title": "FFmpeg-követelmény",
         "notInstalled": "Az FFmpeg nincs telepítve ezen a rendszeren.",
         "versionMismatch": "Az FFmpeg {{version}} verziója van telepítve.",
-        "requiredByPlugin": "Ehhez a bővítményhez FFmpeg szükséges. Telepítsd, majd próbáld újra.",
+        "requiredByPlugin": "A bővítmény most telepíthető. Engedélyezés vagy futtatás előtt állítson be egy kompatibilis FFmpeg-verziót.",
         "optionalDegraded": "A bővítmény médiafunkciói nem lesznek elérhetők, amíg az FFmpeg nincs telepítve."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "Az FFmpeg nem érhető el. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "Az FFmpeg verziója nem felel meg a bővítmény követelményeinek. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "bridge": {

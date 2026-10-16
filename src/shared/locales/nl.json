@@ -847,6 +847,8 @@
         "moveQueueUp": "Omhoog in wachtrij",
         "openFile": "Bestand openen",
         "openFileFailed": "Het bestand kon niet worden geopend",
+        "openFileAppFailed": "Het systeem kon dit bestand niet openen. Controleer of de standaardapp nog is geïnstalleerd of open de map om een andere app te kiezen.",
+        "openFileFailedHint": "Controleer of het bestand nog bestaat en of je toestemming hebt om het te openen.",
         "openFolder": "Map openen",
         "pause": "Pauzeren",
         "pauseTooltipBatch": "{{n}} van de {{total}} geselecteerde taken pauzeren",
@@ -1274,10 +1276,14 @@
       "ffmpeg": {
         "notInstalled": "FFmpeg is niet geïnstalleerd op dit systeem.",
         "optionalDegraded": "De mediafuncties van deze plug-in zijn niet beschikbaar totdat ffmpeg is geïnstalleerd.",
-        "requiredByPlugin": "Deze plug-in vereist ffmpeg. Installeer het en probeer het opnieuw.",
+        "requiredByPlugin": "Je kunt de plug-in nu installeren. Stel een compatibele FFmpeg-versie in voordat je de plug-in inschakelt of uitvoert.",
         "title": "FFmpeg-vereiste",
         "versionMismatch": "FFmpeg {{version}} is geïnstalleerd."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg is niet beschikbaar. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "De FFmpeg-versie voldoet niet aan de vereisten van deze plug-in. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "plugins": {

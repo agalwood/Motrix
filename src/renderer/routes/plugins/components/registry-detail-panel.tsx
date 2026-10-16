@@ -66,7 +66,7 @@ export function RegistryDetailPanel({ entry }: Props) {
         <ScrollAreaViewport className="min-h-0 flex-1 overscroll-contain">
           <ScrollAreaContent style={{ minWidth: '100%' }}>
             <div className="mx-auto flex w-full flex-col gap-4 pb-6">
-              <Card className="flex flex-col gap-4 p-4">
+              <Card className="flex flex-col gap-4 p-4 shadow-none">
                 <div className="flex items-start gap-3">
                   <PluginAvatar
                     plugin={{ id: entry.id, name, icon: entry.icon }}
@@ -121,7 +121,7 @@ export function RegistryDetailPanel({ entry }: Props) {
               </Card>
 
               {features.length > 0 && (
-                <Card className="flex flex-col gap-2 p-4">
+                <Card className="flex flex-col gap-2 p-4 shadow-none">
                   <h3 className="text-sm font-semibold tracking-tight">
                     {t('plugins.registry.featuresTitle')}
                   </h3>
@@ -134,7 +134,7 @@ export function RegistryDetailPanel({ entry }: Props) {
               )}
 
               {permissionChips.length > 0 && (
-                <Card className="flex flex-col gap-2 p-4">
+                <Card className="flex flex-col gap-2 p-4 shadow-none">
                   <h3 className="text-sm font-semibold tracking-tight">
                     {t('plugins.registry.permissionsTitle')}
                   </h3>

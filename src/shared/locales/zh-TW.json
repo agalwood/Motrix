@@ -891,6 +891,8 @@
         "removeMixedTitle": "要移除 {{count}} 個任務嗎？",
         "openFile": "開啟檔案",
         "openFileFailed": "無法開啟檔案",
+        "openFileAppFailed": "系統無法開啟此檔案。請檢查預設應用程式是否仍已安裝，或透過「開啟資料夾」選擇其他應用程式開啟。",
+        "openFileFailedHint": "請確認檔案仍然存在，而且你有權限開啟它。",
         "chooseFiles": "選擇下載檔案…",
         "queueOrder": "調整下載順序",
         "moveQueueTop": "移至佇列最前",
@@ -2329,9 +2331,13 @@
         "title": "FFmpeg 需求",
         "notInstalled": "此系統未安裝 FFmpeg。",
         "versionMismatch": "已安裝 FFmpeg {{version}}。",
-        "requiredByPlugin": "此外掛程式需要 ffmpeg。請安裝後再試一次。",
+        "requiredByPlugin": "可以先安裝外掛，啟用或執行前再設定相容的 FFmpeg。",
         "optionalDegraded": "安裝 ffmpeg 前，此外掛程式的媒體功能無法使用。"
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg 目前無法使用。 Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "FFmpeg 版本不符合此外掛的需求。 Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "bridge": {

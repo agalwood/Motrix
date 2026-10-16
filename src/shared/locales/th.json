@@ -844,6 +844,8 @@
         "moveQueueUp": "เลื่อนขึ้นในคิว",
         "openFile": "เปิดไฟล์",
         "openFileFailed": "เปิดไฟล์ไม่ได้",
+        "openFileAppFailed": "ระบบไม่สามารถเปิดไฟล์นี้ได้ โปรดตรวจสอบว่าแอปเริ่มต้นยังติดตั้งอยู่ หรือเปิดโฟลเดอร์เพื่อเลือกแอปอื่น",
+        "openFileFailedHint": "โปรดตรวจสอบว่าไฟล์ยังอยู่และคุณมีสิทธิ์เปิดไฟล์",
         "openFolder": "เปิดโฟลเดอร์",
         "pause": "พัก",
         "pauseTooltipBatch": "พัก {{n}} จาก {{total}} งานที่เลือก",
@@ -1262,10 +1264,14 @@
       "ffmpeg": {
         "notInstalled": "ระบบนี้ยังไม่ได้ติดตั้ง FFmpeg",
         "optionalDegraded": "ความสามารถด้านสื่อของปลั๊กอินนี้จะใช้ไม่ได้จนกว่าจะติดตั้ง ffmpeg",
-        "requiredByPlugin": "ปลั๊กอินนี้ต้องใช้ ffmpeg ติดตั้งแล้วลองอีกครั้ง",
+        "requiredByPlugin": "คุณติดตั้งปลั๊กอินได้ทันที โปรดตั้งค่า FFmpeg เวอร์ชันที่รองรับก่อนเปิดใช้งานหรือเรียกใช้ปลั๊กอิน",
         "title": "ข้อกำหนด FFmpeg",
         "versionMismatch": "ติดตั้ง FFmpeg {{version}} แล้ว"
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "ไม่สามารถใช้ FFmpeg ได้ Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "เวอร์ชัน FFmpeg ไม่ตรงตามข้อกำหนดของปลั๊กอินนี้ Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "plugins": {

@@ -847,6 +847,8 @@
         "moveQueueUp": "Flytt opp i køen",
         "openFile": "Åpne fil",
         "openFileFailed": "Kunne ikke åpne filen",
+        "openFileAppFailed": "Systemet kunne ikke åpne denne filen. Kontroller at standardappen fortsatt er installert, eller åpne mappen for å velge en annen app.",
+        "openFileFailedHint": "Kontroller at filen fortsatt finnes, og at du har tillatelse til å åpne den.",
         "openFolder": "Åpne mappe",
         "pause": "Sett på pause",
         "pauseTooltipBatch": "Sett på pause: {{n}} / {{total}} i utvalget",
@@ -1274,10 +1276,14 @@
       "ffmpeg": {
         "notInstalled": "FFmpeg er ikke installert på dette systemet.",
         "optionalDegraded": "Mediefunksjonene i dette programtillegget er utilgjengelige inntil ffmpeg er installert.",
-        "requiredByPlugin": "Dette programtillegget krever ffmpeg. Installer det og prøv igjen.",
+        "requiredByPlugin": "Du kan installere utvidelsen nå. Konfigurer en kompatibel FFmpeg-versjon før du aktiverer eller kjører den.",
         "title": "FFmpeg-krav",
         "versionMismatch": "FFmpeg {{version}} er installert."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg er ikke tilgjengelig. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "FFmpeg-versjonen oppfyller ikke kravene til denne utvidelsen. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "plugins": {

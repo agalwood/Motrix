@@ -903,6 +903,8 @@
         "removeMixedTitle": "{{count}} Aufgaben entfernen?",
         "openFile": "Datei öffnen",
         "openFileFailed": "Die Datei konnte nicht geöffnet werden",
+        "openFileAppFailed": "Das System konnte diese Datei nicht öffnen. Prüfe, ob die Standard-App noch installiert ist, oder öffne den Ordner, um eine andere App auszuwählen.",
+        "openFileFailedHint": "Prüfe, ob die Datei noch vorhanden ist und du sie öffnen darfst.",
         "chooseFiles": "Dateien auswählen…",
         "queueOrder": "Download-Reihenfolge",
         "moveQueueTop": "An den Anfang",
@@ -2777,9 +2779,13 @@
         "title": "FFmpeg-Voraussetzung",
         "notInstalled": "FFmpeg ist auf diesem System nicht installiert.",
         "versionMismatch": "FFmpeg {{version}} ist installiert.",
-        "requiredByPlugin": "Dieses Plugin erfordert ffmpeg. Installieren Sie es und versuchen Sie es erneut.",
+        "requiredByPlugin": "Das Plugin kann jetzt installiert werden. Richte vor dem Aktivieren oder Ausführen eine kompatible FFmpeg-Version ein.",
         "optionalDegraded": "Die Medienfunktionen dieses Plugins sind erst verfügbar, wenn ffmpeg installiert ist."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg ist nicht verfügbar. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "Die FFmpeg-Version erfüllt die Anforderungen dieses Plugins nicht. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "bridge": {

@@ -15,6 +15,7 @@ import { MagnetFileSelectionButton } from '@renderer/components/task/magnet-file
 import { Button } from '@renderer/components/ui/button'
 import { toast } from '@renderer/components/ui/toast'
 import { useModifierKeys } from '@renderer/hooks/use-modifier-keys'
+import { openTaskFile } from '@renderer/lib/open-task-file'
 import { rtlMirror } from '@renderer/lib/task-status-ui'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
@@ -103,13 +104,7 @@ function OpenTaskFileButton({ task }: { task: DownloadTask }) {
     if (opening) return
     setOpening(true)
     try {
-      await transport.invoke(Commands.OpenTaskFile, { taskId: task.id })
-    } catch (error) {
-      toast.add({
-        title: t('panel.downloads.action.openFileFailed'),
-        description: error instanceof Error ? error.message : String(error),
-        type: 'error',
-      })
+      await openTaskFile(task.id, t)
     } finally {
       setOpening(false)
     }

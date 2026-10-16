@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import '@renderer/lib/i18n'
@@ -192,19 +192,30 @@ describe('PluginCard', () => {
     )
   })
 
-  it('applies the disabled state locally after a successful Switch command', async () => {
+  it('does not overwrite a newer enabled event when a disable response arrives late', async () => {
     const plugin = makePlugin()
     usePluginsStore.getState().setList([plugin])
-    renderCard(plugin)
-
-    fireEvent.click(screen.getByRole('switch'))
-
-    await waitFor(() =>
-      expect(usePluginsStore.getState().list[0]).toMatchObject({
-        enabled: false,
-        status: 'disabled',
+    let finish!: () => void
+    mockInvoke.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finish = resolve
       })
     )
+    renderCard(plugin)
+    fireEvent.click(screen.getByRole('switch'))
+    // Another window enabled the plugin after this window requested disable.
+    act(() =>
+      usePluginsStore
+        .getState()
+        .applyStatus(plugin.id, 'active', undefined, true)
+    )
+    await act(async () => {
+      finish()
+    })
+    expect(usePluginsStore.getState().list[0]).toMatchObject({
+      enabled: true,
+      status: 'active',
+    })
   })
 
   it('does not nest the Switch inside the card navigation target', () => {

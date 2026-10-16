@@ -284,7 +284,8 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
       return getFfmpegInstallStatus(userDataDir)
     },
 
-    [Queries.GetFfmpegDetection]: async () => detectFfmpeg(),
+    [Queries.GetFfmpegDetection]: async () =>
+      capabilityHost.ffmpeg.refreshDetection(detectFfmpeg),
 
     [Queries.GetYtdlpDetection]: async () => {
       const media = settingsManager.getMedia()

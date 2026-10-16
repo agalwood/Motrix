@@ -37,7 +37,9 @@ vi.mock('@renderer/components/ui/toast', () => ({
 
 import '@renderer/lib/i18n'
 import { transport } from '@renderer/lib/transport'
+import { ErrorCode } from '@shared/errors'
 import { Commands } from '@shared/protocol/commands'
+import { TransportError } from '@shared/protocol/errors'
 import { Queries } from '@shared/protocol/queries'
 import { TaskInspectorActionBar } from './task-inspector-action-bar'
 
@@ -86,12 +88,15 @@ describe('TaskInspectorActionBar', () => {
       taskId: 't1',
     })
     expect(button).toHaveProperty('disabled', true)
-    reject(new Error('File no longer exists'))
+    reject(
+      new TransportError(ErrorCode.TaskOpenAppFailed, 'Application removed')
+    )
     await waitFor(() =>
       expect(toastAddMock).toHaveBeenCalledWith(
         expect.objectContaining({
           title: 'Could not open file',
-          description: 'File no longer exists',
+          description:
+            'The system could not open this file. Check that its default app is still installed, or use Open folder to choose another app.',
           type: 'error',
         })
       )

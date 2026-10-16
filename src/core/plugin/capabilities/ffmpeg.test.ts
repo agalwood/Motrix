@@ -78,6 +78,76 @@ const UNAVAILABLE_DETECT: FfmpegDetection = {
 }
 
 describe('FFmpeg managed pre-spawn trust guard', () => {
+  it('ignores an older probe failure and clears availability only for the latest failed probe', async () => {
+    const host = new FfmpegCapabilityHost({ detect: AVAILABLE_DETECT })
+    let fail!: (error: Error) => void
+    const old = host
+      .refreshDetection(
+        () =>
+          new Promise((_resolve, reject) => {
+            fail = reject
+          })
+      )
+      .catch((error) => error)
+    await host.refreshDetection(async () => ({
+      active: { path: '/new/ffmpeg', version: '8.0' },
+      candidates: [],
+    }))
+    fail(new Error('old probe failed'))
+    await old
+    expect(host.available).toBe(true)
+    expect(host.version).toBe('8.0')
+    await expect(
+      host.refreshDetection(async () => {
+        throw new Error('latest probe failed')
+      })
+    ).rejects.toThrow('latest probe failed')
+    expect(host.available).toBe(false)
+  })
+
+  it('refreshes future calls without interrupting a running process or losing trust checks', async () => {
+    const first = makeFakeProc()
+    const next = makeFakeProc()
+    const spawnFn = vi.fn().mockReturnValueOnce(first).mockReturnValueOnce(next)
+    const validateBinaryPath = vi.fn()
+    const host = new FfmpegCapabilityHost({
+      detect: UNAVAILABLE_DETECT,
+      spawnFn,
+      validateBinaryPath,
+    })
+    host.updateDetection(AVAILABLE_DETECT)
+    expect(host.available).toBe(true)
+    const running = host.run({ argv: [], outputPath: '/output' })
+    host.updateDetection(UNAVAILABLE_DETECT)
+    expect(host.available).toBe(false)
+    await expect(
+      host.run({ argv: [], outputPath: '/blocked' }).result
+    ).rejects.toThrow()
+    expect(first.kill).not.toHaveBeenCalled()
+    first._close(0)
+    await expect(running.result).resolves.toEqual({ outputPath: '/output' })
+    host.updateDetection({
+      available: true,
+      version: '8.0',
+      binaryPath: '/new/ffmpeg',
+    })
+    const refreshed = host.run({ argv: [], outputPath: '/next' })
+    expect(spawnFn.mock.calls.map(([binary]) => binary)).toEqual([
+      '/usr/bin/ffmpeg',
+      '/new/ffmpeg',
+    ])
+    expect(validateBinaryPath).toHaveBeenLastCalledWith('/new/ffmpeg')
+    next._close(0)
+    await refreshed.result
+    validateBinaryPath.mockImplementation(() => {
+      throw new Error('untrusted')
+    })
+    await expect(
+      host.run({ argv: [], outputPath: '/untrusted' }).result
+    ).rejects.toThrow()
+    expect(spawnFn).toHaveBeenCalledTimes(2)
+  })
+
   it('does not spawn run or probe when a cached managed binary fails revalidation', async () => {
     const spawnFn = vi.fn()
     const validateBinaryPath = vi.fn(() => {

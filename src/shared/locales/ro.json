@@ -850,6 +850,8 @@
         "moveQueueUp": "Mută în sus în coadă",
         "openFile": "Deschide fișierul",
         "openFileFailed": "Fișierul nu a putut fi deschis",
+        "openFileAppFailed": "Sistemul nu a putut deschide acest fișier. Verifică dacă aplicația implicită este încă instalată sau deschide dosarul pentru a alege altă aplicație.",
+        "openFileFailedHint": "Verifică dacă fișierul mai există și dacă ai permisiunea să îl deschizi.",
         "openFolder": "Deschide dosarul",
         "pause": "Pune pe pauză",
         "pauseTooltipBatch": "Pune pe pauză: {{n}} din selecția totală de {{total}}",
@@ -1286,10 +1288,14 @@
       "ffmpeg": {
         "notInstalled": "FFmpeg nu este instalat pe acest sistem.",
         "optionalDegraded": "Funcțiile media ale acestui modul nu vor fi disponibile până la instalarea ffmpeg.",
-        "requiredByPlugin": "Acest modul necesită ffmpeg. Instalează-l și încearcă din nou.",
+        "requiredByPlugin": "Puteți instala pluginul acum. Configurați o versiune compatibilă de FFmpeg înainte de activare sau rulare.",
         "title": "Cerință FFmpeg",
         "versionMismatch": "Este instalat FFmpeg {{version}}."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg nu este disponibil. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "Versiunea FFmpeg nu îndeplinește cerințele acestui plugin. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "plugins": {

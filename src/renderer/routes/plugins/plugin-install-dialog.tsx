@@ -15,7 +15,6 @@ import {
   ScrollBar,
 } from '@renderer/components/ui/scroll-area'
 import { Spinner } from '@renderer/components/ui/spinner'
-import { cn } from '@renderer/lib/utils'
 import type { ConsentPayloadFfmpegRuntime } from '@shared/types/plugin-install'
 import {
   type ReactNode,
@@ -43,16 +42,11 @@ function FfmpegRuntimeBlock({ rt }: { rt: ConsentPayloadFfmpegRuntime }) {
   if (rt.requiredByPlugin === 'none') return null
   const hasProblem = !rt.available || rt.satisfiesRange === false
   if (!hasProblem) return null
-  const blocking = rt.requiredByPlugin === 'required'
   return (
     <div
       data-testid="ffmpeg-runtime-block"
-      className={cn(
-        'mb-4 rounded-md border p-3 text-xs',
-        blocking
-          ? 'border-destructive bg-destructive/10 text-destructive'
-          : 'border-amber-300 bg-amber-100 text-amber-900'
-      )}
+      role="status"
+      className="mb-4 rounded-md border border-amber-300 bg-amber-100 p-3 text-xs text-amber-900"
     >
       <div className="font-semibold">{t('plugin.install.ffmpeg.title')}</div>
       <div>
@@ -61,7 +55,7 @@ function FfmpegRuntimeBlock({ rt }: { rt: ConsentPayloadFfmpegRuntime }) {
           : t('plugin.install.ffmpeg.notInstalled')}
       </div>
       <div>
-        {blocking
+        {rt.requiredByPlugin === 'required'
           ? t('plugin.install.ffmpeg.requiredByPlugin')
           : t('plugin.install.ffmpeg.optionalDegraded')}
       </div>
@@ -202,10 +196,6 @@ function PluginInstallSession({
     if (await install.startInstall(args)) close()
   }
 
-  const ffmpegBlocking =
-    install.consent?.ffmpegRuntime.requiredByPlugin === 'required' &&
-    (install.consent.ffmpegRuntime.available === false ||
-      install.consent.ffmpegRuntime.satisfiesRange === false)
   useEffect(() => {
     if (open && install.consent) cancelButtonRef.current?.focus()
   }, [open, install.consent])
@@ -346,7 +336,7 @@ function PluginInstallSession({
                 size="sm"
                 onClick={onInstall}
                 data-testid="install-commit-btn"
-                disabled={!install.consent || install.pending || ffmpegBlocking}
+                disabled={!install.consent || install.pending}
               >
                 {committing && <Spinner aria-hidden="true" />}
                 {t('plugins.consent.confirm')}

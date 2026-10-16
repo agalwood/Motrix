@@ -338,7 +338,8 @@ export function buildServerQueryHandlers(
     [Queries.GetTaskBtTracker]: async ({ engineGid }: { engineGid: string }) =>
       engineAdapter.getTaskBtTracker(engineGid),
 
-    [Queries.GetFfmpegDetection]: async () => detectFfmpeg(),
+    [Queries.GetFfmpegDetection]: async () =>
+      capabilityHost.ffmpeg.refreshDetection(detectFfmpeg),
 
     [Queries.ListPlugins]: async () => pluginRegistry.list(),
 

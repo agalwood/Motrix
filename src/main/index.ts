@@ -1859,13 +1859,14 @@ async function initializeMainProcess(): Promise<void> {
   })
   const beginLegacyInvitation = (): void => {
     runShellAsyncWork('legacy-import-discovery', async () => {
-      const state = await legacyNavigation.detect()
+      await legacyNavigation.detect()
       if (
-        !state.invitationPending ||
+        !legacyNavigation.getState().invitationPending ||
         !gate.isAccepted() ||
         !mainProcessWork.isAccepting()
       )
         return
+      legacyNavigation.finishInvitation()
       windowManager?.open('main', { show: true })
       navigateToMigration()
     })
@@ -2090,7 +2091,9 @@ async function initializeMainProcess(): Promise<void> {
     userDataDir: app.getPath('userData'),
   })
   const detectPluginFfmpeg = async () =>
-    projectActiveToLegacy(await detectElectronFfmpeg())
+    projectActiveToLegacy(
+      await pluginCapHost.ffmpeg.refreshDetection(detectElectronFfmpeg)
+    )
   const activePluginHost = new PluginHost({
     security: pluginSecurity,
     onSecurityChanged: () => {

@@ -847,6 +847,8 @@
         "moveQueueUp": "Μετακίνηση προς τα πάνω στην ουρά",
         "openFile": "Άνοιγμα αρχείου",
         "openFileFailed": "Δεν ήταν δυνατό το άνοιγμα του αρχείου",
+        "openFileAppFailed": "Το σύστημα δεν μπόρεσε να ανοίξει αυτό το αρχείο. Ελέγξτε αν η προεπιλεγμένη εφαρμογή είναι ακόμη εγκατεστημένη ή ανοίξτε τον φάκελο για να επιλέξετε άλλη εφαρμογή.",
+        "openFileFailedHint": "Βεβαιωθείτε ότι το αρχείο υπάρχει ακόμη και ότι έχετε δικαίωμα να το ανοίξετε.",
         "openFolder": "Άνοιγμα φακέλου",
         "pause": "Παύση",
         "pauseTooltipBatch": "Παύση — επιλεγμένες εργασίες: {{n}} / {{total}}",
@@ -1274,10 +1276,14 @@
       "ffmpeg": {
         "notInstalled": "Το FFmpeg δεν είναι εγκατεστημένο σε αυτό το σύστημα.",
         "optionalDegraded": "Οι λειτουργίες πολυμέσων αυτού του πρόσθετου δεν θα είναι διαθέσιμες μέχρι να εγκατασταθεί το ffmpeg.",
-        "requiredByPlugin": "Αυτό το πρόσθετο απαιτεί ffmpeg. Εγκαταστήστε το και δοκιμάστε ξανά.",
+        "requiredByPlugin": "Μπορείτε να εγκαταστήσετε το πρόσθετο τώρα. Ρυθμίστε μια συμβατή έκδοση του FFmpeg πριν το ενεργοποιήσετε ή το εκτελέσετε.",
         "title": "Απαίτηση FFmpeg",
         "versionMismatch": "Είναι εγκατεστημένο το FFmpeg {{version}}."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "Το FFmpeg δεν είναι διαθέσιμο. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "Η έκδοση του FFmpeg δεν πληροί τις απαιτήσεις αυτού του πρόσθετου. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "plugins": {

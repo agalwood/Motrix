@@ -859,6 +859,8 @@
         "moveQueueUp": "نقل لأعلى في قائمة الانتظار",
         "openFile": "فتح الملف",
         "openFileFailed": "تعذّر فتح الملف",
+        "openFileAppFailed": "تعذّر على النظام فتح هذا الملف. تأكد من أن التطبيق الافتراضي لا يزال مثبّتًا، أو استخدم فتح المجلد لاختيار تطبيق آخر.",
+        "openFileFailedHint": "تأكد من أن الملف لا يزال موجودًا وأن لديك إذنًا بفتحه.",
         "openFolder": "فتح المجلد",
         "pause": "إيقاف مؤقت",
         "pauseTooltipBatch": "إيقاف مؤقت: {{n}} من المهام المحددة ({{total}})",
@@ -1322,10 +1324,14 @@
       "ffmpeg": {
         "notInstalled": "FFmpeg غير مثبّت على هذا النظام.",
         "optionalDegraded": "لن تتوفر ميزات الوسائط في هذه الإضافة حتى تثبيت ffmpeg.",
-        "requiredByPlugin": "تتطلب هذه الإضافة ffmpeg. ثبّته وحاول مجددًا.",
+        "requiredByPlugin": "يمكنك تثبيت الإضافة الآن. اضبط إصدارًا متوافقًا من FFmpeg قبل تفعيلها أو تشغيلها.",
         "title": "متطلبات FFmpeg",
         "versionMismatch": "FFmpeg {{version}} مثبّت."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg غير متاح. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "إصدار FFmpeg لا يفي بمتطلبات هذه الإضافة. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "plugins": {

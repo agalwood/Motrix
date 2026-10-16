@@ -847,6 +847,8 @@
         "moveQueueUp": "بالاتر بردن در صف",
         "openFile": "باز کردن فایل",
         "openFileFailed": "باز کردن فایل ممکن نشد",
+        "openFileAppFailed": "سیستم نتوانست این فایل را باز کند. بررسی کنید که برنامهٔ پیش‌فرض همچنان نصب باشد، یا پوشه را باز کنید و برنامهٔ دیگری را انتخاب کنید.",
+        "openFileFailedHint": "بررسی کنید که فایل همچنان وجود داشته باشد و اجازهٔ باز کردن آن را داشته باشید.",
         "openFolder": "باز کردن پوشه",
         "pause": "مکث",
         "pauseTooltipBatch": "مکث {{n}} مورد از {{total}} مورد انتخاب‌شده",
@@ -1274,10 +1276,14 @@
       "ffmpeg": {
         "notInstalled": "FFmpeg روی این سیستم نصب نیست.",
         "optionalDegraded": "تا نصب ffmpeg، قابلیت‌های رسانهٔ این افزونه در دسترس نخواهند بود.",
-        "requiredByPlugin": "این افزونه به ffmpeg نیاز دارد. آن را نصب کنید و دوباره تلاش کنید.",
+        "requiredByPlugin": "می‌توانید افزونه را اکنون نصب کنید. پیش از فعال‌سازی یا اجرا، نسخهٔ سازگار FFmpeg را پیکربندی کنید.",
         "title": "نیازمندی FFmpeg",
         "versionMismatch": "FFmpeg {{version}} نصب شده است."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg در دسترس نیست. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "نسخهٔ FFmpeg الزامات این افزونه را برآورده نمی‌کند. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "plugins": {

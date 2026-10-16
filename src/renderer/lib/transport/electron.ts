@@ -35,7 +35,8 @@ export class ElectronTransport implements Transport {
       })
     }
     const value = await getMotrix().invoke(channel, ...args)
-    return channel === Queries.GetTaskInspectorActivity
+    return channel === Queries.GetTaskInspectorActivity ||
+      channel === Commands.OpenTaskFile
       ? parseProtocolEnvelope(value)
       : value
   }

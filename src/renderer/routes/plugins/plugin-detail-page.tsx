@@ -53,6 +53,7 @@ import { RegistryInstallAction } from './components/registry-install-action'
 import { RegistryNetworkNotice } from './components/registry-network-notice'
 import { UninstallSection } from './components/uninstall-section'
 import { usePluginDetail } from './hooks/use-plugin-detail'
+import { usePluginEnabled } from './hooks/use-plugin-enabled'
 import { usePlugins } from './hooks/use-plugins'
 import { useRegistryEntry, useRegistryUpdates } from './hooks/use-registry'
 import { type UpdateChannel, usePluginsStore } from './store'
@@ -76,7 +77,7 @@ export function PluginDetailPage() {
   usePlugins()
   const pluginsLoaded = usePluginsStore((s) => s.loaded)
   const listEntry = usePluginsStore((s) => s.list.find((p) => p.id === id))
-  const applyStatus = usePluginsStore((s) => s.applyStatus)
+  const { toggleEnabled, pending: togglingEnabled } = usePluginEnabled(id)
   const update = usePluginsStore((s) => s.updates[id])
   const [updateOpen, setUpdateOpen] = useState(false)
   // Snapshot of update.channel taken when the dialog opens. The dialog's own
@@ -156,14 +157,6 @@ export function PluginDetailPage() {
         ? 'operations'
         : 'overview'
 
-  async function toggleEnabled(next: boolean) {
-    await transport.invoke(
-      next ? Commands.EnablePlugin : Commands.DisablePlugin,
-      id
-    )
-    applyStatus(id, next ? 'inactive' : 'disabled', undefined, next)
-  }
-
   return (
     <>
       <PanelShell
@@ -206,7 +199,7 @@ export function PluginDetailPage() {
               id="plugin-detail-enabled"
               aria-label={t('plugins.detail.enabled')}
               checked={listEntry.enabled && !listEntry.security}
-              disabled={!!listEntry.security}
+              disabled={togglingEnabled || !!listEntry.security}
               onCheckedChange={toggleEnabled}
             />
           </div>

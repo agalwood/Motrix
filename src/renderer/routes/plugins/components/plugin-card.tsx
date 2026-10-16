@@ -2,12 +2,11 @@ import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
 import { Switch } from '@renderer/components/ui/switch'
-import { transport } from '@renderer/lib/transport'
-import { Commands } from '@shared/protocol/commands'
 import type { PluginListDTO } from '@shared/types/plugin'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
+import { usePluginEnabled } from '../hooks/use-plugin-enabled'
 import {
   computePluginAudience,
   type PrimaryActionKind,
@@ -34,7 +33,7 @@ const PRIMARY_ACTION_TAB: Partial<Record<PrimaryActionKind, string>> = {
 export function PluginCard({ plugin, hasSchema }: Props) {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const applyStatus = usePluginsStore((s) => s.applyStatus)
+  const { toggleEnabled, pending } = usePluginEnabled(plugin.id)
   // Real grants — store is hydrated by usePlugins via Queries.ListPluginGrants.
   // Without this the audience falsely flags every plugin-with-optional-perms
   // as needing "Grant access" (deriveTone treats `undefined` grants as
@@ -49,14 +48,6 @@ export function PluginCard({ plugin, hasSchema }: Props) {
     hasSchema
   )
   const oneLine = truncateOneLine(plugin.description, 90)
-
-  async function toggleEnabled(next: boolean) {
-    await transport.invoke(
-      next ? Commands.EnablePlugin : Commands.DisablePlugin,
-      plugin.id
-    )
-    applyStatus(plugin.id, next ? 'inactive' : 'disabled', undefined, next)
-  }
 
   function handleCardClick(event: ReactMouseEvent) {
     // Disabled switches do not dispatch their own click handler.
@@ -110,7 +101,7 @@ export function PluginCard({ plugin, hasSchema }: Props) {
 
         <Switch
           checked={plugin.enabled && !plugin.security}
-          disabled={!!plugin.security}
+          disabled={pending || !!plugin.security}
           aria-label={t('plugins.detail.enabled')}
           onClick={stopPropagation}
           onCheckedChange={toggleEnabled}
