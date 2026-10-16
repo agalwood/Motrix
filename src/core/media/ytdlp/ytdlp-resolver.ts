@@ -406,13 +406,23 @@ export function createYtdlpMediaResolver(
       ? buildQualityFormat(hint, muxAvailable)
       : options.format?.trim() ||
         (muxAvailable ? DEFAULT_YTDLP_FORMAT : PROGRESSIVE_FORMAT)
-    const outcome = await resolveWithYtdlp(url, {
-      binaryPath,
-      format,
-      ...(options.proxy ? { proxy: options.proxy } : {}),
-      ...(cookieHeader ? { cookieHeader } : {}),
-      ...(deps.spawnImpl ? { spawnImpl: deps.spawnImpl } : {}),
-    })
-    return outcome.status === 'resolved' ? outcome.resolution : null
+    const attempt = (cookies: string | undefined) =>
+      resolveWithYtdlp(url, {
+        binaryPath,
+        format,
+        ...(options.proxy ? { proxy: options.proxy } : {}),
+        ...(cookies ? { cookieHeader: cookies } : {}),
+        ...(deps.spawnImpl ? { spawnImpl: deps.spawnImpl } : {}),
+      })
+    const outcome = await attempt(cookieHeader)
+    // A cookie-bearing extraction fails more often than a public one: a stale
+    // or partial browser session makes the extractor see a consent/error page
+    // ("The page needs to be reloaded"). Retry once without cookies before
+    // giving up — the same policy the format lister already applies.
+    const settled =
+      outcome.status === 'resolved' || !cookieHeader
+        ? outcome
+        : await attempt(undefined)
+    return settled.status === 'resolved' ? settled.resolution : null
   }
 }

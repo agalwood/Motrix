@@ -318,6 +318,74 @@ describe('createYtdlpMediaResolver', () => {
     expect(resolution?.kind).toBe('direct')
   })
 
+  it('retries without cookies when the cookie-bearing extraction fails', async () => {
+    // A stale browser session makes the extractor see a consent/error page.
+    const stale = fakeChild(
+      { stderr: 'ERROR: [youtube] x: The page needs to be reloaded.' },
+      1
+    )
+    const fresh = fakeChild({
+      stdout: JSON.stringify({
+        title: 'T',
+        url: 'https://cdn.example/t.mp4',
+        ext: 'mp4',
+      }),
+      stderr: '',
+    })
+    const calls: string[][] = []
+    const spawnImpl = ((_command: string, args: readonly string[]): never => {
+      calls.push([...args])
+      const child = calls.length === 1 ? stale : fresh
+      setTimeout(() => {
+        child.emitStdout()
+        child.emitStderr()
+        child.emitClose()
+      }, 0)
+      return child as never
+    }) as SpawnLike
+
+    const resolver = createYtdlpMediaResolver(
+      {
+        resolveBinaryPath: async () => '/usr/bin/yt-dlp',
+        readOptions: () => ({ enabled: true }),
+        spawnImpl,
+      },
+      isMediaSite
+    )
+    const resolution = await resolver(
+      'https://youtube.com/watch?v=x',
+      'SID=stale'
+    )
+    expect(resolution?.kind).toBe('direct')
+    expect(calls).toHaveLength(2)
+    expect(calls[0]?.join(' ')).toContain('Cookie:SID=stale')
+    expect(calls[1]?.join(' ')).not.toContain('Cookie:')
+  })
+
+  it('does not retry when the submission carried no cookies', async () => {
+    const child = fakeChild({ stderr: 'ERROR: nope' }, 1)
+    let calls = 0
+    const spawnImpl = ((): never => {
+      calls += 1
+      setTimeout(() => {
+        child.emitStdout()
+        child.emitStderr()
+        child.emitClose()
+      }, 0)
+      return child as never
+    }) as SpawnLike
+    const resolver = createYtdlpMediaResolver(
+      {
+        resolveBinaryPath: async () => '/usr/bin/yt-dlp',
+        readOptions: () => ({ enabled: true }),
+        spawnImpl,
+      },
+      isMediaSite
+    )
+    expect(await resolver('https://youtube.com/watch?v=x')).toBeNull()
+    expect(calls).toBe(1)
+  })
+
   it('stays silent when yt-dlp is not installed', async () => {
     const resolver = createYtdlpMediaResolver(
       { resolveBinaryPath: async () => null },
