@@ -1,4 +1,6 @@
 import { Toolbar as ToolbarPrimitive } from '@base-ui/react/toolbar'
+import { RedownloadOverwriteDialogHost } from '@renderer/routes/downloads/inspector/redownload-overwrite-dialog-host'
+import { useRedownloadOverwriteStore } from '@renderer/routes/downloads/inspector/redownload-overwrite-store'
 import { RemoveTasksDialogHost } from '@renderer/routes/downloads/inspector/remove-tasks-dialog-host'
 import { useRemoveTasksStore } from '@renderer/routes/downloads/inspector/remove-tasks-store'
 import { render as renderBase } from '@testing-library/react'
@@ -12,12 +14,14 @@ import { openAddTaskDialog } from '@renderer/lib/open-add-task-dialog'
 import { openMagnetFileSelection } from '@renderer/lib/open-magnet-file-selection'
 import { transport } from '@renderer/lib/transport'
 import { CommandIds } from '@shared/commands-catalog'
-import { DownloadErrorCode } from '@shared/errors'
+import { DownloadErrorCode, ErrorCode } from '@shared/errors'
 import { Commands } from '@shared/protocol/commands'
+import { TransportError } from '@shared/protocol/errors'
+import { Queries } from '@shared/protocol/queries'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, TaskType } from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
-import { act, fireEvent, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { TaskActionsMenu } from './task-actions-menu'
@@ -27,13 +31,19 @@ function render(element: ReactElement) {
   return renderBase(
     <>
       <RemoveTasksDialogHost />
+      <RedownloadOverwriteDialogHost />
       {element}
     </>
   )
 }
-beforeEach(() =>
+beforeEach(() => {
   useRemoveTasksStore.setState({ open: false, targets: [], busy: false })
-)
+  useRedownloadOverwriteStore.setState({
+    open: false,
+    target: null,
+    busy: false,
+  })
+})
 
 vi.mock('@renderer/features/plugin-operations/operation-task-menu', () => ({
   OperationTaskMenuItems: () => null,
@@ -106,6 +116,95 @@ function setup(context = true, items = tasks) {
 }
 
 describe('TaskActionsMenu', () => {
+  it.each([true, false])(
+    're-downloads the selected completed task after confirmation (context menu: %s)',
+    async (context) => {
+      const task = makeDownloadTask({
+        id: 'completed',
+        name: 'Completed.bin',
+        status: TaskStatus.Completed,
+        uris: ['https://example.test/Completed.bin'],
+        saveDir: '/downloads',
+        finalName: 'Completed.bin',
+        finalPath: '/downloads/Completed.bin',
+      })
+      setup(context, [task])
+      vi.mocked(transport.invoke)
+        .mockResolvedValueOnce({ exists: true })
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ ok: true })
+      if (context) fireEvent.contextMenu(screen.getByText(task.name))
+      else await userEvent.click(screen.getByRole('button', { name: 'More' }))
+      fireEvent.click(
+        await screen.findByRole('menuitem', {
+          name: 'Re-download',
+        })
+      )
+      const dialog = await screen.findByRole('alertdialog', {
+        name: 'File Already Exists',
+      })
+      expect(dialog).toHaveTextContent(task.name)
+      expect(transport.invoke).toHaveBeenCalledExactlyOnceWith(
+        Queries.CheckTaskFileExists,
+        { taskId: task.id }
+      )
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: 'Re-download' })
+      )
+      await waitFor(() =>
+        expect(transport.invoke).toHaveBeenCalledWith(
+          Commands.CreateTask,
+          expect.objectContaining({
+            uris: task.uris,
+            saveDir: task.saveDir,
+            filename: task.finalName,
+          })
+        )
+      )
+      await waitFor(() =>
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      )
+    }
+  )
+
+  it.each([true, false])(
+    'offers editing before re-download on Alt-click (context menu: %s)',
+    async (context) => {
+      const task = makeDownloadTask({
+        id: 'completed',
+        name: 'Completed.bin',
+        status: TaskStatus.Completed,
+        uris: ['https://example.test/Completed.bin'],
+        saveDir: '/downloads',
+        finalName: 'Completed.bin',
+      })
+      setup(context, [task])
+      vi.mocked(transport.invoke).mockResolvedValueOnce(null)
+      if (context) fireEvent.contextMenu(screen.getByText(task.name))
+      else await userEvent.click(screen.getByRole('button', { name: 'More' }))
+      fireEvent.click(
+        await screen.findByRole('menuitem', {
+          name: 'Re-download',
+        }),
+        { altKey: true }
+      )
+      await waitFor(() =>
+        expect(openAddTaskDialog).toHaveBeenCalledWith(
+          expect.objectContaining({
+            urls: task.uris[0],
+            saveDir: task.saveDir,
+            filename: task.finalName,
+          })
+        )
+      )
+      expect(transport.invoke).not.toHaveBeenCalledWith(
+        Commands.CreateTask,
+        expect.anything()
+      )
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    }
+  )
+
   it('disables the inspector menu and shortcut without changing the saved intent when selection is empty', async () => {
     const selection = setup(false)
     act(() => {
@@ -428,7 +527,9 @@ describe('TaskActionsMenu', () => {
         finalPath: '/downloads/a.bin',
       }),
     ])
-    vi.mocked(transport.invoke).mockRejectedValueOnce(new Error('File missing'))
+    vi.mocked(transport.invoke).mockRejectedValueOnce(
+      new TransportError(ErrorCode.TaskOpenAppFailed, 'Application removed')
+    )
     fireEvent.contextMenu(screen.getByText('a'))
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Open file' }))
     await waitFor(() =>
@@ -438,7 +539,12 @@ describe('TaskActionsMenu', () => {
     )
     await waitFor(() =>
       expect(toast.add).toHaveBeenCalledWith(
-        expect.objectContaining({ title: 'Could not open file', type: 'error' })
+        expect.objectContaining({
+          title: 'Could not open file',
+          description:
+            'The system could not open this file. Check that its default app is still installed, or use Open folder to choose another app.',
+          type: 'error',
+        })
       )
     )
   })

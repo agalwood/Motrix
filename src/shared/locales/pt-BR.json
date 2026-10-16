@@ -915,6 +915,8 @@
         "removeMixedTitle": "Remover {{count}} tarefas?",
         "openFile": "Abrir arquivo",
         "openFileFailed": "Não foi possível abrir o arquivo",
+        "openFileAppFailed": "O sistema não conseguiu abrir este arquivo. Verifique se o aplicativo padrão ainda está instalado ou abra a pasta para escolher outro aplicativo.",
+        "openFileFailedHint": "Verifique se o arquivo ainda existe e se você tem permissão para abri-lo.",
         "chooseFiles": "Escolher arquivos…",
         "queueOrder": "Ordem dos downloads",
         "moveQueueTop": "Mover para o início",

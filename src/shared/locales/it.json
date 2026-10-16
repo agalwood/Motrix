@@ -915,6 +915,8 @@
         "removeMixedTitle": "Rimuovere {{count}} attività dall’elenco?",
         "openFile": "Apri file",
         "openFileFailed": "Impossibile aprire il file",
+        "openFileAppFailed": "Il sistema non ha potuto aprire questo file. Verifica che l’app predefinita sia ancora installata oppure apri la cartella per scegliere un’altra app.",
+        "openFileFailedHint": "Verifica che il file esista ancora e che tu abbia il permesso di aprirlo.",
         "chooseFiles": "Scegli file…",
         "queueOrder": "Ordine di download",
         "moveQueueTop": "Sposta all’inizio",

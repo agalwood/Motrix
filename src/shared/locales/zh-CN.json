@@ -891,6 +891,8 @@
         "removeMixedTitle": "移除 {{count}} 个任务？",
         "openFile": "打开文件",
         "openFileFailed": "无法打开文件",
+        "openFileAppFailed": "系统无法打开此文件。请检查默认应用是否仍已安装，或通过“打开文件夹”选择其他应用打开。",
+        "openFileFailedHint": "请确认文件仍然存在，并且你有权限打开它。",
         "chooseFiles": "选择下载文件…",
         "queueOrder": "调整下载顺序",
         "moveQueueTop": "移至队列最前",

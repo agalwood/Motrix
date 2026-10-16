@@ -847,6 +847,8 @@
         "moveQueueUp": "Omhoog in wachtrij",
         "openFile": "Bestand openen",
         "openFileFailed": "Het bestand kon niet worden geopend",
+        "openFileAppFailed": "Het systeem kon dit bestand niet openen. Controleer of de standaardapp nog is geïnstalleerd of open de map om een andere app te kiezen.",
+        "openFileFailedHint": "Controleer of het bestand nog bestaat en of je toestemming hebt om het te openen.",
         "openFolder": "Map openen",
         "pause": "Pauzeren",
         "pauseTooltipBatch": "{{n}} van de {{total}} geselecteerde taken pauzeren",

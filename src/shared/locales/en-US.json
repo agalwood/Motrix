@@ -903,6 +903,8 @@
         "removeMixedTitle": "Remove {{count}} tasks?",
         "openFile": "Open file",
         "openFileFailed": "Could not open file",
+        "openFileAppFailed": "The system could not open this file. Check that its default app is still installed, or use Open folder to choose another app.",
+        "openFileFailedHint": "Check that the file still exists and you have permission to open it.",
         "chooseFiles": "Choose files…",
         "queueOrder": "Download order",
         "moveQueueTop": "Move to Front",

@@ -903,6 +903,8 @@
         "removeMixedTitle": "{{count}} görev listeden kaldırılsın mı?",
         "openFile": "Dosyayı aç",
         "openFileFailed": "Dosya açılamadı",
+        "openFileAppFailed": "Sistem bu dosyayı açamadı. Varsayılan uygulamanın hâlâ yüklü olduğunu kontrol edin veya başka bir uygulama seçmek için klasörü açın.",
+        "openFileFailedHint": "Dosyanın hâlâ var olduğunu ve onu açma izninizin bulunduğunu kontrol edin.",
         "chooseFiles": "Dosyaları seç…",
         "queueOrder": "İndirme sırası",
         "moveQueueTop": "Başa Taşı",

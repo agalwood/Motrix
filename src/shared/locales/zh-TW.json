@@ -891,6 +891,8 @@
         "removeMixedTitle": "要移除 {{count}} 個任務嗎？",
         "openFile": "開啟檔案",
         "openFileFailed": "無法開啟檔案",
+        "openFileAppFailed": "系統無法開啟此檔案。請檢查預設應用程式是否仍已安裝，或透過「開啟資料夾」選擇其他應用程式開啟。",
+        "openFileFailedHint": "請確認檔案仍然存在，而且你有權限開啟它。",
         "chooseFiles": "選擇下載檔案…",
         "queueOrder": "調整下載順序",
         "moveQueueTop": "移至佇列最前",

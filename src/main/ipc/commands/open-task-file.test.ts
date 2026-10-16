@@ -6,6 +6,8 @@ import { makeDownloadTask } from '@test-utils/task'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createOpenTaskFileHandler } from './open-task-file'
 
+const { warn } = vi.hoisted(() => ({ warn: vi.fn() }))
+vi.mock('@core/logger', () => ({ getLogger: () => ({ warn }) }))
 vi.mock('node:fs/promises', () => ({ stat: vi.fn() }))
 
 function setup() {
@@ -27,6 +29,7 @@ function setup() {
 }
 
 beforeEach(() => {
+  warn.mockClear()
   vi.mocked(stat)
     .mockReset()
     .mockResolvedValue({ isFile: () => true } as Awaited<
@@ -109,11 +112,57 @@ describe('openTaskFile', () => {
     expect(shell.openPath).not.toHaveBeenCalled()
   })
 
-  it('reports an operating system open failure', async () => {
+  it('preserves the filesystem failure in the IPC message and logs the published path', async () => {
+    const { handler, shell } = setup()
+    const cause = Object.assign(
+      new Error('ENOENT: no such file or directory'),
+      {
+        code: 'ENOENT',
+      }
+    )
+    vi.mocked(stat).mockRejectedValueOnce(cause)
+    await expect(handler({ taskId: 'a' })).rejects.toMatchObject({
+      code: ErrorCode.TaskOpenFailed,
+      message:
+        'Task output could not be opened: ENOENT: no such file or directory',
+      cause,
+    })
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      {
+        err: cause,
+        taskId: 'a',
+        outputPath: '/downloads/final.bin',
+        finalPath: '/downloads/final.bin',
+        diskPath: '/downloads/partial.bin',
+        stage: 'stat',
+      },
+      'task_open_failed'
+    )
+    expect(shell.openPath).not.toHaveBeenCalled()
+  })
+
+  it('classifies an operating system open failure separately from a missing file', async () => {
     const { handler, shell } = setup()
     shell.openPath.mockResolvedValueOnce('No application available')
     await expect(handler({ taskId: 'a' })).rejects.toMatchObject({
-      code: ErrorCode.TaskOpenFailed,
+      code: ErrorCode.TaskOpenAppFailed,
+      message: 'Task output could not be opened: No application available',
+    })
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        stage: 'open',
+        outputPath: '/downloads/final.bin',
+      }),
+      'task_open_failed'
+    )
+  })
+
+  it('classifies a rejected OS open request without depending on its language', async () => {
+    const { handler, shell } = setup()
+    shell.openPath.mockRejectedValueOnce(new Error('应用程序已被删除'))
+    await expect(handler({ taskId: 'a' })).rejects.toMatchObject({
+      code: ErrorCode.TaskOpenAppFailed,
+      message: 'Task output could not be opened: 应用程序已被删除',
     })
   })
 

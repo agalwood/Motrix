@@ -903,6 +903,8 @@
         "removeMixedTitle": "{{count}} Aufgaben entfernen?",
         "openFile": "Datei öffnen",
         "openFileFailed": "Die Datei konnte nicht geöffnet werden",
+        "openFileAppFailed": "Das System konnte diese Datei nicht öffnen. Prüfe, ob die Standard-App noch installiert ist, oder öffne den Ordner, um eine andere App auszuwählen.",
+        "openFileFailedHint": "Prüfe, ob die Datei noch vorhanden ist und du sie öffnen darfst.",
         "chooseFiles": "Dateien auswählen…",
         "queueOrder": "Download-Reihenfolge",
         "moveQueueTop": "An den Anfang",
