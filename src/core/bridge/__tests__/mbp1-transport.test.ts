@@ -68,6 +68,7 @@ async function makeHarness(
       args: PairDialogRequest,
       dialogs: FakeDialogs
     ) => PairingPromptEnqueueResult
+    pairingCodeLookup?: (nonce: string) => string | null
     extensionMbp1RoutesEnabled?: boolean
   } = {}
 ): Promise<Harness> {
@@ -90,6 +91,7 @@ async function makeHarness(
     ),
     queueMbp1Dialog: (args) =>
       overrides.queueMbp1Dialog?.(args, dialogs) ?? dialogs.queue(args),
+    pairingCodeLookup: overrides.pairingCodeLookup,
     extensionMbp1RoutesEnabled: overrides.extensionMbp1RoutesEnabled,
     onExtensionAuthenticated: (identity, credentialId) =>
       authenticated.push({ identity, credentialId }),
@@ -241,6 +243,43 @@ describe('MBP1 HTTP surfaces', () => {
   it('GET /nonce is gone and falls through to 404', async () => {
     const res = await fetch(`http://127.0.0.1:${h.port}/nonce`)
     expect(res.status).toBe(404)
+  })
+
+  it('POST /pairing-code returns the pending code for a nonce, header- and method-gated', async () => {
+    const h2 = await makeHarness({
+      pairingCodeLookup: (nonce) => (nonce === 'n1' ? 'ABCD-EFGH' : null),
+    })
+    try {
+      // Missing the non-simple header → refused like /nonce.
+      const refused = await fetch(
+        `http://127.0.0.1:${h2.port}/pairing-code?nonce=n1`,
+        { method: 'POST' }
+      )
+      expect(refused.status).toBe(403)
+
+      const ok = await fetch(
+        `http://127.0.0.1:${h2.port}/pairing-code?nonce=n1`,
+        { method: 'POST', headers: { 'x-motrix-bridge': '1' } }
+      )
+      expect(ok.status).toBe(200)
+      expect(await ok.json()).toEqual({ code: 'ABCD-EFGH' })
+
+      // No pending prompt for that nonce.
+      const missing = await fetch(
+        `http://127.0.0.1:${h2.port}/pairing-code?nonce=nope`,
+        { method: 'POST', headers: { 'x-motrix-bridge': '1' } }
+      )
+      expect(missing.status).toBe(404)
+
+      // GET is not a route (POST-only), like /nonce.
+      const get = await fetch(
+        `http://127.0.0.1:${h2.port}/pairing-code?nonce=n1`,
+        { headers: { 'x-motrix-bridge': '1' } }
+      )
+      expect(get.status).toBe(404)
+    } finally {
+      await h2.server.stop()
+    }
   })
 
   it('rate-limits nonce issuance rather than issuing past its cap', async () => {

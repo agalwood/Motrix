@@ -112,6 +112,26 @@ describe('PairingPromptController contract', () => {
     >().toEqualTypeOf<'delivered' | 'failed'>()
   })
 
+  it('exposes the pending code by nonce only while the prompt is live', () => {
+    const { controller, time } = makeController()
+    const handle = accepted(controller.enqueue(REQUEST))
+
+    expect(controller.codeForNonce('nonce-1')).toBe('1234-5678')
+    expect(controller.codeForNonce('other-nonce')).toBeNull()
+    expect(controller.codeForNonce('')).toBeNull()
+
+    // Terminal settle drops it immediately.
+    handle.settle('paired')
+    expect(controller.codeForNonce('nonce-1')).toBeNull()
+
+    // Expiry drops it too.
+    const aged = accepted(controller.enqueue(request({ pairingNonce: 'n2' })))
+    void aged
+    expect(controller.codeForNonce('n2')).toBe('1234-5678')
+    time.advance(120_000)
+    expect(controller.codeForNonce('n2')).toBeNull()
+  })
+
   it.each([
     [{ ttlMs: 0 }, 'ttl'],
     [{ ttlMs: 1.5 }, 'ttl'],
