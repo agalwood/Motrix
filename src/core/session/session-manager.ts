@@ -2035,7 +2035,9 @@ function synthesizePrimaryInstance(
   return {
     instanceId: `synth:${task.id}`,
     motrixId: task.id,
-    gid: task.engineTaskId,
+    // task.engineTaskId defaults to '' (see makeDownloadTask); an empty engine
+    // gid must persist as NULL, not '' — see MotrixDatabase.serializeInstance.
+    gid: task.engineTaskId || null,
     phase: isBtLike
       ? TaskInstancePhase.BtDownload
       : TaskInstancePhase.HttpDownload,
