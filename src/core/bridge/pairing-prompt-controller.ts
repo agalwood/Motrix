@@ -377,24 +377,6 @@ export class PairingPromptController {
     )
   }
 
-  /**
-   * The PAKE code for a still-pending prompt, looked up by its §4.2 pairing
-   * nonce. Used only by the loopback auto-fill route so the extension never
-   * asks the user to retype the code (a deliberate, explicitly-accepted
-   * convenience tradeoff — the same-machine loopback + custom-header
-   * protections from §4.2 are the only gate). Returns null once the prompt has
-   * terminalised, expired, or the controller is disposed, so the code is never
-   * observable outside the prompt's own lifetime.
-   */
-  codeForNonce(nonce: string): string | null {
-    if (this.disposed || nonce.length === 0) return null
-    this.expireDueEntries(this.readNow())
-    for (const entry of this.pending.values()) {
-      if (entry.snapshot.pairingNonce === nonce) return entry.snapshot.code
-    }
-    return null
-  }
-
   callbackFailureSnapshot(): readonly PairingPromptCallbackFailure[] {
     return Object.freeze([...this.callbackFailures])
   }

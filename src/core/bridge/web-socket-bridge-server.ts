@@ -148,13 +148,6 @@ export interface BridgeServerOptions {
    */
   queueMbp1Dialog?: (args: PairDialogRequest) => PairingPromptEnqueueResult
   /**
-   * Fork-local loopback auto-fill: returns the still-pending PAKE code for a
-   * §4.2 pairing nonce, or null. Backed by the shell's pairing prompt
-   * controller. When omitted, `POST /pairing-code` returns 404 and the
-   * extension falls back to asking the user for the code.
-   */
-  pairingCodeLookup?: (nonce: string) => string | null
-  /**
    * Composition-root kill switch for the four Extension MBP1 routes. The
    * credential/projection management runtime may be prepared while this is
    * false, but `/discovery`, `/nonce`, `/pair`, and `/v1` remain indistinguishable
@@ -197,12 +190,7 @@ export interface ExtensionMbp1RouteRequest {
   readonly directPeerAddress: string | undefined
 }
 
-export type ExtensionMbp1RouteName =
-  | 'discovery'
-  | 'nonce'
-  | 'pairing-code'
-  | 'pair'
-  | 'v1'
+export type ExtensionMbp1RouteName = 'discovery' | 'nonce' | 'pair' | 'v1'
 
 export type ExtensionMbp1RouteDecision =
   | { readonly kind: 'not-extension' }
@@ -228,7 +216,6 @@ interface Mbp1Wiring {
   credentials: Mbp1CredentialStore
   isOfficialId: (browser: Browser, id: string) => boolean
   queueMbp1Dialog: (args: PairDialogRequest) => PairingPromptEnqueueResult
-  lookupMbp1Code: (nonce: string) => string | null
 }
 
 function resolveMbp1Wiring(opts: BridgeServerOptions): Mbp1Wiring | null {
@@ -239,7 +226,6 @@ function resolveMbp1Wiring(opts: BridgeServerOptions): Mbp1Wiring | null {
     credentials,
     isOfficialId,
     queueMbp1Dialog,
-    pairingCodeLookup,
   } = opts
   if (
     instanceId === undefined ||
@@ -262,7 +248,6 @@ function resolveMbp1Wiring(opts: BridgeServerOptions): Mbp1Wiring | null {
     credentials,
     isOfficialId,
     queueMbp1Dialog,
-    lookupMbp1Code: pairingCodeLookup ?? (() => null),
   }
 }
 
@@ -792,26 +777,6 @@ export class WebSocketBridgeServer {
         extensionRoute.releaseAdmission?.()
         return
       }
-      // POST /pairing-code?nonce=… — fork-local loopback auto-fill. Same
-      // Extension-only MBP1 surface as /nonce, so a shell without the wiring
-      // exposes nothing extra.
-      if (
-        extensionRoute.kind === 'route' &&
-        extensionRoute.route === 'pairing-code'
-      ) {
-        if (
-          this.mbp1 === null ||
-          this.opts.extensionMbp1RoutesEnabled === false
-        ) {
-          res.writeHead(404)
-          res.end()
-          extensionRoute.releaseAdmission?.()
-          return
-        }
-        this.handlePairingCodeLookup(req, res, extensionRoute.pairNonce ?? '')
-        extensionRoute.releaseAdmission?.()
-        return
-      }
       if (extensionRoute.kind === 'route') {
         extensionRoute.releaseAdmission?.()
         res.writeHead(404)
@@ -1017,32 +982,23 @@ export class WebSocketBridgeServer {
         ? 'discovery'
         : url.pathname === '/nonce'
           ? 'nonce'
-          : url.pathname === '/pairing-code'
-            ? 'pairing-code'
-            : url.pathname === '/pair'
-              ? 'pair'
-              : url.pathname === '/v1'
-                ? 'v1'
-                : null
+          : url.pathname === '/pair'
+            ? 'pair'
+            : url.pathname === '/v1'
+              ? 'v1'
+              : null
     if (route === null) return { kind: 'not-extension' }
     if (!this.hostHeaderAllowed(req)) return { kind: 'reject', status: 403 }
     if (
-      (transport === 'http' &&
-        route !== 'discovery' &&
-        route !== 'nonce' &&
-        route !== 'pairing-code') ||
+      (transport === 'http' && route !== 'discovery' && route !== 'nonce') ||
       (transport === 'websocket' && route !== 'pair' && route !== 'v1')
     ) {
       return { kind: 'reject', status: 404 }
     }
-    const expectedMethod =
-      route === 'nonce' || route === 'pairing-code' ? 'POST' : 'GET'
+    const expectedMethod = route === 'nonce' ? 'POST' : 'GET'
     if (req.method !== expectedMethod) return { kind: 'reject', status: 404 }
-    return route === 'pair' || route === 'pairing-code'
-      ? // `pairNonce` carries the §4.2 pairing nonce: the `/pair` upgrade's
-        // query nonce, or the loopback auto-fill lookup key. Both are the
-        // public nonce the extension already holds.
-        { kind: 'route', route, pairNonce: url.searchParams.get('nonce') ?? '' }
+    return route === 'pair'
+      ? { kind: 'route', route, pairNonce: url.searchParams.get('nonce') ?? '' }
       : { kind: 'route', route }
   }
 
@@ -1876,33 +1832,6 @@ export class WebSocketBridgeServer {
       return
     }
     writeJson(res, 200, issued)
-  }
-
-  /**
-   * `POST /pairing-code?nonce=…` — fork-local loopback auto-fill. Returns the
-   * pending PAKE code for that nonce so the extension never asks the user to
-   * retype it. Gated exactly like §4.2 `/nonce`: the loopback Host check plus
-   * the non-simple `X-Motrix-Bridge` header (which stops a cross-origin page at
-   * the preflight), and only while a prompt for that nonce is still pending.
-   */
-  private handlePairingCodeLookup(
-    req: IncomingMessage,
-    res: ServerResponse,
-    nonce: string
-  ): void {
-    if (req.headers['x-motrix-bridge'] !== '1') {
-      writeJson(res, 403, {
-        error: { code: ErrorCodes.PermissionDenied, message: 'forbidden' },
-      })
-      return
-    }
-    const code = this.mbp1?.lookupMbp1Code(nonce) ?? null
-    if (code === null) {
-      res.writeHead(404)
-      res.end()
-      return
-    }
-    writeJson(res, 200, { code })
   }
 
   /**

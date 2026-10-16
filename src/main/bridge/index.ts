@@ -712,7 +712,6 @@ export async function bootstrapBridge(args: {
       credentials,
       isOfficialId: (browser, id) => identityResolver.isOfficialId(browser, id),
       queueMbp1Dialog: (req) => dialog.queueMbp1Prompt(req),
-      pairingCodeLookup: (nonce) => dialog.codeForNonce(nonce),
       canAdmitExtensionIdentity: (identity) =>
         extensionPairings.canAdmitIdentity(identity),
       // The only remaining signal that an extension became usable now that

@@ -60,11 +60,6 @@ export class PairingDialogController {
     return this.prompts.enqueue(args)
   }
 
-  /** Loopback auto-fill: the PAKE code for a still-pending prompt's nonce. */
-  codeForNonce(nonce: string): string | null {
-    return this.prompts.codeForNonce(nonce)
-  }
-
   /**
    * The extension operator action is denial only. Approval is still proven by
    * entering the PAKE code in the extension, never by clicking in Motrix.
