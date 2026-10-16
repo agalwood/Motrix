@@ -927,6 +927,8 @@
         "removeMixedTitle": "Usunąć zadania z listy ({{count}})?",
         "openFile": "Otwórz plik",
         "openFileFailed": "Nie udało się otworzyć pliku",
+        "openFileAppFailed": "System nie mógł otworzyć tego pliku. Sprawdź, czy domyślna aplikacja jest nadal zainstalowana, lub otwórz folder, aby wybrać inną aplikację.",
+        "openFileFailedHint": "Sprawdź, czy plik nadal istnieje i czy masz uprawnienia do jego otwarcia.",
         "chooseFiles": "Wybierz pliki…",
         "queueOrder": "Kolejność pobierania",
         "moveQueueTop": "Przesuń na początek",

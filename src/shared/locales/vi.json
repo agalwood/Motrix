@@ -891,6 +891,8 @@
         "removeMixedTitle": "Xóa {{count}} tác vụ khỏi danh sách?",
         "openFile": "Mở tệp",
         "openFileFailed": "Không thể mở tệp",
+        "openFileAppFailed": "Hệ thống không thể mở tệp này. Hãy kiểm tra xem ứng dụng mặc định còn được cài đặt hay không, hoặc mở thư mục để chọn ứng dụng khác.",
+        "openFileFailedHint": "Hãy kiểm tra xem tệp còn tồn tại và bạn có quyền mở tệp hay không.",
         "chooseFiles": "Chọn tệp…",
         "queueOrder": "Thứ tự tải xuống",
         "moveQueueTop": "Chuyển lên đầu",

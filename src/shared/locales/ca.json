@@ -850,6 +850,8 @@
         "moveQueueUp": "Moure amunt a la cua",
         "openFile": "Obrir el fitxer",
         "openFileFailed": "No s'ha pogut obrir el fitxer",
+        "openFileAppFailed": "El sistema no ha pogut obrir aquest fitxer. Comproveu que l’aplicació predeterminada encara estigui instal·lada o obriu la carpeta per triar una altra aplicació.",
+        "openFileFailedHint": "Comproveu que el fitxer encara existeixi i que tingueu permís per obrir-lo.",
         "openFolder": "Obrir la carpeta",
         "pause": "Pausar",
         "pauseTooltipBatch": "Pausar {{n}} de {{total}} tasques seleccionades",

@@ -903,6 +903,8 @@
         "removeMixedTitle": "Eltávolítod a(z) {{count}} feladatot?",
         "openFile": "Fájl megnyitása",
         "openFileFailed": "Nem sikerült megnyitni a fájlt",
+        "openFileAppFailed": "A rendszer nem tudta megnyitni ezt a fájlt. Ellenőrizze, hogy az alapértelmezett alkalmazás még telepítve van-e, vagy nyissa meg a mappát, és válasszon másik alkalmazást.",
+        "openFileFailedHint": "Ellenőrizze, hogy a fájl még létezik-e, és van-e jogosultsága megnyitni.",
         "chooseFiles": "Fájlok kiválasztása…",
         "queueOrder": "Letöltési sorrend",
         "moveQueueTop": "A sor elejére",

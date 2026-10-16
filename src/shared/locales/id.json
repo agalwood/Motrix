@@ -891,6 +891,8 @@
         "removeMixedTitle": "Hapus {{count}} tugas dari daftar?",
         "openFile": "Buka berkas",
         "openFileFailed": "Berkas tidak dapat dibuka",
+        "openFileAppFailed": "Sistem tidak dapat membuka berkas ini. Pastikan aplikasi default masih terpasang, atau buka folder untuk memilih aplikasi lain.",
+        "openFileFailedHint": "Pastikan berkas masih ada dan Anda memiliki izin untuk membukanya.",
         "chooseFiles": "Pilih berkas…",
         "queueOrder": "Urutan unduhan",
         "moveQueueTop": "Pindahkan ke depan",

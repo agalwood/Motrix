@@ -10,6 +10,7 @@ export enum ErrorCode {
   TaskNotFound = 'TASK_NOT_FOUND',
   TaskRevealFailed = 'TASK_REVEAL_FAILED',
   TaskOpenFailed = 'TASK_OPEN_FAILED',
+  TaskOpenAppFailed = 'TASK_OPEN_APP_FAILED',
   TaskNotRetryable = 'TASK_NOT_RETRYABLE',
   TaskPathTooLong = 'TASK_PATH_TOO_LONG',
   SessionRestoreFailed = 'SESSION_RESTORE_FAILED',

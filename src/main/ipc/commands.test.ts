@@ -1,5 +1,13 @@
 import { createHash } from 'node:crypto'
-import { access, mkdir, mkdtemp, realpath, rm, symlink } from 'node:fs/promises'
+import {
+  access,
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { NOOP_TASK_ACTIVITY_RECORDER } from '@core/activity'
@@ -12,6 +20,7 @@ import { SettingsManager } from '@core/settings/settings-manager'
 import { ErrorCode } from '@shared/errors'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
+import { parseProtocolEnvelope } from '@shared/protocol/errors'
 import { Events } from '@shared/protocol/events'
 import type { AppImageIntegrationView } from '@shared/types/appimage-integration'
 import { CliPackageManager } from '@shared/types/cli-tool'
@@ -75,6 +84,7 @@ const fromWebContentsMock = vi.fn()
 const ipcHandleMock = vi.fn()
 const ipcRemoveHandlerMock = vi.fn()
 const openExternalMock = vi.fn()
+const openPathMock = vi.fn()
 const showOpenDialogMock = vi.fn()
 const showSaveDialogMock = vi.fn()
 vi.mock('electron', () => ({
@@ -92,6 +102,7 @@ vi.mock('electron', () => ({
   },
   shell: {
     openExternal: (...args: unknown[]) => openExternalMock(...args),
+    openPath: (...args: unknown[]) => openPathMock(...args),
     showItemInFolder: vi.fn(),
   },
 }))
@@ -1445,6 +1456,61 @@ describe('buildCommandHandlers', () => {
     )
     expect(ipcRemoveHandlerMock).toHaveBeenCalledWith(Commands.RestartEngine)
   })
+
+  it.each(['opened', 'missing-app', 'missing-file'])(
+    'preserves the Open file outcome across IPC: %s',
+    async (outcome) => {
+      ipcHandleMock.mockReset()
+      openPathMock
+        .mockReset()
+        .mockResolvedValue(
+          outcome === 'missing-app' ? 'No application available' : ''
+        )
+      const directory = await mkdtemp(path.join(tmpdir(), 'motrix-open-file-'))
+      const file = path.join(directory, 'completed.txt')
+      const ctx = fakeCtx()
+      const task = makeDownloadTask({
+        id: 'open-file',
+        status: TaskStatus.Completed,
+        fileCount: 1,
+        diskPath: file,
+        finalPath: file,
+      })
+      const dispose = registerCommandHandlers({
+        ...ctx,
+        taskManager: { ...ctx.taskManager, getById: vi.fn(() => task) },
+      } as unknown as CommandContext)
+      try {
+        if (outcome !== 'missing-file') await writeFile(file, 'completed')
+        const registration = ipcHandleMock.mock.calls.find(
+          ([channel]) => channel === Commands.OpenTaskFile
+        )
+        expect(registration).toBeDefined()
+        const result = await registration?.[1]({}, { taskId: task.id })
+        // The wire must preserve the classification without an Error instance.
+        const wire = JSON.parse(JSON.stringify(result))
+        if (outcome === 'opened') {
+          expect(parseProtocolEnvelope(wire)).toBeNull()
+        } else {
+          expect(() => parseProtocolEnvelope(wire)).toThrow(
+            expect.objectContaining({
+              name: 'TransportError',
+              code:
+                outcome === 'missing-app'
+                  ? ErrorCode.TaskOpenAppFailed
+                  : ErrorCode.TaskOpenFailed,
+            })
+          )
+        }
+        expect(openPathMock).toHaveBeenCalledTimes(
+          outcome === 'missing-file' ? 0 : 1
+        )
+      } finally {
+        dispose()
+        await rm(directory, { recursive: true, force: true })
+      }
+    }
+  )
 
   it('keeps an accepted command inside the shutdown drain', async () => {
     ipcHandleMock.mockReset()

@@ -25,6 +25,7 @@ import {
 import { OperationTaskMenuItems } from '@renderer/features/plugin-operations/operation-task-menu'
 import { openAddTaskDialog } from '@renderer/lib/open-add-task-dialog'
 import { openMagnetFileSelection } from '@renderer/lib/open-magnet-file-selection'
+import { openTaskFile } from '@renderer/lib/open-task-file'
 import { transport } from '@renderer/lib/transport'
 import { CommandIds } from '@shared/commands-catalog'
 import { Commands } from '@shared/protocol/commands'
@@ -264,10 +265,7 @@ export function TaskActionsMenu({
                 disabled={pending}
                 onClick={() =>
                   void runAction(
-                    () =>
-                      transport.invoke(Commands.OpenTaskFile, {
-                        taskId: single.id,
-                      }),
+                    () => openTaskFile(single.id, t),
                     t('panel.downloads.action.openFileFailed')
                   )
                 }

@@ -1,9 +1,12 @@
 import { stat } from 'node:fs/promises'
 import path from 'node:path'
+import { getLogger } from '@core/logger'
 import { AppError, ErrorCode } from '@shared/errors'
 import { openTaskFilePayloadSchema } from '@shared/schemas/open-task-file'
 import type { DownloadTask } from '@shared/types/task'
 import { canOpenTaskFile } from '@shared/types/task-actions'
+
+const log = getLogger('open-task-file')
 
 interface OpenTaskFileDeps {
   shell: { openPath: (path: string) => Promise<string> }
@@ -34,10 +37,12 @@ export function createOpenTaskFileHandler(deps: OpenTaskFileDeps) {
         ErrorCode.IpcInvalidPayload,
         'Invalid task output path'
       )
+    let stage: 'stat' | 'recheck' | 'open' = 'stat'
     try {
       if (!(await stat(outputPath)).isFile())
         throw new Error('Task output is not a file')
       // Check again after the filesystem read in case the task was removed.
+      stage = 'recheck'
       const current = deps.getTask(task.id)
       if (
         !current ||
@@ -45,12 +50,27 @@ export function createOpenTaskFileHandler(deps: OpenTaskFileDeps) {
         (current.finalPath || current.diskPath) !== outputPath
       )
         throw new Error('Task output changed')
+      stage = 'open'
       const error = await deps.shell.openPath(outputPath)
       if (error) throw new Error(error)
     } catch (cause) {
+      log.warn(
+        {
+          err: cause,
+          taskId: task.id,
+          outputPath,
+          finalPath: task.finalPath,
+          diskPath: task.diskPath,
+          stage,
+        },
+        'task_open_failed'
+      )
+      const detail = cause instanceof Error ? cause.message : String(cause)
       throw new AppError(
-        ErrorCode.TaskOpenFailed,
-        'Task output could not be opened',
+        stage === 'open'
+          ? ErrorCode.TaskOpenAppFailed
+          : ErrorCode.TaskOpenFailed,
+        `Task output could not be opened: ${detail}`,
         cause
       )
     }

@@ -850,6 +850,8 @@
         "moveQueueUp": "Monter dans la file",
         "openFile": "Ouvrir le fichier",
         "openFileFailed": "Impossible d’ouvrir le fichier",
+        "openFileAppFailed": "Le système n’a pas pu ouvrir ce fichier. Vérifiez que l’application par défaut est toujours installée ou ouvrez le dossier pour choisir une autre application.",
+        "openFileFailedHint": "Vérifiez que le fichier existe toujours et que vous avez l’autorisation de l’ouvrir.",
         "openFolder": "Ouvrir le dossier",
         "pause": "Mettre en pause",
         "pauseTooltipBatch": "Mettre en pause {{n}} des {{total}} tâches sélectionnées",
