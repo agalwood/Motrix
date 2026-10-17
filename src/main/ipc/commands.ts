@@ -1080,10 +1080,9 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
     [Commands.OpenSettingsDirectory]: async (payload: unknown) => {
       z.undefined().parse(payload)
-      const error = await shell.openPath(
-        path.dirname(settingsManager.getFilePath())
-      )
-      return error === ''
+      shell.showItemInFolder(settingsManager.getFilePath())
+      // The native reveal API does not report a completion result.
+      return true
     },
 
     [Commands.UpdateSettings]: async (partial: unknown) => {
