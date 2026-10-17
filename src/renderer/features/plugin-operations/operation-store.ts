@@ -21,6 +21,7 @@ export const useOperationDialog = create<{
 export interface OperationSession {
   descriptor?: OperationDescriptor
   draft?: OperationDraft
+  draftUpdate?: Promise<string | undefined>
   values?: Record<string, string | number | boolean>
   job?: OperationJob
   key?: string

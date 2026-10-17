@@ -98,6 +98,50 @@ const mount = () =>
       <OperationForm {...request} />
     </PlatformServicesProvider>
   )
+function formatDrafts() {
+  const custom = structuredClone(descriptor)
+  custom.argsSchema.properties!.format = {
+    type: 'string',
+    enum: ['txt', 'md'],
+    default: 'txt',
+  }
+  custom.argsSchema.required!.push('format')
+  custom.definition.fields.push({
+    field: 'format',
+    label: 'Output format',
+    widget: 'segmented',
+  })
+  Object.assign(custom.definition.files!.output, { extensionFrom: 'format' })
+  custom.definition.ui!.layout = {
+    type: 'grid',
+    columns: 2,
+    children: [
+      { type: 'field', field: 'input' },
+      { type: 'field', field: 'ignoreCase' },
+      { type: 'field', field: 'output', span: 2, accessory: 'format' },
+    ],
+  }
+  const current: OperationDraft = {
+    ...structuredClone(draft),
+    descriptor: custom,
+    args: { ...draft.args, format: 'txt' },
+  }
+  const changed: OperationDraft = {
+    ...current,
+    args: { input, ignoreCase: false, format: 'md' },
+    files: { input: current.files.input },
+    suggestions: { output: '/files/output.md' },
+  }
+  const base = invoke.getMockImplementation()
+  invoke.mockImplementation(async (channel, ...args) => {
+    if (channel === Commands.GetPluginOperations)
+      return { descriptors: [custom], jobs: [] }
+    if (channel === Commands.PreparePluginOperation) return current
+    if (channel === Commands.UpdatePluginOperationDraft) return changed
+    return base?.(channel, ...args)
+  })
+  return { current, changed }
+}
 describe('declarative operation form', () => {
   beforeEach(() => {
     useOperationSessions.setState({ sessions: {} })
@@ -531,47 +575,7 @@ describe('declarative operation form', () => {
     ).toHaveLength(1)
   })
   it('composes an inline format control and confirms a changed output before starting', async () => {
-    const custom = structuredClone(descriptor)
-    custom.argsSchema.properties!.format = {
-      type: 'string',
-      enum: ['txt', 'md'],
-      default: 'txt',
-    }
-    custom.argsSchema.required!.push('format')
-    custom.definition.fields.push({
-      field: 'format',
-      label: 'Output format',
-      widget: 'segmented',
-    })
-    Object.assign(custom.definition.files!.output, { extensionFrom: 'format' })
-    custom.definition.ui!.layout = {
-      type: 'grid',
-      columns: 2,
-      children: [
-        { type: 'field', field: 'input' },
-        { type: 'field', field: 'ignoreCase' },
-        { type: 'field', field: 'output', span: 2, accessory: 'format' },
-      ],
-    }
-    const current = {
-      ...structuredClone(draft),
-      descriptor: custom,
-      args: { ...draft.args, format: 'txt' },
-    }
-    const changed = {
-      ...current,
-      args: { input, ignoreCase: false, format: 'md' },
-      files: { input: current.files.input },
-      suggestions: { output: '/files/output.md' },
-    }
-    const base = invoke.getMockImplementation()
-    invoke.mockImplementation(async (channel, ...args) => {
-      if (channel === Commands.GetPluginOperations)
-        return { descriptors: [custom], jobs: [] }
-      if (channel === Commands.PreparePluginOperation) return current
-      if (channel === Commands.UpdatePluginOperationDraft) return changed
-      return base?.(channel, ...args)
-    })
+    const { changed } = formatDrafts()
     const view = mount()
     fireEvent.click(await screen.findByRole('button', { name: 'md' }))
     await screen.findByText('output.md')
@@ -592,6 +596,260 @@ describe('declarative operation form', () => {
     expect(
       invoke.mock.calls.some(
         ([channel]) => channel === Commands.StartPluginOperation
+      )
+    ).toBe(false)
+  })
+  it('keeps file cards and format controls stable during a delayed format update', async () => {
+    const { changed } = formatDrafts()
+    let finish!: (value: OperationDraft) => void
+    const update = new Promise<OperationDraft>((resolve) => {
+      finish = resolve
+    })
+    const base = invoke.getMockImplementation()
+    invoke.mockImplementation(async (channel, ...args) =>
+      channel === Commands.UpdatePluginOperationDraft
+        ? update
+        : base?.(channel, ...args)
+    )
+    const view = mount()
+    const format = await screen.findByRole('button', { name: 'md' })
+    const inputCard = screen.getByRole('button', { name: 'Input file' })
+    const outputCard = screen.getByRole('button', { name: 'Output file' })
+    format.focus()
+    fireEvent.click(format)
+    expect(format).toHaveAttribute('aria-pressed', 'true')
+    expect(format).toHaveFocus()
+    for (const control of [format, inputCard, outputCard])
+      expect(control).toBeEnabled()
+    const run = screen.getByRole('button', { name: 'Run operation' })
+    expect(run).toBeDisabled()
+    fireEvent.submit(run.closest('form')!)
+    expect(
+      invoke.mock.calls.some(
+        ([channel]) => channel === Commands.StartPluginOperation
+      )
+    ).toBe(false)
+    fireEvent.click(screen.getByRole('switch', { name: 'Ignore case' }))
+    await act(async () => finish(changed))
+    expect(screen.getByRole('button', { name: 'Input file' })).toBe(inputCard)
+    expect(screen.getByRole('button', { name: 'Output file' })).toBe(outputCard)
+    expect(screen.getByRole('button', { name: 'md' })).toBe(format)
+    expect(format).toHaveFocus()
+    expect(screen.getByRole('switch', { name: 'Ignore case' })).toBeChecked()
+    expect(outputCard).toHaveTextContent('output.md')
+    expect(view.container.querySelector('[data-slot="skeleton"]')).toBeNull()
+    expect(run).toBeEnabled()
+    expect(
+      useOperationSessions.getState().sessions[operationSessionKey(request)]
+        ?.values
+    ).toEqual({ ...changed.args, ignoreCase: true })
+  })
+  it.each(['resolve', 'reject'] as const)(
+    'serializes rapid format changes and retains the last confirmed draft on %s',
+    async (result) => {
+      const { changed } = formatDrafts()
+      const requests: {
+        resolve(value: OperationDraft): void
+        reject(error: Error): void
+      }[] = []
+      const base = invoke.getMockImplementation()
+      invoke.mockImplementation(async (channel, ...args) =>
+        channel === Commands.UpdatePluginOperationDraft
+          ? new Promise<OperationDraft>((resolve, reject) => {
+              requests.push({ resolve, reject })
+            })
+          : base?.(channel, ...args)
+      )
+      mount()
+      fireEvent.click(await screen.findByRole('button', { name: 'md' }))
+      fireEvent.click(screen.getByRole('button', { name: 'txt' }))
+      expect(requests).toHaveLength(1)
+      expect(screen.getByRole('button', { name: 'txt' })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      )
+      await act(async () => requests[0].resolve(changed))
+      expect(requests).toHaveLength(2)
+      expect(invoke).toHaveBeenLastCalledWith(
+        Commands.UpdatePluginOperationDraft,
+        {
+          draftId: draft.id,
+          values: expect.objectContaining({ format: 'txt' }),
+        }
+      )
+      expect(screen.getByRole('button', { name: 'txt' })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      )
+      expect(
+        screen.getByRole('button', { name: 'Run operation' })
+      ).toBeDisabled()
+      const finalDraft = {
+        ...changed,
+        args: { ...changed.args, format: 'txt' },
+        suggestions: { output: '/files/output.txt' },
+      }
+      await act(async () => {
+        if (result === 'resolve') requests[1].resolve(finalDraft)
+        else requests[1].reject(new Error('pluginOperations.failed'))
+      })
+      const confirmed = result === 'resolve' ? finalDraft : changed
+      expect(
+        screen.getByRole('button', { name: String(confirmed.args.format) })
+      ).toHaveAttribute('aria-pressed', 'true')
+      expect(
+        screen.getByRole('button', { name: 'Output file' })
+      ).toHaveTextContent(`output.${confirmed.args.format}`)
+      expect(
+        useOperationSessions.getState().sessions[operationSessionKey(request)]
+          ?.values
+      ).toEqual(confirmed.args)
+      expect(
+        screen.getByRole('button', { name: 'Run operation' })
+      ).toBeEnabled()
+      if (result === 'reject')
+        expect(screen.getByRole('alert')).toBeInTheDocument()
+    }
+  )
+  it.each(['resolve', 'reject'] as const)(
+    'waits for a format update before picking an output file on %s',
+    async (result) => {
+      const { current, changed } = formatDrafts()
+      let finish!: (value: OperationDraft) => void
+      let fail!: (error: Error) => void
+      const update = new Promise<OperationDraft>((resolve, reject) => {
+        finish = resolve
+        fail = reject
+      })
+      const base = invoke.getMockImplementation()
+      invoke.mockImplementation(async (channel, ...args) =>
+        channel === Commands.UpdatePluginOperationDraft
+          ? update
+          : base?.(channel, ...args)
+      )
+      mount()
+      fireEvent.click(await screen.findByRole('button', { name: 'md' }))
+      fireEvent.click(screen.getByRole('switch', { name: 'Ignore case' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Output file' }))
+      expect(
+        invoke.mock.calls.some(
+          ([channel]) => channel === Commands.PickPluginOperationFile
+        )
+      ).toBe(false)
+      await act(async () => {
+        if (result === 'resolve') finish(changed)
+        else fail(new Error('pluginOperations.failed'))
+      })
+      if (result === 'resolve') {
+        expect(invoke).toHaveBeenCalledWith(Commands.PickPluginOperationFile, {
+          draftId: draft.id,
+          field: 'output',
+          values: { ...changed.args, ignoreCase: true },
+        })
+      } else {
+        expect(
+          invoke.mock.calls.some(
+            ([channel]) => channel === Commands.PickPluginOperationFile
+          )
+        ).toBe(false)
+        expect(screen.getByRole('button', { name: 'txt' })).toHaveAttribute(
+          'aria-pressed',
+          'true'
+        )
+        expect(
+          screen.getByRole('button', { name: 'Output file' })
+        ).toHaveTextContent('output.txt')
+        expect(
+          useOperationSessions.getState().sessions[operationSessionKey(request)]
+            ?.values
+        ).toEqual({ ...current.args, ignoreCase: true })
+        expect(screen.getByRole('alert')).toBeInTheDocument()
+      }
+      expect(screen.getByRole('switch', { name: 'Ignore case' })).toBeChecked()
+      expect(
+        screen.getByRole('button', { name: 'Run operation' })
+      ).toBeEnabled()
+    }
+  )
+  it.each(['resolve', 'reject'] as const)(
+    'reconciles an in-flight format update before reopening the form on %s',
+    async (result) => {
+      const { current, changed } = formatDrafts()
+      let finish!: (value: OperationDraft) => void
+      let fail!: (error: Error) => void
+      const update = new Promise<OperationDraft>((resolve, reject) => {
+        finish = resolve
+        fail = reject
+      })
+      const base = invoke.getMockImplementation()
+      invoke.mockImplementation(async (channel, ...args) =>
+        channel === Commands.UpdatePluginOperationDraft
+          ? update
+          : base?.(channel, ...args)
+      )
+      const first = mount()
+      fireEvent.click(await screen.findByRole('button', { name: 'md' }))
+      fireEvent.click(screen.getByRole('switch', { name: 'Ignore case' }))
+      first.unmount()
+      const reopened = mount()
+      await waitFor(() =>
+        expect(
+          invoke.mock.calls.filter(
+            ([channel]) => channel === Commands.GetPluginOperations
+          )
+        ).toHaveLength(2)
+      )
+      expect(screen.queryByRole('button', { name: 'Run operation' })).toBeNull()
+      expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true')
+      await act(async () => {
+        if (result === 'resolve') finish(changed)
+        else fail(new Error('pluginOperations.fileChanged'))
+      })
+      const expected = result === 'resolve' ? changed : current
+      expect(
+        await screen.findByRole('button', { name: 'Output file' })
+      ).toHaveTextContent(`output.${expected.args.format}`)
+      expect(
+        screen.getByRole('button', { name: String(expected.args.format) })
+      ).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('switch', { name: 'Ignore case' })).toBeChecked()
+      expect(
+        screen.getByRole('button', { name: 'Run operation' })
+      ).toBeEnabled()
+      if (result === 'reject')
+        expect(screen.getByRole('alert')).toHaveTextContent('changed')
+      expect(
+        invoke.mock.calls.filter(
+          ([channel]) => channel === Commands.PreparePluginOperation
+        )
+      ).toHaveLength(1)
+      expect(
+        useOperationSessions.getState().sessions[operationSessionKey(request)]
+          ?.values
+      ).toEqual({ ...expected.args, ignoreCase: true })
+      reopened.unmount()
+    }
+  )
+  it('does not open a queued file picker after the form closes', async () => {
+    const { changed } = formatDrafts()
+    let finish!: (value: OperationDraft) => void
+    const update = new Promise<OperationDraft>((resolve) => {
+      finish = resolve
+    })
+    const base = invoke.getMockImplementation()
+    invoke.mockImplementation(async (channel, ...args) =>
+      channel === Commands.UpdatePluginOperationDraft
+        ? update
+        : base?.(channel, ...args)
+    )
+    const view = mount()
+    fireEvent.click(await screen.findByRole('button', { name: 'md' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Output file' }))
+    view.unmount()
+    await act(async () => finish(changed))
+    expect(
+      invoke.mock.calls.some(
+        ([channel]) => channel === Commands.PickPluginOperationFile
       )
     ).toBe(false)
   })
