@@ -1843,6 +1843,15 @@
         "secret": "Secret RPC",
         "secretDesc": "Necessari per a les connexions RPC.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "Fitxer de configuració",
+        "desktopDescription": "Tanqueu Motrix abans d’editar aquest fitxer.",
+        "serverDescription": "Camí al servidor. Atureu Motrix Server abans d’editar aquest fitxer.",
+        "openDirectory": "Obre la carpeta",
+        "copyPath": "Copia el camí",
+        "copied": "Copiat",
+        "actionFailed": "No s’ha pogut completar l’acció. Torneu-ho a provar."
       }
     },
     "appearance": {

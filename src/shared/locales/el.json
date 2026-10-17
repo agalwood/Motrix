@@ -1824,6 +1824,15 @@
         "secret": "Μυστικό RPC",
         "secretDesc": "Απαιτείται για τις συνδέσεις RPC.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "Αρχείο ρυθμίσεων",
+        "desktopDescription": "Κλείστε το Motrix πριν επεξεργαστείτε αυτό το αρχείο.",
+        "serverDescription": "Διαδρομή στον διακομιστή. Διακόψτε το Motrix Server πριν επεξεργαστείτε αυτό το αρχείο.",
+        "openDirectory": "Άνοιγμα φακέλου",
+        "copyPath": "Αντιγραφή διαδρομής",
+        "copied": "Αντιγράφηκε",
+        "actionFailed": "Η ενέργεια δεν ολοκληρώθηκε. Δοκιμάστε ξανά."
       }
     },
     "appearance": {

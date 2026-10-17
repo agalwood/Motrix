@@ -1843,6 +1843,15 @@
         "secret": "Secret RPC",
         "secretDesc": "Requis pour les connexions RPC.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "Fichier de configuration",
+        "desktopDescription": "Quittez Motrix avant de modifier ce fichier.",
+        "serverDescription": "Chemin sur le serveur. Arrêtez Motrix Server avant de modifier ce fichier.",
+        "openDirectory": "Ouvrir le dossier",
+        "copyPath": "Copier le chemin",
+        "copied": "Copié",
+        "actionFailed": "L’action n’a pas pu être effectuée. Réessayez."
       }
     },
     "appearance": {

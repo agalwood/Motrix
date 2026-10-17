@@ -182,6 +182,9 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
       createDirectoryPreferencesHandlers(settingsManager).get,
 
     [Queries.GetSystemAccentColor]: async () => getSystemAccentColor(),
+    [Queries.GetSettingsFileLocation]: async () => ({
+      path: settingsManager.getFilePath(),
+    }),
     [Queries.GetSettings]: async () => {
       return {
         ...settingsManager.get(),

@@ -1376,7 +1376,16 @@
         "historyCountHint": "Более старые записи восстановления удаляются.",
         "historyCountPositive": "Введите число больше 0."
       },
-      "description": "RPC, прогресс и восстановление"
+      "description": "RPC, прогресс и восстановление",
+      "configFile": {
+        "title": "Файл настроек",
+        "desktopDescription": "Закройте Motrix перед редактированием этого файла.",
+        "serverDescription": "Путь на сервере. Остановите Motrix Server перед редактированием этого файла.",
+        "openDirectory": "Открыть папку",
+        "copyPath": "Копировать путь",
+        "copied": "Скопировано",
+        "actionFailed": "Не удалось выполнить действие. Повторите попытку."
+      }
     },
     "about": {
       "appIconAlt": "Значок приложения Motrix",

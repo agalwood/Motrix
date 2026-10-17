@@ -1862,6 +1862,15 @@
         "secret": "Секрет RPC",
         "secretDesc": "Потрібен для RPC-з'єднань.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "Файл налаштувань",
+        "desktopDescription": "Закрийте Motrix перед редагуванням цього файлу.",
+        "serverDescription": "Шлях на сервері. Зупиніть Motrix Server перед редагуванням цього файлу.",
+        "openDirectory": "Відкрити теку",
+        "copyPath": "Копіювати шлях",
+        "copied": "Скопійовано",
+        "actionFailed": "Не вдалося виконати дію. Спробуйте ще раз."
       }
     },
     "appearance": {

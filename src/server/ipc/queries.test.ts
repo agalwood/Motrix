@@ -165,6 +165,20 @@ function makeCtx(over: Record<string, unknown> = {}) {
 }
 
 describe('buildServerQueryHandlers — allowed save directories', () => {
+  it('returns the server settings path for custom profiles', async () => {
+    const handlers = buildServerQueryHandlers(
+      makeCtx({
+        userDataDir: '/data',
+        settingsManager: { getFilePath: () => '/config/settings.json' },
+      }) as unknown as ServerQueryContext
+    )
+    await expect(
+      handlers[Queries.GetSettingsFileLocation]?.()
+    ).resolves.toEqual({
+      path: '/config/settings.json',
+    })
+  })
+
   it('returns the same committed system locale for settings and onboarding', async () => {
     const settings = { app: { language: 'system' } }
     const handlers = buildServerQueryHandlers(

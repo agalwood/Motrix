@@ -1348,7 +1348,16 @@
         "historyCountHint": "A régebbi helyreállítási bejegyzések törlődnek.",
         "historyCountPositive": "Adj meg 0-nál nagyobb számot."
       },
-      "description": "RPC, előrehaladás és helyreállítás"
+      "description": "RPC, előrehaladás és helyreállítás",
+      "configFile": {
+        "title": "Konfigurációs fájl",
+        "desktopDescription": "A fájl szerkesztése előtt lépj ki a Motrixból.",
+        "serverDescription": "Elérési út a szerveren. A fájl szerkesztése előtt állítsd le a Motrix Servert.",
+        "openDirectory": "Mappa megnyitása",
+        "copyPath": "Útvonal másolása",
+        "copied": "Másolva",
+        "actionFailed": "A művelet nem sikerült. Próbáld újra."
+      }
     },
     "about": {
       "appIconAlt": "Motrix alkalmazásikon",

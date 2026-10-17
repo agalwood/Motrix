@@ -1348,7 +1348,16 @@
         "historyCountHint": "Ältere Wiederherstellungsdatensätze werden entfernt.",
         "historyCountPositive": "Geben Sie eine Zahl größer als 0 ein."
       },
-      "description": "RPC, Fortschritt und Wiederherstellung"
+      "description": "RPC, Fortschritt und Wiederherstellung",
+      "configFile": {
+        "title": "Konfigurationsdatei",
+        "desktopDescription": "Beende Motrix, bevor du diese Datei bearbeitest.",
+        "serverDescription": "Pfad auf dem Server. Stoppe Motrix Server, bevor du diese Datei bearbeitest.",
+        "openDirectory": "Ordner öffnen",
+        "copyPath": "Pfad kopieren",
+        "copied": "Kopiert",
+        "actionFailed": "Die Aktion konnte nicht abgeschlossen werden. Versuche es erneut."
+      }
     },
     "about": {
       "appIconAlt": "Motrix-App-Symbol",

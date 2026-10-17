@@ -1824,6 +1824,15 @@
         "secret": "RPC таен код",
         "secretDesc": "Необходим за RPC връзки.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "Файл с настройки",
+        "desktopDescription": "Затворете Motrix, преди да редактирате този файл.",
+        "serverDescription": "Път на сървъра. Спрете Motrix Server, преди да редактирате този файл.",
+        "openDirectory": "Отваряне на папката",
+        "copyPath": "Копиране на пътя",
+        "copied": "Копирано",
+        "actionFailed": "Действието не бе завършено. Опитайте отново."
       }
     },
     "appearance": {

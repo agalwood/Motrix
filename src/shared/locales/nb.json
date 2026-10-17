@@ -1824,6 +1824,15 @@
         "secret": "RPC-hemmelighet",
         "secretDesc": "Kreves for RPC-tilkoblinger.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "Konfigurasjonsfil",
+        "desktopDescription": "Avslutt Motrix før du redigerer denne filen.",
+        "serverDescription": "Sti på serveren. Stopp Motrix Server før du redigerer denne filen.",
+        "openDirectory": "Åpne mappe",
+        "copyPath": "Kopier sti",
+        "copied": "Kopiert",
+        "actionFailed": "Handlingen kunne ikke fullføres. Prøv igjen."
       }
     },
     "appearance": {

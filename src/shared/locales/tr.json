@@ -1348,7 +1348,16 @@
         "historyCountHint": "Daha eski kurtarma kayıtları kaldırılır.",
         "historyCountPositive": "0’dan büyük bir sayı girin."
       },
-      "description": "RPC, ilerleme ve kurtarma"
+      "description": "RPC, ilerleme ve kurtarma",
+      "configFile": {
+        "title": "Yapılandırma dosyası",
+        "desktopDescription": "Bu dosyayı düzenlemeden önce Motrix’i kapatın.",
+        "serverDescription": "Sunucudaki yol. Bu dosyayı düzenlemeden önce Motrix Server’ı durdurun.",
+        "openDirectory": "Klasörü aç",
+        "copyPath": "Yolu kopyala",
+        "copied": "Kopyalandı",
+        "actionFailed": "İşlem tamamlanamadı. Tekrar deneyin."
+      }
     },
     "about": {
       "appIconAlt": "Motrix uygulama simgesi",

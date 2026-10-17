@@ -215,6 +215,18 @@ function makeFakeCtx() {
 }
 
 describe('desktop-only FFmpeg installation boundary', () => {
+  it('does not open a server settings directory through web commands', async () => {
+    const handlers = buildServerCommandHandlers(
+      makeFakeCtx() as ServerCommandContext
+    )
+    await expect(handlers[Commands.OpenSettingsDirectory]?.()).resolves.toBe(
+      false
+    )
+    await expect(
+      handlers[Commands.OpenSettingsDirectory]?.({ path: '/tmp' })
+    ).rejects.toThrow()
+  })
+
   it('does not install server executables through web commands', async () => {
     const handlers = buildServerCommandHandlers(
       makeFakeCtx() as ServerCommandContext

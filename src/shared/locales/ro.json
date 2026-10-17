@@ -1843,6 +1843,15 @@
         "secret": "Secret RPC",
         "secretDesc": "Necesar pentru conexiunile RPC.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "Fișier de configurare",
+        "desktopDescription": "Închide Motrix înainte de a edita acest fișier.",
+        "serverDescription": "Cale pe server. Oprește Motrix Server înainte de a edita acest fișier.",
+        "openDirectory": "Deschide dosarul",
+        "copyPath": "Copiază calea",
+        "copied": "Copiat",
+        "actionFailed": "Acțiunea nu a putut fi finalizată. Încearcă din nou."
       }
     },
     "appearance": {

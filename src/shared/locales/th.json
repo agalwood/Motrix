@@ -1805,6 +1805,15 @@
         "secret": "ข้อมูลลับ RPC",
         "secretDesc": "จำเป็นสำหรับการเชื่อมต่อ RPC",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "ไฟล์การตั้งค่า",
+        "desktopDescription": "ปิด Motrix ให้สมบูรณ์ก่อนแก้ไขไฟล์นี้",
+        "serverDescription": "พาธบนเซิร์ฟเวอร์ โปรดหยุด Motrix Server ก่อนแก้ไขไฟล์นี้",
+        "openDirectory": "เปิดโฟลเดอร์",
+        "copyPath": "คัดลอกพาธ",
+        "copied": "คัดลอกแล้ว",
+        "actionFailed": "ดำเนินการไม่สำเร็จ โปรดลองอีกครั้ง"
       }
     },
     "appearance": {

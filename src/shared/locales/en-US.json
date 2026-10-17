@@ -1348,7 +1348,16 @@
         "historyCountHint": "Older recovery records are removed.",
         "historyCountPositive": "Enter a number greater than 0."
       },
-      "description": "RPC, progress and recovery"
+      "description": "RPC, progress and recovery",
+      "configFile": {
+        "title": "Configuration file",
+        "desktopDescription": "Quit Motrix before editing this file.",
+        "serverDescription": "Path on the server. Stop Motrix Server before editing this file.",
+        "openDirectory": "Open folder",
+        "copyPath": "Copy path",
+        "copied": "Copied",
+        "actionFailed": "Couldn’t complete the action. Try again."
+      }
     },
     "about": {
       "appIconAlt": "Motrix app icon",

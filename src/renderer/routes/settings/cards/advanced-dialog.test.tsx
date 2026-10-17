@@ -45,6 +45,8 @@ describe('<AdvancedDialog>', () => {
     vi.mocked(transport.invoke).mockReset()
     vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {
       if (channel === Queries.GetSettings) return SETTINGS_FIXTURE
+      if (channel === Queries.GetSettingsFileLocation)
+        return { path: '/profile/settings.json' }
       return { saved: true, requiresRestart: false, changedRestartKeys: [] }
     })
   })

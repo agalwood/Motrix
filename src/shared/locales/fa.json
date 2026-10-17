@@ -1824,6 +1824,15 @@
         "secret": "رمز محرمانهٔ RPC",
         "secretDesc": "برای اتصال‌های RPC لازم است.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "فایل تنظیمات",
+        "desktopDescription": "پیش از ویرایش این فایل، Motrix را کاملاً ببندید.",
+        "serverDescription": "مسیر روی سرور است. پیش از ویرایش این فایل، Motrix Server را متوقف کنید.",
+        "openDirectory": "باز کردن پوشه",
+        "copyPath": "کپی مسیر",
+        "copied": "کپی شد",
+        "actionFailed": "عملیات انجام نشد. دوباره تلاش کنید."
       }
     },
     "appearance": {

@@ -1334,7 +1334,16 @@
         "historyCountHint": "較早的恢復記錄會被移除。",
         "historyCountPositive": "請輸入大於 0 的數量。"
       },
-      "description": "RPC、進度與恢復"
+      "description": "RPC、進度與恢復",
+      "configFile": {
+        "title": "設定檔",
+        "desktopDescription": "編輯此檔案前，請完全結束 Motrix。",
+        "serverDescription": "這是伺服器端的路徑。編輯此檔案前，請停止 Motrix Server。",
+        "openDirectory": "開啟所在資料夾",
+        "copyPath": "複製路徑",
+        "copied": "已複製",
+        "actionFailed": "操作未完成，請重試。"
+      }
     },
     "about": {
       "appIconAlt": "Motrix 應用程式圖示",

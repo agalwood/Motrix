@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import type { AppSettings } from '@shared/types/settings'
@@ -51,6 +52,7 @@ test('narrow settings keep readable cards and scroll within the panel', async ({
 
 test('moved settings preserve draft, cancel and save behavior in the desktop host', async ({
   mainWindow: page,
+  userDataDir,
 }, testInfo) => {
   await waitForEngineReady(page)
   const read = () =>
@@ -128,6 +130,15 @@ test('moved settings preserve draft, cancel and save behavior in the desktop hos
   expect((await read()).geoip.enabled).toBe(!before.geoip.enabled)
   expect((await read()).engine.magnetResolveTimeout).toBe(900)
   await open('Advanced')
+  const settingsFile = page.getByRole('textbox', {
+    name: 'Configuration file',
+  })
+  await expect(settingsFile).toHaveValue(
+    path.join(userDataDir, 'settings.json')
+  )
+  await expect(settingsFile).toHaveAttribute('readonly')
+  await expect(page.getByRole('button', { name: 'Open folder' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Copy path' })).toHaveCount(0)
   const retention = page.getByRole('combobox', {
     name: 'Completed recovery records',
   })

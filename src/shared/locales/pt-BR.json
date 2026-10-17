@@ -1362,7 +1362,16 @@
         "historyCountHint": "Os registros de recuperação mais antigos são removidos.",
         "historyCountPositive": "Digite um número maior que 0."
       },
-      "description": "RPC, progresso e recuperação"
+      "description": "RPC, progresso e recuperação",
+      "configFile": {
+        "title": "Arquivo de configuração",
+        "desktopDescription": "Encerre o Motrix antes de editar este arquivo.",
+        "serverDescription": "Caminho no servidor. Pare o Motrix Server antes de editar este arquivo.",
+        "openDirectory": "Abrir pasta",
+        "copyPath": "Copiar caminho",
+        "copied": "Copiado",
+        "actionFailed": "Não foi possível concluir a ação. Tente novamente."
+      }
     },
     "about": {
       "appIconAlt": "Ícone do aplicativo Motrix",

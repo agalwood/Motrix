@@ -1900,6 +1900,15 @@
         "secret": "رمز RPC السري",
         "secretDesc": "مطلوب لاتصالات RPC.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "ملف الإعدادات",
+        "desktopDescription": "أغلق Motrix بالكامل قبل تعديل هذا الملف.",
+        "serverDescription": "المسار على الخادم. أوقف Motrix Server قبل تعديل هذا الملف.",
+        "openDirectory": "فتح المجلد",
+        "copyPath": "نسخ المسار",
+        "copied": "تم النسخ",
+        "actionFailed": "تعذّر إكمال العملية. حاول مرة أخرى."
       }
     },
     "appearance": {

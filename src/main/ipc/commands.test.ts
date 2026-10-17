@@ -315,6 +315,26 @@ function fakeCtx() {
 }
 
 describe('buildCommandHandlers', () => {
+  it('opens only the active settings directory and reports shell failures', async () => {
+    const ctx = fakeCtx()
+    const handler = buildCommandHandlers({
+      ...ctx,
+      settingsManager: {
+        ...ctx.settingsManager,
+        getFilePath: () => '/custom profile/settings.json',
+      },
+    } as unknown as CommandContext)[Commands.OpenSettingsDirectory]!
+    openPathMock.mockReset().mockResolvedValue('')
+    await expect(handler({ path: '/unrelated' })).rejects.toThrow()
+    expect(openPathMock).not.toHaveBeenCalled()
+    await expect(handler()).resolves.toBe(true)
+    expect(openPathMock).toHaveBeenCalledExactlyOnceWith('/custom profile')
+    openPathMock.mockResolvedValueOnce('No file manager available')
+    await expect(handler()).resolves.toBe(false)
+    openPathMock.mockRejectedValueOnce(new Error('Shell unavailable'))
+    await expect(handler()).rejects.toThrow('Shell unavailable')
+  })
+
   it('downloads registry packages through the injected plugin transport and serializes failures', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'plugin-network-command-'))
     try {

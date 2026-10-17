@@ -1824,6 +1824,15 @@
         "secret": "RPC-geheim",
         "secretDesc": "Vereist voor RPC-verbindingen.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "Configuratiebestand",
+        "desktopDescription": "Sluit Motrix af voordat je dit bestand bewerkt.",
+        "serverDescription": "Pad op de server. Stop Motrix Server voordat je dit bestand bewerkt.",
+        "openDirectory": "Map openen",
+        "copyPath": "Pad kopiëren",
+        "copied": "Gekopieerd",
+        "actionFailed": "De actie kon niet worden voltooid. Probeer het opnieuw."
       }
     },
     "appearance": {
