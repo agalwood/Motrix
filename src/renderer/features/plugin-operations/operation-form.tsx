@@ -28,6 +28,14 @@ import { useOperationState } from './use-operation-state'
 
 type OperationFormProps = OperationRequest & { onClose?: () => void }
 
+function operationErrorKey(error: unknown): string {
+  return (
+    (error instanceof Error ? error.message : String(error)).match(
+      /pluginOperations\.[A-Za-z]+/
+    )?.[0] ?? 'pluginOperations.failed'
+  )
+}
+
 export default function OperationForm(props: OperationFormProps) {
   const { t } = useTranslation()
   const { snapshot, failed, retry } = useOperationState()
@@ -105,6 +113,9 @@ function OperationFormContent({
   const [draft, setDraft] = useState<OperationDraft | undefined>(session.draft)
   const [job, setJob] = useState<OperationJob | undefined>(session?.job)
   const [pending, setPending] = useState(false)
+  const [updatingDraft, setUpdatingDraft] = useState(false)
+  const [resumingDraft, setResumingDraft] = useState(!!session.draftUpdate)
+  const draftUpdate = useRef(session.draftUpdate ?? null)
   const [starting, setStarting] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const cancelRequested = useRef(false)
@@ -134,15 +145,7 @@ function OperationFormContent({
     },
     [sessionKey, loadedDescriptor.descriptorRevision]
   )
-  const report = useCallback(
-    (e: unknown) =>
-      setError(
-        (e instanceof Error ? e.message : String(e)).match(
-          /pluginOperations\.[A-Za-z]+/
-        )?.[0] ?? 'pluginOperations.failed'
-      ),
-    []
-  )
+  const report = useCallback((e: unknown) => setError(operationErrorKey(e)), [])
   const prepare = useCallback(
     async (repeatJobId?: string, resume = false) => {
       if (inFlight.current) return
@@ -221,9 +224,23 @@ function OperationFormContent({
       ...session,
       descriptor: loadedDescriptor,
     })
+    if (session.draftUpdate) {
+      // A closed form can still be updating the host. Reopen only after its
+      // confirmed file references and latest values have reached the session.
+      void session.draftUpdate.then((failure) => {
+        if (!mounted.current) return
+        const latest = useOperationSessions.getState().sessions[sessionKey]
+        setDraft(latest?.draft)
+        form.reset(latest?.values ?? latest?.draft?.args ?? {})
+        draftUpdate.current = null
+        setResumingDraft(false)
+        if (failure) report(failure)
+      })
+      return
+    }
     if ((!draft || draft.expiresAt < Date.now()) && !job)
       void prepare(undefined, true)
-  }, [draft, job, loadedDescriptor, prepare, session, sessionKey])
+  }, [draft, form, job, loadedDescriptor, prepare, report, session, sessionKey])
   // Localization updates presentation without changing the revision or grants.
   useEffect(() => {
     save({ descriptor: loadedDescriptor })
@@ -274,35 +291,71 @@ function OperationFormContent({
   }
   const change = (field: string, value: string | number | boolean) => {
     if (!draft || inFlight.current) return
-    const previous = form.getValues()
+    if (form.getValues(field) === value) return
     form.setValue(field, value, { shouldDirty: true })
     save({ key: undefined })
-    if (
-      !Object.values(draft.descriptor.definition.files ?? {}).some(
-        (f) => f.kind === 'output-file' && f.extensionFrom === field
-      )
+    const files = draft.descriptor.definition.files ?? {}
+    const extensionFields = Object.values(files).flatMap((binding) =>
+      binding.kind === 'output-file' && binding.extensionFrom
+        ? [binding.extensionFrom]
+        : []
     )
-      return
-    inFlight.current = true
-    setPending(true)
-    void invokeOperation<OperationDraft>(Commands.UpdatePluginOperationDraft, {
-      draftId: draft.id,
-      values: form.getValues(),
-    })
-      .then(acceptDraft)
-      .catch((e) => {
-        if (mounted.current) {
-          form.reset(previous)
-          report(e)
+    if (!extensionFields.includes(field) || draftUpdate.current) return
+
+    // Synchronize formats without flashing the whole form's disabled styles.
+    // Each response must settle before another update touches the host draft.
+    setUpdatingDraft(true)
+    setError('')
+    draftUpdate.current = (async () => {
+      let confirmed = draft
+      try {
+        let submitted: typeof values
+        do {
+          submitted = { ...form.getValues() }
+          confirmed = await invokeOperation<OperationDraft>(
+            Commands.UpdatePluginOperationDraft,
+            { draftId: draft.id, values: submitted }
+          )
+        } while (
+          extensionFields.some((key) => form.getValues(key) !== submitted[key])
+        )
+        return undefined
+      } catch (e) {
+        if (mounted.current) report(e)
+        return operationErrorKey(e)
+      } finally {
+        // Keep unrelated edits made during the request. File references and
+        // their formats always come from the last confirmed host draft.
+        const nextValues = { ...form.getValues() }
+        for (const key of [...Object.keys(files), ...extensionFields]) {
+          delete nextValues[key]
+          if (confirmed.args[key] !== undefined)
+            nextValues[key] = confirmed.args[key]
         }
-      })
-      .finally(() => {
-        inFlight.current = false
-        if (mounted.current) setPending(false)
-      })
+        if (mounted.current) {
+          setDraft(confirmed)
+          form.reset(nextValues, {
+            keepErrors: true,
+            keepDirty: true,
+            keepTouched: true,
+          })
+          setUpdatingDraft(false)
+        }
+        save({
+          draft: confirmed,
+          draftUpdate: undefined,
+          values: nextValues,
+          key: undefined,
+        })
+        draftUpdate.current = null
+      }
+    })()
+    save({ draftUpdate: draftUpdate.current })
   }
   const pick = async (field: string, dropCandidate?: string) => {
     if (!draft) return null
+    if (draftUpdate.current && (await draftUpdate.current)) return null
+    if (!mounted.current) return null
     const params = { draftId: draft.id, field, values: form.getValues() }
     let next: OperationDraft | null
     if (__MOTRIX_TARGET__ === 'electron')
@@ -327,7 +380,7 @@ function OperationFormContent({
     return next
   }
   const start = form.handleSubmit(async (values) => {
-    if (!draft || inFlight.current || job) return
+    if (!draft || inFlight.current || draftUpdate.current || job) return
     inFlight.current = true
     cancelRequested.current = false
     setStarting(true)
@@ -421,7 +474,8 @@ function OperationFormContent({
         draft.descriptor.descriptorRevision)
       ? loadedDescriptor
       : draft?.descriptor
-  if (!draft && !job && !starting && pending) return <OperationSkeleton />
+  if (resumingDraft || (!draft && !job && !starting && pending))
+    return <OperationSkeleton />
   if (!descriptor || (!draft && !job && !starting))
     return (
       <div role="status" className="space-y-3">
@@ -570,6 +624,7 @@ function OperationFormContent({
                 type="submit"
                 disabled={
                   blocked ||
+                  updatingDraft ||
                   descriptor.argsSchema.required?.some(
                     (field) =>
                       !values[field] &&
