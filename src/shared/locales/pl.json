@@ -1376,7 +1376,15 @@
         "historyCountHint": "Starsze zapisy odzyskiwania są usuwane.",
         "historyCountPositive": "Wpisz liczbę większą od 0."
       },
-      "description": "RPC, postęp i odzyskiwanie"
+      "description": "RPC, postęp i odzyskiwanie",
+      "configFile": {
+        "title": "Plik konfiguracji",
+        "serverTitle": "Plik konfiguracji serwera",
+        "openDirectory": "Otwórz folder",
+        "copyPath": "Kopiuj ścieżkę",
+        "copied": "Skopiowano",
+        "actionFailed": "Nie udało się wykonać czynności. Spróbuj ponownie."
+      }
     },
     "about": {
       "appIconAlt": "Ikona aplikacji Motrix",

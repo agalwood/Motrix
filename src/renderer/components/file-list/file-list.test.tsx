@@ -87,11 +87,8 @@ describe('FileList', () => {
 
     expect(screen.getByText('File type')).toBeInTheDocument()
     for (const [path, extension] of cases) {
-      const row = screen.getByText(path).parentElement!
-      expect(within(row).getByText(extension)).toHaveAttribute(
-        'title',
-        extension
-      )
+      const row = screen.getByRole('checkbox', { name: path }).parentElement!
+      expect(within(row).getByTitle(extension)).toHaveTextContent(extension)
     }
   })
 
@@ -120,7 +117,7 @@ describe('FileList', () => {
       />
     )
 
-    const fileName = screen.getByText(path)
+    const fileName = screen.getByTitle(path)
     expect(fileName).toHaveAttribute('dir', 'auto')
     expect(fileName).not.toHaveClass('[direction:rtl]')
   })

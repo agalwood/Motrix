@@ -1824,6 +1824,14 @@
         "secret": "RPC таен код",
         "secretDesc": "Необходим за RPC връзки.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "Файл с настройки",
+        "serverTitle": "Файл с настройки на сървъра",
+        "openDirectory": "Отваряне на папката",
+        "copyPath": "Копиране на пътя",
+        "copied": "Копирано",
+        "actionFailed": "Действието не бе завършено. Опитайте отново."
       }
     },
     "appearance": {

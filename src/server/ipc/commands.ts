@@ -407,6 +407,10 @@ export function buildServerCommandHandlers(
   return {
     ...(ctx.operationService ? operationHandlers(ctx.operationService) : {}),
     ...unsupportedLegacyImportCommands(),
+    [Commands.OpenSettingsDirectory]: async (payload: unknown) => {
+      z.undefined().parse(payload)
+      return false
+    },
     [Commands.InstallFfmpeg]: async (payload: unknown) => {
       z.undefined().parse(payload)
       return { ok: false, error: 'unsupported' }

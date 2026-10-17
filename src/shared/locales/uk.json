@@ -1862,6 +1862,14 @@
         "secret": "Секрет RPC",
         "secretDesc": "Потрібен для RPC-з'єднань.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "Файл налаштувань",
+        "serverTitle": "Файл налаштувань сервера",
+        "openDirectory": "Відкрити теку",
+        "copyPath": "Копіювати шлях",
+        "copied": "Скопійовано",
+        "actionFailed": "Не вдалося виконати дію. Спробуйте ще раз."
       }
     },
     "appearance": {

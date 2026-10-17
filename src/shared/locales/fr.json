@@ -1843,6 +1843,14 @@
         "secret": "Secret RPC",
         "secretDesc": "Requis pour les connexions RPC.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "Fichier de configuration",
+        "serverTitle": "Fichier de configuration du serveur",
+        "openDirectory": "Ouvrir le dossier",
+        "copyPath": "Copier le chemin",
+        "copied": "Copié",
+        "actionFailed": "L’action n’a pas pu être effectuée. Réessayez."
       }
     },
     "appearance": {

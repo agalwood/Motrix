@@ -17,6 +17,7 @@ export const Queries = {
   GetDirectoryPreferences: 'query:getDirectoryPreferences',
   ListServerDirectoryLocations: 'query:listServerDirectoryLocations',
   GetSettings: 'query:getSettings',
+  GetSettingsFileLocation: 'query:getSettingsFileLocation',
   GetSystemAccentColor: 'query:getSystemAccentColor',
   GetUpdateState: 'query:getUpdateState',
   GetSystemProxy: 'query:getSystemProxy',

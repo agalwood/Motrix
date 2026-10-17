@@ -1402,7 +1402,15 @@
         "historyCountHint": "较早的恢复记录会被移除。",
         "historyCountPositive": "请输入大于 0 的数量。"
       },
-      "description": "RPC、进度与恢复"
+      "description": "RPC、进度与恢复",
+      "configFile": {
+        "title": "配置文件",
+        "serverTitle": "服务端配置文件",
+        "openDirectory": "打开所在目录",
+        "copyPath": "复制路径",
+        "copied": "已复制",
+        "actionFailed": "操作未完成，请重试。"
+      }
     },
     "bittorrent": {
       "trackers": {

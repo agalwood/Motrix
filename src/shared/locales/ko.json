@@ -1334,7 +1334,15 @@
         "historyCountHint": "오래된 복구 기록은 제거됩니다.",
         "historyCountPositive": "0보다 큰 숫자를 입력하세요."
       },
-      "description": "RPC, 진행 상황 및 복구"
+      "description": "RPC, 진행 상황 및 복구",
+      "configFile": {
+        "title": "설정 파일",
+        "serverTitle": "서버 설정 파일",
+        "openDirectory": "폴더 열기",
+        "copyPath": "경로 복사",
+        "copied": "복사됨",
+        "actionFailed": "작업을 완료하지 못했습니다. 다시 시도하세요."
+      }
     },
     "about": {
       "appIconAlt": "Motrix 앱 아이콘",

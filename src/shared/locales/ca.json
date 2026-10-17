@@ -1843,6 +1843,14 @@
         "secret": "Secret RPC",
         "secretDesc": "Necessari per a les connexions RPC.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "Fitxer de configuració",
+        "serverTitle": "Fitxer de configuració del servidor",
+        "openDirectory": "Obre la carpeta",
+        "copyPath": "Copia el camí",
+        "copied": "Copiat",
+        "actionFailed": "No s’ha pogut completar l’acció. Torneu-ho a provar."
       }
     },
     "appearance": {

@@ -1334,7 +1334,15 @@
         "historyCountHint": "古い復旧記録は削除されます。",
         "historyCountPositive": "0 より大きい数値を入力してください。"
       },
-      "description": "RPC、進捗と復旧"
+      "description": "RPC、進捗と復旧",
+      "configFile": {
+        "title": "設定ファイル",
+        "serverTitle": "サーバー設定ファイル",
+        "openDirectory": "保存先フォルダーを開く",
+        "copyPath": "パスをコピー",
+        "copied": "コピーしました",
+        "actionFailed": "操作を完了できませんでした。もう一度お試しください。"
+      }
     },
     "about": {
       "appIconAlt": "Motrix アプリのアイコン",

@@ -1,3 +1,4 @@
+import { MiddleEllipsis } from '@renderer/components/desktop-kit/middle-ellipsis'
 import {
   CheckIcon,
   ChevronRightIcon,
@@ -274,14 +275,30 @@ export function DirectoryPicker<TFields extends FieldValues>({
             dir={current ? 'ltr' : undefined}
             className="block truncate text-sm font-medium"
           >
-            {filename || placeholder || t('directoryPicker.file.choose')}
+            {filename ? (
+              <MiddleEllipsis
+                text={filename}
+                maxChars={64}
+                className="font-sans!"
+              />
+            ) : (
+              placeholder || t('directoryPicker.file.choose')
+            )}
           </span>
           {description && (save || description !== actionLabel) && (
             <span
               dir={current ? 'ltr' : undefined}
               className="block truncate text-xs leading-5 text-muted-foreground"
             >
-              {description}
+              {directory ? (
+                <MiddleEllipsis
+                  text={directory}
+                  maxChars={64}
+                  className="font-sans!"
+                />
+              ) : (
+                description
+              )}
             </span>
           )}
         </span>
@@ -316,12 +333,11 @@ export function DirectoryPicker<TFields extends FieldValues>({
             </span>
           )}
           {current ? (
-            <span
-              dir="ltr"
-              className="min-w-0 flex-1 truncate text-start text-xs text-foreground"
-            >
-              {current}
-            </span>
+            <MiddleEllipsis
+              text={current}
+              maxChars={64}
+              className="min-w-0 flex-1 text-start font-sans! text-xs text-foreground"
+            />
           ) : (
             <span className="min-w-0 flex-1 truncate text-xs italic text-muted-foreground">
               {placeholder ?? t('settings.common.directoryEmpty')}

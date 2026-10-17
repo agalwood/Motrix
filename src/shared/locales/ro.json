@@ -1843,6 +1843,14 @@
         "secret": "Secret RPC",
         "secretDesc": "Necesar pentru conexiunile RPC.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "Fișier de configurare",
+        "serverTitle": "Fișier de configurare al serverului",
+        "openDirectory": "Deschide dosarul",
+        "copyPath": "Copiază calea",
+        "copied": "Copiat",
+        "actionFailed": "Acțiunea nu a putut fi finalizată. Încearcă din nou."
       }
     },
     "appearance": {

@@ -1824,6 +1824,14 @@
         "secret": "رمز محرمانهٔ RPC",
         "secretDesc": "برای اتصال‌های RPC لازم است.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "فایل تنظیمات",
+        "serverTitle": "فایل تنظیمات سرور",
+        "openDirectory": "باز کردن پوشه",
+        "copyPath": "کپی مسیر",
+        "copied": "کپی شد",
+        "actionFailed": "عملیات انجام نشد. دوباره تلاش کنید."
       }
     },
     "appearance": {

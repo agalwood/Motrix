@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto'
-import { mkdir, readFile } from 'node:fs/promises'
+import { constants } from 'node:fs'
+import { copyFile, mkdir, readFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { getLogger } from '@core/logger'
 import { ENGINE_PERFORMANCE_TUNING_KEYS } from '@shared/constants/engine-performance-profiles'
 import {
   APP_RESTART_REQUIRED_KEYS,
@@ -206,13 +208,25 @@ export class SettingsManager {
     this.onChange = opts?.onChange
   }
 
+  getFilePath(): string {
+    return this.filePath
+  }
+
   async load(): Promise<void> {
+    let raw: string
+    try {
+      raw = await readFile(this.filePath, 'utf-8')
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      await this.initializeDefaultFile()
+      return
+    }
+
     let parsed: Record<string, unknown>
     let seedMissingRpcSecret = true
     let seedMissingSpeedLimit = false
 
     try {
-      const raw = await readFile(this.filePath, 'utf-8')
       const decoded: unknown = JSON.parse(raw)
       if (!isPlainObject(decoded)) {
         throw new Error('settings root must be an object')
@@ -226,13 +240,16 @@ export class SettingsManager {
       seedMissingSpeedLimit = migrated.speedLimit == null
       this.settings = this.buildValidSettings(migrated as Partial<AppSettings>)
     } catch {
-      // File missing, corrupt, or unreadable — use defaults
-      this.settings = createDefaultSettings(
-        this.liquidGlassEffectDefault,
-        this.defaultByteUnitSystem
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+      const backupPath = `${this.filePath}.corrupt-${timestamp}-${randomUUID()}.bak`
+      // Preserve the original bytes before replacing the active file. A failed
+      // backup must leave the original untouched, including on name collision.
+      await copyFile(this.filePath, backupPath, constants.COPYFILE_EXCL)
+      getLogger('settings').warn(
+        { backupPath },
+        'invalid settings file backed up; restoring defaults'
       )
-      this.seedSentinels(true)
-      await this.save()
+      await this.initializeDefaultFile()
       return
     }
 
@@ -246,6 +263,15 @@ export class SettingsManager {
     if (seeded || seedMissingSpeedLimit || versionStale) {
       await this.save()
     }
+  }
+
+  private async initializeDefaultFile(): Promise<void> {
+    this.settings = createDefaultSettings(
+      this.liquidGlassEffectDefault,
+      this.defaultByteUnitSystem
+    )
+    this.seedSentinels(true)
+    await this.save()
   }
 
   private seedSentinels(seedMissingRpcSecret: boolean): boolean {

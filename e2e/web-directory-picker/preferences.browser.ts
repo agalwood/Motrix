@@ -407,7 +407,14 @@ for (const app of [false, true]) {
     const literalPath = parent
       .getByRole('button', { name: 'Change directory', exact: true })
       .locator('span[dir="ltr"]')
-    await expect(literalPath).toHaveText('/downloads/Music')
+    await expect(literalPath).toHaveAttribute('title', '/downloads/Music')
+    expect(
+      (
+        await literalPath
+          .locator(':scope > [aria-hidden="true"]')
+          .allTextContents()
+      ).join('')
+    ).toBe('/downloads/Music')
     await expect(literalPath).toHaveCSS('direction', 'ltr')
     await expect(trigger).toBeFocused()
     expect(await parentSubmissions(page)).toHaveLength(0)
@@ -1036,13 +1043,18 @@ test('narrow Downloads directory fields stay compact with centered rows, full pa
       .filter((rect) => rect.width > 0 && rect.height > 0)
     const centers = children.map((rect) => rect.y + rect.height / 2)
     const text = element.querySelector('[title]') as HTMLElement
+    const visiblePath = [
+      ...text.querySelectorAll(':scope > [aria-hidden="true"]'),
+    ]
+      .map((fragment) => fragment.textContent)
+      .join('')
     return {
       height: element.getBoundingClientRect().height,
       right: element.getBoundingClientRect().right,
       dialogRight:
         element.closest('[role="dialog"]')?.getBoundingClientRect().right ?? 0,
       centerSpread: Math.max(...centers) - Math.min(...centers),
-      truncated: text.scrollWidth > text.clientWidth,
+      truncated: visiblePath.includes('…') && visiblePath !== text.title,
     }
   })
   await test.info().attach('compact-directory-row-metrics', {

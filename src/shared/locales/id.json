@@ -1334,7 +1334,15 @@
         "historyCountHint": "Catatan pemulihan yang lebih lama akan dihapus.",
         "historyCountPositive": "Masukkan angka yang lebih besar dari 0."
       },
-      "description": "RPC, progres, dan pemulihan"
+      "description": "RPC, progres, dan pemulihan",
+      "configFile": {
+        "title": "File konfigurasi",
+        "serverTitle": "File konfigurasi server",
+        "openDirectory": "Buka folder",
+        "copyPath": "Salin lokasi",
+        "copied": "Disalin",
+        "actionFailed": "Tindakan tidak dapat diselesaikan. Coba lagi."
+      }
     },
     "about": {
       "appIconAlt": "Ikon aplikasi Motrix",

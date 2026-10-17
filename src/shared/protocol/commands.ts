@@ -55,6 +55,7 @@ export const Commands = {
   MutateDirectoryPreferences: 'command:mutateDirectoryPreferences',
   SaveGeneralSettings: 'command:saveGeneralSettings',
   UpdateSettings: 'command:updateSettings',
+  OpenSettingsDirectory: 'command:openSettingsDirectory',
   AcceptDisclaimer: 'command:acceptDisclaimer',
   DeclineDisclaimer: 'command:declineDisclaimer',
   SetDisclaimerLanguage: 'command:setDisclaimerLanguage',

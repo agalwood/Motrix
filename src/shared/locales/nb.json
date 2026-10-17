@@ -1824,6 +1824,14 @@
         "secret": "RPC-hemmelighet",
         "secretDesc": "Kreves for RPC-tilkoblinger.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "Konfigurasjonsfil",
+        "serverTitle": "Serverens konfigurasjonsfil",
+        "openDirectory": "Åpne mappe",
+        "copyPath": "Kopier sti",
+        "copied": "Kopiert",
+        "actionFailed": "Handlingen kunne ikke fullføres. Prøv igjen."
       }
     },
     "appearance": {

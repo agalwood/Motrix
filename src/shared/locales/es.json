@@ -1362,7 +1362,15 @@
         "historyCountHint": "Se quitan los registros de recuperación más antiguos.",
         "historyCountPositive": "Introduce un número mayor que 0."
       },
-      "description": "RPC, progreso y recuperación"
+      "description": "RPC, progreso y recuperación",
+      "configFile": {
+        "title": "Archivo de configuración",
+        "serverTitle": "Archivo de configuración del servidor",
+        "openDirectory": "Abrir carpeta",
+        "copyPath": "Copiar ruta",
+        "copied": "Copiado",
+        "actionFailed": "No se pudo completar la acción. Inténtalo de nuevo."
+      }
     },
     "about": {
       "appIconAlt": "Icono de la aplicación Motrix",

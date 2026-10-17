@@ -1805,6 +1805,14 @@
         "secret": "ข้อมูลลับ RPC",
         "secretDesc": "จำเป็นสำหรับการเชื่อมต่อ RPC",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "ไฟล์การตั้งค่า",
+        "serverTitle": "ไฟล์การตั้งค่าเซิร์ฟเวอร์",
+        "openDirectory": "เปิดโฟลเดอร์",
+        "copyPath": "คัดลอกพาธ",
+        "copied": "คัดลอกแล้ว",
+        "actionFailed": "ดำเนินการไม่สำเร็จ โปรดลองอีกครั้ง"
       }
     },
     "appearance": {

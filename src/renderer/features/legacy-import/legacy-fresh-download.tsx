@@ -1,3 +1,4 @@
+import { MiddleEllipsis } from '@renderer/components/desktop-kit/middle-ellipsis'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -102,8 +103,12 @@ export function LegacyFreshDownload({ task }: { task: DownloadTask }) {
             <p className="text-xs leading-5 text-muted-foreground">
               {t('legacyImport.verifyDescription')}
             </p>
-            <p className="break-all text-xs">
-              {availability?.directory ?? task.saveDir}
+            <p className="min-w-0 text-xs">
+              <MiddleEllipsis
+                text={availability?.directory ?? task.saveDir}
+                maxChars={64}
+                className="font-sans!"
+              />
             </p>
             <Button
               size="sm"

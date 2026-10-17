@@ -1078,6 +1078,14 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       }
     ),
 
+    [Commands.OpenSettingsDirectory]: async (payload: unknown) => {
+      z.undefined().parse(payload)
+      const error = await shell.openPath(
+        path.dirname(settingsManager.getFilePath())
+      )
+      return error === ''
+    },
+
     [Commands.UpdateSettings]: async (partial: unknown) => {
       const oldFull = settingsManager.get()
 

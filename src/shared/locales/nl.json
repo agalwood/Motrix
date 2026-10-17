@@ -1824,6 +1824,14 @@
         "secret": "RPC-geheim",
         "secretDesc": "Vereist voor RPC-verbindingen.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "Configuratiebestand",
+        "serverTitle": "Serverconfiguratiebestand",
+        "openDirectory": "Map openen",
+        "copyPath": "Pad kopiëren",
+        "copied": "Gekopieerd",
+        "actionFailed": "De actie kon niet worden voltooid. Probeer het opnieuw."
       }
     },
     "appearance": {
