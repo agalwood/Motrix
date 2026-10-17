@@ -2,6 +2,7 @@ import { TASK_SORT_COLUMNS, type TaskSortColumn } from './sort'
 
 export const TASK_ROW_HEIGHT = 36
 export const TASK_HEADER_HEIGHT = 36
+const TASK_SELECTION_WIDTH = 36
 
 export const TASK_COLUMNS: Record<
   TaskSortColumn,
@@ -38,13 +39,16 @@ export type TaskColumn = ReturnType<typeof defaultTaskColumns>[number]
 
 export function taskGridStyle(columns: readonly TaskColumn[]) {
   return {
-    gridTemplateColumns: columns
+    gridTemplateColumns: `${TASK_SELECTION_WIDTH}px ${columns
       .map((column) =>
         column.id === 'name'
           ? `minmax(${column.width}px, 1fr)`
           : `${column.width}px`
       )
-      .join(' '),
-    minWidth: columns.reduce((sum, column) => sum + column.width, 0) + 24,
+      .join(' ')}`,
+    minWidth:
+      columns.reduce((sum, column) => sum + column.width, 0) +
+      TASK_SELECTION_WIDTH +
+      8,
   }
 }

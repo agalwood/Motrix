@@ -1,5 +1,6 @@
 import { ResizeHandle } from '@renderer/components/desktop-kit/resize-handle'
 import { ChevronDownIcon, ChevronUpIcon } from '@renderer/components/icons'
+import { Checkbox } from '@renderer/components/ui/checkbox'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -28,12 +29,18 @@ export interface TaskColumnHeaderProps {
   sort: TaskSort
   onSort: (column: TaskSortColumn) => void
   columns?: TaskColumn[]
+  headerCheckbox: {
+    checked: boolean
+    indeterminate: boolean
+    onChange: () => void
+  }
 }
 
 export function TaskColumnHeader({
   sort,
   onSort,
   columns = defaultTaskColumns(),
+  headerCheckbox,
 }: TaskColumnHeaderProps) {
   const { t } = useTranslation()
   const direction = useDirection()
@@ -50,11 +57,28 @@ export function TaskColumnHeader({
             role="row"
             tabIndex={-1}
             aria-rowindex={1}
-            className="sticky top-0 z-10 grid h-9 shrink-0 items-center border-b border-border bg-background px-3 text-xs font-medium text-muted-foreground"
+            className="sticky top-0 z-10 grid h-9 shrink-0 items-center border-b border-border bg-background px-1 text-xs font-medium text-muted-foreground"
             style={taskGridStyle(columns)}
           />
         }
       >
+        {/* biome-ignore lint/a11y/useSemanticElements: Selection belongs to the virtual ARIA grid. */}
+        <div
+          role="columnheader"
+          tabIndex={-1}
+          aria-colindex={1}
+          className="flex justify-center"
+        >
+          <Checkbox
+            render={<button type="button" />}
+            nativeButton
+            aria-label={t('menu.task.selectAllTask')}
+            checked={headerCheckbox.checked}
+            indeterminate={headerCheckbox.indeterminate}
+            onCheckedChange={headerCheckbox.onChange}
+            className="relative before:absolute before:-inset-2.5"
+          />
+        </div>
         {columns.map((column, index) => {
           const id = column.id
           const active = effectiveSort.column === id
@@ -76,7 +100,7 @@ export function TaskColumnHeader({
               key={id}
               tabIndex={-1}
               role="columnheader"
-              aria-colindex={index + 1}
+              aria-colindex={index + 2}
               aria-sort={
                 active
                   ? effectiveSort.direction === 'asc'

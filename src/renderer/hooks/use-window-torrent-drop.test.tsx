@@ -77,7 +77,15 @@ describe('useWindowTorrentDrop', () => {
     render(
       <>
         <Harness />
-        <TaskColumnHeader sort={null} onSort={() => {}} />
+        <TaskColumnHeader
+          sort={null}
+          onSort={() => {}}
+          headerCheckbox={{
+            checked: false,
+            indeterminate: false,
+            onChange: () => {},
+          }}
+        />
       </>
     )
     const header = screen.getAllByRole('columnheader')[0]

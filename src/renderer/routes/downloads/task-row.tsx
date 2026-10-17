@@ -1,3 +1,4 @@
+import { Checkbox } from '@renderer/components/ui/checkbox'
 import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { resolveFailureReason } from '@renderer/lib/failure-reason'
 import { formatDurationHMS } from '@renderer/lib/format'
@@ -132,16 +133,33 @@ function TaskRowBase({
       onClick={rowProps.onClick}
       onKeyDown={() => {}}
       title={failure?.technicalDetail ?? undefined}
-      className="downloads-task-row grid h-9 cursor-default select-none items-center px-3 text-xs"
+      className="downloads-task-row grid h-9 cursor-default select-none items-center px-1 text-xs"
       style={taskGridStyle(columns)}
     >
+      {/* biome-ignore lint/a11y/useSemanticElements: Selection belongs to the virtual ARIA grid. */}
+      <div
+        role="gridcell"
+        tabIndex={-1}
+        aria-colindex={1}
+        className="flex justify-center"
+      >
+        <Checkbox
+          render={<button type="button" />}
+          nativeButton
+          aria-label={task.name}
+          checked={rowProps.selected}
+          onCheckedChange={rowProps.onCheckboxChange}
+          onClick={(event) => event.stopPropagation()}
+          className="relative before:absolute before:-inset-2.5"
+        />
+      </div>
       {columns.map((column, columnIndex) => (
         // biome-ignore lint/a11y/useSemanticElements: Grid cells belong to virtual rows rather than a native table.
         <div
           key={column.id}
           tabIndex={-1}
           role="gridcell"
-          aria-colindex={columnIndex + 1}
+          aria-colindex={columnIndex + 2}
           className={cn(
             'min-w-0 overflow-hidden px-2 tabular-nums',
             TASK_COLUMNS[column.id].numeric && 'text-end'
