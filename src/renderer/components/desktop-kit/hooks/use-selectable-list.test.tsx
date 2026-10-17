@@ -138,6 +138,20 @@ describe('useSelectableList', () => {
   })
 
   describe('header checkbox', () => {
+    it('selects the remaining rows when partially selected', () => {
+      render(<TestHarness items={makeItems(3)} />)
+      fireEvent.click(screen.getByTestId('checkbox-1'))
+      const header = screen
+        .getByTestId('header-checkbox')
+        .querySelector('input')!
+      expect(header.indeterminate).toBe(true)
+      fireEvent.click(header)
+      expect(header.checked).toBe(true)
+      expect(header.indeterminate).toBe(false)
+      for (const index of [0, 1, 2]) {
+        expect(screen.getByTestId(`row-${index}`).dataset.selected).toBe('true')
+      }
+    })
     it('selects all when none selected', () => {
       render(<TestHarness items={makeItems(3)} />)
 

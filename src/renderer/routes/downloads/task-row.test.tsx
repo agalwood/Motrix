@@ -158,7 +158,10 @@ describe('TaskRow', () => {
       />
     )
     expect(
-      screen.getAllByRole('gridcell').map((cell) => cell.textContent)
+      screen
+        .getAllByRole('gridcell')
+        .slice(1)
+        .map((cell) => cell.textContent)
     ).toEqual(['', '', ''])
   })
 
@@ -175,7 +178,10 @@ describe('TaskRow', () => {
       />
     )
     expect(
-      screen.getAllByRole('gridcell').map((cell) => cell.textContent)
+      screen
+        .getAllByRole('gridcell')
+        .slice(1)
+        .map((cell) => cell.textContent)
     ).toEqual(['0 B/s', '', '–'])
     expect(screen.getByText('–')).toHaveClass('text-muted-foreground')
   })
@@ -197,7 +203,10 @@ describe('TaskRow', () => {
       />
     )
     expect(
-      screen.getAllByRole('gridcell').map((cell) => cell.textContent)
+      screen
+        .getAllByRole('gridcell')
+        .slice(1)
+        .map((cell) => cell.textContent)
     ).toEqual(['', '1.0 KB/s', ''])
   })
 
@@ -217,7 +226,10 @@ describe('TaskRow', () => {
       />
     )
     expect(
-      screen.getAllByRole('gridcell').map((cell) => cell.textContent)
+      screen
+        .getAllByRole('gridcell')
+        .slice(1)
+        .map((cell) => cell.textContent)
     ).toEqual(['', '', ''])
   })
 
@@ -252,7 +264,7 @@ describe('TaskRow', () => {
   it('uses the same minimum width as the scrollable column header', () => {
     const { container } = render(<TaskRow task={fake()} rowProps={rowProps} />)
 
-    expect(container.firstChild).toHaveStyle({ minWidth: '1362px' })
+    expect(container.firstChild).toHaveStyle({ minWidth: '1382px' })
   })
 
   it('renders localized creation and completion timestamps and refreshes on completion', () => {
