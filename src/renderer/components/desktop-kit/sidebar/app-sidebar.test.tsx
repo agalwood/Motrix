@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import { SidebarProvider } from '@renderer/components/ui/sidebar'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
+import { useLegacyImportSidebar } from '@renderer/features/legacy-import/sidebar-preference'
 import { transport } from '@renderer/lib/transport'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
@@ -23,6 +24,7 @@ vi.mock('@renderer/lib/transport', () => ({
 }))
 
 beforeEach(() => {
+  useLegacyImportSidebar.setState({ dismissed: false })
   vi.mocked(transport.on).mockClear()
   vi.mocked(transport.invoke)
     .mockReset()
@@ -86,7 +88,7 @@ describe('AppSidebar', () => {
     expect(screen.queryByText('Migration')).not.toBeInTheDocument()
   })
 
-  it('keeps detected migration available after an invitation was dismissed', async () => {
+  it('keeps detected migration available after only the automatic invitation was consumed', async () => {
     vi.mocked(transport.invoke).mockImplementation(async (channel) =>
       channel === Queries.GetLegacyImportNavigation
         ? { detected: true, invitationPending: false }
@@ -100,6 +102,25 @@ describe('AppSidebar', () => {
     expect(transport.invoke).not.toHaveBeenCalledWith(
       Queries.DiscoverLegacyImport
     )
+  })
+
+  it('hides migration immediately after explicit skip and keeps it hidden on detection refresh', async () => {
+    vi.mocked(transport.invoke).mockImplementation(async (channel) =>
+      channel === Queries.GetLegacyImportNavigation
+        ? { detected: true, invitationPending: false }
+        : []
+    )
+    render(wrap(<AppSidebar />))
+    expect(await screen.findByText('Migration')).toBeInTheDocument()
+    act(() => useLegacyImportSidebar.getState().dismiss())
+    expect(screen.queryByText('Migration')).not.toBeInTheDocument()
+    const handler = vi
+      .mocked(transport.on)
+      .mock.calls.find(
+        ([event]) => event === Events.LegacyImportNavigationChanged
+      )?.[1]
+    await act(async () => handler?.())
+    expect(screen.queryByText('Migration')).not.toBeInTheDocument()
   })
 
   it('refreshes navigation after desktop detection without reading profile paths', async () => {
