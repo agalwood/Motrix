@@ -28,7 +28,7 @@ export function SettingsCard({
         className
       )}
     >
-      <div className="flex size-10 shrink-0 items-center justify-center transition-[filter] group-active:grayscale-50 @min-[400px]/settings:h-auto @min-[400px]/settings:max-h-18 @min-[400px]/settings:w-auto @min-[400px]/settings:flex-1 @min-[600px]/settings:max-h-none [&_img]:max-h-full [&_img]:max-w-full [&_img]:w-auto @min-[400px]/settings:[&_img]:max-h-16 @min-[600px]/settings:[&_img]:max-h-none">
+      <div className="flex size-10 shrink-0 items-center justify-center transition-[filter] duration-120 ease-out group-active:brightness-65 motion-reduce:transition-none @min-[400px]/settings:h-auto @min-[400px]/settings:max-h-18 @min-[400px]/settings:w-auto @min-[400px]/settings:flex-1 @min-[600px]/settings:max-h-none [&_img]:max-h-full [&_img]:max-w-full [&_img]:w-auto @min-[400px]/settings:[&_img]:max-h-16 @min-[600px]/settings:[&_img]:max-h-none">
         {Icon}
       </div>
       <div className="min-w-0 flex-1 @min-[400px]/settings:min-h-14 @min-[400px]/settings:flex-none @min-[400px]/settings:pt-3 @min-[400px]/settings:ps-1 @min-[600px]/settings:min-h-22.5 @min-[600px]/settings:pt-6">
