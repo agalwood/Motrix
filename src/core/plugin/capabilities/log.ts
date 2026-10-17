@@ -1,15 +1,20 @@
+import { randomUUID } from 'node:crypto'
+import { close, open } from 'node:fs'
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import {
   redactLogFields,
   redactLogText,
   truncateLogText,
 } from '@core/log-redact'
+import { pluginLogSequence } from '@shared/lib/plugin-log-order'
 import {
   PLUGIN_LOG_VERBOSE_TTL_MS,
   type PluginLogState,
 } from '@shared/schemas/plugin-logs'
 import pino, { type DestinationStream, type Logger } from 'pino'
 import type { LogEntry, PluginLogCapability } from './interface'
+import { readPluginLogTail } from './log-history'
 
 export interface LogCapabilityHostOptions {
   pluginLogsDir: string
@@ -21,17 +26,22 @@ export type LogStreamListener = (pluginId: string, entry: LogEntry) => void
 type LogDestination = ReturnType<typeof pino.destination>
 
 interface Per {
-  logger: Logger
-  dest: LogDestination
+  logger?: Logger
+  dest?: LogDestination
   /**
    * Resolves `true` once the destination owns a file descriptor, `false` if it
-   * failed to get one. `pino.destination` creates the parent directories and
-   * opens the file asynchronously, so there is no fd in the tick that builds
-   * it and early entries sit in SonicBoom's in-memory buffer.
+   * failed to get one. Directory creation and opening are asynchronous;
+   * early entries wait until the destination has an owned descriptor.
    */
   opened: Promise<boolean>
+  retryOpen?: () => Promise<boolean>
   ring: LogEntry[]
   verboseUntil: number | null
+  clearing?: Promise<void>
+  queuedWrites: Array<() => void>
+  sequence: number
+  openingWrites: Array<() => void>
+  unavailable: boolean
 }
 
 /**
@@ -42,15 +52,14 @@ interface Per {
  * in-flight async write, so it can return before that chunk lands.
  */
 async function flushDestination(per: Per): Promise<void> {
-  if (!(await per.opened)) return
-  await new Promise<void>((resolve) => {
+  if (!(await per.opened) || !per.dest)
+    throw new Error('Plugin log file is unavailable')
+  const destination = per.dest
+  await new Promise<void>((resolve, reject) => {
     try {
-      per.dest.flush(() => resolve())
-    } catch {
-      // A destroyed or broken destination has nothing left to push. Plugin
-      // logging must never take the host down, so report completion instead
-      // of propagating: the destination's own 'error' path owns that failure.
-      resolve()
+      destination.flush((error) => (error ? reject(error) : resolve()))
+    } catch (error) {
+      reject(error)
     }
   })
 }
@@ -64,35 +73,78 @@ export class LogCapabilityHost {
     this.opts = { ringSize: 100, ...opts }
   }
 
+  private logPath(pluginId: string): string {
+    if (!/^[a-z0-9-]+(?:\.[a-z0-9-]+)*$/.test(pluginId)) {
+      throw new Error('Invalid plugin log identifier')
+    }
+    return path.join(
+      this.opts.pluginLogsDir,
+      pluginId,
+      'logs',
+      'current.ndjson'
+    )
+  }
+
   private getOrCreate(pluginId: string): Per {
     let entry = this.per.get(pluginId)
     if (entry) return entry
-    const dest = pino.destination({
-      dest: path.join(
-        this.opts.pluginLogsDir,
-        pluginId,
-        'logs',
-        'current.ndjson'
+    const file = this.logPath(pluginId)
+    const { entries: ring, needsNewline } = readPluginLogTail(
+      file,
+      this.opts.ringSize
+    )
+    entry = {
+      opened: Promise.resolve(false),
+      ring,
+      verboseUntil: null,
+      queuedWrites: [],
+      openingWrites: [],
+      sequence: Math.max(
+        0,
+        ...ring.map((item) => pluginLogSequence(item) ?? 0)
       ),
-      sync: false,
-      mkdir: true,
-      // Buffering is what makes `flush()` verifiable — SonicBoom's flush(cb)
-      // is a documented no-op while minLength is 0. periodicFlush bounds how
-      // long an entry may sit in memory so someone tailing current.ndjson
-      // still sees output without an explicit flush.
-      minLength: 4096,
-      periodicFlush: 1000,
-    })
-    const logger = pino({ base: undefined }, dest as DestinationStream)
-    // Safe to attach in this tick: with `sync: false` SonicBoom emits 'ready'
-    // (and 'error') from the fs.open callback, which cannot run before this
-    // synchronous block finishes, so neither event can be missed here.
-    const opened = new Promise<boolean>((resolve) => {
-      dest.once('ready', () => resolve(true))
-      dest.once('error', () => resolve(false))
-    })
-    entry = { logger, dest, opened, ring: [], verboseUntil: null }
+      unavailable: false,
+    }
     this.per.set(pluginId, entry)
+    const per = entry
+    per.retryOpen = async () => {
+      try {
+        await fs.mkdir(path.dirname(file), { recursive: true })
+        const fd = await new Promise<number>((resolve, reject) => {
+          open(file, 'a', (error, descriptor) =>
+            error ? reject(error) : resolve(descriptor)
+          )
+        })
+        try {
+          // Create the destination only with an owned descriptor. Otherwise a
+          // failed open leaves SonicBoom's timer and exit hook using fd=-1.
+          const dest = pino.destination({
+            // A numeric string preserves descriptor zero through Pino's defaults.
+            dest: String(fd),
+            sync: false,
+            minLength: 4096,
+            periodicFlush: 1000,
+          })
+          dest.on('error', () => {})
+          per.dest = dest
+          per.logger = pino(
+            { base: undefined, timestamp: false, level: 'trace' },
+            dest as DestinationStream
+          )
+          if (needsNewline) dest.write('\n')
+        } catch (error) {
+          close(fd, () => {})
+          throw error
+        }
+        for (const write of per.openingWrites.splice(0)) write()
+        return true
+      } catch {
+        per.unavailable = true
+        per.openingWrites.length = 0
+        return false
+      }
+    }
+    per.opened = per.retryOpen()
     return entry
   }
 
@@ -118,13 +170,32 @@ export class LogCapabilityHost {
       const safeMessage = verbose ? truncateLogText(msg) : redactLogText(msg)
       const entry: LogEntry = {
         ...safe,
+        entryId: randomUUID(),
+        logSequence: ++per.sequence,
         ts: Date.now(),
         level,
         msg: safeMessage,
       }
       per.ring.push(entry)
       while (per.ring.length > this.opts.ringSize) per.ring.shift()
-      per.logger[level]({ ...safe }, safeMessage)
+      const write = () => {
+        if (per.unavailable) return
+        if (!per.logger) {
+          per.openingWrites.push(write)
+          return
+        }
+        per.logger[level](
+          {
+            ...safe,
+            entryId: entry.entryId,
+            logSequence: entry.logSequence,
+            time: entry.ts,
+          },
+          safeMessage
+        )
+      }
+      if (per.clearing) per.queuedWrites.push(write)
+      else write()
       for (const listener of this.subscribers) {
         try {
           listener(pluginId, entry)
@@ -145,14 +216,33 @@ export class LogCapabilityHost {
   }
 
   getTail(pluginId: string, limit: number): LogEntry[] {
-    const per = this.per.get(pluginId)
-    if (!per) return []
-    return per.ring.slice(-limit)
+    const per = this.getOrCreate(pluginId)
+    const count = Number.isFinite(limit)
+      ? Math.max(0, Math.min(this.opts.ringSize, Math.floor(limit)))
+      : this.opts.ringSize
+    return count === 0 ? [] : per.ring.slice(-count)
   }
 
-  clear(pluginId: string): void {
-    const per = this.per.get(pluginId)
-    if (per) per.ring.length = 0
+  clear(pluginId: string): Promise<void> {
+    const per = this.getOrCreate(pluginId)
+    if (per.clearing) return per.clearing
+    if (per.unavailable && per.retryOpen) {
+      per.unavailable = false
+      per.opened = per.retryOpen()
+    }
+    const previous = new Set(per.ring)
+    const clearing = (async () => {
+      await flushDestination(per)
+      await fs.truncate(this.logPath(pluginId), 0)
+      // Commit the visible clear only after disk success. Entries captured
+      // during the operation remain visible and are written after truncation.
+      per.ring = per.ring.filter((item) => !previous.has(item))
+    })().finally(() => {
+      per.clearing = undefined
+      for (const write of per.queuedWrites.splice(0)) write()
+    })
+    per.clearing = clearing
+    return clearing
   }
 
   setVerbose(pluginId: string, verbose: boolean): void {
@@ -189,6 +279,11 @@ export class LogCapabilityHost {
    * real rather than a timing guess.
    */
   async flush(): Promise<void> {
-    await Promise.all([...this.per.values()].map(flushDestination))
+    await Promise.all(
+      [...this.per.values()].map(async (per) => {
+        await per.clearing
+        await flushDestination(per)
+      })
+    )
   }
 }

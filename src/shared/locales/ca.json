@@ -1362,6 +1362,8 @@
       "advanced": "Avançat",
       "attentionGeneric": "Consulteu els registres per veure'n els detalls.",
       "attentionTitle": "Aquest connector ha notificat un problema",
+      "runtimeStartFailed": "No s’ha pogut iniciar l’entorn d’execució del connector",
+      "runtimeFailed": "L’entorn d’execució del connector s’ha aturat inesperadament",
       "author": "Autor",
       "back": "Tots els connectors",
       "disabled": "Desactivat",
@@ -1569,6 +1571,7 @@
     "lead": "Afegiu petites funcions al Motrix. Manteniu els connectors de confiança i desactiveu la resta.",
     "logs": {
       "clear": "Esborrar",
+      "clearFailed": "No s’han pogut esborrar els registres. Torna-ho a provar.",
       "copy": "Copia els registres amb dades ocultes",
       "empty": "Encara no hi ha entrades al registre",
       "emptyFiltered": "No hi ha entrades d'aquest nivell.",

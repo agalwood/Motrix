@@ -9,6 +9,7 @@ import {
   summarizeHealth,
   truncateOneLine,
 } from '../lib/audience'
+import { pluginErrorTitleKey } from '../lib/plugin-error'
 import { PluginAvatar } from './plugin-avatar'
 
 interface Props {
@@ -103,7 +104,7 @@ export function OverviewSection({ plugin, manifest, onJumpToLogs }: Props) {
         <Alert variant="destructive">
           <div className="flex-1">
             <div className="text-sm font-semibold">
-              {t('plugins.detail.attentionTitle')}
+              {t(pluginErrorTitleKey(plugin.lastError))}
             </div>
             <div className="mt-0.5 text-xs">
               {plugin.lastError ?? t('plugins.detail.attentionGeneric')}

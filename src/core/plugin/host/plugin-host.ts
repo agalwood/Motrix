@@ -141,6 +141,7 @@ interface Active {
 
 interface ActivationAttempt {
   epoch: number
+  errorRecorded: boolean
   cancelled: boolean
   cancellation: Promise<never>
   cancel(reason?: Error): void
@@ -365,6 +366,7 @@ export class PluginHost {
     void cancellation.catch(() => undefined)
     const attempt: ActivationAttempt = {
       epoch,
+      errorRecorded: false,
       cancelled: false,
       cancellation,
       cancel: (reason = this.activationSupersededError(pluginId)) => {
@@ -378,6 +380,23 @@ export class PluginHost {
     // published before registry/capability test doubles can re-enter us.
     const promise = Promise.resolve()
       .then(() => this.doActivate(pluginId, attempt))
+      .catch((error: unknown) => {
+        if (
+          !attempt.errorRecorded &&
+          this.isActivationCurrent(pluginId, attempt) &&
+          !this.shuttingDown &&
+          this.opts.registry.get(pluginId)?.state.enabled &&
+          !this.opts.registry.securityDecision?.(pluginId)
+        ) {
+          const message = error instanceof Error ? error.message : String(error)
+          this.recordError(
+            pluginId,
+            `plugin.runtime.activation_failed: ${message}`
+          )
+          this.opts.registry.refreshState(pluginId)
+        }
+        throw error
+      })
       .finally(() => {
         if (this.activating.get(pluginId) === attempt) {
           this.activating.delete(pluginId)
@@ -480,7 +499,7 @@ export class PluginHost {
         error instanceof AppError &&
         error.code === ErrorCode.PluginCapabilityUnavailable
       ) {
-        this.opts.stateStore.recordError(pluginId, error.message)
+        this.recordError(pluginId, error.message)
         this.opts.registry.refreshState(pluginId)
       }
       throw error
@@ -550,10 +569,7 @@ export class PluginHost {
           this.opts.signingPubkeys
         )
       ) {
-        this.opts.stateStore.recordError(
-          pluginId,
-          'plugin.update.builtin_bad_signature'
-        )
+        this.recordError(pluginId, 'plugin.update.builtin_bad_signature')
         this.opts.registry.refreshState(pluginId)
         throw new AppError(
           ErrorCode.PluginManifestInvalid,
@@ -566,10 +582,7 @@ export class PluginHost {
         readMoextEntry(moextBytes, indexed.manifest.main)
       )
       if (!entryBytes) {
-        this.opts.stateStore.recordError(
-          pluginId,
-          'plugin.update.builtin_bundle_entry_missing'
-        )
+        this.recordError(pluginId, 'plugin.update.builtin_bundle_entry_missing')
         this.opts.registry.refreshState(pluginId)
         throw new AppError(
           ErrorCode.PluginManifestInvalid,
@@ -657,7 +670,7 @@ export class PluginHost {
               ErrorCode.PluginRuntimeFault,
               `plugin.hook.not_registered: ${missingHooks.join(',')}`
             )
-            this.opts.stateStore.recordError(pluginId, error.message)
+            this.recordError(pluginId, error.message)
             this.opts.registry.refreshState(pluginId)
             rejectReady(error)
             return
@@ -685,7 +698,17 @@ export class PluginHost {
           ) {
             return
           }
-          this.opts.stateStore.recordError(pluginId, `${code}: ${message}`)
+          const startupFailure =
+            !this.active.get(pluginId)?.ready &&
+            [
+              'plugin.runtime.worker_crashed',
+              'plugin.runtime.worker_exited',
+              'plugin.runtime.boot_failed',
+            ].includes(code)
+          this.recordError(
+            pluginId,
+            `${startupFailure ? 'plugin.runtime.worker_start_failed' : code}: ${message}`
+          )
           this.opts.registry.refreshState(pluginId)
           const error = new AppError(ErrorCode.PluginRuntimeFault, message)
           rejectReady(error)
@@ -953,6 +976,15 @@ export class PluginHost {
     )
   }
 
+  private recordError(pluginId: string, message: string): void {
+    const attempt = this.activating.get(pluginId)
+    if (attempt) attempt.errorRecorded = true
+    this.opts.stateStore.recordError(pluginId, message)
+    this.opts.capabilityHost
+      .createLog(pluginId)
+      .error(message, { source: 'host' })
+  }
+
   private assertExecutableDigest(
     pluginId: string,
     expected: string | undefined,
@@ -960,10 +992,7 @@ export class PluginHost {
   ): void {
     const actual = createHash('sha256').update(bytes).digest('hex')
     if (!expected || actual !== expected) {
-      this.opts.stateStore.recordError(
-        pluginId,
-        'plugin.runtime.executable_identity_changed'
-      )
+      this.recordError(pluginId, 'plugin.runtime.executable_identity_changed')
       this.opts.registry.refreshState(pluginId)
       throw new AppError(
         ErrorCode.PluginRuntimeFault,
@@ -1259,7 +1288,7 @@ export class PluginHost {
       const previousState = this.opts.stateStore.get(pluginId)
       this.opts.stateStore.setEnabled(pluginId, false)
       if (options.recordError !== false) {
-        this.opts.stateStore.recordError(pluginId, reason)
+        this.recordError(pluginId, reason)
       }
       this.opts.registry.refreshState(pluginId)
       try {
@@ -1299,6 +1328,7 @@ export class PluginHost {
       ...this.deactivating.keys(),
     ])
     await Promise.all([...pluginIds].map((id) => this.deactivate(id)))
+    await this.opts.capabilityHost.flush()
   }
 
   private sweepIdle(): void {

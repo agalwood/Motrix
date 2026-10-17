@@ -1349,6 +1349,8 @@
       "advanced": "Geavanceerd",
       "attentionGeneric": "Bekijk de logboeken voor details.",
       "attentionTitle": "Deze plug-in heeft een probleem gemeld",
+      "runtimeStartFailed": "De uitvoeromgeving van de plug-in kon niet starten",
+      "runtimeFailed": "De uitvoeromgeving van de plug-in is onverwacht gestopt",
       "author": "Auteur",
       "back": "Alle plug-ins",
       "disabled": "Uitgeschakeld",
@@ -1552,6 +1554,7 @@
     "lead": "Voeg kleine functies toe aan Motrix. Laat de plug-ins die je vertrouwt ingeschakeld en schakel de rest uit.",
     "logs": {
       "clear": "Wissen",
+      "clearFailed": "De logboeken konden niet worden gewist. Probeer het opnieuw.",
       "copy": "Geredigeerde logboeken kopiëren",
       "empty": "Nog geen logboekvermeldingen",
       "emptyFiltered": "Geen vermeldingen op dit niveau.",

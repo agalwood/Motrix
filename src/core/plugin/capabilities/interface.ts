@@ -54,7 +54,7 @@ export interface CapabilityHost {
   // ── Plan A ────────────────────────────────────────────────────────────────
   createLog(pluginId: string): PluginLogCapability
   getTail(pluginId: string, limit: number): LogEntry[]
-  clearLog(pluginId: string): void
+  clearLog(pluginId: string): Promise<void> | void
   setLogVerbose(pluginId: string, verbose: boolean): void
   isLogVerbose(pluginId: string): boolean
   getLogState(pluginId: string): PluginLogState
