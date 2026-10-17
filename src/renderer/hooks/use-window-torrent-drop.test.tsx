@@ -1,10 +1,12 @@
-import { render } from '@testing-library/react'
+import '@renderer/lib/i18n'
+import { TaskColumnHeader } from '@renderer/routes/downloads/task-column-header'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWindowTorrentDrop } from './use-window-torrent-drop'
 
 const mocks = vi.hoisted(() => ({
   dialog: { open: false, openWith: vi.fn() },
-  session: { state: 'authenticated' },
+  session: { state: 'authenticated', epoch: 0 },
   notify: vi.fn(),
   readTorrentFile: vi.fn(),
 }))
@@ -28,12 +30,16 @@ function Harness() {
   return null
 }
 
-function drop(files: File[], types: string[] = ['Files']) {
+function drop(
+  files: File[],
+  types: string[] = ['Files'],
+  target: EventTarget = window
+) {
   const event = new Event('drop', { bubbles: true, cancelable: true })
   Object.defineProperty(event, 'dataTransfer', {
     value: { files, types },
   })
-  window.dispatchEvent(event)
+  target.dispatchEvent(event)
   return event
 }
 
@@ -44,6 +50,7 @@ describe('useWindowTorrentDrop', () => {
     mocks.dialog.open = false
     mocks.dialog.openWith.mockReset()
     mocks.session.state = 'authenticated'
+    mocks.session.epoch = 0
     mocks.notify.mockReset()
     mocks.readTorrentFile.mockReset()
     mocks.readTorrentFile.mockImplementation(async (file: File) => ({
@@ -64,6 +71,23 @@ describe('useWindowTorrentDrop', () => {
   it('prevents the browser from navigating to a dropped file', () => {
     render(<Harness />)
     expect(drop([torrent()]).defaultPrevented).toBe(true)
+  })
+
+  it('opens torrents dropped on the downloads column header', async () => {
+    render(
+      <>
+        <Harness />
+        <TaskColumnHeader sort={null} onSort={() => {}} />
+      </>
+    )
+    const header = screen.getAllByRole('columnheader')[0]
+    fireEvent.dragOver(header, { dataTransfer: { types: ['Files'] } })
+    await act(async () => {
+      drop([torrent()], ['Files'], header)
+    })
+    expect(mocks.dialog.openWith).toHaveBeenCalledWith({ tab: 'torrent' }, [
+      { name: 'a.torrent' },
+    ])
   })
 
   it('ignores drags that carry no files', () => {
@@ -91,7 +115,7 @@ describe('useWindowTorrentDrop', () => {
   })
 
   it('does nothing while signed out', async () => {
-    mocks.session.state = 'unauthenticated'
+    mocks.session.state = 'locked'
     render(<Harness />)
     drop([torrent()])
     await Promise.resolve()
@@ -118,4 +142,51 @@ describe('useWindowTorrentDrop', () => {
     drop([torrent()])
     expect(mocks.readTorrentFile).not.toHaveBeenCalled()
   })
+
+  it.each(['locked', 'logging-out'])(
+    'discards a pending batch when the session becomes %s',
+    async (state) => {
+      const pending = Promise.withResolvers<{ name: string }>()
+      mocks.readTorrentFile.mockReturnValueOnce(pending.promise)
+      render(<Harness />)
+      drop([torrent(), torrent('b.torrent')])
+      mocks.session.state = state
+      await act(async () => {
+        pending.resolve({ name: 'a.torrent' })
+      })
+      expect(mocks.readTorrentFile).toHaveBeenCalledTimes(1)
+      expect(mocks.dialog.openWith).not.toHaveBeenCalled()
+      expect(mocks.notify).not.toHaveBeenCalled()
+    }
+  )
+
+  it('does not restore a previous session batch after signing in again', async () => {
+    const pending = Promise.withResolvers<{ name: string }>()
+    mocks.readTorrentFile.mockReturnValueOnce(pending.promise)
+    render(<Harness />)
+    drop([torrent()])
+    mocks.session.epoch += 1
+    await act(async () => {
+      pending.resolve({ name: 'a.torrent' })
+    })
+    expect(mocks.dialog.openWith).not.toHaveBeenCalled()
+    expect(mocks.notify).not.toHaveBeenCalled()
+  })
+
+  it.each(['success', 'failure'])(
+    'ignores a pending parse %s after unmount',
+    async (outcome) => {
+      const pending = Promise.withResolvers<{ name: string }>()
+      mocks.readTorrentFile.mockReturnValueOnce(pending.promise)
+      const { unmount } = render(<Harness />)
+      drop([torrent()])
+      unmount()
+      await act(async () => {
+        if (outcome === 'success') pending.resolve({ name: 'a.torrent' })
+        else pending.reject(new Error('bad'))
+      })
+      expect(mocks.dialog.openWith).not.toHaveBeenCalled()
+      expect(mocks.notify).not.toHaveBeenCalled()
+    }
+  )
 })

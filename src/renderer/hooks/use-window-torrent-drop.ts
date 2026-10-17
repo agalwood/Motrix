@@ -25,6 +25,7 @@ export function useWindowTorrentDrop(): void {
   const platform = usePlatformServices()
 
   useEffect(() => {
+    let active = true
     const onDragOver = (e: DragEvent) => {
       if (!hasFiles(e)) return
       e.preventDefault()
@@ -35,7 +36,8 @@ export function useWindowTorrentDrop(): void {
       e.preventDefault()
 
       if (useAddTaskDialogStore.getState().open) return
-      if (useOperatorSession.getState().state !== 'authenticated') return
+      const { state, epoch } = useOperatorSession.getState()
+      if (state !== 'authenticated') return
 
       const files = Array.from(e.dataTransfer?.files ?? []).filter(
         isTorrentFile
@@ -51,6 +53,15 @@ export function useWindowTorrentDrop(): void {
           } catch {
             failed = true
           }
+          // Session loss clears the dialog and may unmount this hook. Never
+          // restore that batch or its errors, even after a subsequent login.
+          const session = useOperatorSession.getState()
+          if (
+            !active ||
+            session.state !== 'authenticated' ||
+            session.epoch !== epoch
+          )
+            return
         }
         if (failed) platform.notify('error', 'task.add.parseFailed')
         if (parsed.length === 0) return
@@ -63,6 +74,7 @@ export function useWindowTorrentDrop(): void {
     window.addEventListener('dragover', onDragOver)
     window.addEventListener('drop', onDrop)
     return () => {
+      active = false
       window.removeEventListener('dragover', onDragOver)
       window.removeEventListener('drop', onDrop)
     }

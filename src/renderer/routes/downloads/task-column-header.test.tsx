@@ -99,6 +99,27 @@ describe('TaskColumnHeader', () => {
     expect(onSort).not.toHaveBeenCalled()
   })
 
+  it('still consumes column drops and reorders columns', () => {
+    const onSort = vi.fn()
+    render(<TaskColumnHeader sort={null} onSort={onSort} />)
+    const dataTransfer = { effectAllowed: 'none', setData: vi.fn() }
+    fireEvent.dragStart(screen.getByRole('button', { name: 'Size' }), {
+      dataTransfer,
+    })
+    expect(dataTransfer.effectAllowed).toBe('move')
+    const target = screen.getByRole('columnheader', { name: /Name/ })
+    expect(fireEvent.dragOver(target, { dataTransfer })).toBe(false)
+    expect(fireEvent.drop(target, { dataTransfer })).toBe(false)
+    expect(
+      useDownloadsView
+        .getState()
+        .columns.slice(0, 2)
+        .map((column) => column.id)
+    ).toEqual(['size', 'name'])
+    expect(onSort).not.toHaveBeenCalled()
+    expect(fireEvent.drop(target, { dataTransfer })).toBe(true)
+  })
+
   it('resizes and reorders RTL columns toward their visual neighbor', () => {
     render(
       <DirectionProvider direction="rtl">
