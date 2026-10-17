@@ -32,6 +32,13 @@
         display: none;
         place-content: center;
         pointer-events: none;
+        background: rgb(255 255 255 / 50%);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        #renderer-boot {
+          background: rgb(9 9 11 / 50%);
+        }
       }
 
       .window-main #renderer-boot {
