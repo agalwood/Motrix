@@ -1,4 +1,4 @@
-import { lstat, mkdir, mkdtemp, realpath } from 'node:fs/promises'
+import { lstat, mkdtemp, realpath } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { Aria2ProcessInspector } from '@core/engine/aria2/aria2-process-inspector'
@@ -375,7 +375,6 @@ async function prepareFreshDownload(
       ErrorCode.InvalidSelection,
       'legacyImport.errors.unsafePath'
     )
-  await mkdir(root, { recursive: true })
   const freshDir = await mkdtemp(path.join(root, 'Motrix-new-'))
   return { ...prefill, saveDir: freshDir }
 }

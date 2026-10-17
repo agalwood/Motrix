@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import path from 'node:path'
 import type {
   SegmentFileProgress,
   SegmentProgress,
@@ -24,6 +25,23 @@ import type { MediaCoordinatorDeps, MediaJob } from './media-task-coordinator'
 import { MediaTaskCoordinator } from './media-task-coordinator'
 import { getMediaMetaPath } from './media-task-files'
 import { TaskManager } from './task-manager'
+
+// The shared directory helper uses fs/promises named imports. Forward these
+// through the same mutable fs.promises object as the coordinator's IO spies.
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>()
+  const { default: filesystem } = await import('node:fs')
+  const io = {
+    ...actual,
+    mkdir: (...args: Parameters<typeof actual.mkdir>) =>
+      filesystem.promises.mkdir(...args),
+    stat: (...args: Parameters<typeof actual.stat>) =>
+      filesystem.promises.stat(...args),
+    access: (...args: Parameters<typeof actual.access>) =>
+      filesystem.promises.access(...args),
+  }
+  return { ...io, default: io }
+})
 
 // ---------------------------------------------------------------------------
 // Fake implementations
@@ -252,6 +270,83 @@ describe('MediaTaskCoordinator.start', () => {
     vi.restoreAllMocks()
   })
 
+  it.each(['hls', 'dash', 'mux'] as const)(
+    'completes %s in an existing volume root whose mkdir reports EPERM',
+    async (kind) => {
+      const saveDir = path.parse(path.resolve('/')).root
+      const job = { ...baseJob(), kind, saveDir }
+      mkdirSpy.mockImplementation(async (directory: string) => {
+        if (directory === saveDir) {
+          throw Object.assign(new Error('cannot mkdir volume root'), {
+            code: 'EPERM',
+          })
+        }
+      })
+      vi.spyOn(fs.promises, 'stat').mockImplementation(async (target) => {
+        return { isDirectory: () => target === saveDir, size: 42 } as fs.Stats
+      })
+      const { deps, taskManager, ffmpegFakes } = makeDeps()
+
+      const { taskId } = await new MediaTaskCoordinator(deps).start(job)
+
+      expect(taskManager.getById(taskId)?.status).toBe(TaskStatus.Completed)
+      expect(ffmpegFakes[0].run).toHaveBeenCalledOnce()
+      expect(fs.promises.rename).toHaveBeenCalledWith(
+        path.join(saveDir, 'video.mp4.motrix'),
+        path.join(saveDir, 'video.mp4')
+      )
+      expect(mkdirSpy).not.toHaveBeenCalledWith(saveDir, expect.anything())
+    }
+  )
+
+  it('recreates a save directory removed during download before muxing', async () => {
+    const job = baseJob()
+    let directoryExists = true
+    vi.spyOn(fs.promises, 'stat').mockImplementation(async (target) => {
+      if (target === job.saveDir && !directoryExists) {
+        throw Object.assign(new Error('directory removed'), { code: 'ENOENT' })
+      }
+      return {
+        isDirectory: () => target === job.saveDir,
+        size: 42,
+      } as fs.Stats
+    })
+    mkdirSpy.mockImplementation(async (target: string) => {
+      if (target === job.saveDir) directoryExists = true
+    })
+    const { deps, taskManager } = makeDeps({
+      assemble: async () => {
+        directoryExists = false
+      },
+    })
+
+    const { taskId } = await new MediaTaskCoordinator(deps).start(job)
+
+    expect(directoryExists).toBe(true)
+    expect(taskManager.getById(taskId)?.status).toBe(TaskStatus.Completed)
+    expect(
+      mkdirSpy.mock.calls.filter(
+        ([target]: unknown[]) => target === job.saveDir
+      )
+    ).toHaveLength(1)
+  })
+
+  it('preserves a directory inspection permission error before reserving output', async () => {
+    const error = Object.assign(new Error('directory access denied'), {
+      code: 'EPERM',
+    })
+    vi.spyOn(fs.promises, 'stat').mockRejectedValue(error)
+    const { deps, taskManager } = makeDeps()
+
+    await expect(new MediaTaskCoordinator(deps).submit(baseJob())).rejects.toBe(
+      error
+    )
+
+    expect(taskManager.getAll()).toHaveLength(0)
+    expect(mkdirSpy).not.toHaveBeenCalled()
+    expect(fs.promises.writeFile).not.toHaveBeenCalled()
+  })
+
   it('registers every queued video/audio segment before downloading', async () => {
     const { deps, taskManager } = makeDeps({
       makeDownloader: () => makeDownloaderFake({ hang: true }) as never,
@@ -406,7 +501,7 @@ describe('MediaTaskCoordinator.start', () => {
     }
     const stat = vi
       .spyOn(fs.promises, 'stat')
-      .mockResolvedValue({ size: 999 } as fs.Stats)
+      .mockResolvedValue({ size: 999, isDirectory: () => true } as fs.Stats)
     const { deps, taskManager } = makeDeps({
       makeFfmpeg: () => ffmpeg as never,
     })
