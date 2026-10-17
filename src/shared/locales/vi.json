@@ -1337,8 +1337,7 @@
       "description": "RPC, tiến độ và khôi phục",
       "configFile": {
         "title": "Tệp cấu hình",
-        "desktopDescription": "Thoát hoàn toàn Motrix trước khi chỉnh sửa tệp này.",
-        "serverDescription": "Đường dẫn trên máy chủ. Dừng Motrix Server trước khi chỉnh sửa tệp này.",
+        "serverTitle": "Tệp cấu hình máy chủ",
         "openDirectory": "Mở thư mục",
         "copyPath": "Sao chép đường dẫn",
         "copied": "Đã sao chép",

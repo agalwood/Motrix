@@ -1,5 +1,6 @@
 import { CopyButton } from '@renderer/components/desktop-kit/copy-button'
 import { InspectorDrawer } from '@renderer/components/desktop-kit/inspector-drawer'
+import { MiddleEllipsis } from '@renderer/components/desktop-kit/middle-ellipsis'
 import type { SelectionStore } from '@renderer/components/desktop-kit/selection/types'
 import {
   ActivityIcon,
@@ -153,9 +154,11 @@ export function TaskInspectorDrawer({
                             }
                           >
                             <DiskIcon className="me-1 size-3.5 shrink-0 text-muted-foreground" />
-                            <span className="truncate">
-                              {single.finalPath || single.diskPath}
-                            </span>
+                            <MiddleEllipsis
+                              text={single.finalPath || single.diskPath}
+                              maxChars={64}
+                              className="font-sans!"
+                            />
                           </Button>
                           <CopyButton
                             variant="ghost"

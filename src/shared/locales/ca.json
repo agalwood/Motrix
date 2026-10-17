@@ -1846,8 +1846,7 @@
       },
       "configFile": {
         "title": "Fitxer de configuració",
-        "desktopDescription": "Tanqueu Motrix abans d’editar aquest fitxer.",
-        "serverDescription": "Camí al servidor. Atureu Motrix Server abans d’editar aquest fitxer.",
+        "serverTitle": "Fitxer de configuració del servidor",
         "openDirectory": "Obre la carpeta",
         "copyPath": "Copia el camí",
         "copied": "Copiat",

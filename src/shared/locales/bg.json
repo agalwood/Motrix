@@ -1827,8 +1827,7 @@
       },
       "configFile": {
         "title": "Файл с настройки",
-        "desktopDescription": "Затворете Motrix, преди да редактирате този файл.",
-        "serverDescription": "Път на сървъра. Спрете Motrix Server, преди да редактирате този файл.",
+        "serverTitle": "Файл с настройки на сървъра",
         "openDirectory": "Отваряне на папката",
         "copyPath": "Копиране на пътя",
         "copied": "Копирано",

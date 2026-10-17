@@ -1,3 +1,4 @@
+import { MiddleEllipsis } from '@renderer/components/desktop-kit/middle-ellipsis'
 import type { VirtualListHandle } from '@renderer/components/desktop-kit/virtual-list/types'
 import { VirtualList } from '@renderer/components/desktop-kit/virtual-list/virtual-list'
 import {
@@ -45,6 +46,7 @@ import {
   __webPathPickerBus,
   type PickRequest,
 } from '@renderer/platform/web-services'
+import { truncatePath } from '@shared/lib/path-display'
 import {
   type KeyboardEvent,
   memo,
@@ -528,9 +530,17 @@ function PickerSession({ request, controller }: Session) {
                           ) : (
                             <FolderIcon className="size-4 shrink-0 text-muted-foreground" />
                           )}
-                          <span dir="ltr" className="truncate whitespace-pre">
-                            {entry.name}
-                          </span>
+                          {entry.name === entry.path ? (
+                            <MiddleEllipsis
+                              text={entry.path}
+                              maxChars={48}
+                              className="font-sans!"
+                            />
+                          ) : (
+                            <span dir="ltr" className="truncate whitespace-pre">
+                              {entry.name}
+                            </span>
+                          )}
                         </Button>
                       ))}
                     </div>
@@ -937,8 +947,12 @@ function PickerSession({ request, controller }: Session) {
                                 key={entry.path}
                                 value={entry.path}
                                 disabled={locationPending(entry.path)}
+                                title={entry.path}
+                                aria-label={entry.name}
                               >
-                                {entry.name}
+                                {entry.name === entry.path
+                                  ? truncatePath(entry.path, 48)
+                                  : entry.name}
                               </option>
                             ))}
                           </optgroup>

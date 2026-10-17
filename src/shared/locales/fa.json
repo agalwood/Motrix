@@ -1827,8 +1827,7 @@
       },
       "configFile": {
         "title": "فایل تنظیمات",
-        "desktopDescription": "پیش از ویرایش این فایل، Motrix را کاملاً ببندید.",
-        "serverDescription": "مسیر روی سرور است. پیش از ویرایش این فایل، Motrix Server را متوقف کنید.",
+        "serverTitle": "فایل تنظیمات سرور",
         "openDirectory": "باز کردن پوشه",
         "copyPath": "کپی مسیر",
         "copied": "کپی شد",

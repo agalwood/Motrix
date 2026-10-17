@@ -1405,8 +1405,7 @@
       "description": "RPC、进度与恢复",
       "configFile": {
         "title": "配置文件",
-        "desktopDescription": "编辑此文件前，请完全退出 Motrix。",
-        "serverDescription": "这是服务端的路径。编辑此文件前，请停止 Motrix Server。",
+        "serverTitle": "服务端配置文件",
         "openDirectory": "打开所在目录",
         "copyPath": "复制路径",
         "copied": "已复制",

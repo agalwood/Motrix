@@ -1351,8 +1351,7 @@
       "description": "RPC, progress and recovery",
       "configFile": {
         "title": "Configuration file",
-        "desktopDescription": "Quit Motrix before editing this file.",
-        "serverDescription": "Path on the server. Stop Motrix Server before editing this file.",
+        "serverTitle": "Server configuration file",
         "openDirectory": "Open folder",
         "copyPath": "Copy path",
         "copied": "Copied",

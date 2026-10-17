@@ -1365,8 +1365,7 @@
       "description": "RPC, avanzamento e recupero",
       "configFile": {
         "title": "File di configurazione",
-        "desktopDescription": "Chiudi Motrix prima di modificare questo file.",
-        "serverDescription": "Percorso sul server. Arresta Motrix Server prima di modificare questo file.",
+        "serverTitle": "File di configurazione del server",
         "openDirectory": "Apri cartella",
         "copyPath": "Copia percorso",
         "copied": "Copiato",

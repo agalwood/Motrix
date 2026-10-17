@@ -1846,8 +1846,7 @@
       },
       "configFile": {
         "title": "Fișier de configurare",
-        "desktopDescription": "Închide Motrix înainte de a edita acest fișier.",
-        "serverDescription": "Cale pe server. Oprește Motrix Server înainte de a edita acest fișier.",
+        "serverTitle": "Fișier de configurare al serverului",
         "openDirectory": "Deschide dosarul",
         "copyPath": "Copiază calea",
         "copied": "Copiat",

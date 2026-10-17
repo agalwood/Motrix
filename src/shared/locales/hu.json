@@ -1351,8 +1351,7 @@
       "description": "RPC, előrehaladás és helyreállítás",
       "configFile": {
         "title": "Konfigurációs fájl",
-        "desktopDescription": "A fájl szerkesztése előtt lépj ki a Motrixból.",
-        "serverDescription": "Elérési út a szerveren. A fájl szerkesztése előtt állítsd le a Motrix Servert.",
+        "serverTitle": "Szerver konfigurációs fájlja",
         "openDirectory": "Mappa megnyitása",
         "copyPath": "Útvonal másolása",
         "copied": "Másolva",

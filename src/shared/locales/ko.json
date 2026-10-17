@@ -1337,8 +1337,7 @@
       "description": "RPC, 진행 상황 및 복구",
       "configFile": {
         "title": "설정 파일",
-        "desktopDescription": "이 파일을 편집하기 전에 Motrix를 완전히 종료하세요.",
-        "serverDescription": "서버의 경로입니다. 이 파일을 편집하기 전에 Motrix Server를 중지하세요.",
+        "serverTitle": "서버 설정 파일",
         "openDirectory": "폴더 열기",
         "copyPath": "경로 복사",
         "copied": "복사됨",

@@ -1337,8 +1337,7 @@
       "description": "RPC、進捗と復旧",
       "configFile": {
         "title": "設定ファイル",
-        "desktopDescription": "このファイルを編集する前に Motrix を終了してください。",
-        "serverDescription": "サーバー上のパスです。このファイルを編集する前に Motrix Server を停止してください。",
+        "serverTitle": "サーバー設定ファイル",
         "openDirectory": "保存先フォルダーを開く",
         "copyPath": "パスをコピー",
         "copied": "コピーしました",

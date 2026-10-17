@@ -1351,8 +1351,7 @@
       "description": "RPC, ilerleme ve kurtarma",
       "configFile": {
         "title": "Yapılandırma dosyası",
-        "desktopDescription": "Bu dosyayı düzenlemeden önce Motrix’i kapatın.",
-        "serverDescription": "Sunucudaki yol. Bu dosyayı düzenlemeden önce Motrix Server’ı durdurun.",
+        "serverTitle": "Sunucu yapılandırma dosyası",
         "openDirectory": "Klasörü aç",
         "copyPath": "Yolu kopyala",
         "copied": "Kopyalandı",

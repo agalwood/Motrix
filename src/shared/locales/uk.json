@@ -1865,8 +1865,7 @@
       },
       "configFile": {
         "title": "Файл налаштувань",
-        "desktopDescription": "Закрийте Motrix перед редагуванням цього файлу.",
-        "serverDescription": "Шлях на сервері. Зупиніть Motrix Server перед редагуванням цього файлу.",
+        "serverTitle": "Файл налаштувань сервера",
         "openDirectory": "Відкрити теку",
         "copyPath": "Копіювати шлях",
         "copied": "Скопійовано",

@@ -1337,8 +1337,7 @@
       "description": "RPC, progres, dan pemulihan",
       "configFile": {
         "title": "File konfigurasi",
-        "desktopDescription": "Tutup Motrix sebelum mengedit file ini.",
-        "serverDescription": "Lokasi di server. Hentikan Motrix Server sebelum mengedit file ini.",
+        "serverTitle": "File konfigurasi server",
         "openDirectory": "Buka folder",
         "copyPath": "Salin lokasi",
         "copied": "Disalin",

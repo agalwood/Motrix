@@ -1846,8 +1846,7 @@
       },
       "configFile": {
         "title": "Fichier de configuration",
-        "desktopDescription": "Quittez Motrix avant de modifier ce fichier.",
-        "serverDescription": "Chemin sur le serveur. Arrêtez Motrix Server avant de modifier ce fichier.",
+        "serverTitle": "Fichier de configuration du serveur",
         "openDirectory": "Ouvrir le dossier",
         "copyPath": "Copier le chemin",
         "copied": "Copié",

@@ -42,7 +42,13 @@ import {
   type TorrentBatchCreateResult,
   type TorrentQueueAdvanceResult,
 } from '@shared/schemas/add-task'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 import {
   type DeepPartial,
   FormProvider,
@@ -163,7 +169,8 @@ export function AddTaskForm({
   })
 
   const dirty = form.formState.isDirty
-  useEffect(() => {
+  // Publish draft protection before the next key can close the host surface.
+  useLayoutEffect(() => {
     onDraftStateChange?.(
       dirty,
       submitting || batchSubmitting || advancingTorrent

@@ -1379,8 +1379,7 @@
       "description": "RPC, postęp i odzyskiwanie",
       "configFile": {
         "title": "Plik konfiguracji",
-        "desktopDescription": "Zamknij Motrix przed edycją tego pliku.",
-        "serverDescription": "Ścieżka na serwerze. Zatrzymaj Motrix Server przed edycją tego pliku.",
+        "serverTitle": "Plik konfiguracji serwera",
         "openDirectory": "Otwórz folder",
         "copyPath": "Kopiuj ścieżkę",
         "copied": "Skopiowano",

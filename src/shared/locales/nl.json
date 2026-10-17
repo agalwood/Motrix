@@ -1827,8 +1827,7 @@
       },
       "configFile": {
         "title": "Configuratiebestand",
-        "desktopDescription": "Sluit Motrix af voordat je dit bestand bewerkt.",
-        "serverDescription": "Pad op de server. Stop Motrix Server voordat je dit bestand bewerkt.",
+        "serverTitle": "Serverconfiguratiebestand",
         "openDirectory": "Map openen",
         "copyPath": "Pad kopiëren",
         "copied": "Gekopieerd",

@@ -130,13 +130,12 @@ test('moved settings preserve draft, cancel and save behavior in the desktop hos
   expect((await read()).geoip.enabled).toBe(!before.geoip.enabled)
   expect((await read()).engine.magnetResolveTimeout).toBe(900)
   await open('Advanced')
-  const settingsFile = page.getByRole('textbox', {
-    name: 'Configuration file',
-  })
-  await expect(settingsFile).toHaveValue(
-    path.join(userDataDir, 'settings.json')
+  const settingsFile = page.getByTitle(
+    path.join(userDataDir, 'settings.json'),
+    { exact: true }
   )
-  await expect(settingsFile).toHaveAttribute('readonly')
+  await expect(settingsFile).toBeVisible()
+  await expect(settingsFile).toHaveAttribute('data-slot', 'middle-ellipsis')
   await expect(page.getByRole('button', { name: 'Open folder' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Copy path' })).toHaveCount(0)
   const retention = page.getByRole('combobox', {

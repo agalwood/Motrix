@@ -1379,8 +1379,7 @@
       "description": "RPC, прогресс и восстановление",
       "configFile": {
         "title": "Файл настроек",
-        "desktopDescription": "Закройте Motrix перед редактированием этого файла.",
-        "serverDescription": "Путь на сервере. Остановите Motrix Server перед редактированием этого файла.",
+        "serverTitle": "Файл настроек сервера",
         "openDirectory": "Открыть папку",
         "copyPath": "Копировать путь",
         "copied": "Скопировано",

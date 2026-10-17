@@ -1903,8 +1903,7 @@
       },
       "configFile": {
         "title": "ملف الإعدادات",
-        "desktopDescription": "أغلق Motrix بالكامل قبل تعديل هذا الملف.",
-        "serverDescription": "المسار على الخادم. أوقف Motrix Server قبل تعديل هذا الملف.",
+        "serverTitle": "ملف إعدادات الخادم",
         "openDirectory": "فتح المجلد",
         "copyPath": "نسخ المسار",
         "copied": "تم النسخ",

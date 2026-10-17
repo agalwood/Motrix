@@ -1,3 +1,4 @@
+import { MiddleEllipsis } from '@renderer/components/desktop-kit/middle-ellipsis'
 import {
   CheckIcon,
   DirectoryPreferencesIcon,
@@ -209,9 +210,11 @@ function HistoryItems({
                 <span className="size-4 shrink-0">
                   {path === currentPath && <CheckIcon aria-hidden="true" />}
                 </span>
-                <span className="min-w-0 whitespace-pre-wrap break-all">
-                  {path}
-                </span>
+                <MiddleEllipsis
+                  text={path}
+                  maxChars={72}
+                  className="font-sans!"
+                />
               </DropdownMenuItem>
             ))}
           </DropdownMenuGroup>

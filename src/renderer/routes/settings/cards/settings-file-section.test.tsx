@@ -28,11 +28,12 @@ describe('SettingsFileSection', () => {
   it('shows a read-only desktop path and opens its directory without sending a path', async () => {
     const user = userEvent.setup()
     render(<SettingsFileSection />)
-    const input = await screen.findByRole('textbox', {
-      name: 'Configuration file',
-    })
-    expect(input).toHaveValue('/profile/settings.json')
-    expect(input).toHaveAttribute('readonly')
+    const path = await screen.findByTitle('/profile/settings.json')
+    expect(path).toHaveAttribute('data-slot', 'middle-ellipsis')
+    expect(
+      screen.getByRole('group', { name: 'Configuration file' })
+    ).toContainElement(path)
+    expect(screen.queryByRole('textbox')).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Open folder' }))
     expect(transport.invoke).toHaveBeenCalledWith(
       Commands.OpenSettingsDirectory
@@ -74,10 +75,10 @@ describe('SettingsFileSection', () => {
       path: '/config/settings.json',
     })
     render(<SettingsFileSection />)
+    const path = await screen.findByTitle('/config/settings.json')
     expect(
-      await screen.findByRole('textbox', { name: 'Configuration file' })
-    ).toHaveValue('/config/settings.json')
-    expect(screen.getByText(/Path on the server/)).toBeVisible()
+      screen.getByRole('group', { name: 'Server configuration file' })
+    ).toContainElement(path)
     expect(screen.queryByRole('button', { name: 'Open folder' })).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Copy path' }))
     expect(copy).toHaveBeenCalledWith('/config/settings.json')
@@ -120,7 +121,7 @@ describe('SettingsFileSection', () => {
     expect(screen.queryByRole('button', { name: 'Open folder' })).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Retry' }))
     await waitFor(() =>
-      expect(screen.getByRole('textbox')).toHaveValue('/profile/settings.json')
+      expect(screen.getByTitle('/profile/settings.json')).toBeInTheDocument()
     )
     expect(screen.queryByRole('alert')).toBeNull()
   })

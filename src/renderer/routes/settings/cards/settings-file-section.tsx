@@ -1,9 +1,12 @@
 import { CopyButton } from '@renderer/components/desktop-kit/copy-button'
+import { MiddleEllipsis } from '@renderer/components/desktop-kit/middle-ellipsis'
 import { FolderIcon } from '@renderer/components/icons'
 import { SettingsLoadStatus } from '@renderer/components/settings-kit/use-settings-load'
 import { Button } from '@renderer/components/ui/button'
-import { ButtonGroup } from '@renderer/components/ui/button-group'
-import { Input } from '@renderer/components/ui/input'
+import {
+  ButtonGroup,
+  ButtonGroupText,
+} from '@renderer/components/ui/button-group'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
@@ -14,7 +17,6 @@ import { useTranslation } from 'react-i18next'
 export function SettingsFileSection() {
   const { t } = useTranslation()
   const titleId = useId()
-  const descriptionId = useId()
   const [filePath, setFilePath] = useState<string | null>(null)
   const [loadError, setLoadError] = useState(false)
   const generation = useRef(0)
@@ -58,34 +60,31 @@ export function SettingsFileSection() {
 
   return (
     <section aria-labelledby={titleId} className="min-w-0 space-y-2">
-      <div className="space-y-1">
-        <h3 id={titleId} className="text-sm font-semibold">
-          {t('settings.advanced.configFile.title')}
-        </h3>
-        <p id={descriptionId} className="text-xs text-muted-foreground">
-          {t(
-            isWeb
-              ? 'settings.advanced.configFile.serverDescription'
-              : 'settings.advanced.configFile.desktopDescription'
-          )}
-        </p>
-      </div>
+      <h3 id={titleId} className="text-sm font-semibold">
+        {t(
+          isWeb
+            ? 'settings.advanced.configFile.serverTitle'
+            : 'settings.advanced.configFile.title'
+        )}
+      </h3>
       <SettingsLoadStatus
         ready={filePath !== null}
         error={loadError}
         retry={loadPath}
       />
       {filePath !== null && (
-        <ButtonGroup className="w-full min-w-0" aria-labelledby={titleId}>
-          <Input
-            readOnly
-            dir="ltr"
-            aria-labelledby={titleId}
-            aria-describedby={descriptionId}
-            value={filePath}
-            title={filePath}
-            className="h-8 min-w-0 font-mono text-xs"
-          />
+        <ButtonGroup
+          dir="ltr"
+          className="w-full min-w-0"
+          aria-labelledby={titleId}
+        >
+          <ButtonGroupText className="h-8 min-w-0 flex-1 overflow-hidden bg-background px-3 font-normal">
+            <MiddleEllipsis
+              text={filePath}
+              maxChars={64}
+              className="w-full text-xs"
+            />
+          </ButtonGroupText>
           {isWeb ? (
             <CopyButton
               variant="outline"

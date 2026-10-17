@@ -1808,8 +1808,7 @@
       },
       "configFile": {
         "title": "ไฟล์การตั้งค่า",
-        "desktopDescription": "ปิด Motrix ให้สมบูรณ์ก่อนแก้ไขไฟล์นี้",
-        "serverDescription": "พาธบนเซิร์ฟเวอร์ โปรดหยุด Motrix Server ก่อนแก้ไขไฟล์นี้",
+        "serverTitle": "ไฟล์การตั้งค่าเซิร์ฟเวอร์",
         "openDirectory": "เปิดโฟลเดอร์",
         "copyPath": "คัดลอกพาธ",
         "copied": "คัดลอกแล้ว",

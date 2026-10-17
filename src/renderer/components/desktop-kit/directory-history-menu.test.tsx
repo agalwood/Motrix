@@ -100,7 +100,9 @@ describe('DirectoryHistoryMenu', () => {
     expect(mocks.appHook).toHaveBeenCalled()
     expect(mocks.serverHook).not.toHaveBeenCalled()
     expect(
-      screen.getAllByRole('menuitem').map((item) => item.textContent)
+      screen
+        .getAllByRole('menuitem')
+        .map((item) => item.getAttribute('title') ?? item.textContent)
     ).toEqual(['/favorite', '/recent ', '/current', 'Manage directories'])
     expect(screen.getByRole('menuitem', { name: '/current' })).toHaveAttribute(
       'aria-current',
