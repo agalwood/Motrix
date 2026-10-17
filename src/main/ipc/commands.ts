@@ -1919,7 +1919,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
     [Commands.ClearPluginLogs]: async (payload: unknown) => {
       const parsed = z.object({ pluginId: z.string().min(1) }).parse(payload)
-      capabilityHost.clearLog(parsed.pluginId)
+      await capabilityHost.clearLog(parsed.pluginId)
       return { ok: true }
     },
 

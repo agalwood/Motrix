@@ -1362,6 +1362,8 @@
       "advanced": "Avansat",
       "attentionGeneric": "Consultă jurnalele pentru detalii.",
       "attentionTitle": "Acest modul a raportat o problemă",
+      "runtimeStartFailed": "Mediul de execuție al extensiei nu a putut porni",
+      "runtimeFailed": "Mediul de execuție al extensiei s-a oprit neașteptat",
       "author": "Autor",
       "back": "Toate modulele",
       "disabled": "Dezactivat",
@@ -1569,6 +1571,7 @@
     "lead": "Adaugă funcții mici în Motrix. Păstrează active modulele în care ai încredere și dezactivează-le pe celelalte.",
     "logs": {
       "clear": "Șterge",
+      "clearFailed": "Jurnalele nu au putut fi șterse. Încearcă din nou.",
       "copy": "Copiază jurnalele cu date mascate",
       "empty": "Încă nu există înregistrări în jurnal",
       "emptyFiltered": "Nicio înregistrare nu corespunde acestui nivel.",

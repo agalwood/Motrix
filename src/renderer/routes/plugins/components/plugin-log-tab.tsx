@@ -22,6 +22,7 @@ import {
 } from '@renderer/components/ui/select'
 import { Separator } from '@renderer/components/ui/separator'
 import { Switch } from '@renderer/components/ui/switch'
+import { toast } from '@renderer/components/ui/toast'
 import { transport } from '@renderer/lib/transport'
 import { serializePluginLogsForExport } from '@shared/lib/plugin-log-export'
 import { Commands } from '@shared/protocol/commands'
@@ -45,7 +46,8 @@ export function PluginLogTab({ pluginId }: { pluginId: string }) {
   const { t } = useTranslation()
   const [level, setLevel] = useState<(typeof LEVELS)[number]>('all')
   const { verbose, pending, setVerbose } = usePluginLogState(pluginId)
-  const { entries, setEntries } = usePluginLogStream(pluginId)
+  const { entries, refresh } = usePluginLogStream(pluginId)
+  const [clearing, setClearing] = useState(false)
   const levelOptions = LEVELS.map((value) => ({
     value,
     label: t(`plugins.logs.levels.${value}`),
@@ -55,8 +57,16 @@ export function PluginLogTab({ pluginId }: { pluginId: string }) {
     level === 'all' ? entries : entries.filter((e) => e.level === level)
 
   async function onClear() {
-    await transport.invoke(Commands.ClearPluginLogs, { pluginId })
-    setEntries([])
+    if (clearing) return
+    setClearing(true)
+    try {
+      await transport.invoke(Commands.ClearPluginLogs, { pluginId })
+      await refresh()
+    } catch {
+      toast.add({ title: t('plugins.logs.clearFailed'), type: 'error' })
+    } finally {
+      setClearing(false)
+    }
   }
 
   return (
@@ -118,7 +128,7 @@ export function PluginLogTab({ pluginId }: { pluginId: string }) {
           <Button
             size="xs"
             variant="ghost"
-            disabled={entries.length === 0}
+            disabled={clearing || entries.length === 0}
             onClick={onClear}
             className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive active:scale-[0.97] motion-reduce:transform-none dark:hover:bg-destructive/15"
           >
@@ -142,7 +152,7 @@ export function PluginLogTab({ pluginId }: { pluginId: string }) {
         <div className="flex h-9 shrink-0 items-center justify-between border-b border-border/60 bg-muted/30 px-3">
           <div className="flex items-center gap-2 text-xs font-medium text-foreground">
             <TerminalIcon className="size-3.5 text-muted-foreground" />
-            <span>{t('plugins.logs.output')}</span>
+            <span>{t('plugins.detail.logs')}</span>
           </div>
           <span
             aria-live="polite"
@@ -176,7 +186,14 @@ export function PluginLogTab({ pluginId }: { pluginId: string }) {
                 </div>
               ) : (
                 filtered.map((e) => (
-                  <PluginLogRow key={`${e.ts}-${e.level}-${e.msg}`} entry={e} />
+                  <PluginLogRow
+                    key={
+                      typeof e.entryId === 'string'
+                        ? e.entryId
+                        : `${e.ts}-${e.level}-${e.msg}`
+                    }
+                    entry={e}
+                  />
                 ))
               )}
             </ScrollAreaContent>

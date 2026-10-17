@@ -2,10 +2,12 @@ import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
+import { Events } from '@shared/protocol/events'
 import { TaskStatus } from '@shared/types/task'
 import { textOperationManifest } from '@test-utils/plugin-operation-fixture'
 import { makeDownloadTask } from '@test-utils/task'
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -16,7 +18,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useOperationDialog } from './operation-store'
 import { OperationTaskMenuItems } from './operation-task-menu'
 
-vi.mock('@renderer/lib/transport', () => ({ transport: { invoke: vi.fn() } }))
+vi.mock('@renderer/lib/transport', () => ({
+  transport: { invoke: vi.fn(), on: vi.fn(), off: vi.fn() },
+}))
 vi.mock('@renderer/components/ui/dropdown-menu', () => ({
   DropdownMenuItem: (props: React.ComponentProps<'button'>) => (
     <button {...props} />
@@ -34,6 +38,7 @@ const task = makeDownloadTask({
   finalPath: '/downloads/a.txt',
 })
 beforeEach(() => {
+  vi.mocked(transport.on).mockClear()
   vi.mocked(transport.invoke)
     .mockReset()
     .mockResolvedValue({ descriptors: [descriptor] })
@@ -41,6 +46,27 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 describe('declarative task operation entries', () => {
+  it('removes disabled plugin actions from an open menu and restores them after enabling', async () => {
+    render(<OperationTaskMenuItems selected={[task]} open />)
+    expect(
+      await screen.findByRole('button', { name: 'Deduplicate lines' })
+    ).toBeEnabled()
+    vi.mocked(transport.invoke).mockResolvedValue({
+      descriptors: [{ ...descriptor, unavailable: 'disabled' }],
+    })
+    const onStatus = vi
+      .mocked(transport.on)
+      .mock.calls.find(
+        ([channel]) => channel === Events.PluginStatusChanged
+      )![1]
+    act(() => onStatus({ pluginId: manifest.id, enabled: false }))
+    await waitFor(() => expect(screen.queryByRole('button')).toBeNull())
+    vi.mocked(transport.invoke).mockResolvedValue({ descriptors: [descriptor] })
+    act(() => onStatus({ pluginId: manifest.id, enabled: true }))
+    expect(
+      await screen.findByRole('button', { name: 'Deduplicate lines' })
+    ).toBeEnabled()
+  })
   it('loads only when opened and maps the selected task to the shared operation', async () => {
     const view = render(
       <OperationTaskMenuItems selected={[task]} open={false} />
@@ -57,13 +83,13 @@ describe('declarative task operation entries', () => {
       taskIds: ['selected'],
     })
   })
-  it('hides inapplicable selections and explains unavailable providers', async () => {
+  it('hides inapplicable selections and explains blocked providers', async () => {
     vi.mocked(transport.invoke).mockResolvedValue({
-      descriptors: [{ ...descriptor, unavailable: 'disabled' }],
+      descriptors: [{ ...descriptor, unavailable: 'blocked' }],
     })
     const view = render(<OperationTaskMenuItems selected={[task]} open />)
     expect(await screen.findByRole('button')).toBeDisabled()
-    expect(screen.getByRole('button')).toHaveTextContent('Enable')
+    expect(screen.getByRole('button')).toHaveTextContent('blocked')
     view.rerender(
       <OperationTaskMenuItems
         selected={[{ ...task, status: TaskStatus.Downloading }]}

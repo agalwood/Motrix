@@ -6,6 +6,7 @@ import {
   ProtocolEnvelopeError,
   type TransportError,
 } from '@shared/protocol/errors'
+import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ElectronTransport } from './electron'
@@ -15,6 +16,27 @@ afterEach(() => {
 })
 
 describe('ElectronTransport', () => {
+  it('retains preload disposers per callback and channel without passing callbacks back across the bridge', () => {
+    const first = vi.fn()
+    const second = vi.fn()
+    const on = vi.fn().mockReturnValueOnce(first).mockReturnValueOnce(second)
+    Object.defineProperty(window, 'motrix', {
+      configurable: true,
+      value: { on, platform: 'darwin' },
+    })
+    const transport = new ElectronTransport()
+    const callback = vi.fn()
+    transport.on(Events.PluginInstalled, callback)
+    transport.on(Events.PluginInstalled, callback)
+    transport.on(Events.PluginStatusChanged, callback)
+    expect(on).toHaveBeenCalledTimes(2)
+    transport.off(Events.PluginInstalled, callback)
+    transport.off(Events.PluginInstalled, callback)
+    expect(first).toHaveBeenCalledOnce()
+    expect(second).not.toHaveBeenCalled()
+    transport.off(Events.PluginStatusChanged, callback)
+    expect(second).toHaveBeenCalledOnce()
+  })
   it.each([Queries.GetTaskInspectorActivity, Commands.OpenTaskFile])(
     'unwraps a protocol success envelope for %s',
     async (channel) => {

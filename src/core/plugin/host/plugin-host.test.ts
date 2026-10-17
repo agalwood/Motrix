@@ -230,6 +230,149 @@ describe('PluginHost', () => {
     rmSync(root, { recursive: true, force: true })
   })
 
+  it('records a missing entry bundle before worker construction and starts other plugins', async () => {
+    rmSync(path.join(root, 'plugins', 'alice.demo', 'dist', 'plugin.js'))
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: workerPath,
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+    })
+    try {
+      await new ActivationDispatcher(registry, host).dispatch({
+        kind: 'startup',
+      })
+      expect(stateStore.get('alice.demo')).toMatchObject({
+        errorCount: 1,
+        lastError: expect.stringContaining('plugin.runtime.activation_failed:'),
+      })
+      expect(
+        capHost
+          .getTail('alice.demo', 100)
+          .filter((entry) => entry.level === 'error')
+      ).toEqual([
+        expect.objectContaining({
+          source: 'host',
+          msg: expect.stringContaining('ENOENT'),
+        }),
+      ])
+      expect(host.isActive('bob.demo')).toBe(true)
+    } finally {
+      await host.shutdown()
+    }
+  })
+
+  it('records coalesced activation failures exactly once', async () => {
+    const failure = new Error('entry bundle is unreadable')
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: workerPath,
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+      readBundleSource: async () => {
+        throw failure
+      },
+    })
+    try {
+      await Promise.all([
+        expect(host.activate('alice.demo')).rejects.toBe(failure),
+        expect(host.activate('alice.demo')).rejects.toBe(failure),
+      ])
+      expect(stateStore.get('alice.demo')?.errorCount).toBe(1)
+      expect(
+        capHost
+          .getTail('alice.demo', 100)
+          .filter((entry) => entry.level === 'error')
+      ).toHaveLength(1)
+    } finally {
+      await host.shutdown()
+    }
+  })
+
+  it('does not report a cancelled activation or its late bundle failure as a runtime error', async () => {
+    let rejectRead!: (reason: Error) => void
+    const readBundleSource = vi.fn(
+      () =>
+        new Promise<string>((_, reject) => {
+          rejectRead = reject
+        })
+    )
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: workerPath,
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+      readBundleSource,
+    })
+    try {
+      const rejected = expect(host.activate('alice.demo')).rejects.toThrow(
+        'superseded'
+      )
+      await vi.waitFor(() => expect(readBundleSource).toHaveBeenCalled())
+      await host.deactivate('alice.demo')
+      rejectRead(new Error('late IO failure'))
+      await rejected
+      expect(stateStore.get('alice.demo')?.errorCount).toBe(0)
+      expect(
+        capHost
+          .getTail('alice.demo', 100)
+          .filter((entry) => entry.level === 'error')
+      ).toEqual([])
+    } finally {
+      await host.shutdown()
+    }
+  })
+
+  it.each(['electron', 'server'] as const)(
+    'records missing-worker startup failures in persistent plugin logs (%s)',
+    async (runtime) => {
+      const host = new PluginHost({
+        registry,
+        stateStore,
+        capabilityHost: capHost,
+        workerScriptPath: path.join(root, 'missing-worker.cjs'),
+        appVersion: '2.5.0',
+        runtime,
+        hostLanguage: 'en-US',
+      })
+      try {
+        await expect(host.activate('alice.demo')).rejects.toThrow(
+          'Cannot find module'
+        )
+        expect(stateStore.get('alice.demo')?.lastError).toMatch(
+          /^plugin\.runtime\.worker_start_failed:/
+        )
+        expect(stateStore.get('alice.demo')?.errorCount).toBe(1)
+        const entries = capHost.getTail('alice.demo', 10)
+        expect(entries.filter((entry) => entry.level === 'error')).toHaveLength(
+          1
+        )
+        expect(entries[0]).toMatchObject({
+          level: 'error',
+          source: 'host',
+          msg: expect.stringContaining('plugin.runtime.worker_start_failed:'),
+        })
+        await host.shutdown()
+        const restarted = new LogCapabilityHost({
+          pluginLogsDir: path.join(root, 'logs'),
+        })
+        expect(restarted.getTail('alice.demo', 10)).toEqual(entries)
+        await restarted.flush()
+      } finally {
+        await host.shutdown()
+      }
+    }
+  )
+
   it('revokes a running guest without executing guest cleanup or changing user preference', async () => {
     let revoked = false
     vi.spyOn(registry, 'securityDecision').mockImplementation((id) =>

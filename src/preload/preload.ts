@@ -15,20 +15,18 @@ type IpcListener = (
   ...args: unknown[]
 ) => void
 interface CallbackSubscription {
-  wrapper: IpcListener
-  cancelReplay(): void
+  active: boolean
+  receivedLiveEvent: boolean
+  deliver: Callback
+  remove(): void
 }
-// F10: keyed by (callback -> channel -> subscription), NOT just callback.
-// The same callback function subscribed to two different channels (e.g.
-// usePendingPairRequests's 4-channel `onChange` reused across PairRequested/
-// Paired/PairRequestSettled/PairRequestExpired) used to collide on a
-// single-level `WeakMap<Callback, CallbackSubscription>`: the second on()
-// overwrote the first channel's subscription entry, so off() for the FIRST
-// channel looked up the SECOND channel's wrapper, called
-// `ipcRenderer.removeListener(firstChannel, secondChannelsWrapper)` (a
-// no-op — wrong function reference), and then deleted the only entry left
-// in the map — leaking BOTH real ipcRenderer listeners.
-const wrapperMap = new WeakMap<Callback, Map<string, CallbackSubscription>>()
+interface ChannelSubscription {
+  listener: IpcListener
+  callbacks: Map<Callback, CallbackSubscription>
+}
+// A renderer can have many consumers of the same event. Keep one native IPC
+// listener per channel, with independent subscriptions and replay cancellation.
+const subscriptions = new Map<string, ChannelSubscription>()
 
 const INVOKE_CHANNELS = new Set<string>([
   ...Object.values(Commands),
@@ -69,7 +67,7 @@ function assertEventChannel(channel: string): void {
 // listeners here that buffer the first send for each cold-start
 // channel. When the renderer eventually calls `motrix.on(channel, cb)`,
 // we replay the buffer to that callback, then disengage the eager
-// listener so subsequent events flow normally through the wrapper.
+// listener so subsequent events flow through the shared channel listener.
 const BUFFERED_CHANNELS = new Set<string>([
   Events.SetAddTaskMode,
   Events.ProtocolTorrentFile,
@@ -118,33 +116,53 @@ const api: MotrixAPI = {
   },
   on: (channel, callback) => {
     assertEventChannel(channel)
-    let active = true
-    let receivedLiveEvent = false
-    const wrapper = (_event: Electron.IpcRendererEvent, ...args: unknown[]) => {
-      receivedLiveEvent = true
-      callback(...args)
+    let subscription = subscriptions.get(channel)
+    const existing = subscription?.callbacks.get(callback)
+    if (existing) return existing.remove
+    if (!subscription) {
+      const callbacks = new Map<Callback, CallbackSubscription>()
+      const listener: IpcListener = (_event, ...args) => {
+        for (const current of [...callbacks.values()]) {
+          if (!current.active) continue
+          current.receivedLiveEvent = true
+          current.deliver(...args)
+        }
+      }
+      subscription = { listener, callbacks }
+      subscriptions.set(channel, subscription)
+      const eager = eagerListeners.get(channel)
+      if (eager) {
+        ipcRenderer.removeListener(channel, eager)
+        eagerListeners.delete(channel)
+      }
+      ipcRenderer.on(channel, listener)
     }
-    let channelMap = wrapperMap.get(callback)
-    if (!channelMap) {
-      channelMap = new Map()
-      wrapperMap.set(callback, channelMap)
-    }
-    channelMap.set(channel, {
-      wrapper,
-      cancelReplay: () => {
-        active = false
+    const registered = subscription
+    const current: CallbackSubscription = {
+      active: true,
+      receivedLiveEvent: false,
+      remove: () => {
+        if (!current.active) return
+        current.active = false
+        registered.callbacks.delete(callback)
+        if (registered.callbacks.size === 0) {
+          ipcRenderer.removeListener(channel, registered.listener)
+          subscriptions.delete(channel)
+        }
       },
-    })
-    ipcRenderer.on(channel, wrapper)
-
-    // First real subscriber for this channel claims the buffered events
-    // and disengages the eager pre-buffer (subsequent sends flow through
-    // `wrapper` only — no double delivery).
-    const eager = eagerListeners.get(channel)
-    if (eager) {
-      ipcRenderer.removeListener(channel, eager)
-      eagerListeners.delete(channel)
+      deliver: (...args) => {
+        try {
+          callback(...args)
+        } catch (error) {
+          // Surface the failure without starving the other event consumers.
+          queueMicrotask(() => {
+            throw error
+          })
+        }
+      },
     }
+    subscription.callbacks.set(callback, current)
+
     const buffered = replayBuffer.get(channel)
     if (buffered && buffered.length > 0) {
       replayBuffer.delete(channel)
@@ -152,24 +170,17 @@ const api: MotrixAPI = {
       // (e.g. useEffect attaching the listener) before we invoke the
       // callback, matching the normal async IPC arrival contract.
       queueMicrotask(() => {
-        if (!active) return
-        if (REPLAY_LATEST_CHANNELS.has(channel) && receivedLiveEvent) return
-        for (const args of buffered) callback(...args)
+        if (!current.active) return
+        if (REPLAY_LATEST_CHANNELS.has(channel) && current.receivedLiveEvent)
+          return
+        for (const args of buffered) {
+          if (!current.active) break
+          current.deliver(...args)
+        }
       })
     }
-  },
-  off: (channel, callback) => {
-    assertEventChannel(channel)
-    const channelMap = wrapperMap.get(callback)
-    const subscription = channelMap?.get(channel)
-    if (subscription) {
-      subscription.cancelReplay()
-      ipcRenderer.removeListener(channel, subscription.wrapper)
-      channelMap?.delete(channel)
-      if (channelMap && channelMap.size === 0) {
-        wrapperMap.delete(callback)
-      }
-    }
+    // Returning a closure avoids comparing callback proxies across worlds.
+    return current.remove
   },
   platform: process.platform,
   getPathForFile: (file) => webUtils.getPathForFile(file),
