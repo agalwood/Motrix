@@ -20,6 +20,7 @@ import {
 import { Label } from '@renderer/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@renderer/components/ui/radio-group'
 import { Spinner } from '@renderer/components/ui/spinner'
+import { toast } from '@renderer/components/ui/toast'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
@@ -56,6 +57,7 @@ import {
   ImportTaskSelection,
   initialExpandedGroups,
 } from './import-task-selection'
+import { useLegacyImportSidebar } from './sidebar-preference'
 
 interface Props {
   open: boolean
@@ -448,12 +450,23 @@ function LegacyImportDialogContent({
           )
       )
     })
-  const leave = () =>
+  const leave = (skip = false) =>
     void perform(async () => {
       const generation = epoch.current
       if (invitation)
         await transport.invoke(Commands.DismissLegacyImportInvitation)
-      if (generation === epoch.current) onClose()
+      if (generation !== epoch.current) return
+      if (skip) {
+        useLegacyImportSidebar.getState().dismiss()
+        toast.add({
+          title: t('legacyImport.skippedHint', {
+            settings: t('settings.title'),
+            advanced: t('settings.cards.advanced.title'),
+          }),
+          type: 'info',
+        })
+      }
+      onClose()
     })
   const viewTasks = () =>
     void perform(async () => {
@@ -517,7 +530,12 @@ function LegacyImportDialogContent({
     <div className="flex w-full items-center justify-between gap-3">
       {(stage === 'discovery' || stage === 'selection') && (
         <>
-          <Button size="sm" variant="ghost" disabled={busy} onClick={leave}>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={busy}
+            onClick={() => leave(true)}
+          >
             {t('legacyImport.skip')}
           </Button>
           {stage === 'discovery' ? (

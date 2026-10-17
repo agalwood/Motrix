@@ -3,9 +3,11 @@ import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
 import { legacyImportNavigationSchema } from '@shared/schemas/legacy-import'
 import { useState } from 'react'
+import { useLegacyImportSidebar } from './sidebar-preference'
 
 export function useLegacyImportNavigation() {
   const [detected, setDetected] = useState(false)
+  const dismissed = useLegacyImportSidebar((state) => state.dismissed)
   useTransportMirror({
     events: [Events.LegacyImportNavigationChanged],
     load: async (stale, read) => {
@@ -16,5 +18,5 @@ export function useLegacyImportNavigation() {
       if (!stale()) setDetected(state.detected)
     },
   })
-  return { detected }
+  return { visible: detected && !dismissed }
 }

@@ -3059,6 +3059,7 @@
     "preserveFiles": "已下载的文件保留在原来的位置。",
     "chooseTasks": "选择任务",
     "skip": "暂不迁移",
+    "skippedHint": "如需迁移，可前往“{{settings}} → {{advanced}}”。",
     "back": "返回",
     "loading": "正在查找旧版任务…",
     "empty": "此文件夹中没有可迁移的任务。",

@@ -3059,6 +3059,7 @@
     "preserveFiles": "Downloaded files stay in their original location.",
     "chooseTasks": "Choose downloads",
     "skip": "Not now",
+    "skippedHint": "คุณสามารถย้ายข้อมูลภายหลังได้ที่ {{settings}} → {{advanced}}",
     "back": "Back",
     "loading": "Looking for your old downloads…",
     "empty": "There are no tasks to migrate from this folder.",
