@@ -169,6 +169,89 @@ describe('saveTaskWithInstances + getAllTasks (Plan A v1 schema)', () => {
     db.close()
   })
 
+  it('persists empty-string instance gids as NULL so no-gid instances never collide', () => {
+    const db = new MotrixDatabase(':memory:')
+    db.init()
+
+    // Two independent tasks, each carrying a no-engine-gid instance passed as
+    // '' (the shape the HLS/mux and synthesized-primary writers produced).
+    // `gid` is globally UNIQUE and only tolerates multiple NULLs, so '' must be
+    // normalized before the insert or the second task fails to persist with
+    // SQLITE_CONSTRAINT_UNIQUE.
+    db.saveTaskWithInstances({
+      task: makeTaskRow('m-empty-a', TaskKind.Hls),
+      instances: [
+        makeInstanceRow('seg-a', 'm-empty-a', '', TaskInstancePhase.HlsSegment),
+      ],
+    })
+
+    expect(() =>
+      db.saveTaskWithInstances({
+        task: makeTaskRow('m-empty-b', TaskKind.Hls),
+        instances: [
+          makeInstanceRow(
+            'seg-b',
+            'm-empty-b',
+            '',
+            TaskInstancePhase.HlsSegment
+          ),
+        ],
+      })
+    ).not.toThrow()
+
+    const rawEmpty = db
+      .getRawForTesting()
+      .prepare("SELECT COUNT(*) AS c FROM task_instances WHERE gid = ''")
+      .get() as { c: number }
+    expect(rawEmpty.c).toBe(0)
+    expect(
+      db
+        .getAllTasks()
+        .flatMap((t) => t.instances)
+        .map((i) => i.gid)
+    ).toEqual([null, null])
+
+    db.close()
+  })
+
+  it('heals a legacy empty-string gid row to NULL on read and rewrite', () => {
+    const db = new MotrixDatabase(':memory:')
+    db.init()
+    db.saveTaskWithInstances({
+      task: makeTaskRow('m-legacy', TaskKind.Hls),
+      instances: [
+        makeInstanceRow(
+          'seg-legacy',
+          'm-legacy',
+          null,
+          TaskInstancePhase.HlsSegment
+        ),
+      ],
+    })
+    // Simulate a row persisted before the normalization existed.
+    db.getRawForTesting()
+      .prepare(
+        "UPDATE task_instances SET gid = '' WHERE motrix_id = 'm-legacy'"
+      )
+      .run()
+
+    const loaded = db.getAllTasks()
+    expect(loaded[0].instances[0].gid).toBeNull()
+
+    // Re-writing the healed task clears the on-disk empty string as well.
+    db.saveTaskWithInstances({
+      task: loaded[0].task,
+      instances: loaded[0].instances,
+    })
+    const rawEmpty = db
+      .getRawForTesting()
+      .prepare("SELECT COUNT(*) AS c FROM task_instances WHERE gid = ''")
+      .get() as { c: number }
+    expect(rawEmpty.c).toBe(0)
+
+    db.close()
+  })
+
   it('replaceInstances atomically swaps a task instance set', () => {
     const db = new MotrixDatabase(':memory:')
     db.init()

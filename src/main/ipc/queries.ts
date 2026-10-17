@@ -7,6 +7,7 @@ import { getFfmpegInstallStatus } from '@core/ffmpeg/verified-install'
 import { pathExists } from '@core/fs/path-exists'
 import type { GeoIPManager } from '@core/geoip/geo-ip-manager'
 import { createGetGeoIPStatusHandler } from '@core/geoip/get-geo-ip-status'
+import { locateYtdlp } from '@core/media/ytdlp/ytdlp-locator'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
 import { readCommandGraph } from '@core/plugin/commands/command-graph'
 import type { GrantsManager } from '@core/plugin/grants/grants-manager'
@@ -285,6 +286,20 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
 
     [Queries.GetFfmpegDetection]: async () =>
       capabilityHost.ffmpeg.refreshDetection(detectFfmpeg),
+
+    [Queries.GetYtdlpDetection]: async () => {
+      const media = settingsManager.getMedia()
+      const location = await locateYtdlp({
+        configuredPath: media.ytdlpBinaryPath,
+        env: process.env,
+      })
+      return {
+        enabled: media.ytdlpEnabled,
+        available: location.available,
+        binaryPath: location.binaryPath,
+        version: location.version,
+      }
+    },
 
     [Queries.GetTaskBtTracker]: createGetTaskBtTrackerHandler({
       engineAdapter,

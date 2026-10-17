@@ -528,6 +528,80 @@ describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
     }
   })
 
+  it('wires the fork-local media/formats method over the paired extension WS', async () => {
+    const listMediaFormats = vi.fn(async (params: { url: string }) => ({
+      available: params.url.includes('listing'),
+      entries: [
+        { key: '1080p', kind: 'video' as const, label: '1080p', height: 1080 },
+      ],
+    }))
+    server.setHandlers({ listMediaFormats })
+    const paired = await pairAndExchange({
+      port,
+      origin: ORIGIN,
+      browser: 'chromium',
+      claimedExtensionId: EXTENSION_ID,
+      code: () => mbp1.dialogs.latestCode(),
+    })
+    const conn = mdxpOverChannel(paired.wire, paired.channel)
+    try {
+      await conn.sendRequest(
+        'motrix/initialize',
+        initializeParams(EXTENSION_ID)
+      )
+      conn.sendNotification('motrix/initialized', undefined)
+
+      await expect(
+        conn.sendRequest('media/formats', { url: 'https://x.example/listing' })
+      ).resolves.toEqual({
+        available: true,
+        entries: [
+          { key: '1080p', kind: 'video', label: '1080p', height: 1080 },
+        ],
+      })
+      expect(listMediaFormats).toHaveBeenCalledWith(
+        { url: 'https://x.example/listing' },
+        expect.objectContaining({
+          identity: expect.objectContaining({ kind: 'extension' }),
+        })
+      )
+
+      // Params ride the local Zod schema — a bogus shape is rejected with
+      // InvalidParams before the handler ever runs.
+      await expect(
+        conn.sendRequest('media/formats', { url: 123 } as never)
+      ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams })
+      expect(listMediaFormats).toHaveBeenCalledTimes(1)
+    } finally {
+      conn.dispose()
+      paired.wire.ws.close()
+    }
+  })
+
+  it('media/formats is MethodNotFound when no handler is registered', async () => {
+    const paired = await pairAndExchange({
+      port,
+      origin: ORIGIN,
+      browser: 'chromium',
+      claimedExtensionId: EXTENSION_ID,
+      code: () => mbp1.dialogs.latestCode(),
+    })
+    const conn = mdxpOverChannel(paired.wire, paired.channel)
+    try {
+      await conn.sendRequest(
+        'motrix/initialize',
+        initializeParams(EXTENSION_ID)
+      )
+      conn.sendNotification('motrix/initialized', undefined)
+      await expect(
+        conn.sendRequest('media/formats', { url: 'https://x.example/v' })
+      ).rejects.toMatchObject({ code: -32601 })
+    } finally {
+      conn.dispose()
+      paired.wire.ws.close()
+    }
+  })
+
   it('refreshes live capabilities and preserves a missing-media rejection on the authenticated wire', async () => {
     const submitDownload = vi.fn(async () => {
       throw new BridgeReceiverError(

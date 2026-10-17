@@ -10,7 +10,13 @@ import { newTaskId } from '@core/lib/ids'
 import { fetchManifest } from '@core/media/manifest-fetcher'
 import { assembleSegments } from '@core/media/segment-assembler'
 import { SegmentDecryptor } from '@core/media/segment-decryptor'
+import type {
+  DirectResolution,
+  MediaResolver,
+} from '@core/media/ytdlp/media-resolver'
+import { parseQualityHint } from '@core/media/ytdlp/quality-hint'
 import { MediaTaskCoordinator } from '@core/task/media-task-coordinator'
+import { admitHttpSource } from '@core/task/source-admission'
 import type { TaskManager } from '@core/task/task-manager'
 import {
   type DownloadSubmitParams,
@@ -27,7 +33,10 @@ import { stripHopByHopHeaders } from './header-replay'
 import { DirectPipeline } from './pipelines/direct-pipeline'
 import { HlsDashPipeline } from './pipelines/hls-dash-pipeline'
 import { MagnetPipeline } from './pipelines/magnet-pipeline'
-import { ensureMediaExtension } from './pipelines/media-final-name'
+import {
+  ensureMediaExtension,
+  ensureMp3Extension,
+} from './pipelines/media-final-name'
 import { MuxPipeline } from './pipelines/mux-pipeline'
 import {
   dispatchTaskUpdates,
@@ -35,11 +44,43 @@ import {
 } from './progress-mapping'
 import { ProgressPublisher } from './progress-publisher'
 import {
+  type AdaptedDirect,
   type AdaptedMux,
   type AdapterDeps,
   SubmitDownloadAdapter,
   sanitizeFilename,
 } from './submit-download-adapter'
+
+/**
+ * Point an adapted direct submit at a resolved single-stream media URL.
+ *
+ * The submitted URL is a page or an expired CDN link; the resolver hands back
+ * the stream URL plus the headers the CDN checks (Referer, User-Agent).
+ * Resolved headers are written first so any header the extension already sent
+ * keeps priority. Returns the input unchanged when there is nothing to swap.
+ */
+function rewriteDirectAdapted(
+  adapted: Extract<
+    Awaited<ReturnType<SubmitDownloadAdapter['adapt']>>,
+    { kind: 'direct' }
+  >,
+  resolved: DirectResolution
+): typeof adapted {
+  const resolvedUrl = admitHttpSource(resolved.url)
+  if (resolvedUrl === adapted.primaryUrl && !resolved.headers) return adapted
+  const resolvedHeaders = resolved.headers
+    ? stripHopByHopHeaders(resolved.headers)
+    : {}
+  const desired = resolved.filename
+    ? sanitizeFilename(resolved.filename).trim()
+    : ''
+  return {
+    ...adapted,
+    primaryUrl: resolvedUrl,
+    sanitizedHeaders: { ...resolvedHeaders, ...adapted.sanitizedHeaders },
+    ...(desired ? { finalName: desired, discoverFilename: undefined } : {}),
+  }
+}
 
 /**
  * Serialize a list of Cookie objects (from @motrix/mdxp Resource.cookies) into
@@ -143,16 +184,7 @@ export interface BridgeReceiverDeps {
    * An optional cookieHeader (2nd arg) is forwarded when the submit carries
    * cookies (bilibili HD path). Omitted for YouTube and desktop submits.
    */
-  resolveToMux?: (
-    url: string,
-    cookieHeader?: string
-  ) => Promise<{
-    videoUrl: string
-    audioUrl: string
-    container: 'mp4' | 'mkv'
-    headers?: Record<string, string>
-    title?: string
-  } | null>
+  resolveMedia?: MediaResolver
   /**
    * Optional startup gate awaited before any submit reaches a pipeline.
    * The bootstrap resolves it once engine start + SessionManager.restore()
@@ -284,6 +316,11 @@ export class BridgeReceiver {
     return this.mux
   }
 
+  async isMuxAvailable(): Promise<boolean> {
+    if (!this.mux) return false
+    return this.mux.isAvailable()
+  }
+
   /**
    * Active aria2 segment gids for a coordinator-managed media task (kind
    * Mux/Hls). These ARE real aria2 gids — unlike the task's empty engineTaskId
@@ -356,23 +393,57 @@ export class BridgeReceiver {
     params: DownloadSubmitParams
   ): Promise<{ taskId: string }> {
     // Submit-path pre-resolve: if the adapted result is a direct download and
-    // a resolveToMux factory is wired (bootstrap only), call it. On a non-null
+    // a resolveMedia factory is wired (bootstrap only), call it. On a non-null
     // mux pair the direct submit is transparently re-routed to MuxPipeline.
-    // resolveToMux owns its own error handling (catches → null), so we never
+    // resolveMedia owns its own error handling (catches → null), so we never
     // wrap this in try/catch here — a null means "proceed as direct".
     //
     // Cookie handoff (bilibili HD): when the extension submits a direct download
     // with cookies (e.g. SESSDATA for bilibili), serialize them into a Cookie
-    // header string and pass it as the 2nd arg to resolveToMux. The resolver
+    // header string and pass it as the 2nd arg to resolveMedia. The resolver
     // attaches the header ONLY to api.bilibili.com calls — never to CDN URLs.
-    if (adapted.kind === 'direct' && this.deps.resolveToMux) {
+    //
+    // Quality selection: the grab overlay's picked format rides the existing
+    // meta.qualityLabel field ('1080p', 'mp3'). A recognized hint means the
+    // client chose from THIS url's own format list, so an unresolvable URL
+    // must abort with a retriable capability error — falling through would
+    // download the page document instead of the media.
+    const qualityHint =
+      adapted.kind === 'direct'
+        ? parseQualityHint(params.meta.qualityLabel)
+        : undefined
+    if (qualityHint && !this.deps.resolveMedia) {
+      throw new BridgeReceiverError(
+        'unsupported-kind',
+        'quality selection requires the media resolver'
+      )
+    }
+    if (adapted.kind === 'direct' && this.deps.resolveMedia) {
       const rawCookies =
         params.selection.kind === 'direct'
           ? params.selection.primary.cookies
           : []
       const serialized = serializeCookieHeader(rawCookies)
       const cookieHeader = serialized || undefined
-      const m = await this.deps.resolveToMux(adapted.primaryUrl, cookieHeader)
+      const resolved = await this.deps.resolveMedia(
+        adapted.primaryUrl,
+        cookieHeader,
+        qualityHint ? { qualityHint } : undefined
+      )
+      if (!resolved && qualityHint) {
+        throw new BridgeReceiverError(
+          'unsupported-kind',
+          'requested quality is unavailable for this url'
+        )
+      }
+      if (qualityHint?.audioOnly && resolved?.kind === 'direct') {
+        return this.dispatchAudioExtract(adapted, resolved)
+      }
+      const rewritten =
+        resolved?.kind === 'direct'
+          ? rewriteDirectAdapted(adapted, resolved)
+          : adapted
+      const m = resolved?.kind === 'mux' ? resolved : null
       if (m) {
         if (!this.mux) {
           throw new BridgeReceiverError(
@@ -395,8 +466,8 @@ export class BridgeReceiver {
           taskId: adapted.taskId,
           saveDir: adapted.saveDir,
           finalName,
-          videoUrl: m.videoUrl,
-          audioUrl: m.audioUrl,
+          videoUrl: admitHttpSource(m.videoUrl),
+          audioUrl: admitHttpSource(m.audioUrl),
           sanitizedHeaders: m.headers
             ? stripHopByHopHeaders(m.headers)
             : adapted.sanitizedHeaders,
@@ -407,6 +478,9 @@ export class BridgeReceiver {
             : {}),
         }
         return this.mux.dispatch(muxAdapted)
+      }
+      if (rewritten !== adapted) {
+        return this.direct.dispatch(rewritten)
       }
     }
 
@@ -432,6 +506,45 @@ export class BridgeReceiver {
       return this.mux.dispatch(adapted)
     }
     return this.direct.dispatch(adapted)
+  }
+
+  /**
+   * Route an `mp3` quality selection: the resolver handed back a single
+   * best-audio stream, which downloads through the media coordinator like
+   * any other single-segment job and is re-encoded to `.mp3` in the mux
+   * phase. The output name prefers the resolver's title (the page URL /
+   * suggested filename rarely names audio) and is deduplicated on disk
+   * before dispatch, exactly like the mux path.
+   */
+  private async dispatchAudioExtract(
+    adapted: AdaptedDirect,
+    resolved: DirectResolution
+  ): Promise<{ taskId: string }> {
+    if (!this.mux) {
+      throw new BridgeReceiverError(
+        'unsupported-kind',
+        'ffmpeg unavailable — mp3 extraction not active'
+      )
+    }
+    const titleBase = resolved.title
+      ? sanitizeFilename(resolved.title).trim()
+      : ''
+    const finalName = await this.deps.pickName(
+      adapted.saveDir,
+      ensureMp3Extension(titleBase || adapted.finalName)
+    )
+    const durationSec = resolved.durationSec ?? adapted.sourceMeta.durationSec
+    return this.mux.dispatchExtract({
+      taskId: adapted.taskId,
+      saveDir: adapted.saveDir,
+      finalName,
+      audioUrl: admitHttpSource(resolved.url),
+      sanitizedHeaders: resolved.headers
+        ? stripHopByHopHeaders(resolved.headers)
+        : adapted.sanitizedHeaders,
+      sourceMeta: adapted.sourceMeta,
+      ...(durationSec != null ? { durationSec } : {}),
+    })
   }
 
   private readonly sink: TaskNotificationSink = {

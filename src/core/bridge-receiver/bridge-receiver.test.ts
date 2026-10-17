@@ -315,7 +315,8 @@ describe('BridgeReceiver', () => {
             async () =>
               '#EXTM3U\n#EXTINF:5,\nhttps://example.com/0.ts\n#EXT-X-ENDLIST'
           ),
-          resolveToMux: async () => ({
+          resolveMedia: async () => ({
+            kind: 'mux' as const,
             videoUrl: 'https://example.com/v.mp4',
             audioUrl: 'https://example.com/a.m4a',
             container: 'mp4' as const,
@@ -357,12 +358,14 @@ describe('BridgeReceiver', () => {
             return receiver.handle(params as never, extCtx)
           }
           expect(receiver.muxPipeline).toBeDefined()
+          expect(await receiver.isMuxAvailable()).toBe(false)
           await expect(attempt()).rejects.toMatchObject({
             code: 'unsupported-kind',
           })
           expect(submit).not.toHaveBeenCalled()
           expect(deps.fetchManifest).not.toHaveBeenCalled()
           binaryPath = '/configured/ffmpeg'
+          expect(await receiver.isMuxAvailable()).toBe(true)
           if (kind === 'dash')
             vi.mocked(deps.fetchManifest!).mockResolvedValue(
               '<MPD type="static" mediaPresentationDuration="PT5S"><Period><AdaptationSet mimeType="video/mp4"><Representation id="v" bandwidth="1000"><BaseURL>https://example.com/v.mp4</BaseURL><SegmentList duration="5"><SegmentURL media="https://example.com/0.m4s" /></SegmentList></Representation></AdaptationSet></Period></MPD>'
@@ -488,10 +491,10 @@ describe('BridgeReceiver', () => {
   })
 
   // ---------------------------------------------------------------------------
-  // resolveToMux seam tests (Task 5 — submit-path pre-resolve)
+  // resolveMedia seam tests (Task 5 — submit-path pre-resolve)
   // ---------------------------------------------------------------------------
 
-  describe('resolveToMux seam', () => {
+  describe('resolveMedia seam', () => {
     const directParams = {
       source: {
         pageUrl: 'https://www.youtube.com/watch?v=abc',
@@ -507,7 +510,7 @@ describe('BridgeReceiver', () => {
           refererPolicy: 'strict-origin-when-cross-origin' as const,
         },
       },
-      meta: { suggestedFilename: 'vid.mp4', qualityLabel: '1080p' },
+      meta: { suggestedFilename: 'vid.mp4', qualityLabel: 'auto' },
     }
 
     const extCtx = {
@@ -518,9 +521,10 @@ describe('BridgeReceiver', () => {
       },
     } as never
 
-    it('resolveToMux returning a mux pair routes direct submit to MuxPipeline (not DirectPipeline)', async () => {
-      // Set up resolveToMux to return a mux pair
-      const resolveToMux = vi.fn(async (_url: string) => ({
+    it('resolveMedia returning a mux pair routes direct submit to MuxPipeline (not DirectPipeline)', async () => {
+      // Set up resolveMedia to return a mux pair
+      const resolveMedia = vi.fn(async (_url: string) => ({
+        kind: 'mux' as const,
         videoUrl: 'https://rr1.googlevideo.com/video.mp4',
         audioUrl: 'https://rr1.googlevideo.com/audio.mp4',
         container: 'mp4' as const,
@@ -532,7 +536,7 @@ describe('BridgeReceiver', () => {
         fetchManifest: vi.fn(async () => ''),
         taskManager: new TaskManager(),
         segmentAria2: fakeSegmentAria2,
-        resolveToMux,
+        resolveMedia,
       })
       const r = new BridgeReceiver(deps as never)
 
@@ -577,7 +581,8 @@ describe('BridgeReceiver', () => {
     })
 
     it('re-picks the resolver title WITH its container extension (dedup runs on the on-disk name)', async () => {
-      const resolveToMux = vi.fn(async () => ({
+      const resolveMedia = vi.fn(async () => ({
+        kind: 'mux' as const,
         videoUrl: 'https://v/v.mp4',
         audioUrl: 'https://a/a.m4a',
         container: 'mp4' as const,
@@ -589,7 +594,7 @@ describe('BridgeReceiver', () => {
         fetchManifest: vi.fn(async () => ''),
         taskManager: new TaskManager(),
         segmentAria2: fakeSegmentAria2,
-        resolveToMux,
+        resolveMedia,
         pickName: async (_d: string, n: string) => {
           picked.push(n)
           return n
@@ -615,28 +620,30 @@ describe('BridgeReceiver', () => {
       expect(muxArg.finalName).toBe('Human Title.mp4')
     })
 
-    it('resolveToMux returning null falls through to direct dispatch (no regression)', async () => {
-      const resolveToMux = vi.fn(async (_url: string) => null)
+    it('resolveMedia returning null falls through to direct dispatch (no regression)', async () => {
+      const resolveMedia = vi.fn(async (_url: string) => null)
 
       const deps = fakeDeps({
-        resolveToMux,
+        resolveMedia,
       })
       const r = new BridgeReceiver(deps as never)
 
       const result = await r.handle(directParams, extCtx)
 
-      // resolveToMux returned null → direct pipeline; createTask was called
+      // resolveMedia returned null → direct pipeline; createTask was called
       expect(result.taskId).toBeDefined()
       expect(deps.createTask).toHaveBeenCalledTimes(1)
-      // Empty cookies → cookieHeader is undefined (not forwarded)
-      expect(resolveToMux).toHaveBeenCalledWith(
+      // Empty cookies → cookieHeader is undefined (not forwarded); no
+      // quality hint → the options arg stays undefined too.
+      expect(resolveMedia).toHaveBeenCalledWith(
         'https://www.youtube.com/watch?v=abc',
+        undefined,
         undefined
       )
     })
 
-    it('resolveToMux absent (undefined) falls through to direct dispatch (full no-regression)', async () => {
-      // When resolveToMux is not set at all, direct submit proceeds as before
+    it('resolveMedia absent (undefined) falls through to direct dispatch (full no-regression)', async () => {
+      // When resolveMedia is not set at all, direct submit proceeds as before
       const deps = fakeDeps()
       const r = new BridgeReceiver(deps as never)
 
@@ -679,7 +686,7 @@ describe('BridgeReceiver', () => {
   // BridgeReceiver cookie seam tests (BIL-HD)
   // ---------------------------------------------------------------------------
 
-  describe('cookie seam: resolveToMux receives cookieHeader', () => {
+  describe('cookie seam: resolveMedia receives cookieHeader', () => {
     const bilibiliPageParams = {
       source: {
         pageUrl: 'https://www.bilibili.com/video/BV1xx411c7mD',
@@ -714,7 +721,7 @@ describe('BridgeReceiver', () => {
           refererPolicy: 'strict-origin-when-cross-origin' as const,
         },
       },
-      meta: { suggestedFilename: 'vid', qualityLabel: '1080p' },
+      meta: { suggestedFilename: 'vid', qualityLabel: 'auto' },
     }
 
     const extCtx = {
@@ -725,19 +732,20 @@ describe('BridgeReceiver', () => {
       },
     } as never
 
-    it('direct submit with cookies → resolveToMux called with serialized cookie header as 2nd arg', async () => {
-      const resolveToMux = vi.fn(async () => null)
-      const deps = fakeDeps({ resolveToMux })
+    it('direct submit with cookies → resolveMedia called with serialized cookie header as 2nd arg', async () => {
+      const resolveMedia = vi.fn(async () => null)
+      const deps = fakeDeps({ resolveMedia })
       const r = new BridgeReceiver(deps as never)
       await r.handle(bilibiliPageParams, extCtx)
-      expect(resolveToMux).toHaveBeenCalledWith(
+      expect(resolveMedia).toHaveBeenCalledWith(
         'https://www.bilibili.com/video/BV1xx411c7mD',
-        'SESSDATA=abc; bili_jct=x'
+        'SESSDATA=abc; bili_jct=x',
+        undefined
       )
     })
 
-    it('direct submit with empty cookies → resolveToMux called with url only (2nd arg undefined)', async () => {
-      const resolveToMux = vi.fn(async () => null)
+    it('direct submit with empty cookies → resolveMedia called with url only (2nd arg undefined)', async () => {
+      const resolveMedia = vi.fn(async () => null)
       const paramsNoCookies = {
         ...bilibiliPageParams,
         selection: {
@@ -748,14 +756,152 @@ describe('BridgeReceiver', () => {
           },
         },
       }
-      const deps = fakeDeps({ resolveToMux })
+      const deps = fakeDeps({ resolveMedia })
       const r = new BridgeReceiver(deps as never)
       await r.handle(paramsNoCookies, extCtx)
       // 2nd arg should be undefined (empty cookies → no cookie forwarding)
-      expect(resolveToMux).toHaveBeenCalledWith(
+      expect(resolveMedia).toHaveBeenCalledWith(
         'https://www.bilibili.com/video/BV1xx411c7mD',
+        undefined,
         undefined
       )
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // quality picker routing (meta.qualityLabel → resolver hint / MP3 extract)
+  // ---------------------------------------------------------------------------
+
+  describe('quality hint routing', () => {
+    const extCtx = {
+      identity: {
+        kind: 'extension' as const,
+        extensionId: 'e',
+        browser: 'chromium' as const,
+      },
+    } as never
+
+    const pageParams = (qualityLabel: string) => ({
+      source: {
+        pageUrl: 'https://x.example/watch?v=1',
+        pageTitle: 't',
+        detectedAt: 1,
+      },
+      selection: {
+        kind: 'direct' as const,
+        primary: {
+          url: 'https://x.example/watch?v=1',
+          headers: {},
+          cookies: [],
+          refererPolicy: 'strict-origin-when-cross-origin' as const,
+        },
+      },
+      meta: { suggestedFilename: 'vid', qualityLabel },
+    })
+
+    it('forwards a parsed height hint to resolveMedia as the options arg', async () => {
+      const resolveMedia = vi.fn(async () => null)
+      const deps = fakeDeps({ resolveMedia })
+      const r = new BridgeReceiver(deps as never)
+      await expect(r.handle(pageParams('1080p'), extCtx)).rejects.toMatchObject(
+        { name: 'BridgeReceiverError', code: 'unsupported-kind' }
+      )
+      expect(resolveMedia).toHaveBeenCalledWith(
+        'https://x.example/watch?v=1',
+        undefined,
+        { qualityHint: { height: 1080 } }
+      )
+    })
+
+    it('aborts with unsupported-kind when a picked quality cannot be resolved', async () => {
+      // A picker row only exists because the desktop listed this URL's own
+      // formats; null now means the pick went stale, and falling through
+      // would download the page document instead of the media.
+      const resolveMedia = vi.fn(async () => null)
+      const deps = fakeDeps({ resolveMedia })
+      const r = new BridgeReceiver(deps as never)
+      await expect(r.handle(pageParams('720p'), extCtx)).rejects.toMatchObject({
+        name: 'BridgeReceiverError',
+        code: 'unsupported-kind',
+      })
+      expect(deps.createTask).not.toHaveBeenCalled()
+    })
+
+    it('aborts when a quality pick arrives without a wired resolver', async () => {
+      const deps = fakeDeps()
+      const r = new BridgeReceiver(deps as never)
+      await expect(r.handle(pageParams('mp3'), extCtx)).rejects.toMatchObject({
+        name: 'BridgeReceiverError',
+        code: 'unsupported-kind',
+      })
+      expect(deps.createTask).not.toHaveBeenCalled()
+    })
+
+    it("'auto' keeps today's fallthrough: null resolution dispatches direct", async () => {
+      const resolveMedia = vi.fn(async () => null)
+      const deps = fakeDeps({ resolveMedia })
+      const r = new BridgeReceiver(deps as never)
+      const result = await r.handle(pageParams('auto'), extCtx)
+      expect(result.taskId).toBeDefined()
+      expect(deps.createTask).toHaveBeenCalledTimes(1)
+    })
+
+    it('an mp3 pick routes a resolved audio stream to MuxPipeline.dispatchExtract', async () => {
+      const resolveMedia = vi.fn(async () => ({
+        kind: 'direct' as const,
+        url: 'https://cdn.example/best.m4a',
+        title: 'Human Title',
+        durationSec: 42,
+      }))
+      const deps = fakeDeps({
+        ffmpegBinaryPath: '/usr/bin/ffmpeg',
+        taskManager: new TaskManager(),
+        segmentAria2: fakeSegmentAria2,
+        resolveMedia,
+      })
+      const r = new BridgeReceiver(deps as never)
+      const mux = (
+        r as unknown as {
+          mux: {
+            dispatchExtract: (...a: unknown[]) => Promise<{ taskId: string }>
+          }
+        }
+      ).mux
+      expect(mux).toBeDefined()
+      const extractSpy = vi
+        .spyOn(mux, 'dispatchExtract')
+        .mockResolvedValue({ taskId: 'mp3-task-1' })
+
+      const result = await r.handle(pageParams('mp3'), extCtx)
+
+      expect(result).toEqual({ taskId: 'mp3-task-1' })
+      expect(extractSpy).toHaveBeenCalledTimes(1)
+      const arg = extractSpy.mock.calls[0]?.[0] as {
+        audioUrl: string
+        finalName: string
+        durationSec?: number
+      }
+      expect(resolveMedia).toHaveBeenCalledWith(
+        'https://x.example/watch?v=1',
+        undefined,
+        { qualityHint: { audioOnly: true } }
+      )
+      expect(arg.audioUrl).toBe('https://cdn.example/best.m4a')
+      expect(arg.finalName).toBe('Human Title.mp3')
+      expect(arg.durationSec).toBe(42)
+    })
+
+    it('an mp3 pick without FFmpeg aborts as unsupported-kind', async () => {
+      const resolveMedia = vi.fn(async () => ({
+        kind: 'direct' as const,
+        url: 'https://cdn.example/best.m4a',
+      }))
+      const deps = fakeDeps({ resolveMedia })
+      const r = new BridgeReceiver(deps as never)
+      await expect(r.handle(pageParams('mp3'), extCtx)).rejects.toMatchObject({
+        name: 'BridgeReceiverError',
+        code: 'unsupported-kind',
+      })
     })
   })
 

@@ -129,6 +129,17 @@ const api: MotrixAPI = {
       channelMap = new Map()
       wrapperMap.set(callback, channelMap)
     }
+    // Idempotent per (callback, channel): re-subscribing the SAME callback to
+    // the SAME channel must not add a second real ipcRenderer listener. Without
+    // this, the map entry below is overwritten while the previous wrapper keeps
+    // receiving events forever — `off()` can only ever remove the newest one, so
+    // every duplicate on() leaks a listener until Electron warns
+    // `MaxListenersExceededWarning: 11 <channel> listeners added`.
+    const existing = channelMap.get(channel)
+    if (existing) {
+      existing.cancelReplay()
+      ipcRenderer.removeListener(channel, existing.wrapper)
+    }
     channelMap.set(channel, {
       wrapper,
       cancelReplay: () => {

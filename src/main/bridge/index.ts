@@ -40,9 +40,14 @@ import {
   WebSocketBridgeServer,
 } from '@core/bridge/web-socket-bridge-server'
 import type { BridgeReceiverDeps } from '@core/bridge-receiver/bridge-receiver'
-import { BridgeReceiver } from '@core/bridge-receiver/bridge-receiver'
+import {
+  BridgeReceiver,
+  serializeCookieHeader,
+} from '@core/bridge-receiver/bridge-receiver'
 import { BridgeStreamSource } from '@core/bridge-receiver/bridge-stream-source'
 import { getLogger } from '@core/logger'
+import type { MediaResolver } from '@core/media/ytdlp/media-resolver'
+import type { YtdlpFormatLister } from '@core/media/ytdlp/ytdlp-formats'
 import { urlMatchesHostPermissions } from '@core/plugin/hooks/eligibility'
 import type { PluginHost } from '@core/plugin/host/plugin-host'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
@@ -61,6 +66,10 @@ import {
   type ResolvePairResult,
 } from '@shared/protocol/bridge'
 import type { BridgeSettings } from '@shared/schemas/bridge-settings'
+import type {
+  MediaFormatsParams,
+  MediaFormatsResult,
+} from '@shared/schemas/media-formats'
 import type { PluginManifest } from '@shared/types/plugin'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
 import { app, ipcMain } from 'electron'
@@ -109,7 +118,7 @@ function contributesResolveCommand(manifest: PluginManifest): boolean {
 }
 
 /**
- * Build the `resolveToMux` factory for BridgeReceiver. Enumerates enabled
+ * Build the `resolveMedia` factory for BridgeReceiver. Enumerates enabled
  * site-resolver plugins that contribute a `${id}.resolve` command and whose
  * manifest hostPermissions admit the URL, then tries them in a deterministic
  * order (builtin origin before community, then by id) until one returns a mux
@@ -117,21 +126,17 @@ function contributesResolveCommand(manifest: PluginManifest): boolean {
  * a community resolver contributes its own hostPermissions once installed.
  * Any resolver error or a non-mux result falls through to the next candidate;
  * an empty candidate set returns null → the direct download proceeds.
+ *
+ * `fallback` runs once every plugin has declined. It is the yt-dlp resolver,
+ * so an installed site-specific resolver always wins over the generic
+ * extractor and a URL no resolver claims is only then handed to yt-dlp.
  */
-export function makeResolveToMux(
+export function makeResolveMedia(
   pluginRegistry: PluginRegistry,
-  pluginHost: PluginHost
-): (
-  url: string,
-  cookieHeader?: string
-) => Promise<{
-  videoUrl: string
-  audioUrl: string
-  container: 'mp4' | 'mkv'
-  headers?: Record<string, string>
-  title?: string
-} | null> {
-  return async (url: string, cookieHeader?: string) => {
+  pluginHost: PluginHost,
+  fallback?: MediaResolver
+): MediaResolver {
+  return async (url: string, cookieHeader?: string, options?) => {
     const candidates = pluginRegistry
       .entries()
       .filter(
@@ -179,6 +184,7 @@ export function makeResolveToMux(
             title?: string
           }
           return {
+            kind: 'mux',
             videoUrl: r.video.url,
             audioUrl: r.audio.url,
             container: r.container ?? 'mp4',
@@ -191,7 +197,7 @@ export function makeResolveToMux(
         // resolver failed → try the next candidate
       }
     }
-    return null
+    return fallback ? fallback(url, cookieHeader, options) : null
   }
 }
 
@@ -263,23 +269,15 @@ export interface BridgeRuntime {
    */
   getMediaSegmentGids: (taskId: string) => string[]
   /**
-   * The resolveToMux factory (youtube/bilibili → mux pair) used by
-   * BridgeReceiver. Exposed so the desktop Add-Task path can call the same
-   * resolver without re-constructing it. Always defined when BridgeRuntime is
-   * live; the factory itself returns null for non-resolver URLs.
+   * The resolveMedia factory (youtube/bilibili → mux pair, plus the yt-dlp
+   * fallback) used by BridgeReceiver. Exposed so the desktop Add-Task path can
+   * call the same resolver without re-constructing it. Always defined when
+   * BridgeRuntime is live; the factory itself returns null for non-resolver
+   * URLs.
    * The optional cookieHeader arg is forwarded to the plugin for bilibili HD
    * (desktop Add-Task path passes no cookies → ≤480p, by design).
    */
-  resolveToMux: (
-    url: string,
-    cookieHeader?: string
-  ) => Promise<{
-    videoUrl: string
-    audioUrl: string
-    container: 'mp4' | 'mkv'
-    headers?: Record<string, string>
-    title?: string
-  } | null>
+  resolveMedia: MediaResolver
 }
 
 interface NativeMessagingInstallation {
@@ -461,10 +459,14 @@ export async function bootstrapBridge(args: {
   // engine, so a submit racing SessionManager.restore() can't get clobbered
   // by its clear() + orphan re-adopt. Optional — Node shell / tests omit it.
   waitForReady?: BridgeReceiverDeps['waitForReady']
-  // Plugin subsystem — used to build the resolveToMux pre-resolver
+  // Plugin subsystem — used to build the resolveMedia pre-resolver
   // (youtube + bilibili → mux task via the url-resolver plugin).
   pluginRegistry: PluginRegistry
   pluginHost: PluginHost
+  /** yt-dlp fallback resolver; runs after every plugin has declined the URL. */
+  ytdlpResolveMedia?: MediaResolver
+  /** yt-dlp format listing — backend for the grab overlay's quality picker. */
+  ytdlpListFormats?: YtdlpFormatLister
   /** `bridge.fixedPort` (port policy, §4) + `bridge.instanceId` (the §4.1
    *  discovery routing hint) from persisted settings. */
   bridgeSettings: BridgeSettings
@@ -594,9 +596,10 @@ export async function bootstrapBridge(args: {
     // Build the resolver once — shared between BridgeReceiver (extension submit-
     // path) and the BridgeRuntime surface (desktop Add-Task path). A single
     // instance ensures both paths see the same plugin registry state.
-    const resolveToMuxFn = makeResolveToMux(
+    const resolveMediaFn = makeResolveMedia(
       args.pluginRegistry,
-      args.pluginHost
+      args.pluginHost,
+      args.ytdlpResolveMedia
     )
     const receiver = new BridgeReceiver({
       mediaMetaStore: args.mediaMetaStore,
@@ -621,7 +624,7 @@ export async function bootstrapBridge(args: {
       activityRecorder: args.activityRecorder,
       segmentAria2: args.segmentAria2,
       tmpRoot: args.tmpRoot,
-      resolveToMux: resolveToMuxFn,
+      resolveMedia: resolveMediaFn,
       persistTask: args.persistTask,
       persistTaskWithOccurrence: args.persistTaskWithOccurrence,
       occurrenceDispatcher: args.occurrenceDispatcher,
@@ -771,11 +774,31 @@ export async function bootstrapBridge(args: {
     // the server is listening but handlers aren't yet registered. motrix/initialize
     // and system/ping are wired by the server itself; the dispatcher validates
     // params at the boundary, so these handlers receive already-typed values.
+    const listFormats = args.ytdlpListFormats
     server.setHandlers({
       submitDownload: (params, ctx) =>
         args.trackAsyncWork(() => receiver.handle(params, ctx)),
       cancelDownload: (params) =>
         args.trackAsyncWork(() => receiver.cancel(params.taskId)),
+      ...(listFormats
+        ? {
+            listMediaFormats: async (
+              params: MediaFormatsParams
+            ): Promise<MediaFormatsResult> => {
+              const ffmpegAvailable =
+                typeof args.ffmpegAvailable === 'function'
+                  ? await args.ffmpegAvailable()
+                  : args.ffmpegAvailable
+              const cookieHeader =
+                serializeCookieHeader(params.cookies ?? []) || undefined
+              return listFormats({
+                url: params.url,
+                ...(cookieHeader ? { cookieHeader } : {}),
+                audioExtractAvailable: ffmpegAvailable,
+              })
+            },
+          }
+        : {}),
     })
     // v1 READ methods (task/list, task/get, stats/get, engine/status) — also
     // before start(), reachable via the unary POST /mdxp transport only.
@@ -1086,7 +1109,7 @@ export async function bootstrapBridge(args: {
       getMediaSegmentGids: (taskId: string) =>
         receiver.getMediaSegmentGids(taskId),
       cancelMedia: (taskId: string) => receiver.cancelMedia(taskId),
-      resolveToMux: resolveToMuxFn,
+      resolveMedia: resolveMediaFn,
     }
   } catch (error) {
     return ownership.rollback(error)

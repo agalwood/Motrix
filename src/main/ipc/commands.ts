@@ -11,6 +11,7 @@ import type { EventBus } from '@core/events/event-bus'
 import type { GeoIPManager } from '@core/geoip/geo-ip-manager'
 import { createUpdateGeoIPDatabaseHandler } from '@core/geoip/update-geo-ip-database'
 import { getLogger } from '@core/logger'
+import type { MediaResolver } from '@core/media/ytdlp/media-resolver'
 import { publishEngineRestartRequired } from '@core/notifications/engine-restart-required'
 import type { NotificationCenter } from '@core/notifications/notification-center'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
@@ -241,6 +242,12 @@ export interface CommandContext {
   hookAuditLog?: HookAuditLog
   hookOrchestrator?: HookOrchestrator
   bridgeManager: BridgeManager
+  /**
+   * yt-dlp backed media resolver, wired by the shell. Runs whenever the
+   * bridge's own resolver chain is unavailable (bridge disabled / not yet
+   * started), so desktop paste still extracts single-stream media sites.
+   */
+  ytdlpResolveMedia: MediaResolver
   magnetTracker: MagnetTracker
   activityRecorder: TaskActivityRecorder
   persistTask: NonNullable<TaskActionDeps['persistTask']>
@@ -337,6 +344,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     hookAuditLog,
     hookOrchestrator,
     bridgeManager,
+    ytdlpResolveMedia,
     activityRecorder,
     persistTask,
     persistTaskWithPluginMetadata,
@@ -385,13 +393,20 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     assertEngineReady: () => supervisor.assertReady(),
     // Lazy closures over bridgeManager.current so command-registration order
     // vs bridge bootstrap order never matters. When the bridge is disabled or
-    // not yet started, resolveToMux returns null → HTTP fallback; dispatchMux
-    // is only called when resolveToMux returns non-null (seam gates on both).
+    // not yet started, resolveMedia falls back to the yt-dlp resolver alone —
+    // enough for single-stream media sites, which need no media pipeline.
+    // The bridge's own resolver already composes yt-dlp last, so the fallback
+    // only ever runs when the bridge itself is unavailable.
     // By design the desktop path passes NO cookie header (2nd arg omitted):
-    // the app has no browser bilibili session, so desktop paste stays ≤480p.
-    // Bilibili HD comes via the extension submit path, which carries cookies.
-    resolveToMux: (url: string) =>
-      bridgeManager.current?.resolveToMux(url) ?? Promise.resolve(null),
+    // the app has no browser session, so desktop paste gets the site's
+    // public-quality streams.
+    resolveMedia: async (url: string, cookieHeader?: string) => {
+      const bridge = bridgeManager.current
+      if (bridge?.resolveMedia) {
+        return bridge.resolveMedia(url, cookieHeader)
+      }
+      return ytdlpResolveMedia(url, cookieHeader)
+    },
     // Share the receiver's live FFmpeg check with desktop submissions.
     dispatchMux: async (adapted: AdaptedMux) => {
       const mux = bridgeManager.current?.muxPipeline
@@ -418,7 +433,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     },
   }
 
-  // Lazy closure over bridgeManager.current, mirroring resolveToMux/dispatchMux:
+  // Lazy closure over bridgeManager.current, mirroring resolveMedia/dispatchMux:
   // a media task (Mux/Hls) has engineTaskId '' and no aria2 handle, so pause/
   // resume act on the coordinator's live segment gids instead. Returns [] when
   // the bridge/coordinator is absent — pause/resume then reports a clear

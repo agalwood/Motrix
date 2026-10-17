@@ -155,4 +155,18 @@ describe('useEngineRestartRequiredToast', () => {
       expect.any(Function)
     )
   })
+
+  it('subscribes once and does not re-subscribe when the translator identity changes', async () => {
+    const { i18n } = await import('@renderer/lib/i18n')
+    const { rerender } = renderHook(() => useEngineRestartRequiredToast())
+    const subscribed = vi.mocked(transport.on).mock.calls.length
+
+    // LanguageSync changeLanguage() bumps `t`'s identity on a normal app start;
+    // that must not churn the transport subscriptions.
+    await act(async () => {
+      await i18n.changeLanguage('zh-CN')
+    })
+    rerender()
+    expect(vi.mocked(transport.on).mock.calls.length).toBe(subscribed)
+  })
 })

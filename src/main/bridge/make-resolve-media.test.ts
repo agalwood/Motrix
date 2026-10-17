@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { makeResolveToMux } from './index'
+import { makeResolveMedia } from './index'
 
 // Build a fake registry entry shaped like PluginRegistry.entries() rows:
 // { manifest, origin, enabled }. A site-resolver contributes to the mux seam
@@ -44,7 +44,7 @@ function fakeRegistry(...plugins: ReturnType<typeof plugin>[]) {
 const BILI = 'https://www.bilibili.com/video/BV1xx411c7mD'
 const YT = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
 
-describe('makeResolveToMux — generalized multi-resolver routing', () => {
+describe('makeResolveMedia — generalized multi-resolver routing', () => {
   it('routes to an enabled site-resolver that declares <id>.resolve and whose hostPermissions admit the url', async () => {
     const invokeCommand = vi.fn().mockResolvedValue({
       kind: 'mux',
@@ -57,7 +57,7 @@ describe('makeResolveToMux — generalized multi-resolver routing', () => {
       activate: vi.fn().mockResolvedValue(undefined),
       invokeCommand,
     } as any
-    const resolve = makeResolveToMux(
+    const resolve = makeResolveMedia(
       fakeRegistry(
         plugin({
           id: 'community.bilibili-resolver',
@@ -67,6 +67,7 @@ describe('makeResolveToMux — generalized multi-resolver routing', () => {
       pluginHost
     )
     expect(await resolve(BILI)).toEqual({
+      kind: 'mux',
       videoUrl: 'https://cdn/v.m4s',
       audioUrl: 'https://cdn/a.m4s',
       container: 'mp4',
@@ -92,7 +93,7 @@ describe('makeResolveToMux — generalized multi-resolver routing', () => {
   it('never routes to a broad site-resolver that has no <id>.resolve command', async () => {
     const invokeCommand = vi.fn()
     const pluginHost = { activate: vi.fn(), invokeCommand } as any
-    const resolve = makeResolveToMux(
+    const resolve = makeResolveMedia(
       fakeRegistry(
         plugin({
           id: 'motrix.scraper-hook',
@@ -111,7 +112,7 @@ describe('makeResolveToMux — generalized multi-resolver routing', () => {
   it('ignores a plugin that declares <id>.resolve but is not categorized site-resolver', async () => {
     const invokeCommand = vi.fn()
     const pluginHost = { activate: vi.fn(), invokeCommand } as any
-    const resolve = makeResolveToMux(
+    const resolve = makeResolveMedia(
       fakeRegistry(
         plugin({
           id: 'community.thing',
@@ -128,7 +129,7 @@ describe('makeResolveToMux — generalized multi-resolver routing', () => {
   it('skips a disabled resolver even if its hostPermissions match', async () => {
     const invokeCommand = vi.fn()
     const pluginHost = { activate: vi.fn(), invokeCommand } as any
-    const resolve = makeResolveToMux(
+    const resolve = makeResolveMedia(
       fakeRegistry(
         plugin({
           id: 'community.bilibili-resolver',
@@ -145,7 +146,7 @@ describe('makeResolveToMux — generalized multi-resolver routing', () => {
   it('returns null when no enabled resolver hostPermissions admit the url', async () => {
     const invokeCommand = vi.fn()
     const pluginHost = { activate: vi.fn(), invokeCommand } as any
-    const resolve = makeResolveToMux(
+    const resolve = makeResolveMedia(
       fakeRegistry(
         plugin({
           id: 'community.bilibili-resolver',
@@ -161,7 +162,7 @@ describe('makeResolveToMux — generalized multi-resolver routing', () => {
   it('empty official resolvable set: with only a stripped resolver (no hostPermissions), nothing is routed', async () => {
     const invokeCommand = vi.fn()
     const pluginHost = { activate: vi.fn(), invokeCommand } as any
-    const resolve = makeResolveToMux(
+    const resolve = makeResolveMedia(
       fakeRegistry(
         plugin({
           id: 'motrix.url-resolver',
@@ -191,7 +192,7 @@ describe('makeResolveToMux — generalized multi-resolver routing', () => {
       activate: vi.fn().mockResolvedValue(undefined),
       invokeCommand,
     } as any
-    const resolve = makeResolveToMux(
+    const resolve = makeResolveMedia(
       fakeRegistry(
         plugin({
           id: 'community.b-resolver',
@@ -207,6 +208,7 @@ describe('makeResolveToMux — generalized multi-resolver routing', () => {
       pluginHost
     )
     expect(await resolve('https://www.site.com/x')).toEqual({
+      kind: 'mux',
       videoUrl: 'https://c/v',
       audioUrl: 'https://c/a',
       container: 'mp4',
@@ -232,7 +234,7 @@ describe('makeResolveToMux — generalized multi-resolver routing', () => {
       activate: vi.fn().mockResolvedValue(undefined),
       invokeCommand,
     } as any
-    const resolve = makeResolveToMux(
+    const resolve = makeResolveMedia(
       fakeRegistry(
         plugin({
           id: 'community.b-resolver',
@@ -248,6 +250,7 @@ describe('makeResolveToMux — generalized multi-resolver routing', () => {
       pluginHost
     )
     expect(await resolve('https://www.site.com/x')).toEqual({
+      kind: 'mux',
       videoUrl: 'https://c/v',
       audioUrl: 'https://c/a',
       container: 'mkv',
@@ -265,7 +268,7 @@ describe('makeResolveToMux — generalized multi-resolver routing', () => {
       activate: vi.fn().mockResolvedValue(undefined),
       invokeCommand,
     } as any
-    const resolve = makeResolveToMux(
+    const resolve = makeResolveMedia(
       fakeRegistry(
         plugin({
           id: 'community.bilibili-resolver',
