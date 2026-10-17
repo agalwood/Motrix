@@ -89,8 +89,9 @@ export function TaskColumnHeader({
                 if (dragging.current) event.preventDefault()
               }}
               onDrop={(event) => {
+                if (!dragging.current) return
                 event.preventDefault()
-                if (dragging.current) moveColumn(dragging.current, id)
+                moveColumn(dragging.current, id)
                 dragging.current = null
               }}
             >
