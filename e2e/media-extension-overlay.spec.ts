@@ -64,10 +64,11 @@ const extensionReady =
   existsSync(path.join(extensionBuild, 'manifest.json'))
 const browserReady = chrome !== undefined && existsSync(chrome)
 
+// Pairing passwords must never enter retry traces, videos, or failure DOM
+// snapshots. Explicit screenshots below are taken only outside pairing.
+test.use({ trace: 'off', screenshot: 'off', video: 'off' })
+
 test.describe('real Chromium extension overlay', () => {
-  // Pairing passwords must never enter retry traces, videos, or failure DOM
-  // snapshots. Explicit screenshots below are taken only outside pairing.
-  test.use({ trace: 'off', screenshot: 'off', video: 'off' })
   test.beforeAll(() => {
     process.env.PLAYWRIGHT_NO_COPY_PROMPT = '1'
   })
