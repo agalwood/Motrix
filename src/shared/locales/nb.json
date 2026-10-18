@@ -942,14 +942,24 @@
             "activeSeconds_other": "{{count}} sekunder",
             "noDataQualityIssues": "Ingen registreringsadvarsler.",
             "sampleCount_one": "{{count}} måling",
-            "sampleCount_other": "{{count}} målinger"
+            "sampleCount_other": "{{count}} målinger",
+            "noSamples": "Ingen målinger",
+            "overview": "Historikkoversikt",
+            "rangeStart": "Start på intervallet",
+            "rangeEnd": "Slutt på intervallet",
+            "earlier": "Eldre historikk",
+            "later": "Nyere historikk",
+            "zoomIn": "Zoom inn",
+            "zoomOut": "Zoom ut",
+            "showAll": "Vis alt",
+            "following": "Følger nyeste data",
+            "followLatest": "Tilbake til nyeste"
           },
           "collecting": "Samler overføringsdata…",
-          "coverageGap": "Registreringen ble avbrutt.",
           "download": "Nedlasting",
           "lifetimeEmpty": "Samlet historikk er ikke tilgjengelig ennå.",
           "loading": "Laster inn aktivitet…",
-          "noSessionHistory": "Ingen overføring registrert i denne appøkten.",
+          "noSessionHistory": "Ingen nylig overføring registrert.",
           "noTraffic": "Ingen nettverkstrafikk akkurat nå.",
           "notAvailable": "Ikke tilgjengelig",
           "range": {
@@ -958,7 +968,7 @@
             "label": "Tidsrom for overføring",
             "latest": "Siste 60 sekunder",
             "lifetime": "Hele perioden",
-            "session": "Økt (60 s)"
+            "session": "Siste 60 s"
           },
           "retry": "Prøv igjen",
           "stale": {
@@ -1013,7 +1023,7 @@
           },
           "transferTitle": {
             "lifetime": "Samlet overføring",
-            "session": "Overføring i økten"
+            "session": "Nylig overføring"
           },
           "unavailable": "Samlet aktivitet er utilgjengelig.",
           "upload": "Opplasting"

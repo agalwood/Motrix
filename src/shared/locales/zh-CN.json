@@ -686,18 +686,17 @@
         },
         "activity": {
           "transferTitle": {
-            "session": "会话传输",
-            "lifetime": "生命周期传输"
+            "session": "近期传输",
+            "lifetime": "全程传输"
           },
           "download": "下载",
           "upload": "上传",
           "loading": "正在加载活动记录…",
           "collecting": "正在收集传输数据…",
-          "noSessionHistory": "本次应用会话未记录传输数据。",
-          "lifetimeEmpty": "生命周期历史暂不可用。",
+          "noSessionHistory": "暂无近期传输记录。",
+          "lifetimeEmpty": "全程历史暂不可用。",
           "noTraffic": "当前没有网络流量。",
-          "unavailable": "生命周期活动暂不可用。",
-          "coverageGap": "活动追踪曾中断。",
+          "unavailable": "全程活动暂不可用。",
           "retry": "重试",
           "notAvailable": "不可用",
           "stale": {
@@ -706,8 +705,8 @@
           },
           "range": {
             "label": "传输时间范围",
-            "session": "会话(60 秒)",
-            "lifetime": "生命周期",
+            "session": "最近 60 秒",
+            "lifetime": "全程",
             "latest": "最近 60 秒",
             "adaptive_other": "自适应分辨率 {{count}} 个样本"
           },
@@ -756,10 +755,21 @@
             "activeExpanded": "活跃传输时长"
           },
           "chart": {
-            "accessibleSummary": "{{range}}，从 {{start}} 到 {{end}}。最新下载 {{download}}，上传 {{upload}}。生命周期平均下载 {{average}}，下载峰值 {{peak}}，活跃 {{activeDuration}}。{{sampleLabel}}。{{state}}",
+            "accessibleSummary": "{{range}}，从 {{start}} 到 {{end}}。最新下载 {{download}}，上传 {{upload}}。全程平均下载 {{average}}，下载峰值 {{peak}}，活跃 {{activeDuration}}。{{sampleLabel}}。{{state}}",
             "activeSeconds_other": "{{count}} 秒",
             "sampleCount_other": "{{count}} 个样本",
-            "noDataQualityIssues": "没有追踪警告。"
+            "noDataQualityIssues": "没有追踪警告。",
+            "noSamples": "缺少采样",
+            "overview": "全程概览",
+            "rangeStart": "开始时间",
+            "rangeEnd": "结束时间",
+            "earlier": "较早历史",
+            "later": "较新历史",
+            "zoomIn": "放大",
+            "zoomOut": "缩小",
+            "showAll": "查看全程",
+            "following": "正在跟随最新",
+            "followLatest": "回到最新"
           }
         },
         "pieces": {

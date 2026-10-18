@@ -947,14 +947,24 @@
             "noDataQualityIssues": "No hi ha avisos de seguiment.",
             "sampleCount_many": "{{count}} mostres",
             "sampleCount_one": "{{count}} mostra",
-            "sampleCount_other": "{{count}} mostres"
+            "sampleCount_other": "{{count}} mostres",
+            "noSamples": "Sense mostres",
+            "overview": "Resum de l’historial",
+            "rangeStart": "Inici de l’interval",
+            "rangeEnd": "Final de l’interval",
+            "earlier": "Historial anterior",
+            "later": "Historial posterior",
+            "zoomIn": "Amplia",
+            "zoomOut": "Redueix",
+            "showAll": "Mostra-ho tot",
+            "following": "Seguint les dades més recents",
+            "followLatest": "Torna a les més recents"
           },
           "collecting": "S'estan recollint dades de transferència…",
-          "coverageGap": "S'ha interromput el seguiment.",
           "download": "Baixada",
           "lifetimeEmpty": "L'historial acumulat encara no està disponible.",
           "loading": "S'està carregant l'activitat…",
-          "noSessionHistory": "No s'ha registrat cap transferència en aquesta sessió de l'aplicació.",
+          "noSessionHistory": "No hi ha transferències recents registrades.",
           "noTraffic": "Ara mateix no hi ha trànsit de xarxa.",
           "notAvailable": "No disponible",
           "range": {
@@ -964,7 +974,7 @@
             "label": "Període de transferència",
             "latest": "Últims 60 segons",
             "lifetime": "Acumulat",
-            "session": "Sessió (60 s)"
+            "session": "Últims 60 s"
           },
           "retry": "Tornar-ho a provar",
           "stale": {
@@ -1021,7 +1031,7 @@
           },
           "transferTitle": {
             "lifetime": "Transferència acumulada",
-            "session": "Transferència de la sessió"
+            "session": "Transferència recent"
           },
           "unavailable": "L'activitat acumulada no està disponible.",
           "upload": "Pujada"

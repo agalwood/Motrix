@@ -686,18 +686,17 @@
         },
         "activity": {
           "transferTitle": {
-            "session": "本次工作階段傳輸量",
-            "lifetime": "累計傳輸量"
+            "session": "近期傳輸",
+            "lifetime": "全程傳輸"
           },
           "download": "下載",
           "upload": "上傳",
           "loading": "正在載入活動資料…",
           "collecting": "正在收集傳輸資料…",
-          "noSessionHistory": "此應用程式工作階段尚無傳輸記錄。",
+          "noSessionHistory": "暫無近期傳輸記錄。",
           "lifetimeEmpty": "尚無法取得累計歷程記錄。",
           "noTraffic": "目前沒有網路流量。",
           "unavailable": "無法取得累計活動資料。",
-          "coverageGap": "追蹤曾中斷。",
           "retry": "重試",
           "notAvailable": "無法使用",
           "stale": {
@@ -706,8 +705,8 @@
           },
           "range": {
             "label": "傳輸時間範圍",
-            "session": "工作階段 (60 秒)",
-            "lifetime": "累計",
+            "session": "最近 60 秒",
+            "lifetime": "全程",
             "latest": "最近 60 秒",
             "adaptive_other": "自適應解析度 · {{count}} 個樣本"
           },
@@ -759,7 +758,18 @@
             "accessibleSummary": "{{start}} 至 {{end}} 的 {{range}}。最新下載 {{download}}、上傳 {{upload}}。累計平均下載 {{average}}、最高下載 {{peak}}、有效時間 {{activeDuration}}。{{sampleLabel}}。{{state}}",
             "activeSeconds_other": "{{count}} 秒",
             "sampleCount_other": "{{count}} 個樣本",
-            "noDataQualityIssues": "沒有追蹤警告。"
+            "noDataQualityIssues": "沒有追蹤警告。",
+            "noSamples": "缺少取樣",
+            "overview": "全程概覽",
+            "rangeStart": "開始時間",
+            "rangeEnd": "結束時間",
+            "earlier": "較早歷史",
+            "later": "較新歷史",
+            "zoomIn": "放大",
+            "zoomOut": "縮小",
+            "showAll": "查看全程",
+            "following": "正在跟隨最新",
+            "followLatest": "回到最新"
           }
         },
         "pieces": {

@@ -695,18 +695,17 @@
         },
         "activity": {
           "transferTitle": {
-            "session": "Transfer w sesji",
+            "session": "Ostatni transfer",
             "lifetime": "Transfer od początku"
           },
           "download": "Pobieranie",
           "upload": "Wysyłanie",
           "loading": "Wczytywanie aktywności…",
           "collecting": "Zbieranie danych transferu…",
-          "noSessionHistory": "Nie zarejestrowano transferu w tej sesji aplikacji.",
+          "noSessionHistory": "Brak zarejestrowanego ostatniego transferu.",
           "lifetimeEmpty": "Pełna historia nie jest jeszcze dostępna.",
           "noTraffic": "Obecnie brak ruchu sieciowego.",
           "unavailable": "Aktywność od początku jest niedostępna.",
-          "coverageGap": "Rejestrowanie zostało przerwane.",
           "retry": "Spróbuj ponownie",
           "notAvailable": "Niedostępne",
           "stale": {
@@ -715,7 +714,7 @@
           },
           "range": {
             "label": "Zakres czasu transferu",
-            "session": "Sesja (60 s)",
+            "session": "Ostatnie 60 s",
             "lifetime": "Od początku",
             "latest": "Ostatnie 60 sekund",
             "adaptive_one": "Rozdzielczość adaptacyjna · {{count}} próbka",
@@ -783,7 +782,18 @@
             "sampleCount_other": "{{count}} próbki",
             "sampleCount_few": "{{count}} próbki",
             "sampleCount_many": "{{count}} próbek",
-            "noDataQualityIssues": "Brak ostrzeżeń dotyczących rejestrowania."
+            "noDataQualityIssues": "Brak ostrzeżeń dotyczących rejestrowania.",
+            "noSamples": "Brak próbek",
+            "overview": "Przegląd historii",
+            "rangeStart": "Początek zakresu",
+            "rangeEnd": "Koniec zakresu",
+            "earlier": "Starsza historia",
+            "later": "Nowsza historia",
+            "zoomIn": "Powiększ",
+            "zoomOut": "Pomniejsz",
+            "showAll": "Pokaż wszystko",
+            "following": "Śledzenie najnowszych danych",
+            "followLatest": "Wróć do najnowszych"
           }
         },
         "pieces": {

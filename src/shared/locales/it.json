@@ -692,18 +692,17 @@
         },
         "activity": {
           "transferTitle": {
-            "session": "Trasferimenti della sessione",
+            "session": "Trasferimento recente",
             "lifetime": "Trasferimenti dall’inizio"
           },
           "download": "Download",
           "upload": "Caricamento",
           "loading": "Caricamento delle attività…",
           "collecting": "Raccolta dei dati di trasferimento…",
-          "noSessionHistory": "Nessun trasferimento registrato in questa sessione dell’app.",
+          "noSessionHistory": "Nessun trasferimento recente registrato.",
           "lifetimeEmpty": "La cronologia completa non è ancora disponibile.",
           "noTraffic": "Nessun traffico di rete al momento.",
           "unavailable": "Le attività dall’inizio non sono disponibili.",
-          "coverageGap": "La registrazione è stata interrotta.",
           "retry": "Riprova",
           "notAvailable": "Non disponibile",
           "stale": {
@@ -712,7 +711,7 @@
           },
           "range": {
             "label": "Intervallo temporale dei trasferimenti",
-            "session": "Sessione (60 s)",
+            "session": "Ultimi 60 s",
             "lifetime": "Dall’inizio",
             "latest": "Ultimi 60 secondi",
             "adaptive_one": "Risoluzione adattiva · {{count}} campione",
@@ -775,7 +774,18 @@
             "sampleCount_one": "{{count}} campione",
             "sampleCount_other": "{{count}} campioni",
             "sampleCount_many": "{{count}} campioni",
-            "noDataQualityIssues": "Nessun avviso sulla registrazione."
+            "noDataQualityIssues": "Nessun avviso sulla registrazione.",
+            "noSamples": "Nessun campione",
+            "overview": "Panoramica della cronologia",
+            "rangeStart": "Inizio intervallo",
+            "rangeEnd": "Fine intervallo",
+            "earlier": "Cronologia precedente",
+            "later": "Cronologia successiva",
+            "zoomIn": "Ingrandisci",
+            "zoomOut": "Riduci",
+            "showAll": "Mostra tutto",
+            "following": "Segui i dati più recenti",
+            "followLatest": "Torna ai dati recenti"
           }
         },
         "pieces": {
