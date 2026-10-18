@@ -1336,6 +1336,8 @@
       "advanced": "ขั้นสูง",
       "attentionGeneric": "ดูรายละเอียดในบันทึก",
       "attentionTitle": "ปลั๊กอินนี้รายงานปัญหา",
+      "runtimeStartFailed": "ไม่สามารถเริ่มสภาพแวดล้อมการทำงานของปลั๊กอินได้",
+      "runtimeFailed": "สภาพแวดล้อมการทำงานของปลั๊กอินหยุดทำงานโดยไม่คาดคิด",
       "author": "ผู้เขียน",
       "back": "ปลั๊กอินทั้งหมด",
       "disabled": "ปิดใช้",
@@ -1535,6 +1537,7 @@
     "lead": "เพิ่มความสามารถเล็กๆ ให้ Motrix เปิดใช้เฉพาะปลั๊กอินที่เชื่อถือและปิดที่เหลือ",
     "logs": {
       "clear": "ล้าง",
+      "clearFailed": "ไม่สามารถล้างบันทึกได้ โปรดลองอีกครั้ง",
       "copy": "คัดลอกบันทึกที่ปกปิดข้อมูลแล้ว",
       "empty": "ยังไม่มีรายการบันทึก",
       "emptyFiltered": "ไม่มีรายการตรงกับระดับนี้",
@@ -1802,6 +1805,14 @@
         "secret": "ข้อมูลลับ RPC",
         "secretDesc": "จำเป็นสำหรับการเชื่อมต่อ RPC",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "ไฟล์การตั้งค่า",
+        "serverTitle": "ไฟล์การตั้งค่าเซิร์ฟเวอร์",
+        "openDirectory": "เปิดโฟลเดอร์",
+        "copyPath": "คัดลอกพาธ",
+        "copied": "คัดลอกแล้ว",
+        "actionFailed": "ดำเนินการไม่สำเร็จ โปรดลองอีกครั้ง"
       }
     },
     "appearance": {
@@ -3079,6 +3090,7 @@
     "preserveFiles": "Downloaded files stay in their original location.",
     "chooseTasks": "Choose downloads",
     "skip": "Not now",
+    "skippedHint": "คุณสามารถย้ายข้อมูลภายหลังได้ที่ {{settings}} → {{advanced}}",
     "back": "Back",
     "loading": "Looking for your old downloads…",
     "empty": "There are no tasks to migrate from this folder.",

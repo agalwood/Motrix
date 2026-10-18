@@ -85,6 +85,7 @@ const ipcHandleMock = vi.fn()
 const ipcRemoveHandlerMock = vi.fn()
 const openExternalMock = vi.fn()
 const openPathMock = vi.fn()
+const showItemInFolderMock = vi.fn()
 const showOpenDialogMock = vi.fn()
 const showSaveDialogMock = vi.fn()
 vi.mock('electron', () => ({
@@ -103,7 +104,7 @@ vi.mock('electron', () => ({
   shell: {
     openExternal: (...args: unknown[]) => openExternalMock(...args),
     openPath: (...args: unknown[]) => openPathMock(...args),
-    showItemInFolder: vi.fn(),
+    showItemInFolder: (...args: unknown[]) => showItemInFolderMock(...args),
   },
 }))
 
@@ -319,6 +320,36 @@ function fakeCtx() {
 }
 
 describe('buildCommandHandlers', () => {
+  it.each([
+    '/custom profile/settings.json',
+    'C:\\Users\\Example\\配置\\settings.json',
+    '\\\\server\\share\\profile\\settings.json',
+  ])(
+    'reveals the full active settings file %s and rejects caller paths',
+    async (filePath) => {
+      const ctx = fakeCtx()
+      const handler = buildCommandHandlers({
+        ...ctx,
+        settingsManager: {
+          ...ctx.settingsManager,
+          getFilePath: () => filePath,
+        },
+      } as unknown as CommandContext)[Commands.OpenSettingsDirectory]!
+      openPathMock.mockReset().mockResolvedValue('')
+      showItemInFolderMock.mockReset()
+      await expect(handler({ path: '/unrelated' })).rejects.toThrow()
+      expect(openPathMock).not.toHaveBeenCalled()
+      expect(showItemInFolderMock).not.toHaveBeenCalled()
+      await expect(handler()).resolves.toBe(true)
+      expect(showItemInFolderMock).toHaveBeenCalledExactlyOnceWith(filePath)
+      expect(openPathMock).not.toHaveBeenCalled()
+      showItemInFolderMock.mockImplementationOnce(() => {
+        throw new Error('Shell unavailable')
+      })
+      await expect(handler()).rejects.toThrow('Shell unavailable')
+    }
+  )
+
   it('downloads registry packages through the injected plugin transport and serializes failures', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'plugin-network-command-'))
     try {

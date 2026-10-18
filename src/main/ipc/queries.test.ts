@@ -316,6 +316,20 @@ describe('buildQueryHandlers', () => {
     expect(getSyncStatus).toHaveBeenCalledOnce()
   })
 
+  it('returns the active settings file instead of inferring it from the data directory', async () => {
+    const handlers = buildQueryHandlers({
+      userDataDir: '/default/profile',
+      settingsManager: {
+        getFilePath: () => '/custom profile/settings.json',
+      },
+    } as unknown as QueryContext)
+    await expect(
+      handlers[Queries.GetSettingsFileLocation]?.()
+    ).resolves.toEqual({
+      path: '/custom profile/settings.json',
+    })
+  })
+
   it('returns the committed locale separately from a saved system preference', async () => {
     const settings = { app: { language: 'system' } }
     let resolved = 'fr'

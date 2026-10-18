@@ -1,3 +1,4 @@
+import { MiddleEllipsis } from '@renderer/components/desktop-kit/middle-ellipsis'
 import { VirtualList } from '@renderer/components/desktop-kit/virtual-list/virtual-list'
 import { Checkbox } from '@renderer/components/ui/checkbox'
 import { useByteFormat } from '@renderer/hooks/use-byte-format'
@@ -145,13 +146,12 @@ export function FileList<T extends BaseFileRow = BaseFileRow>({
               disabled={readOnly}
               aria-label={file.path}
             />
-            <span
-              className="min-w-0 flex-1 truncate text-xs"
+            <MiddleEllipsis
+              text={file.path}
               dir="auto"
-              title={file.path}
-            >
-              {file.path}
-            </span>
+              maxChars={80}
+              className="min-w-0 flex-1 font-sans! text-xs"
+            />
             <span
               className="w-14 shrink-0 truncate text-xs text-muted-foreground"
               dir="ltr"

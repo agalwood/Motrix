@@ -1348,7 +1348,15 @@
         "historyCountHint": "Older recovery records are removed.",
         "historyCountPositive": "Enter a number greater than 0."
       },
-      "description": "RPC, progress and recovery"
+      "description": "RPC, progress and recovery",
+      "configFile": {
+        "title": "Configuration file",
+        "serverTitle": "Server configuration file",
+        "openDirectory": "Open folder",
+        "copyPath": "Copy path",
+        "copied": "Copied",
+        "actionFailed": "Couldn’t complete the action. Try again."
+      }
     },
     "about": {
       "appIconAlt": "Motrix app icon",
@@ -2452,6 +2460,8 @@
       "accessHosts_other": "Can read {{count}} websites",
       "accessBroad": "Can read any website",
       "attentionTitle": "This plugin reported a problem",
+      "runtimeStartFailed": "Plugin runtime could not start",
+      "runtimeFailed": "Plugin runtime stopped unexpectedly",
       "attentionGeneric": "See logs for details.",
       "viewIssue": "View issue",
       "removeTitle": "Remove plugin",
@@ -2481,6 +2491,7 @@
       },
       "copy": "Copy redacted logs",
       "clear": "Clear",
+      "clearFailed": "Couldn’t clear logs. Try again.",
       "output": "Live output",
       "entryCount_one": "{{count}} entry",
       "entryCount_other": "{{count}} entries",
@@ -3101,6 +3112,7 @@
     "preserveFiles": "Downloaded files stay in their original location.",
     "chooseTasks": "Choose downloads",
     "skip": "Not now",
+    "skippedHint": "You can migrate later from {{settings}} → {{advanced}}.",
     "back": "Back",
     "loading": "Looking for your old downloads…",
     "empty": "There are no tasks to migrate from this folder.",

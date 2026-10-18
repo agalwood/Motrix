@@ -1,6 +1,8 @@
 import '@test-utils/dom-animations'
 import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
+import { toast } from '@renderer/components/ui/toast'
+import { useLegacyImportSidebar } from '@renderer/features/legacy-import/sidebar-preference'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
@@ -11,6 +13,9 @@ import { MigrationPage } from './migration-page'
 
 vi.mock('@renderer/lib/transport', () => ({
   transport: { invoke: vi.fn(), on: vi.fn(), off: vi.fn(), platform: 'darwin' },
+}))
+vi.mock('@renderer/components/ui/toast', () => ({
+  toast: { add: vi.fn() },
 }))
 const sourceHandle = '11111111-1111-4111-8111-111111111111'
 const previewId = '22222222-2222-4222-8222-222222222222'
@@ -69,6 +74,8 @@ function Host() {
   )
 }
 beforeEach(() => {
+  useLegacyImportSidebar.setState({ dismissed: false })
+  vi.mocked(toast.add).mockClear()
   vi.stubGlobal(
     'ResizeObserver',
     class {
@@ -122,6 +129,11 @@ describe('retained migration page', () => {
     await waitFor(() =>
       expect(screen.getByTestId('route').textContent).toBe('/')
     )
+    expect(useLegacyImportSidebar.getState().dismissed).toBe(true)
+    expect(toast.add).toHaveBeenCalledWith({
+      title: 'You can migrate later from Settings → Advanced.',
+      type: 'info',
+    })
     expect(transport.invoke).not.toHaveBeenCalledWith(
       Commands.CommitLegacyImport,
       expect.anything()
@@ -149,6 +161,8 @@ describe('retained migration page', () => {
     fireEvent.click(await screen.findByRole('checkbox', { name: 'two.zip' }))
     fireEvent.click(screen.getByText('Go downloads'))
     fireEvent.click(screen.getByText('Go migration'))
+    expect(useLegacyImportSidebar.getState().dismissed).toBe(false)
+    expect(toast.add).not.toHaveBeenCalled()
     expect(screen.getByRole('checkbox', { name: 'two.zip' })).not.toBeChecked()
     expect(screen.getByRole('button', { name: 'Migrate' })).toBeEnabled()
     fireEvent.click(screen.getByRole('button', { name: 'Not now' }))

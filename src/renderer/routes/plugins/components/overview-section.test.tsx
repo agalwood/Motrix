@@ -40,6 +40,38 @@ function manifest(over: Partial<PluginManifestDTO> = {}): PluginManifestDTO {
 }
 
 describe('OverviewSection', () => {
+  it.each([
+    [
+      'plugin.runtime.activation_failed: ENOENT: plugin.js',
+      'Plugin runtime could not start',
+    ],
+    [
+      'plugin.runtime.worker_start_failed: Cannot find module worker.cjs',
+      'Plugin runtime could not start',
+    ],
+    [
+      'plugin.runtime.worker_crashed: Cannot find module /old/dist/core/plugin/host/quick-js-worker.cjs',
+      'Plugin runtime could not start',
+    ],
+    [
+      'plugin.runtime.worker_exited: worker exited with code 1',
+      'Plugin runtime stopped unexpectedly',
+    ],
+    [
+      'plugin.bundle.parse_error: Unexpected token',
+      'This plugin reported a problem',
+    ],
+  ])('distinguishes the source of %s', (lastError, title) => {
+    render(
+      <OverviewSection
+        plugin={plugin({ errorCount: 1, lastError })}
+        manifest={manifest()}
+        onJumpToLogs={() => {}}
+      />
+    )
+    expect(screen.getAllByText(title).length).toBeGreaterThan(0)
+    expect(screen.getByText(lastError)).toBeInTheDocument()
+  })
   it('renders Ready hero for safe tone', () => {
     render(
       <OverviewSection

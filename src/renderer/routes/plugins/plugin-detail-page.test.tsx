@@ -282,7 +282,7 @@ describe('PluginDetailPage', () => {
     expect(
       screen.getByRole('combobox', { name: 'Log level' })
     ).toBeInTheDocument()
-    expect(screen.getByText('Live output')).toBeInTheDocument()
+    expect(screen.getByText('Logs')).toBeInTheDocument()
     expect(screen.getByText('0 entries')).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: 'Copy redacted logs' })

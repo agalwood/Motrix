@@ -1349,6 +1349,8 @@
       "advanced": "Разширени",
       "attentionGeneric": "Вижте журналите за подробности.",
       "attentionTitle": "Тази приставка докладва проблем",
+      "runtimeStartFailed": "Средата за изпълнение на приставката не може да стартира",
+      "runtimeFailed": "Средата за изпълнение на приставката спря неочаквано",
       "author": "Автор",
       "back": "Всички приставки",
       "disabled": "Изключена",
@@ -1552,6 +1554,7 @@
     "lead": "Добавяйте малки функции към Motrix. Оставете включени приставките, на които имате доверие, и изключете останалите.",
     "logs": {
       "clear": "Изчистване",
+      "clearFailed": "Дневниците не могат да бъдат изчистени. Опитайте отново.",
       "copy": "Копиране на обезличени логове",
       "empty": "Все още няма записи в журнала",
       "emptyFiltered": "Няма записи с това ниво.",
@@ -1821,6 +1824,14 @@
         "secret": "RPC таен код",
         "secretDesc": "Необходим за RPC връзки.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "Файл с настройки",
+        "serverTitle": "Файл с настройки на сървъра",
+        "openDirectory": "Отваряне на папката",
+        "copyPath": "Копиране на пътя",
+        "copied": "Копирано",
+        "actionFailed": "Действието не бе завършено. Опитайте отново."
       }
     },
     "appearance": {
@@ -3101,6 +3112,7 @@
     "preserveFiles": "Downloaded files stay in their original location.",
     "chooseTasks": "Choose downloads",
     "skip": "Not now",
+    "skippedHint": "Можете да мигрирате по-късно от {{settings}} → {{advanced}}.",
     "back": "Back",
     "loading": "Looking for your old downloads…",
     "empty": "There are no tasks to migrate from this folder.",

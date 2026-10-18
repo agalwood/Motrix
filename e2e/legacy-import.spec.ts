@@ -720,10 +720,10 @@ test.describe('v1 task import', () => {
     }
   })
 
-  test('skip returns to Dashboard from every entry and preserves dismissal and the Advanced draft', async ({
+  test('skip hides the sidebar entry across restart and keeps migration and the draft available in Advanced', async ({
     userDataDir,
     rpcPort,
-  }) => {
+  }, testInfo) => {
     const source = await legacyProfile(userDataDir)
     let app = await launchMotrix({
       userDataDir,
@@ -741,10 +741,21 @@ test.describe('v1 task import', () => {
       ).not.toBeVisible()
       await expect(
         page.getByRole('link', { name: 'Migration', exact: true })
+      ).toHaveCount(0)
+      await expect(
+        page
+          .getByText('You can migrate later from Settings → Advanced.', {
+            exact: true,
+          })
+          .first()
       ).toBeVisible()
       await expect(
         page.getByRole('heading', { name: 'Dashboard', exact: true })
       ).toBeVisible()
+      await page.screenshot({
+        path: testInfo.outputPath('migration-skipped.png'),
+        animations: 'disabled',
+      })
       await app.close()
       app = await launchMotrix({
         userDataDir,
@@ -757,11 +768,15 @@ test.describe('v1 task import', () => {
       await waitForQueryHandlers(main)
       await expect(
         main.getByRole('link', { name: 'Migration', exact: true })
-      ).toBeVisible()
+      ).toHaveCount(0)
       await expect(
         main.getByRole('heading', { name: sourceTitle })
       ).not.toBeVisible()
-      await main.getByRole('link', { name: 'Migration', exact: true }).click()
+      await main.getByRole('link', { name: 'Settings', exact: true }).click()
+      await main.getByText('Advanced', { exact: true }).first().click()
+      await main
+        .getByRole('button', { name: 'Open migration', exact: true })
+        .click()
       await main.getByRole('button', { name: 'Continue', exact: true }).click()
       await expect(
         main.getByRole('button', { name: 'Migrate', exact: true })
@@ -785,6 +800,9 @@ test.describe('v1 task import', () => {
       await expect(
         main.getByRole('heading', { name: 'Dashboard', exact: true })
       ).toBeVisible()
+      await expect(
+        main.getByRole('link', { name: 'Migration', exact: true })
+      ).toHaveCount(0)
       await main.getByRole('link', { name: 'Settings', exact: true }).click()
       await main.getByText('Advanced', { exact: true }).first().click()
       const port = main.getByRole('spinbutton').first()

@@ -1376,7 +1376,15 @@
         "historyCountHint": "Более старые записи восстановления удаляются.",
         "historyCountPositive": "Введите число больше 0."
       },
-      "description": "RPC, прогресс и восстановление"
+      "description": "RPC, прогресс и восстановление",
+      "configFile": {
+        "title": "Файл настроек",
+        "serverTitle": "Файл настроек сервера",
+        "openDirectory": "Открыть папку",
+        "copyPath": "Копировать путь",
+        "copied": "Скопировано",
+        "actionFailed": "Не удалось выполнить действие. Повторите попытку."
+      }
     },
     "about": {
       "appIconAlt": "Значок приложения Motrix",
@@ -2488,6 +2496,8 @@
       "accessHosts_many": "Может читать {{count}} веб-сайтов",
       "accessBroad": "Может читать любой веб-сайт",
       "attentionTitle": "Этот плагин сообщил о проблеме",
+      "runtimeStartFailed": "Не удалось запустить среду выполнения плагина",
+      "runtimeFailed": "Среда выполнения плагина неожиданно остановилась",
       "attentionGeneric": "Подробности в журналах.",
       "viewIssue": "Посмотреть проблему",
       "removeTitle": "Удаление плагина",
@@ -2517,6 +2527,7 @@
       },
       "copy": "Копировать логи со скрытыми данными",
       "clear": "Очистить",
+      "clearFailed": "Не удалось очистить журналы. Попробуйте снова.",
       "output": "Вывод в реальном времени",
       "entryCount_one": "{{count}} запись",
       "entryCount_other": "{{count}} записи",
@@ -3145,6 +3156,7 @@
     "preserveFiles": "Downloaded files stay in their original location.",
     "chooseTasks": "Choose downloads",
     "skip": "Not now",
+    "skippedHint": "Вы можете выполнить перенос позже в разделе {{settings}} → {{advanced}}.",
     "back": "Back",
     "loading": "Looking for your old downloads…",
     "empty": "There are no tasks to migrate from this folder.",

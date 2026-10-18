@@ -94,18 +94,6 @@ function buildCapHost(_rootDir: string): CapabilityHost {
   } as unknown as CapabilityHost
 }
 
-// Mock fs/promises so handleCreateTask's mkdir() doesn't touch the real
-// disk for the temp saveDir.
-vi.mock('node:fs/promises', async () => {
-  const actual =
-    await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')
-  return {
-    ...actual,
-    mkdir: vi.fn(async () => undefined),
-    default: { ...actual, mkdir: vi.fn(async () => undefined) },
-  }
-})
-
 interface BootedStack {
   host: PluginHost
   logs: LogCapabilityHost

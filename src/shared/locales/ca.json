@@ -1362,6 +1362,8 @@
       "advanced": "Avançat",
       "attentionGeneric": "Consulteu els registres per veure'n els detalls.",
       "attentionTitle": "Aquest connector ha notificat un problema",
+      "runtimeStartFailed": "No s’ha pogut iniciar l’entorn d’execució del connector",
+      "runtimeFailed": "L’entorn d’execució del connector s’ha aturat inesperadament",
       "author": "Autor",
       "back": "Tots els connectors",
       "disabled": "Desactivat",
@@ -1569,6 +1571,7 @@
     "lead": "Afegiu petites funcions al Motrix. Manteniu els connectors de confiança i desactiveu la resta.",
     "logs": {
       "clear": "Esborrar",
+      "clearFailed": "No s’han pogut esborrar els registres. Torna-ho a provar.",
       "copy": "Copia els registres amb dades ocultes",
       "empty": "Encara no hi ha entrades al registre",
       "emptyFiltered": "No hi ha entrades d'aquest nivell.",
@@ -1840,6 +1843,14 @@
         "secret": "Secret RPC",
         "secretDesc": "Necessari per a les connexions RPC.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "Fitxer de configuració",
+        "serverTitle": "Fitxer de configuració del servidor",
+        "openDirectory": "Obre la carpeta",
+        "copyPath": "Copia el camí",
+        "copied": "Copiat",
+        "actionFailed": "No s’ha pogut completar l’acció. Torneu-ho a provar."
       }
     },
     "appearance": {
@@ -3123,6 +3134,7 @@
     "preserveFiles": "Downloaded files stay in their original location.",
     "chooseTasks": "Choose downloads",
     "skip": "Not now",
+    "skippedHint": "Pots migrar més endavant des de {{settings}} → {{advanced}}.",
     "back": "Back",
     "loading": "Looking for your old downloads…",
     "empty": "There are no tasks to migrate from this folder.",

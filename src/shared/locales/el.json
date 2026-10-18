@@ -1349,6 +1349,8 @@
       "advanced": "Για προχωρημένους",
       "attentionGeneric": "Δείτε τις καταγραφές για λεπτομέρειες.",
       "attentionTitle": "Αυτό το πρόσθετο ανέφερε ένα πρόβλημα",
+      "runtimeStartFailed": "Δεν ήταν δυνατή η εκκίνηση του περιβάλλοντος εκτέλεσης της προσθήκης",
+      "runtimeFailed": "Το περιβάλλον εκτέλεσης της προσθήκης σταμάτησε απροσδόκητα",
       "author": "Δημιουργός",
       "back": "Όλα τα πρόσθετα",
       "disabled": "Απενεργοποιημένο",
@@ -1552,6 +1554,7 @@
     "lead": "Προσθέστε μικρές λειτουργίες στο Motrix. Κρατήστε όσες εμπιστεύεστε και απενεργοποιήστε τις υπόλοιπες.",
     "logs": {
       "clear": "Εκκαθάριση",
+      "clearFailed": "Δεν ήταν δυνατή η εκκαθάριση των αρχείων καταγραφής. Δοκιμάστε ξανά.",
       "copy": "Αντιγραφή αρχείων καταγραφής με απόκρυψη στοιχείων",
       "empty": "Δεν υπάρχουν ακόμη εγγραφές καταγραφής",
       "emptyFiltered": "Δεν υπάρχουν εγγραφές που να αντιστοιχούν σε αυτό το επίπεδο.",
@@ -1821,6 +1824,14 @@
         "secret": "Μυστικό RPC",
         "secretDesc": "Απαιτείται για τις συνδέσεις RPC.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "Αρχείο ρυθμίσεων",
+        "serverTitle": "Αρχείο ρυθμίσεων διακομιστή",
+        "openDirectory": "Άνοιγμα φακέλου",
+        "copyPath": "Αντιγραφή διαδρομής",
+        "copied": "Αντιγράφηκε",
+        "actionFailed": "Η ενέργεια δεν ολοκληρώθηκε. Δοκιμάστε ξανά."
       }
     },
     "appearance": {
@@ -3101,6 +3112,7 @@
     "preserveFiles": "Downloaded files stay in their original location.",
     "chooseTasks": "Choose downloads",
     "skip": "Not now",
+    "skippedHint": "Μπορείτε να κάνετε τη μεταφορά αργότερα από {{settings}} → {{advanced}}.",
     "back": "Back",
     "loading": "Looking for your old downloads…",
     "empty": "There are no tasks to migrate from this folder.",

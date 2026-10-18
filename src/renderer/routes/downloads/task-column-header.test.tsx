@@ -12,13 +12,25 @@ import { useDownloadsView } from './view-preferences'
 
 beforeEach(() => useDownloadsView.setState({ columns: defaultTaskColumns() }))
 
+const headerCheckbox = {
+  checked: false,
+  indeterminate: false,
+  onChange: () => {},
+}
+
 describe('TaskColumnHeader', () => {
   it('uses column semantics and only displays the active chevron', async () => {
     const user = userEvent.setup()
     const { container, rerender } = render(
-      <TaskColumnHeader sort={null} onSort={() => {}} />
+      <TaskColumnHeader
+        headerCheckbox={headerCheckbox}
+        sort={null}
+        onSort={() => {}}
+      />
     )
-    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('checkbox', { name: 'Select All Tasks' })
+    ).not.toBeChecked()
     expect(container.querySelectorAll('button svg')).toHaveLength(1)
     const created = screen.getByRole('button', {
       name: 'Date created: descending',
@@ -35,6 +47,7 @@ describe('TaskColumnHeader', () => {
     expect(container.querySelectorAll('button svg')).toHaveLength(1)
     rerender(
       <TaskColumnHeader
+        headerCheckbox={headerCheckbox}
         sort={{ column: 'name', direction: 'asc' }}
         onSort={() => {}}
       />
@@ -57,6 +70,7 @@ describe('TaskColumnHeader', () => {
       return (
         <div role="listbox" tabIndex={0} onKeyDown={onKeyDown}>
           <TaskColumnHeader
+            headerCheckbox={headerCheckbox}
             sort={sort}
             onSort={(column) =>
               setSort((current) => nextTaskSort(current, column))
@@ -79,7 +93,13 @@ describe('TaskColumnHeader', () => {
 
   it('allows keyboard resizing and reordering without sorting', () => {
     const onSort = vi.fn()
-    render(<TaskColumnHeader sort={null} onSort={onSort} />)
+    render(
+      <TaskColumnHeader
+        headerCheckbox={headerCheckbox}
+        sort={null}
+        onSort={onSort}
+      />
+    )
     fireEvent.keyDown(
       screen.getByRole('separator', { name: 'Resize Name column' }),
       { key: 'ArrowRight' }
@@ -99,10 +119,41 @@ describe('TaskColumnHeader', () => {
     expect(onSort).not.toHaveBeenCalled()
   })
 
+  it('still consumes column drops and reorders columns', () => {
+    const onSort = vi.fn()
+    render(
+      <TaskColumnHeader
+        headerCheckbox={headerCheckbox}
+        sort={null}
+        onSort={onSort}
+      />
+    )
+    const dataTransfer = { effectAllowed: 'none', setData: vi.fn() }
+    fireEvent.dragStart(screen.getByRole('button', { name: 'Size' }), {
+      dataTransfer,
+    })
+    expect(dataTransfer.effectAllowed).toBe('move')
+    const target = screen.getByRole('columnheader', { name: /Name/ })
+    expect(fireEvent.dragOver(target, { dataTransfer })).toBe(false)
+    expect(fireEvent.drop(target, { dataTransfer })).toBe(false)
+    expect(
+      useDownloadsView
+        .getState()
+        .columns.slice(0, 2)
+        .map((column) => column.id)
+    ).toEqual(['size', 'name'])
+    expect(onSort).not.toHaveBeenCalled()
+    expect(fireEvent.drop(target, { dataTransfer })).toBe(true)
+  })
+
   it('resizes and reorders RTL columns toward their visual neighbor', () => {
     render(
       <DirectionProvider direction="rtl">
-        <TaskColumnHeader sort={null} onSort={() => {}} />
+        <TaskColumnHeader
+          headerCheckbox={headerCheckbox}
+          sort={null}
+          onSort={() => {}}
+        />
       </DirectionProvider>
     )
     fireEvent.keyDown(
@@ -124,7 +175,13 @@ describe('TaskColumnHeader', () => {
   })
 
   it('opens the shadcn context menu to choose columns', async () => {
-    render(<TaskColumnHeader sort={null} onSort={() => {}} />)
+    render(
+      <TaskColumnHeader
+        headerCheckbox={headerCheckbox}
+        sort={null}
+        onSort={() => {}}
+      />
+    )
     fireEvent.contextMenu(screen.getByRole('button', { name: 'Name' }))
     expect(
       await screen.findByRole('menuitemcheckbox', { name: 'Name' })

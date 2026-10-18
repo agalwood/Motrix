@@ -1334,7 +1334,15 @@
         "historyCountHint": "오래된 복구 기록은 제거됩니다.",
         "historyCountPositive": "0보다 큰 숫자를 입력하세요."
       },
-      "description": "RPC, 진행 상황 및 복구"
+      "description": "RPC, 진행 상황 및 복구",
+      "configFile": {
+        "title": "설정 파일",
+        "serverTitle": "서버 설정 파일",
+        "openDirectory": "폴더 열기",
+        "copyPath": "경로 복사",
+        "copied": "복사됨",
+        "actionFailed": "작업을 완료하지 못했습니다. 다시 시도하세요."
+      }
     },
     "about": {
       "appIconAlt": "Motrix 앱 아이콘",
@@ -2434,6 +2442,8 @@
       "accessHosts_other": "웹사이트 {{count}}개 읽기 가능",
       "accessBroad": "모든 웹사이트 읽기 가능",
       "attentionTitle": "이 플러그인이 문제를 보고했습니다",
+      "runtimeStartFailed": "플러그인 실행 환경을 시작할 수 없습니다",
+      "runtimeFailed": "플러그인 실행 환경이 예기치 않게 중지되었습니다",
       "attentionGeneric": "자세한 내용은 로그를 확인하세요.",
       "viewIssue": "문제 보기",
       "removeTitle": "플러그인 제거",
@@ -2463,6 +2473,7 @@
       },
       "copy": "민감 정보를 가린 로그 복사",
       "clear": "지우기",
+      "clearFailed": "로그를 지울 수 없습니다. 다시 시도하세요.",
       "output": "실시간 출력",
       "entryCount_other": "항목 {{count}}개",
       "empty": "아직 로그 항목이 없습니다",
@@ -3079,6 +3090,7 @@
     "preserveFiles": "Downloaded files stay in their original location.",
     "chooseTasks": "Choose downloads",
     "skip": "Not now",
+    "skippedHint": "나중에 {{settings}} → {{advanced}}에서 마이그레이션할 수 있습니다.",
     "back": "Back",
     "loading": "Looking for your old downloads…",
     "empty": "There are no tasks to migrate from this folder.",

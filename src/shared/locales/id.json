@@ -1334,7 +1334,15 @@
         "historyCountHint": "Catatan pemulihan yang lebih lama akan dihapus.",
         "historyCountPositive": "Masukkan angka yang lebih besar dari 0."
       },
-      "description": "RPC, progres, dan pemulihan"
+      "description": "RPC, progres, dan pemulihan",
+      "configFile": {
+        "title": "File konfigurasi",
+        "serverTitle": "File konfigurasi server",
+        "openDirectory": "Buka folder",
+        "copyPath": "Salin lokasi",
+        "copied": "Disalin",
+        "actionFailed": "Tindakan tidak dapat diselesaikan. Coba lagi."
+      }
     },
     "about": {
       "appIconAlt": "Ikon aplikasi Motrix",
@@ -2434,6 +2442,8 @@
       "accessHosts_other": "Dapat membaca {{count}} situs web",
       "accessBroad": "Dapat membaca situs web mana pun",
       "attentionTitle": "Plugin ini melaporkan masalah",
+      "runtimeStartFailed": "Lingkungan eksekusi plugin tidak dapat dimulai",
+      "runtimeFailed": "Lingkungan eksekusi plugin berhenti secara tidak terduga",
       "attentionGeneric": "Lihat log untuk detailnya.",
       "viewIssue": "Lihat masalah",
       "removeTitle": "Hapus plugin",
@@ -2463,6 +2473,7 @@
       },
       "copy": "Salin log tersamarkan",
       "clear": "Hapus",
+      "clearFailed": "Tidak dapat menghapus log. Coba lagi.",
       "output": "Keluaran langsung",
       "entryCount_other": "{{count}} entri",
       "empty": "Belum ada entri log",
@@ -3079,6 +3090,7 @@
     "preserveFiles": "Downloaded files stay in their original location.",
     "chooseTasks": "Choose downloads",
     "skip": "Not now",
+    "skippedHint": "Anda dapat melakukan migrasi nanti melalui {{settings}} → {{advanced}}.",
     "back": "Back",
     "loading": "Looking for your old downloads…",
     "empty": "There are no tasks to migrate from this folder.",

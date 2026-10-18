@@ -1,4 +1,5 @@
 import { CopyButton } from '@renderer/components/desktop-kit/copy-button'
+import { MiddleEllipsis } from '@renderer/components/desktop-kit/middle-ellipsis'
 import { ChevronRightIcon, StatusErrorIcon } from '@renderer/components/icons'
 import {
   Alert,
@@ -293,11 +294,8 @@ export function CliToolSection() {
                 <dt className="text-muted-foreground">
                   {t('settings.integration.cli.tool.metadata.path')}
                 </dt>
-                <dd
-                  className="min-w-0 break-all font-mono"
-                  title={status.executablePath}
-                >
-                  {status.executablePath}
+                <dd className="min-w-0">
+                  <MiddleEllipsis text={status.executablePath} maxChars={64} />
                 </dd>
               </>
             )}

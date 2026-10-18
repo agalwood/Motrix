@@ -47,8 +47,8 @@ const FOOTER_NAV_ITEMS: readonly NavItem[] = [
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { t } = useTranslation()
   const direction = useDirection()
-  const { detected } = useLegacyImportNavigation()
-  const items = detected
+  const { visible } = useLegacyImportNavigation()
+  const items = visible
     ? [
         ...NAV_ITEMS,
         {

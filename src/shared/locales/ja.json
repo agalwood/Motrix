@@ -1334,7 +1334,15 @@
         "historyCountHint": "古い復旧記録は削除されます。",
         "historyCountPositive": "0 より大きい数値を入力してください。"
       },
-      "description": "RPC、進捗と復旧"
+      "description": "RPC、進捗と復旧",
+      "configFile": {
+        "title": "設定ファイル",
+        "serverTitle": "サーバー設定ファイル",
+        "openDirectory": "保存先フォルダーを開く",
+        "copyPath": "パスをコピー",
+        "copied": "コピーしました",
+        "actionFailed": "操作を完了できませんでした。もう一度お試しください。"
+      }
     },
     "about": {
       "appIconAlt": "Motrix アプリのアイコン",
@@ -2434,6 +2442,8 @@
       "accessHosts_other": "{{count}} 件の Web サイトを読み取り可能",
       "accessBroad": "すべての Web サイトを読み取り可能",
       "attentionTitle": "このプラグインが問題を報告しました",
+      "runtimeStartFailed": "プラグインの実行環境を起動できませんでした",
+      "runtimeFailed": "プラグインの実行環境が予期せず停止しました",
       "attentionGeneric": "詳細はログを確認してください。",
       "viewIssue": "問題を表示",
       "removeTitle": "プラグインを削除",
@@ -2463,6 +2473,7 @@
       },
       "copy": "機密情報を除いてログをコピー",
       "clear": "クリア",
+      "clearFailed": "ログを消去できませんでした。もう一度お試しください。",
       "output": "リアルタイム出力",
       "entryCount_other": "{{count}} 件",
       "empty": "ログはまだありません",
@@ -3079,6 +3090,7 @@
     "preserveFiles": "Downloaded files stay in their original location.",
     "chooseTasks": "Choose downloads",
     "skip": "Not now",
+    "skippedHint": "後で「{{settings}} → {{advanced}}」から移行できます。",
     "back": "Back",
     "loading": "Looking for your old downloads…",
     "empty": "There are no tasks to migrate from this folder.",

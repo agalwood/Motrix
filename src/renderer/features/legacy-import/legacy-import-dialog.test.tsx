@@ -1,15 +1,20 @@
 import '@test-utils/dom-animations'
 import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
+import { toast } from '@renderer/components/ui/toast'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { LegacyImportDialog } from './legacy-import-dialog'
+import { useLegacyImportSidebar } from './sidebar-preference'
 
 vi.mock('@renderer/lib/transport', () => ({
   transport: { invoke: vi.fn(), on: vi.fn(), off: vi.fn(), platform: 'darwin' },
+}))
+vi.mock('@renderer/components/ui/toast', () => ({
+  toast: { add: vi.fn() },
 }))
 const sourceHandle = '11111111-1111-4111-8111-111111111111'
 const previewId = '22222222-2222-4222-8222-222222222222'
@@ -68,6 +73,8 @@ class MockResizeObserver {
 
 describe('legacy import dialog', () => {
   beforeEach(() => {
+    useLegacyImportSidebar.setState({ dismissed: false })
+    vi.mocked(toast.add).mockClear()
     vi.stubGlobal('ResizeObserver', MockResizeObserver)
     vi.mocked(transport.invoke)
       .mockReset()
@@ -429,6 +436,25 @@ describe('legacy import dialog', () => {
       Commands.CommitLegacyImport,
       expect.anything()
     )
+  })
+
+  it('keeps the migration entry and does not show a hint when invitation dismissal fails', async () => {
+    const invoke = vi.mocked(transport.invoke).getMockImplementation()!
+    vi.mocked(transport.invoke).mockImplementation(async (channel, ...args) => {
+      if (channel === Commands.DismissLegacyImportInvitation)
+        throw new Error('storage unavailable')
+      return invoke(channel, ...args)
+    })
+    const close = vi.fn()
+    render(<LegacyImportDialog open invitation onClose={close} />)
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }))
+    await screen.findByRole('alert')
+    expect(close).not.toHaveBeenCalled()
+    expect(useLegacyImportSidebar.getState().dismissed).toBe(false)
+    expect(toast.add).not.toHaveBeenCalled()
   })
 
   it('keeps a torrent awaiting metadata reachable from its source', async () => {

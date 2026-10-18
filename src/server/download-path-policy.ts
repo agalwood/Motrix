@@ -1,5 +1,6 @@
-import { lstat, mkdir, open, realpath, stat, unlink } from 'node:fs/promises'
+import { lstat, open, realpath, stat, unlink } from 'node:fs/promises'
 import path from 'node:path'
+import { ensureDirectory } from '@core/fs/ensure-directory'
 import { AppError, ErrorCode } from '@shared/errors'
 import type { DirectoryErrorCode } from '@shared/schemas/server-directory'
 
@@ -82,9 +83,9 @@ function pathFailure(message: string, cause?: unknown): AppError {
   return new AppError(ErrorCode.TaskCreateFailed, message, cause)
 }
 
-async function ensureDirectory(candidate: string): Promise<void> {
+async function ensureSaveDirectory(candidate: string): Promise<void> {
   try {
-    await mkdir(candidate, { recursive: true })
+    await ensureDirectory(candidate)
     const info = await stat(candidate)
     if (!info.isDirectory()) {
       throw pathFailure(`Save directory is not a directory: ${candidate}`)
@@ -224,7 +225,7 @@ class DownloadPathPolicy implements ServerDownloadPathPolicy {
       this.checkCanonical(candidate, canonicalAncestor, matchingRoots)
     }
 
-    await ensureDirectory(candidate)
+    await ensureSaveDirectory(candidate)
     const canonical = await realpath(candidate)
     this.checkCanonical(candidate, canonical, matchingRoots)
     await ensureWritable(canonical)
@@ -257,7 +258,7 @@ export async function createServerDownloadPathPolicy(
   )
   const allowedRoots: AllowedRoot[] = []
   for (const configured of configuredRoots) {
-    await ensureDirectory(configured)
+    await ensureSaveDirectory(configured)
     const canonical = await realpath(configured)
     await ensureWritable(canonical)
     allowedRoots.push({ configured, canonical })

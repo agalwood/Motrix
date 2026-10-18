@@ -1348,7 +1348,15 @@
         "historyCountHint": "Daha eski kurtarma kayıtları kaldırılır.",
         "historyCountPositive": "0’dan büyük bir sayı girin."
       },
-      "description": "RPC, ilerleme ve kurtarma"
+      "description": "RPC, ilerleme ve kurtarma",
+      "configFile": {
+        "title": "Yapılandırma dosyası",
+        "serverTitle": "Sunucu yapılandırma dosyası",
+        "openDirectory": "Klasörü aç",
+        "copyPath": "Yolu kopyala",
+        "copied": "Kopyalandı",
+        "actionFailed": "İşlem tamamlanamadı. Tekrar deneyin."
+      }
     },
     "about": {
       "appIconAlt": "Motrix uygulama simgesi",
@@ -2452,6 +2460,8 @@
       "accessHosts_other": "{{count}} web sitesini okuyabilir",
       "accessBroad": "Herhangi bir web sitesini okuyabilir",
       "attentionTitle": "Bu eklenti bir sorun bildirdi",
+      "runtimeStartFailed": "Eklenti çalışma ortamı başlatılamadı",
+      "runtimeFailed": "Eklenti çalışma ortamı beklenmedik şekilde durdu",
       "attentionGeneric": "Ayrıntılar için günlüklere bakın.",
       "viewIssue": "Sorunu görüntüle",
       "removeTitle": "Eklentiyi kaldır",
@@ -2481,6 +2491,7 @@
       },
       "copy": "Hassas verileri gizlenmiş günlükleri kopyala",
       "clear": "Temizle",
+      "clearFailed": "Günlükler temizlenemedi. Tekrar deneyin.",
       "output": "Canlı çıktı",
       "entryCount_one": "{{count}} kayıt",
       "entryCount_other": "{{count}} kayıt",
@@ -3101,6 +3112,7 @@
     "preserveFiles": "Downloaded files stay in their original location.",
     "chooseTasks": "Choose downloads",
     "skip": "Not now",
+    "skippedHint": "Daha sonra {{settings}} → {{advanced}} bölümünden taşıma yapabilirsiniz.",
     "back": "Back",
     "loading": "Looking for your old downloads…",
     "empty": "There are no tasks to migrate from this folder.",

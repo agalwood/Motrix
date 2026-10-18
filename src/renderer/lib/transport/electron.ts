@@ -15,7 +15,7 @@ function getMotrix(): NonNullable<Window['motrix']> {
 }
 
 export class ElectronTransport implements Transport {
-  private readonly intentListeners = new Map<
+  private readonly subscriptions = new Map<
     EventListener,
     Map<EventChannel, () => void>
   >()
@@ -41,20 +41,23 @@ export class ElectronTransport implements Transport {
       : value
   }
   on(channel: EventChannel, cb: EventListener): void {
-    getMotrix().on(channel, cb)
-    let channels = this.intentListeners.get(cb)
+    let channels = this.subscriptions.get(cb)
+    if (channels?.has(channel)) return
+    const unsubscribe = getMotrix().on(channel, cb)
     if (!channels) {
       channels = new Map()
-      this.intentListeners.set(cb, channels)
+      this.subscriptions.set(cb, channels)
     }
-    channels.get(channel)?.()
-    channels.set(channel, registerIntentConsumer(channel, cb))
+    const unregisterIntent = registerIntentConsumer(channel, cb)
+    channels.set(channel, () => {
+      unsubscribe?.()
+      unregisterIntent()
+    })
   }
   off(channel: EventChannel, cb: EventListener): void {
-    getMotrix().off(channel, cb)
-    const channels = this.intentListeners.get(cb)
+    const channels = this.subscriptions.get(cb)
     channels?.get(channel)?.()
     channels?.delete(channel)
-    if (!channels?.size) this.intentListeners.delete(cb)
+    if (!channels?.size) this.subscriptions.delete(cb)
   }
 }

@@ -1362,6 +1362,8 @@
       "advanced": "Avancé",
       "attentionGeneric": "Consultez les journaux pour plus de détails.",
       "attentionTitle": "Cette extension a signalé un problème",
+      "runtimeStartFailed": "Impossible de démarrer l’environnement d’exécution de l’extension",
+      "runtimeFailed": "L’environnement d’exécution de l’extension s’est arrêté de manière inattendue",
       "author": "Auteur",
       "back": "Toutes les extensions",
       "disabled": "Désactivée",
@@ -1569,6 +1571,7 @@
     "lead": "Ajoutez des fonctionnalités à Motrix. Gardez les extensions de confiance et désactivez les autres.",
     "logs": {
       "clear": "Effacer",
+      "clearFailed": "Impossible d’effacer les journaux. Réessayez.",
       "copy": "Copier les journaux expurgés",
       "empty": "Aucune entrée dans le journal pour le moment",
       "emptyFiltered": "Aucune entrée ne correspond à ce niveau.",
@@ -1840,6 +1843,14 @@
         "secret": "Secret RPC",
         "secretDesc": "Requis pour les connexions RPC.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "Fichier de configuration",
+        "serverTitle": "Fichier de configuration du serveur",
+        "openDirectory": "Ouvrir le dossier",
+        "copyPath": "Copier le chemin",
+        "copied": "Copié",
+        "actionFailed": "L’action n’a pas pu être effectuée. Réessayez."
       }
     },
     "appearance": {
@@ -3123,6 +3134,7 @@
     "preserveFiles": "Downloaded files stay in their original location.",
     "chooseTasks": "Choose downloads",
     "skip": "Not now",
+    "skippedHint": "Vous pourrez effectuer la migration plus tard depuis {{settings}} → {{advanced}}.",
     "back": "Back",
     "loading": "Looking for your old downloads…",
     "empty": "There are no tasks to migrate from this folder.",

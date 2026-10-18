@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@renderer/components/ui/dialog'
 import { useByteFormat } from '@renderer/hooks/use-byte-format'
+import { truncatePath } from '@shared/lib/path-display'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
 import { useEffect, useId, useRef, useState } from 'react'
@@ -30,24 +31,13 @@ const HAS_OUTPUT_STATES: ReadonlySet<TaskStatus> = new Set([
   TaskStatus.Downloading,
 ])
 
-// Middle ellipsis: keep the head and the tail (so the file extension stays
-// visible) and collapse the middle. A plain end-cut silently dropped the
-// extension, e.g. "...x265-NeoNoir.mkv" became "...x265-NeoNoir.mk".
-function middleEllipsis(s: string, max: number): string {
-  if (s.length <= max) return s
-  const ellipsis = '…'
-  const head = Math.ceil((max - ellipsis.length) / 2)
-  const tail = Math.floor((max - ellipsis.length) / 2)
-  return s.slice(0, head) + ellipsis + s.slice(s.length - tail)
-}
-
 function buildTitle(
   selected: readonly DownloadTask[],
   t: ReturnType<typeof useTranslation>['t']
 ): string {
   if (selected.length === 1) {
     return t('panel.downloads.action.removeSingleTitle', {
-      name: middleEllipsis(selected[0].name, 60),
+      name: truncatePath(selected[0].name, 60),
     })
   }
   const statuses = new Set(selected.map((task) => task.status))

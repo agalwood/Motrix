@@ -1093,6 +1093,13 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       }
     ),
 
+    [Commands.OpenSettingsDirectory]: async (payload: unknown) => {
+      z.undefined().parse(payload)
+      shell.showItemInFolder(settingsManager.getFilePath())
+      // The native reveal API does not report a completion result.
+      return true
+    },
+
     [Commands.UpdateSettings]: async (partial: unknown) => {
       const oldFull = settingsManager.get()
 
@@ -1934,7 +1941,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
     [Commands.ClearPluginLogs]: async (payload: unknown) => {
       const parsed = z.object({ pluginId: z.string().min(1) }).parse(payload)
-      capabilityHost.clearLog(parsed.pluginId)
+      await capabilityHost.clearLog(parsed.pluginId)
       return { ok: true }
     },
 

@@ -407,6 +407,10 @@ export function buildServerCommandHandlers(
   return {
     ...(ctx.operationService ? operationHandlers(ctx.operationService) : {}),
     ...unsupportedLegacyImportCommands(),
+    [Commands.OpenSettingsDirectory]: async (payload: unknown) => {
+      z.undefined().parse(payload)
+      return false
+    },
     [Commands.InstallFfmpeg]: async (payload: unknown) => {
       z.undefined().parse(payload)
       return { ok: false, error: 'unsupported' }
@@ -1106,7 +1110,7 @@ export function buildServerCommandHandlers(
 
     [Commands.ClearPluginLogs]: async (payload: unknown) => {
       const parsed = z.object({ pluginId: z.string().min(1) }).parse(payload)
-      capabilityHost.clearLog(parsed.pluginId)
+      await capabilityHost.clearLog(parsed.pluginId)
       return { ok: true }
     },
 

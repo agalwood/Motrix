@@ -17,12 +17,13 @@ function formatTs(ts: number): string {
 
 export function PluginLogRow({ entry }: { entry: PluginLogEntry }) {
   const extraFields = Object.entries(entry).filter(
-    ([k]) => k !== 'ts' && k !== 'level' && k !== 'msg'
+    ([k]) => !['ts', 'level', 'msg', 'entryId', 'logSequence'].includes(k)
   )
   return (
     <div className="grid grid-cols-[5.25rem_3.5rem_minmax(0,1fr)] items-start border-b border-border/50 px-3 py-2 font-mono text-[11px] leading-4 transition-colors last:border-b-0 hover:bg-muted/25">
       <time
         dateTime={new Date(entry.ts).toISOString()}
+        title={new Date(entry.ts).toLocaleString()}
         className="tabular-nums text-muted-foreground"
       >
         {formatTs(entry.ts)}

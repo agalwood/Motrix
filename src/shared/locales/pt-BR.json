@@ -1362,7 +1362,15 @@
         "historyCountHint": "Os registros de recuperação mais antigos são removidos.",
         "historyCountPositive": "Digite um número maior que 0."
       },
-      "description": "RPC, progresso e recuperação"
+      "description": "RPC, progresso e recuperação",
+      "configFile": {
+        "title": "Arquivo de configuração",
+        "serverTitle": "Arquivo de configuração do servidor",
+        "openDirectory": "Abrir pasta",
+        "copyPath": "Copiar caminho",
+        "copied": "Copiado",
+        "actionFailed": "Não foi possível concluir a ação. Tente novamente."
+      }
     },
     "about": {
       "appIconAlt": "Ícone do aplicativo Motrix",
@@ -2470,6 +2478,8 @@
       "accessHosts_many": "Pode ler {{count}} sites",
       "accessBroad": "Pode ler qualquer site",
       "attentionTitle": "Este plugin relatou um problema",
+      "runtimeStartFailed": "Não foi possível iniciar o ambiente de execução do plugin",
+      "runtimeFailed": "O ambiente de execução do plugin parou inesperadamente",
       "attentionGeneric": "Veja os logs para mais detalhes.",
       "viewIssue": "Ver problema",
       "removeTitle": "Remover plugin",
@@ -2499,6 +2509,7 @@
       },
       "copy": "Copiar logs com dados ocultos",
       "clear": "Limpar",
+      "clearFailed": "Não foi possível limpar os registros. Tente novamente.",
       "output": "Saída em tempo real",
       "entryCount_one": "{{count}} registro",
       "entryCount_other": "{{count}} registros",
@@ -3123,6 +3134,7 @@
     "preserveFiles": "Downloaded files stay in their original location.",
     "chooseTasks": "Choose downloads",
     "skip": "Not now",
+    "skippedHint": "Você pode migrar mais tarde em {{settings}} → {{advanced}}.",
     "back": "Back",
     "loading": "Looking for your old downloads…",
     "empty": "There are no tasks to migrate from this folder.",

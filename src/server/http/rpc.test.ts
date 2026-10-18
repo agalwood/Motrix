@@ -49,6 +49,27 @@ describe('rpc routes', () => {
     await app.close()
   })
 
+  it('serializes the settings file location as JSON for web clients', async () => {
+    const location = { path: '/custom profile/配置/settings.json' }
+    const app = await createApp({
+      queryHandlers: {
+        [Queries.GetSettingsFileLocation]: async () => location,
+      },
+    })
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: `/rpc/query/${encodeURIComponent(Queries.GetSettingsFileLocation)}`,
+        payload: { args: [] },
+      })
+      expect(response.statusCode).toBe(200)
+      expect(response.headers['content-type']).toContain('application/json')
+      expect(response.json()).toEqual(location)
+    } finally {
+      await app.close()
+    }
+  })
+
   it('returns the shared bounded envelope for inspector query success', async () => {
     const snapshot = makeTaskInspectorActivitySnapshot('task-1', 9)
     const app = await createApp({

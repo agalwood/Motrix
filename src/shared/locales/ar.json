@@ -1401,6 +1401,8 @@
       "advanced": "متقدم",
       "attentionGeneric": "راجع السجلات للتفاصيل.",
       "attentionTitle": "أبلغت هذه الإضافة عن مشكلة",
+      "runtimeStartFailed": "تعذر بدء بيئة تشغيل الإضافة",
+      "runtimeFailed": "توقفت بيئة تشغيل الإضافة بشكل غير متوقع",
       "author": "المؤلف",
       "back": "كل الإضافات",
       "disabled": "معطّلة",
@@ -1620,6 +1622,7 @@
     "lead": "أضف ميزات صغيرة إلى Motrix. احتفظ بالإضافات التي تثق بها، وعطّل الباقي.",
     "logs": {
       "clear": "مسح",
+      "clearFailed": "تعذر مسح السجلات. حاول مرة أخرى.",
       "copy": "نسخ السجلات بعد حجب البيانات الحساسة",
       "empty": "لا توجد إدخالات في السجل بعد",
       "emptyFiltered": "لا توجد إدخالات تطابق هذا المستوى.",
@@ -1897,6 +1900,14 @@
         "secret": "رمز RPC السري",
         "secretDesc": "مطلوب لاتصالات RPC.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "ملف الإعدادات",
+        "serverTitle": "ملف إعدادات الخادم",
+        "openDirectory": "فتح المجلد",
+        "copyPath": "نسخ المسار",
+        "copied": "تم النسخ",
+        "actionFailed": "تعذّر إكمال العملية. حاول مرة أخرى."
       }
     },
     "appearance": {
@@ -3189,6 +3200,7 @@
     "preserveFiles": "Downloaded files stay in their original location.",
     "chooseTasks": "Choose downloads",
     "skip": "Not now",
+    "skippedHint": "يمكنك الترحيل لاحقًا من {{settings}} ← {{advanced}}.",
     "back": "Back",
     "loading": "Looking for your old downloads…",
     "empty": "There are no tasks to migrate from this folder.",

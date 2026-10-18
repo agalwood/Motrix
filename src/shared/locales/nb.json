@@ -1349,6 +1349,8 @@
       "advanced": "Avansert",
       "attentionGeneric": "Se loggene for detaljer.",
       "attentionTitle": "Dette programtillegget rapporterte et problem",
+      "runtimeStartFailed": "Kjøremiljøet for programtillegget kunne ikke starte",
+      "runtimeFailed": "Kjøremiljøet for programtillegget stoppet uventet",
       "author": "Utvikler",
       "back": "Alle programtillegg",
       "disabled": "Deaktivert",
@@ -1552,6 +1554,7 @@
     "lead": "Legg til små funksjoner i Motrix. Behold dem du stoler på, og slå av resten.",
     "logs": {
       "clear": "Tøm",
+      "clearFailed": "Kunne ikke tømme loggene. Prøv igjen.",
       "copy": "Kopier sladdede logger",
       "empty": "Ingen loggoppføringer ennå",
       "emptyFiltered": "Ingen oppføringer samsvarer med dette nivået.",
@@ -1821,6 +1824,14 @@
         "secret": "RPC-hemmelighet",
         "secretDesc": "Kreves for RPC-tilkoblinger.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "Konfigurasjonsfil",
+        "serverTitle": "Serverens konfigurasjonsfil",
+        "openDirectory": "Åpne mappe",
+        "copyPath": "Kopier sti",
+        "copied": "Kopiert",
+        "actionFailed": "Handlingen kunne ikke fullføres. Prøv igjen."
       }
     },
     "appearance": {
@@ -3101,6 +3112,7 @@
     "preserveFiles": "Downloaded files stay in their original location.",
     "chooseTasks": "Choose downloads",
     "skip": "Not now",
+    "skippedHint": "Du kan migrere senere fra {{settings}} → {{advanced}}.",
     "back": "Back",
     "loading": "Looking for your old downloads…",
     "empty": "There are no tasks to migrate from this folder.",

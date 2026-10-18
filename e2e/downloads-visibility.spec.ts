@@ -301,8 +301,8 @@ test('default columns keep the download speed fully visible at minimum window si
     }),
   ])
   const list = mainWindow.getByTestId('virtual-list-container')
-  const header = list.getByRole('columnheader').nth(4)
-  const speed = list.locator('[data-task-id]').getByRole('gridcell').nth(4)
+  const header = list.getByRole('columnheader', { name: /Download speed/ })
+  const speed = list.getByRole('gridcell', { name: '999.9 MB/s', exact: true })
   await expect(speed).toHaveText('999.9 MB/s')
   await header.getByRole('button').click()
   await expect(header).toHaveAttribute('aria-sort', 'descending')
@@ -321,9 +321,11 @@ test('default columns keep the download speed fully visible at minimum window si
           const text = range.getBoundingClientRect()
           return (
             rect.left >= bounds.left &&
-            rect.right <= bounds.right - 8 &&
+            rect.right <= bounds.right &&
             text.left >= rect.left + 8 &&
-            text.right <= rect.right - 8 &&
+            // Cell padding also keeps the text clear of the scrollbar when
+            // the speed column ends at the viewport edge.
+            text.right <= Math.min(rect.right, bounds.right) - 8 &&
             viewport.scrollLeft === 0
           )
         })
@@ -1344,6 +1346,10 @@ test('native list controls preserve selection through context menus, column chan
   await expect(mainWindow.getByRole('menu')).toHaveCount(0)
 
   await grid.getByRole('button', { name: 'Name', exact: true }).focus()
+  await mainWindow.keyboard.press('Shift+Tab')
+  await expect(
+    grid.getByRole('checkbox', { name: 'Select All Tasks' })
+  ).toBeFocused()
   await mainWindow.keyboard.press('Shift+Tab')
   await expect(grid).toBeFocused()
   await expect(grid).toHaveAttribute('data-keyboard-focus', 'true')

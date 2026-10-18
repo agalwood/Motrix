@@ -1376,7 +1376,15 @@
         "historyCountHint": "Starsze zapisy odzyskiwania są usuwane.",
         "historyCountPositive": "Wpisz liczbę większą od 0."
       },
-      "description": "RPC, postęp i odzyskiwanie"
+      "description": "RPC, postęp i odzyskiwanie",
+      "configFile": {
+        "title": "Plik konfiguracji",
+        "serverTitle": "Plik konfiguracji serwera",
+        "openDirectory": "Otwórz folder",
+        "copyPath": "Kopiuj ścieżkę",
+        "copied": "Skopiowano",
+        "actionFailed": "Nie udało się wykonać czynności. Spróbuj ponownie."
+      }
     },
     "about": {
       "appIconAlt": "Ikona aplikacji Motrix",
@@ -2488,6 +2496,8 @@
       "accessHosts_many": "Może odczytywać {{count}} witryn",
       "accessBroad": "Może odczytywać dowolną witrynę",
       "attentionTitle": "Ta wtyczka zgłosiła problem",
+      "runtimeStartFailed": "Nie można uruchomić środowiska wykonawczego wtyczki",
+      "runtimeFailed": "Środowisko wykonawcze wtyczki niespodziewanie się zatrzymało",
       "attentionGeneric": "Szczegóły znajdziesz w dziennikach.",
       "viewIssue": "Zobacz problem",
       "removeTitle": "Usuń wtyczkę",
@@ -2517,6 +2527,7 @@
       },
       "copy": "Kopiuj logi z ukrytymi danymi",
       "clear": "Wyczyść",
+      "clearFailed": "Nie udało się wyczyścić dzienników. Spróbuj ponownie.",
       "output": "Bieżące wpisy",
       "entryCount_one": "{{count}} wpis",
       "entryCount_other": "{{count}} wpisu",
@@ -3145,6 +3156,7 @@
     "preserveFiles": "Downloaded files stay in their original location.",
     "chooseTasks": "Choose downloads",
     "skip": "Not now",
+    "skippedHint": "Migrację można przeprowadzić później w {{settings}} → {{advanced}}.",
     "back": "Back",
     "loading": "Looking for your old downloads…",
     "empty": "There are no tasks to migrate from this folder.",

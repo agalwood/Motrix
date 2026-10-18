@@ -1,3 +1,4 @@
+import { MiddleEllipsis } from '@renderer/components/desktop-kit/middle-ellipsis'
 import {
   ChevronRightIcon,
   FavoriteIcon,
@@ -161,13 +162,11 @@ export function DirectoryPreferencesSection({
           return (
             <li key={path} className="flex items-center gap-2 px-2 py-1">
               <FolderIcon className="size-4 shrink-0 text-muted-foreground" />
-              <span
-                dir="ltr"
-                title={path}
-                className="min-w-0 flex-1 truncate text-xs whitespace-pre"
-              >
-                {path}
-              </span>
+              <MiddleEllipsis
+                text={path}
+                maxChars={64}
+                className="min-w-0 flex-1 font-sans! text-xs"
+              />
               {recent && (
                 <Button
                   type="button"

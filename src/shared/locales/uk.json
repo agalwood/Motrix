@@ -1375,6 +1375,8 @@
       "advanced": "Додатково",
       "attentionGeneric": "Подробиці дивіться в журналах.",
       "attentionTitle": "Цей плагін повідомив про проблему",
+      "runtimeStartFailed": "Не вдалося запустити середовище виконання плагіна",
+      "runtimeFailed": "Середовище виконання плагіна несподівано зупинилося",
       "author": "Автор",
       "back": "Усі плагіни",
       "disabled": "Вимкнено",
@@ -1586,6 +1588,7 @@
     "lead": "Додавайте невеликі можливості до Motrix. Залишайте довірені плагіни, решту вимикайте.",
     "logs": {
       "clear": "Очистити",
+      "clearFailed": "Не вдалося очистити журнали. Спробуйте ще раз.",
       "copy": "Копіювати журнали з прихованими даними",
       "empty": "У журналі ще немає записів",
       "emptyFiltered": "Немає записів цього рівня.",
@@ -1859,6 +1862,14 @@
         "secret": "Секрет RPC",
         "secretDesc": "Потрібен для RPC-з'єднань.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "Файл налаштувань",
+        "serverTitle": "Файл налаштувань сервера",
+        "openDirectory": "Відкрити теку",
+        "copyPath": "Копіювати шлях",
+        "copied": "Скопійовано",
+        "actionFailed": "Не вдалося виконати дію. Спробуйте ще раз."
       }
     },
     "appearance": {
@@ -3145,6 +3156,7 @@
     "preserveFiles": "Downloaded files stay in their original location.",
     "chooseTasks": "Choose downloads",
     "skip": "Not now",
+    "skippedHint": "Ви можете виконати перенесення пізніше в розділі {{settings}} → {{advanced}}.",
     "back": "Back",
     "loading": "Looking for your old downloads…",
     "empty": "There are no tasks to migrate from this folder.",

@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
-import { render } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { fireEvent, render } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 import { MiddleEllipsis } from './middle-ellipsis'
 
 describe('MiddleEllipsis', () => {
@@ -12,7 +12,7 @@ describe('MiddleEllipsis', () => {
     '\\\\server\\share\\工具\\ffmpeg.exe',
     '/data/👩‍💻/e\u0301/ffmpeg',
   ])('keeps full accessible and tooltip text for %s', (text) => {
-    const { container } = render(<MiddleEllipsis text={text} />)
+    const { container } = render(<MiddleEllipsis text={text} maxChars={512} />)
     const root = container.querySelector('[data-slot="middle-ellipsis"]')
     expect(root).toHaveAttribute('title', text)
     expect(root).toHaveAttribute('dir', 'ltr')
@@ -33,5 +33,20 @@ describe('MiddleEllipsis', () => {
     )
     expect(fragments[0]).toHaveTextContent('a👩‍💻')
     expect(fragments[1]).toHaveTextContent('b')
+  })
+
+  it('limits visible characters while preserving the full tooltip, accessible text and clipboard', () => {
+    const text = '/one/two/three/file.txt'
+    const { container } = render(<MiddleEllipsis text={text} maxChars={16} />)
+    const root = container.querySelector('[data-slot="middle-ellipsis"]')!
+    const fragments = root.querySelectorAll(':scope > [aria-hidden="true"]')
+    expect(
+      Array.from(fragments, (element) => element.textContent).join('')
+    ).toBe('/one/t…/file.txt')
+    expect(root).toHaveAttribute('title', text)
+    expect(root.querySelector('.sr-only')).toHaveTextContent(text)
+    const setData = vi.fn()
+    fireEvent.copy(root, { clipboardData: { setData } })
+    expect(setData).toHaveBeenCalledWith('text/plain', text)
   })
 })

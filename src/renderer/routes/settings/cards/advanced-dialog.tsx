@@ -55,6 +55,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import type { SettingsCardDialogProps } from './card-types'
+import { SettingsFileSection } from './settings-file-section'
 import { advancedFormSchema } from './settings-form-schemas'
 
 type HistoryRetentionMode = 'all' | 'limited' | 'session'
@@ -497,6 +498,8 @@ export function AdvancedDialog({
                   </fieldset>
                 </form>
               </Form>
+              <Separator className="my-4" />
+              {open && <SettingsFileSection />}
               {__MOTRIX_TARGET__ === 'electron' && (
                 <>
                   <Separator className="my-4" />

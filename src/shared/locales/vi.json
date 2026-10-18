@@ -1334,7 +1334,15 @@
         "historyCountHint": "Các bản ghi khôi phục cũ hơn sẽ bị xóa.",
         "historyCountPositive": "Nhập một số lớn hơn 0."
       },
-      "description": "RPC, tiến độ và khôi phục"
+      "description": "RPC, tiến độ và khôi phục",
+      "configFile": {
+        "title": "Tệp cấu hình",
+        "serverTitle": "Tệp cấu hình máy chủ",
+        "openDirectory": "Mở thư mục",
+        "copyPath": "Sao chép đường dẫn",
+        "copied": "Đã sao chép",
+        "actionFailed": "Không thể hoàn tất thao tác. Vui lòng thử lại."
+      }
     },
     "about": {
       "appIconAlt": "Biểu tượng ứng dụng Motrix",
@@ -2434,6 +2442,8 @@
       "accessHosts_other": "Có thể đọc {{count}} trang web",
       "accessBroad": "Có thể đọc mọi trang web",
       "attentionTitle": "Tiện ích này đã báo cáo sự cố",
+      "runtimeStartFailed": "Không thể khởi động môi trường chạy tiện ích",
+      "runtimeFailed": "Môi trường chạy tiện ích đã dừng đột ngột",
       "attentionGeneric": "Xem chi tiết trong nhật ký.",
       "viewIssue": "Xem sự cố",
       "removeTitle": "Gỡ tiện ích",
@@ -2463,6 +2473,7 @@
       },
       "copy": "Sao chép nhật ký đã che dữ liệu",
       "clear": "Xóa",
+      "clearFailed": "Không thể xóa nhật ký. Hãy thử lại.",
       "output": "Đầu ra trực tiếp",
       "entryCount_other": "{{count}} mục",
       "empty": "Chưa có mục nhật ký",
@@ -3079,6 +3090,7 @@
     "preserveFiles": "Downloaded files stay in their original location.",
     "chooseTasks": "Choose downloads",
     "skip": "Not now",
+    "skippedHint": "Bạn có thể di chuyển sau từ {{settings}} → {{advanced}}.",
     "back": "Back",
     "loading": "Looking for your old downloads…",
     "empty": "There are no tasks to migrate from this folder.",

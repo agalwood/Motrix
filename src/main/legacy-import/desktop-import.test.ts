@@ -1,5 +1,5 @@
 // @vitest-environment node
-import {
+import filesystem, {
   mkdir,
   mkdtemp,
   readFile,
@@ -7,6 +7,7 @@ import {
   rm,
   writeFile,
 } from 'node:fs/promises'
+import { syncBuiltinESMExports } from 'node:module'
 import os from 'node:os'
 import path from 'node:path'
 import { Aria2ProcessInspector } from '@core/engine/aria2/aria2-process-inspector'
@@ -58,6 +59,7 @@ afterEach(async () => {
   mocks.handlers.clear()
   vi.clearAllMocks()
   vi.restoreAllMocks()
+  syncBuiltinESMExports()
   vi.unstubAllEnvs()
   for (const root of roots.splice(0))
     await rm(root, { recursive: true, force: true })
@@ -288,6 +290,31 @@ describe('desktop legacy import', () => {
     expect(result.saveDir).not.toBe(task.saveDir)
     expect(task.status).toBe(TaskStatus.Paused)
     expect(await readFile(oldPath, 'utf8')).toBe('original bytes')
+  })
+
+  it('prepares a fresh download under an existing volume root without trying to create the root', async () => {
+    const { root, oldPath, task, event } = await fixture()
+    const realMkdir = filesystem.mkdir
+    const mkdirSpy = vi
+      .spyOn(filesystem, 'mkdir')
+      .mockImplementation(async (...args) => {
+        if (args[0] === root) {
+          throw Object.assign(new Error('cannot mkdir volume root'), {
+            code: 'EPERM',
+          })
+        }
+        return realMkdir(...args)
+      })
+    syncBuiltinESMExports()
+
+    const result = (await mocks.handlers.get(
+      Commands.PrepareLegacyFreshDownload
+    )?.(event, { taskId: task.id })) as { saveDir: string }
+
+    expect(path.dirname(result.saveDir)).toBe(root)
+    expect(path.basename(result.saveDir)).toMatch(/^Motrix-new-/)
+    expect(await readFile(oldPath, 'utf8')).toBe('original bytes')
+    expect(mkdirSpy).not.toHaveBeenCalledWith(root, expect.anything())
   })
 
   it('rejects mirror re-add before a picker instead of turning one task into several downloads', async () => {

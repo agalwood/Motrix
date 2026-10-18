@@ -139,6 +139,8 @@ function outputKey(
 ): string {
   if (depth !== 0 || profile === 'export') return key
   if (profile === 'plugin' && key === 'ts') return 'fieldTs'
+  if (profile === 'plugin' && key === 'entryId') return 'fieldEntryId'
+  if (profile === 'plugin' && key === 'logSequence') return 'fieldLogSequence'
   return ROOT_LOG_FIELD_RENAMES.get(key) ?? key
 }
 

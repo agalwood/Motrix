@@ -1,6 +1,7 @@
 import type { PluginListDTO } from '@shared/types/plugin'
 import type { GrantsMap } from '@shared/types/plugin-install'
 import type { TFunction } from 'i18next'
+import { pluginErrorTitleKey } from './plugin-error'
 
 export type { GrantState, GrantsMap } from '@shared/types/plugin-install'
 
@@ -303,7 +304,14 @@ export function computePluginAudience(
   return {
     tone,
     toneLabel: t(`plugins.tone.${tone}`),
-    plain: t(plainKeyFor(tone, errored)),
+    plain: t(
+      tone === 'review' &&
+        errored &&
+        pluginErrorTitleKey(plugin.lastError) !==
+          'plugins.detail.attentionTitle'
+        ? pluginErrorTitleKey(plugin.lastError)
+        : plainKeyFor(tone, errored)
+    ),
     heroHeadline: t(heroFor(tone, errored)),
     primaryAction: primaryFor(tone, errored, hasSettingsSchema, t),
   }

@@ -1334,7 +1334,15 @@
         "historyCountHint": "較早的恢復記錄會被移除。",
         "historyCountPositive": "請輸入大於 0 的數量。"
       },
-      "description": "RPC、進度與恢復"
+      "description": "RPC、進度與恢復",
+      "configFile": {
+        "title": "設定檔",
+        "serverTitle": "伺服器設定檔",
+        "openDirectory": "開啟所在資料夾",
+        "copyPath": "複製路徑",
+        "copied": "已複製",
+        "actionFailed": "操作未完成，請重試。"
+      }
     },
     "about": {
       "appIconAlt": "Motrix 應用程式圖示",
@@ -2538,6 +2546,8 @@
       "accessHosts_other": "可讀取 {{count}} 個網站",
       "accessBroad": "可讀取任何網站",
       "attentionTitle": "此外掛程式回報問題",
+      "runtimeStartFailed": "外掛執行環境無法啟動",
+      "runtimeFailed": "外掛執行環境意外停止",
       "attentionGeneric": "請查看日誌以瞭解詳細資料。",
       "viewIssue": "檢視問題",
       "removeTitle": "移除外掛程式",
@@ -2567,6 +2577,7 @@
       },
       "copy": "複製已遮蔽的日誌",
       "clear": "清除",
+      "clearFailed": "無法清空日誌，請重試。",
       "output": "即時輸出",
       "entryCount_other": "{{count}} 筆項目",
       "empty": "尚無日誌項目",
@@ -3079,6 +3090,7 @@
     "preserveFiles": "Downloaded files stay in their original location.",
     "chooseTasks": "Choose downloads",
     "skip": "Not now",
+    "skippedHint": "如需移轉，可前往「{{settings}} → {{advanced}}」。",
     "back": "Back",
     "loading": "Looking for your old downloads…",
     "empty": "There are no tasks to migrate from this folder.",

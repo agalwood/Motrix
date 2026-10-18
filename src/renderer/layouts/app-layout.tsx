@@ -21,6 +21,7 @@ import { useMenuContextSync } from '@renderer/hooks/use-menu-context-sync'
 import { useNotificationToasts } from '@renderer/hooks/use-notification-toasts'
 import { useSidebarColor } from '@renderer/hooks/use-sidebar-color'
 import { useToastEvents } from '@renderer/hooks/use-toast-events'
+import { useWindowTorrentDrop } from '@renderer/hooks/use-window-torrent-drop'
 import { cn } from '@renderer/lib/utils'
 import { electronServices } from '@renderer/platform/electron-services'
 import { PlatformServicesProvider } from '@renderer/platform/services'
@@ -44,6 +45,12 @@ const platformServices =
 function DesktopMenuContext() {
   useMenuContextSync()
   return <DesktopMenuActions />
+}
+
+/** Web only: drop .torrent files on the window to start the Add Task flow. */
+function WindowTorrentDrop() {
+  useWindowTorrentDrop()
+  return null
 }
 
 export function AppLayout() {
@@ -149,6 +156,7 @@ export function AppLayout() {
         <OperationDialogHost />
         <EngineDiagnosticsDialogHost />
         {__MOTRIX_TARGET__ === 'web' && <AddTaskDialogHost />}
+        {__MOTRIX_TARGET__ === 'web' && <WindowTorrentDrop />}
       </PlatformServicesProvider>
       <RendererToaster />
     </TooltipProvider>
