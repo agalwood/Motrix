@@ -1355,12 +1355,7 @@ export class MotrixDatabase {
     return {
       instanceId: i.instanceId,
       motrixId: i.motrixId,
-      // `gid` is globally UNIQUE and nullable: "no engine gid" MUST be NULL.
-      // An empty string is a real value to SQLite, so it would occupy the one
-      // '' slot for the whole table and make every other empty-gid instance
-      // (HLS segment/mux/etc.) fail to persist with SQLITE_CONSTRAINT_UNIQUE.
-      // Normalize '' — and any other falsy gid — to NULL at the boundary.
-      gid: i.gid ? i.gid : null,
+      gid: i.gid,
       phase: i.phase,
       status: i.status,
       progress: i.progress,
@@ -1505,11 +1500,7 @@ function mapInstanceRow(row: RawInstanceRow): TaskInstanceRow {
   return {
     instanceId: row.instance_id,
     motrixId: row.motrix_id,
-    // Heal legacy rows written before the '' -> NULL normalization: a stored
-    // empty string means "no engine gid" and must surface as NULL in memory,
-    // otherwise it round-trips back into the UNIQUE(gid) column and re-poisons
-    // every later write. See serializeInstance.
-    gid: row.gid === '' ? null : row.gid,
+    gid: row.gid,
     phase: toInstancePhase(row.phase),
     status: toTaskStatus(row.status),
     progress: row.progress,
