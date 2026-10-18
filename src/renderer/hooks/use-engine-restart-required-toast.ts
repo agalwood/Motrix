@@ -4,7 +4,7 @@ import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import { EngineState } from '@shared/types/engine'
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
 export const ENGINE_RESTART_REQUIRED_TOAST_ID = 'engine-restart-required'
@@ -12,13 +12,6 @@ export const ENGINE_RESTART_REQUIRED_TOAST_ID = 'engine-restart-required'
 /** Show one coalesced, action-bearing reminder until the engine is Ready again. */
 export function useEngineRestartRequiredToast(): void {
   const { t } = useTranslation()
-  // `LanguageSync` calls `i18n.changeLanguage()` on every app start, which
-  // bumps `t`'s identity via react-i18next even for the same language. Thread
-  // `t` through a ref and subscribe exactly once (empty deps) so that identity
-  // change never tears down + re-attaches the transport listeners (which would
-  // also reset `reminderVisible`). Mirrors use-pair-request-prompts.tsx.
-  const tRef = useRef(t)
-  tRef.current = t
 
   useEffect(() => {
     let restartPending = false
@@ -29,9 +22,7 @@ export function useEngineRestartRequiredToast(): void {
       restartPending = true
       toast.update(ENGINE_RESTART_REQUIRED_TOAST_ID, {
         actionProps: {
-          children: tRef.current(
-            'notification.engineRestartRequired.restartNow'
-          ),
+          children: t('notification.engineRestartRequired.restartNow'),
           disabled: true,
           'aria-busy': true,
           onClick: restartAction,
@@ -45,9 +36,7 @@ export function useEngineRestartRequiredToast(): void {
           if (!reminderVisible) return
           toast.update(ENGINE_RESTART_REQUIRED_TOAST_ID, {
             actionProps: {
-              children: tRef.current(
-                'notification.engineRestartRequired.restartNow'
-              ),
+              children: t('notification.engineRestartRequired.restartNow'),
               disabled: false,
               onClick: restartAction,
             },
@@ -61,14 +50,12 @@ export function useEngineRestartRequiredToast(): void {
       toast.close(ENGINE_RESTART_REQUIRED_TOAST_ID)
       toast.add({
         id: ENGINE_RESTART_REQUIRED_TOAST_ID,
-        title: tRef.current('notification.engineRestartRequired.title'),
-        description: tRef.current('notification.engineRestartRequired.body'),
+        title: t('notification.engineRestartRequired.title'),
+        description: t('notification.engineRestartRequired.body'),
         type: 'warning',
         timeout: 0,
         actionProps: {
-          children: tRef.current(
-            'notification.engineRestartRequired.restartNow'
-          ),
+          children: t('notification.engineRestartRequired.restartNow'),
           disabled: restartPending,
           onClick: restartAction,
         },
@@ -93,5 +80,5 @@ export function useEngineRestartRequiredToast(): void {
       transport.off(Events.EngineRestartRequired, onRestartRequired)
       transport.off(Events.EngineStateChanged, onEngineStateChanged)
     }
-  }, [])
+  }, [t])
 }

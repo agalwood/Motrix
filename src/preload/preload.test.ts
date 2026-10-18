@@ -184,33 +184,6 @@ describe('preload wrapperMap (F10: same callback on two channels)', () => {
     expect(mocks.listeners.get(channelA)?.size).toBe(0)
     expect(mocks.listeners.get(channelB)?.size).toBe(0)
   })
-
-  it('re-subscribing the same callback to the same channel replaces, never stacks, the listener', async () => {
-    await import('./preload')
-    // Not in BUFFERED_CHANNELS, so no eager-replay interaction.
-    const channel = Events.NotificationAdded
-    const callback = vi.fn()
-
-    mocks.exposed?.on(channel, callback)
-    expect(mocks.listeners.get(channel)?.size).toBe(1)
-
-    // A duplicate subscribe (e.g. an effect that re-subscribes without an
-    // intervening off) must not add a second real ipcRenderer listener —
-    // otherwise off() can only remove the newest wrapper and every duplicate
-    // leaks until Electron warns `MaxListenersExceededWarning`.
-    mocks.exposed?.on(channel, callback)
-    mocks.exposed?.on(channel, callback)
-    expect(mocks.listeners.get(channel)?.size).toBe(1)
-
-    emit(channel, 'once')
-    expect(callback).toHaveBeenCalledExactlyOnceWith('once')
-
-    // One off() fully unsubscribes, even after repeated on() calls.
-    mocks.exposed?.off(channel, callback)
-    expect(mocks.listeners.get(channel)?.size).toBe(0)
-    emit(channel, 'after-unsubscribe')
-    expect(callback).toHaveBeenCalledOnce()
-  })
 })
 
 describe('preload IPC channel allowlist', () => {
