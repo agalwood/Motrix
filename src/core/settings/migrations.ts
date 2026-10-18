@@ -105,7 +105,7 @@ const DEFAULT_MEDIA_SETTINGS_PLAIN = {
   ffmpegBinaryPath: '',
   ffmpegStagingMB: 4096,
   ffmpegOpTimeoutSec: 1800,
-  ytdlpEnabled: true,
+  ytdlpEnabled: false,
   ytdlpBinaryPath: '',
   ytdlpFormat: '',
   ytdlpAllUrls: false,

@@ -8,7 +8,9 @@ export const mediaSettingsSchema = z.object({
   ffmpegOpTimeoutSec: z.number().int().min(60).max(3600).catch(1800),
   // yt-dlp turns media-site URLs (YouTube, Vimeo, bilibili, …) into real
   // stream URLs. Empty path means auto-detect from PATH / MOTRIX_YT_DLP_PATH.
-  ytdlpEnabled: z.boolean().catch(true),
+  // Opt-in: disabled when the field is missing or invalid, so settings that
+  // predate it never enable external extraction without an explicit choice.
+  ytdlpEnabled: z.boolean().catch(false),
   ytdlpBinaryPath: z.string().catch(''),
   // yt-dlp `-f` selector. Empty means "best video + best audio", degrading to
   // a single progressive stream when no mux pipeline is available.

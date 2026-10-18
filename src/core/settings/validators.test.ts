@@ -1,4 +1,8 @@
-import type { EngineSettings, MotrixAppSettings } from '@shared/types/settings'
+import type {
+  EngineSettings,
+  MediaSettings,
+  MotrixAppSettings,
+} from '@shared/types/settings'
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_APP_SETTINGS,
@@ -609,11 +613,29 @@ describe('mediaSettingsSchema', () => {
       ffmpegBinaryPath: '',
       ffmpegStagingMB: 4096,
       ffmpegOpTimeoutSec: 1800,
-      ytdlpEnabled: true,
+      ytdlpEnabled: false,
       ytdlpBinaryPath: '',
       ytdlpFormat: '',
       ytdlpAllUrls: false,
     })
+  })
+
+  it('keeps yt-dlp disabled for settings that predate the field', () => {
+    // Fresh installs (empty object) and upgraded settings (a persisted media
+    // blob written before ytdlpEnabled existed) both resolve to disabled.
+    const upgraded = mediaSettingsSchema.parse({
+      ffmpegBinaryPath: '/u/bin/ffmpeg',
+      ffmpegStagingMB: 2048,
+      ffmpegOpTimeoutSec: 600,
+    } as MediaSettings)
+    expect(upgraded.ytdlpEnabled).toBe(false)
+  })
+
+  it('preserves an explicit yt-dlp opt-in', () => {
+    const out = mediaSettingsSchema.parse({
+      ytdlpEnabled: true,
+    } as MediaSettings)
+    expect(out.ytdlpEnabled).toBe(true)
   })
 
   it('catches invalid values and falls back to defaults', () => {
