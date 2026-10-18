@@ -8,6 +8,8 @@ import {
   type Page,
 } from '@playwright/test'
 import { CURRENT_SETTINGS_VERSION } from '../src/core/settings/migrations'
+import { BridgeQueries } from '../src/shared/protocol/bridge'
+import { Queries } from '../src/shared/protocol/queries'
 import {
   type DownloadTask,
   TaskKind,
@@ -63,6 +65,12 @@ const extensionReady =
 const browserReady = chrome !== undefined && existsSync(chrome)
 
 test.describe('real Chromium extension overlay', () => {
+  // Pairing passwords must never enter retry traces, videos, or failure DOM
+  // snapshots. Explicit screenshots below are taken only outside pairing.
+  test.use({ trace: 'off', screenshot: 'off', video: 'off' })
+  test.beforeAll(() => {
+    process.env.PLAYWRIGHT_NO_COPY_PROMPT = '1'
+  })
   test.skip(
     !liveNetwork,
     'Live network acceptance — set MOTRIX_LIVE_NETWORK_TESTS=1'
@@ -136,17 +144,22 @@ test.describe('real Chromium extension overlay', () => {
       if (!anchor) return
       await expect(await openOverlayPanel(page, anchor)).toBe(true)
 
-      // The panel starts with the tab's sniffed streams and gains the
-      // desktop's yt-dlp quality rows a moment later (one yt-dlp spawn), so
-      // wait for a quality row before clicking. Prefer the smallest video so
-      // the live download stays quick.
+      // Opening the overlay must not query formats. Only the explicit
+      // Show qualities action may send this page URL to the desktop.
       let task: DownloadTask | null = null
       for (let attempt = 0; attempt < 3 && task === null; attempt += 1) {
+        const actions = await waitForOverlayRows(page, 15_000, (rows) =>
+          rows.some((row) => row.label === 'Show qualities')
+        )
+        const show = pickRow(actions, (row) => row.label === 'Show qualities')
+        expect(show?.box).not.toBeNull()
+        if (!show?.box) throw new Error('quality query action is unavailable')
+        await page.mouse.click(show.box.centerX, show.box.centerY)
         const rows = await waitForOverlayRows(page, 90_000, (candidates) =>
           candidates.some(isQualityRow)
         )
         const chosen =
-          pickSmallestVideoRow(rows) ?? pickRow(rows, () => true) ?? null
+          pickSmallestVideoRow(rows) ?? pickRow(rows, isQualityRow) ?? null
         console.log(
           `[overlay] attempt ${attempt}: heading=${JSON.stringify(
             await overlayPanelHeading(page)
@@ -227,6 +240,10 @@ async function writeSettings(userDataDir: string): Promise<void> {
       version: CURRENT_SETTINGS_VERSION,
       app: { autofillClipboardLinks: false, browserBridgeEnabled: true },
       tracker: { autoSync: false },
+      media: {
+        ytdlpEnabled: true,
+        ytdlpBinaryPath: process.env.MOTRIX_YT_DLP_PATH?.trim() || '',
+      },
       onboarding: { disclaimerAccepted: true },
       // Let the bridge take the first free candidate port; the test reads the
       // port it actually bound, so an unrelated local Motrix on an earlier
@@ -242,32 +259,32 @@ async function readBridgePort(page: Page): Promise<number> {
   const status = await expect
     .poll(
       async () =>
-        page.evaluate(async () => {
+        page.evaluate(async (channel) => {
           const api = (
             window as unknown as {
               motrix: { invoke: (channel: string) => Promise<unknown> }
             }
           ).motrix
           try {
-            return (await api.invoke('bridge:getStatus')) as {
+            return (await api.invoke(channel)) as {
               port: number | null
             }
           } catch {
             return null
           }
-        }),
+        }, BridgeQueries.GetStatus),
       { timeout: 30_000 }
     )
     .not.toBeNull()
     .then(() =>
-      page.evaluate(async () => {
+      page.evaluate(async (channel) => {
         const api = (
           window as unknown as {
             motrix: { invoke: (channel: string) => Promise<unknown> }
           }
         ).motrix
-        return (await api.invoke('bridge:getStatus')) as { port: number | null }
-      })
+        return (await api.invoke(channel)) as { port: number | null }
+      }, BridgeQueries.GetStatus)
     )
   if (status.port === null) throw new Error('the bridge did not bind a port')
   return status.port
@@ -349,9 +366,8 @@ async function overlayPanelVisible(page: Page): Promise<boolean> {
 }
 
 /**
- * Click the pill until the panel opens. The overlay re-renders on its 2s poll
- * (`wrap.replaceChildren()`) and repositions itself, so the pill's box is
- * re-read on every attempt and a lost click is retried.
+ * Click the pill until the panel opens, refreshing its box if the playing
+ * video repositions while the browser settles.
  */
 async function openOverlayPanel(
   page: Page,
@@ -614,14 +630,17 @@ async function findOverlayBox(
 
 /** Read the desktop's pending MBP1 extension pairing code, if any. */
 async function readPairingCode(mainWindow: Page): Promise<string | null> {
-  const pending = (await mainWindow.evaluate(async () => {
+  const pending = (await mainWindow.evaluate(async (channel) => {
     const api = (
       window as unknown as {
         motrix: { invoke: (channel: string) => Promise<unknown> }
       }
     ).motrix
-    return api.invoke('bridge:listPendingPairRequests')
-  })) as Array<{ kind: string; code?: string }>
+    return api.invoke(channel)
+  }, BridgeQueries.ListPendingPairRequests)) as Array<{
+    kind: string
+    code?: string
+  }>
   return pending.find((request) => request.kind === 'extension')?.code ?? null
 }
 
@@ -678,22 +697,36 @@ async function pairExtension(
   if (code === null) throw new Error('the desktop did not issue a code')
 
   const dialog = page.getByRole('dialog', { name: 'Pair with Motrix' })
-  await dialog.getByLabel(/Pairing code/i).fill(code.replace('-', ''))
+  // A normal fill(code) step includes its value in the reporter's step title.
+  // Dispatch the native input events without putting the password in that title.
+  await dialog.getByLabel(/Pairing code/i).evaluate(
+    (element, value) => {
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value'
+      )?.set
+      if (!setter) throw new Error('pairing input is unavailable')
+      setter.call(element, value)
+      element.dispatchEvent(new Event('input', { bubbles: true }))
+      element.dispatchEvent(new Event('change', { bubbles: true }))
+    },
+    code.replace('-', '')
+  )
   await dialog.getByRole('button', { name: 'Pair' }).click()
   await expect(page.getByText('Connected')).toBeVisible({ timeout: 60_000 })
   await page.close()
 }
 
 async function listTasks(page: Page): Promise<DownloadTask[]> {
-  return (await page.evaluate(async () => {
+  return (await page.evaluate(async (channel) => {
     const api = (
       window as unknown as {
         motrix?: { invoke: (channel: string) => Promise<unknown> }
       }
     ).motrix
     if (!api) return []
-    return api.invoke('query:listTasks')
-  })) as DownloadTask[]
+    return api.invoke(channel)
+  }, Queries.ListTasks)) as DownloadTask[]
 }
 
 async function findMediaTask(page: Page): Promise<DownloadTask | null> {

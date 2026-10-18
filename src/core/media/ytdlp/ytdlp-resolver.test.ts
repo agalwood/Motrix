@@ -19,6 +19,7 @@ function fakeChild(
   const errorListeners: Array<(error: Error) => void> = []
   const kill = vi.fn()
   return {
+    stdin: { end: vi.fn(), on: vi.fn() },
     kill,
     stdout: {
       on: (_event: string, listener: (chunk: string) => void) =>
@@ -193,7 +194,18 @@ describe('looksUnsupported', () => {
 })
 
 describe('resolveWithYtdlp', () => {
-  it('passes the URL after `--` so it cannot inject extra flags', async () => {
+  it('canonicalizes parser-ambiguous URLs before passing them to the extractor', async () => {
+    const child = fakeChild({ stdout: '{}' })
+    await resolveWithYtdlp('http://youtube.com\\@127.0.0.1:1234/clip.mp4', {
+      binaryPath: 'yt-dlp',
+      spawnImpl: spawnWith(child),
+    })
+    expect(child.stdin.end).toHaveBeenCalledWith(
+      'http://youtube.com/@127.0.0.1:1234/clip.mp4\n'
+    )
+  })
+
+  it('keeps URLs out of argv and writes exactly one URL to private stdin', async () => {
     const child = fakeChild({ stdout: '{}', stderr: '' })
     const spawn = vi.fn((() => {
       setTimeout(() => {
@@ -204,14 +216,15 @@ describe('resolveWithYtdlp', () => {
     }) as SpawnLike)
     await resolveWithYtdlp('https://youtube.com/watch?v=--proxy', {
       binaryPath: 'yt-dlp',
-      cookieHeader: 'CONSENT=yes',
       spawnImpl: spawn,
     })
     const [, args] = spawn.mock.calls[0] as unknown as [string, string[]]
-    expect(args).toContain('--')
-    expect(args.at(-1)).toBe('https://youtube.com/watch?v=--proxy')
-    expect(args).toContain('--add-header')
-    expect(args).toContain('Cookie:CONSENT=yes')
+    expect(args).toContain('--batch-file')
+    expect(args).not.toContain('https://youtube.com/watch?v=--proxy')
+    expect(args).not.toContain('--add-header')
+    expect(child.stdin.end).toHaveBeenCalledWith(
+      'https://youtube.com/watch?v=--proxy\n'
+    )
     expect(args).toContain('--no-playlist')
   })
 
@@ -265,7 +278,7 @@ describe('resolveWithYtdlp', () => {
     })
     expect(outcome).toEqual({
       status: 'unsupported',
-      reason: 'ERROR: Unsupported URL: https://example.com/x',
+      reason: 'extraction-failed',
     })
   })
 
@@ -318,48 +331,18 @@ describe('createYtdlpMediaResolver', () => {
     expect(resolution?.kind).toBe('direct')
   })
 
-  it('retries without cookies when the cookie-bearing extraction fails', async () => {
-    // A stale browser session makes the extractor see a consent/error page.
-    const stale = fakeChild(
-      { stderr: 'ERROR: [youtube] x: The page needs to be reloaded.' },
-      1
-    )
-    const fresh = fakeChild({
-      stdout: JSON.stringify({
-        title: 'T',
-        url: 'https://cdn.example/t.mp4',
-        ext: 'mp4',
-      }),
-      stderr: '',
-    })
-    const calls: string[][] = []
-    const spawnImpl = ((_command: string, args: readonly string[]): never => {
-      calls.push([...args])
-      const child = calls.length === 1 ? stale : fresh
-      setTimeout(() => {
-        child.emitStdout()
-        child.emitStderr()
-        child.emitClose()
-      }, 0)
-      return child as never
-    }) as SpawnLike
-
+  it('declines browser credentials before probing and never retries anonymously', async () => {
+    const resolveBinaryPath = vi.fn(async () => '/usr/bin/yt-dlp')
+    const spawnImpl = vi.fn() as unknown as SpawnLike
     const resolver = createYtdlpMediaResolver(
-      {
-        resolveBinaryPath: async () => '/usr/bin/yt-dlp',
-        readOptions: () => ({ enabled: true }),
-        spawnImpl,
-      },
+      { resolveBinaryPath, readOptions: () => ({ enabled: true }), spawnImpl },
       isMediaSite
     )
-    const resolution = await resolver(
-      'https://youtube.com/watch?v=x',
-      'SID=stale'
-    )
-    expect(resolution?.kind).toBe('direct')
-    expect(calls).toHaveLength(2)
-    expect(calls[0]?.join(' ')).toContain('Cookie:SID=stale')
-    expect(calls[1]?.join(' ')).not.toContain('Cookie:')
+    expect(
+      await resolver('https://youtube.com/watch?v=x', 'SID=secret')
+    ).toBeNull()
+    expect(resolveBinaryPath).not.toHaveBeenCalled()
+    expect(spawnImpl).not.toHaveBeenCalled()
   })
 
   it('does not retry when the submission carried no cookies', async () => {

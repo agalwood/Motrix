@@ -1,5 +1,6 @@
 import type { MediaResolver } from '@core/media/ytdlp/media-resolver'
 import { isLikelyMediaSite } from '@core/media/ytdlp/media-site-allowlist'
+import { throwIfYtdlpAborted } from '@core/media/ytdlp/ytdlp-execution'
 import {
   createYtdlpFormatLister,
   type YtdlpFormatLister,
@@ -12,6 +13,7 @@ import {
   createYtdlpMediaResolver,
   type YtdlpResolverDeps,
 } from '@core/media/ytdlp/ytdlp-resolver'
+import { proxyToUrl } from '@core/proxy/serializers'
 import type { MediaSettings, ProxySettings } from '@shared/types/settings'
 
 /**
@@ -33,17 +35,29 @@ const NEGATIVE_CACHE_MS = 60_000
 export function proxyUrlForDownload(proxy: ProxySettings): string | null {
   if (!proxy.enabled || !proxy.scopes.download) return null
   if (!proxy.host.trim()) return null
-  const scheme =
-    proxy.protocol === 'socks5'
-      ? 'socks5'
-      : proxy.protocol === 'https'
-        ? 'https'
-        : 'http'
-  const credentials =
-    proxy.user.trim() || proxy.password
-      ? `${encodeURIComponent(proxy.user)}:${encodeURIComponent(proxy.password)}@`
-      : ''
-  return `${scheme}://${credentials}${proxy.host.trim()}:${proxy.port}`
+  const result = proxyToUrl({ ...proxy, host: proxy.host.trim() })
+  // The shared serializer omits authentication when user is empty. Preserve a
+  // password-only configuration so the extractor refuses it instead of direct
+  // or unauthenticated access through the selected proxy.
+  if (!proxy.user && proxy.password) {
+    const url = new URL(result)
+    url.password = proxy.password
+    return url.href
+  }
+  return result
+}
+
+function publicExtractorProxyOptions(proxy: ProxySettings): {
+  proxy?: string
+  proxyUnsupportedReason?: 'proxy-bypass-unsupported'
+} {
+  if (proxy.enabled && proxy.scopes.download && proxy.bypass.length > 0) {
+    // yt-dlp networking backends disagree on bypass matching. Do not silently
+    // discard the user's routing rule or weaken it to an approximate match.
+    return { proxyUnsupportedReason: 'proxy-bypass-unsupported' }
+  }
+  const url = proxyUrlForDownload(proxy)
+  return url ? { proxy: url } : {}
 }
 
 export interface YtdlpShellDeps {
@@ -77,7 +91,11 @@ export function createShellYtdlpResolver(
 
   const locate = deps.locate ?? locateYtdlp
 
-  const probe = async (configuredPath: string): Promise<YtdlpLocation> => {
+  const probe = async (
+    configuredPath: string,
+    signal?: AbortSignal
+  ): Promise<YtdlpLocation> => {
+    throwIfYtdlpAborted(signal)
     const now = Date.now()
     if (
       cache &&
@@ -86,14 +104,22 @@ export function createShellYtdlpResolver(
     ) {
       return cache.location
     }
-    const location = await locate({ configuredPath, env })
+    const location = await locate({
+      configuredPath,
+      env,
+      ...(signal ? { signal } : {}),
+    })
+    throwIfYtdlpAborted(signal)
     cache = { configuredPath, location, probedAt: now }
     return location
   }
 
-  const resolveBinaryPath = async (): Promise<string | null> => {
-    const media = deps.getMediaSettings()
-    const location = await probe(media.ytdlpBinaryPath)
+  const resolveBinaryPath = async (
+    signal?: AbortSignal
+  ): Promise<string | null> => {
+    const configuredPath = deps.getMediaSettings().ytdlpBinaryPath
+    const location = await probe(configuredPath, signal)
+    if (deps.getMediaSettings().ytdlpBinaryPath !== configuredPath) return null
     return location.binaryPath
   }
 
@@ -101,14 +127,15 @@ export function createShellYtdlpResolver(
     resolveBinaryPath,
     readOptions: () => {
       const media = deps.getMediaSettings()
-      const proxy = proxyUrlForDownload(deps.getProxySettings())
+      const proxy = publicExtractorProxyOptions(deps.getProxySettings())
       return {
         enabled: media.ytdlpEnabled,
+        configuredBinaryPath: media.ytdlpBinaryPath,
         allUrls: media.ytdlpAllUrls,
         ...(media.ytdlpFormat.trim()
           ? { format: media.ytdlpFormat.trim() }
           : {}),
-        ...(proxy ? { proxy } : {}),
+        ...proxy,
       }
     },
     isMuxAvailable: deps.isMuxAvailable,
@@ -121,11 +148,11 @@ export function createShellYtdlpResolver(
     resolveBinaryPath,
     readOptions: () => {
       const media = deps.getMediaSettings()
-      const proxy = proxyUrlForDownload(deps.getProxySettings())
+      const proxy = publicExtractorProxyOptions(deps.getProxySettings())
       return {
         enabled: media.ytdlpEnabled,
         allUrls: media.ytdlpAllUrls,
-        ...(proxy ? { proxy } : {}),
+        ...proxy,
       }
     },
     isMediaSite: isLikelyMediaSite,
@@ -133,10 +160,30 @@ export function createShellYtdlpResolver(
 
   return {
     resolve: createYtdlpMediaResolver(resolverDeps, isLikelyMediaSite),
-    listFormats: formatLister,
+    listFormats: async (req, signal) => {
+      throwIfYtdlpAborted(signal)
+      if (
+        req.cookies?.length ||
+        !deps.getMediaSettings().ytdlpEnabled ||
+        publicExtractorProxyOptions(deps.getProxySettings())
+          .proxyUnsupportedReason
+      )
+        return formatLister(req, signal)
+      const pipelineAvailable = await deps.isMuxAvailable()
+      throwIfYtdlpAborted(signal)
+      return formatLister(
+        {
+          ...req,
+          audioExtractAvailable: req.audioExtractAvailable && pipelineAvailable,
+          muxAvailable:
+            (req.muxAvailable ?? req.audioExtractAvailable) &&
+            pipelineAvailable,
+        },
+        signal
+      )
+    },
     invalidate: () => {
       cache = null
-      formatLister.clearCache()
     },
     location: () => probe(deps.getMediaSettings().ytdlpBinaryPath),
   }

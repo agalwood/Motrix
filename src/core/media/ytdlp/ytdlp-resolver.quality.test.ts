@@ -1,11 +1,16 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { SpawnLike } from './ytdlp-locator'
-import { buildQualityFormat, createYtdlpMediaResolver } from './ytdlp-resolver'
+import {
+  buildQualityFormat,
+  createYtdlpMediaResolver,
+  DEFAULT_YTDLP_FORMAT,
+} from './ytdlp-resolver'
 
 function fakeChild(stdoutJson: string, code: number | null = 0) {
   const stdoutListeners: Array<(chunk: string) => void> = []
   const closeListeners: Array<(code: number | null) => void> = []
   return {
+    stdin: { end: vi.fn(), on: vi.fn() },
     kill: vi.fn(),
     stdout: {
       on: (_event: string, listener: (chunk: string) => void) =>
@@ -46,24 +51,28 @@ const RESOLVER_DEPS = {
 
 describe('buildQualityFormat', () => {
   it('uses bestaudio for an audio-only hint', () => {
-    expect(buildQualityFormat({ audioOnly: true }, true)).toBe('bestaudio/best')
+    expect(buildQualityFormat({ audioOnly: true }, true)).toBe(
+      "bestaudio[protocol~='^https?$']/best[acodec!=none][protocol~='^https?$']"
+    )
   })
 
   it('caps the height and prefers mp4/m4a when a mux is possible', () => {
     expect(buildQualityFormat({ height: 1080 }, true)).toBe(
-      'bv*[height<=1080][ext=mp4]+ba[ext=m4a]/bv*[height<=1080]+ba/b[height<=1080][ext=mp4]/b[height<=1080]/b'
+      "bv*[height<=1080][ext=mp4][protocol~='^https?$']+ba[ext=m4a][protocol~='^https?$']/bv*[height<=1080][protocol~='^https?$']+ba[protocol~='^https?$']/b[height<=1080][ext=mp4][protocol~='^https?$']/b[height<=1080][protocol~='^https?$']"
     )
   })
 
   it('drops the video+audio pairs without a mux pipeline', () => {
     expect(buildQualityFormat({ height: 720 }, false)).toBe(
-      'b[height<=720][ext=mp4]/b[height<=720]/b'
+      "b[height<=720][ext=mp4][protocol~='^https?$']/b[height<=720][protocol~='^https?$']"
     )
   })
 
   it('falls back to the defaults when the hint carries no constraint', () => {
-    expect(buildQualityFormat({}, true)).toBe('bv*+ba/b')
-    expect(buildQualityFormat({}, false)).toBe('b[ext=mp4]/b')
+    expect(buildQualityFormat({}, true)).toBe(DEFAULT_YTDLP_FORMAT)
+    expect(buildQualityFormat({}, false)).toBe(
+      "b[ext=mp4][protocol~='^https?$']/b[protocol~='^https?$']"
+    )
   })
 })
 
@@ -79,7 +88,7 @@ describe('createYtdlpMediaResolver quality hint', () => {
     })
     expect(resolution).not.toBeNull()
     expect(seen[0]?.join(' ')).toContain(
-      '--format bv*[height<=480][ext=mp4]+ba[ext=m4a]'
+      "--format bv*[height<=480][ext=mp4][protocol~='^https?$']+ba[ext=m4a]"
     )
   })
 
@@ -92,7 +101,9 @@ describe('createYtdlpMediaResolver quality hint', () => {
     const resolution = await resolve('https://x.example/watch?v=1', undefined, {
       qualityHint: { audioOnly: true },
     })
-    expect(seen[0]?.join(' ')).toContain('--format bestaudio/best')
+    expect(seen[0]?.join(' ')).toContain(
+      "--format bestaudio[protocol~='^https?$']/best[acodec!=none][protocol~='^https?$']"
+    )
     expect(resolution?.kind).toBe('direct')
   })
 
@@ -134,6 +145,8 @@ describe('createYtdlpMediaResolver quality hint', () => {
       () => true
     )
     await resolve('https://x.example/watch?v=1', undefined)
-    expect(seen[0]?.join(' ')).toContain('--format b[ext=mp4]/b')
+    expect(seen[0]?.join(' ')).toContain(
+      "--format b[ext=mp4][protocol~='^https?$']/b[protocol~='^https?$']"
+    )
   })
 })

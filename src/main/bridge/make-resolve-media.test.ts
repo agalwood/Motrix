@@ -45,6 +45,47 @@ const BILI = 'https://www.bilibili.com/video/BV1xx411c7mD'
 const YT = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
 
 describe('makeResolveMedia — generalized multi-resolver routing', () => {
+  it.each([{ height: 720 }, { audioOnly: true }])(
+    'keeps explicit quality %s on the extractor that listed it',
+    async (qualityHint) => {
+      const pluginHost = { activate: vi.fn(), invokeCommand: vi.fn() }
+      const fallback = vi.fn().mockResolvedValue(null)
+      const resolve = makeResolveMedia(
+        fakeRegistry(
+          plugin({
+            id: 'community.site',
+            hostPermissions: ['*://*.bilibili.com/*'],
+          })
+        ),
+        pluginHost as never,
+        fallback
+      )
+      await expect(
+        resolve(BILI, undefined, { qualityHint })
+      ).resolves.toBeNull()
+      expect(fallback).toHaveBeenCalledWith(BILI, undefined, { qualityHint })
+      expect(pluginHost.activate).not.toHaveBeenCalled()
+      expect(pluginHost.invokeCommand).not.toHaveBeenCalled()
+    }
+  )
+
+  it('declines explicit quality without its extractor instead of using a legacy plugin', async () => {
+    const pluginHost = { activate: vi.fn(), invokeCommand: vi.fn() }
+    const resolve = makeResolveMedia(
+      fakeRegistry(
+        plugin({
+          id: 'community.site',
+          hostPermissions: ['*://*.bilibili.com/*'],
+        })
+      ),
+      pluginHost as never
+    )
+    await expect(
+      resolve(BILI, undefined, { qualityHint: { audioOnly: true } })
+    ).resolves.toBeNull()
+    expect(pluginHost.activate).not.toHaveBeenCalled()
+  })
+
   it('routes to an enabled site-resolver that declares <id>.resolve and whose hostPermissions admit the url', async () => {
     const invokeCommand = vi.fn().mockResolvedValue({
       kind: 'mux',

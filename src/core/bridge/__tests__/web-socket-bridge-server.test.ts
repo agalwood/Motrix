@@ -20,7 +20,11 @@ import {
 } from '@core/bridge/web-socket-bridge-server'
 import type { WebSocketLike } from '@core/bridge/web-socket-message-stream'
 import { BridgeReceiverError } from '@core/bridge-receiver/errors'
-import { ErrorCodes } from '@motrix/mdxp'
+import {
+  CancellationTokenSource,
+  ErrorCodes,
+  type MediaFormatsResult,
+} from '@motrix/mdxp'
 import type { ClientIdentity } from '@shared/protocol/bridge'
 import { EngineState } from '@shared/types/engine'
 import { TaskStatus } from '@shared/types/task'
@@ -528,13 +532,20 @@ describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
     }
   })
 
-  it('wires the fork-local media/formats method over the paired extension WS', async () => {
-    const listMediaFormats = vi.fn(async (params: { url: string }) => ({
-      available: params.url.includes('listing'),
-      entries: [
-        { key: '1080p', kind: 'video' as const, label: '1080p', height: 1080 },
-      ],
-    }))
+  it('advertises and validates media/formats only for a ready paired extension', async () => {
+    const listMediaFormats = vi.fn(
+      async (_params: { url: string }): Promise<MediaFormatsResult> => ({
+        available: true,
+        entries: [
+          {
+            key: '1080p',
+            kind: 'video' as const,
+            label: '1080p',
+            height: 1080,
+          },
+        ],
+      })
+    )
     server.setHandlers({ listMediaFormats })
     const paired = await pairAndExchange({
       port,
@@ -545,10 +556,15 @@ describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
     })
     const conn = mdxpOverChannel(paired.wire, paired.channel)
     try {
-      await conn.sendRequest(
+      const initialized = await conn.sendRequest(
         'motrix/initialize',
         initializeParams(EXTENSION_ID)
       )
+      expect(initialized.capabilities.mediaFormats).toBe(true)
+      await expect(
+        conn.sendRequest('media/formats', { url: 'https://x.example/listing' })
+      ).rejects.toMatchObject({ code: ErrorCodes.PermissionDenied })
+      expect(listMediaFormats).not.toHaveBeenCalled()
       conn.sendNotification('motrix/initialized', undefined)
 
       await expect(
@@ -566,13 +582,69 @@ describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
         })
       )
 
-      // Params ride the local Zod schema — a bogus shape is rejected with
+      // Params ride the published Zod schema — a bogus shape is rejected with
       // InvalidParams before the handler ever runs.
       await expect(
         conn.sendRequest('media/formats', { url: 123 } as never)
       ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams })
       expect(listMediaFormats).toHaveBeenCalledTimes(1)
     } finally {
+      conn.dispose()
+      paired.wire.ws.close()
+    }
+  })
+
+  it('propagates wire cancellation without replaying or sharing format queries', async () => {
+    const started = Promise.withResolvers<void>()
+    let cancelled = false
+    const listMediaFormats = vi.fn(
+      (_params, ctx) =>
+        new Promise<MediaFormatsResult>((resolve) => {
+          ctx.requestSignal.addEventListener(
+            'abort',
+            () => {
+              cancelled = true
+              resolve({ available: false, reason: 'cancelled', entries: [] })
+            },
+            { once: true }
+          )
+          started.resolve()
+        })
+    )
+    server.setHandlers({ listMediaFormats })
+    const paired = await pairAndExchange({
+      port,
+      origin: ORIGIN,
+      browser: 'chromium',
+      claimedExtensionId: EXTENSION_ID,
+      code: () => mbp1.dialogs.latestCode(),
+    })
+    const conn = mdxpOverChannel(paired.wire, paired.channel)
+    const token = new CancellationTokenSource()
+    try {
+      await conn.sendRequest(
+        'motrix/initialize',
+        initializeParams(EXTENSION_ID)
+      )
+      conn.sendNotification('motrix/initialized', undefined)
+      const pending = conn.sendRequest(
+        'media/formats',
+        { url: 'https://example.com/watch' },
+        token.token
+      )
+      const rejected = expect(pending).rejects.toMatchObject({
+        code: ErrorCodes.RequestCancelled,
+      })
+      await started.promise
+      await expect(
+        conn.sendRequest('media/formats', { url: 'https://example.com/watch' })
+      ).rejects.toMatchObject({ code: ErrorCodes.RateLimited })
+      token.cancel()
+      await rejected
+      expect(cancelled).toBe(true)
+      expect(listMediaFormats).toHaveBeenCalledTimes(1)
+    } finally {
+      token.dispose()
       conn.dispose()
       paired.wire.ws.close()
     }
@@ -588,10 +660,11 @@ describe('WebSocketBridgeServer – v1 control-plane over WS', () => {
     })
     const conn = mdxpOverChannel(paired.wire, paired.channel)
     try {
-      await conn.sendRequest(
+      const initialized = await conn.sendRequest(
         'motrix/initialize',
         initializeParams(EXTENSION_ID)
       )
+      expect(initialized.capabilities.mediaFormats).toBe(false)
       conn.sendNotification('motrix/initialized', undefined)
       await expect(
         conn.sendRequest('media/formats', { url: 'https://x.example/v' })

@@ -1,4 +1,9 @@
 import { spawn as nodeSpawn } from 'node:child_process'
+import {
+  isYtdlpAbort,
+  spawnResolve,
+  throwIfYtdlpAborted,
+} from './ytdlp-execution'
 
 /**
  * Locate and probe the yt-dlp executable.
@@ -24,8 +29,19 @@ export interface YtdlpProbe {
 export type SpawnLike = (
   command: string,
   args: readonly string[],
-  options: { shell?: boolean }
+  options: {
+    shell?: boolean
+    stdio?: ['pipe', 'pipe', 'pipe']
+    detached?: boolean
+    windowsHide?: boolean
+    env?: NodeJS.ProcessEnv
+  }
 ) => {
+  pid?: number
+  stdin?: {
+    end(input: string): void
+    on?(event: 'error', listener: (error: Error) => void): void
+  }
   stdout: {
     on(event: 'data', listener: (chunk: Buffer | string) => void): void
   }
@@ -136,82 +152,39 @@ const PROBE_TIMEOUT_MS = 8_000
  * spawning, matching the FFmpeg detector, so a stale Settings value cannot
  * trigger an OS prompt or a shell error dialog.
  */
-export function probeYtdlp(
+export async function probeYtdlp(
   binaryPath: string,
   spawnImpl: SpawnLike = nodeSpawn as unknown as SpawnLike,
-  timeoutMs = PROBE_TIMEOUT_MS
+  timeoutMs = PROBE_TIMEOUT_MS,
+  signal?: AbortSignal
 ): Promise<YtdlpProbe> {
+  throwIfYtdlpAborted(signal)
   const isPathLike = binaryPath.includes('/') || binaryPath.includes('\\')
   if (isPathLike && !existsSync(binaryPath)) {
-    return Promise.resolve({
-      available: false,
-      version: null,
-      failureReason: 'missing' as const,
-    })
+    return { available: false, version: null, failureReason: 'missing' }
   }
-  return runProbe(binaryPath, spawnImpl, timeoutMs)
-}
-
-function runProbe(
-  binaryPath: string,
-  spawnImpl: SpawnLike,
-  timeoutMs: number
-): Promise<YtdlpProbe> {
-  return new Promise<YtdlpProbe>((resolve) => {
-    let settled = false
-    let stdout = ''
-    let child: ReturnType<SpawnLike> | null = null
-    const settle = (result: YtdlpProbe) => {
-      if (settled) return
-      settled = true
-      timer && clearTimeout(timer)
-      resolve(result)
-    }
-    try {
-      child = spawnImpl(binaryPath, ['--version'], { shell: false })
-    } catch {
-      settle({
-        available: false,
-        version: null,
-        failureReason: 'missing' as const,
-      })
-      return
-    }
-    const timer = setTimeout(() => {
-      try {
-        child?.kill('SIGKILL')
-      } catch {
-        // Process already exited; nothing to reap.
-      }
-      settle({ available: false, version: null })
-    }, timeoutMs)
-    child.stdout.on('data', (chunk) => {
-      stdout += String(chunk)
-    })
-    child.on('error', () =>
-      settle({
-        available: false,
-        version: null,
-        failureReason: 'missing' as const,
-      })
+  try {
+    const result = await spawnResolve(
+      binaryPath,
+      [
+        '--ignore-config',
+        '--no-config-locations',
+        '--no-plugin-dirs',
+        '--version',
+      ],
+      timeoutMs,
+      spawnImpl,
+      { input: '', ...(signal ? { signal } : {}) }
     )
-    child.on('close', (code) => {
-      // yt-dlp and youtube-dl both print a calendar version first; anything
-      // else that answers `--version` is not the extractor we asked for.
-      const version =
-        /^v?(\d{4}\.\d+\.\d+\S*)/m.exec(stdout.trim())?.[1] ?? null
-      if (code === 0 && version) {
-        settle({ available: true, version })
-        return
-      }
-      // A candidate that ran but printed no version is not yt-dlp.
-      settle({
-        available: false,
-        version: null,
-        failureReason: 'unsupported' as const,
-      })
-    })
-  })
+    const version =
+      /^v?(\d{4}\.\d+\.\d+\S*)/m.exec(result.stdout.trim())?.[1] ?? null
+    return result.code === 0 && version
+      ? { available: true, version }
+      : { available: false, version: null, failureReason: 'unsupported' }
+  } catch (error) {
+    if (isYtdlpAbort(error)) throw error
+    return { available: false, version: null, failureReason: 'missing' }
+  }
 }
 
 /** First candidate that probes as a working yt-dlp. */
@@ -219,11 +192,17 @@ export async function locateYtdlp(
   input: {
     configuredPath?: string
     env?: Record<string, string | undefined>
+    signal?: AbortSignal
   },
-  probe: (candidate: string) => Promise<YtdlpProbe> = probeYtdlp
+  probe: (candidate: string, signal?: AbortSignal) => Promise<YtdlpProbe> = (
+    candidate,
+    signal
+  ) => probeYtdlp(candidate, undefined, undefined, signal)
 ): Promise<YtdlpLocation> {
   for (const candidate of ytdlpCandidatesInOrder(input)) {
-    const result = await probe(candidate)
+    throwIfYtdlpAborted(input.signal)
+    const result = await probe(candidate, input.signal)
+    throwIfYtdlpAborted(input.signal)
     if (result.available) {
       return { available: true, binaryPath: candidate, version: result.version }
     }

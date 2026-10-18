@@ -124,7 +124,9 @@ Motrix Extension 已上架官方浏览器扩展商店，配合 Motrix 2 使用�
 - [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/motrix-extension/efcflljngohddnmfmebiamigoikmdfbf)
 - [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/motrix-extension/)
 
-安装与配对步骤请参阅[浏览器扩展指南](https://motrix.app/zh/manual/browser-extension/)。开发构建方式仍可在[扩展仓库](https://github.com/motrixapp/motrix-extension#manual-browser-workflow-development)中查看。
+安装与配对步骤请参阅[浏览器扩展指南](https://motrix.app/zh/manual/browser-extension/)。开发构建方式和源码可在[扩展仓库](https://github.com/motrixapp/motrix-extension#manual-browser-workflow-development)中查看。
+
+配套浏览器扩展（[motrixapp/motrix-extension](https://github.com/motrixapp/motrix-extension)）提供媒体嗅探、格式查询和页内抓取浮层，可将页面中播放的视频发送到 Motrix。粘贴的媒体页面链接和扩展提交的链接都可使用 yt-dlp 提取；配置步骤请参阅 [yt-dlp 媒体下载](docs/ytdlp-media-downloads.zh-CN.md)。
 
 ## 📦 安装
 

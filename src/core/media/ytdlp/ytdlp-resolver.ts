@@ -1,5 +1,4 @@
 import { spawn as nodeSpawn } from 'node:child_process'
-import { getLogger } from '@core/logger'
 import type {
   DirectResolution,
   MediaQualityHint,
@@ -7,6 +6,15 @@ import type {
   MediaResolveOptions,
   MuxResolution,
 } from './media-resolver'
+import {
+  canonicalPublicMediaUrl,
+  isPublicMediaUrl,
+  isYtdlpAbort,
+  safeYtdlpArgs,
+  spawnResolve,
+  throwIfYtdlpAborted,
+  YtdlpExecutionError,
+} from './ytdlp-execution'
 import type { SpawnLike } from './ytdlp-locator'
 
 /**
@@ -24,9 +32,9 @@ import type { SpawnLike } from './ytdlp-locator'
  * keeps its unchanged direct-download path.
  */
 
-export const DEFAULT_YTDLP_FORMAT = 'bv*+ba/b'
+const DIRECT_FORMAT_FILTER = "[protocol~='^https?$']"
+export const DEFAULT_YTDLP_FORMAT = `bv*${DIRECT_FORMAT_FILTER}+ba${DIRECT_FORMAT_FILTER}/b${DIRECT_FORMAT_FILTER}`
 const RESOLVE_TIMEOUT_MS = 60_000
-const MAX_OUTPUT_BYTES = 16 * 1024 * 1024
 
 export type YtdlpResolveOutcome =
   | { status: 'resolved'; resolution: MediaResolution }
@@ -38,8 +46,7 @@ export interface YtdlpResolveOptions {
   /** yt-dlp `-f` selector. Defaults to best video + best audio. */
   format?: string
   proxy?: string
-  /** Cookie header captured from the caller's browser session. */
-  cookieHeader?: string
+  signal?: AbortSignal
   timeoutMs?: number
   spawnImpl?: SpawnLike
 }
@@ -103,26 +110,11 @@ export function buildYtdlpArgs(
   url: string,
   options: Omit<YtdlpResolveOptions, 'binaryPath' | 'spawnImpl' | 'timeoutMs'>
 ): string[] {
-  const args = [
-    '--dump-single-json',
-    '--no-playlist',
-    '--no-warnings',
-    '--no-progress',
-    '--socket-timeout',
-    '20',
-    '--retries',
-    '2',
-    '--fragment-retries',
-    '2',
-    '--format',
-    options.format?.trim() || DEFAULT_YTDLP_FORMAT,
-  ]
-  if (options.proxy?.trim()) args.push('--proxy', options.proxy.trim())
-  if (options.cookieHeader?.trim()) {
-    args.push('--add-header', `Cookie:${options.cookieHeader.trim()}`)
+  const args = safeYtdlpArgs(options.proxy)
+  if (!args || !isPublicMediaUrl(url)) {
+    throw new Error('Unsupported public media request')
   }
-  // `--` stops option parsing, so a URL beginning with `-` cannot inject flags.
-  args.push('--', url)
+  args.push('--format', options.format?.trim() || DEFAULT_YTDLP_FORMAT)
   return args
 }
 
@@ -180,60 +172,6 @@ export function mapYtdlpInfo(info: RawInfo): MediaResolution | null {
   return direct
 }
 
-export function spawnResolve(
-  binaryPath: string,
-  args: readonly string[],
-  timeoutMs: number,
-  spawnImpl: SpawnLike
-): Promise<{ code: number | null; stdout: string; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    let stdout = ''
-    let stderr = ''
-    let settled = false
-    let timedOut = false
-    let killTimer: ReturnType<typeof setTimeout> | null = null
-    const settle = (fn: () => void) => {
-      if (settled) return
-      settled = true
-      if (killTimer) clearTimeout(killTimer)
-      fn()
-    }
-    let child: ReturnType<SpawnLike>
-    try {
-      child = spawnImpl(binaryPath, args, { shell: false })
-    } catch (cause) {
-      settle(() => reject(cause))
-      return
-    }
-    killTimer = setTimeout(() => {
-      timedOut = true
-      killChild(child)
-    }, timeoutMs)
-    child.stdout.on('data', (chunk) => {
-      if (stdout.length < MAX_OUTPUT_BYTES) stdout += String(chunk)
-    })
-    child.stderr.on('data', (chunk) => {
-      if (stderr.length < MAX_OUTPUT_BYTES) stderr += String(chunk)
-    })
-    child.on('error', (error) => settle(() => reject(error)))
-    child.on('close', (code) =>
-      settle(() =>
-        timedOut
-          ? reject(new Error(`yt-dlp timed out after ${timeoutMs}ms`))
-          : resolve({ code, stdout, stderr })
-      )
-    )
-  })
-}
-
-function killChild(child: ReturnType<SpawnLike>): void {
-  try {
-    child.kill('SIGKILL')
-  } catch {
-    // Process already exited; nothing to reap.
-  }
-}
-
 const UNSUPPORTED_MARKERS = [
   'unsupported url',
   'no suitable extractor',
@@ -270,64 +208,55 @@ export async function resolveWithYtdlp(
   url: string,
   options: YtdlpResolveOptions
 ): Promise<YtdlpResolveOutcome> {
-  const log = getLogger('ytdlp-resolver')
-  const args = buildYtdlpArgs(url, options)
-  const started = Date.now()
-  let result: { code: number | null; stdout: string; stderr: string }
+  throwIfYtdlpAborted(options.signal)
+  const targetUrl = canonicalPublicMediaUrl(url)
+  if (!targetUrl) return { status: 'unsupported', reason: 'not-allowed' }
+  if (!safeYtdlpArgs(options.proxy))
+    return { status: 'unsupported', reason: 'proxy-credentials-unsupported' }
   try {
-    result = await spawnResolve(
+    const result = await spawnResolve(
       options.binaryPath,
-      args,
+      buildYtdlpArgs(targetUrl, options),
       options.timeoutMs ?? RESOLVE_TIMEOUT_MS,
-      options.spawnImpl ?? (nodeSpawn as unknown as SpawnLike)
+      options.spawnImpl ?? (nodeSpawn as unknown as SpawnLike),
+      {
+        ...(options.signal ? { signal: options.signal } : {}),
+        input: `${targetUrl}\n`,
+      }
     )
-  } catch (cause) {
-    return { status: 'failed', reason: `spawn failed: ${String(cause)}` }
-  }
-  const elapsedMs = Date.now() - started
-  if (result.code !== 0) {
-    const reason =
-      result.stderr.trim().split('\n').slice(-1)[0] || 'unknown error'
-    const status = looksUnsupported(result.stderr) ? 'unsupported' : 'failed'
-    log.info(
-      { url, code: result.code, status, elapsedMs, reason },
-      'yt-dlp could not resolve url'
-    )
-    return { status, reason }
-  }
-  let info: RawInfo
-  try {
-    info = parseYtdlpStdout<RawInfo>(result.stdout)
-  } catch (cause) {
-    log.warn({ url, elapsedMs, err: cause }, 'yt-dlp output was not JSON')
-    return { status: 'failed', reason: `unparseable output: ${String(cause)}` }
-  }
-  const resolution = mapYtdlpInfo(info)
-  if (!resolution) {
+    throwIfYtdlpAborted(options.signal)
+    if (result.code !== 0) {
+      return {
+        status: looksUnsupported(result.stderr) ? 'unsupported' : 'failed',
+        reason: 'extraction-failed',
+      }
+    }
+    const info = parseYtdlpStdout<RawInfo>(result.stdout)
+    const resolution = mapYtdlpInfo(info)
+    return resolution
+      ? { status: 'resolved', resolution }
+      : { status: 'unsupported', reason: 'no-direct-stream' }
+  } catch (error) {
+    if (isYtdlpAbort(error)) throw error
     return {
-      status: 'unsupported',
-      reason: 'extractor returned no directly downloadable stream',
+      status: 'failed',
+      reason:
+        error instanceof YtdlpExecutionError
+          ? error.reason
+          : 'extraction-failed',
     }
   }
-  log.info(
-    {
-      url,
-      kind: resolution.kind,
-      container: resolution.kind === 'mux' ? resolution.container : undefined,
-      elapsedMs,
-    },
-    'yt-dlp resolved media'
-  )
-  return { status: 'resolved', resolution }
 }
 
 export interface YtdlpResolverDeps {
   /** Resolves the yt-dlp binary path; returns null when yt-dlp is absent. */
-  resolveBinaryPath: () => Promise<string | null>
+  resolveBinaryPath: (signal?: AbortSignal) => Promise<string | null>
   readOptions?: () => {
     enabled: boolean
+    configuredBinaryPath?: string
     format?: string
     proxy?: string
+    proxyUnsupportedReason?: 'proxy-bypass-unsupported'
     allUrls?: boolean
   }
   /**
@@ -340,7 +269,7 @@ export interface YtdlpResolverDeps {
   spawnImpl?: SpawnLike
 }
 
-const PROGRESSIVE_FORMAT = 'b[ext=mp4]/b'
+const PROGRESSIVE_FORMAT = `b[ext=mp4]${DIRECT_FORMAT_FILTER}/b${DIRECT_FORMAT_FILTER}`
 
 /**
  * Map a submitter's quality hint onto a yt-dlp `-f` selector.
@@ -348,9 +277,8 @@ const PROGRESSIVE_FORMAT = 'b[ext=mp4]/b'
  * - audioOnly → best audio stream, single format (never a mux pair), which
  *   the receiver routes to MP3 extraction after the download.
  * - height    → best stream at or below the cap. mp4/m4a is preferred while
- *   it exists so the mux lands in an mp4 container without a transcode; the
- *   trailing `/b` keeps a below-cap pick from failing outright when every
- *   available format is taller than the request.
+ *   it exists so the mux lands in an mp4 container without a transcode. Every
+ *   fallback retains the cap and direct-HTTP(S) constraint.
  * - no hint   → the settings default (or the progressive fallback when no
  *   mux pipeline can run).
  */
@@ -358,23 +286,24 @@ export function buildQualityFormat(
   hint: MediaQualityHint,
   muxAvailable: boolean
 ): string {
-  if (hint.audioOnly) return 'bestaudio/best'
+  if (hint.audioOnly)
+    return `bestaudio${DIRECT_FORMAT_FILTER}/best[acodec!=none]${DIRECT_FORMAT_FILTER}`
   const height = hint.height
   if (!height) {
     return muxAvailable ? DEFAULT_YTDLP_FORMAT : PROGRESSIVE_FORMAT
   }
   if (muxAvailable) {
     return [
-      `bv*[height<=${height}][ext=mp4]+ba[ext=m4a]`,
-      `bv*[height<=${height}]+ba`,
-      `b[height<=${height}][ext=mp4]`,
-      `b[height<=${height}]`,
-      'b',
+      `bv*[height<=${height}][ext=mp4]${DIRECT_FORMAT_FILTER}+ba[ext=m4a]${DIRECT_FORMAT_FILTER}`,
+      `bv*[height<=${height}]${DIRECT_FORMAT_FILTER}+ba${DIRECT_FORMAT_FILTER}`,
+      `b[height<=${height}][ext=mp4]${DIRECT_FORMAT_FILTER}`,
+      `b[height<=${height}]${DIRECT_FORMAT_FILTER}`,
     ].join('/')
   }
-  return [`b[height<=${height}][ext=mp4]`, `b[height<=${height}]`, 'b'].join(
-    '/'
-  )
+  return [
+    `b[height<=${height}][ext=mp4]${DIRECT_FORMAT_FILTER}`,
+    `b[height<=${height}]${DIRECT_FORMAT_FILTER}`,
+  ].join('/')
 }
 
 /**
@@ -395,34 +324,48 @@ export function createYtdlpMediaResolver(
     cookieHeader?: string,
     resolverOptions?: MediaResolveOptions
   ): Promise<MediaResolution | null> => {
-    const options = deps.readOptions?.() ?? { enabled: true }
-    if (!options.enabled) return null
-    if (!options.allUrls && !isMediaSite(url)) return null
-    const binaryPath = await deps.resolveBinaryPath()
-    if (!binaryPath) return null
-    const muxAvailable = (await deps.isMuxAvailable?.()) ?? true
+    const signal = resolverOptions?.signal
+    throwIfYtdlpAborted(signal)
+    // Site-specific plugins may use credentials before this fallback is reached.
+    // The generic extractor cannot preserve browser Cookie scope, so decline.
+    const targetUrl = canonicalPublicMediaUrl(url)
+    if (cookieHeader || !targetUrl) return null
+    const permittedOptions = () => {
+      const options = deps.readOptions?.() ?? { enabled: false }
+      return options.enabled &&
+        !options.proxyUnsupportedReason &&
+        (options.allUrls || isMediaSite(targetUrl)) &&
+        safeYtdlpArgs(options.proxy)
+        ? options
+        : null
+    }
+    const initialOptions = permittedOptions()
+    if (!initialOptions) return null
+    const binaryPath = await deps.resolveBinaryPath(signal)
+    throwIfYtdlpAborted(signal)
+    if (!permittedOptions() || !binaryPath) return null
+    const muxAvailable = (await deps.isMuxAvailable?.()) ?? false
+    throwIfYtdlpAborted(signal)
+    const options = permittedOptions()
+    if (
+      !options ||
+      options.configuredBinaryPath !== initialOptions.configuredBinaryPath
+    )
+      return null
     const hint = resolverOptions?.qualityHint
     const format = hint
       ? buildQualityFormat(hint, muxAvailable)
       : options.format?.trim() ||
         (muxAvailable ? DEFAULT_YTDLP_FORMAT : PROGRESSIVE_FORMAT)
-    const attempt = (cookies: string | undefined) =>
-      resolveWithYtdlp(url, {
-        binaryPath,
-        format,
-        ...(options.proxy ? { proxy: options.proxy } : {}),
-        ...(cookies ? { cookieHeader: cookies } : {}),
-        ...(deps.spawnImpl ? { spawnImpl: deps.spawnImpl } : {}),
-      })
-    const outcome = await attempt(cookieHeader)
-    // A cookie-bearing extraction fails more often than a public one: a stale
-    // or partial browser session makes the extractor see a consent/error page
-    // ("The page needs to be reloaded"). Retry once without cookies before
-    // giving up — the same policy the format lister already applies.
-    const settled =
-      outcome.status === 'resolved' || !cookieHeader
-        ? outcome
-        : await attempt(undefined)
-    return settled.status === 'resolved' ? settled.resolution : null
+    const outcome = await resolveWithYtdlp(targetUrl, {
+      binaryPath,
+      format,
+      ...(options.proxy ? { proxy: options.proxy } : {}),
+      ...(deps.spawnImpl ? { spawnImpl: deps.spawnImpl } : {}),
+      ...(signal ? { signal } : {}),
+    })
+    throwIfYtdlpAborted(signal)
+    if (!permittedOptions()) return null
+    return outcome.status === 'resolved' ? outcome.resolution : null
   }
 }

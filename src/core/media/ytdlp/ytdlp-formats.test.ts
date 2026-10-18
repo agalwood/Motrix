@@ -1,3 +1,5 @@
+import { EventEmitter } from 'node:events'
+import { MediaFormatsResultSchema } from '@motrix/mdxp'
 import { describe, expect, it, vi } from 'vitest'
 import {
   buildYtdlpFormatsArgs,
@@ -6,251 +8,269 @@ import {
 } from './ytdlp-formats'
 import type { SpawnLike } from './ytdlp-locator'
 
-function fakeChild(
-  chunks: { stdout?: string; stderr?: string },
-  code: number | null = 0
-) {
-  const stdoutListeners: Array<(chunk: string) => void> = []
-  const stderrListeners: Array<(chunk: string) => void> = []
-  const closeListeners: Array<(code: number | null) => void> = []
-  return {
-    kill: vi.fn(),
-    stdout: {
-      on: (_event: string, listener: (chunk: string) => void) =>
-        void stdoutListeners.push(listener),
-    },
-    stderr: {
-      on: (_event: string, listener: (chunk: string) => void) =>
-        void stderrListeners.push(listener),
-    },
-    on: (event: string, listener: (arg: never) => void) => {
-      if (event === 'close') closeListeners.push(listener as never)
-    },
-    emit() {
-      for (const listener of stdoutListeners) listener(chunks.stdout ?? '')
-      for (const listener of stderrListeners) listener(chunks.stderr ?? '')
-      for (const listener of closeListeners) listener(code)
-    },
-  }
+const progressive = {
+  url: 'https://cdn.example/video.mp4',
+  height: 720,
+  ext: 'mp4',
+  vcodec: 'h264',
+  acodec: 'aac',
+  protocol: 'https',
+  filesize: 1000,
+}
+const videoOnly = { ...progressive, height: 1080, acodec: 'none' }
+const audio = {
+  url: 'https://cdn.example/audio.m4a',
+  vcodec: 'none',
+  acodec: 'aac',
+  protocol: 'https',
+}
+const info = {
+  title: 'Fixture',
+  duration: 12,
+  formats: [progressive, videoOnly, audio],
+}
+const req = {
+  url: 'https://media.example/watch?token=synthetic',
+  audioExtractAvailable: true,
 }
 
-function spawnWith(child: ReturnType<typeof fakeChild>): SpawnLike {
-  return (() => {
-    setTimeout(() => child.emit(), 0)
-    return child as never
-  }) as SpawnLike
-}
-
-/** A spawning stub that counts how many real spawns actually happen. */
-function countingSpawn(
-  infoJson: string,
-  counter: { count: number }
-): SpawnLike {
-  const impl = spawnWith(fakeChild({ stdout: infoJson }))
-  return ((...args: Parameters<SpawnLike>) => {
-    counter.count += 1
-    return impl(...args)
-  }) as SpawnLike
-}
-
-const INFO_JSON = JSON.stringify({
-  title: 'Some Video',
-  duration: 123.4,
-  formats: [
-    // 1080: mp4 direct + webm direct (mp4 wins) + storyboards + audio-only
-    {
-      height: 1080,
-      ext: 'mp4',
-      vcodec: 'avc1',
-      protocol: 'https',
-      tbr: 4500,
-      filesize: 1000,
-    },
-    { height: 1080, ext: 'webm', vcodec: 'vp9', protocol: 'https', tbr: 5000 },
-    { ext: 'mhtml', vcodec: 'none', protocol: 'https' },
-    { ext: 'm4a', vcodec: 'none', protocol: 'https' },
-    // 720: only an m3u8 (non-direct) pair
-    {
-      height: 720,
-      ext: 'mp4',
-      vcodec: 'avc1',
-      protocol: 'm3u8_native',
-      tbr: 2500,
-    },
-    // 480: two entries, same container → higher tbr wins
-    { height: 480, ext: 'mp4', vcodec: 'avc1', protocol: 'https', tbr: 1200 },
-    {
-      height: 480,
-      ext: 'mp4',
-      vcodec: 'avc1',
-      protocol: 'https',
-      tbr: 1400,
-      filesize_approx: 512,
-    },
-    // 240 without tbr
-    { height: 240, ext: 'mp4', vcodec: 'avc1', protocol: 'https' },
-    // Absurd height from a hostile extractor is dropped
-    { height: 99999, ext: 'mp4', vcodec: 'avc1', protocol: 'https' },
-  ],
-})
-
-describe('buildYtdlpFormatsArgs', () => {
-  it('requests the info blob without a format selector and stops option parsing', () => {
-    const args = buildYtdlpFormatsArgs('https://-evil.example/v')
-    expect(args).toContain('--dump-single-json')
-    expect(args).not.toContain('--format')
-    expect(args[args.length - 1]).toBe('https://-evil.example/v')
-    expect(args[args.length - 2]).toBe('--')
-  })
-
-  it('passes proxy and cookies through', () => {
-    const args = buildYtdlpFormatsArgs('https://x.example/v', {
-      proxy: 'http://127.0.0.1:7890',
-      cookieHeader: 'a=b',
+function spawnResult(value: unknown, code = 0, stderr = '') {
+  const inputs: string[] = []
+  const spawn = vi.fn(() => {
+    const child = new EventEmitter()
+    const stdout = new EventEmitter()
+    const err = new EventEmitter()
+    return Object.assign(child, {
+      stdout,
+      stderr: err,
+      stdin: {
+        on: vi.fn(),
+        end: (input: string) => {
+          inputs.push(input)
+          queueMicrotask(() => {
+            stdout.emit('data', JSON.stringify(value))
+            err.emit('data', stderr)
+            child.emit('close', code)
+          })
+        },
+      },
+      kill: vi.fn(() => child.emit('close', null)),
     })
-    expect(args.join(' ')).toContain('--proxy http://127.0.0.1:7890')
-    expect(args.join(' ')).toContain('--add-header Cookie:a=b')
   })
-})
-
-describe('parseFormatEntries', () => {
-  it('collapses to one row per height, preferring direct mp4, sorted desc', () => {
-    const entries = parseFormatEntries(JSON.parse(INFO_JSON))
-    expect(entries.map((e) => e.key)).toEqual(['1080p', '720p', '480p', '240p'])
-    const top = entries[0]
-    expect(top.kind).toBe('video')
-    expect(top.ext).toBe('mp4')
-    expect(top.fps).toBeUndefined()
-    expect(top.sizeBytes).toBe(1000)
-    // 480: the higher-tbr duplicate won and brought its approx size along
-    expect(entries[2]?.sizeBytes).toBe(512)
-  })
-
-  it('returns an empty list when nothing usable is present', () => {
-    expect(parseFormatEntries({})).toEqual([])
-    expect(parseFormatEntries({ formats: [] })).toEqual([])
-    expect(
-      parseFormatEntries({ formats: [{ ext: 'm4a', vcodec: 'none' }] })
-    ).toEqual([])
-  })
-})
+  return { spawn: spawn as unknown as SpawnLike, spy: spawn, inputs }
+}
 
 function makeLister(
   overrides: Partial<Parameters<typeof createYtdlpFormatLister>[0]> = {}
 ) {
   return createYtdlpFormatLister({
-    resolveBinaryPath: async () => '/usr/bin/yt-dlp',
+    resolveBinaryPath: async () => '/fixture/yt-dlp',
+    readOptions: () => ({ enabled: true }),
     isMediaSite: () => true,
     ...overrides,
   })
 }
 
-describe('createYtdlpFormatLister', () => {
-  it('lists entries and synthesizes the MP3 row when FFmpeg is available', async () => {
-    const lister = makeLister({
-      spawnImpl: spawnWith(fakeChild({ stdout: INFO_JSON })),
-    })
-    const result = await lister({
-      url: 'https://x.example/v',
-      audioExtractAvailable: true,
-    })
-    expect(result.available).toBe(true)
-    expect(result.title).toBe('Some Video')
-    expect(result.durationSec).toBe(123.4)
-    expect(result.entries).toHaveLength(5)
-    const mp3 = result.entries.at(-1)
-    expect(mp3).toEqual({ key: 'mp3', kind: 'audio', label: 'MP3' })
+describe('public format extraction', () => {
+  it('checks and executes the same canonical URL authority', async () => {
+    const child = spawnResult(info)
+    const isMediaSite = vi.fn(
+      (url: string) => new URL(url).hostname === 'youtube.com'
+    )
+    const lister = makeLister({ spawnImpl: child.spawn, isMediaSite })
+    const url = 'http://youtube.com\\@127.0.0.1:1234/clip.mp4'
+    await lister({ ...req, url })
+    expect(isMediaSite).toHaveBeenCalledWith(
+      'http://youtube.com/@127.0.0.1:1234/clip.mp4'
+    )
+    expect(child.inputs).toEqual([
+      'http://youtube.com/@127.0.0.1:1234/clip.mp4\n',
+    ])
   })
 
-  it('omits the MP3 row without FFmpeg', async () => {
-    const lister = makeLister({
-      spawnImpl: spawnWith(fakeChild({ stdout: INFO_JSON })),
-    })
-    const result = await lister({
-      url: 'https://x.example/v',
-      audioExtractAvailable: false,
-    })
-    expect(result.entries.every((e) => e.key !== 'mp3')).toBe(true)
+  it('disables ambient configuration and credentials and keeps URLs out of argv', async () => {
+    const child = spawnResult(info)
+    const result = await makeLister({ spawnImpl: child.spawn })(req)
+    expect(MediaFormatsResultSchema.safeParse(result).success).toBe(true)
+    expect(result.entries.map((entry) => entry.key)).toEqual([
+      '1080p',
+      '720p',
+      'mp3',
+    ])
+    const args = buildYtdlpFormatsArgs(req.url)
+    for (const option of [
+      '--ignore-config',
+      '--no-config-locations',
+      '--no-cookies',
+      '--no-cookies-from-browser',
+      '--no-cache-dir',
+      '--no-plugin-dirs',
+      '--no-remote-components',
+      '--skip-download',
+      '--batch-file',
+    ])
+      expect(args).toContain(option)
+    expect(args[args.indexOf('--proxy') + 1]).toBe('')
+    expect(args.join(' ')).not.toContain('synthetic')
+    expect(args).not.toContain('--format')
+    expect(child.inputs).toEqual([`${req.url}\n`])
   })
 
-  it('reports policy gates without spawning anything', async () => {
-    const spawnImpl = vi.fn() as unknown as SpawnLike
-    const disabled = makeLister({
-      spawnImpl,
-      readOptions: () => ({ enabled: false }),
-    })
+  it('rejects credential cookies and authenticated proxies before binary lookup', async () => {
+    const resolveBinaryPath = vi.fn(async () => '/fixture/yt-dlp')
+    const child = spawnResult(info)
+    const lister = makeLister({ resolveBinaryPath, spawnImpl: child.spawn })
     expect(
-      await disabled({
-        url: 'https://x.example/v',
-        audioExtractAvailable: false,
+      await lister({
+        ...req,
+        cookies: [
+          {
+            name: 'SID',
+            value: 'secret',
+            domain: 'media.example',
+            path: '/',
+            secure: true,
+            httpOnly: true,
+            sameSite: 'lax',
+          },
+        ],
       })
     ).toEqual({
       available: false,
-      reason: 'disabled',
+      reason: 'credentials-unsupported',
       entries: [],
     })
-    const offAllowlist = makeLister({
-      spawnImpl,
-      readOptions: () => ({ enabled: true, allUrls: false }),
-      isMediaSite: () => false,
+    const proxied = makeLister({
+      resolveBinaryPath,
+      spawnImpl: child.spawn,
+      readOptions: () => ({
+        enabled: true,
+        proxy: 'http://user:secret@proxy.example:8080',
+      }),
     })
-    expect(
-      await offAllowlist({
-        url: 'https://x.example/v',
-        audioExtractAvailable: false,
-      })
-    ).toMatchObject({ available: false, reason: 'not-allowed' })
-    const noBinary = makeLister({
-      spawnImpl,
-      resolveBinaryPath: async () => null,
+    expect(await proxied(req)).toMatchObject({
+      available: false,
+      reason: 'proxy-credentials-unsupported',
     })
-    expect(
-      await noBinary({
-        url: 'https://x.example/v',
-        audioExtractAvailable: false,
-      })
-    ).toMatchObject({ available: false, reason: 'binary-missing' })
-    expect(spawnImpl).not.toHaveBeenCalled()
+    expect(resolveBinaryPath).not.toHaveBeenCalled()
+    expect(child.spy).not.toHaveBeenCalled()
   })
 
-  it('maps an unsupported site error to a graceful unavailable result', async () => {
+  it('does not cache or coalesce calls and rechecks disabled/site policy', async () => {
+    const child = spawnResult(info)
+    let enabled = true
+    let allowed = true
     const lister = makeLister({
-      spawnImpl: spawnWith(
-        fakeChild({ stderr: 'ERROR: Unsupported URL: https://x.example/v' }, 1)
-      ),
+      spawnImpl: child.spawn,
+      readOptions: () => ({ enabled }),
+      isMediaSite: () => allowed,
+    })
+    await Promise.all([lister(req), lister(req)])
+    expect(child.spy).toHaveBeenCalledTimes(2)
+    enabled = false
+    expect(await lister(req)).toMatchObject({ reason: 'disabled' })
+    enabled = true
+    allowed = false
+    expect(await lister(req)).toMatchObject({ reason: 'not-allowed' })
+    expect(child.spy).toHaveBeenCalledTimes(2)
+  })
+
+  it('rechecks policy and cancellation after asynchronous lookup', async () => {
+    const child = spawnResult(info)
+    let enabled = true
+    const lister = makeLister({
+      spawnImpl: child.spawn,
+      readOptions: () => ({ enabled }),
+      resolveBinaryPath: async () => {
+        enabled = false
+        return '/fixture/yt-dlp'
+      },
+    })
+    expect(await lister(req)).toMatchObject({ reason: 'disabled' })
+    const controller = new AbortController()
+    const cancelled = makeLister({
+      spawnImpl: child.spawn,
+      resolveBinaryPath: async () => {
+        controller.abort('SECRET')
+        return '/fixture/yt-dlp'
+      },
+    })
+    await expect(cancelled(req, controller.signal)).rejects.toMatchObject({
+      name: 'AbortError',
+      message: 'Media extraction cancelled',
+    })
+    expect(child.spy).not.toHaveBeenCalled()
+  })
+
+  it('requires a real audio source and pipeline; empty media stays unavailable', async () => {
+    const child = spawnResult({ formats: [videoOnly] })
+    const result = await makeLister({ spawnImpl: child.spawn })(req)
+    expect(result).toEqual({
+      available: false,
+      reason: 'unsupported',
+      entries: [],
+    })
+    const full = spawnResult(info)
+    const noMux = await makeLister({ spawnImpl: full.spawn })({
+      ...req,
+      audioExtractAvailable: false,
+      muxAvailable: false,
+    })
+    expect(noMux.entries.map((entry) => entry.key)).toEqual(['720p'])
+    expect(
+      parseFormatEntries({
+        formats: [{ ...progressive, protocol: 'm3u8_native' }],
+      })
+    ).toEqual([])
+  })
+
+  it('normalizes hostile metadata and never reports video-only bytes as total size', async () => {
+    const raw = {
+      title: '界'.repeat(501),
+      duration: -1,
+      formats: [
+        videoOnly,
+        audio,
+        { ...progressive, fps: 1001, ext: '../secret', filesize: 1e30 },
+        { ...progressive, height: 99 },
+        { ...progressive, height: 4321 },
+        null,
+      ],
+    }
+    const child = spawnResult(raw)
+    const result = await makeLister({ spawnImpl: child.spawn })(req)
+    expect(result.available).toBe(true)
+    if (!result.available) return
+    expect(result.title).toHaveLength(500)
+    expect(result.durationSec).toBeUndefined()
+    expect(result.entries.map((entry) => entry.key)).toEqual([
+      '1080p',
+      '720p',
+      'mp3',
+    ])
+    expect(result.entries[0]?.sizeBytes).toBeUndefined()
+    expect(result.entries[1]).toEqual({
+      key: '720p',
+      kind: 'video',
+      label: '720p',
+      height: 720,
+    })
+    expect(MediaFormatsResultSchema.safeParse(result).success).toBe(true)
+  })
+
+  it('reports only bounded safe reasons from extractor failures', async () => {
+    const child = spawnResult(
+      {},
+      1,
+      'ERROR: Unsupported URL: https://secret.example/?token=SECRET'
+    )
+    expect(await makeLister({ spawnImpl: child.spawn })(req)).toEqual({
+      available: false,
+      reason: 'unsupported',
+      entries: [],
     })
     expect(
-      await lister({ url: 'https://x.example/v', audioExtractAvailable: false })
-    ).toEqual({ available: false, reason: 'unsupported', entries: [] })
-  })
-
-  it('caches per url+cookies and dedupes concurrent asks', async () => {
-    const counter = { count: 0 }
-    const spawnImpl = countingSpawn(INFO_JSON, counter)
-    let now = 1_000
-    const lister = makeLister({ spawnImpl, now: () => now })
-    const req = { url: 'https://x.example/v', audioExtractAvailable: true }
-    const [a, b] = await Promise.all([lister(req), lister(req)])
-    expect(counter.count).toBe(1)
-    expect(a).toBe(b)
-    await lister(req)
-    expect(counter.count).toBe(1)
-    // A different cookie header is a different resource.
-    await lister({ ...req, cookieHeader: 'sid=1' })
-    expect(counter.count).toBe(2)
-    // TTL expiry refetches.
-    now += 61_000
-    await lister({ ...req, cookieHeader: 'sid=1' })
-    expect(counter.count).toBe(3)
-  })
-
-  it('clearCache drops the cached listing', async () => {
-    const counter = { count: 0 }
-    const lister = makeLister({ spawnImpl: countingSpawn(INFO_JSON, counter) })
-    const req = { url: 'https://x.example/v', audioExtractAvailable: false }
-    await lister(req)
-    lister.clearCache()
-    await lister(req)
-    expect(counter.count).toBe(2)
+      await makeLister({ resolveBinaryPath: async () => null })(req)
+    ).toMatchObject({ reason: 'binary-missing' })
   })
 })

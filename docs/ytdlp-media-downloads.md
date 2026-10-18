@@ -62,18 +62,37 @@ includes a media sniffer and an in-page grab overlay:
 4. Choose an item to send it to Motrix. Direct streams download immediately;
    HLS/DASH pages and watch-page URLs are resolved server-side, using yt-dlp
    when enabled, exactly like a pasted link.
-5. When yt-dlp is enabled, the overlay additionally lists the page's own
-   qualities: a **Video** section with one row per resolution (e.g. `1080p`,
+5. When yt-dlp is enabled, click **Show qualities** to query the
+   page's available public formats: a **Video** section with one row per resolution (e.g. `1080p`,
    `720p`) and an **Audio** section with an **MP3** row when FFmpeg is
-   configured. Picking a resolution downloads the best stream at or below it;
+   configured and the page offers a downloadable audio track. Picking a resolution downloads the best stream at or below it;
    picking **MP3** downloads the best audio stream and converts it to a
-   `.mp3` file. The list is fetched from the desktop app automatically when a
-   video starts playing (refreshed at most once a minute), so ordinary sniffed
-   items keep their own rows alongside it.
+   `.mp3` file. Opening a page or playing a video does not query the desktop.
+   Ordinary sniffed items keep their own rows alongside the picker.
 
 The overlay only runs in the top frame of `http(s)` pages and shows a thin
 label (filename or resolution) — page code never sees the stored stream URL or
 cookies.
+
+## Privacy and compatibility
+
+Format discovery requires a paired, ready desktop advertising MDXP 0.9.0's
+`mediaFormats` capability. Older desktops keep the existing download flow.
+Remote desktops also require the existing data-sharing consent for that
+specific endpoint and authenticated instance. Changing the page, connection,
+or consent invalidates the query and its offered qualities.
+
+The quality picker queries and downloads public media without collecting
+browser cookies. Credential-bearing format queries are unavailable because
+yt-dlp cannot enforce the protocol's host-only cookie isolation. Existing
+site-plugin downloads retain their original credential permissions. Pairing
+and permission policies are unchanged.
+
+The extractor ignores ambient yt-dlp configuration, cookie stores, plugins,
+remote components, cache, and environment proxy settings. It uses only the
+app's download proxy setting; authenticated proxies and proxies with configured bypass rules are currently
+unsupported. Extraction is refused instead of exposing credentials, ignoring
+your routing rules, or silently connecting directly.
 
 ## Troubleshooting
 

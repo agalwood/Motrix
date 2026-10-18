@@ -6,12 +6,16 @@ import { BridgeReceiverError } from '@core/bridge-receiver/errors'
 import { AsyncWorkTracker } from '@core/inspector-activity/async-work-tracker'
 import { DownloadSourceError } from '@core/task/source-admission'
 import {
+  type CancellationToken,
   type DownloadCancelParams,
   DownloadCancelParamsSchema,
   type DownloadSubmitParams,
   DownloadSubmitParamsSchema,
   ErrorCodes,
   InitializeParamsSchema,
+  type MediaFormatsParams,
+  MediaFormatsParamsSchema,
+  type MediaFormatsResult,
   Methods,
   makeMdxpError,
   Notifications,
@@ -29,17 +33,12 @@ import {
   makeSessionKey,
   type PairRequestPayload,
 } from '@shared/protocol/bridge'
-import {
-  MEDIA_FORMATS_METHOD,
-  type MediaFormatsParams,
-  MediaFormatsParamsSchema,
-  type MediaFormatsResult,
-} from '@shared/schemas/media-formats'
 import { type RawData, type WebSocket, WebSocketServer } from 'ws'
 import { BridgeConnection } from './bridge-connection'
 import type { Mbp1CredentialStore } from './credential-store'
 import type { DeviceCodeService } from './device-code-service'
 import { createInitializeHandler } from './handlers/initialize-handler'
+import { createMediaFormatsHandler } from './handlers/media-formats-handler'
 import {
   type ReadHandlerDeps,
   registerReadHandlers,
@@ -305,7 +304,7 @@ export type MethodHandlers = {
     ctx: MdxpSessionContext
   ) => Promise<void>
   /**
-   * Fork-local `media/formats` (see @shared/schemas/media-formats): list the
+   * Published `media/formats`: list the
    * yt-dlp qualities a URL offers. Extension WS only — never registered on
    * the agent-facing unary transport.
    */
@@ -621,6 +620,7 @@ export class WebSocketBridgeServer {
         runtime: opts.runtime,
         ffmpegAvailable: opts.ffmpegAvailable,
         supportsTaskReveal: () => this.dispatcher.has(Methods.TaskReveal),
+        supportsMediaFormats: () => this.dispatcher.has(Methods.MediaFormats),
         supportsDownloadDirectories: () =>
           this.dispatcher.has(Methods.DownloadDirectories),
       })
@@ -1132,22 +1132,10 @@ export class WebSocketBridgeServer {
       )
     }
     if (handlers.listMediaFormats) {
-      const list = handlers.listMediaFormats
       this.dispatcher.register(
-        MEDIA_FORMATS_METHOD,
+        Methods.MediaFormats,
         MediaFormatsParamsSchema,
-        async (params, ctx) => {
-          // Defence in depth, mirroring download/submit: the WS wiring below
-          // already requires an authorized session, and the unary transport
-          // never reaches this method (no Tools entry).
-          if (ctx.identity.kind !== 'extension') {
-            throw makeMdxpError(
-              ErrorCodes.CapabilityNotSupported,
-              `${MEDIA_FORMATS_METHOD} is not available to ${ctx.identity.kind} clients`
-            )
-          }
-          return list(params, ctx)
-        }
+        createMediaFormatsHandler(handlers.listMediaFormats)
       )
     }
   }
@@ -2279,14 +2267,10 @@ export class WebSocketBridgeServer {
         (params) => authorizedDispatch('download/cancel', params) as never
       )
     }
-    // Fork-local media/formats: reachable over the paired extension WS only.
-    // It is absent from EXTENSION_WS_CONTROL_PLANE because that list is typed
-    // to published MDXP methods; the dispatcher gate + authorizedDispatch are
-    // the same additive contract the download/* methods use.
-    if (this.dispatcher.has(MEDIA_FORMATS_METHOD)) {
-      conn.onRequest(
-        MEDIA_FORMATS_METHOD,
-        (params) => authorizedDispatch(MEDIA_FORMATS_METHOD, params) as never
+    // Format discovery is cancellable and belongs only to this ready session.
+    if (this.dispatcher.has(Methods.MediaFormats)) {
+      conn.onRequest(Methods.MediaFormats, (params, token) =>
+        this.dispatchMediaFormats(params, ctx, token)
       )
     }
     // Control-plane over WS: a paired session may drive task management + read
@@ -2310,6 +2294,29 @@ export class WebSocketBridgeServer {
     conn.onNotification('motrix/initialized', () => {
       conn.markReady()
     })
+  }
+
+  private async dispatchMediaFormats(
+    params: MediaFormatsParams,
+    ctx: MdxpSessionContext,
+    token: CancellationToken
+  ): Promise<MediaFormatsResult> {
+    const controller = new AbortController()
+    const subscription = token.onCancellationRequested(() => controller.abort())
+    if (token.isCancellationRequested) controller.abort()
+    const requestSignal = AbortSignal.any([
+      controller.signal,
+      AbortSignal.timeout(60_000),
+      ...(ctx.sessionSignal ? [ctx.sessionSignal] : []),
+    ])
+    try {
+      return (await this.dispatchTracked(Methods.MediaFormats, params, {
+        ...ctx,
+        requestSignal,
+      })) as MediaFormatsResult
+    } finally {
+      subscription.dispose()
+    }
   }
 
   private dispatchTracked(

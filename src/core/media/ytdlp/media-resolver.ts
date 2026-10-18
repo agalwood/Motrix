@@ -54,6 +54,7 @@ export interface MediaQualityHint {
 
 export interface MediaResolveOptions {
   qualityHint?: MediaQualityHint
+  signal?: AbortSignal
 }
 
 export type MediaResolver = (

@@ -26,6 +26,7 @@ import {
 import { FilePairingStore } from '@core/bridge/file-pairing-store'
 import type { ReadHandlerDeps } from '@core/bridge/handlers/read-handlers'
 import type { WriteHandlerDeps } from '@core/bridge/handlers/write-handlers'
+import type { MdxpSessionContext } from '@core/bridge/mdxp-session-context'
 import { PairingService } from '@core/bridge/pairing-service'
 import { FileRegistryStoreAdapter } from '@core/bridge/registry-store-adapter'
 import { resolveCliPair } from '@core/bridge/resolve-cli-pair'
@@ -40,10 +41,7 @@ import {
   WebSocketBridgeServer,
 } from '@core/bridge/web-socket-bridge-server'
 import type { BridgeReceiverDeps } from '@core/bridge-receiver/bridge-receiver'
-import {
-  BridgeReceiver,
-  serializeCookieHeader,
-} from '@core/bridge-receiver/bridge-receiver'
+import { BridgeReceiver } from '@core/bridge-receiver/bridge-receiver'
 import { BridgeStreamSource } from '@core/bridge-receiver/bridge-stream-source'
 import { getLogger } from '@core/logger'
 import type { MediaResolver } from '@core/media/ytdlp/media-resolver'
@@ -52,6 +50,7 @@ import { urlMatchesHostPermissions } from '@core/plugin/hooks/eligibility'
 import type { PluginHost } from '@core/plugin/host/plugin-host'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
 import { handleCreateTask } from '@core/task/create-task-handler'
+import type { MediaFormatsParams, MediaFormatsResult } from '@motrix/mdxp'
 import { Notifications } from '@motrix/mdxp'
 import {
   BridgeCommands,
@@ -66,10 +65,6 @@ import {
   type ResolvePairResult,
 } from '@shared/protocol/bridge'
 import type { BridgeSettings } from '@shared/schemas/bridge-settings'
-import type {
-  MediaFormatsParams,
-  MediaFormatsResult,
-} from '@shared/schemas/media-formats'
 import type { PluginManifest } from '@shared/types/plugin'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
 import { app, ipcMain } from 'electron'
@@ -137,6 +132,13 @@ export function makeResolveMedia(
   fallback?: MediaResolver
 ): MediaResolver {
   return async (url: string, cookieHeader?: string, options?) => {
+    // The public quality picker lists yt-dlp formats. Legacy plugin commands
+    // have no quality-selection contract and may otherwise turn MP3 into a
+    // video download or ignore the requested height. Automatic downloads keep
+    // their existing plugin ordering and credential handoff.
+    if (options?.qualityHint) {
+      return fallback ? fallback(url, cookieHeader, options) : null
+    }
     const candidates = pluginRegistry
       .entries()
       .filter(
@@ -783,19 +785,20 @@ export async function bootstrapBridge(args: {
       ...(listFormats
         ? {
             listMediaFormats: async (
-              params: MediaFormatsParams
+              params: MediaFormatsParams,
+              ctx: MdxpSessionContext
             ): Promise<MediaFormatsResult> => {
               const ffmpegAvailable =
-                typeof args.ffmpegAvailable === 'function'
-                  ? await args.ffmpegAvailable()
-                  : args.ffmpegAvailable
-              const cookieHeader =
-                serializeCookieHeader(params.cookies ?? []) || undefined
-              return listFormats({
-                url: params.url,
-                ...(cookieHeader ? { cookieHeader } : {}),
-                audioExtractAvailable: ffmpegAvailable,
-              })
+                (await receiver.muxPipeline?.isAvailable()) === true
+              ctx.requestSignal?.throwIfAborted()
+              return listFormats(
+                {
+                  url: params.url,
+                  audioExtractAvailable: ffmpegAvailable,
+                  muxAvailable: ffmpegAvailable,
+                },
+                ctx.requestSignal
+              )
             },
           }
         : {}),
