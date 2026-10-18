@@ -962,14 +962,24 @@
             "sampleCount_one": "العينات: {{count}}",
             "sampleCount_other": "العينات: {{count}}",
             "sampleCount_two": "العينات: {{count}}",
-            "sampleCount_zero": "العينات: {{count}}"
+            "sampleCount_zero": "العينات: {{count}}",
+            "noSamples": "لا توجد عينات",
+            "overview": "نظرة عامة على السجل",
+            "rangeStart": "بداية النطاق",
+            "rangeEnd": "نهاية النطاق",
+            "earlier": "سجل أقدم",
+            "later": "سجل أحدث",
+            "zoomIn": "تكبير",
+            "zoomOut": "تصغير",
+            "showAll": "عرض الكل",
+            "following": "متابعة الأحدث",
+            "followLatest": "العودة إلى الأحدث"
           },
           "collecting": "جارٍ جمع بيانات النقل…",
-          "coverageGap": "انقطع التتبع.",
           "download": "تنزيل",
           "lifetimeEmpty": "سجل المدة الكاملة غير متاح بعد.",
           "loading": "جارٍ تحميل النشاط…",
-          "noSessionHistory": "لم يُسجّل نقل بيانات في جلسة التطبيق هذه.",
+          "noSessionHistory": "لم يُسجَّل نقل حديث.",
           "noTraffic": "لا توجد حركة بيانات عبر الشبكة حاليًا.",
           "notAvailable": "غير متاح",
           "range": {
@@ -982,7 +992,7 @@
             "label": "الفترة الزمنية للنقل",
             "latest": "آخر 60 ثانية",
             "lifetime": "المدة الكاملة",
-            "session": "الجلسة (60 ث)"
+            "session": "آخر 60 ثانية"
           },
           "retry": "إعادة المحاولة",
           "stale": {
@@ -1045,7 +1055,7 @@
           },
           "transferTitle": {
             "lifetime": "النقل طوال المدة",
-            "session": "النقل خلال الجلسة"
+            "session": "النقل الأخير"
           },
           "unavailable": "نشاط المدة الكاملة غير متاح.",
           "upload": "الرفع"

@@ -695,18 +695,17 @@
         },
         "activity": {
           "transferTitle": {
-            "session": "Передача за сеанс",
+            "session": "Недавняя передача",
             "lifetime": "Передача за всё время"
           },
           "download": "Загрузка",
           "upload": "Отдача",
           "loading": "Загрузка активности…",
           "collecting": "Сбор данных о передаче…",
-          "noSessionHistory": "В текущем сеансе приложения передача данных не зафиксирована.",
+          "noSessionHistory": "Недавние передачи не записаны.",
           "lifetimeEmpty": "Полная история пока недоступна.",
           "noTraffic": "Сейчас нет сетевой активности.",
           "unavailable": "Активность за всё время недоступна.",
-          "coverageGap": "Учёт был прерван.",
           "retry": "Повторить",
           "notAvailable": "Недоступно",
           "stale": {
@@ -715,7 +714,7 @@
           },
           "range": {
             "label": "Период передачи данных",
-            "session": "Сеанс (60 с)",
+            "session": "Последние 60 с",
             "lifetime": "За всё время",
             "latest": "Последние 60 секунд",
             "adaptive_one": "Адаптивное разрешение · {{count}} отсчёт",
@@ -783,7 +782,18 @@
             "sampleCount_other": "{{count}} отсчёта",
             "sampleCount_few": "{{count}} отсчёта",
             "sampleCount_many": "{{count}} отсчётов",
-            "noDataQualityIssues": "Нет предупреждений об учёте."
+            "noDataQualityIssues": "Нет предупреждений об учёте.",
+            "noSamples": "Нет измерений",
+            "overview": "Обзор истории",
+            "rangeStart": "Начало диапазона",
+            "rangeEnd": "Конец диапазона",
+            "earlier": "Более ранняя история",
+            "later": "Более поздняя история",
+            "zoomIn": "Приблизить",
+            "zoomOut": "Отдалить",
+            "showAll": "Показать всё",
+            "following": "Отслеживание новых данных",
+            "followLatest": "К последним данным"
           }
         },
         "pieces": {

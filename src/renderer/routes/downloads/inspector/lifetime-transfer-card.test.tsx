@@ -1,406 +1,287 @@
 import '@testing-library/jest-dom/vitest'
+import { DirectionProvider } from '@renderer/components/ui/direction'
 import { i18n } from '@renderer/lib/i18n'
 import enUS from '@shared/locales/en-US.json'
 import zhCN from '@shared/locales/zh-CN.json'
-import { TaskHistoryEventKind } from '@shared/types/task-inspector-activity'
-import { fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildActivityChartModel } from './activity-chart-model'
+import { TaskTransferSampleFlag } from '@shared/types/task-inspector-activity'
+import { fireEvent, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  type ActivityChartModel,
+  type ActivityChartRange,
+  buildActivityChartModel,
+} from './activity-chart-model'
 import { LifetimeTransferCard } from './lifetime-transfer-card'
 
-const markerGroups = [
-  {
-    id: 'pause',
-    events: [],
-    kind: TaskHistoryEventKind.Paused,
-    occurredAt: 1_500,
-    rangeStartAt: 1_500,
-    rangeEndAt: 1_500,
-    count: 1,
-  },
-]
-
-function chartModel(sampleCount = 2) {
+function model(end = 400000, flags = 0) {
   return buildActivityChartModel({
     range: 'lifetime',
     sessionPoints: [],
-    lifetimePoints: Array.from({ length: sampleCount }, (_, index) => ({
-      t: 1_000 + index * 1_000,
-      down: 1_024 * (index + 1),
-      up: 128 * (index + 1),
-      flags: 0,
-    })),
-    markerGroups,
+    lifetimePoints: [
+      { t: 100000, down: 1024, up: 256, flags: 0 },
+      { t: 200000, down: 4096, up: 512, flags },
+      { t: end, down: 2048, up: 256, flags: 0 },
+    ],
+    markerGroups: [],
     selectedMarkerId: null,
   })
 }
-
-function leafPaths(value: unknown, prefix = ''): string[] {
-  if (typeof value !== 'object' || value === null) return [prefix]
-  return Object.entries(value).flatMap(([key, child]) =>
-    leafPaths(child, prefix ? `${prefix}.${key}` : key)
+function card(
+  data: ActivityChartModel = model(),
+  range: ActivityChartRange = 'session'
+) {
+  return (
+    <LifetimeTransferCard
+      model={data}
+      range={range}
+      sampleCount={data.observationCount}
+      onRangeChange={vi.fn()}
+      onSelectMarker={vi.fn()}
+    />
   )
 }
-
-function logicalLeafPaths(value: unknown): string[] {
-  return [
-    ...new Set(
-      leafPaths(value).map((path) =>
-        path.replace(/_(?:zero|one|two|few|many|other)$/, '')
-      )
-    ),
-  ].sort()
+function windowRange() {
+  const view = screen.getByTestId('activity-transfer-chart-viewport')
+  return [Number(view.dataset.start), Number(view.dataset.end)]
 }
 
 describe('LifetimeTransferCard', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('en-US')
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+      function (this: HTMLElement) {
+        const width =
+          this.id === 'recharts_measurement_span'
+            ? (this.textContent?.length ?? 0) * 6
+            : this.dataset.slot === 'slider-thumb'
+              ? 16
+              : 520
+        return {
+          width,
+          height: 16,
+          x: 0,
+          y: 0,
+          left: 0,
+          top: 0,
+          right: width,
+          bottom: 16,
+          toJSON: () => ({}),
+        }
+      }
+    )
   })
-
-  it('keeps the named query wrapper unpadded around its responsive card surface', () => {
-    const { container } = render(
-      <LifetimeTransferCard
-        model={chartModel()}
-        range="lifetime"
-        sampleCount={2}
-        onRangeChange={vi.fn()}
-        onSelectMarker={vi.fn()}
-      />
+  afterEach(() => vi.restoreAllMocks())
+  it('uses independent smooth paths and the Dashboard colors with 12% fills', () => {
+    const { container } = render(card())
+    expect(container.querySelectorAll('.recharts-bar')).toHaveLength(0)
+    expect(container.querySelectorAll('.recharts-area')).toHaveLength(2)
+    const download = container.querySelector(
+      '.activity-transfer-line-down .recharts-area-curve'
     )
-
-    const card = screen.getByTestId('task-inspector-activity-transfer-card')
-    const surface = screen.getByTestId(
-      'task-inspector-activity-transfer-surface'
+    const upload = container.querySelector(
+      '.activity-transfer-line-up .recharts-area-curve'
     )
-    expect(card).toHaveClass('@container/transfer', 'min-w-0')
-    expect(card).not.toHaveClass('border', 'p-3')
-    expect(surface).toHaveClass('border', 'p-3')
-    expect(surface.className).not.toContain('@[420px]/transfer:p-4')
-    expect(surface.innerHTML).toContain('@[420px]/transfer:flex-row')
-    expect(container.querySelectorAll('.recharts-area')).toHaveLength(0)
-    expect(container.querySelectorAll('.recharts-bar')).toHaveLength(2)
+    expect(download).toHaveAttribute('stroke', 'var(--color-down)')
+    expect(upload).toHaveAttribute('stroke', 'var(--color-up)')
+    expect(upload).toHaveAttribute('stroke-dasharray', '5 3')
+    expect(download?.getAttribute('d')).toContain('C')
+    for (const area of container.querySelectorAll('.recharts-area-area'))
+      expect(area).toHaveAttribute('fill-opacity', '0.12')
+    expect(container.querySelector('style')?.textContent).toContain(
+      '--color-down: hsl(var(--chart-1))'
+    )
+    expect(container.querySelector('style')?.textContent).toContain(
+      '--color-up: hsl(var(--chart-2))'
+    )
     expect(
-      container.querySelector('.activity-transfer-bar-down')
-    ).toBeInTheDocument()
-    expect(
-      container.querySelector('.activity-transfer-bar-up')
-    ).toBeInTheDocument()
-    const downBars = container.querySelectorAll(
-      '.activity-transfer-bar-down .recharts-rectangle'
-    )
-    const upBars = container.querySelectorAll(
-      '.activity-transfer-bar-up .recharts-rectangle'
-    )
-    expect([...downBars, ...upBars]).not.toHaveLength(0)
-    expect(
-      [...downBars, ...upBars].every(
-        (bar) =>
-          bar.getAttribute('width') === '5' &&
-          bar.getAttribute('d')?.includes('A ')
+      screen.getByTestId('activity-transfer-speed-scale')
+    ).toHaveTextContent('4.1 KB/s')
+  })
+  it.each(['ltr', 'rtl'] as const)(
+    'keeps a 60-second window that follows and pauses when browsing in %s',
+    (direction) => {
+      const { rerender } = render(
+        <DirectionProvider direction={direction}>{card()}</DirectionProvider>
       )
-    ).toBe(true)
-
-    const firstDownBar = downBars[0]
-    const firstUpBar = upBars[0]
-    expect(
-      Number(firstUpBar?.getAttribute('y')) +
-        Number(firstUpBar?.getAttribute('height'))
-    ).toBeCloseTo(Number(firstDownBar?.getAttribute('y')))
-    expect(screen.getByRole('img')).toBeInTheDocument()
-  })
-
-  it('keeps dense samples spaced inside a full-bleed horizontal scroller', () => {
-    render(
-      <LifetimeTransferCard
-        model={chartModel(60)}
-        range="lifetime"
-        sampleCount={60}
-        onRangeChange={vi.fn()}
-        onSelectMarker={vi.fn()}
-      />
-    )
-
-    const frame = screen.getByTestId('activity-transfer-chart-frame')
-    const scroller = screen.getByTestId('activity-transfer-chart-scroller')
-    const canvas = screen.getByTestId('activity-transfer-chart-canvas')
-
-    expect(frame).toHaveClass('-mx-3')
-    expect(frame.className).not.toContain('@[420px]/transfer:-mx-4')
-    expect(scroller).toHaveClass('overflow-x-auto', 'overflow-y-hidden')
-    expect(canvas).toHaveClass('min-w-full')
-    expect(canvas).toHaveStyle({ minWidth: '960px' })
-  })
-
-  it('keeps compact Y-axis speed labels on the right edge', () => {
-    const { container } = render(
-      <LifetimeTransferCard
-        model={chartModel()}
-        range="lifetime"
-        sampleCount={2}
-        onRangeChange={vi.fn()}
-        onSelectMarker={vi.fn()}
-      />
-    )
-
-    expect(container.querySelector('.recharts-yAxis')).toHaveClass(
-      'text-[10px]',
-      'tabular-nums'
-    )
-    expect(
-      container.querySelectorAll(
-        '.recharts-yAxis-tick-lines > .recharts-cartesian-axis-tick'
+      expect(windowRange()).toEqual([340000, 400000])
+      rerender(
+        <DirectionProvider direction={direction}>
+          {card(model(410000))}
+        </DirectionProvider>
       )
-    ).toHaveLength(2)
-    const scale = screen.getByTestId('activity-transfer-speed-scale')
-    expect(scale).toHaveClass('absolute', 'right-3', 'tabular-nums')
-    expect(scale.children).toHaveLength(2)
-    expect(scale).not.toHaveTextContent('0 B/s')
-    expect(
-      [...scale.children].every((label) =>
-        label.classList.contains('translate-y-1')
+      expect(windowRange()).toEqual([350000, 410000])
+      fireEvent.click(screen.getByRole('button', { name: 'Earlier history' }))
+      expect(windowRange()).toEqual([320000, 380000])
+      rerender(
+        <DirectionProvider direction={direction}>
+          {card(model(420000))}
+        </DirectionProvider>
       )
-    ).toBe(true)
-    expect(
-      container.querySelectorAll('.recharts-cartesian-grid-horizontal line')
-    ).toHaveLength(2)
-    const plotClip = container.querySelector('clipPath > rect')
-    const plotTop = Number(plotClip?.getAttribute('y'))
-    const plotHeight = Number(plotClip?.getAttribute('height'))
-    const gridYCoordinates = [
-      ...container.querySelectorAll('.recharts-cartesian-grid-horizontal line'),
-    ]
-      .map((line) => Number(line.getAttribute('y1')))
-      .sort((left, right) => left - right)
-    expect(gridYCoordinates).toEqual([plotTop, plotTop + plotHeight / 2])
-    const downBars = [
-      ...container.querySelectorAll(
-        '.activity-transfer-bar-down .recharts-rectangle'
-      ),
-    ]
-    const gridLine = container.querySelector(
-      '.recharts-cartesian-grid-horizontal line'
-    )
-    const plotLeft = Number(gridLine?.getAttribute('x1'))
-    const plotRight = Number(gridLine?.getAttribute('x2'))
-    const firstBarX = Number(downBars[0]?.getAttribute('x'))
-    const lastBarX = Number(downBars.at(-1)?.getAttribute('x'))
-
-    expect(gridLine).not.toBeNull()
-    expect(firstBarX).toBeGreaterThanOrEqual(plotLeft + 5)
-    expect(lastBarX + 5).toBeLessThanOrEqual(plotRight - 5)
-  })
-
-  it('labels the actual stacked peak and its midpoint', () => {
-    const peak = 13.6 * 1024 ** 2
-    const model = buildActivityChartModel({
-      range: 'session',
-      sessionPoints: [
-        { t: 1_000, down: peak, up: 0 },
-        { t: 2_000, down: 0, up: 0 },
-      ],
-      lifetimePoints: [],
-      markerGroups: [],
-      selectedMarkerId: null,
-    })
-    render(
-      <LifetimeTransferCard
-        model={model}
-        range="session"
-        sampleCount={2}
-        onRangeChange={vi.fn()}
-        onSelectMarker={vi.fn()}
-      />
-    )
-
-    const scale = screen.getByTestId('activity-transfer-speed-scale')
-    expect(scale).toHaveTextContent('14.3 MB/s')
-    expect(scale).toHaveTextContent('7.1 MB/s')
-    expect(scale).not.toHaveTextContent('20.0 MB/s')
-  })
-
-  it('formats X-axis labels as HH:mm:ss without AM or PM', () => {
-    const startAt = new Date(2026, 0, 1, 13, 4, 5).getTime()
-    const model = buildActivityChartModel({
-      range: 'lifetime',
-      sessionPoints: [],
-      lifetimePoints: [
-        { t: startAt, down: 1_024, up: 128, flags: 0 },
-        { t: startAt + 60_000, down: 2_048, up: 256, flags: 0 },
-      ],
-      markerGroups: [],
-      selectedMarkerId: null,
-    })
-    const { container } = render(
-      <LifetimeTransferCard
-        model={model}
-        range="lifetime"
-        sampleCount={2}
-        onRangeChange={vi.fn()}
-        onSelectMarker={vi.fn()}
-      />
-    )
-
-    const xAxisText = container.textContent
-    expect(xAxisText).toContain('13:04:05')
-    expect(xAxisText).not.toMatch(/\b(?:AM|PM)\b/)
-  })
-
-  it('keeps a rounded baseline dot for samples without traffic', () => {
-    const model = buildActivityChartModel({
-      range: 'lifetime',
-      sessionPoints: [],
-      lifetimePoints: [
-        { t: 1_000, down: 0, up: 0, flags: 0 },
-        { t: 2_000, down: 1_024, up: 128, flags: 0 },
-      ],
-      markerGroups: [],
-      selectedMarkerId: null,
-    })
-    const { container } = render(
-      <LifetimeTransferCard
-        model={model}
-        range="lifetime"
-        sampleCount={2}
-        onRangeChange={vi.fn()}
-        onSelectMarker={vi.fn()}
-      />
-    )
-
-    const baselineDot = container.querySelector(
-      '.activity-transfer-bar-down .recharts-rectangle'
-    )
-    const plotClip = container.querySelector('clipPath > rect')
-    const plotBottom =
-      Number(plotClip?.getAttribute('y')) +
-      Number(plotClip?.getAttribute('height'))
-    expect(baselineDot).toHaveAttribute('height', '5')
-    expect(baselineDot).toHaveAttribute('width', '5')
-    expect(baselineDot?.getAttribute('d')).toContain('A 2.5,2.5')
-    expect(
-      container.querySelector('.activity-transfer-zero-line')
-    ).not.toBeInTheDocument()
-    expect(
-      Number(baselineDot?.getAttribute('y')) +
-        Number(baselineDot?.getAttribute('height'))
-    ).toBeLessThanOrEqual(plotBottom)
-  })
-
-  it('keeps bars at 5px when close timestamps collapse the numeric-axis band', () => {
-    const model = buildActivityChartModel({
-      range: 'lifetime',
-      sessionPoints: [],
-      lifetimePoints: [
-        { t: 1_000, down: 1_024, up: 128, flags: 0 },
-        { t: 4_600, down: 2_048, up: 256, flags: 0 },
-        { t: 3_601_000, down: 4_096, up: 512, flags: 0 },
-      ],
-      markerGroups: [],
-      selectedMarkerId: null,
-    })
-    const { container } = render(
-      <LifetimeTransferCard
-        model={model}
-        range="lifetime"
-        sampleCount={3}
-        onRangeChange={vi.fn()}
-        onSelectMarker={vi.fn()}
-      />
-    )
-
-    const bars = container.querySelectorAll(
-      '.activity-transfer-bar .recharts-rectangle'
-    )
-    expect(bars).not.toHaveLength(0)
-    expect([...bars].every((bar) => bar.getAttribute('width') === '5')).toBe(
-      true
-    )
-  })
-
-  it('uses a roving radiogroup with Arrow and Home/End selection', () => {
-    const onRangeChange = vi.fn()
-    const { rerender } = render(
-      <LifetimeTransferCard
-        model={chartModel()}
-        range="lifetime"
-        sampleCount={2}
-        onRangeChange={onRangeChange}
-        onSelectMarker={vi.fn()}
-      />
-    )
-
-    const radios = screen.getAllByRole('radio')
-    const session = radios[0] as HTMLButtonElement
-    const lifetime = radios[1] as HTMLButtonElement
-    expect(
-      screen.getByRole('heading', { name: 'Lifetime transfer' })
-    ).toBeInTheDocument()
-    expect(session).toHaveAttribute('tabindex', '-1')
-    expect(lifetime).toHaveAttribute('aria-checked', 'true')
-
-    lifetime.focus()
-    fireEvent.keyDown(lifetime, { key: 'ArrowLeft' })
-    expect(onRangeChange).toHaveBeenCalledWith('session')
-    expect(session).toHaveFocus()
-
-    rerender(
-      <LifetimeTransferCard
-        model={chartModel()}
-        range="session"
-        sampleCount={2}
-        onRangeChange={onRangeChange}
-        onSelectMarker={vi.fn()}
-      />
-    )
-    expect(
-      screen.getByRole('heading', { name: 'Session transfer' })
-    ).toBeInTheDocument()
-    expect(
-      screen.queryByRole('heading', { name: 'Lifetime transfer' })
-    ).toBeNull()
-    fireEvent.keyDown(session, { key: 'End' })
-    expect(onRangeChange).toHaveBeenCalledWith('lifetime')
-    expect(lifetime).toHaveFocus()
-  })
-
-  it.each([
-    { count: 0, samples: '0 samples', seconds: '0 seconds' },
-    { count: 1, samples: '1 sample', seconds: '1 second' },
-    { count: 2, samples: '2 samples', seconds: '2 seconds' },
-  ])(
-    'pluralizes visible and accessible counts for $count observations',
-    ({ count, samples, seconds }) => {
-      render(
-        <LifetimeTransferCard
-          model={chartModel(count)}
-          range="lifetime"
-          sampleCount={count}
-          lifetimeSummary={{
-            points: [],
-            averageDownloadSpeed: 0,
-            peakDownloadSpeed: 0,
-            peakUploadSpeed: 0,
-            activeMs: count * 1_000,
-            updatedAt: 1_000,
-            accuracy: 'estimated',
-          }}
-          onRangeChange={vi.fn()}
-          onSelectMarker={vi.fn()}
-        />
-      )
-
-      expect(
-        screen.getByText(`Adaptive resolution · ${samples}`)
-      ).toBeInTheDocument()
-      expect(screen.getByRole('img')).toHaveAttribute(
-        'aria-label',
-        expect.stringContaining(`${seconds}. ${samples}.`)
-      )
+      expect(windowRange()).toEqual([320000, 380000])
+      fireEvent.click(screen.getByRole('button', { name: 'Back to latest' }))
+      expect(windowRange()).toEqual([360000, 420000])
     }
   )
+  it('supports horizontal wheel history browsing and keeps vertical page scrolling alone', () => {
+    render(card())
+    const view = screen.getByTestId('activity-transfer-chart-viewport')
+    Object.defineProperty(view, 'clientWidth', { value: 600 })
+    fireEvent.wheel(view, { deltaX: -100, deltaY: 0 })
+    expect(windowRange()).toEqual([330000, 390000])
+    fireEvent.wheel(view, { deltaX: 0, deltaY: 100 })
+    expect(windowRange()).toEqual([330000, 390000])
+    fireEvent.wheel(view, { deltaX: 100, deltaY: 0 })
+    expect(view).toHaveAttribute('data-following', 'true')
+  })
+  it('supports keyboard history navigation and returning to the latest samples', () => {
+    render(card())
+    const view = screen.getByTestId('activity-transfer-chart-viewport')
+    fireEvent.keyDown(view, { key: 'ArrowLeft' })
+    expect(windowRange()).toEqual([325000, 385000])
+    fireEvent.keyDown(view, { key: 'Home' })
+    expect(windowRange()).toEqual([100000, 160000])
+    fireEvent.keyDown(view, { key: 'End' })
+    expect(windowRange()).toEqual([340000, 400000])
+  })
+  it('provides a full overview with accessible range selection and zoom controls', async () => {
+    const user = userEvent.setup()
+    render(card(model(), 'lifetime'))
+    expect(windowRange()).toEqual([100000, 400000])
+    expect(screen.getByTestId('activity-chart-overview')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Zoom in' }))
+    expect(windowRange()).toEqual([250000, 400000])
+    const end = screen.getByRole('slider', { name: 'Range end' })
+    end.focus()
+    await user.keyboard('{ArrowLeft}')
+    expect(windowRange()).toEqual([250000, 399000])
+    const start = screen.getByRole('slider', { name: 'Range start' })
+    expect(start).toHaveAttribute(
+      'aria-valuetext',
+      expect.stringMatching(/\d{2}:\d{2}:\d{2}/)
+    )
+    await user.click(screen.getByRole('button', { name: 'Show all' }))
+    expect(windowRange()).toEqual([100000, 400000])
+  })
+  it('shows missing intervals as broken paths rather than false zero-speed samples', () => {
+    const { container } = render(
+      card(model(400000, TaskTransferSampleFlag.CoverageGap), 'lifetime')
+    )
+    expect(screen.getByText('No samples')).toBeVisible()
+    expect(container.querySelector('.activity-chart-gap')).toBeInTheDocument()
+    const lines = container.querySelectorAll(
+      '.activity-transfer-line-down .recharts-area-curve'
+    )
+    expect(lines.length).toBeGreaterThan(0)
+    expect(
+      model(400000, TaskTransferSampleFlag.CoverageGap).points.some(
+        (point) => point.down === null
+      )
+    ).toBe(true)
+  })
+  it('preserves range radio keyboard controls and reset behavior', () => {
+    const onRangeChange = vi.fn()
+    render(
+      <LifetimeTransferCard
+        model={model()}
+        range="session"
+        sampleCount={3}
+        onRangeChange={onRangeChange}
+        onSelectMarker={vi.fn()}
+      />
+    )
+    const recent = screen.getByRole('radio', { name: 'Last 60s' })
+    expect(recent).toHaveAttribute('aria-checked', 'true')
+    recent.focus()
+    fireEvent.keyDown(recent, { key: 'End' })
+    expect(onRangeChange).toHaveBeenCalledWith('lifetime')
+  })
+  it('keeps empty and true-zero charts readable', () => {
+    const data = buildActivityChartModel({
+      range: 'session',
+      sessionPoints: [],
+      lifetimePoints: [{ t: 1000, down: 0, up: 0, flags: 0 }],
+      markerGroups: [],
+      selectedMarkerId: null,
+    })
+    render(card(data))
+    expect(screen.getByText('No network traffic right now.')).toBeVisible()
+    expect(screen.getByRole('img')).toHaveAccessibleName(
+      /Latest download 0 B\/s, upload 0 B\/s/
+    )
+  })
 
-  it('keeps the English and Chinese Activity logical keys equal', () => {
-    expect(logicalLeafPaths(enUS.panel.downloads.inspector.activity)).toEqual(
-      logicalLeafPaths(zhCN.panel.downloads.inspector.activity)
+  it('includes dates when full history crosses days and keeps second precision in range labels', async () => {
+    const first = new Date(2026, 0, 1, 10, 0, 0).getTime()
+    const last = new Date(2026, 0, 3, 10, 0, 0).getTime()
+    const data = buildActivityChartModel({
+      range: 'lifetime',
+      sessionPoints: [],
+      lifetimePoints: [
+        { t: first, down: 1024, up: 0, flags: 0 },
+        { t: last, down: 2048, up: 0, flags: 0 },
+      ],
+      markerGroups: [],
+      selectedMarkerId: null,
+    })
+    const { container } = render(card(data, 'lifetime'))
+    const labels = [
+      ...container.querySelectorAll('.recharts-cartesian-axis-tick-value'),
+    ].map((node) => node.textContent)
+    expect(labels.some((label) => label?.includes('1/1'))).toBe(true)
+    expect(labels.some((label) => label?.includes('1/3'))).toBe(true)
+    expect(
+      screen.getByTestId('activity-transfer-chart-viewport')
+    ).toHaveAttribute('aria-valuetext', expect.stringContaining('2026'))
+    expect(
+      await screen.findByRole('slider', { name: 'Range start' })
+    ).toHaveAttribute('aria-valuetext', expect.stringContaining('10:00:00'))
+  })
+
+  it('uses distinct clock labels when zoomed to a one-second lifetime interval', () => {
+    const data = buildActivityChartModel({
+      range: 'lifetime',
+      sessionPoints: [],
+      lifetimePoints: [
+        { t: 1000, down: 1024, up: 0, flags: 0 },
+        { t: 2000, down: 0, up: 0, flags: 0 },
+      ],
+      markerGroups: [],
+      selectedMarkerId: null,
+    })
+    const { container } = render(card(data, 'lifetime'))
+    const labels = [
+      ...container.querySelectorAll('.recharts-cartesian-axis-tick-value'),
+    ].map((node) => node.textContent)
+    expect(labels).toHaveLength(2)
+    expect(new Set(labels).size).toBe(2)
+  })
+  it('keeps the summary inside the unpadded card wrapper and uses valid locale keys', () => {
+    render(
+      <LifetimeTransferCard
+        model={model()}
+        range="session"
+        sampleCount={3}
+        summary={<div>summary</div>}
+        onRangeChange={vi.fn()}
+        onSelectMarker={vi.fn()}
+      />
+    )
+    const wrapper = screen.getByTestId('task-inspector-activity-transfer-card')
+    expect(wrapper).not.toHaveClass('p-3')
+    expect(
+      within(
+        screen.getByTestId('task-inspector-activity-transfer-surface')
+      ).getByText('summary')
+    ).toBeVisible()
+    const logicalKeys = (value: Record<string, string>) =>
+      [
+        ...new Set(
+          Object.keys(value).map((key) => key.replace(/_(one|other)$/, ''))
+        ),
+      ].sort()
+    expect(logicalKeys(enUS.panel.downloads.inspector.activity.chart)).toEqual(
+      logicalKeys(zhCN.panel.downloads.inspector.activity.chart)
     )
   })
 })

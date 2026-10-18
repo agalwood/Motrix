@@ -689,18 +689,17 @@
         },
         "activity": {
           "transferTitle": {
-            "session": "Session transfer",
+            "session": "Recent transfer",
             "lifetime": "Lifetime transfer"
           },
           "download": "Download",
           "upload": "Upload",
           "loading": "Loading activity…",
           "collecting": "Collecting transfer data…",
-          "noSessionHistory": "No transfer recorded in this app session.",
+          "noSessionHistory": "No recent transfer recorded.",
           "lifetimeEmpty": "Lifetime history is not available yet.",
           "noTraffic": "No network traffic right now.",
           "unavailable": "Lifetime activity is unavailable.",
-          "coverageGap": "Tracking was interrupted.",
           "retry": "Retry",
           "notAvailable": "Not available",
           "stale": {
@@ -709,7 +708,7 @@
           },
           "range": {
             "label": "Transfer time range",
-            "session": "Session(60s)",
+            "session": "Last 60s",
             "lifetime": "Lifetime",
             "latest": "Latest 60 seconds",
             "adaptive_one": "Adaptive resolution · {{count}} sample",
@@ -767,7 +766,18 @@
             "activeSeconds_other": "{{count}} seconds",
             "sampleCount_one": "{{count}} sample",
             "sampleCount_other": "{{count}} samples",
-            "noDataQualityIssues": "No tracking warnings."
+            "noDataQualityIssues": "No tracking warnings.",
+            "noSamples": "No samples",
+            "overview": "History overview",
+            "rangeStart": "Range start",
+            "rangeEnd": "Range end",
+            "earlier": "Earlier history",
+            "later": "Later history",
+            "zoomIn": "Zoom in",
+            "zoomOut": "Zoom out",
+            "showAll": "Show all",
+            "following": "Following latest",
+            "followLatest": "Back to latest"
           }
         },
         "pieces": {

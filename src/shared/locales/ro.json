@@ -947,14 +947,24 @@
             "noDataQualityIssues": "Niciun avertisment privind înregistrarea.",
             "sampleCount_few": "{{count}} eșantioane",
             "sampleCount_one": "{{count}} eșantion",
-            "sampleCount_other": "{{count}} de eșantioane"
+            "sampleCount_other": "{{count}} de eșantioane",
+            "noSamples": "Fără eșantioane",
+            "overview": "Prezentarea istoricului",
+            "rangeStart": "Începutul intervalului",
+            "rangeEnd": "Sfârșitul intervalului",
+            "earlier": "Istoric anterior",
+            "later": "Istoric mai recent",
+            "zoomIn": "Mărire",
+            "zoomOut": "Micșorare",
+            "showAll": "Afișează tot",
+            "following": "Urmărirea datelor recente",
+            "followLatest": "Înapoi la cele mai recente"
           },
           "collecting": "Se colectează datele de transfer…",
-          "coverageGap": "Înregistrarea a fost întreruptă.",
           "download": "Descărcare",
           "lifetimeEmpty": "Istoricul pe întreaga durată nu este încă disponibil.",
           "loading": "Se încarcă activitatea…",
-          "noSessionHistory": "Niciun transfer înregistrat în această sesiune a aplicației.",
+          "noSessionHistory": "Nu există transferuri recente înregistrate.",
           "noTraffic": "Nu există trafic de rețea momentan.",
           "notAvailable": "Indisponibil",
           "range": {
@@ -964,7 +974,7 @@
             "label": "Intervalul de timp al transferului",
             "latest": "Ultimele 60 de secunde",
             "lifetime": "Întreaga durată",
-            "session": "Sesiune (60 s)"
+            "session": "Ultimele 60 s"
           },
           "retry": "Încearcă din nou",
           "stale": {
@@ -1021,7 +1031,7 @@
           },
           "transferTitle": {
             "lifetime": "Transfer pe întreaga durată",
-            "session": "Transfer în sesiune"
+            "session": "Transfer recent"
           },
           "unavailable": "Activitatea pe întreaga durată nu este disponibilă.",
           "upload": "Încărcare"

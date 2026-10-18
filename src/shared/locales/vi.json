@@ -686,18 +686,17 @@
         },
         "activity": {
           "transferTitle": {
-            "session": "Lưu lượng trong phiên",
+            "session": "Truyền gần đây",
             "lifetime": "Lưu lượng toàn bộ thời gian"
           },
           "download": "Tải xuống",
           "upload": "Tải lên",
           "loading": "Đang tải dữ liệu hoạt động…",
           "collecting": "Đang thu thập dữ liệu lưu lượng…",
-          "noSessionHistory": "Chưa ghi nhận lưu lượng trong phiên ứng dụng này.",
+          "noSessionHistory": "Chưa ghi nhận truyền dữ liệu gần đây.",
           "lifetimeEmpty": "Chưa có lịch sử toàn bộ thời gian.",
           "noTraffic": "Hiện không có lưu lượng mạng.",
           "unavailable": "Không thể tải dữ liệu hoạt động của toàn bộ thời gian.",
-          "coverageGap": "Việc theo dõi đã bị gián đoạn.",
           "retry": "Thử lại",
           "notAvailable": "Không khả dụng",
           "stale": {
@@ -706,7 +705,7 @@
           },
           "range": {
             "label": "Khoảng thời gian truyền dữ liệu",
-            "session": "Phiên (60 giây)",
+            "session": "60 giây gần nhất",
             "lifetime": "Toàn bộ thời gian",
             "latest": "60 giây gần nhất",
             "adaptive_other": "Độ phân giải thích ứng · {{count}} mẫu"
@@ -759,7 +758,18 @@
             "accessibleSummary": "{{range}} từ {{start}} đến {{end}}. Tốc độ mới nhất: tải xuống {{download}}, tải lên {{upload}}. Trong toàn bộ thời gian: tải xuống trung bình {{average}}, cao nhất {{peak}}, hoạt động {{activeDuration}}. {{sampleLabel}}. {{state}}",
             "activeSeconds_other": "{{count}} giây",
             "sampleCount_other": "{{count}} mẫu",
-            "noDataQualityIssues": "Không có cảnh báo theo dõi."
+            "noDataQualityIssues": "Không có cảnh báo theo dõi.",
+            "noSamples": "Không có mẫu",
+            "overview": "Tổng quan lịch sử",
+            "rangeStart": "Bắt đầu khoảng",
+            "rangeEnd": "Kết thúc khoảng",
+            "earlier": "Lịch sử cũ hơn",
+            "later": "Lịch sử mới hơn",
+            "zoomIn": "Phóng to",
+            "zoomOut": "Thu nhỏ",
+            "showAll": "Hiện tất cả",
+            "following": "Đang theo dõi dữ liệu mới nhất",
+            "followLatest": "Về dữ liệu mới nhất"
           }
         },
         "pieces": {

@@ -942,14 +942,24 @@
             "activeSeconds_other": "{{count}} seconden",
             "noDataQualityIssues": "Geen registratiewaarschuwingen.",
             "sampleCount_one": "{{count}} meetpunt",
-            "sampleCount_other": "{{count}} meetpunten"
+            "sampleCount_other": "{{count}} meetpunten",
+            "noSamples": "Geen meetpunten",
+            "overview": "Geschiedenisoverzicht",
+            "rangeStart": "Begin van bereik",
+            "rangeEnd": "Einde van bereik",
+            "earlier": "Oudere geschiedenis",
+            "later": "Nieuwere geschiedenis",
+            "zoomIn": "Inzoomen",
+            "zoomOut": "Uitzoomen",
+            "showAll": "Alles tonen",
+            "following": "Nieuwste gegevens volgen",
+            "followLatest": "Terug naar nieuwste"
           },
           "collecting": "Overdrachtsgegevens verzamelen…",
-          "coverageGap": "De registratie is onderbroken.",
           "download": "Download",
           "lifetimeEmpty": "De geschiedenis over de gehele looptijd is nog niet beschikbaar.",
           "loading": "Activiteit laden…",
-          "noSessionHistory": "Geen gegevensoverdracht geregistreerd in deze appsessie.",
+          "noSessionHistory": "Geen recente overdracht vastgelegd.",
           "noTraffic": "Momenteel geen netwerkverkeer.",
           "notAvailable": "Niet beschikbaar",
           "range": {
@@ -958,7 +968,7 @@
             "label": "Tijdsbereik van gegevensoverdracht",
             "latest": "Laatste 60 seconden",
             "lifetime": "Gehele looptijd",
-            "session": "Sessie (60 s)"
+            "session": "Laatste 60 s"
           },
           "retry": "Opnieuw proberen",
           "stale": {
@@ -1013,7 +1023,7 @@
           },
           "transferTitle": {
             "lifetime": "Overdracht over de gehele looptijd",
-            "session": "Overdracht in deze sessie"
+            "session": "Recente overdracht"
           },
           "unavailable": "Activiteit over de gehele looptijd is niet beschikbaar.",
           "upload": "Upload"

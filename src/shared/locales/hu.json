@@ -689,18 +689,17 @@
         },
         "activity": {
           "transferTitle": {
-            "session": "Munkamenet adatforgalma",
+            "session": "Legutóbbi átvitel",
             "lifetime": "Összesített adatforgalom"
           },
           "download": "Letöltés",
           "upload": "Feltöltés",
           "loading": "Aktivitási adatok betöltése…",
           "collecting": "Adatforgalmi adatok gyűjtése…",
-          "noSessionHistory": "Ebben a munkamenetben még nincs rögzített adatforgalom.",
+          "noSessionHistory": "Nincs rögzített legutóbbi átvitel.",
           "lifetimeEmpty": "Még nem érhetők el a teljes időszak előzményei.",
           "noTraffic": "Jelenleg nincs hálózati adatforgalom.",
           "unavailable": "A teljes időszak aktivitási adatai nem érhetők el.",
-          "coverageGap": "Az adatrögzítés megszakadt.",
           "retry": "Újrapróbálás",
           "notAvailable": "Nem érhető el",
           "stale": {
@@ -709,7 +708,7 @@
           },
           "range": {
             "label": "Adatforgalmi időszak",
-            "session": "Munkamenet (60 mp)",
+            "session": "Utolsó 60 mp",
             "lifetime": "Teljes időszak",
             "latest": "Legutóbbi 60 másodperc",
             "adaptive_one": "Adaptív felbontás · {{count}} minta",
@@ -767,7 +766,18 @@
             "activeSeconds_other": "{{count}} másodperc",
             "sampleCount_one": "{{count}} minta",
             "sampleCount_other": "{{count}} minta",
-            "noDataQualityIssues": "Nincs adatrögzítési figyelmeztetés."
+            "noDataQualityIssues": "Nincs adatrögzítési figyelmeztetés.",
+            "noSamples": "Nincsenek minták",
+            "overview": "Előzmények áttekintése",
+            "rangeStart": "Tartomány kezdete",
+            "rangeEnd": "Tartomány vége",
+            "earlier": "Régebbi előzmények",
+            "later": "Újabb előzmények",
+            "zoomIn": "Nagyítás",
+            "zoomOut": "Kicsinyítés",
+            "showAll": "Összes megjelenítése",
+            "following": "Legfrissebb adatok követése",
+            "followLatest": "Vissza a legfrissebbhez"
           }
         },
         "pieces": {

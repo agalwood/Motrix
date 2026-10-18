@@ -689,18 +689,17 @@
         },
         "activity": {
           "transferTitle": {
-            "session": "Übertragung dieser Sitzung",
+            "session": "Letzte Übertragung",
             "lifetime": "Gesamte Übertragung"
           },
           "download": "Download",
           "upload": "Upload",
           "loading": "Aktivität wird geladen…",
           "collecting": "Übertragungsdaten werden erfasst…",
-          "noSessionHistory": "In dieser App-Sitzung wurden keine Übertragungen erfasst.",
+          "noSessionHistory": "Keine kürzliche Übertragung aufgezeichnet.",
           "lifetimeEmpty": "Der Gesamtverlauf ist noch nicht verfügbar.",
           "noTraffic": "Derzeit kein Netzwerkverkehr.",
           "unavailable": "Die Gesamtaktivität ist nicht verfügbar.",
-          "coverageGap": "Die Erfassung wurde unterbrochen.",
           "retry": "Erneut versuchen",
           "notAvailable": "Nicht verfügbar",
           "stale": {
@@ -709,7 +708,7 @@
           },
           "range": {
             "label": "Übertragungszeitraum",
-            "session": "Sitzung (60 s)",
+            "session": "Letzte 60 s",
             "lifetime": "Gesamtzeit",
             "latest": "Letzte 60 Sekunden",
             "adaptive_one": "Adaptive Auflösung · {{count}} Messwert",
@@ -767,7 +766,18 @@
             "activeSeconds_other": "{{count}} Sekunden",
             "sampleCount_one": "{{count}} Messwert",
             "sampleCount_other": "{{count}} Messwerte",
-            "noDataQualityIssues": "Keine Warnungen zur Erfassung."
+            "noDataQualityIssues": "Keine Warnungen zur Erfassung.",
+            "noSamples": "Keine Messwerte",
+            "overview": "Verlaufsübersicht",
+            "rangeStart": "Bereichsanfang",
+            "rangeEnd": "Bereichsende",
+            "earlier": "Älterer Verlauf",
+            "later": "Neuerer Verlauf",
+            "zoomIn": "Vergrößern",
+            "zoomOut": "Verkleinern",
+            "showAll": "Alles anzeigen",
+            "following": "Neueste Daten verfolgen",
+            "followLatest": "Zu den neuesten Daten"
           }
         },
         "pieces": {

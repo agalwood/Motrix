@@ -686,18 +686,17 @@
         },
         "activity": {
           "transferTitle": {
-            "session": "Transfer sesi",
+            "session": "Transfer terkini",
             "lifetime": "Transfer sepanjang waktu"
           },
           "download": "Unduh",
           "upload": "Unggah",
           "loading": "Memuat aktivitas…",
           "collecting": "Mengumpulkan data transfer…",
-          "noSessionHistory": "Belum ada transfer yang tercatat dalam sesi aplikasi ini.",
+          "noSessionHistory": "Belum ada transfer terkini yang tercatat.",
           "lifetimeEmpty": "Riwayat sepanjang waktu belum tersedia.",
           "noTraffic": "Tidak ada lalu lintas jaringan saat ini.",
           "unavailable": "Aktivitas sepanjang waktu tidak tersedia.",
-          "coverageGap": "Pelacakan terputus.",
           "retry": "Coba lagi",
           "notAvailable": "Tidak tersedia",
           "stale": {
@@ -706,7 +705,7 @@
           },
           "range": {
             "label": "Rentang waktu transfer",
-            "session": "Sesi (60 dtk)",
+            "session": "60 detik terakhir",
             "lifetime": "Sepanjang waktu",
             "latest": "60 detik terakhir",
             "adaptive_other": "Resolusi adaptif · {{count}} sampel"
@@ -759,7 +758,18 @@
             "accessibleSummary": "{{range}} dari {{start}} hingga {{end}}. Kecepatan terbaru: unduh {{download}}, unggah {{upload}}. Sepanjang waktu: unduh rata-rata {{average}}, unduh puncak {{peak}}, aktif {{activeDuration}}. {{sampleLabel}}. {{state}}",
             "activeSeconds_other": "{{count}} detik",
             "sampleCount_other": "{{count}} sampel",
-            "noDataQualityIssues": "Tidak ada peringatan pelacakan."
+            "noDataQualityIssues": "Tidak ada peringatan pelacakan.",
+            "noSamples": "Tidak ada sampel",
+            "overview": "Ringkasan riwayat",
+            "rangeStart": "Awal rentang",
+            "rangeEnd": "Akhir rentang",
+            "earlier": "Riwayat lebih lama",
+            "later": "Riwayat lebih baru",
+            "zoomIn": "Perbesar",
+            "zoomOut": "Perkecil",
+            "showAll": "Tampilkan semua",
+            "following": "Mengikuti data terbaru",
+            "followLatest": "Kembali ke terbaru"
           }
         },
         "pieces": {

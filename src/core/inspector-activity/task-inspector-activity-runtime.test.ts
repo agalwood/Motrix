@@ -401,6 +401,7 @@ describe('TaskInspectorActivityRuntime', () => {
         )
         const anchorOrigins = runtime.captureRecoveredAnchorOrigins([task])
         await runtime.recordRecoveredAnchors([task], anchorOrigins)
+        runtime.recordSamples([task])
         await runtime.dispose()
       }
 
@@ -408,6 +409,106 @@ describe('TaskInspectorActivityRuntime', () => {
       expect(store.checkpointBatch).not.toHaveBeenCalled()
     }
   )
+
+  it.each([TaskStatus.Completed, TaskStatus.Error, TaskStatus.Removed])(
+    'keeps an unchanged %s task frozen across engine reconnects',
+    async (status) => {
+      const store = createStore()
+      const eventBus = new EventBus()
+      let now = 1000
+      const runtime = new TaskInspectorActivityRuntime(store, eventBus, {
+        wallNow: () => now,
+        monotonicNow: () => now,
+      })
+      const task = makeDownloadTask({ id: 'task-1', status })
+      await runtime.recordRecoveredAnchors(
+        [task],
+        runtime.captureRecoveredAnchorOrigins([task])
+      )
+      runtime.recordSamples([task])
+      for (let outage = 0; outage < 2; outage++) {
+        now += 1000
+        eventBus.emit(Events.EngineDisconnected)
+        now += 1000
+        await runtime.recordAuthoritativeReconnectAnchors([task])
+        runtime.recordSamples([task])
+      }
+      await runtime.dispose()
+      expect(store.recordTransition).not.toHaveBeenCalled()
+      expect(store.checkpointBatch).not.toHaveBeenCalled()
+    }
+  )
+
+  it('does not freeze a restarted task before its first active sample', async () => {
+    const store = createStore()
+    const eventBus = new EventBus()
+    let now = 1000
+    const runtime = new TaskInspectorActivityRuntime(store, eventBus, {
+      wallNow: () => now,
+      monotonicNow: () => now,
+    })
+    runtime.recordSamples([
+      makeDownloadTask({ id: 'task-1', status: TaskStatus.Completed }),
+    ])
+    now = 2000
+    await runtime.recordTransition({
+      taskId: 'task-1',
+      previousStatus: TaskStatus.Completed,
+      nextStatus: TaskStatus.Downloading,
+      occurredAt: now,
+      monotonicAt: now,
+      accuracy: TaskHistoryAccuracy.Exact,
+      errorCode: null,
+      errorMessage: null,
+    })
+    now = 2500
+    eventBus.emit(Events.EngineDisconnected)
+    now = 3000
+    const restarted = makeDownloadTask({
+      id: 'task-1',
+      status: TaskStatus.Downloading,
+    })
+    await runtime.recordAuthoritativeReconnectAnchors([restarted])
+    runtime.recordSamples([restarted])
+    await runtime.dispose()
+    expect(store.committedTransitions.at(-1)).toMatchObject({
+      kind: TaskHistoryEventKind.ObservedState,
+      toStatus: TaskStatus.Downloading,
+    })
+    expect(store.checkpointBatch).toHaveBeenCalledWith([
+      expect.objectContaining({ coverageGapAt: 2500 }),
+    ])
+  })
+
+  it('still records completion observed after an active task lost its connection', async () => {
+    const store = createStore()
+    const eventBus = new EventBus()
+    let now = 1000
+    const runtime = new TaskInspectorActivityRuntime(store, eventBus, {
+      wallNow: () => now,
+      monotonicNow: () => now,
+    })
+    runtime.recordSamples([
+      makeDownloadTask({ id: 'task-1', status: TaskStatus.Downloading }),
+    ])
+    now += 1000
+    eventBus.emit(Events.EngineDisconnected)
+    now += 1000
+    const completed = makeDownloadTask({
+      id: 'task-1',
+      status: TaskStatus.Completed,
+    })
+    await runtime.recordAuthoritativeReconnectAnchors([completed])
+    runtime.recordSamples([completed])
+    await runtime.dispose()
+    expect(store.committedTransitions.at(-1)).toMatchObject({
+      kind: TaskHistoryEventKind.ObservedState,
+      toStatus: TaskStatus.Completed,
+    })
+    expect(store.checkpointBatch).toHaveBeenCalledWith([
+      expect.objectContaining({ coverageGapAt: 2000 }),
+    ])
+  })
 
   it('anchors the first authoritative poll after reconnect even when status is unchanged', async () => {
     const store = createStore()

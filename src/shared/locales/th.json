@@ -937,14 +937,24 @@
             "accessibleSummary": "{{range}} ตั้งแต่ {{start}} ถึง {{end}} ความเร็วล่าสุด: ดาวน์โหลด {{download}} อัปโหลด {{upload}} ตลอดอายุงาน: ดาวน์โหลดเฉลี่ย {{average}} สูงสุด {{peak}} เวลาทำงาน {{activeDuration}} {{sampleLabel}} {{state}}",
             "activeSeconds_other": "{{count}} วินาที",
             "noDataQualityIssues": "ไม่มีคำเตือนเกี่ยวกับการติดตาม",
-            "sampleCount_other": "{{count}} ตัวอย่าง"
+            "sampleCount_other": "{{count}} ตัวอย่าง",
+            "noSamples": "ไม่มีตัวอย่างข้อมูล",
+            "overview": "ภาพรวมประวัติ",
+            "rangeStart": "จุดเริ่มต้นช่วง",
+            "rangeEnd": "จุดสิ้นสุดช่วง",
+            "earlier": "ประวัติก่อนหน้า",
+            "later": "ประวัติล่าสุด",
+            "zoomIn": "ขยาย",
+            "zoomOut": "ย่อ",
+            "showAll": "แสดงทั้งหมด",
+            "following": "กำลังติดตามข้อมูลล่าสุด",
+            "followLatest": "กลับไปยังล่าสุด"
           },
           "collecting": "กำลังรวบรวมข้อมูลการรับส่ง…",
-          "coverageGap": "การติดตามถูกขัดจังหวะ",
           "download": "ดาวน์โหลด",
           "lifetimeEmpty": "ยังไม่มีประวัติตลอดอายุงาน",
           "loading": "กำลังโหลดกิจกรรม…",
-          "noSessionHistory": "ไม่มีการรับส่งข้อมูลที่บันทึกไว้ในเซสชันแอปนี้",
+          "noSessionHistory": "ไม่มีบันทึกการรับส่งล่าสุด",
           "noTraffic": "ขณะนี้ไม่มีการรับส่งข้อมูลเครือข่าย",
           "notAvailable": "ไม่พร้อมใช้งาน",
           "range": {
@@ -952,7 +962,7 @@
             "label": "ช่วงเวลาการรับส่งข้อมูล",
             "latest": "60 วินาทีล่าสุด",
             "lifetime": "ตลอดอายุงาน",
-            "session": "เซสชัน (60 วินาที)"
+            "session": "60 วินาทีล่าสุด"
           },
           "retry": "ลองอีกครั้ง",
           "stale": {
@@ -1005,7 +1015,7 @@
           },
           "transferTitle": {
             "lifetime": "การรับส่งตลอดอายุงาน",
-            "session": "การรับส่งในเซสชัน"
+            "session": "การรับส่งล่าสุด"
           },
           "unavailable": "กิจกรรมตลอดอายุงานไม่พร้อมใช้งาน",
           "upload": "อัปโหลด"

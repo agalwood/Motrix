@@ -941,14 +941,24 @@
             "noDataQualityIssues": "Aucun avertissement de suivi.",
             "sampleCount_many": "{{count}} échantillons",
             "sampleCount_one": "{{count}} échantillon",
-            "sampleCount_other": "{{count}} échantillons"
+            "sampleCount_other": "{{count}} échantillons",
+            "noSamples": "Aucun échantillon",
+            "overview": "Aperçu de l’historique",
+            "rangeStart": "Début de la période",
+            "rangeEnd": "Fin de la période",
+            "earlier": "Historique antérieur",
+            "later": "Historique plus récent",
+            "zoomIn": "Zoom avant",
+            "zoomOut": "Zoom arrière",
+            "showAll": "Tout afficher",
+            "following": "Suivi des dernières données",
+            "followLatest": "Revenir aux dernières données"
           },
           "collecting": "Collecte des données de transfert…",
-          "coverageGap": "Le suivi a été interrompu.",
           "download": "Réception",
           "lifetimeEmpty": "L’historique complet n’est pas encore disponible.",
           "loading": "Chargement de l’activité…",
-          "noSessionHistory": "Aucun transfert enregistré pendant cette session de l’application.",
+          "noSessionHistory": "Aucun transfert récent enregistré.",
           "noTraffic": "Aucun trafic réseau actuellement.",
           "notAvailable": "Indisponible",
           "range": {
@@ -958,7 +968,7 @@
             "label": "Période des transferts",
             "latest": "Les 60 dernières secondes",
             "lifetime": "Depuis le début",
-            "session": "Session (60 s)"
+            "session": "60 dernières s"
           },
           "retry": "Réessayer",
           "stale": {
@@ -1015,7 +1025,7 @@
           },
           "transferTitle": {
             "lifetime": "Transferts depuis le début",
-            "session": "Transferts de la session"
+            "session": "Transfert récent"
           },
           "unavailable": "L’historique complet de l’activité est indisponible.",
           "upload": "Envoi"

@@ -942,14 +942,24 @@
             "activeSeconds_other": "{{count}} ثانیه",
             "noDataQualityIssues": "هشداری دربارهٔ ردیابی وجود ندارد.",
             "sampleCount_one": "{{count}} نمونه",
-            "sampleCount_other": "{{count}} نمونه"
+            "sampleCount_other": "{{count}} نمونه",
+            "noSamples": "بدون نمونه",
+            "overview": "نمای کلی تاریخچه",
+            "rangeStart": "شروع بازه",
+            "rangeEnd": "پایان بازه",
+            "earlier": "تاریخچه قدیمی‌تر",
+            "later": "تاریخچه جدیدتر",
+            "zoomIn": "بزرگ‌نمایی",
+            "zoomOut": "کوچک‌نمایی",
+            "showAll": "نمایش همه",
+            "following": "دنبال‌کردن جدیدترین داده‌ها",
+            "followLatest": "بازگشت به جدیدترین"
           },
           "collecting": "در حال جمع‌آوری داده‌های انتقال…",
-          "coverageGap": "ردیابی قطع شد.",
           "download": "دانلود",
           "lifetimeEmpty": "سابقهٔ کل دوره هنوز در دسترس نیست.",
           "loading": "در حال بارگیری فعالیت…",
-          "noSessionHistory": "در این نشست برنامه انتقالی ثبت نشده است.",
+          "noSessionHistory": "انتقالی در زمان اخیر ثبت نشده است.",
           "noTraffic": "اکنون ترافیکی در شبکه وجود ندارد.",
           "notAvailable": "در دسترس نیست",
           "range": {
@@ -958,7 +968,7 @@
             "label": "بازهٔ زمانی انتقال",
             "latest": "60 ثانیهٔ اخیر",
             "lifetime": "کل دوره",
-            "session": "نشست (60 ثانیه)"
+            "session": "۶۰ ثانیه اخیر"
           },
           "retry": "تلاش دوباره",
           "stale": {
@@ -1013,7 +1023,7 @@
           },
           "transferTitle": {
             "lifetime": "انتقال در کل دوره",
-            "session": "انتقال در این نشست"
+            "session": "انتقال اخیر"
           },
           "unavailable": "فعالیت کل دوره در دسترس نیست.",
           "upload": "بارگذاری"
