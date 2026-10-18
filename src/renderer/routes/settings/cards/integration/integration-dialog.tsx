@@ -227,7 +227,9 @@ export function IntegrationDialog({
                       {t('settings.integration.media.title')}
                     </h3>
                     <MediaToolsSection />
-                    <YtdlpToolsSection />
+                    {__MOTRIX_TARGET__ === 'electron' && !isWeb && (
+                      <YtdlpToolsSection />
+                    )}
                   </section>
                 </fieldset>
               </FormProvider>

@@ -1,6 +1,9 @@
+import { execFile } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { readdir, stat, writeFile } from 'node:fs/promises'
+import { readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { promisify } from 'node:util'
 import {
   type BrowserContext,
   chromium,
@@ -27,7 +30,7 @@ import {
  * browser-only path: no Add-Task window, everything driven from the page.
  *
  * Opt-in because it needs a built extension, a Chromium binary, and outbound
- * network access to YouTube:
+ * network access to YouTube (or a controlled MOTRIX_MEDIA_TEST_URL fixture):
  *
  *   MOTRIX_EXTENSION_BUILD=<repo>/dist/chromium \
  *   MOTRIX_CHROMIUM_EXECUTABLE=/path/to/chrome \
@@ -46,7 +49,10 @@ import {
 
 const extensionBuild = process.env.MOTRIX_EXTENSION_BUILD?.trim() ?? ''
 const liveNetwork = process.env.MOTRIX_LIVE_NETWORK_TESTS === '1'
-const YOUTUBE_VIDEO = 'https://www.youtube.com/watch?v=jNQXAC9IVRw'
+const execFileAsync = promisify(execFile)
+const audioSelection = process.env.MOTRIX_MEDIA_QUALITY === 'mp3'
+const fixturePage = process.env.MOTRIX_MEDIA_TEST_URL?.trim()
+const mediaPage = fixturePage || 'https://www.youtube.com/watch?v=jNQXAC9IVRw'
 
 function chromiumExecutable(): string | undefined {
   const configured = process.env.MOTRIX_CHROMIUM_EXECUTABLE?.trim()
@@ -84,13 +90,13 @@ test.describe('real Chromium extension overlay', () => {
 
   test.setTimeout(300_000)
 
-  test('grab overlay pill renders anchored on a playing YouTube video', async ({
+  test('grab overlay pill renders anchored on a playing video', async ({
     userDataDir,
   }, testInfo) => {
     const context = await launchExtension(userDataDir)
     try {
       const page = await context.newPage()
-      await openYouTube(page)
+      await openMediaPage(page)
       await waitForOverlay(page)
 
       const anchor = await expect
@@ -121,23 +127,29 @@ test.describe('real Chromium extension overlay', () => {
     }
   })
 
-  test('grab overlay downloads the video through the paired Motrix App', async ({
+  test('grab overlay downloads the selection through the paired Motrix App', async ({
     userDataDir,
     rpcPort,
   }, testInfo) => {
     await writeSettings(userDataDir)
-    const app = await launchMotrix({ userDataDir, rpcPort })
+    const app = await launchMotrix({
+      userDataDir,
+      rpcPort,
+      extraEnv: {
+        MOTRIX_BRIDGE_DATA_DIR: path.join(userDataDir, 'bridge'),
+      },
+    })
     const context = await launchExtension(userDataDir)
     try {
       const mainWindow = await app.firstWindow()
       await mainWindow.waitForLoadState('domcontentloaded')
       await waitForQueryHandlers(mainWindow)
       const boundPort = await readBridgePort(mainWindow)
-      await pairExtension(mainWindow, context, boundPort)
       await waitForEngineReady(mainWindow)
+      await pairExtension(mainWindow, context, boundPort)
 
       const page = await context.newPage()
-      await openYouTube(page)
+      await openMediaPage(page)
       await waitForOverlay(page)
 
       const anchor = await overlayPillAnchor(page)
@@ -147,20 +159,37 @@ test.describe('real Chromium extension overlay', () => {
 
       // Opening the overlay must not query formats. Only the explicit
       // Show qualities action may send this page URL to the desktop.
+      const worker = context.serviceWorkers()[0]
+      if (!worker) throw new Error('extension worker is unavailable')
+      const showQualitiesLabel = await worker.evaluate(() =>
+        (
+          globalThis as unknown as {
+            chrome: { i18n: { getMessage: (key: string) => string } }
+          }
+        ).chrome.i18n.getMessage('grabberShowQualities')
+      )
+      expect(showQualitiesLabel).not.toBe('')
       let task: DownloadTask | null = null
       for (let attempt = 0; attempt < 3 && task === null; attempt += 1) {
         const actions = await waitForOverlayRows(page, 15_000, (rows) =>
-          rows.some((row) => row.label === 'Show qualities')
+          rows.some(
+            (row) => row.label === showQualitiesLabel && isClickable(row)
+          )
         )
-        const show = pickRow(actions, (row) => row.label === 'Show qualities')
+        const show = pickRow(actions, (row) => row.label === showQualitiesLabel)
         expect(show?.box).not.toBeNull()
-        if (!show?.box) throw new Error('quality query action is unavailable')
+        if (!show?.box) {
+          throw new Error(
+            `quality query action is unavailable: ${JSON.stringify(actions.map(({ label, disabled, box }) => ({ label, disabled, visible: box !== null })))}`
+          )
+        }
         await page.mouse.click(show.box.centerX, show.box.centerY)
         const rows = await waitForOverlayRows(page, 90_000, (candidates) =>
           candidates.some(isQualityRow)
         )
-        const chosen =
-          pickSmallestVideoRow(rows) ?? pickRow(rows, isQualityRow) ?? null
+        const chosen = audioSelection
+          ? pickRow(rows, (row) => /^MP3\b/.test(row.label))
+          : pickSmallestVideoRow(rows)
         console.log(
           `[overlay] attempt ${attempt}: heading=${JSON.stringify(
             await overlayPanelHeading(page)
@@ -199,6 +228,32 @@ test.describe('real Chromium extension overlay', () => {
       // The browser alone produced a real file on disk.
       const file = await findMediaFile(finished)
       expect(file).not.toBeNull()
+      if (file && audioSelection) {
+        expect(file).toMatch(/\.mp3$/i)
+        const { stdout } = await execFileAsync(
+          process.env.MOTRIX_FFPROBE_PATH?.trim() || 'ffprobe',
+          [
+            '-v',
+            'error',
+            '-show_entries',
+            'stream=codec_type,codec_name',
+            '-of',
+            'json',
+            file,
+          ]
+        )
+        expect(JSON.parse(stdout).streams).toEqual([
+          { codec_name: 'mp3', codec_type: 'audio' },
+        ])
+      }
+      const expectedHash = process.env.MOTRIX_MEDIA_EXPECTED_SHA256
+      if (file && expectedHash) {
+        expect(
+          createHash('sha256')
+            .update(await readFile(file))
+            .digest('hex')
+        ).toBe(expectedHash)
+      }
       console.log(`[overlay] downloaded -> ${file}`)
     } finally {
       await context.close().catch(() => undefined)
@@ -243,6 +298,10 @@ async function writeSettings(userDataDir: string): Promise<void> {
       tracker: { autoSync: false },
       media: {
         ytdlpEnabled: true,
+        // A caller-supplied fixture opts into generic extraction only in this
+        // temporary profile. Production defaults and host policies stay intact.
+        ytdlpAllUrls: Boolean(fixturePage),
+        ffmpegBinaryPath: process.env.MOTRIX_FFMPEG_PATH?.trim() || '',
         ytdlpBinaryPath: process.env.MOTRIX_YT_DLP_PATH?.trim() || '',
       },
       onboarding: { disclaimerAccepted: true },
@@ -291,8 +350,8 @@ async function readBridgePort(page: Page): Promise<number> {
   return status.port
 }
 
-async function openYouTube(page: Page): Promise<void> {
-  await page.goto(YOUTUBE_VIDEO, {
+async function openMediaPage(page: Page): Promise<void> {
+  await page.goto(mediaPage, {
     waitUntil: 'domcontentloaded',
     timeout: 90_000,
   })
@@ -302,6 +361,7 @@ async function openYouTube(page: Page): Promise<void> {
       const video = document.querySelector('video')
       if (!video) return
       video.muted = true
+      video.loop = true
       void video.play().catch(() => undefined)
     })
     .catch(() => undefined)
@@ -695,6 +755,14 @@ async function pairExtension(
     .poll(() => readPairingCode(mainWindow), { timeout: 60_000 })
     .not.toBeNull()
     .then(() => readPairingCode(mainWindow))
+    .catch(async () => {
+      // Before entry, this dialog contains instructions/errors but no password.
+      const status = await page
+        .getByRole('dialog')
+        .innerText()
+        .catch(() => 'dialog closed')
+      throw new Error(`test backend did not issue a pairing prompt: ${status}`)
+    })
   if (code === null) throw new Error('the desktop did not issue a code')
 
   const dialog = page.getByRole('dialog', { name: 'Pair with Motrix' })
