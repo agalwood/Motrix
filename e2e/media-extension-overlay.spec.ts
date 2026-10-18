@@ -97,6 +97,7 @@ test.describe('real Chromium extension overlay', () => {
     try {
       const page = await context.newPage()
       await openMediaPage(page)
+      console.log('[overlay] media page ready')
       await waitForOverlay(page)
 
       const anchor = await expect
@@ -146,10 +147,30 @@ test.describe('real Chromium extension overlay', () => {
       await waitForQueryHandlers(mainWindow)
       const boundPort = await readBridgePort(mainWindow)
       await waitForEngineReady(mainWindow)
+      console.log('[overlay] engine ready')
+      if (audioSelection) {
+        const detection = await mainWindow.evaluate(async (channel) => {
+          const api = (
+            window as unknown as {
+              motrix: { invoke: (name: string) => Promise<{ active: unknown }> }
+            }
+          ).motrix
+          const result = await api.invoke(channel)
+          return {
+            available: result.active !== null && result.active !== undefined,
+          }
+        }, Queries.GetFfmpegDetection)
+        expect(
+          detection.available,
+          'configured FFmpeg must be available for MP3 acceptance'
+        ).toBe(true)
+      }
       await pairExtension(mainWindow, context, boundPort)
+      console.log('[overlay] paired')
 
       const page = await context.newPage()
       await openMediaPage(page)
+      console.log('[overlay] media page ready')
       await waitForOverlay(page)
 
       const anchor = await overlayPillAnchor(page)
@@ -159,24 +180,18 @@ test.describe('real Chromium extension overlay', () => {
 
       // Opening the overlay must not query formats. Only the explicit
       // Show qualities action may send this page URL to the desktop.
-      const worker = context.serviceWorkers()[0]
-      if (!worker) throw new Error('extension worker is unavailable')
-      const showQualitiesLabel = await worker.evaluate(() =>
-        (
-          globalThis as unknown as {
-            chrome: { i18n: { getMessage: (key: string) => string } }
-          }
-        ).chrome.i18n.getMessage('grabberShowQualities')
-      )
-      expect(showQualitiesLabel).not.toBe('')
+      const showQualitiesLabels = await qualityActionLabels()
+      console.log('[overlay] waiting for query action')
       let task: DownloadTask | null = null
       for (let attempt = 0; attempt < 3 && task === null; attempt += 1) {
         const actions = await waitForOverlayRows(page, 15_000, (rows) =>
           rows.some(
-            (row) => row.label === showQualitiesLabel && isClickable(row)
+            (row) => showQualitiesLabels.has(row.label) && isClickable(row)
           )
         )
-        const show = pickRow(actions, (row) => row.label === showQualitiesLabel)
+        const show = pickRow(actions, (row) =>
+          showQualitiesLabels.has(row.label)
+        )
         expect(show?.box).not.toBeNull()
         if (!show?.box) {
           throw new Error(
@@ -184,11 +199,16 @@ test.describe('real Chromium extension overlay', () => {
           )
         }
         await page.mouse.click(show.box.centerX, show.box.centerY)
+        console.log('[overlay] requested formats')
         const rows = await waitForOverlayRows(page, 90_000, (candidates) =>
-          candidates.some(isQualityRow)
+          candidates.some((row) =>
+            audioSelection
+              ? row.formatKey === 'mp3'
+              : /^\d{3,4}p$/.test(row.formatKey ?? '')
+          )
         )
         const chosen = audioSelection
-          ? pickRow(rows, (row) => /^MP3\b/.test(row.label))
+          ? pickRow(rows, (row) => row.formatKey === 'mp3')
           : pickSmallestVideoRow(rows)
         console.log(
           `[overlay] attempt ${attempt}: heading=${JSON.stringify(
@@ -262,6 +282,22 @@ test.describe('real Chromium extension overlay', () => {
   })
 })
 
+/** Native extension strings follow the browser UI locale, not the page locale. */
+async function qualityActionLabels(): Promise<Set<string>> {
+  const directory = path.join(extensionBuild, '_locales')
+  const labels = new Set<string>()
+  for (const locale of await readdir(directory, { withFileTypes: true })) {
+    if (!locale.isDirectory()) continue
+    const messages = JSON.parse(
+      await readFile(path.join(directory, locale.name, 'messages.json'), 'utf8')
+    )
+    const label = messages.grabberShowQualities?.message
+    if (typeof label === 'string') labels.add(label)
+  }
+  expect(labels.size).toBeGreaterThan(0)
+  return labels
+}
+
 async function launchExtension(userDataDir: string): Promise<BrowserContext> {
   const context = await chromium.launchPersistentContext(
     path.join(userDataDir, 'chromium-profile'),
@@ -294,7 +330,11 @@ async function writeSettings(userDataDir: string): Promise<void> {
     path.join(userDataDir, 'settings.json'),
     JSON.stringify({
       version: CURRENT_SETTINGS_VERSION,
-      app: { autofillClipboardLinks: false, browserBridgeEnabled: true },
+      app: {
+        language: 'en-US',
+        autofillClipboardLinks: false,
+        browserBridgeEnabled: true,
+      },
       tracker: { autoSync: false },
       media: {
         ytdlpEnabled: true,
@@ -498,17 +538,14 @@ function isRow(attrs: Record<string, string>): boolean {
   return classes.includes('row') && !classes.includes('note')
 }
 
-/** A `720p`-style desktop quality row (the MP3 row matches `audio`). */
-function isQualityRow(row: OverlayRow): boolean {
-  return /^(?:\d{3,4}p|MP3)\b/.test(row.label)
-}
-
 /** The smallest enabled video quality row (the list is tallest-first). */
 function pickSmallestVideoRow(rows: OverlayRow[]): OverlayRow | null {
   return (
     [...rows]
       .reverse()
-      .find((row) => /^\d{3,4}p\b/.test(row.label) && isClickable(row)) ?? null
+      .find(
+        (row) => /^\d{3,4}p$/.test(row.formatKey ?? '') && isClickable(row)
+      ) ?? null
   )
 }
 
@@ -555,6 +592,7 @@ async function waitForOverlayRows(
  */
 interface OverlayRow {
   label: string
+  formatKey: string | null
   disabled: boolean
   box: Box | null
 }
@@ -589,7 +627,12 @@ async function overlayRows(page: Page): Promise<OverlayRow[]> {
         .send('DOM.getBoxModel', { nodeId: node.nodeId })
         .catch(() => null)) as { model?: { content: number[] } } | null
       const q = model?.model?.content
-      rows.push({ label, disabled, box: q ? boxFromQuad(q) : null })
+      rows.push({
+        label,
+        formatKey: attrMap(node.attributes)['data-format-key'] ?? null,
+        disabled,
+        box: q ? boxFromQuad(q) : null,
+      })
     }
     return rows
   } catch {
@@ -730,7 +773,25 @@ async function pairExtension(
   await mainWindow.getByText('Integration', { exact: true }).first().click()
 
   const page = await context.newPage()
-  await page.goto(`chrome-extension://${extensionId}/options.html`)
+  await page.goto(`chrome-extension://${extensionId}/options.html`, {
+    waitUntil: 'domcontentloaded',
+    timeout: 30_000,
+  })
+  // Options use the stored UI preference; native content-script strings still
+  // follow the browser locale and are read from the build's language catalogs.
+  await page.evaluate(async () => {
+    const api = (
+      globalThis as unknown as {
+        chrome: {
+          storage: {
+            local: { set: (values: Record<string, string>) => Promise<void> }
+          }
+        }
+      }
+    ).chrome
+    await api.storage.local.set({ 'motrix.locale': 'en-US' })
+  })
+  await page.reload({ waitUntil: 'domcontentloaded' })
   await page.getByRole('tab', { name: 'Integration' }).click()
   await expect(
     page.getByRole('list', { name: 'Available Motrix backends' })
