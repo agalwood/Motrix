@@ -223,7 +223,8 @@ async function launchSeededApp(
 
 async function openActivityForTask(
   page: Page,
-  taskName: string
+  taskName: string,
+  lifetime = false
 ): Promise<void> {
   if (!page.url().includes('#/downloads')) {
     await page.getByRole('link', { name: 'Downloads' }).click()
@@ -246,6 +247,12 @@ async function openActivityForTask(
   await expect(tabs.last()).toBeVisible()
   await tabs.last().click()
   await expect(page.getByTestId('task-inspector-activity-root')).toBeVisible()
+  // The route is visible while its two history queries still show a skeleton.
+  await expect(
+    page.getByTestId('activity-transfer-chart-viewport')
+  ).toBeVisible()
+  if (lifetime)
+    await page.getByRole('radio', { name: /^(Lifetime|全程)$/ }).click()
 }
 
 async function capture(page: Page, name: string): Promise<void> {
@@ -615,12 +622,137 @@ test.describe('Task Inspector Activity', () => {
     }
   })
 
+  test('follows a recent window, preserves browsing, and zooms the full history', async ({
+    userDataDir,
+  }) => {
+    const { app, page } = await launchSeededApp(userDataDir)
+    try {
+      await page.clock.setFixedTime(TASK_INSPECTOR_ACTIVITY_NOW + 10_000)
+      await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.rich)
+      const view = page.getByTestId('activity-transfer-chart-viewport')
+      const readWindow = () =>
+        view.evaluate((element) => ({
+          start: Number(element.getAttribute('data-start')),
+          end: Number(element.getAttribute('data-end')),
+        }))
+      await expect(
+        page.getByRole('radio', { name: 'Lifetime', exact: true })
+      ).toHaveAttribute('aria-checked', 'true')
+      await expect(page.getByTestId('activity-chart-overview')).toBeVisible()
+      const marker = page.locator('.activity-chart-marker line').first()
+      const markerPosition = await marker.evaluate((element) => {
+        const rect = element.getBoundingClientRect()
+        return { x: rect.x, y: rect.y + 24 }
+      })
+      await page.mouse.click(markerPosition.x, markerPosition.y)
+      await expect(page.locator('.activity-chart-marker-selected')).toHaveCount(
+        1
+      )
+      const initial = await readWindow()
+      await publishTaskInspectorPresentation(app, page, {
+        taskId: TASK_INSPECTOR_ACTIVITY_IDS.rich,
+        status: 'downloading',
+        downloadSpeed: 15_000_000,
+        uploadSpeed: 500_000,
+      })
+      await expect
+        .poll(async () => (await readWindow()).end)
+        .toBeGreaterThan(initial.end)
+      await expect(
+        page.getByRole('radio', { name: 'Last 60s', exact: true })
+      ).toHaveAttribute('aria-checked', 'true')
+      const recent = await readWindow()
+      expect(recent.end - recent.start).toBe(60_000)
+      await page.clock.setFixedTime(TASK_INSPECTOR_ACTIVITY_NOW + 11_000)
+      await publishTaskInspectorPresentation(app, page, {
+        taskId: TASK_INSPECTOR_ACTIVITY_IDS.rich,
+        status: 'downloading',
+        downloadSpeed: 18_000_000,
+        uploadSpeed: 500_000,
+      })
+      await expect(view).toHaveAttribute('data-animating', 'true')
+      const frames = await view.evaluate(async (element) => {
+        const paths = new Set<string>()
+        const until = performance.now() + 350
+        while (performance.now() < until) {
+          await new Promise<void>((resolve) =>
+            requestAnimationFrame(() => resolve())
+          )
+          const path = element
+            .querySelector('.activity-transfer-line-down .recharts-area-curve')
+            ?.getAttribute('d')
+          if (path) paths.add(path)
+        }
+        return paths.size
+      })
+      expect(frames).toBeGreaterThan(2)
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      await page.clock.setFixedTime(TASK_INSPECTOR_ACTIVITY_NOW + 12_000)
+      await publishTaskInspectorPresentation(app, page, {
+        taskId: TASK_INSPECTOR_ACTIVITY_IDS.rich,
+        status: 'downloading',
+        downloadSpeed: 16_000_000,
+        uploadSpeed: 500_000,
+      })
+      await expect(view).toHaveAttribute('data-animating', 'false')
+      await page.emulateMedia({ reducedMotion: 'no-preference' })
+      await view.hover()
+      await page.mouse.wheel(-200, 0)
+      await expect(view).toHaveAttribute('data-following', 'false')
+      const history = await readWindow()
+      await page.clock.setFixedTime(TASK_INSPECTOR_ACTIVITY_NOW + 20_000)
+      await publishTaskInspectorPresentation(app, page, {
+        taskId: TASK_INSPECTOR_ACTIVITY_IDS.rich,
+        status: 'downloading',
+        downloadSpeed: 17_000_000,
+        uploadSpeed: 600_000,
+      })
+      await expect.poll(readWindow).toEqual(history)
+      await page
+        .getByRole('button', { name: 'Back to latest', exact: true })
+        .click()
+      await expect(view).toHaveAttribute('data-following', 'true')
+      await expect
+        .poll(async () => (await readWindow()).end)
+        .toBe(TASK_INSPECTOR_ACTIVITY_NOW + 20_000)
+      await page.getByRole('radio', { name: 'Lifetime', exact: true }).click()
+      await expect(page.getByTestId('activity-chart-overview')).toBeVisible()
+      const full = await readWindow()
+      await page.getByRole('button', { name: 'Zoom in', exact: true }).click()
+      const zoomed = await readWindow()
+      expect(zoomed.end - zoomed.start).toBeCloseTo(
+        (full.end - full.start) / 2,
+        0
+      )
+      const rangeEnd = page.getByRole('slider', {
+        name: 'Range end',
+        exact: true,
+      })
+      await rangeEnd.focus()
+      await rangeEnd.press('ArrowLeft')
+      await expect(view).toHaveAttribute('data-following', 'false')
+      await expect(rangeEnd).toHaveAttribute(
+        'aria-valuetext',
+        /\d{2}:\d{2}:\d{2}/
+      )
+      await page.getByRole('button', { name: 'Show all', exact: true }).click()
+      await expect.poll(readWindow).toEqual(full)
+      await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.error)
+      await expect(view).toHaveAttribute('data-following', 'true')
+      const switched = await readWindow()
+      expect(switched.end - switched.start).toBe(60_000)
+      await capture(page, 'recent-transfer-following.png')
+    } finally {
+      await app.close().catch(() => {})
+    }
+  })
+
   test('renders durable states, exact container boundaries, accessibility, and visual variants', async ({
     userDataDir,
   }) => {
     const { app, page } = await launchSeededApp(userDataDir)
     try {
-      await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.rich)
+      await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.rich, true)
 
       const root = page.getByTestId('task-inspector-activity-root')
       const transfer = page.getByTestId('task-inspector-activity-transfer-card')
@@ -647,12 +779,12 @@ test.describe('Task Inspector Activity', () => {
       await lifetime.focus()
       await lifetime.press('Home')
       await expect(
-        group.getByRole('radio', { name: /Session/i })
+        group.getByRole('radio', { name: /Last 60s/i })
       ).toHaveAttribute('aria-checked', 'true')
       await expect(
-        transfer.getByRole('heading', { name: 'Session transfer' })
+        transfer.getByRole('heading', { name: 'Recent transfer' })
       ).toBeVisible()
-      await group.getByRole('radio', { name: /Session/i }).press('End')
+      await group.getByRole('radio', { name: /Last 60s/i }).press('End')
       await expect(
         group.getByRole('radio', { name: /Lifetime/i })
       ).toHaveAttribute('aria-checked', 'true')
@@ -694,6 +826,27 @@ test.describe('Task Inspector Activity', () => {
           .getByRole('radio', { name: /Lifetime/i })
           .evaluate((element) => getComputedStyle(element).transitionProperty)
       ).toBe('none')
+      const zoomIn = page.getByRole('button', { name: 'Zoom in', exact: true })
+      await zoomIn.scrollIntoViewIfNeeded()
+      const zoomBox = await zoomIn.boundingBox()
+      if (!zoomBox) throw new Error('Zoom control is not visible')
+      await page.mouse.move(
+        zoomBox.x + zoomBox.width / 2,
+        zoomBox.y + zoomBox.height / 2
+      )
+      await page.mouse.down()
+      try {
+        await expect
+          .poll(() =>
+            zoomIn.evaluate((element) =>
+              Number.parseFloat(getComputedStyle(element).scale)
+            )
+          )
+          .toBe(1)
+      } finally {
+        await page.mouse.up()
+      }
+      await page.getByRole('button', { name: 'Show all', exact: true }).click()
       await presentActiveReference(app, page, TASK_INSPECTOR_ACTIVITY_IDS.rich)
       await capture(page, 'reference-en-US-light-914.png')
 
@@ -738,7 +891,7 @@ test.describe('Task Inspector Activity', () => {
         sidebarExpanded: true,
       })
 
-      await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.error)
+      await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.error, true)
       await expect(
         page
           .getByRole('dialog', { name: 'Task Inspector', exact: true })
@@ -747,16 +900,20 @@ test.describe('Task Inspector Activity', () => {
       await expect(transfer.getByRole('img')).toBeVisible()
       await capture(page, 'error-en-US-light-914.png')
 
-      await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.zero)
+      await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.zero, true)
       await expect(page.getByText('No network traffic right now')).toBeVisible()
       await capture(page, 'all-zero-en-US-light-914.png')
 
-      await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.empty)
+      await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.empty, true)
       await expect(
         page.getByText('Lifetime history is not available yet')
       ).toBeVisible()
 
-      await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.single)
+      await openActivityForTask(
+        page,
+        TASK_INSPECTOR_ACTIVITY_NAMES.single,
+        true
+      )
       await expect(
         transfer.getByText('Adaptive resolution · 1 sample', { exact: true })
       ).toBeVisible()
@@ -764,13 +921,17 @@ test.describe('Task Inspector Activity', () => {
         transfer.getByRole('img', { name: /1 sample\b/ })
       ).toBeVisible()
 
-      await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.compacted)
+      await openActivityForTask(
+        page,
+        TASK_INSPECTOR_ACTIVITY_NAMES.compacted,
+        true
+      )
       await expect(
         transfer.getByText(/^Adaptive resolution · [1-9]\d* samples?$/)
       ).toBeVisible()
       await expect(
         transfer.getByText('Tracking was interrupted.', { exact: true })
-      ).toBeVisible()
+      ).toHaveCount(0)
       await capture(page, 'completed-en-US-light-914.png')
 
       const historyDroppedCount = await app.evaluate(
@@ -805,7 +966,11 @@ test.describe('Task Inspector Activity', () => {
         { userDataDir, taskId: TASK_INSPECTOR_ACTIVITY_IDS.truncated }
       )
       expect(historyDroppedCount).toBeGreaterThan(0)
-      await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.truncated)
+      await openActivityForTask(
+        page,
+        TASK_INSPECTOR_ACTIVITY_NAMES.truncated,
+        true
+      )
       await expect(
         page
           .getByRole('dialog', { name: 'Task Inspector', exact: true })
@@ -830,7 +995,11 @@ test.describe('Task Inspector Activity', () => {
           variant.theme,
           variant.language
         )
-        await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.rich)
+        await openActivityForTask(
+          page,
+          TASK_INSPECTOR_ACTIVITY_NAMES.rich,
+          true
+        )
         await presentActiveReference(
           app,
           page,
@@ -853,7 +1022,7 @@ test.describe('Task Inspector Activity', () => {
       failAfterFirstQuery: true,
     })
     try {
-      await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.rich)
+      await openActivityForTask(page, TASK_INSPECTOR_ACTIVITY_NAMES.rich, true)
       const root = page.getByTestId('task-inspector-activity-root')
       const sampleLabel = root.getByText(
         /^Adaptive resolution · [1-9]\d* samples?$/
@@ -894,7 +1063,7 @@ test.describe('Task Inspector Activity', () => {
         page.getByText(/Lifetime activity is unavailable/i)
       ).toBeVisible()
       await expect(
-        page.getByRole('radio', { name: /Session/i })
+        page.getByRole('radio', { name: /Last 60s/i })
       ).toHaveAttribute('aria-checked', 'true')
       await expect(
         page.getByRole('radio', { name: /Lifetime/i })

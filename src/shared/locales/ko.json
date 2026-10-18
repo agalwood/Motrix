@@ -686,18 +686,17 @@
         },
         "activity": {
           "transferTitle": {
-            "session": "세션 전송량",
+            "session": "최근 전송",
             "lifetime": "전체 전송량"
           },
           "download": "다운로드",
           "upload": "업로드",
           "loading": "활동을 불러오는 중…",
           "collecting": "전송 데이터를 수집하는 중…",
-          "noSessionHistory": "이번 앱 세션에 기록된 전송량이 없습니다.",
+          "noSessionHistory": "최근 전송 기록이 없습니다.",
           "lifetimeEmpty": "아직 전체 기간 기록을 사용할 수 없습니다.",
           "noTraffic": "현재 네트워크 트래픽이 없습니다.",
           "unavailable": "전체 기간 활동을 사용할 수 없습니다.",
-          "coverageGap": "기록 수집이 중단되었습니다.",
           "retry": "다시 시도",
           "notAvailable": "사용할 수 없음",
           "stale": {
@@ -706,7 +705,7 @@
           },
           "range": {
             "label": "전송 시간 범위",
-            "session": "세션(60초)",
+            "session": "최근 60초",
             "lifetime": "전체 기간",
             "latest": "최근 60초",
             "adaptive_other": "적응형 해상도 · 표본 {{count}}개"
@@ -759,7 +758,18 @@
             "accessibleSummary": "{{range}}, {{start}}~{{end}}. 최근 다운로드 {{download}}, 업로드 {{upload}}. 전체 기간 평균 다운로드 {{average}}, 최고 다운로드 {{peak}}, 실제 전송 시간 {{activeDuration}}. {{sampleLabel}}. {{state}}",
             "activeSeconds_other": "{{count}}초",
             "sampleCount_other": "표본 {{count}}개",
-            "noDataQualityIssues": "기록 관련 경고가 없습니다."
+            "noDataQualityIssues": "기록 관련 경고가 없습니다.",
+            "noSamples": "샘플 없음",
+            "overview": "전체 기록 개요",
+            "rangeStart": "범위 시작",
+            "rangeEnd": "범위 끝",
+            "earlier": "이전 기록",
+            "later": "이후 기록",
+            "zoomIn": "확대",
+            "zoomOut": "축소",
+            "showAll": "전체 보기",
+            "following": "최신 데이터 추적 중",
+            "followLatest": "최신으로 이동"
           }
         },
         "pieces": {

@@ -737,6 +737,37 @@ describe('TaskInspectorActivityService', () => {
     ).toHaveLength(1)
   })
 
+  it.each([TaskStatus.Completed, TaskStatus.Error, TaskStatus.Removed])(
+    'does not mark a closed %s timeline as interrupted on a later disconnect',
+    (status) => {
+      const ctx = setup()
+      ctx.service.recordSamples([ctx.sample()])
+      ctx.advance(1000)
+      ctx.service.noteTransition({
+        taskId: 'task-1',
+        previousStatus: TaskStatus.Downloading,
+        nextStatus: status,
+        occurredAt: ctx.wall,
+        monotonicAt: ctx.monotonic,
+        accuracy: TaskHistoryAccuracy.Exact,
+        errorCode: null,
+        errorMessage: null,
+      })
+      ctx.service.forceCheckpoint()
+      expect(ctx.store.batches.at(-1)?.[0]).not.toHaveProperty('coverageGapAt')
+      const checkpoints = ctx.store.batches.length
+
+      ctx.advance(5000)
+      ctx.service.markDisconnected()
+      ctx.advance(1000)
+      ctx.service.recordSamples([ctx.sample({ status })])
+      ctx.service.forceCheckpoint()
+
+      expect(ctx.store.batches).toHaveLength(checkpoints)
+      expect(ctx.recovered).not.toHaveBeenCalled()
+    }
+  )
+
   it('flushes on disconnect and dispose while clearing the integration baseline', async () => {
     const ctx = setup()
     ctx.service.recordSamples([ctx.sample()])
@@ -745,6 +776,7 @@ describe('TaskInspectorActivityService', () => {
 
     ctx.service.markDisconnected()
     expect(ctx.store.batches).toHaveLength(1)
+    expect(ctx.store.batches[0][0].coverageGapAt).toBe(ctx.wall)
 
     ctx.advance(1_000)
     ctx.service.recordSamples([ctx.sample({ downloadSpeed: 300 })])

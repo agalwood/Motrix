@@ -159,8 +159,123 @@ describe('ActivityTab', () => {
     expect(transferSurface).toContainElement(
       screen.getByTestId('task-inspector-activity-summary-card')
     )
-    expect(container.querySelectorAll('.recharts-area')).toHaveLength(0)
-    expect(container.querySelectorAll('.recharts-bar')).toHaveLength(2)
+    expect(container.querySelectorAll('.recharts-area')).toHaveLength(2)
+    expect(container.querySelectorAll('.recharts-bar')).toHaveLength(0)
+    expect(screen.getByRole('radio', { name: 'Last 60s' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    )
+  })
+
+  it.each([
+    { status: TaskStatus.Completed, selected: 'Lifetime' },
+    { status: TaskStatus.Downloading, selected: 'Last 60s' },
+    { status: TaskStatus.Seeding, selected: 'Last 60s' },
+  ])('defaults to $selected for $status tasks', ({ status, selected }) => {
+    render(<ActivityTab task={makeDownloadTask({ id: 't-1', status })} />)
+    expect(screen.getByRole('radio', { name: selected })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    )
+    if (status === TaskStatus.Completed)
+      expect(screen.getByTestId('activity-chart-overview')).toBeVisible()
+    else expect(screen.queryByTestId('activity-chart-overview')).toBeNull()
+  })
+
+  it('updates the default when an untouched task completes or resumes transferring', () => {
+    const task = makeDownloadTask({ id: 't-1', status: TaskStatus.Downloading })
+    const { rerender } = render(<ActivityTab task={task} />)
+    rerender(<ActivityTab task={{ ...task, status: TaskStatus.Completed }} />)
+    expect(screen.getByRole('radio', { name: 'Lifetime' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    )
+    rerender(<ActivityTab task={{ ...task, status: TaskStatus.Seeding }} />)
+    expect(screen.getByRole('radio', { name: 'Last 60s' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    )
+  })
+
+  it('keeps an explicit range choice across status and data updates', async () => {
+    const user = userEvent.setup()
+    const task = makeDownloadTask({ id: 't-1', status: TaskStatus.Downloading })
+    const { rerender } = render(<ActivityTab task={task} />)
+    await user.click(screen.getByRole('radio', { name: 'Lifetime' }))
+    await user.click(screen.getByRole('radio', { name: 'Last 60s' }))
+    rerender(<ActivityTab task={{ ...task, status: TaskStatus.Completed }} />)
+    expect(screen.getByRole('radio', { name: 'Last 60s' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    )
+    await user.click(screen.getByRole('radio', { name: 'Lifetime' }))
+    rerender(
+      <ActivityTab
+        task={{
+          ...task,
+          status: TaskStatus.Downloading,
+          updatedAt: task.updatedAt + 1000,
+        }}
+      />
+    )
+    expect(screen.getByRole('radio', { name: 'Lifetime' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    )
+  })
+
+  it('keeps a manually browsed window when the task completes', async () => {
+    const user = userEvent.setup()
+    const task = makeDownloadTask({ id: 't-1', status: TaskStatus.Downloading })
+    hookState.activity = {
+      status: 'ready',
+      snapshot: snapshot({
+        points: [
+          { t: BASE_TIME - 120000, down: 1024, up: 0, flags: 0 },
+          { t: BASE_TIME, down: 2048, up: 0, flags: 0 },
+        ],
+      }),
+    }
+    const { rerender } = render(<ActivityTab task={task} />)
+    await user.click(screen.getByRole('button', { name: 'Earlier history' }))
+    const start = screen.getByTestId('activity-transfer-chart-viewport').dataset
+      .start
+    rerender(<ActivityTab task={{ ...task, status: TaskStatus.Completed }} />)
+    expect(screen.getByRole('radio', { name: 'Last 60s' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    )
+    expect(
+      screen.getByTestId('activity-transfer-chart-viewport')
+    ).toHaveAttribute('data-start', start)
+  })
+
+  it('applies the new task default instead of inheriting another task’s selection', async () => {
+    const user = userEvent.setup()
+    const task = makeDownloadTask({ id: 't-1', status: TaskStatus.Completed })
+    const { rerender } = render(<ActivityTab task={task} />)
+    await user.click(screen.getByRole('radio', { name: 'Last 60s' }))
+    rerender(<ActivityTab task={{ ...task, id: 't-2' }} />)
+    expect(screen.getByRole('radio', { name: 'Lifetime' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    )
+  })
+
+  it('restores the completed-task default when lifetime data becomes available', () => {
+    const task = makeDownloadTask({ id: 't-1', status: TaskStatus.Completed })
+    hookState.activity = {
+      status: 'unavailable',
+      snapshot: null,
+      retry: vi.fn(),
+    }
+    const { rerender } = render(<ActivityTab task={task} />)
+    expect(screen.getByRole('radio', { name: 'Last 60s' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    )
+    hookState.activity = { status: 'ready', snapshot: snapshot() }
+    rerender(<ActivityTab task={task} />)
     expect(screen.getByRole('radio', { name: 'Lifetime' })).toHaveAttribute(
       'aria-checked',
       'true'
@@ -210,12 +325,11 @@ describe('ActivityTab', () => {
       />
     )
 
+    expect(screen.getByText('Collecting transfer data…')).toBeInTheDocument()
+    await user.click(screen.getByRole('radio', { name: 'Lifetime' }))
     expect(
       screen.getByText('Lifetime history is not available yet.')
     ).toBeInTheDocument()
-
-    await user.click(screen.getByRole('radio', { name: 'Session(60s)' }))
-    expect(screen.getByText('Collecting transfer data…')).toBeInTheDocument()
   })
 
   it('shows the live Session tail in Lifetime before the first durable checkpoint', () => {
@@ -247,9 +361,9 @@ describe('ActivityTab', () => {
       screen.queryByText('Lifetime history is not available yet.')
     ).toBeNull()
     expect(
-      screen.getByRole('heading', { name: 'Lifetime transfer' })
+      screen.getByRole('heading', { name: 'Recent transfer' })
     ).toBeInTheDocument()
-    expect(screen.getByText('Adaptive resolution · 2 samples')).toBeVisible()
+    expect(screen.getByText('Latest 60 seconds')).toBeVisible()
   })
 
   it('keeps Session usable and exposes Retry when Lifetime is unavailable', async () => {
@@ -273,7 +387,7 @@ describe('ActivityTab', () => {
     expect(
       screen.getByText('Lifetime activity is unavailable.')
     ).toBeInTheDocument()
-    expect(screen.getByRole('radio', { name: 'Session(60s)' })).toHaveAttribute(
+    expect(screen.getByRole('radio', { name: 'Last 60s' })).toHaveAttribute(
       'aria-checked',
       'true'
     )
@@ -284,7 +398,7 @@ describe('ActivityTab', () => {
     expect(retry).toHaveBeenCalledOnce()
   })
 
-  it('preserves stale data and discloses coverage gaps and truncation', async () => {
+  it('preserves stale data and missing samples without a persistent interruption warning', async () => {
     const retry = vi.fn()
     const user = userEvent.setup()
     hookState.activity = {
@@ -307,7 +421,8 @@ describe('ActivityTab', () => {
     )
 
     expect(screen.getByText(/Data may be out of date/)).toBeInTheDocument()
-    expect(screen.getByText('Tracking was interrupted.')).toBeInTheDocument()
+    expect(screen.queryByText('Tracking was interrupted.')).toBeNull()
+    expect(screen.getByText('No samples')).toBeVisible()
     expect(
       screen.getByRole('img', {
         name: /Earlier history truncated 12 events/,
@@ -318,6 +433,43 @@ describe('ActivityTab', () => {
     await user.click(screen.getByRole('button', { name: 'Retry' }))
     expect(retry).toHaveBeenCalledOnce()
   })
+
+  it('does not warn on a completed task with a historical sampling gap', () => {
+    hookState.activity = {
+      status: 'ready',
+      snapshot: snapshot({ coverageGapAt: BASE_TIME + 500 }),
+    }
+    render(
+      <ActivityTab
+        task={makeDownloadTask({
+          id: 't-1',
+          status: TaskStatus.Completed,
+          finishedAt: BASE_TIME + 2000,
+        })}
+      />
+    )
+    expect(screen.queryByText('Tracking was interrupted.')).toBeNull()
+    expect(
+      screen.queryByTestId('task-inspector-activity-coverage-gap')
+    ).toBeNull()
+    expect(screen.getByRole('img')).not.toHaveAccessibleName(
+      /Tracking was interrupted/
+    )
+    expect(screen.getByText('No samples')).toBeVisible()
+  })
+
+  it.each([
+    { status: TaskStatus.Completed, following: false },
+    { status: TaskStatus.Seeding, following: true },
+  ])(
+    'only shows live following for ongoing transfers: $status',
+    ({ status, following }) => {
+      render(<ActivityTab task={makeDownloadTask({ id: 't-1', status })} />)
+      const indicator = screen.queryByText('Following latest')
+      if (following) expect(indicator).toBeVisible()
+      else expect(indicator).toBeNull()
+    }
+  )
 
   it('zeros stopped live speeds while retaining final lifetime metrics', () => {
     render(

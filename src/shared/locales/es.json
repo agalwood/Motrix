@@ -692,18 +692,17 @@
         },
         "activity": {
           "transferTitle": {
-            "session": "Transferencia de la sesión",
+            "session": "Transferencia reciente",
             "lifetime": "Transferencia acumulada"
           },
           "download": "Descarga",
           "upload": "Subida",
           "loading": "Cargando actividad…",
           "collecting": "Recopilando datos de transferencia…",
-          "noSessionHistory": "No se han registrado transferencias en esta sesión de la aplicación.",
+          "noSessionHistory": "No hay transferencias recientes registradas.",
           "lifetimeEmpty": "El historial acumulado aún no está disponible.",
           "noTraffic": "No hay tráfico de red en este momento.",
           "unavailable": "La actividad acumulada no está disponible.",
-          "coverageGap": "Se interrumpió el registro.",
           "retry": "Reintentar",
           "notAvailable": "No disponible",
           "stale": {
@@ -712,7 +711,7 @@
           },
           "range": {
             "label": "Periodo de transferencia",
-            "session": "Sesión (60 s)",
+            "session": "Últimos 60 s",
             "lifetime": "Todo el periodo",
             "latest": "Últimos 60 segundos",
             "adaptive_one": "Resolución adaptativa · {{count}} muestra",
@@ -775,7 +774,18 @@
             "sampleCount_other": "{{count}} muestras",
             "noDataQualityIssues": "No hay advertencias sobre el registro.",
             "activeSeconds_many": "{{count}} segundos",
-            "sampleCount_many": "{{count}} muestras"
+            "sampleCount_many": "{{count}} muestras",
+            "noSamples": "Sin muestras",
+            "overview": "Resumen del historial",
+            "rangeStart": "Inicio del intervalo",
+            "rangeEnd": "Fin del intervalo",
+            "earlier": "Historial anterior",
+            "later": "Historial posterior",
+            "zoomIn": "Acercar",
+            "zoomOut": "Alejar",
+            "showAll": "Mostrar todo",
+            "following": "Siguiendo los datos recientes",
+            "followLatest": "Volver a lo más reciente"
           }
         },
         "pieces": {

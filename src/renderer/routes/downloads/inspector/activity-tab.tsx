@@ -133,10 +133,15 @@ function ActivityTabContent({
   const availableWidth = useAvailableWidth(rootRef)
   const session = useTaskSpeedHistory(task.id)
   const activity = useTaskInspectorActivity(task.id, snapshotCache)
-  const [range, setRange] = useState<ActivityChartRange>('lifetime')
+  const [selectedRange, setSelectedRange] = useState<ActivityChartRange | null>(
+    null
+  )
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null)
 
   const snapshot = activity.snapshot
+  const range =
+    selectedRange ??
+    (task.status === TaskStatus.Completed ? 'lifetime' : 'session')
   const effectiveRange = activity.status === 'unavailable' ? 'session' : range
   const timelineModel = useMemo(
     () =>
@@ -157,6 +162,8 @@ function ActivityTabContent({
         lifetimePoints: snapshot?.lifetime.points ?? [],
         markerGroups: timelineModel.markerGroups,
         selectedMarkerId,
+        events: snapshot?.timeline.events,
+        coverageGapAt: snapshot?.summary.coverageGapAt,
       }),
     [
       effectiveRange,
@@ -178,7 +185,6 @@ function ActivityTabContent({
   }
 
   const initialLoading = activity.status === 'loading' || session.isLoading
-  const coverageGap = snapshot?.summary.coverageGapAt != null
   const truncatedCount = snapshot?.summary.historyDroppedCount ?? 0
 
   return (
@@ -213,12 +219,12 @@ function ActivityTabContent({
             <LifetimeTransferCard
               model={chartModel}
               range={effectiveRange}
-              sampleCount={chartModel.points.length}
+              sampleCount={chartModel.observationCount}
               lifetimeSummary={snapshot?.lifetime ?? null}
               stale={activity.status === 'stale'}
-              coverageGap={coverageGap}
               truncatedCount={truncatedCount}
               lifetimeAvailable={activity.status !== 'unavailable'}
+              live={LIVE_STATUSES.has(task.status)}
               emptyMessage={emptyMessage}
               summary={
                 <CurrentSummaryCard
@@ -233,7 +239,7 @@ function ActivityTabContent({
                 ) {
                   return
                 }
-                setRange(nextRange)
+                setSelectedRange(nextRange)
               }}
               onSelectMarker={setSelectedMarkerId}
             />

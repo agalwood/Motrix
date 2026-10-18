@@ -45,9 +45,8 @@ export function SeedingDuration({
               date: since,
             })
           : t('panel.downloads.inspector.overview.seedingUnavailable')}
-        {(activity.status === 'stale' ||
-          activity.snapshot?.summary.coverageGapAt != null) && (
-          <p>{t('panel.downloads.inspector.activity.coverageGap')}</p>
+        {activity.status === 'stale' && (
+          <p>{t('panel.downloads.inspector.activity.stale.short')}</p>
         )}
       </TooltipContent>
     </Tooltip>

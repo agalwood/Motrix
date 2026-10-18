@@ -689,18 +689,17 @@
         },
         "activity": {
           "transferTitle": {
-            "session": "Oturum aktarımı",
+            "session": "Son aktarım",
             "lifetime": "Tüm zamanlardaki aktarım"
           },
           "download": "İndirme",
           "upload": "Gönderme",
           "loading": "Etkinlik yükleniyor…",
           "collecting": "Aktarım verileri toplanıyor…",
-          "noSessionHistory": "Bu uygulama oturumunda aktarım kaydedilmedi.",
+          "noSessionHistory": "Yakın zamanda kaydedilmiş aktarım yok.",
           "lifetimeEmpty": "Tüm zamanların geçmişi henüz kullanılamıyor.",
           "noTraffic": "Şu anda ağ trafiği yok.",
           "unavailable": "Tüm zamanların etkinliği kullanılamıyor.",
-          "coverageGap": "İzleme kesintiye uğradı.",
           "retry": "Yeniden dene",
           "notAvailable": "Kullanılamıyor",
           "stale": {
@@ -709,7 +708,7 @@
           },
           "range": {
             "label": "Aktarım zaman aralığı",
-            "session": "Oturum (60 sn)",
+            "session": "Son 60 sn",
             "lifetime": "Tüm zamanlar",
             "latest": "Son 60 saniye",
             "adaptive_one": "Uyarlanabilir çözünürlük · {{count}} örnek",
@@ -767,7 +766,18 @@
             "activeSeconds_other": "{{count}} saniye",
             "sampleCount_one": "{{count}} örnek",
             "sampleCount_other": "{{count}} örnek",
-            "noDataQualityIssues": "İzleme uyarısı yok."
+            "noDataQualityIssues": "İzleme uyarısı yok.",
+            "noSamples": "Örnek yok",
+            "overview": "Geçmişe genel bakış",
+            "rangeStart": "Aralık başlangıcı",
+            "rangeEnd": "Aralık sonu",
+            "earlier": "Daha eski geçmiş",
+            "later": "Daha yeni geçmiş",
+            "zoomIn": "Yakınlaştır",
+            "zoomOut": "Uzaklaştır",
+            "showAll": "Tümünü göster",
+            "following": "En son veriler izleniyor",
+            "followLatest": "En son verilere dön"
           }
         },
         "pieces": {

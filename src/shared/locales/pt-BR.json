@@ -692,18 +692,17 @@
         },
         "activity": {
           "transferTitle": {
-            "session": "Transferência da sessão",
+            "session": "Transferência recente",
             "lifetime": "Transferência total"
           },
           "download": "Download",
           "upload": "Upload",
           "loading": "Carregando atividade…",
           "collecting": "Coletando dados de transferência…",
-          "noSessionHistory": "Nenhuma transferência registrada nesta sessão do aplicativo.",
+          "noSessionHistory": "Nenhuma transferência recente registrada.",
           "lifetimeEmpty": "O histórico completo ainda não está disponível.",
           "noTraffic": "Sem tráfego de rede no momento.",
           "unavailable": "O histórico completo de atividade está indisponível.",
-          "coverageGap": "O monitoramento foi interrompido.",
           "retry": "Tentar novamente",
           "notAvailable": "Indisponível",
           "stale": {
@@ -712,7 +711,7 @@
           },
           "range": {
             "label": "Período de transferência",
-            "session": "Sessão (60 s)",
+            "session": "Últimos 60 s",
             "lifetime": "Todo o histórico",
             "latest": "Últimos 60 segundos",
             "adaptive_one": "Resolução adaptativa · {{count}} amostra",
@@ -775,7 +774,18 @@
             "sampleCount_one": "{{count}} amostra",
             "sampleCount_other": "{{count}} amostras",
             "sampleCount_many": "{{count}} amostras",
-            "noDataQualityIssues": "Nenhum aviso de monitoramento."
+            "noDataQualityIssues": "Nenhum aviso de monitoramento.",
+            "noSamples": "Sem amostras",
+            "overview": "Visão geral do histórico",
+            "rangeStart": "Início do intervalo",
+            "rangeEnd": "Fim do intervalo",
+            "earlier": "Histórico anterior",
+            "later": "Histórico mais recente",
+            "zoomIn": "Ampliar",
+            "zoomOut": "Reduzir",
+            "showAll": "Mostrar tudo",
+            "following": "Acompanhando os dados recentes",
+            "followLatest": "Voltar aos mais recentes"
           }
         },
         "pieces": {

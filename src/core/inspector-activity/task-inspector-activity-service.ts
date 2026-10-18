@@ -226,8 +226,25 @@ export class TaskInspectorActivityService {
     }
   }
 
+  captureTerminalStatuses(): ReadonlyMap<string, TaskStatus> {
+    const terminal = new Map<string, TaskStatus>()
+    for (const [taskId, state] of this.states) {
+      const status =
+        state.boundaries.at(-1)?.nextStatus ?? state.baseline?.status
+      if (status && TERMINAL_STATUSES.has(status)) terminal.set(taskId, status)
+    }
+    return terminal
+  }
+
   markDisconnected(at = Math.round(this.wallNow())): void {
     for (const state of this.states.values()) {
+      // Finished timelines have no ongoing sampling interval to interrupt.
+      // Retain their terminal baseline so later polls cannot reopen them.
+      const status =
+        state.boundaries.at(-1)?.nextStatus ?? state.baseline?.status
+      if (status && TERMINAL_STATUSES.has(status)) {
+        continue
+      }
       this.markGap(
         state,
         validTimestamp(at) ? at : (state.baseline?.wallMs ?? 1)
@@ -310,14 +327,14 @@ export class TaskInspectorActivityService {
     }
     const previous = state.baseline
     if (
-      previous &&
-      TERMINAL_STATUSES.has(previous.status) &&
-      previous.status === current.status
+      TERMINAL_STATUSES.has(current.status) &&
+      (previous?.status === current.status ||
+        (!previous && !state.coverageGapNeedsCandidate))
     ) {
       // Terminal task objects can retain the engine's last non-zero speeds.
-      // The terminal boundary already closed the series at zero; keep only a
-      // fresh baseline so later polls cannot reopen the lifetime chart or
-      // manufacture coverage gaps while the task remains terminal.
+      // An existing terminal boundary, or an already-finished task loaded on
+      // startup, needs no new sample. Preserve genuine recovery gaps for tasks
+      // that were still active when observation stopped.
       state.baseline = current
       return
     }

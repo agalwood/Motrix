@@ -686,18 +686,17 @@
         },
         "activity": {
           "transferTitle": {
-            "session": "セッションの転送量",
+            "session": "最近の転送",
             "lifetime": "全期間の転送量"
           },
           "download": "ダウンロード",
           "upload": "アップロード",
           "loading": "アクティビティを読み込み中…",
           "collecting": "転送データを収集中…",
-          "noSessionHistory": "アプリのこのセッションには転送記録がありません。",
+          "noSessionHistory": "最近の転送記録はありません。",
           "lifetimeEmpty": "全期間の履歴はまだありません。",
           "noTraffic": "現在、ネットワーク通信はありません。",
           "unavailable": "全期間のアクティビティを取得できません。",
-          "coverageGap": "記録が中断されました。",
           "retry": "再試行",
           "notAvailable": "利用不可",
           "stale": {
@@ -706,7 +705,7 @@
           },
           "range": {
             "label": "転送量の表示期間",
-            "session": "セッション（60 秒）",
+            "session": "直近60秒",
             "lifetime": "全期間",
             "latest": "直近 60 秒",
             "adaptive_other": "解像度を自動調整 · {{count}} サンプル"
@@ -759,7 +758,18 @@
             "accessibleSummary": "{{range}}：{{start}} から {{end}} まで。直近のダウンロード {{download}}、アップロード {{upload}}。全期間の平均ダウンロード {{average}}、最大ダウンロード {{peak}}、転送時間 {{activeDuration}}。{{sampleLabel}}。{{state}}",
             "activeSeconds_other": "{{count}} 秒",
             "sampleCount_other": "{{count}} サンプル",
-            "noDataQualityIssues": "記録に関する警告はありません。"
+            "noDataQualityIssues": "記録に関する警告はありません。",
+            "noSamples": "サンプルなし",
+            "overview": "履歴の概要",
+            "rangeStart": "範囲の開始",
+            "rangeEnd": "範囲の終了",
+            "earlier": "以前の履歴",
+            "later": "新しい履歴",
+            "zoomIn": "拡大",
+            "zoomOut": "縮小",
+            "showAll": "全体を表示",
+            "following": "最新データに追従中",
+            "followLatest": "最新に戻る"
           }
         },
         "pieces": {
