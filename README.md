@@ -4,7 +4,7 @@
   <p>A modern, full-featured download manager that stays simple to use</p>
 </div>
 
-[![GitHub release](https://img.shields.io/github/v/release/agalwood/Motrix.svg)](https://github.com/agalwood/Motrix/releases) ![Build/release](https://github.com/agalwood/Motrix/workflows/Build/release/badge.svg) ![Total Downloads](https://img.shields.io/github/downloads/agalwood/Motrix/total.svg)
+[![GitHub release](https://img.shields.io/github/v/release/agalwood/Motrix.svg)](https://github.com/agalwood/Motrix/releases) ![Build/release](https://github.com/agalwood/Motrix/workflows/Build/release/badge.svg) ![Total Downloads](https://img.shields.io/github/downloads/agalwood/Motrix/total.svg) [![Plumber Score](https://score.getplumber.io/github.com/agalwood/Motrix.svg)](https://score.getplumber.io/github.com/agalwood/Motrix)
 
 English | [简体中文](./README.zh-CN.md)
 

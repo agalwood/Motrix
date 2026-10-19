@@ -151,6 +151,13 @@ const EXPECTED_ACTION_PINS = new Map([
       comment: 'v4.1.2',
     },
   ],
+  [
+    'getplumber/plumber',
+    {
+      sha: '7f1e28b3f45b6356895763f2bada391cc46b6537',
+      comment: 'v0.7.6',
+    },
+  ],
 ])
 
 const EXPECTED_TARGETS: ExpectedTarget[] = [

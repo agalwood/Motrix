@@ -1,0 +1,32 @@
+# Plumber overlay: inherits every control from the CLI's built-in
+# baseline, only the differences for this repository are written here.
+# Run 'plumber config resolve' to see the full effective config.
+extends: plumber:default
+version: '2.0'
+
+github:
+  controls:
+    githubActionMustComeFromAuthorizedSources:
+      # Keep the curated default list and trust the Rust, release and
+      # Snap tooling this repository uses on top of it, all pinned by
+      # commit.
+      includePlumberDefaults: true
+      trustedGithubActions:
+        - dtolnay/rust-toolchain
+        - snapcore/action-build
+        - softprops/action-gh-release
+
+    # dtolnay/rust-toolchain installs Rust through rustup's own
+    # installer, which the control flags as an unverified download.
+    # It is the standard way to get a toolchain in CI, pinned by commit
+    # above, so the check is off here.
+    actionsMustNotExecuteMutableRemoteCode:
+      enabled: false
+
+    # main is protected. master is the frozen v1 branch, kept for
+    # history, so the requirement stays on the branch releases are
+    # cut from.
+    branchMustBeProtected:
+      defaultMustBeProtected: true
+      namePatterns:
+        - main
