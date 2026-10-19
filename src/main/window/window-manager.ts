@@ -74,7 +74,8 @@ export class WindowManager {
     this.rendererUrlPolicy = deps.rendererUrlPolicy ?? getRendererUrlPolicy()
   }
 
-  open(id: WindowId, options: { show?: boolean } = {}): BrowserWindow {
+  open(id: WindowId, options: { show?: boolean } = {}): BrowserWindow | null {
+    if (this.willQuit) return null
     id = this.resolveOpenTarget(id)
     const existing = this.windows.get(id)
     if (existing && !existing.isDestroyed()) {
@@ -93,6 +94,7 @@ export class WindowManager {
   }
 
   precreate(id: WindowId): void {
+    if (this.willQuit) return
     id = this.resolveOpenTarget(id)
     if (id === 'add-task' && !this.shouldPrewarmAddTask()) return
     const existing = this.windows.get(id)
@@ -105,6 +107,7 @@ export class WindowManager {
     id: WindowId,
     options?: AddTaskUrlParams | { mode?: 'links' | 'torrent' }
   ): void {
+    if (this.willQuit) return
     const requestedId = id
     id = this.resolveOpenTarget(id)
     if (id !== requestedId) options = undefined
@@ -116,6 +119,7 @@ export class WindowManager {
       // button). Recreate it instead of silently no-opping.
       win = this.open(id)
     }
+    if (!win) return
 
     const config = WINDOW_CONFIGS[id]
 
@@ -143,6 +147,7 @@ export class WindowManager {
   }
 
   toggle(id: WindowId): void {
+    if (this.willQuit) return
     id = this.resolveOpenTarget(id)
     const win = this.windows.get(id)
     if (!win || win.isDestroyed()) {
@@ -207,6 +212,7 @@ export class WindowManager {
 
   /** Reconcile already-created hidden windows after lightweight mode changes. */
   reconcileWindowRetention(): void {
+    if (this.willQuit) return
     const main = this.get('main')
     if (main && !main.isVisible() && this.shouldReleaseOnDismiss('main')) {
       this.release('main')
@@ -223,7 +229,8 @@ export class WindowManager {
   recreate(
     id: WindowId,
     reason: WindowLifecycleReason = 'configuration'
-  ): BrowserWindow {
+  ): BrowserWindow | null {
+    if (this.willQuit) return null
     id = this.resolveOpenTarget(id)
     const existing = this.get(id)
     const shouldShow = existing?.isVisible() ?? true
@@ -298,7 +305,8 @@ export class WindowManager {
   }
 
   setWillQuit(value: boolean): void {
-    this.willQuit = value
+    // Shutdown is terminal, including while asynchronous cleanup is pending.
+    this.willQuit ||= value
   }
 
   destroyAll(): void {
@@ -325,6 +333,7 @@ export class WindowManager {
   // ─── Private ──────────────────────────────────────────
 
   private focusWindow(id: WindowId, win: BrowserWindow): void {
+    if (this.willQuit || win.isDestroyed()) return
     this.lastFocusRequested = id
     if (win.isMinimized()) win.restore()
     win.show()
@@ -400,7 +409,11 @@ export class WindowManager {
     try {
       const loading = this.deps.loadUrl(win, WINDOW_CONFIGS[id].route)
       void Promise.resolve(loading).catch(() => {
-        if (this.get(id) === win && this.loadRevisions.get(win) === revision) {
+        if (
+          !this.willQuit &&
+          this.get(id) === win &&
+          this.loadRevisions.get(win) === revision
+        ) {
           this.deps.lifecycle?.loadFailed(id, win)
         }
       })
@@ -685,7 +698,7 @@ export class WindowManager {
         this.pendingMaximize.add(win)
         win.once('show', () => {
           this.pendingMaximize.delete(win)
-          if (!win.isDestroyed()) win.maximize()
+          if (!this.willQuit && !win.isDestroyed()) win.maximize()
         })
       }
     }
