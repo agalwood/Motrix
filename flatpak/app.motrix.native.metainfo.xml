@@ -68,6 +68,16 @@
   </screenshots>
 
   <releases>
+    <release version="2.0.0-beta.50" date="2026-10-20">
+      <description>
+        <p>
+          Adds live task activity charts and history navigation, torrent file
+          drops, persistent plugin diagnostics, and corrupt configuration
+          backups. Improves download selection, volume-root handling, session
+          persistence, path display, and shutdown behavior.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.49" date="2026-10-16">
       <description>
         <p>
