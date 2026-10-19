@@ -3135,10 +3135,10 @@ function beginShutdown(): void {
   // quitController.phase is already 'shutting-down' (set synchronously before
   // this call). app.quit() below re-fires before-quit synchronously; the guard
   // there relies on the phase already being terminal.
+  windowManager?.setWillQuit(true) // Never before/during quit confirmation.
   supervisor?.prepareForShutdown()
   // Drain a pending coalesced TaskUpdated while consumers are still attached.
   taskUpdatePublisher.flush()
-  windowManager?.setWillQuit(true) // FIRST — never before/during the dialog
   rendererRecovery?.dispose()
   // Tear down renderer ingress before removing ipcMain handlers. Service
   // shutdown emits final state-change events (for example NAT stopped), and a

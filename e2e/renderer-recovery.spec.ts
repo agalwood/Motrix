@@ -54,6 +54,44 @@ async function recover(app: ElectronApplication, page: Page): Promise<Page> {
   return restored
 }
 
+test('late activation during shutdown does not recreate a renderer', async ({
+  electronApp,
+  mainWindow,
+}) => {
+  await waitForEngineReady(mainWindow)
+  await expect(
+    mainWindow.getByRole('button', { name: 'New task' })
+  ).toBeVisible()
+  const closed = electronApp.waitForEvent('close')
+  const result = await electronApp.evaluate(({ app, BrowserWindow }) => {
+    let created = 0
+    app.on('browser-window-created', () => {
+      created++
+    })
+
+    // before-quit destroys windows synchronously, then awaits service cleanup.
+    // macOS activation in that gap must not start a new renderer whose session
+    // IPC handlers have already been removed.
+    app.quit()
+    const windowsAfterQuit = BrowserWindow.getAllWindows().length
+    app.emit('activate')
+    app.emit('activate')
+
+    return {
+      windowsAfterQuit,
+      windowsAfterActivation: BrowserWindow.getAllWindows().length,
+      created,
+    }
+  })
+
+  expect(result).toEqual({
+    windowsAfterQuit: 0,
+    windowsAfterActivation: 0,
+    created: 0,
+  })
+  await closed
+})
+
 test('bootstrap recovery works without the application bundle or stylesheet', async ({
   electronApp,
   mainWindow,
