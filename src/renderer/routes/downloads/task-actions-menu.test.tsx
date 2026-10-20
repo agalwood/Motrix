@@ -433,6 +433,25 @@ describe('TaskActionsMenu', () => {
       expect.objectContaining({ type: 'success' })
     )
   })
+  it('copies a native Windows UNC path for an existing external task', async () => {
+    vi.mocked(transport).platform = 'win32'
+    setup(true, [
+      makeDownloadTask({
+        id: 'unc',
+        name: 'Model',
+        finalPath: '//nas/share//模型 文件.bin',
+      }),
+    ])
+    fireEvent.contextMenu(screen.getByText('Model'))
+    fireEvent.click(
+      await screen.findByRole('menuitem', { name: 'Copy file path' })
+    )
+    await waitFor(() =>
+      expect(navigator.clipboard.writeText).toHaveBeenCalledExactlyOnceWith(
+        '\\\\nas\\share\\模型 文件.bin'
+      )
+    )
+  })
   it('opens file selection for a magnet whose metadata is ready', async () => {
     setup(true, [
       makeDownloadTask({

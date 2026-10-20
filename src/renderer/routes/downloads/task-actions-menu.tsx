@@ -28,6 +28,7 @@ import { openMagnetFileSelection } from '@renderer/lib/open-magnet-file-selectio
 import { openTaskFile } from '@renderer/lib/open-task-file'
 import { transport } from '@renderer/lib/transport'
 import { CommandIds } from '@shared/commands-catalog'
+import { formatNativePath } from '@shared/lib/path-display'
 import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
@@ -139,7 +140,10 @@ export function TaskActionsMenu({
     () => taskMenuShortcuts(macOS, __MOTRIX_TARGET__ === 'electron'),
     [macOS]
   )
-  const taskPath = single?.finalPath || single?.diskPath
+  const taskPath = formatNativePath(
+    single?.finalPath || single?.diskPath || '',
+    transport.platform
+  )
   const runAction = async (
     action: () => Promise<unknown>,
     failureTitle: string
