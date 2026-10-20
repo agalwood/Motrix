@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import {
   cp,
   mkdir,
@@ -15,6 +16,30 @@ import { LegacyImportService } from '@core/legacy-import/import-service'
 import { MotrixDatabase } from '@core/session/motrix-database'
 import { TaskManager } from '@core/task/task-manager'
 import { vi } from 'vitest'
+
+function secureWindowsFixture(root: string): void {
+  if (process.platform !== 'win32') return
+  const sid = execFileSync(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-Command',
+      '[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value',
+    ],
+    { encoding: 'utf8' }
+  ).trim()
+  execFileSync('icacls.exe', [
+    root,
+    '/inheritance:r',
+    '/grant:r',
+    `*${sid}:(OI)(CI)F`,
+    '*S-1-5-18:(OI)(CI)F',
+    '*S-1-5-32-544:(OI)(CI)F',
+  ])
+  // Hosted runners use an elevated token whose default owner may be Administrators.
+  // Production import checks ownership and never changes it; only fixtures do.
+  execFileSync('icacls.exe', [root, '/setowner', `*${sid}`, '/T'])
+}
 
 /** Actual v1 metadata/control snapshots; deterministic payloads recreated from the recorded recipe. */
 export async function legacyBtActivationFixture(adapter: EngineAdapter) {
@@ -77,6 +102,7 @@ export async function legacyBtActivationFixture(adapter: EngineAdapter) {
     if (importer.getRun(run.runId).stage !== 'completed')
       throw new Error('Import pending')
   }
+  secureWindowsFixture(root)
   const taskId = db.getAllTasks()[0].task.motrixId
   const publishTasks = vi.fn()
   const deps = {
