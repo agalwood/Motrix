@@ -68,6 +68,15 @@
   </screenshots>
 
   <releases>
+    <release version="2.0.0-beta.51" date="2026-10-20">
+      <description>
+        <p>
+          Bundles aria2 motrix.18 for native Windows legacy BT recovery,
+          normalizes Windows task paths, prevents overlay exit flicker and
+          chart range replay, and adds terminal-based Server extension pairing.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.50" date="2026-10-20">
       <description>
         <p>

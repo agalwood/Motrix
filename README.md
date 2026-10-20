@@ -22,15 +22,15 @@ The same core powers two ways to run Motrix:
 ## 🧪 Beta testing
 
 Motrix Turbo v2 is currently in beta. After its remaining release gates pass,
-download [v2.0.0-beta.50 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.50)
-and read the [full release notes](./docs/release-notes/2.0.0-beta.50.md) before
+download [v2.0.0-beta.51 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.51)
+and read the [full release notes](./docs/release-notes/2.0.0-beta.51.md) before
 installing it.
 
 Back up your existing Motrix data and downloads before testing. The desktop
 Migration Assistant imports selected v1 tasks as paused records and preserves
 the original files. Resuming downloads requires a separate explicit action.
-Windows in-place BT activation requires a build with the native migration-capable
-engine; the beta.50 package does not include it. See the
+This beta bundles aria2 1.37.0-motrix.18, enabling Windows in-place BT
+activation on supported local NTFS volumes with explicit authorization. See the
 [migration guide](./docs/legacy-migration.md) for supported volumes, file permissions,
 and recovery. Keep a backup of the v1 profile and the engine's pre-upgrade database
 snapshot. When practical, test v2 in parallel using a separate OS account,
@@ -185,7 +185,7 @@ downloaded resources:
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.50'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.51'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait
