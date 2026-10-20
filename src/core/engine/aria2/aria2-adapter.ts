@@ -42,6 +42,7 @@ import type {
 } from '../engine-adapter'
 import { DIRECT_RESOURCE_METADATA_PROFILE } from '../engine-adapter'
 import { Aria2LegacyCheckpoint } from './aria2-legacy-checkpoint'
+import { legacyWirePath } from './aria2-legacy-path'
 import type { Aria2RpcClient } from './aria2-rpc-client'
 import { recommend } from './aria2-tuning'
 import { isConnectionLimitRangeError, isNotFoundError } from './error-utils'
@@ -779,12 +780,12 @@ export class Aria2Adapter implements EngineAdapter {
       files.every(
         (file, index) =>
           file.index === index &&
-          file.path === input.files[index].path &&
+          file.path === legacyWirePath(input.files[index].path) &&
           file.size === input.files[index].length &&
           file.selected === selected.has(index)
       ) &&
       options !== null &&
-      options.dir === input.saveDir &&
+      options.dir === legacyWirePath(input.saveDir) &&
       options['bt-seed-unverified'] === 'false' &&
       options['bt-hash-check-seed'] === 'false' &&
       Number(options['seed-time']) === 0 &&
@@ -973,10 +974,11 @@ export class Aria2Adapter implements EngineAdapter {
           ErrorCode.EngineFeatureUnavailable,
           'legacyImport.errors.checkpointUnavailable'
         )
+      opts.dir = legacyWirePath(params.saveDir)
       const input = {
         token: context.token,
-        targetPath: context.targetPath,
-        metadataFile: reference.path,
+        targetPath: legacyWirePath(context.targetPath),
+        metadataFile: legacyWirePath(reference.path),
         metadataDigest: reference.digest,
         metadata: b64,
         options: opts,

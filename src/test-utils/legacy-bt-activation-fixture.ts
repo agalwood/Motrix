@@ -28,11 +28,13 @@ export async function legacyBtActivationFixture(adapter: EngineAdapter) {
   const downloads = path.join(root, 'downloads')
   for (const name of ['download.session', 'system.json']) {
     const filename = path.join(profile, name)
+    const encodePath = (value: string) =>
+      name.endsWith('.json') ? JSON.stringify(value).slice(1, -1) : value
     await writeFile(
       filename,
       (await readFile(filename, 'utf8'))
-        .replaceAll('__FIXTURE_ROOT__', profile)
-        .replaceAll('__FIXTURE_DOWNLOADS__', downloads)
+        .replaceAll('__FIXTURE_ROOT__', encodePath(profile))
+        .replaceAll('__FIXTURE_DOWNLOADS__', encodePath(downloads))
         .replaceAll('__FIXTURE_HTTP_PORT__', '18080')
     )
   }

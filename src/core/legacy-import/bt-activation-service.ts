@@ -365,7 +365,9 @@ export class LegacyBtActivationService {
         ? !stat.isDirectory()
         : !stat.isFile() ||
           stat.nlink !== 1n ||
-          (stat.mode & 0o022n) !== 0n ||
+          // Windows mode bits do not describe ACLs; the engine checks the
+          // owner/DACL through the same held handle used for import.
+          (process.platform !== 'win32' && (stat.mode & 0o022n) !== 0n) ||
           (process.getuid && BigInt(process.getuid()) !== stat.uid)
     )
       throw failure('payloadUnsafe')
@@ -431,12 +433,19 @@ export class LegacyBtActivationService {
     } finally {
       await file.close()
     }
-    for (const name of [directory, source.root]) {
-      const handle = await open(name, constants.O_RDONLY | constants.O_NOFOLLOW)
-      try {
-        await handle.sync()
-      } finally {
-        await handle.close()
+    // Node cannot open/sync directories on Windows. The snapshot file itself
+    // is flushed above; recovery revalidates its persisted digest before use.
+    if (process.platform !== 'win32') {
+      for (const name of [directory, source.root]) {
+        const handle = await open(
+          name,
+          constants.O_RDONLY | constants.O_NOFOLLOW
+        )
+        try {
+          await handle.sync()
+        } finally {
+          await handle.close()
+        }
       }
     }
     return filename
