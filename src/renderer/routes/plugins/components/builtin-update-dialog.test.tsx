@@ -1,6 +1,7 @@
 import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
 import { Commands } from '@shared/protocol/commands'
+import { holdExitAnimation } from '@test-utils/hold-exit-animation'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -18,6 +19,24 @@ beforeEach(() => {
 })
 
 describe('BuiltinUpdateDialog', () => {
+  it('keeps consent details throughout exit instead of reverting to working', async () => {
+    mockInvoke.mockResolvedValue({
+      needsConsent: true,
+      stagingId: 's1',
+      added: ['perm:ffmpeg'],
+      newVersion: '1.1.0',
+    })
+    const props = { pluginId: 'motrix.scraper-hook', onOpenChange: vi.fn() }
+    const view = render(<BuiltinUpdateDialog open {...props} />)
+    await screen.findByText('perm:ffmpeg')
+    const dialog = screen.getByRole('dialog')
+    const content = dialog.textContent
+    const finish = holdExitAnimation(dialog)
+    view.rerender(<BuiltinUpdateDialog open={false} {...props} />)
+    expect(dialog).toHaveAttribute('data-closed')
+    expect(dialog.textContent).toBe(content)
+    await finish()
+  })
   it('renders the added list on needsConsent and confirm invokes ConfirmBuiltinUpdate', async () => {
     mockInvoke.mockImplementation((channel: string) => {
       if (channel === Commands.InstallBuiltinUpdate) {

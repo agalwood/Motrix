@@ -4,7 +4,7 @@ import { i18n } from '@renderer/lib/i18n'
 import enUS from '@shared/locales/en-US.json'
 import zhCN from '@shared/locales/zh-CN.json'
 import { TaskTransferSampleFlag } from '@shared/types/task-inspector-activity'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -71,7 +71,10 @@ describe('LifetimeTransferCard', () => {
       }
     )
   })
-  afterEach(() => vi.restoreAllMocks())
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.useRealTimers()
+  })
   it('uses independent smooth paths and the Dashboard colors with 12% fills', () => {
     const { container } = render(card())
     expect(container.querySelectorAll('.recharts-bar')).toHaveLength(0)
@@ -97,6 +100,41 @@ describe('LifetimeTransferCard', () => {
     expect(
       screen.getByTestId('activity-transfer-speed-scale')
     ).toHaveTextContent('4.1 KB/s')
+  })
+  it('starts live updates from the displayed scale after repeated range switches', async () => {
+    vi.useFakeTimers()
+    vi.spyOn(document, 'hidden', 'get').mockReturnValue(false)
+    const { rerender } = render(card(model()))
+    const firstX = () => {
+      const path = screen
+        .getByTestId('activity-transfer-chart-viewport')
+        .querySelector('.activity-transfer-line-down .recharts-area-curve')
+        ?.getAttribute('d')
+      return Number(path?.match(/^M(-?[\d.]+)/)?.[1])
+    }
+
+    let end = 400000
+    for (const range of [
+      'lifetime',
+      'session',
+      'lifetime',
+      'session',
+    ] as const) {
+      rerender(card(model(end), range))
+      const displayedX = firstX()
+      expect(Number.isFinite(displayedX)).toBe(true)
+      end += 1000
+      rerender(card(model(end), range))
+      expect(
+        screen.getByTestId('activity-transfer-chart-viewport')
+      ).toHaveAttribute('data-animating', 'true')
+      // The first sample may move by one second, never replay the other scale.
+      await act(async () => vi.advanceTimersByTime(100))
+      expect(Math.abs(firstX() - displayedX)).toBeLessThan(20)
+      // Exercise switches both during an animation and after it settles.
+      if (range === 'session')
+        await act(async () => vi.advanceTimersByTime(1500))
+    }
   })
   it.each(['ltr', 'rtl'] as const)(
     'keeps a 60-second window that follows and pauses when browsing in %s',

@@ -499,7 +499,7 @@ export function AdvancedDialog({
                 </form>
               </Form>
               <Separator className="my-4" />
-              {open && <SettingsFileSection />}
+              <SettingsFileSection />
               {__MOTRIX_TARGET__ === 'electron' && (
                 <>
                   <Separator className="my-4" />

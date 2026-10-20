@@ -20,6 +20,7 @@ import { TransportError } from '@shared/protocol/errors'
 import { Queries } from '@shared/protocol/queries'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, TaskType } from '@shared/types/task'
+import { holdExitAnimation } from '@test-utils/hold-exit-animation'
 import { makeDownloadTask } from '@test-utils/task'
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -116,6 +117,22 @@ function setup(context = true, items = tasks) {
 }
 
 describe('TaskActionsMenu', () => {
+  it.each([true, false])(
+    'keeps captured actions through dismissal after selection changes (context: %s)',
+    async (context) => {
+      const selection = setup(context)
+      if (context) fireEvent.contextMenu(screen.getByTestId('context-list'))
+      else await userEvent.click(screen.getByRole('button', { name: 'More' }))
+      const menu = await screen.findByRole('menu')
+      const content = menu.textContent
+      const finish = holdExitAnimation(menu)
+      act(() => selection.getState().clearSelection())
+      fireEvent.keyDown(menu, { key: 'Escape' })
+      await waitFor(() => expect(menu).toHaveAttribute('data-closed'))
+      expect(menu.textContent).toBe(content)
+      await finish()
+    }
+  )
   it.each([true, false])(
     're-downloads the selected completed task after confirmation (context menu: %s)',
     async (context) => {

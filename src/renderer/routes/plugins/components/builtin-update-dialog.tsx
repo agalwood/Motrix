@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@renderer/components/ui/dialog'
+import { useExitSnapshot } from '@renderer/hooks/use-exit-snapshot'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import type { PluginNetworkFailure } from '@shared/schemas/plugin-network'
@@ -31,6 +32,7 @@ type Phase =
 export function BuiltinUpdateDialog({ pluginId, open, onOpenChange }: Props) {
   const { t } = useTranslation()
   const [phase, setPhase] = useState<Phase>({ kind: 'working' })
+  const presentation = useExitSnapshot(open, phase)
   const startedRef = useRef(false)
   const clearUpdate = usePluginsStore((s) => s.clearUpdate)
 
@@ -123,41 +125,41 @@ export function BuiltinUpdateDialog({ pluginId, open, onOpenChange }: Props) {
       <DialogContent className="max-w-[480px]">
         <DialogHeader>
           <DialogTitle>{t('plugins.registry.builtinUpdateTitle')}</DialogTitle>
-          {phase.kind === 'consent' && (
+          {presentation.kind === 'consent' && (
             <DialogDescription>
               {t('plugins.registry.builtinConsentLead')}
             </DialogDescription>
           )}
         </DialogHeader>
 
-        {phase.kind === 'error' && (
+        {presentation.kind === 'error' && (
           <Alert variant="destructive">
             <span className="text-xs">
-              {phase.message.endsWith('plugins.security.blocked')
+              {presentation.message.endsWith('plugins.security.blocked')
                 ? t('plugins.security.blocked')
-                : phase.message.endsWith('plugins.security.pending')
+                : presentation.message.endsWith('plugins.security.pending')
                   ? t('plugins.security.pending')
-                  : phase.message}
+                  : presentation.message}
             </span>
           </Alert>
         )}
-        {phase.kind === 'consent' && (
+        {presentation.kind === 'consent' && (
           <ul className="list-disc ps-5 font-mono text-xs">
-            {phase.added.map((a) => (
+            {presentation.added.map((a) => (
               <li key={a}>{a}</li>
             ))}
           </ul>
         )}
-        {phase.kind === 'done' && (
+        {presentation.kind === 'done' && (
           <p className="text-sm text-muted-foreground">
-            {phase.restartRequired
+            {presentation.restartRequired
               ? t('plugins.registry.restartRequired')
               : t('plugins.registry.updateInstalled')}
           </p>
         )}
 
         <DialogFooter>
-          {phase.kind === 'consent' ? (
+          {presentation.kind === 'consent' ? (
             <>
               <Button variant="outline" size="sm" onClick={() => void cancel()}>
                 {t('common.cancel')}

@@ -9,6 +9,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@renderer/components/ui/alert-dialog'
+import { useExitSnapshot } from '@renderer/hooks/use-exit-snapshot'
 import type { DownloadTask } from '@shared/types/task'
 import { useTranslation } from 'react-i18next'
 
@@ -31,8 +32,9 @@ export function RedownloadOverwriteDialog({
   onConfirm,
 }: RedownloadOverwriteDialogProps) {
   const { t } = useTranslation()
+  const presentation = useExitSnapshot(open, target)
 
-  if (!target) return null
+  if (!presentation) return null
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -46,7 +48,7 @@ export function RedownloadOverwriteDialog({
           </div>
           <AlertDialogDescription>
             {t('panel.downloads.action.redownloadOverwriteDescription', {
-              name: target.name,
+              name: presentation.name,
             })}
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -55,7 +57,7 @@ export function RedownloadOverwriteDialog({
             {t('common.cancel')}
           </AlertDialogCancel>
           <AlertDialogAction
-            disabled={busy}
+            disabled={busy || !open || !target}
             onClick={(event) => {
               event.preventDefault()
               onConfirm()
