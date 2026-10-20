@@ -28,10 +28,13 @@ installing it.
 
 Back up your existing Motrix data and downloads before testing. The desktop
 Migration Assistant imports selected v1 tasks as paused records and preserves
-the original files. Resuming downloads requires a separate explicit action;
-legacy progress import is unavailable on Windows. Keep a backup of the v1
-profile and the engine's pre-upgrade database snapshot. When practical, test v2
-in parallel using a separate OS account, machine, or Docker data directory.
+the original files. Resuming downloads requires a separate explicit action.
+Windows in-place BT activation requires a build with the native migration-capable
+engine; the beta.50 package does not include it. See the
+[migration guide](./docs/legacy-migration.md) for supported volumes, file permissions,
+and recovery. Keep a backup of the v1 profile and the engine's pre-upgrade database
+snapshot. When practical, test v2 in parallel using a separate OS account,
+machine, or Docker data directory.
 
 ## Screenshots
 
