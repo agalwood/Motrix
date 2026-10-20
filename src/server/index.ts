@@ -1304,7 +1304,9 @@ async function main() {
     'operator token provisioned'
   )
 
+  const remoteExtensionConfig = parseRemoteExtensionConfig(process.env)
   const app = await createApp({
+    remoteExtensionConfig,
     torrentBodyLimitBytes,
     commandHandlers,
     queryHandlers,
@@ -1952,7 +1954,6 @@ async function main() {
           ? 16801
           : fixedPort
       const mdxpHost = process.env.MOTRIX_MDXP_HOST ?? '127.0.0.1'
-      const remoteExtensionConfig = parseRemoteExtensionConfig(process.env)
       if (remoteExtensionConfig.status === 'invalid') {
         log.warn(
           {

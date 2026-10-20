@@ -366,6 +366,33 @@ docker compose exec server motrix-admin pairing approve ABCD-EFGH
 docker compose exec server motrix-admin pairing deny ABCD-EFGH
 ```
 
+浏览器扩展使用独立的配对码握手。若通过容器终端完成配对，启用远程扩展监听并配置
+准确的 WS/WSS 地址即可，`MOTRIX_PUBLIC_URL` 为可选项：
+
+```bash
+export MOTRIX_REMOTE_EXTENSION_ENABLED=true
+export MOTRIX_REMOTE_EXTENSION_PUBLIC_URL='ws://nas.example.lan:16801'
+```
+
+使用新环境变量重新创建容器，在扩展中发起配对，然后运行：
+
+```bash
+docker compose exec server motrix-admin extension pair
+```
+
+选择你刚发起的请求，将终端显示的配对码输入扩展。该命令要求输入、输出及错误输出
+均连接交互终端，不要使用 `-T`、管道、重定向或 `--json`。配对码不会出现在服务日志
+或普通 `pairing pending` 列表中，原有的 120 秒期限也不会延长。关闭终端视图不会
+批准或拒绝请求；若请求消失，请在扩展中确认结果。终端录制可能记录配对码，请使用
+可信的管理员会话。
+
+未配置 HTTPS 管理地址、也未显式设置 `MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP=true`
+时，WebUI 不会收到扩展配对码，请使用交互式命令。若要在 WebUI 显示配对码，需配置
+HTTPS 或明确授权可信局域网 HTTP。省略 Web 地址时，现有 Web 同源检查使用请求的
+Host 和协议。Web 与扩展地址可以使用不同主机和端口；若配置了 Web 地址，请从该
+地址访问 WebUI，以满足其事件连接的来源校验。
+
+
 先在客户端发起 pairing，再输入该客户端显示的验证码。该命令刻意不提供
 approve-latest、approve-all、远程 endpoint 或 token 参数。Web 审批仍是正常
 路径；这个入口只用于 headless 或恢复场景下的本机 operator 操作。
@@ -643,7 +670,7 @@ bridge lock 的恢复会把该 ownership 记录与已绑定的 Web listener 共�
 | `MOTRIX_BIND_IP` | Compose：`0.0.0.0` | 向后兼容的共享宿主发布 fallback |
 | `MOTRIX_MDXP_HOST` | runtime：`127.0.0.1`；Compose：`0.0.0.0` | 容器内 MDXP listener，不是宿主发布地址 |
 | `MOTRIX_MDXP_PORT` | `16801` | MDXP 监听端口；`0` 表示不使用固定发布端口 |
-| `MOTRIX_PUBLIC_URL` | 未设置 | 显式设置的外部可访问 Web 审批 URL，不是 MDXP URL；不会默认为 localhost |
+| `MOTRIX_PUBLIC_URL` | 未设置 | 可选的外部可访问 Web 审批 URL，不是 MDXP URL；未设置时扩展配对使用本机终端，除非明确授权管理界面 HTTP |
 | `MOTRIX_REMOTE_EXTENSION_ENABLED` | `false` | 显式开启浏览器扩展使用的四条远程 MBP1 路由 |
 | `MOTRIX_REMOTE_EXTENSION_PUBLIC_URL` | 未设置 | Motrix Extension 中应填写的准确 WS/WSS Server 地址 |
 | `MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP` | `false` | 在可信局域网显式接受 operator 凭据和管理流量暴露风险；不可信网络绝不能开启 |

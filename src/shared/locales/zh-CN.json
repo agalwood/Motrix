@@ -7,7 +7,7 @@
     "submit": "解锁"
   },
   "operatorAdmin": {
-    "help": "用法：\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <配对码> [--json]\n  motrix-admin pairing deny <配对码> [--json]\n\n此命令仅通过容器内的本机回环地址与正在运行的 Motrix 服务器通信。",
+    "help": "用法：\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <配对码> [--json]\n  motrix-admin pairing deny <配对码> [--json]\n  motrix-admin extension pair\n\n此命令仅通过容器内的本机回环地址与正在运行的 Motrix 服务器通信。",
     "errorPrefix": "motrix-admin：{{message}}",
     "usageHint": "运行 `motrix-admin --help` 查看用法。",
     "pending": {
@@ -55,6 +55,20 @@
         "loopback": "无法通过容器内的本机回环地址连接正在运行的 Motrix 服务器。",
         "approvalNotReady": "正在运行的 Motrix 服务器尚未准备好配对审批。"
       }
+    },
+    "extension": {
+      "heading": "待处理的浏览器扩展配对请求",
+      "identityNotice": "请核对这是你刚发起的请求。Origin 和自报身份不能单独证明连接方身份。终端录制可能记录配对码。",
+      "row": "{{index}}. {{browser}} [{{identity}}] 来源：{{origin}}；自报 ID：{{claimedId}}；服务端：{{authority}}；剩余 {{seconds}} 秒",
+      "select": "输入一个请求的序号（Ctrl+C 退出）：",
+      "code": "配对码：{{code}}",
+      "instructions": "将此配对码输入浏览器扩展，有效期不会延长。Ctrl+C 仅关闭此视图，不批准或拒绝请求。",
+      "none": "没有待处理的扩展配对请求。请先在扩展中发起配对，再运行此命令。如果仍无请求，请检查远程扩展配置。",
+      "ended": "所选配对请求已结束，请在扩展中确认结果。",
+      "ttyRequired": "扩展配对要求输入、输出及错误输出均为交互终端，不支持管道、重定向或 JSON 输出。",
+      "cancelled": "已关闭配对码视图，未发送批准或拒绝操作。",
+      "invalidSelection": "请通过序号选择一个列表中的请求。",
+      "unavailable": "所选请求已过期、结束或发生变化，请在扩展中重新发起配对。"
     }
   },
   "common": {

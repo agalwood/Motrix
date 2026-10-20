@@ -7,7 +7,7 @@
     "submit": "解鎖"
   },
   "operatorAdmin": {
-    "help": "用法：\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\n此命令只會透過容器 loopback 與正在執行的 Motrix 伺服器通訊。",
+    "help": "用法：\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\n此命令只會透過容器 loopback 與正在執行的 Motrix 伺服器通訊。",
     "errorPrefix": "motrix-admin: {{message}}",
     "usageHint": "執行「motrix-admin --help」查看用法。",
     "pending": {
@@ -55,6 +55,20 @@
         "loopback": "無法透過容器 loopback 連線至正在執行的 Motrix 伺服器。",
         "approvalNotReady": "正在執行的 Motrix 伺服器尚未準備好核准配對。"
       }
+    },
+    "extension": {
+      "heading": "待處理的瀏覽器擴充功能配對請求",
+      "identityNotice": "請核對這是你剛發起的請求。Origin 和自報身分不能單獨證明連線方身分。終端錄製可能記錄配對碼。",
+      "row": "{{index}}. {{browser}} [{{identity}}] 來源：{{origin}}；自報 ID：{{claimedId}}；伺服器：{{authority}}；剩餘 {{seconds}} 秒",
+      "select": "輸入一個請求的序號（Ctrl+C 結束）：",
+      "code": "配對碼：{{code}}",
+      "instructions": "將此配對碼輸入瀏覽器擴充功能，有效期限不會延長。Ctrl+C 僅關閉此檢視，不核准或拒絕請求。",
+      "none": "沒有待處理的擴充功能配對請求。請先在擴充功能中發起配對，再執行此命令。如果仍無請求，請檢查遠端擴充功能設定。",
+      "ended": "所選配對請求已結束，請在擴充功能中確認結果。",
+      "ttyRequired": "擴充功能配對要求輸入、輸出及錯誤輸出均為互動式終端，不支援管線、重新導向或 JSON 輸出。",
+      "cancelled": "已關閉配對碼檢視，未傳送核准或拒絕操作。",
+      "invalidSelection": "請透過序號選擇一個清單中的請求。",
+      "unavailable": "所選請求已過期、結束或發生變化，請在擴充功能中重新發起配對。"
     }
   },
   "common": {

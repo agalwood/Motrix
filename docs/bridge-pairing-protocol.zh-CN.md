@@ -184,6 +184,46 @@ token + 反向代理模型，不在 MBP1 范围内。）
 
 ---
 
+### 4.4 远程 Motrix Server 配置与终端配对
+
+远程扩展功能必须显式启用，并在配置无效时保持关闭。配置项为：
+
+```text
+MOTRIX_REMOTE_EXTENSION_ENABLED=false
+MOTRIX_REMOTE_EXTENSION_PUBLIC_URL=ws(s)://host[:port][/base-path]
+MOTRIX_PUBLIC_URL=http(s)://operator-host[:port][/base-path]
+MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP=false
+```
+
+启用后必须提供 WS/WSS 扩展地址。Web 管理地址可选，不得从扩展地址推测其主机、
+端口或路径。提供 Web 地址时必须严格校验；HTTPS 默认允许，HTTP 必须同时显式
+授权 `MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP=true`。该例外仅适用于可信局域网。
+无效的 URL 或布尔值只关闭远程扩展入口，不改变 CLI/agent 与桌面行为。
+
+扩展入口继续按 WS/WSS 地址严格校验原始 Host、有效端口和路径前缀，保留 nonce、
+限流、凭据、撤销与 MBP1 验证。Web 和扩展地址可使用不同主机。没有配置 HTTPS
+管理地址、也没有 HTTP 显式授权时，Web 待配对快照必须过滤扩展请求，事件连接必须
+跳过扩展 `PairRequested` 消息；普通任务事件、CLI 请求和不含码的结束事件继续工作。
+
+经过 operator Bearer 鉴权的请求可以通过实际观察到的本机回环连接读取快照：
+必须恰有一个原始 Host 头，匹配回环地址和实际监听端口，并且不得携带 Origin、
+Forwarded 或任何 X-Forwarded-* 头，包括空值。连接来源取自 socket，不能使用
+转发 IP。拥有 operator token 的管理员仍可通过改写头部的本机代理模拟这种连接；
+该 token 本身授予机器所有者权限，这项检查不构成对管理员的物理本机隔离。
+
+`motrix-admin extension pair` 可以通过固定回环地址和 operator 凭据，在交互终端
+展示用户明确选中的一个有效配对码。必须拒绝 JSON、管道和重定向，过滤请求元数据
+中的终端控制字符，并重新验证所选会话及其原始到期时间。退出、取消、过期、失败
+或挂起请求都必须清除配对码视图。读取不延长有效期，请求消失不代表成功，关闭
+查看界面不批准或拒绝请求。用户仍须在扩展中输入配对码完成 MBP1 握手。
+
+配对码不得进入 URL、日志、持久化浏览器存储、剪贴板、非交互 CLI 输出或通知文本。
+终端录制和管理员权限属于可信管理员会话的边界，清屏不保证消除录制记录。
+Web 快照和操作响应继续使用 `Cache-Control: no-store`；Cookie 事件连接仍校验
+配置的 Web Origin，缺省时使用现有同源策略；CSRF、HttpOnly、SameSite 和登录限流
+保持生效。HTTPS 代理必须保留正确 Host、Origin、Upgrade 和路径，HTTP 授权不意味着
+流量具有加密保护。
+
 ## 5. 扩展身份三态
 
 审批对话框 MUST 区分三种身份状态；证明*是哪一个*扩展在调用，不等于证明它是
@@ -523,8 +563,9 @@ WebSocket 会重置 worker 空闲计时器（见附录 B）；即便 worker 仍�
   （32 个符号；排除 `I`、`L`、`O`、`U`）。
 - **长度**：8 个符号 = 恰好 40 bit，取自 5 个 CSPRNG 字节：将 40 bit 按
   大端切成 8 组、每组 5 bit，逐组索引字母表。
-- **展示**：大写、按 `XXXX-XXXX` 分组，**只**显示在 Motrix 审批对话框中。
-  配对码即 PAKE 口令：MUST 绝不以任何形式经任何网络信道传输，MUST 绝不
+- **展示**：大写、按 `XXXX-XXXX` 分组，显示在 Motrix 审批对话框或 §4.4 允许的已鉴权 Server 管理界面、交互终端中。
+  配对码即 PAKE 口令：MUST 绝不通过扩展连接传输；Server 的已鉴权管理界面及
+  用户明确选择的交互终端展示遵循 §4.4。MUST 绝不
   写入日志。
 - **输入规范化**（扩展侧，本地校验之前）：去掉 ASCII 连字符与空格；转
   大写；映射 `O→0`、`I→1`、`L→1`；然后要求恰好 8 个字母表符号。本地校验

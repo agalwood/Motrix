@@ -60,9 +60,11 @@ export interface EnabledRemoteExtensionConfig {
   /** Reverse-proxy prefix, empty at the authority root. */
   readonly publicWebSocketBasePath: string
   /** Canonical HTTP/HTTPS operator UI base, without a trailing slash. */
-  readonly publicOperatorBaseUrl: string
-  readonly publicOperatorAuthority: string
-  readonly publicOperatorBasePath: string
+  readonly publicOperatorBaseUrl?: string
+  readonly publicOperatorAuthority?: string
+  readonly publicOperatorBasePath?: string
+  /** Web code delivery requires an operator URL or explicit HTTP consent. */
+  readonly operatorDelivery: 'web' | 'local'
 }
 
 export type RemoteExtensionConfig =
@@ -374,14 +376,19 @@ export function parseRemoteExtensionConfig(
     )
     if (!webSocket.ok) return webSocket.value
 
-    const operator = parsePublicUrl(
+    const operatorValue =
       parsedEnvironment.data[
         RemoteExtensionEnvironmentVariable.PublicOperatorUrl
-      ],
-      RemoteExtensionEnvironmentVariable.PublicOperatorUrl,
-      ['http:', 'https:']
-    )
-    if (!operator.ok) return operator.value
+      ]
+    const operator =
+      operatorValue === undefined || operatorValue.trim() === ''
+        ? null
+        : parsePublicUrl(
+            operatorValue,
+            RemoteExtensionEnvironmentVariable.PublicOperatorUrl,
+            ['http:', 'https:']
+          )
+    if (operator !== null && !operator.ok) return operator.value
 
     const allowInsecureOperatorHttp = parseBooleanFlag(
       parsedEnvironment.data[
@@ -394,7 +401,7 @@ export function parseRemoteExtensionConfig(
       return allowInsecureOperatorHttp
     }
     if (
-      operator.value.baseUrl.startsWith('http://') &&
+      operator?.value.baseUrl.startsWith('http://') &&
       !allowInsecureOperatorHttp
     ) {
       return invalid(
@@ -409,9 +416,15 @@ export function parseRemoteExtensionConfig(
         publicWebSocketBaseUrl: webSocket.value.baseUrl,
         publicWebSocketAuthority: webSocket.value.authority,
         publicWebSocketBasePath: webSocket.value.basePath,
-        publicOperatorBaseUrl: operator.value.baseUrl,
-        publicOperatorAuthority: operator.value.authority,
-        publicOperatorBasePath: operator.value.basePath,
+        ...(operator === null
+          ? {}
+          : {
+              publicOperatorBaseUrl: operator.value.baseUrl,
+              publicOperatorAuthority: operator.value.authority,
+              publicOperatorBasePath: operator.value.basePath,
+            }),
+        operatorDelivery:
+          operator !== null || allowInsecureOperatorHttp ? 'web' : 'local',
       })
     )
   } catch {
