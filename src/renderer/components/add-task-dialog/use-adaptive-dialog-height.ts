@@ -88,10 +88,8 @@ export function useAdaptiveDialogHeight(
   }, [collapsedHeight])
 
   useLayoutEffect(() => {
-    if (!open) {
-      setHeight(collapsedHeight)
-      return
-    }
+    if (!open) return
+    setHeight(collapsedHeight)
 
     const dialog = dialogRef.current
     if (!dialog) return

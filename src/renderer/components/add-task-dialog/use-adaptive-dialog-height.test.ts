@@ -1,5 +1,50 @@
-import { describe, expect, it } from 'vitest'
-import { clampDialogHeight } from './use-adaptive-dialog-height'
+import { act, renderHook } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  clampDialogHeight,
+  useAdaptiveDialogHeight,
+} from './use-adaptive-dialog-height'
+
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+})
+
+it('holds the expanded height during exit and resets for the next opening', () => {
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      disconnect() {}
+    }
+  )
+  const frames: FrameRequestCallback[] = []
+  vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+    frames.push(callback)
+    return frames.length
+  })
+  vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
+  const dialog = document.createElement('div')
+  dialog.innerHTML =
+    '<header data-slot="dialog-header"></header><div data-adaptive-content></div><footer data-slot="add-task-form-footer"></footer>'
+  Object.defineProperty(dialog.children[1], 'scrollHeight', { value: 600 })
+  const ref = { current: dialog }
+  const { result, rerender } = renderHook(
+    ({ open }) =>
+      useAdaptiveDialogHeight(ref, {
+        collapsedHeight: 374,
+        maxHeight: 760,
+        open,
+      }),
+    { initialProps: { open: true } }
+  )
+  act(() => frames.pop()?.(0))
+  expect(result.current.height).toBe(600)
+  rerender({ open: false })
+  expect(result.current.height).toBe(600)
+  rerender({ open: true })
+  expect(result.current.height).toBe(374)
+})
 
 describe('clampDialogHeight', () => {
   const base = {

@@ -22,6 +22,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@renderer/components/ui/tabs'
+import { useExitSnapshot } from '@renderer/hooks/use-exit-snapshot'
 import { invalidateTaskList } from '@renderer/hooks/use-task-list'
 import type { ParsedTorrentFile } from '@renderer/lib/parse-torrent-file'
 import { transport } from '@renderer/lib/transport'
@@ -83,6 +84,8 @@ import {
 } from './use-external-hydration'
 
 interface AddTaskFormProps {
+  /** A closing dialog retains its draft but must stop accepting submissions. */
+  active?: boolean
   initialTorrentFiles?: ParsedTorrentFile[]
   onDraftStateChange?: (dirty: boolean, busy: boolean) => void
   defaultValues?: DeepPartial<AddTaskFormValues>
@@ -134,6 +137,7 @@ function notifyTaskCreateFailure(
 }
 
 export function AddTaskForm({
+  active = true,
   defaultValues,
   initialTorrentFiles,
   onDraftStateChange,
@@ -161,6 +165,10 @@ export function AddTaskForm({
     draft?: string
     line?: number
   } | null>(null)
+  const conflictPresentation = useExitSnapshot(
+    duplicateConflict !== null,
+    duplicateConflict
+  )
 
   const form = useForm<AddTaskFormValues>({
     resolver: zodResolver(addTaskFormSchema) as Resolver<AddTaskFormValues>,
@@ -401,7 +409,7 @@ export function AddTaskForm({
   }, [advanceTorrentQueue, hasNextQueuedTorrent, onCancel])
 
   const handleDownloadAllTorrents = useCallback(async () => {
-    if (!hasNextQueuedTorrent()) return
+    if (!active || !hasNextQueuedTorrent()) return
     setBatchSubmitting(true)
     try {
       const parsedValues = addTaskFormSchema.safeParse(form.getValues())
@@ -500,11 +508,18 @@ export function AddTaskForm({
     } finally {
       setBatchSubmitting(false)
     }
-  }, [form, hasNextQueuedTorrent, localTorrentQueue, onSubmitSuccess, platform])
+  }, [
+    active,
+    form,
+    hasNextQueuedTorrent,
+    localTorrentQueue,
+    onSubmitSuccess,
+    platform,
+  ])
 
   const onSubmit = useCallback(
     async (values: AddTaskFormValues) => {
-      if (submitting || advancingTorrent || batchSubmitting) return
+      if (!active || submitting || advancingTorrent || batchSubmitting) return
       setSubmitting(true)
       try {
         form.clearErrors('urls')
@@ -632,6 +647,7 @@ export function AddTaskForm({
       }
     },
     [
+      active,
       advancingTorrent,
       batchSubmitting,
       completeCurrentSubmission,
@@ -664,7 +680,7 @@ export function AddTaskForm({
   )
 
   const createSeparateCopy = useCallback(async () => {
-    if (!duplicateConflict) return
+    if (!active || !duplicateConflict) return
     setSubmitting(true)
     try {
       const result = (await transport.invoke(Commands.CreateTask, {
@@ -692,10 +708,11 @@ export function AddTaskForm({
     } finally {
       setSubmitting(false)
     }
-  }, [completeConflict, duplicateConflict, platform])
+  }, [active, completeConflict, duplicateConflict, platform])
 
   // ⌘↵ / Ctrl+Enter submit
   useEffect(() => {
+    if (!active) return
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
@@ -710,7 +727,7 @@ export function AddTaskForm({
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [form, onSubmit])
+  }, [active, form, onSubmit])
 
   return (
     <AddTaskLayoutProvider onAdvancedOpenChange={onAdvancedOpenChange}>
@@ -765,10 +782,10 @@ export function AddTaskForm({
               </AlertDialogTitle>
               <AlertDialogDescription>
                 {t(
-                  `task.add.duplicate.${duplicateConflict?.result.conflict.reason}`,
+                  `task.add.duplicate.${conflictPresentation?.result.conflict.reason}`,
                   {
                     name:
-                      duplicateConflict?.result.conflict.existingTaskName ??
+                      conflictPresentation?.result.conflict.existingTaskName ??
                       t('task.add.duplicate.filesOnDisk'),
                   }
                 )}
@@ -776,11 +793,12 @@ export function AddTaskForm({
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-              {duplicateConflict?.result.conflict.existingTaskId && (
+              {conflictPresentation?.result.conflict.existingTaskId && (
                 <AlertDialogAction
+                  disabled={!duplicateConflict}
                   onClick={() => {
                     const taskId =
-                      duplicateConflict.result.conflict.existingTaskId
+                      duplicateConflict?.result.conflict.existingTaskId
                     setDuplicateConflict(null)
                     if (taskId) void completeConflict(taskId)
                   }}
@@ -788,8 +806,11 @@ export function AddTaskForm({
                   {t('task.add.duplicate.showExisting')}
                 </AlertDialogAction>
               )}
-              {duplicateConflict?.result.conflict.canCreateCopy && (
-                <AlertDialogAction onClick={() => void createSeparateCopy()}>
+              {conflictPresentation?.result.conflict.canCreateCopy && (
+                <AlertDialogAction
+                  disabled={!duplicateConflict}
+                  onClick={() => void createSeparateCopy()}
+                >
                   {t('task.add.duplicate.createCopy')}
                 </AlertDialogAction>
               )}

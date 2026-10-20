@@ -8,6 +8,7 @@ import { readTorrentFile } from '@renderer/lib/parse-torrent-file'
 import type { PlatformServices } from '@renderer/platform/services'
 import { PlatformServicesProvider } from '@renderer/platform/services'
 import { Events } from '@shared/protocol/events'
+import { holdExitAnimation } from '@test-utils/hold-exit-animation'
 import { AddTaskForm } from './add-task-form'
 
 const { recordRecentMock, invokeMock } = vi.hoisted(() => ({
@@ -911,6 +912,28 @@ describe('AddTaskForm', () => {
     )
   })
 
+  it('keeps a closing draft visible without accepting click or global shortcut submissions', async () => {
+    const { transport } = await import('@renderer/lib/transport')
+    renderForm({
+      active: false,
+      defaultValues: {
+        tab: 'links',
+        urls: 'https://example.test/closing.zip',
+        saveDir: '/d',
+      },
+    })
+    expect(screen.getByRole('textbox')).toHaveValue(
+      'https://example.test/closing.zip'
+    )
+    fireEvent.keyDown(window, { key: 'Enter', ctrlKey: true })
+    fireEvent.keyDown(window, { key: 'Enter', metaKey: true })
+    await userEvent.click(screen.getByRole('button', { name: /download/i }))
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      'command:createTask',
+      expect.anything()
+    )
+  })
+
   it('requires confirmation before creating a renamed torrent copy', async () => {
     const onSubmitSuccess = vi.fn()
     const user = userEvent.setup()
@@ -953,6 +976,9 @@ describe('AddTaskForm', () => {
       })
     ).toBeInTheDocument()
     expect(recordRecentMock).not.toHaveBeenCalled()
+    const conflictDialog = screen.getByRole('alertdialog')
+    const conflictContent = conflictDialog.textContent
+    const finishExit = holdExitAnimation(conflictDialog)
     await user.click(
       screen.getByRole('button', { name: 'Create separate copy' })
     )
@@ -965,5 +991,7 @@ describe('AddTaskForm', () => {
     )
     expect(onSubmitSuccess).toHaveBeenCalledWith('copy-task')
     expect(recordRecentMock).not.toHaveBeenCalled()
+    expect(conflictDialog.textContent).toBe(conflictContent)
+    await finishExit()
   })
 })

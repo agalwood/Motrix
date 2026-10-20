@@ -9,6 +9,7 @@ import {
 import { WindowChromeCaptionIcon } from '@renderer/components/window-chrome/window-chrome'
 import { MenuConfirmation } from '@renderer/features/application-menu/menu-confirmation'
 import { WebDirectoryPickerDialog } from '@renderer/features/web-directory-picker/web-directory-picker-dialog'
+import { useExitSnapshot } from '@renderer/hooks/use-exit-snapshot'
 import { showMagnetFileSelection } from '@renderer/lib/open-magnet-file-selection'
 import { transport } from '@renderer/lib/transport'
 import { PlatformServicesProvider } from '@renderer/platform/services'
@@ -47,6 +48,11 @@ export function AddTaskDialogHost() {
     []
   )
   const prefill = useAddTaskDialogStore((s) => s.prefill)
+  const presentation = useExitSnapshot(open, {
+    revision,
+    prefill,
+    torrentFiles,
+  })
   const openWith = useAddTaskDialogStore((s) => s.openWith)
   const close = useAddTaskDialogStore((s) => s.close)
   const requestClose = useCallback(() => {
@@ -176,9 +182,10 @@ export function AddTaskDialogHost() {
           </DialogHeader>
           <PlatformServicesProvider services={webServices}>
             <AddTaskForm
-              key={revision}
-              defaultValues={prefill}
-              initialTorrentFiles={torrentFiles}
+              active={open}
+              key={presentation.revision}
+              defaultValues={presentation.prefill}
+              initialTorrentFiles={presentation.torrentFiles}
               onDraftStateChange={onDraftStateChange}
               onSubmitSuccess={onSubmitSuccess}
               onCancel={requestClose}

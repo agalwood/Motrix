@@ -265,7 +265,6 @@ function ElectronMotrixMenuButton() {
       pendingExecution.current = null
       restoreFocusRef.current = false
       setOpen(false)
-      setStack([])
       setNarrow(small.matches)
     }
     const hide = () => {

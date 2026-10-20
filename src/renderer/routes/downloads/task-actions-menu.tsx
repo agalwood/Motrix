@@ -23,6 +23,7 @@ import {
   subscribeMenuContext,
 } from '@renderer/features/application-menu/task-context'
 import { OperationTaskMenuItems } from '@renderer/features/plugin-operations/operation-task-menu'
+import { useExitSnapshot } from '@renderer/hooks/use-exit-snapshot'
 import { openAddTaskDialog } from '@renderer/lib/open-add-task-dialog'
 import { openMagnetFileSelection } from '@renderer/lib/open-magnet-file-selection'
 import { openTaskFile } from '@renderer/lib/open-task-file'
@@ -505,6 +506,7 @@ export function TaskActionsMenu({
       <DropdownMenuGroup>{group.content}</DropdownMenuGroup>
     </Fragment>
   ))
+  const presentation = useExitSnapshot(menuOpen, items)
   if (children)
     return (
       <ContextMenu
@@ -536,7 +538,7 @@ export function TaskActionsMenu({
           onCopyCapture={handleCopy}
           className="w-max min-w-48 max-w-[min(18rem,var(--available-width))]"
         >
-          {items}
+          {presentation}
         </ContextMenuContent>
       </ContextMenu>
     )
@@ -569,7 +571,7 @@ export function TaskActionsMenu({
         data-menu-density="compact"
         className="w-max min-w-48 max-w-[min(18rem,var(--available-width))]"
       >
-        {items}
+        {presentation}
       </DropdownMenuContent>
     </DropdownMenu>
   )
