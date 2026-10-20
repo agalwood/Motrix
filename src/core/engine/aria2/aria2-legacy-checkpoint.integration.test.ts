@@ -1,8 +1,10 @@
 // @vitest-environment node
 // Opt in with MOTRIX_LEGACY_CHECKPOINT_ENGINE pointing to an engine that
 // implements LegacyCheckpointImportV1. The ordinary bundled engine may not.
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
+  mkdir,
   mkdtemp,
   readFile,
   realpath,
@@ -20,7 +22,8 @@ import {
   connectAdapter,
   spawnAria2ForTest,
 } from '@test-utils/aria2'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { legacyBtActivationFixture } from '@test-utils/legacy-bt-activation-fixture'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const binaryPath = process.env.MOTRIX_LEGACY_CHECKPOINT_ENGINE
 const fixtures = path.resolve('tests/fixtures/legacy-v1/generated/downloads')
@@ -30,6 +33,34 @@ const payloadDigest =
   'a117210941a0b00dcb2d8577e680d84b6fa0eaf760d2afc654c953b9859d54fa'
 const gid = '2222222222222222'
 const token = 'real_v1_checkpoint_import_0001'
+
+function secureWindowsFixture(filename: string, directory = false): void {
+  if (process.platform !== 'win32') return
+  const sid = execFileSync(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-Command',
+      '[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value',
+    ],
+    { encoding: 'utf8' }
+  ).trim()
+  if (directory)
+    execFileSync('icacls.exe', [
+      filename,
+      '/inheritance:r',
+      '/grant:r',
+      `*${sid}:(OI)(CI)F`,
+      '*S-1-5-18:(OI)(CI)F',
+      '*S-1-5-32-544:(OI)(CI)F',
+    ])
+  execFileSync('icacls.exe', [
+    filename,
+    '/setowner',
+    `*${sid}`,
+    ...(directory ? ['/T'] : []),
+  ])
+}
 
 async function until<T>(read: () => Promise<T | false>): Promise<T> {
   const deadline = Date.now() + 20000
@@ -83,6 +114,7 @@ describe.skipIf(!binaryPath)(
       root = await realpath(
         await mkdtemp(path.join(tmpdir(), 'motrix-v1-native-'))
       )
+      secureWindowsFixture(root, true)
       ranges.length = 0
       targetPath = path.join(root, 'partial.bin')
       const partial = gunzipSync(
@@ -90,6 +122,7 @@ describe.skipIf(!binaryPath)(
       )
       expect(partial.byteLength).toBe(completedBytes)
       await writeFile(targetPath, partial)
+      secureWindowsFixture(targetPath)
       const { adapter } = await startEngine()
       const controlFile = await readFile(
         path.join(fixtures, 'partial.bin.aria2')
@@ -208,7 +241,9 @@ describe.skipIf(!binaryPath)(
       )
       await adapter.createDownload({
         uris: [`http://127.0.0.1:${address.port}/partial.bin`],
-        saveDir: root,
+        // The native imported checkpoint key uses aria2's forward-slash form.
+        saveDir:
+          process.platform === 'win32' ? root.replaceAll('\\', '/') : root,
         filename: 'partial.bin',
         gid,
         pause: true,
@@ -251,6 +286,135 @@ describe.skipIf(!binaryPath)(
         await readFile(path.join(fixtures, 'partial.bin.gz'))
       )
       expect(source).toEqual(original)
+    }, 45000)
+
+    it('activates a durable BT receipt paused and restores the same selection after termination', async () => {
+      const { adapter, rpc } = wired!
+      const target = path.join(root, 'fixture-bundle')
+      await mkdir(target)
+      const files: LegacyCheckpointImport['files'] = []
+      for (const [index, name] of ['first.bin', 'second.bin'].entries()) {
+        const filename = path.join(target, name)
+        await writeFile(filename, Buffer.alloc(16384, index + 1))
+        secureWindowsFixture(filename)
+        const identity = await stat(filename, { bigint: true })
+        files.push({
+          path: filename,
+          offset: index * 16384,
+          length: 16384,
+          identity: {
+            device: String(identity.dev),
+            inode: String(identity.ino),
+            size: String(identity.size),
+            mtimeNs: String(identity.mtimeNs),
+            ctimeNs: String(identity.ctimeNs),
+          },
+        })
+      }
+      const controlFile = await readFile(
+        path.join(fixtures, 'fixture-bundle.aria2')
+      )
+      const inspection = await adapter.inspectLegacyCheckpoint(controlFile)
+      const request: LegacyCheckpointImport = {
+        ...input,
+        targetPath: target,
+        controlFile,
+        sourceDigest: inspection.sourceDigest,
+        files,
+        expected: {
+          type: inspection.type,
+          totalBytes: inspection.totalBytes,
+          pieceBytes: inspection.pieceBytes,
+          infoHash: inspection.infoHash,
+        },
+      }
+      const receipt = await adapter.importLegacyCheckpoint(request)
+      const metadata = await readFile(
+        path.join(fixtures, 'a16dc78c94ce589ed4666ab32285f2d188edf26f.torrent')
+      )
+      const metadataPath = path.join(root, 'authorized.torrent')
+      await writeFile(metadataPath, metadata)
+      secureWindowsFixture(metadataPath)
+      const before = await Promise.all(files.map((file) => readFile(file.path)))
+      expect(await adapter.supportsLegacyBtActivation()).toBe(true)
+      await adapter.addTorrent({
+        metadata,
+        gid,
+        saveDir: root,
+        pause: true,
+        selectedFiles: [1],
+        isPrivate: true,
+        legacyCheckpointActivation: { token, targetPath: target },
+        durableMetadata: {
+          path: metadataPath,
+          digest: createHash('sha256').update(metadata).digest('hex'),
+        },
+      })
+      expect((await rpc.tellStatus(gid)).status).toBe('paused')
+      // Terminate without saveSession: the add RPC must already be durable.
+      handle!.proc.kill('SIGKILL')
+      await stopEngine()
+      const restored = await startEngine()
+      const status = await restored.rpc.tellStatus(gid)
+      expect(status.status).toBe('paused')
+      expect(status.files.map((file) => file.selected)).toEqual([
+        'true',
+        'false',
+      ])
+      expect((await restored.rpc.tellWaiting(0, 10)).length).toBe(1)
+      expect(
+        await restored.adapter.reconcileLegacyCheckpoint({
+          token,
+          targetPath: target,
+        })
+      ).toEqual(receipt)
+      expect(
+        await Promise.all(files.map((file) => readFile(file.path)))
+      ).toEqual(before)
+    }, 45000)
+
+    it('runs the migration service from authorized v1 records through binding before unpause', async () => {
+      const { adapter, rpc } = wired!
+      const fixture = await legacyBtActivationFixture(adapter)
+      try {
+        secureWindowsFixture(fixture.root, true)
+        const original = await readFile(
+          path.join(fixture.downloads, 'fixture-bundle', 'first.bin')
+        )
+        const resume = adapter.resumeTask.bind(adapter)
+        const resumed = vi
+          .spyOn(adapter, 'resumeTask')
+          .mockImplementation(async (id) => {
+            expect((await rpc.tellStatus(id)).status).toBe('paused')
+            expect(
+              fixture.db.getTask(fixture.taskId)?.instances[0].payload
+                .legacyBtActivation
+            ).toMatchObject({
+              stage: 'bound',
+              engineTaskId: id,
+            })
+            await resume(id)
+          })
+        expect(
+          await fixture.service.activate(
+            fixture.taskId,
+            async () => fixture.downloads
+          )
+        ).toBe(true)
+        expect(resumed).toHaveBeenCalledOnce()
+        const state = fixture.db.getTask(fixture.taskId)?.instances[0].payload
+          .legacyBtActivation
+        expect(state).toMatchObject({ stage: 'active' })
+        expect(
+          await readFile(
+            path.join(fixture.downloads, 'fixture-bundle', 'first.bin')
+          )
+        ).toEqual(original)
+        resumed.mockRestore()
+      } finally {
+        await stopEngine()
+        await fixture.dispose()
+      }
     }, 45000)
 
     it('rejects changed file identities without creating a receipt or checkpoint', async () => {

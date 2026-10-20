@@ -131,7 +131,11 @@ export function safeLegacyComponent(value: string): boolean {
 export function safeLegacyDirectory(dir: string): string | null {
   if (!path.isAbsolute(dir) || dir.includes('\0') || dir.length > 4096)
     return null
-  const root = path.resolve(dir)
+  let root = path.resolve(dir)
+  // Drive-letter casing has no identity distinction, even in a case-sensitive
+  // NTFS directory. Keep persisted Windows paths aligned with realpath.
+  if (process.platform === 'win32' && /^[a-z]:\\/.test(root))
+    root = root[0].toUpperCase() + root.slice(1)
   return root === path.parse(root).root ? null : root
 }
 
