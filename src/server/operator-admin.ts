@@ -6,7 +6,6 @@ import {
   resolveSupportedLocale,
   SUPPORTED_LOCALE_CODES,
 } from '@shared/constants/locales'
-import { I18N_RESOURCES, loadI18nLocale } from '@shared/i18n-resources'
 import {
   BridgeCommands,
   BridgeQueries,
@@ -23,6 +22,7 @@ import {
 } from 'undici'
 import { z } from 'zod'
 import { parseServerPort } from './environment'
+import { OPERATOR_ADMIN_RESOURCES } from './operator-admin-locales'
 import {
   createPairingTerminal,
   ExtensionPairingTerminalError,
@@ -235,10 +235,7 @@ async function createTranslator(env: NodeJS.ProcessEnv): Promise<Translate> {
   const locale = resolveSupportedLocale(env.MOTRIX_HOST_LANGUAGE, env.LANG)
   const instance = createInstance()
   await instance.init({
-    resources: {
-      ...I18N_RESOURCES,
-      [locale]: { translation: await loadI18nLocale(locale) },
-    },
+    resources: OPERATOR_ADMIN_RESOURCES,
     supportedLngs: SUPPORTED_LOCALE_CODES,
     lng: locale,
     fallbackLng: FALLBACK_LOCALE,
