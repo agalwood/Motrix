@@ -13,6 +13,15 @@ const enabledEnvironment = {
 }
 
 describe('parseRemoteExtensionConfig', () => {
+  it('enables remote pairing without a public operator URL', () => {
+    expect(
+      parseRemoteExtensionConfig({
+        MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
+        MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'ws://192.168.1.2:16801',
+      }).status
+    ).toBe('enabled')
+  })
+
   it('issues ephemeral capabilities and rejects structural copies', () => {
     const parsed = parseRemoteExtensionConfig(enabledEnvironment)
 
@@ -68,9 +77,10 @@ describe('parseRemoteExtensionConfig', () => {
       'MOTRIX_REMOTE_EXTENSION_PUBLIC_URL',
       RemoteExtensionEnvironmentVariable.PublicWebSocketUrl,
     ],
-    ['MOTRIX_PUBLIC_URL', RemoteExtensionEnvironmentVariable.PublicOperatorUrl],
   ] as const)('requires %s when enabled', (key, variable) => {
-    const environment = { ...enabledEnvironment }
+    const environment: Partial<typeof enabledEnvironment> = {
+      ...enabledEnvironment,
+    }
     delete environment[key]
 
     expect(parseRemoteExtensionConfig(environment)).toEqual({
@@ -94,6 +104,7 @@ describe('parseRemoteExtensionConfig', () => {
       publicWebSocketBaseUrl: 'wss://[2001:db8::1]/bridge',
       publicWebSocketAuthority: '[2001:db8::1]',
       publicWebSocketBasePath: '/bridge',
+      operatorDelivery: 'web',
       publicOperatorBaseUrl: 'https://operator.example/ui',
       publicOperatorAuthority: 'operator.example',
       publicOperatorBasePath: '/ui',
@@ -112,6 +123,7 @@ describe('parseRemoteExtensionConfig', () => {
       publicWebSocketBaseUrl: 'wss://motrix.example:9443',
       publicWebSocketAuthority: 'motrix.example:9443',
       publicWebSocketBasePath: '',
+      operatorDelivery: 'web',
       publicOperatorBaseUrl: 'https://console.example:8443',
       publicOperatorAuthority: 'console.example:8443',
       publicOperatorBasePath: '',
@@ -130,6 +142,7 @@ describe('parseRemoteExtensionConfig', () => {
       publicWebSocketBaseUrl: 'ws://nas.local/bridge',
       publicWebSocketAuthority: 'nas.local',
       publicWebSocketBasePath: '/bridge',
+      operatorDelivery: 'web',
       publicOperatorBaseUrl: 'https://console.example/operator',
       publicOperatorAuthority: 'console.example',
       publicOperatorBasePath: '/operator',
@@ -151,6 +164,7 @@ describe('parseRemoteExtensionConfig', () => {
         publicWebSocketBaseUrl: 'ws://nas.local:16801',
         publicWebSocketAuthority: 'nas.local:16801',
         publicWebSocketBasePath: '',
+        operatorDelivery: 'web',
         publicOperatorBaseUrl: 'http://nas.local/admin',
         publicOperatorAuthority: 'nas.local',
         publicOperatorBasePath: '/admin',

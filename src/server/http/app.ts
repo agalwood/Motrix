@@ -2,6 +2,7 @@ import type { EventBus } from '@core/events/event-bus'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
 import fastifyStatic from '@fastify/static'
 import websocket from '@fastify/websocket'
+import { BridgeQueries } from '@shared/protocol/bridge'
 import { Commands } from '@shared/protocol/commands'
 import {
   assertTaskInspectorActivityArguments,
@@ -29,8 +30,14 @@ import {
 import { parseTaskInspectorActivitySnapshot } from '@shared/schemas/task-inspector-activity'
 import { torrentRpcBodyLimitSchema } from '@shared/schemas/torrent-request-limits'
 import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify'
+import type { RemoteExtensionConfig } from '../bridge/remote-extension-config'
 import { bindEventHeartbeat } from './event-heartbeat'
 import { bindEventBroadcaster } from './events'
+import {
+  canDeliverExtensionPairingCode,
+  filterExtensionPairingSnapshot,
+  isExtensionPairingCodeEvent,
+} from './extension-pairing-delivery'
 import { type OperatorAuthOptions, registerOperatorAuth } from './operator-auth'
 import { ServiceUnavailableError } from './service-unavailable-error'
 import {
@@ -108,6 +115,7 @@ export interface AppOptions {
    */
   bridgeCommandHandlers?: Record<string, Handler>
   bridgeQueryHandlers?: Record<string, Handler>
+  remoteExtensionConfig?: RemoteExtensionConfig
   eventBus?: EventBus
   pluginLogSource?: Pick<CapabilityHost, 'subscribeLog'>
   rendererDir?: string
@@ -212,6 +220,20 @@ export async function createApp(
           assertTaskInspectorActivityArguments(args)
         }
         const value = await handler(...(args ?? []))
+        if (
+          req.params.channel === BridgeQueries.ListPendingPairRequests &&
+          !(
+            operatorSessions?.principal(req) &&
+            canDeliverExtensionPairingCode(
+              opts.remoteExtensionConfig,
+              req,
+              operatorSessions?.principal(req)?.id.startsWith('bearer:') ===
+                true
+            )
+          )
+        ) {
+          return filterExtensionPairingSnapshot(value)
+        }
         if (!usesSharedEnvelope) return value
         const snapshot = parseTaskInspectorActivitySnapshot(value)
         if (!snapshot) {
@@ -243,7 +265,20 @@ export async function createApp(
     await app.register(websocket)
     app.get('/rpc/events', { websocket: true }, (socket, request) => {
       const session = operatorSessions?.bindSocket(request, socket)
-      broadcaster.register(socket, session?.eligible)
+      const allowPairingCode =
+        operatorSessions?.principal(request) !== undefined &&
+        canDeliverExtensionPairingCode(
+          opts.remoteExtensionConfig,
+          request,
+          operatorSessions?.principal(request)?.id.startsWith('bearer:') ===
+            true
+        )
+      broadcaster.register(
+        socket,
+        session?.eligible,
+        (channel, args) =>
+          allowPairingCode || !isExtensionPairingCodeEvent(channel, args)
+      )
       const stopHeartbeat = bindEventHeartbeat(socket)
       const cleanup = () => {
         stopHeartbeat()

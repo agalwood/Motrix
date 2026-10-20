@@ -1,5 +1,6 @@
 import { lstat, readFile } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
+import { CROCKFORD_ALPHABET } from '@core/bridge/mbp1/pairing-code'
 import {
   FALLBACK_LOCALE,
   resolveSupportedLocale,
@@ -15,8 +16,19 @@ import {
   type ResolvePairResult,
 } from '@shared/protocol/bridge'
 import { createInstance } from 'i18next'
+import {
+  Agent,
+  type RequestInit as DirectRequestInit,
+  fetch as directFetch,
+} from 'undici'
 import { z } from 'zod'
 import { parseServerPort } from './environment'
+import {
+  createPairingTerminal,
+  ExtensionPairingTerminalError,
+  type PairingTerminal,
+  runExtensionPairingTerminal,
+} from './operator-extension-pairing'
 
 const OPERATOR_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43,128}$/
 const USER_CODE_PATTERN = /^[A-HJ-NP-Z2-9]{8}$/
@@ -60,7 +72,11 @@ const pendingExtensionRequestSchema: z.ZodType<PendingExtensionRequest> = z
     extensionId: z.string().min(1).max(256),
     browser: BrowserSchema,
     identity: z.enum(['official', 'attested-non-official', 'unverified']),
-    code: z.string().regex(WIRE_USER_CODE_PATTERN),
+    code: z
+      .string()
+      .regex(
+        new RegExp(`^[${CROCKFORD_ALPHABET}]{4}-[${CROCKFORD_ALPHABET}]{4}$`)
+      ),
     verifiedOrigin: z.string().min(1).max(512).optional(),
     originHost: z.string().min(1).max(256).optional(),
     claimedExtensionId: z.string().min(1).max(256).optional(),
@@ -165,6 +181,7 @@ interface OperatorAdminDependencies {
   writeStderr: (message: string) => void
   pendingRetryWindowMs: number
   mutationTimeoutMs: number
+  terminal?: PairingTerminal
 }
 
 export interface OperatorAdminOptions
@@ -172,7 +189,7 @@ export interface OperatorAdminOptions
 
 interface ParsedCommand {
   json: boolean
-  operation: 'pending' | 'approve' | 'deny'
+  operation: 'pending' | 'approve' | 'deny' | 'extension-pair'
   userCode?: string
 }
 
@@ -207,6 +224,7 @@ function defaultDependencies(
       ((message) => {
         process.stderr.write(`${message}\n`)
       }),
+    terminal: options.terminal,
     pendingRetryWindowMs:
       options.pendingRetryWindowMs ?? PENDING_RETRY_WINDOW_MS,
     mutationTimeoutMs: options.mutationTimeoutMs ?? MUTATION_TIMEOUT_MS,
@@ -264,6 +282,9 @@ function parseCommand(argv: readonly string[]): ParsedCommand | 'help' {
     return 'help'
   }
 
+  if (argv.length === 2 && argv[0] === 'extension' && argv[1] === 'pair') {
+    return { json: false, operation: 'extension-pair' }
+  }
   const args = argv.filter((arg) => arg !== '--json')
   if (args.some((arg) => arg.startsWith('--'))) {
     throw new OperatorAdminError(
@@ -496,8 +517,9 @@ async function waitBeforePendingRetry(
 async function listPendingRequests(
   deps: OperatorAdminDependencies,
   baseUrl: string,
-  token: string
-): Promise<PendingCliRequest[]> {
+  token: string,
+  signal?: AbortSignal
+): Promise<PendingPairRequestInfo[]> {
   const startedAt = deps.now()
   let attempts = 0
   while (attempts < MAX_PENDING_ATTEMPTS) {
@@ -514,10 +536,14 @@ async function listPendingRequests(
         )}`,
         {
           ...requestInit(token, []),
-          signal: controller.signal,
+          signal: signal
+            ? AbortSignal.any([signal, controller.signal])
+            : controller.signal,
         }
       )
     } catch {
+      clearTimeout(timeout)
+      if (signal?.aborted) throw new ExtensionPairingTerminalError('cancelled')
       if (retryWindowExpired(deps, startedAt, attempts)) {
         throw new OperatorAdminError(
           OperatorAdminErrorKind.Unavailable,
@@ -526,44 +552,39 @@ async function listPendingRequests(
       }
       await waitBeforePendingRetry(deps, startedAt)
       continue
+    }
+
+    try {
+      if (response.status === 404) {
+        const isStartupResponse = await isUnknownChannelResponse(response)
+        if (!isStartupResponse) classifyHttpStatus(response.status, false)
+        if (retryWindowExpired(deps, startedAt, attempts)) {
+          throw new OperatorAdminError(
+            OperatorAdminErrorKind.Unavailable,
+            OperatorAdminErrorCode.ApprovalNotReady
+          )
+        }
+        await waitBeforePendingRetry(deps, startedAt)
+        continue
+      }
+      if (!response.ok) {
+        await discardResponse(response)
+        classifyHttpStatus(response.status, false)
+      }
+
+      const parsed = pendingResponseSchema.safeParse(
+        await parseJsonResponse(response)
+      )
+      if (!parsed.success) {
+        throw new OperatorAdminError(
+          OperatorAdminErrorKind.Server,
+          OperatorAdminErrorCode.PendingResponseInvalid
+        )
+      }
+      return parsed.data
     } finally {
       clearTimeout(timeout)
     }
-
-    if (response.status === 404) {
-      const isStartupResponse = await isUnknownChannelResponse(response)
-      if (!isStartupResponse) classifyHttpStatus(response.status, false)
-      if (retryWindowExpired(deps, startedAt, attempts)) {
-        throw new OperatorAdminError(
-          OperatorAdminErrorKind.Unavailable,
-          OperatorAdminErrorCode.ApprovalNotReady
-        )
-      }
-      await waitBeforePendingRetry(deps, startedAt)
-      continue
-    }
-    if (!response.ok) {
-      await discardResponse(response)
-      classifyHttpStatus(response.status, false)
-    }
-
-    const parsed = pendingResponseSchema.safeParse(
-      await parseJsonResponse(response)
-    )
-    if (!parsed.success) {
-      throw new OperatorAdminError(
-        OperatorAdminErrorKind.Server,
-        OperatorAdminErrorCode.PendingResponseInvalid
-      )
-    }
-    // `motrix-admin` is intentionally CLI-only: Extension pairing approval is
-    // code-entry in the browser, not an operator allow/deny action. Validate
-    // the complete renderer-safe union first so a malformed Server response
-    // still fails closed, then project only CLI rows. In particular, never
-    // print or match an Extension's PAKE code.
-    return parsed.data.filter(
-      (request): request is PendingCliRequest => request.kind === 'cli'
-    )
   }
 
   throw new OperatorAdminError(
@@ -758,7 +779,19 @@ export async function runOperatorAdmin(
   argv: readonly string[],
   options: OperatorAdminOptions = {}
 ): Promise<OperatorAdminExitCode> {
-  const deps = defaultDependencies(options)
+  // An explicit direct dispatcher prevents NODE_USE_ENV_PROXY/global proxy
+  // settings from forwarding the machine-owner credential outside loopback.
+  const dispatcher = options.fetch === undefined ? new Agent() : undefined
+  const deps = defaultDependencies({
+    ...options,
+    fetch:
+      options.fetch ??
+      ((input, init) =>
+        directFetch(String(input), {
+          ...init,
+          dispatcher,
+        } as DirectRequestInit) as unknown as Promise<Response>),
+  })
   const t = await createTranslator(deps.env)
   let json = argv.includes('--json')
   try {
@@ -769,14 +802,35 @@ export async function runOperatorAdmin(
     }
     json = command.json
 
+    const terminal =
+      command.operation === 'extension-pair'
+        ? (deps.terminal ?? createPairingTerminal())
+        : undefined
+    if (terminal && !terminal.interactive)
+      throw new ExtensionPairingTerminalError('ttyRequired')
     const token = await readOperatorToken(deps)
     const baseUrl = serverBaseUrl(deps.env)
-    const pending = await listPendingRequests(deps, baseUrl, token)
+    if (terminal) {
+      const outcome = await runExtensionPairingTerminal({
+        terminal,
+        listPending: (signal) =>
+          listPendingRequests(deps, baseUrl, token, signal),
+        now: deps.now,
+        t,
+      })
+      deps.writeStdout(t(`operatorAdmin.extension.${outcome}`))
+      return OperatorAdminExitCode.Success
+    }
+    const pending = (await listPendingRequests(deps, baseUrl, token)).filter(
+      (request): request is PendingCliRequest => request.kind === 'cli'
+    )
     if (command.operation === 'pending') {
       printPending(deps, t, pending, command.json)
       return OperatorAdminExitCode.Success
     }
 
+    if (command.operation === 'extension-pair')
+      throw new ExtensionPairingTerminalError('unavailable')
     const request = findUniqueRequest(pending, command.userCode as string)
     const params: ResolvePairParams = {
       kind: 'cli',
@@ -787,6 +841,13 @@ export async function runOperatorAdmin(
     printDecision(deps, t, request, command.operation, command.json)
     return OperatorAdminExitCode.Success
   } catch (error) {
+    if (error instanceof ExtensionPairingTerminalError) {
+      deps.writeStderr(t(`operatorAdmin.extension.${error.reason}`))
+      return error.reason === 'ttyRequired' ||
+        error.reason === 'invalidSelection'
+        ? OperatorAdminExitCode.Usage
+        : OperatorAdminExitCode.Unavailable
+    }
     const normalized =
       error instanceof OperatorAdminError
         ? error
@@ -796,5 +857,7 @@ export async function runOperatorAdmin(
           )
     printError(deps, t, normalized, json)
     return exitCodeFor(normalized)
+  } finally {
+    await dispatcher?.destroy().catch(() => {})
   }
 }

@@ -46,8 +46,11 @@ Import `ErrorCodes` and `makeMdxpError` from the package.
 Approval is proven by typing the pairing code, never by clicking an Allow
 button. The dialog shows an 8-symbol Crockford-alphabet code grouped
 `XXXX-XXXX` (`mbp1/pairing-code.ts`), lives 120 seconds, and *is* the SPAKE2
-password: it never travels a network channel and MUST NOT be logged at any
-level (§7.1). A pairing session resolves to one of three identities —
+password: it never travels on the Extension connection and MUST NOT be logged
+at any level (§7.1). Server operator snapshots/events and an explicitly selected
+interactive `motrix-admin extension pair` view follow §4.4. The terminal uses
+fixed loopback RPC with the operator Bearer credential, rejects redirected streams
+and JSON, revalidates the exact session, and never renews the code lifetime. A pairing session resolves to one of three identities —
 `official`, `attested-non-official`, `unverified` — and `official` is decided
 by the immutable allowlist only, never the NM manifest set and never the
 user-added trusted-extension registry (§5).
@@ -75,7 +78,11 @@ existing token + reverse-proxy model.
 The Server's documented Docker path deliberately binds MDXP to `0.0.0.0`
 inside the container so Docker can publish port 16801. Remote Extension routes
 may use that non-loopback listener only behind a parser-issued, all-or-nothing
-remote configuration; `RemoteExtensionSurfacePolicy` then enforces the exact
+remote configuration; the WS/WSS public URL is required, while the operator URL
+is optional. Without an HTTPS operator URL or explicit HTTP consent, code-bearing
+operator snapshots/events are restricted to the authenticated local Bearer path.
+Both HTTP snapshots and event broadcasts must enforce the delivery policy from
+the same parser-issued configuration. `RemoteExtensionSurfacePolicy` enforces the exact
 public Host and raw route prefix plus the admission limits before MBP1 runs.
 Do not reintroduce a loopback-only bootstrap guard: container loopback is not
 reachable through Docker's published-port path.

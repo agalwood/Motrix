@@ -7,7 +7,7 @@
     "submit": "Разблокировать"
   },
   "operatorAdmin": {
-    "help": "Использование:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nКоманда взаимодействует только с запущенным сервером Motrix через интерфейс обратной петли контейнера.",
+    "help": "Использование:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nКоманда взаимодействует только с запущенным сервером Motrix через интерфейс обратной петли контейнера.",
     "errorPrefix": "motrix-admin: {{message}}",
     "usageHint": "Выполните `motrix-admin --help`, чтобы узнать, как использовать команду.",
     "pending": {
@@ -55,6 +55,20 @@
         "loopback": "Запущенный сервер Motrix недоступен через интерфейс обратной петли контейнера.",
         "approvalNotReady": "Подтверждение сопряжения ещё не готово на запущенном сервере Motrix."
       }
+    },
+    "extension": {
+      "heading": "Pending browser Extension pairing requests",
+      "identityNotice": "Verify that you initiated this request. Origin and claimed identity alone do not prove who is connecting. Terminal recording can capture the pairing code.",
+      "row": "{{index}}. {{browser}} [{{identity}}] Origin: {{origin}}; claimed ID: {{claimedId}}; Server: {{authority}}; {{seconds}} s remaining",
+      "select": "Enter the number of one request (Ctrl+C to exit): ",
+      "code": "Pairing code: {{code}}",
+      "instructions": "Type this code into the browser Extension. It expires at the original deadline. Ctrl+C closes this view without approving or denying the request.",
+      "none": "No pending Extension pairing requests. Start pairing in the Extension, then run this command again. If requests remain absent, check the remote Extension configuration.",
+      "ended": "The selected pairing request has ended. Check the Extension for its outcome.",
+      "ttyRequired": "Extension pairing requires interactive input, output and error terminals. Piping, redirection and JSON output are not supported.",
+      "cancelled": "Pairing code view closed. No approval or denial was sent.",
+      "invalidSelection": "Select exactly one listed request by its number.",
+      "unavailable": "The selected request expired, ended or changed. Start a new pairing attempt in the Extension."
     }
   },
   "common": {

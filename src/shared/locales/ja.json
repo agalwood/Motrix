@@ -7,7 +7,7 @@
     "submit": "ロックを解除"
   },
   "operatorAdmin": {
-    "help": "使い方:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nこのコマンドは、コンテナーのループバック経由で、実行中の Motrix サーバーとのみ通信します。",
+    "help": "使い方:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nこのコマンドは、コンテナーのループバック経由で、実行中の Motrix サーバーとのみ通信します。",
     "errorPrefix": "motrix-admin: {{message}}",
     "usageHint": "使い方を確認するには `motrix-admin --help` を実行してください。",
     "pending": {
@@ -55,6 +55,20 @@
         "loopback": "コンテナーのループバックから実行中の Motrix サーバーに接続できません。",
         "approvalNotReady": "実行中の Motrix サーバーでペアリング承認の準備ができていません。"
       }
+    },
+    "extension": {
+      "heading": "Pending browser Extension pairing requests",
+      "identityNotice": "Verify that you initiated this request. Origin and claimed identity alone do not prove who is connecting. Terminal recording can capture the pairing code.",
+      "row": "{{index}}. {{browser}} [{{identity}}] Origin: {{origin}}; claimed ID: {{claimedId}}; Server: {{authority}}; {{seconds}} s remaining",
+      "select": "Enter the number of one request (Ctrl+C to exit): ",
+      "code": "Pairing code: {{code}}",
+      "instructions": "Type this code into the browser Extension. It expires at the original deadline. Ctrl+C closes this view without approving or denying the request.",
+      "none": "No pending Extension pairing requests. Start pairing in the Extension, then run this command again. If requests remain absent, check the remote Extension configuration.",
+      "ended": "The selected pairing request has ended. Check the Extension for its outcome.",
+      "ttyRequired": "Extension pairing requires interactive input, output and error terminals. Piping, redirection and JSON output are not supported.",
+      "cancelled": "Pairing code view closed. No approval or denial was sent.",
+      "invalidSelection": "Select exactly one listed request by its number.",
+      "unavailable": "The selected request expired, ended or changed. Start a new pairing attempt in the Extension."
     }
   },
   "common": {
