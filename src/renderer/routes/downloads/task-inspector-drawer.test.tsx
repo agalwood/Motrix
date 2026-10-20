@@ -3,6 +3,7 @@ import '@renderer/lib/i18n'
 import { getInspectorSnapHeights } from '@renderer/components/desktop-kit/inspector-drawer'
 import { createSelectionStore } from '@renderer/components/desktop-kit/selection/create-selection-store'
 import type { SelectionStore } from '@renderer/components/desktop-kit/selection/types'
+import { transport } from '@renderer/lib/transport'
 import { DownloadErrorCode } from '@shared/errors'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskKind, TaskStatus, TaskType } from '@shared/types/task'
@@ -411,6 +412,32 @@ describe('TaskInspectorDrawer', () => {
     expect(
       screen.queryByText('/downloads/.motrix/61282448e78c1fc29ac1/p')
     ).not.toBeInTheDocument()
+  })
+
+  it('displays and copies a native Windows UNC path without changing the task', async () => {
+    const platform = vi
+      .spyOn(transport, 'platform', 'get')
+      .mockReturnValue('win32')
+    try {
+      const user = userEvent.setup()
+      const clipboard = vi.spyOn(navigator.clipboard, 'writeText')
+      const selection = createSelectionStore<DownloadTask>((task) => task.id)
+      const storedPath = '//nas/share//模型 文件.bin'
+      const nativePath = '\\\\nas\\share\\模型 文件.bin'
+      const tasks = [fake({ finalPath: storedPath, diskPath: storedPath })]
+      selection.getState().setItems(tasks)
+      selection.getState().select('a')
+      render(<TestHarness selection={selection} tasks={tasks} />)
+
+      expect(screen.getByTitle(nativePath)).toBeInTheDocument()
+      expect(screen.queryByTitle(storedPath)).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Copy file path' }))
+      expect(clipboard).toHaveBeenCalledExactlyOnceWith(nativePath)
+      expect(tasks[0].finalPath).toBe(storedPath)
+      clipboard.mockRestore()
+    } finally {
+      platform.mockRestore()
+    }
   })
 
   it('does not switch inspector content during marquee preview', () => {

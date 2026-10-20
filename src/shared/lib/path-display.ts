@@ -3,6 +3,15 @@ const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 const isSeparator = (character: string) =>
   character === '/' || character === '\\'
 
+/** Format local Windows paths for display/copy; never infer the server OS. */
+export function formatNativePath(path: string, platform: string): string {
+  if (platform !== 'win32') return path
+  const windowsPath = path.replaceAll('/', '\\')
+  // Keep the UNC prefix while collapsing repeated separators inside the path.
+  const prefix = /^\\\\[^\\]/.test(windowsPath) ? '\\' : ''
+  return prefix + windowsPath.replace(/\\+/g, '\\')
+}
+
 /** Display-only fragments; maxChars includes the single-character ellipsis. */
 export function getPathDisplayParts(path: string, maxChars: number) {
   if (!Number.isSafeInteger(maxChars) || maxChars < 0)

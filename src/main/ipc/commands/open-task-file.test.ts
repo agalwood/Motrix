@@ -10,7 +10,7 @@ const { warn } = vi.hoisted(() => ({ warn: vi.fn() }))
 vi.mock('@core/logger', () => ({ getLogger: () => ({ warn }) }))
 vi.mock('node:fs/promises', () => ({ stat: vi.fn() }))
 
-function setup() {
+function setup(platform: NodeJS.Platform = 'linux') {
   const task = makeDownloadTask({
     id: 'a',
     status: TaskStatus.Completed,
@@ -24,7 +24,7 @@ function setup() {
     task,
     shell,
     getTask,
-    handler: createOpenTaskFileHandler({ shell, getTask }),
+    handler: createOpenTaskFileHandler({ shell, getTask, platform }),
   }
 }
 
@@ -38,6 +38,49 @@ beforeEach(() => {
 })
 
 describe('openTaskFile', () => {
+  it.each([
+    ['//nas/share//模型 文件.bin', '\\\\nas\\share\\模型 文件.bin'],
+    ['\\\\nas\\share\\folder//file.bin', '\\\\nas\\share\\folder\\file.bin'],
+    ['C:/downloads//file.bin', 'C:\\downloads\\file.bin'],
+  ])(
+    'normalizes Windows output before stat and open: %s',
+    async (stored, expected) => {
+      const { handler, task, shell } = setup('win32')
+      task.finalPath = stored
+      await handler({ taskId: 'a' })
+      expect(stat).toHaveBeenCalledExactlyOnceWith(expected)
+      expect(shell.openPath).toHaveBeenCalledExactlyOnceWith(expected)
+      expect(task.finalPath).toBe(stored)
+    }
+  )
+
+  it('still rejects a changed stored path after normalizing Windows output', async () => {
+    const { handler, task, shell } = setup('win32')
+    task.finalPath = '//nas/share//file.bin'
+    vi.mocked(stat).mockImplementationOnce(async () => {
+      task.finalPath = '//nas/share/other.bin'
+      return { isFile: () => true } as Awaited<ReturnType<typeof stat>>
+    })
+    await expect(handler({ taskId: 'a' })).rejects.toMatchObject({
+      code: ErrorCode.TaskOpenFailed,
+    })
+    expect(shell.openPath).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    '//?/UNC/nas/share/file.bin',
+    '\\\\.\\PhysicalDrive0',
+    'C:file.bin',
+  ])('rejects unsafe Windows output: %s', async (output) => {
+    const { handler, task, shell } = setup('win32')
+    task.finalPath = output
+    await expect(handler({ taskId: 'a' })).rejects.toMatchObject({
+      code: ErrorCode.IpcInvalidPayload,
+    })
+    expect(stat).not.toHaveBeenCalled()
+    expect(shell.openPath).not.toHaveBeenCalled()
+  })
+
   it('opens only the published file owned by the task, ignoring supplied paths', async () => {
     const { handler, shell } = setup()
     await handler({ taskId: 'a', path: '/some/other/file' })

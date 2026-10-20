@@ -29,6 +29,7 @@ describe('revealInFolder', () => {
   it('reveals the current path owned by the requested task', async () => {
     const shell = { showItemInFolder: vi.fn(), openPath: vi.fn(async () => '') }
     const handler = createRevealInFolderHandler({
+      platform: 'linux',
       shell,
       getTask: (taskId) =>
         taskId === 'task-1'
@@ -49,6 +50,7 @@ describe('revealInFolder', () => {
   it('hides an indexed BT workspace behind its stable final path', async () => {
     const shell = { showItemInFolder: vi.fn(), openPath: vi.fn(async () => '') }
     const handler = createRevealInFolderHandler({
+      platform: 'linux',
       shell,
       getTask: () => ({
         diskPath: '/Users/me/Downloads/.motrix/61282448e78c1fc29ac1/p',
@@ -115,6 +117,7 @@ describe('revealInFolder', () => {
       .mockResolvedValueOnce(directoryStat)
     const shell = { showItemInFolder: vi.fn(), openPath: vi.fn(async () => '') }
     const handler = createRevealInFolderHandler({
+      platform: 'win32',
       shell,
       getTask: () => ({
         diskPath: 'C:\\Downloads\\file.iso.motrix',
@@ -163,6 +166,7 @@ describe('revealInFolder', () => {
       openPath: vi.fn(async () => 'OS failed to open /downloads'),
     }
     const handler = createRevealInFolderHandler({
+      platform: 'linux',
       shell,
       getTask: () => ({ diskPath: '', finalPath: '/downloads/file.iso' }),
     })
@@ -179,6 +183,7 @@ describe('revealInFolder', () => {
     )
     const shell = { showItemInFolder: vi.fn(), openPath: vi.fn(async () => '') }
     const handler = createRevealInFolderHandler({
+      platform: 'linux',
       shell,
       getTask: () => ({ diskPath: '', finalPath: '/downloads/file.iso' }),
     })
@@ -191,6 +196,7 @@ describe('revealInFolder', () => {
   it('rejects an unknown task instead of accepting a renderer path', async () => {
     const shell = { showItemInFolder: vi.fn(), openPath: vi.fn(async () => '') }
     const handler = createRevealInFolderHandler({
+      platform: 'linux',
       shell,
       getTask: () => undefined,
     })
@@ -200,19 +206,63 @@ describe('revealInFolder', () => {
   })
 
   it.each([
-    '\\\\server\\share\\downloads\\file.iso',
-    '//server/share/downloads/file.iso',
-  ])('allows a task-owned UNC path: %s', async (diskPath) => {
+    [
+      '\\\\server\\share\\downloads\\file.iso',
+      '\\\\server\\share\\downloads\\file.iso',
+    ],
+    [
+      '//server/share/downloads/file.iso',
+      '\\\\server\\share\\downloads\\file.iso',
+    ],
+    [
+      '//server/share/downloads//模型 文件.iso',
+      '\\\\server\\share\\downloads\\模型 文件.iso',
+    ],
+    [
+      '\\\\server\\share\\downloads//file.iso',
+      '\\\\server\\share\\downloads\\file.iso',
+    ],
+    ['C:/downloads//file.iso', 'C:\\downloads\\file.iso'],
+  ])('normalizes a task-owned Windows path: %s', async (diskPath, expected) => {
     const shell = { showItemInFolder: vi.fn(), openPath: vi.fn(async () => '') }
     const handler = createRevealInFolderHandler({
+      platform: 'win32',
       shell,
       getTask: () => ({ diskPath, finalPath: '' }),
     })
 
     await handler({ taskId: 'task-unc' })
 
-    expect(shell.showItemInFolder).toHaveBeenCalledWith(diskPath)
+    expect(stat).toHaveBeenCalledExactlyOnceWith(expected)
+    expect(shell.showItemInFolder).toHaveBeenCalledExactlyOnceWith(expected)
+    expect(shell.openPath).not.toHaveBeenCalled()
   })
+
+  it.each([
+    ['//server/share//file.iso', '\\\\server\\share\\'],
+    ['//server/share/models//file.iso', '\\\\server\\share\\models'],
+    ['C://file.iso', 'C:\\'],
+  ])(
+    'opens the native parent of a missing Windows output: %s',
+    async (finalPath, parent) => {
+      statMock
+        .mockRejectedValueOnce(missingPath())
+        .mockResolvedValueOnce(directoryStat)
+      const shell = {
+        showItemInFolder: vi.fn(),
+        openPath: vi.fn(async () => ''),
+      }
+      const handler = createRevealInFolderHandler({
+        platform: 'win32',
+        shell,
+        getTask: () => ({ diskPath: `${finalPath}.motrix`, finalPath }),
+      })
+      await handler({ taskId: 'task-unc' })
+      expect(statMock).toHaveBeenNthCalledWith(2, parent)
+      expect(shell.openPath).toHaveBeenCalledExactlyOnceWith(parent)
+      expect(shell.showItemInFolder).not.toHaveBeenCalled()
+    }
+  )
 
   it.each([
     '\\\\?\\C:\\downloads\\file.iso',
@@ -222,6 +272,7 @@ describe('revealInFolder', () => {
   ])('rejects a Windows device namespace: %s', async (diskPath) => {
     const shell = { showItemInFolder: vi.fn(), openPath: vi.fn(async () => '') }
     const handler = createRevealInFolderHandler({
+      platform: 'win32',
       shell,
       getTask: () => ({ diskPath, finalPath: '' }),
     })
@@ -235,6 +286,7 @@ describe('revealInFolder', () => {
   it('rejects a relative task path', async () => {
     const shell = { showItemInFolder: vi.fn(), openPath: vi.fn(async () => '') }
     const handler = createRevealInFolderHandler({
+      platform: 'linux',
       shell,
       getTask: () => ({
         diskPath: '../downloads/file.iso',
