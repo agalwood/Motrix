@@ -22,7 +22,10 @@ import {
 } from 'undici'
 import { z } from 'zod'
 import { parseServerPort } from './environment'
-import { OPERATOR_ADMIN_RESOURCES } from './operator-admin-locales'
+import {
+  loadOperatorAdminLocale,
+  OPERATOR_ADMIN_RESOURCES,
+} from './operator-admin-locales'
 import {
   createPairingTerminal,
   ExtensionPairingTerminalError,
@@ -235,7 +238,12 @@ async function createTranslator(env: NodeJS.ProcessEnv): Promise<Translate> {
   const locale = resolveSupportedLocale(env.MOTRIX_HOST_LANGUAGE, env.LANG)
   const instance = createInstance()
   await instance.init({
-    resources: OPERATOR_ADMIN_RESOURCES,
+    resources: {
+      ...OPERATOR_ADMIN_RESOURCES,
+      [locale]: {
+        translation: { operatorAdmin: await loadOperatorAdminLocale(locale) },
+      },
+    },
     supportedLngs: SUPPORTED_LOCALE_CODES,
     lng: locale,
     fallbackLng: FALLBACK_LOCALE,

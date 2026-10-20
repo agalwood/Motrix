@@ -1,61 +1,117 @@
 import type { SupportedLocale } from '@shared/constants/locales'
-import { operatorAdmin as ar } from '@shared/locales/ar.json'
-import { operatorAdmin as bg } from '@shared/locales/bg.json'
-import { operatorAdmin as ca } from '@shared/locales/ca.json'
-import { operatorAdmin as de } from '@shared/locales/de.json'
-import { operatorAdmin as el } from '@shared/locales/el.json'
-import { operatorAdmin as en_US } from '@shared/locales/en-US.json'
-import { operatorAdmin as es } from '@shared/locales/es.json'
-import { operatorAdmin as fa } from '@shared/locales/fa.json'
-import { operatorAdmin as fr } from '@shared/locales/fr.json'
-import { operatorAdmin as hu } from '@shared/locales/hu.json'
-import { operatorAdmin as id } from '@shared/locales/id.json'
-import { operatorAdmin as it } from '@shared/locales/it.json'
-import { operatorAdmin as ja } from '@shared/locales/ja.json'
-import { operatorAdmin as ko } from '@shared/locales/ko.json'
-import { operatorAdmin as nb } from '@shared/locales/nb.json'
-import { operatorAdmin as nl } from '@shared/locales/nl.json'
-import { operatorAdmin as pl } from '@shared/locales/pl.json'
-import { operatorAdmin as pt_BR } from '@shared/locales/pt-BR.json'
-import { operatorAdmin as ro } from '@shared/locales/ro.json'
-import { operatorAdmin as ru } from '@shared/locales/ru.json'
-import { operatorAdmin as th } from '@shared/locales/th.json'
-import { operatorAdmin as tr } from '@shared/locales/tr.json'
-import { operatorAdmin as uk } from '@shared/locales/uk.json'
-import { operatorAdmin as vi } from '@shared/locales/vi.json'
-import { operatorAdmin as zh_CN } from '@shared/locales/zh-CN.json'
-import { operatorAdmin as zh_TW } from '@shared/locales/zh-TW.json'
+import { operatorAdmin as enUS } from '@shared/locales/en-US.json'
+import { operatorAdmin as zhCN } from '@shared/locales/zh-CN.json'
 
-// The server CLI needs only its own namespace. Named JSON imports let the
-// bundler discard the application UI catalogs from the Server package.
+// Keep the CLI namespace small while preserving the application contract:
+// English/Chinese are eager; every other bundled locale loads on demand.
 export const OPERATOR_ADMIN_RESOURCES = {
-  ar: { translation: { operatorAdmin: ar } },
-  bg: { translation: { operatorAdmin: bg } },
-  ca: { translation: { operatorAdmin: ca } },
-  de: { translation: { operatorAdmin: de } },
-  el: { translation: { operatorAdmin: el } },
-  'en-US': { translation: { operatorAdmin: en_US } },
-  es: { translation: { operatorAdmin: es } },
-  fa: { translation: { operatorAdmin: fa } },
-  fr: { translation: { operatorAdmin: fr } },
-  hu: { translation: { operatorAdmin: hu } },
-  id: { translation: { operatorAdmin: id } },
-  it: { translation: { operatorAdmin: it } },
-  ja: { translation: { operatorAdmin: ja } },
-  ko: { translation: { operatorAdmin: ko } },
-  nb: { translation: { operatorAdmin: nb } },
-  nl: { translation: { operatorAdmin: nl } },
-  pl: { translation: { operatorAdmin: pl } },
-  'pt-BR': { translation: { operatorAdmin: pt_BR } },
-  ro: { translation: { operatorAdmin: ro } },
-  ru: { translation: { operatorAdmin: ru } },
-  th: { translation: { operatorAdmin: th } },
-  tr: { translation: { operatorAdmin: tr } },
-  uk: { translation: { operatorAdmin: uk } },
-  vi: { translation: { operatorAdmin: vi } },
-  'zh-CN': { translation: { operatorAdmin: zh_CN } },
-  'zh-TW': { translation: { operatorAdmin: zh_TW } },
-} satisfies Record<
-  SupportedLocale,
-  { translation: { operatorAdmin: typeof en_US } }
->
+  'en-US': { translation: { operatorAdmin: enUS } },
+  'zh-CN': { translation: { operatorAdmin: zhCN } },
+}
+
+const loaders = {
+  ar: () =>
+    import('@shared/locales/ar.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+  bg: () =>
+    import('@shared/locales/bg.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+  ca: () =>
+    import('@shared/locales/ca.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+  de: () =>
+    import('@shared/locales/de.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+  el: () =>
+    import('@shared/locales/el.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+  'en-US': async () => enUS,
+  es: () =>
+    import('@shared/locales/es.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+  fa: () =>
+    import('@shared/locales/fa.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+  fr: () =>
+    import('@shared/locales/fr.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+  hu: () =>
+    import('@shared/locales/hu.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+  id: () =>
+    import('@shared/locales/id.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+  it: () =>
+    import('@shared/locales/it.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+  ja: () =>
+    import('@shared/locales/ja.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+  ko: () =>
+    import('@shared/locales/ko.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+  nb: () =>
+    import('@shared/locales/nb.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+  nl: () =>
+    import('@shared/locales/nl.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+  pl: () =>
+    import('@shared/locales/pl.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+  'pt-BR': () =>
+    import('@shared/locales/pt-BR.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+  ro: () =>
+    import('@shared/locales/ro.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+  ru: () =>
+    import('@shared/locales/ru.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+  th: () =>
+    import('@shared/locales/th.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+  tr: () =>
+    import('@shared/locales/tr.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+  uk: () =>
+    import('@shared/locales/uk.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+  vi: () =>
+    import('@shared/locales/vi.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+  'zh-CN': async () => zhCN,
+  'zh-TW': () =>
+    import('@shared/locales/zh-TW.json').then(
+      ({ operatorAdmin }) => operatorAdmin
+    ),
+} satisfies Record<SupportedLocale, () => Promise<typeof enUS>>
+
+export function loadOperatorAdminLocale(
+  locale: SupportedLocale
+): Promise<typeof enUS> {
+  return loaders[locale]()
+}
