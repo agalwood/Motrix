@@ -33,7 +33,7 @@ export function legacyWirePath(
       (part) =>
         !part ||
         /[. ]$|[:<>"|?*]/.test(part) ||
-        /^(?:con|prn|aux|nul|conin\$|conout\$|clock\$|com[0-9]|lpt[0-9])(?:\.|$)/i.test(
+        /^(?:con|prn|aux|nul|conin\$|conout\$|clock\$|com[0-9¹²³]|lpt[0-9¹²³]) *(?:\.|$)/i.test(
           part
         )
     )

@@ -23,6 +23,8 @@ describe('legacy native engine paths', () => {
     'C:\\dir\\file.bin ',
     'C:\\dir\\CON.txt',
     'C:\\dir\\LPT1',
+    'C:\\dir\\COM¹.txt',
+    'C:\\dir\\CON .txt',
     'c:\\dir\\file.bin',
     'C:\\dir\\bad\u0000.bin',
   ])('refuses ambiguous Windows identity %j', (value) => {
