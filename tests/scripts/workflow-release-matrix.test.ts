@@ -189,6 +189,13 @@ const EXPECTED_TARGETS: ExpectedTarget[] = [
     arch: 'x64',
     rustTarget: 'x86_64-pc-windows-msvc',
   },
+  {
+    key: 'win32-arm64',
+    os: 'windows-11-arm',
+    platform: 'win32',
+    arch: 'arm64',
+    rustTarget: 'aarch64-pc-windows-msvc',
+  },
 ]
 const EXPECTED_APP_PATHS = new Map([
   ['darwin-arm64', 'release/mac-arm64/Motrix.app'],
@@ -196,6 +203,7 @@ const EXPECTED_APP_PATHS = new Map([
   ['linux-arm64', 'release/linux-arm64-unpacked'],
   ['linux-x64', 'release/linux-unpacked'],
   ['win32-x64', 'release/win-unpacked'],
+  ['win32-arm64', 'release/win-arm64-unpacked'],
 ])
 
 const ciSource = readFileSync(
@@ -253,7 +261,7 @@ describe('CI and release target matrix contract', () => {
     ['CI', ciWorkflow],
     ['release', releaseWorkflow],
   ] as const)(
-    '%s matrix contains exactly the five supported targets',
+    '%s matrix contains exactly the six supported targets',
     (_, workflow) => {
       const { entries } = targetMatrix(workflow)
       const actual = entries
@@ -383,12 +391,38 @@ describe('CI and release target matrix contract', () => {
         expect(steps[verifierIndex]?.['continue-on-error']).not.toBe(true)
       }
       expect(stringField(uploadInputs, 'path')).toContain(
-        `release/size-reports/\${{ matrix.target }}.json`
+        label === 'CI'
+          ? `release/size-reports/\${{ matrix.target }}*.json`
+          : `release/size-reports/\${{ matrix.target }}.json`
       )
       expect(stringField(uploadInputs, 'if-no-files-found')).toBe('error')
       expect(steps.indexOf(upload as LooseRecord)).toBeGreaterThan(
         verifierIndex
       )
+    }
+  )
+
+  it.each([
+    ['CI', ciWorkflow],
+    ['release', releaseWorkflow],
+  ] as const)(
+    '%s executes Windows packages on native runners before publishing',
+    (_, workflow) => {
+      const steps = jobSteps(targetMatrix(workflow).job)
+      const step = steps.find(
+        (entry) => entry.name === 'Smoke test native Windows Electron runtime'
+      )
+      expect(step).toBeDefined()
+      expect(stringField(step as LooseRecord, 'if')).toBe(
+        "matrix.platform == 'win32'"
+      )
+      expect(stringField(step as LooseRecord, 'run')).toContain(
+        'pnpm run smoke:electron-package --'
+      )
+      expect(stringField(step as LooseRecord, 'run')).toContain(
+        `--arch \${{ matrix.arch }}`
+      )
+      expect(step?.['continue-on-error']).not.toBe(true)
     }
   )
 
@@ -1529,6 +1563,66 @@ describe('release workflow publication contract', () => {
     }
   })
 
+  it('finalizes Windows assets with the names required by release assembly', () => {
+    const sign = asRecord(workflowJobs(releaseWorkflow).sign, 'sign job')
+    require('app-builder-lib')
+    const { WinPackager } = require('app-builder-lib/out/winPackager')
+    const {
+      NsisTarget,
+    } = require('app-builder-lib/out/targets/nsis/NsisTarget')
+    const {
+      ArchiveTarget,
+    } = require('app-builder-lib/out/targets/ArchiveTarget')
+    const {
+      AppPackageHelper,
+      CopyElevateHelper,
+    } = require('app-builder-lib/out/targets/nsis/nsisUtil')
+    const version = '2.0.0-beta.52'
+    for (const entry of matrixEntries(sign, 'sign')) {
+      if (entry.platform !== 'win32') continue
+      const config = JSON.parse(signingConfigSource)
+      const args = stringField(entry, 'electron_builder_args')
+      // The quoted macros must survive PowerShell unchanged. Apply exactly
+      // those reviewed overrides to the installed builder's real targets.
+      for (const [, section, pattern] of args.matchAll(
+        /'-c\.(nsis|win)\.artifactName=([^']+)'/g
+      )) {
+        config[section!].artifactName = pattern
+      }
+      const packager = new WinPackager({
+        config,
+        metadata: { name: 'motrix', version },
+      })
+      const nsis = new NsisTarget(
+        packager,
+        '/release',
+        'nsis',
+        new AppPackageHelper(new CopyElevateHelper())
+      )
+      const zip = new ArchiveTarget('zip', '/release', packager)
+      const arch = entry.arch === 'arm64' ? 3 : 1
+      expect(nsis.shouldBuildUniversalInstaller).toBe(false)
+      const actual = [
+        packager.expandArtifactNamePattern(nsis.options, 'exe', arch),
+        packager.expandArtifactNamePattern(
+          zip.options,
+          'zip',
+          arch,
+          `\${productName}-\${version}-win.\${ext}`,
+          false
+        ),
+      ]
+      const target = RELEASE_TARGETS.find(
+        (candidate: { name: string }) => candidate.name === entry.target
+      )
+      expect(actual).toEqual(target.assetNames(version))
+      if (entry.arch === 'arm64') {
+        expect(args).toContain("'-c.nsis.artifactName=")
+        expect(args).toContain("'-c.win.artifactName=")
+      }
+    }
+  })
+
   it('isolates signing credentials behind platform-specific environments', () => {
     const jobs = workflowJobs(releaseWorkflow)
     const build = asRecord(jobs.build, 'build job')
@@ -1544,7 +1638,7 @@ describe('release workflow publication contract', () => {
     )
     const entries = matrixEntries(sign, 'sign')
     expect(entries.map((entry) => stringField(entry, 'target')).sort()).toEqual(
-      ['darwin-arm64', 'darwin-x64', 'win32-x64']
+      ['darwin-arm64', 'darwin-x64', 'win32-arm64', 'win32-x64']
     )
     for (const entry of entries) {
       expect(stringField(entry, 'electron_sha256')).toMatch(/^[0-9a-f]{64}$/)

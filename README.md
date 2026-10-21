@@ -22,15 +22,16 @@ The same core powers two ways to run Motrix:
 ## 🧪 Beta testing
 
 Motrix Turbo v2 is currently in beta. After its remaining release gates pass,
-download [v2.0.0-beta.51 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.51)
-and read the [full release notes](./docs/release-notes/2.0.0-beta.51.md) before
+download [v2.0.0-beta.52 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.52)
+and read the [full release notes](./docs/release-notes/2.0.0-beta.52.md) before
 installing it.
 
 Back up your existing Motrix data and downloads before testing. The desktop
 Migration Assistant imports selected v1 tasks as paused records and preserves
 the original files. Resuming downloads requires a separate explicit action.
-This beta bundles aria2 1.37.0-motrix.18, enabling Windows in-place BT
-activation on supported local NTFS volumes with explicit authorization. See the
+This beta adds native Windows ARM64 packages with aria2 1.37.0-motrix.19.
+Windows in-place BT activation remains available on supported local NTFS
+volumes with explicit authorization. See the
 [migration guide](./docs/legacy-migration.md) for supported volumes, file permissions,
 and recovery. Keep a backup of the v1 profile and the engine's pre-upgrade database
 snapshot. When practical, test v2 in parallel using a separate OS account,
@@ -146,7 +147,7 @@ package that matches your operating system and architecture:
 | Platform | Architectures | Packages / channel | Recommendation |
 |----------|---------------|--------------------|----------------|
 | macOS 13+ | `arm64` (Apple Silicon), `x64` (Intel) | `.dmg` / `.zip` | Use the `.dmg` matching your Mac; choose `x64` only for an Intel-based Mac |
-| Windows | `x64` | `.exe` (NSIS installer) / `.zip` | Use the `.exe` installer for a normal installation or `.zip` for a manually extracted copy |
+| Windows | `x64`, `arm64` | `.exe` (NSIS installer) / `.zip` | Use the `.exe` installer for a normal installation or `.zip` for a manually extracted copy |
 | Linux | `x64`, `arm64` | `.AppImage` / `.deb` / `.rpm` | Use the portable `.AppImage` on any distribution, `.deb` on Debian or Ubuntu, or `.rpm` on Fedora or openSUSE |
 | Linux (Snap Store) | `amd64`, `arm64` | `latest/edge` | Install the strictly confined beta with `sudo snap install motrix --edge` |
 | Linux (Flatpak) | `x86_64`, `aarch64` | `.flatpak` | Install a versioned bundle from a release that includes it; see the [Flatpak guide](docs/flatpak.md) |
@@ -163,8 +164,9 @@ interfaces. Release tags build and validate Flatpak application bundles for
 both architectures before publication. Older releases, including beta.39,
 contain only the Flatpak Native Host companion. These single-file bundles
 require manual upgrades; they do not configure a Motrix update repository.
-Windows `arm64` and all 32-bit packages are not available.
-Windows `x64` packages are unsigned and may trigger a Windows SmartScreen
+Windows ARM64 computers can use the native `arm64` installer or ZIP.
+All 32-bit packages remain unavailable.
+Windows `x64` and `arm64` packages are unsigned and may trigger a Windows SmartScreen
 warning.
 
 ### Command-line client
@@ -185,7 +187,7 @@ downloaded resources:
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.51'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.52'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait

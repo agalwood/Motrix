@@ -68,6 +68,15 @@
   </screenshots>
 
   <releases>
+    <release version="2.0.0-beta.52" date="2026-10-21">
+      <description>
+        <p>
+          Adds native Windows ARM64 installers and portable archives with
+          aria2 1.37.0-motrix.19, native filesystem and browser helpers,
+          architecture-aware update metadata, and native runtime release checks.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.51" date="2026-10-20">
       <description>
         <p>

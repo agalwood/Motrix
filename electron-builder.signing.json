@@ -157,10 +157,7 @@
     ]
   },
   "win": {
-    "target": [
-      { "target": "nsis", "arch": ["x64"] },
-      { "target": "zip", "arch": ["x64"] }
-    ],
+    "target": ["nsis", "zip"],
     "extraResources": [
       { "from": "./extra/aria2.conf", "to": "./extra/aria2.conf" },
       { "from": "./dist/builtin-plugins", "to": "./builtin-plugins" },
@@ -181,6 +178,7 @@
     ]
   },
   "nsis": {
+    "buildUniversalInstaller": false,
     "include": "trusted/installer.nsh",
     "script": null,
     "customNsisBinary": null,

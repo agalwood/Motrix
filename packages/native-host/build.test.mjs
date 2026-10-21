@@ -60,19 +60,25 @@ test('defaults to the host and supports explicit environment mapping', () => {
   )
 })
 
-test('maps every release target and reserves Windows arm64 without output', () => {
+test('maps release targets including native Windows arm64', () => {
   assert.equal(
     BUILD_TARGETS.get('win32-arm64').rustTarget,
     'aarch64-pc-windows-msvc'
   )
-  assert.equal(
-    resolveBuildTarget(
-      { platform: 'win32', arch: 'x64' },
+  for (const [arch, rustTarget] of [
+    ['x64', 'x86_64-pc-windows-msvc'],
+    ['arm64', 'aarch64-pc-windows-msvc'],
+  ]) {
+    const target = resolveBuildTarget(
+      { platform: 'win32', arch },
       {},
       { platform: 'darwin', arch: 'arm64' }
-    ).binaryName,
-    'motrix-native-host.exe'
-  )
+    )
+    assert.equal(target.binaryName, 'motrix-native-host.exe')
+    assert.equal(target.rustTarget, rustTarget)
+    const args = cargoBuildArguments(target, '/tmp/native-host-target')
+    assert.equal(args[args.indexOf('--target') + 1], rustTarget)
+  }
   assert.throws(
     () =>
       resolveBuildTarget(

@@ -197,6 +197,8 @@ jobs:
           tests/scripts/electron-package-contract.test.ts
           tests/scripts/flatpak-native-host.test.ts
           tests/scripts/finalize-appimage-artifact.test.ts
+          tests/scripts/fetch-engine.test.ts
+          tests/scripts/fetch-engine-path-parity.test.ts
           tests/scripts/native-binary-target.test.ts
           tests/scripts/obsidian-docs.test.ts
           tests/scripts/release-metadata.test.ts
@@ -212,6 +214,7 @@ jobs:
           tests/scripts/docker-server-runtime.test.ts
           tests/scripts/server-runtime-workflow.test.ts
           tests/scripts/smoke-server-package.test.ts
+          tests/scripts/smoke-electron-cleanup.test.ts
           tests/scripts/stage-server-app.test.ts
           tests/scripts/verify-electron-package.test.ts
           tests/scripts/verify-appimage-artifact.test.ts
@@ -219,6 +222,7 @@ jobs:
           tests/scripts/verify-container-publication.test.ts
           tests/scripts/verify-server-package.test.ts
           tests/scripts/verify-update-artifacts.test.ts
+          tests/scripts/windows-artifact-names.test.ts
           tests/scripts/workflow-release-matrix.test.ts
           tests/scripts/workflow-flatpak-release.test.ts
           tests/scripts/workflow-snap.test.ts
@@ -399,9 +403,17 @@ jobs:
             platform: win32
             arch: x64
             rust_target: x86_64-pc-windows-msvc
-            electron_builder_args: --win --x64
+            electron_builder_args: --win nsis zip --x64
             resources_dir: release/win-unpacked/resources
             app_path: release/win-unpacked
+          - target: win32-arm64
+            os: windows-11-arm
+            platform: win32
+            arch: arm64
+            rust_target: aarch64-pc-windows-msvc
+            electron_builder_args: --win nsis zip --arm64
+            resources_dir: release/win-arm64-unpacked/resources
+            app_path: release/win-arm64-unpacked
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -632,6 +644,15 @@ jobs:
             }
           }
 
+      - name: Smoke test native Windows Electron runtime
+        if: matrix.platform == 'win32'
+        run: >-
+          pnpm run smoke:electron-package --
+          --app-dir "${{ matrix.app_path }}"
+          --platform ${{ matrix.platform }}
+          --arch ${{ matrix.arch }}
+          --report "release/size-reports/${{ matrix.target }}-runtime.json"
+
       - name: Verify staged Windows aria2 WebSocket contract
         if: matrix.platform == 'win32'
         env:
@@ -647,6 +668,6 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: electron-size-report-${{ matrix.target }}-${{ github.run_attempt }}
-          path: release/size-reports/${{ matrix.target }}.json
+          path: release/size-reports/${{ matrix.target }}*.json
           if-no-files-found: error
           retention-days: 14
