@@ -61,10 +61,12 @@ jobs:
         env:
           MATRIX_FILESYSTEM: ${{ matrix.filesystem }}
         run: |
-          # Formatting tools do not provide the Azure runner's kernel drivers.
-          # Match the running kernel rather than installing a newer meta-package.
-          sudo apt-get install --yes --no-install-recommends "linux-modules-extra-$(uname -r)"
-          sudo modprobe "$MATRIX_FILESYSTEM"
+          # New kernels include these drivers in linux-modules; older kernels
+          # may need the separate extra package matching the running kernel.
+          if ! sudo modprobe "$MATRIX_FILESYSTEM"; then
+            sudo apt-get install --yes --no-install-recommends "linux-modules-extra-$(uname -r)"
+            sudo modprobe "$MATRIX_FILESYSTEM"
+          fi
       - name: Build native sidecar
         run: cargo build --manifest-path packages/finalize-fs/Cargo.toml --locked
       - name: Test publication and recovery on a disposable volume
