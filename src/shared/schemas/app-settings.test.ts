@@ -38,7 +38,10 @@ describe('appSettingsSchema', () => {
       appSettingsInputSchema.partial().safeParse({ language: 'unknown' })
         .success
     ).toBe(false)
-    expect(DEFAULT_APP_SETTINGS.language).toBe('en-US')
+    expect(DEFAULT_APP_SETTINGS.language).toBe('system')
+    for (const language of [undefined, null, 'unknown']) {
+      expect(appSettingsSchema.parse({ language }).language).toBe('system')
+    }
   })
   it('preserves existing notification defaults, loads desktop choices, and rejects malformed writes', () => {
     const defaults = {

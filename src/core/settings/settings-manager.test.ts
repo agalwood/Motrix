@@ -562,6 +562,10 @@ describe('SettingsManager', () => {
         defaultSaveDir: expect.stringMatching(/Downloads$/),
       })
       expect(settings.app.defaultSaveDir).not.toBe('')
+      expect(settings.app.language).toBe('system')
+      expect(
+        JSON.parse(mockedFs.writeFile.mock.calls.at(-1)![1]).app.language
+      ).toBe('system')
       expect(settings.app.liquidGlassEffect).toBe(false)
       expect(settings.onboarding).toEqual(DEFAULT_ONBOARDING_STATE)
       expect(settings.dashboard).toEqual(DEFAULT_DASHBOARD_LAYOUT)
@@ -573,6 +577,28 @@ describe('SettingsManager', () => {
         )
       )
     })
+
+    it.each(['system', 'en-US', 'zh-CN', 'fr'] as const)(
+      'preserves saved %s language through unrelated changes and reloads',
+      async (language) => {
+        mockedFs.readFile.mockResolvedValue(
+          JSON.stringify({
+            version: CURRENT_SETTINGS_VERSION,
+            app: { language },
+          })
+        )
+        mockedFs.writeFile.mockResolvedValue(undefined)
+        await manager.load()
+        expect(manager.getApp().language).toBe(language)
+
+        await manager.update({ app: { theme: 'dark' } })
+        const saved = mockedFs.writeFile.mock.calls.at(-1)![1] as string
+        mockedFs.readFile.mockResolvedValue(saved)
+        const reloaded = new SettingsManager(TEST_PATH)
+        await reloaded.load()
+        expect(reloaded.getApp()).toMatchObject({ language, theme: 'dark' })
+      }
+    )
 
     it('uses an injected Liquid Glass default when the file does not exist', async () => {
       manager = new SettingsManager(TEST_PATH, {
@@ -1138,7 +1164,7 @@ describe('SettingsManager', () => {
 
       await firstWriteStarted.promise
       expect(mockedFs.writeFile).toHaveBeenCalledOnce()
-      expect(manager.getApp().language).toBe('en-US')
+      expect(manager.getApp().language).toBe(DEFAULT_APP_SETTINGS.language)
       expect(manager.getApp().theme).toBe(DEFAULT_APP_SETTINGS.theme)
       expect(onChange).not.toHaveBeenCalled()
 
@@ -1175,7 +1201,7 @@ describe('SettingsManager', () => {
           updated.app.language,
         ])
       ).toEqual([
-        ['en-US', 'zh-CN'],
+        [DEFAULT_APP_SETTINGS.language, 'zh-CN'],
         ['zh-CN', 'en-US'],
       ])
     })
@@ -1187,7 +1213,7 @@ describe('SettingsManager', () => {
         manager.update({ app: { language: 'zh-CN', theme: 'dark' } })
       ).rejects.toThrow('disk full')
 
-      expect(manager.getApp().language).toBe('en-US')
+      expect(manager.getApp().language).toBe(DEFAULT_APP_SETTINGS.language)
       expect(manager.getApp().theme).toBe(DEFAULT_APP_SETTINGS.theme)
       expect(onChange).not.toHaveBeenCalled()
 

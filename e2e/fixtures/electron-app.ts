@@ -203,15 +203,15 @@ export async function launchMotrix(
   // which leaks test files into the developer's home directory.
   const saveDir = path.join(opts.userDataDir, 'downloads')
 
-  // Most end-to-end specs exercise the main application, so seed only the
-  // legal consent bit and disable background tracker fetching. Specs covering
+  // Most end-to-end specs exercise the main application, so seed legal consent,
+  // English labels, and disabled background tracker fetching. Specs covering
   // sync can seed their own local sources; subsequent launches keep saved settings.
   await writeFile(
     path.join(opts.userDataDir, 'settings.json'),
     JSON.stringify({
       version: CURRENT_SETTINGS_VERSION,
       // Isolated test windows must not import the user's real clipboard.
-      app: { autofillClipboardLinks: false },
+      app: { autofillClipboardLinks: false, language: 'en-US' },
       tracker: { autoSync: false },
       onboarding: {
         disclaimerAccepted: opts.disclaimerAccepted ?? true,

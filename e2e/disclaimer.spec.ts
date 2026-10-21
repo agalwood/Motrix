@@ -3,6 +3,7 @@ import { createServer, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import path from 'node:path'
 import type { ElectronApplication, Page } from '@playwright/test'
+import { resolveSupportedLocale } from '@shared/constants/locales'
 import { CURRENT_SETTINGS_VERSION } from '../src/core/settings/migrations'
 import { expect, launchMotrix, test } from './fixtures/electron-app'
 
@@ -14,6 +15,37 @@ async function openDisclaimer(app: ElectronApplication): Promise<Page> {
 }
 
 test.describe('disclaimer startup gate', () => {
+  test('follows the system language before the first language choice', async ({
+    userDataDir,
+    rpcPort,
+  }) => {
+    await writeFile(
+      path.join(userDataDir, 'settings.json'),
+      JSON.stringify({
+        version: CURRENT_SETTINGS_VERSION,
+        app: { autofillClipboardLinks: false, checkForUpdatesOnLaunch: false },
+        tracker: { autoSync: false },
+        onboarding: { disclaimerAccepted: false },
+      })
+    )
+    const app = await launchMotrix({ userDataDir, rpcPort })
+
+    try {
+      const disclaimer = await openDisclaimer(app)
+      const locale = resolveSupportedLocale(
+        await app.evaluate(({ app }) => app.getLocale())
+      )
+      await expect(disclaimer.locator('html')).toHaveAttribute('lang', locale)
+      await expect(disclaimer.getByTestId('onboarding-language')).toBeVisible()
+      const settings = JSON.parse(
+        await readFile(path.join(userDataDir, 'settings.json'), 'utf8')
+      )
+      expect(settings.app.language).toBe('system')
+    } finally {
+      await app.close().catch(() => {})
+    }
+  })
+
   test('shows the disclaimer first and opens main only after persisted consent', async ({
     userDataDir,
     rpcPort,
@@ -111,7 +143,7 @@ test.describe('disclaimer startup gate', () => {
         JSON.stringify({
           version: CURRENT_SETTINGS_VERSION,
           onboarding: { disclaimerAccepted: false },
-          app: { checkForUpdatesOnLaunch: false },
+          app: { checkForUpdatesOnLaunch: false, language: 'en-US' },
           tracker: {
             autoSync: true,
             sourcesEnabled: true,
