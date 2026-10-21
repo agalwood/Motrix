@@ -1,9 +1,7 @@
 import { expect, test } from './fixtures/electron-app'
 
-// Hash router routes — must mirror src/renderer/router.tsx. Keep the
-// labels matching the en-US locale (which is the default before any
-// settings.json exists in the per-test tmp userDataDir, so the Suspense
-// fallback renders English).
+// Hash router routes — must mirror src/renderer/router.tsx.
+// Labels match the explicit en-US preference seeded by the Electron fixture.
 const ROUTES = [
   { name: 'Dashboard', hash: '#/' },
   { name: 'Downloads', hash: '#/downloads' },

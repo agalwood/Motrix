@@ -88,6 +88,7 @@ test('verifies imported BT files through the desktop UI and preserves them after
     path.join(userDataDir, 'settings.json'),
     JSON.stringify({
       version: CURRENT_SETTINGS_VERSION,
+      app: { language: 'en-US' },
       tracker: { autoSync: false },
       onboarding: { disclaimerAccepted: true },
       engine: { dhtEnabled: false, btEnableLpd: false },
