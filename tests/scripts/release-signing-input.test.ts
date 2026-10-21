@@ -177,6 +177,40 @@ describe('isolated release signing input', () => {
     })
   })
 
+  it('isolates Windows ARM64 signing inputs and rejects an x64 target claim', async () => {
+    const { directory } = await createGeneratedSigningInput(
+      [
+        ['extra/win32/arm64/aria2c.exe', 'ARM64 aria2'],
+        [
+          'packages/native-host/dist/win32-arm64/motrix-native-host.exe',
+          'ARM64 native host',
+        ],
+        [
+          'packages/finalize-fs/dist/win32-arm64/motrix-finalize-fs.exe',
+          'ARM64 finalize filesystem sidecar',
+        ],
+        ['release/size-reports/win32-arm64.json', '{}'],
+      ],
+      [],
+      { platform: 'win32', arch: 'arm64' }
+    )
+    await expect(
+      verifySigningInput({
+        mode: 'verify',
+        directory,
+        platform: 'win32',
+        arch: 'arm64',
+        commit: COMMIT,
+      })
+    ).resolves.toMatchObject({
+      target: { key: 'win32-arm64', platform: 'win32', arch: 'arm64' },
+    })
+    await expect(verify(directory)).rejects.toThrow()
+    await expect(
+      readFile(path.join(directory, 'extra/win32/x64/aria2c.exe'))
+    ).rejects.toThrow()
+  })
+
   it.each(['arm64', 'x64'] as const)(
     'preserves shutdown permission metadata through isolated macOS signing: %s',
     async (arch) => {

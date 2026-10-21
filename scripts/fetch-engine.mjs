@@ -64,6 +64,7 @@ function resolveTimeoutMs() {
 const DESKTOP_TARGETS = [
   { key: 'darwin-arm64', os: 'darwin', releaseArch: 'arm64', ext: 'tar.gz' },
   { key: 'darwin-x64', os: 'darwin', releaseArch: 'x64', ext: 'tar.gz' },
+  { key: 'win32-arm64', os: 'win32', releaseArch: 'arm64', ext: 'zip' },
   { key: 'win32-x64', os: 'win32', releaseArch: 'x64', ext: 'zip' },
   { key: 'win32-ia32', os: 'win32', releaseArch: 'ia32', ext: 'zip' },
   { key: 'linux-x64', os: 'linux', releaseArch: 'x64', ext: 'tar.gz' },
@@ -510,6 +511,12 @@ export async function run(argv, deps = defaultDeps) {
   const hostMode = !args.all && !args.platform && !args.arch
   if (hostMode && !lock.assets[resolveHostKey(host.platform, host.arch)]) {
     const hostKey = resolveHostKey(host.platform, host.arch)
+    if (DESKTOP_TARGETS.some((target) => target.key === hostKey)) {
+      deps.logError(
+        `[fetch-engine] supported desktop target ${hostKey} is missing from the lockfile; regenerate it from a complete aria2 release`
+      )
+      return EXIT_FAILURE
+    }
     deps.log(
       `[fetch-engine] no prebuilt aria2 binary for this host (${hostKey}) — ` +
         'skipping (this platform is not packaged)'

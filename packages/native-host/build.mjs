@@ -42,8 +42,6 @@ export const BUILD_TARGETS = new Map([
       binaryName: 'motrix-native-host.exe',
     },
   ],
-  // Reserved for a future release matrix. This mapping does not create a
-  // placeholder and is only built when an actual Windows arm64 job invokes it.
   [
     'win32-arm64',
     {

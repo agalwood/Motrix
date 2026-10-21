@@ -1,6 +1,6 @@
 # Motrix — native multi-platform build and release
 #
-# A tag push builds each platform on a native runner, assembles the five
+# A tag push builds each platform on a native runner, assembles the six
 # independently produced artifact sets, validates their updater metadata, and
 # publishes exactly once. A manual dispatch exercises the same build and
 # assembly path without signing or publishing.
@@ -17,9 +17,7 @@
 # tree (src/main/platform/appimage-integration.ts). Snap has its own
 # strict-confinement build and Store promotion workflows. Flatpak reuses its
 # native build and installed-payload checks and joins both Linux release sets.
-# 32-bit targets remain
-# unsupported. Windows arm64 remains reserved until the aria2 lock supplies that
-# architecture.
+# 32-bit targets remain unsupported.
 
 name: Build/Release
 
@@ -161,9 +159,17 @@ jobs:
             platform: win32
             arch: x64
             rust_target: x86_64-pc-windows-msvc
-            electron_builder_args: --win --x64
+            electron_builder_args: --win nsis zip --x64
             resources_dir: release/win-unpacked/resources
             app_path: release/win-unpacked
+          - target: win32-arm64
+            os: windows-11-arm
+            platform: win32
+            arch: arm64
+            rust_target: aarch64-pc-windows-msvc
+            electron_builder_args: --win nsis zip --arm64
+            resources_dir: release/win-arm64-unpacked/resources
+            app_path: release/win-arm64-unpacked
 
     # rustc's musl std is self-contained; overriding the linker with Ubuntu's
     # musl-gcc mixes CRTs and produces binaries that SIGSEGV at load (see
@@ -370,6 +376,15 @@ jobs:
             }
           }
 
+      - name: Smoke test native Windows Electron runtime
+        if: matrix.platform == 'win32'
+        run: >-
+          pnpm run smoke:electron-package --
+          --app-dir "${{ matrix.app_path }}"
+          --platform ${{ matrix.platform }}
+          --arch ${{ matrix.arch }}
+          --report "release/size-reports/${{ matrix.target }}-runtime.json"
+
       - name: Verify staged Windows aria2 WebSocket contract
         if: matrix.platform == 'win32'
         env:
@@ -567,6 +582,7 @@ jobs:
             release/*.tar.gz
             release/latest*.yml
             release/size-reports/${{ matrix.target }}.json
+            release/size-reports/${{ matrix.target }}-runtime.json
             release/*.zip
           if-no-files-found: error
           retention-days: 7
@@ -621,10 +637,19 @@ jobs:
             platform: win32
             arch: x64
             signing_environment: windows-release-signing
-            electron_builder_args: --win --x64
+            electron_builder_args: --win nsis zip --x64
             resources_dir: release/win-unpacked/resources
             app_path: release/win-unpacked
             electron_sha256: eee30dc8fa1f5ea95490e59f44e46ea68dd24c6e93d22facf70fe5c2d4c2665c
+          - target: win32-arm64
+            os: windows-11-arm
+            platform: win32
+            arch: arm64
+            signing_environment: windows-release-signing
+            electron_builder_args: --win nsis zip --arm64 '-c.nsis.artifactName=Motrix-Setup-${version}-arm64.exe' '-c.win.artifactName=Motrix-${version}-win-arm64.${ext}'
+            resources_dir: release/win-arm64-unpacked/resources
+            app_path: release/win-arm64-unpacked
+            electron_sha256: ee2621a4513f92a952273d5363e153db6f0e4dd183d89f2c0f740faa13623316
     env:
       CUSTOM_DMGBUILD_PATH: ''
       ELECTRON_BUILDER_7ZIP_PATH: ''
@@ -901,7 +926,7 @@ jobs:
           EXPECTED_COMMIT: ${{ github.sha }}
           EXPECTED_PLATFORM: ${{ matrix.platform }}
           # Updated only after reviewing the verifier source itself.
-          VERIFIER_SHA256: efbb213aec76deba536afce7da0e37837ceb495c3b8510caf25f12c0e62f3eb8
+          VERIFIER_SHA256: ab62dcb67eecb1c74430dfb2460a4c464f65bca521a72c3faa590b44e175eb15
         run: |
           const crypto = require('node:crypto')
           const fs = require('node:fs')

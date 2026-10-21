@@ -41,7 +41,7 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
   'scripts/sign-macos.mjs':
     '98bda5c77dce2a3e5d9c9a2f8211f4d5594d060bf9d2839326db50dc41f8c58b',
   'electron-builder.signing.json':
-    '33831fd485494061fe26de6b2a3aa4d1b67d4ae4821316f8f3b4d06831ff7e19',
+    'be1f3217bef5d85f3f76420f8762887f7d8b1d1d9447c6cae4f6f4e1996a7301',
   'signing-build-resources/256x256.png':
     '044d3b64a14aa512ca41469372d1ad630557daaeb2cb4e709d34f2d3c57d4c3b',
   'signing-build-resources/background.tiff':
@@ -69,7 +69,7 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
   'scripts/electron-package-size-budgets.json':
     '6a7585a5f922cfc5a90e83ac778bcd46efae90ba9079853e3a66ad275b2438c7',
   'scripts/electron-package-utils.mjs':
-    '9d408f9edc91182be5d5aed39f2c5a5d20f5523e08d9c08e630c23c66302daa8',
+    '8834f6e22db4212655368a31815c7f86ac16c3065aacabb99e83878b9df43831',
   'scripts/before-build-use-staged-dependencies.mjs':
     'acbd47ea1ac9397990ec0d605cb1f5e627c3db265bd1e3a6588a7c65635af315',
   'scripts/native-binary-target.mjs':
@@ -312,9 +312,6 @@ function parseOptions(argv) {
   if (!options.directory) throw new Error('--directory is required')
   if (options.mode === 'create' && !options.archive) {
     throw new Error('--archive is required in create mode')
-  }
-  if (options.platform === 'win32' && options.arch !== 'x64') {
-    throw new Error('Windows signing input only supports x64')
   }
   return options
 }

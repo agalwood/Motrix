@@ -22,12 +22,13 @@ Motrix 是一款界面简洁、功能丰富的桌面下载管理器，可处理 
 ## 🧪 Beta 测试
 
 Motrix Turbo v2 目前仍处于 beta 阶段。剩余发布门禁通过后，请从 GitHub Releases
-下载 [v2.0.0-beta.51](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.51)，
-并在安装前阅读[完整发布说明](./docs/release-notes/2.0.0-beta.51.zh-CN.md)。
+下载 [v2.0.0-beta.52](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.52)，
+并在安装前阅读[完整发布说明](./docs/release-notes/2.0.0-beta.52.zh-CN.md)。
 
 测试前请备份现有 Motrix 数据和下载文件。桌面端迁移助手会将选中的 v1 任务
-导入为暂停记录，并保留原文件；恢复下载需要单独明确操作。本 beta 捆绑 aria2 1.37.0-motrix.18，
-支持在符合条件的 Windows 本地 NTFS 卷上明确授权后原位激活 BT 任务。
+导入为暂停记录，并保留原文件；恢复下载需要单独明确操作。本 beta 新增 Windows
+ARM64 原生安装包，捆绑 aria2 1.37.0-motrix.19。符合条件的 Windows 本地 NTFS 卷
+仍支持在明确授权后原位激活 BT 任务。
 支持的磁盘类型、文件权限和恢复方式见[迁移指南](./docs/legacy-migration.zh-CN.md)。
 请保留 v1 配置和引擎升级前数据库快照的备份。条件允许时，建议通过独立的系统
 账户、设备或 Docker 数据目录与现有环境并行测试 v2。
@@ -141,7 +142,7 @@ Motrix Extension 已上架官方浏览器扩展商店，配合 Motrix 2 使用�
 | 平台 | 架构 | 安装包 / 通道 | 选择建议 |
 |------|------|---------------|----------|
 | macOS 13+ | `arm64`（Apple Silicon）、`x64`（Intel） | `.dmg` / `.zip` | 选择与 Mac 架构匹配的 `.dmg`；仅 Intel Mac 使用 `x64` |
-| Windows | `x64` | `.exe`（NSIS 安装包）/ `.zip` | 常规安装使用 `.exe`；`.zip` 可解压后手动运行 |
+| Windows | `x64`、`arm64` | `.exe`（NSIS 安装包）/ `.zip` | 常规安装使用 `.exe`；`.zip` 可解压后手动运行 |
 | Linux | `x64`、`arm64` | `.AppImage` / `.deb` / `.rpm` | 任意发行版可使用便携的 `.AppImage`，Debian 或 Ubuntu 使用 `.deb`，Fedora 或 openSUSE 使用 `.rpm` |
 | Linux（Snap Store） | `amd64`、`arm64` | `latest/edge` | 使用 `sudo snap install motrix --edge` 安装严格限制的 beta |
 | Linux（Flatpak） | `x86_64`、`aarch64` | `.flatpak` | 从包含该格式的 Release 下载对应版本的安装包，详见 [Flatpak 安装指南](docs/flatpak.zh-CN.md) |
@@ -153,7 +154,8 @@ Snap Store 安装包使用严格限制。已批准的 `personal-files` interface
 之外的通用文件访问权限。Release tag 会构建并验证两种架构的 Flatpak 主程序包，
 通过后再发布。beta.39 等旧版本仅包含 Flatpak Native Host 配套程序。
 这些单文件安装包需要手动升级，不会配置 Motrix 更新仓库。
-同时不提供 Windows `arm64` 和任何 32 位安装包。Windows `x64` 安装包未签名，
+Windows ARM64 电脑可选择原生 `arm64` 安装包或 ZIP。仍不提供任何 32 位安装包。
+Windows `x64` 和 `arm64` 安装包均未签名，
 可能触发 Windows SmartScreen 警告。
 
 ### 命令行客户端
@@ -173,7 +175,7 @@ Beta 只发布不可变的版本 tag，不会更新 `latest`；仓库的 `compos
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.51'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.52'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait
