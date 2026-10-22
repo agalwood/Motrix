@@ -522,6 +522,7 @@ impl State {
         response.held_roots = Some(cfg!(any(unix, windows)));
         response.directory_sync = Some(cfg!(any(unix, windows)));
         response.held_artifacts = Some(cfg!(any(unix, windows)));
+        response.held_file_write_exclusion = Some(cfg!(windows));
         response.reserved_exfat_rename = Some(cfg!(target_os = "macos"));
         response.token_exfat_reservation = Some(cfg!(target_os = "macos"));
         response
@@ -577,6 +578,7 @@ mod tests {
     #[test]
     fn capabilities_claim_only_the_implemented_native_boundaries() {
         let response = State::new().handle(Request::Capabilities);
+        assert_eq!(response.held_file_write_exclusion, Some(cfg!(windows)));
         #[cfg(unix)]
         {
             assert_eq!(response.held_roots, Some(true));

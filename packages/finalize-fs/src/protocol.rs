@@ -176,6 +176,8 @@ pub(crate) struct Response<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) held_artifacts: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) held_file_write_exclusion: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) reserved_exfat_rename: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) token_exfat_reservation: Option<bool>,
@@ -213,6 +215,7 @@ impl<'a> Response<'a> {
             held_roots: None,
             directory_sync: None,
             held_artifacts: None,
+            held_file_write_exclusion: None,
             reserved_exfat_rename: None,
             token_exfat_reservation: None,
             volume_id: None,

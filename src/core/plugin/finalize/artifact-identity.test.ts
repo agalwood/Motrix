@@ -1,5 +1,13 @@
 import { createHash } from 'node:crypto'
-import { mkdir, mkdtemp, symlink, writeFile } from 'node:fs/promises'
+import {
+  mkdir,
+  mkdtemp,
+  rm,
+  stat,
+  symlink,
+  utimes,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -8,6 +16,7 @@ import {
   artifactContentEquals,
   artifactIdentityEquals,
   readArtifactIdentity,
+  readRenameFileIdentity,
 } from './artifact-identity'
 import * as hashing from './hash-opened-file'
 
@@ -95,5 +104,65 @@ describe('artifact digest reuse', () => {
       size: bytes.length,
       sha256: createHash('sha256').update(bytes).digest('hex'),
     })
+  })
+})
+
+describe('rename-only artifact identity', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('captures a complete file stamp without reading payload bytes', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'motrix-rename-identity-'))
+    try {
+      const file = path.join(root, 'file.motrix')
+      await writeFile(file, 'payload')
+      const hash = vi.spyOn(hashing, 'hashOpenedFile')
+      const metadata = await stat(file, { bigint: true })
+      const identity = await readRenameFileIdentity(file)
+      expect(identity).toEqual({
+        kind: 'rename-file',
+        size: 7,
+        platformFileId: `${metadata.dev}:${metadata.ino}`,
+        mtimeNs: String(metadata.mtimeNs),
+        ctimeNs: String(metadata.ctimeNs),
+        birthtimeNs: String(metadata.birthtimeNs),
+      })
+      expect(artifactIdentityEquals(identity, { ...identity })).toBe(true)
+      expect(artifactContentEquals(identity, identity)).toBe(false)
+      for (const field of [
+        'platformFileId',
+        'mtimeNs',
+        'ctimeNs',
+        'birthtimeNs',
+      ] as const) {
+        expect(
+          artifactIdentityEquals(identity, {
+            ...identity,
+            [field]: `${identity[field]}1`,
+          })
+        ).toBe(false)
+      }
+      expect(hash).not.toHaveBeenCalled()
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('detects a same-size write even after the original modification time is restored', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'motrix-rename-mutation-'))
+    try {
+      const file = path.join(root, 'file.motrix')
+      await writeFile(file, 'before')
+      await utimes(file, 100, 100)
+      const before = await readRenameFileIdentity(file)
+      await writeFile(file, 'edited')
+      await utimes(file, 100, 100)
+      const after = await readRenameFileIdentity(file)
+      expect(after.size).toBe(before.size)
+      expect(after.mtimeNs).toBe(before.mtimeNs)
+      expect(after.ctimeNs).not.toBe(before.ctimeNs)
+      expect(artifactIdentityEquals(before, after)).toBe(false)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
   })
 })

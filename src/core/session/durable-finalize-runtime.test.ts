@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import {
   type ArtifactIdentity,
+  type RenameFileArtifactIdentity,
   readArtifactIdentity,
 } from '@core/plugin/finalize/artifact-identity'
 import { ArtifactMutationLeaseCoordinator } from '@core/plugin/finalize/artifact-mutation-lease'
@@ -14,6 +15,15 @@ import { makeDownloadTask } from '@test-utils/task'
 import Database from 'better-sqlite3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DurableFinalizeRuntime } from './durable-finalize-runtime'
+
+const renameIdentity: RenameFileArtifactIdentity = {
+  kind: 'rename-file',
+  size: 1024 * 1024 * 1024,
+  platformFileId: '1:1',
+  mtimeNs: '100',
+  ctimeNs: '200',
+  birthtimeNs: '50',
+}
 
 describe('DurableFinalizeRuntime', () => {
   const roots: string[] = []
@@ -163,6 +173,181 @@ describe('DurableFinalizeRuntime', () => {
       db.close()
     }
   })
+
+  it('selects metadata after quiescing writers and persists the installed rename stamp', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'motrix-rename-only-'))
+    roots.push(root)
+    const targetPath = path.join(root, 'archive.zip')
+    const sourcePath = `${targetPath}.motrix`
+    const installedIdentity = { ...renameIdentity, ctimeNs: '300' }
+    const artifacts = new Map<string, ArtifactIdentity>([
+      [sourcePath, renameIdentity],
+    ])
+    const events: string[] = []
+    const fs = {
+      renameIdentity: vi.fn(async () => {
+        events.push('capture')
+        return renameIdentity
+      }),
+      identity: vi.fn(
+        async (artifactPath: string, expected?: ArtifactIdentity) => {
+          expect(expected?.kind).toBe('rename-file')
+          return artifacts.get(artifactPath) ?? null
+        }
+      ),
+      sameFilesystem: async () => true,
+      materializePrivate: vi.fn(),
+      moveNoReplace: vi.fn(
+        async (
+          _source: string,
+          _expected: ArtifactIdentity,
+          target: string
+        ) => {
+          artifacts.delete(sourcePath)
+          artifacts.set(target, installedIdentity)
+          return installedIdentity
+        }
+      ),
+      makeDurable: vi.fn(async () => undefined),
+      removeKnown: vi.fn(),
+    } satisfies FinalizeArtifactOperations
+    const db = new Database(':memory:')
+    migrate(db)
+    const runtime = new DurableFinalizeRuntime({
+      db,
+      fs,
+      leases: new ArtifactMutationLeaseCoordinator([
+        {
+          quiesce: async () => {
+            events.push('quiesce')
+            return () => {
+              events.push('release')
+            }
+          },
+        },
+      ]),
+      session: {
+        persistFinalizedArtifact: async (_task, _occurrence, _input, commit) =>
+          commit((mutation) => {
+            db.prepare(
+              "UPDATE plugin_finalize_journals SET phase='db_committed', plan_json=json_set(plan_json, '$.phase', 'db_committed') WHERE plan_id=?"
+            ).run(mutation.journalId)
+          }),
+      },
+    })
+    try {
+      const result = await runtime.commit({
+        task: makeDownloadTask({ id: 'rename-only', saveDir: root }),
+        occurrence: null,
+        sourcePath,
+        targetPath,
+        metadataOps: [],
+        contributors: [],
+        postDeliveries: [],
+      })
+      expect(result.targetIdentity).toEqual(installedIdentity)
+      expect(events).toEqual(['quiesce', 'capture', 'release'])
+      expect(fs.renameIdentity).toHaveBeenCalledExactlyOnceWith(sourcePath)
+      expect(fs.materializePrivate).not.toHaveBeenCalled()
+      expect(fs.removeKnown).not.toHaveBeenCalled()
+      expect(
+        db
+          .prepare(
+            'SELECT phase, target_identity_json FROM plugin_finalize_journals'
+          )
+          .get()
+      ).toEqual({
+        phase: 'cleaned',
+        target_identity_json: JSON.stringify(installedIdentity),
+      })
+    } finally {
+      db.close()
+    }
+  })
+
+  it.each([
+    'unsupported',
+    'nonordinary-name',
+    'plugin',
+    'metadata',
+    'replacement',
+  ] as const)(
+    'retains content identities for %s finalization',
+    async (scenario) => {
+      const root = await mkdtemp(path.join(os.tmpdir(), 'motrix-rename-scope-'))
+      roots.push(root)
+      const targetPath = path.join(root, 'archive.zip')
+      const sourcePath =
+        scenario === 'nonordinary-name'
+          ? `${targetPath}.part`
+          : `${targetPath}.motrix`
+      const fullIdentity: ArtifactIdentity = {
+        kind: 'file',
+        size: 4,
+        platformFileId: '1:1',
+        sha256: 'a'.repeat(64),
+      }
+      const fs = {
+        renameIdentity: vi.fn(async () =>
+          scenario === 'unsupported' ? null : renameIdentity
+        ),
+        identity: vi.fn(async () => fullIdentity),
+        sameFilesystem: vi.fn(),
+        materializePrivate: vi.fn(),
+        moveNoReplace: vi.fn(),
+        makeDurable: vi.fn(),
+        removeKnown: vi.fn(),
+      } satisfies FinalizeArtifactOperations
+      const db = new Database(':memory:')
+      migrate(db)
+      const runtime = new DurableFinalizeRuntime({
+        db,
+        fs,
+        session: {
+          persistFinalizedArtifact: async () => {
+            throw new Error('captured content identity')
+          },
+        },
+      })
+      try {
+        await expect(
+          runtime.commit({
+            task: makeDownloadTask({ id: `scope-${scenario}`, saveDir: root }),
+            occurrence: null,
+            sourcePath,
+            targetPath,
+            metadataOps:
+              scenario === 'metadata'
+                ? [
+                    {
+                      pluginId: 'example.test',
+                      op: 'set',
+                      key: 'note',
+                      value: 'value',
+                    },
+                  ]
+                : [],
+            contributors: scenario === 'plugin' ? ['example.test'] : [],
+            replacement:
+              scenario === 'replacement'
+                ? {
+                    pluginId: 'example.test',
+                    stagedPath: path.join(root, 'replacement'),
+                  }
+                : undefined,
+            postDeliveries: [],
+          })
+        ).rejects.toThrow('captured content identity')
+        expect(fs.renameIdentity).toHaveBeenCalledTimes(
+          scenario === 'unsupported' ? 1 : 0
+        )
+        expect(fs.identity).toHaveBeenCalledWith(sourcePath)
+        expect(fs.moveNoReplace).not.toHaveBeenCalled()
+      } finally {
+        db.close()
+      }
+    }
+  )
 })
 
 it('rejects an invalid target before acquiring leases or reading file identities', async () => {
