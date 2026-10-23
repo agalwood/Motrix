@@ -19,19 +19,17 @@ Motrix 是一款界面简洁、功能丰富的桌面下载管理器，可处理 
 - **桌面应用**：可在 macOS、Windows 和 Linux 上运行；
 - **Headless server**：无需桌面环境，可直接使用 Node.js 运行或通过 Docker 部署，并提供 Web 界面，适合安装在 NAS 和家庭服务器上。
 
-## 🧪 Beta 测试
+## Motrix 2.0.0
 
-Motrix Turbo v2 目前仍处于 beta 阶段。剩余发布门禁通过后，请从 GitHub Releases
-下载 [v2.0.0-beta.52](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.52)，
-并在安装前阅读[完整发布说明](./docs/release-notes/2.0.0-beta.52.zh-CN.md)。
+Motrix 2.0.0 是重新开发的桌面应用和 Headless server 的首个正式版。
+从 GitHub Releases 下载 [v2.0.0](https://github.com/agalwood/Motrix/releases/tag/v2.0.0)，
+并阅读[完整发布说明](./docs/release-notes/2.0.0.zh-CN.md)。
 
-测试前请备份现有 Motrix 数据和下载文件。桌面端迁移助手会将选中的 v1 任务
-导入为暂停记录，并保留原文件；恢复下载需要单独明确操作。本 beta 新增 Windows
-ARM64 原生安装包，捆绑 aria2 1.37.0-motrix.19。符合条件的 Windows 本地 NTFS 卷
-仍支持在明确授权后原位激活 BT 任务。
+升级前请备份现有 Motrix 配置和下载文件。桌面端迁移助手会将选中的 v1 任务
+导入为暂停记录，并保留原文件；恢复下载需要单独明确操作。
+Windows 原位激活 BitTorrent 任务要求使用受支持的本地 NTFS 卷，并明确授权。
 支持的磁盘类型、文件权限和恢复方式见[迁移指南](./docs/legacy-migration.zh-CN.md)。
-请保留 v1 配置和引擎升级前数据库快照的备份。条件允许时，建议通过独立的系统
-账户、设备或 Docker 数据目录与现有环境并行测试 v2。
+请保留 v1 配置和引擎升级前数据库快照的备份。
 
 ## 应用截图
 
@@ -135,16 +133,16 @@ Motrix Extension 已上架官方浏览器扩展商店，配合 Motrix 2 使用�
 
 访问 Motrix 官网 [motrix.app](https://motrix.app)，选择对应操作系统的安装包。macOS 用户通常下载 Apple Silicon 版本即可；如果使用较早的 Intel 芯片 Mac，请选择 Intel 版本。
 
-剩余发布门禁通过后，当前 beta 桌面安装包将通过上方链接的 GitHub 预发布版
-提供。受保护的发布 tag 也会把验证过的 Snap 构建发布到
-`latest/edge`。请根据操作系统和架构选择安装包：
+桌面安装包通过上方链接的 GitHub Release 提供。Snap 构建先经过
+`latest/edge` 和 `latest/candidate` 验证，再晋级到 `latest/stable`。
+请根据操作系统和架构选择安装包：
 
 | 平台 | 架构 | 安装包 / 通道 | 选择建议 |
 |------|------|---------------|----------|
 | macOS 13+ | `arm64`（Apple Silicon）、`x64`（Intel） | `.dmg` / `.zip` | 选择与 Mac 架构匹配的 `.dmg`；仅 Intel Mac 使用 `x64` |
-| Windows | `x64`、`arm64` | `.exe`（NSIS 安装包）/ `.zip` | 常规安装使用 `.exe`；`.zip` 可解压后手动运行 |
+| Windows 10+ | `x64`、`arm64` | `.exe`（NSIS 安装包）/ `.zip` | 常规安装使用 `.exe`；`.zip` 可解压后手动运行 |
 | Linux | `x64`、`arm64` | `.AppImage` / `.deb` / `.rpm` | 任意发行版可使用便携的 `.AppImage`，Debian 或 Ubuntu 使用 `.deb`，Fedora 或 openSUSE 使用 `.rpm` |
-| Linux（Snap Store） | `amd64`、`arm64` | `latest/edge` | 使用 `sudo snap install motrix --edge` 安装严格限制的 beta |
+| Linux（Snap Store） | `amd64`、`arm64` | `latest/stable` | 晋级 stable 后，使用 `sudo snap install motrix` 安装严格限制的安装包 |
 | Linux（Flatpak） | `x86_64`、`aarch64` | `.flatpak` | 从包含该格式的 Release 下载对应版本的安装包，详见 [Flatpak 安装指南](docs/flatpak.zh-CN.md) |
 | Arch Linux / Omarchy | `x64`、`arm64` | `.pacman` | 使用 `sudo pacman -U ./Motrix-<version>-<arch>.pacman` 安装原生 Arch 包，详见 [Arch 安装指南](docs/arch-linux.zh-CN.md) |
 
@@ -169,13 +167,13 @@ npm install -g @motrix/cli
 ### Headless server（Docker）
 
 带 tag 的版本会把多架构 Server 镜像发布到 Docker Hub 和 GHCR。
-Beta 只发布不可变的版本 tag，不会更新 `latest`；仓库的 `compose.yaml`
-会分别持久化 Server 状态与用户下载资源：
+正式版通过运行验证后还会更新 `2.0`、`2`、`stable` 和 `latest`，beta 仅发布
+不可变的版本 tag。仓库的 `compose.yaml` 会分别持久化 Server 状态与用户下载资源：
 
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.52'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait

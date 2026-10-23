@@ -25,6 +25,12 @@ import { RELEASE_TARGETS } from '../../scripts/assemble-release-artifacts.mjs'
 // @ts-expect-error -- JavaScript build hook intentionally has no declarations
 import stagedDependenciesBoundary from '../../scripts/before-build-use-staged-dependencies.mjs'
 // @ts-expect-error -- JavaScript release script intentionally has no declarations
+import {
+  CONTAINER_REPOSITORIES,
+  containerImageTags,
+  resolveContainerReleaseMetadata,
+} from '../../scripts/container-release-metadata.mjs'
+// @ts-expect-error -- JavaScript release script intentionally has no declarations
 import { resolveReleaseMetadata } from '../../scripts/release-metadata.mjs'
 
 interface LooseRecord {
@@ -1194,6 +1200,102 @@ describe('release workflow publication contract', () => {
       'publish-container',
     ])
   })
+
+  // The production alias step runs in Bash on a Linux runner.
+  it.skipIf(process.platform === 'win32')(
+    'promotes every stable container alias and rejects a mismatched digest',
+    () => {
+      const jobs = workflowJobs(releaseWorkflow)
+      const promoteJob = asRecord(
+        jobs['promote-container-aliases'],
+        'container alias promotion job'
+      )
+      const aliasCommand = stringField(
+        jobSteps(promoteJob).find(
+          (step) =>
+            step.name === 'Promote and verify stable container aliases last'
+        ) as LooseRecord,
+        'run'
+      )
+      const metadata = resolveContainerReleaseMetadata('2.0.0')
+      const floatingTags = containerImageTags(metadata.floatingTags) as string[]
+      const digest = `sha256:${'a'.repeat(64)}`
+      const fixture = realpathSync(
+        mkdtempSync(path.join(tmpdir(), 'motrix-container-aliases-'))
+      )
+      const callsPath = path.join(fixture, 'docker-calls.jsonl')
+      writeFileSync(
+        path.join(fixture, 'docker'),
+        [
+          `#!${process.execPath}`,
+          "const fs = require('node:fs')",
+          'const args = process.argv.slice(2)',
+          "fs.appendFileSync(process.env.MOTRIX_FAKE_DOCKER_CALLS, JSON.stringify(args) + '\\n')",
+          "if (args[0] !== 'buildx' || args[1] !== 'imagetools') process.exit(2)",
+          "if (args[2] === 'create') process.exit(0)",
+          "if (args[2] !== 'inspect') process.exit(2)",
+          "const digest = args[3] === process.env.MOTRIX_FAKE_MISMATCH_TAG ? 'sha256:' + 'b'.repeat(64) : process.env.PUBLISHED_DIGEST",
+          'process.stdout.write(JSON.stringify({ manifest: { digest } }))',
+        ].join('\n'),
+        { mode: 0o755 }
+      )
+      writeFileSync(
+        path.join(fixture, 'jq'),
+        [
+          `#!${process.execPath}`,
+          "const fs = require('node:fs')",
+          "if (process.argv[2] !== '-er' || process.argv[3] !== '.manifest.digest') process.exit(2)",
+          "process.stdout.write(JSON.parse(fs.readFileSync(0, 'utf8')).manifest.digest + '\\n')",
+        ].join('\n'),
+        { mode: 0o755 }
+      )
+      const runPromotion = (mismatchTag = '') => {
+        writeFileSync(callsPath, '')
+        return spawnSync('bash', ['-c', aliasCommand], {
+          encoding: 'utf8',
+          env: {
+            ...process.env,
+            DOCKERHUB_REPOSITORY: CONTAINER_REPOSITORIES.dockerHub,
+            GHCR_REPOSITORY: CONTAINER_REPOSITORIES.ghcr,
+            FLOATING_TAGS: floatingTags.join('\n'),
+            MOTRIX_FAKE_DOCKER_CALLS: callsPath,
+            MOTRIX_FAKE_MISMATCH_TAG: mismatchTag,
+            PATH: `${fixture}:${process.env.PATH ?? ''}`,
+            PUBLISHED_DIGEST: digest,
+          },
+        })
+      }
+
+      try {
+        const promoted = runPromotion()
+        expect(promoted.stderr).toBe('')
+        expect(promoted.status).toBe(0)
+        const calls = readFileSync(callsPath, 'utf8')
+          .trim()
+          .split('\n')
+          .map((line) => JSON.parse(line) as string[])
+        expect(calls.filter((args) => args[2] === 'create')).toEqual(
+          Object.values(CONTAINER_REPOSITORIES).map((repository) => [
+            'buildx',
+            'imagetools',
+            'create',
+            ...['2.0', '2', 'stable', 'latest'].flatMap((tag) => [
+              '--tag',
+              `${repository}:${tag}`,
+            ]),
+            `${repository}@${digest}`,
+          ])
+        )
+        expect(
+          calls.filter((args) => args[2] === 'inspect').map((args) => args[3])
+        ).toEqual(floatingTags)
+
+        expect(runPromotion(floatingTags.at(-1)).status).toBe(1)
+      } finally {
+        rmSync(fixture, { force: true, recursive: true })
+      }
+    }
+  )
 
   it('bounds anonymous signature visibility retries and still fails closed', () => {
     const jobs = workflowJobs(releaseWorkflow)
