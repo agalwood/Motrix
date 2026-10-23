@@ -1076,6 +1076,49 @@ describe('WindowManager', () => {
     }
   )
 
+  it.each(['show', 'toggle', 'open', 'ready', 'ready-inactive'] as const)(
+    'restores maximized state through %s when Electron omits the show event',
+    (action) => {
+      const wm = new WindowManager({
+        settingsManager: createMockSettingsManager({
+          main: { x: 100, y: 100, width: 1024, height: 768, maximized: true },
+        }),
+        preloadPath: '/fake/preload.cjs',
+        loadUrl: vi.fn(),
+      })
+      const win = wm.open('main', { show: action.startsWith('ready') })!
+      const events = win as unknown as { fireOnce(event: string): void }
+      const fireOnce = events.fireOnce.bind(events)
+      vi.spyOn(events, 'fireOnce').mockImplementation((event) => {
+        if (event !== 'show') fireOnce(event)
+      })
+
+      expect(win.isVisible()).toBe(false)
+      expect(win.maximize).not.toHaveBeenCalled()
+      if (action === 'ready' || action === 'ready-inactive') {
+        if (action === 'ready-inactive') wm.show('add-task')
+        events.fireOnce('ready-to-show')
+      } else {
+        wm[action]('main')
+      }
+
+      expect(win.isVisible()).toBe(true)
+      expect(win.maximize).toHaveBeenCalledOnce()
+      if (action === 'ready-inactive') {
+        expect(win.showInactive).toHaveBeenCalledOnce()
+        expect(win.show).not.toHaveBeenCalled()
+        expect(win.focus).not.toHaveBeenCalled()
+      }
+
+      // A delayed show event must not restore the saved state again after
+      // the user has had a chance to unmaximize the visible window.
+      fireOnce('show')
+      wm.hide('main')
+      wm.show('main')
+      expect(win.maximize).toHaveBeenCalledOnce()
+    }
+  )
+
   it('ignores saved bounds if outside all screens', () => {
     const savedBounds = { x: 5000, y: 5000, width: 1024, height: 768 }
     const sm = createMockSettingsManager({ main: savedBounds })

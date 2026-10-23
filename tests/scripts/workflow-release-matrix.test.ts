@@ -43,9 +43,9 @@ const ROOT = process.cwd()
 const WORKFLOW_DIRECTORY = path.join(ROOT, '.github/workflows')
 const require = createRequire(import.meta.url)
 const parseYaml = require('js-yaml').load as (source: string) => unknown
-const PNPM_VERSION = '12.10.1'
+const PNPM_VERSION = '12.15.0'
 const PNPM_PACKAGE_MANAGER =
-  'pnpm@12.10.1+sha512.ba40a37eb1a370d60fea8c4cf1d364c13bcccef518e98ad2bcee954f539d38da37458e58261a3fa55e06523450ea0ffff9f497b135be41f2c15c1642bacace6c'
+  'pnpm@12.15.0+sha512.b3951d6d6ff4a9f13dc7cf56cd28d2b8eb37dbcc9c68e52e1e1191873ea9f82a017287ab50baadc5ccc494f036c67c0e47eb13608c2fa36f47711b61ea128e61'
 const ELECTRON_BUILDER_CUSTOM_DIR_ENVIRONMENT_VARIABLES = [
   'NPM_CONFIG_ELECTRON_BUILDER_BINARIES_CUSTOM_DIR',
   'npm_config_electron_builder_binaries_custom_dir',
@@ -2773,7 +2773,7 @@ describe('release workflow publication contract', () => {
       stringField(asRecord(config.directories, 'signing directories'), 'app')
     ).toBe('dist/electron-app')
     expect(stringField(config, 'electronDist')).toBe('trusted/electron.zip')
-    expect(stringField(config, 'electronVersion')).toBe('44.7.0')
+    expect(stringField(config, 'electronVersion')).toBe('45.0.0')
     expect(signingInputSource).toContain(
       "config.directories?.app !== 'dist/electron-app'"
     )
@@ -2839,7 +2839,7 @@ describe('release workflow publication contract', () => {
       asRecord(metadata.devDependencies, 'dev dependencies'),
       'electron'
     )
-    expect(version).toBe('44.7.0')
+    expect(version).toBe('45.0.0')
     expect(
       stringField(
         asRecord(
@@ -2871,7 +2871,7 @@ describe('release workflow publication contract', () => {
     expect(checked).toBeGreaterThan(0)
   })
 
-  it('pins the packaged macOS baseline to Electron 44 support', () => {
+  it('pins the packaged macOS baseline to Electron 45 support', () => {
     const builderConfig = asRecord(
       JSON.parse(
         readFileSync(path.join(ROOT, 'electron-builder.json'), 'utf8')

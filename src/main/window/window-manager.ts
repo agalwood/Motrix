@@ -337,6 +337,7 @@ export class WindowManager {
     this.lastFocusRequested = id
     if (win.isMinimized()) win.restore()
     win.show()
+    this.applyPendingMaximize(win)
     win.focus()
     this.deps.lifecycle?.shown(id)
   }
@@ -539,6 +540,7 @@ export class WindowManager {
         } else {
           win.show()
         }
+        this.applyPendingMaximize(win)
       })
     }
 
@@ -696,12 +698,23 @@ export class WindowManager {
         win.maximize()
       } else {
         this.pendingMaximize.add(win)
-        win.once('show', () => {
-          this.pendingMaximize.delete(win)
-          if (!this.willQuit && !win.isDestroyed()) win.maximize()
-        })
+        win.once('show', () => this.applyPendingMaximize(win))
       }
     }
+  }
+
+  private applyPendingMaximize(win: BrowserWindow): void {
+    // Some platforms reveal a window without emitting `show`. Explicit
+    // show paths and the event fallback share this once-only restoration.
+    if (
+      this.willQuit ||
+      win.isDestroyed() ||
+      !win.isVisible() ||
+      !this.pendingMaximize.delete(win)
+    ) {
+      return
+    }
+    win.maximize()
   }
 
   private isBoundsVisible(bounds: WindowBounds): boolean {

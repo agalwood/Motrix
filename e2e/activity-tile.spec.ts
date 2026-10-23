@@ -960,6 +960,21 @@ test.describe('Activity Tile production renderer', () => {
           .getByRole('gridcell', { includeHidden: true })
       ).toHaveCount(1)
 
+      // ResizeObserver schedules Canvas sizing on the next animation frame;
+      // visibility and the virtual cell can precede the final layout size.
+      await expect
+        .poll(
+          async () => {
+            const profile = await readRendererProfile(mainWindow)
+            return (
+              Math.max(profile.calendarScrollWidth, profile.canvasCssWidth) -
+              profile.calendarClientWidth
+            )
+          },
+          { timeout: 5_000 }
+        )
+        .toBeLessThanOrEqual(1)
+
       const profile = await readRendererProfile(mainWindow)
       const placement = await mainWindow
         .getByTestId('dashboard-tile-activity')
