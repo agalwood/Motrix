@@ -52,6 +52,9 @@ import { FinalNamePickerImpl } from './final-name-picker'
 const { mkdirMock, fsStub } = vi.hoisted(() => {
   const mkdirMock = vi.fn(async () => undefined)
   const fsStub = {
+    access: vi.fn(async () => {
+      throw Object.assign(new Error('missing file'), { code: 'ENOENT' })
+    }),
     mkdir: mkdirMock,
     stat: vi.fn(async (): Promise<{ isDirectory(): boolean }> => {
       throw Object.assign(new Error('missing directory'), { code: 'ENOENT' })

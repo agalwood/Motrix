@@ -562,7 +562,12 @@ test('remembers a manual sort across app restarts and clears it when restoring t
       target.y + target.height / 2
     )
     await page.mouse.up()
-    await expect(list.getByRole('columnheader').first()).toContainText('Size')
+    await expect(
+      list
+        .getByRole('columnheader')
+        .filter({ has: page.locator('button[draggable="true"]') })
+        .first()
+    ).toContainText('Size')
     const nameResize = list.getByRole('separator', {
       name: 'Resize Name column',
     })
@@ -582,7 +587,12 @@ test('remembers a manual sort across app restarts and clears it when restoring t
 
     app = await launchMotrix({ userDataDir, rpcPort })
     list = await openDownloads()
-    await expect(list.getByRole('columnheader').first()).toContainText('Size')
+    await expect(
+      list
+        .getByRole('columnheader')
+        .filter({ has: list.page().locator('button[draggable="true"]') })
+        .first()
+    ).toContainText('Size')
     await expect(
       list.getByRole('separator', { name: 'Resize Name column' })
     ).toHaveAttribute('aria-valuenow', '216')
@@ -749,12 +759,12 @@ for (const { count, width, height, zoom } of [
       .click()
     await mainWindow.getByRole('menuitem', { name: /^All/ }).click()
     await expectUsable(tail)
+    // Finish closing the title menu before simulating a manual list scroll.
+    await expect(mainWindow.getByRole('menu')).toHaveCount(0)
 
     // A manually scrolled-away focused row stays mounted for ARIA without
     // forcing the user's viewport back to it.
     if (count === 200) {
-      // Finish closing the title menu before simulating a manual list scroll.
-      await expect(mainWindow.getByRole('menu')).toHaveCount(0)
       await list.evaluate((element) => {
         element.scrollTop = 0
       })
@@ -778,6 +788,10 @@ for (const { count, width, height, zoom } of [
       name: 'New active tail.bin',
     })
     await publish(electronApp, [...tasks, added])
+    // Sending the event does not wait for the renderer's updated list height.
+    await expect(
+      mainWindow.getByText(`${count + 1}/${count + 1}`, { exact: true })
+    ).toBeVisible()
     await list.evaluate((element) => {
       element.scrollTop = element.scrollHeight
     })
@@ -1603,7 +1617,12 @@ test('compact search filters the table and explains active query and type filter
   await mainWindow.keyboard.press('Escape')
 
   await updateTaskInspectorAppearance(mainWindow, 'dark', 'zh-CN')
+  await expect(
+    mainWindow.getByRole('heading', { name: '全部下载', exact: true })
+  ).toBeVisible()
+  await expect(mainWindow.getByTestId('downloads-loading')).toHaveCount(0)
   await publish(electronApp, tasks)
+  await expect(mainWindow.locator('[data-task-id]')).toHaveCount(3)
   await mainWindow
     .getByRole('button', { name: '搜索下载任务', exact: true })
     .click()
