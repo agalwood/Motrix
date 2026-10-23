@@ -154,11 +154,21 @@ describe('rename-only artifact identity', () => {
       await writeFile(file, 'before')
       await utimes(file, 100, 100)
       const before = await readRenameFileIdentity(file)
-      await writeFile(file, 'edited')
-      await utimes(file, 100, 100)
+      expect(BigInt(before.ctimeNs)).toBeGreaterThan(0n)
+      // Retry the edit until the filesystem advances its change-time tick.
+      await expect
+        .poll(
+          async () => {
+            await writeFile(file, 'edited')
+            await utimes(file, 100, 100)
+            return String((await stat(file, { bigint: true })).ctimeNs)
+          },
+          { timeout: 1000, interval: 10 }
+        )
+        .not.toBe(before.ctimeNs)
       const after = await readRenameFileIdentity(file)
-      expect(after.size).toBe(before.size)
-      expect(after.mtimeNs).toBe(before.mtimeNs)
+      expect(after).toEqual({ ...before, ctimeNs: expect.any(String) })
+      expect(BigInt(after.ctimeNs)).toBeGreaterThan(0n)
       expect(after.ctimeNs).not.toBe(before.ctimeNs)
       expect(artifactIdentityEquals(before, after)).toBe(false)
     } finally {

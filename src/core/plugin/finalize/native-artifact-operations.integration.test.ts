@@ -20,6 +20,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   artifactContentEquals,
   artifactIdentityEquals,
+  type RenameFileArtifactIdentity,
   readArtifactIdentity,
   readRenameFileIdentity,
 } from './artifact-identity'
@@ -73,6 +74,30 @@ describe.runIf(existsSync(binary))(
       const operations = new NativeFinalizeArtifactOperations(adapter)
       await operations.assertSupported()
       return { root, adapter, operations }
+    }
+
+    async function writeEditWithDistinctCtime(
+      source: string,
+      before: RenameFileArtifactIdentity
+    ): Promise<RenameFileArtifactIdentity> {
+      expect(BigInt(before.ctimeNs)).toBeGreaterThan(0n)
+      // Filesystems can stamp adjacent writes in the same clock tick. Establish
+      // the changed ctime this fixture needs before testing rename rejection.
+      await expect
+        .poll(
+          async () => {
+            await writeFile(source, 'edited')
+            await utimes(source, 100, 100)
+            return String((await stat(source, { bigint: true })).ctimeNs)
+          },
+          { timeout: 1000, interval: 10 }
+        )
+        .not.toBe(before.ctimeNs)
+      const after = await readRenameFileIdentity(source)
+      expect(after).toEqual({ ...before, ctimeNs: expect.any(String) })
+      expect(BigInt(after.ctimeNs)).toBeGreaterThan(0n)
+      expect(after.ctimeNs).not.toBe(before.ctimeNs)
+      return after
     }
 
     it.each([false, true])(
@@ -294,14 +319,17 @@ describe.runIf(existsSync(binary))(
       await writeFile(source, 'before')
       await utimes(source, 100, 100)
       const identity = await readRenameFileIdentity(source)
-      await writeFile(source, 'edited')
-      await utimes(source, 100, 100)
       const rename = vi.spyOn(adapter, 'renameOpenedNoReplace')
+      const copy = vi.spyOn(adapter, 'copyOpened')
+      const remove = vi.spyOn(adapter, 'removeOpened')
       try {
+        await writeEditWithDistinctCtime(source, identity)
         await expect(
           operations.moveNoReplace(source, identity, target)
         ).rejects.toThrow()
         expect(rename).not.toHaveBeenCalled()
+        expect(copy).not.toHaveBeenCalled()
+        expect(remove).not.toHaveBeenCalled()
         expect(await readFile(source, 'utf8')).toBe('edited')
         expect(existsSync(target)).toBe(false)
       } finally {
@@ -323,17 +351,23 @@ describe.runIf(existsSync(binary))(
       await utimes(source, 100, 100)
       const identity = await readRenameFileIdentity(source)
       const openArtifact = adapter.openArtifact.bind(adapter)
+      let editedIdentity: RenameFileArtifactIdentity | undefined
       vi.spyOn(adapter, 'openArtifact').mockImplementation(async (...args) => {
-        await writeFile(source, 'edited')
-        await utimes(source, 100, 100)
+        editedIdentity = await writeEditWithDistinctCtime(source, identity)
         return openArtifact(...args)
       })
       const rename = vi.spyOn(adapter, 'renameOpenedNoReplace')
+      const copy = vi.spyOn(adapter, 'copyOpened')
+      const remove = vi.spyOn(adapter, 'removeOpened')
       try {
         await expect(
           operations.moveNoReplace(source, identity, target)
         ).rejects.toThrow()
+        expect(editedIdentity).toBeDefined()
+        expect(editedIdentity?.ctimeNs).not.toBe(identity.ctimeNs)
         expect(rename).not.toHaveBeenCalled()
+        expect(copy).not.toHaveBeenCalled()
+        expect(remove).not.toHaveBeenCalled()
         expect(await readFile(source, 'utf8')).toBe('edited')
         expect(existsSync(target)).toBe(false)
       } finally {

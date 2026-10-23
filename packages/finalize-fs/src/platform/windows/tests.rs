@@ -218,7 +218,7 @@ fn rename_admission_rejects_an_existing_writer_even_when_it_shares_delete() {
     // sharing violation without relaxing its deny-write policy.
     let error = super::nt::open_existing(&root.handle, &name).unwrap_err();
     assert_eq!(
-        error.raw_os_error(),
+        crate::error::os_code(&error),
         Some(windows_sys::Win32::Foundation::ERROR_SHARING_VIOLATION as i32)
     );
     drop(writer);
