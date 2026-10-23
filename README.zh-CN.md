@@ -140,7 +140,7 @@ Motrix Extension 已上架官方浏览器扩展商店，配合 Motrix 2 使用�
 | 平台 | 架构 | 安装包 / 通道 | 选择建议 |
 |------|------|---------------|----------|
 | macOS 13+ | `arm64`（Apple Silicon）、`x64`（Intel） | `.dmg` / `.zip` | 选择与 Mac 架构匹配的 `.dmg`；仅 Intel Mac 使用 `x64` |
-| Windows | `x64`、`arm64` | `.exe`（NSIS 安装包）/ `.zip` | 常规安装使用 `.exe`；`.zip` 可解压后手动运行 |
+| Windows 10+ | `x64`、`arm64` | `.exe`（NSIS 安装包）/ `.zip` | 常规安装使用 `.exe`；`.zip` 可解压后手动运行 |
 | Linux | `x64`、`arm64` | `.AppImage` / `.deb` / `.rpm` | 任意发行版可使用便携的 `.AppImage`，Debian 或 Ubuntu 使用 `.deb`，Fedora 或 openSUSE 使用 `.rpm` |
 | Linux（Snap Store） | `amd64`、`arm64` | `latest/stable` | 晋级 stable 后，使用 `sudo snap install motrix` 安装严格限制的安装包 |
 | Linux（Flatpak） | `x86_64`、`aarch64` | `.flatpak` | 从包含该格式的 Release 下载对应版本的安装包，详见 [Flatpak 安装指南](docs/flatpak.zh-CN.md) |

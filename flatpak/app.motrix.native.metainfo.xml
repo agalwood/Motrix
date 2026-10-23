@@ -79,7 +79,8 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.52" date="2026-10-21">
+    <!-- AppStream uses ~ for prerelease ordering; Git tags retain -beta.N. -->
+    <release type="development" version="2.0.0~beta.52" date="2026-10-21">
       <description>
         <p>
           Adds native Windows ARM64 installers and portable archives with
@@ -88,7 +89,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.51" date="2026-10-20">
+    <release type="development" version="2.0.0~beta.51" date="2026-10-20">
       <description>
         <p>
           Bundles aria2 motrix.18 for native Windows legacy BT recovery,
@@ -97,7 +98,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.50" date="2026-10-20">
+    <release type="development" version="2.0.0~beta.50" date="2026-10-20">
       <description>
         <p>
           Adds live task activity charts and history navigation, torrent file
@@ -107,7 +108,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.49" date="2026-10-16">
+    <release type="development" version="2.0.0~beta.49" date="2026-10-16">
       <description>
         <p>
           Allows plugin installation before FFmpeg is configured, adds runtime
@@ -116,7 +117,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.48" date="2026-10-15">
+    <release type="development" version="2.0.0~beta.48" date="2026-10-15">
       <description>
         <p>
           Adds declarative plugin operations, task re-download, renderer
@@ -125,7 +126,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.47" date="2026-10-10">
+    <release type="development" version="2.0.0~beta.47" date="2026-10-10">
       <description>
         <p>
           Adds the desktop v1 Migration Assistant, signed official optional
@@ -135,7 +136,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.46" date="2026-10-02">
+    <release type="development" version="2.0.0~beta.46" date="2026-10-02">
       <description>
         <p>
           Adds verified FFmpeg installation with button progress and clearer
@@ -145,7 +146,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.45" date="2026-10-02">
+    <release type="development" version="2.0.0~beta.45" date="2026-10-02">
       <description>
         <p>
           Adds verified one-click FFmpeg installation, safe Motrix deep links,
@@ -154,7 +155,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.44" date="2026-09-29">
+    <release type="development" version="2.0.0~beta.44" date="2026-09-29">
       <description>
         <p>
           Distinguishes zero, unknown, and inapplicable download metrics,
@@ -163,7 +164,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.43" date="2026-09-29">
+    <release type="development" version="2.0.0~beta.43" date="2026-09-29">
       <description>
         <p>
           Packages the Safari desktop bootstrap in signed macOS builds,
@@ -172,7 +173,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.42" date="2026-09-29">
+    <release type="development" version="2.0.0~beta.42" date="2026-09-29">
       <description>
         <p>
           Adds recoverable Tracker refreshes and task updates, fixes desktop
@@ -181,7 +182,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.41" date="2026-09-27">
+    <release type="development" version="2.0.0~beta.41" date="2026-09-27">
       <description>
         <p>
           Adds 25 interface languages with right-to-left support, improves
@@ -191,7 +192,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.40" date="2026-09-21">
+    <release type="development" version="2.0.0~beta.40" date="2026-09-21">
       <description>
         <p>
           Improves Dashboard charts and task controls, defaults desktop file
@@ -200,7 +201,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.39" date="2026-09-15">
+    <release type="development" version="2.0.0~beta.39" date="2026-09-15">
       <description>
         <p>
           Adds a Server directory picker and application menu, improves download
@@ -209,7 +210,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.38" date="2026-09-13">
+    <release type="development" version="2.0.0~beta.38" date="2026-09-13">
       <description>
         <p>
           Preserves macOS menu-bar icon position, supports Windows SMB download
@@ -218,7 +219,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.36" date="2026-09-11">
+    <release type="development" version="2.0.0~beta.36" date="2026-09-11">
       <description>
         <p>
           Improves interrupted download finalization recovery, adds opt-in
@@ -229,7 +230,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.35" date="2026-09-08">
+    <release type="development" version="2.0.0~beta.35" date="2026-09-08">
       <description>
         <p>
           Improves download task controls, completion progress, and inspector
@@ -238,7 +239,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.34" date="2026-09-08">
+    <release type="development" version="2.0.0~beta.34" date="2026-09-08">
       <description>
         <p>
           Improves BitTorrent resilience when HTTP Web Seeds fail, gives slow
@@ -248,7 +249,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.33" date="2026-09-07">
+    <release type="development" version="2.0.0~beta.33" date="2026-09-07">
       <description>
         <p>
           Settings links to the published Chrome and Edge extensions, Firefox
@@ -261,7 +262,7 @@
     </release>
     <!-- Update this list on every release; Flathub linter requires the most
          recent version listed here to match the manifest's source tag. -->
-    <release version="2.0.0-beta.32" date="2026-09-05">
+    <release type="development" version="2.0.0~beta.32" date="2026-09-05">
       <description>
         <p>
           Restores Windows desktop and browser-extension startup after an
@@ -270,7 +271,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.31" date="2026-09-04">
+    <release type="development" version="2.0.0~beta.31" date="2026-09-04">
       <description>
         <p>
           Improves durable download finalization, Docker Extension startup,
@@ -279,7 +280,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.30" date="2026-09-03">
+    <release type="development" version="2.0.0~beta.30" date="2026-09-03">
       <description>
         <p>
           Closes five security advisories across Fastify and development
@@ -289,7 +290,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.29" date="2026-09-02">
+    <release type="development" version="2.0.0~beta.29" date="2026-09-02">
       <description>
         <p>
           Adds secure local and remote Motrix Extension pairing, completes
@@ -299,7 +300,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.28" date="2026-08-28">
+    <release type="development" version="2.0.0~beta.28" date="2026-08-28">
       <description>
         <p>
           Direct-download naming and finalization are more reliable, empty RPC
@@ -311,7 +312,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.27" date="2026-08-27">
+    <release type="development" version="2.0.0~beta.27" date="2026-08-27">
       <description>
         <p>
           Protected beta tags now publish verified amd64 and arm64 Snap builds
@@ -322,7 +323,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.26" date="2026-08-25">
+    <release type="development" version="2.0.0~beta.26" date="2026-08-25">
       <description>
         <p>
           Interrupted HTTP and FTP downloads now resume only after Motrix
@@ -333,7 +334,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.25" date="2026-08-24">
+    <release type="development" version="2.0.0~beta.25" date="2026-08-24">
       <description>
         <p>
           Carries the beta.24 user-facing changes and corrects the protected
@@ -342,7 +343,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.24" date="2026-08-24">
+    <release type="development" version="2.0.0~beta.24" date="2026-08-24">
       <description>
         <p>
           BitTorrent and Magnet tasks now preserve authoritative file metadata,
@@ -353,7 +354,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.23" date="2026-08-23">
+    <release type="development" version="2.0.0~beta.23" date="2026-08-23">
       <description>
         <p>
           Downloads can now use either the local completion time or the
@@ -364,7 +365,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.22" date="2026-08-22">
+    <release type="development" version="2.0.0~beta.22" date="2026-08-22">
       <description>
         <p>
           Bundled aria2 is updated to 1.37.0-motrix.10. Motrix now detects
@@ -375,7 +376,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.21" date="2026-08-22">
+    <release type="development" version="2.0.0~beta.21" date="2026-08-22">
       <description>
         <p>
           Release assembly now accepts the AppImage-first Linux metadata
@@ -387,7 +388,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.20" date="2026-08-22">
+    <release type="development" version="2.0.0~beta.20" date="2026-08-22">
       <description>
         <p>
           Linux HTTPS downloads now use the system CA trust store without
@@ -402,7 +403,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.19" date="2026-08-19">
+    <release type="development" version="2.0.0~beta.19" date="2026-08-19">
       <description>
         <p>
           The in-app updater now hands off to the installer reliably even when
@@ -416,7 +417,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.18" date="2026-08-17">
+    <release type="development" version="2.0.0~beta.18" date="2026-08-17">
       <description>
         <p>
           The bundled aria2 engine is updated to 1.37.0-motrix.4. Network
@@ -429,7 +430,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.17" date="2026-08-16">
+    <release type="development" version="2.0.0~beta.17" date="2026-08-16">
       <description>
         <p>
           Docker Hub repository-description mutation is no longer part of the
@@ -442,7 +443,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.16" date="2026-08-16">
+    <release type="development" version="2.0.0~beta.16" date="2026-08-16">
       <description>
         <p>
           The desktop packages, GitHub prerelease, R2 update feed, native
@@ -455,7 +456,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.15" date="2026-08-16">
+    <release type="development" version="2.0.0~beta.15" date="2026-08-16">
       <description>
         <p>
           The desktop packages, GitHub prerelease, and R2 update feed completed.
@@ -469,7 +470,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.14" date="2026-08-16">
+    <release type="development" version="2.0.0~beta.14" date="2026-08-16">
       <description>
         <p>
           The GitHub prerelease and R2 update feed completed. Native amd64 and
@@ -483,7 +484,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.13" date="2026-08-16">
+    <release type="development" version="2.0.0~beta.13" date="2026-08-16">
       <description>
         <p>
           Partially distributed Motrix Turbo beta. All desktop builds,
@@ -496,7 +497,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.12" date="2026-08-16">
+    <release type="development" version="2.0.0~beta.12" date="2026-08-16">
       <description>
         <p>
           Published Motrix Turbo beta. All five desktop builds, all three
@@ -508,7 +509,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.11" date="2026-08-16">
+    <release type="development" version="2.0.0~beta.11" date="2026-08-16">
       <description>
         <p>
           Unpublished Motrix Turbo beta attempt. All five desktop builds and
@@ -521,7 +522,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.10" date="2026-08-16">
+    <release type="development" version="2.0.0~beta.10" date="2026-08-16">
       <description>
         <p>
           Unpublished Motrix Turbo beta attempt. All five desktop builds and
@@ -533,7 +534,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.9" date="2026-08-16">
+    <release type="development" version="2.0.0~beta.9" date="2026-08-16">
       <description>
         <p>
           Unpublished Motrix Turbo beta attempt. All five desktop builds
@@ -546,7 +547,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.8" date="2026-08-16">
+    <release type="development" version="2.0.0~beta.8" date="2026-08-16">
       <description>
         <p>
           Unpublished Motrix Turbo beta attempt. All five desktop builds and
@@ -560,7 +561,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.7" date="2026-08-16">
+    <release type="development" version="2.0.0~beta.7" date="2026-08-16">
       <description>
         <p>
           Unpublished Motrix Turbo beta attempt. The macOS and Windows
@@ -571,7 +572,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.6" date="2026-08-15">
+    <release type="development" version="2.0.0~beta.6" date="2026-08-15">
       <description>
         <p>
           Unpublished Motrix Turbo beta attempt. All five desktop builds and
@@ -583,7 +584,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.5" date="2026-08-15">
+    <release type="development" version="2.0.0~beta.5" date="2026-08-15">
       <description>
         <p>
           Unpublished Motrix Turbo beta attempt. All five desktop builds and
@@ -594,7 +595,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.4" date="2026-08-15">
+    <release type="development" version="2.0.0~beta.4" date="2026-08-15">
       <description>
         <p>
           Unpublished Motrix Turbo beta attempt. All five desktop builds
@@ -604,7 +605,7 @@
         </p>
       </description>
     </release>
-    <release version="2.0.0-beta.3" date="2026-08-15">
+    <release type="development" version="2.0.0~beta.3" date="2026-08-15">
       <description>
         <p>
           Unpublished Motrix Turbo beta attempt. Four non-Windows builds and
