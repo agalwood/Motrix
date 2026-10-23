@@ -538,9 +538,8 @@ describe('Snap promotion workflow contract', () => {
     expect(command).toContain('actions/workflows/snap.yml')
     expect(command).toContain("jq -r '.workflow_id'")
     expect(command).toContain('$expected_workflow_id')
-    expect(command).toContain('^\\.github/workflows/snap\\.yml@.+$')
-    expect(command).not.toContain(
-      `test "$(jq -r '.path' <<< "$run_json")" = '.github/workflows/snap.yml'`
+    expect(command).toContain(
+      `"$workflow_path" != '.github/workflows/snap.yml'`
     )
   })
 
@@ -628,6 +627,175 @@ describe('Snap promotion workflow contract', () => {
     expect(source).toContain('--expected-arm64-revision')
   })
 })
+
+// The promotion job executes Bash and jq on Ubuntu; these fixtures exercise
+// that exact script without contacting GitHub or modifying a Git checkout.
+describe.skipIf(process.platform === 'win32')(
+  'Snap promotion source validation',
+  () => {
+    it('accepts the canonical workflow-run API path and verifies the source tag ancestry', () => {
+      const result = runPromotionSourceValidation()
+
+      expect(result.stderr).toBe('')
+      expect(result.status).toBe(0)
+      expect(result.gitCalls).toEqual([
+        'fetch --no-tags origin refs/heads/main:refs/remotes/origin/main',
+        'fetch --no-tags --force origin refs/tags/v2.0.0:refs/remotes/origin/snap-source-tag',
+        'rev-parse refs/remotes/origin/snap-source-tag^{commit}',
+        `merge-base --is-ancestor ${SNAP_SOURCE_SHA} refs/remotes/origin/main`,
+      ])
+    })
+
+    it.each([
+      '.github/workflows/snap.yml@refs/tags/v2.0.0',
+      '.github/workflows/snap.yml.bak',
+      '.github/workflows/release.yml',
+      './.github/workflows/snap.yml',
+      '.github/workflows/other/../snap.yml',
+      '',
+      null,
+      undefined,
+    ])(
+      'rejects a noncanonical workflow path %j before fetching Git refs',
+      (workflowPath) => {
+        const result = runPromotionSourceValidation({ path: workflowPath })
+
+        expect(result.status).not.toBe(0)
+        expect(result.gitCalls).toEqual([])
+      }
+    )
+
+    it.each([
+      { event: 'workflow_dispatch' },
+      { status: 'in_progress' },
+      { conclusion: 'failure' },
+      { workflow_id: 330566219 },
+      { run_attempt: 2 },
+      { head_repository: { full_name: 'untrusted/Motrix' } },
+      { head_sha: 'invalid-sha' },
+    ])(
+      'rejects an untrusted source run %j before fetching Git refs',
+      (overrides) => {
+        const result = runPromotionSourceValidation(overrides)
+
+        expect(result.status).not.toBe(0)
+        expect(result.gitCalls).toEqual([])
+      }
+    )
+
+    it('rejects a source SHA that differs from the requested release tag', () => {
+      const result = runPromotionSourceValidation(
+        {},
+        { tagSha: 'b'.repeat(40) }
+      )
+
+      expect(result.status).not.toBe(0)
+      expect(result.gitCalls.at(-1)).toBe(
+        'rev-parse refs/remotes/origin/snap-source-tag^{commit}'
+      )
+    })
+
+    it('rejects a source commit that is not on main', () => {
+      const result = runPromotionSourceValidation({}, { onMain: false })
+
+      expect(result.status).not.toBe(0)
+      expect(result.gitCalls.at(-1)).toBe(
+        `merge-base --is-ancestor ${SNAP_SOURCE_SHA} refs/remotes/origin/main`
+      )
+    })
+  }
+)
+
+const SNAP_SOURCE_SHA = '954e62cef4819ff56506412f513ab75ff019c079'
+
+function runPromotionSourceValidation(
+  overrides: LooseRecord = {},
+  { tagSha = SNAP_SOURCE_SHA, onMain = true } = {}
+) {
+  const root = mkdtempSync(path.join(tmpdir(), 'motrix-snap-source-'))
+  const runPath = path.join(root, 'run.json')
+  const workflowPath = path.join(root, 'workflow.json')
+  const gitLog = path.join(root, 'git.log')
+  // Minimal fields consumed from successful v2.0.0 Snap run 39989307936.
+  writeFileSync(
+    runPath,
+    JSON.stringify({
+      event: 'push',
+      status: 'completed',
+      conclusion: 'success',
+      workflow_id: 330566218,
+      path: '.github/workflows/snap.yml',
+      run_attempt: 1,
+      head_repository: { full_name: 'agalwood/Motrix' },
+      head_sha: SNAP_SOURCE_SHA,
+      ...overrides,
+    })
+  )
+  writeFileSync(workflowPath, JSON.stringify({ id: 330566218 }))
+  writeFileSync(gitLog, '')
+  writeFileSync(
+    path.join(root, 'gh'),
+    [
+      '#!/usr/bin/env bash',
+      'set -euo pipefail',
+      'case "$*" in',
+      '  "api repos/agalwood/Motrix/actions/runs/39989307936") cat "$MOTRIX_SOURCE_RUN_FILE" ;;',
+      '  "api repos/agalwood/Motrix/actions/workflows/snap.yml") cat "$MOTRIX_SOURCE_WORKFLOW_FILE" ;;',
+      '  *) exit 2 ;;',
+      'esac',
+    ].join('\n'),
+    { mode: 0o755 }
+  )
+  writeFileSync(
+    path.join(root, 'git'),
+    [
+      '#!/usr/bin/env bash',
+      'set -euo pipefail',
+      'printf \'%s\\n\' "$*" >> "$MOTRIX_SOURCE_GIT_LOG"',
+      'case "$*" in',
+      '  "fetch --no-tags origin refs/heads/main:refs/remotes/origin/main") ;;',
+      '  "fetch --no-tags --force origin refs/tags/v2.0.0:refs/remotes/origin/snap-source-tag") ;;',
+      '  "rev-parse refs/remotes/origin/snap-source-tag^{commit}") printf \'%s\\n\' "$MOTRIX_SOURCE_TAG_SHA" ;;',
+      '  "merge-base --is-ancestor $MOTRIX_SOURCE_RUN_SHA refs/remotes/origin/main") [[ "$MOTRIX_SOURCE_ON_MAIN" == true ]] ;;',
+      '  *) exit 2 ;;',
+      'esac',
+    ].join('\n'),
+    { mode: 0o755 }
+  )
+  const step = jobSteps(workflowJob(promotionWorkflow, 'preflight')).find(
+    (candidate) => candidate.name === 'Validate trusted source workflow run'
+  )
+  try {
+    const result = spawnSync(
+      'bash',
+      ['-c', stringField(step as LooseRecord, 'run')],
+      {
+        encoding: 'utf8',
+        cwd: root,
+        env: {
+          ...process.env,
+          EXPECTED_VERSION: '2.0.0',
+          GITHUB_REPOSITORY: 'agalwood/Motrix',
+          SOURCE_RUN_ID: '39989307936',
+          SOURCE_RUN_ATTEMPT: '1',
+          MOTRIX_SOURCE_RUN_FILE: runPath,
+          MOTRIX_SOURCE_WORKFLOW_FILE: workflowPath,
+          MOTRIX_SOURCE_GIT_LOG: gitLog,
+          MOTRIX_SOURCE_TAG_SHA: tagSha,
+          MOTRIX_SOURCE_RUN_SHA: SNAP_SOURCE_SHA,
+          MOTRIX_SOURCE_ON_MAIN: String(onMain),
+          PATH: `${root}${path.delimiter}${process.env.PATH ?? ''}`,
+        },
+      }
+    )
+    return {
+      ...result,
+      gitCalls: readFileSync(gitLog, 'utf8').split('\n').filter(Boolean),
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+}
 
 interface SnapUploadFixture {
   root: string

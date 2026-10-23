@@ -133,7 +133,8 @@ jobs:
             "$expected_workflow_id"
           workflow_path="$(jq -er '.path | select(type == "string")' \
             <<< "$run_json")"
-          if [[ ! "$workflow_path" =~ ^\.github/workflows/snap\.yml@.+$ ]]; then
+          # The workflow-run API returns the repository-relative workflow path.
+          if [[ "$workflow_path" != '.github/workflows/snap.yml' ]]; then
             echo "Source run did not execute the trusted Snap workflow" >&2
             exit 1
           fi
