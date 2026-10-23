@@ -31,7 +31,8 @@ export interface HookPlan {
 /** The exFAT compatibility contract is limited to unmodified download names. */
 export function isOrdinarySuffixRemoval(plan: HookPlan): boolean {
   return (
-    plan.sourceIdentity.kind === 'file' &&
+    (plan.sourceIdentity.kind === 'file' ||
+      plan.sourceIdentity.kind === 'rename-file') &&
     !plan.replacement &&
     plan.contributors.length === 0 &&
     plan.metadataOps.length === 0 &&
@@ -53,6 +54,13 @@ export function assertFinalizePaths(
 
 export function assertValidHookPlan(plan: HookPlan): void {
   assertFinalizePaths(plan.saveDir, plan.sourcePath, plan.targetPath)
+  if (
+    plan.sourceIdentity.kind === 'rename-file' &&
+    !isOrdinarySuffixRemoval(plan)
+  )
+    throw new Error('rename-only identity requires an ordinary suffix removal')
+  if (plan.replacement?.identity.kind === 'rename-file')
+    throw new Error('replacement requires a content identity')
   if (
     plan.replacement?.identity.kind !== undefined &&
     !plan.replacement.pluginId

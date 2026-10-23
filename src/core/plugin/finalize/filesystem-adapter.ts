@@ -43,6 +43,8 @@ export interface FinalizeFsCapabilities {
   heldRoots: boolean
   directorySync: boolean
   heldArtifacts: boolean
+  /** Held regular-file handles exclude writers, including writable mappings. */
+  heldFileWriteExclusion?: boolean
   reservedExfatRename?: boolean
   tokenExfatReservation?: boolean
 }
@@ -66,6 +68,7 @@ interface WireResponse {
   held_roots?: boolean
   directory_sync?: boolean
   held_artifacts?: boolean
+  held_file_write_exclusion?: boolean
   reserved_exfat_rename?: boolean
   token_exfat_reservation?: boolean
   volume_id?: string
@@ -248,6 +251,7 @@ export class NativeFinalizeFilesystemAdapter
       heldRoots: response.held_roots === true,
       directorySync: response.directory_sync === true,
       heldArtifacts: response.held_artifacts === true,
+      heldFileWriteExclusion: response.held_file_write_exclusion === true,
       reservedExfatRename: response.reserved_exfat_rename === true,
       tokenExfatReservation: response.token_exfat_reservation === true,
     }

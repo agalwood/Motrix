@@ -4,12 +4,14 @@ import {
   link,
   mkdir,
   mkdtemp,
+  open,
   readFile,
   realpath,
   rename,
   rm,
   stat,
   symlink,
+  utimes,
   writeFile,
 } from 'node:fs/promises'
 import os from 'node:os'
@@ -18,7 +20,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   artifactContentEquals,
   artifactIdentityEquals,
+  type RenameFileArtifactIdentity,
   readArtifactIdentity,
+  readRenameFileIdentity,
 } from './artifact-identity'
 import { ArtifactMutationLeaseCoordinator } from './artifact-mutation-lease'
 import { NativeFinalizeFilesystemAdapter } from './filesystem-adapter'
@@ -70,6 +74,30 @@ describe.runIf(existsSync(binary))(
       const operations = new NativeFinalizeArtifactOperations(adapter)
       await operations.assertSupported()
       return { root, adapter, operations }
+    }
+
+    async function writeEditWithDistinctCtime(
+      source: string,
+      before: RenameFileArtifactIdentity
+    ): Promise<RenameFileArtifactIdentity> {
+      expect(BigInt(before.ctimeNs)).toBeGreaterThan(0n)
+      // Filesystems can stamp adjacent writes in the same clock tick. Establish
+      // the changed ctime this fixture needs before testing rename rejection.
+      await expect
+        .poll(
+          async () => {
+            await writeFile(source, 'edited')
+            await utimes(source, 100, 100)
+            return String((await stat(source, { bigint: true })).ctimeNs)
+          },
+          { timeout: 1000, interval: 10 }
+        )
+        .not.toBe(before.ctimeNs)
+      const after = await readRenameFileIdentity(source)
+      expect(after).toEqual({ ...before, ctimeNs: expect.any(String) })
+      expect(BigInt(after.ctimeNs)).toBeGreaterThan(0n)
+      expect(after.ctimeNs).not.toBe(before.ctimeNs)
+      return after
     }
 
     it.each([false, true])(
@@ -171,6 +199,303 @@ describe.runIf(existsSync(binary))(
         expect(
           (await readFile(target)).equals(Buffer.alloc(17 * 1024 * 1024, 0x53))
         ).toBe(true)
+      } finally {
+        await adapter.dispose()
+      }
+    })
+
+    it('performs no payload reads or copies for a large suffix rename with simulated Windows exclusion', async () => {
+      const { root, adapter, operations } = await setup()
+      // This exercises the TypeScript protocol on the available helper. Windows
+      // sharing-mode exclusion is verified by the native Windows tests.
+      const capabilities = await adapter.capabilities()
+      vi.spyOn(adapter, 'capabilities').mockResolvedValue({
+        ...capabilities,
+        platform: 'windows',
+        heldFileWriteExclusion: true,
+      })
+      const source = path.join(root, 'archive.zip.motrix')
+      const target = path.join(root, 'archive.zip')
+      const fileSize = 17 * 1024 * 1024
+      const file = await open(source, 'wx')
+      await file.write('completed download')
+      await file.truncate(fileSize)
+      await file.close()
+      const hash = vi.spyOn(hashing, 'hashOpenedFile')
+      const copy = vi.spyOn(adapter, 'copyOpened')
+      const materialize = vi.spyOn(operations, 'materializePrivate')
+      const nativeOpen = vi.spyOn(adapter, 'openArtifact')
+      const commitTerminal = vi.fn()
+      try {
+        const sourceIdentity = await operations.renameIdentity(source)
+        if (!sourceIdentity) throw new Error('missing rename identity')
+        const committer = new FinalizeCommitter({
+          fs: operations,
+          leases: new ArtifactMutationLeaseCoordinator([]),
+          repository: {
+            prepare: vi.fn(),
+            checkpoint: vi.fn(),
+            advance: vi.fn(),
+            commitTerminal,
+            quarantine: vi.fn(),
+            listRecoverable: async () => [],
+          },
+          privatePathFor: () => path.join(root, '.private'),
+          rollbackPathFor: () => path.join(root, '.rollback'),
+          exactIdentity: artifactIdentityEquals,
+          sameContent: artifactContentEquals,
+        })
+        const result = await committer.commit({
+          planId: 'rename-only-plan',
+          taskId: 'rename-only-task',
+          saveDir: root,
+          sourcePath: source,
+          targetPath: target,
+          sourceIdentity,
+          metadataOps: [],
+          contributors: [],
+        })
+        expect(result.targetIdentity).toEqual(
+          await readRenameFileIdentity(target)
+        )
+        expect(hash).not.toHaveBeenCalled()
+        expect(copy).not.toHaveBeenCalled()
+        expect(materialize).not.toHaveBeenCalled()
+        expect(nativeOpen).toHaveBeenCalledWith(
+          expect.anything(),
+          'archive.zip.motrix',
+          'rename'
+        )
+        expect(commitTerminal).toHaveBeenCalledOnce()
+        expect(existsSync(source)).toBe(false)
+        expect((await stat(target)).size).toBe(fileSize)
+        const published = await open(target, 'r')
+        try {
+          const buffer = Buffer.alloc(18)
+          await published.read(buffer, 0, buffer.length, 0)
+          expect(buffer.toString()).toBe('completed download')
+        } finally {
+          await published.close()
+        }
+      } finally {
+        await adapter.dispose()
+      }
+    })
+
+    it.each([
+      { platform: 'windows', heldFileWriteExclusion: undefined },
+      { platform: 'windows', heldFileWriteExclusion: false },
+      { platform: 'macos', heldFileWriteExclusion: true },
+      { platform: 'linux', heldFileWriteExclusion: true },
+    ])(
+      'requires Windows held-file write exclusion for metadata capture: %j',
+      async (unsupported) => {
+        const { root, adapter, operations } = await setup()
+        const capabilities = await adapter.capabilities()
+        vi.spyOn(adapter, 'capabilities').mockResolvedValue({
+          ...capabilities,
+          ...unsupported,
+        })
+        const source = path.join(root, 'download.motrix')
+        await writeFile(source, 'payload')
+        try {
+          expect(await operations.renameIdentity(source)).toBeNull()
+        } finally {
+          await adapter.dispose()
+        }
+      }
+    )
+
+    it('rejects a same-size edit with restored mtime before a metadata-only rename', async () => {
+      const { root, adapter, operations } = await setup()
+      const capabilities = await adapter.capabilities()
+      vi.spyOn(adapter, 'capabilities').mockResolvedValue({
+        ...capabilities,
+        platform: 'windows',
+        heldFileWriteExclusion: true,
+      })
+      const source = path.join(root, 'download.motrix')
+      const target = path.join(root, 'download')
+      await writeFile(source, 'before')
+      await utimes(source, 100, 100)
+      const identity = await readRenameFileIdentity(source)
+      const rename = vi.spyOn(adapter, 'renameOpenedNoReplace')
+      const copy = vi.spyOn(adapter, 'copyOpened')
+      const remove = vi.spyOn(adapter, 'removeOpened')
+      try {
+        await writeEditWithDistinctCtime(source, identity)
+        await expect(
+          operations.moveNoReplace(source, identity, target)
+        ).rejects.toThrow()
+        expect(rename).not.toHaveBeenCalled()
+        expect(copy).not.toHaveBeenCalled()
+        expect(remove).not.toHaveBeenCalled()
+        expect(await readFile(source, 'utf8')).toBe('edited')
+        expect(existsSync(target)).toBe(false)
+      } finally {
+        await adapter.dispose()
+      }
+    })
+
+    it('rejects metadata changes between initial validation and opening the native artifact', async () => {
+      const { root, adapter, operations } = await setup()
+      const capabilities = await adapter.capabilities()
+      vi.spyOn(adapter, 'capabilities').mockResolvedValue({
+        ...capabilities,
+        platform: 'windows',
+        heldFileWriteExclusion: true,
+      })
+      const source = path.join(root, 'download.motrix')
+      const target = path.join(root, 'download')
+      await writeFile(source, 'before')
+      await utimes(source, 100, 100)
+      const identity = await readRenameFileIdentity(source)
+      const openArtifact = adapter.openArtifact.bind(adapter)
+      let editedIdentity: RenameFileArtifactIdentity | undefined
+      vi.spyOn(adapter, 'openArtifact').mockImplementation(async (...args) => {
+        editedIdentity = await writeEditWithDistinctCtime(source, identity)
+        return openArtifact(...args)
+      })
+      const rename = vi.spyOn(adapter, 'renameOpenedNoReplace')
+      const copy = vi.spyOn(adapter, 'copyOpened')
+      const remove = vi.spyOn(adapter, 'removeOpened')
+      try {
+        await expect(
+          operations.moveNoReplace(source, identity, target)
+        ).rejects.toThrow()
+        expect(editedIdentity).toBeDefined()
+        expect(editedIdentity?.ctimeNs).not.toBe(identity.ctimeNs)
+        expect(rename).not.toHaveBeenCalled()
+        expect(copy).not.toHaveBeenCalled()
+        expect(remove).not.toHaveBeenCalled()
+        expect(await readFile(source, 'utf8')).toBe('edited')
+        expect(existsSync(target)).toBe(false)
+      } finally {
+        await adapter.dispose()
+      }
+    })
+
+    it('leaves directory artifacts on the content-verified path', async () => {
+      const { root, adapter, operations } = await setup()
+      const capabilities = await adapter.capabilities()
+      vi.spyOn(adapter, 'capabilities').mockResolvedValue({
+        ...capabilities,
+        platform: 'windows',
+        heldFileWriteExclusion: true,
+      })
+      const source = path.join(root, 'download.motrix')
+      await mkdir(source)
+      await writeFile(path.join(source, 'payload'), 'content')
+      const hash = vi.spyOn(hashing, 'hashOpenedFile')
+      try {
+        expect(await operations.renameIdentity(source)).toBeNull()
+        expect(await operations.identity(source)).toMatchObject({
+          kind: 'directory',
+          entryCount: 1,
+          totalBytes: 7,
+        })
+        expect(hash).toHaveBeenCalledOnce()
+      } finally {
+        await adapter.dispose()
+      }
+    })
+
+    it.each(['native-response', 'target-checkpoint'] as const)(
+      'preserves a successful rename when its %s is lost',
+      async (failure) => {
+        const { root, adapter, operations } = await setup()
+        const capabilities = await adapter.capabilities()
+        vi.spyOn(adapter, 'capabilities').mockResolvedValue({
+          ...capabilities,
+          platform: 'windows',
+          heldFileWriteExclusion: true,
+        })
+        const source = path.join(root, 'download.motrix')
+        const target = path.join(root, 'download')
+        await writeFile(source, 'complete payload')
+        const sourceIdentity = await readRenameFileIdentity(source)
+        if (failure === 'native-response') {
+          const rename = adapter.renameOpenedNoReplace.bind(adapter)
+          vi.spyOn(adapter, 'renameOpenedNoReplace').mockImplementation(
+            async (...args) => {
+              await rename(...args)
+              throw new Error('rename response lost')
+            }
+          )
+        }
+        const repository = {
+          prepare: vi.fn(),
+          checkpoint: vi.fn(async () => {
+            if (failure === 'target-checkpoint')
+              throw new Error('checkpoint failed')
+          }),
+          advance: vi.fn(),
+          commitTerminal: vi.fn(),
+          quarantine: vi.fn(),
+          listRecoverable: async () => [],
+        }
+        const move = vi.spyOn(operations, 'moveNoReplace')
+        const remove = vi.spyOn(operations, 'removeKnown')
+        const committer = new FinalizeCommitter({
+          fs: operations,
+          leases: new ArtifactMutationLeaseCoordinator([]),
+          repository,
+          privatePathFor: () => path.join(root, '.private'),
+          rollbackPathFor: () => path.join(root, '.rollback'),
+          exactIdentity: artifactIdentityEquals,
+          sameContent: artifactContentEquals,
+        })
+        try {
+          await expect(
+            committer.commit({
+              planId: 'ambiguous-rename',
+              taskId: 'ambiguous-task',
+              saveDir: root,
+              sourcePath: source,
+              targetPath: target,
+              sourceIdentity,
+              metadataOps: [],
+              contributors: [],
+            })
+          ).rejects.toThrow('quarantined')
+          expect(repository.quarantine).toHaveBeenCalledWith(
+            'ambiguous-rename',
+            'renamed target has no matching durable stamp'
+          )
+          expect(repository.commitTerminal).not.toHaveBeenCalled()
+          expect(move).toHaveBeenCalledOnce()
+          expect(remove).not.toHaveBeenCalled()
+          expect(existsSync(source)).toBe(false)
+          expect(await readFile(target, 'utf8')).toBe('complete payload')
+        } finally {
+          await adapter.dispose()
+        }
+      }
+    )
+
+    it('never copies, links, or deletes an artifact authorized only for rename', async () => {
+      const { root, adapter, operations } = await setup()
+      const source = path.join(root, 'download.motrix')
+      const target = path.join(root, 'download')
+      await writeFile(source, 'payload')
+      const identity = await readRenameFileIdentity(source)
+      const copy = vi.spyOn(adapter, 'copyOpened')
+      const link = vi.spyOn(adapter, 'linkOpenedNoReplace')
+      const remove = vi.spyOn(adapter, 'removeOpened')
+      try {
+        await expect(
+          operations.materializePrivate(source, identity, target)
+        ).rejects.toThrow()
+        await expect(
+          operations.linkNoReplace(source, identity, target)
+        ).rejects.toThrow()
+        await expect(
+          operations.removeKnown(source, identity, path.join(root, '.remove'))
+        ).rejects.toThrow()
+        expect(copy).not.toHaveBeenCalled()
+        expect(link).not.toHaveBeenCalled()
+        expect(remove).not.toHaveBeenCalled()
+        expect(await readFile(source, 'utf8')).toBe('payload')
       } finally {
         await adapter.dispose()
       }

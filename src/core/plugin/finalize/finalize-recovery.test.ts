@@ -4,6 +4,7 @@ import {
   type ArtifactIdentity,
   artifactContentEquals,
   artifactIdentityEquals,
+  type RenameFileArtifactIdentity,
 } from './artifact-identity'
 import { ArtifactMutationLeaseCoordinator } from './artifact-mutation-lease'
 import { FinalizeFsError } from './filesystem-adapter'
@@ -98,6 +99,148 @@ function fixture(
   })
   return { artifacts, phases, quarantines, recovery, fs, repository }
 }
+
+describe('rename-only finalize recovery', () => {
+  const original: RenameFileArtifactIdentity = {
+    kind: 'rename-file',
+    size: 1024 * 1024 * 1024,
+    platformFileId: '1:1',
+    mtimeNs: '100',
+    ctimeNs: '200',
+    birthtimeNs: '50',
+  }
+  const installed: RenameFileArtifactIdentity = { ...original, ctimeNs: '300' }
+  const restored: RenameFileArtifactIdentity = { ...original, ctimeNs: '400' }
+
+  function pendingRecord(
+    phase: FinalizeJournalRecord['phase']
+  ): FinalizeJournalRecord {
+    const pending = record(phase)
+    pending.publicationMode = 'move'
+    pending.plan.sourcePath = `${pending.plan.targetPath}.motrix`
+    pending.plan.sourceIdentity = original
+    pending.targetIdentity = phase === 'prepared' ? undefined : installed
+    return pending
+  }
+
+  it('preserves an installed target whose post-rename stamp was never checkpointed', async () => {
+    const pending = pendingRecord('prepared')
+    const state = fixture(
+      { [pending.plan.targetPath]: installed },
+      { rollForwardTargetInstalled: false }
+    )
+    const move = vi.spyOn(state.fs, 'moveNoReplace')
+    const remove = vi.spyOn(state.fs, 'removeKnown')
+    await expect(state.recovery.recover(pending)).rejects.toThrow('quarantined')
+    expect(state.artifacts.get(pending.plan.targetPath)).toEqual(installed)
+    expect(state.quarantines).toHaveLength(1)
+    expect(state.phases).toEqual([])
+    expect(move).not.toHaveBeenCalled()
+    expect(remove).not.toHaveBeenCalled()
+  })
+
+  it('rolls back a checkpointed target by rename and records the restored stamp', async () => {
+    const pending = pendingRecord('target_installed')
+    const state = fixture(
+      { [pending.plan.targetPath]: installed },
+      { rollForwardTargetInstalled: false }
+    )
+    state.fs.moveNoReplace = vi.fn(async (source, expected, target) => {
+      expect(expected).toEqual(installed)
+      expect(state.artifacts.has(target)).toBe(false)
+      state.artifacts.delete(source)
+      state.artifacts.set(target, restored)
+      return restored
+    })
+    const remove = vi.spyOn(state.fs, 'removeKnown')
+    await state.recovery.recover(pending)
+    expect([...state.artifacts.entries()]).toEqual([
+      [pending.plan.sourcePath, restored],
+    ])
+    expect(state.repository.checkpoint).toHaveBeenCalledWith(
+      pending.journalId,
+      { restoredSourceIdentity: restored }
+    )
+    expect(state.phases).toEqual(['cleaned'])
+    expect(remove).not.toHaveBeenCalled()
+  })
+
+  it('recognizes a checkpointed rollback without renaming or deleting again', async () => {
+    const pending = {
+      ...pendingRecord('target_installed'),
+      restoredSourceIdentity: restored,
+    }
+    const state = fixture(
+      { [pending.plan.sourcePath]: restored },
+      { rollForwardTargetInstalled: false }
+    )
+    const move = vi.spyOn(state.fs, 'moveNoReplace')
+    const remove = vi.spyOn(state.fs, 'removeKnown')
+    await state.recovery.recover(pending)
+    expect(state.phases).toEqual(['cleaned'])
+    expect(move).not.toHaveBeenCalled()
+    expect(remove).not.toHaveBeenCalled()
+    expect(state.artifacts.get(pending.plan.sourcePath)).toEqual(restored)
+  })
+
+  it.each(['target_installed', 'db_committed'] as const)(
+    'preserves a %s target changed after its persisted stamp',
+    async (phase) => {
+      const pending = pendingRecord(phase)
+      // An in-place edit can retain size, inode and mtime; ctime still matters.
+      const changed = { ...installed, ctimeNs: '999' }
+      const state = fixture(
+        { [pending.plan.targetPath]: changed },
+        { rollForwardTargetInstalled: false }
+      )
+      const move = vi.spyOn(state.fs, 'moveNoReplace')
+      const remove = vi.spyOn(state.fs, 'removeKnown')
+      await expect(state.recovery.recover(pending)).rejects.toThrow(
+        'quarantined'
+      )
+      expect(state.artifacts.get(pending.plan.targetPath)).toEqual(changed)
+      expect(move).not.toHaveBeenCalled()
+      expect(remove).not.toHaveBeenCalled()
+      expect(state.phases).toEqual([])
+    }
+  )
+
+  it('quarantines two surviving names without deleting either artifact', async () => {
+    const pending = pendingRecord('target_installed')
+    const state = fixture(
+      {
+        [pending.plan.sourcePath]: original,
+        [pending.plan.targetPath]: installed,
+      },
+      { rollForwardTargetInstalled: false }
+    )
+    const move = vi.spyOn(state.fs, 'moveNoReplace')
+    const remove = vi.spyOn(state.fs, 'removeKnown')
+    await expect(state.recovery.recover(pending)).rejects.toThrow('quarantined')
+    expect(state.artifacts.size).toBe(2)
+    expect(move).not.toHaveBeenCalled()
+    expect(remove).not.toHaveBeenCalled()
+  })
+
+  it('cleans a committed rename using only its exact target stamp', async () => {
+    const pending = pendingRecord('db_committed')
+    const state = fixture({ [pending.plan.targetPath]: installed })
+    const remove = vi.spyOn(state.fs, 'removeKnown')
+    const move = vi.spyOn(state.fs, 'moveNoReplace')
+    await state.recovery.recover(pending)
+    expect(state.phases).toEqual(['cleaned'])
+    expect(remove).not.toHaveBeenCalled()
+    expect(move).not.toHaveBeenCalled()
+  })
+
+  it('defers recovery when neither rename name is available', async () => {
+    const pending = pendingRecord('prepared')
+    const state = fixture({})
+    await expect(state.recovery.recover(pending)).rejects.toThrow('unavailable')
+    expect(state.quarantines).toEqual([])
+    expect(state.phases).toEqual([])
+  })
+})
 
 describe('FinalizeRecovery', () => {
   it.each([

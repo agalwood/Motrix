@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import type { RenameFileArtifactIdentity } from '@core/plugin/finalize/artifact-identity'
 import type { FinalizeJournalRecord } from '@core/plugin/finalize/finalize-committer'
 import { reservationMarker } from '@core/plugin/finalize/reserved-identity'
 import Database from 'better-sqlite3'
@@ -15,6 +16,141 @@ describe('SqliteFinalizeJournalRepository', () => {
   })
 
   afterEach(() => db.close())
+
+  function renameRecord(): FinalizeJournalRecord {
+    const record = makeRecord('rename-only')
+    record.publicationMode = 'move'
+    record.plan.sourcePath = `${record.plan.targetPath}.motrix`
+    record.plan.sourceIdentity = {
+      kind: 'rename-file',
+      size: 1024 * 1024 * 1024,
+      platformFileId: '1:1',
+      mtimeNs: '100',
+      ctimeNs: '200',
+      birthtimeNs: '50',
+    }
+    return record
+  }
+
+  it('round-trips metadata-only identities and the changed stamp after rename', async () => {
+    const repository = new SqliteFinalizeJournalRepository(db, {
+      commitTerminalBoundary: vi.fn(),
+    })
+    const record = renameRecord()
+    await repository.prepare(record)
+    expect(await repository.listRecoverable()).toEqual([record])
+    const installed = {
+      ...(record.plan.sourceIdentity as RenameFileArtifactIdentity),
+      ctimeNs: '300',
+    }
+    await repository.advance(record.journalId, 'target_installed', {
+      targetIdentity: installed,
+    })
+    const restored = { ...installed, ctimeNs: '400' }
+    await repository.checkpoint(record.journalId, {
+      restoredSourceIdentity: restored,
+    })
+    expect(await repository.listRecoverable()).toEqual([
+      {
+        ...record,
+        phase: 'target_installed',
+        targetIdentity: installed,
+        restoredSourceIdentity: restored,
+      },
+    ])
+  })
+
+  it.each([
+    'copy',
+    'plugin',
+    'metadata',
+    'replacement',
+    'nonordinary-name',
+  ] as const)(
+    'rejects metadata-only journal identities outside the rename scope: %s',
+    async (scenario) => {
+      const repository = new SqliteFinalizeJournalRepository(db, {
+        commitTerminalBoundary: vi.fn(),
+      })
+      const record = renameRecord()
+      if (scenario === 'copy') record.publicationMode = 'copy'
+      if (scenario === 'plugin') record.plan.contributors = ['example.test']
+      if (scenario === 'metadata')
+        record.plan.metadataOps = [
+          { pluginId: 'example.test', op: 'set', key: 'note', value: 'value' },
+        ]
+      if (scenario === 'replacement')
+        record.plan.replacement = {
+          pluginId: 'example.test',
+          stagedPath: '/downloads/replacement',
+          identity: fileIdentity('replacement'),
+        }
+      if (scenario === 'nonordinary-name')
+        record.plan.sourcePath = `${record.plan.targetPath}.part`
+      await expect(repository.prepare(record)).rejects.toThrow()
+      expect(await repository.listRecoverable()).toEqual([])
+    }
+  )
+
+  it.each(['size', 'platformFileId', 'mtimeNs', 'birthtimeNs'] as const)(
+    'rejects a metadata target checkpoint that changes %s',
+    async (field) => {
+      const repository = new SqliteFinalizeJournalRepository(db, {
+        commitTerminalBoundary: vi.fn(),
+      })
+      const record = renameRecord()
+      await repository.prepare(record)
+      const installed = {
+        ...(record.plan.sourceIdentity as RenameFileArtifactIdentity),
+        ctimeNs: '300',
+      }
+      const altered = {
+        ...installed,
+        [field]: field === 'size' ? installed.size + 1 : '999',
+      }
+      await expect(
+        repository.advance(record.journalId, 'target_installed', {
+          targetIdentity: altered,
+        })
+      ).rejects.toThrow()
+      expect((await repository.listRecoverable())[0].phase).toBe('prepared')
+    }
+  )
+
+  it('rejects copy, link and removal intents for metadata-only journals', async () => {
+    const repository = new SqliteFinalizeJournalRepository(db, {
+      commitTerminalBoundary: vi.fn(),
+    })
+    const record = renameRecord()
+    await repository.prepare(record)
+    await expect(
+      repository.checkpoint(record.journalId, { publicationMode: 'copy' })
+    ).rejects.toThrow()
+    await expect(
+      repository.checkpoint(record.journalId, {
+        privateTargetPath: '/downloads/private',
+      })
+    ).rejects.toThrow()
+    await expect(
+      repository.checkpoint(record.journalId, {
+        publicationIntent: {
+          version: 1,
+          method: 'hard_link',
+          sourcePath: record.plan.sourcePath,
+          identity: record.plan.sourceIdentity,
+        },
+      })
+    ).rejects.toThrow()
+    await expect(
+      repository.checkpoint(record.journalId, {
+        removalIntent: {
+          artifactPath: record.plan.sourcePath,
+          quarantinePath: '/downloads/.remove',
+          identity: record.plan.sourceIdentity,
+        },
+      })
+    ).rejects.toThrow()
+  })
 
   it('persists a prepared move-to-copy switch and rejects switching after mutation', async () => {
     const repository = new SqliteFinalizeJournalRepository(db, {

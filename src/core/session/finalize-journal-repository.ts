@@ -5,7 +5,10 @@ import type {
   FinalizeJournalRecord,
   FinalizeJournalRepository,
 } from '@core/plugin/finalize/finalize-committer'
-import { finalizePathsEquivalent } from '@core/plugin/finalize/finalize-committer'
+import {
+  assertRenameFileJournal,
+  finalizePathsEquivalent,
+} from '@core/plugin/finalize/finalize-committer'
 import { isRetryableMoveQuarantine } from '@core/plugin/finalize/finalize-recovery'
 import {
   assertValidHookPlan,
@@ -111,6 +114,7 @@ export class SqliteFinalizeJournalRepository
         | 'privateTargetIdentity'
         | 'targetIdentity'
         | 'rollbackPath'
+        | 'restoredSourceIdentity'
         | 'removalIntent'
         | 'publicationIntent'
       >
@@ -162,6 +166,7 @@ export class SqliteFinalizeJournalRepository
         | 'privateTargetIdentity'
         | 'targetIdentity'
         | 'rollbackPath'
+        | 'restoredSourceIdentity'
         | 'quarantineReason'
       >
     > = {}
@@ -435,6 +440,7 @@ const isolationSchema = z
   .strict()
 
 function validateIntents(record: FinalizeJournalRecord): void {
+  assertRenameFileJournal(record)
   if (record.publicationIntent !== undefined) {
     const intent = publicationIntentSchema.parse(record.publicationIntent)
     if (

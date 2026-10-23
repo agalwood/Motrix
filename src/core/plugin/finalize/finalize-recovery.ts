@@ -5,6 +5,7 @@ import type {
   ArtifactMutationLeaseCoordinator,
 } from './artifact-mutation-lease'
 import {
+  assertRenameFileJournal,
   type FinalizeArtifactOperations,
   type FinalizeJournalRecord,
   type FinalizeJournalRepository,
@@ -83,6 +84,12 @@ export class FinalizeRecovery {
     const lease =
       existingLease ?? (await this.options.leases.acquire(record.plan.taskId))
     try {
+      assertRenameFileJournal(record)
+      if (record.plan.sourceIdentity.kind === 'rename-file') {
+        if (record.quarantineReason) return
+        await this.recoverRenameFile(record)
+        return
+      }
       if (record.quarantineReason) {
         if (!this.options.repository.resumeQuarantined) return
         // Legacy compensation failures can be reopened only for an ordinary
@@ -303,6 +310,87 @@ export class FinalizeRecovery {
     } finally {
       if (!existingLease) await lease.release()
     }
+  }
+
+  /**
+   * Ordinary Windows renames do not read payload bytes. A lost post-rename
+   * checkpoint cannot establish the new ctime, so it preserves/quarantines
+   * the target instead of guessing ownership or moving an uncertain file.
+   */
+  private async recoverRenameFile(
+    record: FinalizeJournalRecord
+  ): Promise<void> {
+    const expectedSource =
+      record.restoredSourceIdentity ?? record.plan.sourceIdentity
+    const source = await this.options.fs.identity(
+      record.plan.sourcePath,
+      expectedSource
+    )
+    const target = await this.options.fs.identity(
+      record.plan.targetPath,
+      record.targetIdentity ?? record.plan.sourceIdentity
+    )
+    if (!source && !target)
+      throw new FinalizeRecoveryDeferredError(
+        'rename artifacts are unavailable; retry recovery'
+      )
+    if (source && target)
+      return this.quarantine(
+        record,
+        'source and target both exist during rename recovery'
+      )
+    if (source) {
+      if (
+        record.phase === 'db_committed' ||
+        !this.options.exactIdentity(source, expectedSource)
+      )
+        return this.quarantine(record, 'renamed source stamp changed')
+      await this.options.fs.makeDurable(record.plan.sourcePath)
+      await this.options.repository.advance(record.journalId, 'cleaned')
+      return
+    }
+    const expectedTarget = record.targetIdentity
+    if (
+      !expectedTarget ||
+      !target ||
+      !this.options.exactIdentity(target, expectedTarget)
+    )
+      return this.quarantine(
+        record,
+        'renamed target has no matching durable stamp'
+      )
+    if (record.phase === 'db_committed') {
+      await this.options.repository.advance(record.journalId, 'cleaned')
+      return
+    }
+    if (
+      record.phase === 'target_installed' &&
+      this.options.rollForwardTargetInstalled !== false
+    ) {
+      await this.options.repository.commitTerminal(record)
+      record.phase = 'db_committed'
+      await this.options.repository.advance(record.journalId, 'cleaned')
+      return
+    }
+    const restored = await this.options.fs.moveNoReplace(
+      record.plan.targetPath,
+      expectedTarget,
+      record.plan.sourcePath
+    )
+    if (restored?.kind !== 'rename-file')
+      return this.quarantine(record, 'rollback omitted the restored file stamp')
+    await this.options.repository.checkpoint(record.journalId, {
+      restoredSourceIdentity: restored,
+    })
+    record.restoredSourceIdentity = restored
+    await this.options.fs.makeDurable(record.plan.sourcePath)
+    const current = await this.options.fs.identity(
+      record.plan.sourcePath,
+      restored
+    )
+    if (!current || !this.options.exactIdentity(current, restored))
+      return this.quarantine(record, 'restored source stamp changed')
+    await this.options.repository.advance(record.journalId, 'cleaned')
   }
 
   private async recoverReserved(record: FinalizeJournalRecord): Promise<void> {

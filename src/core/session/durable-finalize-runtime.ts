@@ -114,6 +114,13 @@ export class DurableFinalizeRuntime {
       // engine/Host writer has successfully quiesced.
       const sourceIdentity =
         pending?.plan.sourceIdentity ??
+        (!input.replacement &&
+        input.contributors.length === 0 &&
+        input.metadataOps.length === 0 &&
+        input.sourcePath === `${targetPath}.motrix` &&
+        path.dirname(input.sourcePath) === path.dirname(targetPath)
+          ? await this.options.fs.renameIdentity?.(input.sourcePath)
+          : undefined) ??
         (await this.captureIdentity(input.sourcePath))
       const replacement = input.replacement
         ? {
