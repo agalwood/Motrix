@@ -68,6 +68,17 @@
   </screenshots>
 
   <releases>
+    <release version="2.0.0" date="2026-10-24">
+      <description>
+        <p>
+          First stable release of the rebuilt desktop app and headless server,
+          with native x64 and ARM64 packages, sandboxed plugins, browser and
+          CLI integration, and an explicit migration path from Motrix v1.
+          Improves Windows download finalization, system language selection,
+          and maximized window restoration since beta.52.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0-beta.52" date="2026-10-21">
       <description>
         <p>
