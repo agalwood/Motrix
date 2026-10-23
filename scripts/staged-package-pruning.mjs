@@ -52,3 +52,16 @@ export function pruneBuildOnly(allowlist) {
     return allowlist ? allowlist(relative) : true
   }
 }
+
+/** MDXP publishes protocol guides alongside its dist-only runtime exports. */
+export function mdxpRuntimeFilter() {
+  return pruneBuildOnly((relative) => {
+    const portable = toPortable(relative)
+    return (
+      portable === 'package.json' ||
+      /^(?:licen[sc]e|notice|copying)(?:\..*)?$/i.test(portable) ||
+      portable === 'dist' ||
+      portable.startsWith('dist/')
+    )
+  })
+}

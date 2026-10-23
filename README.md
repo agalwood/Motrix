@@ -131,7 +131,9 @@ Motrix Extension is available from the official browser stores for use with Motr
 - [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/motrix-extension/efcflljngohddnmfmebiamigoikmdfbf)
 - [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/motrix-extension/)
 
-For installation and pairing, see the [browser extension guide](https://motrix.app/manual/browser-extension/). Development builds remain available from the [extension repository](https://github.com/motrixapp/motrix-extension#manual-browser-workflow-development).
+For installation and pairing, see the [browser extension guide](https://motrix.app/manual/browser-extension/). Development builds and source code remain available from the [extension repository](https://github.com/motrixapp/motrix-extension#manual-browser-workflow-development).
+
+The companion browser extension ([motrixapp/motrix-extension](https://github.com/motrixapp/motrix-extension)) includes media sniffing, format listing, and an in-page grab overlay that detects videos playing on a page and sends them to Motrix in one click. Videos resolved from a pasted link or from the extension can be extracted with yt-dlp; see [yt-dlp media downloads](docs/ytdlp-media-downloads.md) for setup.
 
 ##  📦  Installation
 

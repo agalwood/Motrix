@@ -2084,7 +2084,27 @@
         "savedTitle": "FFmpeg 配置已保存",
         "desktopSavedHint": "新媒体下载会读取保存的路径。已启用的插件需要重启 Motrix 才能检测到此次更改。",
         "pipelineUnavailable": "媒体下载功能当前不可用。",
-        "ffmpegRequired": "此下载需要 FFmpeg。请在“设置 → 集成 → 媒体工具”中配置并保存后重试。"
+        "ffmpegRequired": "此下载需要 FFmpeg。请在“设置 → 集成 → 媒体工具”中配置并保存后重试。",
+        "ytdlp": {
+          "title": "yt-dlp 媒体解析器",
+          "description": "把来自视频网站（YouTube、Vimeo、B 站等数百个站点）的链接转换成真实媒体流地址，再由 Motrix 自带引擎下载。",
+          "refresh": "重新检测 yt-dlp",
+          "detected": "yt-dlp {{version}}",
+          "enabled": "使用 yt-dlp 解析媒体链接",
+          "enabledDesc": "当粘贴的链接指向视频网站时，Motrix 会先向 yt-dlp 请求媒体流地址再下载。其他下载不受影响。",
+          "binaryPath": "yt-dlp 路径",
+          "binaryPathDesc": "留空则自动使用 PATH 中的 yt-dlp。macOS 用户可能需要填写 Homebrew 二进制文件的完整路径。",
+          "binaryPathPlaceholder": "自动从 PATH 检测",
+          "editPath": "编辑 yt-dlp 路径",
+          "finishEditing": "保存 yt-dlp 路径",
+          "format": "格式选择器",
+          "formatDesc": "作为 -f 参数传给 yt-dlp。留空表示选择最佳视频加最佳音频。",
+          "allUrls": "尝试所有链接",
+          "allUrlsDesc": "对看起来不像视频页面的链接也运行解析器。普通下载会变慢，因此默认关闭。",
+          "installHelp": "从哪里获取 yt-dlp？",
+          "installHelpBody": "前往 yt-dlp 的 releases 页面下载对应系统的版本，放到固定目录后在上方填写路径；也可以用包管理器安装，这样就能直接从 PATH 找到。",
+          "download": "打开 yt-dlp 下载页"
+        }
       },
       "pairResolveFailed": "提交决定失败，请重试。",
       "appimage": {

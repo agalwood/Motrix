@@ -1443,6 +1443,8 @@ describe('SettingsManager', () => {
       expect(manager.get().media.ffmpegBinaryPath).toBe('/usr/local/bin/ffmpeg')
       // Untouched fields retain defaults
       expect(manager.get().media.ffmpegStagingMB).toBeGreaterThan(0)
+      // yt-dlp is opt-in: a partial update never enables it implicitly.
+      expect(manager.get().media.ytdlpEnabled).toBe(false)
     })
 
     it('round-trips a broader dashboard span without requiring restart', async () => {

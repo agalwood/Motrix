@@ -6,12 +6,16 @@ import { BridgeReceiverError } from '@core/bridge-receiver/errors'
 import { AsyncWorkTracker } from '@core/inspector-activity/async-work-tracker'
 import { DownloadSourceError } from '@core/task/source-admission'
 import {
+  type CancellationToken,
   type DownloadCancelParams,
   DownloadCancelParamsSchema,
   type DownloadSubmitParams,
   DownloadSubmitParamsSchema,
   ErrorCodes,
   InitializeParamsSchema,
+  type MediaFormatsParams,
+  MediaFormatsParamsSchema,
+  type MediaFormatsResult,
   Methods,
   makeMdxpError,
   Notifications,
@@ -34,6 +38,7 @@ import { BridgeConnection } from './bridge-connection'
 import type { Mbp1CredentialStore } from './credential-store'
 import type { DeviceCodeService } from './device-code-service'
 import { createInitializeHandler } from './handlers/initialize-handler'
+import { createMediaFormatsHandler } from './handlers/media-formats-handler'
 import {
   type ReadHandlerDeps,
   registerReadHandlers,
@@ -298,6 +303,15 @@ export type MethodHandlers = {
     params: DownloadCancelParams,
     ctx: MdxpSessionContext
   ) => Promise<void>
+  /**
+   * Published `media/formats`: list the
+   * yt-dlp qualities a URL offers. Extension WS only — never registered on
+   * the agent-facing unary transport.
+   */
+  listMediaFormats?: (
+    params: MediaFormatsParams,
+    ctx: MdxpSessionContext
+  ) => Promise<MediaFormatsResult>
 }
 
 /**
@@ -606,6 +620,7 @@ export class WebSocketBridgeServer {
         runtime: opts.runtime,
         ffmpegAvailable: opts.ffmpegAvailable,
         supportsTaskReveal: () => this.dispatcher.has(Methods.TaskReveal),
+        supportsMediaFormats: () => this.dispatcher.has(Methods.MediaFormats),
         supportsDownloadDirectories: () =>
           this.dispatcher.has(Methods.DownloadDirectories),
       })
@@ -1114,6 +1129,13 @@ export class WebSocketBridgeServer {
           await cancel(params, ctx)
           return { ok: true }
         }
+      )
+    }
+    if (handlers.listMediaFormats) {
+      this.dispatcher.register(
+        Methods.MediaFormats,
+        MediaFormatsParamsSchema,
+        createMediaFormatsHandler(handlers.listMediaFormats)
       )
     }
   }
@@ -2245,6 +2267,12 @@ export class WebSocketBridgeServer {
         (params) => authorizedDispatch('download/cancel', params) as never
       )
     }
+    // Format discovery is cancellable and belongs only to this ready session.
+    if (this.dispatcher.has(Methods.MediaFormats)) {
+      conn.onRequest(Methods.MediaFormats, (params, token) =>
+        this.dispatchMediaFormats(params, ctx, token)
+      )
+    }
     // Control-plane over WS: a paired session may drive task management + read
     // stats/engine. Additive — handlers/schemas live on the shared dispatcher.
     const wireDispatched = (
@@ -2266,6 +2294,29 @@ export class WebSocketBridgeServer {
     conn.onNotification('motrix/initialized', () => {
       conn.markReady()
     })
+  }
+
+  private async dispatchMediaFormats(
+    params: MediaFormatsParams,
+    ctx: MdxpSessionContext,
+    token: CancellationToken
+  ): Promise<MediaFormatsResult> {
+    const controller = new AbortController()
+    const subscription = token.onCancellationRequested(() => controller.abort())
+    if (token.isCancellationRequested) controller.abort()
+    const requestSignal = AbortSignal.any([
+      controller.signal,
+      AbortSignal.timeout(60_000),
+      ...(ctx.sessionSignal ? [ctx.sessionSignal] : []),
+    ])
+    try {
+      return (await this.dispatchTracked(Methods.MediaFormats, params, {
+        ...ctx,
+        requestSignal,
+      })) as MediaFormatsResult
+    } finally {
+      subscription.dispose()
+    }
   }
 
   private dispatchTracked(

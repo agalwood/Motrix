@@ -144,6 +144,10 @@ function fakeCtx() {
   // tests (addUri/addTorrent/remove + the three on* subscriptions).
   const adapter = new Aria2Adapter(rpcClient as never)
   const base = {
+    // The desktop fallback resolver. Returning null here mirrors the real
+    // ytdlpResolveMedia finding nothing, so the chain falls through to the
+    // direct download path these tests assert on.
+    ytdlpResolveMedia: vi.fn(async () => null),
     cliToolService: {
       install: vi.fn().mockResolvedValue({ phase: 'installed' }),
     },
@@ -3182,4 +3186,46 @@ describe('plugin diagnostic mode command', () => {
       expect(setLogVerbose).not.toHaveBeenCalled()
     }
   )
+})
+
+describe('CreateTask media resolution fallback', () => {
+  it('does not invoke ytdlpResolveMedia when live bridge resolveMedia returns null', async () => {
+    const ctx = fakeCtx()
+    const bridgeResolveMedia = vi.fn().mockResolvedValue(null)
+    ctx.bridgeManager.current = {
+      resolveMedia: bridgeResolveMedia,
+    } as never
+
+    const handlers = buildCommandHandlers(ctx as unknown as CommandContext)
+    await handlers[Commands.CreateTask]?.({
+      type: 'http',
+      uris: ['https://example.com/unsupported-video'],
+      saveDir: '/downloads',
+      headers: [],
+    })
+
+    expect(bridgeResolveMedia).toHaveBeenCalledWith(
+      'https://example.com/unsupported-video',
+      undefined
+    )
+    expect(ctx.ytdlpResolveMedia).not.toHaveBeenCalled()
+  })
+
+  it('invokes standalone ytdlpResolveMedia only when bridge is unavailable', async () => {
+    const ctx = fakeCtx()
+    ctx.bridgeManager.current = null
+
+    const handlers = buildCommandHandlers(ctx as unknown as CommandContext)
+    await handlers[Commands.CreateTask]?.({
+      type: 'http',
+      uris: ['https://example.com/video'],
+      saveDir: '/downloads',
+      headers: [],
+    })
+
+    expect(ctx.ytdlpResolveMedia).toHaveBeenCalledWith(
+      'https://example.com/video',
+      undefined
+    )
+  })
 })

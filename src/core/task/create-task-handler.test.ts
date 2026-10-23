@@ -191,7 +191,7 @@ describe('source admission before side effects', () => {
     const resolve = vi.fn()
     deps.orchestrator = { runBeforeCreateHttp: plugin } as never
     deps.directResourceValidator = { capture: probe, probe }
-    deps.resolveToMux = resolve
+    deps.resolveMedia = resolve
     await handleCreateTask(
       { ...httpRequest(), uris: ['ftp://example.test/archive.zip'] },
       deps
@@ -2347,7 +2347,7 @@ describe('handleCreateTask plugin-hook chain (Plan C / T15)', () => {
       runBeforeFinalize: vi.fn(),
       runParallel: vi.fn(),
     } as unknown as Deps['orchestrator']
-    const resolveToMux = vi.fn(async () => {
+    const resolveMedia = vi.fn(async () => {
       order.push('mux')
       return null
     })
@@ -2368,7 +2368,7 @@ describe('handleCreateTask plugin-hook chain (Plan C / T15)', () => {
       {
         ...deps,
         orchestrator,
-        resolveToMux,
+        resolveMedia,
         dispatchMux,
         directResourceValidator: { capture: vi.fn(), probe },
       }
@@ -2994,14 +2994,15 @@ describe('handleCreateTask reserved-GID ownership', () => {
 })
 
 describe('handleCreateTask mux pre-resolve seam', () => {
-  it('routes http to dispatchMux (not engine) when resolveToMux returns a mux pair', async () => {
+  it('routes http to dispatchMux (not engine) when resolveMedia returns a mux pair', async () => {
     const muxPair = {
+      kind: 'mux' as const,
       videoUrl: 'https://video.example/v.mp4',
       audioUrl: 'https://audio.example/a.m4a',
       container: 'mp4' as const,
       headers: { 'x-test': 'yes' },
     }
-    const resolveToMux = vi.fn().mockResolvedValue(muxPair)
+    const resolveMedia = vi.fn().mockResolvedValue(muxPair)
     const dispatchMux = vi.fn().mockResolvedValue({ taskId: 'mux-task-id' })
     const deps = makeDeps()
     const probe = vi.fn()
@@ -3015,7 +3016,7 @@ describe('handleCreateTask mux pre-resolve seam', () => {
       },
       {
         ...deps,
-        resolveToMux,
+        resolveMedia,
         dispatchMux,
         directResourceValidator: { capture, probe },
       }
@@ -3036,7 +3037,8 @@ describe('handleCreateTask mux pre-resolve seam', () => {
   })
 
   it("uses the resolver's title (sanitized) as the mux finalName, not the URL bvid", async () => {
-    const resolveToMux = vi.fn().mockResolvedValue({
+    const resolveMedia = vi.fn().mockResolvedValue({
+      kind: 'mux' as const,
       videoUrl: 'https://v/v.mp4',
       audioUrl: 'https://a/a.m4a',
       container: 'mp4' as const,
@@ -3051,7 +3053,7 @@ describe('handleCreateTask mux pre-resolve seam', () => {
         saveDir: '/d',
         headers: [],
       },
-      { ...deps, resolveToMux, dispatchMux }
+      { ...deps, resolveMedia, dispatchMux }
     )
     const adapted = dispatchMux.mock.calls[0][0]
     // Full-width ！/： are not filesystem-illegal, so they survive. The point:
@@ -3064,7 +3066,8 @@ describe('handleCreateTask mux pre-resolve seam', () => {
   })
 
   it('replaces filesystem-illegal characters in the resolver title', async () => {
-    const resolveToMux = vi.fn().mockResolvedValue({
+    const resolveMedia = vi.fn().mockResolvedValue({
+      kind: 'mux' as const,
       videoUrl: 'https://v/v.mp4',
       audioUrl: 'https://a/a.m4a',
       container: 'mp4' as const,
@@ -3079,14 +3082,15 @@ describe('handleCreateTask mux pre-resolve seam', () => {
         saveDir: '/d',
         headers: [],
       },
-      { ...deps, resolveToMux, dispatchMux }
+      { ...deps, resolveMedia, dispatchMux }
     )
     const adapted = dispatchMux.mock.calls[0][0]
     expect(adapted.finalName).toBe('A_B_ C_ _D_ _E_.mp4')
   })
 
   it('reuses the computed taskId when dispatching via mux', async () => {
-    const resolveToMux = vi.fn().mockResolvedValue({
+    const resolveMedia = vi.fn().mockResolvedValue({
+      kind: 'mux' as const,
       videoUrl: 'https://v.example/v',
       audioUrl: 'https://a.example/a',
       container: 'mp4' as const,
@@ -3104,15 +3108,15 @@ describe('handleCreateTask mux pre-resolve seam', () => {
         saveDir: '/d',
         headers: [],
       },
-      { ...deps, resolveToMux, dispatchMux }
+      { ...deps, resolveMedia, dispatchMux }
     )
     expect(capturedTaskId).toBe(result.taskId)
     expect(typeof capturedTaskId).toBe('string')
   })
 
-  it('falls through to the normal HTTP path (engine.createDownload) when resolveToMux returns null', async () => {
+  it('falls through to the normal HTTP path (engine.createDownload) when resolveMedia returns null', async () => {
     let muxFinished = false
-    const resolveToMux = vi.fn(async () => {
+    const resolveMedia = vi.fn(async () => {
       muxFinished = true
       return null
     })
@@ -3131,7 +3135,7 @@ describe('handleCreateTask mux pre-resolve seam', () => {
       },
       {
         ...deps,
-        resolveToMux,
+        resolveMedia,
         dispatchMux,
         directResourceValidator: { capture: vi.fn(), probe },
       }
@@ -3142,7 +3146,7 @@ describe('handleCreateTask mux pre-resolve seam', () => {
     expect(result.gid).toMatch(/^[0-9a-f]{16}$/)
   })
 
-  it('falls through to HTTP path when resolveToMux and dispatchMux are absent', async () => {
+  it('falls through to HTTP path when resolveMedia and dispatchMux are absent', async () => {
     const deps = makeDeps({ addUriGid: 'gid-fallback' })
     const result = await handleCreateTask(
       {
@@ -3157,8 +3161,37 @@ describe('handleCreateTask mux pre-resolve seam', () => {
     expect(result.gid).toMatch(/^[0-9a-f]{16}$/)
   })
 
-  it('never calls resolveToMux for magnet/bt requests', async () => {
-    const resolveToMux = vi.fn().mockResolvedValue(null)
+  it('keeps the resolver filename for a direct (audio-only) resolution', async () => {
+    // Regression: the direct branch names the file from the resolver title,
+    // but the later URL-basename rebase used to overwrite it, so a YouTube
+    // audio stream landed as "videoplayback" with no extension.
+    const resolveMedia = vi.fn().mockResolvedValue({
+      kind: 'direct' as const,
+      url: 'https://rr1---sn-example.googlevideo.com/videoplayback?expire=1',
+      filename: 'Kuch Kuch Hota Hai.m4a',
+      title: 'Kuch Kuch Hota Hai',
+    })
+    const deps = makeDeps({ addUriGid: 'gid-direct' })
+    const result = await handleCreateTask(
+      {
+        type: 'http',
+        uris: ['https://www.youtube.com/watch?v=_1KqB_17dJE'],
+        saveDir: '/d',
+        headers: [],
+      },
+      { ...deps, resolveMedia }
+    )
+    expect(resolveMedia).toHaveBeenCalledOnce()
+    expect(lastAddedTask(deps).finalName).toBe('Kuch Kuch Hota Hai.m4a')
+    expect(deps.addUri).toHaveBeenCalledWith(
+      ['https://rr1---sn-example.googlevideo.com/videoplayback?expire=1'],
+      expect.objectContaining({ out: 'Kuch Kuch Hota Hai.m4a.motrix' })
+    )
+    expect(result.gid).toMatch(/^[0-9a-f]{16}$/)
+  })
+
+  it('never calls resolveMedia for magnet/bt requests', async () => {
+    const resolveMedia = vi.fn().mockResolvedValue(null)
     const dispatchMux = vi.fn()
     const deps = makeDeps({ addUriGid: 'gid-m' })
     await handleCreateTask(
@@ -3171,9 +3204,9 @@ describe('handleCreateTask mux pre-resolve seam', () => {
         selectedFiles: [],
         saveDir: '/d',
       },
-      { ...deps, resolveToMux, dispatchMux }
+      { ...deps, resolveMedia, dispatchMux }
     )
-    expect(resolveToMux).not.toHaveBeenCalled()
+    expect(resolveMedia).not.toHaveBeenCalled()
     expect(dispatchMux).not.toHaveBeenCalled()
     expect(deps.addUri).toHaveBeenCalledOnce()
   })

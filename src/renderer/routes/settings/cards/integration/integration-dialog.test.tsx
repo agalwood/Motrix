@@ -1,3 +1,4 @@
+import { Queries } from '@shared/protocol/queries'
 import { DEFAULT_APP_SETTINGS, DEFAULT_MEDIA_SETTINGS } from '@shared/schemas'
 import '@test-utils/dom-animations'
 import '@renderer/lib/i18n'
@@ -120,6 +121,22 @@ describe('IntegrationDialog scaffold', () => {
       fixedPort: 'auto',
       instanceId: 'test-instance',
     }
+  })
+
+  it('does not expose desktop-only yt-dlp controls or detection on web', async () => {
+    transport.platform = 'web'
+    vi.mocked(transport.invoke).mockClear()
+    render(
+      <IntegrationDialog
+        open
+        onClose={() => {}}
+        labelKey="settings.cards.integration.title"
+        descKey="settings.cards.integration.desc"
+      />
+    )
+    await screen.findByRole('heading', { name: /media tools/i })
+    expect(screen.queryByText(/yt-dlp media extractor/i)).toBeNull()
+    expect(transport.invoke).not.toHaveBeenCalledWith(Queries.GetYtdlpDetection)
   })
 
   it('renders the four top-level section headings', async () => {

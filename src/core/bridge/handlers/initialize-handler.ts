@@ -13,6 +13,7 @@ export interface InitializeHandlerDeps {
   /** Read lazily so capabilities match the methods actually registered. */
   supportsTaskReveal: () => boolean
   supportsDownloadDirectories?: () => boolean
+  supportsMediaFormats?: () => boolean
 }
 
 /**
@@ -98,6 +99,7 @@ async function buildResult(
       cancellation: true,
       taskReveal: deps.supportsTaskReveal(),
       downloadDirectories: deps.supportsDownloadDirectories?.() === true,
+      mediaFormats: deps.supportsMediaFormats?.() === true,
     },
     serverAdapters: [],
   }

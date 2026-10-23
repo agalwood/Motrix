@@ -30,6 +30,28 @@ describe('BridgeConnection', () => {
     expect(conn.session.browser).toBe('chromium')
   })
 
+  it.each(['dispose', 'revokeAuthorization'] as const)(
+    'cancels the connection lifetime on %s',
+    (action) => {
+      const conn = new BridgeConnection(new FakeWebSocket() as never, {
+        sessionKey: 'chromium:abc',
+        extensionId: 'abc',
+        browser: 'chromium',
+        startedAt: 0,
+      })
+      conn.markReady()
+      conn.markAuthorized()
+      const abort = vi.fn()
+      conn.signal.addEventListener('abort', abort)
+      conn[action]()
+      expect(conn.signal.aborted).toBe(true)
+      expect(conn.isReady()).toBe(false)
+      expect(conn.isAuthorized()).toBe(false)
+      expect(abort).toHaveBeenCalledTimes(1)
+      conn.dispose()
+    }
+  )
+
   it('listen() begins processing incoming frames', async () => {
     const ws = new FakeWebSocket()
     const conn = new BridgeConnection(ws as never, {

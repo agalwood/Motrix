@@ -258,14 +258,15 @@ describe('bridge default save directory', () => {
     const deps = makeBridgeReceiverDeps({
       getDefaultSaveDir: () => settings.getApp().defaultSaveDir,
       ffmpegBinaryPath: '/test/ffmpeg',
-      resolveToMux: async () => {
+      resolveMedia: async () => {
         resolveStarted.resolve()
         await releaseResolve.promise
         return {
+          kind: 'mux' as const,
           title: 'Resolved title',
           videoUrl: 'https://example.com/video',
           audioUrl: 'https://example.com/audio',
-          container: 'mp4',
+          container: 'mp4' as const,
         }
       },
     })

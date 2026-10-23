@@ -44,6 +44,7 @@ export class BridgeConnection {
   private listened = false
   private disposed = false
   private ready = false
+  private readonly lifetime = new AbortController()
   // Authorization is separate from `ready`: `ready` means the peer sent
   // `motrix/initialized`; `authorized` means the peer is permitted to drive
   // control-plane / download methods. A `/v1` reconnect is authorized on
@@ -63,6 +64,11 @@ export class BridgeConnection {
 
   get sessionKey(): string {
     return this.session.sessionKey
+  }
+
+  /** Cancels work belonging to this exact authenticated connection. */
+  get signal(): AbortSignal {
+    return this.lifetime.signal
   }
 
   isReady(): boolean {
@@ -90,6 +96,7 @@ export class BridgeConnection {
   revokeAuthorization(): void {
     this.authorized = false
     this.ready = false
+    this.lifetime.abort()
   }
 
   /** Begin processing inbound frames. Call AFTER registering handlers. */
@@ -136,6 +143,7 @@ export class BridgeConnection {
   dispose(): void {
     if (this.disposed) return
     this.disposed = true
+    this.revokeAuthorization()
     this.mdxp.dispose()
     this.reader.dispose()
     this.writer.dispose()

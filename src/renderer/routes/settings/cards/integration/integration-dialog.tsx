@@ -44,6 +44,7 @@ import { CliToolSection } from './cli-tool-section'
 import { MediaToolsSection } from './media-tools-section'
 import { PendingApprovalsSection } from './pending-approvals-section'
 import { SystemProtocolsSection } from './system-protocols-section'
+import { YtdlpToolsSection } from './ytdlp-tools-section'
 
 export type IntegrationFormValues = z.infer<typeof integrationFormSchema>
 
@@ -226,6 +227,9 @@ export function IntegrationDialog({
                       {t('settings.integration.media.title')}
                     </h3>
                     <MediaToolsSection />
+                    {__MOTRIX_TARGET__ === 'electron' && !isWeb && (
+                      <YtdlpToolsSection />
+                    )}
                   </section>
                 </fieldset>
               </FormProvider>

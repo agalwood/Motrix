@@ -183,6 +183,8 @@ describe('migration v5 → v6 (media namespace)', () => {
     const out = migrate(v5)
     expect(out.version).toBe(CURRENT_SETTINGS_VERSION)
     expect(out.media).toEqual(DEFAULT_MEDIA_SETTINGS)
+    // Upgraded installs get yt-dlp disabled until the user opts in.
+    expect((out.media as { ytdlpEnabled: boolean }).ytdlpEnabled).toBe(false)
   })
 
   it('preserves user-provided media on migration', () => {

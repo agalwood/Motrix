@@ -24,7 +24,7 @@ import {
   validateRuntimeDependencyContract,
 } from './electron-package-utils.mjs'
 import { assertNativeBinaryTarget } from './native-binary-target.mjs'
-import { pruneBuildOnly } from './staged-package-pruning.mjs'
+import { mdxpRuntimeFilter, pruneBuildOnly } from './staged-package-pruning.mjs'
 
 const BUILD_OUTPUTS = [
   { directory: 'dist/core/plugin/host', entry: 'quick-js-worker.cjs' },
@@ -279,6 +279,7 @@ async function copyTree(source, destination, canonicalRepoRoot, options = {}) {
 }
 
 function packageCopyFilter(name, target) {
+  if (name === '@motrix/mdxp') return mdxpRuntimeFilter()
   if (name === 'better-sqlite3') {
     const selected = path.join('prebuilds', `${target.key}.node`)
     return pruneBuildOnly((relative) => {

@@ -44,6 +44,7 @@ import {
 } from '@core/legacy-import/legacy-task-policy'
 import { newTaskId } from '@core/lib/ids'
 import { getLogger } from '@core/logger'
+import type { MediaResolver } from '@core/media/ytdlp/media-resolver'
 import { registerEngineCompatibilitySubscriber } from '@core/notifications/engine-compatibility-subscriber'
 import { registerEngineFailureSubscriber } from '@core/notifications/engine-failure-subscriber'
 import { NotificationCenter } from '@core/notifications/notification-center'
@@ -192,6 +193,7 @@ import { LegacyImportNavigation } from './legacy-import/navigation-state'
 import { applyMainLocale, i18n } from './lib/i18n'
 import { setupLogger } from './logger'
 import { MainProcessWorkCoordinator } from './main-process-work-coordinator'
+import { createShellYtdlpResolver } from './media/ytdlp-media-resolver'
 import { installAllMenubarContributions } from './menu/contributions'
 import { suppressMacOSAutomaticFullscreenMenuItem } from './menu/macos-fullscreen-menu'
 import { MenuManager } from './menu/menu-manager'
@@ -2541,6 +2543,22 @@ async function initializeMainProcess(): Promise<void> {
   menuManager.install()
 
   const nativeMessagingInstaller = createNativeMessagingInstaller()
+  // yt-dlp backed media resolver, shared by the bridge (extension submit
+  // path) and the desktop Add-Task path so both reuse one cached binary
+  // probe. `isMuxAvailable` reads the bridge lazily: a two-stream resolution
+  // is only offered when the mux pipeline can run it, otherwise yt-dlp is
+  // asked for a single progressive stream that needs no FFmpeg mux.
+  const shellYtdlpResolver = createShellYtdlpResolver({
+    getMediaSettings: () => settingsManager.getMedia(),
+    getProxySettings: () => settingsManager.getProxy(),
+    isMuxAvailable: async () => {
+      const pipeline = bridgeManager?.current?.muxPipeline
+      if (!pipeline) return false
+      return pipeline.isAvailable()
+    },
+  })
+  const ytdlpResolveMedia: MediaResolver = (url, cookieHeader, options) =>
+    shellYtdlpResolver.resolve(url, cookieHeader, options)
   const createBridgeRuntime = async () => {
     const bridgeReAddDeps = {
       taskManager,
@@ -2706,6 +2724,8 @@ async function initializeMainProcess(): Promise<void> {
     })
     return bootstrapBridge({
       mediaMetaStore,
+      ytdlpResolveMedia,
+      ytdlpListFormats: shellYtdlpResolver.listFormats,
       getMainWindow: () => windowManager?.get('main') ?? null,
       motrixVersion: app.getVersion(),
       ffmpegAvailable: async () => (await resolveFfmpegLocation()).available,
@@ -2930,6 +2950,7 @@ async function initializeMainProcess(): Promise<void> {
     hookOrchestrator,
     // biome-ignore lint/style/noNonNullAssertion: assigned just above in this block
     bridgeManager: bridgeManager!,
+    ytdlpResolveMedia,
     magnetTracker: activeMagnetTracker,
     activityRecorder: activeTaskActivityService,
     persistTask,
