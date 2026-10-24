@@ -15,6 +15,11 @@ export interface Aria2ConfigBuilderOptions {
   rpcListenAll?: boolean
   /** Server HTTP and engine RPC must use the same torrent upload budget. */
   rpcMaxRequestSizeBytes?: number
+  /**
+   * Host process aria2 must not outlive. aria2 exits on its own once this
+   * process disappears, covering host crashes that skip graceful shutdown.
+   */
+  supervisorPid?: number
 }
 
 export class Aria2ConfigBuilder {
@@ -25,6 +30,7 @@ export class Aria2ConfigBuilder {
   private readonly dht6FilePath: string
   private readonly rpcListenAll: boolean
   private readonly rpcMaxRequestSizeBytes?: number
+  private readonly supervisorPid?: number
   private configuredInputFile = false
   private runtimeConfPath: string
 
@@ -44,6 +50,15 @@ export class Aria2ConfigBuilder {
       options.rpcMaxRequestSizeBytes === undefined
         ? undefined
         : torrentRpcBodyLimitSchema.parse(options.rpcMaxRequestSizeBytes)
+    if (options.supervisorPid !== undefined) {
+      if (
+        !Number.isSafeInteger(options.supervisorPid) ||
+        options.supervisorPid < 1
+      ) {
+        throw new TypeError('supervisorPid must be a positive integer')
+      }
+      this.supervisorPid = options.supervisorPid
+    }
   }
 
   async ensureUserConfig(): Promise<string> {
@@ -275,6 +290,9 @@ export class Aria2ConfigBuilder {
       args.push(
         `--rpc-max-request-size=${this.rpcMaxRequestSizeBytes / (1024 * 1024)}M`
       )
+    }
+    if (this.supervisorPid !== undefined) {
+      args.push(`--stop-with-process=${this.supervisorPid}`)
     }
     args.push(
       '--bt-save-metadata=true',
