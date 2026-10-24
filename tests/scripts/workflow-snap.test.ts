@@ -658,6 +658,83 @@ describe('Snap promotion workflow contract', () => {
 describe.skipIf(process.platform === 'win32')(
   'Snap promotion credential scope',
   () => {
+    it.each([
+      {
+        output: snapWhoami('candidate'),
+        diagnostic:
+          'underlying error: private-account@example.test fixture-secret-do-not-print',
+        exitCode: 23,
+        reason: 'command_failed',
+        recordValid: true,
+        scopeStatus: 'scope_valid',
+      },
+      {
+        output: snapWhoami('candidate'),
+        diagnostic:
+          'warning: private-account@example.test fixture-secret-do-not-print',
+        exitCode: 0,
+        reason: 'stderr_present',
+        recordValid: true,
+        scopeStatus: 'scope_valid',
+      },
+      {
+        output: 'private-account@example.test fixture-secret-do-not-print',
+        diagnostic: '',
+        exitCode: 0,
+        reason: 'scope_rejected',
+        recordValid: false,
+        scopeStatus: 'record_invalid',
+      },
+      {
+        output: snapWhoami('candidate', 'package_access'),
+        diagnostic: '',
+        exitCode: 0,
+        reason: 'scope_rejected',
+        recordValid: true,
+        scopeStatus: 'release_permission_denied',
+      },
+      {
+        output: snapWhoami('edge'),
+        diagnostic: '',
+        exitCode: 0,
+        reason: 'scope_rejected',
+        recordValid: true,
+        scopeStatus: 'destination_denied',
+      },
+    ])(
+      'reports only safe diagnostics for $reason / $scopeStatus',
+      (options) => {
+        const result = runPromotionCredentialGate(options)
+        expect(result.status).toBe(1)
+        expect(result.releaseCalls).toEqual([])
+        expect(result.snapcraftCalls).toEqual(['whoami --verbosity brief'])
+        const diagnosticLines = result.stderr
+          .split('\n')
+          .filter((line) => line.startsWith('SNAP_CREDENTIAL_DIAGNOSTICS '))
+        expect(diagnosticLines).toHaveLength(1)
+        expect(
+          JSON.parse(
+            diagnosticLines[0].slice('SNAP_CREDENTIAL_DIAGNOSTICS '.length)
+          )
+        ).toEqual({
+          reason: options.reason,
+          returncode: options.exitCode,
+          stdout_bytes: Buffer.byteLength(options.output),
+          stderr_bytes: Buffer.byteLength(options.diagnostic),
+          record_valid: options.recordValid,
+          scope_status: options.scopeStatus,
+        })
+        for (const sensitive of [
+          'private-account@example.test',
+          'fixture-secret-do-not-print',
+          'underlying error:',
+          'warning:',
+        ]) {
+          expect(result.stdout + result.stderr).not.toContain(sensitive)
+        }
+      }
+    )
+
     it.each(['candidate', 'stable'])(
       'rejects the observed edge credential before any %s mutation',
       (target) => {
