@@ -9,6 +9,7 @@ Source: https://github.com/canonical/snapcraft/blob/9.1.3/snapcraft/commands/acc
 
 import argparse
 import fnmatch
+import json
 import re
 import subprocess
 import sys
@@ -20,6 +21,10 @@ SCOPES = {"permissions", "channels"}
 
 class ScopeError(ValueError):
     """A credential's release scope could not be established."""
+
+    def __init__(self, message: str, status: str = "record_invalid"):
+        super().__init__(message)
+        self.status = status
 
 
 def parse_whoami(output: str) -> dict[str, str]:
@@ -65,7 +70,7 @@ def verify_scope(output: str, channel: str) -> None:
         r"([A-Za-z0-9][A-Za-z0-9._-]*)/(stable|candidate|beta|edge)", channel
     )
     if not match:
-        raise ScopeError("Expected a track/risk target channel")
+        raise ScopeError("Expected a track/risk target channel", "target_invalid")
     track, risk = match.groups()
     # Match the exact channel argument sent by release-snap-build-set.mjs.
     release_channel = risk if track == "latest" else channel
@@ -77,13 +82,52 @@ def verify_scope(output: str, channel: str) -> None:
     if permissions is not None and not {"package_release", "package_upload"}.intersection(
         permissions
     ):
-        raise ScopeError("Snap credential does not permit releasing existing revisions")
+        raise ScopeError(
+            "Snap credential does not permit releasing existing revisions",
+            "release_permission_denied",
+        )
     # Store channel restrictions use Python fnmatch against the release request.
     # https://dashboard.snapcraft.io/docs/reference/v1/snap.html
     if channels is not None and not any(
         fnmatch.fnmatchcase(release_channel, pattern) for pattern in channels
     ):
-        raise ScopeError(f"Snap credential does not permit release to {channel}")
+        raise ScopeError(
+            f"Snap credential does not permit release to {channel}",
+            "destination_denied",
+        )
+
+
+def emit_diagnostics(reason: str, result, channel: str) -> None:
+    # Log only fixed classifications and counts. Never interpolate process
+    # output, account fields, credential values, or underlying exceptions.
+    record_valid = False
+    scope_status = "not_checked"
+    if result is not None:
+        scope_status = "record_invalid"
+        try:
+            fields = parse_whoami(result.stdout)
+            scope_items(fields["permissions"])
+            scope_items(fields["channels"])
+            record_valid = True
+            verify_scope(result.stdout, channel)
+            scope_status = "scope_valid"
+        except ScopeError as error:
+            scope_status = error.status
+    print(
+        "SNAP_CREDENTIAL_DIAGNOSTICS "
+        + json.dumps(
+            {
+                "reason": reason,
+                "returncode": None if result is None else result.returncode,
+                "stdout_bytes": None if result is None else len(result.stdout.encode()),
+                "stderr_bytes": None if result is None else len(result.stderr.encode()),
+                "record_valid": record_valid,
+                "scope_status": scope_status,
+            },
+            sort_keys=True,
+        ),
+        file=sys.stderr,
+    )
 
 
 def main() -> None:
@@ -100,15 +144,25 @@ def main() -> None:
             timeout=120,
         )
     except (OSError, subprocess.TimeoutExpired, UnicodeError):
+        emit_diagnostics("execution_error", None, options.channel)
         raise ScopeError(
             "Snapcraft whoami failed; credential scope was not verified"
         ) from None
-    if result.returncode != 0 or result.stderr.strip():
+    if result.returncode != 0:
+        emit_diagnostics("command_failed", result, options.channel)
         raise ScopeError(
-            "Snapcraft whoami failed or emitted diagnostics; "
-            "credential scope was not verified"
+            "Snapcraft whoami exited unsuccessfully; credential scope was not verified"
         )
-    verify_scope(result.stdout, options.channel)
+    if result.stderr.strip():
+        emit_diagnostics("stderr_present", result, options.channel)
+        raise ScopeError(
+            "Snapcraft whoami emitted diagnostics; credential scope was not verified"
+        )
+    try:
+        verify_scope(result.stdout, options.channel)
+    except ScopeError:
+        emit_diagnostics("scope_rejected", result, options.channel)
+        raise
     print(f"Verified Snap credential permits release to {options.channel}")
 
 
