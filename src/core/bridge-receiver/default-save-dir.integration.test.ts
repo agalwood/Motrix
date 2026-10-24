@@ -177,6 +177,12 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
           { timeout: 10_000, interval: 50 }
         )
         expect(task.finalName).toBe(filename)
+        const categoryFolder = filename.endsWith('.exe')
+          ? 'Programs'
+          : 'Compressed'
+        const destination = path.join(dir, categoryFolder)
+        expect(task.saveDir).toBe(destination)
+        expect(task.category).toBe(categoryFolder.toLowerCase())
         await finalizeTask(taskId, {
           taskManager: Object.assign(deps.taskManager, {
             persist: async () => {},
@@ -195,13 +201,13 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
           publishTaskUpdateNow: () => {},
           log: { info: () => {}, warn: () => {}, error: () => {} },
         })
-        expect(await readFile(path.join(dir, filename), 'utf8')).toBe(
+        expect(await readFile(path.join(destination, filename), 'utf8')).toBe(
           origin === 'right-click-redirect'
             ? 'fixture:/Thunderbird%20Setup%20157.0.exe'
             : `fixture:/filename-${origin}`
         )
         await expect(
-          access(path.join(dir, `${filename}.motrix`))
+          access(path.join(destination, `${filename}.motrix`))
         ).rejects.toThrow()
         if (origin === 'right-click-redirect') {
           // Both the metadata GET and the engine download reach the mirror
@@ -281,20 +287,23 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
         expect(await readFile(task.diskPath, 'utf8')).toBe(`fixture:/${key}`)
         return task
       }
-      const first = await submit('first-download', oldDir, 'file.zip')
+      const oldCategoryDir = path.join(oldDir, 'Compressed')
+      const newCategoryDir = path.join(newDir, 'Compressed')
+      const first = await submit('first-download', oldCategoryDir, 'file.zip')
       await settings.update({ app: { defaultSaveDir: newDir } })
       await wired.rpc.changeGlobalOption({ dir: newDir })
-      await writeFile(path.join(newDir, 'file.zip'), 'existing file')
-      await submit('second-download', newDir, 'file (1).zip')
-      expect(first.saveDir).toBe(oldDir)
+      await mkdir(newCategoryDir)
+      await writeFile(path.join(newCategoryDir, 'file.zip'), 'existing file')
+      await submit('second-download', newCategoryDir, 'file (1).zip')
+      expect(first.saveDir).toBe(oldCategoryDir)
       expect(await readFile(first.diskPath, 'utf8')).toBe(
         'fixture:/first-download'
       )
-      expect(await readFile(path.join(newDir, 'file.zip'), 'utf8')).toBe(
-        'existing file'
-      )
+      expect(
+        await readFile(path.join(newCategoryDir, 'file.zip'), 'utf8')
+      ).toBe('existing file')
       await expect(
-        access(path.join(oldDir, 'file (1).zip.motrix'))
+        access(path.join(oldCategoryDir, 'file (1).zip.motrix'))
       ).rejects.toThrow()
     }, 25_000)
   }

@@ -3469,5 +3469,17 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "downloadCategories": {
+    "label": "Download categories",
+    "compressed": "Compressed",
+    "documents": "Documents",
+    "music": "Music",
+    "programs": "Programs",
+    "video": "Video",
+    "other": "Other",
+    "showAll": "Show all categories",
+    "autoSort": "Automatically organize downloads",
+    "autoSortDesc": "Save new downloads in Compressed, Documents, Music, Programs, Video or Other subfolders of the selected folder. Existing files stay in place. Multi-file torrents stay together in Other."
   }
 }

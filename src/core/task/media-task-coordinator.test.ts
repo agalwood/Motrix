@@ -347,6 +347,40 @@ describe('MediaTaskCoordinator.start', () => {
     expect(fs.promises.writeFile).not.toHaveBeenCalled()
   })
 
+  it('routes media into its category before reserving a name and persisting the job', async () => {
+    const destination = path.join('/save', 'Video')
+    const { deps, taskManager } = makeDeps({
+      prepareMediaSaveDir: vi.fn(async () => destination),
+      makeDownloader: () => makeDownloaderFake({ hang: true }) as never,
+    })
+    const coordinator = new MediaTaskCoordinator(deps)
+    const { taskId } = await coordinator.submit(baseJob())
+    expect(deps.pickName).toHaveBeenCalledWith(destination, 'video.mp4')
+    expect(taskManager.getById(taskId)).toMatchObject({
+      saveDir: destination,
+      category: 'video',
+      finalPath: path.join(destination, 'video.mp4'),
+    })
+    expect(deps.mediaMetaStore.persist).toHaveBeenCalledWith(
+      taskId,
+      expect.objectContaining({ saveDir: destination })
+    )
+    await coordinator.stopAndDrain()
+  })
+
+  it('refuses a media category directory rejected by the host before publication', async () => {
+    const { deps, taskManager } = makeDeps({
+      prepareMediaSaveDir: async () => {
+        throw new Error('directory denied')
+      },
+    })
+    await expect(
+      new MediaTaskCoordinator(deps).submit(baseJob())
+    ).rejects.toThrow('directory denied')
+    expect(taskManager.getAll()).toHaveLength(0)
+    expect(deps.mediaMetaStore.persist).not.toHaveBeenCalled()
+  })
+
   it('registers every queued video/audio segment before downloading', async () => {
     const { deps, taskManager } = makeDeps({
       makeDownloader: () => makeDownloaderFake({ hang: true }) as never,

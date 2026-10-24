@@ -129,6 +129,7 @@ interface DepOverrides {
   proxySettings?: ProxySettings
   appliedProxySnapshot?: AppliedDownloadProxySnapshot
   engineUserAgent?: string
+  autoCategorizeDownloads?: boolean
   engineFeatureReport?: EngineFeatureReport
   waitForEngineReady?: () => Promise<void>
   prepareSaveDir?: (requested: string) => Promise<string>
@@ -297,6 +298,7 @@ function makeDeps(overrides: DepOverrides = {}): Deps & {
   const settingsManager = {
     getApp: () => ({
       defaultSaveDir: overrides.defaultSaveDir ?? '/fallback',
+      autoCategorizeDownloads: overrides.autoCategorizeDownloads ?? false,
     }),
     getEngine: () => ({
       performanceProfile: DEFAULT_ENGINE_SETTINGS.performanceProfile,
@@ -514,8 +516,8 @@ describe('browser direct download filenames', () => {
 
     expect(lastAddedTask(deps)).toMatchObject({
       finalName: remoteName,
-      finalPath: `/d/${remoteName}`,
-      diskPath: `/d/${remoteName}.motrix`,
+      finalPath: path.join('/d', remoteName),
+      diskPath: path.join('/d', `${remoteName}.motrix`),
     })
     expect(fetchMetadata).toHaveBeenCalledTimes(2)
     expect(String(fetchMetadata.mock.calls[1]?.[0])).toBe(finalUrl)
@@ -567,8 +569,8 @@ describe('handleCreateTask', () => {
       })
     )
     expect(owners.map((task) => task.diskPath).sort()).toEqual([
-      '/d/chosen (1).iso',
-      '/d/chosen.iso',
+      path.join('/d', 'chosen (1).iso'),
+      path.join('/d', 'chosen.iso'),
     ])
     expect(owners.every((task) => task.diskPath === task.finalPath)).toBe(true)
   })
@@ -1209,7 +1211,7 @@ describe('handleCreateTask', () => {
     const [, , options] = deps.addTorrent.mock.calls[0]
     expect(options).toMatchObject({
       dir: `${task.torrentMetaPath}.state`,
-      'index-out': ['1=/d/ubuntu-25.10-desktop-amd64.iso'],
+      'index-out': [`1=${path.join('/d', 'ubuntu-25.10-desktop-amd64.iso')}`],
     })
     expect(options).not.toHaveProperty('bt-prioritize-piece')
   })
@@ -1320,8 +1322,8 @@ describe('handleCreateTask download paths', () => {
       deps
     )
     const task = lastAddedTask(deps)
-    expect(task.diskPath).toBe('/d/foo.mp4.motrix')
-    expect(task.finalPath).toBe('/d/foo.mp4')
+    expect(task.diskPath).toBe(path.join('/d', 'foo.mp4.motrix'))
+    expect(task.finalPath).toBe(path.join('/d', 'foo.mp4'))
     expect(task.finalName).toBe('foo.mp4')
     expect(task.filename).toBe('foo.mp4')
     expect(task.saveDir).toBe('/d')
@@ -1372,7 +1374,7 @@ describe('handleCreateTask download paths', () => {
       strategy: 'direct',
       torrentRootName: null,
     })
-    expect(task.finalPath).toBe('/d/mytorrent')
+    expect(task.finalPath).toBe(path.join('/d', 'mytorrent'))
     expect(task.finalName).toBe('mytorrent')
     expect(task.type).toBe(TaskType.Bt)
     expect(task.torrentMetaPath).toBe(`/torrents/${task.id}.torrent`)
@@ -1391,7 +1393,7 @@ describe('handleCreateTask download paths', () => {
       deps
     )
     const [, , options] = deps.addTorrent.mock.calls[0]
-    expect(options.dir).toBe('/d/mytorrent')
+    expect(options.dir).toBe(path.join('/d', 'mytorrent'))
     expect(options.out).toBeUndefined()
     expect(options).not.toHaveProperty('index-out')
   })
@@ -1771,7 +1773,7 @@ describe('handleCreateTask download paths', () => {
       const safeRemoteName = sanitizeRemoteFilename(remoteName) as string
       const picker = new FinalNamePickerImpl({
         exists: vi.fn(
-          async (candidate) => candidate === `/d/${safeRemoteName}`
+          async (candidate) => candidate === path.join('/d', safeRemoteName)
         ),
       })
       const deps = makeDeps({
@@ -1950,8 +1952,8 @@ describe('handleCreateTask download paths', () => {
     expect(deps.pick).toHaveBeenCalledWith('/d', 'foo.mp4')
     const task = lastAddedTask(deps)
     expect(task.finalName).toBe('foo (1).mp4')
-    expect(task.diskPath).toBe('/d/foo (1).mp4.motrix')
-    expect(task.finalPath).toBe('/d/foo (1).mp4')
+    expect(task.diskPath).toBe(path.join('/d', 'foo (1).mp4.motrix'))
+    expect(task.finalPath).toBe(path.join('/d', 'foo (1).mp4'))
   })
 
   it('wraps TorrentMetaStore failure in TaskCreateTorrentMetaFailed', async () => {
@@ -2090,7 +2092,7 @@ describe('handleCreateTask mkdir target by task type', () => {
     expect(mkdirMock).toHaveBeenCalledTimes(1)
     expect(mkdirMock).toHaveBeenCalledWith('/d', { recursive: true })
     expect(mkdirMock).not.toHaveBeenCalledWith(
-      '/d/foo.mp4.motrix',
+      path.join('/d', 'foo.mp4.motrix'),
       expect.anything()
     )
   })
@@ -2421,8 +2423,8 @@ describe('handleCreateTask plugin-hook chain (Plan C / T15)', () => {
     )
     expect(lastAddedTask(deps)).toMatchObject({
       finalName: 'release.zip',
-      finalPath: '/d/release.zip',
-      diskPath: '/d/release.zip.motrix',
+      finalPath: path.join('/d', 'release.zip'),
+      diskPath: path.join('/d', 'release.zip.motrix'),
     })
   })
 
@@ -3223,4 +3225,117 @@ it.each([
   const httpTask = owners.find((task) => task.type === TaskType.Http)!
   expect(httpTask.finalName).not.toBe(httpName)
   expect(httpTask.diskPath).toBe(`${httpTask.finalPath}.motrix`)
+})
+
+describe('automatic download categories', () => {
+  it.each([
+    ['archive.zip', 'Compressed', 'compressed'],
+    ['manual.pdf', 'Documents', 'documents'],
+    ['song.mp3', 'Music', 'music'],
+    ['setup.exe', 'Programs', 'programs'],
+    ['movie.mp4', 'Video', 'video'],
+    ['unknown.bin', 'Other', 'other'],
+  ])('routes %s before engine dispatch', async (filename, folder, category) => {
+    const deps = makeDeps({ autoCategorizeDownloads: true })
+    await handleCreateTask({ ...httpRequest(), filename }, deps)
+    const task = lastAddedTask(deps)
+    const dir = path.join('/d', folder)
+    expect(task).toMatchObject({
+      saveDir: dir,
+      category,
+      finalPath: path.join(dir, filename),
+      diskPath: path.join(dir, `${filename}.motrix`),
+    })
+    expect(deps.addUri.mock.calls[0][1]).toMatchObject({
+      dir,
+      out: `${filename}.motrix`,
+    })
+    expect(mkdirMock).toHaveBeenCalledWith(dir, { recursive: true })
+  })
+
+  it('uses the remote Content-Disposition name to choose the category', async () => {
+    const deps = makeDeps({ autoCategorizeDownloads: true })
+    deps.directResourceValidator = {
+      capture: vi.fn(),
+      probe: vi.fn().mockResolvedValue({
+        filename: 'setup.exe',
+        validator: null,
+      }),
+    }
+    await handleCreateTask(httpRequest(), deps)
+    expect(lastAddedTask(deps)).toMatchObject({
+      category: 'programs',
+      saveDir: path.join('/d', 'Programs'),
+      finalName: 'setup.exe',
+    })
+    expect(deps.addUri.mock.calls[0][1]).toMatchObject({
+      dir: path.join('/d', 'Programs'),
+    })
+  })
+
+  it('applies host directory authorization to a discovered category', async () => {
+    const prepare = vi.fn(async (dir: string) => {
+      if (dir === path.join('/d', 'Programs'))
+        throw new Error('directory denied')
+      return dir
+    })
+    const deps = makeDeps({
+      autoCategorizeDownloads: true,
+      prepareSaveDir: prepare,
+    })
+    deps.directResourceValidator = {
+      capture: vi.fn(),
+      probe: vi.fn().mockResolvedValue({
+        filename: 'setup.exe',
+        validator: null,
+      }),
+    }
+    await expect(handleCreateTask(httpRequest(), deps)).rejects.toThrow(
+      'directory denied'
+    )
+    expect(deps.addUri).not.toHaveBeenCalled()
+    expect(deps.add).not.toHaveBeenCalled()
+  })
+
+  it('preserves the selected directory when automatic sorting is disabled', async () => {
+    const deps = makeDeps({ autoCategorizeDownloads: false })
+    await handleCreateTask({ ...httpRequest(), filename: 'manual.pdf' }, deps)
+    expect(lastAddedTask(deps)).toMatchObject({
+      saveDir: '/d',
+      category: 'documents',
+    })
+  })
+
+  it('categorizes FTP without calling HTTP metadata probes', async () => {
+    const deps = makeDeps({ autoCategorizeDownloads: true })
+    await handleCreateTask(
+      { ...httpRequest(), uris: ['ftp://example.test/archive.zip'] },
+      deps
+    )
+    expect(lastAddedTask(deps)).toMatchObject({
+      saveDir: path.join('/d', 'Compressed'),
+      category: 'compressed',
+    })
+  })
+
+  it('categorizes a parsed single-file torrent using its payload name', async () => {
+    const deps = makeDeps({ autoCategorizeDownloads: true })
+    const bytes = buildMinimalTorrentBytes('movie.mp4', false)
+    await handleCreateTask(
+      {
+        type: 'bt',
+        payload: {
+          kind: 'torrent-base64',
+          base64: Buffer.from(bytes).toString('base64'),
+        },
+        saveDir: '/d',
+        selectedFiles: [1],
+      },
+      deps
+    )
+    expect(lastAddedTask(deps)).toMatchObject({
+      saveDir: path.join('/d', 'Video'),
+      category: 'video',
+    })
+  })
 })

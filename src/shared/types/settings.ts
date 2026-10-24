@@ -236,6 +236,7 @@ export interface MotrixAppSettings {
   language: LanguagePreference
   directoryPreferences: DirectoryPreferences
   defaultSaveDir: string
+  autoCategorizeDownloads: boolean
   /** Desktop task file deletion only; the server always deletes directly. */
   fileDeletionMode: FileDeletionMode
   notifyOnComplete: boolean

@@ -681,6 +681,18 @@ describe('Downloads inline search', () => {
     expect(useDownloadsView.getState().inspectorVisible).toBe(true)
   })
 
+  it('clears a conflicting category to reveal an explicit task deep link', async () => {
+    setTaskList({
+      tasks: [{ ...task('alpha', TaskStatus.Paused), category: 'documents' }],
+    })
+    renderAt('/downloads/all?category=video&task=alpha')
+    await waitFor(() => expect(selectedIds()).toEqual(['alpha']))
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      '/downloads/all?task=alpha'
+    )
+    expect(useDownloadsView.getState().inspectorVisible).toBe(true)
+  })
+
   it('Escape clears text first, then collapses the empty field and returns focus', async () => {
     setTaskList({ tasks: [task('alpha', TaskStatus.Downloading)] })
     renderAt('/downloads/all')
