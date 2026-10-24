@@ -516,12 +516,19 @@ describe('Snap promotion workflow contract', () => {
     ) as LooseRecord
     expect(steps.indexOf(credentials)).toBeLessThan(steps.indexOf(release))
     expect(credentials['continue-on-error']).toBeUndefined()
+    expect(credentials.id).toBe('credentials')
     expect(release.if).toBeUndefined()
     expect(stringField(credentials, 'run')).toContain(
       'python3 scripts/verify_snap_credential_scope.py'
     )
     expect(stringField(credentials, 'run')).toContain(
       '--channel "$TARGET_CHANNEL"'
+    )
+    expect(stringField(credentials, 'run')).toContain(
+      '--github-output "$GITHUB_OUTPUT"'
+    )
+    expect(stringField(release, 'run')).toContain(
+      '--snapcraft-channel "$SNAPCRAFT_CHANNEL"'
     )
     expect(asRecord(credentials.env, 'credential environment')).toMatchObject({
       SNAPCRAFT_STORE_CREDENTIALS: `\${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}`,
@@ -530,6 +537,7 @@ describe('Snap promotion workflow contract', () => {
     expect(asRecord(release.env, 'release environment')).toMatchObject({
       SNAPCRAFT_STORE_CREDENTIALS: `\${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}`,
       TARGET_CHANNEL: `\${{ needs.preflight.outputs.target_channel }}`,
+      SNAPCRAFT_CHANNEL: `\${{ steps.credentials.outputs.snapcraft_channel }}`,
     })
   })
 
@@ -707,6 +715,7 @@ describe.skipIf(process.platform === 'win32')(
         const result = runPromotionCredentialGate(options)
         expect(result.status).toBe(1)
         expect(result.releaseCalls).toEqual([])
+        expect(result.githubOutput).toBe('')
         expect(result.snapcraftCalls).toEqual(['whoami --verbosity brief'])
         const diagnosticLines = result.stderr
           .split('\n')
@@ -756,6 +765,22 @@ describe.skipIf(process.platform === 'win32')(
     it.each([
       { target: 'candidate', channels: 'candidate' },
       { target: 'stable', channels: 'stable' },
+      {
+        target: 'candidate',
+        channels: 'latest/candidate',
+        selectedChannel: 'latest/candidate',
+      },
+      {
+        target: 'stable',
+        channels: 'latest/stable',
+        selectedChannel: 'latest/stable',
+      },
+      {
+        target: 'candidate',
+        channels: 'latest/*',
+        selectedChannel: 'latest/candidate',
+      },
+      { target: 'candidate', channels: 'latest/candidate, candidate' },
       { target: 'candidate', channels: 'edge, candidate, stable' },
       { target: 'stable', channels: 'no restrictions' },
       { target: 'candidate', channels: 'candi?ate' },
@@ -784,14 +809,21 @@ describe.skipIf(process.platform === 'win32')(
       expect(result.releaseCalls[0]).toContain(
         `--channel latest/${options.target}`
       )
+      const selectedChannel = options.selectedChannel ?? options.target
+      expect(result.githubOutput).toBe(`snapcraft_channel=${selectedChannel}\n`)
+      expect(result.releaseCalls[0]).toContain(
+        `--snapcraft-channel ${selectedChannel} `
+      )
     })
 
     it.each([
       { channels: 'candidate', target: 'stable' },
       { channels: '2.0/candidate' },
-      { channels: 'latest/candidate' },
+      { channels: 'latest/stable' },
+      { channels: 'latest/candidate', target: 'stable' },
+      { channels: 'latest/candidate/branch' },
       { channels: 'candidate/branch' },
-      { channels: '[!c]*' },
+      { channels: '[!cl]*' },
       { permissions: 'package_access, package_push' },
       { permissions: 'package_release_extra' },
       { permissions: '' },
@@ -827,6 +859,7 @@ describe.skipIf(process.platform === 'win32')(
         const result = runPromotionCredentialGate(options)
         expect(result.status).not.toBe(0)
         expect(result.releaseCalls).toEqual([])
+        expect(result.githubOutput).toBe('')
         expect(result.snapcraftCalls).toEqual(['whoami --verbosity brief'])
         expect(result.stdout + result.stderr).not.toContain(
           'private-account@example.test'
@@ -875,9 +908,11 @@ function runPromotionCredentialGate({
   const whoamiFile = path.join(root, 'whoami.txt')
   const snapcraftLog = path.join(root, 'snapcraft.log')
   const releaseLog = path.join(root, 'release.log')
+  const githubOutput = path.join(root, 'github-output')
   writeFileSync(whoamiFile, output)
   writeFileSync(snapcraftLog, '')
   writeFileSync(releaseLog, '')
+  writeFileSync(githubOutput, '')
   writeFileSync(
     path.join(root, 'snapcraft'),
     [
@@ -909,10 +944,16 @@ function runPromotionCredentialGate({
   const release = steps.find(
     (step) => step.name === 'Release approved build set'
   ) as LooseRecord
-  // A failed credential step prevents subsequent Actions steps. Execute both
-  // real commands under the credential step's errexit to prove that boundary.
+  // A failed credential step prevents subsequent Actions steps. Transfer its
+  // actual output to the release step as data, without evaluating shell text.
+  const transferOutput = [
+    'while IFS="=" read -r key value; do',
+    '  [[ "$key" == snapcraft_channel ]] || exit 97',
+    '  export SNAPCRAFT_CHANNEL="$value"',
+    'done < "$GITHUB_OUTPUT"',
+  ].join('\n')
   const command =
-    `${stringField(credentials, 'run')}\n${stringField(release, 'run')}`
+    `${stringField(credentials, 'run')}\n${transferOutput}\n${stringField(release, 'run')}`
       .replaceAll('/snap/bin/snapcraft', 'snapcraft')
       .replaceAll(`\${{ needs.preflight.outputs.amd64_revision }}`, '111')
       .replaceAll(`\${{ needs.preflight.outputs.arm64_revision }}`, '112')
@@ -927,6 +968,7 @@ function runPromotionCredentialGate({
         PROMOTION_TARGET: target,
         TARGET_CHANNEL: `latest/${target}`,
         EXPECTED_VERSION: '2.0.0',
+        GITHUB_OUTPUT: githubOutput,
         MOTRIX_TEST_WHOAMI_FILE: whoamiFile,
         MOTRIX_TEST_DIAGNOSTIC: diagnostic,
         MOTRIX_TEST_EXIT_CODE: String(exitCode),
@@ -936,6 +978,7 @@ function runPromotionCredentialGate({
     })
     return {
       ...result,
+      githubOutput: readFileSync(githubOutput, 'utf8'),
       snapcraftCalls: readFileSync(snapcraftLog, 'utf8')
         .split('\n')
         .filter(Boolean),
