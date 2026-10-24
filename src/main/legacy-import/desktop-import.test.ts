@@ -11,6 +11,7 @@ import { syncBuiltinESMExports } from 'node:module'
 import os from 'node:os'
 import path from 'node:path'
 import { Aria2ProcessInspector } from '@core/engine/aria2/aria2-process-inspector'
+import type { LegacyHttpActivationService } from '@core/legacy-import/http-activation-service'
 import type { LegacyImportService } from '@core/legacy-import/import-service'
 import { TorrentParser } from '@core/torrent/torrent-parser'
 import { Commands } from '@shared/protocol/commands'
@@ -234,7 +235,10 @@ describe('desktop legacy import', () => {
       Commands.CommitLegacyImport,
       Commands.RetryLegacyImport,
       Commands.ActivateLegacyBt,
+      Commands.ActivateLegacyHttp,
+      Commands.CancelLegacyHttpActivation,
       Queries.GetLegacyBtActivationAvailability,
+      Queries.GetLegacyHttpActivationAvailability,
       Queries.GetLegacyImportNavigation,
     ])
       await expect(
@@ -292,6 +296,66 @@ describe('desktop legacy import', () => {
     expect(await readFile(oldPath, 'utf8')).toBe('original bytes')
   })
 
+  it('authorizes the original HTTP directory and admits cancellation without waiting for activation', async () => {
+    const f = await fixture()
+    const available = vi.fn(async () => ({
+      available: true,
+      reason: null,
+      directory: f.root,
+    }))
+    let finish!: () => void
+    const pending = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    const activate = vi.fn(
+      async (
+        _id: string,
+        pick: (directory: string) => Promise<string | null>
+      ) => {
+        expect(await pick(f.root)).toBe(f.root)
+        await pending
+        return true
+      }
+    )
+    const cancel = vi.fn(() => finish())
+    registerLegacyImportIpc({
+      getService: () => ({}) as LegacyImportService,
+      getHttpActivationService: () =>
+        ({
+          availability: available,
+          activate,
+          cancel,
+        }) as unknown as LegacyHttpActivationService,
+      hasConsent: () => true,
+      getTask: () => f.task,
+      backupRoot: path.join(f.root, 'backups'),
+      finishInvitation: vi.fn(),
+    })
+    await expect(
+      mocks.handlers.get(Queries.GetLegacyHttpActivationAvailability)?.(
+        f.event,
+        { taskId: f.task.id }
+      )
+    ).resolves.toMatchObject({ available: true })
+    const running = mocks.handlers.get(Commands.ActivateLegacyHttp)?.(f.event, {
+      taskId: f.task.id,
+    })
+    await vi.waitFor(() => expect(activate).toHaveBeenCalledOnce())
+    await mocks.handlers.get(Commands.CancelLegacyHttpActivation)?.(f.event, {
+      taskId: f.task.id,
+    })
+    await expect(running).resolves.toBe(true)
+    expect(cancel).toHaveBeenCalledWith(f.task.id)
+    expect(mocks.pick).toHaveBeenCalledWith(
+      mocks.owner,
+      expect.objectContaining({
+        defaultPath: f.root,
+        properties: ['openDirectory'],
+      })
+    )
+    expect(await readFile(f.oldPath, 'utf8')).toBe('original bytes')
+  })
+
   it('prepares a fresh download under an existing volume root without trying to create the root', async () => {
     const { root, oldPath, task, event } = await fixture()
     const realMkdir = filesystem.mkdir
@@ -315,6 +379,30 @@ describe('desktop legacy import', () => {
     expect(path.basename(result.saveDir)).toMatch(/^Motrix-new-/)
     expect(await readFile(oldPath, 'utf8')).toBe('original bytes')
     expect(mkdirSpy).not.toHaveBeenCalledWith(root, expect.anything())
+  })
+
+  it('carries a request-settings reminder into the fresh draft without request values', async () => {
+    const { root, oldPath, task, event } = await fixture()
+    const marker = task.instances[0].payload.legacyImport as Record<
+      string,
+      unknown
+    >
+    marker.reason = 'request-settings-required'
+    marker.requestOptions = ['header', 'all-proxy']
+    const result = (await mocks.handlers.get(
+      Commands.PrepareLegacyFreshDownload
+    )?.(event, { taskId: task.id })) as { saveDir: string }
+    expect(result).toEqual({
+      tab: 'links',
+      urls: task.uris[0],
+      filename: task.finalName,
+      saveDir: expect.any(String),
+      legacyRequestOptions: ['header', 'all-proxy'],
+    })
+    expect(path.dirname(result.saveDir)).toBe(root)
+    expect(path.basename(result.saveDir)).toMatch(/^Motrix-new-/)
+    expect(task.instances[0].gid).toBeNull()
+    expect(await readFile(oldPath, 'utf8')).toBe('original bytes')
   })
 
   it('rejects mirror re-add before a picker instead of turning one task into several downloads', async () => {

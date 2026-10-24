@@ -301,6 +301,76 @@ describe('legacy import service adversarial acceptance', () => {
     }
   })
 
+  it('imports request-dependent HTTP records inactive without persisting request secrets', async () => {
+    const f = await fixture()
+    const session = [
+      'https://example.test/file-0.zip',
+      ' gid=0000000000000001',
+      ' out=file-0.zip',
+      ' pause=true',
+      ' header=Authorization: Bearer LEGACY_AUTH_SECRET',
+      ' header=Cookie: session=LEGACY_COOKIE_SECRET',
+      '',
+    ].join('\n')
+    await writeFile(f.sessionPath, session)
+    await writeFile(
+      path.join(f.sourceRoot, 'system.json'),
+      JSON.stringify({
+        dir: f.downloads,
+        'all-proxy': 'http://user:LEGACY_PROXY_SECRET@proxy.example:8080',
+      })
+    )
+    const preview = await f.service.scan(f.source.sourceHandle)
+    expect(preview.items[0]).toMatchObject({
+      type: 'http',
+      selectable: true,
+      reason: 'request-settings-required',
+      requestOptions: expect.arrayContaining(['header', 'all-proxy']),
+    })
+    const run = await f.service.commit({
+      previewId: preview.previewId,
+      itemIds: [preview.items[0].itemId],
+    })
+    const report = await completed(f.service, run.runId)
+    expect(report.imported).toBe(1)
+    const [task] = f.taskManager.getAll()
+    expect(task.status).toBe(TaskStatus.Paused)
+    expect(task.instances[0].gid).toBeNull()
+    expect(task.instances[0].payload.legacyImport).toMatchObject({
+      activation: 'inactive',
+      storagePolicy: 'legacy-read-only',
+      reason: 'request-settings-required',
+      requestOptions: expect.arrayContaining(['header', 'all-proxy']),
+    })
+    const persisted = JSON.stringify({
+      tasks: f.db.getAllTasks(),
+      report: f.service.getRun(run.runId),
+      preview,
+    })
+    for (const secret of [
+      'LEGACY_AUTH_SECRET',
+      'LEGACY_COOKIE_SECRET',
+      'LEGACY_PROXY_SECRET',
+    ])
+      expect(persisted).not.toContain(secret)
+    expect(await readFile(f.sessionPath, 'utf8')).toBe(session)
+    expect(await readFile(path.join(f.downloads, 'file-0.zip'), 'utf8')).toBe(
+      'original payload'
+    )
+    expect(
+      await readFile(
+        path.join(f.deps.backupRoot, run.runId, 'download.session'),
+        'utf8'
+      )
+    ).toBe(session)
+    expect(
+      (await f.service.scan(f.source.sourceHandle)).items[0]
+    ).toMatchObject({
+      selectable: false,
+      reason: 'already-imported',
+    })
+  })
+
   it('rejects a stale preview before committing records', async () => {
     const f = await fixture()
     await writeFile(

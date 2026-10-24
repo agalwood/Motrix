@@ -39,9 +39,14 @@ import type {
   DownloadCookie,
   EngineAdapter,
   LegacyBtBindingProof,
+  LegacyHttpBindingProof,
 } from '../engine-adapter'
 import { DIRECT_RESOURCE_METADATA_PROFILE } from '../engine-adapter'
 import { Aria2LegacyCheckpoint } from './aria2-legacy-checkpoint'
+import {
+  pinLegacyHttpOptions,
+  verifyLegacyHttpBinding,
+} from './aria2-legacy-http'
 import { legacyWirePath } from './aria2-legacy-path'
 import type { Aria2RpcClient } from './aria2-rpc-client'
 import { recommend } from './aria2-tuning'
@@ -414,6 +419,14 @@ export class Aria2Adapter implements EngineAdapter {
   }
 
   async createDownload(params: CreateDownloadParams): Promise<string> {
+    if (
+      params.legacyCheckpointActivation &&
+      !(await this.supportsLegacyHttpActivation())
+    )
+      throw new AppError(
+        ErrorCode.EngineFeatureUnavailable,
+        'legacyImport.errors.httpRequestUnsupported'
+      )
     params = {
       ...params,
       uris: admitDownloadSources(params.uris, 'engine').map(
@@ -587,6 +600,11 @@ export class Aria2Adapter implements EngineAdapter {
       options['always-resume'] = 'true'
     }
     options.continue = resumePolicy === 'sequential-prefix' ? 'true' : 'false'
+    await pinLegacyHttpOptions(
+      params,
+      options,
+      new Aria2LegacyCheckpoint(this.rpc)
+    )
 
     // A magnet can spawn a BT payload with HTTP Web Seeds. Their 404s must
     // not halt the entire torrent before a healthy source sends any data.
@@ -796,6 +814,33 @@ export class Aria2Adapter implements EngineAdapter {
       options['remove-control-file'] === 'false' &&
       options['check-integrity'] === 'true' &&
       trackers.join(',') === input.trackers.join(',')
+    )
+  }
+
+  async verifyLegacyHttpBinding(
+    input: LegacyHttpBindingProof
+  ): Promise<boolean> {
+    if (!(await this.supportsLegacyHttpActivation())) return false
+    return verifyLegacyHttpBinding(this.rpc, input)
+  }
+
+  async supportsLegacyHttpActivation(): Promise<boolean> {
+    if (!(await this.supportsLegacyCheckpointImport())) return false
+    if (
+      !(await this.rpc.getVersion()).enabledFeatures.includes(
+        'HttpRedirectPolicyV1'
+      )
+    )
+      return false
+    const options = await this.rpc.getGlobalOption()
+    const header = options.header as unknown
+    // aria2 accumulates global and per-task header options. An empty Cookie
+    // suppresses CookieStorage, but cannot remove inherited header lines.
+    return (
+      header === undefined ||
+      header === '' ||
+      (Array.isArray(header) &&
+        header.every((line) => typeof line === 'string' && !line.trim()))
     )
   }
 

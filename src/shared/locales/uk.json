@@ -2771,6 +2771,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "Додаткові заголовки",
+      "headerName": "Назва заголовка",
+      "headerValue": "Значення заголовка",
+      "addHeader": "Додати заголовок",
+      "removeHeader": "Видалити заголовок",
       "adding": "Додавання…",
       "advanced": "Додатково",
       "allProxy": "Проксі",
@@ -2801,6 +2806,7 @@
         "title": "Цей торрент уже існує"
       },
       "errors": {
+        "headerNameRequired": "Введіть назву заголовка або видаліть цей заголовок.",
         "missingSource": "Потрібен торрент-файл або magnet-посилання",
         "noFilesSelected": "Виберіть принаймні один файл",
         "saveDirRequired": "Потрібно вказати теку збереження",
@@ -3190,12 +3196,19 @@
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
     "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "Для попередніх файлів cookie введіть потрібний заголовок Cookie. Для імен користувачів і паролів HTTP введіть відповідний заголовок Authorization. Вкажіть облікові дані проксі в його URL.",
+    "unsupportedOptions": "Непідтримувані параметри: {{options}}",
+    "requestOptions": "Збережені налаштування запиту: {{options}}",
+    "requestSettingsDescription": "Старі налаштування запиту не скопійовано. Введіть їх знову в розширених налаштуваннях перед завантаженням у нову теку.",
+    "reconfigureDownload": "Налаштувати знову та завантажити…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
       "metadata-required": "Original torrent file needed",
       "selection-required": "Choose which files to download",
-      "unsupported-options": "Download details need checking",
+      "request-settings-required": "Збережені налаштування запиту буде перевірено перед відновленням",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "Непідтримувані параметри завантаження",
       "invalid-record": "Couldn’t read this task",
       "unsafe-path": "File location needs checking",
       "already-imported": "Already imported",
@@ -3238,14 +3251,21 @@
       "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
       "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
       "controlRequired": "The saved download progress is missing. Download again in a new folder.",
-      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder."
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "Завантажені дані відрізняються від вмісту сервера.",
+      "httpRangeUnsupported": "Сервер не підтримує потрібні діапазони байтів.",
+      "httpValidatorRequired": "Сервер не надає надійний ідентифікатор версії ресурсу.",
+      "httpVerificationFailed": "Не вдалося перевірити завантажені дані.",
+      "httpRequestUnsupported": "Рушій або налаштування запиту не підтримують безпечне відновлення.",
+      "httpVerificationCancelled": "Перевірку скасовано.",
+      "httpRedirectUnsupported": "Посилання з перенаправленням не можна безпечно відновити у вихідному місці."
     },
     "resultIncompleteTitle": "Migration is incomplete",
     "resultStoppedTitle": "Migration stopped",
-    "activationRequired": "Download again in a new folder to keep the original files.",
+    "activationRequired": "Відкрийте подробиці завдання, щоб перевірити й відновити завантаження.",
     "chooseTorrent": "Choose torrent…",
     "torrentFile": "Torrent file",
-    "verifyAndContinue": "Verify and continue",
+    "verifyAndContinue": "Перевірити й продовжити",
     "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
     "authorizeOriginalDirectory": "Choose the original download folder",
     "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
@@ -3359,7 +3379,10 @@
         "remaining": "Remaining"
       }
     },
-    "importSelected": "Migrate"
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix порівняє всі завантажені діапазони із сервером і продовжить у вихідній теці. Перевірка повторно передає ці діапазони; збережені налаштування запиту залишаються в пам’яті.",
+    "httpVerifying": "Підготовка або перевірка…",
+    "httpOriginalFilesKept": "Наявні файли збережено."
   },
   "rendererRecovery": {
     "title": "Інтерфейс потребує відновлення",

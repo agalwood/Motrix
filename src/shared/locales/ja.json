@@ -1009,6 +1009,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "追加ヘッダー",
+      "headerName": "ヘッダー名",
+      "headerValue": "ヘッダー値",
+      "addHeader": "ヘッダーを追加",
+      "removeHeader": "ヘッダーを削除",
       "title": "新規タスク",
       "links": "リンク",
       "torrent": "トレント",
@@ -1101,6 +1106,7 @@
         "doc": "文書"
       },
       "errors": {
+        "headerNameRequired": "ヘッダー名を入力するか、このヘッダーを削除してください。",
         "urlsRequired": "URL を 1 件以上入力してください",
         "saveDirRequired": "保存先フォルダーを指定してください",
         "noFilesSelected": "ファイルを 1 個以上選択してください",
@@ -3124,12 +3130,19 @@
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
     "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "以前の Cookie ファイルについては、必要な Cookie ヘッダーを入力してください。HTTP のユーザー名とパスワードについては、同等の Authorization ヘッダーを入力してください。プロキシの認証情報はプロキシ URL に入力してください。",
+    "unsupportedOptions": "未対応のオプション：{{options}}",
+    "requestOptions": "保存されたリクエスト設定：{{options}}",
+    "requestSettingsDescription": "以前のリクエスト設定はコピーされていません。新しいフォルダーにダウンロードする前に、詳細設定で再入力してください。",
+    "reconfigureDownload": "再設定してダウンロード…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
       "metadata-required": "Original torrent file needed",
       "selection-required": "Choose which files to download",
-      "unsupported-options": "Download details need checking",
+      "request-settings-required": "再開前に保存されたリクエスト設定を確認します",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "未対応のダウンロードオプション",
       "invalid-record": "Couldn’t read this task",
       "unsafe-path": "File location needs checking",
       "already-imported": "Already imported",
@@ -3172,14 +3185,21 @@
       "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
       "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
       "controlRequired": "The saved download progress is missing. Download again in a new folder.",
-      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder."
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "ダウンロード済みのデータがサーバーの内容と一致しません。",
+      "httpRangeUnsupported": "サーバーが必要なバイト範囲に対応していません。",
+      "httpValidatorRequired": "サーバーが確実なリソースバージョン識別子を提供していません。",
+      "httpVerificationFailed": "ダウンロード済みのデータを検証できませんでした。",
+      "httpRequestUnsupported": "エンジンまたはリクエスト設定が安全な再開に対応していません。",
+      "httpVerificationCancelled": "検証をキャンセルしました。",
+      "httpRedirectUnsupported": "リダイレクトされるリンクは元の場所で安全に再開できません。"
     },
     "resultIncompleteTitle": "Migration is incomplete",
     "resultStoppedTitle": "Migration stopped",
-    "activationRequired": "Download again in a new folder to keep the original files.",
+    "activationRequired": "タスクの詳細を開き、検証してダウンロードを再開してください。",
     "chooseTorrent": "Choose torrent…",
     "torrentFile": "Torrent file",
-    "verifyAndContinue": "Verify and continue",
+    "verifyAndContinue": "検証して続行",
     "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
     "authorizeOriginalDirectory": "Choose the original download folder",
     "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
@@ -3287,7 +3307,10 @@
         "remaining": "Remaining"
       }
     },
-    "importSelected": "Migrate"
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix はダウンロード済みの全範囲をサーバーと照合し、元のフォルダーで再開します。検証ではその範囲を再転送します。保存されたリクエスト設定はメモリ内でのみ使用します。",
+    "httpVerifying": "準備または検証中…",
+    "httpOriginalFilesKept": "元のファイルを保持しました。"
   },
   "rendererRecovery": {
     "title": "画面の復旧が必要です",

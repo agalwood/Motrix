@@ -1021,6 +1021,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "Zusätzliche Header",
+      "headerName": "Headername",
+      "headerValue": "Headerwert",
+      "addHeader": "Header hinzufügen",
+      "removeHeader": "Header entfernen",
       "title": "Neue Aufgabe",
       "links": "Links",
       "torrent": "Torrent",
@@ -1114,6 +1119,7 @@
         "doc": "Dokument"
       },
       "errors": {
+        "headerNameRequired": "Geben Sie einen Headernamen ein oder entfernen Sie diesen Header.",
         "urlsRequired": "Mindestens eine URL ist erforderlich",
         "saveDirRequired": "Ein Speicherordner ist erforderlich",
         "noFilesSelected": "Wählen Sie mindestens eine Datei aus",
@@ -3146,12 +3152,19 @@
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
     "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "Geben Sie für alte Cookie-Dateien den benötigten Cookie-Header ein. Geben Sie für HTTP-Benutzernamen und -Passwörter einen entsprechenden Authorization-Header ein. Tragen Sie Proxy-Zugangsdaten in die Proxy-URL ein.",
+    "unsupportedOptions": "Nicht unterstützte Optionen: {{options}}",
+    "requestOptions": "Gespeicherte Anfrageeinstellungen: {{options}}",
+    "requestSettingsDescription": "Die alten Anfrageeinstellungen wurden nicht kopiert. Gib sie unter Erweitert erneut ein, bevor du in einen neuen Ordner herunterlädst.",
+    "reconfigureDownload": "Neu konfigurieren und herunterladen…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
       "metadata-required": "Original torrent file needed",
       "selection-required": "Choose which files to download",
-      "unsupported-options": "Download details need checking",
+      "request-settings-required": "Gespeicherte Anfrageeinstellungen werden vor dem Fortsetzen geprüft",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "Nicht unterstützte Downloadoptionen",
       "invalid-record": "Couldn’t read this task",
       "unsafe-path": "File location needs checking",
       "already-imported": "Already imported",
@@ -3194,14 +3207,21 @@
       "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
       "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
       "controlRequired": "The saved download progress is missing. Download again in a new folder.",
-      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder."
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "Die geladenen Daten unterscheiden sich vom Serverinhalt.",
+      "httpRangeUnsupported": "Der Server unterstützt die erforderlichen Bytebereiche nicht.",
+      "httpValidatorRequired": "Der Server liefert keine verlässliche Ressourcenversionskennung.",
+      "httpVerificationFailed": "Die geladenen Daten konnten nicht geprüft werden.",
+      "httpRequestUnsupported": "Die Engine oder Anfrageeinstellungen unterstützen keine sichere Fortsetzung.",
+      "httpVerificationCancelled": "Prüfung abgebrochen.",
+      "httpRedirectUnsupported": "Weitergeleitete Links können nicht sicher am ursprünglichen Ort fortgesetzt werden."
     },
     "resultIncompleteTitle": "Migration is incomplete",
     "resultStoppedTitle": "Migration stopped",
-    "activationRequired": "Download again in a new folder to keep the original files.",
+    "activationRequired": "Öffne die Aufgabendetails, um den Download zu prüfen und fortzusetzen.",
     "chooseTorrent": "Choose torrent…",
     "torrentFile": "Torrent file",
-    "verifyAndContinue": "Verify and continue",
+    "verifyAndContinue": "Prüfen und fortsetzen",
     "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
     "authorizeOriginalDirectory": "Choose the original download folder",
     "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
@@ -3311,7 +3331,10 @@
         "remaining": "Remaining"
       }
     },
-    "importSelected": "Migrate"
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix vergleicht alle geladenen Bereiche mit dem Server und fährt dann im ursprünglichen Ordner fort. Die Prüfung überträgt diese Bereiche erneut; gespeicherte Anfrageeinstellungen bleiben im Arbeitsspeicher.",
+    "httpVerifying": "Wird vorbereitet oder geprüft…",
+    "httpOriginalFilesKept": "Die vorhandenen Dateien wurden beibehalten."
   },
   "rendererRecovery": {
     "title": "Die Oberfläche muss wiederhergestellt werden",

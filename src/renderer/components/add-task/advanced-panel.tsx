@@ -1,4 +1,8 @@
-import { ChevronRightIcon, HelpIcon } from '@renderer/components/icons'
+import {
+  ChevronRightIcon,
+  HelpIcon,
+  RemoveIcon,
+} from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
 import {
   Collapsible,
@@ -10,6 +14,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  useFormField,
 } from '@renderer/components/ui/form'
 import { Input } from '@renderer/components/ui/input'
 import { Textarea } from '@renderer/components/ui/textarea'
@@ -18,7 +23,7 @@ import { cn } from '@renderer/lib/utils'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import type { AddTaskFormValues } from '@shared/schemas/add-task'
 import { type ReactNode, useLayoutEffect, useState } from 'react'
-import { useFormContext, useWatch } from 'react-hook-form'
+import { useFieldArray, useFormContext, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { useAddTaskLayoutChange } from './add-task-layout-context'
 
@@ -27,6 +32,13 @@ export function AdvancedPanel() {
   const [open, setOpen] = useState(false)
   const onLayoutChange = useAddTaskLayoutChange()
   const tab = useWatch<AddTaskFormValues, 'tab'>({ name: 'tab' })
+  const requestOptions = useWatch<AddTaskFormValues, 'legacyRequestOptions'>({
+    name: 'legacyRequestOptions',
+  })
+
+  useLayoutEffect(() => {
+    if (tab === 'links' && requestOptions !== undefined) setOpen(true)
+  }, [requestOptions, tab])
 
   useLayoutEffect(() => {
     onLayoutChange?.(open)
@@ -101,6 +113,7 @@ function LinksAdvancedFields() {
         name="authorization"
         label={t('task.add.authorization')}
       />
+      <ExtraHeadersFields />
       <DenseField
         control={control}
         name="allProxy"
@@ -120,6 +133,90 @@ function LinksAdvancedFields() {
       />
     </>
   )
+}
+
+function ExtraHeadersFields() {
+  const { t } = useTranslation()
+  const { control } = useFormContext<AddTaskFormValues>()
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: 'extraHeaders',
+  })
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-xs text-muted-foreground">
+        {t('task.add.extraHeaders')}
+      </legend>
+      {fields.map((field, index) => (
+        <div key={field.id} className="flex min-w-0 items-center gap-2">
+          <FormField
+            control={control}
+            name={`extraHeaders.${index}.name`}
+            render={({ field: nameField }) => (
+              <FormItem className="min-w-0 flex-1">
+                <FormLabel className="sr-only">
+                  {t('task.add.headerName')}
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    {...nameField}
+                    placeholder={t('task.add.headerName')}
+                    className="h-8 text-xs"
+                  />
+                </FormControl>
+                <HeaderNameError />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={control}
+            name={`extraHeaders.${index}.value`}
+            render={({ field: valueField }) => (
+              <FormItem className="min-w-0 flex-[2]">
+                <FormLabel className="sr-only">
+                  {t('task.add.headerValue')}
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    {...valueField}
+                    placeholder={t('task.add.headerValue')}
+                    className="h-8 text-xs"
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            aria-label={t('task.add.removeHeader')}
+            onClick={() => remove(index)}
+          >
+            <RemoveIcon aria-hidden="true" />
+          </Button>
+        </div>
+      ))}
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={() => append({ name: '', value: '' })}
+      >
+        {t('task.add.addHeader')}
+      </Button>
+    </fieldset>
+  )
+}
+
+function HeaderNameError() {
+  const { t } = useTranslation()
+  const { error, formMessageId } = useFormField()
+  return error ? (
+    <p id={formMessageId} role="alert" className="text-xs text-destructive">
+      {t('task.add.errors.headerNameRequired')}
+    </p>
+  ) : null
 }
 
 function TorrentAdvancedFields() {

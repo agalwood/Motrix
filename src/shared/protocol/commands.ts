@@ -18,6 +18,8 @@ export const Commands = {
   CancelPluginOperation: 'command:cancelPluginOperation',
   PickFile: 'command:pickFile',
   ActivateLegacyBt: 'command:activateLegacyBt',
+  ActivateLegacyHttp: 'command:activateLegacyHttp',
+  CancelLegacyHttpActivation: 'command:cancelLegacyHttpActivation',
   PickLegacyImportSource: 'command:pickLegacyImportSource',
   RevealLegacyImportSource: 'command:revealLegacyImportSource',
   PickLegacyTorrentMetadata: 'command:pickLegacyTorrentMetadata',

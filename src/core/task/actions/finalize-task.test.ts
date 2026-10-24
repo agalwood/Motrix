@@ -8,6 +8,7 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
+import { makeLegacyHttpTask } from '@test-utils/legacy-http-activation'
 import { makeDownloadTask } from '@test-utils/task'
 import { directTaskUpdatePublication } from '@test-utils/task-update'
 import { describe, expect, it, vi } from 'vitest'
@@ -111,6 +112,90 @@ function buildSingleFileTorrent(name: string): Uint8Array {
     Buffer.concat([prefix, Buffer.alloc(20), Buffer.from('ee')])
   )
 }
+
+describe('finalizeTask legacy HTTP binding', () => {
+  it('completes the original file only after exact live progress and binding proof', async () => {
+    const task = makeLegacyHttpTask({ status: TaskStatus.Downloading })
+    const deps = makeDeps({ persistTaskWithOccurrence: vi.fn() })
+    deps.adapter.verifyLegacyHttpBinding = vi.fn().mockResolvedValue(true)
+    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+    vi.mocked(deps.adapter.getTaskStatus).mockResolvedValue({
+      ...task,
+      status: TaskStatus.Completed,
+      downloadedBytes: task.totalBytes,
+    })
+
+    await finalizeTask(task.id, deps)
+
+    expect(deps.adapter.verifyLegacyHttpBinding).toHaveBeenCalledWith({
+      engineTaskId: task.engineTaskId,
+      saveDir: '/original',
+      targetPath: '/original/file.bin',
+      uri: task.uris[0],
+      expected: { totalBytes: 1024, pieceBytes: 512 },
+      entityTag: '"original"',
+      fileIdentity: { device: '1', inode: '2' },
+    })
+    expect(task.status).toBe(TaskStatus.Completed)
+    expect(task.downloadedBytes).toBe(1024)
+    expect(task.diskPath).toBe('/original/file.bin')
+    expect(task.instances[0]).toMatchObject({
+      status: TaskStatus.Completed,
+      diskPath: '/original/file.bin',
+      downloadedBytes: 1024,
+      progress: 100,
+    })
+    expect(deps.persistTaskWithOccurrence).toHaveBeenCalledOnce()
+    expect(deps.fs.renameAtomic).not.toHaveBeenCalled()
+    expect(deps.fs.removePathRecursive).not.toHaveBeenCalled()
+    expect(deps.adapter.removeDownloadResult).not.toHaveBeenCalled()
+    expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { status: TaskStatus.Downloading, totalBytes: 1024, downloadedBytes: 1024 },
+    { status: TaskStatus.Completed, totalBytes: 1024, downloadedBytes: 512 },
+    { status: TaskStatus.Completed, totalBytes: 2048, downloadedBytes: 2048 },
+    { status: TaskStatus.Completed, totalBytes: 1024, downloadedBytes: 2048 },
+  ])('does not finalize a mismatched engine completion %j', async (live) => {
+    const task = makeLegacyHttpTask({ status: TaskStatus.Downloading })
+    const deps = makeDeps({ persistTaskWithOccurrence: vi.fn() })
+    deps.adapter.verifyLegacyHttpBinding = vi.fn().mockResolvedValue(true)
+    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+    vi.mocked(deps.adapter.getTaskStatus).mockResolvedValue({
+      ...task,
+      ...live,
+    })
+    await finalizeTask(task.id, deps)
+    expect(task.status).toBe(TaskStatus.Downloading)
+    expect(deps.persistTaskWithOccurrence).not.toHaveBeenCalled()
+    expect(deps.fs.renameAtomic).not.toHaveBeenCalled()
+  })
+
+  it.each(['binding', 'uri', 'path'])(
+    'does not finalize when the original %s cannot be proved',
+    async (failure) => {
+      const task = makeLegacyHttpTask({ status: TaskStatus.Downloading })
+      if (failure === 'uri')
+        task.instances[0].uris = ['https://changed.example/file']
+      if (failure === 'path') task.finalPath = '/original/another.bin'
+      const deps = makeDeps({ persistTaskWithOccurrence: vi.fn() })
+      deps.adapter.verifyLegacyHttpBinding = vi.fn().mockResolvedValue(false)
+      vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+      vi.mocked(deps.adapter.getTaskStatus).mockResolvedValue({
+        ...task,
+        status: TaskStatus.Completed,
+        downloadedBytes: task.totalBytes,
+      })
+      await finalizeTask(task.id, deps)
+      expect(task.status).toBe(TaskStatus.Downloading)
+      expect(deps.persistTaskWithOccurrence).not.toHaveBeenCalled()
+      expect(deps.fs.renameAtomic).not.toHaveBeenCalled()
+      if (failure !== 'binding')
+        expect(deps.adapter.verifyLegacyHttpBinding).not.toHaveBeenCalled()
+    }
+  )
+})
 
 describe('finalizeTask HTTP/FTP branch', () => {
   it.each([TaskType.Http, TaskType.Ftp])(

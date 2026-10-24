@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import {
+  getLegacyQuarantinedGids,
   hasLegacyImport,
   isInactiveLegacyTask,
 } from '@core/legacy-import/legacy-task-policy'
@@ -18,7 +19,6 @@ import {
   DownloadSourceError,
 } from '@core/task/source-admission'
 import { parseDirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
-import { legacyBtActivationSchema } from '@shared/schemas/legacy-bt-activation'
 import type { DownloadTask } from '@shared/types/task'
 import {
   makeDefaultBtExtension,
@@ -664,24 +664,7 @@ export class SessionManager {
 
     for (const pair of persisted) {
       byMotrixId.set(pair.task.motrixId, pair)
-      for (const instance of pair.instances) {
-        const activation = legacyBtActivationSchema.safeParse(
-          instance.payload.legacyBtActivation
-        )
-        if (isInactiveLegacyTask(pair)) {
-          const raw = instance.payload.legacyBtActivation as
-            | { engineTaskId?: unknown }
-            | undefined
-          if (instance.gid) migrationGids.add(instance.gid)
-          if (activation.success)
-            migrationGids.add(activation.data.engineTaskId)
-          else if (
-            typeof raw?.engineTaskId === 'string' &&
-            /^[a-f0-9]{16}$/.test(raw.engineTaskId)
-          )
-            migrationGids.add(raw.engineTaskId)
-        }
-      }
+      for (const gid of getLegacyQuarantinedGids(pair)) migrationGids.add(gid)
       if (isInactiveLegacyTask(pair)) continue
       if (pair.task.infoHash && !hasLegacyImport(pair)) {
         const infoHash = pair.task.infoHash.toLowerCase()
@@ -740,10 +723,10 @@ export class SessionManager {
     this.taskManager.clear()
     const consumedMotrixIds = new Set<string>()
 
-    // Engine-row evictions collected during Pass 1. Each chain preserves
-    // its own force-remove → purge order and never rejects; batching them
-    // lets N evictions overlap each other and the later passes instead of
-    // serializing 2×N RPC round-trips inline.
+    // Completion observations and engine-row evictions collected during Pass 1.
+    // Each eviction preserves its own force-remove → purge order; batching lets
+    // these operations overlap the later passes without blocking unrelated
+    // history restoration on one task's completion work.
     const evictions: Promise<void>[] = []
     const retireCompleted = (raw: Aria2RawStatus): Promise<void> =>
       observeCompletedTask
@@ -905,7 +888,35 @@ export class SessionManager {
         }
         this.taskManager.set(task.id, task)
         consumedMotrixIds.add(parent.task.motrixId)
-        if (isCompletedDirectOutput(task)) {
+        if (
+          hasLegacyImport(parent) &&
+          task.type === TaskType.Http &&
+          aria2.status === 'complete'
+        ) {
+          // Keep the durable owner and migration provenance on this observation.
+          // A raw translation only carries the GID and would route this through
+          // ordinary direct cleanup instead of verified in-place finalization.
+          if (observeCompletedTask) {
+            evictions.push(
+              Promise.resolve()
+                .then(() =>
+                  observeCompletedTask({
+                    ...task,
+                    status: TaskStatus.Completed,
+                  })
+                )
+                .then(
+                  () => {},
+                  (err) => {
+                    log.warn(
+                      { err, taskId: task.id },
+                      'restore: legacy HTTP completion observation failed'
+                    )
+                  }
+                )
+            )
+          }
+        } else if (isCompletedDirectOutput(task)) {
           evictions.push(retireCompleted(aria2))
         }
       } else {
@@ -1334,7 +1345,14 @@ export class SessionManager {
       })
     }
 
-    const status = translateStatus(aria2)
+    const engineStatus = translateStatus(aria2)
+    // HTTP migration completion still needs its exact live binding verified.
+    const status =
+      hasLegacyImport(pair) &&
+      taskPart.taskType === TaskType.Http &&
+      engineStatus === TaskStatus.Completed
+        ? taskPart.aggStatus
+        : engineStatus
     const terminalFields = applyTerminalTransition(
       terminalFieldsFromRow(taskPart),
       status,
@@ -1390,7 +1408,7 @@ export class SessionManager {
       saveDir: restoreTaskSaveDirectory(taskPart, pair.instances, aria2.dir),
       createdAt: taskPart.createdAt,
       updatedAt: now,
-      uris: extractUris(aria2),
+      uris: hasLegacyImport(pair) ? (primary?.uris ?? []) : extractUris(aria2),
       uploadedBytes,
       uploadedBytesBaseline,
       fileCount,

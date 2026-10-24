@@ -1,9 +1,11 @@
+import { legacyHttpActivationSchema } from '@shared/schemas/legacy-http-activation'
 import {
   TaskKind,
   TaskStatus,
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
+import { makeLegacyHttpTask } from '@test-utils/legacy-http-activation'
 import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CompletedEngineTaskCleanup } from './completed-engine-task-cleanup'
@@ -20,7 +22,22 @@ const output = (overrides = {}) =>
     ...overrides,
   })
 
-function harness(initial = true) {
+function pendingResumeTask() {
+  const task = makeLegacyHttpTask({ status: TaskStatus.Downloading })
+  task.instances[0].payload.legacyHttpActivation = {
+    ...legacyHttpActivationSchema.parse(
+      task.instances[0].payload.legacyHttpActivation
+    ),
+    stage: 'resume-uncertain',
+    retainedContentDigest: 'a'.repeat(64),
+  }
+  return task
+}
+
+function harness(
+  initial = true,
+  finalizeLegacyHttp?: (taskId: string) => Promise<void>
+) {
   const taskManager = new TaskManager()
   if (initial)
     taskManager.set(
@@ -46,6 +63,7 @@ function harness(initial = true) {
     prepareFiles: vi.fn(async () => {
       order.push('files')
     }),
+    finalizeLegacyHttp,
     adapter: {
       forceRemoveTask: vi.fn(async () => {
         order.push('stop')
@@ -58,12 +76,253 @@ function harness(initial = true) {
       fn(),
     log: { warn: vi.fn() },
   }
-  return { ...deps, order, cleanup: new CompletedEngineTaskCleanup(deps) }
+  const runTaskMutation = vi.spyOn(deps, 'runTaskMutation')
+  return {
+    ...deps,
+    runTaskMutation,
+    order,
+    cleanup: new CompletedEngineTaskCleanup(deps),
+  }
 }
 
 afterEach(() => vi.useRealTimers())
 
 describe('CompletedEngineTaskCleanup', () => {
+  it('retains completion observed before the first HTTP resume becomes durable', async () => {
+    vi.useFakeTimers()
+    const active = makeLegacyHttpTask({ status: TaskStatus.Downloading })
+    const uncertain = pendingResumeTask()
+    const finalize = vi.fn(async (taskId: string) => {
+      h.taskManager.set(taskId, { ...active, status: TaskStatus.Completed })
+    })
+    const h = harness(false, finalize)
+    h.taskManager.set(uncertain.id, uncertain)
+    expect(h.taskManager.isEngineTaskIdRetired(uncertain.engineTaskId)).toBe(
+      true
+    )
+
+    await expect(
+      h.cleanup.observe({ ...uncertain, status: TaskStatus.Completed })
+    ).resolves.toBe(true)
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(finalize).not.toHaveBeenCalled()
+    expect(h.taskManager.getById(active.id)?.status).toBe(
+      TaskStatus.Downloading
+    )
+
+    h.taskManager.set(active.id, active)
+    await vi.advanceTimersByTimeAsync(2000)
+
+    expect(finalize).toHaveBeenCalledOnce()
+    expect(h.taskManager.getById(active.id)?.status).toBe(TaskStatus.Completed)
+    expect(h.adopt).not.toHaveBeenCalled()
+    expect(h.adapter.forceRemoveTask).not.toHaveBeenCalled()
+    expect(h.adapter.removeDownloadResult).not.toHaveBeenCalled()
+    await h.cleanup.stopAndDrain()
+  })
+
+  it.each(['removed', 'taken over', 'still uncertain'])(
+    'never finalizes a pending resume that is %s',
+    async (state) => {
+      vi.useFakeTimers()
+      const uncertain = pendingResumeTask()
+      const finalize = vi.fn(async () => {})
+      const h = harness(false, finalize)
+      h.taskManager.set(uncertain.id, uncertain)
+      await h.cleanup.observe({ ...uncertain, status: TaskStatus.Completed })
+
+      if (state === 'removed') h.taskManager.remove(uncertain.id)
+      else if (state === 'taken over') {
+        // Keep the old row too: its stale GID alone is insufficient ownership.
+        h.taskManager.set(
+          uncertain.id,
+          makeLegacyHttpTask({ status: TaskStatus.Downloading })
+        )
+        const replacement = makeLegacyHttpTask({
+          id: 'replacement-owner',
+          status: TaskStatus.Downloading,
+        })
+        h.taskManager.set(replacement.id, replacement)
+      }
+
+      await vi.advanceTimersByTimeAsync(61000)
+
+      expect(finalize).not.toHaveBeenCalled()
+      expect(h.adopt).not.toHaveBeenCalled()
+      expect(h.adapter.forceRemoveTask).not.toHaveBeenCalled()
+      expect(h.adapter.removeDownloadResult).not.toHaveBeenCalled()
+      await h.cleanup.stopAndDrain()
+    }
+  )
+
+  it.each(['marker', 'digest', 'gid', 'path'])(
+    'does not retain an invalid pending resume with a mismatched %s',
+    async (field) => {
+      const uncertain = pendingResumeTask()
+      if (field === 'marker')
+        uncertain.instances[0].payload.legacyImport = { version: 99 }
+      else if (field === 'digest') {
+        const activation = uncertain.instances[0].payload
+          .legacyHttpActivation as Record<string, unknown>
+        delete activation.retainedContentDigest
+      } else if (field === 'gid')
+        uncertain.instances[0].gid = 'aaaaaaaaaaaaaaaa'
+      else uncertain.finalPath = '/original/other.bin'
+      const finalize = vi.fn(async () => {})
+      const h = harness(false, finalize)
+      h.taskManager.set(uncertain.id, uncertain)
+
+      expect(
+        await h.cleanup.observe({ ...uncertain, status: TaskStatus.Completed })
+      ).toBe(false)
+      expect(finalize).not.toHaveBeenCalled()
+      expect(h.adopt).not.toHaveBeenCalled()
+      expect(h.adapter.removeDownloadResult).not.toHaveBeenCalled()
+      await h.cleanup.stopAndDrain()
+    }
+  )
+
+  it.each(['RPC unavailable', 'database busy'])(
+    'retries an owned HTTP migration completion after %s without retiring its engine row',
+    async (message) => {
+      vi.useFakeTimers()
+      const task = makeLegacyHttpTask({ status: TaskStatus.Downloading })
+      const finalize = vi.fn(async (taskId: string) => {
+        h.taskManager.set(
+          taskId,
+          makeLegacyHttpTask({ status: TaskStatus.Completed })
+        )
+      })
+      const h = harness(false, finalize)
+      h.taskManager.set(task.id, task)
+      finalize.mockRejectedValueOnce(new Error(message))
+      const snapshot = { ...task, status: TaskStatus.Completed }
+
+      await expect(h.cleanup.observe(snapshot)).resolves.toBe(true)
+      expect(h.taskManager.getById(task.id)?.status).toBe(
+        TaskStatus.Downloading
+      )
+      expect(finalize).toHaveBeenCalledOnce()
+      await vi.advanceTimersByTimeAsync(999)
+      expect(finalize).toHaveBeenCalledOnce()
+      await vi.advanceTimersByTimeAsync(1)
+
+      expect(finalize).toHaveBeenCalledTimes(2)
+      expect(h.taskManager.getById(task.id)?.status).toBe(TaskStatus.Completed)
+      await h.cleanup.observe(snapshot)
+      expect(finalize).toHaveBeenCalledTimes(2)
+      expect(h.persist).not.toHaveBeenCalled()
+      expect(h.adopt).not.toHaveBeenCalled()
+      expect(h.adapter.forceRemoveTask).not.toHaveBeenCalled()
+      expect(h.adapter.removeDownloadResult).not.toHaveBeenCalled()
+      await h.cleanup.stopAndDrain()
+    }
+  )
+
+  it.each(['removed', 'replaced', 'quarantined', 'error'])(
+    'rechecks migration ownership under the mutation lock before retrying a %s owner',
+    async (change) => {
+      vi.useFakeTimers()
+      const task = makeLegacyHttpTask({ status: TaskStatus.Downloading })
+      const finalize = vi.fn().mockRejectedValue(new Error('RPC unavailable'))
+      const h = harness(false, finalize)
+      h.taskManager.set(task.id, task)
+      await h.cleanup.observe({ ...task, status: TaskStatus.Completed })
+      h.runTaskMutation.mockImplementationOnce(async (_ids, operation) => {
+        if (change === 'removed') h.taskManager.remove(task.id)
+        else if (change === 'replaced') {
+          h.taskManager.set(
+            task.id,
+            makeLegacyHttpTask({ engineTaskId: 'aaaaaaaaaaaaaaaa' })
+          )
+        } else if (change === 'quarantined') {
+          const quarantined = makeLegacyHttpTask()
+          quarantined.instances[0].payload.legacyImport = { version: 99 }
+          h.taskManager.set(task.id, quarantined)
+        } else {
+          h.taskManager.set(
+            task.id,
+            makeLegacyHttpTask({ status: TaskStatus.Error })
+          )
+        }
+        return operation()
+      })
+
+      await vi.advanceTimersByTimeAsync(60000)
+
+      expect(finalize).toHaveBeenCalledOnce()
+      expect(h.adapter.forceRemoveTask).not.toHaveBeenCalled()
+      expect(h.adapter.removeDownloadResult).not.toHaveBeenCalled()
+      await h.cleanup.stopAndDrain()
+    }
+  )
+
+  it('does not adopt an ownerless migration or run it without its verified finalizer', async () => {
+    const task = makeLegacyHttpTask({ status: TaskStatus.Completed })
+    const finalize = vi.fn(async () => {})
+    const ownerless = harness(false, finalize)
+    expect(await ownerless.cleanup.observe(task)).toBe(false)
+    expect(finalize).not.toHaveBeenCalled()
+    expect(ownerless.adopt).not.toHaveBeenCalled()
+    const unsupported = harness(false)
+    unsupported.taskManager.set(task.id, task)
+    expect(await unsupported.cleanup.observe(task)).toBe(false)
+    expect(unsupported.adapter.removeDownloadResult).not.toHaveBeenCalled()
+    await ownerless.cleanup.stopAndDrain()
+    await unsupported.cleanup.stopAndDrain()
+  })
+
+  it('backs off an unconfirmed migration completion while preserving its owner', async () => {
+    vi.useFakeTimers()
+    const task = makeLegacyHttpTask({ status: TaskStatus.Downloading })
+    const finalize = vi.fn(async () => {})
+    const h = harness(false, finalize)
+    h.taskManager.set(task.id, task)
+    await h.cleanup.observe({ ...task, status: TaskStatus.Completed })
+
+    await vi.advanceTimersByTimeAsync(61000)
+    expect(finalize).toHaveBeenCalledTimes(7)
+    await vi.advanceTimersByTimeAsync(29999)
+    expect(finalize).toHaveBeenCalledTimes(7)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(finalize).toHaveBeenCalledTimes(8)
+    expect(h.taskManager.getById(task.id)?.status).toBe(TaskStatus.Downloading)
+    expect(h.adapter.removeDownloadResult).not.toHaveBeenCalled()
+
+    await h.cleanup.stopAndDrain()
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(finalize).toHaveBeenCalledTimes(8)
+  })
+
+  it('drains migration finalization and cancels its pending retry on shutdown', async () => {
+    vi.useFakeTimers()
+    const task = makeLegacyHttpTask({ status: TaskStatus.Downloading })
+    let reject!: (error: Error) => void
+    const finalize = vi.fn(
+      () =>
+        new Promise<void>((_resolve, fail) => {
+          reject = fail
+        })
+    )
+    const h = harness(false, finalize)
+    h.taskManager.set(task.id, task)
+    const observed = h.cleanup.observe({
+      ...task,
+      status: TaskStatus.Completed,
+    })
+    let drained = false
+    const drain = h.cleanup.stopAndDrain().then(() => {
+      drained = true
+    })
+    await Promise.resolve()
+    expect(drained).toBe(false)
+    reject(new Error('RPC unavailable'))
+    await Promise.all([observed, drain])
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(drained).toBe(true)
+    expect(finalize).toHaveBeenCalledOnce()
+  })
+
   it('persists final-path completion and files before purging the engine', async () => {
     const h = harness()
     expect(await h.cleanup.observe(output())).toBe(true)

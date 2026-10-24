@@ -665,6 +665,9 @@ export class LegacyImportService {
         activation: 'inactive',
         storagePolicy: 'legacy-read-only',
         reason: candidate.item.reason,
+        ...(candidate.item.requestOptions?.length
+          ? { requestOptions: candidate.item.requestOptions }
+          : {}),
         selectionKnown: candidate.selectionKnown,
         selectedFiles: candidate.selectedFiles,
       },

@@ -6,6 +6,7 @@ import {
   TaskStatus,
   TransitionPhase,
 } from '@shared/types/task'
+import { makeLegacyHttpTask } from '@test-utils/legacy-http-activation'
 import { makeDownloadTask } from '@test-utils/task'
 import { describe, expect, it } from 'vitest'
 import { mergeEngineTask } from './merge-engine-task'
@@ -35,6 +36,21 @@ function instance(status: TaskStatus, index = 0): TaskInstance {
 }
 
 describe('mergeEngineTask', () => {
+  it('retains the original HTTP migration URI and status until completion is verified', () => {
+    const existing = makeLegacyHttpTask({ status: TaskStatus.Downloading })
+    const merged = mergeEngineTask(existing, {
+      ...existing,
+      status: TaskStatus.Completed,
+      downloadedBytes: existing.totalBytes,
+      uris: ['https://redirect.example.com/temporary-signed-url'],
+    })
+    expect(merged.uris).toEqual(existing.uris)
+    expect(merged.instances[0].uris).toEqual(existing.instances[0].uris)
+    expect(merged.status).toBe(TaskStatus.Downloading)
+    expect(merged.instances[0].status).toBe(TaskStatus.Downloading)
+    expect(merged.finishedAt).toBeNull()
+    expect(merged.downloadedBytes).toBe(existing.totalBytes)
+  })
   it.each([TaskStatus.Completed, TaskStatus.Error])(
     'preserves imported %s history against a late paused replay',
     (status) => {

@@ -2731,6 +2731,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "Ekstra headere",
+      "headerName": "Headernavn",
+      "headerValue": "Headerverdi",
+      "addHeader": "Legg til header",
+      "removeHeader": "Fjern header",
       "adding": "Legger til…",
       "advanced": "Avansert",
       "allProxy": "Mellomtjener",
@@ -2761,6 +2766,7 @@
         "title": "Denne torrenten finnes allerede"
       },
       "errors": {
+        "headerNameRequired": "Angi et headernavn eller fjern denne headeren.",
         "missingSource": "En torrentfil eller magnetlenke kreves",
         "noFilesSelected": "Velg minst én fil",
         "saveDirRequired": "Lagringsmappe kreves",
@@ -3146,12 +3152,19 @@
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
     "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "For gamle informasjonskapselfiler angir du den nødvendige Cookie-headeren. For HTTP-brukernavn og -passord angir du en tilsvarende Authorization-header. Angi proxyens påloggingsinformasjon i proxy-URL-en.",
+    "unsupportedOptions": "Alternativer som ikke støttes: {{options}}",
+    "requestOptions": "Lagrede forespørselsinnstillinger: {{options}}",
+    "requestSettingsDescription": "De gamle forespørselsinnstillingene ble ikke kopiert. Skriv dem inn på nytt under Avansert før du laster ned til en ny mappe.",
+    "reconfigureDownload": "Konfigurer på nytt og last ned…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
       "metadata-required": "Original torrent file needed",
       "selection-required": "Choose which files to download",
-      "unsupported-options": "Download details need checking",
+      "request-settings-required": "Lagrede forespørselsinnstillinger kontrolleres før gjenopptakelse",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "Nedlastingsalternativer som ikke støttes",
       "invalid-record": "Couldn’t read this task",
       "unsafe-path": "File location needs checking",
       "already-imported": "Already imported",
@@ -3194,14 +3207,21 @@
       "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
       "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
       "controlRequired": "The saved download progress is missing. Download again in a new folder.",
-      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder."
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "De nedlastede dataene er forskjellige fra serverinnholdet.",
+      "httpRangeUnsupported": "Serveren støtter ikke de nødvendige byteområdene.",
+      "httpValidatorRequired": "Serveren oppgir ingen pålitelig identifikator for ressursversjonen.",
+      "httpVerificationFailed": "De nedlastede dataene kunne ikke kontrolleres.",
+      "httpRequestUnsupported": "Motoren eller forespørselsinnstillingene støtter ikke trygg gjenopptakelse.",
+      "httpVerificationCancelled": "Kontrollen ble avbrutt.",
+      "httpRedirectUnsupported": "Videresendte lenker kan ikke gjenopptas trygt på det opprinnelige stedet."
     },
     "resultIncompleteTitle": "Migration is incomplete",
     "resultStoppedTitle": "Migration stopped",
-    "activationRequired": "Download again in a new folder to keep the original files.",
+    "activationRequired": "Åpne oppgavedetaljene for å kontrollere og gjenoppta nedlastingen.",
     "chooseTorrent": "Choose torrent…",
     "torrentFile": "Torrent file",
-    "verifyAndContinue": "Verify and continue",
+    "verifyAndContinue": "Kontroller og fortsett",
     "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
     "authorizeOriginalDirectory": "Choose the original download folder",
     "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
@@ -3311,7 +3331,10 @@
         "remaining": "Remaining"
       }
     },
-    "importSelected": "Migrate"
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix sammenligner alle nedlastede områder med serveren og fortsetter deretter i den opprinnelige mappen. Kontrollen overfører områdene på nytt; lagrede forespørselsinnstillinger forblir i minnet.",
+    "httpVerifying": "Forbereder eller kontrollerer…",
+    "httpOriginalFilesKept": "De eksisterende filene ble beholdt."
   },
   "rendererRecovery": {
     "title": "Grensesnittet må gjenopprettes",

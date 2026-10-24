@@ -2751,6 +2751,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "Capçaleres addicionals",
+      "headerName": "Nom de la capçalera",
+      "headerValue": "Valor de la capçalera",
+      "addHeader": "Afegeix una capçalera",
+      "removeHeader": "Elimina la capçalera",
       "adding": "S'està afegint…",
       "advanced": "Opcions avançades",
       "allProxy": "Servidor intermediari",
@@ -2781,6 +2786,7 @@
         "title": "Aquest torrent ja existeix"
       },
       "errors": {
+        "headerNameRequired": "Introduïu un nom per a la capçalera o elimineu-la.",
         "missingSource": "Cal un fitxer torrent o un enllaç magnet",
         "noFilesSelected": "Seleccioneu almenys un fitxer",
         "saveDirRequired": "Cal una carpeta de destinació",
@@ -3168,12 +3174,19 @@
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
     "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "Per als fitxers de galetes anteriors, introduïu la capçalera Cookie necessària. Per als noms d’usuari i contrasenyes HTTP, introduïu una capçalera Authorization equivalent. Introduïu les credencials del servidor intermediari a l’URL del servidor intermediari.",
+    "unsupportedOptions": "Opcions no compatibles: {{options}}",
+    "requestOptions": "Configuració de petició desada: {{options}}",
+    "requestSettingsDescription": "La configuració antiga de petició no s’ha copiat. Torna-la a introduir a Avançat abans de baixar en una carpeta nova.",
+    "reconfigureDownload": "Torna a configurar i baixa…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
       "metadata-required": "Original torrent file needed",
       "selection-required": "Choose which files to download",
-      "unsupported-options": "Download details need checking",
+      "request-settings-required": "Es comprovarà la configuració de petició desada abans de reprendre",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "Opcions de baixada no compatibles",
       "invalid-record": "Couldn’t read this task",
       "unsafe-path": "File location needs checking",
       "already-imported": "Already imported",
@@ -3216,14 +3229,21 @@
       "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
       "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
       "controlRequired": "The saved download progress is missing. Download again in a new folder.",
-      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder."
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "Les dades baixades difereixen del contingut del servidor.",
+      "httpRangeUnsupported": "El servidor no admet els intervals de bytes necessaris.",
+      "httpValidatorRequired": "El servidor no proporciona un identificador fiable de la versió del recurs.",
+      "httpVerificationFailed": "No s’han pogut verificar les dades baixades.",
+      "httpRequestUnsupported": "El motor o la configuració de petició no permeten reprendre amb seguretat.",
+      "httpVerificationCancelled": "Verificació cancel·lada.",
+      "httpRedirectUnsupported": "Els enllaços redirigits no es poden reprendre amb seguretat a la ubicació original."
     },
     "resultIncompleteTitle": "Migration is incomplete",
     "resultStoppedTitle": "Migration stopped",
-    "activationRequired": "Download again in a new folder to keep the original files.",
+    "activationRequired": "Obre els detalls de la tasca per verificar i reprendre la baixada.",
     "chooseTorrent": "Choose torrent…",
     "torrentFile": "Torrent file",
-    "verifyAndContinue": "Verify and continue",
+    "verifyAndContinue": "Verifica i continua",
     "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
     "authorizeOriginalDirectory": "Choose the original download folder",
     "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
@@ -3335,7 +3355,10 @@
         "remaining": "Remaining"
       }
     },
-    "importSelected": "Migrate"
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix compararà tots els intervals baixats amb el servidor i continuarà a la carpeta original. La verificació torna a transferir aquests intervals; la configuració de petició desada roman a la memòria.",
+    "httpVerifying": "Preparant o verificant…",
+    "httpOriginalFilesKept": "S’han conservat els fitxers existents."
   },
   "rendererRecovery": {
     "title": "Cal recuperar la interfície",

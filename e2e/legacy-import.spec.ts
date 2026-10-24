@@ -69,6 +69,140 @@ async function expandTaskGroups(page: Page) {
 }
 
 test.describe('v1 task import', () => {
+  test('migrates paused HTTP tasks with request settings while preserving blocked records and original files', async ({
+    userDataDir,
+    rpcPort,
+  }, testInfo) => {
+    const source = await legacyProfile(userDataDir)
+    const sessionPath = path.join(source, 'download.session')
+    const session = `${await readFile(sessionPath, 'utf8')} header=Authorization: Bearer LEGACY_AUTH_SECRET\n header=Referer: https://example.invalid/private-page\nhttps://example.invalid/blocked.zip\n gid=2234567890abcdef\n out=blocked.zip\n on-download-complete=LEGACY_COMMAND_SECRET\n`
+    await writeFile(sessionPath, session)
+    await writeFile(
+      path.join(source, 'system.json'),
+      JSON.stringify({
+        dir: path.join(source, 'downloads'),
+        'all-proxy': 'http://user:LEGACY_PROXY_SECRET@proxy.example:8080',
+      })
+    )
+    const app = await launchMotrix({
+      userDataDir,
+      rpcPort,
+      extraEnv: { MOTRIX_LEGACY_PROFILE: source },
+    })
+    try {
+      const page = await firstPage(app)
+      await page.getByRole('button', { name: 'Continue', exact: true }).click()
+      await expandTaskGroups(page)
+      const archive = page.getByRole('checkbox', {
+        name: 'archive.zip',
+        exact: true,
+      })
+      await expect(archive).toBeEnabled()
+      await expect(archive).toBeChecked()
+      await expect(
+        page.getByRole('checkbox', { name: 'blocked.zip', exact: true })
+      ).toBeDisabled()
+      await expect(page.locator('[data-import-group="http"]')).toBeVisible()
+      const body = await page.locator('body').innerText()
+      for (const secret of [
+        'LEGACY_AUTH_SECRET',
+        'LEGACY_PROXY_SECRET',
+        'LEGACY_COMMAND_SECRET',
+      ])
+        expect(body).not.toContain(secret)
+      await page.screenshot({
+        path: testInfo.outputPath('request-settings-preview.png'),
+      })
+      await page.getByRole('button', { name: 'Migrate', exact: true }).click()
+      await expect(
+        page
+          .getByLabel('Migration summary')
+          .getByText('1 task', { exact: true })
+          .first()
+      ).toBeVisible()
+      const tasks = (await invoke(page, Queries.ListTasks)) as Array<{
+        id: string
+        instances: Array<{
+          gid: string | null
+          payload: Record<string, unknown>
+        }>
+      }>
+      expect(tasks).toEqual([
+        expect.objectContaining({
+          name: 'archive.zip',
+          status: 'paused',
+          engineTaskId: '',
+        }),
+      ])
+      expect(tasks[0].instances[0].payload.legacyImport).toMatchObject({
+        activation: 'inactive',
+        reason: 'request-settings-required',
+        requestOptions: expect.arrayContaining(['header', 'all-proxy']),
+      })
+      await expect(
+        invoke(page, Commands.ResumeTask, tasks[0].id)
+      ).rejects.toThrow()
+      expect(JSON.stringify(tasks)).not.toContain('LEGACY_AUTH_SECRET')
+      expect(JSON.stringify(tasks)).not.toContain('LEGACY_PROXY_SECRET')
+      expect(await readFile(sessionPath, 'utf8')).toBe(session)
+      expect(
+        await readFile(path.join(source, 'downloads', 'archive.zip'), 'utf8')
+      ).toBe('original v1 bytes')
+      await page.getByRole('button', { name: 'View downloads' }).click()
+      await page.locator(`[data-task-id="${tasks[0].id}"]`).dblclick()
+      await page
+        .getByRole('button', { name: 'Reconfigure and download…' })
+        .click()
+      const confirmation = page.getByRole('alertdialog')
+      await expect(confirmation).toContainText(
+        'The old request settings were not copied.'
+      )
+      await app.evaluate(({ dialog }, directory) => {
+        dialog.showOpenDialog = async () => ({
+          canceled: false,
+          filePaths: [directory],
+        })
+      }, userDataDir)
+      await confirmation
+        .getByRole('button', { name: 'Choose another location…' })
+        .click()
+      await expect
+        .poll(() =>
+          app.windows().some((window) => window.url().includes('w=add-task'))
+        )
+        .toBe(true)
+      const addTask = app
+        .windows()
+        .find((window) => window.url().includes('w=add-task'))
+      expect(addTask).toBeDefined()
+      if (!addTask) throw new Error('Add-task window did not open')
+      await expect(addTask.getByRole('alert')).toContainText(
+        'Saved request settings: header, all-proxy'
+      )
+      await expect(
+        addTask.getByRole('button', { name: 'Advanced', exact: true })
+      ).toHaveAttribute('aria-expanded', 'true')
+      await expect(
+        addTask.getByRole('button', { name: 'Add header' })
+      ).toBeVisible()
+      await addTask.getByRole('button', { name: 'Add header' }).click()
+      await addTask
+        .getByLabel('Header name', { exact: true })
+        .fill('X-Download-Key')
+      await addTask
+        .getByLabel('Header value', { exact: true })
+        .fill('new-value')
+      await addTask.screenshot({
+        path: testInfo.outputPath('request-settings-form.png'),
+      })
+      expect((await invoke(page, Queries.ListTasks)) as unknown[]).toHaveLength(
+        1
+      )
+    } finally {
+      await app.close().catch(() => {})
+    }
+  })
+
   test('retains invalid source paths and recovers through the native folder picker', async ({
     userDataDir,
     rpcPort,
