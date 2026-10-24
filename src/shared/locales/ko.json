@@ -1009,6 +1009,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "추가 헤더",
+      "headerName": "헤더 이름",
+      "headerValue": "헤더 값",
+      "addHeader": "헤더 추가",
+      "removeHeader": "헤더 제거",
       "title": "새 작업",
       "links": "링크",
       "torrent": "토렌트",
@@ -1101,6 +1106,7 @@
         "doc": "문서"
       },
       "errors": {
+        "headerNameRequired": "헤더 이름을 입력하거나 이 헤더를 제거하세요.",
         "urlsRequired": "URL을 하나 이상 입력하세요",
         "saveDirRequired": "저장 폴더를 지정하세요",
         "noFilesSelected": "파일을 하나 이상 선택하세요",
@@ -3124,12 +3130,19 @@
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
     "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "이전 쿠키 파일을 사용했다면 필요한 Cookie 헤더를 입력하세요. HTTP 사용자 이름과 비밀번호를 사용했다면 이에 해당하는 Authorization 헤더를 입력하세요. 프록시 인증 정보는 프록시 URL에 입력하세요.",
+    "unsupportedOptions": "지원하지 않는 옵션: {{options}}",
+    "requestOptions": "저장된 요청 설정: {{options}}",
+    "requestSettingsDescription": "이전 요청 설정은 복사되지 않았습니다. 새 폴더에 다운로드하기 전에 고급 설정에서 다시 입력하세요.",
+    "reconfigureDownload": "다시 설정하고 다운로드…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
       "metadata-required": "Original torrent file needed",
       "selection-required": "Choose which files to download",
-      "unsupported-options": "Download details need checking",
+      "request-settings-required": "재개 전에 저장된 요청 설정을 확인합니다",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "지원하지 않는 다운로드 옵션",
       "invalid-record": "Couldn’t read this task",
       "unsafe-path": "File location needs checking",
       "already-imported": "Already imported",
@@ -3172,14 +3185,21 @@
       "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
       "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
       "controlRequired": "The saved download progress is missing. Download again in a new folder.",
-      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder."
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "다운로드한 데이터가 서버 내용과 다릅니다.",
+      "httpRangeUnsupported": "서버가 필요한 바이트 범위를 지원하지 않습니다.",
+      "httpValidatorRequired": "서버가 신뢰할 수 있는 리소스 버전 식별자를 제공하지 않습니다.",
+      "httpVerificationFailed": "다운로드한 데이터를 검증하지 못했습니다.",
+      "httpRequestUnsupported": "엔진 또는 요청 설정이 안전한 재개를 지원하지 않습니다.",
+      "httpVerificationCancelled": "검증을 취소했습니다.",
+      "httpRedirectUnsupported": "리디렉션되는 링크는 원래 위치에서 안전하게 재개할 수 없습니다."
     },
     "resultIncompleteTitle": "Migration is incomplete",
     "resultStoppedTitle": "Migration stopped",
-    "activationRequired": "Download again in a new folder to keep the original files.",
+    "activationRequired": "작업 상세 정보를 열어 검증 후 다운로드를 재개하세요.",
     "chooseTorrent": "Choose torrent…",
     "torrentFile": "Torrent file",
-    "verifyAndContinue": "Verify and continue",
+    "verifyAndContinue": "검증 후 계속",
     "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
     "authorizeOriginalDirectory": "Choose the original download folder",
     "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
@@ -3287,7 +3307,10 @@
         "remaining": "Remaining"
       }
     },
-    "importSelected": "Migrate"
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix는 다운로드한 모든 범위를 서버와 비교한 후 원래 폴더에서 계속합니다. 검증 시 해당 범위를 다시 전송하며, 저장된 요청 설정은 메모리에서만 사용합니다.",
+    "httpVerifying": "준비 또는 검증 중…",
+    "httpOriginalFilesKept": "원본 파일을 보존했습니다."
   },
   "rendererRecovery": {
     "title": "화면을 복구해야 합니다",

@@ -2711,6 +2711,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "ส่วนหัวเพิ่มเติม",
+      "headerName": "ชื่อส่วนหัว",
+      "headerValue": "ค่าส่วนหัว",
+      "addHeader": "เพิ่มส่วนหัว",
+      "removeHeader": "ลบส่วนหัว",
       "adding": "กำลังเพิ่ม…",
       "advanced": "ขั้นสูง",
       "allProxy": "พร็อกซี",
@@ -2741,6 +2746,7 @@
         "title": "มีทอร์เรนต์นี้อยู่แล้ว"
       },
       "errors": {
+        "headerNameRequired": "ป้อนชื่อส่วนหัวหรือลบส่วนหัวนี้",
         "missingSource": "ต้องมีไฟล์ทอร์เรนต์หรือลิงก์แมกเน็ต",
         "noFilesSelected": "เลือกอย่างน้อยหนึ่งไฟล์",
         "saveDirRequired": "ต้องระบุโฟลเดอร์บันทึก",
@@ -3124,12 +3130,19 @@
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
     "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "สำหรับไฟล์คุกกี้เดิม ให้ป้อนส่วนหัว Cookie ที่จำเป็น สำหรับชื่อผู้ใช้และรหัสผ่าน HTTP ให้ป้อนส่วนหัว Authorization ที่เทียบเท่ากัน ป้อนข้อมูลรับรองพร็อกซีใน URL ของพร็อกซี",
+    "unsupportedOptions": "ตัวเลือกที่ไม่รองรับ: {{options}}",
+    "requestOptions": "การตั้งค่าคำขอที่บันทึกไว้: {{options}}",
+    "requestSettingsDescription": "ไม่ได้คัดลอกการตั้งค่าคำขอเดิม โปรดกรอกอีกครั้งในขั้นสูงก่อนดาวน์โหลดลงโฟลเดอร์ใหม่",
+    "reconfigureDownload": "ตั้งค่าใหม่และดาวน์โหลด…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
       "metadata-required": "Original torrent file needed",
       "selection-required": "Choose which files to download",
-      "unsupported-options": "Download details need checking",
+      "request-settings-required": "จะตรวจสอบการตั้งค่าคำขอที่บันทึกไว้ก่อนดาวน์โหลดต่อ",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "ตัวเลือกการดาวน์โหลดที่ไม่รองรับ",
       "invalid-record": "Couldn’t read this task",
       "unsafe-path": "File location needs checking",
       "already-imported": "Already imported",
@@ -3172,14 +3185,21 @@
       "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
       "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
       "controlRequired": "The saved download progress is missing. Download again in a new folder.",
-      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder."
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "ข้อมูลที่ดาวน์โหลดแล้วต่างจากเนื้อหาบนเซิร์ฟเวอร์",
+      "httpRangeUnsupported": "เซิร์ฟเวอร์ไม่รองรับช่วงไบต์ที่จำเป็น",
+      "httpValidatorRequired": "เซิร์ฟเวอร์ไม่มีตัวระบุเวอร์ชันทรัพยากรที่เชื่อถือได้",
+      "httpVerificationFailed": "ไม่สามารถตรวจสอบข้อมูลที่ดาวน์โหลดแล้วได้",
+      "httpRequestUnsupported": "เอนจินหรือการตั้งค่าคำขอไม่รองรับการดาวน์โหลดต่ออย่างปลอดภัย",
+      "httpVerificationCancelled": "ยกเลิกการตรวจสอบแล้ว",
+      "httpRedirectUnsupported": "ไม่สามารถดาวน์โหลดลิงก์ที่เปลี่ยนเส้นทางต่อในตำแหน่งเดิมได้อย่างปลอดภัย"
     },
     "resultIncompleteTitle": "Migration is incomplete",
     "resultStoppedTitle": "Migration stopped",
-    "activationRequired": "Download again in a new folder to keep the original files.",
+    "activationRequired": "เปิดรายละเอียดงานเพื่อตรวจสอบและดาวน์โหลดต่อ",
     "chooseTorrent": "Choose torrent…",
     "torrentFile": "Torrent file",
-    "verifyAndContinue": "Verify and continue",
+    "verifyAndContinue": "ตรวจสอบและดำเนินการต่อ",
     "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
     "authorizeOriginalDirectory": "Choose the original download folder",
     "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
@@ -3287,7 +3307,10 @@
         "remaining": "Remaining"
       }
     },
-    "importSelected": "Migrate"
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix จะเปรียบเทียบข้อมูลทุกช่วงที่ดาวน์โหลดแล้วกับเซิร์ฟเวอร์ก่อนดาวน์โหลดต่อในโฟลเดอร์เดิม การตรวจสอบจะถ่ายโอนข้อมูลเหล่านั้นอีกครั้ง โดยใช้การตั้งค่าคำขอที่บันทึกไว้ในหน่วยความจำเท่านั้น",
+    "httpVerifying": "กำลังเตรียมหรือตรวจสอบ…",
+    "httpOriginalFilesKept": "เก็บไฟล์เดิมไว้แล้ว"
   },
   "rendererRecovery": {
     "title": "ต้องกู้คืนส่วนติดต่อ",

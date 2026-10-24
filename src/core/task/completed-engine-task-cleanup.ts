@@ -1,5 +1,12 @@
 import type { EngineAdapter } from '@core/engine/engine-adapter'
-import { type DownloadTask, TaskStatus } from '@shared/types/task'
+import {
+  getLegacyHttpBindingInput,
+  hasLegacyImport,
+  isInactiveLegacyTask,
+} from '@core/legacy-import/legacy-task-policy'
+import { legacyHttpActivationSchema } from '@shared/schemas/legacy-http-activation'
+import { legacyTaskMetadataSchema } from '@shared/schemas/legacy-import'
+import { type DownloadTask, TaskStatus, TaskType } from '@shared/types/task'
 import type { TaskOccurrence } from '@shared/types/task-occurrence'
 import {
   buildTerminalOccurrence,
@@ -28,6 +35,8 @@ interface CleanupDeps {
   publish: () => void
   dispatch: (occurrence: TaskOccurrence) => Promise<void>
   prepareFiles?: (task: DownloadTask) => Promise<void>
+  /** Runs under the task mutation lock; verifies and persists without eviction. */
+  finalizeLegacyHttp?: (taskId: string) => Promise<void>
   runTaskMutation: <T>(
     ids: readonly string[],
     operation: () => Promise<T>
@@ -39,8 +48,29 @@ interface PendingCompletion {
   snapshot: DownloadTask
   ownerId: string
   adopted: boolean
+  legacyHttp: boolean
   attempts: number
   retryAt: number
+}
+
+function isPendingLegacyHttpResume(task: DownloadTask): boolean {
+  if (task.type !== TaskType.Http || task.instances.length !== 1) return false
+  const instance = task.instances[0]
+  const marker = legacyTaskMetadataSchema.safeParse(
+    instance.payload.legacyImport
+  )
+  const activation = legacyHttpActivationSchema.safeParse(
+    instance.payload.legacyHttpActivation
+  )
+  return (
+    marker.success &&
+    marker.data.activation === 'active' &&
+    marker.data.storagePolicy === 'legacy-http-in-place' &&
+    activation.success &&
+    activation.data.stage === 'resume-uncertain' &&
+    instance.gid === task.engineTaskId &&
+    getLegacyHttpBindingInput(task)?.engineTaskId === task.engineTaskId
+  )
 }
 
 function completeMetrics(task: DownloadTask): void {
@@ -74,7 +104,17 @@ export class CompletedEngineTaskCleanup {
   async observe(snapshot: DownloadTask): Promise<boolean> {
     const gid = snapshot.engineTaskId
     const owner = this.deps.taskManager.getByEngineTaskId(gid)
-    if (!gid || !isDirectFinalOutput(owner ?? snapshot)) return false
+    const pendingResume = owner && isPendingLegacyHttpResume(owner)
+    const legacyHttp = Boolean(
+      this.deps.finalizeLegacyHttp &&
+        owner &&
+        owner.type === TaskType.Http &&
+        hasLegacyImport(owner) &&
+        (!isInactiveLegacyTask(owner) || pendingResume) &&
+        snapshot.status === TaskStatus.Completed
+    )
+    if (!gid || (!legacyHttp && !isDirectFinalOutput(owner ?? snapshot)))
+      return false
     if (
       !isCompletedDirectOutput(owner ?? snapshot) &&
       snapshot.status !== TaskStatus.Completed
@@ -86,8 +126,12 @@ export class CompletedEngineTaskCleanup {
       owner?.status === TaskStatus.Removed
     )
       return false
-    if (this.stopped || this.deps.taskManager.isEngineTaskIdRetired(gid))
+    if (
+      this.stopped ||
+      (this.deps.taskManager.isEngineTaskIdRetired(gid) && !pendingResume)
+    )
       return true
+    if (legacyHttp && owner?.status === TaskStatus.Completed) return true
 
     const completionKey = owner ? `${owner.id}:${owner.finishedAt}` : ''
     if (
@@ -101,6 +145,7 @@ export class CompletedEngineTaskCleanup {
       snapshot: structuredClone(snapshot),
       ownerId: owner?.id ?? previous?.ownerId ?? this.deps.mintTaskId(),
       adopted: owner !== undefined || previous?.adopted === true,
+      legacyHttp,
       attempts: previous?.attempts ?? 0,
       retryAt: 0,
     })
@@ -152,7 +197,54 @@ export class CompletedEngineTaskCleanup {
     gid: string,
     pending: PendingCompletion
   ): Promise<void> {
-    if (this.deps.taskManager.isEngineTaskIdRetired(gid)) return
+    if (!pending.legacyHttp && this.deps.taskManager.isEngineTaskIdRetired(gid))
+      return
+    if (pending.legacyHttp) {
+      await this.deps.runTaskMutation([pending.ownerId], async () => {
+        const current = this.deps.taskManager.getById(pending.ownerId)
+        if (
+          !current ||
+          current.engineTaskId !== gid ||
+          this.deps.taskManager.getByEngineTaskId(gid)?.id !==
+            pending.ownerId ||
+          current.type !== TaskType.Http ||
+          !hasLegacyImport(current) ||
+          [TaskStatus.Completed, TaskStatus.Error, TaskStatus.Removed].includes(
+            current.status
+          )
+        )
+          return
+        // The first unpause can complete before its active marker is committed.
+        // Retain that observation, but never finalize an uncertain binding.
+        if (isPendingLegacyHttpResume(current)) {
+          throw new Error('Legacy HTTP resume is not yet durable')
+        }
+        if (
+          this.deps.taskManager.isEngineTaskIdRetired(gid) ||
+          isInactiveLegacyTask(current)
+        )
+          return
+        // Native migration keeps its original row and paths. Only its verified
+        // finalizer may publish completion; ordinary adoption/purge cannot run.
+        await this.deps.finalizeLegacyHttp?.(current.id)
+        const after = this.deps.taskManager.getById(pending.ownerId)
+        if (
+          after?.engineTaskId === gid &&
+          hasLegacyImport(after) &&
+          !isInactiveLegacyTask(after) &&
+          ![
+            TaskStatus.Completed,
+            TaskStatus.Error,
+            TaskStatus.Removed,
+          ].includes(after.status)
+        ) {
+          // Binding probes may return false for transient RPC/filesystem errors.
+          // A resolved finalizer is insufficient until its completion is durable.
+          throw new Error('Legacy HTTP completion could not be verified')
+        }
+      })
+      return
+    }
     if (!pending.adopted) {
       const existing = this.deps.taskManager.getByEngineTaskId(gid)
       if (existing) {

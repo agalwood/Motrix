@@ -37,6 +37,7 @@ import {
   taskInspectorActivityEnvironment,
 } from '@core/inspector-activity'
 import { LegacyBtActivationService } from '@core/legacy-import/bt-activation-service'
+import { LegacyHttpActivationService } from '@core/legacy-import/http-activation-service'
 import { LegacyImportService } from '@core/legacy-import/import-service'
 import {
   getLegacyQuarantinedGids,
@@ -537,6 +538,7 @@ let segmentClient: Aria2SegmentClient | null = null
 let disposeIpcIngress: (() => void) | null = null
 let legacyImportService: LegacyImportService | null = null
 let legacyBtActivationService: LegacyBtActivationService | null = null
+let legacyHttpActivationService: LegacyHttpActivationService | null = null
 let pendingDisclaimerGate: DisclaimerGate | null = null
 const mainProcessWork = new MainProcessWorkCoordinator()
 const pollingNotificationUnsubscribers: Array<() => void> = []
@@ -590,6 +592,7 @@ function performCleanup(): Promise<void> {
     // the drain: startup can be blocked on the engine/plugin/session that only
     // those teardown operations can release.
     void legacyBtActivationService?.drain()
+    void legacyHttpActivationService?.drain()
     const acceptedWorkDrain = mainProcessWork.stopAndDrain()
     postDeliveryAbortController?.abort()
     await ingressClose
@@ -666,6 +669,9 @@ function performCleanup(): Promise<void> {
     })
     await safely('legacy-bt-activation', () =>
       legacyBtActivationService?.drain()
+    )
+    await safely('legacy-http-activation', () =>
+      legacyHttpActivationService?.drain()
     )
     await safely('legacy-import', () => legacyImportService?.drain())
     await safely('database', () => {
@@ -943,6 +949,7 @@ async function handlePolledTasks(
               )
           }
           if (
+            !hasLegacyImport(existing) &&
             shouldEvictFromEngine(existing.status, merged.status, existing.type)
           ) {
             // Either BT/Magnet seeding just satisfied its ratio/time target,
@@ -1341,6 +1348,7 @@ async function startEngineAndRestore(
     await appliedDownloadProxyPolicy.runWithSnapshot(
       async (_snapshot, lease) => {
         await legacyBtActivationService?.recover()
+        await legacyHttpActivationService?.recover()
         await sessionManager.restore(lease.assertCurrent, (snapshot) =>
           completedEngineTaskCleanup.observe(snapshot)
         )
@@ -1518,6 +1526,13 @@ async function startEngineAndRestore(
             task.type !== TaskType.Ftp &&
             !hasLegacyImport(task)
           ) {
+            return
+          }
+          if (hasLegacyImport(task) && task.type === TaskType.Http) {
+            await completedEngineTaskCleanup.observe({
+              ...task,
+              status: TaskStatus.Completed,
+            })
             return
           }
           if (shouldSkipEngineCompletionFinalize(task)) return
@@ -1843,8 +1858,31 @@ async function initializeMainProcess(): Promise<void> {
     }
     return legacyBtActivationService
   }
+  const getLegacyHttpActivationService = () => {
+    if (!legacyHttpActivationService) {
+      getLegacyImportService()
+      legacyHttpActivationService = new LegacyHttpActivationService({
+        db: motrixDb,
+        taskManager,
+        adapter,
+        backupRoot: legacyBackupRoot,
+        isProcessRunning: legacyPidRunning,
+        publishTasks: publishTaskUpdateNow,
+        runTaskMutation: (taskIds, operation) =>
+          taskInspectorActivityRuntime
+            ? taskInspectorActivityRuntime.runTaskMutation(taskIds, operation)
+            : operation(),
+        runExclusivePersistence: (operation) =>
+          sessionManager
+            ? sessionManager.runExclusivePersistence(operation)
+            : Promise.resolve().then(operation),
+      })
+    }
+    return legacyHttpActivationService
+  }
   const disposeLegacyImportIpc = registerLegacyImportIpc({
     getActivationService: getLegacyBtActivationService,
+    getHttpActivationService: getLegacyHttpActivationService,
     getService: getLegacyImportService,
     hasConsent: () => gate.isAccepted() && mainProcessWork.isAccepting(),
     getTask: (taskId) => taskManager.getById(taskId),
@@ -1976,6 +2014,7 @@ async function initializeMainProcess(): Promise<void> {
 
   if (!legacyImportService) motrixDb.init()
   getLegacyBtActivationService()
+  getLegacyHttpActivationService()
   legacyImportService?.setPersistenceLane((operation) =>
     sessionManager
       ? sessionManager.runExclusivePersistence(operation)
@@ -2206,6 +2245,12 @@ async function initializeMainProcess(): Promise<void> {
     dispatch: (occurrence) => occurrenceDispatcher.dispatch(occurrence),
     prepareFiles: (task) =>
       syncTaskFilesIfIncomplete(task.id, task.engineTaskId),
+    // Cleanup owns the mutation lock across its exact-owner check and retry.
+    finalizeLegacyHttp: (taskId) =>
+      finalizeTask(taskId, {
+        ...buildFinalizeDeps(adapter),
+        runTaskMutation: undefined,
+      }),
     runTaskMutation: (ids, operation) =>
       activeTaskInspectorActivityRuntime.runTaskMutation(ids, operation),
     log,

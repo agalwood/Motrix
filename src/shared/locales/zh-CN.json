@@ -1009,6 +1009,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "额外请求头",
+      "headerName": "请求头名称",
+      "headerValue": "请求头值",
+      "addHeader": "添加请求头",
+      "removeHeader": "移除请求头",
       "title": "新建任务",
       "links": "链接",
       "torrent": "种子",
@@ -1101,6 +1106,7 @@
         "doc": "文档"
       },
       "errors": {
+        "headerNameRequired": "请输入请求头名称，或移除此请求头。",
         "urlsRequired": "至少需要一个 URL",
         "saveDirRequired": "必须指定保存目录",
         "noFilesSelected": "请至少选择一个文件",
@@ -3124,12 +3130,19 @@
     "freshDescription": "选择新的保存位置后，Motrix 会创建单独的文件夹，并打开下载窗口供你确认。本次将从头下载，原文件会保留。",
     "freshDestination": "选择新下载的保存位置",
     "chooseDestination": "选择其他位置…",
+    "requestSettingsHelp": "旧版 Cookie 文件中的信息，请填写为所需的 Cookie 请求头。旧版 HTTP 用户名和密码，请填写为等效的 Authorization 请求头。代理凭据请填写在代理 URL 中。",
+    "unsupportedOptions": "不支持的选项：{{options}}",
+    "requestOptions": "已保存的请求设置：{{options}}",
+    "requestSettingsDescription": "旧版请求设置未复制。请在“高级”中重新填写后，下载到新文件夹。",
+    "reconfigureDownload": "重新配置并下载…",
     "reasons": {
       "fresh-download-required": "需要重新下载",
       "verification-required": "需要检查已有文件",
       "metadata-required": "需要原种子文件",
       "selection-required": "需要重新选择文件",
-      "unsupported-options": "下载信息需要确认",
+      "request-settings-required": "续传前会检查已保存的请求设置",
+      "mirrors-unsupported": "此任务包含多个下载地址，请复制要使用的地址并新建下载。",
+      "unsupported-options": "不支持的下载选项",
       "invalid-record": "无法读取此任务",
       "unsafe-path": "文件位置需要确认",
       "already-imported": "已经导入",
@@ -3172,14 +3185,21 @@
       "payloadMissing": "部分原文件缺失，包括之前未选中的文件。继续下载需要这些文件，请换一个文件夹重新下载。",
       "payloadUnsafe": "原文件的链接或权限设置使其无法安全更新。请保留原文件，并换一个文件夹重新下载。",
       "controlRequired": "找不到旧版保存的下载进度，请换一个文件夹重新下载。",
-      "activationUncertain": "暂时无法安全恢复此任务，原文件仍受保护。你可以换一个文件夹重新下载。"
+      "activationUncertain": "暂时无法安全恢复此任务，原文件仍受保护。你可以换一个文件夹重新下载。",
+      "httpContentChanged": "已下载的数据与服务器内容不一致。",
+      "httpRangeUnsupported": "服务器不支持所需的字节范围请求。",
+      "httpValidatorRequired": "服务器未提供可靠的资源版本标识。",
+      "httpVerificationFailed": "无法校验已下载的数据。",
+      "httpRequestUnsupported": "引擎或请求设置不支持安全续传。",
+      "httpVerificationCancelled": "校验已取消。",
+      "httpRedirectUnsupported": "跳转链接暂时无法安全原地续传。"
     },
     "resultIncompleteTitle": "迁移尚未完成",
     "resultStoppedTitle": "迁移已停止",
-    "activationRequired": "请选择新的文件夹重新下载，原文件会保留。",
+    "activationRequired": "请打开任务详情，校验后继续下载。",
     "chooseTorrent": "选择种子文件…",
     "torrentFile": "种子文件",
-    "verifyAndContinue": "检查并继续",
+    "verifyAndContinue": "校验并继续",
     "verifyDescription": "Motrix 会先检查原文件，再按旧任务的文件选择继续下载。下载期间可能上传数据，未选文件也可能写入部分内容；完成后不会自动做种。",
     "authorizeOriginalDirectory": "选择原下载文件夹",
     "verifyReady": "你可以检查已有文件后继续下载，也可以换一个文件夹重新下载。",
@@ -3287,7 +3307,10 @@
         "remaining": "尚未迁移"
       }
     },
-    "importSelected": "迁移"
+    "importSelected": "迁移",
+    "httpResumeDescription": "Motrix 会将所有已下载的数据段与服务器内容比对，通过后在原目录继续下载。校验会重新传输这些数据段；已保存的请求设置仅在内存中使用。",
+    "httpVerifying": "正在准备或校验…",
+    "httpOriginalFilesKept": "原文件已保留。"
   },
   "rendererRecovery": {
     "title": "界面需要恢复",

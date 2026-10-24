@@ -1021,6 +1021,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "Extra headers",
+      "headerName": "Header name",
+      "headerValue": "Header value",
+      "addHeader": "Add header",
+      "removeHeader": "Remove header",
       "title": "New Task",
       "links": "Links",
       "torrent": "Torrent",
@@ -1114,6 +1119,7 @@
         "doc": "Document"
       },
       "errors": {
+        "headerNameRequired": "Enter a header name or remove this header.",
         "urlsRequired": "At least one URL is required",
         "saveDirRequired": "Save directory is required",
         "noFilesSelected": "Select at least one file",
@@ -3146,12 +3152,19 @@
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
     "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "For old cookie files, enter the needed Cookie header. For HTTP usernames and passwords, enter an equivalent Authorization header. Enter proxy credentials in the proxy URL.",
+    "unsupportedOptions": "Unsupported options: {{options}}",
+    "requestOptions": "Saved request settings: {{options}}",
+    "requestSettingsDescription": "The old request settings were not copied. Enter them again in Advanced before downloading in a new folder.",
+    "reconfigureDownload": "Reconfigure and download…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
       "metadata-required": "Original torrent file needed",
       "selection-required": "Choose which files to download",
-      "unsupported-options": "Download details need checking",
+      "request-settings-required": "Saved request settings will be checked before resuming",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "Unsupported download options",
       "invalid-record": "Couldn’t read this task",
       "unsafe-path": "File location needs checking",
       "already-imported": "Already imported",
@@ -3194,11 +3207,18 @@
       "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
       "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
       "controlRequired": "The saved download progress is missing. Download again in a new folder.",
-      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder."
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "The downloaded data differs from the server content.",
+      "httpRangeUnsupported": "The server does not support the required byte ranges.",
+      "httpValidatorRequired": "The server does not provide a strong resource version.",
+      "httpVerificationFailed": "Could not verify the downloaded data.",
+      "httpRequestUnsupported": "The engine or request settings do not support safe resume.",
+      "httpVerificationCancelled": "Verification cancelled.",
+      "httpRedirectUnsupported": "Redirected links cannot be safely resumed in place."
     },
     "resultIncompleteTitle": "Migration is incomplete",
     "resultStoppedTitle": "Migration stopped",
-    "activationRequired": "Download again in a new folder to keep the original files.",
+    "activationRequired": "Open task details to verify and resume the download.",
     "chooseTorrent": "Choose torrent…",
     "torrentFile": "Torrent file",
     "verifyAndContinue": "Verify and continue",
@@ -3311,7 +3331,10 @@
         "remaining": "Remaining"
       }
     },
-    "importSelected": "Migrate"
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix will compare all downloaded ranges with the server, then continue in the original folder. Verification transfers those ranges again; saved request settings stay in memory.",
+    "httpVerifying": "Preparing or verifying…",
+    "httpOriginalFilesKept": "Your existing files were kept."
   },
   "rendererRecovery": {
     "title": "The interface needs to recover",

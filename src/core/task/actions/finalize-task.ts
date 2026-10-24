@@ -1,6 +1,7 @@
 import path from 'node:path'
 import type { EngineAdapter } from '@core/engine/engine-adapter'
 import {
+  getLegacyHttpBindingInput,
   hasLegacyImport,
   isInactiveLegacyTask,
 } from '@core/legacy-import/legacy-task-policy'
@@ -16,7 +17,7 @@ import type {
   PluginHookTask,
 } from '@shared/types/plugin-hooks'
 import type { DownloadTask, TaskFile } from '@shared/types/task'
-import { TaskStatus, TransitionPhase } from '@shared/types/task'
+import { TaskStatus, TaskType, TransitionPhase } from '@shared/types/task'
 import { isTorrentLike } from '@shared/types/task-actions'
 import {
   TaskActivityAccuracy,
@@ -101,6 +102,7 @@ export interface FinalizeTaskDeps {
   publishTaskUpdateNow: () => void
   adapter: {
     verifyLegacyBtBinding?: EngineAdapter['verifyLegacyBtBinding']
+    verifyLegacyHttpBinding?: EngineAdapter['verifyLegacyHttpBinding']
     removeDownloadResult(engineTaskId: string): Promise<void>
     forceRemoveTask(engineTaskId: string): Promise<void>
     getUploadLength(engineTaskId: string): Promise<number>
@@ -211,31 +213,50 @@ async function finalizeTaskSerialized(
       live.downloadedBytes < live.totalBytes
     )
       return
-    const intent = legacyBtActivationSchema.safeParse(
-      task.instances[0]?.payload.legacyBtActivation
-    )
-    if (
-      !intent.success ||
-      task.engineTaskId !== intent.data.engineTaskId ||
-      task.finalPath !== intent.data.targetPath ||
-      !(await deps.adapter.verifyLegacyBtBinding?.({
-        engineTaskId: intent.data.engineTaskId,
-        saveDir: intent.data.saveDir,
-        infoHash: intent.data.expected.infoHash ?? '',
-        files: intent.data.files,
-        selectedFiles: intent.data.selectedFiles,
-        trackers: intent.data.trackers,
-        isPrivate: intent.data.isPrivate,
-      }))
-    )
-      return
+    if (task.type === TaskType.Http) {
+      const binding = getLegacyHttpBindingInput(task)
+      if (
+        !binding ||
+        live.totalBytes !== binding.expected.totalBytes ||
+        live.downloadedBytes !== binding.expected.totalBytes ||
+        !(await deps.adapter.verifyLegacyHttpBinding?.(binding))
+      )
+        return
+    } else {
+      const intent = legacyBtActivationSchema.safeParse(
+        task.instances[0]?.payload.legacyBtActivation
+      )
+      if (
+        !intent.success ||
+        task.engineTaskId !== intent.data.engineTaskId ||
+        task.finalPath !== intent.data.targetPath ||
+        !(await deps.adapter.verifyLegacyBtBinding?.({
+          engineTaskId: intent.data.engineTaskId,
+          saveDir: intent.data.saveDir,
+          infoHash: intent.data.expected.infoHash ?? '',
+          files: intent.data.files,
+          selectedFiles: intent.data.selectedFiles,
+          trackers: intent.data.trackers,
+          isPrivate: intent.data.isPrivate,
+        }))
+      )
+        return
+    }
     const previous = task.status
     Object.assign(task, applyTerminalTransition(task, TaskStatus.Completed))
     task.downloadedBytes = live.downloadedBytes
     task.totalBytes = live.totalBytes
     task.progress = 1
-    for (const instance of task.instances)
+    task.downloadSpeed = 0
+    task.uploadSpeed = 0
+    task.etaSeconds = 0
+    task.connections = 0
+    for (const instance of task.instances) {
       instance.status = TaskStatus.Completed
+      instance.totalBytes = live.totalBytes
+      instance.downloadedBytes = live.downloadedBytes
+      instance.progress = 100
+    }
     await persistTaskTransition(task, previous, deps)
     deps.publishTaskUpdateNow()
     return

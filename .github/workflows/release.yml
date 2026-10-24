@@ -254,11 +254,13 @@ jobs:
           pnpm run build:native-host -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
           pnpm run build:finalize-fs -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
 
-      - name: Finalize filesystem runtime integration
+      - name: Native runtime integration
         env:
+          MOTRIX_LEGACY_CHECKPOINT_ENGINE: ${{ github.workspace }}/extra/${{ matrix.platform }}/${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'aria2c.exe' || 'aria2c' }}
           MOTRIX_FINALIZE_FS_TEST_BIN: packages/finalize-fs/dist/${{ matrix.platform }}-${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'motrix-finalize-fs.exe' || 'motrix-finalize-fs' }}
         run: >-
           pnpm exec vitest run
+          src/core/legacy-import/http-activation.integration.test.ts
           src/core/plugin/finalize/native-artifact-operations.integration.test.ts
           src/core/plugin/finalize/finalize-adversarial.integration.test.ts
           src/core/plugin/finalize/finalize-smb-recovery.integration.test.ts
@@ -926,7 +928,7 @@ jobs:
           EXPECTED_COMMIT: ${{ github.sha }}
           EXPECTED_PLATFORM: ${{ matrix.platform }}
           # Updated only after reviewing the verifier source itself.
-          VERIFIER_SHA256: 4d7b6c9cc9ecb4b8df13df35b0ce13fc3e384841236abe900d82004bfb46ca7b
+          VERIFIER_SHA256: 6a66bf08bdb8725e51f58a8b7e09217750b318bae5109fce5d01502683809940
         run: |
           const crypto = require('node:crypto')
           const fs = require('node:fs')

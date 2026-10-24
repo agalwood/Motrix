@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { Aria2ProcessInspector } from '@core/engine/aria2/aria2-process-inspector'
 import type { LegacyBtActivationService } from '@core/legacy-import/bt-activation-service'
+import type { LegacyHttpActivationService } from '@core/legacy-import/http-activation-service'
 import type { LegacyImportService } from '@core/legacy-import/import-service'
 import { isInactiveLegacyTask } from '@core/legacy-import/legacy-task-policy'
 import {
@@ -78,6 +79,7 @@ export async function legacyPidRunning(pid: number): Promise<boolean> {
 interface DesktopImportDeps {
   getService: () => LegacyImportService
   getActivationService?: () => LegacyBtActivationService
+  getHttpActivationService?: () => LegacyHttpActivationService
   hasConsent: () => boolean
   getTask: (taskId: string) => DownloadTask | undefined
   backupRoot: string
@@ -107,6 +109,45 @@ export function registerLegacyImportIpc(deps: DesktopImportDeps): () => void {
     string,
     (event: Electron.IpcMainInvokeEvent, input?: unknown) => Promise<unknown>
   > = {
+    [Queries.GetLegacyHttpActivationAvailability]: async (_event, input) => {
+      await readyService()
+      if (!deps.getHttpActivationService)
+        throw new AppError(
+          ErrorCode.EngineFeatureUnavailable,
+          'legacyImport.errors.checkpointUnavailable'
+        )
+      return deps
+        .getHttpActivationService()
+        .availability(legacyTaskRequestSchema.parse(input).taskId)
+    },
+    [Commands.ActivateLegacyHttp]: async (event, input) => {
+      await readyService()
+      const { taskId } = legacyTaskRequestSchema.parse(input)
+      const owner = BrowserWindow.fromWebContents(event.sender)
+      if (!owner || !deps.getHttpActivationService)
+        throw new AppError(
+          ErrorCode.EngineFeatureUnavailable,
+          'legacyImport.errors.checkpointUnavailable'
+        )
+      return deps
+        .getHttpActivationService()
+        .activate(taskId, async (directory) => {
+          const result = await dialog.showOpenDialog(owner, {
+            title: i18n.t('legacyImport.authorizeOriginalDirectory'),
+            defaultPath: directory,
+            properties: ['openDirectory'],
+          })
+          return result.canceled || result.filePaths.length !== 1
+            ? null
+            : result.filePaths[0]
+        })
+    },
+    [Commands.CancelLegacyHttpActivation]: async (_event, input) => {
+      service()
+      deps
+        .getHttpActivationService?.()
+        .cancel(legacyTaskRequestSchema.parse(input).taskId)
+    },
     [Queries.GetLegacyImportNavigation]: async () => {
       service()
       return (
@@ -266,6 +307,7 @@ export function registerLegacyImportIpc(deps: DesktopImportDeps): () => void {
     Commands.CommitLegacyImport,
     Commands.RetryLegacyImport,
     Commands.ActivateLegacyBt,
+    Commands.ActivateLegacyHttp,
   ])
   for (const [channel, handler] of Object.entries(handlers))
     registerTrustedIpcHandler(channel, (event, input) =>
@@ -354,7 +396,14 @@ async function prepareFreshDownload(
         ErrorCode.InvalidSelection,
         'legacyImport.errors.unsafeSource'
       )
-    prefill = { tab: 'links', urls: task.uris[0], filename: task.finalName }
+    prefill = {
+      tab: 'links',
+      urls: task.uris[0],
+      filename: task.finalName,
+      ...(marker.reason === 'request-settings-required'
+        ? { legacyRequestOptions: marker.requestOptions ?? [] }
+        : {}),
+    }
   }
   const owner = BrowserWindow.fromWebContents(event.sender)
   if (!owner) return null

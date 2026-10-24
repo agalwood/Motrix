@@ -1,6 +1,6 @@
 import { hasLegacyImport } from '@core/legacy-import/legacy-task-policy'
 import type { DownloadTask } from '@shared/types/task'
-import { TaskStatus, TransitionPhase } from '@shared/types/task'
+import { TaskStatus, TaskType, TransitionPhase } from '@shared/types/task'
 import { shareRatio } from '@shared/utils/share-ratio'
 import { applyTerminalTransition } from './apply-terminal-transition'
 import { unsettledBtUpload } from './bt-upload-settlement'
@@ -58,7 +58,10 @@ export function mergeEngineTask(
   // metrics, but do not let that engine snapshot publish a status ahead of
   // the application-owned transition.
   const nextStatus =
-    existing.transitionPhase !== TransitionPhase.Idle
+    existing.transitionPhase !== TransitionPhase.Idle ||
+    (hasLegacyImport(existing) &&
+      existing.type === TaskType.Http &&
+      protected_.status === TaskStatus.Completed)
       ? existing.status
       : protected_.status
   const terminalFields = applyTerminalTransition(
@@ -88,7 +91,10 @@ export function mergeEngineTask(
     uploadedBytesBaseline: existing.uploadedBytesBaseline,
     fileCount: protected_.fileCount,
     infoHash: protected_.infoHash ?? existing.infoHash,
-    uris: protected_.uris.length > 0 ? protected_.uris : existing.uris,
+    uris:
+      !hasLegacyImport(existing) && protected_.uris.length > 0
+        ? protected_.uris
+        : existing.uris,
     bt: bt
       ? {
           ...bt,

@@ -1009,6 +1009,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "Tiêu đề bổ sung",
+      "headerName": "Tên tiêu đề",
+      "headerValue": "Giá trị tiêu đề",
+      "addHeader": "Thêm tiêu đề",
+      "removeHeader": "Xóa tiêu đề",
       "title": "Tác vụ mới",
       "links": "Liên kết",
       "torrent": "Torrent",
@@ -1101,6 +1106,7 @@
         "doc": "Tài liệu"
       },
       "errors": {
+        "headerNameRequired": "Nhập tên tiêu đề hoặc xóa tiêu đề này.",
         "urlsRequired": "Cần ít nhất một URL",
         "saveDirRequired": "Cần chọn thư mục lưu",
         "noFilesSelected": "Chọn ít nhất một tệp",
@@ -3124,12 +3130,19 @@
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
     "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "Với các tệp cookie cũ, hãy nhập tiêu đề Cookie cần thiết. Với tên người dùng và mật khẩu HTTP, hãy nhập tiêu đề Authorization tương đương. Nhập thông tin xác thực proxy trong URL proxy.",
+    "unsupportedOptions": "Tùy chọn không được hỗ trợ: {{options}}",
+    "requestOptions": "Cài đặt yêu cầu đã lưu: {{options}}",
+    "requestSettingsDescription": "Các cài đặt yêu cầu cũ chưa được sao chép. Hãy nhập lại trong phần Nâng cao trước khi tải vào thư mục mới.",
+    "reconfigureDownload": "Cấu hình lại và tải xuống…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
       "metadata-required": "Original torrent file needed",
       "selection-required": "Choose which files to download",
-      "unsupported-options": "Download details need checking",
+      "request-settings-required": "Các cài đặt yêu cầu đã lưu sẽ được kiểm tra trước khi tiếp tục",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "Tùy chọn tải xuống không được hỗ trợ",
       "invalid-record": "Couldn’t read this task",
       "unsafe-path": "File location needs checking",
       "already-imported": "Already imported",
@@ -3172,14 +3185,21 @@
       "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
       "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
       "controlRequired": "The saved download progress is missing. Download again in a new folder.",
-      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder."
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "Dữ liệu đã tải khác với nội dung máy chủ.",
+      "httpRangeUnsupported": "Máy chủ không hỗ trợ các phạm vi byte cần thiết.",
+      "httpValidatorRequired": "Máy chủ không cung cấp mã định danh phiên bản tài nguyên đáng tin cậy.",
+      "httpVerificationFailed": "Không thể xác minh dữ liệu đã tải.",
+      "httpRequestUnsupported": "Bộ máy hoặc cài đặt yêu cầu không hỗ trợ tiếp tục an toàn.",
+      "httpVerificationCancelled": "Đã hủy xác minh.",
+      "httpRedirectUnsupported": "Không thể tiếp tục an toàn liên kết chuyển hướng tại vị trí gốc."
     },
     "resultIncompleteTitle": "Migration is incomplete",
     "resultStoppedTitle": "Migration stopped",
-    "activationRequired": "Download again in a new folder to keep the original files.",
+    "activationRequired": "Mở chi tiết tác vụ để xác minh và tiếp tục tải.",
     "chooseTorrent": "Choose torrent…",
     "torrentFile": "Torrent file",
-    "verifyAndContinue": "Verify and continue",
+    "verifyAndContinue": "Xác minh và tiếp tục",
     "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
     "authorizeOriginalDirectory": "Choose the original download folder",
     "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
@@ -3287,7 +3307,10 @@
         "remaining": "Remaining"
       }
     },
-    "importSelected": "Migrate"
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix sẽ đối chiếu tất cả các vùng đã tải với máy chủ rồi tiếp tục trong thư mục gốc. Xác minh sẽ truyền lại các vùng này; cài đặt yêu cầu đã lưu chỉ được giữ trong bộ nhớ.",
+    "httpVerifying": "Đang chuẩn bị hoặc xác minh…",
+    "httpOriginalFilesKept": "Các tệp hiện có được giữ nguyên."
   },
   "rendererRecovery": {
     "title": "Giao diện cần được khôi phục",

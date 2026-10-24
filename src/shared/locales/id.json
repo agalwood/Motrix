@@ -1009,6 +1009,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "Header tambahan",
+      "headerName": "Nama header",
+      "headerValue": "Nilai header",
+      "addHeader": "Tambah header",
+      "removeHeader": "Hapus header",
       "title": "Tugas baru",
       "links": "Tautan",
       "torrent": "Torrent",
@@ -1101,6 +1106,7 @@
         "doc": "Dokumen"
       },
       "errors": {
+        "headerNameRequired": "Masukkan nama header atau hapus header ini.",
         "urlsRequired": "Setidaknya satu URL diperlukan",
         "saveDirRequired": "Folder penyimpanan diperlukan",
         "noFilesSelected": "Pilih setidaknya satu berkas",
@@ -3124,12 +3130,19 @@
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
     "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "Untuk file cookie lama, masukkan header Cookie yang diperlukan. Untuk nama pengguna dan kata sandi HTTP, masukkan header Authorization yang setara. Masukkan kredensial proksi di URL proksi.",
+    "unsupportedOptions": "Opsi yang tidak didukung: {{options}}",
+    "requestOptions": "Pengaturan permintaan tersimpan: {{options}}",
+    "requestSettingsDescription": "Pengaturan permintaan lama tidak disalin. Masukkan kembali di bagian Lanjutan sebelum mengunduh ke folder baru.",
+    "reconfigureDownload": "Atur ulang dan unduh…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
       "metadata-required": "Original torrent file needed",
       "selection-required": "Choose which files to download",
-      "unsupported-options": "Download details need checking",
+      "request-settings-required": "Pengaturan permintaan tersimpan akan diperiksa sebelum melanjutkan",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "Opsi unduhan tidak didukung",
       "invalid-record": "Couldn’t read this task",
       "unsafe-path": "File location needs checking",
       "already-imported": "Already imported",
@@ -3172,14 +3185,21 @@
       "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
       "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
       "controlRequired": "The saved download progress is missing. Download again in a new folder.",
-      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder."
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "Data yang diunduh berbeda dari konten server.",
+      "httpRangeUnsupported": "Server tidak mendukung rentang byte yang diperlukan.",
+      "httpValidatorRequired": "Server tidak menyediakan pengenal versi sumber daya yang andal.",
+      "httpVerificationFailed": "Data yang diunduh tidak dapat diverifikasi.",
+      "httpRequestUnsupported": "Mesin atau pengaturan permintaan tidak mendukung kelanjutan yang aman.",
+      "httpVerificationCancelled": "Verifikasi dibatalkan.",
+      "httpRedirectUnsupported": "Tautan yang dialihkan tidak dapat dilanjutkan dengan aman di lokasi asli."
     },
     "resultIncompleteTitle": "Migration is incomplete",
     "resultStoppedTitle": "Migration stopped",
-    "activationRequired": "Download again in a new folder to keep the original files.",
+    "activationRequired": "Buka detail tugas untuk memverifikasi dan melanjutkan unduhan.",
     "chooseTorrent": "Choose torrent…",
     "torrentFile": "Torrent file",
-    "verifyAndContinue": "Verify and continue",
+    "verifyAndContinue": "Verifikasi dan lanjutkan",
     "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
     "authorizeOriginalDirectory": "Choose the original download folder",
     "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
@@ -3287,7 +3307,10 @@
         "remaining": "Remaining"
       }
     },
-    "importSelected": "Migrate"
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix akan membandingkan semua rentang yang diunduh dengan server, lalu melanjutkan di folder asli. Verifikasi mentransfer ulang rentang tersebut; pengaturan permintaan tersimpan tetap di memori.",
+    "httpVerifying": "Menyiapkan atau memverifikasi…",
+    "httpOriginalFilesKept": "Berkas yang ada dipertahankan."
   },
   "rendererRecovery": {
     "title": "Antarmuka perlu dipulihkan",

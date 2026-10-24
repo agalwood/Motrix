@@ -1,5 +1,6 @@
 import { isUriOnlyDirectReplay } from '@shared/schemas/direct-replay-recipe'
 import { legacyBtActivationSchema } from '@shared/schemas/legacy-bt-activation'
+import { legacyHttpActivationSchema } from '@shared/schemas/legacy-http-activation'
 import { legacyTaskMetadataSchema } from '@shared/schemas/legacy-import'
 import {
   type DownloadTask,
@@ -261,8 +262,10 @@ export function canAttemptRetry(t: DownloadTask): boolean {
 }
 
 export function hasLegacyImport(t: Pick<DownloadTask, 'instances'>): boolean {
-  return (t.instances ?? []).some((instance) =>
-    Object.hasOwn(instance.payload ?? {}, 'legacyImport')
+  return (t.instances ?? []).some(
+    (instance) =>
+      Object.hasOwn(instance.payload ?? {}, 'legacyImport') ||
+      Object.hasOwn(instance.payload ?? {}, 'legacyHttpActivation')
   )
 }
 
@@ -271,10 +274,25 @@ export function isLegacyImportInactive(
   t: Pick<DownloadTask, 'instances'>
 ): boolean {
   return (t.instances ?? []).some((instance) => {
-    if (!Object.hasOwn(instance.payload ?? {}, 'legacyImport')) return false
+    if (!Object.hasOwn(instance.payload ?? {}, 'legacyImport'))
+      return Object.hasOwn(instance.payload ?? {}, 'legacyHttpActivation')
     const marker = legacyTaskMetadataSchema.safeParse(
       instance.payload.legacyImport
     )
+    if (
+      marker.success &&
+      marker.data.storagePolicy === 'legacy-http-in-place'
+    ) {
+      const activation = legacyHttpActivationSchema.safeParse(
+        instance.payload.legacyHttpActivation
+      )
+      return (
+        marker.data.activation !== 'active' ||
+        !activation.success ||
+        activation.data.stage !== 'active' ||
+        instance.gid !== activation.data.engineTaskId
+      )
+    }
     const activation = legacyBtActivationSchema.safeParse(
       instance.payload.legacyBtActivation
     )

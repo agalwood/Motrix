@@ -1,5 +1,8 @@
 import path from 'node:path'
-import { hasLegacyImport } from '@core/legacy-import/legacy-task-policy'
+import {
+  getLegacyHttpBindingInput,
+  hasLegacyImport,
+} from '@core/legacy-import/legacy-task-policy'
 import { AppError, ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
 import { legacyBtActivationSchema } from '@shared/schemas/legacy-bt-activation'
@@ -7,6 +10,7 @@ import {
   type DownloadTask,
   TaskInstancePhase,
   TaskStatus,
+  TaskType,
 } from '@shared/types/task'
 import { isStoppedTaskStatus } from '@shared/types/task-actions'
 import type {
@@ -123,9 +127,11 @@ async function removeTaskUnderMutation(
   // Imported paths belong to v1; every removal request is metadata-only.
   if (hasLegacyImport(task)) {
     const pair = deps.db.getTask(taskId)
-    const candidate = task.instances[0]?.payload.legacyBtActivation as
-      | { engineTaskId?: unknown }
-      | undefined
+    const candidate = (
+      task.type === TaskType.Http
+        ? task.instances[0]?.payload.legacyHttpActivation
+        : task.instances[0]?.payload.legacyBtActivation
+    ) as { engineTaskId?: unknown } | undefined
     // Even an uncertain paused add belongs to this migration. Confirm its absence
     // before deleting the sole durable owner; original payloads are never cleanup targets.
     const gid =
@@ -136,20 +142,29 @@ async function removeTaskUnderMutation(
     if (gid) {
       const engine = await deps.adapter.getTaskStatus(gid)
       if (engine) {
-        const intent = legacyBtActivationSchema.safeParse(candidate)
-        if (
-          !pair ||
-          !intent.success ||
-          !(await deps.adapter.verifyLegacyBtBinding?.({
-            engineTaskId: intent.data.engineTaskId,
-            saveDir: intent.data.saveDir,
-            infoHash: intent.data.expected.infoHash ?? '',
-            files: intent.data.files,
-            selectedFiles: intent.data.selectedFiles,
-            trackers: intent.data.trackers,
-            isPrivate: intent.data.isPrivate,
-          }))
-        )
+        const verifyBinding = async (): Promise<boolean> => {
+          if (!pair) return false
+          if (task.type === TaskType.Http) {
+            const input = getLegacyHttpBindingInput(task)
+            return Boolean(
+              input && (await deps.adapter.verifyLegacyHttpBinding?.(input))
+            )
+          }
+          const intent = legacyBtActivationSchema.safeParse(candidate)
+          return Boolean(
+            intent.success &&
+              (await deps.adapter.verifyLegacyBtBinding?.({
+                engineTaskId: intent.data.engineTaskId,
+                saveDir: intent.data.saveDir,
+                infoHash: intent.data.expected.infoHash ?? '',
+                files: intent.data.files,
+                selectedFiles: intent.data.selectedFiles,
+                trackers: intent.data.trackers,
+                isPrivate: intent.data.isPrivate,
+              }))
+          )
+        }
+        if (!(await verifyBinding()))
           throw new AppError(
             ErrorCode.InvalidSelection,
             'legacyImport.errors.activationUncertain'
@@ -163,16 +178,7 @@ async function removeTaskUnderMutation(
             const stopped = await deps.adapter.getTaskStatus(gid)
             if (
               stopped &&
-              (!isStoppedTaskStatus(stopped.status) ||
-                !(await deps.adapter.verifyLegacyBtBinding?.({
-                  engineTaskId: intent.data.engineTaskId,
-                  saveDir: intent.data.saveDir,
-                  infoHash: intent.data.expected.infoHash ?? '',
-                  files: intent.data.files,
-                  selectedFiles: intent.data.selectedFiles,
-                  trackers: intent.data.trackers,
-                  isPrivate: intent.data.isPrivate,
-                })))
+              (!isStoppedTaskStatus(stopped.status) || !(await verifyBinding()))
             )
               throw error
           }
