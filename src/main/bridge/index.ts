@@ -430,6 +430,7 @@ export async function bootstrapBridge(args: {
   >[0]['isMagnetFileSelectionEnabled']
   finalNamePicker: { pick(saveDir: string, desired: string): Promise<string> }
   getDefaultSaveDir: BridgeReceiverDeps['getDefaultSaveDir']
+  prepareMediaSaveDir?: BridgeReceiverDeps['prepareMediaSaveDir']
   resolveSaveDir?: BridgeReceiverDeps['resolveSaveDir']
   recordDirectory?: BridgeReceiverDeps['recordDirectory']
   // Spec 3 — v1 READ methods over the unary POST /mdxp transport.
@@ -601,6 +602,7 @@ export async function bootstrapBridge(args: {
     const receiver = new BridgeReceiver({
       mediaMetaStore: args.mediaMetaStore,
       getDefaultSaveDir: args.getDefaultSaveDir,
+      prepareMediaSaveDir: args.prepareMediaSaveDir,
       resolveSaveDir: args.resolveSaveDir,
       recordDirectory: args.recordDirectory,
       pickName: (saveDir, desired) =>

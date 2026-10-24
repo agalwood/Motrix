@@ -3,7 +3,9 @@ import { Button } from '@renderer/components/ui/button'
 import { Skeleton } from '@renderer/components/ui/skeleton'
 import { useTaskList } from '@renderer/hooks/use-task-list'
 import { isTaskAvailable, resolveTaskRoute } from '@shared/lib/task-navigation'
+import { downloadCategorySchema } from '@shared/schemas/download-category'
 import type { TaskType } from '@shared/types/task'
+import { taskDownloadCategory } from '@shared/utils/download-category'
 import {
   useCallback,
   useEffect,
@@ -110,6 +112,7 @@ function TaskListStaleBanner({ onRetry }: { onRetry(): void }) {
 }
 
 export function DownloadsPage() {
+  const { t } = useTranslation()
   const { filter: rawFilter } = useParams<{ filter: string }>()
   const navigate = useNavigate()
   const location = useLocation()
@@ -128,23 +131,34 @@ export function DownloadsPage() {
     [searchParams]
   )
   const query = searchParams.get('q') ?? ''
+  const parsedCategory = downloadCategorySchema.safeParse(
+    searchParams.get('category')
+  )
+  const category = parsedCategory.success ? parsedCategory.data : null
   const taskParam = searchParams.get('task')?.trim() || null
   const deepLinkSignature = `${location.key}:${location.pathname}${location.search}`
 
-  const counts = useMemo(() => countTasksByTab(tasks), [tasks])
+  const categoryTasks = useMemo(
+    () =>
+      category
+        ? tasks.filter((task) => taskDownloadCategory(task) === category)
+        : tasks,
+    [tasks, category]
+  )
+  const counts = useMemo(() => countTasksByTab(categoryTasks), [categoryTasks])
   const typeCounts = useMemo(
     () =>
       countTasksByType(
-        tasks.filter(
+        categoryTasks.filter(
           (task) =>
             taskMatchesTab(task, filter) && taskMatchesQuery(task, query)
         )
       ),
-    [tasks, filter, query]
+    [categoryTasks, filter, query]
   )
   const filtered = useMemo(
-    () => applyFilter(tasks, filter, types, query),
-    [tasks, filter, types, query]
+    () => applyFilter(tasks, filter, types, query, category),
+    [tasks, filter, types, query, category]
   )
 
   const onTabChange = useCallback(
@@ -249,6 +263,7 @@ export function DownloadsPage() {
     const matchesType = types.length === 0 || types.includes(target.type)
     if (
       !taskMatchesTab(target, filter) ||
+      (category !== null && taskDownloadCategory(target) !== category) ||
       !matchesType ||
       !taskMatchesQuery(target, query)
     ) {
@@ -257,6 +272,7 @@ export function DownloadsPage() {
       next.set('task', target.id)
       next.delete('type')
       next.delete('q')
+      next.delete('category')
       navigate(
         {
           pathname: '/downloads/all',
@@ -274,6 +290,7 @@ export function DownloadsPage() {
     handlingDeepLinkSelection.current = false
   }, [
     deepLinkSignature,
+    category,
     filter,
     query,
     hasReadySnapshot,
@@ -286,7 +303,7 @@ export function DownloadsPage() {
   ])
 
   const [container, setContainer] = useState<HTMLElement | null>(null)
-  const taskListKey = `${filter}:${serializeTypeParam(types)}`
+  const taskListKey = `${filter}:${serializeTypeParam(types)}:${category ?? ''}`
 
   // The inspector drawer overlays the page root without resizing the list, so
   // the list must reserve scroll space for the band the drawer covers;
@@ -403,6 +420,23 @@ export function DownloadsPage() {
           footer={<GlobalStatsBar />}
           contentClassName="px-6"
         >
+          {category ? (
+            <div className="flex shrink-0 items-center justify-between gap-3 text-xs text-muted-foreground">
+              <span>{t(`downloadCategories.${category}`)}</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  const next = new URLSearchParams(searchParams)
+                  next.delete('category')
+                  next.delete('task')
+                  setSearchParams(next)
+                }}
+              >
+                {t('downloadCategories.showAll')}
+              </Button>
+            </div>
+          ) : null}
           {status === 'error' && hasReadySnapshot ? (
             <TaskListStaleBanner onRetry={() => void retry()} />
           ) : null}

@@ -35,6 +35,31 @@ function fake(overrides: Partial<DownloadTask> = {}): DownloadTask {
 }
 
 describe('isValidTab', () => {
+  it('combines categories with status, protocol and text filters', () => {
+    const video = fake({
+      id: 'video',
+      finalName: 'lesson.mp4',
+      name: 'lesson',
+      status: TaskStatus.Completed,
+    })
+    const music = fake({
+      id: 'music',
+      finalName: 'lesson.mp3',
+      status: TaskStatus.Completed,
+    })
+    const activeVideo = fake({
+      id: 'active',
+      finalName: 'lesson.mkv',
+      status: TaskStatus.Downloading,
+    })
+    const tasks = [video, music, activeVideo]
+    expect(
+      applyFilter(tasks, 'completed', [TaskType.Http], 'lesson', 'video')
+    ).toEqual([video])
+    expect(applyFilter(tasks, 'active', [], '', 'video')).toEqual([activeVideo])
+    expect(applyFilter(tasks, 'all', [], '', 'music')).toEqual([music])
+    expect(applyFilter(tasks, 'all', [TaskType.Bt], '', 'video')).toEqual([])
+  })
   it('accepts the four known tabs', () => {
     for (const t of DOWNLOADS_TABS) expect(isValidTab(t)).toBe(true)
   })

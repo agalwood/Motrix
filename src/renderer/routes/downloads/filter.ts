@@ -1,5 +1,7 @@
+import type { DownloadCategory } from '@shared/schemas/download-category'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, TaskType } from '@shared/types/task'
+import { taskDownloadCategory } from '@shared/utils/download-category'
 import { taskMatchesView } from '../../lib/task-views'
 
 export const DOWNLOADS_TABS = ['all', 'active', 'completed', 'error'] as const
@@ -26,10 +28,12 @@ export function applyFilter(
   tasks: readonly DownloadTask[],
   tab: DownloadsTab,
   types: readonly TaskType[],
-  query = ''
+  query = '',
+  category: DownloadCategory | null = null
 ): readonly DownloadTask[] {
   return tasks.filter((t) => {
     if (!taskMatchesTab(t, tab)) return false
+    if (category && taskDownloadCategory(t) !== category) return false
     if (!taskMatchesQuery(t, query)) return false
     if (types.length === 0) return true
     return types.includes(t.type)
