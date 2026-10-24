@@ -506,6 +506,33 @@ describe('Snap build workflow contract', () => {
 })
 
 describe('Snap promotion workflow contract', () => {
+  it('verifies target credential scope before any promotion mutation', () => {
+    const steps = jobSteps(workflowJob(promotionWorkflow, 'promote'))
+    const credentials = steps.find(
+      (step) => step.name === 'Validate scoped Store credential'
+    ) as LooseRecord
+    const release = steps.find(
+      (step) => step.name === 'Release approved build set'
+    ) as LooseRecord
+    expect(steps.indexOf(credentials)).toBeLessThan(steps.indexOf(release))
+    expect(credentials['continue-on-error']).toBeUndefined()
+    expect(release.if).toBeUndefined()
+    expect(stringField(credentials, 'run')).toContain(
+      'python3 scripts/verify_snap_credential_scope.py'
+    )
+    expect(stringField(credentials, 'run')).toContain(
+      '--channel "$TARGET_CHANNEL"'
+    )
+    expect(asRecord(credentials.env, 'credential environment')).toMatchObject({
+      SNAPCRAFT_STORE_CREDENTIALS: `\${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}`,
+      TARGET_CHANNEL: `\${{ needs.preflight.outputs.target_channel }}`,
+    })
+    expect(asRecord(release.env, 'release environment')).toMatchObject({
+      SNAPCRAFT_STORE_CREDENTIALS: `\${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}`,
+      TARGET_CHANNEL: `\${{ needs.preflight.outputs.target_channel }}`,
+    })
+  })
+
   it('is manual-only, serialized with edge publication, and runs from main', () => {
     const triggers = asRecord(promotionWorkflow.on, 'promotion triggers')
     expect(Object.keys(triggers)).toEqual(['workflow_dispatch'])
@@ -627,6 +654,222 @@ describe('Snap promotion workflow contract', () => {
     expect(source).toContain('--expected-arm64-revision')
   })
 })
+
+describe.skipIf(process.platform === 'win32')(
+  'Snap promotion credential scope',
+  () => {
+    it.each(['candidate', 'stable'])(
+      'rejects the observed edge credential before any %s mutation',
+      (target) => {
+        const result = runPromotionCredentialGate({
+          target,
+          channels: 'edge',
+          permissions:
+            'package_access, package_push, package_update, package_release',
+        })
+        expect(result.status).toBe(1)
+        expect(result.stderr).toContain(
+          `does not permit release to latest/${target}`
+        )
+        expect(result.snapcraftCalls).toEqual(['whoami --verbosity brief'])
+        expect(result.releaseCalls).toEqual([])
+      }
+    )
+
+    it.each([
+      { target: 'candidate', channels: 'candidate' },
+      { target: 'stable', channels: 'stable' },
+      { target: 'candidate', channels: 'edge, candidate, stable' },
+      { target: 'stable', channels: 'no restrictions' },
+      { target: 'candidate', channels: 'candi?ate' },
+      { target: 'stable', channels: '*' },
+      { target: 'stable', channels: '[cs]*' },
+      {
+        target: 'candidate',
+        channels: 'candidate',
+        permissions: 'package_upload',
+      },
+      { target: 'stable', channels: 'stable', permissions: 'no restrictions' },
+      {
+        target: 'stable',
+        channels: 'edge,\n  candidate, stable',
+        permissions: 'package_access,\n  package_release',
+      },
+    ])('accepts a scope covering the actual release request %j', (options) => {
+      const result = runPromotionCredentialGate(options)
+      expect(result.stderr).toBe('')
+      expect(result.status).toBe(0)
+      expect(result.snapcraftCalls).toEqual([
+        'whoami --verbosity brief',
+        'status motrix',
+      ])
+      expect(result.releaseCalls).toHaveLength(1)
+      expect(result.releaseCalls[0]).toContain(
+        `--channel latest/${options.target}`
+      )
+    })
+
+    it.each([
+      { channels: 'candidate', target: 'stable' },
+      { channels: '2.0/candidate' },
+      { channels: 'latest/candidate' },
+      { channels: 'candidate/branch' },
+      { channels: '[!c]*' },
+      { permissions: 'package_access, package_push' },
+      { permissions: 'package_release_extra' },
+      { permissions: '' },
+      { channels: '' },
+      { channels: 'no restrictions, edge' },
+      { channels: 'edge,,candidate' },
+      { output: '' },
+      {
+        output:
+          'Log message mentions permissions: package_release and channels: candidate',
+      },
+      {
+        output: snapWhoami('candidate').replace(
+          'permissions: package_access, package_release\n',
+          ''
+        ),
+      },
+      { output: `${snapWhoami('edge')}\nchannels: candidate` },
+      {
+        output: `warning: credential scope may be stale\n${snapWhoami('candidate')}`,
+      },
+      {
+        output: snapWhoami('candidate').replace(
+          'channels: candidate',
+          'channels: |\n  candidate'
+        ),
+      },
+      { output: snapWhoami('candidate'), exitCode: 1 },
+      { output: snapWhoami('candidate'), diagnostic: 'unexpected diagnostic' },
+    ])(
+      'rejects invalid or insufficient scope before entering the release helper %j',
+      (options) => {
+        const result = runPromotionCredentialGate(options)
+        expect(result.status).not.toBe(0)
+        expect(result.releaseCalls).toEqual([])
+        expect(result.snapcraftCalls).toEqual(['whoami --verbosity brief'])
+        expect(result.stdout + result.stderr).not.toContain(
+          'private-account@example.test'
+        )
+        expect(result.stdout + result.stderr).not.toContain(
+          'fixture-secret-do-not-print'
+        )
+        expect(result.stdout + result.stderr).not.toContain(
+          'unexpected diagnostic'
+        )
+      }
+    )
+  }
+)
+
+function snapWhoami(
+  channels: string,
+  permissions = 'package_access, package_release'
+) {
+  return [
+    'email: private-account@example.test',
+    'username: fixture-account',
+    'id: fixture-id',
+    `permissions: ${permissions}`,
+    `channels: ${channels}`,
+    'expires: N/A',
+  ].join('\n')
+}
+
+function runPromotionCredentialGate({
+  target = 'candidate',
+  channels = 'candidate',
+  permissions = 'package_access, package_release',
+  output = snapWhoami(channels, permissions),
+  diagnostic = '',
+  exitCode = 0,
+}: {
+  target?: string
+  channels?: string
+  permissions?: string
+  output?: string
+  diagnostic?: string
+  exitCode?: number
+}) {
+  const root = mkdtempSync(path.join(tmpdir(), 'motrix-snap-credential-'))
+  const whoamiFile = path.join(root, 'whoami.txt')
+  const snapcraftLog = path.join(root, 'snapcraft.log')
+  const releaseLog = path.join(root, 'release.log')
+  writeFileSync(whoamiFile, output)
+  writeFileSync(snapcraftLog, '')
+  writeFileSync(releaseLog, '')
+  writeFileSync(
+    path.join(root, 'snapcraft'),
+    [
+      '#!/usr/bin/env bash',
+      'set -euo pipefail',
+      'printf \'%s\\n\' "$*" >> "$MOTRIX_TEST_SNAPCRAFT_LOG"',
+      'case "$1" in',
+      '  whoami) cat "$MOTRIX_TEST_WHOAMI_FILE"; printf \'%s\' "$MOTRIX_TEST_DIAGNOSTIC" >&2; exit "$MOTRIX_TEST_EXIT_CODE" ;;',
+      '  status) exit 0 ;;',
+      '  *) exit 98 ;;',
+      'esac',
+    ].join('\n'),
+    { mode: 0o755 }
+  )
+  writeFileSync(
+    path.join(root, 'node'),
+    [
+      '#!/usr/bin/env bash',
+      'set -euo pipefail',
+      '[[ "$1" == scripts/release-snap-build-set.mjs ]] || exit 99',
+      'printf \'%s\\n\' "$*" >> "$MOTRIX_TEST_RELEASE_LOG"',
+    ].join('\n'),
+    { mode: 0o755 }
+  )
+  const steps = jobSteps(workflowJob(promotionWorkflow, 'promote'))
+  const credentials = steps.find(
+    (step) => step.name === 'Validate scoped Store credential'
+  ) as LooseRecord
+  const release = steps.find(
+    (step) => step.name === 'Release approved build set'
+  ) as LooseRecord
+  // A failed credential step prevents subsequent Actions steps. Execute both
+  // real commands under the credential step's errexit to prove that boundary.
+  const command =
+    `${stringField(credentials, 'run')}\n${stringField(release, 'run')}`
+      .replaceAll('/snap/bin/snapcraft', 'snapcraft')
+      .replaceAll(`\${{ needs.preflight.outputs.amd64_revision }}`, '111')
+      .replaceAll(`\${{ needs.preflight.outputs.arm64_revision }}`, '112')
+  try {
+    const result = spawnSync('bash', ['-c', command], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PATH: `${root}${path.delimiter}${process.env.PATH ?? ''}`,
+        SNAPCRAFT_STORE_CREDENTIALS: 'fixture-secret-do-not-print',
+        PROMOTION_TARGET: target,
+        TARGET_CHANNEL: `latest/${target}`,
+        EXPECTED_VERSION: '2.0.0',
+        MOTRIX_TEST_WHOAMI_FILE: whoamiFile,
+        MOTRIX_TEST_DIAGNOSTIC: diagnostic,
+        MOTRIX_TEST_EXIT_CODE: String(exitCode),
+        MOTRIX_TEST_SNAPCRAFT_LOG: snapcraftLog,
+        MOTRIX_TEST_RELEASE_LOG: releaseLog,
+      },
+    })
+    return {
+      ...result,
+      snapcraftCalls: readFileSync(snapcraftLog, 'utf8')
+        .split('\n')
+        .filter(Boolean),
+      releaseCalls: readFileSync(releaseLog, 'utf8')
+        .split('\n')
+        .filter(Boolean),
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+}
 
 // The promotion job executes Bash and jq on Ubuntu; these fixtures exercise
 // that exact script without contacting GitHub or modifying a Git checkout.
