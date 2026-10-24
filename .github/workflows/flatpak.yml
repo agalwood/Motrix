@@ -174,11 +174,18 @@ jobs:
             --output "$RUNNER_TEMP/flatpak-cargo-generator.py" \
             "https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/$FLATPAK_BUILDER_TOOLS_COMMIT/cargo/flatpak-cargo-generator.py"
 
+      - name: Verify Flatpak source response header limits
+        run: >-
+          "$RUNNER_TEMP/flatpak-builder-tools/bin/python"
+          -B
+          tests/scripts/test_flatpak_node_generator.py
+
       - name: Generate Flatpak npm sources
         run: |
           node scripts/prepare-flatpak-node-lock.mjs \
             pnpm-lock.yaml "$RUNNER_TEMP/flatpak-node-lock.yaml"
-          "$RUNNER_TEMP/flatpak-builder-tools/bin/flatpak-node-generator" \
+          "$RUNNER_TEMP/flatpak-builder-tools/bin/python" \
+            -B scripts/run_flatpak_node_generator.py \
             pnpm "$RUNNER_TEMP/flatpak-node-lock.yaml" \
             --pnpm-store-version v11 \
             --electron-node-headers \
