@@ -223,13 +223,16 @@ jobs:
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
           PROMOTION_TARGET: ${{ inputs.target }}
+          TARGET_CHANNEL: ${{ needs.preflight.outputs.target_channel }}
         run: |
           set -euo pipefail
           if [[ -z "${SNAPCRAFT_STORE_CREDENTIALS:-}" ]]; then
             echo "Missing snap-store-${PROMOTION_TARGET} credential" >&2
             exit 1
           fi
-          snapcraft whoami
+          python3 scripts/verify_snap_credential_scope.py \
+            --snapcraft /snap/bin/snapcraft \
+            --channel "$TARGET_CHANNEL"
           snapcraft status motrix
 
       - name: Reverify approved source revisions
