@@ -219,6 +219,7 @@ jobs:
         run: sudo snap install snapcraft --classic --channel=9.x/stable
 
       - name: Validate scoped Store credential
+        id: credentials
         timeout-minutes: 5
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
@@ -232,7 +233,8 @@ jobs:
           fi
           python3 scripts/verify_snap_credential_scope.py \
             --snapcraft /snap/bin/snapcraft \
-            --channel "$TARGET_CHANNEL"
+            --channel "$TARGET_CHANNEL" \
+            --github-output "$GITHUB_OUTPUT"
           snapcraft status motrix
 
       - name: Reverify approved source revisions
@@ -259,10 +261,12 @@ jobs:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
           EXPECTED_VERSION: ${{ inputs.expected_version }}
           TARGET_CHANNEL: ${{ needs.preflight.outputs.target_channel }}
+          SNAPCRAFT_CHANNEL: ${{ steps.credentials.outputs.snapcraft_channel }}
         run: >-
           node scripts/release-snap-build-set.mjs
           --snap motrix
           --channel "$TARGET_CHANNEL"
+          --snapcraft-channel "$SNAPCRAFT_CHANNEL"
           --version "$EXPECTED_VERSION"
           --amd64-revision
           "${{ needs.preflight.outputs.amd64_revision }}"

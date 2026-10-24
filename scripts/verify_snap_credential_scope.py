@@ -65,15 +65,16 @@ def scope_items(value: str) -> list[str] | None:
     return items
 
 
-def verify_scope(output: str, channel: str) -> None:
+def verify_scope(output: str, channel: str) -> str:
     match = re.fullmatch(
         r"([A-Za-z0-9][A-Za-z0-9._-]*)/(stable|candidate|beta|edge)", channel
     )
     if not match:
         raise ScopeError("Expected a track/risk target channel", "target_invalid")
     track, risk = match.groups()
-    # Match the exact channel argument sent by release-snap-build-set.mjs.
-    release_channel = risk if track == "latest" else channel
+    # Snapcraft accepts both forms for the latest track, while Store credential
+    # patterns match the actual request spelling. Keep the prior short default.
+    release_channels = [risk, channel] if track == "latest" else [channel]
     fields = parse_whoami(output)
     permissions = scope_items(fields["permissions"])
     channels = scope_items(fields["channels"])
@@ -88,13 +89,15 @@ def verify_scope(output: str, channel: str) -> None:
         )
     # Store channel restrictions use Python fnmatch against the release request.
     # https://dashboard.snapcraft.io/docs/reference/v1/snap.html
-    if channels is not None and not any(
-        fnmatch.fnmatchcase(release_channel, pattern) for pattern in channels
-    ):
-        raise ScopeError(
-            f"Snap credential does not permit release to {channel}",
-            "destination_denied",
-        )
+    for release_channel in release_channels:
+        if channels is None or any(
+            fnmatch.fnmatchcase(release_channel, pattern) for pattern in channels
+        ):
+            return release_channel
+    raise ScopeError(
+        f"Snap credential does not permit release to {channel}",
+        "destination_denied",
+    )
 
 
 def emit_diagnostics(reason: str, result, channel: str) -> None:
@@ -134,6 +137,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--snapcraft", default="/snap/bin/snapcraft")
     parser.add_argument("--channel", required=True)
+    parser.add_argument("--github-output")
     options = parser.parse_args()
     try:
         result = subprocess.run(
@@ -159,11 +163,20 @@ def main() -> None:
             "Snapcraft whoami emitted diagnostics; credential scope was not verified"
         )
     try:
-        verify_scope(result.stdout, options.channel)
+        release_channel = verify_scope(result.stdout, options.channel)
     except ScopeError:
         emit_diagnostics("scope_rejected", result, options.channel)
         raise
-    print(f"Verified Snap credential permits release to {options.channel}")
+    if options.github_output:
+        try:
+            with open(options.github_output, "a", encoding="utf-8") as output:
+                output.write(f"snapcraft_channel={release_channel}\n")
+        except OSError:
+            raise ScopeError("Could not write the verified Snap request channel") from None
+    print(
+        f"Verified Snap credential permits release to {options.channel} "
+        f"using {release_channel}"
+    )
 
 
 if __name__ == "__main__":
