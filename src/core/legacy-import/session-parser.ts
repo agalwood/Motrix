@@ -26,7 +26,7 @@ const OPTIONS = new Set([
   'allow-overwrite',
   'auto-file-renaming',
   'file-allocation',
-  // Only explicit true is accepted: it disables ambient netrc credentials.
+  // Only explicit true is retained: it disables ambient netrc credentials.
   'no-netrc',
   // Declarative options emitted by the v1.8.19 bundled engine even when the
   // user did not customize a task. None is applied during scan or import.
@@ -41,6 +41,24 @@ const OPTIONS = new Set([
   'bt-tracker',
 ])
 
+/** Only names survive parsing; old credentials and request values are never replayed. */
+export const LEGACY_REQUEST_OPTIONS = new Set([
+  'header',
+  'referer',
+  'all-proxy',
+  'all-proxy-user',
+  'all-proxy-passwd',
+  'http-proxy',
+  'http-proxy-user',
+  'http-proxy-passwd',
+  'https-proxy',
+  'https-proxy-user',
+  'https-proxy-passwd',
+  'http-user',
+  'http-passwd',
+  'load-cookies',
+])
+
 export interface LegacySessionEntry {
   itemKey: string
   digest: string
@@ -48,6 +66,8 @@ export interface LegacySessionEntry {
   uris: string[]
   options: Record<string, string>
   optionPairs: Array<readonly [string, string]>
+  requestOptions: string[]
+  unsupportedOptions: string[]
   reason: LegacyReason | null
 }
 
@@ -71,6 +91,8 @@ export function parseLegacySession(bytes: Uint8Array): LegacySessionEntry[] {
     const uris = lines[0].trim().split(/\t+/).filter(Boolean)
     const options: Record<string, string> = Object.create(null)
     const optionPairs: Array<readonly [string, string]> = []
+    const requestOptions = new Set<string>()
+    const unsupportedOptions = new Set<string>()
     let reason: LegacyReason | null =
       lines.some((line) => line.length > MAX_LINE) || uris.length > 16
         ? 'invalid-record'
@@ -81,14 +103,25 @@ export function parseLegacySession(bytes: Uint8Array): LegacySessionEntry[] {
         reason = 'invalid-record'
         continue
       }
-      if (!OPTIONS.has(match[1])) reason = 'unsupported-options'
-      else if (match[1] === 'no-netrc' && match[2].trim() !== 'true')
-        reason = 'unsupported-options'
-      else {
-        optionPairs.push([match[1], match[2]])
-        options[match[1]] = match[2]
+      const [, key, value] = match
+      if (
+        LEGACY_REQUEST_OPTIONS.has(key) ||
+        (key === 'no-netrc' && value.trim() === 'false')
+      ) {
+        if (value.trim()) requestOptions.add(key)
+      } else if (
+        !OPTIONS.has(key) ||
+        (key === 'no-netrc' && value.trim() !== 'true')
+      ) {
+        if (reason !== 'invalid-record') reason = 'unsupported-options'
+        if (key.length <= 64 && unsupportedOptions.size < 64)
+          unsupportedOptions.add(key)
+      } else {
+        optionPairs.push([key, value])
+        options[key] = value
       }
     }
+    if (!reason && requestOptions.size) reason = 'request-settings-required'
     const gid =
       options.gid && /^[a-f\d]{16}$/i.test(options.gid)
         ? options.gid.toLowerCase()
@@ -96,7 +129,17 @@ export function parseLegacySession(bytes: Uint8Array): LegacySessionEntry[] {
     if (options.gid && !gid) reason = 'invalid-record'
     const digest = digestBytes(raw)
     const itemKey = gid ? `gid:${gid}` : `entry:${digest}`
-    entries.push({ itemKey, digest, gid, uris, options, optionPairs, reason })
+    entries.push({
+      itemKey,
+      digest,
+      gid,
+      uris,
+      options,
+      optionPairs,
+      requestOptions: [...requestOptions],
+      unsupportedOptions: [...unsupportedOptions],
+      reason,
+    })
     lines = []
   }
   for (const line of text.split(/\r?\n/)) {

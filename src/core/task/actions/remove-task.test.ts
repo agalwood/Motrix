@@ -9,6 +9,7 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
+import { makeLegacyHttpTask } from '@test-utils/legacy-http-activation'
 import { makeDownloadTask } from '@test-utils/task'
 import { directTaskUpdatePublication } from '@test-utils/task-update'
 import { describe, expect, it, vi } from 'vitest'
@@ -106,6 +107,68 @@ function mediaTaskWithMetadata() {
 }
 
 describe('removeTask', () => {
+  it.each([false, true])(
+    'preserves HTTP migration bytes and control files when deleteWithFiles=%s',
+    async (deleteWithFiles) => {
+      const directory = await mkdtemp(
+        path.join(tmpdir(), 'legacy-http-remove-')
+      )
+      const target = path.join(directory, 'file.bin')
+      const task = makeLegacyHttpTask({ finalPath: target })
+      const deps = makeDeps()
+      deps.adapter.getTaskStatus = vi.fn().mockResolvedValue(task)
+      deps.adapter.verifyLegacyHttpBinding = vi.fn().mockResolvedValue(true)
+      vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+      vi.mocked(deps.db.getTask).mockReturnValue({} as never)
+      await writeFile(target, 'original partial bytes')
+      await writeFile(`${target}.aria2`, 'original control bytes')
+      try {
+        await removeTask(task.id, { deleteWithFiles }, deps)
+        expect(deps.adapter.verifyLegacyHttpBinding).toHaveBeenCalledOnce()
+        expect(deps.adapter.forceRemoveTask).toHaveBeenCalledWith(
+          task.engineTaskId
+        )
+        expect(deps.adapter.removeDownloadResult).toHaveBeenCalledWith(
+          task.engineTaskId
+        )
+        expect(deps.db.deleteTask).toHaveBeenCalledWith(task.id)
+        expect(deps.fileCleanupService.cleanup).not.toHaveBeenCalled()
+        expect(deps.torrentMetaStore.remove).not.toHaveBeenCalled()
+        expect(await readFile(target, 'utf8')).toBe('original partial bytes')
+        expect(await readFile(`${target}.aria2`, 'utf8')).toBe(
+          'original control bytes'
+        )
+      } finally {
+        await rm(directory, { recursive: true, force: true })
+      }
+    }
+  )
+
+  it.each(['binding', 'uri', 'corrupt-intent'])(
+    'retains a legacy HTTP owner without %s proof',
+    async (failure) => {
+      const task = makeLegacyHttpTask()
+      if (failure === 'uri')
+        task.instances[0].uris = ['https://wrong.example/file']
+      if (failure === 'corrupt-intent')
+        task.instances[0].payload.legacyHttpActivation = {
+          engineTaskId: task.engineTaskId,
+        }
+      const deps = makeDeps()
+      deps.adapter.getTaskStatus = vi.fn().mockResolvedValue(task)
+      deps.adapter.verifyLegacyHttpBinding = vi.fn().mockResolvedValue(false)
+      vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+      vi.mocked(deps.db.getTask).mockReturnValue({} as never)
+      await expect(
+        removeTask(task.id, { deleteWithFiles: true }, deps)
+      ).rejects.toThrow('legacyImport.errors.activationUncertain')
+      expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
+      expect(deps.adapter.removeDownloadResult).not.toHaveBeenCalled()
+      expect(deps.db.deleteTask).not.toHaveBeenCalled()
+      expect(deps.fileCleanupService.cleanup).not.toHaveBeenCalled()
+    }
+  )
+
   it('retains the task and torrent metadata when file cleanup fails', async () => {
     const deps = makeDeps()
     const task = makeDownloadTask({

@@ -1009,6 +1009,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "額外請求標頭",
+      "headerName": "標頭名稱",
+      "headerValue": "標頭值",
+      "addHeader": "新增標頭",
+      "removeHeader": "移除標頭",
       "title": "新增任務",
       "links": "連結",
       "torrent": "Torrent",
@@ -1101,6 +1106,7 @@
         "doc": "文件"
       },
       "errors": {
+        "headerNameRequired": "請輸入標頭名稱，或移除此標頭。",
         "urlsRequired": "至少需要一個 URL",
         "saveDirRequired": "必須指定儲存目錄",
         "noFilesSelected": "至少選擇一個檔案",
@@ -3124,12 +3130,19 @@
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
     "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "舊版 Cookie 檔案中的資訊，請填寫為所需的 Cookie 請求標頭。舊版 HTTP 使用者名稱和密碼，請填寫為等效的 Authorization 請求標頭。代理伺服器憑證請填寫在代理伺服器 URL 中。",
+    "unsupportedOptions": "不支援的選項：{{options}}",
+    "requestOptions": "已儲存的請求設定：{{options}}",
+    "requestSettingsDescription": "舊版請求設定未複製。請在「進階」中重新填寫後，下載到新資料夾。",
+    "reconfigureDownload": "重新設定並下載…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
       "metadata-required": "Original torrent file needed",
       "selection-required": "Choose which files to download",
-      "unsupported-options": "Download details need checking",
+      "request-settings-required": "續傳前會檢查已儲存的請求設定",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "不支援的下載選項",
       "invalid-record": "Couldn’t read this task",
       "unsafe-path": "File location needs checking",
       "already-imported": "Already imported",
@@ -3172,14 +3185,21 @@
       "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
       "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
       "controlRequired": "The saved download progress is missing. Download again in a new folder.",
-      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder."
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "已下載的資料與伺服器內容不一致。",
+      "httpRangeUnsupported": "伺服器不支援所需的位元組範圍請求。",
+      "httpValidatorRequired": "伺服器未提供可靠的資源版本識別碼。",
+      "httpVerificationFailed": "無法驗證已下載的資料。",
+      "httpRequestUnsupported": "引擎或請求設定不支援安全續傳。",
+      "httpVerificationCancelled": "驗證已取消。",
+      "httpRedirectUnsupported": "重新導向的連結暫時無法安全原地續傳。"
     },
     "resultIncompleteTitle": "Migration is incomplete",
     "resultStoppedTitle": "Migration stopped",
-    "activationRequired": "Download again in a new folder to keep the original files.",
+    "activationRequired": "請開啟任務詳細資料，驗證後繼續下載。",
     "chooseTorrent": "Choose torrent…",
     "torrentFile": "Torrent file",
-    "verifyAndContinue": "Verify and continue",
+    "verifyAndContinue": "驗證並繼續",
     "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
     "authorizeOriginalDirectory": "Choose the original download folder",
     "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
@@ -3287,7 +3307,10 @@
         "remaining": "Remaining"
       }
     },
-    "importSelected": "Migrate"
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix 會將所有已下載的資料區段與伺服器內容比對，通過後在原資料夾繼續下載。驗證會重新傳輸這些區段；已儲存的請求設定僅在記憶體中使用。",
+    "httpVerifying": "正在準備或驗證…",
+    "httpOriginalFilesKept": "原始檔案已保留。"
   },
   "rendererRecovery": {
     "title": "介面需要復原",

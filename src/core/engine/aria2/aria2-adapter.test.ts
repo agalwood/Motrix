@@ -67,6 +67,43 @@ function featureReport(
 
 // ─── Fixtures ───────────────────────────────────────────────
 
+describe('legacy HTTP activation capability', () => {
+  it('requires native redirect enforcement and rejects cumulative ambient headers', async () => {
+    const rpc = createMockRpc()
+    const adapter = new Aria2Adapter(rpc)
+    vi.mocked(rpc.getVersion).mockResolvedValue({
+      version: 'test',
+      enabledFeatures: ['SQLite3-Persistence', 'LegacyCheckpointImportV1'],
+    })
+    vi.mocked(rpc.getGlobalOption).mockResolvedValue({})
+    expect(await adapter.supportsLegacyHttpActivation()).toBe(false)
+    vi.mocked(rpc.getVersion).mockResolvedValue({
+      version: 'test',
+      enabledFeatures: [
+        'SQLite3-Persistence',
+        'LegacyCheckpointImportV1',
+        'HttpRedirectPolicyV1',
+      ],
+    })
+    expect(await adapter.supportsLegacyHttpActivation()).toBe(true)
+    vi.mocked(rpc.getGlobalOption).mockResolvedValue({
+      header: 'Authorization: ambient-secret',
+    })
+    expect(await adapter.supportsLegacyHttpActivation()).toBe(false)
+    await expect(
+      adapter.createDownload({
+        uris: ['https://example.test/file'],
+        saveDir: '/tmp',
+        legacyCheckpointActivation: {
+          token: 'legacy_http_token_1234',
+          targetPath: '/tmp/file',
+        },
+      })
+    ).rejects.toThrow('httpRequestUnsupported')
+    expect(rpc.addUri).not.toHaveBeenCalled()
+  })
+})
+
 const RAW_HTTP_ACTIVE: Aria2RawStatus = {
   gid: '2089b05ecca3d829',
   status: 'active',

@@ -2751,6 +2751,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "Antete suplimentare",
+      "headerName": "Numele antetului",
+      "headerValue": "Valoarea antetului",
+      "addHeader": "Adăugați un antet",
+      "removeHeader": "Eliminați antetul",
       "adding": "Se adaugă…",
       "advanced": "Avansat",
       "allProxy": "Proxy",
@@ -2781,6 +2786,7 @@
         "title": "Acest torrent există deja"
       },
       "errors": {
+        "headerNameRequired": "Introduceți un nume pentru antet sau eliminați acest antet.",
         "missingSource": "Este necesar un fișier torrent sau un link magnet",
         "noFilesSelected": "Selectează cel puțin un fișier",
         "saveDirRequired": "Este necesar un dosar de salvare",
@@ -3168,12 +3174,19 @@
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
     "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "Pentru vechile fișiere cookie, introduceți antetul Cookie necesar. Pentru numele de utilizator și parolele HTTP, introduceți un antet Authorization echivalent. Introduceți datele de autentificare ale proxy-ului în URL-ul acestuia.",
+    "unsupportedOptions": "Opțiuni neacceptate: {{options}}",
+    "requestOptions": "Setări de cerere salvate: {{options}}",
+    "requestSettingsDescription": "Setările vechi de cerere nu au fost copiate. Introdu-le din nou în Avansat înainte de a descărca într-un dosar nou.",
+    "reconfigureDownload": "Reconfigurați și descărcați…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
       "metadata-required": "Original torrent file needed",
       "selection-required": "Choose which files to download",
-      "unsupported-options": "Download details need checking",
+      "request-settings-required": "Setările de cerere salvate vor fi verificate înainte de reluare",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "Opțiuni de descărcare neacceptate",
       "invalid-record": "Couldn’t read this task",
       "unsafe-path": "File location needs checking",
       "already-imported": "Already imported",
@@ -3216,14 +3229,21 @@
       "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
       "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
       "controlRequired": "The saved download progress is missing. Download again in a new folder.",
-      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder."
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "Datele descărcate diferă de conținutul serverului.",
+      "httpRangeUnsupported": "Serverul nu acceptă intervalele de octeți necesare.",
+      "httpValidatorRequired": "Serverul nu oferă un identificator fiabil al versiunii resursei.",
+      "httpVerificationFailed": "Datele descărcate nu au putut fi verificate.",
+      "httpRequestUnsupported": "Motorul sau setările de cerere nu permit reluarea în siguranță.",
+      "httpVerificationCancelled": "Verificare anulată.",
+      "httpRedirectUnsupported": "Linkurile redirecționate nu pot fi reluate în siguranță în locația originală."
     },
     "resultIncompleteTitle": "Migration is incomplete",
     "resultStoppedTitle": "Migration stopped",
-    "activationRequired": "Download again in a new folder to keep the original files.",
+    "activationRequired": "Deschide detaliile sarcinii pentru a verifica și relua descărcarea.",
     "chooseTorrent": "Choose torrent…",
     "torrentFile": "Torrent file",
-    "verifyAndContinue": "Verify and continue",
+    "verifyAndContinue": "Verifică și continuă",
     "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
     "authorizeOriginalDirectory": "Choose the original download folder",
     "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
@@ -3335,7 +3355,10 @@
         "remaining": "Remaining"
       }
     },
-    "importSelected": "Migrate"
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix va compara toate intervalele descărcate cu serverul, apoi va continua în dosarul original. Verificarea transferă din nou aceste intervale; setările de cerere salvate rămân în memorie.",
+    "httpVerifying": "Pregătire sau verificare…",
+    "httpOriginalFilesKept": "Fișierele existente au fost păstrate."
   },
   "rendererRecovery": {
     "title": "Interfața trebuie recuperată",

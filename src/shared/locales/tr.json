@@ -1021,6 +1021,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "Ek üstbilgiler",
+      "headerName": "Üstbilgi adı",
+      "headerValue": "Üstbilgi değeri",
+      "addHeader": "Üstbilgi ekle",
+      "removeHeader": "Üstbilgiyi kaldır",
       "title": "Yeni Görev",
       "links": "Bağlantılar",
       "torrent": "Torrent",
@@ -1114,6 +1119,7 @@
         "doc": "Belge"
       },
       "errors": {
+        "headerNameRequired": "Bir üstbilgi adı girin veya bu üstbilgiyi kaldırın.",
         "urlsRequired": "En az bir URL gerekli",
         "saveDirRequired": "Kayıt klasörü gerekli",
         "noFilesSelected": "En az bir dosya seçin",
@@ -3146,12 +3152,19 @@
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
     "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "Eski çerez dosyaları için gerekli Cookie üstbilgisini girin. HTTP kullanıcı adları ve parolaları için eşdeğer bir Authorization üstbilgisi girin. Proxy kimlik bilgilerini proxy URL’sine girin.",
+    "unsupportedOptions": "Desteklenmeyen seçenekler: {{options}}",
+    "requestOptions": "Kaydedilmiş istek ayarları: {{options}}",
+    "requestSettingsDescription": "Eski istek ayarları kopyalanmadı. Yeni bir klasöre indirmeden önce Gelişmiş bölümünde yeniden girin.",
+    "reconfigureDownload": "Yeniden yapılandır ve indir…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
       "metadata-required": "Original torrent file needed",
       "selection-required": "Choose which files to download",
-      "unsupported-options": "Download details need checking",
+      "request-settings-required": "Devam etmeden önce kaydedilmiş istek ayarları kontrol edilecek",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "Desteklenmeyen indirme seçenekleri",
       "invalid-record": "Couldn’t read this task",
       "unsafe-path": "File location needs checking",
       "already-imported": "Already imported",
@@ -3194,14 +3207,21 @@
       "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
       "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
       "controlRequired": "The saved download progress is missing. Download again in a new folder.",
-      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder."
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "İndirilen veriler sunucu içeriğinden farklı.",
+      "httpRangeUnsupported": "Sunucu gerekli bayt aralıklarını desteklemiyor.",
+      "httpValidatorRequired": "Sunucu güvenilir bir kaynak sürümü tanımlayıcısı sağlamıyor.",
+      "httpVerificationFailed": "İndirilen veriler doğrulanamadı.",
+      "httpRequestUnsupported": "Motor veya istek ayarları güvenli devamı desteklemiyor.",
+      "httpVerificationCancelled": "Doğrulama iptal edildi.",
+      "httpRedirectUnsupported": "Yönlendirilen bağlantılara özgün konumda güvenle devam edilemez."
     },
     "resultIncompleteTitle": "Migration is incomplete",
     "resultStoppedTitle": "Migration stopped",
-    "activationRequired": "Download again in a new folder to keep the original files.",
+    "activationRequired": "İndirmeyi doğrulayıp devam ettirmek için görev ayrıntılarını açın.",
     "chooseTorrent": "Choose torrent…",
     "torrentFile": "Torrent file",
-    "verifyAndContinue": "Verify and continue",
+    "verifyAndContinue": "Doğrula ve devam et",
     "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
     "authorizeOriginalDirectory": "Choose the original download folder",
     "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
@@ -3311,7 +3331,10 @@
         "remaining": "Remaining"
       }
     },
-    "importSelected": "Migrate"
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix indirilen tüm aralıkları sunucuyla karşılaştırıp özgün klasörde devam eder. Doğrulama bu aralıkları yeniden aktarır; kayıtlı istek ayarları bellekte kalır.",
+    "httpVerifying": "Hazırlanıyor veya doğrulanıyor…",
+    "httpOriginalFilesKept": "Mevcut dosyalarınız korundu."
   },
   "rendererRecovery": {
     "title": "Arayüzün kurtarılması gerekiyor",

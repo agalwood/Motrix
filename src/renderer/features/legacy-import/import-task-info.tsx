@@ -12,7 +12,20 @@ export function ImportTaskInfo({
   showReason?: boolean
 }) {
   const { t } = useTranslation()
-  const reason = t(`legacyImport.reasons.${item.reason}`)
+  const optionNames =
+    item.reason === 'unsupported-options'
+      ? item.unsupportedOptions
+      : item.reason === 'request-settings-required'
+        ? item.requestOptions
+        : undefined
+  const reason = optionNames?.length
+    ? t(
+        item.reason === 'unsupported-options'
+          ? 'legacyImport.unsupportedOptions'
+          : 'legacyImport.requestOptions',
+        { options: optionNames.join(', ') }
+      )
+    : t(`legacyImport.reasons.${item.reason}`)
   return (
     <div className="min-w-0 flex-1 space-y-0.5">
       <div className="flex min-w-0 items-center gap-2">

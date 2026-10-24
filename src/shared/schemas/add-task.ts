@@ -2,6 +2,7 @@ import { analyzeDownloadInput } from '@shared/lib/download-source-input'
 import { MAX_TORRENT_BASE64_SIZE } from '@shared/lib/torrent-meta'
 import { z } from 'zod'
 import { MAX_MIRROR_URIS, type SourceFailure } from './download-source'
+import { legacyOptionNamesSchema } from './legacy-import'
 import { infoHashToMagnetUri } from './magnet-input'
 
 const torrentFileSchema = z.object({
@@ -21,7 +22,7 @@ const torrentMetaSchema = z.object({
 export { torrentMetaSchema }
 
 const httpHeaderSchema = z.object({
-  name: z.string().min(1),
+  name: z.string().min(1, { message: 'task.add.errors.headerNameRequired' }),
   value: z.string(),
 })
 
@@ -37,6 +38,8 @@ const linksTabSchema = z.object({
   cookie: z.string().optional(),
   authorization: z.string().optional(),
   allProxy: z.string().optional(),
+  // Draft-only reminder; option values are entered explicitly in the new task.
+  legacyRequestOptions: legacyOptionNamesSchema.optional(),
 })
 
 const torrentTabSchema = z

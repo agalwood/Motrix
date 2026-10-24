@@ -11,6 +11,8 @@ import {
 const execFileAsync = promisify(execFile)
 const ARCHITECTURES = ['amd64', 'arm64']
 const SNAP_NAME_PATTERN = /^[a-z0-9](?:-?[a-z0-9])*$/
+const CHANNEL_PATTERN =
+  /^(?<track>[A-Za-z0-9][A-Za-z0-9._-]*)\/(?<risk>stable|candidate|beta|edge)$/
 const DEFAULT_SNAPCRAFT_COMMAND_TIMEOUT_MS = 120_000
 
 function normalizeRevision(value, architecture) {
@@ -52,9 +54,25 @@ function snapshotsMatch(left, right) {
   )
 }
 
-function snapcraftChannel(channel) {
-  const [track, risk, extra] = channel.split('/')
-  return track === 'latest' && risk && extra === undefined ? risk : channel
+function resolveSnapcraftChannel(channel, requestedChannel) {
+  const match = typeof channel === 'string' && CHANNEL_PATTERN.exec(channel)
+  if (!match?.groups || match[0] !== channel) {
+    throw new Error(
+      `Invalid channel "${channel}"; expected <track>/<stable|candidate|beta|edge>`
+    )
+  }
+  const { track, risk } = match.groups
+  const defaultChannel = track === 'latest' ? risk : channel
+  if (requestedChannel === undefined) return defaultChannel
+  if (
+    requestedChannel !== channel &&
+    !(track === 'latest' && requestedChannel === risk)
+  ) {
+    throw new Error(
+      'Snapcraft channel must be an equivalent spelling of channel'
+    )
+  }
+  return requestedChannel
 }
 
 function wait(milliseconds) {
@@ -144,6 +162,7 @@ async function defaultRunSnapcraft(snapcraftPath, args, timeoutMs) {
 export async function releaseSnapBuildSet({
   snapName,
   channel,
+  snapcraftChannel,
   version,
   revisions,
   snapcraftPath = '/snap/bin/snapcraft',
@@ -179,10 +198,10 @@ export async function releaseSnapBuildSet({
     )
   }
   const approved = normalizeRevisions(revisions)
-  // Snap Store API responses use the canonical latest/<risk> spelling, while
-  // channel-restricted macaroons issued for the default track authorize the
-  // short risk name used by Snapcraft's mutation commands.
-  const mutationChannel = snapcraftChannel(channel)
+  // Public verification uses canonical track/risk. Restricted credentials can
+  // authorize either equivalent spelling of the default track, so preserve the
+  // selected request spelling throughout release, rollback, and containment.
+  const mutationChannel = resolveSnapcraftChannel(channel, snapcraftChannel)
   const snapshotOptions = {
     snapName,
     channel,
@@ -268,6 +287,7 @@ function parseArguments(argv) {
   const allowed = new Set([
     '--snap',
     '--channel',
+    '--snapcraft-channel',
     '--version',
     '--amd64-revision',
     '--arm64-revision',
@@ -304,6 +324,7 @@ async function main() {
   const result = await releaseSnapBuildSet({
     snapName: args.get('--snap'),
     channel: args.get('--channel'),
+    snapcraftChannel: args.get('--snapcraft-channel'),
     version: args.get('--version'),
     revisions: {
       amd64: args.get('--amd64-revision'),

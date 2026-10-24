@@ -846,6 +846,18 @@ function LegacyImportDialogContent({
             className="pt-4 pb-5"
           />
           {errorNotice}
+          {preview?.items.some(
+            (item) => item.type === 'http' && item.selectable
+          ) && (
+            <Alert
+              role="note"
+              className="mx-auto mb-3 w-full max-w-160 shrink-0"
+            >
+              <AlertDescription className="text-xs">
+                {t('legacyImport.httpResumeDescription')}
+              </AlertDescription>
+            </Alert>
+          )}
           {preview?.running && (
             <Alert className="mx-auto mb-3 w-full max-w-160 shrink-0">
               <WarningIcon aria-hidden="true" />

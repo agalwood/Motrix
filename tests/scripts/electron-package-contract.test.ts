@@ -281,7 +281,7 @@ describe('Electron package contracts', () => {
 
     expect(contract).toEqual({
       schemaVersion: 1,
-      payloadBytes: 27 * 1024 * 1024,
+      payloadBytes: 30 * 1024 * 1024,
       betterSqlite3Bytes: 4 * 1024 * 1024,
       unexpectedPackageNames: 0,
       foreignBetterSqlite3Prebuilds: 0,

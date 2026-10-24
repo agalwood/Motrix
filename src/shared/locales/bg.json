@@ -2731,6 +2731,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "Допълнителни заглавки",
+      "headerName": "Име на заглавката",
+      "headerValue": "Стойност на заглавката",
+      "addHeader": "Добавяне на заглавка",
+      "removeHeader": "Премахване на заглавка",
       "adding": "Добавяне…",
       "advanced": "Разширени",
       "allProxy": "Прокси",
@@ -2761,6 +2766,7 @@
         "title": "Този торент вече съществува"
       },
       "errors": {
+        "headerNameRequired": "Въведете име на заглавката или я премахнете.",
         "missingSource": "Необходим е торент файл или magnet връзка",
         "noFilesSelected": "Изберете поне един файл",
         "saveDirRequired": "Необходима е папка за запазване",
@@ -3146,12 +3152,19 @@
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
     "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "За старите файлове с бисквитки въведете необходимата заглавка Cookie. За HTTP потребителски имена и пароли въведете еквивалентна заглавка Authorization. Въведете данните за достъп до прокси сървъра в неговия URL адрес.",
+    "unsupportedOptions": "Неподдържани опции: {{options}}",
+    "requestOptions": "Запазени настройки на заявките: {{options}}",
+    "requestSettingsDescription": "Старите настройки на заявките не са копирани. Въведете ги отново в разширените настройки, преди да изтеглите в нова папка.",
+    "reconfigureDownload": "Настройване отново и изтегляне…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
       "metadata-required": "Original torrent file needed",
       "selection-required": "Choose which files to download",
-      "unsupported-options": "Download details need checking",
+      "request-settings-required": "Запазените настройки на заявките ще бъдат проверени преди продължаване",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "Неподдържани опции за изтегляне",
       "invalid-record": "Couldn’t read this task",
       "unsafe-path": "File location needs checking",
       "already-imported": "Already imported",
@@ -3194,14 +3207,21 @@
       "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
       "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
       "controlRequired": "The saved download progress is missing. Download again in a new folder.",
-      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder."
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "Изтеглените данни се различават от съдържанието на сървъра.",
+      "httpRangeUnsupported": "Сървърът не поддържа необходимите диапазони от байтове.",
+      "httpValidatorRequired": "Сървърът не предоставя надежден идентификатор на версията на ресурса.",
+      "httpVerificationFailed": "Изтеглените данни не могат да бъдат проверени.",
+      "httpRequestUnsupported": "Модулът или настройките на заявките не поддържат безопасно продължаване.",
+      "httpVerificationCancelled": "Проверката е отменена.",
+      "httpRedirectUnsupported": "Пренасочени връзки не могат да продължат безопасно на оригиналното място."
     },
     "resultIncompleteTitle": "Migration is incomplete",
     "resultStoppedTitle": "Migration stopped",
-    "activationRequired": "Download again in a new folder to keep the original files.",
+    "activationRequired": "Отворете подробностите за задачата, за да проверите и продължите изтеглянето.",
     "chooseTorrent": "Choose torrent…",
     "torrentFile": "Torrent file",
-    "verifyAndContinue": "Verify and continue",
+    "verifyAndContinue": "Проверка и продължаване",
     "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
     "authorizeOriginalDirectory": "Choose the original download folder",
     "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
@@ -3311,7 +3331,10 @@
         "remaining": "Remaining"
       }
     },
-    "importSelected": "Migrate"
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix ще сравни всички изтеглени диапазони със сървъра и ще продължи в оригиналната папка. Проверката прехвърля тези диапазони отново; запазените настройки на заявките остават в паметта.",
+    "httpVerifying": "Подготовка или проверка…",
+    "httpOriginalFilesKept": "Съществуващите файлове са запазени."
   },
   "rendererRecovery": {
     "title": "Интерфейсът трябва да бъде възстановен",

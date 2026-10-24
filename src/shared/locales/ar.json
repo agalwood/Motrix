@@ -2811,6 +2811,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "ترويسات إضافية",
+      "headerName": "اسم الترويسة",
+      "headerValue": "قيمة الترويسة",
+      "addHeader": "إضافة ترويسة",
+      "removeHeader": "إزالة الترويسة",
       "adding": "جارٍ الإضافة…",
       "advanced": "متقدم",
       "allProxy": "الوكيل",
@@ -2841,6 +2846,7 @@
         "title": "هذا التورنت موجود بالفعل"
       },
       "errors": {
+        "headerNameRequired": "أدخل اسم الترويسة أو أزل هذه الترويسة.",
         "missingSource": "يلزم ملف تورنت أو رابط magnet",
         "noFilesSelected": "حدد ملفًا واحدًا على الأقل",
         "saveDirRequired": "يلزم تحديد مجلد الحفظ",
@@ -3234,12 +3240,19 @@
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
     "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "بالنسبة إلى ملفات تعريف الارتباط القديمة، أدخل ترويسة Cookie المطلوبة. ولأسماء مستخدمي HTTP وكلمات مرورهم، أدخل ترويسة Authorization المكافئة. أدخل بيانات اعتماد الوكيل في عنوان URL للوكيل.",
+    "unsupportedOptions": "الخيارات غير المدعومة: {{options}}",
+    "requestOptions": "إعدادات الطلب المحفوظة: {{options}}",
+    "requestSettingsDescription": "لم تُنسخ إعدادات الطلب القديمة. أدخلها مجددًا في الإعدادات المتقدمة قبل التنزيل إلى مجلد جديد.",
+    "reconfigureDownload": "إعادة الإعداد والتنزيل…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
       "metadata-required": "Original torrent file needed",
       "selection-required": "Choose which files to download",
-      "unsupported-options": "Download details need checking",
+      "request-settings-required": "سيتم فحص إعدادات الطلب المحفوظة قبل الاستئناف",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "خيارات تنزيل غير مدعومة",
       "invalid-record": "Couldn’t read this task",
       "unsafe-path": "File location needs checking",
       "already-imported": "Already imported",
@@ -3282,14 +3295,21 @@
       "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
       "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
       "controlRequired": "The saved download progress is missing. Download again in a new folder.",
-      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder."
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "تختلف البيانات المنزّلة عن محتوى الخادم.",
+      "httpRangeUnsupported": "لا يدعم الخادم نطاقات البايت المطلوبة.",
+      "httpValidatorRequired": "لا يوفر الخادم معرّفًا موثوقًا لإصدار المورد.",
+      "httpVerificationFailed": "تعذر التحقق من البيانات المنزّلة.",
+      "httpRequestUnsupported": "لا يدعم المحرك أو إعدادات الطلب الاستئناف الآمن.",
+      "httpVerificationCancelled": "تم إلغاء التحقق.",
+      "httpRedirectUnsupported": "لا يمكن استئناف الروابط المعاد توجيهها بأمان في الموقع الأصلي."
     },
     "resultIncompleteTitle": "Migration is incomplete",
     "resultStoppedTitle": "Migration stopped",
-    "activationRequired": "Download again in a new folder to keep the original files.",
+    "activationRequired": "افتح تفاصيل المهمة للتحقق من التنزيل واستئنافه.",
     "chooseTorrent": "Choose torrent…",
     "torrentFile": "Torrent file",
-    "verifyAndContinue": "Verify and continue",
+    "verifyAndContinue": "التحقق والمتابعة",
     "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
     "authorizeOriginalDirectory": "Choose the original download folder",
     "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
@@ -3407,7 +3427,10 @@
         "remaining": "Remaining"
       }
     },
-    "importSelected": "Migrate"
+    "importSelected": "Migrate",
+    "httpResumeDescription": "سيقارن Motrix جميع النطاقات المنزّلة بالخادم ثم يتابع في المجلد الأصلي. ينقل التحقق هذه النطاقات مجددًا؛ وتبقى إعدادات الطلب المحفوظة في الذاكرة.",
+    "httpVerifying": "جارٍ الإعداد أو التحقق…",
+    "httpOriginalFilesKept": "تم الاحتفاظ بملفاتك الموجودة."
   },
   "rendererRecovery": {
     "title": "تحتاج الواجهة إلى الاستعادة",

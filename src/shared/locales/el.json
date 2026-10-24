@@ -2731,6 +2731,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "Πρόσθετες κεφαλίδες",
+      "headerName": "Όνομα κεφαλίδας",
+      "headerValue": "Τιμή κεφαλίδας",
+      "addHeader": "Προσθήκη κεφαλίδας",
+      "removeHeader": "Αφαίρεση κεφαλίδας",
       "adding": "Προσθήκη…",
       "advanced": "Για προχωρημένους",
       "allProxy": "Διακομιστής μεσολάβησης",
@@ -2761,6 +2766,7 @@
         "title": "Αυτό το torrent υπάρχει ήδη"
       },
       "errors": {
+        "headerNameRequired": "Εισαγάγετε όνομα κεφαλίδας ή αφαιρέστε αυτήν την κεφαλίδα.",
         "missingSource": "Απαιτείται αρχείο torrent ή σύνδεσμος magnet",
         "noFilesSelected": "Επιλέξτε τουλάχιστον ένα αρχείο",
         "saveDirRequired": "Απαιτείται φάκελος αποθήκευσης",
@@ -3146,12 +3152,19 @@
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
     "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "Για παλιά αρχεία cookie, εισαγάγετε την απαιτούμενη κεφαλίδα Cookie. Για ονόματα χρήστη και κωδικούς HTTP, εισαγάγετε μια αντίστοιχη κεφαλίδα Authorization. Εισαγάγετε τα διαπιστευτήρια του διακομιστή μεσολάβησης στη διεύθυνση URL του.",
+    "unsupportedOptions": "Μη υποστηριζόμενες επιλογές: {{options}}",
+    "requestOptions": "Αποθηκευμένες ρυθμίσεις αιτήματος: {{options}}",
+    "requestSettingsDescription": "Οι παλιές ρυθμίσεις αιτήματος δεν αντιγράφηκαν. Εισαγάγετέ τις ξανά στις σύνθετες ρυθμίσεις πριν από τη λήψη σε νέο φάκελο.",
+    "reconfigureDownload": "Νέα ρύθμιση και λήψη…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
       "metadata-required": "Original torrent file needed",
       "selection-required": "Choose which files to download",
-      "unsupported-options": "Download details need checking",
+      "request-settings-required": "Οι αποθηκευμένες ρυθμίσεις αιτήματος θα ελεγχθούν πριν από τη συνέχιση",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "Μη υποστηριζόμενες επιλογές λήψης",
       "invalid-record": "Couldn’t read this task",
       "unsafe-path": "File location needs checking",
       "already-imported": "Already imported",
@@ -3194,14 +3207,21 @@
       "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
       "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
       "controlRequired": "The saved download progress is missing. Download again in a new folder.",
-      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder."
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "Τα ληφθέντα δεδομένα διαφέρουν από το περιεχόμενο του διακομιστή.",
+      "httpRangeUnsupported": "Ο διακομιστής δεν υποστηρίζει τα απαιτούμενα εύρη byte.",
+      "httpValidatorRequired": "Ο διακομιστής δεν παρέχει αξιόπιστο αναγνωριστικό έκδοσης του πόρου.",
+      "httpVerificationFailed": "Δεν ήταν δυνατή η επαλήθευση των ληφθέντων δεδομένων.",
+      "httpRequestUnsupported": "Η μηχανή ή οι ρυθμίσεις αιτήματος δεν επιτρέπουν ασφαλή συνέχιση.",
+      "httpVerificationCancelled": "Η επαλήθευση ακυρώθηκε.",
+      "httpRedirectUnsupported": "Οι σύνδεσμοι με ανακατεύθυνση δεν μπορούν να συνεχιστούν με ασφάλεια στην αρχική θέση."
     },
     "resultIncompleteTitle": "Migration is incomplete",
     "resultStoppedTitle": "Migration stopped",
-    "activationRequired": "Download again in a new folder to keep the original files.",
+    "activationRequired": "Ανοίξτε τις λεπτομέρειες της εργασίας για επαλήθευση και συνέχιση της λήψης.",
     "chooseTorrent": "Choose torrent…",
     "torrentFile": "Torrent file",
-    "verifyAndContinue": "Verify and continue",
+    "verifyAndContinue": "Επαλήθευση και συνέχεια",
     "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
     "authorizeOriginalDirectory": "Choose the original download folder",
     "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
@@ -3311,7 +3331,10 @@
         "remaining": "Remaining"
       }
     },
-    "importSelected": "Migrate"
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Το Motrix θα συγκρίνει όλα τα ληφθέντα τμήματα με τον διακομιστή και θα συνεχίσει στον αρχικό φάκελο. Η επαλήθευση μεταφέρει ξανά αυτά τα τμήματα· οι αποθηκευμένες ρυθμίσεις αιτήματος παραμένουν στη μνήμη.",
+    "httpVerifying": "Προετοιμασία ή επαλήθευση…",
+    "httpOriginalFilesKept": "Τα υπάρχοντα αρχεία διατηρήθηκαν."
   },
   "rendererRecovery": {
     "title": "Η διεπαφή χρειάζεται επαναφορά",
