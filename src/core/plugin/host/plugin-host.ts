@@ -1329,6 +1329,7 @@ export class PluginHost {
     ])
     await Promise.all([...pluginIds].map((id) => this.deactivate(id)))
     await this.opts.capabilityHost.flush()
+    await this.opts.capabilityHost.closeLogs?.()
   }
 
   private sweepIdle(): void {

@@ -24,6 +24,7 @@ export const Commands = {
   RevealLegacyImportSource: 'command:revealLegacyImportSource',
   PickLegacyTorrentMetadata: 'command:pickLegacyTorrentMetadata',
   CommitLegacyImport: 'command:commitLegacyImport',
+  ReleaseLegacyImportPreview: 'command:releaseLegacyImportPreview',
   CancelLegacyImport: 'command:cancelLegacyImport',
   RetryLegacyImport: 'command:retryLegacyImport',
   DismissLegacyImportInvitation: 'command:dismissLegacyImportInvitation',

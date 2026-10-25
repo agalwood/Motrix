@@ -6,6 +6,7 @@ import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { StrictMode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { LegacyImportDialog } from './legacy-import-dialog'
 import { useLegacyImportSidebar } from './sidebar-preference'
@@ -95,6 +96,53 @@ describe('legacy import dialog', () => {
           return report
         return { ok: true }
       })
+  })
+
+  it('keeps a current preview through StrictMode setup and releases it on unmount', async () => {
+    const view = render(
+      <StrictMode>
+        <LegacyImportDialog open presentation="page" onClose={vi.fn()} />
+      </StrictMode>
+    )
+    await continueFromSource()
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.ReleaseLegacyImportPreview,
+      { previewId }
+    )
+    view.unmount()
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith(
+        Commands.ReleaseLegacyImportPreview,
+        { previewId }
+      )
+    )
+  })
+
+  it('releases a scan result that arrives after the view has unmounted', async () => {
+    const original = vi.mocked(transport.invoke).getMockImplementation()
+    let resolve!: (value: typeof preview) => void
+    vi.mocked(transport.invoke).mockImplementation((channel, ...args) => {
+      if (channel === Queries.ScanLegacyImport)
+        return new Promise((done) => {
+          resolve = done
+        })
+      return original!(channel, ...args)
+    })
+    const view = render(
+      <LegacyImportDialog open presentation="page" onClose={vi.fn()} />
+    )
+    const button = await screen.findByRole('button', { name: 'Continue' })
+    await waitFor(() => expect(button).toBeEnabled())
+    fireEvent.click(button)
+    await waitFor(() => expect(resolve).toBeTypeOf('function'))
+    view.unmount()
+    resolve(preview)
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith(
+        Commands.ReleaseLegacyImportPreview,
+        { previewId }
+      )
+    )
   })
 
   it('selects HTTP records with saved request settings and explains verification and blocked options', async () => {

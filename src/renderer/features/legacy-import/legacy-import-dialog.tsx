@@ -99,6 +99,15 @@ class ImportErrorBoundary extends Component<
   }
 }
 
+function releasePreview(preview: LegacyImportPreview | null): void {
+  if (!preview) return
+  void transport
+    .invoke(Commands.ReleaseLegacyImportPreview, {
+      previewId: preview.previewId,
+    })
+    .catch(() => {})
+}
+
 export function LegacyImportDialog(props: Props) {
   const { t } = useTranslation()
   return (
@@ -218,6 +227,7 @@ function LegacyImportDialogContent({
       ++sourceFeedbackEpoch.current
       sourceHandleRef.current = source.sourceHandle
       setSourceHandle(source.sourceHandle)
+      releasePreview(previewRef.current)
       previewRef.current = null
       setPreview(null)
       setSelected(new Set())
@@ -241,7 +251,12 @@ function LegacyImportDialogContent({
           sourceHandle: source.sourceHandle,
         })
       )
-      if (generation !== epoch.current) return
+      if (generation !== epoch.current) {
+        releasePreview(next)
+        return
+      }
+      if (previewRef.current?.previewId !== next.previewId)
+        releasePreview(previewRef.current)
       previewRef.current = next
       setPreview(next)
       setSelected(
@@ -293,6 +308,8 @@ function LegacyImportDialogContent({
     return () => {
       epoch.current++
       busyRef.current = false
+      releasePreview(previewRef.current)
+      previewRef.current = null
     }
   }, [open, perform, discover])
 
@@ -433,8 +450,14 @@ function LegacyImportDialogContent({
         Commands.PickLegacyTorrentMetadata,
         { previewId: preview.previewId, itemId: item.itemId }
       )
-      if (!result || generation !== epoch.current) return
+      if (!result) return
       const next = legacyImportPreviewSchema.parse(result)
+      if (generation !== epoch.current) {
+        releasePreview(next)
+        return
+      }
+      if (previewRef.current?.previewId !== next.previewId)
+        releasePreview(previewRef.current)
       previewRef.current = next
       setPreview(next)
       setSelected(
