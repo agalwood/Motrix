@@ -48,11 +48,14 @@ export interface LegacyImportServiceDeps {
 }
 interface PreviewState {
   dto: LegacyImportPreview
-  snapshot: LegacySnapshot
+  snapshot: LegacySnapshot | null
   committedRunId?: string
 }
 const PREVIEW_TTL = 15 * 60 * 1000
 const BATCH_SIZE = 100
+const MAX_PREVIEWS = 4
+const MAX_PREVIEW_BYTES = 64 * 1024 * 1024
+const MAX_RETRY_SOURCES = 32
 
 export class LegacyImportService {
   private sources = new Map<string, LegacySource>()
@@ -66,6 +69,12 @@ export class LegacyImportService {
   private stopMetadataPicker: (() => void) | null = null
   private draining = false
   private clock: () => number
+  private previewTimer: ReturnType<typeof setTimeout> | null = null
+  private scanWork: Promise<LegacyImportPreview> | null = null
+  private activePreviewId: string | null = null
+  private metadataPreviewId: string | null = null
+  private readonly releasedPreviews = new Set<string>()
+  private readonly retrySources = new Map<string, string>()
 
   constructor(private readonly deps: LegacyImportServiceDeps) {
     this.clock = deps.now ?? Date.now
@@ -154,9 +163,25 @@ export class LegacyImportService {
     return source.root
   }
 
-  async scan(
+  scan(sourceHandle: string): Promise<LegacyImportPreview> {
+    if (
+      this.draining ||
+      this.scanWork ||
+      this.activeRun ||
+      this.metadataAdmissions.size
+    )
+      return Promise.reject(this.error('busy'))
+    const work = this.scanPreview(sourceHandle).finally(() => {
+      if (this.scanWork === work) this.scanWork = null
+    })
+    this.scanWork = work
+    return work
+  }
+
+  private async scanPreview(
     sourceHandle: string,
-    expectedDigest?: string
+    expectedDigest?: string,
+    assertAdmissionCurrent?: () => void
   ): Promise<LegacyImportPreview> {
     if (this.draining) throw this.error('busy')
     const source = this.sources.get(sourceHandle)
@@ -188,6 +213,7 @@ export class LegacyImportService {
         if (state.dto.sourceHandle === sourceHandle) this.previews.delete(id)
     }
     if (this.draining) throw this.error('busy')
+    assertAdmissionCurrent?.()
     if (expectedDigest && snapshot.digest !== expectedDigest)
       throw this.error('changedSource')
     const grants = this.metadataGrants.get(sourceHandle)
@@ -223,9 +249,12 @@ export class LegacyImportService {
         } else pendingPaths.push(candidate.outputPath)
       }
     }
-    for (const [id, value] of this.previews)
-      if (value.dto.expiresAt < this.clock()) this.previews.delete(id)
-    while (this.previews.size >= 4) {
+    this.expirePreviews()
+    const incomingBytes = this.snapshotBytes(snapshot)
+    while (
+      this.previews.size >= MAX_PREVIEWS ||
+      this.retainedPreviewBytes() + incomingBytes > MAX_PREVIEW_BYTES
+    ) {
       const oldest = this.previews.keys().next().value
       if (!oldest) break
       this.previews.delete(oldest)
@@ -240,6 +269,7 @@ export class LegacyImportService {
       expiresAt: this.clock() + PREVIEW_TTL,
     }
     this.previews.set(dto.previewId, { dto, snapshot })
+    this.schedulePreviewExpiry()
     return dto
   }
 
@@ -247,12 +277,20 @@ export class LegacyImportService {
     input: unknown,
     chooseFile: () => Promise<string | null>
   ): Promise<LegacyImportPreview | null> {
-    if (this.draining || this.activeRun || this.metadataAdmissions.size)
+    if (
+      this.draining ||
+      this.scanWork ||
+      this.activeRun ||
+      this.metadataAdmissions.size
+    )
       return Promise.reject(this.error('busy'))
     const admission = this.authorizeMetadataAdmission(input, chooseFile)
     this.metadataAdmissions.add(admission)
     void admission
-      .finally(() => this.metadataAdmissions.delete(admission))
+      .finally(() => {
+        this.metadataAdmissions.delete(admission)
+        this.metadataPreviewId = null
+      })
       .catch(() => {})
     return admission
   }
@@ -262,7 +300,11 @@ export class LegacyImportService {
     chooseFile: () => Promise<string | null>
   ): Promise<LegacyImportPreview | null> {
     const { previewId, itemId } = legacyMetadataRequestSchema.parse(input)
+    this.expirePreviews()
     const preview = this.previews.get(previewId)
+    const snapshot = preview?.snapshot
+    if (!preview || !snapshot) throw this.error('expiredPreview')
+    this.metadataPreviewId = previewId
     const current = () => {
       if (
         !preview ||
@@ -272,7 +314,7 @@ export class LegacyImportService {
         throw this.error('expiredPreview')
       if (this.draining || this.activeRun || preview.committedRunId)
         throw this.error('busy')
-      const candidate = preview.snapshot.candidates.find(
+      const candidate = snapshot.candidates.find(
         (entry) => entry.item.itemId === itemId
       )
       if (
@@ -288,11 +330,11 @@ export class LegacyImportService {
     if (!preview) throw this.error('expiredPreview')
     const unchanged = async () => {
       current()
-      const snapshot = await this.scanSource(preview.snapshot.source)
+      const refreshed = await this.scanSource(snapshot.source)
       current()
-      if (snapshot.digest !== preview.snapshot.digest)
+      if (refreshed.digest !== snapshot.digest)
         throw this.error('changedSource')
-      if (snapshot.running) throw this.error('running')
+      if (refreshed.running) throw this.error('running')
     }
     await unchanged()
     let selected: string | null
@@ -318,7 +360,7 @@ export class LegacyImportService {
     const trialGrants = new Map(previous)
     trialGrants.set(candidate.entry.digest, grant)
     const trial = await scanLegacySource(
-      preview.snapshot.source,
+      snapshot.source,
       this.deps.isProcessRunning,
       trialGrants
     )
@@ -332,7 +374,11 @@ export class LegacyImportService {
     // preview changes until every chosen-file/source check has succeeded.
     this.metadataGrants.set(preview.dto.sourceHandle, trialGrants)
     try {
-      const refreshed = await this.scan(preview.dto.sourceHandle, trial.digest)
+      const refreshed = await this.scanPreview(
+        preview.dto.sourceHandle,
+        trial.digest,
+        current
+      )
       for (const [id, state] of this.previews)
         if (
           id !== refreshed.previewId &&
@@ -370,11 +416,15 @@ export class LegacyImportService {
 
   private async commitAdmission(input: unknown): Promise<LegacyImportReport> {
     const request = legacyCommitRequestSchema.parse(input)
+    this.expirePreviews()
     const preview = this.previews.get(request.previewId)
     if (!preview || preview.dto.expiresAt < this.clock())
       throw this.error('expiredPreview')
     if (preview.committedRunId) return this.getRun(preview.committedRunId)
-    if (this.activeRun || this.metadataAdmissions.size) throw this.error('busy')
+    const snapshot = preview.snapshot
+    if (!snapshot) throw this.error('expiredPreview')
+    if (this.activeRun || this.scanWork || this.metadataAdmissions.size)
+      throw this.error('busy')
     const ids = new Set(request.itemIds)
     if (
       ids.size !== request.itemIds.length ||
@@ -389,15 +439,13 @@ export class LegacyImportService {
     // Lock before the first await: two simultaneous commits cannot pass admission.
     const runId = randomUUID()
     this.activeRun = runId
+    this.activePreviewId = request.previewId
     try {
-      const refreshed = await this.scanSource(preview.snapshot.source)
-      if (refreshed.digest !== preview.snapshot.digest)
-        throw this.error('changedSource')
-      if (refreshed.running) throw this.error('running')
-      const selected = preview.snapshot.candidates.filter((candidate) =>
+      await this.assertSnapshotCurrent(snapshot)
+      const selected = snapshot.candidates.filter((candidate) =>
         ids.has(candidate.item.itemId)
       )
-      this.assertNoConflicts(selected, preview.snapshot.sourceId)
+      this.assertNoConflicts(selected, snapshot.sourceId)
       const report: LegacyImportReport = {
         runId,
         stage: 'backing-up',
@@ -421,17 +469,14 @@ export class LegacyImportService {
         )
         .run(
           runId,
-          preview.snapshot.sourceId,
-          preview.snapshot.digest,
+          snapshot.sourceId,
+          snapshot.digest,
           JSON.stringify(report),
           this.clock()
         )
-      const backup = await this.backup(preview.snapshot, runId)
+      const backup = await this.backup(snapshot, runId)
       // The source and liveness guard must still hold after the potentially slow backup.
-      const afterBackup = await this.scanSource(preview.snapshot.source)
-      if (afterBackup.digest !== preview.snapshot.digest)
-        throw this.error('changedSource')
-      if (afterBackup.running) throw this.error('running')
+      await this.assertSnapshotCurrent(snapshot)
       report.backupCreated = true
       report.stage = 'committing'
       this.deps.db.database
@@ -440,29 +485,38 @@ export class LegacyImportService {
         )
         .run(backup, JSON.stringify(report), runId)
       preview.committedRunId = runId
-      const job = this.runBatches(
-        preview.snapshot,
-        selected,
-        backup,
-        report
-      ).finally(() => {
-        this.activeRun = null
-        this.runningJobs.delete(runId)
-        this.cancelled.delete(runId)
-      })
+      this.retrySources.set(runId, preview.dto.sourceHandle)
+      while (this.retrySources.size > MAX_RETRY_SOURCES) {
+        const oldest = this.retrySources.keys().next().value
+        if (oldest) this.retrySources.delete(oldest)
+      }
+      const job = this.runBatches(snapshot, selected, backup, report).finally(
+        () => {
+          this.activeRun = null
+          this.activePreviewId = null
+          this.retirePreview(request.previewId, preview)
+          this.runningJobs.delete(runId)
+          this.cancelled.delete(runId)
+        }
+      )
       this.runningJobs.set(runId, job)
       void job.catch(() => {})
       return this.getRun(runId)
     } catch (error) {
-      const row = this.deps.db.database
-        .prepare('SELECT report FROM legacy_import_runs WHERE run_id=?')
-        .get(runId) as { report: string } | undefined
-      if (row) {
-        const report = legacyImportReportSchema.parse(JSON.parse(row.report))
-        report.stage = 'failed'
-        this.saveReport(report)
+      try {
+        const row = this.deps.db.database
+          .prepare('SELECT report FROM legacy_import_runs WHERE run_id=?')
+          .get(runId) as { report: string } | undefined
+        if (row) {
+          const report = legacyImportReportSchema.parse(JSON.parse(row.report))
+          report.stage = 'failed'
+          this.saveReport(report)
+        }
+      } finally {
+        this.activeRun = null
+        this.activePreviewId = null
+        this.releasePreview(request.previewId)
       }
-      this.activeRun = null
       throw error
     }
   }
@@ -482,29 +536,113 @@ export class LegacyImportService {
 
   async drain(): Promise<void> {
     this.draining = true
+    if (this.previewTimer) clearTimeout(this.previewTimer)
+    this.previewTimer = null
     this.stopMetadataPicker?.()
     if (this.activeRun) this.cancelled.add(this.activeRun)
     // Backup and admission can still hold the database before a batch job exists.
     // Shutdown must wait for both phases before its caller closes the database.
+    await this.scanWork?.catch(() => {})
     await Promise.allSettled(this.admissions)
     await Promise.allSettled(this.metadataAdmissions)
     await Promise.allSettled(this.runningJobs.values())
+    this.previews.clear()
+    this.sources.clear()
+    this.metadataGrants.clear()
+    this.retrySources.clear()
+    this.releasedPreviews.clear()
   }
 
   async retry(runId: string): Promise<LegacyImportReport> {
     const report = this.getRun(runId)
-    const state = [...this.previews.values()].find(
-      (preview) => preview.committedRunId === runId
-    )
-    if (!state) throw this.error('rescanRequired')
+    const sourceHandle = this.retrySources.get(runId)
+    if (!sourceHandle) throw this.error('rescanRequired')
     const failed = report.items
       .filter(
         (item) => item.outcome === 'failed' || item.outcome === 'unprocessed'
       )
       .map((item) => item.itemId)
     if (!failed.length) return report
-    const refreshed = await this.scan(state.dto.sourceHandle)
+    const refreshed = await this.scan(sourceHandle)
     return this.commit({ previewId: refreshed.previewId, itemIds: failed })
+  }
+
+  releasePreview(previewId: string): void {
+    if (this.activePreviewId === previewId) {
+      this.releasedPreviews.add(previewId)
+      return
+    }
+    this.releasedPreviews.delete(previewId)
+    this.previews.delete(previewId)
+    if (this.metadataPreviewId === previewId) this.stopMetadataPicker?.()
+    this.schedulePreviewExpiry()
+  }
+
+  private retirePreview(id: string, preview: PreviewState): void {
+    if (this.previews.get(id) === preview) {
+      if (
+        this.releasedPreviews.delete(id) ||
+        preview.dto.expiresAt <= this.clock()
+      ) {
+        this.previews.delete(id)
+      } else {
+        this.previews.set(id, {
+          dto: { ...preview.dto, items: [] },
+          snapshot: null,
+          committedRunId: preview.committedRunId,
+        })
+      }
+    }
+    this.releasedPreviews.delete(id)
+    this.schedulePreviewExpiry()
+  }
+
+  private snapshotBytes(snapshot: LegacySnapshot): number {
+    return snapshot.files.reduce((sum, file) => sum + file.bytes.byteLength, 0)
+  }
+
+  private retainedPreviewBytes(): number {
+    let bytes = 0
+    for (const preview of this.previews.values())
+      if (preview.snapshot) bytes += this.snapshotBytes(preview.snapshot)
+    return bytes
+  }
+
+  private expirePreviews(): void {
+    for (const [id, preview] of this.previews) {
+      if (
+        id !== this.activePreviewId &&
+        preview.dto.expiresAt <= this.clock()
+      ) {
+        this.previews.delete(id)
+        if (this.metadataPreviewId === id) this.stopMetadataPicker?.()
+      }
+    }
+  }
+
+  private schedulePreviewExpiry(): void {
+    if (this.previewTimer) clearTimeout(this.previewTimer)
+    this.previewTimer = null
+    if (this.draining) return
+    const expiries = [...this.previews]
+      .filter(([id]) => id !== this.activePreviewId)
+      .map(([, preview]) => preview.dto.expiresAt)
+    if (!expiries.length) return
+    this.previewTimer = setTimeout(
+      () => {
+        this.previewTimer = null
+        this.expirePreviews()
+        this.schedulePreviewExpiry()
+      },
+      Math.max(1, Math.min(...expiries) - this.clock())
+    )
+    this.previewTimer.unref?.()
+  }
+
+  private async assertSnapshotCurrent(snapshot: LegacySnapshot): Promise<void> {
+    const current = await this.scanSource(snapshot.source)
+    if (current.digest !== snapshot.digest) throw this.error('changedSource')
+    if (current.running) throw this.error('running')
   }
 
   private async runBatches(

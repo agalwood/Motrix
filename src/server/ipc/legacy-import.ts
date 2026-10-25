@@ -23,6 +23,7 @@ export function unsupportedLegacyImportCommands(): CommandHandlerMap {
     [Commands.RevealLegacyImportSource]: desktopOnly,
     [Commands.PickLegacyTorrentMetadata]: desktopOnly,
     [Commands.CommitLegacyImport]: desktopOnly,
+    [Commands.ReleaseLegacyImportPreview]: desktopOnly,
     [Commands.CancelLegacyImport]: desktopOnly,
     [Commands.RetryLegacyImport]: desktopOnly,
     [Commands.DismissLegacyImportInvitation]: desktopOnly,

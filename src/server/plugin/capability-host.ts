@@ -141,6 +141,8 @@ export async function createServerCapabilityHost(
     setLocale: (locale) => i18nCap.setLanguage(locale),
     onLocaleChange: (h) => i18nCap.onChange(h),
     flush: () => log.flush(),
+    releaseLog: (id) => log.release(id),
+    closeLogs: () => log.close(),
 
     // ── Plan B ──────────────────────────────────────────────────────────────
     http,

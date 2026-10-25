@@ -18,6 +18,7 @@ import { Queries } from '@shared/protocol/queries'
 import {
   type LegacyImportNavigationState,
   legacyMetadataRequestSchema,
+  legacyPreviewRequestSchema,
   legacyRunRequestSchema,
   legacyScanRequestSchema,
   legacyTaskMetadataSchema,
@@ -206,6 +207,12 @@ export function registerLegacyImportIpc(deps: DesktopImportDeps): () => void {
       service().getRun(legacyRunRequestSchema.parse(input).runId),
     [Commands.CommitLegacyImport]: async (_event, input) => {
       return (await readyService()).commit(input)
+    },
+    [Commands.ReleaseLegacyImportPreview]: async (_event, input) => {
+      service().releasePreview(
+        legacyPreviewRequestSchema.parse(input).previewId
+      )
+      return { ok: true }
     },
     [Commands.CancelLegacyImport]: async (_event, input) =>
       service().cancel(legacyRunRequestSchema.parse(input).runId),
