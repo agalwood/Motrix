@@ -68,6 +68,17 @@
   </screenshots>
 
   <releases>
+    <release version="2.0.1" date="2026-10-25">
+      <description>
+        <p>
+          Improves HTTP resume verification and legacy HTTP migration, recovers
+          from repeated graphics crashes, bounds cached data and runtime memory,
+          and bundles aria2 1.37.0-motrix.21 for DNS timer recovery and managed
+          engine shutdown. Updates dependencies and unifies native Linux package
+          names as motrix.
+        </p>
+      </description>
+    </release>
     <release version="2.0.0" date="2026-10-24">
       <description>
         <p>

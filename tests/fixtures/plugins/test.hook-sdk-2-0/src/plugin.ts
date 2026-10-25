@@ -1,4 +1,4 @@
-/// <reference types="@motrix/plugin-api-2-0" />
+/// <reference types="@motrix/plugin-api" />
 
 import type { JsonValue, PluginMetadata } from 'motrix:plugin-api'
 import { commands, hooks, storage } from 'motrix:plugin-api'
@@ -55,8 +55,8 @@ hooks.beforeCreate(async (ctx) => {
     return ctx
   }
 
-  // SDK 2.0 types HookCtxBase.metadata as a read/write-or-readonly union even
-  // for pre-Hooks. Runtime pre-Hooks are the documented writable branch.
+  // Hook metadata includes writable and readonly branches. Runtime pre-Hooks
+  // use the documented writable branch.
   const metadata = ctx.metadata as PluginMetadata
   const allBefore = metadata.getAll()
   metadata.set('sdk20', { count: 1 })

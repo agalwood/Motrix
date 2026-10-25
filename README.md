@@ -19,11 +19,12 @@ The same core powers two ways to run Motrix:
 - **Desktop app:** Runs on macOS, Windows, and Linux
 - **Headless server:** Runs without a desktop environment, either directly on Node.js or in Docker, and includes a web UI for NAS devices and home servers
 
-## Motrix 2.0.0
+## Motrix 2.0.1
 
-Motrix 2.0.0 is the first stable release of the rebuilt desktop app and
-headless server. Download [v2.0.0 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.0.0)
-and read the [full release notes](./docs/release-notes/2.0.0.md).
+Motrix 2.0.1 improves HTTP resume verification, graphics recovery, memory use,
+and download engine reliability, and updates desktop and Server dependencies.
+Download [v2.0.1 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.0.1)
+and read the [full release notes](./docs/release-notes/2.0.1.md).
 
 Back up your existing Motrix profile and downloads before upgrading. The desktop
 Migration Assistant imports selected v1 tasks as paused records and preserves
@@ -183,7 +184,7 @@ included `compose.yaml` keeps Server state separate from downloaded resources:
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.1'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait
