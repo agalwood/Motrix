@@ -16,14 +16,18 @@ import {
 import { describe, expect, it } from 'vitest'
 import { Aria2ConfigBuilder } from './aria2-config-builder'
 
-// The disposable host owns aria2 and its output pipes, just like either
-// production shell. The test runner survives its SIGKILL to observe recovery.
+// Unix uses the production pipe setup. Windows needs a detached child with
+// independent stdio to isolate aria2's watchdog from libuv's kill-on-close Job.
+// A separate Windows case covers the production, non-detached Job behavior.
 const hostSource = `
   const { spawn } = require('node:child_process')
-  process.once('message', ({ binary, args }) => {
-    const engine = spawn(binary, args, { stdio: ['ignore', 'pipe', 'pipe'] })
-    engine.stdout.on('data', () => {})
-    engine.stderr.on('data', () => {})
+  process.once('message', ({ binary, args, detached }) => {
+    const engine = spawn(binary, args, {
+      detached,
+      stdio: detached ? 'ignore' : ['ignore', 'pipe', 'pipe'],
+    })
+    engine.stdout?.on('data', () => {})
+    engine.stderr?.on('data', () => {})
     engine.once('spawn', () => process.send({ pid: engine.pid }))
     engine.once('error', (error) => process.send({ error: error.message }))
   })
@@ -92,9 +96,23 @@ async function engineIsRunning(pid: number): Promise<boolean> {
 describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
   'aria2 host crash recovery',
   () => {
-    it.each([false, true])(
-      'survives only while its watched host is alive (watch=%s)',
-      async (watch) => {
+    it.each([
+      {
+        watch: false,
+        detached: process.platform === 'win32',
+        jobManaged: false,
+      },
+      {
+        watch: true,
+        detached: process.platform === 'win32',
+        jobManaged: false,
+      },
+      ...(process.platform === 'win32'
+        ? [{ watch: true, detached: false, jobManaged: true }]
+        : []),
+    ])(
+      'host crash (watch=$watch, detached=$detached)',
+      async ({ watch, detached, jobManaged }) => {
         const root = await mkdtemp(path.join(tmpdir(), 'motrix-parent-watch-'))
         const port = await availablePort()
         const secret = 'isolated-parent-watch-test'
@@ -134,7 +152,7 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
           const spawned = once(host, 'message', {
             signal: AbortSignal.timeout(5_000),
           })
-          host.send({ binary: resolveBundledAria2(), args })
+          host.send({ binary: resolveBundledAria2(), args, detached })
           const [message] = await spawned
           if (typeof message.pid !== 'number') throw new Error(message.error)
           enginePid = message.pid
@@ -159,7 +177,16 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
           })
           await stopHost(host)
 
-          if (watch) {
+          if (jobManaged) {
+            // Node's Windows Job forcibly terminates production children.
+            // Do not mistake kernel cleanup for aria2's graceful watchdog.
+            await expect
+              .poll(() => portIsListening(port), { timeout: 8_000 })
+              .toBe(false)
+            await expect
+              .poll(() => engineIsRunning(message.pid), { timeout: 3_000 })
+              .toBe(false)
+          } else if (watch) {
             await expect
               .poll(() => portIsListening(port), { timeout: 8_000 })
               .toBe(false)
