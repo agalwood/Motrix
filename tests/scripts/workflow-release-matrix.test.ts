@@ -1509,6 +1509,17 @@ describe('release workflow publication contract', () => {
     expect(verificationCommand).toContain('release/*.deb')
     expect(verificationCommand).toContain('release/*.rpm')
     expect(verificationCommand).toContain('release/*.AppImage')
+    expect(verificationCommand).toContain(
+      `dpkg-deb --field "\${debs[0]}" Package`
+    )
+    expect(verificationCommand).toContain("rpm -qp --queryformat '%{NAME}'")
+    expect(verificationCommand).toContain(
+      'for field in Provides Conflicts Replaces'
+    )
+    expect(verificationCommand).toContain(
+      'for relation in provides conflicts obsoletes'
+    )
+    expect(verificationCommand).toContain('motrix-turbo')
 
     const appImageVerification = jobSteps(buildJob).find(
       (step) => step.name === 'Verify AppImage artifact'
