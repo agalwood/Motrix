@@ -71,6 +71,54 @@ beforeEach(async () => {
 })
 
 describe('<AppearanceDialog>', () => {
+  it('keeps acceleration changes in the draft until Save', async () => {
+    render(
+      <AppearanceDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const control = await screen.findByRole('switch', {
+      name: 'Hardware acceleration',
+    })
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+    )
+    expect(control).toBeChecked()
+    await user.click(control)
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      app: { hardwareAcceleration: false },
+    })
+  })
+
+  it('hides the hardware acceleration switch in the web UI', async () => {
+    Object.defineProperty(transport, 'platform', {
+      configurable: true,
+      value: 'web',
+    })
+    render(
+      <AppearanceDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+    )
+    expect(
+      screen.queryByRole('switch', { name: 'Hardware acceleration' })
+    ).not.toBeInTheDocument()
+  })
   it('pins Follow system first and saves the preference only after confirmation', async () => {
     render(
       <AppearanceDialog

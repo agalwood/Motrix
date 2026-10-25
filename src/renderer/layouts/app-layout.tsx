@@ -16,6 +16,7 @@ import { MenuNavigationFocus } from '@renderer/features/application-menu/navigat
 import { EngineDiagnosticsDialogHost } from '@renderer/features/engine-diagnostics/engine-diagnostics-dialog'
 import { OperationDialogHost } from '@renderer/features/plugin-operations/operation-dialog'
 import { useEngineRestartRequiredToast } from '@renderer/hooks/use-engine-restart-required-toast'
+import { useGraphicsRecoveryToast } from '@renderer/hooks/use-graphics-recovery-toast'
 import { useIpcEvent } from '@renderer/hooks/use-ipc-event'
 import { useMenuContextSync } from '@renderer/hooks/use-menu-context-sync'
 import { useNotificationToasts } from '@renderer/hooks/use-notification-toasts'
@@ -58,6 +59,7 @@ export function AppLayout() {
   useToastEvents()
   usePairRequestPrompts()
   useEngineRestartRequiredToast()
+  useGraphicsRecoveryToast()
   useNotificationToasts()
 
   const navigate = useNavigate()

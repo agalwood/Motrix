@@ -231,6 +231,7 @@ export interface MotrixAppSettings {
   theme: 'system' | 'light' | 'dark'
   sidebarColor: SidebarColor
   reduceMotion: boolean
+  hardwareAcceleration: boolean
   byteUnitSystem: ByteUnitPreference
   speedLimitUnits: SpeedLimitUnits
   language: LanguagePreference

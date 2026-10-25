@@ -6,6 +6,18 @@ import {
 } from './app-settings'
 
 describe('appSettingsSchema', () => {
+  it('defaults acceleration on for existing profiles and strictly validates changes', () => {
+    expect(DEFAULT_APP_SETTINGS.hardwareAcceleration).toBe(true)
+    expect(
+      appSettingsSchema.parse({ hardwareAcceleration: false })
+        .hardwareAcceleration
+    ).toBe(false)
+    expect(
+      appSettingsInputSchema
+        .partial()
+        .safeParse({ hardwareAcceleration: 'false' }).success
+    ).toBe(false)
+  })
   it('recovers missing or damaged speed limit units without losing valid choices', () => {
     expect(appSettingsSchema.parse({}).speedLimitUnits).toEqual({
       baseUpload: 'kilo',

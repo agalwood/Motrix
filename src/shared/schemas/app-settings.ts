@@ -40,6 +40,7 @@ export const appSettingsSchema = z.object({
   theme: z.enum(['system', 'light', 'dark']).catch('system'),
   sidebarColor: sidebarColorSchema.catch('cyan'),
   reduceMotion: z.boolean().catch(false),
+  hardwareAcceleration: z.boolean().catch(true),
   language: languagePreferenceSchema.catch('system'),
   byteUnitSystem: byteUnitSystemSchema.catch(DEFAULT_BYTE_UNIT_PREFERENCE),
   speedLimitUnits: speedLimitUnitsSchema.catch(speedLimitUnitsSchema.parse({})),

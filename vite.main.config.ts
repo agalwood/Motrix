@@ -1,6 +1,7 @@
 import { builtinModules, createRequire } from 'node:module'
 import path from 'node:path'
 import { defineConfig } from 'vite'
+import { desktopLocaleProjection } from './scripts/vite-desktop-locales'
 import { PRODUCTION_OUTPUT } from './scripts/vite-production-output'
 
 const require = createRequire(import.meta.url)
@@ -54,6 +55,11 @@ function isExternal(id: string): boolean {
 
 export default defineConfig({
   publicDir: false,
+  plugins: [
+    desktopLocaleProjection(
+      path.resolve(import.meta.dirname, 'src/shared/locales')
+    ),
+  ],
   build: {
     outDir: 'dist/main',
     emptyOutDir: true,
