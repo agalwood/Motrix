@@ -1701,6 +1701,7 @@ export class SessionManager {
             'task.recovery.startup.resumeValidationFailed'
           )
         }
+        const validationStartedAt = Date.now()
         const validation =
           requestOptions &&
           canMirrorAria2MetadataHeaders(this.adapter.getFeatureReport?.())
@@ -1712,6 +1713,18 @@ export class SessionManager {
             : { outcome: 'unverifiable' as const, ifRange: null }
         assertProxyCurrent?.()
         if (validation.outcome !== 'unchanged') {
+          log.warn(
+            {
+              taskId: taskPart.motrixId,
+              ...validation,
+              validatorKind: recipe.resourceValidator.kind,
+              proxyConfigured: requestOptions
+                ? Boolean(requestOptions.proxy)
+                : null,
+              elapsedMs: Math.max(0, Date.now() - validationStartedAt),
+            },
+            'Startup HTTP resume validation failed'
+          )
           const errorDetailKey =
             validation.outcome === 'source-changed'
               ? 'task.recovery.startup.resumeSourceChanged'

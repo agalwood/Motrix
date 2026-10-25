@@ -17,6 +17,7 @@ import {
   spawnAria2ForTest,
 } from '@test-utils/aria2'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { DirectResourceValidatorService } from '../task/direct-resource-validator'
 import {
   createEngineCheckpointProbe,
   DirectRecoveryPlanner,
@@ -31,8 +32,11 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
     const payload = randomBytes(SIZE)
     const digest = createHash('sha256').update(payload).digest('hex')
     const ranges: string[] = []
+    const ifRanges: Array<string | string[] | undefined> = []
     let root: string
     let server: Server | undefined
+    let redirectServer: Server | undefined
+    let sourceUri = ''
     let port = 0
     let handle: Aria2Handle
     let wired: Awaited<ReturnType<typeof connectAdapter>>
@@ -41,6 +45,21 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
     function listen(): Promise<void> {
       server = createServer((req, res) => {
         ranges.push(req.headers.range ?? 'none')
+        ifRanges.push(req.headers['if-range'])
+        if (req.headers.range === 'bytes=0-0') {
+          // Recovery is a required network operation, unlike the optional
+          // filename probe. A healthy server can take longer than 3 seconds.
+          const timer = setTimeout(() => {
+            res.writeHead(206, {
+              ETag: '"v1"',
+              'Content-Length': '1',
+              'Content-Range': `bytes 0-0/${SIZE}`,
+            })
+            res.end(payload.subarray(0, 1))
+          }, 3_500)
+          res.on('close', () => clearTimeout(timer))
+          return
+        }
         const match = /bytes=(\d+)-/.exec(req.headers.range ?? '')
         const start = match ? Number(match[1]) : 0
         const headers = {
@@ -101,6 +120,17 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
     beforeAll(async () => {
       root = await mkdtemp(path.join(tmpdir(), 'motrix-checkpoint-resume-'))
       await listen()
+      redirectServer = createServer((_req, res) => {
+        res.writeHead(302, { Location: `http://127.0.0.1:${port}/file.bin` })
+        res.end()
+      })
+      await new Promise<void>((resolve) =>
+        redirectServer?.listen(0, '127.0.0.1', resolve)
+      )
+      const address = redirectServer.address()
+      if (!address || typeof address === 'string')
+        throw new Error('missing redirect address')
+      sourceUri = `http://127.0.0.1:${address.port}/source.bin`
       handle = await spawnAria2ForTest({
         baseDir: root,
         extraArgs: [
@@ -124,14 +154,28 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
       wired?.disconnect()
       await handle?.kill()
       if (server) await drop()
+      redirectServer?.closeAllConnections()
+      if (redirectServer) {
+        await new Promise<void>((resolve) =>
+          redirectServer?.close(() => resolve())
+        )
+      }
       if (root) await rm(root, { recursive: true, force: true })
     })
 
-    it('keeps, reports and resumes the checkpoint under a new gid', async () => {
+    it('validates a slow redirected source and resumes its checkpoint under a new gid', async () => {
       const { adapter, rpc } = wired
-      const uri = `http://127.0.0.1:${port}/file.bin`
+      const uri = sourceUri
       const filename = 'file.bin.motrix'
       const diskPath = path.join(root, filename)
+      const validatorService = new DirectResourceValidatorService()
+      const validator = await validatorService.capture(uri)
+      expect(validator).toMatchObject({
+        kind: 'strong-etag',
+        value: '"v1"',
+        contentLength: SIZE,
+      })
+      if (!validator) throw new Error('missing validator')
 
       await adapter.createDownload({
         uris: [uri],
@@ -168,6 +212,9 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
       expect(plan).toMatchObject({ kind: 'checkpoint' })
 
       await listen()
+      const validation = await validatorService.verify(uri, validator)
+      expect(validation).toEqual({ outcome: 'unchanged', ifRange: '"v1"' })
+      expect(ifRanges.at(-1)).toBeUndefined()
       const resumeFrom = ranges.length
       await adapter.createDownload({
         uris: [uri],
@@ -175,6 +222,7 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
         filename,
         gid: 'bbbbbbbbbbbbbbbb',
         resumePolicy: 'checkpoint',
+        headers: { 'If-Range': validation.ifRange as string },
       })
       await until(async () => {
         const s = await rpc.tellStatus('bbbbbbbbbbbbbbbb', ['status'])
@@ -190,6 +238,7 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
       // Resumed from the saved progress, not restarted from byte 0.
       expect(Math.max(...resumed)).toBeGreaterThan(0)
       expect(Math.max(...resumed)).toBeLessThanOrEqual(saved)
+      expect(ifRanges.slice(resumeFrom)).toContain('"v1"')
       const file = await readFile(diskPath)
       expect(createHash('sha256').update(file).digest('hex')).toBe(digest)
     }, 60_000)
