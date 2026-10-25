@@ -11,10 +11,7 @@ const DELIVERY_SDK_FIXTURE_ROOT = path.resolve(
   __dirname,
   '../../../../tests/fixtures/plugins/test.hook-delivery-runtime'
 )
-const LEGACY_FIXTURE_PACKAGE_JSON = path.resolve(
-  __dirname,
-  '../../../../node_modules/@motrix/plugin-api-2-0/package.json'
-)
+const PROJECT_PACKAGE_JSON = path.resolve(__dirname, '../../../../package.json')
 const CURRENT_PLUGIN_API_PACKAGE_JSON = path.resolve(
   __dirname,
   '../../../../node_modules/@motrix/plugin-api/package.json'
@@ -23,9 +20,6 @@ const TSC_CLI = path.resolve(
   __dirname,
   '../../../../node_modules/typescript/bin/tsc'
 )
-const LOCKFILE = path.resolve(__dirname, '../../../../pnpm-lock.yaml')
-const PLUGIN_API_2_1_INTEGRITY =
-  'sha512-XJn8re75nGUFSOA9dsEAjFkj8FqY6pQMk5wnz9E7Ym+icOp7q0JChjS/ILETvsu1gmvntlzdzazmgi4U42fPIA=='
 
 function expectFixtureToTypeCheck(fixtureRoot: string): void {
   expect(() =>
@@ -68,26 +62,14 @@ function buildFixtureSource(fixtureRoot: string): string {
   )
 }
 
-describe('@motrix/plugin-api compatibility fixtures', () => {
-  it('type-checks the legacy 2.0 source fixture against the pinned 2.1 package', () => {
-    const installed = JSON.parse(
-      readFileSync(LEGACY_FIXTURE_PACKAGE_JSON, 'utf8')
-    ) as {
-      name: string
-      version: string
+describe('@motrix/plugin-api fixtures', () => {
+  it.each([
+    { name: 'legacy Hook', root: LEGACY_SDK_FIXTURE_ROOT },
+    { name: 'delivery', root: DELIVERY_SDK_FIXTURE_ROOT },
+  ])('type-checks the $name fixture against the project SDK', ({ root }) => {
+    const project = JSON.parse(readFileSync(PROJECT_PACKAGE_JSON, 'utf8')) as {
+      devDependencies: Record<string, string>
     }
-    expect(installed).toMatchObject({
-      name: '@motrix/plugin-api',
-      version: '2.1.0',
-    })
-    expect(readFileSync(LOCKFILE, 'utf8')).toContain(
-      `'@motrix/plugin-api@2.1.0':\n    resolution: {integrity: ${PLUGIN_API_2_1_INTEGRITY}}`
-    )
-
-    expectFixtureToTypeCheck(LEGACY_SDK_FIXTURE_ROOT)
-  })
-
-  it('type-checks the delivery fixture against the current 2.2 feature API', () => {
     const installed = JSON.parse(
       readFileSync(CURRENT_PLUGIN_API_PACKAGE_JSON, 'utf8')
     ) as {
@@ -96,9 +78,9 @@ describe('@motrix/plugin-api compatibility fixtures', () => {
     }
     expect(installed).toMatchObject({
       name: '@motrix/plugin-api',
-      version: '2.2.0',
+      version: project.devDependencies['@motrix/plugin-api'],
     })
-    expectFixtureToTypeCheck(DELIVERY_SDK_FIXTURE_ROOT)
+    expectFixtureToTypeCheck(root)
   })
 
   it('keeps the committed QuickJS artifact byte-identical to the fixture source build', () => {

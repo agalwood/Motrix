@@ -1614,7 +1614,7 @@ describe('release workflow publication contract', () => {
         asRecord(packageJson.devDependencies, 'dev dependencies'),
         'electron-builder'
       )
-    ).toBe('26.17.0')
+    ).toBe('26.18.0')
   })
 
   it('publishes required Flatpak companions outside updater manifests', () => {
@@ -2433,12 +2433,12 @@ describe('release workflow publication contract', () => {
     }
   })
 
-  it('uses the locked 26.17.0 hook to preserve staged dependency placements', async () => {
+  it('uses the locked 26.18.0 hook to preserve staged dependency placements', async () => {
     const packageMetadata = asRecord(
       require('app-builder-lib/package.json') as unknown,
       'app-builder-lib package metadata'
     )
-    expect(stringField(packageMetadata, 'version')).toBe('26.17.0')
+    expect(stringField(packageMetadata, 'version')).toBe('26.18.0')
     const signingConfig = asRecord(
       JSON.parse(signingConfigSource) as unknown,
       'restricted signing config'
@@ -2709,7 +2709,7 @@ describe('release workflow publication contract', () => {
     }
   })
 
-  it('restores canonical 26.17.0 NSIS URLs after custom directories are unset', async () => {
+  it('restores canonical 26.18.0 NSIS URLs after custom directories are unset', async () => {
     const signingToolPackages = asRecord(
       asRecord(
         JSON.parse(signingToolLockSource) as unknown,
@@ -2721,13 +2721,13 @@ describe('release workflow publication contract', () => {
       signingToolPackages['node_modules/app-builder-lib'],
       'locked app-builder-lib package'
     )
-    expect(stringField(lockedAppBuilder, 'version')).toBe('26.17.0')
+    expect(stringField(lockedAppBuilder, 'version')).toBe('26.18.0')
 
     const packageMetadata = asRecord(
       require('app-builder-lib/package.json') as unknown,
       'app-builder-lib package metadata'
     )
-    expect(stringField(packageMetadata, 'version')).toBe('26.17.0')
+    expect(stringField(packageMetadata, 'version')).toBe('26.18.0')
 
     const electronGetPath = require.resolve(
       'app-builder-lib/out/util/electronGet.js'
@@ -2911,7 +2911,7 @@ describe('release workflow publication contract', () => {
         asRecord(tool.dependencies, 'signing tool dependencies'),
         'electron-builder'
       )
-    ).toBe('26.17.0')
+    ).toBe('26.18.0')
     const lock = asRecord(
       JSON.parse(signingToolLockSource) as unknown,
       'signing tool lock'

@@ -19,7 +19,7 @@ const REPOSITORY_ROOT = path.resolve(
   '..'
 )
 const SCHEMA_VERSION = 2
-const ELECTRON_BUILDER_VERSION = '26.17.0'
+const ELECTRON_BUILDER_VERSION = '26.18.0'
 const ELECTRON_VERSION = '45.0.0'
 const PLATFORMS = new Set(['darwin', 'win32'])
 const ARCHES = new Set(['arm64', 'x64'])
@@ -63,9 +63,9 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
   'signing-policy/installer.nsh':
     '33874b474fb9ee173950babee212a9bb0efe4bb0c8ddee451593531129dee27a',
   'signing-tool/package.json':
-    'f2330647466ec2eed340157ce141235a1311d6febe27784af2f9cd320958c05c',
+    'c8701644020319fff6863e756dd7c1c342002c111455db9d084846b7f6765639',
   'signing-tool/package-lock.json':
-    '7fa4476c28c88056e1175e0b6436e989aac6d0caf8d8dc61b650340446a64c09',
+    '09b871e1ed7850ccf6c336bef9cbcb9ee65e1a683a1f04f8a5ab18f2b1e4c592',
   'scripts/electron-package-size-budgets.json':
     'c9a7b04ab93071809f9dca3d5ece6a2e7daa8fd211c34a1c9087eadef9f5fc89',
   'scripts/electron-package-utils.mjs':

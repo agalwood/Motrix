@@ -240,7 +240,7 @@
    compact PanelShell content clear of menu/sidebar/add-task controls. The
    macOS desktop-controls mode previews the same behavior. */
 .platform-linux.window-main
-.electron-window-chrome:has(.window-chrome[data-fullscreen="true"]),
+  .electron-window-chrome:has(.window-chrome[data-fullscreen="true"]),
 .platform-darwin.window-main
   .electron-window-chrome.preview-desktop-window-controls:has(
     .window-chrome[data-fullscreen="true"]

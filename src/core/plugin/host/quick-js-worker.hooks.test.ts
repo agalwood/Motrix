@@ -116,7 +116,7 @@ describe('QuickJS Worker Hook contract', () => {
     await vi.waitFor(() => expect(activity).toEqual([1, 0]))
   })
 
-  it('executes the SDK 2.0 four-Hook surface with synchronous metadata', async () => {
+  it('executes the four-Hook surface with synchronous metadata', async () => {
     const spawned = await spawn('test.hook-sdk-2-0')
     const stagedCreate = new StagedEffectStore()
     spawned.bridge.setHookContext({

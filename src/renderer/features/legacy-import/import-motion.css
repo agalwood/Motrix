@@ -111,7 +111,7 @@
 
 /* Run stages share a quiet, centered column; expanded details own the scroll. */
 .migration-page-column:is([data-stage="progress"], [data-stage="result"])
-> div {
+  > div {
   justify-content: center;
 }
 
