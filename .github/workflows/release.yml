@@ -438,6 +438,14 @@ jobs:
           fi
           dpkg-deb --info "${debs[0]}"
           rpm -qip "${rpms[0]}"
+          test "$(dpkg-deb --field "${debs[0]}" Package)" = motrix
+          test "$(rpm -qp --queryformat '%{NAME}' "${rpms[0]}")" = motrix
+          for field in Provides Conflicts Replaces; do
+            dpkg-deb --field "${debs[0]}" "$field" | tr ',' '\n' | grep -Eq '^ *motrix-turbo *$'
+          done
+          for relation in provides conflicts obsoletes; do
+            rpm -qp "--$relation" "${rpms[0]}" | grep -Fx motrix-turbo
+          done
 
       - name: Verify Arch Linux package
         if: matrix.platform == 'linux'

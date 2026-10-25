@@ -30,6 +30,31 @@ async function readJson(relativePath: string): Promise<unknown> {
 }
 
 describe('Electron package contracts', () => {
+  it('uses the motrix Linux package identity and replaces the previous deb/rpm name', async () => {
+    const config = (await readJson('electron-builder.json')) as Record<
+      string,
+      { packageName?: string; executableName?: string; fpm?: string[] }
+    >
+    expect(config.linux.executableName).toBe('motrix')
+    for (const target of ['deb', 'rpm', 'pacman']) {
+      expect(config[target].packageName, target).toBe('motrix')
+    }
+    for (const target of ['deb', 'rpm']) {
+      const args = config[target].fpm ?? []
+      for (const flag of ['--provides', '--conflicts', '--replaces']) {
+        expect(args[args.indexOf(flag) + 1], `${target} ${flag}`).toBe(
+          'motrix-turbo'
+        )
+      }
+    }
+    const rpmArgs = config.rpm.fpm ?? []
+    const postTransaction = rpmArgs[rpmArgs.indexOf('--rpm-posttrans') + 1]
+    expect(postTransaction).toBe('build/rpm-post-transaction.sh')
+    await expect(
+      readFile(path.join(REPOSITORY_ROOT, postTransaction), 'utf8')
+    ).resolves.toContain('/opt/Motrix/motrix')
+  })
+
   it('hydrates Electron before local commands consume its runtime files', async () => {
     const manifest = (await readJson('package.json')) as {
       scripts?: Record<string, string>

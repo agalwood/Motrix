@@ -258,10 +258,30 @@
     "artifactName": "${productName}-${version}-${arch}.${ext}"
   },
   "deb": {
-    "artifactName": "${productName}_${version}_${arch}.${ext}"
+    "artifactName": "${productName}_${version}_${arch}.${ext}",
+    "packageName": "motrix",
+    "fpm": [
+      "--provides",
+      "motrix-turbo",
+      "--conflicts",
+      "motrix-turbo",
+      "--replaces",
+      "motrix-turbo"
+    ]
   },
   "rpm": {
-    "artifactName": "${productName}-${version}.${arch}.${ext}"
+    "artifactName": "${productName}-${version}.${arch}.${ext}",
+    "packageName": "motrix",
+    "fpm": [
+      "--provides",
+      "motrix-turbo",
+      "--conflicts",
+      "motrix-turbo",
+      "--replaces",
+      "motrix-turbo",
+      "--rpm-posttrans",
+      "build/rpm-post-transaction.sh"
+    ]
   },
   "pacman": {
     "artifactName": "${productName}-${version}-${arch}.${ext}",
