@@ -649,33 +649,89 @@ describe('DirectResourceValidatorService', () => {
     }
   )
 
-  it('does not infer a legacy cross-origin target from an equal ETag', async () => {
-    const service = new DirectResourceValidatorService(
-      fetchSequence(
-        new Response(null, {
-          status: 302,
-          headers: { Location: 'https://cdn.example/file' },
-        }),
-        new Response(null, {
-          status: 206,
-          headers: { ETag: '"release-v1"', 'Content-Range': 'bytes 0-0/4096' },
-        })
+  it.each([false, true])(
+    'does not infer a legacy cross-origin target from an equal ETag (round trip: %s)',
+    async (roundTrip) => {
+      const service = new DirectResourceValidatorService(
+        fetchSequence(
+          new Response(null, {
+            status: 302,
+            headers: { Location: 'https://cdn.example/file' },
+          }),
+          ...(roundTrip
+            ? [
+                new Response(null, {
+                  status: 302,
+                  headers: { Location: 'https://example.com/different-file' },
+                }),
+              ]
+            : []),
+          new Response(null, {
+            status: 206,
+            headers: {
+              ETag: '"release-v1"',
+              'Content-Range': 'bytes 0-0/4096',
+            },
+          })
+        )
       )
-    )
-    await expect(
-      service.verify('https://example.com/file', {
-        kind: 'strong-etag',
-        value: '"release-v1"',
-        capturedAt: 1,
-        contentLength: 4096,
+      await expect(
+        service.verify('https://example.com/file', {
+          kind: 'strong-etag',
+          value: '"release-v1"',
+          capturedAt: 1,
+          contentLength: 4096,
+        })
+      ).resolves.toEqual({
+        outcome: 'unverifiable',
+        ifRange: null,
+        reason: 'redirect-identity-unavailable',
+        httpStatus: 206,
       })
-    ).resolves.toEqual({
-      outcome: 'unverifiable',
-      ifRange: null,
-      reason: 'redirect-identity-unavailable',
-      httpStatus: 206,
-    })
-  })
+    }
+  )
+
+  it.each(['capture', 'probe'] as const)(
+    'binds a cross-origin round trip during %s and rejects a different final target',
+    async (operation) => {
+      const redirect = (location: string) =>
+        new Response(null, { status: 302, headers: { Location: location } })
+      const metadata = (status: number) =>
+        new Response(null, {
+          status,
+          headers: {
+            ETag: '"release-v1"',
+            ...(status === 200
+              ? { 'Content-Length': '4096' }
+              : { 'Content-Range': 'bytes 0-0/4096' }),
+          },
+        })
+      const fetch = fetchSequence(
+        redirect('https://cdn.example/bounce'),
+        redirect('https://example.com/original'),
+        metadata(200),
+        redirect('https://cdn.example/bounce'),
+        redirect('https://example.com/original'),
+        metadata(206),
+        redirect('https://cdn.example/bounce'),
+        redirect('https://example.com/different-file'),
+        metadata(206)
+      )
+      const service = new DirectResourceValidatorService(fetch)
+      const captured =
+        operation === 'capture'
+          ? await service.capture('https://example.com/original')
+          : (await service.probe('https://example.com/original'))?.validator
+      expect(captured?.resourceUrlHash).toMatch(/^[a-f0-9]{64}$/)
+      if (!captured) throw new Error('missing captured validator')
+      await expect(
+        service.verify('https://example.com/original', captured)
+      ).resolves.toEqual({ outcome: 'unchanged', ifRange: '"release-v1"' })
+      await expect(
+        service.verify('https://example.com/original', captured)
+      ).resolves.toEqual({ outcome: 'source-changed', ifRange: null })
+    }
+  )
 
   it.each(['https://cdn.example/other-file', 'https://other-cdn.example/file'])(
     'rejects a changed redirect target even when its ETag and length collide: %s',

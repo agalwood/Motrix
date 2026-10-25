@@ -119,6 +119,7 @@ interface ResourceMetadata {
   finalUrl: string
   headers: Headers
   status: number
+  crossOriginRedirect: boolean
 }
 
 const REDIRECT_SAFE_HEADERS = new Set([
@@ -413,7 +414,6 @@ export class DirectResourceValidatorService {
       return {
         filename: filenameFromMetadata(initialUrl, metadata),
         validator: bindResourceUrl(
-          initialUrl,
           metadata,
           readMetadataValidator(metadata, this.now())
         ),
@@ -453,7 +453,6 @@ export class DirectResourceValidatorService {
         return null
       }
       return bindResourceUrl(
-        initialUrl,
         metadata,
         readMetadataValidator(metadata, this.now())
       )
@@ -516,7 +515,7 @@ export class DirectResourceValidatorService {
         if (hashResourceUrl(metadata.finalUrl) !== expected.resourceUrlHash) {
           return { outcome: 'source-changed', ifRange: null }
         }
-      } else if (new URL(metadata.finalUrl).origin !== initialUrl.origin) {
+      } else if (metadata.crossOriginRedirect) {
         // Old recipes do not identify the target that issued their validator.
         // Preserve their existing cross-origin refusal: equal ETags on two
         // different resources do not prove that the bytes are interchangeable.
@@ -717,9 +716,10 @@ export class DirectResourceValidatorService {
       onFailure
     )
     if (!resolved) return null
-    const { response, finalUrl } = resolved
+    const { response, finalUrl, crossOriginRedirect } = resolved
     const metadata = {
       finalUrl,
+      crossOriginRedirect,
       headers: response.headers,
       status: response.status,
     }
@@ -735,7 +735,11 @@ export class DirectResourceValidatorService {
     signal: AbortSignal,
     rejectRedirects = false,
     onFailure?: ResourceFailureReporter
-  ): Promise<{ response: ResourceHttpResponse; finalUrl: string } | null> {
+  ): Promise<{
+    response: ResourceHttpResponse
+    finalUrl: string
+    crossOriginRedirect: boolean
+  } | null> {
     const fail = (
       reason: NonNullable<DirectResourceValidationResult['reason']>,
       httpStatus?: number,
@@ -749,6 +753,7 @@ export class DirectResourceValidatorService {
       return null
     }
     let currentUrl = initialUrl
+    let crossOriginRedirect = false
     let currentRequestUrl = requestUrlPreservingAuthority(
       initialRequestUrl,
       initialUrl
@@ -813,13 +818,14 @@ export class DirectResourceValidatorService {
         const nextHeaders = redirectHeaders(headers, currentUrl, nextUrl)
         if (!nextHeaders)
           return fail('redirect-headers-unsupported', response.status)
+        crossOriginRedirect ||= currentUrl.origin !== nextUrl.origin
         headers = nextHeaders
         currentUrl = nextUrl
         currentRequestUrl = nextRequestUrl
         continue
       }
 
-      return { response, finalUrl: currentUrl.toString() }
+      return { response, finalUrl: currentUrl.toString(), crossOriginRedirect }
     }
 
     return fail('redirect-limit')
@@ -1484,16 +1490,15 @@ function hashResourceUrl(input: string | URL): string {
 }
 
 function bindResourceUrl(
-  initialUrl: URL,
   metadata: ResourceMetadata,
   validator: DirectResourceValidator | null
 ): DirectResourceValidator | null {
   if (!validator) return null
-  // Same-origin redirects retain the existing replay contract. Newly supported
-  // cross-origin recovery additionally binds the target that issued the tag.
-  return new URL(metadata.finalUrl).origin === initialUrl.origin
-    ? validator
-    : { ...validator, resourceUrlHash: hashResourceUrl(metadata.finalUrl) }
+  // Bind any chain that crossed origins, including one returning to its source.
+  // Purely same-origin redirects retain the existing replay contract.
+  return metadata.crossOriginRedirect
+    ? { ...validator, resourceUrlHash: hashResourceUrl(metadata.finalUrl) }
+    : validator
 }
 
 function truncateUtf8(input: string, maxBytes: number): string {
