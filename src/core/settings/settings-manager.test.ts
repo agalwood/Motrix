@@ -109,6 +109,31 @@ describe('SettingsManager', () => {
     })
   })
 
+  it('persists acceleration changes and requests a full app restart only for a changed value', async () => {
+    expect(
+      await manager.update({ app: { hardwareAcceleration: false } })
+    ).toMatchObject({
+      requiresAppRestart: true,
+      changedAppRestartKeys: ['hardwareAcceleration'],
+      requiresRestart: false,
+    })
+    const saved = mockWriteFileAtomic.mock.lastCall![1]
+    mockReadFile.mockResolvedValue(saved)
+    const reloaded = new SettingsManager(TEST_PATH)
+    await reloaded.load()
+    expect(reloaded.getApp().hardwareAcceleration).toBe(false)
+    expect(
+      await reloaded.update({ app: { hardwareAcceleration: false } })
+    ).toMatchObject({
+      requiresAppRestart: false,
+    })
+    expect(
+      await reloaded.update({ app: { hardwareAcceleration: true } })
+    ).toMatchObject({
+      requiresAppRestart: true,
+    })
+  })
+
   describe('directory preferences', () => {
     beforeEach(() => {
       mockWriteFileAtomic.mockResolvedValue(undefined)

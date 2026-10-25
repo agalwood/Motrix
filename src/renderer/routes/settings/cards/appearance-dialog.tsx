@@ -62,6 +62,7 @@ type AppearanceFields = Pick<
   | 'theme'
   | 'sidebarColor'
   | 'reduceMotion'
+  | 'hardwareAcceleration'
   | 'language'
   | 'byteUnitSystem'
   | 'traySpeedometer'
@@ -76,6 +77,7 @@ const DEFAULTS: AppearanceFields = {
   theme: DEFAULT_APP_SETTINGS.theme,
   sidebarColor: DEFAULT_APP_SETTINGS.sidebarColor,
   reduceMotion: DEFAULT_APP_SETTINGS.reduceMotion,
+  hardwareAcceleration: DEFAULT_APP_SETTINGS.hardwareAcceleration,
   language: DEFAULT_APP_SETTINGS.language,
   byteUnitSystem: DEFAULT_APP_SETTINGS.byteUnitSystem,
   traySpeedometer: DEFAULT_APP_SETTINGS.traySpeedometer,
@@ -110,6 +112,8 @@ export function AppearanceDialog({
         theme: all.app.theme,
         sidebarColor: all.app.sidebarColor ?? DEFAULTS.sidebarColor,
         reduceMotion: all.app.reduceMotion ?? DEFAULTS.reduceMotion,
+        hardwareAcceleration:
+          all.app.hardwareAcceleration ?? DEFAULTS.hardwareAcceleration,
         language: all.app.language,
         byteUnitSystem: all.app.byteUnitSystem ?? DEFAULTS.byteUnitSystem,
         traySpeedometer: all.app.traySpeedometer,
@@ -348,6 +352,32 @@ export function AppearanceDialog({
                         </SettingsFormRow>
                       )}
                     />
+                    {transport.platform !== 'web' && (
+                      <FormField
+                        control={form.control}
+                        name="hardwareAcceleration"
+                        render={({ field }) => (
+                          <SettingsFormRow>
+                            <div className="space-y-1">
+                              <FormLabel>
+                                {t('settings.appearance.hardwareAcceleration')}
+                              </FormLabel>
+                              <FormDescription className="text-xs">
+                                {t(
+                                  'settings.appearance.hardwareAccelerationDesc'
+                                )}
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </SettingsFormRow>
+                        )}
+                      />
+                    )}
                     <Separator className="my-4" />
                     <h3 className="text-sm font-semibold">
                       {t('settings.appearance.languageAndDisplay')}

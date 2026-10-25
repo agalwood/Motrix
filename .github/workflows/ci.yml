@@ -56,6 +56,17 @@ jobs:
       - name: i18n catalog and translation contract
         run: pnpm run check:i18n
 
+      - name: Desktop graphics recovery contracts
+        run: >-
+          pnpm exec vitest run
+          src/main/platform/graphics-recovery.test.ts
+          src/main/platform/graphics-recovery-runtime.test.ts
+          src/renderer/hooks/use-graphics-recovery-toast.test.tsx
+          src/renderer/routes/settings/cards/appearance-dialog.test.tsx
+          src/core/settings/settings-manager.test.ts
+          src/shared/schemas/app-settings.test.ts
+          src/renderer/lib/settings-save.test.tsx
+
       - name: Locale runtime contracts
         run: >-
           pnpm exec vitest run

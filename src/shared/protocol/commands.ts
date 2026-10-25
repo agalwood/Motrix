@@ -1,4 +1,6 @@
 export const Commands = {
+  AcknowledgeGraphicsRecoveryNotice:
+    'command:acknowledgeGraphicsRecoveryNotice',
   ExecuteRendererSubmission: 'command:executeRendererSubmission',
   AcknowledgeRendererIntent: 'command:acknowledgeRendererIntent',
   ReportRendererSurface: 'command:reportRendererSurface',

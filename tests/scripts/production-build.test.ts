@@ -23,6 +23,7 @@ interface BundleMetrics {
   sourceMaps: number
   initialLocales: string[]
   bundledLocales: string[]
+  bundledOperatorAdmin: boolean
   initialElk: boolean
   bundledElk: boolean
   javascriptAssetBytes: number
@@ -58,6 +59,8 @@ describe('production bundle loading and size contracts', () => {
       expect(result.initialBytes).toBeLessThanOrEqual(target.initial)
       expect(result.totalBytes).toBeLessThanOrEqual(target.total)
       expect(result.sourceMaps).toBe(0)
+      if (target.name === 'main')
+        expect(result.bundledOperatorAdmin).toBe(false)
       if (
         ['main', 'server', 'renderer', 'renderer.web'].includes(target.name)
       ) {

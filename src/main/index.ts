@@ -207,6 +207,7 @@ import { resolveDefaultSaveDirOptions } from './platform/default-save-dir'
 import { resolveDesktopBackgroundPolicy } from './platform/desktop-background-policy'
 import { resolveDistributionContext } from './platform/distribution-context'
 import { removePathRecursive, renameAtomic } from './platform/fs-helpers'
+import { setupGraphicsRecovery } from './platform/graphics-recovery-runtime'
 import { setupNativeThemeSync } from './platform/native-theme-sync'
 import { setupPowerManager } from './platform/power-manager'
 import { createProtocolManager } from './platform/protocol-manager'
@@ -308,6 +309,7 @@ const speedHistoryStore = new SpeedHistoryStore()
 const taskSpeedHistoryStore = new TaskSpeedHistoryStore()
 const torrentParser = new TorrentParser()
 let windowManager: WindowManager
+let graphicsRuntime: ReturnType<typeof setupGraphicsRecovery> | undefined
 let rendererRecovery:
   | ReturnType<typeof createRendererRecoveryRuntime>
   | undefined
@@ -372,6 +374,11 @@ const settingsManager = new SettingsManager(settingsPath, {
   }),
   ...defaultSaveDirOptions,
   onChange: (old, updated) => {
+    if (old.app.hardwareAcceleration !== updated.app.hardwareAcceleration) {
+      graphicsRuntime?.recovery.preferenceChanged(
+        updated.app.hardwareAcceleration
+      )
+    }
     eventBus.emit(Events.SettingsChanged, { old, updated })
     if (
       old.app.notifyInAppOnComplete !== updated.app.notifyInAppOnComplete ||
@@ -820,6 +827,13 @@ const launcher = setupLauncher({
     windowManager?.show('main')
   },
 })
+
+// Run synchronously before ready, after the launcher owns this profile.
+// SettingsManager loads asynchronously after ready, which is too late for
+// Electron's hardware acceleration switch.
+if (app.hasSingleInstanceLock()) {
+  graphicsRuntime = setupGraphicsRecovery(platform.userDataDir, settingsPath)
+}
 
 function runShellAsyncWork(
   label: string,
@@ -1593,6 +1607,10 @@ async function initializeMainProcess(): Promise<void> {
   // settings (for window bounds/run mode) and WindowManager.
 
   await settingsManager.load()
+  if (graphicsRuntime?.recovery.recoveredAtStartup) {
+    await settingsManager.update({ app: { hardwareAcceleration: false } })
+    graphicsRuntime.recovery.completeRecovery()
+  }
   pluginHttpClient = new PluginHttpClient(() => settingsManager.getProxy())
   if (!mainProcessWork.isAccepting()) return
 
@@ -3178,6 +3196,7 @@ async function showQuitConfirmation(activeCount: number): Promise<{
 }
 
 function beginShutdown(): void {
+  graphicsRuntime?.stop()
   // quitController.phase is already 'shutting-down' (set synchronously before
   // this call). app.quit() below re-fires before-quit synchronously; the guard
   // there relies on the phase already being terminal.
