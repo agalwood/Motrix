@@ -19,6 +19,12 @@ const validatorValueSchema = z
   .max(512)
   .refine((value) => !/[\r\n]/.test(value), 'validator contains CR/LF')
 
+// Bind a redirected validator to its resource without storing signed URLs.
+const resourceUrlHashSchema = z
+  .string()
+  .regex(/^[a-f0-9]{64}$/)
+  .optional()
+
 export const directResourceValidatorSchema = z.discriminatedUnion('kind', [
   z
     .object({
@@ -32,6 +38,7 @@ export const directResourceValidatorSchema = z.discriminatedUnion('kind', [
       ),
       contentLength: z.number().int().nonnegative().optional(),
       capturedAt: z.number().int().nonnegative(),
+      resourceUrlHash: resourceUrlHashSchema,
     })
     .strict(),
   z
@@ -43,6 +50,7 @@ export const directResourceValidatorSchema = z.discriminatedUnion('kind', [
       ),
       contentLength: z.number().int().nonnegative(),
       capturedAt: z.number().int().nonnegative(),
+      resourceUrlHash: resourceUrlHashSchema,
     })
     .strict(),
 ])

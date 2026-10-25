@@ -24,6 +24,7 @@ import type { EngineAdapter } from '../../engine/engine-adapter'
 import { DIRECT_RESOURCE_METADATA_PROFILE } from '../../engine/engine-adapter'
 import type { EventBus } from '../../events/event-bus'
 import type { Logger } from '../../logger'
+import { DirectResourceValidatorService } from '../direct-resource-validator'
 import { TaskManager } from '../task-manager'
 import type { TorrentMetaStore } from '../torrent-meta-store'
 import { reAddTask } from './re-add-task'
@@ -471,6 +472,8 @@ describe('reAddTask (HTTP path)', () => {
       const task = makeHttpTask({
         diskPath,
         finalPath: path.join(tempDir, 'file.zip'),
+        // Sparse/multi-connection output length is not completed byte count.
+        downloadedBytes: 4,
       })
       task.instances[0].diskPath = diskPath
       task.instances[0].payload = {
@@ -492,12 +495,16 @@ describe('reAddTask (HTTP path)', () => {
 
       await reAddTask('t2', {
         ...deps,
-        directResourceValidator: {
-          verify: vi.fn(async () => ({
-            outcome: 'unchanged' as const,
-            ifRange: '"release-v1"',
-          })),
-        },
+        directResourceValidator: new DirectResourceValidatorService(
+          async () =>
+            new Response(null, {
+              status: 206,
+              headers: {
+                ETag: '"release-v1"',
+                'Content-Range': 'bytes 0-0/4096',
+              },
+            })
+        ),
         getDirectResourceProxyOptions: () => ({
           proxy: '',
           noProxy: '',
@@ -688,7 +695,15 @@ describe('reAddTask (HTTP path)', () => {
     }
   )
 
-  it('rejects a changed checkpoint source before touching the engine', async () => {
+  it.each([
+    { outcome: 'source-changed' as const, ifRange: null },
+    { outcome: 'range-unsupported' as const, ifRange: null },
+    {
+      outcome: 'unverifiable' as const,
+      ifRange: null,
+      reason: 'request-timeout' as const,
+    },
+  ])('preserves a checkpoint after $outcome validation', async (validation) => {
     const tempDir = fs.mkdtempSync(
       path.join(os.tmpdir(), 'motrix-direct-changed-')
     )
@@ -715,19 +730,31 @@ describe('reAddTask (HTTP path)', () => {
       }
       const deps = makeDeps(task)
       const directResourceValidator = {
-        verify: vi.fn().mockResolvedValue({
-          outcome: 'source-changed',
-          ifRange: null,
-        }),
+        verify: vi.fn().mockResolvedValue(validation),
       }
 
       await expect(
-        reAddTask('t2', { ...deps, directResourceValidator })
+        reAddTask('t2', {
+          ...deps,
+          directResourceValidator,
+          getDirectResourceProxyOptions: () => ({}),
+        })
       ).rejects.toMatchObject({ code: ErrorCode.TaskNotRetryable })
 
       expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
       expect(deps.adapter.createDownload).not.toHaveBeenCalled()
       expect(deps.persistTask).not.toHaveBeenCalled()
+      expect(directResourceValidator.verify).toHaveBeenCalledOnce()
+      expect(deps.log.warn).toHaveBeenCalledWith(
+        {
+          taskId: 't2',
+          ...validation,
+          validatorKind: 'strong-etag',
+          proxyConfigured: false,
+          elapsedMs: expect.any(Number),
+        },
+        'reAddTask: HTTP resume validation failed'
+      )
       expect(fs.readFileSync(diskPath)).toEqual(Buffer.from('partial'))
       expect(fs.readFileSync(`${diskPath}.aria2`)).toEqual(
         Buffer.from('checkpoint')

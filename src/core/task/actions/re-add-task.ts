@@ -211,7 +211,8 @@ async function buildDirectReAddParams(
   resourceValidator: Pick<DirectResourceValidatorService, 'verify'>,
   getProxyOptions: DirectResourceProxyOptionsProvider,
   assertProxyCurrent: (() => void) | undefined,
-  metadataHeadersSupported: boolean
+  metadataHeadersSupported: boolean,
+  log: Logger
 ): Promise<Omit<CreateDownloadParams, 'gid'>> {
   const primary = task.instances.find(
     (instance) => instance.phase === TaskInstancePhase.HttpDownload
@@ -286,6 +287,7 @@ async function buildDirectReAddParams(
         `Task ${task.id} cannot be retried safely: metadata-header-profile-unsupported`
       )
     }
+    const validationStartedAt = Date.now()
     const validation = await resourceValidator.verify(
       sources[0].requestUrl,
       recipe.resourceValidator,
@@ -293,6 +295,16 @@ async function buildDirectReAddParams(
     )
     assertProxyCurrent?.()
     if (validation.outcome !== 'unchanged') {
+      log.warn(
+        {
+          taskId: task.id,
+          ...validation,
+          validatorKind: recipe.resourceValidator.kind,
+          proxyConfigured: Boolean(requestOptions.proxy),
+          elapsedMs: Math.max(0, Date.now() - validationStartedAt),
+        },
+        'reAddTask: HTTP resume validation failed'
+      )
       throw new AppError(
         ErrorCode.TaskNotRetryable,
         `Task ${task.id} cannot be retried safely: ${validation.outcome}`
@@ -574,7 +586,8 @@ async function reAddTaskUnderMutation(
         deps.directResourceValidator ?? directResourceValidator,
         getProxyOptions,
         assertProxyCurrent,
-        canMirrorAria2MetadataHeaders(deps.adapter.getFeatureReport?.())
+        canMirrorAria2MetadataHeaders(deps.adapter.getFeatureReport?.()),
+        deps.log
       )
   await bestEffortRemove(deps.adapter, task.engineTaskId, deps.log)
   const retired = structuredClone(task)

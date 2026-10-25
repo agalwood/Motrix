@@ -591,13 +591,268 @@ describe('DirectResourceValidatorService', () => {
           'user-agent': 'Motrix/2.0',
           'want-digest': 'SHA-512;q=1, SHA-256;q=1, SHA;q=0.1',
           range: 'bytes=0-0',
-          'if-range': '"release-v1"',
         },
         redirect: 'manual',
         signal: expect.any(AbortSignal),
       })
     )
   })
+
+  it.each([
+    ['"release-v1"', 4096, 'unchanged'],
+    ['"release-v2"', 4096, 'source-changed'],
+    ['"release-v1"', 8192, 'source-changed'],
+    ['W/"release-v1"', 4096, 'unverifiable'],
+    ['', 4096, 'unverifiable'],
+  ] as const)(
+    'checks redirected metadata (tag %s, length %s)',
+    async (etag, length, outcome) => {
+      const fetchImpl = fetchSequence(
+        new Response(null, {
+          status: 302,
+          headers: { Location: 'https://cdn.example/file' },
+        }),
+        new Response(null, {
+          status: 200,
+          headers: { ETag: '"release-v1"', 'Content-Length': '4096' },
+        }),
+        new Response(null, {
+          status: 302,
+          headers: { Location: 'https://cdn.example/file' },
+        }),
+        new Response(null, {
+          status: 206,
+          headers: {
+            ETag: etag,
+            'Content-Range': `bytes 0-0/${length}`,
+          },
+        })
+      )
+      const service = new DirectResourceValidatorService(fetchImpl)
+      const expected = await service.capture('https://example.com/file')
+      expect(expected?.resourceUrlHash).toMatch(/^[a-f0-9]{64}$/)
+      if (!expected) throw new Error('missing captured validator')
+      await expect(
+        service.verify('https://example.com/file', expected)
+      ).resolves.toEqual({
+        outcome,
+        ifRange: outcome === 'unchanged' ? '"release-v1"' : null,
+        ...(outcome === 'unverifiable'
+          ? { reason: 'validator-missing', httpStatus: 206 }
+          : {}),
+      })
+      expect(fetchImpl).toHaveBeenCalledTimes(4)
+      for (const call of fetchImpl.mock.calls.slice(2)) {
+        expect(call[1]).toMatchObject({ headers: { range: 'bytes=0-0' } })
+        expect((call[1] as RequestInit).headers).not.toHaveProperty('if-range')
+      }
+    }
+  )
+
+  it('does not infer a legacy cross-origin target from an equal ETag', async () => {
+    const service = new DirectResourceValidatorService(
+      fetchSequence(
+        new Response(null, {
+          status: 302,
+          headers: { Location: 'https://cdn.example/file' },
+        }),
+        new Response(null, {
+          status: 206,
+          headers: { ETag: '"release-v1"', 'Content-Range': 'bytes 0-0/4096' },
+        })
+      )
+    )
+    await expect(
+      service.verify('https://example.com/file', {
+        kind: 'strong-etag',
+        value: '"release-v1"',
+        capturedAt: 1,
+        contentLength: 4096,
+      })
+    ).resolves.toEqual({
+      outcome: 'unverifiable',
+      ifRange: null,
+      reason: 'redirect-identity-unavailable',
+      httpStatus: 206,
+    })
+  })
+
+  it.each(['https://cdn.example/other-file', 'https://other-cdn.example/file'])(
+    'rejects a changed redirect target even when its ETag and length collide: %s',
+    async (target) => {
+      const service = new DirectResourceValidatorService(
+        fetchSequence(
+          new Response(null, {
+            status: 302,
+            headers: { Location: 'https://cdn.example/file?secret=token' },
+          }),
+          new Response(null, {
+            status: 200,
+            headers: { ETag: '"release-v1"', 'Content-Length': '4096' },
+          }),
+          new Response(null, { status: 302, headers: { Location: target } }),
+          new Response(null, {
+            status: 206,
+            headers: {
+              ETag: '"release-v1"',
+              'Content-Range': 'bytes 0-0/4096',
+            },
+          })
+        )
+      )
+      const captured = await service.capture('https://example.com/file')
+      expect(captured?.resourceUrlHash).toMatch(/^[a-f0-9]{64}$/)
+      expect(JSON.stringify(captured)).not.toContain('secret')
+      expect(JSON.stringify(captured)).not.toContain('token')
+      if (!captured) throw new Error('missing captured validator')
+      await expect(
+        service.verify('https://example.com/file', captured)
+      ).resolves.toEqual({ outcome: 'source-changed', ifRange: null })
+    }
+  )
+
+  it.each([
+    '',
+    'bytes 0-1/4096',
+    'bytes 1-1/4096',
+    'bytes 0-0/*',
+    'bytes 0-0/0',
+    'bytes 0-0/9007199254740992',
+  ])('rejects an invalid one-byte range response: %s', async (contentRange) => {
+    const service = new DirectResourceValidatorService(
+      fetchSequence(
+        new Response(null, {
+          status: 206,
+          headers: {
+            ETag: '"release-v1"',
+            'Content-Range': contentRange,
+            'Content-Length': '1',
+          },
+        })
+      )
+    )
+    await expect(
+      service.verify('https://example.com/file', {
+        kind: 'strong-etag',
+        value: '"release-v1"',
+        capturedAt: 1,
+      })
+    ).resolves.toEqual({
+      outcome: 'unverifiable',
+      ifRange: null,
+      reason: 'invalid-content-range',
+      httpStatus: 206,
+    })
+  })
+
+  it.each([
+    ['ftp://example.com/file', 'invalid-url', {}],
+    [
+      'https://example.com/file',
+      'unsupported-headers',
+      { userAgent: 'bad\r\nheader' },
+    ],
+  ] as const)(
+    'declines %s with reason %s before sending a request',
+    async (uri, reason, options) => {
+      const fetch = vi.fn()
+      const service = new DirectResourceValidatorService(fetch)
+      await expect(
+        service.verify(
+          uri,
+          { kind: 'strong-etag', value: '"release-v1"', capturedAt: 1 },
+          options
+        )
+      ).resolves.toEqual({
+        outcome: 'unverifiable',
+        ifRange: null,
+        reason,
+      })
+      expect(fetch).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each(['Bytes 0-0/4096', 'bytes 00-00/004096'])(
+    'accepts equivalent byte-range syntax: %s',
+    async (contentRange) => {
+      const service = new DirectResourceValidatorService(
+        fetchSequence(
+          new Response(null, {
+            status: 206,
+            headers: { ETag: '"release-v1"', 'Content-Range': contentRange },
+          })
+        )
+      )
+      await expect(
+        service.verify('https://example.com/file', {
+          kind: 'strong-etag',
+          value: '"release-v1"',
+          contentLength: 4096,
+          capturedAt: 1,
+        })
+      ).resolves.toEqual({ outcome: 'unchanged', ifRange: '"release-v1"' })
+    }
+  )
+
+  it.each([
+    ['https://[invalid', 'redirect-url-unsupported', 1],
+    ['https://example.com/file', 'redirect-limit', 6],
+  ] as const)(
+    'reports a declined redirect without disclosing its location: %s',
+    async (location, reason, requests) => {
+      const fetch = vi.fn(
+        async () =>
+          new Response(null, { status: 302, headers: { Location: location } })
+      )
+      const service = new DirectResourceValidatorService(fetch)
+      await expect(
+        service.verify('https://example.com/file', {
+          kind: 'strong-etag',
+          value: '"release-v1"',
+          capturedAt: 1,
+        })
+      ).resolves.toEqual({
+        outcome: 'unverifiable',
+        ifRange: null,
+        reason,
+        httpStatus: 302,
+      })
+      expect(fetch).toHaveBeenCalledTimes(requests)
+    }
+  )
+
+  it.each(['unchanged', 'changed'] as const)(
+    'checks the saved Last-Modified when a response adds an ETag (%s)',
+    async (state) => {
+      const savedDate = 'Tue, 25 Aug 2026 08:00:00 GMT'
+      const service = new DirectResourceValidatorService(
+        fetchSequence(
+          new Response(null, {
+            status: 206,
+            headers: {
+              ETag: '"newly-added-tag"',
+              'Last-Modified':
+                state === 'unchanged'
+                  ? savedDate
+                  : 'Wed, 26 Aug 2026 08:00:00 GMT',
+              'Content-Range': 'bytes 0-0/4096',
+            },
+          })
+        )
+      )
+      await expect(
+        service.verify('https://example.com/file', {
+          kind: 'last-modified',
+          value: savedDate,
+          contentLength: 4096,
+          capturedAt: 1,
+        })
+      ).resolves.toEqual({
+        outcome: state === 'unchanged' ? 'unchanged' : 'source-changed',
+        ifRange: state === 'unchanged' ? savedDate : null,
+      })
+    }
+  )
 
   it('verifies through a proxy client and closes it without direct fallback', async () => {
     const directFetch = vi.fn()
@@ -661,7 +916,11 @@ describe('DirectResourceValidatorService', () => {
         },
         { proxy: 'unsupported://proxy.example' }
       )
-    ).resolves.toEqual({ outcome: 'unverifiable', ifRange: null })
+    ).resolves.toEqual({
+      outcome: 'unverifiable',
+      ifRange: null,
+      reason: 'http-client-unavailable',
+    })
     expect(directFetch).not.toHaveBeenCalled()
   })
 
@@ -736,6 +995,8 @@ describe('DirectResourceValidatorService', () => {
     ).resolves.toEqual({
       outcome: 'unverifiable',
       ifRange: null,
+      reason: 'validator-missing',
+      httpStatus: 200,
     })
   })
 
@@ -755,8 +1016,143 @@ describe('DirectResourceValidatorService', () => {
         value: '"release-v1"',
         capturedAt: 1,
       })
-    ).resolves.toEqual({ outcome: 'unverifiable', ifRange: null })
+    ).resolves.toEqual({
+      outcome: 'unverifiable',
+      ifRange: null,
+      reason: 'http-status',
+      httpStatus: 503,
+    })
   })
+
+  it.each(['probe', 'capture', 'verify'] as const)(
+    'uses the appropriate timeout budget for %s',
+    async (operation) => {
+      vi.useFakeTimers()
+      try {
+        const fetchImpl = vi.fn(
+          () =>
+            new Promise<Response>((resolve) => {
+              setTimeout(
+                () =>
+                  resolve(
+                    new Response(null, {
+                      status: 206,
+                      headers: {
+                        ETag: '"release-v1"',
+                        'Content-Range': 'bytes 0-0/4096',
+                      },
+                    })
+                  ),
+                3_500
+              )
+            })
+        )
+        const service = new DirectResourceValidatorService(fetchImpl)
+        const result =
+          operation === 'verify'
+            ? service.verify('https://example.com/file', {
+                kind: 'strong-etag',
+                value: '"release-v1"',
+                contentLength: 4096,
+                capturedAt: 1,
+              })
+            : service[operation]('https://example.com/file')
+
+        await vi.advanceTimersByTimeAsync(3_500)
+
+        await expect(result).resolves.toEqual(
+          operation === 'verify'
+            ? { outcome: 'unchanged', ifRange: '"release-v1"' }
+            : null
+        )
+        expect(vi.getTimerCount()).toBe(0)
+      } finally {
+        vi.useRealTimers()
+      }
+    }
+  )
+
+  it.each([undefined, 50])(
+    'bounds stalled verification and closes its client (override: %s)',
+    async (timeoutMs) => {
+      vi.useFakeTimers()
+      try {
+        const close = vi.fn()
+        const fetchImpl = vi.fn(() => new Promise<Response>(() => {}))
+        const service = new DirectResourceValidatorService(
+          undefined,
+          timeoutMs,
+          Date.now,
+          async () => ({ fetch: fetchImpl, close })
+        )
+        let settled = false
+        const result = service
+          .verify(
+            'https://example.com/file',
+            { kind: 'strong-etag', value: '"release-v1"', capturedAt: 1 },
+            { proxy: 'http://proxy.example:8080' }
+          )
+          .then((value) => {
+            settled = true
+            return value
+          })
+        await vi.advanceTimersByTimeAsync((timeoutMs ?? 30_000) - 1)
+        expect(settled).toBe(false)
+        await vi.advanceTimersByTimeAsync(1)
+        await expect(result).resolves.toEqual({
+          outcome: 'unverifiable',
+          ifRange: null,
+          reason: 'request-timeout',
+        })
+        expect(close).toHaveBeenCalledOnce()
+        expect(vi.getTimerCount()).toBe(0)
+      } finally {
+        vi.useRealTimers()
+      }
+    }
+  )
+
+  it('keeps request errors out of verification diagnostics', async () => {
+    const service = new DirectResourceValidatorService(
+      vi.fn().mockRejectedValue(new Error('https://example.com/?secret=token'))
+    )
+    await expect(
+      service.verify('https://example.com/file', {
+        kind: 'strong-etag',
+        value: '"release-v1"',
+        capturedAt: 1,
+      })
+    ).resolves.toEqual({
+      outcome: 'unverifiable',
+      ifRange: null,
+      reason: 'request-failed',
+    })
+  })
+
+  it.each(['ECONNRESET', 'ENOTFOUND', 'UND_ERR_SOCKET', 'private-token'])(
+    'reports only allowlisted transport codes: %s',
+    async (code) => {
+      const service = new DirectResourceValidatorService(
+        vi
+          .fn()
+          .mockRejectedValue(
+            new Error('https://example.com/?secret=token', { cause: { code } })
+          )
+      )
+      await expect(
+        service.verify('https://example.com/file', {
+          kind: 'strong-etag',
+          value: '"release-v1"',
+          capturedAt: 1,
+        })
+      ).resolves.toEqual({
+        outcome: 'unverifiable',
+        ifRange: null,
+        reason: 'request-failed',
+        ...(code === 'private-token' ? {} : { networkErrorCode: code }),
+      })
+    }
+  )
 })
 
 describe('sanitizeRemoteFilename', () => {
