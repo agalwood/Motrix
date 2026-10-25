@@ -58,7 +58,7 @@ describe('DevelopmentUpdateSimulator', () => {
     )
   })
 
-  it('prepares update quit before requesting application shutdown', () => {
+  it('prepares update quit before requesting application shutdown', async () => {
     const calls: string[] = []
     const simulator = createSimulator(() => {
       calls.push('quit')
@@ -66,6 +66,8 @@ describe('DevelopmentUpdateSimulator', () => {
     simulator.on('before-quit-for-update', () => calls.push('prepare'))
 
     simulator.quitAndInstall()
+    expect(calls).toEqual([])
+    await Promise.resolve()
 
     expect(calls).toEqual(['prepare', 'quit'])
   })

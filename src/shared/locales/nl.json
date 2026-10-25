@@ -1819,7 +1819,12 @@
         "managedDescription": "Deze verpakte Windows-editie wordt bijgewerkt via de oorspronkelijke installatiebron. Updates vanuit de app zijn niet beschikbaar.",
         "unsupportedTitle": "Automatische updates niet beschikbaar",
         "upToDate": "Versie {{version}} is de nieuwste beschikbare versie.",
-        "upToDateTitle": "Motrix is up-to-date"
+        "upToDateTitle": "Motrix is up-to-date",
+        "installing": "Installeren…",
+        "installingDescription": "De update wordt voorbereid. Motrix start opnieuw zodra deze klaar is.",
+        "manualDownload": "Handmatig downloaden",
+        "manualInstall": "Download de nieuwe versie, sluit Motrix af en vervang de geïnstalleerde app.",
+        "manualCrossVolume": "Automatische installatie tussen schijven is momenteel niet beschikbaar. Download de nieuwe versie en vervang Motrix handmatig."
       },
       "version": "Versie {{version}}",
       "webVersionNote": "Deze webversie wordt bijgewerkt door de beheerder van de installatie."

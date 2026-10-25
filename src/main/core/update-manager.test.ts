@@ -124,6 +124,7 @@ describe('UpdateManager', () => {
         'downloading',
         'downloading',
         'downloaded',
+        'installing',
       ])
       expect(updater.checkForUpdates).toHaveBeenCalledOnce()
       expect(updater.downloadUpdate).toHaveBeenCalledOnce()
@@ -148,6 +149,114 @@ describe('UpdateManager', () => {
       manager.install()
 
       expect(updater.quitAndInstall).toHaveBeenCalledOnce()
+    })
+
+    it('starts installation once despite repeated clicks and native preparation events', async () => {
+      updater.fire('update-downloaded', { version: '2.0.1' })
+      vi.mocked(updater.quitAndInstall).mockImplementation(() => {
+        // MacUpdater begins Squirrel verification only after the install click.
+        updater.fire('checking-for-update')
+        updater.fire('update-available', { version: '2.0.1' })
+        updater.fire('download-progress', { percent: 50 })
+        updater.fire('update-downloaded', { version: '2.0.1' })
+      })
+
+      manager.install()
+      manager.install()
+      await manager.check()
+      await manager.download()
+      manager.setChannel('beta')
+      manager.install()
+
+      expect(manager.getState()).toMatchObject({
+        phase: 'installing',
+        availableVersion: '2.0.1',
+      })
+      expect(manager.getChannel()).toBe('beta')
+      expect(updater.channel).toBe('latest')
+      expect(updater.quitAndInstall).toHaveBeenCalledOnce()
+      expect(updater.checkForUpdates).not.toHaveBeenCalled()
+      expect(updater.downloadUpdate).not.toHaveBeenCalled()
+    })
+
+    it.each(['synchronous', 'asynchronous'] as const)(
+      'keeps a %s install failure from reusing pending native callbacks',
+      async (mode) => {
+        updater.fire('update-downloaded', { version: '2.0.1' })
+        const error = new Error('native installer failed')
+        if (mode === 'synchronous')
+          vi.mocked(updater.quitAndInstall).mockImplementation(() => {
+            throw error
+          })
+        manager.install()
+        if (mode === 'asynchronous') updater.fire('error', error)
+        // Late native events must not replace the failure with another action.
+        updater.fire('update-downloaded', { version: '2.0.1' })
+        manager.install()
+        await manager.download()
+        await manager.check()
+
+        expect(manager.getState()).toMatchObject({
+          phase: 'error',
+          availableVersion: '2.0.1',
+          manualInstallReason: 'install-failed',
+          error: { message: error.message },
+        })
+        expect(updater.quitAndInstall).toHaveBeenCalledOnce()
+        expect(updater.downloadUpdate).not.toHaveBeenCalled()
+        expect(updater.checkForUpdates).not.toHaveBeenCalled()
+      }
+    )
+
+    it('keeps cross-volume updates discoverable without invoking the native installer', async () => {
+      const guarded = new UpdateManager({
+        eventBus,
+        updater,
+        currentVersion: '2.0.0',
+        channel: 'stable',
+        getInstallBlockReason: () => 'cross-volume',
+      })
+      await guarded.check()
+      updater.fire('update-available', { version: '2.0.1' })
+      expect(guarded.getState()).toMatchObject({
+        phase: 'available',
+        manualInstallReason: 'cross-volume',
+      })
+      await guarded.download()
+      updater.fire('update-downloaded', { version: '2.0.1' })
+      guarded.install()
+      expect(updater.checkForUpdates).toHaveBeenCalledOnce()
+      expect(updater.downloadUpdate).not.toHaveBeenCalled()
+      expect(updater.quitAndInstall).not.toHaveBeenCalled()
+    })
+
+    it('rechecks the installation location after download and fails closed on inspection errors', async () => {
+      const policy = vi
+        .fn<() => 'cross-volume' | undefined>()
+        .mockReturnValue(undefined)
+      const guarded = new UpdateManager({
+        eventBus,
+        updater,
+        currentVersion: '2.0.0',
+        channel: 'stable',
+        getInstallBlockReason: policy,
+      })
+      updater.fire('update-available', { version: '2.0.1' })
+      await guarded.download()
+      updater.fire('update-downloaded', { version: '2.0.1' })
+      policy.mockImplementation(() => {
+        throw new Error('volume disconnected')
+      })
+      guarded.install()
+      expect(updater.quitAndInstall).not.toHaveBeenCalled()
+      expect(guarded.getState()).toMatchObject({
+        phase: 'downloaded',
+        manualInstallReason: 'location-unavailable',
+      })
+      policy.mockReturnValue(undefined)
+      guarded.install()
+      expect(updater.quitAndInstall).toHaveBeenCalledOnce()
+      expect(guarded.getState().manualInstallReason).toBeUndefined()
     })
 
     it('rejects download without an available version', async () => {

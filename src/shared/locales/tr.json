@@ -1438,7 +1438,12 @@
         "channelStable": "Kararlı",
         "channelBeta": "Beta",
         "channelBetaWarning": "Beta daha az kararlı olabilir. Yeni kararlı sürümleri de alırsınız. Kararlı kanala dönmek, sürümü düşürmeden beta güncellemelerini durdurur.",
-        "channelSaveError": "Güncelleme kanalı kaydedilemedi. Tekrar deneyin."
+        "channelSaveError": "Güncelleme kanalı kaydedilemedi. Tekrar deneyin.",
+        "installing": "Yükleniyor…",
+        "installingDescription": "Güncelleme hazırlanıyor. Hazır olduğunda Motrix yeniden başlatılacak.",
+        "manualDownload": "Elle indir",
+        "manualInstall": "Yeni sürümü indirin, Motrix’i kapatın ve yüklü uygulamayı değiştirin.",
+        "manualCrossVolume": "Diskler arasında otomatik yükleme şu anda kullanılamıyor. Yeni sürümü indirin ve Motrix’i elle değiştirin."
       },
       "details": {
         "author": "Yazar",

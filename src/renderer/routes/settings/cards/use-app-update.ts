@@ -15,6 +15,7 @@ export function useAppUpdate(enabled = true) {
   const [hasState, setHasState] = useState(false)
   const [loading, setLoading] = useState(true)
   const systemManaged = useRef(false)
+  const installRequested = useRef(false)
 
   useEffect(() => {
     if (!enabled) return
@@ -25,6 +26,9 @@ export function useAppUpdate(enabled = true) {
 
     const applyState = (value: unknown) => {
       const next = value as AppUpdateState
+      installRequested.current =
+        next.phase === 'installing' ||
+        next.manualInstallReason === 'install-failed'
       // Update authority is fixed for this host. A late event from an older
       // backend must not restore app-managed actions after a managed snapshot.
       systemManaged.current ||= isSystemManaged(next)
@@ -104,6 +108,9 @@ export function useAppUpdate(enabled = true) {
                 phase: 'error',
                 progress: undefined,
                 error: { message: toMessage(error) },
+                ...(command === Commands.InstallUpdate
+                  ? { manualInstallReason: 'install-failed' as const }
+                  : {}),
               }
         )
       }
@@ -117,7 +124,16 @@ export function useAppUpdate(enabled = true) {
     showControls,
     check: () => invoke(Commands.CheckForUpdates),
     download: () => invoke(Commands.DownloadUpdate),
-    install: () => invoke(Commands.InstallUpdate),
+    install: () => {
+      if (installRequested.current || !showControls) return Promise.resolve()
+      installRequested.current = true
+      setState((current) => ({
+        ...current,
+        phase: 'installing',
+        error: undefined,
+      }))
+      return invoke(Commands.InstallUpdate)
+    },
   }
 }
 

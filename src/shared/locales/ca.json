@@ -1838,7 +1838,12 @@
         "managedDescription": "Aquesta edició empaquetada per a Windows s’actualitza des de la font d’instal·lació original. Les actualitzacions des de l’aplicació no estan disponibles.",
         "unsupportedTitle": "Actualitzacions automàtiques no disponibles",
         "upToDate": "La versió {{version}} és l'última disponible.",
-        "upToDateTitle": "El Motrix està actualitzat"
+        "upToDateTitle": "El Motrix està actualitzat",
+        "installing": "S’està instal·lant…",
+        "installingDescription": "S’està preparant l’actualització. Motrix es reiniciarà quan estigui llesta.",
+        "manualDownload": "Baixa manualment",
+        "manualInstall": "Baixa la nova versió, tanca Motrix i substitueix l’aplicació instal·lada.",
+        "manualCrossVolume": "La instal·lació automàtica entre discs no està disponible actualment. Baixa la nova versió i substitueix Motrix manualment."
       },
       "version": "Versió {{version}}",
       "webVersionNote": "L'administrador del desplegament actualitza aquesta edició web."

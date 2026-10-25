@@ -1838,7 +1838,12 @@
         "managedDescription": "Cette édition Windows empaquetée se met à jour via sa source d’installation d’origine. Les mises à jour depuis l’application ne sont pas disponibles.",
         "unsupportedTitle": "Mises à jour automatiques indisponibles",
         "upToDate": "La version {{version}} est la dernière version disponible.",
-        "upToDateTitle": "Motrix est à jour"
+        "upToDateTitle": "Motrix est à jour",
+        "installing": "Installation…",
+        "installingDescription": "Préparation de la mise à jour. Motrix redémarrera dès qu’elle sera prête.",
+        "manualDownload": "Télécharger manuellement",
+        "manualInstall": "Téléchargez la nouvelle version, quittez Motrix et remplacez l’application installée.",
+        "manualCrossVolume": "L’installation automatique entre disques est actuellement indisponible. Téléchargez la nouvelle version et remplacez Motrix manuellement."
       },
       "version": "Version {{version}}",
       "webVersionNote": "Cette édition web est mise à jour par l’administrateur de son déploiement."

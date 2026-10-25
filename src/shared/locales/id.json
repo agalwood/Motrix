@@ -1424,7 +1424,12 @@
         "channelStable": "Stabil",
         "channelBeta": "Beta",
         "channelBetaWarning": "Versi beta mungkin kurang stabil. Anda juga akan menerima rilis stabil yang lebih baru. Beralih kembali menghentikan pembaruan beta tanpa menurunkan versi.",
-        "channelSaveError": "Saluran pembaruan tidak dapat disimpan. Coba lagi."
+        "channelSaveError": "Saluran pembaruan tidak dapat disimpan. Coba lagi.",
+        "installing": "Memasang…",
+        "installingDescription": "Menyiapkan pembaruan. Motrix akan dimulai ulang setelah siap.",
+        "manualDownload": "Unduh manual",
+        "manualInstall": "Unduh versi baru, tutup Motrix, lalu ganti aplikasi yang terpasang.",
+        "manualCrossVolume": "Pemasangan otomatis antar disk saat ini tidak tersedia. Unduh versi baru dan ganti Motrix secara manual."
       },
       "details": {
         "author": "Pembuat",

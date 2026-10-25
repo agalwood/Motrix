@@ -1438,7 +1438,12 @@
         "channelStable": "Stabil",
         "channelBeta": "Béta",
         "channelBetaWarning": "A béta kevésbé stabil lehet. Az újabb stabil kiadásokat is megkapod. A visszaváltás leállítja a béta frissítéseket, de nem állít vissza régebbi verziót.",
-        "channelSaveError": "A frissítési csatornát nem sikerült menteni. Próbáld újra."
+        "channelSaveError": "A frissítési csatornát nem sikerült menteni. Próbáld újra.",
+        "installing": "Telepítés…",
+        "installingDescription": "A frissítés előkészítése folyamatban van. A Motrix újraindul, amint elkészült.",
+        "manualDownload": "Kézi letöltés",
+        "manualInstall": "Töltse le az új verziót, zárja be a Motrix alkalmazást, majd cserélje le a telepített alkalmazást.",
+        "manualCrossVolume": "A lemezek közötti automatikus telepítés jelenleg nem érhető el. Töltse le az új verziót, és cserélje le kézzel a Motrix alkalmazást."
       },
       "details": {
         "author": "Szerző",

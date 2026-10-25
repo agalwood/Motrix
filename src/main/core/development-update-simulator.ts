@@ -71,8 +71,13 @@ export class DevelopmentUpdateSimulator implements Updater {
   }
 
   quitAndInstall(): void {
-    this.emit('before-quit-for-update')
-    this.onQuitAndInstall()
+    // Native macOS preparation continues after the install command returns.
+    // Keep that interval visible so the simulator exercises repeated clicks.
+    void this.delay(1000).then(() => {
+      this.emit('update-downloaded', this.updateInfo())
+      this.emit('before-quit-for-update')
+      this.onQuitAndInstall()
+    })
   }
 
   private updateInfo(): { version: string; releaseName: string } {

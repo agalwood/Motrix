@@ -7,6 +7,7 @@ export type AppUpdatePhase =
   | 'available'
   | 'downloading'
   | 'downloaded'
+  | 'installing'
   | 'cancelled'
   | 'error'
 
@@ -32,4 +33,9 @@ export interface AppUpdateState {
   progress?: AppUpdateProgress
   error?: AppUpdateError
   checkedAt?: string
+  /** The current installer cannot safely complete an automatic installation. */
+  manualInstallReason?:
+    | 'cross-volume'
+    | 'location-unavailable'
+    | 'install-failed'
 }

@@ -1895,7 +1895,12 @@
         "managedDescription": "يُحدَّث إصدار Windows المعبّأ هذا عبر مصدر تثبيته الأصلي. التحديث من داخل التطبيق غير متاح.",
         "unsupportedTitle": "التحديثات التلقائية غير متاحة",
         "upToDate": "الإصدار {{version}} هو أحدث إصدار متاح.",
-        "upToDateTitle": "لديك أحدث إصدار من Motrix"
+        "upToDateTitle": "لديك أحدث إصدار من Motrix",
+        "installing": "جارٍ التثبيت…",
+        "installingDescription": "جارٍ تجهيز التحديث. ستتم إعادة تشغيل Motrix عندما يصبح جاهزًا.",
+        "manualDownload": "تنزيل يدوي",
+        "manualInstall": "نزّل الإصدار الجديد، ثم أغلق Motrix واستبدل التطبيق المثبّت.",
+        "manualCrossVolume": "التثبيت التلقائي بين الأقراص غير متاح حاليًا. نزّل الإصدار الجديد واستبدل Motrix يدويًا."
       },
       "version": "الإصدار {{version}}",
       "webVersionNote": "يحدّث مسؤول النشر إصدار الويب هذا."
