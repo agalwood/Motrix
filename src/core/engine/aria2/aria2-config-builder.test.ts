@@ -92,6 +92,41 @@ describe('Aria2ConfigBuilder', () => {
     vi.restoreAllMocks()
   })
 
+  describe('supervisorPid', () => {
+    const effective = { download: 0, upload: 0 }
+
+    it('omits --stop-with-process by default', () => {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, effective)
+      expect(args.some((arg) => arg.startsWith('--stop-with-process'))).toBe(
+        false
+      )
+    })
+
+    it('passes the host pid so aria2 exits when the host dies', () => {
+      const withPid = new Aria2ConfigBuilder(
+        '/t',
+        '/home/user/.config/motrix',
+        {
+          supervisorPid: 4242,
+        }
+      )
+      const args = withPid.buildArgs(
+        makeEngineSettings(DEFAULT_ENGINE_SETTINGS),
+        true,
+        null,
+        effective,
+        DEFAULT_SAVE_DIR
+      )
+      expect(args).toContain('--stop-with-process=4242')
+    })
+
+    it.each([0, -1, 1.5, Number.NaN])('rejects invalid pid %s', (pid) => {
+      expect(
+        () => new Aria2ConfigBuilder('/t', '/u', { supervisorPid: pid })
+      ).toThrow(TypeError)
+    })
+  })
+
   describe('ensureUserConfig', () => {
     it('excludes advanced global seeding time while preserving the original config', async () => {
       mockAccess.mockResolvedValue(undefined)

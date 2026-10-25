@@ -477,6 +477,7 @@ async function main() {
     path.join(platform.extraResourceDir, 'aria2.conf'),
     platform.userDataDir,
     {
+      supervisorPid: process.pid,
       rpcListenAll: parseServerBoolean(
         process.env.MOTRIX_ARIA2_RPC_LISTEN_ALL,
         'MOTRIX_ARIA2_RPC_LISTEN_ALL'
