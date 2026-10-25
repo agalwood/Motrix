@@ -1438,7 +1438,12 @@
         "channelStable": "Stabil",
         "channelBeta": "Beta",
         "channelBetaWarning": "Beta-Versionen können weniger stabil sein. Sie erhalten auch neuere stabile Versionen. Beim Zurückwechseln werden keine weiteren Beta-Updates installiert; ein Downgrade erfolgt nicht.",
-        "channelSaveError": "Der Update-Kanal konnte nicht gespeichert werden. Versuchen Sie es erneut."
+        "channelSaveError": "Der Update-Kanal konnte nicht gespeichert werden. Versuchen Sie es erneut.",
+        "installing": "Installation…",
+        "installingDescription": "Das Update wird vorbereitet. Motrix startet neu, sobald es bereit ist.",
+        "manualDownload": "Manuell herunterladen",
+        "manualInstall": "Laden Sie die neue Version herunter, beenden Sie Motrix und ersetzen Sie die installierte Anwendung.",
+        "manualCrossVolume": "Die automatische Installation zwischen Laufwerken ist derzeit nicht verfügbar. Laden Sie die neue Version herunter und ersetzen Sie Motrix manuell."
       },
       "details": {
         "author": "Autor",

@@ -1452,7 +1452,12 @@
         "channelStable": "Stabile",
         "channelBeta": "Beta",
         "channelBetaWarning": "Le versioni beta possono essere meno stabili. Riceverai anche le nuove versioni stabili. Tornando al canale stabile, gli aggiornamenti beta si interrompono senza installare una versione precedente.",
-        "channelSaveError": "Impossibile salvare il canale di aggiornamento. Riprova."
+        "channelSaveError": "Impossibile salvare il canale di aggiornamento. Riprova.",
+        "installing": "Installazione…",
+        "installingDescription": "Preparazione dell’aggiornamento. Motrix si riavvierà quando sarà pronto.",
+        "manualDownload": "Scarica manualmente",
+        "manualInstall": "Scarica la nuova versione, chiudi Motrix e sostituisci l’applicazione installata.",
+        "manualCrossVolume": "L’installazione automatica tra dischi non è attualmente disponibile. Scarica la nuova versione e sostituisci Motrix manualmente."
       },
       "details": {
         "author": "Autore",

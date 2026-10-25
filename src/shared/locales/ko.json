@@ -1424,7 +1424,12 @@
         "channelStable": "안정",
         "channelBeta": "베타",
         "channelBetaWarning": "베타는 안정성이 낮을 수 있습니다. 더 새로운 안정 버전도 받게 됩니다. 안정 채널로 돌아가면 버전을 낮추지 않고 베타 업데이트만 중단합니다.",
-        "channelSaveError": "업데이트 채널을 저장하지 못했습니다. 다시 시도하세요."
+        "channelSaveError": "업데이트 채널을 저장하지 못했습니다. 다시 시도하세요.",
+        "installing": "설치 중…",
+        "installingDescription": "업데이트를 준비하고 있습니다. 준비가 완료되면 Motrix가 다시 시작됩니다.",
+        "manualDownload": "수동 다운로드",
+        "manualInstall": "새 버전을 다운로드하고 Motrix를 종료한 다음 설치된 앱을 교체하세요.",
+        "manualCrossVolume": "현재 다른 디스크 간 자동 설치는 지원되지 않습니다. 새 버전을 다운로드하고 Motrix를 수동으로 교체하세요."
       },
       "details": {
         "author": "제작자",

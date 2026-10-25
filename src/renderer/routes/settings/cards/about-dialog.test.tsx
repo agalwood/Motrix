@@ -425,7 +425,58 @@ describe('<AboutDialog>', () => {
     )
 
     expect(transport.invoke).toHaveBeenCalledWith(Commands.InstallUpdate)
+    expect(screen.getByRole('button', { name: 'Installing…' })).toBeDisabled()
   })
+
+  it('coalesces rapid install clicks and keeps the channel disabled during installation', async () => {
+    renderDialog()
+    await emitState({
+      phase: 'downloaded',
+      currentVersion: packageJson.version,
+      availableVersion: '2.0.1',
+    })
+    await userEvent.dblClick(
+      screen.getByRole('button', { name: 'Restart and install' })
+    )
+    expect(
+      vi
+        .mocked(transport.invoke)
+        .mock.calls.filter(([channel]) => channel === Commands.InstallUpdate)
+    ).toHaveLength(1)
+    await emitState({
+      phase: 'installing',
+      currentVersion: packageJson.version,
+      availableVersion: '2.0.1',
+    })
+    expect(screen.getByRole('button', { name: 'Installing…' })).toBeDisabled()
+    expect(
+      screen.getByRole('combobox', { name: 'Update channel' })
+    ).toBeDisabled()
+  })
+
+  it.each(['available', 'downloaded'] as const)(
+    'offers manual replacement for a cross-volume %s update',
+    async (phase) => {
+      renderDialog()
+      await emitState({
+        phase,
+        currentVersion: packageJson.version,
+        availableVersion: '2.0.1',
+        manualInstallReason: 'cross-volume',
+      })
+      expect(
+        screen.getByRole('link', { name: 'Download manually' })
+      ).toHaveAttribute('href', EXTERNAL_URLS.github.releases)
+      expect(
+        screen.getByText(/Automatic installation across disks/)
+      ).toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: 'Restart and install' })
+      ).not.toBeInTheDocument()
+      expect(transport.invoke).not.toHaveBeenCalledWith(Commands.DownloadUpdate)
+      expect(transport.invoke).not.toHaveBeenCalledWith(Commands.InstallUpdate)
+    }
+  )
 
   it('surfaces an install command failure without losing the update version', async () => {
     renderDialog()
@@ -448,8 +499,13 @@ describe('<AboutDialog>', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Update failed: installer launch failed'
     )
-    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
-    expect(transport.invoke).toHaveBeenCalledWith(Commands.DownloadUpdate)
+    expect(
+      screen.getByRole('link', { name: 'Download manually' })
+    ).toHaveAttribute('href', EXTERNAL_URLS.github.releases)
+    expect(
+      screen.queryByRole('button', { name: 'Retry' })
+    ).not.toBeInTheDocument()
+    expect(transport.invoke).not.toHaveBeenCalledWith(Commands.DownloadUpdate)
   })
 
   it('keeps a newer update event when the initial snapshot resolves late', async () => {

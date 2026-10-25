@@ -88,7 +88,8 @@ describe('createAppUpdateService', () => {
     expect(updater.checkForUpdates).toHaveBeenCalledOnce()
     expect(updater.downloadUpdate).toHaveBeenCalledOnce()
     expect(updater.quitAndInstall).toHaveBeenCalledOnce()
-    expect(updater.channel).toBe('beta')
+    expect(service.getChannel()).toBe('beta')
+    expect(updater.channel).toBe('latest')
   })
 
   it('preserves unsupported direct builds', async () => {

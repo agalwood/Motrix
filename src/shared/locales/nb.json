@@ -1819,7 +1819,12 @@
         "managedDescription": "Denne pakkede Windows-utgaven oppdateres via den opprinnelige installasjonskilden. Oppdatering fra appen er ikke tilgjengelig.",
         "unsupportedTitle": "Automatiske oppdateringer er utilgjengelige",
         "upToDate": "Versjon {{version}} er den nyeste tilgjengelige utgaven.",
-        "upToDateTitle": "Motrix er oppdatert"
+        "upToDateTitle": "Motrix er oppdatert",
+        "installing": "Installerer…",
+        "installingDescription": "Forbereder oppdateringen. Motrix starter på nytt når den er klar.",
+        "manualDownload": "Last ned manuelt",
+        "manualInstall": "Last ned den nye versjonen, avslutt Motrix og erstatt den installerte appen.",
+        "manualCrossVolume": "Automatisk installasjon mellom disker er foreløpig utilgjengelig. Last ned den nye versjonen og erstatt Motrix manuelt."
       },
       "version": "Versjon {{version}}",
       "webVersionNote": "Denne nettutgaven oppdateres av administratoren for installasjonen."

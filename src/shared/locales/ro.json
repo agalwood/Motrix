@@ -1838,7 +1838,12 @@
         "managedDescription": "Această ediție Windows împachetată se actualizează prin sursa de instalare originală. Actualizările din aplicație nu sunt disponibile.",
         "unsupportedTitle": "Actualizările automate nu sunt disponibile",
         "upToDate": "Versiunea {{version}} este cea mai nouă versiune disponibilă.",
-        "upToDateTitle": "Motrix este la zi"
+        "upToDateTitle": "Motrix este la zi",
+        "installing": "Se instalează…",
+        "installingDescription": "Se pregătește actualizarea. Motrix va reporni când este gata.",
+        "manualDownload": "Descarcă manual",
+        "manualInstall": "Descarcă noua versiune, închide Motrix și înlocuiește aplicația instalată.",
+        "manualCrossVolume": "Instalarea automată între discuri nu este disponibilă momentan. Descarcă noua versiune și înlocuiește Motrix manual."
       },
       "version": "Versiunea {{version}}",
       "webVersionNote": "Această ediție web este actualizată de administratorul instalării."

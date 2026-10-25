@@ -1424,7 +1424,12 @@
         "channelStable": "穩定版",
         "channelBeta": "測試版",
         "channelBetaWarning": "測試版可能不夠穩定，也會接收後續穩定版。切回穩定版後不再接收測試版，不會自動降級。",
-        "channelSaveError": "無法儲存更新通道。請再試一次。"
+        "channelSaveError": "無法儲存更新通道。請再試一次。",
+        "installing": "正在安裝…",
+        "installingDescription": "正在準備更新，準備完成後 Motrix 將重新啟動。",
+        "manualDownload": "手動下載",
+        "manualInstall": "請下載新版本，結束 Motrix 後取代已安裝的應用程式。",
+        "manualCrossVolume": "目前不支援跨磁碟自動安裝更新。請下載新版本並手動取代 Motrix。"
       },
       "details": {
         "author": "作者",

@@ -1424,7 +1424,12 @@
         "channelStable": "Ổn định",
         "channelBeta": "Beta",
         "channelBetaWarning": "Bản beta có thể kém ổn định hơn. Bạn cũng sẽ nhận các bản phát hành ổn định mới hơn. Chuyển về kênh ổn định sẽ ngừng cập nhật beta mà không hạ phiên bản.",
-        "channelSaveError": "Không thể lưu kênh cập nhật. Hãy thử lại."
+        "channelSaveError": "Không thể lưu kênh cập nhật. Hãy thử lại.",
+        "installing": "Đang cài đặt…",
+        "installingDescription": "Đang chuẩn bị bản cập nhật. Motrix sẽ khởi động lại khi sẵn sàng.",
+        "manualDownload": "Tải xuống thủ công",
+        "manualInstall": "Tải phiên bản mới, thoát Motrix rồi thay thế ứng dụng đã cài đặt.",
+        "manualCrossVolume": "Hiện chưa hỗ trợ cài đặt tự động giữa các ổ đĩa. Hãy tải phiên bản mới và thay thế Motrix theo cách thủ công."
       },
       "details": {
         "author": "Tác giả",

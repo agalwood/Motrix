@@ -4,9 +4,10 @@ import {
   RestartIcon,
 } from '@renderer/components/icons'
 import { Alert } from '@renderer/components/ui/alert'
-import { Button } from '@renderer/components/ui/button'
+import { Button, buttonVariants } from '@renderer/components/ui/button'
 import { Spinner } from '@renderer/components/ui/spinner'
 import { cn } from '@renderer/lib/utils'
+import { EXTERNAL_URLS } from '@shared/external-urls'
 import type { AppUpdateState } from '@shared/types/app-update'
 import type { AppUpdateChannel } from '@shared/types/settings'
 import type { ReactNode } from 'react'
@@ -54,7 +55,9 @@ export function AppUpdateSection({ update }: { update: AppUpdateController }) {
               state.phase === 'unsupported' ||
               state.phase === 'checking' ||
               state.phase === 'downloading' ||
-              state.phase === 'downloaded'
+              state.phase === 'downloaded' ||
+              state.phase === 'installing' ||
+              state.manualInstallReason === 'install-failed'
             }
           >
             <UpdateActionButton
@@ -116,6 +119,24 @@ function UpdateActionButton({
 }: UpdateActionButtonProps) {
   const { t } = useTranslation()
 
+  if (state.manualInstallReason && state.availableVersion) {
+    return (
+      <a
+        href={EXTERNAL_URLS.github.releases}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-slot="button"
+        className={cn(
+          buttonVariants({ size: 'sm' }),
+          'h-7! gap-1.5 rounded-md! px-2 text-xs shadow-none [&_svg]:size-3.5!'
+        )}
+      >
+        <InstallIcon data-icon="inline-start" aria-hidden="true" />
+        {t('settings.about.update.manualDownload')}
+      </a>
+    )
+  }
+
   const progress =
     state.phase === 'downloading'
       ? Math.min(100, Math.max(0, Math.round(state.progress?.percent ?? 0)))
@@ -133,7 +154,9 @@ function UpdateActionButton({
       )}
       aria-label={action.accessibleLabel}
       aria-busy={
-        state.phase === 'checking' || state.phase === 'downloading'
+        state.phase === 'checking' ||
+        state.phase === 'downloading' ||
+        state.phase === 'installing'
           ? true
           : undefined
       }
@@ -189,6 +212,13 @@ function updateAction(
         disabled: true,
         variant: 'default',
       }
+    case 'installing':
+      return {
+        label: t('settings.about.update.installing'),
+        icon: <Spinner data-icon="inline-start" aria-hidden="true" />,
+        disabled: true,
+        variant: 'default',
+      }
     case 'downloaded':
       return {
         label: t('settings.about.update.restart'),
@@ -238,6 +268,8 @@ function statusTitle(
       })
     case 'downloaded':
       return t('settings.about.update.downloadedTitle')
+    case 'installing':
+      return t('settings.about.update.installing')
     case 'cancelled':
       return t('settings.about.update.cancelledTitle')
     case 'error':
@@ -251,6 +283,11 @@ function statusDescription(
   state: AppUpdateState,
   t: ReturnType<typeof useTranslation>['t']
 ): string {
+  if (state.manualInstallReason && state.availableVersion) {
+    return state.manualInstallReason === 'cross-volume'
+      ? t('settings.about.update.manualCrossVolume')
+      : t('settings.about.update.manualInstall')
+  }
   switch (state.phase) {
     case 'managed':
       return t('settings.about.update.managedDescription')
@@ -272,6 +309,8 @@ function statusDescription(
       return t('settings.about.update.downloaded', {
         version: state.availableVersion,
       })
+    case 'installing':
+      return t('settings.about.update.installingDescription')
     case 'cancelled':
       return t('settings.about.update.cancelledDescription')
     case 'error':

@@ -1,4 +1,5 @@
 import type { EventBus } from '@core/events/event-bus'
+import { getLogger } from '@core/logger'
 import { type EventChannel, Events } from '@shared/protocol/events'
 import type {
   AppUpdateProgress,
@@ -32,6 +33,7 @@ export interface UpdateManagerOptions {
    * `dir` builds and dev runs have none). Defaults to true.
    */
   supported?: boolean
+  getInstallBlockReason?: () => AppUpdateState['manualInstallReason']
 }
 
 // Map autoUpdater event names → EventBus event channels. Keeping the
@@ -48,6 +50,8 @@ const EVENT_BRIDGE: Array<[string, EventChannel]> = [
   ['error', Events.UpdateError],
 ]
 
+const log = getLogger('app-update')
+
 export class UpdateManager {
   private readonly eventBus: EventBus
   private readonly updater: Updater
@@ -56,12 +60,16 @@ export class UpdateManager {
   private state: AppUpdateState
   private checkPromise: Promise<unknown> | null = null
   private downloadPromise: Promise<unknown> | null = null
+  private installRequested = false
+  private manualInstallReason: AppUpdateState['manualInstallReason']
+  private readonly getInstallBlockReason?: UpdateManagerOptions['getInstallBlockReason']
 
   constructor(options: UpdateManagerOptions) {
     this.eventBus = options.eventBus
     this.updater = options.updater
     this.supported = options.supported !== false
     this.channel = options.channel
+    this.getInstallBlockReason = options.getInstallBlockReason
     this.state = {
       phase: this.supported ? 'idle' : 'unsupported',
       currentVersion: options.currentVersion,
@@ -98,6 +106,9 @@ export class UpdateManager {
       ...this.state,
       progress: this.state.progress ? { ...this.state.progress } : undefined,
       error: this.state.error ? { ...this.state.error } : undefined,
+      ...(this.manualInstallReason
+        ? { manualInstallReason: this.manualInstallReason }
+        : {}),
     }
   }
 
@@ -108,6 +119,9 @@ export class UpdateManager {
   setChannel(channel: AppUpdateChannel): void {
     if (channel === this.channel) return
     this.channel = channel
+    // Settings may be persisted by another window during installation. Retain
+    // the preference without resetting the backend or unlocking its lifecycle.
+    if (this.installRequested) return
     if (this.supported) this.configureUpdaterChannel()
     this.transition({
       phase: this.supported ? 'idle' : 'unsupported',
@@ -122,6 +136,7 @@ export class UpdateManager {
       )
     }
     if (this.checkPromise) return this.checkPromise
+    if (this.installRequested) return Promise.resolve(undefined)
     if (
       this.state.phase === 'downloading' ||
       this.state.phase === 'downloaded'
@@ -133,6 +148,7 @@ export class UpdateManager {
       )
     }
 
+    this.refreshInstallPolicy()
     this.transition({
       phase: 'checking',
       currentVersion: this.state.currentVersion,
@@ -156,12 +172,18 @@ export class UpdateManager {
       )
     }
     if (this.downloadPromise) return this.downloadPromise
+    if (this.installRequested) return Promise.resolve(undefined)
     const canDownload =
       this.state.phase === 'available' ||
       this.state.phase === 'cancelled' ||
       this.state.phase === 'error'
     if (!canDownload || !this.state.availableVersion) {
       return Promise.reject(new Error('No update is available to download'))
+    }
+    this.refreshInstallPolicy()
+    if (this.manualInstallReason) {
+      this.transition({ ...this.state })
+      return Promise.resolve(undefined)
     }
 
     this.transition({
@@ -191,13 +213,35 @@ export class UpdateManager {
     if (!this.supported) {
       throw new Error('Automatic updates are not supported in this build')
     }
+    if (this.installRequested) return
     if (this.state.phase !== 'downloaded') {
       throw new Error('Update is not ready to install')
     }
-    this.updater.quitAndInstall()
+    // Recheck immediately before native code can move the installed bundle.
+    this.refreshInstallPolicy()
+    if (this.manualInstallReason) {
+      this.transition({ ...this.state })
+      return
+    }
+    this.installRequested = true
+    log.info(
+      { version: this.state.availableVersion },
+      'Starting update installation'
+    )
+    this.transition({ ...this.state, phase: 'installing', error: undefined })
+    try {
+      this.updater.quitAndInstall()
+    } catch (error) {
+      this.transitionToError(error)
+    }
   }
 
   private consumeUpdaterEvent(source: string, payload: unknown): void {
+    // macOS starts a second, native download/verification during installation.
+    // Those events must not expose another install or retry action. A native
+    // failure may leave pending install callbacks, so retry requires a fresh
+    // process or a manual replacement rather than reusing that updater.
+    if (this.installRequested && source !== 'error') return
     switch (source) {
       case 'checking-for-update':
         if (this.state.phase !== 'checking') {
@@ -283,12 +327,31 @@ export class UpdateManager {
   }
 
   private transitionToError(error: unknown): void {
+    log.error(
+      { err: error, phase: this.state.phase },
+      'Application update failed'
+    )
+    if (this.installRequested) this.manualInstallReason = 'install-failed'
     this.transition({
       ...this.state,
       phase: 'error',
       progress: undefined,
       error: { message: errorMessage(error) },
     })
+  }
+
+  private refreshInstallPolicy(): void {
+    try {
+      this.manualInstallReason = this.getInstallBlockReason?.()
+    } catch {
+      this.manualInstallReason = 'location-unavailable'
+    }
+    if (this.manualInstallReason) {
+      log.warn(
+        { reason: this.manualInstallReason },
+        'Using manual update installation'
+      )
+    }
   }
 }
 

@@ -208,6 +208,7 @@ import { resolveDesktopBackgroundPolicy } from './platform/desktop-background-po
 import { resolveDistributionContext } from './platform/distribution-context'
 import { removePathRecursive, renameAtomic } from './platform/fs-helpers'
 import { setupGraphicsRecovery } from './platform/graphics-recovery-runtime'
+import { getMacUpdateInstallBlockReason } from './platform/mac-update-install-policy'
 import { setupNativeThemeSync } from './platform/native-theme-sync'
 import { setupPowerManager } from './platform/power-manager'
 import { createProtocolManager } from './platform/protocol-manager'
@@ -2447,6 +2448,13 @@ async function initializeMainProcess(): Promise<void> {
     channel: settingsManager.getApp().updateChannel,
     isWindowsPackage: distributionContext.isWindowsPackage,
     supported: updatesSupported,
+    getInstallBlockReason: () =>
+      getMacUpdateInstallBlockReason({
+        platform: process.platform,
+        isPackaged: app.isPackaged,
+        execPath: process.execPath,
+        temporaryDirectory: app.getPath('temp'),
+      }),
     loadUpdater: async () =>
       developmentUpdateSimulator ??
       (await import('electron-updater')).default.autoUpdater,

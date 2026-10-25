@@ -112,7 +112,11 @@ test.describe('development update simulator', () => {
       await expect(installButton).toBeVisible()
       await expect(installButton.locator('..')).toContainText('Beta')
       const closed = app.waitForEvent('close')
-      await installButton.click()
+      await installButton.dblclick()
+      await expect(
+        page.getByRole('button', { name: 'Installing…' })
+      ).toBeDisabled()
+      await expect(channel).toBeDisabled()
       await closed
       app = undefined
     } finally {
