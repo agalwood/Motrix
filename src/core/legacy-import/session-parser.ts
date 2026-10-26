@@ -26,12 +26,9 @@ const OPTIONS = new Set([
   'allow-overwrite',
   'auto-file-renaming',
   'file-allocation',
-  // Only explicit true is retained: it disables ambient netrc credentials.
-  'no-netrc',
   // Declarative options emitted by the v1.8.19 bundled engine even when the
   // user did not customize a task. None is applied during scan or import.
   'pause-metadata',
-  'user-agent',
   'follow-torrent',
   'follow-metalink',
   'enable-peer-exchange',
@@ -41,23 +38,197 @@ const OPTIONS = new Set([
   'bt-tracker',
 ])
 
-/** Only names survive parsing; old credentials and request values are never replayed. */
+const PROXY_PREFIXES = ['all-proxy', 'http-proxy', 'https-proxy', 'ftp-proxy']
+const LEGACY_PROXY_OPTIONS = new Set([
+  ...PROXY_PREFIXES.flatMap((key) => [key, `${key}-user`, `${key}-passwd`]),
+  'no-proxy',
+  'proxy-method',
+])
+
+/** Values remain private to the parser; only filtered names enter public records. */
 export const LEGACY_REQUEST_OPTIONS = new Set([
   'header',
   'referer',
-  'all-proxy',
-  'all-proxy-user',
-  'all-proxy-passwd',
-  'http-proxy',
-  'http-proxy-user',
-  'http-proxy-passwd',
-  'https-proxy',
-  'https-proxy-user',
-  'https-proxy-passwd',
   'http-user',
   'http-passwd',
-  'load-cookies',
+  'user-agent',
+  'no-netrc',
 ])
+
+type LegacyRequestValues = Readonly<Record<string, readonly string[]>>
+type LegacyRequestKind = 'http' | 'bt' | 'magnet' | 'unknown'
+const privateRequestValues = new WeakMap<
+  LegacySessionEntry,
+  LegacyRequestValues
+>()
+const privateIgnoredOptions = new WeakMap<
+  LegacySessionEntry,
+  readonly string[]
+>()
+const EMPTY_REQUEST_VALUES: LegacyRequestValues = Object.freeze(
+  Object.create(null)
+)
+
+export function getLegacyRequestValues(
+  entry: LegacySessionEntry
+): LegacyRequestValues {
+  return privateRequestValues.get(entry) ?? EMPTY_REQUEST_VALUES
+}
+
+function safeOptionName(name: string): boolean {
+  return name.length <= 64 && /^[a-z0-9-]+$/.test(name)
+}
+
+function validRequestText(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.length <= MAX_LINE &&
+    !Array.from(value).some((character) => {
+      const code = character.charCodeAt(0)
+      return code < 32 || code === 127
+    }) &&
+    !/[\ud800-\udfff]/u.test(value)
+  )
+}
+
+/** Resolve aria2 singleton precedence and cumulative headers once per entry. */
+export function resolveLegacyRequestSettings(
+  entry: LegacySessionEntry,
+  system: Readonly<Record<string, unknown>>,
+  kind: LegacyRequestKind
+): {
+  values: LegacyRequestValues
+  requestOptions: string[]
+  ignoredOptions: string[]
+} {
+  const task = getLegacyRequestValues(entry)
+  const values: Record<string, string[]> = Object.create(null)
+  const ignored = new Set(
+    privateIgnoredOptions.get(entry) ?? entry.ignoredOptions
+  )
+  const ignore = (key: string) => {
+    if (safeOptionName(key) && ignored.size < 64) ignored.add(key)
+  }
+  const raw = (key: string): readonly unknown[] => {
+    if (Object.hasOwn(task, key)) return task[key]
+    const value = system[key]
+    return value === undefined || value === null
+      ? []
+      : Array.isArray(value)
+        ? value
+        : [value]
+  }
+  for (const key of Object.keys(system))
+    if (
+      !OPTIONS.has(key) &&
+      !LEGACY_REQUEST_OPTIONS.has(key) &&
+      (!LEGACY_PROXY_OPTIONS.has(key) || system[key] !== '')
+    )
+      ignore(key)
+  for (const key of LEGACY_REQUEST_OPTIONS) {
+    if (key === 'header') continue
+    const list = raw(key)
+    if (!list.length) continue
+    const value = list.at(-1)
+    if (key === 'no-netrc') {
+      if (value !== 'true' && value !== true) ignore(key)
+      continue
+    }
+    if (kind !== 'http') {
+      if (value !== '') ignore(key)
+      continue
+    }
+    if (!validRequestText(value)) {
+      ignore(key)
+      continue
+    }
+    if (
+      (key === 'referer' && value === '*') ||
+      (key === 'http-user' && value.includes(':'))
+    ) {
+      ignore(key)
+      continue
+    }
+    values[key] = [
+      value.trim() === '' && !key.endsWith('-user') && !key.endsWith('-passwd')
+        ? ''
+        : value,
+    ]
+  }
+  const inheritedHeaders =
+    system.header == null
+      ? []
+      : Array.isArray(system.header)
+        ? system.header
+        : [system.header]
+  const headers = [...inheritedHeaders, ...(task.header ?? [])]
+  if (kind !== 'http') {
+    if (headers.some((value) => value !== '')) ignore('header')
+  } else {
+    const byName = new Map<string, string[]>()
+    for (const line of headers) {
+      if (typeof line === 'string' && !line.trim()) continue
+      if (!validRequestText(line)) {
+        ignore('header')
+        continue
+      }
+      const colon = line.indexOf(':')
+      const name = line.slice(0, colon).trim().toLowerCase()
+      if (
+        colon <= 0 ||
+        !/^[!#$%&'*+.^_`|~0-9a-z-]+$/.test(name) ||
+        [
+          'range',
+          'if-range',
+          'if-match',
+          'accept-encoding',
+          'host',
+          'connection',
+          'content-length',
+          'transfer-encoding',
+          'proxy-authorization',
+        ].includes(name)
+      ) {
+        ignore('header')
+        continue
+      }
+      const group = byName.get(name) ?? []
+      group.push(line)
+      byName.set(name, group)
+    }
+    for (const [name, group] of byName) {
+      if (group.length > 1) {
+        ignore('header')
+        byName.delete(name)
+      }
+    }
+    for (const [option, header] of [
+      ['referer', 'referer'],
+      ['http-user', 'authorization'],
+    ] as const) {
+      if (!values[option]?.[0] || !byName.has(header)) continue
+      ignore(option)
+      if (option === 'http-user') {
+        if (values['http-passwd']?.[0]) ignore('http-passwd')
+        delete values['http-passwd']
+      }
+      delete values[option]
+    }
+    if (!values['http-user']?.[0] && values['http-passwd']?.[0]) {
+      ignore('http-passwd')
+      delete values['http-passwd']
+    }
+    const accepted = [...byName.values()].flat()
+    if (accepted.length) values.header = accepted
+  }
+  return {
+    values,
+    requestOptions: Object.keys(values).filter(
+      (key) => key !== 'user-agent' && values[key].some((value) => value !== '')
+    ),
+    ignoredOptions: [...ignored],
+  }
+}
 
 export interface LegacySessionEntry {
   itemKey: string
@@ -67,7 +238,7 @@ export interface LegacySessionEntry {
   options: Record<string, string>
   optionPairs: Array<readonly [string, string]>
   requestOptions: string[]
-  unsupportedOptions: string[]
+  ignoredOptions: string[]
   reason: LegacyReason | null
 }
 
@@ -91,8 +262,8 @@ export function parseLegacySession(bytes: Uint8Array): LegacySessionEntry[] {
     const uris = lines[0].trim().split(/\t+/).filter(Boolean)
     const options: Record<string, string> = Object.create(null)
     const optionPairs: Array<readonly [string, string]> = []
-    const requestOptions = new Set<string>()
-    const unsupportedOptions = new Set<string>()
+    const requestValues: Record<string, string[]> = Object.create(null)
+    const ignoredOptions = new Set<string>()
     let reason: LegacyReason | null =
       lines.some((line) => line.length > MAX_LINE) || uris.length > 16
         ? 'invalid-record'
@@ -104,24 +275,25 @@ export function parseLegacySession(bytes: Uint8Array): LegacySessionEntry[] {
         continue
       }
       const [, key, value] = match
-      if (
-        LEGACY_REQUEST_OPTIONS.has(key) ||
-        (key === 'no-netrc' && value.trim() === 'false')
-      ) {
-        if (value.trim()) requestOptions.add(key)
-      } else if (
-        !OPTIONS.has(key) ||
-        (key === 'no-netrc' && value.trim() !== 'true')
-      ) {
-        if (reason !== 'invalid-record') reason = 'unsupported-options'
-        if (key.length <= 64 && unsupportedOptions.size < 64)
-          unsupportedOptions.add(key)
+      if (LEGACY_REQUEST_OPTIONS.has(key)) {
+        if (key === 'no-netrc') {
+          if (value === 'true') options[key] = value
+          else delete options[key]
+        }
+        requestValues[key] ??= []
+        requestValues[key].push(value)
+      } else if (!OPTIONS.has(key)) {
+        if (
+          safeOptionName(key) &&
+          ignoredOptions.size < 64 &&
+          (!LEGACY_PROXY_OPTIONS.has(key) || value !== '')
+        )
+          ignoredOptions.add(key)
       } else {
         optionPairs.push([key, value])
         options[key] = value
       }
     }
-    if (!reason && requestOptions.size) reason = 'request-settings-required'
     const gid =
       options.gid && /^[a-f\d]{16}$/i.test(options.gid)
         ? options.gid.toLowerCase()
@@ -129,17 +301,29 @@ export function parseLegacySession(bytes: Uint8Array): LegacySessionEntry[] {
     if (options.gid && !gid) reason = 'invalid-record'
     const digest = digestBytes(raw)
     const itemKey = gid ? `gid:${gid}` : `entry:${digest}`
-    entries.push({
+    const entry: LegacySessionEntry = {
       itemKey,
       digest,
       gid,
       uris,
       options,
       optionPairs,
-      requestOptions: [...requestOptions],
-      unsupportedOptions: [...unsupportedOptions],
+      requestOptions: [],
+      ignoredOptions: [...ignoredOptions],
       reason,
-    })
+    }
+    privateRequestValues.set(entry, requestValues)
+    privateIgnoredOptions.set(entry, entry.ignoredOptions)
+    const request = resolveLegacyRequestSettings(
+      entry,
+      {},
+      /^https?:\/\//i.test(uris[0] ?? '') ? 'http' : 'bt'
+    )
+    entry.requestOptions = request.requestOptions
+    entry.ignoredOptions = request.ignoredOptions
+    if (!entry.reason && request.requestOptions.length)
+      entry.reason = 'request-settings-required'
+    entries.push(entry)
     lines = []
   }
   for (const line of text.split(/\r?\n/)) {

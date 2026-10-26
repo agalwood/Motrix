@@ -3141,6 +3141,8 @@
     "chooseDestination": "Choose another location…",
     "requestSettingsHelp": "이전 쿠키 파일을 사용했다면 필요한 Cookie 헤더를 입력하세요. HTTP 사용자 이름과 비밀번호를 사용했다면 이에 해당하는 Authorization 헤더를 입력하세요. 프록시 인증 정보는 프록시 URL에 입력하세요.",
     "unsupportedOptions": "지원하지 않는 옵션: {{options}}",
+    "ignoredOptions": "지원하지 않는 옵션 제외: {{options}}",
+    "currentProxyDescription": "이전한 다운로드에는 Motrix의 현재 다운로드 프록시 설정이 적용됩니다. 이전 프록시 설정은 유지되지 않습니다.",
     "requestOptions": "저장된 요청 설정: {{options}}",
     "requestSettingsDescription": "이전 요청 설정은 복사되지 않았습니다. 새 폴더에 다운로드하기 전에 고급 설정에서 다시 입력하세요.",
     "reconfigureDownload": "다시 설정하고 다운로드…",

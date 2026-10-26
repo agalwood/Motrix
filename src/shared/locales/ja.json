@@ -3141,6 +3141,8 @@
     "chooseDestination": "Choose another location…",
     "requestSettingsHelp": "以前の Cookie ファイルについては、必要な Cookie ヘッダーを入力してください。HTTP のユーザー名とパスワードについては、同等の Authorization ヘッダーを入力してください。プロキシの認証情報はプロキシ URL に入力してください。",
     "unsupportedOptions": "未対応のオプション：{{options}}",
+    "ignoredOptions": "未対応のオプションを除外しました: {{options}}",
+    "currentProxyDescription": "移行したダウンロードには Motrix の現在のダウンロード用プロキシ設定を使用します。以前のプロキシ設定は引き継ぎません。",
     "requestOptions": "保存されたリクエスト設定：{{options}}",
     "requestSettingsDescription": "以前のリクエスト設定はコピーされていません。新しいフォルダーにダウンロードする前に、詳細設定で再入力してください。",
     "reconfigureDownload": "再設定してダウンロード…",

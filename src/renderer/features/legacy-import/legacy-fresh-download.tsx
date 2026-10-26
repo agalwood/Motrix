@@ -167,6 +167,9 @@ export function LegacyFreshDownload({ task }: { task: DownloadTask }) {
     <>
       <div className="space-y-3 rounded-md border p-3">
         <p className="text-xs leading-5 text-muted-foreground">
+          {t('legacyImport.currentProxyDescription')}
+        </p>
+        <p className="text-xs leading-5 text-muted-foreground">
           {availability?.available
             ? t('legacyImport.verifyReady')
             : t(availability?.reason ?? 'legacyImport.loading')}

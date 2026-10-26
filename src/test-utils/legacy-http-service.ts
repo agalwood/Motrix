@@ -17,6 +17,7 @@ import {
   LegacyHttpActivationService,
 } from '@core/legacy-import/http-activation-service'
 import { authorizeLegacySource } from '@core/legacy-import/source-scanner'
+import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import type {
   MotrixDatabase,
   TaskWithInstances,
@@ -191,7 +192,9 @@ export async function legacyHttpActivationFixture(options: {
   } as unknown as MotrixDatabase
   const taskManager = new TaskManager()
   taskManager.set(taskId, taskRowToDownloadTask(row.task, row.instances))
+  const proxyPolicy = new AppliedDownloadProxyPolicy({ noProxy: '' })
   const deps: LegacyHttpActivationDeps = {
+    proxyPolicy,
     db,
     taskManager,
     adapter: options.adapter,
@@ -204,6 +207,7 @@ export async function legacyHttpActivationFixture(options: {
   }
   const service = new LegacyHttpActivationService(deps)
   return {
+    proxyPolicy,
     root,
     profile,
     downloads,

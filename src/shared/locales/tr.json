@@ -3163,6 +3163,8 @@
     "chooseDestination": "Choose another location…",
     "requestSettingsHelp": "Eski çerez dosyaları için gerekli Cookie üstbilgisini girin. HTTP kullanıcı adları ve parolaları için eşdeğer bir Authorization üstbilgisi girin. Proxy kimlik bilgilerini proxy URL’sine girin.",
     "unsupportedOptions": "Desteklenmeyen seçenekler: {{options}}",
+    "ignoredOptions": "Desteklenmeyen seçenekler atlandı: {{options}}",
+    "currentProxyDescription": "Taşınan indirmeler Motrix’in geçerli indirme proxy ayarlarını kullanır. Eski proxy ayarları korunmaz.",
     "requestOptions": "Kaydedilmiş istek ayarları: {{options}}",
     "requestSettingsDescription": "Eski istek ayarları kopyalanmadı. Yeni bir klasöre indirmeden önce Gelişmiş bölümünde yeniden girin.",
     "reconfigureDownload": "Yeniden yapılandır ve indir…",

@@ -71,6 +71,57 @@ function btTask(
 }
 
 describe('inspectBtDuplicate', () => {
+  it.each([
+    'untouched',
+    'has-gid',
+    'intent',
+    'malformed',
+    'activating',
+  ] as const)(
+    'handles an imported BT %s record without dropping output reservations',
+    (state) => {
+      const task = btTask({ id: 'imported', status: TaskStatus.Paused })
+      task.engineTaskId = ''
+      task.instances[0].gid = state === 'has-gid' ? '0123456789abcdef' : null
+      task.instances[0].payload = {
+        legacyImport:
+          state === 'malformed'
+            ? { version: 1 }
+            : {
+                version: 1,
+                sourceId: 'source',
+                itemKey: 'item',
+                activation: state === 'activating' ? 'activating' : 'inactive',
+                storagePolicy: 'legacy-read-only',
+                reason: 'verification-required',
+                selectionKnown: true,
+                selectedFiles: [0, 2],
+              },
+        ...(state === 'intent'
+          ? { legacyBtActivation: { stage: 'create-uncertain' } }
+          : {}),
+      }
+      const request = {
+        infoHash: INFO_HASH,
+        saveDir: '/fresh-copy',
+        selectedFiles: [0, 2],
+        duplicatePolicy: 'reuse' as const,
+      }
+      expect(inspectBtDuplicate([task], request).action).toBe(
+        state === 'untouched' ? 'create' : 'conflict'
+      )
+      if (state === 'untouched') {
+        expect(
+          inspectBtDuplicate([task], { ...request, saveDir: '/downloads' })
+            .action
+        ).toBe('conflict')
+      }
+      expect(reservedBtFinalNames([task], '/downloads')).toContain(
+        task.finalName
+      )
+    }
+  )
+
   it('reuses an exact active task without starting another info hash owner', () => {
     const task = btTask({ id: 'seed', status: TaskStatus.Seeding })
 

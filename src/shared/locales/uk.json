@@ -3207,6 +3207,8 @@
     "chooseDestination": "Choose another location…",
     "requestSettingsHelp": "Для попередніх файлів cookie введіть потрібний заголовок Cookie. Для імен користувачів і паролів HTTP введіть відповідний заголовок Authorization. Вкажіть облікові дані проксі в його URL.",
     "unsupportedOptions": "Непідтримувані параметри: {{options}}",
+    "ignoredOptions": "Непідтримувані параметри пропущено: {{options}}",
+    "currentProxyDescription": "Перенесені завантаження використовують поточні налаштування проксі завантажень Motrix. Старі налаштування не зберігаються.",
     "requestOptions": "Збережені налаштування запиту: {{options}}",
     "requestSettingsDescription": "Старі налаштування запиту не скопійовано. Введіть їх знову в розширених налаштуваннях перед завантаженням у нову теку.",
     "reconfigureDownload": "Налаштувати знову та завантажити…",

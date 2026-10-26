@@ -3185,6 +3185,8 @@
     "chooseDestination": "Choose another location…",
     "requestSettingsHelp": "Para arquivos de cookies antigos, insira o cabeçalho Cookie necessário. Para nomes de usuário e senhas HTTP, insira um cabeçalho Authorization equivalente. Insira as credenciais do proxy na URL do proxy.",
     "unsupportedOptions": "Opções não compatíveis: {{options}}",
+    "ignoredOptions": "Opções não compatíveis omitidas: {{options}}",
+    "currentProxyDescription": "Os downloads migrados usam as configurações atuais de proxy de download do Motrix. As configurações antigas não são mantidas.",
     "requestOptions": "Configurações de solicitação salvas: {{options}}",
     "requestSettingsDescription": "As configurações antigas de solicitação não foram copiadas. Insira-as novamente em Avançado antes de baixar em uma nova pasta.",
     "reconfigureDownload": "Reconfigurar e baixar…",

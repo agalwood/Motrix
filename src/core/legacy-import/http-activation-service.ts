@@ -4,6 +4,7 @@ import { lstat, mkdir, open, realpath } from 'node:fs/promises'
 import path from 'node:path'
 import type { EngineAdapter } from '@core/engine/engine-adapter'
 import { newEngineTaskId } from '@core/lib/ids'
+import type { AppliedDownloadProxyPolicyReader } from '@core/proxy/applied-download-proxy-policy'
 import type {
   MotrixDatabase,
   TaskWithInstances,
@@ -31,6 +32,7 @@ export interface LegacyHttpActivationDeps {
   taskManager: TaskManager
   adapter: EngineAdapter
   backupRoot: string
+  proxyPolicy: AppliedDownloadProxyPolicyReader
   isProcessRunning: (pid: number) => boolean | Promise<boolean>
   publishTasks: () => void
   runTaskMutation: <T>(
@@ -116,7 +118,15 @@ export class LegacyHttpActivationService {
       const pair = this.requireTask(taskId)
       const previous = pair.instances[0].payload.legacyHttpActivation
       if (previous !== undefined) {
-        await this.reconcile(pair, true, controller.signal)
+        await this.withCurrentProxy((assertCurrent) =>
+          this.reconcile(
+            pair,
+            true,
+            controller.signal,
+            undefined,
+            assertCurrent
+          )
+        )
         return true
       }
       const available = await this.availability(taskId)
@@ -136,16 +146,20 @@ export class LegacyHttpActivationService {
       if (!picked || this.stopping || controller.signal.aborted) return false
       if (JSON.stringify(this.requireTask(taskId)) !== JSON.stringify(pair))
         throw failure('changedSource')
-      const prepared = await this.prepare(pair, picked, controller.signal)
-      this.checkCancelled(controller.signal)
-      this.deps.taskManager.reserveEngineTaskId(prepared.intent.engineTaskId)
-      await this.persist(pair, prepared.intent, false)
-      await this.reconcile(
-        this.requireTask(taskId),
-        true,
-        controller.signal,
-        prepared.context
-      )
+      await this.withCurrentProxy(async (assertCurrent) => {
+        const prepared = await this.prepare(pair, picked, controller.signal)
+        this.checkCancelled(controller.signal)
+        assertCurrent()
+        this.deps.taskManager.reserveEngineTaskId(prepared.intent.engineTaskId)
+        await this.persist(pair, prepared.intent, false)
+        await this.reconcile(
+          this.requireTask(taskId),
+          true,
+          controller.signal,
+          prepared.context,
+          assertCurrent
+        )
+      })
       return true
     })
     this.admission = operation
@@ -158,6 +172,15 @@ export class LegacyHttpActivationService {
       })
       .catch(() => {})
     return operation
+  }
+
+  private withCurrentProxy<T>(
+    operation: (assertCurrent: () => void) => Promise<T>
+  ): Promise<T> {
+    return this.deps.proxyPolicy.runWithSnapshot((snapshot, lease) => {
+      if (!snapshot) throw failure('httpRequestUnsupported')
+      return operation(() => lease.assertCurrent())
+    })
   }
 
   cancel(taskId: string): void {
@@ -301,13 +324,16 @@ export class LegacyHttpActivationService {
       )
         throw failure('running')
     }
-    return resolveLegacyHttpRequestContext({
+    const context = resolveLegacyHttpRequestContext({
       session,
       system,
       itemKey: marker.itemKey,
       uris: pair.instances[0].uris,
       targetPath: pair.task.finalPath,
     })
+    const route = this.deps.proxyPolicy.snapshot()
+    if (!route) throw failure('httpRequestUnsupported')
+    return { ...context, proxy: route.proxy ?? '', noProxy: route.noProxy }
   }
 
   private async prepare(
@@ -763,7 +789,8 @@ export class LegacyHttpActivationService {
     pair: TaskWithInstances,
     resume: boolean,
     signal?: AbortSignal,
-    verifiedContext?: LegacyHttpRequestContext
+    verifiedContext?: LegacyHttpRequestContext,
+    assertProxyCurrent?: () => void
   ): Promise<void> {
     const intent = legacyHttpActivationSchema.parse(
       pair.instances[0].payload.legacyHttpActivation
@@ -877,6 +904,7 @@ export class LegacyHttpActivationService {
         }
         this.checkCancelled(signal)
         try {
+          assertProxyCurrent?.()
           await this.deps.adapter.resumeTask(intent.engineTaskId)
           this.checkCancelled(signal)
           intent.stage = 'active'
@@ -954,6 +982,7 @@ export class LegacyHttpActivationService {
     if (receipt.status === 'absent') {
       if (intent.stage !== 'import-uncertain')
         throw failure('activationUncertain')
+      assertProxyCurrent?.()
       const imported = await this.deps.adapter.importLegacyCheckpoint?.({
         token: intent.token,
         engineTaskId: intent.engineTaskId,
@@ -990,6 +1019,7 @@ export class LegacyHttpActivationService {
       !this.deps.taskManager.getByEngineTaskId(intent.engineTaskId)
     )
       this.deps.taskManager.reserveEngineTaskId(intent.engineTaskId)
+    assertProxyCurrent?.()
     const gid = await this.deps.adapter.createDownload({
       uris: [context.uri],
       saveDir: intent.saveDir,
@@ -1019,7 +1049,9 @@ export class LegacyHttpActivationService {
     await this.reconcile(
       pair,
       resume && !signal?.aborted && !this.stopping,
-      signal
+      signal,
+      undefined,
+      assertProxyCurrent
     )
     this.checkCancelled(signal)
   }

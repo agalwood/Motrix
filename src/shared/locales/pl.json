@@ -3207,6 +3207,8 @@
     "chooseDestination": "Choose another location…",
     "requestSettingsHelp": "W przypadku starych plików cookie wprowadź wymagany nagłówek Cookie. W przypadku nazw użytkowników i haseł HTTP wprowadź równoważny nagłówek Authorization. Dane uwierzytelniające serwera proxy wpisz w jego adresie URL.",
     "unsupportedOptions": "Nieobsługiwane opcje: {{options}}",
+    "ignoredOptions": "Pominięte nieobsługiwane opcje: {{options}}",
+    "currentProxyDescription": "Przeniesione pobierania używają bieżących ustawień proxy pobierania Motrix. Stare ustawienia nie są zachowywane.",
     "requestOptions": "Zapisane ustawienia żądania: {{options}}",
     "requestSettingsDescription": "Stare ustawienia żądania nie zostały skopiowane. Wprowadź je ponownie w ustawieniach zaawansowanych przed pobraniem do nowego folderu.",
     "reconfigureDownload": "Skonfiguruj ponownie i pobierz…",

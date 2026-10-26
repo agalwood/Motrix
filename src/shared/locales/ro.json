@@ -3185,6 +3185,8 @@
     "chooseDestination": "Choose another location…",
     "requestSettingsHelp": "Pentru vechile fișiere cookie, introduceți antetul Cookie necesar. Pentru numele de utilizator și parolele HTTP, introduceți un antet Authorization echivalent. Introduceți datele de autentificare ale proxy-ului în URL-ul acestuia.",
     "unsupportedOptions": "Opțiuni neacceptate: {{options}}",
+    "ignoredOptions": "Opțiuni neacceptate omise: {{options}}",
+    "currentProxyDescription": "Descărcările migrate folosesc setările proxy actuale pentru descărcare din Motrix. Setările vechi nu sunt păstrate.",
     "requestOptions": "Setări de cerere salvate: {{options}}",
     "requestSettingsDescription": "Setările vechi de cerere nu au fost copiate. Introdu-le din nou în Avansat înainte de a descărca într-un dosar nou.",
     "reconfigureDownload": "Reconfigurați și descărcați…",

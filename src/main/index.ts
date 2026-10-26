@@ -1882,6 +1882,7 @@ async function initializeMainProcess(): Promise<void> {
     if (!legacyHttpActivationService) {
       getLegacyImportService()
       legacyHttpActivationService = new LegacyHttpActivationService({
+        proxyPolicy: appliedDownloadProxyPolicy,
         db: motrixDb,
         taskManager,
         adapter,

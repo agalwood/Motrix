@@ -49,6 +49,7 @@ export const legacyImportItemSchema = z.object({
   selectable: z.boolean(),
   reason: legacyReasonSchema,
   requestOptions: legacyOptionNamesSchema.optional(),
+  ignoredOptions: legacyOptionNamesSchema.optional(),
   unsupportedOptions: legacyOptionNamesSchema.optional(),
 })
 export type LegacyImportItem = z.infer<typeof legacyImportItemSchema>
@@ -144,6 +145,7 @@ export const legacyTaskMetadataSchema = z
     ]),
     reason: legacyReasonSchema,
     requestOptions: legacyOptionNamesSchema.optional(),
+    ignoredOptions: legacyOptionNamesSchema.optional(),
     selectionKnown: z.boolean(),
     selectedFiles: z.array(z.number().int().nonnegative()).max(10000),
     origin: z

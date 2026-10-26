@@ -3185,6 +3185,8 @@
     "chooseDestination": "Choose another location…",
     "requestSettingsHelp": "Per als fitxers de galetes anteriors, introduïu la capçalera Cookie necessària. Per als noms d’usuari i contrasenyes HTTP, introduïu una capçalera Authorization equivalent. Introduïu les credencials del servidor intermediari a l’URL del servidor intermediari.",
     "unsupportedOptions": "Opcions no compatibles: {{options}}",
+    "ignoredOptions": "Opcions no compatibles omeses: {{options}}",
+    "currentProxyDescription": "Les baixades migrades utilitzen la configuració actual del servidor intermediari de Motrix. No es conserva la configuració antiga.",
     "requestOptions": "Configuració de petició desada: {{options}}",
     "requestSettingsDescription": "La configuració antiga de petició no s’ha copiat. Torna-la a introduir a Avançat abans de baixar en una carpeta nova.",
     "reconfigureDownload": "Torna a configurar i baixa…",

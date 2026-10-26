@@ -3141,6 +3141,8 @@
     "chooseDestination": "Choose another location…",
     "requestSettingsHelp": "Untuk file cookie lama, masukkan header Cookie yang diperlukan. Untuk nama pengguna dan kata sandi HTTP, masukkan header Authorization yang setara. Masukkan kredensial proksi di URL proksi.",
     "unsupportedOptions": "Opsi yang tidak didukung: {{options}}",
+    "ignoredOptions": "Opsi yang tidak didukung diabaikan: {{options}}",
+    "currentProxyDescription": "Unduhan yang dimigrasikan menggunakan pengaturan proxy unduhan Motrix saat ini. Pengaturan proxy lama tidak dipertahankan.",
     "requestOptions": "Pengaturan permintaan tersimpan: {{options}}",
     "requestSettingsDescription": "Pengaturan permintaan lama tidak disalin. Masukkan kembali di bagian Lanjutan sebelum mengunduh ke folder baru.",
     "reconfigureDownload": "Atur ulang dan unduh…",

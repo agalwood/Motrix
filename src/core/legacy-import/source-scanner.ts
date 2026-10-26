@@ -11,10 +11,10 @@ import parseTorrent from 'parse-torrent'
 import { parseBtFileLayout } from '../task/bt-storage-layout'
 import {
   digestBytes,
-  LEGACY_REQUEST_OPTIONS,
   type LegacySessionEntry,
   MAX_LEGACY_BYTES,
   parseLegacySession,
+  resolveLegacyRequestSettings,
   safeLegacyComponent,
   safeLegacyDirectory,
   safeLegacyOutput,
@@ -278,16 +278,6 @@ function selection(
   return { files: [...result].sort((a, b) => a - b), known: true }
 }
 
-function hasRequestValue(value: unknown): boolean {
-  const values = Array.isArray(value) ? value : [value]
-  return values.some(
-    (part) =>
-      part !== undefined &&
-      part !== null &&
-      (typeof part !== 'string' || part.trim().length > 0)
-  )
-}
-
 function recognizableType(first: string | undefined): LegacyImportItem['type'] {
   if (!first) return 'unknown'
   if (/^https?:\/\//i.test(first)) return 'http'
@@ -324,28 +314,24 @@ export async function scanLegacySource(
     pid > 0 &&
     (await isProcessRunning(pid))
   const candidates: LegacyCandidate[] = []
-  const inheritedRequestOptions = [...LEGACY_REQUEST_OPTIONS].filter((key) =>
-    hasRequestValue(system[key])
-  )
-  if (system['no-netrc'] === false || system['no-netrc'] === 'false')
-    inheritedRequestOptions.push('no-netrc')
   let snapshotBytes = files.reduce((sum, file) => sum + file.bytes.length, 0)
   const torrentByPath = new Map<string, LegacySnapshotFile>()
   for (const entry of parseLegacySession(session.bytes)) {
-    const requestOptions = [
-      ...new Set([...entry.requestOptions, ...inheritedRequestOptions]),
-    ]
+    const type = recognizableType(entry.uris[0])
+    const { requestOptions, ignoredOptions } = resolveLegacyRequestSettings(
+      entry,
+      system,
+      type
+    )
     const item: LegacyImportItem = {
       itemId: entry.itemKey,
       name: entry.options.out || '—',
       saveDir: safeLegacyDirectory(entry.options.dir ?? (system.dir as string)),
-      type: recognizableType(entry.uris[0]),
+      type,
       selectable: true,
       reason: 'fresh-download-required',
       ...(requestOptions.length ? { requestOptions } : {}),
-      ...(entry.unsupportedOptions.length
-        ? { unsupportedOptions: entry.unsupportedOptions }
-        : {}),
+      ...(ignoredOptions.length ? { ignoredOptions } : {}),
     }
     const candidate: LegacyCandidate = {
       item,
@@ -362,14 +348,6 @@ export async function scanLegacySource(
       if (entry.reason && entry.reason !== 'request-settings-required') {
         item.selectable = false
         item.reason = entry.reason
-        continue
-      }
-      if (requestOptions.length && item.type !== 'http') {
-        // Request recovery is only implemented for HTTP. Do not open torrent
-        // metadata or relax verification and activation for other task types.
-        item.selectable = false
-        item.reason = 'unsupported-options'
-        item.unsupportedOptions = requestOptions
         continue
       }
       const first = entry.uris[0]

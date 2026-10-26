@@ -806,6 +806,9 @@ export class LegacyImportService {
         ...(candidate.item.requestOptions?.length
           ? { requestOptions: candidate.item.requestOptions }
           : {}),
+        ...(candidate.item.ignoredOptions?.length
+          ? { ignoredOptions: candidate.item.ignoredOptions }
+          : {}),
         selectionKnown: candidate.selectionKnown,
         selectedFiles: candidate.selectedFiles,
       },

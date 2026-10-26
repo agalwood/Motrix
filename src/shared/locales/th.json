@@ -3141,6 +3141,8 @@
     "chooseDestination": "Choose another location…",
     "requestSettingsHelp": "สำหรับไฟล์คุกกี้เดิม ให้ป้อนส่วนหัว Cookie ที่จำเป็น สำหรับชื่อผู้ใช้และรหัสผ่าน HTTP ให้ป้อนส่วนหัว Authorization ที่เทียบเท่ากัน ป้อนข้อมูลรับรองพร็อกซีใน URL ของพร็อกซี",
     "unsupportedOptions": "ตัวเลือกที่ไม่รองรับ: {{options}}",
+    "ignoredOptions": "ละเว้นตัวเลือกที่ไม่รองรับ: {{options}}",
+    "currentProxyDescription": "การดาวน์โหลดที่ย้ายมาใช้การตั้งค่าพร็อกซีดาวน์โหลดปัจจุบันของ Motrix โดยไม่เก็บการตั้งค่าพร็อกซีเดิม",
     "requestOptions": "การตั้งค่าคำขอที่บันทึกไว้: {{options}}",
     "requestSettingsDescription": "ไม่ได้คัดลอกการตั้งค่าคำขอเดิม โปรดกรอกอีกครั้งในขั้นสูงก่อนดาวน์โหลดลงโฟลเดอร์ใหม่",
     "reconfigureDownload": "ตั้งค่าใหม่และดาวน์โหลด…",

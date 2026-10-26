@@ -424,6 +424,8 @@ describe('legacy import service adversarial acceptance', () => {
       ' pause=true',
       ' header=Authorization: Bearer LEGACY_AUTH_SECRET',
       ' header=Cookie: session=LEGACY_COOKIE_SECRET',
+      ' load-cookies=/private/LEGACY_COOKIE_FILE_SECRET',
+      ' on-download-complete=LEGACY_COMMAND_SECRET',
       '',
     ].join('\n')
     await writeFile(f.sessionPath, session)
@@ -439,7 +441,11 @@ describe('legacy import service adversarial acceptance', () => {
       type: 'http',
       selectable: true,
       reason: 'request-settings-required',
-      requestOptions: expect.arrayContaining(['header', 'all-proxy']),
+      requestOptions: ['header'],
+      ignoredOptions: expect.arrayContaining([
+        'load-cookies',
+        'on-download-complete',
+      ]),
     })
     const run = await f.service.commit({
       previewId: preview.previewId,
@@ -454,7 +460,11 @@ describe('legacy import service adversarial acceptance', () => {
       activation: 'inactive',
       storagePolicy: 'legacy-read-only',
       reason: 'request-settings-required',
-      requestOptions: expect.arrayContaining(['header', 'all-proxy']),
+      requestOptions: ['header'],
+      ignoredOptions: expect.arrayContaining([
+        'load-cookies',
+        'on-download-complete',
+      ]),
     })
     const persisted = JSON.stringify({
       tasks: f.db.getAllTasks(),
@@ -465,6 +475,8 @@ describe('legacy import service adversarial acceptance', () => {
       'LEGACY_AUTH_SECRET',
       'LEGACY_COOKIE_SECRET',
       'LEGACY_PROXY_SECRET',
+      'LEGACY_COOKIE_FILE_SECRET',
+      'LEGACY_COMMAND_SECRET',
     ])
       expect(persisted).not.toContain(secret)
     expect(await readFile(f.sessionPath, 'utf8')).toBe(session)
@@ -483,6 +495,70 @@ describe('legacy import service adversarial acceptance', () => {
       selectable: false,
       reason: 'already-imported',
     })
+  })
+
+  it('imports a proxy-dependent magnet inactive with stripped option names and no request secrets', async () => {
+    const f = await fixture()
+    const session = [
+      'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&dn=bundle',
+      ' gid=0000000000000002',
+      ' all-proxy-user=LEGACY_PROXY_USER',
+      ' header=Cookie: LEGACY_BT_COOKIE_SECRET',
+      ' rpc-secret=LEGACY_RPC_SECRET',
+      '',
+    ].join('\n')
+    await writeFile(f.sessionPath, session)
+    await writeFile(
+      path.join(f.sourceRoot, 'system.json'),
+      JSON.stringify({
+        dir: f.downloads,
+        'all-proxy': 'http://proxy.example:8080',
+        'all-proxy-passwd': 'LEGACY_PROXY_PASSWORD',
+      })
+    )
+    const preview = await f.service.scan(f.source.sourceHandle)
+    expect(preview.items[0]).toMatchObject({
+      type: 'magnet',
+      name: 'bundle',
+      selectable: true,
+      reason: 'metadata-required',
+      ignoredOptions: expect.arrayContaining([
+        'header',
+        'rpc-secret',
+        'all-proxy',
+        'all-proxy-user',
+        'all-proxy-passwd',
+      ]),
+    })
+    const run = await f.service.commit({
+      previewId: preview.previewId,
+      itemIds: [preview.items[0].itemId],
+    })
+    const report = await completed(f.service, run.runId)
+    expect(report.imported).toBe(1)
+    const [task] = f.taskManager.getAll()
+    expect(task.status).toBe(TaskStatus.Paused)
+    expect(task.instances[0].gid).toBeNull()
+    expect(task.instances[0].payload.legacyImport).toMatchObject({
+      activation: 'inactive',
+      storagePolicy: 'legacy-read-only',
+      ignoredOptions: expect.arrayContaining([
+        'header',
+        'rpc-secret',
+        'all-proxy',
+        'all-proxy-user',
+        'all-proxy-passwd',
+      ]),
+    })
+    const persisted = JSON.stringify({
+      tasks: f.db.getAllTasks(),
+      preview,
+      report,
+    })
+    expect(persisted).not.toMatch(
+      /LEGACY_PROXY_USER|LEGACY_BT_COOKIE_SECRET|LEGACY_RPC_SECRET|LEGACY_PROXY_PASSWORD|proxy\.example/
+    )
+    expect(await readFile(f.sessionPath, 'utf8')).toBe(session)
   })
 
   it('rejects a stale preview before committing records', async () => {

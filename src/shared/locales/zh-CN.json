@@ -3141,6 +3141,8 @@
     "chooseDestination": "选择其他位置…",
     "requestSettingsHelp": "旧版 Cookie 文件中的信息，请填写为所需的 Cookie 请求头。旧版 HTTP 用户名和密码，请填写为等效的 Authorization 请求头。代理凭据请填写在代理 URL 中。",
     "unsupportedOptions": "不支持的选项：{{options}}",
+    "ignoredOptions": "已剔除不支持的参数：{{options}}",
+    "currentProxyDescription": "迁移后的下载使用 Motrix 当前的下载代理设置，不保留旧代理设置。",
     "requestOptions": "已保存的请求设置：{{options}}",
     "requestSettingsDescription": "旧版请求设置未复制。请在“高级”中重新填写后，下载到新文件夹。",
     "reconfigureDownload": "重新配置并下载…",

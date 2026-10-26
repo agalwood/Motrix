@@ -3163,6 +3163,8 @@
     "chooseDestination": "Choose another location…",
     "requestSettingsHelp": "برای فایل‌های کوکی قبلی، سرآیند Cookie موردنیاز را وارد کنید. برای نام کاربری و گذرواژهٔ HTTP، سرآیند Authorization معادل را وارد کنید. اطلاعات ورود پروکسی را در نشانی URL پروکسی وارد کنید.",
     "unsupportedOptions": "گزینه‌های پشتیبانی‌نشده: {{options}}",
+    "ignoredOptions": "گزینه‌های پشتیبانی‌نشده حذف شدند: {{options}}",
+    "currentProxyDescription": "دانلودهای منتقل‌شده از تنظیمات فعلی پراکسی دانلود Motrix استفاده می‌کنند. تنظیمات قدیمی پراکسی حفظ نمی‌شوند.",
     "requestOptions": "تنظیمات ذخیره‌شدهٔ درخواست: {{options}}",
     "requestSettingsDescription": "تنظیمات قدیمی درخواست کپی نشده‌اند. پیش از دانلود در پوشه‌ای جدید، آن‌ها را دوباره در بخش پیشرفته وارد کنید.",
     "reconfigureDownload": "تنظیم دوباره و دانلود…",

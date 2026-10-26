@@ -3163,6 +3163,8 @@
     "chooseDestination": "Choose another location…",
     "requestSettingsHelp": "For gamle informasjonskapselfiler angir du den nødvendige Cookie-headeren. For HTTP-brukernavn og -passord angir du en tilsvarende Authorization-header. Angi proxyens påloggingsinformasjon i proxy-URL-en.",
     "unsupportedOptions": "Alternativer som ikke støttes: {{options}}",
+    "ignoredOptions": "Alternativer som ikke støttes, er utelatt: {{options}}",
+    "currentProxyDescription": "Migrerte nedlastinger bruker de gjeldende proxyinnstillingene for nedlasting i Motrix. Gamle proxyinnstillinger beholdes ikke.",
     "requestOptions": "Lagrede forespørselsinnstillinger: {{options}}",
     "requestSettingsDescription": "De gamle forespørselsinnstillingene ble ikke kopiert. Skriv dem inn på nytt under Avansert før du laster ned til en ny mappe.",
     "reconfigureDownload": "Konfigurer på nytt og last ned…",

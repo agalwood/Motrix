@@ -3251,6 +3251,8 @@
     "chooseDestination": "Choose another location…",
     "requestSettingsHelp": "بالنسبة إلى ملفات تعريف الارتباط القديمة، أدخل ترويسة Cookie المطلوبة. ولأسماء مستخدمي HTTP وكلمات مرورهم، أدخل ترويسة Authorization المكافئة. أدخل بيانات اعتماد الوكيل في عنوان URL للوكيل.",
     "unsupportedOptions": "الخيارات غير المدعومة: {{options}}",
+    "ignoredOptions": "تم استبعاد الخيارات غير المدعومة: {{options}}",
+    "currentProxyDescription": "تستخدم التنزيلات المنقولة إعدادات وكيل التنزيل الحالية في Motrix. لا يتم الاحتفاظ بإعدادات الوكيل القديمة.",
     "requestOptions": "إعدادات الطلب المحفوظة: {{options}}",
     "requestSettingsDescription": "لم تُنسخ إعدادات الطلب القديمة. أدخلها مجددًا في الإعدادات المتقدمة قبل التنزيل إلى مجلد جديد.",
     "reconfigureDownload": "إعادة الإعداد والتنزيل…",

@@ -869,15 +869,20 @@ function LegacyImportDialogContent({
             className="pt-4 pb-5"
           />
           {errorNotice}
-          {preview?.items.some(
-            (item) => item.type === 'http' && item.selectable
-          ) && (
+          {preview?.items.some((item) => item.selectable) && (
             <Alert
               role="note"
               className="mx-auto mb-3 w-full max-w-160 shrink-0"
             >
               <AlertDescription className="text-xs">
-                {t('legacyImport.httpResumeDescription')}
+                <p>{t('legacyImport.currentProxyDescription')}</p>
+                {preview.items.some(
+                  (item) => item.type === 'http' && item.selectable
+                ) && (
+                  <p className="mt-1">
+                    {t('legacyImport.httpResumeDescription')}
+                  </p>
+                )}
               </AlertDescription>
             </Alert>
           )}

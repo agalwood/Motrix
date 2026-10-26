@@ -3163,6 +3163,8 @@
     "chooseDestination": "Choose another location…",
     "requestSettingsHelp": "Geben Sie für alte Cookie-Dateien den benötigten Cookie-Header ein. Geben Sie für HTTP-Benutzernamen und -Passwörter einen entsprechenden Authorization-Header ein. Tragen Sie Proxy-Zugangsdaten in die Proxy-URL ein.",
     "unsupportedOptions": "Nicht unterstützte Optionen: {{options}}",
+    "ignoredOptions": "Nicht unterstützte Optionen ausgelassen: {{options}}",
+    "currentProxyDescription": "Migrierte Downloads verwenden die aktuellen Download-Proxy-Einstellungen von Motrix. Alte Proxy-Einstellungen werden nicht übernommen.",
     "requestOptions": "Gespeicherte Anfrageeinstellungen: {{options}}",
     "requestSettingsDescription": "Die alten Anfrageeinstellungen wurden nicht kopiert. Gib sie unter Erweitert erneut ein, bevor du in einen neuen Ordner herunterlädst.",
     "reconfigureDownload": "Neu konfigurieren und herunterladen…",

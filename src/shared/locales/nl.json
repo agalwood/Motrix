@@ -3163,6 +3163,8 @@
     "chooseDestination": "Choose another location…",
     "requestSettingsHelp": "Voer voor oude cookiebestanden de benodigde Cookie-header in. Voer voor HTTP-gebruikersnamen en -wachtwoorden een gelijkwaardige Authorization-header in. Voer proxy-inloggegevens in de proxy-URL in.",
     "unsupportedOptions": "Niet-ondersteunde opties: {{options}}",
+    "ignoredOptions": "Niet-ondersteunde opties overgeslagen: {{options}}",
+    "currentProxyDescription": "Gemigreerde downloads gebruiken de huidige downloadproxyinstellingen van Motrix. Oude proxyinstellingen worden niet behouden.",
     "requestOptions": "Opgeslagen verzoekinstellingen: {{options}}",
     "requestSettingsDescription": "De oude verzoekinstellingen zijn niet gekopieerd. Vul ze opnieuw in bij Geavanceerd voordat je naar een nieuwe map downloadt.",
     "reconfigureDownload": "Opnieuw configureren en downloaden…",
