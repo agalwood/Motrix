@@ -2,6 +2,9 @@
   <img src="./public/app-icon.png" alt="Motrix" width="256" />
   <h1>Motrix</h1>
   <p>A modern, full-featured download manager that stays simple to use</p>
+  <a href="https://appwk.cn/apps/motrix">
+    <img src="https://appwk.cn/badges/featured-dark.svg" alt="Featured on AppWK" />
+  </a>
 </div>
 
 [![GitHub release](https://img.shields.io/github/v/release/agalwood/Motrix.svg)](https://github.com/agalwood/Motrix/releases) ![Build/release](https://github.com/agalwood/Motrix/workflows/Build/release/badge.svg) ![Total Downloads](https://img.shields.io/github/downloads/agalwood/Motrix/total.svg)
