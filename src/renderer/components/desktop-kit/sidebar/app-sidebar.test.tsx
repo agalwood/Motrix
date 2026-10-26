@@ -82,6 +82,38 @@ function wrap(ui: ReactElement, initialEntries: string[] = ['/']) {
 }
 
 describe('AppSidebar', () => {
+  it('renders all six category links below Downloads', () => {
+    render(wrap(<AppSidebar />))
+    for (const label of [
+      'Compressed',
+      'Documents',
+      'Music',
+      'Programs',
+      'Video',
+      'Other',
+    ]) {
+      expect(screen.getByRole('link', { name: label })).toHaveAttribute(
+        'href',
+        `/downloads/all?category=${label.toLowerCase()}`
+      )
+    }
+  })
+
+  it('selects only the active category when browsing a category', () => {
+    render(wrap(<AppSidebar />, ['/downloads/all?category=video']))
+    expect(screen.getByRole('link', { name: 'Video' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    )
+    expect(screen.getByRole('link', { name: 'Downloads' })).not.toHaveAttribute(
+      'aria-current',
+      'page'
+    )
+    expect(screen.getByRole('link', { name: 'Music' })).not.toHaveAttribute(
+      'aria-current',
+      'page'
+    )
+  })
   it('keeps migration hidden when no v1 source was detected', async () => {
     render(wrap(<AppSidebar />))
     await act(async () => Promise.resolve())

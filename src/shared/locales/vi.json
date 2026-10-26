@@ -3383,5 +3383,17 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "downloadCategories": {
+    "label": "Phân loại tải xuống",
+    "compressed": "Compressed",
+    "documents": "Documents",
+    "music": "Music",
+    "programs": "Programs",
+    "video": "Video",
+    "other": "Other",
+    "showAll": "Hiện tất cả loại",
+    "autoSort": "Tự động phân loại tải xuống",
+    "autoSortDesc": "Lưu lượt tải mới vào thư mục con Compressed, Documents, Music, Programs, Video hoặc Other trong thư mục đã chọn. File cũ giữ nguyên vị trí. Torrent nhiều file được giữ chung trong Other."
   }
 }

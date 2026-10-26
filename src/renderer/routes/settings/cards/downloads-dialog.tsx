@@ -166,6 +166,29 @@ export function DownloadsDialog({
                       disabled={disabled}
                       onPickingChange={setFavoritePicking}
                     />
+                    <FormField
+                      control={form.control}
+                      name="app.autoCategorizeDownloads"
+                      render={({ field }) => (
+                        <SettingsFormRow>
+                          <div className="space-y-1">
+                            <FormLabel>
+                              {t('downloadCategories.autoSort')}
+                            </FormLabel>
+                            <FormDescription className="text-xs">
+                              {t('downloadCategories.autoSortDesc')}
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              disabled={disabled}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </SettingsFormRow>
+                      )}
+                    />
                     <Separator className="my-4" />
                     <h3 className="text-sm font-semibold">
                       {t('settings.downloads.newTasks')}

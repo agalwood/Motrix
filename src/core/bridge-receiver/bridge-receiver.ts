@@ -57,6 +57,7 @@ export interface BridgeReceiverDeps {
     typeof MediaTaskCoordinator
   >[0]['mediaMetaStore']
   getDefaultSaveDir: AdapterDeps['getDefaultSaveDir']
+  prepareMediaSaveDir?: (directory: string, filename: string) => Promise<string>
   resolveSaveDir?: AdapterDeps['resolveSaveDir']
   recordDirectory?: (path: string) => Promise<unknown>
   pickName: AdapterDeps['pickName']
@@ -241,6 +242,7 @@ export class BridgeReceiver {
         publishTaskUpdateNow: deps.publishTaskUpdateNow,
         resolveFfmpegBinaryPath,
         pickName: deps.pickName,
+        prepareMediaSaveDir: deps.prepareMediaSaveDir,
         persist: deps.persistTask,
         persistTaskWithOccurrence: deps.persistTaskWithOccurrence,
         occurrenceDispatcher: deps.occurrenceDispatcher,

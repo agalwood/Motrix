@@ -3383,5 +3383,17 @@
     },
     "confirmFileTitle": "授权文件访问",
     "confirmFile": "允许此操作读取以下文件？"
+  },
+  "downloadCategories": {
+    "label": "下载分类",
+    "compressed": "压缩文件",
+    "documents": "文档",
+    "music": "音乐",
+    "programs": "程序",
+    "video": "视频",
+    "other": "其他",
+    "showAll": "显示所有分类",
+    "autoSort": "自动分类下载",
+    "autoSortDesc": "将新下载保存到所选目录的 Compressed、Documents、Music、Programs、Video 或 Other 子目录中。现有文件保持原位。多文件种子统一保存在 Other 中。"
   }
 }

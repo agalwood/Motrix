@@ -30,6 +30,7 @@ import {
 } from '@shared/types/task'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
 import type { TaskOccurrence } from '@shared/types/task-occurrence'
+import { classifyDownload } from '@shared/utils/download-category'
 import { finiteProgress } from '@shared/utils/media-progress'
 import {
   buildTerminalOccurrence,
@@ -73,6 +74,7 @@ export interface MediaJob {
 }
 
 export interface MediaCoordinatorDeps {
+  prepareMediaSaveDir?: (directory: string, filename: string) => Promise<string>
   mediaMetaStore: MediaMetaStore
   taskManager: TaskManager
   activityRecorder: TaskActivityRecorder
@@ -261,6 +263,19 @@ export class MediaTaskCoordinator {
     }
     if (job.video.segments.length === 0 || job.audio?.segments.length === 0) {
       throw new Error('Media plan has no segments')
+    }
+    if (this.deps.prepareMediaSaveDir) {
+      const saveDir = await this.deps.prepareMediaSaveDir(
+        job.saveDir,
+        job.finalName
+      )
+      if (saveDir !== job.saveDir) {
+        job = {
+          ...job,
+          saveDir,
+          finalName: await this.deps.pickName(saveDir, job.finalName),
+        }
+      }
     }
     const countParts = (plan: SegmentPlan) =>
       plan.segments.length + (plan.init ? 1 : 0)
@@ -1154,6 +1169,7 @@ export class MediaTaskCoordinator {
       kind: job.kind === 'mux' ? TaskKind.Mux : TaskKind.Hls,
       type: TaskType.Http,
       saveDir: job.saveDir,
+      category: classifyDownload(finalName),
       createdAt: now,
       updatedAt: now,
       uris: instances.flatMap((i) => i.uris),
