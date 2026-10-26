@@ -32,17 +32,24 @@ export function AdvancedPanel() {
   const [open, setOpen] = useState(false)
   const onLayoutChange = useAddTaskLayoutChange()
   const tab = useWatch<AddTaskFormValues, 'tab'>({ name: 'tab' })
+  const legacySourceTaskId = useWatch<AddTaskFormValues, 'legacySourceTaskId'>({
+    name: 'legacySourceTaskId',
+  })
   const requestOptions = useWatch<AddTaskFormValues, 'legacyRequestOptions'>({
     name: 'legacyRequestOptions',
   })
 
   useLayoutEffect(() => {
-    if (tab === 'links' && requestOptions !== undefined) setOpen(true)
-  }, [requestOptions, tab])
+    if (tab === 'links' && requestOptions !== undefined && !legacySourceTaskId)
+      setOpen(true)
+  }, [legacySourceTaskId, requestOptions, tab])
 
+  const hidden = tab === 'links' && Boolean(legacySourceTaskId)
   useLayoutEffect(() => {
-    onLayoutChange?.(open)
-  }, [onLayoutChange, open])
+    onLayoutChange?.(open && !hidden)
+  }, [hidden, onLayoutChange, open])
+
+  if (hidden) return null
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>

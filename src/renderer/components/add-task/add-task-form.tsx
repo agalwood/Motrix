@@ -120,6 +120,10 @@ function notifyTaskCreateFailure(
     notify('error', 'task.add.createFailed')
     return
   }
+  if (/^legacyImport\.errors\.[a-zA-Z]+$/u.test(reason)) {
+    notify('error', reason)
+    return
+  }
   const abort = parsePluginChainAbort(reason)
   if (abort) {
     notify('error', 'task.add.createFailedByPlugin', {
@@ -523,7 +527,17 @@ export function AddTaskForm({
       setSubmitting(true)
       try {
         form.clearErrors('urls')
-        const requests = formValuesToTaskCreateRequests(values)
+        let requests: TaskCreateRequest[]
+        try {
+          requests = formValuesToTaskCreateRequests(values)
+        } catch (error) {
+          const reason = taskCreateFailureReason(error)
+          if (reason && values.tab === 'links') {
+            form.setError('urls', { type: 'submission', message: reason })
+          }
+          notifyTaskCreateFailure(platform.notify, reason)
+          return
+        }
         const lines = values.tab === 'links' ? parseUrlLines(values.urls) : []
         const validLines = lines.filter((line) => line.valid)
         const unused = [

@@ -1,5 +1,6 @@
 import { DirectoryPicker } from '@renderer/components/desktop-kit/directory-picker'
 import { FileList } from '@renderer/components/file-list/file-list'
+import { Alert, AlertDescription } from '@renderer/components/ui/alert'
 import type { AddTaskFormValues } from '@shared/schemas/add-task'
 import type { TorrentFileInfo } from '@shared/types/torrent'
 import { useCallback } from 'react'
@@ -15,7 +16,11 @@ interface TorrentFilePanelProps {
 
 export function TorrentFilePanel({ onClear }: TorrentFilePanelProps) {
   const { t } = useTranslation()
+  const tab = useWatch<AddTaskFormValues, 'tab'>({ name: 'tab' })
   const { setValue } = useFormContext<AddTaskFormValues>()
+  const legacySourceTaskId = useWatch<AddTaskFormValues, 'legacySourceTaskId'>({
+    name: 'legacySourceTaskId',
+  })
   const meta = useWatch<AddTaskFormValues, 'torrentMeta'>({
     name: 'torrentMeta',
   })
@@ -37,6 +42,13 @@ export function TorrentFilePanel({ onClear }: TorrentFilePanelProps) {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
+      {tab === 'torrent' && legacySourceTaskId && (
+        <Alert>
+          <AlertDescription className="text-xs">
+            {t('legacyImport.proxyRestoredDescription')}
+          </AlertDescription>
+        </Alert>
+      )}
       <TorrentInfoHeader onClear={onClear} />
 
       <div className="flex min-h-50 max-h-[calc(100vh-380px)] min-w-0 overflow-hidden rounded-md border border-border **:data-[slot=scroll-area-viewport]:focus-visible:ring-0">

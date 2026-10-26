@@ -856,15 +856,21 @@ describe('durable HTTP legacy activation', () => {
       false
     )
   })
-  it('rejects unsupported request dependencies before any network or import', async () => {
+  it('discards unsupported cookie-file dependencies while retaining content verification', async () => {
     const f = await fixture({
       requestLines: ' load-cookies=/tmp/private-cookies\n',
     })
     await expect(
       f.service.activate(f.taskId, async () => f.downloads)
-    ).rejects.toThrow('httpRequestUnsupported')
-    expect(f.verifier.verifyLegacyContent).not.toHaveBeenCalled()
-    expect(f.adapter.importLegacyCheckpoint).not.toHaveBeenCalled()
+    ).resolves.toBe(true)
+    expect(f.verifier.verifyLegacyContent).toHaveBeenCalledOnce()
+    expect(f.adapter.importLegacyCheckpoint).toHaveBeenCalledOnce()
+    expect(
+      JSON.stringify(f.verifier.verifyLegacyContent.mock.calls)
+    ).not.toContain('/tmp/private-cookies')
+    expect(
+      JSON.stringify(vi.mocked(f.adapter.createDownload).mock.calls)
+    ).not.toContain('/tmp/private-cookies')
   })
   it.each(['symlink', 'hardlink'] as const)(
     'refuses a %s payload',

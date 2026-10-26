@@ -35,6 +35,10 @@ import type {
   TaskCreateSuccessResult,
 } from '@shared/schemas/add-task'
 import { taskCreateRequestSchema } from '@shared/schemas/add-task'
+import {
+  getLegacyBtRequestSource,
+  type LegacyBtRequestSource,
+} from '@shared/schemas/legacy-bt-request'
 import type { BeforeCreateHttpContextDTO } from '@shared/types/plugin-hooks'
 import type {
   DownloadTask,
@@ -109,6 +113,10 @@ type CreateDirectResourceValidator = Pick<
   Partial<Pick<DirectResourceValidatorService, 'probe'>>
 
 export interface CreateTaskDeps {
+  captureLegacyBtRequestSource?: (
+    sourceTaskId: string,
+    expected: { uri?: string; metadata?: Uint8Array }
+  ) => Promise<LegacyBtRequestSource>
   adapter: EngineAdapter
   settingsManager: SettingsManager
   finalNamePicker: FinalNamePicker
@@ -451,6 +459,35 @@ async function handleCreateTaskUnderAdmission(
           ? extractMagnetInfoHash(req.payload.uri)
           : null))
 
+  let legacyBtRequestSource: LegacyBtRequestSource | undefined
+  if (req.type === 'bt' && req.legacySourceTaskId) {
+    if (!deps.captureLegacyBtRequestSource) {
+      throw new AppError(
+        ErrorCode.InvalidSelection,
+        'legacyImport.errors.activationSourceMissing'
+      )
+    }
+    legacyBtRequestSource = await deps.captureLegacyBtRequestSource(
+      req.legacySourceTaskId,
+      req.payload.kind === 'magnet'
+        ? { uri: req.payload.uri }
+        : { metadata: torrentBytes ?? undefined }
+    )
+  }
+
+  // Legacy magnets require the host's managed metadata handoff; native
+  // followed-by tasks do not carry the application's private backup reference.
+  if (
+    legacyBtRequestSource &&
+    req.type === 'bt' &&
+    req.payload.kind === 'magnet'
+  ) {
+    throw new AppError(
+      ErrorCode.InvalidSelection,
+      'legacyImport.errors.activationSourceMissing'
+    )
+  }
+
   if (req.type === 'bt' && btInfoHash) {
     const admission = inspectBtDuplicate(deps.taskManager.getAll(), {
       infoHash: btInfoHash,
@@ -463,6 +500,17 @@ async function handleCreateTaskUnderAdmission(
       throw new TorrentDuplicateConflictError(admission.conflict)
     }
     if (admission.action === 'reuse') {
+      if (
+        JSON.stringify(legacyBtRequestSource) !==
+        JSON.stringify(
+          getLegacyBtRequestSource(admission.task.instances[0]?.payload ?? {})
+        )
+      ) {
+        throw new AppError(
+          ErrorCode.InvalidSelection,
+          'legacyImport.errors.requestSettingsMismatch'
+        )
+      }
       const didRecheck = admission.recheck && Boolean(deps.reuseExistingBt)
       if (didRecheck) {
         await deps.reuseExistingBt?.(admission.task.id)
@@ -951,6 +999,7 @@ async function handleCreateTaskUnderAdmission(
     // are always present on the torrent-base64 path.
     const params: AddTorrentParams = {
       metadata: torrentBytes ?? decodeBase64ToBytes(req.payload.base64),
+      legacyBtRequestSource,
       saveDir: btStoragePlan?.saveDir ?? diskPath,
       // CREATE-PATH +1: req indices are 0-based; aria2 select-file is
       // 1-based, and addTorrent serializes selectedFiles with a raw join.
@@ -1002,6 +1051,7 @@ async function handleCreateTaskUnderAdmission(
     }
     const params: CreateDownloadParams = {
       uris: [req.payload.uri],
+      legacyBtRequestSource,
       // dir = diskPath; NO filename → createDownload emits no `out`.
       saveDir: diskPath,
       // Spread order: magnet opts first, then shell-supplied opts (which
@@ -1054,6 +1104,10 @@ async function handleCreateTaskUnderAdmission(
         : {},
     createdAt: now,
     updatedAt: now,
+  }
+
+  if (legacyBtRequestSource) {
+    primaryInstance.payload.legacyBtRequestSource = legacyBtRequestSource
   }
 
   if (opts.receipt) {

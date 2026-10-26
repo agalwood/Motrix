@@ -12,6 +12,10 @@ import type { StagedMetadataOp } from '@core/plugin/hooks/staged-effects'
 import { AppError, DownloadErrorCode, ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
 import { legacyBtActivationSchema } from '@shared/schemas/legacy-bt-activation'
+import {
+  getLegacyBtRequestSource,
+  type LegacyBtRequestSource,
+} from '@shared/schemas/legacy-bt-request'
 import type {
   BeforeFinalizeContextDTO,
   PluginHookTask,
@@ -888,8 +892,12 @@ async function finalizeBtAfterRename(
   }
 
   let bytes: Uint8Array
+  let legacyBtRequestSource: LegacyBtRequestSource | undefined
   try {
     bytes = await readTorrentMeta(task, deps)
+    legacyBtRequestSource = getLegacyBtRequestSource(
+      pickPrimaryInstance(task.instances)?.payload ?? {}
+    )
   } catch (error) {
     await completeWithoutSeeding(error)
     return
@@ -936,6 +944,7 @@ async function finalizeBtAfterRename(
         : null
     const actualGid = await deps.adapter.addTorrent({
       metadata: bytes,
+      ...(legacyBtRequestSource ? { legacyBtRequestSource } : {}),
       // aria2 lays files out at `<dir>/<info.name>/...` (multi-file) or
       // `<dir>/<info.name>` (single-file). The original task wrote into
       // `<saveDir>/<finalName>.motrix/...`; after rename those files live

@@ -4,6 +4,7 @@ import type {
   TaskCreateCommandResult,
   TorrentDuplicateConflict,
 } from '@shared/schemas/add-task'
+import { legacyTaskMetadataSchema } from '@shared/schemas/legacy-import'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskInstancePhase, TaskStatus, TaskType } from '@shared/types/task'
 import { getBtOutputReservations } from './bt-output-reservation'
@@ -268,6 +269,26 @@ function conflict(
 }
 
 export function isBtInfoHashRegistered(task: DownloadTask): boolean {
+  // An untouched import is only a read-only record, never an engine owner.
+  // Keep it in same-directory/path reservations, but permit a separate copy.
+  const instance = task.instances[0]
+  if (
+    !task.engineTaskId &&
+    task.instances.length === 1 &&
+    !instance.gid &&
+    !Object.hasOwn(instance.payload, 'legacyBtActivation')
+  ) {
+    const marker = legacyTaskMetadataSchema.safeParse(
+      instance.payload.legacyImport
+    )
+    if (
+      marker.success &&
+      marker.data.activation === 'inactive' &&
+      marker.data.storagePolicy === 'legacy-read-only'
+    )
+      return false
+  }
+
   // MetadataReady has already purged its metadata-only aria2 result. Error is
   // deliberately conservative: a quarantined metadata cleanup can expose an
   // Error task while its engine row is still alive, so a new owner must wait

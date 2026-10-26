@@ -19,6 +19,7 @@ import {
   DownloadSourceError,
 } from '@core/task/source-admission'
 import { parseDirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
+import { getLegacyBtRequestSource } from '@shared/schemas/legacy-bt-request'
 import type { DownloadTask } from '@shared/types/task'
 import {
   makeDefaultBtExtension,
@@ -1562,9 +1563,13 @@ export class SessionManager {
             ? await parseBtFileLayout(bytes)
             : null
         const alreadyRenamed = restored.diskPath === restored.finalPath
+        const legacyBtRequestSource = getLegacyBtRequestSource(
+          primary?.payload ?? {}
+        )
         return this.dispatchRecoveryCandidate(pair, (gid) =>
           this.adapter.addTorrent({
             metadata: bytes,
+            ...(legacyBtRequestSource ? { legacyBtRequestSource } : {}),
             gid,
             saveDir: directLayout
               ? buildBtDirectOutputPaths(
@@ -1955,6 +1960,23 @@ export class SessionManager {
       const uris = admitDownloadSources([magnetUri], 'recovery', [
         'magnet',
       ]).map((source) => source.requestUrl)
+      const legacyBtRequestSource = getLegacyBtRequestSource(primary.payload)
+      if (legacyBtRequestSource) {
+        return this.dispatchRecoveryCandidate(pair, (gid) =>
+          this.adapter.createDownload({
+            gid,
+            uris,
+            saveDir: metadataDir,
+            legacyBtRequestSource,
+            extraEngineOptions: {
+              'max-file-not-found': '0',
+              'bt-load-saved-metadata': 'false',
+              'bt-metadata-only': 'true',
+              'follow-torrent': 'false',
+            },
+          })
+        )
+      }
       const newGid = await this.rpc.addUri(uris, {
         'max-file-not-found': '0',
         'bt-load-saved-metadata': 'false',

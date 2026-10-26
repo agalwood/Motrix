@@ -1,10 +1,11 @@
 import path from 'node:path'
-import { normalizeAria2TaskProxyUrl } from '@core/proxy/aria2-proxy-routing'
 import type { DirectResourceRequestOptions } from '@core/task/direct-resource-validator'
 import { AppError, ErrorCode } from '@shared/errors'
+import { parseLegacySystem, resolveLegacyProxyOptions } from './proxy-context'
 import {
   digestBytes,
   parseLegacySession,
+  resolveLegacyRequestSettings,
   safeLegacyOutput,
 } from './session-parser'
 
@@ -37,16 +38,7 @@ export function resolveLegacyHttpRequestContext(input: {
       ErrorCode.InvalidSelection,
       'legacyImport.errors.mirrorsUnsupported'
     )
-  let system: Record<string, unknown>
-  try {
-    system = JSON.parse(
-      new TextDecoder('utf-8', { fatal: true }).decode(input.system)
-    )
-    if (!system || Array.isArray(system) || typeof system !== 'object')
-      throw failure()
-  } catch {
-    throw failure()
-  }
+  const system = parseLegacySystem(input.system)
   const entries = parseLegacySession(input.session)
   const matches = entries.filter((entry) => {
     if (entry.gid) return entry.itemKey === input.itemKey
@@ -97,68 +89,11 @@ export function resolveLegacyHttpRequestContext(input: {
   )
     throw failure()
 
-  // Use the parser's exact block digest to retrieve request values without
-  // ever adding credentials to its preview/database-facing representation.
-  const blocks: string[][] = []
-  for (const line of new TextDecoder('utf-8', { fatal: true })
-    .decode(input.session)
-    .split(/\r?\n/)) {
-    if (!line.trim() || line.startsWith('#')) continue
-    if (!/^\s/.test(line)) blocks.push([line])
-    else blocks.at(-1)?.push(line)
-  }
-  const block = blocks.find(
-    (lines) => digestBytes(lines.join('\n')) === entry.digest
-  )
-  if (!block) throw changed()
-  const task: Record<string, string[]> = Object.create(null)
-  for (const line of block.slice(1)) {
-    const match = /^\s+([a-z0-9-]+)=(.*)$/.exec(line)
-    if (!match) throw failure()
-    task[match[1]] ??= []
-    task[match[1]].push(match[2])
-  }
-  const values = (key: string): string[] => {
-    const raw = task[key] ?? system[key]
-    if (raw === undefined || raw === null) return []
-    const list = Array.isArray(raw) ? raw : [raw]
-    if (
-      list.some(
-        (value) =>
-          typeof value !== 'string' &&
-          typeof value !== 'boolean' &&
-          typeof value !== 'number'
-      )
-    )
-      throw failure()
-    return list.map(String)
-  }
-  const value = (key: string, fallback = ''): string => {
-    const list = values(key)
-    if (list.length > 1) throw failure()
-    const result = list[0] ?? fallback
-    if (
-      [...result].some(
-        (char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127
-      )
-    )
-      throw failure()
-    return result
-  }
-  if (
-    value('load-cookies') ||
-    value('netrc-path') ||
-    value('no-netrc') === 'false'
-  )
-    throw failure()
-  for (const [key, baseline] of [
-    ['http-accept-gzip', 'false'],
-    ['http-auth-challenge', 'false'],
-    ['http-no-cache', 'false'],
-    ['conditional-get', 'false'],
-    ['proxy-method', 'get'],
-  ])
-    if (value(key, baseline) !== baseline) throw failure()
+  // The same filtered, merged values drive preview and actual verification.
+  // Private values remain attached to the parsed entry, never its serialized DTO.
+  const { values } = resolveLegacyRequestSettings(entry, system, 'http')
+  const value = (key: string, fallback = ''): string =>
+    values[key]?.at(-1) ?? fallback
 
   const headers: Record<string, string> = Object.create(null)
   const putHeader = (name: string, content: string) => {
@@ -185,18 +120,7 @@ export function resolveLegacyHttpRequestContext(input: {
       throw failure()
     headers[key] = content
   }
-  const inheritedHeaders =
-    system.header === undefined || system.header === null
-      ? []
-      : Array.isArray(system.header)
-        ? system.header
-        : [system.header]
-  if (inheritedHeaders.some((value) => typeof value !== 'string'))
-    throw failure()
-  for (const line of [
-    ...(inheritedHeaders as string[]),
-    ...(task.header ?? []),
-  ].filter((part) => part.trim())) {
+  for (const line of values.header ?? []) {
     const colon = line.indexOf(':')
     if (colon <= 0) throw failure()
     putHeader(line.slice(0, colon), line.slice(colon + 1).trim())
@@ -216,41 +140,17 @@ export function resolveLegacyHttpRequestContext(input: {
     )
   }
   const userAgent = headers['user-agent'] ?? value('user-agent', 'aria2/1.36.0')
-  const proxyFor = (prefix: string) => {
-    const raw = value(prefix)
-    if (!raw) {
-      if (value(`${prefix}-user`) || value(`${prefix}-passwd`)) throw failure()
-      return ''
-    }
-    const proxy = normalizeAria2TaskProxyUrl(raw)
-    if (!proxy) throw failure()
-    const userKey = `${prefix}-user`
-    const passKey = `${prefix}-passwd`
-    const user = value(userKey)
-    const pass = value(passKey)
-    try {
-      // Dedicated options are raw values and override each URI field only
-      // when defined, including an explicitly empty value.
-      if (values(userKey).length) proxy.username = encodeURIComponent(user)
-      if (values(passKey).length) proxy.password = encodeURIComponent(pass)
-    } catch {
-      throw failure()
-    }
-    // aria2 omits userinfo entirely when the resulting username is empty.
-    if (!proxy.username) proxy.password = ''
-    return proxy.href
-  }
-  const allProxy = proxyFor('all-proxy')
-  const httpProxy = proxyFor('http-proxy') || allProxy
-  const httpsProxy = proxyFor('https-proxy') || allProxy
-  // Redirects can change protocol. One explicit route must describe both.
-  if (httpProxy !== httpsProxy) throw failure()
+  const proxy = resolveLegacyProxyOptions(values)
   if (path.dirname(input.targetPath) === input.targetPath) throw changed()
   return {
     uri,
     headers,
     userAgent,
-    proxy: httpProxy,
-    noProxy: value('no-proxy'),
+    // Verification and native continuation both prohibit redirects, so only
+    // the original URI's protocol determines this task's route.
+    proxy:
+      (url.protocol === 'https:' ? proxy.httpsProxy : proxy.httpProxy) ||
+      proxy.allProxy,
+    noProxy: proxy.noProxy,
   }
 }

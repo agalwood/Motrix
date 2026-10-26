@@ -2,6 +2,10 @@ import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { NOOP_TASK_ACTIVITY_RECORDER } from '@core/activity'
+import type {
+  CreateDownloadParams,
+  EngineAdapter,
+} from '@core/engine/engine-adapter'
 import { EventBus } from '@core/events/event-bus'
 import type {
   MotrixDatabase,
@@ -278,6 +282,7 @@ function createMagnetTracker(
     ) => Promise<T>
     runExclusivePersistence?: <T>(operation: () => T | Promise<T>) => Promise<T>
     torrentMetaDir?: string
+    adapter?: Pick<EngineAdapter, 'createDownload'>
     occurrenceDispatcher?: Pick<OccurrenceDispatcher, 'dispatch'>
   }
 ): MagnetTracker {
@@ -370,6 +375,142 @@ describe('MagnetTracker', () => {
   }
 
   // ── 1. Constructor registers handlers ─────────────────────────
+
+  const legacyRef = {
+    version: 1 as const,
+    runId: 'ab331fbb-1c9c-4dd3-a5dd-afd6b3f09dac',
+    itemKey: 'entry',
+    snapshotDigest: 'a'.repeat(64),
+    manifestDigest: 'b'.repeat(64),
+    infoHash: '43efb4f44e8b1198387ddd79269a2dbdece78bec',
+    torrentDigest: null,
+  }
+
+  it('keeps the private backup reference through metadata timeout and retry', async () => {
+    const dir = await makeTempDir()
+    settings = createMockSettingsManager({ magnetResolveTimeout: 1 })
+    const createDownload = vi.fn(async (params: CreateDownloadParams) => {
+      const owner = db
+        .getAllTasks()
+        .find((pair) => pair.instances[0]?.gid === params.gid)
+      expect(owner?.instances[0].payload.legacyBtRequestSource).toEqual(
+        legacyRef
+      )
+      return params.gid as string
+    })
+    const tracker = createMagnetTracker(
+      rpc,
+      eventBus,
+      settings,
+      db,
+      taskManager,
+      torrentParser,
+      NOOP_TASK_ACTIVITY_RECORDER,
+      { adapter: { createDownload } }
+    )
+    const taskId = await tracker.submit(
+      `magnet:?xt=urn:btih:${legacyRef.infoHash}`,
+      dir,
+      { legacyBtRequestSource: legacyRef }
+    )
+    expect(rpc.addUri).not.toHaveBeenCalled()
+    const first = createDownload.mock.calls[0][0]
+    await vi.advanceTimersByTimeAsync(1000)
+    await vi.waitFor(() => {
+      expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.Error)
+      expect(
+        tracker.observe({ gid: first.gid, status: 'removed' } as never)
+      ).toBe(false)
+    })
+    await tracker.retryMetadata(taskId)
+    expect(createDownload).toHaveBeenCalledTimes(2)
+    const second = createDownload.mock.calls[1][0]
+    expect(second.legacyBtRequestSource).toEqual(legacyRef)
+    expect(second.gid).not.toBe(first.gid)
+    expect(second.extraEngineOptions).toMatchObject({
+      'bt-metadata-only': 'true',
+      'follow-torrent': 'false',
+    })
+    expect(
+      db.getTask(taskId)?.instances[0].payload.legacyBtRequestSource
+    ).toEqual(legacyRef)
+    tracker.dispose()
+  })
+
+  it('rejects a legacy metadata source when the adapter resolver is unavailable', async () => {
+    const tracker = createMagnetTracker(
+      rpc,
+      eventBus,
+      settings,
+      db,
+      taskManager,
+      torrentParser
+    )
+    await expect(
+      tracker.submit(
+        `magnet:?xt=urn:btih:${legacyRef.infoHash}`,
+        await makeTempDir(),
+        { legacyBtRequestSource: legacyRef }
+      )
+    ).rejects.toThrow('legacyImport.errors.activationSourceMissing')
+    expect(rpc.addUri).not.toHaveBeenCalled()
+    tracker.dispose()
+  })
+
+  it('cannot silently reuse metadata with a different routing source', async () => {
+    const dir = await makeTempDir()
+    const tracker = createMagnetTracker(
+      rpc,
+      eventBus,
+      settings,
+      db,
+      taskManager,
+      torrentParser
+    )
+    const uri = `magnet:?xt=urn:btih:${legacyRef.infoHash}`
+    await tracker.submit(uri, dir)
+    await expect(
+      tracker.submit(uri, dir, { legacyBtRequestSource: legacyRef })
+    ).rejects.toThrow('legacyImport.errors.requestSettingsMismatch')
+    expect(rpc.addUri).toHaveBeenCalledTimes(1)
+    tracker.dispose()
+  })
+
+  it('keeps legacy metadata managed when file selection is disabled', async () => {
+    settings = createMockSettingsManager({ magnetFileSelection: false })
+    const createDownload = vi.fn(
+      async (params: CreateDownloadParams) => params.gid as string
+    )
+    const tracker = createMagnetTracker(
+      rpc,
+      eventBus,
+      settings,
+      db,
+      taskManager,
+      torrentParser,
+      NOOP_TASK_ACTIVITY_RECORDER,
+      { adapter: { createDownload } }
+    )
+    const taskId = await tracker.submit(
+      `magnet:?xt=urn:btih:${legacyRef.infoHash}`,
+      await makeTempDir(),
+      { legacyBtRequestSource: legacyRef }
+    )
+    expect(createDownload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        legacyBtRequestSource: legacyRef,
+        extraEngineOptions: expect.objectContaining({
+          'follow-torrent': 'false',
+          'bt-metadata-only': 'true',
+        }),
+      })
+    )
+    expect(
+      db.getTask(taskId)?.instances[0].payload.legacyBtRequestSource
+    ).toEqual(legacyRef)
+    expect(rpc.addUri).not.toHaveBeenCalled()
+    tracker.dispose()
+  })
 
   it('registers completion and error handlers', () => {
     createMagnetTracker(

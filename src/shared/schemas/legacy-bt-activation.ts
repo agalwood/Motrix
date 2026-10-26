@@ -31,6 +31,7 @@ export const legacyBtActivationSchema = z
     selectedFiles: z.array(z.number().int().nonnegative()).min(1).max(10000),
     trackers: z.array(z.string()).max(10000),
     isPrivate: z.boolean(),
+    proxyContext: z.literal(true).optional(),
   })
   .strict()
 export type LegacyBtActivation = z.infer<typeof legacyBtActivationSchema>

@@ -13,7 +13,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gunzipSync } from 'node:zlib'
 import { afterEach, describe, expect, it } from 'vitest'
-import { parseLegacySession } from './session-parser'
+import { getLegacyRequestValues, parseLegacySession } from './session-parser'
 import { authorizeLegacySource, scanLegacySource } from './source-scanner'
 
 const fixtureRoot = fileURLToPath(
@@ -109,7 +109,8 @@ describe('Motrix v1.8.19 bundled-engine generated fixtures', () => {
       'follow-metalink': 'true',
       'bt-load-saved-metadata': 'true',
     })
-    expect(http?.optionPairs.some(([key]) => key === 'user-agent')).toBe(true)
+    expect(http && getLegacyRequestValues(http)['user-agent']).toBeDefined()
+    expect(http?.optionPairs.some(([key]) => key === 'user-agent')).toBe(false)
   })
 
   it('recognizes external saved torrent metadata without reading outside the profile grant', async () => {

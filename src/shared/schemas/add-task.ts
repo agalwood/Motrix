@@ -40,6 +40,7 @@ const linksTabSchema = z.object({
   allProxy: z.string().optional(),
   // Draft-only reminder; option values are entered explicitly in the new task.
   legacyRequestOptions: legacyOptionNamesSchema.optional(),
+  legacySourceTaskId: z.string().min(1).max(128).optional(),
 })
 
 const torrentTabSchema = z
@@ -63,6 +64,8 @@ const torrentTabSchema = z
     // list position). Present only on submits originating from a
     // MagnetFileSelection event payload.
     existingTaskId: z.string().min(1).optional(),
+    // Opaque source identity; the host resolves private request settings.
+    legacySourceTaskId: z.string().min(1).max(128).optional(),
   })
   .refine(
     (v) =>
@@ -121,11 +124,20 @@ const btTaskRequestSchema = z
     // meaningful for torrent-base64 payloads originating from a
     // MagnetFileSelection event flow.
     existingTaskId: z.string().min(1).optional(),
+    // Opaque source identity; the host resolves private request settings.
+    legacySourceTaskId: z.string().min(1).max(128).optional(),
     // Duplicate torrent handling is conservative by default. A separate copy
     // is created only after the user explicitly confirms the conflict.
     duplicatePolicy: z.enum(['reuse', 'create-copy']).default('reuse'),
   })
   .superRefine((value, ctx) => {
+    if (value.existingTaskId && value.legacySourceTaskId) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'legacyImport.errors.changedSource',
+        path: ['legacySourceTaskId'],
+      })
+    }
     if (
       value.payload.kind === 'torrent-base64' &&
       value.selectedFiles.length === 0
@@ -324,12 +336,16 @@ export function formValuesToTaskCreateRequest(
       return {
         type: 'bt',
         payload: { kind: 'magnet', uri: uris[0] },
+        legacySourceTaskId: v.legacySourceTaskId,
         selectedFiles: [],
         saveDir: v.saveDir,
         dlLimit: undefined,
         ulLimit: undefined,
         seedRatio: undefined,
       }
+    }
+    if (v.legacySourceTaskId) {
+      throw new Error('legacyImport.errors.changedSource')
     }
     const headers = [
       ...(v.extraHeaders ?? []),
@@ -371,6 +387,7 @@ export function formValuesToTaskCreateRequest(
     // handler can swap the magnet_metadata_resolution instance in
     // place instead of creating a new task.
     existingTaskId: v.existingTaskId,
+    legacySourceTaskId: v.legacySourceTaskId,
   }
 }
 

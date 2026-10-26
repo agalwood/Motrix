@@ -8,6 +8,7 @@ import type {
   TaskCreateCommandResult,
   TaskCreateRequest,
 } from '@shared/schemas/add-task'
+import { legacyBtRequestSourceSchema } from '@shared/schemas/legacy-bt-request'
 import type { MotrixAppSettings } from '@shared/types/settings'
 import {
   type DownloadTask,
@@ -79,12 +80,22 @@ export class MagnetSelectionTimeout {
     const settings = this.deps.getSettings()
     if (
       this.stopped ||
-      !settings.magnetFileSelection ||
-      !settings.magnetFileSelectionAutoDownload ||
       !this.deps.isEngineReady() ||
       task.status !== TaskStatus.MetadataReady
     )
       return undefined
+    if (!settings.magnetFileSelection) {
+      const source = task.instances.find(
+        (instance) =>
+          instance.phase === TaskInstancePhase.MagnetMetadataResolution
+      )?.payload.legacyBtRequestSource
+      // Migrated magnets use the managed metadata handoff to retain their
+      // private proxy reference. Disabling selection still means download all.
+      return legacyBtRequestSourceSchema.safeParse(source).success
+        ? 0
+        : undefined
+    }
+    if (!settings.magnetFileSelectionAutoDownload) return undefined
     return (
       readyAt(task) +
       settings.magnetFileSelectionTimeoutSeconds * 1000 -
@@ -96,13 +107,7 @@ export class MagnetSelectionTimeout {
     clearTimeout(this.timer)
     this.timer = undefined
     if (this.stopped) return
-    const settings = this.deps.getSettings()
-    if (
-      !settings.magnetFileSelection ||
-      !settings.magnetFileSelectionAutoDownload ||
-      !this.deps.isEngineReady()
-    )
-      return
+    if (!this.deps.isEngineReady()) return
     const tasks = this.deps.getTasks()
     for (const [id, timestamp] of this.attempted) {
       if (

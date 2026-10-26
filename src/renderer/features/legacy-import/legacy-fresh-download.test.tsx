@@ -160,6 +160,47 @@ describe('legacy HTTP activation and explicit fresh download', () => {
     )
   })
 
+  it('explains restored proxy settings and omitted options for imported magnets', () => {
+    const magnetTask = {
+      ...httpTask,
+      type: TaskType.Magnet,
+      instances: httpTask.instances.map((instance) => ({
+        ...instance,
+        payload: {
+          legacyImport: {
+            ...(instance.payload.legacyImport as Record<string, unknown>),
+            reason: 'metadata-required',
+            requestOptions: ['all-proxy'],
+            ignoredOptions: ['header', 'on-download-complete'],
+          },
+        },
+      })),
+    }
+    render(<LegacyFreshDownload task={magnetTask} />)
+    expect(
+      screen.getByText(
+        'This download will use the old proxy settings from the migration backup.'
+      )
+    ).toBeVisible()
+    expect(
+      screen.getByText(
+        'Unsupported options omitted: header, on-download-complete'
+      )
+    ).toBeVisible()
+    expect(
+      screen.queryByText('The old request settings were not copied.', {
+        exact: false,
+      })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Verify and continue' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Looking for your old downloads…')
+    ).not.toBeInTheDocument()
+    expect(transport.invoke).not.toHaveBeenCalled()
+  })
+
   it('checks HTTP availability and resumes with only the task identity after an explicit click', async () => {
     render(<LegacyFreshDownload task={httpTask} />)
     const button = screen.getByRole('button', { name: 'Verify and continue' })

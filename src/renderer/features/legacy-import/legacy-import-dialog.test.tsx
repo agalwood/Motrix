@@ -209,6 +209,64 @@ describe('legacy import dialog', () => {
     )
   })
 
+  it('keeps magnet records selectable and shows omitted option names', async () => {
+    const magnetItem = {
+      ...items[0],
+      name: 'legacy-magnet',
+      type: 'magnet',
+      reason: 'metadata-required',
+      requestOptions: ['all-proxy'],
+      ignoredOptions: ['header', 'on-download-complete'],
+    }
+    const originalInvoke = vi.mocked(transport.invoke).getMockImplementation()
+    vi.mocked(transport.invoke).mockImplementation(async (channel, payload) => {
+      if (channel === Queries.ScanLegacyImport)
+        return {
+          ...preview,
+          items: [magnetItem],
+        }
+      if (
+        channel === Commands.CommitLegacyImport ||
+        channel === Queries.GetLegacyImportRun
+      )
+        return {
+          ...report,
+          items: [{ ...magnetItem, outcome: 'imported', taskId: 'new-task' }],
+        }
+      return originalInvoke?.(channel, payload)
+    })
+    render(<LegacyImportDialog open presentation="page" onClose={vi.fn()} />)
+    await continueFromSource()
+    expect(
+      screen.getByRole('checkbox', { name: 'legacy-magnet' })
+    ).toBeChecked()
+    expect(
+      screen.getByRole('checkbox', { name: 'legacy-magnet' })
+    ).not.toHaveAttribute('aria-disabled', 'true')
+    expect(
+      screen.getByText(
+        'Unsupported options omitted: header, on-download-complete'
+      )
+    ).toBeVisible()
+    expect(
+      screen.queryByText('Unsupported options: all-proxy')
+    ).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Migrate' }))
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith(
+        Commands.CommitLegacyImport,
+        { previewId, itemIds: [items[0].itemId] }
+      )
+    )
+    await screen.findByRole('heading', { name: 'Migration complete' })
+    fireEvent.click(screen.getByRole('button', { name: 'View details' }))
+    expect(
+      screen.getByText(
+        'Unsupported options omitted: header, on-download-complete'
+      )
+    ).toBeVisible()
+  })
+
   it('starts at source for manual entry and preserves deselection when returning to the same source', async () => {
     render(<LegacyImportDialog open presentation="page" onClose={vi.fn()} />)
     expect(

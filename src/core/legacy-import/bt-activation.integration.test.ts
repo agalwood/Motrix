@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { readFile, writeFile } from 'node:fs/promises'
+import http from 'node:http'
 import path from 'node:path'
 import type { EngineAdapter } from '@core/engine/engine-adapter'
 import { EventBus } from '@core/events/event-bus'
@@ -14,6 +15,7 @@ import { TorrentMetaStoreImpl } from '@core/task/torrent-meta-store'
 import type { MagnetTracker } from '@core/torrent/magnet-tracker'
 import { legacyBtActivationSchema } from '@shared/schemas/legacy-bt-activation'
 import { TaskStatus } from '@shared/types/task'
+import { isLegacyImportInactive } from '@shared/types/task-actions'
 import {
   type Aria2Handle,
   connectAdapter,
@@ -28,13 +30,18 @@ const cleanup: Array<() => Promise<void>> = []
 afterEach(async () => {
   for (const fn of cleanup.splice(0).reverse()) await fn()
 })
-async function nativeFixture() {
+async function nativeFixture(
+  configureProfile?: (profile: string) => Promise<void>
+) {
   // The importer is offline; the adapter is installed before any activation call.
-  const f = await legacyBtActivationFixture({} as EngineAdapter)
+  const f = await legacyBtActivationFixture(
+    {} as EngineAdapter,
+    configureProfile
+  )
   cleanup.push(f.dispose)
   let handle: Aria2Handle | undefined
   let wired: Awaited<ReturnType<typeof connectAdapter>> | undefined
-  const start = async () => {
+  const start = async (extraArgs: string[] = []) => {
     handle = await spawnAria2ForTest({
       baseDir: f.root,
       binaryPath,
@@ -51,6 +58,7 @@ async function nativeFixture() {
         '--bt-seed-unverified=true',
         '--bt-remove-unselected-file=true',
         '--file-allocation=none',
+        ...extraArgs,
       ],
     })
     wired = await connectAdapter(handle)
@@ -136,6 +144,93 @@ function actionsFor(
 describe.skipIf(!binaryPath)(
   'real native application BT legacy activation',
   () => {
+    it.each(['http', 'https', 'ftp'])(
+      'keeps the original %s tracker proxy endpoint and credentials across native restart',
+      async (scheme) => {
+        const requests: Array<{ url: string; auth?: string }> = []
+        const proxy = http.createServer((request, response) => {
+          requests.push({
+            url: request.url ?? '',
+            auth: request.headers['proxy-authorization'],
+          })
+          response.end('d8:intervali60e5:peers0:e')
+        })
+        await new Promise<void>((resolve) =>
+          proxy.listen(0, '127.0.0.1', resolve)
+        )
+        cleanup.push(async () => {
+          proxy.closeAllConnections()
+          await new Promise<void>((resolve) => proxy.close(() => resolve()))
+        })
+        const address = proxy.address()
+        if (!address || typeof address === 'string')
+          throw new Error('No proxy port')
+        const proxyUrl = `${scheme}://legacy%40user:literal%2540pass@127.0.0.1:${address.port}`
+        const f = await nativeFixture(async (profile) => {
+          const filename = path.join(profile, 'system.json')
+          const system = JSON.parse(await readFile(filename, 'utf8'))
+          system['http-proxy'] = proxyUrl
+          await writeFile(filename, JSON.stringify(system))
+        })
+        // A damaged retained piece must be fetched after the original hash check.
+        await writeFile(
+          path.join(f.downloads, 'fixture-bundle/first.bin'),
+          Buffer.alloc(16384, 9)
+        )
+        const globals = [
+          '--all-proxy=http://127.0.0.1:1',
+          '--http-proxy=http://127.0.0.1:1',
+          '--http-proxy-user=current',
+          '--http-proxy-passwd=current',
+          '--no-proxy=127.0.0.1',
+        ]
+        let wired = await f.start(globals)
+        await f.service.activate(f.taskId, async () => f.downloads)
+        await expect
+          .poll(() => requests.length, { timeout: 10000 })
+          .toBeGreaterThan(0)
+        expect(requests[0]).toMatchObject({
+          auth: `Basic ${Buffer.from('legacy@user:literal%40pass').toString('base64')}`,
+        })
+        const originalTracker = f.db.getTask(f.taskId)!.task.trackers.flat()[0]
+        expect(requests[0].url.startsWith(`${originalTracker}?`)).toBe(true)
+        const intent = legacyBtActivationSchema.parse(
+          f.db.getTask(f.taskId)?.instances[0].payload.legacyBtActivation
+        )
+        const before = await wired.rpc.getOption(intent.engineTaskId)
+        expect(before).toMatchObject({
+          'all-proxy': '',
+          'http-proxy': expect.stringMatching(
+            new RegExp(`^http://127\\.0\\.0\\.1:${address.port}/?$`)
+          ),
+          'http-proxy-user': 'legacy@user',
+          'http-proxy-passwd': 'literal%40pass',
+          'no-proxy': '',
+        })
+        await wired.adapter.pauseTask(intent.engineTaskId)
+        await f.stop()
+        wired = await f.start(globals)
+        await new LegacyBtActivationService(f.deps).recover()
+        expect(
+          (await wired.rpc.getOption(intent.engineTaskId))['http-proxy-user']
+        ).toBe('legacy@user')
+        expect(
+          f.taskManager.getById(f.taskId)?.instances[0].payload.legacyImport
+        ).toMatchObject({ activation: 'active' })
+        await wired.rpc.changeOption(intent.engineTaskId, {
+          'http-proxy': 'http://127.0.0.1:1',
+        })
+        await new LegacyBtActivationService(f.deps).recover()
+        expect(isLegacyImportInactive(f.taskManager.getById(f.taskId)!)).toBe(
+          true
+        )
+        expect(
+          (await wired.adapter.getTaskStatus(intent.engineTaskId))?.status
+        ).toBe(TaskStatus.Paused)
+      },
+      30000
+    )
+
     it('verifies real v1 pieces with exact original selection, consumes once, and never auto-seeds', async () => {
       const f = await nativeFixture()
       const wired = await f.start()

@@ -9,6 +9,7 @@ import {
 import { proxyToDownloadRequestOptions } from '@core/proxy/serializers'
 import { AppError, ErrorCode } from '@shared/errors'
 import { DEFAULT_ENGINE_SETTINGS } from '@shared/schemas/engine-settings'
+import type { LegacyBtRequestSource } from '@shared/schemas/legacy-bt-request'
 import { DEFAULT_PROXY_SETTINGS } from '@shared/schemas/proxy-settings'
 import type { EngineFeatureReport } from '@shared/types/engine'
 import type { ProxySettings } from '@shared/types/settings'
@@ -379,6 +380,244 @@ function lastAddedTask(deps: { add: ReturnType<typeof vi.fn> }): DownloadTask {
   const call = deps.add.mock.calls[0]
   return call[0] as DownloadTask
 }
+
+describe('legacy BT copy request provenance', () => {
+  const magnet = `magnet:?xt=urn:btih:${'a'.repeat(40)}&dn=bundle`
+  const reference = (infoHash: string): LegacyBtRequestSource => ({
+    version: 1,
+    runId: '11111111-1111-4111-8111-111111111111',
+    itemKey: 'gid:0123456789abcdef',
+    snapshotDigest: 'b'.repeat(64),
+    manifestDigest: 'c'.repeat(64),
+    infoHash,
+    torrentDigest: null,
+  })
+
+  it('captures torrent provenance before duplicate admission and persists it before dispatch', async () => {
+    const deps = makeDeps()
+    const bytes = makePublicTorrentFixture()
+    const ref = reference((await parseBtFileLayout(bytes)).infoHash)
+    const capture = vi.fn(
+      async (
+        _sourceTaskId: string,
+        _expected: { uri?: string; metadata?: Uint8Array }
+      ) => {
+        expect(deps.taskManager.getAll).not.toHaveBeenCalled()
+        return ref
+      }
+    )
+    deps.captureLegacyBtRequestSource = capture
+    const persist = vi.fn(async (task: DownloadTask) => {
+      expect(task.instances[0].payload.legacyBtRequestSource).toEqual(ref)
+      expect(addTorrent).not.toHaveBeenCalled()
+    })
+    deps.persistTask = persist
+    const addTorrent = vi
+      .spyOn(deps.adapter, 'addTorrent')
+      .mockImplementation(async (params) => {
+        expect(persist).toHaveBeenCalledOnce()
+        expect(params.legacyBtRequestSource).toEqual(ref)
+        return params.gid as string
+      })
+    await handleCreateTask(
+      {
+        type: 'bt',
+        payload: {
+          kind: 'torrent-base64',
+          base64: Buffer.from(bytes).toString('base64'),
+        },
+        selectedFiles: [0],
+        saveDir: '/d',
+        legacySourceTaskId: 'imported-source',
+      },
+      deps
+    )
+    expect(capture).toHaveBeenCalledWith('imported-source', { metadata: bytes })
+    expect(addTorrent).toHaveBeenCalledOnce()
+    expect(
+      lastAddedTask(deps).instances[0].payload.legacyBtRequestSource
+    ).toEqual(ref)
+    expect(deps.addUri).not.toHaveBeenCalled()
+    expect(deps.addTorrent).not.toHaveBeenCalled()
+  })
+
+  it('creates a separate BT copy while the inactive imported source remains in TaskManager', async () => {
+    const deps = makeDeps()
+    const bytes = makePublicTorrentFixture()
+    const request = {
+      type: 'bt',
+      payload: {
+        kind: 'torrent-base64',
+        base64: Buffer.from(bytes).toString('base64'),
+      },
+      selectedFiles: [0],
+      saveDir: '/old',
+    }
+    await handleCreateTask(request, deps)
+    const source = lastAddedTask(deps)
+    source.engineTaskId = ''
+    source.status = TaskStatus.Paused
+    source.instances[0].gid = null
+    source.instances[0].status = TaskStatus.Paused
+    source.instances[0].payload = {
+      legacyImport: {
+        version: 1,
+        sourceId: 'source',
+        itemKey: 'item',
+        activation: 'inactive',
+        storagePolicy: 'legacy-read-only',
+        reason: 'verification-required',
+        selectionKnown: true,
+        selectedFiles: [0],
+      },
+    }
+    const ref = reference((await parseBtFileLayout(bytes)).infoHash)
+    deps.captureLegacyBtRequestSource = vi.fn(async () => ref)
+    vi.mocked(deps.taskManager.getAll).mockReturnValue([source])
+    const before = structuredClone(source)
+    const dispatch = vi
+      .spyOn(deps.adapter, 'addTorrent')
+      .mockImplementation(async (params) => params.gid as string)
+    const result = await handleCreateTask(
+      { ...request, saveDir: '/fresh-copy', legacySourceTaskId: source.id },
+      deps
+    )
+    expect(result.outcome).toBe('created')
+    expect(result.taskId).not.toBe(source.id)
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ legacyBtRequestSource: ref })
+    )
+    expect(source).toEqual(before)
+  })
+
+  it('requires a managed metadata handoff after capturing legacy magnet provenance', async () => {
+    const deps = makeDeps()
+    const capture = vi.fn(async () => reference('a'.repeat(40)))
+    deps.captureLegacyBtRequestSource = capture
+    const persist = vi.fn(async () => undefined)
+    deps.persistTask = persist
+    await expect(
+      handleCreateTask(
+        {
+          type: 'bt',
+          payload: { kind: 'magnet', uri: magnet },
+          selectedFiles: [],
+          saveDir: '/d',
+          legacySourceTaskId: 'imported-source',
+        },
+        deps
+      )
+    ).rejects.toMatchObject({
+      code: ErrorCode.InvalidSelection,
+      message: 'legacyImport.errors.activationSourceMissing',
+    })
+    expect(capture).toHaveBeenCalledExactlyOnceWith('imported-source', {
+      uri: magnet,
+    })
+    expect(deps.taskManager.getAll).not.toHaveBeenCalled()
+    for (const operation of [
+      persist,
+      deps.pick,
+      deps.persist,
+      deps.addUri,
+      deps.addTorrent,
+      deps.add,
+      deps.reserveEngineTaskId,
+      deps.setReservedEngineTaskOwner,
+    ])
+      expect(operation).not.toHaveBeenCalled()
+  })
+
+  it.each(['unavailable', 'changed-source'] as const)(
+    'rejects %s provenance before duplicate reuse or engine work',
+    async (reason) => {
+      const deps = makeDeps()
+      if (reason === 'changed-source')
+        deps.captureLegacyBtRequestSource = vi.fn(async () => {
+          throw new AppError(
+            ErrorCode.InvalidSelection,
+            'legacyImport.errors.changedSource'
+          )
+        })
+      await expect(
+        handleCreateTask(
+          {
+            type: 'bt',
+            payload: { kind: 'magnet', uri: magnet },
+            selectedFiles: [],
+            saveDir: '/d',
+            legacySourceTaskId: 'tampered-source',
+          },
+          deps
+        )
+      ).rejects.toMatchObject({ code: ErrorCode.InvalidSelection })
+      expect(deps.taskManager.getAll).not.toHaveBeenCalled()
+      for (const operation of [
+        deps.pick,
+        deps.persist,
+        deps.addUri,
+        deps.addTorrent,
+        deps.add,
+        deps.reserveEngineTaskId,
+      ])
+        expect(operation).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each(['same', 'different', 'missing'] as const)(
+    'compares %s provenance before reusing a duplicate torrent',
+    async (relation) => {
+      const bytes = makePublicTorrentFixture()
+      const ref = reference((await parseBtFileLayout(bytes)).infoHash)
+      const deps = makeDeps()
+      const capture = vi.fn(async () => ref)
+      deps.captureLegacyBtRequestSource = capture
+      const dispatch = vi
+        .spyOn(deps.adapter, 'addTorrent')
+        .mockImplementation(async (params) => params.gid as string)
+      const request = {
+        type: 'bt',
+        payload: {
+          kind: 'torrent-base64',
+          base64: Buffer.from(bytes).toString('base64'),
+        },
+        selectedFiles: [0],
+        saveDir: '/d',
+        legacySourceTaskId: 'imported-source',
+      }
+      await handleCreateTask(request, deps)
+      const existing = lastAddedTask(deps)
+      existing.status = TaskStatus.Seeding
+      existing.instances[0].status = TaskStatus.Seeding
+      vi.mocked(deps.taskManager.getAll).mockReturnValue([existing])
+      vi.mocked(deps.taskManager.getById).mockReturnValue(existing)
+      if (relation === 'different')
+        capture.mockResolvedValue({ ...ref, itemKey: 'gid:fedcba9876543210' })
+      const next = handleCreateTask(
+        {
+          ...request,
+          legacySourceTaskId:
+            relation === 'missing' ? undefined : 'imported-source',
+        },
+        deps
+      )
+      if (relation === 'same') {
+        await expect(next).resolves.toMatchObject({
+          outcome: 'reused',
+          taskId: existing.id,
+        })
+      } else {
+        await expect(next).rejects.toMatchObject({
+          code: ErrorCode.InvalidSelection,
+          message: 'legacyImport.errors.requestSettingsMismatch',
+        })
+      }
+      expect(dispatch).toHaveBeenCalledOnce()
+      expect(deps.add).toHaveBeenCalledOnce()
+      expect(deps.pick).toHaveBeenCalledOnce()
+    }
+  )
+})
 
 describe('browser direct download filenames', () => {
   const url =

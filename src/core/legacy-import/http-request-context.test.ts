@@ -20,6 +20,17 @@ function resolve(options = '', system: Record<string, unknown> = {}) {
   })
 }
 describe('legacy HTTP request context', () => {
+  it.each([
+    ['https://proxy.example', 'http://proxy.example:443/'],
+    ['https://proxy.example:80', 'http://proxy.example/'],
+    ['https://proxy.example:8181', 'http://proxy.example:8181/'],
+    ['ftp://proxy.example', 'http://proxy.example:21/'],
+  ])(
+    'uses the same HTTP proxy transport and port as aria2 for %s',
+    (proxy, expected) => {
+      expect(resolve('', { 'https-proxy': proxy }).proxy).toBe(expected)
+    }
+  )
   it.each([true, false])(
     'ignores unrelated malformed HTTP paths when the selected task has GID: %s',
     (hasGid) => {
@@ -131,15 +142,17 @@ describe('legacy HTTP request context', () => {
     expect(preview).not.toContain('private')
   })
   it.each(['private\npassword', 'private\ud800password'])(
-    'rejects invalid credential text without exposing it',
+    'discards invalid credential text without blocking the verified context',
     (password) => {
-      expect(() =>
-        resolve('', {
-          'all-proxy': 'http://proxy.example:8080',
-          'all-proxy-user': 'private-user',
-          'all-proxy-passwd': password,
-        })
-      ).toThrow(/^legacyImport\.errors\.httpRequestUnsupported$/)
+      const context = resolve('', {
+        'all-proxy': 'http://proxy.example:8080',
+        'all-proxy-user': 'private-user',
+        'all-proxy-passwd': password,
+      })
+      expect(extractAria2ProxyCredentials(context.proxy)).toEqual({
+        username: 'private-user',
+        password: '',
+      })
     }
   )
   it.each([
@@ -149,8 +162,10 @@ describe('legacy HTTP request context', () => {
     ' header=Proxy-Authorization: private\n',
     ' http-proxy=http://proxy.example:8080\n',
     ' referer=*\n',
-  ])('rejects request contexts that cannot be mirrored: %s', (options) => {
-    expect(() => resolve(options)).toThrow('httpRequestUnsupported')
+    ' proxy-method=tunnel\n',
+    ' on-download-complete=private-script\n',
+  ])('discards unsupported settings before verification: %s', (options) => {
+    expect(resolve(options)).toMatchObject({ headers: {}, proxy: '' })
   })
   it('leaves range and representation conditions owned by verification', () => {
     expect(
@@ -165,10 +180,26 @@ describe('legacy HTTP request context', () => {
         .headers
     ).toEqual({ 'x-source': 'legacy', cookie: 'private' })
   })
-  it('rejects a conflicting global and per-task header collection', () => {
-    expect(() =>
-      resolve(' header=Cookie: changed\n', { header: ['Cookie: old'] })
-    ).toThrow('httpRequestUnsupported')
+  it('discards a conflicting global and per-task header collection', () => {
+    expect(
+      resolve(' header=Cookie: changed\n', { header: ['Cookie: old'] }).headers
+    ).toEqual({})
+  })
+  it('selects only the original protocol route because redirects are forbidden', () => {
+    expect(
+      resolve('', {
+        'http-proxy': 'http://plain.example:8080',
+        'https-proxy': 'http://secure.example:8081',
+      }).proxy
+    ).toBe('http://secure.example:8081/')
+  })
+  it('honors last singleton settings and an explicitly cleared task proxy', () => {
+    expect(
+      resolve(
+        ' all-proxy=http://first.example:8080\n all-proxy=\n user-agent=first\n user-agent=last\n',
+        { 'all-proxy': 'http://global.example:8080' }
+      )
+    ).toMatchObject({ proxy: '', userAgent: 'last' })
   })
   it('uses the migration stable key when the original session has no GID', () => {
     const context = resolveLegacyHttpRequestContext({

@@ -39,6 +39,7 @@ import {
 import { LegacyBtActivationService } from '@core/legacy-import/bt-activation-service'
 import { LegacyHttpActivationService } from '@core/legacy-import/http-activation-service'
 import { LegacyImportService } from '@core/legacy-import/import-service'
+import { LegacyBtRequestSourceService } from '@core/legacy-import/legacy-bt-request-source'
 import {
   getLegacyQuarantinedGids,
   hasLegacyImport,
@@ -1815,6 +1816,10 @@ async function initializeMainProcess(): Promise<void> {
     platform.userDataDir,
     'legacy-import-backups'
   )
+  const legacyBtRequestSources = new LegacyBtRequestSourceService({
+    db: motrixDb,
+    backupRoot: legacyBackupRoot,
+  })
   const getLegacyImportService = () => {
     if (!gate.isAccepted())
       throw new Error('legacyImport.errors.consentRequired')
@@ -1992,6 +1997,9 @@ async function initializeMainProcess(): Promise<void> {
   rpcClient = new Aria2RpcClient(transport, protocol, engineSettings.rpcSecret)
   aria2Adapter = new Aria2Adapter(rpcClient, undefined, () =>
     settingsManager.getEngine()
+  )
+  aria2Adapter.setLegacyBtRequestResolver((reference, infoHash) =>
+    legacyBtRequestSources.resolve(reference, infoHash)
   )
   const adapter = aria2Adapter
   proxyBridge = new ProxyBridgeManager()
@@ -2399,6 +2407,7 @@ async function initializeMainProcess(): Promise<void> {
       runExclusivePersistence: (operation) =>
         sessionManager.runExclusivePersistence(operation),
       torrentMetaDir: path.join(platform.userDataDir, 'torrents'),
+      adapter,
       occurrenceDispatcher,
     }
   )
@@ -2946,6 +2955,8 @@ async function initializeMainProcess(): Promise<void> {
   })
 
   const disposeCommandHandlers = registerCommandHandlers({
+    captureLegacyBtRequestSource: (sourceTaskId, expected) =>
+      legacyBtRequestSources.capture(sourceTaskId, expected),
     rendererRecovery,
     operationService: pluginRuntime.operations,
     mediaMetaStore,

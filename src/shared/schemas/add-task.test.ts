@@ -35,6 +35,68 @@ describe('addTaskFormSchema', () => {
     ).toBe(false)
   })
 
+  it('carries only the legacy source task identity through magnet and torrent drafts', () => {
+    const uri = `magnet:?xt=urn:btih:${'a'.repeat(40)}`
+    const links = addTaskPrefillSchema.parse({
+      tab: 'links',
+      urls: uri,
+      saveDir: '/downloads/new',
+      legacySourceTaskId: 'imported-magnet',
+    })
+    expect(
+      formValuesToTaskCreateRequest(addTaskFormSchema.parse(links))
+    ).toMatchObject({
+      type: 'bt',
+      payload: { kind: 'magnet', uri },
+      legacySourceTaskId: 'imported-magnet',
+    })
+    expect(links).not.toHaveProperty('legacyBtRequestSource')
+    expect(
+      addTaskPrefillSchema.safeParse({
+        ...links,
+        legacyBtRequestSource: { proxy: 'http://user:private@proxy.test' },
+      }).success
+    ).toBe(false)
+    const torrent = addTaskPrefillSchema.parse({
+      tab: 'torrent',
+      source: 'file',
+      base64: 'AAAA',
+      saveDir: '/downloads/new',
+      torrentMeta: {
+        name: 'bundle',
+        infoHash: 'a'.repeat(40),
+        totalSize: 1,
+        files: [],
+      },
+      selectedFiles: [0],
+      legacySourceTaskId: 'imported-torrent',
+    })
+    const request = formValuesToTaskCreateRequest(
+      addTaskFormSchema.parse(torrent)
+    )
+    expect(request).toMatchObject({
+      type: 'bt',
+      payload: { kind: 'torrent-base64', base64: 'AAAA' },
+      legacySourceTaskId: 'imported-torrent',
+    })
+    expect(taskCreateRequestSchema.parse(request)).toHaveProperty(
+      'legacySourceTaskId',
+      'imported-torrent'
+    )
+    expect(JSON.stringify([links, torrent, request])).not.toContain('private')
+  })
+
+  it('rejects changing a legacy magnet draft into an HTTP request', () => {
+    const draft = {
+      tab: 'links' as const,
+      urls: 'https://example.test/file',
+      saveDir: '/downloads/new',
+      legacySourceTaskId: 'imported-magnet',
+    }
+    expect(() => formValuesToTaskCreateRequest(draft)).toThrow('changedSource')
+    expect(() => formValuesToTaskCreateRequests(draft)).toThrow('changedSource')
+  })
+
   it('accepts minimal links tab', () => {
     const result = addTaskFormSchema.safeParse({
       tab: 'links',
@@ -127,6 +189,42 @@ describe('addTaskFormSchema', () => {
 })
 
 describe('taskCreateRequestSchema', () => {
+  it('rejects a legacy source combined with an existing metadata-resolution task', () => {
+    const result = taskCreateRequestSchema.safeParse({
+      type: 'bt',
+      payload: { kind: 'torrent-base64', base64: 'AAAA' },
+      selectedFiles: [0],
+      saveDir: '/d',
+      existingTaskId: 'existing',
+      legacySourceTaskId: 'imported',
+    })
+    expect(result.success).toBe(false)
+    if (!result.success)
+      expect(result.error.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: ['legacySourceTaskId'] }),
+        ])
+      )
+  })
+
+  it.each(['', 'a'.repeat(129)])(
+    'rejects an invalid legacy source task identity',
+    (legacySourceTaskId) => {
+      expect(
+        taskCreateRequestSchema.safeParse({
+          type: 'bt',
+          payload: {
+            kind: 'magnet',
+            uri: `magnet:?xt=urn:btih:${'a'.repeat(40)}`,
+          },
+          selectedFiles: [],
+          saveDir: '/d',
+          legacySourceTaskId,
+        }).success
+      ).toBe(false)
+    }
+  )
+
   it('rejects oversized Base64 at the shared command boundary', () => {
     const result = taskCreateRequestSchema.safeParse({
       type: 'bt',

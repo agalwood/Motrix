@@ -1,6 +1,11 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { parseLegacySession, validateLegacyBencode } from './session-parser'
+import {
+  getLegacyRequestValues,
+  parseLegacySession,
+  resolveLegacyRequestSettings,
+  validateLegacyBencode,
+} from './session-parser'
 
 const encode = (value: string) => new TextEncoder().encode(value)
 
@@ -34,7 +39,7 @@ describe('legacy session adversarial parsing', () => {
       const [entry] = parseLegacySession(
         encode(`https://example.test/a\n no-netrc=${value}\n`)
       )
-      expect(entry.reason).toBe('unsupported-options')
+      expect(entry.reason).toBeNull()
     }
   )
 
@@ -42,8 +47,8 @@ describe('legacy session adversarial parsing', () => {
     ['header', 'Authorization: Bearer private-token'],
     ['referer', 'https://private.test/source'],
     ['all-proxy', 'http://private-user:private-pass@proxy.test:8080'],
-    ['load-cookies', '/private/cookies.txt'],
-    ['no-netrc', 'false'],
+    ['ftp-proxy', 'http://private-proxy.test:8080'],
+    ['no-proxy', '.private.test'],
   ])(
     'keeps only the name of request option %s for reconfiguration',
     (key, value) => {
@@ -69,7 +74,7 @@ describe('legacy session adversarial parsing', () => {
     expect(JSON.stringify(entry)).not.toMatch(/private-cookie|private-token/)
   })
 
-  it('ignores empty known request options but rejects empty unknown options', () => {
+  it('ignores empty known request options and strips empty unknown options', () => {
     const [empty, unknown] = parseLegacySession(
       encode(
         'https://example.test/a\n header=\n referer= \n all-proxy=\nhttps://example.test/b\n unsafe-option=\n'
@@ -77,19 +82,19 @@ describe('legacy session adversarial parsing', () => {
     )
     expect(empty.reason).toBeNull()
     expect(empty.requestOptions).toEqual([])
-    expect(unknown.reason).toBe('unsupported-options')
-    expect(unknown.unsupportedOptions).toEqual(['unsafe-option'])
+    expect(unknown.reason).toBeNull()
+    expect(unknown.ignoredOptions).toEqual(['unsafe-option'])
   })
 
-  it('bounds safe diagnostic names while preserving unsupported rejection', () => {
+  it('bounds safe diagnostic names without retaining unsupported values', () => {
     const [entry] = parseLegacySession(
       encode(
         `https://example.test/a\n ${'x'.repeat(65)}=private\n${Array.from({ length: 70 }, (_, index) => ` unknown-${index}=private`).join('\n')}\n`
       )
     )
-    expect(entry.reason).toBe('unsupported-options')
-    expect(entry.unsupportedOptions).toHaveLength(64)
-    expect(entry.unsupportedOptions.every((key) => key.length <= 64)).toBe(true)
+    expect(entry.reason).toBeNull()
+    expect(entry.ignoredOptions).toHaveLength(64)
+    expect(entry.ignoredOptions.every((key) => key.length <= 64)).toBe(true)
     expect(JSON.stringify(entry)).not.toContain('private')
   })
 
@@ -137,16 +142,171 @@ describe('legacy session adversarial parsing', () => {
     'input-file=/tmp/other',
     'rpc-secret=private',
   ])(
-    'does not replay executable, remote-control or credential options: %s',
+    'strips executable, remote-control or credential options: %s',
     (option) => {
       const [entry] = parseLegacySession(
         encode(`https://example.test/a\n ${option}\n out=a.zip\n`)
       )
-      expect(entry.reason).toBe('unsupported-options')
-      expect(entry.unsupportedOptions).toEqual([option.split('=')[0]])
+      expect(entry.reason).toBeNull()
+      expect(entry.ignoredOptions).toEqual([option.split('=')[0]])
       expect(entry.options[option.split('=')[0]]).toBeUndefined()
     }
   )
+
+  it('keeps private request values out of serialization while resolving the final task singleton', () => {
+    const [entry] = parseLegacySession(
+      encode(
+        [
+          'https://example.test/a',
+          ' all-proxy=http://obsolete-private.test:8080',
+          ' all-proxy=',
+          ' http-user=obsolete-user',
+          ' http-user=final-user',
+          ' header=X-Task: private-task',
+          '',
+        ].join('\n')
+      )
+    )
+    const resolved = resolveLegacyRequestSettings(
+      entry,
+      {
+        'all-proxy': 'http://global-private.test:8080',
+        'http-user': 'global-user',
+        header: ['X-Global: private-global'],
+      },
+      'http'
+    )
+    expect(resolved.values).toMatchObject({
+      'all-proxy': [''],
+      'http-user': ['final-user'],
+      header: ['X-Global: private-global', 'X-Task: private-task'],
+    })
+    expect(resolved.requestOptions).toEqual(
+      expect.arrayContaining(['http-user', 'header'])
+    )
+    expect(resolved.requestOptions).not.toContain('all-proxy')
+    expect(getLegacyRequestValues(entry)['all-proxy']).toHaveLength(2)
+    expect(JSON.stringify(entry)).not.toMatch(
+      /private|final-user|obsolete-user/
+    )
+  })
+
+  it('classifies credentials against an inherited endpoint after task parsing', () => {
+    const [entry] = parseLegacySession(
+      encode('metadata.torrent\n all-proxy-user=task-user\n')
+    )
+    const resolved = resolveLegacyRequestSettings(
+      entry,
+      { 'all-proxy': 'http://proxy.test:8080' },
+      'bt'
+    )
+    expect(resolved.values['all-proxy-user']).toEqual(['task-user'])
+    expect(resolved.requestOptions).toContain('all-proxy-user')
+    expect(resolved.ignoredOptions).not.toContain('all-proxy-user')
+  })
+
+  it('drops unsupported and conflicting headers while preserving independent valid headers', () => {
+    const [entry] = parseLegacySession(
+      encode(
+        [
+          'https://example.test/a',
+          ' header=Authorization: private-task',
+          ' header=X-Valid: retained',
+          ' header=Range: bytes=0-1',
+          ' header=Host: unsafe.test',
+          ' header=invalid',
+          ' load-cookies=/private/cookies.txt',
+          ' netrc-path=/private/netrc',
+          ' no-netrc=false',
+          '',
+        ].join('\n')
+      )
+    )
+    const resolved = resolveLegacyRequestSettings(
+      entry,
+      { header: ['Authorization: private-global'] },
+      'http'
+    )
+    expect(resolved.values.header).toEqual(['X-Valid: retained'])
+    expect(resolved.requestOptions).toEqual(['header'])
+    expect(resolved.ignoredOptions).toEqual(
+      expect.arrayContaining([
+        'header',
+        'load-cookies',
+        'netrc-path',
+        'no-netrc',
+      ])
+    )
+    expect(JSON.stringify(entry)).not.toMatch(/private|unsafe/)
+  })
+
+  it('keeps only supported proxy settings for torrents and magnets', () => {
+    const [entry] = parseLegacySession(
+      encode(
+        'metadata.torrent\n header=Cookie: secret\n referer=https://secret.test\n'
+      )
+    )
+    for (const kind of ['bt', 'magnet'] as const) {
+      const resolved = resolveLegacyRequestSettings(
+        entry,
+        {
+          'ftp-proxy': 'http://ftp-proxy.test:8080',
+          'ftp-proxy-user': 'ftp-user',
+          'ftp-proxy-passwd': 'ftp-pass',
+          'proxy-method': 'tunnel',
+          'no-proxy': '.local',
+          'http-user': 'ignored-user',
+        },
+        kind
+      )
+      expect(resolved.requestOptions).toEqual(
+        expect.arrayContaining([
+          'ftp-proxy',
+          'ftp-proxy-user',
+          'ftp-proxy-passwd',
+          'no-proxy',
+          'proxy-method',
+        ])
+      )
+      expect(resolved.ignoredOptions).toEqual(
+        expect.arrayContaining(['header', 'referer', 'http-user'])
+      )
+      expect(Object.keys(resolved.values)).not.toEqual(
+        expect.arrayContaining(['header', 'referer', 'http-user'])
+      )
+    }
+  })
+
+  it('strips invalid effective values and an unsupported HTTP tunnel method without inheriting replaced values', () => {
+    const [entry] = parseLegacySession(
+      encode(
+        'https://example.test/a\n all-proxy=invalid://proxy.test\n proxy-method=tunnel\n'
+      )
+    )
+    const resolved = resolveLegacyRequestSettings(
+      entry,
+      {
+        'all-proxy': 'http://valid.test',
+        'http-proxy': false,
+        'https-proxy': 'http://user:%FF@proxy.test',
+        'ftp-proxy': 'http://ftp.test',
+        'ftp-proxy-user': 'bad\ud800',
+        'no-proxy': 'bad\nentry',
+      },
+      'http'
+    )
+    expect(resolved.values).toEqual({ 'ftp-proxy': ['http://ftp.test'] })
+    expect(resolved.ignoredOptions).toEqual(
+      expect.arrayContaining([
+        'all-proxy',
+        'http-proxy',
+        'https-proxy',
+        'ftp-proxy-user',
+        'proxy-method',
+        'no-proxy',
+      ])
+    )
+  })
 
   it('rejects malformed UTF-8 instead of merging replacement characters into an identity', () => {
     expect(() =>

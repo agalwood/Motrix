@@ -69,13 +69,13 @@ async function expandTaskGroups(page: Page) {
 }
 
 test.describe('v1 task import', () => {
-  test('migrates paused HTTP tasks with request settings while preserving blocked records and original files', async ({
+  test('migrates paused HTTP tasks after stripping unsupported options while preserving malformed records and original files', async ({
     userDataDir,
     rpcPort,
   }, testInfo) => {
     const source = await legacyProfile(userDataDir)
     const sessionPath = path.join(source, 'download.session')
-    const session = `${await readFile(sessionPath, 'utf8')} header=Authorization: Bearer LEGACY_AUTH_SECRET\n header=Referer: https://example.invalid/private-page\nhttps://example.invalid/blocked.zip\n gid=2234567890abcdef\n out=blocked.zip\n on-download-complete=LEGACY_COMMAND_SECRET\n`
+    const session = `${await readFile(sessionPath, 'utf8')} header=Authorization: Bearer LEGACY_AUTH_SECRET\n header=Referer: https://example.invalid/private-page\nhttps://example.invalid/stripped.zip\n gid=2234567890abcdef\n out=stripped.zip\n on-download-complete=LEGACY_COMMAND_SECRET\nhttps://example.invalid/broken.zip\n gid=invalid\n out=broken.zip\n`
     await writeFile(sessionPath, session)
     await writeFile(
       path.join(source, 'system.json'),
@@ -100,10 +100,16 @@ test.describe('v1 task import', () => {
       await expect(archive).toBeEnabled()
       await expect(archive).toBeChecked()
       await expect(
-        page.getByRole('checkbox', { name: 'blocked.zip', exact: true })
+        page.getByRole('checkbox', { name: 'stripped.zip', exact: true })
+      ).toBeChecked()
+      await expect(
+        page.locator('[data-import-task="gid:2234567890abcdef"]')
+      ).toContainText('on-download-complete')
+      await expect(
+        page.getByRole('checkbox', { name: 'broken.zip', exact: true })
       ).toBeDisabled()
       await expect(page.locator('[data-import-group="http"]')).toBeVisible()
-      const body = await page.locator('body').innerText()
+      const body = (await page.locator('body').textContent()) ?? ''
       for (const secret of [
         'LEGACY_AUTH_SECRET',
         'LEGACY_PROXY_SECRET',
@@ -117,39 +123,59 @@ test.describe('v1 task import', () => {
       await expect(
         page
           .getByLabel('Migration summary')
-          .getByText('1 task', { exact: true })
+          .getByText('2 tasks', { exact: true })
           .first()
       ).toBeVisible()
       const tasks = (await invoke(page, Queries.ListTasks)) as Array<{
         id: string
+        name: string
         instances: Array<{
           gid: string | null
           payload: Record<string, unknown>
         }>
       }>
-      expect(tasks).toEqual([
-        expect.objectContaining({
-          name: 'archive.zip',
-          status: 'paused',
-          engineTaskId: '',
-        }),
-      ])
-      expect(tasks[0].instances[0].payload.legacyImport).toMatchObject({
+      expect(tasks).toHaveLength(2)
+      expect(tasks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: 'archive.zip',
+            status: 'paused',
+            engineTaskId: '',
+          }),
+          expect.objectContaining({
+            name: 'stripped.zip',
+            status: 'paused',
+            engineTaskId: '',
+          }),
+        ])
+      )
+      const archiveTask = tasks.find((task) => task.name === 'archive.zip')
+      const strippedTask = tasks.find((task) => task.name === 'stripped.zip')
+      expect(archiveTask).toBeDefined()
+      expect(strippedTask).toBeDefined()
+      if (!archiveTask || !strippedTask)
+        throw new Error('Imported tasks are missing')
+      expect(strippedTask.instances[0].payload.legacyImport).toMatchObject({
+        activation: 'inactive',
+        ignoredOptions: ['on-download-complete'],
+      })
+      expect(archiveTask.instances[0].payload.legacyImport).toMatchObject({
         activation: 'inactive',
         reason: 'request-settings-required',
         requestOptions: expect.arrayContaining(['header', 'all-proxy']),
       })
       await expect(
-        invoke(page, Commands.ResumeTask, tasks[0].id)
+        invoke(page, Commands.ResumeTask, archiveTask.id)
       ).rejects.toThrow()
       expect(JSON.stringify(tasks)).not.toContain('LEGACY_AUTH_SECRET')
       expect(JSON.stringify(tasks)).not.toContain('LEGACY_PROXY_SECRET')
+      expect(JSON.stringify(tasks)).not.toContain('LEGACY_COMMAND_SECRET')
       expect(await readFile(sessionPath, 'utf8')).toBe(session)
       expect(
         await readFile(path.join(source, 'downloads', 'archive.zip'), 'utf8')
       ).toBe('original v1 bytes')
       await page.getByRole('button', { name: 'View downloads' }).click()
-      await page.locator(`[data-task-id="${tasks[0].id}"]`).dblclick()
+      await page.locator(`[data-task-id="${archiveTask.id}"]`).dblclick()
       await page
         .getByRole('button', { name: 'Reconfigure and download…' })
         .click()
@@ -177,7 +203,7 @@ test.describe('v1 task import', () => {
       expect(addTask).toBeDefined()
       if (!addTask) throw new Error('Add-task window did not open')
       await expect(addTask.getByRole('alert')).toContainText(
-        'Saved request settings: header, all-proxy'
+        /Saved request settings: (?:header, all-proxy|all-proxy, header)/
       )
       await expect(
         addTask.getByRole('button', { name: 'Advanced', exact: true })
@@ -196,8 +222,95 @@ test.describe('v1 task import', () => {
         path: testInfo.outputPath('request-settings-form.png'),
       })
       expect((await invoke(page, Queries.ListTasks)) as unknown[]).toHaveLength(
-        1
+        2
       )
+    } finally {
+      await app.close().catch(() => {})
+    }
+  })
+
+  test('migrates a named magnet with its inherited proxy and strips unrelated request settings', async ({
+    userDataDir,
+    rpcPort,
+  }, testInfo) => {
+    const source = await legacyProfile(userDataDir)
+    const sessionPath = path.join(source, 'download.session')
+    const magnet = `magnet:?xt=urn:btih:${'a'.repeat(40)}&dn=Legacy-proxy-bundle`
+    const session = `${magnet}\n gid=3234567890abcdef\n pause=true\n header=Cookie: LEGACY_MAGNET_COOKIE_SECRET\n on-download-complete=LEGACY_MAGNET_COMMAND_SECRET\n`
+    await writeFile(sessionPath, session)
+    await writeFile(
+      path.join(source, 'system.json'),
+      JSON.stringify({
+        dir: path.join(source, 'downloads'),
+        'all-proxy':
+          'http://proxy-user:LEGACY_MAGNET_PROXY_SECRET@proxy.example:8080',
+        'no-proxy': '.internal.example',
+      })
+    )
+    const app = await launchMotrix({
+      userDataDir,
+      rpcPort,
+      extraEnv: { MOTRIX_LEGACY_PROFILE: source },
+    })
+    try {
+      const page = await firstPage(app)
+      await page.getByRole('button', { name: 'Continue', exact: true }).click()
+      await expandTaskGroups(page)
+      const checkbox = page.getByRole('checkbox', {
+        name: 'Legacy-proxy-bundle',
+        exact: true,
+      })
+      await expect(checkbox).toBeEnabled()
+      await expect(checkbox).toBeChecked()
+      const row = page.locator('[data-import-task="gid:3234567890abcdef"]')
+      await expect(row).toContainText('header')
+      await expect(row).toContainText('on-download-complete')
+      const body = (await page.locator('body').textContent()) ?? ''
+      expect(body).not.toMatch(/LEGACY_MAGNET_|proxy-user|proxy\.example/)
+      await row.screenshot({
+        path: testInfo.outputPath('magnet-proxy-preview.png'),
+      })
+      await page.getByRole('button', { name: 'Migrate', exact: true }).click()
+      await expect(
+        page
+          .getByLabel('Migration summary')
+          .getByText('1 task', { exact: true })
+          .first()
+      ).toBeVisible()
+      const tasks = (await invoke(page, Queries.ListTasks)) as Array<{
+        id: string
+        instances: Array<{
+          gid: string | null
+          payload: Record<string, unknown>
+        }>
+      }>
+      expect(tasks).toHaveLength(1)
+      expect(tasks[0]).toMatchObject({
+        name: 'Legacy-proxy-bundle',
+        type: 'magnet',
+        status: 'paused',
+        engineTaskId: '',
+      })
+      expect(tasks[0].instances[0].gid).toBeNull()
+      expect(tasks[0].instances[0].payload.legacyImport).toMatchObject({
+        activation: 'inactive',
+        reason: 'metadata-required',
+        requestOptions: expect.arrayContaining(['all-proxy', 'no-proxy']),
+        ignoredOptions: expect.arrayContaining([
+          'header',
+          'on-download-complete',
+        ]),
+      })
+      expect(JSON.stringify(tasks)).not.toMatch(
+        /LEGACY_MAGNET_|proxy-user|proxy\.example/
+      )
+      await expect(
+        invoke(page, Commands.ResumeTask, tasks[0].id)
+      ).rejects.toThrow()
+      expect(await readFile(sessionPath, 'utf8')).toBe(session)
+      expect(
+        await readFile(path.join(source, 'downloads', 'archive.zip'), 'utf8')
+      ).toBe('original v1 bytes')
     } finally {
       await app.close().catch(() => {})
     }

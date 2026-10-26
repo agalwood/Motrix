@@ -35,6 +35,7 @@ import { restoreTaskSaveDirectory } from '@core/task/task-save-directory'
 import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
 import { AppError, ErrorCode } from '@shared/errors'
 import type { TaskCreateSuccessResult } from '@shared/schemas/add-task'
+import { getLegacyBtRequestSource } from '@shared/schemas/legacy-bt-request'
 import type { DownloadTask } from '@shared/types/task'
 import {
   TaskInstancePhase,
@@ -282,6 +283,12 @@ async function swapMagnetMetadataForBtUnderMutation(
       : []),
   ]
   // Persist metadata before creating any output or stopping metadata resolution.
+  const legacyBtRequestSource = getLegacyBtRequestSource(
+    existing.instances.find(
+      (instance) =>
+        instance.phase === TaskInstancePhase.MagnetMetadataResolution
+    )?.payload ?? {}
+  )
   const torrentMetaPath = await torrentMetaStore.persist(taskId, torrentBytes)
   const btStoragePlan = createBtDirectStoragePlan(
     finalPath,
@@ -534,6 +541,7 @@ async function swapMagnetMetadataForBtUnderMutation(
     uris: [],
     uriHash: null,
     payload: {
+      ...(legacyBtRequestSource ? { legacyBtRequestSource } : {}),
       ...btStoragePayload(btStoragePlan.layout),
       btOutputReservations: outputReservations.filter(
         (entry) => entry.finalPath !== finalPath
@@ -584,6 +592,7 @@ async function swapMagnetMetadataForBtUnderMutation(
   }
   try {
     const addedGid = await adapter.addTorrent({
+      legacyBtRequestSource,
       metadata: torrentBytes,
       saveDir: btStoragePlan.saveDir,
       gid: newGid,

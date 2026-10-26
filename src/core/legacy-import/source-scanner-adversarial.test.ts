@@ -3,6 +3,7 @@ import {
   link,
   mkdir,
   mkdtemp,
+  readFile,
   rename,
   rm,
   symlink,
@@ -121,7 +122,7 @@ describe('legacy source adversarial boundaries', () => {
       name: '下载视频.mp4',
       selectable: true,
       reason: 'request-settings-required',
-      requestOptions: ['header', 'referer'],
+      requestOptions: expect.arrayContaining(['header', 'referer']),
     })
     expect(JSON.stringify(scan.candidates.map(({ item }) => item))).not.toMatch(
       /private-token|private-cookie|private\.test/
@@ -130,7 +131,7 @@ describe('legacy source adversarial boundaries', () => {
 
   it('blocks HTTP mirrors that cannot be reconfigured through the fresh-download form', async () => {
     const { source } = await fixture(
-      'https://example.test/file.zip\thttps://mirror.test/file.zip\n header=private\n'
+      'https://example.test/file.zip\thttps://mirror.test/file.zip\n header=X-Test: private\n'
     )
     const scan = await scanLegacySource(source, () => false)
     expect(scan.candidates[0].item).toMatchObject({
@@ -203,7 +204,7 @@ describe('legacy source adversarial boundaries', () => {
   })
 
   it.each([false, 'false'])(
-    'requires new settings for inherited no-netrc=%s',
+    'strips inherited ambient netrc setting %s',
     async (value) => {
       const { root, sourceRoot, source } = await fixture()
       await writeFile(
@@ -213,8 +214,8 @@ describe('legacy source adversarial boundaries', () => {
       const scan = await scanLegacySource(source, () => false)
       expect(scan.candidates[0].item).toMatchObject({
         selectable: true,
-        reason: 'request-settings-required',
-        requestOptions: ['no-netrc'],
+        reason: 'verification-required',
+        ignoredOptions: ['no-netrc'],
       })
     }
   )
@@ -225,17 +226,17 @@ describe('legacy source adversarial boundaries', () => {
     'rpc-secret=private-secret',
     'unknown-option=',
   ])(
-    'keeps unsafe HTTP option %s disabled while retaining its type',
+    'strips unsafe HTTP option %s while retaining its type',
     async (option) => {
       const { source } = await fixture(
-        `https://example.test/file.zip\n header=private-header\n ${option}\n`
+        `https://example.test/file.zip\n header=X-Test: private-header\n ${option}\n`
       )
       const scan = await scanLegacySource(source, () => false)
       expect(scan.candidates[0].item).toMatchObject({
         type: 'http',
-        selectable: false,
-        reason: 'unsupported-options',
-        unsupportedOptions: [option.split('=')[0]],
+        selectable: true,
+        reason: 'request-settings-required',
+        ignoredOptions: [option.split('=')[0]],
       })
       expect(JSON.stringify(scan.candidates[0].item)).not.toContain('private')
     }
@@ -250,7 +251,9 @@ describe('legacy source adversarial boundaries', () => {
   ])(
     'still validates request-dependent task %s%s',
     async (uri, options, reason) => {
-      const { source } = await fixture(`${uri}\n header=private\n${options}`)
+      const { source } = await fixture(
+        `${uri}\n header=X-Test: private\n${options}`
+      )
       const scan = await scanLegacySource(source, () => false)
       expect(scan.candidates[0].item).toMatchObject({
         selectable: false,
@@ -263,27 +266,141 @@ describe('legacy source adversarial boundaries', () => {
     [
       'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&dn=bundle',
       'magnet',
+      true,
+      'bundle',
     ],
-    ['/outside/metadata.torrent', 'bt'],
-    ['metadata.torrent', 'bt'],
+    ['/outside/metadata.torrent', 'bt', false, 'metadata.torrent'],
   ])(
-    'keeps request-dependent %s blocked without reading metadata',
-    async (uri, type) => {
-      const { source } = await fixture(`${uri}\n header=private\n`)
+    'strips non-proxy request settings from %s while retaining metadata safety',
+    async (uri, type, selectable, name) => {
+      const { source } = await fixture(`${uri}\n header=Cookie: private\n`)
       const scan = await scanLegacySource(source, () => false)
       expect(scan.candidates[0].item).toMatchObject({
         type,
-        selectable: false,
-        reason: 'unsupported-options',
-        requestOptions: ['header'],
-        unsupportedOptions: ['header'],
+        name,
+        selectable,
+        reason: 'metadata-required',
+        ignoredOptions: ['header'],
       })
+      expect(scan.candidates[0].item.requestOptions).toBeUndefined()
       expect(scan.candidates[0].torrent).toBeNull()
       expect(scan.files.map(({ relativePath }) => relativePath).sort()).toEqual(
         ['download.session', 'system.json', 'user.json']
       )
     }
   )
+
+  it.each([
+    [
+      'inherited all-proxy',
+      { 'all-proxy': 'http://localhost:7890' },
+      '',
+      ['all-proxy'],
+      [],
+    ],
+    ['task all-proxy', {}, ' all-proxy=localhost:7890\n', ['all-proxy'], []],
+    ['empty default all-proxy', { 'all-proxy': '' }, '', [], []],
+    [
+      'task empty override',
+      { 'all-proxy': 'localhost:7890' },
+      ' all-proxy=\n',
+      [],
+      [],
+    ],
+    [
+      'task final duplicate override',
+      { 'all-proxy': 'localhost:7890' },
+      ' all-proxy=http://private.test\n all-proxy=\n',
+      [],
+      [],
+    ],
+    [
+      'invalid inherited boolean',
+      { 'all-proxy': false },
+      '',
+      [],
+      ['all-proxy'],
+    ],
+  ])(
+    'imports magnets with %s and resolves the saved display name',
+    async (_label, inherited, options, requestOptions, ignoredOptions) => {
+      const magnet =
+        'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&dn=Known-name'
+      const { root, sourceRoot, source } = await fixture(
+        `${magnet}\n${options}`
+      )
+      await writeFile(
+        path.join(sourceRoot, 'system.json'),
+        JSON.stringify({ dir: path.join(root, 'downloads'), ...inherited })
+      )
+      const scan = await scanLegacySource(source, () => false)
+      const item = scan.candidates[0].item
+      expect(item).toMatchObject({
+        type: 'magnet',
+        name: 'Known-name',
+        selectable: true,
+        reason: 'metadata-required',
+      })
+      expect(item.requestOptions ?? []).toEqual(requestOptions)
+      expect(item.ignoredOptions ?? []).toEqual(ignoredOptions)
+      expect(JSON.stringify(item)).not.toMatch(/localhost|private/)
+    }
+  )
+
+  it('does not activate the old disabled proxy backup setting', async () => {
+    const { sourceRoot, source } = await fixture(
+      'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&dn=bundle\n'
+    )
+    await writeFile(
+      path.join(sourceRoot, 'user.json'),
+      JSON.stringify({
+        theme: 'auto',
+        'all-proxy-backup': 'localhost:7890',
+        'use-proxy': false,
+      })
+    )
+    const scan = await scanLegacySource(source, () => false)
+    expect(scan.candidates[0].item).toMatchObject({
+      name: 'bundle',
+      selectable: true,
+      reason: 'metadata-required',
+    })
+    expect(scan.candidates[0].item.requestOptions).toBeUndefined()
+  })
+
+  it('parses torrent metadata and selection despite inherited proxy and stripped options', async () => {
+    const { root, sourceRoot, source } = await fixture(
+      'metadata.torrent\n select-file=1\n header=Cookie: private-cookie\n on-download-complete=private-command\n'
+    )
+    const torrent = await readFile(
+      new URL(
+        '../../../tests/fixtures/legacy-v1/generated/downloads/a16dc78c94ce589ed4666ab32285f2d188edf26f.torrent',
+        import.meta.url
+      )
+    )
+    await writeFile(path.join(sourceRoot, 'metadata.torrent'), torrent)
+    await writeFile(
+      path.join(sourceRoot, 'system.json'),
+      JSON.stringify({
+        dir: path.join(root, 'downloads'),
+        'all-proxy': 'localhost:7890',
+      })
+    )
+    const scan = await scanLegacySource(source, () => false)
+    expect(scan.candidates[0].item).toMatchObject({
+      type: 'bt',
+      name: 'fixture-bundle',
+      selectable: true,
+      reason: 'verification-required',
+      requestOptions: ['all-proxy'],
+      ignoredOptions: expect.arrayContaining([
+        'header',
+        'on-download-complete',
+      ]),
+    })
+    expect(scan.candidates[0].selectedFiles).toEqual([0])
+    expect(scan.candidates[0].torrent?.files).toHaveLength(2)
+  })
 
   it('does not choose an arbitrary winner among conflicting entries with one old GID', async () => {
     const { source } = await fixture(
@@ -300,7 +417,7 @@ describe('legacy source adversarial boundaries', () => {
     const original = await scanLegacySource(source, () => false)
     await writeFile(
       path.join(sourceRoot, 'download.session'),
-      `${session} header=private\n`
+      `${session} header=X-Test: private\n`
     )
     const changed = await scanLegacySource(source, () => false)
     expect(changed.candidates[0].item.itemId).toBe(
@@ -314,7 +431,7 @@ describe('legacy source adversarial boundaries', () => {
 
   it('rejects duplicate task identities when only their request values differ', async () => {
     const { source } = await fixture(
-      'https://example.test/file.zip\n header=first-private\nhttps://example.test/file.zip\n header=second-private\n'
+      'https://example.test/file.zip\n header=X-Test: first-private\nhttps://example.test/file.zip\n header=X-Test: second-private\n'
     )
     const scan = await scanLegacySource(source, () => false)
     expect(scan.candidates).toHaveLength(2)

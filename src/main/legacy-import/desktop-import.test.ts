@@ -289,10 +289,34 @@ describe('desktop legacy import', () => {
       Commands.PrepareLegacyFreshDownload
     )?.(event, { taskId: task.id })) as { saveDir: string; urls: string }
     expect(result.urls).toBe(task.uris[0])
+    expect(result).not.toHaveProperty('legacySourceTaskId')
     expect(path.dirname(result.saveDir)).toBe(root)
     expect(path.basename(result.saveDir)).toMatch(/^Motrix-new-/)
     expect(result.saveDir).not.toBe(task.saveDir)
     expect(task.status).toBe(TaskStatus.Paused)
+    expect(await readFile(oldPath, 'utf8')).toBe('original bytes')
+  })
+
+  it('carries an opaque source task identity when preparing an imported magnet copy', async () => {
+    const { oldPath, task, event } = await fixture()
+    task.type = TaskType.Magnet
+    task.kind = TaskKind.Bt
+    task.uris = [`magnet:?xt=urn:btih:${'a'.repeat(40)}&dn=bundle`]
+    task.instances[0].payload.legacyImport = {
+      ...(task.instances[0].payload.legacyImport as Record<string, unknown>),
+      reason: 'metadata-required',
+      requestOptions: ['all-proxy', 'all-proxy-passwd'],
+    }
+    const result = await mocks.handlers.get(
+      Commands.PrepareLegacyFreshDownload
+    )?.(event, { taskId: task.id })
+    expect(result).toMatchObject({
+      tab: 'links',
+      urls: task.uris[0],
+      legacySourceTaskId: task.id,
+    })
+    expect(result).not.toHaveProperty('legacyBtRequestSource')
+    expect(result).not.toHaveProperty('allProxy')
     expect(await readFile(oldPath, 'utf8')).toBe('original bytes')
   })
 
@@ -456,6 +480,7 @@ describe('desktop legacy import', () => {
     expect(result).toMatchObject({
       tab: 'torrent',
       source: 'file',
+      legacySourceTaskId: task.id,
       base64: bytes.toString('base64'),
       torrentMeta: meta,
       selectedFiles: [],

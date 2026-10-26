@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, isAbsolute, join, parse, resolve } from 'node:path'
 import type { Aria2RpcClient } from '@core/engine/aria2/aria2-rpc-client'
 import type { Aria2RawStatus } from '@core/engine/aria2/types'
+import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EventBus } from '@core/events/event-bus'
 import { AsyncWorkTracker } from '@core/inspector-activity/async-work-tracker'
 import { newTaskId } from '@core/lib/ids'
@@ -41,6 +42,10 @@ import { taskRowToDownloadTask } from '@core/task/task-row-to-download-task'
 import { AppError, DownloadErrorCode, ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
 import type { MagnetFileSelectionPayload } from '@shared/schemas/add-task'
+import {
+  getLegacyBtRequestSource,
+  type LegacyBtRequestSource,
+} from '@shared/schemas/legacy-bt-request'
 import type { DownloadTask, SourceMeta, TaskSource } from '@shared/types/task'
 import {
   TaskInstancePhase,
@@ -108,6 +113,7 @@ export interface MagnetTrackerLifecycle {
   /** Trusted application-owned root for persisted `.torrent` metadata.
    * Failed-swap cleanup refuses torrent paths outside this directory. */
   torrentMetaDir?: string
+  adapter?: Pick<EngineAdapter, 'createDownload'>
   /** Delivers a just-committed terminal occurrence to in-process consumers.
    *  Optional; every terminal write here still commits durably without it —
    *  only at-least-once delivery to consumers is skipped. Narrowed to
@@ -401,6 +407,36 @@ export class MagnetTracker {
     }
   }
 
+  private async dispatchMetadata(
+    uri: string,
+    metadataDir: string,
+    gid: string,
+    legacyBtRequestSource?: LegacyBtRequestSource
+  ): Promise<string> {
+    const options = {
+      'max-file-not-found': '0',
+      'bt-load-saved-metadata': 'false',
+      'bt-metadata-only': 'true',
+      'follow-torrent': 'false',
+    }
+    if (legacyBtRequestSource) {
+      if (!this.lifecycle.adapter) {
+        throw new AppError(
+          ErrorCode.InvalidSelection,
+          'legacyImport.errors.activationSourceMissing'
+        )
+      }
+      return this.lifecycle.adapter.createDownload({
+        uris: [uri],
+        saveDir: metadataDir,
+        gid,
+        legacyBtRequestSource,
+        extraEngineOptions: options,
+      })
+    }
+    return this.rpcClient.addUri([uri], { ...options, dir: metadataDir, gid })
+  }
+
   /** Submit a magnet for metadata-only fetch. Returns the motrixId of
    *  the task that owns the pending instance — callers (commands.ts)
    *  surface this to the renderer so the resolved-magnet confirmation
@@ -415,7 +451,11 @@ export class MagnetTracker {
   async submit(
     uri: string,
     saveDir: string,
-    provenance?: { source?: TaskSource; sourceMeta?: SourceMeta }
+    provenance?: {
+      source?: TaskSource
+      sourceMeta?: SourceMeta
+      legacyBtRequestSource?: LegacyBtRequestSource
+    }
   ): Promise<string> {
     uri = admitDownloadSources([uri], 'input', ['magnet'])[0].sourceUrl
     const requestedInfoHash = extractInfoHash(uri)
@@ -434,14 +474,18 @@ export class MagnetTracker {
   private async submitUnderAdmission(
     uri: string,
     saveDir: string,
-    provenance?: { source?: TaskSource; sourceMeta?: SourceMeta }
+    provenance?: {
+      source?: TaskSource
+      sourceMeta?: SourceMeta
+      legacyBtRequestSource?: LegacyBtRequestSource
+    }
   ): Promise<string> {
     if (this.stopped) {
       throw new Error('MagnetTracker is stopped')
     }
     const { magnetFileSelection } = this.settingsManager.getApp()
 
-    if (!magnetFileSelection) {
+    if (!magnetFileSelection && !provenance?.legacyBtRequestSource) {
       const gid = await this.rpcClient.addUri([uri], {
         dir: saveDir,
         // The automatically followed BT payload inherits these options.
@@ -466,6 +510,17 @@ export class MagnetTracker {
         (task) => btTaskTargetDir(task) === requestedDir
       )
       if (sameDirectory) {
+        if (
+          JSON.stringify(provenance?.legacyBtRequestSource) !==
+          JSON.stringify(
+            getLegacyBtRequestSource(sameDirectory.instances[0]?.payload ?? {})
+          )
+        ) {
+          throw new AppError(
+            ErrorCode.InvalidSelection,
+            'legacyImport.errors.requestSettingsMismatch'
+          )
+        }
         log.info(
           { infoHash: requestedInfoHash, taskId: sameDirectory.id },
           'magnet submit reused existing content owner'
@@ -553,7 +608,15 @@ export class MagnetTracker {
       uris: [uri],
       uriHash: null,
       payload: withMagnetCleanupTombstoneHidden(
-        withMagnetCleanupQuarantined({ metadataDir }, false),
+        withMagnetCleanupQuarantined(
+          {
+            metadataDir,
+            ...(provenance?.legacyBtRequestSource
+              ? { legacyBtRequestSource: provenance.legacyBtRequestSource }
+              : {}),
+          },
+          false
+        ),
         false
       ),
       createdAt: now,
@@ -638,14 +701,12 @@ export class MagnetTracker {
           this.cache.set(reservedGid, entry)
 
           engineDispatchStarted = true
-          const returnedGid = await this.rpcClient.addUri([uri], {
-            'max-file-not-found': '0',
-            'bt-load-saved-metadata': 'false',
-            'bt-metadata-only': 'true',
-            dir: metadataDir,
-            'follow-torrent': 'false',
-            gid: reservedGid,
-          })
+          const returnedGid = await this.dispatchMetadata(
+            uri,
+            metadataDir,
+            reservedGid,
+            getLegacyBtRequestSource(activeInstance.payload)
+          )
           if (returnedGid !== entry.gid) {
             activeInstance = await this.rebindSubmittedMetadataGid(
               task,
@@ -760,6 +821,7 @@ export class MagnetTracker {
     // that cleanup and require authoritative absence before creating a new
     // sibling GID.
     admitDownloadSources([magnetUri], 'recovery', ['magnet'])
+    const legacyBtRequestSource = getLegacyBtRequestSource(metaInst.payload)
     const previousEntry = this.findCacheEntryByTaskId(taskId)
     if (previousEntry) {
       previousEntry.cleanupAttempts = 0
@@ -811,10 +873,10 @@ export class MagnetTracker {
       uploadedBytes: 0,
       diskPath: metadataDir,
       transitionPhase: TransitionPhase.Idle,
-      payload: metadataFetchPayload(
-        metadataDir,
-        RETRY_METADATA_TIMEOUT_MULTIPLIER
-      ),
+      payload: {
+        ...metadataFetchPayload(metadataDir, RETRY_METADATA_TIMEOUT_MULTIPLIER),
+        ...(legacyBtRequestSource ? { legacyBtRequestSource } : {}),
+      },
       updatedAt: now,
     }
     const previousDownloadTask = taskRowToDownloadTask(
@@ -864,14 +926,12 @@ export class MagnetTracker {
       this.cache.set(reservedGid, entry)
 
       engineDispatchStarted = true
-      const returnedGid = await this.rpcClient.addUri([magnetUri], {
-        'max-file-not-found': '0',
-        'bt-load-saved-metadata': 'false',
-        'bt-metadata-only': 'true',
-        dir: metadataDir,
-        'follow-torrent': 'false',
-        gid: reservedGid,
-      })
+      const returnedGid = await this.dispatchMetadata(
+        magnetUri,
+        metadataDir,
+        reservedGid,
+        legacyBtRequestSource
+      )
       if (returnedGid !== entry.gid) {
         activeInstance = await this.rebindSubmittedMetadataGid(
           updatedTask,
@@ -1536,13 +1596,21 @@ export class MagnetTracker {
     })
     if (this.stopped) return
 
-    this.eventBus.emit(Events.MagnetFileSelection, {
-      taskId: entry.taskId,
-      meta,
-      magnetUri: entry.magnetUri,
-      torrentBase64,
-      saveDir: entry.saveDir,
-    })
+    // Legacy proxy provenance needs an owned metadata-to-BT handoff even
+    // when file selection is off. The host timeout service immediately
+    // selects all files in that case, including after an interrupted restart.
+    if (
+      this.settingsManager.getApp().magnetFileSelection ||
+      !getLegacyBtRequestSource(updatedInstances[0].payload)
+    ) {
+      this.eventBus.emit(Events.MagnetFileSelection, {
+        taskId: entry.taskId,
+        meta,
+        magnetUri: entry.magnetUri,
+        torrentBase64,
+        saveDir: entry.saveDir,
+      })
+    }
 
     log.info(
       { gid, taskId: entry.taskId, name: meta.name },

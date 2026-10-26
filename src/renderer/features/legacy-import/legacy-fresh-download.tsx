@@ -34,6 +34,9 @@ export function LegacyFreshDownload({ task }: { task: DownloadTask }) {
     task.type === 'http' &&
     marker.success &&
     marker.data.reason === 'request-settings-required'
+  const restoresProxy =
+    (task.type === 'bt' || task.type === 'magnet') && marker.success
+  const ignoredOptions = marker.success ? marker.data.ignoredOptions : undefined
   const requestOptions = marker.success ? marker.data.requestOptions : undefined
   const freshDownloadLabel = t(
     requiresRequestSettings
@@ -166,11 +169,25 @@ export function LegacyFreshDownload({ task }: { task: DownloadTask }) {
   return (
     <>
       <div className="space-y-3 rounded-md border p-3">
-        <p className="text-xs leading-5 text-muted-foreground">
-          {availability?.available
-            ? t('legacyImport.verifyReady')
-            : t(availability?.reason ?? 'legacyImport.loading')}
-        </p>
+        {(task.type === 'bt' || task.type === 'http') && (
+          <p className="text-xs leading-5 text-muted-foreground">
+            {availability?.available
+              ? t('legacyImport.verifyReady')
+              : t(availability?.reason ?? 'legacyImport.loading')}
+          </p>
+        )}
+        {restoresProxy && (
+          <p className="text-xs leading-5 text-muted-foreground">
+            {t('legacyImport.proxyRestoredDescription')}
+          </p>
+        )}
+        {Boolean(ignoredOptions?.length) && (
+          <p className="break-words text-xs leading-5 text-muted-foreground">
+            {t('legacyImport.ignoredOptions', {
+              options: ignoredOptions?.join(', '),
+            })}
+          </p>
+        )}
         {requiresRequestSettings && Boolean(requestOptions?.length) && (
           <p className="break-words text-xs leading-5 text-muted-foreground">
             {t('legacyImport.requestOptions', {
@@ -244,6 +261,11 @@ export function LegacyFreshDownload({ task }: { task: DownloadTask }) {
             <AlertDialogTitle>{freshDownloadLabel}</AlertDialogTitle>
             <AlertDialogDescription>
               {t('legacyImport.freshDescription')}
+              {restoresProxy && (
+                <span className="mt-2 block">
+                  {t('legacyImport.proxyRestoredDescription')}
+                </span>
+              )}
               {requiresRequestSettings && (
                 <span className="mt-2 block">
                   {t('legacyImport.requestSettingsDescription')}
