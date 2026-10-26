@@ -1237,36 +1237,6 @@ describe('server Commands.UpdateGeoIPDatabase', () => {
 })
 
 describe('server Commands.CreateTask magnet metadata selection', () => {
-  it.each([true, false])(
-    'rejects desktop migration source identities before network or filesystem work (selection=%s)',
-    async (magnetFileSelection) => {
-      const ctx = makeFakeCtx()
-      vi.mocked(ctx.settingsManager.getApp).mockReturnValue({
-        defaultSaveDir: '/tmp',
-        magnetFileSelection,
-      } as ReturnType<SettingsManager['getApp']>)
-      ctx.adapter.createDownload = vi.fn()
-      const handlers = buildServerCommandHandlers(
-        ctx as unknown as ServerCommandContext
-      )
-      await expect(
-        handlers[Commands.CreateTask]?.({
-          type: 'bt',
-          payload: {
-            kind: 'magnet',
-            uri: 'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
-          },
-          selectedFiles: [],
-          saveDir: '/downloads',
-          legacySourceTaskId: 'desktop-only',
-        })
-      ).rejects.toThrow('legacyImport.errors.activationSourceMissing')
-      expect(ctx.magnetTracker.submit).not.toHaveBeenCalled()
-      expect(ctx.adapter.createDownload).not.toHaveBeenCalled()
-      expect(ctx.downloadPathPolicy.prepareSaveDir).not.toHaveBeenCalled()
-    }
-  )
-
   it('returns file selection to the requesting WebUI without broadcasting', async () => {
     const ctx = makeFakeCtx()
     const selection = { taskId: 'ready-1', torrentBase64: 'dG9ycmVudA==' }

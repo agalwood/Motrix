@@ -42,10 +42,7 @@ function secureWindowsFixture(root: string): void {
 }
 
 /** Actual v1 metadata/control snapshots; deterministic payloads recreated from the recorded recipe. */
-export async function legacyBtActivationFixture(
-  adapter: EngineAdapter,
-  configureProfile?: (profile: string) => Promise<void>
-) {
+export async function legacyBtActivationFixture(adapter: EngineAdapter) {
   const root = await realpath(
     await mkdtemp(path.join(os.tmpdir(), 'motrix-bt-activation-'))
   )
@@ -86,7 +83,6 @@ export async function legacyBtActivationFixture(
     isProcessRunning: () => false,
     publishTasks: vi.fn(),
   })
-  await configureProfile?.(profile)
   const source = await importer.addSource(profile)
   const preview = await importer.scan(source.sourceHandle)
   const item = preview.items.find((entry) => entry.type === 'bt')

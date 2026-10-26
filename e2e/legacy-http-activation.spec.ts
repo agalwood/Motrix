@@ -4,6 +4,7 @@ import { createServer } from 'node:http'
 import path from 'node:path'
 import { gunzipSync } from 'node:zlib'
 import type { Page } from '@playwright/test'
+import { CURRENT_SETTINGS_VERSION } from '../src/core/settings/migrations'
 import { Commands } from '../src/shared/protocol/commands'
 import { Queries } from '../src/shared/protocol/queries'
 import type { DownloadTask } from '../src/shared/types/task'
@@ -48,9 +49,19 @@ for (const mismatch of [false, true]) {
     for (let index = 0; index < total; index++) payload[index] = index % 251
     if (mismatch) payload[completed - 1] ^= 255
     const ranges: string[] = []
+    const proxyRanges: string[] = []
+    const authorization = `Basic ${Buffer.from('current-user:current-password').toString('base64')}`
     const server = createServer((request, response) => {
       const range = request.headers.range ?? ''
       ranges.push(range)
+      if (
+        request.url !== 'http://legacy-http.invalid/partial.bin' ||
+        request.headers['proxy-authorization'] !== authorization
+      ) {
+        response.writeHead(407).end()
+        return
+      }
+      proxyRanges.push(range)
       if (
         request.headers.cookie !== 'session=e2e-fixture' ||
         request.headers['accept-encoding'] !== 'identity'
@@ -73,6 +84,30 @@ for (const mismatch of [false, true]) {
     const address = server.address()
     if (!address || typeof address === 'string')
       throw new Error('Missing local server')
+    await writeFile(
+      path.join(userDataDir, 'settings.json'),
+      JSON.stringify({
+        version: CURRENT_SETTINGS_VERSION,
+        app: { language: 'en-US', autofillClipboardLinks: false },
+        onboarding: { disclaimerAccepted: true },
+        tracker: { autoSync: false },
+        proxy: {
+          enabled: true,
+          protocol: 'http',
+          host: '127.0.0.1',
+          port: address.port,
+          user: 'current-user',
+          password: 'current-password',
+          bypass: [],
+          scopes: {
+            download: true,
+            plugins: false,
+            updateApp: false,
+            updateTrackers: false,
+          },
+        },
+      })
+    )
     const source = path.join(userDataDir, 'legacy-http-profile')
     const downloads = path.join(userDataDir, 'original-downloads')
     await mkdir(source)
@@ -95,11 +130,15 @@ for (const mismatch of [false, true]) {
     )
     await writeFile(
       path.join(source, 'system.json'),
-      JSON.stringify({ dir: downloads })
+      JSON.stringify({
+        dir: downloads,
+        'all-proxy': 'http://old-user:old-password@127.0.0.1:1',
+        'no-proxy': '*',
+      })
     )
     await writeFile(
       path.join(source, 'download.session'),
-      `http://127.0.0.1:${address.port}/partial.bin\n gid=1234567890abcdef\n out=partial.bin\n pause=true\n header=Cookie: session=e2e-fixture\n`
+      `http://legacy-http.invalid/partial.bin\n gid=1234567890abcdef\n out=partial.bin\n pause=true\n header=Cookie: session=e2e-fixture\n`
     )
     let app = await launchMotrix({
       userDataDir,
@@ -162,6 +201,7 @@ for (const mismatch of [false, true]) {
             downloadedBytes: total,
           })
         expect(ranges).toContain(`bytes=${completed}-${total - 1}`)
+        expect(proxyRanges).toContain(`bytes=${completed}-${total - 1}`)
         expect(
           createHash('sha256')
             .update(await readFile(target))
@@ -204,6 +244,9 @@ for (const mismatch of [false, true]) {
         expect(await invoke(restarted, Queries.ListTasks)).toEqual([])
         expect((await readFile(target)).equals(payload)).toBe(true)
       }
+      expect(proxyRanges.some((range) => range.startsWith('bytes=0-'))).toBe(
+        true
+      )
       expect(await readFile(`${target}.aria2`)).toEqual(control)
     } finally {
       server.closeAllConnections()

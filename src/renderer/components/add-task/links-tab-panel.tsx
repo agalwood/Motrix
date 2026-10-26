@@ -8,23 +8,12 @@ import { UrlTextarea } from './url-textarea'
 
 export function LinksTabPanel() {
   const { t } = useTranslation()
-  const tab = useWatch<AddTaskFormValues, 'tab'>({ name: 'tab' })
-  const legacySourceTaskId = useWatch<AddTaskFormValues, 'legacySourceTaskId'>({
-    name: 'legacySourceTaskId',
-  })
   const requestOptions = useWatch<AddTaskFormValues, 'legacyRequestOptions'>({
     name: 'legacyRequestOptions',
   })
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
-      {tab === 'links' && legacySourceTaskId && (
-        <Alert>
-          <AlertDescription className="text-xs">
-            {t('legacyImport.proxyRestoredDescription')}
-          </AlertDescription>
-        </Alert>
-      )}
-      {!legacySourceTaskId && requestOptions !== undefined && (
+      {requestOptions !== undefined && (
         <Alert>
           <AlertDescription className="space-y-1 text-xs">
             <p>{t('legacyImport.requestSettingsDescription')}</p>

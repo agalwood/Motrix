@@ -30,7 +30,6 @@ import type { EngineSettings } from '@shared/types/settings'
 import type { GlobalStats } from '@shared/types/stats'
 import type { DownloadTask, TaskFile } from '@shared/types/task'
 import type { TuningContext } from '@shared/types/tuning'
-import parseTorrent from 'parse-torrent'
 import { probeQuick } from '../../probe/disk-probe'
 import type {
   AddTorrentParams,
@@ -40,7 +39,6 @@ import type {
   DownloadCookie,
   EngineAdapter,
   LegacyBtBindingProof,
-  LegacyBtRequestResolver,
   LegacyHttpBindingProof,
 } from '../engine-adapter'
 import { DIRECT_RESOURCE_METADATA_PROFILE } from '../engine-adapter'
@@ -50,7 +48,6 @@ import {
   verifyLegacyHttpBinding,
 } from './aria2-legacy-http'
 import { legacyWirePath } from './aria2-legacy-path'
-import { legacyProxyMatches, legacyProxyOptions } from './aria2-legacy-proxy'
 import type { Aria2RpcClient } from './aria2-rpc-client'
 import { recommend } from './aria2-tuning'
 import { isConnectionLimitRangeError, isNotFoundError } from './error-utils'
@@ -147,10 +144,6 @@ import {
 } from './translate'
 
 export class Aria2Adapter implements EngineAdapter {
-  private legacyBtRequestResolver?: LegacyBtRequestResolver
-  setLegacyBtRequestResolver(resolver: LegacyBtRequestResolver): void {
-    this.legacyBtRequestResolver = resolver
-  }
   private btTrackerPolicy?: BtTrackerPolicy
   configureBtTrackerPolicy(policy: BtTrackerPolicy): void {
     this.btTrackerPolicy = policy
@@ -620,27 +613,6 @@ export class Aria2Adapter implements EngineAdapter {
       await this.applyBtTrackerPolicy(options, requestedGid)
     }
 
-    if (params.legacyBtRequestSource) {
-      if (
-        !this.legacyBtRequestResolver ||
-        params.uris.length !== 1 ||
-        !/^magnet:/i.test(params.uris[0]) ||
-        params.proxy !== undefined ||
-        params.legacyCheckpointActivation
-      )
-        throw new TypeError('Invalid legacy BT request context')
-      const torrent = await parseTorrent(params.uris[0])
-      Object.assign(
-        options,
-        legacyProxyOptions(
-          await this.legacyBtRequestResolver(
-            params.legacyBtRequestSource,
-            torrent.infoHash
-          )
-        )
-      )
-    }
-
     const actualGid = await this.addUriWithConnectionFallback(
       params.uris,
       options,
@@ -841,8 +813,7 @@ export class Aria2Adapter implements EngineAdapter {
       options['auto-file-renaming'] === 'false' &&
       options['remove-control-file'] === 'false' &&
       options['check-integrity'] === 'true' &&
-      trackers.join(',') === input.trackers.join(',') &&
-      (input.proxy === undefined || legacyProxyMatches(options, input.proxy))
+      trackers.join(',') === input.trackers.join(',')
     )
   }
 
@@ -1018,28 +989,6 @@ export class Aria2Adapter implements EngineAdapter {
     const b64 = (legacyMetadata ?? Buffer.from(params.metadata)).toString(
       'base64'
     )
-    if (params.legacyProxy && !params.legacyCheckpointActivation)
-      throw new TypeError('Legacy proxy requires legacy activation')
-    if (params.legacyBtRequestSource) {
-      if (
-        !this.legacyBtRequestResolver ||
-        params.legacyProxy ||
-        params.legacyCheckpointActivation
-      )
-        throw new TypeError('Invalid legacy BT request context')
-      const torrent = await parseTorrent(params.metadata)
-      Object.assign(
-        opts,
-        legacyProxyOptions(
-          await this.legacyBtRequestResolver(
-            params.legacyBtRequestSource,
-            torrent.infoHash
-          )
-        )
-      )
-    } else if (params.legacyProxy) {
-      Object.assign(opts, legacyProxyOptions(params.legacyProxy))
-    }
     let actualGid: string
     if (params.legacyCheckpointActivation) {
       const context = params.legacyCheckpointActivation

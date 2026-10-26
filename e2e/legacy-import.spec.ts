@@ -157,12 +157,15 @@ test.describe('v1 task import', () => {
         throw new Error('Imported tasks are missing')
       expect(strippedTask.instances[0].payload.legacyImport).toMatchObject({
         activation: 'inactive',
-        ignoredOptions: ['on-download-complete'],
+        ignoredOptions: expect.arrayContaining([
+          'on-download-complete',
+          'all-proxy',
+        ]),
       })
       expect(archiveTask.instances[0].payload.legacyImport).toMatchObject({
         activation: 'inactive',
         reason: 'request-settings-required',
-        requestOptions: expect.arrayContaining(['header', 'all-proxy']),
+        requestOptions: ['header'],
       })
       await expect(
         invoke(page, Commands.ResumeTask, archiveTask.id)
@@ -203,7 +206,7 @@ test.describe('v1 task import', () => {
       expect(addTask).toBeDefined()
       if (!addTask) throw new Error('Add-task window did not open')
       await expect(addTask.getByRole('alert')).toContainText(
-        /Saved request settings: (?:header, all-proxy|all-proxy, header)/
+        'Saved request settings: header'
       )
       await expect(
         addTask.getByRole('button', { name: 'Advanced', exact: true })
@@ -229,7 +232,7 @@ test.describe('v1 task import', () => {
     }
   })
 
-  test('migrates a named magnet with its inherited proxy and strips unrelated request settings', async ({
+  test('migrates a named magnet after discarding old proxy and unsupported settings', async ({
     userDataDir,
     rpcPort,
   }, testInfo) => {
@@ -260,6 +263,9 @@ test.describe('v1 task import', () => {
         name: 'Legacy-proxy-bundle',
         exact: true,
       })
+      await expect(page.getByRole('note')).toContainText(
+        'current download proxy settings'
+      )
       await expect(checkbox).toBeEnabled()
       await expect(checkbox).toBeChecked()
       const row = page.locator('[data-import-task="gid:3234567890abcdef"]')
@@ -267,7 +273,7 @@ test.describe('v1 task import', () => {
       await expect(row).toContainText('on-download-complete')
       const body = (await page.locator('body').textContent()) ?? ''
       expect(body).not.toMatch(/LEGACY_MAGNET_|proxy-user|proxy\.example/)
-      await row.screenshot({
+      await page.screenshot({
         path: testInfo.outputPath('magnet-proxy-preview.png'),
       })
       await page.getByRole('button', { name: 'Migrate', exact: true }).click()
@@ -295,8 +301,9 @@ test.describe('v1 task import', () => {
       expect(tasks[0].instances[0].payload.legacyImport).toMatchObject({
         activation: 'inactive',
         reason: 'metadata-required',
-        requestOptions: expect.arrayContaining(['all-proxy', 'no-proxy']),
         ignoredOptions: expect.arrayContaining([
+          'all-proxy',
+          'no-proxy',
           'header',
           'on-download-complete',
         ]),

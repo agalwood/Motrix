@@ -17,15 +17,13 @@ import { PluginEngineVersionTooOld } from '@core/plugin/manifest/errors'
 import { PluginNetworkError } from '@core/plugin/network/plugin-network-error'
 import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { SettingsManager } from '@core/settings/settings-manager'
-import { AppError, ErrorCode } from '@shared/errors'
+import { ErrorCode } from '@shared/errors'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
 import { parseProtocolEnvelope } from '@shared/protocol/errors'
 import { Events } from '@shared/protocol/events'
-import type { LegacyBtRequestSource } from '@shared/schemas/legacy-bt-request'
 import type { AppImageIntegrationView } from '@shared/types/appimage-integration'
 import { CliPackageManager } from '@shared/types/cli-tool'
-import { EngineState } from '@shared/types/engine'
 import {
   TaskInstancePhase,
   TaskStatus,
@@ -162,7 +160,6 @@ function fakeCtx() {
       // creation throws "supervisor.waitUntilReady is not a function".
       waitUntilReady: vi.fn().mockResolvedValue(undefined),
       assertReady: vi.fn(),
-      getState: vi.fn(() => EngineState.Ready),
     },
     sessionManager: {
       save: vi.fn().mockResolvedValue(undefined),
@@ -797,149 +794,9 @@ describe('buildCommandHandlers', () => {
     expect(result).toEqual({ ok: true })
     expect(ctx.magnetTracker.submit).toHaveBeenCalledWith(
       'magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
-      '/downloads',
-      undefined
+      '/downloads'
     )
     expect(ctx.rpcClient.addUri).not.toHaveBeenCalled()
-  })
-
-  it.each([
-    { magnetFileSelection: false, selectedFiles: [] },
-    { magnetFileSelection: true, selectedFiles: [] },
-  ])(
-    'uses managed metadata for legacy magnets with selection preference $magnetFileSelection',
-    async ({ magnetFileSelection, selectedFiles }) => {
-      const uri = `magnet:?xt=urn:btih:${'a'.repeat(40)}`
-      const reference: LegacyBtRequestSource = {
-        version: 1,
-        runId: '11111111-1111-4111-8111-111111111111',
-        itemKey: 'gid:0123456789abcdef',
-        snapshotDigest: 'b'.repeat(64),
-        manifestDigest: 'c'.repeat(64),
-        infoHash: 'a'.repeat(40),
-        torrentDigest: null,
-      }
-      const base = fakeCtx()
-      const ctx = {
-        ...base,
-        magnetTracker: {
-          ...base.magnetTracker,
-          submit: vi.fn(async () => 'metadata-task'),
-        },
-        captureLegacyBtRequestSource: vi.fn(async () => reference),
-      }
-      vi.spyOn(ctx.settingsManager, 'getApp').mockReturnValue({
-        defaultSaveDir: '/tmp',
-        magnetFileSelection,
-      })
-      ctx.magnetTracker.submit.mockImplementation(async () => {
-        expect(
-          ctx.captureLegacyBtRequestSource
-        ).toHaveBeenCalledExactlyOnceWith('imported-source', { uri })
-        return 'metadata-task'
-      })
-      ctx.taskManager.getById.mockReturnValue({
-        status: TaskStatus.FetchingMetadata,
-        engineTaskId: 'metadata-gid',
-      })
-      const handlers = buildCommandHandlers(ctx as unknown as CommandContext)
-      await expect(
-        handlers[Commands.CreateTask]?.({
-          type: 'bt',
-          payload: { kind: 'magnet', uri },
-          selectedFiles,
-          saveDir: '/downloads',
-          legacySourceTaskId: 'imported-source',
-        })
-      ).resolves.toEqual({
-        outcome: 'created',
-        taskId: 'metadata-task',
-        gid: 'metadata-gid',
-      })
-      expect(ctx.magnetTracker.submit).toHaveBeenCalledExactlyOnceWith(
-        uri,
-        '/downloads',
-        { legacyBtRequestSource: reference }
-      )
-      expect(ctx.rpcClient.addUri).not.toHaveBeenCalled()
-      expect(ctx.rpcClient.addTorrent).not.toHaveBeenCalled()
-      expect(ctx.persistTask).not.toHaveBeenCalled()
-      expect(ctx.taskManager.add).not.toHaveBeenCalled()
-    }
-  )
-
-  it.each(['missing', 'changed'] as const)(
-    'rejects %s legacy source before metadata submission when selection is disabled',
-    async (sourceState) => {
-      const base = fakeCtx()
-      vi.spyOn(base.settingsManager, 'getApp').mockReturnValue({
-        defaultSaveDir: '/tmp',
-        magnetFileSelection: false,
-      })
-      const ctx = {
-        ...base,
-        captureLegacyBtRequestSource:
-          sourceState === 'missing'
-            ? undefined
-            : vi.fn(async () => {
-                throw new AppError(
-                  ErrorCode.InvalidSelection,
-                  'legacyImport.errors.changedSource'
-                )
-              }),
-      }
-      const handlers = buildCommandHandlers(ctx as unknown as CommandContext)
-      await expect(
-        handlers[Commands.CreateTask]?.({
-          type: 'bt',
-          payload: {
-            kind: 'magnet',
-            uri: `magnet:?xt=urn:btih:${'a'.repeat(40)}`,
-          },
-          selectedFiles: [],
-          saveDir: '/downloads',
-          legacySourceTaskId: 'tampered-source',
-        })
-      ).rejects.toMatchObject({ code: ErrorCode.InvalidSelection })
-      expect(ctx.magnetTracker.submit).not.toHaveBeenCalled()
-      expect(ctx.rpcClient.addUri).not.toHaveBeenCalled()
-      expect(ctx.rpcClient.addTorrent).not.toHaveBeenCalled()
-      expect(ctx.persistTask).not.toHaveBeenCalled()
-      expect(ctx.taskManager.add).not.toHaveBeenCalled()
-    }
-  )
-
-  it('rejects an unowned legacy magnet selection instead of creating a native child', async () => {
-    const ctx = fakeCtx()
-    const reference: LegacyBtRequestSource = {
-      version: 1,
-      runId: '11111111-1111-4111-8111-111111111111',
-      itemKey: 'gid:0123456789abcdef',
-      snapshotDigest: 'b'.repeat(64),
-      manifestDigest: 'c'.repeat(64),
-      infoHash: 'a'.repeat(40),
-      torrentDigest: null,
-    }
-    const handlers = buildCommandHandlers({
-      ...ctx,
-      captureLegacyBtRequestSource: vi.fn(async () => reference),
-    } as unknown as CommandContext)
-    await expect(
-      handlers[Commands.CreateTask]?.({
-        type: 'bt',
-        payload: {
-          kind: 'magnet',
-          uri: `magnet:?xt=urn:btih:${'a'.repeat(40)}`,
-        },
-        selectedFiles: [0],
-        saveDir: '/downloads',
-        legacySourceTaskId: 'imported-source',
-      })
-    ).rejects.toMatchObject({ code: ErrorCode.InvalidSelection })
-    expect(ctx.magnetTracker.submit).not.toHaveBeenCalled()
-    expect(ctx.rpcClient.addUri).not.toHaveBeenCalled()
-    expect(ctx.rpcClient.addTorrent).not.toHaveBeenCalled()
-    expect(ctx.persistTask).not.toHaveBeenCalled()
   })
 
   it('admits a magnet selection swap through the canonical task lock', async () => {

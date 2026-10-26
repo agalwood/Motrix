@@ -1,5 +1,4 @@
 import type { EnginePerformanceProfile } from '@shared/constants/engine-performance-profiles'
-import type { LegacyBtRequestSource } from '@shared/schemas/legacy-bt-request'
 import type {
   LegacyCheckpointImport,
   LegacyCheckpointInspection,
@@ -51,10 +50,6 @@ export type DirectResourceMetadataProfile =
   typeof DIRECT_RESOURCE_METADATA_PROFILE
 
 export interface AddTorrentParams {
-  /** Non-secret reference to verified legacy BT request settings. */
-  legacyBtRequestSource?: LegacyBtRequestSource
-  /** Ephemeral proxy context for an authorized in-place legacy activation. */
-  legacyProxy?: LegacyProxyOptions
   /** Internal migration path: keeps original trackers and pins verification/no-seeding options. */
   legacyCheckpointActivation?: { token: string; targetPath: string }
   /** Read-only durable metadata source for an authorized legacy BT task. */
@@ -111,8 +106,6 @@ export interface DownloadCookie {
 }
 
 export interface CreateDownloadParams {
-  /** Non-secret reference to verified legacy magnet request settings. */
-  legacyBtRequestSource?: LegacyBtRequestSource
   /** Explicit in-place legacy HTTP activation after content verification. */
   legacyCheckpointActivation?: { token: string; targetPath: string }
   uris: string[]
@@ -172,23 +165,7 @@ export type BtTrackerPolicy = (input: {
   isPrivate?: boolean
 }) => Promise<{ trackers: string[]; isPrivate: boolean }>
 
-/** Complete ephemeral legacy proxy context; never persist credential-bearing URLs. */
-export interface LegacyProxyOptions {
-  allProxy: string
-  httpProxy: string
-  httpsProxy: string
-  ftpProxy: string
-  noProxy: string
-  proxyMethod: 'get' | 'tunnel'
-}
-
-export type LegacyBtRequestResolver = (
-  reference: LegacyBtRequestSource,
-  infoHash?: string
-) => Promise<LegacyProxyOptions>
-
 export interface LegacyBtBindingProof {
-  proxy?: LegacyProxyOptions
   engineTaskId: string
   saveDir: string
   infoHash: string
@@ -213,7 +190,6 @@ export interface LegacyHttpBindingProof {
 }
 
 export interface EngineAdapter {
-  setLegacyBtRequestResolver?(resolver: LegacyBtRequestResolver): void
   /** Prove the original output, source and version-pinned HTTP request belong to this GID. */
   verifyLegacyHttpBinding?(input: LegacyHttpBindingProof): Promise<boolean>
   /** Prove exact native BT ownership, selection and safe restoration options. */

@@ -47,16 +47,6 @@ import type {
 } from './motrix-database'
 import { SessionManager } from './session-manager'
 
-const LEGACY_BT_REQUEST = {
-  version: 1 as const,
-  runId: 'c2859cb0-aefe-438a-b05e-3389437a5c36',
-  itemKey: 'gid:0123456789abcdef',
-  snapshotDigest: '1'.repeat(64),
-  manifestDigest: '2'.repeat(64),
-  infoHash: '3'.repeat(40),
-  torrentDigest: null,
-}
-
 // ─── Task factory ───────────────────────────────────────────
 
 function buildSingleFileTorrent(name: string): Uint8Array {
@@ -1577,47 +1567,6 @@ describe('SessionManager', () => {
 
       fs.rmSync(tmpDir, { recursive: true, force: true })
     })
-
-    it.each([false, true])(
-      'preserves a private BT request reference on startup (damaged=%s)',
-      async (damaged) => {
-        const tmpDir = fs.mkdtempSync(
-          path.join(os.tmpdir(), 'motrix-restore-bt-proxy-')
-        )
-        const torrentPath = path.join(tmpDir, 'task.torrent')
-        fs.writeFileSync(torrentPath, buildSingleFileTorrent('sample'))
-        try {
-          seedAsPair(db, {
-            motrixId: 'legacy-copy',
-            gid: 'missing-gid',
-            type: TaskType.Bt,
-            torrentMetaPath: torrentPath,
-            status: TaskStatus.Downloading,
-            payload: {
-              legacyBtRequestSource: damaged ? null : LEGACY_BT_REQUEST,
-            },
-          })
-          await sessionManager.restore()
-          if (damaged) {
-            expect(adapter.addTorrent).not.toHaveBeenCalled()
-            expect(taskManager.getById('legacy-copy')?.status).toBe(
-              TaskStatus.Error
-            )
-          } else {
-            expect(adapter.addTorrent).toHaveBeenCalledWith(
-              expect.objectContaining({
-                legacyBtRequestSource: LEGACY_BT_REQUEST,
-              })
-            )
-            expect(
-              db.getTask('legacy-copy')?.instances[0].payload
-            ).toMatchObject({ legacyBtRequestSource: LEGACY_BT_REQUEST })
-          }
-        } finally {
-          fs.rmSync(tmpDir, { recursive: true, force: true })
-        }
-      }
-    )
 
     it('restores preview piece priority for a lost video-only BT task', async () => {
       const tmpDir = fs.mkdtempSync(
@@ -4185,71 +4134,6 @@ describe('restore() with task_instances (Plan A Task 7)', () => {
     expect(adapter.addTorrent).not.toHaveBeenCalled()
     expect(adapter.createDownload).not.toHaveBeenCalled()
   })
-
-  it.each([false, true])(
-    'replays legacy metadata with a durable GID through the adapter (damaged=%s)',
-    async (damaged) => {
-      const taskManager = new TaskManager()
-      const db = createMockDb()
-      const rpc = createMockRpc({ activeTasks: [] })
-      const addUri = vi.fn()
-      ;(rpc as unknown as { addUri: typeof addUri }).addUri = addUri
-      const adapter = createMockAdapter()
-      const sm = new SessionManager(taskManager, rpc, db, adapter)
-      db.saveTaskWithInstances({
-        task: {
-          ...makeTaskRow('legacy-magnet', TaskKind.Bt),
-          aggStatus: TaskStatus.FetchingMetadata,
-          finalPath: '/Downloads',
-        },
-        instances: [
-          {
-            ...makeInstanceRow(
-              'legacy-metadata',
-              'legacy-magnet',
-              'old-gid',
-              TaskInstancePhase.MagnetMetadataResolution
-            ),
-            diskPath: '/tmp/metadata',
-            uris: [`magnet:?xt=urn:btih:${LEGACY_BT_REQUEST.infoHash}`],
-            payload: {
-              metadataDir: '/tmp/metadata',
-              legacyBtRequestSource: damaged ? null : LEGACY_BT_REQUEST,
-            },
-          },
-        ],
-      })
-      vi.mocked(adapter.createDownload).mockImplementation(async ({ gid }) => {
-        expect(db.getTask('legacy-magnet')?.instances[0].gid).toBe(gid)
-        expect(db.getTask('legacy-magnet')?.instances[0].payload).toMatchObject(
-          { legacyBtRequestSource: LEGACY_BT_REQUEST }
-        )
-        return gid ?? ''
-      })
-      await sm.restore()
-      expect(addUri).not.toHaveBeenCalled()
-      if (damaged) {
-        expect(adapter.createDownload).not.toHaveBeenCalled()
-        expect(taskManager.getById('legacy-magnet')?.status).toBe(
-          TaskStatus.Error
-        )
-      } else {
-        expect(adapter.createDownload).toHaveBeenCalledWith(
-          expect.objectContaining({
-            legacyBtRequestSource: LEGACY_BT_REQUEST,
-            saveDir: '/tmp/metadata',
-            extraEngineOptions: expect.objectContaining({
-              'bt-metadata-only': 'true',
-              'follow-torrent': 'false',
-            }),
-          })
-        )
-        expect(taskManager.getById('legacy-magnet')?.status).toBe(
-          TaskStatus.FetchingMetadata
-        )
-      }
-    }
-  )
 
   it('persists a failed magnet metadata re-issue before restore resolves', async () => {
     const taskManager = new TaskManager()

@@ -101,41 +101,6 @@ function fixture() {
 }
 
 const services: MagnetSelectionTimeout[] = []
-function withLegacyRequest(task: ReturnType<typeof makeDownloadTask>) {
-  return {
-    ...task,
-    instances: [
-      {
-        instanceId: 'legacy-metadata',
-        motrixId: task.id,
-        phase: TaskInstancePhase.MagnetMetadataResolution,
-        payload: {
-          legacyBtRequestSource: {
-            version: 1,
-            runId: 'c2859cb0-aefe-438a-b05e-3389437a5c36',
-            itemKey: 'gid:0123456789abcdef',
-            snapshotDigest: '1'.repeat(64),
-            manifestDigest: '2'.repeat(64),
-            infoHash: 'a'.repeat(40),
-            torrentDigest: null,
-          },
-        },
-        gid: null,
-        status: task.status,
-        progress: 0,
-        totalBytes: 0,
-        downloadedBytes: 0,
-        uploadedBytes: 0,
-        diskPath: '',
-        transitionPhase: TransitionPhase.Idle,
-        uris: [],
-        uriHash: null,
-        createdAt: 0,
-        updatedAt: task.updatedAt,
-      },
-    ],
-  }
-}
 beforeEach(() => {
   vi.useFakeTimers()
   vi.setSystemTime(1_000_000)
@@ -146,81 +111,6 @@ afterEach(async () => {
 })
 
 describe('MagnetSelectionTimeout', () => {
-  it.each([false, true])(
-    'hands restored legacy metadata to download-all immediately without a dialog (autoDownload=%s)',
-    async (autoDownload) => {
-      const f = fixture()
-      f.tasks = [withLegacyRequest(f.tasks[0])]
-      f.settings = {
-        ...f.settings,
-        magnetFileSelection: false,
-        magnetFileSelectionAutoDownload: autoDownload,
-      }
-      f.service.start()
-      await vi.advanceTimersByTimeAsync(1)
-      expect(f.createTask).toHaveBeenCalledExactlyOnceWith(
-        expect.objectContaining({
-          existingTaskId: 'magnet-1',
-          selectedFiles: [0, 2],
-        })
-      )
-      await vi.advanceTimersByTimeAsync(120_000)
-      expect(f.createTask).toHaveBeenCalledTimes(1)
-    }
-  )
-
-  it('waits for legacy metadata and engine readiness before automatic handoff', async () => {
-    const f = fixture()
-    f.tasks = [
-      withLegacyRequest({ ...f.tasks[0], status: TaskStatus.FetchingMetadata }),
-    ]
-    f.settings = {
-      ...f.settings,
-      magnetFileSelection: false,
-      magnetFileSelectionAutoDownload: false,
-    }
-    f.service.start()
-    await vi.advanceTimersByTimeAsync(1)
-    expect(f.createTask).not.toHaveBeenCalled()
-    f.engineReady = false
-    f.tasks = [{ ...f.tasks[0], status: TaskStatus.MetadataReady }]
-    await vi.advanceTimersByTimeAsync(1)
-    expect(f.createTask).not.toHaveBeenCalled()
-    f.engineReady = true
-    await vi.advanceTimersByTimeAsync(1)
-    expect(f.createTask).toHaveBeenCalledTimes(1)
-  })
-
-  it('does not dispatch an invalid private reference when selection is disabled', async () => {
-    const f = fixture()
-    const task = withLegacyRequest(f.tasks[0])
-    task.instances[0].payload.legacyBtRequestSource.runId = 'changed'
-    f.tasks = [task]
-    f.settings = { ...f.settings, magnetFileSelection: false }
-    f.service.start()
-    await vi.advanceTimersByTimeAsync(120_000)
-    expect(f.createTask).not.toHaveBeenCalled()
-  })
-
-  it('returns a legacy magnet to explicit selection if the user enables it during metadata IO', async () => {
-    const f = fixture()
-    f.tasks = [withLegacyRequest(f.tasks[0])]
-    f.settings = {
-      ...f.settings,
-      magnetFileSelection: false,
-      magnetFileSelectionAutoDownload: false,
-    }
-    const pending = Promise.withResolvers<MagnetFileSelectionPayload>()
-    f.getSelection.mockReturnValueOnce(pending.promise)
-    f.service.start()
-    await vi.advanceTimersByTimeAsync(1)
-    f.settings = { ...f.settings, magnetFileSelection: true }
-    pending.resolve(selection())
-    await vi.advanceTimersByTimeAsync(1)
-    expect(f.createTask).not.toHaveBeenCalled()
-    expect(f.notify).not.toHaveBeenCalled()
-  })
-
   it('starts all files once at the deadline without a renderer', async () => {
     const f = fixture()
     f.service.start()

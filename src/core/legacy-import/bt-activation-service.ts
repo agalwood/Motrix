@@ -2,11 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { constants } from 'node:fs'
 import { lstat, mkdir, open, realpath } from 'node:fs/promises'
 import path from 'node:path'
-import type {
-  EngineAdapter,
-  LegacyBtBindingProof,
-  LegacyProxyOptions,
-} from '@core/engine/engine-adapter'
+import type { EngineAdapter } from '@core/engine/engine-adapter'
 import { newEngineTaskId } from '@core/lib/ids'
 import type {
   MotrixDatabase,
@@ -21,12 +17,10 @@ import {
   type LegacyBtActivation,
   legacyBtActivationSchema,
 } from '@shared/schemas/legacy-bt-activation'
-import { getLegacyBtRequestSource } from '@shared/schemas/legacy-bt-request'
 import type { LegacyCheckpointFile } from '@shared/schemas/legacy-checkpoint'
 import { legacyTaskMetadataSchema } from '@shared/schemas/legacy-import'
 import { TaskStatus, TaskType } from '@shared/types/task'
 import parseTorrent from 'parse-torrent'
-import { LegacyBtRequestSourceService } from './legacy-bt-request-source'
 import { authorizeLegacySource, readLegacyFile } from './source-scanner'
 
 export interface LegacyBtActivationDeps {
@@ -110,14 +104,9 @@ export class LegacyBtActivationService {
       // Resolve the current row after the picker; no stale task grants survive removal/change.
       if (JSON.stringify(this.requireTask(taskId)) !== JSON.stringify(pair))
         throw failure('changedSource')
-      const reference = await new LegacyBtRequestSourceService(
-        this.deps
-      ).capture(taskId, { metadata: await this.metadata(pair) })
       const intent = await this.prepare(pair, picked)
       this.deps.taskManager.reserveEngineTaskId(intent.engineTaskId)
-      const prepared = structuredClone(pair)
-      prepared.instances[0].payload.legacyBtRequestSource = reference
-      await this.persist(prepared, intent, false)
+      await this.persist(pair, intent, false)
       await this.reconcile(this.requireTask(taskId), true)
       return true
     })
@@ -331,7 +320,6 @@ export class LegacyBtActivationService {
       throw failure('changedSource')
     return legacyBtActivationSchema.parse({
       version: 1,
-      proxyContext: true,
       stage: 'import-uncertain',
       token: `bt_${randomUUID().replaceAll('-', '_')}`,
       engineTaskId: newEngineTaskId(undefined, 'legacy BT activation'),
@@ -529,36 +517,6 @@ export class LegacyBtActivationService {
     )
       throw failure('changedSource')
     let engine = await this.deps.adapter.getTaskStatus(intent.engineTaskId)
-    const binding: LegacyBtBindingProof = {
-      engineTaskId: intent.engineTaskId,
-      saveDir: intent.saveDir,
-      infoHash: intent.expected.infoHash ?? '',
-      files: intent.files,
-      selectedFiles: intent.selectedFiles,
-      trackers: intent.trackers,
-      isPrivate: intent.isPrivate,
-    }
-    // Older already-authorized tasks retain their existing binding contract.
-    // New activations reconstruct credentials from the immutable source only.
-    let proxy: LegacyProxyOptions | undefined
-    try {
-      if (intent.proxyContext) {
-        const reference = getLegacyBtRequestSource(pair.instances[0].payload)
-        if (!reference) throw failure('changedSource')
-        proxy = await new LegacyBtRequestSourceService(this.deps).resolve(
-          reference,
-          intent.expected.infoHash ?? undefined
-        )
-      }
-    } catch (error) {
-      if (
-        engine &&
-        receipt.status !== 'absent' &&
-        ['create-uncertain', 'bound', 'active'].includes(intent.stage)
-      )
-        await this.pauseUnverifiedBinding(binding)
-      throw error
-    }
     if (engine) {
       // Never trust consumed alone: the durable add phase and full live identity must agree.
       if (
@@ -574,13 +532,16 @@ export class LegacyBtActivationService {
         throw failure('activationUncertain')
       if (
         !(await this.deps.adapter.verifyLegacyBtBinding?.({
-          ...binding,
-          proxy,
+          engineTaskId: intent.engineTaskId,
+          saveDir: intent.saveDir,
+          infoHash: intent.expected.infoHash ?? '',
+          files: intent.files,
+          selectedFiles: intent.selectedFiles,
+          trackers: intent.trackers,
+          isPrivate: intent.isPrivate,
         }))
-      ) {
-        if (intent.proxyContext) await this.pauseUnverifiedBinding(binding)
+      )
         throw failure('activationUncertain')
-      }
       if (
         intent.stage === 'create-uncertain' &&
         engine.status !== TaskStatus.Paused
@@ -677,34 +638,9 @@ export class LegacyBtActivationService {
         path: pair.task.torrentMetaPath ?? '',
         digest: intent.torrentDigest,
       },
-      legacyProxy: proxy,
       extraEngineOptions: { 'bt-tracker': intent.trackers.join(',') },
     })
     if (gid !== intent.engineTaskId) throw failure('activationUncertain')
     await this.reconcile(pair, resume)
-  }
-
-  private async pauseUnverifiedBinding(
-    binding: LegacyBtBindingProof
-  ): Promise<void> {
-    // Never pause an unrelated GID when only the secret context cannot be recovered.
-    if (!(await this.deps.adapter.verifyLegacyBtBinding?.(binding))) return
-    const engine = await this.deps.adapter.getTaskStatus(binding.engineTaskId)
-    if (
-      !engine ||
-      [TaskStatus.Paused, TaskStatus.Completed, TaskStatus.Error].includes(
-        engine.status
-      )
-    )
-      return
-    await this.deps.adapter.pauseTask(binding.engineTaskId).catch(() => {})
-    const paused = await this.deps.adapter.getTaskStatus(binding.engineTaskId)
-    if (
-      !paused ||
-      ![TaskStatus.Paused, TaskStatus.Completed, TaskStatus.Error].includes(
-        paused.status
-      )
-    )
-      throw failure('activationUncertain')
   }
 }

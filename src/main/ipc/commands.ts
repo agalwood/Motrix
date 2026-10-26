@@ -118,7 +118,6 @@ import {
 } from '@shared/schemas/bulk-task-command'
 import { closeCurrentWindowSchema } from '@shared/schemas/close-current-window'
 import { filePickerOptionsSchema } from '@shared/schemas/file-picker'
-import { getLegacyBtRequestSource } from '@shared/schemas/legacy-bt-request'
 import { moveTasksPayloadSchema } from '@shared/schemas/move-tasks'
 import { PluginLogVerboseRequestSchema } from '@shared/schemas/plugin-logs'
 import { checkPluginUpdatesPayloadSchema } from '@shared/schemas/plugin-update'
@@ -222,7 +221,6 @@ export interface CommandContext {
   fileCleanupService: FileCleanupService
   eventBus: EventBus
   notificationCenter: Pick<NotificationCenter, 'notify'>
-  captureLegacyBtRequestSource?: CreateTaskDeps['captureLegacyBtRequestSource']
   motrixDatabase: MotrixDatabase
   geoipManager: GeoIPManager
   proxyApplier: ReturnType<typeof createMainProxyApplier>
@@ -353,7 +351,6 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
   } = ctx
 
   const createDeps: CreateTaskDeps = {
-    captureLegacyBtRequestSource: ctx.captureLegacyBtRequestSource,
     adapter,
     directResourceValidator: new DirectResourceValidatorService(),
     directResourceProxyPolicy:
@@ -917,27 +914,13 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
           await activatePluginsForTask('magnet', req.payload.uri)
           if (
             req.selectedFiles.length === 0 &&
-            (settingsManager.getApp().magnetFileSelection ||
-              req.legacySourceTaskId)
+            settingsManager.getApp().magnetFileSelection
           ) {
             let taskId: string
             try {
-              if (req.legacySourceTaskId && !ctx.captureLegacyBtRequestSource) {
-                throw new AppError(
-                  ErrorCode.InvalidSelection,
-                  'legacyImport.errors.activationSourceMissing'
-                )
-              }
-              const legacyBtRequestSource = req.legacySourceTaskId
-                ? await ctx.captureLegacyBtRequestSource?.(
-                    req.legacySourceTaskId,
-                    { uri: req.payload.uri }
-                  )
-                : undefined
               taskId = await magnetTracker.submit(
                 req.payload.uri,
-                req.saveDir || settingsManager.getApp().defaultSaveDir,
-                legacyBtRequestSource ? { legacyBtRequestSource } : undefined
+                req.saveDir || settingsManager.getApp().defaultSaveDir
               )
             } catch (error) {
               const conflict =
@@ -997,24 +980,6 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
                 return { outcome: 'conflict', conflict: admission.conflict }
               }
               if (admission.action === 'reuse') {
-                const previous = taskManager.getById(req.existingTaskId)
-                if (
-                  JSON.stringify(
-                    getLegacyBtRequestSource(
-                      previous?.instances[0]?.payload ?? {}
-                    )
-                  ) !==
-                  JSON.stringify(
-                    getLegacyBtRequestSource(
-                      admission.task.instances[0]?.payload ?? {}
-                    )
-                  )
-                ) {
-                  throw new AppError(
-                    ErrorCode.InvalidSelection,
-                    'legacyImport.errors.requestSettingsMismatch'
-                  )
-                }
                 await removeTask(
                   req.existingTaskId,
                   { deleteWithFiles: false },

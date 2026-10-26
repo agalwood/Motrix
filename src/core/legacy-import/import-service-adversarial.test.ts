@@ -441,7 +441,7 @@ describe('legacy import service adversarial acceptance', () => {
       type: 'http',
       selectable: true,
       reason: 'request-settings-required',
-      requestOptions: expect.arrayContaining(['header', 'all-proxy']),
+      requestOptions: ['header'],
       ignoredOptions: expect.arrayContaining([
         'load-cookies',
         'on-download-complete',
@@ -460,7 +460,7 @@ describe('legacy import service adversarial acceptance', () => {
       activation: 'inactive',
       storagePolicy: 'legacy-read-only',
       reason: 'request-settings-required',
-      requestOptions: expect.arrayContaining(['header', 'all-proxy']),
+      requestOptions: ['header'],
       ignoredOptions: expect.arrayContaining([
         'load-cookies',
         'on-download-complete',
@@ -522,12 +522,13 @@ describe('legacy import service adversarial acceptance', () => {
       name: 'bundle',
       selectable: true,
       reason: 'metadata-required',
-      requestOptions: expect.arrayContaining([
+      ignoredOptions: expect.arrayContaining([
+        'header',
+        'rpc-secret',
         'all-proxy',
         'all-proxy-user',
         'all-proxy-passwd',
       ]),
-      ignoredOptions: expect.arrayContaining(['header', 'rpc-secret']),
     })
     const run = await f.service.commit({
       previewId: preview.previewId,
@@ -541,12 +542,13 @@ describe('legacy import service adversarial acceptance', () => {
     expect(task.instances[0].payload.legacyImport).toMatchObject({
       activation: 'inactive',
       storagePolicy: 'legacy-read-only',
-      requestOptions: expect.arrayContaining([
+      ignoredOptions: expect.arrayContaining([
+        'header',
+        'rpc-secret',
         'all-proxy',
         'all-proxy-user',
         'all-proxy-passwd',
       ]),
-      ignoredOptions: expect.arrayContaining(['header', 'rpc-secret']),
     })
     const persisted = JSON.stringify({
       tasks: f.db.getAllTasks(),

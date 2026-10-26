@@ -30,15 +30,6 @@ import type { TorrentMetaStore } from '../torrent-meta-store'
 import { reAddTask } from './re-add-task'
 
 const RESERVED_GID = '0123456789abcdef'
-const LEGACY_BT_REQUEST = {
-  version: 1 as const,
-  runId: 'c2859cb0-aefe-438a-b05e-3389437a5c36',
-  itemKey: 'gid:0123456789abcdef',
-  snapshotDigest: '1'.repeat(64),
-  manifestDigest: '2'.repeat(64),
-  infoHash: '3'.repeat(40),
-  torrentDigest: '4'.repeat(64),
-}
 
 function buildSingleFileTorrent(
   name: string,
@@ -137,28 +128,6 @@ function makeDeps(task: DownloadTask | undefined) {
 }
 
 describe('reAddTask (BT path)', () => {
-  it('carries a private backup reference through retry and its durable owner', async () => {
-    const task = withPrimaryInstance(makeBtTask())
-    task.instances[0].payload.legacyBtRequestSource = LEGACY_BT_REQUEST
-    const deps = makeDeps(task)
-    await reAddTask(task.id, deps)
-    expect(deps.adapter.addTorrent).toHaveBeenCalledWith(
-      expect.objectContaining({ legacyBtRequestSource: LEGACY_BT_REQUEST })
-    )
-    expect(
-      vi.mocked(deps.persistTask).mock.calls[0][0].instances[0].payload
-    ).toMatchObject({ legacyBtRequestSource: LEGACY_BT_REQUEST })
-  })
-
-  it('rejects a damaged private reference before removing the old engine task', async () => {
-    const task = withPrimaryInstance(makeBtTask())
-    task.instances[0].payload.legacyBtRequestSource = null
-    const deps = makeDeps(task)
-    await expect(reAddTask(task.id, deps)).rejects.toThrow()
-    expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
-    expect(deps.adapter.addTorrent).not.toHaveBeenCalled()
-  })
-
   it.each([TaskStatus.Error, TaskStatus.Completed])(
     're-adds a direct single-file BT task at the same final path from %s',
     async (status) => {

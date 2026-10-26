@@ -1,7 +1,5 @@
 import { createHash } from 'node:crypto'
 import path from 'node:path'
-import { extractAria2ProxyCredentials } from '@core/proxy/aria2-proxy-routing'
-import { normalizeLegacyAria2ProxyUrl } from '@core/proxy/legacy-aria2-proxy'
 import type { LegacyReason } from '@shared/schemas/legacy-import'
 
 export const MAX_LEGACY_BYTES = 8 * 1024 * 1024
@@ -41,7 +39,7 @@ const OPTIONS = new Set([
 ])
 
 const PROXY_PREFIXES = ['all-proxy', 'http-proxy', 'https-proxy', 'ftp-proxy']
-export const LEGACY_PROXY_OPTIONS = new Set([
+const LEGACY_PROXY_OPTIONS = new Set([
   ...PROXY_PREFIXES.flatMap((key) => [key, `${key}-user`, `${key}-passwd`]),
   'no-proxy',
   'proxy-method',
@@ -49,7 +47,6 @@ export const LEGACY_PROXY_OPTIONS = new Set([
 
 /** Values remain private to the parser; only filtered names enter public records. */
 export const LEGACY_REQUEST_OPTIONS = new Set([
-  ...LEGACY_PROXY_OPTIONS,
   'header',
   'referer',
   'http-user',
@@ -122,7 +119,12 @@ export function resolveLegacyRequestSettings(
         : [value]
   }
   for (const key of Object.keys(system))
-    if (!OPTIONS.has(key) && !LEGACY_REQUEST_OPTIONS.has(key)) ignore(key)
+    if (
+      !OPTIONS.has(key) &&
+      !LEGACY_REQUEST_OPTIONS.has(key) &&
+      (!LEGACY_PROXY_OPTIONS.has(key) || system[key] !== '')
+    )
+      ignore(key)
   for (const key of LEGACY_REQUEST_OPTIONS) {
     if (key === 'header') continue
     const list = raw(key)
@@ -132,7 +134,7 @@ export function resolveLegacyRequestSettings(
       if (value !== 'true' && value !== true) ignore(key)
       continue
     }
-    if (kind !== 'http' && !LEGACY_PROXY_OPTIONS.has(key)) {
+    if (kind !== 'http') {
       if (value !== '') ignore(key)
       continue
     }
@@ -140,17 +142,7 @@ export function resolveLegacyRequestSettings(
       ignore(key)
       continue
     }
-    const proxy =
-      PROXY_PREFIXES.includes(key) && value !== ''
-        ? normalizeLegacyAria2ProxyUrl(value)
-        : null
     if (
-      (PROXY_PREFIXES.includes(key) &&
-        value !== '' &&
-        (!proxy || !extractAria2ProxyCredentials(proxy.href))) ||
-      (key === 'proxy-method' &&
-        value !== 'get' &&
-        !(kind !== 'http' && value === 'tunnel')) ||
       (key === 'referer' && value === '*') ||
       (key === 'http-user' && value.includes(':'))
     ) {
@@ -162,13 +154,6 @@ export function resolveLegacyRequestSettings(
         ? ''
         : value,
     ]
-  }
-  for (const prefix of PROXY_PREFIXES) {
-    if (values[prefix]?.[0]) continue
-    for (const key of [`${prefix}-user`, `${prefix}-passwd`]) {
-      if (values[key]?.[0]) ignore(key)
-      delete values[key]
-    }
   }
   const inheritedHeaders =
     system.header == null
@@ -298,7 +283,11 @@ export function parseLegacySession(bytes: Uint8Array): LegacySessionEntry[] {
         requestValues[key] ??= []
         requestValues[key].push(value)
       } else if (!OPTIONS.has(key)) {
-        if (safeOptionName(key) && ignoredOptions.size < 64)
+        if (
+          safeOptionName(key) &&
+          ignoredOptions.size < 64 &&
+          (!LEGACY_PROXY_OPTIONS.has(key) || value !== '')
+        )
           ignoredOptions.add(key)
       } else {
         optionPairs.push([key, value])

@@ -1,7 +1,6 @@
 import path from 'node:path'
 import type { DirectResourceRequestOptions } from '@core/task/direct-resource-validator'
 import { AppError, ErrorCode } from '@shared/errors'
-import { parseLegacySystem, resolveLegacyProxyOptions } from './proxy-context'
 import {
   digestBytes,
   parseLegacySession,
@@ -38,7 +37,16 @@ export function resolveLegacyHttpRequestContext(input: {
       ErrorCode.InvalidSelection,
       'legacyImport.errors.mirrorsUnsupported'
     )
-  const system = parseLegacySystem(input.system)
+  let system: Record<string, unknown>
+  try {
+    system = JSON.parse(
+      new TextDecoder('utf-8', { fatal: true }).decode(input.system)
+    )
+    if (!system || Array.isArray(system) || typeof system !== 'object')
+      throw failure()
+  } catch {
+    throw failure()
+  }
   const entries = parseLegacySession(input.session)
   const matches = entries.filter((entry) => {
     if (entry.gid) return entry.itemKey === input.itemKey
@@ -140,17 +148,14 @@ export function resolveLegacyHttpRequestContext(input: {
     )
   }
   const userAgent = headers['user-agent'] ?? value('user-agent', 'aria2/1.36.0')
-  const proxy = resolveLegacyProxyOptions(values)
   if (path.dirname(input.targetPath) === input.targetPath) throw changed()
   return {
     uri,
     headers,
     userAgent,
-    // Verification and native continuation both prohibit redirects, so only
-    // the original URI's protocol determines this task's route.
-    proxy:
-      (url.protocol === 'https:' ? proxy.httpsProxy : proxy.httpProxy) ||
-      proxy.allProxy,
-    noProxy: proxy.noProxy,
+    // The activation service supplies the currently applied download route.
+    // Legacy proxy endpoints and credentials are never replayed.
+    proxy: '',
+    noProxy: '',
   }
 }

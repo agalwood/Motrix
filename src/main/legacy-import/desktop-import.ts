@@ -375,7 +375,6 @@ async function prepareFreshDownload(
     prefill = {
       tab: 'torrent',
       source: 'file',
-      legacySourceTaskId: task.id,
       base64,
       torrentMeta,
       selectedFiles: marker.selectionKnown ? marker.selectedFiles : [],
@@ -388,11 +387,7 @@ async function prepareFreshDownload(
         ErrorCode.InvalidSelection,
         'legacyImport.errors.unsafeSource'
       )
-    prefill = {
-      tab: 'links',
-      urls: task.uris.join('\n'),
-      legacySourceTaskId: task.id,
-    }
+    prefill = { tab: 'links', urls: task.uris.join('\n') }
   } else {
     if (task.uris.length !== 1)
       throw new AppError(

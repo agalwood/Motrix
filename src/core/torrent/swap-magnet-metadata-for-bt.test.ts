@@ -353,61 +353,6 @@ describe('swapMagnetMetadataForBt', () => {
     })
   })
 
-  it.each([false, true])(
-    'preserves a private backup reference during metadata swap (malformed=%s)',
-    async (malformed) => {
-      const legacyBtRequestSource = malformed
-        ? { version: 1 }
-        : {
-            version: 1,
-            runId: 'ab331fbb-1c9c-4dd3-a5dd-afd6b3f09dac',
-            itemKey: 'entry',
-            snapshotDigest: 'a'.repeat(64),
-            manifestDigest: 'b'.repeat(64),
-            infoHash: '43efb4f44e8b1198387ddd79269a2dbdece78bec',
-            torrentDigest: null,
-          }
-      const pair = db.getTask('m-mag')!
-      pair.instances[0].payload.legacyBtRequestSource = legacyBtRequestSource
-      db.saveTaskWithInstances(pair)
-      const operation = swapMagnetMetadataForBt(
-        {
-          taskId: 'm-mag',
-          base64: 'BASE64TORRENT==',
-          selectedFiles: [0, 1],
-          saveDir: '/Downloads',
-          name: 'video.mp4',
-        },
-        {
-          db,
-          taskManager,
-          adapter: adapter as never,
-          magnetTracker: magnetTracker as never as MagnetTracker,
-          publishTaskUpdate: () => {},
-          publishTaskUpdateNow: () => {},
-          finalNamePicker: finalNamePicker as never,
-          torrentMetaStore: torrentMetaStore as never,
-          runTaskMutation: runImmediately,
-          runExclusivePersistence: persistImmediately,
-        }
-      )
-      if (malformed) {
-        await expect(operation).rejects.toThrow()
-        expect(adapter.addTorrent).not.toHaveBeenCalled()
-        expect(magnetTracker.cancel).not.toHaveBeenCalled()
-        expect(torrentMetaStore.persist).not.toHaveBeenCalled()
-      } else {
-        await operation
-        expect(
-          adapter.addTorrent.mock.calls[0][0].legacyBtRequestSource
-        ).toEqual(legacyBtRequestSource)
-        expect(
-          db.getTask('m-mag')?.instances[0].payload.legacyBtRequestSource
-        ).toEqual(legacyBtRequestSource)
-      }
-    }
-  )
-
   it('retries metadata persistence failure in the same final directory', async () => {
     const createdDirs = new Set<string>()
     mkdirMock.mockImplementation(async (dir: string) => {

@@ -3,7 +3,6 @@ import { readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { EngineAdapter } from '@core/engine/engine-adapter'
 import { legacyBtActivationSchema } from '@shared/schemas/legacy-bt-activation'
-import { getLegacyBtRequestSource } from '@shared/schemas/legacy-bt-request'
 import type { LegacyCheckpointReceipt } from '@shared/schemas/legacy-checkpoint'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
@@ -16,7 +15,7 @@ const cleanup: Array<() => Promise<void>> = []
 afterEach(async () => {
   await Promise.all(cleanup.splice(0).map((fn) => fn()))
 })
-async function fixture(configureProfile?: (profile: string) => Promise<void>) {
+async function fixture() {
   let receipt: LegacyCheckpointReceipt | null = null
   let engine: DownloadTask | null = null
   let loseImport = false
@@ -104,7 +103,7 @@ async function fixture(configureProfile?: (profile: string) => Promise<void>) {
       if (engine) engine.status = TaskStatus.Downloading
     }),
   } as unknown as EngineAdapter
-  f = await legacyBtActivationFixture(adapter, configureProfile)
+  f = await legacyBtActivationFixture(adapter)
   cleanup.push(f.dispose)
   return {
     ...f,
@@ -134,112 +133,6 @@ async function fixture(configureProfile?: (profile: string) => Promise<void>) {
 }
 
 describe('durable BT legacy activation', () => {
-  it('restores legacy proxy routes and credentials without storing them in the activation intent', async () => {
-    const f = await fixture(async (profile) => {
-      const filename = path.join(profile, 'system.json')
-      const system = JSON.parse(await readFile(filename, 'utf8'))
-      system['all-proxy'] = 'http://old%40user:oldsecret@proxy.example:3128'
-      system['http-proxy'] = 'http://http-proxy.example:8080'
-      system['http-proxy-passwd'] = 'literal%40secret'
-      system['http-proxy-user'] = 'http-user'
-      system['no-proxy'] = '.internal'
-      system['proxy-method'] = 'tunnel'
-      await writeFile(filename, JSON.stringify(system))
-    })
-    await f.service.activate(f.taskId, async () => f.downloads)
-    const proxy = {
-      allProxy: 'http://old%40user:oldsecret@proxy.example:3128/',
-      httpProxy: 'http://http-user:literal%2540secret@http-proxy.example:8080/',
-      httpsProxy: '',
-      ftpProxy: '',
-      noProxy: '.internal',
-      proxyMethod: 'tunnel',
-    }
-    expect(f.adapter.addTorrent).toHaveBeenCalledWith(
-      expect.objectContaining({ legacyProxy: proxy })
-    )
-    expect(f.adapter.verifyLegacyBtBinding).toHaveBeenCalledWith(
-      expect.objectContaining({ proxy })
-    )
-    const persisted = JSON.stringify(f.db.getTask(f.taskId))
-    expect(persisted).not.toContain('oldsecret')
-    expect(persisted).not.toContain('literal%40secret')
-    expect(persisted).not.toContain('proxy.example')
-    expect(
-      f.db.getTask(f.taskId)?.instances[0].payload.legacyBtActivation
-    ).toMatchObject({ proxyContext: true })
-    await f.recover()
-    expect(f.adapter.verifyLegacyBtBinding).toHaveBeenLastCalledWith(
-      expect.objectContaining({ proxy })
-    )
-  })
-
-  it('pauses the exact live task if its immutable proxy backup changed before recovery', async () => {
-    const f = await fixture()
-    await f.service.activate(f.taskId, async () => f.downloads)
-    const reference = getLegacyBtRequestSource(
-      f.db.getTask(f.taskId)!.instances[0].payload
-    )!
-    await writeFile(
-      path.join(f.deps.backupRoot, reference.runId, 'system.json'),
-      '{}'
-    )
-    await f.recover()
-    expect(f.adapter.pauseTask).toHaveBeenCalledOnce()
-    expect(isLegacyImportInactive(f.taskManager.getById(f.taskId)!)).toBe(true)
-    expect(f.adapter.resumeTask).toHaveBeenCalledTimes(1)
-  })
-
-  it('does not pause a different native owner after the proxy backup changed', async () => {
-    const f = await fixture()
-    await f.service.activate(f.taskId, async () => f.downloads)
-    const reference = getLegacyBtRequestSource(
-      f.db.getTask(f.taskId)!.instances[0].payload
-    )!
-    await writeFile(
-      path.join(f.deps.backupRoot, reference.runId, 'system.json'),
-      '{}'
-    )
-    f.badProof()
-    await f.recover()
-    expect(f.adapter.pauseTask).not.toHaveBeenCalled()
-    expect(isLegacyImportInactive(f.taskManager.getById(f.taskId)!)).toBe(true)
-  })
-
-  it('pauses an owned live task when only its native proxy binding was changed', async () => {
-    const f = await fixture()
-    await f.service.activate(f.taskId, async () => f.downloads)
-    vi.mocked(f.adapter.verifyLegacyBtBinding!).mockImplementation(
-      async (proof) => proof.proxy === undefined
-    )
-    await f.recover()
-    expect(f.adapter.pauseTask).toHaveBeenCalledOnce()
-    expect(isLegacyImportInactive(f.taskManager.getById(f.taskId)!)).toBe(true)
-    expect(f.adapter.resumeTask).toHaveBeenCalledTimes(1)
-  })
-
-  it('recovers an already active proxy binding independently of the old profile location', async () => {
-    const f = await fixture()
-    await f.service.activate(f.taskId, async () => f.downloads)
-    await rm(f.profile, { recursive: true })
-    await f.recover()
-    expect(isLegacyImportInactive(f.taskManager.getById(f.taskId)!)).toBe(false)
-    expect(f.adapter.pauseTask).not.toHaveBeenCalled()
-  })
-
-  it('keeps older active activations without proxy context recoverable', async () => {
-    const f = await fixture()
-    await f.service.activate(f.taskId, async () => f.downloads)
-    const pair = f.db.getTask(f.taskId)!
-    delete (
-      pair.instances[0].payload.legacyBtActivation as Record<string, unknown>
-    ).proxyContext
-    f.db.saveTaskWithInstances(pair)
-    await writeFile(path.join(f.profile, 'system.json'), '{}')
-    await f.recover()
-    expect(isLegacyImportInactive(f.taskManager.getById(f.taskId)!)).toBe(false)
-    expect(f.adapter.pauseTask).not.toHaveBeenCalled()
-  })
   it('binds exact original layout/selection before unpause and backs up actual control bytes', async () => {
     const f = await fixture()
     const original = await readFile(

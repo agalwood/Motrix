@@ -769,51 +769,6 @@ describe('finalizeTask BT branch', () => {
     } as Partial<DownloadTask>)
   }
 
-  it('retains the private backup reference when reseeding after completion', async () => {
-    const reference = {
-      version: 1,
-      runId: 'c2859cb0-aefe-438a-b05e-3389437a5c36',
-      itemKey: 'gid:0123456789abcdef',
-      snapshotDigest: '1'.repeat(64),
-      manifestDigest: '2'.repeat(64),
-      infoHash: '3'.repeat(40),
-      torrentDigest: '4'.repeat(64),
-    }
-    const task = makeBtTask({
-      instances: [
-        makePrimaryInstance({
-          phase: TaskInstancePhase.BtDownload,
-          payload: { legacyBtRequestSource: reference },
-        }),
-      ],
-    })
-    const deps = makeDeps()
-    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
-    await finalizeTask(task.id, deps)
-    expect(deps.adapter.addTorrent).toHaveBeenCalledWith(
-      expect.objectContaining({ legacyBtRequestSource: reference })
-    )
-    expect(task.instances[0].payload).toMatchObject({
-      legacyBtRequestSource: reference,
-    })
-  })
-
-  it('leaves completed output intact without reseeding a damaged private reference', async () => {
-    const task = makeBtTask({
-      instances: [
-        makePrimaryInstance({
-          phase: TaskInstancePhase.BtDownload,
-          payload: { legacyBtRequestSource: null },
-        }),
-      ],
-    })
-    const deps = makeDeps()
-    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
-    await finalizeTask(task.id, deps)
-    expect(task.status).toBe(TaskStatus.Completed)
-    expect(deps.adapter.addTorrent).not.toHaveBeenCalled()
-  })
-
   it('recovers a missing engine identity without abandoning seeding', async () => {
     const task = makeBtTask({
       status: TaskStatus.Finalizing,

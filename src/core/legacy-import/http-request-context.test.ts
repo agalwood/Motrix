@@ -1,6 +1,5 @@
 // @vitest-environment node
 import path from 'node:path'
-import { extractAria2ProxyCredentials } from '@core/proxy/aria2-proxy-routing'
 import { describe, expect, it } from 'vitest'
 import { resolveLegacyHttpRequestContext } from './http-request-context'
 import { digestBytes, parseLegacySession } from './session-parser'
@@ -20,17 +19,6 @@ function resolve(options = '', system: Record<string, unknown> = {}) {
   })
 }
 describe('legacy HTTP request context', () => {
-  it.each([
-    ['https://proxy.example', 'http://proxy.example:443/'],
-    ['https://proxy.example:80', 'http://proxy.example/'],
-    ['https://proxy.example:8181', 'http://proxy.example:8181/'],
-    ['ftp://proxy.example', 'http://proxy.example:21/'],
-  ])(
-    'uses the same HTTP proxy transport and port as aria2 for %s',
-    (proxy, expected) => {
-      expect(resolve('', { 'https-proxy': proxy }).proxy).toBe(expected)
-    }
-  )
   it.each([true, false])(
     'ignores unrelated malformed HTTP paths when the selected task has GID: %s',
     (hasGid) => {
@@ -50,7 +38,7 @@ describe('legacy HTTP request context', () => {
     }
   )
 
-  it('restores only verified headers, referer, user agent, basic auth, and the effective proxy', () => {
+  it('restores HTTP request fields while discarding old proxy settings', () => {
     const context = resolve(
       ' header=Cookie: session=secret\n referer=https://example.com/list\n http-user=user\n http-passwd=secret\n',
       {
@@ -68,93 +56,19 @@ describe('legacy HTTP request context', () => {
         referer: 'https://example.com/list',
         authorization: `Basic ${Buffer.from('user:secret').toString('base64')}`,
       },
-      proxy: 'http://proxy-user:proxy-secret@proxy.example:8080/',
-      noProxy: 'localhost',
+      proxy: '',
+      noProxy: '',
       userAgent: 'Legacy Browser',
     })
   })
-  it.each([
-    ['proxy%40user', 'password%21'],
-    ["代理@ user:/?#[]!$&'()*+,;=%", "密碼@ pass:/?#[]!$&'()*+,;=%"],
-  ])(
-    'preserves raw dedicated proxy credential bytes: %s',
-    (username, password) => {
-      const context = resolve('', {
-        'all-proxy': 'http://proxy.example:8080',
-        'all-proxy-user': username,
-        'all-proxy-passwd': password,
-      })
-      expect(extractAria2ProxyCredentials(context.proxy)).toEqual({
-        username,
-        password,
-      })
-      expect(context.headers).toEqual({})
-    }
-  )
-  it.each([
-    {
-      options: { 'all-proxy-user': 'new%40user' },
-      expected: { username: 'new%40user', password: 'uri%21pass' },
-    },
-    {
-      options: { 'all-proxy-passwd': 'new%21pass' },
-      expected: { username: 'uri%40user', password: 'new%21pass' },
-    },
-    {
-      options: { 'all-proxy-user': '' },
-      expected: { username: '', password: '' },
-    },
-    {
-      options: { 'all-proxy-passwd': '' },
-      expected: { username: 'uri%40user', password: '' },
-    },
-  ])(
-    'overrides only defined URI credential fields: $options',
-    ({ options, expected }) => {
-      const context = resolve('', {
-        'all-proxy': 'http://uri%2540user:uri%2521pass@proxy.example:8080',
-        ...options,
-      })
-      expect(extractAria2ProxyCredentials(context.proxy)).toEqual(expected)
-    }
-  )
-  it('honors an explicitly empty task password over inherited credentials', () => {
-    const context = resolve(' all-proxy-passwd=\n', {
-      'all-proxy': 'http://uri-user:uri-pass@proxy.example:8080',
-      'all-proxy-user': 'global%40user',
-      'all-proxy-passwd': 'global-pass',
-    })
-    expect(extractAria2ProxyCredentials(context.proxy)).toEqual({
-      username: 'global%40user',
-      password: '',
-    })
-  })
-  it('keeps reconstructed proxy credentials out of preview data', () => {
+  it('keeps discarded proxy credentials out of the context and preview', () => {
     const options =
-      ' all-proxy=http://proxy.example:8080\n all-proxy-user=private%40user\n all-proxy-passwd=private%21password\n'
-    expect(extractAria2ProxyCredentials(resolve(options).proxy)).toEqual({
-      username: 'private%40user',
-      password: 'private%21password',
-    })
-    const preview = JSON.stringify(
-      parseLegacySession(Buffer.from(`${uri}\n${options}`))
-    )
-    expect(preview).not.toContain('private')
+      ' all-proxy=http://private:secret@proxy.example:8080\n all-proxy-passwd=private-password\n'
+    expect(resolve(options)).toMatchObject({ proxy: '', noProxy: '' })
+    expect(
+      JSON.stringify(parseLegacySession(Buffer.from(`${uri}\n${options}`)))
+    ).not.toMatch(/private|secret|proxy\.example/)
   })
-  it.each(['private\npassword', 'private\ud800password'])(
-    'discards invalid credential text without blocking the verified context',
-    (password) => {
-      const context = resolve('', {
-        'all-proxy': 'http://proxy.example:8080',
-        'all-proxy-user': 'private-user',
-        'all-proxy-passwd': password,
-      })
-      expect(extractAria2ProxyCredentials(context.proxy)).toEqual({
-        username: 'private-user',
-        password: '',
-      })
-    }
-  )
   it.each([
     ' load-cookies=/secret/cookies.txt\n',
     ' no-netrc=false\n',
@@ -185,13 +99,13 @@ describe('legacy HTTP request context', () => {
       resolve(' header=Cookie: changed\n', { header: ['Cookie: old'] }).headers
     ).toEqual({})
   })
-  it('selects only the original protocol route because redirects are forbidden', () => {
+  it('discards both protocol-specific legacy routes', () => {
     expect(
       resolve('', {
         'http-proxy': 'http://plain.example:8080',
         'https-proxy': 'http://secure.example:8081',
       }).proxy
-    ).toBe('http://secure.example:8081/')
+    ).toBe('')
   })
   it('honors last singleton settings and an explicitly cleared task proxy', () => {
     expect(

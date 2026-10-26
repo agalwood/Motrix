@@ -305,6 +305,90 @@ describe('durable HTTP legacy activation', () => {
     ])
       expect(serialized).not.toContain(secret)
   })
+  it.each([true, false])(
+    'uses the current download route for verification and continuation (proxy enabled: %s)',
+    async (enabled) => {
+      const f = await fixture({
+        system: {
+          'all-proxy': 'http://old:secret@old.invalid:8080',
+          'no-proxy': '*',
+        },
+      })
+      const proxy = enabled ? 'http://current:password@127.0.0.1:7890' : ''
+      f.proxyPolicy.commit(
+        enabled ? { allProxy: proxy, noProxy: '.internal' } : null
+      )
+      await f.service.activate(f.taskId, async () => f.downloads)
+      const route = { proxy, noProxy: enabled ? '.internal' : '' }
+      expect(
+        f.verifier.verifyLegacyContent.mock.calls[0][0].options
+      ).toMatchObject(route)
+      expect(f.adapter.createDownload).toHaveBeenCalledWith(
+        expect.objectContaining(route)
+      )
+      expect(JSON.stringify(f.db.getTask(f.taskId))).not.toMatch(
+        /password|old\.invalid|secret/
+      )
+    }
+  )
+
+  it('fails closed if engine restart invalidates the route during verification', async () => {
+    const f = await fixture()
+    const verify = f.verifier.verifyLegacyContent.getMockImplementation()!
+    f.verifier.verifyLegacyContent.mockImplementationOnce(async (input) => {
+      const result = await verify(input)
+      f.proxyPolicy.markUnavailable()
+      return result
+    })
+    await expect(
+      f.service.activate(f.taskId, async () => f.downloads)
+    ).rejects.toThrow()
+    expect(f.adapter.importLegacyCheckpoint).not.toHaveBeenCalled()
+    expect(f.adapter.createDownload).not.toHaveBeenCalled()
+    expect(await readFile(f.target)).toEqual(f.payload)
+  })
+
+  it('rechecks the source after native creation before unpausing', async () => {
+    const f = await fixture()
+    const create = vi.mocked(f.adapter.createDownload).getMockImplementation()!
+    vi.mocked(f.adapter.createDownload).mockImplementationOnce(
+      async (params) => {
+        const gid = await create(params)
+        await writeFile(path.join(f.profile, 'system.json'), '{}')
+        return gid
+      }
+    )
+    await expect(
+      f.service.activate(f.taskId, async () => f.downloads)
+    ).rejects.toThrow('legacyImport.errors.changedSource')
+    expect(f.adapter.resumeTask).not.toHaveBeenCalled()
+    expect(await readFile(f.target)).toEqual(f.payload)
+  })
+
+  it('holds the applied route stable until verification and native dispatch finish', async () => {
+    const f = await fixture()
+    f.proxyPolicy.commit({ allProxy: 'http://current:8080', noProxy: '' })
+    let transition: Promise<unknown> | undefined
+    const apply = vi.fn(async () => ({
+      downloadProxy: 'applied' as const,
+      appliedProxy: null,
+    }))
+    const verify = f.verifier.verifyLegacyContent.getMockImplementation()!
+    f.verifier.verifyLegacyContent.mockImplementationOnce(async (input) => {
+      transition = f.proxyPolicy.applyTransition(apply)
+      await Promise.resolve()
+      expect(apply).not.toHaveBeenCalled()
+      return verify(input)
+    })
+    await f.service.activate(f.taskId, async () => f.downloads)
+    await transition
+    expect(apply).toHaveBeenCalledOnce()
+    expect(f.adapter.createDownload).toHaveBeenCalledWith(
+      expect.objectContaining({ proxy: 'http://current:8080' })
+    )
+    expect(f.proxyPolicy.snapshot()).toEqual({ noProxy: '' })
+  })
+
   it('leaves originals and the engine untouched when remote bytes mismatch', async () => {
     const f = await fixture()
     f.verifier.verifyLegacyContent.mockRejectedValueOnce(

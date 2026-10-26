@@ -5,10 +5,6 @@ import type { AppliedDownloadProxyPolicyReader } from '@core/proxy/applied-downl
 import { admitDownloadSources } from '@core/task/source-admission'
 import { AppError, ErrorCode } from '@shared/errors'
 import { parseDirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
-import {
-  getLegacyBtRequestSource,
-  type LegacyBtRequestSource,
-} from '@shared/schemas/legacy-bt-request'
 import type { DownloadTask } from '@shared/types/task'
 import {
   TaskInstancePhase,
@@ -48,7 +44,6 @@ import {
   type DirectResourceProxyOptionsProvider,
   DirectResourceValidatorService,
 } from '../direct-resource-validator'
-import { pickPrimaryInstance } from '../task-instance'
 import type { TorrentMetaStore } from '../torrent-meta-store'
 import { commitTaskUpdate, getTaskOrWarn, type TaskActionDeps } from './shared'
 
@@ -145,8 +140,7 @@ async function reAddBt(
   task: DownloadTask,
   deps: ReAddTaskDeps,
   reservedGid: string,
-  metadata: Uint8Array,
-  legacyBtRequestSource?: LegacyBtRequestSource
+  metadata: Uint8Array
 ): Promise<string> {
   const storageLayout = getBtStorageLayout(task)
   const directLayout = getBtDirectStorageLayout(task)
@@ -163,7 +157,6 @@ async function reAddBt(
   const selectedFiles = task.bt?.selectedFiles
   return deps.adapter.addTorrent({
     metadata,
-    ...(legacyBtRequestSource ? { legacyBtRequestSource } : {}),
     saveDir: directLayout
       ? buildBtDirectOutputPaths(
           task.diskPath,
@@ -585,11 +578,6 @@ async function reAddTaskUnderMutation(
   // fallible operation before publication is the engine dispatch itself.
   const torrentLike = isTorrentLike(task)
   const torrentMetadata = torrentLike ? await readBtMetadata(task, deps) : null
-  const legacyBtRequestSource = torrentLike
-    ? getLegacyBtRequestSource(
-        pickPrimaryInstance(task.instances)?.payload ?? {}
-      )
-    : undefined
   const directParams = torrentLike
     ? null
     : await buildDirectReAddParams(
@@ -642,13 +630,7 @@ async function reAddTaskUnderMutation(
 
   try {
     if (torrentLike && torrentMetadata) {
-      await reAddBt(
-        task,
-        deps,
-        reservedGid,
-        torrentMetadata,
-        legacyBtRequestSource
-      )
+      await reAddBt(task, deps, reservedGid, torrentMetadata)
     } else if (directParams) {
       assertProxyCurrent?.()
       await deps.adapter.createDownload({ ...directParams, gid: reservedGid })

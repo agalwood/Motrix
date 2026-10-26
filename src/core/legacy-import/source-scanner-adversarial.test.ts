@@ -154,7 +154,7 @@ describe('legacy source adversarial boundaries', () => {
     })
   })
 
-  it('requires new settings for inherited proxy and credentials without exposing them', async () => {
+  it('retains HTTP authentication but discards inherited proxies without exposing values', async () => {
     const { root, sourceRoot, source } = await fixture()
     await writeFile(
       path.join(sourceRoot, 'system.json'),
@@ -170,11 +170,7 @@ describe('legacy source adversarial boundaries', () => {
       type: 'http',
       selectable: true,
       reason: 'request-settings-required',
-      requestOptions: expect.arrayContaining([
-        'http-user',
-        'http-passwd',
-        'all-proxy',
-      ]),
+      requestOptions: expect.arrayContaining(['http-user', 'http-passwd']),
     })
     expect(JSON.stringify(scan.candidates.map(({ item }) => item))).not.toMatch(
       /private-user|private-pass|private-proxy/
@@ -292,38 +288,17 @@ describe('legacy source adversarial boundaries', () => {
 
   it.each([
     [
-      'inherited all-proxy',
+      'inherited proxy',
       { 'all-proxy': 'http://localhost:7890' },
       '',
       ['all-proxy'],
-      [],
     ],
-    ['task all-proxy', {}, ' all-proxy=localhost:7890\n', ['all-proxy'], []],
-    ['empty default all-proxy', { 'all-proxy': '' }, '', [], []],
-    [
-      'task empty override',
-      { 'all-proxy': 'localhost:7890' },
-      ' all-proxy=\n',
-      [],
-      [],
-    ],
-    [
-      'task final duplicate override',
-      { 'all-proxy': 'localhost:7890' },
-      ' all-proxy=http://private.test\n all-proxy=\n',
-      [],
-      [],
-    ],
-    [
-      'invalid inherited boolean',
-      { 'all-proxy': false },
-      '',
-      [],
-      ['all-proxy'],
-    ],
+    ['task proxy', {}, ' all-proxy=localhost:7890\n', ['all-proxy']],
+    ['empty default', { 'all-proxy': '' }, '', []],
+    ['invalid legacy proxy', { 'all-proxy': false }, '', ['all-proxy']],
   ])(
     'imports magnets with %s and resolves the saved display name',
-    async (_label, inherited, options, requestOptions, ignoredOptions) => {
+    async (_label, inherited, options, ignoredOptions) => {
       const magnet =
         'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&dn=Known-name'
       const { root, sourceRoot, source } = await fixture(
@@ -341,7 +316,7 @@ describe('legacy source adversarial boundaries', () => {
         selectable: true,
         reason: 'metadata-required',
       })
-      expect(item.requestOptions ?? []).toEqual(requestOptions)
+      expect(item.requestOptions ?? []).toEqual([])
       expect(item.ignoredOptions ?? []).toEqual(ignoredOptions)
       expect(JSON.stringify(item)).not.toMatch(/localhost|private/)
     }
@@ -392,8 +367,8 @@ describe('legacy source adversarial boundaries', () => {
       name: 'fixture-bundle',
       selectable: true,
       reason: 'verification-required',
-      requestOptions: ['all-proxy'],
       ignoredOptions: expect.arrayContaining([
+        'all-proxy',
         'header',
         'on-download-complete',
       ]),

@@ -480,12 +480,6 @@ export function buildServerCommandHandlers(
       const parsed = taskCreateRequestSchema.safeParse(request)
       if (parsed.success) {
         const req = parsed.data
-        if (req.type === 'bt' && req.legacySourceTaskId) {
-          throw new AppError(
-            ErrorCode.InvalidSelection,
-            'legacyImport.errors.activationSourceMissing'
-          )
-        }
         if (req.type === 'http') {
           if (!req.uris[0].startsWith('ftp:'))
             await activatePluginsForTask('http', req.uris[0] ?? '')
