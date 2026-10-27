@@ -1,7 +1,6 @@
 import type { Plugin } from 'vite'
 
-/** The operator-admin CLI is a separate Server entrypoint. Keep its catalog
- * out of the desktop main bundle while preserving all desktop translations. */
+/** Keep Server-only and renderer-only catalogs out of the desktop main bundle. */
 export function desktopLocaleProjection(localeDirectory: string): Plugin {
   const prefix = `${localeDirectory.replaceAll('\\', '/')}/`
   return {
@@ -12,6 +11,19 @@ export function desktopLocaleProjection(localeDirectory: string): Plugin {
       if (!file?.startsWith(prefix) || !file.endsWith('.json')) return null
       const catalog = JSON.parse(source) as Record<string, unknown>
       delete catalog.operatorAdmin
+      const task = catalog.task as Record<string, unknown> | undefined
+      const add = task?.add as Record<string, unknown> | undefined
+      if (add) delete add.duplicate
+      const storage = task?.storage as Record<string, unknown> | undefined
+      if (task && storage) {
+        // Dialogs load their full catalog in the renderer. Keep every key
+        // emitted as a host-side error or persisted task diagnostic.
+        task.storage = {
+          incomplete: storage.incomplete,
+          resumeFailed: storage.resumeFailed,
+          errors: storage.errors,
+        }
+      }
       return { code: JSON.stringify(catalog), map: null }
     },
   }
