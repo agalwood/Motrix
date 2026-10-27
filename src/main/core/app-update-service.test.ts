@@ -110,3 +110,31 @@ describe('createAppUpdateService', () => {
     expect(updater.quitAndInstall).not.toHaveBeenCalled()
   })
 })
+
+it('checks portable updates but never downloads or installs an NSIS package', async () => {
+  const updater = createFakeUpdater()
+  const service = await createAppUpdateService({
+    eventBus: new EventBus(),
+    currentVersion: '2.0.0',
+    channel: 'stable',
+    isWindowsPackage: false,
+    supported: true,
+    loadUpdater: async () => updater,
+    getManagedMessage: () => '',
+    getInstallBlockReason: () => 'portable',
+  })
+  await service.check()
+  updater.fire('update-available', { version: '2.0.1' })
+  expect(service.getState()).toMatchObject({
+    phase: 'available',
+    manualInstallReason: 'portable',
+  })
+  await service.download()
+  updater.fire('update-downloaded', { version: '2.0.1' })
+  service.install()
+  expect(updater.checkForUpdates).toHaveBeenCalledOnce()
+  expect(updater.autoDownload).toBe(false)
+  expect(updater.autoInstallOnAppQuit).toBe(false)
+  expect(updater.downloadUpdate).not.toHaveBeenCalled()
+  expect(updater.quitAndInstall).not.toHaveBeenCalled()
+})

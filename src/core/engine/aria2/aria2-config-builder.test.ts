@@ -1090,3 +1090,31 @@ describe('Aria2ConfigBuilder', () => {
     })
   })
 })
+
+it('keeps portable engine snapshots in the shell-selected location', () => {
+  const builder = new Aria2ConfigBuilder(
+    '/resources/aria2.conf',
+    '/portable/data/user-data',
+    { persistenceDirectory: '/portable/data/user-data/engine/current-location' }
+  )
+  const settings = makeEngineSettings({
+    sqlite3DbPath: 'E:\\old-location\\aria2.db',
+  })
+  const args = builder.buildArgs(
+    settings,
+    true,
+    null,
+    { download: 0, upload: 0 },
+    '/portable/Downloads'
+  )
+  expect(builder.resolveSqliteDbPath(settings)).toBe(
+    '/portable/data/user-data/engine/current-location/aria2.db'
+  )
+  expect(args).toContain(
+    '--sqlite3-db-path=/portable/data/user-data/engine/current-location/aria2.db'
+  )
+  expect(args).toContain(
+    '--save-session=/portable/data/user-data/engine/current-location/aria2.session'
+  )
+  expect(args).not.toContain('--sqlite3-db-path=E:\\old-location\\aria2.db')
+})

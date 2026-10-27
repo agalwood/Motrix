@@ -7,6 +7,12 @@ import {
   type DistributionContext,
   resolveDistributionContext,
 } from './distribution-context'
+import {
+  PortableProfileError,
+  preparePortableProfile,
+  resolvePortableProfile,
+  setPortableProfile,
+} from './portable-profile'
 
 export function createElectronPlatformServices(
   distributionContext: DistributionContext = resolveDistributionContext({
@@ -18,6 +24,7 @@ export function createElectronPlatformServices(
   const isDev = !app.isPackaged
   const userDataOverride = process.env.MOTRIX_USER_DATA
   const { isWindowsPackage } = distributionContext
+  setPortableProfile(null)
   const dataPaths = process.platform === 'win32' ? path.win32 : path
   if (isWindowsPackage && userDataOverride) {
     throw new Error('MOTRIX_USER_DATA is unsupported for Windows packages')
@@ -30,11 +37,29 @@ export function createElectronPlatformServices(
     )
   }
 
+  const portable = resolvePortableProfile({
+    platform: process.platform,
+    isPackaged: app.isPackaged,
+    isWindowsPackage,
+    executablePath: process.execPath,
+  })
+  if (portable) {
+    if (userDataOverride || process.env.MOTRIX_BRIDGE_DATA_DIR) {
+      throw new PortableProfileError(
+        'Portable mode cannot use external profile overrides'
+      )
+    }
+    preparePortableProfile(portable)
+    setPortableProfile(portable)
+  }
+
   let userDataDir: string
   if (isWindowsPackage) {
     // Never consult or migrate the direct-install profile in package mode.
     // Resolve AppData through Electron so Windows controls its package mapping.
     userDataDir = dataPaths.join(app.getPath('appData'), 'Motrix-Store')
+  } else if (portable) {
+    userDataDir = portable.userDataDir
   } else {
     const defaultUserDataDir = app.getPath('userData')
     userDataDir =
@@ -44,7 +69,7 @@ export function createElectronPlatformServices(
 
   // Resolve this before any persistent service or the single-instance lock.
   // Electron requires an existing absolute directory for app.setPath().
-  if (isWindowsPackage || userDataOverride || isDev) {
+  if (portable || isWindowsPackage || userDataOverride || isDev) {
     if (!dataPaths.isAbsolute(userDataDir)) {
       throw new Error(
         isWindowsPackage
@@ -55,6 +80,19 @@ export function createElectronPlatformServices(
     mkdirSync(userDataDir, { recursive: true })
     app.setPath('userData', userDataDir)
     app.setPath('sessionData', userDataDir)
+  }
+
+  if (portable) {
+    const logsDir = dataPaths.join(userDataDir, 'logs')
+    const crashDir = dataPaths.join(userDataDir, 'crashes')
+    mkdirSync(logsDir, { recursive: true })
+    mkdirSync(crashDir, { recursive: true })
+    app.setPath('logs', logsDir)
+    app.setPath('crashDumps', crashDir)
+    app.setPath('temp', portable.tempDir)
+    // Node's tmpdir() and child processes do not consult Electron's path map.
+    process.env.TEMP = portable.tempDir
+    process.env.TMP = portable.tempDir
   }
 
   const projectRoot = isDev ? path.resolve(__dirname, '..', '..') : ''

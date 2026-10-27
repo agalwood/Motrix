@@ -1160,7 +1160,8 @@
         "resumeSourceChanged": "Tệp tải dở được giữ lại vì tệp trên máy chủ đã thay đổi kể từ khi bắt đầu tải xuống.",
         "resumeRangeUnsupported": "Tệp tải dở được giữ lại vì máy chủ không hỗ trợ tải tiếp an toàn từ vị trí đã dừng.",
         "resumeValidationFailed": "Tệp tải dở được giữ lại vì Motrix không thể xác minh rằng tệp trên máy chủ chưa thay đổi.",
-        "mediaInterrupted": "Lượt tải nội dung đa phương tiện này bị gián đoạn khi ứng dụng khởi động lại và không thể tiếp tục. Hãy thêm lại để thử lại."
+        "mediaInterrupted": "Lượt tải nội dung đa phương tiện này bị gián đoạn khi ứng dụng khởi động lại và không thể tiếp tục. Hãy thêm lại để thử lại.",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       }
     },
     "error": {
@@ -2185,6 +2186,15 @@
       "originMismatchBody": "Không có cập nhật theo thời gian thực. Hãy dùng địa chỉ máy chủ đã cấu hình hoặc nhờ quản trị viên sửa địa chỉ.",
       "disconnectedTitle": "Kết nối cập nhật theo thời gian thực đã bị ngắt.",
       "disconnectedBody": "Một số thông tin có thể bị trễ. Nếu tình trạng này kéo dài, hãy kiểm tra kết nối máy chủ và cấu hình proxy."
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
     }
   },
   "errors": {

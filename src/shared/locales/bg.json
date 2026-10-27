@@ -2736,6 +2736,15 @@
       "textLength": "Използвайте най-много {{max}} знака.",
       "time": "Използвайте 24-часов формат, например 23:00.",
       "wholeBytes": "Използвайте по-малко десетични знаци."
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
     }
   },
   "task": {
@@ -2910,7 +2919,8 @@
         "resumeRangeUnsupported": "Частично изтегленият файл е запазен, тъй като сървърът не поддържа безопасно възобновяване от прекъснатата позиция.",
         "resumeSourceChanged": "Частично изтегленият файл е запазен, тъй като отдалеченият файл е променен след началото на изтеглянето.",
         "resumeValidationFailed": "Частично изтегленият файл е запазен, тъй като Motrix не успя да провери дали отдалеченият файл е непроменен.",
-        "torrentMetaMissing": "Тази BitTorrent задача не може да бъде възстановена: файлът с метаданни .torrent липсва. Премахнете задачата и я добавете отново."
+        "torrentMetaMissing": "Тази BitTorrent задача не може да бъде възстановена: файлът с метаданни .torrent липсва. Премахнете задачата и я добавете отново.",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       },
       "toast": "Възстановени прекъснати задачи: {{count}}. Щракнете за преглед."
     },

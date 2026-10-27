@@ -2736,6 +2736,15 @@
       "textLength": "Bruk høyst {{max}} tegn.",
       "time": "Bruk 24-timersformat, for eksempel 23:00.",
       "wholeBytes": "Bruk færre desimaler."
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
     }
   },
   "task": {
@@ -2910,7 +2919,8 @@
         "resumeRangeUnsupported": "Den delvise filen er beholdt fordi serveren ikke støtter trygg gjenopptakelse med byteområder.",
         "resumeSourceChanged": "Den delvise filen er beholdt fordi den eksterne filen har blitt endret siden nedlastingen startet.",
         "resumeValidationFailed": "Den delvise filen er beholdt fordi Motrix ikke kunne bekrefte at den eksterne filen er uendret.",
-        "torrentMetaMissing": "Kan ikke gjenopprette denne BitTorrent-oppgaven: metadatafilen .torrent mangler. Fjern oppgaven og legg den til på nytt."
+        "torrentMetaMissing": "Kan ikke gjenopprette denne BitTorrent-oppgaven: metadatafilen .torrent mangler. Fjern oppgaven og legg den til på nytt.",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       },
       "toast": "Gjenopprettede avbrutte oppgaver: {{count}}. Klikk for å se gjennom dem."
     },

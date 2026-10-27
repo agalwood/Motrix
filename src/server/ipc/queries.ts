@@ -278,6 +278,8 @@ export function buildServerQueryHandlers(
     [Queries.GetDirectoryPreferences]:
       createDirectoryPreferencesHandlers(settingsManager).get,
 
+    [Queries.GetPortableMode]: async () => ({ enabled: false }),
+
     [Queries.GetSettings]: async () => ({
       ...settingsManager.get(),
       resolvedLanguage: ctx.getResolvedLanguage(),

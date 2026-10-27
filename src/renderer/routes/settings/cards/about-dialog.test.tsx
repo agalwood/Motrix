@@ -14,6 +14,12 @@ import packageJson from '../../../../../package.json'
 import { AboutDialog } from './about-dialog'
 import * as appUpdateSection from './app-update-section'
 
+// These lifecycle tests cover the ordinary desktop host. Portable capability
+// presentation is exercised with the real hook in e2e/portable-mode.spec.ts.
+vi.mock('@renderer/hooks/use-portable-mode', () => ({
+  usePortableMode: () => false,
+}))
+
 vi.mock('@renderer/lib/transport', () => ({
   transport: {
     invoke: vi.fn(),

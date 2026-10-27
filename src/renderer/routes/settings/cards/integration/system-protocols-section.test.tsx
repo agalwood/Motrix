@@ -15,6 +15,7 @@ vi.mock('@renderer/lib/transport', () => ({
   transport: { invoke: vi.fn(), off: vi.fn(), on: vi.fn(), platform: 'win32' },
 }))
 
+let portable = false
 let windowsStatus: WindowsDefaultAssociations
 let linuxStatus: LinuxDefaultAssociations
 
@@ -50,6 +51,7 @@ function renderSection(platform: typeof transport.platform) {
 
 describe('<SystemProtocolsSection>', () => {
   beforeEach(() => {
+    portable = false
     windowsStatus = {
       supported: true,
       registered: true,
@@ -66,6 +68,7 @@ describe('<SystemProtocolsSection>', () => {
       magnet: true,
     }
     vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.GetPortableMode) return { enabled: portable }
       if (channel === Queries.GetWindowsDefaultAssociations) {
         return windowsStatus
       }
@@ -84,6 +87,22 @@ describe('<SystemProtocolsSection>', () => {
 
   afterEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('explains why system associations are unavailable in portable mode', async () => {
+    portable = true
+    renderSection('win32')
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Portable mode keeps system settings unchanged/)
+      ).toBeVisible()
+    )
+    expect(
+      screen.queryByRole('button', { name: /default/i })
+    ).not.toBeInTheDocument()
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.RequestDefaultTorrentHandler
+    )
   })
 
   it('shows current Windows status and opens the system settings', async () => {

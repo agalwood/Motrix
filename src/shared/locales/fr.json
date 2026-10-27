@@ -2756,6 +2756,15 @@
       "textLength": "Utilisez au maximum {{max}} caractères.",
       "time": "Utilisez le format 24 heures, par exemple 23:00.",
       "wholeBytes": "Utilisez moins de décimales."
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
     }
   },
   "task": {
@@ -2931,7 +2940,8 @@
         "resumeRangeUnsupported": "Le fichier partiel a été conservé car le serveur ne permet pas une reprise sécurisée par plages d’octets.",
         "resumeSourceChanged": "Le fichier partiel a été conservé car le fichier distant a changé depuis le début du téléchargement.",
         "resumeValidationFailed": "Le fichier partiel a été conservé car Motrix n’a pas pu vérifier que le fichier distant était inchangé.",
-        "torrentMetaMissing": "Impossible de récupérer cette tâche BitTorrent : le fichier de métadonnées .torrent est absent. Supprimez la tâche et ajoutez-la à nouveau."
+        "torrentMetaMissing": "Impossible de récupérer cette tâche BitTorrent : le fichier de métadonnées .torrent est absent. Supprimez la tâche et ajoutez-la à nouveau.",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       },
       "toast": "Tâches interrompues récupérées : {{count}}. Cliquez pour les consulter."
     },

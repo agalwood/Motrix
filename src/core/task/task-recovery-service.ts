@@ -121,6 +121,8 @@ export const defaultRecoveryFs: RecoveryFs = {
 }
 
 export interface RecoveryDeps {
+  /** A shell may hold filesystem work until the user confirms a relocated destination. */
+  canRecoverAutomatically?: (task: DownloadTask) => boolean
   taskManager: {
     getAll(): DownloadTask[]
     set?(id: string, task: DownloadTask): void
@@ -208,6 +210,8 @@ export class TaskRecoveryServiceImpl implements TaskRecoveryService {
     const inFlightPublished = publishedTasks.filter(
       (t) =>
         !hasLegacyImport(t) &&
+        (taskId !== undefined ||
+          this.deps.canRecoverAutomatically?.(t) !== false) &&
         (taskId === undefined || t.id === taskId) &&
         (t.transitionPhase !== TransitionPhase.Idle ||
           t.status === TaskStatus.Finalizing ||

@@ -1,4 +1,5 @@
 export const Queries = {
+  GetPortableMode: 'query:getPortableMode',
   GetGraphicsRecoveryNotice: 'query:getGraphicsRecoveryNotice',
   GetRendererSession: 'query:getRendererSession',
   GetLegacyImportNavigation: 'query:getLegacyImportNavigation',

@@ -2776,6 +2776,15 @@
       "textLength": "Використайте не більше {{max}} символів.",
       "time": "Використайте 24-годинний формат часу, наприклад 23:00.",
       "wholeBytes": "Використайте менше десяткових знаків."
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
     }
   },
   "task": {
@@ -2952,7 +2961,8 @@
         "resumeRangeUnsupported": "Частково завантажений файл збережено, оскільки сервер не підтримує безпечне продовження за діапазоном байтів.",
         "resumeSourceChanged": "Частково завантажений файл збережено, оскільки віддалений файл змінився від початку завантаження.",
         "resumeValidationFailed": "Частково завантажений файл збережено, оскільки Motrix не вдалося перевірити, що віддалений файл не змінився.",
-        "torrentMetaMissing": "Не вдалося відновити це завдання BitTorrent: файл метаданих .torrent відсутній. Приберіть завдання й додайте його знову."
+        "torrentMetaMissing": "Не вдалося відновити це завдання BitTorrent: файл метаданих .torrent відсутній. Приберіть завдання й додайте його знову.",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       },
       "toast": "Відновлено перерваних завдань: {{count}}. Натисніть, щоб переглянути."
     },

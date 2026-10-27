@@ -1160,7 +1160,8 @@
         "resumeSourceChanged": "다운로드를 시작한 이후 원격 파일이 변경되어 일부 다운로드된 파일을 보존했습니다.",
         "resumeRangeUnsupported": "서버가 안전한 범위 기반 다운로드 재개를 지원하지 않아 일부 다운로드된 파일을 보존했습니다.",
         "resumeValidationFailed": "원격 파일이 변경되지 않았는지 확인할 수 없어 일부 다운로드된 파일을 보존했습니다.",
-        "mediaInterrupted": "앱 재시작으로 이 미디어 다운로드가 중단되었으며 재개할 수 없습니다. 다시 시도하려면 작업을 다시 추가하세요."
+        "mediaInterrupted": "앱 재시작으로 이 미디어 다운로드가 중단되었으며 재개할 수 없습니다. 다시 시도하려면 작업을 다시 추가하세요.",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       }
     },
     "error": {
@@ -2185,6 +2186,15 @@
       "originMismatchBody": "실시간 업데이트를 사용할 수 없습니다. 설정된 서버 주소를 사용하거나 관리자에게 수정을 요청하세요.",
       "disconnectedTitle": "실시간 업데이트 연결이 끊겼습니다.",
       "disconnectedBody": "일부 정보가 늦게 표시될 수 있습니다. 문제가 계속되면 서버 연결과 프록시 설정을 확인하세요."
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
     }
   },
   "errors": {

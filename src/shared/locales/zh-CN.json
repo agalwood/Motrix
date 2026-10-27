@@ -1160,7 +1160,8 @@
         "resumeSourceChanged": "远端文件在下载开始后发生变化，已保留部分文件且未继续写入。",
         "resumeRangeUnsupported": "服务器不支持安全的范围续传，已保留部分文件且未继续写入。",
         "resumeValidationFailed": "Motrix 无法确认远端文件是否未发生变化，已保留部分文件且未继续写入。",
-        "mediaInterrupted": "媒体下载因应用重启而中断，无法恢复。请重新添加以重试。"
+        "mediaInterrupted": "媒体下载因应用重启而中断，无法恢复。请重新添加以重试。",
+        "portableExternalPath": "此任务使用便携目录以外的位置。应用位置已变更或原目录不可用，请确认下载文件的位置后重试。"
       }
     },
     "error": {
@@ -2185,6 +2186,15 @@
       "originMismatchBody": "实时更新不可用。请使用服务器配置的访问地址，或联系管理员修正配置。",
       "disconnectedTitle": "实时更新连接已中断。",
       "disconnectedBody": "部分信息可能延迟。如果持续出现，请检查服务器连接和反向代理配置。"
+    },
+    "portable": {
+      "title": "便携模式",
+      "startupError": "无法打开便携数据目录。请检查 Motrix.exe 同级的 data 文件夹是否可写，并确认未设置外部用户数据目录。Motrix 未切换到系统用户数据目录。",
+      "integrationUnavailable": "便携模式保持系统设置不变，不支持开机启动注册、文件关联和系统工具安装。",
+      "browserDescription": "Motrix 运行时仍可使用本地桥接。便携模式不会注册浏览器启动器，也不会修改已有的浏览器集成。",
+      "updateDescription": "请下载 Windows ZIP，退出 Motrix 后将完整的 data 文件夹移到新版本目录。便携模式不会运行安装程序。",
+      "recoveryError": "无法安全恢复便携数据。请保留 data 文件夹，检查日志和目录权限后重试。Motrix 已停止启动，未使用系统用户数据目录。",
+      "enginePathDescription": "便携模式将引擎状态保存在 data 文件夹内，随应用位置自动管理。"
     }
   },
   "menu": {
