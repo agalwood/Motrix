@@ -16,20 +16,17 @@ import {
   useSystemReducedMotion,
 } from '@renderer/lib/reduced-motion'
 import { saveSettings } from '@renderer/lib/settings-save'
-import { useRef, useState } from 'react'
+import { lazy, Suspense, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { DownloadsTab } from './filter'
 
-type CubicGlassMotionLabModule =
-  typeof import('@renderer/components/desktop-kit/cubic-glass/cubic-glass-motion-lab')
-
-const cubicGlassMotionLabModule: CubicGlassMotionLabModule | null = import.meta
-  .env.DEV
-  ? await import(
-      '@renderer/components/desktop-kit/cubic-glass/cubic-glass-motion-lab'
+const CubicGlassMotionLab = import.meta.env.DEV
+  ? lazy(() =>
+      import(
+        '@renderer/components/desktop-kit/cubic-glass/cubic-glass-motion-lab'
+      ).then(({ CubicGlassMotionLab }) => ({ default: CubicGlassMotionLab }))
     )
   : null
-const CubicGlassMotionLab = cubicGlassMotionLabModule?.CubicGlassMotionLab
 
 export interface EmptyTasksProps {
   filter: DownloadsTab
@@ -92,14 +89,16 @@ export function EmptyTasks({
           </EmptyDescription>
         </EmptyHeader>
         {CubicGlassMotionLab && (
-          <CubicGlassMotionLab
-            effects={glassEffects}
-            onEffectsChange={setPreviewEffects}
-            onEnabledChange={setMotionEnabled}
-            saving={savingMotion}
-            saveError={motionSaveError}
-            systemReducedMotion={systemReducedMotion}
-          />
+          <Suspense fallback={null}>
+            <CubicGlassMotionLab
+              effects={glassEffects}
+              onEffectsChange={setPreviewEffects}
+              onEnabledChange={setMotionEnabled}
+              saving={savingMotion}
+              saveError={motionSaveError}
+              systemReducedMotion={systemReducedMotion}
+            />
+          </Suspense>
         )}
       </Empty>
     )
