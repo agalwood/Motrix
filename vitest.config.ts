@@ -14,12 +14,27 @@ export default defineConfig({
     }),
   },
   test: {
-    environment: 'jsdom',
+    environment: 'node',
     globals: true,
     setupFiles: [],
-    globalSetup: ['tests/setup/build-worker.ts'],
-    include: ['src/**/*.test.{ts,tsx}', 'tests/**/*.test.{ts,tsx}'],
     exclude: ['e2e/**', 'node_modules/**', 'dist/**', 'dist-test/**'],
+    projects: [
+      {
+        test: {
+          name: 'node',
+          globalSetup: ['tests/setup/build-worker.ts'],
+          include: ['src/**/*.test.{ts,tsx}', 'tests/**/*.test.{ts,tsx}'],
+          exclude: ['src/{renderer,preload}/**'],
+        },
+      },
+      {
+        test: {
+          name: 'browser',
+          environment: 'jsdom',
+          include: ['src/{renderer,preload}/**/*.test.{ts,tsx}'],
+        },
+      },
+    ],
   },
   resolve: {
     alias: {

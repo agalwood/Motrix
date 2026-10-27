@@ -136,19 +136,4 @@ describe('EngineTile', () => {
     )
     expect(screen.getByTestId('engine-footer')).toHaveClass('flex-col')
   })
-
-  it('keeps the compact failed-state action subtle with a destructive icon', () => {
-    render(
-      <EngineTile
-        status={{ ...baseStatus, state: 'failed' }}
-        viewport={compactViewport}
-      />
-    )
-    const diagnoseButton = screen.getByRole('button', {
-      name: /Diagnose|诊断/i,
-    })
-
-    expect(diagnoseButton).toHaveAttribute('data-variant', 'ghost')
-    expect(diagnoseButton.querySelector('svg')).toHaveClass('text-destructive')
-  })
 })

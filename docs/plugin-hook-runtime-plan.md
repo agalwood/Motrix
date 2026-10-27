@@ -238,8 +238,6 @@ Update/add:
 - `src/core/plugin/host/orchestrator.e2e.test.ts`
 - `src/core/task/create-task-handler.plugin-hook-e2e.test.ts`
 - `src/core/plugin/host/e2e-hook-compatibility.test.ts`
-- `src/main/plugin/hook-runtime-assembly.test.ts`
-- `src/server/plugin/hook-runtime-assembly.test.ts`
 - reusable local HTTP/TLS test server and fault adapters under existing test
   helper conventions
 

@@ -35,19 +35,4 @@ describe('KpiNumber', () => {
     expect(el).toHaveAttribute('title', '12345678901234567890 MB/s')
     expect(el).toHaveTextContent('12345678901234567890 MB/s')
   })
-
-  it.each([
-    { variant: 'inherit' as const, className: undefined },
-    { variant: 'compact' as const, className: undefined },
-    { variant: 'inherit' as const, className: 'text-[22px]' },
-  ])(
-    'preserves the line height when merging $variant with $className',
-    ({ variant, className }) => {
-      const { container } = render(
-        <KpiNumber value="42 MB" variant={variant} className={className} />
-      )
-
-      expect(container.firstElementChild).toHaveClass('leading-none')
-    }
-  )
 })

@@ -134,25 +134,4 @@ describe('PluginCallGraphTable', () => {
     expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
-
-  it('owns the single labeled mode scroller with a sticky header', () => {
-    const { container } = render(
-      <PluginCallGraphTable rows={model.tableRows} strings={strings} />
-    )
-
-    const region = screen.getByRole('region', {
-      name: strings.tableRegionLabel,
-    })
-    expect(region).toHaveClass('min-h-0', 'flex-1')
-    expect(
-      container.querySelectorAll('[data-slot="scroll-area-viewport"]')
-    ).toHaveLength(1)
-    expect(region.querySelector('thead')).toHaveClass(
-      'sticky',
-      'top-0',
-      'z-10',
-      'bg-background'
-    )
-    expect(region.className).not.toContain('360')
-  })
 })

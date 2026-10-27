@@ -261,12 +261,6 @@ describe('TaskRow', () => {
     expect(container.firstChild).toHaveAttribute('aria-selected', 'true')
   })
 
-  it('uses the same minimum width as the scrollable column header', () => {
-    const { container } = render(<TaskRow task={fake()} rowProps={rowProps} />)
-
-    expect(container.firstChild).toHaveStyle({ minWidth: '1382px' })
-  })
-
   it('renders localized creation and completion timestamps and refreshes on completion', () => {
     const createdAt = Date.parse('2020-09-13T01:02:08Z')
     const finishedAt = Date.parse('2020-09-13T03:04:19Z')

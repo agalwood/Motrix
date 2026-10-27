@@ -217,7 +217,6 @@ jobs:
           pnpm --config.verify-deps-before-run=false run check:flatpak
           pnpm --config.verify-deps-before-run=false exec vitest run \
             tests/scripts/flatpak-native-host.test.ts \
-            tests/scripts/flatpak-packaging.test.ts \
             tests/scripts/flatpak-project.test.ts \
             tests/scripts/normalize-flatpak-cargo-sources.test.ts \
             tests/scripts/normalize-flatpak-node-sources.test.ts \

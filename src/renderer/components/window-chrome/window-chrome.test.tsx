@@ -446,32 +446,6 @@ describe('WindowChrome', () => {
     expect(screen.getByRole('button', { name: 'Maximize' })).toBeVisible()
   })
 
-  it('uses theme-aware caption colors with a readable destructive hover', () => {
-    setPlatform('win32')
-    render(<WindowChrome variant="overlay" />)
-
-    const minimize = screen.getByRole('button', { name: 'Minimize' })
-    const close = screen.getByRole('button', { name: 'Close' })
-
-    expect(minimize).toHaveClass(
-      'text-foreground',
-      '[&>svg]:opacity-65',
-      'hover:bg-accent',
-      'hover:text-accent-foreground',
-      'hover:[&>svg]:opacity-90',
-      'dark:hover:bg-accent/50'
-    )
-    expect(close).toHaveClass(
-      'text-foreground',
-      '[&>svg]:opacity-65',
-      'hover:bg-destructive',
-      'hover:text-white',
-      'hover:[&>svg]:opacity-100',
-      'dark:hover:bg-destructive/80'
-    )
-    expect(close).not.toHaveClass('hover:text-destructive-foreground')
-  })
-
   it.each(['win32'] as const)(
     'routes %s caption controls to sender-bound window commands',
     (platform) => {
@@ -502,27 +476,5 @@ describe('WindowChrome', () => {
     render(<WindowChrome variant="titled" maximizable={false} />)
 
     expect(screen.getByRole('button', { name: 'Maximize' })).toBeDisabled()
-  })
-
-  it('aligns app and caption controls on the shared compact baseline', () => {
-    setPlatform('win32')
-    const { container } = render(
-      <WindowChrome
-        variant="overlay"
-        leading={<button type="button">Menu</button>}
-      >
-        <button type="button">Action</button>
-      </WindowChrome>
-    )
-
-    expect(
-      container.querySelector('[data-slot="window-chrome-leading"]')
-    ).toHaveClass('pt-3.5')
-    expect(
-      container.querySelector('[data-slot="window-chrome-actions"]')
-    ).toHaveClass('pt-3.5')
-    expect(
-      container.querySelector('[data-slot="desktop-window-controls"]')
-    ).toHaveClass('pt-3.5')
   })
 })

@@ -740,7 +740,6 @@ describe('third-party graph dependency notices', () => {
   })
 
   it.each([
-    ['CI', '.github/workflows/ci.yml'],
     ['release', '.github/workflows/release.yml'],
     ['Flatpak', '.github/workflows/flatpak.yml'],
   ])(

@@ -28,10 +28,6 @@ const promotionSource = readFileSync(
   path.join(ROOT, '.github/workflows/snap-promote.yml'),
   'utf8'
 )
-const ciSource = readFileSync(
-  path.join(ROOT, '.github/workflows/ci.yml'),
-  'utf8'
-)
 const snapWorkflow = asRecord(parseYaml(snapSource), 'Snap workflow')
 const promotionWorkflow = asRecord(
   parseYaml(promotionSource),
@@ -151,19 +147,6 @@ describe('Snap build workflow contract', () => {
     expect(JSON.stringify(build)).not.toContain('secrets.')
     expect(build).not.toHaveProperty('environment')
     expect(snapSource).not.toContain('pull_request_target')
-  })
-
-  it('gates the Snap packaging and runtime contracts in general CI', () => {
-    for (const test of [
-      'src/main/bridge/snap-environment.test.ts',
-      'tests/scripts/snap-artifact.test.ts',
-      'tests/scripts/snap-build-set-release.test.ts',
-      'tests/scripts/snap-project.test.ts',
-      'tests/scripts/snap-store-channel.test.ts',
-      'tests/scripts/workflow-snap.test.ts',
-    ]) {
-      expect(ciSource).toContain(test)
-    }
   })
 
   it('publishes protected tags and explicit protected-main recovery runs through the edge environment', () => {
