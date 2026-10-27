@@ -94,6 +94,15 @@ export function BtStorageDialog({
           : t(
               result.resumed ? 'task.storage.resumed' : 'task.storage.verified'
             ))
+  const verification =
+    result && !('error' in result) ? result.verification : null
+  const verifiedPercent = verification?.complete
+    ? 100
+    : verification &&
+        verification.totalPieces > 0 &&
+        verification.validPieces < verification.totalPieces
+      ? Math.floor((verification.validPieces / verification.totalPieces) * 100)
+      : null
 
   return (
     <Dialog
@@ -102,7 +111,7 @@ export function BtStorageDialog({
         if (!open && !busy) onClose()
       }}
     >
-      <DialogContent className="sm:max-w-md" showCloseButton={!busy}>
+      <DialogContent className="sm:max-w-lg" showCloseButton={!busy}>
         <DialogHeader>
           <DialogTitle>{t(`task.storage.${mode}`)}</DialogTitle>
           <DialogDescription>
@@ -160,17 +169,21 @@ export function BtStorageDialog({
               </div>
             )}
             {message && (
-              <p role="status" className="text-sm">
-                {message}
-              </p>
-            )}
-            {result && !('error' in result) && (
-              <p className="text-xs text-muted-foreground">
-                {t('task.storage.pieces', {
-                  valid: result.verification.validPieces,
-                  total: result.verification.totalPieces,
-                })}
-              </p>
+              <div
+                role="status"
+                className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1"
+              >
+                <p className="min-w-0 flex-[1_1_16rem] text-sm">{message}</p>
+                {verification && (
+                  <p className="ms-auto shrink-0 text-xs text-muted-foreground tabular-nums">
+                    {verifiedPercent === null
+                      ? t('task.storage.checkFailed')
+                      : t('task.storage.verifiedPercent', {
+                          percent: verifiedPercent,
+                        })}
+                  </p>
+                )}
+              </div>
             )}
             <DialogFooter>
               {busy ? (

@@ -54,7 +54,7 @@ describe('BT storage dialog', () => {
   it('runs a recheck without requesting repair or automatic seeding', async () => {
     vi.mocked(transport.invoke).mockResolvedValue(complete)
     render(<BtStorageDialog task={task} mode="recheck" onClose={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Recheck files…' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Check files…' }))
     await waitFor(() =>
       expect(transport.invoke).toHaveBeenCalledWith(
         Commands.ChangeBtStorage,
@@ -66,7 +66,7 @@ describe('BT storage dialog', () => {
       )
     )
     expect(
-      await screen.findByText('Files verified. The task is ready to seed.')
+      await screen.findByText('Your files are ready to seed.')
     ).toBeTruthy()
   })
 
@@ -80,11 +80,11 @@ describe('BT storage dialog', () => {
       },
     })
     render(<BtStorageDialog task={task} mode="recheck" onClose={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Recheck files…' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Check files…' }))
     expect(
-      await screen.findByText(/Some required files or pieces/)
+      await screen.findByText(/Some files are missing or incomplete/)
     ).toBeTruthy()
-    expect(screen.getByText('Verified pieces: 3 / 10')).toBeTruthy()
+    expect(screen.getByText('Verified: 30%')).toBeTruthy()
   })
 
   it('keeps the dialog open while checking, permits cancellation and removes its event listener', async () => {
@@ -100,7 +100,7 @@ describe('BT storage dialog', () => {
     const { unmount } = render(
       <BtStorageDialog task={task} mode="recheck" onClose={onClose} />
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Recheck files…' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Check files…' }))
     const cancel = await screen.findByRole('button', { name: 'Cancel' })
     fireEvent.click(cancel)
     expect(transport.invoke).toHaveBeenCalledWith(
@@ -109,11 +109,7 @@ describe('BT storage dialog', () => {
     )
     expect(onClose).not.toHaveBeenCalled()
     await act(async () => finish({ error: 'cancelled' }))
-    expect(
-      await screen.findByText(
-        'Verification cancelled. The torrent remains stopped.'
-      )
-    ).toBeTruthy()
+    expect(await screen.findByText('Check cancelled.')).toBeTruthy()
     const listener = vi
       .mocked(transport.on)
       .mock.calls.find(([event]) => event === Events.BtStorageProgress)?.[1]

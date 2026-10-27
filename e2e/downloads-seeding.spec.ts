@@ -236,15 +236,15 @@ test('completed BT files can move, relocate and recheck without losing the task'
       })
     }, directories[1])
     await dialog.getByRole('button', { name: 'Browse…', exact: true }).click()
-    await expect(
-      dialog.getByLabel('Parent folder', { exact: true })
-    ).toHaveValue(directories[1])
+    await expect(dialog.getByLabel('Folder', { exact: true })).toHaveValue(
+      directories[1]
+    )
     await dialog
       .getByRole('button', { name: 'Move files…', exact: true })
       .click()
-    await expect(
-      dialog.getByText('Files verified and seeding resumed.')
-    ).toBeVisible({ timeout: 30_000 })
+    await expect(dialog.getByText('Seeding has resumed.')).toBeVisible({
+      timeout: 30_000,
+    })
     await expect
       .poll(async () => (await readTask()).finalPath)
       .toBe(path.join(directories[1], 'seed.bin'))
@@ -261,7 +261,7 @@ test('completed BT files can move, relocate and recheck without losing the task'
       path.join(directories[1], 'seed.bin'),
       path.join(directories[2], 'renamed.bin')
     )
-    dialog = await openStorage('Locate existing files…')
+    dialog = await openStorage('Find existing files…')
     await electronApp.evaluate(({ dialog }, directory) => {
       dialog.showOpenDialog = async () => ({
         canceled: false,
@@ -269,18 +269,18 @@ test('completed BT files can move, relocate and recheck without losing the task'
       })
     }, directories[2])
     await dialog.getByRole('button', { name: 'Browse…', exact: true }).click()
-    await expect(
-      dialog.getByLabel('Parent folder', { exact: true })
-    ).toHaveValue(directories[2])
+    await expect(dialog.getByLabel('Folder', { exact: true })).toHaveValue(
+      directories[2]
+    )
     await dialog
-      .getByLabel('File or torrent folder name', { exact: true })
+      .getByLabel('File or folder name', { exact: true })
       .fill('renamed.bin')
     await dialog
-      .getByRole('button', { name: 'Locate existing files…', exact: true })
+      .getByRole('button', { name: 'Find existing files…', exact: true })
       .click()
-    await expect(
-      dialog.getByText('Files verified and seeding resumed.')
-    ).toBeVisible({ timeout: 30_000 })
+    await expect(dialog.getByText('Seeding has resumed.')).toBeVisible({
+      timeout: 30_000,
+    })
     await expect.poll(async () => (await readTask()).status).toBe('seeding')
     expect(await readTask()).toMatchObject({
       id: original.id,
@@ -326,15 +326,15 @@ test('completed BT files can move, relocate and recheck without losing the task'
     await invoke(Commands.StopSeedingTask, original.id)
     const corrupted = Buffer.alloc(payload.length, 0x78)
     await writeFile(path.join(directories[2], 'renamed.bin'), corrupted)
-    dialog = await openStorage('Recheck files…')
+    dialog = await openStorage('Check files…')
     await dialog
-      .getByRole('button', { name: 'Recheck files…', exact: true })
+      .getByRole('button', { name: 'Check files…', exact: true })
       .click()
-    await expect(dialog.getByText(/Some required files or pieces/)).toBeVisible(
-      {
-        timeout: 30_000,
-      }
-    )
+    await expect(
+      dialog.getByText(/Some files are missing or incomplete/)
+    ).toBeVisible({
+      timeout: 30_000,
+    })
     expect(await readFile(path.join(directories[2], 'renamed.bin'))).toEqual(
       corrupted
     )
