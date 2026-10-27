@@ -1,11 +1,12 @@
 import '@testing-library/jest-dom/vitest'
-import { render } from '@testing-library/react'
+import { act, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CubicGlassGradient } from './cubic-glass-gradient'
 
 afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+  vi.useRealTimers()
 })
 
 describe('CubicGlassGradient', () => {
@@ -30,13 +31,32 @@ describe('CubicGlassGradient', () => {
     expect(gradient?.querySelectorAll('canvas')).toHaveLength(1)
   })
 
-  it('keeps the CSS fallback when WebGL2 is unavailable', () => {
+  it('defers GPU initialization until idle and keeps the CSS fallback when WebGL2 is unavailable', async () => {
+    vi.useFakeTimers()
+    let idleCallback!: () => void
+    vi.stubGlobal(
+      'requestIdleCallback',
+      vi.fn((callback) => {
+        idleCallback = callback
+        return 1
+      })
+    )
+    vi.stubGlobal('cancelIdleCallback', vi.fn())
     vi.stubGlobal('WebGL2RenderingContext', class {})
     const getContext = vi
       .spyOn(HTMLCanvasElement.prototype, 'getContext')
       .mockReturnValue(null)
     const { container } = render(<CubicGlassGradient />)
 
+    expect(getContext).not.toHaveBeenCalled()
+    expect(window.requestIdleCallback).not.toHaveBeenCalled()
+    act(() => vi.advanceTimersByTime(200))
+    expect(getContext).not.toHaveBeenCalled()
+    expect(window.requestIdleCallback).toHaveBeenCalled()
+    await act(async () => {
+      idleCallback()
+      await vi.dynamicImportSettled()
+    })
     expect(getContext).toHaveBeenCalledWith(
       'webgl2',
       expect.objectContaining({
@@ -48,6 +68,53 @@ describe('CubicGlassGradient', () => {
     expect(
       container.querySelector('[data-slot="cubic-glass-gradient"]')
     ).toHaveAttribute('data-renderer', 'fallback')
+  })
+
+  it.each(['before idle', 'during import'])(
+    'does not create a GPU context after unmounting %s',
+    async (phase) => {
+      vi.useFakeTimers()
+      vi.stubGlobal('WebGL2RenderingContext', class {})
+      let idleCallback!: () => void
+      vi.stubGlobal(
+        'requestIdleCallback',
+        vi.fn((callback) => {
+          idleCallback = callback
+          return 1
+        })
+      )
+      vi.stubGlobal('cancelIdleCallback', vi.fn())
+      const getContext = vi
+        .spyOn(HTMLCanvasElement.prototype, 'getContext')
+        .mockReturnValue(null)
+      const { unmount } = render(<CubicGlassGradient />)
+      act(() => vi.advanceTimersByTime(200))
+      if (phase === 'during import') idleCallback()
+      unmount()
+      if (phase === 'before idle') {
+        expect(window.cancelIdleCallback).toHaveBeenCalledWith(1)
+        idleCallback()
+      }
+      await vi.dynamicImportSettled()
+      expect(getContext).not.toHaveBeenCalled()
+    }
+  )
+
+  it('starts asynchronously when idle callbacks are unavailable', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('WebGL2RenderingContext', class {})
+    vi.stubGlobal('requestIdleCallback', undefined)
+    const getContext = vi
+      .spyOn(HTMLCanvasElement.prototype, 'getContext')
+      .mockReturnValue(null)
+    const { unmount } = render(<CubicGlassGradient />)
+    expect(getContext).not.toHaveBeenCalled()
+    await act(async () => {
+      vi.advanceTimersByTime(200)
+      await vi.dynamicImportSettled()
+    })
+    expect(getContext).toHaveBeenCalledTimes(1)
+    unmount()
   })
 
   it('updates the gradient preset without mounting another canvas', () => {

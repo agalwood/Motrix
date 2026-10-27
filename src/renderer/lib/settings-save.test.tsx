@@ -110,7 +110,7 @@ describe('HTTP settings save without an event socket', () => {
     await waitFor(() => expect(i18n.resolvedLanguage).toBe('zh-CN'))
   })
 
-  it('applies language, units, motion, glass and theme through one shared readback', async () => {
+  it('applies web preferences through one shared readback while keeping glass disabled', async () => {
     render(<Root />)
     await waitFor(() => expect(mocks.setTheme).toHaveBeenCalled())
     vi.mocked(transport.invoke).mockClear()
@@ -128,7 +128,7 @@ describe('HTTP settings save without an event socket', () => {
     expect(i18n.resolvedLanguage).toBe('zh-CN')
     expect(document.documentElement.lang).toBe('zh-CN')
     expect(getReducedMotion()).toBe(true)
-    expect(screen.getByRole('status').textContent).toBe('binary:true')
+    expect(screen.getByRole('status').textContent).toBe('binary:false')
     expect(mocks.setTheme).toHaveBeenLastCalledWith('dark')
     expect(
       vi

@@ -1,3 +1,4 @@
+import { transport } from '@renderer/lib/transport'
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
 import { createDisplacementMap } from './displacement-map'
 import './toolbar-glass.css'
@@ -22,7 +23,9 @@ export function ToolbarGlass({ enabled }: { enabled: boolean }) {
     solidMaterialRequested,
     () => true
   )
-  return enabled && !solid ? <GlassLayer /> : null
+  return transport.platform === 'darwin' && enabled && !solid ? (
+    <GlassLayer />
+  ) : null
 }
 
 function GlassLayer() {

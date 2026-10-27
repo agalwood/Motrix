@@ -68,7 +68,9 @@ test('Trackers and Plugins share expandable, keyboard-accessible panel toolbars'
     await page.getByRole('link', { name: 'Plugins', exact: true }).click()
     const plugins = page.getByRole('toolbar', { name: 'Plugins' })
     await expect(actions).toHaveCSS('-webkit-app-region', 'no-drag')
-    await expect(plugins.locator('[data-slot="toolbar-glass"]')).toHaveCount(2)
+    await expect(plugins.locator('[data-slot="toolbar-glass"]')).toHaveCount(
+      process.platform === 'darwin' ? 2 : 0
+    )
     await expect(
       plugins.getByRole('button', { name: 'Add plugin' })
     ).toBeVisible()

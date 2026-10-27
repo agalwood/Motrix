@@ -257,12 +257,41 @@ describe('<AppearanceDialog>', () => {
       expect.anything()
     )
   })
-  it.each(['darwin', 'win32', 'linux', 'web'])(
-    'uses the existing glass switch and saves only that preference on %s',
+  it('saves only the glass preference on macOS after confirmation', async () => {
+    render(
+      <AppearanceDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+    const toggle = await screen.findByRole('switch', {
+      name: 'Liquid Glass',
+    })
+    const user = userEvent.setup()
+    await user.click(toggle)
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
+    await user.click(screen.getByRole('button', { name: /save/i }))
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      app: { liquidGlassEffect: true },
+    })
+  })
+
+  it.each(['win32', 'linux', 'web'])(
+    'hides glass on %s even when enabled in saved settings',
     async (platform) => {
       Object.defineProperty(transport, 'platform', {
         configurable: true,
         value: platform,
+      })
+      vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+        if (channel === Queries.GetSettings)
+          return { app: { ...FIXTURE.app, liquidGlassEffect: true } }
+        return { saved: true }
       })
       render(
         <AppearanceDialog
@@ -272,18 +301,17 @@ describe('<AppearanceDialog>', () => {
           descKey="settings.cards.appearance.desc"
         />
       )
-      const toggle = await screen.findByRole('switch', {
-        name: 'Liquid Glass',
-      })
-      const user = userEvent.setup()
-      await user.click(toggle)
-      expect(transport.invoke).not.toHaveBeenCalledWith(
-        Commands.UpdateSettings,
-        expect.anything()
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
       )
-      await user.click(screen.getByRole('button', { name: /save/i }))
+      expect(
+        screen.queryByRole('switch', { name: 'Liquid Glass' })
+      ).not.toBeInTheDocument()
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('switch', { name: 'Reduce motion' }))
+      await user.click(screen.getByRole('button', { name: 'Save' }))
       expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
-        app: { liquidGlassEffect: true },
+        app: { reduceMotion: true },
       })
     }
   )

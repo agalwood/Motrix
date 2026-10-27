@@ -1,11 +1,7 @@
 import { cn } from '@renderer/lib/utils'
-import { useLayoutEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { resolveCubicGlassEffects } from './config'
-import {
-  type CubicGlassRendererController,
-  IDLE_CUBIC_GLASS_RENDERER,
-  startCubicGlassRenderer,
-} from './renderer'
+import type { CubicGlassRendererController } from './renderer'
 import type { CubicGlassGradientProps } from './types'
 import './cubic-glass-gradient.css'
 
@@ -19,9 +15,7 @@ export function CubicGlassGradient({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const presetRef = useRef(preset)
   const effectsRef = useRef(resolveCubicGlassEffects(effects))
-  const rendererRef = useRef<CubicGlassRendererController>(
-    IDLE_CUBIC_GLASS_RENDERER
-  )
+  const rendererRef = useRef<CubicGlassRendererController | null>(null)
   const resolvedEffects = resolveCubicGlassEffects(effects)
   const loadFadeEnabled = resolvedEffects.enabled && resolvedEffects.loadFade
   const breathingEnabled = resolvedEffects.enabled && resolvedEffects.breathing
@@ -34,7 +28,7 @@ export function CubicGlassGradient({
   effectsRef.current = resolvedEffects
 
   useLayoutEffect(() => {
-    rendererRef.current.schedule()
+    rendererRef.current?.schedule()
   })
 
   useLayoutEffect(() => {
@@ -52,43 +46,79 @@ export function CubicGlassGradient({
     return () => cancelAnimationFrame(frame)
   }, [loadFadeEnabled])
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const root = rootRef.current
     const canvas = canvasRef.current
     if (!root || !canvas || typeof WebGL2RenderingContext === 'undefined') {
       return
     }
 
-    const createRenderer = () =>
-      startCubicGlassRenderer(
-        canvas,
-        root,
-        () => presetRef.current,
-        () => effectsRef.current,
-        () => interactionRef?.current ?? root.parentElement
-      )
-    let renderer = createRenderer()
-    rendererRef.current = renderer
+    let generation = 0
+    let timer: number | undefined
+    let idle: number | undefined
+    let renderer: CubicGlassRendererController | null = null
+    const cancelStart = () => {
+      generation++
+      window.clearTimeout(timer)
+      if (idle !== undefined) window.cancelIdleCallback(idle)
+      idle = undefined
+    }
+    const createRenderer = async (current: number) => {
+      try {
+        const { startCubicGlassRenderer } = await import('./renderer')
+        if (current !== generation) return
+        renderer = startCubicGlassRenderer(
+          canvas,
+          root,
+          () => presetRef.current,
+          () => effectsRef.current,
+          () => interactionRef?.current ?? root.parentElement
+        )
+        rendererRef.current = renderer
+      } catch {
+        // The decorative renderer is optional; keep the CSS background if
+        // its chunk or GPU initialization fails.
+      }
+    }
+    const scheduleStart = () => {
+      cancelStart()
+      const current = generation
+      // Paint the empty-state content before loading shaders or creating a
+      // GPU context, which can be expensive under virtualized graphics.
+      timer = window.setTimeout(() => {
+        const start = () => {
+          idle = undefined
+          if (current === generation) void createRenderer(current)
+        }
+        if (typeof window.requestIdleCallback === 'function') {
+          idle = window.requestIdleCallback(start, { timeout: 1500 })
+        } else {
+          start()
+        }
+      }, 200)
+    }
+    scheduleStart()
     const onContextLost = (event: Event) => {
       event.preventDefault()
-      renderer.dispose(true)
-      renderer = IDLE_CUBIC_GLASS_RENDERER
+      cancelStart()
+      renderer?.dispose(true)
+      renderer = null
       rendererRef.current = renderer
       root.dataset.renderer = 'fallback'
       canvas.dataset.ready = 'false'
     }
     const onContextRestored = () => {
-      renderer = createRenderer()
-      rendererRef.current = renderer
+      scheduleStart()
     }
 
     canvas.addEventListener('webglcontextlost', onContextLost)
     canvas.addEventListener('webglcontextrestored', onContextRestored)
     return () => {
+      cancelStart()
       canvas.removeEventListener('webglcontextlost', onContextLost)
       canvas.removeEventListener('webglcontextrestored', onContextRestored)
-      renderer.dispose()
-      rendererRef.current = IDLE_CUBIC_GLASS_RENDERER
+      renderer?.dispose()
+      rendererRef.current = null
     }
   }, [interactionRef])
 
