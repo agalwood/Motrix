@@ -2716,6 +2716,15 @@
       "textLength": "ใช้อักขระไม่เกิน {{max}} ตัว",
       "time": "ใช้เวลาแบบ 24 ชั่วโมง เช่น 23:00",
       "wholeBytes": "ลดจำนวนตำแหน่งทศนิยม"
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
     }
   },
   "task": {
@@ -2889,7 +2898,8 @@
         "resumeRangeUnsupported": "เก็บไฟล์ที่ดาวน์โหลดบางส่วนไว้ เนื่องจากเซิร์ฟเวอร์ไม่รองรับการดาวน์โหลดต่อตามช่วงข้อมูลอย่างปลอดภัย",
         "resumeSourceChanged": "เก็บไฟล์ที่ดาวน์โหลดบางส่วนไว้ เนื่องจากไฟล์บนเซิร์ฟเวอร์เปลี่ยนไปหลังจากเริ่มดาวน์โหลด",
         "resumeValidationFailed": "เก็บไฟล์ที่ดาวน์โหลดบางส่วนไว้ เนื่องจาก Motrix ยืนยันไม่ได้ว่าไฟล์บนเซิร์ฟเวอร์ยังไม่เปลี่ยนแปลง",
-        "torrentMetaMissing": "กู้คืนงาน BitTorrent นี้ไม่ได้: ไฟล์ข้อมูลเมตา .torrent หายไป โปรดนำงานออกแล้วเพิ่มใหม่"
+        "torrentMetaMissing": "กู้คืนงาน BitTorrent นี้ไม่ได้: ไฟล์ข้อมูลเมตา .torrent หายไป โปรดนำงานออกแล้วเพิ่มใหม่",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       },
       "toast": "กู้คืนงานที่ถูกขัดจังหวะ {{count}} งานแล้ว คลิกเพื่อตรวจสอบ"
     },

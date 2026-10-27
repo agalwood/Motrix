@@ -38,6 +38,7 @@ import { Separator } from '@renderer/components/ui/separator'
 import { Switch } from '@renderer/components/ui/switch'
 import { DirectoryPreferencesStatus } from '@renderer/features/directory-preferences/directory-preferences-section'
 import { useDirectoryPreferencesDraft } from '@renderer/features/directory-preferences/use-directory-preferences-draft'
+import { usePortableMode } from '@renderer/hooks/use-portable-mode'
 import { pickDirty } from '@renderer/lib/form-utils'
 import { transport } from '@renderer/lib/transport'
 import { RunMode } from '@shared/constants'
@@ -55,6 +56,7 @@ export function GeneralDialog({
   labelKey,
 }: SettingsCardDialogProps) {
   const { t, i18n } = useTranslation()
+  const portable = usePortableMode()
   const isWeb = transport.platform === 'web'
   const isMac = transport.platform === 'darwin'
   const isLinux = transport.platform === 'linux'
@@ -286,11 +288,17 @@ export function GeneralDialog({
                         </div>
                       ) : (
                         <>
-                          {boolRow('launchAtStartup')}
+                          {boolRow(
+                            'launchAtStartup',
+                            portable
+                              ? 'settings.portable.integrationUnavailable'
+                              : undefined,
+                            !portable
+                          )}
                           {boolRow(
                             'showMainWindowAtLogin',
                             undefined,
-                            form.watch('launchAtStartup')
+                            !portable && form.watch('launchAtStartup')
                           )}
                         </>
                       )}

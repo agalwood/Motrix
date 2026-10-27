@@ -13,6 +13,7 @@ import {
   FormLabel,
 } from '@renderer/components/ui/form'
 import { Switch } from '@renderer/components/ui/switch'
+import { usePortableMode } from '@renderer/hooks/use-portable-mode'
 import { browserDisplayName } from '@renderer/lib/browser-name'
 import { cn } from '@renderer/lib/utils'
 import type { PairedClientInfo } from '@shared/protocol/bridge'
@@ -32,6 +33,7 @@ const IDENTITY_LABEL_KEYS = {
 
 export function BrowserExtensionsSection() {
   const { t } = useTranslation()
+  const portable = usePortableMode()
   const form = useFormContext<IntegrationFormValues>()
   const { items: paired, revoke } = usePairedExtensions()
   const status = useBridgeStatus()
@@ -55,7 +57,11 @@ export function BrowserExtensionsSection() {
                 {t('settings.integration.browser.masterSwitch')}
               </FormLabel>
               <FormDescription className="text-xs">
-                {t('settings.integration.browser.masterSwitchDesc')}
+                {t(
+                  portable
+                    ? 'settings.portable.browserDescription'
+                    : 'settings.integration.browser.masterSwitchDesc'
+                )}
               </FormDescription>
             </div>
             <FormControl>

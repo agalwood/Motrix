@@ -1174,7 +1174,8 @@
         "resumeSourceChanged": "Die unvollständige Datei wurde beibehalten, weil die Datei auf dem Server seit Beginn des Downloads geändert wurde.",
         "resumeRangeUnsupported": "Die unvollständige Datei wurde beibehalten, weil der Server keine sichere Fortsetzung über Bereichsanfragen unterstützt.",
         "resumeValidationFailed": "Die unvollständige Datei wurde beibehalten, weil Motrix nicht bestätigen konnte, dass die Datei auf dem Server unverändert ist.",
-        "mediaInterrupted": "Dieser Mediendownload wurde durch einen Neustart der Anwendung unterbrochen und kann nicht fortgesetzt werden. Fügen Sie ihn erneut hinzu, um es noch einmal zu versuchen."
+        "mediaInterrupted": "Dieser Mediendownload wurde durch einen Neustart der Anwendung unterbrochen und kann nicht fortgesetzt werden. Fügen Sie ihn erneut hinzu, um es noch einmal zu versuchen.",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       }
     },
     "error": {
@@ -2200,6 +2201,15 @@
       "originMismatchBody": "Echtzeitaktualisierungen sind nicht verfügbar. Verwenden Sie die konfigurierte Serveradresse oder bitten Sie die Administration um eine Korrektur.",
       "disconnectedTitle": "Die Verbindung für Echtzeitaktualisierungen ist unterbrochen.",
       "disconnectedBody": "Einige Informationen werden möglicherweise verzögert angezeigt. Prüfen Sie bei anhaltenden Problemen die Serververbindung und Proxy-Konfiguration."
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
     }
   },
   "errors": {

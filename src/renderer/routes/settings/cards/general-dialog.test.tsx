@@ -14,6 +14,12 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { GeneralDialog } from './general-dialog'
 
+// These lifecycle tests cover the ordinary desktop host. Portable capability
+// presentation is exercised with the real hook in e2e/portable-mode.spec.ts.
+vi.mock('@renderer/hooks/use-portable-mode', () => ({
+  usePortableMode: () => false,
+}))
+
 vi.mock('@renderer/lib/transport', () => ({
   transport: { invoke: vi.fn(), on: vi.fn(), off: vi.fn(), platform: 'darwin' },
 }))

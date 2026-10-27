@@ -13,6 +13,7 @@ import {
   ScrollAreaViewport,
   ScrollBar,
 } from '@renderer/components/ui/scroll-area'
+import { usePortableMode } from '@renderer/hooks/use-portable-mode'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -48,6 +49,7 @@ export function AboutDialog({
   descKey,
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
+  const portable = usePortableMode()
   const heading = useRef<HTMLHeadingElement>(null)
   const metadata = __MOTRIX_APP_METADATA__
   const showUpdates = shouldShowAppUpdate(__MOTRIX_TARGET__)
@@ -91,6 +93,11 @@ export function AboutDialog({
                     version: metadata.version,
                   })}
                 </p>
+                {portable && (
+                  <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                    {t('settings.portable.title')}
+                  </span>
+                )}
               </div>
               <p className="mt-1 max-w-md text-xs leading-[1.45] text-muted-foreground">
                 {t('settings.about.tagline')}

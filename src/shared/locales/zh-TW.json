@@ -1160,7 +1160,8 @@
         "resumeSourceChanged": "遠端檔案在下載開始後發生變更，已保留部分檔案且未繼續寫入。",
         "resumeRangeUnsupported": "伺服器不支援安全的範圍續傳，已保留部分檔案且未繼續寫入。",
         "resumeValidationFailed": "Motrix 無法確認遠端檔案是否未發生變更，已保留部分檔案且未繼續寫入。",
-        "mediaInterrupted": "此媒體下載因應用程式重新啟動而中斷，無法繼續。請重新新增後再試。"
+        "mediaInterrupted": "此媒體下載因應用程式重新啟動而中斷，無法繼續。請重新新增後再試。",
+        "portableExternalPath": "此任務使用可攜目錄以外的位置。應用程式位置已變更或原目錄無法使用，請確認下載檔案的位置後重試。"
       }
     },
     "error": {
@@ -2185,6 +2186,15 @@
       "originMismatchBody": "即時更新無法使用。請使用伺服器設定的存取位址，或聯絡管理員修正設定。",
       "disconnectedTitle": "即時更新連線已中斷。",
       "disconnectedBody": "部分資訊可能延遲。如果持續出現，請檢查伺服器連線和反向代理設定。"
+    },
+    "portable": {
+      "title": "可攜模式",
+      "startupError": "無法開啟可攜資料目錄。請檢查 Motrix.exe 同層的 data 資料夾是否可寫入，並確認未設定外部使用者資料目錄。Motrix 未切換至系統使用者資料目錄。",
+      "integrationUnavailable": "可攜模式保持系統設定不變，不支援開機啟動註冊、檔案關聯和系統工具安裝。",
+      "browserDescription": "Motrix 執行時仍可使用本機橋接。可攜模式不會註冊瀏覽器啟動器，也不會修改現有的瀏覽器整合。",
+      "updateDescription": "請下載 Windows ZIP，結束 Motrix 後將完整的 data 資料夾移至新版本目錄。可攜模式不會執行安裝程式。",
+      "recoveryError": "無法安全復原可攜資料。請保留 data 資料夾，檢查記錄和目錄權限後重試。Motrix 已停止啟動，未使用系統使用者資料目錄。",
+      "enginePathDescription": "可攜模式將引擎狀態儲存於 data 資料夾內，隨應用程式位置自動管理。"
     }
   },
   "errors": {

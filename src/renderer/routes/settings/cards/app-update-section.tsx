@@ -283,6 +283,8 @@ function statusDescription(
   state: AppUpdateState,
   t: ReturnType<typeof useTranslation>['t']
 ): string {
+  if (state.manualInstallReason === 'portable')
+    return t('settings.portable.updateDescription')
   if (state.manualInstallReason && state.availableVersion) {
     return state.manualInstallReason === 'cross-volume'
       ? t('settings.about.update.manualCrossVolume')

@@ -45,6 +45,7 @@ import {
 } from '@renderer/components/ui/select'
 import { Separator } from '@renderer/components/ui/separator'
 import { Switch } from '@renderer/components/ui/switch'
+import { usePortableMode } from '@renderer/hooks/use-portable-mode'
 import { pickDirty } from '@renderer/lib/form-utils'
 import { saveSettings } from '@renderer/lib/settings-save'
 import { LEGACY_MIGRATION_SETTINGS_ROUTE } from '@shared/lib/legacy-import-navigation'
@@ -85,6 +86,7 @@ export function AdvancedDialog({
   labelKey,
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
+  const portable = usePortableMode()
   const navigate = useNavigate()
   const [historyModeOverride, setHistoryModeOverride] =
     useState<HistoryRetentionMode | null>(null)
@@ -320,7 +322,11 @@ export function AdvancedDialog({
                               {t('settings.advanced.persistence.dbPath')}
                             </FormLabel>
                             <FormDescription className="text-xs">
-                              {t('settings.advanced.persistence.dbPathDesc')}
+                              {t(
+                                portable
+                                  ? 'settings.portable.enginePathDescription'
+                                  : 'settings.advanced.persistence.dbPathDesc'
+                              )}
                             </FormDescription>
                           </div>
                           <FormControl>
@@ -331,8 +337,9 @@ export function AdvancedDialog({
                                 'settings.advanced.persistence.dbPathPlaceholder'
                               )}
                               disabled={
-                                !persistenceOn &&
-                                !form.formState.errors.sqlite3DbPath
+                                portable ||
+                                (!persistenceOn &&
+                                  !form.formState.errors.sqlite3DbPath)
                               }
                               value={field.value}
                               onChange={field.onChange}

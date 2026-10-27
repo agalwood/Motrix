@@ -67,6 +67,7 @@ import { app, ipcMain } from 'electron'
 import { CancellationTokenSource } from 'vscode-jsonrpc'
 import { registerTrustedIpcHandler } from '../ipc/trusted-ipc'
 import { i18n } from '../lib/i18n'
+import { getPortableProfile } from '../platform/portable-profile'
 import { getAppImageNativeHost } from './appimage-native-host-electron'
 import { isPackagedLinuxFlatpak } from './flatpak-environment'
 import { resolveNativeHostBinaryPath } from './native-host-path'
@@ -329,7 +330,13 @@ function createNativeMessagingInstallation(): NativeMessagingInstallation {
       ...(installationPlatform === 'win32'
         ? { windowsRoamingAppData: app.getPath('appData') }
         : {}),
-      ...(flatpak ? { registrationMode: 'external' as const } : {}),
+      ...(getPortableProfile() ||
+      (!app.isPackaged &&
+        process.env.MOTRIX_DEV_DISABLE_NATIVE_MESSAGING === '1')
+        ? { registrationMode: 'disabled' as const }
+        : flatpak
+          ? { registrationMode: 'external' as const }
+          : {}),
     }),
     snap,
   }

@@ -2736,6 +2736,15 @@
       "textLength": "حداکثر {{max}} نویسه استفاده کنید.",
       "time": "از قالب 24 ساعته، مانند 23:00، استفاده کنید.",
       "wholeBytes": "از رقم‌های اعشاری کمتری استفاده کنید."
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
     }
   },
   "task": {
@@ -2910,7 +2919,8 @@
         "resumeRangeUnsupported": "فایل ناقص حفظ شد، زیرا سرور از ادامهٔ ایمن دانلود با درخواست محدوده پشتیبانی نمی‌کند.",
         "resumeSourceChanged": "فایل ناقص حفظ شد، زیرا فایل روی سرور از زمان شروع دانلود تغییر کرده است.",
         "resumeValidationFailed": "فایل ناقص حفظ شد، زیرا Motrix نتوانست تأیید کند فایل روی سرور تغییر نکرده است.",
-        "torrentMetaMissing": "بازیابی این کار BitTorrent ممکن نیست: فایل فرادادهٔ .torrent موجود نیست. کار را حذف و دوباره اضافه کنید."
+        "torrentMetaMissing": "بازیابی این کار BitTorrent ممکن نیست: فایل فرادادهٔ .torrent موجود نیست. کار را حذف و دوباره اضافه کنید.",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       },
       "toast": "{{count}} کار قطع‌شده بازیابی شد. برای بررسی کلیک کنید."
     },

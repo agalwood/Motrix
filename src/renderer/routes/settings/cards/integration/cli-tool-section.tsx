@@ -88,6 +88,8 @@ function reasonKey(reason: CliToolReason | null): string {
       return 'settings.integration.cli.tool.reason.nodeTooOld'
     case CliToolReason.ManagerMissing:
       return 'settings.integration.cli.tool.reason.managerMissing'
+    case CliToolReason.Portable:
+      return 'settings.portable.integrationUnavailable'
     case CliToolReason.Sandboxed:
       return 'settings.integration.cli.tool.reason.sandboxed'
     case CliToolReason.UnsupportedWeb:

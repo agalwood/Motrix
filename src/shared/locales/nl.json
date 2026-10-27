@@ -2736,6 +2736,15 @@
       "textLength": "Gebruik maximaal {{max}} tekens.",
       "time": "Gebruik een tijd in 24-uursnotatie, zoals 23:00.",
       "wholeBytes": "Gebruik minder decimalen."
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
     }
   },
   "task": {
@@ -2910,7 +2919,8 @@
         "resumeRangeUnsupported": "Het gedeeltelijke bestand is bewaard omdat de server veilig hervatten met bereikverzoeken niet ondersteunt.",
         "resumeSourceChanged": "Het gedeeltelijke bestand is bewaard omdat het externe bestand is gewijzigd sinds de download begon.",
         "resumeValidationFailed": "Het gedeeltelijke bestand is bewaard omdat Motrix niet kon controleren of het externe bestand ongewijzigd is.",
-        "torrentMetaMissing": "Deze BitTorrent-taak kan niet worden hersteld: het .torrent-metadatabestand ontbreekt. Verwijder de taak en voeg deze opnieuw toe."
+        "torrentMetaMissing": "Deze BitTorrent-taak kan niet worden hersteld: het .torrent-metadatabestand ontbreekt. Verwijder de taak en voeg deze opnieuw toe.",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       },
       "toast": "Herstelde onderbroken taken: {{count}}. Klik om ze te bekijken."
     },

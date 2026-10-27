@@ -2756,6 +2756,15 @@
       "textLength": "Numărul de caractere nu trebuie să depășească {{max}}.",
       "time": "Folosește formatul de 24 de ore, de exemplu 23:00.",
       "wholeBytes": "Folosește mai puține zecimale."
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
     }
   },
   "task": {
@@ -2931,7 +2940,8 @@
         "resumeRangeUnsupported": "Fișierul parțial a fost păstrat deoarece serverul nu acceptă reluarea sigură prin cereri de intervale de octeți.",
         "resumeSourceChanged": "Fișierul parțial a fost păstrat deoarece fișierul de pe server s-a modificat de la începutul descărcării.",
         "resumeValidationFailed": "Fișierul parțial a fost păstrat deoarece Motrix nu a putut verifica dacă fișierul de pe server a rămas neschimbat.",
-        "torrentMetaMissing": "Această sarcină BitTorrent nu poate fi recuperată: lipsește fișierul de metadate .torrent. Elimină sarcina și adaug-o din nou."
+        "torrentMetaMissing": "Această sarcină BitTorrent nu poate fi recuperată: lipsește fișierul de metadate .torrent. Elimină sarcina și adaug-o din nou.",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       },
       "toast": "Sarcini întrerupte recuperate: {{count}}. Apasă pentru a le vedea."
     },

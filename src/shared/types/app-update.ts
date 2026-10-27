@@ -35,6 +35,7 @@ export interface AppUpdateState {
   checkedAt?: string
   /** The current installer cannot safely complete an automatic installation. */
   manualInstallReason?:
+    | 'portable'
     | 'cross-volume'
     | 'location-unavailable'
     | 'install-failed'

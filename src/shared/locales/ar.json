@@ -2816,6 +2816,15 @@
       "textLength": "استخدم عددًا من المحارف لا يتجاوز {{max}}.",
       "time": "استخدم تنسيق 24 ساعة، مثل 23:00.",
       "wholeBytes": "استخدم منازل عشرية أقل."
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
     }
   },
   "task": {
@@ -2994,7 +3003,8 @@
         "resumeRangeUnsupported": "حُفظ الملف الجزئي لأن الخادم لا يدعم الاستئناف الآمن باستخدام نطاقات البايتات.",
         "resumeSourceChanged": "حُفظ الملف الجزئي لأن الملف البعيد تغيّر منذ بدء التنزيل.",
         "resumeValidationFailed": "حُفظ الملف الجزئي لأن Motrix لم يتمكن من التحقق من أن الملف البعيد لم يتغيّر.",
-        "torrentMetaMissing": "تعذّرت استعادة مهمة BitTorrent هذه: ملف البيانات الوصفية .torrent مفقود. أزل المهمة وأضفها من جديد."
+        "torrentMetaMissing": "تعذّرت استعادة مهمة BitTorrent هذه: ملف البيانات الوصفية .torrent مفقود. أزل المهمة وأضفها من جديد.",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       },
       "toast": "المهام التي انقطعت ثم استُعيدت: {{count}}. انقر للمراجعة."
     },

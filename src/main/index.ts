@@ -138,11 +138,13 @@ import {
   resolveTaskRoute,
 } from '@shared/lib/task-navigation'
 import { Events } from '@shared/protocol/events'
+import { Queries } from '@shared/protocol/queries'
 import {
   DEFAULT_BYTE_UNIT_PREFERENCE,
   resolveByteUnitSystem,
 } from '@shared/schemas/byte-unit-system'
 import { REGISTRY_CACHE_FILENAME } from '@shared/schemas/registry'
+import { CliToolReason } from '@shared/types/cli-tool'
 import { EngineState } from '@shared/types/engine'
 import type { AppNotification } from '@shared/types/notification'
 import { getHiddenNotificationKinds } from '@shared/types/notification'
@@ -154,6 +156,7 @@ import {
   app,
   type BrowserWindow,
   dialog,
+  ipcMain,
   autoUpdater as nativeAutoUpdater,
   powerMonitor,
   shell,
@@ -183,6 +186,7 @@ import { registerDisclaimerIpc } from './ipc/disclaimer'
 import { setupEventForwarding } from './ipc/events'
 import { registerNotificationIpc } from './ipc/notifications'
 import { registerQueryHandlers } from './ipc/queries'
+import { registerTrustedIpcHandler } from './ipc/trusted-ipc'
 import { setupLauncher } from './launcher'
 import {
   defaultLegacyRoots,
@@ -210,6 +214,14 @@ import { removePathRecursive, renameAtomic } from './platform/fs-helpers'
 import { setupGraphicsRecovery } from './platform/graphics-recovery-runtime'
 import { getMacUpdateInstallBlockReason } from './platform/mac-update-install-policy'
 import { setupNativeThemeSync } from './platform/native-theme-sync'
+import {
+  getPortableProfile,
+  PortableProfileError,
+} from './platform/portable-profile'
+import {
+  portableEngineStateDirectory,
+  relocatePortableProfile,
+} from './platform/portable-relocation'
 import { setupPowerManager } from './platform/power-manager'
 import { createProtocolManager } from './platform/protocol-manager'
 import { isElectronSelfUpdateSupported } from './platform/self-update-policy'
@@ -272,12 +284,34 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('password-store', 'basic')
 }
 
-const platform = createElectronPlatformServices(distributionContext)
+const platform = (() => {
+  try {
+    return createElectronPlatformServices(distributionContext)
+  } catch (error) {
+    if (error instanceof PortableProfileError) {
+      dialog.showErrorBox(
+        i18n.t('settings.portable.title'),
+        i18n.t('settings.portable.startupError')
+      )
+      app.exit(1)
+    }
+    throw error
+  }
+})()
+const portableProfile = getPortableProfile()
 const rendererUrlPolicy = initializeRendererUrlPolicy({
   isPackaged: app.isPackaged,
   appPath: app.getAppPath(),
   devServerUrl: app.isPackaged ? null : process.env.VITE_DEV_SERVER_URL,
 })
+
+// Immutable startup capability must be available before onboarding or settings
+// windows mount; late service registration can still be waiting on plugin IO.
+registerTrustedIpcHandler(Queries.GetPortableMode, () => ({
+  enabled: Boolean(portableProfile),
+  dataDirectory: portableProfile?.dataDir,
+}))
+app.once('will-quit', () => ipcMain.removeHandler(Queries.GetPortableMode))
 
 // ─── Logger ─────────────────────────────────────────────
 
@@ -350,20 +384,25 @@ const settingsFlatpakEnvironment =
     isPackaged: app.isPackaged,
     env: process.env,
   })
-const defaultSaveDirOptions = resolveDefaultSaveDirOptions({
-  snapEnvironment: settingsSnapEnvironment,
-  getSystemDownloadsDir: () => app.getPath('downloads'),
-  getHomeDir: homedir,
-  ensureDirectory: (directory) => mkdirSync(directory, { recursive: true }),
-  onSystemDownloadsDirError: (error, fallbackDir) =>
-    log.warn(
-      { err: error, fallbackDir },
-      'system downloads directory unavailable; using home fallback'
-    ),
-})
+const defaultSaveDirOptions = portableProfile
+  ? { defaultSaveDir: portableProfile.downloadsDir }
+  : resolveDefaultSaveDirOptions({
+      snapEnvironment: settingsSnapEnvironment,
+      getSystemDownloadsDir: () => app.getPath('downloads'),
+      getHomeDir: homedir,
+      ensureDirectory: (directory) => mkdirSync(directory, { recursive: true }),
+      onSystemDownloadsDirError: (error, fallbackDir) =>
+        log.warn(
+          { err: error, fallbackDir },
+          'system downloads directory unavailable; using home fallback'
+        ),
+    })
 const cliToolService = new CliToolService({
+  manualOnlyReason: portableProfile ? CliToolReason.Portable : undefined,
   directInstallSupported:
-    !settingsFlatpakEnvironment && settingsSnapEnvironment === null,
+    !portableProfile &&
+    !settingsFlatpakEnvironment &&
+    settingsSnapEnvironment === null,
 })
 const settingsManager = new SettingsManager(settingsPath, {
   defaultByteUnitSystem: resolveByteUnitSystem(
@@ -467,7 +506,12 @@ log.info({ extraDir: platform.extraResourceDir }, 'resolved extra directory')
 const configBuilder = new Aria2ConfigBuilder(
   path.join(platform.extraResourceDir, 'aria2.conf'),
   platform.userDataDir,
-  { supervisorPid: process.pid }
+  {
+    supervisorPid: process.pid,
+    ...(portableProfile
+      ? { persistenceDirectory: portableEngineStateDirectory(portableProfile) }
+      : {}),
+  }
 )
 const trustStore = new Aria2TrustStore(platform.userDataDir)
 
@@ -1398,6 +1442,9 @@ async function startEngineAndRestore(
     // flowing. See design spec §6.6.
     const finalizeDepsFactory = () => buildFinalizeDeps(adapter)
     recoveryService = new TaskRecoveryServiceImpl({
+      canRecoverAutomatically: (task) =>
+        !portableProfile ||
+        task.errorDetailKey !== 'task.recovery.startup.portableExternalPath',
       hasPendingFinalization: async (taskId) =>
         (await durableFinalizeRuntime?.hasPendingFinalization(taskId)) ?? false,
       taskManager: {
@@ -1607,6 +1654,16 @@ async function initializeMainProcess(): Promise<void> {
   // Only the minimum work needed before the window can open:
   // settings (for window bounds/run mode) and WindowManager.
 
+  if (portableProfile) {
+    if (!app.hasSingleInstanceLock()) return
+    try {
+      await relocatePortableProfile(portableProfile, motrixDb.database)
+    } catch (error) {
+      throw new PortableProfileError('Portable startup recovery failed', {
+        cause: error,
+      })
+    }
+  }
   await settingsManager.load()
   if (graphicsRuntime?.recovery.recoveredAtStartup) {
     await settingsManager.update({ app: { hardwareAcceleration: false } })
@@ -1838,7 +1895,7 @@ async function initializeMainProcess(): Promise<void> {
   const legacyNavigation = new LegacyImportNavigation({
     hasConsent: () => gate.isAccepted() && mainProcessWork.isAccepting(),
     getService: getLegacyImportService,
-    roots: defaultLegacyRoots,
+    roots: portableProfile ? () => [] : defaultLegacyRoots,
     changed: () => {
       const mainWindow = windowManager?.get('main')
       if (mainWindow)
@@ -2243,7 +2300,9 @@ async function initializeMainProcess(): Promise<void> {
   // here so SessionManager.restore() can skip aria2-restored segment downloads
   // (phantom-task guard); the bridge bootstrap reuses the same value for the
   // coordinator's tmpRoot and the poll loop's suppression.
-  const mediaTmpDir = path.join(app.getPath('temp'), 'motrix-media')
+  const mediaTmpDir = portableProfile
+    ? path.join(portableProfile.workDir, 'media')
+    : path.join(app.getPath('temp'), 'motrix-media')
   mediaTmpRoot = mediaTmpDir
   sessionManager = new SessionManager(
     taskManager,
@@ -2405,6 +2464,10 @@ async function initializeMainProcess(): Promise<void> {
       runExclusivePersistence: (operation) =>
         sessionManager.runExclusivePersistence(operation),
       torrentMetaDir: path.join(platform.userDataDir, 'torrents'),
+      metadataWorkDir: portableProfile?.workDir,
+      canRestoreTask: (task) =>
+        !portableProfile ||
+        task.errorDetailKey !== 'task.recovery.startup.portableExternalPath',
       occurrenceDispatcher,
     }
   )
@@ -2432,7 +2495,8 @@ async function initializeMainProcess(): Promise<void> {
     : null
   const updatesSupported =
     !distributionContext.isWindowsPackage &&
-    (updateSimulatorEnabled ||
+    (Boolean(portableProfile) ||
+      updateSimulatorEnabled ||
       isElectronSelfUpdateSupported({
         hasUpdateMetadata,
         isPackaged: app.isPackaged,
@@ -2455,15 +2519,24 @@ async function initializeMainProcess(): Promise<void> {
     isWindowsPackage: distributionContext.isWindowsPackage,
     supported: updatesSupported,
     getInstallBlockReason: () =>
-      getMacUpdateInstallBlockReason({
-        platform: process.platform,
-        isPackaged: app.isPackaged,
-        execPath: process.execPath,
-        temporaryDirectory: app.getPath('temp'),
-      }),
-    loadUpdater: async () =>
-      developmentUpdateSimulator ??
-      (await import('electron-updater')).default.autoUpdater,
+      portableProfile
+        ? 'portable'
+        : getMacUpdateInstallBlockReason({
+            platform: process.platform,
+            isPackaged: app.isPackaged,
+            execPath: process.execPath,
+            temporaryDirectory: app.getPath('temp'),
+          }),
+    loadUpdater: async () => {
+      if (developmentUpdateSimulator) return developmentUpdateSimulator
+      const updater = (await import('electron-updater')).default.autoUpdater
+      if (portableProfile)
+        updater.setFeedURL({
+          provider: 'generic',
+          url: 'https://dl.motrix.app/releases/',
+        })
+      return updater
+    },
     getManagedMessage: () => i18n.t('settings.about.update.managedDescription'),
   })
   if (!mainProcessWork.isAccepting()) return
@@ -2870,7 +2943,10 @@ async function initializeMainProcess(): Promise<void> {
   }
   bridgeManager = new BridgeManager(
     createBridgeRuntime,
-    () => nativeMessagingInstaller.unregister(),
+    () =>
+      portableProfile
+        ? Promise.resolve()
+        : nativeMessagingInstaller.unregister(),
     !nativeMessagingInstaller.preserveOnStartupFailure
   )
 
@@ -3178,6 +3254,13 @@ app.on('ready', () => {
       return
     }
     log.error({ err }, 'main process initialization failed')
+    if (err instanceof PortableProfileError) {
+      dialog.showErrorBox(
+        i18n.t('settings.portable.title'),
+        i18n.t('settings.portable.recoveryError')
+      )
+      void requestForcedQuit('portable-startup-failed')
+    }
   })
 })
 
@@ -3250,7 +3333,7 @@ const quitController = new QuitController({
   beginShutdown,
 })
 
-if (!distributionContext.isWindowsPackage) {
+if (!distributionContext.isWindowsPackage && !portableProfile) {
   registerUpdateQuitPreparation({
     updater: nativeAutoUpdater,
     markForceQuit: () => quitController.markForceQuit(),

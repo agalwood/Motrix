@@ -12,6 +12,8 @@ import writeFileAtomic from 'write-file-atomic'
 import { dnsModeToAsyncDns } from './dns-fallback'
 
 export interface Aria2ConfigBuilderOptions {
+  /** Shell-owned persistence location, isolated when a portable profile moves. */
+  persistenceDirectory?: string
   rpcListenAll?: boolean
   /** Server HTTP and engine RPC must use the same torrent upload budget. */
   rpcMaxRequestSizeBytes?: number
@@ -31,6 +33,7 @@ export class Aria2ConfigBuilder {
   private readonly rpcListenAll: boolean
   private readonly rpcMaxRequestSizeBytes?: number
   private readonly supervisorPid?: number
+  private readonly persistenceDirectory?: string
   private configuredInputFile = false
   private runtimeConfPath: string
 
@@ -41,8 +44,15 @@ export class Aria2ConfigBuilder {
   ) {
     this.userConfPath = path.join(userConfigDir, 'aria2.conf')
     this.runtimeConfPath = this.userConfPath
-    this.defaultDbPath = path.join(userConfigDir, 'aria2.db')
-    this.saveSessionPath = path.join(userConfigDir, 'aria2.session')
+    this.persistenceDirectory = options.persistenceDirectory
+    this.defaultDbPath = path.join(
+      options.persistenceDirectory ?? userConfigDir,
+      'aria2.db'
+    )
+    this.saveSessionPath = path.join(
+      options.persistenceDirectory ?? userConfigDir,
+      'aria2.session'
+    )
     this.dhtFilePath = path.join(userConfigDir, 'dht.dat')
     this.dht6FilePath = path.join(userConfigDir, 'dht6.dat')
     this.rpcListenAll = options.rpcListenAll ?? false
@@ -104,7 +114,9 @@ export class Aria2ConfigBuilder {
   }
 
   resolveSqliteDbPath(settings: Pick<EngineSettings, 'sqlite3DbPath'>): string {
-    return settings.sqlite3DbPath?.trim() || this.defaultDbPath
+    return this.persistenceDirectory
+      ? this.defaultDbPath
+      : settings.sqlite3DbPath?.trim() || this.defaultDbPath
   }
 
   /**
@@ -229,7 +241,7 @@ export class Aria2ConfigBuilder {
       args.push('--input-file=')
     }
     if (hasSqlitePersistence) {
-      const dbPath = settings.sqlite3DbPath?.trim() || this.defaultDbPath
+      const dbPath = this.resolveSqliteDbPath(settings)
       args.push(
         `--enable-sqlite3-persistence=${settings.sqlite3Persistence}`,
         `--sqlite3-db-path=${dbPath}`,

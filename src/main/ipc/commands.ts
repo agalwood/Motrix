@@ -163,6 +163,7 @@ import {
 } from '../platform/appimage-integration-host'
 import { syncAutoLaunch } from '../platform/auto-launch'
 import { setLinuxDefaultTorrentHandler } from '../platform/linux-default-apps'
+import { getPortableProfile } from '../platform/portable-profile'
 import type { createProtocolManager } from '../platform/protocol-manager'
 import { resolveWindowsDefaultAppsSettingsUrl } from '../platform/windows-default-apps'
 import { desktopOperationHandlers } from '../plugin/operation-commands'
@@ -1519,6 +1520,11 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       }),
 
     [Commands.RequestDefaultTorrentHandler]: async () => {
+      if (getPortableProfile())
+        throw new AppError(
+          ErrorCode.SettingsInvalid,
+          i18n.t('settings.portable.integrationUnavailable')
+        )
       if (process.platform === 'darwin') {
         // macOS has no central default-apps panel. The previous implementation
         // opened the General preference pane, which is unrelated to file
