@@ -217,8 +217,6 @@ no-op。
 - `src/core/plugin/host/orchestrator.e2e.test.ts`
 - `src/core/task/create-task-handler.plugin-hook-e2e.test.ts`
 - `src/core/plugin/host/e2e-hook-compatibility.test.ts`
-- `src/main/plugin/hook-runtime-assembly.test.ts`
-- `src/server/plugin/hook-runtime-assembly.test.ts`
 - 按既有 test helper 约定添加本地 HTTP/TLS server 与 fault adapter
 
 测试从 `scripts/builtins.lock.json` 读取精确 archive，并在安装前断言 size、

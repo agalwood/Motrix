@@ -56,111 +56,12 @@ jobs:
       - name: i18n catalog and translation contract
         run: pnpm run check:i18n
 
-      - name: Desktop graphics recovery contracts
-        run: >-
-          pnpm exec vitest run
-          src/main/platform/graphics-recovery.test.ts
-          src/main/platform/graphics-recovery-runtime.test.ts
-          src/renderer/hooks/use-graphics-recovery-toast.test.tsx
-          src/renderer/routes/settings/cards/appearance-dialog.test.tsx
-          src/core/settings/settings-manager.test.ts
-          src/shared/schemas/app-settings.test.ts
-          src/renderer/lib/settings-save.test.tsx
-
-      - name: Locale runtime contracts
-        run: >-
-          pnpm exec vitest run
-          src/shared/constants/locales.test.ts
-          src/shared/i18n-resources.test.ts
-          src/shared/i18n-resource-loading.test.ts
-          src/shared/schemas/locale.test.ts
-          src/shared/protocol/forwardable-events.test.ts
-          src/core/i18n/locale-coordinator.test.ts
-          src/core/settings/settings-manager.test.ts
-          src/core/plugin/plugin-registry.test.ts
-          src/core/plugin/capabilities/i18n.test.ts
-          src/core/plugin/host/plugin-host.test.ts
-          src/core/plugin/host/quick-js-worker.locale.test.ts
-          src/main/ipc/events.test.ts
-          src/main/ipc/disclaimer.test.ts
-          src/main/ipc/queries.test.ts
-          src/server/ipc/queries.test.ts
-          src/shared/schemas/app-settings.test.ts
-          src/main/plugin/capability-host.test.ts
-          src/main/plugin/host-language.test.ts
-          src/main/window/window-manager.test.ts
-          src/server/plugin/capability-host.test.ts
-          src/preload/preload.test.ts
-          src/renderer/lib/bootstrap-locale.test.ts
-          src/renderer/lib/i18n.test.ts
-          src/renderer/components/ui/primitives-i18n.test.tsx
-          src/renderer/components/language-sync.test.tsx
-          src/renderer/components/locale-direction-provider.test.tsx
-          src/renderer/components/onboarding/onboarding-language-select.test.tsx
-          src/renderer/routes/plugins/hooks/use-plugin-detail.test.tsx
-          src/renderer/routes/plugins/hooks/use-plugins.test.tsx
-          src/renderer/routes/settings/cards/appearance-dialog.test.tsx
-          tests/scripts/check-i18n.test.ts
-
-      - name: Marketplace registry contracts
-        run: >-
-          pnpm exec vitest run
-          src/shared/schemas/registry.test.ts
-          src/core/plugin/registry/registry-client.test.ts
-          src/renderer/routes/plugins/lib/registry-text.test.ts
-          src/renderer/routes/plugins/plugins-page.test.tsx
-          src/renderer/routes/plugins/components/registry-plugin-card.test.tsx
-          src/renderer/routes/plugins/components/registry-detail-panel.test.tsx
-          src/core/plugin/registry/registry-fetcher.test.ts
-          src/core/plugin/registry/update-scan.test.ts
-          src/core/plugin/install/e2e-install.test.ts
-          src/core/plugin/install/registry-expectation.test.ts
-          src/core/plugin/update/builtin-updater.test.ts
-          src/core/plugin/update/signature.test.ts
-
-      # The runtime test repeats the real loopback proxy probe under Electron's
-      # embedded Node via ELECTRON_RUN_AS_NODE; keep the hydrated runtime above.
-      - name: Undici proxy compatibility (Node + Electron)
-        run: >-
-          pnpm exec vitest run
-          src/core/engine/aria2/aria2-adapter.test.ts
-          src/core/engine/aria2/aria2-config-builder.test.ts
-          src/core/engine/aria2/aria2-process-manager.test.ts
-          src/core/engine/aria2/aria2-trust-store.test.ts
-          src/core/engine/engine-supervisor.test.ts
-          src/core/proxy/applied-download-proxy-policy.test.ts
-          src/core/proxy/applier.test.ts
-          src/core/proxy/aria2-proxy-routing.test.ts
-          src/core/proxy/serializers.test.ts
-          src/core/session/session-manager.test.ts
-          src/core/task/actions/re-add-task.test.ts
-          src/core/task/create-task-handler.test.ts
-          src/core/task/direct-resource-validator.test.ts
-          src/core/task/direct-resource-validator.proxy-contract.test.ts
-          src/core/task/direct-resource-validator.proxy.test.ts
-          src/core/tracker/tracker-prober.test.ts
-          src/core/tracker/tracker-syncer.test.ts
-          src/main/ipc/commands.test.ts
-          src/server/ipc/commands.test.ts
-        env:
-          MOTRIX_REQUIRE_ELECTRON_PROXY_TEST: '1'
-
-      - name: Undici response and dispatcher lifecycle
-        run: >-
-          pnpm exec vitest run
-          src/core/geoip/geo-ip-downloader.test.ts
-          src/core/media/manifest-fetcher.test.ts
-          src/core/plugin/capabilities/http.proxy-lifecycle.test.ts
-          src/core/plugin/install/github-fetcher.test.ts
-          src/core/plugin/install/url-fetcher.test.ts
-          src/core/plugin/registry/registry-client.test.ts
-          src/server/plugin/install-service.test.ts
-
       - name: Schema parity check
         run: pnpm run check:schema-parity
 
       - name: Third-party notice contract
-        run: pnpm run check:third-party-notices
+        # The verifier tests run once in the full suite below.
+        run: node scripts/generate-third-party-notices.mjs --check
 
       - name: File naming conventions
         run: pnpm run check:file-names
@@ -168,19 +69,16 @@ jobs:
       - name: Architecture and icon import boundaries
         run: pnpm run check:boundaries
 
-      # Fingerprint the resolved Biome first: lint verdicts have disagreed
-      # between runs with identical inputs before, and the version line is
-      # the fastest way to tell a toolchain drift from a real finding.
       - name: Biome toolchain fingerprint
         run: |
           pnpm exec biome --version
           pnpm ls @biomejs/biome
 
-      # Single source of truth for lint scope: package.json's `lint` script
-      # (`biome check .`), bounded by biome.json. Keep this in lockstep with
-      # the local commit gate in .claude/rules/commit-and-quality.md.
       - name: Lint
         run: pnpm run lint
+
+      - name: Type-check (root)
+        run: pnpm exec tsc --noEmit
 
       - name: Native host JavaScript tooling tests
         run: >-
@@ -188,79 +86,11 @@ jobs:
           packages/native-host/build.test.mjs
           packages/native-host/package-flatpak-companion.test.mjs
 
-      - name: Release and packaging contracts
-        run: >-
-          pnpm exec vitest run
-          src/main/bridge/native-messaging-installer.test.ts
-          src/main/bridge/bootstrap-lifecycle.test.ts
-          src/main/bridge/native-host-path.test.ts
-          src/main/bridge/native-messaging-extensions.test.ts
-          src/main/bridge/snap-environment.test.ts
-          tests/scripts/assemble-release-artifacts.test.ts
-          tests/scripts/app-deep-link-registration.test.ts
-          tests/scripts/appimage-artifact.test.ts
-          tests/scripts/before-pack-verify.test.ts
-          tests/scripts/compose-server.test.ts
-          tests/scripts/container-platform-metadata.test.ts
-          tests/scripts/container-publication-state.test.ts
-          tests/scripts/container-release-metadata.test.ts
-          tests/scripts/docker-server-docs.test.ts
-          tests/scripts/electron-package-contract.test.ts
-          tests/scripts/flatpak-native-host.test.ts
-          tests/scripts/finalize-appimage-artifact.test.ts
-          tests/scripts/fetch-engine.test.ts
-          tests/scripts/fetch-engine-path-parity.test.ts
-          tests/scripts/native-binary-target.test.ts
-          tests/scripts/obsidian-docs.test.ts
-          tests/scripts/release-metadata.test.ts
-          tests/scripts/release-signing-input.test.ts
-          tests/scripts/release-version-contract.test.ts
-          tests/scripts/snap-artifact.test.ts
-          tests/scripts/snap-build-set-release.test.ts
-          tests/scripts/snap-project.test.ts
-          tests/scripts/snap-store-channel.test.ts
-          tests/scripts/stage-electron-app.test.ts
-          tests/scripts/audit-server-runtime.test.ts
-          tests/scripts/production-build.test.ts
-          tests/scripts/docker-server-runtime.test.ts
-          tests/scripts/server-runtime-workflow.test.ts
-          tests/scripts/smoke-server-package.test.ts
-          tests/scripts/smoke-electron-cleanup.test.ts
-          tests/scripts/stage-server-app.test.ts
-          tests/scripts/verify-electron-package.test.ts
-          tests/scripts/verify-appimage-artifact.test.ts
-          tests/scripts/verify-pacman-artifact.test.ts
-          tests/scripts/verify-container-publication.test.ts
-          tests/scripts/verify-server-package.test.ts
-          tests/scripts/verify-update-artifacts.test.ts
-          tests/scripts/windows-artifact-names.test.ts
-          tests/scripts/workflow-release-matrix.test.ts
-          tests/scripts/workflow-flatpak-release.test.ts
-          tests/scripts/workflow-snap.test.ts
-
-      - name: Type-check (root)
-        run: pnpm exec tsc --noEmit
-
-      - name: Verified FFmpeg installation contracts
-        run: >-
-          pnpm exec vitest run
-          src/core/ffmpeg/verified-install.test.ts
-          src/core/plugin/capabilities/ffmpeg.test.ts
-          src/main/plugin/ffmpeg-fetch-electron.test.ts
-          src/main/plugin/ffmpeg-macos-trust.test.ts
-          src/main/plugin/ffmpeg-probe-managed.test.ts
-          src/main/plugin/ffmpeg-probe-electron.test.ts
-          src/renderer/routes/settings/cards/integration/media-tools-section.test.tsx
-
       - name: Tests (root)
-        # Temporarily non-blocking. Known pre-existing failures (unrelated to
-        # Plan G — all confirmed on main):
-        #   - src/renderer/layouts/app-layout.test.tsx (1)
-        #   - src/renderer/routes/dashboard/tiles/engine-tile.test.tsx (2)
-        #   - src/core/geoip/geo-ip-manager.test.ts (intermittent ENOTEMPTY)
-        # Remove continue-on-error once each is resolved.
-        continue-on-error: true
+        # Run each test once, including the embedded Electron Node proxy probe.
         run: pnpm test
+        env:
+          MOTRIX_REQUIRE_ELECTRON_PROXY_TEST: '1'
 
   server-runtime:
     name: Server runtime / ${{ matrix.target }}

@@ -345,7 +345,7 @@ describe('durable HTTP legacy activation', () => {
     ).rejects.toThrow()
     expect(f.adapter.importLegacyCheckpoint).not.toHaveBeenCalled()
     expect(f.adapter.createDownload).not.toHaveBeenCalled()
-    expect(await readFile(f.target)).toEqual(f.payload)
+    expect((await readFile(f.target)).equals(f.payload)).toBe(true)
   })
 
   it('rechecks the source after native creation before unpausing', async () => {
@@ -362,7 +362,7 @@ describe('durable HTTP legacy activation', () => {
       f.service.activate(f.taskId, async () => f.downloads)
     ).rejects.toThrow('legacyImport.errors.changedSource')
     expect(f.adapter.resumeTask).not.toHaveBeenCalled()
-    expect(await readFile(f.target)).toEqual(f.payload)
+    expect((await readFile(f.target)).equals(f.payload)).toBe(true)
   })
 
   it('holds the applied route stable until verification and native dispatch finish', async () => {

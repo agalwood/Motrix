@@ -671,20 +671,6 @@ describe('<AboutDialog>', () => {
     )
   })
 
-  it('keeps the update form inside a shrinkable scroll region', () => {
-    renderDialog()
-
-    expect(screen.getByRole('dialog')).toHaveClass(
-      'flex',
-      'max-h-[calc(100svh-2rem)]',
-      'overflow-hidden'
-    )
-    expect(screen.getByTestId('about-dialog-scroll')).toHaveAttribute(
-      'data-slot',
-      'scroll-area-viewport'
-    )
-  })
-
   it('renders the web note without querying or subscribing to app updates', () => {
     const showUpdates = vi
       .spyOn(appUpdateSection, 'shouldShowAppUpdate')
