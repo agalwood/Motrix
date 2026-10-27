@@ -1,12 +1,35 @@
+import { lstat } from 'node:fs/promises'
 import path from 'node:path'
 import type { DownloadTask } from '@shared/types/task'
-import { TaskStatus } from '@shared/types/task'
+import { TaskStatus, TaskType } from '@shared/types/task'
+import {
+  getBtDirectStorageLayout,
+  getBtStorageLayout,
+} from './bt-storage-layout'
 import { outputPathIdentity } from './output-path-identity'
 
 export interface BtOutputReservation {
   finalPath: string
   infoHash: string
   multiFile?: boolean
+}
+
+/** Single-file engines may read/write a sibling progress file even when metadata is separate. */
+export function btOutputPaths(
+  payloadPath: string,
+  multiFile: boolean
+): string[] {
+  return multiFile ? [payloadPath] : [payloadPath, `${payloadPath}.aria2`]
+}
+
+export async function hasBtControlFile(payloadPath: string): Promise<boolean> {
+  try {
+    await lstat(`${payloadPath}.aria2`)
+    return true
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false
+    throw error
+  }
 }
 
 /** Existing payload adoption/movement cannot take over another task's tree. */
@@ -28,10 +51,18 @@ export function hasReservedTaskOutput(
   return tasks.some((task) => {
     if (task.id === excludeTaskId || task.status === TaskStatus.Removed)
       return false
+    const singleFile =
+      getBtDirectStorageLayout(task)?.multiFile === false ||
+      getBtStorageLayout(task)?.multiFile === false ||
+      task.type === TaskType.Http ||
+      task.type === TaskType.Ftp
     return [
-      task.finalPath,
-      task.diskPath,
-      ...getBtOutputReservations(task).map((entry) => entry.finalPath),
+      ...[task.finalPath, task.diskPath]
+        .filter(Boolean)
+        .flatMap((output) => btOutputPaths(output, !singleFile)),
+      ...getBtOutputReservations(task).flatMap((entry) =>
+        btOutputPaths(entry.finalPath, entry.multiFile === true)
+      ),
     ]
       .filter(Boolean)
       .some((output) => {

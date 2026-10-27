@@ -138,6 +138,30 @@ export async function verifyBtFiles(
     return named
   }
 
+  // aria2 opens existing unselected files too and can truncate oversized ones.
+  // Check the whole declared layout, while only hashing selected pieces.
+  const inspectLayout = async (initial: boolean) => {
+    for (const [index, entry] of entries.entries()) {
+      input.signal?.throwIfAborted()
+      const previous = stamps.get(entry.absolute)
+      try {
+        const current = await inspect(entry)
+        if (current.size !== BigInt(entry.length))
+          addExample(result.invalidFiles, entry.path)
+        if (initial) stamps.set(entry.absolute, stamp(current))
+        else if (previous !== stamp(current))
+          addExample(result.invalidFiles, entry.path)
+      } catch (error) {
+        if (!missing(error)) throw error
+        if (selected.has(index)) addExample(result.missingFiles, entry.path)
+        else if (previous !== undefined)
+          addExample(result.invalidFiles, entry.path)
+      }
+    }
+  }
+  await inspectLayout(true)
+  if (result.missingFiles.length || result.invalidFiles.length) return result
+
   const buffer = Buffer.allocUnsafe(READ_BYTES)
   let current:
     | { index: number; handle: Awaited<ReturnType<typeof open>> }
@@ -234,24 +258,7 @@ export async function verifyBtFiles(
       }
     }
     await close()
-    // Zero-length selected files have no pieces, but must still exist.
-    for (const index of selected) {
-      if (entries[index].length !== 0) continue
-      try {
-        const s = await inspect(entries[index])
-        if (s.size !== 0n) addExample(result.invalidFiles, entries[index].path)
-      } catch (error) {
-        if (!missing(error)) throw error
-        addExample(result.missingFiles, entries[index].path)
-      }
-    }
-    for (const entry of entries) {
-      const previous = stamps.get(entry.absolute)
-      if (!previous) continue
-      const latest = await inspect(entry)
-      if (stamp(latest) !== previous)
-        addExample(result.invalidFiles, entry.path)
-    }
+    await inspectLayout(false)
     input.signal?.throwIfAborted()
     result.complete =
       result.validPieces === result.totalPieces &&

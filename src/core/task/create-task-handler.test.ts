@@ -61,6 +61,9 @@ const { mkdirMock, fsStub } = vi.hoisted(() => {
     access: vi.fn(async () => {
       throw Object.assign(new Error('missing file'), { code: 'ENOENT' })
     }),
+    lstat: vi.fn(async (): Promise<unknown> => {
+      throw Object.assign(new Error('missing file'), { code: 'ENOENT' })
+    }),
     mkdir: mkdirMock,
     stat: vi.fn(async (): Promise<{ isDirectory(): boolean }> => {
       throw Object.assign(new Error('missing directory'), { code: 'ENOENT' })
@@ -3283,6 +3286,50 @@ describe('verified existing torrent adoption', () => {
     await expect(handleCreateTask(request(), deps)).rejects.toThrow(
       'task.storage.errors.conflict'
     )
+    expect(deps.addTorrent).not.toHaveBeenCalled()
+  })
+
+  it('does not adopt over another task pending control-file name', async () => {
+    const deps = makeDeps()
+    vi.mocked(verifyBtFiles).mockResolvedValue(complete)
+    vi.mocked(deps.taskManager.getAll).mockReturnValue([
+      makeTestTask({
+        id: 'other',
+        finalPath: '/d/public-torrent.aria2',
+        status: TaskStatus.Queued,
+      }),
+    ])
+    await expect(handleCreateTask(request(), deps)).rejects.toThrow(
+      'task.storage.errors.conflict'
+    )
+    expect(deps.addTorrent).not.toHaveBeenCalled()
+  })
+
+  it('does not adopt files beside an unowned existing control file', async () => {
+    const deps = makeDeps()
+    fsStub.lstat.mockResolvedValueOnce({})
+    await expect(handleCreateTask(request(), deps)).rejects.toThrow(
+      'task.storage.errors.conflict'
+    )
+    expect(deps.addTorrent).not.toHaveBeenCalled()
+    expect(deps.persist).not.toHaveBeenCalled()
+  })
+
+  it('does not adopt a payload named as another task control file', async () => {
+    const deps = makeDeps()
+    vi.mocked(deps.taskManager.getAll).mockReturnValue([
+      makeTestTask({
+        id: 'other',
+        finalPath: '/d/public-torrent',
+        status: TaskStatus.Queued,
+      }),
+    ])
+    await expect(
+      handleCreateTask(
+        { ...request(), displayName: 'public-torrent.aria2' },
+        deps
+      )
+    ).rejects.toThrow('task.storage.errors.conflict')
     expect(deps.addTorrent).not.toHaveBeenCalled()
   })
 

@@ -1465,19 +1465,21 @@ export class SessionManager {
     const primary = pair.instances[0]
     const taskType = taskPart.taskType
     const isBtLike = isTorrentLikeType(taskType)
-    // gid swap: lift baseline so cumulative upload survives across reAdd
-    // (the new aria2 row starts uploadLength at 0). When newGid === primary
-    // gid (Pass-2 Completed retention) keep baseline as is.
+    // Restore the same settled-baseline + current-GID accounting used by the
+    // canonical row mapper; retained terminal instances can have stale counters.
+    const uploadedBytes =
+      taskPart.uploadedBytesBaseline +
+      unsettledBtUpload(
+        pair.instances,
+        primary?.gid ?? '',
+        primary?.uploadedBytes ?? 0
+      )
     const uploadedBytesBaseline =
-      newGid !== primary?.gid
-        ? Math.max(taskPart.uploadedBytesBaseline, primary?.uploadedBytes ?? 0)
-        : taskPart.uploadedBytesBaseline
+      newGid !== primary?.gid ? uploadedBytes : taskPart.uploadedBytesBaseline
     const bt = isBtLike
       ? makeDefaultBtExtension({
           ratio:
-            taskPart.totalBytes > 0
-              ? (primary?.uploadedBytes ?? 0) / taskPart.totalBytes
-              : 0,
+            taskPart.totalBytes > 0 ? uploadedBytes / taskPart.totalBytes : 0,
           trackers: taskPart.trackers.flat(),
           announceList: taskPart.trackers,
           isPrivate: taskPart.isPrivate,
@@ -1517,10 +1519,7 @@ export class SessionManager {
       createdAt: taskPart.createdAt,
       updatedAt: retainedIdentity ? taskPart.updatedAt : now,
       uris: primary?.uris ?? [],
-      uploadedBytes:
-        newGid !== primary?.gid
-          ? uploadedBytesBaseline
-          : (primary?.uploadedBytes ?? 0),
+      uploadedBytes,
       uploadedBytesBaseline,
       fileCount: taskPart.fileCount,
       connections: 0,
@@ -1546,6 +1545,7 @@ export class SessionManager {
           ? {
               ...inst,
               gid: newGid,
+              uploadedBytes: retainedIdentity ? inst.uploadedBytes : 0,
               status: nextStatus,
               updatedAt: retainedIdentity ? inst.updatedAt : now,
             }

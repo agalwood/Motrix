@@ -1659,9 +1659,42 @@ describe('SessionManager', () => {
       expect(restored?.downloadedBytes).toBe(250)
       // 250 / 1000 = 0.25 — derived from saved mirror, not hardcoded 0.
       expect(restored?.progress).toBe(0.25)
+      expect(restored?.uploadedBytes).toBe(100)
+      expect(restored?.uploadedBytesBaseline).toBe(100)
+      expect(restored?.instances[0]?.uploadedBytes).toBe(0)
 
       fs.rmSync(tmpDir, { recursive: true, force: true })
     })
+
+    it.each([TaskStatus.Completed, TaskStatus.Error])(
+      'retains settled upload after storage stops a %s torrent',
+      async (status) => {
+        for (const uploadedBytes of [0, 1000]) {
+          const gid = `storage-${uploadedBytes}`
+          seedAsPair(db, {
+            motrixId: gid,
+            gid,
+            type: TaskType.Bt,
+            status,
+            totalBytes: 1000,
+            downloadedBytes: 1000,
+            uploadedBytes,
+            uploadedBytesBaseline: 1000,
+            payload: { btFinalizeUpload: { gid, bytes: 1000 } },
+          })
+        }
+        rpc.tellActive = vi.fn(async () => [])
+        rpc.tellWaiting = vi.fn(async () => [])
+        rpc.tellStopped = vi.fn(async () => [])
+        await sessionManager.restore()
+        for (const uploadedBytes of [0, 1000]) {
+          const restored = taskManager.getById(`storage-${uploadedBytes}`)
+          expect(restored?.uploadedBytes).toBe(1000)
+          expect(restored?.uploadedBytesBaseline).toBe(1000)
+          expect(restored?.bt?.ratio).toBe(1)
+        }
+      }
+    )
 
     it('restores a live retiring GID without counting its settled upload twice', async () => {
       const gid = 'settled-finalize-gid'

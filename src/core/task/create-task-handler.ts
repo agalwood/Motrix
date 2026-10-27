@@ -68,7 +68,11 @@ import {
   withBtOutputAdmission,
 } from './bt-duplicate-policy'
 import { verifyBtFiles } from './bt-file-verifier'
-import { hasReservedTaskOutput } from './bt-output-reservation'
+import {
+  btOutputPaths,
+  hasBtControlFile,
+  hasReservedTaskOutput,
+} from './bt-output-reservation'
 import {
   btStoragePayload,
   createBtDirectStoragePlan,
@@ -583,7 +587,13 @@ async function handleCreateTaskUnderAdmission(
         'task.storage.errors.unavailable'
       )
     const output = path.join(effectiveSaveDir, existingName)
-    if (hasReservedTaskOutput(deps.taskManager.getAll(), [output]))
+    if (
+      hasReservedTaskOutput(
+        deps.taskManager.getAll(),
+        btOutputPaths(output, parsedBtLayout.multiFile)
+      ) ||
+      (!parsedBtLayout.multiFile && (await hasBtControlFile(output)))
+    )
       throw new AppError(
         ErrorCode.TorrentDuplicateConflict,
         'task.storage.errors.conflict'

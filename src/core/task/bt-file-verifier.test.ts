@@ -103,6 +103,82 @@ describe('read-only torrent verification', () => {
     ).toMatchObject({ complete: true, totalPieces: 2 })
   })
 
+  it('rejects an oversized unselected file without changing it', async () => {
+    const files = [
+      { name: 'a', data: 'aaaa' },
+      { name: 'b', data: 'bbbb' },
+    ]
+    await writeFile(path.join(root, 'a'), 'aaaa')
+    await writeFile(path.join(root, 'b'), 'unrelated data'.repeat(4))
+    const before = await readFile(path.join(root, 'b'))
+    expect(
+      await verifyBtFiles({
+        metadata: storageTorrent(files),
+        payloadPath: root,
+        selectedFiles: [0],
+      })
+    ).toMatchObject({ complete: false, invalidFiles: ['bundle/b'] })
+    expect(await readFile(path.join(root, 'b'))).toEqual(before)
+  })
+
+  it.each(['leaf', 'ancestor'])(
+    'rejects an unselected %s symlink',
+    async (kind) => {
+      const outside = path.join(root, 'outside')
+      const payloadPath = path.join(root, 'payload')
+      await mkdir(outside)
+      await mkdir(payloadPath)
+      await writeFile(path.join(payloadPath, 'a'), 'aaaa')
+      await writeFile(path.join(outside, 'b'), 'unrelated data')
+      const relative = kind === 'leaf' ? 'b' : 'sub/b'
+      await symlink(
+        kind === 'leaf' ? path.join(outside, 'b') : outside,
+        path.join(payloadPath, kind === 'leaf' ? 'b' : 'sub')
+      )
+      await expect(
+        verifyBtFiles({
+          metadata: storageTorrent([
+            { name: 'a', data: 'aaaa' },
+            { name: relative, data: 'bbbb' },
+          ]),
+          payloadPath,
+          selectedFiles: [0],
+        })
+      ).rejects.toThrow(/unsafe|regular/)
+      expect(await readFile(path.join(outside, 'b'), 'utf8')).toBe(
+        'unrelated data'
+      )
+    }
+  )
+
+  it('rechecks an unselected file changed while selected pieces were hashed', async () => {
+    const files = [
+      { name: 'a', data: 'aaaaaaaa' },
+      { name: 'b', data: 'bbbb' },
+    ]
+    for (const file of files)
+      await writeFile(path.join(root, file.name), file.data)
+    let changed = false
+    const result = await verifyBtFiles({
+      metadata: storageTorrent(files),
+      payloadPath: root,
+      selectedFiles: [0],
+      onProgress: () => {
+        if (!changed) {
+          changed = true
+          writeFileSync(path.join(root, 'b'), 'changed unselected data')
+        }
+      },
+    })
+    expect(result).toMatchObject({
+      complete: false,
+      invalidFiles: ['bundle/b'],
+    })
+    expect(await readFile(path.join(root, 'b'), 'utf8')).toBe(
+      'changed unselected data'
+    )
+  })
+
   it('requires missing adjacent bytes needed by a selected piece', async () => {
     const files = [
       { name: 'a', data: 'abc' },

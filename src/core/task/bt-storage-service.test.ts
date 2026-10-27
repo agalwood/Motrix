@@ -266,6 +266,110 @@ describe('BT storage operations', () => {
     expect(adapter.forceRemoveTask).not.toHaveBeenCalled()
   })
 
+  it.each(['move', 'locate'] as const)(
+    'rejects a reserved adjacent control file for %s',
+    async (mode) => {
+      const { service, task, target, deps, adapter } = await setup()
+      deps.taskManager.add(
+        makeDownloadTask({
+          id: 'other',
+          finalPath: `${target}.aria2`,
+          status: TaskStatus.Queued,
+        })
+      )
+      expect(
+        await service.run({
+          taskId: task.id,
+          mode,
+          directory: path.dirname(target),
+          name: 'file',
+          resume: true,
+        })
+      ).toEqual({ error: 'conflict' })
+      expect(adapter.forceRemoveTask).not.toHaveBeenCalled()
+      expect(adapter.addTorrent).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each(['move', 'locate'] as const)(
+    'preserves an unowned adjacent control file for %s',
+    async (mode) => {
+      const { service, task, target, adapter } = await setup()
+      await writeFile(`${target}.aria2`, 'unrelated content')
+      expect(
+        await service.run({
+          taskId: task.id,
+          mode,
+          directory: path.dirname(target),
+          name: 'file',
+          resume: true,
+        })
+      ).toEqual({ error: 'destination' })
+      expect(await readFile(`${target}.aria2`, 'utf8')).toBe(
+        'unrelated content'
+      )
+      expect(adapter.forceRemoveTask).not.toHaveBeenCalled()
+    }
+  )
+
+  it('permits a same-location recheck with the task own control file', async () => {
+    const { service, task, source } = await setup()
+    await writeFile(`${source}.aria2`, 'owned checkpoint')
+    expect(
+      await service.run({ taskId: task.id, mode: 'recheck' })
+    ).toMatchObject({ verification: { complete: true } })
+    expect(await readFile(`${source}.aria2`, 'utf8')).toBe('owned checkpoint')
+  })
+
+  it('does not treat a source payload symlink as ownership of the target sidecar', async () => {
+    const { service, task, source, target, adapter } = await setup()
+    await rename(source, target)
+    await symlink(target, source)
+    await writeFile(`${target}.aria2`, 'unrelated content')
+    expect(
+      await service.run({
+        taskId: task.id,
+        mode: 'locate',
+        directory: path.dirname(target),
+        name: 'file',
+        resume: true,
+      })
+    ).toEqual({ error: 'destination' })
+    expect(await readFile(`${target}.aria2`, 'utf8')).toBe('unrelated content')
+    expect(adapter.forceRemoveTask).not.toHaveBeenCalled()
+  })
+
+  it('reserves the control path of an older single-file storage layout', async () => {
+    const { service, task, target, deps, adapter } = await setup()
+    const owner = structuredClone(task)
+    owner.id = 'older'
+    owner.engineTaskId = 'older-gid'
+    owner.saveDir = path.dirname(target)
+    owner.finalPath = owner.diskPath = target
+    owner.instances[0].motrixId = owner.id
+    owner.instances[0].gid = owner.engineTaskId
+    owner.instances[0].diskPath = target
+    owner.instances[0].payload.btStorageLayout = {
+      version: 1,
+      strategy: 'indexed-staging',
+      workspacePath: path.join(owner.saveDir, '.motrix', 'a'.repeat(20)),
+      payloadEntry: 'p',
+      torrentRootName: 'file',
+      multiFile: false,
+    }
+    deps.taskManager.add(owner)
+    expect(
+      await service.run({
+        taskId: task.id,
+        mode: 'locate',
+        directory: path.dirname(target),
+        name: 'file.aria2',
+        resume: true,
+      })
+    ).toEqual({ error: 'conflict' })
+    expect(adapter.forceRemoveTask).not.toHaveBeenCalled()
+  })
+
   it('leaves both locations intact when the new files fail verification', async () => {
     const { service, task, source, target, deps, adapter } = await setup()
     await writeFile(target, 'wrong!!!')

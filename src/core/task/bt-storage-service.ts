@@ -27,7 +27,11 @@ import {
   withBtOutputAdmissions,
 } from './bt-duplicate-policy'
 import { verifyBtFiles } from './bt-file-verifier'
-import { hasReservedTaskOutput } from './bt-output-reservation'
+import {
+  btOutputPaths,
+  hasBtControlFile,
+  hasReservedTaskOutput,
+} from './bt-output-reservation'
 import { btStoragePayload, parseBtFileLayout } from './bt-storage-layout'
 import { settleBtUpload } from './bt-upload-settlement'
 import { outputPathIdentity } from './output-path-identity'
@@ -199,11 +203,20 @@ export class BtStorageService {
     if (
       hasReservedTaskOutput(
         deps.taskManager.getAll(),
-        request.mode === 'move' ? [source, target] : [target],
+        (request.mode === 'move' ? [source, target] : [target]).flatMap(
+          (output) => btOutputPaths(output, layout.multiFile)
+        ),
         original.id
       )
     )
       throw new StorageFault('conflict')
+    if (
+      !layout.multiFile &&
+      outputPathIdentity(`${sourcePath}.aria2`) !==
+        outputPathIdentity(`${target}.aria2`) &&
+      (await hasBtControlFile(target))
+    )
+      throw new StorageFault('destination')
     if (request.mode === 'move') {
       const occupied = await lstat(target).catch((error) => {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
