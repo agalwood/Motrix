@@ -4,6 +4,7 @@ import type { EventChannel } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
 import { rendererSessionSchema } from '@shared/schemas/renderer-health'
 import { rendererSubmissionChannelSchema } from '@shared/schemas/renderer-submission'
+import { v7 as uuidv7 } from 'uuid'
 import { registerIntentConsumer } from '../renderer-intents'
 import type { AnyChannel, EventListener, Transport } from './types'
 
@@ -28,7 +29,7 @@ export class ElectronTransport implements Transport {
         await getMotrix().invoke(Queries.GetRendererSession)
       )
       return getMotrix().invoke(Commands.ExecuteRendererSubmission, {
-        id: crypto.randomUUID(),
+        id: uuidv7(),
         generation: session.generation,
         channel,
         args,

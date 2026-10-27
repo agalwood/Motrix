@@ -7,10 +7,11 @@ import { electronServices } from '@renderer/platform/electron-services'
 import { PlatformServicesProvider } from '@renderer/platform/services'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
-import type {
-  OperationDescriptor,
-  OperationDraft,
-  OperationJob,
+import {
+  type OperationDescriptor,
+  type OperationDraft,
+  type OperationJob,
+  operationStartSchema,
 } from '@shared/schemas/plugin-operations'
 import { textOperationManifest } from '@test-utils/plugin-operation-fixture'
 import {
@@ -21,6 +22,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react'
+import { version as uuidVersion } from 'uuid'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import OperationForm from './operation-form'
 import { operationSessionKey, useOperationSessions } from './operation-store'
@@ -161,6 +163,7 @@ describe('declarative operation form', () => {
   })
   afterEach(async () => {
     cleanup()
+    vi.unstubAllGlobals()
     await applyRendererLocale('en-US')
   })
   it('shows a skeleton while loading and resumes the host draft after repeated document reloads', async () => {
@@ -219,6 +222,42 @@ describe('declarative operation form', () => {
     ).not.toBeInTheDocument()
     expect(invoke).toHaveBeenCalledWith(Commands.CancelPluginOperation, job.id)
   })
+  it.each([undefined, '00000000-0000-4000-8000-000000000005'])(
+    'starts without native randomUUID and reuses the idempotency key after a lost response (cached: %s)',
+    async (cachedKey) => {
+      vi.stubGlobal('crypto', {
+        getRandomValues: crypto.getRandomValues.bind(crypto),
+      })
+      const base = invoke.getMockImplementation()
+      let starts = 0
+      invoke.mockImplementation(async (channel, ...args) => {
+        if (channel === Commands.StartPluginOperation && ++starts === 1)
+          throw new TypeError('Failed to fetch')
+        return base?.(channel, ...args)
+      })
+      mount()
+      const run = await screen.findByRole('button', { name: 'Run operation' })
+      if (cachedKey)
+        useOperationSessions.getState().save(operationSessionKey(request), {
+          key: cachedKey,
+        })
+      fireEvent.click(run)
+      await screen.findByText(
+        'The operation failed. See the plugin log for details.'
+      )
+      fireEvent.click(run)
+      await screen.findByText('Running')
+      const calls = invoke.mock.calls.filter(
+        ([channel]) => channel === Commands.StartPluginOperation
+      )
+      expect(calls).toHaveLength(2)
+      const first = operationStartSchema.parse(calls[0][1])
+      const second = operationStartSchema.parse(calls[1][1])
+      expect(second).toEqual(first)
+      if (cachedKey) expect(first.idempotencyKey).toBe(cachedKey)
+      else expect(uuidVersion(first.idempotencyKey)).toBe(7)
+    }
+  )
   it('recovers a running job after reload without issuing a new start', async () => {
     const base = invoke.getMockImplementation()
     invoke.mockImplementation(async (channel, ...args) =>

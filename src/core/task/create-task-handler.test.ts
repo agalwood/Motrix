@@ -22,6 +22,7 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
+import { v7 as uuidv7 } from 'uuid'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Aria2Adapter } from '../engine/aria2/aria2-adapter'
 import { DIRECT_RESOURCE_METADATA_PROFILE } from '../engine/engine-adapter'
@@ -214,7 +215,7 @@ describe('source admission before side effects', () => {
     const tasks: DownloadTask[] = []
     vi.mocked(deps.taskManager.getAll).mockImplementation(() => tasks)
     add.mockImplementation((task) => tasks.push(task))
-    const request = { ...httpRequest(), requestId: crypto.randomUUID() }
+    const request = { ...httpRequest(), requestId: uuidv7() }
     const first = await handleCreateTask(request, deps)
     const second = await handleCreateTask(request, deps)
     expect(second).toMatchObject({ outcome: 'reused', taskId: first.taskId })

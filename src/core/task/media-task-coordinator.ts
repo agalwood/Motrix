@@ -12,6 +12,7 @@ import {
 } from '@core/ffmpeg/ffmpeg-service'
 import { ensureDirectory } from '@core/fs/ensure-directory'
 import { pathExists } from '@core/fs/path-exists'
+import { newTaskId } from '@core/lib/ids'
 import { getLogger } from '@core/logger'
 import type { assembleSegments } from '@core/media/segment-assembler'
 import type { SegmentDecryptor } from '@core/media/segment-decryptor'
@@ -189,7 +190,7 @@ export class MediaTaskCoordinator {
       throw new Error('MediaTaskCoordinator is stopped')
     }
 
-    const taskId = job.taskId ?? this.deps.mintTaskId?.() ?? crypto.randomUUID()
+    const taskId = job.taskId ?? this.deps.mintTaskId?.() ?? newTaskId()
     let accepted = false
     let resolveAccepted!: () => void
     let rejectAccepted!: (error: unknown) => void
@@ -229,7 +230,7 @@ export class MediaTaskCoordinator {
    * contract. Production bridge and desktop submit paths use submit().
    */
   async start(job: MediaJob): Promise<{ taskId: string }> {
-    const taskId = job.taskId ?? this.deps.mintTaskId?.() ?? crypto.randomUUID()
+    const taskId = job.taskId ?? this.deps.mintTaskId?.() ?? newTaskId()
     return this.run(job, taskId)
   }
 

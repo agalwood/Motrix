@@ -1,6 +1,7 @@
 import { invalidateTaskList } from '@renderer/hooks/use-task-list'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { version as uuidVersion } from 'uuid'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
@@ -245,6 +246,8 @@ describe('AddTaskForm', () => {
       .filter(([channel]) => channel === 'command:createTask')
       .map(([, request]) => request)
     expect(submitted).toHaveLength(3)
+    for (const request of submitted)
+      expect(uuidVersion(request.requestId)).toBe(7)
     expect(submitted[0].requestId).not.toBe(submitted[1].requestId)
     expect(submitted[1].requestId).toBe(submitted[2].requestId)
     expect(submitted[2].uris).toEqual(['https://a/second'])

@@ -20,6 +20,7 @@ import {
 } from '@shared/types/task'
 import { canPause } from '@shared/types/task-actions'
 import { makeMediaMetaStoreStub } from '@test-utils/media-meta-store'
+import { version as uuidVersion } from 'uuid'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MediaCoordinatorDeps, MediaJob } from './media-task-coordinator'
 import { MediaTaskCoordinator } from './media-task-coordinator'
@@ -748,6 +749,20 @@ describe('MediaTaskCoordinator.start', () => {
     expect(taskManager.getById(taskId)?.finishedAt).not.toBeNull()
   })
 
+  it.each(['start', 'submit'] as const)(
+    '%s defaults to a UUID v7 task ID when no ID factory is injected',
+    async (method) => {
+      const { deps, taskManager } = makeDeps({ mintTaskId: undefined })
+      const coordinator = new MediaTaskCoordinator(deps)
+      try {
+        const { taskId } = await coordinator[method](baseJob())
+        expect(uuidVersion(taskId)).toBe(7)
+        expect(taskManager.getById(taskId)).toBeDefined()
+      } finally {
+        await coordinator.stopAndDrain()
+      }
+    }
+  )
   it('uses taskId from job when provided', async () => {
     const { deps, taskManager } = makeDeps({
       mintTaskId: () => 'should-not-use',
