@@ -43,6 +43,7 @@ import {
   type AppliedDownloadProxyPolicy,
   UNAVAILABLE_APPLIED_DOWNLOAD_PROXY_POLICY,
 } from '@core/proxy/applied-download-proxy-policy'
+import type { DurableFinalizeRuntime } from '@core/session/durable-finalize-runtime'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
 import { applySavedSettings } from '@core/settings/apply-saved-settings'
@@ -73,6 +74,10 @@ import {
   taskCreateConflictResult,
 } from '@core/task/bt-duplicate-policy'
 import { parseBtFileLayout } from '@core/task/bt-storage-layout'
+import {
+  authorizeBtDirectory,
+  BtStorageService,
+} from '@core/task/bt-storage-service'
 import {
   type CreateTaskDeps,
   handleCreateTask,
@@ -112,6 +117,7 @@ import {
   torrentBatchCreateOptionsSchema,
 } from '@shared/schemas/add-task'
 import { appImageNativeHostActionSchema } from '@shared/schemas/appimage-native-host'
+import { btStorageRequestSchema } from '@shared/schemas/bt-storage'
 import {
   removeTasksPayloadSchema,
   taskIdsPayloadSchema,
@@ -183,6 +189,15 @@ const cliInstallRequestSchema = z
   .strict()
 
 export interface CommandContext {
+  btStorageRuntime?: Pick<
+    DurableFinalizeRuntime,
+    'commit' | 'withArtifactLease' | 'hasPendingFinalization'
+  >
+  persistBtStorage?: (
+    task: DownloadTask,
+    sourceRoot: string,
+    targetRoot: string
+  ) => Promise<void>
   rendererRecovery?: ReturnType<typeof createRendererRecoveryRuntime>
   operationService?: OperationService
   cliToolService: Pick<CliToolService, 'install'>
@@ -485,7 +500,38 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     directResourceProxyPolicy:
       appliedDownloadProxyPolicy ?? UNAVAILABLE_APPLIED_DOWNLOAD_PROXY_POLICY,
   }
+  const btStorage =
+    ctx.btStorageRuntime && ctx.persistBtStorage
+      ? new BtStorageService({
+          ...reAddDeps,
+          runtime: ctx.btStorageRuntime,
+          persistStorage: ctx.persistBtStorage,
+          authorizeDirectory: authorizeBtDirectory,
+        })
+      : null
   createDeps.reuseExistingBt = (taskId) => reAddTask(taskId, reAddDeps)
+  if (btStorage)
+    createDeps.relocateExistingBt = async (taskId, directory, name) => {
+      const result = await btStorage.run(
+        { taskId, mode: 'locate', directory, name, resume: true },
+        true
+      )
+      if ('error' in result)
+        throw new AppError(
+          ErrorCode.TaskNotRetryable,
+          `task.storage.errors.${result.error}`
+        )
+      if (!result.verification.complete)
+        throw new AppError(
+          ErrorCode.TaskNotRetryable,
+          'task.storage.incomplete'
+        )
+      if (result.resumeFailed)
+        throw new AppError(
+          ErrorCode.TaskNotRetryable,
+          'task.storage.resumeFailed'
+        )
+    }
   // The DNS fallback consumer retries through the same deps bundle as
   // Commands.ReAddTasks so the automatic and user-initiated paths match.
   bindTaskRetry?.((id) => reAddTask(id, reAddDeps))
@@ -798,6 +844,17 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     // Plural task commands (option C): one IPC request per multi-select
     // action. Per-task outcomes come back IPC-safe; the bulk close inside
     // runBulkTaskAction forces one immediate snapshot flush.
+    [Commands.ChangeBtStorage]: async (rawPayload: unknown) => {
+      const request = btStorageRequestSchema.parse(rawPayload)
+      await supervisor.waitUntilReady(ENGINE_READY_TIMEOUT_MS)
+      await waitForTasksReady?.()
+      return btStorage ? btStorage.run(request) : { error: 'unavailable' }
+    },
+    [Commands.CancelBtStorage]: async (taskId: unknown) => {
+      btStorage?.cancel(z.string().min(1).parse(taskId))
+      return { ok: true }
+    },
+
     [Commands.MoveTasks]: async (rawPayload: unknown) =>
       moveTasks(moveTasksPayloadSchema.parse(rawPayload), pauseResumeDeps),
 
@@ -973,7 +1030,10 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
                     infoHash: layout.infoHash,
                     saveDir: req.saveDir,
                     selectedFiles: req.selectedFiles,
-                    duplicatePolicy: req.duplicatePolicy,
+                    duplicatePolicy:
+                      req.duplicatePolicy === 'use-existing'
+                        ? 'reuse'
+                        : req.duplicatePolicy,
                     excludeTaskId: req.existingTaskId,
                   })
                 : { action: 'create' as const }
@@ -1005,7 +1065,10 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
                     selectedFiles: req.selectedFiles,
                     saveDir: req.saveDir,
                     name: req.displayName,
-                    duplicatePolicy: req.duplicatePolicy,
+                    duplicatePolicy:
+                      req.duplicatePolicy === 'use-existing'
+                        ? 'reuse'
+                        : req.duplicatePolicy,
                   },
                   {
                     db: motrixDatabase,

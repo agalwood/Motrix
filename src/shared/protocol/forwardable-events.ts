@@ -4,6 +4,7 @@ import { Events } from './events'
 export const ForwardableEvents = [
   Events.TaskUpdated,
   Events.TaskFilesUpdated,
+  Events.BtStorageProgress,
   Events.TaskActivityUpdated,
   Events.TaskInspectorActivityUpdated,
   Events.MagnetFileSelection,

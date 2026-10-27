@@ -74,6 +74,8 @@ export interface TaskInstance {
 }
 
 export interface DownloadTask {
+  /** Transient storage work; never restored as an engine task after restart. */
+  storageOperation?: boolean
   id: string
   engineTaskId: string
   name: string

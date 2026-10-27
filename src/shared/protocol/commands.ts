@@ -50,6 +50,8 @@ export const Commands = {
   PauseTasks: 'command:pauseTasks',
   ResumeTasks: 'command:resumeTasks',
   MoveTasks: 'command:moveTasks',
+  ChangeBtStorage: 'command:changeBtStorage',
+  CancelBtStorage: 'command:cancelBtStorage',
   RemoveTasks: 'command:removeTasks',
   ReAddTasks: 'command:reAddTasks',
   // Generic user Retry. Shell handlers route sidecar-backed torrents to

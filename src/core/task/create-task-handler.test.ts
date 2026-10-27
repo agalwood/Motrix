@@ -22,12 +22,17 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
+import { makeDownloadTask as makeTestTask } from '@test-utils/task'
 import { v7 as uuidv7 } from 'uuid'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Aria2Adapter } from '../engine/aria2/aria2-adapter'
 import { DIRECT_RESOURCE_METADATA_PROFILE } from '../engine/engine-adapter'
+import { verifyBtFiles } from './bt-file-verifier'
 import { parseBtFileLayout } from './bt-storage-layout'
 import { handleCreateTask } from './create-task-handler'
+
+vi.mock('./bt-file-verifier', () => ({ verifyBtFiles: vi.fn() }))
+
 import {
   DirectResourceValidatorService,
   sanitizeRemoteFilename,
@@ -54,6 +59,9 @@ const { mkdirMock, fsStub } = vi.hoisted(() => {
   const mkdirMock = vi.fn(async () => undefined)
   const fsStub = {
     access: vi.fn(async () => {
+      throw Object.assign(new Error('missing file'), { code: 'ENOENT' })
+    }),
+    lstat: vi.fn(async (): Promise<unknown> => {
       throw Object.assign(new Error('missing file'), { code: 'ENOENT' })
     }),
     mkdir: mkdirMock,
@@ -3224,4 +3232,175 @@ it.each([
   const httpTask = owners.find((task) => task.type === TaskType.Http)!
   expect(httpTask.finalName).not.toBe(httpName)
   expect(httpTask.diskPath).toBe(`${httpTask.finalPath}.motrix`)
+})
+
+describe('verified existing torrent adoption', () => {
+  const complete = {
+    complete: true,
+    checkedPieces: 1,
+    totalPieces: 1,
+    validPieces: 1,
+    missingFiles: [],
+    invalidFiles: [],
+  }
+  const request = () => ({
+    type: 'bt' as const,
+    payload: {
+      kind: 'torrent-base64' as const,
+      base64: Buffer.from(makePublicTorrentFixture()).toString('base64'),
+    },
+    selectedFiles: [0],
+    saveDir: '/d',
+    duplicatePolicy: 'use-existing' as const,
+  })
+
+  it('verifies the exact existing path before engine admission without allocating a suffix', async () => {
+    const deps = makeDeps()
+    deps.finalNamePicker.isTaken = vi.fn(async () => true)
+    vi.mocked(verifyBtFiles).mockResolvedValue(complete)
+    await handleCreateTask(request(), deps)
+    expect(verifyBtFiles).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payloadPath: '/d/public-torrent',
+        selectedFiles: [0],
+      })
+    )
+    expect(deps.pick).not.toHaveBeenCalled()
+    expect(deps.addTorrent).toHaveBeenCalledWith(
+      expect.any(String),
+      [],
+      expect.objectContaining({
+        'check-integrity': 'true',
+        'allow-overwrite': 'false',
+        'bt-seed-unverified': 'false',
+      })
+    )
+    expect(lastAddedTask(deps).finalPath).toBe('/d/public-torrent')
+  })
+
+  it('does not adopt a directory containing another task output', async () => {
+    const deps = makeDeps()
+    vi.mocked(deps.taskManager.getAll).mockReturnValue([
+      makeTestTask({ id: 'other', finalPath: '/d/public-torrent/owned.bin' }),
+    ])
+    await expect(handleCreateTask(request(), deps)).rejects.toThrow(
+      'task.storage.errors.conflict'
+    )
+    expect(deps.addTorrent).not.toHaveBeenCalled()
+  })
+
+  it('does not adopt over another task pending control-file name', async () => {
+    const deps = makeDeps()
+    vi.mocked(verifyBtFiles).mockResolvedValue(complete)
+    vi.mocked(deps.taskManager.getAll).mockReturnValue([
+      makeTestTask({
+        id: 'other',
+        finalPath: '/d/public-torrent.aria2',
+        status: TaskStatus.Queued,
+      }),
+    ])
+    await expect(handleCreateTask(request(), deps)).rejects.toThrow(
+      'task.storage.errors.conflict'
+    )
+    expect(deps.addTorrent).not.toHaveBeenCalled()
+  })
+
+  it('does not adopt files beside an unowned existing control file', async () => {
+    const deps = makeDeps()
+    fsStub.lstat.mockResolvedValueOnce({})
+    await expect(handleCreateTask(request(), deps)).rejects.toThrow(
+      'task.storage.errors.conflict'
+    )
+    expect(deps.addTorrent).not.toHaveBeenCalled()
+    expect(deps.persist).not.toHaveBeenCalled()
+  })
+
+  it('does not adopt a payload named as another task control file', async () => {
+    const deps = makeDeps()
+    vi.mocked(deps.taskManager.getAll).mockReturnValue([
+      makeTestTask({
+        id: 'other',
+        finalPath: '/d/public-torrent',
+        status: TaskStatus.Queued,
+      }),
+    ])
+    await expect(
+      handleCreateTask(
+        { ...request(), displayName: 'public-torrent.aria2' },
+        deps
+      )
+    ).rejects.toThrow('task.storage.errors.conflict')
+    expect(deps.addTorrent).not.toHaveBeenCalled()
+  })
+
+  it('does not create a task or start the engine for damaged existing files', async () => {
+    const deps = makeDeps()
+    vi.mocked(verifyBtFiles).mockResolvedValue({
+      ...complete,
+      complete: false,
+      validPieces: 0,
+    })
+    await expect(handleCreateTask(request(), deps)).rejects.toThrow(
+      'task.storage.incomplete'
+    )
+    expect(deps.addTorrent).not.toHaveBeenCalled()
+    expect(deps.persist).not.toHaveBeenCalled()
+    expect(deps.taskManager.add).not.toHaveBeenCalled()
+  })
+
+  it('uses the original task ID and relocation service for an unambiguous old location', async () => {
+    const deps = makeDeps()
+    const infoHash = (await parseBtFileLayout(makePublicTorrentFixture()))
+      .infoHash
+    const task = makeDownloadTask({
+      id: 'original',
+      type: TaskType.Bt,
+      status: TaskStatus.Completed,
+      name: 'original',
+      saveDir: '/old',
+      createdAt: 1,
+      updatedAt: 1,
+      diskPath: '/old/public-torrent',
+      filename: 'public-torrent',
+      finalName: 'public-torrent',
+      instances: [],
+      kind: TaskKind.Bt,
+      source: 'user',
+      sourceMeta: null,
+      infoHash,
+      torrentMetaPath: '/metadata.torrent',
+      finalPath: '/old/public-torrent',
+      bt: makeDefaultBtExtension({ selectedFiles: [0] }),
+    })
+    vi.mocked(deps.taskManager.getAll).mockReturnValue([task])
+    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+    deps.relocateExistingBt = vi.fn(async () => {})
+    expect(await handleCreateTask(request(), deps)).toMatchObject({
+      outcome: 'rechecked',
+      taskId: 'original',
+    })
+    expect(deps.relocateExistingBt).toHaveBeenCalledWith(
+      'original',
+      '/d',
+      'public-torrent'
+    )
+    expect(deps.addTorrent).not.toHaveBeenCalled()
+  })
+
+  it('refuses metadata-only magnets for explicit existing-file adoption', async () => {
+    const deps = makeDeps()
+    await expect(
+      handleCreateTask(
+        {
+          ...request(),
+          payload: {
+            kind: 'magnet',
+            uri: `magnet:?xt=urn:btih:${'a'.repeat(40)}`,
+          },
+        },
+        deps
+      )
+    ).rejects.toThrow('Invalid task create request')
+    expect(deps.addUri).not.toHaveBeenCalled()
+  })
 })

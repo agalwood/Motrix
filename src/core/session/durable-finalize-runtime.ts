@@ -38,6 +38,10 @@ export interface DurableFinalizeArtifactInput {
   postDeliveries: readonly PostDeliveryAdmission[]
   beforeCommit?: () => void
   fileRebase?: { sourceRoot: string; targetRoot: string }
+  /** Read-only payload validation while engine and plugin writers are quiesced. */
+  verifySource?: () => Promise<void>
+  /** Synchronous publication before another session snapshot can save stale paths. */
+  onCommitted?: () => void
 }
 
 export interface DurableFinalizeRuntimeOptions {
@@ -56,6 +60,18 @@ export class DurableFinalizeRuntime {
   constructor(private readonly options: DurableFinalizeRuntimeOptions) {
     this.leases = options.leases ?? new ArtifactMutationLeaseCoordinator([])
     this.now = options.now ?? Date.now
+  }
+
+  async withArtifactLease<T>(
+    taskId: string,
+    operation: () => Promise<T>
+  ): Promise<T> {
+    const lease = await this.leases.acquire(taskId)
+    try {
+      return await operation()
+    } finally {
+      await lease.release()
+    }
   }
 
   async commit(
@@ -97,6 +113,7 @@ export class DurableFinalizeRuntime {
     const lease = await this.leases.acquire(input.task.id)
     try {
       await this.createRecovery().recoverTask(input.task.id, lease)
+      await input.verifySource?.()
       const pending = (
         await this.createRepository().listRecoverable(input.task.id)
       ).find((record) => record.publicationIntent?.method === 'reserved_rename')
@@ -196,6 +213,7 @@ export class DurableFinalizeRuntime {
               (pending.phase !== 'cleaned' && pending.phase !== 'db_committed')
             )
               throw new Error('reserved publication recovery did not commit')
+            input.onCommitted?.()
             return {
               journalId: pending.journalId,
               targetPath: pending.plan.targetPath,
@@ -223,7 +241,11 @@ export class DurableFinalizeRuntime {
             sameContent: artifactContentEquals,
           })
           input.beforeCommit?.()
-          return committer.commit(plan, lease)
+          const result = await committer.commit(plan, lease)
+          // SQLite's outer durable transaction has committed, but the session
+          // persistence lane is still held. Publish before queued autosaves.
+          input.onCommitted?.()
+          return result
         }
       )
     } finally {

@@ -116,6 +116,15 @@ function notifyTaskCreateFailure(
   notify: PlatformServices['notify'],
   reason: string | null
 ): void {
+  if (
+    reason &&
+    /^task\.storage\.(incomplete|resumeFailed|errors\.(unavailable|busy|destination|conflict|engine|failed|cancelled))$/.test(
+      reason
+    )
+  ) {
+    notify('error', reason)
+    return
+  }
   if (!reason) {
     notify('error', 'task.add.createFailed')
     return
@@ -679,36 +688,44 @@ export function AddTaskForm({
     [duplicateConflict, form, completeCurrentSubmission]
   )
 
-  const createSeparateCopy = useCallback(async () => {
-    if (!active || !duplicateConflict) return
-    setSubmitting(true)
-    try {
-      const result = (await transport.invoke(Commands.CreateTask, {
-        ...duplicateConflict.request,
-        duplicatePolicy: 'create-copy',
-      })) as TaskCreateCommandResult
-      if (result.outcome === 'invalid-source') {
+  const createSeparateCopy = useCallback(
+    async (policy: 'create-copy' | 'use-existing' = 'create-copy') => {
+      if (!active || !duplicateConflict) return
+      setSubmitting(true)
+      try {
+        const result = (await transport.invoke(Commands.CreateTask, {
+          ...duplicateConflict.request,
+          duplicatePolicy: policy,
+        })) as TaskCreateCommandResult
+        if (result.outcome === 'invalid-source') {
+          platform.notify(
+            'error',
+            `task.add.sourceErrors.${result.failure.diagnostic.reason}`
+          )
+          return
+        }
+        if (result.outcome === 'conflict') {
+          setDuplicateConflict({ ...duplicateConflict, result })
+          return
+        }
+        invalidateTaskList()
+        setDuplicateConflict(null)
         platform.notify(
-          'error',
-          `task.add.sourceErrors.${result.failure.diagnostic.reason}`
+          'info',
+          policy === 'use-existing'
+            ? 'task.storage.resumed'
+            : 'task.add.createdCopy'
         )
-        return
+        await completeConflict(result.taskId)
+      } catch (error) {
+        console.error(error)
+        notifyTaskCreateFailure(platform.notify, taskCreateFailureReason(error))
+      } finally {
+        setSubmitting(false)
       }
-      if (result.outcome === 'conflict') {
-        setDuplicateConflict({ ...duplicateConflict, result })
-        return
-      }
-      invalidateTaskList()
-      setDuplicateConflict(null)
-      platform.notify('info', 'task.add.createdCopy')
-      await completeConflict(result.taskId)
-    } catch (error) {
-      console.error(error)
-      notifyTaskCreateFailure(platform.notify, taskCreateFailureReason(error))
-    } finally {
-      setSubmitting(false)
-    }
-  }, [active, completeConflict, duplicateConflict, platform])
+    },
+    [active, completeConflict, duplicateConflict, platform]
+  )
 
   // ⌘↵ / Ctrl+Enter submit
   useEffect(() => {
@@ -792,10 +809,12 @@ export function AddTaskForm({
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+              <AlertDialogCancel disabled={submitting}>
+                {t('common.cancel')}
+              </AlertDialogCancel>
               {conflictPresentation?.result.conflict.existingTaskId && (
                 <AlertDialogAction
-                  disabled={!duplicateConflict}
+                  disabled={!duplicateConflict || submitting}
                   onClick={() => {
                     const taskId =
                       duplicateConflict?.result.conflict.existingTaskId
@@ -806,10 +825,29 @@ export function AddTaskForm({
                   {t('task.add.duplicate.showExisting')}
                 </AlertDialogAction>
               )}
+              {conflictPresentation?.request.type === 'bt' &&
+                !conflictPresentation.request.existingTaskId &&
+                conflictPresentation.request.payload.kind ===
+                  'torrent-base64' &&
+                conflictPresentation.result.conflict.reason ===
+                  'existing-files' && (
+                  <AlertDialogAction
+                    disabled={!duplicateConflict || submitting}
+                    onClick={(event) => {
+                      event.preventDefault()
+                      void createSeparateCopy('use-existing')
+                    }}
+                  >
+                    {t('task.storage.useExisting')}
+                  </AlertDialogAction>
+                )}
               {conflictPresentation?.result.conflict.canCreateCopy && (
                 <AlertDialogAction
-                  disabled={!duplicateConflict}
-                  onClick={() => void createSeparateCopy()}
+                  disabled={!duplicateConflict || submitting}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    void createSeparateCopy()
+                  }}
                 >
                   {t('task.add.duplicate.createCopy')}
                 </AlertDialogAction>

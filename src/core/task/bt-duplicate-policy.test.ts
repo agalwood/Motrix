@@ -14,6 +14,8 @@ import {
   inspectBtDuplicate,
   normalizeBtInfoHash,
   reservedBtFinalNames,
+  withBtOutputAdmission,
+  withBtOutputAdmissions,
 } from './bt-duplicate-policy'
 
 const INFO_HASH = 'a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc'
@@ -308,4 +310,44 @@ it('reserves all failed magnet targets even outside the original save root', () 
     'earlier.aria2',
   ])
   expect(reservedBtFinalNames([task], '/new', task.id)).toEqual([])
+})
+
+describe('hierarchical output admission', () => {
+  it('blocks creation beneath either directory of a move and allows unrelated directories', async () => {
+    const hold = Promise.withResolvers<void>()
+    const entered = Promise.withResolvers<void>()
+    const events: string[] = []
+    const move = withBtOutputAdmissions(['/source', '/target'], async () => {
+      events.push('move')
+      entered.resolve()
+      await hold.promise
+    })
+    await entered.promise
+    const child = withBtOutputAdmission('/source/torrent/subdir', async () => {
+      events.push('child')
+    })
+    const target = withBtOutputAdmission('/target/torrent', async () => {
+      events.push('target')
+    })
+    await withBtOutputAdmission('/unrelated', async () => {
+      events.push('unrelated')
+    })
+    expect(events).toEqual(['move', 'unrelated'])
+    hold.resolve()
+    await Promise.all([move, child, target])
+    expect(events).toEqual(['move', 'unrelated', 'child', 'target'])
+  })
+
+  it('serializes reverse moves without acquiring directories in opposite orders', async () => {
+    const events: number[] = []
+    await Promise.all([
+      withBtOutputAdmissions(['/a', '/b'], async () => {
+        events.push(1)
+      }),
+      withBtOutputAdmissions(['/b', '/a'], async () => {
+        events.push(2)
+      }),
+    ])
+    expect(events).toEqual([1, 2])
+  })
 })

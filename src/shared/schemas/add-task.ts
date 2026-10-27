@@ -123,9 +123,20 @@ const btTaskRequestSchema = z
     existingTaskId: z.string().min(1).optional(),
     // Duplicate torrent handling is conservative by default. A separate copy
     // is created only after the user explicitly confirms the conflict.
-    duplicatePolicy: z.enum(['reuse', 'create-copy']).default('reuse'),
+    duplicatePolicy: z
+      .enum(['reuse', 'create-copy', 'use-existing'])
+      .default('reuse'),
   })
   .superRefine((value, ctx) => {
+    if (
+      value.duplicatePolicy === 'use-existing' &&
+      (value.payload.kind !== 'torrent-base64' ||
+        value.existingTaskId !== undefined)
+    )
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Existing files require resolved torrent metadata',
+      })
     if (
       value.payload.kind === 'torrent-base64' &&
       value.selectedFiles.length === 0

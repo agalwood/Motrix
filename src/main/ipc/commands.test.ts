@@ -3205,3 +3205,28 @@ it('rejects system association commands from a portable profile', async () => {
     setPortableProfile(null)
   }
 })
+
+describe('BT storage command contract', () => {
+  it('validates destination requests before invoking storage', async () => {
+    const handlers = buildCommandHandlers(
+      fakeCtx() as unknown as CommandContext
+    )
+    await expect(
+      handlers[Commands.ChangeBtStorage]?.({ taskId: 'bt', mode: 'move' })
+    ).rejects.toThrow()
+  })
+  it('reports unavailable storage and accepts a harmless cancellation', async () => {
+    const handlers = buildCommandHandlers(
+      fakeCtx() as unknown as CommandContext
+    )
+    expect(
+      await handlers[Commands.ChangeBtStorage]?.({
+        taskId: 'bt',
+        mode: 'recheck',
+      })
+    ).toEqual({ error: 'unavailable' })
+    expect(await handlers[Commands.CancelBtStorage]?.('bt')).toEqual({
+      ok: true,
+    })
+  })
+})

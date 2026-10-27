@@ -11,7 +11,7 @@ describe('desktop main locale projection', () => {
     id: string
   ) => { code: string } | null
 
-  it('removes only the Server CLI catalog from every locale', () => {
+  it('omits non-main UI catalogs while preserving host errors in every locale', () => {
     for (const file of readdirSync(root).filter((name) =>
       name.endsWith('.json')
     )) {
@@ -20,8 +20,23 @@ describe('desktop main locale projection', () => {
       expect(original.operatorAdmin).toBeDefined()
       const result = JSON.parse(transform(source, path.join(root, file))!.code)
       expect(result.operatorAdmin).toBeUndefined()
+      expect(result.task.add.duplicate).toBeUndefined()
+      expect(result.task.storage).toEqual({
+        incomplete: original.task.storage.incomplete,
+        resumeFailed: original.task.storage.resumeFailed,
+        errors: original.task.storage.errors,
+      })
       delete original.operatorAdmin
+      delete original.task.add.duplicate
+      original.task.storage = {
+        incomplete: original.task.storage.incomplete,
+        resumeFailed: original.task.storage.resumeFailed,
+        errors: original.task.storage.errors,
+      }
       expect(result).toEqual(original)
+      // The source catalogs, consumed by renderer and Server, stay complete.
+      expect(JSON.parse(source).task.storage.move).toBeDefined()
+      expect(JSON.parse(source).task.add.duplicate).toBeDefined()
     }
   })
 

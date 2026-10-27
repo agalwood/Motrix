@@ -16,6 +16,7 @@ export const Events = {
   CompletionShutdownChanged: 'event:completionShutdownChanged',
   TaskUpdated: 'event:taskUpdated',
   TaskFilesUpdated: 'event:taskFilesUpdated',
+  BtStorageProgress: 'event:btStorageProgress',
   TaskActivityUpdated: 'event:taskActivityUpdated',
   TaskInspectorActivityUpdated: 'event:taskInspectorActivityUpdated',
   StatsUpdated: 'event:statsUpdated',

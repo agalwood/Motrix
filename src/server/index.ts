@@ -993,6 +993,7 @@ async function main() {
         const outcome =
           existing.status !== merged.status
             ? await commitPolledTerminalTransition(existing.status, merged, {
+                isCurrent: () => taskManager.getById(existing.id) === existing,
                 persistTaskWithOccurrence,
                 occurrenceDispatcher,
                 publish: (task) => taskManager.set(task.id, task),
@@ -1006,8 +1007,11 @@ async function main() {
             : 'not-terminal'
         // Nothing was published and nothing is durable: leave the prior
         // in-memory state alone so the next poll retries.
-        if (outcome === 'persist-failed') continue
-        if (outcome !== 'published') taskManager.set(existing.id, merged)
+        if (outcome === 'persist-failed' || outcome === 'stale') continue
+        if (outcome !== 'published') {
+          if (taskManager.getById(existing.id) !== existing) continue
+          taskManager.set(existing.id, merged)
+        }
         dirty = true
       } else {
         const id = newTaskId()
@@ -1174,6 +1178,9 @@ async function main() {
   // ─── HTTP App ─────────────────────────────────────────────────
   const serverDirectoryService = new ServerDirectoryService(downloadPathPolicy)
   const commandHandlers = buildServerCommandHandlers({
+    btStorageRuntime: durableFinalizeRuntime,
+    persistBtStorage: (task, source, target) =>
+      sessionManager.persistBtStorage(task, source, target),
     operationService: pluginRuntime.operations,
     mediaMetaStore,
     serverDirectoryService,

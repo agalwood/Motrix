@@ -1204,6 +1204,36 @@
         "tooManyRedirects": "该链接可能已失效，请尝试更换下载链接",
         "btMetadataFailed": "检查磁力链接或添加更多 Tracker 后重试"
       }
+    },
+    "storage": {
+      "move": "移动文件…",
+      "locate": "查找已有文件…",
+      "recheck": "检查文件…",
+      "moveDescription": "为下载好的文件选择新位置。移动期间会暂停做种。",
+      "locateDescription": "指定文件现在的位置，检查完整后即可继续做种。",
+      "recheckDescription": "检查下载的文件是否完整。检查不会修改文件或重新下载。",
+      "directory": "所在文件夹",
+      "name": "文件或文件夹名称",
+      "resume": "检查通过后继续做种",
+      "checking": "正在检查文件…",
+      "moving": "正在移动文件…",
+      "resuming": "正在启动做种…",
+      "verifiedPercent": "检查通过 {{percent}}%",
+      "checkFailed": "检查未通过",
+      "verified": "文件完整，可以开始做种。",
+      "resumed": "已恢复做种。",
+      "incomplete": "部分文件缺失或不完整，请确认文件夹选择正确后重试。",
+      "resumeFailed": "新位置已保存。可以点击“重新做种”再试一次。",
+      "useExisting": "检查并使用这些文件",
+      "errors": {
+        "unavailable": "这个任务暂时无法移动或检查。",
+        "busy": "还有文件操作正在进行，请稍后再试。",
+        "destination": "请换一个文件夹或名称。所选位置可能已有同名文件，或位于当前文件夹内。",
+        "conflict": "另一个下载任务正在使用这些文件，请打开对应任务更改位置。",
+        "engine": "未能停止当前任务，请重试。",
+        "failed": "无法访问或移动文件，请检查文件夹、可用空间和访问权限。",
+        "cancelled": "已取消检查。"
+      }
     }
   },
   "settings": {

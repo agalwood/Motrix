@@ -1204,6 +1204,36 @@
         "tooManyRedirects": "來源連結可能失效，請嘗試其他連結",
         "btMetadataFailed": "請檢查 Magnet 連結或新增更多 Tracker，然後重試"
       }
+    },
+    "storage": {
+      "move": "移動檔案…",
+      "locate": "尋找現有檔案…",
+      "recheck": "檢查檔案…",
+      "moveDescription": "為下載好的檔案選擇新位置。移動期間會暫停做種。",
+      "locateDescription": "指定檔案目前的位置，檢查完整後即可繼續做種。",
+      "recheckDescription": "檢查下載的檔案是否完整。檢查不會修改檔案或重新下載。",
+      "directory": "所在資料夾",
+      "name": "檔案或資料夾名稱",
+      "resume": "檢查通過後繼續做種",
+      "checking": "正在檢查檔案…",
+      "moving": "正在移動檔案…",
+      "resuming": "正在啟動做種…",
+      "verifiedPercent": "檢查通過 {{percent}}%",
+      "checkFailed": "檢查未通過",
+      "verified": "檔案完整，可以開始做種。",
+      "resumed": "已恢復做種。",
+      "incomplete": "部分檔案遺失或不完整，請確認資料夾選擇正確後重試。",
+      "resumeFailed": "新位置已儲存。可以點選「重新做種」再試一次。",
+      "useExisting": "檢查並使用這些檔案",
+      "errors": {
+        "unavailable": "這個任務暫時無法移動或檢查。",
+        "busy": "還有檔案操作正在進行，請稍後再試。",
+        "destination": "請換一個資料夾或名稱。所選位置可能已有同名檔案，或位於目前資料夾內。",
+        "conflict": "另一個下載任務正在使用這些檔案，請開啟對應任務變更位置。",
+        "engine": "未能停止目前任務，請重試。",
+        "failed": "無法存取或移動檔案，請檢查資料夾、可用空間和存取權限。",
+        "cancelled": "已取消檢查。"
+      }
     }
   },
   "settings": {
