@@ -59,7 +59,7 @@ import {
   useWatch,
 } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { v4 as uuid } from 'uuid'
+import { v7 as uuidv7 } from 'uuid'
 import { AddTaskLayoutProvider } from './add-task-layout-context'
 import { FooterActions } from './footer-actions'
 import { LinksTabPanel } from './links-tab-panel'
@@ -537,7 +537,7 @@ export function AddTaskForm({
           const identity = createInputIdentity(request)
           const index = unused.findIndex((input) => input.identity === identity)
           return index < 0
-            ? { id: uuid(), identity }
+            ? { id: uuidv7(), identity }
             : unused.splice(index, 1)[0]
         })
         submissionInputs.current = inputs

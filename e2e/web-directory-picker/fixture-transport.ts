@@ -26,6 +26,7 @@ import {
   ValidateServerDirectoryRequestSchema,
 } from '@shared/schemas/server-directory'
 import { createDefaultSpeedLimitSettings } from '@shared/schemas/speed-limit'
+import { v7 as uuidv7 } from 'uuid'
 
 const folders = new Map<string, string[]>([
   ['/', ['archive', 'downloads', 'home']],
@@ -69,7 +70,7 @@ const canVisit = (path: string) =>
     ['/downloads', '/archive'].some(
       (root) => path === root || path.startsWith(`${root}/`)
     ))
-let generalRevision = crypto.randomUUID()
+let generalRevision = uuidv7()
 const generalSnapshot = () => ({
   revision: generalRevision,
   app: GeneralSettingsAppSchema.parse(settings.app),
@@ -85,7 +86,7 @@ function setPreferences(value: DirectoryPreferences) {
   const next = DirectoryPreferencesSchema.parse(value)
   if (JSON.stringify(next) === JSON.stringify(preferences())) return
   settings.app.directoryPreferences = next
-  generalRevision = crypto.randomUUID()
+  generalRevision = uuidv7()
   for (const listener of listeners.get(Events.DirectoryPreferencesChanged) ??
     [])
     listener(preferences())
@@ -273,7 +274,7 @@ export const transport: Transport = {
         settings.app = { ...settings.app, ...app, directoryPreferences: next }
         if (JSON.stringify(current) !== JSON.stringify(next))
           setPreferences(next)
-        generalRevision = crypto.randomUUID()
+        generalRevision = uuidv7()
         return { ok: true, value: generalSnapshot() }
       }
       case Commands.SaveDownloadsSettings: {
@@ -308,7 +309,7 @@ export const transport: Transport = {
         if (JSON.stringify(current) !== JSON.stringify(next))
           setPreferences(next)
         // Even an empty committed draft fences a timed-out predecessor.
-        generalRevision = crypto.randomUUID()
+        generalRevision = uuidv7()
         return {
           ok: true,
           value: downloadsSnapshot(),

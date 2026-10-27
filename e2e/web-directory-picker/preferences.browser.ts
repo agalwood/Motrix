@@ -1,6 +1,8 @@
 import { expect, type Locator, type Page, test } from '@playwright/test'
+import { version as uuidVersion } from 'uuid'
 import { Commands } from '../../src/shared/protocol/commands'
 import { Queries } from '../../src/shared/protocol/queries'
+import { taskCreateRequestSchema } from '../../src/shared/schemas/add-task'
 
 async function seed(page: Page, query = '') {
   await page.goto(`/${query}`)
@@ -933,6 +935,41 @@ test('unrestricted common places, root breadcrumb and Mac jumps stay available w
   await expect(picker).toHaveCSS('opacity', '1')
   await picker.screenshot({
     path: test.info().outputPath('unrestricted-native-places.png'),
+  })
+})
+
+test('Web downloads use UUID v7 without native randomUUID and preserve the ID on retry', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(crypto, 'randomUUID', {
+      configurable: true,
+      value: undefined,
+    })
+  })
+  await seed(page)
+  const parent = await openDownload(page)
+  await page.evaluate(() => {
+    window.directoryPickerFixture.taskCreateFailure = true
+  })
+  await parent.getByRole('button', { name: 'Download', exact: true }).click()
+  await expect(
+    parent.getByText('The fixture rejected this download.', { exact: false })
+  ).toBeVisible()
+  const firstCalls = await parentSubmissions(page)
+  expect(firstCalls).toHaveLength(1)
+  const first = taskCreateRequestSchema.parse(firstCalls[0].args[0])
+  if (first.type !== 'http') throw new Error('Expected an HTTP download')
+  expect(uuidVersion(first.requestId ?? '')).toBe(7)
+  await page.evaluate(() => {
+    window.directoryPickerFixture.taskCreateFailure = false
+  })
+  await parent.getByRole('button', { name: 'Download', exact: true }).click()
+  await expect(parent).not.toBeVisible()
+  const calls = await parentSubmissions(page)
+  expect(calls).toHaveLength(2)
+  expect(taskCreateRequestSchema.parse(calls[1].args[0])).toMatchObject({
+    requestId: first.requestId,
   })
 })
 
