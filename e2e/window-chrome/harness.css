@@ -1,0 +1,4 @@
+@import "../../src/renderer/styles/globals.css";
+
+/* Include real component utilities when Vite runs from this fixture directory. */
+@source "../../src/renderer";

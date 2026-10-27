@@ -1760,9 +1760,14 @@ async function initializeMainProcess(): Promise<void> {
       prewarmAddTask: () => !settingsManager.getApp().lightweightMode,
     },
   })
-  // Apply the persisted theme before opening windows. Renderer-drawn Windows
-  // controls inherit the same theme through CSS without native overlay sync.
-  setupNativeThemeSync(eventBus, settingsManager)
+  // Apply the persisted theme before opening windows and keep native Linux
+  // caption symbols readable over the renderer's changing title-bar surface.
+  const nativeThemeSync = setupNativeThemeSync(
+    eventBus,
+    settingsManager,
+    (dark) => windowManager.updateWindowControlsTheme(dark)
+  )
+  app.once('will-quit', () => nativeThemeSync.destroy())
   const systemAccentSync = setupSystemAccentColorSync(eventBus)
   app.once('will-quit', () => systemAccentSync.destroy())
   // Install forwarding before the onboarding window becomes interactive.

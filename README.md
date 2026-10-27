@@ -247,8 +247,10 @@ MOTRIX_PREVIEW_MAC_MENU=1 pnpm start
 ```
 
 The flag hides the main window's macOS traffic-light buttons, enables the
-renderer dropdown menu, and shows the custom window controls used on Windows
-and Linux. Collapse the sidebar in this mode to check the application menu,
+renderer dropdown menu, and shows the custom window controls used on Windows.
+Linux uses Electron's Window Controls Overlay to follow supported desktop
+button layouts and themes; validate those native controls in a Linux desktop
+session. Collapse the sidebar in preview mode to check the application menu,
 attached actions, drag region, and caption-control safe areas together.
 Restart the development process after changing the flag because both Electron
 and Vite read it at startup.

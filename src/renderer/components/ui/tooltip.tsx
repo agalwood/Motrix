@@ -1,6 +1,7 @@
 import { Tooltip as TooltipPrimitive } from '@base-ui/react/tooltip'
 
 import { cn } from '@renderer/lib/utils'
+import { usePopupPositioning } from './popup-positioning'
 
 function TooltipProvider({
   delay = 0,
@@ -43,6 +44,7 @@ function TooltipContent({
     | 'side'
     | 'sideOffset'
   >) {
+  const positioning = usePopupPositioning()
   return (
     <TooltipPrimitive.Portal>
       <TooltipPrimitive.Positioner
@@ -52,6 +54,7 @@ function TooltipContent({
         disableAnchorTracking={disableAnchorTracking}
         side={side}
         sideOffset={sideOffset}
+        {...positioning}
         className="isolate z-50"
       >
         <TooltipPrimitive.Popup

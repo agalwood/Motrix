@@ -7,6 +7,7 @@ import {
 } from '@renderer/components/icons'
 import { cn } from '@renderer/lib/utils'
 import type * as React from 'react'
+import { usePopupPositioning } from './popup-positioning'
 
 function DropdownMenu({
   ...props
@@ -39,12 +40,14 @@ function DropdownMenuContent({
   align,
   alignOffset,
   side,
+  collisionPadding,
   ...props
 }: DropdownMenuPrimitive.Popup.Props &
   Pick<
     DropdownMenuPrimitive.Positioner.Props,
-    'align' | 'alignOffset' | 'side' | 'sideOffset'
+    'align' | 'alignOffset' | 'side' | 'sideOffset' | 'collisionPadding'
   >) {
+  const positioning = usePopupPositioning(collisionPadding)
   return (
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Positioner
@@ -52,6 +55,7 @@ function DropdownMenuContent({
         alignOffset={alignOffset}
         side={side}
         sideOffset={sideOffset}
+        {...positioning}
         className="isolate z-50 outline-none"
       >
         <DropdownMenuPrimitive.Popup
@@ -252,20 +256,24 @@ function DropdownMenuSubTrigger({
 
 function DropdownMenuSubContent({
   className,
+  collisionPadding,
   ...props
-}: DropdownMenuPrimitive.Popup.Props) {
+}: DropdownMenuPrimitive.Popup.Props &
+  Pick<DropdownMenuPrimitive.Positioner.Props, 'collisionPadding'>) {
+  const positioning = usePopupPositioning(collisionPadding)
   return (
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Positioner
         side="inline-end"
         align="start"
+        {...positioning}
         className="isolate z-50 outline-none"
       >
         <DropdownMenuPrimitive.Popup
           data-slot="dropdown-menu-sub-content"
           style={{ outline: 'none' }}
           className={cn(
-            'z-50 min-w-[8rem] origin-(--transform-origin) overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-lg data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95',
+            'z-50 max-h-(--available-height) min-w-[8rem] origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-lg data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95',
             className
           )}
           {...props}

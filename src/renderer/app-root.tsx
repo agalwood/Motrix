@@ -4,6 +4,7 @@ import { LocaleDirectionProvider } from '@renderer/components/locale-direction-p
 import { OperatorUnlockGate } from '@renderer/components/operator-unlock-gate'
 import { ReducedMotionSync } from '@renderer/components/reduced-motion-sync'
 import { ThemeSync } from '@renderer/components/theme-sync'
+import { WindowControlsOverlayProvider } from '@renderer/components/window-chrome/window-controls-overlay-provider'
 import {
   bootstrapRendererLocale,
   type RendererWindowId,
@@ -71,7 +72,9 @@ function Root({
         {syncSettings && <ByteUnitSync />}
         <ReducedMotionSync syncSettings={syncSettings} />
         <LanguageSync windowId={windowId} />
-        {children}
+        <WindowControlsOverlayProvider>
+          {children}
+        </WindowControlsOverlayProvider>
       </LocaleDirectionProvider>
     </ThemeProvider>
   )

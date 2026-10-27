@@ -395,6 +395,73 @@ describe('WindowManager', () => {
     expect(options.titleBarOverlay).toBeUndefined()
   })
 
+  it('enables WCO for every Linux window, including prewarmed windows', () => {
+    const wm = new WindowManager({
+      settingsManager: createMockSettingsManager(),
+      preloadPath: '/fake/preload.cjs',
+      loadUrl: vi.fn(),
+      platform: 'linux',
+    })
+    wm.open('main')
+    wm.precreate('add-task')
+    wm.open('onboarding')
+
+    for (const win of wm.getAllWindows()) {
+      expect((win as unknown as { options: unknown }).options).toMatchObject({
+        titleBarStyle: 'hidden',
+        titleBarOverlay: {
+          color: '#ffffff00',
+          symbolColor: '#262626',
+          height: 54,
+        },
+      })
+    }
+    expect(wm.get('add-task')!.isVisible()).toBe(false)
+  })
+
+  it('updates visible and prewarmed Linux controls on theme changes without showing windows', () => {
+    const wm = new WindowManager({
+      settingsManager: createMockSettingsManager(),
+      preloadPath: '/fake/preload.cjs',
+      loadUrl: vi.fn(),
+      platform: 'linux',
+    })
+    const main = wm.open('main')!
+    wm.precreate('add-task')
+    const addTask = wm.get('add-task')!
+    const destroyed = wm.open('onboarding')!
+    destroyed.destroy()
+
+    for (const dark of [true, false]) {
+      wm.updateWindowControlsTheme(dark)
+      for (const win of [main, addTask]) {
+        expect(win.setTitleBarOverlay).toHaveBeenLastCalledWith({
+          color: dark ? '#09090b00' : '#ffffff00',
+          symbolColor: dark ? '#fafafa' : '#262626',
+          height: 54,
+        })
+        expect(win.show).not.toHaveBeenCalled()
+      }
+    }
+    expect(destroyed.setTitleBarOverlay).not.toHaveBeenCalled()
+    expect(addTask.isVisible()).toBe(false)
+  })
+
+  it.each(['darwin', 'win32'])(
+    'does not apply Linux overlays on %s',
+    (platform) => {
+      const wm = new WindowManager({
+        settingsManager: createMockSettingsManager(),
+        preloadPath: '/fake/preload.cjs',
+        loadUrl: vi.fn(),
+        platform,
+      })
+      const win = wm.open('main')!
+      wm.updateWindowControlsTheme(true)
+      expect(win.setTitleBarOverlay).not.toHaveBeenCalled()
+    }
+  )
+
   it('matches the first-paint window background to the resolved native theme', () => {
     ;(
       nativeTheme as unknown as { shouldUseDarkColors: boolean }
