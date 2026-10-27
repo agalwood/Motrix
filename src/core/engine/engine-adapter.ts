@@ -79,6 +79,8 @@ export interface AddTorrentParams {
   // not exist"). Used by SessionManager when re-adding a task whose data
   // file is still on disk from a prior session.
   checkIntegrity?: boolean
+  /** Verified adoption must not inherit overwrite, rename or unchecked-seeding settings. */
+  preserveExistingFiles?: boolean
   isPrivate?: boolean
   /** Prefer early and late pieces for a metadata-confirmed video-only
    * torrent. Concrete adapters translate this product policy. */

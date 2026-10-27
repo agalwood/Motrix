@@ -31,10 +31,12 @@ import { transport } from '@renderer/lib/transport'
 import { CommandIds } from '@shared/commands-catalog'
 import { formatNativePath } from '@shared/lib/path-display'
 import { Commands } from '@shared/protocol/commands'
+import type { BtStorageRequest } from '@shared/schemas/bt-storage'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
 import {
   type BulkTaskCommandResult,
+  canManageBtStorage,
   canOpenTaskFile,
   canSelectTaskFiles,
 } from '@shared/types/task-actions'
@@ -50,6 +52,7 @@ import {
   useSyncExternalStore,
 } from 'react'
 import { useTranslation } from 'react-i18next'
+import { BtStorageDialog } from './bt-storage-dialog'
 import { DownloadsToolbarButton } from './downloads-toolbar-button'
 import { canRevealTaskFolder } from './inspector/can-reveal-task-folder'
 import { copyTaskUrls } from './inspector/task-copy-url'
@@ -116,6 +119,17 @@ export function TaskActionsMenu({
     () => tasks.filter((task) => (targetIds ?? selectedIds).has(task.id)),
     [tasks, targetIds, selectedIds]
   )
+  const [storageDialog, setStorageDialog] = useState<{
+    task: DownloadTask
+    mode: BtStorageRequest['mode']
+  } | null>(null)
+  const storage = storageDialog ? (
+    <BtStorageDialog
+      key={`${storageDialog.task.id}-${storageDialog.mode}`}
+      {...storageDialog}
+      onClose={() => setStorageDialog(null)}
+    />
+  ) : null
   const [menuOpen, setMenuOpen] = useState(false)
   const pendingRef = useRef(false)
   const [pending, setPending] = useState(false)
@@ -132,6 +146,7 @@ export function TaskActionsMenu({
       0 ||
     single?.status === TaskStatus.MetadataReady ||
     canChooseFiles ||
+    (single && canManageBtStorage(single)) ||
     actions.moveCount > 0
   const { open: inspectorVisible } = useTaskInspectorState(selection, tasks)
   const macOS =
@@ -352,6 +367,16 @@ export function TaskActionsMenu({
               {t('panel.downloads.action.reseed')}
             </DropdownMenuItem>
           )}
+          {single &&
+            canManageBtStorage(single) &&
+            (['move', 'locate', 'recheck'] as const).map((mode) => (
+              <DropdownMenuItem
+                key={mode}
+                onClick={() => setStorageDialog({ task: single, mode })}
+              >
+                {t(`task.storage.${mode}`)}
+              </DropdownMenuItem>
+            ))}
           {single?.status === TaskStatus.MetadataReady && (
             <DropdownMenuItem
               disabled={pending}
@@ -509,7 +534,47 @@ export function TaskActionsMenu({
   const presentation = useExitSnapshot(menuOpen, items)
   if (children)
     return (
-      <ContextMenu
+      <>
+        {' '}
+        {storage}
+        <ContextMenu
+          open={menuOpen}
+          onOpenChange={(open) => {
+            if (open) prepare()
+            else setTargetIds(null)
+            setMenuOpen(open)
+          }}
+        >
+          <ContextMenuTrigger
+            render={children}
+            onKeyDownCapture={handleShortcut}
+            onCopyCapture={handleCopy}
+            onContextMenuCapture={(event) => {
+              const row = (event.target as Element).closest<HTMLElement>(
+                '[data-task-id]'
+              )
+              if (!row?.dataset.taskId) return
+              const state = selection.getState()
+              if (!state.selectedIds.has(row.dataset.taskId))
+                state.select(row.dataset.taskId)
+              state.focus(row.dataset.taskId)
+              prepare()
+            }}
+          />
+          <ContextMenuContent
+            onKeyDownCapture={handleShortcut}
+            onCopyCapture={handleCopy}
+            className="w-max min-w-48 max-w-[min(18rem,var(--available-width))]"
+          >
+            {presentation}
+          </ContextMenuContent>
+        </ContextMenu>
+      </>
+    )
+  return (
+    <>
+      {storage}
+      <DropdownMenu
         open={menuOpen}
         onOpenChange={(open) => {
           if (open) prepare()
@@ -517,62 +582,29 @@ export function TaskActionsMenu({
           setMenuOpen(open)
         }}
       >
-        <ContextMenuTrigger
-          render={children}
+        <DropdownMenuTrigger
           onKeyDownCapture={handleShortcut}
           onCopyCapture={handleCopy}
-          onContextMenuCapture={(event) => {
-            const row = (event.target as Element).closest<HTMLElement>(
-              '[data-task-id]'
-            )
-            if (!row?.dataset.taskId) return
-            const state = selection.getState()
-            if (!state.selectedIds.has(row.dataset.taskId))
-              state.select(row.dataset.taskId)
-            state.focus(row.dataset.taskId)
-            prepare()
-          }}
-        />
-        <ContextMenuContent
+          render={
+            <DownloadsToolbarButton
+              aria-label={t('panel.downloads.view.taskActions')}
+              title={t('panel.downloads.view.taskActions')}
+              ref={triggerRef}
+            />
+          }
+        >
+          <MoreIcon className="size-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
           onKeyDownCapture={handleShortcut}
           onCopyCapture={handleCopy}
+          align="end"
+          data-menu-density="compact"
           className="w-max min-w-48 max-w-[min(18rem,var(--available-width))]"
         >
           {presentation}
-        </ContextMenuContent>
-      </ContextMenu>
-    )
-  return (
-    <DropdownMenu
-      open={menuOpen}
-      onOpenChange={(open) => {
-        if (open) prepare()
-        else setTargetIds(null)
-        setMenuOpen(open)
-      }}
-    >
-      <DropdownMenuTrigger
-        onKeyDownCapture={handleShortcut}
-        onCopyCapture={handleCopy}
-        render={
-          <DownloadsToolbarButton
-            aria-label={t('panel.downloads.view.taskActions')}
-            title={t('panel.downloads.view.taskActions')}
-            ref={triggerRef}
-          />
-        }
-      >
-        <MoreIcon className="size-4" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        onKeyDownCapture={handleShortcut}
-        onCopyCapture={handleCopy}
-        align="end"
-        data-menu-density="compact"
-        className="w-max min-w-48 max-w-[min(18rem,var(--available-width))]"
-      >
-        {presentation}
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   )
 }

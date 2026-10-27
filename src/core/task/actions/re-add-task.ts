@@ -195,6 +195,7 @@ async function reAddBt(
     // AddTorrentParams is engine-native; the task aggregate stays 0-based.
     selectedFiles: selectedFiles?.map((index) => index + 1),
     checkIntegrity: true,
+    preserveExistingFiles: true,
     pause: false,
     isPrivate: task.bt?.isPrivate ?? false,
     ...(prioritizePreviewPieces ? { prioritizePreviewPieces: true } : {}),

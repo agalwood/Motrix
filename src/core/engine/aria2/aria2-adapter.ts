@@ -926,6 +926,14 @@ export class Aria2Adapter implements EngineAdapter {
         opts[k] = v
       }
     }
+    if (params.preserveExistingFiles)
+      Object.assign(opts, {
+        'allow-overwrite': 'false',
+        'auto-file-renaming': 'false',
+        'check-integrity': 'true',
+        'bt-seed-unverified': 'false',
+        'bt-remove-unselected-file': 'false',
+      })
     if (params.legacyCheckpointActivation) {
       if (
         !params.pause ||

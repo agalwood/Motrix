@@ -20,6 +20,7 @@ export function mergeEngineTask(
   engineTask: DownloadTask,
   now = Date.now()
 ): DownloadTask {
+  if (existing.storageOperation) return existing
   // Engine session replay and delayed notifications cannot reopen durable
   // direct history. Explicit re-add changes ownership/state before merging.
   if (

@@ -123,6 +123,21 @@ export function canReseed(t: DownloadTask): boolean {
   )
 }
 
+/** Storage changes require resolved metadata and no download/finalization in flight. */
+export function canManageBtStorage(t: DownloadTask): boolean {
+  return (
+    !t.storageOperation &&
+    !hasLegacyImport(t) &&
+    isTorrentLikeType(t.type) &&
+    t.torrentMetaPath != null &&
+    t.transitionPhase === TransitionPhase.Idle &&
+    ([TaskStatus.Completed, TaskStatus.Seeding, TaskStatus.Error].includes(
+      t.status
+    ) ||
+      (t.status === TaskStatus.Paused && t.progress === 1))
+  )
+}
+
 /** Completed regular downloads can be downloaded again. */
 export function canRedownload(t: DownloadTask): boolean {
   return (

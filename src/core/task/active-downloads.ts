@@ -12,7 +12,9 @@ const ACTIVE_DOWNLOAD_STATUSES = new Set<TaskStatus>([
 ])
 
 export function isActiveDownload(task: DownloadTask): boolean {
-  return ACTIVE_DOWNLOAD_STATUSES.has(task.status)
+  return (
+    task.storageOperation === true || ACTIVE_DOWNLOAD_STATUSES.has(task.status)
+  )
 }
 
 export function countActiveDownloads(tasks: DownloadTask[]): number {

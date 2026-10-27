@@ -2110,3 +2110,65 @@ describe('plugin diagnostic mode command', () => {
     }
   )
 })
+
+describe('BT storage command contract', () => {
+  it('authorizes a relocation destination before stopping or inspecting any files', async () => {
+    const ctx = makeFakeCtx() as ServerCommandContext
+    const authorizeDirectory = vi.fn(async () => {
+      throw new Error('outside allowed roots')
+    })
+    ctx.downloadPathPolicy = { ...ctx.downloadPathPolicy, authorizeDirectory }
+    ctx.btStorageRuntime = {
+      commit: vi.fn(),
+      withArtifactLease: vi.fn(),
+      hasPendingFinalization: vi.fn(),
+    }
+    ctx.persistBtStorage = vi.fn()
+    ctx.adapter.forceRemoveTask = vi.fn()
+    vi.mocked(ctx.taskManager.getById).mockReturnValue(
+      makeDownloadTask({
+        id: 'bt',
+        type: TaskType.Bt,
+        status: TaskStatus.Completed,
+        finalPath: '/old/file',
+        infoHash: 'a'.repeat(40),
+        torrentMetaPath: '/metadata.torrent',
+      })
+    )
+    const handlers = buildServerCommandHandlers(ctx)
+    expect(
+      await handlers[Commands.ChangeBtStorage]?.({
+        taskId: 'bt',
+        mode: 'locate',
+        directory: '/forbidden',
+        name: 'file',
+      })
+    ).toEqual({ error: 'failed' })
+    expect(authorizeDirectory).toHaveBeenCalledWith('/forbidden')
+    expect(ctx.adapter.forceRemoveTask).not.toHaveBeenCalled()
+    expect(ctx.persistBtStorage).not.toHaveBeenCalled()
+  })
+
+  it('validates destination requests before invoking storage', async () => {
+    const handlers = buildServerCommandHandlers(
+      makeFakeCtx() as ServerCommandContext
+    )
+    await expect(
+      handlers[Commands.ChangeBtStorage]?.({ taskId: 'bt', mode: 'move' })
+    ).rejects.toThrow()
+  })
+  it('reports unavailable storage and accepts a harmless cancellation', async () => {
+    const handlers = buildServerCommandHandlers(
+      makeFakeCtx() as ServerCommandContext
+    )
+    expect(
+      await handlers[Commands.ChangeBtStorage]?.({
+        taskId: 'bt',
+        mode: 'recheck',
+      })
+    ).toEqual({ error: 'unavailable' })
+    expect(await handlers[Commands.CancelBtStorage]?.('bt')).toEqual({
+      ok: true,
+    })
+  })
+})

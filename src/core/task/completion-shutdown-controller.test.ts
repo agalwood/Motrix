@@ -48,6 +48,20 @@ describe('CompletionShutdownController', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
 
+  it('does not shut down while verified files are being relocated', async () => {
+    const f = fixture()
+    await f.controller.setEnabled(true)
+    f.setTasks([
+      { ...task('one', TaskStatus.Completed), storageOperation: true },
+    ])
+    await vi.advanceTimersByTimeAsync(90_000)
+    expect(f.deps.requestShutdown).not.toHaveBeenCalled()
+    f.setTasks([task('one', TaskStatus.Completed)])
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(f.deps.requestShutdown).toHaveBeenCalledOnce()
+    f.controller.dispose()
+  })
+
   it('retains tasks that finish while authorization is pending', async () => {
     const f = fixture()
     const authorization = Promise.withResolvers<void>()

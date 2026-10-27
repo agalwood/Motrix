@@ -531,6 +531,27 @@ export class SessionManager {
     })
   }
 
+  /** Rebind verified local files without emitting a second completion occurrence. */
+  persistBtStorage(
+    task: DownloadTask,
+    sourceRoot: string,
+    targetRoot: string
+  ): Promise<void> {
+    if (this.stopping)
+      return Promise.reject(new Error('SessionManager is stopping'))
+    return this.runExclusivePersistence(async () => {
+      const payload = await this.buildTaskPayload(task, Date.now())
+      this.db.commitTerminalHookBoundary({
+        payload,
+        occurrence: null,
+        metadataOps: [],
+        postDeliveries: [],
+        fileRebase: { sourceRoot, targetRoot },
+      })
+      this.taskManager.set(task.id, structuredClone(task))
+    })
+  }
+
   private observeAdmissionResults(
     deliveries: NonNullable<TerminalHookCommitInput['postDeliveries']>,
     summary: PostDeliveryAdmissionSummary
@@ -1605,6 +1626,7 @@ export class SessionManager {
               : undefined,
             pause: taskPart.aggStatus === TaskStatus.Paused,
             checkIntegrity: true,
+            preserveExistingFiles: true,
             ...(prioritizePreviewPieces
               ? { prioritizePreviewPieces: true }
               : {}),

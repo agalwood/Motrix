@@ -251,6 +251,8 @@ export function getTaskOrWarn(
 }
 
 export interface PollTerminalCommitDeps {
+  /** Revalidate the snapshot after acquiring the task mutation lane. */
+  isCurrent?: () => boolean
   persistTaskWithOccurrence: (
     task: DownloadTask,
     occurrence: TaskOccurrence | null
@@ -272,6 +274,7 @@ export interface PollTerminalCommitDeps {
 /**
  * `'not-terminal'` — nothing to commit; the caller publishes as usual.
  * `'published'` — durably written and published by this function.
+ * `'stale'` — task ownership changed while this snapshot waited for its lock.
  * `'persist-failed'` — the write failed and nothing was published; the
  * caller must leave the previous in-memory state alone so the next poll
  * observes the same delta and retries.
@@ -280,6 +283,7 @@ export type PolledTerminalCommitOutcome =
   | 'not-terminal'
   | 'published'
   | 'persist-failed'
+  | 'stale'
 
 /**
  * Commit a poll-detected transition into Completed/Error through the
@@ -320,6 +324,7 @@ export async function commitPolledTerminalTransition(
   if (!occurrence) return 'not-terminal'
 
   const commit = async (): Promise<PolledTerminalCommitOutcome> => {
+    if (deps.isCurrent && !deps.isCurrent()) return 'stale'
     try {
       await deps.persistTaskWithOccurrence(task, occurrence)
     } catch (err) {

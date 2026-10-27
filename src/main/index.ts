@@ -973,6 +973,7 @@ async function handlePolledTasks(
             existing.status,
             merged,
             {
+              isCurrent: () => taskManager.getById(existing.id) === existing,
               persistTaskWithOccurrence,
               occurrenceDispatcher,
               publish: (task) => taskManager.set(task.id, task),
@@ -992,7 +993,7 @@ async function handlePolledTasks(
           // Nothing was published and nothing is durable: leave the prior
           // in-memory state (and its aria2 row) alone so the next poll
           // observes the same delta and retries.
-          if (outcome === 'persist-failed') continue
+          if (outcome === 'persist-failed' || outcome === 'stale') continue
           publishedTerminal = outcome === 'published'
           if (
             outcome === 'not-terminal' &&
@@ -1054,6 +1055,8 @@ async function handlePolledTasks(
         // trigger never ran, plus placeholder rows written by older magnet
         // swaps. The helper validates structural completeness before its
         // early-exit, so the steady-state cost remains ~one prepared query.
+        if (!publishedTerminal && taskManager.getById(existing.id) !== existing)
+          continue
         if (merged.fileCount > 0) {
           runShellAsyncWork('task-files sync', () =>
             syncTaskFilesIfIncomplete(existing.id, merged.engineTaskId)
@@ -3028,6 +3031,9 @@ async function initializeMainProcess(): Promise<void> {
   })
 
   const disposeCommandHandlers = registerCommandHandlers({
+    btStorageRuntime: pluginRuntime.finalize,
+    persistBtStorage: (task, source, target) =>
+      sessionManager.persistBtStorage(task, source, target),
     rendererRecovery,
     operationService: pluginRuntime.operations,
     mediaMetaStore,

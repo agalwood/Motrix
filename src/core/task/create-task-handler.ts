@@ -13,6 +13,7 @@ import type {
 } from '@core/engine/engine-adapter'
 import { DIRECT_RESOURCE_METADATA_PROFILE } from '@core/engine/engine-adapter'
 import { ensureDirectory } from '@core/fs/ensure-directory'
+import { sanitizeFinalizeFilename } from '@core/fs/finalize-path'
 import { newEngineTaskId, newTaskId } from '@core/lib/ids'
 import { getLogger } from '@core/logger'
 import type { HookAuditLog } from '@core/plugin/hooks/audit-log'
@@ -51,7 +52,10 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
-import { isTorrentLikeType } from '@shared/types/task-actions'
+import {
+  canManageBtStorage,
+  isTorrentLikeType,
+} from '@shared/types/task-actions'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
 import type Database from 'better-sqlite3'
 import {
@@ -63,6 +67,8 @@ import {
   TorrentDuplicateConflictError,
   withBtOutputAdmission,
 } from './bt-duplicate-policy'
+import { verifyBtFiles } from './bt-file-verifier'
+import { hasReservedTaskOutput } from './bt-output-reservation'
 import {
   btStoragePayload,
   createBtDirectStoragePlan,
@@ -209,6 +215,12 @@ export interface CreateTaskDeps {
   /** Re-adds a terminal BT task against its final layout with integrity
    * checking. Shell command handlers inject the existing reAddTask action. */
   reuseExistingBt?: (taskId: string) => Promise<void>
+  /** Called with content and destination admission already held. */
+  relocateExistingBt?: (
+    taskId: string,
+    directory: string,
+    name: string
+  ) => Promise<void>
 }
 
 export interface CreateTaskOptions {
@@ -451,12 +463,63 @@ async function handleCreateTaskUnderAdmission(
           ? extractMagnetInfoHash(req.payload.uri)
           : null))
 
+  const useExistingFiles =
+    req.type === 'bt' && req.duplicatePolicy === 'use-existing'
+  if (
+    useExistingFiles &&
+    req.type === 'bt' &&
+    parsedBtLayout &&
+    btInfoHash &&
+    deps.relocateExistingBt
+  ) {
+    const matching = deps.taskManager
+      .getAll()
+      .filter(
+        (task) =>
+          task.status !== TaskStatus.Removed &&
+          task.infoHash?.toLowerCase() === btInfoHash
+      )
+    const sameSelection = (values: readonly number[]) =>
+      [...new Set(values)].sort((a, b) => a - b).join(',')
+    const owner = matching.length === 1 ? matching[0] : undefined
+    if (
+      owner &&
+      canManageBtStorage(owner) &&
+      sameSelection(owner.bt?.selectedFiles ?? []) ===
+        sameSelection(req.selectedFiles)
+    ) {
+      await deps.relocateExistingBt(
+        owner.id,
+        effectiveSaveDir,
+        sanitizeFinalizeFilename(deriveDesiredName(req, torrentInfoName))
+      )
+      return {
+        outcome: 'rechecked',
+        taskId: owner.id,
+        gid:
+          deps.taskManager.getById(owner.id)?.engineTaskId ??
+          owner.engineTaskId,
+      }
+    }
+    if (matching.length > 0)
+      throw new TorrentDuplicateConflictError({
+        reason: 'active-info-hash',
+        infoHash: btInfoHash,
+        targetDir: effectiveSaveDir,
+        existingTaskId: matching[0].id,
+        existingTaskName: matching[0].name,
+        existingTaskStatus: matching[0].status,
+        canCreateCopy: false,
+      })
+  }
+
   if (req.type === 'bt' && btInfoHash) {
     const admission = inspectBtDuplicate(deps.taskManager.getAll(), {
       infoHash: btInfoHash,
       saveDir: effectiveSaveDir,
       selectedFiles: req.selectedFiles,
-      duplicatePolicy: req.duplicatePolicy,
+      duplicatePolicy:
+        req.duplicatePolicy === 'use-existing' ? 'reuse' : req.duplicatePolicy,
       excludeTaskId: req.existingTaskId,
     })
     if (admission.action === 'conflict') {
@@ -479,6 +542,7 @@ async function handleCreateTaskUnderAdmission(
 
   // 1. Decide final on-disk name (handles collisions).
   const desiredName = deriveDesiredName(req, torrentInfoName)
+  const existingName = sanitizeFinalizeFilename(desiredName)
   if (
     req.type === 'bt' &&
     btInfoHash &&
@@ -501,8 +565,9 @@ async function handleCreateTaskUnderAdmission(
     reservedNames.length > 0
       ? deps.finalNamePicker.pick(effectiveSaveDir, desired, reservedNames)
       : deps.finalNamePicker.pick(effectiveSaveDir, desired)
-  let finalName =
-    req.type === 'bt'
+  let finalName = useExistingFiles
+    ? existingName
+    : req.type === 'bt'
       ? await deps.finalNamePicker.pick(
           effectiveSaveDir,
           desiredName,
@@ -510,6 +575,27 @@ async function handleCreateTaskUnderAdmission(
           parsedBtLayout?.multiFile === false
         )
       : await pickHttpFinalName(desiredName)
+
+  if (useExistingFiles) {
+    if (!torrentBytes || !parsedBtLayout || req.type !== 'bt')
+      throw new AppError(
+        ErrorCode.TorrentParseFailed,
+        'task.storage.errors.unavailable'
+      )
+    const output = path.join(effectiveSaveDir, existingName)
+    if (hasReservedTaskOutput(deps.taskManager.getAll(), [output]))
+      throw new AppError(
+        ErrorCode.TorrentDuplicateConflict,
+        'task.storage.errors.conflict'
+      )
+    const verification = await verifyBtFiles({
+      metadata: torrentBytes,
+      payloadPath: output,
+      selectedFiles: req.selectedFiles,
+    })
+    if (!verification.complete)
+      throw new AppError(ErrorCode.TaskNotRetryable, 'task.storage.incomplete')
+  }
 
   const taskType = deriveTaskType(req)
   let finalPath = path.join(effectiveSaveDir, finalName)
@@ -539,6 +625,7 @@ async function handleCreateTaskUnderAdmission(
   const btStoragePlan = isTorrentLikeType(taskType)
     ? createBtDirectStoragePlan(finalPath, parsedBtLayout, torrentMetaPath)
     : null
+  if (useExistingFiles && btStoragePlan) btStoragePlan.layout.finalized = true
 
   // Fail before a single byte moves when a destination cannot be opened at
   // all. The engine opens Windows paths past MAX_PATH (agalwood/Motrix#2183),
@@ -951,6 +1038,9 @@ async function handleCreateTaskUnderAdmission(
     // are always present on the torrent-base64 path.
     const params: AddTorrentParams = {
       metadata: torrentBytes ?? decodeBase64ToBytes(req.payload.base64),
+      ...(useExistingFiles
+        ? { checkIntegrity: true, preserveExistingFiles: true }
+        : {}),
       saveDir: btStoragePlan?.saveDir ?? diskPath,
       // CREATE-PATH +1: req indices are 0-based; aria2 select-file is
       // 1-based, and addTorrent serializes selectedFiles with a raw join.

@@ -30,6 +30,7 @@ import {
   type AppliedDownloadProxyPolicy,
   UNAVAILABLE_APPLIED_DOWNLOAD_PROXY_POLICY,
 } from '@core/proxy/applied-download-proxy-policy'
+import type { DurableFinalizeRuntime } from '@core/session/durable-finalize-runtime'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
 import { applySavedSettings } from '@core/settings/apply-saved-settings'
@@ -60,6 +61,7 @@ import {
   taskCreateConflictResult,
 } from '@core/task/bt-duplicate-policy'
 import { parseBtFileLayout } from '@core/task/bt-storage-layout'
+import { BtStorageService } from '@core/task/bt-storage-service'
 import {
   type CreateTaskDeps,
   handleCreateTask,
@@ -85,6 +87,7 @@ import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import type { CommandHandlerMap } from '@shared/protocol/handler-types'
 import { taskCreateRequestSchema } from '@shared/schemas/add-task'
+import { btStorageRequestSchema } from '@shared/schemas/bt-storage'
 import {
   removeTasksPayloadSchema,
   taskIdsPayloadSchema,
@@ -114,6 +117,15 @@ import type { ServerDirectoryService } from '../server-directory-service'
 import { unsupportedLegacyImportCommands } from './legacy-import'
 
 export interface ServerCommandContext {
+  btStorageRuntime?: Pick<
+    DurableFinalizeRuntime,
+    'commit' | 'withArtifactLease' | 'hasPendingFinalization'
+  >
+  persistBtStorage?: (
+    task: DownloadTask,
+    sourceRoot: string,
+    targetRoot: string
+  ) => Promise<void>
   operationService?: OperationService
   supervisor: EngineSupervisor
   settingsManager: SettingsManager
@@ -349,7 +361,40 @@ export function buildServerCommandHandlers(
     directResourceProxyPolicy:
       appliedDownloadProxyPolicy ?? UNAVAILABLE_APPLIED_DOWNLOAD_PROXY_POLICY,
   }
+  const btStorage =
+    ctx.btStorageRuntime && ctx.persistBtStorage
+      ? new BtStorageService({
+          ...reAddDeps,
+          runtime: ctx.btStorageRuntime,
+          persistStorage: ctx.persistBtStorage,
+          authorizeDirectory: async (directory: string) =>
+            (await downloadPathPolicy.authorizeDirectory(directory))
+              .canonicalPath,
+        })
+      : null
   createDeps.reuseExistingBt = (taskId) => reAddTask(taskId, reAddDeps)
+  if (btStorage)
+    createDeps.relocateExistingBt = async (taskId, directory, name) => {
+      const result = await btStorage.run(
+        { taskId, mode: 'locate', directory, name, resume: true },
+        true
+      )
+      if ('error' in result)
+        throw new AppError(
+          ErrorCode.TaskNotRetryable,
+          `task.storage.errors.${result.error}`
+        )
+      if (!result.verification.complete)
+        throw new AppError(
+          ErrorCode.TaskNotRetryable,
+          'task.storage.incomplete'
+        )
+      if (result.resumeFailed)
+        throw new AppError(
+          ErrorCode.TaskNotRetryable,
+          'task.storage.resumeFailed'
+        )
+    }
   // The DNS fallback consumer retries through the same deps bundle as
   // Commands.ReAddTasks so the automatic and user-initiated paths match.
   bindTaskRetry?.((id) => reAddTask(id, reAddDeps))
@@ -546,7 +591,10 @@ export function buildServerCommandHandlers(
                     infoHash: layout.infoHash,
                     saveDir,
                     selectedFiles: req.selectedFiles,
-                    duplicatePolicy: req.duplicatePolicy,
+                    duplicatePolicy:
+                      req.duplicatePolicy === 'use-existing'
+                        ? 'reuse'
+                        : req.duplicatePolicy,
                     excludeTaskId: req.existingTaskId,
                   })
                 : { action: 'create' as const }
@@ -578,7 +626,10 @@ export function buildServerCommandHandlers(
                     selectedFiles: req.selectedFiles,
                     saveDir,
                     name: req.displayName,
-                    duplicatePolicy: req.duplicatePolicy,
+                    duplicatePolicy:
+                      req.duplicatePolicy === 'use-existing'
+                        ? 'reuse'
+                        : req.duplicatePolicy,
                   },
                   {
                     db: motrixDatabase,
@@ -630,6 +681,16 @@ export function buildServerCommandHandlers(
 
     // Plural task commands (option C): one IPC request per multi-select
     // action from the web renderer. Same handlers as desktop.
+    [Commands.ChangeBtStorage]: async (rawPayload: unknown) => {
+      const request = btStorageRequestSchema.parse(rawPayload)
+      await supervisor.waitUntilReady(ENGINE_READY_TIMEOUT_MS)
+      return btStorage ? btStorage.run(request) : { error: 'unavailable' }
+    },
+    [Commands.CancelBtStorage]: async (taskId: unknown) => {
+      btStorage?.cancel(z.string().min(1).parse(taskId))
+      return { ok: true }
+    },
+
     [Commands.MoveTasks]: async (rawPayload: unknown) =>
       moveTasks(moveTasksPayloadSchema.parse(rawPayload), pauseResumeDeps),
 

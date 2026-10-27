@@ -1246,6 +1246,35 @@
         "tooManyRedirects": "Link źródłowy może być nieprawidłowy; spróbuj użyć innego",
         "btMetadataFailed": "Sprawdź link magnet lub dodaj więcej trackerów, a następnie spróbuj ponownie"
       }
+    },
+    "storage": {
+      "move": "Move files…",
+      "locate": "Locate existing files…",
+      "recheck": "Recheck files…",
+      "moveDescription": "Move the completed torrent to another folder. Existing destination files will not be replaced. The torrent is stopped during the operation.",
+      "locateDescription": "Select where the files are now. Motrix checks them before updating this task. The original files are left in place.",
+      "recheckDescription": "Stop the torrent and verify its local files. Missing or damaged data is reported without downloading or changing files.",
+      "directory": "Parent folder",
+      "name": "File or torrent folder name",
+      "resume": "Resume seeding after verification",
+      "checking": "Checking local files…",
+      "moving": "Moving files…",
+      "resuming": "Resuming seeding…",
+      "pieces": "Verified pieces: {{valid}} / {{total}}",
+      "verified": "Files verified. The task is ready to seed.",
+      "resumed": "Files verified and seeding resumed.",
+      "incomplete": "Some required files or pieces are missing, damaged, or changed during verification. Files were left intact and seeding was not started.",
+      "resumeFailed": "The location was updated, but seeding could not start. Use Re-seed to retry.",
+      "useExisting": "Verify and use existing files",
+      "errors": {
+        "unavailable": "This task cannot change storage now. It needs torrent metadata and must be completed, seeding, or stopped with an error.",
+        "busy": "Another storage operation is still running.",
+        "destination": "Check the destination folder and name. It must not overlap the source or replace existing files.",
+        "conflict": "Another task owns this torrent or destination. Open that task before changing its location.",
+        "engine": "The torrent could not be stopped safely. Retry when the download engine is available.",
+        "failed": "The operation failed. Check file permissions, available space, and whether the files are still accessible.",
+        "cancelled": "Verification cancelled. The torrent remains stopped."
+      }
     }
   },
   "settings": {

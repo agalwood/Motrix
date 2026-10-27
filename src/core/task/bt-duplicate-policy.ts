@@ -33,11 +33,50 @@ export async function withBtOutputAdmission<T>(
   saveDir: string,
   operation: () => Promise<T>
 ): Promise<T> {
-  const key = canonicalBtPath(saveDir)
-  const release = await acquireBtAdmission(`output:${key}`)
+  return withBtOutputAdmissions([saveDir], operation)
+}
+
+const outputAdmissions = new Set<{ roots: string[]; settled: Promise<void> }>()
+
+function directoriesOverlap(a: string, b: string): boolean {
+  const within = (root: string, candidate: string) => {
+    const relative = path.relative(root, candidate)
+    return (
+      relative === '' ||
+      (relative !== '..' &&
+        !relative.startsWith(`..${path.sep}`) &&
+        !path.isAbsolute(relative))
+    )
+  }
+  return within(a, b) || within(b, a)
+}
+
+/** Atomically reserve both move roots, including descendant creation, without lock-order cycles. */
+export async function withBtOutputAdmissions<T>(
+  saveDirs: readonly string[],
+  operation: () => Promise<T>
+): Promise<T> {
+  const roots = [...new Set(saveDirs.map(canonicalBtPath))]
+  const predecessors = [...outputAdmissions].filter((entry) =>
+    roots.some((root) =>
+      entry.roots.some((other) => directoriesOverlap(root, other))
+    )
+  )
+  let release!: () => void
+  const entry = {
+    roots,
+    settled: new Promise<void>((resolve) => {
+      release = resolve
+    }),
+  }
+  // Register synchronously before yielding. Every dependency points backwards
+  // in admission order, even for simultaneous A→B and B→A moves.
+  outputAdmissions.add(entry)
   try {
+    await Promise.all(predecessors.map((previous) => previous.settled))
     return await operation()
   } finally {
+    outputAdmissions.delete(entry)
     release()
   }
 }
