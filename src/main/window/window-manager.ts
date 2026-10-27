@@ -9,7 +9,10 @@ import type { AddTaskUrlParams } from '@shared/schemas/add-task'
 import type { WindowBounds, WindowState } from '@shared/types/settings'
 import { app, BrowserWindow, nativeTheme, screen, shell } from 'electron'
 import type { LiquidGlassController } from './liquid-glass'
-import { buildPlatformOptions } from './platform-options'
+import {
+  buildPlatformOptions,
+  buildWindowControlsOverlay,
+} from './platform-options'
 import {
   getRendererUrlPolicy,
   type RendererUrlPolicy,
@@ -279,6 +282,13 @@ export class WindowManager {
       }
     }
     return result
+  }
+
+  updateWindowControlsTheme(shouldUseDarkColors: boolean): void {
+    if ((this.deps.platform ?? process.platform) !== 'linux') return
+    for (const win of this.getAllWindows()) {
+      win.setTitleBarOverlay(buildWindowControlsOverlay(shouldUseDarkColors))
+    }
   }
 
   getWindowIdBySender(sender: Electron.WebContents): WindowId | null {

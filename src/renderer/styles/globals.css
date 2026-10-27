@@ -121,6 +121,21 @@
   --dashboard-tile-radius: 18px;
   --window-chrome-safe-area-leading: 77px;
   --window-chrome-safe-area-trailing: 24px;
+  /* WCO reports a physical rectangle, independently of the app's direction.
+     Keep its inputs separate so left, right and split layouts use one formula. */
+  --window-controls-overlay-x: env(titlebar-area-x, 0px);
+  --window-controls-overlay-width: env(titlebar-area-width, 100vw);
+  --window-controls-overlay-left: var(--window-controls-overlay-x);
+  --window-controls-overlay-right: max(
+    0px,
+    calc(
+      100vw -
+      var(--window-controls-overlay-x) -
+      var(--window-controls-overlay-width)
+    )
+  );
+  --window-controls-overlay-start: var(--window-controls-overlay-left);
+  --window-controls-overlay-end: var(--window-controls-overlay-right);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -230,15 +245,46 @@
 
 .platform-darwin.window-main
   .electron-window-chrome.preview-desktop-window-controls,
-.platform-linux.window-main .electron-window-chrome,
 .platform-win32.window-main .electron-window-chrome {
   --window-chrome-safe-area-trailing: 112px;
 }
 
+:root:dir(rtl) {
+  --window-controls-overlay-start: var(--window-controls-overlay-right);
+  --window-controls-overlay-end: var(--window-controls-overlay-left);
+}
+
+.platform-linux.window-main .electron-window-chrome {
+  --window-chrome-safe-area-leading: calc(
+    160px +
+    var(--window-controls-overlay-start)
+  );
+  --window-chrome-safe-area-trailing: calc(
+    24px +
+    var(--window-controls-overlay-end)
+  );
+}
+
+.platform-linux.window-main [data-mobile="true"] [data-slot="sidebar-header"] {
+  min-height: 54px;
+}
+
+/* WCO is 54px high to share the existing y=27 caption/action centerline.
+   Expanded headers start below it; compact headers share the safe rectangle
+   but keep subsequent content below the native buttons' full hit targets. */
+.platform-linux.window-main
+  .electron-window-chrome
+  [data-slot="panel-shell-header"] {
+  padding-block-start: 46px;
+  @variant compact-header {
+    padding-block-start: 5px;
+    padding-block-end: 13px;
+  }
+}
+
 /* Fullscreen hides desktop caption controls but retains the Motrix menu and app
-   actions. Release only the trailing safe area; the leading 160px still keeps
-   compact PanelShell content clear of menu/sidebar/add-task controls. The
-   macOS desktop-controls mode previews the same behavior. */
+   actions. Release native safe areas while keeping 160px clear for the app's
+   leading controls. The macOS desktop-controls preview behaves like Windows. */
 .platform-linux.window-main
   .electron-window-chrome:has(.window-chrome[data-fullscreen="true"]),
 .platform-darwin.window-main
@@ -248,6 +294,11 @@
 .platform-win32.window-main
   .electron-window-chrome:has(.window-chrome[data-fullscreen="true"]) {
   --window-chrome-safe-area-trailing: 24px;
+}
+
+.platform-linux.window-main
+  .electron-window-chrome:has(.window-chrome[data-fullscreen="true"]) {
+  --window-chrome-safe-area-leading: 160px;
 }
 
 @media (width >= 48rem) {
@@ -683,10 +734,23 @@ html[data-reduced-motion="true"] *::after {
     flex-wrap: wrap;
     gap: 8px;
   }
+
+  .platform-linux.window-main
+    .electron-window-chrome
+    [data-slot="panel-shell-header"] {
+    padding-block-start: 46px;
+    padding-inline: 16px;
+  }
 }
 @media (pointer: coarse) and (width < 640px) {
   .web-window-chrome [data-slot="panel-shell-header"],
   .electron-window-chrome [data-slot="panel-shell-header"] {
+    padding-block-start: 56px;
+  }
+
+  .platform-linux.window-main
+    .electron-window-chrome
+    [data-slot="panel-shell-header"] {
     padding-block-start: 56px;
   }
 }

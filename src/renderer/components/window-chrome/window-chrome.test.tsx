@@ -61,13 +61,70 @@ describe('WindowChrome', () => {
     expect(shouldShowDesktopWindowControls('darwin', false)).toBe(false)
     expect(shouldShowDesktopWindowControls('darwin', true)).toBe(true)
     expect(shouldShowDesktopWindowControls('win32', false)).toBe(true)
-    expect(shouldShowDesktopWindowControls('linux', false)).toBe(true)
+    expect(shouldShowDesktopWindowControls('linux', false)).toBe(false)
   })
 
   it('renders no title text in overlay variant', () => {
     render(<WindowChrome variant="overlay" title="ignored" />)
     expect(screen.queryByText('ignored')).toBeNull()
   })
+
+  it.each(['overlay', 'titled'] as const)(
+    'reserves the native Linux safe area without duplicate %s caption buttons',
+    (variant) => {
+      setPlatform('linux')
+      const { container } = render(
+        <WindowChrome
+          variant={variant}
+          title="New task"
+          leading={<button type="button">Menu</button>}
+        >
+          <button type="button">App action</button>
+        </WindowChrome>
+      )
+      const chrome = container.firstChild as HTMLElement
+      expect(chrome).toHaveAttribute('data-window-controls-overlay', 'true')
+      expect(chrome.style.height).toBe('54px')
+      expect(chrome.style.paddingInlineStart).toBe(
+        'calc(var(--window-controls-overlay-start) + 12px)'
+      )
+      expect(chrome.style.paddingInlineEnd).toBe(
+        'calc(var(--window-controls-overlay-end) + 20px)'
+      )
+      expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Minimize' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Maximize' })).toBeNull()
+      expect(screen.getByRole('button', { name: 'App action' })).toBeVisible()
+      expect(
+        container.querySelector('[data-slot="window-chrome-actions"]')
+      ).not.toHaveClass('pt-3.5')
+      expect(
+        container.querySelector('[data-slot="window-chrome-leading"]')
+      ).not.toHaveClass('pt-3.5')
+
+      act(() => {
+        emit(Events.WindowMaximizedChanged, {
+          maximized: false,
+          fullscreen: true,
+        })
+      })
+      expect(chrome.style.paddingInlineStart).toBe('12px')
+      expect(chrome.style.paddingInlineEnd).toBe('20px')
+      expect(chrome).not.toHaveClass('app-drag')
+      expect(screen.getByRole('button', { name: 'App action' })).toBeVisible()
+
+      act(() => {
+        emit(Events.WindowMaximizedChanged, {
+          maximized: false,
+          fullscreen: false,
+        })
+      })
+      expect(chrome).toHaveClass('app-drag')
+      expect(chrome.style.paddingInlineStart).toContain(
+        '--window-controls-overlay-start'
+      )
+    }
+  )
 
   it('pins to viewport in overlay variant', () => {
     const { container } = render(<WindowChrome variant="overlay" />)
@@ -191,7 +248,7 @@ describe('WindowChrome', () => {
     )
   })
 
-  it.each(['linux', 'win32'] as const)(
+  it.each(['win32'] as const)(
     'aligns the %s menu-state sidebar toggle 94 px from the left edge',
     (platform) => {
       setPlatform(platform)
@@ -217,7 +274,7 @@ describe('WindowChrome', () => {
     }
   )
 
-  it.each(['linux', 'win32'] as const)(
+  it.each(['win32'] as const)(
     'keeps %s controls at the logical end for start-positioned actions',
     (platform) => {
       setPlatform(platform)
@@ -251,7 +308,7 @@ describe('WindowChrome', () => {
     }
   )
 
-  it.each(['linux', 'win32'] as const)(
+  it.each(['win32'] as const)(
     'renders aligned 28 px %s caption hit targets with 10 px glyphs',
     (platform) => {
       setPlatform(platform)
@@ -307,7 +364,7 @@ describe('WindowChrome', () => {
     )
   })
 
-  it.each(['win32', 'linux'] as const)(
+  it.each(['win32'] as const)(
     'keeps %s app actions but hides caption controls while full-screen',
     (platform) => {
       setPlatform(platform)
@@ -415,7 +472,7 @@ describe('WindowChrome', () => {
     expect(close).not.toHaveClass('hover:text-destructive-foreground')
   })
 
-  it.each(['linux', 'win32'] as const)(
+  it.each(['win32'] as const)(
     'routes %s caption controls to sender-bound window commands',
     (platform) => {
       setPlatform(platform)

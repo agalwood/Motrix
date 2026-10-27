@@ -1,3 +1,4 @@
+import { WINDOW_CONTROLS_OVERLAY_HEIGHT } from '@shared/constants/window-chrome'
 import type { BrowserWindowConstructorOptions } from 'electron'
 
 export interface PlatformOptionsInput {
@@ -10,6 +11,16 @@ export const WINDOW_BACKGROUND = {
   light: '#ffffff',
   dark: '#09090b',
 } as const
+
+export function buildWindowControlsOverlay(shouldUseDarkColors: boolean) {
+  return {
+    // Electron 45 forces this RGB opaque when deriving Breeze inverse glyphs.
+    // Keep alpha zero for the renderer surface, but supply its resolved tone.
+    color: `${shouldUseDarkColors ? WINDOW_BACKGROUND.dark : WINDOW_BACKGROUND.light}00`,
+    symbolColor: shouldUseDarkColors ? '#fafafa' : '#262626',
+    height: WINDOW_CONTROLS_OVERLAY_HEIGHT,
+  }
+}
 
 export function buildPlatformOptions(
   platform: string = process.platform,
@@ -46,9 +57,10 @@ export function buildPlatformOptions(
             backgroundColor: solidBackground,
             trafficLightPosition: { x: 20, y: 20 },
           }
-    case 'win32':
+    case 'linux':
       return {
         titleBarStyle: 'hidden',
+        titleBarOverlay: buildWindowControlsOverlay(shouldUseDarkColors),
         backgroundColor: solidBackground,
       }
     default:

@@ -232,7 +232,9 @@ MOTRIX_PREVIEW_MAC_MENU=1 pnpm start
 ```
 
 该开关会隐藏主窗口的 macOS 红绿灯按钮，启用 renderer dropdown menu，并显示
-Windows/Linux 使用的自绘窗体按钮。可在这个模式下收起 Sidebar，联合检查应用菜单、
+Windows 使用的自绘窗体按钮。Linux 使用 Electron Window Controls Overlay，跟随其
+支持的桌面按钮布局和主题；这些原生按钮需要在 Linux 桌面会话中验收。
+可在预览模式下收起 Sidebar，联合检查应用菜单、
 附加 actions、拖拽区域和窗体按钮的安全间距。Electron 和 Vite 都会在启动时读取此
 开关，因此修改后需要重启开发进程。
 

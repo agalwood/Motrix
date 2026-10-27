@@ -19,6 +19,7 @@ import { WebMenuButton } from '@renderer/features/application-menu/web-menu-butt
 import { useApplicationMenu } from '@renderer/hooks/use-application-menu'
 import { useSelectedTask } from '@renderer/hooks/use-selected-task'
 import { transport } from '@renderer/lib/transport'
+import { WINDOW_CONTROLS_OVERLAY_HEIGHT } from '@shared/constants/window-chrome'
 import type {
   ApplicationMenuNode,
   ExecuteApplicationMenuItemRequest,
@@ -396,6 +397,12 @@ function ElectronMotrixMenuButton() {
       <DropdownMenuContent
         ref={contentRef}
         align="start"
+        sideOffset={
+          transport.platform === 'linux'
+            ? ({ anchor }) =>
+                (WINDOW_CONTROLS_OVERLAY_HEIGHT - anchor.height) / 2 + 4
+            : undefined
+        }
         onKeyDownCapture={(event) => {
           if (narrow && stack.length && event.key === 'ArrowLeft') {
             event.preventDefault()
