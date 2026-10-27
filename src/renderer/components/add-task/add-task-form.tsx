@@ -86,6 +86,8 @@ import {
 interface AddTaskFormProps {
   /** Re-download forms use HTTP fields and create a separate task. */
   purpose?: 'create' | 'redownload'
+  /** Separate a new download intent from the original task's pending receipt. */
+  createRequestScope?: string
   /** A closing dialog retains its draft but must stop accepting submissions. */
   active?: boolean
   initialTorrentFiles?: ParsedTorrentFile[]
@@ -149,6 +151,7 @@ function notifyTaskCreateFailure(
 
 export function AddTaskForm({
   purpose = 'create',
+  createRequestScope,
   active = true,
   defaultValues,
   initialTorrentFiles,
@@ -161,6 +164,8 @@ export function AddTaskForm({
 }: AddTaskFormProps) {
   const platform = usePlatformServices()
   const { t } = useTranslation()
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const footerRef = useRef<HTMLDivElement>(null)
   const [submitting, setSubmitting] = useState(false)
   const [initialSubmissionInputs] = useState(readPendingCreates)
   const submissionInputs = useRef(initialSubmissionInputs)
@@ -546,7 +551,11 @@ export function AddTaskForm({
           ).values(),
         ]
         const inputs = requests.map((request) => {
-          const identity = createInputIdentity(request)
+          const identity = createInputIdentity(
+            createRequestScope === undefined
+              ? request
+              : { scope: createRequestScope, request }
+          )
           const index = unused.findIndex((input) => input.identity === identity)
           return index < 0
             ? { id: uuidv7(), identity }
@@ -663,6 +672,7 @@ export function AddTaskForm({
       advancingTorrent,
       batchSubmitting,
       completeCurrentSubmission,
+      createRequestScope,
       platform,
       submitting,
       form,
@@ -730,10 +740,19 @@ export function AddTaskForm({
     [active, completeConflict, duplicateConflict, platform]
   )
 
-  // ⌘↵ / Ctrl+Enter submit
+  // Submit only the focused form, never a draft underneath another dialog.
   useEffect(() => {
     if (!active) return
     const handler = (e: KeyboardEvent) => {
+      const focused = document.activeElement
+      if (
+        e.defaultPrevented ||
+        !(
+          bodyRef.current?.contains(focused) ||
+          footerRef.current?.contains(focused)
+        )
+      )
+        return
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
         const values = form.getValues()
@@ -753,6 +772,7 @@ export function AddTaskForm({
     <AddTaskLayoutProvider onAdvancedOpenChange={onAdvancedOpenChange}>
       <FormProvider {...form}>
         <ScrollArea
+          ref={bodyRef}
           data-slot="add-task-form-body"
           className={cn(presentation === 'dialog' ? 'flex-auto' : 'flex-1')}
         >
@@ -781,6 +801,7 @@ export function AddTaskForm({
           <ScrollBar />
         </ScrollArea>
         <div
+          ref={footerRef}
           data-slot="add-task-form-footer"
           className={cn(
             'w-full shrink-0 border-t-[0.5px] border-border bg-background px-4 py-3',

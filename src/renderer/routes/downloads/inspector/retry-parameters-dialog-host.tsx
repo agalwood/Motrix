@@ -84,6 +84,7 @@ export function RetryParametersDialogHost() {
               key={presentation.revision}
               active={open}
               purpose="redownload"
+              createRequestScope={`retry:${presentation.target.id}`}
               defaultValues={retryParametersPrefill(presentation.target)}
               onDraftStateChange={onDraftStateChange}
               onSubmitSuccess={onSubmitSuccess}
