@@ -1,6 +1,7 @@
 import { makeMediaProgress } from '@test-utils/media-progress'
 import '@testing-library/jest-dom/vitest'
 import { i18n } from '@renderer/lib/i18n'
+import { useRetryParametersStore } from '@renderer/routes/downloads/inspector/retry-parameters-store'
 import { DownloadErrorCode } from '@shared/errors'
 import { Commands } from '@shared/protocol/commands'
 import {
@@ -452,6 +453,24 @@ describe('TasksTile', () => {
     await user.click(screen.getByRole('button', { name: 'Retry: retry.iso' }))
     expect(mocks.invoke).toHaveBeenCalledWith(Commands.RetryTasks, ['retry'])
     expect(mocks.navigate).not.toHaveBeenCalled()
+  })
+
+  it('opens request parameters for an HTTP failure without automatic replay inputs', async () => {
+    const user = userEvent.setup()
+    const failed = task('http-retry', TaskStatus.Error)
+    setSource([failed])
+    useRetryParametersStore.getState().close()
+    renderTile()
+    await user.click(screen.getByRole('radio', { name: 'Failed' }))
+    await user.click(
+      screen.getByRole('button', { name: 'Retry: http-retry.iso' })
+    )
+    expect(useRetryParametersStore.getState().targets).toEqual([failed])
+    expect(mocks.invoke).not.toHaveBeenCalledWith(
+      Commands.RetryTasks,
+      expect.anything()
+    )
+    useRetryParametersStore.getState().close()
   })
 
   it('returns focus to the selected view when a focused action disappears with its row', () => {

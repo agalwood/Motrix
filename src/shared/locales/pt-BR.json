@@ -953,7 +953,10 @@
         "redownloadOverwriteTitle": "File Already Exists",
         "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
         "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
-        "redownloadStarted": "Re-download started"
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "Tentar baixar novamente",
+        "retryDialogDescription": "Edite os parâmetros da solicitação de {{name}} para iniciar um novo download. A tarefa com falha e seu arquivo parcial serão mantidos.",
+        "retryDialogProgress": "Download {{current}} de {{total}}"
       },
       "titleCount": "Exibidos: {{shown}} · total: {{total}}",
       "type": {

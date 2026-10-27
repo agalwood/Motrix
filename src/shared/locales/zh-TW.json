@@ -929,7 +929,10 @@
         "redownloadOverwriteTitle": "檔案已存在",
         "redownloadOverwriteDescription": "檔案「{{name}}」已存在於下載路徑中。重新下載將覆蓋或重命名該檔案，是否繼續？",
         "redownloadCredentialsExpired": "原始下載參數已失效，請確認後提交",
-        "redownloadStarted": "已重新發起下載"
+        "redownloadStarted": "已重新發起下載",
+        "retryDialogTitle": "重試下載",
+        "retryDialogDescription": "修改 {{name}} 的請求參數以開始新下載。原失敗任務和部分檔案將保留。",
+        "retryDialogProgress": "第 {{current}} 項，共 {{total}} 項"
       },
       "titleCount": "顯示 {{shown}} 項 · 共 {{total}} 項",
       "type": {

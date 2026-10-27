@@ -941,7 +941,10 @@
         "redownloadOverwriteTitle": "File Already Exists",
         "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
         "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
-        "redownloadStarted": "Re-download started"
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "İndirmeyi yeniden dene",
+        "retryDialogDescription": "Yeni bir indirme başlatmak için {{name}} isteğinin parametrelerini düzenleyin. Başarısız görev ve kısmi dosyası korunacaktır.",
+        "retryDialogProgress": "{{total}} indirmeden {{current}}. indirme"
       },
       "titleCount": "{{shown}} gösteriliyor · toplam {{total}}",
       "type": {

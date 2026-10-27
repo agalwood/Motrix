@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest'
 import {
   canAttemptRetry,
   canInspectPieces,
+  canOfferRetry,
   canPause,
   canRebuildTaskInputs,
   canRedownload,
@@ -21,11 +22,54 @@ import {
   canResume,
   canRetry,
   canRetryMagnetMetadata,
+  canRetryWithParameters,
   canStopSeeding,
   getTaskRetryKind,
   isFinalizing,
   isLegacyImportInactive,
 } from './task-actions'
+
+describe('parameterized HTTP retry', () => {
+  it('offers a form without admitting credential-free replay', () => {
+    const task = makeDownloadTask({
+      status: TaskStatus.Error,
+      instances: [directInstance('requires-credentials')],
+    })
+    expect(canRetryWithParameters(task)).toBe(true)
+    expect(canOfferRetry(task)).toBe(true)
+    expect(canAttemptRetry(task)).toBe(false)
+    expect(canRebuildTaskInputs(task)).toBe(false)
+  })
+
+  it.each([
+    { status: TaskStatus.Downloading },
+    { status: TaskStatus.Removed },
+    { status: TaskStatus.Completed },
+    { status: TaskStatus.Paused },
+    { kind: TaskKind.Mux },
+    { type: TaskType.Bt },
+    { transitionPhase: TransitionPhase.Renaming },
+  ])(
+    'keeps other lifecycle paths outside the request form: %j',
+    (overrides) => {
+      expect(
+        canRetryWithParameters(
+          makeDownloadTask({ status: TaskStatus.Error, ...overrides })
+        )
+      ).toBe(false)
+    }
+  )
+
+  it('keeps imported task activation outside the request form', () => {
+    const task = makeDownloadTask({
+      status: TaskStatus.Error,
+      instances: [
+        { ...directInstance('uri-only'), payload: { legacyImport: {} } },
+      ],
+    })
+    expect(canOfferRetry(task)).toBe(false)
+  })
+})
 
 function muxInstance(status: TaskStatus): TaskInstance {
   return {

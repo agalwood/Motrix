@@ -899,7 +899,10 @@
         "redownloadOverwriteTitle": "File Already Exists",
         "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
         "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
-        "redownloadStarted": "Re-download started"
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "ลองดาวน์โหลดอีกครั้ง",
+        "retryDialogDescription": "แก้ไขพารามิเตอร์คำขอสำหรับ {{name}} เพื่อเริ่มการดาวน์โหลดใหม่ งานที่ล้มเหลวและไฟล์ที่ดาวน์โหลดบางส่วนจะยังคงอยู่",
+        "retryDialogProgress": "การดาวน์โหลด {{current}} จาก {{total}}"
       },
       "column": {
         "connections": "เพียร์",

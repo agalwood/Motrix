@@ -84,6 +84,8 @@ import {
 } from './use-external-hydration'
 
 interface AddTaskFormProps {
+  /** Re-download forms use HTTP fields and create a separate task. */
+  purpose?: 'create' | 'redownload'
   /** A closing dialog retains its draft but must stop accepting submissions. */
   active?: boolean
   initialTorrentFiles?: ParsedTorrentFile[]
@@ -146,6 +148,7 @@ function notifyTaskCreateFailure(
 }
 
 export function AddTaskForm({
+  purpose = 'create',
   active = true,
   defaultValues,
   initialTorrentFiles,
@@ -766,9 +769,13 @@ export function AddTaskForm({
               style={{ minWidth: '100%' }}
             >
               <RendererSubmissionNotice className="mb-3 mt-1" />
-              <TabsSection
-                onTorrentFilesLoaded={handleLocalTorrentFilesLoaded}
-              />
+              {purpose === 'redownload' ? (
+                <LinksTabPanel advancedDefaultOpen />
+              ) : (
+                <TabsSection
+                  onTorrentFilesLoaded={handleLocalTorrentFilesLoaded}
+                />
+              )}
             </ScrollAreaContent>
           </ScrollAreaViewport>
           <ScrollBar />
@@ -781,6 +788,11 @@ export function AddTaskForm({
           )}
         >
           <FooterActionsBridge
+            submitLabel={
+              purpose === 'redownload'
+                ? t('panel.downloads.action.redownload')
+                : undefined
+            }
             onCancel={() => void handleCancel()}
             onDownloadAll={handleDownloadAllTorrents}
             onSubmit={() => void form.handleSubmit(onSubmit)()}
@@ -899,12 +911,14 @@ function TabsSection({
 }
 
 function FooterActionsBridge({
+  submitLabel,
   onCancel,
   onDownloadAll,
   onSubmit,
   submitting,
   torrentQueue,
 }: {
+  submitLabel?: string
   onCancel: () => void
   onDownloadAll: () => void
   onSubmit: () => void
@@ -932,6 +946,7 @@ function FooterActionsBridge({
 
   return (
     <FooterActions
+      submitLabel={submitLabel}
       submitting={submitting}
       canSubmit={canSubmit}
       torrentQueue={

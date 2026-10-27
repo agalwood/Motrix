@@ -6,7 +6,11 @@ import { useTranslation } from 'react-i18next'
 import { AdvancedPanel } from './advanced-panel'
 import { UrlTextarea } from './url-textarea'
 
-export function LinksTabPanel() {
+export function LinksTabPanel({
+  advancedDefaultOpen = false,
+}: {
+  advancedDefaultOpen?: boolean
+}) {
   const { t } = useTranslation()
   const requestOptions = useWatch<AddTaskFormValues, 'legacyRequestOptions'>({
     name: 'legacyRequestOptions',
@@ -44,7 +48,7 @@ export function LinksTabPanel() {
         prefixLabel={t('task.add.saveTo')}
         placeholder={t('task.add.saveDirEmpty')}
       />
-      <AdvancedPanel />
+      <AdvancedPanel defaultOpen={advancedDefaultOpen} />
     </div>
   )
 }

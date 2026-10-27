@@ -902,7 +902,10 @@
         "redownloadOverwriteTitle": "File Already Exists",
         "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
         "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
-        "redownloadStarted": "Re-download started"
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "تلاش دوباره برای دانلود",
+        "retryDialogDescription": "پارامترهای درخواست {{name}} را برای شروع دانلود جدید ویرایش کنید. کار ناموفق و فایل ناقص آن حفظ می‌شوند.",
+        "retryDialogProgress": "دانلود {{current}} از {{total}}"
       },
       "column": {
         "connections": "همتاها",

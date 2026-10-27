@@ -941,7 +941,10 @@
         "redownloadOverwriteTitle": "File Already Exists",
         "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
         "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
-        "redownloadStarted": "Re-download started"
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "Letöltés újrapróbálása",
+        "retryDialogDescription": "Új letöltés indításához módosítsa a(z) {{name}} kérési paramétereit. A sikertelen feladat és a részleges fájl megmarad.",
+        "retryDialogProgress": "{{current}}. letöltés, összesen {{total}}"
       },
       "titleCount": "{{shown}} megjelenítve · összesen {{total}}",
       "type": {

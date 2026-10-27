@@ -905,7 +905,10 @@
         "redownloadOverwriteTitle": "File Already Exists",
         "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
         "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
-        "redownloadStarted": "Re-download started"
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "Torna a provar la baixada",
+        "retryDialogDescription": "Edita els paràmetres de la sol·licitud de {{name}} per iniciar una baixada nova. Es conservaran la tasca fallida i el fitxer parcial.",
+        "retryDialogProgress": "Baixada {{current}} de {{total}}"
       },
       "column": {
         "connections": "Parells",

@@ -929,7 +929,10 @@
         "redownloadOverwriteTitle": "File Already Exists",
         "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
         "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
-        "redownloadStarted": "Re-download started"
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "Thử tải xuống lại",
+        "retryDialogDescription": "Chỉnh sửa tham số yêu cầu cho {{name}} để bắt đầu lượt tải xuống mới. Tác vụ thất bại và tệp tải xuống một phần sẽ được giữ lại.",
+        "retryDialogProgress": "Lượt tải {{current}} trên {{total}}"
       },
       "titleCount": "Đang hiện {{shown}} · Tổng cộng {{total}}",
       "type": {
