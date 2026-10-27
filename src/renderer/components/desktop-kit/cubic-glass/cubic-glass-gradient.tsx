@@ -31,21 +31,6 @@ export function CubicGlassGradient({
     rendererRef.current?.schedule()
   })
 
-  useLayoutEffect(() => {
-    const root = rootRef.current
-    if (!root) return
-    if (!loadFadeEnabled || typeof requestAnimationFrame === 'undefined') {
-      root.dataset.revealReady = 'true'
-      return
-    }
-
-    root.dataset.revealReady = 'false'
-    const frame = requestAnimationFrame(() => {
-      root.dataset.revealReady = 'true'
-    })
-    return () => cancelAnimationFrame(frame)
-  }, [loadFadeEnabled])
-
   useEffect(() => {
     const root = rootRef.current
     const canvas = canvasRef.current
@@ -76,7 +61,7 @@ export function CubicGlassGradient({
         )
         rendererRef.current = renderer
       } catch {
-        // The decorative renderer is optional; keep the CSS background if
+        // The decorative renderer is optional; leave the background blank if
         // its chunk or GPU initialization fails.
       }
     }
@@ -135,11 +120,7 @@ export function CubicGlassGradient({
       data-effect-position-constraint={positionConstraintEnabled}
       data-horizontal-speed={resolvedEffects.horizontalSpeed}
       data-pointer-active="false"
-      data-reveal-ready={loadFadeEnabled ? 'false' : 'true'}
-      className={cn(
-        'cubic-glass-fallback cubic-glass-motion pointer-events-none',
-        className
-      )}
+      className={cn('cubic-glass-motion pointer-events-none', className)}
     >
       <canvas
         ref={canvasRef}

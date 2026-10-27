@@ -31,7 +31,7 @@ describe('CubicGlassGradient', () => {
     expect(gradient?.querySelectorAll('canvas')).toHaveLength(1)
   })
 
-  it('defers GPU initialization until idle and keeps the CSS fallback when WebGL2 is unavailable', async () => {
+  it('defers GPU initialization until idle and keeps the background blank when WebGL2 is unavailable', async () => {
     vi.useFakeTimers()
     let idleCallback!: () => void
     vi.stubGlobal(
